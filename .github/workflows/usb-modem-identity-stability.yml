@@ -927,6 +927,7 @@ jobs:
           assert "cannot remove failed QMI packet-data handle" in qmi_start_function
           qmi_policy_test = Path("trunk/user/rc/src/tests/modem_wan_start_policy.c").read_text()
           for policy_case in (
+              "test_qmi_stop_status_requires_success_before_cleanup",
               "test_qmi_start_requires_command_success_and_valid_handle",
               "test_qmi_handle_cleanup_distinguishes_missing_from_other_errors",
               "test_qmi_handle_parser_rejects_partial_and_out_of_range_values",
@@ -941,6 +942,17 @@ jobs:
           assert 'fopen("/tmp/qmi-handle"' not in wds_callback
           assert "fprintf(fp" not in wds_callback and "fclose(fp)" not in wds_callback
           assert "Failed to publish packet data handle" in wds_callback
+          qmi_stop_offset = modem.index("qmi_control_network(const char *control_node, int is_start)")
+          qmi_stop_end = modem.index("\\nstatic int\\n", qmi_stop_offset)
+          qmi_stop_function = modem[qmi_stop_offset:qmi_stop_end]
+          assert "modem_qmi_command_status(" in qmi_stop_function
+          assert "uqmi stop-network failed" in qmi_stop_function
+          assert "preserving QMI session state" in qmi_stop_function
+          assert qmi_stop_function.index("if (command_status != 0)") < qmi_stop_function.index("unlink(QMI_HANDLE_PDH)")
+          assert "modem_qmi_handle_file_unlink_status" in qmi_stop_function
+          assert "uqmi release-client-id failed" in qmi_stop_function
+          assert "preserving client ID for retry" in qmi_stop_function
+          assert qmi_stop_function.count("_eval(") == 2
           print("QMI client ID and packet-data handle fail-closed contract: PASS")
           PY
 

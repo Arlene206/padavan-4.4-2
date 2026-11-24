@@ -1,30 +1,31 @@
 ## Current repository state
 
-- Live parent main before this atomic change: `42257289849aa454630dfda18b8e1efc1a213411`.
+- Live parent main before this atomic change: `e006c68f711c0fc47e6d46d7f34b3c337a06f7da`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 - Inadyn executable-bound stop/reload/manual-update implementation is in `79c5389fe33326d85cc23e9856f39e5ca0ac242f`. Its dependent source-contract correction is in `257ac6399c4c7e8ec3b518f8f8438532d0821c33`.
 - FRP process inventory/stop hardening is in `fa3dd0012cea550b339d01df4ff6ec97d0fdc00a`; its test follow-ups are `5687c609137bbba09c707896dd95216c3df9e961` and `4be3f3898faf4665ebe19b1e87cf385bd162c21e`.
 
 ## Active task
 
-Atomic QMI packet-data-handle publication:
-- The prior QMI WAN start path now rejects stale/unparseable `/tmp/qmi-handle`, checks the `uqmi --start-network` exit status, and requires both a successful command and a valid nonnegative PDH handle before reporting success. Exact USB modem identity Action #45346595809 passed that code/test slice.
-- Remaining QMI reliability gap: `cmd_wds_start_network_cb()` still published the PDH handle using `fopen("w+")/fprintf/fclose` without checking any result. It could truncate the old file and leave an incomplete or stale-looking status after an interrupted/failed write.
-- Reuse the existing `uqmi_status_file_write()` private staging + fsync + atomic rename helper for `/tmp/qmi-handle`. On publication failure, emit an error and do not add a handle to the command status; the rc-side strict parser then refuses to treat the attempt as a live session.
-- The existing UQMI status-file test covers 0600 mode, atomic replacement, symlink destination replacement, failed rename preserving the prior file, and staging-file cleanup. Extend the USB modem workflow source contract to pin callback ordering and forbid direct `fopen/fprintf/fclose` writes.
-- The 4225728 MTD checker cleanup removed a stray dangling source line. Its exact Process #45346865350, HTTPD #45346865450 and AliyunDrive #45346865525 runs were IN_PROGRESS at last poll; verify their final results. No physical modem or target MTD hardware validation is claimed.
+QMI WAN teardown status propagation:
+- The QMI startup path now checks stale PDH removal, `uqmi --start-network` status, complete parsed PDH content and atomic publication of both the WDS client ID and PDH handle. Exact USB modem identity workflow must remain green after each QMI change.
+- A concrete teardown defect remains in `qmi_control_network()`: it ignored the return status of `--stop-network` and `--release-client-id`, unconditionally unlinked both status files, and always returned success. A failed stop could therefore erase the only CID/PDH state needed to retry cleanup while the modem session remained active.
+- Stop now fails closed: on stop-network failure it preserves both state files and skips CID release; after a successful stop it removes the PDH marker with checked unlink semantics, attempts CID release, preserves the CID file if release fails, and checks final CID-file cleanup. A shared wait-status helper normalizes command-runner failures.
+- Added GNU89 policy tests and USB modem workflow source assertions for failure ordering, retained state, exactly two checked command calls and checked unlink.
+- Exact parent SHA e006c68 had USB modem identity #45347148897, Process lifecycle #45347149044, NVRAM audit #45347148992, AI handoff #45347148865 and XY-C1 #45347148972 IN_PROGRESS at last poll. Verify exact outcomes; do not claim firmware L3 without same-SHA Build/TRX/artifact.
 
 ## Verification boundary
 
-- Exact 42257289849aa454630dfda18b8e1efc1a213411: cleanup commit removed the stray dangling `, fatal_shutdown) is None` line from `scripts/check_dev_init_boot.py`. Process inventory #45346865350, HTTPD #45346865450 and AliyunDrive WebDAV #45346865525 were IN_PROGRESS at last poll; check their final exact-SHA outcomes.
-- Exact 1dc62d8e8f99a40b2447cce57e77781e3e155827: USB modem identity #45346595809 PASS, including QMI client ID and packet-data-handle source contract; AI handoff #45346595807 PASS. Process lifecycle #45346595881 failed at the malformed MTD checker line, removed by 4225728. XY-C1 #45346595827 was IN_PROGRESS at Build at last observation; no TRX/artifact/L3 claim.
+- Exact e006c68f711c0fc47e6d46d7f34b3c337a06f7da: NVRAM audit #45347148992, Process inventory #45347149044, AI handoff #45347148865, XY-C1 firmware #45347148972 and USB modem identity #45347148897 were IN_PROGRESS/QUEUED at last observation. Check final statuses before relying on them.
+- Exact 42257289849aa454630dfda18b8e1efc1a213411: Process inventory #45346865350, HTTPD #45346865450 and AliyunDrive WebDAV #45346865525 all completed SUCCESS after removing the stray malformed checker line from `scripts/check_dev_init_boot.py`.
+- Exact 1dc62d8e8f99a40b2447cce57e77781e3e155827: USB modem identity #45346595809 PASS, including QMI status/PDH validation; AI handoff #45346595807 PASS. Process lifecycle #45346595881 failed only on the malformed MTD checker line later removed by 4225728. XY-C1 #45346595827 remained IN_PROGRESS at last observation.
 - Exact 372400813c7d0888c508d6e6595353c46ea5d960: ZeroTier lifecycle #45344943818 PASS; Process inventory #45344943892 PASS; WAN route #45344943905 PASS; AI handoff #45344943861 PASS.
 
 ## Exact first action for the next GPT
 
-1. Verify exact-head USB modem identity Action for the atomic PDH writer change; fix the first failing source/test assertion.
-2. Confirm final exact-SHA Process inventory, HTTPD and AliyunDrive outcomes after the 4225728 MTD checker cleanup. Continue the next independent userland stability/security source defect.
-3. Poll XY-C1 Build/TRX/artifact on its exact source SHA; do not claim L3 without same-SHA Build, TRX and artifact PASS.
+1. Verify exact-head USB modem identity after QMI stop-network/CID cleanup status propagation; resolve any regression in the GNU89 policy or embedded source contract.
+2. Check exact-head Process inventory, NVRAM audit, AI handoff and XY-C1 firmware status; do not wait on pending firmware jobs before selecting the next independent defect.
+3. Continue the next userland stability/security source slice and preserve the frozen backup.
 
 # Cross-session execution mandate
 

@@ -19,6 +19,15 @@ modem_qmi_start_attempt_status(int command_status, int packet_data_handle)
 	return packet_data_handle >= 0 ? 0 : EIO;
 }
 
+/* Normalize the wait status returned by the command runner. */
+static inline int
+modem_qmi_command_status(int command_status)
+{
+	if (command_status == 0)
+		return 0;
+	return command_status > 0 ? command_status : EIO;
+}
+
 /* Missing old status files are benign; other unlink failures block startup. */
 static inline int
 modem_qmi_handle_file_unlink_status(int unlink_status, int saved_errno)

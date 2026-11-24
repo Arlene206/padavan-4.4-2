@@ -996,6 +996,8 @@ qmi_control_network(const char *control_node, int is_start)
 {
 	int qmi_client_id = -1;
 	int path_len;
+	int command_status, release_status;
+	int unlink_status, cleanup_status, result = 0;
 	char device_path[64];
 
 	if (!control_node || !*control_node)
@@ -1007,16 +1009,33 @@ qmi_control_network(const char *control_node, int is_start)
 	if (is_start)
 		return qmi_control_network_start(device_path);
 
-	/* stop network and disable autoconnect (use global pdh with autoconnect) */
+	/* A failed stop leaves the session and its state files intact for retry. */
 	{
 		char *stop_argv[] = {
 			"/bin/uqmi", "-d", device_path, "--stop-network",
 			"0xffffffff", "--autoconnect", NULL
 		};
-		_eval(stop_argv, NULL, 0, NULL);
+		command_status = modem_qmi_command_status(
+			_eval(stop_argv, NULL, 0, NULL));
+		if (command_status != 0) {
+			logmessage(LOGNAME,
+				   "uqmi stop-network failed (status=%d); preserving QMI session state",
+				   command_status);
+			return 1;
+		}
 	}
 
-	/* release client id */
+	/* The network is stopped; remove its PDH marker but check the cleanup. */
+	unlink_status = unlink(QMI_HANDLE_PDH);
+	cleanup_status = modem_qmi_handle_file_unlink_status(unlink_status, errno);
+	if (cleanup_status != 0) {
+		logmessage(LOGNAME,
+			   "cannot remove stopped QMI packet-data handle (status=%d)",
+			   cleanup_status);
+		result = 1;
+	}
+
+	/* Release the client ID only after stop-network has succeeded. */
 	qmi_client_id = get_qmi_handle(QMI_CLIENT_ID);
 	if (qmi_client_id >= 0) {
 		char client_id_arg[32];
@@ -1025,14 +1044,27 @@ qmi_control_network(const char *control_node, int is_start)
 			client_id_arg, "--release-client-id", "wds", NULL
 		};
 		snprintf(client_id_arg, sizeof(client_id_arg), "wds,%d", qmi_client_id);
-		_eval(release_argv, NULL, 0, NULL);
+		release_status = modem_qmi_command_status(
+			_eval(release_argv, NULL, 0, NULL));
+		if (release_status != 0) {
+			logmessage(LOGNAME,
+				   "uqmi release-client-id failed (status=%d); preserving client ID for retry",
+				   release_status);
+			return 1;
+		}
 	}
 
-	unlink(QMI_CLIENT_ID);
-	unlink(QMI_HANDLE_PDH);
-	return 0;
+	/* A malformed/missing ID needs no release, but stale-file cleanup is checked. */
+	unlink_status = unlink(QMI_CLIENT_ID);
+	cleanup_status = modem_qmi_handle_file_unlink_status(unlink_status, errno);
+	if (cleanup_status != 0) {
+		logmessage(LOGNAME,
+			   "cannot remove released QMI client ID (status=%d)",
+			   cleanup_status);
+		result = 1;
+	}
+	return result;
 }
-
 static int
 mbim_control_network(const char* control_node, int is_start)
 {

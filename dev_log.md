@@ -1,3 +1,13 @@
+## 2026-11-23 — Propagate QMI WAN teardown failures and preserve retry state
+
+- Found a teardown reliability defect in `qmi_control_network()`: it ignored `_eval(--stop-network)` and `_eval(--release-client-id)` return values, unconditionally unlinked both QMI state files, and always returned success. A failed network stop could lose the CID/PDH needed to retry cleanup.
+- The stop path now returns failure and preserves both files when stop-network fails. After a successful network stop it removes the PDH marker with checked unlink semantics, releases the CID, retains the CID marker if release fails, and checks final CID-file cleanup. Command-runner status is normalized for negative error results.
+- Added GNU89 regression for command wait-status normalization and workflow contract assertions for stop-before-cleanup ordering, retained retry state, both checked command calls and unlink handling.
+- Exact parent e006c68 USB modem identity #45347148897, Process inventory #45347149044, NVRAM audit #45347148992, AI handoff #45347148865 and XY-C1 #45347148972 were still in progress/queued when sampled; verify their final outcomes separately.
+- Parent main: e006c68f711c0fc47e6d46d7f34b3c337a06f7da. Exact USB modem identity rerun required for this change.
+
+---
+
 ## 2026-11-23 — Publish UQMI PDH handles atomically
 
 - Follow-up to QMI WAN startup hardening: `cmd_wds_start_network_cb()` still wrote `/tmp/qmi-handle` with unchecked `fopen("w+")`, `fprintf`, and `fclose`. A failed write could truncate or partially publish the PDH status.

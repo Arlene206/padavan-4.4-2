@@ -8,6 +8,15 @@
 #include "dhcp_lease_policy.h"
 
 static void
+test_qmi_stop_status_requires_success_before_cleanup(void)
+{
+	assert(modem_qmi_command_status(0) == 0);
+	assert(modem_qmi_command_status(7) == 7);
+	assert(modem_qmi_command_status(-1) == EIO);
+	assert(modem_qmi_command_status(-2) == EIO);
+}
+
+static void
 test_qmi_start_requires_command_success_and_valid_handle(void)
 {
 	assert(modem_qmi_start_attempt_status(0, 17) == 0);
@@ -794,6 +803,7 @@ test_modem_restart_requires_known_identity(void)
 int
 main(void)
 {
+	test_qmi_stop_status_requires_success_before_cleanup();
 	test_qmi_start_requires_command_success_and_valid_handle();
 	test_qmi_handle_cleanup_distinguishes_missing_from_other_errors();
 	test_qmi_handle_parser_rejects_partial_and_out_of_range_values();
