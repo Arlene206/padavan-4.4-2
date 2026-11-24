@@ -1,3 +1,12 @@
+## 2026-11-25 — Restore mandatory handoff checkpoint contract after exact-SHA CI failure
+
+- Exact main 80f1bfccd255536a0a2682c7d046f0216038a922: libdisk share-list #45471885325 PASS (both GNU89 sanitizer regressions and public API/source-contract verification). This confirms the new FD-pinned del_folder policy and host regression harness pass in that workflow.
+- AI handoff documentation contract #45471885677 FAILED at its validator: SESSION_HANDOFF.md no longer contained the mandatory end-of-session handoff checkpoint heading and its required statement that the checkpoint is mandatory while document edits are conditional. Restored the cross-session execution mandate and exact checkpoint rule in this documentation-only corrective commit.
+- XY-C1 #45471885211 remained in progress at the Build step, with TRX verification and artifact upload pending. Parent be4e55398b9e4038f97f9cbc937686e7c74da96e XY-C1 #45469960684 also remained in progress at Build. Process, HTTPD and NVRAM on 80f1bf were still in progress at the last observation. No L3/L4 claim.
+- Re-run the AI handoff validator on THIS COMMIT and inspect all same-SHA exact results. No source files changed in this corrective commit.
+
+---
+
 ## 2026-11-25 — Pin folder deletion, ACL publication and recovery to one volume descriptor
 
 - del_folder() previously checked the share, staged it, read/published per-account ACLs, refreshed the folder snapshot and attempted rollback through independently resolved pathnames. A mountpoint replacement during hotplug could therefore delete on one volume while changing ACLs or compensating on another.
