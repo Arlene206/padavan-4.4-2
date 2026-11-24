@@ -201,15 +201,16 @@ for signature, ruleset in (
     ("include_vts_nat(FILE *fp, int num_entries)", "NAT"),
 ):
     emitter = body(SOURCE, signature)
-    read_lport = emitter.index(
-        'firewall_read_indexed_string_setting_with_presence("vts_lport_x", i')
-    classify_lport = emitter.index("firewall_vts_lport_read_status(", read_lport)
-    failure_gate = emitter.index("if (lport_status != 0)", classify_lport)
-    failure_return = emitter.index("return -1;", failure_gate)
-    use_lport = emitter.index('lport = has_lport ? lport_value : "";', failure_return)
+    compact_emitter = "".join(emitter.split())
+    read_lport = compact_emitter.index(
+        'firewall_read_indexed_string_setting_with_presence("vts_lport_x",i')
+    classify_lport = compact_emitter.index("firewall_vts_lport_read_status(", read_lport)
+    failure_gate = compact_emitter.index("if(lport_status!=0)", classify_lport)
+    failure_return = compact_emitter.index("return-1;", failure_gate)
+    use_lport = compact_emitter.index('lport=has_lport?lport_value:"";', failure_return)
     assert read_lport < classify_lport < failure_gate < failure_return < use_lport
-    assert "refusing incomplete IPv4 " + ruleset + " ruleset" in emitter[failure_gate:failure_return]
-    assert "lport = portrange_conv(\"vts_lport_x\"" not in emitter
+    assert "refusing incomplete IPv4 " + ruleset + " ruleset" in emitter
+    assert "portrange_conv(\"vts_lport_x\"" not in compact_emitter
 
 
 # VPN server subnet data influences MASQUERADE routes and must be snapshotted

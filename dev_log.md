@@ -1,3 +1,12 @@
+## 2026-11-24 — Align VTS source checker with wrapped checked-read call
+
+- Firewall Startup Stability #45503440459 on product SHA `6d5d5376e425587e6f116d09f88cbcc7ac6a05c1` failed before compiling the new policy test: the Python source checker searched for the checked NVRAM call as one line while the C invocation is intentionally wrapped.
+- The checker now normalizes source whitespace before validating read/classify/failure/return/use ordering, while retaining checks for both fail-closed ruleset diagnostics and removal of the old lossy `portrange_conv(vts_lport_x)` path.
+- The standalone GNU89 `-Wall -Wextra -Werror` ASan/UBSan VTS policy test compiled and passed locally. Exact-head Firewall rerun is pending; XY-C1 #45503440356 for source SHA 6d was still building at last poll.
+- Parent main SHA: `6d5d5376e425587e6f116d09f88cbcc7ac6a05c1`. No production source changed in this checker-only correction.
+
+---
+
 ## 2026-11-24 — Fail closed when optional virtual-server translation-port NVRAM reads fail
 
 - `include_vts_filter()` and `include_vts_nat()` used `portrange_conv("vts_lport_x", i)` but treated a NULL result as an absent/empty optional translation port. If `nvram_get_checked()` failed while reading a configured internal port, the firewall silently fell back to the external port and could publish a different filter/DNAT mapping (for example, WAN 8080 -> LAN:8080 instead of LAN:80).

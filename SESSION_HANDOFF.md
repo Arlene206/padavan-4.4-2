@@ -6,73 +6,69 @@ Continue one autonomous engineering stream on `main`. For each logical slice, cr
 
 ## Branch and checkpoint
 
-- Parent main SHA for this handoff update: `d096f168bfe4188f5223bf76806b4ea012742580`; fetch live `refs/heads/main` before every future write.
-- Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only and unchanged.
-- `main` is the only development ref. PR #1 is closed/unmerged and deeply behind main; do not port it.
-- Bootstrap, protocol and handoff were recovered once. Do not repeat startup audits without a new reason.
+- Parent main SHA for this handoff update: `6d5d5376e425587e6f116d09f88cbcc7ac6a05c1`; refresh live refs before future writes.
+- Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only.
+- `main` is the only development ref. PR #1 is closed/unmerged and must not be ported.
+- Bootstrap, protocol and handoff were recovered once; do not repeat startup audits without a new reason.
 
 ## Active task
 
 ### Firewall virtual-server optional translation-port reads
 
-The VTS filter and NAT builders read `vts_lport_x` with `portrange_conv()`, which collapsed both missing/empty settings and backend read failures into NULL. They then fell back to the external port. A transient NVRAM failure could therefore publish an unintended mapping: a configured WAN port 8080 -> LAN port 80 rule could become DNAT to LAN:8080.
+Source commit `6d5d5376e425587e6f116d09f88cbcc7ac6a05c1` fixes `include_vts_filter()` and `include_vts_nat()` treating failed reads of optional `vts_lport_x` as missing/empty. That fallback could change a mapping (for example, WAN 8080 -> LAN:8080 rather than LAN:80). Both builders now read the indexed string with presence information; absent/empty retains legacy external-port fallback, while a backend or malformed read result aborts incomplete rule staging so the previously published firewall ruleset remains active.
 
-The new source slice distinguishes absent/empty optional values from read failures with `firewall_read_indexed_string_setting_with_presence()` and `firewall_vts_lport_read_status()`. Historical missing/empty behavior remains unchanged; a backend or malformed read status now returns failure from the VTS builder, causing the caller to abort incomplete IPv4 filter/NAT staging and keep the previously published firewall ruleset. The regression tests missing, empty, present values, backend errno, malformed presence/value combinations, and output preservation. The exact-source checker verifies both builders abort before rule publication. The firewall Actions workflow compiles the policy test with GNU89, ASan and UBSan.
+The new GNU89 regression covers absent, empty, configured values, backend errno, malformed presence/value results and output preservation. Its standalone GNU89 `-Wall -Wextra -Werror` ASan/UBSan compile/run passed locally.
 
-This slice is committed with its source, test, checker, workflow, development log and handoff. Exact-head firewall, AI docs and XY-C1 product checks must be reviewed after push. No target runtime or physical-router validation is claimed.
+Firewall Startup Stability #45503440459 on SHA 6d failed before the test compile because the Python checker searched for the checked NVRAM call on one line, while C wraps the invocation across lines. The production source/test was not exercised by that run. This checker-only follow-up normalizes whitespace before asserting the source order. Exact-head firewall rerun is pending.
 
 ## Completed source slices
 
-### OpenVPN client certificate lifetime argument
+### OpenVPN client certificate lifetime arguments
 
-Commit `d096f168bfe4188f5223bf76806b4ea012742580` replaces privileged `ovpn_export_client`'s permissive `atoi(argv[3])` parsing with a strict GNU89 parser. Optional/empty input retains the 365-day default and whitespace/leading-plus compatibility; explicit values accept 1–36,500 days and reject negatives, zero, suffix junk, fractions, out-of-policy values and overflow before configuration/key-generation side effects. VPN lifecycle #45502092649 and AI docs #45502092664 PASS on d096.
+Commit `d096f168bfe4188f5223bf76806b4ea012742580` replaces privileged `atoi(argv[3])` parsing with strict positive decimal days (1–36,500); optional/empty input keeps the 365-day default and legacy whitespace/leading-plus support. Invalid syntax, negative/zero, suffix, fractions, range and overflow fail before side effects. VPN lifecycle #45502092649 and AI docs #45502092664 PASS on d096.
 
 ### USB modem reload retry state
 
-Commit `8a2fbd592e1f0ddbd7a014d97bd00a8e08fb949a` changes `RCN_RESTART_MODEM` so rule/type cache values publish only after `reload_modem_modules()` confirms the new driver group ready. Failure retains the previous baseline and prevents WAN restart, so the queued retry can retry the driver transition. Follow-up USB caller contract #45499733421 PASS on checker/docs SHA d2fa; PID 1 queue #45500981047 and AI docs #45500980887 PASS on SHA 8ebf.
+Commit `8a2fbd592e1f0ddbd7a014d97bd00a8e08fb949a` publishes modem rule/type caches only after driver readiness; failure retains the previous baseline and blocks WAN restart so a queued retry can retry. USB caller contract #45499733421 PASS on d2fa; PID 1 queue #45500981047 and AI docs #45500980887 PASS on 8ebf.
 
 ### WAN traffic persisted-baseline parsing
 
-Commit `786c504c8247fe42d5d1d5f2dc3ad28757fafc80` fixes `wanlink_hook()` accepting numeric-prefix junk such as `40junk` through `strtoull(..., NULL, 10)`. Strict decimal parsing rejects malformed/overflowing RX or TX baselines and marks the paired UI sample unavailable while preserving empty legacy baseline and zero-on-counter-reset behavior. WAN regression #45498624341 PASS.
+Commit `786c504c8247fe42d5d1d5f2dc3ad28757fafc80` strictly parses persisted RX/TX byte baselines instead of accepting numeric-prefix junk. WAN regression #45498624341 PASS.
 
 ## Verification boundary
 
-### Product-source SHA 786c504c8247fe42d5d1d5f2dc3ad28757fafc80
+### XY-C1 exact-source results
 
-- WAN sysfs byte-counter regression #45498624341: PASS.
-- XY-C1 #45498624157: Build, TRX verification and artifact upload all PASS on this exact SHA.
+- SHA `786c504c8247fe42d5d1d5f2dc3ad28757fafc80`: #45498624157 Build, TRX and artifact upload PASS.
+- SHA `8a2fbd592e1f0ddbd7a014d97bd00a8e08fb949a`: #45499228265 Build, TRX and artifact upload PASS.
+- SHA `d096f168bfe4188f5223bf76806b4ea012742580`: #45502092732 PENDING at last poll; Build active, TRX/artifact steps pending. This does not cover the later firewall source change.
+- SHA `6d5d5376e425587e6f116d09f88cbcc7ac6a05c1`: #45503440356 PENDING at last poll; Build active.
 
-### Product-source SHA 8a2fbd592e1f0ddbd7a014d97bd00a8e08fb949a
+### d096f168bfe4188f5223bf76806b4ea012742580 exact-head Actions
 
-- XY-C1 #45499228265: COMPLETED / SUCCESS. Build XY-C1, TRX verification and artifact upload each PASS on this exact SHA.
-- USB modem initial run #45499228398 and PID 1 initial run #45499228171 failed only on stale `stop_failed` workflow assertions; follow-up USB #45499733421 PASS on d2fa and PID 1 #45500981047 PASS on 8ebf.
-- Process inventory #45499228303/#45499228337, WAN DHCP callback #45499228283, WAN route #45499228321, HTTPD security #45499228151, USB storage #45499228328, DNSMasq #45499228269 and other triggered service regressions passed on this SHA.
-
-### Product/checker SHA d096f168bfe4188f5223bf76806b4ea012742580
-
-- VPN server lifecycle #45502092649: PASS, including OpenVPN certificate lifetime argument GNU89 ASan/UBSan regression and exact-source contract.
+- VPN lifecycle #45502092649: PASS.
 - AI handoff docs #45502092664: PASS.
-- NVRAM transaction boundary audit #45502092721: PASS. Its userland scan reported 4,585 source files, 23 raw ioctl references confined to the locked adapter and zero raw userland bypasses; kernel snapshot/caller contract also passed.
+- NVRAM boundary audit #45502092721: PASS; zero raw userland bypasses, kernel snapshot/caller contract passed.
 - Process lifecycle inventory #45502093101: PASS.
 - IPv6 service checked-read #45502092750: PASS.
 - HTTPD authentication/security #45502092764: PASS.
 - OpenVPN client credential staging #45502092820: PASS.
-- XY-C1 Firmware Validation #45502092732: PENDING at last poll; `Build XY-C1` was in progress and TRX/artifact steps had not started. This run is on d096 and does not validate the new firewall source that follows it.
+
+### Firewall source SHA 6d5d5376e425587e6f116d09f88cbcc7ac6a05c1
+
+- Firewall Startup Stability #45503440459: FAIL at the first Python source-check step due only to a multiline-sensitive substring search; compile/run test was skipped. Checker corrected in the current commit; rerun pending.
+- WAN route #45503440493 and IPv6 service checked-read #45503440453: PASS.
+- AI handoff docs #45503440345: PASS.
+- WAN DHCP #45503440341, process inventory #45503440565, HTTPD #45503440466, NVRAM audit #45503440350, XY-C1 #45503440356 and FULLCONENAT #45503440566 were in progress at last poll.
 - No target MIPS/uClibc runtime or physical-router L4 validation is claimed.
-
-### Current firewall VTS translation-port source slice
-
-- Parent main SHA: `d096f168bfe4188f5223bf76806b4ea012742580`.
-- Dedicated firewall regression, exact-source contract, AI docs and XY-C1 Build/TRX/artifact validation are pending on this slice's resulting source SHA.
 
 ## Exact first action for the next GPT
 
-1. Inspect the exact-head Firewall Startup Stability workflow triggered by the VTS translation-port header/test/source/checker. Confirm the GNU89 ASan/UBSan regression and both VTS exact-source fail-closed contracts pass; fix the first real failing assertion or test.
-2. Check exact-head XY-C1 Build, TRX verification and artifact upload on the same resulting product-source SHA. Separately recheck prior XY-C1 run #45502092732 on d096; claim L3 for d096 only after that run concludes SUCCESS with all three steps passing, and do not transfer it to the newer firewall SHA.
-3. Check AI handoff documentation validation on the same resulting commit. Update the handoff only in a later meaningful source/test commit when facts or the first action materially change.
-4. Continue another concrete stability/security defect across Padavan userland. Do not reopen completed WAN baseline, USB modem retry, OpenVPN certificate parsing, QMI identity, Wireless, HTTPD, DNSMasq, WAN route/DHCP, process inventory or USB storage work absent a new failing case.
-5. Before any write, refresh live main and the frozen backup ref; before ending, refresh exact-SHA Actions and leave the first concrete next action.
+1. Inspect the Firewall Startup Stability rerun triggered by this checker correction. Confirm the exact-source checker passes and the GNU89 ASan/UBSan VTS policy test actually runs; diagnose any new failure rather than assuming the previous failure was fixed.
+2. Poll XY-C1 #45503440356 for product source SHA 6d and the preceding d096 run #45502092732 separately. Claim L3 only for an exact SHA whose run concludes SUCCESS and whose Build, TRX verification and artifact upload all pass.
+3. Check AI docs on the checker-fix commit. Continue other independent stability/security source work while firmware build remains pending.
+4. Keep the backup read-only. Before any write, refresh live main and expected SHA; before ending, update this handoff only when the first action or validation boundary materially changes.
 
 ## Mandatory handoff checkpoint
 
-The checkpoint is mandatory; a document edit is conditional. Every session must compare live repository state, exact-head Actions, source baseline, validation boundary, blockers and first next action against this file. Record newly resolved relevant PENDING/FAIL gates. If facts and first action remain accurate, explicitly conclude the check with no file change and no commit. Never create documentation churn solely to synchronize a stored SHA with live main.
+Compare live refs, exact-head Actions, source baseline and first action against this file. Record resolved material FAIL/PENDING gates. If facts and first action still match, conclude the checkpoint with no documentation change or commit. Never create docs churn solely to synchronize a stored SHA.
