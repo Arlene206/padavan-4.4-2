@@ -2017,6 +2017,15 @@ jobs:
           assert "test_read_exact_reassembles_fragments" in Path("trunk/user/lanauth/src/tests/lanauth_socket_io_policy.c").read_text()
           assert "test_partial_write_failure_requires_reconnect" in Path("trunk/user/lanauth/src/tests/lanauth_socket_io_policy.c").read_text()
           assert "signal(SIGPIPE, SIG_IGN)" in lanauth_source
+          signal_level_policy = Path("trunk/user/lanauth/src/lanauth_signal_level_policy.h").read_text()
+          signal_level_test = Path("trunk/user/lanauth/src/tests/lanauth_signal_level_policy.c").read_text()
+          assert "static volatile sig_atomic_t level = 2;" in lanauth_source
+          assert "lanauth_auth1_level_character(level)" in lanauth_source
+          assert "lanauth_auth2_level_byte(level)" in lanauth_source
+          assert "level += '0'" not in lanauth_source and "level -= '0'" not in lanauth_source
+          assert "sig_atomic_t" in signal_level_policy
+          assert "test_auth1_uses_ascii_level_snapshot" in signal_level_test
+          assert "test_auth2_uses_binary_level_snapshot" in signal_level_test
           assert policy_body.index("AUTH_KABINET_GATEWAY_KEY") < policy_body.index("AUTH_KABINET_PASSWORD_KEY")
           assert policy_body.index("AUTH_KABINET_PASSWORD_KEY") < policy_body.index("stop_service(context)")
           assert policy_body.index("stop_service(context)") < policy_body.index("start_service(context, gateway, password)")
@@ -2063,6 +2072,15 @@ jobs:
             trunk/user/lanauth/src/tests/lanauth_socket_io_policy.c \
             -o "$RUNNER_TEMP/lanauth-socket-io-policy"
           ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/lanauth-socket-io-policy"
+
+      - name: Compile and run LAN authentication signal-level regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/lanauth/src \
+            trunk/user/lanauth/src/tests/lanauth_signal_level_policy.c \
+            -o "$RUNNER_TEMP/lanauth-signal-level-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/lanauth-signal-level-policy"
 
       - name: Compile and run RC user-config whole-line truncation regression
         run: |

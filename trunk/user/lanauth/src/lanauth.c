@@ -29,6 +29,7 @@
 #include "lanauth_credential_file_policy.h"
 #include "lanauth_privilege_drop_policy.h"
 #include "lanauth_socket_io_policy.h"
+#include "lanauth_signal_level_policy.h"
 
 #define LTC_NO_CIPHERS
 #define LTC_NO_MODES
@@ -46,7 +47,7 @@ static int nodaemon = 0;		/* don't become daemon */
 static int nobind = 1;			/* don't really bind, just assume we binded */
 static int nolip = 0;			/* don't touch localip */
 static int ver = 2;			/* protocol version */
-static char level = 2;			/* access level */
+static volatile sig_atomic_t level = 2;	/* signal-safe access level */
 static int sock = -1;			/* socket */
 static char localip[17] = "";		/* local ip adress */
 static char gateip[17] = "10.0.0.1";	/* gateway ip adress */
@@ -419,9 +420,10 @@ static void auth1() {
 	md5_init(&ctx);
 	md5_process(&ctx, challenge+1, challenge[0]);
 	md5_process(&ctx, localip, strlen(localip));
-	level += '0';
-	md5_process(&ctx, &level, 1);
-	level -= '0';
+	{
+		char level_character = lanauth_auth1_level_character(level);
+		md5_process(&ctx, &level_character, 1);
+	}
 	md5_process(&ctx, pass, strlen(pass));
 	md5_done(&ctx, digest);
 }
@@ -430,7 +432,7 @@ static void auth2() {
 	hash_state ctx;
 	int i;
 	for(i = 0; i < 255; i++)digest[i] = rand() % 256;
-	digest[0] = level - 1;
+	digest[0] = lanauth_auth2_level_byte(level);
 	digest[1] = 2 + rand() % 230;
 	rmd160_init(&ctx);
 	rmd160_process(&ctx, challenge+1, challenge[0]);

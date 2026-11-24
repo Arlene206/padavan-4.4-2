@@ -1703,6 +1703,17 @@ assert "ECONNRESET" in lanauth_io_policy and "ETIMEDOUT" in lanauth_io_policy
 assert "test_read_exact_reassembles_fragments" in lanauth_io_test
 assert "test_partial_write_failure_requires_reconnect" in lanauth_io_test
 assert "signal(SIGPIPE, SIG_IGN)" in lanauth_source
+lanauth_signal_policy = (root / "trunk/user/lanauth/src/lanauth_signal_level_policy.h").read_text()
+lanauth_signal_test = (root / "trunk/user/lanauth/src/tests/lanauth_signal_level_policy.c").read_text()
+lanauth_auth1 = c_function_body(lanauth_source, "static void auth1()")
+lanauth_auth2 = c_function_body(lanauth_source, "static void auth2()")
+assert "static volatile sig_atomic_t level = 2;" in lanauth_source
+assert "lanauth_auth1_level_character(level)" in lanauth_auth1
+assert "lanauth_auth2_level_byte(level)" in lanauth_auth2
+assert "level += '0'" not in lanauth_source and "level -= '0'" not in lanauth_source
+assert "sig_atomic_t" in lanauth_signal_policy
+assert "test_auth1_uses_ascii_level_snapshot" in lanauth_signal_test
+assert "test_auth2_uses_binary_level_snapshot" in lanauth_signal_test
 assert 'getopt(argc, argv, "iv:b:ns:p:f:l:u:g:")' in lanauth_source
 assert "case 'f':" in lanauth_source
 assert "lanauth_read_private_password_file(" in lanauth_source
