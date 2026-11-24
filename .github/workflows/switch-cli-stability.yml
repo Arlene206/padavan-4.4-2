@@ -39,6 +39,10 @@ on:
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_dbg_hwioc.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_dbg_hwioc_policy.h"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/ra_dbg_hwioc_policy.c"
+      - "scripts/check_raeth_compile_integrity.py"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_mac.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_mac.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether.h"
       - "scripts/check_raeth_hwioc_pmu.py"
   pull_request:
     paths:
@@ -95,6 +99,9 @@ jobs:
           ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 \
             "$RUNNER_TEMP/ra_dbg_hwioc_policy"
           python3 scripts/check_raeth_hwioc_pmu.py
+
+      - name: Verify RAETH source declarations and definitions are unique
+        run: python3 scripts/check_raeth_compile_integrity.py
 
       - name: Compile and run switch status/ioctl packing regression
         run: |

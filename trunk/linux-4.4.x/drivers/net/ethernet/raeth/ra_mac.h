@@ -24,7 +24,7 @@ void set_ge1_force_1000(void);
 void set_ge2_force_1000(void);
 void set_ge1_an(void);
 void set_ge2_an(void);
-void set_ge2_gmii(void);
-void set_ge0_gmii(void);
+int set_ge2_gmii(void);
+int set_ge0_gmii(void);
 void set_ge2_force_link_down(void);
 #endif

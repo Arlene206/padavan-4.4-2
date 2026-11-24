@@ -2,16 +2,14 @@
 
 ## Current repository state
 
-- Parent `main` for the GE2 SGMII optional-switch error-gate correction: `f38519f5f92f39148cccdfa6c37eb9126346a982`; this commit is built directly on that live main parent.
-- Exact parent-SHA Switch CLI regression #45311619652: **in_progress** and AI handoff #45311620761: **success**. NVRAM audit #45311619611: **in_progress**; XY-C1 validation #45311619583: **in_progress** on the parent SHA.
-- The parent Switch CLI test's proximity-only check missed the newly identified control-flow bug: the `status` error gate for `set_rtl8367s_sgmii()` was outside the optional `SGMII_SWITCH` branch, potentially consuming stale/uninitialized status on GE2 forced-2.5G without that feature.
-- The correction places the call and error gate inside the optional switch branch while keeping `set_sgmii_force_link(2, 1)` outside that inner branch and inside the outer GE2 forced-2.5G feature condition.
-- The earlier RStats `f_read()` close-result task is complete: exact RStats persistence/signal run `#45310470609` on `1c6b52d27ed1deebba1c320f256c311f6974bc64` **PASS**; AI handoff `#45310470526`, HTTPD `#45310470643`, Process inventory `#45310470590` and fail-closed regression `#45310470573` **PASS**. XY-C1 `#45310470717` was **IN_PROGRESS** at the earlier observation; no latest-main L3 claim follows from it.
-- The archival branch `backup/pre-plugin-overhaul-2026-11-14` remains frozen/read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Current parent `main` for the RAETH XY-C1 compile correction: `6472bb2a2af88d4fde8e887294a8d4a0eb4b2166`; live ref was checked immediately before constructing this atomic commit. The archival `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807` and is read-only.
+- Previous GE2 SGMII nested-guard correction `edb529c4baf1e60df1fd542a4e8192cf608ffbdc`: Switch CLI #45311706551 **PASS** (including the nested-scope assertion); AI docs #45311706519 **PASS**; NVRAM audit #45311706453 **PASS**; XY-C1 #45311706484 **FAIL** during RAETH kernel compilation before TRX/artifact.
+- The compiler identified stale `void` prototypes for `set_ge2_gmii()` / `set_ge0_gmii()` in `ra_mac.h` (their implementation and `raether.h` correctly return `int`) and duplicate helper definitions in `raether.c`. THIS COMMIT fixes those source blockers and adds an exact-source uniqueness/signature contract to Switch CLI CI.
+- RStats persistence/signal work remains complete and must not be repeated. Keep older SHA CI results attributed to their original commits.
 
 ## Active task
 
-Verify the GE2 SGMII scope correction on its exact `main` SHA. The Switch CLI workflow must prove that `status = set_rtl8367s_sgmii()` and the `status != 0` → `goto mdio_error` gate are inside the lexical block of `if (architecture & SGMII_SWITCH)`, while `set_sgmii_force_link(2, 1)` remains outside that inner block but inside `GE2_SGMII_FORCE_2500`. A parent-SHA PASS is not sufficient because its old proximity assertion missed the defect.
+Verify this RAETH compile-integrity correction on its exact `main` SHA. Inspect the exact-head Switch CLI compile-integrity step, then check XY-C1 kernel Build, TRX verification and artifact upload on that same source SHA. If XY-C1 exposes another compile error, fix the first causal compiler error before moving on; do not claim L3 until all target stages pass.
 
 ## Completed development slices
 
@@ -41,15 +39,14 @@ Independent snapshot/lifecycle changes remain in `99ad9397e3cf4450c6fc07758b58c3
 
 ## Verification boundary
 
-- Parent `f38519f` Switch CLI #45311619652 **in_progress** and AI handoff #45311620761 **success** are not validation of the updated lexical-scope contract.
-- Parent NVRAM #45311619611 **in_progress** and XY-C1 #45311619583 **in_progress** must remain associated with the parent SHA. New exact-head Actions are required. The target build, TRX verification and artifact upload must all complete on the same product-source SHA before claiming L3.
-- No local kernel build was run; no MIPS build/TRX/artifact or hardware L4 result is claimed for this control-flow correction.
+- On prior exact SHA `edb529c4baf1e60df1fd542a4e8192cf608ffbdc`: Switch CLI #45311706551 **PASS**, AI docs #45311706519 **PASS**, NVRAM #45311706453 **PASS**, XY-C1 #45311706484 **FAIL** at `raether.o`; TRX and artifact stages did not run.
+- The compile-integrity correction in THIS COMMIT has not yet been built. No MIPS Build/TRX/artifact or hardware L4 result is claimed.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and verify this correction's exact-SHA Switch CLI and AI handoff push Actions; inspect the nested-scope contract step itself.
-2. Inspect the same-SHA XY-C1 workflow through Build, TRX verification and artifact upload. Do not transfer any older product-source build result.
-3. Once this regression is green, resume the highest-risk unfinished stability task from the whole-repository roadmap, rotating beyond RAETH as appropriate; do not repeat the completed RStats close-result slice. Keep the frozen backup unchanged.
+1. Fetch live `main` and check this commit's exact push Actions. Inspect the new RAETH source-integrity step, not just the aggregate workflow status.
+2. Inspect the XY-C1 build log on this same SHA. Confirm `raether.o` compiles, then confirm Build, TRX verification and artifact upload all complete on the same SHA. Diagnose the first new compiler error if the build still fails.
+3. Once this driver slice is green, resume the highest-risk unfinished stability item outside RAETH where practical. Keep the archival backup branch unchanged.
 
 
 # Cross-session execution mandate

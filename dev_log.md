@@ -1,3 +1,11 @@
+## 2026-11-24 — Unblock XY-C1 RAETH compilation after exact-SHA build failure
+
+- The exact XY-C1 Action on `edb529c4baf1e60df1fd542a4e8192cf608ffbdc` failed in `drivers/net/ethernet/raeth/raether.o`, before TRX/artifact stages. The compiler reported conflicting `set_ge2_gmii` / `set_ge0_gmii` prototypes (`ra_mac.h` said `void`, while `raether.h` and `ra_mac.c` correctly returned `int`), plus duplicate definitions of `fe_chip_name_config`, `raeth_set_wol`, `raeth_arch_setting` and `fe_tx_rx_dec` in `raether.c`.
+- Corrected the stale `ra_mac.h` prototypes to `int`, preserving MMIO setup error values already implemented by `ra_mac.c` and consumed by the driver. Removed the second accidental duplicate helper block in `raether.c`, retaining one complete definition of each helper.
+- Added `scripts/check_raeth_compile_integrity.py` and wired it into both push and pull-request Switch CLI workflow path filters. It asserts uniqueness of the four helper definitions and matching `int` declarations/definitions for both GMII helpers.
+- On the failed `edb529c` SHA, Switch CLI #45311706551 **PASS**, AI handoff #45311706519 **PASS**, NVRAM audit #45311706453 **PASS**, but XY-C1 #45311706484 **FAIL** at kernel compilation; Build failed before TRX or artifact upload. THIS COMMIT requires fresh exact-head XY-C1 Build/TRX/artifact and Switch CLI checks. No L3 or hardware result is claimed.
+
+---
 ## 2026-11-24 — Scope the GE2 SGMII switch error gate to its optional feature
 
 - `fe_sw_init()` checked the return status of `set_rtl8367s_sgmii()` outside the `if (architecture & SGMII_SWITCH)` branch. When GE2 forced-2.5G was enabled without the external switch feature, the code could inspect stale/uninitialized `status` and incorrectly abort switch initialization.
