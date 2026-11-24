@@ -1,3 +1,9 @@
+## 2026-11-24 — Keep DNSMasq fixture aligned with SmartDNS process probe split
+
+- The SmartDNS DNS ownership fixture extracts only the read-only Adbyby process helper. After separating that helper from SmartDNS's executable-bound process inventory, the two fixture extraction sites were updated to source the renamed function explicitly; the checker now guards both sites.
+
+---
+
 ## 2026-11-24 — Fix SmartDNS proc-root state initialization
 
 - Exact-head DNSMasq Actions exposed a nounset failure after the first valid fake-proc identity: process-state confirmation reused a proc-root variable assigned only inside command substitution. Initialize the proc root in the parent function so absence checks are deterministic in the test and service shell.

@@ -246,7 +246,7 @@ if grep -Fq '/usr/bin/adbyby.sh switch' "$SMARTDNS_SOURCE"; then
     fail "SmartDNS dispatched an unsupported Adbyby switch action"
 fi
 {
-    sed -n '/^smartdns_process_state()/,/^}/p' "$HERE/../smartdns_process_lifecycle.sh"
+    sed -n '/^smartdns_named_process_state()/,/^}/p' "$HERE/../smartdns_process_lifecycle.sh"
     sed -n '/^smartdns_nvram_read_checked()/,/^}/p' "$SMARTDNS_SOURCE"
     sed -n '/^Change_adbyby () {$/,/^}/p' "$SMARTDNS_SOURCE"
 } > "$T/change-adbyby.sh"
@@ -382,7 +382,7 @@ pass "SmartDNS does not dispatch unsupported Adbyby switch action"
 SMARTDNS_SOURCE="$HERE/../smartdns.sh"
 ADBYBY_SOURCE="$HERE/../../adbyby/adbyby.sh"
 {
-    sed -n '/^smartdns_process_state()/,/^}/p' "$HERE/../smartdns_process_lifecycle.sh"
+    sed -n '/^smartdns_named_process_state()/,/^}/p' "$HERE/../smartdns_process_lifecycle.sh"
     sed -n '/^smartdns_nvram_read_checked()/,/^}/p' "$SMARTDNS_SOURCE"
     sed -n '/^Change_adbyby () {$/,/^}/p' "$SMARTDNS_SOURCE"
     sed -n '/^Change_dnsmasq () {$/,/^}/p' "$SMARTDNS_SOURCE"
