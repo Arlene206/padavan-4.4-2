@@ -105,12 +105,17 @@ ftp_acl_path_share_permission(const char *contents, size_t contents_size,
     if (newline == NULL)
       break;
     line_size = (size_t)(newline - line);
-    if (line_size == folder_size + 5U &&
+    if (line_size >= folder_size + 2U &&
         line[0] == '*' &&
         line[folder_size + 1U] == '=' &&
         memcmp(line + 1, folder, folder_size) == 0)
     {
-      if (found ||
+      /*
+       * Once the exact key matches, a malformed or duplicate record must
+       * invalidate the permission file rather than being skipped in favour
+       * of a later well-formed record.
+       */
+      if (found || line_size != folder_size + 5U ||
           line[folder_size + 2U] < '0' || line[folder_size + 2U] > '3' ||
           line[folder_size + 3U] < '0' || line[folder_size + 3U] > '3' ||
           line[folder_size + 4U] < '0' || line[folder_size + 4U] > '3')

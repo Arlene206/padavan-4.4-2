@@ -1,3 +1,11 @@
+## 2026-11-24 — Reject malformed duplicate VSFTPD share ACL records
+
+- Review of the new exact-record parser found an edge case: it matched only lines of the expected total length. An overlong malformed line with the exact requested `*folder=` key could therefore be ignored, allowing a later valid duplicate record to determine the permission. This was fail-open on malformed ACL input.
+- Changed parsing to recognize the exact key first, then reject unexpected record length, invalid permission digits or any duplicate key. Added regressions for malformed-only, malformed-before-valid and valid-before-malformed records; tightened the workflow source contract.
+- Baseline `6725aaf`: VSFTPD #45406961857 PASS, AI docs #45406961491 PASS, Process inventory #45406961396 PASS, NVRAM #45406961526 PASS; XY-C1 #45406961610 was PENDING. New exact-head checks are required for this follow-up.
+
+---
+
 ## 2026-11-24 — Parse VSFTPD share ACL permissions by exact record
 
 - `get_permission_ftp()` used an unanchored `strstr()` for `*<folder>=`; filesystem share names can legally contain newlines, so a crafted name such as `public=000\n*secret` could span two ACL records and resolve the next share's write/delete rights. This could bypass the share ACL when `st_ftp_mode` is enabled.
