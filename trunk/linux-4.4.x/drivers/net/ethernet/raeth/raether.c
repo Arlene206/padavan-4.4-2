@@ -2793,8 +2793,10 @@ int ei_close(struct net_device *dev)
 {
 	struct END_DEVICE *ei_local = netdev_priv(dev);
 
-	fe_reset();
-
+	/*
+	 * Stop background workers and new TX before resetting registers;
+	 * both worker threads can access FE/PHY registers asynchronously.
+	 */
 	if ((ei_local->chip_name == MT7623_FE) &&
 	    (ei_local->features & FE_HW_LRO) &&
 	    !IS_ERR_OR_NULL(ei_local->kreset_task)) {
@@ -2812,6 +2814,7 @@ int ei_close(struct net_device *dev)
 	netif_stop_queue(dev);
 	ra2880stop(ei_local);
 
+	fe_reset();
 	fe_int_disable(dev);
 
 	if (ei_local->features & FE_GE2_SUPPORT)

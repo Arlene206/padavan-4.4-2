@@ -390,3 +390,16 @@ irq_open_return = open_body.index("return err;", irq_open_cleanup)
 assert irq_open_branch < irq_open_cleanup < irq_open_return
 assert open_body.count("fe_sw_deinit(ei_local);") == 2
 print("MT7622 switch deinit is paired with switch and IRQ setup failures: PASS")
+
+close_order = function_body(RAETHER_SOURCE, "int ei_close(")
+reset_stop = close_order.index("kthread_stop(ei_local->kreset_task);")
+phy_stop = close_order.index("kthread_stop(ei_local->kphy_poll_task);")
+queue_stop = close_order.index("netif_stop_queue(dev);")
+radio_stop = close_order.index("ra2880stop(ei_local);")
+hardware_reset = close_order.index("fe_reset();")
+interrupt_disable = close_order.index("fe_int_disable(dev);")
+dma_release = close_order.index("ei_deinit_dma(dev);")
+assert reset_stop < queue_stop < radio_stop < hardware_reset
+assert phy_stop < queue_stop < radio_stop < hardware_reset
+assert hardware_reset < interrupt_disable < dma_release
+print("RAETH close stops asynchronous workers and TX before resetting hardware: PASS")
