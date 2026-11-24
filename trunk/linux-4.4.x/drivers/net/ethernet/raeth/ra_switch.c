@@ -7104,7 +7104,7 @@ int ephy_ioctl(struct net_device *dev, struct ifreq *ifr,
 			ret = -EIO;
 		break;
 	default:
-		ret = 1;
+		ret = -EOPNOTSUPP;
 		break;
 	}
 

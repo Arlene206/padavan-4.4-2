@@ -237,6 +237,37 @@ jobs:
           print("RAETH ingress/egress rate inputs are validated before MMIO/MDIO access: PASS")
           PY
 
+      - name: Verify EPHY ioctl rejects unsupported commands
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth")
+          switch = (root / "ra_switch.c").read_text()
+          driver = (root / "raether.c").read_text()
+          handler = switch.split("int ephy_ioctl(", 1)[1].split(
+              "static const struct of_device_id mediatek_gsw_match[]", 1
+          )[0]
+          unsupported = handler.split("default:", 1)[1].split("break;", 1)[0]
+          assert "ret = -EOPNOTSUPP;" in unsupported
+          assert "ret = 1;" not in unsupported
+          for command in (
+              "RAETH_VBG_IEXT_CALIBRATION",
+              "RAETH_TXG_R50_CALIBRATION",
+              "RAETH_TXG_OFFSET_CALIBRATION",
+              "RAETH_TXG_AMP_CALIBRATION",
+              "GE_TXG_R50_CALIBRATION",
+              "GE_TXG_OFFSET_CALIBRATION",
+              "GE_TXG_AMP_CALIBRATION",
+          ):
+              assert "case " + command + ":" in handler, command
+          dispatch = driver.split("case RAETH_EPHY_IOCTL:", 1)[1].split(
+              "default:", 1
+          )[0]
+          assert "ret = ephy_ioctl(dev, ifr, &ephy_data);" in dispatch
+          print("Unknown EPHY ioctl commands return -EOPNOTSUPP to userspace: PASS")
+          PY
+
       - name: Verify QDMA ioctl errors propagate to userspace
         run: |
           python3 - <<'PY'
