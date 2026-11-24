@@ -103,7 +103,7 @@ jobs:
           assert "MTK_ESW_STATUS" in Path("trunk/user/scripts/tests/scutclient_watchcat_lifecycle.sh").read_text()
           assert "watchcat_auth_flag_enabled" in source
           assert '[ ! -L "$auth_flag" ] && [ -f "$auth_flag" ]' in source
-          assert 'watchcat_pid_owner=$(stat -c \'%u\' "$pidfile")' in source
+          assert 'watchcat_pid_owner=$(stat -c \'%u\' "$pidfile" 2>/dev/null)' in source
           assert 'stat -c \'%u %a %h %s\' "$auth_flag"' in source
           assert '[ "$1" = "$watchcat_pid_owner" ]' in source
           assert '[ "$3" = 1 ] && [ "$4" = 2 ]' in source

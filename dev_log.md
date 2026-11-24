@@ -1,3 +1,12 @@
+## 2026-11-24 — Correct SCUT watchdog auth-marker source contract
+
+- The extended exact-head SCUT watchdog run #45494178433 reached all runtime tests successfully, including symlink, hard-link and writable-mode auth-marker spoof rejection, but failed the final Python static contract at assertion 58. The checker expected the pidfile stat command without its intentional 2>/dev/null redirection; this was a stale assertion, not a production behavior failure.
+- Updated the source-contract literal to include the existing stderr redirection. No C or shell runtime code changed. Re-run the exact-head workflow on the new commit before closing the security slice.
+- Parent SHA 495da8f95041bee67025fe52ede7cba526b133c9: AI handoff #45494178404 PASS; Process inventory #45494178432 PASS. XY-C1 #45494178359 had not reached its product-input detector at last poll, so L3 remains unverified.
+- No physical-router L4 validation.
+
+---
+
 ## 2026-11-24 — Validate SCUT watchdog auth marker inode before restart
 
 - The watchdog still trusted /tmp/scutclient_status with -f plus cat. A user-created symlink or hard link containing "1" could make the privileged watchdog run the SCUTClient restart path even though the default writer had been changed to atomic publication.
