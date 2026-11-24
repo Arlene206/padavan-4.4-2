@@ -1,3 +1,11 @@
+## 2026-11-24 — Fix the metadata test fixture selected by lifecycle integration
+
+- Process lifecycle run #45323274944 on `017ffdf4` advanced through the C and ASan/UBSan regressions, then failed at `check_process_lifecycle_integration.py`: the assertion for `metadata_policy_rejects_unsafe_files` inspected `shared_pidfile_test`, which is the parser test in `src/tests/`, not the metadata test.
+- Added a separate `shared_pidfile_open_test` binding for `trunk/user/shared/tests/shutils_pidfile_open.c` and moved the marker assertion to the correct file. This preserves parser assertions against the parser test while checking owner/nlink/mode rejection in the metadata fixture.
+- The `017ffdf4` AI docs, legacy wrapper and process inventory checks passed; its XY-C1 build was triggered and remained pending at last poll. RAETH `f7bd670` Switch CLI passed, while its XY-C1/NVRAM runs were still pending.
+- Parent main: `5df6be1d45a53c76f9a20ffa524dd4480be65f67`; fresh exact-SHA process lifecycle and AI handoff runs are required.
+
+---
 ## 2026-11-24 — Align PID metadata source contracts and XY-C1 header triggers
 
 <!-- 2026-11-23 RAETH DEV LOG -->

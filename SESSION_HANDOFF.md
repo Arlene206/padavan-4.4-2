@@ -1,4 +1,11 @@
 ## 2026-11-24 持续开发接力（最新）
+## 2026-11-24 — 最新 exact-SHA 状态
+
+- 当前 main 基线：`5df6be1d45a53c76f9a20ffa524dd4480be65f67`；归档备份仍只读，SHA `72f4f157a084f8184b9597ca5bf334b8080e5807`。
+- `017ffdf4` 补齐 PID metadata header include、process contract 与 XY-C1 header path。该 SHA AI docs #45323274999 PASS、legacy wrapper #45323275091 PASS、process inventory #45323275034 PASS；XY-C1 #45323275097 已触发；process lifecycle #45323274944 失败于最后的 integration checker。
+- 失败根因已定位：checker 把 `metadata_policy_rejects_unsafe_files` 错误地在 parser-only `src/tests/shutils_pidfile_policy.c` 中查找；实际 owner/link/mode 用例在 `trunk/user/shared/tests/shutils_pidfile_open.c`。当前源码提交只修正测试夹具绑定，不改生产逻辑。
+- 并行 RAETH commit `f7bd670c88520298c8c4628b1ff06e0c95251f12` 为 pseudo interface 未注册/初始化的 close 路径加空指针保护；Switch CLI #45323341869 PASS，XY-C1 #45323341920 和 NVRAM #45323341860 当时仍运行。
+- `5df6be1` 是 RAETH handoff-only commit；其 AI docs #45323474834 正在运行。没有本轮 XY-C1 build/TRX/artifact 或硬件 L4 结果可宣称。
 
 <!-- 2026-11-23 RAETH CONTINUATION SNAPSHOT -->
 ## 2026-11-23 — RAETH continuation snapshot
@@ -50,6 +57,8 @@ Verification boundary: no local MIPS firmware build was run from this chat. Trea
 - Backup branch remains read-only; no XY-C1 build/TRX/artifact result or physical-router L4 result is claimed.
 ## Active task
 
+Verify process lifecycle integration on the exact SHA after loading the metadata cases from `trunk/user/shared/tests/shutils_pidfile_open.c`. In parallel inspect the triggered XY-C1 Build → TRX verification → artifact and the current RAETH/NVRAM actions. Continue independent source work while checks are pending.
+
 Verify the process lifecycle integration contract and strict-GNU89 PID metadata regression on the new exact SHA. Confirm the XY-C1 workflow is triggered by the policy-header path and follow its Build → TRX verification → artifact upload. Continue an independent stability/security fix while any jobs remain pending.
 ## Completed development slices
 
@@ -79,16 +88,17 @@ Independent snapshot/lifecycle changes remain in `99ad9397e3cf4450c6fc07758b58c3
 
 ## Verification boundary
 
-- `3e13e24` legacy wrapper PID-file workflow #45322580536 PASS; `fdc7ac1` legacy wrapper #45322826292 PASS and AI docs #45322826306 PASS.
-- `fdc7ac1` process lifecycle #45322826402 failed at the integration source checker because it still expected inline `S_ISREG`; this commit updates it to the actual metadata helper. Strict-GNU89 compile no longer failed at the metadata predicate after the `S_IFMT/S_IFREG` correction.
-- XY-C1 had not triggered for `fdc7ac1` because its path filter omitted `shutils_pidfile_policy.h`; the current commit explicitly adds that path.
-- No same-SHA XY-C1 build/TRX/artifact or physical hardware result is available at commit creation.
+- `017ffdf4` AI docs #45323274999, legacy PID-file #45323275091 and process inventory #45323275034 PASS.
+- `017ffdf4` process lifecycle #45323274944 passed the standalone C/ASan stages and failed only at integration source assertion: metadata test marker was read from the parser fixture instead of `shutils_pidfile_open.c`.
+- `017ffdf4` XY-C1 #45323275097 was triggered by the newly added policy-header path; last seen IN_PROGRESS.
+- RAETH pseudo-interface close guard on `f7bd670` has Switch CLI #45323341869 PASS; XY-C1 #45323341920 and NVRAM #45323341860 were pending on that SHA. AI docs #45323474834 was pending on `5df6be1`.
+- No same-SHA firmware TRX/artifact or physical-router L4 result is claimed.
 ## Exact first action for the next GPT
 
-1. Fetch live `main`; inspect exact-SHA process lifecycle regression, legacy-wrapper PID-file, process inventory, AI docs and XY-C1 workflows.
-2. Confirm the metadata policy header compiles with `-std=gnu89 -Wall -Wextra -Werror`, the policy unit test passes with ASan/UBSan, and the integration checker accepts the production enforcement.
-3. Confirm XY-C1 triggered because `shutils_pidfile_policy.h` is now in push paths; inspect Build → TRX verification → artifact upload on that exact SHA.
-4. Continue a separate repository-wide stability/security fix while runs are pending. Keep backup read-only and preserve the roadmap byte limit.
+1. Fetch live `main`; inspect exact-SHA process lifecycle, legacy wrapper, process inventory, AI docs, XY-C1 and NVRAM results.
+2. Confirm `check_process_lifecycle_integration.py` loads `shutils_pidfile_open.c` for the metadata policy test marker while retaining parser tests in `src/tests/shutils_pidfile_policy.c`.
+3. Confirm XY-C1 completed Build → TRX verification → artifact upload for the triggered source SHA; record run ID and individual job states.
+4. Continue a new independent stability/security fix while any jobs remain pending. Keep backup read-only and preserve the Roadmap size ceiling.
 
 # Cross-session execution mandate
 

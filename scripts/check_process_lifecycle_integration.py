@@ -76,6 +76,7 @@ shared_header = (root / "trunk/user/shared/src/shutils.h").read_text()
 shared_source = (root / "trunk/user/shared/src/shutils.c").read_text()
 shared_pidfile_policy = (root / "trunk/user/shared/src/shutils_pidfile_policy.h").read_text()
 shared_pidfile_test = (root / "trunk/user/shared/src/tests/shutils_pidfile_policy.c").read_text()
+shared_pidfile_open_test = (root / "trunk/user/shared/tests/shutils_pidfile_open.c").read_text()
 pids_source = (root / "trunk/user/shared/src/pids.c").read_text()
 process_inventory = (root / "trunk/user/shared/src/process_inventory.c").read_text()
 process_inventory_test = (root / "trunk/user/shared/src/tests/process_inventory.c").read_text()
@@ -115,7 +116,7 @@ assert "shutils_pidfile_metadata_is_safe(&st, geteuid())" in legacy_pidfile_body
 assert "S_ISREG(st.st_mode)" not in legacy_pidfile_body
 for token in ("(status->st_mode & S_IFMT) == S_IFREG", "status->st_uid == owner", "status->st_nlink == 1", "(status->st_mode & 022) == 0"):
     assert token in shared_pidfile_policy, token
-assert "metadata_policy_rejects_unsafe_files" in shared_pidfile_test
+assert "metadata_policy_rejects_unsafe_files" in shared_pidfile_open_test
 assert "fdopen(fd, \"r\")" in legacy_pidfile_body
 assert "shutils_pidfile_parse_record(buf, length, &pid)" in legacy_pidfile_body
 assert "fgets(" not in legacy_pidfile_body
