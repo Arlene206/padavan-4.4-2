@@ -1,3 +1,11 @@
+## 2026-11-23 — Correct handoff byte limit and refresh verification
+
+- The handoff CI on 58cbb67 failed because REFACTOR_ROADMAP.md was 131,598 UTF-8 bytes, 526 bytes above the 128 KiB limit. Replaced its redundant leading status block with a shorter current summary.
+- Handoff now distinguishes source baseline 51bd80e from the docs-only 58cbb67 checkpoint and includes the missing Active task heading. Exact source checks: HTTPD #45296325091 PASS (51/51), process #45296325017 PASS (5/5); handoff #45296533165 failed only on roadmap byte size; NVRAM audit #45295392634 PASS (15/15); XY-C1 #45295392702 still building older edc313c sources.
+- Backup 72f4f157 remains read-only. No hardware L3/L4 claim.
+
+---
+
 ## 2026-11-23 — Extend context-safe NVRAM output across web UI templates
 
 - Confirmed additional JavaScript-source NVRAM interpolations in WAN, LAN, DHCP, IPTV, Services, SettingBackup and MACFilter ASP templates; HTML form contexts were intentionally left on nvram_get_x.
