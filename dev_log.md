@@ -1,3 +1,11 @@
+## 2026-11-24 — Bound adjacent legacy MTK AP ioctl stack copies
+
+- The first APD PID fix exposed the same unbounded `wrq->u.data.length` pattern in adjacent fixed-size destinations in the legacy MT76x2/MT76x3 AP ioctl dispatchers: IAPP PID and WAPI PID scalar locals, plus the six-byte STA address buffer used by `RT_SET_DEL_MAC_ENTRY`.
+- Added exact-size rejection before each copy and pass only `sizeof(local_pid)` or `MAC_ADDR_LEN` to `copy_from_user()`. The newer MT7615/MT7915 variants already have equivalent size checks; no behavior change is made for valid callers.
+- Expanded the source-contract regression to pin all four fixed-size copy paths in both legacy driver trees.
+
+---
+
 ## 2026-11-24 — Bound legacy MTK APD PID ioctl copies
 
 - Found a kernel stack-buffer overrun in the legacy MT76x2 and MT76x3 AP ioctl handlers: `RT_SET_APD_PID` copied the caller-controlled `wrq->u.data.length` bytes into a single `unsigned long` local. Zero/short lengths also left the PID partially or wholly uninitialized before publication.

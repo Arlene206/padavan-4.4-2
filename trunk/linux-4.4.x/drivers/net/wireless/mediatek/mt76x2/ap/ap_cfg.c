@@ -2601,7 +2601,13 @@ INT RTMPAPSetInformation(
     	case RT_SET_IAPP_PID:
 			{
 				unsigned long IappPid;
-				if (copy_from_user(&IappPid, wrq->u.data.pointer, wrq->u.data.length))
+				if (wrq->u.data.length != sizeof(IappPid)) {
+					Status = -EFAULT;
+					break;
+				}
+
+				if (copy_from_user(&IappPid, wrq->u.data.pointer,
+						   sizeof(IappPid)))
 				{
 					Status = -EFAULT; 	
 				}
@@ -2778,7 +2784,12 @@ INT RTMPAPSetInformation(
     		}
 			break;
 		case RT_SET_DEL_MAC_ENTRY:
-    		if (copy_from_user(Addr, wrq->u.data.pointer, wrq->u.data.length))
+    		if (wrq->u.data.length != MAC_ADDR_LEN) {
+			Status = -EFAULT;
+			break;
+		}
+
+		if (copy_from_user(Addr, wrq->u.data.pointer, MAC_ADDR_LEN))
 		{
 				Status = -EFAULT; 	
 		}
@@ -3233,7 +3244,13 @@ INT RTMPAPSetInformation(
 		case OID_802_11_WAPI_PID:
 			{
 				unsigned long wapi_pid;
-    			if (copy_from_user(&wapi_pid, wrq->u.data.pointer, wrq->u.data.length))
+    			if (wrq->u.data.length != sizeof(wapi_pid)) {
+					Status = -EFAULT;
+					break;
+				}
+
+				if (copy_from_user(&wapi_pid, wrq->u.data.pointer,
+						   sizeof(wapi_pid)))
 				{
 					Status = -EFAULT; 	
 				}
