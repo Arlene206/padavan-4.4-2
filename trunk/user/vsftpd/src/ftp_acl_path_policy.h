@@ -42,6 +42,8 @@ ftp_acl_path_parent(const char *path, char *parent, size_t parent_size)
   parent[parent_length] = '\0';
   return 0;
 }
+static int ftp_acl_path_is_internal_metadata(const char *path);
+
 static int
 ftp_acl_path_resolve_parent(const char *path, char *parent,
                             size_t parent_size, char *resolved,
@@ -52,6 +54,10 @@ ftp_acl_path_resolve_parent(const char *path, char *parent,
     return -1;
   if (realpath(parent, resolved) == NULL)
     return -1;
+  if (ftp_acl_path_is_internal_metadata(resolved)) {
+    errno = EACCES;
+    return -1;
+  }
   return 0;
 }
 
@@ -203,6 +209,10 @@ ftp_acl_path_resolve_existing_parent(const char *path, char *resolved_parent,
     return -1;
   if (realpath(parent, resolved_parent) == NULL)
     return -1;
+  if (ftp_acl_path_is_internal_metadata(resolved_parent)) {
+    errno = EACCES;
+    return -1;
+  }
   return 0;
 }
 
@@ -911,7 +921,13 @@ ftp_acl_path_resolve_directory(const char *path, char *resolved,
 {
   if (!path || !*path || !resolved || resolved_size < PATH_MAX)
     return -1;
-  return realpath(path, resolved) == NULL ? -1 : 0;
+  if (realpath(path, resolved) == NULL)
+    return -1;
+  if (ftp_acl_path_is_internal_metadata(resolved)) {
+    errno = EACCES;
+    return -1;
+  }
+  return 0;
 }
 
 

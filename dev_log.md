@@ -1,3 +1,13 @@
+## 2026-11-24 — Block symlink aliases into the VSFTPD cleanup quarantine
+
+- Security review found a canonicalization bypass in the new hidden quarantine: lexical checks blocked direct `.__vsftpd_cleanup_*` paths, but a symlinked parent with a missing final leaf passed through `ftp_acl_path_resolve_parent()` without rechecking the canonical parent. New-file uploads and rename destinations could therefore resolve into the internal quarantine through an alias.
+- Added canonical reserved-metadata checks after parent resolution in `ftp_acl_path_resolve_parent()` and `ftp_acl_path_resolve_rename_entry()`, and after canonical directory resolution in `ftp_acl_path_resolve_directory()`. Existing-final-target checks were already canonical and remain unchanged.
+- Added a GNU89 regression that creates a symlink alias to the owned 0700 cleanup directory and requires write-parent, rename-entry and directory resolution to fail with EACCES. The VSFTPD workflow now pins all three canonical-path fences and regression markers.
+- At the previous exact heads, VSFTPD #45485681381 and AI handoff #45485681367 passed on `ebb67734c1eae61e1835806eea689187801c1a2d`; Process inventory #45485311380 and NVRAM #45485311362 passed on `4ee6d7bc1b55c81bab7022e160397c7f7da297d6`. XY-C1 #45485311337 for 4ee was still in progress at last poll. This security slice now needs fresh exact-head tests and product build.
+- No local compiler, MIPS build or router test is claimed. Hardware L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-24 — Make VSFTPD quarantine source contract whitespace-safe
 
 - Exact source SHA `4ee6d7bc1b55c81bab7022e160397c7f7da297d6` VSFTPD run #45485311376 passed GNU89 compilation and the C ACL-path regression, then failed at the embedded Python contract. Traceback line 594 mapped to a formatting-sensitive assertion requiring `fstatat(cleanup_fd, quarantine_leaf, &quarantined, AT_SYMLINK_NOFOLLOW)` on one source line; the production call is split over two lines.

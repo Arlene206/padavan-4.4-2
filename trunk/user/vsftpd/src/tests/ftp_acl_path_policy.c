@@ -168,7 +168,8 @@ main(void)
   char new_file[PATH_MAX], leaf[PATH_MAX];
   char held_a[PATH_MAX], race_link[PATH_MAX];
   char rollback_path[PATH_MAX], rollback_saved[PATH_MAX];
-  char cleanup_dir_leaf[96];
+  char cleanup_dir_leaf[96], cleanup_dir_path[PATH_MAX];
+  char cleanup_alias[PATH_MAX];
   char tiny[2];
   char marker_path[PATH_MAX], marker_small[256], long_mount_path[257];
   int cleanup_allowed, dir_fd, race_fd, rollback_fd, replacement_fd;
@@ -909,6 +910,39 @@ main(void)
               AT_SYMLINK_NOFOLLOW) != 0 || !S_ISDIR(cleanup_st.st_mode) ||
       cleanup_st.st_uid != geteuid() || (cleanup_st.st_mode & 0777) != 0700) {
     fprintf(stderr, "upload cleanup quarantine is not private to its effective UID\n");
+    return 1;
+  }
+  checked_path(cleanup_dir_path, sizeof(cleanup_dir_path), a,
+               cleanup_dir_leaf);
+  checked_path(cleanup_alias, sizeof(cleanup_alias), a,
+               "cleanup-directory-alias");
+  if (symlink(cleanup_dir_path, cleanup_alias) != 0) {
+    perror("create symlink to internal cleanup directory");
+    return 1;
+  }
+  checked_path(new_file, sizeof(new_file), cleanup_alias,
+               "new-through-quarantine-link.txt");
+  errno = 0;
+  if (ftp_acl_path_resolve_write_parent(new_file, resolved, sizeof(resolved)) == 0 ||
+      errno != EACCES) {
+    fprintf(stderr, "new upload through symlinked quarantine parent was accepted\n");
+    return 1;
+  }
+  errno = 0;
+  if (ftp_acl_path_resolve_rename_entry(new_file, resolved, sizeof(resolved),
+                                        leaf, sizeof(leaf)) == 0 ||
+      errno != EACCES) {
+    fprintf(stderr, "rename destination through symlinked quarantine parent was accepted\n");
+    return 1;
+  }
+  errno = 0;
+  if (ftp_acl_path_resolve_directory(cleanup_alias, resolved, sizeof(resolved)) == 0 ||
+      errno != EACCES) {
+    fprintf(stderr, "directory resolver exposed cleanup quarantine through symlink\n");
+    return 1;
+  }
+  if (unlink(cleanup_alias) != 0) {
+    perror("remove symlink to internal cleanup directory");
     return 1;
   }
 

@@ -735,6 +735,9 @@ jobs:
           upload_cleanup = function_body(acl_path_policy, "ftp_acl_path_unlink_opened_entry(")
           cleanup_open = function_body(acl_path_policy, "ftp_acl_path_open_cleanup_directory(")
           cleanup_rename = function_body(acl_path_policy, "ftp_acl_path_rename_noreplace(")
+          parent_resolver = function_body(acl_path_policy, "ftp_acl_path_resolve_parent(")
+          rename_resolver = function_body(acl_path_policy, "ftp_acl_path_resolve_rename_entry(")
+          directory_resolver = function_body(acl_path_policy, "ftp_acl_path_resolve_directory(")
           assert "renameat2" in cleanup_rename and "RENAME_NOREPLACE" in cleanup_rename
           assert "mkdirat(dir_fd, name, 0700)" in cleanup_open
           assert "O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC" in cleanup_open
@@ -745,6 +748,12 @@ jobs:
           assert "fstatat(cleanup_fd, quarantine_leaf, &quarantined, AT_SYMLINK_NOFOLLOW)" in upload_cleanup_compact
           assert "unlinkat(cleanup_fd, quarantine_leaf, 0)" in upload_cleanup
           assert "ftp_acl_path_rename_noreplace(cleanup_fd, quarantine_leaf" in upload_cleanup
+          assert "ftp_acl_path_is_internal_metadata(resolved)" in parent_resolver
+          assert "ftp_acl_path_is_internal_metadata(resolved_parent)" in rename_resolver
+          assert "ftp_acl_path_is_internal_metadata(resolved)" in directory_resolver
+          assert "new upload through symlinked quarantine parent was accepted" in acl_path_test
+          assert "rename destination through symlinked quarantine parent was accepted" in acl_path_test
+          assert "directory resolver exposed cleanup quarantine through symlink" in acl_path_test
           assert "fstatat(dir_fd, leaf" not in upload_cleanup
           assert "unlinkat(dir_fd, leaf" not in upload_cleanup
           assert "cleanup removed a replacement upload entry" in acl_path_test
