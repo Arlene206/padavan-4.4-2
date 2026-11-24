@@ -325,8 +325,8 @@ prune_unlink = stale_pruner_compact.index(
     "disk_share_unlink_stale_metadata_entry(directory_fd,entry->d_name)",
     prune_active_match
 )
-require(prune_read < prune_eof < prune_error < prune_skip_anonymous <
-        prune_active_match < prune_directory_fd < prune_unlink and
+require(prune_directory_fd < prune_read < prune_eof < prune_error <
+        prune_skip_anonymous < prune_active_match < prune_unlink and
         "unlink(path)" not in stale_pruner_compact and
         "if(closedir(dir)!=0)" in stale_pruner_compact and
         "strcmp(entry->d_name+name_len-8,\"_var.txt\")" in stale_pruner_compact and
