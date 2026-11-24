@@ -847,7 +847,26 @@ jobs:
           assert "dnsmasq_file_publish(staged_fp, staged_paths[i]," not in static_hosts_writer
           assert 'fopen(dh_fn, "w+")' not in static_hosts_writer
           assert 'fopen("/etc/ethers", "w+")' not in static_hosts_writer
-          assert static_hosts_writer.index("dnsmasq_file_publish_set(") < static_hosts_writer.index("dnsmasq_static_arp_apply_transaction(")
+          arp_restore = function_body(services, "arpbind_apply_current_ethers(void)")
+          assert "dnsmasq_static_ethers_record_parse(" in arp_restore
+          assert 'dnsmasq_file_is_safe_regular("/etc/ethers")' in arp_restore
+          assert 'fopen("/etc/ethers", "r")' in arp_restore
+          assert "ferror(fp)" in arp_restore and "fclose(fp)" in arp_restore
+          assert "dnsmasq_static_arp_apply_transaction(" in arp_restore
+          assert "dnsmasq_static_arp_apply_transaction(" not in static_hosts_writer
+          start_locked = function_body(services, "start_dns_dhcpd_locked(int is_ap_mode)")
+          start_preflight = start_locked.index('dnsmasq_require_absent("after configuration preparation")')
+          start_clear = start_locked.index("arpbind_clear()", start_preflight)
+          start_apply = start_locked.index("arpbind_apply_current_ethers()", start_clear)
+          start_launch = start_locked.index('eval("/usr/sbin/dnsmasq")')
+          assert start_preflight < start_clear < start_apply < start_launch
+          restart_locked = function_body(services, "restart_dhcpd_locked(void)")
+          restart_stop = restart_locked.index("stop_status = stop_dns_dhcpd_locked()")
+          restart_absent = restart_locked.index("dnsmasq_restart_policy_stop_status(", restart_stop)
+          restart_apply = restart_locked.index("arpbind_apply_current_ethers()", restart_absent)
+          restart_launch = restart_locked.index('eval("/usr/sbin/dnsmasq")')
+          assert restart_stop < restart_absent < restart_apply < restart_launch
+          assert restart_locked.index("if (action == DNSMASQ_RESTART_STOP_ONLY)") < restart_apply
           assert "doSystem(" not in static_hosts_writer
           assert "dnsmasq_file_publish_set(set_files, set_stages, set_destinations," in static_hosts_test
           assert 'read_exact(set_first, "old-one\\n")' in static_hosts_test

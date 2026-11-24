@@ -137,6 +137,51 @@ test_rejects_wrong_lengths(void)
 
 
 static void
+test_static_ethers_record_parser(void)
+{
+	char ip[16], mac[13];
+
+	assert(dnsmasq_static_ethers_record_parse(
+		"00:11:22:33:44:55 192.0.2.10", ip, sizeof(ip),
+		mac, sizeof(mac)) == 0);
+	assert(strcmp(ip, "192.0.2.10") == 0);
+	assert(strcmp(mac, "001122334455") == 0);
+
+	assert(dnsmasq_static_ethers_record_parse(
+		"AA:BB:CC:DD:EE:FE 10.0.0.254   ", ip, sizeof(ip),
+		mac, sizeof(mac)) == 0);
+	assert(strcmp(ip, "10.0.0.254") == 0);
+	assert(strcmp(mac, "AABBCCDDEEFE") == 0);
+	assert(dnsmasq_static_ethers_record_parse(
+		"01:11:22:33:44:55 192.0.2.10", ip, sizeof(ip),
+		mac, sizeof(mac)) == EIO);
+	assert(dnsmasq_static_ethers_record_parse(
+		"00:00:00:00:00:00 192.0.2.10", ip, sizeof(ip),
+		mac, sizeof(mac)) == EIO);
+	assert(dnsmasq_static_ethers_record_parse(
+		"00:11:22:33:44:55 999.0.2.10", ip, sizeof(ip),
+		mac, sizeof(mac)) == EIO);
+	assert(dnsmasq_static_ethers_record_parse(
+		"00:11:22:33:44:5 192.0.2.10", ip, sizeof(ip),
+		mac, sizeof(mac)) == EIO);
+	assert(dnsmasq_static_ethers_record_parse(
+		"00:11:22:33:44:55 192.0.2.10 unexpected", ip,
+		sizeof(ip), mac, sizeof(mac)) == EIO);
+	assert(dnsmasq_static_ethers_record_parse(
+		"00:11:22:33:44:55", ip, sizeof(ip),
+		mac, sizeof(mac)) == EIO);
+	assert(dnsmasq_static_ethers_record_parse(
+		NULL, ip, sizeof(ip), mac, sizeof(mac)) == EINVAL);
+	assert(dnsmasq_static_ethers_record_parse(
+		"00:11:22:33:44:55 192.0.2.10", ip, 8,
+		mac, sizeof(mac)) == ENOSPC);
+	assert(dnsmasq_static_ethers_record_parse(
+		"00:11:22:33:44:55 192.0.2.10", ip, sizeof(ip),
+		mac, 8) == ENOSPC);
+}
+
+
+static void
 test_static_arp_command_status(void)
 {
 	assert(dnsmasq_static_arp_command_errno(0, 0) == 0);
@@ -256,6 +301,7 @@ main(void)
 	test_rejects_non_unicast_addresses();
 	test_rejects_injection_characters();
 	test_rejects_wrong_lengths();
+	test_static_ethers_record_parser();
 	test_static_arp_command_status();
 	test_static_arp_transaction_success();
 	test_static_arp_transaction_rolls_back_prior_additions();

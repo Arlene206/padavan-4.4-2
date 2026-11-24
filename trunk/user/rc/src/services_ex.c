@@ -227,6 +227,80 @@ dnsmasq_static_arp_command(const char *ip, const char *mac, int add, void *conte
 	return arp_errno;
 }
 
+/*
+ * Reinstall the exact static ARP snapshot published to /etc/ethers. This is
+ * called only after the old DNSMasq instance has stopped and its old bindings
+ * have been cleared, so a failed multi-entry apply can safely delete entries
+ * added earlier in this same transaction without destroying last-good state.
+ */
+static int
+arpbind_apply_current_ethers(void)
+{
+	FILE *fp;
+	char buffer[128];
+	char ip_text[DHCPD_STATIC_MAX][16];
+	char mac_text[DHCPD_STATIC_MAX][13];
+	const char *ips[DHCPD_STATIC_MAX];
+	const char *macs[DHCPD_STATIC_MAX];
+	int count = 0, result = 0, saved_errno;
+	int i;
+
+	if (dnsmasq_file_is_safe_regular("/etc/ethers") != 0) {
+		saved_errno = errno ? errno : EIO;
+		logmessage(LOGNAME, "refusing unsafe static ARP input '/etc/ethers' (errno=%d)",
+			   saved_errno);
+		return saved_errno;
+	}
+	fp = fopen("/etc/ethers", "r");
+	if (!fp)
+		return errno ? errno : EIO;
+
+	errno = 0;
+	while (fgets(buffer, sizeof(buffer), fp)) {
+		size_t length = strlen(buffer);
+
+		/* The generated file always ends every complete record with LF. */
+		if (length == 0 || buffer[length - 1] != '\n') {
+			result = EIO;
+			break;
+		}
+		buffer[length - 1] = '\0';
+		if (count >= DHCPD_STATIC_MAX) {
+			result = EOVERFLOW;
+			break;
+		}
+		result = dnsmasq_static_ethers_record_parse(
+			buffer, ip_text[count], sizeof(ip_text[count]),
+			mac_text[count], sizeof(mac_text[count]));
+		if (result != 0)
+			break;
+		count++;
+	}
+	if (ferror(fp) && result == 0)
+		result = errno ? errno : EIO;
+	if (fclose(fp) != 0 && result == 0)
+		result = errno ? errno : EIO;
+	if (result != 0) {
+		logmessage(LOGNAME,
+			   "cannot parse complete static ARP snapshot from '/etc/ethers' (errno=%d)",
+			   result);
+		return result;
+	}
+
+	for (i = 0; i < count; i++) {
+		ips[i] = ip_text[i];
+		macs[i] = mac_text[i];
+	}
+	result = dnsmasq_static_arp_apply_transaction(
+		ips, macs, (size_t)count, dnsmasq_static_arp_command, NULL);
+	if (result != 0)
+		logmessage(LOGNAME,
+			   "cannot restore static ARP snapshot from '/etc/ethers' (errno=%d)",
+			   result);
+	return result;
+}
+
+
 struct ip4_items_t {
 	in_addr_t ip4;
 	int count;
@@ -291,10 +365,6 @@ fill_static_ethers(const char *lan_ip, const char *lan_mask)
 	struct nvram_transaction nvram_transaction;
 	int i, j, i_max_items, i_arp_bind;
 	int path_length, result = 0;
-	const char *arp_ips[DHCPD_STATIC_MAX];
-	const char *arp_macs[DHCPD_STATIC_MAX];
-	char arp_ip_text[DHCPD_STATIC_MAX][16];
-	size_t arp_count = 0;
 	char dh_fn[64] = {0}, dhcp_hosts_stage[96] = "";
 	char dhcp_hosts_backup[128] = "";
 	char ethers_stage[] = "/etc/ethers.XXXXXX";
@@ -480,40 +550,11 @@ fill_static_ethers(const char *lan_ip, const char *lan_mask)
 				   backup_paths[i], errno ? errno : EIO);
 	}
 
-	/* Publish all generated files before kernel side effects. Keep stable
-	 * IPv4 strings because inet_ntoa() reuses static storage. */
-	if (i_arp_bind) {
-		for (i = 0; i < DHCPD_STATIC_MAX; i++) {
-			struct ip4_items_t *ipl = &ip4_list[i];
-
-			if (!ipl->ip4)
-				break;
-			if (ipl->count == 1 && ipl->mac[0]) {
-				in.s_addr = ipl->ip4;
-				path_length = snprintf(arp_ip_text[arp_count],
-						       sizeof(arp_ip_text[arp_count]),
-						       "%s", inet_ntoa(in));
-				if (path_length < 0 ||
-				    path_length >= (int)sizeof(arp_ip_text[arp_count])) {
-					result = EOVERFLOW;
-					goto cleanup;
-				}
-				arp_ips[arp_count] = arp_ip_text[arp_count];
-				arp_macs[arp_count] = ipl->mac[0];
-				arp_count++;
-			}
-		}
-		result = dnsmasq_static_arp_apply_transaction(arp_ips, arp_macs,
-							      arp_count,
-							      dnsmasq_static_arp_command,
-							      NULL);
-		if (result != 0) {
-			logmessage(LOGNAME,
-				   "static ARP installation failed; prior additions were rolled back where possible (errno=%d)",
-				   result);
-			goto cleanup;
-		}
-	}
+	/*
+	 * Kernel ARP state is updated by the lifecycle caller only after it has
+	 * confirmed the old daemon is absent. Publishing files must not alter
+	 * bindings while a failed refresh is keeping the current daemon alive.
+	 */
 	goto cleanup;
 
 failed:
@@ -1447,6 +1488,7 @@ start_dns_dhcpd_locked(int is_ap_mode)
 {
 	int service_enabled = 0;
 	int status;
+	int arp_status;
 	int launch_status;
 	status = dnsmasq_require_absent("before configuration preparation");
 	if (status != 0)
@@ -1458,6 +1500,17 @@ start_dns_dhcpd_locked(int is_ap_mode)
 	status = dnsmasq_require_absent("after configuration preparation");
 	if (status != 0)
 		return status;
+	/* No daemon is active: reconcile stale static entries before applying
+	 * the exact file snapshot prepared above. */
+	arp_status = arpbind_clear();
+	if (arp_status != 0) {
+		logmessage(LOGNAME, "cannot clear stale static ARP bindings before DNSMasq start (errno=%d)",
+			   arp_status);
+		return arp_status;
+	}
+	arp_status = arpbind_apply_current_ethers();
+	if (arp_status != 0)
+		return arp_status;
 	errno = 0;
 	launch_status = eval("/usr/sbin/dnsmasq");
 	status = dnsmasq_confirm_started(launch_status);
@@ -1604,6 +1657,15 @@ restart_dhcpd_locked(void)
 	if (action == DNSMASQ_RESTART_STOP_ONLY)
 		return 0;
 
+	/* stop_dns_dhcpd_locked() has cleared the previous static bindings.
+	 * Restore the exact /etc/ethers snapshot before exposing the new daemon. */
+	status = arpbind_apply_current_ethers();
+	if (status != 0) {
+		logmessage(LOGNAME,
+			   "DNSMasq restart aborted because static ARP restoration failed (errno=%d)",
+			   status);
+		return status;
+	}
 	errno = 0;
 	launch_status = eval("/usr/sbin/dnsmasq");
 	start_status = dnsmasq_confirm_started(launch_status);

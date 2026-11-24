@@ -2,6 +2,7 @@
 #define PADAVAN_DNSMASQ_STATIC_HOST_POLICY_H
 
 #include <stddef.h>
+#include <stdio.h>
 #include <limits.h>
 #include <errno.h>
 #include <stdlib.h>
@@ -59,6 +60,62 @@ dnsmasq_static_arp_mac_is_valid(const char *address)
 		}
 	}
 	return 1;
+}
+
+/*
+ * Parse one generated /etc/ethers record and convert its colon-delimited MAC
+ * into the compact 12-hex-digit form accepted by the firmware arp applet.
+ */
+static inline int
+dnsmasq_static_ethers_record_parse(const char *line,
+                                   char *ip, size_t ip_size,
+                                   char *mac, size_t mac_size)
+{
+	char parsed_mac[18], parsed_ip[16], compact_mac[13], extra;
+	unsigned int first_octet = 0, nonzero = 0;
+	size_t i, out = 0, ip_length, mac_length;
+	int fields;
+
+	if (!line || !ip || !mac)
+		return EINVAL;
+	fields = sscanf(line, "%17s %15s %c",
+			parsed_mac, parsed_ip, &extra);
+	if (fields != 2 ||
+	    !dnsmasq_static_arp_ipv4_is_valid(parsed_ip) ||
+	    !dnsmasq_static_arp_mac_is_valid(parsed_mac))
+		return EIO;
+
+	for (i = 0; i < 17; i++) {
+		unsigned char value = (unsigned char)parsed_mac[i];
+		unsigned int digit;
+
+		if (i % 3 == 2)
+			continue;
+		if (value >= '0' && value <= '9')
+			digit = value - '0';
+		else if (value >= 'a' && value <= 'f')
+			digit = value - 'a' + 10U;
+		else
+			digit = value - 'A' + 10U;
+		if (out < 2)
+			first_octet = (first_octet << 4) | digit;
+		if (digit)
+			nonzero = 1;
+		if (out >= sizeof(compact_mac) - 1)
+			return EIO;
+		compact_mac[out++] = parsed_mac[i];
+	}
+	if (!nonzero || (first_octet & 1U))
+		return EIO;
+	compact_mac[out] = '\0';
+
+	ip_length = strlen(parsed_ip);
+	mac_length = out;
+	if (ip_length + 1 > ip_size || mac_length + 1 > mac_size)
+		return ENOSPC;
+	memcpy(ip, parsed_ip, ip_length + 1);
+	memcpy(mac, compact_mac, mac_length + 1);
+	return 0;
 }
 
 static inline int
