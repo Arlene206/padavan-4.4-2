@@ -2549,7 +2549,7 @@ disk_share_create_folder_staging_paths(
 	                    "%s/%s", staging_dir, folder);
 	if (path_len < 0 || (size_t)path_len >= staging_path_size) {
 		saved_errno = ENAMETOOLONG;
-		(void)rmdir(staging_dir);
+		(void)disk_share_remove_folder_path(staging_dir);
 		errno = saved_errno;
 		return -1;
 	}
@@ -2729,7 +2729,7 @@ int del_folder(const char *const mount_path, const char *const folder)
 				   rollback_error);
 		goto failed;
 	}
-	if (rmdir(staging_dir) == 0 || errno == ENOENT)
+	if (disk_share_remove_folder_path(staging_dir) == 0 || errno == ENOENT)
 		staging_dir_created = 0;
 	else
 		logmessage("disk_share",
@@ -2749,7 +2749,7 @@ int del_folder(const char *const mount_path, const char *const folder)
 failed:
 	saved_errno = errno ? errno : EIO;
 	if (staging_dir_created && !staging_applied) {
-		if (rmdir(staging_dir) != 0 && errno != ENOENT)
+		if (disk_share_remove_folder_path(staging_dir) != 0 && errno != ENOENT)
 			logmessage("disk_share",
 				   "folder deletion staging directory cleanup failed (errno %d)",
 				   errno ? errno : EIO);

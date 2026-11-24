@@ -1197,9 +1197,11 @@ require(add_inventory < add_begin < add_validate < add_lookup < add_mkdir <
 
 require("disk_share_reserve_staging_directory" in POLICY and
         "EEXIST" in POLICY and
-        "mkdir(path, 0700)" in DISK_SOURCE and
-        "rmdir(staging_dir)" in DISK_SOURCE,
-        "folder deletion must reserve a private staging parent atomically and remove it after commit or rollback")
+        "disk_share_mkdir_staging_directory" in DISK_SOURCE and
+        "disk_share_create_directory_entry_nofollow(directory_fd,leaf,0700)" in DISK_SOURCE and
+        "mkdir(path, 0700)" not in DISK_SOURCE and
+        "disk_share_remove_folder_path(staging_dir)" in DISK_SOURCE,
+        "folder deletion must reserve, create and remove its staging parent through pinned directory descriptors")
 
 del_folder = function_body(
     DISK_SOURCE, "int del_folder(const char *const mount_path, const char *const folder)"
@@ -1226,7 +1228,8 @@ require(del_inventory < del_begin < del_validate < del_plan < del_stage <
         "disk_share_reserve_staging_directory" in DISK_SOURCE and
         "disk_share_folder_delete_batch" in POLICY and
         "disk_share_remove_folder_path" in DISK_SOURCE and
-        "mkdir(path, 0700)" in DISK_SOURCE and
+        "disk_share_remove_folder_path(staging_dir)" in DISK_SOURCE and
+        "mkdir(path, 0700)" not in DISK_SOURCE and
         "lstat(staging_path" not in DISK_SOURCE and
         "disk_share_folder_name_is_visible" in "".join(DISK_SOURCE.split()),
         "folder deletion must preflight metadata then use the tested staged-directory/ACL/snapshot compensation state machine")
@@ -1446,7 +1449,7 @@ require("disk_share_permission_batch_prepare_rewrite(" in del_folder_body and
         "disk_share_create_folder_staging_paths(" in del_folder_body and
         "disk_share_remove_folder_path" in DISK_SOURCE and
         "disk_share_refresh_folder_snapshot" in DISK_SOURCE and
-        "rmdir(staging_dir)" in del_folder_body and
+        "disk_share_remove_folder_path(staging_dir)" in del_folder_body and
         "!staging_applied" in del_folder_body,
         "folder deletion must prepare ACL images then delegate staged directory, permission publication and snapshot compensation to the tested transaction helper")
 
