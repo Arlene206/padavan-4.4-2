@@ -3,6 +3,70 @@
 #include <limits.h>
 #include <stdio.h>
 
+typedef struct wireless_apcli_cleanup_test_context {
+	int events[2];
+	int event_count;
+	int down_status;
+	int detach_status;
+} wireless_apcli_cleanup_test_context_t;
+
+static int
+wireless_apcli_test_bring_down(void *opaque)
+{
+	wireless_apcli_cleanup_test_context_t *context =
+		(wireless_apcli_cleanup_test_context_t *)opaque;
+
+	if (context->event_count < 2)
+		context->events[context->event_count++] = 1;
+	return context->down_status;
+}
+
+static int
+wireless_apcli_test_detach(void *opaque)
+{
+	wireless_apcli_cleanup_test_context_t *context =
+		(wireless_apcli_cleanup_test_context_t *)opaque;
+
+	if (context->event_count < 2)
+		context->events[context->event_count++] = 2;
+	return context->detach_status;
+}
+
+static int
+test_apcli_rollback_attempts_both_steps_and_preserves_primary_error(void)
+{
+	static const wireless_apcli_cleanup_ops_t ops = {
+		wireless_apcli_test_bring_down,
+		wireless_apcli_test_detach
+	};
+	wireless_apcli_cleanup_test_context_t context;
+	int down_status = 0, detach_status = 0;
+	int status;
+
+	context.events[0] = context.events[1] = 0;
+	context.event_count = 0;
+	context.down_status = -EBUSY;
+	context.detach_status = -EACCES;
+	status = wireless_apcli_start_cleanup_run(
+		-ENETDOWN, &ops, &context, &down_status, &detach_status);
+	if (status != -ENETDOWN || context.event_count != 2 ||
+	    context.events[0] != 1 || context.events[1] != 2 ||
+	    down_status != -EBUSY || detach_status != -EACCES)
+		return 1;
+
+	context.event_count = 0;
+	context.down_status = -EBUSY;
+	context.detach_status = -EACCES;
+	status = wireless_apcli_start_cleanup_run(
+		0, &ops, &context, &down_status, &detach_status);
+	if (status != -EBUSY || context.event_count != 2 ||
+	    context.events[0] != 1 || context.events[1] != 2)
+		return 1;
+
+	return wireless_apcli_start_cleanup_run(
+		0, NULL, &context, &down_status, &detach_status) != EINVAL;
+}
+
 static int
 test_apcli_wisp_config_fails_closed(void)
 {
@@ -702,7 +766,8 @@ test_radio_nvram_flag_status_fails_closed(void)
 int
 main(void)
 {
-	if (test_apcli_wisp_config_fails_closed() ||
+	if (test_apcli_rollback_attempts_both_steps_and_preserves_primary_error() ||
+	    test_apcli_wisp_config_fails_closed() ||
 	    test_wds_config_defaults_and_checked_count_validation() ||
 	    test_radio_state_transition_reads_state_before_power() ||
 	    test_radio_state_transition_restores_previous_power_after_publish_failure() ||

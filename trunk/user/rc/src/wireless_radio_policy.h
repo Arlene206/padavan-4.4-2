@@ -213,6 +213,36 @@ wireless_radio_shutdown_result(int all_stopped)
  * Preserve an incomplete interface-up result while WDS startup continues
  * attempting the remaining configured interfaces.
  */
+/*
+ * A partially started AP-client must be disabled and detached from LAN even
+ * when the first cleanup step fails. Preserve the original startup failure,
+ * but still attempt the independent bridge cleanup.
+ */
+typedef int (*wireless_apcli_cleanup_step)(void *context);
+
+typedef struct wireless_apcli_cleanup_ops {
+	wireless_apcli_cleanup_step bring_interface_down;
+	wireless_apcli_cleanup_step detach_bridge;
+} wireless_apcli_cleanup_ops_t;
+
+static inline int
+wireless_apcli_start_cleanup_run(int primary_status,
+				 const wireless_apcli_cleanup_ops_t *ops,
+				 void *context, int *interface_status,
+				 int *bridge_status)
+{
+	int status;
+
+	if (!ops || !ops->bring_interface_down || !ops->detach_bridge ||
+	    !interface_status || !bridge_status)
+		return EINVAL;
+
+	*interface_status = ops->bring_interface_down(context);
+	*bridge_status = ops->detach_bridge(context);
+	status = wireless_radio_status_merge(primary_status, *interface_status);
+	return wireless_radio_status_merge(status, *bridge_status);
+}
+
 static inline int
 wireless_radio_startup_status(int all_started, int start_succeeded)
 {

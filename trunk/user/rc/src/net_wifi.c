@@ -331,6 +331,62 @@ wireless_stop_interface(const char *ifname, const char *bridge_ifname)
 	return 1;
 }
 
+typedef struct wireless_apcli_cleanup_context {
+	const char *ifname;
+	int bridge_managed;
+} wireless_apcli_cleanup_context_t;
+
+static int
+wireless_apcli_cleanup_interface_down(void *opaque)
+{
+	wireless_apcli_cleanup_context_t *context =
+		(wireless_apcli_cleanup_context_t *)opaque;
+
+	return wif_control(context->ifname, 0);
+}
+
+static int
+wireless_apcli_cleanup_bridge_detach(void *opaque)
+{
+	wireless_apcli_cleanup_context_t *context =
+		(wireless_apcli_cleanup_context_t *)opaque;
+
+	if (!context->bridge_managed)
+		return 0;
+	return br_add_del_if(IFNAME_BR, context->ifname, 0);
+}
+
+static int
+wireless_apcli_start_fail(const char *ifname, int bridge_managed,
+			  int primary_status)
+{
+	static const wireless_apcli_cleanup_ops_t cleanup_ops = {
+		wireless_apcli_cleanup_interface_down,
+		wireless_apcli_cleanup_bridge_detach
+	};
+	wireless_apcli_cleanup_context_t context;
+	int interface_status = 0, bridge_status = 0;
+	int cleanup_status, saved_errno = errno;
+
+	context.ifname = ifname;
+	context.bridge_managed = bridge_managed;
+	cleanup_status = wireless_apcli_start_cleanup_run(
+		primary_status, &cleanup_ops, &context,
+		&interface_status, &bridge_status);
+	if (interface_status != 0)
+		logmessage(LOGNAME,
+			   "AP-client startup rollback could not bring %s down (status=%d)",
+			   ifname, interface_status);
+	if (bridge_status != 0)
+		logmessage(LOGNAME,
+			   "AP-client startup rollback could not detach %s from %s (status=%d)",
+			   ifname, IFNAME_BR, bridge_status);
+	if (cleanup_status != 0)
+		errno = saved_errno > 0 ? saved_errno :
+			(cleanup_status < 0 ? -cleanup_status : EIO);
+	return cleanup_status;
+}
+
 static void
 wireless_bridge_membership_record(int *all_started, const char *ifname, int is_add)
 {
@@ -1632,6 +1688,7 @@ start_wifi_apcli_wl(int radio_on)
 	const char *ifname_apcli = IFNAME_5G_APCLI;
 	int i_mode_x = 0, mode_status;
 	int ssid_configured = 0, is_wisp = 0, config_status;
+	int sta_auto = 0, sta_auto_status;
 
 	mode_status = wireless_nvram_get_int_status("wl_mode_x", &i_mode_x);
 	if (mode_status != 0) {
@@ -1639,36 +1696,42 @@ start_wifi_apcli_wl(int radio_on)
 		logmessage(LOGNAME,
 			   "5GHz AP-client startup aborted: cannot read mode_x (status=%d)",
 			   mode_status);
-		return -mode_status;
+		return wireless_apcli_start_fail(ifname_apcli, 1, -mode_status);
 	}
 
 	if (radio_on && (i_mode_x == 3 || i_mode_x == 4)) {
 		config_status = wireless_apcli_wisp_settings_status(
 			1, &ssid_configured, &is_wisp);
 		if (config_status != 0) {
-			if (!wif_control_success(ifname_apcli, 0))
-				logmessage(LOGNAME,
-					   "failed to shut down AP-client after configuration read failure");
-			wireless_bridge_membership_record(&all_started, ifname_apcli, 0);
 			errno = config_status;
 			logmessage(LOGNAME,
 				   "5GHz AP-client startup deferred: cannot verify SSID/WISP state (status=%d)",
 				   config_status);
-			return -config_status;
+			return wireless_apcli_start_fail(ifname_apcli, 1, -config_status);
 		}
 	}
 
 	if (radio_on && (i_mode_x == 3 || i_mode_x == 4) && ssid_configured) {
+		sta_auto_status = wireless_nvram_get_int_status("wl_sta_auto", &sta_auto);
+		if (sta_auto_status != 0) {
+			errno = sta_auto_status;
+			logmessage(LOGNAME,
+				   "5GHz AP-client startup deferred: cannot read sta_auto (status=%d)",
+				   sta_auto_status);
+			return wireless_apcli_start_fail(ifname_apcli, 1, -sta_auto_status);
+		}
 		if (!wif_control_success(ifname_apcli, 1))
-			return -EIO;
+			return wireless_apcli_start_fail(ifname_apcli, 1, -EIO);
 		wireless_bridge_membership_record(
 			&all_started, ifname_apcli, !is_wisp || get_ap_mode());
-		if (nvram_wlan_get_int(1, "sta_auto"))
+		if (!all_started)
+			return wireless_apcli_start_fail(ifname_apcli, 1, -EIO);
+		if (sta_auto)
 #if defined (USE_WID_5G) && (USE_WID_5G==7615 || USE_WID_5G==7915)
 		{
 			if (!wireless_radio_status_success(doSystem("iwpriv %s set %s=%d", ifname_apcli, "ApCliAutoConnect", 3))) {
 				logmessage(LOGNAME, "failed to configure APCLI auto-connect on %s", ifname_apcli);
-				return -EIO;
+				return wireless_apcli_start_fail(ifname_apcli, 1, -EIO);
 			}
 			logmessage(LOGNAME, "Set ApCliAutoConnect to 3");
 		}
@@ -1699,46 +1762,61 @@ start_wifi_apcli_rt(int radio_on)
 	const char *ifname_apcli = IFNAME_2G_APCLI;
 	int i_mode_x = 0, mode_status;
 	int ssid_configured = 0, is_wisp = 0, config_status;
+#if !defined(USE_RT3352_MII)
+	int sta_auto = 0, sta_auto_status;
+#endif
+	int bridge_managed;
 
+#if defined(USE_RT3352_MII)
+	bridge_managed = 0;
+#else
+	bridge_managed = 1;
+#endif
 	mode_status = wireless_nvram_get_int_status("rt_mode_x", &i_mode_x);
 	if (mode_status != 0) {
 		errno = mode_status;
 		logmessage(LOGNAME,
 			   "2.4GHz AP-client startup aborted: cannot read mode_x (status=%d)",
 			   mode_status);
-		return -mode_status;
+		return wireless_apcli_start_fail(ifname_apcli, bridge_managed, -mode_status);
 	}
 
 	if (radio_on && (i_mode_x == 3 || i_mode_x == 4)) {
 		config_status = wireless_apcli_wisp_settings_status(
 			0, &ssid_configured, &is_wisp);
 		if (config_status != 0) {
-			if (!wif_control_success(ifname_apcli, 0))
-				logmessage(LOGNAME,
-					   "failed to shut down AP-client after configuration read failure");
-#if !defined(USE_RT3352_MII)
-			wireless_bridge_membership_record(&all_started, ifname_apcli, 0);
-#endif
 			errno = config_status;
 			logmessage(LOGNAME,
 				   "2.4GHz AP-client startup deferred: cannot verify SSID/WISP state (status=%d)",
 				   config_status);
-			return -config_status;
+			return wireless_apcli_start_fail(ifname_apcli, bridge_managed, -config_status);
 		}
 	}
 
 	if (radio_on && (i_mode_x == 3 || i_mode_x == 4) && ssid_configured) {
+#if !defined(USE_RT3352_MII)
+		sta_auto_status = wireless_nvram_get_int_status("rt_sta_auto", &sta_auto);
+		if (sta_auto_status != 0) {
+			errno = sta_auto_status;
+			logmessage(LOGNAME,
+				   "2.4GHz AP-client startup deferred: cannot read sta_auto (status=%d)",
+				   sta_auto_status);
+			return wireless_apcli_start_fail(ifname_apcli, bridge_managed, -sta_auto_status);
+		}
+#endif
 		if (!wif_control_success(ifname_apcli, 1))
-			return -EIO;
+			return wireless_apcli_start_fail(ifname_apcli, bridge_managed, -EIO);
 #if !defined(USE_RT3352_MII)
 		wireless_bridge_membership_record(
 			&all_started, ifname_apcli, !is_wisp || get_ap_mode());
-		if (nvram_wlan_get_int(0, "sta_auto"))
+		if (!all_started)
+			return wireless_apcli_start_fail(ifname_apcli, bridge_managed, -EIO);
+		if (sta_auto)
 #if defined (USE_WID_2G) && (USE_WID_2G==7615 || USE_WID_2G==7915)
 		{
 			if (!wireless_radio_status_success(doSystem("iwpriv %s set %s=%d", ifname_apcli, "ApCliAutoConnect", 3))) {
 				logmessage(LOGNAME, "failed to configure APCLI auto-connect on %s", ifname_apcli);
-				return -EIO;
+				return wireless_apcli_start_fail(ifname_apcli, bridge_managed, -EIO);
 			}
 			logmessage(LOGNAME, "Set ApCliAutoConnect to 3");
 		}

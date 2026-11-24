@@ -348,3 +348,31 @@ assert "test_apcli_wan_recovery_failure_is_reported" in (
     RC / "tests/wireless_radio_policy.c"
 ).read_text()
 print("Guest-LAN bridge, ebtables and PID-1 status propagation contract: PASS")
+
+
+# AP-client startup must not leave a half-enabled interface or stale bridge
+# port when a required configuration/driver operation fails. The STA auto
+# connect flag is also checked; an unreadable setting must not look disabled.
+apcli_cleanup = function_body(wifi, "static int\nwireless_apcli_start_fail(const char *ifname, int bridge_managed,")
+assert "wireless_apcli_start_cleanup_run(" in apcli_cleanup
+assert apcli_cleanup.index("wireless_apcli_start_cleanup_run(") < apcli_cleanup.index(
+    "if (interface_status != 0)"
+) < apcli_cleanup.index("if (bridge_status != 0)")
+for signature, sta_key in (
+    ("start_wifi_apcli_wl(int radio_on)", "wl_sta_auto"),
+    ("start_wifi_apcli_rt(int radio_on)", "rt_sta_auto"),
+):
+    body = function_body(wifi, signature)
+    compact = "".join(body.split())
+    assert f'wireless_nvram_get_int_status("{sta_key}",&sta_auto)' in compact
+    assert "nvram_wlan_get_int(" not in body
+    assert "wireless_apcli_start_fail(ifname_apcli," in body
+    assert "failed to configure APCLI auto-connect" in body
+    assert body.index("wireless_nvram_get_int_status(") < body.index(
+        "wif_control_success(ifname_apcli, 1)"
+    )
+assert "if (!all_started)" in function_body(wifi, "start_wifi_apcli_wl(int radio_on)")
+assert "if (!all_started)" in function_body(wifi, "start_wifi_apcli_rt(int radio_on)")
+assert "test_apcli_rollback_attempts_both_steps_and_preserves_primary_error" in (
+    RC / "tests/wireless_radio_policy.c"
+).read_text()
