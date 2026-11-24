@@ -208,7 +208,8 @@ assert "err = fe_hw_lro_init(dev);" in ptx
 assert "err = fe_rss_4ring_init(dev);" in ptx
 assert "err = fe_rss_2ring_init(dev);" in ptx
 assert "err = fe_pdma_tx_dma_init(dev);" in ptx
-assert "if (err)\n\t\tgoto fail_accel;" in ptx
+ptx_compact = " ".join(ptx.split())
+assert "if (err) goto fail_accel;" in ptx_compact
 ptx_accel_fail = ptx.index("fail_accel:")
 ptx_rx_fail = ptx.index("fail_pdma_rx:", ptx_accel_fail)
 assert ptx.index("fe_hw_lro_deinit(dev);", ptx_accel_fail) < ptx_rx_fail
@@ -218,9 +219,10 @@ assert ptx.index("fe_pdma_rx_dma_deinit(dev);", ptx_rx_fail) > ptx_rx_fail
 
 qtx_prx = function_body(RAETHER_SOURCE, "int ei_init_qtx_prx(")
 assert qtx_prx.index("fe_qdma_rx_dma_init(dev)") < qtx_prx.index("fe_pdma_rx_dma_init(dev)")
-assert "if (err)\n\t\tgoto fail_qdma_rx;" in qtx_prx
-assert "if (err)\n\t\tgoto fail_pdma_rx;" in qtx_prx
-assert "if (err)\n\t\tgoto fail_accel;" in qtx_prx
+qtx_prx_compact = " ".join(qtx_prx.split())
+assert "if (err) goto fail_qdma_rx;" in qtx_prx_compact
+assert "if (err) goto fail_pdma_rx;" in qtx_prx_compact
+assert "if (err) goto fail_accel;" in qtx_prx_compact
 qtx_accel_fail = qtx_prx.index("fail_accel:")
 qtx_pdma_fail = qtx_prx.index("fail_pdma_rx:", qtx_accel_fail)
 qtx_qdma_fail = qtx_prx.index("fail_qdma_rx:", qtx_pdma_fail)
@@ -232,7 +234,8 @@ assert qtx_prx.index("fe_qdma_rx_dma_deinit(dev);", qtx_qdma_fail) < qtx_prx.ind
 
 qtx_qrx = function_body(RAETHER_SOURCE, "int ei_init_qtx_qrx(")
 assert qtx_qrx.index("fe_qdma_rx_dma_init(dev)") < qtx_qrx.index("fe_qdma_tx_dma_init(dev)")
-assert "if (err)\n\t\tgoto fail_qdma_rx;" in qtx_qrx
+qtx_qrx_compact = " ".join(qtx_qrx.split())
+assert "if (err) goto fail_qdma_rx;" in qtx_qrx_compact
 assert qtx_qrx.index("fe_qdma_rx_dma_deinit(dev);") > qtx_qrx.index("fail_qdma_rx:")
 assert qtx_qrx.index("return err;", qtx_qrx.index("fail_qdma_rx:")) > qtx_qrx.index("fe_qdma_rx_dma_deinit(dev);")
 print("RAETH PDMA/QDMA initialization now unwinds previously completed RX stages on later failures: PASS")
