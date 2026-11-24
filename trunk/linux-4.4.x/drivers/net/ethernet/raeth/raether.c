@@ -21,6 +21,7 @@
 #include "ra_switch_mdio_policy.h"
 #include "ra_desc_policy.h"
 #include "raeth_private_ioctl_access_policy.h"
+#include "raeth_cl45_ioctl_status_policy.h"
 #include "raether_hwlro.h"
 #include "ra_ethtool.h"
 
@@ -3034,8 +3035,11 @@ int ei_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 			break;
 		}
 		spin_lock_irq(&ei_local->page_lock);
-		mii_mgr_read_cl45(mii.port_num, mii.dev_addr, mii.reg_addr,
-				  &mii.val_out);
+		ret = raeth_cl45_ioctl_status(
+			mii_mgr_read_cl45(mii.port_num, mii.dev_addr, mii.reg_addr,
+					  &mii.val_out));
+		if (ret != 0)
+			break;
 		spin_unlock_irq(&ei_local->page_lock);
 		if (copy_to_user(ifr->ifr_data, &mii, sizeof(mii))) {
 			spin_lock_irq(&ei_local->page_lock);
@@ -3052,8 +3056,9 @@ int ei_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 			break;
 		}
 		spin_lock_irq(&ei_local->page_lock);
-		mii_mgr_write_cl45(mii.port_num, mii.dev_addr, mii.reg_addr,
-				   mii.val_in);
+		ret = raeth_cl45_ioctl_status(
+			mii_mgr_write_cl45(mii.port_num, mii.dev_addr, mii.reg_addr,
+					   mii.val_in));
 		break;
 	case RAETH_ESW_REG_READ:
 		spin_unlock_irq(&ei_local->page_lock);

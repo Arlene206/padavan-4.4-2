@@ -15,6 +15,8 @@ on:
       - "trunk/user/utils/src/switch/tests/mii_mgr_cli.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_private_ioctl_access_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_cl45_ioctl_status_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_cl45_ioctl_status_policy.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_private_ioctl_access_policy.c"
       - "trunk/linux-4.4.x/net/core/dev_ioctl.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether_pdma.c"
@@ -74,6 +76,8 @@ on:
       - "trunk/user/utils/src/switch/tests/mii_mgr_cli.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_private_ioctl_access_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_cl45_ioctl_status_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_cl45_ioctl_status_policy.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_private_ioctl_access_policy.c"
       - "trunk/linux-4.4.x/net/core/dev_ioctl.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether_pdma.c"
@@ -768,6 +772,12 @@ jobs:
             -o /tmp/raeth-private-ioctl-access
           ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 \
             /tmp/raeth-private-ioctl-access
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I "$RAETH_DIR" \
+            "$RAETH_DIR/tests/raeth_cl45_ioctl_status_policy.c" \
+            -o /tmp/raeth-cl45-ioctl-status
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 \
+            /tmp/raeth-cl45-ioctl-status
           python3 - <<'PY'
           from pathlib import Path
 
@@ -775,6 +785,8 @@ jobs:
           driver = (raeth / "raether.c").read_text()
           policy = (raeth / "raeth_private_ioctl_access_policy.h").read_text()
           test = (raeth / "tests/raeth_private_ioctl_access_policy.c").read_text()
+          cl45_policy = (raeth / "raeth_cl45_ioctl_status_policy.h").read_text()
+          cl45_test = (raeth / "tests/raeth_cl45_ioctl_status_policy.c").read_text()
           uapi = (raeth / "ra_ioctl.h").read_text()
           net_core = Path("trunk/linux-4.4.x/net/core/dev_ioctl.c").read_text()
           switch_workflow = Path(".github/workflows/switch-cli-stability.yml").read_text()
@@ -799,6 +811,8 @@ jobs:
           assert '#include "raeth_private_ioctl_access_policy.h"' in driver
           assert "has_cap_net_admin == 1 ? 0 : -EPERM" in policy
           assert "raeth_private_ioctl_access_status(0) == -EPERM" in test
+          assert "mdio_status == 1U ? 0 : -EIO" in cl45_policy
+          assert "raeth_cl45_ioctl_status(0U) == -EIO" in cl45_test
           assert "#define RAETH_SW_IOCTL          0x89F0" in uapi
 
           for signature, boundary in (
@@ -821,6 +835,19 @@ jobs:
               assert authorization < deny < denied_return < first_operation
           assert ".ndo_do_ioctl = virtualif_ioctl" in driver
           assert ".ndo_do_ioctl = ei_ioctl" in driver
+          ioctl_handler = function_body(
+              driver, "int ei_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)"
+          )
+          cl45_read = ioctl_handler.index("raeth_cl45_ioctl_status(")
+          cl45_read_failure = ioctl_handler.index("if (ret != 0)", cl45_read)
+          cl45_read_break = ioctl_handler.index("break;", cl45_read_failure)
+          cl45_copyout = ioctl_handler.index("copy_to_user(ifr->ifr_data, &mii", cl45_read)
+          cl45_write = ioctl_handler.index("mii_mgr_write_cl45(", cl45_read_break)
+          cl45_write_status = ioctl_handler.rfind("raeth_cl45_ioctl_status(", 0, cl45_write)
+          assert cl45_read < cl45_read_failure < cl45_read_break < cl45_copyout
+          assert cl45_write_status >= 0 and cl45_write_status < cl45_write
+          assert "mii_mgr_read_cl45(mii.port_num" in ioctl_handler
+          assert "mii_mgr_write_cl45(mii.port_num" in ioctl_handler
 
           generic = function_body(
               net_core, "int dev_ioctl(struct net *net, unsigned int cmd, void __user *arg)"
