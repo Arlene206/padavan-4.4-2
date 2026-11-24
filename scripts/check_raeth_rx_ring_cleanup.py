@@ -403,3 +403,15 @@ assert reset_stop < queue_stop < radio_stop < hardware_reset
 assert phy_stop < queue_stop < radio_stop < hardware_reset
 assert hardware_reset < interrupt_disable < dma_release
 print("RAETH close stops asynchronous workers and TX before resetting hardware: PASS")
+
+switch_init = function_body(SWITCH_SOURCE, "int fe_sw_init(")
+clock_enable = switch_init.index("status = clk_prepare_enable(ei_local->clks[MTK_CLK_GP0]);")
+clock_check = switch_init.index("if (status)", clock_enable)
+clock_failure = switch_init.index("goto mdio_error;", clock_check)
+clocked_switch_access = switch_init.index(
+    "sys_reg_write(ETHDMASYS_ETH_MAC_BASE + 0xC, 0x1)", clock_enable
+)
+assert clock_enable < clock_check < clock_failure < clocked_switch_access
+assert switch_init.count("clk_prepare_enable(ei_local->clks[MTK_CLK_GP0]);") == 1
+assert switch_init.count("clk_disable_unprepare(ei_local->clks[MTK_CLK_GP0]);") == 4
+print("MT7621 switch setup aborts before MMIO when GP0 clock enable fails: PASS")

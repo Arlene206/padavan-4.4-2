@@ -6284,7 +6284,9 @@ int fe_sw_init(void)
 	}
 
 	if (ei_local->chip_name == MT7621_FE) {
-		clk_prepare_enable(ei_local->clks[MTK_CLK_GP0]);
+		status = clk_prepare_enable(ei_local->clks[MTK_CLK_GP0]);
+		if (status)
+			goto mdio_error;
 
 		/* switch to esw */
 		sys_reg_write(ETHDMASYS_ETH_MAC_BASE + 0xC, 0x1);
