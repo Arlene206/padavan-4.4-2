@@ -523,9 +523,13 @@ jobs:
               "raeth_qdma_queue_mapping_decode(data->off, &map_index, &map_separate)"
           )
           reject = queue.index("if (ret != 0)")
-          separate = queue.index("lan_wan_separate = map_separate;")
-          publish = queue.index("M2Q_table[map_index] = data->val;")
-          assert decode < reject < separate < publish
+          value_check = queue.index("raeth_qdma_queue_id_status(data->val)", reject)
+          value_reject = queue.index("if (ret != 0)", value_check)
+          separate = queue.index("lan_wan_separate = map_separate;", value_reject)
+          publish = queue.index("M2Q_table[map_index] = data->val;", separate)
+          assert decode < reject < value_check < value_reject < separate < publish
+          assert "RAETH_QDMA_QUEUE_ID_MAX 63U" in policy
+          assert "test_queue_ids_fit_the_six_bit_descriptor_field" in test
           assert "data->off &= 0xff;" not in queue
           assert "0x100U" in policy and "TABLE_SIZE - 1U" in policy
           for marker in (

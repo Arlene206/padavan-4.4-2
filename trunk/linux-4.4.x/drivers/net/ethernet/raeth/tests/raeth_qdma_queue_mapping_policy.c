@@ -59,6 +59,19 @@ test_reserved_bits_are_rejected_without_output_changes(void)
 }
 
 static int
+test_queue_ids_fit_the_six_bit_descriptor_field(void)
+{
+	CHECK(raeth_qdma_queue_id_status(0U) == 0);
+	CHECK(raeth_qdma_queue_id_status(1U) == 0);
+	CHECK(raeth_qdma_queue_id_status(31U) == 0);
+	CHECK(raeth_qdma_queue_id_status(32U) == 0);
+	CHECK(raeth_qdma_queue_id_status(63U) == 0);
+	CHECK(raeth_qdma_queue_id_status(64U) == -EINVAL);
+	CHECK(raeth_qdma_queue_id_status(0xffffffffU) == -EINVAL);
+	return 0;
+}
+
+static int
 test_null_outputs_are_rejected(void)
 {
 	unsigned int index = 0U, separate = 0U;
@@ -73,6 +86,7 @@ main(void)
 {
 	CHECK(test_valid_selectors() == 0);
 	CHECK(test_reserved_bits_are_rejected_without_output_changes() == 0);
+	CHECK(test_queue_ids_fit_the_six_bit_descriptor_field() == 0);
 	CHECK(test_null_outputs_are_rejected() == 0);
 	puts("RAETH QDMA queue-mapping selector bounds: PASS");
 	return 0;

@@ -11,6 +11,13 @@
 #define RAETH_QDMA_QUEUE_MAPPING_INDEX_MASK \
 	(RAETH_QDMA_QUEUE_MAPPING_TABLE_SIZE - 1U)
 #define RAETH_QDMA_QUEUE_MAPPING_SEPARATE_MASK 0x100U
+#define RAETH_QDMA_QUEUE_ID_MAX 63U
+
+static inline int
+raeth_qdma_queue_id_status(unsigned int queue_id)
+{
+	return queue_id <= RAETH_QDMA_QUEUE_ID_MAX ? 0 : -EINVAL;
+}
 
 /*
  * The selector carries a six-bit skb mark and, optionally, bit 8 to enable

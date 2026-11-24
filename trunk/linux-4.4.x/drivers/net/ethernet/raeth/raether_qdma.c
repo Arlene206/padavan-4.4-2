@@ -1501,6 +1501,9 @@ int ei_qdma_ioctl(struct net_device *dev, struct ifreq *ifr,
 						     &map_separate);
 		if (ret != 0)
 			break;
+		ret = raeth_qdma_queue_id_status(data->val);
+		if (ret != 0)
+			break;
 		lan_wan_separate = map_separate;
 		M2Q_table[map_index] = data->val;
 		break;
