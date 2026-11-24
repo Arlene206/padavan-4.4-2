@@ -1,3 +1,11 @@
+## 2026-11-25 — Restore required AI handoff section contract
+
+- Exact parent SHA `6d4b0537316390ca00a388a015edb828456cc213`: VSFTPD #45444917834 and Process inventory #45444917951 PASS; NVRAM #45444916236 and XY-C1 #45444916327 IN_PROGRESS. AI docs #45444916200 failed because the handoff had renamed the required `## Active task` section to `## Active source tasks`.
+- THIS commit restores the required heading while retaining both active FTP work items and updates exact-head validation/next-action notes. No product source changed.
+- XY-C1 Build/TRX/artifact remain pending on the parent source SHA; no L3 claim.
+
+---
+
 ## 2026-11-25 — Reject FTP account path separators in ACL metadata lookup
 
 - The post-login ACL reader `get_permission_ftp()` built `mount_path/.__<username>_var.txt` from the authenticated FTP username without rejecting `/`; this username originates in the FTP `USER` command and Padavan's custom NVRAM account lookup does not itself validate path characters. The old 256-byte `snprintf` result was also unchecked, so a long mount/user string could silently select a truncated filename.

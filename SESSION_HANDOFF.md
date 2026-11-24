@@ -1,12 +1,12 @@
 ## Current repository state
 
-- Live `main` parent for this task: `0fa6f300b6bfa8353dd5a756a41c099b6afa9d73` (`fix(vsftpd): reconcile firewall after standalone FTP stop`). Re-fetch the branch before every write; concurrent ChatGPT sessions can advance it.
+- Live `main` at the parent of this handoff checkpoint: `6d4b0537316390ca00a388a015edb828456cc213` (`fix(vsftpd): bound ACL metadata account paths`). Re-fetch the branch before every write; concurrent ChatGPT sessions can advance it.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; never modify. Legacy PR #1 remains closed/unmerged.
 - Main-only, one atomic main commit per logical task: create every blob and one complete Git tree, then one commit, then non-forced expected-SHA ref update. Never force-push or create side branches/PRs.
 - Roadmap remains below its 128 KiB handoff limit; this task adds one bounded P1 item without exceeding the validator ceiling.
 - Clause 22 indirect register compatibility is preserved in `18d90355fb56b33100c05439df30ecc3e61ef85f`; Switch CLI #45441278142 PASS. HTTPD firewall status-call contract correction `377f5a6670caefe0da2e46b8fd8b97977ca8543c` passed exact-head HTTPD #45442773609 and AI #45442773576.
 
-## Active source tasks
+## Active task
 
 ### FTP stop/restart firewall reconciliation
 
@@ -16,21 +16,23 @@
 
 ### FTP ACL metadata path boundary
 
-- THIS task adds `ftp_acl_path_build_account_permission_path()` to validate an absolute mount path, reject `/` inside the authenticated FTP username, and fail on `snprintf` truncation. `get_permission_ftp()` now denies access on invalid path construction instead of opening a potentially different ACL file.
-- Regression test covers valid username, slash traversal, relative mount path and insufficient output size. The VSFTPD workflow checks source integration and builds the existing GNU89 ACL policy test. Exact-head VSFTPD/XY checks for this new SHA must be polled.
+- Source `6d4b0537316390ca00a388a015edb828456cc213` adds `ftp_acl_path_build_account_permission_path()` to validate an absolute mount path, reject `/` inside the authenticated FTP username, and fail on `snprintf` truncation. `get_permission_ftp()` now denies access on invalid path construction instead of opening a potentially different ACL file.
+- Regression test covers valid username, slash traversal, relative mount path and insufficient output size. Exact-head VSFTPD #45444917834 and Process #45444917951 PASS; exact XY-C1 #45444916327 is still running with Build/TRX/artifact pending; NVRAM #45444916236 still running. AI #45444916200 failed only because this handoff used `## Active source tasks` instead of required `## Active task`; this checkpoint corrects the section heading.
 
 ## Verification boundary
 
-- Descriptor-pinned CWD ACL source `5e955b3bb2015e8db61a7e4c23eb44d29f873f8e`: VSFTPD #45442617633 PASS; Process #45442617629 PASS; NVRAM #45442617336 PASS. XY-C1 #45442617613 remained IN_PROGRESS at the last poll; no L3 claim.
-- FTP firewall stop/restart combined source `0fa6f300b6bfa8353dd5a756a41c099b6afa9d73`: above exact-head host tests pass; XY-C1 #45443260501 pending. L3 NOT YET VERIFIED. Physical-device L4 remains NOT VERIFIED.
-- Hardware-related MDIO/RAETH work still requires exact target validation; host policy tests do not establish hardware L4.
+- Exact current source SHA `6d4b0537316390ca00a388a015edb828456cc213`: VSFTPD configuration/publication #45444917834 PASS; Process lifecycle inventory #45444917951 PASS; AI handoff #45444916200 FAILS solely on the missing required heading `## Active task`, corrected in THIS checkpoint; XY-C1 #45444916327 is IN_PROGRESS with the firmware job active and Build/TRX/artifact not yet complete; NVRAM #45444916236 is IN_PROGRESS.
+- FTP stop/restart combined source `0fa6f300b6bfa8353dd5a756a41c099b6afa9d73`: VSFTPD #45443260653, USB Storage Hotplug #45443260461, NVRAM #45443260389, Process Inventory #45443259419, HTTPD #45443259557, AI #45443260460, Firewall Startup #45443260423, Process lifecycle #45443260352, storage enable #45443260652, IPv6 #45443260668, NFS #45443260561, Samba #45443259573, MiniDLNA #45443260586, libdisk #45443260558 and Firefly #45443259386 PASS. XY-C1 #45443260501 remained IN_PROGRESS at last poll.
+- Descriptor-pinned CWD ACL source `5e955b3bb2015e8db61a7e4c23eb44d29f873f8e`: VSFTPD #45442617633, Process #45442617629 and NVRAM #45442617336 PASS. Its XY #45442617613 remained IN_PROGRESS at the last observed poll; no L3 claim.
+- Earlier restart-only source `7ff02de99fc676e0262b7c5770356b1e31bda758`: VSFTPD #45441167767, USB storage #45441189222, Process #45441167968, Firewall #45441167707 and NVRAM #45441167946 PASS. Its XY #45441167736 did not finish in the last observed poll.
+- L3 is NOT VERIFIED for the current source SHA until exact same-SHA XY-C1 Build, TRX verification and artifact upload all PASS. Physical-router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Check the exact-head VSFTPD and AI handoff Actions triggered by THIS FTP ACL path commit; inspect logs if either fails, without weakening existing ACL/CWD coverage.
-2. Inspect its XY-C1 Build, TRX and artifact steps separately. Continue another independent P1 source fix while the firmware job is pending.
-3. Re-poll XY-C1 #45443260501 for the preceding combined FTP stop/restart source; keep evidence tied to exact SHA.
-4. Continue the next high-priority unclosed reliability/security defect outside completed FTP CWD, stop/restart and firewall work.
+1. Inspect exact-head AI handoff rerun caused by THIS checkpoint; it must pass the `## Active task` section contract. Check whether NVRAM #45444916236 and XY-C1 #45444916327 have completed; for XY inspect Build, TRX and artifact steps individually.
+2. Audit the new FTP ACL account-path helper for remaining file-object identity/symlink risks in `read_file_to_buffer()` and its writers before claiming the path fix fully closes hostile metadata substitution.
+3. If that audit finds a concrete issue, implement one narrowly scoped fail-closed source/test slice and update the path/source contract. Otherwise continue the next open P1 reliability item from the roadmap.
+4. Recheck the pending XY-C1 runs #45443260501 (source `0fa6f3`) and #45442617613 (source `5e955b3`); keep evidence scoped to each SHA.
 
 ## Mandatory handoff checkpoint
 
