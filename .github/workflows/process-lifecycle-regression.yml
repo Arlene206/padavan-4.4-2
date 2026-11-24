@@ -64,6 +64,8 @@ on:
       - "trunk/user/rc/src/common_ex.c"
       - "trunk/user/rc/src/rc_user_config_copy_policy.h"
       - "trunk/user/rc/src/dnsmasq_safe_read.h"
+      - "trunk/user/rc/src/dnsmasq_file.h"
+      - "trunk/user/rc/src/tests/dnsmasq_file.c"
       - "trunk/user/rc/src/ralink.c"
       - "trunk/user/rc/src/tests/rc_user_config_copy_policy.c"
       - "trunk/user/rc/src/pagecache_reclaim_policy.h"
@@ -332,6 +334,8 @@ on:
       - "trunk/user/rc/src/common_ex.c"
       - "trunk/user/rc/src/rc_user_config_copy_policy.h"
       - "trunk/user/rc/src/dnsmasq_safe_read.h"
+      - "trunk/user/rc/src/dnsmasq_file.h"
+      - "trunk/user/rc/src/tests/dnsmasq_file.c"
       - "trunk/user/rc/src/ralink.c"
       - "trunk/user/rc/src/tests/rc_user_config_copy_policy.c"
       - "trunk/user/rc/src/pagecache_reclaim_policy.h"
@@ -2133,6 +2137,13 @@ jobs:
           assert "fclose(fp_user)" in loader
           assert "dnsmasq_file_open_safe_read(real_path)" in loader
           assert 'fopen(real_path, "r")' not in loader
+          dnsmasq_file_policy = Path("trunk/user/rc/src/dnsmasq_file.h").read_text()
+          equal_start = dnsmasq_file_policy.rindex("dnsmasq_file_contents_equal(")
+          equal_body = function_body(dnsmasq_file_policy[equal_start:], "dnsmasq_file_contents_equal(")
+          assert "dnsmasq_file_open_safe_read(path)" in equal_body
+          assert "dnsmasq_file_open_safe_read(staged_path)" in equal_body
+          assert 'fopen(path, "r")' not in equal_body
+          assert 'fopen(staged_path, "r")' not in equal_body
           safe_read_policy = Path("trunk/user/rc/src/dnsmasq_safe_read.h").read_text()
           assert "open(path, O_RDONLY | O_NOFOLLOW | O_NONBLOCK, 0)" in safe_read_policy
           assert "fstat(fd, &st)" in safe_read_policy

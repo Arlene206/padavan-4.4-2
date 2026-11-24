@@ -431,14 +431,11 @@ dnsmasq_file_contents_equal(const char *path, const char *staged_path)
 	int current_char, staged_char;
 	int equal = 1;
 
-	if (dnsmasq_file_is_safe_regular(path) != 0 ||
-	    dnsmasq_file_is_safe_regular(staged_path) != 0)
-		return 0;
-
-	current = fopen(path, "r");
+	/* Validate the descriptors actually read, not pathnames checked earlier. */
+	current = dnsmasq_file_open_safe_read(path);
 	if (!current)
 		return 0;
-	staged = fopen(staged_path, "r");
+	staged = dnsmasq_file_open_safe_read(staged_path);
 	if (!staged) {
 		fclose(current);
 		return 0;
