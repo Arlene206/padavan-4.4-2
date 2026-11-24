@@ -1,3 +1,9 @@
+## 2026-11-24 — Correct SmartDNS fixture extraction checker
+
+- The runtime DNSMasq fixture now passes with its renamed Adbyby-only helper, but the source checker retained one additional assertion for the former function name. Updated the expected two extraction sites so the contract reflects the verified runtime setup.
+
+---
+
 ## 2026-11-24 — Update SmartDNS Adbyby ownership source contract
 
 - The DNSMasq contract checker still required the old shared SmartDNS process-state helper name after the production code split it into a dedicated executable-identity inventory and an Adbyby-only read-only name probe. Updated the stale source assertion to match the new call site; the runtime regression itself passed on the prior exact SHA.
