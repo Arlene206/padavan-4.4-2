@@ -355,6 +355,9 @@ u32 mii_mgr_write_cl45(u32 port_num, u32 dev_addr, u32 reg_addr, u32 write_data)
 	struct END_DEVICE *ei_local;
 	unsigned long flags;
 
+	/* The Clause 45 data phase accepts only a 16-bit payload. */
+	if (raeth_mdio_cl45_write_data_status(write_data) != 0)
+		return rc;
 	if (!dev_raether)
 		return 0;
 	ei_local = netdev_priv(dev_raether);

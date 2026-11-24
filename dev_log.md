@@ -1,3 +1,12 @@
+## 2026-11-25 00:26 CST (UTC+8) — Bound Clause 45 MDIO write payload to 16 bits
+
+- Confirmed `mii_mgr_write_cl45()` ORed a full-width `u32 write_data` directly into the MDIO command register although Clause 45 payload data is only 16 bits. Added a fail-closed policy check before lock acquisition and any MMIO/MDIO access.
+- Added GNU89 policy regression for 0, 0xffff, 0x10000 and 0xffffffff; extended Switch CLI source contract to require rejection before `spin_lock_irqsave` and before command writes.
+- At parent `bc17758dcb25dc349c9304a6d3f671600fc7f5c7`, Switch CLI #45437706525 PASS on checker correction SHA `472064b`; AI docs #45437414952 PASS on `a650ed8`; NVRAM #45437414867 and XY-C1 #45437415030 on `a650ed8` remained running. XY-C1 #45436853853 on `65c6051` completed SUCCESS with Build/TRX/artifact SKIPPED (checker-only).
+- Earlier a08 XY-C1 fail due missing MDIO address policy header was fixed in a650. Exact-head validation of the current source is pending.
+
+---
+
 ## 2026-11-25 00:22 CST (UTC+8) — Fix Clause 45 policy declaration in the production MDIO path
 
 - XY-C1 #45436447371 on `a08b86e` failed during kernel compile: `mii_mgr.c:256` called `raeth_mdio_cl45_address_status()` without including its declaring header, and `-Werror=implicit-function-declaration` stopped the build. TRX/artifact were skipped.

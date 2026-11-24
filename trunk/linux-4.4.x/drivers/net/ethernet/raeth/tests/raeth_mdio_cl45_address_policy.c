@@ -10,6 +10,16 @@
 } while (0)
 
 static int
+test_write_data_is_limited_to_sixteen_bits(void)
+{
+	CHECK(raeth_mdio_cl45_write_data_status(0U) == 0);
+	CHECK(raeth_mdio_cl45_write_data_status(0xffffU) == 0);
+	CHECK(raeth_mdio_cl45_write_data_status(0x10000U) == -EINVAL);
+	CHECK(raeth_mdio_cl45_write_data_status(0xffffffffU) == -EINVAL);
+	return 0;
+}
+
+static int
 test_valid_clause45_addresses(void)
 {
 	CHECK(raeth_mdio_cl45_address_status(0U, 0U, 0U) == 0);
@@ -40,8 +50,9 @@ int
 main(void)
 {
 	CHECK(test_valid_clause45_addresses() == 0);
+	CHECK(test_write_data_is_limited_to_sixteen_bits() == 0);
 	CHECK(test_port_and_device_widths_are_enforced() == 0);
 	CHECK(test_register_address_is_limited_to_sixteen_bits() == 0);
-	puts("RAETH Clause 45 ioctl address bounds: PASS");
+	puts("RAETH Clause 45 address and write-data bounds: PASS");
 	return 0;
 }

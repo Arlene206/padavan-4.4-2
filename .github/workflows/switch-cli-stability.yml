@@ -399,6 +399,16 @@ jobs:
           setup = manager.split("u32 mii_mgr_cl45_set_address(", 1)[1].split(
               "u32 mii_mgr_read_cl45(", 1
           )[0]
+          write = manager.split("u32 mii_mgr_write_cl45(", 1)[1]
+          data_guard = write.index(
+              "if (raeth_mdio_cl45_write_data_status(write_data) != 0)"
+          )
+          data_reject = write.index("return rc;", data_guard)
+          data_lock = write.index("spin_lock_irqsave(&ei_local->mdio_lock, flags);")
+          data_command = write.index("sys_reg_write(MDIO_PHY_CONTROL_0", data_lock)
+          assert data_guard < data_reject < data_lock < data_command
+          assert policy.count("raeth_mdio_cl45_write_data_status(") == 1
+          assert test.count("raeth_mdio_cl45_write_data_status(") >= 5
           guard = setup.index(
               "if (raeth_mdio_cl45_address_status(port_num, dev_addr, reg_addr) != 0)"
           )
@@ -407,7 +417,7 @@ jobs:
           command_write = setup.index("sys_reg_write(MDIO_PHY_CONTROL_0", enable)
           assert guard < reject < enable < command_write
           assert setup.count("raeth_mdio_cl45_address_status(") == 1
-          print("Clause 45 user and shared MDIO entry points validate addresses before transactions: PASS")
+          print("Clause 45 user/shared MDIO address and write-data bounds: PASS")
           PY
 
       - name: Compile and verify RAETH ESW raw register offset alignment
