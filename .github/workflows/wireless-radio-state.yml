@@ -130,6 +130,8 @@ jobs:
               assert body.index("if (mode_status != 0)") < body.index("if (radio_on")
               if signature.startswith("start_wifi_wds_"):
                   assert "wireless_radio_status_merge(-mode_status," in body
+              elif signature.startswith("start_wifi_apcli_"):
+                  assert "wireless_apcli_start_fail(ifname_apcli," in body
               else:
                   assert "return -mode_status;" in body
           start_wds_wl = function_body(source, "start_wifi_wds_wl(int radio_on)")
@@ -542,7 +544,11 @@ jobs:
               body = function_body(source, name + "(int radio_on)")
               for gate, effects in gates:
                   gate_pos = body.index(gate)
-                  failure_return = body.index("return -EIO;", gate_pos)
+                  failure_marker = (
+                      "return wireless_apcli_start_fail(ifname_apcli,"
+                      if name.startswith("start_wifi_apcli") else "return -EIO;"
+                  )
+                  failure_return = body.index(failure_marker, gate_pos)
                   for effect in effects:
                       effect_pos = body.index(effect, gate_pos)
                       assert gate_pos < failure_return < effect_pos, (
@@ -585,8 +591,12 @@ jobs:
                       checked = "wireless_radio_status_success(" + command + ")"
                       assert checked in body, f"{name}: AutoConnect command status is discarded"
                       checked_pos = body.index(checked)
-                      assert checked_pos < body.index("return -EIO;", checked_pos), (
-                          f"{name}: AutoConnect failure must be returned to the restart"
+                      failure_marker = (
+                          "return wireless_apcli_start_fail(ifname_apcli,"
+                          if name.startswith("start_wifi_apcli") else "return -EIO;"
+                      )
+                      assert checked_pos < body.index(failure_marker, checked_pos), (
+                          f"{name}: AutoConnect failure must trigger rollback and reach the restart"
                       )
 
           for name, ifnames in (
