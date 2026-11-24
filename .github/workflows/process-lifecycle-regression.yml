@@ -2004,7 +2004,8 @@ jobs:
           assert "unlink(path)" in credential_policy
           lanauth_io_policy = Path("trunk/user/lanauth/src/lanauth_socket_io_policy.h").read_text()
           lanauth_main = function_body(lanauth_source, "int main(int argc, char **argv)")
-          lanauth_tmread = function_body(lanauth_source, "static int tmread(char *buf, int size, int timeout)")
+          lanauth_tmread_start = lanauth_source.rindex("static int tmread(char *buf, int size, int timeout)")
+          lanauth_tmread = function_body(lanauth_source[lanauth_tmread_start:], "static int tmread(char *buf, int size, int timeout)")
           assert "lanauth_read_exact_with_ops(" in lanauth_tmread
           assert "return size;" in lanauth_tmread
           assert "lanauth_write_all_with_ops(" in lanauth_main

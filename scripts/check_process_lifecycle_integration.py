@@ -1690,7 +1690,8 @@ for case in ("test_group_is_applied_before_user_and_option_order_is_irrelevant",
 lanauth_io_policy = (root / "trunk/user/lanauth/src/lanauth_socket_io_policy.h").read_text()
 lanauth_io_test = (root / "trunk/user/lanauth/src/tests/lanauth_socket_io_policy.c").read_text()
 lanauth_main = c_function_body(lanauth_source, "int main(int argc, char **argv)")
-lanauth_tmread = c_function_body(lanauth_source, "static int tmread(char *buf, int size, int timeout)")
+lanauth_tmread_start = lanauth_source.rindex("static int tmread(char *buf, int size, int timeout)")
+lanauth_tmread = c_function_body(lanauth_source[lanauth_tmread_start:], "static int tmread(char *buf, int size, int timeout)")
 assert "lanauth_read_exact_with_ops(" in lanauth_tmread
 assert "return size;" in lanauth_tmread
 assert "lanauth_write_all_with_ops(" in lanauth_main
@@ -1705,8 +1706,10 @@ assert "test_partial_write_failure_requires_reconnect" in lanauth_io_test
 assert "signal(SIGPIPE, SIG_IGN)" in lanauth_source
 lanauth_signal_policy = (root / "trunk/user/lanauth/src/lanauth_signal_level_policy.h").read_text()
 lanauth_signal_test = (root / "trunk/user/lanauth/src/tests/lanauth_signal_level_policy.c").read_text()
-lanauth_auth1 = c_function_body(lanauth_source, "static void auth1()")
-lanauth_auth2 = c_function_body(lanauth_source, "static void auth2()")
+lanauth_auth1_start = lanauth_source.rindex("static void auth1()")
+lanauth_auth1 = c_function_body(lanauth_source[lanauth_auth1_start:], "static void auth1()")
+lanauth_auth2_start = lanauth_source.rindex("static void auth2()")
+lanauth_auth2 = c_function_body(lanauth_source[lanauth_auth2_start:], "static void auth2()")
 assert "static volatile sig_atomic_t level = 2;" in lanauth_source
 assert "lanauth_auth1_level_character(level)" in lanauth_auth1
 assert "lanauth_auth2_level_byte(level)" in lanauth_auth2
