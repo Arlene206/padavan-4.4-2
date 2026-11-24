@@ -252,13 +252,22 @@ for marker in ('frp_match_proc_dir="$FRP_PROC_ROOT/$frp_match_pid"',
                'frp_match_exe_path="$frp_match_proc_dir/exe"',
                'readlink "$frp_match_exe_path"',
                '[ "$frp_match_exe" = "$frp_match_executable" ]',
-               'frp_match_cmdline="$frp_match_proc_dir/cmdline"', "tr -cd", "frp_match_nul_count", "wc -c",
-               '[ "$1" -eq 3 ]', "tr '\\000' '\\n'",
+               'frp_match_cmdline="$frp_match_proc_dir/cmdline"',
+               "frp_match_sentinel=$(printf", "frp_match_cmdline_frame=$(",
+               "LC_ALL=C tr '\\000' '\\n'", 'printf \'%s\' "$frp_match_sentinel"',
+               'frp_match_cmdline_text=${frp_match_cmdline_frame%', "frp_match_newline=",
                'sub(/^.*\\//, "", executable)', 'executable != expected',
                '$0 != "-c"', '$0 != config', "NR == 3", "return 2"):
     require(marker in process_match, f"FRP process identity check omits {marker}")
-require(process_match.index("frp_match_nul_count") < process_match.index("frp_match_cmdline_text="),
-        "FRP process matcher must count NUL-delimited argv before command substitution strips trailing empty arguments")
+require("tr -cd" not in process_match and "wc -c" not in process_match and
+        process_match.index("LC_ALL=C tr") <
+        process_match.index('printf \'%s\' "$frp_match_sentinel"') <
+        process_match.index("frp_match_cmdline_text="),
+        "FRP cmdline conversion must propagate tr errors without a status-losing pipeline")
+require("TR_FAIL=1" in stop_test and 'return 74' in stop_test and
+        'if frp_close; then fail "stop accepted a failed cmdline transformation"; fi' in stop_test and
+        'failed cmdline transformation allowed a process signal' in stop_test,
+        "FRP stop regression must prove procfs transformation failures block all signals")
 service_pids = function_body(source, "frp_service_pids()")
 service_running = function_body(source, "frp_service_running()")
 any_running = function_body(source, "frp_any_running()")

@@ -38,6 +38,16 @@ SLEEP_CALLS=0
 KILLALL_CALLS=0
 TERM_MAKES_CMDLINE_UNKNOWN=0
 SLEEP_FAIL=0
+TR_FAIL=0
+
+# Simulate an I/O failure in the procfs transformation utility.
+tr()
+{
+	if [ "$TR_FAIL" = "1" ]; then
+		return 74
+	fi
+	command tr "$@"
+}
 
 add_process()
 {
@@ -98,6 +108,7 @@ setup_crontab()
 	SLEEP_CALLS=0
 	TERM_MAKES_CMDLINE_UNKNOWN=0
 	SLEEP_FAIL=0
+	TR_FAIL=0
 }
 clear_processes()
 {
@@ -215,6 +226,19 @@ if frp_service_running frpc; then fail "missing cmdline was reported RUNNING"; e
 [ "$status" -eq 2 ] || fail "matching executable with missing cmdline was not UNKNOWN"
 if frp_close; then fail "stop accepted missing process metadata"; fi
 [ ! -s "$SIGNAL_LOG" ] || fail "stop signalled with incomplete process identity"
+
+# A tr read/transform error must be UNKNOWN, not a successful ABSENT scan.
+setup_crontab
+clear_processes
+add_process 101 frpc /tmp/frp/myfrpc.ini
+TR_FAIL=1
+if frp_service_running frpc; then fail "failed cmdline transformation was reported RUNNING"; else status=$?; fi
+[ "$status" -eq 2 ] || fail "failed tr command was misclassified as a definite process mismatch"
+if frp_close; then fail "stop accepted a failed cmdline transformation"; fi
+[ ! -s "$SIGNAL_LOG" ] || fail "failed cmdline transformation allowed a process signal"
+TR_FAIL=0
+
+echo "FRP procfs transformation errors remain UNKNOWN and block stop signals: PASS"
 
 # If metadata becomes UNKNOWN immediately after TERM, do not escalate to KILL.
 setup_crontab
