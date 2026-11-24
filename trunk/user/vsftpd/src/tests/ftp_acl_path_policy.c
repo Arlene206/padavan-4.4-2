@@ -66,6 +66,7 @@ main(void)
   char held_a[PATH_MAX], race_link[PATH_MAX];
   char rollback_path[PATH_MAX], rollback_saved[PATH_MAX];
   char tiny[2];
+  char marker_path[PATH_MAX], marker_small[256], long_mount_path[257];
   int cleanup_allowed, dir_fd, race_fd, rollback_fd, replacement_fd;
   int upload_dir_fd, upload_fd, existing_upload_fd;
   int upload_fifo_reader_fd;
@@ -93,6 +94,33 @@ main(void)
       ftp_acl_path_is_internal_metadata("/mnt/share/.visible-file") ||
       ftp_acl_path_is_internal_metadata("/mnt/.__alice_var.tx")) {
     fprintf(stderr, "reserved FTP metadata classification failed\n");
+    return 1;
+  }
+  if (ftp_acl_path_build_child_path("/mnt/usb", ".hidden",
+                                    marker_path, sizeof(marker_path)) != 0 ||
+      strcmp(marker_path, "/mnt/usb/.hidden") != 0) {
+    fprintf(stderr, "hidden-share marker path construction failed\n");
+    return 1;
+  }
+  memset(long_mount_path, 'm', sizeof(long_mount_path) - 1);
+  long_mount_path[0] = '/';
+  long_mount_path[sizeof(long_mount_path) - 1] = '\0';
+  errno = 0;
+  if (ftp_acl_path_build_child_path(long_mount_path, ".hidden",
+                                    marker_small, sizeof(marker_small)) == 0 ||
+      errno != ENAMETOOLONG ||
+      ftp_acl_path_build_child_path(long_mount_path, ".hidden",
+                                    marker_path, sizeof(marker_path)) != 0 ||
+      strlen(marker_path) != 264 ||
+      strcmp(marker_path + 256, "/.hidden") != 0) {
+    fprintf(stderr, "hidden-share marker path truncation policy failed\n");
+    return 1;
+  }
+  errno = 0;
+  if (ftp_acl_path_build_child_path("/mnt/usb", "bad/name",
+                                    marker_path, sizeof(marker_path)) == 0 ||
+      errno != EINVAL) {
+    fprintf(stderr, "hidden-share marker accepted an invalid leaf\n");
     return 1;
   }
   expect_parent("file", ".");

@@ -44,9 +44,11 @@ int test_if_dir_stat(const char *path)
 int test_if_hidden_share(const char *share_path)
 {
 	struct stat st;
-	static char s_share_test[256];
+	static char s_share_test[PATH_MAX];
 
-	snprintf(s_share_test, sizeof(s_share_test), "%s/%s", share_path, HIDE_PARTITION_FILE);
+	if (ftp_acl_path_build_child_path(share_path, HIDE_PARTITION_FILE,
+	                                  s_share_test, sizeof(s_share_test)) != 0)
+		return 1;
 
 	return (stat(s_share_test, &st) == 0) && (S_ISREG(st.st_mode));
 }

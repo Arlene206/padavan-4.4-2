@@ -1,30 +1,26 @@
 ## Current repository state
 
-- Active branch: `main`; source parent for this WAN first-sample slice: `c954e19234f35f23396d7db4f202249cabae9fc4`. Re-fetch live main and tree before every write.
-- Frozen archive `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable, never develop on or modify it.
-- No open PRs.
-- MTK AP private-ioctl safety is L3 VERIFIED on exact source SHA `d33fcf06b73fbe2771ab0b559116d3e750dc4918`; MTK #45384680997, NVRAM #45384681048, AI #45384680982 and XY-C1 #45384680986 passed Build/TRX/artifact. Physical L4 unverified.
-- HTTPD protocol-selector guard is L3 VERIFIED on exact source SHA `659b91b497b5cf8073b54feab849a91623092c70`: HTTPD #45388114470, AI #45388114468, Process #45388114507, XY-C1 #45388114515 all PASS including Build/TRX/artifact. Physical L4 unverified.
-- WAN source PHY selector range guard is L3 VERIFIED on exact production source SHA `d3733ecbec2e0cf652c00eadf1db4645ae5ff13e`: detect-link #45390205127 host regression initially surfaced a checker-only assertion later corrected in #45390666226; AI #45390666278, Process #45390666391, NVRAM #45390666354 PASS on descendant `c954e19`; XY-C1 #45390205170 on the exact production SHA d373 completed PASS including Build XY-C1, TRX verification and artifact upload. On c954 the XY-C1 job #45390666372 was host-only and skipped Build/TRX/artifact because c954 changed only tests/workflow/docs. Physical L4 unverified.
+- Active branch: `main`; source parent for this slice: `18af4fb7c5a8027fce5efdd6ffecd794f5c4a230`. Frozen archive `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable.
+- No open PRs. HTTPD selector and MTK AP private-ioctl slices retain their previously recorded L3 status; physical-router L4 is unverified.
+- WAN source PHY selector range guard remains L3 verified on production SHA `d3733ec` including XY-C1 Build/TRX/artifact.
+- WAN first-sample guard on exact SHA `18af4fb7c5a8027fce5efdd6ffecd794f5c4a230`: detect-link #45392147396, AI docs #45392146896, Process inventory #45392147378 / lifecycle #45392146934, USB modem #45392146933, HTTPD auth #45392147738 and NVRAM #45392147111 PASS. XY-C1 #45392147184 is still building; TRX and artifact are pending. No L3 claim yet.
 
-## Active task — Do not publish an initial unknown WAN sample as link-down
+## Active task — VSFTPD hidden-share marker path truncation
 
-- In `detect_link.c`, `dl_status_wan` starts at zero while `dl_status_wan_nvram_old` starts at -1. If the first switch PHY query fails, the caller correctly retains the cached status and sets refresh retry pending, but it still called `dl_handle_link_wan()`; that published the synthetic initial zero to NVRAM before any successful physical sample. This can expose a false initial link-down state while the actual status is unknown.
-- THIS COMMIT introduces a tri-state known flag driven only by nonnegative PHY results. WAN handler/NVRAM publication is deferred until the first successful sample; once known, later read failures keep the last valid state and existing retry behavior. WISP, LAN and USB processing remain independent.
-- A GNU89/Werror/ASan/UBSan regression in `detect_link_nvram_policy.c` covers unknown retention for negative samples, transition to known on valid down/up samples, and persistence of known state across later errors. The detect-link source contract verifies successful-sample update and handler gating.
-- The WAN selector guard remains L3 verified on d373 as above; this new production change needs its own exact-head detect-link and XY-C1 Build/TRX/artifact checks.
+- `test_if_hidden_share()` formatted `<mount>/.hidden` into a 256-byte static buffer without checking `snprintf()`. A valid long mount component can truncate the path, make `stat()` miss the marker and expose a hidden share.
+- Reuse checked `ftp_acl_path_build_child_path()`, enlarge the destination to `PATH_MAX`, and deny the share if construction fails. Regression covers normal paths, a 255-byte mount component, undersized output, the full bounded path and invalid leaf syntax.
+- VSFTPD stability compiles/runs the GNU89 path-policy regression and checks production ordering. XY-C1 already watches `asus_ext.c`, `ftp_acl_path_policy.h` and this regression; exact-head Build/TRX/artifact are required for L3.
 
 ## Verification boundary
 
-- THIS COMMIT contains source, policy, regression, integration contract and handoff/log update in one atomic tree.
-- Verify exact-head detect-link, Process, NVRAM, AI docs and XY-C1. L3 for this first-sample guard requires same-SHA Build, TRX and artifact PASS.
-- Physical router L4 remains unverified.
+- At parent SHA `18af4fb7c5a8027fce5efdd6ffecd794f5c4a230`, detect-link, AI docs, Process, USB modem, HTTPD auth and NVRAM passed; XY-C1 Build was running and TRX/artifact pending.
+- Check exact-head VSFTPD, AI docs and XY-C1 Actions. A host-only XY-C1 success is not firmware verification. Physical-router L4 remains unverified.
 
 ## Exact first action for the next GPT
 
-1. Fetch current `main` and query push Actions by its exact SHA; inspect detect-link first-sample policy regression/source contract, Process, NVRAM, AI docs and XY-C1 Build/TRX/artifact.
-2. Fix any first causal exact-head failure atomically; no L3 claim while any firmware step is pending or skipped.
-3. Continue the next highest-priority independent stability/security issue; do not repeat completed MTK, HTTPD or WAN-selector slices absent new evidence.
+1. Fetch live `main`, then query Actions for that exact head SHA.
+2. Inspect VSFTPD regression/source contract and XY-C1 Build, TRX and artifact steps. Fix the first causal failure atomically; keep firmware L3 open while production build steps are pending or skipped.
+3. Continue the next independent stability/security defect without re-auditing completed HTTPD/MTK/WAN-selector slices absent new evidence.
 
 ## Mandatory handoff checkpoint
 
