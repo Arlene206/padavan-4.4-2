@@ -470,42 +470,54 @@ require("strcmp(account,FTP_ANONYMOUS_USER)==0" in stale_pruner_compact and
         'strcmp(entry->d_name,".__folder_list.txt")' not in stale_pruner_compact,
         "metadata cleanup must preserve anonymous and active accounts, and remove only orphaned account files after rebuild")
 
-create_all = function_body(
-    DISK_SOURCE, "create_if_no_var_files(const char *const mount_path)"
+metadata_rebuild = function_body(
+    DISK_SOURCE,
+    "int initial_all_var_file_in_mount_path(const char *const mount_path)"
 )
-create_all_compact = "".join(create_all.split())
-require("get_account_list(&acc_num,&account_list)" in create_all_compact and
-        "disk_share_account_nvram_begin(&transaction)" in create_all_compact and
-        "disk_share_account_inventory_matches_locked(" in create_all_compact and
-        "create_if_no_var_files_with_accounts(mount_path,acc_num,account_list)" in create_all_compact and
-        "disk_share_account_nvram_end(&transaction)" in create_all_compact,
-        "public incremental metadata initialization must serialize its owned account snapshot through permission-file publication" and
-        "\nint\nint\ncreate_if_no_var_files(" not in DISK_SOURCE)
-create_with_accounts = function_body(
-    DISK_SOURCE, "create_if_no_var_files_with_accounts("
+metadata_rebuild_compact = "".join(metadata_rebuild.split())
+metadata_inventory = metadata_rebuild_compact.index(
+    "get_account_list(&acc_num,&account_list)"
 )
-create_with_accounts_compact = "".join(create_with_accounts.split())
-worker_guard = (
-    "if(!mount_path||!*mount_path||acc_num<0||acc_num>MAX_ACCOUNT_NUM||"
-    "(acc_num>0&&!account_list))"
+anonymous_path_preflight = metadata_rebuild_compact.index(
+    "disk_share_format_account_var_path(var_file,sizeof(var_file),mount_path,FTP_ANONYMOUS_USER)",
+    metadata_inventory
 )
-worker_first_loop = create_with_accounts_compact.index("for(i=0;i<acc_num;++i){")
-worker_first_write = create_with_accounts_compact.index(
-    "initial_one_var_file_in_mount_path_locked(FTP_ANONYMOUS_USER,mount_path)"
+account_path_preflight = metadata_rebuild_compact.index(
+    "for(i=0;i<acc_num;++i){", anonymous_path_preflight
 )
-require("get_account_list(" not in create_with_accounts and
-        "intacc_num=0;" not in create_with_accounts_compact and
-        "char**account_list=NULL;" not in create_with_accounts_compact and
-        worker_guard in create_with_accounts_compact and
-        "if(!account_list[i]||!*account_list[i])" in create_with_accounts_compact and
-        worker_first_loop < worker_first_write and
-        "path_len>=(int)sizeof(var_file)" in create_with_accounts_compact and
-        "result=modify_if_exist_new_folder_locked" in create_with_accounts_compact and
-        "result=initial_one_var_file_in_mount_path_locked" in create_with_accounts_compact and
-        "if(result!=0)" in create_with_accounts_compact,
-        "incremental folder metadata worker must validate its bounded inventory and preflight every account path before the first permission write")
-
-
+metadata_begin = metadata_rebuild_compact.index(
+    "disk_share_account_nvram_begin(&transaction)", account_path_preflight
+)
+metadata_validate = metadata_rebuild_compact.index(
+    "disk_share_account_inventory_matches_locked(&disk_share_account_nvram_operations,&transaction,acc_num,MAX_ACCOUNT_NUM,account_list)",
+    metadata_begin
+)
+anonymous_write = metadata_rebuild_compact.index(
+    "initial_one_var_file_in_mount_path_locked(FTP_ANONYMOUS_USER,mount_path)",
+    metadata_validate
+)
+account_write = metadata_rebuild_compact.index(
+    "initial_one_var_file_in_mount_path_locked(account_list[i],mount_path)",
+    anonymous_write
+)
+snapshot_publish = metadata_rebuild_compact.index(
+    "initial_folder_list_in_mount_path(mount_path)", account_write
+)
+stale_prune = metadata_rebuild_compact.index(
+    "remove_stale_share_var_files(mount_path,acc_num,account_list)",
+    snapshot_publish
+)
+inventory_free = metadata_rebuild_compact.index(
+    "free_2_dimension_list(&acc_num,&account_list)", stale_prune
+)
+metadata_release = metadata_rebuild_compact.index(
+    "disk_share_account_nvram_end(&transaction)", inventory_free
+)
+require(metadata_inventory < anonymous_path_preflight < account_path_preflight <
+        metadata_begin < metadata_validate < anonymous_write < account_write <
+        snapshot_publish < stale_prune < inventory_free < metadata_release and
+        "create_if_no_var_files(" not in DISK_SOURCE,
+        "full metadata rebuild must preflight one checked account inventory, serialize ACL writes, publish folder snapshot before stale pruning, and release the NVRAM lease")
 
 
 require("#include <errno.h>" in DISK_IO_SOURCE,

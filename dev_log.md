@@ -1,3 +1,10 @@
+## 2026-11-24 — Align libdisk metadata-rebuild contract with current implementation
+
+- The libdisk workflow's GNU89 ASan/UBSan host regressions completed, then the Python source checker failed because it still extracted the deleted public `create_if_no_var_files()` wrapper and depended on its removed worker contract. The current whole-volume rebuild is `initial_all_var_file_in_mount_path()`; its checker now enforces checked inventory/path preflight, NVRAM writer lease and inventory revalidation, anonymous/account ACL publication, folder snapshot publication before stale-file pruning, and transaction release.
+- Checker-only correction; production source is unchanged. Previous workflow failures remain tied to their exact SHAs. THIS COMMIT must pass the libdisk contract workflow before this slice is called validated.
+
+---
+
 ## 2026-11-24 — Fix relocated VSFTPD ACL open assertions
 
 - Exact source SHA `9fe57d025796fbc0d6574dc68b9f71c5dc80903b`: Process lifecycle #45448598258 PASS and AI handoff #45448598098 PASS. XY-C1 #45448598232 remained IN_PROGRESS; NVRAM #45448598003 was CANCELLED.
