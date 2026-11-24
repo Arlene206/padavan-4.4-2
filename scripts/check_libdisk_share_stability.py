@@ -1267,7 +1267,7 @@ require(policy_move < policy_refresh < policy_apply < policy_rollback <
         "rename policy must compensate permission contents, directory name and folder snapshot after a failed step")
 
 rename_folder = function_body(
-    DISK_SOURCE, "static int\\ndisk_share_rename_folder_path("
+    DISK_SOURCE, "disk_share_rename_folder_path("
 )
 rename_folder_compact = "".join(rename_folder.split())
 rename_policy = function_body(
