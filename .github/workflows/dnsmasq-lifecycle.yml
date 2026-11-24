@@ -849,9 +849,14 @@ jobs:
           assert 'fopen("/etc/ethers", "w+")' not in static_hosts_writer
           arp_restore = function_body(services, "arpbind_apply_current_ethers(void)")
           assert "dnsmasq_static_ethers_record_parse(" in arp_restore
-          assert 'dnsmasq_file_is_safe_regular("/etc/ethers")' in arp_restore
-          assert 'fopen("/etc/ethers", "r")' in arp_restore
+          assert 'dnsmasq_file_open_safe_read("/etc/ethers")' in arp_restore
           assert "ferror(fp)" in arp_restore and "fclose(fp)" in arp_restore
+          safe_read = function_body(dnsmasq_file_helper, "dnsmasq_file_open_safe_read(const char *path)")
+          assert "O_NOFOLLOW" in safe_read and "O_NONBLOCK" in safe_read
+          assert "fstat(fd, &st)" in safe_read and "S_ISREG(st.st_mode)" in safe_read
+          assert "dnsmasq_file_open_safe_read(symlink_lease)" in static_hosts_test
+          assert "dnsmasq_file_open_safe_read(hardlink_lease)" in static_hosts_test
+          assert "dnsmasq_file_open_safe_read(fifo_lease)" in static_hosts_test
           assert "dnsmasq_static_arp_apply_transaction(" in arp_restore
           assert "dnsmasq_static_arp_apply_transaction(" not in static_hosts_writer
           start_locked = function_body(services, "start_dns_dhcpd_locked(int is_ap_mode)")
