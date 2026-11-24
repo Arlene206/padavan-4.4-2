@@ -1,3 +1,12 @@
+## 2026-11-24 — Verify VSFTPD quarantine confinement on exact main SHA
+
+- Exact main SHA `7e700e86e191bfbf11d563fce7f9cfbbcd539516`: VSFTPD regression #45486633987 PASS. The GNU89 `-Wall -Wextra -Werror` policy binaries and embedded Python source contracts passed, including the symlinked-quarantine alias regression for write-parent, rename-entry and directory resolution.
+- AI handoff #45486633983 PASS; Process lifecycle inventory #45486634249 PASS.
+- NVRAM audit #45486634206 remained PENDING at step 13 (raw ioctl and kernel API callers); steps 3–12 had passed. XY-C1 #45486634245 remained PENDING at step 38 (Build XY-C1); steps 1–37 passed, with TRX verification and artifact upload still outstanding. These results are bound to the exact 7e SHA only; no L3 or L4 claim.
+- Replaced stale handoff claims from earlier 77/d01 failures with the current exact verification boundary and next actions. Frozen backup unchanged.
+
+---
+
 ## 2026-11-24 — Close the rename-destination quarantine alias gap
 
 - Exact SHA `77e281ea0d165520fd5782e04550fcfd7a7293dd` VSFTPD #45486387054 compiled and ran the existing C policies. The new symlink-alias regression first passed the write-parent fence, then exposed that `ftp_acl_path_resolve_rename_entry()` still returned success because the canonical-parent check had not landed in that function.

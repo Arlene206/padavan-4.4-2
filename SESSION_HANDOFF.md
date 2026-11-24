@@ -2,43 +2,34 @@
 
 # Cross-session execution mandate
 
-Each source/test slice is one atomic main commit: construct one complete Git tree, create one commit, then update main by a non-forced expected-SHA compare-and-swap. Continue this repository as one cross-session engineering stream. Never create partial per-file commits, force-push, or modify the frozen backup. A PENDING workflow does not block independent safe work.
+Continue one autonomous engineering stream. For every logical source/test slice, create all blobs, one complete Git tree and one commit, then update `main` with a non-forced expected-SHA compare-and-swap. Never make partial per-file commits, force-push, or modify the frozen backup. A PENDING workflow never blocks independent work.
 
-## Mandatory handoff checkpoint
+## Branch and checkpoint
 
-Every session MUST inspect live repository state before ending: verify main and frozen backup, identify exact SHA, inspect relevant exact-head Actions, record material changes, and name the next concrete implementation task. The checkpoint is mandatory; a document edit is conditional. Before context exhaustion, finish a safe slice and preserve exact verification boundaries and first action. If these facts remain accurate, do not create a no-op commit. Never claim a test, build, artifact or hardware check that was not actually performed.
-
-- Parent main before the quarantine declaration repair: `d01e302d2d22365bf1f828b4708dd6fb22ac5234`; follow-up checker parent: `4ee6d7bc1b55c81bab7022e160397c7f7da297d6`.
-- Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable and read-only.
+- Current main: `7e700e86e191bfbf11d563fce7f9cfbbcd539516`.
+- Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only.
+- `main` is the only development ref.
 - PR #1 remains closed/unmerged and deeply behind main; do not port it wholesale.
-- Main is the only development ref. Use one complete Git tree and one atomic main commit per logical slice, with expected-SHA non-force updates.
+- Do not repeat completed audits. Re-read the live main ref and exact-SHA Actions before each new write.
 
-## Active task
+## Active stability fix — VSFTPD failed-upload cleanup and quarantine confinement
 
-### VSFTPD failed-upload cleanup race — private quarantine and canonical-path confinement
+The prior public-leaf check/unlink pair had a TOCTOU race: another writer could replace the upload leaf between inode comparison and unlink. Cleanup now atomically moves the leaf with `renameat2(RENAME_NOREPLACE)` into an effective-UID-owned 0700 quarantine directory, verifies the moved inode through the pinned quarantine FD, and only unlinks a matching regular file there. Mismatches/unlink failures attempt a no-replace restore; a concurrent replacement is not deleted. No racy fallback is used when renameat2 is unavailable.
 
-The old cleanup compared the open upload FD with the public leaf using `fstatat()`, then unlinked that public name. A concurrent replacement in the gap could cause another writer's file to be deleted.
+A second review found that lexical reserved-name rejection did not block a missing new leaf under a symlinked parent into the quarantine. Canonical reserved-path checks now protect write-parent, rename-entry and directory resolution. The GNU89 regression creates an alias to the quarantine directory and requires each of those entry points to reject it with EACCES.
 
-The current code uses `renameat2(RENAME_NOREPLACE)` into an effective-UID-owned 0700 quarantine directory, verifies the moved inode through the pinned quarantine FD, and unlinks only a matching regular file there. Mismatches/unlink failures attempt a no-replace restore; if a concurrent writer occupies the public leaf, the quarantined item is retained. The reserved directory component is excluded from client paths. No unsafe fallback exists when renameat2 is unavailable.
+## Exact verification boundary at main 7e700e8
 
-Review found that the lexical reserved-path guard was insufficient: a new-file upload or rename destination under a symlinked parent could resolve into the quarantine directory without checking the canonical parent. This slice adds canonical-parent fences to write-parent, rename-entry and directory resolution, with symlink-alias regressions for all three.
+- VSFTPD regression #45486633987: PASS. Both GNU89 `-Wall -Wextra -Werror` policy binaries and embedded source-contract checks passed, including quarantine inode verification and all three canonical-path alias fences.
+- AI handoff contract #45486633983: PASS.
+- Process lifecycle inventory #45486634249: PASS.
+- NVRAM transaction boundary audit #45486634206: PENDING at raw userland ioctl / kernel API caller audit (job step 13). Earlier compile/exercise stages, including device-node permissions and lock inode/permissions/contention/crash release (steps 3–12), were PASS at last poll.
+- XY-C1 firmware validation #45486634245: PENDING at `Build XY-C1` (step 38). Steps 1–37 were PASS at last poll. TRX verification (step 39) and artifact upload (step 40) have not completed. Do not claim L3 until Build, TRX and artifact upload are all PASS on this exact source SHA.
+- The earlier failures are preserved in `dev_log.md`: d01 compile duplicate declarations; 4ee workflow formatting assertion; 77 rename-alias regression. The later commits corrected each cause; exact 7e VSFTPD run is now PASS.
+- No physical-router run has occurred. Hardware L4 remains NOT VERIFIED.
 
-THIS follow-up removes duplicate `static int` declarations accidentally left by the function-replacement edit. The first exact-head run failed at C compile time before runtime tests; no product behavior has yet been verified.
+## Exact first actions for the next GPT
 
-## Verification boundary
-
-- Exact parent `d01e302d2d22365bf1f828b4708dd6fb22ac5234`, VSFTPD run #45485007449 FAILED at GNU89 compilation with duplicate declaration specifiers in `ftp_acl_path_policy.h`; the C binary and embedded Python contracts did not run.
-- Follow-up source SHA `4ee6d7bc1b55c81bab7022e160397c7f7da297d6` VSFTPD #45485311376 compiled all GNU89 binaries, and the C regression reported PASS; its embedded Python contract then failed on a formatting-sensitive exact-string assertion for `fstatat(cleanup_fd, quarantine_leaf, ...)`, whose production call is intentionally split over two lines. This change normalizes whitespace before checking that same call. Exact-head VSFTPD rerun required.
-- THIS compile repair changes only the policy header plus log/handoff. A fresh exact-head VSFTPD workflow must compile and run the GNU89 ACL policy test and pass the embedded Python source checks.
-- Parent a35ae98: AI handoff #45484687791 PASS. Process lifecycle inventory #45484687868, XY-C1 #45484687835, NVRAM #45484687920, DNSMasq #45484687914, button timing #45484687913, crond #45484687872, combined Process inventory/lifecycle #45484688144 and link detection #45484687806 were pending at last poll.
-- Earlier f5b01d9 storage-hotplug #45484032665 and XY-C1 #45484032783 PASS for f5b01d9 only. They do not verify current VSFTPD source.
-- Exact checker SHA `ebb67734c1eae61e1835806eea689187801c1a2d`: VSFTPD #45485681381 PASS (GNU89 binaries and embedded source contracts); AI handoff #45485681367 PASS. Exact product SHA `4ee6d7bc1b55c81bab7022e160397c7f7da297d6`: Process inventory #45485311380 and NVRAM #45485311362 PASS; XY-C1 #45485311337 was still running at last poll. The `ebb` change only normalized workflow whitespace and documentation; no firmware inputs changed from `4ee`.
-- Exact source SHA `77e281ea0d165520fd5782e04550fcfd7a7293dd`, VSFTPD #45486387054 compiled all C policy binaries but the new regression caught a remaining rename-destination gap: write-parent was denied correctly, but `ftp_acl_path_resolve_rename_entry()` still returned success through the symlink alias. The missing canonical-parent check is now added specifically inside the rename resolver; fresh exact-head tests are required.
-- New canonical-parent symlink-alias regression is not yet tested. It requires exact-head VSFTPD GNU89 regression/source contract PASS and same-SHA XY-C1 Build, TRX and artifact upload; no L3 or hardware L4 claim is made.
-- No local host compile, MIPS build or physical-router test was performed. Hardware L4 NOT VERIFIED.
-
-## Exact first action for the next GPT
-
-1. Inspect exact-head VSFTPD Actions after the rename-resolver canonical-parent correction. Require GNU89 `-Wall -Wextra -Werror` ACL regression and every embedded Python contract PASS; fix the first causal failure without weakening the quarantine guarantee.
-2. Inspect same-SHA XY-C1 Build, TRX verification and artifact upload separately. All three must pass before claiming L3.
-3. Recheck parent a35ae98 process-inventory, NVRAM, DNSMasq, button, crond and link-detection runs by exact SHA; then continue with the next high-risk userland item. Keep backup immutable and main updates expected-SHA/non-force only.
+1. Re-poll XY-C1 #45486634245 on exact SHA `7e700e86e191bfbf11d563fce7f9cfbbcd539516`. If Build passes, require the same run's TRX verification and artifact upload to pass before recording L3. If a step fails, inspect its log and fix the first cause in a new atomic slice.
+2. Re-poll NVRAM audit #45486634206. If step 13 reports a concrete raw-ioctl/API bypass or unsafe caller, reproduce it, implement the narrow fix plus regression and exact source contract; otherwise preserve the auditor's bounded scope and proceed.
+3. Continue with the next highest-risk unfinished userland item from `REFACTOR_ROADMAP.md`; avoid reopening the completed VSFTPD alias work or repeating already-passing inventory/NVRAM checks. Keep backup immutable and main writes expected-SHA/non-force only.
