@@ -49,4 +49,12 @@ static inline int udhcpc_deconfig_retry_required(int script_status)
 	return script_status != 0;
 }
 
+/* A pending deconfig must still honor SIGUSR2 for a previously held lease. */
+static inline int
+udhcpc_deconfig_pending_release_required(int lease_was_active,
+					 int release_requested)
+{
+	return lease_was_active != 0 && release_requested != 0;
+}
+
 #endif /* UDHCP_SCRIPT_POLICY_H */

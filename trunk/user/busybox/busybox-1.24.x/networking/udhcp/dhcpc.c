@@ -1009,6 +1009,7 @@ static smallint listen_mode;
 #define DECONFIG_PENDING 7
 static smallint state;
 static smallint deconfig_resume_state;
+static smallint deconfig_release_on_usr2;
 
 static int udhcp_raw_socket(int ifindex)
 {
@@ -1115,11 +1116,12 @@ static void change_listen_mode(int new_mode)
 /* Retry a failed deconfig callback with packet sockets closed. Resume the
  * requested DHCP state only after cleanup completes successfully. */
 static void
-udhcpc_schedule_deconfig_retry(int resume_state, int retry_timeout,
-				int *timeout, int *packet_num,
-				unsigned *already_waited_sec)
+udhcpc_schedule_deconfig_retry(int resume_state, int release_on_usr2,
+				int retry_timeout, int *timeout,
+				int *packet_num, unsigned *already_waited_sec)
 {
 	deconfig_resume_state = resume_state;
+	deconfig_release_on_usr2 = release_on_usr2 != 0;
 	change_listen_mode(LISTEN_NONE);
 	state = DECONFIG_PENDING;
 	*timeout = retry_timeout > 0 ? retry_timeout : 1;
@@ -1695,7 +1697,7 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 					int deconfig_status = udhcp_run_script(NULL, "deconfig");
 					if (udhcpc_deconfig_retry_required(deconfig_status)) {
 						bb_error_msg("lease-expiry deconfig failed; deferring DHCP restart");
-						udhcpc_schedule_deconfig_retry(INIT_SELECTING,
+						udhcpc_schedule_deconfig_retry(INIT_SELECTING, 0,
 							tryagain_timeout, &timeout, &packet_num,
 							&already_waited_sec);
 						continue;
@@ -1719,6 +1721,7 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 					}
 				}
 				state = deconfig_resume_state;
+				deconfig_release_on_usr2 = 0;
 				if (state == INIT_SELECTING) {
 					change_listen_mode(LISTEN_RAW);
 					client_config.first_secs = 0;
@@ -1748,7 +1751,7 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 			script_status = perform_renew();
 			if (udhcpc_deconfig_retry_required(script_status)) {
 				bb_error_msg("manual renew deconfig failed; deferring DHCP restart");
-				udhcpc_schedule_deconfig_retry(INIT_SELECTING, tryagain_timeout,
+				udhcpc_schedule_deconfig_retry(INIT_SELECTING, state == RENEW_REQUESTED, tryagain_timeout,
 					&timeout, &packet_num, &already_waited_sec);
 				continue;
 			}
@@ -1779,6 +1782,15 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 			continue;
 		case SIGUSR2:
 			if (state == DECONFIG_PENDING) {
+				/* A failed repeated manual renew still owns the previous lease. */
+				if (udhcpc_deconfig_pending_release_required(
+					deconfig_release_on_usr2, 1)) {
+					int release_status = send_release(server_addr, requested_ip);
+					if (release_status != 0)
+						bb_error_msg("DHCP release during pending deconfig failed with status %d",
+							release_status);
+				}
+				deconfig_release_on_usr2 = 0;
 				/* Preserve pending cleanup but honor the requested release. */
 				deconfig_resume_state = RELEASED;
 				timeout = 0;
@@ -1788,7 +1800,7 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 			script_status = perform_release(server_addr, requested_ip);
 			if (udhcpc_deconfig_retry_required(script_status)) {
 				bb_error_msg("release deconfig failed; deferring released state");
-				udhcpc_schedule_deconfig_retry(RELEASED, tryagain_timeout,
+				udhcpc_schedule_deconfig_retry(RELEASED, 0, tryagain_timeout,
 					&timeout, &packet_num, &already_waited_sec);
 			} else {
 				timeout = INT_MAX;
@@ -1947,7 +1959,7 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 							int deconfig_status = udhcp_run_script(NULL, "deconfig");
 							if (udhcpc_deconfig_retry_required(deconfig_status)) {
 								bb_error_msg("ARP conflict deconfig failed; deferring DHCP restart");
-								udhcpc_schedule_deconfig_retry(INIT_SELECTING,
+								udhcpc_schedule_deconfig_retry(INIT_SELECTING, 0,
 									tryagain_timeout, &timeout, &packet_num,
 									&already_waited_sec);
 								continue;
@@ -2036,7 +2048,7 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 					int deconfig_status = udhcp_run_script(NULL, "deconfig");
 					if (udhcpc_deconfig_retry_required(deconfig_status)) {
 						bb_error_msg("DHCP NAK deconfig failed; deferring DHCP restart");
-						udhcpc_schedule_deconfig_retry(INIT_SELECTING,
+						udhcpc_schedule_deconfig_retry(INIT_SELECTING, 0,
 							tryagain_timeout, &timeout, &packet_num,
 							&already_waited_sec);
 						continue;

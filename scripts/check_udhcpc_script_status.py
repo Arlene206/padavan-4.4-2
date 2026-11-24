@@ -98,6 +98,10 @@ assert "static smallint deconfig_resume_state;" in dhcpc
 scheduler = function_body(dhcpc, "udhcpc_schedule_deconfig_retry(")
 assert "change_listen_mode(LISTEN_NONE)" in scheduler
 assert "state = DECONFIG_PENDING;" in scheduler
+assert "deconfig_release_on_usr2 = release_on_usr2 != 0;" in scheduler
+assert "static smallint deconfig_release_on_usr2;" in dhcpc
+manual_renew = dhcpc[dhcpc.index("case SIGUSR1:"):dhcpc.index("case SIGUSR2:")]
+assert "udhcpc_schedule_deconfig_retry(INIT_SELECTING, state == RENEW_REQUESTED," in " ".join(manual_renew.split())
 assert "*already_waited_sec = 0;" in scheduler
 pending = dhcpc.rindex("case DECONFIG_PENDING:")
 pending_end = dhcpc.index("/* case RELEASED:", pending)
@@ -132,6 +136,12 @@ assert "return script_status;" in release
 assert "if (!udhcpc_deconfig_retry_required(script_status))" in release
 signal_release = dhcpc[dhcpc.index("case SIGUSR2:"):dhcpc.index("/* Is it a packet? */")]
 assert "deconfig_resume_state = RELEASED;" in signal_release
+assert "udhcpc_deconfig_pending_release_required(" in signal_release
+assert "send_release(server_addr, requested_ip)" in signal_release
+assert signal_release.index("send_release(server_addr, requested_ip)") < signal_release.index("deconfig_resume_state = RELEASED")
+assert "deconfig_release_on_usr2 = 0;" in signal_release
+assert "udhcpc_deconfig_pending_release_required" in policy
+assert "test_pending_deconfig_manual_stop_releases_existing_lease" in test
 assert "udhcpc_schedule_deconfig_retry(RELEASED" in signal_release
 
 exit_cleanup = dhcpc[dhcpc.index(" ret0:"):]

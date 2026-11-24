@@ -18,6 +18,15 @@ static int test_failed_deconfig_blocks_state_transition(void)
 	return 0;
 }
 
+static int test_pending_deconfig_manual_stop_releases_existing_lease(void)
+{
+	CHECK(udhcpc_deconfig_pending_release_required(1, 1));
+	CHECK(!udhcpc_deconfig_pending_release_required(1, 0));
+	CHECK(!udhcpc_deconfig_pending_release_required(0, 1));
+	CHECK(!udhcpc_deconfig_pending_release_required(0, 0));
+	return 0;
+}
+
 static int test_initial_acquisition_retries_selected_request(void)
 {
 	int timeout = 90;
@@ -112,6 +121,7 @@ static int test_already_expired_lease_is_not_resurrected(void)
 int main(void)
 {
 	if (test_failed_deconfig_blocks_state_transition() != 0 ||
+	    test_pending_deconfig_manual_stop_releases_existing_lease() != 0 ||
 	    test_initial_acquisition_retries_selected_request() != 0 ||
 	    test_nonpositive_retry_interval_is_throttled() != 0 ||
 	    test_failed_renewal_preserves_existing_lease_deadline() != 0 ||
