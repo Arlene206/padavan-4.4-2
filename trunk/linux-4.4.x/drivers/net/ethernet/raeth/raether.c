@@ -2170,7 +2170,6 @@ static int fe_int_disable(struct net_device *dev)
 
 	fe_int_free_requested_irqs(dev);
 
-	cancel_work_sync(&ei_local->reset_task);
 
 	if (ei_local->features & FE_INT_WORKQ)
 		cancel_work_sync(&ei_local->rx_wq);

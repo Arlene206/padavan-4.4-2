@@ -232,9 +232,6 @@ struct END_DEVICE {
 	/* TSO */
 	unsigned int skb_txd_num;
 
-	/* MT7623 workaround */
-	struct work_struct reset_task;
-
 	/* workqueue_bh */
 	struct work_struct rx_wq;
 

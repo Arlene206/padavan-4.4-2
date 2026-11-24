@@ -415,3 +415,15 @@ assert clock_enable < clock_check < clock_failure < clocked_switch_access
 assert switch_init.count("clk_prepare_enable(ei_local->clks[MTK_CLK_GP0]);") == 1
 assert switch_init.count("clk_disable_unprepare(ei_local->clks[MTK_CLK_GP0]);") == 4
 print("MT7621 switch setup aborts before MMIO when GP0 clock enable fails: PASS")
+
+# reset_task was a dead, never-initialized work_struct: the only operation
+# on it was cancel_work_sync(), with no INIT_WORK() or queueing path.
+assert "reset_task" not in RAETHER_SOURCE
+RAETHER_HEADER = Path(
+    "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether.h"
+).read_text()
+assert "reset_task" not in RAETHER_HEADER
+disable_body = function_body(RAETHER_SOURCE, "static int fe_int_disable(")
+assert "cancel_work_sync(&ei_local->reset_task)" not in disable_body
+assert "cancel_work_sync(&ei_local->rx_wq)" in disable_body
+print("RAETH no longer cancels the uninitialized and never-queued reset_task work item: PASS")
