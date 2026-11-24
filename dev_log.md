@@ -1,3 +1,11 @@
+## 2026-11-24 — Preserve LAN authentication when NVRAM reads fail
+
+- start_auth_kabinet() previously used nvram_safe_get() for wan_auth_host / wan_auth_pass and stopped the running lanauth daemon before it could distinguish a valid empty password from a failed NVRAM read. A transient backend failure could be converted into an empty value and interrupt a known-good authentication session.
+- Both settings are now copied through nvram_get_checked() and the bounded rc_wan_nvram_copy_value() helper before any stop operation. Read errors and truncation return without touching the active daemon; a successfully read empty password preserves the legacy stop/no-start behavior. The injected policy regression covers each read failure, empty password, stop failure, read→stop→start ordering, start failure and clearing of temporary buffers.
+- Process Lifecycle, XY-C1 and AI handoff exact-head checks are wired to the production source, policy header and test. Their exact run results must be checked on the resulting commit. Parent main SHA: b2afc079f262a13aa05ef0d926455b328c480dd6. No firmware/device result is claimed.
+- Next security item: start_auth_kabinet() still places its password in the lanauth command-line arguments. Inspect the daemon parser and replace that secret transport with a private file or inherited descriptor in a separate tested slice.
+
+---
 ## 2026-11-24 — Read FTP credentials under one NVRAM transaction
 
 - `asus_getpwnam()` used separate single-key `nvram_get_int()` / `nvram_safe_get()` calls for account count, username and password. Each getter took and released the NVRAM lock independently, while add/delete/rename/password writers update the same multi-key inventory under `nvram_transaction_begin()`. A login concurrent with a writer could combine a username from one generation with a password from another (or briefly observe a newly published account with a stale tail-slot password).

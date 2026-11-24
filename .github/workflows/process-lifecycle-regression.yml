@@ -58,6 +58,8 @@ on:
       - "trunk/user/ralinkiappd/iappd.sh"
       - "trunk/user/ralinkiappd/tests/iappd_lifecycle.sh"
       - "trunk/user/rc/src/auth.c"
+      - "trunk/user/rc/src/auth_kabinet_restart_policy.h"
+      - "trunk/user/rc/src/tests/auth_kabinet_restart_policy.c"
       - "trunk/user/rc/src/common_ex.c"
       - "trunk/user/rc/src/pagecache_reclaim_policy.h"
       - "trunk/user/rc/src/tests/pagecache_reclaim_policy.c"
@@ -319,6 +321,8 @@ on:
       - "trunk/user/ralinkiappd/iappd.sh"
       - "trunk/user/ralinkiappd/tests/iappd_lifecycle.sh"
       - "trunk/user/rc/src/auth.c"
+      - "trunk/user/rc/src/auth_kabinet_restart_policy.h"
+      - "trunk/user/rc/src/tests/auth_kabinet_restart_policy.c"
       - "trunk/user/rc/src/common_ex.c"
       - "trunk/user/rc/src/pagecache_reclaim_policy.h"
       - "trunk/user/rc/src/tests/pagecache_reclaim_policy.c"
@@ -1923,4 +1927,69 @@ jobs:
           assert "p910nd daemon readiness failed" in p910nd_start
 
           print("USB printer U2EC/LPRng/p910nd detached-daemon readiness contract: PASS")
+          PY
+
+      - name: Compile and run LAN authentication restart policy regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/auth_kabinet_restart_policy.c \
+            -o /tmp/auth-kabinet-restart-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/auth-kabinet-restart-policy
+
+      - name: Verify LAN authentication restart preserves the running daemon on NVRAM read failure
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/user/rc/src/auth.c").read_text()
+          policy = Path("trunk/user/rc/src/auth_kabinet_restart_policy.h").read_text()
+          regression = Path("trunk/user/rc/src/tests/auth_kabinet_restart_policy.c").read_text()
+
+          def function_body(text, signature):
+              start = text.find(signature)
+              assert start >= 0, "missing function: " + signature
+              brace = text.find("{", start + len(signature))
+              assert brace >= 0, "missing body: " + signature
+              depth = 0
+              for pos in range(brace, len(text)):
+                  if text[pos] == "{":
+                      depth += 1
+                  elif text[pos] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return text[brace + 1:pos]
+              raise AssertionError("unterminated function: " + signature)
+
+          restart = function_body(source, "int start_auth_kabinet(void)")
+          nvram_get = function_body(source, "auth_kabinet_nvram_get(void *context")
+          read_value = function_body(source, "auth_kabinet_read_value(void *context")
+          launch = function_body(source, "auth_kabinet_start_service(void *context")
+          policy_body = function_body(policy, "auth_kabinet_restart_with_ops(")
+
+          assert "auth_kabinet_restart_with_ops(" in restart
+          assert "nvram_safe_get(" not in restart
+          assert "nvram_get_checked(name, value)" in nvram_get
+          assert "rc_wan_nvram_copy_value(auth_kabinet_nvram_get" in read_value
+          assert 'eval("/usr/sbin/lanauth", "-s", gateway, "-p", password)' in launch
+          assert 'eval("/usr/sbin/lanauth", "-p", password)' in launch
+          assert policy_body.index("AUTH_KABINET_GATEWAY_KEY") < policy_body.index("AUTH_KABINET_PASSWORD_KEY")
+          assert policy_body.index("AUTH_KABINET_PASSWORD_KEY") < policy_body.index("stop_service(context)")
+          assert policy_body.index("stop_service(context)") < policy_body.index("start_service(context, gateway, password)")
+          assert "AUTH_KABINET_RESTART_STAGE_READ_GATEWAY" in policy_body
+          assert "AUTH_KABINET_RESTART_STAGE_READ_PASSWORD" in policy_body
+          assert "AUTH_KABINET_RESTART_STAGE_EMPTY_PASSWORD" in policy_body
+          assert "memset(password, 0, password_size)" in policy_body
+          assert "memset(gateway, 0, gateway_size)" in policy_body
+
+          for case in ("test_gateway_read_error_preserves_daemon",
+                       "test_password_read_error_preserves_daemon",
+                       "test_empty_password_stops_without_start",
+                       "test_stop_error_blocks_start",
+                       "test_reads_then_stop_then_start",
+                       "test_start_error_is_propagated"):
+              assert case in regression, "missing LAN authentication case: " + case
+
+          print("LAN authentication checked-read/restart source contract: PASS")
           PY

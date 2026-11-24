@@ -26,6 +26,8 @@
 
 #include "rc.h"
 #include "eapol_config_policy.h"
+#include "auth_kabinet_restart_policy.h"
+#include "wan_nvram_status_policy.h"
 
 int stop_auth_kabinet(void)
 {
@@ -33,32 +35,84 @@ int stop_auth_kabinet(void)
 	return kill_services(svcs, 3, 1);
 }
 
+static int
+auth_kabinet_nvram_get(void *context, const char *name, char **value)
+{
+	(void)context;
+	return nvram_get_checked(name, value);
+}
+
+static int
+auth_kabinet_read_value(void *context, const char *name,
+			char *value, size_t value_size)
+{
+	return rc_wan_nvram_copy_value(auth_kabinet_nvram_get, NULL,
+				       name, value, value_size);
+}
+
+static int
+auth_kabinet_stop_service(void *context)
+{
+	(void)context;
+	return stop_auth_kabinet();
+}
+
+static int
+auth_kabinet_start_service(void *context, const char *gateway,
+			  const char *password)
+{
+	(void)context;
+	if (is_valid_ipv4(gateway))
+		return eval("/usr/sbin/lanauth", "-s", gateway, "-p", password);
+	return eval("/usr/sbin/lanauth", "-p", password);
+}
+
 int start_auth_kabinet(void)
 {
 	int ret;
-	char *gateip = nvram_safe_get("wan_auth_host");
-	char *passwd = nvram_safe_get("wan_auth_pass");
+	enum auth_kabinet_restart_stage failure_stage;
+	char gateip[32], passwd[2048];
 
-	ret = stop_auth_kabinet();
+	ret = auth_kabinet_restart_with_ops(
+		auth_kabinet_read_value, auth_kabinet_stop_service,
+		auth_kabinet_start_service, NULL,
+		gateip, sizeof(gateip), passwd, sizeof(passwd),
+		&failure_stage);
 	if (ret != 0) {
-		logmessage("lanauth", "authentication restart aborted because the previous daemon did not stop (status=%d)", ret);
+		switch (failure_stage) {
+		case AUTH_KABINET_RESTART_STAGE_READ_GATEWAY:
+			logmessage("lanauth",
+				   "cannot read authentication gateway; preserving current daemon (status=%d)",
+				   ret);
+			break;
+		case AUTH_KABINET_RESTART_STAGE_READ_PASSWORD:
+			logmessage("lanauth",
+				   "cannot read authentication password; preserving current daemon (status=%d)",
+				   ret);
+			break;
+		case AUTH_KABINET_RESTART_STAGE_STOP:
+			logmessage("lanauth",
+				   "authentication restart aborted because the previous daemon did not stop (status=%d)",
+				   ret);
+			break;
+		case AUTH_KABINET_RESTART_STAGE_EMPTY_PASSWORD:
+			logmessage("lanauth", "password is empty, unable to start!");
+			break;
+		case AUTH_KABINET_RESTART_STAGE_START:
+			logmessage("lanauth",
+				   "authentication daemon failed to start (status=%d)", ret);
+			break;
+		default:
+			logmessage("lanauth",
+				   "authentication restart failed before daemon launch (status=%d)",
+				   ret);
+			break;
+		}
 		return ret;
 	}
 
-	if (strlen(passwd) < 1) {
-		logmessage("lanauth", "password is empty, unable to start!");
-		return -1;
-	}
-
-	if (is_valid_ipv4(gateip))
-		ret = eval("/usr/sbin/lanauth", "-s", gateip, "-p", passwd);
-	else
-		ret = eval("/usr/sbin/lanauth", "-p", passwd);
-
-	if (ret == 0)
-		logmessage("lanauth", "start authentication...");
-
-	return ret;
+	logmessage("lanauth", "start authentication...");
+	return 0;
 }
 
 int stop_auth_eapol(void)

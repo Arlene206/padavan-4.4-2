@@ -198,6 +198,8 @@ on:
       - "trunk/user/rc/src/tests/miniupnpd_presentation_url.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/auth.c"
+      - "trunk/user/rc/src/auth_kabinet_restart_policy.h"
+      - "trunk/user/rc/src/tests/auth_kabinet_restart_policy.c"
       - "trunk/user/rc/src/inicd.c"
       - "trunk/user/rc/src/vpn_server.c"
       - "trunk/user/rc/src/vpn_client.c"
