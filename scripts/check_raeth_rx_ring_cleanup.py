@@ -59,7 +59,8 @@ unmap_at = teardown.index("dma_unmap_single(")
 free_data_at = teardown.index("raeth_free_skb_data(")
 free_ring_at = teardown.index("dma_free_coherent(")
 assert unmap_at < free_data_at < free_ring_at
-assert "if (ei_local->rx_ring[0])" in teardown[unmap_at:free_data_at]
+ring_unmap_guard = teardown.rfind("if (ei_local->rx_ring[0])", 0, unmap_at)
+assert ring_unmap_guard >= 0 and ring_unmap_guard < unmap_at
 assert "ei_local->netrx_skb_data[0][i] = NULL;" in teardown[free_data_at:free_ring_at]
 assert "ei_local->rx_ring[0] = NULL;" in teardown[free_ring_at:]
 print("PDMA RX teardown unmaps each live descriptor before releasing its buffer: PASS")
@@ -108,6 +109,8 @@ qdma_unmap_at = qdma_teardown.index("dma_unmap_single(")
 qdma_free_data_at = qdma_teardown.index("raeth_free_skb_data(")
 qdma_free_ring_at = qdma_teardown.index("dma_free_coherent(")
 assert qdma_unmap_at < qdma_free_data_at < qdma_free_ring_at
+qdma_unmap_guard = qdma_teardown.rfind("if (ei_local->qrx_ring)", 0, qdma_unmap_at)
+assert qdma_unmap_guard >= 0 and qdma_unmap_guard < qdma_unmap_at
 assert "ei_local->qrx_ring = NULL;" in qdma_teardown[qdma_free_ring_at:]
 assert "ei_local->rx_ring[0] = NULL;" in qdma_teardown[qdma_free_ring_at:]
 print("QDMA RX partial-init rollback and normal DMA teardown: PASS")
