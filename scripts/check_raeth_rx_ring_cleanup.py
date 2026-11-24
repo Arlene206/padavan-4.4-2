@@ -388,8 +388,17 @@ irq_open_branch = open_body.index("err = fe_int_enable(dev);")
 irq_open_cleanup = open_body.index("fe_sw_deinit(ei_local);", irq_open_branch)
 irq_open_return = open_body.index("return err;", irq_open_cleanup)
 assert irq_open_branch < irq_open_cleanup < irq_open_return
-assert open_body.count("fe_sw_deinit(ei_local);") == 2
-print("MT7622 switch deinit is paired with switch and IRQ setup failures: PASS")
+assert open_body.count("fe_sw_deinit(ei_local);") == 3
+
+preinit_branch = open_body.index("err = fe_sw_preinit(ei_local);")
+preinit_failure = open_body.index("if (err)", preinit_branch)
+preinit_reset = open_body.index("fe_reset();", preinit_failure)
+preinit_dma_release = open_body.index("ei_deinit_dma(dev);", preinit_reset)
+preinit_cleanup = open_body.index("fe_sw_deinit(ei_local);", preinit_dma_release)
+preinit_return = open_body.index("return err;", preinit_cleanup)
+assert preinit_branch < preinit_failure < preinit_reset < preinit_dma_release < preinit_cleanup < preinit_return
+assert open_body.index("fe_sw_init();") < preinit_branch < open_body.index("fe_int_enable(dev);")
+print("MT7622 regulator-preinit failure unwinds DMA, switch rails and module reference: PASS")
 
 close_order = function_body(RAETHER_SOURCE, "int ei_close(")
 reset_stop = close_order.index("kthread_stop(ei_local->kreset_task);")
@@ -432,3 +441,60 @@ close_body = function_body(RAETHER_SOURCE, "int ei_close(")
 assert "if ((ei_local->features & FE_GE2_SUPPORT) && ei_local->pseudo_dev)" in close_body
 assert "virtualif_close(ei_local->pseudo_dev);" in close_body
 print("RAETH close tolerates a pseudo interface whose netdev registration failed: PASS")
+
+# Switch preinitialization owns a platform-device reference and regulator state.
+switch_preinit = function_body(SWITCH_SOURCE, "int fe_sw_preinit(")
+preinit_lookup = switch_preinit.index("of_find_device_by_node(np)")
+preinit_pdev_guard = switch_preinit.index("if (!pdev)", preinit_lookup)
+preinit_drvdata = switch_preinit.index("platform_get_drvdata(pdev)", preinit_pdev_guard)
+preinit_gsw_guard = switch_preinit.index("if (!gsw)", preinit_drvdata)
+preinit_put = switch_preinit.index("put_device(&pdev->dev);")
+assert switch_preinit.index("if (!ei_local || !ei_local->switch_np)") < preinit_lookup
+assert preinit_lookup < preinit_pdev_guard < preinit_drvdata < preinit_gsw_guard < preinit_put
+assert switch_preinit.count("put_device(&pdev->dev);") == 1
+assert switch_preinit[preinit_lookup:].count("return ") == 1
+assert "goto out_put_device;" in switch_preinit[preinit_gsw_guard:preinit_put]
+assert "goto out_put_device;" in switch_preinit[preinit_pdev_guard:preinit_drvdata]
+
+main_voltage = switch_preinit.index("regulator_set_voltage(gsw->supply")
+main_voltage_check = switch_preinit.index("if (ret)", main_voltage)
+main_enable = switch_preinit.index("regulator_enable(gsw->supply)", main_voltage_check)
+main_enable_check = switch_preinit.index("if (ret)", main_enable)
+main_flag = switch_preinit.index("ei_local->switch_supply_enabled = 1;", main_enable_check)
+assert main_voltage < main_voltage_check < main_enable < main_enable_check < main_flag
+
+b3v_voltage = switch_preinit.index("regulator_set_voltage(gsw->b3v")
+b3v_voltage_fail = switch_preinit.index("goto rollback_supply;", b3v_voltage)
+b3v_enable = switch_preinit.index("regulator_enable(gsw->b3v)", b3v_voltage_fail)
+b3v_enable_fail = switch_preinit.index("goto rollback_supply;", b3v_enable)
+b3v_flag = switch_preinit.index("ei_local->switch_b3v_enabled = 1;", b3v_enable_fail)
+rollback = switch_preinit.index("rollback_supply:")
+rollback_disable = switch_preinit.index("regulator_disable(gsw->supply)", rollback)
+rollback_clear = switch_preinit.index("ei_local->switch_supply_enabled = 0;", rollback_disable)
+out_put = switch_preinit.index("out_put_device:")
+assert b3v_voltage < b3v_voltage_fail < b3v_enable < b3v_enable_fail < b3v_flag < rollback < rollback_disable < rollback_clear < out_put
+assert "if (cleanup_ret)" in switch_preinit[rollback:out_put]
+
+gpio_request = switch_preinit.index("devm_gpio_request(")
+gpio_request_check = switch_preinit.index("if (ret)", gpio_request)
+gpio_direction = switch_preinit.index("gpio_direction_output(", gpio_request_check)
+gpio_direction_check = switch_preinit.index("if (ret)", gpio_direction)
+gpio_error_free = switch_preinit.index("devm_gpio_free(", gpio_direction_check)
+gpio_rollback = switch_preinit.index("goto rollback_supply;", gpio_error_free)
+assert gpio_request < gpio_request_check < gpio_direction < gpio_direction_check < gpio_error_free < gpio_rollback
+assert "goto rollback_supply;" in switch_preinit[gpio_request_check:gpio_direction]
+
+deinit_supply = switch_deinit.index("if (ei_local->switch_supply_enabled)")
+deinit_supply_disable = switch_deinit.index("regulator_disable(gsw->supply)", deinit_supply)
+deinit_supply_clear = switch_deinit.index("ei_local->switch_supply_enabled = 0;", deinit_supply_disable)
+deinit_b3v = switch_deinit.index("if (ei_local->switch_b3v_enabled)", deinit_supply_clear)
+deinit_b3v_disable = switch_deinit.index("regulator_disable(gsw->b3v)", deinit_b3v)
+deinit_b3v_clear = switch_deinit.index("ei_local->switch_b3v_enabled = 0;", deinit_b3v_disable)
+assert deinit_supply < deinit_supply_disable < deinit_supply_clear < deinit_b3v < deinit_b3v_disable < deinit_b3v_clear
+
+RAETHER_HEADER = Path(
+    "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether.h"
+).read_text()
+assert "unsigned int switch_supply_enabled;" in RAETHER_HEADER
+assert "unsigned int switch_b3v_enabled;" in RAETHER_HEADER
+print("MT7622 GSW platform reference, regulator enable state, rollback and deinit pairing: PASS")

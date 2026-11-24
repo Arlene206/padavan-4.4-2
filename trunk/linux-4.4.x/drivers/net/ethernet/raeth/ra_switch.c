@@ -5341,41 +5341,100 @@ int is_vtss_gigaphy(int ge)
 	return 0;
 }
 
-void fe_sw_preinit(struct END_DEVICE *ei_local)
+int fe_sw_preinit(struct END_DEVICE *ei_local)
 {
-	struct device_node *np = ei_local->switch_np;
-	struct platform_device *pdev = of_find_device_by_node(np);
+	struct device_node *np;
+	struct platform_device *pdev;
 	struct mtk_gsw *gsw;
 	int ret;
+	int cleanup_ret;
+
+	if (!ei_local || !ei_local->switch_np)
+		return -ENODEV;
+
+	if (ei_local->switch_supply_enabled ||
+	    ei_local->switch_b3v_enabled)
+		return -EBUSY;
+
+	np = ei_local->switch_np;
+	pdev = of_find_device_by_node(np);
+	if (!pdev)
+		return -ENODEV;
 
 	gsw = platform_get_drvdata(pdev);
 	if (!gsw) {
-		pr_info("Failed to get gsw\n");
-		return;
+		dev_err(&pdev->dev, "switch driver data is unavailable during initialization\n");
+		ret = -ENODEV;
+		goto out_put_device;
 	}
 
-	regulator_set_voltage(gsw->supply, 1000000, 1000000);
+	ret = regulator_set_voltage(gsw->supply, 1000000, 1000000);
+	if (ret) {
+		dev_err(&pdev->dev, "Failed to set mt7530 voltage: %d\n", ret);
+		goto out_put_device;
+	}
+
 	ret = regulator_enable(gsw->supply);
-	if (ret)
-		pr_info("Failed to enable mt7530 power: %d\n", ret);
+	if (ret) {
+		dev_err(&pdev->dev, "Failed to enable mt7530 power: %d\n", ret);
+		goto out_put_device;
+	}
+	ei_local->switch_supply_enabled = 1;
 
 	if (gsw->mcm) {
-		regulator_set_voltage(gsw->b3v, 3300000, 3300000);
+		ret = regulator_set_voltage(gsw->b3v, 3300000, 3300000);
+		if (ret) {
+			dev_err(&pdev->dev, "Failed to set b3v voltage: %d\n", ret);
+			goto rollback_supply;
+		}
+
 		ret = regulator_enable(gsw->b3v);
-		if (ret)
+		if (ret) {
 			dev_err(&pdev->dev, "Failed to enable b3v: %d\n", ret);
+			goto rollback_supply;
+		}
+		ei_local->switch_b3v_enabled = 1;
 	} else {
 		ret = devm_gpio_request(&pdev->dev, gsw->reset_pin,
 					"mediatek,reset-pin");
-		if (ret)
-			pr_info("fail to devm_gpio_request\n");
+		if (ret) {
+			dev_err(&pdev->dev, "failed to request switch reset GPIO: %d\n",
+				ret);
+			goto rollback_supply;
+		}
 
-		gpio_direction_output(gsw->reset_pin, 0);
+		ret = gpio_direction_output(gsw->reset_pin, 0);
+		if (ret) {
+			dev_err(&pdev->dev, "failed to assert switch reset GPIO: %d\n",
+				ret);
+			devm_gpio_free(&pdev->dev, gsw->reset_pin);
+			goto rollback_supply;
+		}
+
 		usleep_range(1000, 1100);
 		gpio_set_value(gsw->reset_pin, 1);
 		mdelay(100);
 		devm_gpio_free(&pdev->dev, gsw->reset_pin);
 	}
+
+	ret = 0;
+	goto out_put_device;
+
+rollback_supply:
+	if (ei_local->switch_supply_enabled) {
+		cleanup_ret = regulator_disable(gsw->supply);
+		if (cleanup_ret) {
+			dev_err(&pdev->dev,
+				"Failed to roll back mt7530 power after init error: %d\n",
+				cleanup_ret);
+		} else {
+			ei_local->switch_supply_enabled = 0;
+		}
+	}
+
+out_put_device:
+	put_device(&pdev->dev);
+	return ret;
 }
 
 int init_rtl8367s(void)
@@ -6384,14 +6443,22 @@ void fe_sw_deinit(struct END_DEVICE *ei_local)
 		goto out_put_device;
 	}
 
-	ret = regulator_disable(gsw->supply);
-	if (ret)
-		dev_err(&pdev->dev, "Failed to disable mt7530 power: %d\n", ret);
+	if (ei_local->switch_supply_enabled) {
+		ret = regulator_disable(gsw->supply);
+		if (ret) {
+			dev_err(&pdev->dev, "Failed to disable mt7530 power: %d\n", ret);
+		} else {
+			ei_local->switch_supply_enabled = 0;
+		}
+	}
 
-	if (gsw->mcm) {
+	if (ei_local->switch_b3v_enabled) {
 		ret = regulator_disable(gsw->b3v);
-		if (ret)
+		if (ret) {
 			dev_err(&pdev->dev, "Failed to disable b3v: %d\n", ret);
+		} else {
+			ei_local->switch_b3v_enabled = 0;
+		}
 	}
 
 	if (ei_local->architecture & MT7622_EPHY) {

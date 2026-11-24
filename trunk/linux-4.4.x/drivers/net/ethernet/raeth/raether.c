@@ -2709,8 +2709,16 @@ int ei_open(struct net_device *dev)
 	}
 
 	/* initialize fe and switch register */
-	if (ei_local->chip_name == MT7622_FE)
-		fe_sw_preinit(ei_local);
+	if (ei_local->chip_name == MT7622_FE) {
+		err = fe_sw_preinit(ei_local);
+		if (err) {
+			fe_reset();
+			ei_deinit_dma(dev);
+			fe_sw_deinit(ei_local);
+			module_put(THIS_MODULE);
+			return err;
+		}
+	}
 
 	if (ei_local->features & FE_SW_LRO)
 		fe_set_sw_lro_my_ip(ei_local->lan_ip4_addr);

@@ -1,3 +1,14 @@
+## 2026-11-24 — Pair MT7622 switch regulator state and release lookup references
+
+- MT7622 `fe_sw_preinit()` called `of_find_device_by_node()` without checking the NULL result, dereferenced missing platform drvdata, and never released the device reference. It also ignored voltage/enable failures and continued opening the netdev; `fe_sw_deinit()` unconditionally disabled rails even when the matching enable failed or never ran.
+- Made preinit return an error, validate node/device/driver-data, and release the held device reference through one exit. Main and MCM B3V regulator state is recorded only after successful enable; voltage/enable/GPIO failures stop open and roll back enabled rails. A failed rollback remains recorded so deinit can retry. Shutdown disables only rails whose enable succeeded and clears state only after successful disable.
+- `ei_open()` now treats preinit failure as an open failure: reset FE, release DMA, retry outstanding rail cleanup, release module reference and return the original error. The RAETH checker asserts pdev-reference, regulator and GPIO failure ordering plus caller unwind.
+- Parent main: `8f141576497dd6c04938cf89cd95bcc5b29de333`. Exact previous production-source SHA `f7bd670c88520298c8c4628b1ff06e0c95251f12`: Switch CLI #45323341869, NVRAM #45323341860 and XY-C1 #45323341920 **PASS**; the firmware job completed Build, TRX validation and artifact upload. No hardware L4 claim.
+- AI docs #45324509191 **PASS** on `81b978`. The later #45324629954 on `8f14157` failed because a duplicated Roadmap snapshot pushed the file to 132155 bytes; this commit removes the duplicate snapshot append from the Roadmap, handoff and root log and keeps the module status concise. Exact-head AI documentation check is required.
+- Next source task: audit `mtk_gsw_probe()` resource ownership for pinctrl references, IRQ mappings and parsed DT nodes.
+
+---
+
 ## 2026-11-24 — Rotate the root development log and refresh RAETH handoff
 
 - AI handoff run #45323806827 on `7cd1ffd3` advanced beyond the Roadmap-size check, then failed because root `dev_log.md` contained 122 complete dated records; the validator requires the 20–119 rolling window.
@@ -164,43 +175,3 @@ No local MIPS firmware compile is claimed. Next: audit `fe_sw_init()` resource/r
 - Parent `47100dccc0a7128cbc711b31766fedc82ac787ad`: Switch CLI `#45309913398` and AI handoff `#45309913249` **PASS**; NVRAM audit `#45309913323` and XY-C1 validation `#45309913333` were **IN_PROGRESS** at last poll. This RStats slice awaits its own exact-SHA Actions.
 
 ---
-
-<!-- RAETH-LIFECYCLE-HANDOFF-2026-11-23-B -->
-
-## 2026-11-23 — RAETH lifecycle continuation, final snapshot
-
-Snapshot baseline (before this documentation-only commit): `81b97858247bdb0fb479d88cde8e1ad317b1e212` — docs: rotate development log and refresh RAETH handoff.
-Frozen backup branch: `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`; it was not modified.
-
-Recent main commits:
-- `81b97858247bdb0fb479d88cde8e1ad317b1e212` — docs: rotate development log and refresh RAETH handoff
-- `7cd1ffd3eecc05786846be684053428f20e8f535` — docs: keep roadmap within handoff validator limit
-- `24d204e991e1ea1b2f1d1af6bb1c96d327e37ca6` — test(shared): inspect pidfile metadata in open regression fixture
-- `5df6be1d45a53c76f9a20ffa524dd4480be65f67` — docs(raeth): record lifecycle hardening handoff
-- `f7bd670c88520298c8c4628b1ff06e0c95251f12` — fix(raeth): tolerate unavailable pseudo interface on close
-- `017ffdf4ef27f11098c4fdf8f01ee6db7ab419e9` — test(shared): align pidfile contract and firmware path coverage
-- `776c84b04a194d0260830eb14f8732df864ee7c3` — test(raeth): distinguish legacy reset task from kthread
-- `2652b1bb7b775db37bfc89e8e44eab514ca1ca80` — fix(raeth): remove cancellation of uninitialized reset work
-- `fdc7ac1119c56e2dc29e061fff696e588f840e5a` — fix(shared): keep pidfile checks portable to strict gnu89
-- `3e13e241219d08b26aeb57795f553504783c1b06` — fix(shared): validate legacy pidfile metadata before signalling
-- `dd5e71103ee4ea1e2b312d358f253f662c0ddc0f` — fix(raeth): propagate MT7621 switch clock enable failures
-- `7627383723a2c33bc6ff7456384ec248db3236fa` — fix(raeth): stop background workers before hardware reset
-- `17441ec283ac5b3da5b5e5ea7859f905a33e2c48` — fix(lan): validate DNS mode before DHCP deconfig
-- `69c15a20e8ce91bf8c31e3ac600547421ba3bfd1` — fix(raeth): tear down MT7622 switch on open failures
-
-Exact-SHA Actions for baseline `81b97858247bdb0fb479d88cde8e1ad317b1e212`:
-- AI handoff documentation contract: **completed / success** (run 45324509191)
-
-Current switch-init invariants inspected at this baseline:
-- `fe_sw_init()` pdev declaration initialized to NULL: **no**.
-- `of_find_device_by_node(np)` acquisition sites: 0.
-- `put_device(&pdev->dev)` sites: 0.
-- Driver-data NULL guard: **no**.
-- Regression check accounts only for exits after driver-data lookup (the NULL-pdev return itself owns no reference): **no**.
-
-This continuation hardened RAETH DMA ownership/rollback (PDMA, QDMA, RSS and HW-LRO), QDMA TX/FQ/SFQ failure cleanup, staged DMA initialization unwind, IRQ request tracking/partial-release, switch IRQ-source disable, open/close worker ordering and error cleanup, pseudo-netdev registration/uninit and NAPI teardown, MT7621 GP0 clock-enable error handling, and removal of cancellation of the uninitialized reset work item. Source checks live in `scripts/check_raeth_rx_ring_cleanup.py` and `scripts/check_raeth_qdma_tx_cleanup.py`.
-
-Verification boundary: no local MIPS/XY-C1 firmware build is claimed. Use only Actions associated with the exact SHA above; a documentation commit below creates a new SHA. Do not repeat completed PDMA/QDMA/RSS/HW-LRO/IRQ/NAPI audits without evidence of regression.
-
-**Next task:** first inspect Actions for the source baseline `81b97858247bdb0fb479d88cde8e1ad317b1e212` and check XY-C1 firmware build/artifacts on that exact source SHA. Then continue the switch driver lifecycle audit specifically for the regulator enable/disable success flags and all partial-failure unwind paths in `ra_switch.c::fe_sw_init()`; do not assume that a non-NULL regulator handle implies a successful enable.
-

@@ -2,37 +2,35 @@
 
 ## Current repository state
 
-- Main parent for this handoff/rolling-log commit: `7cd1ffd3eecc05786846be684053428f20e8f535`. Latest RAETH production-source baseline: `f7bd670c88520298c8c4628b1ff06e0c95251f12`. The later `24d204e` commit corrected the PID-file metadata integration fixture; `7cd1ffd` only compacted the Roadmap row and updated handoff/log state. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Process lifecycle run #45323579958 completed **SUCCESS** on exact test/source SHA `24d204e991e1ea1b2f1d1af6bb1c96d327e37ca6`; all GNU89, ASan/UBSan, parser, metadata and integration steps passed. The checker now loads metadata-policy cases from `trunk/user/shared/tests/shutils_pidfile_open.c`, while parser-only cases remain in `src/tests/shutils_pidfile_policy.c`.
-- AI handoff run #45323806827 on `7cd1ffd3eecc05786846be684053428f20e8f535` passed the Roadmap size gate (the preceding commit compacted the LAN DHCP row) and failed because root `dev_log.md` had 122 records. This commit archives 102 oldest records to `docs/dev-log/2026/11/part-031.md`, leaving 20 prior newest records plus this new rotation entry; the archive index stores the exact blob SHA and byte count.
-- RAETH exact-source Actions on `f7bd670c88520298c8c4628b1ff06e0c95251f12`: Switch CLI #45323341869 **PASS**; NVRAM transaction audit #45323341860 **PASS**; XY-C1 firmware validation #45323341920 remains **IN_PROGRESS** (last observed job: cross-build). TRX verification and artifact upload are not yet confirmed.
-- No local MIPS firmware build, current-baseline Build/TRX/artifact completion, or physical-router L4 result is claimed. All Actions must be interpreted against their displayed exact SHA.
+- Parent main for this atomic source/checker/handoff commit: `8f141576497dd6c04938cf89cd95bcc5b29de333`. Latest production-source SHA before this commit: `f7bd670c88520298c8c4628b1ff06e0c95251f12`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Process lifecycle run #45323579958 **PASS** on `24d204e991e1ea1b2f1d1af6bb1c96d327e37ca6`. Exact AI handoff #45324509191 **PASS** on `81b97858247bdb0fb479d88cde8e1ad317b1e212`.
+- The `8f141576497dd6c04938cf89cd95bcc5b29de333` documentation follow-up #45324629954 failed only because its appended duplicate Roadmap snapshot made the file 132155 UTF-8 bytes. This commit removes the duplicated appended snapshots and restores the Roadmap below the 131072-byte validator ceiling.
+- Exact production-source SHA `f7bd670c88520298c8c4628b1ff06e0c95251f12`: Switch CLI #45323341869 **PASS**, NVRAM #45323341860 **PASS**, and XY-C1 #45323341920 **PASS**. XY-C1 completed Build, TRX verification and artifact upload. No physical-router L4 result is claimed.
+- This commit fixes MT7622 GSW preinit: checked platform-device lookup and drvdata, balanced the acquired device reference, made voltage/enable failures fatal, recorded only successful regulator enables, rolled back partial enable on GPIO/MCM setup errors, and made shutdown disable only rails actually enabled. Current exact-SHA Actions have not yet run.
 
 ## Active task
 
-Continue the focused RAETH resource-lifecycle audit in `trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.c`, specifically `fe_sw_init()` and `fe_sw_deinit()`. Trace platform-device lookup/reference ownership, regulator get/enable/disable/put pairs, each clock prepare/enable/disable/unprepare path, MMIO mapping ownership, and every failure edge. Compare with the existing probe/open/close call paths and device-tree consumers. The existing `scripts/check_raeth_rx_ring_cleanup.py` checks part of `fe_sw_deinit()` and the MT7621 GP0 enable failure but does not yet fully cover all init-side resource pairs/unwinds. Do not assume a defect until the complete path is traced.
+Audit the remaining `mtk_gsw_probe()` and switch-node ownership paths: verify `irq_of_parse_and_map()`/mapping disposal on probe failure and remove; balance the unmanaged `pinctrl_get()` handle with `pinctrl_put()`; validate `of_parse_phandle()` NULL/error handling for the pctl regmap and call `of_node_put()` on every path; then check `switch_np` lifetime from `of_parse_phandle()` in `rather_probe()` through probe rollback and netdev uninit/removal. Make a separate focused source/checker commit once a concrete defect is confirmed.
 
 ## Completed development slices
 
-- RAETH DMA/RX and allocation lifecycle: PDMA/QDMA RX partial allocation rollback, DMA map accounting and unmapping; RSS 4-ring/2-ring and HW-LRO ring rollback; QDMA TX/FQ/SFQ staged-allocation cleanup; multi-stage DMA initialization unwind.
-- RAETH IRQ and netdev lifecycle: request bitmap and partial IRQ unwind; GSW interrupt source disabled before IRQ release; checked IRQ setup failure; open/close worker ordering; pseudo-netdev registration/uninit safety; NAPI removal during uninit; MT7622 switch teardown on open failures; safe handling of an unavailable pseudo-interface during close.
-- RAETH clock/work item corrections: propagate MT7621 GP0 clock-enable failure; remove cancellation of the never-initialized `reset_task` work item. Existing source contracts are in `scripts/check_raeth_rx_ring_cleanup.py` and the Switch CLI workflow.
-- Shared PID-file policy: require regular file, effective-UID ownership, single hard link and no group/world write; keep the predicate strict-GNU89 compatible using `S_IFMT/S_IFREG`; make the policy header self-contained and ensure XY-C1 path filters include it. The corrected metadata fixture binding passed the full Process lifecycle run above.
-- Earlier HTTPD, WAN/DHCP, NVRAM, storage and add-on lifecycle slices remain documented in the module dashboard and chronological `dev_log.md` archives; do not repeat closed audits without new evidence.
+- RAETH DMA/RX and allocation lifecycle: PDMA/QDMA RX partial allocation rollback, DMA map accounting/unmapping; RSS 4-ring/2-ring and HW-LRO ring rollback; QDMA TX/FQ/SFQ staged-allocation cleanup; staged DMA initialization unwind.
+- RAETH IRQ and netdev lifecycle: tracked partial IRQ requests and release; disabled GSW interrupt source before handler release; ordered worker shutdown, reset, DMA teardown and IRQ release; safe pseudo-netdev registration/uninit and NAPI removal.
+- RAETH switch setup: MT7621 GP0 clock-enable error propagation; MT7622 open-failure cleanup; this commit now checks switch platform-device references, regulator voltage/enable results and records main/B3V enable state before disabling.
+- Shared PID-file safety: no-follow open plus regular-file, effective-UID, single-link and no group/world write policy; strict GNU89-compatible predicate; complete metadata regression binding.
 
 ## Verification boundary
 
-- Exact Process lifecycle run #45323579958: **PASS** on `24d204e` (all GNU89/ASan/UBSan and integration steps passed).
-- Exact AI handoff run #45323806827: **FAIL** only because root log count was 122; this commit performs the required lossless rolling rotation and refreshes the required handoff sections. A new exact-head AI docs run must confirm.
-- Exact RAETH source SHA `f7bd670`: Switch CLI #45323341869 **PASS**, NVRAM #45323341860 **PASS**, XY-C1 #45323341920 **IN_PROGRESS**. No Build→TRX→artifact PASS is claimed until every stage is complete on the matching source SHA.
+- Previous exact production-source SHA `f7bd670c88520298c8c4628b1ff06e0c95251f12`: Switch CLI, NVRAM and XY-C1 all **PASS**; XY-C1 Build, TRX and artifact upload completed successfully.
+- Previous AI handoff #45324509191 **PASS** on `81b978`; #45324629954 **FAIL** on `8f14157` because Roadmap size was 132155 bytes. This commit removes the duplicated snapshot and requires a new exact-head AI docs run.
+- The new switch source/checker changes require exact-head Switch CLI plus XY-C1 Build→TRX→artifact verification. Do not infer those results from the parent source SHA.
 - Hardware L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect the exact-head AI handoff result for this log rotation; confirm `part-031.md` is indexed and archive/root entry counts match.
-2. Re-poll XY-C1 #45323341920 on its exact product SHA; inspect Build, TRX verification and artifact-upload job/step status, without waiting when pending.
-3. Extract and trace the full `fe_sw_init()` / `fe_sw_deinit()` implementation, including platform-device references, regulator state, clock state and all `ioremap`/devm mapping failure edges; inspect callers and relevant DT resources.
-4. When a concrete lifecycle defect is proved, add a focused regression/source contract, make one complete Git tree and atomic main commit via non-forced expected-SHA compare-and-swap, then inspect exact-SHA Actions. Continue independent work while jobs are pending.
+1. Fetch live `main`; inspect its exact-SHA AI handoff and Switch CLI runs, then poll XY-C1 on that same SHA for Build, TRX and artifact-upload status.
+2. Inspect any failure in the new MT7622 preinit source contract or compile/build path; correct it atomically before advancing.
+3. Continue the focused `mtk_gsw_probe()` pinctrl/IRQ/DT-node ownership audit and `switch_np` lifecycle tracing.
 
 # Cross-session execution mandate
 
@@ -52,43 +50,3 @@ Every session MUST inspect live repository state before ending. Record only mate
 - PASS advances; FAIL is diagnosed and fixed; PENDING does not block independent work.
 - Preserve Linux 4.4, GNU89, MIPS/uClibc compatibility, router configuration, security, architecture and backward compatibility.
 - Before context exhaustion, record exact latest SHA, tests, CI state, unresolved issues and one concrete first task. Never claim unverified work.
-
-<!-- RAETH-LIFECYCLE-HANDOFF-2026-11-23-B -->
-
-## 2026-11-23 — RAETH lifecycle continuation, final snapshot
-
-Snapshot baseline (before this documentation-only commit): `81b97858247bdb0fb479d88cde8e1ad317b1e212` — docs: rotate development log and refresh RAETH handoff.
-Frozen backup branch: `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`; it was not modified.
-
-Recent main commits:
-- `81b97858247bdb0fb479d88cde8e1ad317b1e212` — docs: rotate development log and refresh RAETH handoff
-- `7cd1ffd3eecc05786846be684053428f20e8f535` — docs: keep roadmap within handoff validator limit
-- `24d204e991e1ea1b2f1d1af6bb1c96d327e37ca6` — test(shared): inspect pidfile metadata in open regression fixture
-- `5df6be1d45a53c76f9a20ffa524dd4480be65f67` — docs(raeth): record lifecycle hardening handoff
-- `f7bd670c88520298c8c4628b1ff06e0c95251f12` — fix(raeth): tolerate unavailable pseudo interface on close
-- `017ffdf4ef27f11098c4fdf8f01ee6db7ab419e9` — test(shared): align pidfile contract and firmware path coverage
-- `776c84b04a194d0260830eb14f8732df864ee7c3` — test(raeth): distinguish legacy reset task from kthread
-- `2652b1bb7b775db37bfc89e8e44eab514ca1ca80` — fix(raeth): remove cancellation of uninitialized reset work
-- `fdc7ac1119c56e2dc29e061fff696e588f840e5a` — fix(shared): keep pidfile checks portable to strict gnu89
-- `3e13e241219d08b26aeb57795f553504783c1b06` — fix(shared): validate legacy pidfile metadata before signalling
-- `dd5e71103ee4ea1e2b312d358f253f662c0ddc0f` — fix(raeth): propagate MT7621 switch clock enable failures
-- `7627383723a2c33bc6ff7456384ec248db3236fa` — fix(raeth): stop background workers before hardware reset
-- `17441ec283ac5b3da5b5e5ea7859f905a33e2c48` — fix(lan): validate DNS mode before DHCP deconfig
-- `69c15a20e8ce91bf8c31e3ac600547421ba3bfd1` — fix(raeth): tear down MT7622 switch on open failures
-
-Exact-SHA Actions for baseline `81b97858247bdb0fb479d88cde8e1ad317b1e212`:
-- AI handoff documentation contract: **completed / success** (run 45324509191)
-
-Current switch-init invariants inspected at this baseline:
-- `fe_sw_init()` pdev declaration initialized to NULL: **no**.
-- `of_find_device_by_node(np)` acquisition sites: 0.
-- `put_device(&pdev->dev)` sites: 0.
-- Driver-data NULL guard: **no**.
-- Regression check accounts only for exits after driver-data lookup (the NULL-pdev return itself owns no reference): **no**.
-
-This continuation hardened RAETH DMA ownership/rollback (PDMA, QDMA, RSS and HW-LRO), QDMA TX/FQ/SFQ failure cleanup, staged DMA initialization unwind, IRQ request tracking/partial-release, switch IRQ-source disable, open/close worker ordering and error cleanup, pseudo-netdev registration/uninit and NAPI teardown, MT7621 GP0 clock-enable error handling, and removal of cancellation of the uninitialized reset work item. Source checks live in `scripts/check_raeth_rx_ring_cleanup.py` and `scripts/check_raeth_qdma_tx_cleanup.py`.
-
-Verification boundary: no local MIPS/XY-C1 firmware build is claimed. Use only Actions associated with the exact SHA above; a documentation commit below creates a new SHA. Do not repeat completed PDMA/QDMA/RSS/HW-LRO/IRQ/NAPI audits without evidence of regression.
-
-**Next task:** first inspect Actions for the source baseline `81b97858247bdb0fb479d88cde8e1ad317b1e212` and check XY-C1 firmware build/artifacts on that exact source SHA. Then continue the switch driver lifecycle audit specifically for the regulator enable/disable success flags and all partial-failure unwind paths in `ra_switch.c::fe_sw_init()`; do not assume that a non-NULL regulator handle implies a successful enable.
-

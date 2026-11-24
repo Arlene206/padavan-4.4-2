@@ -271,6 +271,8 @@ struct END_DEVICE {
 
 	/* gsw device node */
 	struct device_node *switch_np;
+	unsigned int switch_supply_enabled;
+	unsigned int switch_b3v_enabled;
 
 	/* GE1 support */
 	struct net_device *netdev;

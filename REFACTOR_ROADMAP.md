@@ -390,48 +390,8 @@ Completed in this continuation:
 - [x] MT7621 GP0 clock-enable failure propagation and removal of the never-initialized `reset_task` cancellation.
 - [x] Regression assertions integrated into the Switch CLI stability workflow.
 
-Verification snapshot: baseline source SHA `f7bd670c88520298c8c4628b1ff06e0c95251f12`; exact-SHA workflow state is recorded in `SESSION_HANDOFF.md` and `dev_log.md`. No local MIPS build is claimed.
+Verified exact production-source SHA `f7bd670c88520298c8c4628b1ff06e0c95251f12`: Switch CLI #45323341869 **PASS**, NVRAM audit #45323341860 **PASS**, and XY-C1 #45323341920 **PASS** including firmware build, TRX validation and artifact upload. Hardware L4 remains unverified.
 
 Next active item:
-- [ ] Audit `ra_switch.c::fe_sw_init()` / `fe_sw_deinit()` for platform-device reference balancing, regulator/clock state pairing, and every partial-failure unwind.
-- [ ] Confirm the XY-C1 firmware build and artifacts for the latest source SHA after the audit commits.
-
-<!-- RAETH-LIFECYCLE-HANDOFF-2026-11-23-B -->
-
-## 2026-11-23 — RAETH lifecycle continuation, final snapshot
-
-Snapshot baseline (before this documentation-only commit): `81b97858247bdb0fb479d88cde8e1ad317b1e212` — docs: rotate development log and refresh RAETH handoff.
-Frozen backup branch: `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`; it was not modified.
-
-Recent main commits:
-- `81b97858247bdb0fb479d88cde8e1ad317b1e212` — docs: rotate development log and refresh RAETH handoff
-- `7cd1ffd3eecc05786846be684053428f20e8f535` — docs: keep roadmap within handoff validator limit
-- `24d204e991e1ea1b2f1d1af6bb1c96d327e37ca6` — test(shared): inspect pidfile metadata in open regression fixture
-- `5df6be1d45a53c76f9a20ffa524dd4480be65f67` — docs(raeth): record lifecycle hardening handoff
-- `f7bd670c88520298c8c4628b1ff06e0c95251f12` — fix(raeth): tolerate unavailable pseudo interface on close
-- `017ffdf4ef27f11098c4fdf8f01ee6db7ab419e9` — test(shared): align pidfile contract and firmware path coverage
-- `776c84b04a194d0260830eb14f8732df864ee7c3` — test(raeth): distinguish legacy reset task from kthread
-- `2652b1bb7b775db37bfc89e8e44eab514ca1ca80` — fix(raeth): remove cancellation of uninitialized reset work
-- `fdc7ac1119c56e2dc29e061fff696e588f840e5a` — fix(shared): keep pidfile checks portable to strict gnu89
-- `3e13e241219d08b26aeb57795f553504783c1b06` — fix(shared): validate legacy pidfile metadata before signalling
-- `dd5e71103ee4ea1e2b312d358f253f662c0ddc0f` — fix(raeth): propagate MT7621 switch clock enable failures
-- `7627383723a2c33bc6ff7456384ec248db3236fa` — fix(raeth): stop background workers before hardware reset
-- `17441ec283ac5b3da5b5e5ea7859f905a33e2c48` — fix(lan): validate DNS mode before DHCP deconfig
-- `69c15a20e8ce91bf8c31e3ac600547421ba3bfd1` — fix(raeth): tear down MT7622 switch on open failures
-
-Exact-SHA Actions for baseline `81b97858247bdb0fb479d88cde8e1ad317b1e212`:
-- AI handoff documentation contract: **completed / success** (run 45324509191)
-
-Current switch-init invariants inspected at this baseline:
-- `fe_sw_init()` pdev declaration initialized to NULL: **no**.
-- `of_find_device_by_node(np)` acquisition sites: 0.
-- `put_device(&pdev->dev)` sites: 0.
-- Driver-data NULL guard: **no**.
-- Regression check accounts only for exits after driver-data lookup (the NULL-pdev return itself owns no reference): **no**.
-
-This continuation hardened RAETH DMA ownership/rollback (PDMA, QDMA, RSS and HW-LRO), QDMA TX/FQ/SFQ failure cleanup, staged DMA initialization unwind, IRQ request tracking/partial-release, switch IRQ-source disable, open/close worker ordering and error cleanup, pseudo-netdev registration/uninit and NAPI teardown, MT7621 GP0 clock-enable error handling, and removal of cancellation of the uninitialized reset work item. Source checks live in `scripts/check_raeth_rx_ring_cleanup.py` and `scripts/check_raeth_qdma_tx_cleanup.py`.
-
-Verification boundary: no local MIPS/XY-C1 firmware build is claimed. Use only Actions associated with the exact SHA above; a documentation commit below creates a new SHA. Do not repeat completed PDMA/QDMA/RSS/HW-LRO/IRQ/NAPI audits without evidence of regression.
-
-**Next task:** first inspect Actions for the source baseline `81b97858247bdb0fb479d88cde8e1ad317b1e212` and check XY-C1 firmware build/artifacts on that exact source SHA. Then continue the switch driver lifecycle audit specifically for the regulator enable/disable success flags and all partial-failure unwind paths in `ra_switch.c::fe_sw_init()`; do not assume that a non-NULL regulator handle implies a successful enable.
-
+- [x] Correct MT7622 GSW preinitialization platform-device reference leaks, unchecked regulator failures, and regulator disable calls not paired to successful enables.
+- [ ] Audit the remaining `mtk_gsw_probe()` pinctrl, IRQ mapping and DT-node ownership paths.
