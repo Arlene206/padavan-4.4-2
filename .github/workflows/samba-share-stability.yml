@@ -710,7 +710,7 @@ jobs:
           rebuild = compact_run.index("passwd_status=recreate_passwd_unix(0)")
           failure_gate = compact_run.index("if(passwd_status!=0)", rebuild)
           preserve_errno = compact_run.index(
-              "passwd_error=errno?(errno):(passwd_status>0?passwd_status:EIO);",
+              "passwd_error=errno?errno:(passwd_status>0?passwd_status:EIO);",
               failure_gate)
           abort = compact_run.index("gotoout;", preserve_errno)
           assert rebuild < failure_gate < preserve_errno < abort
