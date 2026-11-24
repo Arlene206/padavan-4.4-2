@@ -190,18 +190,30 @@ jobs:
           policy = (root / "raeth_esw_rate_ioctl_policy.h").read_text()
           cli = Path("trunk/user/utils/src/switch/switch_gsw.c").read_text()
 
-          ioctl = source.split("case RAETH_ESW_INGRESS_RATE:", 1)[1]
-          ingress = ioctl.split("case RAETH_ESW_EGRESS_RATE:", 1)[0]
-          egress = ioctl.split("case RAETH_SET_LAN_IP:", 1)[0]
+          def case_body(start, end):
+              start_at = source.index(start)
+              end_at = source.index(end, start_at + len(start))
+              return " ".join(source[start_at + len(start):end_at].split())
+
+          ingress = case_body(
+              "case RAETH_ESW_INGRESS_RATE:", "case RAETH_ESW_EGRESS_RATE:"
+          )
+          egress = case_body(
+              "case RAETH_ESW_EGRESS_RATE:", "case RAETH_SET_LAN_IP:"
+          )
           for name, body, offset in (
               ("ingress", ingress, "offset = 0x1800"),
               ("egress", egress, "offset = 0x1040"),
           ):
               check = body.index("raeth_esw_rate_ioctl_status(")
               reject = body.index("if (ret != 0)", check)
-              offset_calc = body.index(offset)
-              mmio_read = body.index("sys_reg_read(RALINK_ETH_SW_BASE + offset)")
-              mdio_write = body.index("mii_mgr_write(0x1f, offset, value)")
+              offset_calc = body.index(offset, reject)
+              mmio_read = body.index(
+                  "sys_reg_read(RALINK_ETH_SW_BASE + offset)", offset_calc
+              )
+              mdio_write = body.index(
+                  "mii_mgr_write(0x1f, offset, value)", mmio_read
+              )
               assert check < reject < offset_calc < mmio_read < mdio_write, name
 
           assert "RAETH_ESW_RATE_MAX_PORT 4U" in policy

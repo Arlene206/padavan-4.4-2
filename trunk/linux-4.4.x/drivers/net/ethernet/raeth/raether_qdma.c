@@ -1453,7 +1453,9 @@ int ei_qdma_ioctl(struct net_device *dev, struct ifreq *ifr,
 		break;
 	case RAETH_QDMA_REG_WRITE:
 
-		if (data->off > REG_HQOS_MAX) {
+		if (raeth_qdma_register_offset_status(
+			    data->off, REG_HQOS_MAX,
+			    ei_local->chip_name == MT7622_FE) != 0) {
 			ret = -EINVAL;
 			break;
 		}
