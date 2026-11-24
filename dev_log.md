@@ -1,3 +1,11 @@
+## 2026-11-24 — Correct AliDNS checker require() arguments
+
+- Exact e4fdbc7 AliDNS Action #45357277912 completed all functional shell/API/lifecycle/HMAC privacy steps successfully but the static contract failed with `TypeError: require() missing 1 required positional argument: 'message'`.
+- Cause: the standalone-`od` regex predicate was not separated from the require diagnostic string by a comma. Corrected the predicate/message argument boundary; encoder and tests remain unchanged.
+- Exact e4 AI handoff #45357277937 PASS. Exact 824 AliDNS #45357686604 was still in progress at last observation.
+
+---
+
 ## 2026-11-24 — Fix AliDNS require() contract call
 
 - Exact e4fdbc7 AliDNS run #45357277912 passed shell syntax, signed transport, IPv4/IPv6 lookup, lifecycle/NVRAM, CA bootstrap and HMAC argument-privacy tests. The final checker failed with TypeError because its first new `require()` call omitted its second message argument.
