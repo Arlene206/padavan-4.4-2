@@ -275,6 +275,12 @@ assert "check_smartdns_dnsmasq_config.py" in workflow
 config_file = (root / "trunk/user/smartdns/smartdns_config_file.sh").read_text()
 config_file_test = (root / "trunk/user/smartdns/tests/smartdns_config_file.sh").read_text()
 config_publish = body(config_file, "smartdns_config_publish_deduplicated")
+secondary_bind = body(smartdns, "Get_sdnse_conf")
+config_generator = body(smartdns, "Get_sdns_conf")
+assert secondary_bind.count('>> "$smartdns_tmp_Conf" || return $?') == 2
+assert "Get_sdnse_conf || return $?" in config_generator
+assert "secondary UDP bind write failure propagates" in config_file_test
+assert "secondary TCP bind failure propagates" in config_file_test
 for token in ('[ ! -f "$_smartdns_source" ]',
               '[ -L "$_smartdns_destination" ]',
               'mktemp "${_smartdns_destination}.tmp.XXXXXX"',

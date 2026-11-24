@@ -7,6 +7,46 @@ trap 'rm -rf "$T"' 0
 trap 'exit 1' HUP INT TERM
 fail() { echo "SmartDNS atomic config regression: FAIL: $*" >&2; exit 1; }
 pass() { echo "SmartDNS atomic config regression: PASS: $*"; }
+
+# A secondary listener write error must be visible even when TCP binding is
+# disabled (the false conditional used to mask the failed first write).
+sed -n '/^Get_sdnse_conf () {/,/^}/p' "$HERE/../smartdns.sh" > "$T/get_sdnse_conf.sh"
+[ -s "$T/get_sdnse_conf.sh" ] || fail "secondary resolver generator extraction failed"
+. "$T/get_sdnse_conf.sh"
+sdnse_enable=1
+sdnse_speed=0
+sdnse_name=
+sdnse_address=0
+sdnse_ns=0
+sdnse_ipset=0
+sdnse_as=0
+sdnse_ipc=0
+sdnse_cache=0
+sdnse_ipv6_server=0
+sdnse_tcp_server=0
+sdnse_port=5335
+smartdns_tmp_Conf=/dev/full
+[ -e "$smartdns_tmp_Conf" ] || fail "/dev/full is unavailable for write-failure injection"
+if Get_sdnse_conf; then fail "failed secondary UDP bind write was ignored"; else status=$?; fi
+[ "$status" -ne 0 ] || fail "secondary UDP bind write returned success"
+pass "secondary UDP bind write failure propagates with TCP bind disabled"
+
+# Also inject a failure on the second (TCP) line after UDP was written.
+smartdns_tmp_Conf="$T/secondary.conf"
+: > "$smartdns_tmp_Conf"
+sdnse_tcp_server=1
+printf() {
+    case "${2:-}" in
+        "bind-tcp "*) return 39 ;;
+    esac
+    command printf "$@"
+}
+if Get_sdnse_conf; then fail "failed secondary TCP bind write was ignored"; else status=$?; fi
+unset -f printf
+[ "$status" -eq 39 ] || fail "secondary TCP bind status changed to $status"
+grep -Fq 'bind :5335' "$smartdns_tmp_Conf" || fail "successful UDP bind was not retained"
+! grep -Fq 'bind-tcp ' "$smartdns_tmp_Conf" || fail "failed TCP bind was published"
+pass "secondary TCP bind failure propagates without a false directive"
 SRC="$T/input.conf"
 DST="$T/smartdns.conf"
 printf 'server-name router\ncache-size 4096\nserver-name router\n' > "$SRC"

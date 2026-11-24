@@ -1,3 +1,11 @@
+## 2026-11-24 — Propagate SmartDNS secondary resolver bind write failures
+
+- `Get_sdnse_conf()` ignored both generated bind-line write statuses. With TCP binding disabled, a failed UDP bind append was followed by a false conditional whose success masked the write error; `Get_sdns_conf()` also ignored the helper return, allowing publication of a config missing the secondary listener.
+- Each UDP/TCP bind write now returns its original failure status, and the caller aborts generation before publishing an incomplete staged config.
+- Extended the existing SmartDNS atomic-config regression with /dev/full first-write failure and an injected second-write failure. The source checker pins both error paths. Exact-head DNSMasq/XY-C1 results are pending for this change.
+
+---
+
 ## 2026-11-24 — Balance the RAETH SET_LAN_IP lock on rejected input
 
 - Review found an unbalanced lock path introduced by bounded `RAETH_SET_LAN_IP` validation: the validation error `break` ran after `page_lock` had already been released, then reached an unconditional unlock in the common epilogue.

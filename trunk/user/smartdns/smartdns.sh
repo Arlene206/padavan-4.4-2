@@ -316,7 +316,7 @@ Get_sdns_conf () {
         fi
     fi
     # 【读取配置】
-    Get_sdnse_conf
+    Get_sdnse_conf || return $?
     echo "cache-size $sdns_cache" >> "$smartdns_tmp_Conf"
     echo "rr-ttl $sdns_rr_ttl" >> "$smartdns_tmp_Conf"
     echo "rr-ttl-min $sdns_rr_ttl_min" >> "$smartdns_tmp_Conf"
@@ -505,9 +505,9 @@ Get_sdnse_conf () {
     else
         ADDR=""
     fi
-    echo "bind" "$ADDR:$sdnse_port $ARGS_2" >> "$smartdns_tmp_Conf"
-     if [ "$sdnse_tcp_server" = "1" ] ; then
-        echo "bind-tcp" "$ADDR:$sdnse_port $ARGS_2" >> "$smartdns_tmp_Conf"
+    printf '%s\n' "bind $ADDR:$sdnse_port $ARGS_2" >> "$smartdns_tmp_Conf" || return $?
+    if [ "$sdnse_tcp_server" = "1" ] ; then
+        printf '%s\n' "bind-tcp $ADDR:$sdnse_port $ARGS_2" >> "$smartdns_tmp_Conf" || return $?
     fi
 fi
 }
