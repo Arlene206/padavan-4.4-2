@@ -61,3 +61,17 @@ assert "if (ei_local->rx_ring[0])" in teardown[unmap_at:free_data_at]
 assert "ei_local->netrx_skb_data[0][i] = NULL;" in teardown[free_data_at:free_ring_at]
 assert "ei_local->rx_ring[0] = NULL;" in teardown[free_ring_at:]
 print("PDMA RX teardown unmaps each live descriptor before releasing its buffer: PASS")
+
+tx_body = function_body(SOURCE, "int fe_pdma_tx_dma_init(")
+tx_alloc = tx_body.index("ei_local->tx_ring0 = dma_alloc_coherent(")
+tx_null = tx_body.index("if (!ei_local->tx_ring0)", tx_alloc)
+tx_return = tx_body.index("return -ENOMEM;", tx_null)
+tx_first_access = tx_body.index("&ei_local->tx_ring0[i]", tx_return)
+assert tx_alloc < tx_null < tx_return < tx_first_access
+
+tx_teardown = function_body(SOURCE, "void fe_pdma_tx_dma_deinit(")
+tx_free = tx_teardown.index("dma_free_coherent(")
+tx_clear = tx_teardown.index("ei_local->tx_ring0 = NULL;", tx_free)
+assert "if (ei_local->tx_ring0)" in tx_teardown[:tx_free]
+assert tx_free < tx_clear
+print("PDMA TX allocation failure is detected before descriptor access: PASS")

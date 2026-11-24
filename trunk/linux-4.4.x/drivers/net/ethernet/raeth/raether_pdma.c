@@ -138,6 +138,8 @@ int fe_pdma_tx_dma_init(struct net_device *dev)
 	pr_debug("\nphy_tx_ring = 0x%08x, tx_ring = 0x%p\n",
 		 (unsigned int)ei_local->phy_tx_ring0,
 		 (void *)ei_local->tx_ring0);
+	if (!ei_local->tx_ring0)
+		return -ENOMEM;
 
 	for (i = 0; i < num_tx_desc; i++) {
 		memset(&ei_local->tx_ring0[i], 0, sizeof(struct PDMA_txdesc));
@@ -196,6 +198,7 @@ void fe_pdma_tx_dma_deinit(struct net_device *dev)
 				  sizeof(struct PDMA_txdesc),
 				  ei_local->tx_ring0,
 				  ei_local->phy_tx_ring0);
+	ei_local->tx_ring0 = NULL;
 
 	/* free TX data */
 	for (i = 0; i < num_tx_desc; i++) {
