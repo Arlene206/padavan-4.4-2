@@ -1,3 +1,11 @@
+## 2026-11-25 — Correct DHCP policy test registration before execution
+
+- Immediately after 8151d689580ff7e991f539d466c4b8a1ce9ebfb7, reviewed the changed C fixture and caught a malformed test-main insertion: the second if ( was duplicated, making the GNU89 test binary fail to compile.
+- Corrected the registration to one condition chain. This was caught from source inspection before the exact-SHA udhcpc workflow reached its compile step; no CI result is claimed for the faulty parent.
+- Re-run the exact-SHA udhcpc workflow on THIS correction and inspect XY-C1 Build/TRX/artifact separately.
+
+---
+
 ## 2026-11-25 — Make DHCP NAK lease gating an explicit tested policy
 
 - Refined the WAN DHCP task after checking BusyBox's established wrong-server NAK filter and RFC renewal/rebinding guidance. Kept that compatibility/security behavior unchanged: packets with a nonmatching server identifier remain ignored; this is not treated as a confirmed defect.
