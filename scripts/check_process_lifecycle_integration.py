@@ -1711,7 +1711,7 @@ assert "*cached_minuteswest = requested_minuteswest;" in timezone_policy
 assert "test_kernel_timezone_cache_changes_only_after_success();" in timezone_test
 
 timezone_env = c_function_body(rc_source, "setenv_tz(void)")
-assert "int\\nsetenv_tz(void)" in rc_source
+assert "intsetenv_tz(void)" in "".join(rc_source.split())
 assert "return status;" in timezone_env
 assert "return 0;" in timezone_env
 assert "return status;" in kernel_timezone
