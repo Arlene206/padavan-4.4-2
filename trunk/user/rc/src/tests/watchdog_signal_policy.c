@@ -124,6 +124,16 @@ test_scheduled_state_commits_only_after_pid1_accepts_notification(void)
 	return 0;
 }
 
+static int
+test_wifi_signal_requires_published_band_selector(void)
+{
+	CHECK(watchdog_wifi_notification_should_signal(0));
+	CHECK(!watchdog_wifi_notification_should_signal(-1));
+	CHECK(!watchdog_wifi_notification_should_signal(EIO));
+	CHECK(!watchdog_wifi_notification_should_signal(EACCES));
+	return 0;
+}
+
 int
 main(void)
 {
@@ -134,6 +144,7 @@ main(void)
 	CHECK(test_pending_termination_suppresses_remaining_batch_work() == 0);
 	CHECK(test_unmanaged_signals_and_null_state_are_ignored() == 0);
 	CHECK(test_scheduled_state_commits_only_after_pid1_accepts_notification() == 0);
+	CHECK(test_wifi_signal_requires_published_band_selector() == 0);
 	puts("watchdog signal and schedule notification policy: PASS");
 	return 0;
 }

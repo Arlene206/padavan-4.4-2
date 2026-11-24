@@ -1107,9 +1107,18 @@ void
 notify_watchdog_wifi(int is_5ghz)
 {
 	int wd_notify_id = (is_5ghz) ? WD_NOTIFY_ID_WIFI5 : WD_NOTIFY_ID_WIFI2;
-	int saved_errno;
+	int state_status, saved_errno;
 
-	nvram_set_int_temp("wd_notify_id", wd_notify_id);
+	errno = 0;
+	state_status = nvram_set_int_temp("wd_notify_id", wd_notify_id);
+	if (!watchdog_wifi_notification_should_signal(state_status)) {
+		saved_errno = errno > 0 ? errno : EIO;
+		logmessage("watchdog",
+			   "cannot publish Wi-Fi notification band; refusing SIGUSR1 with stale band state (status=%d errno=%d)",
+			   state_status, saved_errno);
+		return;
+	}
+
 	if (process_pidfile_signal(WD_PID_FILE, "watchdog", SIGUSR1) < 0) {
 		saved_errno = errno;
 		if (saved_errno != ENOENT && saved_errno != ESRCH)

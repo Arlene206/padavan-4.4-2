@@ -276,3 +276,17 @@ _schedule_policy = read("trunk/user/rc/src/watchdog_signal_policy.h")
 _schedule_test = read("trunk/user/rc/src/tests/watchdog_signal_policy.c")
 assert "watchdog_notification_state_commit" in _schedule_policy
 assert "test_scheduled_state_commits_only_after_pid1_accepts_notification" in _schedule_test
+
+
+# The watchdog's SIGUSR1 band selector must be persisted before the signal;
+# on NVRAM failure, skip the signal instead of reusing a stale band identifier.
+_wifi_signal_policy = read("trunk/user/rc/src/watchdog_signal_policy.h")
+_wifi_signal_test = read("trunk/user/rc/src/tests/watchdog_signal_policy.c")
+_wifi_notify = function_body(_ntp_watchdog, "notify_watchdog_wifi(int is_5ghz)")
+assert "watchdog_wifi_notification_should_signal(state_status)" in _wifi_notify
+assert _wifi_notify.index('nvram_set_int_temp("wd_notify_id", wd_notify_id)') < _wifi_notify.index(
+    "watchdog_wifi_notification_should_signal(state_status)"
+) < _wifi_notify.index('process_pidfile_signal(WD_PID_FILE, "watchdog", SIGUSR1)')
+assert "refusing SIGUSR1 with stale band state" in _wifi_notify
+assert "watchdog_wifi_notification_should_signal" in _wifi_signal_policy
+assert "test_wifi_signal_requires_published_band_selector" in _wifi_signal_test

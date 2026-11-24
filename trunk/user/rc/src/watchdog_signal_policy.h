@@ -76,4 +76,14 @@ watchdog_notification_state_commit(int previous_state, int requested_state,
 	return queue_status == 0 ? requested_state : previous_state;
 }
 
+/*
+ * SIGUSR1 selects its target through wd_notify_id. Never send it when that
+ * band selector failed to persist, or the watchdog may refresh the other band.
+ */
+static inline int
+watchdog_wifi_notification_should_signal(int state_write_status)
+{
+	return state_write_status == 0;
+}
+
 #endif /* WATCHDOG_SIGNAL_POLICY_H */
