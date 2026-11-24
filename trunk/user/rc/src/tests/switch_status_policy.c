@@ -18,7 +18,7 @@ test_ioctl_parameter_packing_rejects_truncation(void)
 
     CHECK(switch_status_pack_ioctl_command(0x10U, 0x00ffffffU, 8U,
                                            &packed) == 0);
-    CHECK(packed == UINT_MAX);
+    CHECK(packed == 0xffffff10U);
     CHECK(switch_status_pack_ioctl_command(0x110U, 0x123456U, 8U,
                                            &packed) == 0);
     CHECK(packed == 0x12345610U); /* command retains legacy low-byte mask */

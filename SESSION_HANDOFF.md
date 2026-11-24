@@ -2,11 +2,12 @@
 
 ## Current repository state
 
-- Live `main` parent for this switch ioctl-boundary slice: `25d077e48bc621c6a48714deb5b62d2f0e6d4c8a`.
-- Exact `25d077e` RStats persistence/signal regression `#45306112824`: **PASS**; this includes the checked history-storage mode read and deferred flash commit guard. Exact `25d077e` Process inventory `#45306112818`, AI handoff `#45306112832`, Process fail-closed regression `#45306112866`, NVRAM audit `#45306112817`, HTTPD `#45306112793` and XY-C1 `#45306112829` were still running/pending at last poll.
-- New switch robustness finding: both `mtk_esw_ioctl()` and `rtl8367_ioctl()` previously composed a packed ioctl command using `par << CMD_LENGTH_BITS` without checking whether the parameter fit the available upper bits. Oversized arguments were silently truncated and could alias a different switch port/rule/control request. A shared checked pack helper now rejects out-of-range parameters before opening the device; tests cover the ## Active task
+- Live `main` parent for the switch ioctl regression expectation correction: `d1487933d7aa3accc8685d5dcc5eda5e23f4533b`.
+- Exact `d148793` Switch CLI run `#45306528577` and HTTPD regression `#45306528609` both **FAILED** in the shared host `switch_status_policy.c` assertion: the test expected `UINT_MAX`, but the packed command correctly retains the low-byte command value `0x10`, so the correct result is `0xffffff10`. The production pack helper and both ioctl wrappers have not failed their source contract; the test expectation was incorrect.
+- Exact `d148793` AI handoff `#45306528686` and Process lifecycle inventory `#45306528560`: **PASS**. NVRAM audit `#45306528688` and XY-C1 build `#45306528636` remained in progress at last poll.
+- The checked RStats work is green on exact `25d077e`: RStats `#45306112824`, Process inventory `#45306112818`, Process regression `#45306112866`, AI handoff `#45306112832`, HTTPD `#45306112793`, NVRAM## Active task
 
-Verify the shared packed-ioctl argument-width guard for both MTK ESW and RTL8367 callers on the new exact SHA. The host regression must prove the 24-bit argument boundary and overflow rejection; the workflow source contract must pin validation before opening the device and issuing ioctl.
+Correct the switch ioctl packing boundary regression to expect `0xffffff10` (the 24-bit maximum argument shifted by eight bits, plus preserved low-byte command `0x10`). Re-run exact-SHA Switch CLI and HTTPD consumers; no production source change is expected for this checker correction.
 
 ## Completed development slices
 
@@ -36,17 +37,15 @@ Independent snapshot/lifecycle changes remain in `99ad9397e3cf4450c6fc07758b58c3
 
 ## Verification boundary
 
-- Exact `25d077e` RStats regression `#45306112824`: **PASS**. Its Process, AI, NVRAM, HTTPD and XY-C1 Actions had not all completed at last poll; no L3 or L4 claim is made for that SHA.
-- This switch slice adds a GNU89 ASan/UBSan host test and source contracts for both packed-ioctl wrappers. Exact switch Actions and firmware build/TRX/artifact checks must be verified separately on this commit's own SHA.
-- The previous Actions must not be represented as passing for this commit. Frozen backup SHA remains unchanged: `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Exact `d148793` Switch CLI `#45306528577` and HTTPD `#45306528609` failed because the new host test expected `UINT_MAX` instead of the correct packed value `0xffffff10`. The failure is an incorrect assertion; the helper preserves the low command field as designed.
+- Exact `d148793` AI handoff `#45306528686` and Process inventory `#45306528560`: **PASS**. NVRAM audit and XY-C1 build remained in progress; no firmware L3 or hardware L4 claim.
+- This test-only correction awaits exact-SHA Switch CLI, HTTPD and AI checks. Frozen backup unchanged.
 
-## Exact first action for the next GPT
+## Exact first## Exact first action for the next GPT
 
-1. Verify this commit's exact-SHA RStats stability regress## Exact first action for the next GPT
-
-1. Check the exact-SHA Switch CLI/ioctl regression; inspect any host/source-contract failure before claiming packed-command validation.
-2. Check exact-SHA Process, AI, NVRAM, HTTPD and XY-C1 Build/TRX/artifact Actions; pending checks must not block unrelated source work.
-3. Continue tracing switch error propagation and caller-side range validation, especially init/VLAN/PHY operations where a positive errno can be mistaken for a successful value.
+1. Verify Switch CLI and HTTPD regression runs on the corrected test SHA; inspect the first failed step if either remains red.
+2. Reconcile pending `d148793` NVRAM and XY-C1 Build/TRX/artifact checks against that exact SHA.
+3. Continue switch boundary/error-propagation review after the host source contract is green; keep the frozen backup read-only.
 
 
 # Cross-session execution mandate

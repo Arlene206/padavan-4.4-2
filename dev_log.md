@@ -1,3 +1,11 @@
+## 2026-11-23 — Correct the packed-switch ioctl boundary test value
+
+- Exact `d148793` Switch CLI run `#45306528577` and HTTPD run `#45306528609` both failed in the shared `switch_status_policy.c` host regression. The failure was in the test: with an 8-bit command field and a 24-bit maximum parameter, command `0x10` is preserved, so the packed result is `0xffffff10`, not `UINT_MAX`.
+- Corrected only the expected test value; the production packing helper still rejects parameters above the field maximum before opening the switch device. The exact-SHA Actions rerun is required to validate both consumers.
+- Exact `d148793` AI handoff `#45306528686` and Process inventory `#45306528560` passed; NVRAM audit `#45306528688` and XY-C1 `#45306528636` were still in progress.
+
+---
+
 ## 2026-11-23 — Reject truncated packed switch ioctl parameters
 
 - Both `mtk_esw_ioctl()` and `rtl8367_ioctl()` previously shifted the caller's parameter into the high bits of the ioctl command without verifying that it fit the ABI field. Oversized values silently wrapped/truncated and could address a different switch port/rule/control operation.
