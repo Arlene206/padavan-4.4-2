@@ -390,11 +390,11 @@ Completed in this continuation:
 - [x] MT7621 GP0 clock-enable failure propagation and removal of the never-initialized `reset_task` cancellation.
 - [x] Regression assertions integrated into the Switch CLI stability workflow.
 
-Parent exact SHA 3ea3089230ea2696e518c525ec6cf1132aa1ea83: AI docs #45326081842, Switch CLI #45326081376 and NVRAM #45326081336 PASS; XY-C1 #45326081305 had completed host checks and was still in Build XY-C1, with TRX/artifact steps pending. No L4 claim.
+Parent exact SHA 49c37472f8e6c1c630382869ef0bbb4b12d492a7: AI docs #45326822074 PASS; Switch CLI #45326822109 FAILED only in the existing inline contract because the GE2 temporary ioremap was moved after runtime-PM start; NVRAM #45326822151 and XY-C1 #45326822049 remain in progress. The corrective slice now moves that mapping back before PM/clocks, preserving the no-resource -ENOMEM path. No L4 claim.
 
 Next active item:
 - [x] Balance MT7622 GSW preinit platform-device references and regulator enable/disable state.
 - [x] Balance MTK GSW probe/remove IRQ mappings, pinctrl handles and DT phandle references.
 - [x] Release switch-node, descriptor, QDMA helper-device, debug-proc and primary-netdev resources on probe error/uninit/remove.
-- [x] Track each successfully enabled RAETH clock, unwind partial clock/PM setup failures, and balance both GE1/GE2 SGMII clock groups.
-- [ ] Poll exact-head CI, then continue the stability ledger outside RAETH rather than repeating closed module audits.
+- [x] Track each successfully enabled RAETH clock, unwind partial clock/PM setup failures, and balance both GE1/GE2 SGMII clock groups; the temporary GE2 register mapping is acquired before PM/clocks.
+- [ ] Re-run exact-head CI and continue the stability ledger outside RAETH.

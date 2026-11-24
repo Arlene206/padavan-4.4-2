@@ -2550,6 +2550,16 @@ static int ei_clock_enable(struct END_DEVICE *ei_local)
 	void __iomem *clk_virt_base;
 	unsigned int reg_value;
 
+	if (ei_local->architecture & GE2_RAETH_SGMII) {
+		clk_virt_base = ioremap(0x102100C0, 0x10);
+		if (!clk_virt_base)
+			return -ENOMEM;
+		reg_value = sys_reg_read(clk_virt_base);
+		reg_value &= ~0x8000;	/* [bit15] = 0 */
+		sys_reg_write(clk_virt_base, reg_value);
+		iounmap(clk_virt_base);
+	}
+
 	pm_runtime_enable(ei_local->dev);
 	ei_local->pm_runtime_enabled = 1;
 	ret = pm_runtime_get_sync(ei_local->dev);
@@ -2608,16 +2618,6 @@ static int ei_clock_enable(struct END_DEVICE *ei_local)
 	}
 
 	if (ei_local->architecture & GE2_RAETH_SGMII) {
-		clk_virt_base = ioremap(0x102100C0, 0x10);
-		if (!clk_virt_base) {
-			ret = -ENOMEM;
-			goto fail;
-		}
-		reg_value = sys_reg_read(clk_virt_base);
-		reg_value &= ~0x8000;	/* [bit15] = 0 */
-		sys_reg_write(clk_virt_base, reg_value);
-		iounmap(clk_virt_base);
-
 		/* The SGMII PLL may already be enabled for GE1. */
 		ENABLE_RAETH_CLOCK(MTK_CLK_SGMIPLL);
 		ENABLE_RAETH_CLOCK(MTK_CLK_SGMII1_TX250M);

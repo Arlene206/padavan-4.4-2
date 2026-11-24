@@ -2,37 +2,36 @@
 
 ## Current repository state
 
-- Parent main for this atomic RAETH clock-lifecycle slice: 3ea3089230ea2696e518c525ec6cf1132aa1ea83. Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains read-only at 72f4f157a084f8184b9597ca5bf334b8080e5807.
-- The preceding main commit 3ea3089230ea2696e518c525ec6cf1132aa1ea83 fixed switch-node, descriptor/QDMA helper, debug-proc and primary-netdev teardown ownership. Its exact Actions: AI docs #45326081842 PASS, Switch CLI #45326081376 PASS, NVRAM #45326081336 PASS. XY-C1 #45326081305 has completed all host-side checks and remains in Build XY-C1; TRX verification/artifact upload are pending. No latest-source firmware success is claimed.
-- Earlier RAETH lifecycle fixes on 615d6be / d3ae666 / 3ea308 addressed MT7622 regulator state/reference handling, MTK GSW probe IRQ/pinctrl/DT cleanup, and primary netdev remove/uninit resource ownership. The previous standalone firmware success on f7bd670c88520298c8c4628b1ff06e0c95251f12 predates those later changes.
-- This new source slice fixes clock setup/teardown: validate error pointers before using a clock, record only successful clk_prepare_enable operations, unwind prior clocks and PM-runtime references if a later operation fails, propagate TRGPLL rate-setting errors, avoid double-preparing a shared SGMII PLL, and release SGMII_TOP plus every GE2 SGMII1 clock. MT7621's intentionally absent clock handles remain no-op. Exact-head verification for this new slice is not yet available.
+- Parent main for this corrective commit: 49c37472f8e6c1c630382869ef0bbb4b12d492a7. Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains read-only at 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- Clock-lifecycle implementation commit 49c37472f8e6c1c630382869ef0bbb4b12d492a7: AI docs #45326822074 PASS. Switch CLI #45326822109 failed in its existing inline probe/clock check because the GE2 temporary ioremap had been moved after PM-runtime start, and that test explicitly requires the mapping/ENOMEM failure before PM acquisition. This correction restores that failure boundary. NVRAM #45326822151 remains running; XY-C1 #45326822049 remains running at the IAPP firewall lifecycle validation stage. Build/TRX/artifact stages are not confirmed.
+- Main source commit 3ea3089230ea2696e518c525ec6cf1132aa1ea83 before the clock changes had AI docs #45326081842, Switch CLI #45326081376 and NVRAM #45326081336 PASS; XY-C1 #45326081305 was still building at last poll. Previous firmware completion on f7bd670 predates later source changes.
+- Frozen backup remains untouched. No physical-router or latest-source firmware PASS is claimed.
 
 ## Active task
 
-Poll the exact new commit's AI handoff, Switch CLI, NVRAM and XY-C1 Actions. If any source checker or compile stage fails, inspect the failing step/log and correct it atomically. Once these checks advance, continue the repository stability ledger outside RAETH; prioritize clear severe faults/security issues and avoid reopening completed RAETH paths without new evidence.
+Inspect the exact Actions for this correction commit. Switch CLI should now pass because the GE2 sysctl mapping is mapped, checked, programmed and unmapped before PM-runtime/clocks are acquired; an ioremap failure returns -ENOMEM with no PM or clock state to unwind. If it passes, continue the repository stability ledger outside RAETH while NVRAM/XY-C1 run. Diagnose any exact-head source or build failure and fix it atomically.
 
 ## Completed development slices
 
-- RAETH DMA/RX and allocation lifecycle: PDMA/QDMA RX partial allocation rollback, successful DMA-map accounting and teardown unmapping; RSS 4-ring/2-ring and HW-LRO ring rollback; QDMA TX/FQ/SFQ staged allocation cleanup; multi-stage DMA init unwind.
-- RAETH IRQ and netdev lifecycle: partial IRQ tracking/unwind; GSW source disable before handler release; open/close worker and module-reference ordering; pseudo-netdev registration/uninit safety; NAPI removal; primary netdev unregister/free on platform remove.
-- MT7622/MTK switch lifecycle: checked platform-device lookup and put, regulator voltage/enable error propagation and per-rail state, safe rollback; correct IRQ mapping ownership, pctl node of_node_put, regmap error checks, pinctrl_get ERR_PTR handling and pinctrl_put.
-- Primary RAETH probe/remove ownership: switch_np ref release on failed registration and ndo-uninit; debug-proc teardown only after successful init; descriptor cleanup before QDMA helper platform_device_put; drvdata-backed primary netdev removal and MMIO unmap.
-- RAETH clock lifecycle (current unverified slice): per-clock success bitmap; failure unwind; PM-runtime get/put pairing; SGMII_TOP and GE2 SGMII1 disable pairing; shared SGMII PLL deduplication.
+- RAETH DMA/RX/TX and allocation lifecycle: PDMA/QDMA RX partial allocation rollback and DMA-unmap accounting; RSS/HW-LRO ring rollback; QDMA TX/FQ/SFQ staged-allocation cleanup; staged DMA init unwind.
+- RAETH IRQ and netdev lifecycle: partial IRQ request tracking/unwind; GSW source disable before handler release; open/close worker and module-reference ordering; pseudo-netdev safety; NAPI removal; primary netdev unregister/free on platform remove.
+- MT7622/MTK switch lifecycle: checked platform-device lookup/put, regulator voltage/enable error propagation and per-rail state; correct IRQ mapping, pctl node/regmap handling, pinctrl ERR_PTR check and put.
+- Primary RAETH probe/remove ownership: switch_np ref release on failed registration and ndo-uninit; debug-proc cleanup only after successful init; descriptor release before QDMA helper platform_device_put; drvdata-backed primary netdev remove and MMIO unmap.
+- RAETH clock lifecycle: successful-enable bitmap, required error-pointer propagation, PM-runtime get/put balancing, partial failure unwind, shared SGMII PLL de-duplication, SGMII_TOP and GE2 SGMII1 disable pairing. The GE2 temporary register mapping is restored to the pre-PM failure boundary by this correction.
 - Shared PID-file safety: no-follow open plus regular-file, effective-UID, single-link and no group/world write policy; strict GNU89-compatible predicate and complete metadata regression binding.
 - Earlier HTTPD, WAN/DHCP, NVRAM, storage and add-on stability slices remain in the Roadmap/dev-log archives; do not repeat completed audits without new evidence.
 
 ## Verification boundary
 
-- Parent SHA 3ea3089230ea2696e518c525ec6cf1132aa1ea83: AI handoff, Switch CLI and NVRAM PASS; XY-C1 Build IN_PROGRESS, TRX/artifact still pending.
-- Current clock source/checker slice has not yet had an exact-head Actions run. Do not infer test or firmware success from the parent SHA.
-- Previous SHA f7bd670c88520298c8c4628b1ff06e0c95251f12 had successful Switch CLI/NVRAM and XY-C1 Build/TRX/artifact, but it predates the MT7622/MTK switch and primary netdev lifecycle changes.
+- Commit 49c37472f8e6c1c630382869ef0bbb4b12d492a7: AI handoff #45326822074 PASS; Switch CLI #45326822109 FAIL at the existing inline ioremap-before-PM contract. NVRAM #45326822151 and XY-C1 #45326822049 were in progress at last poll. The corrective source change in this commit is not yet verified.
+- Do not infer a firmware build/TRX/artifact result for current source from the older f7bd670 SHA.
 - Hardware L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and inspect exact-SHA AI handoff, Switch CLI, NVRAM and XY-C1 runs; for XY-C1 inspect Build, TRX and artifact upload separately.
-2. Fix any exact-head regression immediately; while jobs are pending, work an independent high-confidence stability/security issue elsewhere in Padavan userland.
-3. Continue the repository-wide stability/security ledger rather than repeating completed RAETH DMA, IRQ, switch or netdev audits.
+1. Fetch live main; poll the exact-SHA AI docs, Switch CLI, NVRAM and XY-C1 runs for this correction. Inspect XY-C1 Build, TRX and artifact upload individually.
+2. If Switch CLI passes, continue an independent stability/security bug outside RAETH while other jobs are pending. If it fails, inspect the exact failing step/log before changing source.
+3. Maintain the main-only atomic tree/commit/CAS workflow and refresh handoff only for material changes.
 
 # Cross-session execution mandate
 

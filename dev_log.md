@@ -1,3 +1,12 @@
+## 2026-11-24 — Preserve the pre-PM GE2 register-map failure boundary
+
+- Switch CLI #45326822109 on parent 49c37472f8e6c1c630382869ef0bbb4b12d492a7 failed at its existing inline contract: the GE2 temporary sysctl ioremap is required to occur before pm_runtime_enable, and the mapping-failure branch must return -ENOMEM before acquiring PM state. The clock helper now correctly unwinds later failures, but the temporary mapping's location had changed that tested boundary.
+- Moved the GE2 register mapping/program/unmap block to the top of ei_clock_enable, before PM-runtime and any clock prepare operations. The mapping failure again returns -ENOMEM immediately; once the map succeeds it is unmapped before any later failure edge. Clock and PM partial-failure rollback remains unchanged.
+- Exact parent outcomes: AI docs #45326822074 PASS; Switch CLI #45326822109 FAIL at the described source contract; NVRAM #45326822151 IN_PROGRESS; XY-C1 #45326822049 IN_PROGRESS (IAPP firewall lifecycle validation). The correction requires a new exact-head Switch CLI and XY-C1 build/TRX/artifact run.
+- Next: inspect exact-head actions, then advance outside RAETH while pending jobs run.
+
+---
+
 ## 2026-11-23 — Make RAETH clock preparation and SGMII teardown transactional
 
 - ei_clock_enable ignored every clk_prepare_enable return value and continued after TRGPLL clk_set_rate failure. Probe only logged devm_clk_get error pointers, so a required missing/deferred clock could reach the clock API unchecked; later failure had no tracked partial unwind.
