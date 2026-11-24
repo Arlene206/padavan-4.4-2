@@ -809,6 +809,12 @@ static void ei_uninit(struct net_device *dev)
 
 	pr_info("Free ei_local and unregister netdev...\n");
 	debug_proc_exit();
+
+	if (ei_local->switch_np) {
+		of_node_put(ei_local->switch_np);
+		ei_local->switch_np = NULL;
+	}
+
 }
 
 static void ei_mac_addr_setting(struct net_device *dev)
@@ -3633,6 +3639,7 @@ static int rather_probe(struct platform_device *pdev)
 	int i;
 	int clocks_enabled = 0;
 	int desc_initialized = 0;
+	int debug_proc_initialized = 0;
 
 	netdev = alloc_etherdev_mqs(sizeof(struct END_DEVICE),
 				    1, 1);
@@ -3787,6 +3794,7 @@ static int rather_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "error set debug proc\n");
 		goto err_free_dev;
 	}
+	debug_proc_initialized = 1;
 
 	/* Register net device for the driver */
 	ret = register_netdev(netdev);
@@ -3794,6 +3802,7 @@ static int rather_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "error bringing up device\n");
 		goto err_free_dev;
 	}
+	platform_set_drvdata(pdev, netdev);
 
 	/*keep ethsys power domain on*/
 	device_init_wakeup(&pdev->dev, true);
@@ -3813,8 +3822,18 @@ static int rather_probe(struct platform_device *pdev)
 	return 0;
 
 err_free_dev:
+	if (debug_proc_initialized)
+		debug_proc_exit();
+	if (ei_local->switch_np) {
+		of_node_put(ei_local->switch_np);
+		ei_local->switch_np = NULL;
+	}
 	if (desc_initialized)
 		fe_tx_rx_dec_release(ei_local);
+	if (ei_local->qdma_pdev && ei_local->qdma_pdev != pdev) {
+		platform_device_put(ei_local->qdma_pdev);
+		ei_local->qdma_pdev = NULL;
+	}
 	if (dev_raether == netdev)
 		dev_raether = NULL;
 	if (clocks_enabled)
@@ -3833,16 +3852,40 @@ err_free_dev:
 
 static int raether_remove(struct platform_device *pdev)
 {
-	struct END_DEVICE *ei_local = netdev_priv(dev_raether);
+	struct net_device *netdev = platform_get_drvdata(pdev);
+	struct END_DEVICE *ei_local;
+
+	if (!netdev)
+		return 0;
+
+	ei_local = netdev_priv(netdev);
+	unregister_netdev(netdev);
+
 #if defined (CONFIG_RAETH_ESW_CONTROL)
 	esw_ioctl_uninit();
 #endif
-	if (ei_local->features & FE_QDMA_FQOS)
-		if (ei_local->qdma_pdev)
-			ei_local->qdma_pdev->dev.release
-				(&ei_local->qdma_pdev->dev);
+	fe_tx_rx_dec_release(ei_local);
+	if ((ei_local->features & FE_QDMA_FQOS) &&
+	    ei_local->qdma_pdev && ei_local->qdma_pdev != pdev) {
+		platform_device_put(ei_local->qdma_pdev);
+		ei_local->qdma_pdev = NULL;
+	}
 
 	ei_clock_disable(ei_local);
+
+	if (ethdma_mac_base) {
+		iounmap(ethdma_mac_base);
+		ethdma_mac_base = NULL;
+	}
+	if (ethdma_sysctl_base) {
+		iounmap(ethdma_sysctl_base);
+		ethdma_sysctl_base = NULL;
+	}
+	device_init_wakeup(&pdev->dev, false);
+	platform_set_drvdata(pdev, NULL);
+	if (dev_raether == netdev)
+		dev_raether = NULL;
+	free_netdev(netdev);
 
 	return 0;
 }

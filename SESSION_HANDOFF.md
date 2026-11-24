@@ -10,7 +10,7 @@
 
 ## Active task
 
-Audit `switch_np` node-reference lifetime and primary netdev teardown: `rather_probe()` acquires the `mediatek,switch` phandle but current `ei_uninit()`/probe-error cleanup does not appear to release it, and `raether_remove()` currently only disables clocks/QDMA resources without unregistering the primary netdev. Trace every registration and rollback edge before changing lifecycle ordering; add regression checks for probe failure and removal/uninit paths.
+Audit the remaining RAETH probe failure labels for complete reverse-order cleanup of clock, MMIO and partially-created device resources. Review each acquisition in `rather_probe()` against every `goto err_*` path, including clock enable, frame-engine/GMAC mappings, system-controller mapping, descriptor setup and optional QDMA helper-device creation. Add an executable source contract for the cleanup order and fix any concrete leaks before moving to a different subsystem.
 
 ## Completed development slices
 
@@ -21,12 +21,16 @@ Audit `switch_np` node-reference lifetime and primary netdev teardown: `rather_p
 
 ## Verification boundary
 
-- The preinit source commit `615d6be0f8db31905bda066be38804490b02e45f` passed AI documentation #45325334351. Its Switch CLI #45325334356 failed only on a newly-added checker assertion that incorrectly expected a NULL-pdev path to jump to the post-acquisition put label; checker-only commit `65103b60d8267e769efbc7aff5395f2662a7d83e` corrected that boundary and Switch CLI #45325386250 **PASS**. NVRAM #45325334304 and XY-C1 #45325334328 were pending at last poll.
-- Previous production-source SHA `f7bd670c88520298c8c4628b1ff06e0c95251f12` had Switch CLI/NVRAM PASS and XY-C1 Build, TRX and artifact upload PAS## Exact first action for the next GPT
+- MT7622 preinit source commit `615d6be0f8db31905bda066be38804490b02e45f`: AI docs #45325334351 **PASS**. Its initial Switch CLI #45325334356 failed solely because the new source checker incorrectly counted the NULL-pdev return as a post-acquisition return; checker-only commit `65103b60d8267e769efbc7aff5395f2662a7d83e` fixed the boundary and Switch CLI #45325386250 **PASS**. NVRAM #45325334304 **PASS**; XY-C1 #45325334328 was still running at last poll.
+- Previous production-source SHA `f7bd670c88520298c8c4628b1ff06e0c95251f12`: Switch CLI/NVRAM **PASS**, and XY-C1 completed Build, TRX verification and artifact upload. This is not evidence for newer source changes.
+- The current probe/netdev lifecycle source changes in this commit are not yet verified. Poll the exact new SHA for Switch CLI, NVRAM and XY-C1 Build→TRX→artifact. Hardware L4 remains NOT VERIFIED.
 
-1. Fetch live `main`; poll the exact-head AI docs, Switch CLI and NVRAM runs, and XY-C1 validation. For the XY-C1 job verify Build, TRX check and artifact upload individually.
-2. Diagnose any regression from the `mtk_gsw_probe()` lifecycle fix on its exact SHA before moving on.
-3. Continue the `switch_np` phandle ownership and primary netdev unregister/remove audit; make one focused source/checker commit when the lifetime issue is confirmed.
+## Exact first action for the next GPT
+
+1. Fetch live `main`; poll the exact-head Switch CLI, AI handoff, NVRAM and XY-C1 Actions, checking the XY-C1 Build, TRX and upload steps separately.
+2. If the new probe/netdev lifecycle checker or build fails, diagnose the exact failed step and fix it before moving on.
+3. Audit remaining `rather_probe()` error labels for reverse-order clock/MMIO/helper-device cleanup; continue with a different userland module after the RAETH probe lifetime is closed.
+
 
 # Cross-session execution mandate
 

@@ -1,3 +1,13 @@
+## 2026-11-24 — Close RAETH switch-node and primary-netdev teardown ownership
+
+- `rather_probe()` now attaches the registered primary netdev to the platform device. Its error path releases `switch_np`, shuts down debug proc state only after successful proc initialization, releases RX/TX descriptor resources before putting a separately allocated QDMA helper device, and never puts the platform-owned device itself.
+- `ei_uninit()` now drops the parsed switch phandle after close/uninit and clears the pointer. `raether_remove()` retrieves the netdev from drvdata, unregisters it first (thereby running ndo_stop/ndo_uninit), releases descriptor state, puts only the allocated QDMA helper device, disables clocks, unmaps MAC/sysctl regions, clears wakeup/drvdata/global pointers and frees the netdev.
+- This closes the platform driver remove leak: the old remove path neither unregistered/freed the primary netdev nor released descriptor/MMIO state, and directly invoked the QDMA helper device's release callback instead of dropping its reference with `platform_device_put()`.
+- Parent main: `d3ae666f5e46809610e19919fa16b3eb874e68ac`. The earlier preinit slice `615d6be` had AI docs PASS; its Switch CLI failure was caused by an overly broad test assertion, corrected on `65103b60` where Switch CLI #45325386250 **PASS**. NVRAM #45325334304 **PASS**; XY-C1 #45325334328 remained pending at last poll. Current source verification is required on the new head.
+- Next source task: prove and cover reverse-order cleanup for all RAETH `rather_probe()` failure labels, especially clocks, mappings and helper-device stages.
+
+---
+
 ## 2026-11-24 — Balance MTK GSW probe resources
 
 - Audited `mtk_gsw_probe()`: `irq_of_parse_and_map()` returns unsigned zero on failure, but the old code compared it with < 0; successfully mapped IRQs were not disposed on later probe errors or remove. The pctl phandle was not released, the code tested the phandle instead of the returned regmap for IS_ERR, and pinctrl_get's ERR_PTR result was tested as a boolean while its successful non-devm handle was never put.

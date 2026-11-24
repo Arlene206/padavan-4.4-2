@@ -395,4 +395,5 @@ Previously verified production-source SHA `f7bd670c88520298c8c4628b1ff06e0c95251
 Next active item:
 - [x] Correct MT7622 GSW preinitialization platform-device reference leaks and regulator enable/disable state pairing.
 - [x] Correct `mtk_gsw_probe()` IRQ mapping, pctl phandle, regmap error and pinctrl acquisition/release handling.
-- [ ] Audit `switch_np` node-reference lifetime and primary RAETH netdev teardown through probe failure, uninit and platform removal.
+- [x] Balance `switch_np` node references, registration-error cleanup, descriptor/QDMA-device ownership and primary-netdev unregister/remove teardown.
+- [ ] Audit the remaining RAETH probe failure labels for complete reverse-order cleanup of clock, MMIO and partially-created device resources.
