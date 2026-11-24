@@ -6805,9 +6805,10 @@ irqreturn_t esw_interrupt(int irq, void *resv)
 	return IRQ_HANDLED;
 }
 
-void sw_ioctl(struct ra_switch_ioctl_data *ioctl_data)
+int sw_ioctl(struct ra_switch_ioctl_data *ioctl_data)
 {
 	unsigned int cmd;
+	int ret = 0;
 
 	cmd = ioctl_data->cmd;
 	switch (cmd) {
@@ -6949,10 +6950,14 @@ void sw_ioctl(struct ra_switch_ioctl_data *ioctl_data)
 
 	case SW_IOCTL_SET_PORT_TRUNK:
 		rtk_hal_set_port_trunk(ioctl_data);
+		break;
 
 	default:
+		ret = -EOPNOTSUPP;
 		break;
 	}
+
+	return ret;
 }
 
 int ephy_ioctl(struct net_device *dev, struct ifreq *ifr,

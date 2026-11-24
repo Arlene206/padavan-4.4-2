@@ -237,6 +237,32 @@ jobs:
           print("RAETH ingress/egress rate inputs are validated before MMIO/MDIO access: PASS")
           PY
 
+      - name: Verify switch ioctl reports unsupported subcommands
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth")
+          switch = (root / "ra_switch.c").read_text()
+          header = (root / "ra_switch.h").read_text()
+          driver = (root / "raether.c").read_text()
+          handler = switch.split(
+              "int sw_ioctl(struct ra_switch_ioctl_data *ioctl_data)", 1
+          )[1].split("int ephy_ioctl(", 1)[0]
+          unsupported = handler.split("default:", 1)[1].split("break;", 1)[0]
+          assert "ret = -EOPNOTSUPP;" in unsupported
+          assert "void sw_ioctl(" not in header
+          assert "int sw_ioctl(struct ra_switch_ioctl_data *ioctl_data);" in header
+          dispatch = driver.split("case RAETH_SW_IOCTL:", 1)[1].split(
+              "case RAETH_QDMA_IOCTL:", 1
+          )[0]
+          assert "ret = sw_ioctl(&ioctl_data);" in dispatch
+          trunk = handler.split("case SW_IOCTL_SET_PORT_TRUNK:", 1)[1]
+          assert trunk.index("rtk_hal_set_port_trunk(ioctl_data);") < trunk.index("break;")
+          assert trunk.index("break;") < trunk.index("default:")
+          print("Unsupported switch ioctl commands propagate -EOPNOTSUPP; trunk command does not fall through: PASS")
+          PY
+
       - name: Verify EPHY ioctl rejects unsupported commands
         run: |
           python3 - <<'PY'

@@ -43,7 +43,7 @@ extern struct net_device *dev_raether;
 int fe_sw_init(void);
 int fe_sw_preinit(struct END_DEVICE *ei_local);
 void fe_sw_deinit(struct END_DEVICE *ei_local);
-void sw_ioctl(struct ra_switch_ioctl_data *ioctl_data);
+int sw_ioctl(struct ra_switch_ioctl_data *ioctl_data);
 irqreturn_t esw_interrupt(int irq, void *resv);
 irqreturn_t gsw_interrupt(int irq, void *resv);
 

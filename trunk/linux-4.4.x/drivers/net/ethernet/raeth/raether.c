@@ -3301,7 +3301,7 @@ phy_dump_done:
 			break;
 		}
 		spin_lock_irq(&ei_local->page_lock);
-		sw_ioctl(&ioctl_data);
+		ret = sw_ioctl(&ioctl_data);
 		break;
 
 	case RAETH_QDMA_IOCTL:
