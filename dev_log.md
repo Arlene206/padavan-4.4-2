@@ -1,3 +1,11 @@
+## 2026-11-23 — Match RStats write-status checker across wrapped source call
+
+- Exact `1b0f5ec` RStats stability run `#45305664640` passed the GNU89 `-Werror` ASan/UBSan compile and runtime policy regression. Its final Python source contract failed because one assertion expected the helper's arguments on the same line as the call, while production uses a normal two-line call.
+- Updated the inline contract to pin the helper call and argument tuple independently. Production C and the successful host regression are unchanged. Exact `1b0f5ec` Process inventory `#45305664547`, HTTPD `#45305664353`, and AI `#45305664712` passed; Process lifecycle regression, NVRAM audit, and XY-C1 validation were still in progress.
+- Checker-only follow-up awaits exact-SHA Actions.
+
+---
+
 ## 2026-11-24 — Match Ralink VPN log-route source assertion
 
 - On exact `bebad8b`, the HTTPD regression progressed past the earlier Python syntax error and all sanitizer/context checks, including the new Ralink DHCP, NAT, VPN fields, route, conntrack, WOL, AiDisk, syslog, language, uptime and wireless scan checks; it then failed at one source-contract string comparison.

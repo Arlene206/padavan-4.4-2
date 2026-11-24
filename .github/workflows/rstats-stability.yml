@@ -173,7 +173,8 @@ jobs:
           assert raw_save.index("write_storage_to_mtd();") < raw_save.index(
               "rstats_storage_save_result(") < raw_save.index("automatic storage commit failed")
           assert "g_store_cntr = 0;" not in raw_save
-          assert "rstats_history_file_write_status(history_write_result, history_write_errno)" in raw_save
+          assert "rstats_history_file_write_status(" in raw_save
+          assert "history_write_result, history_write_errno" in raw_save
           assert "history_write_status = file_status" in raw_save
           assert "failed to publish raw history" in raw_save
           assert "postponing flash commit until all raw history files are saved" in raw_save

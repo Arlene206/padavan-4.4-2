@@ -2,15 +2,13 @@
 
 ## Current repository state
 
-- Live `main` source parent for this RStats persistence slice: `c7742f6858e9e6af49b3dc9b8150386b0d5c9774`.
-- Exact `c7742f6` HTTPD Authentication and Security Regression `#45305384746`: **PASS**; AI handoff contract `#45305385045`: **PASS**. This resolves the prior Ralink VPN-route source-check mismatch without changing production output code.
-- Exact `fd586053` NVRAM transaction-boundary audit `#45304722867`: **PASS**. Exact `bebad8b` was a checker-only intermediate; its Ralink route contract is corrected in `c7742f6`.
-- RStats raw history persistence follow-up: `save_history_raw()` previously logged per-file write failures but still allowed a due periodic MTD snapshot. The current source/test slice adds a first-error gate so an incomplete per-interface history set cannot be committed as a complete snapshot.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Live `main` parent for this RStats source-contract correction: `1b0f5ecf1afeae4bc39e05c691d233b60caf9721`.
+- Exact `1b0f5ec` GNU89 persistence/signal policy compile + ASan/UBSan executable: **PASS** (RStats run `#45305664640`).
+- Exact `1b0f5ec` Process inventory `#45305664547`, HTTPD Authentication/Security `#45305664353`, and AI handoff contract `#45305664712`: **PASS**. Process lifecycle regression `#45305664301`, NVRAM audit `#45305664468`, and XY-C1 firmware validation `#45305664453` were still in progress at last poll.
+- The RStats workflow's final Python source contract failed on one overly-specific expected substring: production correctly calls `rstats_history_file_write_status(` with its two arguments on the following source line. This commit adjusts only the checker to assert the call and argument tokens separately; the GNU89 test and production C remain unchanged.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-1## Active task
 
-## Active task
-
-Verify the RStats raw-history persistence gate on this commit's exact SHA. `save_history_raw()` must continue attempting every active history file, retain the first write error, keep the periodic flash-save counter due, and skip `write_storage_to_mtd()` until every raw history file has been published successfully. The GNU89 policy regression and inline source-order contract exercise the error mapping and the production gate.
+Re-run the RStats stability source-contract on the exact successor SHA after fixing the Python assertion to match the two-line production call to `rstats_history_file_write_status()`. The prior commit's GNU89 ASan/UBSan test already passed; no production change is part of this correction.
 
 ## Completed development slices
 
@@ -40,16 +38,15 @@ Independent snapshot/lifecycle changes remain in `99ad9397e3cf4450c6fc07758b58c3
 
 ## Verification boundary
 
-- Exact `c7742f6` HTTPD regression `#45305384746` and AI handoff contract `#45305385045`: **PASS**. Exact `fd586053` NVRAM transaction-boundary audit `#45304722867`: **PASS**.
-- This RStats raw-history change requires exact-successor-SHA RStats stability, Process inventory, AI handoff, and applicable XY-C1 Build/TRX/artifact checks. No new same-SHA firmware or hardware result is claimed.
-- Host GNU89 ASan/UBSan regression is defined in `.github/workflows/rstats-stability.yml`; its result must be read from the exact commit's Actions rather than inferred from source changes.
-- Frozen backup remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Exact `1b0f5ec` RStats stability run `#45305664640`: compile and execute GNU89 policy tests **PASS**; final inline Python source contract **FAIL** only because one expected call+arguments string ignored the source newline. No runtime C test failed.
+- Exact `1b0f5ec` Process inventory `#45305664547`, HTTPD `#45305664353`, and AI handoff `#45305664712`: **PASS**. Process lifecycle regression `#45305664301`, NVRAM audit `#45305664468`, XY-C1 validation `#45305664453`: **IN_PROGRESS** at last observation.
+- This checker-only correction awaits exact-SHA RStats and AI verification. No same-SHA firmware L3 or hardware L4 result is claimed.
+- Frozen backup rem## Exact first action for the next GPT
 
-## Exact first action for the next GPT
+1. Verify exact-SHA RStats stability and AI handoff Actions after the source-contract whitespace correction.
+2. Reconcile Process lifecycle regression, NVRAM audit, and XY-C1 Build/TRX/artifact results for `1b0f5ec`; do not infer results from a later SHA.
+3. Continue the RStats checked `rstats_stored` setting-read migration: the legacy `nvram_get_int()` maps backend errors to zero and can silently disable raw-history persistence. Preserve missing-key behavior and test backend/null/errno cases.
 
-1. Check this RStats commit's exact-SHA `RStats persistence and signal lifecycle stability regression`; inspect logs and fix any failed host regression or source contract before proceeding.
-2. Check exact-SHA Process inventory, AI handoff, NVRAM and XY-C1 Build/TRX/artifact results. If any are pending, continue independent subsystem work rather than waiting.
-3. Continue RStats audit from the verified raw-history gate; do not infer target firmware or hardware correctness from host tests alone. Keep the archival backup read-only.
 
 # Cross-session execution mandate
 
