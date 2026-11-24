@@ -38,6 +38,7 @@
 | `docs/dev-log/2026/11/part-029.md` | 100 | 2026-11-23 08:55 UTC+8 → 2026-11-23 UTC | 125656 | `0e05f30d39b22ae0dc1baf997ff16b47fcf5f497` |
 | `docs/dev-log/2026/11/part-030.md` | 100 | 2026-11-23 UTC — Normalize DBDC error-return contract and restore handoff heading → 2026-11-23 UTC — Snapshot AP-client SSID presence before the next NVRAM read | 87781 | `d70f5f113c50c6785b91689199b6c06da0ce42e3` |
 | `docs/dev-log/2026/11/part-031.md` | 102 | 2026-11-23 持续开发 → 2026-11-23 — Count checked-reader compatibility wrappers in WAN regression contract | 104705 | `b3cc8b26887ea1aac609c5c6b4a61d69217967e3` |
+| `docs/dev-log/2026/11/part-032.md` | 100 | 2026-11-23 — Propagate RStats history read descriptor-close failures → 2026-11-24 — Reject invalid HTTPD listener protocol selectors | 109288 | `88732d131b6a19445dd603235c8b491d27916589` |
 - **Rolling-window catch-up:** 102 oldest complete records evicted from root `dev_log.md` when it contained 122 entries at parent main `7cd1ffd3eecc05786846be684053428f20e8f535` are preserved verbatim, oldest first, in `part-031.md`; root retains the newest 20 pre-existing records plus this rotation checkpoint (21 total). No record was rewritten or discarded.
 
 
@@ -125,3 +126,6 @@
 - **Rolling-window continuation:** 100 oldest complete records evicted when root `dev_log.md` reached 120 entries are preserved verbatim, oldest first, in part-028; source root blob before rotation: `22c871a813e0213dff3b8a7fb37913304702b969`. Root retains the newest 20 complete records.
 
 - **Rolling-window continuation:** 100 oldest complete records evicted when root `dev_log.md` reached 120 records at parent main `e525274ee5a75490627bdc11593a5e3da9b53558` are preserved verbatim, oldest first, in `part-029.md`; pre-rotation root blob: `7e49c2af9566db3197751c61384cacc705646e16`. Root retains the newest 20 complete records.
+
+
+- **Rolling-window recovery:** 100 oldest complete records from the 120-entry root log at parent main `f12d4d58c6cff4370deb62f3e12f4695bf07a976` are preserved verbatim, oldest first, in `part-032.md`; root retains its newest 20 existing records plus the new checker-fix milestone (21 total). No record was rewritten or discarded.

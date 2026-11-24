@@ -58,7 +58,7 @@ assert "struct miniupnpd_soap_delete_range_status delete_status;" in body
 assert "miniupnpd_soap_delete_range_status_init(&delete_status);" in compact
 delete_at = compact.index("upnp_delete_redirection(port_list[i], protocol)")
 record_at = compact.index("miniupnpd_soap_delete_range_record(&delete_status, r)")
-free_at = compact.index("free(port_list)")
+free_at = compact.index("free(port_list)", record_at)
 error_at = compact.index("soap_error = miniupnpd_soap_delete_range_error(&delete_status)")
 error_guard_at = compact.index("if (soap_error != 0)")
 soap_error_at = compact.index('SoapError(h, soap_error, "ActionFailed")')
