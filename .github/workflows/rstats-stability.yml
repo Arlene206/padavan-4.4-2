@@ -160,6 +160,9 @@ jobs:
           assert "rstats_file_write_atomic(path, buffer, (size_t) len)" in writer
           persistence_policy = (src / "rstats_persistence_policy.h").read_text()
           assert "rstats_storage_save_result(" in persistence_policy
+          assert "rstats_history_file_write_status(" in persistence_policy
+          assert "test_history_file_write_status_results" in test
+          assert "test_history_file_write_status_results();" in test
           assert "test_periodic_storage_save_retries_after_failure" in test
           assert "test_periodic_storage_save_retries_after_failure();" in test
           raw_save = body(rstats, "save_history_raw(long ticks)")
@@ -170,8 +173,12 @@ jobs:
           assert raw_save.index("write_storage_to_mtd();") < raw_save.index(
               "rstats_storage_save_result(") < raw_save.index("automatic storage commit failed")
           assert "g_store_cntr = 0;" not in raw_save
-          assert "f_write(h_path, &g_history[i], sizeof(history_t)) != 0" in raw_save
-          assert 'perror("rstats: failed to publish history")' in raw_save
+          assert "rstats_history_file_write_status(history_write_result, history_write_errno)" in raw_save
+          assert "history_write_status = file_status" in raw_save
+          assert "failed to publish raw history" in raw_save
+          assert "postponing flash commit until all raw history files are saved" in raw_save
+          assert raw_save.index("if (history_write_status != 0)") < raw_save.index(
+              "write_storage_to_mtd();")
           speed_export = body(rstats, "save_speed_json(long next_time)")
           history_export = body(rstats, "save_history_json(long next_time)")
           assert "rstats_file_open_stream(RSTATS_JS_SPEED, fn_tmp, sizeof(fn_tmp))" in speed_export

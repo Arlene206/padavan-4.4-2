@@ -240,6 +240,7 @@ static void save_history_raw(long ticks)
 	char h_path[40];
 	int i, rstats_stored, auto_save_th;
 	int storage_status, storage_errno;
+	int history_write_status, history_write_result, history_write_errno, file_status;
 
 	if (g_ap_mode)
 		return;
@@ -248,6 +249,7 @@ static void save_history_raw(long ticks)
 	if (rstats_stored < 1)
 		return;
 
+	history_write_status = 0;
 	snprintf(h_path, sizeof(h_path), "%s/%s", "/etc/storage", "rstats-history");
 	for (i = 0; i < MAX_HISTORY_IF; i++) {
 		if (i > 0) {
@@ -255,8 +257,17 @@ static void save_history_raw(long ticks)
 				continue;
 			snprintf(h_path, sizeof(h_path), "%s/%s.%s", "/etc/storage", "rstats-history", g_history_desc[i].ifdesc);
 		}
-		if (f_write(h_path, &g_history[i], sizeof(history_t)) != 0)
-			perror("rstats: failed to publish history");
+		errno = 0;
+		history_write_result = f_write(h_path, &g_history[i], sizeof(history_t));
+		history_write_errno = errno;
+		file_status = rstats_history_file_write_status(
+			history_write_result, history_write_errno);
+		if (file_status != 0) {
+			if (history_write_status == 0)
+				history_write_status = file_status;
+			logmessage("rstats", "failed to publish raw history '%s' (status=%d)",
+				   h_path, file_status);
+		}
 	}
 
 	if (ticks < 1 || rstats_stored < 2)
@@ -284,6 +295,13 @@ static void save_history_raw(long ticks)
 
 	g_store_cntr += (ticks * RSTATS_INTERVAL);
 	if (g_store_cntr >= auto_save_th) {
+		if (history_write_status != 0) {
+			g_store_cntr = auto_save_th;
+			logmessage("rstats",
+				   "postponing flash commit until all raw history files are saved (status=%d)",
+				   history_write_status);
+			return;
+		}
 		/*
 		 * Keep the periodic save due until the flash script confirms success.
 		 * A transient MTD failure must be retried on the next rstats tick,

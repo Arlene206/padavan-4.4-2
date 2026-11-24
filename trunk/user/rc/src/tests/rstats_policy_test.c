@@ -406,6 +406,15 @@ test_history_selector_copy_results(void)
 }
 
 static void
+test_history_file_write_status_results(void)
+{
+  assert(rstats_history_file_write_status(0, ENOSPC) == 0);
+  assert(rstats_history_file_write_status(-1, ENOSPC) == ENOSPC);
+  assert(rstats_history_file_write_status(-1, 0) == EIO);
+  assert(rstats_history_file_write_status(1, 0) == EIO);
+}
+
+static void
 test_periodic_storage_save_retries_after_failure(void)
 {
   long elapsed = 3600;
@@ -483,6 +492,7 @@ int main(void) {
   test_atomic_write_and_fsync_retries(target);
   test_nvram_selector_status_results();
   test_history_selector_copy_results();
+  test_history_file_write_status_results();
   test_periodic_storage_save_retries_after_failure();
 
   /* Signal handlers only accumulate coalesced bits for normal-context work. */

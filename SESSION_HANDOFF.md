@@ -2,15 +2,15 @@
 
 ## Current repository state
 
-- Current live main parent for this checker correction: `bebad8be805bc811d646cf8f91bb35b9dc9d5b9d`.
-- Exact `bebad8b` AI handoff contract `#45305149055`: **PASS**.
-- Exact `bebad8b` HTTPD Security Regression `#45305148959`: **FAIL** only at the final Ralink status-table source contract. All HTML/JSON byte tests, WOL DOM checks, AiDisk message/USB checks, syslog checks, language-option checks, uptime checks and wireless scan JSON checks passed. The only failed assertion expected spaces in `strcmp(file, "vpns_list.log") == 0`; actual code uses `strcmp(file, "vpns_list.log")==0`. The source already routes `vpns_list.log` to `ej_vpns_leases()`; this is a checker-only mismatch.
-- The earlier `fd5860` HTTPD run `#45304722638` failed at Python parse time due the DHCP expected-string quoting. The parse issue was repaired in `bebad8b`, after which the script reached and passed all checks preceding the VPN route whitespace assertion.
-- Backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged.
+- Live `main` source parent for this RStats persistence slice: `c7742f6858e9e6af49b3dc9b8150386b0d5c9774`.
+- Exact `c7742f6` HTTPD Authentication and Security Regression `#45305384746`: **PASS**; AI handoff contract `#45305385045`: **PASS**. This resolves the prior Ralink VPN-route source-check mismatch without changing production output code.
+- Exact `fd586053` NVRAM transaction-boundary audit `#45304722867`: **PASS**. Exact `bebad8b` was a checker-only intermediate; its Ralink route contract is corrected in `c7742f6`.
+- RStats raw history persistence follow-up: `save_history_raw()` previously logged per-file write failures but still allowed a due periodic MTD snapshot. The current source/test slice adds a first-error gate so an incomplete per-interface history set cannot be committed as a complete snapshot.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Active task
 
-Correct the single VPN log-route assertion to match the exact source spacing (`strcmp(file, "vpns_list.log")==0`). Keep all Ralink HTML-escaping requirements intact, then re-run the exact-head HTTPD regression.
+Verify the RStats raw-history persistence gate on this commit's exact SHA. `save_history_raw()` must continue attempting every active history file, retain the first write error, keep the periodic flash-save counter due, and skip `write_storage_to_mtd()` until every raw history file has been published successfully. The GNU89 policy regression and inline source-order contract exercise the error mapping and the production gate.
 
 ## Completed development slices
 
@@ -40,16 +40,16 @@ Independent snapshot/lifecycle changes remain in `99ad9397e3cf4450c6fc07758b58c3
 
 ## Verification boundary
 
-- Exact `bebad8b` HTTPD `#45305148959`: **FAIL** only at the Ralink source-contract comparison for the VPN log route; all preceding output-context checks printed PASS. Exact AI handoff contract `#45305149055`: **PASS**.
-- Exact `fd5860` HTTPD `#45304722638` had failed at Python parse time due two malformed DHCP assertion literals. Those literals are now syntactically correct in `bebad8b`, and all subsequent checks through wireless scan output passed in its HTTPD run.
-- The Ralink code emits VPN peer/interface data through the shared HTML encoder, DHCP/NAT/route/conntrack table fields through escaped helpers. The only remaining unverified part is the final source route assertion itself.
-- Backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Exact `c7742f6` HTTPD regression `#45305384746` and AI handoff contract `#45305385045`: **PASS**. Exact `fd586053` NVRAM transaction-boundary audit `#45304722867`: **PASS**.
+- This RStats raw-history change requires exact-successor-SHA RStats stability, Process inventory, AI handoff, and applicable XY-C1 Build/TRX/artifact checks. No new same-SHA firmware or hardware result is claimed.
+- Host GNU89 ASan/UBSan regression is defined in `.github/workflows/rstats-stability.yml`; its result must be read from the exact commit's Actions rather than inferred from source changes.
+- Frozen backup remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Exact first action for the next GPT
 
-1. Verify the exact-head HTTPD run passes after correcting the VPN route whitespace assertion.
-2. Revisit exact-head NVRAM / XY-C1 action states; continue tracing rstats bandwidth-history dynamic strings if these gates are pending.
-3. Keep the backup branch read-only; continue with atomic source/test commits and exact-SHA CI checks.
+1. Check this RStats commit's exact-SHA `RStats persistence and signal lifecycle stability regression`; inspect logs and fix any failed host regression or source contract before proceeding.
+2. Check exact-SHA Process inventory, AI handoff, NVRAM and XY-C1 Build/TRX/artifact results. If any are pending, continue independent subsystem work rather than waiting.
+3. Continue RStats audit from the verified raw-history gate; do not infer target firmware or hardware correctness from host tests alone. Keep the archival backup read-only.
 
 # Cross-session execution mandate
 

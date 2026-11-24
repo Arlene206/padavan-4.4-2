@@ -62,6 +62,16 @@ rstats_nvram_write_status(int write_result, int saved_errno)
 }
 
 static inline int
+rstats_history_file_write_status(int write_result, int saved_errno)
+{
+    if (write_result == 0)
+        return 0;
+    if (write_result > 0)
+        return EIO;
+    return saved_errno > 0 ? saved_errno : EIO;
+}
+
+static inline int
 rstats_storage_save_result(long *elapsed, long threshold,
                            int operation_status, int saved_errno)
 {
