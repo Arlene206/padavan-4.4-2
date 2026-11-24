@@ -3,8 +3,21 @@
 # FRP runtime configs contain the shared token and (for FRPS) dashboard
 # credentials. Change all placeholders before enabling either service.
 umask 077
-frpc_enable=$(nvram get frpc_enable)
-frps_enable=$(nvram get frps_enable)
+frp_read_enable_selectors()
+{
+	frpc_enable=$(nvram get frpc_enable) || return $?
+	case "$frpc_enable" in 0|1) ;; *) return 1 ;; esac
+	frps_enable=$(nvram get frps_enable) || return $?
+	case "$frps_enable" in 0|1) ;; *) return 1 ;; esac
+	return 0
+}
+if frp_read_enable_selectors; then
+	:
+else
+	frp_enable_read_status=$?
+	logger -t "frp" "无法可靠读取FRP启用状态，拒绝生成配置或启动服务。"
+	exit "$frp_enable_read_status"
+fi
 frp_token='CHANGE_ME_TO_A_UNIQUE_RANDOM_TOKEN'
 frp_dashboard_user='CHANGE_ME'
 frp_dashboard_password='CHANGE_ME_TO_A_UNIQUE_PASSWORD'

@@ -9,6 +9,7 @@ trap 'rm -rf "$test_root"' EXIT HUP INT TERM
 # NVRAM lookups, killall, or daemon launch in this host-only test.
 tr -d '\r' < "$repo_root/trunk/user/frp/frp_script.sh" |
 	sed -n \
+	-e '/^frp_read_enable_selectors()$/,/^}/p' \
 	-e '/^frp_validate_credentials()$/,/^}/p' \
 	-e '/^frp_prepare_runtime_dir()$/,/^}/p' \
 	-e '/^frp_validate_config_target()$/,/^}/p' \
@@ -20,11 +21,65 @@ tr -d '\r' < "$repo_root/trunk/user/frp/frp_script.sh" |
 	-e '/^frp_cleanup_config_stages()$/,/^}/p' > "$test_root/helpers.sh"
 . "$test_root/helpers.sh"
 
+TEST_FRPC_ENABLE=1
+TEST_FRPS_ENABLE=0
+TEST_NVRAM_FAIL_KEY=
+TEST_NVRAM_READ_LOG="$test_root/nvram-reads"
+: > "$TEST_NVRAM_READ_LOG"
+nvram()
+{
+	[ "${1:-}" = get ] && [ "$#" -eq 2 ] || return 2
+	printf '%s\n' "$2" >> "$TEST_NVRAM_READ_LOG"
+	[ "$2" != "$TEST_NVRAM_FAIL_KEY" ] || return 73
+	case "$2" in
+		frpc_enable) printf '%s\n' "$TEST_FRPC_ENABLE" ;;
+		frps_enable) printf '%s\n' "$TEST_FRPS_ENABLE" ;;
+		*) return 2 ;;
+	esac
+}
+
 fail() { echo "FRP config regression: FAIL: $*" >&2; exit 1; }
 expect_mode() {
 	actual=$(stat -c '%a' "$1") || fail "cannot stat $1"
 	[ "$actual" = "$2" ] || fail "$1 mode is $actual, expected $2"
 }
+
+# Enable selector reads must be checked and both values must be exact booleans.
+TEST_FRPC_ENABLE=1
+TEST_FRPS_ENABLE=0
+TEST_NVRAM_FAIL_KEY=
+: > "$TEST_NVRAM_READ_LOG"
+frp_read_enable_selectors || fail "valid enable selector snapshot was rejected"
+[ "$frpc_enable" = 1 ] && [ "$frps_enable" = 0 ] || fail "valid selectors were not copied"
+[ "$(cat "$TEST_NVRAM_READ_LOG")" = "frpc_enable
+frps_enable" ] || fail "valid selector read order changed"
+
+TEST_NVRAM_FAIL_KEY=frpc_enable
+: > "$TEST_NVRAM_READ_LOG"
+if frp_read_enable_selectors; then fail "FRPC NVRAM read failure was accepted"; else status=$?; fi
+[ "$status" -eq 73 ] || fail "FRPC NVRAM read error status was lost"
+[ "$(cat "$TEST_NVRAM_READ_LOG")" = frpc_enable ] || fail "FRPS was read after FRPC failure"
+
+TEST_NVRAM_FAIL_KEY=frps_enable
+: > "$TEST_NVRAM_READ_LOG"
+if frp_read_enable_selectors; then fail "FRPS NVRAM read failure was accepted"; else status=$?; fi
+[ "$status" -eq 73 ] || fail "FRPS NVRAM read error status was lost"
+[ "$(cat "$TEST_NVRAM_READ_LOG")" = "frpc_enable
+frps_enable" ] || fail "FRPS failure did not stop at its read"
+
+TEST_NVRAM_FAIL_KEY=
+TEST_FRPC_ENABLE=2
+: > "$TEST_NVRAM_READ_LOG"
+if frp_read_enable_selectors; then fail "invalid FRPC selector was accepted"; else status=$?; fi
+[ "$status" -eq 1 ] || fail "invalid FRPC selector returned unexpected status"
+[ "$(cat "$TEST_NVRAM_READ_LOG")" = frpc_enable ] || fail "FRPS read followed an invalid FRPC selector"
+
+TEST_FRPC_ENABLE=1
+TEST_FRPS_ENABLE=-1
+: > "$TEST_NVRAM_READ_LOG"
+if frp_read_enable_selectors; then fail "invalid FRPS selector was accepted"; else status=$?; fi
+[ "$status" -eq 1 ] || fail "invalid FRPS selector returned unexpected status"
+echo "FRP runtime enable NVRAM reads fail closed and require exact boolean selectors: PASS"
 
 frpc_enable=1
 frps_enable=1

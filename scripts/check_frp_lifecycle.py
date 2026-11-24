@@ -138,6 +138,19 @@ require('seed_storage_file "/etc_ro/frp_script.sh" "$frp_script_path" 700 1' in 
         "FRP boot seeding must use exclusive storage publication and enforce mode 0700")
 frp_template = (ROOT / "trunk/user/frp/frp_script.sh").read_text()
 frp_config_test = (ROOT / "trunk/user/frp/tests/frp_config.sh").read_text()
+frp_enable_snapshot = function_body(frp_template, "frp_read_enable_selectors()")
+require('frpc_enable=$(nvram get frpc_enable) || return $?' in frp_enable_snapshot and
+        'frps_enable=$(nvram get frps_enable) || return $?' in frp_enable_snapshot and
+        'case "$frpc_enable" in 0|1) ;; *) return 1 ;; esac' in frp_enable_snapshot and
+        'case "$frps_enable" in 0|1) ;; *) return 1 ;; esac' in frp_enable_snapshot and
+        "if frp_read_enable_selectors; then" in frp_template and
+        'exit "$frp_enable_read_status"' in frp_template,
+        "FRP runner must fail closed on enable NVRAM errors and malformed selectors")
+for marker in ("FRPC NVRAM read failure", "FRPS NVRAM read failure",
+               "invalid FRPC selector", "invalid FRPS selector",
+               "FRP runtime enable NVRAM reads fail closed and require exact boolean selectors: PASS"):
+    require(marker in frp_config_test, f"FRP selector regression omits {marker}")
+
 require('frpc -c "$frp_runtime_dir/myfrpc.ini"' in frp_template and
         'frps -c "$frp_runtime_dir/myfrps.ini"' in frp_template,
         "persistent FRP script must retain both client and server launch paths")
