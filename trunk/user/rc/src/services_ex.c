@@ -245,15 +245,13 @@ arpbind_apply_current_ethers(void)
 	int count = 0, result = 0, saved_errno;
 	int i;
 
-	if (dnsmasq_file_is_safe_regular("/etc/ethers") != 0) {
+	fp = dnsmasq_file_open_safe_read("/etc/ethers");
+	if (!fp) {
 		saved_errno = errno ? errno : EIO;
-		logmessage(LOGNAME, "refusing unsafe static ARP input '/etc/ethers' (errno=%d)",
+		logmessage(LOGNAME, "refusing unsafe or unreadable static ARP input '/etc/ethers' (errno=%d)",
 			   saved_errno);
 		return saved_errno;
 	}
-	fp = fopen("/etc/ethers", "r");
-	if (!fp)
-		return errno ? errno : EIO;
 
 	errno = 0;
 	while (fgets(buffer, sizeof(buffer), fp)) {

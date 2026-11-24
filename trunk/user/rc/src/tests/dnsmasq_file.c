@@ -145,6 +145,7 @@ main(void)
 	char resolv_destination[256], resolv_same_template[256], resolv_diff_template[256];
 	char resolv_symlink[256], resolv_link_template[256];
 	char symlink_lease[256], hardlink_lease[256], fifo_lease[256], private_lease[256];
+	char unsafe_read[256];
 	char pair_first[256], pair_second[256], pair_bad_second[256], pair_sentinel[256];
 	char pair_first_stage[256], pair_second_stage[256];
 	char pair_first_backup[256], pair_second_backup[256];
@@ -197,6 +198,7 @@ main(void)
 	assert(snprintf(hardlink_lease, sizeof(hardlink_lease), "%s/hardlink.leases", directory) > 0);
 	assert(snprintf(fifo_lease, sizeof(fifo_lease), "%s/fifo.leases", directory) > 0);
 	assert(snprintf(private_lease, sizeof(private_lease), "%s/private.leases", directory) > 0);
+	assert(snprintf(unsafe_read, sizeof(unsafe_read), "%s/unsafe-readable", directory) > 0);
 	assert(snprintf(pair_first, sizeof(pair_first), "%s/pair.hostname", directory) > 0);
 	assert(snprintf(pair_second, sizeof(pair_second), "%s/pair.hosts", directory) > 0);
 	assert(snprintf(pair_bad_second, sizeof(pair_bad_second), "%s/missing/hosts", directory) > 0);
@@ -241,6 +243,16 @@ main(void)
 	assert(fputs("preserve-me\n", fp) >= 0);
 	assert(fclose(fp) == 0);
 	assert(chmod(sentinel, 0644) == 0);
+
+	/* Safe input is opened and checked on the file descriptor actually read. */
+	fp = dnsmasq_file_open_safe_read(sentinel);
+	assert(fp != NULL);
+	{
+		char line[32];
+		assert(fgets(line, sizeof(line), fp) != NULL);
+		assert(strcmp(line, "preserve-me\\n") == 0);
+	}
+	assert(fclose(fp) == 0);
 
 	/* Publishing over a planted symlink replaces the link, not its target. */
 	assert(symlink(sentinel, destination) == 0);
@@ -477,6 +489,9 @@ main(void)
 
 /* Lease file initialization must reject a symlink without touching target. */
 	assert(symlink(sentinel, symlink_lease) == 0);
+	errno = 0;
+	assert(dnsmasq_file_open_safe_read(symlink_lease) == NULL);
+	assert(errno == ELOOP || errno == EMLINK || errno == EACCES);
 	assert(dnsmasq_lease_file_ensure(symlink_lease) == -1);
 	assert(lstat(symlink_lease, &st) == 0 && S_ISLNK(st.st_mode));
 	read_exact(sentinel, "preserve-me\n");
@@ -503,12 +518,31 @@ main(void)
 	assert(stat(private_lease, &st) == 0 && (st.st_mode & 0777) == 0600);
 	read_exact(private_lease, "private-lease\n");
 
+	fp = fopen(unsafe_read, "w");
+	assert(fp != NULL);
+	assert(fputs("untrusted\\n", fp) >= 0);
+	assert(fclose(fp) == 0);
+	assert(chmod(unsafe_read, 0666) == 0);
+	errno = 0;
+	assert(dnsmasq_file_open_safe_read(unsafe_read) == NULL);
+	assert(errno == EPERM);
+	assert(chmod(unsafe_read, 0600) == 0);
+	fp = dnsmasq_file_open_safe_read(unsafe_read);
+	assert(fp != NULL);
+	assert(fclose(fp) == 0);
+
 	/* Do not chmod a hard-linked victim or block while opening a FIFO. */
 	assert(link(sentinel, hardlink_lease) == 0);
+	errno = 0;
+	assert(dnsmasq_file_open_safe_read(hardlink_lease) == NULL);
+	assert(errno == EMLINK);
 	assert(dnsmasq_file_is_safe_regular(hardlink_lease) == -1);
 	assert(dnsmasq_lease_file_ensure(hardlink_lease) == -1);
 	assert(stat(sentinel, &st) == 0 && (st.st_mode & 0777) == 0644);
 	assert(mkfifo(fifo_lease, 0600) == 0);
+	errno = 0;
+	assert(dnsmasq_file_open_safe_read(fifo_lease) == NULL);
+	assert(errno == EINVAL);
 	assert(dnsmasq_file_is_safe_regular(fifo_lease) == -1);
 	assert(dnsmasq_lease_file_ensure(fifo_lease) == -1);
 	assert(lstat(fifo_lease, &st) == 0 && S_ISFIFO(st.st_mode));
@@ -518,6 +552,7 @@ main(void)
 	assert(unlink(fifo_lease) == 0);
 	assert(unlink(symlink_lease) == 0);
 	assert(unlink(private_lease) == 0);
+	assert(unlink(unsafe_read) == 0);
 	assert(unlink(lease_path) == 0);
 	assert(unlink(destination) == 0);
 	assert(unlink(config_destination) == 0);
