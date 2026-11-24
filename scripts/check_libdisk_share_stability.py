@@ -1386,7 +1386,7 @@ mkdir_staging = function_body(
 )
 mkdir_staging_compact = "".join(mkdir_staging.split())
 remove_staging = function_body(
-    DISK_SOURCE, "disk_share_remove_folder_path("
+    DISK_SOURCE, "static int\\ndisk_share_remove_folder_path(const char *path)"
 )
 remove_staging_compact = "".join(remove_staging.split())
 require("disk_io_open_parent_nofollow(path,&leaf)" in mkdir_staging_compact and

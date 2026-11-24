@@ -1,3 +1,10 @@
+## 2026-11-24 — Anchor staging-removal checker to its definition
+
+- Exact-head libdisk run `45458513380` on `c2e9b4213b3cd039061539a52141d04e17b9e6bb` passed the GNU89 ASan/UBSan regressions but failed the static staging-helper contract. The checker searched for `disk_share_remove_folder_path(` and captured its earlier cleanup call inside the staging-path builder instead of the helper definition. It now anchors extraction to the full `static int` definition, so the pinned-parent/remove-leaf/cleanup assertions exercise the actual helper body.
+- No production source changed; exact-head test verification remains open.
+
+---
+
 ## 2026-11-24 — Correct staging-helper source contract formatting
 
 - Exact-head libdisk run `45458316166` on `2d8f56d3fc5fea4ab29722e781591646e5278de2` passed both GNU89 ASan/UBSan host test executables and then failed the static staging check. The checker searched for a whitespace-free call string in the raw C source, while the real call is intentionally line-wrapped; the dedicated extracted-function/whitespace-normalized check already validates the exact descriptor-relative helper call.
