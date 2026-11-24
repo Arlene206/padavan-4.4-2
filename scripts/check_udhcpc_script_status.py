@@ -117,6 +117,37 @@ nak = dhcpc[nak_start:nak_end]
 assert "udhcpc_deconfig_retry_required(deconfig_status)" in nak
 assert "udhcpc_schedule_deconfig_retry(INIT_SELECTING" in nak
 
+
+# A NAK during initial REQUESTING does not trigger deconfig; a NAK after an
+# acquired lease must deconfigure before returning to INIT_SELECTING.
+nak_branch_start = dhcpc.index("if (*message == DHCPNAK)")
+nak_branch_end = dhcpc.index("/* case BOUND: - ignore all packets */", nak_branch_start)
+nak_branch = dhcpc[nak_branch_start:nak_branch_end]
+assert "udhcpc_nak_requires_deconfig(state == REQUESTING)" in nak_branch
+assert "udhcpc_nak_requires_deconfig(int requesting)" in policy
+assert "test_nak_only_deconfigures_an_active_lease" in test
+assert "test_nak_only_deconfigures_an_active_lease() != 0" in test
+nak_id_guard = nak_branch.index("if (server_addr != 0)")
+nak_event = nak_branch.index('udhcp_run_script(&packet, "nak")')
+nak_deconfig = nak_branch.index('udhcp_run_script(NULL, "deconfig")')
+nak_retry = nak_branch.index("udhcpc_schedule_deconfig_retry(INIT_SELECTING", nak_deconfig)
+assert nak_id_guard < nak_event < nak_deconfig < nak_retry
+assert "svid != server_addr" in nak_branch
+assert "received DHCP NAK with wrong" in nak_branch
+assert "udhcpc_nak_requires_deconfig(state == REQUESTING)" in nak_branch[nak_event:nak_retry]
+
+# leasefail is advisory: its exit status must not suppress retry/background/
+# abort behavior after DHCP discovery is exhausted.
+leasefail_start = dhcpc.index("\n leasefail:")
+leasefail_end = dhcpc.index("\n\t\t\tcase REQUESTING:", leasefail_start)
+leasefail = dhcpc[leasefail_start:leasefail_end]
+assert 'udhcp_run_script(NULL, "leasefail");' in leasefail
+assert 'script_status = udhcp_run_script(NULL, "leasefail")' not in leasefail
+assert "timeout = tryagain_timeout;" in leasefail
+assert "packet_num = 0;" in leasefail
+assert "continue;" in leasefail
+assert leasefail.index('udhcp_run_script(NULL, "leasefail");') < leasefail.index("timeout = tryagain_timeout;") < leasefail.index("continue;")
+
 arpping_body = function_body(arpping_source, "int FAST_FUNC arpping(")
 assert "Returns 1 for no conflict, 0 for conflict, and -1 on probe I/O error." in arpping_source
 assert "rv = -1;" in arpping_body

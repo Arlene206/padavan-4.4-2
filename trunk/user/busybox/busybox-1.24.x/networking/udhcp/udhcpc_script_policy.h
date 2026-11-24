@@ -78,4 +78,13 @@ udhcpc_decline_retry_delay(int retry_timeout)
 	return retry_timeout > 0 ? retry_timeout : 1;
 }
 
+
+/* A DHCPNAK during initial REQUESTING does not invalidate a held lease. */
+static inline int
+udhcpc_nak_requires_deconfig(int requesting)
+{
+	return requesting == 0;
+}
+
 #endif /* UDHCP_SCRIPT_POLICY_H */
+

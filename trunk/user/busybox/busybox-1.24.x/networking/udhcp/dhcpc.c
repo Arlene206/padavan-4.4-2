@@ -2121,7 +2121,7 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 				/* Return to init only after the old lease has been deconfigured. */
 				bb_info_msg("Received DHCP NAK");
 				udhcp_run_script(&packet, "nak");
-				if (state != REQUESTING) {
+				if (udhcpc_nak_requires_deconfig(state == REQUESTING)) {
 					int deconfig_status = udhcp_run_script(NULL, "deconfig");
 					if (udhcpc_deconfig_retry_required(deconfig_status)) {
 						bb_error_msg("DHCP NAK deconfig failed; deferring DHCP restart");

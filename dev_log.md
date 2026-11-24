@@ -1,3 +1,12 @@
+## 2026-11-25 — Make DHCP NAK lease gating an explicit tested policy
+
+- Refined the WAN DHCP task after checking BusyBox's established wrong-server NAK filter and RFC renewal/rebinding guidance. Kept that compatibility/security behavior unchanged: packets with a nonmatching server identifier remain ignored; this is not treated as a confirmed defect.
+- Extracted the existing NAK cleanup condition into udhcpc_nak_requires_deconfig(): REQUESTING has no active lease to tear down, while any post-acquisition state must successfully deconfigure before restarting address selection. Added a GNU89 regression for both sides.
+- Extended the source contract to pin server-ID filtering before the nak callback, require active-lease deconfig and retry scheduling before transition, and assert that leasefail callback status remains advisory while normal retry/background/abort behavior proceeds.
+- Existing udhcpc-script-status workflow already watches the changed DHCP source/header/test/checker paths; exact-SHA Actions are the next verification gate. No router/hardware test is claimed.
+
+---
+
 ## 2026-11-25 — Confirm descriptor-pinned libdisk L3 and refresh cross-userland handoff
 
 - Re-polled exact Actions after the docs-only checkpoint correction. On production source SHA 80f1bfccd255536a0a2682c7d046f0216038a922, libdisk share-list #45471885325 PASS, Process inventory #45471885205 PASS, HTTPD auth #45471889467 PASS, NVRAM audit #45471885464 PASS, and XY-C1 #45471885211 PASS with Build, TRX verification and artifact upload all successful. L3 is VERIFIED for that exact production source tree; no hardware/router L4 claim.

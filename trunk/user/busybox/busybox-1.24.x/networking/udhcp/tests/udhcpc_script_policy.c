@@ -9,6 +9,14 @@
 	} \
 } while (0)
 
+
+static int test_nak_only_deconfigures_an_active_lease(void)
+{
+	CHECK(!udhcpc_nak_requires_deconfig(1));
+	CHECK(udhcpc_nak_requires_deconfig(0));
+	return 0;
+}
+
 static int test_arp_probe_errors_do_not_publish_a_dhcp_lease(void)
 {
 	CHECK(udhcpc_arp_probe_failed(-1));
@@ -140,7 +148,8 @@ static int test_already_expired_lease_is_not_resurrected(void)
 
 int main(void)
 {
-	if (test_arp_probe_errors_do_not_publish_a_dhcp_lease() != 0 ||
+	if (test_nak_only_deconfigures_an_active_lease() != 0 ||
+	    if (test_arp_probe_errors_do_not_publish_a_dhcp_lease() != 0 ||
 	    test_failed_deconfig_blocks_state_transition() != 0 ||
 	    test_failed_packet_send_blocks_dhcp_reselection_until_retry() != 0 ||
 	    test_pending_deconfig_manual_stop_releases_existing_lease() != 0 ||
