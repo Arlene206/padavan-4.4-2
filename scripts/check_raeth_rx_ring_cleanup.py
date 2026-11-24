@@ -317,3 +317,27 @@ check_rx_buffer_size(RSS_SOURCE, "int fe_rss_4ring_init(", "MAX_RX_LENGTH")
 check_rx_buffer_size(RSS_SOURCE, "int fe_rss_2ring_init(", "MAX_RX_LENGTH")
 check_rx_buffer_size(LRO_SOURCE, "int fe_hw_lro_init(", "MAX_LRO_RX_LENGTH")
 print("RAETH PDMA/QDMA/RSS/HW-LRO RX buffers include NET_SKB_PAD headroom: PASS")
+
+SWITCH_SOURCE = Path(
+    "trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.c"
+).read_text()
+switch_deinit = function_body(SWITCH_SOURCE, "void fe_sw_deinit(")
+np_check = switch_deinit.index("if (!np)")
+pdev_lookup = switch_deinit.index("of_find_device_by_node(np)")
+pdev_check = switch_deinit.index("if (!pdev)", pdev_lookup)
+drvdata = switch_deinit.index("platform_get_drvdata(pdev)")
+gsw_check = switch_deinit.index("if (!gsw)", drvdata)
+release = switch_deinit.index("put_device(&pdev->dev);")
+assert np_check < pdev_lookup < pdev_check < drvdata < gsw_check < release
+assert "goto out_put_device;" in switch_deinit[gsw_check:release]
+assert switch_deinit.count("put_device(&pdev->dev);") == 1
+for map_failure in (
+    "failed to map MT7622 shutdown GPIO registers",
+    "failed to map Leopard shutdown GPIO registers",
+    "failed to map Leopard GPIO mode registers",
+):
+    fail_at = switch_deinit.index(map_failure)
+    unwind_at = switch_deinit.index("goto out_put_device;", fail_at)
+    assert fail_at < unwind_at < release
+assert "return;" not in switch_deinit[gsw_check:]
+print("Switch shutdown platform-device validation and reference cleanup: PASS")

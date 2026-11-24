@@ -6352,16 +6352,35 @@ mdio_error:
 
 void fe_sw_deinit(struct END_DEVICE *ei_local)
 {
-	struct device_node *np = ei_local->switch_np;
-	struct platform_device *pdev = of_find_device_by_node(np);
+	struct device_node *np;
+	struct platform_device *pdev;
 	void __iomem *gpio_base_virt;
 	unsigned int reg_value;
 	struct mtk_gsw *gsw;
 	int ret;
 
-	gsw = platform_get_drvdata(pdev);
-	if (!gsw)
+	if (!ei_local)
 		return;
+
+	np = ei_local->switch_np;
+	if (!np) {
+		pr_err_ratelimited("%s: switch device-tree node is unavailable\n",
+				   __func__);
+		return;
+	}
+
+	pdev = of_find_device_by_node(np);
+	if (!pdev) {
+		pr_err_ratelimited("%s: switch platform device is unavailable\n",
+				   __func__);
+		return;
+	}
+
+	gsw = platform_get_drvdata(pdev);
+	if (!gsw) {
+		dev_err(&pdev->dev, "switch driver data is unavailable during shutdown\n");
+		goto out_put_device;
+	}
 
 	ret = regulator_disable(gsw->supply);
 	if (ret)
@@ -6378,7 +6397,7 @@ void fe_sw_deinit(struct END_DEVICE *ei_local)
 		gpio_base_virt = ioremap(GPIO_GO_BASE, 0x100);
 		if (!gpio_base_virt) {
 			pr_err_ratelimited("%s: failed to map MT7622 shutdown GPIO registers\n", __func__);
-			return;
+			goto out_put_device;
 		}
 		reg_value = sys_reg_read(gpio_base_virt + 0xF0);
 		reg_value |= BITS(24, 28);
@@ -6389,7 +6408,7 @@ void fe_sw_deinit(struct END_DEVICE *ei_local)
 		gpio_base_virt = ioremap(GPIO_GO_BASE, 0x10);
 		if (!gpio_base_virt) {
 			pr_err_ratelimited("%s: failed to map Leopard shutdown GPIO registers\n", __func__);
-			return;
+			goto out_put_device;
 		}
 		reg_value = sys_reg_read(gpio_base_virt);
 		reg_value |= 0x3c0;
@@ -6399,7 +6418,7 @@ void fe_sw_deinit(struct END_DEVICE *ei_local)
 		gpio_base_virt = ioremap(GPIO_MODE_BASE, 0x100);
 		if (!gpio_base_virt) {
 			pr_err_ratelimited("%s: failed to map Leopard GPIO mode registers\n", __func__);
-			return;
+			goto out_put_device;
 		}
 		reg_value = sys_reg_read(gpio_base_virt + 0x10);
 		reg_value &= 0x0000ffff;
@@ -6411,6 +6430,9 @@ void fe_sw_deinit(struct END_DEVICE *ei_local)
 		sys_reg_write(gpio_base_virt + 0x20, reg_value);
 		iounmap(gpio_base_virt);
 	}
+
+out_put_device:
+	put_device(&pdev->dev);
 }
 
 void (*esw_link_status_hook)(u32 port_id, int port_link) = NULL;
