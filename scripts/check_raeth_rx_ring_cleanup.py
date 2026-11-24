@@ -607,3 +607,35 @@ assert "platform_get_drvdata(pdev)" in remove_body
 assert "platform_set_drvdata(pdev, NULL);" in remove_body
 assert "ei_local->qdma_pdev->dev.release" not in remove_body
 print("RAETH probe/remove balances switch-node, debug-proc, descriptor, QDMA-device and MMIO lifetimes: PASS")
+
+
+# Clock refs are recorded only after successful prepare/enable. Partial
+# failures unwind prior clocks and the runtime-PM usage reference.
+clock_enable_body = function_body(RAETHER_SOURCE, "static int ei_clock_enable(")
+clock_prepare = function_body(RAETHER_SOURCE, "static int ei_clock_prepare_enable(")
+clock_disable_one = function_body(RAETHER_SOURCE, "static void ei_clock_disable_one(")
+assert "if (!clk)" in clock_prepare and "return 0;" in clock_prepare
+assert "if (IS_ERR(clk))" in clock_prepare and "return PTR_ERR(clk);" in clock_prepare
+assert clock_prepare.index("clk_prepare_enable(clk)") < clock_prepare.index("if (ret)") < clock_prepare.index("clk_enabled_mask |= mask")
+assert "clk_enabled_mask & mask" in clock_prepare
+assert "clk_enabled_mask &= ~mask;" in clock_disable_one
+assert "clk_disable_unprepare(ei_local->clks[clk_id]);" in clock_disable_one
+assert "pm_runtime_get_sync(ei_local->dev)" in clock_enable_body
+assert "pm_runtime_put_noidle(ei_local->dev);" in clock_enable_body
+assert "ei_clock_disable(ei_local);" in clock_enable_body[clock_enable_body.index("fail:"):]
+assert "clk_prepare_enable(" not in clock_enable_body
+assert "clk_set_rate" in clock_enable_body and "if (ret)" in clock_enable_body
+clock_disable_body = function_body(RAETHER_SOURCE, "static int ei_clock_disable(")
+for clock_id in (
+    "MTK_CLK_SGMII_TOP", "MTK_CLK_SGMII1_TX250M",
+    "MTK_CLK_SGMII1_RX250M", "MTK_CLK_SGMII1_CDR_REF",
+    "MTK_CLK_SGMII1_CDR_FB",
+):
+    assert f"ei_clock_disable_one(ei_local, {clock_id});" in clock_disable_body
+assert "if (ei_local->pm_runtime_active)" in clock_disable_body
+assert "if (ei_local->pm_runtime_enabled)" in clock_disable_body
+RAETHER_HEADER = Path(
+    "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether.h"
+).read_text()
+assert "unsigned long clk_enabled_mask;" in RAETHER_HEADER
+print("RAETH clock prepare failures unwind partial clocks and PM refs; both SGMII groups are balanced: PASS")

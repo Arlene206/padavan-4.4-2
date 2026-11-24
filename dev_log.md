@@ -1,3 +1,14 @@
+## 2026-11-23 — Make RAETH clock preparation and SGMII teardown transactional
+
+- ei_clock_enable ignored every clk_prepare_enable return value and continued after TRGPLL clk_set_rate failure. Probe only logged devm_clk_get error pointers, so a required missing/deferred clock could reach the clock API unchecked; later failure had no tracked partial unwind.
+- ei_clock_disable unconditionally disabled clock handles instead of pairing only successful enables. It also omitted Leopard MTK_CLK_SGMII_TOP and all four GE2 MTK_CLK_SGMII1_* clocks. If GE1 and GE2 SGMII were both selected, the shared SGMII PLL could be prepared twice but disabled once.
+- Added a successful-enable bitmap and per-clock helpers. Required error pointers now propagate, NULL handles remain a no-op for MT7621's deliberately skipped clock acquisition, duplicate shared PLL enables are suppressed, and every partial failure unwinds enabled clocks plus runtime-PM usage/enable state. TRGPLL set-rate failure is fatal to setup. Teardown releases both SGMII groups and the top clock exactly once.
+- Added source-contract checks for ERR_PTR handling, success-only bit tracking, PM-runtime rollback, failure unwind and SGMII disable coverage. No local target compile is claimed; exact Actions on this commit must validate GNU89/MIPS integration.
+- Parent main: 3ea3089230ea2696e518c525ec6cf1132aa1ea83. Exact parent Actions #45326081842 AI docs, #45326081376 Switch CLI and #45326081336 NVRAM PASS. XY-C1 #45326081305 had completed host checks but Build was still in progress; TRX/artifact pending. Previous completed firmware Build/TRX/artifact on f7bd670 predates later source changes.
+- Next: inspect exact-head checks, then move to an independent userland stability/security defect outside RAETH.
+
+---
+
 ## 2026-11-24 — Close RAETH switch-node and primary-netdev teardown ownership
 
 - `rather_probe()` now attaches the registered primary netdev to the platform device. Its error path releases `switch_np`, shuts down debug proc state only after successful proc initialization, releases RX/TX descriptor resources before putting a separately allocated QDMA helper device, and never puts the platform-owned device itself.

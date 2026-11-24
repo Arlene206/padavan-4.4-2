@@ -268,6 +268,9 @@ struct END_DEVICE {
 
 	/* clock control */
 	struct clk	*clks[MTK_CLK_MAX];
+	unsigned long clk_enabled_mask;
+	unsigned int pm_runtime_enabled;
+	unsigned int pm_runtime_active;
 
 	/* gsw device node */
 	struct device_node *switch_np;

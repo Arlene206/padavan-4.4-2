@@ -390,10 +390,11 @@ Completed in this continuation:
 - [x] MT7621 GP0 clock-enable failure propagation and removal of the never-initialized `reset_task` cancellation.
 - [x] Regression assertions integrated into the Switch CLI stability workflow.
 
-Previously verified production-source SHA `f7bd670c88520298c8c4628b1ff06e0c95251f12`: Switch CLI #45323341869, NVRAM #45323341860 and XY-C1 #45323341920 **PASS**, including Build, TRX validation and artifact upload. On the newer MT7622 preinit fix, AI docs #45325334351 **PASS** and the corrected Switch CLI run #45325386250 **PASS**; NVRAM #45325334304 and XY-C1 #45325334328 were still running when this snapshot was prepared. No hardware L4 claim.
+Parent exact SHA 3ea3089230ea2696e518c525ec6cf1132aa1ea83: AI docs #45326081842, Switch CLI #45326081376 and NVRAM #45326081336 PASS; XY-C1 #45326081305 had completed host checks and was still in Build XY-C1, with TRX/artifact steps pending. No L4 claim.
 
 Next active item:
-- [x] Correct MT7622 GSW preinitialization platform-device reference leaks and regulator enable/disable state pairing.
-- [x] Correct `mtk_gsw_probe()` IRQ mapping, pctl phandle, regmap error and pinctrl acquisition/release handling.
-- [x] Balance `switch_np` node references, registration-error cleanup, descriptor/QDMA-device ownership and primary-netdev unregister/remove teardown.
-- [ ] Audit the remaining RAETH probe failure labels for complete reverse-order cleanup of clock, MMIO and partially-created device resources.
+- [x] Balance MT7622 GSW preinit platform-device references and regulator enable/disable state.
+- [x] Balance MTK GSW probe/remove IRQ mappings, pinctrl handles and DT phandle references.
+- [x] Release switch-node, descriptor, QDMA helper-device, debug-proc and primary-netdev resources on probe error/uninit/remove.
+- [x] Track each successfully enabled RAETH clock, unwind partial clock/PM setup failures, and balance both GE1/GE2 SGMII clock groups.
+- [ ] Poll exact-head CI, then continue the stability ledger outside RAETH rather than repeating closed module audits.

@@ -13,6 +13,7 @@
  * GNU General Public License for more details.
  */
 #include "raether.h"
+#include <linux/pm_runtime.h>
 #include "ra_mac.h"
 #include "ra_ioctl.h"
 #include "ra_switch.h"
@@ -2466,6 +2467,82 @@ static int ei_change_mtu(struct net_device *dev, int new_mtu)
 	return 0;
 }
 
+static int ei_clock_prepare_enable(struct END_DEVICE *ei_local,
+				    enum mtk_clks_map clk_id)
+{
+	struct clk *clk;
+	unsigned long mask;
+	int ret;
+
+	if (clk_id >= MTK_CLK_MAX)
+		return -EINVAL;
+
+	mask = 1UL << clk_id;
+	if (ei_local->clk_enabled_mask & mask)
+		return 0;
+
+	clk = ei_local->clks[clk_id];
+	/* MT7621 intentionally has no common clock-provider handles. */
+	if (!clk)
+		return 0;
+	if (IS_ERR(clk))
+		return PTR_ERR(clk);
+
+	ret = clk_prepare_enable(clk);
+	if (ret)
+		return ret;
+
+	ei_local->clk_enabled_mask |= mask;
+	return 0;
+}
+
+static void ei_clock_disable_one(struct END_DEVICE *ei_local,
+				 enum mtk_clks_map clk_id)
+{
+	unsigned long mask = 1UL << clk_id;
+
+	if (!(ei_local->clk_enabled_mask & mask))
+		return;
+
+	clk_disable_unprepare(ei_local->clks[clk_id]);
+	ei_local->clk_enabled_mask &= ~mask;
+}
+
+static int ei_clock_disable(struct END_DEVICE *ei_local)
+{
+	/* Release only clocks whose prepare/enable operation succeeded. */
+	ei_clock_disable_one(ei_local, MTK_CLK_SGMII1_CDR_FB);
+	ei_clock_disable_one(ei_local, MTK_CLK_SGMII1_CDR_REF);
+	ei_clock_disable_one(ei_local, MTK_CLK_SGMII1_RX250M);
+	ei_clock_disable_one(ei_local, MTK_CLK_SGMII1_TX250M);
+	ei_clock_disable_one(ei_local, MTK_CLK_SGMII_CDR_FB);
+	ei_clock_disable_one(ei_local, MTK_CLK_SGMII_CDR_REF);
+	ei_clock_disable_one(ei_local, MTK_CLK_SGMII_RX250M);
+	ei_clock_disable_one(ei_local, MTK_CLK_SGMII_TX250M);
+	ei_clock_disable_one(ei_local, MTK_CLK_SGMIPLL);
+	ei_clock_disable_one(ei_local, MTK_CLK_SGMII_TOP);
+	ei_clock_disable_one(ei_local, MTK_CLK_TRGPLL);
+	ei_clock_disable_one(ei_local, MTK_CLK_GP0);
+	ei_clock_disable_one(ei_local, MTK_CLK_FE);
+	ei_clock_disable_one(ei_local, MTK_CLK_GP2);
+	ei_clock_disable_one(ei_local, MTK_CLK_GP1);
+	ei_clock_disable_one(ei_local, MTK_CLK_ESW);
+	ei_clock_disable_one(ei_local, MTK_CLK_ETHIF);
+	ei_clock_disable_one(ei_local, MTK_CLK_ETH2PLL);
+	ei_clock_disable_one(ei_local, MTK_CLK_ETH1PLL);
+
+	if (ei_local->pm_runtime_active) {
+		pm_runtime_put_sync(ei_local->dev);
+		ei_local->pm_runtime_active = 0;
+	}
+	if (ei_local->pm_runtime_enabled) {
+		pm_runtime_disable(ei_local->dev);
+		ei_local->pm_runtime_enabled = 0;
+	}
+
+	return 0;
+}
+
 static int ei_clock_enable(struct END_DEVICE *ei_local)
 {
 	unsigned long rate;
@@ -2473,96 +2550,88 @@ static int ei_clock_enable(struct END_DEVICE *ei_local)
 	void __iomem *clk_virt_base;
 	unsigned int reg_value;
 
-	/* Validate the SGMII control mapping before enabling any clocks. */
-	if (ei_local->architecture & GE2_RAETH_SGMII) {
-		clk_virt_base = ioremap(0x102100C0, 0x10);
-		if (!clk_virt_base)
-			return -ENOMEM;
-	}
-
 	pm_runtime_enable(ei_local->dev);
-	pm_runtime_get_sync(ei_local->dev);
+	ei_local->pm_runtime_enabled = 1;
+	ret = pm_runtime_get_sync(ei_local->dev);
+	if (ret < 0) {
+		/* get_sync increments the usage counter even on a failed resume. */
+		pm_runtime_put_noidle(ei_local->dev);
+		ei_clock_disable(ei_local);
+		return ret;
+	}
+	ei_local->pm_runtime_active = 1;
 
-	clk_prepare_enable(ei_local->clks[MTK_CLK_ETH1PLL]);
-	clk_prepare_enable(ei_local->clks[MTK_CLK_ETH2PLL]);
-	clk_prepare_enable(ei_local->clks[MTK_CLK_ETHIF]);
-	clk_prepare_enable(ei_local->clks[MTK_CLK_ESW]);
-	clk_prepare_enable(ei_local->clks[MTK_CLK_GP1]);
-	clk_prepare_enable(ei_local->clks[MTK_CLK_GP2]);
-	/*enable frame engine clock*/
+#define ENABLE_RAETH_CLOCK(_id) do { \
+	ret = ei_clock_prepare_enable(ei_local, (_id)); \
+	if (ret) \
+		goto fail; \
+} while (0)
+
+	ENABLE_RAETH_CLOCK(MTK_CLK_ETH1PLL);
+	ENABLE_RAETH_CLOCK(MTK_CLK_ETH2PLL);
+	ENABLE_RAETH_CLOCK(MTK_CLK_ETHIF);
+	ENABLE_RAETH_CLOCK(MTK_CLK_ESW);
+	ENABLE_RAETH_CLOCK(MTK_CLK_GP1);
+	ENABLE_RAETH_CLOCK(MTK_CLK_GP2);
+
 	if (ei_local->chip_name == LEOPARD_FE)
-		clk_prepare_enable(ei_local->clks[MTK_CLK_FE]);
+		ENABLE_RAETH_CLOCK(MTK_CLK_FE);
 
 	if (ei_local->architecture & RAETH_ESW)
-		clk_prepare_enable(ei_local->clks[MTK_CLK_GP0]);
+		ENABLE_RAETH_CLOCK(MTK_CLK_GP0);
 
 	if (ei_local->architecture &
 	    (GE1_TRGMII_FORCE_2000 | GE1_TRGMII_FORCE_2600)) {
+		if (IS_ERR_OR_NULL(ei_local->clks[MTK_CLK_TRGPLL])) {
+			ret = ei_local->clks[MTK_CLK_TRGPLL] ?
+			      PTR_ERR(ei_local->clks[MTK_CLK_TRGPLL]) : -ENOENT;
+			goto fail;
+		}
 		ret = clk_set_rate(ei_local->clks[MTK_CLK_TRGPLL], 500000000);
-		if (ret)
+		if (ret) {
 			pr_err("Failed to set mt7530 trgmii pll: %d\n", ret);
+			goto fail;
+		}
 		rate = clk_get_rate(ei_local->clks[MTK_CLK_TRGPLL]);
 		pr_info("TRGMII_PLL rate = %ld\n", rate);
-		clk_prepare_enable(ei_local->clks[MTK_CLK_TRGPLL]);
+		ENABLE_RAETH_CLOCK(MTK_CLK_TRGPLL);
 	}
 
 	if (ei_local->architecture & RAETH_SGMII) {
 		if (ei_local->chip_name == LEOPARD_FE)
-			clk_prepare_enable(ei_local->clks[MTK_CLK_SGMII_TOP]);
-		clk_prepare_enable(ei_local->clks[MTK_CLK_SGMIPLL]);
-		clk_prepare_enable(ei_local->clks[MTK_CLK_SGMII_TX250M]);
-		clk_prepare_enable(ei_local->clks[MTK_CLK_SGMII_RX250M]);
-		clk_prepare_enable(ei_local->clks[MTK_CLK_SGMII_CDR_REF]);
-		clk_prepare_enable(ei_local->clks[MTK_CLK_SGMII_CDR_FB]);
+			ENABLE_RAETH_CLOCK(MTK_CLK_SGMII_TOP);
+		ENABLE_RAETH_CLOCK(MTK_CLK_SGMIPLL);
+		ENABLE_RAETH_CLOCK(MTK_CLK_SGMII_TX250M);
+		ENABLE_RAETH_CLOCK(MTK_CLK_SGMII_RX250M);
+		ENABLE_RAETH_CLOCK(MTK_CLK_SGMII_CDR_REF);
+		ENABLE_RAETH_CLOCK(MTK_CLK_SGMII_CDR_FB);
 	}
 
 	if (ei_local->architecture & GE2_RAETH_SGMII) {
+		clk_virt_base = ioremap(0x102100C0, 0x10);
+		if (!clk_virt_base) {
+			ret = -ENOMEM;
+			goto fail;
+		}
 		reg_value = sys_reg_read(clk_virt_base);
-		reg_value = reg_value & (~0x8000);	/*[bit15] = 0 */
-		/*pdn_sgmii_re_1 1: Enable clock off */
+		reg_value &= ~0x8000;	/* [bit15] = 0 */
 		sys_reg_write(clk_virt_base, reg_value);
 		iounmap(clk_virt_base);
-		clk_prepare_enable(ei_local->clks[MTK_CLK_SGMIPLL]);
-		clk_prepare_enable(ei_local->clks[MTK_CLK_SGMII1_TX250M]);
-		clk_prepare_enable(ei_local->clks[MTK_CLK_SGMII1_RX250M]);
-		clk_prepare_enable(ei_local->clks[MTK_CLK_SGMII1_CDR_REF]);
-		clk_prepare_enable(ei_local->clks[MTK_CLK_SGMII1_CDR_FB]);
+
+		/* The SGMII PLL may already be enabled for GE1. */
+		ENABLE_RAETH_CLOCK(MTK_CLK_SGMIPLL);
+		ENABLE_RAETH_CLOCK(MTK_CLK_SGMII1_TX250M);
+		ENABLE_RAETH_CLOCK(MTK_CLK_SGMII1_RX250M);
+		ENABLE_RAETH_CLOCK(MTK_CLK_SGMII1_CDR_REF);
+		ENABLE_RAETH_CLOCK(MTK_CLK_SGMII1_CDR_FB);
 	}
 
+#undef ENABLE_RAETH_CLOCK
 	return 0;
-}
 
-
-static int ei_clock_disable(struct END_DEVICE *ei_local)
-{
-	if (ei_local->chip_name == LEOPARD_FE)
-		clk_disable_unprepare(ei_local->clks[MTK_CLK_FE]);
-	if (ei_local->architecture & RAETH_ESW)
-		clk_disable_unprepare(ei_local->clks[MTK_CLK_GP0]);
-
-	if (ei_local->architecture &
-	    (GE1_TRGMII_FORCE_2000 | GE1_TRGMII_FORCE_2600))
-		clk_disable_unprepare(ei_local->clks[MTK_CLK_TRGPLL]);
-
-	if (ei_local->architecture & RAETH_SGMII) {
-		clk_disable_unprepare(ei_local->clks[MTK_CLK_SGMII_TX250M]);
-		clk_disable_unprepare(ei_local->clks[MTK_CLK_SGMII_RX250M]);
-		clk_disable_unprepare(ei_local->clks[MTK_CLK_SGMII_CDR_REF]);
-		clk_disable_unprepare(ei_local->clks[MTK_CLK_SGMII_CDR_FB]);
-		clk_disable_unprepare(ei_local->clks[MTK_CLK_SGMIPLL]);
-	}
-
-	clk_disable_unprepare(ei_local->clks[MTK_CLK_GP2]);
-	clk_disable_unprepare(ei_local->clks[MTK_CLK_GP1]);
-	clk_disable_unprepare(ei_local->clks[MTK_CLK_ESW]);
-	clk_disable_unprepare(ei_local->clks[MTK_CLK_ETHIF]);
-	clk_disable_unprepare(ei_local->clks[MTK_CLK_ETH2PLL]);
-	clk_disable_unprepare(ei_local->clks[MTK_CLK_ETH1PLL]);
-
-	pm_runtime_put_sync(ei_local->dev);
-	pm_runtime_disable(ei_local->dev);
-
-	return 0;
+fail:
+	ei_clock_disable(ei_local);
+	return ret;
 }
 
 static struct ethtool_ops ra_ethtool_ops = {
