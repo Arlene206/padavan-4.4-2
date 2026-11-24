@@ -64,10 +64,10 @@ assert common_open < runtime_open < publish
 assert not re.search(r"\brename\s*\(", body)
 assert "xupnpd_config_source_open(common_path)" in compact
 assert "xupnpd_config_source_open(runtime_path)" in compact
-assert body.index("fsync(fileno(fp1))") < runtime_open
-assert body.index("fsync(fileno(fp3))") < publish
-assert body.index('"udpxy_enable_x"') < publish
-assert body.index('"xupnpd_udpxy"') < publish
+assert compact.index("fsync(fileno(fp1))") < runtime_open
+assert compact.index("fsync(fileno(fp3))") < publish
+assert compact.index('"udpxy_enable_x"') < publish
+assert compact.index('"xupnpd_udpxy"') < publish
 assert "DNSMASQ_FILE_PRESERVE_MODE" in compact
 assert "goto xupnpd_config_prepare_failed" in body
 assert "dnsmasq_file_discard(common_stage)" in body
