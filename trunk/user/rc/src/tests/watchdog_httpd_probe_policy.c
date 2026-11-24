@@ -52,6 +52,20 @@ test_port_recheck_does_not_hide_read_errors_or_changes(void)
     assert(!watchdog_httpd_probe_port_unchanged(0, 8080, 0));
 }
 
+static void
+test_probe_file_io_errors_skip_restart_decision(void)
+{
+    assert(watchdog_httpd_probe_file_io_status(0, 0, 0, 0, 0) == 0);
+    assert(watchdog_httpd_probe_file_io_status(ENOENT, 0, 0, 0, 0) == 0);
+    assert(watchdog_httpd_probe_file_io_status(EACCES, 0, 0, 0, 0) == EACCES);
+    assert(watchdog_httpd_probe_file_io_status(EMFILE, 0, 0, 0, 0) == EMFILE);
+    assert(watchdog_httpd_probe_file_io_status(EIO, 0, 0, 0, 0) == EIO);
+    assert(watchdog_httpd_probe_file_io_status(0, 1, EIO, 0, 0) == EIO);
+    assert(watchdog_httpd_probe_file_io_status(0, 1, 0, 0, 0) == EIO);
+    assert(watchdog_httpd_probe_file_io_status(0, 0, 0, -1, EIO) == EIO);
+    assert(watchdog_httpd_probe_file_io_status(0, 0, 0, -1, 0) == EIO);
+}
+
 int
 main(void)
 {
@@ -59,6 +73,7 @@ main(void)
     test_probe_requires_trustworthy_http_configuration();
     test_port_recheck_does_not_hide_read_errors_or_changes();
     test_stale_probe_result_must_be_removed_before_probe();
+    test_probe_file_io_errors_skip_restart_decision();
     puts("watchdog HTTPD probe safety policy: PASS");
     return 0;
 }

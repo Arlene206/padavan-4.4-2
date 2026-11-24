@@ -2,15 +2,15 @@
 
 ## Current repository state
 
-- Live `main` parent for this WAN counter regression harness correction: `b757cc5ad9f1173d2a476475ef66ffb6be6ff8d7`.
-- Exact `b757cc5` WAN sysfs byte-counter regression `#45308457252` **FAILED** at compile setup: the test includes `net_ifstats_policy.h` from the shared source directory, but the workflow omitted `-I trunk/user/shared/src`. No C assertions or integration contract ran; this is a test build-command issue, not a source-test result.
-- Exact `b757cc5` AI handoff contract `#45308457405`: **PASS**. Other exact-push statuses at latest poll: `WAN DHCP callback state stability regression` #45308457813: **success**; `detect_link signal lifecycle stability regression` #45308457811: **success**; `Wireless radio state regression` #45308457695: **success**; `AdGuardHome config security regression` #45308457694: **success**; `USB modem WDM/NDIS physical identity stability` #45308457689: **success**; `miniupnpd atomic configuration publication regression` #45308457667: **success**; `NVRAM transaction boundary audit` #45308457643: **in_progress**; `USB storage hotplug stability regression` #45308457640: **success**; `watchdog signal lifecycle stability regression` #45308457629: **success**; `Inadyn fail-closed lifecycle regression` #45308457628: **success**; `VPN server lifecycle stability regression` #45308457613: **success**; `Process lifecycle inventory - b757cc5ad9f1173d2a476475ef66ffb6be6ff8d7` #45308457608: **success**; `FRP asynchronous startup lifecycle regression` #45308457582: **success**; `IPv6 service-type checked-read regression` #45308457574: **success**; `Firewall Startup Stability Regression` #45308457562: **success**; `WAN route operation status regression` #45308457554: **success**; `AliyunDrive WebDAV lifecycle stability regression` #45308457536: **in_progress**; `Router mode NVRAM update failure regression` #45308457499: **success**; `XY-C1 Firmware Validation` #45308457490: **in_progress**; `WAN gateway ARP probe socket stability regression` #45308457331: **success**; `Process inventory and lifecycle fail-closed regression` #45308457314: **success**; `ZeroTier lifecycle stability regression` #45308457305: **success**; `HTTPD Authentication and Security Regression` #45308457290: **success**; `WAN interface teardown stability regression` #45308457262: **success**; `DNSMasq lifecycle stability regression` #45308457258: **success**; `detect_internet signal lifecycle stability regression` #45308457232: **success**.
-- The `b757cc5` source change adds checked RX/TX counter reads, preserves legacy scalar wrappers, avoids replacing WAN baselines on partial/error reads, and exports tri-state status to the page (numeric zero / N/A / hidden).
+- Live `main` parent for this HTTPD watchdog probe-I/O slice: `cfd69a709a2399459d5422fa383c81a95934833f`.
+- Exact `cfd69a7` WAN sysfs byte-counter regression `#45308740232` and AI handoff contract `#45308740182` were **IN_PROGRESS** at the latest poll. Its parent `b757cc5` WAN test `#45308457252` failed only because the host compile omitted `-I trunk/user/shared/src`; commit `cfd69a7` adds that include path and triggers a fresh run.
+- The checked WAN RX/TX pair and UI tri-state implementation is committed on `b757cc5`; no result is claimed until the corrected exact-SHA run completes.
+- New independent stability finding: `httpd_check_v2()` treated every `fopen`/read result-file failure as an empty probe response. When the watchdog itself hits `EMFILE`, `EACCES` or `EIO`, this can falsely conclude HTTPD is dead and restart a healthy daemon. The result-file read path now distinguishes expected `ENOENT` during detached wget startup from other I/O errors and skips the restart decision on the latter.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Active task
 
-Re-run the WAN sysfs counter policy regression after adding the shared-source include directory to the host compiler invocation. Then inspect the source-contract step and exact-SHA dependent checks; do not infer source regression status from the previous compile-setup failure.
+Verify watchdog HTTPD probe result-file error handling on this commit's exact SHA. Expected `ENOENT` while detached wget creates the result file must continue retrying; other open/read/close errors must skip the liveness/restart decision rather than mark HTTPD dead.
 
 ## Completed development slices
 
@@ -40,15 +40,15 @@ Independent snapshot/lifecycle changes remain in `99ad9397e3cf4450c6fc07758b58c3
 
 ## Verification boundary
 
-- Exact `b757cc5` WAN run `#45308457252`: **FAIL** at compile setup only: missing `-I trunk/user/shared/src`. No host assertions or source-contract checks executed.
-- Exact `b757cc5` AI handoff `#45308457405`: **PASS**. Other Process/HTTPD/NVRAM/XY-C1 results are recorded above with their exact run IDs/statuses.
-- This is a workflow-only include-path correction; no new production C, firmware L3 or hardware L4 result is claimed.
+- Exact `cfd69a7` WAN counter regression `#45308740232` and AI handoff `#45308740182`: **IN_PROGRESS** at last poll; the preceding `b757cc5` test failed only at missing include path before running host assertions.
+- This watchdog slice adds a GNU89 `-Werror` ASan/UBSan policy regression and an exact source-order contract. It requires its own exact-SHA run.
+- No same-SHA XY-C1 firmware L3 or hardware L4 result is claimed. Frozen backup unchanged.
 
 ## Exact first action for the next GPT
 
-1. Verify the corrected WAN sysfs regression on this commit's exact SHA; if compilation passes, repair any actual policy or source-contract failure.
-2. Reconcile exact `b757cc5` Process, HTTPD, NVRAM and XY-C1 statuses by run ID; continue independent work while any remain pending.
-3. Continue auditing other source-proven resource/error paths. Keep the frozen backup read-only.
+1. Verify exact-SHA watchdog HTTPD probe-file I/O regression; inspect any failed host/source contract log.
+2. Refresh the corrected WAN sysfs regression and AI handoff runs on their exact current SHA; do not reuse the failed parent result.
+3. Continue the stability queue with another cross-subsystem source-proven defect; keep the frozen backup read-only.
 
 
 # Cross-session execution mandate

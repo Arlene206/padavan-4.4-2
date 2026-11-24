@@ -107,6 +107,8 @@ httpd_check_v2()
     FILE *fp = NULL;
     int i, httpd_live, http_port, http_proto = 0, current_port, status;
     int remove_result, remove_errno;
+    int probe_open_errno, probe_read_error, probe_read_errno;
+    int probe_close_result, probe_close_errno;
     char line[80], login_timestamp[32];
     unsigned long login_uptime;
     long now;
@@ -194,12 +196,31 @@ httpd_check_v2()
 
     httpd_live = 0;
     for (i = 0; i < 3; i++) {
-        if ((fp = fopen(DETECT_HTTPD_FILE, "r")) != NULL) {
-            if (fgets(line, sizeof(line), fp) != NULL) {
-                if (strstr(line, "ASUSTeK"))
-                    httpd_live = 1;
-            }
-            fclose(fp);
+        errno = 0;
+        fp = fopen(DETECT_HTTPD_FILE, "r");
+        if (fp == NULL) {
+            probe_open_errno = errno > 0 ? errno : EIO;
+            status = watchdog_httpd_probe_file_io_status(
+                probe_open_errno, 0, 0, 0, 0);
+        } else {
+            errno = 0;
+            if (fgets(line, sizeof(line), fp) != NULL &&
+                !ferror(fp) && strstr(line, "ASUSTeK"))
+                httpd_live = 1;
+            probe_read_error = ferror(fp);
+            probe_read_errno = errno;
+            errno = 0;
+            probe_close_result = fclose(fp);
+            probe_close_errno = errno;
+            status = watchdog_httpd_probe_file_io_status(
+                0, probe_read_error, probe_read_errno,
+                probe_close_result, probe_close_errno);
+        }
+        if (status != 0) {
+            logmessage("watchdog",
+                       "cannot read HTTPD probe result; skipping liveness decision (status=%d)",
+                       status);
+            return 1;
         }
 
         if (httpd_live)

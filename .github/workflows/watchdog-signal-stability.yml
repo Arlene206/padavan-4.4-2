@@ -174,6 +174,16 @@ jobs:
           assert "cannot read HTTPD LAN port; skipping liveness probe" in httpd_probe
           assert "watchdog_httpd_probe_stale_file_remove_status(" in httpd_probe
           assert "cannot clear stale HTTPD probe result; skipping liveness decision" in httpd_probe
+          assert "watchdog_httpd_probe_file_io_status(" in httpd_probe
+          assert "probe_read_error = ferror(fp);" in httpd_probe
+          assert "probe_close_result = fclose(fp);" in httpd_probe
+          assert "cannot read HTTPD probe result; skipping liveness decision" in httpd_probe
+          assert "watchdog_httpd_probe_file_io_status" in httpd_policy
+          assert "test_probe_file_io_errors_skip_restart_decision" in httpd_test
+          file_status = httpd_probe.index("watchdog_httpd_probe_file_io_status(")
+          file_error_guard = httpd_probe.index("if (status != 0)", file_status)
+          live_decision = httpd_probe.index("if (httpd_live)", file_error_guard)
+          assert file_status < file_error_guard < live_decision
           assert "test_stale_probe_result_must_be_removed_before_probe" in httpd_test
           remove_result = httpd_probe.index("remove_result = remove(DETECT_HTTPD_FILE)")
           remove_guard = httpd_probe.index("if (status != 0)", remove_result)

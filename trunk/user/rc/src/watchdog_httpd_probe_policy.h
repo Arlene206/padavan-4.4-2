@@ -62,4 +62,22 @@ watchdog_httpd_probe_stale_file_remove_status(int remove_result,
     return saved_errno > 0 ? saved_errno : EIO;
 }
 
+/*
+ * A missing result file is expected while detached wget starts. Other open,
+ * read, and close errors make the probe inconclusive, not proof HTTPD is dead.
+ */
+static inline int
+watchdog_httpd_probe_file_io_status(int open_status, int read_error,
+                                    int read_errno, int close_result,
+                                    int close_errno)
+{
+    if (open_status != 0)
+        return open_status == ENOENT ? 0 : (open_status > 0 ? open_status : EIO);
+    if (read_error)
+        return read_errno > 0 ? read_errno : EIO;
+    if (close_result != 0)
+        return close_errno > 0 ? close_errno : EIO;
+    return 0;
+}
+
 #endif /* WATCHDOG_HTTPD_PROBE_POLICY_H */

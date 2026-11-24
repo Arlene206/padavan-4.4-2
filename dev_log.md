@@ -1,3 +1,12 @@
+## 2026-11-23 — Do not restart HTTPD on watchdog probe-file I/O errors
+
+- `httpd_check_v2()` interpreted every missing/unreadable/empty result file as a failed HTTPD response. A watchdog-side `EMFILE`, `EACCES` or `EIO` could therefore trigger a restart of a healthy HTTPD daemon.
+- Added a checked result-file status policy: expected `ENOENT` while detached wget starts remains retryable; other open errors, read/ferror and close failures return errno-style status and skip the liveness/restart decision. The caller now checks `ferror()` and `fclose()` results before treating response text as evidence.
+- Added GNU89 `-Werror` ASan/UBSan policy coverage for expected absence, permission/descriptor exhaustion, read errors and close errors, plus the watchdog source-order workflow contract.
+- Parent `cfd69a709a2399459d5422fa383c81a95934833f`: WAN counter run `#45308740232` and AI handoff `#45308740182` were **IN_PROGRESS**; the corrected WAN regression still awaits its exact-SHA result. This watchdog slice also requires its own exact-SHA validation.
+
+---
+
 ## 2026-11-23 — Add the shared-source include path to WAN counter regression
 
 - Exact `b757cc5` WAN sysfs regression `#45308457252` failed at compile setup because `tests/net_ifstats_policy.c` includes `net_ifstats_policy.h` from the shared source directory and the workflow omitted `-I trunk/user/shared/src`. No C assertion or integration contract executed.
