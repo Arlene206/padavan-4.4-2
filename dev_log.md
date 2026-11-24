@@ -1,3 +1,12 @@
+## 2026-11-24 — Emit AdGuardHome stop-contract marker after host regressions
+
+- Exact-head AdGuardHome run #45338988643 on `ce1902a95b8cb9cf7c8c938daee2caa1684d9018` passed shell syntax and every runtime regression, including the replacement-PID escalation and the newly reset stuck-daemon fixture.
+- The only remaining failure was the Python source checker requiring `AdGuardHome stop signals only validated PID snapshots: PASS`, a success marker the shell test had never emitted. The underlying assertions for multi-PID TERM and refreshed per-PID SIGKILL were present and passing; added the missing summary marker after the full stop test sequence so it cannot print before those assertions pass.
+- No AdGuardHome production code changed in this test-contract-only correction.
+- Parent main: `17d08de1ed22fe2ff102992d28c974b42b77de3a`. Exact-head AdGuardHome and Process inventory reruns pending.
+
+---
+
 ## 2026-11-24 — Complete Adbyby identity-aware start fixture and checker marker
 
 - Exact `5e9ce769a1f274d99da21686f3b9c0f9c7b43a11` Adbyby stop regression passed, including wrong-executable decoy, unreadable stat, real start_time replacement and bounded shutdown. Its Python checker alone failed because it expected the marker `PID start_time replacement` while the test prints `PID start-time replacement`.

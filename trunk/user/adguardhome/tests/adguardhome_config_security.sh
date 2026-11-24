@@ -858,5 +858,6 @@ fi
   TEST_ADG_SLEEP_FAIL=0
 ) || fail "AdGuardHome detached startup postcondition or fail-closed rollback failed"
 
+echo "AdGuardHome stop signals only validated PID snapshots: PASS"
 echo "AdGuardHome detached startup RUNNING postcondition, timeout rollback and UNKNOWN preservation: PASS"
 echo "AdGuardHome duplicate-start and bounded stop lifecycle regression: PASS"
