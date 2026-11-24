@@ -88,7 +88,7 @@ adbyby_test_add_process()
 	adbyby_test_start="$3"
 	mkdir -p "$ADBYBY_PROC_ROOT/$adbyby_test_pid"
 	ln -sfn "$adbyby_test_exe" "$ADBYBY_PROC_ROOT/$adbyby_test_pid/exe"
-	printf '%s (adbyby) S 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 %s\n' \
+	printf '%s (adbyby) S 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 %s\n' \
 		"$adbyby_test_pid" "$adbyby_test_start" > "$ADBYBY_PROC_ROOT/$adbyby_test_pid/stat"
 }
 adbyby_test_add_process 123 "$PROG_PATH/adbyby" 1000
@@ -207,7 +207,7 @@ awk()
 		*"$ADBYBY_PROC_ROOT/123/stat"*)
 			if [ -e "$reuse_trigger" ]; then
 				rm -f "$reuse_trigger"
-				printf '123 (adbyby) S 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 3001\n' > "$ADBYBY_PROC_ROOT/123/stat"
+				printf '123 (adbyby) S 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 3001\n' > "$ADBYBY_PROC_ROOT/123/stat"
 			fi
 			;;
 	esac

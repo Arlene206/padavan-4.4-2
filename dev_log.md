@@ -1,3 +1,12 @@
+## 2026-11-24 — Preserve Adbyby stop postcondition and correct procfs fixture fields
+
+- Exact SHA `db75aed4c9005bcbdcb4eba503b3c65be8f99644` exposed an implementation truncation: while replacing the pre-signal section of `adbyby_stop_daemon()`, the bounded five-probe post-TERM wait and function-closing brace were omitted. `sh -n` caught the missing brace; Adbyby host, HTTPD firewall-hook staging and Process stop-gate workflows consequently failed before dependent tests. DNSMasq and Process inventory passed; AI handoff passed.
+- Restored the five-bounded-probe postcondition: after identity-revalidated per-PID TERM, a fresh RUNNING/ABSENT/UNKNOWN inventory is required; only ABSENT succeeds, UNKNOWN/sleep errors fail closed, and five RUNNING probes refuse cleanup.
+- Corrected synthetic `/proc/PID/stat` fixtures: after removing `pid) `, state is token 1 and kernel `start_time` (field 22) is token 20; the previous fixture mistakenly placed its supplied value at token 21. The PID-reuse regression now changes the exact field production validates.
+- Parent main: `db75aed4c9005bcbdcb4eba503b3c65be8f99644`. Exact-head Adbyby/HTTPD/Process regressions required; no firmware or hardware claim is made.
+
+---
+
 ## 2026-11-24 — Bind Adbyby stop signals to executable and PID start_time
 
 - `adbyby_process_snapshot()` previously treated every positive numeric PID from BusyBox `pidof adbyby` as a validated daemon. `pidof` is a name-based candidate enumerator, not executable identity; a same-name task with another executable could be signalled, and a PID could be reused between inventory and `kill -TERM`.

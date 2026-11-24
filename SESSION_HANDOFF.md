@@ -1,20 +1,19 @@
 ## Current repository state
 
-- Parent main for this Adbyby process-identity hardening slice: `ceda64cdd021684c8b9b876fb29ecafa150a9e81`; live branch/tree were fetched immediately before constructing the commit.
-- Adbyby test/checker sequence: `c0afda5` moved TERM to an external stub; `3462bca` exported the multi-PID fixture; `8774bb3` corrected the checker to inspect pidof capture inside `adbyby_process_snapshot()`. Exact Adbyby #45337764822 and AI docs #45337762851 PASS on `8774bb3`.
-- SmartDNS stop NVRAM-isolation SHA `2294ae89092db384169b533ed6c0ab4e8c6b639c`: DNSMasq #45336719172, Process #45336719252, AI docs #45336719249 and USB #45336719220 PASS; XY-C1 #45336719186 was still building at last poll (TRX/artifact pending).
-- DNS Forwarder process-snapshot hardening SHA `569066e9f67b0fab62a8382c2b1b8e9ab9dfdc3f`: launch-path #45336969468 and Process #45336969414 PASS.
-- This slice binds Adbyby's name-based `pidof` candidates to the installed executable and process start_time, with immediate pre-signal revalidation.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Main-only atomic complete-tree commits, expected-SHA updates and no force-push.
+- Parent main for this Adbyby syntax/postcondition correction: `db75aed4c9005bcbdcb4eba503b3c65be8f99644`; live main/tree fetched before building the complete tree.
+- Adbyby process identity code is in `db75aed4c9005bcbdcb4eba503b3c65be8f99644`. Exact Adbyby #45338516192 failed at `sh -n` due an accidentally omitted closing brace and bounded wait tail; exact HTTPD #45338516101 and Process fail-closed #45338516189 failed at dependent Adbyby source checks. DNSMasq #45338516248, AI docs #45338516151 and Process inventory #45338516089 PASS on DB75.
+- THIS COMMIT restores the bounded five-probe post-TERM postcondition and fixes fake procfs stat layout so the PID-reuse test modifies kernel start_time field 22, not vsize.
+- SmartDNS NVRAM-independent stop SHA `2294ae89092db384169b533ed6c0ab4e8c6b639c`: DNSMasq, Process, AI docs and USB passed; its XY-C1 run was still in progress at last poll.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Main-only atomic complete-tree commits; expected-SHA non-forced updates; no force-push.
 
 ## Active task
 
-Implement and verify Adbyby executable-bound process identity:
-- `adbyby_process_identity()` validates `/proc/PID/exe`, parses `/proc/PID/stat` state/start_time robustly across a parenthesized comm field, and distinguishes unowned decoys from unreadable/UNKNOWN state.
-- `adbyby_process_snapshot()` filters pidof candidates and records `PID:start_time`; `adbyby_stop_daemon()` revalidates both immediately before each SIGTERM.
-- Host regressions cover two valid PIDs, same-name wrong-executable decoys, malformed metadata and start_time replacement. Source checker pins the identity contract.
-- Exact-head Adbyby host and Process Actions must be inspected after publication.
+Close Adbyby process identity regression:
+- Inventory binds pidof candidates to `/proc/PID/exe` and `/proc/PID/stat` start_time.
+- Stop revalidates executable/start_time before direct TERM, then retains the five-bounded-probe RUNNING/ABSENT/UNKNOWN postcondition before DNS/firewall cleanup.
+- Fake procfs fixtures put start_time in field 22; the PID-reuse test changes that exact field.
+- Exact-head Adbyby, HTTPD and Process fail-closed Actions are required after this correction.
 
 ## Completed development slices
 
@@ -30,16 +29,16 @@ Implement and verify Adbyby executable-bound process identity:
 
 ## Verification boundary
 
-- Prior checker-correction SHA `8774bb3d2c5524dc7e427d6c2b8dc25df9f531fb`: Adbyby host #45337764822 PASS and AI docs #45337762851 PASS. Those runs do not validate the new process-identity changes in THIS COMMIT.
-- SmartDNS `2294ae8`: DNSMasq, Process, AI docs and USB all PASS; XY-C1 #45336719186 remained IN_PROGRESS at the last detailed poll (Build running; TRX verification and artifact upload pending).
-- No local MIPS firmware build, physical-router runtime or L4 result claimed.
+- DB75 exact head: Adbyby #45338516192 FAILED at shell syntax (`adbyby.sh:1891: Syntax error: end of file unexpected (expecting "}")`). HTTPD #45338516101 failed at dependent add-on staging syntax; Process fail-closed #45338516189 failed its Adbyby stop-gate check. DNSMasq #45338516248 PASS; AI docs #45338516151 PASS; Process inventory #45338516089 PASS.
+- THIS COMMIT restores the function brace/wait loop and corrects the procfs test field offset. New exact-head reruns pending.
+- XY-C1 DB75 #45338516092 remained IN_PROGRESS at the last poll; no same-SHA L3 claim until Build, TRX and artifact all pass. Physical-router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect this process-identity commit's exact-head Adbyby host and Process inventory/fail-closed Actions; diagnose any first failing step and repair it.
-2. Poll SmartDNS XY-C1 #45336719186 on `2294ae89092db384169b533ed6c0ab4e8c6b639c`; claim L3 only after Build, TRX verification and artifact upload all pass on that SHA.
-3. Continue a concrete P1 stability/security fix outside completed SmartDNS/RAETH scope, without repeating selector audits.
-4. Keep the backup branch immutable and main updates atomic/non-forced.
+1. Inspect this correction's exact-head Adbyby host, HTTPD security and Process fail-closed runs; fix any remaining first failure.
+2. Poll DB75 XY-C1 #45338516092 for final Build, TRX and artifact-upload outcomes; claim L3 only if every required step passes on DB75's product source.
+3. If regressions pass or are pending, continue an evidence-backed P1 stability/security task outside already-completed SmartDNS/RAETH coverage.
+4. Keep the backup immutable and main commits atomic/non-forced.
 
 # Cross-session execution mandate
 

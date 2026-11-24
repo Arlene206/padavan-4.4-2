@@ -334,7 +334,29 @@ adbyby_stop_daemon()
 			[ "$adbyby_kill_status" -ne 0 ] || adbyby_kill_status=$adbyby_signal_status
 		fi
 	done
-
+	if [ "$adbyby_kill_status" -ne 0 ]; then
+		logger -t "adbyby" "Adbyby停止信号返回错误(status=$adbyby_kill_status)，继续验证进程状态。"
+	fi
+	adbyby_stop_attempt=0
+	while [ "$adbyby_stop_attempt" -lt 5 ]; do
+		sleep 1 || {
+			logger -t "adbyby" "等待Adbyby退出时sleep失败，拒绝清理服务状态。"
+			return 1
+		}
+		adbyby_state=$(adbyby_process_state) || adbyby_state=UNKNOWN
+		case "$adbyby_state" in
+			ABSENT) return 0 ;;
+			RUNNING) ;;
+			*)
+				logger -t "adbyby" "无法确认Adbyby退出状态，拒绝清理服务状态。"
+				return 1
+				;;
+		esac
+		adbyby_stop_attempt=$((adbyby_stop_attempt + 1))
+	done
+	logger -t "adbyby" "Adbyby在有界等待后仍运行，拒绝清理服务状态。"
+	return 1
+}
 adbyby_close()
 {
 	# Keep firewall/DNS state intact unless daemon absence is confirmed.
