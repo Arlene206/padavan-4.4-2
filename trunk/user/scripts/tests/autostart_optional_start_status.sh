@@ -319,13 +319,13 @@ echo executed >> "$AP_SCRIPT_TARGET_LOG"
 STUB
 chmod 755 "$TMP_DIR/ap-script-target"
 ln -s "$TMP_DIR/ap-script-target" "$TMP_DIR/storage/ap_script.sh"
-echo executed >> "$AP_SCRIPT_TARGET_LOG"
+AP_SCRIPT_TARGET_LOG="$TMP_DIR/ap-script-executed"
 export AP_SCRIPT_TARGET_LOG
 sh "$TMP_DIR/autostart.sh" >/dev/null 2>&1 || fail "autostart failed while rejecting persistent script symlinks"
 [ -L "$TMP_DIR/storage/sh_ezscript.sh" ] || fail "sh_ezscript symlink was replaced or followed"
-echo 'do-not-overwrite-this-target' > "$TMP_DIR/sh-ezscript-target"
+[ "$(cat "$TMP_DIR/sh-ezscript-target")" = "do-not-overwrite-this-target" ] || fail "sh_ezscript default copy overwrote a symlink target"
 [ -L "$TMP_DIR/storage/ap_script.sh" ] || fail "ap_script symlink was replaced or followed"
-echo executed >> "$AP_SCRIPT_TARGET_LOG"
+[ ! -e "$AP_SCRIPT_TARGET_LOG" ] || fail "autostart executed a symlinked ap_script as root"
 grep -Fq 'Refusing to follow persistent script symlink' "$AUTOSTART_LOG" || fail "sh_ezscript symlink rejection was not logged"
 grep -Fq 'Skipping symlinked persistent ap_script.sh' "$AUTOSTART_LOG" || fail "ap_script symlink rejection was not logged"
 
