@@ -1,3 +1,10 @@
+## 2026-11-24 — Place rollback ACL updater before its caller
+
+- The exact-head libdisk workflow `45461428507` passed both GNU89 ASan/UBSan binaries, then the source checker selected a forward declaration of `disk_share_update_folder_permission_file()` and parsed the following function instead of its implementation. Moved the descriptor-relative updater body ahead of `add_folder()` and removed the prototype/duplicate trailing body, preserving the same code while making the checker bind to the real definition.
+- No behavior change; fresh exact-SHA libdisk and XY-C1 verification is required.
+
+---
+
 ## 2026-11-24 — Pin full metadata rebuild and restore the shared list destructor
 
 - The XY-C1 compiler exposed a source truncation: `free_2_dimension_list()` had lost its body and opening brace, so the compiler parsed later function definitions as old-style parameters. Restored the established element/free/reset implementation from the frozen baseline and added a source contract check.

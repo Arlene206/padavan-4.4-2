@@ -2438,7 +2438,58 @@ static int
 disk_share_update_folder_permission_file(int directory_fd,
                                          const char *account,
                                          const char *target,
-                                         const char *replacement);
+                                         const char *replacement)
+{
+	char var_leaf[64];
+	char *var_info = NULL, *updated_info = NULL;
+	size_t updated_len = 0;
+	int leaf_len, saved_errno;
+
+	if (directory_fd < 0 || !is_valid_account_name(account) || !target) {
+		errno = EINVAL;
+		return -1;
+	}
+	leaf_len = snprintf(var_leaf, sizeof(var_leaf), ".__%s_var.txt", account);
+	if (leaf_len < 0 || (size_t)leaf_len >= sizeof(var_leaf)) {
+		errno = ENAMETOOLONG;
+		return -1;
+	}
+
+	var_info = read_regular_file_nofollow_at(directory_fd, var_leaf);
+	if (!var_info) {
+		saved_errno = errno ? errno : EIO;
+		if (saved_errno == ENOENT) {
+			errno = 0;
+			return 0;
+		}
+		errno = saved_errno;
+		return -1;
+	}
+	if (disk_share_permission_rewrite(var_info, target, replacement,
+	                                  &updated_info, &updated_len) != 0) {
+		saved_errno = errno ? errno : EIO;
+		free(var_info);
+		if (saved_errno == ENOENT) {
+			errno = 0;
+			return 0;
+		}
+		errno = saved_errno;
+		return -1;
+	}
+	if (disk_share_replace_file_atomic_at(
+		    directory_fd, var_leaf, updated_info, updated_len) != 0) {
+		saved_errno = errno ? errno : EIO;
+		free(var_info);
+		free(updated_info);
+		errno = saved_errno;
+		return -1;
+	}
+	free(var_info);
+	free(updated_info);
+	return 0;
+}
+
+
 
 static int
 disk_share_folder_exists_in_directory_fd(int directory_fd,
@@ -2614,60 +2665,7 @@ failed:
 }
 
 
-static int
-disk_share_update_folder_permission_file(int directory_fd,
-                                         const char *account,
-                                         const char *target,
-                                         const char *replacement)
-{
-	char var_leaf[64];
-	char *var_info = NULL, *updated_info = NULL;
-	size_t updated_len = 0;
-	int leaf_len, saved_errno;
 
-	if (directory_fd < 0 || !is_valid_account_name(account) || !target) {
-		errno = EINVAL;
-		return -1;
-	}
-	leaf_len = snprintf(var_leaf, sizeof(var_leaf), ".__%s_var.txt", account);
-	if (leaf_len < 0 || (size_t)leaf_len >= sizeof(var_leaf)) {
-		errno = ENAMETOOLONG;
-		return -1;
-	}
-
-	var_info = read_regular_file_nofollow_at(directory_fd, var_leaf);
-	if (!var_info) {
-		saved_errno = errno ? errno : EIO;
-		if (saved_errno == ENOENT) {
-			errno = 0;
-			return 0;
-		}
-		errno = saved_errno;
-		return -1;
-	}
-	if (disk_share_permission_rewrite(var_info, target, replacement,
-	                                  &updated_info, &updated_len) != 0) {
-		saved_errno = errno ? errno : EIO;
-		free(var_info);
-		if (saved_errno == ENOENT) {
-			errno = 0;
-			return 0;
-		}
-		errno = saved_errno;
-		return -1;
-	}
-	if (disk_share_replace_file_atomic_at(
-		    directory_fd, var_leaf, updated_info, updated_len) != 0) {
-		saved_errno = errno ? errno : EIO;
-		free(var_info);
-		free(updated_info);
-		errno = saved_errno;
-		return -1;
-	}
-	free(var_info);
-	free(updated_info);
-	return 0;
-}
 
 
 static void
