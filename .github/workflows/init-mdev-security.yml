@@ -1,0 +1,360 @@
+name: PID 1 mdev hotplug configuration security regression
+
+on:
+  push:
+    paths:
+      - "trunk/user/rc/src/init.c"
+      - "trunk/user/rc/src/init_mdev_config_file.h"
+      - "trunk/user/rc/src/init_mdev_retry_policy.h"
+      - "trunk/user/rc/src/tests/init_mdev_retry_policy.c"
+      - "trunk/user/rc/src/tests/init_mdev_config_file.c"
+      - "trunk/user/rc/src/tun_device_node_policy.h"
+      - "trunk/user/rc/src/tests/tun_device_node_policy.c"
+      - "trunk/user/rc/src/boot_device_node_policy.h"
+      - "trunk/user/rc/src/tests/boot_device_node_policy.c"
+      - "trunk/user/rc/src/pid1_signal_policy.h"
+      - "trunk/user/rc/src/pid1_console_policy.h"
+      - "trunk/user/rc/src/tests/pid1_console_policy.c"
+      - "trunk/user/rc/src/tests/pid1_signal_policy.c"
+      - ".github/workflows/init-mdev-security.yml"
+  pull_request:
+    paths:
+      - "trunk/user/rc/src/init.c"
+      - "trunk/user/rc/src/init_mdev_config_file.h"
+      - "trunk/user/rc/src/init_mdev_retry_policy.h"
+      - "trunk/user/rc/src/tests/init_mdev_retry_policy.c"
+      - "trunk/user/rc/src/tests/init_mdev_config_file.c"
+      - "trunk/user/rc/src/tun_device_node_policy.h"
+      - "trunk/user/rc/src/tests/tun_device_node_policy.c"
+      - "trunk/user/rc/src/boot_device_node_policy.h"
+      - "trunk/user/rc/src/tests/boot_device_node_policy.c"
+      - "trunk/user/rc/src/pid1_signal_policy.h"
+      - "trunk/user/rc/src/pid1_console_policy.h"
+      - "trunk/user/rc/src/tests/pid1_console_policy.c"
+      - "trunk/user/rc/src/tests/pid1_signal_policy.c"
+      - ".github/workflows/init-mdev-security.yml"
+  workflow_dispatch:
+
+jobs:
+  mdev-config-security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and run mdev config publication regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -fsanitize=address,undefined -fno-omit-frame-pointer \
+            trunk/user/rc/src/tests/init_mdev_config_file.c \
+            -o /tmp/init_mdev_config_file
+          ASAN_OPTIONS=detect_leaks=1 /tmp/init_mdev_config_file
+      - name: Build and run deferred mdev retry policy regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -fsanitize=address,undefined -fno-omit-frame-pointer \
+            trunk/user/rc/src/tests/init_mdev_retry_policy.c \
+            -o /tmp/init_mdev_retry_policy
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/init_mdev_retry_policy
+      - name: Build and run OpenVPN TUN device-node policy regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -fsanitize=address,undefined -fno-omit-frame-pointer \
+            trunk/user/rc/src/tests/tun_device_node_policy.c -o /tmp/tun_device_node_policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/tun_device_node_policy
+      - name: Build and run optional PID 1 boot device-node policy regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -fsanitize=address,undefined -fno-omit-frame-pointer \
+            trunk/user/rc/src/tests/boot_device_node_policy.c -o /tmp/boot_device_node_policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/boot_device_node_policy
+      - name: Build and run PID 1 exact child-reap policy regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/rc/src \
+            -fsanitize=address,undefined -fno-omit-frame-pointer \
+            trunk/user/rc/src/tests/pid1_signal_policy.c \
+            -o /tmp/pid1_signal_policy
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/pid1_signal_policy
+      - name: Build and run PID 1 console recovery retry regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/rc/src \
+            -fsanitize=address,undefined -fno-omit-frame-pointer \
+            trunk/user/rc/src/tests/pid1_console_policy.c \
+            -o /tmp/pid1_console_policy
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/pid1_console_policy
+      - name: Check PID 1 hotplug policy publication contract
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          init = Path("trunk/user/rc/src/init.c").read_text()
+          helper = Path("trunk/user/rc/src/init_mdev_config_file.h").read_text()
+          test = Path("trunk/user/rc/src/tests/init_mdev_config_file.c").read_text()
+          retry_policy = Path("trunk/user/rc/src/init_mdev_retry_policy.h").read_text()
+          retry_test = Path("trunk/user/rc/src/tests/init_mdev_retry_policy.c").read_text()
+          tun = Path("trunk/user/rc/src/tun_device_node_policy.h").read_text()
+          tun_test = Path("trunk/user/rc/src/tests/tun_device_node_policy.c").read_text()
+          boot_device_policy = Path("trunk/user/rc/src/boot_device_node_policy.h").read_text()
+          boot_device_test = Path("trunk/user/rc/src/tests/boot_device_node_policy.c").read_text()
+          pid1_policy = Path("trunk/user/rc/src/pid1_signal_policy.h").read_text()
+          pid1_test = Path("trunk/user/rc/src/tests/pid1_signal_policy.c").read_text()
+          console_policy = Path("trunk/user/rc/src/pid1_console_policy.h").read_text()
+          console_test = Path("trunk/user/rc/src/tests/pid1_console_policy.c").read_text()
+          workflow = Path(".github/workflows/init-mdev-security.yml").read_text()
+
+          def body(source, signature):
+              start = source.index(signature)
+              brace = source.index("{", start)
+              depth = 0
+              for pos in range(brace, len(source)):
+                  if source[pos] == "{":
+                      depth += 1
+                  elif source[pos] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source[brace + 1:pos]
+              raise AssertionError("unterminated function: " + signature)
+
+          mdev = body(init, "init_mdev(void)")
+          main_loop = body(init, "init_main_loop(void)")
+          tun_init = body(init, "init_openvpn_tun_node(void)")
+          nodes = body(init, "init_nodes(int *optional_status)")
+          node_prepare = body(init, "init_optional_device_node(const char *path, dev_t device)")
+          node_recorder = body(init, "init_nodes_record_optional_status(int first_status, const char *path,")
+          assert '#include "init_mdev_config_file.h"' in init
+          assert "init_mdev_config_open(" in mdev
+          assert "init_mdev_config_publish(" in mdev
+          assert mdev.index("init_mdev_config_publish(") < mdev.index(
+              'fput_string("/proc/sys/kernel/hotplug", "/sbin/mdev")'
+          )
+          assert "unlink(mdev_conf)" not in mdev
+          assert 'fopen(mdev_conf, "w")' not in mdev
+          assert "if (hotplug_result != 0)" in mdev
+          assert "Failed to activate mdev kernel hotplug handler" in mdev
+          assert '#include "tun_device_node_policy.h"' in init
+          assert "init_openvpn_tun_node()" in nodes
+          assert "check_if_dev_exist(\"/dev/net/tun\")" not in nodes
+          for token in ('lstat("/dev/net"', "S_ISDIR", "chown(\"/dev/net\"",
+                        "chmod(\"/dev/net\"", "lstat(TUN_DEVICE_NODE_PATH",
+                        "tun_device_node_is_secure(", "unlink(TUN_DEVICE_NODE_PATH)",
+                        "mknod(TUN_DEVICE_NODE_PATH", "chown(TUN_DEVICE_NODE_PATH",
+                        "chmod(TUN_DEVICE_NODE_PATH"):
+              assert token in tun_init, token
+          assert "tun_device_directory_is_secure(&st)" in tun_init
+          for token in ("S_ISDIR", "st_uid", "st_gid", "0700", "0011",
+                        "0022", "07000"):
+              assert token in tun, token
+          for token in ("S_IFDIR | 0711", "S_IFDIR | 0700",
+                        "S_IFDIR | 0750", "S_IFDIR | 0775",
+                        "S_IFDIR | 02755", "S_IFDIR | 01755",
+                        "S_IFREG | 0755", "S_IFLNK | 0755",
+                        "S_IFREG", "S_IFLNK", "makedev", "st_uid = 1000",
+                        "st_gid = 1000", "st_nlink = 2", "04666",
+                        "S_IFCHR | 0600"):
+              assert token in tun_test, token
+          assert "init_nodes_record_optional_status" in nodes
+          assert "init_optional_device_node(\"/dev/hwnat0\"" in nodes
+          assert "init_optional_device_node(\"/dev/crypto\"" in nodes
+          assert "init_openvpn_tun_node()" in nodes
+          assert "TUN_DEVICE_NODE_PATH, tun_status" in nodes
+          assert "return nvram_result;" in nodes
+          assert "mknod(path, S_IFCHR | RC_BOOT_DEVICE_NODE_MODE, device)" in node_prepare
+          assert "errno != EEXIST" in node_prepare
+          assert "lstat(path, &st)" in node_prepare
+          assert "rc_boot_device_node_is_secure(&st, device)" in node_prepare
+          assert "return -EPERM;" in node_prepare
+          assert "optional boot device" in node_recorder
+          assert "if (first_status == 0)" in node_recorder
+          assert '#include "boot_device_node_policy.h"' in init
+          assert "rc_boot_device_node_is_secure" in boot_device_policy
+          for token in ("S_ISCHR", "st_rdev != expected_device", "st_nlink != 1",
+                        "(mode & 0600) != 0600", "(mode & 0111) != 0",
+                        "(mode & 07000) != 0"):
+              assert token in boot_device_policy, token
+          for token in ("makedev(220, 0)", "makedev(220, 1)",
+                        "st.st_uid = 1000", "st.st_gid = 1000",
+                        "st.st_nlink = 2", "04666",
+                        "rc_boot_device_node_is_secure(NULL"):
+              assert token in boot_device_test, token
+          assert 'nvram_node_result = init_nodes(&optional_node_status);' in main_loop
+          assert "if (sysctl_status == 0) sysctl_status = optional_node_status;" in " ".join(main_loop.split())
+          assert '#include "init_mdev_retry_policy.h"' in init
+          assert "mdev_status = init_mdev();" in main_loop
+          assert "init_mdev_retry_state_begin(&mdev_retry_state, dev_init_status" in main_loop
+          assert "init_mdev_retry_state_is_pending(&mdev_retry_state)" in main_loop
+          assert "init_mdev_retry_state_record_result(&mdev_retry_state" in main_loop
+          assert main_loop.count("alarm(INIT_MDEV_RETRY_DELAY_SECONDS)") == 2
+          assert main_loop.index("init_signals();") < main_loop.index("alarm(INIT_MDEV_RETRY_DELAY_SECONDS)")
+          alarm_block = main_loop[main_loop.index("if (signal_state.alarm_pending)"):]
+          assert alarm_block.index("init_mdev_retry_state_record_result") < alarm_block.index("on_deferred_hotplug_dev")
+          assert "dev_init.sh already completed mdev -s" in alarm_block
+          assert "dev_init_status == 0 && mdev_init_status != 0" in retry_policy
+          assert "if (mdev_init_status == 0)" in retry_policy
+          assert "deferred mdev hotplug recovery policy: PASS" in retry_test
+
+          signal_init = body(init, "init_signals(void)")
+          signal_installer = body(init, "init_signal_install_status(int first_status,")
+          signal_installer_compact = "".join(signal_installer.split())
+          signal_init_compact = "".join(signal_init.split())
+          assert "pid1_signal_install_action(sigaction,signal_number,action)" in signal_installer_compact
+          assert "pid1_signal_status_merge(first_status,status)" in signal_installer_compact
+          assert "init_signal_install_status(first_status,signals_fatal[i],&sa)" in signal_init_compact
+          assert "init_signal_install_status(first_status,signals_shutdown[i],&sa)" in signal_init_compact
+          assert "init_signal_install_status(first_status,SIGCHLD,&sa)" in signal_init_compact
+          assert "init_signal_install_status(first_status,signals_event[i],&sa)" in signal_init_compact
+          event_handler_start = init.index("sa.sa_handler = catch_sig_event;")
+          event_handler_end = init.index("return first_status;", event_handler_start)
+          event_handler_setup = init[event_handler_start:event_handler_end]
+          assert "&sa.sa_mask, signals_event, ARRAY_SIZE(signals_event)" in event_handler_setup
+          assert "&sa.sa_mask, signals_shutdown, ARRAY_SIZE(signals_shutdown)" in event_handler_setup
+          assert "returnfirst_status;" in signal_init_compact
+          signal_mask = body(pid1_policy, "pid1_signal_update_mask")
+          signal_mask_control = body(init, "control_signal(int sig, int how)")
+          signal_mask_setup = body(init, "init_signal_mask_update(int how,")
+          main_loop_compact = "".join(main_loop.split())
+          assert "errno = 0;" in signal_mask
+          assert "returnerrno>0?errno:EIO;" in "".join(signal_mask.split())
+          reset_body = body(init, "/* Reset signal handlers installed by PID 1 and release inherited masks. */")
+          reset_compact = "".join(reset_body.split())
+          for token in ("signals_event[i]", "signals_shutdown[i]", "signals_fatal[i]"):
+              assert token in reset_body, "reset_signals omits installed PID 1 group: " + token
+          assert "pid1_signal_install_action(sigaction,signals_event[i],&sa)" in reset_compact
+          assert "pid1_signal_install_action(sigaction,signals_shutdown[i],&sa)" in reset_compact
+          assert "pid1_signal_install_action(sigaction,signals_fatal[i],&sa)" in reset_compact
+          assert "pid1_signal_update_mask(sigprocmask,SIG_UNBLOCK,&set,NULL)" in reset_compact
+          assert "if(sigemptyset(&sa.sa_mask)<0)" in reset_compact
+          assert "if(sigfillset(&set)<0)" in reset_compact
+          shell = body(init, "run_shell(int timeout, int nowait)")
+          shell_compact = "".join(shell.split())
+          assert "if(reset_status!=0)" in shell_compact and "_exit(126);" in shell_compact
+          fatal = body(init, "handle_sig_fatal(int sig)")
+          assert "reset_status = reset_signals();" in fatal
+          assert "init_signal_mask_update(how,&set,NULL," in "".join(signal_mask_control.split())
+          assert "pid1_signal_update_mask(sigprocmask,how,set,old_set)" in "".join(signal_mask_setup.split())
+          assert "test_pid1_signal_mask_update_reports_failures" in pid1_test
+          assert "wait_mask_build_status" in main_loop
+          assert "if (!wait_mask_ready)" in main_loop
+          assert "original_mask_ready ? NULL : &original_mask" in main_loop
+          assert "if (sigsuspend(&original_mask) < 0 && errno != EINTR)" in main_loop
+          wait_mask_compact = "".join(main_loop.split())
+          child_wait_mask_at = wait_mask_compact.index("init_signal_set_add(&wait_mask,SIGCHLD,")
+          wait_mask_block_at = wait_mask_compact.index("init_signal_mask_update(SIG_BLOCK,&wait_mask,&original_mask,")
+          assert child_wait_mask_at < wait_mask_block_at
+          shutdown_dispatch_at = main_loop_compact.index("if(signal_state.shutdown_pending&&!shutdown_handled)")
+          shutdown_handler_at = main_loop_compact.index("handle_sig_fatal((int)signal_state.shutdown_signal);", shutdown_dispatch_at)
+          shutdown_quiesce_at = main_loop_compact.index("if(pid1_signal_shutdown_quiesce_required(signal_state.shutdown_pending,shutdown_handled))", shutdown_handler_at)
+          shutdown_idle_at = main_loop_compact.index("for(;;)sleep(1);", shutdown_quiesce_at)
+          assert shutdown_dispatch_at < shutdown_handler_at < shutdown_quiesce_at < shutdown_idle_at
+          assert "continue;" not in main_loop_compact[shutdown_handler_at:shutdown_quiesce_at]
+          assert "returnshutdown_pending&&shutdown_handled;" in "".join(pid1_policy.split())
+          assert "pid1_signal_shutdown_quiesce_required(1,1)==1" in "".join(pid1_test.split())
+          for token in ("pid1_signal_install_action", "pid1_signal_status_merge",
+                        "if (!install || !action)", "return errno > 0 ? errno : EIO;"):
+              assert token in pid1_policy, token
+          assert "test_pid1_signal_installation_reports_failures" in pid1_test
+          assert "fake_sigaction" in pid1_test
+          assert "fake_signal_errno = EACCES" in pid1_test
+          assert "errno != 0" in pid1_test
+          main_compact = "".join(main_loop.split())
+          assert "signal_status=init_signals();" in main_compact
+          assert "signal_status==0&&init_mdev_retry_state_is_pending(&mdev_retry_state)" in main_compact
+          assert "dev_init_status==0&&nvram_node_result==0&&signal_status==0" in main_compact
+          assert "signal_status==0&&init_router_status_is_ready(router_init_status)" in main_compact
+          assert "PID1signalsetupincomplete" in main_compact
+          reaper = body(init, "catch_sig_reap(int sig)")
+          shell = body(init, "run_shell(int timeout, int nowait)")
+          assert '#include "pid1_signal_policy.h"' in init
+          assert "pid1_signal_reap_available_children(&signal_state, waitpid);" in reaper
+          reaper_policy = body(pid1_policy, "pid1_signal_reap_available_children(")
+          assert "wait_child(-1, NULL, WNOHANG)" in reaper_policy
+          assert "int saved_errno = errno;" in reaper_policy
+          assert "errno = saved_errno;" in reaper_policy
+          assert "pid1_signal_record_child_reaped(" in reaper_policy
+          assert "test_pid1_signal_reaper_preserves_errno" in pid1_test
+          assert "volatile sig_atomic_t console_shell_pid;" in pid1_policy
+          assert "state->console_shell_pid != pid" in pid1_policy
+          assert "state->console_shell_pid = 0;" in pid1_policy
+          assert "state->console_shell_reaped = 1;" in pid1_policy
+          assert "pid1_signal_take_console_shell_reaped" in pid1_policy
+          assert "console_shell_reaped == 1" in pid1_test
+          shell_compact = "".join(shell.split())
+          mask_at = shell_compact.index("pid1_signal_empty_set(sigemptyset,&child_mask)")
+          add_at = shell_compact.index("pid1_signal_add_set(sigaddset,&child_mask,SIGCHLD)", mask_at)
+          block_at = shell_compact.index("pid1_signal_update_mask(sigprocmask,SIG_BLOCK,&child_mask,&saved_mask)", add_at)
+          fork_at = shell_compact.index("fork()", block_at)
+          publish_at = shell_compact.index("pid1_signal_record_console_shell(&signal_state,(sig_atomic_t)pid)", fork_at)
+          restore_at = shell_compact.index("sigprocmask(SIG_SETMASK,&saved_mask,NULL)", publish_at)
+          assert mask_at < add_at < block_at < fork_at < publish_at < restore_at
+          assert "sigemptyset(&child_mask)" not in shell_compact
+          assert "sigaddset(&child_mask,SIGCHLD)" not in shell_compact
+          assert "return-1;" in shell_compact
+          main_compact = "".join(main_loop.split())
+          assert "if(!noconsole&&!signal_state.shutdown_pending&&!signal_state.console_shell_pid)" in main_compact
+          assert "kill(shell_pid,0)" not in main_compact
+          assert "console_shell_started_at" not in main_compact
+          assert "console_shell_runtime" not in main_compact
+          reaped_at = main_compact.index("pid1_signal_take_console_shell_reaped(&signal_state)")
+          delay_at = main_compact.index("pid1_console_retry_delay_seconds()", reaped_at)
+          sleep_at = main_compact.index("while(pid1_console_retry_should_wait(console_shell_retry_delay,signal_state.shutdown_pending))console_shell_retry_delay=sleep(console_shell_retry_delay);", delay_at)
+          shutdown_break_at = main_compact.index("if(signal_state.shutdown_pending)break;", sleep_at)
+          launch_at = main_compact.index("run_shell(0,1)", shutdown_break_at)
+          assert reaped_at < delay_at < sleep_at < shutdown_break_at < launch_at
+          assert "if(!noconsole&&!signal_state.shutdown_pending&&!signal_state.console_shell_pid)" in main_compact
+          assert "}elseif(!signal_state.shutdown_pending){" in main_compact
+          retry_policy = body(console_policy, "pid1_console_retry_delay_seconds(void)")
+          assert "return PID1_CONSOLE_RETRY_DELAY_SECONDS;" in retry_policy
+          assert "PID1_CONSOLE_RETRY_FAST_EXIT_SECONDS" not in console_policy
+          assert "pid1_console_retry_delay_seconds() == 1U" in console_test
+          assert "pid1_console_retry_should_wait(1U, 1) == 0" in console_test
+          assert "pid1_console_retry_should_wait(1U, 0) == 1" in console_test
+          assert "remaining_seconds > 0U && !shutdown_pending" in console_policy
+          for token in ("pid1_signal_record_console_shell", "pid1_signal_record_child_reaped",
+                        "state.console_shell_pid == (sig_atomic_t)1234",
+                        "state.console_shell_pid == 0"):
+              assert token in pid1_test
+          assert "Build and run PID 1 exact child-reap policy regression" in workflow
+          assert "-I trunk/user/rc/src" in workflow
+
+          for token in ("mkstemp(", "fchmod(fd, 0644)", 'fdopen(fd, "w")',
+                        "ferror(fp)", "fflush(fp)", "INIT_MDEV_CONFIG_FSYNC(fileno(fp))",
+                        "while (sync_result < 0 && errno == EINTR)",
+                        "fclose(fp)", "rename(staged_path, path)", "unlink(staged_path)"):
+              assert token in helper, token
+          for token in ("umask(0000)", "st_mode & 0777", "0644",
+                        "old-policy", "new-policy", "blocked_path",
+                        "preserve", "init_mdev_config_publish",
+                        "fsync_interruptions_remaining = 2",
+                        "fsync_calls - calls_before_publish == 3"):
+              assert token in test, token
+
+          paths = (
+              "trunk/user/rc/src/init.c",
+              "trunk/user/rc/src/boot_device_node_policy.h",
+              "trunk/user/rc/src/tests/boot_device_node_policy.c",
+              "trunk/user/rc/src/pid1_signal_policy.h",
+              "trunk/user/rc/src/tests/pid1_signal_policy.c",
+              "trunk/user/rc/src/pid1_console_policy.h",
+              "trunk/user/rc/src/tests/pid1_console_policy.c",
+              "trunk/user/rc/src/init_mdev_config_file.h",
+              "trunk/user/rc/src/init_mdev_retry_policy.h",
+              "trunk/user/rc/src/tests/init_mdev_config_file.c",
+              "trunk/user/rc/src/tests/init_mdev_retry_policy.c",
+              ".github/workflows/init-mdev-security.yml",
+          )
+          push = workflow.split("  push:\n    paths:\n", 1)[1].split(
+              "  pull_request:\n", 1
+          )[0]
+          pull = workflow.split("  pull_request:\n    paths:\n", 1)[1].split(
+              "  workflow_dispatch:\n", 1
+          )[0]
+          for path in paths:
+              assert push.count(path) == 1, (path, "push")
+              assert pull.count(path) == 1, (path, "pull_request")
+          print("PID 1 mdev hotplug config root-only atomic publication contract: PASS")
+          PY

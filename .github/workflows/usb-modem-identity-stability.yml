@@ -1,0 +1,1005 @@
+name: USB modem WDM/NDIS physical identity stability
+
+on:
+  push:
+    paths:
+      - ".github/workflows/usb-modem-identity-stability.yml"
+      - "trunk/user/libdisk/src/dev_info.c"
+      - "trunk/user/libdisk/src/dev_info.h"
+      - "trunk/user/libdisk/src/usb_info.c"
+      - "trunk/user/rc/src/hotplug_usb.c"
+      - "trunk/user/rc/src/modem_sg_module_policy.h"
+      - "trunk/user/rc/src/tests/modem_sg_module_policy.c"
+      - "trunk/user/rc/src/modem_sr_status_policy.h"
+      - "trunk/user/rc/src/tests/modem_sr_status_policy.c"
+      - "trunk/user/rc/src/services_stor.c"
+      - "trunk/user/rc/src/tests/usb_hotplug_event_policy.c"
+      - "trunk/user/rc/src/usb_hotplug_event_policy.h"
+      - "trunk/user/rc/src/modem_wan_start_policy.h"
+      - "trunk/user/rc/src/tests/modem_wan_start_policy.c"
+      - "trunk/user/rc/src/wan_nvram_status_policy.h"
+      - "trunk/user/rc/src/tests/wan_nvram_status_policy.c"
+      - "trunk/user/rc/src/usb_printer_nvram_policy.h"
+      - "trunk/user/rc/src/tests/usb_printer_nvram_policy.c"
+      - "scripts/check_usb_printer_nvram.py"
+      - "scripts/check_modem_wan_start_status.py"
+      - "trunk/user/rc/src/services_usb.c"
+      - "trunk/user/rc/src/usb_printer_p910nd_policy.h"
+      - "trunk/user/rc/src/tests/usb_printer_p910nd_policy.c"
+      - "trunk/user/rc/src/usb_modem.c"
+      - "trunk/user/uqmi/main.c"
+      - "trunk/user/uqmi/commands.c"
+      - "trunk/user/uqmi/uqmi-client-id-policy.h"
+      - "trunk/user/uqmi/tests/client_id_policy.c"
+      - "trunk/user/uqmi/uqmi-command-queue-policy.h"
+      - "trunk/user/uqmi/tests/command_queue.c"
+      - "trunk/user/uqmi/commands.h"
+      - "trunk/user/uqmi/commands-wds.c"
+      - "trunk/user/uqmi/uqmi-private-credentials.c"
+      - "trunk/user/uqmi/uqmi-private-credentials.h"
+      - "trunk/user/uqmi/tests/private_credentials.c"
+      - "trunk/user/uqmi/uqmi-status-file.h"
+      - "trunk/user/uqmi/tests/status_file.c"
+      - "trunk/user/uqmi/Makefile"
+      - "trunk/user/rc/src/modem_qmi_credentials_file.h"
+      - "trunk/user/rc/src/tests/modem_qmi_credentials_file.c"
+      - "scripts/check_uqmi_private_credentials.py"
+      - "trunk/user/rc/src/modem_node_file.h"
+      - "trunk/user/rc/src/modem_node_identity_policy.h"
+      - "trunk/user/rc/src/tests/modem_node_file.c"
+      - "scripts/check_modem_module_reload.py"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/detect_link.c"
+      - "trunk/user/rc/src/detect_link_modem_reconnect_policy.h"
+      - "trunk/user/rc/src/tests/detect_link_modem_reconnect_policy.c"
+      - "trunk/user/rc/src/rc.h"
+      - "trunk/user/rc/src/modem_module_reload_policy.h"
+      - "trunk/user/rc/src/tests/modem_module_reload_policy.c"
+      - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/net_wifi.c"
+      - "trunk/user/shared/src/netutils.c"
+      - "trunk/user/shared/src/netutils.h"
+      - "trunk/user/shared/src/usb_modem_wan_policy.h"
+      - "trunk/user/rc/src/tests/usb_modem_wan_policy.c"
+  pull_request:
+    paths:
+      - ".github/workflows/usb-modem-identity-stability.yml"
+      - "trunk/user/libdisk/src/dev_info.c"
+      - "trunk/user/libdisk/src/dev_info.h"
+      - "trunk/user/libdisk/src/usb_info.c"
+      - "trunk/user/rc/src/hotplug_usb.c"
+      - "trunk/user/rc/src/modem_sg_module_policy.h"
+      - "trunk/user/rc/src/tests/modem_sg_module_policy.c"
+      - "trunk/user/rc/src/modem_sr_status_policy.h"
+      - "trunk/user/rc/src/tests/modem_sr_status_policy.c"
+      - "trunk/user/rc/src/services_stor.c"
+      - "trunk/user/rc/src/tests/usb_hotplug_event_policy.c"
+      - "trunk/user/rc/src/usb_hotplug_event_policy.h"
+      - "trunk/user/rc/src/modem_wan_start_policy.h"
+      - "trunk/user/rc/src/tests/modem_wan_start_policy.c"
+      - "trunk/user/rc/src/wan_nvram_status_policy.h"
+      - "trunk/user/rc/src/tests/wan_nvram_status_policy.c"
+      - "trunk/user/rc/src/usb_printer_nvram_policy.h"
+      - "trunk/user/rc/src/tests/usb_printer_nvram_policy.c"
+      - "scripts/check_usb_printer_nvram.py"
+      - "scripts/check_modem_wan_start_status.py"
+      - "trunk/user/rc/src/services_usb.c"
+      - "trunk/user/rc/src/usb_printer_p910nd_policy.h"
+      - "trunk/user/rc/src/tests/usb_printer_p910nd_policy.c"
+      - "trunk/user/rc/src/usb_modem.c"
+      - "trunk/user/uqmi/main.c"
+      - "trunk/user/uqmi/commands.c"
+      - "trunk/user/uqmi/uqmi-client-id-policy.h"
+      - "trunk/user/uqmi/tests/client_id_policy.c"
+      - "trunk/user/uqmi/uqmi-command-queue-policy.h"
+      - "trunk/user/uqmi/tests/command_queue.c"
+      - "trunk/user/uqmi/commands.h"
+      - "trunk/user/uqmi/commands-wds.c"
+      - "trunk/user/uqmi/uqmi-private-credentials.c"
+      - "trunk/user/uqmi/uqmi-private-credentials.h"
+      - "trunk/user/uqmi/tests/private_credentials.c"
+      - "trunk/user/uqmi/uqmi-status-file.h"
+      - "trunk/user/uqmi/tests/status_file.c"
+      - "trunk/user/uqmi/Makefile"
+      - "trunk/user/rc/src/modem_qmi_credentials_file.h"
+      - "trunk/user/rc/src/tests/modem_qmi_credentials_file.c"
+      - "scripts/check_uqmi_private_credentials.py"
+      - "trunk/user/rc/src/modem_node_file.h"
+      - "trunk/user/rc/src/modem_node_identity_policy.h"
+      - "trunk/user/rc/src/tests/modem_node_file.c"
+      - "scripts/check_modem_module_reload.py"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/detect_link.c"
+      - "trunk/user/rc/src/detect_link_modem_reconnect_policy.h"
+      - "trunk/user/rc/src/tests/detect_link_modem_reconnect_policy.c"
+      - "trunk/user/rc/src/rc.h"
+      - "trunk/user/rc/src/modem_module_reload_policy.h"
+      - "trunk/user/rc/src/tests/modem_module_reload_policy.c"
+      - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/net_wifi.c"
+      - "trunk/user/shared/src/netutils.c"
+      - "trunk/user/shared/src/netutils.h"
+      - "trunk/user/shared/src/usb_modem_wan_policy.h"
+      - "trunk/user/rc/src/tests/usb_modem_wan_policy.c"
+
+permissions:
+  contents: read
+
+jobs:
+  usb-modem-identity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and run SCSI generic module readiness regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/modem_sg_module_policy.c \
+            -o /tmp/modem-sg-module-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/modem-sg-module-policy
+      - name: Compile and run SCSI CD eject/unload result policy regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/modem_sr_status_policy.c \
+            -o /tmp/modem-sr-status-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/modem-sr-status-policy
+      - name: Compile and run GNU89 modem identity and metadata regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/modem_node_file.c \
+            -o /tmp/modem-node-file
+          ASAN_OPTIONS=detect_leaks=1 /tmp/modem-node-file
+      - name: Compile and run modem module alternative readiness regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/modem_module_reload_policy.c \
+            -o /tmp/modem-module-reload-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/modem-module-reload-policy
+      - name: Compile and run modem WAN deferred-event retry regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/modem_wan_start_policy.c \
+            -o /tmp/modem-wan-start-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/modem-wan-start-policy
+      - name: Compile and run checked USB event-marker pair regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/usb_hotplug_event_policy.c \
+            -o /tmp/usb-hotplug-event-policy
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/usb-hotplug-event-policy
+      - name: Compile and run checked WAN NVRAM read policy regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/wan_nvram_status_policy.c \
+            -o /tmp/wan-nvram-status-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/wan-nvram-status-policy
+      - name: Compile and run checked USB printer NVRAM policy regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/usb_printer_nvram_policy.c \
+            -o /tmp/usb-printer-nvram-policy
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/usb-printer-nvram-policy
+      - name: Compile and run USB p910nd per-device port identity regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/usb_printer_p910nd_policy.c \
+            -o /tmp/usb-printer-p910nd-policy
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/usb-printer-p910nd-policy
+      - name: Compile and run checked USB modem WAN identity-read regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer -I trunk/user/shared/src trunk/user/rc/src/tests/usb_modem_wan_policy.c -o /tmp/usb-modem-wan-policy
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/usb-modem-wan-policy
+      - name: Verify WDM discovery, hotplug identity publication and NDIS matching
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          libdisk = Path("trunk/user/libdisk/src")
+          rc = Path("trunk/user/rc/src")
+          dev_info = (libdisk / "dev_info.c").read_text()
+          dev_info_header = (libdisk / "dev_info.h").read_text()
+          usb_info = (libdisk / "usb_info.c").read_text()
+          hotplug = (rc / "hotplug_usb.c").read_text()
+          wan_network = (rc / "net_wan.c").read_text()
+          shared = Path("trunk/user/shared/src")
+          shared_netutils = (shared / "netutils.c").read_text()
+          shared_header = (shared / "netutils.h").read_text()
+          shared_policy = (shared / "usb_modem_wan_policy.h").read_text()
+          sr_policy = (rc / "modem_sr_status_policy.h").read_text()
+          sr_test = (rc / "tests/modem_sr_status_policy.c").read_text()
+          sg_policy = (rc / "modem_sg_module_policy.h").read_text()
+          sg_test = (rc / "tests/modem_sg_module_policy.c").read_text()
+          modem = (rc / "usb_modem.c").read_text()
+          rc_source = (rc / "rc.c").read_text()
+          detect_link_source = (rc / "detect_link.c").read_text()
+          services_stor = (rc / "services_stor.c").read_text()
+          retry_policy = (rc / "modem_wan_start_policy.h").read_text()
+          retry_test = (rc / "tests/modem_wan_start_policy.c").read_text()
+          services_stor = (rc / "services_stor.c").read_text()
+          services_usb = (rc / "services_usb.c").read_text()
+          metadata = (rc / "modem_node_file.h").read_text()
+          identity = (rc / "modem_node_identity_policy.h").read_text()
+          test = (rc / "tests/modem_node_file.c").read_text()
+          workflow = Path(".github/workflows/usb-modem-identity-stability.yml").read_text()
+
+          def body(source, signature):
+              start = source.index(signature)
+              brace = source.index("{", start)
+              depth = 0
+              for pos in range(brace, len(source)):
+                  if source[pos] == "{":
+                      depth += 1
+                  elif source[pos] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source[brace + 1:pos]
+              raise AssertionError("unterminated function: " + signature)
+
+          modem_selector = body(wan_network, "select_usb_modem_to_wan(void)")
+          modem_selector_compact = "".join(modem_selector.split())
+          assert 'get_nvram_int_checked_status("modem_prio",&modem_priority)' in modem_selector_compact
+          assert "modem_wan_select_device_status(" in modem_selector
+          assert 'nvram_get_int("modem_prio")' not in modem_selector
+          assert "if (has_link < 0)" in modem_selector
+          assert "link_probe_status = errno > 0 ? errno : EIO;" in modem_selector
+          assert modem_selector.index('get_nvram_int_checked_status("modem_prio"') < modem_selector.index("modem_wan_select_device_status(") < modem_selector.index("set_usb_modem_dev_wan(")
+          ethernet_probe = body(wan_network, "get_wan_ether_link_direct(int is_ap_mode)")
+          assert 'get_nvram_int_checked_status("wan_src_phy", &wan_src_phy)' in ethernet_probe
+          assert 'nvram_get_int("wan_src_phy")' not in ethernet_probe
+          assert "if (status != 0)" in ethernet_probe and "errno = status;" in ethernet_probe
+          assert "errno = EIO;" in ethernet_probe and "return -1;" in ethernet_probe
+          for marker in (
+              "test_modem_selection_preserves_missing_priority_default",
+              "test_modem_selection_fails_closed_on_priority_read_error",
+              "test_modem_selection_fails_closed_on_unknown_ethernet_link",
+              "test_modem_selection_prefers_wired_link_when_present",
+              "test_modem_selection_uses_modem_only_after_confirmed_link_absence",
+              "test_modem_selection_keeps_wisp_compatibility_without_link_probe",
+              "test_modem_selection_skips_priority_read_when_no_modem_is_present",
+              "test_modem_selection_rejects_invalid_probe_and_output",
+          ):
+              assert marker in retry_test and marker + "();" in retry_test
+
+          assert "DEVICE_TYPE_MODEM_WDM" in dev_info_header
+          classify = body(dev_info, "get_device_type_by_device(")
+          assert "isWDMNode(device_name)" in classify
+          assert "return DEVICE_TYPE_MODEM_WDM;" in classify
+
+          resolve = body(usb_info, "get_usb_path_by_device(")
+          assert "DEVICE_TYPE_MODEM_WDM" in resolve
+          assert "SYS_PRINTER" in resolve
+          assert "realpath(device_path, resolved_path)" in resolve
+          assert "sleep(1)" in resolve[resolve.index("DEVICE_TYPE_MODEM_WDM"):]
+
+          printer = body(hotplug, "int mdev_lp_main(")
+          assert 'notify_usb_hotplug_event("on_unplug_usb_printer", device_name)' in printer
+          assert 'notify_usb_hotplug_event("on_hotplug_usb_printer", device_name)' in printer
+          assert "notify_rc(" not in printer
+          assert "return notification_status == 0 ? 0 : 1;" in printer
+
+          net = body(hotplug, "int mdev_net_main(")
+          net_remove_start = net.index("if(!get_hotplug_action(action)){")
+          net_remove_end = net.index("goto out_unlock;", net_remove_start)
+          net_remove = net[net_remove_start:net_remove_end]
+          assert "interface_down_status = ifconfig(device_name, 0, \"0.0.0.0\", NULL);" in net_remove
+          assert "interface_flags = get_interface_flags(device_name);" in net_remove
+          assert "modem_wan_unplug_interface_down_result(" in net_remove
+          assert "metadata_status = metadata_status != 0 ? metadata_status : 1;" in net_remove
+          assert net_remove.index("ifconfig(device_name, 0, \"0.0.0.0\", NULL)") < net_remove.index("get_interface_flags(device_name)") < net_remove.index("modem_wan_unplug_interface_down_result(")
+          assert net_remove.index("modem_wan_unplug_interface_down_result(") < net_remove.index('notify_usb_hotplug_event("on_unplug_usb_modem", device_name)')
+          assert "Preserve mandatory WAN cleanup on physical unplug" in net_remove
+          assert "notify_usb_hotplug_event(\"on_unplug_usb_modem\", device_name)" in net_remove
+          assert "modem_wan_hotplug_notification_result(" in net_remove
+          net_plug_start = net.index("modem_hotplug_policy_status = get_modem_hotplug_notification_status(1, &notify_modem);")
+          net_plug = net[net_plug_start:]
+          assert "if (modem_hotplug_policy_status != 0)" in net_plug
+          assert "notify_modem = 1;" in net_plug
+          assert "if (notify_modem)" in net_plug
+          assert "notify_usb_hotplug_event(\"on_hotplug_usb_modem\", device_name)" in net_plug
+          assert "modem_wan_hotplug_notification_result(" in net_plug
+          assert 'nvram_invmatch("modem_prio"' not in net
+          assert 'nvram_match("modem_rule"' not in net
+          assert "notify_rc(" not in net
+          assert '#include "modem_wan_start_policy.h"' in hotplug
+          assert "test_unplug_ifdown_failure_is_distinguished_from_removed_interface" in (
+              (rc / "tests/modem_wan_start_policy.c").read_text()
+          )
+          net = body(hotplug, "int mdev_net_main(")
+          assert "data_len >= 0 && data_len < (int)sizeof(node_data)" in net
+          assert net.index("modem_node_usb_identity_is_valid") < net.index("modem_node_file_publish_identity(")
+          assert "publish_status = modem_node_file_publish_identity(" in net
+          assert "if (publish_status != 0)" in net
+          assert "publish_status == -2" in net
+          assert "Failed to publish and remove stale NDIS metadata" in net
+          assert "Failed to publish NDIS metadata; stale metadata removed" in net
+          assert "metadata_status = 1;" in net
+          assert "return metadata_status;" in net
+          assert net.count("modem_node_file_remove(MODEM_NODE_DIR, device_name) != 0") == 3
+          modem_notify = body(hotplug, "static int\nnotify_usb_hotplug_event(")
+          assert "notify_rc_status(event_name)" in modem_notify
+          assert "errno > 0 ? errno : EIO" in modem_notify
+          assert "modem_wan_hotplug_notification_result" in (
+              (rc / "modem_wan_start_policy.h").read_text()
+          )
+          assert "test_hotplug_notification_queue_failure_reaches_handler_result" in retry_test
+
+          tty = body(hotplug, "int mdev_tty_main(")
+          tty_remove_start = tty.index("if(!get_hotplug_action(action)){")
+          tty_remove_end = tty.index("goto out_unlock;", tty_remove_start)
+          tty_remove = tty[tty_remove_start:tty_remove_end]
+          assert "notify_usb_hotplug_event(\"on_unplug_usb_modem\", device_name)" in tty_remove
+          assert "modem_wan_hotplug_notification_result(" in tty_remove
+          assert "notify_rc(" not in tty
+          tty_plug_start = tty.index("modem_hotplug_policy_status = get_modem_hotplug_notification_status(0, &notify_modem);")
+          tty_plug = tty[tty_plug_start:]
+          assert "if (modem_hotplug_policy_status != 0)" in tty_plug
+          assert "notify_modem = 1;" in tty_plug
+          assert "if (notify_modem)" in tty_plug
+          assert "notify_usb_hotplug_event(\"on_hotplug_usb_modem\", device_name)" in tty_plug
+          assert "modem_wan_hotplug_notification_result(" in tty_plug
+          assert 'nvram_invmatch("modem_prio"' not in tty
+          assert 'nvram_match("modem_rule"' not in tty
+
+          tty = body(hotplug, "int mdev_tty_main(")
+          assert "publish_status = modem_node_file_publish_identity(" in tty
+          assert "if (publish_status != 0)" in tty
+          assert "Failed to publish and remove stale TTY metadata" in tty
+          assert "Failed to publish TTY metadata; stale metadata removed" in tty
+          assert "metadata_status = 1;" in tty
+          assert "return metadata_status;" in tty
+          assert "modem_node_file_remove(MODEM_NODE_DIR, device_name)" in tty
+          assert "publish_status == -2" in net
+          publish = body(metadata, "modem_node_file_publish_with_cleanup(")
+          assert "write_fn(directory, name, contents) == 0" in publish
+          assert "return remove_fn(directory, name) == 0 ? -1 : -2;" in publish
+          publish_wrapper = body(metadata, "modem_node_file_publish_identity(")
+          assert "modem_node_file_publish_with_cleanup(" in publish_wrapper
+          assert "test_metadata_publication_cleanup" in test
+          assert "test_manual_node_index_status_is_fail_closed" in test
+          assert "test_manual_node_index_status_is_fail_closed();" in test
+          assert "modem_node_manual_index_status" in identity
+
+          wdm = body(hotplug, "mdev_wdm_main(")
+          assert "get_usb_port_by_device(device_name" in wdm
+          assert "get_usb_devnum(usb_port_id)" in wdm
+          assert "modem_node_usb_identity_is_valid(usb_port_id, devnum)" in wdm
+          assert '"pref=%d\\ndevnum=%d\\nportid=%s\\n"' in wdm
+          assert wdm.index("modem_node_usb_identity_is_valid") < wdm.index(
+              "modem_node_file_publish_identity(")
+          assert "publish_status == -2" in wdm
+          assert "metadata_status = 1;" in wdm
+          assert "return metadata_status;" in wdm
+          assert "modem_node_file_remove(MODEM_NODE_DIR, device_name) != 0" in wdm
+          net = body(hotplug, "int mdev_net_main(")
+          assert '"pref=%d\\ndevnum=%d\\nportid=%s\\n"' in net
+          assert wdm.count("modem_node_file_remove(MODEM_NODE_DIR, device_name)") >= 3
+
+          legacy_finder = body(modem, "find_modem_node(")
+          assert "modem_node_manual_index_matches(fetch_index, i)" in legacy_finder
+          assert "node_valid_last" not in legacy_finder
+          assert "return -1;" in legacy_finder
+          assert "modem_node_manual_index_matches" in identity
+
+          reader = body(modem, "find_modem_node_by_usb_identity(")
+          assert "strtol(buf + 7, &endptr, 10)" in reader
+          assert 'strncmp(buf, "portid=", 7)' in reader
+          assert "ferror(fp)" in reader and "fclose(fp)" in reader
+          assert 'strncmp(buf, "pref=", 5)' in reader
+          assert "have_pref && have_devnum && have_port_id" in reader
+          assert "modem_node_usb_identity_node_is_eligible(" in reader
+
+          manual_node_reader = body(modem, "usb_modem_read_manual_node_index_status(")
+          assert 'usb_modem_nvram_transaction_get(&transaction, "modem_node", &value)' in manual_node_reader
+          assert "rc_wan_nvram_read_int_status(" in manual_node_reader
+          assert "usb_modem_nvram_transaction_end(&transaction)" in manual_node_reader
+          assert "modem_node_manual_index_status(" in manual_node_reader
+
+          selector = body(modem, "get_modem_node_by_usb_identity(")
+          assert "usb_modem_read_manual_node_index_status(&manual_index)" in selector
+          assert "if (status != 0)" in selector and "return -2;" in selector
+          assert "manual_index, 0" in selector
+          assert "expected_devnum, -1, 1" in selector
+          assert "expected_devnum, -1, 0" in selector
+          assert 'nvram_get_int("modem_node")' not in modem
+
+          ras_selector = body(modem, "get_modem_node_ras(")
+          assert "usb_modem_read_manual_node_index_status(&manual_index)" in ras_selector
+          assert "*selection_status_out = status;" in ras_selector
+          assert "manual_index, devnum_out" in ras_selector
+          readiness = body(modem, "is_ready_modem_ras(")
+          assert "selection_status_out" in readiness
+          assert "get_modem_node_ras(node_name, devnum_out, selection_status_out)" in readiness
+
+          ndis = body(modem, "ndis_control_network(")
+          assert "manual_node_status = errno > 0 ? errno : EIO;" in ndis
+          assert "return manual_node_status;" in ndis
+          assert "cannot read manual NDIS control-node selection" in ndis
+          assert ndis.index('is_usbnet_has_module(ndis_ifname, "qmi_wwan")') < ndis.index("return manual_node_status;")
+          assert "get_usb_port_by_device(ndis_ifname" in ndis
+          assert 'find_modem_node_by_usb_identity("cdc-wdm"' in ndis
+          tty_select = 'get_modem_node_by_usb_identity("ttyUSB", ndis_port_id, devnum)'
+          assert tty_select in ndis
+          assert 'get_modem_node("ttyUSB", devnum, NULL)' not in ndis
+          assert ndis.index("get_usb_port_by_device(ndis_ifname") < ndis.index("find_modem_node_by_usb_identity") < ndis.index(tty_select)
+          assert 'find_modem_node("cdc-wdm", 0, 0, -1, NULL)' not in ndis
+          sg = body(hotplug, "int mdev_sg_main(")
+          assert '#include "modem_sg_module_policy.h"' in hotplug
+          assert "module_load_status = module_smart_load(\"sr_mod\", NULL);" in sg
+          assert 'module_presence = is_module_loaded_status("sr_mod");' in sg
+          assert "modem_sg_module_ready_status(module_presence)" in sg
+          assert "SCSI generic module unavailable" in sg
+          assert 'int zerocd_status = _eval(zerocd_argv, NULL, 0, NULL);' in sg
+          assert "modem_sg_zerocd_command_status(zerocd_status)" in sg
+          assert "ZeroCD mode switch failed" in sg
+          assert sg.index("int zerocd_status = _eval") < sg.index("modem_sg_zerocd_command_status")
+          assert sg.index("module_load_status = module_smart_load") < sg.index("is_module_loaded_status")
+          assert sg.index("is_module_loaded_status") < sg.index("modem_sg_module_ready_status")
+          assert "return (module_presence == 1) ? 0 : -1;" in sg_policy
+          assert "return (command_status == 0) ? 0 : -1;" in sg_policy
+          for marker in (
+              "test_loaded_module_is_ready",
+              "test_absent_module_is_not_ready",
+              "test_unknown_module_state_fails_closed",
+              "test_zerocd_success_is_accepted",
+              "test_zerocd_failure_is_reported",
+              "USB SCSI generic/ZeroCD command status policy: PASS",
+          ):
+              assert marker in sg_test
+
+          assert "modem_node_usb_identity_matches" in identity
+
+          sr = body(hotplug, "int mdev_sr_main(")
+          assert '#include "modem_sr_status_policy.h"' in hotplug
+          assert 'eject_status = _eval(eject_argv, NULL, 0, NULL);' in sr
+          assert 'unload_status = module_smart_unload("sr_mod", 1);' in sr
+          assert 'is_module_loaded_status("sr_mod")' in sr
+          assert "modem_sr_completion_status(eject_status, unload_status," in sr
+          assert "SCSI CD eject failed" in sr
+          assert "sr_mod unload incomplete" in sr
+          assert sr.index("eject_status = _eval") < sr.index("unload_status = module_smart_unload")
+          assert sr.index("unload_status = module_smart_unload") < sr.index("is_module_loaded_status")
+          assert sr.index("is_module_loaded_status") < sr.index("modem_sr_completion_status")
+          assert "unload_status != 0 || module_presence == 0" in sr_policy
+          for marker in (
+              "test_successful_unload",
+              "test_in_use_module_is_a_safe_noop",
+              "test_already_absent_module_is_a_safe_noop",
+              "test_present_module_after_unload_failure_is_rejected",
+              "test_unknown_module_presence_fails_closed",
+              "test_eject_failure_is_reported_even_when_unload_is_safe",
+              "USB SCSI CD eject/unload result policy: PASS",
+          ):
+              assert marker in sr_test
+          assert "modem_node_identity_policy.h" in metadata
+
+          remove = body(modem, "safe_remove_usb_modem(void)")
+          assert "stop_udhcpc_wan(0)" in remove
+          assert '"/var/run/ppp-wan0.pid"' in remove
+          assert "kill_services_with_pidfiles" in remove
+          assert "set_usb_modem_dev_wan(0, 0)" in remove
+          assert remove.index("if (stop_status != 0)") < remove.index("set_usb_modem_dev_wan(0, 0)")
+
+          deferred_hotplug = body(services_stor, "on_deferred_hotplug_dev(void)")
+          assert "modem_wan_hotplug_retry_mask(unplug_modem||modem_unplug_pending,modem_hotplug_pending,modem_unplug_status,modem_plug_status)" in "".join(deferred_hotplug.split())
+          deferred_event_code = "".join(deferred_hotplug.split())
+          assert 'storage_read_integer_status("usb_unplug_md",0,&modem_unplug_value)' in deferred_event_code
+          assert 'storage_read_integer_status("usb_hotplug_md",0,&modem_hotplug_value)' in deferred_event_code
+          assert deferred_event_code.count("usb_hotplug_event_pair_status(") == 2
+          for marker in ("usb_unplug_lp", "usb_hotplug_lp", "usb_unplug_md", "usb_hotplug_md"):
+              assert f'nvram_match("{marker}","1")' not in deferred_event_code
+          assert "cannot read deferred modem event markers; preserving pending events for retry" in deferred_hotplug
+          assert "MODEM_WAN_HOTPLUG_RETRY_UNPLUG" in retry_policy
+          assert "MODEM_WAN_HOTPLUG_RETRY_PLUG" in retry_policy
+          assert "test_modem_hotplug_retry_mask_preserves_failed_and_coalesced_events" in retry_test
+
+          modem_start = body(services_usb, "try_start_usb_modem_to_wan(void)")
+          assert "return try_wan_reconnect(1, 0);" in modem_start
+          assert "return;" not in modem_start
+
+          deferred_hotplug = body(services_stor, "on_deferred_hotplug_dev(void)")
+          assert "int modem_unplug_status = 0;" in deferred_hotplug
+          assert "int modem_plug_status = 0;" in deferred_hotplug
+          deferred_compact = "".join(deferred_hotplug.split())
+          modem_rule_read = 'storage_read_integer_status("modem_rule",0,&modem_rule_value)'
+          modem_rule_policy = 'modem_wan_unplug_event_status(modem_rule_status,modem_rule_value,&unplug_modem)'
+          unplug_ack = 'storage_ack_event_marker_status("usb_unplug_md")'
+          assert modem_rule_read in deferred_compact
+          assert modem_rule_policy in deferred_compact
+          rule_read_pos = deferred_compact.index(modem_rule_read)
+          rule_policy_pos = deferred_compact.index(modem_rule_policy, rule_read_pos)
+          rule_error_pos = deferred_compact.index("if(modem_rule_status!=0)", rule_policy_pos)
+          unplug_start_pos = deferred_compact.index(
+              "if(modem_unplug_pending&&modem_rule_status==0&&unplug_modem)", rule_policy_pos)
+          reconnect_pos = deferred_compact.index("modem_unplug_status=try_wan_reconnect(1,0)", unplug_start_pos)
+          unplug_ack_pos = deferred_compact.index(unplug_ack, reconnect_pos)
+          assert rule_read_pos < rule_policy_pos < rule_error_pos < unplug_start_pos < reconnect_pos < unplug_ack_pos
+          assert 'nvram_get_int("modem_rule")' not in deferred_hotplug
+          assert "unplug_modem = 1;" in deferred_hotplug
+          assert "modem_unplug_status = modem_rule_status;" in deferred_hotplug
+          assert "cannot read modem WAN policy; deferring unplug transition" in deferred_hotplug
+          assert "if (modem_rule_status == 0)" not in deferred_hotplug
+          assert "modem_unplug_pending && modem_rule_status == 0 && !unplug_modem" in deferred_hotplug
+          assert "test_modem_unplug_rule_read_fails_closed" in retry_test
+          assert "test_modem_unplug_rule_read_fails_closed();" in retry_test
+          printer_unplug_read = 'storage_read_integer_status("usb_unplug_lp",0,&printer_unplug_value)'
+          printer_hotplug_read = 'storage_read_integer_status("usb_hotplug_lp",0,&printer_hotplug_value)'
+          modem_unplug_read = 'storage_read_integer_status("usb_unplug_md",0,&modem_unplug_value)'
+          modem_hotplug_read = 'storage_read_integer_status("usb_hotplug_md",0,&modem_hotplug_value)'
+          assert printer_unplug_read in deferred_compact
+          assert printer_hotplug_read in deferred_compact
+          assert modem_unplug_read in deferred_compact
+          assert modem_hotplug_read in deferred_compact
+          assert deferred_compact.count("usb_hotplug_event_pair_status(") == 2
+          for marker in ("usb_unplug_lp", "usb_hotplug_lp", "usb_unplug_md", "usb_hotplug_md"):
+              assert f'nvram_match("{marker}","1")' not in deferred_compact
+          assert "cannot read deferred printer event markers; preserving pending events for retry" in deferred_hotplug
+          assert "cannot read deferred modem event markers; preserving pending events for retry" in deferred_hotplug
+          event_policy = (rc / "usb_hotplug_event_policy.h").read_text()
+          event_test = (rc / "tests/usb_hotplug_event_policy.c").read_text()
+          assert "usb_hotplug_event_pair_status" in event_policy
+          assert "test_each_failed_marker_read_preserves_the_pair" in event_test
+
+          plug_start = deferred_hotplug[deferred_hotplug.index("if (plug_modem && !unplug_modem && !modem_unplug_pending)"): ]
+          modem_start_pos = plug_start.index("modem_plug_status = try_start_usb_modem_to_wan();")
+          modem_ack_pos = plug_start.index('storage_ack_event_marker_status("usb_hotplug_md")', modem_start_pos)
+          assert modem_start_pos < plug_start.index("modem_plug_status != 0", modem_start_pos) < modem_ack_pos
+          assert 'nvram_set_int_temp("usb_unplug_md", 1)' not in deferred_hotplug
+          assert 'nvram_set_int_temp("usb_hotplug_md", 1)' not in deferred_hotplug
+          assert "alarm(5);" in deferred_hotplug
+
+          for marker in (
+              'modem_node_manual_index_matches(-1, 0)',
+              'modem_node_manual_index_matches(4, 4)',
+              '!modem_node_manual_index_matches(4, 3)',
+              'modem_node_manual_index_matches(4, -1)',
+              'modem_node_usb_identity_matches("1-1", 7, "1-1", 7)',
+              'modem_node_usb_identity_matches("1-1", 7, "1-2", 7)',
+              'modem_node_usb_identity_matches("1-1", 7, "1-1", 8)',
+              'modem_node_usb_identity_node_is_eligible("1-1", 7, "1-1", 7, 2, 0, -1, 1)',
+              'modem_node_usb_identity_node_is_eligible("1-1", 7, "1-1", 7, 4, 0, 4, 1)',
+              "USB modem node identity and private metadata staging: PASS",
+          ):
+              assert marker in test
+
+          paths = (
+              ".github/workflows/usb-modem-identity-stability.yml",
+              "trunk/user/libdisk/src/dev_info.c",
+              "trunk/user/libdisk/src/dev_info.h",
+              "trunk/user/libdisk/src/usb_info.c",
+              "trunk/user/rc/src/hotplug_usb.c",
+              "trunk/user/rc/src/modem_sg_module_policy.h",
+              "trunk/user/rc/src/tests/modem_sg_module_policy.c",
+              "trunk/user/rc/src/modem_sr_status_policy.h",
+              "trunk/user/rc/src/tests/modem_sr_status_policy.c",
+              "trunk/user/rc/src/services_stor.c",
+              "trunk/user/rc/src/services_usb.c",
+              "trunk/user/rc/src/rc.h",
+              "trunk/user/rc/src/usb_modem.c",
+              "trunk/user/rc/src/modem_node_file.h",
+              "trunk/user/rc/src/modem_node_identity_policy.h",
+              "trunk/user/rc/src/tests/modem_node_file.c",
+              "trunk/user/shared/src/netutils.c",
+              "trunk/user/shared/src/netutils.h",
+              "trunk/user/shared/src/usb_modem_wan_policy.h",
+              "trunk/user/rc/src/tests/usb_modem_wan_policy.c",
+              "trunk/user/rc/src/modem_wan_start_policy.h",
+              "trunk/user/rc/src/tests/modem_wan_start_policy.c",
+              "trunk/user/rc/src/detect_link.c",
+              "trunk/user/rc/src/detect_link_modem_reconnect_policy.h",
+              "trunk/user/rc/src/tests/detect_link_modem_reconnect_policy.c",
+          )
+          filters = workflow.split("jobs:", 1)[0]
+          push_filters, pr_filters = filters.split("  pull_request:", 1)
+          for path in paths:
+              assert push_filters.count(path) == 1, f"push path missing/duplicated: {path}"
+              assert pr_filters.count(path) == 1, f"pull_request path missing/duplicated: {path}"
+
+          identity_reader = body(shared_netutils, "get_usb_modem_wan_status(int unit, int *is_modem)")
+          legacy_identity_reader = body(shared_netutils, "get_usb_modem_wan(int unit)")
+          device_identity_reader = body(shared_netutils, "get_usb_modem_dev_wan_status(int unit, int devnum, int *is_selected)")
+          legacy_device_identity_reader = body(shared_netutils, "get_usb_modem_dev_wan(int unit, int devnum)")
+          identity_test = (rc / "tests/usb_modem_wan_policy.c").read_text()
+          assert "nvram_get_checked(key, &value)" in identity_reader
+          assert "usb_modem_wan_parse_devnum_status(" in identity_reader
+          assert "get_usb_modem_wan_status" in shared_header
+          assert "get_usb_modem_wan_status(unit, &is_modem)" in legacy_identity_reader
+          assert "nvram_get_checked(key, &value)" in device_identity_reader
+          assert "usb_modem_wan_devnum_matches_status(" in device_identity_reader
+          assert "errno = status;" in device_identity_reader
+          assert "return status;" in device_identity_reader
+          assert "get_usb_modem_dev_wan_status" in shared_header
+          assert "get_usb_modem_dev_wan_status(unit, devnum, &is_selected)" in legacy_device_identity_reader
+          assert "nvram_get_int(" not in legacy_device_identity_reader
+          for marker in (
+              "test_devnum_match_requires_exact_selected_identity",
+              "test_devnum_match_preserves_absent_key_default",
+              "test_devnum_match_propagates_backend_errors",
+              "test_devnum_match_rejects_null_output",
+          ):
+              assert marker in identity_test and marker + "();" in identity_test
+
+          eject = body(services_usb, "safe_remove_usb_device(int port, const char *dev_name)")
+          compact = "".join(eject.split())
+          physical = "if(!has_modem_port){errno=ENODEV;return-1;}"
+          checked = "modem_identity_status=get_usb_modem_dev_wan_status(0,modem_devnum,&is_selected_modem);"
+          failed = "if(modem_identity_status!=0){errno=modem_identity_status;"
+          mismatch = "if(!is_selected_modem){errno=ENODEV;return-1;}"
+          removal = "modem_remove_status=safe_remove_usb_modem();"
+          assert physical in compact and checked in compact and failed in compact
+          assert mismatch in compact and removal in compact
+          assert compact.index(physical) < compact.index(checked) < compact.index(failed)
+          assert compact.index(failed) < compact.index(mismatch) < compact.index(removal)
+          assert "cannot verify selected USB modem identity before eject" in eject
+          assert "usb_modem_wan_legacy_boolean(status, is_modem)" in legacy_identity_reader
+          assert "return 0;" not in legacy_identity_reader
+          assert "nvram_get_int(" not in legacy_identity_reader
+          assert "atoi() accepts a numeric prefix" in shared_policy
+          assert "test_backend_read_errors_are_not_treated_as_absent_key" in identity_test
+          classifier = body(wan_network, "is_ifunit_modem_status(char *wan_ifname, int unit, int *modem_unit_id)")
+          assert "get_usb_modem_wan_status(unit, &is_modem)" in classifier
+          assert "get_wan_unit_value_copy_status(" in classifier
+          for signature, stop_before in (
+              ("wan_up_internal(char *wan_ifname, int unit, int is_static)", "snprintf(wan_cnt"),
+              ("udhcpc_bound(char *wan_ifname, int is_renew_mode)", "snprintf(prefix"),
+          ):
+              lifecycle = body(wan_network, signature)
+              selected = lifecycle.index("modem_status = is_ifunit_modem_status(")
+              failed = lifecycle.index("if (modem_status != 0)", selected)
+              returned = lifecycle.index("return modem_status;", failed)
+              side_effect = lifecycle.index(stop_before)
+              assert selected < failed < returned < side_effect, signature + " must abort before side effects"
+          teardown = body(wan_network, "wan_down_internal(char *wan_ifname, int unit, int is_static)")
+          assert "status = route_status_accumulate(status, modem_status);" in teardown
+          assert "if (modem_status != 0 || modem_unit_id == 2 ||" in teardown
+          assert "wan_dns_read_status = route_status_accumulate(proto_status, modem_status);" in teardown
+          assert "if (modem_status != 0 || (!modem_unit_id &&" in teardown
+          assert "if (modem_status == 0 && !modem_unit_id && proto_status == 0" in teardown
+
+
+          startup = body(wan_network, "start_wan(void)")
+          startup_read = startup.index("get_usb_modem_wan_status(unit, &is_usb_modem)")
+          startup_failed = startup.index("if (nvram_status != 0)", startup_read)
+          startup_continue = startup.index("continue;", startup_failed)
+          startup_ifup = startup.index("interface_status = ifconfig(wan_ifname, IFUP")
+          startup_branch = startup.index("if (is_usb_modem)", startup_read)
+          assert startup_read < startup_failed < startup_continue < startup_ifup < startup_branch
+
+          stop = body(wan_network, "stop_wan_locked(void)")
+          stop_read = stop.index("get_usb_modem_wan_status(unit, &is_usb_modem)")
+          stop_failed = stop.index("if (modem_status != 0)", stop_read)
+          stop_return = stop.index("return modem_status;", stop_failed)
+          stop_pause = stop.index("notify_pause_detect_internet()", stop_read)
+          assert stop_read < stop_failed < stop_return < stop_pause
+
+          man_add = body(wan_network, "add_man_gateway_routes(char *man_ifname, int unit, int metric, int *gateway_route_status)")
+          assert "get_usb_modem_wan_status(unit, &is_modem_active)" in man_add
+          assert "status = route_status_accumulate(status, modem_status);" in man_add
+          assert "is_modem_active = 1;" in man_add
+          assert 'route_add(man_ifname, metric, "0.0.0.0", man_gate' in man_add
+
+          man_down = body(wan_network, "man_down_internal(char *man_ifname, int unit, int clear_dhcp_address)")
+          assert "get_usb_modem_wan_status(unit, &is_modem_active)" in man_down
+          assert "status = route_status_accumulate(status, modem_status);" in man_down
+          assert "is_modem_active = 0;" in man_down
+          assert 'route_del(man_ifname, 2, "0.0.0.0", man_gate' in man_down
+
+          manual = body(wan_network, "manual_wan_disconnect(void)")
+          manual_read = manual.index("get_usb_modem_wan_status(0, &is_usb_modem)")
+          manual_failed = manual.index("if (status != 0)", manual_read)
+          manual_return = manual.index("return status;", manual_failed)
+          manual_stop = min(x for x in (manual.find("stop_wan()"), manual.find("stop_wan_ppp()")) if x >= 0)
+          assert manual_read < manual_failed < manual_return < manual_stop
+
+
+          resolver = body(wan_network, "update_resolvconf(int is_first_run, int do_not_notify)")
+          resolver_read = resolver.index("get_usb_modem_wan_status(0, &is_modem_wan)")
+          resolver_failed = resolver.index("if (modem_identity_status != 0)", resolver_read)
+          resolver_force = resolver.index("resolv_changed = 1;", resolver_failed)
+          assert resolver_read < resolver_failed < resolver_force
+
+          dns_mode = body(wan_network, "\nget_wan_dns_static_status(int *is_static)\n{")
+          dns_identity = dns_mode.index("get_usb_modem_wan_status(unit, &is_usb_modem)")
+          dns_failed = dns_mode.index("if (status != 0)", dns_identity)
+          dns_key = dns_mode.index('nvram_get_checked("modem_dnsa", &stored_value)')
+          assert dns_identity < dns_failed < dns_mode.index("return status;", dns_failed) < dns_key
+
+          ifname_getter = body(wan_network, "\nget_wan_ifname(char wan_ifname[16])\n{")
+          ifname_identity = ifname_getter.index("get_usb_modem_wan_status(unit, &is_usb_modem)")
+          ifname_failed = ifname_getter.index("if (status != 0)", ifname_identity)
+          ifname_return = ifname_getter.index("return status;", ifname_failed)
+          ifname_ndis = ifname_getter.index("get_wan_modem_is_ndis_status", ifname_identity)
+          assert ifname_identity < ifname_failed < ifname_return < ifname_ndis
+
+          ip4_getter = body(wan_network, "\nget_wan_ip4(int only_broadband_wan)\n{")
+          ip4_identity = ip4_getter.index("get_usb_modem_wan_status(unit, &is_usb_modem)")
+          ip4_failed = ip4_getter.index("if (status != 0)", ip4_identity)
+          ip4_return = ip4_getter.index("return INADDR_ANY;", ip4_failed)
+          ip4_proto = ip4_getter.index("get_wan_unit_proto_checked_status(unit, &wan_proto)", ip4_identity)
+          assert ip4_identity < ip4_failed < ip4_return < ip4_proto
+
+          reconnect = body(wan_network, "\nnotify_on_internet_state_changed(int has_internet, long elapsed)\n{")
+          reconnect_identity = reconnect.index("get_usb_modem_wan_status(")
+          reconnect_arguments = reconnect.index("0, &is_modem_wan);", reconnect_identity)
+          reconnect_failed = reconnect.index("if (modem_identity_status != 0)", reconnect_arguments)
+          reconnect_break = reconnect.index("break;", reconnect_failed)
+          reconnect_queue = reconnect.index('queue_internet_lost_action("auto_wan_reconnect"', reconnect_break)
+          assert reconnect_identity < reconnect_arguments < reconnect_failed < reconnect_break < reconnect_queue
+          assert "get_usb_modem_wan(" not in wan_network
+
+          net_unplug_start = net.index("if(!get_hotplug_action(action)){")
+          net_unplug_end = net.index("goto out_unlock;", net_unplug_start)
+          net_unplug = net[net_unplug_start:net_unplug_end]
+          assert "get_usb_modem_wan_status(0, &is_modem_wan)" in net_unplug
+          assert "modem_identity_status != 0" in net_unplug
+          assert "modem_wan_unplug_notification_required(modem_identity_status, is_modem_wan)" in " ".join(net_unplug.split())
+          assert net_unplug.index("get_usb_modem_wan_status(") < net_unplug.index("modem_wan_unplug_notification_required(") < net_unplug.index('notify_usb_hotplug_event("on_unplug_usb_modem"')
+
+          tty = body(hotplug, "int mdev_tty_main(")
+          tty_unplug_start = tty.index("if(!get_hotplug_action(action)){")
+          tty_unplug_end = tty.index("goto out_unlock;", tty_unplug_start)
+          tty_unplug = tty[tty_unplug_start:tty_unplug_end]
+          assert "get_usb_modem_wan_status(0, &is_modem_wan)" in tty_unplug
+          assert "modem_identity_status != 0" in tty_unplug
+          assert "modem_wan_unplug_notification_required(modem_identity_status, is_modem_wan)" in " ".join(tty_unplug.split())
+          assert tty_unplug.index("get_usb_modem_wan_status(") < tty_unplug.index("modem_wan_unplug_notification_required(") < tty_unplug.index('notify_usb_hotplug_event("on_unplug_usb_modem"')
+
+          modem_start = body(services_usb, "try_start_usb_modem_to_wan(void)")
+          modem_identity_read = modem_start.index("get_usb_modem_wan_status(")
+          modem_identity_gate = modem_start.index("modem_wan_auto_start_allowed(", modem_identity_read)
+          modem_identity_error = modem_start.index("if (modem_identity_status != 0)", modem_identity_gate)
+          modem_identity_return = modem_start.index("return modem_identity_status;", modem_identity_error)
+          modem_start_call = modem_start.index("return try_wan_reconnect(1, 0);")
+          assert modem_identity_read < modem_identity_gate < modem_identity_error < modem_identity_return < modem_start_call
+          assert "get_usb_modem_wan(" not in modem_start
+          for marker in (
+              "test_unplug_notification_is_conservative_on_unknown_identity",
+              "test_modem_auto_start_requires_known_non_modem_identity",
+          ):
+              assert marker in retry_test and marker + "();" in retry_test
+          assert "modem_wan_unplug_notification_required" in retry_policy
+          assert "modem_wan_auto_start_allowed" in retry_policy
+
+          link_change = "".join(body(
+              modem, "notify_modem_on_wan_ether_link_changed(int has_link)"
+          ).split())
+          link_config = link_change.index(
+              "get_modem_wan_start_config_status(&modem_priority,&modem_devnum)"
+          )
+          link_config_error = link_change.index("if(status!=0)", link_config)
+          link_priority_gate = link_change.index(
+              "if(modem_priority!=2||modem_devnum<=0)", link_config_error
+          )
+          link_wisp = link_change.index(
+              "get_wan_wisp_active_status(&is_wisp_active,NULL)", link_priority_gate
+          )
+          link_wisp_error = link_change.index("if(status!=0)", link_wisp)
+          link_wisp_gate = link_change.index("if(is_wisp_active)", link_wisp_error)
+          link_identity = link_change.index(
+              "get_usb_modem_wan_status(0,&is_modem_wan)", link_wisp_gate
+          )
+          link_identity_error = link_change.index("if(status!=0)", link_identity)
+          link_policy = link_change.index(
+              "modem_wan_link_change_reconnect_enabled(", link_identity_error
+          )
+          link_policy_error = link_change.index("if(status!=0)", link_policy)
+          link_reconnect = link_change.index(
+              'notify_rc_status("auto_wan_reconnect")', link_policy_error
+          )
+          link_notify_error = link_change.index("if(status!=0)", link_reconnect)
+          link_notify_errno = link_change.index("saved_errno=errno>0?errno:EIO;", link_notify_error)
+          link_notify_return = link_change.index("returnsaved_errno;", link_notify_errno)
+          assert (
+              link_config < link_config_error < link_priority_gate < link_wisp <
+              link_wisp_error < link_wisp_gate < link_identity <
+              link_identity_error < link_policy < link_policy_error < link_reconnect <
+              link_notify_error < link_notify_errno < link_notify_return
+          )
+          assert "notify_rc(" not in link_change
+          assert "nvram_get_int(" not in link_change
+          assert "get_modem_devnum()" not in link_change
+          assert "get_wan_wisp_active(" not in link_change
+          assert "modem_wan_link_change_reconnect_enabled" in retry_policy
+          assert "test_link_change_reconnect_requires_checked_modem_state" in retry_test
+          assert "get_usb_modem_wan(" not in modem
+
+          restart = body(rc_source, "else if (!strcmp(entry->d_name, RCN_RESTART_MODEM))")
+          # The production call deliberately spans lines; normalize whitespace
+          # before asserting the guarded identity-to-reload ordering.
+          restart_compact = "".join(restart.split())
+          restart_identity = restart_compact.index("get_usb_modem_wan_status(0,&need_restart_wan)")
+          restart_unknown = restart_compact.index("if(!modem_wan_restart_allowed(modem_identity_status))", restart_identity)
+          restart_error_merge = restart_compact.index("rc_notify_merge_action_result(", restart_unknown)
+          restart_abort = restart_compact.index("stop_failed=1;", restart_error_merge)
+          restart_module_gate = restart_compact.index("if(!stop_failed)", restart_abort)
+          restart_reload = restart_compact.index("reload_modem_modules(", restart_module_gate)
+          restart_final_gate = restart_compact.index("if(!stop_failed&&need_restart_wan)", restart_module_gate)
+          restart_final = restart_compact.index("full_restart_wan()", restart_final_gate)
+          assert restart_identity < restart_unknown < restart_error_merge < restart_abort < restart_module_gate < restart_reload < restart_final_gate < restart_final
+          assert "get_usb_modem_wan(" not in restart
+
+          led_link = body(detect_link_source, "dl_handle_link_wan(void)")
+          led_link_identity = led_link.index("get_usb_modem_wan_status(0, &is_modem_wan)")
+          led_link_fallback = led_link.index("usb_modem_wan_legacy_boolean(", led_link_identity)
+          assert led_link_identity < led_link_fallback < led_link.index("if (!is_modem_wan)", led_link_fallback)
+          led_refresh = body(detect_link_source, "dl_update_leds(void)")
+          led_refresh_identity = led_refresh.index("get_usb_modem_wan_status(0, &is_modem_wan)")
+          led_refresh_fallback = led_refresh.index("usb_modem_wan_legacy_boolean(", led_refresh_identity)
+          assert led_refresh_identity < led_refresh_fallback < led_refresh.index("if (!is_modem_wan)", led_refresh_fallback)
+          assert "get_usb_modem_wan(" not in detect_link_source
+          assert "modem_wan_restart_allowed" in retry_policy
+          assert "test_modem_restart_requires_known_identity" in retry_test
+          assert "test_modem_restart_requires_known_identity();" in retry_test
+
+          print("USB modem WDM/NDIS physical identity and TTY selection contract: PASS")
+          PY
+      - name: Verify modem module alternatives and readiness propagation
+        run: python3 scripts/check_modem_module_reload.py
+      - name: Verify WAN startup and firewall result propagation
+        run: python3 scripts/check_modem_wan_start_status.py
+      - name: Verify USB printer NVRAM failures stop daemon launch
+        run: python3 scripts/check_usb_printer_nvram.py
+
+      - name: Compile and run uqmi private credential parser regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/uqmi \
+            trunk/user/uqmi/tests/private_credentials.c \
+            trunk/user/uqmi/uqmi-private-credentials.c \
+            -o /tmp/uqmi-private-credentials
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/uqmi-private-credentials
+      - name: Compile and run modem QMI private credential staging regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/uqmi -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/modem_qmi_credentials_file.c \
+            trunk/user/uqmi/uqmi-private-credentials.c \
+            -o /tmp/modem-qmi-credentials-file
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/modem-qmi-credentials-file
+      - name: Verify QMI modem credentials never enter process arguments
+        run: python3 scripts/check_uqmi_private_credentials.py
+
+
+      - name: Compile and run atomic QMI status-file publication regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/uqmi \
+            trunk/user/uqmi/tests/status_file.c \
+            -o /tmp/uqmi-status-file
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/uqmi-status-file
+      - name: Compile and run strict QMI client-ID parser regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/uqmi \
+            trunk/user/uqmi/tests/client_id_policy.c \
+            -o /tmp/uqmi-client-id-policy
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/uqmi-client-id-policy
+
+      - name: Verify QMI client IDs are only kept after atomic publication
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          commands = Path("trunk/user/uqmi/commands.c").read_text()
+          modem = Path("trunk/user/rc/src/usb_modem.c").read_text()
+          helper = Path("trunk/user/uqmi/uqmi-status-file.h").read_text()
+          wds_source = Path("trunk/user/uqmi/commands-wds.c").read_text()
+          client_policy = Path("trunk/user/uqmi/uqmi-client-id-policy.h").read_text()
+          client_policy_test = Path("trunk/user/uqmi/tests/client_id_policy.c").read_text()
+          set_client = commands.split("cmd_set_client_id_prepare", 1)[1].split("qmi_get_array_idx", 1)[0]
+
+          getter = commands.split("cmd_get_client_id_prepare", 1)[1].split("cmd_set_client_id_prepare", 1)[0]
+          assert "uqmi_status_file_write(\"/tmp/qmi-client-id\"" in getter
+          assert "qmi_service_get_client_id(qmi, svc)" in getter
+          assert "qmi_service_release_client_id(qmi, svc)" in getter
+          assert "return QMI_CMD_EXIT;" in getter
+          assert "fopen(\"/tmp/qmi-client-id\", \"w+\")" not in getter
+          assert '#include "uqmi-client-id-policy.h"' in commands
+          assert "uqmi_parse_client_id(s, &id)" in set_client
+          assert "value > UCHAR_MAX" in client_policy
+          assert "test_client_id_parser_accepts_valid_8_bit_values" in client_policy_test
+          assert "test_client_id_parser_rejects_invalid_numbers" in client_policy_test
+
+          qmi_start_offset = modem.index("qmi_control_network_start(const char *device_path)")
+          qmi_start_end = modem.index("qmi_control_network(const char *control_node", qmi_start_offset)
+          qmi_start_function = modem[qmi_start_offset:qmi_start_end]
+          assert "modem_qmi_existing_pdh_start_status(pdh_handle, errno)" in qmi_start_function
+          assert qmi_start_function.index("modem_qmi_existing_pdh_start_status") < qmi_start_function.index("if (pin_code[0])")
+          assert qmi_start_function.index("rc_wan_nvram_parse_int_value(modem_nets_text, &modem_nets)") < qmi_start_function.index("invalid QMI modem network-mode setting") < qmi_start_function.index("modem_qmi_existing_pdh_start_status")
+          assert "modem_qmi_client_id_should_allocate(qmi_client_id, errno)" in qmi_start_function
+          assert "reusing persisted WDS client ID" in qmi_start_function
+          assert "persisted WDS client ID is invalid or unreadable" in qmi_start_function
+          assert "modem_qmi_command_status(_eval(pin_argv, NULL, 0, NULL))" in qmi_start_function
+          assert "modem_qmi_command_status(_eval(format_argv, NULL, 0, NULL))" in qmi_start_function
+          assert "modem_qmi_command_status(_eval(mode_argv, NULL, 0, NULL))" in qmi_start_function
+          assert qmi_start_function.index("uqmi SIM PIN verification failed") < qmi_start_function.index("/* set interface format as 802.3 */")
+          assert qmi_start_function.index("uqmi failed to set 802.3 data format") < qmi_start_function.index("/* setup network modes;")
+          assert qmi_start_function.index("uqmi failed to set requested network modes") < qmi_start_function.index("/* Reuse the persisted WDS CID;")
+
+          assert "mkstemp(staging)" in helper
+          assert "fchmod(fd, 0600)" in helper
+          assert "fsync(fd)" in helper
+          assert "rename(staging, path)" in helper
+          assert "unlink(staging)" in helper
+          assert "modem_qmi_parse_handle(buffer, &qmi_handle)" in modem
+          assert "if (fclose(fp) != 0)" in modem
+          assert "fgetc(fp)" in modem
+          assert "modem_qmi_handle_file_unlink_status" in qmi_start_function
+          assert "start_status = _eval(start_argv, NULL, 0, NULL)" in qmi_start_function
+          assert "pdh_handle = get_qmi_handle(QMI_HANDLE_PDH)" in qmi_start_function
+          assert "modem_qmi_start_attempt_status(start_status," in qmi_start_function
+          assert "if (check_if_file_exist(QMI_HANDLE_PDH))" not in qmi_start_function
+          assert "ambiguous_session" in qmi_start_function
+          assert "modem_qmi_start_attempt_is_ambiguous(start_status," in qmi_start_function
+          assert "handle_read_status = errno" in qmi_start_function
+          assert "modem_qmi_client_id_is_valid(qmi_client_id)" in qmi_start_function
+          preserve_handle = qmi_start_function.index("modem_qmi_start_attempt_preserve_handle(ambiguous_session,")
+          partial_cleanup = qmi_start_function.index("unlink_status = unlink(QMI_HANDLE_PDH)", preserve_handle)
+          assert "pdh_handle, handle_read_status))" in qmi_start_function
+          assert preserve_handle < partial_cleanup
+          assert "cannot remove failed QMI packet-data handle" in qmi_start_function
+          qmi_policy_test = Path("trunk/user/rc/src/tests/modem_wan_start_policy.c").read_text()
+          for policy_case in (
+              "test_qmi_stop_status_requires_success_before_cleanup",
+              "test_qmi_start_requires_command_success_and_valid_handle",
+              "test_qmi_handle_cleanup_distinguishes_missing_from_other_errors",
+              "test_qmi_handle_parser_rejects_partial_and_out_of_range_values",
+              "test_qmi_start_retry_is_blocked_when_session_may_exist",
+              "test_qmi_ambiguous_start_preserves_published_handle",
+              "test_qmi_start_preflight_reuses_cid_and_blocks_duplicate_pdh",
+          ):
+              assert policy_case in qmi_policy_test
+          wds_callback_start = wds_source.index("cmd_wds_start_network_cb(struct qmi_dev")
+          wds_callback_end = wds_source.index("cmd_wds_start_network_prepare(struct qmi_dev", wds_callback_start)
+          wds_callback = wds_source[wds_callback_start:wds_callback_end]
+          assert '#include "uqmi-status-file.h"' in wds_source
+          assert 'uqmi_status_file_write("/tmp/qmi-handle"' in wds_callback
+          assert wds_callback.index("uqmi_status_file_write(") < wds_callback.index('blobmsg_add_u32(&status, "handle"')
+          assert 'fopen("/tmp/qmi-handle"' not in wds_callback
+          assert "fprintf(fp" not in wds_callback and "fclose(fp)" not in wds_callback
+          assert "Failed to publish packet data handle" in wds_callback
+          qmi_stop_offset = modem.index("qmi_control_network(const char *control_node, int is_start)")
+          qmi_stop_end = modem.index("mbim_control_network(const char* control_node", qmi_stop_offset)
+          qmi_stop_function = modem[qmi_stop_offset:qmi_stop_end]
+          assert "modem_qmi_command_status(" in qmi_stop_function
+          assert "uqmi stop-network failed" in qmi_stop_function
+          assert "preserving QMI session state" in qmi_stop_function
+          assert qmi_stop_function.index("if (command_status != 0)") < qmi_stop_function.index("unlink(QMI_HANDLE_PDH)")
+          assert "modem_qmi_handle_file_unlink_status" in qmi_stop_function
+          assert "uqmi release-client-id failed" in qmi_stop_function
+          assert "preserving client ID for retry" in qmi_stop_function
+          assert "modem_qmi_client_id_is_valid(qmi_client_id)" in qmi_stop_function
+          assert "errno != ENOENT" in qmi_stop_function
+          assert qmi_stop_function.count("_eval(") == 2
+          print("QMI client ID and packet-data handle fail-closed contract: PASS")
+          PY
+
+      - name: Compile and run uqmi command queue allocation regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/uqmi \
+            trunk/user/uqmi/tests/command_queue.c \
+            -o /tmp/uqmi-command-queue
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/uqmi-command-queue

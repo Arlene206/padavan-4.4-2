@@ -1,0 +1,396 @@
+#ifndef RSTATS_FILE_POLICY_H
+#define RSTATS_FILE_POLICY_H
+
+#include <errno.h>
+#include <fcntl.h>
+#include <limits.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
+
+#define RSTATS_FILE_MAX_INTERRUPTS 8U
+
+static inline int
+rstats_file_retry_interrupted(unsigned int *interruptions)
+{
+  if (!interruptions) {
+    errno = EINVAL;
+    return -1;
+  }
+  if (*interruptions >= RSTATS_FILE_MAX_INTERRUPTS) {
+    errno = EINTR;
+    return -1;
+  }
+  ++*interruptions;
+  return 0;
+}
+
+typedef int (*rstats_file_open_fn)(const char *path, int flags,
+                                   void *context);
+
+static inline int
+rstats_file_open_readonly_with(const char *path, rstats_file_open_fn open_fn,
+                               void *context)
+{
+  unsigned int interruptions = 0;
+
+  if (!path || !*path || !open_fn) {
+    errno = EINVAL;
+    return -1;
+  }
+  for (;;) {
+    int fd = open_fn(path, O_RDONLY, context);
+
+    if (fd >= 0)
+      return fd;
+    if (errno != EINTR ||
+        rstats_file_retry_interrupted(&interruptions) != 0)
+      return -1;
+  }
+}
+
+static inline int
+rstats_file_system_open(const char *path, int flags, void *context)
+{
+  (void)context;
+  return open(path, flags);
+}
+
+static inline int
+rstats_file_open_readonly(const char *path)
+{
+  return rstats_file_open_readonly_with(path, rstats_file_system_open, NULL);
+}
+
+/*
+ * Read a complete record despite legal short reads or signal interruption.
+ * EOF before length bytes is returned as a short count so callers can reject
+ * a truncated persistent record without treating it as valid.
+ */
+typedef ssize_t (*rstats_file_read_fn)(int fd, void *buffer, size_t length,
+                                      void *context);
+
+static inline int
+rstats_file_read_exact_with(int fd, void *buffer, size_t length,
+                            rstats_file_read_fn read_fn, void *context)
+{
+  size_t total = 0;
+  unsigned int interruptions = 0;
+
+  if (fd < 0 || (!buffer && length != 0) || !read_fn) {
+    errno = EINVAL;
+    return -1;
+  }
+  if (length > (size_t)INT_MAX) {
+    errno = EOVERFLOW;
+    return -1;
+  }
+
+  while (total < length) {
+    ssize_t result = read_fn(fd, (char *)buffer + total, length - total,
+                             context);
+    if (result < 0) {
+      if (errno == EINTR &&
+          rstats_file_retry_interrupted(&interruptions) == 0)
+        continue;
+      return -1;
+    }
+    interruptions = 0;
+    if (result == 0)
+      break;
+    if ((size_t)result > length - total) {
+      errno = EIO;
+      return -1;
+    }
+    total += (size_t)result;
+  }
+
+  return (int)total;
+}
+
+static inline ssize_t
+rstats_file_system_read(int fd, void *buffer, size_t length, void *context)
+{
+  (void)context;
+  return read(fd, buffer, length);
+}
+
+static inline int
+rstats_file_read_exact(int fd, void *buffer, size_t length)
+{
+  return rstats_file_read_exact_with(fd, buffer, length,
+                                     rstats_file_system_read, NULL);
+}
+
+/*
+ * Preserve a data-read error over a later close error. A close-only failure
+ * invalidates an otherwise successful history read. Do not retry close after
+ * EINTR: on Linux the descriptor has already been released.
+ */
+static inline int
+rstats_file_read_close_result(int read_result, int read_errno,
+                              int close_result, int close_errno)
+{
+  if (read_result < 0) {
+    errno = read_errno > 0 ? read_errno : EIO;
+    return -1;
+  }
+  if (close_result != 0) {
+    errno = close_errno > 0 ? close_errno : EIO;
+    return -1;
+  }
+  return read_result;
+}
+
+struct rstats_file_ops {
+  int (*mkstemp_fn)(char *template_path);
+  int (*fchmod_fn)(int fd, mode_t mode);
+  ssize_t (*write_fn)(int fd, const void *buffer, size_t length);
+  int (*fsync_fn)(int fd);
+  int (*close_fn)(int fd);
+  int (*rename_fn)(const char *old_path, const char *new_path);
+  int (*unlink_fn)(const char *path);
+};
+
+static const struct rstats_file_ops rstats_file_system_ops = {
+  mkstemp, fchmod, write, fsync, close, rename, unlink
+};
+
+/*
+ * Match open(path, O_CREAT, 0666): mkstemp() starts at 0600, so explicitly
+ * apply the inherited umask instead of accidentally widening new files to
+ * world-writable 0666. RStats is single-threaded and calls this in normal
+ * context, never from its signal handler.
+ */
+static inline mode_t
+rstats_file_creation_mode(void)
+{
+  mode_t mask = umask(0);
+  (void)umask(mask);
+  return (mode_t)(0666 & ~mask);
+}
+
+static inline int
+rstats_file_fsync_retry(int fd, int (*fsync_fn)(int))
+{
+  unsigned int interruptions = 0;
+
+  if (!fsync_fn) {
+    errno = EINVAL;
+    return -1;
+  }
+  for (;;) {
+    int result = fsync_fn(fd);
+
+    if (result >= 0)
+      return result;
+    if (errno != EINTR ||
+        rstats_file_retry_interrupted(&interruptions) != 0)
+      return result;
+  }
+}
+
+/*
+ * Publish a complete replacement in the target directory. A failed write,
+ * sync, close or rename leaves the previous target untouched.
+ */
+static inline int
+rstats_file_write_atomic_with_ops(const char *path, const void *buffer,
+                                  size_t length,
+                                  const struct rstats_file_ops *ops)
+{
+  char temporary[PATH_MAX];
+  struct stat existing;
+  mode_t mode;
+  size_t written = 0;
+  unsigned int interruptions = 0;
+  int fd = -1;
+  int created = 0;
+  int saved_errno;
+  int count;
+
+  if (!path || !*path || (!buffer && length != 0)) {
+    errno = EINVAL;
+    return -1;
+  }
+  if (!ops)
+    ops = &rstats_file_system_ops;
+  if (!ops->mkstemp_fn || !ops->fchmod_fn || !ops->write_fn ||
+      !ops->fsync_fn || !ops->close_fn || !ops->rename_fn ||
+      !ops->unlink_fn) {
+    errno = EINVAL;
+    return -1;
+  }
+
+  mode = rstats_file_creation_mode();
+  if (lstat(path, &existing) == 0) {
+    if (!S_ISREG(existing.st_mode)) {
+      errno = EINVAL;
+      return -1;
+    }
+    mode = existing.st_mode & 0777;
+  } else if (errno != ENOENT) {
+    return -1;
+  }
+
+  count = snprintf(temporary, sizeof(temporary), "%s.tmp.XXXXXX", path);
+  if (count < 0 || (size_t) count >= sizeof(temporary)) {
+    errno = ENAMETOOLONG;
+    return -1;
+  }
+
+  fd = ops->mkstemp_fn(temporary);
+  if (fd < 0)
+    return -1;
+  created = 1;
+
+  if (ops->fchmod_fn(fd, mode) != 0)
+    goto fail;
+
+  while (written < length) {
+    ssize_t result = ops->write_fn(fd,
+        (const char *) buffer + written, length - written);
+    if (result < 0) {
+      if (errno == EINTR &&
+          rstats_file_retry_interrupted(&interruptions) == 0)
+        continue;
+      goto fail;
+    }
+    if (result == 0) {
+      errno = EIO;
+      goto fail;
+    }
+    interruptions = 0;
+    written += (size_t) result;
+  }
+
+  if (rstats_file_fsync_retry(fd, ops->fsync_fn) != 0)
+    goto fail;
+
+  if (ops->close_fn(fd) != 0) {
+    fd = -1; /* Linux closes the descriptor even when close reports EINTR. */
+    goto fail;
+  }
+  fd = -1;
+
+  if (ops->rename_fn(temporary, path) != 0)
+    goto fail;
+
+  return 0;
+
+fail:
+  saved_errno = errno ? errno : EIO;
+  if (fd >= 0)
+    (void) ops->close_fn(fd);
+  if (created)
+    (void) ops->unlink_fn(temporary);
+  errno = saved_errno;
+  return -1;
+}
+
+static inline int
+rstats_file_write_atomic(const char *path, const void *buffer, size_t length)
+{
+  return rstats_file_write_atomic_with_ops(path, buffer, length,
+                                           &rstats_file_system_ops);
+}
+
+/*
+ * Open a unique, same-directory stream staging file without following a
+ * predictable temporary pathname. Preserve the published file mode when it
+ * already exists; new files retain the daemon's historical 0666 mode.
+ */
+static inline FILE *
+rstats_file_open_stream(const char *target, char *temporary,
+                        size_t temporary_size)
+{
+  struct stat existing;
+  mode_t mode;
+  int fd;
+  int saved_errno;
+  int count;
+  FILE *stream;
+
+  if (!target || !*target || !temporary || temporary_size == 0) {
+    errno = EINVAL;
+    return NULL;
+  }
+
+  mode = rstats_file_creation_mode();
+  if (lstat(target, &existing) == 0) {
+    if (!S_ISREG(existing.st_mode)) {
+      errno = EINVAL;
+      return NULL;
+    }
+    mode = existing.st_mode & 0777;
+  } else if (errno != ENOENT) {
+    return NULL;
+  }
+
+  count = snprintf(temporary, temporary_size, "%s.tmp.XXXXXX", target);
+  if (count < 0 || (size_t) count >= temporary_size) {
+    errno = ENAMETOOLONG;
+    return NULL;
+  }
+
+  fd = mkstemp(temporary);
+  if (fd < 0)
+    return NULL;
+  if (fchmod(fd, mode) != 0)
+    goto fail;
+
+  stream = fdopen(fd, "w");
+  if (stream)
+    return stream;
+
+fail:
+  saved_errno = errno ? errno : EIO;
+  (void) close(fd);
+  (void) unlink(temporary);
+  errno = saved_errno;
+  return NULL;
+}
+
+/*
+ * Finish a stdio-generated staging file only after buffered output, fsync and
+ * close have succeeded. The caller must use a same-directory staging path.
+ */
+static inline int
+rstats_file_publish_stream(FILE *stream, const char *temporary,
+                           const char *target)
+{
+  int fd;
+  int saved_errno = 0;
+
+  if (!stream || !temporary || !*temporary || !target || !*target) {
+    errno = EINVAL;
+    return -1;
+  }
+
+  fd = fileno(stream);
+  if (fd < 0)
+    saved_errno = errno ? errno : EIO;
+  if (ferror(stream) && saved_errno == 0)
+    saved_errno = EIO;
+  if (fflush(stream) != 0 && saved_errno == 0)
+    saved_errno = errno ? errno : EIO;
+  if (saved_errno == 0 && rstats_file_fsync_retry(fd, fsync) != 0)
+    saved_errno = errno ? errno : EIO;
+  if (fclose(stream) != 0 && saved_errno == 0)
+    saved_errno = errno ? errno : EIO;
+
+  if (saved_errno == 0) {
+    if (rename(temporary, target) == 0)
+      return 0;
+    saved_errno = errno ? errno : EIO;
+  }
+
+  (void) unlink(temporary);
+  errno = saved_errno;
+  return -1;
+}
+
+#endif /* RSTATS_FILE_POLICY_H */

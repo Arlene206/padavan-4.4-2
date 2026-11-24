@@ -1,0 +1,490 @@
+#!/usr/bin/env python3
+"""Source and integration contracts for AliyunDrive WebDAV lifecycle safety."""
+
+from pathlib import Path
+import hashlib
+import json
+import re
+import struct
+import sys
+import tempfile
+
+ROOT = Path(__file__).resolve().parents[1]
+LAUNCHER_PATH = ROOT / "trunk/user/aliyundrive-webdav/aliyundrive-webdav.sh"
+TEST_PATH = ROOT / "trunk/user/aliyundrive-webdav/tests/aliyundrive_webdav_lifecycle.sh"
+PACKAGE_PATH = ROOT / "trunk/user/aliyundrive-webdav/Makefile"
+USER_MAKEFILE_PATH = ROOT / "trunk/user/Makefile"
+SERVICES_PATH = ROOT / "trunk/user/rc/src/services.c"
+RC_PATH = ROOT / "trunk/user/rc/src/rc.c"
+VARIABLES_PATH = ROOT / "trunk/user/httpd/src/variables.c"
+WEB_EX_PATH = ROOT / "trunk/user/httpd/src/web_ex.c"
+WORKFLOW_PATH = ROOT / ".github/workflows/aliyundrive-webdav-lifecycle.yml"
+BUSYBOX_CONFIG_PATH = ROOT / "trunk/configs/boards/busybox.config"
+FLOCK_SOURCE_PATH = ROOT / "trunk/user/busybox/busybox-1.24.x/util-linux/flock.c"
+DEV_INIT_PATH = ROOT / "trunk/user/scripts/files/sbin/dev_init.sh"
+DEV_INIT_TEST_PATH = ROOT / "trunk/user/scripts/tests/dev_init_boot_policy.sh"
+DEV_INIT_CHECKER_PATH = ROOT / "scripts/check_dev_init_boot.py"
+ARCH_CONFIG_PATH = ROOT / "trunk/config.arch"
+UCLIBC_CONFIG_PATH = ROOT / "trunk/configs/boards/uclibc-mipsel.config"
+BOARD_TEMPLATES_PATH = ROOT / "trunk/configs/templates"
+DAEMON_BINARY_PATH = ROOT / "trunk/user/aliyundrive-webdav/aliyundrive-webdav"
+
+launcher = LAUNCHER_PATH.read_text()
+test = TEST_PATH.read_text()
+package = PACKAGE_PATH.read_text()
+user_makefile = USER_MAKEFILE_PATH.read_text()
+services = SERVICES_PATH.read_text()
+rc_header = (ROOT / "trunk/user/rc/src/rc.h").read_text()
+rc = RC_PATH.read_text()
+variables = VARIABLES_PATH.read_text()
+web_ex = WEB_EX_PATH.read_text()
+workflow = WORKFLOW_PATH.read_text()
+binary_test = (ROOT / "scripts/test_aliyundrive_webdav_binary.py").read_text()
+busybox_config = BUSYBOX_CONFIG_PATH.read_text()
+def require(condition: bool, message: str) -> None:
+    if not condition:
+        raise SystemExit(f"AliyunDrive WebDAV lifecycle contract: FAIL: {message}")
+
+require("CONFIG_NC=y" in busybox_config, "BusyBox netcat applet must be enabled for local HTTP readiness probes")
+flock_source = FLOCK_SOURCE_PATH.read_text()
+dev_init = DEV_INIT_PATH.read_text()
+dev_init_test = DEV_INIT_TEST_PATH.read_text()
+dev_init_checker = DEV_INIT_CHECKER_PATH.read_text()
+arch_config = ARCH_CONFIG_PATH.read_text()
+uclibc_config = UCLIBC_CONFIG_PATH.read_text()
+daemon_binary = DAEMON_BINARY_PATH.read_bytes()
+daemon_sha256 = hashlib.sha256(daemon_binary).hexdigest()
+env_names = (b"REFRESH_TOKEN", b"WEBDAV_AUTH_USER", b"WEBDAV_AUTH_PASSWORD")
+capability_report_path = Path(tempfile.gettempdir()) / "padavan-aliyundrive-webdav-capability.json"
+try:
+    capability_report = json.loads(capability_report_path.read_text(encoding="utf-8"))
+except (OSError, json.JSONDecodeError):
+    capability_report = {}
+required_env_names = [name.decode("ascii") for name in env_names]
+reported_env_names = capability_report.get("credential_env", [])
+missing_env_names = [name for name in required_env_names if name not in reported_env_names]
+daemon_has_env_credentials = (
+    capability_report.get("binary_sha256") == daemon_sha256
+    and reported_env_names == required_env_names
+)
+daemon_elf = "unknown"
+daemon_elf_class = None
+daemon_elf_data = None
+daemon_elf_type = None
+daemon_elf_machine = None
+daemon_elf_flags = None
+daemon_elf_arch = "unknown"
+daemon_elf_abi = "unknown"
+daemon_elf_interpreter = "not found"
+if daemon_binary[:4] == bytes((0x7F, 0x45, 0x4C, 0x46)) and len(daemon_binary) >= 52:
+    daemon_elf_class = daemon_binary[4]
+    daemon_elf_data = daemon_binary[5]
+    byte_order = "<" if daemon_elf_data == 1 else ">"
+    elf_class_name = {1: "ELF32", 2: "ELF64"}.get(daemon_elf_class, "ELF?")
+    elf_data_name = {1: "little-endian", 2: "big-endian"}.get(daemon_elf_data, "unknown-endian")
+    if daemon_elf_class == 1 and daemon_elf_data in (1, 2):
+        daemon_elf_type, daemon_elf_machine = struct.unpack_from(f"{byte_order}HH", daemon_binary, 16)
+        daemon_elf_flags = struct.unpack_from(f"{byte_order}I", daemon_binary, 36)[0]
+        arch_code = daemon_elf_flags & 0xF0000000
+        daemon_elf_arch = {
+            0x00000000: "MIPS-I", 0x10000000: "MIPS-II",
+            0x20000000: "MIPS-III", 0x30000000: "MIPS-IV",
+            0x40000000: "MIPS-V", 0x50000000: "MIPS32",
+            0x60000000: "MIPS64", 0x70000000: "MIPS32R2",
+            0x80000000: "MIPS64R2", 0x90000000: "MIPS32R6",
+            0xA0000000: "MIPS64R6",
+        }.get(arch_code, f"MIPS-arch-flags-0x{arch_code:08x}")
+        abi_code = daemon_elf_flags & 0x0000F000
+        daemon_elf_abi = {
+            0x00000000: "unspecified", 0x00001000: "O32",
+            0x00002000: "O64", 0x00003000: "EABI32",
+            0x00004000: "EABI64",
+        }.get(abi_code, f"ABI-flags-0x{abi_code:04x}")
+        if daemon_elf_flags & 0x20:
+            daemon_elf_abi += "+ABI2"
+        phoff = struct.unpack_from(f"{byte_order}I", daemon_binary, 28)[0]
+        phentsize, phnum = struct.unpack_from(f"{byte_order}HH", daemon_binary, 42)
+        if phentsize >= 32 and phoff + phentsize * phnum <= len(daemon_binary):
+            for index in range(phnum):
+                phdr = phoff + index * phentsize
+                p_type = struct.unpack_from(f"{byte_order}I", daemon_binary, phdr)[0]
+                if p_type == 3:  # PT_INTERP
+                    p_offset = struct.unpack_from(f"{byte_order}I", daemon_binary, phdr + 4)[0]
+                    p_filesz = struct.unpack_from(f"{byte_order}I", daemon_binary, phdr + 16)[0]
+                    if p_offset + p_filesz <= len(daemon_binary):
+                        daemon_elf_interpreter = daemon_binary[p_offset:p_offset + p_filesz].split(bytes((0,)), 1)[0].decode("ascii", "replace")
+                    break
+    daemon_elf = (
+        f"{elf_class_name} {elf_data_name} e_machine={daemon_elf_machine} "
+        f"e_type={daemon_elf_type} e_flags={f'0x{daemon_elf_flags:08x}' if daemon_elf_flags is not None else 'unknown'} "
+        f"arch={daemon_elf_arch} abi={daemon_elf_abi} interpreter={daemon_elf_interpreter}"
+    )
+
+daemon_ascii_strings = [item.decode("ascii", "replace") for item in re.findall(rb"[\x20-\x7e]{4,}", daemon_binary)]
+daemon_relevant_strings = [
+    item for item in daemon_ascii_strings
+    if re.search(r"aliyundrive-webdav|refresh-token|auth-user|auth-password|domain-id|workdir|read-only|no-trash|version|WEBDAV_AUTH|REFRESH_TOKEN", item, re.IGNORECASE)
+][:60]
+
+board_templates = sorted(BOARD_TEMPLATES_PATH.glob("*.config"))
+board_template_settings = {}
+for config_path in board_templates:
+    config_text = config_path.read_text()
+    match = re.search(r"(?m)^CONFIG_FIRMWARE_INCLUDE_ALDRIVER=(y|n)$", config_text)
+    board_template_settings[config_path.stem] = match.group(1) if match else "unset"
+board_aldriver_enabled = sorted(name for name, value in board_template_settings.items() if value == "y")
+board_aldriver_disabled = sorted(name for name, value in board_template_settings.items() if value == "n")
+board_aldriver_unset = sorted(name for name, value in board_template_settings.items() if value == "unset")
+
+
+
+require(daemon_has_env_credentials,
+        "the QEMU --help capability report must match this exact binary SHA and advertise all three credential environment names")
+
+
+def function_body(source: str, signature: str) -> str:
+    start = source.find(signature)
+    require(start >= 0, f"missing function {signature}")
+    opening = source.find("{", start)
+    require(opening >= 0, f"missing opening brace for {signature}")
+    closing = source.find("\n}", opening + 1)
+    require(closing >= 0, f"missing closing brace for {signature}")
+    return source[opening + 1:closing]
+
+
+nvram_get = function_body(launcher, "ald_nvram_get() {")
+process_state = function_body(launcher, "ald_process_state() {")
+wait_stopped = function_body(launcher, "ald_wait_stopped() {")
+wait_started = function_body(launcher, "ald_wait_started() {")
+cleanup_failed_start = function_body(launcher, "ald_cleanup_failed_start() {")
+http_ready = function_body(launcher, "ald_http_ready() {")
+lock = function_body(launcher, "ald_run_locked() {")
+stop = function_body(launcher, "ald_kill_unlocked() {")
+start = function_body(launcher, "ald_start_unlocked() {")
+stop_wrapper = function_body(launcher, "stop_ald() {")
+require("ald_http_protocol=${ald_http_status_line%% *}" in http_ready and
+        "ald_http_status=${ald_http_status_line#* }" in http_ready and
+        "ald_http_status=${ald_http_status%% *}" in http_ready,
+        "HTTP readiness must expand the response status line in POSIX shell")
+
+require("HEAD / HTTP/1.0" in http_ready and
+        'nc -w 1 "$1" "$2"' in http_ready and
+        'HTTP/1.0|HTTP/1.1' in http_ready and
+        '2[0-9][0-9]|3[0-9][0-9]|401|403|404|405' in http_ready and
+        'ald_http_ready "$host" "$port"' in wait_started and
+        'ald_wait_started' in start,
+        "startup readiness must verify a bounded HTTP status response as well as the process")
+require("TEST_TERM_BEHAVIOR=stuck\nTEST_RUNNING=1\nTEST_ENABLE=1\nTEST_HTTP_MODE=unavailable" in test and
+        "TEST_TERM_BEHAVIOR=stuck\nTEST_RUNNING=1\nTEST_HTTP_MODE=delayed" in test,
+        "HTTP readiness fixtures must reset stop-test state before repeated process probes")
+require('TEST_PIDOF_MODE=normal' in test and
+        'TEST_EXE_IDENTITY_MODE=valid' in test and
+        'TEST_TERM_BEHAVIOR=immediate' in test and
+        'TEST_HTTP_MODE=server-error' in test and
+        'test_http_probe_count=$(wc -l < "$TEST_HTTP_LOG")' in test and
+        '[ "$test_http_probe_count" -lt 1 ]' in test and
+        '[ "$test_http_probe_count" -gt $((ALD_START_WAIT_SECONDS + 1)) ]' in test and
+        '[ "$TEST_SLEEP_COUNT" -ne "$ALD_START_WAIT_SECONDS" ]' in test and
+        '[ "$TEST_TERM_COUNT" -ne 1 ]' in test and
+        '[ "$TEST_KILL_COUNT" -ne 0 ]' in test and
+        '[ -e "$TEST_RUN_MARKER" ]' in test and
+        'FAIL: unready launched daemon cleanup probes=' in test,
+        "lifecycle regression must clean up a newly launched HTTP-unready daemon with bounded TERM and no KILL")
+require("TEST_HTTP_MODE=unavailable" in test and
+        "TEST_HTTP_MODE=delayed" in test and
+        "HTTP 503 was accepted as readiness" in test and
+        "ald_http_ready" in test,
+        "lifecycle regression must cover missing/delayed HTTP listeners and reject server errors")
+require('nvram get_checked "$1"' in nvram_get and
+        "NVRAM key read failed" in nvram_get and
+        "return 1" in nvram_get and
+        launcher.count('nvram get_checked "$1"') == 1 and
+        'nvram get "' not in launcher,
+        "AliyunDrive must route startup reads through one checked NVRAM adapter")
+
+nvram_keys = (
+    "aliyundrive_enable", "ald_host", "ald_port", "ald_refresh_token",
+    "ald_auth_user", "ald_auth_password", "ald_read_buffer_size",
+    "ald_cache_size", "ald_cache_ttl", "ald_root", "ald_domain_id",
+    "ald_no_trash", "ald_read_only",
+)
+require(all(f"ald_nvram_get {key}" in start for key in nvram_keys),
+        "every AliyunDrive startup setting must fail closed on NVRAM read errors")
+
+enable_cases = start.split('case "$enable" in', 1)[1].split("\n  esac", 1)[0]
+invalid_enable_branch = enable_cases.split("\n    *)\n", 1)[1].split("\n      ;;", 1)[0]
+require("1|on|true|yes|enabled)" in enable_cases and
+        "''|0|off|false|no|disabled|OFF|FALSE|NO|DISABLED)" in enable_cases and
+        "NVRAM enable selector is invalid; preserving current service" in invalid_enable_branch and
+        "return 1" in invalid_enable_branch and
+        "ald_kill_unlocked" not in invalid_enable_branch,
+        "only explicit disabled values may stop AliyunDrive; malformed selectors must preserve the existing service")
+require("TEST_ENABLE=unexpected" in test and
+        "FAIL: malformed enable selector stopped or relaunched the healthy daemon" in test,
+        "lifecycle regression must prove malformed enable values do not stop or relaunch a healthy daemon")
+require("for TEST_ENABLE in '' off false no disabled OFF FALSE NO DISABLED; do" in test and
+        "FAIL: explicit disabled selector" in test,
+        "lifecycle regression must preserve every documented explicit disabled selector")
+
+workdir = function_body(launcher, "ald_secure_workdir() {")
+
+require('-L "$ALD_WORK_DIR"' in workdir and
+        'stat -c %u "$ALD_WORK_DIR"' in workdir and 'id -u' in workdir and
+        'chmod 700 "$ALD_WORK_DIR"' in workdir and
+        '-L "$ald_token_file"' in workdir and
+        'stat -c %u "$ald_token_file"' in workdir and
+        'stat -c %h "$ald_token_file"' in workdir and
+        'chmod 600 "$ald_token_file"' in workdir and
+        'return 1' in workdir,
+        "refresh-token workdir must reject symlinks, foreign ownership and hardlinks, and enforce private modes")
+
+require('ald_secure_workdir || return 1' in start and
+        start.index('ald_secure_workdir') < start.index('"$ALD_BIN"') and
+        '--workdir "$ALD_WORK_DIR"' in start and
+        'umask 077' in start and 'RUST_LOG=aliyundrive_webdav=warn' in start and
+        'exec 9>&-' in start,
+        "daemon launch must protect token storage, suppress token-bearing INFO logs, and close inherited lifecycle lock")
+
+require('pidof "$NAME"' in process_state and
+        'case "$ald_pid_status" in' in process_state and
+        '[ -z "$ald_pid_output" ] && return 1' in process_state and
+        '[ -n "$ald_pid_output" ] || return 2' in process_state and
+        "stat -L -c '%d:%i' \"$ALD_BIN\"" in process_state and
+        "stat -L -c '%d:%i' \"/proc/$ald_pid/exe\"" in process_state and
+        '[ "$ald_actual_exe" = "$ald_expected_exe" ] || return 2' in process_state and
+        'return 2' in process_state,
+        "pidof candidates must be bound to the configured executable inode and UNKNOWN on mismatch/error")
+
+require("TEST_EXE_IDENTITY_MODE=impostor" in test and
+        "TEST_EXE_IDENTITY_MODE=inaccessible" in test and
+        "TEST_EXE_IDENTITY_MODE=malformed" in test and
+        "same-name process with a different executable" in test and
+        "executable mismatch caused a signal" in test,
+        "lifecycle regression must reject pidof name spoofing and unreadable/malformed executable identity")
+
+require('while [ "$ald_wait" -lt "$ALD_STOP_WAIT_SECONDS" ]; do' in wait_stopped and
+        'ald_process_state' in wait_stopped and 'sleep 1 || return 2' in wait_stopped and
+        'return 1' in wait_stopped and 'return 2' in wait_stopped,
+        "daemon stop polling must be bounded and propagate UNKNOWN/sleep failure")
+
+require('ald_process_state' in stop and 'killall "$NAME"' in stop and
+        'if ald_wait_stopped; then' in stop and 'killall -9 "$NAME"' in stop and
+        stop.index('killall "$NAME"') < stop.index('ald_wait_stopped') <
+        stop.index('killall -9 "$NAME"') < stop.rindex('ald_wait_stopped') and
+        'ald_process_state' in stop and 'TERM后进程状态未知' in stop and
+        'return 1' in stop,
+        "stop must block KILL on UNKNOWN and require a fresh validated name lookup before escalation")
+
+require('aliyundrive_process=' not in stop and
+        'kill -9 "$aliyundrive_process"' not in launcher and
+        'killall -9 "$NAME"' in stop,
+        "stop must never signal a cached PID that may have been reused")
+
+require('ald_process_state' in cleanup_failed_start and
+        'case "$ald_cleanup_state" in' in cleanup_failed_start and
+        '0)' in cleanup_failed_start and 'ald_kill_unlocked' in cleanup_failed_start and
+        '1) return 0 ;;' in cleanup_failed_start and
+        '启动失败后的进程状态未知，拒绝发送信号' in cleanup_failed_start and
+        'return 1' in cleanup_failed_start,
+        "failed startup cleanup must signal only a confirmed live process and preserve UNKNOWN")
+require('if [ "$ald_start_status" -eq 2 ]; then' in start and
+        'ald_cleanup_failed_start' in start and
+        start.index('ald_cleanup_failed_start') > start.rindex('ald_wait_started'),
+        "only a newly launched, known-unready daemon may enter bounded cleanup")
+require('ald_process_state' in start and
+        '无法确认进程状态，拒绝启动重复实例' in start and
+        start.index('ald_process_state') < start.index('refresh_token=') and
+        '跳过重复启动' in start,
+        "duplicate start must exit before reading credentials or launching another daemon")
+
+if daemon_has_env_credentials:
+    require('set -- -I' in start and
+            '"$ALD_BIN" "$@" --host "$host" --root "$root" -p "$port"' in start and
+            'REFRESH_TOKEN="$refresh_token"' in start and
+            'WEBDAV_AUTH_USER="$auth_user"' in start and
+            'WEBDAV_AUTH_PASSWORD="$auth_password"' in start and
+            '-r "$refresh_token"' not in start and
+            '-U "$auth_user"' not in start and
+            '-W "$auth_password"' not in start,
+            "a daemon with compiled env support must receive secrets through env, never argv")
+else:
+    require('-r "$refresh_token" -U "$auth_user" -W "$auth_password"' in start and
+            'REFRESH_TOKEN="$refresh_token"' not in start and
+            'WEBDAV_AUTH_USER="$auth_user"' not in start and
+            'WEBDAV_AUTH_PASSWORD="$auth_password"' not in start,
+            "do not pass unsupported credential environment variables to the bundled daemon")
+    print("WARNING: bundled daemon has no compiled credential environment interface; secrets remain in argv until a compatible binary is integrated.")
+
+require('-S "$read_buf_size" --cache-size "$cache_size"' in start and
+        '--cache-ttl "$cache_ttl" --workdir "$ALD_WORK_DIR"' in start,
+        "buffer/cache/workdir settings must retain their individually quoted argv values")
+
+require('set -- "$@" --domain-id "$domain_id"' in start and
+        'set -- "$@" --no-trash' in start and
+        'set -- "$@" --read-only' in start,
+        "domain and optional read-only/trash flags must retain the original option policy")
+
+
+require('while [ "$ald_wait" -lt "$ALD_START_WAIT_SECONDS" ]; do' in wait_started and
+        'ald_process_state' in wait_started and 'sleep 1 || return 2' in wait_started and
+        'return 1' in wait_started and 'return 2' in wait_started and
+        start.count('ald_wait_started') == 2 and
+        start.index('ald_wait_started') < start.index('"$ALD_BIN"') <
+        start.rindex('ald_wait_started'),
+        "start must wait a bounded interval and fail unless the daemon becomes observable")
+
+require('flock -n 9' in lock and 'flock -u 9' in lock and
+        'exec 9>>"$ALD_LOCK_FILE"' in lock and 'exec 9>&-' in lock and
+        'stat -c %u "$ald_lock_dir"' in lock and 'stat -c %a "$ald_lock_dir"' in lock and
+        'ald_lock_dir_mode_value & 0022' in lock and
+        'ald_lock_dir_mode_value & 01000' in lock and
+        'stat -c %h "$ALD_LOCK_FILE"' in lock and
+        '[ "$ald_lock_mode" != 600 ]' in lock and
+        'mkdir -p "$ald_lock_dir"' not in lock and
+        ': >> "$ALD_LOCK_FILE"' not in lock and
+        ('ALD_LOCK_FILE=' + chr(36) + '{ALD_LOCK_FILE:-/tmp/aliyundrive-webdav.lock}') in launcher and
+        ('ald_lock_dir=' + chr(36) + '{ALD_LOCK_FILE%/*}') in lock and
+        'required_lock_file /tmp/aliyundrive-webdav.lock || exit 1' in dev_init and
+        'required_lock_file "$tmpdir/aliyundrive-webdav.lock"' in dev_init_test and
+        'aliyundrive_lock_provision < normalized.index("mdev -s || exit 1")' in dev_init_checker and
+        'ald_run_locked ald_kill_unlocked' in launcher and
+        'ald_run_locked ald_start_unlocked' in launcher and
+        'ald_kill_unlocked' in start and
+        'rm -f "$ALD_LOCK_FILE"' not in lock,
+        "start/stop must use the pre-provisioned private lock inode and reject replaceable paths")
+
+require('CONFIG_STAT=y' in busybox_config and 'CONFIG_FEATURE_STAT_FORMAT=y' in busybox_config and
+        'CONFIG_ID=y' in busybox_config and 'CONFIG_CHMOD=y' in busybox_config and
+        'CONFIG_MKDIR=y' in busybox_config and 'CONFIG_FLOCK=y' in busybox_config and
+        'nonblock' in flock_source and 'unlock' in flock_source and
+        'OPT_n' in flock_source and 'OPT_u' in flock_source,
+        "target BusyBox must include flock with nonblocking and unlock support")
+
+require('exec 9>&-\n        RUST_LOG=aliyundrive_webdav=warn' in start and
+        '>/dev/null 2>&1 9>&-\n      ) &' in start,
+        "the background child must close the lifecycle lock before daemon exec")
+
+require('kill_ald' in stop_wrapper,
+        "the public stop action must propagate the checked kill_ald result")
+
+require('$(ROMFSINST) -p +x $(THISDIR)/aliyundrive-webdav.sh /usr/bin/aliyundrive-webdav.sh' in package and
+        '$(ROMFSINST) -p +x $(THISDIR)/aliyundrive-webdav /usr/bin/aliyundrive-webdav' in package and
+        'dir_$(CONFIG_FIRMWARE_INCLUDE_ALDRIVER)' in user_makefile,
+        "ROMFS package installation and firmware configuration gate must remain intact")
+
+stop_aldriver_body = function_body(services, "int stop_aldriver(void)")
+restart_aldriver_body = function_body(services, "int restart_aldriver(void)")
+stop_all = function_body(services, "stop_services(int stopall)")
+start_aldriver_body = function_body(services, "int start_aldriver(void)")
+require('return eval("/usr/bin/aliyundrive-webdav.sh","stop");' in stop_aldriver_body and
+        'return eval("/usr/bin/aliyundrive-webdav.sh","start");' in start_aldriver_body and
+        'int start_aldriver(void);' in rc_header and
+        "if (stop_status != 0)" in restart_aldriver_body and
+        restart_aldriver_body.index("if (stop_status != 0)") < restart_aldriver_body.index("return start_aldriver();") and
+        "return start_aldriver();" in restart_aldriver_body and
+        "return start_aldriver();" not in restart_aldriver_body[:restart_aldriver_body.index("if (stop_status != 0)")] and
+        'record_service_stop_status(&stop_status, "AliyunDrive WebDAV", stop_aldriver());' in stop_all and
+        "int stop_aldriver(void);" in rc_header,
+        "RC service wrapper must propagate checked stop status through restart, public declaration and shutdown aggregate")
+
+require('RCN_RESTART_ALDRIVER' in rc and
+        'rc_notify_merge_action_result(action_result, restart_aldriver())' in rc and
+        '#if defined(APP_ALDRIVER)' in rc,
+        "RC notification dispatch must merge AliyunDrive restart status")
+
+ald_fields = (
+    "aliyundrive_enable", "ald_refresh_token", "ald_auth_user",
+    "ald_auth_password", "ald_read_buffer_size", "ald_cache_size",
+    "ald_cache_ttl", "ald_host", "ald_port", "ald_root",
+    "ald_domain_id", "ald_no_trash", "ald_read_only",
+)
+require(all(field in variables for field in ald_fields) and
+        variables.count("EVM_RESTART_ALDRIVER") >= len(ald_fields) and
+        "notify_rc(events_desc[i].notify_cmd)" in web_ex,
+        "HTTPD settings must continue to notify RC when AliyunDrive configuration changes")
+
+for marker in (
+    "FAIL: NVRAM enable read failure stopped the existing daemon",
+    "FAIL: NVRAM read failure for",
+    "FAIL: NVRAM read failure allowed launch/workdir mutation",
+    "FAIL: pidof error was accepted as process absence during start",
+    "FAIL: pidof error was accepted as process absence during stop",
+    "FAIL: UNKNOWN after TERM triggered KILL",
+    "FAIL: sleep failure allowed KILL escalation",
+    "FAIL: graceful stop escalated or used a cached numeric PID",
+    "FAIL: bounded TERM/KILL/absence sequence is incorrect",
+    "FAIL: permanently running daemon was reported stopped",
+    "FAIL: duplicate start launched or stopped an existing daemon",
+    "FAIL: non-secret NVRAM values were split, globbed or reordered in daemon argv",
+    "FAIL: credentials and log filter were not passed as exact environment values",
+    "FAIL: a credential value leaked into daemon argv",
+    "FAIL: a symbolic-link lifecycle lock path was accepted",
+    "FAIL: a multiply-linked lifecycle lock was accepted",
+    "FAIL: a non-private lifecycle lock file was accepted",
+    "FAIL: a missing lifecycle lock path was recreated",
+    "FAIL: an insecure lifecycle lock directory was accepted",
+    "AliyunDrive WebDAV pre-provisioned private lifecycle lock regression: PASS",
+    "FAIL: lock contention allowed a lifecycle transition",
+    "FAIL: secure workdir creation failed",
+    "FAIL: existing workdir hardening failed",
+    "FAIL: existing token path was not reduced to private modes",
+    "FAIL: multiply-linked refresh-token file was accepted",
+    "FAIL: symlink workdir was accepted",
+    "FAIL: symlink refresh-token file was accepted",
+    "FAIL: daemon did not inherit the private workdir umask",
+    "FAIL: startup timeout was reported successful",
+    "AliyunDrive WebDAV private token workdir and umask regression: PASS",
+    "AliyunDrive WebDAV serialized lifecycle lock and startup readiness regression: PASS",
+    "AliyunDrive WebDAV bounded stop and process-name signaling regression: PASS",
+    "AliyunDrive WebDAV duplicate-start guard and argv integrity regression: PASS",
+):
+    require(marker in test, f"host regression missing case or result marker: {marker}")
+
+paths = [
+    "trunk/user/aliyundrive-webdav/aliyundrive-webdav",
+    ".github/workflows/aliyundrive-webdav-lifecycle.yml",
+    "scripts/check_aliyundrive_webdav_lifecycle.py",
+    "scripts/test_aliyundrive_webdav_binary.py",
+    "trunk/user/aliyundrive-webdav/aliyundrive-webdav.sh",
+    "trunk/user/aliyundrive-webdav/tests/aliyundrive_webdav_lifecycle.sh",
+    "trunk/user/aliyundrive-webdav/Makefile",
+    "trunk/user/Makefile",
+    "trunk/user/rc/src/services.c",
+    "trunk/user/rc/src/rc.h",
+    "trunk/user/rc/src/rc.c",
+    "trunk/user/httpd/src/variables.c",
+    "trunk/user/httpd/src/web_ex.c",
+    "trunk/configs/boards/busybox.config",
+    "trunk/user/busybox/busybox-1.24.x/util-linux/flock.c",
+    "trunk/user/scripts/files/sbin/dev_init.sh",
+    "trunk/user/scripts/tests/dev_init_boot_policy.sh",
+    "scripts/check_dev_init_boot.py",
+]
+push = workflow.split("  push:", 1)[1].split("  pull_request:", 1)[0]
+pull = workflow.split("  pull_request:", 1)[1].split("permissions:", 1)[0]
+for path in paths:
+    token = f'      - "{path}"'
+    require(push.count(token) == 1 and pull.count(token) == 1,
+            f"{path} must appear exactly once in push and pull_request path filters")
+
+require(daemon_elf_class == 1 and daemon_elf_data == 1 and daemon_elf_machine == 8,
+        "bundled daemon must be ELF32 little-endian MIPS for the Padavan toolchain")
+require("CPUFLAGS = -mips32r2 -march=mips32r2" in arch_config and "HOST_TARGET = mipsel-linux" in arch_config,
+        "firmware compiler target changed; re-evaluate bundled daemon compatibility")
+require('TARGET_ARCH="mips"' in uclibc_config and "TARGET_ARCH_BITS=32" in uclibc_config and "CONFIG_MIPS_O32_ABI=y" in uclibc_config and "ARCH_LITTLE_ENDIAN=y" in uclibc_config,
+        "uClibc target is no longer the expected MIPS O32 little-endian ABI")
+require(board_templates, "board template scan found no .config files")
+require("qemu-user" in workflow and "scripts/test_aliyundrive_webdav_binary.py" in workflow,
+        "workflow must install QEMU and run the bundled daemon CLI probe")
+for option in ("--version", "--help", "--domain-id", "--workdir", "--no-trash", "--read-only"):
+    require(option in binary_test, f"QEMU probe missing {option} coverage")
+require('f"[env: {name}=]"' in binary_test and "json.dumps(report" in binary_test
+        and "binary_sha256" in binary_test,
+        "QEMU probe must verify all credential env annotations and publish a SHA-bound capability report")
+print(f"AliyunDrive WebDAV bundled ELF: {daemon_elf}; size={len(daemon_binary)}; sha256={daemon_sha256}")
+print(f"AliyunDrive WebDAV credential env support (QEMU help, SHA-bound): {daemon_has_env_credentials}; missing={missing_env_names}")
+print(f"AliyunDrive WebDAV QEMU-verified CLI version: {capability_report.get('version', 'unavailable')}")
+print(f"AliyunDrive WebDAV board templates: total={len(board_templates)}; enabled={board_aldriver_enabled}; disabled={board_aldriver_disabled}; unset={board_aldriver_unset}")
+for item in daemon_relevant_strings:
+    print(f"  ELF string: {item[:180]}")
+print("AliyunDrive WebDAV bounded lifecycle, credential privacy and RC integration contracts: PASS")

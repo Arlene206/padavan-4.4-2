@@ -1,0 +1,345 @@
+name: WAN gateway ARP probe socket stability regression
+
+on:
+  push:
+    paths:
+      - ".github/workflows/detect-wan-arp-stability.yml"
+      - "trunk/user/rc/src/detect_wan.c"
+      - "trunk/user/rc/src/wan_nvram_status_policy.h"
+      - "trunk/user/rc/src/tests/wan_nvram_status_policy.c"
+      - "trunk/user/rc/src/detect_wan_arp_result_policy.h"
+      - "trunk/user/rc/src/tests/detect_wan_arp_result_policy.c"
+      - "trunk/user/rc/src/detect_wan_signal_policy.h"
+      - "trunk/user/rc/src/tests/detect_wan_signal_policy.c"
+      - "trunk/user/rc/src/detect_wan_arp_socket_policy.h"
+      - "trunk/user/rc/src/tests/detect_wan_arp_socket_policy.c"
+      - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/services.c"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/Makefile"
+      - "trunk/linux-4.4.x/net/core/sock.c"
+  pull_request:
+    paths:
+      - ".github/workflows/detect-wan-arp-stability.yml"
+      - "trunk/user/rc/src/detect_wan.c"
+      - "trunk/user/rc/src/wan_nvram_status_policy.h"
+      - "trunk/user/rc/src/tests/wan_nvram_status_policy.c"
+      - "trunk/user/rc/src/detect_wan_arp_result_policy.h"
+      - "trunk/user/rc/src/tests/detect_wan_arp_result_policy.c"
+      - "trunk/user/rc/src/detect_wan_signal_policy.h"
+      - "trunk/user/rc/src/tests/detect_wan_signal_policy.c"
+      - "trunk/user/rc/src/detect_wan_arp_socket_policy.h"
+      - "trunk/user/rc/src/tests/detect_wan_arp_socket_policy.c"
+      - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/services.c"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/Makefile"
+      - "trunk/linux-4.4.x/net/core/sock.c"
+
+permissions:
+  contents: read
+
+jobs:
+  detect-wan-arp-socket:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and run GNU89 ARP socket setup regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/detect_wan_arp_socket_policy.c \
+            -o /tmp/detect-wan-arp-socket-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/detect-wan-arp-socket-policy
+      - name: Compile and run GNU89 ARP probe local-error policy regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/detect_wan_arp_result_policy.c \
+            -o /tmp/detect-wan-arp-result-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/detect-wan-arp-result-policy
+      - name: Compile and run GNU89 checked NVRAM copy regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/wan_nvram_status_policy.c \
+            -o /tmp/wan-nvram-status-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/wan-nvram-status-policy
+      - name: Compile and run GNU89 signal deferral policy regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/detect_wan_signal_policy.c \
+            -o /tmp/detect-wan-signal-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/detect-wan-signal-policy
+      - name: Verify bounded receive and interface binding across the production call path
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          rc = Path("trunk/user/rc/src")
+          detect = (rc / "detect_wan.c").read_text()
+          policy = (rc / "detect_wan_arp_socket_policy.h").read_text()
+          test = (rc / "tests/detect_wan_arp_socket_policy.c").read_text()
+          signal_policy = (rc / "detect_wan_signal_policy.h").read_text()
+          signal_test = (rc / "tests/detect_wan_signal_policy.c").read_text()
+          probe_policy = (rc / "detect_wan_arp_result_policy.h").read_text()
+          probe_test = (rc / "tests/detect_wan_arp_result_policy.c").read_text()
+          nvram_status_test = (rc / "tests/wan_nvram_status_policy.c").read_text()
+          wan = (rc / "net_wan.c").read_text()
+          services = (rc / "services.c").read_text()
+          dispatcher = (rc / "rc.c").read_text()
+          makefile = (rc / "Makefile").read_text()
+          kernel = Path("trunk/linux-4.4.x/net/core/sock.c").read_text()
+          workflow = Path(".github/workflows/detect-wan-arp-stability.yml").read_text()
+
+          def body(source, signature):
+              start = source.index(signature)
+              brace = source.index("{", start)
+              depth = 0
+              for pos in range(brace, len(source)):
+                  if source[pos] == "{":
+                      depth += 1
+                  elif source[pos] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source[brace + 1:pos]
+              raise AssertionError("unterminated function: " + signature)
+
+          assert '#include "detect_wan_arp_socket_policy.h"' in detect
+          # SIGTERM handler must publish only a signal-safe stop request.
+          assert '#include "detect_wan_signal_policy.h"' in detect
+          assert "static volatile sig_atomic_t dw_stopping;" in detect
+          signal_handler = "".join(body(detect, "catch_sig_detect_wan(int sig)").split())
+          assert signal_handler == "detect_wan_record_signal(&dw_stopping,sig);"
+          assert "if (!stopping || signal_number != SIGTERM)" in signal_policy
+          assert "*stopping = 1;" in signal_policy
+          assert "test_sigterm_only_sets_sticky_stop_flag" in signal_test
+          wait_body = body(detect, "detect_wan_wait(unsigned int seconds)")
+          assert "while (seconds > 0 && !dw_stopping)" in wait_body
+          assert "sleep(1)" in wait_body
+          receive_body = body(detect, "arpping_gateway(int ap_mode)")
+          receive_at = receive_body.index("recvfrom(")
+          assert "if (dw_stopping)" in receive_body[:receive_at]
+          assert "if (dw_stopping)" in receive_body[receive_at:]
+          poll_body = body(detect, "poll_gateway(void)")
+          assert "while (!dw_stopping)" in poll_body
+          assert "while (count < MAX_ARP_RETRY && !dw_stopping)" in poll_body
+          renew_call = poll_body.index("renew_status = chk_udhcpc(ap_mode);")
+          assert poll_body.rfind("if (dw_stopping)", 0, renew_call) >= 0
+          assert "detect_wan_wait(20);" in poll_body
+          monitor_main = body(detect, "detect_wan_main(int argc, char *argv[])")
+          assert "sigaction(SIGTERM, &sa, NULL) < 0" in monitor_main
+          pidfile_publish = 'process_pidfile_write(DW_PID_FILE, "detect_wan")'
+          assert '#include "process_pidfile.h"' in detect
+          assert pidfile_publish in monitor_main
+          pidfile_guard = monitor_main.index("if (" + pidfile_publish + " < 0)")
+          pidfile_poll = monitor_main.index("result = poll_gateway();")
+          pidfile_failure = monitor_main[pidfile_guard:pidfile_poll]
+          assert pidfile_guard < pidfile_poll
+          assert "saved_errno = errno ? errno : EIO;" in pidfile_failure
+          assert 'logmessage("detect_wan", "cannot publish pid file (errno=%d)", saved_errno);' in pidfile_failure
+          assert "return saved_errno;" in pidfile_failure
+          assert "fopen(DW_PID_FILE" not in monitor_main
+          assert monitor_main.index("result = poll_gateway();") < monitor_main.index("remove(DW_PID_FILE)")
+          assert '#include "detect_wan_arp_result_policy.h"' in detect
+          assert "DETECT_WAN_ARP_PROBE_ERROR" in probe_policy
+          assert "detect_wan_arp_probe_result" in probe_policy
+          assert "detect_wan_local_ip4_status" in probe_policy
+          assert "EADDRNOTAVAIL" in probe_policy
+          assert "test_local_ipv4_lookup_errors_are_not_absent_addresses" in probe_test
+          assert "detect_wan_arp_should_renew" in probe_policy
+          assert "struct detect_wan_arp_reply" in probe_policy
+          assert "detect_wan_arp_reply_matches" in probe_policy
+          assert "detect_wan_arp_reply_source_hardware_valid" in probe_policy
+          assert "detect_wan_arp_reply_source_hardware_valid(reply->sender_hardware)" in probe_policy
+          assert "detect_wan_arp_parse_hardware_address" in probe_policy
+          assert "detect_wan_arp_hex_nibble" in probe_policy
+          assert "(parsed[0] & 0x01) != 0" in probe_policy
+          assert "all_zero || all_broadcast" in probe_policy
+          assert "reply->ethernet_protocol != htons(ETH_P_ARP)" in probe_policy
+          assert "reply->hardware_type != htons(ARPHRD_ETHER)" in probe_policy
+          assert "reply->protocol_type != htons(ETH_P_IP)" in probe_policy
+          assert "reply->hardware_length != 6 || reply->protocol_length != 4" in probe_policy
+          assert "reply->operation != htons(ARPOP_REPLY)" in probe_policy
+          assert "memcpy(&sender_address, reply->sender_protocol, sizeof(sender_address));" in probe_policy
+          assert "memcpy(&target_address, reply->target_protocol, sizeof(target_address));" in probe_policy
+          assert "memcmp(reply->ethernet_source, reply->sender_hardware, 6) == 0" in probe_policy
+          assert "memcmp(reply->ethernet_destination, local_hardware, 6) == 0" in probe_policy
+          assert "memcmp(reply->target_hardware, local_hardware, 6) == 0" in probe_policy
+          assert "test_arp_reply_requires_matching_l2_l3_tuple" in probe_test
+          assert "test_malformed_and_unrelated_arp_replies_are_rejected" in probe_test
+          assert "test_arp_reply_rejects_invalid_sender_hardware_address" in probe_test
+          assert "test_probe_result_keeps_local_errors_distinct" in probe_test
+          assert "test_dhcp_renew_requires_three_real_no_reply_probes" in probe_test
+          assert "test_arp_source_hardware_address_requires_colon_hex" in probe_test
+          assert "test_invalid_arp_source_hardware_address_is_rejected_transactionally" in probe_test
+          assert '"00:00:00:00:00:00"' in probe_test
+          assert '"ff:ff:ff:ff:ff:ff"' in probe_test
+          assert '"01:00:5e:00:00:01"' in probe_test
+          assert '#include "wan_nvram_status_policy.h"' in detect
+          checked_callback = body(detect, "detect_wan_nvram_get_checked(void *context, const char *param_name,")
+          assert "nvram_get_checked(param_name, value)" in checked_callback
+          wan_ip_reader = body(wan, "get_wan_ip4(int only_broadband_wan)")
+          ap_mode_check = wan_ip_reader.index("status = get_ap_mode_status(&is_ap_mode);")
+          ap_mode_failure = wan_ip_reader.index("errno = status;", ap_mode_check)
+          assert ap_mode_check < ap_mode_failure
+          assert "if (status != 0)" in wan_ip_reader
+
+          chk = body(detect, "chk_udhcpc(int ap_mode)")
+          ip_reset = chk.index("errno = 0;")
+          ip_capture = chk.index("ip_lookup_errno = errno;", ip_reset)
+          ip_policy = chk.index("detect_wan_local_ip4_status(ip, ip_lookup_errno)", ip_capture)
+          ip_absent = chk.index("if (ip == INADDR_ANY)", ip_policy)
+          assert ip_reset < ip_capture < ip_policy < ip_absent
+          assert "cannot read local IPv4 address before DHCP health check" in chk
+          chk_compact = "".join(chk.split())
+          assert chk.rstrip().endswith("return 0;")
+          assert "char gateway_storage[16];" in chk
+          assert "get_wan_unit_proto_checked_status(0,&wan_proto)" in chk_compact
+          assert 'rc_wan_nvram_copy_value(detect_wan_nvram_get_checked,NULL,"lan_gateway_t",gateway_storage,sizeof(gateway_storage))' in chk_compact
+          assert 'get_wan_unit_value_copy_status(0,"gateway",gateway_storage,sizeof(gateway_storage))' in chk_compact
+          assert 'nvram_safe_get("lan_gateway_t")' not in chk
+          assert 'get_wan_unit_value(0,"gateway")' not in chk_compact
+          assert chk_compact.index("get_wan_unit_proto_checked_status(0,&wan_proto)") < chk_compact.index('get_wan_unit_value_copy_status(0,"gateway"') < chk_compact.index("process_inventory_scan(")
+          assert "test_gateway_arp_identity_snapshots_survive_cache_reuse" in nvram_status_test
+          arp_probe = body(detect, "arpping_gateway(int ap_mode)")
+          arp_ip_reset = arp_probe.index("errno = 0;")
+          arp_ip_capture = arp_probe.index("ip_lookup_errno = errno;", arp_ip_reset)
+          arp_ip_policy = arp_probe.index("detect_wan_local_ip4_status(ip, ip_lookup_errno)", arp_ip_capture)
+          arp_config_failure = arp_probe.index("if (config_status != 0)")
+          arp_ip_failure = arp_probe.index("if (ip_lookup_status != 0)", arp_ip_policy)
+          arp_no_address = arp_probe.index("if (gateway_ip == INADDR_ANY || ip == INADDR_ANY", arp_ip_failure)
+          assert arp_ip_reset < arp_ip_capture < arp_ip_policy < arp_ip_failure < arp_no_address
+          assert "detect_wan_arp_probe_result(0, ip_lookup_status)" in arp_probe
+          assert arp_config_failure < arp_ip_failure
+          assert "errno == EINTR" in arp_probe
+          assert "errno == EAGAIN || errno == EWOULDBLOCK" in arp_probe
+          assert "probe_errno = errno ? errno : EIO;" in arp_probe
+          assert "if (close(s) < 0 && probe_errno == 0)" in arp_probe
+          assert "return detect_wan_arp_probe_result(rv, probe_errno);" in arp_probe
+          assert "detect_wan_arp_reply_matches(&arp_reply, mac, gateway_ip, ip)" in arp_probe
+          assert "detect_wan_arp_parse_hardware_address(" in arp_probe
+          assert "invalid local hardware address for gateway ARP probe" in arp_probe
+          assert "strtol(" not in arp_probe
+          assert "strncpy(tmp" not in arp_probe
+          arp_compact = "".join(arp_probe.split())
+          assert "char gateway_storage[16];" in arp_probe
+          assert "char hardware_address_storage[18];" in arp_probe
+          assert "char interface_storage[IFNAMSIZ];" in arp_probe
+          assert 'get_wan_unit_value_copy_status(0,"ifname",interface_storage,sizeof(interface_storage))' in arp_compact
+          assert "get_man_ifname(0)" not in arp_probe
+          assert "detect_wan_arp_socket_device_name_prepare(" in arp_probe
+          assert 'rc_wan_nvram_copy_text(IFNAME_BR,interface_storage,sizeof(interface_storage))' in arp_compact
+          assert 'get_wan_unit_value_copy_status(0,"gateway",gateway_storage,sizeof(gateway_storage))' in arp_compact
+          assert 'get_wan_unit_value_copy_status(0,"hwaddr",hardware_address_storage,sizeof(hardware_address_storage))' in arp_compact
+          assert 'rc_wan_nvram_copy_value(detect_wan_nvram_get_checked,NULL,"lan_gateway_t",gateway_storage,sizeof(gateway_storage))' in arp_compact
+          assert 'rc_wan_nvram_copy_value(detect_wan_nvram_get_checked,NULL,"lan_hwaddr",hardware_address_storage,sizeof(hardware_address_storage))' in arp_compact
+          assert "config_status!=0" in arp_compact
+          assert "returndetect_wan_arp_probe_result(0,config_status);" in arp_compact
+          mac_parse = arp_compact.index(
+              "config_status=detect_wan_arp_parse_hardware_address(hardware_address_storage,mac);")
+          mac_error = arp_compact.index("if(config_status!=0)", mac_parse)
+          no_probe = arp_compact.index(
+              "if(gateway_ip==INADDR_ANY||ip==INADDR_ANY||gateway_ip==ip)")
+          device_name_prepare = arp_compact.index(
+              "detect_wan_arp_socket_device_name_prepare(interface_storage,&ifr,&addr)")
+          socket_create = arp_compact.index(
+              "s=socket(PF_PACKET,SOCK_PACKET,htons(ETH_P_ARP));")
+          assert no_probe < mac_parse < mac_error < device_name_prepare < socket_create
+          assert "nvram_safe_get(" not in arp_probe
+          assert "get_wan_unit_value(" not in arp_probe
+          assert "arp_reply.ethernet_source = arp.h_source;" in arp_probe
+          assert "arp_reply.ethernet_destination = arp.h_dest;" in arp_probe
+          assert "arp_reply.sender_hardware = arp.sHaddr;" in arp_probe
+          assert "arp_reply.target_protocol = arp.tInaddr;" in arp_probe
+          assert "((uint32_t *) arp.sInaddr)" not in arp_probe
+          assert "return 0;" not in arp_probe
+          poll_body = body(detect, "poll_gateway(void)")
+          assert "probe_count++;" in poll_body
+          assert "probe_status == DETECT_WAN_ARP_PROBE_ERROR" in poll_body
+          assert "probe_error = errno > 0 ? errno : EIO;" in poll_body
+          renew_gate = poll_body.index("detect_wan_arp_should_renew(")
+          renew_call = poll_body.index("renew_status = chk_udhcpc(ap_mode);")
+          assert renew_gate < renew_call
+          assert "probe_count, MAX_ARP_RETRY" in poll_body
+          assert "detect_wan_arp_socket_prepare(s, &ifr, &arp_timeout, setsockopt)" in arp_probe
+
+          prepare = body(policy, "detect_wan_arp_socket_prepare(")
+          device_name = body(policy, "detect_wan_arp_socket_device_name_prepare(")
+          assert "sizeof(interface_request->ifr_name)" in device_name
+          assert "sizeof(packet_address->sa_data)" in device_name
+          assert "errno = ENODEV;" in device_name
+          assert "errno = ENAMETOOLONG;" in device_name
+          assert "memcpy(interface_request->ifr_name, interface_name, length + 1);" in device_name
+          assert "memcpy(packet_address->sa_data, interface_name, length + 1);" in device_name
+          assert "memchr(interface_request->ifr_name, '\\0'," in policy
+          assert "test_device_name_is_bounded_and_copied_without_truncation" in test
+          assert "test_invalid_device_names_fail_without_partial_output" in test
+          prepare = body(policy, "detect_wan_arp_socket_prepare(")
+          bind_step = prepare.index("SO_BINDTODEVICE")
+          timeout_step = prepare.index("SO_RCVTIMEO")
+          assert bind_step < timeout_step
+          assert prepare.index("return -1;", bind_step) < timeout_step
+          assert prepare.index("return -1;", timeout_step) > timeout_step
+          assert "sizeof(*interface_request)" in prepare
+          assert "sizeof(*receive_timeout)" in prepare
+          assert "errno = EINVAL;" in prepare
+          assert "test_bind_failure_prevents_timeout_setup" in test
+          assert "test_timeout_failure_is_reported" in test
+          assert "test_success_installs_both_prerequisites" in test
+          assert "test_invalid_arguments_fail_without_syscalls" in test
+          assert "test_invalid_arguments_fail_without_syscalls" in test
+          assert "SO_RCVTIMEO" in test and "SO_BINDTODEVICE" in test
+
+          # Linux 4.4 binds the socket's ingress device and applies SO_RCVTIMEO
+          # through the checked kernel socket-option dispatch.
+          setsock = body(kernel, "int sock_setsockopt(struct socket *sock, int level, int optname,")
+          bind_device = body(kernel, "sock_setbindtodevice(struct sock *sk,")
+          assert "if (optname == SO_BINDTODEVICE)" in setsock
+          assert "return sock_setbindtodevice(sk, optval, optlen);" in setsock
+          assert "ret = -ENODEV;" in bind_device and "if (!dev)" in bind_device
+          assert "sk->sk_bound_dev_if = index;" in bind_device
+          assert "case SO_RCVTIMEO:" in setsock
+          assert "sock_set_timeout(&sk->sk_rcvtimeo, optval, optlen);" in setsock
+
+          poll = body(detect, "poll_gateway(void)")
+          assert "detect_wan_arp_should_renew(" in poll
+          assert "probe_count, MAX_ARP_RETRY" in poll
+          assert "probe_status == DETECT_WAN_ARP_PROBE_ERROR" in poll
+          assert 'gateway_arp_status = get_nvram_match_checked_status(' in wan
+          assert '"gw_arp_ping", "1", &gateway_arp_enabled' in wan
+          assert 'nvram_match("gw_arp_ping", "1")' not in wan
+          assert 'eval("detect_wan");' in wan
+          assert '"detect_wan"' in body(services, "stop_misc(void)")
+          assert any('"detect_wan"' in line and 'detect_wan_main' in line for line in dispatcher.splitlines())
+          assert "detect_wan.o" in makefile
+
+          paths = (
+              ".github/workflows/detect-wan-arp-stability.yml",
+              "trunk/user/rc/src/detect_wan.c",
+              "trunk/user/rc/src/detect_wan_arp_result_policy.h",
+              "trunk/user/rc/src/tests/detect_wan_arp_result_policy.c",
+              "trunk/user/rc/src/detect_wan_signal_policy.h",
+              "trunk/user/rc/src/tests/detect_wan_signal_policy.c",
+              "trunk/user/rc/src/detect_wan_arp_socket_policy.h",
+              "trunk/user/rc/src/tests/detect_wan_arp_socket_policy.c",
+              "trunk/user/rc/src/net_wan.c",
+              "trunk/user/rc/src/services.c",
+              "trunk/user/rc/src/rc.c",
+              "trunk/user/rc/src/Makefile",
+              "trunk/linux-4.4.x/net/core/sock.c",
+          )
+          filters = workflow.split("jobs:", 1)[0]
+          push_filters, pr_filters = filters.split("  pull_request:", 1)
+          for path in paths:
+              assert push_filters.count(path) == 1, f"push path missing/duplicated: {path}"
+              assert pr_filters.count(path) == 1, f"pull_request path missing/duplicated: {path}"
+          assert "Compile and run GNU89 signal deferral policy regression" in workflow
+          assert "Compile and run GNU89 ARP probe local-error policy regression" in workflow
+          print("WAN gateway ARP reply identity/error/renewal fail-closed contract: PASS")
+          PY

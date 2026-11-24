@@ -1,0 +1,89 @@
+name: WAN sysfs byte-counter status regression
+
+on:
+  push:
+    paths:
+      - "trunk/user/shared/src/netutils.c"
+      - "trunk/user/shared/src/netutils.h"
+      - "trunk/user/shared/src/net_ifstats_policy.h"
+      - "trunk/user/shared/src/tests/net_ifstats_policy.c"
+      - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/httpd/src/web_ex.c"
+      - "trunk/user/www/n56u_ribbon_fixed/device-map/internet.asp"
+      - ".github/workflows/net-ifstats-stability.yml"
+  pull_request:
+    paths:
+      - "trunk/user/shared/src/netutils.c"
+      - "trunk/user/shared/src/netutils.h"
+      - "trunk/user/shared/src/net_ifstats_policy.h"
+      - "trunk/user/shared/src/tests/net_ifstats_policy.c"
+      - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/httpd/src/web_ex.c"
+      - "trunk/user/www/n56u_ribbon_fixed/device-map/internet.asp"
+      - ".github/workflows/net-ifstats-stability.yml"
+
+jobs:
+  wan-counter-status:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and run net_ifstats policy regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer \
+            -I trunk/user/shared/src \
+            trunk/user/shared/src/tests/net_ifstats_policy.c \
+            -o /tmp/net-ifstats-policy
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 \
+            /tmp/net-ifstats-policy
+      - name: Verify counter read errors reach WAN UI
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          shared = Path("trunk/user/shared/src")
+          netutils = (shared / "netutils.c").read_text()
+          header = (shared / "netutils.h").read_text()
+          policy = (shared / "net_ifstats_policy.h").read_text()
+          tests = (shared / "tests/net_ifstats_policy.c").read_text()
+          wan = Path("trunk/user/rc/src/net_wan.c").read_text()
+          web = Path("trunk/user/httpd/src/web_ex.c").read_text()
+          page = Path("trunk/user/www/n56u_ribbon_fixed/device-map/internet.asp").read_text()
+
+          assert "get_ifstats_counter_status(" in netutils
+          assert 'fopen(cnt_path, "r")' in netutils
+          assert "fgets(cnt_data" in netutils and "ferror(fp)" in netutils
+          assert "net_ifstats_parse_counter(" in netutils
+          assert "fclose(fp)" in netutils
+          assert "net_ifstats_pair_result(" in netutils
+          assert netutils.count('get_ifstats_counter_status(ifname, "rx_bytes"') == 2  # checked pair + legacy scalar wrapper
+          assert netutils.count('get_ifstats_counter_status(ifname, "tx_bytes"') == 2  # checked pair + legacy scalar wrapper
+          assert "get_ifstats_bytes_status" in header
+          assert "net_ifstats_pair_result" in policy
+          assert "test_counter_pair_result" in tests
+          assert "net_ifstats_pair_result(EIO, 0, &rx, &tx)" in tests
+          assert "net_ifstats_pair_result(0, ENOENT, &rx, &tx)" in tests
+
+          baseline_call = wan.index("get_ifstats_bytes_status(")
+          assert "get_ifstats_bytes_rx(" not in wan
+          assert "get_ifstats_bytes_tx(" not in wan
+          baseline_gate = wan.index("if (ifstats_status == 0)", baseline_call)
+          baseline_publish = wan.index('set_wan_unit_value(unit, "bytes_rx"', baseline_gate)
+          assert baseline_call < baseline_gate < baseline_publish
+          assert "preserving prior baseline" in wan
+
+          assert web.count("get_ifstats_bytes_status(") == 4
+          assert "get_ifstats_bytes_rx(" not in web
+          assert "get_ifstats_bytes_tx(" not in web
+          assert "wan_bytes_status = -1;" in web
+          assert 'function wanlink_bytes_status() { return %d;}' in web
+          assert "wan_bytes_status == 1" in web
+
+          assert "function fill_wan_bytes(rx,tx,status,now)" in page
+          assert "if (status === 0)" in page and "N/A" in page
+          assert "if (status > 0)" in page
+          assert "wanlink_bytes_status()" in page
+          assert "fill_wan_bytes(wanlink_bytes_rx(), wanlink_bytes_tx(), wanlink_bytes_status(), now)" in page
+          print("WAN sysfs counter read status propagation: PASS")
+          PY

@@ -1,0 +1,294 @@
+name: WAN interface teardown stability regression
+
+on:
+  push:
+    paths:
+      - ".github/workflows/wan-teardown-stability.yml"
+      - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/net_lan6.c"
+      - "trunk/user/rc/src/usb_modem.c"
+      - "trunk/user/rc/src/wan_teardown_policy.h"
+      - "trunk/user/rc/src/wan_deferred_reconnect_policy.h"
+      - "trunk/user/rc/src/tests/wan_deferred_reconnect_policy.c"
+      - "trunk/user/rc/src/lan_addr6_reload_policy.h"
+      - "trunk/user/rc/src/tests/lan_addr6_reload_policy.c"
+      - "trunk/user/rc/src/tests/wan_teardown_policy.c"
+  pull_request:
+    paths:
+      - ".github/workflows/wan-teardown-stability.yml"
+      - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/net_lan6.c"
+      - "trunk/user/rc/src/usb_modem.c"
+      - "trunk/user/rc/src/wan_teardown_policy.h"
+      - "trunk/user/rc/src/wan_deferred_reconnect_policy.h"
+      - "trunk/user/rc/src/tests/wan_deferred_reconnect_policy.c"
+      - "trunk/user/rc/src/lan_addr6_reload_policy.h"
+      - "trunk/user/rc/src/tests/lan_addr6_reload_policy.c"
+      - "trunk/user/rc/src/tests/wan_teardown_policy.c"
+
+jobs:
+  wan-interface-teardown:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and verify WAN interface teardown status propagation
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/wan_teardown_policy.c \
+            -o /tmp/wan-teardown-policy
+          /tmp/wan-teardown-policy
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/wan_deferred_reconnect_policy.c \
+            -o /tmp/wan-deferred-reconnect-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/wan-deferred-reconnect-policy
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/lan_addr6_reload_policy.c \
+            -o /tmp/lan-addr6-reload-policy
+          /tmp/lan-addr6-reload-policy
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path(".")
+          rc = root / "trunk/user/rc/src"
+          source = (rc / "net_wan.c").read_text()
+          lan6 = (rc / "net_lan6.c").read_text()
+          lan6_policy = (rc / "lan_addr6_reload_policy.h").read_text()
+          wan_teardown_policy = (rc / "wan_teardown_policy.h").read_text()
+          teardown_test = (rc / "tests/wan_teardown_policy.c").read_text()
+          workflow = Path(".github/workflows/wan-teardown-stability.yml").read_text()
+
+          def function_body(text, signature):
+              start = text.index(signature)
+              brace = text.index("{", start)
+              depth = 0
+              for pos in range(brace, len(text)):
+                  if text[pos] == "{":
+                      depth += 1
+                  elif text[pos] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return text[brace + 1:pos]
+              raise AssertionError(f"unterminated function: {signature}")
+
+          assert '#include "wan_teardown_policy.h"' in source
+          assert "rc_lan_addr6_format_prefix" in lan6_policy
+          reset_lan6 = function_body(lan6, "reset_lan6_vars(void)")
+          reload_lan6 = function_body(lan6, "reload_lan_addr6(void)")
+          lan6_prefix = function_body(lan6, "get_lan_addr6_prefix(char *p_addr6s)")
+          assert "rc_lan_addr6_format_prefix(" in reset_lan6
+          assert "snapshot.prefix_size" in reset_lan6
+          assert "lan6_read_reset_snapshot(ipv6_type, &snapshot)" in reset_lan6
+          assert reset_lan6.index("if (status != 0)") < reset_lan6.index('nvram_set_temp("lan_addr6", addr6s)')
+          assert 'lan6_read_config_value_status(\n\t\t"lan_addr6"' in reload_lan6
+          assert "rc_lan_addr6_reload_from_snapshot(" in reload_lan6
+          assert "rc_lan_addr6_reload_from_snapshot(" in lan6_policy
+          assert "rc_lan_addr6_format_prefix(addr6_text, 64, p_addr6s" in lan6_prefix
+          assert 'lan6_read_config_value_status(\n\t\t"lan_addr6"' in lan6_prefix
+          assert 'sprintf(addr6s, "%s/%d", addr6s' not in reset_lan6
+          assert 'sprintf(p_addr6s, "%s/%d", p_addr6s' not in lan6_prefix
+          assert "test_ipv6_prefix_format_is_bounded_and_non_overlapping" in (
+              (rc / "tests/lan_addr6_reload_policy.c").read_text())
+
+          adapter = function_body(
+              source,
+              "wan_teardown_ifdown_interface(void *context, const char *ifname)")
+          assert 'ret = ifconfig(ifname, 0, "0.0.0.0", NULL);' in adapter
+          assert adapter.index("if (ret == ENODEV)") < adapter.index("return 0;")
+          assert adapter.index("if (ret != 0)") < adapter.index('logmessage(')
+          assert adapter.index('logmessage(') < adapter.rindex("return ret;")
+
+          stop = function_body(source, "stop_wan_locked(void)")
+          wan_daemons = stop.split("char* svcs_wan[]", 1)[1].split("};", 1)[0]
+          for daemon in ("igmpproxy", "xupnpd", "udpxy", "msd_lite"):
+              assert f'"{daemon}"' in wan_daemons, f"WAN teardown omits {daemon}"
+          usb_modem = (rc / "usb_modem.c").read_text()
+          usbnet_stop = function_body(usb_modem, "int\nstop_wan_usbnet(void)")
+          dhcp_client_gate = 'kill_services_with_pidfiles(NULL, udhcpc_pidfiles, "udhcpc", 0, 30, 0)'
+          wan_daemon_gate = "kill_services(svcs_wan, 3, 1)"
+          teardown = "ifdown_status = wan_teardown_ifdown_interfaces("
+          failure_gate = "stop_status = wan_teardown_first_error_status("
+          modem_type_read = "modem_status = get_wan_modem_is_ndis_status(&is_ndis_modem);"
+          usbnet_gate = "if (is_usb_modem && is_ndis_modem)"
+          identity_read = "modem_status = get_usb_modem_wan_status(unit, &is_usb_modem);"
+          identity_error = "if (modem_status != 0)"
+          assert identity_read in stop and identity_error in stop
+          assert "return modem_status;" in stop
+          assert modem_type_read in stop
+          transport_read = 'ifname_status = get_wan_unit_value_copy_status(\n\t\tunit, "ifname_t"'
+          transport_select = "ifname_status = wan_teardown_select_interfaces("
+          assert transport_read in stop and transport_select in stop
+          assert "wan_ifname_copy(\n\t\t\twan_ifname_temp" in stop
+          assert "manual_ifname_is_current_wan" in stop
+          assert 'get_wan_unit_value(unit, "ifname_t")' not in stop
+          assert stop.index(identity_read) < stop.index(identity_error) < stop.index("return modem_status;")
+          assert stop.index("return modem_status;") < stop.index(modem_type_read)
+          assert stop.index(modem_type_read) < stop.index(transport_read) < stop.index(transport_select)
+          assert stop.index(transport_select) < stop.index("pause_status = notify_pause_detect_internet();")
+          assert 'nvram_get_int("modem_type")' not in stop
+          assert "stop_status = stop_wan_usbnet();" in stop
+          assert stop.index("stop_status = stop_wan_usbnet();") < stop.index(teardown)
+          interface_select = function_body(wan_teardown_policy, "wan_teardown_select_interfaces(")
+          assert "*management_uses_transport = 0;" in interface_select
+          assert "*usbnet_ifname = NULL;" in interface_select
+          assert "if (snapshot_status != 0)" in interface_select
+          assert "test_transport_interface_snapshot_fails_closed_and_selects_targets" in teardown_test
+          assert "control_required = 0;" in usbnet_stop
+          assert "ndis_control_network(ndis_ifname, modem_devnum, 0, &control_required)" in " ".join(usbnet_stop.split())
+          assert "modem_ndis_control_failed(control_required, control_status)" in usbnet_stop
+          assert "ifdown_status != ENODEV" in usbnet_stop
+          assert "return result;" in usbnet_stop
+          assert stop.index(dhcp_client_gate) < stop.index(wan_daemon_gate) < stop.index("stop_status = stop_wan_usbnet();") < stop.index(teardown)
+          teardown_path = stop[stop.index(teardown):stop.index("remove_cb_links();")]
+          assert "usbnet_ifname" in teardown_path
+          assert stop.index(teardown) < stop.index("remove_cb_links();")
+          assert "callback_cleanup_status = remove_cb_links();" in stop
+          assert "callbacks=%d" in stop
+          assert stop.index("remove_cb_links();") < stop.index(failure_gate)
+          failure_path = stop[stop.index(failure_gate):]
+          assert failure_path.index("goto abort_resume_detect;") < failure_path.index("clear_wan_state_status();")
+          assert "resume_status = notify_run_detect_internet(2);" in failure_path
+          assert "Internet monitor resume failed after aborted WAN teardown" in failure_path
+          assert "return wan_teardown_abort_status(stop_status, resume_status);" in failure_path
+          clear_state = stop.index("stop_status = clear_wan_state_status();")
+          clear_failure = stop.index("if (stop_status != 0)", clear_state)
+          assert clear_state < clear_failure < stop.index("control_wan_led_isp_state(0, 0);")
+          assert "goto abort_resume_detect;" in stop[clear_failure:]
+          assert "ifconfig(man_ifname, 0," not in stop
+          assert "ifconfig(IFNAME_WAN, 0," not in stop
+
+          # Failed bridge cleanup must prevent a WAN restart from publishing
+          # a new LAN/WAN topology against ports that may still be attached.
+          bridge_cleanup = function_body(source, "disassembly_bridges_wan(void)")
+          assert "int i, ret, status = 0;" in bridge_cleanup
+          assert "ret = ifconfig(br_ifname, 0, NULL, NULL);" in bridge_cleanup
+          assert "ret = br_del_all_ifs(br_ifname, 1, 1);" in bridge_cleanup
+          assert "ret = br_add_del_bridge(br_ifname, 0);" in bridge_cleanup
+          assert bridge_cleanup.count("wan_teardown_status_update(status, ret)") == 3
+          assert "return status;" in bridge_cleanup
+          detach_pos = bridge_cleanup.index("ret = br_del_all_ifs(")
+          failed_detach = bridge_cleanup.index("if (ret != 0)", detach_pos)
+          skip_remove = bridge_cleanup.index("continue;", failed_detach)
+          remove_bridge = bridge_cleanup.index("ret = br_add_del_bridge(", failed_detach)
+          assert detach_pos < failed_detach < skip_remove < remove_bridge
+
+          full_restart = function_body(source, "full_restart_wan(void)")
+          wan_bridge_call = full_restart.index("status = disassembly_bridges_wan();")
+          wan_bridge_gate = full_restart.index("if (status != 0)", wan_bridge_call)
+          wan_bridge_log = full_restart.index("WAN bridge teardown failed (status=%d)", wan_bridge_gate)
+          wan_bridge_return = full_restart.index("return status;", wan_bridge_log)
+          lan_bridge_call = full_restart.index("status = config_soft_bridge_lan();", wan_bridge_return)
+          lan_bridge_gate = full_restart.index("if (status != 0)", lan_bridge_call)
+          lan_bridge_log = full_restart.index("LAN bridge VLAN setup failed (status=%d)", lan_bridge_gate)
+          lan_bridge_return = full_restart.index("return status;", lan_bridge_log)
+          wan_start_pos = full_restart.index("status = start_wan();")
+          assert (wan_bridge_call < wan_bridge_gate < wan_bridge_log < wan_bridge_return <
+                  lan_bridge_call < lan_bridge_gate < lan_bridge_log < lan_bridge_return < wan_start_pos)
+          ppp_stop = function_body(source, "stop_wan_ppp_locked(void)")
+          assert "int pause_status, stop_status = 0, resume_status;" in ppp_stop
+          assert "stop_status = invalidate_wan_ppp_callback_session();" in ppp_stop
+          assert "stop_status = stop_vpn_client_under_lifecycle_lock();" in ppp_stop
+          assert "stop_status = kill_services(svcs_ppp, 6, 1);" in ppp_stop
+          assert ppp_stop.index("stop_status = invalidate_wan_ppp_callback_session();") < ppp_stop.index("stop_status = stop_vpn_client_under_lifecycle_lock();") < ppp_stop.index("stop_status = kill_services(svcs_ppp, 6, 1);")
+          assert "resume_status = notify_run_detect_internet(2);" in ppp_stop
+          assert "Internet monitor resume failed after aborted WAN PPP teardown" in ppp_stop
+          assert "return wan_teardown_abort_status(stop_status, resume_status);" in ppp_stop
+
+          deferred_policy = (rc / "wan_deferred_reconnect_policy.h").read_text()
+          deferred_test = (rc / "tests/wan_deferred_reconnect_policy.c").read_text()
+          assert '#include "wan_deferred_reconnect_policy.h"' in source
+          assert "wan_deferred_reconnect_clear" in deferred_policy
+          assert "wan_deferred_reconnect_schedule" in deferred_policy
+          assert "test_clear_preserves_nvram_failure" in deferred_test
+          assert "test_schedule_propagates_nvram_failure" in deferred_test
+          assert "test_schedule_rejects_invalid_and_overflowing_deadlines" in deferred_test
+
+          publisher = function_body(source, "wan_deferred_reconnect_publish_nvram(")
+          assert "set_nvram_value_status(name, value_text)" in publisher
+          assert "value > INT_MAX" in publisher
+          clear_helper = function_body(source, "clear_deferred_wan_reconnect_status(")
+          assert "wan_deferred_reconnect_clear(" in clear_helper
+          schedule_helper = function_body(source, "schedule_deferred_wan_reconnect_status(")
+          assert "wan_deferred_reconnect_schedule(" in schedule_helper
+
+          clear_call = "stop_status = clear_deferred_wan_reconnect_status();"
+          clear_log = "deferred reconnect cancellation failed (status=%d)"
+          assert ppp_stop.index(clear_call) < ppp_stop.index(clear_log) < ppp_stop.index(
+              "stop_status = stop_vpn_client_under_lifecycle_lock();")
+          assert ppp_stop.index(clear_call) < ppp_stop.index(
+              "stop_status = stop_vpn_client_under_lifecycle_lock();") < ppp_stop.index(
+              "stop_status = kill_services(svcs_ppp, 6, 1);")
+          checked_proto_read = "proto_status = get_wan_unit_proto_checked_status(unit, &wan_proto);"
+          checked_proto_error = "if (proto_status != 0)"
+          checked_proto_log = "cannot determine WAN protocol during stop; continuing conservative teardown"
+          assert stop.index(clear_call) < stop.index(clear_log) < stop.index(
+              checked_proto_read) < stop.index(checked_proto_error) < stop.index(
+              checked_proto_log) < stop.index(
+              "stop_status = stop_vpn_client_under_lifecycle_lock();")
+          final_status = "stop_status = wan_teardown_first_error_status("
+          callback_cleanup = "callback_cleanup_status = remove_cb_links();"
+          final_gate = "if (stop_status != 0)"
+          assert final_status in stop and callback_cleanup in stop and final_gate in stop
+          final_status_at = stop.index(final_status)
+          final_gate_at = stop.index(final_gate, final_status_at)
+          assert stop.index(callback_cleanup) < final_status_at < final_gate_at
+          assert "stop_status, proto_status, ifdown_status, callback_cleanup_status" in stop
+          assert "protocol=%d" in stop
+
+          reconnect = function_body(source, "try_wan_reconnect(int try_use_modem, long pause_in_seconds)")
+          schedule_call = "status = schedule_deferred_wan_reconnect_status("
+          watchdog_start = "status = start_watchdog();"
+          assert schedule_call in reconnect and watchdog_start in reconnect
+          schedule_pos = reconnect.index(schedule_call)
+          schedule_gate = reconnect.index("if (status != 0)", schedule_pos)
+          schedule_error = reconnect.index("cannot publish deferred WAN reconnect deadline", schedule_gate)
+          schedule_return = reconnect.index("return status;", schedule_error)
+          watchdog_pos = reconnect.index(watchdog_start, schedule_return)
+          assert schedule_pos < schedule_gate < schedule_error < schedule_return < watchdog_pos
+
+          deferred = function_body(source, "deferred_wan_connect(void)")
+          script_guard = "if (check_if_file_exist(SCRIPT_UDHCPC_WAN))"
+          deferred_clear = "status = clear_deferred_wan_reconnect_status();"
+          assert deferred.index(script_guard) < deferred.index(deferred_clear)
+          assert deferred.index(deferred_clear) < deferred.index("cannot clear deferred WAN reconnect deadline before startup") < deferred.index(
+              "select_usb_modem_to_wan();") < deferred.index("status = start_wan();")
+          assert 'nvram_set_int_temp("deferred_wanup_t"' not in source
+
+          assert "int pause_status, eapol_stop_status, kabinet_stop_status, resume_status;" in stop
+          assert "resume_status = notify_run_detect_internet(2);" in stop
+          assert "Internet monitor resume failed after aborted WAN teardown" in stop
+          assert "return wan_teardown_abort_status(stop_status, resume_status);" in stop
+          assert "stop_status = invalidate_wan_ppp_callback_session();" in stop
+          assert "stop_status = stop_vpn_client_under_lifecycle_lock();" in stop
+          assert "stop_status = kill_services(svcs_ppp, 6, 1);" in stop
+          assert "if (stop_status != 0)" in stop
+          assert stop.index("stop_status = invalidate_wan_ppp_callback_session();") < stop.index("stop_status = stop_vpn_client_under_lifecycle_lock();") < stop.index("stop_status = kill_services(svcs_ppp, 6, 1);")
+
+          abort_policy = (rc / "wan_teardown_policy.h").read_text()
+          abort_status = function_body(abort_policy, "wan_teardown_abort_status(")
+          assert "if (operation_status != 0)" in abort_status
+          assert "return operation_status;" in abort_status
+          assert "if (resume_status != 0)" in abort_status
+          assert "return resume_status;" in abort_status
+          assert "return -1;" in abort_status
+
+          paths = (
+              ".github/workflows/wan-teardown-stability.yml",
+              "trunk/user/rc/src/net_wan.c",
+              "trunk/user/rc/src/usb_modem.c",
+              "trunk/user/rc/src/wan_teardown_policy.h",
+              "trunk/user/rc/src/tests/wan_teardown_policy.c",
+              "trunk/user/rc/src/wan_deferred_reconnect_policy.h",
+              "trunk/user/rc/src/tests/wan_deferred_reconnect_policy.c",
+          )
+          filters = workflow.split("jobs:", 1)[0]
+          push_filters, pr_filters = filters.split("  pull_request:", 1)
+          for path in paths:
+              assert push_filters.count(path) == 1, f"push path filter missing or duplicated: {path}"
+              assert pr_filters.count(path) == 1, f"pull_request path filter missing or duplicated: {path}"
+
+          print("WAN interface teardown status propagation contracts: PASS")
+          PY

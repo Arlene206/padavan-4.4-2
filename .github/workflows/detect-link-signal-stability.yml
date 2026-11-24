@@ -1,0 +1,412 @@
+name: detect_link signal lifecycle stability regression
+
+on:
+  push:
+    paths:
+      - ".github/workflows/detect-link-signal-stability.yml"
+      - "trunk/user/rc/src/detect_link.c"
+      - "trunk/user/rc/src/usb_modem.c"
+      - "trunk/user/shared/src/process_inventory.h"
+      - "trunk/user/shared/src/process_inventory.c"
+      - "trunk/user/shared/src/process_pidfile.h"
+      - "trunk/user/shared/src/process_pidfile.c"
+      - "trunk/user/rc/src/detect_link_signal_policy.h"
+      - "trunk/user/rc/src/detect_link_nvram_policy.h"
+      - "trunk/user/rc/src/detect_link_notification_policy.h"
+      - "trunk/user/rc/src/tests/detect_link_nvram_policy.c"
+      - "trunk/user/rc/src/tests/detect_link_notification_policy.c"
+      - "trunk/user/rc/src/tests/detect_link_signal_policy.c"
+      - "trunk/user/rc/src/detect_link_dhcp_renew_policy.h"
+      - "trunk/user/rc/src/detect_link_modem_reconnect_policy.h"
+      - "trunk/user/rc/src/tests/detect_link_modem_reconnect_policy.c"
+      - "trunk/user/rc/src/tests/detect_link_dhcp_renew_policy.c"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/rc.h"
+      - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/wan_src_phy_policy.h"
+      - "trunk/user/rc/src/tests/wan_src_phy_policy.c"
+      - "trunk/user/rc/src/net_lan.c"
+      - "trunk/user/rc/src/services.c"
+      - "trunk/user/rc/src/Makefile"
+      - "trunk/user/rc/Makefile"
+  pull_request:
+    paths:
+      - ".github/workflows/detect-link-signal-stability.yml"
+      - "trunk/user/rc/src/detect_link.c"
+      - "trunk/user/rc/src/usb_modem.c"
+      - "trunk/user/shared/src/process_inventory.h"
+      - "trunk/user/shared/src/process_inventory.c"
+      - "trunk/user/shared/src/process_pidfile.h"
+      - "trunk/user/shared/src/process_pidfile.c"
+      - "trunk/user/rc/src/detect_link_signal_policy.h"
+      - "trunk/user/rc/src/detect_link_nvram_policy.h"
+      - "trunk/user/rc/src/detect_link_notification_policy.h"
+      - "trunk/user/rc/src/tests/detect_link_nvram_policy.c"
+      - "trunk/user/rc/src/tests/detect_link_notification_policy.c"
+      - "trunk/user/rc/src/tests/detect_link_signal_policy.c"
+      - "trunk/user/rc/src/detect_link_dhcp_renew_policy.h"
+      - "trunk/user/rc/src/detect_link_modem_reconnect_policy.h"
+      - "trunk/user/rc/src/tests/detect_link_modem_reconnect_policy.c"
+      - "trunk/user/rc/src/tests/detect_link_dhcp_renew_policy.c"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/rc.h"
+      - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/wan_src_phy_policy.h"
+      - "trunk/user/rc/src/tests/wan_src_phy_policy.c"
+      - "trunk/user/rc/src/net_lan.c"
+      - "trunk/user/rc/src/services.c"
+      - "trunk/user/rc/src/Makefile"
+      - "trunk/user/rc/Makefile"
+
+permissions:
+  contents: read
+
+jobs:
+  detect-link-signal:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and run GNU89 signal deferral policy regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/detect_link_signal_policy.c \
+            -o /tmp/detect-link-signal-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/detect-link-signal-policy
+      - name: Compile and run bounded WAN DHCP renewal retry policy regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/detect_link_dhcp_renew_policy.c \
+            -o /tmp/detect-link-dhcp-renew-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/detect-link-dhcp-renew-policy
+      - name: Compile and run bounded USB modem reconnect retry policy regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/detect_link_modem_reconnect_policy.c \
+            -o /tmp/detect-link-modem-reconnect-policy
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 \
+            /tmp/detect-link-modem-reconnect-policy
+      - name: Compile and run detect_link notification result regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/detect_link_notification_policy.c \
+            -o /tmp/detect-link-notification-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/detect-link-notification-policy
+      - name: Compile and run WAN link NVRAM mirror retry regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/detect_link_nvram_policy.c \
+            -o /tmp/detect-link-nvram-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/detect-link-nvram-policy
+      - name: Verify deferred dispatch, signal masks and caller wiring
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          rc = Path("trunk/user/rc/src")
+          detect = (rc / "detect_link.c").read_text()
+          policy = (rc / "detect_link_signal_policy.h").read_text()
+          test = (rc / "tests/detect_link_signal_policy.c").read_text()
+          dispatcher = (rc / "rc.c").read_text()
+          header = (rc / "rc.h").read_text()
+          wan = (rc / "net_wan.c").read_text()
+          renew_policy = (rc / "detect_link_dhcp_renew_policy.h").read_text()
+          renew_test = (rc / "tests/detect_link_dhcp_renew_policy.c").read_text()
+          modem_policy = (rc / "detect_link_modem_reconnect_policy.h").read_text()
+          modem_test = (rc / "tests/detect_link_modem_reconnect_policy.c").read_text()
+          usb_modem = (rc / "usb_modem.c").read_text()
+          lan = (rc / "net_lan.c").read_text()
+          services = (rc / "services.c").read_text()
+          makefile = (rc / "Makefile").read_text()
+          package_makefile = Path("trunk/user/rc/Makefile").read_text()
+          workflow = Path(".github/workflows/detect-link-signal-stability.yml").read_text()
+
+          def body(source, signature):
+              start = source.index(signature)
+              brace = source.index("{", start)
+              depth = 0
+              for pos in range(brace, len(source)):
+                  if source[pos] == "{":
+                      depth += 1
+                  elif source[pos] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source[brace + 1:pos]
+              raise AssertionError("unterminated function: " + signature)
+
+          assert '#include "detect_link_signal_policy.h"' in detect
+          assert '#include "detect_link_nvram_policy.h"' in detect
+          mirror = body(detect, "dl_publish_wan_nvram_status(void)")
+          assert "detect_link_publish_wan_status(" in mirror
+          assert "dl_status_wan_nvram_old" in mirror
+          assert "dl_status_wan_nvram_error != status" in mirror
+          assert "WAN link state NVRAM publication recovered" in mirror
+          assert 'nvram_set_int_temp("link_wan"' not in body(detect, "dl_handle_link_wan(void)")
+          wan_handler = body(detect, "dl_handle_link_wan(void)")
+          assert wan_handler.index("dl_publish_wan_nvram_status();") < wan_handler.index("if (dl_status_wan_old != dl_status_wan)")
+          assert '#include "detect_link_dhcp_renew_policy.h"' in detect
+          renew_notify = body(wan, "notify_on_wan_ether_link_restored(void)")
+          assert "status = renew_udhcpc_wan(unit);" in renew_notify
+          assert "if (status != 0)" in renew_notify
+          assert "return saved_errno;" in renew_notify
+          assert "cannot signal WAN DHCP client to renew after Ethernet link restoration" in renew_notify
+          assert "int notify_on_wan_ether_link_restored(void);" in header
+          renew_dispatch = body(detect, "dl_handle_link_wan(void)")
+          assert "renew_status = dl_status_wan ? notify_on_wan_ether_link_restored() : 0;" in renew_dispatch
+          assert "detect_link_dhcp_renew_retry_status(" in renew_dispatch
+          assert renew_dispatch.index("renew_status = dl_status_wan") < renew_dispatch.index("detect_link_dhcp_renew_retry_status(")
+          assert "if (retry_status > 0)" in renew_dispatch
+          assert "if (retry_status < 0)" in renew_dispatch
+          assert "dl_dhcpc_renew_retries = 0;" in detect
+          assert "DETECT_LINK_DHCP_RENEW_MAX_RETRIES 2U" in renew_policy
+          for marker in ("test_failed_renew_schedules_bounded_retries",
+                         "test_success_clears_pending_retry_state",
+                         "test_invalid_outputs_fail_closed",
+                         "detect_link bounded WAN DHCP renewal retry policy: PASS"):
+              assert marker in renew_test
+          assert "DETECT_LINK_MODEM_RECONNECT_RETRY_TICKS 2UL" in modem_policy
+          assert "DETECT_LINK_MODEM_RECONNECT_MAX_RETRIES 2U" in modem_policy
+          for marker in ("test_failed_notifications_schedule_bounded_retries",
+                         "test_success_and_not_needed_state_clear_pending_retry",
+                         "test_invalid_outputs_fail_closed_without_partial_mutation",
+                         "detect_link bounded USB modem reconnect retry policy: PASS"):
+              assert marker in modem_test
+          modem_notify = body(usb_modem, "notify_modem_on_wan_ether_link_changed(int has_link)")
+          assert 'notify_rc_status("auto_wan_reconnect")' in modem_notify
+          assert "saved_errno = errno > 0 ? errno : EIO;" in modem_notify
+          assert "return saved_errno;" in modem_notify
+          assert "return status;" in modem_notify
+          modem_dispatch = body(detect, "dl_handle_link_wan(void)")
+          assert "detect_link_modem_reconnect_retry_status(" in modem_dispatch
+          assert "notify_modem_on_wan_ether_link_changed(dl_status_wan)" in modem_dispatch
+          assert "dl_modem_reconnect_retries = 0;" in detect
+          assert "int  notify_modem_on_wan_ether_link_changed(int has_link);" in (rc / "rc.h").read_text()
+          nvram_policy = (rc / "detect_link_nvram_policy.h").read_text()
+          mirror_test = (rc / "tests/detect_link_nvram_policy.c").read_text()
+          assert "if (result == 0)" in nvram_policy and "*last_published = status;" in nvram_policy
+          for marker in ("test_failed_publication_is_retried",
+                         "test_changed_state_retries_without_replaying_side_effects",
+                         "test_invalid_policy_arguments_fail_closed"):
+              assert marker in mirror_test and marker + "();" in mirror_test
+          assert "detect_link WAN NVRAM mirror retry policy: PASS" in mirror_test
+          ap_mode_policy = (rc / "detect_link_nvram_policy.h").read_text()
+          assert "detect_link_apply_ap_mode_read(" in ap_mode_policy
+          assert "test_ap_mode_cache_changes_only_after_successful_read" in mirror_test
+          assert "test_ap_mode_cache_changes_only_after_successful_read();" in mirror_test
+          reset_body = body(detect, "dl_reset_state(void)")
+          reset_compact = "".join(reset_body.split())
+          assert "get_ap_mode_status(&ap_mode)" in reset_body
+          assert "detect_link_apply_ap_mode_read(status,ap_mode,&dl_is_ap_mode)" in reset_compact
+          assert "if(status!=0)returnstatus;" in reset_compact
+          assert "get_ap_mode()" not in reset_body
+          main = body(detect, "detect_link_main(int argc, char *argv[])")
+          startup_reset = main.index("reset_status = dl_reset_state();")
+          startup_failure = main.index("if (reset_status != 0)", startup_reset)
+          startup_return = main.index("return reset_status;", startup_failure)
+          timer_start = main.index("dl_alarmtimer(DL_POLL_INTERVAL)", startup_return)
+          startup_cleanup = main.index("remove(DL_PID_FILE)", startup_failure)
+          assert startup_reset < startup_failure < startup_cleanup < startup_return < timer_start
+          reset_dispatch = main.index("if (events & DL_PENDING_RESET)")
+          timer_dispatch = main.index("if (events & DL_PENDING_TIMER)", reset_dispatch)
+          assert "reset_status = dl_reset_state();" in main[reset_dispatch:timer_dispatch]
+          assert "retaining last-known-good topology" in main[reset_dispatch:timer_dispatch]
+          handler = body(detect, "catch_sig_detect_link(int sig)")
+          assert "detect_link_record_signal(&dl_pending_events, sig)" in handler
+          for forbidden in ("dl_on_timer(", "dl_update_leds(", "dl_reset_state(",
+                            "dl_alarmtimer(", "remove(", "exit(", "LED_CONTROL",
+                            "nvram_", "notify_", "doSystem(", "phy_status_"):
+              assert forbidden not in handler, "signal handler still performs work: " + forbidden
+
+          main = body(detect, "detect_link_main(int argc, char *argv[])")
+          assert main.index("sigprocmask(SIG_BLOCK, &managed_signals, &original_mask)") < main.index("sigaction(SIGHUP")
+          assert "sa.sa_mask = managed_signals;" in main
+          for signal_name in ("SIGHUP", "SIGUSR1", "SIGALRM", "SIGTERM"):
+              assert f"sigaddset(&managed_signals, {signal_name})" in main
+              assert f"sigaction({signal_name}, &sa, NULL)" in main
+          assert "sigsuspend(&wait_mask)" in main
+          assert "wait_mask = original_mask;" in main
+          for signal_name in ("SIGALRM", "SIGHUP", "SIGUSR1", "SIGTERM"):
+              assert f"sigdelset(&wait_mask, {signal_name})" in main
+
+          snapshot = main.index("events = detect_link_take_pending_events(&dl_pending_events)")
+          terminate = main.index("if (events & DL_PENDING_TERMINATE)", snapshot)
+          reset = main.index("if (events & DL_PENDING_RESET)", terminate)
+          timer = main.index("if (events & DL_PENDING_TIMER)", reset)
+          led_refresh = main.index("if (events & DL_PENDING_LED_REFRESH)", timer)
+          assert snapshot < terminate < reset < timer < led_refresh
+          stop_body = main[terminate:reset]
+          assert "dl_alarmtimer(0)" in stop_body and "remove(DL_PID_FILE)" in stop_body
+          assert "return 0;" in stop_body
+
+          assert "DL_PENDING_TIMER" in policy and "DL_PENDING_LED_REFRESH" in policy
+          assert "DL_PENDING_RESET" in policy and "DL_PENDING_TERMINATE" in policy
+          for marker in ("test_signals_are_recorded_without_dispatch",
+                         "test_repeated_standard_signals_coalesce",
+                         "test_termination_remains_pending_with_other_events",
+                         "test_snapshot_is_cleared_for_next_wait"):
+              assert marker in test
+
+          notify_policy = (rc / "detect_link_notification_policy.h").read_text()
+          notify_test = (rc / "tests/detect_link_notification_policy.c").read_text()
+          assert "detect_link_notification_status(" in notify_policy
+          for marker in ("test_success_ignores_stale_errno",
+                         "test_positive_launcher_status_is_preserved",
+                         "test_signal_failure_preserves_errno",
+                         "test_errno_less_failure_is_not_reported_as_success"):
+              assert marker in notify_test
+              assert marker + "() == 0" in notify_test
+          reset_notify = body(detect, "notify_reset_detect_link(void)")
+          led_notify = body(detect, "notify_leds_detect_link(void)")
+          stop_notify = body(detect, "stop_detect_link(void)")
+          show_leds = body(detect, "show_hide_front_leds(int is_show)")
+          assert 'process_pidfile_signal(DL_PID_FILE, "detect_link", SIGUSR1)' in reset_notify
+          assert "int notify_reset_detect_link(void);" in header
+          assert "detect_link_notification_status(status, saved_errno)" in reset_notify
+          assert "return status;" in reset_notify
+          assert "monitor reset start/notification failed" in reset_notify
+          assert 'process_pidfile_signal(DL_PID_FILE, "detect_link", SIGHUP)' in led_notify
+          assert "kill_pidfile_s(DL_PID_FILE" not in reset_notify + led_notify
+          assert 'process_pidfile_write(DL_PID_FILE, "detect_link")' in main
+          assert 'kill_services_with_pidfiles(services, pidfiles, "detect_link", 0, 3, 1)' in stop_notify
+          assert "killall" not in stop_notify
+          assert "notify_leds_detect_link();" in show_leds
+          assert "notify_reset_detect_link();" in wan
+          assert "notify_reset_detect_link();" in lan
+          assert "int stop_detect_link(void);" in header
+          lan_wan_stop = body(services, "stop_services_lan_wan(void)")
+          assert 'record_service_stop_status(&stop_status, "detect_link", stop_detect_link())' in lan_wan_stop
+          assert "return stop_status;" in lan_wan_stop
+          shutdown = body(dispatcher, "shutdown_router(int level)")
+          assert "lan_wan_stop_status = stop_services_lan_wan();" in shutdown
+          assert "if (lan_wan_stop_status != 0)" in shutdown
+          assert "lan_wan_stop_status == 0" in shutdown
+          assert "LAN/WAN service shutdown incomplete; continuing power-down without storage persistence" in shutdown
+          assert "stop_detect_link();" not in services
+          assert '"detect_link"' in dispatcher and "detect_link_main" in dispatcher
+          assert '"leds_front"' in dispatcher and "show_hide_front_leds(power_on)" in dispatcher
+          assert "detect_link_main(int argc, char *argv[])" in header
+          assert "detect_link.o" in makefile
+          assert '$(LN) rc $(ROMFSDIR)/sbin/detect_link' in package_makefile
+
+          paths = (
+              ".github/workflows/detect-link-signal-stability.yml",
+              "trunk/user/rc/src/detect_link.c",
+              "trunk/user/shared/src/process_pidfile.c",
+              "trunk/user/shared/src/process_pidfile.h",
+              "trunk/user/shared/src/process_inventory.c",
+              "trunk/user/shared/src/process_inventory.h",
+              "trunk/user/rc/src/detect_link_signal_policy.h",
+              "trunk/user/rc/src/detect_link_nvram_policy.h",
+              "trunk/user/rc/src/detect_link_notification_policy.h",
+              "trunk/user/rc/src/tests/detect_link_notification_policy.c",
+              "trunk/user/rc/src/tests/detect_link_nvram_policy.c",
+              "trunk/user/rc/src/tests/detect_link_signal_policy.c",
+              "trunk/user/rc/src/detect_link_dhcp_renew_policy.h",
+              "trunk/user/rc/src/detect_link_modem_reconnect_policy.h",
+              "trunk/user/rc/src/tests/detect_link_modem_reconnect_policy.c",
+              "trunk/user/rc/src/usb_modem.c",
+              "trunk/user/rc/src/tests/detect_link_dhcp_renew_policy.c",
+              "trunk/user/rc/src/rc.c",
+              "trunk/user/rc/src/rc.h",
+              "trunk/user/rc/src/net_wan.c",
+              "trunk/user/rc/src/wan_src_phy_policy.h",
+              "trunk/user/rc/src/tests/wan_src_phy_policy.c",
+              "trunk/user/rc/src/net_lan.c",
+              "trunk/user/rc/src/services.c",
+              "trunk/user/rc/src/Makefile",
+              "trunk/user/rc/Makefile",
+          )
+          filters = workflow.split("jobs:", 1)[0]
+          push_filters, pr_filters = filters.split("  pull_request:", 1)
+          for path in paths:
+              assert push_filters.count(path) == 1, f"push path missing/duplicated: {path}"
+              assert pr_filters.count(path) == 1, f"pull_request path missing/duplicated: {path}"
+
+          print("detect_link signal/context and caller contract: PASS")
+          PY
+      - name: Compile and run WAN source PHY selector policy regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/wan_src_phy_policy.c \
+            -o /tmp/wan-src-phy-policy
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 \
+            /tmp/wan-src-phy-policy
+      - name: Verify WAN source PHY selector fails closed before switch ioctl
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          rc = Path("trunk/user/rc/src")
+          source = (rc / "net_wan.c").read_text()
+          policy = (rc / "wan_src_phy_policy.h").read_text()
+          test = (rc / "tests/wan_src_phy_policy.c").read_text()
+
+          def body(text, signature):
+              start = text.index(signature)
+              brace = text.index("{", start)
+              depth = 0
+              for pos in range(brace, len(text)):
+                  if text[pos] == "{":
+                      depth += 1
+                  elif text[pos] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return text[brace + 1:pos]
+              raise AssertionError("unterminated function: " + signature)
+
+          caller = body(source, "get_wan_ether_link_direct(int is_ap_mode)")
+          assert '#include "wan_src_phy_policy.h"' in source
+          assert "WAN_SRC_PHY_MAX_EXTERNAL 5" in policy
+          assert "configured_port > WAN_SRC_PHY_MAX_EXTERNAL" in policy
+          assert caller.index("wan_src_phy_resolve(wan_src_phy, &wan_src_phy)") < caller.index("phy_status_port_link(")
+          assert "errno = status;" in caller and "return -1;" in caller
+          for marker in (
+              "test_external_switch_ports_are_accepted",
+              "test_negative_legacy_values_keep_wan_default",
+              "test_unknown_and_cpu_ports_fail_without_publishing",
+          ):
+              assert marker in test and marker + "() == 0" in test
+          print("WAN source PHY selector fail-closed integration: PASS")
+          PY
+      - name: Verify WAN link status is not published before first successful PHY sample
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/user/rc/src/detect_link.c").read_text()
+          policy = Path("trunk/user/rc/src/detect_link_nvram_policy.h").read_text()
+          test = Path("trunk/user/rc/src/tests/detect_link_nvram_policy.c").read_text()
+
+          def body(text, signature):
+              start = text.index(signature)
+              brace = text.index("{", start)
+              depth = 0
+              for pos in range(brace, len(text)):
+                  if text[pos] == "{":
+                      depth += 1
+                  elif text[pos] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return text[brace + 1:pos]
+              raise AssertionError("unterminated function: " + signature)
+
+          timer = body(source, "dl_on_timer(void)")
+          assert "static int dl_wan_status_known = 0;" in source
+          assert "detect_link_wan_sample_known" in policy
+          assert timer.index("get_wan_ether_link_direct(is_ap_mode)") < timer.index("dl_wan_status_known = detect_link_wan_sample_known")
+          assert "if (dl_wan_status_known)" in timer
+          assert timer.index("if (dl_wan_status_known)") < timer.index("dl_handle_link_wan();")
+          assert "dl_publish_wan_nvram_status();" in body(source, "dl_handle_link_wan(void)")
+          assert "test_wan_link_sample_stays_unknown_until_success();" in test
+          print("WAN first-sample unknown-state publication guard: PASS")
+          PY
