@@ -1,3 +1,19 @@
+## 2026-11-25 00:09 CST (UTC+8) — Bound RAETH QDMA selectors and switch rate ioctl inputs
+
+- Main commits `c0ba5c6`, `56f4a10`, `4ab45d3`, `4920912` and `a937cc4` bound QDMA queue selectors/register offsets and ESW ingress/egress rate ioctl port/bandwidth inputs. The `4920912` Switch CLI regression exposed a checker false-positive: the egress slice still began at the ingress case, so its order assertion mixed the two paths. `a937cc4` now extracts each switch case by explicit boundaries and adds QDMA access-path coverage.
+- Parent `a937cc4` Switch CLI #45432913975 PASS, NVRAM #45432913762 PASS, AI docs #45432913776 PASS; XY-C1 #45432913772 was in progress at last poll. The failed #45432229601 belongs to the superseded `4920912` checker. Hardware L4 remains unverified.
+
+---
+
+## 2026-11-25 00:09 CST (UTC+8) — Preserve firewall startup failure in PID 1 readiness status
+
+- Found that the firewall/NAT prerequisite gate safely blocked `start_wan()` on required NAT restore or firewall-filter errors but did not merge those applicable statuses into `boot_services_status`; PID 1 could report READY with WAN deliberately withheld.
+- Added `firewall_startup_policy_wan_failure_status()` to retain the first applicable selector/VLAN/NAT/IPv6/filter error. `init_router()` now merges it before the no-WAN branch; failed baselines for explicitly disabled features remain non-blocking.
+- Added GNU89 tests for exact error propagation, first-error precedence, disabled-feature compatibility and READY→DEGRADED mapping. Workflow source checks require the merge before WAN launch and both host-test header paths are now in push/PR filters.
+- Local GNU89 `-Wall -Wextra -Werror` + UBSan compile/run PASS. ASan build succeeded, but this container could not reserve ASan shadow memory at runtime; exact-head GitHub regression must complete the ASan run. L3 depends on same-SHA XY-C1 Build/TRX/artifact PASS; L4 is NOT VERIFIED.
+
+---
+
 ## 2026-11-24 — Fix SmartDNS checker extraction and cover failed KILL postcondition
 
 - Exact parent `9416e328`: Process inventory #45427406147 failed because the static checker supplied a literal backslash-n in the function-boundary string for `smartdns_signal_process_ids()` instead of matching actual newlines. AI handoff #45427406412 also failed because `SESSION_HANDOFF.md` did not include the exact required phrase `one atomic main commit`.

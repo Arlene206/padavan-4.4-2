@@ -1831,6 +1831,7 @@ init_router(void)
 		int firewall_enable_status, nat_enable_status;
 		int ipv6_filter_required = 0;
 		int ipv4_forward_disable_status;
+		int firewall_startup_status;
 #if defined (USE_IPV6)
 		int ipv6_forward_disable_status;
 #endif
@@ -1863,18 +1864,22 @@ init_router(void)
 			logmessage(LOGNAME, "Initial IPv4 NAT table restore failed (NAT enabled=%d)",
 				   nat_required);
 
-		if (!firewall_startup_policy_allows_wan_checked(
-							firewall_enable_status,
-							nat_enable_status,
-							firewall_enabled,
-							ipv4_filter_status,
-							ipv6_filter_required,
-							ipv6_filter_status,
-							nat_required,
-							nat_restore_status,
-							switch_vlan_status,
-							ipv6_disable_required,
-							ipv6_init_status)) {
+		firewall_startup_status =
+			firewall_startup_policy_wan_failure_status(
+				firewall_enable_status,
+				nat_enable_status,
+				firewall_enabled,
+				ipv4_filter_status,
+				ipv6_filter_required,
+				ipv6_filter_status,
+				nat_required,
+				nat_restore_status,
+				switch_vlan_status,
+				ipv6_disable_required,
+				ipv6_init_status);
+		if (firewall_startup_status != 0) {
+			boot_services_status = rc_first_service_start_status(
+				boot_services_status, firewall_startup_status);
 			if (firewall_enable_status != 0 || nat_enable_status != 0)
 				logmessage(LOGNAME,
 					   "Blocking WAN startup: firewall/NAT enable state could not be read (firewall=%d NAT=%d)",

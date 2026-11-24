@@ -1,6 +1,48 @@
 #include <assert.h>
 #include <errno.h>
 #include "../firewall_startup_policy.h"
+#include "../service_start_status.h"
+#include "../init_router_result_policy.h"
+
+static void
+test_firewall_failure_degrades_router_readiness(void)
+{
+	int status;
+
+	/* Required firewall/NAT operations report their original failure. */
+	status = firewall_startup_policy_wan_failure_status(
+		0, 0, 1, EIO, 0, 0, 0, 0, 0, 0, 0);
+	assert(status == EIO);
+	status = firewall_startup_policy_wan_failure_status(
+		0, 0, 1, 0, 1, EIO, 0, 0, 0, 0, 0);
+	assert(status == EIO);
+	status = firewall_startup_policy_wan_failure_status(
+		0, 0, 0, -1, 0, -1, 1, EIO, 0, 0, 0);
+	assert(status == EIO);
+	status = firewall_startup_policy_wan_failure_status(
+		0, 0, 0, -1, 0, -1, 0, -1, EBUSY, 0, 0);
+	assert(status == EBUSY);
+	status = firewall_startup_policy_wan_failure_status(
+		0, 0, 0, -1, 0, -1, 0, -1, 0, 1, EIO);
+	assert(status == EIO);
+
+	/* Unreadable selectors take precedence and preserve the first status. */
+	status = firewall_startup_policy_wan_failure_status(
+		EBUSY, EIO, 0, -1, 0, -1, 0, -1, EIO, 0, 0);
+	assert(status == EBUSY);
+
+	/* Irrelevant failed baselines remain compatible with disabled features. */
+	assert(firewall_startup_policy_wan_failure_status(
+		0, 0, 0, -1, 1, EIO, 0, EIO, 0, 0, 0) == 0);
+
+	/* A required failure maps to DEGRADED and never overwrites an earlier error. */
+	status = firewall_startup_policy_wan_failure_status(
+		0, 0, 1, EIO, 0, 0, 0, 0, 0, 0, 0);
+	assert(status == EIO);
+	assert(init_router_result_from_boot_status(
+		rc_first_service_start_status(0, status)) == INIT_ROUTER_RESULT_DEGRADED);
+	assert(rc_first_service_start_status(EBUSY, status) == EBUSY);
+}
 
 static void
 test_switch_vlan_isolation_is_always_required(void)
@@ -66,6 +108,7 @@ main(void)
 	assert(!firewall_startup_policy_allows_wan(1, -1, 1, 0, 0, 0, 0, 0, 0));
 
 	test_unreadable_firewall_enable_state_blocks_wan();
+	test_firewall_failure_degrades_router_readiness();
 	test_switch_vlan_isolation_is_always_required();
 	test_disabled_ipv6_requires_verified_global_disable();
 	return 0;
