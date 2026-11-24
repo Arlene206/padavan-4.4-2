@@ -11,10 +11,12 @@
 - MT76x2, MT76x3, MT7615 and MT7915 `OID_802_11_DEAUTHENTICATION` handlers performed exact request-length checks but consumed request fields after ignoring/storing `copy_from_user()` errors. Faulted/partial reads could lead to uninitialized or partially copied addresses/reasons entering MacTableLookup/MLME enqueue and APCLI state transitions.
 - This slice adds explicit `-EFAULT` cleanup branches before any request field use or deauthentication side effect. It frees the MLME queue element and any separately allocated APCLI request buffer. MT76x2/MT7915 APCLI branches now check the request allocation and report `-ENOMEM` before copy.
 - `scripts/check_mtk_apd_pid_ioctl.py` now checks exact request sizes, every copy-failure branch, cleanup before break, successful-copy ordering and the APCLI allocation guard. The existing focused MTK workflow already monitors all four AP source files and this checker; a fresh exact-head run is required.
-- Follow-up review of the new APCLI failure handling found two additional defects in the same source slice: MT76x2 and MT7915 each call `os_alloc_mem()` twice for `pInfo` before checking it, overwriting the first pointer and leaking that allocation on both success and the second allocation's failure path. Both handlers also read `ApCliTab[ifIndex]` / `StaCfg[ifIndex]` before checking `ifIndex >= MAX_APCLI_NUM`, allowing an out-of-range ioctl interface index to cause an array access before rejection. The current source checker checks only that an allocation guard exists before copy; it does not require exactly one allocation or bounds-check-before-index ordering.
+- This follow-up removes the duplicate `pInfo` allocation in MT76x2/MT7915 APCLI deauth paths and moves `ifIndex >= MAX_APCLI_NUM` immediately after reading the ioctl index, before any `ApCliTab[]`/`StaCfg[]` dereference. Invalid indices now set `-EINVAL`, free the queue element and exit the switch case. The checker requires exactly one allocation and bounds-check-before-index ordering.
 - Previous PSK fix in `0dc7eaed`: fixed the MT7615/MT7915 WSC destination overflow (64-byte WSC buffer vs 65-byte security PSK buffer), stages one checked usercopy, caps inputs at 64 and removes plaintext PSK logs. Exact MTK #45381270549, AI #45381270437, Process #45381270630 and NVRAM #45381270585 PASS on `0dc7eaed`.
 - XY-C1 #45381270533 on exact source SHA `0dc7eaed5c1eb2623f5762c9f9b6fb7b93c9a4d0` was still in Build XY-C1 at last check; TRX and artifact pending. This deauth source change requires its own exact-SHA firmware validation.
 - Earlier R0KH-ID compatibility supports raw 1–48-byte IDs or 2–49-byte inputs containing trailing NUL; focused MTK #45379297940 and AI #45379297910 PASS on `2789d637`. LLDT Process integration #45376899681 PASS on `b270bcc`.
+
+- Follow-up fix in this commit removes duplicate MT76x2/MT7915 APCLI `pInfo` allocation and validates `ifIndex` before table dereference; exact-head MTK/AI Actions are pending.
 
 ## Verification boundary
 
@@ -24,9 +26,9 @@
 
 ## Exact first action for the next GPT
 
-1. In one atomic multi-file slice, remove the duplicate `pInfo` allocation in MT76x2 and MT7915 APCLI deauth handlers, and move each `ifIndex >= MAX_APCLI_NUM` guard immediately after reading the index and before any APCLI array dereference. Preserve exact `-ENOMEM`/`-EFAULT` behavior and one-time cleanup.
-2. Extend `scripts/check_mtk_apd_pid_ioctl.py` to require exactly one `pInfo` allocation in each APCLI deauth path and bounds validation before the first `ApCliTab` / `StaCfg` access. Run the focused checker and its GNU89 test suite, then publish all source/test changes through one complete Git tree and a non-forced `main` compare-and-swap from the latest head; do not use sequential per-file `update_file` commits.
-3. Inspect exact `push` Actions on the resulting SHA, including MTK and XY-C1 Build/TRX/artifact. Fix any failure on a new atomic `main` commit, then continue to the next P1 defect outside the AP private-ioctl cluster.
+1. Fetch exact-head MTK and AI Actions for this follow-up; verify the APCLI allocation/index-order contract and existing selector, PSK, R0KH-ID and deauth regressions.
+2. Refresh XY-C1 #45381270533 and #45382730572, then require a new exact-SHA XY-C1 Build/TRX/artifact PASS for this source checkpoint.
+3. Continue into an independent userland/network-service stability issue; pending Actions do not block work.
 
 ## Mandatory handoff checkpoint
 

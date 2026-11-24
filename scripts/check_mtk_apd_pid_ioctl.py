@@ -190,6 +190,32 @@ def verify_deauth_copy_fail_closed(path: Path, source: str) -> None:
 
 
 
+def verify_deauth_apcli_allocation_and_index_order(path: Path, source: str) -> None:
+    if path not in (SOURCES[0], SOURCES[3]):
+        return
+    case = extract_case(
+        source, "case OID_802_11_DEAUTHENTICATION:", "case RT_SET_IAPP_PID:"
+    )
+    compact = " ".join(case.split())
+    start = compact.index("if (pObj->ioctl_if_type == INT_APCLI)")
+    end = compact.index("} else", start)
+    apcli = compact[start:end]
+    array_ref = "pAd->ApCfg.ApCliTab[ifIndex]" if path == SOURCES[0] else "pAd->StaCfg[ifIndex]"
+    assign = apcli.index("ifIndex = pObj->ioctl_if;")
+    bounds = apcli.index("if (ifIndex >= MAX_APCLI_NUM)")
+    first_access = apcli.index(array_ref)
+    assert assign < bounds < first_access, f"{path}: validate index before APCLI table access"
+    assert "Status = -EINVAL;" in apcli[bounds:first_access]
+    assert "os_free_mem" in apcli[bounds:first_access]
+    alloc_call = "os_alloc_mem(pAd, (UCHAR **)&pInfo, sizeof(MLME_DEAUTH_REQ_STRUCT));"
+    assert apcli.count(alloc_call) == 1, f"{path}: exactly one pInfo allocation required"
+    alloc = apcli.index(alloc_call)
+    oom = apcli.index("if (pInfo == NULL)")
+    copy = apcli.index("if (copy_from_user(pInfo, wrq->u.data.pointer, wrq->u.data.length))")
+    assert first_access < alloc < oom < copy, f"{path}: check allocation before usercopy"
+    assert "Status = -ENOMEM;" in apcli[oom:copy] and "os_free_mem" in apcli[oom:copy]
+
+
 def verify_security_input_copy_fail_closed(path: Path, source: str) -> None:
     for marker, variable, expected_type in (
         ("case OID_802_11_AUTHENTICATION_MODE:", "AuthMode",
@@ -367,6 +393,7 @@ def main() -> None:
         verify_ft_boolean_copy(path, source)
         verify_security_input_copy_fail_closed(path, source)
         verify_deauth_copy_fail_closed(path, source)
+        verify_deauth_apcli_allocation_and_index_order(path, source)
         if path in (SOURCES[0], SOURCES[3]):
             verify_apcli_boolean_copy_fail_closed(path, source)
         verify_ft_r0khid_copy(path, source)

@@ -1,3 +1,11 @@
+## 2026-11-24 — Fix APCLI deauthentication allocation leak and index validation order
+
+- MT76x2 and MT7915 APCLI deauthentication handlers called `os_alloc_mem()` twice for the same `pInfo`, overwriting the first pointer and leaking it. Both handlers also dereferenced `ApCliTab[ifIndex]` / `StaCfg[ifIndex]` before checking `ifIndex >= MAX_APCLI_NUM`.
+- Removed the duplicate allocation and moved the bounds check immediately after reading `ioctl_if`, before any APCLI table dereference. Invalid indices now set `-EINVAL`, free the queue element and exit the switch case. The single remaining allocation retains its `-ENOMEM` and `-EFAULT` cleanup.
+- Extended the focused MTK source contract to require exactly one APCLI request allocation, bounds-check-before-table-access and allocation-check-before-usercopy. Exact-head Actions are pending.
+
+---
+
 ## 2026-11-24 — Fail closed on MTK AP deauthentication ioctl usercopy errors
 
 - Audited `OID_802_11_DEAUTHENTICATION` in MT76x2, MT76x3, MT7615 and MT7915. Each path checked the nominal structure length but consumed the request after ignoring or merely storing the nonzero `copy_from_user()` result. A fault/partial copy could therefore feed uninitialized or partially initialized address/reason fields into station lookup, MLME enqueue, or APCLI link-state changes.

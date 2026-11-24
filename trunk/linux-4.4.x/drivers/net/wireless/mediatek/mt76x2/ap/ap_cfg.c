@@ -2543,16 +2543,16 @@ INT RTMPAPSetInformation(
 				if (pObj->ioctl_if_type == INT_APCLI)
 				{
 					ifIndex = pObj->ioctl_if;
+					if (ifIndex >= MAX_APCLI_NUM)
+					{
+						Status = -EINVAL;
+						os_free_mem(NULL, Elem);
+						break;
+					}
 					apcliEn = pAd->ApCfg.ApCliTab[ifIndex].Enable;
 					pApCliEntry = &pAd->ApCfg.ApCliTab[ifIndex];
 					pCurrState = &pAd->ApCfg.ApCliTab[ifIndex].CtrlCurrState;
-					if (ifIndex >= MAX_APCLI_NUM)
-					{
-						os_free_mem(NULL, Elem);
-						return FALSE;
-					}
-					
-					os_alloc_mem(pAd, (UCHAR **)&pInfo, sizeof(MLME_DEAUTH_REQ_STRUCT));
+
 					os_alloc_mem(pAd, (UCHAR **)&pInfo, sizeof(MLME_DEAUTH_REQ_STRUCT));
 					if (pInfo == NULL) {
 						Status = -ENOMEM;
