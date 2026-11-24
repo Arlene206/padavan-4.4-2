@@ -1,3 +1,11 @@
+## 2026-11-25 — Fix formatting-sensitive NAK source-contract assertions
+
+- Exact Actions run #45475288109 on a218e0ce5cfeba84cc0dd82c82afc319041d834b compiled and ran the GNU89 ASan/UBSan regression binary successfully, but its Python checker still failed: it compared a call expression as one whitespace-exact string, while the production call spans multiple indented lines. The earlier policy-body check also searched for escaped newline text rather than relying on normalized code.
+- Replaced those brittle checks with whitespace-normalized source/policy/test assertions, preserving the same semantic ordering and all server-ID presence/mismatch checks. No production code changed.
+- Exact-SHA udhcpc checker rerun on THIS commit is required; the a218 docs validator passed (#45475287900).
+
+---
+
 ## 2026-11-25 — Align DHCP NAK source contract with extracted predicate
 
 - Exact run #45475021198 on fd8697d50c16035051a63cb6cbe932e99ac1a533 passed the GNU89 -Werror ASan/UBSan test binary and failed the Python source checker because it still looked for the pre-refactor inline server_addr conditional and svid comparison.
