@@ -1,52 +1,42 @@
 ## Current repository state
 
-- Parent main for this Adbyby syntax/postcondition correction: `db75aed4c9005bcbdcb4eba503b3c65be8f99644`; live main/tree fetched before building the complete tree.
-- Adbyby process identity code is in `db75aed4c9005bcbdcb4eba503b3c65be8f99644`. Its first exact-head run failed shell syntax; correction `5e9ce769a1f274d99da21686f3b9c0f9c7b43a11` restored the bounded wait loop and corrected fake procfs start_time offsets; exact reruns are pending. Exact Adbyby #45338516192 failed at `sh -n` due an accidentally omitted closing brace and bounded wait tail; exact HTTPD #45338516101 and Process fail-closed #45338516189 failed at dependent Adbyby source checks. DNSMasq #45338516248, AI docs #45338516151 and Process inventory #45338516089 PASS on DB75.
-- THIS COMMIT restores the bounded five-probe post-TERM postcondition The resulting exact 5e9ce769 test runs confirmed the stop shell regression PASS but exposed two follow-ups: a checker phrase mismatch and a start-readiness fixture that needed synthetic procfs. THIS COMMIT fixes both. and fixes fake procfs stat layout so the PID-reuse test modifies kernel start_time field 22, not vsize.
-- SmartDNS NVRAM-independent stop SHA `2294ae89092db384169b533ed6c0ab4e8c6b639c`: DNSMasq, Process, AI docs and USB passed; its XY-C1 run was still in progress at last poll.
-- AdGuardHome per-PID stop/escalation fix `ceda64c`: exact `ce1902a` shell regressions all PASS after resetting the mock PID between scenarios; Python checker then failed only because the test omitted its required success marker. THIS COMMIT emits that marker after the full assertions; exact-head rerun pending.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Main-only atomic complete-tree commits; expected-SHA non-forced updates; no force-push.
+- Live parent `main`: `9ce145922915fa4b09217b1253a5490a9e2fbda9`; this atomic continuation will be its direct child. Re-fetch `main` before every later write and never force-push.
+- Current source task: router hostname publication in `trunk/user/rc/src/net_wan.c:update_hosts_router()`. The caller `prepare_dns_dhcpd()` in `services_ex.c` already aborts on its returned error.
+- Adbyby executable/PID-start_time stop identity hardening is present on parent `9ce145922915fa4b09217b1253a5490a9e2fbda9`, following parent source `ceda64cdd021684c8b9b876fb29ecafa150a9e81`. Its source regressions and exact-main push Actions still require live verification; do not infer status from earlier SHA results.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Only `main` is the development branch. Branch inventory contains main + this archive; no open PRs were found.
 
 ## Active task
 
-Close Adbyby process identity regression:
-- Inventory binds pidof candidates to `/proc/PID/exe` and `/proc/PID/stat` start_time.
-- Stop revalidates executable/start_time before direct TERM, then retains the five-bounded-probe RUNNING/ABSENT/UNKNOWN postcondition before DNS/firewall cleanup.
-- Fake procfs fixtures put start_time in field 22; the PID-reuse test changes that exact field.
-- Exact-head Adbyby, HTTPD and Process fail-closed Actions are required after this correction.
+Router kernel hostname/domain failure propagation:
+- `update_hosts_router()` atomically publishes `/etc/hostname` and `/etc/hosts`, then previously ignored `sethostname()` / `setdomainname()` return values.
+- `prepare_dns_dhcpd()` already consumes a nonzero return as a hard preparation gate; preserve that caller contract.
+- This slice reuses `lan_kernel_names_apply()` with errno-preserving WAN adapters, attempts both syscalls, returns the first error, and retains a primary kernel error if lock release also fails. It does not roll back a valid published file pair.
+- Existing `trunk/user/rc/src/tests/lan_kernel_name_policy.c` is added to Process GNU89/ASan/UBSan CI; source contract pins adapters, publication→kernel update→unlock ordering, and returned status.
 
 ## Completed development slices
 
-- Autostart: supplied the missing `fail()` helper and corrected the concurrent-publish fixture newline. Process lifecycle Actions #45332907096 and #45332907032 PASS on `6bc7b0665719835a6f45e54c3dfd13e3516f6b73`.
-- AliyunDrive WebDAV: only explicit disabled values stop the service; malformed enable values fail without killing/relaunching a healthy daemon. Lifecycle #45333513857 and Process #45333513772 PASS on `5cfb70929934a800f867a7e21179e11fafb9d86c`.
-- LAN DHCP: strict binary validation for `lan_dns_x` before resolver publication and deconfig route/resolver side effects; GNU89 policy test includes boundary/corrupt values. WAN DHCP callback stability #45333806032 PASS on `d0c7bb76c70f23b18046719d1d8ede572dfca05b`.
-- AliDDNS: malformed persisted and runtime selectors no longer become implicit enable/disable decisions or terminate the keeper. Exact lifecycle #45334063814 and Process #45334063878 PASS on `248e045b1526868c9324485bfb18234ca268c7cf`.
-- DDNSTO: start/restart preflight validates checked NVRAM values before signalling a healthy daemon; fixture restore correction made its selector matrix pass. Lifecycle #45334345903 and Process #45334345858 PASS on `10ca6cb384a9f83864216f5302d5f44ea59fd0cf`.
-- AdGuardHome: restart preflights checked enable state before stopping; invalid values/read errors leave the daemon untouched. Config/security #45334530232 and Process #45334530159 PASS on `e3d7f4b0f347f01da2cf4a84e58bee511934ea41`.
-- Adbyby: start/restart reject malformed enable selectors and preserve NVRAM read error statuses. Intermediate exact-head failures exposed, in order, a multiline function extraction mismatch, lost read status, and a checker IndentationError; these were corrected in `053393ee`, `560d78e` and `ae615df`. Final Adbyby download/DNSMasq regression #45335321139 PASS on `ae615df132c429ee58373bfa248be2df4d1e828d`.
-- SmartDNS: start/restart/reset accept only the binary UI selector (with legacy empty default); this slice makes explicit stop independent of all five checked config NVRAM reads and restores from the persisted resolver snapshot. Exact-head checks for this slice are pending.
-- USB storage hotplug regression #45335248143 also PASS on `a89ebc`.
+- Adbyby process identity hardening on parent `9ce145922915fa4b09217b1253a5490a9e2fbda9`: pidof candidates are bound to exact `/proc/PID/exe` and parsed non-zombie `/proc/PID/stat` start_time; stop revalidates both immediately before TERM. Host fixtures cover multiple PIDs, same-name wrong-executable decoys, malformed proc metadata and changed start_time.
+- WAN router hostname/domain updater: this atomic commit; source regression integration is included. The on-disk file pair remains published if a kernel name syscall fails; the DNSMasq caller receives the failure before daemon preparation.
+- Previously completed unrelated modules and checks are retained in `REFACTOR_ROADMAP.md`; do not repeat their audits without a new failing case.
 
 ## Verification boundary
 
-- AdGuardHome #45338988643 on `ce1902a`: shell syntax and lifecycle assertions PASS; only the Python checker marker was missing. THIS COMMIT adds the marker after stop regressions. New exact-head run pending.
-- AdGuardHome #45338317817 on `ceda64c`: shell tests passed through the fresh replacement-PID case, then the stuck-daemon expected PID mismatched because test state leaked 13579; THIS COMMIT resets the fixture. New exact-head AdGuardHome rerun pending.
-- DB75 exact head: Adbyby #45338516192 FAILED at shell syntax (`adbyby.sh:1891: Syntax error: end of file unexpected (expecting "}")`). HTTPD #45338516101 failed at dependent add-on staging syntax; Process fail-closed #45338516189 failed its Adbyby stop-gate check. DNSMasq #45338516248 PASS; AI docs #45338516151 PASS; Process inventory #45338516089 PASS.
-- 5e9ce769 exact head: Adbyby shell syntax and host regressions PASS; its Python checker FAILED only on a `start-time` vs `start_time` marker mismatch. Process fail-closed FAILED because the detached-start fixture lacked synthetic procfs after the new executable-identity check. THIS COMMIT fixes both test-only causes.
-- Prior correction 5e9ce769 restored the function brace/wait loop and corrects the procfs test field offset. New exact-head reruns pending.
-- XY-C1 DB75 #45338516092 remained IN_PROGRESS at the last poll; no same-SHA L3 claim until Build, TRX and artifact all pass. Physical-router L4 remains NOT VERIFIED.
+- Local verification: the existing LAN kernel-name policy test is compiled/run in GNU89 mode with ASan/UBSan during this session; Process Actions compile/run the same test on the exact main SHA.
+- Exact-head Push Actions for parent `9ce145922915fa4b09217b1253a5490a9e2fbda9` cannot be listed with the available GitHub connector: combined commit status returned an empty status array, and its workflow-run action only exposes PR runs. This means NOT INSPECTABLE, not PASS or confirmed PENDING. No exact-head result is invented.
+- The new WAN router change requires exact-main Process regression and XY-C1 production-source Build/TRX/artifact validation. No MIPS target build or physical-router L4 result is claimed.
+- The prior Adbyby exact-main Actions should also be verified when push-run listing is available; its source result must not be conflated with the older PASS evidence recorded in history.
+- SmartDNS XY-C1 run `45336719186` on `2294ae89092db384169b533ed6c0ab4e8c6b639c` was last recorded as IN_PROGRESS; check its final Build/TRX/artifact only if the run remains accessible and do not infer L3.
 
 ## Exact first action for the next GPT
 
-1. Inspect the newest exact-head Adbyby/HTTPD/Process runs for `5e9ce769` and AdGuardHome config-security for this PID-fixture reset; fix any remaining first failure.
-2. Poll DB75 XY-C1 #45338516092 for final Build, TRX and artifact-upload outcomes; claim L3 only if every required step passes on DB75's product source.
-3. If regressions pass or are pending, continue an evidence-backed P1 stability/security task outside already-completed SmartDNS/RAETH coverage.
-4. Keep the backup immutable and main commits atomic/non-forced.
+1. Fetch the live `main` SHA and inspect exact-head Push Actions for THIS COMMIT; triage the first failure or record the run IDs/head SHA if still pending.
+2. Confirm XY-C1 Build, TRX verification and artifact upload on this production-source SHA before claiming L3; separately inspect the unresolved Adbyby exact-main checks.
+3. Continue a concrete P1 stability repair outside already-completed SmartDNS/RAETH scopes, preferably from the WAN/DHCP, DNSMasq, storage or service-lifecycle backlog; do not re-audit resolved items.
+4. Keep `backup/pre-plugin-overhaul-2026-11-14` immutable; all source updates remain single-tree atomic commits on `main` using expected-SHA non-forced updates.
 
 # Cross-session execution mandate
 
-Treat this as continuous work across GPT conversations. Recover once, then execute on main; each logical source or CI change is one atomic main commit. Create all changed blobs, one complete Git tree and one commit before updating the branch with a non-forced expected-SHA compare-and-swap. Never force-push or modify the frozen backup.
+Treat this as continuous work across GPT conversations. Recover once, then execute on `main`; each logical source or CI change is one atomic main commit. Create all changed blobs, one complete Git tree and one commit before updating the branch with a non-forced expected-SHA compare-and-swap. Never force-push or modify the frozen backup.
 
 ## Mandatory handoff checkpoint
 

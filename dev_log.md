@@ -1,3 +1,13 @@
+## 2026-11-24 14:11 UTC+8 — Preserve router kernel hostname/domain update failures
+
+- `prepare_dns_dhcpd()` already aborts when `update_hosts_router()` returns an error, but the router path ignored both `sethostname(2)` and `setdomainname(2)` failures after atomically publishing `/etc/hostname` and `/etc/hosts`. DNSMasq could therefore proceed with stale runtime kernel identity while the updater reported success.
+- Reused the tested `lan_kernel_names_apply()` policy in `net_wan.c`; both syscalls now return positive errno/EIO, both are attempted, and the first failure survives a later lock-release failure. The valid on-disk pair is not rolled back; the caller receives the error and blocks DNSMasq preparation for retry.
+- Added Process workflow path coverage for the shared policy/test, a GNU89 ASan/UBSan compile-and-run step, and source-contract assertions for the router adapter, ordering and error propagation.
+- Parent main: `9ce145922915fa4b09217b1253a5490a9e2fbda9`. This atomic commit includes `net_wan.c`, the Process source checker/workflow, the WAN DHCP roadmap note, and the live handoff.
+- Local verification: compile/run the checked-in policy regression for this slice; exact Actions state must be checked for THIS COMMIT. The available GitHub connector does not expose push-run listing; an empty combined-status result or PR-only run query is not PASS. No L3/L4 result is claimed.
+
+---
+
 ## 2026-11-24 — Emit AdGuardHome stop-contract marker after host regressions
 
 - Exact-head AdGuardHome run #45338988643 on `ce1902a95b8cb9cf7c8c938daee2caa1684d9018` passed shell syntax and every runtime regression, including the replacement-PID escalation and the newly reset stuck-daemon fixture.

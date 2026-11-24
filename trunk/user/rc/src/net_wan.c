@@ -61,12 +61,34 @@
 #include "dhcp_lease_policy.h"
 #include "dhcp_wan_interface_policy.h"
 #include "wan_ifname_policy.h"
+#include "lan_kernel_name_policy.h"
 #include "dhcp_wan_route_transition_policy.h"
 #include "wan_viptv_static_policy.h"
 #include "bridge_membership_policy.h"
 #include "switch.h"
 #include "switch_status_policy.h"
 #include <gpioutils.h>
+
+static int
+wan_sethostname_status(const char *name, size_t length)
+{
+	if (sethostname(name, length) == 0)
+		return 0;
+	return errno ? errno : EIO;
+}
+
+static int
+wan_setdomainname_status(const char *name, size_t length)
+{
+	if (setdomainname(name, length) == 0)
+		return 0;
+	return errno ? errno : EIO;
+}
+
+static const lan_kernel_name_ops_t wan_kernel_name_ops = {
+	wan_sethostname_status,
+	wan_setdomainname_status
+};
 
 char*
 get_wan_unit_value(int unit, const char* param_name)
@@ -6828,15 +6850,33 @@ update_hosts_router(const char *lan_ipaddr)
 		logmessage(LOGNAME, "cannot remove router hosts rollback snapshot '%s' (errno=%d)",
 			   hosts_backup, errno ? errno : EIO);
 
-	/* Update kernel names only after both corresponding files were published. */
-	sethostname(lan_hname, strlen(lan_hname));
-	setdomainname(lan_dname, strlen(lan_dname));
+	/*
+	 * The durable files are already published. Keep kernel-name failures
+	 * visible so DNSMasq preparation can abort and a later retry can apply
+	 * the same runtime identity; do not roll back a valid file pair.
+	 */
+	saved_errno = lan_kernel_names_apply(lan_hname, lan_dname,
+					     &wan_kernel_name_ops);
+	if (saved_errno != 0)
+		logmessage(LOGNAME,
+			   "router kernel hostname/domain update failed (status=%d)",
+			   saved_errno);
+
 	if (dnsmasq_lifecycle_lock_release(hosts_lock) != 0) {
-		saved_errno = errno ? errno : EIO;
-		hosts_lock = -1;
-		goto failed;
+		int release_status = errno ? errno : EIO;
+
+		if (saved_errno == 0)
+			saved_errno = release_status;
+		else
+			logmessage(LOGNAME,
+				   "hostname file lock release also failed (status=%d; first_error=%d)",
+				   release_status, saved_errno);
 	}
 	hosts_lock = -1;
+	if (saved_errno != 0) {
+		errno = saved_errno;
+		return saved_errno;
+	}
 	return 0;
 
 failed:

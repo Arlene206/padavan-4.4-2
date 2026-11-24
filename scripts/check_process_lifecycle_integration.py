@@ -2508,6 +2508,40 @@ wan_param_setter = c_function_body(
 assert "if (unit < 0 || !param_name || !param_name[0])" in wan_param_setter
 assert wan_param_setter.index("if (unit < 0") < wan_param_setter.index("nvram_transaction_begin")
 
+# Router hostname publication must not hide failures from the running kernel.
+wan_router_hosts = c_function_body(wan_source, "update_hosts_router(const char *lan_ipaddr)")
+wan_hostname_setter = c_function_body(
+    wan_source, "wan_sethostname_status(const char *name, size_t length)"
+)
+wan_domain_setter = c_function_body(
+    wan_source, "wan_setdomainname_status(const char *name, size_t length)"
+)
+assert '#include "lan_kernel_name_policy.h"' in wan_source
+for setter, syscall in (
+    (wan_hostname_setter, "sethostname(name, length)"),
+    (wan_domain_setter, "setdomainname(name, length)"),
+):
+    assert syscall in setter
+    assert "return errno ? errno : EIO;" in setter
+assert "lan_kernel_names_apply(lan_hname, lan_dname, &wan_kernel_name_ops)" in " ".join(wan_router_hosts.split())
+assert "sethostname(" not in wan_router_hosts
+assert "setdomainname(" not in wan_router_hosts
+assert wan_router_hosts.index("dnsmasq_file_publish_pair(") < wan_router_hosts.index("lan_kernel_names_apply(")
+assert wan_router_hosts.index("lan_kernel_names_apply(") < wan_router_hosts.index("dnsmasq_lifecycle_lock_release(")
+assert "return saved_errno;" in wan_router_hosts
+assert "first_error=%d" in wan_router_hosts
+lan_kernel_policy = (root / "trunk/user/rc/src/lan_kernel_name_policy.h").read_text()
+lan_kernel_test = (root / "trunk/user/rc/src/tests/lan_kernel_name_policy.c").read_text()
+assert "ops->set_hostname(hostname, strlen(hostname))" in lan_kernel_policy
+assert "ops->set_domainname(domainname, strlen(domainname))" in lan_kernel_policy
+for case in (
+    "test_hostname_failure_does_not_skip_domain_update",
+    "test_domain_failure_is_reported_after_hostname_update",
+    "test_invalid_inputs_fail_before_system_calls",
+):
+    assert case + "();" in lan_kernel_test
+assert 'lan_kernel_names_apply("router", "home.arpa", &mock_ops) == EPERM' in lan_kernel_test
+
 print("Remaining AP/router mode consumers use checked NVRAM reads: PASS")
 
 # Standalone OpenSSH stop must use the shared bounded lifecycle transaction.
