@@ -17,8 +17,10 @@ struct fake_nvram {
 	struct fake_entry entries[FAKE_MAX_KEYS];
 	int operation_count;
 	const char *fail_key;
+	const char *fail_rollback_key;
 	const char *fail_read_key;
 	int fail_after_apply;
+	int rollback_mode;
 };
 
 static struct fake_entry *
@@ -59,6 +61,12 @@ fake_should_fail(struct fake_nvram *fake, const char *key)
 	++fake->operation_count;
 	if (fake->fail_key && !strcmp(fake->fail_key, key)) {
 		fake->fail_key = NULL;
+		fake->rollback_mode = 1;
+		return 1;
+	}
+	if (fake->rollback_mode && fake->fail_rollback_key &&
+	    !strcmp(fake->fail_rollback_key, key)) {
+		fake->fail_rollback_key = NULL;
 		return 1;
 	}
 	return 0;
@@ -462,6 +470,29 @@ test_add_group_row_write_failure_rolls_back_every_column(void)
 }
 
 static int
+test_add_group_reports_incomplete_rollback(void)
+{
+	struct fake_nvram fake;
+	const char *names[] = { "alpha", "beta" };
+	const char *values[] = { "new-alpha", "new-beta" };
+
+	fake_init_group(&fake);
+	fake.fail_key = "beta4";
+	fake.fail_rollback_key = "alpha4";
+	if (httpd_nvram_group_add(names, 2, "group_count", values, 128,
+				  &fake_ops, &fake) != -2)
+		return 1;
+
+	/* The incomplete restore must be surfaced, never reported as success. */
+	return fake.rollback_mode &&
+	       expect_value(&fake, "group_count", "4") &&
+	       expect_value(&fake, "alpha4", "new-alpha") &&
+	       expect_value(&fake, "beta4", NULL) &&
+	       expect_value(&fake, "alpha_0", "old-alpha-cache") &&
+	       expect_value(&fake, "beta_0", "old-beta-cache") ? 0 : 1;
+}
+
+static int
 test_add_group_count_write_applied_then_failed_rolls_back(void)
 {
 	struct fake_nvram fake;
@@ -573,6 +604,7 @@ main(void)
 	    test_add_group_missing_count_starts_at_zero() ||
 	    test_add_group_read_failure_aborts_before_mutation() ||
 	    test_add_group_row_write_failure_rolls_back_every_column() ||
+	    test_add_group_reports_incomplete_rollback() ||
 	    test_add_group_count_write_applied_then_failed_rolls_back() ||
 	    test_add_group_malformed_or_full_count_fails_closed() ||
 	    test_stale_or_malformed_group_count_aborts_before_mutation() ||

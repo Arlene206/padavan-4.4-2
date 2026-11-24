@@ -1678,6 +1678,7 @@ jobs:
           assert "test_add_group_appends_all_columns_and_clears_delete_cache" in group_tests
           assert "test_add_group_read_failure_aborts_before_mutation" in group_tests
           assert "test_add_group_row_write_failure_rolls_back_every_column" in group_tests
+          assert "test_add_group_reports_incomplete_rollback" in group_tests
           assert "test_add_group_count_write_applied_then_failed_rolls_back" in group_tests
           assert "test_add_group_malformed_or_full_count_fails_closed" in group_tests
           assert 'apply_cgi_group(wp, sid, NULL, groupId, GROUP_FLAG_ADD) != 1' in caller
