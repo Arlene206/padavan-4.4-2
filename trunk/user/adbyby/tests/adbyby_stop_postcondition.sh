@@ -25,16 +25,6 @@ cat > "$tmp/bin/killall" <<'STUB'
 printf 'killall:%s\n' "$*" >> "$ADBYBY_TEST_EVENTS"
 exit 0
 STUB
-kill()
-{
-	printf 'kill:%s\n' "$*" >> "$ADBYBY_TEST_EVENTS"
-	case "$ADBYBY_TEST_KILL_MODE" in
-		stop|stop-fail) echo absent > "$ADBYBY_TEST_STATE" ;;
-		unknown) echo unknown > "$ADBYBY_TEST_STATE" ;;
-	esac
-	[ "${ADBYBY_TEST_KILL_STATUS:-0}" -eq 0 ] && return 0
-	return "$ADBYBY_TEST_KILL_STATUS"
-}
 
 cat > "$tmp/bin/sleep" <<'STUB'
 #!/bin/sh
@@ -54,7 +44,22 @@ ADBYBY_TEST_SLEEP_MODE=ok
 export PATH ADBYBY_TEST_STATE ADBYBY_TEST_EVENTS
 export ADBYBY_TEST_KILL_MODE ADBYBY_TEST_SLEEP_MODE
 
-. "$repo_root/trunk/user/adbyby/adbyby.sh"
+# Use an external signal stub: the test also overrides the shell's kill
+# builtin later for the unrelated admem helper cleanup.
+sed 's/kill -TERM "$adbyby_stop_pid"/fake_kill -TERM "$adbyby_stop_pid"/' \
+	"$repo_root/trunk/user/adbyby/adbyby.sh" > "$tmp/adbyby.sh"
+cat > "$tmp/bin/fake_kill" <<'STUB'
+#!/bin/sh
+printf 'kill:%s\n' "$*" >> "$ADBYBY_TEST_EVENTS"
+case "$ADBYBY_TEST_KILL_MODE" in
+	stop|stop-fail) echo absent > "$ADBYBY_TEST_STATE" ;;
+	unknown) echo unknown > "$ADBYBY_TEST_STATE" ;;
+esac
+[ "${ADBYBY_TEST_KILL_STATUS:-0}" -eq 0 ] && exit 0
+exit "$ADBYBY_TEST_KILL_STATUS"
+STUB
+chmod 755 "$tmp/bin/fake_kill"
+. "$tmp/adbyby.sh"
 
 logger() { :; }
 mem_mode=0
