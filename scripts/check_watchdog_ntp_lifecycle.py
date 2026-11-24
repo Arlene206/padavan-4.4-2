@@ -290,3 +290,18 @@ assert _wifi_notify.index('nvram_set_int_temp("wd_notify_id", wd_notify_id)') < 
 assert "refusing SIGUSR1 with stale band state" in _wifi_notify
 assert "watchdog_wifi_notification_should_signal" in _wifi_signal_policy
 assert "test_wifi_signal_requires_published_band_selector" in _wifi_signal_test
+
+
+# The receiving watchdog side also validates the persisted band selector
+# before dispatch. Checked-read errors and unknown IDs must not update either band.
+_wifi_dispatch = function_body(_ntp_watchdog, "watchdog_on_sigusr1(void)")
+assert "watchdog_nvram_read_int_status(" in _wifi_dispatch
+assert "watchdog_wifi_notification_band_status(" in _wifi_dispatch
+assert _wifi_dispatch.index("watchdog_nvram_read_int_status(") < _wifi_dispatch.index(
+    "watchdog_wifi_notification_band_status("
+)
+assert _wifi_dispatch.index("watchdog_wifi_notification_band_status(") < _wifi_dispatch.index(
+    "update_svc_status_wifi5()"
+)
+assert 'nvram_get_int("wd_notify_id")' not in _wifi_dispatch
+assert "test_wifi_signal_band_dispatch_requires_checked_recognized_selector" in _wifi_signal_test

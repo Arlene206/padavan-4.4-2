@@ -134,6 +134,32 @@ test_wifi_signal_requires_published_band_selector(void)
 	return 0;
 }
 
+static int
+test_wifi_signal_band_dispatch_requires_checked_recognized_selector(void)
+{
+	int is_5ghz = 23;
+
+	CHECK(watchdog_wifi_notification_band_status(
+		0, 1, 1, 2, &is_5ghz) == 0);
+	CHECK(is_5ghz == 0);
+	CHECK(watchdog_wifi_notification_band_status(
+		0, 2, 1, 2, &is_5ghz) == 0);
+	CHECK(is_5ghz == 1);
+
+	CHECK(watchdog_wifi_notification_band_status(
+		EACCES, 2, 1, 2, &is_5ghz) == EACCES);
+	CHECK(is_5ghz == -1);
+	CHECK(watchdog_wifi_notification_band_status(
+		0, 0, 1, 2, &is_5ghz) == EINVAL);
+	CHECK(is_5ghz == -1);
+	CHECK(watchdog_wifi_notification_band_status(
+		0, 3, 1, 2, &is_5ghz) == EINVAL);
+	CHECK(is_5ghz == -1);
+	CHECK(watchdog_wifi_notification_band_status(
+		0, 1, 1, 2, NULL) == EINVAL);
+	return 0;
+}
+
 int
 main(void)
 {
@@ -145,6 +171,7 @@ main(void)
 	CHECK(test_unmanaged_signals_and_null_state_are_ignored() == 0);
 	CHECK(test_scheduled_state_commits_only_after_pid1_accepts_notification() == 0);
 	CHECK(test_wifi_signal_requires_published_band_selector() == 0);
+	CHECK(test_wifi_signal_band_dispatch_requires_checked_recognized_selector() == 0);
 	puts("watchdog signal and schedule notification policy: PASS");
 	return 0;
 }

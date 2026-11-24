@@ -1,6 +1,7 @@
 #ifndef WATCHDOG_SIGNAL_POLICY_H
 #define WATCHDOG_SIGNAL_POLICY_H
 
+#include <errno.h>
 #include <signal.h>
 
 #define WD_PENDING_TIMER         ((sig_atomic_t)0x01)
@@ -84,6 +85,32 @@ static inline int
 watchdog_wifi_notification_should_signal(int state_write_status)
 {
 	return state_write_status == 0;
+}
+
+/*
+ * Resolve the band selector only from a successful, recognized NVRAM value.
+ * A failed read or stale/uninitialized identifier must never dispatch a
+ * refresh against an arbitrary radio.
+ */
+static inline int
+watchdog_wifi_notification_band_status(int read_status, int notify_id,
+                                        int wifi2_id, int wifi5_id,
+                                        int *is_5ghz)
+{
+	if (!is_5ghz)
+		return EINVAL;
+	*is_5ghz = -1;
+	if (read_status != 0)
+		return read_status;
+	if (notify_id == wifi2_id) {
+		*is_5ghz = 0;
+		return 0;
+	}
+	if (notify_id == wifi5_id) {
+		*is_5ghz = 1;
+		return 0;
+	}
+	return EINVAL;
 }
 
 #endif /* WATCHDOG_SIGNAL_POLICY_H */

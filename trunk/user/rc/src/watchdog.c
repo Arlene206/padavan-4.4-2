@@ -853,12 +853,25 @@ watchdog_on_sighup(void)
 static void
 watchdog_on_sigusr1(void)
 {
-	int wd_notify_id = nvram_get_int("wd_notify_id");
-	if (wd_notify_id == WD_NOTIFY_ID_WIFI2) {
-		update_svc_status_wifi2();
-	} else if (wd_notify_id == WD_NOTIFY_ID_WIFI5) {
-		update_svc_status_wifi5();
+	int wd_notify_id, is_5ghz;
+	int read_status, status;
+
+	read_status = watchdog_nvram_read_int_status(
+		"wd_notify_id", 0, &wd_notify_id);
+	status = watchdog_wifi_notification_band_status(
+		read_status, wd_notify_id, WD_NOTIFY_ID_WIFI2,
+		WD_NOTIFY_ID_WIFI5, &is_5ghz);
+	if (status != 0) {
+		logmessage("watchdog",
+			   "ignoring Wi-Fi update signal because its band selector is unavailable or invalid (status=%d)",
+			   status);
+		return;
 	}
+
+	if (is_5ghz)
+		update_svc_status_wifi5();
+	else
+		update_svc_status_wifi2();
 }
 
 static void
