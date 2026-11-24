@@ -1607,6 +1607,7 @@ restart_dhcpd_locked(void)
 	int prepare_status;
 	int stop_status;
 	int stop_postcondition;
+	int arp_status;
 	int scan_error = 0;
 	int launch_status;
 	int start_status;
@@ -1657,12 +1658,12 @@ restart_dhcpd_locked(void)
 
 	/* stop_dns_dhcpd_locked() has cleared the previous static bindings.
 	 * Restore the exact /etc/ethers snapshot before exposing the new daemon. */
-	status = arpbind_apply_current_ethers();
-	if (status != 0) {
+	arp_status = arpbind_apply_current_ethers();
+	if (arp_status != 0) {
 		logmessage(LOGNAME,
 			   "DNSMasq restart aborted because static ARP restoration failed (errno=%d)",
-			   status);
-		return status;
+			   arp_status);
+		return arp_status;
 	}
 	errno = 0;
 	launch_status = eval("/usr/sbin/dnsmasq");
