@@ -1,3 +1,12 @@
+## 2026-11-24 — Fix Adbyby process inventory source-checker scope
+
+- The Adbyby stop test was repaired in two sequential test-only commits: `c0afda5` moved the per-PID TERM mock out of the shell builtin namespace, and `3462bca` exported `ADBYBY_TEST_PID_OUTPUT` before invoking the external mocked `pidof`, so its `123 456` multi-PID case actually reaches both validated PIDs.
+- On exact SHA `3462bcacba47114b93d3d9da0366513064c13dbb`, all Adbyby shell regressions, including the multi-PID TERM case, passed. The workflow then failed only in `scripts/check_adbyby_hosts_config.py`: the pidof assignment/status contract was being searched in `adbyby_process_state()`, while the checked command substitution correctly lives in `adbyby_process_snapshot()`.
+- Updated the checker to validate the actual function which owns the checked read. Production Adbyby code is unchanged in this slice. Exact-head Adbyby and Process workflow reruns are required.
+- Parent main: `3462bcacba47114b93d3d9da0366513064c13dbb`; no firmware, MIPS build or hardware result claimed for this checker-only correction.
+
+---
+
 ## 2026-11-24 — Keep SmartDNS shutdown independent of configuration NVRAM reads
 
 - `smartdns.sh` performed five checked configuration reads (`sdns_enable`, `sdns_port`, `sdns_redirect`, `sdnse_enable`, `sdnse_port`) before dispatching every action. A transient NVRAM backend error therefore exited before an explicit `stop` could acquire the lifecycle lock, load its durable `smartdns_conf.ini` resolver snapshot, remove DNSMasq's managed override, reload DNSMasq or stop the daemon.

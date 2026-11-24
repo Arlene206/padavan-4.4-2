@@ -1,19 +1,18 @@
 ## Current repository state
 
-- Parent main for this source/test slice: `08d59c49ef1080079830e66302516747e06cf82f`; the live tree was fetched immediately before the atomic tree was assembled.
-- Since the preceding handoff, Transmission shutdown and reload were changed to signal only fully validated PID snapshots (`abad0ae5`, `2d87291`). The exact-head storage suite exposed a stale shared test double that accepted only `-9`; commit `cf1850c724c2623e7c0aead2d46d82fc50a320c5` corrected it to model Transmission's per-PID SIGTERM separately from Aria2's killall path. Its USB hotplug and related exact-head Actions were pending at last poll.
+- Parent main for this Adbyby source-contract correction: `3462bcacba47114b93d3d9da0366513064c13dbb`; live branch/tree read immediately before assembling the atomic commit.
+- SmartDNS NVRAM-independent stop slice: source SHA `2294ae89092db384169b533ed6c0ab4e8c6b639c`; DNSMasq #45336719172, Process inventory #45336719252, AI docs #45336719249 and USB hotplug #45336719220 PASS. XY-C1 #45336719186 remains IN_PROGRESS at last poll; Build completed but TRX verification and artifact upload are still pending.
+- DNS Forwarder CWD-safe launch/stop tests: exact SHA `569066e9f67b0fab62a8382c2b1b8e9ab9dfdc3f`, launch-path #45336969468 and Process inventory #45336969414 PASS.
+- Adbyby per-PID stop test progression: `c0afda5` moved TERM injection to an external stub; `3462bca` exported the multi-PID fixture to the external `pidof` process. On `3462bcacba47114b93d3d9da0366513064c13dbb`, every shell regression (including the two-PID signal case) passed; only the source checker then failed because it searched the pidof assignment in the wrong function. THIS COMMIT corrects that checker.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- This continuation closes a confirmed SmartDNS shutdown failure boundary: transient checked NVRAM read failures previously exited before explicit stop could restore persisted DNSMasq state or stop SmartDNS. The new helper and targeted regression are in THIS COMMIT.
-- All writes remain main-only, complete-tree, single-commit and non-forced expected-SHA updates.
+- All commits remain main-only, one complete Git tree per logical change, CAS expected-SHA updates and no force-push.
 
 ## Active task
 
-Implement and verify the SmartDNS stop NVRAM isolation slice:
-- Production: `trunk/user/smartdns/smartdns.sh`, `smartdns_load_lifecycle_nvram_state()`.
-- Regression: `trunk/user/smartdns/tests/smartdns_stop_nvram_failure.sh`; source checker: `scripts/check_smartdns_dnsmasq_config.py`.
-- Workflow: `.github/workflows/dnsmasq-lifecycle.yml` (push and pull-request trigger sets include the regression).
-- Explicit `stop` skips all five startup configuration reads, selects the disabled cleanup branch and relies on `Read_ini`'s persisted resolver snapshot. Start/restart/reset retain fail-closed checked reads, original error status and strict binary enable validation.
-- After publication, inspect exact-SHA DNSMasq lifecycle, Process lifecycle and XY-C1 results. Do not claim L3 unless Build, TRX verification and artifact upload all pass on this same source SHA.
+Close the Adbyby exact-head validation slice:
+- The production code validates the result of `pidof adbyby` inside `adbyby_process_snapshot()`; `adbyby_process_state()` only maps its return code to RUNNING/ABSENT/UNKNOWN.
+- The shell suite's multiple validated PID regression now exports `ADBYBY_TEST_PID_OUTPUT=123 456` before invoking the pidof subprocess. The external fake signal command prevents the shell `kill` builtin from hijacking per-PID TERM testing.
+- This commit moves the source-checker assertion to the function that actually performs the checked pidof read. Inspect exact-head Adbyby and Process Actions after publication, fix any remaining failure, then inspect SmartDNS XY-C1 L3 steps.
 
 ## Completed development slices
 
@@ -29,16 +28,17 @@ Implement and verify the SmartDNS stop NVRAM isolation slice:
 
 ## Verification boundary
 
-- Exact-head Actions for this new SmartDNS source SHA are pending immediately after publication; DNSMasq lifecycle, Process lifecycle and XY-C1 must be inspected independently. AI handoff documentation status must also be checked if triggered.
-- The preceding Transmission/storage test-correction SHA `cf1850c724c2623e7c0aead2d46d82fc50a320c5` had USB hotplug #45336564093, XY-C1 #45336564159, Process inventory #45336564109 and AI handoff #45336564080 all IN_PROGRESS at last poll. The prior-head USB failure #45336245210 was caused by the stale Transmission SIGTERM test double and is corrected in the newer source tree; the new exact-head run must confirm it.
-- No local MIPS firmware compile is claimed. Physical-router/hardware L4 remains NOT VERIFIED.
+- Exact SHA `3462bcacba47114b93d3d9da0366513064c13dbb`: Adbyby host regression #45337601785 failed only after all shell tests passed, at the stale Python source-checker assertion (pidof status capture wrongly searched in `adbyby_process_state`). THIS COMMIT fixes its function scope; exact-head rerun pending.
+- Exact SHA `3462bca`: Process lifecycle inventory #45337601601 and Process inventory/fail-closed #45337601694 were still IN_PROGRESS at last poll.
+- SmartDNS SHA `2294ae89092db384169b533ed6c0ab4e8c6b639c`: DNSMasq/Process/AI/USB all PASS; XY-C1 #45336719186 was IN_PROGRESS at last poll with TRX verification and artifact upload pending. Do not claim L3 until all required same-SHA build steps pass.
+- No local MIPS firmware build, physical router runtime or L4 result claimed.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect this commit's exact-head DNSMasq lifecycle and Process lifecycle runs; diagnose any first failing step before recording verification.
-2. Inspect the XY-C1 run for the exact product-source SHA; claim L3 only after Build XY-C1, TRX verification and artifact upload all pass.
-3. Once these are closed or pending, continue an evidence-backed P1 stability pass outside SmartDNS and RAETH, starting with WAN DHCP / route lifecycle and PPPoE-MWAN error propagation. Do not repeat completed selector audits.
-4. Keep the frozen backup immutable; preserve main-only atomic commits.
+1. Fetch live `main` and inspect this checker-correction commit's exact-head Adbyby and Process runs; address any first remaining failing step.
+2. Poll SmartDNS XY-C1 #45336719186 on exact product-source SHA `2294ae89092db384169b533ed6c0ab4e8c6b639c`; claim L3 only if Build, TRX verification and artifact upload all pass.
+3. Continue a concrete P1 stability fix outside SmartDNS/RAETH and avoid re-auditing completed selector work.
+4. Keep the frozen backup immutable; all updates to main remain atomic and non-forced.
 
 # Cross-session execution mandate
 

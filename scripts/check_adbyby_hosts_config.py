@@ -387,8 +387,8 @@ require("if ! add_rules" in updater and "return 1" in updater,
 process_snapshot = function_body(source, "adbyby_process_snapshot")
 stop_daemon = function_body(source, "adbyby_stop_daemon")
 process_state = function_body(source, "adbyby_process_state")
-require("if adbyby_pid_output=$(pidof adbyby 2>/dev/null); then" in process_state
-        and "adbyby_pid_status=$?" in process_state,
+require("if adbyby_pid_output=$(pidof adbyby 2>/dev/null); then" in process_snapshot
+        and "adbyby_pid_status=$?" in process_snapshot,
         "pidof result must be captured safely under errexit")
 require('adbyby_pids="$adbyby_pid_output"' in process_snapshot and
         'adbyby_stop_pids="$adbyby_pids"' in stop_daemon and
