@@ -4385,12 +4385,18 @@ INT RTMPAPSetInformation(
 			Status  = -EINVAL;
 		else {
 			UCHAR apidx = pObj->ioctl_if;
-			ULONG value;
+			BOOLEAN value;
 
-			Status = copy_from_user(&value, wrq->u.data.pointer, wrq->u.data.length);
-			pAd->ApCfg.MBSSID[apidx].wdev.FtCfg.FtCapFlag.Dot11rFtEnable = (value == 0 ? FALSE : TRUE);
-			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_TRACE, ("Set::OID_802_11R_SUPPORT(=%d)\n",
-					 pAd->ApCfg.MBSSID[apidx].wdev.FtCfg.FtCapFlag.Dot11rFtEnable));
+			if (copy_from_user(&value, wrq->u.data.pointer, sizeof(value)))
+			{
+				Status = -EFAULT;
+			}
+			else
+			{
+				pAd->ApCfg.MBSSID[apidx].wdev.FtCfg.FtCapFlag.Dot11rFtEnable = (value == 0 ? FALSE : TRUE);
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_TRACE, ("Set::OID_802_11R_SUPPORT(=%d)\n",
+						 pAd->ApCfg.MBSSID[apidx].wdev.FtCfg.FtCapFlag.Dot11rFtEnable));
+			}
 		}
 
 		break;
@@ -4432,12 +4438,18 @@ INT RTMPAPSetInformation(
 			Status  = -EINVAL;
 		else {
 			UCHAR apidx = pObj->ioctl_if;
-			ULONG value;
+			BOOLEAN value;
 
-			Status = copy_from_user(&value, wrq->u.data.pointer, wrq->u.data.length);
-			pAd->ApCfg.MBSSID[apidx].wdev.FtCfg.FtCapFlag.RsrReqCap = (value == 0 ? FALSE : TRUE);
-			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_TRACE, ("Set::OID_802_11R_RIC(=%d)\n",
-					 pAd->ApCfg.MBSSID[apidx].wdev.FtCfg.FtCapFlag.Dot11rFtEnable));
+			if (copy_from_user(&value, wrq->u.data.pointer, sizeof(value)))
+			{
+				Status = -EFAULT;
+			}
+			else
+			{
+				pAd->ApCfg.MBSSID[apidx].wdev.FtCfg.FtCapFlag.RsrReqCap = (value == 0 ? FALSE : TRUE);
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_TRACE, ("Set::OID_802_11R_RIC(=%d)\n",
+						 pAd->ApCfg.MBSSID[apidx].wdev.FtCfg.FtCapFlag.Dot11rFtEnable));
+			}
 		}
 
 		break;
@@ -4447,12 +4459,18 @@ INT RTMPAPSetInformation(
 			Status  = -EINVAL;
 		else {
 			UCHAR apidx = pObj->ioctl_if;
-			ULONG value;
+			BOOLEAN value;
 
-			Status = copy_from_user(&value, wrq->u.data.pointer, wrq->u.data.length);
-			pAd->ApCfg.MBSSID[apidx].wdev.FtCfg.FtCapFlag.FtOverDs = (value == 0 ? FALSE : TRUE);
-			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_TRACE, ("Set::OID_802_11R_OTD(=%d)\n",
-					 pAd->ApCfg.MBSSID[apidx].wdev.FtCfg.FtCapFlag.Dot11rFtEnable));
+			if (copy_from_user(&value, wrq->u.data.pointer, sizeof(value)))
+			{
+				Status = -EFAULT;
+			}
+			else
+			{
+				pAd->ApCfg.MBSSID[apidx].wdev.FtCfg.FtCapFlag.FtOverDs = (value == 0 ? FALSE : TRUE);
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_TRACE, ("Set::OID_802_11R_OTD(=%d)\n",
+						 pAd->ApCfg.MBSSID[apidx].wdev.FtCfg.FtCapFlag.Dot11rFtEnable));
+			}
 		}
 
 		break;

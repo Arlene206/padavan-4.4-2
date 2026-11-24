@@ -239,6 +239,8 @@ on:
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl_mt762x.h"
       - "trunk/linux-4.4.x/drivers/net/wireless/mediatek/mt76x2/ap/ap_cfg.c"
       - "trunk/linux-4.4.x/drivers/net/wireless/mediatek/mt76x3/ap/ap_cfg.c"
+      - "trunk/linux-4.4.x/drivers/net/wireless/mediatek/mt7915/embedded/ap/ap_cfg.c"
+      - "trunk/linux-4.4.x/drivers/net/wireless/mediatek/mt7615/embedded/ap/ap_cfg.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/link_mode_policy.h"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/tests/link_mode_policy.c"
       - "scripts/check_usb_modem_driver_config.py"

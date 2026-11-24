@@ -1,3 +1,12 @@
+## 2026-11-24 — Fix partial-copy stack values in MTK 802.11r ioctls
+
+- MT76x2, MT76x3, MT7615 and MT7915 AP ioctl handlers declared a stack `ULONG value` while validating one-byte `BOOLEAN` input for `OID_802_11R_SUPPORT`, `OID_802_11R_RIC` and `OID_802_11R_OTD`. Only the BOOLEAN-sized prefix was copied, leaving the remaining stack bytes uninitialized; the flags were also updated without checking `copy_from_user()` failure.
+- Changed each handler to use a `BOOLEAN` destination, copy exactly `sizeof(value)`, and update/log only after a successful copy. Failures now set `-EFAULT` and leave the affected flag unchanged.
+- Expanded the MTK source-contract regression to cover all three commands across all four driver variants. Both the focused regression workflow and XY-C1 build workflow now watch every affected production source path.
+- Exact-SHA regression and same-SHA XY-C1 Build/TRX/artifact results are required before claiming compile validation; no local kernel build or hardware result is claimed.
+
+---
+
 ## 2026-11-24 18:34 Beijing — Align process lifecycle LLDT contract with descriptor policy
 
 - The exact Process lifecycle regression #45374673151 on `8796b356087fe77920a90e43f2889e86a6096013` compiled and passed the LLTD PID-file parser regression, then failed only because its source checker still required two inline `S_ISREG(st.st_mode)` checks after validation had been factored into `lldt_pidfile_validate_regular_file()`.

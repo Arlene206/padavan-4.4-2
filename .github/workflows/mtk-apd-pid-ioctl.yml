@@ -1,4 +1,4 @@
-name: MTK AP daemon PID ioctl bounds regression
+name: MTK AP private ioctl bounds regression
 
 on:
   push:
@@ -7,6 +7,8 @@ on:
       - "scripts/check_mtk_apd_pid_ioctl.py"
       - "trunk/linux-4.4.x/drivers/net/wireless/mediatek/mt76x2/ap/ap_cfg.c"
       - "trunk/linux-4.4.x/drivers/net/wireless/mediatek/mt76x3/ap/ap_cfg.c"
+      - "trunk/linux-4.4.x/drivers/net/wireless/mediatek/mt7915/embedded/ap/ap_cfg.c"
+      - "trunk/linux-4.4.x/drivers/net/wireless/mediatek/mt7615/embedded/ap/ap_cfg.c"
   pull_request:
     paths:
       - ".github/workflows/mtk-apd-pid-ioctl.yml"
@@ -22,5 +24,5 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Verify APD PID ioctl copy bounds
+      - name: Verify MTK AP ioctl copy contracts
         run: python3 scripts/check_mtk_apd_pid_ioctl.py
