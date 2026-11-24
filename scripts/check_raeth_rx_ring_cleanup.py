@@ -49,7 +49,8 @@ assert rollback < unmap < free_skb < free_ring < null_ring
 assert "for (j = 0; j < mapped; j++)" in body[rollback:free_skb]
 assert allocated_loop < free_skb < free_ring
 assert "for (j = 0; j < num_rx_desc; j++)" not in body[allocated_loop:free_ring]
-assert "if (ei_local->rx_ring[0])" in body[free_ring:null_ring]
+ring_free_guard = body.rfind("if (ei_local->rx_ring[0])", 0, free_ring)
+assert ring_free_guard >= 0 and ring_free_guard < free_ring
 assert "ei_local->netrx_skb_data[0][j] = NULL;" in body[free_skb:free_ring]
 print("PDMA RX partial-allocation rollback and DMA-unmap ordering: PASS")
 
@@ -98,6 +99,8 @@ qdma_free_ring = qdma_body.index("dma_free_coherent(", qdma_free_skb)
 assert "for (j = 0; j < mapped; j++)" in qdma_body[qdma_rollback:qdma_free_skb]
 assert qdma_allocated_loop < qdma_free_skb < qdma_free_ring
 assert "ei_local->netrx0_skb_data[j] = NULL;" in qdma_body[qdma_free_skb:qdma_free_ring]
+qdma_ring_free_guard = qdma_body.rfind("if (ei_local->qrx_ring)", 0, qdma_free_ring)
+assert qdma_ring_free_guard >= 0 and qdma_ring_free_guard < qdma_free_ring
 assert "ei_local->qrx_ring = NULL;" in qdma_body[qdma_free_ring:]
 
 qdma_teardown = function_body(QDMA_SOURCE, "void fe_qdma_rx_dma_deinit(")
