@@ -9,7 +9,7 @@ export ADBYBY_DNSMASQ_AD_DIR
 trap 'rm -rf "$test_root"' EXIT HUP INT TERM
 policy_file="$test_root/policy.sh"
 awk '
-    /^adbyby_(refresh_nvram_state|reset_transient_nvram_state|lifecycle_(lock_path|lock_prepare|lock_execute|locked_action|lock_run))\(\) \{$/ {
+    /^adbyby_refresh_nvram_state\(\)$/ || /^adbyby_(reset_transient_nvram_state|lifecycle_(lock_path|lock_prepare|lock_execute|locked_action|lock_run))\(\) \{$/ {
         capture = 1
         found++
     }
