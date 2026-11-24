@@ -2,10 +2,9 @@
 
 ## Current repository state
 
-- Parent live `main` immediately before this atomic HTTPD security slice: `5c8c62f51b722ebeda9cbce811dd571392832a5a`. The HTML/JavaScript output handler, remaining UI migrations, regressions, workflow triggers, roadmap and handoff will be published in one complete commit; fetch the resulting exact SHA from live `main` before another write.
+- Current live `main` parent for this slice: `89128ba053ffdefc026079459f582dc49d07827a`. The previous C-side JavaScript output migration is committed; exact HTTPD contract test and all non-firmware side regressions passed on that SHA.
 - Read-only backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged and never written.
-- Prior migrations: `51bd80e` moved seven ASP pages to safe JS output and `453aefd` moved four more. This slice completes the audited 174-asset context pass while preserving HTML-only callsites.
-- Main-only development; one complete Git tree/commit, non-forced expected-SHA ref updates, no partial file commits or force-push.
+- Main-only, single complete Git tree/commit, non-forced expected-SHA update. Do not force push or write to backup.
 
 ## Active task
 
@@ -31,19 +30,18 @@ Independent snapshot/lifecycle changes remain in `99ad9397e3cf4450c6fc07758b58c3
 
 ## Verification boundary
 
-- Exact `dd099f6` HTTPD `#45300345684`: **FAIL** in `check_dynamic_js_hooks` due to its over-broad assertion rejecting the literal `"No link"` output; the follow-up commit narrowed that assertion. Do not mark this SHA green.
-- Exact `c6f5805` HTTPD `#45300471389`: pending/in progress at last check; its AI handoff run `#45300471279`: **PASS**.
-- Exact `08c6d43` HTTPD `#45299995452`, AI handoff `#45299995515`, Process lifecycle inventory `#45299995326`, Process regression `#45299995463`, FRP `#45299995540`, Inadyn `#45299995467`, AliyunDrive `#45299995485`, AdGuardHome `#45299995325` and USB storage `#45299995495`: **PASS**; NVRAM transaction audit `#45299995549` was cancelled by the newer commit. XY-C1 `#45299995388` had Build pending.
-- Exact `212aed2` XY-C1 `#45299517972`: detector regression **PASS**, Build in progress; TRX and artifact pending. AI handoff `#45299517974` and Process inventory `#45299517987`: **PASS**.
-- Exact `5c8c62f` XY-C1 `#45298161504`: **PASS**, including Build, TRX and artifact upload.
-- Exact `861e3fe` all security/process/side regressions and XY-C1 `#45298770098`: **PASS**, including Build, TRX and artifact upload.
+- Exact `89128ba` HTTPD Authentication and Security Regression `#45300665513`: **PASS**, including the NVRAM HTML/JavaScript context checker and JSON/HTML GNU89 sanitizer tests. AI handoff `#45300665430`, Process inventory `#45300665463`, Process lifecycle inventory `#45300665517`, NVRAM transaction audit `#45300665431`, FRP `#45300665527`, Inadyn `#45300665514`, AdGuardHome `#45300665471`, USB storage `#45300665447` and AliyunDrive `#45300665429`: **PASS**.
+- Exact `89128ba` XY-C1 Firmware Validation `#45300665497`: detector test **PASS**; Build XY-C1 still **IN_PROGRESS** at last check; TRX verification and artifact upload **PENDING**. No L3 claim yet.
+- Exact `dd099f6` HTTPD `#45300345684`: **FAIL** due to an over-broad source-contract assertion that rejected static `"No link"`; narrowed in child `c6f5805`. Exact `c6f5805` HTTPD `#45300471389` and AI handoff `#45300471279`: **PASS**.
+- Exact `08c6d43` HTTPD `#45299995452`, AI handoff `#45299995515`, Process inventory `#45299995463`, Process lifecycle `#45299995326`, FRP `#45299995540`, Inadyn `#45299995467`, AliyunDrive `#45299995485`, AdGuardHome `#45299995325` and USB storage `#45299995495`: **PASS**; XY-C1 `#45299995388` did not complete before newer commits.
+- Exact `212aed2` XY-C1 `#45299517972`: detector test **PASS**, but Build was still running with TRX/artifact pending. Exact `5c8c62f` XY-C1 `#45298161504` and exact `861e3fe` XY-C1 `#45298770098`: **PASS**, including Build, TRX and artifact upload.
 - No physical-router L4 result is claimed. Backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Exact first action for the next GPT
 
-1. Verify exact-SHA HTTPD Actions for the full dynamic-hook migration, including the corrected output-context assertion.
-2. Continue looking for data-derived values embedded in JavaScript source by C-side HTTPD handlers. Any runtime string must use `write_js_string()` or an appropriate JSON encoder; literal and numeric values can remain direct.
-3. Keep backup read-only and continue atomic commits while independent Actions are pending.
+1. Verify the JSON-encoder hardening for the WOL response on the new exact SHA; ensure HTTPD contract tests remain green and inspect XY-C1 Build/TRX/artifact status for that same SHA.
+2. Continue reviewing remaining HTTPD endpoints that serialize runtime state; use the shared JS/JSON encoders where strings are emitted, and retain strict input validation at the WOL and other action boundaries.
+3. Keep backup read-only and continue source → regression → atomic commit → exact-SHA Actions without waiting on pending independent runs.
 
 # Cross-session execution mandate
 

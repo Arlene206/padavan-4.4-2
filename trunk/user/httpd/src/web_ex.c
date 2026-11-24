@@ -79,6 +79,7 @@ static int apply_cgi_group(webs_t wp, int sid, struct variable *var, const char 
 static void nvram_clr_group_temp(struct variable *v);
 static int nvram_generate_table(webs_t wp, char *serviceId, char *groupName);
 static void write_js_string(webs_t wp, const char *value);
+static void write_json_string(webs_t wp, const char *value);
 
 static int nvram_modified = 0;
 #if BOARD_HAS_5G_RADIO
@@ -2861,7 +2862,9 @@ wol_action_hook(int eid, webs_t wp, int argc, char **argv)
 
 	if (sys_result == 0) {
 		nvram_set_temp("wol_mac_last", wol_mac);
-		websWrite(wp, "{\"wol_mac\": \"%s\"}", wol_mac);
+		websWrite(wp, "{\"wol_mac\": ");
+		write_json_string(wp, wol_mac);
+		websWrite(wp, "}");
 	} else {
 		websWrite(wp, "{\"wol_mac\": \"null\"}");
 	}
@@ -3520,8 +3523,6 @@ static int login_state_hook(int eid, webs_t wp, int argc, char **argv) {
 
 	return 0;
 }
-
-static void write_json_string(webs_t wp, const char *value);
 
 static int ej_get_nvram_list(int eid, webs_t wp, int argc, char **argv) {
 	struct variable *v, *gv;

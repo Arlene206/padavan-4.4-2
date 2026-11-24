@@ -1,3 +1,11 @@
+## 2026-11-23 — Use the shared JSON encoder for the WOL response
+
+- `wol_action_hook()` already enforces a strict 12/17-character MAC allowlist before waking a client. Replaced its manual JSON `%s` interpolation with `write_json_string()` as defense in depth and moved the function prototype to the common declaration block.
+- Extended the HTTPD source contract to require the shared JSON encoder and preserve strict hex/colon input validation. This keeps the endpoint's JSON response safe even if future MAC validation is changed.
+- Parent exact `89128ba`: HTTPD `#45300665513`, AI `#45300665430`, Process inventory `#45300665463`, lifecycle inventory `#45300665517`, NVRAM audit `#45300665431`, FRP `#45300665527`, Inadyn `#45300665514`, AdGuardHome `#45300665471`, USB storage `#45300665447` and AliyunDrive `#45300665429` all passed. XY-C1 `#45300665497` detector passed but Build was still running; TRX/artifact pending. No result for the child SHA is claimed.
+
+---
+
 ## 2026-11-23 — Escape remaining status and action-mode JavaScript strings
 
 - Routed the static LAN fallback `"No link"` through `write_js_string()` as well, then removed the checker exception and required that no raw `return '%s'` emitter remains in `web_ex.c`.
