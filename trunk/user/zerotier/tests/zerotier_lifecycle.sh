@@ -71,6 +71,13 @@ fail() {
 set -- __test__
 . "$SCRIPT"
 
+# Keep a separately callable copy of the production launcher for focused
+# post-readiness failure tests; start_zero() below still uses its test hook.
+sed -n '/^start_instance() {$/,/^}$/p' "$SCRIPT" |
+	sed '1s/^start_instance()/start_instance_production()/' > "$TEST_TMP/start_instance_production.sh"
+[ -s "$TEST_TMP/start_instance_production.sh" ] || fail "production start_instance extraction failed"
+. "$TEST_TMP/start_instance_production.sh"
+
 kill() {
 	printf '%s %s\n' "$1" "$2" >> "$TEST_KILL_LOG"
 	case "$TEST_MODE:$1" in
@@ -1988,4 +1995,101 @@ TEST_NAT_ENABLE=0
 zt0=""
 ip_segment=""
 
+# Exercise the production launcher after readiness: an orbit failure must not
+# be reported as success or leave the daemon/network state half-published.
+TEST_ORBIT_STATUS=23
+TEST_KILL_STATUS=0
+TEST_DEL_RULES_STATUS=0
+TEST_ZERO_ROUTE_STATUS=0
+TEST_ORBIT_LOG="$TEST_TMP/orbit.log"
+export TEST_ORBIT_STATUS TEST_ORBIT_LOG
+TEST_FAKE_ZEROTIER_CLI="$TEST_TMP/zerotier-cli"
+cat > "$TEST_FAKE_ZEROTIER_CLI" <<'ORBIT_CLI'
+#!/bin/sh
+printf '%s\\n' "$*" >> "$TEST_ORBIT_LOG"
+exit "$TEST_ORBIT_STATUS"
+ORBIT_CLI
+chmod 700 "$TEST_FAKE_ZEROTIER_CLI"
+PROG=/bin/true
+PROGCLI="$TEST_FAKE_ZEROTIER_CLI"
+PLANET="$TEST_TMP/no-uploaded-planet"
+config_path="$TEST_TMP/orbit-config"
+mkdir -p "$config_path"
+moonid=0123456789abcdef
+secret=
+planet=
+enablemoonserv=
+zt_network_id=
+
+zerotier_prepare_config_directory() { return 0; }
+zerotier_prepare_identity() { return 0; }
+add_join() { return 0; }
+rules() {
+	zt0=ztunit
+	ip_segment=10.147.17.0/24
+	: > "$config_path/.firewall-state"
+	return 0
+}
+kill_z() {
+	printf '%s\\n' kill_z >> "$TEST_ACTION_LOG"
+	return "$TEST_KILL_STATUS"
+}
+del_rules() {
+	printf '%s\\n' del_rules >> "$TEST_ACTION_LOG"
+	return "$TEST_DEL_RULES_STATUS"
+}
+zero_route() {
+	printf 'zero_route:%s\\n' "$1" >> "$TEST_ACTION_LOG"
+	return "$TEST_ZERO_ROUTE_STATUS"
+}
+zerotier_firewall_state_clear() {
+	printf '%s\\n' clear_firewall_state >> "$TEST_ACTION_LOG"
+	/bin/rm -f "$config_path/.firewall-state"
+}
+
+: > "$TEST_ACTION_LOG"
+: > "$TEST_ORBIT_LOG"
+if start_instance_production orbit-failure; then
+	fail "production launcher reported success after the Moon orbit command failed"
+fi
+grep -Fq -- '-D' "$TEST_ORBIT_LOG" || fail "production launcher did not invoke zerotier-cli orbit"
+[ "$(cat "$TEST_ACTION_LOG")" = "$(printf 'kill_z\\ndel_rules\\nzero_route:del\\nclear_firewall_state')" ] ||
+	fail "successful orbit-failure rollback did not stop then clean network state in order"
+[ ! -e "$config_path/.firewall-state" ] || fail "successful orbit rollback retained its recovery checkpoint"
+
+# If the daemon cannot be confirmed stopped, do not touch firewall/routes or
+# clear the checkpoint that is needed for a later cleanup retry.
+TEST_KILL_STATUS=1
+: > "$TEST_ACTION_LOG"
+if start_instance_production orbit-stop-failure; then
+	fail "production launcher accepted an orbit failure when daemon stop failed"
+fi
+[ "$(cat "$TEST_ACTION_LOG")" = "kill_z" ] || fail "network cleanup ran before daemon absence was confirmed"
+[ -f "$config_path/.firewall-state" ] || fail "stop failure discarded the network recovery checkpoint"
+
+# Independent cleanup legs are both attempted, but a failed leg preserves
+# the checkpoint instead of pretending the rollback was complete.
+TEST_KILL_STATUS=0
+TEST_DEL_RULES_STATUS=1
+TEST_ZERO_ROUTE_STATUS=0
+: > "$TEST_ACTION_LOG"
+if start_instance_production orbit-firewall-cleanup-failure; then
+	fail "production launcher accepted an incomplete firewall rollback"
+fi
+[ "$(cat "$TEST_ACTION_LOG")" = "$(printf 'kill_z\\ndel_rules\\nzero_route:del')" ] ||
+	fail "route cleanup was skipped after an independent firewall cleanup failure"
+[ -f "$config_path/.firewall-state" ] || fail "incomplete firewall rollback discarded its checkpoint"
+
+# A successful orbit still leaves the daemon and its network checkpoint live.
+TEST_ORBIT_STATUS=0
+TEST_DEL_RULES_STATUS=0
+: > "$TEST_ACTION_LOG"
+: > "$TEST_ORBIT_LOG"
+start_instance_production orbit-success || fail "production launcher rejected a successful Moon orbit"
+[ ! -s "$TEST_ACTION_LOG" ] || fail "successful Moon orbit unexpectedly ran rollback"
+grep -Fq -- 'orbit 0123456789abcdef 0123456789abcdef' "$TEST_ORBIT_LOG" ||
+	fail "Moon orbit did not receive the configured ID as two distinct argv values"
+[ -f "$config_path/.firewall-state" ] || fail "successful Moon orbit lost its live network checkpoint"
+
 echo "ZeroTier bounded stop/start, readiness, firewall/static-route rollback and persistent-config preservation: PASS"
+echo "ZeroTier Moon orbit propagates CLI failure and rolls back readiness state: PASS"

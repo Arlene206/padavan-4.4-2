@@ -151,6 +151,36 @@ require('if ! kill_z; then' in start_body and
         start_body.index('if ! kill_z; then') < start_body.index("start_instance 'zerotier'"),
         "start must not launch a new daemon unless the previous daemon is absent")
 
+orbit_rollback_body = function_body(script, "zerotier_rollback_failed_start()")
+orbit_command = start_instance_body.index(
+    'if "$PROGCLI" -D"$config_path" orbit "$moonid" "$moonid"; then'
+)
+orbit_success_log = start_instance_body.index('orbit moonid $moonid ok!', orbit_command)
+orbit_failure_status = start_instance_body.index("zt_orbit_status=$?", orbit_command)
+orbit_rollback = start_instance_body.index(
+    "if ! zerotier_rollback_failed_start; then", orbit_failure_status
+)
+orbit_failure_return = start_instance_body.index("return 1", orbit_rollback)
+rollback_stop = orbit_rollback_body.index("if ! kill_z; then")
+rollback_firewall = orbit_rollback_body.index("if ! del_rules; then")
+rollback_route = orbit_rollback_body.index('if ! zero_route "del"; then')
+rollback_checkpoint = orbit_rollback_body.index("zerotier_firewall_state_clear")
+require(
+    orbit_command < orbit_success_log < orbit_failure_status < orbit_rollback < orbit_failure_return
+    and rollback_stop < rollback_firewall < rollback_route < rollback_checkpoint
+    and 'return "$zt_start_rollback_status"' in orbit_rollback_body,
+    "Moon orbit must propagate CLI failure and only clear network recovery state after confirmed stop and complete cleanup",
+)
+for token in (
+    "start_instance_production orbit-failure",
+    "production launcher reported success after the Moon orbit command failed",
+    "successful orbit-failure rollback did not stop then clean network state in order",
+    "production launcher accepted an orbit failure when daemon stop failed",
+    "incomplete firewall rollback discarded its checkpoint",
+    "Moon orbit did not receive the configured ID as two distinct argv values",
+):
+    require(token in test, "Moon orbit failure regression missing " + token)
+
 # Root-owned config writers must not inherit a permissive umask or trust
 # NVRAM path components and persistent symlink destinations.
 require("umask 077" in script[:300],

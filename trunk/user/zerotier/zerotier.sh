@@ -492,11 +492,43 @@ start_instance() {
 	fi
 
 	if [ -n "$moonid" ]; then
-		$PROGCLI -D$config_path orbit $moonid $moonid
-		logger -t "zerotier" "orbit moonid $moonid ok!"
+		if "$PROGCLI" -D"$config_path" orbit "$moonid" "$moonid"; then
+			logger -t "zerotier" "orbit moonid $moonid ok!"
+		else
+			zt_orbit_status=$?
+			logger -t "zerotier" "ZeroTier Moon orbit失败 (status=$zt_orbit_status)"
+			if ! zerotier_rollback_failed_start; then
+				logger -t "zerotier" "Moon orbit失败后网络清理未完成，保留恢复状态"
+			fi
+			return 1
+		fi
 	fi
 
 
+}
+
+zerotier_rollback_failed_start() {
+	# The daemon must be confirmed stopped before removing its published network state.
+	if ! kill_z; then
+		logger -t "zerotier" "Moon orbit失败后无法确认ZeroTier进程退出"
+		return 1
+	fi
+
+	zt_start_rollback_status=0
+	if ! del_rules; then
+		logger -t "zerotier" "Moon orbit失败后防火墙规则清理未完成"
+		zt_start_rollback_status=1
+	fi
+	if ! zero_route "del"; then
+		logger -t "zerotier" "Moon orbit失败后静态路由清理未完成"
+		zt_start_rollback_status=1
+	fi
+	if [ "$zt_start_rollback_status" -eq 0 ] &&
+	   ! zerotier_firewall_state_clear; then
+		logger -t "zerotier" "Moon orbit失败后无法清除网络恢复检查点"
+		zt_start_rollback_status=1
+	fi
+	return "$zt_start_rollback_status"
 }
 
 add_join() {
