@@ -250,7 +250,7 @@ main(void)
 	{
 		char line[32];
 		assert(fgets(line, sizeof(line), fp) != NULL);
-		assert(strcmp(line, "preserve-me\\n") == 0);
+		assert(strcmp(line, "preserve-me\n") == 0);
 	}
 	assert(fclose(fp) == 0);
 
@@ -520,7 +520,7 @@ main(void)
 
 	fp = fopen(unsafe_read, "w");
 	assert(fp != NULL);
-	assert(fputs("untrusted\\n", fp) >= 0);
+	assert(fputs("untrusted\n", fp) >= 0);
 	assert(fclose(fp) == 0);
 	assert(chmod(unsafe_read, 0666) == 0);
 	errno = 0;
