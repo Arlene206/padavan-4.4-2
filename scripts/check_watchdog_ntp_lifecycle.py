@@ -272,5 +272,7 @@ for marker in (
 ):
     assert marker in _schedule
 assert "notify_rc(" not in _schedule
-assert "watchdog_notification_state_commit" in _ntp_policy
-assert "test_scheduled_state_commits_only_after_pid1_accepts_notification" in _ntp_test
+_schedule_policy = read("trunk/user/rc/src/watchdog_signal_policy.h")
+_schedule_test = read("trunk/user/rc/src/tests/watchdog_signal_policy.c")
+assert "watchdog_notification_state_commit" in _schedule_policy
+assert "test_scheduled_state_commits_only_after_pid1_accepts_notification" in _schedule_test
