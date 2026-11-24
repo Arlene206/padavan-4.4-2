@@ -66,22 +66,43 @@ smartdns_validate_enable_selector()
     esac
 }
 
+smartdns_load_lifecycle_nvram_state()
+{
+    # An explicit stop must not depend on transient NVRAM availability. The
+    # saved SmartDNS state file is the authority for reversing DNSMasq changes.
+    if [ "$action" = "stop" ]; then
+        sdns_enable=0
+        sdns_port=
+        sdns_redirect=
+        sdnse_enable=
+        sdnse_port=
+        return 0
+    fi
+
+    smartdns_nvram_read_checked sdns_enable || return $?
+    sdns_enable=$smartdns_nvram_value
+    case "$action" in
+        start|restart|reset)
+            smartdns_validate_enable_selector "$sdns_enable" || return $?
+            ;;
+    esac
+    smartdns_nvram_read_checked sdns_port || return $?
+    sdns_port=$smartdns_nvram_value
+    smartdns_nvram_read_checked sdns_redirect || return $?
+    sdns_redirect=$smartdns_nvram_value
+    smartdns_nvram_read_checked sdnse_enable || return $?
+    sdnse_enable=$smartdns_nvram_value
+    smartdns_nvram_read_checked sdnse_port || return $?
+    sdnse_port=$smartdns_nvram_value
+    return 0
+}
+
 chn_Route="$storage_Path/chinadns/chnroute.txt"
 
-smartdns_nvram_read_checked sdns_enable || exit $?
-sdns_enable=$smartdns_nvram_value
-case "$action" in
-    start|restart|reset)
-        smartdns_validate_enable_selector "$sdns_enable" || exit $?
-        ;;
-esac
+smartdns_load_lifecycle_nvram_state || exit $?
 sdns_name=$(nvram get sdns_name)
-smartdns_nvram_read_checked sdns_port || exit $?
-sdns_port=$smartdns_nvram_value
 sdns_tcp_server=$(nvram get sdns_tcp_server)
 sdns_ipv6_server=$(nvram get sdns_ipv6_server)
-smartdns_nvram_read_checked sdns_redirect || exit $?
-sdns_redirect=$smartdns_nvram_value
 sdns_cache=$(nvram get sdns_cache)
 sdns_cache_persist=$(nvram get sdns_cache_persist)
 sdns_tcp_idle_time=$(nvram get sdns_tcp_idle_time)
@@ -106,10 +127,6 @@ sdns_exp=$(nvram get sdns_exp)
 sdns_exp_ttl=$(nvram get sdns_exp_ttl)
 sdns_exp_ttl_max=$(nvram get sdns_exp_ttl_max)
 sdns_exp_prefetch_time=$(nvram get sdns_exp_prefetch_time)
-smartdns_nvram_read_checked sdnse_enable || exit $?
-sdnse_enable=$smartdns_nvram_value
-smartdns_nvram_read_checked sdnse_port || exit $?
-sdnse_port=$smartdns_nvram_value
 sdnse_tcp=$(nvram get sdnse_tcp)
 sdnse_speed=$(nvram get sdnse_speed)
 sdnse_name=$(nvram get sdnse_name)

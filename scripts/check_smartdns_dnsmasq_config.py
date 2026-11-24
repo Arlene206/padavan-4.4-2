@@ -77,14 +77,28 @@ assert '[ "$#" -eq 1 ] || return 2' in enable_validator
 assert "''|0|1)" in enable_validator
 assert 'Invalid sdns_enable selector; refusing to change service state' in enable_validator
 assert 'return 22' in enable_validator
-enable_preflight = smartdns.split("sdns_enable=$smartdns_nvram_value", 1)[1].split("sdns_name=", 1)[0]
-assert 'case "$action" in' in enable_preflight
-assert 'start|restart|reset)' in enable_preflight
-assert 'smartdns_validate_enable_selector "$sdns_enable" || exit $?' in enable_preflight
-assert 'stop)' not in enable_preflight
+lifecycle_nvram = body(smartdns, "smartdns_load_lifecycle_nvram_state")
+assert 'if [ "$action" = "stop" ]; then' in lifecycle_nvram
+stop_nvram_branch = lifecycle_nvram.split('if [ "$action" = "stop" ]; then', 1)[1].split("fi", 1)[0]
+for assignment in ("sdns_enable=0", "sdns_port=", "sdns_redirect=",
+                   "sdnse_enable=", "sdnse_port="):
+    assert assignment in stop_nvram_branch, assignment
+assert "return 0" in stop_nvram_branch
+for key in ("sdns_enable", "sdns_port", "sdns_redirect", "sdnse_enable", "sdnse_port"):
+    assert "smartdns_nvram_read_checked " + key + " || return $?" in lifecycle_nvram
+assert 'smartdns_validate_enable_selector "$sdns_enable" || return $?' in lifecycle_nvram
+assert 'start|restart|reset)' in lifecycle_nvram
+assert 'smartdns_load_lifecycle_nvram_state || exit $?' in smartdns
+assert smartdns.index('smartdns_load_lifecycle_nvram_state || exit $?') < smartdns.index('sdns_name=')
 assert 'value=1' in (root / "trunk/user/www/n56u_ribbon_fixed/Advanced_smartdns.asp").read_text()
 assert 'value=0' in (root / "trunk/user/www/n56u_ribbon_fixed/Advanced_smartdns.asp").read_text()
 assert "SmartDNS binary enable selector validation: PASS" in enable_test
+stop_nvram_test = (root / "trunk/user/smartdns/tests/smartdns_stop_nvram_failure.sh").read_text()
+for marker in ("explicit stop bypasses every configuration NVRAM read: PASS",
+               "each checked NVRAM read preserves its original failure status: PASS",
+               "invalid enable selector still fails closed: PASS",
+               "SmartDNS lifecycle NVRAM stop isolation regression: PASS"):
+    assert marker in stop_nvram_test, marker
 
 read = body(smartdns, "Read_ini")
 assert '[ -L "$smartdns_Ini" ]' in read
@@ -109,11 +123,11 @@ adbyby_read = body(smartdns, "smartdns_nvram_read_checked")
 assert 'nvram get_checked "$1"' in adbyby_read
 assert "Failed to read NVRAM key" in adbyby_read
 assert 'return "$smartdns_nvram_status"' in adbyby_read
-startup = smartdns.split('smartdns_nvram_read_checked sdns_enable', 1)[0]
+startup = smartdns.split('smartdns_load_lifecycle_nvram_state || exit $?', 1)[0]
 for key in ("sdns_enable", "sdns_port", "sdns_redirect", "sdnse_enable", "sdnse_port"):
-    assert 'smartdns_nvram_read_checked ' + key + ' || exit $?' in smartdns
+    assert 'smartdns_nvram_read_checked ' + key + ' || return $?' in lifecycle_nvram
     assert key + '=$(nvram get ' + key + ')' not in startup
-assert smartdns.index('smartdns_nvram_read_checked sdns_enable') < smartdns.index('smartdns_nvram_read_checked adbyby_enable')
+assert smartdns.index('smartdns_load_lifecycle_nvram_state || exit $?') < smartdns.index('smartdns_nvram_read_checked adbyby_enable')
 assert 'pidof adbyby' not in smartdns
 adbyby_change = body(smartdns, "Change_adbyby")
 assert 'smartdns_process_state adbyby' in adbyby_change
@@ -173,6 +187,7 @@ paths = (
     "trunk/user/smartdns/smartdns_lifecycle_lock.sh",
     "trunk/user/smartdns/tests/smartdns_lifecycle_lock.sh",
     "trunk/user/smartdns/tests/smartdns_enable_selector.sh",
+    "trunk/user/smartdns/tests/smartdns_stop_nvram_failure.sh",
     "trunk/user/rc/src/services.c",
     "trunk/user/smartdns/tests/smartdns_config_file.sh",
     "trunk/user/smartdns/tests/dnsmasq_config_preservation.sh",

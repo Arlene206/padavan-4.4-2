@@ -1,3 +1,12 @@
+## 2026-11-24 — Keep SmartDNS shutdown independent of configuration NVRAM reads
+
+- `smartdns.sh` performed five checked configuration reads (`sdns_enable`, `sdns_port`, `sdns_redirect`, `sdnse_enable`, `sdnse_port`) before dispatching every action. A transient NVRAM backend error therefore exited before an explicit `stop` could acquire the lifecycle lock, load its durable `smartdns_conf.ini` resolver snapshot, remove DNSMasq's managed override, reload DNSMasq or stop the daemon.
+- Added `smartdns_load_lifecycle_nvram_state()`: explicit `stop` makes no configuration-NVRAM calls, selects the local disabled cleanup path and relies on `Read_ini`'s saved ownership/port/redirect snapshot. Start/restart/reset retain checked, ordered reads and strict selector rejection with original error-status propagation.
+- Added a shell regression for all five independent read failures, stop's zero-read path, valid snapshot loading and malformed-selector rejection; wired it into both push and pull-request DNSMasq lifecycle triggers and the source checker.
+- Parent main: `08d59c49ef1080079830e66302516747e06cf82f`. This source/test milestone is THIS COMMIT; exact-head DNSMasq/Process/XY-C1 Actions must be checked after publication. No local MIPS build, live DNS test or hardware L4 result is claimed.
+
+---
+
 ## 2026-11-24 — Align the shared stop regression with Transmission's per-PID SIGTERM
 
 - Exact-head USB storage workflow #45336245210 failed only in the shared Transmission/Aria launcher lifecycle regression; the preceding storage C and HDD/spindown checks passed.
