@@ -1,3 +1,11 @@
+## 2026-11-23 — Correct AiDisk USB checker source boundaries
+
+- Exact `cd7e54d` HTTPD `#45302551766` and child `674adb3` HTTPD `#45302709748` failed at `check_aidisk_usb_string_outputs()` with `substring not found`. The source check used double-escaped `\\n` text when locating the C function/newline before `#endif`; it did not reach the newly added syslog output contract.
+- Corrected the Python source strings to match actual newline boundaries without relaxing the USB enum/transport label assertions. The parent `674adb3` HTML byte sanitizer and all preceding AiDisk/WOL output-context checks passed before the failing assertion.
+- This test-only correction awaits its exact-SHA HTTPD/AI results. Parent `674adb3` AdGuardHome, AliyunDrive, process inventory, Inadyn and AI handoff checks passed; NVRAM, process, USB storage, FRP and XY-C1 were still running at checkpoint.
+
+---
+
 ## 2026-11-23 — Escape syslog entries before HTML serialization
 
 - `Main_LogStatus_Content.asp` emits `/tmp/syslog.log` into a `textarea` through `nvram_dump()`, and `log_content.asp` exposes the same stream through `dump_syslog()`. Network/client-controlled strings can occur in log lines; a crafted `</textarea>` or markup could break the browser output context.

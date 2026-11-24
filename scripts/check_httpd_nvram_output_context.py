@@ -231,8 +231,8 @@ def check_aidisk_script_messages():
 
 def check_aidisk_usb_string_outputs():
     source = AIDISK_SOURCE.read_text(encoding="utf-8")
-    start = source.index("int\\nej_get_usb_ports_info(")
-    end = source.index("\\n#endif", start)
+    start = source.index("int\nej_get_usb_ports_info(")
+    end = source.index("\n#endif", start)
     usb = source[start:end]
     for label in ("hub", "printer", "modem_eth", "modem_tty", "storage", "unknown"):
         assert f'= "{label}";' in usb

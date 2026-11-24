@@ -2,16 +2,17 @@
 
 ## Current repository state
 
-- Current live main parent for this slice: `cd7e54d5e771d95f97955c5b5c6d123691b8ed66`.
-- Exact `1027e90` HTTPD Security Regression `#45302330035` and AI handoff contract `#45302330042`: **PASS**. The corrected source-contract now verifies all 48 AiDisk dictionary-backed JS error responses.
-- Exact `a5794a0` WOL DOM XSS change: HTTPD `#45301947513`, AI handoff `#45301947575` and process lifecycle inventory `#45301947519`: **PASS**. XY-C1 `#45301947500` was still IN_PROGRESS at last poll.
-- Exact `cd7e54d` AiDisk USB enum JSON encoding is committed; its HTTPD `#45302551766`, AI `#45302551868`, process inventory `#45302551902`, NVRAM audit `#45302551759` and XY-C1 `#45302551710` runs were IN_PROGRESS at last poll.
-- Read-only backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged and never written.
-- Main-only, one complete Git tree/commit, non-forced expected-SHA update. Never force-push or write to backup.
+- Current live main parent for this slice: `674adb3bdbe4d19a8de684561317f349b1e1068a`.
+- Exact `1027e90` HTTPD `#45302330035` and AI handoff `#45302330042`: **PASS**; the corrected source-contract verifies all 48 AiDisk dictionary-backed JavaScript error responses.
+- Exact `a5794a0` WOL DOM XSS: HTTPD `#45301947513`, AI `#45301947575` and process inventory `#45301947519`: **PASS**. Its XY-C1 `#45301947500` was IN_PROGRESS at last poll.
+- Exact `cd7e54d` and `674adb3` HTTPD runs `#45302551766` and `#45302709748`: **FAIL** at `check_aidisk_usb_string_outputs()` because source boundaries searched for literal backslash-n text, not function/#endif line boundaries. All earlier HTTPD sanitizer, NVRAM context, WOL DOM and AiDisk message checks printed PASS; syslog assertions were not reached. This checker-only correction is the current commit.
+- Exact `674adb3` AdGuardHome `#45302709648`, AliyunDrive `#45302709567`, process inventory `#45302709442`, Inadyn `#45302709395` and AI handoff `#45302709411`: **PASS**. FRP `#45302709418`, USB storage `#45302709472`, process regression `#45302709713`, NVRAM audit `#45302709430` and XY-C1 `#45302709412` were IN_PROGRESS at last poll.
+- Syslog HTML escaping is implemented in `674adb3`; its source-contract test awaits execution after the preceding AiDisk USB checker defect is corrected.
+- Read-only backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged and never written. Work only on `main`; never force-push or write to backup.
 
 ## Active task
 
-Prevent stored/reflected XSS through router syslog output. `Main_LogStatus_Content.asp` emits `/tmp/syslog.log` into a `textarea` through `nvram_dump()`, while `log_content.asp` exposes user-influenced log lines through `dump_syslog()`. Raw `</textarea>` or markup in a log line can escape the intended HTML text context. Route both paths through the shared HTML byte encoder and pin their wiring in HTTPD regression.
+Correct the false-negative in `check_aidisk_usb_string_outputs()`: its Python source-boundary strings were double-escaped and searched for the literal two-character sequence `\n`. Use actual Python newline escapes so it extracts `int\nej_get_usb_ports_info()` through the following `#endif`. Then re-run the exact-head HTTPD regression to reach and verify the syslog output contract as well as the USB enum-string check.
 
 ## Completed development slices
 
@@ -37,17 +38,18 @@ Independent snapshot/lifecycle changes remain in `99ad9397e3cf4450c6fc07758b58c3
 
 ## Verification boundary
 
-- Exact `1027e90` HTTPD Regression `#45302330035` and AI handoff `#45302330042`: **PASS** after correcting the AiDisk checker escapes. The earlier exact `eae527b` HTTPD `#45302091248` failed only in that source assertion; sanitizer, NVRAM context, dynamic-hook and WOL DOM checks passed before it.
-- Exact `a5794a0` HTTPD `#45301947513`, AI handoff `#45301947575` and process lifecycle inventory `#45301947519`: **PASS**. XY-C1 `#45301947500` was IN_PROGRESS at last poll.
-- Exact `cd7e54d` AiDisk USB enum encoding: HTTPD `#45302551766`, AI `#45302551868`, process inventory `#45302551902`, NVRAM audit `#45302551759` and XY-C1 `#45302551710` were IN_PROGRESS at last poll. No result for this SHA yet.
-- The syslog HTML escaping changes and textarea-close sanitizer fixture in THIS COMMIT await exact-head Actions. No local execution, L3 firmware result or physical L4 validation is claimed.
+- Exact `1027e90` HTTPD `#45302330035` and AI handoff `#45302330042`: **PASS**, including all 48 AiDisk dictionary-message checks.
+- Exact `a5794a0` HTTPD `#45301947513`, AI `#45301947575` and process inventory `#45301947519`: **PASS**. XY-C1 `#45301947500` remains IN_PROGRESS at last poll.
+- Exact `cd7e54d` HTTPD `#45302551766` and exact `674adb3` HTTPD `#45302709748`: **FAIL** only at the AiDisk USB source-boundary assertion. HTML/JSON sanitizer, JavaScript NVRAM, dynamic hook, WOL DOM and AiDisk dictionary-message checks all printed PASS; the failure is repaired in this checker-only slice. Syslog source-contract test did not run on those SHAs.
+- Exact `674adb3` AdGuardHome `#45302709648`, AliyunDrive `#45302709567`, process inventory `#45302709442`, Inadyn `#45302709395` and AI handoff `#45302709411`: **PASS**. Other listed runs had not completed at checkpoint.
+- The syslog code/textarea-payload regression are in parent `674adb3`; the next HTTPD SHA must execute the corrected USB assertion and the syslog contract. No local execution, same-SHA L3 firmware result or hardware L4 validation is claimed.
 - Backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Exact first action for the next GPT
 
-1. Verify exact-head HTTPD and XY-C1 Actions for this syslog escaping change. Confirm the textarea-close payload is escaped and both `nvram_dump("syslog.log")` and `dump_syslog()` route through the HTML text writer.
-2. Poll the exact `cd7e54d` AiDisk USB enum Actions; diagnose any HTTPD contract mismatch from its failing log without weakening source-sink coverage.
-3. Continue reviewing remaining data-derived C-side HTTPD output sinks; preserve the archival backup and keep one complete atomic main commit per logical fix.
+1. Verify the exact-head HTTPD regression after this USB checker escape fix; it must reach both AiDisk USB string coverage and the new syslog HTML-output assertions.
+2. Check exact-head XY-C1 Build/TRX/artifact and NVRAM/USB/process Actions without waiting.
+3. Continue auditing dynamic HTTPD output producers for values from files, NVRAM, networkmap, device metadata and translated messages; preserve the archival backup.
 
 # Cross-session execution mandate
 
