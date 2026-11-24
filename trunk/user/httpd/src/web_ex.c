@@ -957,6 +957,52 @@ ej_uptime(int eid, webs_t wp, int argc, char **argv)
 }
 
 static int
+write_html_text(webs_t wp, const char *value)
+{
+	const unsigned char *p;
+	char escaped[8];
+	size_t escaped_len;
+
+	if (!value)
+		return 0;
+
+	for (p = (const unsigned char *)value; *p; ++p) {
+		escaped_len = httpd_html_escape_byte(*p, escaped);
+		if (escaped_len == 0 ||
+		    fwrite(escaped, 1, escaped_len, wp) != escaped_len)
+			return -1;
+	}
+
+	return 0;
+}
+
+static int
+dump_html_text_file(webs_t wp, const char *filename)
+{
+	FILE *fp;
+	char buf[MAX_FILE_LINE_SIZE];
+	int result = 0;
+
+	fp = fopen(filename, "r");
+	if (!fp)
+		return -1;
+
+	while (fgets(buf, sizeof(buf), fp)) {
+		if (write_html_text(wp, buf) != 0) {
+			result = -1;
+			break;
+		}
+	}
+
+	if (ferror(fp))
+		result = -1;
+	if (fclose(fp) != 0)
+		result = -1;
+
+	return result;
+}
+
+static int
 dump_file(webs_t wp, char *filename)
 {
 	char *extensions;
@@ -978,6 +1024,10 @@ dump_file(webs_t wp, char *filename)
 		return websWrite(wp, "%s",
 				 "# FRP credentials are hidden outside the trusted LAN/VPN.\n");
 	}
+
+	/* Syslog entries can contain client-controlled text such as hostnames. */
+	if (strcmp(filename, "/tmp/syslog.log") == 0)
+		return dump_html_text_file(wp, filename);
 
 	return do_f(filename, wp);
 }
@@ -3899,6 +3949,7 @@ static int ej_system_status_hook(int eid, webs_t wp, int argc, char **argv)
 static int ej_dump_syslog_hook(int eid, webs_t wp, int argc, char **argv)
 {
 	int log_lines = 0;
+	int result = 0;
 	int log_float = nvram_get_int("log_float_ui");
 
 	if (log_float > 0) {
@@ -3925,13 +3976,22 @@ static int ej_dump_syslog_hook(int eid, webs_t wp, int argc, char **argv)
 					lskip--;
 					continue;
 				}
-				fputs(buf, wp);
+				if (write_html_text(wp, buf) != 0) {
+					result = -1;
+					break;
+				}
 				log_lines++;
 			}
-			
-			fclose(fp);
+
+			if (ferror(fp))
+				result = -1;
+			if (fclose(fp) != 0)
+				result = -1;
 		}
 	}
+
+	if (result != 0)
+		return -1;
 
 	if (!log_lines)
 		fputs("", wp);

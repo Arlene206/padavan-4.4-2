@@ -1,3 +1,11 @@
+## 2026-11-23 — Escape syslog entries before HTML serialization
+
+- `Main_LogStatus_Content.asp` emits `/tmp/syslog.log` into a `textarea` through `nvram_dump()`, and `log_content.asp` exposes the same stream through `dump_syslog()`. Network/client-controlled strings can occur in log lines; a crafted `</textarea>` or markup could break the browser output context.
+- Added a shared HTML text writer backed by `httpd_html_escape_byte()`. The `syslog.log` file path and `dump_syslog()` hook now use it, with read/write/close errors propagated. Added source-contract coverage for both routes and an explicit textarea-close payload to the existing GNU89 ASan/UBSan HTML byte regression.
+- Parent `cd7e54d`: the AiDisk USB enum commit's HTTPD `#45302551766`, AI `#45302551868`, process inventory `#45302551902`, NVRAM audit `#45302551759` and XY-C1 `#45302551710` were in progress. This syslog slice awaits its own exact-head Actions; no local test, L3 or L4 result is claimed.
+
+---
+
 ## 2026-11-23 — Route AiDisk USB enum labels through the JSON writer
 
 - The remaining AiDisk `%s` JavaScript outputs in `ej_get_usb_ports_info()` represented a bounded set of compile-time enum labels (hub/printer/modem/storage/unknown and RAS/NDIS). They were not sourced from external input, but direct `%s` formatting left an avoidable raw JS string sink. Routed the return labels through the shared JSON writer.

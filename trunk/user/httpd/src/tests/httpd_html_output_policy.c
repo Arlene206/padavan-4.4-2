@@ -31,6 +31,8 @@ int
 main(void)
 {
 	static const unsigned char syntax[] = "\"'&<>";
+	static const unsigned char textarea_payload[] =
+		"</textarea><script>alert(1)</script>";
 	static const unsigned char controls[] = {
 		0x01, '\b', '\n', '\r', '\t', 0x7f, 0
 	};
@@ -40,6 +42,8 @@ main(void)
 
 	assert_escaped((const unsigned char *)"plain text", "plain text");
 	assert_escaped(syntax, "&quot;&#39;&amp;&lt;&gt;");
+	assert_escaped(textarea_payload,
+		       "&lt;/textarea&gt;&lt;script&gt;alert(1)&lt;/script&gt;");
 	assert_escaped(controls, "&#1;&#8;&#10;&#13;&#9;&#127;");
 	assert_escaped(utf8, "\xc3\xa9 \xe4\xb8\xad");
 	return 0;

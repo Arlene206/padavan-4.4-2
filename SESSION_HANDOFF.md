@@ -2,15 +2,16 @@
 
 ## Current repository state
 
-- Current live main parent for this slice: `fbbedd70659f2822ee4c4613342acda2c4360c82`.
-- Exact `fbbedd7` HTTPD Authentication/Security Regression `#45301473424` and AI handoff contract `#45301473510`: **PASS**. The WOL JSON response encoder and corrected source-range regression both passed.
-- Exact `fd68cee` HTTPD run `#45301344235`: **FAIL** because the new WOL source checker searched for literal backslash-n sequences instead of function-boundary newlines; corrected in `fbbedd7`. Its AI handoff `#45301344195`, NVRAM audit `#45301344189`, FRP `#45301344338`, Inadyn `#45301344311`, USB storage `#45301344302`, Process regression `#45301344737`, Process inventory `#45301344475` and AdGuardHome `#45301344973`: **PASS**. AliyunDrive `#45301344287` and XY-C1 `#45301344269` were still IN_PROGRESS at last poll; no L3 result is claimed.
+- Current live main parent for this slice: `cd7e54d5e771d95f97955c5b5c6d123691b8ed66`.
+- Exact `1027e90` HTTPD Security Regression `#45302330035` and AI handoff contract `#45302330042`: **PASS**. The corrected source-contract now verifies all 48 AiDisk dictionary-backed JS error responses.
+- Exact `a5794a0` WOL DOM XSS change: HTTPD `#45301947513`, AI handoff `#45301947575` and process lifecycle inventory `#45301947519`: **PASS**. XY-C1 `#45301947500` was still IN_PROGRESS at last poll.
+- Exact `cd7e54d` AiDisk USB enum JSON encoding is committed; its HTTPD `#45302551766`, AI `#45302551868`, process inventory `#45302551902`, NVRAM audit `#45302551759` and XY-C1 `#45302551710` runs were IN_PROGRESS at last poll.
 - Read-only backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged and never written.
 - Main-only, one complete Git tree/commit, non-forced expected-SHA update. Never force-push or write to backup.
 
 ## Active task
 
-Verify the AiDisk dictionary-message JSON/JavaScript fix after the raw-string checker correction. This slice also routes the remaining USB enum labels and modem type labels through the shared JSON writer; they were compile-time enum strings, but uniform encoding avoids future raw-format regressions. Continue auditing AiDisk output only for data-derived strings not yet using the encoder.
+Prevent stored/reflected XSS through router syslog output. `Main_LogStatus_Content.asp` emits `/tmp/syslog.log` into a `textarea` through `nvram_dump()`, while `log_content.asp` exposes user-influenced log lines through `dump_syslog()`. Raw `</textarea>` or markup in a log line can escape the intended HTML text context. Route both paths through the shared HTML byte encoder and pin their wiring in HTTPD regression.
 
 ## Completed development slices
 
@@ -28,24 +29,25 @@ Verify the AiDisk dictionary-message JSON/JavaScript fix after the raw-string ch
 
 - WOL UI DOM XSS hardening (this commit): build client rows as DOM elements and render client MAC/name and vendor names only through jQuery `.text()`. Vendor API results are normalized to a string before rendering/caching. The HTTPD checker now rejects raw row concatenation of client data and `.html()` sinks for vendor labels.
 
+- AiDisk JavaScript output hardening (code committed in `eae527b` and `cd7e54d`): all 48 dictionary-backed action-error messages are serialized through `write_script_message()` and the shared JSON encoder; USB enum and modem transport labels now use the same string encoder. Exact `1027e90` HTTPD/AI checks pass; the `cd7e54d` child Actions remain pending.
+
 ### IPTV / process lifecycle
 
 Independent snapshot/lifecycle changes remain in `99ad9397e3cf4450c6fc07758b58c3f7b51de115`, `d38250bfa213607dbf02ac65a75f60e933be34c9`, `b64511308e12091035a745055e2882a15addd166`, and `57c466d3001da525511160fc30418a774b99aa85`. The too-short overflow fixture and stale checker expectations were corrected; historical exact-SHA WAN/process/storage/XY-C1 results remain in earlier dev-log entries.
 
 ## Verification boundary
 
-- Exact `eae527b` HTTPD `#45302091248`: **FAIL** at the newly added AiDisk source checker because Python assertions interpreted C backslash-n sequences as actual newlines. All earlier HTML/JSON sanitizer, NVRAM context, dynamic hook and WOL DOM checks had passed before the AiDisk assertion. Raw-string correction is in `1027e90`; its exact-SHA Actions were in progress at last poll.
-- Exact `eae527b` AI handoff `#45302091049`: **PASS**; Process lifecycle `#45302091220`: **PASS**; NVRAM audit `#45302091118` **IN_PROGRESS**; XY-C1 `#45302091120` detector **PASS**, Build **IN_PROGRESS**, TRX/artifact **PENDING**.
-- Exact `a5794a0` WOL DOM XSS commit: HTTPD `#45301947513` **PASS**; XY-C1 `#45301947500` detector **PASS**, Build still **IN_PROGRESS**, TRX/artifact pending.
-- Exact `fbbedd7` HTTPD `#45301473424` and AI `#45301473510`: **PASS**. Exact `89128ba` HTTPD `#45300665513` and associated security/side jobs: **PASS**.
-- Historical XY-C1 `5c8c62f` run `#45298161504` and `861e3fe` run `#45298770098`: **PASS**, including Build, TRX and artifact upload. No physical-router L4 result claimed.
-- Backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Exact `1027e90` HTTPD Regression `#45302330035` and AI handoff `#45302330042`: **PASS** after correcting the AiDisk checker escapes. The earlier exact `eae527b` HTTPD `#45302091248` failed only in that source assertion; sanitizer, NVRAM context, dynamic-hook and WOL DOM checks passed before it.
+- Exact `a5794a0` HTTPD `#45301947513`, AI handoff `#45301947575` and process lifecycle inventory `#45301947519`: **PASS**. XY-C1 `#45301947500` was IN_PROGRESS at last poll.
+- Exact `cd7e54d` AiDisk USB enum encoding: HTTPD `#45302551766`, AI `#45302551868`, process inventory `#45302551902`, NVRAM audit `#45302551759` and XY-C1 `#45302551710` were IN_PROGRESS at last poll. No result for this SHA yet.
+- The syslog HTML escaping changes and textarea-close sanitizer fixture in THIS COMMIT await exact-head Actions. No local execution, L3 firmware result or physical L4 validation is claimed.
+- Backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Exact first action for the next GPT
 
-1. Verify exact-SHA HTTPD tests for AiDisk dictionary-message JSON encoding and USB enum string encoding; correct any test mismatch without weakening runtime sink assertions.
-2. Review remaining AiDisk output formatters: manufacturer, product, partition, folder, account and disk-derived strings must use `write_json_string()`; static initial code templates and numeric fields may remain direct.
-3. Check exact-SHA XY-C1 detector/build/TRX/artifact and NVRAM audit without waiting; keep backup immutable.
+1. Verify exact-head HTTPD and XY-C1 Actions for this syslog escaping change. Confirm the textarea-close payload is escaped and both `nvram_dump("syslog.log")` and `dump_syslog()` route through the HTML text writer.
+2. Poll the exact `cd7e54d` AiDisk USB enum Actions; diagnose any HTTPD contract mismatch from its failing log without weakening source-sink coverage.
+3. Continue reviewing remaining data-derived C-side HTTPD output sinks; preserve the archival backup and keep one complete atomic main commit per logical fix.
 
 # Cross-session execution mandate
 

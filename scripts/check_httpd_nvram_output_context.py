@@ -242,6 +242,41 @@ def check_aidisk_usb_string_outputs():
     assert 'write_json_string(wp, (follow_usb->dev_type == DEVICE_TYPE_MODEM_TTY) ? "RAS" : "NDIS/RNDIS");' in usb
     print("AiDisk USB enum JavaScript string encoding: PASS")
 
+
+def check_syslog_html_sinks():
+    """Syslog text must not be able to terminate a textarea or inject markup."""
+    source = WEB_SOURCE.read_text(encoding="utf-8")
+    writer_start = source.index("static int\nwrite_html_text(")
+    file_start = source.index("\nstatic int\ndump_html_text_file(", writer_start)
+    writer = source[writer_start:file_start]
+    assert "httpd_html_escape_byte(*p, escaped)" in writer
+    assert "fwrite(escaped, 1, escaped_len, wp)" in writer
+
+    file_end = source.index("\nstatic int\ndump_file(", file_start)
+    file_writer = source[file_start:file_end]
+    assert "write_html_text(wp, buf)" in file_writer
+
+    dump_start = source.index("static int\ndump_file(")
+    dump_end = source.index("\nstatic int\nej_dump(", dump_start)
+    dump = source[dump_start:dump_end]
+    assert 'strcmp(filename, "/tmp/syslog.log") == 0' in dump
+    assert "dump_html_text_file(wp, filename)" in dump
+
+    syslog_start = source.index("static int ej_dump_syslog_hook(")
+    syslog_end = source.index("\nstatic int ej_dump_eth_mib_hook(", syslog_start)
+    syslog = source[syslog_start:syslog_end]
+    assert "write_html_text(wp, buf)" in syslog
+    assert "fputs(buf, wp)" not in syslog
+    assert "if (ferror(fp))" in syslog and "fclose(fp)" in syslog
+
+    log_page = (ROOT / "Main_LogStatus_Content.asp").read_text(encoding="utf-8")
+    log_endpoint = (ROOT / "log_content.asp").read_text(encoding="utf-8")
+    assert 'nvram_dump("syslog.log","")' in log_page
+    assert "<% dump_syslog(); %>" in log_endpoint
+    print("Syslog HTML output escaping: PASS")
+
+
+
 def main():
     check_handler_wiring()
     check_dynamic_js_hooks()
@@ -249,6 +284,7 @@ def main():
     check_wol_dom_sinks()
     check_aidisk_script_messages()
     check_aidisk_usb_string_outputs()
+    check_syslog_html_sinks()
 
 
 if __name__ == "__main__":
