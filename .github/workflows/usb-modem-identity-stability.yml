@@ -943,7 +943,7 @@ jobs:
           assert "fprintf(fp" not in wds_callback and "fclose(fp)" not in wds_callback
           assert "Failed to publish packet data handle" in wds_callback
           qmi_stop_offset = modem.index("qmi_control_network(const char *control_node, int is_start)")
-          qmi_stop_end = modem.index("\\nstatic int\\n", qmi_stop_offset)
+          qmi_stop_end = modem.index("mbim_control_network(const char* control_node", qmi_stop_offset)
           qmi_stop_function = modem[qmi_stop_offset:qmi_stop_end]
           assert "modem_qmi_command_status(" in qmi_stop_function
           assert "uqmi stop-network failed" in qmi_stop_function
