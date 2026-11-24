@@ -343,6 +343,34 @@ done
 TEST_NVRAM_ENABLE_FAIL=0
 export TEST_NVRAM_ENABLE_FAIL
 
+# Restart must not stop a healthy daemon for a corrupt enable selector.
+# Empty remains the historical disabled default; only 0/1 are non-empty
+# selector values accepted from the binary web UI.
+for invalid_enable in unexpected -1 2 '1;reboot'; do
+	echo "$invalid_enable" > "$TEST_ENABLE_FILE"
+	for enable_action in start restart; do
+		: > "$TEST_LOG"
+		: > "$TEST_OPS"
+		: > "$TEST_NVRAM_LOG"
+		echo running > "$TEST_STATE"
+		if run_action graceful "$enable_action"; then
+			fail "$enable_action accepted invalid DDNSTO enable selector '$invalid_enable'"
+		else
+			invalid_status=$?
+		fi
+		[ "$invalid_status" -eq 22 ] ||
+			fail "$enable_action returned $invalid_status instead of EINVAL for invalid selector '$invalid_enable'"
+		[ "$(cat "$TEST_STATE")" = running ] ||
+			fail "$enable_action stopped the daemon for invalid selector '$invalid_enable'"
+		[ ! -s "$TEST_LOG" ] && [ ! -s "$TEST_OPS" ] ||
+			fail "$enable_action sent signals or launched after invalid selector '$invalid_enable'"
+		[ "$(grep -Fxc 'get ddnsto_enable' "$TEST_NVRAM_LOG" || :)" = 1 ] ||
+			fail "$enable_action did not read the enable selector exactly once"
+	done
+done
+echo 0 > "$TEST_ENABLE_FILE"
+echo "DDNSTO invalid enable selectors cannot stop or launch a daemon: PASS"
+
 # Background fork success is insufficient: wait for validated daemon presence.
 : > "$TEST_LOG"
 : > "$TEST_SLEEP_LOG"

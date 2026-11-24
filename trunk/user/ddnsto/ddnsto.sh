@@ -296,7 +296,15 @@ ddnsto_lifecycle_lock_execute() {
 # Restart performs this preflight before stopping a currently working daemon.
 ddnsto_read_enable_state() {
 	if ddnsto_enable_value=$(nvram get ddnsto_enable); then
-		return 0
+		case "$ddnsto_enable_value" in
+			''|0|1)
+				return 0
+				;;
+			*)
+				logger -t "DDNSTO" "DDNSTO enable selector is invalid; refusing to change process state"
+				return 22
+				;;
+		esac
 	else
 		ddnsto_enable_status=$?
 	fi
