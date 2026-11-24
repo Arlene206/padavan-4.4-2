@@ -1944,19 +1944,25 @@ INT RTMPAPSetInformation(
 
 
 		case OID_802_11R_R0KHID:
-		if (!mtk_ft_r0khid_length_valid(wrq->u.data.length, FT_ROKH_ID_LEN))
+		if (!mtk_ft_r0khid_input_length_valid(wrq->u.data.length, FT_ROKH_ID_LEN))
 			Status = -EINVAL;
 		else {
 			UCHAR apidx = pObj->ioctl_if;
 			UCHAR r0kh_id[FT_ROKH_ID_LEN + 1] = {0};
+			UINT r0kh_id_len;
 
 			if (copy_from_user(r0kh_id, wrq->u.data.pointer,
 					   wrq->u.data.length)) {
 				Status = -EFAULT;
+			} else if (mtk_ft_r0khid_normalize_length(
+					   r0kh_id, wrq->u.data.length, FT_ROKH_ID_LEN,
+					   &r0kh_id_len)) {
+				Status = -EINVAL;
 			} else {
 				Status = 0;
+				r0kh_id[r0kh_id_len] = '\0';
 				memcpy(pAd->ApCfg.MBSSID[apidx].FtCfg.FtR0khId, r0kh_id, sizeof(r0kh_id));
-				pAd->ApCfg.MBSSID[apidx].FtCfg.FtR0khIdLen = wrq->u.data.length;
+				pAd->ApCfg.MBSSID[apidx].FtCfg.FtR0khIdLen = r0kh_id_len;
 				DBGPRINT(RT_DEBUG_TRACE,("Set::OID_802_11R_OID_802_11R_R0KHID(=%s) Len=%d\n",
 							pAd->ApCfg.MBSSID[apidx].FtCfg.FtR0khId,
 							pAd->ApCfg.MBSSID[apidx].FtCfg.FtR0khIdLen));

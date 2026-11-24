@@ -1,3 +1,11 @@
+## 2026-11-24 19:20 Beijing — Normalize R0KH-ID input and make source checks encoding-safe
+
+- The R0KH-ID C boundary fixture passed on `0517ce5`, but the focused MTK workflow failed in `verify_ft_r0khid_policy()` because one legacy vendor header contains non-UTF-8 bytes. Replaced text decoding for the vendor macro/structure headers with byte-based assertions.
+- Hardened compatibility for the two common Wireless Extensions string forms: raw payload length (1–48) and length including a final NUL (2–49). The driver first caps the raw copy to 49 bytes, then normalizes after successful usercopy; empty/oversized effective IDs are rejected before publishing. A 49-byte payload without a final NUL is rejected, while a 48-byte payload with or without an extra terminal NUL is accepted.
+- Expanded the GNU89 ASan/UBSan regression to cover both encodings, 0/50/UINT_MAX, empty effective payload, missing terminator on the 49-byte form, and NULL arguments. Exact follow-up MTK/XY-C1/AI/Process Actions are pending.
+
+---
+
 ## 2026-11-24 19:04 Beijing — Bound 802.11r R0KH-ID private ioctl input
 
 - Confirmed `FT_ROKH_ID_LEN == 48` in all four MTK driver families and `FT_CFG.FtR0khId[FT_ROKH_ID_LEN + 1]` (49 bytes, documented as 1–48 characters). The old `length <= 48` check rejected every legal length and then copied arbitrary caller length directly into this fixed array.

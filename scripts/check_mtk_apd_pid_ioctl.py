@@ -159,28 +159,38 @@ def verify_ft_r0khid_copy(path: Path, source: str) -> None:
         source, "case OID_802_11R_R0KHID:", "case OID_802_11R_RIC:"
     )
     compact = " ".join(case.split())
-    guard = "if (!mtk_ft_r0khid_length_valid(wrq->u.data.length, FT_ROKH_ID_LEN))"
+    guard = "if (!mtk_ft_r0khid_input_length_valid(wrq->u.data.length, FT_ROKH_ID_LEN))"
     temporary = "UCHAR r0kh_id[FT_ROKH_ID_LEN + 1] = {0};"
     copy = "if (copy_from_user(r0kh_id, wrq->u.data.pointer, wrq->u.data.length))"
-    assert guard in compact, f"{path}: enforce R0KH-ID length 1..48"
+    normalize = (
+        "else if (mtk_ft_r0khid_normalize_length(r0kh_id, wrq->u.data.length, "
+        "FT_ROKH_ID_LEN, &r0kh_id_len))"
+    )
+    assert guard in compact, f"{path}: reject lengths beyond payload plus optional NUL"
     assert temporary in compact, f"{path}: stage into a zeroed 49-byte buffer"
     assert copy in compact, f"{path}: copy only into the bounded temporary"
+    assert normalize in compact, f"{path}: normalize optional trailing NUL after copy"
     guard_pos = compact.index(guard)
     temporary_pos = compact.index(temporary)
     copy_pos = compact.index(copy)
-    error_pos = compact.index("Status = -EFAULT;", copy_pos)
-    success_pos = compact.index("else {", error_pos)
+    copy_error_pos = compact.index("Status = -EFAULT;", copy_pos)
+    normalize_pos = compact.index(normalize, copy_error_pos)
+    normalize_error_pos = compact.index("Status = -EINVAL;", normalize_pos)
+    success_pos = compact.index("else {", normalize_error_pos)
     prefix = "pAd->ApCfg.MBSSID[apidx]"
     if ".wdev.FtCfg." in compact:
         prefix += ".wdev"
     destination = prefix + ".FtCfg.FtR0khId"
     destination_len = prefix + ".FtCfg.FtR0khIdLen"
+    terminate = "r0kh_id[r0kh_id_len] = '\\0';"
     publish = f"memcpy({destination}, r0kh_id, sizeof(r0kh_id));"
-    set_length = f"{destination_len} = wrq->u.data.length;"
-    publish_pos = compact.index(publish)
-    length_pos = compact.index(set_length)
-    assert guard_pos < temporary_pos < copy_pos < error_pos < success_pos < publish_pos < length_pos
-    assert "Status = 0;" in compact[success_pos:publish_pos]
+    set_length = f"{destination_len} = r0kh_id_len;"
+    terminate_pos = compact.index(terminate, success_pos)
+    publish_pos = compact.index(publish, terminate_pos)
+    length_pos = compact.index(set_length, publish_pos)
+    assert guard_pos < temporary_pos < copy_pos < copy_error_pos < normalize_pos
+    assert normalize_pos < normalize_error_pos < success_pos < terminate_pos < publish_pos < length_pos
+    assert "Status = 0;" in compact[success_pos:terminate_pos]
     assert f"copy_from_user({destination}," not in compact
     assert "wrq->u.data.length <= FT_ROKH_ID_LEN" not in compact
 
@@ -190,17 +200,18 @@ def verify_ft_r0khid_policy() -> None:
     test = ROOT / "trunk/linux-4.4.x/drivers/net/wireless/mediatek/tests/ft_r0khid_policy.c"
     policy = header.read_text(encoding="utf-8")
     regression = test.read_text(encoding="utf-8")
-    assert "return length != 0U && maximum != 0U && length <= maximum;" in policy
+    assert "length - 1U <= maximum" in policy
+    assert "value[length - 1U] == '\\0'" in policy
     for path in SOURCES:
         include_dir = path.parents[1] / "include"
-        macro = " ".join((include_dir / "dot11r_ft.h").read_text(encoding="utf-8").split())
-        structure = " ".join((include_dir / "ft_cmm.h").read_text(encoding="utf-8").split())
-        assert "#define FT_ROKH_ID_LEN 48" in macro
-        assert "FtR0khId[FT_ROKH_ID_LEN + 1]" in structure
-    for marker in ("length_valid(0U, 48U)", "length_valid(1U, 48U)",
-                   "length_valid(48U, 48U)", "length_valid(49U, 48U)",
-                   "length_valid(UINT_MAX, 48U)"):
-        assert marker in regression, f"missing R0KH-ID boundary: {marker}"
+        macro = (include_dir / "dot11r_ft.h").read_bytes()
+        structure = (include_dir / "ft_cmm.h").read_bytes()
+        assert re.search(rb"#define\\s+FT_ROKH_ID_LEN\\s+48\\b", macro)
+        assert re.search(rb"FtR0khId\\[FT_ROKH_ID_LEN\\s*\\+\\s*1\\]", structure)
+    for marker in ("input_length_valid(0U, 48U)", "input_length_valid(49U, 48U)",
+                   "input_length_valid(50U, 48U)", "normalize_length(value, 49U, 48U, &length)",
+                   "value[48] = '\\0';", "value[48] = 'x';"):
+        assert marker in regression, f"missing R0KH-ID boundary/termination case: {marker}"
 
 
 def main() -> None:
