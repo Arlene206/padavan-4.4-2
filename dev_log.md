@@ -1,3 +1,14 @@
+## 2026-11-24 — Keep LAN NVRAM lease duration identical to the udhcpc timer
+
+- `udhcpc_lan_bound()` previously stored `lease=0` when the option was absent, even though BusyBox armed a 3600-second lease. It also persisted the unnormalized raw option although the client clamps values below 16 seconds and caps values at/above `0x10000000` to `0x0fffffff`. Non-four-byte DHCP lease options are treated as absent by `udhcp_get_option32()`, so the script environment must use the same validity test rather than formatting the raw option.
+- Added `udhcpc_lease_time_effective()` as the single fallback/clamp policy used by both ACK timer setup and the `lease=` event-script export. The script receives one canonical numeric duration; missing/invalid DHCP option lengths produce the same one-hour fallback as the client.
+- LAN callback now defaults a missing environment value to 3600 and accepts only canonical 16..268435455 values before committing `lan_lease_t`. Noncanonical, multi-value, negative and overflowing values fail the callback rather than publishing a mismatched duration.
+- Added GNU89 policy regression cases for no option, short values, both upper-bound edges, `UINT32_MAX`, malformed script values and multi-value formatting. Extended both exact-source checkers and XY-C1 path filters. Parent main SHA: `2a54ebbc7030fb69d2d60ac1443a9fbc76a043f22`. Exact-head udhcpc, WAN DHCP callback, AI handoff and XY-C1 Build/TRX/artifact gates remain pending.
+- SCUT watchdog auth-marker/stat correction #45494687100 and AI handoff #45494687184 PASS on this parent SHA; Process lifecycle inventory #45494687146 and XY-C1 #45494687091 were still pending/in progress at last poll.
+- No MIPS/uClibc device runtime or physical-router L4 validation is claimed.
+
+---
+
 ## 2026-11-24 — Pin BusyBox stat format support for watchdog marker checks
 
 - Confirmed the watchdog's `stat -c` metadata checks depend on both BusyBox STAT and FEATURE_STAT_FORMAT; the board configuration enables each by default. Added an explicit source comment and workflow contract for FEATURE_STAT_FORMAT so an applet configuration regression cannot silently break marker validation.

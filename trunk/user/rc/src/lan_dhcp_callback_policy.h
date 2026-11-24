@@ -64,6 +64,33 @@ lan_dhcp_deconfig_metadata_prepare(
 }
 
 /*
+ * udhcpc exports the normalized lease timer value to event scripts. A missing
+ * option is not exported, so retain BusyBox's one-hour fallback here. Any
+ * present value must already satisfy the exact client-side lease bounds.
+ */
+#define LAN_DHCP_DEFAULT_LEASE_SECONDS 3600U
+#define LAN_DHCP_MIN_LEASE_SECONDS 0x10U
+#define LAN_DHCP_MAX_LEASE_SECONDS 0x0fffffffU
+
+static inline int
+lan_dhcp_effective_lease_seconds(const char *option,
+				 unsigned int *lease_seconds)
+{
+	unsigned int parsed;
+
+	if (!lease_seconds)
+		return EINVAL;
+	*lease_seconds = LAN_DHCP_DEFAULT_LEASE_SECONDS;
+	if (!option)
+		return 0;
+	if (!dhcp_lease_decimal_is_valid(option, LAN_DHCP_MIN_LEASE_SECONDS,
+					 LAN_DHCP_MAX_LEASE_SECONDS, &parsed))
+		return EINVAL;
+	*lease_seconds = parsed;
+	return 0;
+}
+
+/*
  * BusyBox commits its internal DHCP lease only when the bound/renew script
  * exits successfully. The address, route, resolver and NVRAM transaction
  * has already committed before ancillary host, watchdog, Internet-monitor,

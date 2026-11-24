@@ -10,6 +10,19 @@
 } while (0)
 
 
+static int test_effective_lease_time_bounds_match_client_timer(void)
+{
+	CHECK(udhcpc_lease_time_effective(0U, 0) == 3600U);
+	CHECK(udhcpc_lease_time_effective(0U, 1) == 16U);
+	CHECK(udhcpc_lease_time_effective(15U, 1) == 16U);
+	CHECK(udhcpc_lease_time_effective(16U, 1) == 16U);
+	CHECK(udhcpc_lease_time_effective(3600U, 1) == 3600U);
+	CHECK(udhcpc_lease_time_effective(0x0fffffffU, 1) == 0x0fffffffU);
+	CHECK(udhcpc_lease_time_effective(0x10000000U, 1) == 0x0fffffffU);
+	CHECK(udhcpc_lease_time_effective(0xffffffffU, 1) == 0x0fffffffU);
+	return 0;
+}
+
 static int test_nak_only_deconfigures_an_active_lease(void)
 {
 	CHECK(!udhcpc_nak_requires_deconfig(1));
@@ -210,7 +223,8 @@ static int test_already_expired_lease_is_not_resurrected(void)
 
 int main(void)
 {
-	if (test_nak_only_deconfigures_an_active_lease() != 0 ||
+	if (test_effective_lease_time_bounds_match_client_timer() != 0 ||
+	    test_nak_only_deconfigures_an_active_lease() != 0 ||
 	    test_nak_server_id_filter_respects_rebinding_broadcast() != 0 ||
 	    test_arp_probe_errors_do_not_publish_a_dhcp_lease() != 0 ||
 	    test_failed_deconfig_blocks_state_transition() != 0 ||

@@ -3278,16 +3278,15 @@ udhcpc_lan_bound(char *lan_ifname, int is_renew)
 	}
 
 	value = getenv("lease");
-	if (value) {
-		value = trim_r(value);
-		if (!dhcp_lease_decimal_is_valid(value, 0U, 2147483647U,
-					 &parsed_lease)) {
-			logmessage("DHCP LAN Client",
-				"ignoring invalid DHCP lease duration on %s", lan_ifname);
-		} else {
-			lease_dur = (int)parsed_lease;
-		}
+	status = lan_dhcp_effective_lease_seconds(
+		value ? trim_r(value) : NULL, &parsed_lease);
+	if (status != 0) {
+		logmessage("DHCP LAN Client",
+			   "rejecting invalid DHCP lease duration on %s (status=%d)",
+			   lan_ifname, status);
+		return status;
 	}
+	lease_dur = (int)parsed_lease;
 	snprintf(lease_text, sizeof(lease_text), "%d", lease_dur);
 
 	/* Snapshot the last-known-good lease before attempting any kernel or file

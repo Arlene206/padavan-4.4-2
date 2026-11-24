@@ -13,6 +13,12 @@ Continue one autonomous engineering stream on main. For each logical source/test
 
 ## Active task
 
+### Active LAN DHCP lease-duration parity — normalize the script value at its source
+
+BusyBox previously normalized the DHCP lease-time option only for its internal ACK timer, while `fill_envp()` exported the raw option string to `bound`/`renew`. The LAN callback therefore could persist a lease duration different from the actual client timer (missing option recorded as zero, short options left below the 16-second floor, and very large values uncapped). Non-four-byte option lengths are treated as absent by `udhcp_get_option32()`, but raw script formatting did not guarantee the same fallback.
+
+This source slice uses one shared `udhcpc_lease_time_effective()` policy for both ACK timer setup and event environment export. It makes `lease=` a canonical single numeric value and makes the LAN NVRAM callback default missing metadata to 3600 while rejecting malformed/noncanonical values. GNU89 regression cases cover timer boundaries and callback inputs. Exact-head udhcpc, WAN DHCP callback, AI handoff and XY-C1 Actions must pass on the new source SHA before this slice is closed. Target MIPS/uClibc runtime and physical-router L4 remain unverified.
+
 ### SCUT watchdog auth-marker reader trust boundary
 
 The preceding commit 64a2e4b7147f01a85f0068189b94e4ec552ca22b replaced privileged shell redirection in the default SCUTClient -E/-Q hooks with an atomic, mode-0600 status writer. This follow-up closes the reader side: watchcat_auth_flag_enabled() now accepts only a non-symlink regular file owned by the same UID as the watchdog's own PID file, one hard link, exactly two bytes, and no group/other write bits. It validates metadata before reading; sticky /tmp semantics prevent an unprivileged pathname swap after owner validation. Regression cases cover symlink, hard-link and writable-mode spoof markers. A ping executable override gives deterministic, offline test behavior. The exact-head SCUT watchdog workflow must pass before this slice is validated.
@@ -43,6 +49,14 @@ dhcpc.c passes the client state to the server-ID filter. Outside REBINDING, NAKs
 The initial source commit ff9cb0ec0f9143cd398d8de1d9b4eb13dca87be5 was mistakenly built with an empty tree base and omitted unrelated paths. This was detected by inspecting GitHub commit stats before claiming validation. Non-forced recovery commit 717f983f07434cd78a4ad00ebdb944b8f6d30fa5 restored the complete root tree from the actual parent and retained the four intended DHCP files. REST compare from original main 054ff22bf517a45bf29f2da21963a4206f8b3b83 to 717 confirmed exactly those four paths changed. Do not rewrite or erase intermediate history. For future Git Data API commits, fetch the live main commit's commit.tree.sha and use it as base_tree_sha.
 
 ## Verification boundary
+
+### Exact source SHA 2a54ebbc7030fb69d2d60ac144a3fbc76a043f22
+
+- SCUT watchdog auth-marker/stat regression #45494687100: PASS on this exact SHA.
+- AI handoff documentation contract #45494687184: PASS on this exact SHA.
+- Process lifecycle inventory #45494687146: IN_PROGRESS at last poll.
+- XY-C1 Firmware Validation #45494687091: cross-build job IN_PROGRESS before product-input detector; no L3 claim.
+- No physical-router validation; hardware L4 remains NOT VERIFIED.
 
 ### SCUT watchdog marker reader follow-up on parent 0d9b3b51d174ef281a5a379c12c59b29811b9734
 
@@ -76,10 +90,11 @@ The initial source commit ff9cb0ec0f9143cd398d8de1d9b4eb13dca87be5 was mistakenl
 
 ## Exact first action for the next GPT
 
-1. Confirm the SCUT watchdog regression runs on the next exact main SHA with a changed SCUT source path. Verify shell syntax, PID safety, atomic writer, symlink/hard-link/writable-mode auth-marker tests and static contract including STAT and FEATURE_STAT_FORMAT.
-2. Recheck XY-C1 #45494178359 on parent SHA 495da8f95041bee67025fe52ede7cba526b133c9; it had Build step 38 in progress and TRX/artifact pending at last poll. L3 needs Build, TRX and artifact PASS on one SHA.
-3. Continue independent stability/security work while firmware is pending. LAN DHCP/AP-mode remains PARTIAL/AUDITING (leasefail, full live transitions, target MIPS/uClibc runtime and physical L4 open); do not repeat completed QMI, Wireless, udhcpc, NVRAM or process audits.
-4. Before context exhaustion, perform the mandatory handoff checkpoint; update root docs only when validation or first action materially changes.
+1. Inspect exact-head udhcpc script-status and WAN DHCP callback regressions for LAN lease-duration parity. Fix any genuine compiler/test/source-contract failure with a small atomic change.
+2. Recheck XY-C1 Build, TRX and artifact upload on the exact source SHA; no L3 claim until all three pass on that same SHA.
+3. Continue LAN DHCP/AP-mode state review (leasefail, NAK/deconfig sequencing, renewal/expiry) without reopening the completed DHCPNAK REBINDING server-identity fix. Target MIPS/uClibc runtime and physical-router L4 remain open.
+4. Refresh parent SHA 2a54ebbc7030fb69d2d60ac144a3fbc76a043f22 results: SCUT #45494687100 and AI docs #45494687184 were PASS; Process inventory #45494687146 and XY-C1 #45494687091 were in progress/pending at last poll.
+5. Before context exhaustion, perform the mandatory handoff checkpoint and record the new exact source SHA plus test/CI status.
 
 ## Mandatory handoff checkpoint
 

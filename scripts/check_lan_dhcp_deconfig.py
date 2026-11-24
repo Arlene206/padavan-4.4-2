@@ -290,6 +290,17 @@ for marker in (
 nvram_state_call = bound.index("status = lan_dhcp_nvram_state_publish(")
 assert "network_transaction_applied = 1;" in bound[:nvram_state_call]
 assert 'lease_state[6].name = "lan_lease_t";' in bound
+assert "lan_dhcp_effective_lease_seconds(" in bound
+assert "lease_dur = (int)parsed_lease;" in bound
+assert "dhcp_lease_decimal_is_valid(value, 0U, 2147483647U" not in bound
+for marker in (
+    "#define LAN_DHCP_DEFAULT_LEASE_SECONDS 3600U",
+    "#define LAN_DHCP_MIN_LEASE_SECONDS 0x10U",
+    "#define LAN_DHCP_MAX_LEASE_SECONDS 0x0fffffffU",
+    "test_lan_lease_duration_requires_canonical_client_value",
+    'lan_dhcp_effective_lease_seconds("3600 7200", &seconds)',
+):
+    assert marker in callback_policy + callback_test, marker
 for key in (
     "lan_ipaddr_t", "lan_netmask_t", "lan_gateway_t", "lan_dns_t",
     "lan_domain_t", "lan_wins_t", "lan_lease_t",

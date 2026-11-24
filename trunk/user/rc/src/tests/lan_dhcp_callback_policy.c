@@ -40,6 +40,37 @@ test_deconfig_metadata_restores_static_values_and_clears_dhcp_options(void)
 }
 
 static void
+test_lan_lease_duration_requires_canonical_client_value(void)
+{
+	unsigned int seconds = 0;
+
+	/* No DHCP option means udhcpc uses its one-hour fallback. */
+	assert(lan_dhcp_effective_lease_seconds(NULL, &seconds) == 0);
+	assert(seconds == LAN_DHCP_DEFAULT_LEASE_SECONDS);
+	assert(lan_dhcp_effective_lease_seconds("16", &seconds) == 0);
+	assert(seconds == 16U);
+	assert(lan_dhcp_effective_lease_seconds("3600", &seconds) == 0);
+	assert(seconds == 3600U);
+	assert(lan_dhcp_effective_lease_seconds("268435455", &seconds) == 0);
+	assert(seconds == LAN_DHCP_MAX_LEASE_SECONDS);
+
+	/* Raw/out-of-range, multi-value or malformed script values are rejected. */
+	assert(lan_dhcp_effective_lease_seconds("", &seconds) == EINVAL);
+	assert(seconds == LAN_DHCP_DEFAULT_LEASE_SECONDS);
+	assert(lan_dhcp_effective_lease_seconds("0", &seconds) == EINVAL);
+	assert(lan_dhcp_effective_lease_seconds("15", &seconds) == EINVAL);
+	assert(lan_dhcp_effective_lease_seconds("268435456", &seconds) == EINVAL);
+	assert(lan_dhcp_effective_lease_seconds("4294967295", &seconds) == EINVAL);
+	assert(lan_dhcp_effective_lease_seconds("3600 7200", &seconds) == EINVAL);
+	assert(lan_dhcp_effective_lease_seconds("15x", &seconds) == EINVAL);
+	assert(lan_dhcp_effective_lease_seconds("4294967296", &seconds) == EINVAL);
+	assert(lan_dhcp_effective_lease_seconds("-1", &seconds) == EINVAL);
+	assert(lan_dhcp_effective_lease_seconds("12345678901", &seconds) == EINVAL);
+	assert(seconds == LAN_DHCP_DEFAULT_LEASE_SECONDS);
+	assert(lan_dhcp_effective_lease_seconds("3600", NULL) == EINVAL);
+}
+
+static void
 test_successful_lease_commit_ignores_ancillary_refresh_failure(void)
 {
 	const int ancillary_failures[] = { EIO, ENOSPC, ETIMEDOUT, ECHILD };
@@ -175,6 +206,7 @@ int
 main(void)
 {
 	test_deconfig_metadata_restores_static_values_and_clears_dhcp_options();
+	test_lan_lease_duration_requires_canonical_client_value();
 	test_ap_lan_protocol_mode_read_failure_fails_closed();
 	test_host_refresh_treats_unknown_mode_as_ap();
 	test_runtime_metadata_refresh_prepares_atomic_four_key_tuple();

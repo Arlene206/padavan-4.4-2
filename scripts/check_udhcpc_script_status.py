@@ -93,6 +93,24 @@ assert ack.index("requested_ip = packet.yiaddr;", retry_continue) > retry_contin
 assert "already_waited_sec = script_elapsed;" in ack
 assert "DHCPACK for %s" in ack
 
+# The exported lease duration and internal timer must share one normalization.
+fill_envp = function_body(dhcpc, "static char **fill_envp")
+assert "if (code == DHCP_LEASE_TIME)" in fill_envp
+assert "udhcp_get_option32(packet, code)" in fill_envp
+assert "udhcpc_lease_time_effective(" in fill_envp
+assert 'xasprintf("%s=%u", opt_name' in fill_envp
+lease_ack_start = ack.index("temp = udhcp_get_option32(&packet, DHCP_LEASE_TIME);")
+lease_ack = ack[lease_ack_start:ack.index("#if ENABLE_FEATURE_UDHCPC_ARPING", lease_ack_start)]
+assert "udhcpc_lease_time_effective(0U, 0)" in lease_ack
+assert "udhcpc_lease_time_effective(" in lease_ack
+assert "lease_seconds < 0x10" not in lease_ack
+assert "lease_seconds >= 0x10000000" not in lease_ack
+assert "UDHCP_LEASE_TIME_DEFAULT_SECONDS 3600U" in policy
+assert "UDHCP_LEASE_TIME_MIN_SECONDS 0x10U" in policy
+assert "UDHCP_LEASE_TIME_MAX_SECONDS 0x0fffffffU" in policy
+assert "test_effective_lease_time_bounds_match_client_timer" in test
+assert "test_effective_lease_time_bounds_match_client_timer() != 0" in test
+
 # A failed deconfig blocks NAK/expiry/release/manual-renew state transitions.
 assert "#define DECONFIG_PENDING 7" in dhcpc
 assert "static smallint deconfig_resume_state;" in dhcpc

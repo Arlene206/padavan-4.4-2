@@ -4,6 +4,23 @@
 
 #include <stdint.h>
 
+/* Keep the exported DHCP lease value identical to the client's lease timer. */
+#define UDHCP_LEASE_TIME_DEFAULT_SECONDS 3600U
+#define UDHCP_LEASE_TIME_MIN_SECONDS 0x10U
+#define UDHCP_LEASE_TIME_MAX_SECONDS 0x0fffffffU
+
+static inline uint32_t
+udhcpc_lease_time_effective(uint32_t lease_seconds, int option_valid)
+{
+	if (!option_valid)
+		return UDHCP_LEASE_TIME_DEFAULT_SECONDS;
+	if (lease_seconds < UDHCP_LEASE_TIME_MIN_SECONDS)
+		return UDHCP_LEASE_TIME_MIN_SECONDS;
+	if (lease_seconds >= 0x10000000U)
+		return UDHCP_LEASE_TIME_MAX_SECONDS;
+	return lease_seconds;
+}
+
 /*
  * A failed lease event must not be published as a successful DHCP bind.
  * During initial acquisition, retry the same selected request after the

@@ -526,7 +526,20 @@ static char **fill_envp(struct dhcp_packet *packet)
 			goto next;
 		*found_ptr &= ~found_mask; /* leave only unknown options */
 		temp = udhcp_get_option(packet, code);
-		*curr = xmalloc_optname_optval(temp, &dhcp_optflags[i], opt_name);
+		if (code == DHCP_LEASE_TIME) {
+			uint8_t *lease_option = udhcp_get_option32(packet, code);
+			uint32_t lease_seconds = 0;
+			if (lease_option) {
+				move_from_unaligned32(lease_seconds, lease_option);
+				lease_seconds = ntohl(lease_seconds);
+			}
+			lease_seconds = udhcpc_lease_time_effective(
+				lease_seconds, lease_option != NULL);
+			*curr = xasprintf("%s=%u", opt_name,
+				(unsigned int)lease_seconds);
+		} else {
+			*curr = xmalloc_optname_optval(temp, &dhcp_optflags[i], opt_name);
+		}
 		putenv(*curr++);
 		if (code == DHCP_SUBNET && temp[-OPT_DATA + OPT_LEN] == 4) {
 			/* Subnet option: make things like "$ip/$mask" possible */
@@ -1967,16 +1980,13 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 				temp = udhcp_get_option32(&packet, DHCP_LEASE_TIME);
 				if (!temp) {
 					bb_error_msg("no lease time with ACK, using 1 hour lease");
-					lease_seconds = 60 * 60;
+					lease_seconds = udhcpc_lease_time_effective(0U, 0);
 				} else {
 					/* it IS unaligned sometimes, don't "optimize" */
 					move_from_unaligned32(lease_seconds, temp);
 					lease_seconds = ntohl(lease_seconds);
-					/* paranoia: must not be too small and not prone to overflows */
-					if (lease_seconds < 0x10)
-						lease_seconds = 0x10;
-					if (lease_seconds >= 0x10000000)
-						lease_seconds = 0x0fffffff;
+					lease_seconds = udhcpc_lease_time_effective(
+						lease_seconds, 1);
 				}
 #if ENABLE_FEATURE_UDHCPC_ARPING
 				if (opt & OPT_a) {
