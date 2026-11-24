@@ -23,6 +23,7 @@ on:
       - "trunk/user/rc/src/net_lan.c"
       - "trunk/user/rc/src/net6.c"
       - "trunk/user/rc/src/dnsmasq_file.h"
+      - "trunk/user/rc/src/dnsmasq_safe_read.h"
       - "trunk/user/rc/src/tests/dnsmasq_file.c"
       - "trunk/user/rc/src/net.c"
       - "scripts/check_xupnpd_config_pair.py"
@@ -95,6 +96,7 @@ on:
       - "trunk/user/rc/src/net_lan.c"
       - "trunk/user/rc/src/net6.c"
       - "trunk/user/rc/src/dnsmasq_file.h"
+      - "trunk/user/rc/src/dnsmasq_safe_read.h"
       - "trunk/user/rc/src/tests/dnsmasq_file.c"
       - "trunk/user/rc/src/net.c"
       - "scripts/check_xupnpd_config_pair.py"
@@ -431,6 +433,7 @@ jobs:
               "trunk/user/rc/src/dnsmasq_resolv_file_policy.h",
               "trunk/user/rc/src/tests/dnsmasq_resolv_file_policy.c",
               "trunk/user/rc/src/dnsmasq_file.h",
+              "trunk/user/rc/src/dnsmasq_safe_read.h",
               "trunk/user/rc/src/init.c",
               "trunk/user/rc/src/inadyn_config_file.h",
               "trunk/user/rc/src/tests/inadyn_config_file.c",
@@ -747,6 +750,7 @@ jobs:
           static_hosts_writer = function_body(services, "fill_static_ethers(")
           static_hosts_test = Path("trunk/user/rc/src/tests/dnsmasq_file.c").read_text()
           dnsmasq_file_helper = Path("trunk/user/rc/src/dnsmasq_file.h").read_text()
+          dnsmasq_safe_read_helper = Path("trunk/user/rc/src/dnsmasq_safe_read.h").read_text()
           assert '#include "dnsmasq_dhcp_range_policy.h"' in services
           assert '#include "dnsmasq_static_host_policy.h"' in services
           arp_clear = function_body(services, "arpbind_clear(void)")
@@ -876,9 +880,16 @@ jobs:
           assert "dnsmasq_static_ethers_record_parse(" in arp_restore
           assert 'dnsmasq_file_open_safe_read("/etc/ethers")' in arp_restore
           assert "ferror(fp)" in arp_restore and "fclose(fp)" in arp_restore
-          safe_read = function_body(dnsmasq_file_helper, "dnsmasq_file_open_safe_read(const char *path)")
+          safe_read = function_body(dnsmasq_safe_read_helper, "dnsmasq_file_open_safe_read(const char *path)")
           assert "O_NOFOLLOW" in safe_read and "O_NONBLOCK" in safe_read
           assert "fstat(fd, &st)" in safe_read and "S_ISREG(st.st_mode)" in safe_read
+
+          dnsmasq_contents_equal = function_body(
+              dnsmasq_file_helper, "dnsmasq_file_contents_equal(")
+          assert "dnsmasq_file_open_safe_read(path)" in dnsmasq_contents_equal
+          assert "dnsmasq_file_open_safe_read(staged_path)" in dnsmasq_contents_equal
+          assert 'fopen(path, "r")' not in dnsmasq_contents_equal
+          assert 'fopen(staged_path, "r")' not in dnsmasq_contents_equal
           assert "dnsmasq_file_open_safe_read(symlink_lease)" in static_hosts_test
           assert "dnsmasq_file_open_safe_read(hardlink_lease)" in static_hosts_test
           assert "dnsmasq_file_open_safe_read(fifo_lease)" in static_hosts_test
