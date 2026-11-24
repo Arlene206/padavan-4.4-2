@@ -7,7 +7,7 @@
 ## Active task — MiniUPnP DeletePortMappingRange false-success handling
 
 - DeletePortMappingRange now records every upnp_delete_redirection result and emits SOAP 501 ActionFailed when any backend deletion fails; only a complete successful loop sends the success response. Empty range retains SOAP 730.
-- Exact run #45403376487 on c2dc6d3: GNU89 ASan/UBSan SOAP policy test PASS; source-check step FAILED solely on Python syntax in the newly added checker. This follow-up fixes its escaped quote. Recheck exact-head MiniUPnP workflow before closing the slice.
+- On `f12d4d5`, the source-order contract then exposed that its first `free(port_list)` match was the empty-range cleanup, not the post-loop release. This `e1fb2a7` correction anchors the match after per-result recording. On `e1fb2a7`, the GNU89 ASan/UBSan SOAP policy binary and DeletePortMappingRange source-order checker PASS; the integrated workflow then failed only because its inline contract expected the old test banner. This commit updates that marker; recheck the integrated workflow on this SHA.
 
 ## Previous task — XUPnP generated Lua configuration pair
 
@@ -17,7 +17,7 @@
 
 ## Verification boundary
 
-- MiniUPnP SOAP range-delete source fix c2dc6d3: GNU89 ASan/UBSan policy binary PASS; exact workflow #45403376487 failed only because its new Python source checker had invalid escaped quotes. The checker is fixed in this follow-up and must pass on the correction SHA. XY-C1 #45403376426 and NVRAM #45403376634 on c2dc6d3 were in progress at last poll.
+- MiniUPnP SOAP range-delete source fix `c2dc6d3`: GNU89 ASan/UBSan policy binary PASS. The checker syntax was fixed in `f12d4d5`; `e1fb2a7` then fixed its ordering matcher, and both the policy binary and source-order checker passed on that SHA. Integrated MiniUPnP workflow #45404676427 failed only on an obsolete inline stdout-banner assertion, corrected here. XY-C1 #45403376426 and NVRAM #45403376634 for the MiniUPnP source SHA `c2dc6d3` were still in progress at last recorded status.
 - AI handoff #45403376294 on c2dc6d3 failed because dev_log.md had been unintentionally replaced with a partial line-range fetch. Full 119-entry history is restored here. Process inventory #45403376647 on c2dc6d3 PASS.
 - XUPnP pair implementation SHA eb0fbb1 has Build/TRX/artifact PASS via exact run #45401700209, DNSMasq validator #45402050207 PASS, and NVRAM #45401700436 PASS. L3 applies to that source slice only; hardware L4 remains not verified.
 - Frozen backup remains unchanged at 72f4f157a084f8184b9597ca5bf334b8080e5807.

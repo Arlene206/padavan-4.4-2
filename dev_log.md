@@ -1,3 +1,10 @@
+## 2026-11-24 — Align MiniUPnP SOAP policy workflow marker with the expanded regression
+
+- Exact MiniUPnP run #45404676427 on `e1fb2a714b8bbe225294d8f58d8996c7750658c2` passed the GNU89 ASan/UBSan SOAP input regression and the new DeletePortMappingRange source-order contract. The enclosing inline workflow contract still expected the old banner `MiniUPnP SOAP unsigned input policy: PASS`; update it to the test's expanded `...unsigned input and range-delete result policy...` banner so integrated CI checks the added behavior instead of rejecting a valid regression result.
+- Exact AI handoff contract #45404676277 on the same SHA passed after the rolling-log restoration. No product C source changed in this workflow-contract correction.
+
+---
+
 ## 2026-11-24 — Correct MiniUPnP range-delete ordering contract and rotate the dev log
 
 - Exact MiniUPnP run #45403990490 on `f12d4d58c6cff4370deb62f3e12f4695bf07a976` compiled and passed the GNU89 ASan/UBSan SOAP policy regression, then failed the Python source contract: its first `free(port_list)` match was the empty-range early-return cleanup, not the release after the deletion loop. The checker now searches for the post-loop free starting after the per-result recording call.

@@ -464,7 +464,7 @@ jobs:
               'expect_port_error("65536", ERANGE)',
               'expect_int_error(overflow, ERANGE)',
               'expect_port_error("+1", EINVAL)',
-              "MiniUPnP SOAP unsigned input policy: PASS",
+              "MiniUPnP SOAP unsigned input and range-delete result policy: PASS",
           ):
               assert marker in soap_test, marker
           pinhole_add = function_body(pinhole_backend, "int add_pinhole(const char * ifname")
