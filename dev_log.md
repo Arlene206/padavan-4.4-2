@@ -1,3 +1,10 @@
+## 2026-11-24 — Balance the RAETH SET_LAN_IP lock on rejected input
+
+- Review found an unbalanced lock path introduced by bounded `RAETH_SET_LAN_IP` validation: the validation error `break` ran after `page_lock` had already been released, then reached an unconditional unlock in the common epilogue.
+- Validate the copied fixed-width buffer while the lock is released, then reacquire `page_lock` unconditionally before branching on the validation result. The Switch CLI source-order contract now pins unlock → copy → validate → reacquire → reject-or-copy. Existing GNU89 policy coverage includes valid, empty, unterminated, NULL and zero-length inputs.
+- Parent `9804865fa5c34b5e7e00b57ce3949dca89ab5893`: DNSMasq #45421011367 and Process inventory #45421011328 PASS; USB #45421011314 PASS; XY-C1 #45421011312 was still in progress. AI handoff #45421011316 failed only because the handoff omitted a required literal checkpoint sentence; the same commit repairs that wording. New exact-head Switch/AI/Process/NVRAM/DNSMasq/XY-C1 checks are required. No L3/L4 claim.
+
+---
 ## 2026-11-24 — Make SmartDNS procfs-root fallback safe under nounset
 
 - The SmartDNS process-state helper defaulted `_smartdns_proc_root` to `/proc` but then expanded an unset `SMARTDNS_PROC_ROOT` directly. In strict-shell callers (`set -u`), a confirmed-absent `pidof` result could therefore abort before checking `/proc/1/stat`; the earlier identity helper had the same unsafe override expansion.

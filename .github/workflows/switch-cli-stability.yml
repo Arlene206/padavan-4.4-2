@@ -854,12 +854,15 @@ jobs:
           assert ".ndo_do_ioctl = virtualif_ioctl" in driver
           assert ".ndo_do_ioctl = ei_ioctl" in driver
           lan_handler = function_body(driver, "int ei_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)")
-          copy_in = lan_handler.index("copy_from_user(ip_tmp, ifr->ifr_data, IP4_ADDR_LEN)")
+          lan_case = lan_handler.index("case RAETH_SET_LAN_IP:")
+          unlock = lan_handler.index("spin_unlock_irq(&ei_local->page_lock)", lan_case)
+          copy_in = lan_handler.index("copy_from_user(ip_tmp, ifr->ifr_data, IP4_ADDR_LEN)", lan_case)
           validate = lan_handler.index("ret = raeth_lan_ip_ioctl_status(ip_tmp, sizeof(ip_tmp))", copy_in)
-          validate_fail = lan_handler.index("if (ret != 0)", validate)
+          restore_lock = lan_handler.index("spin_lock_irq(&ei_local->page_lock)", validate)
+          validate_fail = lan_handler.index("if (ret != 0)", restore_lock)
           bounded_copy = lan_handler.index("strlcpy(ei_local->lan_ip4_addr, ip_tmp", validate_fail)
           log_string = lan_handler.index('pr_info("RAETH_SET_LAN_IP: %s\\n", ei_local->lan_ip4_addr)', bounded_copy)
-          assert copy_in < validate < validate_fail < bounded_copy < log_string
+          assert lan_case < unlock < copy_in < validate < restore_lock < validate_fail < bounded_copy < log_string
           assert "strncpy(ei_local->lan_ip4_addr, ip_tmp, IP4_ADDR_LEN)" not in lan_handler
           phy_dump = function_body(
               driver, "int dump_phy_reg(int port_no, int from, int to, int is_local, int page_no)"

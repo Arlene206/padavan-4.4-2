@@ -3256,8 +3256,9 @@ phy_dump_done:
 			ret = -EFAULT;
 			break;
 		}
-		spin_lock_irq(&ei_local->page_lock);
 		ret = raeth_lan_ip_ioctl_status(ip_tmp, sizeof(ip_tmp));
+		/* Restore the lock before the common epilogue, even on bad input. */
+		spin_lock_irq(&ei_local->page_lock);
 		if (ret != 0)
 			break;
 		strlcpy(ei_local->lan_ip4_addr, ip_tmp,

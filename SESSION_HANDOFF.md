@@ -1,31 +1,34 @@
 ## Current repository state
 
-- Development target: `main` only. Source parent before this procfs fallback checkpoint: `9e602b00973a2c41c109fc47dc50b57f43ecf7ba`; the current atomic commit updates the process helper, regression, source checker and handoff together. Re-read the live `main` ref before the next write.
-- Frozen archive `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; it is read-only.
-- Legacy PR #1 is closed and unmerged. The AliDDNS HMAC helper/test and CA trust-store bootstrap are already present in `main`.
+- Active branch: `main`. Source parent: `9804865fa5c34b5e7e00b57ce3949dca89ab5893`; the next atomic commit fixes the RAETH lock-balance defect, strengthens its Switch CLI source contract, and records this handoff.
+- Frozen archive `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; it is read-only. Legacy PR #1 is closed and unmerged.
+- Development uses complete Git trees and one commit per logical slice, then non-forced expected-SHA update of `main`. No force-pushes, work branches or PR-based development.
 
-## Active task — validate SmartDNS procfs-root fallback
+## Active task
 
-- The SmartDNS lifecycle helper verifies executable, argv and kernel start_time before signalling; the regression now covers PID replacement and keeps the replacement process unsignalled.
-- A strict-shell edge remained: `smartdns_process_state()` and `smartdns_process_identity()` initialized `/proc`, then expanded `$SMARTDNS_PROC_ROOT` without a default. An unset override aborts in callers using `set -u`; the confirmed-absent lookup needs `/proc/1/stat` even when no candidate identity function has run.
-- The helper now uses `${SMARTDNS_PROC_ROOT:-/proc}` in both functions. The test explicitly unsets the override, expects a confirmed absent result via the host `/proc`, then creates its isolated fake proc tree. The Python checker pins both safe defaults and that regression.
+### RAETH `RAETH_SET_LAN_IP` page-lock balance
+
+- In `ei_ioctl()`, this case drops `page_lock` around `copy_from_user()`. The bounded NUL-termination check previously ran after reacquiring the lock. Its invalid-input `break` therefore bypassed a balanced locked state, but the common function epilogue still unconditionally called `spin_unlock_irq()`. Empty or unterminated input could trigger an unbalanced spin unlock / IRQ restore.
+- The fix validates the local copied buffer while `page_lock` remains released, then unconditionally reacquires `page_lock` before checking the return status. Both success and rejection now reach the common epilogue with the expected lock held.
+- Existing GNU89 regression checks valid, empty, unterminated, NULL and zero-length input. The Switch CLI inline Python contract now enforces unlock → copy → validate → reacquire → error branch → copy state ordering.
 
 ## Verification boundary
 
-- Parent `9e602b00973a2c41c109fc47dc50b57f43ecf7ba`: AI handoff documentation #45420686264 PASS; DNSMasq lifecycle #45420685909 QUEUED at last observation.
-- Parent DNSMasq job #45420427031 failed only because its source checker expected an obsolete test phrase; that checker was corrected in `9e602b0`. On the preceding run, all runtime SmartDNS process, DNSMasq preservation, Adbyby ownership and atomic configuration tests passed before the stale assertion.
-- Require fresh exact-head DNSMasq/Process/AI/XY-C1 Actions for the safe-default change. L3 requires Build, TRX verification and artifact upload PASS on the same source SHA; physical-router L4 remains unverified.
+- Parent SHA `9804865fa5c34b5e7e00b57ce3949dca89ab5893`: DNSMasq lifecycle #45421011367 PASS; Process inventory #45421011328 PASS; USB storage #45421011314 PASS; XY-C1 #45421011312 was IN_PROGRESS at last poll.
+- Parent AI handoff #45421011316 FAILED because `check_ai_handoff_docs.py` requires the exact literal `The checkpoint is mandatory; a document edit is conditional.`. This handoff includes that required sentence. New exact-head AI validation is required.
+- The SmartDNS procfs fallback in parent `9804865` is covered by exact-head DNSMasq and Process PASS. Do not reopen that issue absent new failure.
+- Host policy regression was previously run with GNU89, `-Wall -Wextra -Werror`, ASan/UBSan and passed. The new source-order contract requires fresh exact-head Switch CLI validation. L3 requires Build, TRX verification and artifact upload to PASS on the same source SHA; hardware L4 remains unverified.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect exact-head DNSMasq and Process regression results for the safe procfs fallback; fix any actual test/source failure without repeating already-passing test suites.
-2. Check the exact-head XY-C1 Build/TRX/artifact state; do not claim L3 unless all three pass on that SHA. When firmware CI is pending, continue independent work.
-3. Proceed to the separate RAETH `RAETH_SET_LAN_IP` lock-balance issue: after validating a copied buffer, the invalid-input branch can break before reacquiring `page_lock`, while the common epilogue unconditionally unlocks. That source fix remains uncommitted.
+1. Fetch live `main` and check exact-head Switch CLI, AI handoff, Process inventory, NVRAM, DNSMasq and XY-C1 Actions for the lock-balance commit. Diagnose any failure; ignore stale parent results.
+2. Confirm XY-C1 Build, TRX verification and artifact upload all PASS on one exact source SHA before claiming L3. Hardware L4 is NOT VERIFIED.
+3. Continue the next independent stability/security defect outside RAETH after this bounded correction is verified; do not repeat completed MTK ESW authorization, AliDDNS persistence, VSFTPD ACL, MiniUPnP or SmartDNS procfs checks.
 
 ## Mandatory handoff checkpoint
 
-Before handoff, inspect live `main`, relevant exact-head push Actions, source baseline, validation boundary, blockers and the precise first action. Update only when the resumable facts change.
+The checkpoint is mandatory; a document edit is conditional. Every session must inspect the live `main` ref, exact-head relevant push Actions, validation boundary, blockers and the next precise task. Update this file only when those resumable facts materially change; if they remain accurate, do not create a no-op commit.
 
-## Cross-session execution mandate
+# Cross-session execution mandate
 
-Recover once, then implement. Use source-led bounded fixes, meaningful regressions, one complete Git tree/commit, and a non-forced expected-SHA update of `main`. Do not force-push, use work branches/PRs, wait idly on pending workflows, or overstate host/firmware/hardware verification.
+Recover once, then implement. Keep work source-led: one bounded source fix, meaningful regression, necessary validation, one complete Git tree and one atomic main commit, followed by a non-forced compare-and-swap. Pending CI does not block independent work. Before context exhaustion, finish the safe slice and leave the next GPT one precise first action. Never overstate host, firmware or hardware evidence.
