@@ -1,36 +1,36 @@
 ## Current repository state
 
-- Live parent main before the RAETH MDIO transaction change: `4985f33bda8360f4dfb92581b7b7d47d7850a03c`.
+- Active development branch: `main`. Source/test commit for the completed VSFTPD EPSV fix: `974315bb0113d5fbc294a716579edceeb7b5d68f` (parent `36d712d5a7899a95510950e43289e9b68491cff2`). This handoff checkpoint is committed directly on top of that source SHA; resolve the live main head before making further changes.
 - Frozen archive `backup/pre-plugin-overhaul-2026-11-14` remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- FRP procfs read-error and newline-spoofing fixes: `0104186915ee6132d99871bede241ecf1835c279` and `5ca9761969591766c583d3146cf5f32155ab7891`; exact FRP lifecycle #45361194679, AI handoff #45361194624, Process inventory #45361194576 PASS.
-- VSFTPD SITE CHMOD/UMASK strict octal validation: source `ea7d7e28be9988175fbcc423f9378e5d765de764`, checker correction `0c23ad7c82fc2e033f73d4a94f6fb02a77324ca5`; exact VSFTPD stability #45359061300 PASS.
-- AliDNS POSIX byte encoder source `ca9267b3c71a9fb2a8de96e82a2878fcf31e5dc6`; exact AliDNS #45357686604 PASS. XY-C1 product-source baseline `ea7d7e2` passed exact Build/TRX/artifact #45358712652, Process #45358712716 and NVRAM #45358712663. That firmware claim applies to the earlier production source tree, not to the current unbuilt kernel edit. No physical L4 validation is claimed.
-- Samba share ACL one-read snapshot: `d8f6092c6af34f1c8ec45c746ce9411e40522577`. The HTTPD legacy source contract was updated in `3026ffe460fe9d01ad5b72312978ff957b400479`; exact reruns for the latest follow-up commits are pending. The Samba workflow itself passed on d8.
-- QMI client-ID workflow heredoc syntax was corrected in `4985f33bda8360f4dfb92581b7b7d47d7850a03c`; no modem runtime source changed.
-- Main remains the active branch; frozen backup remains unchanged.
+- RAETH forced-mode indirect MMD page/data transaction is complete: source change `e721cb0e2f42f22a8189937ac2311d246ea9912c`, followed by test include-path correction `542b8f7e38a30dca616db877a1757d22b1b19060`; exact Switch CLI regression #45363906601 and AI handoff #45363906553 PASS. The initial Switch run failed on the compile include path; the correction was followed by the passing exact-SHA run. No repeat audit is needed.
+- VSFTPD SITE CHMOD/UMASK strict-octal validation remains verified: source `ea7d7e28be9988175fbcc423f9378e5d765de764`, checker correction `0c23ad7c82fc2e033f73d4a94f6fb02a77324ca5`; exact VSFTPD stability #45359061300 PASS.
+- FRP procfs-read and argv newline-spoofing fixes `0104186915ee6132d99871bede241ecf1835c279` and `5ca9761969591766c583d3146cf5f32155ab7891`; exact FRP lifecycle #45361194679, AI handoff #45361194624, Process inventory #45361194576 PASS.
+- AliDNS POSIX byte encoder `ca9267b3c71a9fb2a8de96e82a2878fcf31e5dc6`; exact AliDNS #45357686604 PASS.
+- Samba per-share ACL snapshot source `d8f6092c6af34f1c8ec45c746ce9411e40522577`; HTTPD legacy source-contract correction `3026ffe460fe9d01ad5b72312978ff957b400479` exact HTTPD job #45363047352 PASS.
+- QMI client-ID workflow heredoc correction `4985f33bda8360f4dfb92581b7b7d47d7850a03c`; exact USB modem run #45363094446 PASS.
+- XY-C1 L3 firmware validation was previously completed for the production-source baseline `ea7d7e28be9988175fbcc423f9378e5d765de764`: exact Build/TRX/artifact #45358712652, Process #45358712716 and NVRAM #45358712663 PASS. This is not a build claim for later source commits. No physical L4 router validation is claimed.
 
-## Active task — Atomic RAETH indirect MMD page/data transactions
+## Completed task — Strict VSFTPD EPSV protocol selector parsing
 
-- Forced 1000/2000/2600 operation on PHY 31 performs page selection (Clause 22 register 0x1f), followed by low-word and high-word reads/writes. Before this change each sub-operation independently acquired/released `mdio_lock`; concurrent Clause 22/45 callers could interleave after page selection and silently redirect the remaining accesses to a different MMD register.
-- This change factors the hardware operations into caller-locked primitives plus regular single-command wrappers. Extended public read/write hold the same `mdio_lock` across the whole three-command sequence and AN-polling disable/restore. Existing Clause-45 address/data operations remain serialized under that lock.
-- Added GNU89 mock-bus tests for operation order, 32-bit word assembly/splitting, each intermediate failure and no further writes/reads after failure. An executable source checker ensures the transaction-wide lock precedes all three phases and direct/Clause-45 access still use the common lock. The switch stability workflow includes the test, checker, and both push/PR filters.
-- Local policy regression: PASS under GNU89 + AddressSanitizer + UBSan. Exact-head workflow status is pending. No MIPS firmware or hardware validation for this new source change is claimed.
+- `handle_pasv()` previously parsed optional `EPSV <protocol>` with `atoi()`. Prefix forms such as `1junk`, signs, and whitespace were accepted as protocol 1 instead of rejected.
+- Replaced that conversion with `vsf_sysutil_parse_uint()` bounded to 2 and the existing address-family check. `EPSV ALL` remains unchanged; protocol 1 is accepted on IPv4/IPv6 and protocol 2 only on IPv6.
+- Extended the existing production-parser host regression in `trunk/user/vsftpd/src/tests/ipaddrparse_policy.c` with IPv4/IPv6 protocol cases and malformed-selector cases. The VSFTPD workflow already compiles/runs that test; its source contract now pins strict parser use and forbids an `atoi()` regression in `handle_pasv()`.
+- Source/test/workflow/dev-log changes are one atomic commit: `974315bb0113d5fbc294a716579edceeb7b5d68f`.
 
 ## Verification boundary
 
-- Exact `5ca9761969591766c583d3146cf5f32155ab7891`: FRP lifecycle #45361194679 PASS; AI handoff #45361194624 PASS; Process inventory #45361194576 PASS.
-- Exact `ea7d7e28be9988175fbcc423f9378e5d765de764`: XY-C1 Build/TRX/artifact #45358712652 PASS; Process #45358712716 PASS; NVRAM #45358712663 PASS.
-- Exact `0c23ad7c82fc2e033f73d4a94f6fb02a77324ca5`: VSFTPD stability #45359061300 PASS.
-- Samba/QMI checker corrections `3026ffe460fe9d01ad5b72312978ff957b400479` and `4985f33bda8360f4dfb92581b7b7d47d7850a03c`: exact-head CI status to be inspected.
-- Current MMD transaction code: local standalone policy test PASS; exact-head switch workflow pending.
-- No firmware build for the current RAETH source SHA and no L4 router test are claimed.
+- Exact source SHA `974315bb0113d5fbc294a716579edceeb7b5d68f`: VSFTPD stability #45372034160 PASS; AI handoff #45372034407 PASS; Process inventory #45372034153 PASS.
+- At the last check, NVRAM transaction audit #45372034333 and XY-C1 firmware validation #45372034143 were still IN_PROGRESS on that exact SHA. Recheck before making any L3 claim. Do not claim a current-SHA firmware build until Build, TRX and artifact upload all finish successfully.
+- Exact parent SHA `36d712d5a7899a95510950e43289e9b68491cff2`: AI handoff #45371307227, Process inventory #45371307371, DNSMasq lifecycle #45371307256 and NVRAM audit #45371307355 PASS; XY-C1 #45371307318 was still IN_PROGRESS at the last recorded poll.
+- The VSFTPD regression workflow on `974315bb` compiled and ran all C policy regressions, including the extended `ipaddrparse_policy.c`, and its inline source-contract job passed.
+- No local repository clone was available in this runtime (network DNS resolution failed); no local compile result is claimed. The exact-SHA GitHub Actions run is the test evidence.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-push Actions for this MMD commit, especially Switch CLI stability. If its regression or source checker fails, inspect the first failed assertion and correct it without weakening transaction-wide locking.
-2. Inspect HTTPD and USB modem exact-head reruns for commits `3026ffe` and `4985f33`; fix any remaining checker regression.
-3. Confirm whether the kernel-source change triggered the XY-C1 firmware pipeline; only report Build/TRX/artifact if all pass on the same exact SHA.
-4. After this slice passes, continue the next uncompleted stability/security item from the roadmap. Keep the frozen backup immutable; only advance main through full-tree atomic commits with non-forced expected-SHA updates.
+1. Inspect exact-SHA NVRAM #45372034333 and XY-C1 #45372034143 for `974315bb0113d5fbc294a716579edceeb7b5d68f`. Both were pending at the last check; resolve an actual failure, but do not wait on a pending job before moving to independent work.
+2. The VSFTPD EPSV fix and its exact regression are complete; do not repeat this audit. Continue with a fresh concrete P1 stability/security defect elsewhere in the userland, preserving Linux 4.4/GNU89/MIPS-uClibc constraints and small atomic commits.
+3. Keep `backup/pre-plugin-overhaul-2026-11-14` immutable. Use complete Git trees/commits and non-forced expected-SHA updates to `main`.
+
 
 # Cross-session execution mandate
 
