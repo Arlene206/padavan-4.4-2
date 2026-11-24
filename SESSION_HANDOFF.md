@@ -7,30 +7,22 @@
 
 ## Active task
 
-PID 1 emergency reboot fallback:
-- ZeroTier process-ownership changes through commit 3724008 are passing their ZeroTier lifecycle, Process inventory, WAN route and AI handoff checks; exact results are recorded below.
-- New reliability defect: on `MTD_FLASH_32M_REBOOT_BUG` builds, `handle_sig_fatal()` called `mtd_write -r unlock mtd1` and then entered an infinite sleep loop. If the helper returns nonzero or returns without rebooting, PID 1 never attempts the direct reboot syscall and the router remains stuck after a fatal signal.
-- Capture/log the helper wait status and always attempt `reboot(RB_AUTOBOOT)` if the helper returns. The process-inventory checker now pins the fallback ordering. Hardware behavior for this MTD-specific path still needs target-device confirmation; do not claim hardware validation.
-- Current ZeroTier PID ownership requires executable path, argv[0], and argv[1] state directory; procfs UNKNOWN remains fail-closed. Linux 4.4 pidfd race remains documented.
+Close and verify the PID 1 MTD reboot checker before moving to the queued QMI defect:
+- Source commit 6130ebd adds a checked MTD helper result and direct reboot syscall fallback.
+- Exact Process #45345435889 and AliyunDrive WebDAV #45345435736 exposed the same over-broad checker assertion, which mistook the assigned `mtd_unlock_status = system(...);` call for an unassigned statement.
+- Commit 33680078 attempted to narrow the assertion but left an unterminated Python raw-string expression, so its exact Process/AliyunDrive/HTTPD reruns must be triaged. Current follow-up changes the assertion to a complete line-anchored regex that rejects only a standalone unassigned helper call.
+- Once the checker passes, continue QMI WAN start fail-closed handling: stale/unparseable `/tmp/qmi-handle` and ignored `--start-network` failures must not be accepted as successful session creation. Add a focused C policy test and static contract without changing the uqmi CLI.
+- XY-C1 firmware must be checked per exact SHA; never claim L3 without same-SHA Build, TRX and artifact completion.
 
 ## Verification boundary
 
-- Exact 372400813c7d0888c508d6e6595353c46ea5d960: ZeroTier lifecycle #45344943818 PASS; Process inventory #45344943892 PASS; WAN route #45344943905 PASS; AI handoff #45344943861 PASS. XY-C1 firmware #45344943825 remained IN_PROGRESS at last poll (Build step active; TRX/artifact pending), so no L3 claim.
-- Exact 1bfeb82bb180116882f8c6f942cad21cd50f548d: ZeroTier lifecycle #45344505217 PASS; Process inventory #45344505230 PASS; WAN route #45344505319 PASS; AI handoff #45344505295 PASS. XY-C1 #45344505235 remained IN_PROGRESS at last poll; do not claim firmware Build/TRX/artifact or L3 until the same-SHA run completes.
-- Exact bc34d1db: FRP asynchronous startup lifecycle regression #45343199725 PASS; AI handoff documentation contract #45343199794 PASS. The earlier FRP source-contract mismatch is closed; do not repeat the FRP audit.
-- Exact c8985b2b: FRP #45343036173 passed the executable FRP startup, crontab, boot/config, process-stop and lock regressions, then failed only on one test-message mismatch in check_frp_lifecycle.py. This commit aligns the expected message with the actual test while retaining its UNKNOWN and no-signal checks. AI docs #45343036253 was IN_PROGRESS at last poll.
-- Exact ebbd4dd: AI handoff #45342815724 PASS; FRP #45342815755 passed all executable regressions and failed only on the obsolete "verified timeout" checker literal, fixed in c8985b2b.
-- Exact 4be3f389: Process inventory #45342556827 PASS; FRP executable tests passed before the stale proc-path checker failure; AI docs failure was corrected in ebbd4dd.
-- Exact 257ac639: Inadyn #45342407697 PASS; DNSMasq #45342407692 PASS; WAN route #45342407753 PASS.
-- Exact 79c5389: Process inventory #45341769713 PASS; Process fail-closed #45341769769 PASS; HTTPD #45341769686 PASS; WAN DHCP #45341769830 PASS; miniupnpd #45341769855 PASS; Samba #45341769858 PASS; NVRAM audit #45341769831 PASS. Inadyn/DNSMasq/WAN checker failures were corrected in 257ac639.
-- XY-C1 #45341769654 on production source 79c5389 remained IN_PROGRESS at Build; TRX/artifact are unconfirmed. No L3 claim.
-- No MIPS firmware/TRX/artifact or physical-router L4 result is claimed for this current source. Linux 4.4 has no pidfd; final procfs identity-validation-to-signal race remains.
-
+- Exact 33680078f7b33ac6e166fbeab5ed99d4a5e17558: checker-only commit attempted the MTD negative assertion correction; exact Actions #45345902653 (AliyunDrive), #45345902730 (Process inventory) and #45345902660 (HTTPD) were IN_PROGRESS at last poll. The checked-in Python expression is incomplete and is corrected in the current follow-up; these runs must be verified.
+- Exact 6130ebd28962da5bf55439349632175dfc0d858e: DNSMasq #45345435699 PASS; PID1 notification queue #45345435667 PASS; Process inventory #45345435999 PASS; HTTPD #45345435733 PASS; PID1 mdev security #45345435825 PASS; DNS forwarder #45345435708 PASS; RC timezone #45345435849 PASS; USB storage #45345435532 PASS; NVRAM transaction audit #45345435848 PASS; AI handoff #45345435583 PASS. Process fail-closed #45345435889 and AliyunDrive #45345435736 failed on the old checker assertion. XY-C1 #45345435466 was still IN_PROGRESS at Build; TRX/artifact unconfirmed.
 ## Exact first action for the next GPT
 
-1. Check exact-head Process inventory and AI handoff Actions for the PID 1 MTD reboot fallback change; fix any source-contract or compile failure.
-2. Check exact-head ZeroTier lifecycle and WAN route status Actions; poll XY-C1 Build/TRX/artifact and report only the exact-SHA completion.
-3. Continue an independent stability/security source fix while Actions run; keep backup untouched and all writes atomic with expected-SHA non-forced ref updates.
+1. Inspect exact-head Process inventory, AliyunDrive and HTTPD Actions for the complete regex fix; resolve any genuine failure.
+2. Check exact-head AI handoff, then continue QMI start-network stale-PDH validation and regression coverage in the USB modem workflow.
+3. Poll XY-C1 Build/TRX/artifact for the source SHA. Do not claim L3 without same-SHA Build, TRX and artifact PASS.
 
 # Cross-session execution mandate
 

@@ -1,3 +1,12 @@
+## 2026-11-23 — Repair malformed MTD reboot checker follow-up
+
+- Commit 33680078f7b33ac6e166fbeab5ed99d4a5e17558 attempted to narrow the negative check for a standalone MTD helper invocation, but the committed raw-string expression was unterminated. Exact Process/AliyunDrive/HTTPD reruns #45345902653, #45345902730 and #45345902660 were still IN_PROGRESS at last poll.
+- Replaced the incomplete expression with a complete, line-anchored Python regex: it rejects only a standalone unassigned `system("/bin/mtd_write -r unlock mtd1");` statement while allowing the correctly assigned `mtd_unlock_status = system(...);` expression. The positive wait-status/log/fallback assertions remain.
+- No production source changed in this follow-up. Exact Process, AliyunDrive, HTTPD and AI handoff Actions must be checked on the new commit.
+- The next independent source task remains QMI WAN startup: stale/invalid PDH handles and ignored `--start-network` failures must not allow false success.
+
+---
+
 ## 2026-11-24 15:18 UTC+8 — Add PID 1 fallback when MTD reboot helper returns
 
 - Exact 3724008 results: ZeroTier lifecycle #45344943818 PASS; Process inventory #45344943892 PASS; WAN route #45344943905 PASS; AI handoff #45344943861 PASS. XY-C1 #45344943825 still IN_PROGRESS at the Build step; TRX/artifact pending, no L3 claim.

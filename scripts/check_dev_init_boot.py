@@ -111,7 +111,7 @@ mtd_failure_log = fatal_shutdown.index("MTD unlock/reboot helper failed", mtd_he
 mtd_reboot_fallback = fatal_shutdown.index("reboot(RB_AUTOBOOT);", mtd_failure_log)
 assert mtd_helper_call < mtd_failure_log < mtd_reboot_fallback
 assert fatal_shutdown.count("reboot(RB_AUTOBOOT);") == 2
-assert re.search(r'(?m)^[ \t]*system\("/bin/mtd_write -r unlock mtd1"\);[ \t]*
+assert re.search(r'(?m)^[ \t]*system\("/bin/mtd_write -r unlock mtd1"\);[ \t]*$', fatal_shutdown) is None
 
 nodes = c_function(init, "init_nodes(int *optional_status)")
 node_prepare = c_function(init, "init_optional_device_node(const char *path, dev_t device)")
