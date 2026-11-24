@@ -293,7 +293,7 @@ for signature in (
             "close(directory_fd)" in compact,
             "folder snapshot API must keep its mount directory open through generation and publication")
 initial_snapshot = function_body(
-    DISK_SOURCE, "initial_folder_list_in_directory_fd(int directory_fd)\n{"
+    DISK_SOURCE, "\nstatic int\ninitial_folder_list_in_directory_fd(int directory_fd)\n{"
 )
 initial_snapshot_compact = "".join(initial_snapshot.split())
 require("get_all_folder_in_directory_fd(directory_fd,&sh_num,&folder_list)" in
