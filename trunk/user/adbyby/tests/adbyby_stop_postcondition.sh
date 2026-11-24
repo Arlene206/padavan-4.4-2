@@ -142,6 +142,7 @@ ADBYBY_TEST_SLEEP_MODE=ok
 # Multiple validated PIDs are signalled individually; killall stays unused.
 echo running > "$state_file"
 ADBYBY_TEST_PID_OUTPUT='123 456'
+export ADBYBY_TEST_PID_OUTPUT
 : > "$events_file"
 ADBYBY_TEST_KILL_MODE=stop
 adbyby_close || fail "multi-PID stop failed"
