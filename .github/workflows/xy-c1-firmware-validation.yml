@@ -231,6 +231,7 @@ on:
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether_pdma.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether_qdma.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether_rss.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mii_mgr_timeout_policy.h"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl_mt762x.h"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/link_mode_policy.h"
