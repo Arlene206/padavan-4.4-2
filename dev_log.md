@@ -1,3 +1,10 @@
+## 2026-11-24 — Align MiniUPnP secure-delete checker with the extended policy-test banner
+
+- Exact MiniUPnP run #45406283079 on `5f0360d` passed the GNU89 ASan/UBSan SOAP policy binary, including IPv4 identity cases, but the dedicated source checker still expected the pre-range-delete test banner. The actual test and integrated workflow both use the expanded `MiniUPnP SOAP unsigned input and range-delete result policy: PASS` banner.
+- Updated only the source-check assertion and handoff/log. AI docs #45406283195 and Process inventory #45406283064 PASS on `5f0360d`; NVRAM and XY-C1 were pending at last poll.
+
+---
+
 ## 2026-11-24 — Fail closed on MiniUPnP single-entry secure-mode ownership
 
 - Auditing the companion `DeletePortMapping()` path found another authorization bypass: when secure mode was enabled, a failed `upnp_get_redirection_infos()` lookup or an invalid returned IPv4 string silently skipped the ownership comparison and still reached `upnp_delete_redirection()`.

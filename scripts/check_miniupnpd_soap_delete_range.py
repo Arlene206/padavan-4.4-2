@@ -107,6 +107,6 @@ assert "return;" in secure_preflight
 assert "miniupnpd_soap_ipv4_peer_matches" in policy
 assert "sender->s_addr == internal->s_addr" in policy
 assert "test_ipv4_peer_identity_comparison" in test
-assert "MiniUPnP SOAP unsigned input policy: PASS" in test
+assert "MiniUPnP SOAP unsigned input and range-delete result policy: PASS" in test
 
 print("MiniUPnP single/range DeletePortMapping secure-mode owner checks and backend failures: PASS")
