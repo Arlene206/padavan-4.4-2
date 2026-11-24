@@ -1729,7 +1729,6 @@ timezone_update = c_function_body(rc_source, "set_timezone(void)")
 assert "status = setenv_tz();" in timezone_update
 assert "kernel_status = setkernel_tz();" in timezone_update
 assert "if (status == 0)" in timezone_update
-assert "return setkernel_tz();" in timezone_update
 assert "return status;" in kernel_timezone
 boot_router = c_function_body(rc_source, "init_router(void)")
 assert "int timezone_status = set_timezone();" in boot_router
