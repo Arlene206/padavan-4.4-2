@@ -2,14 +2,14 @@
 
 ## Current repository state
 
-- Current main parent for checker syntax cleanup: `3c98225691e91ce07b53f794db4d158983229106`; production source fix is `7f7aee3b5df94c6996743e58834ee2ec4d67eafd`. Archival backup remains frozen at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- `3c98225` corrected double-escaped Python matchers, but its diff retained one orphaned assertion continuation string. THIS COMMIT removes that line; no prior selector checker has been counted as valid until exact-head CI succeeds.
-- AliyunDrive `3160f80` exact-head lifecycle #45312872098 was last observed **IN_PROGRESS**; Process #45312872116 and AI #45312872263 **PASS**.
-- XY-C1 `dd0b374` #45312564566 was last observed **IN_PROGRESS**; that run tests the prior compile fix only and not later DT selector code.
+- Current parent `8d0f9325ec63223b442b1aff4f95dc7566d3f421`; production RAETH DT-selector fix is `7f7aee3b5df94c6996743e58834ee2ec4d67eafd`. Backup branch remains frozen at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Switch CLI #45313394047 on `8d0f932` failed in `check_raeth_compile_integrity.py`: the checker searched only `void` definitions and did not count the intentional `static int fe_chip_name_config()`. THIS COMMIT corrects the definition matcher; exact rerun needed.
+- AliyunDrive lifecycle #45312872098 on `3160f80` failed at the combined HTTP-503 cleanup assertion after its QEMU CLI compatibility check passed. Inspection found the fixture assumed exactly 11 probes despite asynchronous child-marker publication; THIS COMMIT makes the bounded probe expectation race-safe and prints observed counters. Cleanup behavior still needs a green exact-head test.
+- XY-C1 #45313243920 on `7f7aee3` and NVRAM #45313243814 were **IN_PROGRESS** at last observation. The earlier `dd0b374` target build is a different source SHA.
 
 ## Active task
 
-Run exact-head Switch CLI after the RAETH source checker syntax cleanup; verify the updated selector guard contract actually executes. Continue checking AliyunDrive #45312872098 on `3160f80` and XY-C1 #45312564566 on `dd0b374`, preserving each result's SHA association.
+Verify this commit's exact-head Switch CLI source checker with the status-bearing `fe_chip_name_config()` definition, and the AliyunDrive lifecycle job's 503 cleanup regression with its diagnostic counters. Then inspect XY-C1/NVRAM Actions on `7f7aee3` only; do not transfer results to later commits.
 
 ## Completed development slices
 
@@ -39,14 +39,15 @@ Independent snapshot/lifecycle changes remain in `99ad9397e3cf4450c6fc07758b58c3
 
 ## Verification boundary
 
-- `7f7aee3` production selector changes have not yet had a valid exact-head source checker run. `3c98225` checker follow-up was still syntactically invalid due to one orphaned assertion continuation; THIS COMMIT fixes it. No PASS claim is made.
-- AliyunDrive lifecycle #45312872098 belongs to SHA `3160f80`; XY-C1 #45312564566 belongs to `dd0b374`. Both were in progress at last observation.
+- RAETH Switch CLI #45313394047 on `8d0f932` **FAIL** at source checker: its function regex did not count `static int`; no source-contract PASS is claimed.
+- AliyunDrive lifecycle #45312872098 on `3160f80` **FAIL** at new fixture's combined assertion. The original log did not print per-counter values; THIS COMMIT makes the assertion race-safe and adds those diagnostics. No lifecycle PASS is claimed.
+- XY-C1 #45313243920 / NVRAM #45313243814 belong to source `7f7aee3` and were in progress at last observation. No L3/L4 result is claimed.
 
 ## Exact first action for the next GPT
 
-1. Check this commit's exact-push Switch CLI result and inspect the compile-integrity Python step.
-2. Check AliyunDrive lifecycle #45312872098 on `3160f80`; inspect the new 503 cleanup case.
-3. Check XY-C1 #45312564566 on `dd0b374` through Build/TRX/artifact only for that exact product SHA.
+1. Check the exact push Switch CLI and AI documentation Actions for this commit; inspect the new RAETH checker output.
+2. Check the exact push AliyunDrive lifecycle job and inspect the 503 cleanup counters. Fix source behavior if TERM is still not issued or marker cleanup fails.
+3. Inspect XY-C1 #45313243920 and NVRAM #45313243814 on `7f7aee3`; keep these results separate from current HEAD.
 
 
 # Cross-session execution mandate

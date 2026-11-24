@@ -17,7 +17,7 @@ for name in (
     "fe_tx_rx_dec",
 ):
     definitions = re.findall(
-        r"(?m)^[ \t]*void[ \t]+" + re.escape(name) + r"\s*\(", source
+        r"(?m)^[ \t]*(?:static[ \t]+)?(?:void|int)[ \t]+" + re.escape(name) + r"\s*\([^;]*\)\s*\{, source
     )
     assert len(definitions) == 1, (
         f"{name} must have exactly one definition in raether.c; found {len(definitions)}"

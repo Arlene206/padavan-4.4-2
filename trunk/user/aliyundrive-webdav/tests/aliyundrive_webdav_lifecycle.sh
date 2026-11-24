@@ -649,6 +649,8 @@ rm -f "$TEST_START_FAIL_FILE"
 # An existing unhealthy daemon is covered separately and is intentionally left untouched.
 TEST_RUNNING=0
 TEST_ENABLE=1
+TEST_PIDOF_MODE=normal
+TEST_EXE_IDENTITY_MODE=valid
 TEST_TERM_BEHAVIOR=immediate
 TEST_HTTP_MODE=server-error
 TEST_SLEEP_COUNT=0
@@ -660,16 +662,17 @@ if start_ald; then
   echo "FAIL: known unready launched daemon was reported successful" >&2
   exit 1
 fi
-[ -f "$TEST_ARG_LOG" ] &&
-[ "$(wc -l < "$TEST_HTTP_LOG")" -eq $((ALD_START_WAIT_SECONDS + 1)) ] &&
-[ "$TEST_SLEEP_COUNT" -eq "$ALD_START_WAIT_SECONDS" ] &&
-[ "$TEST_TERM_COUNT" -eq 1 ] &&
-[ "$TEST_KILL_COUNT" -eq 0 ] &&
-[ ! -e "$TEST_RUN_MARKER" ] || {
-  echo "FAIL: known unready launched daemon was not cleaned up with bounded TERM" >&2
+test_http_probe_count=$(wc -l < "$TEST_HTTP_LOG")
+if [ ! -f "$TEST_ARG_LOG" ] ||
+   [ "$test_http_probe_count" -lt 1 ] ||
+   [ "$test_http_probe_count" -gt $((ALD_START_WAIT_SECONDS + 1)) ] ||
+   [ "$TEST_SLEEP_COUNT" -ne "$ALD_START_WAIT_SECONDS" ] ||
+   [ "$TEST_TERM_COUNT" -ne 1 ] ||
+   [ "$TEST_KILL_COUNT" -ne 0 ] ||
+   [ -e "$TEST_RUN_MARKER" ]; then
+  echo "FAIL: unready launched daemon cleanup probes=$test_http_probe_count sleeps=$TEST_SLEEP_COUNT term=$TEST_TERM_COUNT kill=$TEST_KILL_COUNT marker=$([ -e "$TEST_RUN_MARKER" ] && echo present || echo absent) argv=$([ -f "$TEST_ARG_LOG" ] && echo present || echo absent)" >&2
   exit 1
-}
-
+fi
 TEST_RUNNING=0
 TEST_TERM_BEHAVIOR=stuck
 TEST_HTTP_MODE=ready

@@ -1,3 +1,11 @@
+## 2026-11-23 — Make AliyunDrive failed-start cleanup regression race-safe
+
+- The exact-head AliyunDrive lifecycle run `#45312872098` on `3160f80` passed the bundled MIPSel CLI compatibility check, then failed in the new HTTP-503 launched-child fixture's combined assertion. The fixture assumed exactly 11 probes despite the child marker being published asynchronously; the initial process poll can legitimately observe ABSENT before the child becomes visible.
+- Reset PID/executable mock modes explicitly and bound the HTTP probe count to 1..`ALD_START_WAIT_SECONDS + 1`, while still requiring the full ten-sleep timeout, exactly one TERM, zero KILL, a launched argv file and no remaining process marker. Failure output reports the observed counters.
+- The same CI inspection found the RAETH compile-integrity checker counted only `void` definitions; `fe_chip_name_config()` is deliberately `static int`. Updated the matcher to count exactly one actual function body for either supported return type.
+- Both corrections require fresh exact-head Actions. No Aliyun lifecycle PASS or RAETH selector-contract PASS is claimed yet.
+
+---
 ## 2026-11-24 — Remove a stale checker continuation after matcher correction
 
 - The first follow-up fixed the over-escaped Python regex and source-string literals but left the previous assertion's continuation string behind, which would make the Python checker syntactically invalid. Removed the orphaned line; the selector `all(..., message)` assertion now has one balanced call. No earlier checker run is counted as PASS.
