@@ -65,6 +65,7 @@ on:
       - "trunk/user/pppoe/tests/mwan_lifecycle.sh"
       - "scripts/check_pppoe_mwan_status.py"
       - "scripts/check_xy_c1_firmware_inputs.py"
+      - "scripts/tests/test_xy_c1_firmware_inputs.py"
       - "trunk/user/rc/src/msd_lite_config_file.h"
       - "trunk/user/rc/src/tests/msd_lite_config_file.c"
       - "trunk/user/rc/src/igmpproxy_config_file.h"

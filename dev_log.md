@@ -1,3 +1,11 @@
+## 2026-11-24 — Restore XY-C1 detector-test workflow trigger
+
+- The `5c8c62f` workflow cleanup accidentally removed `scripts/tests/test_xy_c1_firmware_inputs.py` from XY-C1 `push.paths`, even though the workflow runs this test. A test-only edit could therefore bypass its own regression job.
+- Restored the test path and added a regression asserting it appears exactly once in the workflow filter while `is_non_firmware_input()` still classifies it as host-only. Expected behavior: run the detector tests, skip Build/TRX/artifact for test-only changes.
+- Parent main `861e3fe19d903541717f010f9ab636db8894f487`: HTTPD `#45298769831`, AI handoff `#45298769865`, Process inventory `#45298769872`, Process lifecycle `#45298769967` and NVRAM transaction `#45298769873` PASS. XY-C1 `#45298770098` was still building; no L3 result claimed.
+
+---
+
 ## 2026-11-24 — Complete HTTPD NVRAM HTML/JavaScript output-context isolation
 
 - Parent main SHA: `5c8c62f51b722ebeda9cbce811dd571392832a5a`. Continued the previous seven-page JS-string migration (`51bd80e`) and four-page follow-up (`453aefd`): migrated the remaining 89 executable JavaScript-source `nvram_get_x` template sinks across 27 ASP/JS assets, bringing the verified total to 117. All three `nvram_get_ddns` script sinks now emit complete JS string literals while retaining their DDNS reset behavior.
