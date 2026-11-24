@@ -190,7 +190,7 @@ smartdns_load_runtime_nvram_state()
     fi
 
     IPS4="$(ifconfig br0 | grep "inet addr" | grep -v ":127" | grep "Bcast" | awk '{print $2}' | awk -F : '{print $2}')"
-    IPS6="$(ifconfig br0 | grep "inet6 addr" | grep -v "fe80::" | grep -v "::1" | grep "Global" | awk '{print $3}')"
+    IPS6="$(ifconfig br0 | grep "inet6 addr" | grep -v "fe80::" | grep "Global" | awk '{print $3}')"
     dnsmasq_md5=$(md5sum "$dnsmasq_Conf" | awk '{ print $1 }')
     return 0
 }

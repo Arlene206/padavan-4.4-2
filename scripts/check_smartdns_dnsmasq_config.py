@@ -109,6 +109,7 @@ for key in runtime_keys:
     assert "smartdns_nvram_read_checked " + key + " || return $?" in runtime_nvram
 assert 'if [ "$action" != "stop" ]; then' in runtime_nvram
 assert "IPS4=" in runtime_nvram and "IPS6=" in runtime_nvram and "dnsmasq_md5=" in runtime_nvram
+assert 'grep -v "::1"' not in runtime_nvram, "a global IPv6 address ending in ::1 must not be discarded"
 assert "nvram get " not in smartdns, "all SmartDNS configuration reads must use checked NVRAM access"
 lock_start = smartdns.index("if smartdns_lifecycle_lock_acquire; then")
 snapshot_call = smartdns.index("if smartdns_load_runtime_nvram_state; then")
