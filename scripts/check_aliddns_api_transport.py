@@ -125,10 +125,12 @@ require("IFS= read -r -d '' -n1 c" in urlencode and "LC_ALL=C" in urlencode and
         '[a-zA-Z0-9._~-]' in urlencode and
         'printf \'%s\' "$1" | urlencode' in enc and
         "echo -n" not in enc and
-        "CONFIG_OD=y" not in busybox_config,
+        '# CONFIG_OD is not set' in busybox_config,
         "AliDNS encoder must be byte-safe using only the target BusyBox ash shell builtin")
-        "AliDNS canonical encoding must preserve every input byte with RFC 3986 unreserved semantics")
-require("a%20b%2Fc%2Bd%3De%26f%25g~%20quote%5Cslash%22" in test and
+require('test_encode() {' in test and
+        'bash -c \'. "$1"; enc "$2"\' _ "$FUNCTIONS" "$1"' in test and
+        "expected_signature_url=$(enc \"$expected_signature\")" in test and
+        "a%20b%2Fc%2Bd%3De%26f%25g~%20quote%5Cslash%22" in test and
         "%E6%B5%8B%E8%AF%95" in test and "line%0Abreak" in test,
         "AliDNS API fixture must cover reserved bytes, whitespace and UTF-8 canonical encoding")
 require('args="AccessKeyId=$aliddns_ak&Action=$1&Format=json&$2&Version=2015-01-09"' in send_request and
