@@ -570,8 +570,6 @@ jobs:
           assert "*cursor > (unsigned char) '7'" in vsftpd_octal_policy
           assert "755x" in octal_arg_test and "1000" in octal_arg_test
           assert "0777" in octal_arg_test and "UINT_MAX" in octal_arg_test
-          assert workflow.count("trunk/user/vsftpd/src/ftp_octal_arg_policy.h") == 2
-          assert workflow.count("trunk/user/vsftpd/src/tests/ftp_octal_arg_policy.c") == 2
           assert "int vsf_sysutil_fchmod_ret(const int fd, unsigned int mode);" in vsftpd_sysutil_header
           assert "int vsf_sysutil_setmodtime_fd(int fd, long the_time, int is_localtime);" in vsftpd_sysutil_header
           assert "return fchmod(fd, mode & 0777);" in vsftpd_sysutil
@@ -815,6 +813,8 @@ jobs:
               "trunk/user/vsftpd/src/tests/ipaddrparse_policy.c",
               "trunk/user/vsftpd/src/ftp_rest_offset_policy.h",
               "trunk/user/vsftpd/src/tests/ftp_rest_offset_policy.c",
+              "trunk/user/vsftpd/src/ftp_octal_arg_policy.h",
+              "trunk/user/vsftpd/src/tests/ftp_octal_arg_policy.c",
               "trunk/user/vsftpd/src/ftp_acl_path_policy.h",
               "trunk/user/vsftpd/src/tests/ftp_acl_path_policy.c",
           )

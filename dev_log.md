@@ -1,3 +1,11 @@
+## 2026-11-24 — Fix VSFTPD workflow path-filter checker scope
+
+- Exact `ea7d7e28be9988175fbcc423f9378e5d765de764` VSFTPD runtime compile/regression ran before the inline source contract failed at its path-coverage assertion. The parser-test content checks for `0777` and `UINT_MAX` were valid.
+- Root cause: the checker counted each new header/test path across the entire YAML document and expected exactly two occurrences, but each path also occurs in the inline Python source loading and build command. Replaced the global substring counts with entries in the existing `paths` tuple, whose validator separates `push` and `pull_request` filters and requires one occurrence in each. This preserves the intended exact path-filter coverage without counting unrelated references.
+- The standalone GNU89 octal parser regression had already compiled and passed locally. Exact-head VSFTPD and AI handoff reruns for this checker correction are pending.
+
+---
+
 ## 2026-11-24 — Correct AliDNS checker require() arguments
 
 - Exact e4fdbc7 AliDNS Action #45357277912 completed all functional shell/API/lifecycle/HMAC privacy steps successfully but the static contract failed with `TypeError: require() missing 1 required positional argument: 'message'`.
