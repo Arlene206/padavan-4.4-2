@@ -505,12 +505,12 @@ load_ipset_modules(void)
 }
 #endif
 
-static void
+static int
 set_timezone(void)
 {
 	time_zone_x_mapping();
 	setenv_tz();
-	setkernel_tz();
+	return setkernel_tz();
 }
 
 static void
@@ -1360,7 +1360,7 @@ setenv_tz(void)
 	}
 }
 
-void
+int
 setkernel_tz(void)
 {
 	time_t now;
@@ -1379,7 +1379,7 @@ setkernel_tz(void)
 	tz.tz_minuteswest = (mktime(&gm) - mktime(&local)) / 60;
 
 	if (tz_minuteswest_last == tz.tz_minuteswest)
-		return;
+		return 0;
 
 	/*
 	 * Do not advance the cache before the syscall: a permission or transient
@@ -1397,6 +1397,7 @@ setkernel_tz(void)
 			   "cannot update kernel timezone (minuteswest=%d, status=%d)",
 			   tz.tz_minuteswest, status);
 	}
+	return status;
 }
 #if defined (BOARD_K2P)
 static void led_control(int gpio_led, int flag);
@@ -1632,7 +1633,16 @@ init_router(void)
 			boot_services_status, passwd_status);
 	}
 
-	set_timezone();
+	{
+		int timezone_status = set_timezone();
+
+		if (timezone_status != 0)
+			logmessage(LOGNAME,
+				   "kernel timezone initialization incomplete (status=%d)",
+				   timezone_status);
+		boot_services_status = rc_first_service_start_status(
+			boot_services_status, timezone_status);
+	}
 	{
 		int pagecache_status = set_pagecache_reclaim();
 
@@ -2966,7 +2976,12 @@ handle_notifications(void)
 					   logger_stop_status);
 				action_result = -1;
 			}
-			set_timezone();
+			{
+				int timezone_status = set_timezone();
+
+				action_result = rc_notify_merge_action_result(
+					action_result, timezone_status);
+			}
 			action_result = rc_notify_merge_action_result(
 				action_result, notify_watchdog_time());
 			notify_rstats_time();

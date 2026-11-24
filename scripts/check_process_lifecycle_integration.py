@@ -1710,6 +1710,20 @@ assert "if (syscall_status != 0)" in timezone_policy
 assert "*cached_minuteswest = requested_minuteswest;" in timezone_policy
 assert "test_kernel_timezone_cache_changes_only_after_success();" in timezone_test
 
+timezone_update = c_function_body(rc_source, "set_timezone(void)")
+assert "return setkernel_tz();" in timezone_update
+assert "return status;" in kernel_timezone
+boot_router = c_function_body(rc_source, "init_router(void)")
+assert "int timezone_status = set_timezone();" in boot_router
+assert "boot_services_status = rc_first_service_start_status(" in boot_router
+assert "boot_services_status, timezone_status" in boot_router
+time_restart = rc_source.split(
+    "strcmp(entry->d_name, RCN_RESTART_TIME) == 0", 1
+)[1].split("RCN_RESTART_SYSCTL", 1)[0]
+assert "int timezone_status = set_timezone();" in time_restart
+assert "action_result, timezone_status" in time_restart
+
+
 # Persisted clock state is a privileged boot input: reject links, non-regular
 # files, unsafe ownership/mode, incomplete reads and non-decimal timestamps.
 storage_time_load = c_function_body(rc_source, "storage_load_time(void)")
