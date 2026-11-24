@@ -360,7 +360,7 @@ jobs:
           )
           read_indirect_call = read.index("mii_mgr_indirect_read(", read_indirect_reg)
           read_direct_reg = read.index(
-              "if (mii_mgr_phy_register_status(phy_register) != 0)",
+              "mii_mgr_phy_register_status(phy_register) != 0",
               read_indirect_call,
           )
           read_direct_call = read.index("return __mii_mgr_read(", read_direct_reg)

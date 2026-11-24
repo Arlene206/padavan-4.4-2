@@ -34,4 +34,4 @@ The checkpoint is mandatory; a document edit is conditional. At each session end
 
 # Cross-session execution mandate
 
-Recover once, implement, test and hand off. Use one atomic main commit per logical task with non-forced expected-SHA updates. Never force-push or overstate firmware or hardware validation.
+Before context exhaustion, record the exact active source SHA, regression results, exact-SHA Actions and next first action. Recover once, implement, test and hand off. Use one atomic main commit per logical task with non-forced expected-SHA updates. Never force-push or overstate firmware or hardware validation.

@@ -1,3 +1,12 @@
+## 2026-11-24 — Repair Clause 22 path-aware source-contract anchors
+
+- Exact main SHA `a0643ffbe0b7e715c265de12d5b6a3de48b5303f`: Switch CLI #45440335408 passed the Clause 22 GNU89/ASan/UBSan boundary binary, then failed its source contract because the new combined direct C22 guard no longer matched the checker’s old exact substring ending immediately after the register predicate. Updated the checker to anchor the predicate within the combined register/data condition; boundary policy and production source are unchanged by this correction.
+- AI handoff #45440335554 failed because the handoff omitted the required cross-session phrase `Before context exhaustion`; this checkpoint restores that explicit rule.
+- XY-C1 #45440335185 and NVRAM audit #45440335316 on `a0643ffbe0b7e715c265de12d5b6a3de48b5303f` were IN_PROGRESS at last poll. XY Build was running; TRX/artifact pending. Exact new-head checks remain required.
+- The separate FTP restart firewall cleanup finding is being implemented as an independent source/test slice; no FTP files are changed in this checker/handoff correction.
+
+---
+
 ## 2026-11-25 00:38 CST (UTC+8) — Preserve indirect Clause 22 logical register range
 
 - Reviewed `18d9035` after its C22 width guard landed and found a compatibility regression: the five-bit register / 16-bit payload checks ran before the architecture-specific indirect access selector. The existing indirect policy tests use logical register `0x1234` and a u32 value `0x89abcdef`, which are intentionally split across page/low/high word MDIO transactions.
