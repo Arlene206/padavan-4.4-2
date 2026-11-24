@@ -368,7 +368,8 @@ for invalid_enable in unexpected -1 2 '1;reboot'; do
 			fail "$enable_action did not read the enable selector exactly once"
 	done
 done
-echo 0 > "$TEST_ENABLE_FILE"
+# Restore the enabled fixture expected by the following launch tests.
+echo 1 > "$TEST_ENABLE_FILE"
 echo "DDNSTO invalid enable selectors cannot stop or launch a daemon: PASS"
 
 # Background fork success is insufficient: wait for validated daemon presence.
