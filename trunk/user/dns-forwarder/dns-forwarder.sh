@@ -104,6 +104,7 @@ dns_forwarder_lifecycle_lock_execute() {
 # Return 0=RUNNING, 1=confirmed ABSENT, 2=UNKNOWN. BusyBox pidof
 # may also return 1 when procfs enumeration fails, so validate its output.
 dns_forwarder_process_state() {
+  dns_forwarder_pids=
   if dns_forwarder_pid_output=$(pidof dns-forwarder 2>/dev/null); then
     dns_forwarder_pidof_status=0
   else
@@ -127,6 +128,7 @@ dns_forwarder_process_state() {
           ''|0*|*[!0-9]*) return 2 ;;
         esac
       done
+      dns_forwarder_pids="$*"
       return 0
       ;;
     1)
@@ -158,11 +160,21 @@ func_stop() {
       ;;
   esac
 
-  # A failed signal is harmless only if a fresh snapshot confirms absence.
-  if killall -q dns-forwarder; then
-    :
-  else
-    signal_status=$?
+  # Signal only the PIDs from the validated snapshot. A name-based
+  # killall would rescan procfs and could catch a replacement process.
+  signal_status=0
+  for dns_forwarder_pid in $dns_forwarder_pids; do
+    if kill -TERM "$dns_forwarder_pid"; then
+      :
+    else
+      current_signal_status=$?
+      if [ "$signal_status" -eq 0 ]; then
+        signal_status=$current_signal_status
+        [ "$signal_status" -ne 0 ] || signal_status=1
+      fi
+    fi
+  done
+  if [ "$signal_status" -ne 0 ]; then
     if dns_forwarder_is_running; then
       logger -t "DNS Forwarder" "failed to signal the existing daemon (status=$signal_status)"
       return "$signal_status"

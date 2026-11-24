@@ -30,14 +30,11 @@ if [ "${FAKE_PIDOF_OVERRIDE:-0}" = 1 ]; then
   exit "${FAKE_PIDOF_STATUS:-0}"
 fi
 [ -s "$FAKE_RUNNING_FILE" ] || exit 1
-printf '%s\n' 123
+cat "$FAKE_RUNNING_FILE"
 STUB
 cat > "$tmp/bin/killall" <<'STUB'
 #!/bin/sh
-[ "$1" = -q ] && [ "$2" = dns-forwarder ] || exit 2
 printf '%s\n' "$*" >> "$FAKE_STOP_LOG"
-[ "${FAKE_KILL_FAIL:-0}" = 0 ] || exit 1
-[ "${FAKE_KILL_KEEP:-0}" = 1 ] || rm -f "$FAKE_RUNNING_FILE"
 exit 0
 STUB
 cat > "$tmp/bin/start-stop-daemon" <<'STUB'
@@ -46,6 +43,13 @@ printf '%s\n' "$*" >> "$FAKE_LAUNCH_LOG"
 ( : >&9 ) 2>/dev/null && exit 97
 [ "${FAKE_START_FAIL:-0}" = 0 ] || exit 23
 [ "${FAKE_START_NO_PID:-0}" = 1 ] || printf '%s\n' 123 > "$FAKE_RUNNING_FILE"
+exit 0
+STUB
+cat > "$tmp/bin/kill" <<'STUB'
+#!/bin/sh
+printf '%s %s\n' "$1" "$2" >> "$FAKE_SIGNAL_LOG"
+[ "${FAKE_KILL_FAIL:-0}" = 0 ] || exit 1
+[ "${FAKE_KILL_KEEP:-0}" = 1 ] || rm -f "$FAKE_RUNNING_FILE"
 exit 0
 STUB
 cat > "$tmp/bin/sleep" <<'STUB'
@@ -61,7 +65,9 @@ chmod 700 "$tmp/bin/"*
 export FAKE_RUNNING_FILE="$tmp/running"
 export FAKE_LAUNCH_LOG="$tmp/launch.log"
 export FAKE_STOP_LOG="$tmp/stop.log"
+export FAKE_SIGNAL_LOG="$tmp/signal.log"
 : > "$FAKE_STOP_LOG"
+: > "$FAKE_SIGNAL_LOG"
 export FAKE_ENABLED=1 FAKE_KILL_FAIL=0 FAKE_KILL_KEEP=0
 export FAKE_START_FAIL=0 FAKE_START_NO_PID=0
 PATH="$tmp/bin:/usr/bin:/bin"
@@ -120,6 +126,18 @@ rm -f "$FAKE_RUNNING_FILE"
 run_status 0 stop
 [ ! -e "$FAKE_RUNNING_FILE" ]
 run_status 0 stop
+
+# Stop sends SIGTERM to every PID in its validated snapshot, not a new
+# process-name-wide search which could catch an unrelated replacement daemon.
+printf '%s\n' '123 456' > "$FAKE_RUNNING_FILE"
+: > "$FAKE_SIGNAL_LOG"
+: > "$FAKE_STOP_LOG"
+FAKE_KILL_FAIL=0 FAKE_KILL_KEEP=0
+export FAKE_KILL_FAIL FAKE_KILL_KEEP
+run_status 0 stop
+[ "$(cat "$FAKE_SIGNAL_LOG")" = "$(printf '%s\n' '-TERM 123' '-TERM 456')" ]
+[ ! -s "$FAKE_STOP_LOG" ]
+[ ! -e "$FAKE_RUNNING_FILE" ]
 
 # A failed signal must abort restart rather than launching a second daemon.
 printf '%s\n' 123 > "$FAKE_RUNNING_FILE"

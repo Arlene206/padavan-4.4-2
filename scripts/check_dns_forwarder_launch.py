@@ -105,7 +105,14 @@ assert "pidof dns-forwarder" in launcher_script
 assert "dns_forwarder_process_state()" in launcher_script
 assert "cannot verify existing daemon state" in launcher_script
 assert "cannot verify daemon stop postcondition" in launcher_script
-assert "killall -q dns-forwarder" in launcher_script
+stop_body = function_body(launcher_script, "func_stop()")
+assert 'kill -TERM "$dns_forwarder_pid"' in stop_body
+assert "killall" not in stop_body
+assert 'dns_forwarder_pids="$*"' in function_body(
+    launcher_script, "dns_forwarder_process_state()"
+)
+assert '123 456' in lifecycle_test
+assert '-TERM 123' in lifecycle_test and '-TERM 456' in lifecycle_test
 assert "FAKE_PIDOF_STATUS=2" in lifecycle_test
 assert "start-stop-daemon -S -b -x /usr/bin/dns-forwarder --" in launcher_script
 assert "launcher returned success but no daemon appeared" in launcher_script
