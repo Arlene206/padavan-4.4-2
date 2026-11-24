@@ -61,6 +61,11 @@ STUB
 chmod 755 "$tmp/bin/fake_kill"
 . "$tmp/adbyby.sh"
 
+ADBYBY_PROC_ROOT="$tmp/proc"
+mkdir -p "$ADBYBY_PROC_ROOT/1"
+printf '1 (init) S 0 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 100\n' > "$ADBYBY_PROC_ROOT/1/stat"
+export ADBYBY_PROC_ROOT
+
 logger() { :; }
 mem_mode=0
 del_rule() { echo del_rule >> "$events_file"; }
@@ -76,6 +81,18 @@ PROG_PATH="$tmp/adbyby"
 mkdir -p "$PROG_PATH"
 printf '%s\n' '#!/bin/sh' 'echo launch >> "$ADBYBY_TEST_EVENTS"' > "$PROG_PATH/adbyby"
 chmod 755 "$PROG_PATH/adbyby"
+adbyby_test_add_process()
+{
+	adbyby_test_pid="$1"
+	adbyby_test_exe="$2"
+	adbyby_test_start="$3"
+	mkdir -p "$ADBYBY_PROC_ROOT/$adbyby_test_pid"
+	ln -sfn "$adbyby_test_exe" "$ADBYBY_PROC_ROOT/$adbyby_test_pid/exe"
+	printf '%s (adbyby) S 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 %s\n' \
+		"$adbyby_test_pid" "$adbyby_test_start" > "$ADBYBY_PROC_ROOT/$adbyby_test_pid/stat"
+}
+adbyby_test_add_process 123 "$PROG_PATH/adbyby" 1000
+adbyby_test_add_process 456 "$PROG_PATH/adbyby" 1001
 cat > "$tmp/bin/iptables-save" <<'STUB'
 #!/bin/sh
 echo ADBYBY
@@ -151,6 +168,59 @@ adbyby_close || fail "multi-PID stop failed"
 [ "$(event_count 'killall:-q adbyby')" -eq 0 ] || fail "stop rescanned process name with killall"
 ADBYBY_TEST_PID_OUTPUT=
 export ADBYBY_TEST_PID_OUTPUT
+
+# A spoofed comm/pidof match with a different executable is not Adbyby.
+echo running > "$state_file"
+ADBYBY_TEST_PID_OUTPUT=789
+export ADBYBY_TEST_PID_OUTPUT
+adbyby_test_add_process 789 /bin/sleep 2000
+: > "$events_file"
+ADBYBY_TEST_KILL_MODE=keep
+adbyby_close || fail "same-name process with another executable blocked confirmed-absent cleanup"
+[ "$(event_count 'kill:-TERM 789')" -eq 0 ] || fail "same-name decoy executable was signalled"
+echo "same-name decoys with another executable are not signalled: PASS"
+
+# A matching executable with malformed proc metadata is UNKNOWN.
+echo running > "$state_file"
+ADBYBY_TEST_PID_OUTPUT=790
+export ADBYBY_TEST_PID_OUTPUT
+adbyby_test_add_process 790 "$PROG_PATH/adbyby" 2010
+printf 'truncated\n' > "$ADBYBY_PROC_ROOT/790/stat"
+: > "$events_file"
+if adbyby_close; then fail "malformed process metadata was accepted as absent"; fi
+[ "$(event_count 'kill:-TERM 790')" -eq 0 ] || fail "unknown process identity was signalled"
+assert_no_cleanup malformed-process-identity
+echo "unverifiable process metadata blocks signal and cleanup: PASS"
+
+# A PID reused by the same executable after inventory must not receive TERM.
+echo running > "$state_file"
+ADBYBY_TEST_PID_OUTPUT=123
+export ADBYBY_TEST_PID_OUTPUT
+adbyby_test_add_process 123 "$PROG_PATH/adbyby" 3000
+reuse_trigger="$tmp/reuse-once"
+: > "$reuse_trigger"
+awk()
+{
+	/usr/bin/awk "$@"
+	adbyby_test_awk_status=$?
+	case "$*" in
+		*"$ADBYBY_PROC_ROOT/123/stat"*)
+			if [ -e "$reuse_trigger" ]; then
+				rm -f "$reuse_trigger"
+				printf '123 (adbyby) S 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 3001\n' > "$ADBYBY_PROC_ROOT/123/stat"
+			fi
+			;;
+	esac
+	return "$adbyby_test_awk_status"
+}
+: > "$events_file"
+ADBYBY_TEST_KILL_MODE=keep
+if adbyby_close; then fail "PID start_time replacement was accepted as stopped"; fi
+unset -f awk
+[ "$(event_count 'kill:-TERM 123')" -eq 0 ] || fail "reused PID received TERM"
+[ "$(event_count 'sleep:1')" -eq 5 ] || fail "PID-reuse path did not retain bounded stop verification"
+assert_no_cleanup pid-reuse
+echo "PID start-time replacement is not signalled: PASS"
 
 # Confirmed ABSENT is idempotent and permits cleanup without signalling.
 echo absent > "$state_file"

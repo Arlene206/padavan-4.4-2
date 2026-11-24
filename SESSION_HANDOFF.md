@@ -1,18 +1,20 @@
 ## Current repository state
 
-- Parent main for this Adbyby source-contract correction: `3462bcacba47114b93d3d9da0366513064c13dbb`; live branch/tree read immediately before assembling the atomic commit.
-- SmartDNS NVRAM-independent stop slice: source SHA `2294ae89092db384169b533ed6c0ab4e8c6b639c`; DNSMasq #45336719172, Process inventory #45336719252, AI docs #45336719249 and USB hotplug #45336719220 PASS. XY-C1 #45336719186 remains IN_PROGRESS at last poll; Build completed but TRX verification and artifact upload are still pending.
-- DNS Forwarder CWD-safe launch/stop tests: exact SHA `569066e9f67b0fab62a8382c2b1b8e9ab9dfdc3f`, launch-path #45336969468 and Process inventory #45336969414 PASS.
-- Adbyby per-PID stop test progression: `c0afda5` moved TERM injection to an external stub; `3462bca` exported the multi-PID fixture to the external `pidof` process. On `3462bcacba47114b93d3d9da0366513064c13dbb`, every shell regression (including the two-PID signal case) passed; only the source checker then failed because it searched the pidof assignment in the wrong function. THIS COMMIT corrects that checker.
+- Parent main for this Adbyby process-identity hardening slice: `ceda64cdd021684c8b9b876fb29ecafa150a9e81`; live branch/tree were fetched immediately before constructing the commit.
+- Adbyby test/checker sequence: `c0afda5` moved TERM to an external stub; `3462bca` exported the multi-PID fixture; `8774bb3` corrected the checker to inspect pidof capture inside `adbyby_process_snapshot()`. Exact Adbyby #45337764822 and AI docs #45337762851 PASS on `8774bb3`.
+- SmartDNS stop NVRAM-isolation SHA `2294ae89092db384169b533ed6c0ab4e8c6b639c`: DNSMasq #45336719172, Process #45336719252, AI docs #45336719249 and USB #45336719220 PASS; XY-C1 #45336719186 was still building at last poll (TRX/artifact pending).
+- DNS Forwarder process-snapshot hardening SHA `569066e9f67b0fab62a8382c2b1b8e9ab9dfdc3f`: launch-path #45336969468 and Process #45336969414 PASS.
+- This slice binds Adbyby's name-based `pidof` candidates to the installed executable and process start_time, with immediate pre-signal revalidation.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- All commits remain main-only, one complete Git tree per logical change, CAS expected-SHA updates and no force-push.
+- Main-only atomic complete-tree commits, expected-SHA updates and no force-push.
 
 ## Active task
 
-Close the Adbyby exact-head validation slice:
-- The production code validates the result of `pidof adbyby` inside `adbyby_process_snapshot()`; `adbyby_process_state()` only maps its return code to RUNNING/ABSENT/UNKNOWN.
-- The shell suite's multiple validated PID regression now exports `ADBYBY_TEST_PID_OUTPUT=123 456` before invoking the pidof subprocess. The external fake signal command prevents the shell `kill` builtin from hijacking per-PID TERM testing.
-- This commit moves the source-checker assertion to the function that actually performs the checked pidof read. Inspect exact-head Adbyby and Process Actions after publication, fix any remaining failure, then inspect SmartDNS XY-C1 L3 steps.
+Implement and verify Adbyby executable-bound process identity:
+- `adbyby_process_identity()` validates `/proc/PID/exe`, parses `/proc/PID/stat` state/start_time robustly across a parenthesized comm field, and distinguishes unowned decoys from unreadable/UNKNOWN state.
+- `adbyby_process_snapshot()` filters pidof candidates and records `PID:start_time`; `adbyby_stop_daemon()` revalidates both immediately before each SIGTERM.
+- Host regressions cover two valid PIDs, same-name wrong-executable decoys, malformed metadata and start_time replacement. Source checker pins the identity contract.
+- Exact-head Adbyby host and Process Actions must be inspected after publication.
 
 ## Completed development slices
 
@@ -28,17 +30,16 @@ Close the Adbyby exact-head validation slice:
 
 ## Verification boundary
 
-- Exact SHA `3462bcacba47114b93d3d9da0366513064c13dbb`: Adbyby host regression #45337601785 failed only after all shell tests passed, at the stale Python source-checker assertion (pidof status capture wrongly searched in `adbyby_process_state`). THIS COMMIT fixes its function scope; exact-head rerun pending.
-- Exact SHA `3462bca`: Process lifecycle inventory #45337601601 and Process inventory/fail-closed #45337601694 were still IN_PROGRESS at last poll.
-- SmartDNS SHA `2294ae89092db384169b533ed6c0ab4e8c6b639c`: DNSMasq/Process/AI/USB all PASS; XY-C1 #45336719186 was IN_PROGRESS at last poll with TRX verification and artifact upload pending. Do not claim L3 until all required same-SHA build steps pass.
-- No local MIPS firmware build, physical router runtime or L4 result claimed.
+- Prior checker-correction SHA `8774bb3d2c5524dc7e427d6c2b8dc25df9f531fb`: Adbyby host #45337764822 PASS and AI docs #45337762851 PASS. Those runs do not validate the new process-identity changes in THIS COMMIT.
+- SmartDNS `2294ae8`: DNSMasq, Process, AI docs and USB all PASS; XY-C1 #45336719186 remained IN_PROGRESS at the last detailed poll (Build running; TRX verification and artifact upload pending).
+- No local MIPS firmware build, physical-router runtime or L4 result claimed.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect this checker-correction commit's exact-head Adbyby and Process runs; address any first remaining failing step.
-2. Poll SmartDNS XY-C1 #45336719186 on exact product-source SHA `2294ae89092db384169b533ed6c0ab4e8c6b639c`; claim L3 only if Build, TRX verification and artifact upload all pass.
-3. Continue a concrete P1 stability fix outside SmartDNS/RAETH and avoid re-auditing completed selector work.
-4. Keep the frozen backup immutable; all updates to main remain atomic and non-forced.
+1. Inspect this process-identity commit's exact-head Adbyby host and Process inventory/fail-closed Actions; diagnose any first failing step and repair it.
+2. Poll SmartDNS XY-C1 #45336719186 on `2294ae89092db384169b533ed6c0ab4e8c6b639c`; claim L3 only after Build, TRX verification and artifact upload all pass on that SHA.
+3. Continue a concrete P1 stability/security fix outside completed SmartDNS/RAETH scope, without repeating selector audits.
+4. Keep the backup branch immutable and main updates atomic/non-forced.
 
 # Cross-session execution mandate
 

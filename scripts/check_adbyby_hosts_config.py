@@ -384,20 +384,32 @@ require("if ! add_rules" in start and "return 1" in start,
         "normal start must not launch the daemon after managed rule preparation fails")
 require("if ! add_rules" in updater and "return 1" in updater,
         "update/restart must not relaunch after managed rule preparation fails")
+process_identity = function_body(source, "adbyby_process_identity")
 process_snapshot = function_body(source, "adbyby_process_snapshot")
 stop_daemon = function_body(source, "adbyby_stop_daemon")
 process_state = function_body(source, "adbyby_process_state")
 require("if adbyby_pid_output=$(pidof adbyby 2>/dev/null); then" in process_snapshot
         and "adbyby_pid_status=$?" in process_snapshot,
         "pidof result must be captured safely under errexit")
-require('adbyby_pids="$adbyby_pid_output"' in process_snapshot and
-        'adbyby_stop_pids="$adbyby_pids"' in stop_daemon and
+require('readlink "$adbyby_identity_dir/exe"' in process_identity and
+        '"$PROG_PATH/adbyby"' in process_identity and
+        '"$PROG_PATH/adbyby (deleted)"' in process_identity and
+        'start_time = $20' in process_identity and
+        'ADBYBY_PROC_ROOT' in source,
+        "Adbyby process inventory must bind the exact executable and /proc start_time")
+require('adbyby_process_ids="$adbyby_process_ids' in process_snapshot and
+        'adbyby_stop_process_ids="$adbyby_process_ids"' in stop_daemon and
+        'adbyby_process_identity "$adbyby_stop_pid"' in stop_daemon and
+        '[ "$adbyby_current_start" = "$adbyby_stop_start" ]' in stop_daemon and
         'kill -TERM "$adbyby_stop_pid"' in stop_daemon and
         "killall" not in stop_daemon,
-        "Adbyby stop must signal only the validated PID snapshot, never rescan by process name")
+        "Adbyby stop must revalidate PID/start_time before each direct signal")
 require("Multiple validated PIDs are signalled individually" in stop_test and
-        "kill:-TERM 123" in stop_test and "kill:-TERM 456" in stop_test,
-        "Adbyby stop regression must cover per-PID signalling for multiple daemon instances")
+        "kill:-TERM 123" in stop_test and "kill:-TERM 456" in stop_test and
+        "same-name decoys with another executable are not signalled: PASS" in stop_test and
+        "unverifiable process metadata blocks signal and cleanup: PASS" in stop_test and
+        "PID start_time replacement is not signalled: PASS" in stop_test,
+        "Adbyby stop regressions must cover multi-PID, decoy, unknown metadata and PID reuse")
 
 require("adbyby_close ||" in updater and
         updater.index("adbyby_close ||") < updater.index("addscripts"),

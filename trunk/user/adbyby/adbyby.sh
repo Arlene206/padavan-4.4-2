@@ -15,6 +15,7 @@ ADBYBY_HOST_TOTAL_MAX_BYTES=16777216
 ADBYBY_HOST_MAX_CONFIG_BYTES=314571
 ADBYBY_HOST_MAX_SOURCES=16
 ADBYBY_START_WAIT_ATTEMPTS=5
+ADBYBY_PROC_ROOT='/proc'
 
 # Read mutable settings only after the lifecycle lock is held.
 adbyby_refresh_nvram_state()
@@ -68,11 +69,51 @@ adbyby_start()
 	return "$adbyby_start_status"
 }
 
-# pidof has three outcomes here: RUNNING, confirmed ABSENT, or UNKNOWN.
-# The snapshot helper retains only a fully validated PID list for direct signals.
+# Use procfs executable identity and start_time, not the spoofable comm
+# name returned by pidof. The stat parser handles ')' inside comm correctly.
+adbyby_process_identity()
+{
+	adbyby_identity_pid="$1"
+	case "$adbyby_identity_pid" in
+		''|0|1|0*|*[!0-9]*) return 1 ;;
+	esac
+	adbyby_identity_dir="$ADBYBY_PROC_ROOT/$adbyby_identity_pid"
+	[ -d "$adbyby_identity_dir" ] || return 1
+	[ -L "$adbyby_identity_dir/exe" ] || return 2
+	adbyby_identity_exe=$(readlink "$adbyby_identity_dir/exe" 2>/dev/null) || return 2
+	case "$adbyby_identity_exe" in
+		"$PROG_PATH/adbyby"|"$PROG_PATH/adbyby (deleted)") ;;
+		*) return 1 ;;
+	esac
+	[ -r "$adbyby_identity_dir/stat" ] && [ -f "$adbyby_identity_dir/stat" ] || return 2
+	adbyby_identity_start=$(awk '
+		NR != 1 { invalid = 1 }
+		NR == 1 {
+			sub(/^.*\) /, "")
+			if (NF < 20 || $1 !~ /^[A-Za-z]$/ ||
+			    $20 !~ /^[0-9]+$/ ||
+			    $1 == "Z" || $1 == "X" || $1 == "x")
+				invalid = 1
+			else
+				start_time = $20
+		}
+		END {
+			if (invalid || NR != 1)
+				exit 1
+			print start_time
+		}
+	' "$adbyby_identity_dir/stat" 2>/dev/null) || return 2
+	case "$adbyby_identity_start" in
+		''|*[!0-9]*) return 2 ;;
+	esac
+	printf '%s\n' "$adbyby_identity_start"
+}
+
+# pidof only enumerates candidates; only verified executable identities count.
 adbyby_process_snapshot()
 {
 	adbyby_pids=
+	adbyby_process_ids=
 	if adbyby_pid_output=$(pidof adbyby 2>/dev/null); then
 		adbyby_pid_status=0
 	else
@@ -85,7 +126,7 @@ adbyby_process_snapshot()
 				NF == 0 { invalid = 1 }
 				{
 					for (i = 1; i <= NF; i++) {
-						if ($i !~ /^[0-9]+$/ || $i + 0 <= 0)
+						if ($i !~ /^[1-9][0-9]*$/)
 							invalid = 1
 					}
 				}
@@ -93,11 +134,31 @@ adbyby_process_snapshot()
 			   '; then
 				return 2
 			fi
-			adbyby_pids="$adbyby_pid_output"
-			return 0
+			for adbyby_candidate_pid in $adbyby_pid_output; do
+				if adbyby_candidate_start=$(adbyby_process_identity "$adbyby_candidate_pid"); then
+					if [ -n "$adbyby_pids" ]; then
+						adbyby_pids="$adbyby_pids $adbyby_candidate_pid"
+						adbyby_process_ids="$adbyby_process_ids $adbyby_candidate_pid:$adbyby_candidate_start"
+					else
+						adbyby_pids="$adbyby_candidate_pid"
+						adbyby_process_ids="$adbyby_candidate_pid:$adbyby_candidate_start"
+					fi
+				else
+					adbyby_candidate_status=$?
+					case "$adbyby_candidate_status" in
+						1) ;; # vanished or same-name process with another executable
+						*) return 2 ;; # procfs could not prove process identity
+					esac
+				fi
+			done
+			[ -n "$adbyby_pids" ] && return 0
+			return 1
 			;;
 		1)
-			[ -z "$adbyby_pid_output" ] && return 1
+			[ -z "$adbyby_pid_output" ] || return 2
+			# Empty pidof output is ABSENT only if procfs itself is readable.
+			[ -f "$ADBYBY_PROC_ROOT/1/stat" ] &&
+				[ -r "$ADBYBY_PROC_ROOT/1/stat" ] && return 1
 			return 2
 			;;
 		*) return 2 ;;
@@ -238,6 +299,7 @@ adbyby_stop_daemon()
 {
 	if adbyby_process_snapshot; then
 		adbyby_stop_pids="$adbyby_pids"
+		adbyby_stop_process_ids="$adbyby_process_ids"
 	else
 		adbyby_stop_state_status=$?
 		case "$adbyby_stop_state_status" in
@@ -249,9 +311,22 @@ adbyby_stop_daemon()
 		esac
 	fi
 
-	# Signal only the PID list validated above; do not rescan by process name.
+	# Linux 4.4 has no pidfd. Recheck executable and start_time immediately
+	# before each signal to reject PID reuse or a same-name decoy.
 	adbyby_kill_status=0
-	for adbyby_stop_pid in $adbyby_stop_pids; do
+	for adbyby_stop_identity in $adbyby_stop_process_ids; do
+		case "$adbyby_stop_identity" in *:*) ;; *) return 1 ;; esac
+		adbyby_stop_pid="${adbyby_stop_identity%%:*}"
+		adbyby_stop_start="${adbyby_stop_identity#*:}"
+		if adbyby_current_start=$(adbyby_process_identity "$adbyby_stop_pid"); then
+			[ "$adbyby_current_start" = "$adbyby_stop_start" ] || continue
+		else
+			adbyby_identity_status=$?
+			case "$adbyby_identity_status" in
+				1) continue ;;
+				*) return 1 ;;
+			esac
+		fi
 		if kill -TERM "$adbyby_stop_pid" >/dev/null 2>&1; then
 			:
 		else
@@ -259,29 +334,6 @@ adbyby_stop_daemon()
 			[ "$adbyby_kill_status" -ne 0 ] || adbyby_kill_status=$adbyby_signal_status
 		fi
 	done
-	if [ "$adbyby_kill_status" -ne 0 ]; then
-		logger -t "adbyby" "Adbyby停止信号返回错误(status=$adbyby_kill_status)，继续验证进程状态。"
-	fi
-	adbyby_stop_attempt=0
-	while [ "$adbyby_stop_attempt" -lt 5 ]; do
-		sleep 1 || {
-			logger -t "adbyby" "等待Adbyby退出时sleep失败，拒绝清理服务状态。"
-			return 1
-		}
-		adbyby_state=$(adbyby_process_state) || adbyby_state=UNKNOWN
-		case "$adbyby_state" in
-			ABSENT) return 0 ;;
-			RUNNING) ;;
-			*)
-				logger -t "adbyby" "无法确认Adbyby退出状态，拒绝清理服务状态。"
-				return 1
-				;;
-		esac
-		adbyby_stop_attempt=$((adbyby_stop_attempt + 1))
-	done
-	logger -t "adbyby" "Adbyby在有界等待后仍运行，拒绝清理服务状态。"
-	return 1
-}
 
 adbyby_close()
 {

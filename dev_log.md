@@ -1,3 +1,13 @@
+## 2026-11-24 — Bind Adbyby stop signals to executable and PID start_time
+
+- `adbyby_process_snapshot()` previously treated every positive numeric PID from BusyBox `pidof adbyby` as a validated daemon. `pidof` is a name-based candidate enumerator, not executable identity; a same-name task with another executable could be signalled, and a PID could be reused between inventory and `kill -TERM`.
+- Added `adbyby_process_identity()`: candidates must resolve `/proc/PID/exe` to `$PROG_PATH/adbyby` (also accepting the exact kernel ` (deleted)` suffix for an already-running old image) and provide parseable, non-zombie `/proc/PID/stat` start_time. Parsing strips through the final `)` so comm names containing spaces/parentheses do not shift field 22.
+- Snapshots now retain `PID:start_time`; stop rechecks executable and start_time immediately before each TERM. Same-name decoys and changed/reused PIDs are not signalled; unreadable metadata fails closed. An empty pidof result counts as ABSENT only when procfs PID 1 metadata is readable. Linux 4.4 still has an unavoidable final validate-to-signal race without pidfd.
+- Expanded host regression with fake procfs for multi-PID signalling, wrong-executable decoys, malformed stat data and deterministic start_time replacement. Updated source checker to pin the identity contract.
+- Parent main: `ceda64cdd021684c8b9b876fb29ecafa150a9e81`. Exact-head Adbyby/Process Actions required; no MIPS build or hardware L4 result claimed.
+
+---
+
 ## 2026-11-24 — Fix Adbyby process inventory source-checker scope
 
 - The Adbyby stop test was repaired in two sequential test-only commits: `c0afda5` moved the per-PID TERM mock out of the shell builtin namespace, and `3462bca` exported `ADBYBY_TEST_PID_OUTPUT` before invoking the external mocked `pidof`, so its `123 456` multi-PID case actually reaches both validated PIDs.
