@@ -14,6 +14,8 @@ on:
       - "trunk/user/utils/src/switch/mii_mgr.c"
       - "trunk/user/utils/src/switch/tests/mii_mgr_cli.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether_pdma.c"
+      - "scripts/check_raeth_rx_ring_cleanup.py"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl_mt762x.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mii_mgr.c"
@@ -59,6 +61,8 @@ on:
       - "trunk/user/utils/src/switch/mii_mgr.c"
       - "trunk/user/utils/src/switch/tests/mii_mgr_cli.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether_pdma.c"
+      - "scripts/check_raeth_rx_ring_cleanup.py"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl_mt762x.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mii_mgr.c"
@@ -117,6 +121,9 @@ jobs:
 
       - name: Verify RAETH source declarations and definitions are unique
         run: python3 scripts/check_raeth_compile_integrity.py
+
+      - name: Verify PDMA RX allocation rollback is complete
+        run: python3 scripts/check_raeth_rx_ring_cleanup.py
 
       - name: Compile and run switch status/ioctl packing regression
         run: |

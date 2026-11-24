@@ -37,7 +37,8 @@ int fe_pdma_wait_dma_idle(void)
 
 int fe_pdma_rx_dma_init(struct net_device *dev)
 {
-	int i;
+	int i, j;
+	int mapped = 0;
 	unsigned int skb_size;
 	struct END_DEVICE *ei_local = netdev_priv(dev);
 	dma_addr_t dma_addr;
@@ -54,6 +55,8 @@ int fe_pdma_rx_dma_init(struct net_device *dev)
 	pr_debug("\nphy_rx_ring[0] = 0x%08x, rx_ring[0] = 0x%p\n",
 		 (unsigned int)ei_local->phy_rx_ring[0],
 		 (void *)ei_local->rx_ring[0]);
+	if (!ei_local->rx_ring[0])
+		goto no_rx_mem;
 
 	for (i = 0; i < num_rx_desc; i++) {
 		ei_local->netrx_skb_data[0][i] =
@@ -80,6 +83,7 @@ int fe_pdma_rx_dma_init(struct net_device *dev)
 			pr_err("[%s]dma_map_single() failed...\n", __func__);
 			goto no_rx_mem;
 		}
+		mapped++;
 	}
 
 	/* Tell the adapter where the RX rings are located. */
@@ -92,6 +96,27 @@ int fe_pdma_rx_dma_init(struct net_device *dev)
 	return 0;
 
 no_rx_mem:
+	/*
+	 * Ring setup is all-or-nothing. Unmap only buffers whose DMA mapping
+	 * succeeded, then release every allocated skb and the coherent ring.
+	 */
+	for (j = 0; j < mapped; j++)
+		dma_unmap_single(dev->dev.parent,
+				ei_local->rx_ring[0][j].rxd_info1.PDP0,
+				MAX_RX_LENGTH, DMA_FROM_DEVICE);
+
+	for (j = 0; j < num_rx_desc; j++) {
+		if (ei_local->netrx_skb_data[0][j]) {
+			raeth_free_skb_data(ei_local->netrx_skb_data[0][j]);
+			ei_local->netrx_skb_data[0][j] = NULL;
+		}
+	}
+
+	if (ei_local->rx_ring[0])
+		dma_free_coherent(dev->dev.parent,
+				  num_rx_desc * sizeof(struct PDMA_rxdesc),
+				  ei_local->rx_ring[0], ei_local->phy_rx_ring[0]);
+	ei_local->rx_ring[0] = NULL;
 	return -ENOMEM;
 }
 
