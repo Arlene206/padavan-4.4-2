@@ -407,19 +407,26 @@ prune_skip_anonymous = stale_pruner_compact.index(
 prune_active_match = stale_pruner_compact.index(
     "strcmp(account_list[i],account)==0", prune_skip_anonymous
 )
-prune_directory_fd = stale_pruner_compact.index("directory_fd=dirfd(dir)")
+prune_directory_fd = stale_pruner_compact.index("directory_fd=disk_share_open_mount_directory(mount_path)")
 prune_unlink = stale_pruner_compact.index(
     "disk_share_unlink_stale_metadata_entry(directory_fd,entry->d_name)",
     prune_active_match
 )
-require(prune_directory_fd < prune_read < prune_eof < prune_error <
-        prune_skip_anonymous < prune_active_match < prune_unlink and
+prune_open_stream = stale_pruner_compact.index(
+    'openat(directory_fd,".",O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC)',
+    prune_directory_fd
+)
+prune_fdopendir = stale_pruner_compact.index("fdopendir(scan_fd)", prune_open_stream)
+require(prune_directory_fd < prune_open_stream < prune_fdopendir < prune_read <
+        prune_eof < prune_error < prune_skip_anonymous < prune_active_match <
+        prune_unlink and
+        "opendir(" not in stale_pruner_compact and
+        "directory_fd=dirfd(dir)" not in stale_pruner_compact and
         "unlink(path)" not in stale_pruner_compact and
         "if(closedir(dir)!=0)" in stale_pruner_compact and
         "strcmp(entry->d_name+name_len-8,\"_var.txt\")" in stale_pruner_compact and
-        "return-1;" in stale_pruner_compact and
         "test_stale_metadata_unlink_uses_pinned_directory_fd();" in POLICY_TEST,
-        "stale metadata cleanup must unlink relative to its scanned directory and preserve active/anonymous ACL files")
+        "stale metadata pruning must scan a no-follow pinned mount descriptor and unlink entries relative to that same directory")
 initial_all = function_body(
     DISK_SOURCE,
     "int initial_all_var_file_in_mount_path(const char *const mount_path)"

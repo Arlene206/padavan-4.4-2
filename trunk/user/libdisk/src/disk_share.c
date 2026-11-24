@@ -957,10 +957,11 @@ static int
 remove_stale_share_var_files(const char *mount_path,
                              int acc_num, char *const *account_list)
 {
-	DIR *dir;
+	DIR *dir = NULL;
 	struct dirent *entry;
 	char account[32 + 1];
-	int directory_fd, read_status, read_error, stale, saved_errno, i;
+	int directory_fd = -1, scan_fd = -1;
+	int read_status, read_error, stale, saved_errno, i;
 	size_t name_len, account_len;
 
 	if (!mount_path || !*mount_path || acc_num < 0 ||
@@ -975,12 +976,18 @@ remove_stale_share_var_files(const char *mount_path,
 		}
 	}
 
-	dir = opendir(mount_path);
-	if (!dir)
-		return -1;
-	directory_fd = dirfd(dir);
+	directory_fd = disk_share_open_mount_directory(mount_path);
 	if (directory_fd < 0)
+		return -1;
+	/* Use a fresh stream descriptor while retaining directory_fd for unlinkat. */
+	scan_fd = openat(directory_fd, ".",
+	                 O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+	if (scan_fd < 0)
 		goto failed;
+	dir = fdopendir(scan_fd);
+	if (!dir)
+		goto failed;
+	scan_fd = -1;
 
 	for (;;) {
 		read_status = disk_share_list_next_entry(dir, readdir,
@@ -1029,15 +1036,26 @@ remove_stale_share_var_files(const char *mount_path,
 		dir = NULL;
 		goto failed;
 	}
+	dir = NULL;
+	if (close(directory_fd) != 0) {
+		directory_fd = -1;
+		goto failed;
+	}
+	directory_fd = -1;
 	return 0;
 
 failed:
 	saved_errno = errno ? errno : EIO;
 	if (dir)
 		(void)closedir(dir);
+	else if (scan_fd >= 0)
+		(void)close(scan_fd);
+	if (directory_fd >= 0)
+		(void)close(directory_fd);
 	errno = saved_errno;
 	return -1;
 }
+
 static int
 disk_share_account_metadata_write(
 	const char *const account, const char *const mount_path,
