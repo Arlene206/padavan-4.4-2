@@ -1,3 +1,9 @@
+## 2026-11-24 — Correct udhcpc pending-release source contract
+
+- Exact SHA 694732a passed the GNU89 ASan/UBSan state-policy binary, but the Python checker failed one stale assertion: it still expected the SIGUSR2 branch to assign deconfig_resume_state = RELEASED directly. The production code now correctly routes that path through perform_release() and udhcpc_schedule_deconfig_retry(RELEASED, 0, ...), so the source contract was updated to pin the shared routine and retry-before-continue order rather than the obsolete assignment.
+- This is a checker-only correction; no product source or test semantics changed. Exact-head rerun pending. Parent XY-C1 #45398034078 is still building with TRX/artifact pending; Process inventory #45398034058, umbrella Process #45398034079, USB storage #45398034361 and NVRAM #45398034033 were in progress at last poll; AI docs #45398034008 PASS.
+
+---
 ## 2026-11-24 — Unify pending DHCP release and -R exit handling
 
 - Follow-up state-path review found that the initial SIGUSR2 pending-state repair bypassed `perform_release()`; a daemon exiting through `-R` while the same deconfig was pending could still skip DHCPRELEASE. The release routine now recognizes the saved “lease still active” bit while `DECONFIG_PENDING`, and the signal handler reuses that routine instead of duplicating packet logic.

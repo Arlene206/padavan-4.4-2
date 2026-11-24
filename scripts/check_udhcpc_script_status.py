@@ -139,12 +139,13 @@ assert "deconfig_release_on_usr2 = 0;" in release
 assert "return script_status;" in release
 assert "if (!udhcpc_deconfig_retry_required(script_status))" in release
 signal_release = dhcpc[dhcpc.index("case SIGUSR2:"):dhcpc.index("/* Is it a packet? */")]
-assert "deconfig_resume_state = RELEASED;" in signal_release
+assert "if (state == DECONFIG_PENDING)" in signal_release
 assert "script_status = perform_release(server_addr, requested_ip)" in signal_release
 assert "udhcpc_schedule_deconfig_retry(RELEASED, 0," in " ".join(signal_release.split())
+pending_signal = signal_release[signal_release.index("if (state == DECONFIG_PENDING)"): ]
+assert pending_signal.index("script_status = perform_release(server_addr, requested_ip)") < pending_signal.index("udhcpc_schedule_deconfig_retry(RELEASED, 0,") < pending_signal.index("continue;")
 assert "udhcpc_deconfig_pending_release_required" in policy
 assert "test_pending_deconfig_manual_stop_releases_existing_lease" in test
-assert "udhcpc_schedule_deconfig_retry(RELEASED" in signal_release
 
 exit_cleanup = dhcpc[dhcpc.index(" ret0:"):]
 assert "if ((opt & OPT_R) || state == DECONFIG_PENDING)" in exit_cleanup
