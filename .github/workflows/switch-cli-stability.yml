@@ -801,16 +801,26 @@ jobs:
           assert "raeth_private_ioctl_access_status(0) == -EPERM" in test
           assert "#define RAETH_SW_IOCTL          0x89F0" in uapi
 
-          handler = function_body(
-              driver, "int ei_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)"
-          )
-          authorization = handler.index(
-              "raeth_private_ioctl_access_status(capable(CAP_NET_ADMIN))"
-          )
-          deny = handler.index("if (access_status != 0)", authorization)
-          denied_return = handler.index("return access_status;", deny)
-          page_lock = handler.index("spin_lock_irq(&ei_local->page_lock)")
-          assert authorization < deny < denied_return < page_lock
+          for signature, boundary in (
+              (
+                  "int ei_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)",
+                  "spin_lock_irq(&ei_local->page_lock)",
+              ),
+              (
+                  "int virtualif_ioctl(struct net_device *net_dev, struct ifreq *ifr, int cmd)",
+                  "switch (cmd)",
+              ),
+          ):
+              handler = function_body(driver, signature)
+              authorization = handler.index(
+                  "raeth_private_ioctl_access_status(capable(CAP_NET_ADMIN))"
+              )
+              deny = handler.index("if (access_status != 0)", authorization)
+              denied_return = handler.index("return access_status;", deny)
+              first_operation = handler.index(boundary)
+              assert authorization < deny < denied_return < first_operation
+          assert ".ndo_do_ioctl = virtualif_ioctl" in driver
+          assert ".ndo_do_ioctl = ei_ioctl" in driver
 
           generic = function_body(
               net_core, "int dev_ioctl(struct net *net, unsigned int cmd, void __user *arg)"

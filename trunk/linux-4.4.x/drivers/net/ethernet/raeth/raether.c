@@ -2420,9 +2420,14 @@ struct net_device_stats *virtualif_get_stats(struct net_device *dev)
 int virtualif_ioctl(struct net_device *net_dev, struct ifreq *ifr, int cmd)
 {
 	struct ra_mii_ioctl_data mii;
+	int access_status;
 
 	if (!ifr || !ifr->ifr_data)
 		return -EFAULT;
+
+	access_status = raeth_private_ioctl_access_status(capable(CAP_NET_ADMIN));
+	if (access_status != 0)
+		return access_status;
 
 	switch (cmd) {
 	case RAETH_MII_READ:
