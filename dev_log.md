@@ -1,3 +1,10 @@
+## 2026-11-24 — Correct FRP checker typo and assert a definite mismatch
+
+- All FRP shell regressions in exact d2b954 lifecycle run #45351395153 passed, including the added genuine-FRPC/empty-fourth-argv case. The final source-contract checker alone failed due to a JavaScript-style `.indexOf()` call on a Python `str`.
+- Replaced `.indexOf()` with Python `.index()`. Strengthened the regression to require return status 1 (definite argv mismatch), rather than accepting status 2/UNKNOWN as sufficient rejection.
+- Parent main: d2b954034d1a41de7dd9c170d597fbb6c2fa39b0. Exact-head workflow verification pending on the new commit.
+
+---
 ## 2026-11-24 — Preserve exact FRP argv boundaries during procfs matching
 
 - Found a process-identity bypass: command substitution strips trailing newlines after `/proc/<pid>/cmdline` is converted from NUL-delimited argv. An additional empty final argument therefore disappeared before the exact-three-arguments awk check and could make a non-exact command look like the owned FRPC/FRPS process.

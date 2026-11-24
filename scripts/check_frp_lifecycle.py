@@ -257,7 +257,7 @@ for marker in ('frp_match_proc_dir="$FRP_PROC_ROOT/$frp_match_pid"',
                'sub(/^.*\\//, "", executable)', 'executable != expected',
                '$0 != "-c"', '$0 != config', "NR == 3", "return 2"):
     require(marker in process_match, f"FRP process identity check omits {marker}")
-require(process_match.indexOf("frp_match_nul_count") < process_match.indexOf("frp_match_cmdline_text="),
+require(process_match.index("frp_match_nul_count") < process_match.index("frp_match_cmdline_text="),
         "FRP process matcher must count NUL-delimited argv before command substitution strips trailing empty arguments")
 service_pids = function_body(source, "frp_service_pids()")
 service_running = function_body(source, "frp_service_running()")
@@ -299,6 +299,7 @@ for marker in ("FRPC survived stop", "FRPS survived stop",
                "five-plus-two poll bound", "same-name decoys",
                "argv-matching impostor executable",
                "trailing empty argv was accepted as an exact FRPC command",
+               "trailing empty argv was not rejected as a definite argv mismatch",
                "name-based killall was invoked",
                "unavailable proc root was not UNKNOWN",
                "matching executable with missing cmdline was not UNKNOWN",

@@ -183,6 +183,9 @@ printf '/usr/bin/frpc\000-c\000/tmp/frp/myfrpc.ini\000\000' > "$FRP_PROC_ROOT/20
 ln -sfn /usr/bin/frpc "$FRP_PROC_ROOT/205/exe"
 if frp_process_matches 205 frpc; then
 	fail "trailing empty argv was accepted as an exact FRPC command"
+else
+	match_status=$?
+	[ "$match_status" -eq 1 ] || fail "trailing empty argv was not rejected as a definite argv mismatch"
 fi
 
 # An unrelated executable can copy the exact argv tuple; it still is not FRPC.
