@@ -1,3 +1,11 @@
+## 2026-11-25 — Correct shared retry-delay checker whitespace normalization
+
+- Exact 36a10c0e5844daf31b3cc483c20d9e25a798ef6b udhcpc workflow #45476128312 compiled and ran the GNU89 ASan/UBSan C regression successfully, then failed its Python source checker on a typo in the new compact-source assertion: whitespace normalization removes the space after the C return keyword.
+- Corrected the assertion to match normalized C source. This was a checker-only failure; no C test or product code failure was reported.
+- Parent da2 exact workflow state at correction time: udhcpc #45475643463 COMPLETED (SUCCESS); AI docs #45475643556 COMPLETED (SUCCESS). Exact retry on this checker fix is required.
+
+---
+
 ## 2026-11-25 — Unify udhcpc cleanup retry delay and lock full state transitions
 
 - Exact run #45475288109 on a218e0ce5cfeba84cc0dd82c82afc319041d834b compiled/ran C tests PASS but its source checker failed on whitespace formatting of the multi-line DHCPNAK predicate call. Checker-only correction is da2bdbcf1ec3720d547c2665c638900bb628d289; exact Actions #45475643463 and AI handoff #45475643556 were queued at the last check.

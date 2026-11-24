@@ -23,15 +23,14 @@ Every session MUST inspect the live repository state before ending: verify main 
 - Current main is 5ec726d5123bbfde442f15b1afad114e64747511; the frozen backup is 72f4f157a084f8184b9597ca5bf334b8080e5807 and remains untouched. No PR/branch work.
 ## Verification boundary
 
-- L3 VERIFIED for product-source SHA 80f1bfccd255536a0a2682c7d046f0216038a922 (XY-C1 Build + TRX + artifact upload all PASS; libdisk, Process, HTTPD, NVRAM checks PASS). Hardware L4 NOT VERIFIED.
-- Exact b61d41a56a409053559909a26c8849f3b9d4d7af udhcpc #45474845539 PASS (GNU89 -Werror ASan/UBSan and Python checker).
-- fd8697d50c16035051a63cb6cbe932e99ac1a533 udhcpc #45475021198: C tests PASS, checker failed due stale inline server-ID expectations; XY-C1 #45475021132 and NVRAM #45475021504 later SUCCESS; Process #45475021591, storage #45475021200, AI #45475021106 SUCCESS.
-- a218e0ce5cfeba84cc0dd82c82afc319041d834b udhcpc #45475288109: C tests PASS, checker failed due whitespace-sensitive helper call. AI docs #45475287900 PASS.
-- da2bdbcf1ec3720d547c2665c638900bb628d289 at last poll: udhcpc #45475643463 and AI docs #45475643556 queued; do not claim results. THIS commit changes shared retry helper callsites, tests and checker; exact run required.
+- L3 VERIFIED for product-source SHA 80f1bfccd255536a0a2682c7d046f0216038a922 (XY-C1 Build + TRX + artifact; libdisk, Process, HTTPD, NVRAM PASS). Hardware L4 NOT VERIFIED.
+- Exact da2bdbcf1ec3720d547c2665c638900bb628d289 results must be checked by run ID; it preceded the shared retry-delay changes. Its C/host suite and NAK/leasefail/source checks must not be conflated with THIS commit's expanded retry tests.
+- Exact 36a10c0e5844daf31b3cc483c20d9e25a798ef6b udhcpc #45476128312: GNU89 -Werror ASan/UBSan C binary PASS; Python checker FAIL due to the whitespace-normalized return assertion, fixed in THIS commit. Process lifecycle #45476128289 PASS and AI handoff #45476128686 PASS. XY-C1 #45476128451, NVRAM #45476128492, USB storage #45476128360 and Process inventory #45476128257 were still in progress at last observation.
+- Exact-head Actions for THIS checker correction are pending. The last confirmed L3 production source SHA remains 80f1bfccd255536a0a2682c7d046f0216038a922.
 - Frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-SHA udhcpc and AI handoff Actions for THIS commit; require GNU89 -Werror ASan/UBSan test and strengthened Python source-state checks to pass.
-2. If the checker fails, correct only the assertion matching actual source formatting/ordering, then rerun on a new exact SHA. Do not paper over C test or runtime failures.
-3. Continue broader DHCP lifecycle integration only after this slice passes; preserve frozen backup and expected-SHA nonforce updates.
+1. Inspect the exact-SHA udhcpc workflow for THIS checker correction; require both C and Python steps to pass.
+2. If any remaining new state-transition source assertion fails, compare the exact normalized production source and correct the assertion without weakening its semantic coverage.
+3. Inspect any still-pending 36a XY-C1/NVRAM/storage/process runs by exact SHA; preserve frozen backup and use expected-SHA nonforce main updates.
