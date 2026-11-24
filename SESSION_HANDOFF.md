@@ -9,7 +9,7 @@
 
 ## Active task
 
-Verify the XY-C1 regression-test path-filter correction in this checkpoint. The test file must trigger the workflow on its own while remaining classified as non-firmware input, so detector tests run but the expensive firmware Build/TRX/artifact stages skip for test-only changes. Then fix the discovered JSON string-writer newline bug in `get_nvram_list` and migrate the remaining legacy `nvram_get("rc_support")` JavaScript sink in `validator.js`.
+Verify the JSON encoder regression and remaining legacy JavaScript getter migration on exact-SHA Actions. Then continue context-specific review of dynamic web emitters, preserving JSON, HTML and JavaScript output boundaries.
 
 ## Completed development slices
 
@@ -31,18 +31,19 @@ Independent snapshot/lifecycle changes remain in `99ad9397e3cf4450c6fc07758b58c3
 
 ## Verification boundary
 
-- Exact `861e3fe` HTTPD Authentication and Security Regression `#45298769831`: **PASS**, including the new repository-wide JavaScript NVRAM context check and the AiDisk DOM-escaping regression. Exact AI handoff `#45298769865`, Process inventory `#45298769872`, Process lifecycle inventory `#45298769967` and NVRAM transaction audit `#45298769873`: **PASS**.
-- Exact `861e3fe` XY-C1 Firmware Validation `#45298770098`: Build XY-C1 **IN_PROGRESS**; TRX verification and artifact upload **PENDING**. The older exact `5c8c62f` run `#45298161504` also remains in Build XY-C1; do not treat either as verified yet.
-- Exact test-fixture correction `a2310ad` XY-C1 run `#45297887131`: **PASS** for the path-detector test. Build, TRX and artifact upload were **SKIPPED**, because that test/docs-only commit had no firmware production input. The original `453aefd` failure was confined to the test fixture's newline/NUL escaping and was corrected.
-- `861e3fe` added the remaining JS-context migration, an HTML apostrophe/control encoder regression and a repository-wide template checker. The exact HTTPD run above passed; the source/UI firmware build for this SHA remains in progress. No physical-router L4 result is claimed.
+- Exact `861e3fe` HTTPD Authentication and Security Regression `#45298769831`: **PASS**, including the repository-wide JavaScript NVRAM context check and AiDisk DOM-escaping regression. Exact AI handoff `#45298769865`, Process inventory `#45298769872`, Process lifecycle inventory `#45298769967` and NVRAM transaction audit `#45298769873`: **PASS**.
+- Exact `861e3fe` XY-C1 Firmware Validation `#45298770098`: Build XY-C1 **IN_PROGRESS** at last check; TRX verification and artifact upload **PENDING**.
+- Exact `212aed2` XY-C1 `#45299517972`: detector regression **PASS**, Build XY-C1 **IN_PROGRESS**, TRX verification and artifact upload **PENDING**. AI handoff `#45299517974` and Process inventory `#45299517987`: **PASS**.
+- Exact `5c8c62f` XY-C1 `#45298161504`: **PASS**, including Build XY-C1, TRX verification and artifact upload. This closes the older production build verification but does not substitute for exact-head checks on later source changes.
+- Exact test-fixture correction `a2310ad` XY-C1 `#45297887131`: detector regression **PASS**; firmware stages were skipped for a test-only commit. The original `453aefd` failure was due only to double-escaped test fixture separators.
+- The `861e3fe` source/UI hardening commit passed HTTPD tests; its own XY-C1 result remained in progress. No physical-router L4 result is claimed.
 - Backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-SHA Actions for the XY-C1 regression-test trigger correction. The self-test must run; Build/TRX/artifact should skip because the only firmware-related paths changed are workflow/test sources.
-2. Fix `write_json_string()` in `web_ex.c`: its newline case currently emits a literal LF inside a quoted JSON string instead of the two-byte escape `\\n`. Add a GNU89 encoder regression covering quotes, backslashes, HTML script terminators, controls, UTF-8 and U+2028/U+2029; migrate the legacy `nvram_get("rc_support")` sink in `validator.js` to `nvram_get_js("", "rc_support")` and extend the output-context checker.
-3. The completed 174-asset scan found no JavaScript uses of `nvram_get_list_x`, `nvram_get_buf_x` or `nvram_get_table_x`; `get_nvram_list` is the JSON-array path and uses `write_json_string`. Keep these context distinctions in regression coverage.
-4. Keep the backup immutable and continue atomic commits while independent Actions are pending.
+1. Inspect exact-SHA Actions for the JSON encoder/validator.js slice. Confirm the HTTPD context checker and GNU89 ASan/UBSan JSON byte regression; check XY-C1 Build, TRX and artifact only against that exact UI-bearing SHA.
+2. Continue reviewing data-derived dynamic emitters beyond NVRAM getters. The completed 174-asset scan found no JavaScript use of `nvram_get_list_x`, `nvram_get_buf_x` or `nvram_get_table_x`; `nvram_get_table_x` is HTML-only. Sixteen JavaScript `get_nvram_list` callsites use the JSON string writer, now covered for newline/control/quote/script-terminator/UTF-8/U+2028/U+2029 handling.
+3. Keep the backup immutable and continue atomic commits while independent Actions are pending.
 
 # Cross-session execution mandate
 

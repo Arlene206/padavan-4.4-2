@@ -1886,7 +1886,7 @@ var validator = {
 	},
 
 	stringSSID: function(o){
-		var rc_support = '<% nvram_get("rc_support"); %>';
+		var rc_support = <% nvram_get_js("", "rc_support"); %>;
 		var utf8_ssid_support = (rc_support.split(" ").indexOf("utf8_ssid") == -1) ? false : true;
 		var c;	// character code
 		var flag=0; // notify valid characters of SSID except space

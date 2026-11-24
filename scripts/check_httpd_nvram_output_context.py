@@ -8,9 +8,10 @@ import sys
 ROOT = Path("trunk/user/www/n56u_ribbon_fixed")
 WEB_SOURCE = Path("trunk/user/httpd/src/web_ex.c")
 HTML_POLICY = Path("trunk/user/httpd/src/httpd_html_output_policy.h")
+JSON_POLICY = Path("trunk/user/httpd/src/httpd_json_output_policy.h")
 DIRECT_POLICY = Path("trunk/user/httpd/src/httpd_direct_ej_policy.h")
 RAW_JS_ENDPOINTS = {"lan_clients.asp", "ajax_ddnscode.asp"}
-CALL = re.compile(r"<%\s*(nvram_get_x|nvram_get_js|nvram_get_ddns)\s*\(")
+CALL = re.compile(r"<%\s*(nvram_get_list_x|nvram_get_buf_x|nvram_get_table_x|get_nvram_list|nvram_get_js|nvram_get_ddns|nvram_get_x|nvram_get)\s*\(")
 
 
 def js_state_before(line: str, stop: int):
@@ -50,6 +51,7 @@ def js_state_before(line: str, stop: int):
 def check_templates():
     js_calls = 0
     ddns_calls = 0
+    json_calls = 0
     violations = []
     candidates = sorted(
         path for path in ROOT.rglob("*")
@@ -67,9 +69,15 @@ def check_templates():
                     if state == "comment":
                         continue
                     callback = match.group(1)
-                    if callback == "nvram_get_x":
+                    if callback in {
+                        "nvram_get_x",
+                        "nvram_get",
+                        "nvram_get_list_x",
+                        "nvram_get_buf_x",
+                        "nvram_get_table_x",
+                    }:
                         violations.append(
-                            f"{path}:{line_number}: HTML-only nvram_get_x used in JavaScript"
+                            f"{path}:{line_number}: unsafe {callback} emitter used in JavaScript"
                         )
                     elif state is not None:
                         violations.append(
@@ -79,6 +87,8 @@ def check_templates():
                         js_calls += 1
                     elif callback == "nvram_get_ddns":
                         ddns_calls += 1
+                    elif callback == "get_nvram_list":
+                        json_calls += 1
             if "</script" in lowered:
                 in_script = False
 
@@ -89,6 +99,10 @@ def check_templates():
     if ddns_calls != 3:
         violations.append(
             f"expected 3 unquoted nvram_get_ddns JavaScript calls, found {ddns_calls}"
+        )
+    if json_calls < 10:
+        violations.append(
+            f"only {json_calls} JSON-safe get_nvram_list calls found; expected at least 10"
         )
     clients = (ROOT / "device-map" / "clients.asp").read_text(encoding="utf-8")
     for variable, key in (
@@ -103,13 +117,15 @@ def check_templates():
         raise AssertionError("\n".join(violations))
     print(
         f"JavaScript NVRAM contexts: PASS ({js_calls} nvram_get_js, "
-        f"{ddns_calls} nvram_get_ddns; numeric Device Map types retained)"
+        f"{ddns_calls} nvram_get_ddns, {json_calls} get_nvram_list; "
+        f"numeric Device Map types retained)"
     )
 
 
 def check_handler_wiring():
     source = WEB_SOURCE.read_text(encoding="utf-8")
     html_policy = HTML_POLICY.read_text(encoding="utf-8")
+    json_policy = JSON_POLICY.read_text(encoding="utf-8")
     direct_policy = DIRECT_POLICY.read_text(encoding="utf-8")
 
     generic_start = source.index("static int\nej_nvram_get_x(")
@@ -118,6 +134,12 @@ def check_handler_wiring():
     match_start = source.index("static int\nej_nvram_match_x(", ddns_start)
     generic = source[generic_start:js_start]
     ddns = source[ddns_start:match_start]
+    list_start = source.index("static int ej_get_nvram_list(")
+    list_end = source.index("\nstatic void\nwrite_json_string(", list_start)
+    json_list = source[list_start:list_end]
+    writer_start = source.index("write_json_string(webs_t wp, const char *value)")
+    writer_end = source.index("\nstatic int ej_get_static_client", writer_start)
+    json_writer = source[writer_start:writer_end]
 
     assert "httpd_html_escape_byte(*c, escaped)" in generic
     assert "fwrite(escaped, 1, escaped_len, wp)" in generic
@@ -125,7 +147,11 @@ def check_handler_wiring():
     assert '{ "nvram_get_js", ej_nvram_get_js}' in source
     assert '{ "nvram_get_js", HTTPD_DIRECT_EJ_ESCAPED_OUTPUT }' in direct_policy
     assert 'entity = "&#39;"' in html_policy
-    print("HTML apostrophe escaping and JavaScript-safe DDNS handler wiring: PASS")
+    assert '#include "httpd_json_output_policy.h"' in source
+    assert "write_json_string(wp, nvram_get_list_x(gv->name, i));" in json_list
+    assert "httpd_json_escape_next" in json_writer and "fwrite(" in json_writer
+    assert "httpd_json_escape_next" in json_policy
+    print("HTML, JSON and JavaScript NVRAM output-context wiring: PASS")
 
 
 def main():

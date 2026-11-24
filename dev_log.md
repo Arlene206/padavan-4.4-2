@@ -1,3 +1,11 @@
+## 2026-11-24 — Fix JSON list newline escaping and remaining legacy JavaScript getter
+
+- The 174-asset context scan identified sixteen JavaScript `get_nvram_list` array insertions. They flowed through `write_json_string()`, but its newline case emitted a literal LF inside a quoted JSON string, making the output invalid JavaScript/JSON. Added a bounded GNU89 encoder that escapes JSON controls, quotes, backslashes, HTML script delimiters and U+2028/U+2029 while preserving UTF-8.
+- Migrated the remaining `validator.js` `nvram_get("rc_support")` sink to the complete-literal `nvram_get_js("", "rc_support")` callback. Extended the template checker to reject raw `nvram_get`, list, buffer and table getters in JavaScript and to verify the JSON-list path uses the encoder.
+- Added an ASan/UBSan byte-level regression and wired it into HTTPD push/PR CI. Parent exact `212aed2` XY-C1 detector regression `#45299517972` passed; Build XY-C1 was in progress, with TRX/artifact pending. AI handoff `#45299517974` and Process inventory `#45299517987` passed. No result for this new SHA is claimed.
+
+---
+
 ## 2026-11-24 — Restore XY-C1 detector-test workflow trigger
 
 - The `5c8c62f` workflow cleanup accidentally removed `scripts/tests/test_xy_c1_firmware_inputs.py` from XY-C1 `push.paths`, even though the workflow runs this test. A test-only edit could therefore bypass its own regression job.

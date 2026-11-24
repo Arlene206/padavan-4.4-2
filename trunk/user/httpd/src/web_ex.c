@@ -68,6 +68,7 @@
 #include "httpd_nvram_commit_policy.h"
 #include "httpd_js_output_policy.h"
 #include "httpd_html_output_policy.h"
+#include "httpd_json_output_policy.h"
 #include "dbapi.h"
 #define GROUP_FLAG_REFRESH 	0
 #define GROUP_FLAG_DELETE 	1
@@ -3549,46 +3550,17 @@ write_json_string(webs_t wp, const char *value)
 	const unsigned char *p;
 
 	websWrite(wp, "%s", "\"");
-	for (p = (const unsigned char *)value; p && *p; ++p) {
-		switch (*p) {
-		case '"':
-			websWrite(wp, "%s", "\\\"");
-			break;
-		case '\\':
-			websWrite(wp, "%s", "\\\\");
-			break;
-		case '<':
-			/* JSON may be embedded in HTML script elements. */
-			websWrite(wp, "%s", "\\u003c");
-			break;
-		case '>':
-			websWrite(wp, "%s", "\\u003e");
-			break;
-		case '&':
-			websWrite(wp, "%s", "\\u0026");
-			break;
-		case '\b':
-			websWrite(wp, "%s", "\\b");
-			break;
-		case '\f':
-			websWrite(wp, "%s", "\\f");
-			break;
-		case '\n':
-			websWrite(wp, "%s", "\n");
-			break;
-		case '\r':
-			websWrite(wp, "%s", "\\r");
-			break;
-		case '\t':
-			websWrite(wp, "%s", "\\t");
-			break;
-		default:
-			if (*p < 0x20)
-				websWrite(wp, "\\u%04x", (unsigned int)*p);
-			else
-				fputc(*p, wp);
-			break;
-		}
+	for (p = (const unsigned char *)value; p && *p;) {
+		char escaped[6];
+		size_t input_consumed = 0;
+		size_t escaped_len = httpd_json_escape_next(p, escaped,
+							    &input_consumed);
+
+		if (escaped_len == 0 || input_consumed == 0)
+			return;
+		if (fwrite(escaped, 1, escaped_len, wp) != escaped_len)
+			return;
+		p += input_consumed;
 	}
 	websWrite(wp, "%s", "\"");
 }
