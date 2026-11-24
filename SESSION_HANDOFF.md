@@ -1,28 +1,30 @@
 ## Current repository state
 
-- Live parent `main`: `257ac6399c4c7e8ec3b518f8f8438532d0821c33`; this commit isolates the FRP crontab transaction regression from host `/proc`. Re-fetch and compare main before any further write.
+- Live parent `main`: `4be3f3898faf4665ebe19b1e87cf385bd162c21e`; this commit corrects one exact source-contract expectation and the canonical handoff heading. Re-fetch main before further writes.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Inadyn executable-bound stop/reload/manual-update implementation is in `79c5389fe33326d85cc23e9856f39e5ca0ac242f`; its dependent source-contract follow-up is `257ac6399c4c7e8ec3b518f8f8438532d0821c33`.
-- FRP process-inventory tri-state hardening is in `fa3dd0012cea550b339d01df4ff6ec97d0fdc00a`; test fixture correction is in `5687c609137bbba09c707896dd95216c3df9e961`. This commit fixes the next distinct FRP regression failure.
+- Inadyn executable-bound stop/reload/manual-update implementation is in `79c5389fe33326d85cc23e9856f39e5ca0ac242f`. Its dependent source-contract correction is in `257ac6399c4c7e8ec3b518f8f8438532d0821c33`.
+- FRP process inventory/stop hardening is in `fa3dd0012cea550b339d01df4ff6ec97d0fdc00a`; its test follow-ups are `5687c609137bbba09c707896dd95216c3df9e961` and `4be3f3898faf4665ebe19b1e87cf385bd162c21e`.
 
-## Active slice: FRP crontab test isolation
+## Active task
 
-- FRP run #45341607742 on `5687c609` showed `frp_lifecycle.sh` async/readiness and watchdog identity cases PASS, then `frp_crontab.sh` failed: `start rejected a valid crontab`.
-- `frp_crontab.sh` replaces `frp_wait_started()` but had not replaced the default `FRP_PROC_ROOT=/proc`. Since `frp_start()` correctly calls `frp_stop_daemons()` before launch, the cron-only test depended on host procfs readability; the production scanner fails closed on unreadable candidate identities.
-- This test-only commit uses an empty `$test_root/proc` and requires the source checker to pin that fixture. FRP process scan/stop behavior remains covered by the independent synthetic-process lifecycle/stop tests.
+Align FRP static source assertions to the actual procfs path construction and restore the exact `## Active task` heading required by the AI handoff validator.
+
+FRP implementation composes paths from `frp_match_proc_dir="$FRP_PROC_ROOT/$frp_match_pid"`, then `frp_match_exe_path="$frp_match_proc_dir/exe"` and `frp_match_cmdline="$frp_match_proc_dir/cmdline"`. The source checker now pins those relationships rather than demanding duplicated direct path literals. No runtime logic or process-matching policy was weakened.
+
+The FRP cron-only test fixture now sets `FRP_PROC_ROOT` to an empty temporary directory because it overrides the daemon readiness helper and is not intended to scan the hosted runner's real `/proc`. Independent synthetic procfs lifecycle/stop tests continue to cover fail-closed process behavior.
 
 ## Verification boundary
 
-- Exact `79c5389`: Process inventory #45341769713 PASS; Process fail-closed #45341769769 PASS; HTTPD #45341769686 PASS; AI docs #45341769695 PASS; WAN DHCP #45341769830 PASS; miniupnpd #45341769855 PASS; Samba #45341769858 PASS; NVRAM audit #45341769831 PASS. Inadyn #45341769924 failed on a checker function extractor bug; DNSMasq #45341769848 and WAN route #45341769689 failed on stale raw-inventory assertions. These three contract failures were corrected in `257ac639`.
-- Exact `257ac639`: Inadyn #45342407697, DNSMasq #45342407692, WAN route #45342407753 and AI docs #45342407729 were IN_PROGRESS at last poll. Recheck exact completion before claiming PASS.
-- XY-C1 #45341769654 on `79c5389` had all preceding host validation steps pass and the firmware Build step still IN_PROGRESS; TRX and artifact upload had not completed. No L3 claim is made.
-- Exact FRP #45341607742 on `5687c609` FAILED at the crontab test because its fixture used live `/proc`; the async lifecycle test passed. This commit isolates that test from host procfs. Exact FRP rerun required.
-- No MIPS/TRX/artifact completion or hardware L4 is claimed. Linux 4.4 lacks pidfd; validation-to-signal races remain a documented platform limitation.
+- Exact `4be3f389`: FRP run #45342556772 passed every executable test step (async startup/watchdog, managed crontab, boot/autostart, private config, exact process stop and lifecycle lock); only static source checker failed on the direct-vs-composed path expectation corrected here. Process inventory #45342556827 PASS. AI docs #45342556719 FAILED only because of the old `## Active slice` heading corrected here.
+- Exact `257ac639`: Inadyn #45342407697 PASS; DNSMasq #45342407692 PASS; WAN route #45342407753 PASS; AI docs #45342407729 failed on the same handoff heading.
+- Exact `79c5389`: Process inventory #45341769713 PASS; Process fail-closed #45341769769 PASS; HTTPD #45341769686 PASS; WAN DHCP #45341769830 PASS; miniupnpd #45341769855 PASS; Samba #45341769858 PASS; NVRAM audit #45341769831 PASS. Its dependent Inadyn/DNSMasq/WAN source contract failures are closed by `257ac639`.
+- XY-C1 #45341769654 on production SHA `79c5389` was still building; TRX and artifact upload pending at last poll. No L3 result is claimed.
+- No MIPS firmware/TRX/artifact result or physical-router L4 result is claimed for the current source. Linux 4.4 has no pidfd; final procfs validation-to-signal race remains.
 
 ## Exact first action for the next GPT
 
-1. Check exact FRP, Inadyn, DNSMasq, WAN route, Process, AI docs and XY-C1 Actions on this commit; fix any first failure. Claim firmware L3 only if Build, TRX and upload all pass for one SHA.
-2. If FRP crontab passes, continue a P1 source stability/security fix outside the completed process-identity slices; if it fails, use its exact log to fix the actual regression rather than changing the fail-closed scan.
+1. Verify exact-SHA AI docs and FRP lifecycle Actions for this commit; any remaining FRP failure must be triaged from the first failed step, not from a stale source expectation.
+2. Continue an independent P1 source stability/security fix while those Actions run; do not wait on pending runs. Confirm XY-C1 Build, TRX and artifact result on one exact production-source SHA before claiming L3.
 3. Keep the backup immutable and all main writes complete-tree atomic with expected-SHA non-forced ref updates.
 
 # Cross-session execution mandate

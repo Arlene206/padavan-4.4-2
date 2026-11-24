@@ -1,3 +1,13 @@
+## 2026-11-23 — Align FRP process-path source contract with composed procfs paths
+
+- On exact commit `4be3f3898faf4665ebe19b1e87cf385bd162c21e`, the FRP lifecycle run #45342556772 passed every executable regression step, including asynchronous startup, `frp_crontab.sh`, boot/config tests, exact process stop and lifecycle lock. Only the final static source checker failed because it expected a literal `$FRP_PROC_ROOT/$frp_match_pid/exe` string even though the implementation safely builds `frp_match_proc_dir="$FRP_PROC_ROOT/$frp_match_pid"` and then appends `/exe` and `/cmdline`.
+- Updated the source checker to validate both path-construction assignments and their subsequent `readlink`/cmdline consumers; this preserves the implementation's path semantics instead of weakening process identity checks.
+- The same exact SHA Process inventory #45342556827 PASS. AI docs #45342556719 failed because the current handoff heading was `## Active slice: ...` instead of the required `## Active task`; this commit restores the canonical heading.
+- On parent `257ac6399c4c7e8ec3b518f8f8438532d0821c33`, Inadyn #45342407697 PASS, DNSMasq #45342407692 PASS and WAN route #45342407753 PASS after the previous Inadyn contract correction; only AI docs #45342407729 failed on that same handoff heading.
+- XY-C1 #45341769654 on production source `79c5389` remained in progress at the last poll in `Build XY-C1`; TRX and artifact steps were pending. No L3 result is claimed.
+- Parent main: `4be3f3898faf4665ebe19b1e87cf385bd162c21e`. This commit changes the FRP source checker and corrects the handoff section heading; production code is unchanged.
+
+---
 ## 2026-11-24 15:18 UTC+8 — Isolate FRP crontab transaction test from host procfs
 
 - FRP exact run #45341607742 on `5687c609137bbba09c707896dd95216c3df9e961` progressed past the corrected process-exit fixtures: both FRP watchdog/async lifecycle cases printed PASS. The later crontab test still failed at `frp_start()` before it could assert preservation/publication.

@@ -248,10 +248,11 @@ executable_path = function_body(source, "frp_service_executable_path()")
 require("'/usr/bin/frpc'" in executable_path and "'/usr/bin/frps'" in executable_path,
         "FRP process identity must bind each role to its installed executable path")
 process_match = function_body(source, "frp_process_matches()")
-for marker in ('$FRP_PROC_ROOT/$frp_match_pid/exe',
+for marker in ('frp_match_proc_dir="$FRP_PROC_ROOT/$frp_match_pid"',
+               'frp_match_exe_path="$frp_match_proc_dir/exe"',
                'readlink "$frp_match_exe_path"',
                '[ "$frp_match_exe" = "$frp_match_executable" ]',
-               '$FRP_PROC_ROOT/$frp_match_pid/cmdline', "tr '\\000' '\\n'",
+               'frp_match_cmdline="$frp_match_proc_dir/cmdline"', "tr '\\000' '\\n'",
                'sub(/^.*\\//, "", executable)', 'executable != expected',
                '$0 != "-c"', '$0 != config', "NR == 3", "return 2"):
     require(marker in process_match, f"FRP process identity check omits {marker}")
