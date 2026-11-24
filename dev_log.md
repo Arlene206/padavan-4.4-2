@@ -1,3 +1,12 @@
+## 2026-11-24 — Complete Adbyby identity-aware start fixture and checker marker
+
+- Exact `5e9ce769a1f274d99da21686f3b9c0f9c7b43a11` Adbyby stop regression passed, including wrong-executable decoy, unreadable stat, real start_time replacement and bounded shutdown. Its Python checker alone failed because it expected the marker `PID start_time replacement` while the test prints `PID start-time replacement`.
+- The same exact-head Process regression exposed an outdated start-readiness fixture: it mocked `pidof` but left `ADBYBY_PROC_ROOT` at real `/proc`, so the new executable identity filter correctly rejected its fake PID 123 and printed RUNNING as absent. Added a minimal synthetic procfs entry for PID 123 and readable PID 1; existing absent/delayed/unknown pidof modes remain intact.
+- Parent main: `ce1902a95b8cb9cf7c8c938daee2caa1684d9018`. Exact-head Adbyby host and Process runs must be rerun.
+
+
+---
+
 ## 2026-11-24 — Reset AdGuardHome PID fixture after replacement-PID escalation
 
 - Exact AdGuardHome config-security run #45338317817 on `ceda64cdd021684c8b9b876fb29ecafa150a9e81` failed only in the stuck-daemon regression after the preceding fresh-snapshot replacement-PID case.

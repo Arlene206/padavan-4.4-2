@@ -408,7 +408,7 @@ require("Multiple validated PIDs are signalled individually" in stop_test and
         "kill:-TERM 123" in stop_test and "kill:-TERM 456" in stop_test and
         "same-name decoys with another executable are not signalled: PASS" in stop_test and
         "unverifiable process metadata blocks signal and cleanup: PASS" in stop_test and
-        "PID start_time replacement is not signalled: PASS" in stop_test,
+        "PID start-time replacement is not signalled: PASS" in stop_test,
         "Adbyby stop regressions must cover multi-PID, decoy, unknown metadata and PID reuse")
 
 require("adbyby_close ||" in updater and

@@ -105,6 +105,15 @@ DAEMON
 chmod 755 "$PROG_PATH/adbyby"
 export PROG_PATH
 
+# The production process inventory verifies executable identity and stat
+# start_time, so this launcher fixture supplies a minimal synthetic procfs.
+ADBYBY_PROC_ROOT="$tmp/proc"
+mkdir -p "$ADBYBY_PROC_ROOT/1" "$ADBYBY_PROC_ROOT/123"
+printf '1 (init) S 0 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 100\n' > "$ADBYBY_PROC_ROOT/1/stat"
+ln -s "$PROG_PATH/adbyby" "$ADBYBY_PROC_ROOT/123/exe"
+printf '123 (adbyby) S 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 1000\n' > "$ADBYBY_PROC_ROOT/123/stat"
+export ADBYBY_PROC_ROOT
+
 event_count()
 {
 	awk -v wanted="$1" '$0 == wanted { count++ } END { print count + 0 }' "$events_file"
