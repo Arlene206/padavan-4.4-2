@@ -24,6 +24,7 @@
 #include "raeth_mdio_ioctl_status_policy.h"
 #include "raeth_lan_ip_ioctl_policy.h"
 #include "raeth_esw_rate_ioctl_policy.h"
+#include "raeth_esw_reg_offset_policy.h"
 #include "raether_hwlro.h"
 #include "ra_ethtool.h"
 
@@ -3075,7 +3076,7 @@ int ei_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 			break;
 		}
 		spin_lock_irq(&ei_local->page_lock);
-		if (reg.off > REG_ESW_MAX) {
+		if (raeth_esw_reg_offset_status(reg.off, REG_ESW_MAX) != 0) {
 			ret = -EINVAL;
 			break;
 		}
@@ -3096,7 +3097,7 @@ int ei_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 			break;
 		}
 		spin_lock_irq(&ei_local->page_lock);
-		if (reg.off > REG_ESW_MAX) {
+		if (raeth_esw_reg_offset_status(reg.off, REG_ESW_MAX) != 0) {
 			ret = -EINVAL;
 			break;
 		}

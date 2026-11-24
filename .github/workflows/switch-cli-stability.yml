@@ -19,6 +19,8 @@ on:
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_mdio_ioctl_status_policy.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_lan_ip_ioctl_policy.h"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_esw_rate_ioctl_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_esw_reg_offset_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_esw_reg_offset_policy.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_esw_rate_ioctl_policy.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_lan_ip_ioctl_policy.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_private_ioctl_access_policy.c"
@@ -88,6 +90,8 @@ on:
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_mdio_ioctl_status_policy.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_lan_ip_ioctl_policy.h"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_esw_rate_ioctl_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_esw_reg_offset_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_esw_reg_offset_policy.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_esw_rate_ioctl_policy.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_lan_ip_ioctl_policy.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_private_ioctl_access_policy.c"
@@ -223,6 +227,45 @@ jobs:
           ) == 2
           assert "2147483647U" not in cli
           print("RAETH ingress/egress rate inputs are validated before MMIO/MDIO access: PASS")
+          PY
+
+      - name: Compile and verify RAETH ESW raw register offset alignment
+        run: |
+          set -eu
+          RAETH=trunk/linux-4.4.x/drivers/net/ethernet/raeth
+          cc -std=gnu89 -Wall -Wextra -Werror -g \
+            -fsanitize=address,undefined -fno-omit-frame-pointer \
+            "$RAETH/tests/raeth_esw_reg_offset_policy.c" \
+            -o "$RUNNER_TEMP/raeth_esw_reg_offset_policy"
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 \
+            "$RUNNER_TEMP/raeth_esw_reg_offset_policy"
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth")
+          source = (root / "raether.c").read_text()
+          policy = (root / "raeth_esw_reg_offset_policy.h").read_text()
+
+          def case_body(start, end):
+              start_at = source.index(start)
+              end_at = source.index(end, start_at + len(start))
+              return " ".join(source[start_at + len(start):end_at].split())
+
+          for name, body, access in (
+              ("read", case_body("case RAETH_ESW_REG_READ:", "case RAETH_ESW_REG_WRITE:"),
+               "sys_reg_read(RALINK_ETH_SW_BASE + reg.off)"),
+              ("write", case_body("case RAETH_ESW_REG_WRITE:", "case RAETH_ESW_PHY_DUMP:"),
+               "sys_reg_write(RALINK_ETH_SW_BASE + reg.off, reg.val)"),
+          ):
+              check = body.index("raeth_esw_reg_offset_status(reg.off, REG_ESW_MAX)")
+              reject = body.index("if (ret", check) if "if (ret" in body[check:] else body.index("ret = -EINVAL;", check)
+              mmio = body.index(access, reject)
+              assert check < reject < mmio, name
+
+          assert source.count("raeth_esw_reg_offset_status(reg.off, REG_ESW_MAX)") == 2
+          assert "if (reg.off > REG_ESW_MAX)" not in source
+          assert "RAETH_ESW_REG_OFFSET_ALIGNMENT 4U" in policy
+          print("RAETH ESW raw register reads/writes reject unaligned offsets before MMIO: PASS")
           PY
 
       - name: Compile and verify QDMA register offset alignment
