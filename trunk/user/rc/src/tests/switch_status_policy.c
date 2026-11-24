@@ -12,6 +12,34 @@
 } while (0)
 
 static int
+test_ioctl_parameter_packing_rejects_truncation(void)
+{
+    unsigned int packed = 0x55U;
+
+    CHECK(switch_status_pack_ioctl_command(0x10U, 0x00ffffffU, 8U,
+                                           &packed) == 0);
+    CHECK(packed == UINT_MAX);
+    CHECK(switch_status_pack_ioctl_command(0x110U, 0x123456U, 8U,
+                                           &packed) == 0);
+    CHECK(packed == 0x12345610U); /* command retains legacy low-byte mask */
+
+    packed = 0x55U;
+    CHECK(switch_status_pack_ioctl_command(0x10U, 0x01000000U, 8U,
+                                           &packed) == ERANGE);
+    CHECK(packed == 0x55U); /* no partially published packed ioctl */
+    CHECK(switch_status_pack_ioctl_command(0x10U, UINT_MAX, 1U,
+                                           &packed) == ERANGE);
+    CHECK(packed == 0x55U);
+    CHECK(switch_status_pack_ioctl_command(0x10U, 1U, 0U,
+                                           &packed) == EINVAL);
+    CHECK(switch_status_pack_ioctl_command(0x10U, 1U,
+                                           sizeof(unsigned int) * 8U,
+                                           &packed) == EINVAL);
+    CHECK(switch_status_pack_ioctl_command(0x10U, 1U, 8U, NULL) == EINVAL);
+    return 0;
+}
+
+static int
 test_success_publishes_both_counters(void)
 {
     uint64_t rx = 11;
@@ -130,6 +158,7 @@ test_link_refresh_retries_failed_switch_reads(void)
 int
 main(void)
 {
+    CHECK(test_ioctl_parameter_packing_rejects_truncation() == 0);
     CHECK(test_success_publishes_both_counters() == 0);
     CHECK(test_positive_errno_is_negative_and_does_not_publish() == 0);
     CHECK(test_negative_error_is_preserved() == 0);

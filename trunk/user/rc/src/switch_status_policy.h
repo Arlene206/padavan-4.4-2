@@ -2,7 +2,31 @@
 #define SWITCH_STATUS_POLICY_H
 
 #include <errno.h>
+#include <limits.h>
 #include <stdint.h>
+
+/*
+ * The switch ABI packs a command in the low command_bits and an argument
+ * above it. Reject values that would be silently truncated by the shift.
+ */
+static inline int
+switch_status_pack_ioctl_command(unsigned int command, unsigned int parameter,
+                                 unsigned int command_bits,
+                                 unsigned int *packed_command)
+{
+    unsigned int command_mask;
+
+    if (!packed_command || command_bits == 0 ||
+        command_bits >= sizeof(unsigned int) * CHAR_BIT)
+        return EINVAL;
+    if (parameter > (UINT_MAX >> command_bits))
+        return ERANGE;
+
+    command_mask = (1U << command_bits) - 1U;
+    *packed_command = (command & command_mask) |
+                      (parameter << command_bits);
+    return 0;
+}
 
 /*
  * Switch ioctl wrappers use zero for success and positive errno values for

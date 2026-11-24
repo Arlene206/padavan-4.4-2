@@ -1,3 +1,12 @@
+## 2026-11-23 — Reject truncated packed switch ioctl parameters
+
+- Both `mtk_esw_ioctl()` and `rtl8367_ioctl()` previously shifted the caller's parameter into the high bits of the ioctl command without verifying that it fit the ABI field. Oversized values silently wrapped/truncated and could address a different switch port/rule/control operation.
+- Added `switch_status_pack_ioctl_command()`: preserves the legacy low-byte command mask, validates the field width without undefined shifts, and returns `ERANGE` before any device open when the parameter is too wide. Both switch backends now use the shared checked packer.
+- Added GNU89 ASan/UBSan tests for the exact 24-bit boundary, overflowing parameters, invalid bit widths, null output and unchanged packed output after failure. Added workflow source contracts pinning validation before `open()` and `ioctl()`, and extended push/PR path filters.
+- Parent `25d077e48bc621c6a48714deb5b62d2f0e6d4c8a`: RStats workflow `#45306112824` **PASS**; Process/AI/NVRAM/HTTPD/XY-C1 runs were still not all complete at last poll. New Switch regression and exact-SHA firmware verification await this commit.
+
+---
+
 ## 2026-11-23 — Make RStats raw-history load setting error-aware
 
 - `load_history_raw()` used `nvram_match("rstats_stored", "0")`, which could not distinguish a missing key from a backend/read/close failure. The read is now checked. Missing keys and values other than the exact string `0` retain the previous load behavior; an unreadable or malformed API result skips the load rather than interpreting UNKNOWN as a valid match/non-match.

@@ -2,12 +2,11 @@
 
 ## Current repository state
 
-- Live `main` parent for this RStats read-side hardening slice: `8a552f5b65d2e29dd4497d11781c390147f1fb3e`.
-- Exact `aaa3240` RStats stability run `#45305869350` and AI handoff contract `#45305869452`: **PASS**. This confirms the prior raw-history flash gate and the checker correction.
-- Exact `8a552f5` Actions at commit time: RStats stability `#45305989386`, AI handoff `#45305989400`, Process inventory `#45305989308`, Process fail-closed regression `#45305989408`, HTTPD `#45305989315`, and XY-C1 `#45305989350` were **IN_PROGRESS**; NVRAM audit `#45305989375` was **PENDING** at last poll.
-- `save_history_raw()` now distinguishes a missing `rstats_stored` key from NVRAM backend errors before writing raw history. The startup reader had the same lossy `nvram_match()` access: a transient failure was indistinguishable from “not equal to zero” and caused persisted history to be loaded anyway. This slice uses a checked read and preserve## Active task
+- Live `main` parent for this switch ioctl-boundary slice: `25d077e48bc621c6a48714deb5b62d2f0e6d4c8a`.
+- Exact `25d077e` RStats persistence/signal regression `#45306112824`: **PASS**; this includes the checked history-storage mode read and deferred flash commit guard. Exact `25d077e` Process inventory `#45306112818`, AI handoff `#45306112832`, Process fail-closed regression `#45306112866`, NVRAM audit `#45306112817`, HTTPD `#45306112793` and XY-C1 `#45306112829` were still running/pending at last poll.
+- New switch robustness finding: both `mtk_esw_ioctl()` and `rtl8367_ioctl()` previously composed a packed ioctl command using `par << CMD_LENGTH_BITS` without checking whether the parameter fit the available upper bits. Oversized arguments were silently truncated and could alias a different switch port/rule/control request. A shared checked pack helper now rejects out-of-range parameters before opening the device; tests cover the ## Active task
 
-Verify checked NVRAM handling in both RStats history persistence paths on this commit's exact SHA. `load_history_raw()` must preserve the previous exact `nvram_match(..., "0")` behavior for valid/missing values but must not interpret a backend error as a successful comparison result.
+Verify the shared packed-ioctl argument-width guard for both MTK ESW and RTL8367 callers on the new exact SHA. The host regression must prove the 24-bit argument boundary and overflow rejection; the workflow source contract must pin validation before opening the device and issuing ioctl.
 
 ## Completed development slices
 
@@ -37,14 +36,17 @@ Independent snapshot/lifecycle changes remain in `99ad9397e3cf4450c6fc07758b58c3
 
 ## Verification boundary
 
-- Exact `aaa3240` RStats stability `#45305869350` and AI handoff `#45305869452`: **PASS** for the previous raw-history flash gate and checker correction.
-- Exact `8a552f5` RStats stability `#45305989386`, AI handoff `#45305989400`, Process inventory `#45305989308`, Process fail-closed regression `#45305989408`, HTTPD `#45305989315`, and XY-C1 `#45305989350` were **IN_PROGRESS** at last poll; NVRAM audit `#45305989375` was **PENDING**.
-- This read-side slice needs fresh exact-SHA policy/source-contract checks and applicable firmware validation. No firmware L3 or hardware L4 result is claimed.
-- Frozen backup remains unchanged at `72f4f157a084f8184b9597ca5## Exact first action for the next GPT
+- Exact `25d077e` RStats regression `#45306112824`: **PASS**. Its Process, AI, NVRAM, HTTPD and XY-C1 Actions had not all completed at last poll; no L3 or L4 claim is made for that SHA.
+- This switch slice adds a GNU89 ASan/UBSan host test and source contracts for both packed-ioctl wrappers. Exact switch Actions and firmware build/TRX/artifact checks must be verified separately on this commit's own SHA.
+- The previous Actions must not be represented as passing for this commit. Frozen backup SHA remains unchanged: `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
-1. Verify this commit's exact-SHA RStats stability regression and dependent Actions; fix the first actual failure if any.
-2. Reconcile exact `8a552f5` NVRAM audit, Process, HTTPD and XY-C1 results only against that SHA.
-3. Continue scanning RStats and adjacent userland startup/config code for value-only NVRAM calls that collapse backend errors into valid defaults, adding checked adapters only where failure changes control flow.
+## Exact first action for the next GPT
+
+1. Verify this commit's exact-SHA RStats stability regress## Exact first action for the next GPT
+
+1. Check the exact-SHA Switch CLI/ioctl regression; inspect any host/source-contract failure before claiming packed-command validation.
+2. Check exact-SHA Process, AI, NVRAM, HTTPD and XY-C1 Build/TRX/artifact Actions; pending checks must not block unrelated source work.
+3. Continue tracing switch error propagation and caller-side range validation, especially init/VLAN/PHY operations where a positive errno can be mistaken for a successful value.
 
 
 # Cross-session execution mandate
