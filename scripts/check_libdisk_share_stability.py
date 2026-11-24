@@ -372,7 +372,7 @@ stale_pruner = function_body(
 stale_pruner_compact = "".join(stale_pruner.split())
 require("strcmp(account,FTP_ANONYMOUS_USER)==0" in stale_pruner_compact and
         "strcmp(account_list[i],account)==0" in stale_pruner_compact and
-        "unlink(path)" in stale_pruner_compact and
+        "disk_share_unlink_stale_metadata_entry(directory_fd,entry->d_name)" in stale_pruner_compact and
         'strcmp(entry->d_name,".__folder_list.txt")' not in stale_pruner_compact,
         "metadata cleanup must preserve anonymous and active accounts, and remove only orphaned account files after rebuild")
 
