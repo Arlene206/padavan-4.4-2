@@ -1,3 +1,13 @@
+## 2026-11-23 — Preserve FRP process-inventory UNKNOWN and block unsafe SIGKILL escalation
+
+- FRP matched the expected `/proc/PID/exe` and complete `frpc/frps -c <managed-config>` argv tuple, but an unreadable/missing cmdline for an extant matching executable was collapsed to “not running”. `frp_service_running()` also discarded the scanner's exit status through command substitution, so failed enumeration could look like confirmed absence.
+- The bounded stop path treated every nonzero wait result as a timeout and proceeded to SIGKILL. Procfs read failure after TERM or a failed `sleep` could therefore trigger escalation without proof that the owned daemon was still running.
+- Added three-state semantics: exact owned process = RUNNING (0), fully inspected absence/unowned process = ABSENT (1), incomplete/unreadable process metadata = UNKNOWN (2). Inventory helpers preserve UNKNOWN; wait distinguishes verified timeout (1) from UNKNOWN/sleep failure (2); stop permits SIGKILL only after the verified five-probe TERM timeout.
+- Added regressions for an unavailable proc root, an exact-executable process with missing cmdline, metadata becoming UNKNOWN after TERM, and `sleep` failure. Existing argv-decoy, multi-service stop, bounded TERM/KILL and crontab preservation tests remain.
+- Parent main: `8584845fa7ce78b928bfb6e47c5cf8eb8223982f`. Shell-only source/test/checker change; no MIPS firmware or hardware L4 result is claimed. Exact-head FRP and Process Actions required.
+
+---
+
 ## 2026-11-24 14:26 UTC+8 — Correct HTTPD hostname publication contract
 
 - Exact main `a26746d033ffa19d9b576010f4fe4a583b4a859a` Process fail-closed #45339568206 PASS, including `LAN kernel hostname/domain status regression: PASS`; Process inventory #45339568157 and AI docs #45339568440 PASS. WAN DHCP #45339568432, WAN route #45339568336, DNSMasq #45339568424, VPN #45339568175, router NVRAM #45339568171, WAN ARP #45339568324, USB modem #45339568348, miniupnpd #45339568380, ZeroTier #45339568346, Wireless #45339568118, IPv6 #45339568388, watchdog #45339568182, detect_link #45339568318 and detect_internet #45339568405 also PASS.

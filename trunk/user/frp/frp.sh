@@ -68,16 +68,31 @@ frp_process_matches()
 	case "$frp_match_pid" in
 		''|0|1|*[!0-9]*) return 1 ;;
 	esac
+	frp_match_proc_dir="$FRP_PROC_ROOT/$frp_match_pid"
+	[ -d "$frp_match_proc_dir" ] || return 1
 	frp_match_config=$(frp_service_config_path "$frp_match_service") || return 1
 	frp_match_executable=$(frp_service_executable_path "$frp_match_service") || return 1
-	frp_match_exe_path="$FRP_PROC_ROOT/$frp_match_pid/exe"
+	frp_match_exe_path="$frp_match_proc_dir/exe"
 	[ -L "$frp_match_exe_path" ] || return 1
-	frp_match_exe=$(readlink "$frp_match_exe_path" 2>/dev/null) || return 1
+	if frp_match_exe=$(readlink "$frp_match_exe_path" 2>/dev/null); then
+		:
+	else
+		[ -d "$frp_match_proc_dir" ] || return 1
+		return 2
+	fi
 	[ "$frp_match_exe" = "$frp_match_executable" ] || return 1
-	frp_match_cmdline="$FRP_PROC_ROOT/$frp_match_pid/cmdline"
-	[ -r "$frp_match_cmdline" ] && [ -f "$frp_match_cmdline" ] || return 1
 
-	tr '\000' '\n' < "$frp_match_cmdline" 2>/dev/null |
+	frp_match_cmdline="$frp_match_proc_dir/cmdline"
+	if [ ! -f "$frp_match_cmdline" ] || [ ! -r "$frp_match_cmdline" ]; then
+		[ -d "$frp_match_proc_dir" ] || return 1
+		return 2
+	fi
+	frp_match_cmdline_text=$(tr '\000' '\n' < "$frp_match_cmdline" 2>/dev/null) || {
+		[ -d "$frp_match_proc_dir" ] || return 1
+		return 2
+	}
+	[ -n "$frp_match_cmdline_text" ] || return 2
+	if printf '%s\n' "$frp_match_cmdline_text" |
 		awk -v expected="$frp_match_service" -v config="$frp_match_config" '
 			NR == 1 {
 				executable = $0
@@ -102,26 +117,39 @@ frp_process_matches()
 					exit 0
 				exit 1
 			}
-		'
+		'; then
+		return 0
+	fi
+	return 1
 }
 
 frp_service_pids()
 {
 	frp_scan_service="$1"
 	frp_service_config_path "$frp_scan_service" >/dev/null || return 1
+	[ -d "$FRP_PROC_ROOT" ] && [ ! -L "$FRP_PROC_ROOT" ] &&
+		[ -r "$FRP_PROC_ROOT" ] && [ -x "$FRP_PROC_ROOT" ] || return 2
 	for frp_proc_dir in "$FRP_PROC_ROOT"/[0-9]*; do
 		[ -d "$frp_proc_dir" ] || continue
 		frp_scan_pid=$(printf '%s\n' "$frp_proc_dir" | sed 's|.*/||')
 		case "$frp_scan_pid" in ''|*[!0-9]*) continue ;; esac
 		if frp_process_matches "$frp_scan_pid" "$frp_scan_service"; then
 			printf '%s\n' "$frp_scan_pid"
+		else
+			frp_scan_status=$?
+			case "$frp_scan_status" in
+				1) ;;
+				*) return 2 ;;
+			esac
 		fi
 	done
+	return 0
 }
 
 frp_service_running()
 {
-	[ -n "$(frp_service_pids "$1")" ]
+	frp_running_pids=$(frp_service_pids "$1") || return $?
+	[ -n "$frp_running_pids" ]
 }
 
 frp_run_script()
@@ -252,19 +280,39 @@ frp_start ()
 
 frp_any_running()
 {
-	frp_service_running frpc || frp_service_running frps
+	if frp_service_running frpc; then
+		return 0
+	else
+		frp_running_status=$?
+		[ "$frp_running_status" -eq 1 ] || return 2
+	fi
+	if frp_service_running frps; then
+		return 0
+	else
+		frp_running_status=$?
+		case "$frp_running_status" in
+			1) return 1 ;;
+			*) return 2 ;;
+		esac
+	fi
 }
 
-# Revalidate each process immediately before signalling. This narrows, but on
-# Linux 4.4 cannot eliminate, PID reuse between /proc inspection and kill(2).
 frp_signal_all()
 {
 	frp_signal="$1"
 	case "$frp_signal" in TERM|KILL) ;; *) return 1 ;; esac
 	for frp_signal_service in frpc frps; do
-		frp_signal_pids=$(frp_service_pids "$frp_signal_service") || return 1
+		frp_signal_pids=$(frp_service_pids "$frp_signal_service") || return $?
 		for frp_signal_pid in $frp_signal_pids; do
-			frp_process_matches "$frp_signal_pid" "$frp_signal_service" || continue
+			if frp_process_matches "$frp_signal_pid" "$frp_signal_service"; then
+				:
+			else
+				frp_signal_match_status=$?
+				case "$frp_signal_match_status" in
+					1) continue ;;
+					*) return 2 ;;
+				esac
+			fi
 			kill "-$frp_signal" "$frp_signal_pid" >/dev/null 2>&1 || :
 		done
 	done
@@ -276,26 +324,78 @@ frp_wait_stopped()
 	frp_wait_limit="$1"
 	frp_waited=0
 	while [ "$frp_waited" -lt "$frp_wait_limit" ]; do
-		frp_any_running || return 0
-		sleep 1
+		if frp_any_running; then
+			:
+		else
+			frp_wait_status=$?
+			case "$frp_wait_status" in
+				1) return 0 ;;
+				*) return 2 ;;
+			esac
+		fi
+		if ! sleep 1; then
+			logger -t "frp" "等待FRP进程退出时sleep失败，无法确认停止状态。"
+			return 2
+		fi
 		frp_waited=$((frp_waited + 1))
 	done
-	! frp_any_running
+	if frp_any_running; then
+		return 1
+	else
+		frp_wait_status=$?
+		case "$frp_wait_status" in
+			1) return 0 ;;
+			*) return 2 ;;
+		esac
+	fi
 }
 
 frp_stop_daemons()
 {
 	if frp_any_running; then
-		frp_signal_all TERM || return 1
-		if ! frp_wait_stopped 5; then
-			frp_signal_all KILL || return 1
-			if ! frp_wait_stopped 2; then
-				logger -t "frp" "匹配配置的FRP进程在有界TERM/KILL后仍未退出。"
+		:
+	else
+		frp_initial_status=$?
+		case "$frp_initial_status" in
+			1) return 0 ;;
+			*)
+				logger -t "frp" "无法可靠读取FRP进程状态，拒绝发送信号。"
 				return 1
-			fi
-		fi
+				;;
+		esac
 	fi
-	return 0
+
+	frp_signal_all TERM || {
+		logger -t "frp" "TERM阶段FRP进程身份变为未知，停止升级信号。"
+		return 1
+	}
+	if frp_wait_stopped 5; then
+		return 0
+	else
+		frp_term_wait_status=$?
+	fi
+	case "$frp_term_wait_status" in
+		1) ;;
+		*)
+			logger -t "frp" "TERM后FRP进程状态未知，拒绝升级SIGKILL。"
+			return 1
+			;;
+	esac
+
+	frp_signal_all KILL || {
+		logger -t "frp" "SIGKILL阶段FRP进程身份变为未知。"
+		return 1
+	}
+	if frp_wait_stopped 2; then
+		return 0
+	else
+		frp_kill_wait_status=$?
+	fi
+	case "$frp_kill_wait_status" in
+		1) logger -t "frp" "匹配配置的FRP进程在有界TERM/KILL后仍未退出。" ;;
+		*) logger -t "frp" "SIGKILL后无法确认FRP进程状态。" ;;
+	esac
+	return 1
 }
 
 frp_close ()

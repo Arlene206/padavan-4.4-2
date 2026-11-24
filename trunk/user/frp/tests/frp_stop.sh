@@ -36,6 +36,8 @@ KILL_CLIENT_STOP=1
 KILL_SERVER_STOP=1
 SLEEP_CALLS=0
 KILLALL_CALLS=0
+TERM_MAKES_CMDLINE_UNKNOWN=0
+SLEEP_FAIL=0
 
 add_process()
 {
@@ -61,7 +63,13 @@ kill()
 	pid="$2"
 	printf '%s:%s\n' "$signal" "$pid" >> "$SIGNAL_LOG"
 	case "$signal:$pid" in
-		-TERM:101) [ "$TERM_CLIENT_STOP" = "1" ] && remove_process 101 ;;
+		-TERM:101)
+			if [ "$TERM_MAKES_CMDLINE_UNKNOWN" = "1" ]; then
+				rm -f "$FRP_PROC_ROOT/101/cmdline"
+			else
+				[ "$TERM_CLIENT_STOP" = "1" ] && remove_process 101
+			fi
+			;;
 		-TERM:102) [ "$TERM_SERVER_STOP" = "1" ] && remove_process 102 ;;
 		-KILL:101) [ "$KILL_CLIENT_STOP" = "1" ] && remove_process 101 ;;
 		-KILL:102) [ "$KILL_SERVER_STOP" = "1" ] && remove_process 102 ;;
@@ -77,7 +85,7 @@ killall()
 sleep()
 {
 	SLEEP_CALLS=$((SLEEP_CALLS + 1))
-	return 0
+	[ "$SLEEP_FAIL" = "0" ]
 }
 fail() { echo "FRP stop regression: FAIL: $*" >&2; exit 1; }
 setup_crontab()
@@ -86,6 +94,8 @@ setup_crontab()
 		'*/5 * * * * /usr/local/sbin/operator-job' > "$crontab"
 	: > "$SIGNAL_LOG"
 	SLEEP_CALLS=0
+	TERM_MAKES_CMDLINE_UNKNOWN=0
+	SLEEP_FAIL=0
 }
 clear_processes()
 {
@@ -170,6 +180,52 @@ printf '/usr/bin/frpc\000-c\000/tmp/frp/myfrpc.ini\000' > "$FRP_PROC_ROOT/204/cm
 ln -sfn /bin/sleep "$FRP_PROC_ROOT/204/exe"
 process_exists 204 || fail "argv-matching impostor executable was altered"
 [ "$KILLALL_CALLS" -eq 0 ] || fail "name-based killall was invoked"
+
+# An unenumerable procfs root is UNKNOWN, never confirmed absence.
+setup_crontab
+clear_processes
+add_process 101 frpc /tmp/frp/myfrpc.ini
+rm -rf "$FRP_PROC_ROOT"
+printf 'not-a-proc-directory\n' > "$FRP_PROC_ROOT"
+if frp_any_running; then fail "non-directory proc root was reported RUNNING"; else status=$?; fi
+[ "$status" -eq 2 ] || fail "unavailable proc root was not UNKNOWN"
+if frp_close; then fail "stop accepted an unavailable proc root"; fi
+[ ! -s "$SIGNAL_LOG" ] || fail "stop signalled with an unavailable proc root"
+
+# A matching executable without readable cmdline cannot be declared absent.
+setup_crontab
+clear_processes
+add_process 101 frpc /tmp/frp/myfrpc.ini
+rm -f "$FRP_PROC_ROOT/101/cmdline"
+if frp_service_running frpc; then fail "missing cmdline was reported RUNNING"; else status=$?; fi
+[ "$status" -eq 2 ] || fail "matching executable with missing cmdline was not UNKNOWN"
+if frp_close; then fail "stop accepted missing process metadata"; fi
+[ ! -s "$SIGNAL_LOG" ] || fail "stop signalled with incomplete process identity"
+
+# If metadata becomes UNKNOWN immediately after TERM, do not escalate to KILL.
+setup_crontab
+clear_processes
+add_process 101 frpc /tmp/frp/myfrpc.ini
+TERM_MAKES_CMDLINE_UNKNOWN=1
+if frp_close; then fail "stop accepted UNKNOWN post-TERM inventory"; fi
+[ "$(cat "$SIGNAL_LOG")" = '-TERM:101' ] ||
+	fail "UNKNOWN post-TERM state triggered unsafe SIGKILL escalation"
+[ -L "$FRP_PROC_ROOT/101/exe" ] || fail "unknown process fixture lost executable metadata"
+
+# A failed wait primitive is UNKNOWN, not a verified TERM timeout.
+setup_crontab
+clear_processes
+add_process 102 frps /tmp/frp/myfrps.ini
+TERM_SERVER_STOP=0
+SLEEP_FAIL=1
+if frp_close; then fail "sleep failure was reported as successful stop"; fi
+[ "$SLEEP_CALLS" -eq 1 ] || fail "sleep failure did not abort the first bounded wait"
+[ "$(cat "$SIGNAL_LOG")" = '-TERM:102' ] ||
+	fail "sleep failure triggered SIGKILL escalation"
+
+echo "FRP tri-state process inventory fails closed on unavailable procfs: PASS"
+echo "FRP UNKNOWN metadata after TERM blocks KILL escalation: PASS"
+echo "FRP sleep failure blocks forced-stop escalation: PASS"
 
 # Even if cron publication fails, attempt to stop owned daemons and report failure.
 setup_crontab

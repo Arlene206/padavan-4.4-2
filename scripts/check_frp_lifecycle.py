@@ -251,8 +251,19 @@ for marker in ('$FRP_PROC_ROOT/$frp_match_pid/exe',
                '[ "$frp_match_exe" = "$frp_match_executable" ]',
                '$FRP_PROC_ROOT/$frp_match_pid/cmdline', "tr '\\000' '\\n'",
                'sub(/^.*\\//, "", executable)', 'executable != expected',
-               '$0 != "-c"', '$0 != config', "NR == 3"):
+               '$0 != "-c"', '$0 != config', "NR == 3", "return 2"):
     require(marker in process_match, f"FRP process identity check omits {marker}")
+service_pids = function_body(source, "frp_service_pids()")
+service_running = function_body(source, "frp_service_running()")
+any_running = function_body(source, "frp_any_running()")
+wait_stopped = function_body(source, "frp_wait_stopped()")
+require("return 2" in service_pids and "frp_scan_status" in service_pids and
+        'frp_running_pids=$(frp_service_pids "$1") || return $?' in service_running and
+        "frp_running_status" in any_running,
+        "FRP process scanner must propagate UNKNOWN instead of treating failed reads as ABSENT")
+require("if ! sleep 1;" in wait_stopped and "return 2" in wait_stopped and
+        'case "$frp_wait_status" in' in wait_stopped,
+        "FRP bounded stop wait must classify sleep/inventory errors as UNKNOWN")
 signal_body = function_body(source, "frp_signal_all()")
 require("frp_process_matches" in signal_body and
         'kill "-$frp_signal" "$frp_signal_pid"' in signal_body,
@@ -261,8 +272,10 @@ require("killall" not in frp_template and "pidof" not in frp_template,
         "persistent FRP config script must not signal by broad process name")
 stop_daemons = function_body(source, "frp_stop_daemons()")
 require("frp_signal_all TERM" in stop_daemons and "frp_wait_stopped 5" in stop_daemons and
-        "frp_signal_all KILL" in stop_daemons and "frp_wait_stopped 2" in stop_daemons,
-        "FRP owned-daemon stop must retain bounded TERM/KILL postconditions")
+        "frp_signal_all KILL" in stop_daemons and "frp_wait_stopped 2" in stop_daemons and
+        'case "$frp_term_wait_status" in' in stop_daemons and
+        "verified timeout" in stop_daemons,
+        "FRP owned-daemon stop must escalate only after a verified TERM timeout")
 stop = function_body(services, "int stop_frp(void)")
 start = function_body(services, "void start_frp(void)")
 restart = function_body(services, "int restart_frp(void)")
@@ -278,7 +291,11 @@ for marker in ("FRPC survived stop", "FRPS survived stop",
                "KILL escalation", "stubborn FRPS", "failed cron removal",
                "five-plus-two poll bound", "same-name decoys",
                "argv-matching impostor executable",
-               "name-based killall was invoked"):
+               "name-based killall was invoked",
+               "non-directory proc root was not UNKNOWN",
+               "matching executable with missing cmdline was not UNKNOWN",
+               "UNKNOWN post-TERM inventory",
+               "sleep failure triggered SIGKILL escalation"):
     require(marker in stop_test, f"FRP stop regression omits {marker}")
 
 # FRP private configuration must not be exposed as a world-readable script.

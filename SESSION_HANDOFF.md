@@ -1,37 +1,42 @@
 ## Current repository state
 
-- Live parent `main`: `cbbb27636807b7f195d7d87ccefb476366a07995`; the next commit is an atomic checker/documentation correction based on this exact tree. Main may advance independently; re-fetch and compare before each write.
-- Router kernel hostname/domain propagation fix is in `a26746d033ffa19d9b576010f4fe4a583b4a859a`: `update_hosts_router()` now uses the tested `lan_kernel_names_apply()` policy and returns kernel setter failures through the existing DNSMasq preparation gate.
-- AdGuardHome process identity hardening is in parent `cbbb27636807b7f195d7d87ccefb476366a07995`: numeric pidof candidates are filtered by exact `/proc/PID/exe`, full config/workdir argv and non-zombie `/proc/PID/stat` start_time; TERM and refreshed SIGKILL snapshots revalidate the identity immediately before signaling.
-- Adbyby executable/start_time hardening exact Adbyby #45339125309 and Process fail-closed #45339125213 PASS on `17d08de1ed22fe2ff102992d28c974b42b77de3a`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Parent main for this FRP tri-state shutdown fix: `8584845fa7ce78b928bfb6e47c5cf8eb8223982f`; branch and tree were fetched immediately before building the complete atomic tree.
+- Adbyby executable/start_time hardening: exact host #45339125309 and Process fail-closed #45339125213 PASS on `17d08de1ed22fe2ff102992d28c974b42b77de3a`.
+- AdGuardHome executable/config/workdir argv + start_time identity: config-security #45339988745, Process inventory #45339988758 and AI docs #45339988750 PASS on `cbbb27636807b7f195d7d87ccefb476366a07995`.
+- Latest main before this slice `8584845fa7ce78b928bfb6e47c5cf8eb8223982f`: HTTPD security #45340186122 and AI handoff #45340186109 PASS.
+- This FRP slice fixes loss of UNKNOWN process state and prevents TERM→KILL escalation when procfs metadata or the wait primitive fails.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- All writes remain main-only, complete-tree, single-commit, expected-SHA non-forced updates; no force-push.
 
 ## Active task
 
-Align the HTTPD workflow's DNSMasq hostname-pair source contract with the checked router setters:
-- Previous HTTPD exact run #45339568430 on `a26746d` failed at a stale assertion expecting a direct `sethostname(lan_hname, ...)` call inside `update_hosts_router()`.
-- The new implementation deliberately calls `lan_kernel_names_apply(lan_hname, lan_dname, &wan_kernel_name_ops)` after atomic pair publication; each adapter returns positive errno/EIO, both setters are attempted, and the first error is returned after lifecycle lock release.
-- This commit changes only the HTTPD workflow contract and handoff/log evidence; it must not relax runtime coverage.
+Implement and verify FRP tri-state process inventory and safe escalation:
+- `frp_process_matches()`: 0 for exact owned executable+argv; 1 only for vanished/unowned; 2 when an extant matching executable has unreadable/incomplete cmdline or procfs identity cannot be inspected.
+- `frp_service_pids()`, `frp_service_running()` and `frp_any_running()` propagate UNKNOWN rather than converting command-substitution failures to ABSENT.
+- `frp_wait_stopped()`: 0 confirmed stopped, 1 verified still-running timeout, 2 UNKNOWN or failed sleep.
+- `frp_stop_daemons()` permits SIGKILL only after the five-probe TERM wait returns verified-timeout status 1.
+- New tests cover bad proc root, missing cmdline, post-TERM metadata loss and sleep failure.
+- Exact-head FRP lifecycle, Process inventory/fail-closed and AI handoff Actions are required after publication.
 
 ## Completed development slices
 
-- AdGuardHome identity hardening (parent `cbbb27636807b7f195d7d87ccefb476366a07995`): host tests/source contract added for exact executable, argv tuple, procfs metadata and PID reuse; Actions are listed below.
-- Router kernel hostname/domain status propagation (`a26746d`): shared policy, positive error propagation, Process workflow path filter/ASan regression; exact Process, WAN DHCP, WAN route, DNSMasq, etc. pass.
-- Adbyby process identity hardening (`17d08de1`): exact binary and process start_time validation before stop signaling; dedicated host and Process regressions PASS.
+- Adbyby executable/start_time identity: host #45339125309 and Process fail-closed #45339125213 PASS on `17d08de1`.
+- AdGuardHome executable/config/workdir argv + start_time identity: config-security #45339988745, Process #45339988758 and AI docs #45339988750 PASS on `cbbb2763`.
+- SmartDNS stop independent of config NVRAM reads: DNSMasq #45336719172, Process #45336719252, AI docs #45336719249 and USB #45336719220 PASS on `2294ae89`; its XY-C1 build was not confirmed completed at last poll.
+- HTTPD security + AI handoff on the immediate parent main: #45340186122 and #45340186109 PASS.
+- Router hostname/domain callback fixes on predecessor: WAN DHCP #45339568432, WAN route #45339568336 and DNSMasq #45339568424 PASS on `a26746d`.
 
 ## Verification boundary
 
-- Parent `a26746d033ffa19d9b576010f4fe4a583b4a859a`: Process fail-closed #45339568206 PASS, including LAN kernel-name status regression; Process inventory #45339568157 PASS; AI docs #45339568440 PASS; WAN DHCP #45339568432 PASS; WAN route #45339568336 PASS; DNSMasq #45339568424 PASS; VPN #45339568175 PASS; router NVRAM #45339568171 PASS; WAN ARP #45339568324 PASS; USB modem #45339568348 PASS; miniupnpd #45339568380 PASS; ZeroTier #45339568346 PASS; Wireless #45339568118 PASS; IPv6 #45339568388 PASS; watchdog #45339568182 PASS; detect_link #45339568318 PASS; detect_internet #45339568405 PASS.
-- HTTPD #45339568430 FAILED only on the stale hostname source assertion, corrected here. XY-C1 #45339568161, Firewall #45339568335 and WAN teardown #45339568351 were still IN_PROGRESS at last poll. No same-SHA target firmware/TRX/artifact result was available, so L3 is NOT VERIFIED.
-- Parent `cbbb27636807b7f195d7d87ccefb476366a07995`: AdGuardHome config security #45339988745 PASS; AI docs #45339988750 PASS; Process inventory #45339988758 was IN_PROGRESS at last poll. Exact reruns required after this checker correction.
-- No physical-router L4 result is claimed. Linux 4.4 has no pidfd; the Adbyby and AdGuardHome identity checks still have the documented final validation-to-signal race.
+- This FRP source/test/checker change is pending publication and exact-head Actions; no FRP/Process/AI result is claimed for it yet.
+- No MIPS/uClibc firmware build, TRX artifact or physical-router L4 result is claimed for this shell-only slice.
+- Linux 4.4 lacks pidfd; process identity checks reduce risk but cannot eliminate the final procfs-check-to-kill(2) race.
 
 ## Exact first action for the next GPT
 
-1. Inspect the exact-SHA HTTPD security, AI docs and Process runs spawned by this checker correction; fix any first failure.
-2. Poll XY-C1 #45339568161 on `a26746d` plus Firewall #45339568335 and WAN teardown #45339568351; claim L3 only if Build, TRX verification and artifact upload all succeed on the same production source SHA.
-3. Inspect completion of AdGuardHome config-security/Process inventory on `cbbb276` and continue the first evidence-backed P1 gap outside already-completed Adbyby/SmartDNS/RAETH scopes.
-4. Keep the backup immutable and all main writes as complete-tree atomic commits with expected-SHA non-forced ref updates.
+1. Fetch live `main` and inspect this commit's exact-head FRP lifecycle, Process inventory/fail-closed and AI handoff results; fix the first failing regression before marking it complete.
+2. If these checks pass or remain pending, continue an independent P1 stability/security fix outside completed SmartDNS, Adbyby, AdGuardHome and RAETH areas.
+3. Keep the frozen backup immutable; all main changes remain complete-tree atomic commits with expected-SHA non-forced ref updates.
 
 # Cross-session execution mandate
 
