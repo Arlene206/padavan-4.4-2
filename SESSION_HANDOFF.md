@@ -1,30 +1,30 @@
 ## Current repository state
 
-- Active branch: `main`; follow-up parent SHA: `d3733ecbec2e0cf652c00eadf1db4645ae5ff13e`. Re-fetch live main before any write.
+- Active branch: `main`; source parent for this WAN first-sample slice: `c954e19234f35f23396d7db4f202249cabae9fc4`. Re-fetch live main and tree before every write.
 - Frozen archive `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable, never develop on or modify it.
 - No open PRs.
-- HTTPD protocol-selector guard is L3 VERIFIED on exact SHA `659b91b497b5cf8073b54feab849a91623092c70`: HTTPD #45388114470, AI #45388114468, Process #45388114507 and XY-C1 #45388114515 PASS, including Build/TRX/artifact. Physical L4 unverified.
-- MTK AP private-ioctl safety remains previously L3 verified on `d33fcf06b73fbe2771ab0b559116d3e750dc4918`; physical L4 unverified.
+- MTK AP private-ioctl safety is L3 VERIFIED on exact source SHA `d33fcf06b73fbe2771ab0b559116d3e750dc4918`; MTK #45384680997, NVRAM #45384681048, AI #45384680982 and XY-C1 #45384680986 passed Build/TRX/artifact. Physical L4 unverified.
+- HTTPD protocol-selector guard is L3 VERIFIED on exact source SHA `659b91b497b5cf8073b54feab849a91623092c70`: HTTPD #45388114470, AI #45388114468, Process #45388114507, XY-C1 #45388114515 all PASS including Build/TRX/artifact. Physical L4 unverified.
+- WAN source PHY selector range guard is L3 VERIFIED on exact production source SHA `d3733ecbec2e0cf652c00eadf1db4645ae5ff13e`: detect-link #45390205127 host regression initially surfaced a checker-only assertion later corrected in #45390666226; AI #45390666278, Process #45390666391, NVRAM #45390666354 PASS on descendant `c954e19`; XY-C1 #45390205170 on the exact production SHA d373 completed PASS including Build XY-C1, TRX verification and artifact upload. On c954 the XY-C1 job #45390666372 was host-only and skipped Build/TRX/artifact because c954 changed only tests/workflow/docs. Physical L4 unverified.
 
-## Active task — WAN source PHY selector range guard
+## Active task — Do not publish an initial unknown WAN sample as link-down
 
-- Source change in `net_wan.c` and policy `wan_src_phy_policy.h` reject positive `wan_src_phy` IDs >5 before switch ioctl; negative values retain historical WAN=0 fallback. Reason: MTK's unsupported UAPI port mapping reports success with link=0, which otherwise looks like a real cable disconnect.
-- Host regression in detect-link run #45390205127 PASS (GNU89/Werror/ASan/UBSan); the pre-existing detect_link integration contract also PASS. The new final source-contract step FAILED because it expected direct `test_name();` while the test uses repository convention `CHECK(test_name() == 0)`. THIS COMMIT corrects the assertion and C diagnostic newline.
-- AI docs run #45390205125 FAILED only because `REFACTOR_ROADMAP.md` reached 131111 bytes, 39 bytes over its 131072-byte hard limit. THIS COMMIT shortens the two new priority entries; encoded roadmap size is checked below the limit before publication.
-- XY-C1 run #45390205170 was still building when last checked; no Build/TRX/artifact conclusion yet. WAN route status #45390205087 PASS. Process #45390205058 and NVRAM #45390205138 were still running at last poll.
-- Parent SHA: `d3733ecbec2e0cf652c00eadf1db4645ae5ff13e`; HTTPD selector L3 remains proven on its earlier exact SHA, not this WAN change.
+- In `detect_link.c`, `dl_status_wan` starts at zero while `dl_status_wan_nvram_old` starts at -1. If the first switch PHY query fails, the caller correctly retains the cached status and sets refresh retry pending, but it still called `dl_handle_link_wan()`; that published the synthetic initial zero to NVRAM before any successful physical sample. This can expose a false initial link-down state while the actual status is unknown.
+- THIS COMMIT introduces a tri-state known flag driven only by nonnegative PHY results. WAN handler/NVRAM publication is deferred until the first successful sample; once known, later read failures keep the last valid state and existing retry behavior. WISP, LAN and USB processing remain independent.
+- A GNU89/Werror/ASan/UBSan regression in `detect_link_nvram_policy.c` covers unknown retention for negative samples, transition to known on valid down/up samples, and persistence of known state across later errors. The detect-link source contract verifies successful-sample update and handler gating.
+- The WAN selector guard remains L3 verified on d373 as above; this new production change needs its own exact-head detect-link and XY-C1 Build/TRX/artifact checks.
 
 ## Verification boundary
 
-- THIS FOLLOW-UP contains the corrected regression contract, valid C diagnostic string, reduced roadmap and handoff/log status.
-- Recheck detect-link, AI docs, XY-C1 Build/TRX/artifact, Process and NVRAM by this exact SHA. L3 for the WAN selector requires same-SHA XY-C1 Build, TRX and artifact PASS.
+- THIS COMMIT contains source, policy, regression, integration contract and handoff/log update in one atomic tree.
+- Verify exact-head detect-link, Process, NVRAM, AI docs and XY-C1. L3 for this first-sample guard requires same-SHA Build, TRX and artifact PASS.
 - Physical router L4 remains unverified.
 
 ## Exact first action for the next GPT
 
-1. Fetch current `main` and poll exact-head push Actions for detect-link, AI docs, XY-C1, Process and NVRAM. Confirm the two known checker corrections now PASS.
-2. Fix any new first-causal failure atomically; keep L3 open until same-SHA XY-C1 Build/TRX/artifact PASS.
-3. Continue the next highest-priority independent stability/security defect; do not re-audit the verified HTTPD/MTK slices without new evidence.
+1. Fetch current `main` and query push Actions by its exact SHA; inspect detect-link first-sample policy regression/source contract, Process, NVRAM, AI docs and XY-C1 Build/TRX/artifact.
+2. Fix any first causal exact-head failure atomically; no L3 claim while any firmware step is pending or skipped.
+3. Continue the next highest-priority independent stability/security issue; do not repeat completed MTK, HTTPD or WAN-selector slices absent new evidence.
 
 ## Mandatory handoff checkpoint
 

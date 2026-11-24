@@ -61,6 +61,7 @@ static unsigned int dl_modem_reconnect_retries = 0;
 /* Signal handlers only publish pending events; the main loop owns all work. */
 static volatile sig_atomic_t dl_pending_events = 0;
 
+static int dl_wan_status_known = 0;
 static int dl_status_wan = 0;
 static int dl_status_wan_old = 0;
 static int dl_status_wan_nvram_old = -1;
@@ -348,6 +349,8 @@ dl_on_timer(void)
 		int lan_link_result;
 
 		wan_link_result = get_wan_ether_link_direct(is_ap_mode);
+		dl_wan_status_known = detect_link_wan_sample_known(
+			dl_wan_status_known, wan_link_result);
 		if (wan_link_result >= 0)
 			dl_status_wan = wan_link_result;
 
@@ -366,7 +369,8 @@ dl_on_timer(void)
 	}
 
 	if (!is_ap_mode) {
-		dl_handle_link_wan();
+		if (dl_wan_status_known)
+			dl_handle_link_wan();
 
 		if (get_wan_wisp_active(&dl_status_wisp))
 			dl_handle_link_wisp();

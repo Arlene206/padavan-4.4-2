@@ -5,6 +5,18 @@
 
 typedef int (*detect_link_wan_status_write_fn)(void *context, int status);
 
+/*
+ * A negative link probe is an unknown sample, not link-down. Keep the
+ * startup state unknown until the first successful switch read so callers
+ * do not publish a fabricated initial zero to NVRAM.
+ */
+static inline int
+detect_link_wan_sample_known(int was_known, int sample_result)
+{
+	return (was_known != 0 || sample_result >= 0);
+}
+
+
 static inline int
 detect_link_publish_wan_status(int status, int *last_published,
 			       detect_link_wan_status_write_fn write_status,

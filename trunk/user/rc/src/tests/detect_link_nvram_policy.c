@@ -72,6 +72,19 @@ test_changed_state_retries_without_replaying_side_effects(void)
 }
 
 static void
+test_wan_link_sample_stays_unknown_until_success(void)
+{
+	int known = 0;
+
+	assert(detect_link_wan_sample_known(known, -1) == 0);
+	assert(detect_link_wan_sample_known(known, -EIO) == 0);
+	assert(detect_link_wan_sample_known(known, 0) == 1);
+	assert(detect_link_wan_sample_known(known, 1) == 1);
+	assert(detect_link_wan_sample_known(1, -1) == 1);
+	assert(detect_link_wan_sample_known(1, EIO) == 1);
+}
+
+static void
 test_ap_mode_cache_changes_only_after_successful_read(void)
 {
 	int cached_ap_mode = 1;
@@ -105,6 +118,7 @@ main(void)
 {
 	test_failed_publication_is_retried();
 	test_changed_state_retries_without_replaying_side_effects();
+	test_wan_link_sample_stays_unknown_until_success();
 	test_ap_mode_cache_changes_only_after_successful_read();
 	test_invalid_policy_arguments_fail_closed();
 	puts("detect_link WAN NVRAM mirror retry policy: PASS");
