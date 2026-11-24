@@ -28,12 +28,12 @@ assert "int allocated = 0;" in body
 assert "int mapped = 0;" in body
 ring_alloc = body.index("ei_local->rx_ring[0] = dma_alloc_coherent(")
 ring_check = body.index("if (!ei_local->rx_ring[0])", ring_alloc)
-first_ring_access = body.index("&ei_local->rx_ring[0][i]", ring_check)
-assert ring_alloc < ring_check < first_ring_access
-
-allocation = body.index("raeth_alloc_skb_data(", first_ring_access)
+allocation = body.index("raeth_alloc_skb_data(", ring_check)
 allocation_success = body.index("allocated++;", allocation)
-map_check = body.index("dma_mapping_error", allocation_success)
+first_ring_access = body.index("&ei_local->rx_ring[0][i]", allocation_success)
+assert ring_alloc < ring_check < allocation < allocation_success < first_ring_access
+
+map_check = body.index("dma_mapping_error", first_ring_access)
 assert allocation < allocation_success < map_check
 map_fail = body.index("goto no_rx_mem;", map_check)
 map_account = body.index("mapped++;", map_fail)
