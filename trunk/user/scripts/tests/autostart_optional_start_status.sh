@@ -341,7 +341,7 @@ REAL_LN=$(command -v ln)
 cat > "$TMP_DIR/bin/ln" <<'STUB'
 #!/bin/sh
 if [ "${AUTOSTART_SEED_RACE_DEST:-}" = "$2" ]; then
-	printf '%s\\n' "$AUTOSTART_SEED_RACE_CONTENT" > "$2"
+	printf '%s\n' "$AUTOSTART_SEED_RACE_CONTENT" > "$2"
 fi
 exec "$AUTOSTART_REAL_LN" "$@"
 STUB
