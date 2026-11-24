@@ -85,6 +85,13 @@ modem_qmi_handle_file_unlink_status(int unlink_status, int saved_errno)
 	return saved_errno > 0 ? saved_errno : EIO;
 }
 
+/* Do not release the WDS client ID while a stopped-session marker remains. */
+static inline int
+modem_qmi_client_id_release_allowed(int packet_data_handle_cleanup_status)
+{
+	return packet_data_handle_cleanup_status == 0;
+}
+
 /* Parse exactly one nonnegative decimal handle, allowing surrounding whitespace. */
 static inline int
 modem_qmi_parse_handle(const char *text, int *handle)

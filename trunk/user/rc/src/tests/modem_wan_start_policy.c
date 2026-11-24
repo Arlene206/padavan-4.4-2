@@ -88,6 +88,15 @@ test_qmi_handle_cleanup_distinguishes_missing_from_other_errors(void)
 }
 
 static void
+test_qmi_client_id_release_waits_for_pdh_cleanup(void)
+{
+	assert(modem_qmi_client_id_release_allowed(0));
+	assert(!modem_qmi_client_id_release_allowed(EACCES));
+	assert(!modem_qmi_client_id_release_allowed(EROFS));
+	assert(!modem_qmi_client_id_release_allowed(EIO));
+}
+
+static void
 test_qmi_handle_parser_rejects_partial_and_out_of_range_values(void)
 {
 	char line_break[] = { '0', 10, '\0' };
@@ -859,6 +868,7 @@ main(void)
 	test_qmi_ambiguous_start_preserves_published_handle();
 	test_qmi_start_preflight_reuses_cid_and_blocks_duplicate_pdh();
 	test_qmi_handle_cleanup_distinguishes_missing_from_other_errors();
+	test_qmi_client_id_release_waits_for_pdh_cleanup();
 	test_qmi_handle_parser_rejects_partial_and_out_of_range_values();
 	test_link_change_reconnect_requires_checked_modem_state();
 	test_hotplug_notification_preserves_ndis_and_ras_legacy_gates();

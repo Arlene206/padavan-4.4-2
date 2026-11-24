@@ -1,33 +1,32 @@
 ## Current repository state
 
-- Active branch: `main`; parent for this slice: `5a7b2c4a625a5ebdae1e30494680875157848533`. Frozen archive `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable. No open PRs.
-- MTK AP private-ioctl and HTTPD selector fixes remain L3 verified on `d33fcf0` and `659b91b`; WAN source-PHY range guard is L3 verified on `d3733ec`, all with exact-SHA firmware Build/TRX/artifact PASS.
-- WAN first-sample UNKNOWN guard: detect-link #45392147396, AI #45392146896, Process #45392147378/#45392146934, HTTPD #45392147738, NVRAM #45392147111 and USB modem #45392146933 PASS on `18af4fb`; same-source firmware L3 not recorded.
-- SYN-cookie selector whitespace/sign fix on `5a7b2c4`: WAN route #45394597807, AI docs #45394597880, Process inventory #45394597845 and NVRAM audit #45394598006 PASS. XY-C1 #45394597932 is building; TRX/artifact pending. VSFTPD hidden-share and EPSV ALL fixes are included in that firmware candidate and remain below L3 until same-SHA Build/TRX/artifact pass.
+- Active branch: `main`; current parent for this slice: `0dbf3d2f49133f6cbd471d7b6ba4efe633e5bb96`. Frozen archive `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable. No open PRs.
+- MTK AP private-ioctl, HTTPS-build HTTPD selector and WAN source-PHY range fixes retain their recorded exact-SHA L3 evidence. Physical-router L4 remains unverified.
+- SYN-cookie selector whitespace/sign fix on `5a7b2c4`: WAN route #45394597807, Process inventory #45394597845, AI docs #45394597880 and NVRAM #45394598006 PASS. XY-C1 #45394597932 remains in progress at Build; TRX/artifact pending.
+- Latest parent `0dbf3d2f49133f6cbd471d7b6ba4efe633e5bb96` fixes Ralink `regspec_code` NVRAM error handling. Exact SHA: HTTPD auth #45396051105, Process inventory #45396051070, AI docs #45396051142 and wireless radio state #45396051132 PASS; NVRAM audit #45396051150 and XY-C1 #45396051437 remain in progress. XY-C1 had not reached Build yet (wireless lifecycle step running), so no L3 claim.
 
-## Active task — Fail closed on Ralink regspec NVRAM read errors
+## Active task — Preserve QMI WDS ownership after PDH cleanup failure
 
-- `symlink_sku_file()` read optional `regspec_code` via `nvram_safe_get()`, collapsing an absent key and backend failure into the same empty-string fallback. A transient NVRAM error could silently select a different regulatory SKU rather than abort config generation.
-- Replaced it with `nvram_get_checked()`: missing key preserves existing fallback, a present value is table-validated before path construction, and read/API errors fail the generator. Added a pure status-policy regression and wireless workflow source-order contract. The Ralink source and helper/test files are already in wireless stability and XY-C1 path filters.
+- In `usb_modem.c:qmi_control_network()`, successful `--stop-network` was followed by removal of `QMI_HANDLE_PDH`. If that unlink failed, old code only set `result = 1` and continued to release `QMI_CLIENT_ID` and remove its CID marker.
+- The stale PDH makes the next start fail its existing-PDH preflight with `EBUSY`; releasing the CID at that point discards the reusable modem-side WDS identity and worsens recovery.
+- This slice gates CID release on `modem_qmi_client_id_release_allowed(cleanup_status)`. Successful unlink and `ENOENT` remain allowed; any other error returns before reading/releasing the CID, preserving WDS ID and marker. GNU89 regression covers success, EACCES, EROFS and EIO. `check_uqmi_private_credentials.py` pins the cleanup gate/return before CID read and release command.
+- Changed paths: `usb_modem.c`, `modem_wan_start_policy.h`, `tests/modem_wan_start_policy.c`, `scripts/check_uqmi_private_credentials.py`, this handoff, roadmap and `dev_log.md`. Existing USB modem workflow already lists source, policy/test and checker in both push and pull_request path filters.
 
 ## Verification boundary
 
-- Parent `5a7b2c4`: GNU89 SYN-cookie policy regression/source checker, AI docs, Process inventory and NVRAM audit PASS. XY-C1 Build running; TRX/artifact pending.
-- New Ralink wireless regression/source contract, AI docs, Process/NVRAM audits and XY-C1 production Build/TRX/artifact must be checked on its exact SHA. No L3 claim before firmware evidence. Physical-router L4 remains unverified.
+- Parent `0dbf3d2f49133f6cbd471d7b6ba4efe633e5bb96`: AI docs, Process and wireless-radio-state exact-SHA push runs PASS; HTTPD auth also PASS. NVRAM audit and XY-C1 remain pending.
+- New QMI teardown commit: check exact-head USB modem regression/source checker, Process inventory, AI docs, NVRAM audit and XY-C1 Build/TRX/artifact. L2 is not verified until host regression and source checker actually pass on this SHA. L3 requires same-SHA Build, TRX and artifact upload PASS. Physical modem/WWAN L4 is NOT VERIFIED.
+- No local full checkout was available during recovery; remote source changes are made as one atomic Git tree/commit update to `main`. Do not claim a local source build unless actually run.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and query Actions for its exact head SHA.
-2. Inspect Ralink wireless configuration regression/source contract for checked `regspec_code` semantics; fix any causal failure atomically.
-3. Inspect XY-C1 Build/TRX/artifact for this production SHA and the prior VSFTPD/SYN-cookie changes; then continue an independent stability/security issue.
+1. Fetch live `main` and query Actions for its exact SHA; inspect the USB modem workflow's `modem_wan_start_policy` regression and `check_uqmi_private_credentials.py` source-order contract first.
+2. Fix any causal exact-head failure atomically on `main`; then inspect XY-C1 Build/TRX/artifact for the same SHA.
+3. Once validated, continue the next highest-priority independent whole-userland stability/security defect; do not re-audit completed SYN-cookie/MTK/HTTPD/WAN-selector slices.
 
 ## Mandatory handoff checkpoint
 
-The checkpoint is mandatory; a document edit is conditional.
-
-Every session MUST inspect the live repository before ending. Record only material exact-head Action transitions, new source commits, genuine unresolved failures, or a changed first action. Do not manufacture documentation churn or no-op commits.
-
-A relevant exact-head Action changing from PENDING to PASS/FAIL is checkpoint information. If all checkpoint facts and the first action remain accurate, explicitly conclude the check with no file change and no commit.
+The checkpoint is mandatory; a document edit is conditional. Record only material exact-head Action transitions, new source commits, genuine unresolved failures, or a changed first action. Do not manufacture documentation churn or no-op commits. If all checkpoint facts and the first action remain accurate, explicitly conclude with no file change and no commit.
 
 # Cross-session execution mandate
 

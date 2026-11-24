@@ -24,6 +24,8 @@ def main() -> None:
     modem = (RC / "usb_modem.c").read_text()
     modem_header = (RC / "modem_qmi_credentials_file.h").read_text()
     modem_test = (RC / "tests/modem_qmi_credentials_file.c").read_text()
+    start_policy = (RC / "modem_wan_start_policy.h").read_text()
+    start_policy_test = (RC / "tests/modem_wan_start_policy.c").read_text()
     parser = (UQMI / "uqmi-private-credentials.c").read_text()
     parser_header = (UQMI / "uqmi-private-credentials.h").read_text()
     parser_test = (UQMI / "tests/private_credentials.c").read_text()
@@ -33,6 +35,18 @@ def main() -> None:
     uqmi_wds = (UQMI / "commands-wds.c").read_text()
     makefile = (UQMI / "Makefile").read_text()
     workflow = Path(".github/workflows/usb-modem-identity-stability.yml").read_text()
+
+    qmi_stop = body(modem, "qmi_control_network(const char *control_node, int is_start)")
+    pdh_cleanup = qmi_stop.index("cleanup_status = modem_qmi_handle_file_unlink_status(unlink_status, errno);")
+    release_gate = qmi_stop.index("if (!modem_qmi_client_id_release_allowed(cleanup_status))", pdh_cleanup)
+    release_return = qmi_stop.index("return 1;", release_gate)
+    cid_read = qmi_stop.index("qmi_client_id = get_qmi_handle(QMI_CLIENT_ID);", release_gate)
+    release_command = qmi_stop.index('"--release-client-id"', release_gate)
+    assert pdh_cleanup < release_gate < release_return < cid_read < release_command
+    assert "preserving WDS client ID for recovery" in qmi_stop[release_gate:release_return]
+    assert "modem_qmi_client_id_release_allowed(int packet_data_handle_cleanup_status)" in start_policy
+    assert "return packet_data_handle_cleanup_status == 0;" in start_policy
+    assert "test_qmi_client_id_release_waits_for_pdh_cleanup" in start_policy_test
 
     qmi_start = body(modem, "qmi_control_network_start(")
     assert "rc_wan_nvram_copy_snapshot(" in qmi_start
@@ -132,6 +146,8 @@ def main() -> None:
         "trunk/user/uqmi/Makefile",
         "trunk/user/rc/src/modem_qmi_credentials_file.h",
         "trunk/user/rc/src/tests/modem_qmi_credentials_file.c",
+        "trunk/user/rc/src/modem_wan_start_policy.h",
+        "trunk/user/rc/src/tests/modem_wan_start_policy.c",
         "trunk/user/rc/src/usb_modem.c",
         "scripts/check_uqmi_private_credentials.py",
     ):
@@ -144,7 +160,7 @@ def main() -> None:
             "scripts/check_uqmi_private_credentials.py",
         ) else workflow.count(path) >= 1, f"missing workflow path: {path}"
 
-    print("QMI private one-shot credentials and argv-confinement contract: PASS")
+    print("QMI credential isolation and WDS teardown ownership contracts: PASS")
 
 
 if __name__ == "__main__":

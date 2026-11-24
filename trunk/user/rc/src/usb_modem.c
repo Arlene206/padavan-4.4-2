@@ -1076,14 +1076,14 @@ qmi_control_network(const char *control_node, int is_start)
 	/* The network is stopped; remove its PDH marker but check the cleanup. */
 	unlink_status = unlink(QMI_HANDLE_PDH);
 	cleanup_status = modem_qmi_handle_file_unlink_status(unlink_status, errno);
-	if (cleanup_status != 0) {
+	if (!modem_qmi_client_id_release_allowed(cleanup_status)) {
 		logmessage(LOGNAME,
-			   "cannot remove stopped QMI packet-data handle (status=%d)",
+			   "cannot remove stopped QMI packet-data handle (status=%d); preserving WDS client ID for recovery",
 			   cleanup_status);
-		result = 1;
+		return 1;
 	}
 
-	/* Release the client ID only after stop-network has succeeded. */
+	/* Release the client ID only after stop-network and PDH cleanup succeed. */
 	errno = 0;
 	qmi_client_id = get_qmi_handle(QMI_CLIENT_ID);
 	if (qmi_client_id >= 0) {
