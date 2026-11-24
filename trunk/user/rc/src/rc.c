@@ -508,9 +508,14 @@ load_ipset_modules(void)
 static int
 set_timezone(void)
 {
+	int status, kernel_status;
+
 	time_zone_x_mapping();
-	setenv_tz();
-	return setkernel_tz();
+	status = setenv_tz();
+	kernel_status = setkernel_tz();
+	if (status == 0)
+		status = kernel_status;
+	return status;
 }
 
 static void
@@ -1330,7 +1335,7 @@ fail:
 #endif
 }
 
-void 
+int
 setenv_tz(void)
 {
 	char *time_zone = NULL;
@@ -1348,7 +1353,7 @@ setenv_tz(void)
 		logmessage(LOGNAME,
 			   "cannot update timezone environment because NVRAM read or value validation failed (status=%d)",
 			   status);
-		return;
+		return status;
 	}
 
 	/* setenv() copies the value, so a failed update preserves the old TZ. */
@@ -1357,7 +1362,9 @@ setenv_tz(void)
 		errno = status;
 		logmessage(LOGNAME,
 			   "cannot publish timezone environment (status=%d)", status);
+		return status;
 	}
+	return 0;
 }
 
 int

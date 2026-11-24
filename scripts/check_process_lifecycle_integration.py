@@ -1710,7 +1710,15 @@ assert "if (syscall_status != 0)" in timezone_policy
 assert "*cached_minuteswest = requested_minuteswest;" in timezone_policy
 assert "test_kernel_timezone_cache_changes_only_after_success();" in timezone_test
 
+timezone_env = c_function_body(rc_source, "setenv_tz(void)")
+assert "int\\nsetenv_tz(void)" in rc_source
+assert "return status;" in timezone_env
+assert "return 0;" in timezone_env
+assert "return status;" in kernel_timezone
 timezone_update = c_function_body(rc_source, "set_timezone(void)")
+assert "status = setenv_tz();" in timezone_update
+assert "kernel_status = setkernel_tz();" in timezone_update
+assert "if (status == 0)" in timezone_update
 assert "return setkernel_tz();" in timezone_update
 assert "return status;" in kernel_timezone
 boot_router = c_function_body(rc_source, "init_router(void)")

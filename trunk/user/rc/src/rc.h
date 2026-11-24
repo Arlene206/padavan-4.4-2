@@ -146,7 +146,7 @@
 struct disk_info_t;
 
 /* rc.c */
-void setenv_tz(void);
+int setenv_tz(void);
 int setkernel_tz(void);
 int init_router(void);
 void shutdown_router(int level);
