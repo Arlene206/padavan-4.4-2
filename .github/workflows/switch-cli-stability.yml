@@ -16,6 +16,8 @@ on:
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_private_ioctl_access_policy.h"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_mdio_ioctl_status_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_mdio_cl45_address_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_mdio_cl45_address_policy.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_mdio_ioctl_status_policy.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_lan_ip_ioctl_policy.h"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_esw_rate_ioctl_policy.h"
@@ -87,6 +89,8 @@ on:
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_private_ioctl_access_policy.h"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_mdio_ioctl_status_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_mdio_cl45_address_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_mdio_cl45_address_policy.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_mdio_ioctl_status_policy.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_lan_ip_ioctl_policy.h"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_esw_rate_ioctl_policy.h"
@@ -252,6 +256,45 @@ jobs:
           assert "ret = 1;" not in default
           assert "return ret;" in handler
           print("QDMA ioctl operation errors and unsupported commands reach userspace: PASS")
+          PY
+
+      - name: Compile and verify Clause 45 ioctl address bounds
+        run: |
+          set -eu
+          RAETH=trunk/linux-4.4.x/drivers/net/ethernet/raeth
+          cc -std=gnu89 -Wall -Wextra -Werror -g \
+            -fsanitize=address,undefined -fno-omit-frame-pointer \
+            "$RAETH/tests/raeth_mdio_cl45_address_policy.c" \
+            -o "$RUNNER_TEMP/raeth_mdio_cl45_address_policy"
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 \
+            "$RUNNER_TEMP/raeth_mdio_cl45_address_policy"
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path(
+              "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether.c"
+          ).read_text()
+
+          def case_body(start, end):
+              start_at = source.index(start)
+              end_at = source.index(end, start_at + len(start))
+              return " ".join(source[start_at + len(start):end_at].split())
+
+          cases = (
+              ("read", case_body(
+                  "case RAETH_MII_READ_CL45:", "case RAETH_MII_WRITE_CL45:"
+              ), "mii_mgr_read_cl45("),
+              ("write", case_body(
+                  "case RAETH_MII_WRITE_CL45:", "case RAETH_ESW_REG_READ:"
+              ), "mii_mgr_write_cl45("),
+          )
+          for name, body, operation in cases:
+              validate = body.index("raeth_mdio_cl45_address_status(")
+              reject = body.index("if (ret != 0)", validate)
+              transaction = body.index(operation, reject)
+              assert validate < reject < transaction, name
+          assert source.count("raeth_mdio_cl45_address_status(") == 2
+          print("Clause 45 user addresses are validated before MDIO transactions: PASS")
           PY
 
       - name: Compile and verify RAETH ESW raw register offset alignment

@@ -22,6 +22,7 @@
 #include "ra_desc_policy.h"
 #include "raeth_private_ioctl_access_policy.h"
 #include "raeth_mdio_ioctl_status_policy.h"
+#include "raeth_mdio_cl45_address_policy.h"
 #include "raeth_lan_ip_ioctl_policy.h"
 #include "raeth_esw_rate_ioctl_policy.h"
 #include "raeth_esw_reg_offset_policy.h"
@@ -3043,6 +3044,10 @@ int ei_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 			break;
 		}
 		spin_lock_irq(&ei_local->page_lock);
+		ret = raeth_mdio_cl45_address_status(
+			mii.port_num, mii.dev_addr, mii.reg_addr);
+		if (ret != 0)
+			break;
 		ret = raeth_mdio_ioctl_status(
 			mii_mgr_read_cl45(mii.port_num, mii.dev_addr, mii.reg_addr,
 					  &mii.val_out));
@@ -3064,6 +3069,10 @@ int ei_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 			break;
 		}
 		spin_lock_irq(&ei_local->page_lock);
+		ret = raeth_mdio_cl45_address_status(
+			mii.port_num, mii.dev_addr, mii.reg_addr);
+		if (ret != 0)
+			break;
 		ret = raeth_mdio_ioctl_status(
 			mii_mgr_write_cl45(mii.port_num, mii.dev_addr, mii.reg_addr,
 					   mii.val_in));
