@@ -431,7 +431,7 @@ nvram() {
         "get hosts_ad") printf '1\n' ;;
         "get block_ios") printf '1\n' ;;
         "get block_douyin") printf '1\n' ;;
-        "get sdns_staticnum_x") printf '0\n' ;;
+        "get_checked sdns_staticnum_x"|"get sdns_staticnum_x") printf '0\n' ;;
         "set adbyby_add=0")
             [ "$NVRAM_SET_STATUS" -eq 0 ] || return "$NVRAM_SET_STATUS"
             NVRAM_ADDBYBY_VALUE=0
@@ -612,7 +612,7 @@ sdns_white=0
 sdns_black=0
 sdnse_enable=0
 chn_Route="$T/absent-route"
-nvram get sdns_staticnum_x >/dev/null 2>&1
+smartdns_nvram_read_checked sdns_staticnum_x >/dev/null
 Get_sdns_conf || fail "SmartDNS runtime config generation failed"
 grep -Fxq 'conf-file /tmp/anti-ad-for-smartdns.conf' "$smartdns_tmp_Conf" ||
     fail "SmartDNS adblock config input was not emitted"
