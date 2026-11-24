@@ -1,3 +1,11 @@
+## 2026-11-24 — Make source-contract extractors declaration-aware
+
+- Exact be691b89477fefaa2e0fc42606b9bf8ba4650528 udhcpc run #45464184832: GNU89 ASan/UBSan policy binary PASS; Python checker failed because it expected a standalone test invocation ending with semicolon, while the test is correctly called in main's nonzero-return condition. Assertion aligned to the real call form.
+- Exact 8e3c3ba6702c2fe7a1a28ca3016a22611aad0b7a libdisk run #45463559390: both GNU89 ASan/UBSan host binaries PASS; Python checker matched a forward declaration for disk_share_account_metadata_status_at() and extracted the next unrelated body. The generic extractor now skips prototypes/call sites and has a synthetic prototype/unrelated-function regression.
+- Exact be691 XY-C1 #45464184736 and 8e3c3 XY-C1 #45463559354 were still IN_PROGRESS at the last poll; continue independent work while they run. be691 AI handoff #45464184981 PASS. Fresh exact-head checker runs are required.
+
+---
+
 ## 2026-11-24 — Fail closed when the udhcpc ARP preflight cannot run
 
 - Audited the DHCP client address-conflict path. arpping() documented a tri-state result but collapsed setsockopt, sendto, poll and read failures into rv=1 (“no conflict”). dhcpc.c treated every nonzero result as a clear address and could commit a DHCPACK even when the probe failed.

@@ -20,53 +20,78 @@ SAMBA_SOURCE = (ROOT / "trunk/user/rc/src/services_stor.c").read_text()
 
 
 def function_body(source, signature):
-    start = source.index(signature)
-    opening = source.index("{", start)
-    depth = 0
-    state = "code"
-    quote = ""
-    index = opening
-    while index < len(source):
-        char = source[index]
-        next_char = source[index + 1] if index + 1 < len(source) else ""
-        if state == "code":
-            if char == "/" and next_char == "*":
-                state = "block_comment"
-                index += 2
-                continue
-            if char == "/" and next_char == "/":
-                state = "line_comment"
-                index += 2
-                continue
-            if char in ("'", '"'):
-                state = "quoted"
-                quote = char
-            elif char == "{":
-                depth += 1
-            elif char == "}":
-                depth -= 1
-                if depth == 0:
-                    return source[opening + 1:index]
-        elif state == "quoted":
-            if char == "\\":
-                index += 2
-                continue
-            if char == quote:
-                state = "code"
-        elif state == "block_comment":
-            if char == "*" and next_char == "/":
-                state = "code"
-                index += 2
-                continue
-        elif state == "line_comment" and char == "\n":
-            state = "code"
-        index += 1
-    raise AssertionError("unterminated function: " + signature)
+    """Extract a function definition, skipping earlier calls and prototypes."""
+    search_from = 0
+    while True:
+        start = source.find(signature, search_from)
+        if start < 0:
+            raise AssertionError("function definition not found: " + signature)
+        opening = source.find("{", start)
+        semicolon = source.find(";", start)
+        if opening < 0:
+            raise AssertionError("function body not found: " + signature)
+        if semicolon >= 0 and semicolon < opening:
+            search_from = semicolon + 1
+            continue
 
+        depth = 0
+        state = "code"
+        quote = ""
+        index = opening
+        while index < len(source):
+            char = source[index]
+            next_char = source[index + 1] if index + 1 < len(source) else ""
+            if state == "code":
+                if char == "/" and next_char == "*":
+                    state = "block_comment"
+                    index += 2
+                    continue
+                if char == "/" and next_char == "/":
+                    state = "line_comment"
+                    index += 2
+                    continue
+                if char in ("'", '"'):
+                    state = "quoted"
+                    quote = char
+                elif char == "{":
+                    depth += 1
+                elif char == "}":
+                    depth -= 1
+                    if depth == 0:
+                        return source[opening + 1:index]
+            elif state == "quoted":
+                if char == "\\":
+                    index += 2
+                    continue
+                if char == quote:
+                    state = "code"
+            elif state == "block_comment":
+                if char == "*" and next_char == "/":
+                    state = "code"
+                    index += 2
+                    continue
+            elif state == "line_comment" and char == "\n":
+                state = "code"
+            index += 1
+        raise AssertionError("unterminated function: " + signature)
 
 def require(condition, message):
     if not condition:
         raise SystemExit("libdisk share-list contract: FAIL: " + message)
+
+
+# Regression: a prototype and unrelated definition must not satisfy a
+# source contract for the later implementation.
+_function_definition_fixture = (
+    "static int fixture(int value);\\n"
+    "static int unrelated(void) { return -1; }\\n"
+    "static int fixture(int value) { return value; }"
+)
+_fixture_body = function_body(
+    _function_definition_fixture, "static int fixture(int value)"
+)
+require("return value;" in _fixture_body and "return -1;" not in _fixture_body,
+        "function extractor must skip prototypes and unrelated function bodies")
 
 
 require('#include "disk_share_list_policy.h"' in DISK_SOURCE,

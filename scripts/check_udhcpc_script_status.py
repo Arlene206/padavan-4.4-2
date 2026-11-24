@@ -132,7 +132,7 @@ assert "udhcpc_script_failure_prepare_retry(state == REQUESTING" in arp_conflict
 assert arp_conflict.index("udhcpc_arp_probe_failed(arp_probe_status)") < arp_conflict.index("if (arp_probe_status == 0)") < arp_conflict.index("send_decline(server_addr, packet.yiaddr)")
 assert "udhcpc_arp_probe_failed(int probe_status)" in policy
 assert "test_arp_probe_errors_do_not_publish_a_dhcp_lease" in test
-assert "test_arp_probe_errors_do_not_publish_a_dhcp_lease();" in test
+assert "test_arp_probe_errors_do_not_publish_a_dhcp_lease() != 0" in test
 
 assert "decline_status = send_decline(server_addr, packet.yiaddr);" in arp_conflict
 assert "udhcpc_packet_send_failed(decline_status)" in arp_conflict
