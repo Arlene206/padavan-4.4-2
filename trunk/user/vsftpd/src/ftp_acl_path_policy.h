@@ -62,7 +62,6 @@ ftp_acl_path_resolve_parent(const char *path, char *parent,
  * direct FTP file commands.
  */
 static int
-static int
 ftp_acl_path_is_internal_metadata(const char *path)
 {
   const char *base, *component, *end;
@@ -717,13 +716,6 @@ ftp_acl_path_open_upload_entry(int dir_fd, const char *leaf, int exclusive,
   return file_fd;
 }
 
-/*
- * This prevents cleanup from deleting a different inode that was already
- * installed at the upload leaf before the identity check. Linux 4.4 has no
- * unlink-by-file-descriptor operation, so the final fstatat()/unlinkat()
- * name pair remains best-effort against concurrent writers in the same dir.
- */
-static int
 /*
  * Linux has no unlink-by-file-descriptor or conditional unlinkat operation.
  * Move the leaf atomically into an effective-UID-owned 0700 directory first;

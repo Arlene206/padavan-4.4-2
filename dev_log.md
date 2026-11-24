@@ -1,3 +1,12 @@
+## 2026-11-25 01:34 CST — Fix duplicate declaration left by quarantine-helper replacement
+
+- Exact parent `d01e302d2d22365bf1f828b4708dd6fb22ac5234`, VSFTPD run #45485007449 failed during GNU89 `-Wall -Wextra -Werror` compilation before executing the ACL regression. The cause was mechanical: replacing functions starting at the function name left the original preceding `static int` declaration in place, producing duplicate declaration specifiers for the metadata predicate and the new quarantine-directory helper. No runtime assertion was reached.
+- Removed the redundant declaration and obsolete best-effort TOCTOU comment. The quarantine implementation remains unchanged; this is a compile-only correction, and a new exact-head workflow must verify the actual binary and Python contracts.
+- Parent a35ae98 process inventory / XY-C1 workflows were pending at last poll; AI handoff #45484687791 passed. Earlier f5b01d9 storage-hotplug #45484032665 and XY-C1 #45484032783 passed for that exact SHA.
+- No local compile or device test is claimed. Hardware L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-25 01:28 CST — Close the VSFTPD failed-upload unlink race with quarantine rename
 
 - Parent main SHA: `a35ae98adefb4d90e6deba8ade947c90e348c5d9`. The previous `ftp_acl_path_unlink_opened_entry()` compared the upload descriptor to `fstatat(parent_fd, leaf)` and then unlinked that public name; a concurrent replacement between those syscalls could make cleanup delete another writer's file.
