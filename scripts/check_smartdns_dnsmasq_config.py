@@ -5,6 +5,7 @@ import re
 root = Path(__file__).resolve().parents[1]
 helper = (root / "trunk/user/smartdns/smartdns_dnsmasq_config.sh").read_text()
 smartdns = (root / "trunk/user/smartdns/smartdns.sh").read_text()
+enable_test = (root / "trunk/user/smartdns/tests/smartdns_enable_selector.sh").read_text()
 autostart = (root / "trunk/user/scripts/files/usr/bin/autostart.sh").read_text()
 makefile = (root / "trunk/user/smartdns/Makefile").read_text()
 test = (root / "trunk/user/smartdns/tests/dnsmasq_config_preservation.sh").read_text()
@@ -70,6 +71,20 @@ assert 'if (bad || inside || (seen_begin != seen_end)) print "invalid"' in block
 assert 'exit 2' not in block
 assert "managed-v1" in saved and "legacy" in saved and "smartdns_dnsmasq_remove_managed_block" in saved
 assert "sed " not in helper and "eval " not in helper
+
+enable_validator = body(smartdns, "smartdns_validate_enable_selector")
+assert '[ "$#" -eq 1 ] || return 2' in enable_validator
+assert "''|0|1)" in enable_validator
+assert 'Invalid sdns_enable selector; refusing to change service state' in enable_validator
+assert 'return 22' in enable_validator
+enable_preflight = smartdns.split("sdns_enable=$smartdns_nvram_value", 1)[1].split("sdns_name=", 1)[0]
+assert 'case "$action" in' in enable_preflight
+assert 'start|restart|reset)' in enable_preflight
+assert 'smartdns_validate_enable_selector "$sdns_enable" || exit $?' in enable_preflight
+assert 'stop)' not in enable_preflight
+assert 'value=1' in (root / "trunk/user/www/n56u_ribbon_fixed/Advanced_smartdns.asp").read_text()
+assert 'value=0' in (root / "trunk/user/www/n56u_ribbon_fixed/Advanced_smartdns.asp").read_text()
+assert "SmartDNS binary enable selector validation: PASS" in enable_test
 
 read = body(smartdns, "Read_ini")
 assert '[ -L "$smartdns_Ini" ]' in read
@@ -157,6 +172,7 @@ paths = (
     "trunk/user/smartdns/smartdns_config_file.sh",
     "trunk/user/smartdns/smartdns_lifecycle_lock.sh",
     "trunk/user/smartdns/tests/smartdns_lifecycle_lock.sh",
+    "trunk/user/smartdns/tests/smartdns_enable_selector.sh",
     "trunk/user/rc/src/services.c",
     "trunk/user/smartdns/tests/smartdns_config_file.sh",
     "trunk/user/smartdns/tests/dnsmasq_config_preservation.sh",

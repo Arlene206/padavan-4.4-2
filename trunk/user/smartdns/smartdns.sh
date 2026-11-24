@@ -50,10 +50,31 @@ smartdns_nvram_read_checked()
     return 0
 }
 
+# sdns_enable is a binary UI selector. An unexpected value must not be
+# treated as "disabled" by restart, which would stop a healthy SmartDNS daemon.
+smartdns_validate_enable_selector()
+{
+    [ "$#" -eq 1 ] || return 2
+    case "$1" in
+        ''|0|1)
+            return 0
+            ;;
+        *)
+            logger -t "SmartDNS" "Invalid sdns_enable selector; refusing to change service state"
+            return 22
+            ;;
+    esac
+}
+
 chn_Route="$storage_Path/chinadns/chnroute.txt"
 
 smartdns_nvram_read_checked sdns_enable || exit $?
 sdns_enable=$smartdns_nvram_value
+case "$action" in
+    start|restart|reset)
+        smartdns_validate_enable_selector "$sdns_enable" || exit $?
+        ;;
+esac
 sdns_name=$(nvram get sdns_name)
 smartdns_nvram_read_checked sdns_port || exit $?
 sdns_port=$smartdns_nvram_value

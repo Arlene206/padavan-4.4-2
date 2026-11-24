@@ -62,6 +62,7 @@ on:
       - "trunk/user/smartdns/smartdns_config_file.sh"
       - "trunk/user/smartdns/smartdns_lifecycle_lock.sh"
       - "trunk/user/smartdns/tests/smartdns_lifecycle_lock.sh"
+      - "trunk/user/smartdns/tests/smartdns_enable_selector.sh"
       - "trunk/user/smartdns/tests/smartdns_config_file.sh"
       - "trunk/user/smartdns/tests/dnsmasq_config_preservation.sh"
       - "trunk/user/smartdns/Makefile"
@@ -128,6 +129,7 @@ on:
       - "trunk/user/smartdns/smartdns_config_file.sh"
       - "trunk/user/smartdns/smartdns_lifecycle_lock.sh"
       - "trunk/user/smartdns/tests/smartdns_lifecycle_lock.sh"
+      - "trunk/user/smartdns/tests/smartdns_enable_selector.sh"
       - "trunk/user/smartdns/tests/smartdns_config_file.sh"
       - "trunk/user/smartdns/tests/dnsmasq_config_preservation.sh"
       - "trunk/user/smartdns/Makefile"
@@ -155,6 +157,8 @@ jobs:
           sh trunk/user/smartdns/tests/smartdns_config_file.sh
           sh -n trunk/user/smartdns/tests/smartdns_lifecycle_lock.sh
           sh trunk/user/smartdns/tests/smartdns_lifecycle_lock.sh
+          sh -n trunk/user/smartdns/tests/smartdns_enable_selector.sh
+          sh trunk/user/smartdns/tests/smartdns_enable_selector.sh
           python3 scripts/check_smartdns_dnsmasq_config.py
       - name: Compile and run DNSMasq staged-file cleanup regression
         run: |
