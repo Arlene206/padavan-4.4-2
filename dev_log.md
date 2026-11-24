@@ -1,3 +1,11 @@
+## 2026-11-25 — Normalize the udhcpc retry-helper return contract
+
+- Exact main SHA `0db869b438d344406375dde71ee8b1764b047272`, udhcpc run #45476513525: the GNU89 -Werror ASan/UBSan policy binary compiled and passed; the Python source contract failed at its retry-helper return assertion. The checker compares `policy_compact`, which removes all whitespace, but the expected token still contained a space after `return`.
+- THIS COMMIT changes that one checker expectation to the compact spelling `returnudhcpc_retry_delay(retry_timeout);`. It does not change DHCP production behavior or relax the state/order assertions.
+- Parent AI handoff run #45476513417 PASS. Exact-head udhcpc and any triggered source/firmware checks for THIS COMMIT are pending; no local test was run because this session has no repository checkout. L3 remains limited to the earlier verified production SHA `80f1bfccd255536a0a2682c7d046f0216038a922`; hardware L4 is not verified.
+
+---
+
 ## 2026-11-25 — Correct shared retry-delay checker whitespace normalization
 
 - Exact 36a10c0e5844daf31b3cc483c20d9e25a798ef6b udhcpc workflow #45476128312 compiled and ran the GNU89 ASan/UBSan C regression successfully, then failed its Python source checker on a typo in the new compact-source assertion: whitespace normalization removes the space after the C return keyword.

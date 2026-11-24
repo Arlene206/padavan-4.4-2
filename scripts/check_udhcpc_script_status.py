@@ -233,7 +233,7 @@ assert "returnretry_timeout>0?retry_timeout:1;" in policy_compact
 assert "udhcpc_retry_delay(retry_timeout)" in "".join(scheduler.split())
 assert "timeout=udhcpc_retry_delay(tryagain_timeout);" in "".join(pending_body.split())
 assert "intretry_delay=udhcpc_retry_delay(tryagain_timeout);" in "".join(exit_cleanup.split())
-assert "return udhcpc_retry_delay(retry_timeout);" in policy_compact
+assert "returnudhcpc_retry_delay(retry_timeout);" in policy_compact
 assert "test_cleanup_retry_delay_has_one_second_floor" in test
 assert "test_cleanup_retry_delay_has_one_second_floor()!=0" in test_compact
 
