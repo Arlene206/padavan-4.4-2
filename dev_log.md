@@ -1,3 +1,12 @@
+## 2026-11-24 15:18 UTC+8 — Isolate FRP crontab transaction test from host procfs
+
+- FRP exact run #45341607742 on `5687c609137bbba09c707896dd95216c3df9e961` progressed past the corrected process-exit fixtures: both FRP watchdog/async lifecycle cases printed PASS. The later crontab test still failed at `frp_start()` before it could assert preservation/publication.
+- Root cause in test setup: `frp_crontab.sh` overrides `frp_wait_started()` but leaves `FRP_PROC_ROOT=/proc`; `frp_start()` always runs `frp_stop_daemons()` first. The fail-closed scanner intentionally returns UNKNOWN if any visible candidate's `/proc/PID/exe` cannot be read. A host-only crontab transaction test must not depend on the GitHub runner's cross-user procfs visibility. It now points `FRP_PROC_ROOT` at an empty temporary directory; the separate lifecycle test retains real fake-process coverage. The FRP source policy is unchanged.
+- `check_frp_lifecycle.py` now pins the empty temporary procfs fixture so future test edits cannot silently reintroduce this host-dependent precondition.
+- Exact parent `257ac6399c4c7e8ec3b518f8f8438532d0821c33` has Inadyn #45342407697, DNSMasq #45342407692, WAN route #45342407753 and AI docs #45342407729 all IN_PROGRESS at last poll. Parent FRP test failure remains #45341607742; parent Process inventory #45341607727 and AI docs #45341607707 PASS.
+- Parent main: `257ac6399c4c7e8ec3b518f8f8438532d0821c33`. This atomic commit only changes FRP host-test isolation and source-contract coverage.
+
+---
 ## 2026-11-24 15:05 UTC+8 — Align dependent contracts with executable-filtered Inadyn inventory
 
 - On exact SHA `79c5389fe33326d85cc23e9856f39e5ca0ac242f`, Inadyn run #45341769924 failed only in its Python source checker after the GNU89 ASan/UBSan policy executables passed. `body()` found the forward declaration of `inadyn_validate_identity()` and accidentally extracted a later function; it now skips declarations until it reaches a definition.

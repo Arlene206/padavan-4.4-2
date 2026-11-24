@@ -1,24 +1,29 @@
 ## Current repository state
 
-- Live parent `main`: `79c5389fe33326d85cc23e9856f39e5ca0ac242f`; the next commit is a source-contract correction for the executable-bound Inadyn inventory. Re-fetch main and compare before any write.
+- Live parent `main`: `257ac6399c4c7e8ec3b518f8f8438532d0821c33`; this commit isolates the FRP crontab transaction regression from host `/proc`. Re-fetch and compare main before any further write.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Inadyn executable-bound stop/reload/manual-update source is in `79c5389fe33326d85cc23e9856f39e5ca0ac242f`: generic comm/argv/start_time identity plus exact `/proc/PID/exe == /bin/inadyn` (or exact ` (deleted)` suffix), filtered snapshots, bounded shared stop lifecycle; unknown procfs access blocks signals.
-- This follow-up fixes the dependent Inadyn source-checker's C function-body extractor so forward declarations cannot redirect it into an unrelated function, and aligns the DNSMasq and WAN DDNS checker assertions with `inadyn_process_inventory_scan()`.
-- FRP process inventory/stop hardening is in `fa3dd0012cea550b339d01df4ff6ec97d0fdc00a`; test-fixture exit semantics are corrected in `5687c609137bbba09c707896dd95216c3df9e961` (full fake PID dir removed on simulated process exit; metadata-loss tests preserve PID dir and exe). FRP crontab still has a pending root-cause fix described below.
+- Inadyn executable-bound stop/reload/manual-update implementation is in `79c5389fe33326d85cc23e9856f39e5ca0ac242f`; its dependent source-contract follow-up is `257ac6399c4c7e8ec3b518f8f8438532d0821c33`.
+- FRP process-inventory tri-state hardening is in `fa3dd0012cea550b339d01df4ff6ec97d0fdc00a`; test fixture correction is in `5687c609137bbba09c707896dd95216c3df9e961`. This commit fixes the next distinct FRP regression failure.
+
+## Active slice: FRP crontab test isolation
+
+- FRP run #45341607742 on `5687c609` showed `frp_lifecycle.sh` async/readiness and watchdog identity cases PASS, then `frp_crontab.sh` failed: `start rejected a valid crontab`.
+- `frp_crontab.sh` replaces `frp_wait_started()` but had not replaced the default `FRP_PROC_ROOT=/proc`. Since `frp_start()` correctly calls `frp_stop_daemons()` before launch, the cron-only test depended on host procfs readability; the production scanner fails closed on unreadable candidate identities.
+- This test-only commit uses an empty `$test_root/proc` and requires the source checker to pin that fixture. FRP process scan/stop behavior remains covered by the independent synthetic-process lifecycle/stop tests.
 
 ## Verification boundary
 
-- Exact `79c5389` PASS: Process inventory #45341769713; Process fail-closed #45341769769; HTTPD #45341769686; AI docs #45341769695; WAN DHCP #45341769830; miniupnpd #45341769855; Samba #45341769858; NVRAM audit #45341769831.
-- Exact `79c5389` FAIL: Inadyn #45341769924 was a source-checker parser bug (C policy test compile/run steps passed; Python checker selected a forward declaration). DNSMasq #45341769848 and WAN route #45341769689 contained stale raw-scan assertions; corrected in this commit. No production regression was reported by those three failures.
-- XY-C1 #45341769654 had all preceding host/policy checks pass and was in `Build XY-C1`; TRX and artifact upload still pending at last poll. No same-SHA L3 result is claimed.
-- Exact FRP `5687c609` actions: Process inventory #45341607727 PASS; AI docs #45341607707 PASS; FRP #45341607742 FAIL at `frp_crontab.sh` with `start rejected a valid crontab`. The FRP asynchronous startup and proc-lifecycle subtests in `frp_lifecycle.sh` printed PASS. `frp_crontab.sh` currently leaves `FRP_PROC_ROOT` pointed at live `/proc`; inspect whether host procfs visibility makes its preliminary `frp_stop_daemons()` check UNKNOWN, then isolate with a fixture root if that is confirmed. Do not assume a root cause.
-- No MIPS firmware/TRX/artifact result or physical-router L4 result is claimed. Linux 4.4 lacks pidfd; the final procfs-identity-validation-to-kill race remains a platform limitation.
+- Exact `79c5389`: Process inventory #45341769713 PASS; Process fail-closed #45341769769 PASS; HTTPD #45341769686 PASS; AI docs #45341769695 PASS; WAN DHCP #45341769830 PASS; miniupnpd #45341769855 PASS; Samba #45341769858 PASS; NVRAM audit #45341769831 PASS. Inadyn #45341769924 failed on a checker function extractor bug; DNSMasq #45341769848 and WAN route #45341769689 failed on stale raw-inventory assertions. These three contract failures were corrected in `257ac639`.
+- Exact `257ac639`: Inadyn #45342407697, DNSMasq #45342407692, WAN route #45342407753 and AI docs #45342407729 were IN_PROGRESS at last poll. Recheck exact completion before claiming PASS.
+- XY-C1 #45341769654 on `79c5389` had all preceding host validation steps pass and the firmware Build step still IN_PROGRESS; TRX and artifact upload had not completed. No L3 claim is made.
+- Exact FRP #45341607742 on `5687c609` FAILED at the crontab test because its fixture used live `/proc`; the async lifecycle test passed. This commit isolates that test from host procfs. Exact FRP rerun required.
+- No MIPS/TRX/artifact completion or hardware L4 is claimed. Linux 4.4 lacks pidfd; validation-to-signal races remain a documented platform limitation.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-SHA Inadyn #, DNSMasq, WAN route, Process, AI docs and XY-C1 actions for this source-contract correction; fix any new failure. For firmware, verify Build + TRX + artifact all pass on one exact SHA.
-2. Fix the FRP `frp_crontab.sh` test failure at `start rejected a valid crontab`: trace `frp_start()` → `frp_stop_daemons()` and its `/proc` scan, reproduce with an isolated proc root, then update the host fixture or production code according to evidence.
-3. Continue the next independent P1 stability/security issue once the FRP and Inadyn workflows are green; preserve the backup and use one full Git tree + one atomic main commit with expected-SHA non-forced update.
+1. Check exact FRP, Inadyn, DNSMasq, WAN route, Process, AI docs and XY-C1 Actions on this commit; fix any first failure. Claim firmware L3 only if Build, TRX and upload all pass for one SHA.
+2. If FRP crontab passes, continue a P1 source stability/security fix outside the completed process-identity slices; if it fails, use its exact log to fix the actual regression rather than changing the fail-closed scan.
+3. Keep the backup immutable and all main writes complete-tree atomic with expected-SHA non-forced ref updates.
 
 # Cross-session execution mandate
 

@@ -21,9 +21,12 @@ logger() { :; }
 set -- __test_source__
 . "$repo_root/trunk/user/frp/frp.sh" __test_source__
 
+# Keep this cron-transaction test independent of the CI runner's procfs visibility.
+# Daemon identity and stop behavior have dedicated fixtures in frp_lifecycle.sh.
+FRP_PROC_ROOT="$test_root/proc"
 FRP_CRON_ROOT="$test_root/cron"
 FRP_CRONTAB_DIR="$FRP_CRON_ROOT/crontabs"
-mkdir -p "$FRP_CRONTAB_DIR"
+mkdir -p "$FRP_CRONTAB_DIR" "$FRP_PROC_ROOT"
 http_username=root
 # Verify the production runner never follows a substituted FRP script path.
 FRP_SCRIPT_PATH="$test_root/frp-script.sh"

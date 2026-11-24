@@ -143,7 +143,9 @@ for marker in ("frp_start", "frp_close", "operator", "path-traversal",
                "FRP script runner rejects symlink and non-regular targets: PASS",
                "failed start script", "overlong username", "Removing a missing watchdog",
                "disabled start executed the custom FRP script",
-               "server-only start did not invoke the custom script once"):
+               "server-only start did not invoke the custom script once",
+               'FRP_PROC_ROOT="$test_root/proc"',
+               'mkdir -p "$FRP_CRONTAB_DIR" "$FRP_PROC_ROOT"'):
     require(marker in cron_test, f"FRP managed crontab regression omits {marker}")
 
 
