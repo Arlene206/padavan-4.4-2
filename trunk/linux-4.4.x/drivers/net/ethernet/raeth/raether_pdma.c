@@ -162,16 +162,26 @@ void fe_pdma_rx_dma_deinit(struct net_device *dev)
 	struct END_DEVICE *ei_local = netdev_priv(dev);
 	int i;
 
-	/* free RX Ring */
-	dma_free_coherent(dev->dev.parent,
-			  num_rx_desc * sizeof(struct PDMA_rxdesc),
-			  ei_local->rx_ring[0], ei_local->phy_rx_ring[0]);
-
-	/* free RX data */
+	/*
+	 * RX buffers remain DMA-mapped while owned by the hardware. Unmap each
+	 * descriptor before freeing its backing buffer or the coherent ring.
+	 */
 	for (i = 0; i < num_rx_desc; i++) {
-		raeth_free_skb_data(ei_local->netrx_skb_data[0][i]);
-		ei_local->netrx_skb_data[0][i] = NULL;
+		if (ei_local->netrx_skb_data[0][i]) {
+			if (ei_local->rx_ring[0])
+				dma_unmap_single(dev->dev.parent,
+						ei_local->rx_ring[0][i].rxd_info1.PDP0,
+						MAX_RX_LENGTH, DMA_FROM_DEVICE);
+			raeth_free_skb_data(ei_local->netrx_skb_data[0][i]);
+			ei_local->netrx_skb_data[0][i] = NULL;
+		}
 	}
+
+	if (ei_local->rx_ring[0])
+		dma_free_coherent(dev->dev.parent,
+				  num_rx_desc * sizeof(struct PDMA_rxdesc),
+				  ei_local->rx_ring[0], ei_local->phy_rx_ring[0]);
+	ei_local->rx_ring[0] = NULL;
 }
 
 void fe_pdma_tx_dma_deinit(struct net_device *dev)

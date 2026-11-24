@@ -51,3 +51,13 @@ assert "for (j = 0; j < num_rx_desc; j++)" not in body[free_skb:free_ring]
 assert "if (ei_local->rx_ring[0])" in body[free_ring:null_ring]
 assert "ei_local->netrx_skb_data[0][j] = NULL;" in body[free_skb:free_ring]
 print("PDMA RX partial-allocation rollback and DMA-unmap ordering: PASS")
+
+teardown = function_body(SOURCE, "void fe_pdma_rx_dma_deinit(")
+unmap_at = teardown.index("dma_unmap_single(")
+free_data_at = teardown.index("raeth_free_skb_data(")
+free_ring_at = teardown.index("dma_free_coherent(")
+assert unmap_at < free_data_at < free_ring_at
+assert "if (ei_local->rx_ring[0])" in teardown[unmap_at:free_data_at]
+assert "ei_local->netrx_skb_data[0][i] = NULL;" in teardown[free_data_at:free_ring_at]
+assert "ei_local->rx_ring[0] = NULL;" in teardown[free_ring_at:]
+print("PDMA RX teardown unmaps each live descriptor before releasing its buffer: PASS")
