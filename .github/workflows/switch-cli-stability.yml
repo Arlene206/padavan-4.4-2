@@ -335,6 +335,14 @@ jobs:
           source = Path(
               "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mii_mgr.c"
           ).read_text()
+          policy = Path(
+              "trunk/linux-4.4.x/drivers/net/ethernet/raeth/"
+              "mii_mgr_phy_address_policy.h"
+          ).read_text()
+          test = Path(
+              "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/"
+              "mii_mgr_phy_address_policy.c"
+          ).read_text()
 
           read = source.split("u32 mii_mgr_read(u32 phy_addr", 1)[1].split(
               "EXPORT_SYMBOL(mii_mgr_read)", 1
@@ -346,14 +354,27 @@ jobs:
               ("read", read, "mii_mgr_indirect_read(", "return __mii_mgr_read("),
               ("write", write, "mii_mgr_indirect_write(", "return __mii_mgr_write("),
           ):
-              guard = body.index(
-                  "if (mii_mgr_phy_address_status(phy_addr) != 0)"
+              address_guard = body.index(
+                  "if (mii_mgr_phy_address_status(phy_addr) != 0 ||"
               )
-              indirect_call = body.index(indirect, guard)
-              direct_call = body.index(direct, guard)
-              assert guard < indirect_call < direct_call, name
+              register_guard = body.index(
+                  "mii_mgr_phy_register_status(phy_register) != 0",
+                  address_guard,
+              )
+              indirect_call = body.index(indirect, register_guard)
+              direct_call = body.index(direct, register_guard)
+              assert address_guard < register_guard < indirect_call < direct_call, name
+          write_guard = write.index("mii_mgr_phy_write_data_status(write_data) != 0")
+          assert write_guard < write.index("mii_mgr_indirect_write(", write_guard)
+          assert write_guard < write.index("return __mii_mgr_write(", write_guard)
           assert source.count("mii_mgr_phy_address_status(phy_addr)") == 2
-          print("MDIO PHY addresses are validated before direct or indirect transactions: PASS")
+          assert source.count("mii_mgr_phy_register_status(phy_register)") == 2
+          assert source.count("mii_mgr_phy_write_data_status(write_data)") == 1
+          assert "RAETH_MII_PHY_REGISTER_MAX 31U" in policy
+          assert "RAETH_MII_PHY_WRITE_DATA_MAX 0xffffU" in policy
+          assert "test_five_bit_clause22_register_boundaries" in test
+          assert "test_sixteen_bit_clause22_write_data_boundaries" in test
+          print("MDIO Clause 22 address/register/data operands are validated before direct or indirect transactions: PASS")
           PY
 
       - name: Compile and verify Clause 45 ioctl address bounds

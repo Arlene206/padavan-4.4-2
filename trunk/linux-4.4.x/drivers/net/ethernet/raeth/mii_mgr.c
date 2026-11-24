@@ -185,10 +185,10 @@ u32 mii_mgr_read(u32 phy_addr, u32 phy_register, u32 *read_data)
 	*read_data = 0;
 	if (!dev_raether)
 		return 0;
-	ei_local = netdev_priv(dev_raether);
-
-	if (mii_mgr_phy_address_status(phy_addr) != 0)
+	if (mii_mgr_phy_address_status(phy_addr) != 0 ||
+	    mii_mgr_phy_register_status(phy_register) != 0)
 		return 0;
+	ei_local = netdev_priv(dev_raether);
 
 	if ((ei_local->architecture &
 	     (GE1_RGMII_FORCE_1000 | GE1_TRGMII_FORCE_2000 |
@@ -221,10 +221,11 @@ u32 mii_mgr_write(u32 phy_addr, u32 phy_register, u32 write_data)
 
 	if (!dev_raether)
 		return 0;
-	ei_local = netdev_priv(dev_raether);
-
-	if (mii_mgr_phy_address_status(phy_addr) != 0)
+	if (mii_mgr_phy_address_status(phy_addr) != 0 ||
+	    mii_mgr_phy_register_status(phy_register) != 0 ||
+	    mii_mgr_phy_write_data_status(write_data) != 0)
 		return 0;
+	ei_local = netdev_priv(dev_raether);
 
 	if ((ei_local->architecture &
 	     (GE1_RGMII_FORCE_1000 | GE1_TRGMII_FORCE_2000 |
