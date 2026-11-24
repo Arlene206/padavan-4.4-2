@@ -45,6 +45,10 @@ int asus_cleanup_failed_upload(int parent_fd, const char* leaf, int file_fd);
 int asus_check_permission_open_directory(struct vsf_session* p_sess,
                                      const struct mystr* p_path_str,
                                      int directory_fd);
+int asus_open_cwd_directory(struct vsf_session* p_sess,
+                            const struct mystr* p_path_str,
+                            int* p_permission_denied);
+int asus_change_directory(int directory_fd);
 int asus_open_subdirectory_path(struct vsf_session* p_sess, int parent_fd,
                                 const struct mystr* p_parent_path_str,
                                 const struct mystr* p_leaf_str,

@@ -789,4 +789,48 @@ ftp_acl_path_remove_entry(int dir_fd, const char *leaf, int remove_directory)
   return unlinkat(dir_fd, leaf, remove_directory ? AT_REMOVEDIR : 0);
 }
 
+
+/*
+ * fchdir(O_PATH) is supported on Linux 3.5+. Older router kernels return
+ * EBADF; /proc/self/fd/N still resolves the already-pinned directory inode.
+ */
+static int
+ftp_acl_path_chdir_procfd(int directory_fd)
+{
+  struct stat st;
+  char fd_path[64];
+  int length;
+
+  if (directory_fd < 0)
+  {
+    errno = EBADF;
+    return -1;
+  }
+  if (fstat(directory_fd, &st) != 0)
+    return -1;
+  if (!S_ISDIR(st.st_mode))
+  {
+    errno = ENOTDIR;
+    return -1;
+  }
+  length = snprintf(fd_path, sizeof(fd_path), "/proc/self/fd/%d",
+                    directory_fd);
+  if (length < 0 || (size_t) length >= sizeof(fd_path))
+  {
+    errno = ENAMETOOLONG;
+    return -1;
+  }
+  return chdir(fd_path);
+}
+
+static int
+ftp_acl_path_chdir(int directory_fd)
+{
+  if (fchdir(directory_fd) == 0)
+    return 0;
+  if (errno != EBADF)
+    return -1;
+  return ftp_acl_path_chdir_procfd(directory_fd);
+}
+
 #endif /* FTP_ACL_PATH_POLICY_H */

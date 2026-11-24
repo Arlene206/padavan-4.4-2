@@ -420,6 +420,27 @@ jobs:
           make_directory_path = function_body(vsftpd_acl, "asus_make_directory_path(")
           rename_path = function_body(vsftpd_acl, "asus_rename_path(")
           open_subdirectory = function_body(vsftpd_acl, "asus_open_subdirectory_path(")
+          cwd_handler = function_body(vsftpd_postlogin, "static void\nhandle_cwd")
+          cwd_open = function_body(vsftpd_acl, "asus_open_cwd_directory(")
+          cwd_change = function_body(vsftpd_acl, "asus_change_directory(")
+          fd_chdir = function_body(acl_path_policy, "ftp_acl_path_chdir(")
+          procfd_chdir = function_body(acl_path_policy, "ftp_acl_path_chdir_procfd(")
+          assert "asus_open_cwd_directory(" in cwd_handler
+          assert "asus_change_directory(directory_fd)" in cwd_handler
+          assert "str_chdir(" not in cwd_handler
+          assert "permission_denied" in cwd_handler
+          assert "FTP_NOPERM" in cwd_handler
+          assert cwd_open.index("ftp_acl_path_open_verified_directory(resolved)") < cwd_open.index("asus_check_permission_open_directory(")
+          assert cwd_open.index("asus_check_permission_open_directory(") < cwd_open.index("return directory_fd;")
+          assert "ftp_acl_path_is_internal_metadata(" in cwd_open
+          assert "ftp_acl_path_chdir(directory_fd)" in cwd_change
+          assert cwd_change.index("ftp_acl_path_chdir(directory_fd)") < cwd_change.index("close(directory_fd)")
+          assert "fchdir(directory_fd)" in fd_chdir
+          assert "errno != EBADF" in fd_chdir
+          assert "fstat(directory_fd, &st)" in procfd_chdir
+          assert "chdir(fd_path)" in procfd_chdir
+          assert "ftp_acl_path_chdir_procfd(dir_fd)" in acl_path_test
+          assert "ftp_acl_path_chdir(dir_fd)" in acl_path_test
           open_list_directory = function_body(vsftpd_acl, "asus_check_permission_open_directory(")
           child_open = function_body(acl_path_policy, "ftp_acl_path_open_child_directory(")
           child_verify = function_body(acl_path_policy, "ftp_acl_path_verify_child_directory(")

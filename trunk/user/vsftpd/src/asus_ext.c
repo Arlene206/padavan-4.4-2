@@ -690,6 +690,62 @@ asus_check_permission_open_directory(struct vsf_session* p_sess,
 }
 
 int
+asus_open_cwd_directory(struct vsf_session* p_sess,
+                        const struct mystr* p_path_str,
+                        int* p_permission_denied)
+{
+  char resolved[PATH_MAX];
+  int directory_fd;
+
+  if (!p_path_str || !p_permission_denied)
+  {
+    errno = EINVAL;
+    return -1;
+  }
+  *p_permission_denied = 0;
+  if (ftp_acl_path_is_internal_metadata(str_getbuf(p_path_str)))
+  {
+    *p_permission_denied = 1;
+    errno = EACCES;
+    return -1;
+  }
+  if (ftp_acl_path_resolve_directory(str_getbuf(p_path_str), resolved,
+                                     sizeof(resolved)) != 0)
+    return -1;
+  directory_fd = ftp_acl_path_open_verified_directory(resolved);
+  if (directory_fd < 0)
+    return -1;
+  errno = 0;
+  if (!asus_check_permission_open_directory(p_sess, p_path_str,
+                                             directory_fd))
+  {
+    close(directory_fd);
+    *p_permission_denied = 1;
+    errno = EACCES;
+    return -1;
+  }
+  return directory_fd;
+}
+
+int
+asus_change_directory(int directory_fd)
+{
+  int retval;
+  int saved_errno;
+
+  if (directory_fd < 0)
+  {
+    errno = EBADF;
+    return -1;
+  }
+  retval = ftp_acl_path_chdir(directory_fd);
+  saved_errno = errno;
+  close(directory_fd);
+  errno = saved_errno;
+  return retval;
+}
+
+int
 asus_open_subdirectory_path(struct vsf_session* p_sess, int parent_fd,
                             const struct mystr* p_parent_path_str,
                             const struct mystr* p_leaf_str,

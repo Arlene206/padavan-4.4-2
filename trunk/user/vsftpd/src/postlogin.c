@@ -493,13 +493,25 @@ static void
 handle_cwd(struct vsf_session* p_sess)
 {
   int retval;
+  int permission_denied = 0;
+  int directory_fd;
   resolve_tilde(&p_sess->ftp_arg_str, p_sess);
   if (!vsf_access_check_file(&p_sess->ftp_arg_str))
   {
     vsf_cmdio_write(p_sess, FTP_NOPERM, "Permission denied.");
     return;
   }
-  retval = str_chdir(&p_sess->ftp_arg_str);
+  directory_fd = asus_open_cwd_directory(p_sess, &p_sess->ftp_arg_str,
+                                         &permission_denied);
+  if (directory_fd < 0)
+  {
+    if (permission_denied)
+      vsf_cmdio_write(p_sess, FTP_NOPERM, "Permission denied.");
+    else
+      vsf_cmdio_write(p_sess, FTP_FILEFAIL, "Failed to change directory.");
+    return;
+  }
+  retval = asus_change_directory(directory_fd);
   if (retval == 0)
   {
     /* Handle any messages */

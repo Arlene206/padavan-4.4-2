@@ -861,6 +861,28 @@ main(void)
     fprintf(stderr, "directory identity check accepted a real-directory substitute\n");
     return 1;
   }
+  {
+    struct stat pinned_directory, current_directory;
+
+    if (ftp_acl_path_chdir_procfd(dir_fd) != 0 ||
+        fstat(dir_fd, &pinned_directory) != 0 ||
+        stat(".", &current_directory) != 0 ||
+        pinned_directory.st_dev != current_directory.st_dev ||
+        pinned_directory.st_ino != current_directory.st_ino ||
+        chdir(cwd) != 0) {
+      perror("CWD procfs fallback did not enter the pinned directory");
+      return 1;
+    }
+    if (ftp_acl_path_chdir(dir_fd) != 0 ||
+        fstat(dir_fd, &pinned_directory) != 0 ||
+        stat(".", &current_directory) != 0 ||
+        pinned_directory.st_dev != current_directory.st_dev ||
+        pinned_directory.st_ino != current_directory.st_ino ||
+        chdir(cwd) != 0) {
+      perror("CWD descriptor helper followed a substituted pathname");
+      return 1;
+    }
+  }
   race_fd = openat(dir_fd, "dirfd-created.txt",
                    O_CREAT | O_EXCL | O_WRONLY | O_NOFOLLOW | O_CLOEXEC,
                    0600);
@@ -1022,6 +1044,6 @@ main(void)
       unlink(alias) || rmdir(a) || rmdir(b) || rmdir(root)) {
     perror("remove fixture"); return 1;
   }
-  puts("vsftpd ACL path and descriptor metadata policy: PASS");
+  puts("vsftpd ACL path, descriptor metadata and CWD policy: PASS");
   return 0;
 }
