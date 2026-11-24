@@ -579,40 +579,27 @@ require(add_inventory < add_begin < add_validate < add_open < add_lookup <
         "add_folder must create, publish ACLs/snapshot and compensate through one pinned volume descriptor")
 
 stale_pruner = function_body(
-    DISK_SOURCE, "remove_stale_share_var_files("
+    DISK_SOURCE, "remove_stale_share_var_files(int directory_fd,"
 )
 stale_pruner_compact = "".join(stale_pruner.split())
+prune_scan = stale_pruner_compact.index(
+    'openat(directory_fd,".",O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC)'
+)
+prune_stream = stale_pruner_compact.index("fdopendir(scan_fd)", prune_scan)
 prune_read = stale_pruner_compact.index(
-    "disk_share_list_next_entry(dir,readdir,&entry,&read_error)"
+    "disk_share_list_next_entry(dir,readdir,&entry,&read_error)", prune_stream
 )
-prune_eof = stale_pruner_compact.index("if(read_status==0)", prune_read)
-prune_error = stale_pruner_compact.index("if(read_status<0)", prune_eof)
-prune_skip_anonymous = stale_pruner_compact.index(
-    "strcmp(account,FTP_ANONYMOUS_USER)==0", prune_error
-)
-prune_active_match = stale_pruner_compact.index(
-    "strcmp(account_list[i],account)==0", prune_skip_anonymous
-)
-prune_directory_fd = stale_pruner_compact.index("directory_fd=disk_share_open_mount_directory(mount_path)")
 prune_unlink = stale_pruner_compact.index(
-    "disk_share_unlink_stale_metadata_entry(directory_fd,entry->d_name)",
-    prune_active_match
+    "disk_share_unlink_stale_metadata_entry(directory_fd,entry->d_name)", prune_read
 )
-prune_open_stream = stale_pruner_compact.index(
-    'openat(directory_fd,".",O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC)',
-    prune_directory_fd
-)
-prune_fdopendir = stale_pruner_compact.index("fdopendir(scan_fd)", prune_open_stream)
-require(prune_directory_fd < prune_open_stream < prune_fdopendir < prune_read <
-        prune_eof < prune_error < prune_skip_anonymous < prune_active_match <
-        prune_unlink and
-        "opendir(mount_path)" not in stale_pruner_compact and
-        "directory_fd=dirfd(dir)" not in stale_pruner_compact and
+prune_close = stale_pruner_compact.index("closedir(dir)", prune_unlink)
+require(prune_scan < prune_stream < prune_read < prune_unlink < prune_close and
+        "disk_share_open_mount_directory" not in stale_pruner_compact and
+        "close(directory_fd)" not in stale_pruner_compact and
         "unlink(path)" not in stale_pruner_compact and
-        "if(closedir(dir)!=0)" in stale_pruner_compact and
-        "strcmp(entry->d_name+name_len-8,\"_var.txt\")" in stale_pruner_compact and
-        "test_stale_metadata_unlink_uses_pinned_directory_fd();" in POLICY_TEST,
-        "stale metadata pruning must scan a no-follow pinned mount descriptor and unlink entries relative to that same directory")
+        "strcmp(account,FTP_ANONYMOUS_USER)==0" in stale_pruner_compact and
+        "strcmp(account_list[i],account)==0" in stale_pruner_compact,
+        "stale metadata cleanup must use the caller's pinned root descriptor for scanning and unlinking")
 initial_all = function_body(
     DISK_SOURCE,
     "int initial_all_var_file_in_mount_path(const char *const mount_path)"
@@ -622,32 +609,61 @@ require("if (initial_one_var_file_in_mount_path_locked(FTP_ANONYMOUS_USER," in i
         "if (initial_folder_list_in_mount_path(mount_path) != 0)" in initial_all and
         "if (remove_stale_share_var_files(mount_path, acc_num, account_list) != 0)" in initial_all,
         "full share metadata initialization must rebuild active ACLs before pruning stale files and propagate every stage failure")
-initial_all = function_body(
+metadata_rebuild = function_body(
     DISK_SOURCE, "int initial_all_var_file_in_mount_path(const char *const mount_path)"
 )
-initial_all_compact = "".join(initial_all.split())
-initial_all_inventory = initial_all_compact.index("get_account_list(&acc_num,&account_list)")
-initial_all_preflight = initial_all_compact.index("disk_share_format_account_var_path(var_file,sizeof(var_file),mount_path,FTP_ANONYMOUS_USER)", initial_all_inventory)
-initial_all_begin = initial_all_compact.index("disk_share_account_nvram_begin(&transaction)", initial_all_preflight)
-initial_all_validate = initial_all_compact.index(
-    "disk_share_account_inventory_matches_locked(&disk_share_account_nvram_operations,&transaction,acc_num,MAX_ACCOUNT_NUM,account_list)",
-    initial_all_begin
+metadata_rebuild_compact = "".join(metadata_rebuild.split())
+metadata_inventory = metadata_rebuild_compact.index("get_account_list(&acc_num,&account_list)")
+metadata_open = metadata_rebuild_compact.index(
+    "disk_share_open_mount_directory(mount_path)", metadata_inventory
 )
-initial_all_anon = initial_all_compact.index("initial_one_var_file_in_mount_path_locked(FTP_ANONYMOUS_USER,mount_path)", initial_all_validate)
-initial_all_accounts = initial_all_compact.index("initial_one_var_file_in_mount_path_locked(account_list[i],mount_path)", initial_all_anon)
-initial_all_snapshot = initial_all_compact.index("initial_folder_list_in_mount_path(mount_path)", initial_all_accounts)
-initial_all_prune = initial_all_compact.index("remove_stale_share_var_files(mount_path,acc_num,account_list)", initial_all_snapshot)
-initial_all_end = initial_all_compact.index("disk_share_account_nvram_end(&transaction)", initial_all_prune)
-require(initial_all_inventory < initial_all_preflight < initial_all_begin <
-        initial_all_validate < initial_all_anon < initial_all_accounts <
-        initial_all_snapshot < initial_all_prune < initial_all_end and
-        "clear_share_var_files(" not in initial_all_compact and
-        "get_account_list(" not in initial_all_compact[initial_all_begin:] and
-        "first_error=errno?errno:EIO;" in initial_all_compact,
-        "full metadata rebuild must preflight one account snapshot, rebuild each active file first, and prune only stale files after the folder-list snapshot succeeds")
+anonymous_preflight = metadata_rebuild_compact.index(
+    "disk_share_account_metadata_status_at(directory_fd,FTP_ANONYMOUS_USER)",
+    metadata_open
+)
+account_preflight = metadata_rebuild_compact.index(
+    "disk_share_account_metadata_status_at(directory_fd,account_list[i])",
+    anonymous_preflight
+)
+metadata_begin = metadata_rebuild_compact.index(
+    "disk_share_account_nvram_begin(&transaction)", account_preflight
+)
+metadata_validate = metadata_rebuild_compact.index(
+    "disk_share_account_inventory_matches_locked(&disk_share_account_nvram_operations,&transaction,acc_num,MAX_ACCOUNT_NUM,account_list)",
+    metadata_begin
+)
+anonymous_write = metadata_rebuild_compact.index(
+    "initial_one_var_file_in_directory_fd_locked(FTP_ANONYMOUS_USER,directory_fd)",
+    metadata_validate
+)
+account_write = metadata_rebuild_compact.index(
+    "initial_one_var_file_in_directory_fd_locked(account_list[i],directory_fd)",
+    anonymous_write
+)
+snapshot_publish = metadata_rebuild_compact.index(
+    "initial_folder_list_in_directory_fd(directory_fd)", account_write
+)
+stale_prune = metadata_rebuild_compact.index(
+    "remove_stale_share_var_files(directory_fd,acc_num,account_list)",
+    snapshot_publish
+)
+inventory_free = metadata_rebuild_compact.index(
+    "free_2_dimension_list(&acc_num,&account_list)", stale_prune
+)
+metadata_release = metadata_rebuild_compact.index(
+    "disk_share_account_nvram_end(&transaction)", inventory_free
+)
+metadata_close = metadata_rebuild_compact.index("close(directory_fd)", metadata_release)
+require(metadata_inventory < metadata_open < anonymous_preflight < account_preflight <
+        metadata_begin < metadata_validate < anonymous_write < account_write <
+        snapshot_publish < stale_prune < inventory_free < metadata_release < metadata_close and
+        "initial_one_var_file_in_mount_path_locked" not in metadata_rebuild_compact and
+        "initial_folder_list_in_mount_path(" not in metadata_rebuild_compact and
+        "remove_stale_share_var_files(mount_path" not in metadata_rebuild_compact,
+        "full metadata rebuild must preflight ACL targets, rebuild active ACLs, publish folder cache, prune stale files and release NVRAM while holding one pinned mount descriptor")
 
 stale_pruner = function_body(
-    DISK_SOURCE, "remove_stale_share_var_files("
+    DISK_SOURCE, "remove_stale_share_var_files(int directory_fd,"
 )
 stale_pruner_compact = "".join(stale_pruner.split())
 require("strcmp(account,FTP_ANONYMOUS_USER)==0" in stale_pruner_compact and
