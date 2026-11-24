@@ -1,3 +1,11 @@
+## 2026-11-25 00:21 CST (UTC+8) — Retarget IPv4 forwarding integration check to firewall rejection status
+
+- Exact `1c4cdd6` Firewall Startup job #45436267565 passed its firewall policy source assertions and host regressions, then failed the existing forwarding-control checker because it searched for the removed boolean gate. `scripts/check_forwarding_control_status.py` now extracts the current `if (firewall_startup_status != 0)` branch; the checks still require IPv4/IPv6 forwarding-disable errors to be captured and WAN startup to remain absent from that rejection block.
+- AI handoff #45436267737 on `1c4cdd6` PASS. RAETH shared Clause 45 exact SHA `a08b86e`: AI handoff #45436446803 PASS, Switch CLI #45436447892 and NVRAM #45436447356 in progress, XY-C1 #45436447371 in progress.
+- Firewall production source SHA `7ca46fc` XY-C1 #45434352284 still pending Build/TRX/artifact at last poll; no L3 claim.
+
+---
+
 ## 2026-11-25 00:18 CST (UTC+8) — Anchor firewall boot-status assertion after the gate
 
 - Exact SHA `77dc29cb83a5c9ce45a3f9262d85b8429dee4b43`: Firewall Startup #45435774161 advanced through the earlier checks but failed because the source checker selected an earlier boot-service status merge, not the firewall-specific merge. The checker now begins its merge lookup after the firewall gate, validates the exact first-error argument, and requires that merge before `start_wan()`.

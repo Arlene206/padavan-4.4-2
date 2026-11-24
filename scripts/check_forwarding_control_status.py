@@ -69,7 +69,7 @@ require('return fput_int("/proc/sys/net/ipv4/ip_forward", enabled);' in writer,
 require("int set_ipv4_forward(int is_on);" in HEADER,
         "rc.h must expose the result-bearing setter")
 
-startup = body(RC, "if (!firewall_startup_policy_allows_wan_checked(")
+startup = body(RC, "if (firewall_startup_status != 0)")
 require("ipv4_forward_disable_status = set_ipv4_forward(0);" in startup
         and "ipv4_forward_disable_status);" in startup,
         "boot must capture and report IPv4 forwarding disable failure")
