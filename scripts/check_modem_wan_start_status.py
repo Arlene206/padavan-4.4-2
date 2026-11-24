@@ -1530,8 +1530,8 @@ assert "wireless_apcli_start_cleanup_run(" in apcli_cleanup
 assert "wireless_apcli_cleanup_interface_down" in apcli_cleanup
 assert "wireless_apcli_cleanup_bridge_detach" in apcli_cleanup
 assert apcli_cleanup.index("wireless_apcli_start_cleanup_run(") < apcli_cleanup.index(
-    "if (interface_status != 0)"
-) < apcli_cleanup.index("if (bridge_status != 0)")
+    "if(interface_status!=0)"
+) < apcli_cleanup.index("if(bridge_status!=0)")
 assert "test_apcli_rollback_attempts_both_steps_and_preserves_primary_error" in WIRELESS_TEST
 assert "test_apcli_wisp_config_fails_closed" in WIRELESS_TEST
 
