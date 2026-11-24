@@ -1,3 +1,12 @@
+## 2026-11-25 00:22 CST (UTC+8) — Fix Clause 45 policy declaration in the production MDIO path
+
+- XY-C1 #45436447371 on `a08b86e` failed during kernel compile: `mii_mgr.c:256` called `raeth_mdio_cl45_address_status()` without including its declaring header, and `-Werror=implicit-function-declaration` stopped the build. TRX/artifact were skipped.
+- Added `#include "raeth_mdio_cl45_address_policy.h"` to `mii_mgr.c`. The existing Clause 45 GNU89 policy regression is unchanged; exact-head Build/TRX/artifact is the verification gate.
+- The earlier XY-C1 run #45434352284 for the firewall source fix `7ca46fc` has now passed Build, TRX verification and artifact upload (L3). The later check-only commit does not invalidate that source-SHA evidence.
+- XY-C1 #45436853853 on `65c6051` predates this include fix and is expected to expose the same compiler failure; inspect its final conclusion separately.
+
+---
+
 ## 2026-11-25 00:21 CST (UTC+8) — Retarget IPv4 forwarding integration check to firewall rejection status
 
 - Exact `1c4cdd6` Firewall Startup job #45436267565 passed its firewall policy source assertions and host regressions, then failed the existing forwarding-control checker because it searched for the removed boolean gate. `scripts/check_forwarding_control_status.py` now extracts the current `if (firewall_startup_status != 0)` branch; the checks still require IPv4/IPv6 forwarding-disable errors to be captured and WAN startup to remain absent from that rejection block.

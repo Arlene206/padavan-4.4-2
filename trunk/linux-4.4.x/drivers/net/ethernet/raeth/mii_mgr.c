@@ -16,6 +16,7 @@
 #include "mii_mgr_timeout_policy.h"
 #include "mii_mgr_indirect_policy.h"
 #include "mii_mgr_phy_address_policy.h"
+#include "raeth_mdio_cl45_address_policy.h"
 
 void set_an_polling(u32 an_status)
 {
