@@ -1,3 +1,11 @@
+## 2026-11-23 — Escape Ralink status-table fields in text dumps
+
+- The `nvram_dump()` status panes render DHCP leases, NAT rules, routes and conntrack records into HTML textareas; VPN lease output is also reachable through the `vpns_list.log` `get_logs()` route. Dynamic tokens included peer usernames, interface names and file/kernel-derived string fields.
+- Reworked the Ralink HTML field writer to use the shared `httpd_html_escape_byte()` policy and added an escaped/padded column helper. Applied it to DHCP IP/MAC/hostname, all VPN lease fields, NAT rule fields, route interface names and conntrack protocol/endpoints while preserving visible column widths. Added source-contract checks tying the handlers to their textarea routes.
+- Parent `8f1d1d5` HTTPD `#45304169207`, AI `#45304169314` and process inventory `#45304169499`: **PASS**. NVRAM audit `#45304169309` was still running. This status-table slice awaits exact-head Actions.
+
+---
+
 ## 2026-11-23 — JSON-encode wireless scan and BSSID strings
 
 - Ralink 5 GHz and 2.4 GHz scan callbacks returned JavaScript arrays with raw `%s` interpolation for SSIDs and other driver fields. SSIDs are advertised by nearby access points and are untrusted; quotes, backslashes or `</script>` could corrupt the JSON embedded by `wds_aplist.asp`.

@@ -2,15 +2,15 @@
 
 ## Current repository state
 
-- Current live main parent for this slice: `f3c83dbe0019746dedde08c28c6d6d355c9b6d88`.
-- Exact `f3c83db` HTTPD Authentication/Security Regression `#45303585359`, AI handoff `#45303585354`, process lifecycle inventory `#45303585334`, process regression `#45303585393`, NVRAM audit `#45303585372`, USB storage `#45303585396`, AdGuardHome `#45303585412`, AliyunDrive `#45303585443`, Inadyn `#45303585614` and FRP `#45303585690`: **PASS**. XY-C1 Firmware Validation `#45303585432` remains IN_PROGRESS at last poll.
-- Exact `a01de6b` HTTPD `#45303339945` and AI `#45303340000`: **PASS**, as well as AdGuardHome, Inadyn, AliyunDrive, FRP and process regressions; XY-C1 remained in progress.
-- The uptime callback fix in `f3c83db` routes `rfctime()` through the HTML text writer instead of treating it as a format string. It is committed; exact HTTPD/AI and all non-XY gates pass.
-- Read-only backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged.
+- Current live main parent for this slice: `8f1d1d5251a0f5658ac38ca46633b5391996f885`.
+- Exact `8f1d1d5` HTTPD Security Regression `#45304169207`, AI handoff `#45304169314` and process lifecycle inventory `#45304169499`: **PASS**. NVRAM transaction boundary audit `#45304169309` was IN_PROGRESS at last poll.
+- Exact `f3c83db` HTTPD `#45303585359`, AI `#45303585354`, process inventory/regression, NVRAM audit, USB storage, AdGuardHome, AliyunDrive, Inadyn and FRP checks: **PASS**. XY-C1 `#45303585432` remains IN_PROGRESS.
+- Exact `8f1d1d5` JSON-encodes all four strings emitted by 5 GHz/2.4 GHz AP scan handlers, encodes both BSSID JavaScript values and fixes the AP-client caption format string. Exact HTTPD, AI and process inventory checks passed.
+- Backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Active task
 
-Fix wireless scan JSON output injection in `ralink.c`. Both 5 GHz and 2.4 GHz scan handlers interpolate nearby access-point SSIDs and other driver fields directly into JavaScript JSON arrays. A nearby attacker-controlled SSID can break JSON/script context. Serialize all four fields with the shared JSON byte policy; also JSON-quote BSSID values sourced from NVRAM before emitting them into JavaScript, and eliminate the dynamic `caption` format-string call.
+Escape Ralink status-table fields that are returned into HTML textareas. DHCP lease, VPN lease, NAT, route and conntrack text dumps currently format dynamic string fields directly; particularly VPN peer names and interface names are not HTML escaped. Reuse the shared HTML byte encoder, preserve column layout, and pin each text-dump route in the HTTPD source-contract regression.
 
 ## Completed development slices
 
@@ -30,6 +30,7 @@ Fix wireless scan JSON output injection in `ralink.c`. Both 5 GHz and 2.4 GHz sc
 - Syslog HTML output hardening (`674adb3`, verified by `28613f4`): route `/tmp/syslog.log` emitted by both `nvram_dump()` and `dump_syslog()` through the shared HTML byte encoder. The regression includes a `</textarea><script>` payload; exact HTTPD `#45302967232` and AI handoff `#45302967200` on `28613f4`: **PASS**.
 - Language-option HTML output hardening (`a01de6b`): dictionary-derived labels pass through `write_html_text()`, while `<option value>` uses `write_html_attribute()`. Exact HTTPD `#45303339945` and AI `#45303340000`: **PASS**.
 
+- Wireless scan/BSSID JSON hardening (`8f1d1d5`): serialize nearby AP SSIDs, BSSID/channel/signal strings and both NVRAM-sourced BSSID JS values using `httpd_json_escape_next()`; the AP-client caption now uses a constant `%s` format. Exact HTTPD `#45304169207`, AI `#45304169314` and process inventory `#45304169499`: **PASS**.
 - Uptime format/output hardening (`f3c83db`): capture `rfctime()` and serialize it through `write_html_text()` rather than passing a dynamic value as `websWrite()`'s format argument. Exact HTTPD `#45303585359` and AI `#45303585354`: **PASS**. All non-XY-C1 gates on this SHA pass; XY-C1 `#45303585432` remains IN_PROGRESS.
 - AiDisk JavaScript output hardening (code committed in `eae527b` and `cd7e54d`): all 48 dictionary-backed action-error messages are serialized through `write_script_message()` and the shared JSON encoder; USB enum and modem transport labels now use the same string encoder. Exact `1027e90` HTTPD/AI checks pass; the `cd7e54d` child Actions remain pending.
 
@@ -39,16 +40,16 @@ Independent snapshot/lifecycle changes remain in `99ad9397e3cf4450c6fc07758b58c3
 
 ## Verification boundary
 
-- Exact `f3c83db` HTTPD Regression `#45303585359`, AI handoff `#45303585354`, process inventory `#45303585334`, process regression `#45303585393`, NVRAM audit `#45303585372`, USB storage `#45303585396`, AdGuardHome `#45303585412`, AliyunDrive `#45303585443`, Inadyn `#45303585614` and FRP `#45303585690`: **PASS**. XY-C1 `#45303585432` remains IN_PROGRESS; do not assume its firmware/TRX/artifact conclusion.
-- Exact `a01de6b` HTTPD `#45303339945` and AI handoff `#45303340000`: **PASS**; its non-XY gates also passed.
-- Wireless scan SSID/BSSID JSON encoding and source-contract checks in THIS COMMIT await exact-head Actions. JSON byte regression now includes a quote + script-tag SSID payload. No local execution, new L3 firmware result or hardware L4 validation is claimed.
+- Exact `8f1d1d5` HTTPD Regression `#45304169207`, AI handoff `#45304169314` and process lifecycle inventory `#45304169499`: **PASS**, including the Ralink wireless scan source-contract and JSON SSID byte fixture. NVRAM audit `#45304169309` was IN_PROGRESS at last poll.
+- Exact `f3c83db` HTTPD `#45303585359`, AI `#45303585354`, process inventory/regression, NVRAM audit, USB storage, AdGuardHome, AliyunDrive, Inadyn and FRP checks: **PASS**. XY-C1 `#45303585432` remains IN_PROGRESS.
+- This Ralink status-table escaping update and its source contract await exact-head Actions. No local firmware build, same-SHA L3 or hardware L4 result is claimed.
 - Backup `backup/pre-plugin-overhaul-2026-11-14` remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Exact first action for the next GPT
 
-1. Verify exact-head HTTPD/AI Actions for Ralink wireless scan serialization; ensure both band scan handlers and both BSSID emitters pass the JSON source-contract and byte-policy tests.
-2. Check the exact-head XY-C1 build/TRX/artifact state for `f3c83db` without waiting for it; continue independent HTTPD output-sink review.
-3. Trace `ej_vpns_leases()` and `aspbw.c` file output to actual template/output contexts before changing them; keep the backup read-only.
+1. Verify the exact-head HTTPD source-contract and sanitizer checks for DHCP/VPN/NAT/route/conntrack status text output.
+2. Continue tracing the generic `nvram_dump()`/file-dump callback and wireless status output to their template contexts before widening any encoder change.
+3. Check the pending exact-head NVRAM audit and historical XY-C1 runs without waiting; keep backup read-only.
 
 # Cross-session execution mandate
 

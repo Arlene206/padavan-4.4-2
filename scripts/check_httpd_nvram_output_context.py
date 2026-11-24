@@ -354,6 +354,68 @@ def check_wireless_scan_json_sinks():
     print("Ralink wireless scan/BSSID JSON output escaping: PASS")
 
 
+
+def check_ralink_status_textarea_sinks():
+    source = RALINK_SOURCE.read_text(encoding="utf-8")
+    assert '#include "httpd_html_output_policy.h"' in source
+
+    field_start = source.index("static int\nwrite_escaped_html_field(")
+    column_start = source.index("\nstatic int\nwrite_escaped_html_column(", field_start)
+    json_start = source.index("\nstatic int\nralink_write_json_string(", column_start)
+    field = source[field_start:column_start]
+    column = source[column_start:json_start]
+    assert "httpd_html_escape_byte(*p, escaped)" in field
+    assert "fwrite(escaped, 1, escaped_len, wp)" in field
+    assert "write_escaped_html_field(wp, text)" in column
+    assert 'fwrite(" ", 1, 1, wp)' in column
+
+    lan_start = source.index("int\nej_lan_leases(")
+    vpn_start = source.index("\nint\nej_vpns_leases(", lan_start)
+    lan = source[lan_start:vpn_start]
+    assert "write_escaped_html_column(wp, (dh_ip[0]!=0) ? dh_ip : \\" \", 19)" in lan
+    assert "write_escaped_html_column(wp, (dh_mac[0]!=0) ? dh_mac : \\" \", 21)" in lan
+    assert "write_escaped_html_field(wp, dh_host)" in lan
+
+    nat_start = source.index("int\nej_nat_table(")
+    route_start = source.index("\nint\nej_route_table(", nat_start)
+    nat = source[nat_start:route_start]
+    for value in ("src", "proto", "range", "host", "port ? : range"):
+        assert "write_escaped_html_column(wp, " + value in nat
+
+    vpn_start = source.index("int\nej_vpns_leases(")
+    hwnat_start = source.index("\nint is_hwnat_loaded(", vpn_start)
+    vpn = source[vpn_start:hwnat_start]
+    for value in ("addr_l", "addr_r", "peer_name"):
+        assert "write_escaped_html_column(wp, " + value in vpn
+    assert "write_escaped_html_field(wp, ifname)" in vpn
+
+    route_start = source.index("int\nej_route_table(")
+    conntrack_start = source.index("\nint\nej_conntrack_table(", route_start)
+    route = source[route_start:conntrack_start]
+    assert "write_escaped_html_field(wp, buff)" in route
+
+    conntrack_start = source.index("int\nej_conntrack_table(")
+    conntrack_end = source.index("\n/************************ CONSTANTS", conntrack_start)
+    conntrack = source[conntrack_start:conntrack_end]
+    assert "write_escaped_html_column(wp, proto, 8)" in conntrack
+    assert "write_escaped_html_column(wp, src_endpoint, 48)" in conntrack
+    assert "write_escaped_html_field(wp, dst_endpoint)" in conntrack
+
+    web_source = WEB_SOURCE.read_text(encoding="utf-8")
+    assert 'strcmp(file, "vpns_list.log") == 0' in web_source
+    assert "return (ej_vpns_leases(eid, wp, 0, NULL));" in web_source
+
+    dhcp_page = (ROOT / "Main_DHCPStatus_Content.asp").read_text(encoding="utf-8")
+    nat_page = (ROOT / "Main_IPTStatus_Content.asp").read_text(encoding="utf-8")
+    route_page = (ROOT / "Main_RouteStatus_Content.asp").read_text(encoding="utf-8")
+    conntrack_page = (ROOT / "Main_CTStatus_Content.asp").read_text(encoding="utf-8")
+    assert 'nvram_dump("leases.log"' in dhcp_page
+    assert 'nvram_dump("iptable.log"' in nat_page
+    assert 'nvram_dump("route.log"' in route_page
+    assert 'nvram_dump("conntrack.log"' in conntrack_page
+    print("Ralink status-table HTML text escaping: PASS")
+
+
 def main():
     check_handler_wiring()
     check_dynamic_js_hooks()
@@ -365,6 +427,7 @@ def main():
     check_language_option_html_sinks()
     check_uptime_html_sink()
     check_wireless_scan_json_sinks()
+    check_ralink_status_textarea_sinks()
 
 
 if __name__ == "__main__":

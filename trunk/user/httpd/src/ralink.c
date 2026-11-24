@@ -46,6 +46,7 @@
 
 #include "common.h"
 #include "httpd.h"
+#include "httpd_html_output_policy.h"
 #include "httpd_json_output_policy.h"
 
 static size_t
@@ -105,35 +106,37 @@ static int
 write_escaped_html_field(webs_t wp, const char *text)
 {
 	const unsigned char *p;
+	char escaped[8];
 	int ret = 0;
 
 	if (!text)
 		return 0;
 
 	for (p = (const unsigned char *)text; *p; ++p) {
-		switch (*p) {
-		case '&':
-			ret += websWrite(wp, "%s", "&amp;");
-			break;
-		case '<':
-			ret += websWrite(wp, "%s", "&lt;");
-			break;
-		case '>':
-			ret += websWrite(wp, "%s", "&gt;");
-			break;
-		case '"':
-			ret += websWrite(wp, "%s", "&quot;");
-			break;
-		case '\'':
-			ret += websWrite(wp, "%s", "&#39;");
-			break;
-		default:
-			if (*p < 0x20 || *p == 0x7f)
-				ret += websWrite(wp, "%s", " ");
-			else
-				ret += websWrite(wp, "%c", (int)*p);
-			break;
-		}
+		size_t escaped_len = httpd_html_escape_byte(*p, escaped);
+
+		if (escaped_len == 0 ||
+		    fwrite(escaped, 1, escaped_len, wp) != escaped_len)
+			return -1;
+		ret += (int)escaped_len;
+	}
+
+	return ret;
+}
+
+static int
+write_escaped_html_column(webs_t wp, const char *text, size_t width)
+{
+	size_t text_len = text ? strlen(text) : 0;
+	int ret = write_escaped_html_field(wp, text);
+
+	if (ret < 0)
+		return -1;
+	while (text_len < width) {
+		if (fwrite(" ", 1, 1, wp) != 1)
+			return -1;
+		++text_len;
+		++ret;
 	}
 
 	return ret;
@@ -250,8 +253,8 @@ ej_lan_leases(int eid, webs_t wp, int argc, char **argv)
 		for (i=0; i<strlen(dh_mac); i++)
 			dh_mac[i] = (char)toupper((unsigned char)dh_mac[i]);
 
-		ret += websWrite(wp, "%-19s", (dh_ip[0]!=0) ? dh_ip : " ");
-		ret += websWrite(wp, "%-21s", (dh_mac[0]!=0) ? dh_mac : " " );
+		ret += write_escaped_html_column(wp, (dh_ip[0]!=0) ? dh_ip : " ", 19);
+		ret += write_escaped_html_column(wp, (dh_mac[0]!=0) ? dh_mac : " ", 21);
 		ret += write_escaped_html_field(wp, dh_host);
 			ret += websWrite(wp, "\n");
 	}
@@ -281,7 +284,7 @@ ej_lan_leases(int eid, webs_t wp, int argc, char **argv)
 			if (!dh_host[0])
 				strcpy(dh_host, "*");
 
-			ret += websWrite(wp, "%-40s", (dh_ip[0]!=0) ? dh_ip : " ");
+			ret += write_escaped_html_column(wp, (dh_ip[0]!=0) ? dh_ip : " ", 40);
 			ret += write_escaped_html_field(wp, dh_host);
 			ret += websWrite(wp, "\n");
 		}
@@ -309,10 +312,11 @@ ej_vpns_leases(int eid, webs_t wp, int argc, char **argv)
 	{
 		i_clients++;
 		ret += websWrite(wp, "%-3u", i_clients);
-		ret += websWrite(wp, "%-17s", addr_l);
-		ret += websWrite(wp, "%-17s", addr_r);
-		ret += websWrite(wp, "%-15s", peer_name);
-		ret += websWrite(wp, "%s\n",  ifname);
+		ret += write_escaped_html_column(wp, addr_l, 17);
+		ret += write_escaped_html_column(wp, addr_r, 17);
+		ret += write_escaped_html_column(wp, peer_name, 15);
+		ret += write_escaped_html_field(wp, ifname);
+		ret += websWrite(wp, "\n");
 	}
 	fclose(fp);
 
@@ -434,9 +438,16 @@ ej_nat_table(int eid, webs_t wp, int argc, char **argv)
 				}
 			}
 
-			ret += websWrite(wp,
-				"%-18s %-6s %-11s %-15s %-11s\n",
-				src, proto, range, host, port ? : range);
+			ret += write_escaped_html_column(wp, src, 18);
+			ret += websWrite(wp, " ");
+			ret += write_escaped_html_column(wp, proto, 6);
+			ret += websWrite(wp, " ");
+			ret += write_escaped_html_column(wp, range, 11);
+			ret += websWrite(wp, " ");
+			ret += write_escaped_html_column(wp, host, 15);
+			ret += websWrite(wp, " ");
+			ret += write_escaped_html_column(wp, port ? : range, 11);
+			ret += websWrite(wp, "\n");
 		}
 		fclose(fp);
 	}
@@ -493,8 +504,10 @@ ej_route_table(int eid, webs_t wp, int argc, char **argv)
 			strcpy(sgw,    (gw.s_addr==0   ? "*"       :
 					inet_ntoa(gw)));
 
-			ret += websWrite(wp, "%-16s%-16s%-16s%-6s%-6d %-2d %7d %s\n",
-				sdest, sgw, inet_ntoa(mask), flags, metric, ref, use, buff);
+			ret += websWrite(wp, "%-16s%-16s%-16s%-6s%-6d %-2d %7d ",
+				sdest, sgw, inet_ntoa(mask), flags, metric, ref, use);
+			ret += write_escaped_html_field(wp, buff);
+			ret += websWrite(wp, "\n");
 		}
 		nl++;
 	}
@@ -551,7 +564,10 @@ ej_conntrack_table(int eid, webs_t wp, int argc, char **argv)
 			continue;
 		src_endpoint[sizeof(src_endpoint) - 1] = '\0';
 		dst_endpoint[sizeof(dst_endpoint) - 1] = '\0';
-		ret += websWrite(wp, "%-8s%-48s%s\n", proto, src_endpoint, dst_endpoint);
+		ret += write_escaped_html_column(wp, proto, 8);
+		ret += write_escaped_html_column(wp, src_endpoint, 48);
+		ret += write_escaped_html_field(wp, dst_endpoint);
+		ret += websWrite(wp, "\n");
 	}
 
 	fclose(fp);
