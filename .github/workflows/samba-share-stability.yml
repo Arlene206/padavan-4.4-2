@@ -704,5 +704,26 @@ jobs:
           assert "samba_passdb_account_list_source_status" in policy
           assert "test_account_list_snapshot_source" in test
           assert "write_smb_conf_unlocked(NULL,NULL,0)" in "".join(source.split())
+
+          # A failed passwd/group/shadow rebuild must block all Samba passdb,
+          # configuration and cleanup side effects, while retaining errno.
+          rebuild = compact_run.index("passwd_status=recreate_passwd_unix(0)")
+          failure_gate = compact_run.index("if(passwd_status!=0)", rebuild)
+          preserve_errno = compact_run.index(
+              "passwd_error=errno?(errno):(passwd_status>0?passwd_status:EIO);",
+              failure_gate)
+          abort = compact_run.index("gotoout;", preserve_errno)
+          assert rebuild < failure_gate < preserve_errno < abort
+          for later_side_effect in (
+              'doSystem("rm-f%s%s"',
+              "samba_prepare_private_passdb(",
+              "samba_run_smbpasswd(",
+              "write_smb_conf_unlocked(",
+              "samba_ensure_daemon(",
+          ):
+              assert abort < compact_run.index(later_side_effect, rebuild), later_side_effect
+          assert "intpasswd_status,passwd_error;" in compact_run
+          assert "Unix account database rebuild failed" in run_samba
           print("Samba passdb/ACL account generation parity: PASS")
+          print("Unix account database rebuild failure gate: PASS")
           PY

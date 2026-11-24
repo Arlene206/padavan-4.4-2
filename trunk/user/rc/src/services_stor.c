@@ -1748,6 +1748,7 @@ int run_samba(void)
 	int lock_fd, sh_num = 0, account_count_value = 0;
 	int account_count_status, account_value_status, i, j;
 	int account_snapshot_status = 0, account_snapshot_end_status;
+	int passwd_status, passwd_error;
 	int account_snapshot_end_errno;
 	int credential_failed = 0, daemon_failed = 0, result = -1;
 	int runtime_enabled;
@@ -1947,7 +1948,17 @@ account_snapshot_done:
 		goto out;
 	}
 
-	recreate_passwd_unix(0);
+
+	passwd_status = recreate_passwd_unix(0);
+	if (passwd_status != 0) {
+		passwd_error = errno ? errno :
+			(passwd_status > 0 ? passwd_status : EIO);
+		logmessage("Samba Server",
+			   "Unix account database rebuild failed; preserving existing Samba passdb/configuration (status=%d, errno=%d)",
+			   passwd_status, passwd_error);
+		errno = passwd_error;
+		goto out;
+	}
 
 	if (nmbd_presence == PROCESS_PRESENCE_ABSENT &&
 	    smbd_presence == PROCESS_PRESENCE_ABSENT) {
