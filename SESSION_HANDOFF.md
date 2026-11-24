@@ -2,16 +2,15 @@
 
 ## Current repository state
 
-- Current live main parent for this slice: `28613f48ae202f65ce2a6141a228dbf2f35cda55`.
-- Exact `28613f4` HTTPD Security Regression `#45302967232` and AI handoff contract `#45302967200`: **PASS**. This verifies the corrected AiDisk USB source boundaries, syslog HTML output routes and textarea-close byte regression.
-- Exact `674adb3` syslog output hardening is committed; the next exact-head run `28613f4` passed both HTTPD and AI checks. Earlier HTTPD failures `#45302551766` and `#45302709748` were the AiDisk USB boundary test and were corrected before `28613f4`.
-- Exact `1027e90` AiDisk message checker HTTPD `#45302330035` and AI `#45302330042`: **PASS**. Exact `a5794a0` WOL DOM XSS HTTPD `#45301947513`, AI `#45301947575` and process inventory `#45301947519`: **PASS**.
-- Read-only backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged and never written. Work only on `main`, with complete atomic trees and non-forced expected-SHA updates.
-- This commit escapes the language option label read from `EN.dict` as HTML text and the language code as an HTML attribute.
+- Current live main parent for this slice: `a01de6b99d8cc72a1b2a92963480afb533a30a67`.
+- Exact `a01de6b` HTTPD Security Regression `#45303339945`, AI handoff `#45303340000`, AdGuardHome `#45303339983`, Inadyn `#45303339965`, AliyunDrive `#45303339907`, FRP `#45303340102`, process regression `#45303339911` and process lifecycle inventory `#45303339862`: **PASS**. XY-C1 `#45303340178`, USB storage `#45303339926` and NVRAM audit `#45303339865` were IN_PROGRESS at last poll.
+- Exact `28613f4` HTTPD `#45302967232` and AI `#45302967200`: **PASS**, confirming AiDisk USB boundaries, syslog escaping and textarea-close byte regression. Exact `1027e90` HTTPD/AI `#45302330035` / `#45302330042`: **PASS**.
+- Syslog output hardening (`674adb3`) and language-option context escaping (`a01de6b`) are committed on `main`; the language-option code and source contract passed its exact-head HTTPD run above.
+- Read-only backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged and never written.
 
 ## Active task
 
-Fix the HTML injection sink in `ej_shown_language_option()`: dictionary-derived language labels must be written through `write_html_text()`, and option values through `write_html_attribute()`. The new source-contract check pins both contexts; then continue tracing remaining runtime-derived string output paths.
+Harden the `uptime` EJ output. It passes the dynamically generated `rfctime()` result as the `websWrite()` format string and emits it directly into HTML. Send the value through the constant HTML text writer, guard a null result, and pin that output path in the HTTPD source contract.
 
 ## Completed development slices
 
@@ -29,6 +28,7 @@ Fix the HTML injection sink in `ej_shown_language_option()`: dictionary-derived 
 
 - WOL UI DOM XSS hardening (this commit): build client rows as DOM elements and render client MAC/name and vendor names only through jQuery `.text()`. Vendor API results are normalized to a string before rendering/caching. The HTTPD checker now rejects raw row concatenation of client data and `.html()` sinks for vendor labels.
 - Syslog HTML output hardening (`674adb3`, verified by `28613f4`): route `/tmp/syslog.log` emitted by both `nvram_dump()` and `dump_syslog()` through the shared HTML byte encoder. The regression includes a `</textarea><script>` payload; exact HTTPD `#45302967232` and AI handoff `#45302967200` on `28613f4`: **PASS**.
+- Language-option HTML output hardening (`a01de6b`): dictionary-derived labels pass through `write_html_text()`, while `<option value>` uses `write_html_attribute()`. Exact HTTPD `#45303339945` and AI `#45303340000`: **PASS**.
 
 - AiDisk JavaScript output hardening (code committed in `eae527b` and `cd7e54d`): all 48 dictionary-backed action-error messages are serialized through `write_script_message()` and the shared JSON encoder; USB enum and modem transport labels now use the same string encoder. Exact `1027e90` HTTPD/AI checks pass; the `cd7e54d` child Actions remain pending.
 
@@ -38,17 +38,17 @@ Independent snapshot/lifecycle changes remain in `99ad9397e3cf4450c6fc07758b58c3
 
 ## Verification boundary
 
-- Exact `28613f4` HTTPD Regression `#45302967232` and AI handoff `#45302967200`: **PASS**, including WOL/AiDisk string-context checks, syslog file/stream HTML escaping and the textarea-close byte fixture.
-- Exact `674adb3` HTTPD `#45302709748` and `cd7e54d` HTTPD `#45302551766`: failed at the AiDisk USB source-boundary assertion because Python test literals double-escaped the newline; corrected in `28613f4`, whose exact HTTPD and AI runs passed.
-- Exact `1027e90` HTTPD `#45302330035` and AI `#45302330042`: **PASS**. Exact `a5794a0` HTTPD `#45301947513`, AI `#45301947575` and process inventory `#45301947519`: **PASS**.
-- This language-option HTML output fix and source-contract regression await exact-head Actions. No local firmware build, same-SHA L3 firmware result or hardware L4 validation is claimed.
+- Exact `a01de6b` HTTPD Regression `#45303339945` and AI handoff `#45303340000`: **PASS**, including language-option attribute/text source-contract assertions.
+- Exact `a01de6b` AdGuardHome `#45303339983`, Inadyn `#45303339965`, AliyunDrive `#45303339907`, FRP `#45303340102`, process regression `#45303339911` and process inventory `#45303339862`: **PASS**. XY-C1 `#45303340178`, USB storage `#45303339926` and NVRAM audit `#45303339865` were IN_PROGRESS at last poll.
+- Exact `28613f4` HTTPD `#45302967232` and AI `#45302967200`: **PASS**, including syslog and AiDisk USB output-context tests.
+- This uptime string-output fix and source-contract regression await exact-head Actions. No same-SHA XY-C1 firmware/TRX result or hardware L4 validation is claimed.
 - Backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Exact first action for the next GPT
 
-1. Verify the exact-head HTTPD/AI Actions for the language-option context fix; confirm the language label uses the HTML text encoder and the option key uses the attribute encoder.
-2. Continue tracing NVRAM list/table callbacks and other dynamic HTTPD string emitters to their actual template contexts before changing them.
-3. Check the exact-head XY-C1 Build/TRX/artifact and current NVRAM/process regression states without waiting; preserve the backup branch.
+1. Verify exact-head HTTPD/AI checks for the uptime formatter change; confirm the timestamp is never treated as a format string and uses HTML text escaping.
+2. Continue tracing raw NVRAM list/table output and other dynamic EJ callbacks to their actual HTML/JavaScript sinks.
+3. Check the exact-head XY-C1, USB storage and NVRAM runs without waiting; keep the backup branch read-only.
 
 # Cross-session execution mandate
 

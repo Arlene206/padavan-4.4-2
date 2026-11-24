@@ -80,6 +80,7 @@ static void nvram_clr_group_temp(struct variable *v);
 static int nvram_generate_table(webs_t wp, char *serviceId, char *groupName);
 static void write_js_string(webs_t wp, const char *value);
 static void write_json_string(webs_t wp, const char *value);
+static int write_html_text(webs_t wp, const char *value);
 
 static int nvram_modified = 0;
 #if BOARD_HAS_5G_RADIO
@@ -951,9 +952,11 @@ static int
 ej_uptime(int eid, webs_t wp, int argc, char **argv)
 {
 	time_t tm;
+	const char *formatted_time;
 
 	time(&tm);
-	return websWrite(wp, rfctime(&tm));
+	formatted_time = rfctime(&tm);
+	return write_html_text(wp, formatted_time ? formatted_time : "");
 }
 
 static int

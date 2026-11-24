@@ -292,6 +292,19 @@ def check_language_option_html_sinks():
 
 
 
+
+def check_uptime_html_sink():
+    source = WEB_SOURCE.read_text(encoding="utf-8")
+    start = source.index("static int\nej_uptime(")
+    end = source.index("\nstatic int\nwrite_html_text(", start)
+    uptime = source[start:end]
+    assert "formatted_time = rfctime(&tm);" in uptime
+    assert 'write_html_text(wp, formatted_time ? formatted_time : "")' in uptime
+    assert "websWrite(wp, rfctime(&tm))" not in uptime
+    assert "static int write_html_text(webs_t wp, const char *value);" in source[:start]
+    print("Uptime output uses a constant HTML text encoder: PASS")
+
+
 def main():
     check_handler_wiring()
     check_dynamic_js_hooks()
@@ -301,6 +314,7 @@ def main():
     check_aidisk_usb_string_outputs()
     check_syslog_html_sinks()
     check_language_option_html_sinks()
+    check_uptime_html_sink()
 
 
 if __name__ == "__main__":

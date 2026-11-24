@@ -1,3 +1,11 @@
+## 2026-11-23 — Keep uptime timestamp out of the format-string slot
+
+- `ej_uptime()` passed the result of `rfctime()` directly as the `websWrite()` format argument. The result is generated from the router's timezone/date state, but a dynamic string must never be interpreted as a format template, and this callback emits HTML text.
+- Capture the timestamp, null-check it and emit it through the constant HTML text writer. Added a source-contract check that pins the helper prototype and forbids the previous dynamic-format call.
+- Parent `a01de6b` HTTPD `#45303339945` and AI handoff `#45303340000`: **PASS**, including the EN.dict language-option context regression. This uptime slice awaits exact-head Actions.
+
+---
+
 ## 2026-11-23 — Escape language-option labels from EN.dict
 
 - `ej_shown_language_option()` reads `EN.dict` and interpolated the dictionary key and target label directly into an HTML `<option>`. The key is checked against the supported language table, but the file-derived visible label was an unescaped HTML text sink.
