@@ -58,17 +58,24 @@ aliddns_nvram_write_checked() {
 
 aliddns_enable_initialize() {
 	aliddns_nvram_read_checked aliddns_enable || return $?
-	if [ -z "$aliddns_nvram_value" ]; then
-		if nvram set aliddns_enable=0; then
-			aliddns_enable=0
-		else
-			aliddns_nvram_status=$?
-			logger -t "AliDDNS" "NVRAM default for aliddns_enable could not be saved (status=$aliddns_nvram_status)"
-			return "$aliddns_nvram_status"
-		fi
-	else
-		aliddns_enable=$aliddns_nvram_value
-	fi
+	case "$aliddns_nvram_value" in
+		'')
+			if nvram set aliddns_enable=0; then
+				aliddns_enable=0
+			else
+				aliddns_nvram_status=$?
+				logger -t "AliDDNS" "NVRAM default for aliddns_enable could not be saved (status=$aliddns_nvram_status)"
+				return "$aliddns_nvram_status"
+			fi
+			;;
+		0|1)
+			aliddns_enable=$aliddns_nvram_value
+			;;
+		*)
+			logger -t "AliDDNS" "invalid aliddns_enable selector; refusing to change keeper state"
+			return 22
+			;;
+	esac
 	return 0
 }
 
@@ -353,10 +360,18 @@ else
 	logger -t "AliDDNS" "无法读取服务开关，保留当前 keeper 并稍后重试 (status=$aliddns_runtime_read_status)"
 	continue
 fi
-[ "$aliddns_runtime_enable" = "0" ] && aliddns_close && exit 0;
-if [ "$aliddns_runtime_enable" = "1" ] ; then
-	aliddns_start
-fi
+case "$aliddns_runtime_enable" in
+	0)
+		aliddns_close && exit 0
+		;;
+	1)
+		aliddns_start
+		;;
+	*)
+		logger -t "AliDDNS" "invalid runtime aliddns_enable selector; preserving the current keeper"
+		continue
+		;;
+esac
 done
 }
 

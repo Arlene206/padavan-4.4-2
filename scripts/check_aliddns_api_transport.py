@@ -94,6 +94,8 @@ lifecycle_lock_run = function_body(source, "aliddns_lifecycle_lock_run() {")
 keeper_pid_matches = function_body(source, "aliddns_keeper_pid_matches() {")
 find_keeper_pids = function_body(source, "aliddns_find_keeper_pids() {")
 interval_normalize = function_body(source, "aliddns_interval_normalize() {")
+enable_initialize = function_body(source, "aliddns_enable_initialize() {")
+keeper_loop = function_body(source, "aliddns_keep () {")
 stop_keeper = function_body(source, "aliddns_stop_keeper() {")
 keeper_close = function_body(source, "aliddns_close () {")
 lifecycle_check = function_body(source, "aliddns_check () {")
@@ -224,6 +226,21 @@ require("''|*[!0-9]*)" in interval_normalize and
         r"printf '600\\n'" not in interval_normalize and
         'sleep "$aliddns_interval"' in source,
         "AliDDNS polling interval must be a bounded positive integer passed as one sleep argument")
+require("case \"$aliddns_nvram_value\" in" in enable_initialize and
+        "0|1)" in enable_initialize and
+        "invalid aliddns_enable selector; refusing to change keeper state" in enable_initialize and
+        "return 22" in enable_initialize and
+        "aliddns_enable=$aliddns_nvram_value" in enable_initialize,
+        "AliDDNS startup must accept only binary enable values and fail closed on corrupt NVRAM")
+require('case "$aliddns_runtime_enable" in' in keeper_loop and
+        '0)' in keeper_loop and 'aliddns_close && exit 0' in keeper_loop and
+        '1)' in keeper_loop and 'aliddns_start' in keeper_loop and
+        'invalid runtime aliddns_enable selector; preserving the current keeper' in keeper_loop and
+        'continue' in keeper_loop,
+        "AliDDNS keeper must preserve itself and retry later when the runtime enable selector is invalid")
+require("AliDDNS invalid enable selector preserves the current service state: PASS" in lifecycle_test,
+        "AliDDNS lifecycle regression must cover corrupt enable selectors without changing NVRAM or service state")
+
 require("echo /tmp/.aliddns.lifecycle.lock" in lifecycle_lock_path,
         "AliDDNS lifecycle must use one stable-inode lock path")
 require('[ -L "$aliddns_lock_dir" ]' in lifecycle_lock_prepare and
@@ -299,6 +316,7 @@ for marker in (
     "AliDDNS keeper discovery refuses incomplete /proc visibility: PASS",
     "AliDDNS polling interval rejects invalid/zero values and bounds normalization: PASS",
     "AliDDNS enable and interval NVRAM read failures do not overwrite configured values: PASS",
+    "AliDDNS invalid enable selector preserves the current service state: PASS",
     "AliDDNS fingerprint NVRAM read/write failures preserve the last-known restart state: PASS",
     "AliDDNS retry cancellation checks preserve state on NVRAM read errors: PASS",
     "AliDDNS retry and relaunch NVRAM writes propagate backend errors: PASS",

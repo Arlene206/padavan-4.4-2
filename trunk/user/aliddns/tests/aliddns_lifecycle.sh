@@ -151,6 +151,38 @@ fi
 [ ! -s "$NVRAM_WRITES" ] || { echo "failed enable read persisted a false disabled value" >&2; exit 1; }
 grep -Fq 'NVRAM read failed for aliddns_enable' "$NVRAM_LOG" || { echo "enable read error was not logged" >&2; exit 1; }
 
+# Only the documented binary values are valid. A corrupt non-empty value
+# must not fall through to the enabled path or be treated as disabled.
+NVRAM_READ_FAIL_KEY=
+NVRAM_SET_STATUS=0
+for invalid_enable in unexpected -1 2 '0;reboot'; do
+	NVRAM_ENABLE_VALUE=$invalid_enable
+	: > "$NVRAM_WRITES"
+	aliddns_enable=1
+	if aliddns_enable_initialize; then
+		echo "AliDDNS accepted invalid enable selector '$invalid_enable'" >&2
+		exit 1
+	else
+		nvram_status=$?
+	fi
+	[ "$nvram_status" -eq 22 ] || {
+		echo "invalid enable selector '$invalid_enable' returned $nvram_status instead of EINVAL" >&2
+		exit 1
+	}
+	[ "$aliddns_enable" = "1" ] || {
+		echo "invalid enable selector '$invalid_enable' overwrote the active in-memory state" >&2
+		exit 1
+	}
+	[ ! -s "$NVRAM_WRITES" ] || {
+		echo "invalid enable selector '$invalid_enable' caused an NVRAM write" >&2
+		exit 1
+	}
+done
+grep -Fq 'invalid aliddns_enable selector; refusing to change keeper state' "$NVRAM_LOG" || {
+	echo "invalid enable selector was not logged" >&2; exit 1;
+}
+echo "AliDDNS invalid enable selector preserves the current service state: PASS"
+
 # A missing key (successful empty read) still receives the legacy default.
 NVRAM_READ_FAIL_KEY=
 NVRAM_ENABLE_VALUE=
