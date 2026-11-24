@@ -884,10 +884,7 @@ DeletePortMapping(struct upnphttp * h, const char * action, const char * ns)
 	syslog(LOG_INFO, "%s: external port: %hu, protocol: %s",
 		action, eport, protocol);
 
-	/* if in secure mode, check the IP
-	 * Removing a redirection is not a security threat,
-	 * just an annoyance for the user using it. So this is not
-	 * a priority. */
+	/* In secure mode, only the owner of a mapping may remove it. */
 	if(GETFLAG(SECUREMODEMASK))
 	{
 		char int_ip[32];
@@ -898,18 +895,24 @@ DeletePortMapping(struct upnphttp * h, const char * action, const char * ns)
 		                               int_ip, sizeof(int_ip),
 		                               NULL, 0, NULL, 0,
 		                               &leaseduration);
-		if(r >= 0)
+		if(r != 0)
 		{
-			if(inet_pton(AF_INET, int_ip, &int_ip_addr) > 0)
-			{
-				if(h->clientaddr.s_addr != int_ip_addr.s_addr)
-				{
-					SoapError(h, 606, "Action not authorized");
-					/*SoapError(h, 714, "NoSuchEntryInArray");*/
-					ClearNameValueList(&data);
-					return;
-				}
-			}
+			SoapError(h, 501, "ActionFailed");
+			ClearNameValueList(&data);
+			return;
+		}
+		int_ip[sizeof(int_ip) - 1] = '\0';
+		if(inet_pton(AF_INET, int_ip, &int_ip_addr) != 1)
+		{
+			SoapError(h, 501, "ActionFailed");
+			ClearNameValueList(&data);
+			return;
+		}
+		if(!miniupnpd_soap_ipv4_peer_matches(&h->clientaddr, &int_ip_addr))
+		{
+			SoapError(h, 606, "Action not authorized");
+			ClearNameValueList(&data);
+			return;
 		}
 	}
 

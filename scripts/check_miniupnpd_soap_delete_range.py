@@ -75,6 +75,22 @@ for case in (
 ):
     assert case in test
 
+
+single_body = function_body(soap, "DeletePortMapping(struct upnphttp * h,")
+single_compact = " ".join(single_body.split())
+single_guard = single_compact.index("if(GETFLAG(SECUREMODEMASK))")
+single_lookup = single_compact.index("upnp_get_redirection_infos(eport, protocol", single_guard)
+single_lookup_failure = single_compact.index("if(r != 0)", single_lookup)
+single_parse = single_compact.index("inet_pton(AF_INET, int_ip, &int_ip_addr)", single_lookup_failure)
+single_peer = single_compact.index("miniupnpd_soap_ipv4_peer_matches(&h->clientaddr, &int_ip_addr)", single_parse)
+single_denied = single_compact.index('SoapError(h, 606, "Action not authorized")', single_peer)
+single_delete = single_compact.index("upnp_delete_redirection(eport, protocol)")
+assert single_guard < single_lookup < single_lookup_failure < single_parse < single_peer < single_denied < single_delete
+single_preflight = single_compact[single_guard:single_delete]
+assert single_preflight.count('SoapError(h, 501, "ActionFailed")') == 2
+assert single_preflight.count("ClearNameValueList(&data)") == 3
+assert "return;" in single_preflight
+
 secure_start = compact.index("if(GETFLAG(SECUREMODEMASK))")
 lookup_at = compact.index("upnp_get_redirection_infos(port_list[i], protocol", secure_start)
 parse_at = compact.index("inet_pton(AF_INET, int_ip, &int_ip_addr)", lookup_at)
@@ -93,4 +109,4 @@ assert "sender->s_addr == internal->s_addr" in policy
 assert "test_ipv4_peer_identity_comparison" in test
 assert "MiniUPnP SOAP unsigned input policy: PASS" in test
 
-print("MiniUPnP DeletePortMappingRange reports backend deletion failures: PASS")
+print("MiniUPnP single/range DeletePortMapping secure-mode owner checks and backend failures: PASS")

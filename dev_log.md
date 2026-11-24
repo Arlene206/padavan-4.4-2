@@ -1,3 +1,12 @@
+## 2026-11-24 — Fail closed on MiniUPnP single-entry secure-mode ownership
+
+- Auditing the companion `DeletePortMapping()` path found another authorization bypass: when secure mode was enabled, a failed `upnp_get_redirection_infos()` lookup or an invalid returned IPv4 string silently skipped the ownership comparison and still reached `upnp_delete_redirection()`.
+- The single-entry action now fails closed with SOAP 501 when owner identity cannot be read or parsed, returns SOAP 606 for a foreign owner, and uses the same IPv4 peer matcher as the range action. The source contract checks the owner lookup/parse/compare/error gate precedes the actual delete call.
+- Restored the expanded SOAP policy PASS banner required by the integrated workflow after #45405754223 on `13ae1bc` exposed the temporary banner mismatch. Added single-action source-order coverage; host ASan/UBSan and exact MiniUPnP/AI checks are pending for this commit.
+- XY-C1 #45405466882 for `852eb72` remained in Build (TRX/artifact pending); Process #45405467000 and NVRAM #45405466901 PASS. No L3 claim for the current source SHA.
+
+---
+
 ## 2026-11-24 — Repair MiniUPnP secure-mode source-checker quoting
 
 - Exact MiniUPnP run #45405466908 on `852eb72` passed the GNU89 ASan/UBSan SOAP numeric/range policy binary, including the new IPv4 peer-identity cases, but failed before subsequent steps because the Python checker embedded a double-quoted C string using invalid backslash escaping.

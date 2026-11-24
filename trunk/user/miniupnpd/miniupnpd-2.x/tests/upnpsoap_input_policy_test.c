@@ -233,6 +233,6 @@ main(void)
 	test_required_text_presence();
 	test_delete_range_result_status();
 	test_invalid_output_arguments();
-	puts("MiniUPnP SOAP unsigned input policy: PASS");
+	puts("MiniUPnP SOAP unsigned input and range-delete result policy: PASS");
 	return 0;
 }
