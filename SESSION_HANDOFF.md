@@ -23,15 +23,15 @@ Every session MUST inspect the live repository state before ending: verify main 
 - Current main is 5ec726d5123bbfde442f15b1afad114e64747511; the frozen backup is 72f4f157a084f8184b9597ca5bf334b8080e5807 and remains untouched. No PR/branch work.
 ## Verification boundary
 
-- L3 VERIFIED for production source SHA 80f1bfccd255536a0a2682c7d046f0216038a922 (XY-C1 Build + TRX + artifact all PASS; libdisk, Process, HTTPD, NVRAM checks PASS). Hardware L4 NOT VERIFIED.
-- Exact udhcpc run #45474845539 on b61d41a56a409053559909a26c8849f3b9d4d7af PASS: GNU89 -Werror ASan/UBSan regression and Python checker.
-- Exact udhcpc run #45475021198 on fd8697d50c16035051a63cb6cbe932e99ac1a533: C compile/run PASS, checker failed on pre-extraction condition; exact XY-C1 #45475021132 and NVRAM #45475021504 were still in progress on last query. Process #45475021591 and USB storage #45475021200 PASS.
-- Exact udhcpc run #45475288109 on a218e0ce5cfeba84cc0dd82c82afc319041d834b: C compile/run PASS, Python checker failed due whitespace-sensitive assertion of the extracted server-ID helper call. AI handoff #45475287900 PASS. THIS COMMIT repairs that checker.
-- Exact-head verification for THIS commit is pending. Do not claim the DHCP change as verified until the checker passes. The last confirmed L3 production source SHA remains 80f1bfccd255536a0a2682c7d046f0216038a922.
+- L3 VERIFIED for product-source SHA 80f1bfccd255536a0a2682c7d046f0216038a922 (XY-C1 Build + TRX + artifact upload all PASS; libdisk, Process, HTTPD, NVRAM checks PASS). Hardware L4 NOT VERIFIED.
+- Exact b61d41a56a409053559909a26c8849f3b9d4d7af udhcpc #45474845539 PASS (GNU89 -Werror ASan/UBSan and Python checker).
+- fd8697d50c16035051a63cb6cbe932e99ac1a533 udhcpc #45475021198: C tests PASS, checker failed due stale inline server-ID expectations; XY-C1 #45475021132 and NVRAM #45475021504 later SUCCESS; Process #45475021591, storage #45475021200, AI #45475021106 SUCCESS.
+- a218e0ce5cfeba84cc0dd82c82afc319041d834b udhcpc #45475288109: C tests PASS, checker failed due whitespace-sensitive helper call. AI docs #45475287900 PASS.
+- da2bdbcf1ec3720d547c2665c638900bb628d289 at last poll: udhcpc #45475643463 and AI docs #45475643556 queued; do not claim results. THIS commit changes shared retry helper callsites, tests and checker; exact run required.
 - Frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-SHA udhcpc-script-status-stability for THIS whitespace-normalized checker correction; require both GNU89 -Werror ASan/UBSan C test and Python source-contract checker to pass.
-2. Continue the end-to-end DHCP transition contracts: deconfig retry state/sockets/timer, lease expiry, and SIGUSR2/-R while DECONFIG_PENDING. Preserve established server-ID filtering.
-3. Inspect any still-pending fd8697 XY-C1/NVRAM runs; use their exact results only for that SHA. Preserve frozen backup and expected-SHA main updates.
+1. Inspect exact-SHA udhcpc and AI handoff Actions for THIS commit; require GNU89 -Werror ASan/UBSan test and strengthened Python source-state checks to pass.
+2. If the checker fails, correct only the assertion matching actual source formatting/ordering, then rerun on a new exact SHA. Do not paper over C test or runtime failures.
+3. Continue broader DHCP lifecycle integration only after this slice passes; preserve frozen backup and expected-SHA nonforce updates.

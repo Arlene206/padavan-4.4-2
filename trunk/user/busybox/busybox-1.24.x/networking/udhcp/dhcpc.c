@@ -1130,7 +1130,7 @@ udhcpc_schedule_deconfig_retry(int resume_state, int release_on_usr2,
 	deconfig_release_on_usr2 = release_on_usr2 != 0;
 	change_listen_mode(LISTEN_NONE);
 	state = DECONFIG_PENDING;
-	*timeout = retry_timeout > 0 ? retry_timeout : 1;
+	*timeout = udhcpc_retry_delay(retry_timeout);
 	*packet_num = 0;
 	*already_waited_sec = 0;
 }
@@ -1733,7 +1733,7 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 					if (udhcpc_deconfig_retry_required(deconfig_status)) {
 						bb_error_msg("DHCP deconfig still failing (status %d); retrying in %d seconds",
 							deconfig_status, tryagain_timeout);
-						timeout = tryagain_timeout > 0 ? tryagain_timeout : 1;
+						timeout = udhcpc_retry_delay(tryagain_timeout);
 						continue;
 					}
 				}
@@ -2159,7 +2159,7 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 			change_listen_mode(LISTEN_NONE);
 		}
 		while (udhcpc_deconfig_retry_required(release_status)) {
-			int retry_delay = tryagain_timeout > 0 ? tryagain_timeout : 1;
+			int retry_delay = udhcpc_retry_delay(tryagain_timeout);
 
 			bb_error_msg("DHCP deconfig failed on exit (status %d); retrying in %d seconds",
 				release_status, retry_delay);

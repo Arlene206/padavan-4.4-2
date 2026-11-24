@@ -73,11 +73,18 @@ udhcpc_packet_send_failed(int send_status)
 	return send_status < 0;
 }
 
+/* Shared one-second floor for every DHCP cleanup/retry path. */
+static inline int
+udhcpc_retry_delay(int retry_timeout)
+{
+	return retry_timeout > 0 ? retry_timeout : 1;
+}
+
 /* Keep retries bounded away from a busy loop when -A is zero or negative. */
 static inline int
 udhcpc_decline_retry_delay(int retry_timeout)
 {
-	return retry_timeout > 0 ? retry_timeout : 1;
+	return udhcpc_retry_delay(retry_timeout);
 }
 
 

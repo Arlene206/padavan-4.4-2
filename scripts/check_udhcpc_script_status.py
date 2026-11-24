@@ -225,6 +225,75 @@ assert "udhcpc_deconfig_pending_release_required" in policy
 assert "test_pending_deconfig_manual_stop_releases_existing_lease" in test
 
 exit_cleanup = dhcpc[dhcpc.index(" ret0:"):]
+
+# One tested retry-delay policy is shared by scheduler, pending cleanup,
+# decline retry, and process-exit cleanup.
+assert "udhcpc_retry_delay(int retry_timeout)" in policy
+assert "return retry_timeout>0?retry_timeout:1;" in policy_compact
+assert "udhcpc_retry_delay(retry_timeout)" in "".join(scheduler.split())
+assert "timeout=udhcpc_retry_delay(tryagain_timeout);" in "".join(pending_body.split())
+assert "intretry_delay=udhcpc_retry_delay(tryagain_timeout);" in "".join(exit_cleanup.split())
+assert "return udhcpc_retry_delay(retry_timeout);" in policy_compact
+assert "test_cleanup_retry_delay_has_one_second_floor" in test
+assert "test_cleanup_retry_delay_has_one_second_floor()!=0" in test_compact
+
+scheduler_compact = "".join(scheduler.split())
+assert (scheduler_compact.index("deconfig_resume_state=resume_state;") <
+        scheduler_compact.index("deconfig_release_on_usr2=release_on_usr2!=0;") <
+        scheduler_compact.index("change_listen_mode(LISTEN_NONE);") <
+        scheduler_compact.index("state=DECONFIG_PENDING;") <
+        scheduler_compact.index("*timeout=udhcpc_retry_delay(retry_timeout);") <
+        scheduler_compact.index("*packet_num=0;") <
+        scheduler_compact.index("*already_waited_sec=0;"))
+
+pending_compact = "".join(pending_body.split())
+pending_fail = pending_compact.index("if(udhcpc_deconfig_retry_required(deconfig_status))")
+pending_continue = pending_compact.index("continue;", pending_fail)
+pending_resume = pending_compact.index("state=deconfig_resume_state;", pending_continue)
+pending_clear = pending_compact.index("deconfig_release_on_usr2=0;", pending_resume)
+assert pending_fail < pending_continue < pending_resume < pending_clear
+assert "timeout=udhcpc_retry_delay(tryagain_timeout);" in pending_compact[pending_fail:pending_continue]
+resume_init = pending_compact.index("if(state==INIT_SELECTING)", pending_clear)
+assert "change_listen_mode(LISTEN_RAW);" in pending_compact[resume_init:]
+assert "requested_ip=0;" in pending_compact[resume_init:]
+assert "packet_num=0;" in pending_compact[resume_init:]
+assert "timeout=0;" in pending_compact[resume_init:]
+
+expiry_compact = "".join(expiry.split())
+expiry_deconfig = expiry_compact.index('udhcp_run_script(NULL,"deconfig")')
+expiry_retry = expiry_compact.index("udhcpc_schedule_deconfig_retry(INIT_SELECTING", expiry_deconfig)
+expiry_continue = expiry_compact.index("continue;", expiry_retry)
+expiry_resume = expiry_compact.index("state=INIT_SELECTING;", expiry_continue)
+assert expiry_deconfig < expiry_retry < expiry_continue < expiry_resume
+assert "change_listen_mode(LISTEN_RAW);" in expiry_compact[expiry_resume:]
+
+manual_renew_compact = "".join(manual_renew.split())
+manual_renew_call = manual_renew_compact.index("script_status=perform_renew();")
+manual_renew_retry = manual_renew_compact.index(
+    "udhcpc_schedule_deconfig_retry(INIT_SELECTING,state==RENEW_REQUESTED,",
+    manual_renew_call
+)
+manual_renew_continue = manual_renew_compact.index("continue;", manual_renew_retry)
+manual_renew_success = manual_renew_compact.index("if(state==RENEW_REQUESTED)", manual_renew_continue)
+assert manual_renew_call < manual_renew_retry < manual_renew_continue < manual_renew_success
+
+release_compact = "".join(release.split())
+assert release_compact.index("if(state==DECONFIG_PENDING)") < release_compact.index(
+    "udhcpc_deconfig_pending_release_required(deconfig_release_on_usr2,1)"
+)
+assert release_compact.index("release_status=send_release(server_addr,requested_ip);") < release_compact.index(
+    "deconfig_release_on_usr2=0;"
+) < release_compact.index('script_status=udhcp_run_script(NULL,"deconfig");')
+assert release_compact.index("if(!udhcpc_deconfig_retry_required(script_status))") < release_compact.index("state=RELEASED;")
+
+signal_release_compact = "".join(signal_release.split())
+pending_signal_start = signal_release_compact.index("if(state==DECONFIG_PENDING)")
+pending_signal_branch = signal_release_compact[pending_signal_start:]
+assert pending_signal_branch.index("script_status=perform_release(server_addr,requested_ip);") < pending_signal_branch.index(
+    "udhcpc_schedule_deconfig_retry(RELEASED,0,"
+) < pending_signal_branch.index("continue;")
+assert "timeout=INT_MAX;" in pending_signal_branch
+
 assert "if ((opt & OPT_R) || state == DECONFIG_PENDING)" in exit_cleanup
 assert "while (udhcpc_deconfig_retry_required(release_status))" in exit_cleanup
 assert "sleep(retry_delay);" in exit_cleanup

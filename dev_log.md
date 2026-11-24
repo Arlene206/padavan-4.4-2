@@ -1,3 +1,12 @@
+## 2026-11-25 — Unify udhcpc cleanup retry delay and lock full state transitions
+
+- Exact run #45475288109 on a218e0ce5cfeba84cc0dd82c82afc319041d834b compiled/ran C tests PASS but its source checker failed on whitespace formatting of the multi-line DHCPNAK predicate call. Checker-only correction is da2bdbcf1ec3720d547c2665c638900bb628d289; exact Actions #45475643463 and AI handoff #45475643556 were queued at the last check.
+- Consolidated duplicate retry-delay floors into udhcpc_retry_delay(), now shared by DECONFIG_PENDING scheduling, pending-state retries, exit cleanup and DECLINE_PENDING retries. The GNU89 test covers positive, one, zero and negative intervals and the decline wrapper.
+- Expanded Python source contracts to enforce scheduler state capture, listener closure, pending state, bounded timeout and counter resets; failed-vs-successful deconfig transitions; lease-expiry cleanup before INIT_SELECTING; SIGUSR1 preservation of an active-lease release obligation; and SIGUSR2 release behavior while cleanup is pending.
+- This preserves existing fail-safe semantics and avoids divergent timeout handling across cleanup paths. Exact-SHA Actions on THIS commit are required.
+
+---
+
 ## 2026-11-25 — Fix formatting-sensitive NAK source-contract assertions
 
 - Exact Actions run #45475288109 on a218e0ce5cfeba84cc0dd82c82afc319041d834b compiled and ran the GNU89 ASan/UBSan regression binary successfully, but its Python checker still failed: it compared a call expression as one whitespace-exact string, while the production call spans multiple indented lines. The earlier policy-body check also searched for escaped newline text rather than relying on normalized code.
