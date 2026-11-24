@@ -1,3 +1,12 @@
+## 2026-11-24 — Bound MT76x3 OID_SET_PSK input copies
+
+- The MT76x3 `OID_SET_PSK` case only capped the temporary log buffer; the subsequent AP/APCLI/WSC copies still used the unrestricted user-supplied length. `WPAKeyString[65]` and WSC's `WpaPsk[64]` made oversized requests capable of overflowing fixed storage.
+- Added a strict 64-byte maximum before accessing user memory, stage the input once into a 65-byte NUL-terminated local buffer, and return `-EFAULT` on a failed user copy. All persistent destinations are populated from the validated staging buffer; WSC logging now reports the length rather than printing its non-NUL-terminated 64-byte array.
+- Extended the MTK source-contract regression to enforce the length cap, single bounded user copy, failure-before-use ordering, and staged copies. The focused MTK workflow already watches this source and checker.
+- Exact-SHA MTK regression and same-SHA XY-C1 Build/TRX/artifact validation remain required; no local kernel build or hardware result is claimed.
+
+---
+
 ## 2026-11-24 18:50 Beijing — Align Process LLDT path contract with full interface identity
 
 - Main source commit `0b532570d102824d27fd3bb3ab4d6683f956d94f` removes the prior 10-character interface truncation from LLDT PID filenames, validates nonempty slash-free interface names no longer than Linux IFNAMSIZ-1 (15), and tests names sharing the same first ten characters. Dedicated LLDT run #45376256149 PASS.

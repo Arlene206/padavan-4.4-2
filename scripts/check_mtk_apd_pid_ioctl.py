@@ -110,6 +110,49 @@ def verify_ft_boolean_copy(path: Path, source: str) -> None:
         )
 
 
+
+def verify_psk_length_contract(path: Path, source: str) -> None:
+    case = extract_case(source, "case OID_SET_PSK:", "#ifdef SNMP_SUPPORT")
+    length_guard = re.search(
+        r"if\\s*\\(\\s*wrq->u\\.data\\.length\\s*>\\s*"
+        r"sizeof\\s*\\(\\s*PSK\\s*\\)\\s*-\\s*1\\s*\\)\\s*"
+        r"\\{\\s*Status\\s*=\\s*-EINVAL\\s*;\\s*break\\s*;\\s*\\}",
+        case,
+    )
+    copy_guard = re.search(
+        r"if\\s*\\(\\s*copy_from_user\\s*\\(\\s*PSK\\s*,\\s*"
+        r"wrq->u\\.data\\.pointer\\s*,\\s*wrq->u\\.data\\.length\\s*"
+        r"\\)\\s*\\)\\s*\\{\\s*Status\\s*=\\s*-EFAULT\\s*;\\s*"
+        r"break\\s*;\\s*\\}",
+        case,
+        re.S,
+    )
+    assert length_guard, f"{path}: PSK length must be capped at 64 bytes"
+    assert copy_guard, f"{path}: stage PSK only after a bounded user copy"
+    assert length_guard.start() < copy_guard.start(), (
+        f"{path}: reject oversized PSK input before copy_from_user"
+    )
+    assert case.count("copy_from_user(") == 1, (
+        f"{path}: all PSK destinations must use the staged user copy"
+    )
+    assert "NdisMoveMemory(pAd->ApCfg.ApCliTab[pObj->ioctl_if].PSK," in case
+    assert "NdisMoveMemory(pAd->ApCfg.MBSSID[pObj->ioctl_if].WPAKeyString," in case
+    assert "NdisMoveMemory(pWscControl->WpaPsk, PSK," in case
+    assert "wrq->u.data.length + 1" in case, (
+        f"{path}: string destinations must copy only the validated terminator"
+    )
+    assert "sizeof(pWscControl->WpaPsk)" in case, (
+        f"{path}: zero the complete fixed-size WSC PSK storage"
+    )
+    assert "__func__, PSK" in case, (
+        f"{path}: only log the NUL-terminated staging buffer"
+    )
+    assert "pWscControl->WpaPsk));" not in case, (
+        f"{path}: the 64-byte WSC PSK array is not a C string"
+    )
+
+
+
 def main() -> None:
     for path in SOURCES:
         source = path.read_text(encoding="utf-8")
@@ -117,6 +160,8 @@ def main() -> None:
             for case in CASES:
                 verify_fixed_copy(path, source, case)
         verify_ft_boolean_copy(path, source)
+        if path == SOURCES[1]:
+            verify_psk_length_contract(path, source)
         print(f"MTK AP ioctl copy contracts: PASS ({path.relative_to(ROOT)})")
 
 

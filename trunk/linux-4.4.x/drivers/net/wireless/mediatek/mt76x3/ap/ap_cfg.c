@@ -2396,23 +2396,28 @@ INT RTMPAPSetInformation(
 			{
 				UCHAR PSK[64 + 1]; /* Add "\0" length */
 
-				if (wrq->u.data.length < 65) {
-					Status = copy_from_user(PSK,
-								wrq->u.data.pointer,
-								wrq->u.data.length);
-					PSK[wrq->u.data.length] = '\0';
-				} else
-					PSK[0] = '\0';
+				if (wrq->u.data.length > sizeof(PSK) - 1) {
+					Status = -EINVAL;
+					break;
+				}
+
+				if (copy_from_user(PSK,
+							wrq->u.data.pointer,
+							wrq->u.data.length)) {
+					Status = -EFAULT;
+					break;
+				}
+				PSK[wrq->u.data.length] = '\0';
 
 				DBGPRINT(RT_DEBUG_TRACE, ("%s: PSK = %s\n",
 					__func__, PSK));
 				if (pObj->ioctl_if_type == INT_APCLI) {
-					copy_from_user(pAd->ApCfg.ApCliTab[pObj->ioctl_if].PSK, wrq->u.data.pointer, wrq->u.data.length);
-					pAd->ApCfg.ApCliTab[pObj->ioctl_if].PSK[wrq->u.data.length] = '\0';
+					NdisMoveMemory(pAd->ApCfg.ApCliTab[pObj->ioctl_if].PSK,
+						       PSK, wrq->u.data.length + 1);
 					pAd->ApCfg.ApCliTab[pObj->ioctl_if].PSKLen = wrq->u.data.length;
 				} else if ((pObj->ioctl_if_type == INT_MAIN || pObj->ioctl_if_type == INT_MBSSID)) {
-					copy_from_user(pAd->ApCfg.MBSSID[pObj->ioctl_if].WPAKeyString, wrq->u.data.pointer, wrq->u.data.length);
-					pAd->ApCfg.MBSSID[pObj->ioctl_if].WPAKeyString[wrq->u.data.length] = '\0';
+					NdisMoveMemory(pAd->ApCfg.MBSSID[pObj->ioctl_if].WPAKeyString,
+						       PSK, wrq->u.data.length + 1);
 					ap_security_init(pAd, &pAd->ApCfg.MBSSID[pObj->ioctl_if].wdev, pObj->ioctl_if);
 				}
 #ifdef CONFIG_AP_SUPPORT
@@ -2428,28 +2433,26 @@ INT RTMPAPSetInformation(
 
 #ifdef APCLI_SUPPORT
 					else if (pObj->ioctl_if_type == INT_APCLI) {
-						UCHAR	 apcli_idx = pObj->ioctl_if;
+						UCHAR apcli_idx = pObj->ioctl_if;
 
 						pWscControl = &pAd->ApCfg.ApCliTab[apcli_idx].WscControl;
 					}
 #endif /* APCLI_SUPPORT */
 
 					if (pWscControl) {
-						NdisZeroMemory(pWscControl->WpaPsk, 64);
-							pWscControl->WpaPskLen = 0;
+						NdisZeroMemory(pWscControl->WpaPsk,
+							       sizeof(pWscControl->WpaPsk));
+						NdisMoveMemory(pWscControl->WpaPsk, PSK,
+							       wrq->u.data.length);
 						pWscControl->WpaPskLen = wrq->u.data.length;
-						Status = copy_from_user(pWscControl->WpaPsk,
-									wrq->u.data.pointer,
-									wrq->u.data.length);
-						DBGPRINT(RT_DEBUG_TRACE, ("%s: PSK = %s\n",
-							__func__, pWscControl->WpaPsk));
+						DBGPRINT(RT_DEBUG_TRACE, ("%s: WSC PSK length = %d\n",
+							__func__, pWscControl->WpaPskLen));
 					}
 				}
 #endif /* WSC_AP_SUPPORT */
 #endif /* CONFIG_AP_SUPPORT */
 				break;
 			}
-
 
 #ifdef SNMP_SUPPORT
 		case OID_802_11_SHORTRETRYLIMIT:
