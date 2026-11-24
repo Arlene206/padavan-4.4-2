@@ -2,6 +2,8 @@
 #include <signal.h>
 #include <stddef.h>
 #include <dirent.h>
+#include <fcntl.h>
+#include <sys/stat.h>
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
@@ -48,6 +50,64 @@ test_folder_entry_status_rejects_symlinks_and_non_directories(void)
 	assert(unlink(link_path) == 0);
 	assert(rmdir(real_path) == 0);
 	assert(rmdir(directory) == 0);
+}
+
+
+static void
+test_stale_metadata_unlink_uses_pinned_directory_fd(void)
+{
+	char root_template[] = "/tmp/disk-share-unlinkat-XXXXXX";
+	char *root;
+	char mount_dir[256], moved_dir[256], redirect_dir[256];
+	char mount_entry[256], redirect_entry[256];
+	const char *stale_name = ".__stale_var.txt";
+	int directory_fd, file_fd;
+	struct stat entry_status;
+
+	root = mkdtemp(root_template);
+	assert(root != NULL);
+	assert(snprintf(mount_dir, sizeof(mount_dir), "%s/mount", root) > 0);
+	assert(snprintf(moved_dir, sizeof(moved_dir), "%s/moved", root) > 0);
+	assert(snprintf(redirect_dir, sizeof(redirect_dir), "%s/redirect", root) > 0);
+	assert(snprintf(mount_entry, sizeof(mount_entry), "%s/%s",
+	                mount_dir, stale_name) > 0);
+	assert(snprintf(redirect_entry, sizeof(redirect_entry), "%s/%s",
+	                redirect_dir, stale_name) > 0);
+	assert(mkdir(mount_dir, 0700) == 0);
+	assert(mkdir(redirect_dir, 0700) == 0);
+
+	file_fd = open(mount_entry, O_CREAT | O_EXCL | O_WRONLY, 0600);
+	assert(file_fd >= 0);
+	assert(write(file_fd, "old", 3) == 3);
+	assert(close(file_fd) == 0);
+	file_fd = open(redirect_entry, O_CREAT | O_EXCL | O_WRONLY, 0600);
+	assert(file_fd >= 0);
+	assert(write(file_fd, "keep", 4) == 4);
+	assert(close(file_fd) == 0);
+
+	directory_fd = open(mount_dir, O_RDONLY | O_DIRECTORY);
+	assert(directory_fd >= 0);
+	assert(rename(mount_dir, moved_dir) == 0);
+	assert(symlink(redirect_dir, mount_dir) == 0);
+
+	assert(disk_share_unlink_stale_metadata_entry(
+		directory_fd, stale_name) == 0);
+	errno = 0;
+	assert(fstatat(directory_fd, stale_name, &entry_status,
+	               AT_SYMLINK_NOFOLLOW) == -1);
+	assert(errno == ENOENT);
+	assert(lstat(redirect_entry, &entry_status) == 0);
+	assert(S_ISREG(entry_status.st_mode));
+
+	errno = 0;
+	assert(disk_share_unlink_stale_metadata_entry(directory_fd, "../outside") == -1);
+	assert(errno == EINVAL);
+	assert(close(directory_fd) == 0);
+	assert(unlink(mount_dir) == 0);
+	assert(unlink(redirect_entry) == 0);
+	assert(rmdir(moved_dir) == 0);
+	assert(rmdir(redirect_dir) == 0);
+	assert(rmdir(root) == 0);
 }
 
 
@@ -2652,6 +2712,7 @@ main(void)
 
 	test_folder_rollback_preserves_permissions_when_directory_survives();
 	test_folder_entry_status_rejects_symlinks_and_non_directories();
+	test_stale_metadata_unlink_uses_pinned_directory_fd();
 test_folder_name_visibility_policy();
 	test_folder_delete_batch_commits_directory_snapshot_and_permissions();
 	test_folder_delete_batch_restores_directory_after_snapshot_failure();

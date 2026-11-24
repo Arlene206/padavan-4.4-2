@@ -320,13 +320,19 @@ prune_skip_anonymous = stale_pruner_compact.index(
 prune_active_match = stale_pruner_compact.index(
     "strcmp(account_list[i],account)==0", prune_skip_anonymous
 )
-prune_unlink = stale_pruner_compact.index("unlink(path)", prune_active_match)
+prune_directory_fd = stale_pruner_compact.index("directory_fd=dirfd(dir)")
+prune_unlink = stale_pruner_compact.index(
+    "disk_share_unlink_stale_metadata_entry(directory_fd,entry->d_name)",
+    prune_active_match
+)
 require(prune_read < prune_eof < prune_error < prune_skip_anonymous <
-        prune_active_match < prune_unlink and
+        prune_active_match < prune_directory_fd < prune_unlink and
+        "unlink(path)" not in stale_pruner_compact and
         "if(closedir(dir)!=0)" in stale_pruner_compact and
         "strcmp(entry->d_name+name_len-8,\"_var.txt\")" in stale_pruner_compact and
-        "return-1;" in stale_pruner_compact,
-        "stale metadata cleanup must fail closed while preserving active and anonymous ACL files")
+        "return-1;" in stale_pruner_compact and
+        "test_stale_metadata_unlink_uses_pinned_directory_fd();" in POLICY_TEST,
+        "stale metadata cleanup must unlink relative to its scanned directory and preserve active/anonymous ACL files")
 initial_all = function_body(
     DISK_SOURCE,
     "int initial_all_var_file_in_mount_path(const char *const mount_path)"
@@ -1145,6 +1151,7 @@ for marker in (
     "test_folder_delete_batch_restores_after_staged_directory_remove_failure",
     "test_folder_delete_batch_preserves_staging_on_directory_compensation_failure",
     "test_folder_entry_status_rejects_symlinks_and_non_directories",
+    "test_stale_metadata_unlink_uses_pinned_directory_fd",
     "test_folder_rename_batch_commits_directory_snapshot_and_permissions",
     "test_folder_rename_batch_restores_directory_after_snapshot_failure",
     "test_folder_rename_batch_restores_files_and_directory_after_write_failure",

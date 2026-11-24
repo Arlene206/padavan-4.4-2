@@ -9,7 +9,27 @@
 #include <sys/stat.h>
 #include <ctype.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <string.h>
+
+/*
+ * Remove one leaf from the directory descriptor used for enumeration. Never
+ * rebuild a pathname after readdir(): the mountpoint may have been renamed or
+ * replaced while the scan is in progress.
+ */
+static inline int
+disk_share_unlink_stale_metadata_entry(int directory_fd,
+                                       const char *entry_name)
+{
+	if (directory_fd < 0 || !entry_name || !*entry_name ||
+	    strchr(entry_name, '/') || !strcmp(entry_name, ".") ||
+	    !strcmp(entry_name, "..")) {
+		errno = EINVAL;
+		return -1;
+	}
+	return unlinkat(directory_fd, entry_name, 0);
+}
+
 
 /*
  * Classify a storage entry without following symbolic links. Missing entries

@@ -661,9 +661,9 @@ remove_stale_share_var_files(const char *mount_path,
 {
 	DIR *dir;
 	struct dirent *entry;
-	char account[32 + 1], *path;
-	int read_status, read_error, stale, saved_errno, i;
-	size_t mount_len, name_len, account_len, path_len;
+	char account[32 + 1];
+	int directory_fd, read_status, read_error, stale, saved_errno, i;
+	size_t name_len, account_len;
 
 	if (!mount_path || !*mount_path || acc_num < 0 ||
 	    acc_num > MAX_ACCOUNT_NUM || (acc_num > 0 && !account_list)) {
@@ -680,7 +680,9 @@ remove_stale_share_var_files(const char *mount_path,
 	dir = opendir(mount_path);
 	if (!dir)
 		return -1;
-	mount_len = strlen(mount_path);
+	directory_fd = dirfd(dir);
+	if (directory_fd < 0)
+		goto failed;
 
 	for (;;) {
 		read_status = disk_share_list_next_entry(dir, readdir,
@@ -717,24 +719,12 @@ remove_stale_share_var_files(const char *mount_path,
 		if (!stale)
 			continue;
 
-		if (mount_len > (size_t)-1 - name_len - 2) {
-			errno = ENAMETOOLONG;
-			goto failed;
-		}
-		path_len = mount_len + 1 + name_len;
-		path = (char *)malloc(path_len + 1);
-		if (!path)
-			goto failed;
-		memcpy(path, mount_path, mount_len);
-		path[mount_len] = '/';
-		memcpy(path + mount_len + 1, entry->d_name, name_len + 1);
-		if (unlink(path) != 0 && errno != ENOENT) {
+		if (disk_share_unlink_stale_metadata_entry(
+			    directory_fd, entry->d_name) != 0 && errno != ENOENT) {
 			saved_errno = errno ? errno : EIO;
-			free(path);
 			errno = saved_errno;
 			goto failed;
 		}
-		free(path);
 	}
 
 	if (closedir(dir) != 0) {
