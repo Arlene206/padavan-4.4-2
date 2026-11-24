@@ -25,6 +25,8 @@ on:
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether_rss.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether_hwlro.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether_qdma.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_qdma_queue_mapping_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_qdma_queue_mapping_policy.c"
       - "scripts/check_raeth_rx_ring_cleanup.py"
       - "scripts/check_raeth_qdma_tx_cleanup.py"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl.c"
@@ -88,6 +90,9 @@ on:
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether_rss.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether_hwlro.c"
       - "scripts/check_raeth_rx_ring_cleanup.py"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether_qdma.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_qdma_queue_mapping_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_qdma_queue_mapping_policy.c"
       - "scripts/check_raeth_qdma_tx_cleanup.py"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl_access_policy.h"
@@ -158,6 +163,53 @@ jobs:
 
       - name: Verify QDMA TX staged allocation rollback is complete
         run: python3 scripts/check_raeth_qdma_tx_cleanup.py
+
+      - name: Compile and verify QDMA queue-mapping selector bounds
+        run: |
+          set -eu
+          RAETH=trunk/linux-4.4.x/drivers/net/ethernet/raeth
+          cc -std=gnu89 -Wall -Wextra -Werror -g \
+            -fsanitize=address,undefined -fno-omit-frame-pointer \
+            "$RAETH/tests/raeth_qdma_queue_mapping_policy.c" \
+            -o "$RUNNER_TEMP/raeth_qdma_queue_mapping_policy"
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 \
+            "$RUNNER_TEMP/raeth_qdma_queue_mapping_policy"
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth")
+          source = (root / "raether_qdma.c").read_text()
+          policy = (root / "raeth_qdma_queue_mapping_policy.h").read_text()
+          test = (root / "tests/raeth_qdma_queue_mapping_policy.c").read_text()
+
+          assert '#include "raeth_qdma_queue_mapping_policy.h"' in source
+          assert "unsigned int M2Q_table[RAETH_QDMA_QUEUE_MAPPING_TABLE_SIZE]" in source
+          assert source.count(
+              "if (skb->mark < RAETH_QDMA_QUEUE_MAPPING_TABLE_SIZE)"
+          ) == 2
+          assert "if (skb->mark < 64)" not in source
+
+          ioctl = source.split("int ei_qdma_ioctl(", 1)[1]
+          queue = ioctl.split("case RAETH_QDMA_QUEUE_MAPPING:", 1)[1].split(
+              "case RAETH_QDMA_SFQ_WEB_ENABLE:", 1
+          )[0]
+          decode = queue.index(
+              "raeth_qdma_queue_mapping_decode(data->off, &map_index, &map_separate)"
+          )
+          reject = queue.index("if (ret != 0)")
+          separate = queue.index("lan_wan_separate = map_separate;")
+          publish = queue.index("M2Q_table[map_index] = data->val;")
+          assert decode < reject < separate < publish
+          assert "data->off &= 0xff;" not in queue
+          assert "0x100U" in policy and "TABLE_SIZE - 1U" in policy
+          for marker in (
+              "test_valid_selectors",
+              "test_reserved_bits_are_rejected_without_output_changes",
+              "test_null_outputs_are_rejected",
+          ):
+              assert marker in test
+          print("RAETH QDMA queue mapping is range-checked before global or table updates: PASS")
+          PY
 
       - name: Compile and run switch status/ioctl packing regression
         run: |

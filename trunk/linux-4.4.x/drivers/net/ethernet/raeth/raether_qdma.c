@@ -14,12 +14,13 @@
 #include "raether.h"
 #include "ra_ioctl.h"
 #include "raether_qdma.h"
+#include "raeth_qdma_queue_mapping_policy.h"
 
 /* skb->mark to queue mapping table */
 struct QDMA_txdesc *free_head;
 
 /* ioctl */
-unsigned int M2Q_table[64] = { 0 };
+unsigned int M2Q_table[RAETH_QDMA_QUEUE_MAPPING_TABLE_SIZE] = { 0 };
 EXPORT_SYMBOL(M2Q_table);
 unsigned int lan_wan_separate;
 EXPORT_SYMBOL(lan_wan_separate);
@@ -614,7 +615,7 @@ int rt2880_qdma_eth_send(struct END_DEVICE *ei_local, struct net_device *dev,
 	/* cpu_ptr->txd_info3.QID = ring_no; */
 
 	if ((ei_local->features & QDMA_QOS_MARK) && (skb->mark != 0)) {
-		if (skb->mark < 64) {
+		if (skb->mark < RAETH_QDMA_QUEUE_MAPPING_TABLE_SIZE) {
 			qidx = M2Q_table[skb->mark];
 			cpu_ptr->txd_info4.QID = ((qidx & 0x30) >> 4);
 			cpu_ptr->txd_info3.QID = (qidx & 0x0f);
@@ -772,7 +773,7 @@ int rt2880_qdma_eth_send_tso(struct END_DEVICE *ei_local,
 	cpu_ptr->txd_info4.QID = 0;
 	/* cpu_ptr->txd_info3.QID = ring_no; */
 	if ((ei_local->features & QDMA_QOS_MARK) && (skb->mark != 0)) {
-		if (skb->mark < 64) {
+		if (skb->mark < RAETH_QDMA_QUEUE_MAPPING_TABLE_SIZE) {
 			qidx = M2Q_table[skb->mark];
 			cpu_ptr->txd_info4.QID = ((qidx & 0x30) >> 4);
 			cpu_ptr->txd_info3.QID = (qidx & 0x0f);
@@ -1488,16 +1489,17 @@ int ei_qdma_ioctl(struct net_device *dev, struct ifreq *ifr,
 		}
 		/* pr_ino("write reg off:%x val:%x\n", data->off, data->val); */
 		break;
-	case RAETH_QDMA_QUEUE_MAPPING:
-		if ((data->off & 0x100) == 0x100) {
-			lan_wan_separate = 1;
-			data->off &= 0xff;
-		} else {
-			lan_wan_separate = 0;
-			data->off &= 0xff;
-		}
-		M2Q_table[data->off] = data->val;
+	case RAETH_QDMA_QUEUE_MAPPING: {
+		unsigned int map_index, map_separate;
+
+		ret = raeth_qdma_queue_mapping_decode(data->off, &map_index,
+						     &map_separate);
+		if (ret != 0)
+			break;
+		lan_wan_separate = map_separate;
+		M2Q_table[map_index] = data->val;
 		break;
+	}
 	case RAETH_QDMA_SFQ_WEB_ENABLE:
 		if (ei_local->features & FE_HW_SFQ) {
 			if ((data->val) == 0x1)
