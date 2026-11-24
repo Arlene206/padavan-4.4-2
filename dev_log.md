@@ -1,3 +1,9 @@
+## 2026-11-24 — Remove duplicate Process path-filter entries
+
+- AI handoff documentation run #45510549832 on SHA cc6e707136447a5f14fff465e664f8c52cd81bc5 failed because rc.h, net_lan.c and net_wan.c had been appended even though each was already listed in both Process lifecycle push/pull_request path allowlists. Removed only the new duplicate lines; the added helper header, Ralink source and regression test remain in both lists.
+- Parent main SHA: cc6e707136447a5f14fff465e664f8c52cd81bc5. Process run #45510550051 and XY-C1 run #45510550061 were still pending/in progress at the time of correction; exact-head recheck required.
+
+---
 ## 2026-11-24 — Read private credentials before applying UID/GID changes
 
 - The new `lanauth -f` reader validates the credential file against `geteuid()`. A review found that the existing option parser immediately called `setuid(atoi(optarg))` / `setgid(atoi(optarg))`, before loading `-f`; a command containing `-u` could therefore drop privileges and then fail to read the intended root-owned 0600 file. In the old parser, `-u` before `-g` could also make the later setgid fail.

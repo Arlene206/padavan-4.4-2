@@ -6,7 +6,7 @@ Continue one autonomous engineering stream on `main`. For each logical slice, cr
 
 ## Branch and checkpoint
 
-- Parent main SHA for this handoff update: `142af5929fc37ecf04f426c4878e581bc8aad573`; refresh live refs before future writes.
+- Parent main SHA for this handoff update: `cc6e707136447a5f14fff465e664f8c52cd81bc5`; refresh live refs before future writes.
 - Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only.
 - `main` is the only development ref. PR #1 is closed/unmerged and must not be ported.
 - Bootstrap, protocol and handoff were recovered once; do not repeat startup audits without a new reason.
@@ -122,9 +122,10 @@ Commit `786c504c8247fe42d5d1d5f2dc3ad28757fafc80` strictly parses persisted RX/T
 
 ## Exact first action for the next GPT
 
-1. Verify the exact-head Process/AI/XY-C1 Actions for the RC user-config copy fix. Confirm the GNU89 ASan/UBSan regression for long-line suffix injection, embedded-NUL lines, exact-255-byte records, comment/forbid filtering, and EOF without newline.
-2. Confirm the XY-C1 run #45509202992 for source SHA 142af5929fc37ecf04f426c4878e581bc8aad573 reaches Build, TRX verification and artifact upload. Do not claim L3 until all three finish PASS on one exact source SHA.
-3. Continue the next concrete stability/security defect across Padavan userland. Keep main-only atomic expected-SHA commits and the backup branch frozen/read-only.
+1. Recheck exact-head Process and XY-C1 Actions for source SHA cc6e707136447a5f14fff465e664f8c52cd81bc5 after correcting the duplicate Process path-filter entries.
+2. AI handoff documentation #45510549832 failed because the newly added rc.h, net_lan.c and net_wan.c paths duplicated entries already present in both Process trigger allowlists. The workflow now retains one copy in push and pull_request; the validator must PASS before treating the handoff as sound.
+3. Process regression #45510550051 and XY-C1 firmware validation #45510550061 were still pending/in progress at the last poll. Verify the RC whole-line config regression, Build, TRX and artifact upload on the exact same source SHA.
+4. Continue a separate stability/security task after exact-head results. Keep main-only atomic expected-SHA commits and leave the frozen backup untouched.
 
 ## Mandatory handoff checkpoint
 
