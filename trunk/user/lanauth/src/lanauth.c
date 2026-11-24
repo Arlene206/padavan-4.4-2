@@ -26,6 +26,8 @@
 #include<string.h>
 #include<syslog.h>
 
+#include "lanauth_credential_file_policy.h"
+
 #define LTC_NO_CIPHERS
 #define LTC_NO_MODES
 #define LTC_NO_HASHES
@@ -56,7 +58,7 @@ static void sigusr(int sig);		/* change access level */
 static int tmread(char *buf, int size, int timeout);	/* read with timeout */
 
 static void usage() {
-	printf("Usage: lanauth [-i] [-v 1|2] [-b localip] [-n] [-g gid] [-u uid] [-s gateip] [-l accesslevel] -p password\n");
+	printf("Usage: lanauth [-i] [-v 1|2] [-b localip] [-n] [-g gid] [-u uid] [-s gateip] [-l accesslevel] (-f password-file | -p password)\n");
 	exit(0);
 }
 
@@ -70,12 +72,14 @@ static void fatal(char *s, ...) {
 
 int main(int argc, char **argv) {
 	char *s;
+	char *password_file = NULL;
+	int password_argument = 0;
 	int op;
 	unsigned char ch;
 	unsigned char curlevel = 0xff;
 	/* process command line arguments */
 	while(1) {
-		op = getopt(argc, argv, "iv:b:ns:p:l:u:g:");
+		op = getopt(argc, argv, "iv:b:ns:p:f:l:u:g:");
 		if (op == -1) break;
 		switch(op) {
 			case 'i':
@@ -100,10 +104,16 @@ int main(int argc, char **argv) {
 				gateip[sizeof(gateip)-1] = 0;
 				break;
 			case 'p':
+				if (password_file || password_argument) usage();
 				strncpy(pass, optarg, sizeof(pass)-1);
 				pass[sizeof(pass)-1] = 0;
-				/* hide password */
+				/* Preserve the legacy CLI; RC uses the private -f transport. */
 				for (s = optarg; *s; s++) *s = '*';
+				password_argument = 1;
+				break;
+			case 'f':
+				if (password_file || password_argument) usage();
+				password_file = optarg;
 				break;
 			case 'l':
 				level = atoi(optarg);
@@ -119,7 +129,17 @@ int main(int argc, char **argv) {
 		}
 	}
 
-	if (!pass || !*pass) usage();
+	if (password_file) {
+		int password_status = lanauth_read_private_password_file(
+			password_file, pass, sizeof(pass));
+		if (password_status != 0) {
+			fprintf(stderr, "lanauth: cannot read private password file (status=%d)\\n",
+				password_status);
+			return 1;
+		}
+	} else if (!pass || !*pass) {
+		usage();
+	}
 
 	openlog("lanauth", nodaemon ? LOG_PERROR|LOG_PID : LOG_PID, LOG_DAEMON);
 

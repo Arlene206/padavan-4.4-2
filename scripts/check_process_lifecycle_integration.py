@@ -1655,7 +1655,26 @@ assert "nvram_safe_get(" not in auth_start_kabinet
 assert "nvram_get_checked(name, value)" in auth_nvram_get
 assert "rc_wan_nvram_copy_value(auth_kabinet_nvram_get" in auth_read_value
 assert 'eval("/usr/sbin/lanauth", "-s", gateway, "-p", password)' in auth_start_service
-assert 'eval("/usr/sbin/lanauth", "-p", password)' in auth_start_service
+assert 'eval("/usr/sbin/lanauth", "-f", credential_path)' in auth_start_service
+assert 'eval("/usr/sbin/lanauth", "-s", gateway, "-f", credential_path)' in auth_start_service
+assert '"-p", password' not in auth_start_service
+auth_credential_writer = auth_source.split("auth_kabinet_write_password_file(", 1)[1].split("\n}", 1)[0]
+assert "mkstemp(temporary_path)" in auth_credential_writer
+assert "fchmod(fd, S_IRUSR | S_IWUSR)" in auth_credential_writer
+assert "write(fd, password + written" in auth_credential_writer
+assert "fsync(fd)" in auth_credential_writer
+assert "memset(credential_path, 0, sizeof(credential_path))" in auth_source
+lanauth_source = (root / "trunk/user/lanauth/src/lanauth.c").read_text()
+lanauth_policy = (root / "trunk/user/lanauth/src/lanauth_credential_file_policy.h").read_text()
+assert 'getopt(argc, argv, "iv:b:ns:p:f:l:u:g:")' in lanauth_source
+assert "case 'f':" in lanauth_source
+assert "lanauth_read_private_password_file(" in lanauth_source
+assert "O_NOFOLLOW" in lanauth_policy
+assert "(opened_stat.st_mode & 07777) != 0600" in lanauth_policy
+assert "opened_stat.st_nlink != 1" in lanauth_policy
+assert "opened_stat.st_uid != geteuid()" in lanauth_policy
+assert "lstat(path, &named_stat)" in lanauth_policy
+assert "unlink(path)" in lanauth_policy
 auth_policy_body = auth_policy.split("auth_kabinet_restart_with_ops(", 1)[1].split("\n}", 1)[0]
 assert auth_policy_body.index("AUTH_KABINET_GATEWAY_KEY") < auth_policy_body.index("AUTH_KABINET_PASSWORD_KEY")
 assert auth_policy_body.index("AUTH_KABINET_PASSWORD_KEY") < auth_policy_body.index("stop_service(context)") < auth_policy_body.index("start_service(context, gateway, password)")

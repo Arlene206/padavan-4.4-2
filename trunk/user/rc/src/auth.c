@@ -57,14 +57,93 @@ auth_kabinet_stop_service(void *context)
 	return stop_auth_kabinet();
 }
 
+#define AUTH_KABINET_LEGACY_PASSWORD_LENGTH 20
+
+static int
+auth_kabinet_write_password_file(const char *password,
+                                 char *credential_path,
+                                 size_t credential_path_size)
+{
+    char temporary_path[] = "/tmp/.lanauth-password.XXXXXX";
+    size_t password_length, written;
+    ssize_t count;
+    int fd = -1;
+    int saved_errno;
+
+    if (!password || !credential_path || credential_path_size == 0) {
+        errno = EINVAL;
+        return EINVAL;
+    }
+    credential_path[0] = '\0';
+    password_length = strnlen(password, AUTH_KABINET_LEGACY_PASSWORD_LENGTH);
+    if (password_length == 0)
+        return EINVAL;
+    if (strlen(temporary_path) + 1 > credential_path_size)
+        return ENAMETOOLONG;
+
+    fd = mkstemp(temporary_path);
+    if (fd < 0)
+        return errno ? errno : EIO;
+    if (fchmod(fd, S_IRUSR | S_IWUSR) != 0)
+        goto failed;
+
+    written = 0;
+    while (written < password_length) {
+        count = write(fd, password + written, password_length - written);
+        if (count < 0 && errno == EINTR)
+            continue;
+        if (count <= 0) {
+            if (count == 0)
+                errno = EIO;
+            goto failed;
+        }
+        written += (size_t)count;
+    }
+    if (fsync(fd) != 0)
+        goto failed;
+    if (close(fd) != 0) {
+        fd = -1;
+        goto failed;
+    }
+    fd = -1;
+    strcpy(credential_path, temporary_path);
+    return 0;
+
+failed:
+    saved_errno = errno ? errno : EIO;
+    if (fd >= 0)
+        (void)close(fd);
+    (void)unlink(temporary_path);
+    credential_path[0] = '\0';
+    errno = saved_errno;
+    return saved_errno;
+}
+
 static int
 auth_kabinet_start_service(void *context, const char *gateway,
 			  const char *password)
 {
+	char credential_path[128];
+	int status, ret;
+
 	(void)context;
+	status = auth_kabinet_write_password_file(
+		password, credential_path, sizeof(credential_path));
+	if (status != 0)
+		return status;
+
 	if (is_valid_ipv4(gateway))
-		return eval("/usr/sbin/lanauth", "-s", gateway, "-p", password);
-	return eval("/usr/sbin/lanauth", "-p", password);
+		ret = eval("/usr/sbin/lanauth", "-s", gateway,
+			   "-f", credential_path);
+	else
+		ret = eval("/usr/sbin/lanauth", "-f", credential_path);
+
+	if (ret != 0 && unlink(credential_path) != 0 && errno != ENOENT)
+		logmessage("lanauth",
+			   "cannot remove unused private credential file (errno=%d)",
+			   errno);
+	memset(credential_path, 0, sizeof(credential_path));
+	return ret;
 }
 
 int start_auth_kabinet(void)

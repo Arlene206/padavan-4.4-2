@@ -58,6 +58,7 @@ on:
       - "trunk/user/ralinkiappd/iappd.sh"
       - "trunk/user/ralinkiappd/tests/iappd_lifecycle.sh"
       - "trunk/user/rc/src/auth.c"
+      - "trunk/user/lanauth/src/**"
       - "trunk/user/rc/src/auth_kabinet_restart_policy.h"
       - "trunk/user/rc/src/tests/auth_kabinet_restart_policy.c"
       - "trunk/user/rc/src/common_ex.c"
@@ -321,6 +322,7 @@ on:
       - "trunk/user/ralinkiappd/iappd.sh"
       - "trunk/user/ralinkiappd/tests/iappd_lifecycle.sh"
       - "trunk/user/rc/src/auth.c"
+      - "trunk/user/lanauth/src/**"
       - "trunk/user/rc/src/auth_kabinet_restart_policy.h"
       - "trunk/user/rc/src/tests/auth_kabinet_restart_policy.c"
       - "trunk/user/rc/src/common_ex.c"
@@ -1993,3 +1995,12 @@ jobs:
 
           print("LAN authentication checked-read/restart source contract: PASS")
           PY
+
+      - name: Compile and run private LAN authentication credential-file regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/lanauth/src \
+            trunk/user/lanauth/src/tests/lanauth_credential_file_policy.c \
+            -o "$RUNNER_TEMP/lanauth-credential-file-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/lanauth-credential-file-policy"

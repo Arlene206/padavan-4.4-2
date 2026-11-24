@@ -1,3 +1,11 @@
+## 2026-11-24 — Keep LAN authentication password out of managed daemon argv
+
+- lanauth previously accepted only `-p <password>`; the RC service passed the NVRAM secret in argv before the daemon's later optarg overwrite. Added a one-shot credential file transport: RC uses `mkstemp`, exact mode 0600, complete write and `fsync`, then passes only the random pathname with `-f`. lanauth opens with `O_NOFOLLOW|O_NONBLOCK`, validates regular-file type, effective owner, single link, exact mode and inode identity, reads at most the legacy 20-byte password, then unlinks the file before daemonizing. The old `-p` interface remains for manual compatibility; managed router starts now use `-f`.
+- Added GNU89 ASan/UBSan tests for valid one-shot consumption, empty/oversized/insecure/missing inputs and symlink rejection, plus source-contract assertions. Process/XY-C1 path filters include lanauth sources. Exact-head checks pending.
+- Parent main SHA: dc1d0654022a1cfec415d589f2f4c05fa352f541. No firmware or physical-router result claimed.
+
+---
+
 ## 2026-11-24 — Repair LAN authentication integration contract and handoff checkpoint
 
 - Exact-head Process lifecycle run #45506666241 on 3e31c744db7c4fd27665ccadc7325058c3c60a83 reached the aggregate integration check, then failed on a stale assertion requiring `ret = stop_auth_kabinet();` inside `start_auth_kabinet()`. The source now delegates read→stop→start ordering to `auth_kabinet_restart_with_ops()`; the checker now validates checked NVRAM reads, read-before-stop ordering, the launch adapter and secret-buffer clearing.

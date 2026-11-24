@@ -6,7 +6,7 @@ Continue one autonomous engineering stream on `main`. For each logical slice, cr
 
 ## Branch and checkpoint
 
-- Parent main SHA for this handoff update: `3e31c744db7c4fd27665ccadc7325058c3c60a83`; refresh live refs before future writes.
+- Parent main SHA for this handoff update: `dc1d0654022a1cfec415d589f2f4c05fa352f541`; refresh live refs before future writes.
 - Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only.
 - `main` is the only development ref. PR #1 is closed/unmerged and must not be ported.
 - Bootstrap, protocol and handoff were recovered once; do not repeat startup audits without a new reason.
@@ -18,6 +18,10 @@ Continue one autonomous engineering stream on `main`. For each logical slice, cr
 `start_auth_kabinet()` still launches `/usr/sbin/lanauth` using `eval(..., "-p", password)`, exposing the configured secret in the process argument vector. Inspect the `lanauth` option parser and daemon input paths before changing the interface. Prefer a private mode-0600 credential/config file or inherited descriptor that the daemon can read without exposing the secret in `/proc/*/cmdline`; preserve the existing `-s` gateway behavior, stop/readiness semantics and backward compatibility. Add a host regression and source contract for the new secret transport. This remains open after the checked-read fix.
 
 ## Completed source slices
+
+### LAN authentication password argument exposure
+
+This main slice stages the legacy maximum 20-byte password in a random mode-0600 file and launches lanauth with only its pathname through new `-f` input. The daemon checks regular-file type, owner, exact permissions, single-link count and inode identity, uses `O_NOFOLLOW`, then consumes the file before daemonizing. The legacy `-p` CLI remains for manual compatibility, but managed RC starts no longer pass the secret in argv. A GNU89 ASan/UBSan test covers valid consumption, empty/oversized/insecure/missing files and symlink rejection. Exact Process and XY-C1 checks pending.
 
 ### LAN authentication restart checked-read gate
 
@@ -115,10 +119,10 @@ Commit `786c504c8247fe42d5d1d5f2dc3ad28757fafc80` strictly parses persisted RX/T
 
 ## Exact first action for the next GPT
 
-1. Inspect `/usr/sbin/lanauth` option parsing in `trunk/user/lanauth`. The remaining issue is that `start_auth_kabinet()` passes its password as `-p <password>` in argv. Design and test a private credential transport (private file or inherited descriptor) that keeps the password out of process listings while preserving gateway behavior and startup semantics.
-2. Verify the follow-up AI handoff and Process lifecycle runs for the correction to `3e31c744db7c4fd27665ccadc7325058c3c60a83`; fix any genuine failure. Check XY-C1 #45506666559 and NVRAM audit #45506666281 at their exact recorded SHAs, without treating PENDING/CANCELLED as PASS.
-3. Continue concrete stability/security implementation across Padavan userland. Do not reopen the verified FTP ACL, SSH supported-mode, firewall VTS, WAN counter baseline, USB modem retry, OpenVPN lifetime or account snapshot fixes absent new failing evidence.
-4. Before any write, refresh live main and the frozen backup ref; before ending, record exact-SHA Actions and a concrete first action.
+1. Verify the exact-head Process regression and XY-C1 build for the private lanauth credential-file transport. Confirm the GNU89 ASan/UBSan reader test, source integration contract, Build, TRX and artifact upload before claiming firmware validation.
+2. Inspect exact-head Process and AI handoff runs for the new source commit and close any remaining FAIL/PENDING gate accurately.
+3. Continue an uncovered Padavan userland security/stability defect after confirming this credential transport; do not reopen validated account snapshots, FTP ACL visibility, SSH modes, VTS rules, WAN counter, USB retry or OpenVPN lifetime slices without new failing evidence.
+4. Refresh main and the frozen backup before writes; keep main-only atomic commits and update the handoff when its first task changes.
 
 
 ## Mandatory handoff checkpoint
