@@ -1,3 +1,11 @@
+## 2026-11-23 状态增量：扩展 JavaScript 上下文转义
+
+- 已新增 `nvram_get_js` 作为 JavaScript 字符串输出 handler，并将 DDNS hostname 以及 WAN、LAN、DHCP、IPTV、Services、Backup、MAC Filter 页面中的 JS 源码插值切换到该 handler。HTML 属性/文本上下文保持使用 HTML 转义，不进行全局替换。
+- 最新源码/模板提交 `51bd80ef`；HTTPD exact SHA `2a50ce0c` 曾 PASS，NVRAM transaction audit `#45295392634` PASS。当前 `51bd80ef` 的 HTTPD CI 尚未确认终态；XY-C1 `#45295392702` 只覆盖之前的 `edc313cd`，不包含新增 ASP 模板。
+- 下一步：检查 `51bd80ef` 对应 Actions，确保 XY-C1 构建覆盖这些模板并分别确认 Build、TRX、artifact。备份分支保持只读。
+
+---
+
 ## 2026-11-23 状态增量：DDNS JavaScript 输出上下文
 
 - 修复 `ddns_hostname_x` 被 `nvram_get_x()` 放入单引号 JavaScript 字符串而造成的存储型 XSS：新增 `nvram_get_js`，复用现有 JS 字符串转义器，纳入 direct-EJ escaped-output 分类和回归合同。

@@ -1,3 +1,12 @@
+## 2026-11-23 — Extend context-safe NVRAM output across web UI templates
+
+- Confirmed additional JavaScript-source NVRAM interpolations in WAN, LAN, DHCP, IPTV, Services, SettingBackup and MACFilter ASP templates; HTML form contexts were intentionally left on nvram_get_x.
+- Reused nvram_get_js for those JS literal/argument sinks and extended HTTPD workflow path filters plus exact source-marker assertions. Main commit: 51bd80e.
+- Prior exact 2a50ce0 HTTPD run #45295707346 PASS; NVRAM transaction audit #45295392634 PASS (15/15) on unchanged transaction code. Exact 51bd80e HTTPD terminal status and a firmware build including the seven ASP changes were not confirmed at checkpoint.
+- Next: verify exact-SHA HTTPD workflow and ensure XY-C1 build/TRX/artifact cover main 51bd80e. No hardware L3/L4 claim.
+
+---
+
 ## 2026-11-23 — Fix DDNS JavaScript string injection
 
 - Confirmed a stored-XSS sink: Advanced_DDNS_Content.asp initialized ddns_hostname_x inside a single-quoted JavaScript literal using the HTML-only nvram_get_x output helper. An apostrophe in the stored hostname could terminate the script string.
