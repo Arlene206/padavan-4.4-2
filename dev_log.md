@@ -1,3 +1,10 @@
+## 2026-11-24 — Remove final legacy-password expectation from managed LAN auth contract
+
+- Process lifecycle run #45507892712 on source SHA 76e6f03167f6265e0ed89d5d86430df2881c24d7 passed earlier inventory/boot gates and reached the RC integration checker, then failed because one old assertion still expected `eval(..., "-s", gateway, "-p", password)`. The managed caller has intentionally moved both branches to private `-f` file input; removed the obsolete assertion while retaining checks for both `-f` branches and absence of password argv.
+- Parent main SHA: 76e6f03167f6265e0ed89d5d86430df2881c24d7. Exact Process rerun must reach the credential-file compile/run step.
+
+---
+
 ## 2026-11-24 — Restore EAPoL source variable in process integration checker
 
 - Process lifecycle run #45507075779 on source SHA 3e31c744db7c4fd27665ccadc7325058c3c60a83 failed after the checked-read stop assertion was corrected: the checker still referenced `auth_start_eapol`, but the prior replacement had removed its declaration. Restored the declaration without changing EAPoL production assertions.

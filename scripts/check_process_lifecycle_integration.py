@@ -1655,7 +1655,6 @@ assert "auth_kabinet_restart_with_ops(" in auth_start_kabinet
 assert "nvram_safe_get(" not in auth_start_kabinet
 assert "nvram_get_checked(name, value)" in auth_nvram_get
 assert "rc_wan_nvram_copy_value(auth_kabinet_nvram_get" in auth_read_value
-assert 'eval("/usr/sbin/lanauth", "-s", gateway, "-p", password)' in auth_start_service
 assert 'eval("/usr/sbin/lanauth", "-f", credential_path)' in auth_start_service
 assert 'eval("/usr/sbin/lanauth", "-s", gateway, "-f", credential_path)' in auth_start_service
 assert '"-p", password' not in auth_start_service
