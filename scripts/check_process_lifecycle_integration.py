@@ -1694,6 +1694,21 @@ assert "cannot evaluate scheduled action because timezone is unavailable" in reb
 assert "time(&now) == (time_t)-1" in reboot_schedule
 assert "timezone_env_policy.h" in process_workflow
 assert "timezone_env_policy.h" in xy_workflow
+
+# Kernel timezone retries must not be suppressed after a failed settimeofday().
+kernel_timezone = c_function_body(rc_source, "setkernel_tz(void)")
+assert '#include "timezone_env_policy.h"' in rc_source
+assert "rc_timezone_kernel_cache_status(" in kernel_timezone
+assert kernel_timezone.index("settimeofday(tvp, &tz)") < kernel_timezone.index(
+    "rc_timezone_kernel_cache_status("
+)
+assert "tz_minuteswest_last = tz.tz_minuteswest" not in kernel_timezone
+assert "cannot update kernel timezone" in kernel_timezone
+timezone_policy = (root / "trunk/user/rc/src/timezone_env_policy.h").read_text()
+timezone_test = (root / "trunk/user/rc/src/tests/timezone_env_policy.c").read_text()
+assert "if (syscall_status != 0)" in timezone_policy
+assert "*cached_minuteswest = requested_minuteswest;" in timezone_policy
+assert "test_kernel_timezone_cache_changes_only_after_success();" in timezone_test
 httpd_probe = watchdog_source.split("static int\nhttpd_check_v2()", 1)[1].split(
     "\nstatic int\nrefresh_ntp(void)", 1
 )[0]

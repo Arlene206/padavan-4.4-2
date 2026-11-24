@@ -42,4 +42,23 @@ rc_timezone_env_format_status(int read_result, int read_errno,
 	return 0;
 }
 
+/*
+ * Update the cached kernel timezone only after settimeofday succeeds. A
+ * failed syscall must leave the previous cache value intact so a later
+ * notification can retry the same requested offset.
+ */
+static inline int
+rc_timezone_kernel_cache_status(int syscall_status, int saved_errno,
+                                int requested_minuteswest,
+                                int *cached_minuteswest)
+{
+	if (!cached_minuteswest)
+		return EINVAL;
+	if (syscall_status != 0)
+		return saved_errno > 0 ? saved_errno : EIO;
+
+	*cached_minuteswest = requested_minuteswest;
+	return 0;
+}
+
 #endif /* TIMEZONE_ENV_POLICY_H */

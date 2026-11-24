@@ -1278,7 +1278,7 @@ setenv_tz(void)
 	}
 }
 
-void 
+void
 setkernel_tz(void)
 {
 	time_t now;
@@ -1286,6 +1286,7 @@ setkernel_tz(void)
 	struct timezone tz;
 	struct timeval *tvp = NULL;
 	static int tz_minuteswest_last = -1;
+	int syscall_status, saved_errno, status;
 
 	/* Update kernel timezone */
 	time(&now);
@@ -1298,11 +1299,23 @@ setkernel_tz(void)
 	if (tz_minuteswest_last == tz.tz_minuteswest)
 		return;
 
-	tz_minuteswest_last = tz.tz_minuteswest;
-
-	settimeofday(tvp, &tz);
+	/*
+	 * Do not advance the cache before the syscall: a permission or transient
+	 * kernel error must leave this offset eligible for a later retry.
+	 */
+	errno = 0;
+	syscall_status = settimeofday(tvp, &tz);
+	saved_errno = errno;
+	status = rc_timezone_kernel_cache_status(
+		syscall_status, saved_errno, tz.tz_minuteswest,
+		&tz_minuteswest_last);
+	if (status != 0) {
+		errno = status;
+		logmessage(LOGNAME,
+			   "cannot update kernel timezone (minuteswest=%d, status=%d)",
+			   tz.tz_minuteswest, status);
+	}
 }
-
 #if defined (BOARD_K2P)
 static void led_control(int gpio_led, int flag);
 

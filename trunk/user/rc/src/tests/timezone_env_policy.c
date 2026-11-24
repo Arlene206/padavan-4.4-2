@@ -72,6 +72,24 @@ test_timezone_length_boundary_is_checked_without_truncation(void)
 	assert(strcmp(destination, "retain") == 0);
 }
 
+static void
+test_kernel_timezone_cache_changes_only_after_success(void)
+{
+	int cached_minuteswest = 60;
+
+	assert(rc_timezone_kernel_cache_status(
+		-1, EPERM, -300, &cached_minuteswest) == EPERM);
+	assert(cached_minuteswest == 60);
+	assert(rc_timezone_kernel_cache_status(
+		-1, 0, -300, &cached_minuteswest) == EIO);
+	assert(cached_minuteswest == 60);
+	assert(rc_timezone_kernel_cache_status(
+		0, EACCES, -300, &cached_minuteswest) == 0);
+	assert(cached_minuteswest == -300);
+	assert(rc_timezone_kernel_cache_status(
+		0, 0, 120, NULL) == EINVAL);
+}
+
 int
 main(void)
 {
@@ -80,6 +98,7 @@ main(void)
 	test_backend_error_leaves_destination_untouched();
 	test_invalid_read_results_and_present_null_are_rejected();
 	test_timezone_length_boundary_is_checked_without_truncation();
+	test_kernel_timezone_cache_changes_only_after_success();
 	puts("RC timezone environment checked-read policy: PASS");
 	return 0;
 }
