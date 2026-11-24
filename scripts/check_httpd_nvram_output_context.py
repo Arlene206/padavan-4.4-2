@@ -9,6 +9,7 @@ ROOT = Path("trunk/user/www/n56u_ribbon_fixed")
 WEB_SOURCE = Path("trunk/user/httpd/src/web_ex.c")
 HTML_POLICY = Path("trunk/user/httpd/src/httpd_html_output_policy.h")
 JSON_POLICY = Path("trunk/user/httpd/src/httpd_json_output_policy.h")
+AIDISK_SOURCE = Path("trunk/user/httpd/src/aidisk.c")
 DIRECT_POLICY = Path("trunk/user/httpd/src/httpd_direct_ej_policy.h")
 RAW_JS_ENDPOINTS = {"lan_clients.asp", "ajax_ddnscode.asp"}
 CALL = re.compile(r"<%\s*(nvram_get_list_x|nvram_get_buf_x|nvram_get_table_x|get_nvram_list|nvram_get_js|nvram_get_ddns|nvram_get_x|nvram_get)\s*\(")
@@ -209,11 +210,31 @@ def check_wol_dom_sinks():
     print("WOL client/vendor DOM text sinks: PASS")
 
 
+def check_aidisk_script_messages():
+    source = AIDISK_SOURCE.read_text(encoding="utf-8")
+    assert '#include "httpd_json_output_policy.h"' in source
+    assert "httpd_json_escape_next" in source
+    helper_start = source.index("static void\nwrite_script_message(")
+    helper_end = source.index("\nstatic void\nwrite_tree_entry(", helper_start)
+    helper = source[helper_start:helper_end]
+    assert 'websWrite(wp, "<script>\n%s(", callback);' in helper
+    assert "write_json_string(wp, message);" in helper
+    assert 'websWrite(wp, ");\n</script>\n");' in helper
+    message_lines = [line for line in source.splitlines() if "get_alert_msg_from_dict(" in line]
+    assert len(message_lines) == 48, (
+        f"expected 48 AiDisk error messages, found {len(message_lines)}"
+    )
+    assert all("write_script_message(wp," in line for line in message_lines)
+    assert all("websWrite(wp," not in line for line in message_lines)
+    assert source.count('write_script_message(wp, "safely_remove_disk_error"') == 2
+    print("AiDisk JavaScript error-message encoding: PASS")
+
 def main():
     check_handler_wiring()
     check_dynamic_js_hooks()
     check_templates()
     check_wol_dom_sinks()
+    check_aidisk_script_messages()
 
 
 if __name__ == "__main__":

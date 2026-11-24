@@ -32,6 +32,7 @@
 #include <usb_info.h>
 
 #include "httpd.h"
+#include "httpd_json_output_policy.h"
 
 
 /* Emit data as a JavaScript/JSON string, not raw source text. */
@@ -41,27 +42,27 @@ write_json_string(webs_t wp, const char *value)
 	const unsigned char *p;
 
 	websWrite(wp, "%s", "\"");
-	for (p = (const unsigned char *)value; p && *p; ++p) {
-		switch (*p) {
-		case '"':  websWrite(wp, "%s", "\\\""); break;
-		case '\\': websWrite(wp, "%s", "\\\\"); break;
-		case '<':  websWrite(wp, "%s", "\\u003c"); break;
-		case '>':  websWrite(wp, "%s", "\\u003e"); break;
-		case '&':  websWrite(wp, "%s", "\\u0026"); break;
-		case '\b': websWrite(wp, "%s", "\\b"); break;
-		case '\f': websWrite(wp, "%s", "\\f"); break;
-		case '\n': websWrite(wp, "%s", "\\n"); break;
-		case '\r': websWrite(wp, "%s", "\\r"); break;
-		case '\t': websWrite(wp, "%s", "\\t"); break;
-		default:
-			if (*p < 0x20)
-				websWrite(wp, "\\u%04x", (unsigned int)*p);
-			else
-				fputc(*p, wp);
-			break;
-		}
+	for (p = (const unsigned char *)value; p && *p;) {
+		char escaped[6];
+		size_t input_consumed = 0;
+		size_t escaped_len = httpd_json_escape_next(p, escaped,
+							   &input_consumed);
+
+		if (escaped_len == 0 || input_consumed == 0)
+			return;
+		if (fwrite(escaped, 1, escaped_len, wp) != escaped_len)
+			return;
+		p += input_consumed;
 	}
 	websWrite(wp, "%s", "\"");
+}
+
+static void
+write_script_message(webs_t wp, const char *callback, const char *message)
+{
+	websWrite(wp, "<script>\n%s(", callback);
+	write_json_string(wp, message);
+	websWrite(wp, ");\n</script>\n");
 }
 
 static void
@@ -638,15 +639,11 @@ ej_set_AiDisk_status(int eid, webs_t wp, int argc, char **argv)
 	int result = 0;
 
 	if (strlen(protocol) <= 0) {
-		websWrite(wp, "<script>\n");
-		websWrite(wp, "set_AiDisk_status_error(\'%s\');\n", get_alert_msg_from_dict("Input1"));
-		websWrite(wp, "</script>\n");
+		write_script_message(wp, "set_AiDisk_status_error", get_alert_msg_from_dict("Input1"));
 		return -1;
 	}
 	if (strlen(flag) <= 0) {
-		websWrite(wp, "<script>\n");
-		websWrite(wp, "set_AiDisk_status_error(\'%s\');\n", get_alert_msg_from_dict("Input18"));
-		websWrite(wp, "</script>\n");
+		write_script_message(wp, "set_AiDisk_status_error", get_alert_msg_from_dict("Input18"));
 		return -1;
 	}
 	if (!strcmp(protocol, "cifs")) {
@@ -662,9 +659,7 @@ ej_set_AiDisk_status(int eid, webs_t wp, int argc, char **argv)
 			result = system("/sbin/stop_samba");
 		}
 		else {
-			websWrite(wp, "<script>\n");
-			websWrite(wp, "set_AiDisk_status_error(\'%s\');\n", get_alert_msg_from_dict("Input19"));
-			websWrite(wp, "</script>\n");
+			write_script_message(wp, "set_AiDisk_status_error", get_alert_msg_from_dict("Input19"));
 			return -1;
 		}
 	}
@@ -681,23 +676,17 @@ ej_set_AiDisk_status(int eid, webs_t wp, int argc, char **argv)
 			result = system("/sbin/stop_ftp");
 		}
 		else {
-			websWrite(wp, "<script>\n");
-			websWrite(wp, "set_AiDisk_status_error(\'%s\');\n", get_alert_msg_from_dict("Input19"));
-			websWrite(wp, "</script>\n");
+			write_script_message(wp, "set_AiDisk_status_error", get_alert_msg_from_dict("Input19"));
 			return -1;
 		}
 	}
 	else {
-		websWrite(wp, "<script>\n");
-		websWrite(wp, "set_AiDisk_status_error(\'%s\');\n", get_alert_msg_from_dict("Input2"));
-		websWrite(wp, "</script>\n");
+		write_script_message(wp, "set_AiDisk_status_error", get_alert_msg_from_dict("Input2"));
 		return -1;
 	}
 
 	if (result != 0) {
-		websWrite(wp, "<script>\n");
-		websWrite(wp, "set_AiDisk_status_error(\'%s\');\n", get_alert_msg_from_dict("Action8"));
-		websWrite(wp, "</script>\n");
+		write_script_message(wp, "set_AiDisk_status_error", get_alert_msg_from_dict("Action8"));
 		return -1;
 	}
 
@@ -768,8 +757,7 @@ ej_safely_remove_disk(int eid, webs_t wp, int argc, char **argv)
 	{
 		/* Accept only an existing whole SCSI disk, never caller-supplied shell text. */
 		if (!get_blk_sd_path_by_device(disk_devn, device_path, sizeof(device_path))) {
-			websWrite(wp, "<script>safely_remove_disk_error(\\'%s\\');</script>\n",
-				  get_alert_msg_from_dict("Action9"));
+			write_script_message(wp, "safely_remove_disk_error", get_alert_msg_from_dict("Action9"));
 			return -1;
 		}
 	}
@@ -790,7 +778,7 @@ ej_safely_remove_disk(int eid, webs_t wp, int argc, char **argv)
 	}
 
 	if (result != 0) {
-		websWrite(wp, "<script>safely_remove_disk_error(\\'%s\\');</script>\n", get_alert_msg_from_dict("Action9"));
+		write_script_message(wp, "safely_remove_disk_error", get_alert_msg_from_dict("Action9"));
 	} else {
 		websWrite(wp, "<script>safely_remove_disk_success();</script>\n");
 	}
@@ -1329,15 +1317,11 @@ ej_set_share_mode(int eid, webs_t wp, int argc, char **argv)
 		nvram_set_int_temp("dummyShareway", 0);
 
 	if (strlen(protocol) <= 0) {
-		websWrite(wp, "<script>\n");
-		websWrite(wp, "set_share_mode_error(\'%s\');\n", get_alert_msg_from_dict("Input1"));
-		websWrite(wp, "</script>\n");
+		write_script_message(wp, "set_share_mode_error", get_alert_msg_from_dict("Input1"));
 		return -1;
 	}
 	if (strlen(mode) <= 0) {
-		websWrite(wp, "<script>\n");
-		websWrite(wp, "set_share_mode_error(\'%s\');\n", get_alert_msg_from_dict("Input3"));
-		websWrite(wp, "</script>\n");
+		write_script_message(wp, "set_share_mode_error", get_alert_msg_from_dict("Input3"));
 		return -1;
 	}
 	if (!strcmp(mode, "share")) {
@@ -1352,9 +1336,7 @@ ej_set_share_mode(int eid, webs_t wp, int argc, char **argv)
 			nvram_set_int("st_ftp_mode", 1);
 		}
 		else {
-			websWrite(wp, "<script>\n");
-			websWrite(wp, "set_share_mode_error(\'%s\');\n", get_alert_msg_from_dict("Input2"));
-			websWrite(wp, "</script>\n");
+			write_script_message(wp, "set_share_mode_error", get_alert_msg_from_dict("Input2"));
 			return -1;
 		}
 	}
@@ -1370,9 +1352,7 @@ ej_set_share_mode(int eid, webs_t wp, int argc, char **argv)
 			nvram_set_int("st_ftp_mode", 2);
 		}
 		else {
-			websWrite(wp, "<script>\n");
-			websWrite(wp, "set_share_mode_error(\'%s\');\n", get_alert_msg_from_dict("Input2"));
-			websWrite(wp, "</script>\n");
+			write_script_message(wp, "set_share_mode_error", get_alert_msg_from_dict("Input2"));
 			return -1;
 		}
 	}
@@ -1387,9 +1367,7 @@ ej_set_share_mode(int eid, webs_t wp, int argc, char **argv)
 		nvram_set_int("st_ftp_mode", 4);
 	}
 	else {
-		websWrite(wp, "<script>\n");
-		websWrite(wp, "set_share_mode_error(\'%s\');\n", get_alert_msg_from_dict("Input4"));
-		websWrite(wp, "</script>\n");
+		write_script_message(wp, "set_share_mode_error", get_alert_msg_from_dict("Input4"));
 		return -1;
 	}
 
@@ -1402,16 +1380,12 @@ ej_set_share_mode(int eid, webs_t wp, int argc, char **argv)
 	else if (!strcmp(protocol, "ftp"))
 		result = eval("/sbin/run_ftp");
 	else {
-		websWrite(wp, "<script>\n");
-		websWrite(wp, "set_share_mode_error(\'%s\');\n", get_alert_msg_from_dict("Input2"));
-		websWrite(wp, "</script>\n");
+		write_script_message(wp, "set_share_mode_error", get_alert_msg_from_dict("Input2"));
 		return -1;
 	}
 
 	if (result != 0) {
-		websWrite(wp, "<script>\n");
-		websWrite(wp, "set_share_mode_error(\'%s\');\n", get_alert_msg_from_dict("Action8"));
-		websWrite(wp, "</script>\n");
+		write_script_message(wp, "set_share_mode_error", get_alert_msg_from_dict("Action8"));
 		return -1;
 	}
 
@@ -1449,34 +1423,24 @@ ej_modify_sharedfolder(int eid, webs_t wp, int argc, char **argv)
 	char *mount_path;
 
 	if (strlen(pool) <= 0) {
-		websWrite(wp, "<script>\n");
-		websWrite(wp, "modify_sharedfolder_error(\'%s\');\n", get_alert_msg_from_dict("Input7"));
-		websWrite(wp, "</script>\n");
+		write_script_message(wp, "modify_sharedfolder_error", get_alert_msg_from_dict("Input7"));
 		return -1;
 	}
 	if (strlen(folder) <= 0) {
-		websWrite(wp, "<script>\n");
-		websWrite(wp, "modify_sharedfolder_error(\'%s\');\n", get_alert_msg_from_dict("Input9"));
-		websWrite(wp, "</script>\n");
+		write_script_message(wp, "modify_sharedfolder_error", get_alert_msg_from_dict("Input9"));
 		return -1;
 	}
 	if (strlen(new_folder) <= 0) {
-		websWrite(wp, "<script>\n");
-		websWrite(wp, "modify_sharedfolder_error(\'%s\');\n", get_alert_msg_from_dict("Input17"));
-		websWrite(wp, "</script>\n");
+		write_script_message(wp, "modify_sharedfolder_error", get_alert_msg_from_dict("Input17"));
 		return -1;
 	}
 	if (get_mount_path(pool, &mount_path) < 0) {
-		websWrite(wp, "<script>\n");
-		websWrite(wp, "modify_sharedfolder_error(\'%s\');\n", get_alert_msg_from_dict("System1"));
-		websWrite(wp, "</script>\n");
+		write_script_message(wp, "modify_sharedfolder_error", get_alert_msg_from_dict("System1"));
 		return -1;
 	}
 
 	if (mod_folder(mount_path, folder, new_folder) < 0) {
-		websWrite(wp, "<script>\n");
-		websWrite(wp, "modify_sharedfolder_error(\'%s\');\n", get_alert_msg_from_dict("Action7"));
-		websWrite(wp, "</script>\n");
+		write_script_message(wp, "modify_sharedfolder_error", get_alert_msg_from_dict("Action7"));
 		free(mount_path);
 		return -1;
 	}
@@ -1499,28 +1463,20 @@ ej_delete_sharedfolder(int eid, webs_t wp, int argc, char **argv)
 	char *mount_path;
 
 	if (strlen(pool) <= 0) {
-		websWrite(wp, "<script>\n");
-		websWrite(wp, "delete_sharedfolder_error(\'%s\');\n", get_alert_msg_from_dict("Input7"));
-		websWrite(wp, "</script>\n");
+		write_script_message(wp, "delete_sharedfolder_error", get_alert_msg_from_dict("Input7"));
 		return -1;
 	}
 	if (strlen(folder) <= 0) {
-		websWrite(wp, "<script>\n");
-		websWrite(wp, "delete_sharedfolder_error(\'%s\');\n", get_alert_msg_from_dict("Input9"));
-		websWrite(wp, "</script>\n");
+		write_script_message(wp, "delete_sharedfolder_error", get_alert_msg_from_dict("Input9"));
 		return -1;
 	}
 
 	if (get_mount_path(pool, &mount_path) < 0) {
-		websWrite(wp, "<script>\n");
-		websWrite(wp, "delete_sharedfolder_error(\'%s\');\n", get_alert_msg_from_dict("System1"));
-		websWrite(wp, "</script>\n");
+		write_script_message(wp, "delete_sharedfolder_error", get_alert_msg_from_dict("System1"));
 		return -1;
 	}
 	if (del_folder(mount_path, folder) < 0) {
-		websWrite(wp, "<script>\n");
-		websWrite(wp, "delete_sharedfolder_error(\'%s\');\n", get_alert_msg_from_dict("Action6"));
-		websWrite(wp, "</script>\n");
+		write_script_message(wp, "delete_sharedfolder_error", get_alert_msg_from_dict("Action6"));
 		free(mount_path);
 		return -1;
 	}
@@ -1543,28 +1499,20 @@ ej_create_sharedfolder(int eid, webs_t wp, int argc, char **argv)
 	char *mount_path;
 
 	if (strlen(pool) <= 0) {
-		websWrite(wp, "<script>\n");
-		websWrite(wp, "create_sharedfolder_error(\'%s\');\n", get_alert_msg_from_dict("Input7"));
-		websWrite(wp, "</script>\n");
+		write_script_message(wp, "create_sharedfolder_error", get_alert_msg_from_dict("Input7"));
 		return -1;
 	}
 	if (strlen(folder) <= 0) {
-		websWrite(wp, "<script>\n");
-		websWrite(wp, "create_sharedfolder_error(\'%s\');\n", get_alert_msg_from_dict("Input9"));
-		websWrite(wp, "</script>\n");
+		write_script_message(wp, "create_sharedfolder_error", get_alert_msg_from_dict("Input9"));
 		return -1;
 	}
 
 	if (get_mount_path(pool, &mount_path) < 0) {
-		websWrite(wp, "<script>\n");
-		websWrite(wp, "create_sharedfolder_error(\'%s\');\n", get_alert_msg_from_dict("System1"));
-		websWrite(wp, "</script>\n");
+		write_script_message(wp, "create_sharedfolder_error", get_alert_msg_from_dict("System1"));
 		return -1;
 	}
 	if (add_folder(mount_path, folder) < 0) {
-		websWrite(wp, "<script>\n");
-		websWrite(wp, "create_sharedfolder_error(\'%s\');\n", get_alert_msg_from_dict("Action5"));
-		websWrite(wp, "</script>\n");
+		write_script_message(wp, "create_sharedfolder_error", get_alert_msg_from_dict("Action5"));
 		free(mount_path);
 		return -1;
 	}
@@ -1587,22 +1535,16 @@ ej_modify_account(int eid, webs_t wp, int argc, char **argv)
 	char *new_password = websGetVar(wp, "new_password", "");
 
 	if (strlen(account) <= 0) {
-		websWrite(wp, "<script>\n");
-		websWrite(wp, "modify_account_error(\'%s\');\n", get_alert_msg_from_dict("Input5"));
-		websWrite(wp, "</script>\n");
+		write_script_message(wp, "modify_account_error", get_alert_msg_from_dict("Input5"));
 		return -1;
 	}
 	if (strlen(new_account) <= 0 && strlen(new_password) <= 0) {
-		websWrite(wp, "<script>\n");
-		websWrite(wp, "modify_account_error(\'%s\');\n", get_alert_msg_from_dict("Input16"));
-		websWrite(wp, "</script>\n");
+		write_script_message(wp, "modify_account_error", get_alert_msg_from_dict("Input16"));
 		return -1;
 	}
 
 	if (mod_account(account, new_account, new_password) < 0) {
-		websWrite(wp, "<script>\n");
-		websWrite(wp, "modify_account_error(\'%s\');\n", get_alert_msg_from_dict("Action4"));
-		websWrite(wp, "</script>\n");
+		write_script_message(wp, "modify_account_error", get_alert_msg_from_dict("Action4"));
 		return -1;
 	}
 
@@ -1619,16 +1561,12 @@ ej_delete_account(int eid, webs_t wp, int argc, char **argv)
 	char *account = websGetVar(wp, "account", "");
 
 	if (strlen(account) <= 0) {
-		websWrite(wp, "<script>\n");
-		websWrite(wp, "delete_account_error(\'%s\');\n", get_alert_msg_from_dict("Input5"));
-		websWrite(wp, "</script>\n");
+		write_script_message(wp, "delete_account_error", get_alert_msg_from_dict("Input5"));
 		return -1;
 	}
 
 	if (del_account(account) < 0) {
-		websWrite(wp, "<script>\n");
-		websWrite(wp, "delete_account_error(\'%s\');\n", get_alert_msg_from_dict("Action3"));
-		websWrite(wp, "</script>\n");
+		write_script_message(wp, "delete_account_error", get_alert_msg_from_dict("Action3"));
 		return -1;
 	}
 
@@ -1651,9 +1589,7 @@ ej_initial_account(int eid, webs_t wp, int argc, char **argv)
 
 	disks_info = read_disk_data();
 	if (!disks_info) {
-		websWrite(wp, "<script>\n");
-		websWrite(wp, "initial_account_error(\'%s\');\n", get_alert_msg_from_dict("System2"));
-		websWrite(wp, "</script>\n");
+		write_script_message(wp, "initial_account_error", get_alert_msg_from_dict("System2"));
 		return -1;
 	}
 
@@ -1669,9 +1605,7 @@ ej_initial_account(int eid, webs_t wp, int argc, char **argv)
 	free_disk_data(disks_info);
 
 	if (init_error) {
-		websWrite(wp, "<script>\n");
-		websWrite(wp, "initial_account_error(\'%s\');\n", get_alert_msg_from_dict("System1"));
-		websWrite(wp, "</script>\n");
+		write_script_message(wp, "initial_account_error", get_alert_msg_from_dict("System1"));
 		return -1;
 	}
 
@@ -1691,23 +1625,17 @@ ej_create_account(int eid, webs_t wp, int argc, char **argv)
 	char *password = websGetVar(wp, "password", "");
 
 	if (strlen(account) <= 0) {
-		websWrite(wp, "<script>\n");
-		websWrite(wp, "create_account_error(\'%s\');\n", get_alert_msg_from_dict("Input5"));
-		websWrite(wp, "</script>\n");
+		write_script_message(wp, "create_account_error", get_alert_msg_from_dict("Input5"));
 		return -1;
 	}
 
 	if (strlen(password) <= 0) {
-		websWrite(wp, "<script>\n");
-		websWrite(wp, "create_account_error(\'%s\');\n", get_alert_msg_from_dict("Input14"));
-		websWrite(wp, "</script>\n");
+		write_script_message(wp, "create_account_error", get_alert_msg_from_dict("Input14"));
 		return -1;
 	}
 
 	if (add_account(account, password) < 0) {
-		websWrite(wp, "<script>\n");
-		websWrite(wp, "create_account_error(\'%s\');\n", get_alert_msg_from_dict("Action2"));
-		websWrite(wp, "</script>\n");
+		write_script_message(wp, "create_account_error", get_alert_msg_from_dict("Action2"));
 		return -1;
 	}
 
@@ -1730,73 +1658,53 @@ ej_set_account_permission(int eid, webs_t wp, int argc, char **argv)
 	int right;
 
 	if (strlen(account) <= 0) {
-		websWrite(wp, "<script>\n");
-		websWrite(wp, "set_account_permission_error(\'%s\');\n", get_alert_msg_from_dict("Input5"));
-		websWrite(wp, "</script>\n");
+		write_script_message(wp, "set_account_permission_error", get_alert_msg_from_dict("Input5"));
 		return -1;
 	}
 	if (test_if_exist_account(account) != 1) {
-		websWrite(wp, "<script>\n");
-		websWrite(wp, "set_account_permission_error(\'%s\');\n", get_alert_msg_from_dict("Input6"));
-		websWrite(wp, "</script>\n");
+		write_script_message(wp, "set_account_permission_error", get_alert_msg_from_dict("Input6"));
 		return -1;
 	}
 
 	if (strlen(pool) <= 0) {
-		websWrite(wp, "<script>\n");
-		websWrite(wp, "set_account_permission_error(\'%s\');\n", get_alert_msg_from_dict("Input7"));
-		websWrite(wp, "</script>\n");
+		write_script_message(wp, "set_account_permission_error", get_alert_msg_from_dict("Input7"));
 		return -1;
 	}
 	if (get_mount_path(pool, &mount_path) < 0) {
-		websWrite(wp, "<script>\n");
-		websWrite(wp, "set_account_permission_error(\'%s\');\n", get_alert_msg_from_dict("System1"));
-		websWrite(wp, "</script>\n");
+		write_script_message(wp, "set_account_permission_error", get_alert_msg_from_dict("System1"));
 		return -1;
 	}
 
 	if (strlen(folder) <= 0) {
-		websWrite(wp, "<script>\n");
-		websWrite(wp, "set_account_permission_error(\'%s\');\n", get_alert_msg_from_dict("Input9"));
-		websWrite(wp, "</script>\n");
+		write_script_message(wp, "set_account_permission_error", get_alert_msg_from_dict("Input9"));
 		free(mount_path);
 		return -1;
 	}
 	if (strlen(protocol) <= 0) {
-		websWrite(wp, "<script>\n");
-		websWrite(wp, "set_account_permission_error(\'%s\');\n", get_alert_msg_from_dict("Input1"));
-		websWrite(wp, "</script>\n");
+		write_script_message(wp, "set_account_permission_error", get_alert_msg_from_dict("Input1"));
 		free(mount_path);
 		return -1;
 	}
 	if (strcmp(protocol, "cifs") && strcmp(protocol, "ftp") && strcmp(protocol, "dms")) {
-		websWrite(wp, "<script>\n");
-		websWrite(wp, "set_account_permission_error(\'%s\');\n", get_alert_msg_from_dict("Input2"));
-		websWrite(wp, "</script>\n");
+		write_script_message(wp, "set_account_permission_error", get_alert_msg_from_dict("Input2"));
 		free(mount_path);
 		return -1;
 	}
 
 	if (strlen(permission) <= 0) {
-		websWrite(wp, "<script>\n");
-		websWrite(wp, "set_account_permission_error(\'%s\');\n", get_alert_msg_from_dict("Input12"));
-		websWrite(wp, "</script>\n");
+		write_script_message(wp, "set_account_permission_error", get_alert_msg_from_dict("Input12"));
 		free(mount_path);
 		return -1;
 	}
 	right = atoi(permission);
 	if (right < 0 || right > 3) {
-		websWrite(wp, "<script>\n");
-		websWrite(wp, "set_account_permission_error(\'%s\');\n", get_alert_msg_from_dict("Input13"));
-		websWrite(wp, "</script>\n");
+		write_script_message(wp, "set_account_permission_error", get_alert_msg_from_dict("Input13"));
 		free(mount_path);
 		return -1;
 	}
 
 	if (set_permission(account, mount_path, folder, protocol, right) < 0) {
-		websWrite(wp, "<script>\n");
-		websWrite(wp, "set_account_permission_error(\'%s\');\n", get_alert_msg_from_dict("Action1"));
-		websWrite(wp, "</script>\n");
+		write_script_message(wp, "set_account_permission_error", get_alert_msg_from_dict("Action1"));
 		free(mount_path);
 		return -1;
 	}

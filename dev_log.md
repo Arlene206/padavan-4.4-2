@@ -1,3 +1,10 @@
+## 2026-11-23 — Fix AiDisk dynamic JavaScript error-message output
+
+- Found 48 AiDisk action-error callsites that formatted translated dictionary messages directly into JavaScript source. The legacy formats did not protect backslashes, quotes, controls, script terminators or Unicode line separators; several also emitted escaped apostrophes outside a JavaScript string literal.
+- Reused httpd_json_output_policy.h for AiDisk's JSON/JavaScript string writer and routed every dictionary-backed error callback through write_script_message(). This emits a complete double-quoted JavaScript string and prevents message text from breaking out of the script element.
+- Added source-contract coverage for all 48 messages and the shared encoder. Parent a5794a0 WOL DOM XSS and related Actions were IN_PROGRESS at checkpoint; no result for this new SHA is claimed.
+
+---
 ## 2026-11-23 — Render WOL client and vendor data as text
 
 - The WOL device table concatenated static/DHCP client MACs and names into HTML, while vendor labels from the external MAC lookup API and localStorage were inserted with `.html()`. Client labels and third-party vendor strings are untrusted; either path could inject active markup into the authenticated router UI.

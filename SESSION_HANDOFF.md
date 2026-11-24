@@ -10,8 +10,7 @@
 
 ## Active task
 
-Fix DOM XSS in `Advanced_WOL_Content.asp`: client names/MACs from static and DHCP client state were concatenated into HTML, and vendor labels from the external MAC lookup API or localStorage were inserted with `.html()`. Move all data sinks to text-only DOM insertion and pin them with the HTTPD security source-contract regression.
-
+An additional output-context defect was found in AiDisk. All 48 action-error responses formatted dictionary messages directly into JavaScript calls; they are being routed through the shared JSON encoder, with a regression requiring every dictionary message to use the safe helper. The WOL DOM text-sink fix and checker from parent a5794a0 are pending exact-SHA verification.
 ## Completed development slices
 
 ### HTTPD / web UI security
@@ -34,19 +33,18 @@ Independent snapshot/lifecycle changes remain in `99ad9397e3cf4450c6fc07758b58c3
 
 ## Verification boundary
 
-- Exact `fbbedd7` HTTPD run `#45301473424`: **PASS**, including the WOL JSON encoder/source contract and the existing NVRAM HTML/JavaScript sanitizer tests. Exact AI handoff run `#45301473510`: **PASS**.
-- Exact `fd68cee` HTTPD run `#45301344235`: **FAIL** only in the newly added WOL source-boundary locator; the doubled newline escape was corrected in `fbbedd7`, which passes its own exact-head HTTPD run. Exact fd68cee AI handoff `#45301344195`, NVRAM audit `#45301344189`, FRP `#45301344338`, Inadyn `#45301344311`, USB storage `#45301344302`, Process regression `#45301344737`, Process inventory `#45301344475` and AdGuardHome `#45301344973`: **PASS**. AliyunDrive `#45301344287` and XY-C1 `#45301344269` were IN_PROGRESS at last poll.
-- The WOL UI DOM text-sink fix and checker in THIS COMMIT await their exact-head HTTPD and XY-C1 Actions. No local execution, same-SHA L3 firmware build, or hardware L4 validation is claimed.
-- Exact dd099f6 HTTPD #45300345684: FAIL due to an over-broad source-contract assertion; narrowed in c6f5805, whose HTTPD #45300471389 and AI #45300471279 both PASS.
-- Exact 08c6d43 HTTPD #45299995452, AI #45299995515, Process inventory #45299995463, lifecycle inventory #45299995326, FRP #45299995540, Inadyn #45299995467, AliyunDrive #45299995485, AdGuardHome #45299995325 and USB storage #45299995495: PASS.
-- Exact 212aed2 XY-C1 detector test #45299517972: PASS; Build was still in progress with TRX/artifact pending at last poll. Exact 5c8c62f XY-C1 #45298161504 and 861e3fe XY-C1 #45298770098: PASS, including Build, TRX and artifact upload.
+- Exact fbbedd7 HTTPD #45301473424 and AI handoff #45301473510: PASS, including the corrected WOL JSON source-boundary checker.
+- Exact a5794a0 WOL UI DOM XSS change: HTTPD #45301947513, AI handoff #45301947575, Process lifecycle inventory #45301947519 and XY-C1 #45301947500 were IN_PROGRESS at checkpoint; no result claimed.
+- Exact 89128ba HTTPD #45300665513 and all associated AI/process/NVRAM/FRP/Inadyn/AdGuardHome/USB/AliyunDrive regression jobs: PASS. Its XY-C1 #45300665497 detector PASS; Build IN_PROGRESS; TRX/artifact PENDING at last check.
+- Exact dd099f6 HTTPD #45300345684 failed due to an over-broad source-contract assertion; c6f5805 corrected it, and HTTPD #45300471389 and AI #45300471279 passed.
+- Exact 08c6d43 HTTPD #45299995452 and its AI/process/security side regression jobs passed. Exact 5c8c62f XY-C1 #45298161504 and 861e3fe XY-C1 #45298770098 passed Build, TRX and artifact upload.
 - No physical-router L4 result is claimed. Backup backup/pre-plugin-overhaul-2026-11-14 remains read-only at 72f4f157a084f8184b9597ca5bf334b8080e5807.
 
 ## Exact first action for the next GPT
 
-1. Inspect the exact-head HTTPD and XY-C1 Actions for this WOL DOM XSS fix. Confirm the browser-facing text-sink contract and, if triggered, the production-input detector, firmware Build, TRX verification and artifact upload on the same SHA.
-2. Continue tracing remaining C-side HTTPD dynamic output sinks to their data sources; next inspect the language-option emitter and legacy NVRAM list helpers before making further output-context changes.
-3. Keep the archival backup read-only and continue on main with one atomic source/test commit per logical fix.
+1. Verify exact-SHA HTTPD coverage for AiDisk: all 48 dictionary-backed error callbacks must use write_script_message(), which emits a complete JSON-encoded JavaScript string.
+2. Review remaining AiDisk JavaScript data emitters (USB enumeration, printer/manufacturer/model lists and initial disk mapping) for runtime strings still bypassing the common encoder.
+3. Check exact-head XY-C1 detector/build/TRX/artifact status without waiting; keep the backup immutable.
 
 # Cross-session execution mandate
 
