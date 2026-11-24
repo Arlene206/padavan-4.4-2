@@ -18,6 +18,8 @@ on:
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_mdio_ioctl_status_policy.h"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_mdio_ioctl_status_policy.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_lan_ip_ioctl_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_esw_rate_ioctl_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_esw_rate_ioctl_policy.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_lan_ip_ioctl_policy.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_private_ioctl_access_policy.c"
       - "trunk/linux-4.4.x/net/core/dev_ioctl.c"
@@ -85,6 +87,8 @@ on:
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_mdio_ioctl_status_policy.h"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_mdio_ioctl_status_policy.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_lan_ip_ioctl_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_esw_rate_ioctl_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_esw_rate_ioctl_policy.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_lan_ip_ioctl_policy.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_private_ioctl_access_policy.c"
       - "trunk/linux-4.4.x/net/core/dev_ioctl.c"
@@ -167,6 +171,47 @@ jobs:
 
       - name: Verify QDMA TX staged allocation rollback is complete
         run: python3 scripts/check_raeth_qdma_tx_cleanup.py
+
+      - name: Compile and verify RAETH ESW rate ioctl bounds
+        run: |
+          set -eu
+          RAETH=trunk/linux-4.4.x/drivers/net/ethernet/raeth
+          cc -std=gnu89 -Wall -Wextra -Werror -g \
+            -fsanitize=address,undefined -fno-omit-frame-pointer \
+            "$RAETH/tests/raeth_esw_rate_ioctl_policy.c" \
+            -o "$RUNNER_TEMP/raeth_esw_rate_ioctl_policy"
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 \
+            "$RUNNER_TEMP/raeth_esw_rate_ioctl_policy"
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth")
+          source = (root / "raether.c").read_text()
+          policy = (root / "raeth_esw_rate_ioctl_policy.h").read_text()
+          cli = Path("trunk/user/utils/src/switch/switch_gsw.c").read_text()
+
+          ioctl = source.split("case RAETH_ESW_INGRESS_RATE:", 1)[1]
+          ingress = ioctl.split("case RAETH_ESW_EGRESS_RATE:", 1)[0]
+          egress = ioctl.split("case RAETH_SET_LAN_IP:", 1)[0]
+          for name, body, offset in (
+              ("ingress", ingress, "offset = 0x1800"),
+              ("egress", egress, "offset = 0x1040"),
+          ):
+              check = body.index("raeth_esw_rate_ioctl_status(")
+              reject = body.index("if (ret != 0)", check)
+              offset_calc = body.index(offset)
+              mmio_read = body.index("sys_reg_read(RALINK_ETH_SW_BASE + offset)")
+              mdio_write = body.index("mii_mgr_write(0x1f, offset, value)")
+              assert check < reject < offset_calc < mmio_read < mdio_write, name
+
+          assert "RAETH_ESW_RATE_MAX_PORT 4U" in policy
+          assert "RAETH_ESW_RATE_MAX_BANDWIDTH_MBPS (255U * 10000U)" in policy
+          assert cli.count(
+              "switch_parse_uint_range(argv[4], 0U, 2550000U,"
+          ) == 2
+          assert "2147483647U" not in cli
+          print("RAETH ingress/egress rate inputs are validated before MMIO/MDIO access: PASS")
+          PY
 
       - name: Compile and verify QDMA register offset alignment
         run: |

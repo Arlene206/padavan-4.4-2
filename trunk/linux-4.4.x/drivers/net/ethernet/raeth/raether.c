@@ -23,6 +23,7 @@
 #include "raeth_private_ioctl_access_policy.h"
 #include "raeth_mdio_ioctl_status_policy.h"
 #include "raeth_lan_ip_ioctl_policy.h"
+#include "raeth_esw_rate_ioctl_policy.h"
 #include "raether_hwlro.h"
 #include "ra_ethtool.h"
 
@@ -3187,6 +3188,11 @@ phy_dump_done:
 			break;
 		}
 		spin_lock_irq(&ei_local->page_lock);
+		ret = raeth_esw_rate_ioctl_status(ratelimit.on_off,
+						  ratelimit.port,
+						  ratelimit.bw);
+		if (ret != 0)
+			break;
 		offset = 0x1800 + (0x100 * ratelimit.port);
 		value = sys_reg_read(RALINK_ETH_SW_BASE + offset);
 
@@ -3222,6 +3228,11 @@ phy_dump_done:
 			break;
 		}
 		spin_lock_irq(&ei_local->page_lock);
+		ret = raeth_esw_rate_ioctl_status(ratelimit.on_off,
+						  ratelimit.port,
+						  ratelimit.bw);
+		if (ret != 0)
+			break;
 		offset = 0x1040 + (0x100 * ratelimit.port);
 		value = sys_reg_read(RALINK_ETH_SW_BASE + offset);
 

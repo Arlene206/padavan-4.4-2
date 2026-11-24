@@ -118,8 +118,8 @@ void usage(char *cmd)
 	printf(" %s dip dump                             - dump switch dip table\n", cmd);
 	printf(" %s dip clear                            - clear switch dip table\n", cmd);
 	printf(" %s dump                                 - dump switch table\n", cmd);
-	printf(" %s ingress-rate on [port] [Mbps]        - set ingress rate limit on port 0~4 \n", cmd);
-	printf(" %s egress-rate on [port] [Mbps]         - set egress rate limit on port 0~4 \n", cmd);
+	printf(" %s ingress-rate on [port] [Mbps]        - set ingress rate limit on port 0~4 (max 2550000 Mbps) \n", cmd);
+	printf(" %s egress-rate on [port] [Mbps]         - set egress rate limit on port 0~4 (max 2550000 Mbps) \n", cmd);
 	printf(" %s ingress-rate off [port]              - del ingress rate limit on port 0~4 \n", cmd);
 	printf(" %s egress-rate off [port]               - del egress rate limit on port 0~4\n", cmd);
 	printf(" %s filt [mac]                           - add a SA filtering entry (with portmap 1111111) to switch table\n", cmd);
@@ -2074,7 +2074,7 @@ int main(int argc, char *argv[])
 		if (strcmp(argv[2], "on") == 0) {
 			if (argc != 5 ||
 			    switch_parse_uint_range(argv[3], 0U, 4U, &port) != 0 ||
-			    switch_parse_uint_range(argv[4], 0U, 2147483647U,
+			    switch_parse_uint_range(argv[4], 0U, 2550000U,
 						    &bandwidth) != 0)
 				usage(argv[0]);
 			bw = (int)bandwidth;
@@ -2099,7 +2099,7 @@ int main(int argc, char *argv[])
 		if (strcmp(argv[2], "on") == 0) {
 			if (argc != 5 ||
 			    switch_parse_uint_range(argv[3], 0U, 4U, &port) != 0 ||
-			    switch_parse_uint_range(argv[4], 0U, 2147483647U,
+			    switch_parse_uint_range(argv[4], 0U, 2550000U,
 						    &bandwidth) != 0)
 				usage(argv[0]);
 			bw = (int)bandwidth;
