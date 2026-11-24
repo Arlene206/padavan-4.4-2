@@ -41,7 +41,7 @@ def body(signature, source=SOURCE):
             elif char == "}":
                 depth -= 1
                 if depth == 0:
-                    return SOURCE[opening + 1:index]
+                    return source[opening + 1:index]
         elif state == "quoted":
             if char == chr(92):
                 index += 2
