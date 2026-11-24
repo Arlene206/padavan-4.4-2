@@ -511,8 +511,9 @@ assert "cannot read xupnpd IPTV proxy integration setting" in lua_udpxy
 assert lua_udpxy.index('"udpxy_enable_x"') < lua_udpxy.index("rc_wan_nvram_parse_int_value")
 assert lua_udpxy.index("rc_wan_nvram_parse_int_value") < lua_udpxy.index('"xupnpd_udpxy"')
 assert 'nvram_safe_get("lan_ipaddr_t")' not in xupnpd_start
-assert "xupnpd_config_tempfile_open(common_path, common_stage, sizeof(common_stage))" in xupnpd_start
-assert "xupnpd_config_tempfile_open(runtime_path, runtime_stage, sizeof(runtime_stage))" in xupnpd_start
+xupnpd_start_compact = " ".join(xupnpd_start.split())
+assert "xupnpd_config_tempfile_open(common_path, common_stage, sizeof(common_stage))" in xupnpd_start_compact
+assert "xupnpd_config_tempfile_open(runtime_path, runtime_stage, sizeof(runtime_stage))" in xupnpd_start_compact
 assert "xupnpd_config_tempfile_open(tmp2, tmp1, sizeof(tmp1))" not in xupnpd_start
 assert 'fopen(tmp1, "w")' not in xupnpd_start
 xupnpd_config_header = (root / "trunk/user/rc/src/xupnpd_config_file.h").read_text()
