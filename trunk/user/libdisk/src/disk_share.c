@@ -1278,85 +1278,35 @@ char var_file[256];
 }
 
 
+/*
+ * The mount root can be renamed/replaced while a share operation is in flight.
+ * Pin its parent once and keep both temporary creation and publication relative
+ * to that descriptor; never reconstruct a pathname for the atomic rename.
+ */
 static int
 disk_share_replace_file_atomic(const char *path, const char *contents,
                                size_t contents_len)
 {
-	const char suffix[] = ".tmp.XXXXXX";
-	char *temp_path = NULL;
-	struct stat existing_stat;
-	FILE *stream = NULL;
-	size_t path_len;
-	int fd = -1, temp_created = 0, have_existing = 0, saved_errno;
+	char *leaf = NULL;
+	int directory_fd, result, saved_errno;
 
 	if (!path || !*path || (!contents && contents_len != 0)) {
 		errno = EINVAL;
 		return -1;
 	}
-	path_len = strlen(path);
-	if (path_len > (size_t)-1 - sizeof(suffix)) {
-		errno = ENAMETOOLONG;
+
+	directory_fd = disk_io_open_parent_nofollow(path, &leaf);
+	if (directory_fd < 0)
 		return -1;
-	}
-	temp_path = (char *)malloc(path_len + sizeof(suffix));
-	if (!temp_path)
-		return -1;
-	memcpy(temp_path, path, path_len);
-	memcpy(temp_path + path_len, suffix, sizeof(suffix));
 
-	if (lstat(path, &existing_stat) == 0) {
-		have_existing = 1;
-		if (!S_ISREG(existing_stat.st_mode)) {
-			errno = EINVAL;
-			goto failed;
-		}
-	} else if (errno != ENOENT) {
-		goto failed;
-	}
-
-	fd = mkstemp(temp_path);
-	if (fd < 0)
-		goto failed;
-	temp_created = 1;
-	if (have_existing && fchmod(fd, existing_stat.st_mode & 0777) != 0)
-		goto failed;
-
-	stream = fdopen(fd, "w");
-	if (!stream)
-		goto failed;
-	fd = -1;
-
-	if (contents_len > 0 &&
-	    fwrite(contents, 1, contents_len, stream) != contents_len)
-		goto failed;
-	if (fflush(stream) != 0)
-		goto failed;
-	if (fsync(fileno(stream)) != 0)
-		goto failed;
-	if (fclose(stream) != 0) {
-		stream = NULL;
-		goto failed;
-	}
-	stream = NULL;
-
-	if (rename(temp_path, path) != 0)
-		goto failed;
-	temp_created = 0;
-
-	free(temp_path);
-	return 0;
-
-failed:
-	saved_errno = errno ? errno : EIO;
-	if (stream)
-		(void)fclose(stream);
-	else if (fd >= 0)
-		(void)close(fd);
-	if (temp_created)
-		(void)unlink(temp_path);
-	free(temp_path);
-	errno = saved_errno;
-	return -1;
+	result = disk_share_replace_file_atomic_at(
+		directory_fd, leaf, contents, contents_len);
+	saved_errno = errno;
+	free(leaf);
+	(void)close(directory_fd);
+	if (result != 0)
+		errno = saved_errno ? saved_errno : EIO;
+	return result;
 }
 
 

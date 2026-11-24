@@ -23,6 +23,7 @@ extern void sanity_name(char *name);
 extern char *read_whole_file(const char *);
 extern char *read_regular_file_nofollow(const char *);
 extern int test_if_regular_file_nofollow(const char *);
+extern int disk_io_open_parent_nofollow(const char *, char **);
 extern int mkdir_if_none(char *);
 extern int delete_file_or_dir(char *);
 extern int test_if_file(const char *);

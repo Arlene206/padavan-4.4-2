@@ -2,8 +2,10 @@
 #define PADAVAN_DISK_SHARE_LIST_POLICY_H
 
 #include <stddef.h>
+#include <limits.h>
 #include <dirent.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
@@ -28,6 +30,112 @@ disk_share_unlink_stale_metadata_entry(int directory_fd,
 		return -1;
 	}
 	return unlinkat(directory_fd, entry_name, 0);
+}
+
+
+/*
+ * Atomically replace one regular metadata file relative to a pinned directory.
+ * The target lookup does not follow symlinks; a same-directory temporary file
+ * is created with O_EXCL and published with renameat(), so parent path swaps
+ * cannot redirect either the write or the final replacement.
+ */
+static inline int
+disk_share_replace_file_atomic_at(int directory_fd, const char *leaf,
+                                  const char *contents, size_t contents_len)
+{
+	struct stat existing_stat;
+	char temp_leaf[NAME_MAX + 1];
+	unsigned long attempt;
+	size_t written_total = 0;
+	int fd = -1, temp_created = 0, have_existing = 0, saved_errno;
+	ssize_t write_size;
+
+	if (directory_fd < 0 || !leaf || !*leaf ||
+	    strchr(leaf, '/') || !strcmp(leaf, ".") || !strcmp(leaf, "..") ||
+	    (!contents && contents_len != 0)) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	if (fstatat(directory_fd, leaf, &existing_stat,
+	            AT_SYMLINK_NOFOLLOW) == 0) {
+		if (!S_ISREG(existing_stat.st_mode)) {
+			errno = EINVAL;
+			return -1;
+		}
+		have_existing = 1;
+	} else if (errno != ENOENT) {
+		return -1;
+	}
+
+	for (attempt = 0; attempt < 128; ++attempt) {
+		int name_length;
+
+		name_length = snprintf(temp_leaf, sizeof(temp_leaf),
+		                       ".%s.tmp.%ld.%lu", leaf,
+		                       (long)getpid(), attempt);
+		if (name_length < 0 || (size_t)name_length >= sizeof(temp_leaf)) {
+			errno = ENAMETOOLONG;
+			return -1;
+		}
+		fd = openat(directory_fd, temp_leaf,
+		            O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC,
+		            0600);
+		if (fd >= 0) {
+			temp_created = 1;
+			break;
+		}
+		if (errno != EEXIST)
+			return -1;
+	}
+	if (fd < 0) {
+		errno = EEXIST;
+		return -1;
+	}
+
+	if (have_existing &&
+	    fchmod(fd, existing_stat.st_mode & 0777) != 0)
+		goto failed;
+
+	while (written_total < contents_len) {
+		size_t remaining = contents_len - written_total;
+
+		if (remaining > 65536U)
+			remaining = 65536U;
+		write_size = write(fd, contents + written_total, remaining);
+		if (write_size < 0) {
+			if (errno == EINTR)
+				continue;
+			goto failed;
+		}
+		if (write_size == 0) {
+			errno = EIO;
+			goto failed;
+		}
+		written_total += (size_t)write_size;
+	}
+
+	if (fsync(fd) != 0)
+		goto failed;
+	if (close(fd) != 0) {
+		fd = -1;
+		goto failed;
+	}
+	fd = -1;
+
+	if (renameat(directory_fd, temp_leaf, directory_fd, leaf) != 0)
+		goto failed;
+	temp_created = 0;
+	return 0;
+
+failed:
+	saved_errno = errno ? errno : EIO;
+	if (fd >= 0)
+		(void)close(fd);
+	if (temp_created)
+		(void)unlinkat(directory_fd, temp_leaf, 0);
+	errno = saved_errno;
+	return -1;
 }
 
 

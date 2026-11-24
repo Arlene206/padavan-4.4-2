@@ -159,7 +159,7 @@ char *read_whole_file(const char *target)
  * from redirecting removable-media ACL/cache metadata outside its mount tree.
  * The final component is returned separately for openat()/fstatat().
  */
-static int
+int
 disk_io_open_parent_nofollow(const char *target, char **leaf_out)
 {
 	char *path_copy = NULL, *leaf = NULL, *slash, *cursor, *component;

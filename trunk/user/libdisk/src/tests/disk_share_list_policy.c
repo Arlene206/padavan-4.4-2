@@ -112,6 +112,94 @@ test_stale_metadata_unlink_uses_pinned_directory_fd(void)
 
 
 static void
+test_atomic_metadata_replace_stays_in_pinned_directory(void)
+{
+	char root_template[] = "/tmp/disk-share-atomic-at-XXXXXX";
+	char *root;
+	char mount_dir[256], moved_dir[256], redirect_dir[256];
+	char moved_file[256], redirect_file[256], symlink_target[256];
+	const char *leaf = ".__alice_var.txt";
+	char buffer[64];
+	struct stat status;
+	int directory_fd, file_fd;
+	ssize_t bytes_read;
+
+	root = mkdtemp(root_template);
+	assert(root != NULL);
+	assert(snprintf(mount_dir, sizeof(mount_dir), "%s/mount", root) > 0);
+	assert(snprintf(moved_dir, sizeof(moved_dir), "%s/moved", root) > 0);
+	assert(snprintf(redirect_dir, sizeof(redirect_dir), "%s/redirect", root) > 0);
+	assert(snprintf(moved_file, sizeof(moved_file), "%s/%s", moved_dir, leaf) > 0);
+	assert(snprintf(redirect_file, sizeof(redirect_file), "%s/%s", redirect_dir, leaf) > 0);
+	assert(snprintf(symlink_target, sizeof(symlink_target), "%s/target.txt", redirect_dir) > 0);
+	assert(mkdir(mount_dir, 0700) == 0);
+	assert(mkdir(redirect_dir, 0700) == 0);
+
+	file_fd = open(mount_dir, O_RDONLY | O_DIRECTORY);
+	assert(file_fd >= 0);
+	directory_fd = file_fd;
+	file_fd = openat(directory_fd, leaf, O_CREAT | O_EXCL | O_WRONLY, 0640);
+	assert(file_fd >= 0);
+	assert(write(file_fd, "before\n", 7) == 7);
+	assert(fchmod(file_fd, 0640) == 0);
+	assert(close(file_fd) == 0);
+
+	file_fd = open(symlink_target, O_CREAT | O_EXCL | O_WRONLY, 0600);
+	assert(file_fd >= 0);
+	assert(write(file_fd, "preserve\n", 9) == 9);
+	assert(close(file_fd) == 0);
+
+	assert(rename(mount_dir, moved_dir) == 0);
+	assert(symlink(redirect_dir, mount_dir) == 0);
+	assert(disk_share_replace_file_atomic_at(
+		directory_fd, leaf, "after\n", 6) == 0);
+
+	file_fd = open(moved_file, O_RDONLY);
+	assert(file_fd >= 0);
+	bytes_read = read(file_fd, buffer, sizeof(buffer));
+	assert(bytes_read == 6);
+	assert(memcmp(buffer, "after\n", 6) == 0);
+	assert(close(file_fd) == 0);
+	assert(stat(moved_file, &status) == 0);
+	assert((status.st_mode & 0777) == 0640);
+
+	file_fd = open(redirect_file, O_RDONLY);
+	assert(file_fd >= 0);
+	bytes_read = read(file_fd, buffer, sizeof(buffer));
+	assert(bytes_read == 9);
+	assert(memcmp(buffer, "preserve\n", 9) == 0);
+	assert(close(file_fd) == 0);
+
+	assert(unlinkat(directory_fd, leaf, 0) == 0);
+	assert(symlinkat(symlink_target, directory_fd, leaf) == 0);
+	errno = 0;
+	assert(disk_share_replace_file_atomic_at(
+		directory_fd, leaf, "blocked\n", 7) == -1);
+	assert(errno == EINVAL);
+	assert(unlinkat(directory_fd, leaf, 0) == 0);
+
+	assert(disk_share_replace_file_atomic_at(
+		directory_fd, ".__new_var.txt", "created\n", 8) == 0);
+	file_fd = openat(directory_fd, ".__new_var.txt", O_RDONLY);
+	assert(file_fd >= 0);
+	bytes_read = read(file_fd, buffer, sizeof(buffer));
+	assert(bytes_read == 8);
+	assert(memcmp(buffer, "created\n", 8) == 0);
+	assert(close(file_fd) == 0);
+
+	assert(unlinkat(directory_fd, leaf, 0) == 0);
+	assert(unlinkat(directory_fd, ".__new_var.txt", 0) == 0);
+	assert(close(directory_fd) == 0);
+	assert(unlink(mount_dir) == 0);
+	assert(unlink(symlink_target) == 0);
+	assert(unlink(redirect_file) == 0);
+	assert(rmdir(moved_dir) == 0);
+	assert(rmdir(redirect_dir) == 0);
+	assert(rmdir(root) == 0);
+}
+
+
+static void
 test_folder_name_visibility_policy(void)
 {
 	assert(disk_share_folder_name_is_visible("media", 1, 0) == 1);
@@ -2713,6 +2801,7 @@ main(void)
 	test_folder_rollback_preserves_permissions_when_directory_survives();
 	test_folder_entry_status_rejects_symlinks_and_non_directories();
 	test_stale_metadata_unlink_uses_pinned_directory_fd();
+	test_atomic_metadata_replace_stays_in_pinned_directory();
 test_folder_name_visibility_policy();
 	test_folder_delete_batch_commits_directory_snapshot_and_permissions();
 	test_folder_delete_batch_restores_directory_after_snapshot_failure();

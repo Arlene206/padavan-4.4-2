@@ -8,6 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 LIBDISK = ROOT / "trunk/user/libdisk/src"
 DISK_SOURCE = (LIBDISK / "disk_share.c").read_text()
 DISK_IO_SOURCE = (LIBDISK / "disk_io_tools.c").read_text()
+DISK_IO_HEADER = (LIBDISK / "disk_io_tools.h").read_text()
 POLICY_TEST = (LIBDISK / "tests/disk_share_list_policy.c").read_text()
 IO_REGRESSION = (LIBDISK / "tests/disk_io_tools_read_test.c").read_text()
 POLICY = (LIBDISK / "disk_share_list_policy.h").read_text()
@@ -274,6 +275,37 @@ require("unlink(temp_file)" in account_failure and
         "failed account defaults writes must discard the temporary file")
 require('fopen(var_file, "w")' not in account_writer,
         "account defaults must not truncate the last complete permission file")
+
+
+atomic_replace = function_body(
+    DISK_SOURCE, "disk_share_replace_file_atomic(const char *path,"
+)
+atomic_replace_compact = "".join(atomic_replace.split())
+atomic_replace_at = function_body(
+    POLICY, "disk_share_replace_file_atomic_at(int directory_fd,"
+)
+atomic_replace_at_compact = "".join(atomic_replace_at.split())
+parent_opener = function_body(
+    DISK_IO_SOURCE, "disk_io_open_parent_nofollow(const char *target,"
+)
+parent_opener_compact = "".join(parent_opener.split())
+require("externintdisk_io_open_parent_nofollow(constchar*,char**);" in
+        "".join(DISK_IO_HEADER.split()) and
+        "intdisk_io_open_parent_nofollow(" in "".join(DISK_IO_SOURCE.split()) and
+        "openat(parent_fd,component" in parent_opener_compact and
+        "O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC" in parent_opener_compact,
+        "atomic metadata writers must obtain a no-symlink parent directory descriptor")
+require("disk_io_open_parent_nofollow(path,&leaf)" in atomic_replace_compact and
+        "disk_share_replace_file_atomic_at(directory_fd,leaf,contents,contents_len)" in atomic_replace_compact and
+        "mkstemp(" not in atomic_replace_compact and
+        "rename(" not in atomic_replace_compact,
+        "metadata publication must remain relative to the pinned parent directory")
+require("fstatat(directory_fd,leaf,&existing_stat,AT_SYMLINK_NOFOLLOW)" in atomic_replace_at_compact and
+        "openat(directory_fd,temp_leaf,O_WRONLY|O_CREAT|O_EXCL|O_NOFOLLOW|O_CLOEXEC,0600)" in atomic_replace_at_compact and
+        "renameat(directory_fd,temp_leaf,directory_fd,leaf)" in atomic_replace_at_compact and
+        "unlinkat(directory_fd,temp_leaf,0)" in atomic_replace_at_compact and
+        "test_atomic_metadata_replace_stays_in_pinned_directory();" in POLICY_TEST,
+        "atomic ACL metadata replacement must reject symlink targets and create/publish/clean temporary files through one dirfd")
 
 
 modify_writer = function_body(
