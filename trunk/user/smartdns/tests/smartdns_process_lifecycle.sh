@@ -179,28 +179,16 @@ if smartdns_stop_process; then fail "unknown post-TERM process inventory was acc
 [ "$stop_status" -eq 2 ] || fail "unknown post-TERM state returned $stop_status"
 [ "$(wc -l < "$KILL_LOG")" -eq 1 ] || fail "unknown inventory must prevent SIGKILL escalation"
 
-# PID reuse or executable replacement between inventory and signal must not
-# cause the replacement process to receive a signal.
+# A PID reused for another executable between inventory and signal must not
+# let the replacement process receive a signal.
 : > "$KILL_LOG"
 create_smartdns_proc 2345 "$smartdns_Bin" "$smartdns_Conf" "" 52345
-PIDOF_STATUS=0; PIDOF_OUTPUT=2345
-READLINK_COUNT_FILE="$tmpdir/readlink.count"
-printf '0\n' > "$READLINK_COUNT_FILE"
-readlink() {
-    if [ "$1" = "$SMARTDNS_PROC_ROOT/2345/exe" ]; then
-        readlink_count=$(cat "$READLINK_COUNT_FILE")
-        readlink_count=$((readlink_count + 1))
-        printf '%s\n' "$readlink_count" > "$READLINK_COUNT_FILE"
-        if [ "$readlink_count" -eq 2 ]; then
-            rm -f "$1"
-            ln -s "$SMARTDNS_IMPOSTOR" "$1"
-        fi
-    fi
-    command readlink "$1"
-}
-smartdns_stop_process || fail "replacement executable was not treated as absent"
+snapshot_start=$(smartdns_process_identity 2345) || fail "could not snapshot a valid SmartDNS identity"
+rm -f "$SMARTDNS_PROC_ROOT/2345/exe"
+ln -s "$SMARTDNS_IMPOSTOR" "$SMARTDNS_PROC_ROOT/2345/exe"
+smartdns_signal_process_ids TERM "2345:$snapshot_start" || fail "replacement process identity was not safely skipped"
 [ ! -s "$KILL_LOG" ] || fail "replacement process received a signal"
-pass "SmartDNS stop revalidates executable identity before PID-scoped signals"
+pass "PID-scoped stop revalidates executable and start_time before signalling"
 
 # Verify the downloaded Adblock Plus list is converted to SmartDNS syntax.
 SMARTDNS_TEST_DIR=$(CDPATH= cd -- "$(dirname "$0")" && pwd)

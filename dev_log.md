@@ -1,3 +1,9 @@
+## 2026-11-24 — Make SmartDNS PID-reuse regression deterministic
+
+- The first fake-proc race test attempted to swap the executable during the helper's internal readlink call; command-substitution boundaries made the expected read count brittle. Replace it with an explicit snapshot, process replacement, then PID-scoped signal attempt. This directly verifies that revalidation refuses to signal a reused PID without relying on timing.
+
+---
+
 ## 2026-11-24 — Keep DNSMasq fixture aligned with SmartDNS process probe split
 
 - The SmartDNS DNS ownership fixture extracts only the read-only Adbyby process helper. After separating that helper from SmartDNS's executable-bound process inventory, the two fixture extraction sites were updated to source the renamed function explicitly; the checker now guards both sites.
