@@ -180,6 +180,12 @@ test_atomic_metadata_replace_stays_in_pinned_directory(void)
 	assert(disk_share_replace_file_atomic_at(
 		directory_fd, leaf, "blocked\n", 7) == -1);
 	assert(errno == EINVAL);
+	file_fd = open(symlink_target, O_RDONLY);
+	assert(file_fd >= 0);
+	bytes_read = read(file_fd, buffer, sizeof(buffer));
+	assert(bytes_read == 9);
+	assert(memcmp(buffer, "preserve\n", 9) == 0);
+	assert(close(file_fd) == 0);
 	assert(unlinkat(directory_fd, leaf, 0) == 0);
 
 	assert(disk_share_replace_file_atomic_at(
@@ -191,7 +197,6 @@ test_atomic_metadata_replace_stays_in_pinned_directory(void)
 	assert(memcmp(buffer, "created\n", 8) == 0);
 	assert(close(file_fd) == 0);
 
-	assert(unlinkat(directory_fd, leaf, 0) == 0);
 	assert(unlinkat(directory_fd, ".__new_var.txt", 0) == 0);
 	assert(close(directory_fd) == 0);
 	assert(unlink(mount_dir) == 0);
