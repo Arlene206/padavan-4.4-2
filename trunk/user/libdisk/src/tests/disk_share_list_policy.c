@@ -2735,6 +2735,58 @@ test_staging_directory_operations_use_pinned_parent_fd(void)
 
 
 static void
+test_folder_scans_use_pinned_directory_descriptors(void)
+{
+	char root_template[] = "/tmp/disk-share-scanat-XXXXXX";
+	char mount_dir[256], moved_dir[256], redirect_dir[256], redirect_entry[256];
+	char *root;
+	struct stat status;
+	int directory_fd, redirect_fd, file_fd;
+
+	root = mkdtemp(root_template);
+	assert(root != NULL);
+	assert(snprintf(mount_dir, sizeof(mount_dir), "%s/mount", root) > 0);
+	assert(snprintf(moved_dir, sizeof(moved_dir), "%s/moved", root) > 0);
+	assert(snprintf(redirect_dir, sizeof(redirect_dir), "%s/redirect", root) > 0);
+	assert(snprintf(redirect_entry, sizeof(redirect_entry), "%s/Share", redirect_dir) > 0);
+	assert(mkdir(mount_dir, 0700) == 0);
+	assert(mkdir(redirect_dir, 0700) == 0);
+
+	directory_fd = open(mount_dir, O_RDONLY | O_DIRECTORY);
+	assert(directory_fd >= 0);
+	assert(mkdirat(directory_fd, "Share", 0700) == 0);
+	redirect_fd = open(redirect_dir, O_RDONLY | O_DIRECTORY);
+	assert(redirect_fd >= 0);
+	file_fd = openat(redirect_fd, "Share", O_CREAT | O_EXCL | O_WRONLY, 0600);
+	assert(file_fd >= 0);
+	assert(write(file_fd, "keep", 4) == 4);
+	assert(close(file_fd) == 0);
+
+	assert(rename(mount_dir, moved_dir) == 0);
+	assert(symlink(redirect_dir, mount_dir) == 0);
+	assert(fstatat(directory_fd, "Share", &status, AT_SYMLINK_NOFOLLOW) == 0);
+	assert(disk_share_folder_entry_status(0, 0, status.st_mode) == 1);
+	assert(fstatat(redirect_fd, "Share", &status, AT_SYMLINK_NOFOLLOW) == 0);
+	assert(disk_share_folder_entry_status(0, 0, status.st_mode) == 0);
+
+	assert(symlinkat(redirect_entry, directory_fd, "LinkedShare") == 0);
+	assert(fstatat(directory_fd, "LinkedShare", &status,
+	               AT_SYMLINK_NOFOLLOW) == 0);
+	assert(disk_share_folder_entry_status(0, 0, status.st_mode) == 0);
+
+	assert(unlinkat(directory_fd, "LinkedShare", 0) == 0);
+	assert(rmdir(moved_dir) == -1);
+	assert(unlinkat(directory_fd, "Share", AT_REMOVEDIR) == 0);
+	assert(close(redirect_fd) == 0);
+	assert(close(directory_fd) == 0);
+	assert(unlink(mount_dir) == 0);
+	assert(unlink(redirect_entry) == 0);
+	assert(rmdir(redirect_dir) == 0);
+	assert(rmdir(root) == 0);
+}
+
+
+static void
 test_folder_rename_uses_pinned_parent_descriptors(void)
 {
 	char root_template[] = "/tmp/disk-share-renameat-XXXXXX";
@@ -3041,6 +3093,7 @@ test_folder_name_visibility_policy();
 	test_folder_delete_batch_restores_after_staged_directory_remove_failure();
 	test_folder_delete_batch_preserves_staging_on_directory_compensation_failure();
 	test_staging_directory_operations_use_pinned_parent_fd();
+	test_folder_scans_use_pinned_directory_descriptors();
 	test_folder_rename_uses_pinned_parent_descriptors();
 	test_folder_rename_batch_commits_directory_snapshot_and_permissions();
 	test_folder_rename_batch_restores_directory_after_snapshot_failure();

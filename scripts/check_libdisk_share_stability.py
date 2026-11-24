@@ -101,7 +101,10 @@ require(cache_read < cache_missing < cache_refresh < cache_retry <
         "read_whole_file(list_file)" not in folder_list_reader_compact,
         "removable folder-list cache must use a nonblocking no-follow regular-file read and regenerate only on ENOENT")
 
-require("lstat(folder_path,&entry_status)" in folder_list_reader_compact and
+require("disk_io_open_parent_nofollow(mount_path,&mount_leaf)" in folder_list_reader_compact and
+        "openat(mount_parent_fd,mount_leaf,O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC)" in folder_list_reader_compact and
+        "fstatat(mount_directory_fd,tmp_folder_list[i],&entry_status,AT_SYMLINK_NOFOLLOW)" in folder_list_reader_compact and
+        "lstat(folder_path,&entry_status)" not in folder_list_reader_compact and
         "disk_share_folder_entry_status" in folder_list_reader_compact and
         "valid_count" in folder_list_reader_compact,
         "cached folder names must be revalidated against real non-symlink directories before sharing")
@@ -112,7 +115,7 @@ for signature in (
 ):
     body = function_body(DISK_SOURCE, signature)
     prepare = body.index("disk_share_list_prepare_outputs(mount_path, sh_num, folder_list)")
-    use = body.index("strlen(mount_path)") if "strlen(mount_path)" in body else body.index("opendir(mount_path)")
+    use = body.index("disk_io_open_parent_nofollow(mount_path, &mount_leaf)")
     require(prepare < use,
             signature + " must reset outputs before using the mount path")
 
@@ -168,7 +171,8 @@ require("disk_share_folder_name_is_visible" in cached_folders and
         "disk_share_folder_name_is_visible" in fresh_folders and
         "test_if_System_folder" in fresh_folders,
         "cached share names must not bypass hidden/system-directory exclusions")
-require("test_folder_name_visibility_policy();" in POLICY_TEST,
+require("test_folder_scans_use_pinned_directory_descriptors();" in POLICY_TEST and
+        "test_folder_name_visibility_policy();" in POLICY_TEST,
         "hidden/system directory cache bypass needs a policy regression test")
 
 require("disk_share_list_next_entry" in POLICY,
@@ -189,7 +193,11 @@ errno_restore = compact_all_folders.index(
     "errno = read_error != 0 ? read_error : EIO;", error_gate
 )
 require(read_entry < eof_gate < error_gate < errno_restore and
-        "lstat(testdir, &entry_status)" in compact_all_folders and
+        "disk_io_open_parent_nofollow(mount_path, &mount_leaf)" in compact_all_folders and
+        "openat(mount_parent_fd, mount_leaf, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)" in compact_all_folders and
+        "fdopendir(mount_fd)" in compact_all_folders and
+        "fstatat(directory_fd, dp->d_name, &entry_status, AT_SYMLINK_NOFOLLOW)" in compact_all_folders and
+        "lstat(testdir, &entry_status)" not in compact_all_folders and
         "disk_share_folder_entry_status" in compact_all_folders and
         "test_if_dir(testdir)" not in compact_all_folders,
         "directory enumeration must reject symlinked/non-directory entries without following them")

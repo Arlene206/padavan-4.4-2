@@ -194,14 +194,13 @@ int get_folder_list_in_mount_path(const char *const mount_path, int *sh_num, cha
 	char **tmp_folder_list = NULL;
 	char target[32];
 	char *list_file = NULL, *list_info = NULL;
-	char *follow_info, *line_end, *endptr;
+	char *follow_info, *line_end, *endptr, *mount_leaf = NULL;
 	int i, count, saved_errno, valid_count = 0;
+	int mount_parent_fd = -1, mount_directory_fd = -1;
 	int stat_result, stat_error, directory_status;
 	long parsed_count;
 	struct stat entry_status;
-	char *folder_path = NULL;
 	size_t list_file_len, list_info_len, name_len;
-	size_t mount_len, folder_path_size;
 	int target_len;
 
 	if (disk_share_list_prepare_outputs(mount_path, sh_num, folder_list) != 0)
@@ -252,24 +251,33 @@ int get_folder_list_in_mount_path(const char *const mount_path, int *sh_num, cha
 		return 0;
 	}
 
-	/* Revalidate cached entries without following attacker-controlled links. */
-	mount_len = strlen(mount_path);
-	if (mount_len > (size_t)-1 - 257) {
-		errno = ENAMETOOLONG;
-		goto invalid_list;
-	}
-	folder_path_size = mount_len + 257;
-	folder_path = (char *)malloc(folder_path_size);
-	if (!folder_path)
-		goto invalid_list;
-
 	/* Each entry needs at least: newline + "sh_nameN=" + newline. */
 	if ((size_t)count > list_info_len / 11)
 		goto invalid_list;
 
+	/*
+	 * The cache is untrusted: pin the mount directory once and validate each
+	 * cached child relative to that descriptor, not a rebuilt mount pathname.
+	 */
+	mount_parent_fd = disk_io_open_parent_nofollow(mount_path, &mount_leaf);
+	if (mount_parent_fd < 0)
+		goto invalid_list;
+	mount_directory_fd = openat(
+		mount_parent_fd, mount_leaf,
+		O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+	saved_errno = errno;
+	(void)close(mount_parent_fd);
+	mount_parent_fd = -1;
+	free(mount_leaf);
+	mount_leaf = NULL;
+	if (mount_directory_fd < 0) {
+		errno = saved_errno ? saved_errno : EIO;
+		goto invalid_list;
+	}
+
 	tmp_folder_list = (char **)calloc((size_t)count, sizeof(char *));
 	if (!tmp_folder_list)
-		goto invalid_list;
+		goto invalid_entries;
 
 	for (i = 0; i < count; ++i) {
 		target_len = snprintf(target, sizeof(target), "\nsh_name%d=", i);
@@ -305,13 +313,8 @@ int get_folder_list_in_mount_path(const char *const mount_path, int *sh_num, cha
 			continue;
 		}
 
-		target_len = snprintf(folder_path, folder_path_size, "%s/%s",
-		                     mount_path, tmp_folder_list[i]);
-		if (target_len < 0 || (size_t)target_len >= folder_path_size) {
-			errno = ENAMETOOLONG;
-			goto invalid_entries;
-		}
-		stat_result = lstat(folder_path, &entry_status);
+		stat_result = fstatat(mount_directory_fd, tmp_folder_list[i],
+		                      &entry_status, AT_SYMLINK_NOFOLLOW);
 		stat_error = errno;
 		directory_status = disk_share_folder_entry_status(
 			stat_result, stat_error,
@@ -330,38 +333,74 @@ int get_folder_list_in_mount_path(const char *const mount_path, int *sh_num, cha
 		++valid_count;
 	}
 
-	free(folder_path);
+	if (close(mount_directory_fd) != 0) {
+		mount_directory_fd = -1;
+		goto invalid_entries;
+	}
+	mount_directory_fd = -1;
 	free(list_info);
 	*sh_num = valid_count;
 	*folder_list = tmp_folder_list;
 	return 0;
 
 invalid_entries:
+	saved_errno = errno ? errno : EIO;
+	if (mount_directory_fd >= 0)
+		(void)close(mount_directory_fd);
 	free_2_dimension_list(&count, &tmp_folder_list);
+	free(list_info);
+	errno = saved_errno;
+	return -1;
+
 invalid_list:
-	free(folder_path);
+	if (mount_parent_fd >= 0)
+		(void)close(mount_parent_fd);
+	free(mount_leaf);
 	free(list_info);
 	return -1;
 }
 int get_all_folder_in_mount_path(const char *const mount_path, int *sh_num, char ***folder_list)
 {
-	DIR *pool_to_open;
+	DIR *pool_to_open = NULL;
 	struct dirent *dp;
-	char *testdir, *folder_name;
+	char *mount_leaf = NULL, *folder_name;
 	char **tmp_folder_list = NULL, **new_folder_list;
 	int count = 0, i;
 	int read_status, read_error, saved_errno;
+	int mount_parent_fd = -1, mount_fd = -1, directory_fd;
 	int stat_result, stat_error, directory_status;
 	struct stat entry_status;
-	size_t mount_len, name_len, path_len;
+	size_t name_len;
 
 	if (disk_share_list_prepare_outputs(mount_path, sh_num, folder_list) != 0)
 		return -1;
-	mount_len = strlen(mount_path);
 
-	pool_to_open = opendir(mount_path);
-	if (!pool_to_open)
+	mount_parent_fd = disk_io_open_parent_nofollow(mount_path, &mount_leaf);
+	if (mount_parent_fd < 0)
 		return -1;
+	mount_fd = openat(mount_parent_fd, mount_leaf,
+	                  O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+	saved_errno = errno;
+	(void)close(mount_parent_fd);
+	mount_parent_fd = -1;
+	free(mount_leaf);
+	mount_leaf = NULL;
+	if (mount_fd < 0) {
+		errno = saved_errno ? saved_errno : EIO;
+		return -1;
+	}
+
+	pool_to_open = fdopendir(mount_fd);
+	if (!pool_to_open) {
+		saved_errno = errno ? errno : EIO;
+		(void)close(mount_fd);
+		errno = saved_errno;
+		return -1;
+	}
+	mount_fd = -1;
+	directory_fd = dirfd(pool_to_open);
+	if (directory_fd < 0)
+		goto failed;
 
 	for (;;) {
 		read_status = disk_share_list_next_entry(
@@ -379,35 +418,22 @@ int get_all_folder_in_mount_path(const char *const mount_path, int *sh_num, char
 			continue;
 
 		name_len = strlen(dp->d_name);
-		if (mount_len > (size_t)-1 - name_len - 2)
-			goto failed;
-
-		path_len = mount_len + name_len + 1;
-		testdir = (char *)malloc(path_len + 1);
-		if (!testdir)
-			goto failed;
-
-		snprintf(testdir, path_len + 1, "%s/%s", mount_path, dp->d_name);
-		stat_result = lstat(testdir, &entry_status);
+		stat_result = fstatat(directory_fd, dp->d_name, &entry_status,
+		                      AT_SYMLINK_NOFOLLOW);
 		stat_error = errno;
 		directory_status = disk_share_folder_entry_status(
 			stat_result, stat_error,
 			stat_result == 0 ? entry_status.st_mode : (mode_t)0);
-		if (directory_status == 0) {
-			free(testdir);
+		if (directory_status == 0)
 			continue;
-		}
-		if (directory_status < 0) {
-			saved_errno = errno ? errno : EIO;
-			free(testdir);
-			errno = saved_errno;
+		if (directory_status < 0)
 			goto failed;
-		}
-		free(testdir);
 
 		if (count == INT_MAX ||
-		    (size_t)count >= (size_t)-1 / sizeof(*tmp_folder_list))
+		    (size_t)count >= (size_t)-1 / sizeof(*tmp_folder_list)) {
+			errno = EOVERFLOW;
 			goto failed;
+		}
 
 		folder_name = (char *)malloc(name_len + 1);
 		if (!folder_name)
@@ -438,6 +464,8 @@ failed:
 	saved_errno = errno ? errno : EIO;
 	if (pool_to_open)
 		(void)closedir(pool_to_open);
+	if (mount_fd >= 0)
+		(void)close(mount_fd);
 	for (i = 0; i < count; ++i)
 		free(tmp_folder_list[i]);
 	free(tmp_folder_list);
