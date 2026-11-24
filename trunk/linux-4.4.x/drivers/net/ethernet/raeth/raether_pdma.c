@@ -38,6 +38,7 @@ int fe_pdma_wait_dma_idle(void)
 int fe_pdma_rx_dma_init(struct net_device *dev)
 {
 	int i, j;
+	int allocated = 0;
 	int mapped = 0;
 	unsigned int skb_size;
 	struct END_DEVICE *ei_local = netdev_priv(dev);
@@ -65,6 +66,7 @@ int fe_pdma_rx_dma_init(struct net_device *dev)
 			pr_err("rx skbuff buffer allocation failed!");
 			goto no_rx_mem;
 		}
+		allocated++;
 
 		memset(&ei_local->rx_ring[0][i], 0, sizeof(struct PDMA_rxdesc));
 		ei_local->rx_ring[0][i].rxd_info2.DDONE_bit = 0;
@@ -105,11 +107,9 @@ no_rx_mem:
 				ei_local->rx_ring[0][j].rxd_info1.PDP0,
 				MAX_RX_LENGTH, DMA_FROM_DEVICE);
 
-	for (j = 0; j < num_rx_desc; j++) {
-		if (ei_local->netrx_skb_data[0][j]) {
-			raeth_free_skb_data(ei_local->netrx_skb_data[0][j]);
-			ei_local->netrx_skb_data[0][j] = NULL;
-		}
+	for (j = 0; j < allocated; j++) {
+		raeth_free_skb_data(ei_local->netrx_skb_data[0][j]);
+		ei_local->netrx_skb_data[0][j] = NULL;
 	}
 
 	if (ei_local->rx_ring[0])

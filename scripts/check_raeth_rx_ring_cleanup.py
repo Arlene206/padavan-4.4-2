@@ -24,13 +24,17 @@ def function_body(source: str, signature: str) -> str:
 
 
 body = function_body(SOURCE, "int fe_pdma_rx_dma_init(")
+assert "int allocated = 0;" in body
 assert "int mapped = 0;" in body
 ring_alloc = body.index("ei_local->rx_ring[0] = dma_alloc_coherent(")
 ring_check = body.index("if (!ei_local->rx_ring[0])", ring_alloc)
 first_ring_access = body.index("&ei_local->rx_ring[0][i]", ring_check)
 assert ring_alloc < ring_check < first_ring_access
 
-map_check = body.index("dma_mapping_error", first_ring_access)
+allocation = body.index("raeth_alloc_skb_data(", first_ring_access)
+allocation_success = body.index("allocated++;", allocation)
+map_check = body.index("dma_mapping_error", allocation_success)
+assert allocation < allocation_success < map_check
 map_fail = body.index("goto no_rx_mem;", map_check)
 map_account = body.index("mapped++;", map_fail)
 assert map_check < map_fail < map_account
@@ -42,8 +46,8 @@ free_ring = body.index("dma_free_coherent(", free_skb)
 null_ring = body.index("ei_local->rx_ring[0] = NULL;", free_ring)
 assert rollback < unmap < free_skb < free_ring < null_ring
 assert "for (j = 0; j < mapped; j++)" in body[rollback:free_skb]
-assert "for (j = 0; j < num_rx_desc; j++)" in body[free_skb:free_ring]
-assert "if (ei_local->netrx_skb_data[0][j])" in body[free_skb:free_ring]
+assert "for (j = 0; j < allocated; j++)" in body[free_skb:free_ring]
+assert "for (j = 0; j < num_rx_desc; j++)" not in body[free_skb:free_ring]
 assert "if (ei_local->rx_ring[0])" in body[free_ring:null_ring]
 assert "ei_local->netrx_skb_data[0][j] = NULL;" in body[free_skb:free_ring]
 print("PDMA RX partial-allocation rollback and DMA-unmap ordering: PASS")
