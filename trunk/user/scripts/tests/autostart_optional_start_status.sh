@@ -1,6 +1,12 @@
 #!/bin/sh
 set -eu
 
+fail()
+{
+	printf '%s\n' "$*" >&2
+	exit 1
+}
+
 TEST_DIR=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
 SOURCE="$TEST_DIR/../files/usr/bin/autostart.sh"
 TMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/autostart-status.XXXXXX")
