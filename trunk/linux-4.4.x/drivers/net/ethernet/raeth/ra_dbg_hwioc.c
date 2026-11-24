@@ -12,6 +12,7 @@
  */
 #include "raether.h"
 #include "ra_dbg_proc.h"
+#include "ra_dbg_hwioc_policy.h"
 
 #define MCSI_A_PMU_CTL		0x10390100	/* PMU CTRL */
 #define MCSI_A_PMU_CYC_CNT	0x10399004	/* Cycle counter */
@@ -73,47 +74,38 @@ unsigned int reg_pmu_evn_phys[] = {
 
 int ioc_pmu_cnt_config(int pmu_no, int interface, int event)
 {
-	void *reg_pmu_cnt;
+	void __iomem *reg_pmu_cnt;
 	unsigned int pmu_sel;
 
-	reg_pmu_cnt = ioremap(reg_pmu_evn_phys[pmu_no], 0x10);
+	if (!raeth_hwioc_pmu_counter_args_valid(pmu_no, interface, event))
+		return -EINVAL;
 
-	/* Event Select Register
-	 * bit[31:8]	-> Reserved
-	 * bit[7:5]	-> Event code to define which interface to monitor
-	 * bit[4:0]	-> Event code to define which event to monitor
-	 */
+	reg_pmu_cnt = ioremap(reg_pmu_evn_phys[pmu_no], 0x10);
+	if (!reg_pmu_cnt)
+		return -ENOMEM;
+
+	/* Event Select Register: interface in bits [7:5], event in [4:0]. */
 	pmu_sel = (interface << 5) | event;
 	sys_reg_write(reg_pmu_cnt, pmu_sel);
 
-	/*Counter Control Registers
-	 * bit[31:1]	-> Reserved
-	 * bit[0:0]	-> Counter enable
-	 */
+	/* Enable this counter. */
 	sys_reg_write(reg_pmu_cnt + 0x8, 0x1);
 
 	iounmap(reg_pmu_cnt);
-
 	return 0;
 }
 
 int ioc_pmu_ctl_config(int enable, int ignore1, int ignore2)
 {
-	void *reg_pmu_ctl;
+	void __iomem *reg_pmu_ctl;
+
+	if (!raeth_hwioc_pmu_enable_valid(enable))
+		return -EINVAL;
 
 	reg_pmu_ctl = ioremap(MCSI_A_PMU_CTL_BASE, 0x10);
+	if (!reg_pmu_ctl)
+		return -ENOMEM;
 
-	/*Performance Monitor Control Register
-	 * bit[31:16]	-> Reserved
-	 * bit[15:12]	-> Specifies the number of counters implemented
-	 * bit[11:6]	-> Reserved
-	 * bit[5:5]	-> DP: Disables cycle counter
-	 * bit[4:4]	-> EX: Enable export of the events to the event bus
-	 * bit[3:3]	-> CCD: Cycle count divider
-	 * bit[2:2]	-> CCR: Cycle counter reset
-	 * bit[1:1]	-> RST: Performance counter reset
-	 * bit[0:0]	-> CEN: Enable bit
-	 */
 	if (enable) {
 		sys_reg_write(reg_pmu_ctl, BIT(1));
 		sys_reg_write(reg_pmu_ctl, BIT(0));
@@ -122,7 +114,6 @@ int ioc_pmu_ctl_config(int enable, int ignore1, int ignore2)
 	}
 
 	iounmap(reg_pmu_ctl);
-
 	return 0;
 }
 
@@ -163,70 +154,96 @@ static const IOC_SET_FUNC iocoherent_set_func[] = {
 	[2] = ioc_pmu_cnt_config,
 };
 
+static int ioc_next_hex_arg(char **cursor, long *value)
+{
+	char *token;
+	int ret;
+
+	while ((token = strsep(cursor, " \t\r\n")) != NULL) {
+		if (!*token)
+			continue;
+		ret = kstrtol(token, 16, value);
+		if (ret != 0)
+			return ret;
+		return 0;
+	}
+
+	return -EINVAL;
+}
+
+static int ioc_no_more_hex_args(char **cursor)
+{
+	char *token;
+
+	while ((token = strsep(cursor, " \t\r\n")) != NULL) {
+		if (*token)
+			return -EINVAL;
+	}
+	return 0;
+}
+
 ssize_t ioc_pmu_write(struct file *file, const char __user *buffer,
 		      size_t count, loff_t *data)
 {
 	char buf[32];
-	char *p_buf;
-	int len = count;
-	long arg0 = 0, arg1 = 0, arg2 = 0, arg3 = 0;
-	char *p_token = NULL;
-	char *p_delimiter = " \t";
+	char *cursor;
+	long args[4] = { 0, 0, 0, 0 };
 	int ret;
+	size_t len = count;
 
-	if (len >= sizeof(buf)) {
-		pr_err("input handling fail!\n");
-		len = sizeof(buf) - 1;
-		return -1;
-	}
-
-	if (copy_from_user(buf, buffer, len))
+	if (count == 0)
+		return -EINVAL;
+	if (count >= sizeof(buf))
+		return -E2BIG;
+	if (copy_from_user(buf, buffer, count))
 		return -EFAULT;
 
-	buf[len] = '\0';
+	buf[count] = '\0';
 	pr_info("write parameter data = %s\n\r", buf);
+	cursor = buf;
 
-	p_buf = buf;
-	p_token = strsep(&p_buf, p_delimiter);
-	if (!p_token)
-		arg0 = 0;
-	else
-		ret = kstrtol(p_token, 16, &arg0);
+	ret = ioc_next_hex_arg(&cursor, &args[0]);
+	if (ret != 0)
+		return ret;
+	if (!raeth_hwioc_pmu_operation_valid(args[0]) ||
+	    (unsigned long)args[0] >= ARRAY_SIZE(iocoherent_set_func))
+		return -EINVAL;
 
-	switch (arg0) {
+	switch (args[0]) {
+	case 0:
+		break;
 	case 1:
-		p_token = strsep(&p_buf, p_delimiter);
-		if (!p_token)
-			arg1 = 0;
-		else
-			ret = kstrtol(p_token, 16, &arg1);
+		ret = ioc_next_hex_arg(&cursor, &args[1]);
+		if (ret != 0)
+			return ret;
+		if (!raeth_hwioc_pmu_enable_valid(args[1]))
+			return -EINVAL;
 		break;
 	case 2:
-		p_token = strsep(&p_buf, p_delimiter);
-		if (!p_token)
-			arg1 = 0;
-		else
-			ret = kstrtol(p_token, 16, &arg1);
-		p_token = strsep(&p_buf, p_delimiter);
-		if (!p_token)
-			arg2 = 0;
-		else
-			ret = kstrtol(p_token, 16, &arg2);
-		p_token = strsep(&p_buf, p_delimiter);
-		if (!p_token)
-			arg3 = 0;
-		else
-			ret = kstrtol(p_token, 16, &arg3);
+		ret = ioc_next_hex_arg(&cursor, &args[1]);
+		if (ret != 0)
+			return ret;
+		ret = ioc_next_hex_arg(&cursor, &args[2]);
+		if (ret != 0)
+			return ret;
+		ret = ioc_next_hex_arg(&cursor, &args[3]);
+		if (ret != 0)
+			return ret;
+		if (!raeth_hwioc_pmu_counter_args_valid(args[1], args[2], args[3]))
+			return -EINVAL;
 		break;
+	default:
+		return -EINVAL;
 	}
 
-	if (iocoherent_set_func[arg0] &&
-	    (ARRAY_SIZE(iocoherent_set_func) > arg0)) {
-		(*iocoherent_set_func[arg0]) (arg1, arg2, arg3);
-	} else {
-		pr_info("no handler defined for command id(0x%08lx)\n\r", arg0);
-		(*iocoherent_set_func[0]) (0, 0, 0);
-	}
+	ret = ioc_no_more_hex_args(&cursor);
+	if (ret != 0)
+		return ret;
+
+	ret = iocoherent_set_func[args[0]]((int)args[1],
+					    (int)args[2], (int)args[3]);
+	if (ret != 0)
+		return ret;
 
 	return len;
 }
@@ -235,10 +252,28 @@ int ioc_pmu_read(struct seq_file *seq, void *v)
 {
 	void __iomem *reg_virt_0, *reg_virt_1, *reg_virt_2, *reg_virt_3;
 
+	/* Do not emit a partial PMU snapshot if any counter window is missing. */
 	reg_virt_0 = ioremap(MCSI_A_PMU_EVN_SEL0, 0x10);
+	if (!reg_virt_0)
+		return -ENOMEM;
 	reg_virt_1 = ioremap(MCSI_A_PMU_EVN_SEL1, 0x10);
+	if (!reg_virt_1) {
+		iounmap(reg_virt_0);
+		return -ENOMEM;
+	}
 	reg_virt_2 = ioremap(MCSI_A_PMU_EVN_SEL2, 0x10);
+	if (!reg_virt_2) {
+		iounmap(reg_virt_1);
+		iounmap(reg_virt_0);
+		return -ENOMEM;
+	}
 	reg_virt_3 = ioremap(MCSI_A_PMU_EVN_SEL3, 0x10);
+	if (!reg_virt_3) {
+		iounmap(reg_virt_2);
+		iounmap(reg_virt_1);
+		iounmap(reg_virt_0);
+		return -ENOMEM;
+	}
 
 	seq_printf(seq, "MCSI_A_PMU_EVN_SEL0 = 0x%x\n",
 		   sys_reg_read(reg_virt_0));
@@ -267,10 +302,10 @@ int ioc_pmu_read(struct seq_file *seq, void *v)
 	seq_printf(seq, "MCSI_A_PMU_EVN_CTL3 = 0x%x\n",
 		   sys_reg_read(reg_virt_3 + 0x8));
 
-	iounmap(reg_virt_0);
-	iounmap(reg_virt_1);
-	iounmap(reg_virt_2);
 	iounmap(reg_virt_3);
+	iounmap(reg_virt_2);
+	iounmap(reg_virt_1);
+	iounmap(reg_virt_0);
 	return 0;
 }
 
