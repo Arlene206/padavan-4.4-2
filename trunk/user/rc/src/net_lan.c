@@ -2604,6 +2604,7 @@ lan_down_auto(char *lan_ifname)
 	int static_gateway_status = 0;
 	int lock, status, hosts_status = 0;
 	int metadata_status, metadata_rollback_status = 0;
+	int static_dns_mode, use_static_dns;
 
 	/*
 	 * Restore one coherent view of the DHCP gateway and static LAN settings,
@@ -2619,6 +2620,20 @@ lan_down_auto(char *lan_ifname)
 			   lan_ifname, snapshot_status);
 		return snapshot_status;
 	}
+
+	/* Use the same strict NVRAM integer parser as lease-bound resolver
+	 * publication. atoi() would accept malformed text such as "0;reboot"
+	 * as static-DNS mode and overwrite the resolver during deconfig. */
+	status = rc_wan_nvram_parse_int_value(snapshot.static_dns_mode,
+					      &static_dns_mode);
+	if (status != 0) {
+		errno = status;
+		logmessage("DHCP LAN Client",
+			   "cannot parse LAN DNS mode during deconfig on %s (status=%d); retaining lease state",
+			   lan_ifname, status);
+		return status;
+	}
+	use_static_dns = (static_dns_mode == 0);
 
 	/*
 	 * Remove the recorded DHCP default route before replacing the interface
@@ -2678,7 +2693,6 @@ lan_down_auto(char *lan_ifname)
 					   resolv_temp, errno ? errno : EIO);
 		} else {
 			int dns_count = 0;
-			int use_static_dns = (atoi(snapshot.static_dns_mode) == 0);
 
 			if (*snapshot.static_domain) {
 				if (!dnsmasq_valid_server_domain(snapshot.static_domain)) {

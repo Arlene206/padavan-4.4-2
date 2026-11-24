@@ -1,10 +1,10 @@
 ## 2026-11-24 持续开发接力（最新）
 
-- 接力基线：`54f23c27f924b31ad8d3caefc25ed9973a82bd08`；归档备份 `backup/pre-plugin-overhaul-2026-11-14` 保持只读（`72f4f157a084f8184b9597ca5bf334b8080e5807`）。
-- 近期 RAETH 修复已覆盖 DT descriptor 配置校验、PDMA/QDMA/RSS/HW-LRO 部分分配回滚、DMA init 失败回收、open/close/module 引用平衡和部分 IRQ 注册回滚。不要重新审计已完成项；以 live main 和 exact-SHA Actions 为准。
-- 本 handoff 所在原子提交同时包含新的 RX buffer headroom 修复：RSS 2/4-ring 和 HW-LRO 初始化分配漏掉 `NET_SKB_PAD`，但 DMA 从 `buffer + NET_SKB_PAD` 开始映射完整 payload，消费时也执行 `skb_reserve(NET_SKB_PAD + NET_IP_ALIGN)`。修正分配长度，并扩展现有 RAETH source-contract 检查到 PDMA/QDMA/RSS/HW-LRO 五条路径。
-- 父提交 exact-SHA Switch CLI、AI handoff、NVRAM、XY-C1 状态不转移到本提交；本提交的所有相关 Actions 必须按本提交 SHA 单独核验。
-- 无本地 MIPS build、固件产物或硬件 L4 结果可提前宣称。
+- 当前 main 接力基线：`69c15a20e8ce91bf8c31e3ac600547421ba3bfd1`；归档备份 `backup/pre-plugin-overhaul-2026-11-14` 保持只读（`72f4f157a084f8184b9597ca5bf334b8080e5807`）。
+- RAETH RX buffer 修复在 `a52ded9e6c0982ff7b838a59b4fb62df3fbd1815`，精确 SHA Switch CLI #45321100540 PASS。后续 RAETH 生命周期提交补齐 switch platform-device 引用释放、pseudo-netdev 注册失败回收和 NAPI 注销；#45321494411 曾由错误的 `register_netdev()` 文本断言误报，精确计数断言已在父分支修正。
+- 本提交修复 LAN DHCP deconfig 缺陷：`lan_down_auto()` 原先对快照中的 `lan_dns_x` 使用 `atoi()`，而 lease resolver 发布路径使用严格整数解析；畸形值 `0;reboot` 会被 atoi 当成 0，错误切换到静态 DNS 并覆盖 resolver。修复在 route/interface/filesystem 副作用前严格解析，失败即保留现有 lease 状态。
+- `e22aea0d3000117892d82992a9d88b96fe179599` 的 AI handoff workflow #45321272727 PASS；Roadmap 低于 131072 UTF-8 bytes，不要无必要扩写。
+- 不得把其他 SHA 的 PASS 转移到当前提交；未拿到同 SHA XY-C1 Build、TRX 和 artifact 结果前，不宣称 L3 成功。无物理硬件 L4 结果。
 
 ---
 
@@ -12,13 +12,13 @@
 
 ## Current repository state
 
-- Parent main before this implementation commit: `54f23c27f924b31ad8d3caefc25ed9973a82bd08`; frozen backup: `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Source fix is in exact commit `a52ded9e6c0982ff7b838a59b4fb62df3fbd1815`: RSS 2/4-ring and hardware-LRO initial RX capacity includes `NET_SKB_PAD`, matching PDMA/QDMA and runtime replacement. Its Switch CLI run #45321100540 PASS; XY-C1 #45321100612 was IN_PROGRESS; AI docs #45321100686 failed only on the roadmap byte limit, corrected by this documentation-only commit.
-- Parent-SHA Actions are historical only and do not validate this implementation commit. Inspect the exact commit containing this handoff for new push-triggered workflow results.
-- The backup branch remains read-only.
+- Parent main before this implementation commit: `69c15a20e8ce91bf8c31e3ac600547421ba3bfd1`; frozen backup: `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- `lan_down_auto()` now parses the snapshotted `lan_dns_x` through the same `rc_wan_nvram_parse_int_value()` routine as `lan_publish_resolver_auto()`, before route deletion, interface reconfiguration, resolver staging or file publication. Malformed/overflow selector values fail closed and preserve the last committed lease.
+- The existing Python source regression pins the strict parser, failure return and ordering before route side effects. The existing WAN DHCP callback workflow includes both changed paths.
+- Exact-SHA RAETH follow-up checks are independent of this LAN fix. AI docs #45321272727 on `e22aea0` PASS; Roadmap remains below 131072 UTF-8 bytes. Backup stays read-only.
 ## Active task
 
-Verify the AI handoff rerun on this documentation correction SHA. For the product source SHA `a52ded9`, preserve the Switch CLI PASS and inspect XY-C1 Build → TRX → artifact completion; the docs-only descendant is not a new product-source validation SHA. Continue independent stability work while XY-C1 is pending.
+Verify the exact-SHA WAN DHCP callback regression for strict LAN DNS-mode parsing, especially that malformed `lan_dns_x` is rejected before route/interface/resolver effects. In parallel inspect the latest RAETH Switch CLI rerun and XY-C1 Build/TRX/artifact status. Continue an independent stability fix while any jobs remain pending.
 ## Completed development slices
 
 ### HTTPD / web UI security
@@ -47,16 +47,15 @@ Independent snapshot/lifecycle changes remain in `99ad9397e3cf4450c6fc07758b58c3
 
 ## Verification boundary
 
-- Source changes in this commit correct the RSS 2-ring/4-ring and hardware-LRO initial RX buffer capacity by adding `NET_SKB_PAD`; the existing PDMA and QDMA paths already include it.
-- The extended source checker is wired into the existing Switch CLI regression workflow, whose push filter includes the RSS, HW-LRO and checker paths. XY-C1 push filters already include both modified driver files.
-- Exact source-SHA Switch CLI #45321100540 passed all host checks, including the newly added RX-capacity contract. AI docs #45321100686 failed solely because the roadmap was 131250 bytes against the 131072-byte limit; this follow-up reduces it below the limit and requires a new exact-SHA documentation run. XY-C1 #45321100612 remained IN_PROGRESS. No local MIPS build, TRX, artifact or hardware result is claimed.
-- Historical L3 artifact #14884935723 belongs only to `dd0b374694cf9d1e99ca65c8b35fa53b482d377b`, not this source baseline.
+- RAETH RX sizing source fix is in `a52ded9`; its exact Switch CLI run #45321100540 PASS.
+- The pseudo-registration checker defect from Switch CLI #45321494411 was corrected in a parent commit; confirm the parent SHA's rerun independently.
+- This commit adds strict LAN `lan_dns_x` parsing before any DHCP deconfig route/interface/resolver side effect and updates the existing source contract. No run for this SHA exists at commit creation.
+- AI handoff validation passed on `e22aea0`; do not grow `REFACTOR_ROADMAP.md` beyond 131072 bytes. No local MIPS firmware, TRX, artifact or hardware-L4 result is claimed.
 ## Exact first action for the next GPT
 
-1. Fetch live `main`; inspect AI handoff docs on the documentation-fix SHA and record its rerun result.
-2. Inspect XY-C1 #45321100612 for product SHA `a52ded9`; verify Build → TRX → artifact completion on that identical SHA.
-3. Confirm exact-SHA NVRAM #45321100619 and any follow-up run state; do not transfer results between SHAs.
-4. Continue independent repository-wide stability work while anything is pending. Keep the backup branch untouched.
+1. Fetch live `main`; inspect exact-SHA WAN DHCP callback workflow and Switch CLI, plus XY-C1 Build → TRX → artifact results. Keep results SHA-scoped.
+2. Confirm malformed `lan_dns_x` is rejected before any route, interface, resolver-stage or metadata mutation; diagnose the first failing assertion if not.
+3. Continue repository-wide stability fixes while exact-SHA jobs are pending. Keep the backup branch untouched and preserve the roadmap byte limit.
 
 # Cross-session execution mandate
 

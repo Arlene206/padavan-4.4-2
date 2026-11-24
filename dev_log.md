@@ -1,3 +1,10 @@
+## 2026-11-24 — Fail closed on malformed LAN DHCP static-DNS selector during deconfig
+
+- `lan_down_auto()` read `lan_dns_x` into its transactional deconfig snapshot but selected static DNS with `atoi(snapshot.static_dns_mode) == 0`. The bound/lease resolver path uses `rc_wan_nvram_parse_int_value()` on the same setting. `atoi("0;reboot")` returns zero and incorrectly enables static-DNS mode, potentially replacing `/etc/resolv.conf` during deconfig.
+- Reused the strict integer parser immediately after the snapshot and before route deletion, interface reconfiguration, resolver staging or publication. Parse failures now return the parser status and preserve lease identity for retry. The existing Python source contract verifies the fail-closed path and ordering; its workflow already covers `net_lan.c` and `check_lan_dhcp_deconfig.py`.
+- Parent main: `69c15a20e8ce91bf8c31e3ac600547421ba3bfd1`. Exact-SHA WAN DHCP regression and XY-C1 are required for this change; no local target build or hardware result is claimed.
+
+---
 ## 2026-11-24 — Keep the handoff roadmap within the validator byte limit
 
 - AI handoff run #45321100686 on source SHA `a52ded9e6c0982ff7b838a59b4fb62df3fbd1815` failed only because `REFACTOR_ROADMAP.md` was 131250 UTF-8 bytes, 178 bytes above the 131072-byte hard limit. The new RAETH DMA/RX status row was longer than necessary.

@@ -136,7 +136,14 @@ for key in ("lan_gateway_t", "lan_ipaddr", "lan_netmask", "lan_domain"):
 assert "failed to restore static LAN hostname/hosts during deconfig" in cleanup
 assert "dnsmasq_valid_server_domain(snapshot.static_domain)" in cleanup
 assert "dhcp_lease_static_resolver_uses_gateway(" in cleanup
-assert "atoi(snapshot.static_dns_mode) == 0" in cleanup
+dns_mode_parse = cleanup.index("status = rc_wan_nvram_parse_int_value(snapshot.static_dns_mode,")
+dns_mode_guard = cleanup.index("if (status != 0)", dns_mode_parse)
+dns_mode_return = cleanup.index("return status;", dns_mode_guard)
+route_delete_for_mode = cleanup.index("route_status = route_del(", dns_mode_return)
+assert dns_mode_parse < dns_mode_guard < dns_mode_return < route_delete_for_mode
+assert "cannot parse LAN DNS mode during deconfig" in cleanup
+assert "use_static_dns = (static_dns_mode == 0);" in cleanup
+assert "atoi(snapshot.static_dns_mode)" not in cleanup
 assert cleanup.count("use_static_dns &&") == 2
 assert "snapshot.static_dns1" in cleanup and "snapshot.static_dns2" in cleanup
 assert "use_static_dns, dns_count" in compact(cleanup)
