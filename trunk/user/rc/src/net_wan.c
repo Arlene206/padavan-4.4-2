@@ -67,6 +67,7 @@
 #include "bridge_membership_policy.h"
 #include "switch.h"
 #include "switch_status_policy.h"
+#include "wan_src_phy_policy.h"
 #include <gpioutils.h>
 
 static int
@@ -7228,8 +7229,11 @@ get_wan_ether_link_direct(int is_ap_mode)
 		}
 	}
 
-	if (wan_src_phy < 0)
-		wan_src_phy = SWAPI_PORT_WAN;
+	status = wan_src_phy_resolve(wan_src_phy, &wan_src_phy);
+	if (status != 0) {
+		errno = status;
+		return -1;
+	}
 
 	errno = 0;
 	ret = phy_status_port_link(wan_src_phy, &phy_link);

@@ -23,6 +23,8 @@ on:
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/wan_src_phy_policy.h"
+      - "trunk/user/rc/src/tests/wan_src_phy_policy.c"
       - "trunk/user/rc/src/net_lan.c"
       - "trunk/user/rc/src/services.c"
       - "trunk/user/rc/src/Makefile"
@@ -49,6 +51,8 @@ on:
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/wan_src_phy_policy.h"
+      - "trunk/user/rc/src/tests/wan_src_phy_policy.c"
       - "trunk/user/rc/src/net_lan.c"
       - "trunk/user/rc/src/services.c"
       - "trunk/user/rc/src/Makefile"
@@ -314,6 +318,8 @@ jobs:
               "trunk/user/rc/src/rc.c",
               "trunk/user/rc/src/rc.h",
               "trunk/user/rc/src/net_wan.c",
+              "trunk/user/rc/src/wan_src_phy_policy.h",
+              "trunk/user/rc/src/tests/wan_src_phy_policy.c",
               "trunk/user/rc/src/net_lan.c",
               "trunk/user/rc/src/services.c",
               "trunk/user/rc/src/Makefile",
@@ -326,4 +332,49 @@ jobs:
               assert pr_filters.count(path) == 1, f"pull_request path missing/duplicated: {path}"
 
           print("detect_link signal/context and caller contract: PASS")
+          PY
+      - name: Compile and run WAN source PHY selector policy regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/wan_src_phy_policy.c \
+            -o /tmp/wan-src-phy-policy
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 \
+            /tmp/wan-src-phy-policy
+      - name: Verify WAN source PHY selector fails closed before switch ioctl
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          rc = Path("trunk/user/rc/src")
+          source = (rc / "net_wan.c").read_text()
+          policy = (rc / "wan_src_phy_policy.h").read_text()
+          test = (rc / "tests/wan_src_phy_policy.c").read_text()
+
+          def body(text, signature):
+              start = text.index(signature)
+              brace = text.index("{", start)
+              depth = 0
+              for pos in range(brace, len(text)):
+                  if text[pos] == "{":
+                      depth += 1
+                  elif text[pos] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return text[brace + 1:pos]
+              raise AssertionError("unterminated function: " + signature)
+
+          caller = body(source, "get_wan_ether_link_direct(int is_ap_mode)")
+          assert '#include "wan_src_phy_policy.h"' in source
+          assert "WAN_SRC_PHY_MAX_EXTERNAL 5" in policy
+          assert "configured_port > WAN_SRC_PHY_MAX_EXTERNAL" in policy
+          assert caller.index("wan_src_phy_resolve(wan_src_phy, &wan_src_phy)") < caller.index("phy_status_port_link(")
+          assert "errno = status;" in caller and "return -1;" in caller
+          for marker in (
+              "test_external_switch_ports_are_accepted",
+              "test_negative_legacy_values_keep_wan_default",
+              "test_unknown_and_cpu_ports_fail_without_publishing",
+          ):
+              assert marker + "();" in test
+          print("WAN source PHY selector fail-closed integration: PASS")
           PY
