@@ -1527,14 +1527,18 @@ update_variables_ex(int eid, webs_t wp, int argc, char **argv)
 					result = apply_cgi_group(wp, sid, NULL, group_id, GROUP_FLAG_ADD);
 					if (result == 1) {
 						nvram_set_int_temp(group_id, 1);
-						websWrite(wp, "<script>done_validating(\"%s\");</script>\n", action_mode);
+						websWrite(wp, "<script>done_validating(");
+						write_js_string(wp, action_mode);
+						websWrite(wp, ");</script>\n");
 					}
 				}
 				else if (!strcmp(action_mode, " Del ")) {
 					result = apply_cgi_group(wp, sid, NULL, group_id, GROUP_FLAG_REMOVE);
 					if (result == 1) {
 						nvram_set_int_temp(group_id, 1);
-						websWrite(wp, "<script>done_validating(\"%s\");</script>\n", action_mode);
+						websWrite(wp, "<script>done_validating(");
+						write_js_string(wp, action_mode);
+						websWrite(wp, ");</script>\n");
 					}
 				}
 				else if (!strcmp(action_mode, " Restart ")) {
@@ -2231,7 +2235,9 @@ lanlink_hook(int eid, webs_t wp, int argc, char **argv)
 		write_js_string(wp, port_status);
 		websWrite(wp, ";\n");
 	}
-	websWrite(wp, " return '%s';\n", "No link");
+	websWrite(wp, " return ");
+	write_js_string(wp, "No link");
+	websWrite(wp, ";\n");
 	websWrite(wp, "}\n");
 
 	return 0;

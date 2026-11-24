@@ -1,3 +1,11 @@
+## 2026-11-23 — Escape remaining status and action-mode JavaScript strings
+
+- Routed the static LAN fallback `"No link"` through `write_js_string()` as well, then removed the checker exception and required that no raw `return '%s'` emitter remains in `web_ex.c`.
+- Converted both fixed validation action-mode strings from direct double-quoted JavaScript interpolation to `write_js_string()`. This centralizes output escaping for dynamic C-side script strings and preserves the same runtime string values.
+- Parent `c6f5805` HTTPD run `#45300471389` was pending; exact follow-up SHA Actions unverified.
+
+---
+
 ## 2026-11-23 — Narrow dynamic-hook regression assertion
 
 - Tightened the new C-side JavaScript hook contract check to reject the dynamic LAN port-status formatter specifically while allowing the literal `"No link"` fallback. This avoids a false positive from a safe source-controlled string without weakening coverage of runtime `port_status` escaping.

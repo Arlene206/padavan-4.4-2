@@ -9,7 +9,7 @@
 
 ## Active task
 
-Verify the dynamic JavaScript hook migration and continue scanning remaining C-side `websWrite()` script emitters for runtime strings that still bypass `write_js_string()`.
+Continue scanning C-side HTTPD JavaScript emitters for raw data-derived `websWrite()` string formatting. WAN/LAN status fields, the captive-client version, status counters, fixed no-link status text and validation action-mode strings now use the tested JavaScript string writer.
 
 ## Completed development slices
 
@@ -31,16 +31,18 @@ Independent snapshot/lifecycle changes remain in `99ad9397e3cf4450c6fc07758b58c3
 
 ## Verification boundary
 
-- Exact `dd099f6` HTTPD Authentication/Security run `#45300345684` and related checks had started. The LAN port-status contract check was narrowed in the follow-up commit to distinguish dynamic values from the literal `"No link"` fallback; the exact child SHA Actions must be checked.
-- Exact `08c6d43` HTTPD `#45299995452`, AI handoff `#45299995515`, Process lifecycle inventory `#45299995326`, Process regression `#45299995463`, FRP `#45299995540`, Inadyn `#45299995467`, AliyunDrive `#45299995485`, AdGuardHome `#45299995325` and USB storage job `#45299995495`: **PASS** at last poll; NVRAM transaction audit `#45299995549` was still running. Its XY-C1 run `#45299995388` had Build pending.
-- Exact `212aed2` XY-C1 `#45299517972`: detector test **PASS**, Build in progress with TRX/artifact pending. AI handoff `#45299517974` and Process inventory `#45299517987`: **PASS**.
-- Exact `5c8c62f` XY-C1 `#45298161504`: **PASS**, including Build, TRX verification and artifact upload.
+- Exact `dd099f6` HTTPD `#45300345684`: **FAIL** in `check_dynamic_js_hooks` due to its over-broad assertion rejecting the literal `"No link"` output; the follow-up commit narrowed that assertion. Do not mark this SHA green.
+- Exact `c6f5805` HTTPD `#45300471389`: pending/in progress at last check; its AI handoff run `#45300471279`: **PASS**.
+- Exact `08c6d43` HTTPD `#45299995452`, AI handoff `#45299995515`, Process lifecycle inventory `#45299995326`, Process regression `#45299995463`, FRP `#45299995540`, Inadyn `#45299995467`, AliyunDrive `#45299995485`, AdGuardHome `#45299995325` and USB storage `#45299995495`: **PASS**; NVRAM transaction audit `#45299995549` was cancelled by the newer commit. XY-C1 `#45299995388` had Build pending.
+- Exact `212aed2` XY-C1 `#45299517972`: detector regression **PASS**, Build in progress; TRX and artifact pending. AI handoff `#45299517974` and Process inventory `#45299517987`: **PASS**.
+- Exact `5c8c62f` XY-C1 `#45298161504`: **PASS**, including Build, TRX and artifact upload.
+- Exact `861e3fe` all security/process/side regressions and XY-C1 `#45298770098`: **PASS**, including Build, TRX and artifact upload.
 - No physical-router L4 result is claimed. Backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Exact first action for the next GPT
 
-1. Verify the corrected dynamic-hook source-contract assertion on the exact new SHA and inspect HTTPD/XY-C1 Actions.
-2. Continue finding any data-derived JavaScript values emitted through raw `websWrite()` format strings; route runtime strings through `write_js_string()`, keeping numeric/static output unchanged.
+1. Verify exact-SHA HTTPD Actions for the full dynamic-hook migration, including the corrected output-context assertion.
+2. Continue looking for data-derived values embedded in JavaScript source by C-side HTTPD handlers. Any runtime string must use `write_js_string()` or an appropriate JSON encoder; literal and numeric values can remain direct.
 3. Keep backup read-only and continue atomic commits while independent Actions are pending.
 
 # Cross-session execution mandate
