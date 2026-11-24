@@ -44,6 +44,7 @@
 
 #include "rc.h"
 #include "rc_user_config_copy_policy.h"
+#include "dnsmasq_safe_read.h"
 #include "char_to_ascii_policy.h"
 #include "module_refcount_policy.h"
 #include "wireless_module_load_policy.h"
@@ -640,7 +641,7 @@ load_user_config(FILE *fp, const char *dir_name, const char *file_name,
     if (path_len < 0 || path_len >= (int)sizeof(real_path))
         return ENAMETOOLONG;
 
-    fp_user = fopen(real_path, "r");
+    fp_user = dnsmasq_file_open_safe_read(real_path);
     if (!fp_user) {
         if (errno == ENOENT)
             return 0;

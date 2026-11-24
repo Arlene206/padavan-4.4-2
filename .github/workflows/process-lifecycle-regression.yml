@@ -63,6 +63,7 @@ on:
       - "trunk/user/rc/src/tests/auth_kabinet_restart_policy.c"
       - "trunk/user/rc/src/common_ex.c"
       - "trunk/user/rc/src/rc_user_config_copy_policy.h"
+      - "trunk/user/rc/src/dnsmasq_safe_read.h"
       - "trunk/user/rc/src/ralink.c"
       - "trunk/user/rc/src/tests/rc_user_config_copy_policy.c"
       - "trunk/user/rc/src/pagecache_reclaim_policy.h"
@@ -330,6 +331,7 @@ on:
       - "trunk/user/rc/src/tests/auth_kabinet_restart_policy.c"
       - "trunk/user/rc/src/common_ex.c"
       - "trunk/user/rc/src/rc_user_config_copy_policy.h"
+      - "trunk/user/rc/src/dnsmasq_safe_read.h"
       - "trunk/user/rc/src/ralink.c"
       - "trunk/user/rc/src/tests/rc_user_config_copy_policy.c"
       - "trunk/user/rc/src/pagecache_reclaim_policy.h"
@@ -2092,6 +2094,15 @@ jobs:
             -o "$RUNNER_TEMP/rc-user-config-copy-policy"
           ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/rc-user-config-copy-policy"
 
+      - name: Compile and run DNSMasq safe-read file policy regression
+        run: |
+          set -eu
+          cc -D_GNU_SOURCE -std=gnu89 -Wall -Wextra -Werror \
+            -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -I trunk/user/rc/src trunk/user/rc/src/tests/dnsmasq_file.c \
+            -o "$RUNNER_TEMP/dnsmasq-file-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/dnsmasq-file-policy"
+
       - name: Verify RC user-config copy errors abort staged publication
         run: |
           python3 - <<'PY'
@@ -2120,6 +2131,14 @@ jobs:
           loader = function_body(common, "load_user_config(FILE *fp,")
           assert "rc_user_config_copy_stream(" in loader
           assert "fclose(fp_user)" in loader
+          assert "dnsmasq_file_open_safe_read(real_path)" in loader
+          assert 'fopen(real_path, "r")' not in loader
+          safe_read_policy = Path("trunk/user/rc/src/dnsmasq_safe_read.h").read_text()
+          assert "open(path, O_RDONLY | O_NOFOLLOW | O_NONBLOCK, 0)" in safe_read_policy
+          assert "fstat(fd, &st)" in safe_read_policy
+          assert "st.st_uid != geteuid()" in safe_read_policy
+          assert "st.st_nlink != 1" in safe_read_policy
+          assert "st.st_mode & (S_IWGRP | S_IWOTH)" in safe_read_policy
           assert "line[length - 1]" not in loader
           assert "fgetc(input)" in policy
           assert "overlong = 1" in policy
