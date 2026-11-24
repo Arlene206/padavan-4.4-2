@@ -239,3 +239,32 @@ assert "if (err) goto fail_qdma_rx;" in qtx_qrx_compact
 assert qtx_qrx.index("fe_qdma_rx_dma_deinit(dev);") > qtx_qrx.index("fail_qdma_rx:")
 assert qtx_qrx.index("return err;", qtx_qrx.index("fail_qdma_rx:")) > qtx_qrx.index("fe_qdma_rx_dma_deinit(dev);")
 print("RAETH PDMA/QDMA initialization now unwinds previously completed RX stages on later failures: PASS")
+
+open_body = function_body(RAETHER_SOURCE, "int ei_open(")
+dma_init_at = open_body.index("err = ei_init_dma(dev);")
+dma_init_fail = open_body.index("if (err)", dma_init_at)
+dma_init_put = open_body.index("module_put(THIS_MODULE);", dma_init_fail)
+dma_init_return = open_body.index("return err;", dma_init_put)
+assert dma_init_at < dma_init_fail < dma_init_put < dma_init_return
+
+for create in ("kthread_create(fe_reset_thread", "kthread_create(phy_polling_thread"):
+    create_at = open_body.index(create)
+    reset_at = open_body.index("fe_reset();", create_at)
+    deinit_at = open_body.index("ei_deinit_dma(dev);", reset_at)
+    put_at = open_body.index("module_put(THIS_MODULE);", deinit_at)
+    return_at = open_body.index("return err;", put_at)
+    assert create_at < reset_at < deinit_at < put_at < return_at
+
+switch_init_at = open_body.index("err = fe_sw_init();")
+switch_deinit_at = open_body.index("ei_deinit_dma(dev);", switch_init_at)
+switch_put_at = open_body.index("module_put(THIS_MODULE);", switch_deinit_at)
+assert switch_init_at < switch_deinit_at < switch_put_at
+assert open_body.index("kthread_create(phy_polling_thread") < open_body.index("netif_start_queue(dev)")
+assert open_body.index("netif_start_queue(dev)") < open_body.index("fe_int_enable(dev)")
+
+close_body = function_body(RAETHER_SOURCE, "int ei_close(")
+assert "IS_ERR_OR_NULL(ei_local->kreset_task)" in close_body
+assert "IS_ERR_OR_NULL(ei_local->kphy_poll_task)" in close_body
+assert "ei_local->kreset_task = NULL;" in close_body
+assert "ei_local->kphy_poll_task = NULL;" in close_body
+print("RAETH open/close balances module refs and DMA on early setup failures, with optional thread guards: PASS")

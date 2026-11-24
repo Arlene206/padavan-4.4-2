@@ -2578,6 +2578,9 @@ int ei_open(struct net_device *dev)
 		return -1;
 	}
 
+	ei_local->kreset_task = NULL;
+	ei_local->kphy_poll_task = NULL;
+
 	pr_info("Raeth %s (", RAETH_VERSION);
 	if (ei_local->features & FE_INT_NAPI)
 		pr_info("NAPI\n");
@@ -2590,13 +2593,17 @@ int ei_open(struct net_device *dev)
 	ei_reset_statistics(ei_local);
 
 	err = ei_init_dma(dev);
-	if (err)
+	if (err) {
+		module_put(THIS_MODULE);
 		return err;
+	}
 
 	if (ei_local->chip_name != MT7621_FE) {
 		fe_gmac_reset();
 		err = fe_sw_init();
 		if (err) {
+			fe_reset();
+			ei_deinit_dma(dev);
 			module_put(THIS_MODULE);
 			return err;
 		}
@@ -2618,14 +2625,16 @@ int ei_open(struct net_device *dev)
 	    (ei_local->features & FE_HW_LRO)) {
 		ei_local->kreset_task =
 		    kthread_create(fe_reset_thread, NULL, "FE_reset_kthread");
-		if (IS_ERR(ei_local->kreset_task))
-			return PTR_ERR(ei_local->kreset_task);
+		if (IS_ERR(ei_local->kreset_task)) {
+			err = PTR_ERR(ei_local->kreset_task);
+			ei_local->kreset_task = NULL;
+			fe_reset();
+			ei_deinit_dma(dev);
+			module_put(THIS_MODULE);
+			return err;
+		}
 		wake_up_process(ei_local->kreset_task);
 	}
-
-	netif_start_queue(dev);
-
-	fe_int_enable(dev);
 
 	/*set hw my mac address*/
 	set_mac_address(dev->dev_addr);
@@ -2640,8 +2649,14 @@ int ei_open(struct net_device *dev)
 			if (mac_to_gigaphy_mode_addr2 == 0) {
 				ei_local->kphy_poll_task =
 				    kthread_create(phy_polling_thread, NULL, "phy_polling_kthread");
-				if (IS_ERR(ei_local->kphy_poll_task))
-					return PTR_ERR(ei_local->kphy_poll_task);
+				if (IS_ERR(ei_local->kphy_poll_task)) {
+					err = PTR_ERR(ei_local->kphy_poll_task);
+					ei_local->kphy_poll_task = NULL;
+					fe_reset();
+					ei_deinit_dma(dev);
+					module_put(THIS_MODULE);
+					return err;
+				}
 				wake_up_process(ei_local->kphy_poll_task);
 			}
 		} else if (ei_local->architecture & LEOPARD_EPHY_GMII) {
@@ -2649,6 +2664,11 @@ int ei_open(struct net_device *dev)
 			mii_mgr_write(0, 0, 0x1340);
 		}
 	}
+
+	netif_start_queue(dev);
+
+	fe_int_enable(dev);
+
 	return 0;
 }
 
@@ -2659,12 +2679,17 @@ int ei_close(struct net_device *dev)
 	fe_reset();
 
 	if ((ei_local->chip_name == MT7623_FE) &&
-	    (ei_local->features & FE_HW_LRO))
+	    (ei_local->features & FE_HW_LRO) &&
+	    !IS_ERR_OR_NULL(ei_local->kreset_task)) {
 		kthread_stop(ei_local->kreset_task);
+		ei_local->kreset_task = NULL;
+	}
 
-	if (ei_local->chip_name == LEOPARD_FE) {
-		if (ei_local->architecture & GE2_RGMII_AN)
-			kthread_stop(ei_local->kphy_poll_task);
+	if (ei_local->chip_name == LEOPARD_FE &&
+	    (ei_local->architecture & GE2_RGMII_AN) &&
+	    !IS_ERR_OR_NULL(ei_local->kphy_poll_task)) {
+		kthread_stop(ei_local->kphy_poll_task);
+		ei_local->kphy_poll_task = NULL;
 	}
 
 	netif_stop_queue(dev);
