@@ -34,7 +34,7 @@ killall() {
 sleep() { :; }
 expect_state() {
     expected=$1; label=$2
-    smartdns_process_state; actual=$?
+    smartdns_named_process_state "$PIDOF_EXPECTED_NAME"; actual=$?
     [ "$actual" -eq "$expected" ] || fail "$label state=$actual expected=$expected"
     pass "$label"
 }
@@ -62,28 +62,145 @@ PIDOF_STATUS=0; PIDOF_OUTPUT=0123
 expect_state 2 "noncanonical leading-zero PID is rejected"
 PIDOF_STATUS=0; PIDOF_OUTPUT="123\t456"
 expect_state 2 "unexpected PID delimiter is rejected"
-KILLALL_CALLS=0; PIDOF_STATUS=1; PIDOF_OUTPUT=
-expect_stop 0 "absent daemon is a successful no-op"
-[ "$KILLALL_CALLS" -eq 0 ] || fail "absent daemon was signalled"
-KILLALL_CALLS=0; PIDOF_STATUS=2; PIDOF_OUTPUT=
-expect_stop 2 "unknown daemon state fails closed"
-[ "$KILLALL_CALLS" -eq 0 ] || fail "unknown daemon state was signalled"
-KILLALL_CALLS=0; PIDOF_STATUS=0; PIDOF_OUTPUT=123
-KILLALL_GRACEFUL_BEHAVIOR=clear
-expect_stop 0 "graceful signal is verified by fresh absent snapshot"
-[ "$KILLALL_CALLS" -eq 1 ] || fail "graceful stop call count wrong"
-KILLALL_CALLS=0; PIDOF_STATUS=0; PIDOF_OUTPUT=123
-KILLALL_GRACEFUL_BEHAVIOR=unknown; KILLALL_FORCE_BEHAVIOR=clear
-expect_stop 2 "unknown post-signal state prevents force escalation"
-[ "$KILLALL_CALLS" -eq 1 ] || fail "unknown state should prevent second signal"
-KILLALL_CALLS=0; PIDOF_STATUS=0; PIDOF_OUTPUT=123
-KILLALL_GRACEFUL_BEHAVIOR=keep; KILLALL_FORCE_BEHAVIOR=clear
-expect_stop 0 "force escalation occurs only after graceful timeout"
-[ "$KILLALL_CALLS" -eq 2 ] || fail "expected graceful plus forced stop"
-KILLALL_CALLS=0; PIDOF_STATUS=0; PIDOF_OUTPUT=123
-KILLALL_GRACEFUL_BEHAVIOR=keep; KILLALL_FORCE_BEHAVIOR=keep
-expect_stop 1 "daemon still running after force escalation is reported"
-[ "$KILLALL_CALLS" -eq 2 ] || fail "expected exactly two signal attempts"
+PIDOF_STATUS=1; PIDOF_OUTPUT=
+expect_state 1 "status 1 plus empty output means absent"
+PIDOF_STATUS=0; PIDOF_OUTPUT="123 456"
+expect_state 0 "valid multiple PIDs mean running"
+PIDOF_STATUS=0; PIDOF_OUTPUT=
+expect_state 2 "status 0 plus empty output is unknown"
+PIDOF_STATUS=1; PIDOF_OUTPUT=123
+expect_state 2 "status 1 plus output is inconsistent"
+PIDOF_STATUS=2; PIDOF_OUTPUT=
+expect_state 2 "pidof error is unknown"
+PIDOF_STATUS=0; PIDOF_OUTPUT="123 bad"
+expect_state 2 "malformed PID list is unknown"
+PIDOF_STATUS=0; PIDOF_OUTPUT=0
+expect_state 2 "PID zero is rejected"
+PIDOF_STATUS=0; PIDOF_OUTPUT=0123
+expect_state 2 "noncanonical leading-zero PID is rejected"
+PIDOF_OUTPUT="$(printf '123\t456')"
+expect_state 2 "unexpected PID delimiter is rejected"
+
+SMARTDNS_PROC_ROOT="$tmpdir/proc"
+smartdns_Bin="$tmpdir/smartdns"
+smartdns_Conf="$tmpdir/smartdns.conf"
+SMARTDNS_IMPOSTOR="$tmpdir/not-smartdns"
+mkdir -p "$SMARTDNS_PROC_ROOT/1"
+: > "$SMARTDNS_PROC_ROOT/1/stat"
+: > "$smartdns_Bin"
+: > "$smartdns_Conf"
+: > "$SMARTDNS_IMPOSTOR"
+PIDOF_EXPECTED_NAME=smartdns
+create_smartdns_proc() {
+    proc_pid=$1
+    proc_exe=$2
+    proc_config=$3
+    proc_optional=$4
+    proc_start=$5
+    proc_dir="$SMARTDNS_PROC_ROOT/$proc_pid"
+    rm -rf "$proc_dir"
+    mkdir -p "$proc_dir"
+    ln -s "$proc_exe" "$proc_dir/exe"
+    printf '%s (smartdns) S 1' "$proc_pid" > "$proc_dir/stat"
+    stat_field=5
+    while [ "$stat_field" -le 21 ]; do
+        printf ' 0' >> "$proc_dir/stat"
+        stat_field=$((stat_field + 1))
+    done
+    printf ' %s\n' "$proc_start" >> "$proc_dir/stat"
+    printf '%s\000%s\000%s\000%s\000%s\000' \
+        "$proc_exe" "-f" "-c" "$proc_config" "$proc_optional" > "$proc_dir/cmdline"
+}
+expect_smartdns_state() {
+    expected=$1
+    label=$2
+    if smartdns_process_state; then actual=0; else actual=$?; fi
+    [ "$actual" -eq "$expected" ] || fail "$label state=$actual expected=$expected"
+    pass "$label"
+}
+
+create_smartdns_proc 2345 "$smartdns_Bin" "$smartdns_Conf" "" 12345
+create_smartdns_proc 2346 "$SMARTDNS_IMPOSTOR" "$smartdns_Conf" "" 12346
+PIDOF_STATUS=0; PIDOF_OUTPUT="2345 2346"
+expect_smartdns_state 0 "exact executable and argv exclude same-name impostors"
+[ "$smartdns_process_ids" = "2345:12345" ] || fail "inventory included a same-name impostor"
+PIDOF_OUTPUT=2346
+expect_smartdns_state 1 "wrong executable is confirmed non-SmartDNS"
+create_smartdns_proc 2347 "$smartdns_Bin" "$tmpdir/other.conf" "" 12347
+PIDOF_OUTPUT=2347
+expect_smartdns_state 1 "wrong config argv is confirmed non-SmartDNS"
+create_smartdns_proc 2348 "$smartdns_Bin" "$smartdns_Conf" "" 12348
+rm -f "$SMARTDNS_PROC_ROOT/2348/stat"
+PIDOF_OUTPUT=2348
+expect_smartdns_state 2 "incomplete proc metadata is unknown"
+PIDOF_STATUS=2; PIDOF_OUTPUT=
+expect_smartdns_state 2 "pidof failure cannot prove SmartDNS absence"
+
+KILL_LOG="$tmpdir/signals.log"
+: > "$KILL_LOG"
+KILL_MODE=term-exit
+kill() {
+    printf '%s %s\n' "$1" "$2" >> "$KILL_LOG"
+    case "$KILL_MODE:$1" in
+        term-exit:-TERM)
+            rm -rf "$SMARTDNS_PROC_ROOT/$2"
+            PIDOF_STATUS=1; PIDOF_OUTPUT=
+            ;;
+        force:-KILL)
+            rm -rf "$SMARTDNS_PROC_ROOT/$2"
+            PIDOF_STATUS=1; PIDOF_OUTPUT=
+            ;;
+        unknown:-TERM)
+            PIDOF_STATUS=2
+            ;;
+    esac
+    return 0
+}
+create_smartdns_proc 2345 "$smartdns_Bin" "$smartdns_Conf" "" 22345
+PIDOF_STATUS=0; PIDOF_OUTPUT=2345
+smartdns_stop_process || fail "verified graceful stop failed"
+grep -Fqx -- '-TERM 2345' "$KILL_LOG" || fail "stop did not target the validated PID"
+[ "$(wc -l < "$KILL_LOG")" -eq 1 ] || fail "graceful stop unexpectedly escalated"
+
+: > "$KILL_LOG"
+create_smartdns_proc 2345 "$smartdns_Bin" "$smartdns_Conf" "" 32345
+PIDOF_STATUS=0; PIDOF_OUTPUT=2345
+KILL_MODE=force
+smartdns_stop_process || fail "SIGKILL did not stop the same verified daemon"
+grep -Fqx -- '-TERM 2345' "$KILL_LOG" || fail "force stop skipped TERM"
+grep -Fqx -- '-KILL 2345' "$KILL_LOG" || fail "force stop did not target the validated PID"
+[ "$(wc -l < "$KILL_LOG")" -eq 2 ] || fail "force stop used an unexpected signal sequence"
+
+: > "$KILL_LOG"
+create_smartdns_proc 2345 "$smartdns_Bin" "$smartdns_Conf" "" 42345
+PIDOF_STATUS=0; PIDOF_OUTPUT=2345
+KILL_MODE=unknown
+if smartdns_stop_process; then fail "unknown post-TERM process inventory was accepted"; else stop_status=$?; fi
+[ "$stop_status" -eq 2 ] || fail "unknown post-TERM state returned $stop_status"
+[ "$(wc -l < "$KILL_LOG")" -eq 1 ] || fail "unknown inventory must prevent SIGKILL escalation"
+
+# PID reuse or executable replacement between inventory and signal must not
+# cause the replacement process to receive a signal.
+: > "$KILL_LOG"
+create_smartdns_proc 2345 "$smartdns_Bin" "$smartdns_Conf" "" 52345
+PIDOF_STATUS=0; PIDOF_OUTPUT=2345
+READLINK_COUNT_FILE="$tmpdir/readlink.count"
+printf '0\n' > "$READLINK_COUNT_FILE"
+readlink() {
+    if [ "$1" = "$SMARTDNS_PROC_ROOT/2345/exe" ]; then
+        readlink_count=$(cat "$READLINK_COUNT_FILE")
+        readlink_count=$((readlink_count + 1))
+        printf '%s\n' "$readlink_count" > "$READLINK_COUNT_FILE"
+        if [ "$readlink_count" -eq 2 ]; then
+            rm -f "$1"
+            ln -s "$SMARTDNS_IMPOSTOR" "$1"
+        fi
+    fi
+    command readlink "$1"
+}
+smartdns_stop_process || fail "replacement executable was not treated as absent"
+[ ! -s "$KILL_LOG" ] || fail "replacement process received a signal"
+pass "SmartDNS stop revalidates executable identity before PID-scoped signals"
 
 # Verify the downloaded Adblock Plus list is converted to SmartDNS syntax.
 SMARTDNS_TEST_DIR=$(CDPATH= cd -- "$(dirname "$0")" && pwd)

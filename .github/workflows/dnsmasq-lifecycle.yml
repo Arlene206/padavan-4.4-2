@@ -63,6 +63,8 @@ on:
       - "trunk/user/smartdns/smartdns_dnsmasq_config.sh"
       - "trunk/user/smartdns/smartdns_config_file.sh"
       - "trunk/user/smartdns/smartdns_lifecycle_lock.sh"
+      - "trunk/user/smartdns/smartdns_process_lifecycle.sh"
+      - "trunk/user/smartdns/tests/smartdns_process_lifecycle.sh"
       - "trunk/user/smartdns/tests/smartdns_lifecycle_lock.sh"
       - "trunk/user/smartdns/tests/smartdns_enable_selector.sh"
       - "trunk/user/smartdns/tests/smartdns_stop_nvram_failure.sh"
@@ -134,6 +136,8 @@ on:
       - "trunk/user/smartdns/smartdns_dnsmasq_config.sh"
       - "trunk/user/smartdns/smartdns_config_file.sh"
       - "trunk/user/smartdns/smartdns_lifecycle_lock.sh"
+      - "trunk/user/smartdns/smartdns_process_lifecycle.sh"
+      - "trunk/user/smartdns/tests/smartdns_process_lifecycle.sh"
       - "trunk/user/smartdns/tests/smartdns_lifecycle_lock.sh"
       - "trunk/user/smartdns/tests/smartdns_enable_selector.sh"
       - "trunk/user/smartdns/tests/smartdns_stop_nvram_failure.sh"
@@ -159,6 +163,9 @@ jobs:
           sh -n trunk/user/smartdns/smartdns_dnsmasq_config.sh
           sh -n trunk/user/smartdns/smartdns_config_file.sh
           sh -n trunk/user/smartdns/smartdns_lifecycle_lock.sh
+          sh -n trunk/user/smartdns/smartdns_process_lifecycle.sh
+          sh -n trunk/user/smartdns/tests/smartdns_process_lifecycle.sh
+          sh trunk/user/smartdns/tests/smartdns_process_lifecycle.sh
           sh -n trunk/user/smartdns/tests/dnsmasq_config_preservation.sh
           sh -n trunk/user/smartdns/tests/smartdns_config_file.sh
           sh trunk/user/smartdns/tests/dnsmasq_config_preservation.sh

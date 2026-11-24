@@ -638,7 +638,7 @@ Start_AD () {
 Change_adbyby () {
 # 【】
     # DNS ownership must not change unless Adbyby process state is known.
-    smartdns_process_state adbyby
+    smartdns_named_process_state adbyby
     adbyby_process_status=$?
     case "$adbyby_process_status" in
         0) ;;

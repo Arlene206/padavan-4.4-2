@@ -4,6 +4,8 @@ import re
 
 root = Path(__file__).resolve().parents[1]
 helper = (root / "trunk/user/smartdns/smartdns_dnsmasq_config.sh").read_text()
+process_helper = (root / "trunk/user/smartdns/smartdns_process_lifecycle.sh").read_text()
+process_test = (root / "trunk/user/smartdns/tests/smartdns_process_lifecycle.sh").read_text()
 smartdns = (root / "trunk/user/smartdns/smartdns.sh").read_text()
 enable_test = (root / "trunk/user/smartdns/tests/smartdns_enable_selector.sh").read_text()
 autostart = (root / "trunk/user/scripts/files/usr/bin/autostart.sh").read_text()
@@ -229,6 +231,8 @@ paths = (
     "trunk/user/smartdns/smartdns_dnsmasq_config.sh",
     "trunk/user/smartdns/smartdns_config_file.sh",
     "trunk/user/smartdns/smartdns_lifecycle_lock.sh",
+    "trunk/user/smartdns/smartdns_process_lifecycle.sh",
+    "trunk/user/smartdns/tests/smartdns_process_lifecycle.sh",
     "trunk/user/smartdns/tests/smartdns_lifecycle_lock.sh",
     "trunk/user/smartdns/tests/smartdns_enable_selector.sh",
     "trunk/user/smartdns/tests/smartdns_stop_nvram_failure.sh",
@@ -246,6 +250,20 @@ for path in paths:
     line = '      - "' + path + '"'
     assert push.count(line) == 1, "push path " + path
     assert pullpaths.count(line) == 1, "PR path " + path
+
+process_identity = body(process_helper, "smartdns_process_identity")
+process_state = body(process_helper, "smartdns_process_state")
+process_stop = body(process_helper, "smartdns_stop_process")
+assert "readlink" in process_identity and "cmdline" in process_identity
+assert "$20" in process_identity and "start_time" in process_helper
+assert "pidof smartdns" in process_state and "smartdns_process_identity" in process_state
+assert "killall" not in process_helper
+assert 'kill "-$_smartdns_signal" "$_smartdns_signal_pid"' in process_helper
+assert "smartdns_named_process_state adbyby" in smartdns
+assert "smartdns_signal_process_ids TERM" in process_stop
+assert "smartdns_signal_process_ids KILL" in process_stop
+assert "replacement executable" in process_test and "unknown post-TERM" in process_test
+assert '$(INSTALL_BIN) ./smartdns_process_lifecycle.sh $(ROMFSDIR)/usr/bin/smartdns_process_lifecycle.sh' in makefile
 assert "trunk/user/smartdns/**" in xy
 assert "dnsmasq_config_preservation.sh" in workflow
 assert "check_smartdns_dnsmasq_config.py" in workflow

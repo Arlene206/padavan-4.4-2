@@ -1,3 +1,11 @@
+## 2026-11-24 — Bind SmartDNS lifecycle actions to the exact daemon
+
+- The previous helper trusted `pidof smartdns` and used `killall`, so a process with the same comm name could block startup or be terminated by a stop request. Its process regression was not executed or triggered by DNSMasq CI.
+- The helper now confirms `/proc/PID/exe`, the complete SmartDNS argv/config tuple and kernel `start_time`, then revalidates each PID before TERM/KILL. Adbyby retains a separate read-only name-state check. UNKNOWN procfs state blocks signalling and force escalation; Linux 4.4's final validate-to-signal race remains documented.
+- Added fake-proc regressions for impostors, wrong argv, incomplete metadata, bounded escalation, unknown post-TERM state and executable replacement. Wired the helper/test paths into push/PR filters and DNSMasq CI. Exact-head Actions pending.
+
+---
+
 ## 2026-11-24 — Propagate AliDDNS success-state persistence failures
 
 - Found that arDdnsUpdate() ignored both NVRAM writes after AliDNS had accepted an add/update. A failed record-ID or last-action write could therefore return success and log a complete local update while persistent state remained stale.
