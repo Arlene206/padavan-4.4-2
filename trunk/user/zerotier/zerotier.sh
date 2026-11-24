@@ -11,6 +11,7 @@ config_path="/etc/storage/zerotier-one"
 PLANET="/etc/storage/planet"
 ZT_READY_TIMEOUT=30
 ZT_MAX_STATIC_ROUTES=64
+ZT_PROC_ROOT=${ZT_PROC_ROOT:-/proc}
 zt0=""
 ip_segment=""
 zerotier_prepare_config_directory() {
@@ -1086,39 +1087,98 @@ start_zero() {
 	fi
 	start_instance 'zerotier'
 }
-# Return 0 when running, 1 only when pidof confirms absence, and 2 when
-# process state cannot be trusted. A scan failure must never look like absence.
-zerotier_process_state() {
-	if zt_process_pids=$(pidof zerotier-one 2>/dev/null); then
-		zt_process_pidof_status=0
-	else
-		zt_process_pidof_status=$?
-	fi
-	case "$zt_process_pidof_status" in
-		0)
-			[ -n "$zt_process_pids" ] || return 2
-			case "$zt_process_pids" in
-				*[!0-9\ ]*) return 2 ;;
-			esac
-			zt_process_pid_count=0
-			for zt_process_pid in $zt_process_pids; do
-				case "$zt_process_pid" in
-					''|0*|1|*[!0-9]*) return 2 ;;
-				esac
-				[ "$zt_process_pid" -gt 1 ] 2>/dev/null || return 2
-				zt_process_pid_count=$((zt_process_pid_count + 1))
-			done
-			[ "$zt_process_pid_count" -gt 0 ] || return 2
-			return 0
-			;;
-		1)
-			[ -z "$zt_process_pids" ] && return 1
-			return 2
-			;;
-		*)
-			return 2
-			;;
+# Match only the daemon executable started by this launcher. pidof/killall
+# operate on the mutable comm name and can signal unrelated same-name processes.
+zerotier_process_matches() {
+	zt_match_pid="$1"
+	case "$zt_match_pid" in
+		''|0|1|*[!0-9]*) return 1 ;;
 	esac
+	zt_match_proc_dir="$ZT_PROC_ROOT/$zt_match_pid"
+	[ -d "$zt_match_proc_dir" ] || return 1
+	zt_match_exe_path="$zt_match_proc_dir/exe"
+	[ -L "$zt_match_exe_path" ] || return 1
+	if zt_match_exe=$(readlink "$zt_match_exe_path" 2>/dev/null); then
+		:
+	else
+		[ -d "$zt_match_proc_dir" ] || return 1
+		return 2
+	fi
+	case "$zt_match_exe" in
+		"$PROG"|"$PROG (deleted)") ;;
+		*) return 1 ;;
+	esac
+	zt_match_cmdline="$zt_match_proc_dir/cmdline"
+	if [ ! -f "$zt_match_cmdline" ] || [ ! -r "$zt_match_cmdline" ]; then
+		[ -d "$zt_match_proc_dir" ] || return 1
+		return 2
+	fi
+	zt_match_cmdline_text=$(tr '\000' '\n' < "$zt_match_cmdline" 2>/dev/null) || {
+		[ -d "$zt_match_proc_dir" ] || return 1
+		return 2
+	}
+	[ -n "$zt_match_cmdline_text" ] || return 2
+	zt_match_argv0=$(printf '%s\n' "$zt_match_cmdline_text" | sed -n '1p') || return 2
+	[ "$zt_match_argv0" = "$PROG" ] || return 1
+	return 0
+}
+
+# Return newline-separated exact executable PIDs. Incomplete procfs metadata
+# is UNKNOWN (2), never proof that the managed daemon is absent.
+zerotier_process_pids() {
+	[ -d "$ZT_PROC_ROOT" ] && [ ! -L "$ZT_PROC_ROOT" ] &&
+		[ -r "$ZT_PROC_ROOT" ] && [ -x "$ZT_PROC_ROOT" ] || return 2
+	for zt_proc_dir in "$ZT_PROC_ROOT"/[0-9]*; do
+		[ -d "$zt_proc_dir" ] || continue
+		zt_scan_pid=$(printf '%s\n' "$zt_proc_dir" | sed 's|.*/||')
+		case "$zt_scan_pid" in
+			''|*[!0-9]*) continue ;;
+		esac
+		[ "$zt_scan_pid" -gt 1 ] 2>/dev/null || continue
+		if zerotier_process_matches "$zt_scan_pid"; then
+			printf '%s\n' "$zt_scan_pid"
+		else
+			zt_scan_status=$?
+			case "$zt_scan_status" in
+				1) ;;
+				*) return 2 ;;
+			esac
+		fi
+	done
+	return 0
+}
+
+zerotier_process_state() {
+	if zt_process_pids=$(zerotier_process_pids); then
+		:
+	else
+		return $?
+	fi
+	[ -n "$zt_process_pids" ] && return 0
+	return 1
+}
+
+# Re-enumerate and revalidate every PID immediately before signalling it.
+# A stale PID or unreadable executable identity is never signalled.
+zerotier_signal_all() {
+	zt_signal="$1"
+	case "$zt_signal" in TERM|KILL) ;; *) return 1 ;; esac
+	zt_signal_pids=$(zerotier_process_pids) || return $?
+	for zt_signal_pid in $zt_signal_pids; do
+		if zerotier_process_matches "$zt_signal_pid"; then
+			if ! kill "-$zt_signal" "$zt_signal_pid" >/dev/null 2>&1; then
+				[ -d "$ZT_PROC_ROOT/$zt_signal_pid" ] || continue
+				return 2
+			fi
+		else
+			zt_signal_match_status=$?
+			case "$zt_signal_match_status" in
+				1) continue ;;
+				*) return 2 ;;
+			esac
+		fi
+	done
+	return 0
 }
 
 zerotier_wait_stopped() {
@@ -1163,26 +1223,31 @@ kill_z() {
 	case "$zerotier_state" in
 		1) return 0 ;;
 		2)
-			logger -t "zerotier" "无法读取ZeroTier进程状态，拒绝发送信号"
+			logger -t "zerotier" "无法读取ZeroTier进程身份，拒绝发送信号"
 			return 1
 			;;
 	esac
 
 	logger -t "zerotier" "关闭进程..."
-	killall zerotier-one >/dev/null 2>&1 || true
+	zerotier_signal_all TERM || {
+		logger -t "zerotier" "TERM阶段ZeroTier进程身份变为未知，停止升级信号。"
+		return 1
+	}
 	if zerotier_wait_stopped; then
 		return 0
 	else
 		zerotier_stop_state=$?
 	fi
 	if [ "$zerotier_stop_state" -ne 1 ]; then
-		logger -t "zerotier" "停止期间进程状态变为未知，拒绝升级信号"
+		logger -t "zerotier" "停止期间进程身份变为未知，拒绝升级信号"
 		return 1
 	fi
 
 	logger -t "zerotier" "进程未响应TERM，尝试强制停止..."
-	# Re-enumerate by process name; never signal a cached numeric PID.
-	killall -9 zerotier-one >/dev/null 2>&1 || true
+	zerotier_signal_all KILL || {
+		logger -t "zerotier" "SIGKILL阶段ZeroTier进程身份变为未知。"
+		return 1
+	}
 	if zerotier_wait_stopped; then
 		return 0
 	else
@@ -1199,6 +1264,7 @@ kill_z() {
 			;;
 	esac
 }
+
 stop_zero() {
 	# Capture the virtual interface while zerotier-one still owns it. The
 	# interface can disappear as soon as the daemon exits, but both firewall

@@ -1,3 +1,13 @@
+## 2026-11-24 15:04 UTC+8 — Replace ZeroTier name-wide stop with exact executable PID validation
+
+- FRP exact-head run #45343199725 on bc34d1db PASS; AI handoff #45343199794 PASS. The previous FRP checker correction is closed.
+- Identified an independent ZeroTier process-ownership defect: zerotier_process_state() trusted pidof's mutable process name, and kill_z() then used name-wide killall for TERM and SIGKILL. A process can set its comm to "zerotier-one" without executing the managed binary; therefore the old stop path could signal an unrelated process.
+- Reworked stop inventory to scan the configurable procfs root, require the executable link to resolve to /usr/bin/zerotier-one and argv[0] to match, preserve UNKNOWN on missing/unreadable metadata, and revalidate each PID immediately before numeric TERM/KILL. Bounded waits and UNKNOWN fail-closed escalation remain. Linux 4.4's residual PID validation-to-signal race is not claimed eliminated.
+- Added synthetic procfs regressions for same-name impostor, argv mismatch, missing command-line metadata, unavailable proc root, graceful TERM, bounded KILL escalation and stuck process. Updated the ZeroTier source contract to reject any return to name-wide signalling.
+- Parent main: bc34d1db08a86f762ffad75bec8c8276629f29c3. Exact ZeroTier lifecycle and AI handoff Actions on the resulting commit remain to be checked.
+
+---
+
 ## 2026-11-24 14:55 UTC+8 — Align FRP proc-root UNKNOWN regression message
 
 - Exact FRP run #45343036173 on c8985b2b passed executable startup, crontab, boot/config, process-stop and lifecycle-lock regressions. Its final source checker failed only because it expected "non-directory proc root was not UNKNOWN", while the actual test reports "unavailable proc root was not UNKNOWN" after validating a non-directory proc root and requiring status 2 (UNKNOWN). Corrected the assertion text only; the surrounding fail-closed and no-signal checks remain.

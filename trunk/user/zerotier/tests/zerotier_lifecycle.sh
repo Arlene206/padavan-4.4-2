@@ -4,6 +4,9 @@ set -eu
 ROOT=$(CDPATH= cd -- "$(dirname "$0")/../../../.." && pwd)
 SCRIPT="$ROOT/trunk/user/zerotier/zerotier.sh"
 TEST_TMP=$(mktemp -d "${TMPDIR:-/tmp}/zerotier-lifecycle.XXXXXX")
+ZT_PROC_ROOT="$TEST_TMP/proc"
+mkdir -p "$ZT_PROC_ROOT"
+export ZT_PROC_ROOT
 TEST_STATE="$TEST_TMP/process.state"
 TEST_NVRAM_SECRET_STATE="$TEST_TMP/nvram-secret.state"
 TEST_NVRAM_PLANET_STATE="$TEST_TMP/nvram-planet.state"
@@ -68,38 +71,36 @@ fail() {
 set -- __test__
 . "$SCRIPT"
 
-pidof() {
-	[ "$1" = zerotier-one ] || return 1
-	case "${TEST_PIDOF_MODE:-}" in
-		error) return 2 ;;
-		malformed) echo invalid; return 0 ;;
-		empty-success) return 0 ;;
-	esac
-	case "$(cat "$TEST_STATE")" in
-		running)
-			echo 4321
-			return 0
-			;;
-		unknown)
-			return 2
-			;;
-	esac
-	return 1
-}
-
-killall() {
-	printf '%s\n' "$*" >> "$TEST_KILL_LOG"
-	case "$TEST_MODE:$*" in
-		graceful:zerotier-one|-9-exits:-9\ zerotier-one)
+kill() {
+	printf '%s %s\n' "$1" "$2" >> "$TEST_KILL_LOG"
+	case "$TEST_MODE:$1" in
+		graceful:-TERM|-9-exits:-KILL)
+			/bin/rm -rf "$ZT_PROC_ROOT/$2"
 			echo stopped > "$TEST_STATE"
 			;;
-		unknown-after-term:zerotier-one)
+		unknown-after-term:-TERM)
+			/bin/rm -f "$ZT_PROC_ROOT/$2/cmdline"
 			echo unknown > "$TEST_STATE"
 			;;
 		*)
 			;;
 	esac
 	return 0
+}
+
+test_proc_reset() {
+	/bin/rm -rf "$ZT_PROC_ROOT"
+	mkdir -p "$ZT_PROC_ROOT"
+}
+
+test_proc_add() {
+	test_proc_pid="$1"
+	test_proc_exe="$2"
+	test_proc_argv0="$3"
+	mkdir -p "$ZT_PROC_ROOT/$test_proc_pid"
+	printf '%s\n' zerotier-one > "$ZT_PROC_ROOT/$test_proc_pid/comm"
+	ln -s "$test_proc_exe" "$ZT_PROC_ROOT/$test_proc_pid/exe"
+	printf '%s\000%s\000%s\000' "$test_proc_argv0" "-c" "$config_path" > "$ZT_PROC_ROOT/$test_proc_pid/cmdline"
 }
 
 sleep() {
@@ -136,10 +137,6 @@ rm() {
 	/bin/rm "$@"
 }
 
-kill() {
-	echo "$*" >> "$TEST_TMP/numeric-kill.log"
-	return 1
-}
 
 ifconfig() {
 	if [ -n "${TEST_IFCONFIG_CALL_LOG:-}" ]; then
@@ -474,93 +471,128 @@ test_seed_firewall_rules() {
 : > "$TEST_KILL_LOG"
 : > "$TEST_SLEEP_LOG"
 : > "$TEST_ACTION_LOG"
+test_proc_reset
 echo stopped > "$TEST_STATE"
 TEST_MODE=none
 export TEST_MODE
 kill_z || fail "no-process stop returned failure"
-[ ! -s "$TEST_KILL_LOG" ] || fail "stop signalled a process when pidof found none"
+[ ! -s "$TEST_KILL_LOG" ] || fail "stop signalled a process when exact procfs inventory found none"
 [ ! -s "$TEST_SLEEP_LOG" ] || fail "no-process stop waited unnecessarily"
 
-# pidof errors, empty-success output and malformed PID lists are UNKNOWN, not ABSENT.
-for TEST_PIDOF_MODE in error malformed empty-success; do
-	: > "$TEST_KILL_LOG"
-	: > "$TEST_SLEEP_LOG"
-	echo running > "$TEST_STATE"
-	if kill_z; then
-		fail "stop accepted unknown process inventory mode $TEST_PIDOF_MODE"
-	fi
-	[ ! -s "$TEST_KILL_LOG" ] || fail "stop signalled a process after unknown inventory mode $TEST_PIDOF_MODE"
-	[ ! -s "$TEST_SLEEP_LOG" ] || fail "stop waited after unknown inventory mode $TEST_PIDOF_MODE"
-done
-TEST_PIDOF_MODE=""
-
-# A transition to UNKNOWN after TERM must not be mistaken for process exit or
-# trigger a name-wide SIGKILL escalation.
+# pidof/killall used to match the mutable comm name and could kill an impostor.
+# A same-name process with another executable must be treated as ABSENT.
 : > "$TEST_KILL_LOG"
 : > "$TEST_SLEEP_LOG"
-echo running > "$TEST_STATE"
+test_proc_reset
+test_proc_add 4322 "$TEST_TMP/not-zerotier-one" "$PROG"
+if ! kill_z; then
+	fail "same-name impostor prevented a confirmed-absent result"
+fi
+[ ! -s "$TEST_KILL_LOG" ] || fail "same-name impostor executable was signalled"
+[ ! -s "$TEST_SLEEP_LOG" ] || fail "same-name impostor caused an unnecessary wait"
+
+# An executable match with an unexpected argv[0] is not owned by this launcher.
+: > "$TEST_KILL_LOG"
+test_proc_reset
+test_proc_add 4323 "$PROG" "$TEST_TMP/renamed-argv0"
+if ! kill_z; then
+	fail "unowned argv[0] process prevented a confirmed-absent result"
+fi
+[ ! -s "$TEST_KILL_LOG" ] || fail "executable with mismatched argv[0] was signalled"
+
+# Missing executable metadata for the exact binary is UNKNOWN, not ABSENT.
+: > "$TEST_KILL_LOG"
+: > "$TEST_SLEEP_LOG"
+test_proc_reset
+test_proc_add 4321 "$PROG" "$PROG"
+ /bin/rm -f "$ZT_PROC_ROOT/4321/cmdline"
+if kill_z; then
+	fail "stop accepted an exact executable with unreadable command line"
+fi
+[ ! -s "$TEST_KILL_LOG" ] || fail "stop signalled a process with incomplete executable identity"
+[ ! -s "$TEST_SLEEP_LOG" ] || fail "stop waited after initial executable identity became UNKNOWN"
+
+# A non-directory proc root is UNKNOWN and must block every signal.
+: > "$TEST_KILL_LOG"
+: > "$TEST_SLEEP_LOG"
+test_proc_reset
+/bin/rm -rf "$ZT_PROC_ROOT"
+printf 'not-a-proc-directory\n' > "$ZT_PROC_ROOT"
+if kill_z; then
+	fail "stop accepted an unavailable procfs root"
+fi
+[ ! -s "$TEST_KILL_LOG" ] || fail "stop signalled with an unavailable procfs root"
+[ ! -s "$TEST_SLEEP_LOG" ] || fail "stop waited with an unavailable procfs root"
+test_proc_reset
+
+# A transition to UNKNOWN after TERM must not be mistaken for process exit or
+# trigger SIGKILL escalation.
+: > "$TEST_KILL_LOG"
+: > "$TEST_SLEEP_LOG"
+test_proc_add 4321 "$PROG" "$PROG"
 TEST_MODE=unknown-after-term
 if kill_z; then
 	fail "stop accepted an unknown process state after TERM"
 fi
-[ "$(cat "$TEST_KILL_LOG")" = zerotier-one ] || fail "stop escalated after process inventory became unknown"
-[ ! -s "$TEST_SLEEP_LOG" ] || fail "stop waited after process inventory became unknown"
-
+[ "$(cat "$TEST_KILL_LOG")" = "-TERM 4321" ] || fail "stop escalated after process identity became UNKNOWN"
+[ ! -s "$TEST_SLEEP_LOG" ] || fail "stop waited after process identity became UNKNOWN"
 
 : > "$TEST_KILL_LOG"
 : > "$TEST_SLEEP_LOG"
-echo running > "$TEST_STATE"
+test_proc_reset
+test_proc_add 4321 "$PROG" "$PROG"
 TEST_MODE=graceful
 if ! kill_z; then
 	fail "graceful TERM stop returned failure"
 fi
-[ "$(cat "$TEST_KILL_LOG")" = zerotier-one ] || fail "graceful stop did not send TERM only"
+[ "$(cat "$TEST_KILL_LOG")" = "-TERM 4321" ] || fail "graceful stop did not signal only the exact daemon PID"
 [ ! -s "$TEST_SLEEP_LOG" ] || fail "graceful exit was not observed immediately"
-[ "$(cat "$TEST_STATE")" = stopped ] || fail "graceful stop postcondition missing"
 
 : > "$TEST_KILL_LOG"
 : > "$TEST_SLEEP_LOG"
-echo running > "$TEST_STATE"
+test_proc_reset
+test_proc_add 4321 "$PROG" "$PROG"
 TEST_MODE=-9-exits
 if ! kill_z; then
-	fail "TERM-resistant daemon did not stop after name-based escalation"
+	fail "TERM-resistant daemon did not stop after exact-PID escalation"
 fi
-[ "$(cat "$TEST_KILL_LOG")" = "$(printf 'zerotier-one\n-9 zerotier-one')" ] || fail "force stop did not re-enumerate by process name"
+[ "$(cat "$TEST_KILL_LOG")" = "$(printf '%s\n' '-TERM 4321' '-KILL 4321')" ] || fail "force stop did not revalidate and signal the exact PID"
 [ "$(wc -l < "$TEST_SLEEP_LOG" | tr -d ' ')" = 5 ] || fail "TERM grace period was not bounded to five one-second polls"
-[ "$(cat "$TEST_STATE")" = stopped ] || fail "force-stop postcondition missing"
 
 : > "$TEST_KILL_LOG"
 : > "$TEST_SLEEP_LOG"
-echo running > "$TEST_STATE"
+test_proc_reset
+test_proc_add 4321 "$PROG" "$PROG"
 TEST_MODE=stuck
 if kill_z; then
 	fail "stop reported success while daemon remained after SIGKILL"
 fi
-[ "$(cat "$TEST_KILL_LOG")" = "$(printf 'zerotier-one\n-9 zerotier-one')" ] || fail "stuck daemon did not receive TERM then name-based KILL"
+[ "$(cat "$TEST_KILL_LOG")" = "$(printf '%s\n' '-TERM 4321' '-KILL 4321')" ] || fail "stuck daemon did not receive exact-PID TERM then KILL"
 [ "$(wc -l < "$TEST_SLEEP_LOG" | tr -d ' ')" = 10 ] || fail "TERM/KILL waits were not bounded to five polls each"
 
 : > "$TEST_KILL_LOG"
 : > "$TEST_SLEEP_LOG"
 : > "$TEST_ACTION_LOG"
-echo running > "$TEST_STATE"
+test_proc_reset
+test_proc_add 4321 "$PROG" "$PROG"
 TEST_MODE=stuck
 if start_zero; then
 	fail "start proceeded when the prior daemon could not be stopped"
 fi
 [ ! -s "$TEST_ACTION_LOG" ] || fail "start reached start_instance after stop failure"
 
-# A failed pidof scan must also block restart rather than start a duplicate.
+# An unavailable proc root must also block restart rather than start a duplicate.
 : > "$TEST_KILL_LOG"
 : > "$TEST_ACTION_LOG"
-echo running > "$TEST_STATE"
-TEST_MODE=none
-TEST_PIDOF_MODE=error
+test_proc_reset
+/bin/rm -rf "$ZT_PROC_ROOT"
+printf 'unavailable\n' > "$ZT_PROC_ROOT"
 if start_zero; then
-	fail "start proceeded while the process inventory was unknown"
+	fail "start proceeded while process inventory was UNKNOWN"
 fi
-[ ! -s "$TEST_KILL_LOG" ] || fail "start signalled after an initial process inventory error"
-[ ! -s "$TEST_ACTION_LOG" ] || fail "start reached start_instance after an initial process inventory error"
-TEST_PIDOF_MODE=""
+[ ! -s "$TEST_KILL_LOG" ] || fail "start signalled after process inventory became UNKNOWN"
+[ ! -s "$TEST_ACTION_LOG" ] || fail "start reached start_instance after process inventory became UNKNOWN"
+test_proc_reset
 
 # A configured launcher must preserve the start_instance failure status.
 : > "$TEST_ACTION_LOG"
@@ -1416,7 +1448,6 @@ TEST_ROUTE_SHOW_STATUS=0
 TEST_ROUTE_DEL_STATUS=0
 TEST_ROUTE_DELETE_PERSISTS=0
 
-[ ! -s "$TEST_TMP/numeric-kill.log" ] || fail "a stale numeric PID was signalled"
 
 # Direct rules() coverage models start_instance() after its config directory exists.
 mkdir -p "$TEST_CONFIG"

@@ -107,25 +107,40 @@ state_load_body = function_body(script, "zerotier_firewall_state_load()")
 static_route_body = function_body(script, "zero_route()")
 route_match_body = function_body(script, "zero_route_entry_matches()")
 
+process_matches_body = function_body(script, "zerotier_process_matches()")
+process_pids_body = function_body(script, "zerotier_process_pids()")
 process_state_body = function_body(script, "zerotier_process_state()")
+signal_body = function_body(script, "zerotier_signal_all()")
 require('while [ "$zerotier_wait" -lt 5 ]; do' in wait_body and
         'zerotier_process_state' in wait_body and 'sleep 1' in wait_body,
         "daemon absence must be checked through five bounded one-second tri-state process polls")
-require('pidof zerotier-one' in process_state_body and
-        'zt_process_pidof_status' in process_state_body and
-        'return 2' in process_state_body and
-        'return 1' in process_state_body and
-        'return 0' in process_state_body,
+require('readlink "$zt_match_exe_path"' in process_matches_body and
+        'case "$zt_match_exe" in' in process_matches_body and
+        '"$PROG"' in process_matches_body and
+        "tr '\\000' '\\n'" in process_matches_body and
+        '[ "$zt_match_argv0" = "$PROG" ]' in process_matches_body,
+        "process identity must match the exact executable and argv[0], not the mutable comm name")
+require('"$ZT_PROC_ROOT"/[0-9]*' in process_pids_body and
+        'zerotier_process_matches "$zt_scan_pid"' in process_pids_body and
+        'return 2' in process_pids_body and
+        '[ -r "$ZT_PROC_ROOT" ]' in process_pids_body,
+        "process inventory must scan procfs and preserve UNKNOWN on incomplete metadata")
+require('zt_process_pids=$(zerotier_process_pids)' in process_state_body and
+        '[ -n "$zt_process_pids" ] && return 0' in process_state_body and
+        'return 1' in process_state_body,
         "process inventory must distinguish RUNNING, confirmed ABSENT and UNKNOWN")
+require('zerotier_process_pids' in signal_body and
+        'zerotier_process_matches "$zt_signal_pid"' in signal_body and
+        'kill "-$zt_signal" "$zt_signal_pid"' in signal_body and
+        'killall' not in signal_body and
+        'pidof' not in process_state_body,
+        "signals must target only freshly revalidated exact executable PIDs")
 require('if [ "$zerotier_stop_state" -ne 1 ]; then' in kill_body and
         kill_body.index('zerotier_wait_stopped') < kill_body.index('if [ "$zerotier_stop_state" -ne 1 ]; then') <
-        kill_body.index('killall -9 zerotier-one'),
-        "UNKNOWN during graceful stop must block name-wide SIGKILL escalation")
-require(kill_body.count('killall zerotier-one') == 1 and
-        kill_body.count('killall -9 zerotier-one') == 1,
-        "stop must send one TERM and at most one process-name SIGKILL")
-require(kill_body.index('killall zerotier-one') < kill_body.index('zerotier_wait_stopped') <
-        kill_body.index('killall -9 zerotier-one') <
+        kill_body.index('zerotier_signal_all KILL'),
+        "UNKNOWN during graceful stop must block SIGKILL escalation")
+require(kill_body.index('zerotier_signal_all TERM') < kill_body.index('zerotier_wait_stopped') <
+        kill_body.index('zerotier_signal_all KILL') <
         kill_body.rindex('zerotier_wait_stopped'),
         "TERM grace period and force-stop absence postcondition are out of order")
 require('return 1' not in kill_body or 'zerotier_wait_stopped' in kill_body,
@@ -488,8 +503,20 @@ require('if ! kill_z; then' in stop_body and
         "failed daemon or route cleanup must preserve persistent identity/config")
 require(not re.search(r'\bkill\s+-9\s+"?\$zerotier_process', script),
         "stale numeric PID must never be force-signalled")
-require('$(pidof zerotier-one)' not in script,
-        "numeric pidof snapshots must not be cached")
+require('pidof zerotier-one' not in kill_body and
+        'killall' not in kill_body and
+        'killall' not in signal_body,
+        "managed ZeroTier stop must not use name-wide process signalling")
+for marker in (
+    "same-name impostor executable was signalled",
+    "executable with mismatched argv[0] was signalled",
+    "stop signalled a process with incomplete executable identity",
+    "stop signalled with an unavailable procfs root",
+    "stop escalated after process identity became UNKNOWN",
+    "graceful stop did not signal only the exact daemon PID",
+    "force stop did not revalidate and signal the exact PID",
+):
+    require(marker in test, f"exact-process stop regression omits {marker}")
 
 require("ZT_READY_TIMEOUT=30" in script,
         "interface and kernel-route readiness must have a bounded 30-second deadline")
@@ -610,7 +637,8 @@ require('record_service_stop_status(&stop_status, "ZeroTier", stop_zerotier())' 
         "stop_services must aggregate ZeroTier stop status")
 
 for token in ['graceful', '-9-exits', 'stuck', 'start_zero', 'stop_zero',
-              'identity.secret', 'numeric-kill.log', 'five one-second polls',
+              'identity.secret', 'same-name impostor executable was signalled',
+              'unavailable procfs root', 'exact daemon PID', 'five one-second polls',
               'interface readiness', 'kernel route', 'single-space',
               'configured static route add failed', 'zero_route:add',
               'failed static route deletion', 'unreadable static route inventory',

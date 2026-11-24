@@ -1,20 +1,21 @@
 ## Current repository state
 
-- Live parent main: c8985b2b9f760eb4089ca996cf2d1e320df00031; FRP production/runtime tests pass, and the latest exact run reaches only a stale procfs-fixture message literal in the static checker. Re-fetch before further writes.
+- Live parent main before this atomic change: `bc34d1db08a86f762ffad75bec8c8276629f29c3`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 - Inadyn executable-bound stop/reload/manual-update implementation is in `79c5389fe33326d85cc23e9856f39e5ca0ac242f`. Its dependent source-contract correction is in `257ac6399c4c7e8ec3b518f8f8438532d0821c33`.
 - FRP process inventory/stop hardening is in `fa3dd0012cea550b339d01df4ff6ec97d0fdc00a`; its test follow-ups are `5687c609137bbba09c707896dd95216c3df9e961` and `4be3f3898faf4665ebe19b1e87cf385bd162c21e`.
 
 ## Active task
 
-Correct the final FRP stop-regression source contract:
-- Exact FRP run #45343036173 on c8985b2b passed the shell/runtime regression steps and failed only when the Python checker looked for "non-directory proc root was not UNKNOWN".
-- The test intentionally reports "unavailable proc root was not UNKNOWN" after it confirms a non-directory proc-root file produces tri-state UNKNOWN and blocks signals. Update the checker to match the actual regression message; retain the status==2 and no-signal assertions.
-- Previous FRP checker corrections now verify composed procfs paths and the status-1-only TERM timeout gate before KILL. No production code change is indicated by these failures.
-- Exact AI handoff result on c8985b2b is pending at last poll; the canonical Active task heading is present.
+ZeroTier daemon-stop ownership hardening:
+- The existing stop path first used `pidof zerotier-one` as its process inventory and then used name-wide `killall zerotier-one` / `killall -9 zerotier-one`. A process can set its mutable comm name to `zerotier-one` without executing the ZeroTier binary, so this could signal unrelated same-name processes.
+- Replace name matching with tri-state procfs inventory that requires `/proc/PID/exe` to resolve to the installed `/usr/bin/zerotier-one` and argv[0] to match the launcher path. Unknown/incomplete metadata blocks stop/restart. Re-enumerate and revalidate each PID immediately before TERM/KILL, retaining bounded waits and UNKNOWN fail-closed escalation.
+- Expand `zerotier_lifecycle.sh` with synthetic procfs cases for a same-name impostor, mismatched argv[0], incomplete executable metadata, unavailable proc root, graceful TERM, KILL escalation and stuck-daemon failure. Exact ZeroTier lifecycle and AI handoff Actions must be checked for the resulting commit.
+- Linux 4.4 lacks pidfd; the residual validation-to-signal race remains documented and is not claimed eliminated.
 
 ## Verification boundary
 
+- Exact bc34d1db: FRP asynchronous startup lifecycle regression #45343199725 PASS; AI handoff documentation contract #45343199794 PASS. The earlier FRP source-contract mismatch is closed; do not repeat the FRP audit.
 - Exact c8985b2b: FRP #45343036173 passed the executable FRP startup, crontab, boot/config, process-stop and lock regressions, then failed only on one test-message mismatch in check_frp_lifecycle.py. This commit aligns the expected message with the actual test while retaining its UNKNOWN and no-signal checks. AI docs #45343036253 was IN_PROGRESS at last poll.
 - Exact ebbd4dd: AI handoff #45342815724 PASS; FRP #45342815755 passed all executable regressions and failed only on the obsolete "verified timeout" checker literal, fixed in c8985b2b.
 - Exact 4be3f389: Process inventory #45342556827 PASS; FRP executable tests passed before the stale proc-path checker failure; AI docs failure was corrected in ebbd4dd.
@@ -25,9 +26,9 @@ Correct the final FRP stop-regression source contract:
 
 ## Exact first action for the next GPT
 
-1. Check exact-head FRP and AI handoff Actions for this correction; triage any first failing assertion and close the FRP checker loop.
-2. Continue one independent P1 stability/security defect outside the completed process-identity slices while Actions run; poll XY-C1 Build/TRX/artifact on production source 79c5389 without blocking.
-3. Keep the frozen backup untouched and all main writes complete-tree atomic with expected-SHA non-forced ref updates.
+1. Check the exact-head ZeroTier lifecycle and AI handoff Actions for the exact-executable stop change. Triage the first failing assertion and correct it before proceeding.
+2. Once those Actions pass, continue the next independent P1 service stability/security defect; do not repeat FRP or completed process-identity audits.
+3. Keep the backup immutable and all main writes complete-tree atomic with expected-SHA non-forced ref updates.
 
 # Cross-session execution mandate
 
