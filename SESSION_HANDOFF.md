@@ -1,15 +1,12 @@
 ## 2026-11-23 持续开发接力（最新）
 
-- 当前 `main`：`828c5bac2fec6e110188615d0ae9ec0984501b84`（test(raeth): repair compile integrity checker）；备份分支 `backup/pre-plugin-overhaul-2026-11-14`：`72f4f157a084f8184b9597ca5bf334b8080e5807`，本轮未改动。
-- 当前 HEAD 精确 SHA Actions：Switch CLI ioctl failure-status regression: completed/success (run 45313956637)。
-- AliyunDrive WebDAV 启动就绪/清理回归（提交 `3160f80e4e2c82d2188bddc12f88589898a79327`）：AI handoff documentation contract: completed/success (run 45312872263); Process lifecycle inventory - 3160f80e4e2c82d2188bddc12f88589898a79327: completed/success (run 45312872116); AliyunDrive WebDAV lifecycle stability regression: completed/failure (run 45312872098)。若失败，优先根据 QEMU 测试日志定位“启动后未就绪”的进程回收路径；不要仅降低测试断言或延长超时掩盖泄漏。
-- RAETH 编译完整性（提交 `8d0f9325ec63223b442b1aff4f95dc7566d3f421`）：AI handoff documentation contract: completed/success (run 45313394069); Switch CLI ioctl failure-status regression: completed/failure (run 45313394047)。已发现并追加修复 `scripts/check_raeth_compile_integrity.py`：重写定义扫描器，使其显式区分函数原型和定义，并自测重复定义、缺失定义和返回类型契约；需以本条记录中的 HEAD Actions 结果验证。
-- 自 `8d0f9325...` 以来的新提交：
-- 564c4c239f006a23bb504eba34d6a113c9cdb813: test: harden Aliyun and RAETH regression checks
-- 828c5bac2fec6e110188615d0ae9ec0984501b84: test(raeth): repair compile integrity checker
-- 本轮已推进的 RAETH 修复：switch GPIO/SGMII/FE switch init/RTL8367/Leopard/GMII/probe MMIO 映射失败均应 fail closed 并传播错误；HW-IOC PMU 命令索引、参数、事件、读取映射也有边界验证与回归测试。此前提交 SHA 见 Git 历史，不要重复审计已完成切片。
-- 第一项后续任务：先读取本节精确 SHA 的 Actions 最终状态。若 RAETH compile integrity 仍 FAIL，检查这次定义扫描器与真实函数签名差异后修复；若 PASS，继续 XY-C1 构建/对应 SHA 验证。并行处理 AliyunDrive lifecycle QEMU 失败（若仍失败），必须依据失败日志修复真实启动/清理问题，不得伪造 PASS。
-- 任何未返回的 run 均视为 PENDING/未验证；不能将较早 SHA 的 PASS 推断为当前 HEAD PASS。XY-C1 全量固件构建如无当前 SHA 对应 run，明确记录未验证。
+- 本次修复的父提交 `8855dff9d6e23b00e6922f242d64a36764615b01`；备份分支 `backup/pre-plugin-overhaul-2026-11-14` 保持只读，SHA `72f4f157a084f8184b9597ca5bf334b8080e5807`。
+- RAETH compile-integrity checker 修复 `828c5bac2fec6e110188615d0ae9ec0984501b84`：Switch CLI #45313956637 **PASS**，覆盖 `static int fe_chip_name_config()` 唯一定义扫描及 DT selector/probe 错误传播契约。
+- AliyunDrive #45313731223（源 SHA `564c4c2`）的 CLI/QEMU 和全部 shell lifecycle regression（含新启动实例 HTTP 503 后 TERM 清理）均通过；失败发生在 Python 源码契约检查器，其仍断言旧错误文案。THIS COMMIT 已将契约改为匹配当前测试的 probe 上下界、完整等待、单次 TERM、无 KILL、marker 清理和诊断文案。新 SHA 的 lifecycle Actions 尚待验证。
+- RAETH selector 生产修复 `7f7aee3b5df94c6996743e58834ee2ec4d67eafd`：AI #45313243914 与 NVRAM #45313243814 **PASS**；XY-C1 #45313243920 最近仍为 **IN_PROGRESS**。不能用更早的 `dd0b374` 构建成功替代该 SHA 的产品构建。
+- XY-C1 L3 已在 `dd0b374694cf9d1e99ca65c8b35fa53b482d377b` 验证：Build、TRX 和 artifact 上传成功，artifact #14884935723，SHA-256 `fe89a388f85d0487f26be72a609cd430b1bd72c94ca569dacd0c956cb3f99c12`。此结果仅属于 `dd0b374`。
+- 第一项后续：检查本提交 exact-SHA AliyunDrive lifecycle 与 AI handoff Actions；然后核对 `7f7aee3` 的 XY-C1 构建最终状态。之后处理 RAETH `fe_tx_rx_dec()` 未检查 DT 属性读取和 `kmalloc_array()` 失败的分配/清理路径。
+- 所有 CI 状态必须附带实际 HEAD SHA；PENDING 不算 PASS。备份分支不修改，不做 force push。
 
 ---
 
@@ -17,14 +14,15 @@
 
 ## Current repository state
 
-- Current parent `8d0f9325ec63223b442b1aff4f95dc7566d3f421`; production RAETH DT-selector fix is `7f7aee3b5df94c6996743e58834ee2ec4d67eafd`. Backup branch remains frozen at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Switch CLI #45313394047 on `8d0f932` failed in `check_raeth_compile_integrity.py`: the checker searched only `void` definitions and did not count the intentional `static int fe_chip_name_config()`. THIS COMMIT corrects the definition matcher; exact rerun needed.
-- AliyunDrive lifecycle #45312872098 on `3160f80` failed at the combined HTTP-503 cleanup assertion after its QEMU CLI compatibility check passed. Inspection found the fixture assumed exactly 11 probes despite asynchronous child-marker publication; THIS COMMIT makes the bounded probe expectation race-safe and prints observed counters. Cleanup behavior still needs a green exact-head test.
-- XY-C1 #45313243920 on `7f7aee3` and NVRAM #45313243814 were **IN_PROGRESS** at last observation. The earlier `dd0b374` target build is a different source SHA.
+- Parent main for the AliyunDrive static-contract fix: `8855dff9d6e23b00e6922f242d64a36764615b01`; backup `backup/pre-plugin-overhaul-2026-11-14` remains frozen at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- RAETH checker repair `828c5bac2fec6e110188615d0ae9ec0984501b84`: Switch CLI #45313956637 **PASS**.
+- AliyunDrive lifecycle #45313731223 on `564c4c` passed bundled CLI compatibility and all shell lifecycle cases, including HTTP-503 newly launched daemon cleanup, but failed in the Python checker due to obsolete expected text. THIS COMMIT updates the static contract; exact rerun required.
+- RAETH selector change `7f7aee3b5df94c6996743e58834ee2ec4d67eafd`: AI #45313243914 and NVRAM #45313243814 **PASS**; Switch CLI #45313244038 was a checker false-failure superseded by #45313956637 on later HEAD; XY-C1 #45313243920 was **IN_PROGRESS** at last poll.
+- XY-C1 L3 build/TRX/artifact is complete only for `dd0b374694cf9d1e99ca65c8b35fa53b482d377b`, artifact #14884935723 with SHA-256 `fe89a388f85d0487f26be72a609cd430b1bd72c94ca569dacd0c956cb3f99c12`.
 
 ## Active task
 
-Verify this commit's exact-head Switch CLI source checker with the status-bearing `fe_chip_name_config()` definition, and the AliyunDrive lifecycle job's 503 cleanup regression with its diagnostic counters. Then inspect XY-C1/NVRAM Actions on `7f7aee3` only; do not transfer results to later commits.
+Verify the AliyunDrive lifecycle regression and corrected Python source-contract checker on this commit's exact SHA. Confirm the HTTP-503 newly launched child reaches bounded TERM cleanup, with no KILL and no remaining process marker. Separately poll XY-C1 #45313243920 only for product source `7f7aee3`; do not transfer the earlier `dd0b374` L3 result.
 
 ## Completed development slices
 
@@ -54,15 +52,15 @@ Independent snapshot/lifecycle changes remain in `99ad9397e3cf4450c6fc07758b58c3
 
 ## Verification boundary
 
-- RAETH Switch CLI #45313394047 on `8d0f932` **FAIL** at source checker: its function regex did not count `static int`; no source-contract PASS is claimed.
-- AliyunDrive lifecycle #45312872098 on `3160f80` **FAIL** at new fixture's combined assertion. The original log did not print per-counter values; THIS COMMIT makes the assertion race-safe and adds those diagnostics. No lifecycle PASS is claimed.
-- XY-C1 #45313243920 / NVRAM #45313243814 belong to source `7f7aee3` and were in progress at last observation. No L3/L4 result is claimed.
+- RAETH checker repair #45313956637 on `828c5bac2fec6e110188615d0ae9ec0984501b84`: **PASS**.
+- AliyunDrive #45313731223 on `564c4c`: bundled CLI and shell lifecycle tests **PASS**; Python static contract **FAIL** due to obsolete expected fixture string. THIS COMMIT corrects the contract; no Aliyun lifecycle PASS is claimed yet.
+- XY-C1 #45313243920 on `7f7aee3` was **IN_PROGRESS** at last check. L3 Build/TRX/artifact success is confirmed only on `dd0b374`, artifact #14884935723. No L4 router validation is claimed.
 
 ## Exact first action for the next GPT
 
-1. Check the exact push Switch CLI and AI documentation Actions for this commit; inspect the new RAETH checker output.
-2. Check the exact push AliyunDrive lifecycle job and inspect the 503 cleanup counters. Fix source behavior if TERM is still not issued or marker cleanup fails.
-3. Inspect XY-C1 #45313243920 and NVRAM #45313243814 on `7f7aee3`; keep these results separate from current HEAD.
+1. Inspect this commit's exact-SHA AliyunDrive lifecycle and AI handoff Actions; separate shell test output from Python contract checker.
+2. Poll XY-C1 #45313243920 on `7f7aee3` and confirm Build/TRX/artifact on that exact source SHA before L3 claims.
+3. Continue with RAETH `fe_tx_rx_dec()` DT-property validation and checked partial-allocation cleanup. Keep archival backup unchanged.
 
 
 # Cross-session execution mandate

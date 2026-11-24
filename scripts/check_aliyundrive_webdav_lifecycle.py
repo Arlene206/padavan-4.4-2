@@ -177,12 +177,19 @@ require("HEAD / HTTP/1.0" in http_ready and
 require("TEST_TERM_BEHAVIOR=stuck\nTEST_RUNNING=1\nTEST_ENABLE=1\nTEST_HTTP_MODE=unavailable" in test and
         "TEST_TERM_BEHAVIOR=stuck\nTEST_RUNNING=1\nTEST_HTTP_MODE=delayed" in test,
         "HTTP readiness fixtures must reset stop-test state before repeated process probes")
-require('TEST_TERM_BEHAVIOR=immediate' in test and
+require('TEST_PIDOF_MODE=normal' in test and
+        'TEST_EXE_IDENTITY_MODE=valid' in test and
+        'TEST_TERM_BEHAVIOR=immediate' in test and
         'TEST_HTTP_MODE=server-error' in test and
-        'FAIL: known unready launched daemon was not cleaned up with bounded TERM' in test and
-        'TEST_KILL_COUNT" -eq 0' in test and
-        '[ ! -e "$TEST_RUN_MARKER" ]' in test,
-        "lifecycle regression must stop a newly launched process whose HTTP endpoint never becomes ready")
+        'test_http_probe_count=$(wc -l < "$TEST_HTTP_LOG")' in test and
+        '[ "$test_http_probe_count" -lt 1 ]' in test and
+        '[ "$test_http_probe_count" -gt $((ALD_START_WAIT_SECONDS + 1)) ]' in test and
+        '[ "$TEST_SLEEP_COUNT" -ne "$ALD_START_WAIT_SECONDS" ]' in test and
+        '[ "$TEST_TERM_COUNT" -ne 1 ]' in test and
+        '[ "$TEST_KILL_COUNT" -ne 0 ]' in test and
+        '[ -e "$TEST_RUN_MARKER" ]' in test and
+        'FAIL: unready launched daemon cleanup probes=' in test,
+        "lifecycle regression must clean up a newly launched HTTP-unready daemon with bounded TERM and no KILL")
 require("TEST_HTTP_MODE=unavailable" in test and
         "TEST_HTTP_MODE=delayed" in test and
         "HTTP 503 was accepted as readiness" in test and
