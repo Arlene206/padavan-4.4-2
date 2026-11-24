@@ -127,7 +127,8 @@ require("IFS= read -r -d '' -n1 c" in urlencode and "LC_ALL=C" in urlencode and
         "echo -n" not in enc and
         '# CONFIG_OD is not set' in busybox_config,
         "AliDNS encoder must be byte-safe using only the target BusyBox ash shell builtin")
-require('test_encode() {' in test and
+require('if [ -z "${BASH_VERSION:-}" ]; then' in test and
+        'exec bash "$0" "$@"' in test and
         'bash -c \'. "$1"; enc "$2"\' _ "$FUNCTIONS" "$1"' in test and
         "expected_signature_url=$(enc \"$expected_signature\")" in test and
         "a%20b%2Fc%2Bd%3De%26f%25g~%20quote%5Cslash%22" in test and
