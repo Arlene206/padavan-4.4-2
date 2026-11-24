@@ -295,9 +295,11 @@ func_stop()
 
 	echo -n "Stopping $SVC_NAME:."
 
-	# A failed killall may be a race; the following PID snapshots determine
-	# whether the daemon is actually stopped.
-	killall -q transmission-daemon >/dev/null 2>&1 || true
+	# Signal only PIDs in the validated snapshot. killall would rescan by
+	# process name and could include a different process created after validation.
+	for tr_pid_one in $tr_pid; do
+		kill -TERM "$tr_pid_one" >/dev/null 2>&1 || true
+	done
 
 	# Gracefully wait at most 25 seconds for the daemon to exit.
 	i=0
