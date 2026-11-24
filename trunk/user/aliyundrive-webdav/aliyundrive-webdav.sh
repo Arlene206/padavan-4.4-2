@@ -150,6 +150,31 @@ ald_wait_started() {
   esac
 }
 
+ald_cleanup_failed_start() {
+  if ald_process_state; then
+    ald_cleanup_state=0
+  else
+    ald_cleanup_state=$?
+  fi
+  case "$ald_cleanup_state" in
+    0)
+      logger -t "阿里云盘" "启动后HTTP端点未就绪，停止未就绪服务进程"
+      if ald_kill_unlocked; then
+        return 0
+      fi
+      logger -t "阿里云盘" "启动失败后的进程清理未完成"
+      return 1
+      ;;
+    1) return 0 ;;
+    *)
+      logger -t "阿里云盘" "启动失败后的进程状态未知，拒绝发送信号"
+      return 1
+      ;;
+  esac
+}
+
+
+
 ald_run_locked() {
   case "$ALD_LOCK_FILE" in
     /*)
@@ -434,9 +459,14 @@ ald_start_unlocked() {
       else
         ald_start_status=$?
         if [ "$ald_start_status" -eq 2 ]; then
-          logger -t "阿里云盘" "启动后进程状态未知"
+          logger -t "阿里云盘" "启动后进程状态未知，保留现场"
         else
           logger -t "阿里云盘" "启动后未能确认服务进程就绪"
+          # Only a confirmed live executable is eligible for bounded cleanup.
+          # UNKNOWN must never trigger TERM/KILL; an already-exited child is a no-op.
+          if ! ald_cleanup_failed_start; then
+            logger -t "阿里云盘" "未就绪进程未能安全清理"
+          fi
         fi
         return 1
       fi

@@ -156,6 +156,7 @@ nvram_get = function_body(launcher, "ald_nvram_get() {")
 process_state = function_body(launcher, "ald_process_state() {")
 wait_stopped = function_body(launcher, "ald_wait_stopped() {")
 wait_started = function_body(launcher, "ald_wait_started() {")
+cleanup_failed_start = function_body(launcher, "ald_cleanup_failed_start() {")
 http_ready = function_body(launcher, "ald_http_ready() {")
 lock = function_body(launcher, "ald_run_locked() {")
 stop = function_body(launcher, "ald_kill_unlocked() {")
@@ -176,6 +177,12 @@ require("HEAD / HTTP/1.0" in http_ready and
 require("TEST_TERM_BEHAVIOR=stuck\nTEST_RUNNING=1\nTEST_ENABLE=1\nTEST_HTTP_MODE=unavailable" in test and
         "TEST_TERM_BEHAVIOR=stuck\nTEST_RUNNING=1\nTEST_HTTP_MODE=delayed" in test,
         "HTTP readiness fixtures must reset stop-test state before repeated process probes")
+require('TEST_TERM_BEHAVIOR=immediate' in test and
+        'TEST_HTTP_MODE=server-error' in test and
+        'FAIL: known unready launched daemon was not cleaned up with bounded TERM' in test and
+        'TEST_KILL_COUNT" -eq 0' in test and
+        '[ ! -e "$TEST_RUN_MARKER" ]' in test,
+        "lifecycle regression must stop a newly launched process whose HTTP endpoint never becomes ready")
 require("TEST_HTTP_MODE=unavailable" in test and
         "TEST_HTTP_MODE=delayed" in test and
         "HTTP 503 was accepted as readiness" in test and
@@ -251,6 +258,17 @@ require('aliyundrive_process=' not in stop and
         'killall -9 "$NAME"' in stop,
         "stop must never signal a cached PID that may have been reused")
 
+require('ald_process_state' in cleanup_failed_start and
+        'case "$ald_cleanup_state" in' in cleanup_failed_start and
+        '0)' in cleanup_failed_start and 'ald_kill_unlocked' in cleanup_failed_start and
+        '1) return 0 ;;' in cleanup_failed_start and
+        '启动失败后的进程状态未知，拒绝发送信号' in cleanup_failed_start and
+        'return 1' in cleanup_failed_start,
+        "failed startup cleanup must signal only a confirmed live process and preserve UNKNOWN")
+require('if [ "$ald_start_status" -eq 2 ]; then' in start and
+        'ald_cleanup_failed_start' in start and
+        start.index('ald_cleanup_failed_start') > start.rindex('ald_wait_started'),
+        "only a newly launched, known-unready daemon may enter bounded cleanup")
 require('ald_process_state' in start and
         '无法确认进程状态，拒绝启动重复实例' in start and
         start.index('ald_process_state') < start.index('refresh_token=') and

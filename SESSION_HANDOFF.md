@@ -2,14 +2,14 @@
 
 ## Current repository state
 
-- Current parent `main` for the RAETH XY-C1 compile correction: `6472bb2a2af88d4fde8e887294a8d4a0eb4b2166`; live ref was checked immediately before constructing this atomic commit. The archival `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807` and is read-only.
-- Previous GE2 SGMII nested-guard correction `edb529c4baf1e60df1fd542a4e8192cf608ffbdc`: Switch CLI #45311706551 **PASS** (including the nested-scope assertion); AI docs #45311706519 **PASS**; NVRAM audit #45311706453 **PASS**; XY-C1 #45311706484 **FAIL** during RAETH kernel compilation before TRX/artifact.
-- The compiler identified stale `void` prototypes for `set_ge2_gmii()` / `set_ge0_gmii()` in `ra_mac.h` (their implementation and `raether.h` correctly return `int`) and duplicate helper definitions in `raether.c`. THIS COMMIT fixes those source blockers and adds an exact-source uniqueness/signature contract to Switch CLI CI.
-- RStats persistence/signal work remains complete and must not be repeated. Keep older SHA CI results attributed to their original commits.
+- Parent `main` for the AliyunDrive post-launch readiness cleanup: `dd0b374694cf9d1e99ca65c8b35fa53b482d377b`; live branch was checked immediately before building this atomic commit. Archival `backup/pre-plugin-overhaul-2026-11-14` remains frozen at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- RAETH compile-integrity correction `dd0b374694cf9d1e99ca65c8b35fa53b482d377b`: exact-head Switch CLI #45312564409 **PASS** (new unique-definition/signature contract passed) and AI docs #45312564408 **PASS**. NVRAM #45312564407 and XY-C1 #45312564566 were **IN_PROGRESS** at last observation; the target build result is not yet known.
+- The previous GE2 SGMII fix on `edb529c4baf1e60df1fd542a4e8192cf608ffbdc` passed Switch CLI/AI/NVRAM but XY-C1 failed at RAETH compilation. The duplicate-definition and stale-prototype corrections are now in `dd0b374`; do not transfer parent results or claim L3 until same-SHA Build/TRX/artifact complete.
+- New userland lifecycle correction: when the daemon launched by the current start call remains executable-confirmed RUNNING but never serves a valid HTTP response, clean it up using the existing bounded stop routine. Existing pre-existing unhealthy processes and UNKNOWN executable states must remain untouched.
 
 ## Active task
 
-Verify this RAETH compile-integrity correction on its exact `main` SHA. Inspect the exact-head Switch CLI compile-integrity step, then check XY-C1 kernel Build, TRX verification and artifact upload on that same source SHA. If XY-C1 exposes another compile error, fix the first causal compiler error before moving on; do not claim L3 until all target stages pass.
+Verify the AliyunDrive failed-start cleanup regression on its exact `main` SHA. Confirm the lifecycle Action proves a newly launched but permanently HTTP-503 daemon receives bounded TERM cleanup, while a pre-existing unhealthy process and UNKNOWN state remain fail-closed. In parallel, check XY-C1 Build/TRX/artifact on this same SHA for the RAETH compile fix; diagnose any new compiler failure before moving on.
 
 ## Completed development slices
 
@@ -39,14 +39,14 @@ Independent snapshot/lifecycle changes remain in `99ad9397e3cf4450c6fc07758b58c3
 
 ## Verification boundary
 
-- On prior exact SHA `edb529c4baf1e60df1fd542a4e8192cf608ffbdc`: Switch CLI #45311706551 **PASS**, AI docs #45311706519 **PASS**, NVRAM #45311706453 **PASS**, XY-C1 #45311706484 **FAIL** at `raether.o`; TRX and artifact stages did not run.
-- The compile-integrity correction in THIS COMMIT has not yet been built. No MIPS Build/TRX/artifact or hardware L4 result is claimed.
+- Parent `dd0b374694cf9d1e99ca65c8b35fa53b482d377b`: Switch CLI #45312564409 **PASS**, AI docs #45312564408 **PASS**, NVRAM #45312564407 **IN_PROGRESS**, XY-C1 #45312564566 **IN_PROGRESS**. These parent results do not validate AliyunDrive.
+- The AliyunDrive startup cleanup in THIS COMMIT has not yet run in CI. No new firmware/TRX/artifact or hardware result is claimed.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and check this commit's exact push Actions. Inspect the new RAETH source-integrity step, not just the aggregate workflow status.
-2. Inspect the XY-C1 build log on this same SHA. Confirm `raether.o` compiles, then confirm Build, TRX verification and artifact upload all complete on the same SHA. Diagnose the first new compiler error if the build still fails.
-3. Once this driver slice is green, resume the highest-risk unfinished stability item outside RAETH where practical. Keep the archival backup branch unchanged.
+1. Fetch current `main` and inspect this commit's exact-SHA AliyunDrive lifecycle and AI handoff Actions; verify the test log includes the 503 startup-timeout cleanup case.
+2. Check the exact same SHA's XY-C1 kernel build. Confirm `raether.o` passes, then verify full firmware Build, TRX and artifact upload; do not carry forward older-SHA results.
+3. If both checks pass, resume the next highest-risk independent stability issue; keep unknown process states fail-closed and leave the archival backup unchanged.
 
 
 # Cross-session execution mandate
