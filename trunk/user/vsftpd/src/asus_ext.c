@@ -195,8 +195,7 @@ read_error:
 int get_permission_ftp(const char *account, const char *mount_path, const char *folder)
 {
 	char var_file[256], *var_info;
-	char *target, *follow_info;
-	int len, result;
+	int result;
 
 	if (!account || !mount_path || !*mount_path || !folder || !*folder)
 		return -1;
@@ -206,37 +205,8 @@ int get_permission_ftp(const char *account, const char *mount_path, const char *
 	if (!var_info)
 		return 0;
 
-	len = strlen(folder)+strlen("*=");
-	target = (char *)malloc(len+1);
-	if (!target) {
-		free(var_info);
-		return -1;
-	}
-	sprintf(target, "*%s=", folder);
-
-	follow_info = strstr(var_info, target);
-	free(target);
-
-	if (!follow_info) {
-		free(var_info);
-		return -1;
-	}
-
-	follow_info += len;
-	if (strlen(follow_info) < 4 || follow_info[3] != '\n' ||
-	    follow_info[0] < '0' || follow_info[0] > '3' ||
-	    follow_info[1] < '0' || follow_info[1] > '3' ||
-	    follow_info[2] < '0' || follow_info[2] > '3') {
-		free(var_info);
-		return -1;
-	}
-
-	result = follow_info[1]-'0';
+	result = ftp_acl_path_share_permission(var_info, strlen(var_info), folder);
 	free(var_info);
-
-	if (result < 0 || result > 3)
-		return -1;
-
 	return result;
 }
 

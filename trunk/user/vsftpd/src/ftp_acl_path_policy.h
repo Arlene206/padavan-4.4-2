@@ -73,6 +73,56 @@ ftp_acl_path_is_internal_metadata(const char *path)
          strcmp(base + length - 8, "_var.txt") == 0;
 }
 
+
+/*
+ * Resolve one share permission record without allowing a folder name to span
+ * metadata lines. Folder names may contain arbitrary bytes other than NUL and
+ * '/', including newlines; treating the file as independent records prevents
+ * a crafted name from matching the next share's entry.
+ */
+static int
+ftp_acl_path_share_permission(const char *contents, size_t contents_size,
+                              const char *folder)
+{
+  const char *line, *end, *newline;
+  size_t folder_size, line_size;
+  int found = 0;
+  int result = -1;
+
+  if (!contents || !folder || !*folder ||
+      strchr(folder, '\n') != NULL || strchr(folder, '\r') != NULL)
+    return -1;
+
+  folder_size = strlen(folder);
+  if (folder_size > (size_t)-1 - 5U)
+    return -1;
+
+  line = contents;
+  end = contents + contents_size;
+  while (line < end)
+  {
+    newline = memchr(line, '\n', (size_t)(end - line));
+    if (newline == NULL)
+      break;
+    line_size = (size_t)(newline - line);
+    if (line_size == folder_size + 5U &&
+        line[0] == '*' &&
+        line[folder_size + 1U] == '=' &&
+        memcmp(line + 1, folder, folder_size) == 0)
+    {
+      if (found ||
+          line[folder_size + 2U] < '0' || line[folder_size + 2U] > '3' ||
+          line[folder_size + 3U] < '0' || line[folder_size + 3U] > '3' ||
+          line[folder_size + 4U] < '0' || line[folder_size + 4U] > '3')
+        return -1;
+      result = line[folder_size + 3U] - '0';
+      found = 1;
+    }
+    line = newline + 1;
+  }
+  return found ? result : -1;
+}
+
 static int
 ftp_acl_path_resolve_existing_parent(const char *path, char *resolved_parent,
                                      size_t resolved_size)

@@ -10,7 +10,7 @@
 - Exact workflow #45406283079 on `5f0360d`: GNU89 ASan/UBSan SOAP policy executable PASS; dedicated source checker then failed only because its final test-banner assertion still expected the previous text. The integrated workflow and host binary require the expanded banner `MiniUPnP SOAP unsigned input and range-delete result policy: PASS`; the checker is corrected in this follow-up.
 - AI docs #45406283195 PASS and Process inventory #45406283064 PASS on `5f0360d`. NVRAM #45406283086 and XY-C1 #45406283012 were still running at last poll.
 
-## Previous task — XUPnP generated Lua configuration pair
+## Independent security slice — VSFTPD share ACL record-boundary injection\n\n- The previous `get_permission_ftp()` lookup used unanchored `strstr()` and could interpret a crafted newline-bearing share name across two permission records. The new exact-record parser and GNU89 regression are committed on the current main continuation; exact VSFTPD/AI checks will be recorded after they complete.\n\n## Previous task — XUPnP generated Lua configuration pair
 
 - Product-source commit eb0fbb1 stages and fsyncs both Lua files before pair publication through dnsmasq_file_publish_pair, with backup restoration after a second-publish failure.
 - DNSMasq lifecycle #45402050207 on 2fd4c74 PASS. Process lifecycle #45402861054 on 364383b PASS after the whitespace-normalized checker correction; follow-on Process inventory #45403376647 on c2dc6d3 PASS. NVRAM #45401700436 on eb0fbb1 PASS.

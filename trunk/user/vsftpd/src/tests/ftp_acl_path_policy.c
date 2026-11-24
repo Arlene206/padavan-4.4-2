@@ -53,6 +53,46 @@ checked_path(char *out, size_t size, const char *base, const char *name)
     exit(1);
   }
 }
+static int
+test_share_permission_records(void)
+{
+  static const char contents[] =
+      "*public=000\n*secret=033\n*media=123\n";
+  static const char malformed[] = "*secret=0x3\n";
+  static const char unterminated[] = "*secret=033";
+  static const char duplicate[] = "*secret=033\n*secret=000\n";
+  static const char injected_folder[] = "public=000\n*secret";
+  static const char reversed_injection[] = "secret\n*public";
+  static const char crlf_injection[] = "public=000\r\n*secret";
+
+  if (ftp_acl_path_share_permission(contents, sizeof(contents) - 1U,
+                                    "public") != 0 ||
+      ftp_acl_path_share_permission(contents, sizeof(contents) - 1U,
+                                    "secret") != 3 ||
+      ftp_acl_path_share_permission(contents, sizeof(contents) - 1U,
+                                    "media") != 2 ||
+      ftp_acl_path_share_permission(contents, sizeof(contents) - 1U,
+                                    "missing") != -1 ||
+      ftp_acl_path_share_permission(contents, sizeof(contents) - 1U,
+                                    injected_folder) != -1 ||
+      ftp_acl_path_share_permission(contents, sizeof(contents) - 1U,
+                                    reversed_injection) != -1 ||
+      ftp_acl_path_share_permission(contents, sizeof(contents) - 1U,
+                                    crlf_injection) != -1 ||
+      ftp_acl_path_share_permission(malformed, sizeof(malformed) - 1U,
+                                    "secret") != -1 ||
+      ftp_acl_path_share_permission(unterminated,
+                                    sizeof(unterminated) - 1U,
+                                    "secret") != -1 ||
+      ftp_acl_path_share_permission(duplicate, sizeof(duplicate) - 1U,
+                                    "secret") != -1)
+  {
+    fprintf(stderr, "FTP share ACL record-boundary injection policy failed\n");
+    return 1;
+  }
+  return 0;
+}
+
 int
 main(void)
 {
@@ -87,6 +127,9 @@ main(void)
   ssize_t read_length, link_target_length;
   struct stat st, canonical_st;
   char *created;
+
+  if (test_share_permission_records() != 0)
+    return 1;
 
   if (!ftp_acl_path_is_internal_metadata("/mnt/.__folder_list.txt") ||
       !ftp_acl_path_is_internal_metadata(".__alice_var.txt") ||

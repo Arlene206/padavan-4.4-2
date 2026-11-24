@@ -1,3 +1,11 @@
+## 2026-11-24 — Parse VSFTPD share ACL permissions by exact record
+
+- `get_permission_ftp()` used an unanchored `strstr()` for `*<folder>=`; filesystem share names can legally contain newlines, so a crafted name such as `public=000\n*secret` could span two ACL records and resolve the next share's write/delete rights. This could bypass the share ACL when `st_ftp_mode` is enabled.
+- Added a bounded line-record parser that rejects CR/LF in folder names, requires an exact `*name=XYZ\n` record, validates all three permission digits, rejects duplicate records and ignores unterminated trailing text. The existing read-failure and missing-file behavior is unchanged.
+- Added GNU89 regression coverage for normal permissions, missing names, LF/CRLF boundary injection, malformed/unterminated records and duplicate entries. Extended the existing VSFTPD workflow source contract to require production use of the exact-record parser and reject the old unanchored search. Exact-SHA Actions pending; this is a source-level ACL fix, not a firmware or router L4 claim.
+
+---
+
 ## 2026-11-24 — Align MiniUPnP secure-delete checker with the extended policy-test banner
 
 - Exact MiniUPnP run #45406283079 on `5f0360d` passed the GNU89 ASan/UBSan SOAP policy binary, including IPv4 identity cases, but the dedicated source checker still expected the pre-range-delete test banner. The actual test and integrated workflow both use the expanded `MiniUPnP SOAP unsigned input and range-delete result policy: PASS` banner.
