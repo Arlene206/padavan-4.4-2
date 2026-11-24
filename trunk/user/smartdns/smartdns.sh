@@ -458,13 +458,13 @@ Get_sdns_conf () {
         j=$((j + 1))
     done
     if [ "$sdns_white" = "1" ] && [ -f "$chn_Route" ] ; then
-        : >/tmp/whitelist.conf || return $?
+        : > /tmp/whitelist.conf || return $?
         logger -t "SmartDNS" "开始处理白名单IP..."
         awk '{printf("whitelist-ip %s\n", $1, $1 )}' "$chn_Route" >> /tmp/whitelist.conf || return $?
         echo "conf-file /tmp/whitelist.conf" >> "$smartdns_tmp_Conf" || return $?
     fi
     if [ "$sdns_black" = "1" ] && [ -f "$chn_Route" ] ; then
-        : >/tmp/blacklist.conf || return $?
+        : > /tmp/blacklist.conf || return $?
         logger -t "SmartDNS" "开始处理黑名单IP..."
         awk '{printf("blacklist-ip %s\n", $1, $1 )}' "$chn_Route" >> /tmp/blacklist.conf || return $?
         echo "conf-file /tmp/blacklist.conf" >> "$smartdns_tmp_Conf" || return $?

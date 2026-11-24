@@ -1,3 +1,9 @@
+## 2026-11-24 — Align generated include redirection with source contract
+
+- The exact-head DNSMasq run confirmed both new runtime write-failure regressions pass. Its source checker then caught a formatting mismatch in the two checked whitelist/blacklist truncation statements (the shell accepted `: >/tmp/...`, while the contract expected `: > /tmp/...`). Normalize the spacing; no behavior change.
+
+---
+
 ## 2026-11-24 — Load SmartDNS generators before their write-failure tests
 
 - Review of the newly extended fixture caught that the real generator extraction block was still located below the inserted base-generator tests. Move the extraction/source step to the test preamble so both base and secondary regressions execute against the production function definitions.
