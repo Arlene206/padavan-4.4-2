@@ -61,4 +61,13 @@ rc_timezone_kernel_cache_status(int syscall_status, int saved_errno,
 	return 0;
 }
 
+/* Normalize failed libc time conversions without trusting stale errno. */
+static inline int
+rc_timezone_conversion_status(int conversion_succeeded, int saved_errno)
+{
+	if (conversion_succeeded)
+		return 0;
+	return saved_errno > 0 ? saved_errno : EOVERFLOW;
+}
+
 #endif /* TIMEZONE_ENV_POLICY_H */

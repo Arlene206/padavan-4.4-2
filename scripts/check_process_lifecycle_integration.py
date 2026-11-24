@@ -1715,6 +1715,16 @@ assert "int\\nsetenv_tz(void)" in rc_source
 assert "return status;" in timezone_env
 assert "return 0;" in timezone_env
 assert "return status;" in kernel_timezone
+assert "time(&now) == (time_t)-1" in kernel_timezone
+assert "gmtime_r(&now, &gm)" in kernel_timezone and "!gmtime_r" in kernel_timezone
+assert "localtime_r(&now, &local)" in kernel_timezone and "!localtime_r" in kernel_timezone
+assert "gm_time = mktime(&gm)" in kernel_timezone
+assert "local_time = mktime(&local)" in kernel_timezone
+assert kernel_timezone.index("gmtime_r(&now, &gm)") < kernel_timezone.index("gm.tm_isdst = local.tm_isdst")
+assert kernel_timezone.index("localtime_r(&now, &local)") < kernel_timezone.index("local.tm_isdst")
+assert "rc_timezone_conversion_status(0, errno)" in kernel_timezone
+assert "test_time_conversion_failures_have_deterministic_status();" in timezone_test
+assert "rc_timezone_conversion_status(int conversion_succeeded, int saved_errno)" in timezone_policy
 timezone_update = c_function_body(rc_source, "set_timezone(void)")
 assert "status = setenv_tz();" in timezone_update
 assert "kernel_status = setkernel_tz();" in timezone_update

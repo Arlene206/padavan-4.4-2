@@ -1370,20 +1370,68 @@ setenv_tz(void)
 int
 setkernel_tz(void)
 {
-	time_t now;
+	time_t now, gm_time, local_time;
 	struct tm gm, local;
 	struct timezone tz;
 	struct timeval *tvp = NULL;
 	static int tz_minuteswest_last = -1;
 	int syscall_status, saved_errno, status;
 
-	/* Update kernel timezone */
-	time(&now);
-	gmtime_r(&now, &gm);
-	localtime_r(&now, &local);
+	/* Update kernel timezone; fail instead of using uninitialized tm values. */
+	errno = 0;
+	if (time(&now) == (time_t)-1) {
+		status = errno ? errno : EIO;
+		errno = status;
+		logmessage(LOGNAME,
+			   "cannot read system time for kernel timezone update (status=%d)",
+			   status);
+		return status;
+	}
+
+	errno = 0;
+	if (!gmtime_r(&now, &gm)) {
+		status = rc_timezone_conversion_status(0, errno);
+		errno = status;
+		logmessage(LOGNAME,
+			   "cannot convert UTC time for kernel timezone update (status=%d)",
+			   status);
+		return status;
+	}
+
+	errno = 0;
+	if (!localtime_r(&now, &local)) {
+		status = rc_timezone_conversion_status(0, errno);
+		errno = status;
+		logmessage(LOGNAME,
+			   "cannot convert local time for kernel timezone update (status=%d)",
+			   status);
+		return status;
+	}
 
 	gm.tm_isdst = local.tm_isdst;
-	tz.tz_minuteswest = (mktime(&gm) - mktime(&local)) / 60;
+	errno = 0;
+	gm_time = mktime(&gm);
+	if (gm_time == (time_t)-1) {
+		status = rc_timezone_conversion_status(0, errno);
+		errno = status;
+		logmessage(LOGNAME,
+			   "cannot normalize UTC time for kernel timezone update (status=%d)",
+			   status);
+		return status;
+	}
+
+	errno = 0;
+	local_time = mktime(&local);
+	if (local_time == (time_t)-1) {
+		status = rc_timezone_conversion_status(0, errno);
+		errno = status;
+		logmessage(LOGNAME,
+			   "cannot normalize local time for kernel timezone update (status=%d)",
+			   status);
+		return status;
+	}
+
+	tz.tz_minuteswest = (int)((gm_time - local_time) / 60);
 
 	if (tz_minuteswest_last == tz.tz_minuteswest)
 		return 0;
