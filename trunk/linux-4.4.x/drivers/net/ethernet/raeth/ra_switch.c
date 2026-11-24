@@ -6224,10 +6224,11 @@ int fe_sw_init(void)
 	}
 
 	if (ei_local->architecture & GE2_SGMII_FORCE_2500) {
-		if (ei_local->architecture & SGMII_SWITCH)
+		if (ei_local->architecture & SGMII_SWITCH) {
 			status = set_rtl8367s_sgmii();
 			if (status != 0)
 				goto mdio_error;
+		}
 		status = set_sgmii_force_link(2, 1);
 		if (status != 0)
 			goto mdio_error;

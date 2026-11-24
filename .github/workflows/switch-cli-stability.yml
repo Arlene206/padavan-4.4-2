@@ -1950,6 +1950,29 @@ jobs:
               assert "if (status != 0)" in tail
               assert "goto mdio_error;" in tail
 
+          ge2_start = init.index("if (ei_local->architecture & GE2_SGMII_FORCE_2500)")
+          ge2_force = init[ge2_start:]
+          switch_start = ge2_force.index(
+              "if (ei_local->architecture & SGMII_SWITCH)"
+          )
+          switch_open = ge2_force.index("{", switch_start)
+          depth = 0
+          switch_close = None
+          for position in range(switch_open, len(ge2_force)):
+              if ge2_force[position] == "{":
+                  depth += 1
+              elif ge2_force[position] == "}":
+                  depth -= 1
+                  if depth == 0:
+                      switch_close = position
+                      break
+          assert switch_close is not None, "GE2 SGMII switch guard is not a complete block"
+          switch_body = ge2_force[switch_open + 1:switch_close]
+          assert "status = set_rtl8367s_sgmii();" in switch_body
+          assert "if (status != 0)" in switch_body
+          assert "goto mdio_error;" in switch_body
+          force_link = ge2_force.index("status = set_sgmii_force_link(2, 1);")
+          assert force_link > switch_close, "GE2 force-link setup must remain outside the optional switch guard"
           print("SGMII mapping failure cleanup and switch-init propagation: PASS")
           PY
 

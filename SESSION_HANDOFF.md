@@ -2,16 +2,16 @@
 
 ## Current repository state
 
-- Live `main` parent for this RStats read-close reliability slice: `47100dccc0a7128cbc711b31766fedc82ac787ad`.
-- Exact `fe356dd` Switch CLI ioctl failure-status regression `#45309913398`: **PASS**; AI handoff contract `#45309913249`: **PASS**. NVRAM audit `#45309913323` and XY-C1 firmware validation `#45309913333` were **IN_PROGRESS** at last poll.
-- Exact `ac9151b` HTTPD Authentication/Security `#45309428181` and NVRAM audit `#45309428290`: **PASS**; XY-C1 run `#45309428188` was **IN_PROGRESS** on that earlier SHA only.
-- Earlier exact-SHA independent fixes: WAN counter status `#45309010747` on `181ffec`: **PASS**; watchdog probe-file I/O `#45308912671` on `97dccf5`: **PASS**.
-- Latest main addition `47100dc` makes SGMII switch register mappings fail closed when `ioremap()` fails, returning `-ENOMEM` before register access. The archival backup remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- New RStats finding: `f_read()` captured read errno but discarded `close(fd)`'s return value, so a close-time I/O error could still return a successful/short byte count and allow questionable persisted history to be consumed. This slice makes descriptor-close status part of the read result.
+- Parent `main` for the GE2 SGMII optional-switch error-gate correction: `f38519f5f92f39148cccdfa6c37eb9126346a982`; this commit is built directly on that live main parent.
+- Exact parent-SHA Switch CLI regression #45311619652: **in_progress** and AI handoff #45311620761: **success**. NVRAM audit #45311619611: **in_progress**; XY-C1 validation #45311619583: **in_progress** on the parent SHA.
+- The parent Switch CLI test's proximity-only check missed the newly identified control-flow bug: the `status` error gate for `set_rtl8367s_sgmii()` was outside the optional `SGMII_SWITCH` branch, potentially consuming stale/uninitialized status on GE2 forced-2.5G without that feature.
+- The correction places the call and error gate inside the optional switch branch while keeping `set_sgmii_force_link(2, 1)` outside that inner branch and inside the outer GE2 forced-2.5G feature condition.
+- The earlier RStats `f_read()` close-result task is complete: exact RStats persistence/signal run `#45310470609` on `1c6b52d27ed1deebba1c320f256c311f6974bc64` **PASS**; AI handoff `#45310470526`, HTTPD `#45310470643`, Process inventory `#45310470590` and fail-closed regression `#45310470573` **PASS**. XY-C1 `#45310470717` was **IN_PROGRESS** at the earlier observation; no latest-main L3 claim follows from it.
+- The archival branch `backup/pre-plugin-overhaul-2026-11-14` remains frozen/read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Active task
 
-Verify `f_read()` close-result handling on this commit's exact SHA. Full or short reads are returned only when `close(fd)` succeeds; a close-only error becomes `-1`, while an earlier read error retains its original errno. Do not retry `close()` after EINTR on Linux.
+Verify the GE2 SGMII scope correction on its exact `main` SHA. The Switch CLI workflow must prove that `status = set_rtl8367s_sgmii()` and the `status != 0` → `goto mdio_error` gate are inside the lexical block of `if (architecture & SGMII_SWITCH)`, while `set_sgmii_force_link(2, 1)` remains outside that inner block but inside `GE2_SGMII_FORCE_2500`. A parent-SHA PASS is not sufficient because its old proximity assertion missed the defect.
 
 ## Completed development slices
 
@@ -41,15 +41,15 @@ Independent snapshot/lifecycle changes remain in `99ad9397e3cf4450c6fc07758b58c3
 
 ## Verification boundary
 
-- Exact `fe356dd` Switch CLI `#45309913398` and AI handoff `#45309913249`: **PASS**. NVRAM audit `#45309913323` and XY-C1 validation `#45309913333`: **IN_PROGRESS** at last poll.
-- The new RStats host policy cases use GNU89, `-Werror`, ASan and UBSan; the source contract pins errno capture before close and checked close-result handling. Verify the result from this commit's exact-SHA Actions.
-- No same-SHA XY-C1 firmware L3 or hardware L4 result is claimed. The archival backup remains unchanged.
+- Parent `f38519f` Switch CLI #45311619652 **in_progress** and AI handoff #45311620761 **success** are not validation of the updated lexical-scope contract.
+- Parent NVRAM #45311619611 **in_progress** and XY-C1 #45311619583 **in_progress** must remain associated with the parent SHA. New exact-head Actions are required. The target build, TRX verification and artifact upload must all complete on the same product-source SHA before claiming L3.
+- No local kernel build was run; no MIPS build/TRX/artifact or hardware L4 result is claimed for this control-flow correction.
 
 ## Exact first action for the next GPT
 
-1. Verify exact-SHA RStats persistence/signal regression for this read-close change; inspect both the host executable and source-contract step.
-2. Reconcile the pending `fe356dd` NVRAM audit and XY-C1 Build/TRX/artifact checks against their exact run IDs; do not transfer older SHA results.
-3. Continue RStats file-lifecycle review for delayed I/O and cleanup errors, then move to another independent userland stability defect. Keep the frozen backup read-only.
+1. Fetch live `main` and verify this correction's exact-SHA Switch CLI and AI handoff push Actions; inspect the nested-scope contract step itself.
+2. Inspect the same-SHA XY-C1 workflow through Build, TRX verification and artifact upload. Do not transfer any older product-source build result.
+3. Once this regression is green, resume the highest-risk unfinished stability task from the whole-repository roadmap, rotating beyond RAETH as appropriate; do not repeat the completed RStats close-result slice. Keep the frozen backup unchanged.
 
 
 # Cross-session execution mandate

@@ -1,3 +1,11 @@
+## 2026-11-24 — Scope the GE2 SGMII switch error gate to its optional feature
+
+- `fe_sw_init()` checked the return status of `set_rtl8367s_sgmii()` outside the `if (architecture & SGMII_SWITCH)` branch. When GE2 forced-2.5G was enabled without the external switch feature, the code could inspect stale/uninitialized `status` and incorrectly abort switch initialization.
+- Added braces so the RTL8367 call and its error gate execute only when `SGMII_SWITCH` is enabled. `set_sgmii_force_link(2, 1)` remains outside that inner guard, preserving the non-external-switch GE2 forced-link path.
+- Strengthened the Switch CLI source contract to parse the nested brace block and require the call plus `status`/`mdio_error` gate inside it, while proving force-link remains outside. The previous proximity-only assertion passed without establishing lexical control-flow ownership.
+- Parent main `f38519f5f92f39148cccdfa6c37eb9126346a982`: Switch CLI #45311619652 **in_progress**; AI handoff #45311620761 **success**; NVRAM audit #45311619611 **in_progress**; XY-C1 #45311619583 **in_progress**. This exact-head Switch CLI pass did not detect the unbraced scope defect. THIS COMMIT requires fresh exact-head Switch CLI/AI checks and same-SHA XY-C1 validation. No local kernel build or hardware result is claimed.
+
+---
 ## 2026-11-23 — Propagate RStats history read descriptor-close failures
 
 - `f_read()` saved the read errno but ignored `close(fd)`'s return value. A descriptor-close I/O error after a successful or short read could therefore be reported as ordinary data, allowing a questionable persistent-history record to be consumed.
