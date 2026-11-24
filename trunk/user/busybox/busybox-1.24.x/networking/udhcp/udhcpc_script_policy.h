@@ -2,6 +2,8 @@
 #ifndef UDHCP_SCRIPT_POLICY_H
 #define UDHCP_SCRIPT_POLICY_H
 
+#include <stdint.h>
+
 /*
  * A failed lease event must not be published as a successful DHCP bind.
  * During initial acquisition, retry the same selected request after the
@@ -84,6 +86,16 @@ static inline int
 udhcpc_nak_requires_deconfig(int requesting)
 {
 	return requesting == 0;
+}
+
+/* Keep nonmatching DHCPNAKs from other servers off an active lease. */
+static inline int
+udhcpc_nak_server_id_rejected(uint32_t expected_server_id,
+			      int server_id_present,
+			      uint32_t received_server_id)
+{
+	return expected_server_id != 0 &&
+	       (!server_id_present || received_server_id != expected_server_id);
 }
 
 #endif /* UDHCP_SCRIPT_POLICY_H */

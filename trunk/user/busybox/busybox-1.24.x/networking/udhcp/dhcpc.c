@@ -2103,20 +2103,19 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 				 * "wrong" server can reply first, with a NAK.
 				 * Do not interpret it as a NAK from "our" server.
 				 */
-				if (server_addr != 0) {
-					uint32_t svid;
+				{
+					uint32_t svid = 0;
 					uint8_t *temp;
 
 					temp = udhcp_get_option32(&packet, DHCP_SERVER_ID);
-					if (!temp) {
- non_matching_svid:
+					if (temp)
+						move_from_unaligned32(svid, temp);
+					if (udhcpc_nak_server_id_rejected(
+						    server_addr, temp != NULL, svid)) {
 						log1("received DHCP NAK with wrong"
 							" server ID, ignoring packet");
 						continue;
 					}
-					move_from_unaligned32(svid, temp);
-					if (svid != server_addr)
-						goto non_matching_svid;
 				}
 				/* Return to init only after the old lease has been deconfigured. */
 				bb_info_msg("Received DHCP NAK");

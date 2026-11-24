@@ -134,6 +134,10 @@ nak_retry = nak_branch.index("udhcpc_schedule_deconfig_retry(INIT_SELECTING", na
 assert nak_id_guard < nak_event < nak_deconfig < nak_retry
 assert "svid != server_addr" in nak_branch
 assert "received DHCP NAK with wrong" in nak_branch
+assert "udhcpc_nak_server_id_rejected(server_addr, temp != NULL, svid)" in nak_branch
+assert "udhcpc_nak_server_id_rejected(uint32_t expected_server_id" in policy
+assert "test_nak_server_id_filter_rejects_missing_and_mismatched_server" in test
+assert "test_nak_server_id_filter_rejects_missing_and_mismatched_server() != 0" in test
 assert "udhcpc_nak_requires_deconfig(state == REQUESTING)" in nak_branch[nak_event:nak_retry]
 
 # leasefail is advisory: its exit status must not suppress retry/background/

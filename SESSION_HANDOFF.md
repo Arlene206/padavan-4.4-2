@@ -23,13 +23,13 @@ Every session MUST inspect the live repository state before ending: verify main 
 - Current main is 5ec726d5123bbfde442f15b1afad114e64747511; the frozen backup is 72f4f157a084f8184b9597ca5bf334b8080e5807 and remains untouched. No PR/branch work.
 ## Verification boundary
 
-- L3 VERIFIED for production source SHA 80f1bfccd255536a0a2682c7d046f0216038a922 (XY-C1 Build + TRX + artifact upload all PASS; libdisk, Process, HTTPD, NVRAM exact-source checks PASS). Physical-router L4 NOT VERIFIED.
-- Docs-only commits 5ec726d5123bbfde442f15b1afad114e64747511 and c203d84ebce9a3d38947731857098aa62c876a4f passed the AI handoff validator; product sources were unchanged.
-- Parent 8151d689580ff7e991f539d466c4b8a1ce9ebfb7 introduced an invalid C test registration discovered before its test step. THIS COMMIT fixes it. No udhcpc compile or checker result is claimed until the exact-SHA workflow on THIS COMMIT completes.
+- L3 VERIFIED for production source SHA 80f1bfccd255536a0a2682c7d046f0216038a922 (XY-C1 Build + TRX + artifact all PASS; libdisk, Process, HTTPD, NVRAM exact source checks PASS). Hardware L4 NOT VERIFIED.
+- The first DHCP commit parent 8151d689580ff7e991f539d466c4b8a1ce9ebfb7 failed exact-SHA run #45474436146 at GNU89 compile due malformed test-main registration. b61d41a56a409053559909a26c8849f3b9d4d7af fixes the duplicated if before the compile step, but no exact-head run was listed for b61 when checked.
+- THIS COMMIT further extracts/tests the NAK server-ID filter and will provide a fresh exact-SHA workflow gate; no DHCP PASS claimed yet.
 - Frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-SHA udhcpc-script-status-stability for THIS corrected test registration; require both GNU89 ASan/UBSan compile/run and Python source-contract verification to pass.
-2. Inspect exact-SHA XY-C1 Build/TRX/artifact and process, NVRAM, storage and AI handoff results. Pending workflows do not block independent work.
-3. Continue end-to-end DHCP transition coverage (deconfig retry, lease expiry and SIGUSR2/-R while DECONFIG_PENDING) only after the new policy slice passes. Preserve frozen backup and expected-SHA main updates.
+1. Inspect exact-SHA udhcpc-script-status-stability for THIS COMMIT; require GNU89 -Werror ASan/UBSan and the source-contract checker to pass.
+2. Confirm the corrected test harness no longer produces the parent's compile error; do not count b61 as verified absent a run.
+3. Continue deeper DHCP state transition coverage for deconfig retry, lease expiry and SIGUSR2/-R while DECONFIG_PENDING, then check exact-SHA XY-C1 Build/TRX/artifact and other independent userland workflows. Preserve frozen backup.

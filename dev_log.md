@@ -1,3 +1,11 @@
+## 2026-11-25 — Cover DHCPNAK server identity filtering with executable policy tests
+
+- Preserved BusyBox's explicit multi-server safeguard and extracted it into udhcpc_nak_server_id_rejected(): when an expected server is known, missing/mismatched server IDs are rejected; when none is known, the old permissive startup behavior remains unchanged.
+- Added GNU89 test cases for no-known-server, exact server match, missing server identifier and mismatched server identifier. The checker now verifies that the production NAK path calls this predicate before the nak script and lease cleanup.
+- The previous exact-SHA udhcpc run #45474436146 failed compiling parent 8151d689580ff7e991f539d466c4b8a1ce9ebfb7 due the malformed test-main insertion; b61d41a56a409053559909a26c8849f3b9d4d7af fixes it, but did not receive its own workflow run in the initial query. This new source/test slice creates a fresh exact-SHA gate. No PASS is claimed until Actions complete.
+
+---
+
 ## 2026-11-25 — Correct DHCP policy test registration before execution
 
 - Immediately after 8151d689580ff7e991f539d466c4b8a1ce9ebfb7, reviewed the changed C fixture and caught a malformed test-main insertion: the second if ( was duplicated, making the GNU89 test binary fail to compile.
