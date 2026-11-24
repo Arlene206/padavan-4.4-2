@@ -2117,7 +2117,7 @@ jobs:
           wan = Path("trunk/user/rc/src/net_wan.c").read_text()
           ralink = Path("trunk/user/rc/src/ralink.c").read_text()
 
-          loader = function_body(common, "int load_user_config(")
+          loader = function_body(common, "load_user_config(FILE *fp,")
           assert "rc_user_config_copy_stream(" in loader
           assert "fclose(fp_user)" in loader
           assert "line[length - 1]" not in loader
