@@ -111,6 +111,66 @@ def verify_ft_boolean_copy(path: Path, source: str) -> None:
 
 
 
+def extract_case_to_next_case(source: str, marker: str) -> str:
+    start = source.index(marker)
+    tail = source[start + len(marker):]
+    following = re.search(r"(?m)^[ \t]*case\s+", tail)
+    end = len(source) if following is None else start + len(marker) + following.start()
+    return source[start:end]
+
+
+def verify_checked_usercopy_case(path: Path, source: str, marker: str,
+                                 variable: str, expected_type: str) -> None:
+    case = extract_case_to_next_case(source, marker)
+    compact = " ".join(case.split())
+    length_guard = f"wrq->u.data.length != sizeof({expected_type})"
+    copy_guard = (
+        f"if (copy_from_user(&{variable}, wrq->u.data.pointer, "
+        "wrq->u.data.length))"
+    )
+    assert length_guard in compact, (
+        f"{path}: {marker} must enforce its exact input size"
+    )
+    assert copy_guard in compact, (
+        f"{path}: {marker} must check copy_from_user before consuming {variable}"
+    )
+    length_pos = compact.index(length_guard)
+    copy_pos = compact.index(copy_guard)
+    error_pos = compact.index("Status = -EFAULT;", copy_pos)
+    break_pos = compact.index("break;", error_pos)
+    fail_block_end = compact.index("}", break_pos)
+    success_pos = compact.index("Status = 0;", fail_block_end)
+    assert length_pos < copy_pos < error_pos < break_pos < fail_block_end < success_pos
+    assert re.search(rf"\b{re.escape(variable)}\b",
+                     compact[success_pos + len("Status = 0;"):]), (
+        f"{path}: {marker} no longer consumes the validated {variable}"
+    )
+
+
+def verify_security_input_copy_fail_closed(path: Path, source: str) -> None:
+    for marker, variable, expected_type in (
+        ("case OID_802_11_AUTHENTICATION_MODE:", "AuthMode",
+         "NDIS_802_11_AUTHENTICATION_MODE"),
+        ("case OID_802_11_WEP_STATUS:", "WepStatus",
+         "NDIS_802_11_WEP_STATUS"),
+        ("case OID_802_11_SSID:", "Ssid", "NDIS_802_11_SSID"),
+    ):
+        verify_checked_usercopy_case(
+            path, source, marker, variable, expected_type
+        )
+
+
+def verify_apcli_boolean_copy_fail_closed(path: Path, source: str) -> None:
+    for marker, variable in (
+        ("case OID_802_11_SET_IEEE8021X:", "IEEE8021xState"),
+        ("case OID_802_11_SET_IEEE8021X_REQUIRE_KEY:",
+         "IEEE8021x_required_keys"),
+    ):
+        verify_checked_usercopy_case(
+            path, source, marker, variable, "BOOLEAN"
+        )
+
+
 def verify_psk_length_contract(path: Path, source: str) -> None:
     case = extract_case(source, "case OID_SET_PSK:", "#ifdef SNMP_SUPPORT")
     length_guard = "if (wrq->u.data.length > sizeof(PSK) - 1)"
@@ -224,6 +284,9 @@ def main() -> None:
             for case in CASES:
                 verify_fixed_copy(path, source, case)
         verify_ft_boolean_copy(path, source)
+        verify_security_input_copy_fail_closed(path, source)
+        if path in (SOURCES[0], SOURCES[3]):
+            verify_apcli_boolean_copy_fail_closed(path, source)
         verify_ft_r0khid_copy(path, source)
         if path == SOURCES[1]:
             verify_psk_length_contract(path, source)

@@ -1,3 +1,12 @@
+## 2026-11-24 — Fail closed on MTK AP security-selector usercopy faults
+
+- A follow-up review of the four MTK AP ioctl dispatchers found that exact-size copies for `AuthMode`, `WepStatus` and `Ssid` still proceeded after `copy_from_user()` returned a nonzero uncopied-byte count. That allowed partially initialized stack values to influence authentication, cipher and SSID state.
+- The MT76x2 and MT7915 APCLI `OID_802_11_SET_IEEE8021X` and `OID_802_11_SET_IEEE8021X_REQUIRE_KEY` setters had the same issue: they published Boolean fields regardless of usercopy failure.
+- All these paths now map copy faults to `-EFAULT` and leave the switch case before consuming or publishing the input. The MTK source-contract regression now requires the exact-length guard, checked copy, EFAULT exit and successful-copy gate across all ten handler paths.
+- GNU89 ASan/UBSan R0KH-ID boundary regression remains part of the same focused workflow. Exact-head MTK, AI handoff and XY-C1 Build/TRX/artifact verification are pending.
+
+---
+
 ## 2026-11-24 19:38 Beijing — Correct R0KH-ID source-contract formatting
 
 - Exact MTK run #45379089623 on `b04620659840fd488a0320543d8e92872f9821f2` passed the GNU89 ASan/UBSan boundary fixture and the vendor-header byte matcher, then exposed a whitespace mismatch in the checker’s expected normalized-call string: the source places a newline immediately after the function's opening parenthesis.

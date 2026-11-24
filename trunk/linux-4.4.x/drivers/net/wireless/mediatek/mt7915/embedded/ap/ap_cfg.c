@@ -3507,7 +3507,12 @@ INT RTMPAPSetInformation(
 			Status  = -EINVAL;
 		else {
 			if (apcliEn == TRUE) {
-				Status = copy_from_user(&IEEE8021xState, wrq->u.data.pointer, wrq->u.data.length);
+				if (copy_from_user(&IEEE8021xState, wrq->u.data.pointer,
+					   wrq->u.data.length)) {
+					Status = -EFAULT;
+					break;
+				}
+				Status = 0;
 				pAd->StaCfg[ifIndex].wdev.IEEE8021X = IEEE8021xState;
 				MTWF_LOG(DBG_CAT_CLIENT, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("Set Apcli(%d)::OID_802_11_SET_IEEE8021X (=%d)\n", ifIndex,
 						 IEEE8021xState));
@@ -3528,7 +3533,12 @@ INT RTMPAPSetInformation(
 			Status  = -EINVAL;
 		else {
 			if (apcliEn == TRUE) {
-				Status = copy_from_user(&IEEE8021x_required_keys, wrq->u.data.pointer, wrq->u.data.length);
+				if (copy_from_user(&IEEE8021x_required_keys, wrq->u.data.pointer,
+					   wrq->u.data.length)) {
+					Status = -EFAULT;
+					break;
+				}
+				Status = 0;
 				pAd->StaCfg[ifIndex].wpa_supplicant_info.IEEE8021x_required_keys = IEEE8021x_required_keys;
 				MTWF_LOG(DBG_CAT_CLIENT, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("Set Apcli(%d)::OID_802_11_SET_IEEE8021X_REQUIRE_KEY (%d)\n",
 						 ifIndex, IEEE8021x_required_keys));
@@ -5141,7 +5151,12 @@ INT RTMPAPSetInformation(
 		else {
 			UINT32 AKMMap = 0;
 
-			Status = copy_from_user(&AuthMode, wrq->u.data.pointer, wrq->u.data.length);
+			if (copy_from_user(&AuthMode, wrq->u.data.pointer,
+				   wrq->u.data.length)) {
+				Status = -EFAULT;
+				break;
+			}
+			Status = 0;
 
 			if (AuthMode > Ndis802_11AuthModeMax) {
 				Status  = -EINVAL;
@@ -5210,7 +5225,12 @@ INT RTMPAPSetInformation(
 		else {
 			UINT32 EncryType = 0;
 
-			Status = copy_from_user(&WepStatus, wrq->u.data.pointer, wrq->u.data.length);
+			if (copy_from_user(&WepStatus, wrq->u.data.pointer,
+				   wrq->u.data.length)) {
+				Status = -EFAULT;
+				break;
+			}
+			Status = 0;
 			EncryType = SecEncryModeOldToNew(WepStatus);
 #ifdef APCLI_SUPPORT
 #ifdef WPA_SUPPLICANT_SUPPORT
@@ -5292,7 +5312,12 @@ INT RTMPAPSetInformation(
 		else {
 			RTMP_STRING *pSsidString = NULL;
 
-			Status = copy_from_user(&Ssid, wrq->u.data.pointer, wrq->u.data.length);
+			if (copy_from_user(&Ssid, wrq->u.data.pointer,
+				   wrq->u.data.length)) {
+				Status = -EFAULT;
+				break;
+			}
+			Status = 0;
 
 			if (Ssid.SsidLength > MAX_LEN_OF_SSID)
 				Status = -EINVAL;

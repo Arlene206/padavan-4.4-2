@@ -2672,7 +2672,12 @@ INT RTMPAPSetInformation(
                 Status  = -EINVAL;
             else
             {
-                Status = copy_from_user(&AuthMode, wrq->u.data.pointer, wrq->u.data.length);
+                if (copy_from_user(&AuthMode, wrq->u.data.pointer,
+                	   wrq->u.data.length)) {
+                	Status = -EFAULT;
+                	break;
+                }
+                Status = 0;
                 if (AuthMode > Ndis802_11AuthModeMax)
                 {
                     Status  = -EINVAL;
@@ -2702,7 +2707,12 @@ INT RTMPAPSetInformation(
                 Status  = -EINVAL;
             else
             {
-                Status = copy_from_user(&WepStatus, wrq->u.data.pointer, wrq->u.data.length);
+                if (copy_from_user(&WepStatus, wrq->u.data.pointer,
+                	   wrq->u.data.length)) {
+                	Status = -EFAULT;
+                	break;
+                }
+                Status = 0;
 
 #ifdef APCLI_SUPPORT
 #endif/*APCLI_SUPPORT*/
@@ -2742,7 +2752,12 @@ INT RTMPAPSetInformation(
             else
             {
             		RTMP_STRING *pSsidString = NULL;
-                	Status = copy_from_user(&Ssid, wrq->u.data.pointer, wrq->u.data.length);
+                	if (copy_from_user(&Ssid, wrq->u.data.pointer,
+                		   wrq->u.data.length)) {
+                		Status = -EFAULT;
+                		break;
+                	}
+                	Status = 0;
 
                 	if (Ssid.SsidLength > MAX_LEN_OF_SSID)
                     		Status = -EINVAL;

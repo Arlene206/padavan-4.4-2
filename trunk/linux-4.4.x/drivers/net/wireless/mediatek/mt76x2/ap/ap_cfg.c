@@ -2076,7 +2076,12 @@ INT RTMPAPSetInformation(
 
 				if(apcliEn == TRUE )
 				{		
-					Status = copy_from_user(&IEEE8021xState, wrq->u.data.pointer, wrq->u.data.length);                				
+					if (copy_from_user(&IEEE8021xState, wrq->u.data.pointer,
+						   wrq->u.data.length)) {
+						Status = -EFAULT;
+						break;
+					}
+					Status = 0;
 			        pAd->ApCfg.ApCliTab[ifIndex].wdev.IEEE8021X = IEEE8021xState;
 	                DBGPRINT(RT_DEBUG_TRACE, ("Set Apcli(%d)::OID_802_11_SET_IEEE8021X (=%d)\n",ifIndex, IEEE8021xState));
 				}
@@ -2099,7 +2104,12 @@ INT RTMPAPSetInformation(
 	            {
 	            		if(apcliEn == TRUE )
 				{
-	                		Status = copy_from_user(&IEEE8021x_required_keys, wrq->u.data.pointer, wrq->u.data.length);                				
+	                		if (copy_from_user(&IEEE8021x_required_keys, wrq->u.data.pointer,
+	                			   wrq->u.data.length)) {
+	                			Status = -EFAULT;
+	                			break;
+	                		}
+	                		Status = 0;
 					pAd->ApCfg.ApCliTab[ifIndex].IEEE8021x_required_keys = IEEE8021x_required_keys;				
 					DBGPRINT(RT_DEBUG_TRACE, ("Set Apcli(%d)::OID_802_11_SET_IEEE8021X_REQUIRE_KEY (%d)\n",ifIndex, IEEE8021x_required_keys));
 	            		}
@@ -3384,7 +3394,12 @@ INT RTMPAPSetInformation(
                 Status  = -EINVAL;
             else
             {
-                Status = copy_from_user(&AuthMode, wrq->u.data.pointer, wrq->u.data.length);
+                if (copy_from_user(&AuthMode, wrq->u.data.pointer,
+                	   wrq->u.data.length)) {
+                	Status = -EFAULT;
+                	break;
+                }
+                Status = 0;
                 if (AuthMode > Ndis802_11AuthModeMax)
                 {
                     Status  = -EINVAL;
@@ -3444,7 +3459,12 @@ INT RTMPAPSetInformation(
                 Status  = -EINVAL;
             else
             {
-                Status = copy_from_user(&WepStatus, wrq->u.data.pointer, wrq->u.data.length);
+                if (copy_from_user(&WepStatus, wrq->u.data.pointer,
+                	   wrq->u.data.length)) {
+                	Status = -EFAULT;
+                	break;
+                }
+                Status = 0;
 
 #ifdef APCLI_SUPPORT
 #ifdef APCLI_WPA_SUPPLICANT_SUPPORT
@@ -3528,7 +3548,12 @@ INT RTMPAPSetInformation(
             else
             {
             		PSTRING pSsidString = NULL;
-                	Status = copy_from_user(&Ssid, wrq->u.data.pointer, wrq->u.data.length);
+                	if (copy_from_user(&Ssid, wrq->u.data.pointer,
+                		   wrq->u.data.length)) {
+                		Status = -EFAULT;
+                		break;
+                	}
+                	Status = 0;
 
                 	if (Ssid.SsidLength > MAX_LEN_OF_SSID)
                     		Status = -EINVAL;

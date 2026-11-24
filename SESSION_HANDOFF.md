@@ -1,14 +1,15 @@
 ## Current repository state
 
-- Active branch: `main`; source parent for this checkpoint: `b04620659840fd488a0320543d8e92872f9821f2`. Re-fetch live main before every write.
+- Active branch: `main`; source parent for this checkpoint: `2789d637423205f209fae72461b1163ba45967a4`. Re-fetch live main before every write.
 - Frozen archive `backup/pre-plugin-overhaul-2026-11-14` remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`; never modify it.
 - No open PRs were found. Legacy PR #1 is closed; its valid CA trust-store bootstrap and AliDDNS HMAC work were ported to main.
 - LLDT PID descriptor hardening: `529cf073`; fixture/checker fixes `8796b356`, `2fdf8e7a`, `9b97f743`; Process contract `be370293`; full interface identity `0b532570`; pathname checker fix `b270bcc` (Process #45376899681 PASS).
 - MTK AP 802.11r Boolean fix: `72e1e72`; MT76x3 PSK fix: `e32120d`; PSK checker fixes: `f22cdf9`, `570be1e`; R0KH-ID bounded-copy source commit: `0517ce5e9e67d94a82e546b67a7876e5f110691b`.
 
-## Active task — Finish R0KH-ID compatibility and validate the MTK ioctl series
+## Active task — Fail closed on MTK AP usercopy faults and finish R0KH-ID validation
 
 - All four driver families have `FT_ROKH_ID_LEN == 48` and a 49-byte `FtR0khId` field. The original `length <= 48` check rejected valid identifiers and then copied unbounded user length into fixed storage.
+- A wider pass over the same AP ioctl dispatchers found exact-size `AuthMode`, `WepStatus` and `Ssid` stack copies in all four families that ignored nonzero `copy_from_user()` results and continued consuming partially initialized data. MT76x2 and MT7915 APCLI 802.1X/required-key Boolean setters had the same publish-after-fault defect. This slice changes each to return `-EFAULT` and break before using or publishing the input; the source checker now enforces the length/copy/failure/stop ordering for all ten paths.
 - Commit `0517ce5` introduced a 1–48 byte payload guard, zeroed 49-byte staging buffer, checked `copy_from_user()`, and publish-after-success behavior. Its focused C boundary test passed in #45378091419; the source checker failed because it decoded a vendor header as UTF-8. The next commit changes the source contract to inspect vendor headers as bytes.
 - Follow-up also handles Wireless Extensions character arguments that include the terminating NUL in `wrq->u.data.length`: raw 1–48-byte payload and 2–49-byte payload-plus-NUL forms are normalized to a 1–48-byte identifier, with the maximum 49-byte input checked before copy. A 49-byte non-NUL input is rejected after copy to the bounded staging buffer; no stored state changes on either copy or normalization failure.
 - New shared helper/test covers invalid 0/50/UINT_MAX lengths, valid payload sizes 1 and 48, both raw and NUL-inclusive maximum-length encodings, missing terminator on the 49-byte form, empty payload and NULL arguments. Four driver contracts enforce the usercopy/normalization/publish ordering.
@@ -17,7 +18,8 @@
 
 ## Verification boundary
 
-- R0KH-ID C boundary test PASS #45378091419; its Python source-contract step FAIL only because UTF-8 decoding failed on a non-UTF-8 vendor header. The following correction uses byte matching and extends the test to optional trailing-NUL semantics; its exact Actions are not yet run.
+- R0KH-ID GNU89 ASan/UBSan boundary fixture and four-driver source contract PASS on exact SHA `2789d637423205f209fae72461b1163ba45967a4` (MTK #45379297940); AI handoff contract #45379297910 PASS. The exact-source XY-C1 run #45378781960 on production-source SHA `b9d55bfcbf23c751c2f548e35ba78e9e05e5118b` was in Build at last poll; TRX and artifact were pending.
+- This slice's fail-closed AuthMode/WepStatus/SSID and APCLI Boolean copy-fault contracts are added but have not yet run in Actions.
 - MT76x3 PSK focused regression #45377817802 PASS on `570be1e`; AI handoff #45377817942 PASS.
 - LLDT Process integration #45376899681 PASS on `b270bcc`; dedicated LLDT #45376256149 PASS on `0b532570`.
 - XY-C1 #45378091249 on `0517ce5` was still in progress at last check; this follow-up must receive its own Build/TRX/artifact validation.
@@ -25,8 +27,8 @@
 
 ## Exact first action for the next GPT
 
-1. Fetch exact-head Actions for this checker correction. Confirm MTK C boundaries and four-driver contract pass; #45379089623 passed the C test and failed only on the normalize-call whitespace matcher.
-2. Refresh XY-C1 #45378091249 and require the new exact-SHA XY-C1 run to pass Build, TRX and artifact on one SHA. Close NVRAM/Process/AI runs on the new commit.
+1. Fetch exact-head MTK and AI handoff Actions for this usercopy-fault slice. Confirm GNU89 ASan/UBSan R0KH-ID boundaries plus all ten source-contract cases pass; resolve any real failure.
+2. Fetch exact-head XY-C1 Build/TRX/artifact Actions. The previous R0KH-ID source baseline #45378781960 was building on `b9d55bf`; require a result for a SHA containing this production-source slice before claiming L3.
 3. After checks are closed or running independently, select the next concrete P1 security/stability issue outside this R0KH-ID slice and continue the source → regression → atomic commit → exact-SHA Actions loop.
 
 ## Mandatory handoff checkpoint
