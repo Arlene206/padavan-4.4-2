@@ -255,27 +255,22 @@ failed:
  * symlink component or blocking on a FIFO/device. The stream reader keeps the
  * same 1 MiB bound and checked read/close behavior as read_whole_file().
  */
-char *read_regular_file_nofollow(const char *target)
+char *
+read_regular_file_nofollow_at(int parent_fd, const char *leaf)
 {
 	struct stat file_status;
 	FILE *fp;
-	char *leaf = NULL;
-	int parent_fd, fd, saved_errno;
+	int fd, saved_errno;
 
-	parent_fd = disk_io_open_parent_nofollow(target, &leaf);
-	if (parent_fd < 0)
-		return NULL;
-
-	fd = openat(parent_fd, leaf,
-		    O_RDONLY | O_NONBLOCK | O_NOFOLLOW | O_CLOEXEC);
-	saved_errno = errno;
-	(void)close(parent_fd);
-	free(leaf);
-	if (fd < 0) {
-		errno = saved_errno;
+	if (parent_fd < 0 || !leaf || !*leaf || strchr(leaf, '/') ||
+	    !strcmp(leaf, ".") || !strcmp(leaf, "..")) {
+		errno = EINVAL;
 		return NULL;
 	}
-
+	fd = openat(parent_fd, leaf,
+		    O_RDONLY | O_NONBLOCK | O_NOFOLLOW | O_CLOEXEC);
+	if (fd < 0)
+		return NULL;
 	if (fstat(fd, &file_status) != 0) {
 		saved_errno = errno ? errno : EIO;
 		(void)close(fd);
@@ -287,7 +282,6 @@ char *read_regular_file_nofollow(const char *target)
 		errno = EINVAL;
 		return NULL;
 	}
-
 	fp = fdopen(fd, "r");
 	if (!fp) {
 		saved_errno = errno ? errno : EIO;
@@ -298,6 +292,24 @@ char *read_regular_file_nofollow(const char *target)
 	return read_whole_file_stream(fp);
 }
 
+
+char *
+read_regular_file_nofollow(const char *target)
+{
+	char *leaf = NULL, *contents;
+	int parent_fd, saved_errno;
+
+	parent_fd = disk_io_open_parent_nofollow(target, &leaf);
+	if (parent_fd < 0)
+		return NULL;
+	contents = read_regular_file_nofollow_at(parent_fd, leaf);
+	saved_errno = errno;
+	(void)close(parent_fd);
+	free(leaf);
+	if (!contents)
+		errno = saved_errno ? saved_errno : EIO;
+	return contents;
+}
 
 /*
  * Return 1 for an existing regular file, 0 only for a missing final component,

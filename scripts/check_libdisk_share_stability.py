@@ -245,6 +245,57 @@ for locked_writer in (
             "disk_share_account_nvram_end(" not in locked_body,
             "lock-owned metadata workers must not acquire a nested NVRAM transaction")
 
+
+pinned_scanner = function_body(
+    DISK_SOURCE, "static int\\nget_all_folder_in_directory_fd(int directory_fd,"
+)
+pinned_scanner_compact = "".join(pinned_scanner.split())
+require('openat(directory_fd,".",O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC)' in
+        pinned_scanner_compact and
+        "fdopendir(scan_fd)" in pinned_scanner_compact and
+        "fstatat(directory_fd,entry->d_name,&entry_status,AT_SYMLINK_NOFOLLOW)" in
+        pinned_scanner_compact and
+        "disk_share_list_next_entry" in pinned_scanner_compact and
+        "opendir(" not in pinned_scanner_compact and "lstat(" not in pinned_scanner_compact,
+        "internal storage scanner must enumerate and validate entries through one pinned directory descriptor")
+
+pinned_cache = function_body(
+    DISK_SOURCE, "static int\\nget_folder_list_in_directory_fd(int directory_fd,"
+)
+pinned_cache_compact = "".join(pinned_cache.split())
+cache_read_at = pinned_cache_compact.index(
+    'read_regular_file_nofollow_at(directory_fd,".__folder_list.txt")'
+)
+cache_regen = pinned_cache_compact.index(
+    "initial_folder_list_in_directory_fd(directory_fd)", cache_read_at
+)
+cache_fstatat = pinned_cache_compact.index(
+    "fstatat(directory_fd,result_list[i],&entry_status,AT_SYMLINK_NOFOLLOW)"
+)
+require(cache_read_at < cache_regen < cache_fstatat and
+        "disk_share_folder_entry_status" in pinned_cache_compact and
+        "lstat(" not in pinned_cache_compact,
+        "pinned cache parser must read, regenerate and revalidate entries within the original volume")
+
+for signature in (
+    "int initial_folder_list_in_mount_path(const char *const mount_path)",
+):
+    body = function_body(DISK_SOURCE, signature)
+    compact = "".join(body.split())
+    require("disk_share_open_mount_directory(mount_path)" in compact and
+            "initial_folder_list_in_directory_fd(directory_fd)" in compact and
+            "close(directory_fd)" in compact,
+            "folder snapshot API must keep its mount directory open through generation and publication")
+initial_snapshot = function_body(
+    DISK_SOURCE, "static int\\ninitial_folder_list_in_directory_fd(int directory_fd)"
+)
+initial_snapshot_compact = "".join(initial_snapshot.split())
+require("get_all_folder_in_directory_fd(directory_fd,&sh_num,&folder_list)" in
+        initial_snapshot_compact and
+        'disk_share_write_stream_atomic_at(directory_fd,".__folder_list.txt",disk_share_write_snapshot_stream,&writer_context,0)' in
+        initial_snapshot_compact,
+        "folder cache snapshot must enumerate and publish on one pinned directory descriptor")
+
 require("disk_share_write_account_defaults" in POLICY and
         "if (fflush(stream) != 0)" in POLICY,
         "account defaults writer must report buffered stream failures")
@@ -253,13 +304,11 @@ account_writer = function_body(
     "static int initial_one_var_file_in_mount_path_locked(const char *const account,"
 )
 account_writer_compact = "".join(account_writer.split())
-require("disk_share_write_stream_atomic(var_file,disk_share_write_defaults_stream,&writer_context,0)" in
-        account_writer_compact and
-        "disk_share_write_account_defaults" in POLICY and
-        "mkstemp(" not in account_writer_compact and
-        "rename(" not in account_writer_compact and
-        'fopen(var_file,"w")' not in account_writer_compact,
-        "account defaults must use the pinned-directory publisher and never truncate the last complete permission file")
+require("disk_share_open_mount_directory(mount_path)" in account_writer_compact and
+        "get_all_folder_in_directory_fd(directory_fd,&sh_num,&folder_list)" in account_writer_compact and
+        "disk_share_write_stream_atomic_at(directory_fd,var_leaf,disk_share_write_defaults_stream,&writer_context,0)" in account_writer_compact and
+        "mkstemp(" not in account_writer_compact and "rename(" not in account_writer_compact,
+        "new account ACL defaults must enumerate and publish through the same pinned mount descriptor")
 
 
 atomic_replace = function_body(
@@ -274,6 +323,19 @@ atomic_stream = function_body(
     POLICY, "disk_share_write_stream_atomic_at(int directory_fd,"
 )
 atomic_stream_compact = "".join(atomic_stream.split())
+
+read_at_body = function_body(
+    DISK_IO_SOURCE, "read_regular_file_nofollow_at(int parent_fd, const char *leaf)"
+)
+read_at_compact = "".join(read_at_body.split())
+require("openat(parent_fd,leaf,O_RDONLY|O_NONBLOCK|O_NOFOLLOW|O_CLOEXEC)" in read_at_compact and
+        "fstat(fd,&file_status)" in read_at_compact and
+        "!S_ISREG(file_status.st_mode)" in read_at_compact and
+        "test_read_regular_file_nofollow_at_stays_with_pinned_directory();" in IO_REGRESSION and
+        "externchar*read_regular_file_nofollow_at(int,constchar*);" in
+        "".join(DISK_IO_HEADER.split()),
+        "descriptor-relative metadata reader must reject links/non-regular files and pass its mount-swap regression")
+
 parent_opener = function_body(
     DISK_IO_SOURCE, "disk_io_open_parent_nofollow(const char *target,"
 )
@@ -311,21 +373,17 @@ modify_writer = function_body(
     "static int modify_if_exist_new_folder_locked(const char *const account,"
 )
 compact_modify = "".join(modify_writer.split())
-folder_lookup = compact_modify.index(
-    "test_if_exist_folder_in_mount_path(mount_path,folder_list[i])"
-)
-lookup_error = compact_modify.index("if(result<0)", folder_lookup)
-lookup_missing = compact_modify.index("if(result==0)", lookup_error)
-modify_read = compact_modify.index("read_regular_file_nofollow(var_file)", lookup_missing)
-modify_publish = compact_modify.index(
-    "disk_share_write_stream_atomic(var_file,disk_share_write_update_stream,&writer_context,0)",
-    modify_read
-)
-require(folder_lookup < lookup_error < lookup_missing < modify_read < modify_publish and
-        "mkstemp(" not in compact_modify and
-        "rename(" not in compact_modify and
-        'fopen(var_file,"a+")' not in compact_modify,
-        "new-folder ACL extension must read through no-follow helpers and publish through the pinned-directory stream writer")
+modify_open = compact_modify.index("disk_share_open_mount_directory(mount_path)")
+modify_scan = compact_modify.index("get_all_folder_in_directory_fd(directory_fd,&sh_num,&folder_list)", modify_open)
+modify_cache = compact_modify.index("get_folder_list_in_directory_fd(directory_fd,&cached_count,&cached_folder_list)", modify_scan)
+modify_compare = compact_modify.index("upper_strcmp(folder_list[i],cached_folder_list[j])", modify_cache)
+modify_read = compact_modify.index("read_regular_file_nofollow_at(directory_fd,var_leaf)", modify_compare)
+modify_publish = compact_modify.index("disk_share_write_stream_atomic_at(directory_fd,var_leaf,disk_share_write_update_stream,&writer_context,0)", modify_read)
+require(modify_open < modify_scan < modify_cache < modify_compare < modify_read < modify_publish and
+        "test_if_exist_folder_in_mount_path" not in compact_modify and
+        "read_regular_file_nofollow(" not in compact_modify and
+        "disk_share_write_stream_atomic(" not in compact_modify,
+        "new-folder ACL update must enumerate, read and publish on one pinned removable-media volume")
 
 
 stale_pruner = function_body(

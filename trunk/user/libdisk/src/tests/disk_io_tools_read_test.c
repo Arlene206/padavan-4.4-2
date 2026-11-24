@@ -240,6 +240,49 @@ test_metadata_readers_reject_symlinked_parent_components(void)
 }
 
 
+static void
+test_read_regular_file_nofollow_at_stays_with_pinned_directory(void)
+{
+	char mount_dir[256], moved_dir[256], redirect_dir[256];
+	char mount_file[256], moved_file[256], redirect_file[256];
+	char *contents;
+	int directory_fd;
+
+	assert(snprintf(mount_dir, sizeof(mount_dir), "%s/mount-root", test_dir) > 0);
+	assert(snprintf(moved_dir, sizeof(moved_dir), "%s/moved-root", test_dir) > 0);
+	assert(snprintf(redirect_dir, sizeof(redirect_dir), "%s/redirect-root", test_dir) > 0);
+	assert(snprintf(mount_file, sizeof(mount_file), "%s/cache.txt", mount_dir) > 0);
+	assert(snprintf(moved_file, sizeof(moved_file), "%s/cache.txt", moved_dir) > 0);
+	assert(snprintf(redirect_file, sizeof(redirect_file), "%s/cache.txt", redirect_dir) > 0);
+	assert(mkdir(mount_dir, 0700) == 0);
+	assert(mkdir(redirect_dir, 0700) == 0);
+	write_file(mount_file, "original volume metadata\n",
+	           strlen("original volume metadata\n"));
+	write_file(redirect_file, "replacement volume metadata\n",
+	           strlen("replacement volume metadata\n"));
+	directory_fd = open(mount_dir, O_RDONLY | O_DIRECTORY);
+	assert(directory_fd >= 0);
+	assert(rename(mount_dir, moved_dir) == 0);
+	assert(symlink(redirect_dir, mount_dir) == 0);
+
+	contents = read_regular_file_nofollow_at(directory_fd, "cache.txt");
+	assert(contents != NULL);
+	assert(strcmp(contents, "original volume metadata\n") == 0);
+	free(contents);
+	errno = 0;
+	contents = read_regular_file_nofollow_at(directory_fd, "../outside");
+	assert(contents == NULL);
+	assert(errno == EINVAL);
+
+	assert(close(directory_fd) == 0);
+	assert(unlink(mount_dir) == 0);
+	assert(unlink(moved_file) == 0);
+	assert(unlink(redirect_file) == 0);
+	assert(rmdir(moved_dir) == 0);
+	assert(rmdir(redirect_dir) == 0);
+}
+
+
 static void test_sanity_name_replaces_high_bit_reserved_byte(void)
 {
 	char name[] = { 'A', (char)0x84, 'B', '/', '\0' };
@@ -272,6 +315,7 @@ int main(void)
 	test_regular_file_status_nofollow_distinguishes_missing_file();
 	test_regular_file_status_nofollow_rejects_symlink_and_fifo();
 	test_metadata_readers_reject_symlinked_parent_components();
+	test_read_regular_file_nofollow_at_stays_with_pinned_directory();
 	test_sanity_name_replaces_high_bit_reserved_byte();
 
 	assert(rmdir(test_dir) == 0);
