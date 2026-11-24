@@ -39,6 +39,7 @@
 | `docs/dev-log/2026/11/part-030.md` | 100 | 2026-11-23 UTC — Normalize DBDC error-return contract and restore handoff heading → 2026-11-23 UTC — Snapshot AP-client SSID presence before the next NVRAM read | 87781 | `d70f5f113c50c6785b91689199b6c06da0ce42e3` |
 | `docs/dev-log/2026/11/part-031.md` | 102 | 2026-11-23 持续开发 → 2026-11-23 — Count checked-reader compatibility wrappers in WAN regression contract | 104705 | `b3cc8b26887ea1aac609c5c6b4a61d69217967e3` |
 | `docs/dev-log/2026/11/part-032.md` | 100 | 2026-11-23 — Propagate RStats history read descriptor-close failures → 2026-11-24 — Reject invalid HTTPD listener protocol selectors | 109288 | `88732d131b6a19445dd603235c8b491d27916589` |
+| `docs/dev-log/2026/11/part-033.md` | 100 | 2026-11-24 — Correct HTTPD selector contract and ensure XY-C1 build coverage → 2026-11-25 — Unify udhcpc cleanup retry delay and lock full state transitions | 93785 | `d3714d2d8b08624dadc843691fa3d947bdbb3f42` |
 - **Rolling-window catch-up:** 102 oldest complete records evicted from root `dev_log.md` when it contained 122 entries at parent main `7cd1ffd3eecc05786846be684053428f20e8f535` are preserved verbatim, oldest first, in `part-031.md`; root retains the newest 20 pre-existing records plus this rotation checkpoint (21 total). No record was rewritten or discarded.
 
 
@@ -129,3 +130,6 @@
 
 
 - **Rolling-window recovery:** 100 oldest complete records from the 120-entry root log at parent main `f12d4d58c6cff4370deb62f3e12f4695bf07a976` are preserved verbatim, oldest first, in `part-032.md`; root retains its newest 20 existing records plus the new checker-fix milestone (21 total). No record was rewritten or discarded.
+
+
+- **Rolling-window continuation:** 100 oldest complete records evicted when root dev_log.md contained 119 entries at parent main c3d9f29fc94e81e1828c4c854f46658d2111ec3c are preserved verbatim, oldest first, in part-033; pre-rotation root blob: 0e8cc5fdf360966238fb5f632ce38fd305ffd71e. Root retains the new QMI security entry and the 19 newest prior records (20 total). No record was rewritten or discarded.

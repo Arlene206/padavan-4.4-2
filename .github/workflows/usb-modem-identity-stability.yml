@@ -27,6 +27,8 @@ on:
       - "trunk/user/rc/src/usb_printer_p910nd_policy.h"
       - "trunk/user/rc/src/tests/usb_printer_p910nd_policy.c"
       - "trunk/user/rc/src/usb_modem.c"
+      - "trunk/user/rc/src/modem_qmi_status_file.h"
+      - "trunk/user/rc/src/tests/modem_qmi_status_file.c"
       - "trunk/user/uqmi/main.c"
       - "trunk/user/uqmi/commands.c"
       - "trunk/user/uqmi/uqmi-client-id-policy.h"
@@ -87,6 +89,8 @@ on:
       - "trunk/user/rc/src/usb_printer_p910nd_policy.h"
       - "trunk/user/rc/src/tests/usb_printer_p910nd_policy.c"
       - "trunk/user/rc/src/usb_modem.c"
+      - "trunk/user/rc/src/modem_qmi_status_file.h"
+      - "trunk/user/rc/src/tests/modem_qmi_status_file.c"
       - "trunk/user/uqmi/main.c"
       - "trunk/user/uqmi/commands.c"
       - "trunk/user/uqmi/uqmi-client-id-policy.h"
@@ -887,6 +891,14 @@ jobs:
             trunk/user/uqmi/tests/status_file.c \
             -o /tmp/uqmi-status-file
           ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/uqmi-status-file
+      - name: Compile and run secure QMI status-file reader regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/modem_qmi_status_file.c \
+            -o /tmp/modem-qmi-status-file
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/modem-qmi-status-file
       - name: Compile and run strict QMI client-ID parser regression
         run: |
           set -eu
@@ -904,6 +916,8 @@ jobs:
           commands = Path("trunk/user/uqmi/commands.c").read_text()
           modem = Path("trunk/user/rc/src/usb_modem.c").read_text()
           helper = Path("trunk/user/uqmi/uqmi-status-file.h").read_text()
+          reader = Path("trunk/user/rc/src/modem_qmi_status_file.h").read_text()
+          reader_test = Path("trunk/user/rc/src/tests/modem_qmi_status_file.c").read_text()
           wds_source = Path("trunk/user/uqmi/commands-wds.c").read_text()
           client_policy = Path("trunk/user/uqmi/uqmi-client-id-policy.h").read_text()
           client_policy_test = Path("trunk/user/uqmi/tests/client_id_policy.c").read_text()
@@ -942,9 +956,30 @@ jobs:
           assert "fsync(fd)" in helper
           assert "rename(staging, path)" in helper
           assert "unlink(staging)" in helper
-          assert "modem_qmi_parse_handle(buffer, &qmi_handle)" in modem
-          assert "if (fclose(fp) != 0)" in modem
-          assert "fgetc(fp)" in modem
+          qmi_reader_start = modem.index("static int\nget_qmi_handle(const char *fn)")
+          qmi_reader_end = modem.index("static int\nqmi_control_network_start", qmi_reader_start)
+          qmi_reader_source = modem[qmi_reader_start:qmi_reader_end]
+          assert '#include "modem_qmi_status_file.h"' in modem
+          assert "modem_qmi_status_file_read(fn, &qmi_handle)" in qmi_reader_source
+          assert "fopen(" not in qmi_reader_source
+          assert "open(path, O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC)" in reader
+          assert "fstat(fd, &st)" in reader
+          assert "modem_qmi_status_file_metadata_status(&st)" in reader
+          assert "!S_ISREG(st->st_mode)" in reader
+          assert "st->st_uid != geteuid()" in reader
+          assert "(st->st_mode & 07777) != 0600" in reader
+          assert "st->st_nlink != 1" in reader
+          assert "memchr(buffer, '\\0', used)" in reader
+          assert "EOVERFLOW" in reader
+          for reader_case in (
+              "test_qmi_status_file_metadata_policy",
+              "test_qmi_status_file_reads_only_valid_numeric_handle",
+              "test_qmi_status_file_rejects_symlinks_and_fifo_without_blocking",
+              "test_qmi_status_file_enforces_permissions_and_link_count",
+              "test_qmi_status_file_rejects_embedded_nul_and_oversized_data",
+              "test_qmi_status_file_rejects_relative_missing_and_directory_paths",
+          ):
+              assert reader_case in reader_test
           assert "modem_qmi_handle_file_unlink_status" in qmi_start_function
           assert "start_status = _eval(start_argv, NULL, 0, NULL)" in qmi_start_function
           assert "pdh_handle = get_qmi_handle(QMI_HANDLE_PDH)" in qmi_start_function

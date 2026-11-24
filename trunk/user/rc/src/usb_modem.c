@@ -44,6 +44,7 @@
 #include "modem_node_identity_policy.h"
 #include "modem_module_reload_policy.h"
 #include "modem_qmi_credentials_file.h"
+#include "modem_qmi_status_file.h"
 
 #define MODEM_SCRIPTS_DIR	"/etc_ro"
 #define MAX_USB_NODE		(15)
@@ -744,42 +745,12 @@ get_modem_ndis_ifname(char ndis_ifname[16], int *devnum_out)
 static int
 get_qmi_handle(const char *fn)
 {
-	FILE *fp;
-	char buffer[64];
 	int qmi_handle = -1;
-	int extra, read_error = 0;
+	int status;
 
-	if (!fn) {
-		errno = EINVAL;
-		return -1;
-	}
-	errno = 0;
-	fp = fopen(fn, "r");
-	if (!fp)
-		return -1;
-	if (!fgets(buffer, sizeof(buffer), fp) || ferror(fp)) {
-		read_error = ferror(fp) ? (errno > 0 ? errno : EIO) : EINVAL;
-		goto done;
-	}
-	/* Reject extra lines and values that do not fit in the bounded buffer. */
-	extra = fgetc(fp);
-	if (extra != EOF) {
-		read_error = EINVAL;
-		goto done;
-	}
-	if (ferror(fp)) {
-		read_error = errno > 0 ? errno : EIO;
-		goto done;
-	}
-	if (modem_qmi_parse_handle(buffer, &qmi_handle) != 0) {
-		read_error = EINVAL;
-		goto done;
-	}
-done:
-	if (fclose(fp) != 0 && read_error == 0)
-		read_error = errno > 0 ? errno : EIO;
-	if (read_error != 0) {
-		errno = read_error;
+	status = modem_qmi_status_file_read(fn, &qmi_handle);
+	if (status != 0) {
+		errno = status;
 		return -1;
 	}
 	return qmi_handle;
