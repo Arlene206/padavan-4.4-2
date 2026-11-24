@@ -83,8 +83,8 @@ def require(condition, message):
 # Regression: a prototype and unrelated definition must not satisfy a
 # source contract for the later implementation.
 _function_definition_fixture = (
-    "static int fixture(int value);\\n"
-    "static int unrelated(void) { return -1; }\\n"
+    "static int fixture(int value);\n"
+    "static int unrelated(void) { return -1; }\n"
     "static int fixture(int value) { return value; }"
 )
 _fixture_body = function_body(
@@ -810,7 +810,7 @@ mkdir_staging = function_body(
 )
 mkdir_staging_compact = "".join(mkdir_staging.split())
 remove_staging = function_body(
-    DISK_SOURCE, "static int\\ndisk_share_remove_folder_path(const char *path)"
+    DISK_SOURCE, "disk_share_remove_folder_path(const char *path)"
 )
 remove_staging_compact = "".join(remove_staging.split())
 require("disk_io_open_parent_nofollow(path,&leaf)" in mkdir_staging_compact and

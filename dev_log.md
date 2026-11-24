@@ -1,3 +1,11 @@
+## 2026-11-24 — Correct the escaped staging-helper signature in the libdisk checker
+
+- Exact eb75f63ecd7ac2779fdbf53b989c94531ff3cd13 libdisk run #45464697321 passed both GNU89 ASan/UBSan host binaries, then the declaration-aware source checker failed at line 812 because the staging-cleanup signature was stored with literal backslash+n instead of matching the C function definition. Changed the contract to search by function name and let the extractor skip its earlier prototype.
+- Exact eb75 udhcpc run #45464697251 PASS (GNU89 sanitizer policy test and all Python source assertions).
+- Exact 57db1f707f65c8f753d964ebf69d9cacfb26ec28 udhcpc, USB hotplug, XY-C1, Process and NVRAM runs were IN_PROGRESS at last poll; the unmatched DHCP source block was corrected in this SHA. New exact-head verification required.
+
+---
+
 ## 2026-11-24 — Make source-contract extractors declaration-aware
 
 - Exact be691b89477fefaa2e0fc42606b9bf8ba4650528 udhcpc run #45464184832: GNU89 ASan/UBSan policy binary PASS; Python checker failed because it expected a standalone test invocation ending with semicolon, while the test is correctly called in main's nonzero-return condition. Assertion aligned to the real call form.
