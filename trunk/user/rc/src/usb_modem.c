@@ -745,14 +745,26 @@ static int
 get_qmi_handle(const char *fn)
 {
 	FILE *fp;
+	char buffer[64];
 	int qmi_handle = -1;
+	int extra;
 
+	if (!fn)
+		return -1;
 	fp = fopen(fn, "r");
-	if (fp) {
-		fscanf(fp, "%d", &qmi_handle);
-		fclose(fp);
-	}
-
+	if (!fp)
+		return -1;
+	if (!fgets(buffer, sizeof(buffer), fp) || ferror(fp))
+		goto done;
+	/* Reject extra lines and values that do not fit in the bounded buffer. */
+	extra = fgetc(fp);
+	if (extra != EOF || ferror(fp))
+		goto done;
+	if (modem_qmi_parse_handle(buffer, &qmi_handle) != 0)
+		qmi_handle = -1;
+done:
+	if (fclose(fp) != 0)
+		qmi_handle = -1;
 	return qmi_handle;
 }
 
@@ -769,8 +781,9 @@ qmi_control_network_start(const char *device_path)
 	char apn[257] = {0};
 	char client_id_arg[32] = {0};
 	char *qmi_nets;
-	int modem_nets = 0, qmi_client_id = -1;
-	int snapshot_status, status, cleanup_status, i;
+	int modem_nets = 0, qmi_client_id = -1, pdh_handle = -1;
+	int snapshot_status, status, cleanup_status, start_status;
+	int unlink_status, attempt_status, ambiguous_session, i;
 	int result = 1;
 
 	fields[0].param_name = "modem_pin";
@@ -885,7 +898,15 @@ qmi_control_network_start(const char *device_path)
 	}
 	snprintf(client_id_arg, sizeof(client_id_arg), "wds,%d", qmi_client_id);
 
-	unlink(QMI_HANDLE_PDH);
+	unlink_status = unlink(QMI_HANDLE_PDH);
+	cleanup_status = modem_qmi_handle_file_unlink_status(unlink_status, errno);
+	if (cleanup_status != 0) {
+		logmessage(LOGNAME,
+			   "cannot remove stale QMI packet-data handle (status=%d); refusing network start",
+			   cleanup_status);
+		goto done;
+	}
+
 	for (i = 0; i < MAX_QMI_TRIES; i++) {
 		char *start_argv[20];
 		int argc = 0;
@@ -917,7 +938,11 @@ qmi_control_network_start(const char *device_path)
 		start_argv[argc++] = apn;
 		start_argv[argc++] = "--autoconnect";
 		start_argv[argc] = NULL;
-		_eval(start_argv, NULL, 0, NULL);
+		start_status = _eval(start_argv, NULL, 0, NULL);
+		pdh_handle = get_qmi_handle(QMI_HANDLE_PDH);
+		attempt_status = modem_qmi_start_attempt_status(start_status,
+							       pdh_handle);
+		ambiguous_session = (start_status != 0 && pdh_handle >= 0);
 
 		if (has_credentials) {
 			cleanup_status = modem_qmi_credentials_file_cleanup(&credentials_file);
@@ -928,10 +953,30 @@ qmi_control_network_start(const char *device_path)
 				goto done;
 			}
 		}
-		if (check_if_file_exist(QMI_HANDLE_PDH)) {
+		if (attempt_status == 0) {
 			result = 0;
 			break;
 		}
+		logmessage(LOGNAME,
+			   "uqmi start-network did not publish a valid packet-data handle (command status=%d, handle=%d)",
+			   start_status, pdh_handle);
+
+		/* Remove any partial/invalid publication before a retry. */
+		unlink_status = unlink(QMI_HANDLE_PDH);
+		cleanup_status = modem_qmi_handle_file_unlink_status(unlink_status,
+								     errno);
+		if (cleanup_status != 0) {
+			logmessage(LOGNAME,
+				   "cannot remove failed QMI packet-data handle (status=%d); aborting retries",
+				   cleanup_status);
+			goto done;
+		}
+		/*
+		 * A failed command with a published handle may have created a live
+		 * session. Do not launch a duplicate session blindly.
+		 */
+		if (ambiguous_session)
+			goto done;
 		sleep(1);
 	}
 

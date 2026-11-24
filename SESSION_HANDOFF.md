@@ -7,22 +7,23 @@
 
 ## Active task
 
-Close and verify the PID 1 MTD reboot checker before moving to the queued QMI defect:
-- Source commit 6130ebd adds a checked MTD helper result and direct reboot syscall fallback.
-- Exact Process #45345435889 and AliyunDrive WebDAV #45345435736 exposed the same over-broad checker assertion, which mistook the assigned `mtd_unlock_status = system(...);` call for an unassigned statement.
-- Commit 33680078 attempted to narrow the assertion but left an unterminated Python raw-string expression, so its exact Process/AliyunDrive/HTTPD reruns must be triaged. Current follow-up changes the assertion to a complete line-anchored regex that rejects only a standalone unassigned helper call.
-- Once the checker passes, continue QMI WAN start fail-closed handling: stale/unparseable `/tmp/qmi-handle` and ignored `--start-network` failures must not be accepted as successful session creation. Add a focused C policy test and static contract without changing the uqmi CLI.
-- XY-C1 firmware must be checked per exact SHA; never claim L3 without same-SHA Build, TRX and artifact completion.
+QMI WAN session startup fail-closed:
+- The ZeroTier process-ownership changes through 3724008 passed their exact ZeroTier lifecycle, Process inventory, WAN route and AI handoff checks; do not re-audit them.
+- PID 1 MTD emergency-reboot fallback source change is in 6130ebd. The old checker assertion was overbroad; 33680078 introduced an incomplete Python raw string and is superseded by 69045235245d1b9bbdf8e830e9a5570906329929, which uses a complete line-anchored regex. Exact Process/AliyunDrive/HTTPD/AI handoff results for 6904523 must be checked.
+- Current QMI source defect: qmi_control_network_start() previously removed QMI_HANDLE_PDH without checking unlink, ignored uqmi --start-network's _eval status, and reported success from file existence alone. get_qmi_handle() also ignored fscanf/fclose results and accepted partial numeric strings. A stale/malformed file could falsely report WAN session creation.
+- Require checked stale-handle removal (ENOENT benign), parse one complete nonnegative integer token within INT_MAX, and accept an attempt only when both _eval succeeds and the PDH handle is valid. Clean invalid files before retry; if uqmi fails after publishing a valid handle, stop retries to avoid blindly creating a duplicate possible live session.
+- Add GNU89 regressions and USB modem workflow source contract. No physical-modem hardware validation is claimed.
 
 ## Verification boundary
 
-- Exact 33680078f7b33ac6e166fbeab5ed99d4a5e17558: checker-only commit attempted the MTD negative assertion correction; exact Actions #45345902653 (AliyunDrive), #45345902730 (Process inventory) and #45345902660 (HTTPD) were IN_PROGRESS at last poll. The checked-in Python expression is incomplete and is corrected in the current follow-up; these runs must be verified.
-- Exact 6130ebd28962da5bf55439349632175dfc0d858e: DNSMasq #45345435699 PASS; PID1 notification queue #45345435667 PASS; Process inventory #45345435999 PASS; HTTPD #45345435733 PASS; PID1 mdev security #45345435825 PASS; DNS forwarder #45345435708 PASS; RC timezone #45345435849 PASS; USB storage #45345435532 PASS; NVRAM transaction audit #45345435848 PASS; AI handoff #45345435583 PASS. Process fail-closed #45345435889 and AliyunDrive #45345435736 failed on the old checker assertion. XY-C1 #45345435466 was still IN_PROGRESS at Build; TRX/artifact unconfirmed.
+- Exact 69045235245d1b9bbdf8e830e9a5570906329929: AliyunDrive WebDAV #45346026318, Process inventory #45346026329, HTTPD #45346026346 and AI handoff #45346026565 were queued at first observation; verify their final outcomes.
+- Exact 6130ebd28962da5bf55439349632175dfc0d858e: DNSMasq #45345435699 PASS; PID1 notification queue #45345435667 PASS; Process inventory #45345435999 PASS; HTTPD #45345435733 PASS; PID1 mdev security #45345435825 PASS; DNS forwarder #45345435708 PASS; RC timezone #45345435849 PASS; USB storage #45345435532 PASS; NVRAM transaction audit #45345435848 PASS; AI handoff #45345435583 PASS. Process fail-closed #45345435889 and AliyunDrive #45345435736 failed only on the obsolete negative checker assertion, corrected in follow-up.
+- Exact ZeroTier commit 372400813c7d0888c508d6e6595353c46ea5d960: ZeroTier lifecycle #45344943818 PASS; Process inventory #45344943892 PASS; WAN route #45344943905 PASS; AI handoff #45344943861 PASS. XY-C1 #45344943825 was still in progress at Build; no firmware L3 claim.
 ## Exact first action for the next GPT
 
-1. Inspect exact-head Process inventory, AliyunDrive and HTTPD Actions for the complete regex fix; resolve any genuine failure.
-2. Check exact-head AI handoff, then continue QMI start-network stale-PDH validation and regression coverage in the USB modem workflow.
-3. Poll XY-C1 Build/TRX/artifact for the source SHA. Do not claim L3 without same-SHA Build, TRX and artifact PASS.
+1. Verify exact-SHA USB modem identity Actions for the QMI PDH parser/start-network status change, including the GNU89 modem WAN policy regression.
+2. Check exact Process inventory, AliyunDrive, HTTPD and AI handoff reruns for 6904523; resolve any remaining failure.
+3. Poll XY-C1 Build/TRX/artifact for the current production source SHA. Do not claim firmware L3 without all same-SHA steps passing.
 
 # Cross-session execution mandate
 

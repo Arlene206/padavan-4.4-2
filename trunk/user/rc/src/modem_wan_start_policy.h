@@ -1,8 +1,54 @@
 #ifndef RC_MODEM_WAN_START_POLICY_H
 #define RC_MODEM_WAN_START_POLICY_H
 
+#include <ctype.h>
 #include <errno.h>
+#include <limits.h>
+#include <stdlib.h>
 #include <string.h>
+
+/*
+ * A QMI session is usable only after uqmi succeeded and published a complete,
+ * nonnegative packet-data handle. File presence alone is not a session result.
+ */
+static inline int
+modem_qmi_start_attempt_status(int command_status, int packet_data_handle)
+{
+	if (command_status != 0)
+		return command_status > 0 ? command_status : EIO;
+	return packet_data_handle >= 0 ? 0 : EIO;
+}
+
+/* Missing old status files are benign; other unlink failures block startup. */
+static inline int
+modem_qmi_handle_file_unlink_status(int unlink_status, int saved_errno)
+{
+	if (unlink_status == 0 || (unlink_status < 0 && saved_errno == ENOENT))
+		return 0;
+	return saved_errno > 0 ? saved_errno : EIO;
+}
+
+/* Parse exactly one nonnegative decimal handle, allowing surrounding whitespace. */
+static inline int
+modem_qmi_parse_handle(const char *text, int *handle)
+{
+	char *end;
+	long value;
+
+	if (!text || !handle)
+		return EINVAL;
+	*handle = -1;
+	errno = 0;
+	value = strtol(text, &end, 10);
+	if (end == text || errno == ERANGE || value < 0 || value > INT_MAX)
+		return EINVAL;
+	while (*end && isspace((unsigned char)*end))
+		end++;
+	if (*end)
+		return EINVAL;
+	*handle = (int)value;
+	return 0;
+}
 
 /* Do not migrate the active WAN interface while miniupnpd is still bound. */
 static inline int

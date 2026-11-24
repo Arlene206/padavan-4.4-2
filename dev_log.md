@@ -1,3 +1,13 @@
+## 2026-11-23 — Reject stale or malformed QMI packet-data handles
+
+- QMI WAN startup had three linked false-success paths: unchecked unlink(QMI_HANDLE_PDH), ignored _eval(--start-network) status, and a plain file-existence success check. get_qmi_handle() also ignored fscanf/fclose and accepted a leading integer from malformed trailing data.
+- Added a strict decimal QMI handle parser (one token, nonnegative, within INT_MAX), checked fclose and extra input in get_qmi_handle(), and require both a successful uqmi command and a valid PDH handle before returning startup success.
+- The stale PDH file is removed before the first attempt; ENOENT is benign but other unlink errors stop startup. Failed/invalid attempts remove their partial handle before retry. If uqmi returns failure after publishing a valid PDH handle, retries stop to avoid blindly launching a second possible live session.
+- Added policy tests for command/handle combinations, unlink errno semantics, malformed/negative/overflow handles and valid whitespace. Extended the USB modem workflow contract to enforce the source checks. Physical modem behavior is not hardware-validated.
+- Source parent main: 69045235245d1b9bbdf8e830e9a5570906329929. Exact USB modem Actions will be checked on the resulting commit.
+
+---
+
 ## 2026-11-23 — Repair malformed MTD reboot checker follow-up
 
 - Commit 33680078f7b33ac6e166fbeab5ed99d4a5e17558 attempted to narrow the negative check for a standalone MTD helper invocation, but the committed raw-string expression was unterminated. Exact Process/AliyunDrive/HTTPD reruns #45345902653, #45345902730 and #45345902660 were still IN_PROGRESS at last poll.

@@ -911,7 +911,27 @@ jobs:
           assert "fsync(fd)" in helper
           assert "rename(staging, path)" in helper
           assert "unlink(staging)" in helper
-          print("QMI client ID fail-closed publication contract: PASS")
+          qmi_start_function = modem.split(
+              "static int\\nqmi_control_network_start", 1)[1].split(
+                  "\\nstatic int\\nqmi_control_network(", 1)[0]
+          assert "modem_qmi_parse_handle(buffer, &qmi_handle)" in modem
+          assert "if (fclose(fp) != 0)" in modem
+          assert "fgetc(fp)" in modem
+          assert "modem_qmi_handle_file_unlink_status" in qmi_start_function
+          assert "start_status = _eval(start_argv, NULL, 0, NULL)" in qmi_start_function
+          assert "pdh_handle = get_qmi_handle(QMI_HANDLE_PDH)" in qmi_start_function
+          assert "modem_qmi_start_attempt_status(start_status," in qmi_start_function
+          assert "if (check_if_file_exist(QMI_HANDLE_PDH))" not in qmi_start_function
+          assert "ambiguous_session" in qmi_start_function
+          assert "cannot remove failed QMI packet-data handle" in qmi_start_function
+          qmi_policy_test = Path("trunk/user/rc/src/tests/modem_wan_start_policy.c").read_text()
+          for policy_case in (
+              "test_qmi_start_requires_command_success_and_valid_handle",
+              "test_qmi_handle_cleanup_distinguishes_missing_from_other_errors",
+              "test_qmi_handle_parser_rejects_partial_and_out_of_range_values",
+          ):
+              assert policy_case in qmi_policy_test
+          print("QMI client ID and packet-data handle fail-closed contract: PASS")
           PY
 
       - name: Compile and run uqmi command queue allocation regression

@@ -8,6 +8,51 @@
 #include "dhcp_lease_policy.h"
 
 static void
+test_qmi_start_requires_command_success_and_valid_handle(void)
+{
+	assert(modem_qmi_start_attempt_status(0, 17) == 0);
+	assert(modem_qmi_start_attempt_status(0, 0) == 0);
+	assert(modem_qmi_start_attempt_status(0, -1) == EIO);
+	assert(modem_qmi_start_attempt_status(EIO, 17) == EIO);
+	assert(modem_qmi_start_attempt_status(1, 17) == 1);
+	assert(modem_qmi_start_attempt_status(-1, 17) == EIO);
+}
+
+static void
+test_qmi_handle_cleanup_distinguishes_missing_from_other_errors(void)
+{
+	assert(modem_qmi_handle_file_unlink_status(0, 0) == 0);
+	assert(modem_qmi_handle_file_unlink_status(-1, ENOENT) == 0);
+	assert(modem_qmi_handle_file_unlink_status(-1, EACCES) == EACCES);
+	assert(modem_qmi_handle_file_unlink_status(-1, EROFS) == EROFS);
+	assert(modem_qmi_handle_file_unlink_status(-1, 0) == EIO);
+}
+
+static void
+test_qmi_handle_parser_rejects_partial_and_out_of_range_values(void)
+{
+	int handle = 99;
+
+	assert(modem_qmi_parse_handle("17", &handle) == 0);
+	assert(handle == 17);
+	assert(modem_qmi_parse_handle("0\\n", &handle) == 0);
+	assert(handle == 0);
+	assert(modem_qmi_parse_handle(" 23 \\t", &handle) == 0);
+	assert(handle == 23);
+
+	handle = 99;
+	assert(modem_qmi_parse_handle("", &handle) == EINVAL);
+	assert(handle == -1);
+	assert(modem_qmi_parse_handle("17junk", &handle) == EINVAL);
+	assert(modem_qmi_parse_handle("17\\n88", &handle) == EINVAL);
+	assert(modem_qmi_parse_handle("-1", &handle) == EINVAL);
+	assert(modem_qmi_parse_handle("2147483648", &handle) == EINVAL);
+	assert(modem_qmi_parse_handle("not-a-handle", &handle) == EINVAL);
+	assert(modem_qmi_parse_handle(NULL, &handle) == EINVAL);
+	assert(modem_qmi_parse_handle("1", NULL) == EINVAL);
+}
+
+static void
 test_link_change_reconnect_requires_checked_modem_state(void)
 {
 	int reconnect = -1;
@@ -747,6 +792,9 @@ test_modem_restart_requires_known_identity(void)
 int
 main(void)
 {
+	test_qmi_start_requires_command_success_and_valid_handle();
+	test_qmi_handle_cleanup_distinguishes_missing_from_other_errors();
+	test_qmi_handle_parser_rejects_partial_and_out_of_range_values();
 	test_link_change_reconnect_requires_checked_modem_state();
 	test_hotplug_notification_preserves_ndis_and_ras_legacy_gates();
 	test_hotplug_notification_missing_any_legacy_match_key_stays_disabled();
