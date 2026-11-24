@@ -1976,7 +1976,29 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 				}
 #if ENABLE_FEATURE_UDHCPC_ARPING
 				if (opt & OPT_a) {
-					int decline_status;
+					int decline_status, arp_probe_status, arp_probe_errno;
+					unsigned arp_probe_start_ms, arp_probe_elapsed_ms;
+					unsigned arp_probe_elapsed_sec;
+					arp_probe_start_ms = monotonic_ms();
+					arp_probe_status = arpping(packet.yiaddr,
+							NULL,
+							(uint32_t) 0,
+							client_config.client_mac,
+							client_config.interface,
+							arpping_ms);
+					arp_probe_elapsed_ms = (unsigned)monotonic_ms() - arp_probe_start_ms;
+					arp_probe_elapsed_sec = arp_probe_elapsed_ms / 1000U +
+						(arp_probe_elapsed_ms % 1000U != 0);
+					if (udhcpc_arp_probe_failed(arp_probe_status)) {
+						arp_probe_errno = errno ? errno : EIO;
+						bb_error_msg("ARP conflict probe failed (errno %d); deferring DHCP ACK",
+							arp_probe_errno);
+						udhcpc_script_failure_prepare_retry(state == REQUESTING,
+							tryagain_timeout, arp_probe_elapsed_sec, &timeout,
+							&already_waited_sec, &packet_num);
+						continue;
+					}
+					if (arp_probe_status == 0) {
 /* RFC 2131 3.1 paragraph 5:
  * "The client receives the DHCPACK message with configuration
  * parameters. The client SHOULD perform a final check on the

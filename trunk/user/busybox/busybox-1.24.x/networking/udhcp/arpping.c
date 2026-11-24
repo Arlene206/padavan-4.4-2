@@ -5,6 +5,7 @@
  *
  * Licensed under GPLv2, see file LICENSE in this source tree.
  */
+#include <errno.h>
 #include <netinet/if_ether.h>
 #include <net/if_arp.h>
 
@@ -34,7 +35,7 @@ enum {
 	ARP_MSG_SIZE = 0x2a
 };
 
-/* Returns 1 if no reply received */
+/* Returns 1 for no conflict, 0 for conflict, and -1 on probe I/O error. */
 int FAST_FUNC arpping(uint32_t test_nip,
 		const uint8_t *safe_mac,
 		uint32_t from_ip,
@@ -42,7 +43,7 @@ int FAST_FUNC arpping(uint32_t test_nip,
 		const char *interface,
 		unsigned timeo)
 {
-	int timeout_ms;
+	int timeout_ms, send_result;
 	struct pollfd pfd[1];
 #define s (pfd[0].fd)           /* socket */
 	int rv = 1;             /* "no reply received" yet */
@@ -60,6 +61,7 @@ int FAST_FUNC arpping(uint32_t test_nip,
 
 	if (setsockopt_broadcast(s) == -1) {
 		bb_perror_msg("can't enable bcast on raw socket");
+		rv = -1;
 		goto ret;
 	}
 
@@ -80,9 +82,12 @@ int FAST_FUNC arpping(uint32_t test_nip,
 
 	memset(&addr, 0, sizeof(addr));
 	safe_strncpy(addr.sa_data, interface, sizeof(addr.sa_data));
-	if (sendto(s, &arp, sizeof(arp), 0, &addr, sizeof(addr)) < 0) {
-		// TODO: error message? caller didn't expect us to fail,
-		// just returning 1 "no reply received" misleads it.
+	send_result = sendto(s, &arp, sizeof(arp), 0, &addr, sizeof(addr));
+	if (send_result != (int)sizeof(arp)) {
+		if (send_result >= 0)
+			errno = EIO;
+		bb_perror_msg("can't send ARP request");
+		rv = -1;
 		goto ret;
 	}
 
@@ -95,12 +100,23 @@ int FAST_FUNC arpping(uint32_t test_nip,
 
 		pfd[0].events = POLLIN;
 		r = safe_poll(pfd, 1, timeout_ms);
-		if (r < 0)
+		if (r < 0) {
+			rv = -1;
 			break;
+		}
 		if (r) {
-			r = safe_read(s, &arp, sizeof(arp));
-			if (r < 0)
+			if (!(pfd[0].revents & POLLIN)) {
+				errno = EIO;
+				rv = -1;
 				break;
+			}
+			r = safe_read(s, &arp, sizeof(arp));
+			if (r <= 0) {
+				if (r == 0)
+					errno = EIO;
+				rv = -1;
+				break;
+			}
 
 			//log3("sHaddr %02x:%02x:%02x:%02x:%02x:%02x",
 			//	arp.sHaddr[0], arp.sHaddr[1], arp.sHaddr[2],

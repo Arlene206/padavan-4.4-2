@@ -56,6 +56,7 @@ udhcp_dir = "trunk/user/busybox/busybox-1.24.x/networking/udhcp/"
 dhcpc = read(udhcp_dir + "dhcpc.c")
 policy = read(udhcp_dir + "udhcpc_script_policy.h")
 test = read(udhcp_dir + "tests/udhcpc_script_policy.c")
+arpping_source = read(udhcp_dir + "arpping.c")
 spawn = read("trunk/user/busybox/busybox-1.24.x/libbb/vfork_daemon_rexec.c")
 libbb = read("trunk/user/busybox/busybox-1.24.x/include/libbb.h")
 workflow = read(".github/workflows/udhcpc-script-status-stability.yml")
@@ -116,9 +117,22 @@ nak = dhcpc[nak_start:nak_end]
 assert "udhcpc_deconfig_retry_required(deconfig_status)" in nak
 assert "udhcpc_schedule_deconfig_retry(INIT_SELECTING" in nak
 
-arp_start = dhcpc.index("if (!arpping(packet.yiaddr,")
-arp_end = dhcpc.index("continue; /* back to main loop */", arp_start)
+arpping_body = function_body(arpping_source, "int FAST_FUNC arpping(")
+assert "Returns 1 for no conflict, 0 for conflict, and -1 on probe I/O error." in arpping_source
+assert "rv = -1;" in arpping_body
+assert "send_result != (int)sizeof(arp)" in arpping_body
+assert "if (r < 0)" in arpping_body
+assert "if (r <= 0)" in arpping_body
+
+arp_start = dhcpc.index("arp_probe_status = arpping(")
+arp_end = dhcpc.index("temp_addr.s_addr = packet.yiaddr", arp_start)
 arp_conflict = dhcpc[arp_start:arp_end]
+assert "udhcpc_arp_probe_failed(arp_probe_status)" in arp_conflict
+assert "udhcpc_script_failure_prepare_retry(state == REQUESTING" in arp_conflict
+assert arp_conflict.index("udhcpc_arp_probe_failed(arp_probe_status)") < arp_conflict.index("if (arp_probe_status == 0)") < arp_conflict.index("send_decline(server_addr, packet.yiaddr)")
+assert "udhcpc_arp_probe_failed(int probe_status)" in policy
+assert "test_arp_probe_errors_do_not_publish_a_dhcp_lease" in test
+assert "test_arp_probe_errors_do_not_publish_a_dhcp_lease();" in test
 
 assert "decline_status = send_decline(server_addr, packet.yiaddr);" in arp_conflict
 assert "udhcpc_packet_send_failed(decline_status)" in arp_conflict
@@ -201,6 +215,7 @@ paths = (
     ".github/workflows/udhcpc-script-status-stability.yml",
     "scripts/check_udhcpc_script_status.py",
     udhcp_dir + "dhcpc.c",
+    udhcp_dir + "arpping.c",
     udhcp_dir + "udhcpc_script_policy.h",
     udhcp_dir + "tests/udhcpc_script_policy.c",
     "trunk/user/busybox/busybox-1.24.x/libbb/vfork_daemon_rexec.c",

@@ -43,6 +43,12 @@ static inline void udhcpc_script_failure_prepare_retry(
 	*already_waited_sec += script_elapsed;
 }
 
+/* arpping(): zero means conflict, one means clear, negative means I/O failure. */
+static inline int udhcpc_arp_probe_failed(int probe_status)
+{
+	return probe_status < 0;
+}
+
 /* A nonzero event-script status means that lease cleanup is incomplete. */
 static inline int udhcpc_deconfig_retry_required(int script_status)
 {

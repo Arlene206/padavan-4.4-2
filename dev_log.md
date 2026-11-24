@@ -1,3 +1,11 @@
+## 2026-11-24 — Fail closed when the udhcpc ARP preflight cannot run
+
+- Audited the DHCP client address-conflict path. arpping() documented a tri-state result but collapsed setsockopt, sendto, poll and read failures into rv=1 (“no conflict”). dhcpc.c treated every nonzero result as a clear address and could commit a DHCPACK even when the probe failed.
+- Updated arpping() to return -1 on socket-option/send/short-send/poll/read failures, retained 1 only for a completed probe without a conflict, and kept 0 for a detected conflict. DHCPACK processing now rejects negative results, preserves the current lease/state, charges rounded-up probe runtime against the existing deadline, and retries after a bounded interval.
+- Added GNU89 policy regression coverage and source checks for the tri-state/error gate, and included arpping.c in the udhcpc stability workflow path filters. Exact-head host sanitizer/source Actions are pending; no firmware or hardware validation is claimed.
+
+---
+
 ## 2026-11-24 — Restore C89 declarations for pinned-mount helpers
 
 - Exact XY-C1 run 45461770986 on product SHA 572ec294eeae01befe36684ed7ab3102b9430e21 failed during MIPS musl compilation in disk_share.c: initial_all_var_file_in_mount_path() called disk_share_account_metadata_status_at() before its static definition; disk_share_create_folder_staging_paths() similarly called disk_share_remove_folder_path() before its static definition. The compiler emitted implicit declarations followed by conflicting static definitions. TRX and artifact steps were skipped.
