@@ -2006,7 +2006,7 @@ export TEST_ORBIT_STATUS TEST_ORBIT_LOG
 TEST_FAKE_ZEROTIER_CLI="$TEST_TMP/zerotier-cli"
 cat > "$TEST_FAKE_ZEROTIER_CLI" <<'ORBIT_CLI'
 #!/bin/sh
-printf '%s\\n' "$*" >> "$TEST_ORBIT_LOG"
+printf '%s\n' "$*" >> "$TEST_ORBIT_LOG"
 exit "$TEST_ORBIT_STATUS"
 ORBIT_CLI
 chmod 700 "$TEST_FAKE_ZEROTIER_CLI"
@@ -2031,19 +2031,19 @@ rules() {
 	return 0
 }
 kill_z() {
-	printf '%s\\n' kill_z >> "$TEST_ACTION_LOG"
+	printf '%s\n' kill_z >> "$TEST_ACTION_LOG"
 	return "$TEST_KILL_STATUS"
 }
 del_rules() {
-	printf '%s\\n' del_rules >> "$TEST_ACTION_LOG"
+	printf '%s\n' del_rules >> "$TEST_ACTION_LOG"
 	return "$TEST_DEL_RULES_STATUS"
 }
 zero_route() {
-	printf 'zero_route:%s\\n' "$1" >> "$TEST_ACTION_LOG"
+	printf 'zero_route:%s\n' "$1" >> "$TEST_ACTION_LOG"
 	return "$TEST_ZERO_ROUTE_STATUS"
 }
 zerotier_firewall_state_clear() {
-	printf '%s\\n' clear_firewall_state >> "$TEST_ACTION_LOG"
+	printf '%s\n' clear_firewall_state >> "$TEST_ACTION_LOG"
 	/bin/rm -f "$config_path/.firewall-state"
 }
 
@@ -2053,7 +2053,7 @@ if start_instance_production orbit-failure; then
 	fail "production launcher reported success after the Moon orbit command failed"
 fi
 grep -Fq -- '-D' "$TEST_ORBIT_LOG" || fail "production launcher did not invoke zerotier-cli orbit"
-[ "$(cat "$TEST_ACTION_LOG")" = "$(printf 'kill_z\\ndel_rules\\nzero_route:del\\nclear_firewall_state')" ] ||
+[ "$(cat "$TEST_ACTION_LOG")" = "$(printf 'kill_z\ndel_rules\nzero_route:del\nclear_firewall_state')" ] ||
 	fail "successful orbit-failure rollback did not stop then clean network state in order"
 [ ! -e "$config_path/.firewall-state" ] || fail "successful orbit rollback retained its recovery checkpoint"
 
@@ -2076,7 +2076,7 @@ TEST_ZERO_ROUTE_STATUS=0
 if start_instance_production orbit-firewall-cleanup-failure; then
 	fail "production launcher accepted an incomplete firewall rollback"
 fi
-[ "$(cat "$TEST_ACTION_LOG")" = "$(printf 'kill_z\\ndel_rules\\nzero_route:del')" ] ||
+[ "$(cat "$TEST_ACTION_LOG")" = "$(printf 'kill_z\ndel_rules\nzero_route:del')" ] ||
 	fail "route cleanup was skipped after an independent firewall cleanup failure"
 [ -f "$config_path/.firewall-state" ] || fail "incomplete firewall rollback discarded its checkpoint"
 
