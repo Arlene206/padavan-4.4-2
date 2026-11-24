@@ -20,6 +20,8 @@
 <script type="text/javascript" src="/popup.js"></script>
 <script>
 var $j = jQuery.noConflict();
+var netdevs = {};
+var netdev_status = 0;
 <% netdev(); %>
 var netdevs_prev = {};
 
@@ -272,14 +274,20 @@ function calc_speed(now_perf){
 
 function eval_netdevs(response){
 	var now_perf = performance.now();
+	var previous = netdevs;
 
-	netdevs = {};
-
+	netdev_status = 0;
 	try {
 		eval(response);
 	}
 	catch (ex) {
-		netdevs = {};
+		netdevs = previous;
+		return;
+	}
+
+	if (netdev_status !== 0 || !netdevs || typeof netdevs !== "object") {
+		netdevs = previous;
+		return;
 	}
 
 	calc_speed(now_perf);

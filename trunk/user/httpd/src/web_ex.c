@@ -59,6 +59,7 @@
 #include "common.h"
 #include "nvram_x.h"
 #include "httpd.h"
+#include "httpd_netdev_policy.h"
 #include "httpd_script_policy.h"
 #include "httpd_apply_request_policy.h"
 #include "httpd_group_delete_policy.h"
@@ -5121,63 +5122,123 @@ static int
 ej_netdev(int eid, webs_t wp, int argc, char **argv)
 {
 	FILE *fp;
-	char buf[256];
+	char buf[512];
+	httpd_netdev_entry_t entries[HTTPD_NETDEV_MAX_ENTRIES];
+	size_t entry_count = 0, output_count;
 	uint64_t rx, tx;
 	char *p, *ifname, comma;
 	const char *ifdesc;
-	int is_ap_mode, ifindex;
+	int is_ap_mode, ifindex, status = 0;
 #if !defined(RSTATS_SKIP_ESW)
 	unsigned int i;
 #endif
 
 	is_ap_mode = get_ap_mode();
 
-	comma = ' ';
-
-	fprintf(wp, "\nnetdevs = {\n");
+	errno = 0;
 	fp = fopen("/proc/net/dev", "r");
-	if (fp) {
-		fgets(buf, sizeof(buf), fp);
-		fgets(buf, sizeof(buf), fp);
-		while (fgets(buf, sizeof(buf), fp)) {
-			if ((p = strchr(buf, ':')) == NULL)
-				continue;
+	if (!fp) {
+		status = httpd_netdev_status_from_errno(errno);
+	} else {
+		errno = 0;
+		if (!fgets(buf, sizeof(buf), fp) ||
+		    !fgets(buf, sizeof(buf), fp)) {
+			status = ferror(fp) ?
+				httpd_netdev_status_from_errno(errno) : EPROTO;
+		}
+
+		while (status == 0) {
+			errno = 0;
+			if (!fgets(buf, sizeof(buf), fp)) {
+				if (ferror(fp))
+					status = httpd_netdev_status_from_errno(errno);
+				break;
+			}
+			if (!strchr(buf, '\n')) {
+				status = EOVERFLOW;
+				break;
+			}
+
+			p = strchr(buf, ':');
+			if (!p) {
+				status = EPROTO;
+				break;
+			}
 			*p = 0;
-			if ((ifname = strrchr(buf, ' ')) == NULL)
-				ifname = buf;
-			else
+			ifname = strrchr(buf, ' ');
+			if (ifname)
 				++ifname;
-			
+			else
+				ifname = buf;
+			if (!*ifname) {
+				status = EPROTO;
+				break;
+			}
+
 			if (strcmp(ifname, "lo") == 0)
 				continue;
-			
+
 			ifindex = 0;
 			ifdesc = get_ifname_descriptor(ifname, is_ap_mode, &ifindex, NULL);
 			if (!ifdesc)
 				continue;
-			
-			if (sscanf(p + 1, "%llu%*u%*u%*u%*u%*u%*u%*u%llu", &rx, &tx) != 2)
-				continue;
-			
-			fprintf(wp, "%c'%s':{id:%d,rx:0x%llx,tx:0x%llx}\n", comma, ifdesc, ifindex, rx, tx);
-			if (comma != ',')
-				comma = ',';
+
+			status = httpd_netdev_parse_counters(p + 1, &rx, &tx);
+			if (status != 0)
+				break;
+			if (entry_count >= HTTPD_NETDEV_MAX_ENTRIES) {
+				status = ENOSPC;
+				break;
+			}
+			if (strlen(ifdesc) >= sizeof(entries[entry_count].ifdesc)) {
+				status = ENAMETOOLONG;
+				break;
+			}
+			strcpy(entries[entry_count].ifdesc, ifdesc);
+			entries[entry_count].ifindex = ifindex;
+			entries[entry_count].rx = rx;
+			entries[entry_count].tx = tx;
+			++entry_count;
 		}
-		fclose(fp);
+
+		if (status == 0 && ferror(fp))
+			status = httpd_netdev_status_from_errno(errno);
+		errno = 0;
+		if (fclose(fp) != 0 && status == 0)
+			status = httpd_netdev_status_from_errno(errno);
+	}
+
+	if (status != 0) {
+		fprintf(wp, "\nnetdev_status = %d;\n", status);
+		fflush(wp);
+		return 0;
+	}
+
+	comma = ' ';
+	fprintf(wp, "\nnetdev_status = 0;\nnetdevs = {\n");
+	for (output_count = 0; output_count < entry_count; ++output_count) {
+		fprintf(wp, "%c'%s':{id:%d,rx:0x%llx,tx:0x%llx}\n",
+			comma, entries[output_count].ifdesc,
+			entries[output_count].ifindex,
+			(unsigned long long)entries[output_count].rx,
+			(unsigned long long)entries[output_count].tx);
+		if (comma != ',')
+			comma = ',';
 	}
 
 #if !defined(RSTATS_SKIP_ESW)
 	for (i = 0; i < BOARD_NUM_ETH_EPHY; i++) {
 		if (get_eth_port_bytes(i, &rx, &tx) < 0)
 			continue;
-		fprintf(wp, "%c'ESW_P%d':{id:%d,rx:0x%llx,tx:0x%llx}\n", comma, i, 0, rx, tx);
+		fprintf(wp, "%c'ESW_P%d':{id:%d,rx:0x%llx,tx:0x%llx}\n",
+			comma, i, 0,
+			(unsigned long long)rx, (unsigned long long)tx);
 		if (comma != ',')
 			comma = ',';
 	}
 #endif
 
 	fprintf(wp, "};\n");
-
 	fflush(wp);
 
 	return 0;

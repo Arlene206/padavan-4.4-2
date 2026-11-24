@@ -300,6 +300,9 @@ on:
       - "trunk/user/www/n56u_ribbon_fixed/Advanced_GWStaticRoute_Content.asp"
       - "scripts/check_static_route_ui.py"
       - "scripts/check_dev_init_boot.py"
+      - "trunk/user/httpd/src/httpd_netdev_policy.h"
+      - "trunk/user/httpd/src/tests/httpd_netdev_policy.c"
+      - "scripts/check_httpd_netdev_status.py"
   pull_request:
     paths:
       - "trunk/user/shared/src/dhcp6c_duid_file_policy.h"
@@ -610,6 +613,9 @@ on:
       - "trunk/user/www/n56u_ribbon_fixed/Advanced_GWStaticRoute_Content.asp"
       - "scripts/check_static_route_ui.py"
       - "scripts/check_dev_init_boot.py"
+      - "trunk/user/httpd/src/httpd_netdev_policy.h"
+      - "trunk/user/httpd/src/tests/httpd_netdev_policy.c"
+      - "scripts/check_httpd_netdev_status.py"
   workflow_dispatch:
 
 permissions:
@@ -5669,6 +5675,18 @@ jobs:
             -o "$RUNNER_TEMP/httpd_json_output_policy"
           ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/httpd_json_output_policy"
           python3 scripts/check_httpd_nvram_output_context.py
+
+      - name: Verify HTTPD network-device counter snapshots fail closed
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -g \
+            -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -I trunk/user/httpd/src \
+            trunk/user/httpd/src/tests/httpd_netdev_policy.c \
+            -o "$RUNNER_TEMP/httpd_netdev_policy"
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 \
+            "$RUNNER_TEMP/httpd_netdev_policy"
+          python3 scripts/check_httpd_netdev_status.py
 
       - name: Verify AiDisk folder names are HTML-escaped before DOM insertion
         run: |
