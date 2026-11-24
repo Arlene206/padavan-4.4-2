@@ -6,7 +6,7 @@ Continue one autonomous engineering stream on `main`. For each logical slice, cr
 
 ## Branch and checkpoint
 
-- Parent main SHA for this handoff update: `76e6f03167f6265e0ed89d5d86430df2881c24d7`; refresh live refs before future writes.
+- Parent main SHA for this handoff update: `259f9bc5f5574e07bf820c0a685ceefaa72af9cb`; refresh live refs before future writes.
 - Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only.
 - `main` is the only development ref. PR #1 is closed/unmerged and must not be ported.
 - Bootstrap, protocol and handoff were recovered once; do not repeat startup audits without a new reason.
@@ -119,9 +119,9 @@ Commit `786c504c8247fe42d5d1d5f2dc3ad28757fafc80` strictly parses persisted RX/T
 
 ## Exact first action for the next GPT
 
-1. Re-run exact-head Process lifecycle checks after removing the obsolete `-p` gateway assertion. Run #45507892712 on source SHA 76e6f03167f6265e0ed89d5d86430df2881c24d7 reached the auth integration contract but failed because that stale assertion still expected argv password transport. The managed RC adapter now uses `-f` for both gateway branches.
-2. Confirm the private credential-file ASan/UBSan regression actually executes and passes, then verify XY-C1 Build, TRX and artifact upload on the exact same source SHA before any L3 statement.
-3. Continue only after exact-head AI/Process/XY-C1 results are recorded. No feature branch or force update; main-only atomic commits.
+1. Re-run Process lifecycle integration after normalizing whitespace in the private `lanauth -f` gateway command assertion. Run #45508199161 on source SHA 259f9bc5f5574e07bf820c0a685ceefaa72af9cb reached the checker and failed because the C call spans two lines while the contract expected one line. The normalized check now verifies the same argv vector independent of formatting.
+2. Ensure the new private credential-file regression compiles/runs after the source checker, then check XY-C1 Build, TRX and artifact upload on the same source SHA before any firmware-validation claim.
+3. Continue only after exact-head Process/AI/XY status is accurate. Keep main-only atomic updates; no force push.
 
 
 ## Mandatory handoff checkpoint

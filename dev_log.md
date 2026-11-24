@@ -1,3 +1,10 @@
+## 2026-11-24 — Normalize wrapped LAN authentication argv contract
+
+- Process lifecycle #45508199161 on source SHA 259f9bc5f5574e07bf820c0a685ceefaa72af9cb passed all preceding integration checks and failed on a formatting-sensitive assertion: the gateway variant of `eval(... "-f", credential_path)` is split across two C source lines. Updated the contract to collapse whitespace before checking the exact argument vector; this does not loosen the no-password-in-argv requirement.
+- Parent main SHA: 259f9bc5f5574e07bf820c0a685ceefaa72af9cb. The next run must continue through the credential-file ASan/UBSan test.
+
+---
+
 ## 2026-11-24 — Remove final legacy-password expectation from managed LAN auth contract
 
 - Process lifecycle run #45507892712 on source SHA 76e6f03167f6265e0ed89d5d86430df2881c24d7 passed earlier inventory/boot gates and reached the RC integration checker, then failed because one old assertion still expected `eval(..., "-s", gateway, "-p", password)`. The managed caller has intentionally moved both branches to private `-f` file input; removed the obsolete assertion while retaining checks for both `-f` branches and absence of password argv.
