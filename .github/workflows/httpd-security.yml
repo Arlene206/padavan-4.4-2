@@ -1639,7 +1639,7 @@ jobs:
           assert "text_len >= sizeof(value)" in policy
           assert "test" not in policy.lower()
           assert "truncated_prefix" in tests
-          assert 'text_len == 2 && text[0] == \'-\' && text[1] == \'1\'' in policy
+          assert "text_len == 2 && text[0] == '-' && text[1] == '1'" in policy
           print("HTTPD group-delete index source contract: PASS")
           PY
 
