@@ -26,6 +26,7 @@
 
 
 #include "rt_config.h"
+#include "../../mtk_ft_r0khid_policy.h"
 
 #ifdef STA_FORCE_ROAM_SUPPORT
 extern int handle_froam_query_cmd(RTMP_ADAPTER *pAd, RTMP_IOCTL_INPUT_STRUCT *wrq);
@@ -1943,18 +1944,25 @@ INT RTMPAPSetInformation(
 
 
 		case OID_802_11R_R0KHID:
-			if (wrq->u.data.length <= FT_ROKH_ID_LEN)
-				Status  = -EINVAL;
-			else
-			{
-				UCHAR apidx = pObj->ioctl_if;
-				Status = copy_from_user(pAd->ApCfg.MBSSID[apidx].FtCfg.FtR0khId, wrq->u.data.pointer, wrq->u.data.length);
+		if (!mtk_ft_r0khid_length_valid(wrq->u.data.length, FT_ROKH_ID_LEN))
+			Status = -EINVAL;
+		else {
+			UCHAR apidx = pObj->ioctl_if;
+			UCHAR r0kh_id[FT_ROKH_ID_LEN + 1] = {0};
+
+			if (copy_from_user(r0kh_id, wrq->u.data.pointer,
+					   wrq->u.data.length)) {
+				Status = -EFAULT;
+			} else {
+				Status = 0;
+				memcpy(pAd->ApCfg.MBSSID[apidx].FtCfg.FtR0khId, r0kh_id, sizeof(r0kh_id));
 				pAd->ApCfg.MBSSID[apidx].FtCfg.FtR0khIdLen = wrq->u.data.length;
 				DBGPRINT(RT_DEBUG_TRACE,("Set::OID_802_11R_OID_802_11R_R0KHID(=%s) Len=%d\n",
 							pAd->ApCfg.MBSSID[apidx].FtCfg.FtR0khId,
 							pAd->ApCfg.MBSSID[apidx].FtCfg.FtR0khIdLen));
 			}
-			break;
+		}
+		break;
 
 		case OID_802_11R_RIC:
 			if (wrq->u.data.length != sizeof(BOOLEAN))

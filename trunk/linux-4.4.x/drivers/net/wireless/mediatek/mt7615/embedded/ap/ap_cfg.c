@@ -26,6 +26,7 @@
 
 
 #include "rt_config.h"
+#include "../../../mtk_ft_r0khid_policy.h"
 
 #ifdef VENDOR_FEATURE7_SUPPORT
 #ifdef WSC_LED_SUPPORT
@@ -3105,21 +3106,27 @@ INT RTMPAPSetInformation(
 		break;
 
 	case OID_802_11R_R0KHID:
-		if (wrq->u.data.length <= FT_ROKH_ID_LEN)
-			Status  = -EINVAL;
+		if (!mtk_ft_r0khid_length_valid(wrq->u.data.length, FT_ROKH_ID_LEN))
+			Status = -EINVAL;
 		else {
 			UCHAR apidx = pObj->ioctl_if;
+			UCHAR r0kh_id[FT_ROKH_ID_LEN + 1] = {0};
 
-			Status = copy_from_user(pAd->ApCfg.MBSSID[apidx].wdev.FtCfg.FtR0khId, wrq->u.data.pointer, wrq->u.data.length);
-			pAd->ApCfg.MBSSID[apidx].wdev.FtCfg.FtR0khIdLen = wrq->u.data.length;
-			MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("Set::OID_802_11R_OID_802_11R_R0KHID(=%s) Len=%d\n",
+			if (copy_from_user(r0kh_id, wrq->u.data.pointer,
+					   wrq->u.data.length)) {
+				Status = -EFAULT;
+			} else {
+				Status = 0;
+				memcpy(pAd->ApCfg.MBSSID[apidx].wdev.FtCfg.FtR0khId, r0kh_id, sizeof(r0kh_id));
+				pAd->ApCfg.MBSSID[apidx].wdev.FtCfg.FtR0khIdLen = wrq->u.data.length;
+				MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("Set::OID_802_11R_OID_802_11R_R0KHID(=%s) Len=%d\n",
 					 pAd->ApCfg.MBSSID[apidx].wdev.FtCfg.FtR0khId,
 					 pAd->ApCfg.MBSSID[apidx].wdev.FtCfg.FtR0khIdLen));
+			}
 		}
-
 		break;
 
-	case OID_802_11R_RIC:
+		case OID_802_11R_RIC:
 		if (wrq->u.data.length != sizeof(BOOLEAN))
 			Status  = -EINVAL;
 		else {

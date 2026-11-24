@@ -5,6 +5,8 @@ on:
     paths:
       - ".github/workflows/mtk-apd-pid-ioctl.yml"
       - "scripts/check_mtk_apd_pid_ioctl.py"
+      - "trunk/linux-4.4.x/drivers/net/wireless/mediatek/mtk_ft_r0khid_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/wireless/mediatek/tests/ft_r0khid_policy.c"
       - "trunk/linux-4.4.x/drivers/net/wireless/mediatek/mt76x2/ap/ap_cfg.c"
       - "trunk/linux-4.4.x/drivers/net/wireless/mediatek/mt76x3/ap/ap_cfg.c"
       - "trunk/linux-4.4.x/drivers/net/wireless/mediatek/mt7915/embedded/ap/ap_cfg.c"
@@ -13,6 +15,8 @@ on:
     paths:
       - ".github/workflows/mtk-apd-pid-ioctl.yml"
       - "scripts/check_mtk_apd_pid_ioctl.py"
+      - "trunk/linux-4.4.x/drivers/net/wireless/mediatek/mtk_ft_r0khid_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/wireless/mediatek/tests/ft_r0khid_policy.c"
       - "trunk/linux-4.4.x/drivers/net/wireless/mediatek/mt76x2/ap/ap_cfg.c"
       - "trunk/linux-4.4.x/drivers/net/wireless/mediatek/mt76x3/ap/ap_cfg.c"
 
@@ -24,5 +28,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Compile and run bounded 802.11r R0KHID length regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer \
+            trunk/linux-4.4.x/drivers/net/wireless/mediatek/tests/ft_r0khid_policy.c \
+            -o "$RUNNER_TEMP/ft-r0khid-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/ft-r0khid-policy"
       - name: Verify MTK AP ioctl copy contracts
         run: python3 scripts/check_mtk_apd_pid_ioctl.py

@@ -1,3 +1,12 @@
+## 2026-11-24 19:04 Beijing — Bound 802.11r R0KH-ID private ioctl input
+
+- Confirmed `FT_ROKH_ID_LEN == 48` in all four MTK driver families and `FT_CFG.FtR0khId[FT_ROKH_ID_LEN + 1]` (49 bytes, documented as 1–48 characters). The old `length <= 48` check rejected every legal length and then copied arbitrary caller length directly into this fixed array.
+- MT76x2, MT76x3, MT7615 and MT7915 handlers now accept only lengths 1–48, stage user data in a zeroed 49-byte buffer, return `-EFAULT` without publishing partial data on copy failure, and publish the NUL-terminated buffer plus length only after success.
+- Added a shared GNU89 length policy, ASan/UBSan test for 0, 1, 48, 49, UINT_MAX and zero maximum, and source-contract checks for all four drivers. The MTK workflow compiles/runs the C test; XY-C1 path filters track the production header.
+- Exact-SHA MTK, XY-C1 and AI checks for this commit are pending. No target build or physical-hardware result is claimed.
+
+---
+
 ## 2026-11-24 — Refine WSC PSK diagnostic contract
 
 - The second exact-SHA regression run exposed a substring false positive: the checker confused the safe `WpaPskLen` field with logging the non-NUL-terminated `WpaPsk` byte array.

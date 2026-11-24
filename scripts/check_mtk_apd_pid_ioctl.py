@@ -146,13 +146,72 @@ def verify_psk_length_contract(path: Path, source: str) -> None:
         f"{path}: diagnostics must print the length, not the WSC PSK array"
     )
 
+
+def verify_ft_r0khid_copy(path: Path, source: str) -> None:
+    include_by_source = {
+        SOURCES[0]: "../../mtk_ft_r0khid_policy.h",
+        SOURCES[1]: "../../mtk_ft_r0khid_policy.h",
+        SOURCES[2]: "../../../mtk_ft_r0khid_policy.h",
+        SOURCES[3]: "../../../mtk_ft_r0khid_policy.h",
+    }
+    assert f'#include "{include_by_source[path]}"' in source
+    case = extract_case(
+        source, "case OID_802_11R_R0KHID:", "case OID_802_11R_RIC:"
+    )
+    compact = " ".join(case.split())
+    guard = "if (!mtk_ft_r0khid_length_valid(wrq->u.data.length, FT_ROKH_ID_LEN))"
+    temporary = "UCHAR r0kh_id[FT_ROKH_ID_LEN + 1] = {0};"
+    copy = "if (copy_from_user(r0kh_id, wrq->u.data.pointer, wrq->u.data.length))"
+    assert guard in compact, f"{path}: enforce R0KH-ID length 1..48"
+    assert temporary in compact, f"{path}: stage into a zeroed 49-byte buffer"
+    assert copy in compact, f"{path}: copy only into the bounded temporary"
+    guard_pos = compact.index(guard)
+    temporary_pos = compact.index(temporary)
+    copy_pos = compact.index(copy)
+    error_pos = compact.index("Status = -EFAULT;", copy_pos)
+    success_pos = compact.index("else {", error_pos)
+    prefix = "pAd->ApCfg.MBSSID[apidx]"
+    if ".wdev.FtCfg." in compact:
+        prefix += ".wdev"
+    destination = prefix + ".FtCfg.FtR0khId"
+    destination_len = prefix + ".FtCfg.FtR0khIdLen"
+    publish = f"memcpy({destination}, r0kh_id, sizeof(r0kh_id));"
+    set_length = f"{destination_len} = wrq->u.data.length;"
+    publish_pos = compact.index(publish)
+    length_pos = compact.index(set_length)
+    assert guard_pos < temporary_pos < copy_pos < error_pos < success_pos < publish_pos < length_pos
+    assert "Status = 0;" in compact[success_pos:publish_pos]
+    assert f"copy_from_user({destination}," not in compact
+    assert "wrq->u.data.length <= FT_ROKH_ID_LEN" not in compact
+
+
+def verify_ft_r0khid_policy() -> None:
+    header = ROOT / "trunk/linux-4.4.x/drivers/net/wireless/mediatek/mtk_ft_r0khid_policy.h"
+    test = ROOT / "trunk/linux-4.4.x/drivers/net/wireless/mediatek/tests/ft_r0khid_policy.c"
+    policy = header.read_text(encoding="utf-8")
+    regression = test.read_text(encoding="utf-8")
+    assert "return length != 0U && maximum != 0U && length <= maximum;" in policy
+    for path in SOURCES:
+        include_dir = path.parents[1] / "include"
+        macro = " ".join((include_dir / "dot11r_ft.h").read_text(encoding="utf-8").split())
+        structure = " ".join((include_dir / "ft_cmm.h").read_text(encoding="utf-8").split())
+        assert "#define FT_ROKH_ID_LEN 48" in macro
+        assert "FtR0khId[FT_ROKH_ID_LEN + 1]" in structure
+    for marker in ("length_valid(0U, 48U)", "length_valid(1U, 48U)",
+                   "length_valid(48U, 48U)", "length_valid(49U, 48U)",
+                   "length_valid(UINT_MAX, 48U)"):
+        assert marker in regression, f"missing R0KH-ID boundary: {marker}"
+
+
 def main() -> None:
+    verify_ft_r0khid_policy()
     for path in SOURCES:
         source = path.read_text(encoding="utf-8")
         if path in SOURCES[:2]:
             for case in CASES:
                 verify_fixed_copy(path, source, case)
         verify_ft_boolean_copy(path, source)
+        verify_ft_r0khid_copy(path, source)
         if path == SOURCES[1]:
             verify_psk_length_contract(path, source)
         print(f"MTK AP ioctl copy contracts: PASS ({path.relative_to(ROOT)})")
