@@ -2,15 +2,14 @@
 
 ## Current repository state
 
-- Parent main for RAETH selector-checker correction: `7f7aee3b5df94c6996743e58834ee2ec4d67eafd`; the production-source fix is `7f7aee3`. The archival backup remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- `7f7aee3` made `fe_chip_name_config()` status-bearing, propagated unsupported/missing compatible failures from probe, cleared `dev_raether` on failed probe, and guarded gmac1/gmac2 selector comparisons after failed DT reads.
-- Its follow-up checker initially contained double-escaped Python matcher literals. THIS COMMIT corrects those literals and makes the checker assert `!ret` precedes every `strcasecmp(pm, ...)` in the architecture parser. The fixed checker has not yet run in CI.
-- AliyunDrive cleanup commit `3160f80e4e2c82d2188bddc12f88589898a79327`: Process inventory #45312872116 **PASS**, AI docs #45312872263 **PASS**, AliyunDrive lifecycle #45312872098 was **IN_PROGRESS** at last poll.
-- RAETH compile-fix `dd0b374` Switch CLI #45312564409 **PASS**, NVRAM #45312564407 **PASS**, AI docs #45312564408 **PASS**; XY-C1 #45312564566 remained **IN_PROGRESS** at last poll for that exact source SHA.
+- Current main parent for checker syntax cleanup: `3c98225691e91ce07b53f794db4d158983229106`; production source fix is `7f7aee3b5df94c6996743e58834ee2ec4d67eafd`. Archival backup remains frozen at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- `3c98225` corrected double-escaped Python matchers, but its diff retained one orphaned assertion continuation string. THIS COMMIT removes that line; no prior selector checker has been counted as valid until exact-head CI succeeds.
+- AliyunDrive `3160f80` exact-head lifecycle #45312872098 was last observed **IN_PROGRESS**; Process #45312872116 and AI #45312872263 **PASS**.
+- XY-C1 `dd0b374` #45312564566 was last observed **IN_PROGRESS**; that run tests the prior compile fix only and not later DT selector code.
 
 ## Active task
 
-Run and inspect the corrected exact-head RAETH Switch CLI selector contract for this checker-only commit. Separately inspect AliyunDrive lifecycle #45312872098 on `3160f80` and XY-C1 #45312564566 on product SHA `dd0b374`; keep all results pinned to their actual SHA.
+Run exact-head Switch CLI after the RAETH source checker syntax cleanup; verify the updated selector guard contract actually executes. Continue checking AliyunDrive #45312872098 on `3160f80` and XY-C1 #45312564566 on `dd0b374`, preserving each result's SHA association.
 
 ## Completed development slices
 
@@ -40,15 +39,14 @@ Independent snapshot/lifecycle changes remain in `99ad9397e3cf4450c6fc07758b58c3
 
 ## Verification boundary
 
-- Production source commit `7f7aee3` has not yet been covered by a corrected selector checker. The first checker literal version was invalid and is superseded by THIS COMMIT; do not report the old matcher as PASS.
-- AliyunDrive lifecycle #45312872098, Process #45312872116 and AI #45312872263 belong to `3160f80`; XY-C1 #45312564566 belongs to `dd0b374`. Their statuses are not interchangeable.
-- No exact-head PASS or L3/L4 result is claimed for this checker correction.
+- `7f7aee3` production selector changes have not yet had a valid exact-head source checker run. `3c98225` checker follow-up was still syntactically invalid due to one orphaned assertion continuation; THIS COMMIT fixes it. No PASS claim is made.
+- AliyunDrive lifecycle #45312872098 belongs to SHA `3160f80`; XY-C1 #45312564566 belongs to `dd0b374`. Both were in progress at last observation.
 
 ## Exact first action for the next GPT
 
-1. Verify this commit's exact-push Switch CLI job and inspect the RAETH compile-integrity checker assertions.
-2. Inspect AliyunDrive lifecycle #45312872098 on `3160f80`; if FAIL, diagnose the specific fixture failure before changing code.
-3. Inspect XY-C1 #45312564566 on `dd0b374` through Build/TRX/artifact; do not claim L3 unless every stage is successful on that exact SHA.
+1. Check this commit's exact-push Switch CLI result and inspect the compile-integrity Python step.
+2. Check AliyunDrive lifecycle #45312872098 on `3160f80`; inspect the new 503 cleanup case.
+3. Check XY-C1 #45312564566 on `dd0b374` through Build/TRX/artifact only for that exact product SHA.
 
 
 # Cross-session execution mandate

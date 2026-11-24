@@ -1,3 +1,8 @@
+## 2026-11-24 — Remove a stale checker continuation after matcher correction
+
+- The first follow-up fixed the over-escaped Python regex and source-string literals but left the previous assertion's continuation string behind, which would make the Python checker syntactically invalid. Removed the orphaned line; the selector `all(..., message)` assertion now has one balanced call. No earlier checker run is counted as PASS.
+
+---
 ## 2026-11-24 — Tighten the RAETH DT-selector regression matcher
 
 - The first source-checker commit accidentally double-escaped its Python regex and C-source newline assertions, so those new assertions would search for literal backslash sequences rather than whitespace/newlines. Corrected the matchers before treating them as validation, and strengthened the selector contract to require `!ret` before every `strcasecmp(pm, ...)` comparison in `raeth_arch_setting()`.
