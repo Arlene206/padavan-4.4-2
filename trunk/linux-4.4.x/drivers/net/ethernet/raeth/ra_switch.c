@@ -6103,9 +6103,17 @@ int fe_sw_init(void)
 
 		if (ei_local->architecture & MT7622_EPHY) {
 			gpio_base_virt = ioremap(GPIO_GO_BASE, 0x100);
+			if (!gpio_base_virt) {
+				status = -ENOMEM;
+				goto mdio_error;
+			}
 			sys_reg_write(gpio_base_virt + 0xF0, 0xE0FFFFFF);
 			iounmap(gpio_base_virt);
 			gpio_base_virt = ioremap(GPIO_MODE_BASE, 0x100);
+			if (!gpio_base_virt) {
+				status = -ENOMEM;
+				goto mdio_error;
+			}
 			reg_value = sys_reg_read(gpio_base_virt + 0x90);
 			reg_value &= 0x0000ffff;
 			reg_value |= 0x22220000;
@@ -6134,9 +6142,14 @@ int fe_sw_init(void)
 	/* clear SGMII setting */
 	if ((ei_local->chip_name == LEOPARD_FE) || (ei_local->chip_name == MT7622_FE)) {
 		ethsys_base_virt = ioremap(ETHSYS_BASE, 0x20);
+		if (!ethsys_base_virt) {
+			status = -ENOMEM;
+			goto mdio_error;
+		}
 		reg_value = sys_reg_read(ethsys_base_virt + 0x14);
 		reg_value &= ~(3 << 8);
 		sys_reg_write(ethsys_base_virt + 0x14, reg_value);
+		iounmap(ethsys_base_virt);
 	}
 
 	if (ei_local->architecture & GE1_SGMII_FORCE_2500) {
@@ -6155,6 +6168,10 @@ int fe_sw_init(void)
 			/*bit[1]: gphy connect GMAC0 or GMAC2 1:GMAC0. 0:GMAC2*/
 			/*bit[0]: Co-QPHY path selection 0:U3path, 1:SGMII*/
 			infra_base_virt = ioremap(INFRA_BASE, 0x10);
+			if (!infra_base_virt) {
+				status = -ENOMEM;
+				goto mdio_error;
+			}
 			reg_value = sys_reg_read(infra_base_virt);
 			reg_value = reg_value | 0x01;
 			sys_reg_write(infra_base_virt, reg_value);
@@ -6227,6 +6244,11 @@ int fe_sw_init(void)
 
 		/* set agpio to 5-port ephy */
 		gpio_base_virt = ioremap(GPIO_GO_BASE, 0x100);
+		if (!gpio_base_virt) {
+			status = -ENOMEM;
+			clk_disable_unprepare(ei_local->clks[MTK_CLK_GP0]);
+			goto mdio_error;
+		}
 		reg_value = sys_reg_read(gpio_base_virt + 0xF0);
 		reg_value &= 0xE0FFFFFF;
 		sys_reg_write(gpio_base_virt + 0xF0, reg_value);
@@ -6241,6 +6263,11 @@ int fe_sw_init(void)
 
 		/* set agpio to 0-port ephy */
 		gpio_base_virt = ioremap(GPIO_GO_BASE, 0x100);
+		if (!gpio_base_virt) {
+			status = -ENOMEM;
+			clk_disable_unprepare(ei_local->clks[MTK_CLK_GP0]);
+			goto mdio_error;
+		}
 		reg_value = sys_reg_read(gpio_base_virt + 0xF0);
 		reg_value |= BITS(24, 28);
 		sys_reg_write(gpio_base_virt + 0xF0, reg_value);
@@ -6255,6 +6282,10 @@ int fe_sw_init(void)
 	if (ei_local->chip_name == MT7622_FE) {
 		if (ei_local->features & FE_GE2_SUPPORT) {
 			gpio_base_virt = ioremap(GPIO_GO_BASE + 0x100, 0x100);
+			if (!gpio_base_virt) {
+				status = -ENOMEM;
+				goto mdio_error;
+			}
 			reg_value = sys_reg_read(gpio_base_virt + 0x70);
 			reg_value = reg_value | (1 << 30);
 			sys_reg_write(gpio_base_virt + 0x70, reg_value);

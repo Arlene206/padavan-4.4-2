@@ -1632,6 +1632,65 @@ jobs:
             -o "$RUNNER_TEMP/raeth-mii-mgr-timeout-policy"
           ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/raeth-mii-mgr-timeout-policy"
 
+      - name: Validate fe_sw_init checks every register mapping
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.c").read_text()
+
+          def body(signature):
+              start = source.index(signature)
+              opening = source.index("{", start)
+              depth = 0
+              for position in range(opening, len(source)):
+                  if source[position] == "{":
+                      depth += 1
+                  elif source[position] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source[opening + 1:position]
+              raise AssertionError("unterminated function: " + signature)
+
+          init = body("int fe_sw_init(void)")
+          lines = init.splitlines()
+          maps = [(index, line.strip().split(" = ", 1)[0])
+                  for index, line in enumerate(lines) if " = ioremap(" in line]
+          assert len(maps) == 7, f"expected seven register mappings, got {len(maps)}"
+
+          for line_number, variable in maps:
+              guard_line = next(
+                  (index for index in range(line_number + 1, len(lines))
+                   if lines[index].strip() == f"if (!{variable}) {{"),
+                  None,
+              )
+              assert guard_line is not None, f"{variable} mapping lacks a NULL guard"
+              failure_block = "\n".join(lines[guard_line:guard_line + 6])
+              assert "status = -ENOMEM;" in failure_block
+              assert "goto mdio_error;" in failure_block
+
+              mapped_text = "\n".join(lines[line_number + 1:guard_line])
+              assert not any(token in mapped_text for token in (
+                  f"{variable} +", f"sys_reg_read({variable}",
+                  f"sys_reg_write({variable}",
+              )), f"{variable} is used before its NULL guard"
+
+          expected_mapping_counts = {
+              "gpio_base_virt": 5,
+              "ethsys_base_virt": 1,
+              "infra_base_virt": 1,
+          }
+          for variable, count in expected_mapping_counts.items():
+              actual_maps = sum(name == variable for _, name in maps)
+              assert actual_maps == count
+              assert init.count(f"iounmap({variable});") == count, (
+                  f"{variable} mappings are not all released"
+              )
+
+          assert init.count("status = -ENOMEM;") == 7
+          print("fe_sw_init: all seven ioremap calls fail closed and release every successful mapping: PASS")
+          PY
+
       - name: Validate SGMII mappings fail closed and propagate to switch init
         run: |
           python3 - <<'PY'
@@ -1690,7 +1749,7 @@ jobs:
           assert "iounmap(ethsys_base);\n\t\treturn -ENOMEM;" in an
           assert "iounmap(mac_base);\n\t\tiounmap(ethsys_base);\n\t\treturn -ENOMEM;" in an
 
-          init = body(source, "int fe_sw_init(void)")
+          init = body("int fe_sw_init(void)")
           for signature in (
               "status = set_sgmii_force_link(1, 1);",
               "status = set_sgmii_an(1);",
