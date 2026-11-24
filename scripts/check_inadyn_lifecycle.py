@@ -19,8 +19,19 @@ config_file_test = (root / "trunk/user/rc/src/tests/inadyn_config_file.c").read_
 enabled_policy = (root / "trunk/user/rc/src/ddns_enabled_policy.h").read_text()
 
 def body(signature):
-    start = source.index(signature)
-    brace = source.index("{", start)
+    # Skip forward declarations: source.index("{", start) can silently select
+    # the next unrelated function body and make this contract test misleading.
+    search_from = 0
+    while True:
+        start = source.find(signature, search_from)
+        if start < 0:
+            raise AssertionError("function definition not found: " + signature)
+        after_signature = start + len(signature)
+        brace = source.find("{", after_signature)
+        declaration_end = source.find(";", after_signature)
+        if brace >= 0 and (declaration_end < 0 or brace < declaration_end):
+            break
+        search_from = after_signature
     depth = 0
     state = "code"
     index = brace

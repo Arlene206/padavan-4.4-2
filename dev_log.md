@@ -1,3 +1,13 @@
+## 2026-11-24 15:05 UTC+8 — Align dependent contracts with executable-filtered Inadyn inventory
+
+- On exact SHA `79c5389fe33326d85cc23e9856f39e5ca0ac242f`, Inadyn run #45341769924 failed only in its Python source checker after the GNU89 ASan/UBSan policy executables passed. `body()` found the forward declaration of `inadyn_validate_identity()` and accidentally extracted a later function; it now skips declarations until it reaches a definition.
+- DNSMasq lifecycle #45341769848 failed at an embedded source assertion that still expected the raw `process_inventory_scan("inadyn", &snapshot)` inside `notify_ddns_update_locked()`. WAN route #45341769689 had the same stale expectation in `check_wan_ddns_status.py`. Both now require `inadyn_process_inventory_scan(&snapshot)`, preserving the stronger executable-bound inventory gate rather than weakening runtime behavior.
+- Exact 79c results: HTTPD #45341769686 PASS; AI docs #45341769695 PASS; Process fail-closed #45341769769 PASS; Process inventory #45341769713 PASS; WAN DHCP #45341769830 PASS; miniupnpd #45341769855 PASS; Samba #45341769858 PASS; NVRAM audit #45341769831 PASS. Inadyn #45341769924, DNSMasq #45341769848 and WAN route #45341769689 failed on the stale contracts described above.
+- XY-C1 #45341769654 had passed all pre-build validation and was still building; TRX verification and artifact upload were pending. No L3 result is claimed until all three pass on the same production SHA.
+- FRP predecessor fix SHA `5687c609137bbba09c707896dd95216c3df9e961`: Process inventory #45341607727 PASS and AI docs #45341607707 PASS, but FRP #45341607742 failed next at `frp_crontab.sh`: `start rejected a valid crontab`. The lifecycle script's earlier identity/async cases passed. Root cause not yet proven; inspect its use of live `/proc` before making any production change.
+- Parent main: `79c5389fe33326d85cc23e9856f39e5ca0ac242f`. This atomic commit changes only dependent source contracts and the current handoff evidence; production source is unchanged.
+
+---
 ## 2026-11-24 14:47 UTC+8 — Bind Inadyn lifecycle to the installed executable
 
 - Inadyn stop, reload and manual refresh previously trusted `process_identity_validate("inadyn", ...)`, which checks comm/argv/start-time but not `/proc/PID/exe`. A same-name/argv impostor could therefore enter the PID-bound signal path.

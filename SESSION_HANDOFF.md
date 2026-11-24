@@ -1,40 +1,24 @@
 ## Current repository state
 
-- Live parent `main`: `5687c609137bbba09c707896dd95216c3df9e961`; this atomic continuation adds executable-bound Inadyn process identity. Re-fetch `main` and compare expected SHA before every further write.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- FRP process-inventory tri-state hardening is in `fa3dd0012cea550b339d01df4ff6ec97d0fdc00a`; its host-test fixture correction is in `5687c609137bbba09c707896dd95216c3df9e961`. In the fixture, actual TERM/KILL exit now removes the complete synthetic PID directory; dedicated UNKNOWN tests still remove only `cmdline` and preserve the directory/exe link.
-- Router hostname/domain status propagation is in `a26746d033ffa19d9b576010f4fe4a583b4a859a`; HTTPD contract correction is in `8584845fa7ce78b928bfb6e47c5cf8eb8223982f`.
-- AdGuardHome executable/config/workdir argv + start_time identity passed config-security #45339988745, Process inventory #45339988758 and AI docs #45339988750 on `cbbb27636807b7f195d7d87ccefb476366a07995`.
-- Adbyby executable/start_time identity passed host #45339125309 and Process fail-closed #45339125213 on `17d08de1ed22fe2ff102992d28c974b42b77de3a`.
-
-## Active task
-
-Inadyn executable-bound identity and stop/reload/manual refresh:
-- Previous validator used `process_identity_validate("inadyn", identity)` only; that validates comm, argv hashes and start_time but does not bind the process to the installed executable.
-- `trunk/user/inadyn/Makefile` installs the daemon at `/bin/inadyn`. The new policy requires exact `/proc/PID/exe` match, accepts only the kernel's exact ` (deleted)` suffix, maps ENOENT/ESRCH to ABSENT, and fails closed on other procfs read errors.
-- A filtered inventory removes wrong-executable same-name decoys from both the normal Inadyn process-presence probe and the shared service-lifecycle stop wait loop. UNKNOWN from any candidate blocks signals.
-- The Inadyn stop path now uses the shared bounded service lifecycle policy; config reload SIGHUP and manual refresh SIGUSR1 validate the same exact executable identity immediately before signaling.
-- Host policy tests and the Inadyn lifecycle source-contract checker/workflow are updated. Exact Actions are pending on the commit that adds this slice.
-
-## Recent regression correction
-
-- FRP exact run #45341083663 on `fa3dd0012cea550b339d01df4ff6ec97d0fdc00a` failed at `client missing` because `remove_process()` in host fixtures removed only `cmdline`, leaving the synthetic PID and executable link visible. Production correctly treats that state as UNKNOWN.
-- Commit `5687c609137bbba09c707896dd95216c3df9e961` fixes `frp_lifecycle.sh` and `frp_stop.sh` to remove the complete synthetic PID directory on actual process exit. Explicit missing-cmdline and post-TERM UNKNOWN fixtures still preserve `/proc/PID/exe`.
-- On `5687c609`, FRP asynchronous startup #45341607742, Process inventory #45341607727 and AI handoff docs #45341607707 were IN_PROGRESS at last poll. Recheck their completed state; no result is assumed.
+- Live parent `main`: `79c5389fe33326d85cc23e9856f39e5ca0ac242f`; the next commit is a source-contract correction for the executable-bound Inadyn inventory. Re-fetch main and compare before any write.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Inadyn executable-bound stop/reload/manual-update source is in `79c5389fe33326d85cc23e9856f39e5ca0ac242f`: generic comm/argv/start_time identity plus exact `/proc/PID/exe == /bin/inadyn` (or exact ` (deleted)` suffix), filtered snapshots, bounded shared stop lifecycle; unknown procfs access blocks signals.
+- This follow-up fixes the dependent Inadyn source-checker's C function-body extractor so forward declarations cannot redirect it into an unrelated function, and aligns the DNSMasq and WAN DDNS checker assertions with `inadyn_process_inventory_scan()`.
+- FRP process inventory/stop hardening is in `fa3dd0012cea550b339d01df4ff6ec97d0fdc00a`; test-fixture exit semantics are corrected in `5687c609137bbba09c707896dd95216c3df9e961` (full fake PID dir removed on simulated process exit; metadata-loss tests preserve PID dir and exe). FRP crontab still has a pending root-cause fix described below.
 
 ## Verification boundary
 
-- This Inadyn slice includes GNU89-compatible injectable executable validation tests and workflow execution, but exact-head Actions are not yet available. Do not claim PASS before the exact SHA run finishes.
-- The Inadyn workflow runs GNU89 with `-Wall -Wextra -Werror -fsanitize=address,undefined`; Process source contract and XY-C1 build validation are also required for this production `services_ex.c` change.
-- No MIPS firmware build/TRX/artifact result or physical-router L4 result is claimed for this commit.
-- Linux 4.4 lacks pidfd; final `/proc` validation-to-`kill(2)` race remains a platform limitation, even with executable, argv and start-time binding.
+- Exact `79c5389` PASS: Process inventory #45341769713; Process fail-closed #45341769769; HTTPD #45341769686; AI docs #45341769695; WAN DHCP #45341769830; miniupnpd #45341769855; Samba #45341769858; NVRAM audit #45341769831.
+- Exact `79c5389` FAIL: Inadyn #45341769924 was a source-checker parser bug (C policy test compile/run steps passed; Python checker selected a forward declaration). DNSMasq #45341769848 and WAN route #45341769689 contained stale raw-scan assertions; corrected in this commit. No production regression was reported by those three failures.
+- XY-C1 #45341769654 had all preceding host/policy checks pass and was in `Build XY-C1`; TRX and artifact upload still pending at last poll. No same-SHA L3 result is claimed.
+- Exact FRP `5687c609` actions: Process inventory #45341607727 PASS; AI docs #45341607707 PASS; FRP #45341607742 FAIL at `frp_crontab.sh` with `start rejected a valid crontab`. The FRP asynchronous startup and proc-lifecycle subtests in `frp_lifecycle.sh` printed PASS. `frp_crontab.sh` currently leaves `FRP_PROC_ROOT` pointed at live `/proc`; inspect whether host procfs visibility makes its preliminary `frp_stop_daemons()` check UNKNOWN, then isolate with a fixture root if that is confirmed. Do not assume a root cause.
+- No MIPS firmware/TRX/artifact result or physical-router L4 result is claimed. Linux 4.4 lacks pidfd; the final procfs-identity-validation-to-kill race remains a platform limitation.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-SHA Inadyn lifecycle policy, Process lifecycle, AI handoff and XY-C1 Actions for this commit; fix any first failure.
-2. Poll FRP #45341607742, Process inventory #45341607727 and AI docs #45341607707 on `5687c609`; fix a regression if any remains.
-3. Verify XY-C1 Build, TRX and artifact upload all pass on the same production-source SHA before any L3 claim; then continue the next P1 stability/security issue outside closed Adbyby/AdGuardHome/FRP scopes.
-4. Keep the backup immutable; all main changes remain complete-tree atomic commits with expected-SHA non-forced updates.
+1. Inspect exact-SHA Inadyn #, DNSMasq, WAN route, Process, AI docs and XY-C1 actions for this source-contract correction; fix any new failure. For firmware, verify Build + TRX + artifact all pass on one exact SHA.
+2. Fix the FRP `frp_crontab.sh` test failure at `start rejected a valid crontab`: trace `frp_start()` → `frp_stop_daemons()` and its `/proc` scan, reproduce with an isolated proc root, then update the host fixture or production code according to evidence.
+3. Continue the next independent P1 stability/security issue once the FRP and Inadyn workflows are green; preserve the backup and use one full Git tree + one atomic main commit with expected-SHA non-forced update.
 
 # Cross-session execution mandate
 

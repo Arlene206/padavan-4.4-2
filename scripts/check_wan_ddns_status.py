@@ -79,7 +79,7 @@ mode_error = notify.index("if (ap_mode_status != 0)", mode_read)
 enable_read = notify.index('nvram_get_checked("ddns_enable_x", &enabled_value)')
 enable_check = notify.index("inadyn_ddns_enabled_status(", enable_read)
 gate = notify.index("inadyn_update_should_run(", enable_check)
-inventory = notify.index('process_inventory_scan("inadyn", &snapshot)')
+inventory = notify.index("inadyn_process_inventory_scan(&snapshot)")
 require(mode_read < mode_error < enable_read < enable_check < gate < inventory and
         'nvram_match("ddns_enable_x", "1")' not in notify and
         "return ap_mode_status;" in notify[mode_error:enable_read] and

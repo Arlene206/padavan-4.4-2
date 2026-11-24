@@ -349,7 +349,8 @@ jobs:
           assert "if (!write_inadyn_conf(DDNS_CONF_FILE))" in start
           assert start.index("write_inadyn_conf(DDNS_CONF_FILE)") < start.index('eval("/bin/inadyn"')
           update = function_body(services, "notify_ddns_update_locked(void)")
-          assert 'process_inventory_scan("inadyn", &snapshot)' in update
+          assert "inadyn_process_inventory_scan(&snapshot)" in update
+          assert 'process_inventory_scan("inadyn", &snapshot)' not in update
           assert "inadyn_action_for_presence(state)" in update
           assert "INADYN_DAEMON_ABORT" in update
           assert update.index("inadyn_validate_snapshot(") < update.index("write_inadyn_conf(DDNS_CONF_FILE)")
