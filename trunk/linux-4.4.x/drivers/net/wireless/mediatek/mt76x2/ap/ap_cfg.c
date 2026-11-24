@@ -2553,7 +2553,20 @@ INT RTMPAPSetInformation(
 					}
 					
 					os_alloc_mem(pAd, (UCHAR **)&pInfo, sizeof(MLME_DEAUTH_REQ_STRUCT));
-					Status = copy_from_user(pInfo, wrq->u.data.pointer, wrq->u.data.length);
+					os_alloc_mem(pAd, (UCHAR **)&pInfo, sizeof(MLME_DEAUTH_REQ_STRUCT));
+					if (pInfo == NULL) {
+						Status = -ENOMEM;
+						os_free_mem(NULL, Elem);
+						break;
+					}
+					if (copy_from_user(pInfo, wrq->u.data.pointer,
+							   wrq->u.data.length)) {
+						Status = -EFAULT;
+						os_free_mem(NULL, pInfo);
+						os_free_mem(NULL, Elem);
+						break;
+					}
+					Status = 0;
 					/* Fill in the related information */
 					DeAuthFrame.Reason = (USHORT)pInfo->Reason;
 					COPY_MAC_ADDR(DeAuthFrame.Addr, pInfo->Addr);
@@ -2590,7 +2603,13 @@ INT RTMPAPSetInformation(
 					if (Elem)
 					{
 						pInfo = (MLME_DEAUTH_REQ_STRUCT *) Elem->Msg;
-						Status = copy_from_user(pInfo, wrq->u.data.pointer, wrq->u.data.length);
+						if (copy_from_user(pInfo, wrq->u.data.pointer,
+								   wrq->u.data.length)) {
+							Status = -EFAULT;
+							os_free_mem(NULL, Elem);
+							break;
+						}
+						Status = 0;
 
 						if ((pEntry = MacTableLookup(pAd, pInfo->Addr)) != NULL)
 						{

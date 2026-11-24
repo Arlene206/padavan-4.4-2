@@ -1,3 +1,12 @@
+## 2026-11-24 — Fail closed on MTK AP deauthentication ioctl usercopy errors
+
+- Audited `OID_802_11_DEAUTHENTICATION` in MT76x2, MT76x3, MT7615 and MT7915. Each path checked the nominal structure length but consumed the request after ignoring or merely storing the nonzero `copy_from_user()` result. A fault/partial copy could therefore feed uninitialized or partially initialized address/reason fields into station lookup, MLME enqueue, or APCLI link-state changes.
+- Added explicit `-EFAULT` exits before any request-field use or deauth side effect, and release the allocated `MLME_QUEUE_ELEM` / APCLI request buffer on failure. MT76x2 and MT7915 APCLI paths now also check their separately allocated request pointer and return `-ENOMEM` before copying if allocation fails.
+- Extended the focused MTK source-contract regression to require exact request sizes, checked usercopies, failure cleanup, no use of request fields before a successful copy, and APCLI allocation guards. The MTK workflow already watches all four source files and this checker.
+- On the base source SHA `0dc7eaed5c1eb2623f5762c9f9b6fb7b93c9a4d0`, exact Actions MTK #45381270549, AI handoff #45381270437, Process #45381270630 and NVRAM #45381270585 PASS. XY-C1 #45381270533 remained in Build XY-C1; TRX/artifact pending. This deauth fix needs a fresh exact-SHA XY-C1 build/TRX/artifact run; no L3 claim is made.
+
+---
+
 ## 2026-11-24 — Bound MT7615/MT7915 WSC PSK copies and remove credential logs
 
 - Extended review of the same AP ioctl dispatchers found an unbounded WSC usercopy in MT7615 and MT7915. The ordinary security PSK field is 65 bytes, but `WSC_CTRL.WpaPsk` is only 64; the code still copied the original caller length even after the main PSK branch rejected lengths >=65. This was a heap/struct-adjacent kernel memory overwrite risk.

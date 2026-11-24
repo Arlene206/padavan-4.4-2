@@ -1803,7 +1803,13 @@ INT RTMPAPSetInformation(
 				{
 					if (Elem) {
 						pInfo = (MLME_DEAUTH_REQ_STRUCT *) Elem->Msg;
-						Status = copy_from_user(pInfo, wrq->u.data.pointer, wrq->u.data.length);
+						if (copy_from_user(pInfo, wrq->u.data.pointer,
+								   wrq->u.data.length)) {
+							Status = -EFAULT;
+							os_free_mem(NULL, Elem);
+							break;
+						}
+						Status = 0;
 
 						if ((pEntry = MacTableLookup(pAd, pInfo->Addr)) != NULL)
 						{

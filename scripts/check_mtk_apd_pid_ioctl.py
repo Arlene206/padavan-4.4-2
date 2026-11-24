@@ -147,6 +147,49 @@ def verify_checked_usercopy_case(path: Path, source: str, marker: str,
     )
 
 
+
+def verify_deauth_copy_fail_closed(path: Path, source: str) -> None:
+    case = extract_case(
+        source, "case OID_802_11_DEAUTHENTICATION:", "case RT_SET_IAPP_PID:"
+    )
+    compact = " ".join(case.split())
+    expected_size = (
+        "sizeof(MLME_DISCONNECT_STRUCT)"
+        if path == SOURCES[3] else "sizeof(MLME_DEAUTH_REQ_STRUCT)"
+    )
+    assert f"if (wrq->u.data.length != {expected_size})" in compact, (
+        f"{path}: deauth input must have the exact structure size"
+    )
+    copy = "if (copy_from_user(pInfo, wrq->u.data.pointer, wrq->u.data.length))"
+    expected_copies = 2 if path in (SOURCES[0], SOURCES[3]) else 1
+    assert compact.count(copy) == expected_copies, (
+        f"{path}: every deauth usercopy must fail closed"
+    )
+    assert "Status = copy_from_user(pInfo" not in compact
+    for offset in (i for i in range(len(compact)) if compact.startswith(copy, i)):
+        error = compact.index("Status = -EFAULT;", offset)
+        stop = compact.index("break;", error)
+        failure = compact[offset:stop]
+        assert "os_free_mem" in failure, (
+            f"{path}: failed deauth copy must release its allocated buffer"
+        )
+        assert not any(token in failure for token in (
+            "DeAuthFrame.Reason =", "MacTableLookup(", "MlmeEnqueue("
+        )), f"{path}: failed input must not trigger deauth state changes"
+        success = compact.index("Status = 0;", stop)
+        assert success > stop, (
+            f"{path}: successful status must follow the checked copy"
+        )
+    if path in (SOURCES[0], SOURCES[3]):
+        first_copy = compact.index(copy)
+        allocation_guard = compact.index("if (pInfo == NULL)")
+        allocation_error = compact.index("Status = -ENOMEM;", allocation_guard)
+        assert allocation_guard < allocation_error < first_copy, (
+            f"{path}: APCLI deauth allocation must be checked before usercopy"
+        )
+
+
+
 def verify_security_input_copy_fail_closed(path: Path, source: str) -> None:
     for marker, variable, expected_type in (
         ("case OID_802_11_AUTHENTICATION_MODE:", "AuthMode",
@@ -323,6 +366,7 @@ def main() -> None:
                 verify_fixed_copy(path, source, case)
         verify_ft_boolean_copy(path, source)
         verify_security_input_copy_fail_closed(path, source)
+        verify_deauth_copy_fail_closed(path, source)
         if path in (SOURCES[0], SOURCES[3]):
             verify_apcli_boolean_copy_fail_closed(path, source)
         verify_ft_r0khid_copy(path, source)
