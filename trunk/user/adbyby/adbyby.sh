@@ -19,7 +19,7 @@ ADBYBY_START_WAIT_ATTEMPTS=5
 # Read mutable settings only after the lifecycle lock is held.
 adbyby_refresh_nvram_state()
 {
-	adbyby_enable=$(nvram get adbyby_enable) || return 1
+	adbyby_enable=$(nvram get adbyby_enable) || return $?
 	case "$adbyby_enable" in
 		''|0|1) ;;
 		*)
@@ -27,13 +27,13 @@ adbyby_refresh_nvram_state()
 			return 22
 			;;
 	esac
-	adbyby_ip_x=$(nvram get adbyby_ip_x) || return 1
-	adbyby_rules_x=$(nvram get adbyby_rules_x) || return 1
-	adbyby_set=$(nvram get adbyby_set) || return 1
-	http_username=$(nvram get http_username) || return 1
-	adbyby_update=$(nvram get adbyby_update) || return 1
-	adbyby_update_hour=$(nvram get adbyby_update_hour) || return 1
-	adbyby_update_min=$(nvram get adbyby_update_min) || return 1
+	adbyby_ip_x=$(nvram get adbyby_ip_x) || return $?
+	adbyby_rules_x=$(nvram get adbyby_rules_x) || return $?
+	adbyby_set=$(nvram get adbyby_set) || return $?
+	http_username=$(nvram get http_username) || return $?
+	adbyby_update=$(nvram get adbyby_update) || return $?
+	adbyby_update_hour=$(nvram get adbyby_update_hour) || return $?
+	adbyby_update_min=$(nvram get adbyby_update_min) || return $?
 	wan_mode="$adbyby_set"
 }
 adbyby_restart_dhcpd()
