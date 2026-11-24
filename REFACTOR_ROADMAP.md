@@ -196,6 +196,7 @@ Current implementation checkpoint (2026-11-21):
 - Uploaded planet transaction cleanup follow-up: found an EXIT-trap registration gap if the pre-read of the previous NVRAM value failed after `.planet-import.*` creation. Cleanup now registers before the first fallible read, and rollback is gated on explicit publish/delete pending state; added NVRAM-get fault injection, preserving old file/NVRAM and upload, and checking no stage directory leaks. Exact-head verification pending.
 
 ## Priority queue
+- P1 — VSFTPD restart firewall cleanup: `restart_ftpd()` previously skipped `control_ftp_fw()` after a confirmed stop when no storage was mounted, the mount inventory was unknown, or replacement startup failed. This could retain stale FTP firewall/UPnP state; the current source slice reconciles after every confirmed stop while preserving the first operational error. Exact-head VSFTPD/Storage/XY validation pending.
 - P1 — VSFTPD EPSV ALL cleanup: VSFTPD #45393626354, AI/Process/NVRAM PASS on `aa3d55b`; XY-C1 Build running, TRX/artifact pending. L3 open.
 - P2 — VSFTPD hidden-share truncation fix: VSFTPD #45392889702 PASS; included in `aa3d55b` XY-C1 Build (running; TRX/artifact pending).
 - L2 — detect_link UNKNOWN guard: detect/AI/Process/NVRAM/USB/HTTPD PASS on `18af4fb`; exact-SHA XY-C1 Build/TRX/artifact not yet recorded.

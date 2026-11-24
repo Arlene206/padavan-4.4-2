@@ -315,6 +315,20 @@ jobs:
           assert "ftp_read_enabled_status(&ftp_enabled)" in restart
           assert restart.index("ftp_read_enabled_status(&ftp_enabled)") < restart.index("is_run_before = is_ftp_run()")
           assert restart.index("ftp_read_enabled_status(&ftp_enabled)") < restart.index("stop_status = stop_ftp_locked()")
+          assert "ftp_restart_should_reconcile_firewall(0)" in daemon_test
+          assert "ftp_restart_should_reconcile_firewall(EIO)" in daemon_test
+          assert "return stop_status == 0;" in daemon_policy
+          stop_gate = restart.index("if (stop_status != 0)")
+          mount_gate = restart.index('mount_status = storage_has_mounted_devices("restarting FTP")')
+          firewall_gate = restart.index("if (ftp_restart_should_reconcile_firewall(stop_status))")
+          firewall_call = restart.index("control_ftp_fw(is_run_before)")
+          final_status = restart.index("rc_first_service_start_status(start_status, firewall_status)")
+          assert stop_gate < mount_gate < firewall_gate < firewall_call < final_status
+          assert "errno = 0;" in restart[mount_gate - 40:mount_gate]
+          assert "start_status = errno > 0 ? errno : EIO;" in restart
+          assert "start_status = run_ftp();" in restart
+          assert "goto out;" not in restart[mount_gate:firewall_gate]
+          assert restart.count("control_ftp_fw(is_run_before)") == 1
           assert "ftp_enable_value_status(EIO, 1, &enabled)" in daemon_test
           assert "ftp_enable_value_status(0, 2, &enabled)" in daemon_test
           assert "ftp_enable_value_status(0, 1, NULL)" in daemon_test

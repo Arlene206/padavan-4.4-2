@@ -1,3 +1,14 @@
+## 2026-11-24 — Reconcile FTP firewall state after every confirmed stop
+
+- Found a concrete VSFTPD lifecycle gap in `restart_ftpd()`: after `stop_ftp_locked()` succeeded, `control_ftp_fw()` ran only inside the mounted-storage + successful-relaunch branch. If storage was absent, mount inventory failed, or `run_ftp()` failed, a transition from RUNNING to ABSENT bypassed firewall/UPnP reconciliation and could leave stale FTP rules.
+- The production flow now records an inventory failure (errno or EIO), still skips an unsafe FTP start, and always calls the firewall transition reconciler after a confirmed stop. The first mount/start error is preserved ahead of firewall refresh failure. Stop failures still abort before reconciliation because daemon absence was not proven.
+- Added `ftp_restart_should_reconcile_firewall()` and GNU89 regression cases; extended the VSFTPD integration source contract to enforce one reconciliation call after all mount/start branches, without a post-stop early exit. The Storage Hotplug workflow also watches these production/test paths.
+- Parent SHA `79c278b3f12cd95db5880052c95e912d482e96c5` repairs two exact-head contract failures from `a0643ff`: Switch CLI #45440335408 had passed the Clause 22 host binary but its source assertion did not recognize the combined register/data condition; AI handoff #45440335554 required the literal `Before context exhaustion`. Exact reruns for 79c have not yet been observed.
+- Parent source SHA `18d90355fb56b33100c05439df30ecc3e61ef85f`: AI #45439390998, Switch CLI #45439391302 and NVRAM #45439391348 PASS; XY-C1 #45439391086 was in progress (Build running, TRX/artifact pending).
+- XY-C1 #45437415030 on `a650ed8c8fdd8b0100bc26bb91458cdf4bde9277` and #45438125350 on `bc17758dcb25dc349c9304a6d3f671600fc7f5c7` passed same-SHA Build, TRX and artifact upload. XY-C1 #45438348129 on `7ae410c1ff14d974e659b8c29bbcd83d18269f0c` was still in progress (Build running; TRX/artifact pending) at last poll. No local repository checkout/toolchain was available; no local compile is claimed. New exact-head VSFTPD/Storage/AI/XY validation is pending.
+
+---
+
 ## 2026-11-24 — Repair Clause 22 path-aware source-contract anchors
 
 - Exact main SHA `a0643ffbe0b7e715c265de12d5b6a3de48b5303f`: Switch CLI #45440335408 passed the Clause 22 GNU89/ASan/UBSan boundary binary, then failed its source contract because the new combined direct C22 guard no longer matched the checker’s old exact substring ending immediately after the register predicate. Updated the checker to anchor the predicate within the combined register/data condition; boundary policy and production source are unchanged by this correction.

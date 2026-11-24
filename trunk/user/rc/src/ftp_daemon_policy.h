@@ -12,6 +12,14 @@ ftp_failed_start_may_leave_daemon(enum process_presence state)
 	return state != PROCESS_PRESENCE_ABSENT;
 }
 
+/* Reconcile firewall state after every confirmed stop, independent of the
+ * storage inventory or whether a replacement daemon can be started. */
+static inline int
+ftp_restart_should_reconcile_firewall(int stop_status)
+{
+	return stop_status == 0;
+}
+
 /* Do not turn an NVRAM backend error into an implicit disabled value. */
 static inline int
 ftp_enable_value_status(int read_status, int value, int *enabled)

@@ -697,17 +697,26 @@ restart_ftpd(void)
 		goto out;
 	}
 
+	errno = 0;
 	mount_status = storage_has_mounted_devices("restarting FTP");
 	if (mount_status < 0) {
-		logmessage("FTP server", "restart aborted because mounted storage state is unknown");
-		goto out;
-	}
-	if (mount_status > 0) {
+		start_status = errno > 0 ? errno : EIO;
+		logmessage("FTP server",
+			   "restart cannot verify mounted storage; refusing FTP start (status=%d)",
+			   start_status);
+	} else if (mount_status > 0) {
 		start_status = run_ftp();
-		if (start_status != 0) {
-			restart_status = start_status;
-			goto out;
-		}
+		if (start_status != 0)
+			logmessage("FTP server", "FTP restart failed (status=%d)",
+				   start_status);
+	}
+
+	/*
+	 * A completed stop may have removed FTP port/UPnP state even when storage
+	 * is absent, its inventory is unavailable, or the replacement daemon
+	 * failed to start. Always reconcile firewall state after that stop.
+	 */
+	if (ftp_restart_should_reconcile_firewall(stop_status)) {
 		firewall_status = control_ftp_fw(is_run_before);
 		if (firewall_status != 0)
 			logmessage("FTP server", "firewall/UPnP refresh failed after FTP restart (status=%d)",

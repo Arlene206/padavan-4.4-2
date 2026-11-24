@@ -1,36 +1,35 @@
 ## Current repository state
 
-- Live branch `main` parent for this follow-up: `18d90355fb56b33100c05439df30ecc3e61ef85f`. Clause 22 width guards were added in `18d90355fb56b33100c05439df30ecc3e61ef85f`; exact-head Switch CLI #45439391302 and AI handoff #45439390998 PASS. XY-C1 #45439391086 and NVRAM #45439391348 were still running at last poll.
-- Clause 45 write-payload guard: `7ae410c1ff14d974e659b8c29bbcd83d18269f0c`; checker input fix `52e34a5`; test-count + handoff fix `e83ac62`.
-- Clause 45 address-policy include fix: `a650ed8c8fdd8b0100bc26bb91458cdf4bde9277`. RC firewall boot-result source fix: `7ca46fc7049f3380755f6b2fe5073d86727c6382`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable. Legacy PR #1 remains closed/unmerged. Use one atomic main commit per logical task with non-forced expected-SHA updates.
+- Active branch: `main`; this checkpoint follows parent `79c278b3f12cd95db5880052c95e912d482e96c5`, which corrected a stale Clause 22 source-contract anchor and restored the handoff rule `Before context exhaustion`. Re-read the live branch before any further write because concurrent sessions advance `main`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; its marker explicitly prohibits mutation. Legacy PR #1 remains closed and unmerged.
+- Main-only development: each logical task is one atomic main commit, create all blobs + one complete tree + one commit, then non-forced expected-SHA compare-and-swap. No side branches, PRs or force pushes.
+- RC firewall startup readiness source SHA `7ca46fc7049f3380755f6b2fe5073d86727c6382` is L3 VERIFIED by same-SHA XY-C1 Build/TRX/artifact #45434352284. Hardware L4 remains NOT VERIFIED.
 
 ## Active task
 
-### Preserve the special indirect Clause 22 register/data ranges
+### Fix FTP firewall reconciliation on restart failure/no-storage paths
 
-- The direct C22 width guard commit `18d9035` initially applied five-bit register and 16-bit write-data limits before deciding whether an architecture-specific register-31 access uses the indirect page interface.
-- Existing `mii_mgr_indirect_policy.h` tests deliberately exercise logical register `0x1234` and a 32-bit value `0x89abcdef`: indirect access selects a page, reads/writes a low-word register and a high-word register, and supports a 16-bit logical register address/full u32 value. Applying direct C22 caps universally rejects valid TRGMII/forced-GE1 indirect access.
-- The follow-up keeps PHY address validation common and selects policy by path. Direct C22 requires register <=31 and data <=0xffff; indirect register-31 mode permits a 16-bit logical register <=0xffff and full u32 data (split into two 16-bit hardware writes). The indirect max also blocks aliasing above 0xffff.
-- Added policy boundary tests for logical register 0, 31, 0xffff, 0x10000 and UINT32_MAX; static workflow contract requires indirect guards before indirect calls and direct-only bounds before direct MMIO APIs.
+- In `services_stor.c::restart_ftpd()`, after `stop_ftp_locked()` returned success, the old code called `control_ftp_fw(is_run_before)` only inside the mounted-storage + successful-relaunch branch. A previously running vsftpd that was stopped and not relaunched (storage absent, inventory unknown or `run_ftp()` failure) skipped the presence-transition firewall rebuild, potentially leaving stale FTP port/UPnP state.
+- THIS COMMIT normalizes unknown mount inventory failure to errno/EIO, skips unsafe FTP start, but calls the firewall reconciler once after every successful stop. `rc_first_service_start_status()` keeps mount/start failure ahead of firewall refresh failure. Stop failure still aborts without assuming absence.
+- Added `ftp_restart_should_reconcile_firewall()` policy and GNU89 tests for success/failure status; VSFTPD workflow contract pins the guard and single firewall call after all start decisions, with no post-stop early exit. Storage Hotplug workflow also filters these changed source/test paths.
 
 ## Verification boundary
 
-- Exact Clause 22 source SHA `18d90355fb56b33100c05439df30ecc3e61ef85f`: Switch CLI #45439391302 PASS (GNU89 address/register/data tests and source contracts); AI docs #45439390998 PASS. XY-C1 #45439391086 and NVRAM #45439391348 were still in progress at last poll.
-- Clause 45 payload guard `7ae410c`: policy binary passed; follow-up static checker count assertion was corrected in `e83ac62`. Exact XY-C1 #45438348129 and NVRAM #45438348160 status still needs final closure.
-- Clause 45 address include fix `a650ed8`: NVRAM #45437414867 PASS; XY-C1 #45437415030 requires final Build/TRX/artifact step inspection.
-- RC firewall source fix `7ca46fc` is L3 VERIFIED: XY-C1 #45434352284 Build, TRX and artifact all PASS on that exact SHA. Physical-device L4 remains NOT VERIFIED.
+- Parent `79c278b3f12cd95db5880052c95e912d482e96c5`: its two direct corrections are not yet validated by observed exact-head Actions. Parent `a0643ffbe0b7e715c265de12d5b6a3de48b5303f` Switch CLI #45440335408 passed the Clause 22 host binary then failed its Python contract on a combined register/data guard substring; AI #45440335554 failed the required `Before context exhaustion` token. Both are fixed in 79c, not re-certified yet.
+- Parent production SHA `18d90355fb56b33100c05439df30ecc3e61ef85f`: AI #45439390998 PASS, Switch CLI #45439391302 PASS, NVRAM #45439391348 PASS; XY-C1 #45439391086 was IN_PROGRESS with Build running and TRX/artifact pending.
+- XY-C1 #45437415030 on `a650ed8c8fdd8b0100bc26bb91458cdf4bde9277` and #45438125350 on `bc17758dcb25dc349c9304a6d3f671600fc7f5c7` passed same-SHA Build, TRX and artifact upload. Clause 45 write-payload SHA `7ae410c1ff14d974e659b8c29bbcd83d18269f0c` XY #45438348129 remained IN_PROGRESS (Build running; TRX/artifact pending) at last poll.
+- This commit's GNU89 FTP policy binary and source integration contract are pending exact-head VSFTPD/Storage Actions; no local checkout/build was available. Current-head L3 is NOT VERIFIED until its exact XY-C1 Build, TRX and artifact upload all PASS. Physical-device L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Check exact-head Switch CLI and AI handoff runs for this indirect-range correction.
-2. Poll XY-C1 #45439391086 and NVRAM #45439391348 for exact C22 source SHA `18d9035`, checking Build/TRX/artifact individually.
-3. Poll Clause45 source XY-C1 #45438348129 and the include-fix source XY-C1 #45437415030. Keep their SHA results separate.
-4. Once the C22 direct/indirect range split is verified, return to the broad RC startup-result propagation P1 queue or another high-risk userland/kernel stability defect. Pending CI does not block independent implementation.
+1. Inspect exact-head VSFTPD configuration/lifecycle, Storage Hotplug, AI handoff, NVRAM and XY-C1 Actions triggered by THIS COMMIT. Confirm the new stop-gate tests and the post-stop reconciler source contract pass.
+2. If a checker fails, inspect the first exact-SHA causal log and fix the stale assertion without weakening coverage. If XY-C1 Build fails, diagnose the first compiler error; L3 requires Build, TRX and artifact on the same SHA.
+3. Re-poll pending parent XY-C1 #45439391086 (`18d9035`) and #45438348129 (`7ae410c`); keep evidence scoped to those exact SHAs.
+4. Continue the next ranked P1 service/userland stability issue from `REFACTOR_ROADMAP.md`; do not repeat completed SmartDNS, PPP callback/session-lock, or RC firewall-readiness work.
 
 ## Mandatory handoff checkpoint
 
-The checkpoint is mandatory; a document edit is conditional. At each session end inspect live main, frozen backup, source SHA, exact-head Actions, L2/L3/L4 evidence and first next action. If accurate, do not create a no-op handoff commit.
+The checkpoint is mandatory; a document edit is conditional. At each session ending inspect live `main`, frozen backup, source SHA, exact-head Actions, L2/L3/L4 evidence and first next action. If accurate, do not create a no-op handoff commit.
 
 # Cross-session execution mandate
 
