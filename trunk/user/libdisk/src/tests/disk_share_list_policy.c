@@ -129,10 +129,12 @@ disk_share_test_stream_writer(FILE *stream, void *opaque)
 	}
 	if (fputs(fixture->contents, stream) == EOF)
 		return -1;
-	if (fixture->fail_after_write) {
+	if (fixture->fail_after_write == 1) {
 		errno = EIO;
 		return -1;
 	}
+	if (fixture->fail_after_write == 2)
+		return -1;
 	return 0;
 }
 
@@ -167,8 +169,9 @@ test_atomic_stream_failure_preserves_previous_metadata(void)
 	assert(close(file_fd) == 0);
 
 	fixture.contents = "partial update\n";
-	fixture.fail_after_write = 1;
-	errno = 0;
+	fixture.fail_after_write = 2;
+	/* fstatat succeeds and leaves this caller-supplied errno untouched. */
+	errno = ENOENT;
 	assert(disk_share_write_stream_atomic_at(
 		directory_fd, ".__stream_var.txt", disk_share_test_stream_writer,
 		&fixture, 0) == -1);

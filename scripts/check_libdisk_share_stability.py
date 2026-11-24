@@ -295,6 +295,7 @@ require("disk_share_write_stream_atomic_at(directory_fd,leaf,disk_share_write_at
         "openat(directory_fd,temp_leaf,O_WRONLY|O_CREAT|O_EXCL|O_NOFOLLOW|O_CLOEXEC,0600)" in atomic_stream_compact and
         "renameat(directory_fd,temp_leaf,directory_fd,leaf)" in atomic_stream_compact and
         "unlinkat(directory_fd,temp_leaf,0)" in atomic_stream_compact and
+        "errno=0;if(writer(stream,context)!=0)" in atomic_stream_compact and
         "fflush(stream)" in atomic_stream_compact and
         "fsync(fileno(stream))" in atomic_stream_compact and
         "fclose(stream)" in atomic_stream_compact and

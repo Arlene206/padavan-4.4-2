@@ -104,6 +104,9 @@ disk_share_write_stream_atomic_at(int directory_fd, const char *leaf,
 		goto failed;
 	fd = -1;
 
+	/* A successful fstatat() need not clear errno; don't leak stale errors
+	 * into a callback that fails without setting its own errno. */
+	errno = 0;
 	if (writer(stream, context) != 0) {
 		if (!errno)
 			errno = EIO;
