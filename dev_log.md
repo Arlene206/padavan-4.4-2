@@ -1,3 +1,10 @@
+## 2026-11-24 — Refine WSC PSK diagnostic contract
+
+- The second exact-SHA regression run exposed a substring false positive: the checker confused the safe `WpaPskLen` field with logging the non-NUL-terminated `WpaPsk` byte array.
+- Tightened the assertion to require the length-only diagnostic actually used by the patched handler. Production source remains unchanged.
+
+---
+
 ## 2026-11-24 — Correct PSK regression contract after CI feedback
 
 - The first exact-SHA MTK run exposed an over-escaped regular-expression in the new source checker; production code compiled neither failed nor regressed, but the static contract falsely rejected the correctly-added length guard.

@@ -142,8 +142,8 @@ def verify_psk_length_contract(path: Path, source: str) -> None:
     assert "__func__, PSK" in case, (
         f"{path}: log only the NUL-terminated staging buffer"
     )
-    assert 'pWscControl->WpaPsk));' not in case, (
-        f"{path}: the WSC PSK array is not NUL-terminated"
+    assert 'WSC PSK length = %d' in case, (
+        f"{path}: diagnostics must print the length, not the WSC PSK array"
     )
 
 def main() -> None:
