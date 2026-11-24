@@ -1,3 +1,11 @@
+## 2026-11-24 14:26 UTC+8 — Correct HTTPD hostname publication contract
+
+- Exact main `a26746d033ffa19d9b576010f4fe4a583b4a859a` Process fail-closed #45339568206 PASS, including `LAN kernel hostname/domain status regression: PASS`; Process inventory #45339568157 and AI docs #45339568440 PASS. WAN DHCP #45339568432, WAN route #45339568336, DNSMasq #45339568424, VPN #45339568175, router NVRAM #45339568171, WAN ARP #45339568324, USB modem #45339568348, miniupnpd #45339568380, ZeroTier #45339568346, Wireless #45339568118, IPv6 #45339568388, watchdog #45339568182, detect_link #45339568318 and detect_internet #45339568405 also PASS.
+- HTTPD #45339568430 failed only at the DNSMasq hostname-pair source contract: the checker still ordered publication before a direct `sethostname(lan_hname, ...)` call. This commit updates the contract to verify the errno-preserving wrappers and `lan_kernel_names_apply()` call after atomic file publication and before lock release. No production source changes in this follow-up.
+- At last poll, XY-C1 #45339568161, Firewall #45339568335 and WAN teardown #45339568351 remained in progress on `a26746d`; no L3 result is claimed. Main advanced concurrently to `cbbb27636807b7f195d7d87ccefb476366a07995`, which contains the separate AdGuardHome executable/argv/start_time hardening; its config-security #45339988745 and AI docs #45339988750 passed, while Process inventory #45339988758 was still in progress.
+- Parent main for this atomic checker correction: `cbbb27636807b7f195d7d87ccefb476366a07995`. Exact HTTPD, AI docs and Process reruns will be checked on the new SHA.
+
+---
 ## 2026-11-24 — Bind AdGuardHome stop signals to the managed executable and argv
 
 - `adg_process_state()` previously accepted every numeric PID from `pidof AdGuardHome` as owned by this service. Linux comm names are mutable and do not prove executable identity; another binary with the same comm could be signalled, and a real AdGuardHome launched with a different config/workdir could be stopped accidentally.
@@ -14,7 +22,7 @@
 - Reused the tested `lan_kernel_names_apply()` policy in `net_wan.c`; both syscalls now return positive errno/EIO, both are attempted, and the first failure survives a later lock-release failure. The valid on-disk pair is not rolled back; the caller receives the error and blocks DNSMasq preparation for retry.
 - Added Process workflow path coverage for the shared policy/test, a GNU89 ASan/UBSan compile-and-run step, and source-contract assertions for the router adapter, ordering and error propagation.
 - Parent main: `9ce145922915fa4b09217b1253a5490a9e2fbda9`. This atomic commit includes `net_wan.c`, the Process source checker/workflow, the WAN DHCP roadmap note, and the live handoff.
-- Local verification: compile/run the checked-in policy regression for this slice; exact Actions state must be checked for THIS COMMIT. The available GitHub connector does not expose push-run listing; an empty combined-status result or PR-only run query is not PASS. No L3/L4 result is claimed.
+- Local verification: GNU89/ASan/UBSan LAN kernel-name policy regression passed; exact push Actions for this SHA were queried directly. Process fail-closed, Process inventory, AI docs, WAN DHCP, WAN route, DNSMasq and related module jobs passed. HTTPD security exposed one stale source-contract assertion (fixed in the subsequent checker-only commit); XY-C1 remained in progress. No L3/L4 result was claimed.
 
 ---
 

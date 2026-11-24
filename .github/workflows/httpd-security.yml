@@ -2208,7 +2208,16 @@ jobs:
           assert 'hosts_lock = dnsmasq_lifecycle_lock_acquire_path(' in hosts_update
           assert 'DNSMASQ_HOSTNAME_LOCK_FILE' in hosts_update
           assert 'load_user_config(hosts_fp, "/tmp", "hosts.static", NULL)' in hosts_update
-          assert hosts_update.index('hosts_lock = dnsmasq_lifecycle_lock_acquire_path(') < hosts_update.index('dnsmasq_file_publish_pair(') < hosts_update.index('sethostname(lan_hname')
+          assert hosts_update.index('hosts_lock = dnsmasq_lifecycle_lock_acquire_path(') < hosts_update.index('dnsmasq_file_publish_pair(')
+          assert 'lan_kernel_names_apply(lan_hname, lan_dname, &wan_kernel_name_ops)' in hosts_update_compact
+          assert 'sethostname(' not in hosts_update and 'setdomainname(' not in hosts_update
+          hostname_setter = function_body(net_wan, "wan_sethostname_status(const char *name, size_t length)")
+          domain_setter = function_body(net_wan, "wan_setdomainname_status(const char *name, size_t length)")
+          assert 'sethostname(name, length)' in hostname_setter and 'return errno ? errno : EIO;' in hostname_setter
+          assert 'setdomainname(name, length)' in domain_setter and 'return errno ? errno : EIO;' in domain_setter
+          assert hosts_update_compact.index('dnsmasq_file_publish_pair(') < hosts_update_compact.index('lan_kernel_names_apply(lan_hname, lan_dname, &wan_kernel_name_ops)') < hosts_update_compact.index('dnsmasq_lifecycle_lock_release(hosts_lock)')
+          assert 'first_error=%d' in hosts_update
+          assert 'return saved_errno;' in hosts_update
           assert 'dnsmasq_lifecycle_lock_release(hosts_lock)' in hosts_update
           assert 'dnsmasq_file_publish(staged_fp, hostname_temp' not in hosts_update
           assert 'dnsmasq_file_publish(staged_fp, hosts_temp' not in hosts_update

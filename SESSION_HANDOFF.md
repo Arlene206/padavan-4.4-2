@@ -1,38 +1,37 @@
 ## Current repository state
 
-- Parent main for this AdGuardHome identity-hardening slice: `a26746d033ffa19d9b576010f4fe4a583b4a859a`; live main/tree were read immediately before atomic tree construction.
-- Adbyby executable/start_time hardening: exact Adbyby host #45339125309 PASS and Process fail-closed #45339125213 PASS on `17d08de1ed22fe2ff102992d28c974b42b77de3a`.
-- AdGuardHome baseline after test-only repairs: exact config-security #45339223189 PASS and Process inventory #45339223352 PASS on `9ce145922915fa4b09217b1253a5490a9e2fbda9`.
-- This slice addresses the same confirmed PID-ownership weakness in AdGuardHome: numeric `pidof` candidates are no longer sufficient evidence to signal a process.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Main-only atomic complete-tree commits, expected-SHA non-forced updates, no force-push.
+- Live parent `main`: `cbbb27636807b7f195d7d87ccefb476366a07995`; the next commit is an atomic checker/documentation correction based on this exact tree. Main may advance independently; re-fetch and compare before each write.
+- Router kernel hostname/domain propagation fix is in `a26746d033ffa19d9b576010f4fe4a583b4a859a`: `update_hosts_router()` now uses the tested `lan_kernel_names_apply()` policy and returns kernel setter failures through the existing DNSMasq preparation gate.
+- AdGuardHome process identity hardening is in parent `cbbb27636807b7f195d7d87ccefb476366a07995`: numeric pidof candidates are filtered by exact `/proc/PID/exe`, full config/workdir argv and non-zombie `/proc/PID/stat` start_time; TERM and refreshed SIGKILL snapshots revalidate the identity immediately before signaling.
+- Adbyby executable/start_time hardening exact Adbyby #45339125309 and Process fail-closed #45339125213 PASS on `17d08de1ed22fe2ff102992d28c974b42b77de3a`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Active task
 
-Implement AdGuardHome process identity:
-- Match `/proc/PID/exe` to `/usr/bin/AdGuardHome`, require the service's exact config/workdir argv tuple, parse non-zombie `/proc/PID/stat` start_time.
-- Snapshot stores `PID:start_time`; TERM and refreshed SIGKILL each revalidate identity immediately before signaling.
-- Host regression uses synthetic procfs for wrong executable, wrong config argv and malformed metadata; existing multi-PID and changed-PID escalation tests remain.
-- Exact-head AdGuardHome config-security and Process inventory/fail-closed Actions are required after publication.
+Align the HTTPD workflow's DNSMasq hostname-pair source contract with the checked router setters:
+- Previous HTTPD exact run #45339568430 on `a26746d` failed at a stale assertion expecting a direct `sethostname(lan_hname, ...)` call inside `update_hosts_router()`.
+- The new implementation deliberately calls `lan_kernel_names_apply(lan_hname, lan_dname, &wan_kernel_name_ops)` after atomic pair publication; each adapter returns positive errno/EIO, both setters are attempted, and the first error is returned after lifecycle lock release.
+- This commit changes only the HTTPD workflow contract and handoff/log evidence; it must not relax runtime coverage.
 
 ## Completed development slices
 
-- Adbyby process identity hardening on parent `9ce145922915fa4b09217b1253a5490a9e2fbda9`: pidof candidates are bound to exact `/proc/PID/exe` and parsed non-zombie `/proc/PID/stat` start_time; stop revalidates both immediately before TERM. Host fixtures cover multiple PIDs, same-name wrong-executable decoys, malformed proc metadata and changed start_time.
-- WAN router hostname/domain updater: this atomic commit; source regression integration is included. The on-disk file pair remains published if a kernel name syscall fails; the DNSMasq caller receives the failure before daemon preparation.
-- Previously completed unrelated modules and checks are retained in `REFACTOR_ROADMAP.md`; do not repeat their audits without a new failing case.
+- AdGuardHome identity hardening (parent `cbbb27636807b7f195d7d87ccefb476366a07995`): host tests/source contract added for exact executable, argv tuple, procfs metadata and PID reuse; Actions are listed below.
+- Router kernel hostname/domain status propagation (`a26746d`): shared policy, positive error propagation, Process workflow path filter/ASan regression; exact Process, WAN DHCP, WAN route, DNSMasq, etc. pass.
+- Adbyby process identity hardening (`17d08de1`): exact binary and process start_time validation before stop signaling; dedicated host and Process regressions PASS.
 
 ## Verification boundary
 
-- Baseline `9ce1459`: AdGuardHome config-security #45339223189 PASS; Process inventory #45339223352 PASS. Those checks predate the new executable/argv identity code in THIS COMMIT.
-- Exact-head checks for THIS COMMIT are pending immediately after publication; no new MIPS build or physical-router result is claimed.
-- Linux 4.4 lacks pidfd support in this firmware baseline; executable/argv/start_time are revalidated directly before each signal, but the final tiny validate-to-signal race cannot be eliminated here.
-- No same-SHA L3 claim; target hardware L4 remains NOT VERIFIED.
+- Parent `a26746d033ffa19d9b576010f4fe4a583b4a859a`: Process fail-closed #45339568206 PASS, including LAN kernel-name status regression; Process inventory #45339568157 PASS; AI docs #45339568440 PASS; WAN DHCP #45339568432 PASS; WAN route #45339568336 PASS; DNSMasq #45339568424 PASS; VPN #45339568175 PASS; router NVRAM #45339568171 PASS; WAN ARP #45339568324 PASS; USB modem #45339568348 PASS; miniupnpd #45339568380 PASS; ZeroTier #45339568346 PASS; Wireless #45339568118 PASS; IPv6 #45339568388 PASS; watchdog #45339568182 PASS; detect_link #45339568318 PASS; detect_internet #45339568405 PASS.
+- HTTPD #45339568430 FAILED only on the stale hostname source assertion, corrected here. XY-C1 #45339568161, Firewall #45339568335 and WAN teardown #45339568351 were still IN_PROGRESS at last poll. No same-SHA target firmware/TRX/artifact result was available, so L3 is NOT VERIFIED.
+- Parent `cbbb27636807b7f195d7d87ccefb476366a07995`: AdGuardHome config security #45339988745 PASS; AI docs #45339988750 PASS; Process inventory #45339988758 was IN_PROGRESS at last poll. Exact reruns required after this checker correction.
+- No physical-router L4 result is claimed. Linux 4.4 has no pidfd; the Adbyby and AdGuardHome identity checks still have the documented final validation-to-signal race.
 
 ## Exact first action for the next GPT
 
-1. Inspect this commit's exact-head AdGuardHome config-security, Process inventory/fail-closed and AI handoff Actions; fix any first failing assertion or fixture.
-2. If these checks pass or remain pending, continue a separate evidence-backed P1 stability/security fix outside Adbyby, AdGuardHome and SmartDNS rather than re-auditing completed work.
-3. Keep the frozen backup immutable and main updates atomic/non-forced.
+1. Inspect the exact-SHA HTTPD security, AI docs and Process runs spawned by this checker correction; fix any first failure.
+2. Poll XY-C1 #45339568161 on `a26746d` plus Firewall #45339568335 and WAN teardown #45339568351; claim L3 only if Build, TRX verification and artifact upload all succeed on the same production source SHA.
+3. Inspect completion of AdGuardHome config-security/Process inventory on `cbbb276` and continue the first evidence-backed P1 gap outside already-completed Adbyby/SmartDNS/RAETH scopes.
+4. Keep the backup immutable and all main writes as complete-tree atomic commits with expected-SHA non-forced ref updates.
 
 # Cross-session execution mandate
 
