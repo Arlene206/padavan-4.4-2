@@ -168,6 +168,7 @@ main(void)
   char new_file[PATH_MAX], leaf[PATH_MAX];
   char held_a[PATH_MAX], race_link[PATH_MAX];
   char rollback_path[PATH_MAX], rollback_saved[PATH_MAX];
+  char cleanup_dir_leaf[96];
   char tiny[2];
   char marker_path[PATH_MAX], marker_small[256], long_mount_path[257];
   int cleanup_allowed, dir_fd, race_fd, rollback_fd, replacement_fd;
@@ -189,16 +190,20 @@ main(void)
   char rename_parent_a[PATH_MAX], rename_parent_b[PATH_MAX];
   char fifo_file[PATH_MAX];
   ssize_t read_length, link_target_length;
-  struct stat st, canonical_st;
+  struct stat st, canonical_st, cleanup_st, replacement_st;
   char *created;
 
   if (test_share_permission_records() != 0 ||
-      test_account_permission_path_builder() != 0)
+      test_account_permission_path_builder() != 0 ||
+      ftp_acl_path_cleanup_directory_name(cleanup_dir_leaf,
+                                          sizeof(cleanup_dir_leaf)) != 0)
     return 1;
 
   if (!ftp_acl_path_is_internal_metadata("/mnt/.__folder_list.txt") ||
       !ftp_acl_path_is_internal_metadata(".__alice_var.txt") ||
       ftp_acl_path_is_internal_metadata("/mnt/share/.__notes.txt") ||
+      !ftp_acl_path_is_internal_metadata("/mnt/share/.__vsftpd_cleanup_123") ||
+      !ftp_acl_path_is_internal_metadata("/mnt/share/.__vsftpd_cleanup_123/partial.bin") ||
       ftp_acl_path_is_internal_metadata("/mnt/share/.visible-file") ||
       ftp_acl_path_is_internal_metadata("/mnt/.__alice_var.tx")) {
     fprintf(stderr, "reserved FTP metadata classification failed\n");
@@ -900,6 +905,12 @@ main(void)
     fprintf(stderr, "failed new upload remained after rollback\n");
     return 1;
   }
+  if (fstatat(upload_dir_fd, cleanup_dir_leaf, &cleanup_st,
+              AT_SYMLINK_NOFOLLOW) != 0 || !S_ISDIR(cleanup_st.st_mode) ||
+      cleanup_st.st_uid != geteuid() || (cleanup_st.st_mode & 0777) != 0700) {
+    fprintf(stderr, "upload cleanup quarantine is not private to its effective UID\n");
+    return 1;
+  }
 
   upload_fd = ftp_acl_path_open_upload_entry(
       upload_dir_fd, "failed-unique-upload.txt", 1, 0, 0600, &cleanup_allowed);
@@ -1071,8 +1082,13 @@ main(void)
     fprintf(stderr, "cleanup removed a replacement upload entry\n");
     return 1;
   }
-  if (stat(rollback_path, &st) != 0 || stat(rollback_saved, &st) != 0) {
-    fprintf(stderr, "cleanup replacement fixtures disappeared\n");
+  if (stat(rollback_path, &st) != 0 || stat(rollback_saved, &st) != 0 ||
+      fstat(replacement_fd, &replacement_st) != 0 ||
+      fstatat(dir_fd, "rollback.txt", &canonical_st,
+              AT_SYMLINK_NOFOLLOW) != 0 ||
+      replacement_st.st_dev != canonical_st.st_dev ||
+      replacement_st.st_ino != canonical_st.st_ino) {
+    fprintf(stderr, "cleanup failed to restore the replacement upload after quarantine\n");
     return 1;
   }
   close(rollback_fd);
@@ -1082,6 +1098,7 @@ main(void)
       unlinkat(dir_fd, ".__acl-reader-race.txt", 0) != 0 ||
       unlinkat(dir_fd, "dirfd-created.txt", 0) != 0 ||
       unlinkat(dir_fd, "race-link", 0) != 0 ||
+      unlinkat(dir_fd, cleanup_dir_leaf, AT_REMOVEDIR) != 0 ||
       close(dir_fd) != 0 || rmdir(a) != 0 || rename(held_a, a) != 0) {
     perror("restore descriptor race fixtures");
     return 1;

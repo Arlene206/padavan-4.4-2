@@ -2,52 +2,39 @@
 
 # Cross-session execution mandate
 
-# Cross-session execution mandate
-
-Each source/test slice is one atomic main commit: construct one complete Git tree, create one commit, then update main by a non-forced expected-SHA compare-and-swap. Continue this repository as one cross-session engineering stream. A logical multi-file change lands as one complete Git tree and one commit on `main`, followed by exact-SHA push validation. Never create partial per-file commits, force-push, or modify the frozen backup. A PENDING workflow does not block independent safe work.
+Each source/test slice is one atomic main commit: construct one complete Git tree, create one commit, then update main by a non-forced expected-SHA compare-and-swap. Continue this repository as one cross-session engineering stream. Never create partial per-file commits, force-push, or modify the frozen backup. A PENDING workflow does not block independent safe work.
 
 ## Mandatory handoff checkpoint
 
-Every session MUST inspect the live repository state before ending: verify `main` and the frozen backup, identify the exact current SHA, inspect relevant exact-head Actions, record material state transitions, and name the next concrete implementation task. The checkpoint is mandatory; a document edit is conditional. If all checkpoint facts and the first action remain accurate, leave the files untouched and create no no-op commit. Do not claim tests, builds, artifacts or hardware checks that were not performed. Before context exhaustion, finish the current safe slice and preserve the exact verification boundary and first action.
+Every session MUST inspect live repository state before ending: verify main and frozen backup, identify exact SHA, inspect relevant exact-head Actions, record material state transitions, and name the next concrete implementation task. The checkpoint is mandatory; a document edit is conditional. Before context exhaustion, finish a safe slice and preserve exact verification boundaries and first action. If these facts remain accurate, do not create a no-op commit. Never claim a test, build, artifact or hardware check that was not actually performed.
 
-- Parent main before this VSFTPD source slice: `f43b856869a0ad94bae5fd15a1e14daff1f8ec1f`. Re-fetch live main before every write.
+- Parent main for this atomic source/test slice: `a35ae98adefb4d90e6deba8ade947c90e348c5d9`; verify the actual new main tip before writing again.
 - Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable and read-only.
-- PR #1 remains closed/unmerged and deeply behind main. Valid AliDDNS CA-bootstrap/HMAC evolution is already integrated on main; do not port the stale PR wholesale.
-- Only `main` is authorized for development and validation. Use one complete tree, one commit, and a non-forced expected-SHA ref update.
+- PR #1 remains closed/unmerged and deeply behind main; do not port it wholesale.
+- Main is the only development ref. Use one complete Git tree and one atomic main commit per logical slice, with expected-SHA non-force updates.
 
 ## Active task
 
-### VSFTPD stop/firewall reconciliation — RC service-control path
+### VSFTPD failed-upload cleanup and path safety
 
 Relevant files:
-- trunk/user/rc/src/services_stor.c
-- trunk/user/rc/src/ftp_daemon_policy.h
-- trunk/user/rc/src/tests/ftp_daemon_policy.c
-- .github/workflows/vsftpd-stability.yml
-- .github/workflows/storage-hotplug-stability.yml
+- `trunk/user/vsftpd/src/ftp_acl_path_policy.h`
+- `trunk/user/vsftpd/src/tests/ftp_acl_path_policy.c`
+- `.github/workflows/vsftpd-stability.yml`
 
-A stop command can report an error while the final procfs scan proves vsftpd absent. Standalone stop, restart and FTP/Samba group-stop callers decide FTP firewall/UPnP reconciliation from the independent final tri-state process observation, not the collapsed stop status. Only PROCESS_PRESENCE_ABSENT permits cleanup; RUNNING/UNKNOWN/invalid remain fail-closed. The original stop error is preserved and restart/eject does not proceed after a failed stop.
+The old cleanup compared the open upload FD with the public leaf using `fstatat()`, then unlinked that public name. A concurrent replacement in the gap could cause another writer's file to be deleted.
 
-Exact source commit b3f165ef4e08b585cc5a77ccdfb791165ba60496 changed service control, policy regression and VSFTPD source contract. Exact descendant 155a8be964e1ceb1ce82583df241be2248d1ec9d passed VSFTPD #45483093422 (GNU89 regression and embedded Python checker) and AI handoff #45483093417. The source commit's storage-wide checker was stale; THIS commit aligns that caller graph. No local cross compiler/MIPS build is claimed.
+THIS commit moves a candidate leaf atomically with `renameat2(RENAME_NOREPLACE)` into an effective-UID-owned 0700 quarantine directory, verifies the moved inode through the pinned quarantine FD, and unlinks only the matching moved entry. A mismatch or unlink failure attempts a no-replace restore. If a concurrent writer has occupied the public leaf, the quarantined object is retained rather than deleting either file. The reserved directory component is excluded from all client paths. There is no unsafe fallback when renameat2 is unavailable.
 
-### Shared process inventory — exact 15-byte comm boundary
-
-Review found an off-by-one in `proc_parse_stat()`: a 15-byte `comm` exactly fits the 16-byte kernel task-name buffer including its NUL terminator, but the scanner marked lengths >= 15 as truncated. When cmdline is empty or does not match the requested name, a valid maximum-length process name could be missed. This source slice changes the boundary to > 15 and adds a GNU89 regression using an exact 15-byte name with an empty cmdline. The Process workflow now pins both the comparison and test case. No local compiler run or MIPS build is claimed.
-
-### Parallel FTP verification — final-presence firewall reconciliation
-
-The production FTP stop/firewall change remains in `b3f165e`; VSFTPD checks passed on `155a8be`. Storage-hotplug run `d91dd33` passed its compiled C tests and full caller-graph checker but exposed duplicate stale FTP contracts in `scripts/check_storage_safe_remove.py`. The checker-only correction is now on current parent `f5b01d9`; exact storage-hotplug run `45484032665` and XY-C1 run `45484032783` were in progress at last observation. AI handoff `45484032630` passed. Do not transfer status between SHAs.
- 
 ## Verification boundary
 
-- Exact `fd59df3710ddcadfd9ca96f9e3b486f5cce7866e`: initial udhcpc #45480041494 had C GNU89/ASan/UBSan regression PASS and a stale Python assertion failure. After checker-only corrections, descendant `b2dab6b05fb2cf07abbdae01b1acff2cc134df31` udhcpc #45480533291 PASS (C regression and Python source contract).
-- Exact `fd59df3710ddcadfd9ca96f9e3b486f5cce7866e`: XY-C1 #45480041423 PASS, including Build XY-C1, TRX verification and artifact upload. Process inventory #45480041644, Process lifecycle #45480041481, USB storage #45480041346, NVRAM #45480041721 and AI handoff #45480041430 PASS. L3 VERIFIED for this DHCP product-source SHA; hardware/router L4 NOT VERIFIED.
-- Descendant `b2dab6b05fb2cf07abbdae01b1acff2cc134df31` AI handoff #45480533158 failed only the literal-string validator; docs-only descendant `f43b856869a0ad94bae5fd15a1e14daff1f8ec1f` AI handoff #45480803456 PASS.
-- Exact SHA `b3f165ef4e08b585cc5a77ccdfb791165ba60496`: VSFTPD #45482945754 failed only embedded source assertions; its GNU89 C policy binary passed. Exact descendant `155a8be964e1ceb1ce82583df241be2248d1ec9d` VSFTPD #45483093422 PASS (GNU89 regression + Python source contracts) and AI handoff #45483093417 PASS.
-- Exact SHA `d91dd33195eb32b29e2250c9cec4cd1604e50b77` storage-hotplug #45483595415: all compiled C regressions and whole-caller-graph check PASS; the final `scripts/check_storage_safe_remove.py` step failed on two stale `stop_ftp_locked(void)` lookups. THIS commit aligns both duplicate FTP contracts with the final-presence output. Exact-head rerun pending.
-- Other b3 results: libdisk, USB modem identity, MiniDLNA, Samba, IPv6, Firefly, storage-service enable, NFSD, AI docs, Process inventory, firewall startup and HTTPD security PASS; XY-C1 #45482945636, NVRAM #45482945421 and Process lifecycle #45482945410 were pending at last observation.
+- Parent `a35ae98adefb4d90e6deba8ade947c90e348c5d9`: AI handoff #45484687791 PASS. Process lifecycle inventory #45484687868, XY-C1 #45484687835, NVRAM #45484687920, DNSMasq #45484687914, button timing #45484687913, crond #45484687872, combined Process inventory/lifecycle #45484688144 and link detection #45484687806 were IN_PROGRESS at last poll.
+- Parent f5b01d9: storage-hotplug #45484032665 PASS and XY-C1 #45484032783 PASS; this exact evidence closes the checker-only safe-remove follow-up and product build for f5b01d9 only.
+- THIS commit changes VSFTPD production policy header, GNU89 C regression, embedded workflow source contract, dev log and handoff in one complete Git tree. Exact-head VSFTPD regression and embedded Python contracts are required. Same-SHA XY-C1 Build, TRX and artifact upload are separately required to establish L3; previous product-source build results do not transfer.
+- No local host compile, MIPS build or physical router test was performed. Hardware L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
-1. Inspect exact-head Process lifecycle/inventory and XY-C1 Actions for the new 15-byte `comm` boundary fix. Require GNU89 ASan/UBSan regression and source contract PASS; L3 requires Build, TRX and artifact upload PASS on the same product SHA.
-2. Inspect f5b01d9 storage-hotplug #45484032665 and XY-C1 #45484032783 to close the FTP stop/firewall validation boundary; AI docs #45484032630 is PASS. Also check b3f165e XY-C1 #45482945636 only by its own SHA.
-3. Continue an independently evidenced stability/security issue across Padavan userland; do not repeat closed DHCP work. Hardware/router L4 remains unverified.
+
+1. Inspect exact-head VSFTPD workflow; require the GNU89 `-Wall -Wextra -Werror` ACL policy regression and all embedded Python source contracts to PASS. If it fails, fix the causal issue without reintroducing a public-leaf unlink race.
+2. Inspect exact-head XY-C1 Build, TRX verification and artifact upload separately; only same-SHA PASS establishes L3.
+3. Inspect the parent a35ae98 process-inventory and related exact-SHA runs if they complete. Then rotate to the next high-risk stability/security issue across Padavan userland; keep the frozen backup read-only and use expected-SHA non-force updates only.

@@ -732,11 +732,28 @@ jobs:
           assert "fstat(parent_fd, &opened_parent)" in vsftpd_acl
           assert "expected_parent.st_ino != opened_parent.st_ino" in vsftpd_acl
           assert "ftp_acl_path_unlink_opened_entry" in vsftpd_acl
+          upload_cleanup = function_body(acl_path_policy, "ftp_acl_path_unlink_opened_entry(")
+          cleanup_open = function_body(acl_path_policy, "ftp_acl_path_open_cleanup_directory(")
+          cleanup_rename = function_body(acl_path_policy, "ftp_acl_path_rename_noreplace(")
+          assert "renameat2" in cleanup_rename and "RENAME_NOREPLACE" in cleanup_rename
+          assert "mkdirat(dir_fd, name, 0700)" in cleanup_open
+          assert "O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC" in cleanup_open
+          assert "st.st_uid != geteuid()" in cleanup_open
+          assert '(st.st_mode & 0777) != 0700' in cleanup_open
+          assert "ftp_acl_path_rename_noreplace(dir_fd, leaf, cleanup_fd" in upload_cleanup
+          assert "fstatat(cleanup_fd, quarantine_leaf, &quarantined, AT_SYMLINK_NOFOLLOW)" in upload_cleanup
+          assert "unlinkat(cleanup_fd, quarantine_leaf, 0)" in upload_cleanup
+          assert "ftp_acl_path_rename_noreplace(cleanup_fd, quarantine_leaf" in upload_cleanup
+          assert "fstatat(dir_fd, leaf" not in upload_cleanup
+          assert "unlinkat(dir_fd, leaf" not in upload_cleanup
+          assert "cleanup removed a replacement upload entry" in acl_path_test
+          assert "cleanup failed to restore the replacement upload after quarantine" in acl_path_test
+          assert "upload cleanup quarantine is not private to its effective UID" in acl_path_test
+          assert '.__vsftpd_cleanup_' in acl_path_policy
           assert "O_NOFOLLOW" in acl_path_policy
           assert "O_CLOEXEC" in acl_path_policy
           assert "directory descriptor did not stay on original share" in acl_path_test
           assert "O_NOFOLLOW accepted a substituted final symlink" in acl_path_test
-          assert "cleanup removed a replacement upload entry" in acl_path_test
           assert "lstat(path, &st)" in acl_path_policy
           assert "ftp_acl_path_resolve_directory" in acl_path_policy
           assert "cross-share symlink" in acl_path_test

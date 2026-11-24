@@ -7,10 +7,14 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <sys/stat.h>
+#include <sys/syscall.h>
 #include <fcntl.h>
 #include <unistd.h>
 #ifndef PATH_MAX
 #define PATH_MAX 4096
+#endif
+#ifndef RENAME_NOREPLACE
+#define RENAME_NOREPLACE (1U << 0)
 #endif
 static int
 ftp_acl_path_parent(const char *path, char *parent, size_t parent_size)
@@ -58,12 +62,31 @@ ftp_acl_path_resolve_parent(const char *path, char *parent,
  * direct FTP file commands.
  */
 static int
+static int
 ftp_acl_path_is_internal_metadata(const char *path)
 {
-  const char *base;
+  const char *base, *component, *end;
   size_t length;
+  static const char cleanup_prefix[] = ".__vsftpd_cleanup_";
+
   if (!path || !*path)
     return 0;
+  component = path;
+  while (*component) {
+    while (*component == '/')
+      ++component;
+    if (!*component)
+      break;
+    end = component;
+    while (*end && *end != '/')
+      ++end;
+    if ((size_t)(end - component) >= sizeof(cleanup_prefix) - 1U &&
+        strncmp(component, cleanup_prefix,
+                sizeof(cleanup_prefix) - 1U) == 0)
+      return 1;
+    component = end;
+  }
+
   base = strrchr(path, '/');
   base = base ? base + 1 : path;
   if (strcmp(base, ".__folder_list.txt") == 0)
@@ -72,7 +95,6 @@ ftp_acl_path_is_internal_metadata(const char *path)
   return length > 11 && strncmp(base, ".__", 3) == 0 &&
          strcmp(base + length - 8, "_var.txt") == 0;
 }
-
 
 /*
  * The account name comes from the authenticated FTP USER field and is used
@@ -702,19 +724,195 @@ ftp_acl_path_open_upload_entry(int dir_fd, const char *leaf, int exclusive,
  * name pair remains best-effort against concurrent writers in the same dir.
  */
 static int
-ftp_acl_path_unlink_opened_entry(int dir_fd, const char *leaf, int file_fd)
+/*
+ * Linux has no unlink-by-file-descriptor or conditional unlinkat operation.
+ * Move the leaf atomically into an effective-UID-owned 0700 directory first;
+ * the quarantined name cannot be replaced through the public upload directory
+ * while its inode is checked.
+ */
+static int
+ftp_acl_path_cleanup_directory_name(char *name, size_t name_size)
 {
-  struct stat opened, current;
-  if (dir_fd < 0 || !leaf || !*leaf || file_fd < 0 ||
-      fstat(file_fd, &opened) != 0 ||
-      !S_ISREG(opened.st_mode) ||
-      fstatat(dir_fd, leaf, &current, AT_SYMLINK_NOFOLLOW) != 0 ||
-      !S_ISREG(current.st_mode) ||
-      opened.st_dev != current.st_dev || opened.st_ino != current.st_ino)
+  int written;
+  if (!name || name_size == 0) {
+    errno = EINVAL;
     return -1;
-  return unlinkat(dir_fd, leaf, 0);
+  }
+  written = snprintf(name, name_size, ".__vsftpd_cleanup_%lu",
+                     (unsigned long)geteuid());
+  if (written < 0 || (size_t)written >= name_size) {
+    errno = ENAMETOOLONG;
+    return -1;
+  }
+  return 0;
 }
 
+static int
+ftp_acl_path_open_cleanup_directory(int dir_fd, const char *name)
+{
+  struct stat st;
+  int cleanup_fd;
+  int created = 0;
+  if (dir_fd < 0 || !name ||
+      !ftp_acl_path_is_internal_metadata(name)) {
+    errno = EINVAL;
+    return -1;
+  }
+  if (mkdirat(dir_fd, name, 0700) == 0)
+    created = 1;
+  else if (errno != EEXIST)
+    return -1;
+
+  cleanup_fd = openat(dir_fd, name,
+                      O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+  if (cleanup_fd < 0)
+    return -1;
+  if (fstat(cleanup_fd, &st) != 0) {
+    int saved_errno = errno;
+    close(cleanup_fd);
+    errno = saved_errno;
+    return -1;
+  }
+  if (!S_ISDIR(st.st_mode) || st.st_uid != geteuid()) {
+    close(cleanup_fd);
+    errno = EPERM;
+    return -1;
+  }
+  if (created) {
+    if (fchmod(cleanup_fd, 0700) != 0) {
+      int saved_errno = errno;
+      close(cleanup_fd);
+      errno = saved_errno;
+      return -1;
+    }
+  } else if ((st.st_mode & 0777) != 0700) {
+    close(cleanup_fd);
+    errno = EPERM;
+    return -1;
+  }
+  if (fstat(cleanup_fd, &st) != 0) {
+    int saved_errno = errno;
+    close(cleanup_fd);
+    errno = saved_errno;
+    return -1;
+  }
+  if (!S_ISDIR(st.st_mode) || st.st_uid != geteuid() ||
+      (st.st_mode & 0777) != 0700) {
+    close(cleanup_fd);
+    errno = EPERM;
+    return -1;
+  }
+  return cleanup_fd;
+}
+
+static int
+ftp_acl_path_rename_noreplace(int old_dir_fd, const char *old_name,
+                              int new_dir_fd, const char *new_name)
+{
+#if defined(SYS_renameat2)
+  return (int)syscall(SYS_renameat2, old_dir_fd, old_name,
+                      new_dir_fd, new_name, RENAME_NOREPLACE);
+#elif defined(__NR_renameat2)
+  return (int)syscall(__NR_renameat2, old_dir_fd, old_name,
+                      new_dir_fd, new_name, RENAME_NOREPLACE);
+#else
+  (void)old_dir_fd;
+  (void)old_name;
+  (void)new_dir_fd;
+  (void)new_name;
+  errno = ENOSYS;
+  return -1;
+#endif
+}
+
+static int
+ftp_acl_path_unlink_opened_entry(int dir_fd, const char *leaf, int file_fd)
+{
+  static unsigned int sequence;
+  struct stat opened, quarantined;
+  char cleanup_dir[96], quarantine_leaf[96];
+  unsigned int attempt;
+  int cleanup_fd, moved = 0, written, saved_errno, stat_status;
+
+  if (dir_fd < 0 || !leaf || !*leaf || strchr(leaf, '/') ||
+      strcmp(leaf, ".") == 0 || strcmp(leaf, "..") == 0 ||
+      ftp_acl_path_is_internal_metadata(leaf) || file_fd < 0) {
+    errno = EINVAL;
+    return -1;
+  }
+  if (fstat(file_fd, &opened) != 0)
+    return -1;
+  if (!S_ISREG(opened.st_mode)) {
+    errno = EINVAL;
+    return -1;
+  }
+  if (ftp_acl_path_cleanup_directory_name(cleanup_dir,
+                                         sizeof(cleanup_dir)) != 0)
+    return -1;
+  cleanup_fd = ftp_acl_path_open_cleanup_directory(dir_fd, cleanup_dir);
+  if (cleanup_fd < 0)
+    return -1;
+
+  /* PID plus sequence avoids collisions between concurrent vsftpd children. */
+  for (attempt = 0; attempt < 32U; ++attempt) {
+    ++sequence;
+    written = snprintf(quarantine_leaf, sizeof(quarantine_leaf),
+                       "upload-%ld-%u", (long)getpid(), sequence);
+    if (written < 0 || (size_t)written >= sizeof(quarantine_leaf)) {
+      close(cleanup_fd);
+      errno = ENAMETOOLONG;
+      return -1;
+    }
+    if (ftp_acl_path_rename_noreplace(dir_fd, leaf, cleanup_fd,
+                                      quarantine_leaf) == 0) {
+      moved = 1;
+      break;
+    }
+    if (errno != EEXIST) {
+      saved_errno = errno;
+      close(cleanup_fd);
+      errno = saved_errno;
+      return -1;
+    }
+  }
+  if (!moved) {
+    close(cleanup_fd);
+    errno = EEXIST;
+    return -1;
+  }
+
+  stat_status = fstatat(cleanup_fd, quarantine_leaf, &quarantined,
+                        AT_SYMLINK_NOFOLLOW);
+  if (stat_status == 0 && S_ISREG(quarantined.st_mode) &&
+      opened.st_dev == quarantined.st_dev &&
+      opened.st_ino == quarantined.st_ino) {
+    if (unlinkat(cleanup_fd, quarantine_leaf, 0) == 0) {
+      close(cleanup_fd);
+      return 0;
+    }
+    saved_errno = errno;
+  } else if (stat_status == 0) {
+    saved_errno = ESTALE;
+  } else {
+    saved_errno = errno;
+  }
+
+  /*
+   * Never discard a mismatched or unverified entry. Restore only if the
+   * public leaf is still absent; if another writer won the name, retain the
+   * quarantined object for recovery and fail the cleanup operation.
+   */
+  if (ftp_acl_path_rename_noreplace(cleanup_fd, quarantine_leaf,
+                                    dir_fd, leaf) != 0) {
+    int restore_errno = errno;
+    close(cleanup_fd);
+    errno = restore_errno;
+    return -1;
+  }
+  close(cleanup_fd);
+  errno = saved_errno;
+  return -1;
+}
 static int
 ftp_acl_path_resolve_directory(const char *path, char *resolved,
                                size_t resolved_size)

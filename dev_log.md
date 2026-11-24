@@ -1,3 +1,14 @@
+## 2026-11-25 01:28 CST — Close the VSFTPD failed-upload unlink race with quarantine rename
+
+- Parent main SHA: `a35ae98adefb4d90e6deba8ade947c90e348c5d9`. The previous `ftp_acl_path_unlink_opened_entry()` compared the upload descriptor to `fstatat(parent_fd, leaf)` and then unlinked that public name; a concurrent replacement between those syscalls could make cleanup delete another writer's file.
+- Replaced the check/delete pair with atomic `renameat2(RENAME_NOREPLACE)` into a hidden per-effective-UID quarantine directory. The directory is created or validated as an owned 0700 directory, and path policy blocks the reserved component anywhere in client paths. The moved inode is checked through the pinned quarantine directory FD; only a matching regular file is unlinked there.
+- A mismatch or unlink error attempts a no-replace restore. If a concurrent writer has occupied the public leaf, the quarantined item is retained instead of deleting either object. If renameat2 is unavailable, cleanup fails closed; there is no racy fallback.
+- Extended GNU89 ACL path tests for private directory ownership/mode, path exclusion, normal partial-upload deletion and replacement restoration. Updated the embedded VSFTPD Python contract to forbid public-leaf fstatat/unlinkat in the cleanup helper.
+- Current parent `a35ae98adefb4d90e6deba8ade947c90e348c5d9`: AI handoff #45484687791 PASS; Process lifecycle inventory #45484687868, XY-C1 #45484687835, NVRAM #45484687920, DNSMasq #45484687914, button timing #45484687913, crond #45484687872, Process inventory/lifecycle combined #45484688144 and link detection #45484687806 were in progress at last poll. Previous f5b01d9 storage-hotplug #45484032665 and XY-C1 #45484032783 both PASS; this is exact evidence for f5b01d9 only.
+- No local compilation, MIPS build or router test is claimed. Exact-head VSFTPD regression is required, with same-SHA XY-C1 Build/TRX/artifact for L3. Hardware L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-24 — Preserve exact 15-byte comm names in process inventory
 
 - L1 review found an off-by-one in `proc_parse_stat()`: a `comm` value exactly 15 bytes long fits the 16-byte buffer including its terminator, but the old >= comparison marked it truncated. This could cause the scanner to miss a valid maximum-length process name when cmdline is empty or differs.
