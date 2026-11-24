@@ -20,6 +20,13 @@ ADBYBY_START_WAIT_ATTEMPTS=5
 adbyby_refresh_nvram_state()
 {
 	adbyby_enable=$(nvram get adbyby_enable) || return 1
+	case "$adbyby_enable" in
+		''|0|1) ;;
+		*)
+			logger -t "adbyby" "Invalid adbyby_enable selector; refusing to change service state."
+			return 22
+			;;
+	esac
 	adbyby_ip_x=$(nvram get adbyby_ip_x) || return 1
 	adbyby_rules_x=$(nvram get adbyby_rules_x) || return 1
 	adbyby_set=$(nvram get adbyby_set) || return 1

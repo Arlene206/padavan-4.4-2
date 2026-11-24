@@ -9,13 +9,13 @@ export ADBYBY_DNSMASQ_AD_DIR
 trap 'rm -rf "$test_root"' EXIT HUP INT TERM
 policy_file="$test_root/policy.sh"
 awk '
-    /^adbyby_(reset_transient_nvram_state|lifecycle_(lock_path|lock_prepare|lock_execute|locked_action|lock_run))\(\) \{$/ {
+    /^adbyby_(refresh_nvram_state|reset_transient_nvram_state|lifecycle_(lock_path|lock_prepare|lock_execute|locked_action|lock_run))\(\) \{$/ {
         capture = 1
         found++
     }
     capture { print }
     capture && /^}$/ { capture = 0; print "" }
-    END { if (found != 6) exit 1 }
+    END { if (found != 7) exit 1 }
 ' "$source_file" > "$policy_file"
 [ -s "$policy_file" ] || { echo "could not extract lifecycle functions" >&2; exit 1; }
 . "$policy_file"
@@ -44,9 +44,6 @@ nvram() {
             ;;
         *) return 2 ;;
     esac
-}
-adbyby_refresh_nvram_state() {
-    adbyby_enable=$(nvram get adbyby_enable) || return $?
 }
 adbyby_start() { printf 'start\n' >> "$events"; }
 adbyby_close() {
@@ -120,6 +117,25 @@ nvram_get_status=0
 test_enable=1
 adbyby_lifecycle_lock_run restart 2 || fail "restart failed"
 [ "$(cat "$events")" = "$(printf 'close-begin\nclose-end\nstart')" ] || fail "restart was not one stop/start transaction"
+: > "$events"
+nvram_write_count_before=$(wc -l < "$nvram_log")
+for test_enable in unexpected -1 2 '1;reboot'; do
+    for action in start restart; do
+        : > "$events"
+        if adbyby_lifecycle_lock_run "$action" 2; then
+            fail "$action accepted invalid adbyby_enable selector '$test_enable'"
+        else
+            status=$?
+        fi
+        [ "$status" -eq 22 ] ||
+            fail "$action returned $status instead of EINVAL for invalid selector '$test_enable'"
+        [ ! -s "$events" ] ||
+            fail "$action stopped or started the daemon for invalid selector '$test_enable'"
+        [ "$(wc -l < "$nvram_log")" -eq "$nvram_write_count_before" ] ||
+            fail "$action modified transient NVRAM for invalid selector '$test_enable'"
+    done
+done
+echo "Adbyby invalid enable selectors preserve existing service: PASS"
 : > "$events"
 test_enable=0
 adbyby_lifecycle_lock_run restart 2 || fail "disabled restart failed"

@@ -61,6 +61,7 @@ copy_scripts = COPY_SCRIPTS.read_text(encoding="utf-8")
 helper = function_body(source, "adbyby_remove_generated_hosts_config")
 hosts_ads = function_body(source, "hosts_ads")
 del_dns = function_body(source, "del_dns")
+refresh_nvram_state = function_body(source, "adbyby_refresh_nvram_state")
 lock_prepare = function_body(source, "adbyby_lifecycle_lock_prepare")
 lock_execute = function_body(source, "adbyby_lifecycle_lock_execute")
 locked_action = function_body(source, "adbyby_lifecycle_locked_action")
@@ -102,6 +103,14 @@ restart_match = re.search(r"(?ms)int\s+restart_adbyby\s*\(\s*void\s*\)\s*\{(.*?)
 if not restart_match:
     fail("missing C function int restart_adbyby(void)")
 restart_adbyby = restart_match.group(1)
+
+require('case "$adbyby_enable" in' in refresh_nvram_state and
+        "''|0|1)" in refresh_nvram_state and
+        "Invalid adbyby_enable selector; refusing to change service state." in refresh_nvram_state and
+        "return 22" in refresh_nvram_state,
+        "Adbyby start/restart must reject corrupt enable selectors before changing service state")
+require("Adbyby invalid enable selectors preserve existing service: PASS" in lifecycle_test,
+        "Adbyby lifecycle regression must cover malformed selectors without NVRAM or process side effects")
 
 require("/etc/storage/dnsmasq/dnsmasq.conf" in helper and
         "$PROG_PATH/hosts" in helper,
