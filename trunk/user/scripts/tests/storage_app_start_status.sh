@@ -483,7 +483,8 @@ case "${STORAGE_TEST_STOP_PIDOF_STATUS:-0}" in
 	*) exit "$STORAGE_TEST_STOP_PIDOF_STATUS" ;;
 esac
 [ -s "$STORAGE_TEST_STOP_STATE" ] || exit 1
-if [ -e "$STORAGE_TEST_STOP_KILLALL_LOG" ] &&
+if { [ -e "$STORAGE_TEST_STOP_KILLALL_LOG" ] ||
+     [ -e "${STORAGE_TEST_STOP_TERM_LOG:-/nonexistent}" ]; } &&
    [ -n "${STORAGE_TEST_STOP_POST_PIDOF_STATUS:-}" ]; then
 	[ -z "${STORAGE_TEST_STOP_POST_PIDOF_OUTPUT:-}" ] ||
 		printf '%s\n' "$STORAGE_TEST_STOP_POST_PIDOF_OUTPUT"
@@ -516,9 +517,18 @@ create_stop_runner()
 SVC_NAME="${STORAGE_TEST_STOP_SERVICE_NAME:-StorageTest}"
 kill()
 {
-	[ "$#" -eq 2 ] && [ "$1" = "-9" ] || return 64
-	printf '%s\n' "$2" >> "$STORAGE_TEST_SIGNAL_LOG"
-	[ "${STORAGE_TEST_KILL_STATUS:-0}" -eq 0 ] || return "$STORAGE_TEST_KILL_STATUS"
+	[ "$#" -eq 2 ] || return 64
+	case "$1" in
+		-TERM)
+			printf '%s\n' "$2" >> "$STORAGE_TEST_STOP_TERM_LOG"
+			[ "${STORAGE_TEST_STOP_KILLALL_CLEAR:-0}" -eq 1 ] || return 0
+			;;
+		-9)
+			printf '%s\n' "$2" >> "$STORAGE_TEST_SIGNAL_LOG"
+			[ "${STORAGE_TEST_KILL_STATUS:-0}" -eq 0 ] || return "$STORAGE_TEST_KILL_STATUS"
+			;;
+		*) return 64 ;;
+	esac
 	/bin/grep -vxF "$2" "$STORAGE_TEST_STOP_STATE" > "$STORAGE_TEST_STOP_STATE.tmp" || :
 	/bin/mv "$STORAGE_TEST_STOP_STATE.tmp" "$STORAGE_TEST_STOP_STATE"
 	return 0
@@ -543,11 +553,13 @@ run_stop_runner()
 	pidof_empty_success=${9:-0}
 	pidof_post_status=${10:-}
 	pidof_post_output=${11:-}
+	rm -f "$signal_log.term"
 	if [ -n "${BUSYBOX_BIN:-}" ]; then
 		PATH="$STOP_STUB_DIR:$STUB_DIR:$PATH" \
 			STORAGE_TEST_STOP_SERVICE_NAME="$service_name" \
 			STORAGE_TEST_STOP_STATE="$state_file" \
 			STORAGE_TEST_SIGNAL_LOG="$signal_log" \
+			STORAGE_TEST_STOP_TERM_LOG="$signal_log.term" \
 			STORAGE_TEST_KILL_STATUS="$kill_status" \
 			STORAGE_TEST_STOP_KILLALL_CLEAR="$killall_clear" \
 			STORAGE_TEST_STOP_PIDOF_STATUS="$pidof_status" \
@@ -562,6 +574,7 @@ run_stop_runner()
 			STORAGE_TEST_STOP_SERVICE_NAME="$service_name" \
 			STORAGE_TEST_STOP_STATE="$state_file" \
 			STORAGE_TEST_SIGNAL_LOG="$signal_log" \
+			STORAGE_TEST_STOP_TERM_LOG="$signal_log.term" \
 			STORAGE_TEST_KILL_STATUS="$kill_status" \
 			STORAGE_TEST_STOP_KILLALL_CLEAR="$killall_clear" \
 			STORAGE_TEST_STOP_PIDOF_STATUS="$pidof_status" \
@@ -594,8 +607,9 @@ check_stop_contracts()
 		exit 1
 	fi
 	[ ! -e "$stop_killall" ] || { echo "$stop_service invoked killall with no daemon" >&2; exit 1; }
+	[ ! -s "$stop_signals.term" ] || { echo "$stop_service sent SIGTERM with no daemon" >&2; exit 1; }
 
-	# Graceful exit: killall clears the daemon snapshot.
+	# Graceful exit: validated per-PID SIGTERM or the existing Aria killall clears the snapshot.
 	stop_state="$TMP_DIR/$stop_prefix-stop-graceful-pids"
 	stop_signals="$TMP_DIR/$stop_prefix-stop-graceful-signals"
 	printf '%s\n' 101 202 > "$stop_state"
@@ -607,6 +621,29 @@ check_stop_contracts()
 	fi
 	[ ! -s "$stop_state" ] || { echo "$stop_service graceful stop left daemon PIDs" >&2; exit 1; }
 	[ ! -s "$stop_signals" ] || { echo "$stop_service graceful stop sent an unnecessary SIGKILL" >&2; exit 1; }
+	case "$stop_service" in
+		Transmission)
+			[ ! -e "$stop_killall" ] || {
+				echo "$stop_service used process-name-wide killall after PID validation" >&2
+				exit 1
+			}
+			[ "$(wc -l < "$stop_signals.term")" -eq 2 ] || {
+				echo "$stop_service graceful stop did not signal both validated PIDs" >&2
+				exit 1
+			}
+			[ "$(sed -n '1p' "$stop_signals.term")" = 101 ] &&
+			[ "$(sed -n '2p' "$stop_signals.term")" = 202 ] || {
+				echo "$stop_service graceful SIGTERM snapshot order changed" >&2
+				exit 1
+			}
+			;;
+		Aria2)
+			[ ! -s "$stop_signals.term" ] || {
+				echo "$stop_service unexpectedly used Transmission's SIGTERM path" >&2
+				exit 1
+			}
+			;;
+	esac
 
 	# Forced stop sends one signal per PID; killall status is non-authoritative.
 	stop_state="$TMP_DIR/$stop_prefix-stop-forced-pids"

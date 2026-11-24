@@ -1,3 +1,12 @@
+## 2026-11-24 — Align the shared stop regression with Transmission's per-PID SIGTERM
+
+- Exact-head USB storage workflow #45336245210 failed only in the shared Transmission/Aria launcher lifecycle regression; the preceding storage C and HDD/spindown checks passed.
+- Root cause was a stale test double, not a production-source failure: `Transmission.func_stop()` now sends `kill -TERM <validated-pid>`, but `storage_app_start_status.sh`'s shared `kill()` stub accepted only `-9`. The graceful fixture therefore left PIDs alive and incorrectly drove the stop path into SIGKILL.
+- Updated the fixture to record/clear validated per-PID SIGTERM separately from SIGKILL, while preserving Aria2's existing killall graceful-stop contract and post-signal PID revalidation. The first exact-head correction run must confirm the shared storage workflow.
+- Parent main: `2d87291cd72a25f90d58d12baea545e01609e4c7`. No firmware source changed in this test-only slice; no new firmware build or hardware result is claimed.
+
+---
+
 ## 2026-11-24 — Validate service selectors across userland and repair exact-head regression contracts
 
 - Fixed the Autostart lifecycle test's missing `fail()` helper, then corrected its concurrent-publish fixture so the shell writes a real newline. Process lifecycle Actions #45332907096 and #45332907032 passed on `6bc7b0665719835a6f45e54c3dfd13e3516f6b73`.
