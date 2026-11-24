@@ -857,6 +857,21 @@ jobs:
           log_string = lan_handler.index('pr_info("RAETH_SET_LAN_IP: %s\\n", ei_local->lan_ip4_addr)', bounded_copy)
           assert copy_in < validate < validate_fail < bounded_copy < log_string
           assert "strncpy(ei_local->lan_ip4_addr, ip_tmp, IP4_ADDR_LEN)" not in lan_handler
+          phy_dump = function_body(
+              driver, "int dump_phy_reg(int port_no, int from, int to, int is_local, int page_no)"
+          )
+          assert phy_dump.count("if (!mii_mgr_write(port_no, 31, r31))") == 2
+          assert phy_dump.count("if (!mii_mgr_read(port_no, i, &temp))") == 2
+          assert phy_dump.count("return -EIO;") == 4
+          dump_case_start = driver.index("case RAETH_ESW_PHY_DUMP:")
+          dump_case_end = driver.index("case RAETH_ESW_INGRESS_RATE:", dump_case_start)
+          dump_case = driver[dump_case_start:dump_case_end]
+          assert dump_case.count("if (!mii_mgr_read(") == 2
+          assert dump_case.count("goto phy_dump_done;") == 6
+          assert dump_case.count("dump_phy_reg(") >= 7
+          assert "phy_dump_done:" in dump_case
+          assert dump_case.index("phy_dump_done:") > dump_case.index("goto phy_dump_done;")
+          print("RAETH PHY dump aborts on any failed MDIO access: PASS")
           ioctl_handler = function_body(
               driver, "int ei_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)"
           )

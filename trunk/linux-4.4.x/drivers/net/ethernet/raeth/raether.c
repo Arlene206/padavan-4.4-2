@@ -2935,7 +2935,7 @@ struct net_device_stats *ra_get_stats(struct net_device *dev)
 	return &ei_local->stat;
 }
 
-void dump_phy_reg(int port_no, int from, int to, int is_local, int page_no)
+int dump_phy_reg(int port_no, int from, int to, int is_local, int page_no)
 {
 	u32 i = 0;
 	u32 temp = 0;
@@ -2944,30 +2944,35 @@ void dump_phy_reg(int port_no, int from, int to, int is_local, int page_no)
 	if (is_local == 0) {
 		pr_info("\n\nGlobal Register Page %d\n", page_no);
 		pr_info("===============");
-		r31 |= 0 << 15;	/* global */
-		r31 |= ((page_no & 0x7) << 12);	/* page no */
-		mii_mgr_write(port_no, 31, r31);	/* select global page x */
+		r31 |= 0 << 15;
+		r31 |= ((page_no & 0x7) << 12);
+		if (!mii_mgr_write(port_no, 31, r31))
+			return -EIO;
 		for (i = 16; i < 32; i++) {
 			if (i % 8 == 0)
 				pr_info("\n");
-			mii_mgr_read(port_no, i, &temp);
+			if (!mii_mgr_read(port_no, i, &temp))
+				return -EIO;
 			pr_info("%02d: %04X ", i, temp);
 		}
 	} else {
 		pr_info("\n\nLocal Register Port %d Page %d\n", port_no,
 			page_no);
 		pr_info("===============");
-		r31 |= 1 << 15;	/* local */
-		r31 |= ((page_no & 0x7) << 12);	/* page no */
-		mii_mgr_write(port_no, 31, r31);	/* select local page x */
+		r31 |= 1 << 15;
+		r31 |= ((page_no & 0x7) << 12);
+		if (!mii_mgr_write(port_no, 31, r31))
+			return -EIO;
 		for (i = 16; i < 32; i++) {
 			if (i % 8 == 0)
 				pr_info("\n");
-			mii_mgr_read(port_no, i, &temp);
+			if (!mii_mgr_read(port_no, i, &temp))
+				return -EIO;
 			pr_info("%02d: %04X ", i, temp);
 		}
 	}
 	pr_info("\n");
+	return 0;
 }
 
 int ei_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
@@ -3113,7 +3118,7 @@ int ei_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 		 * Local Register 16~31 for each page
 		 */
 		pr_info("SPEC defined Register");
-		if (reg.val == 32) {	/* dump all phy register */
+		if (reg.val == 32) {
 			int i = 0;
 
 			for (i = 0; i < 5; i++) {
@@ -3121,7 +3126,10 @@ int ei_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 				for (offset = 0; offset < 16; offset++) {
 					if (offset % 8 == 0)
 						pr_info("\n");
-					mii_mgr_read(i, offset, &value);
+					if (!mii_mgr_read(i, offset, &value)) {
+						ret = -EIO;
+						goto phy_dump_done;
+					}
 					pr_info("%02d: %04X ", offset, value);
 				}
 			}
@@ -3130,41 +3138,45 @@ int ei_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 			for (offset = 0; offset < 16; offset++) {
 				if (offset % 8 == 0)
 					pr_info("\n");
-				mii_mgr_read(reg.val, offset, &value);
+				if (!mii_mgr_read(reg.val, offset, &value)) {
+					ret = -EIO;
+					goto phy_dump_done;
+				}
 				pr_info("%02d: %04X ", offset, value);
 			}
 		}
 
-		/* global register  page 0~4 */
 		for (offset = 0; offset < 5; offset++) {
-			if (reg.val == 32)	/* dump all phy register */
-				dump_phy_reg(0, 16, 31, 0, offset);
-			else
-				dump_phy_reg(reg.val, 16, 31, 0, offset);
+			if (reg.val == 32) {
+				if (dump_phy_reg(0, 16, 31, 0, offset) != 0) {
+					ret = -EIO;
+					goto phy_dump_done;
+				}
+			} else if (dump_phy_reg(reg.val, 16, 31, 0, offset) != 0) {
+				ret = -EIO;
+				goto phy_dump_done;
+			}
 		}
 
-		if (reg.val == 32) {	/* dump all phy register */
-			/* local register port 0-port4 */
+		if (reg.val == 32) {
 			for (offset = 0; offset < 5; offset++) {
-				/* dump local page 0 */
-				dump_phy_reg(offset, 16, 31, 1, 0);
-				/* dump local page 1 */
-				dump_phy_reg(offset, 16, 31, 1, 1);
-				/* dump local page 2 */
-				dump_phy_reg(offset, 16, 31, 1, 2);
-				/* dump local page 3 */
-				dump_phy_reg(offset, 16, 31, 1, 3);
+				if (dump_phy_reg(offset, 16, 31, 1, 0) != 0 ||
+				    dump_phy_reg(offset, 16, 31, 1, 1) != 0 ||
+				    dump_phy_reg(offset, 16, 31, 1, 2) != 0 ||
+				    dump_phy_reg(offset, 16, 31, 1, 3) != 0) {
+					ret = -EIO;
+					goto phy_dump_done;
+				}
 			}
-		} else {
-			/* dump local page 0 */
-			dump_phy_reg(reg.val, 16, 31, 1, 0);
-			/* dump local page 1 */
-			dump_phy_reg(reg.val, 16, 31, 1, 1);
-			/* dump local page 2 */
-			dump_phy_reg(reg.val, 16, 31, 1, 2);
-			/* dump local page 3 */
-			dump_phy_reg(reg.val, 16, 31, 1, 3);
+		} else if (dump_phy_reg(reg.val, 16, 31, 1, 0) != 0 ||
+			   dump_phy_reg(reg.val, 16, 31, 1, 1) != 0 ||
+			   dump_phy_reg(reg.val, 16, 31, 1, 2) != 0 ||
+			   dump_phy_reg(reg.val, 16, 31, 1, 3) != 0) {
+			ret = -EIO;
+			goto phy_dump_done;
 		}
+
+phy_dump_done:
 		break;
 
 	case RAETH_ESW_INGRESS_RATE:
