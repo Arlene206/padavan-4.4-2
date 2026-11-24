@@ -1,3 +1,11 @@
+## 2026-11-24 — Align HTTPD Samba trust-boundary check with one-read ACL snapshot
+
+- Exact main `d8f6092c6af34f1c8ec45c746ce9411e40522577` HTTPD job #45362480519 failed in the Samba share trust-boundary checker after the Samba writer was improved to snapshot each user's ACL permission once per share.
+- The production change now validates account identity in the snapshot loop (five guard occurrences total) and reuses `account_rights[i]` in the four output-list passes. The older HTTPD contract still expected four identity guards and did not enforce the one-read cache. Updated it to require exactly one per-share `get_permission()`, one cached assignment, and four cached consumers. The separate Samba workflow's policy regression already passes on this same source.
+- This is a checker-only correction; no Samba production behavior changed. Exact-head HTTPD rerun is pending.
+
+---
+
 ## 2026-11-24 — Prevent FRP argv separator spoofing with embedded newlines
 
 - Reviewing the FRP process matcher after the checked-procfs-read fix exposed a distinct false-positive: it translated NUL argument separators into LF and split the result with AWK, but did not reject literal LF bytes already present inside an argv element. A process with the real `frpc` executable and argv[0] equal to `/usr/bin/frpc\n-c`, followed by the config path, was therefore misidentified as the managed three-argument daemon. `frp_close()` could send TERM/KILL to that unrelated invocation.

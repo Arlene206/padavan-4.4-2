@@ -3716,7 +3716,12 @@ jobs:
           folder_block = folder_writer[folder_start:folder_end]
           assert folder_block.index("samba_share_name_is_safe(folder_list[n])") < folder_block.index('fprintf(fp, "[%s]\\n", share)')
           assert folder_block.index("samba_mount_path_is_safe(follow_partition->mount_point)") < folder_block.index('fprintf(fp, "path = %s/%s\\n"')
-          assert folder_block.count("if (!samba_service_account_is_safe(account_list[i], safe_router_username))") == 4
+          # One validation occurs in the new per-share ACL snapshot loop.
+          assert folder_block.count("if (!samba_service_account_is_safe(account_list[i], safe_router_username))") == 5
+          account_permission_read = 'get_permission(account_list[i], follow_partition->mount_point, folder_list[n], "cifs")'
+          assert folder_block.count(account_permission_read) == 1
+          assert 'account_rights[i] = get_permission(account_list[i], follow_partition->mount_point, folder_list[n], "cifs");' in folder_block
+          assert folder_block.count("right = account_rights[i];") == 4
           invalid_users_start = folder_block.index('fprintf(fp, "invalid users = ");')
           read_list_start = folder_block.index('fprintf(fp, "read list = ");', invalid_users_start)
           invalid_users_block = folder_block[invalid_users_start:read_list_start]
