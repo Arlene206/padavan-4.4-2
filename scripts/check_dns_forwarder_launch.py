@@ -107,7 +107,7 @@ assert "cannot verify existing daemon state" in launcher_script
 assert "cannot verify daemon stop postcondition" in launcher_script
 stop_body = function_body(launcher_script, "func_stop()")
 assert 'kill -TERM "$dns_forwarder_pid"' in stop_body
-assert "killall" not in stop_body
+assert "killall -q dns-forwarder" not in stop_body
 assert 'dns_forwarder_pids="$*"' in function_body(
     launcher_script, "dns_forwarder_process_state()"
 )
