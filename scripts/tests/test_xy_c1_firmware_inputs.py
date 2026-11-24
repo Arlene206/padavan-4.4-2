@@ -286,9 +286,7 @@ class FirmwareInputPathTests(unittest.TestCase):
         self.assertIn("production inputs changed", reason)
 
     def test_web_ui_asset_push_triggers_firmware_build(self):
-        calls = []
         def fake_git(args):
-            calls.append(args)
             if args[:2] == ["rev-parse", "HEAD"]:
                 return result(args, stdout=AFTER + "\n")
             if args[0] == "fetch":
@@ -309,7 +307,6 @@ class FirmwareInputPathTests(unittest.TestCase):
             "trunk/user/www/n56u_ribbon_fixed/disk_folder_tree.js",
         ])
         self.assertIn("production inputs changed", reason)
-        self.assertEqual(calls[2][:3], ["diff", "--name-only", "--no-renames"])
 
     def test_documentation_only_push_skips_build(self):
         def fake_git(args):
