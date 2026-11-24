@@ -45,12 +45,13 @@ main(void)
 		return 1;
 
 	/*
-	 * Old websScan() silently retained only 255 bytes. A valid leading
-	 * index plus 254 spaces therefore hid any attacker-controlled suffix.
-	 * The bounded parser must reject the entire oversized value.
+	 * Old websScan() silently retained only 255 bytes. A 255-digit
+	 * zero-padded index therefore hid the attacker-controlled suffix while
+	 * remaining a valid strtol() value.
 	 */
-	truncated_prefix[0] = '1';
-	memset(truncated_prefix + 1, ' ', sizeof(truncated_prefix) - 1);
+	memset(truncated_prefix, '0', sizeof(truncated_prefix));
+	truncated_prefix[sizeof(truncated_prefix) - 2] = '1';
+	truncated_prefix[sizeof(truncated_prefix) - 1] = 'X';
 	if (!expect_result(truncated_prefix, sizeof(truncated_prefix),
 			   128, -1, -99))
 		return 1;
