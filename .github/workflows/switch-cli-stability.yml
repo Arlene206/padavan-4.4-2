@@ -1632,6 +1632,59 @@ jobs:
             -o "$RUNNER_TEMP/raeth-mii-mgr-timeout-policy"
           ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/raeth-mii-mgr-timeout-policy"
 
+      - name: Validate RAETH probe and clock mapping failures fail closed
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether.c").read_text()
+
+          def body(signature):
+              start = source.index(signature)
+              opening = source.index("{", start)
+              depth = 0
+              for position in range(opening, len(source)):
+                  if source[position] == "{":
+                      depth += 1
+                  elif source[position] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source[opening + 1:position]
+              raise AssertionError("unterminated function: " + signature)
+
+          clocks = body("static int ei_clock_enable(struct END_DEVICE *ei_local)")
+          mapped = clocks.index("clk_virt_base = ioremap(0x102100C0, 0x10);")
+          guard = clocks.index("if (!clk_virt_base)", mapped)
+          failure = clocks.index("return -ENOMEM;", guard)
+          pm_start = clocks.index("pm_runtime_enable(ei_local->dev);")
+          assert mapped < guard < failure < pm_start
+          assert clocks.count("iounmap(clk_virt_base);") == 1
+
+          ioc = body("int ei_ioc_setting(struct platform_device *pdev, struct END_DEVICE *ei_local)")
+          mapped = ioc.index("reg_virt = ioremap(0x10395000, 0x10);")
+          guard = ioc.index("if (!reg_virt)", mapped)
+          failure = ioc.index("return -ENOMEM;", guard)
+          write = ioc.index("sys_reg_write(reg_virt", mapped)
+          assert mapped < guard < failure < write
+          assert "iounmap(reg_virt);" in ioc
+          assert ioc.rstrip().endswith("return 0;")
+
+          probe = body("static int rather_probe(struct platform_device *pdev)")
+          assert "if (!node)" in probe
+          assert "of_node_put(node);" in probe
+          assert "if (!ethdma_sysctl_base)" in probe
+          assert "ret = -ENOMEM;" in probe[probe.index("if (!ethdma_sysctl_base)"):]
+          assert "if (IS_ERR(ethdma_frame_engine_base))" in probe
+          assert "if (!ethdma_mac_base)" in probe
+          assert "ret = ei_clock_enable(ei_local);" in probe
+          assert "ret = ei_ioc_setting(pdev, ei_local);" in probe
+          assert "if (clocks_enabled)" in probe
+          assert "ei_clock_disable(ei_local);" in probe
+          assert "iounmap(ethdma_sysctl_base);" in probe
+          assert "iounmap(ethdma_mac_base);" in probe
+          print("RAETH clock, IOC and probe MMIO mappings fail closed with probe rollback: PASS")
+          PY
+
       - name: Validate GMII mux ioremap failures propagate to FE init
         run: |
           python3 - <<'PY'

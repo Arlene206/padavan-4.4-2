@@ -2349,6 +2349,13 @@ static int ei_clock_enable(struct END_DEVICE *ei_local)
 	void __iomem *clk_virt_base;
 	unsigned int reg_value;
 
+	/* Validate the SGMII control mapping before enabling any clocks. */
+	if (ei_local->architecture & GE2_RAETH_SGMII) {
+		clk_virt_base = ioremap(0x102100C0, 0x10);
+		if (!clk_virt_base)
+			return -ENOMEM;
+	}
+
 	pm_runtime_enable(ei_local->dev);
 	pm_runtime_get_sync(ei_local->dev);
 
@@ -2386,7 +2393,6 @@ static int ei_clock_enable(struct END_DEVICE *ei_local)
 	}
 
 	if (ei_local->architecture & GE2_RAETH_SGMII) {
-		clk_virt_base = ioremap(0x102100C0, 0x10);
 		reg_value = sys_reg_read(clk_virt_base);
 		reg_value = reg_value & (~0x8000);	/*[bit15] = 0 */
 		/*pdn_sgmii_re_1 1: Enable clock off */
@@ -2401,6 +2407,7 @@ static int ei_clock_enable(struct END_DEVICE *ei_local)
 
 	return 0;
 }
+
 
 static int ei_clock_disable(struct END_DEVICE *ei_local)
 {
@@ -3050,7 +3057,7 @@ void raeth_setup_dev_fptable(struct net_device *dev)
 	dev->watchdog_timeo = TX_TIMEOUT;
 }
 
-void ei_ioc_setting(struct platform_device *pdev, struct END_DEVICE *ei_local)
+int ei_ioc_setting(struct platform_device *pdev, struct END_DEVICE *ei_local)
 {
 	void __iomem *reg_virt;
 	/* unsigned int reg_val; */
@@ -3059,6 +3066,8 @@ void ei_ioc_setting(struct platform_device *pdev, struct END_DEVICE *ei_local)
 		pr_info("[Raether] HW IO coherent is enabled !\n");
 		/* enable S4 coherence function */
 		reg_virt = ioremap(0x10395000, 0x10);
+		if (!reg_virt)
+			return -ENOMEM;
 		sys_reg_write(reg_virt, 0x00000003);
 
 		/* Enable ETHSYS io coherence path */
@@ -3089,7 +3098,216 @@ void ei_ioc_setting(struct platform_device *pdev, struct END_DEVICE *ei_local)
 		arch_setup_dma_ops(&ei_local->qdma_pdev->dev,
 				   0, 0, NULL, FALSE);
 	}
+
+	return 0;
 }
+
+void fe_chip_name_config(struct END_DEVICE *ei_local, struct platform_device *pdev)
+{
+	const char *pm;
+	int ret;
+
+	ret = of_property_read_string(pdev->dev.of_node, "compatible", &pm);
+
+	if (!ret && !strcasecmp(pm, "mediatek,mt7621-eth")) {
+		ei_local->chip_name = MT7621_FE;
+		pr_info("CHIP_ID = MT7621\n");
+	} else if (!strcasecmp(pm, "mediatek,mt7622-raeth")) {
+		ei_local->chip_name = MT7622_FE;
+		pr_info("CHIP_ID = MT7622\n");
+	} else if (!strcasecmp(pm, "mediatek,mt7623-eth")) {
+		ei_local->chip_name = MT7623_FE;
+		pr_info("CHIP_ID = MT7623\n");
+	} else if (!strcasecmp(pm, "mediatek,leopard-eth")) {
+		ei_local->chip_name = LEOPARD_FE;
+		pr_info("CHIP_ID = LEOPARD_FE\n");
+	} else {
+		pr_info("CHIP_ID error\n");
+	}
+}
+
+void raeth_set_wol(bool enable)
+{
+	unsigned int reg_value = 0;
+
+	if (enable) {
+		reg_value = sys_reg_read(MAC1_WOL);
+		reg_value |= (WOL_INT_CLR | WOL_INT_EN | WOL_EN);
+		sys_reg_write(MAC1_WOL, reg_value);
+
+	} else {
+		reg_value = sys_reg_read(MAC1_WOL);
+		reg_value &= ~(WOL_INT_EN | WOL_EN);
+		sys_reg_write(MAC1_WOL, reg_value);
+	}
+}
+
+#if (0)
+static int raeth_resume(struct device *dev)
+{
+	raeth_set_wol(false);
+	return 0;
+}
+
+static int raeth_suspend(struct device *dev)
+{
+	raeth_set_wol(true);
+	return 0;
+}
+#endif
+u32 mac_to_gigaphy_mode_addr;
+u32 mac_to_gigaphy_mode_addr2;
+void raeth_arch_setting(struct END_DEVICE *ei_local, struct platform_device *pdev)
+{
+	const char *pm;
+	int ret;
+	u32 val;
+
+	ret = of_property_read_string(pdev->dev.of_node, "wan_at", &pm);
+	if (!ret) {
+		ei_local->architecture |= LAN_WAN_SUPPORT;
+		if (!ret && !strcasecmp(pm, "p4")) {
+			ei_local->architecture |= WAN_AT_P4;
+			pr_info("WAN at P4\n");
+		} else if (!strcasecmp(pm, "p0")) {
+			ei_local->architecture |= WAN_AT_P0;
+			pr_info("WAN at P0\n");
+		}
+	}
+	ret = of_property_read_string(pdev->dev.of_node, "gmac1-support", &pm);
+	if (!ret && !strcasecmp(pm, "sgmii-1")) {
+		ei_local->architecture |= RAETH_SGMII;
+		pr_info("GMAC1 support SGMII\n");
+		ret = of_property_read_string(pdev->dev.of_node, "sgmii-mode-1", &pm);
+		if (!ret && !strcasecmp(pm, "force-2500")) {
+			pr_info("GE1_SGMII_FORCE_2500\n");
+			ei_local->architecture |= GE1_SGMII_FORCE_2500;
+		} else if (!strcasecmp(pm, "an")) {
+			pr_info("GE1_SGMII_AN\n");
+			ei_local->architecture |= GE1_SGMII_AN;
+			of_property_read_u32(pdev->dev.of_node, "gmac1-phy-address", &val);
+			mac_to_gigaphy_mode_addr = val;
+			pr_info("mac_to_gigaphy_mode_addr = 0x%x\n", mac_to_gigaphy_mode_addr);
+		}
+	} else if (!strcasecmp(pm, "rgmii-1")) {
+		pr_info("GMAC1 support rgmii\n");
+		ret = of_property_read_string(pdev->dev.of_node, "rgmii-mode-1", &pm);
+		if (!ret && !strcasecmp(pm, "force-1000")) {
+			pr_info("GE1_RGMII_FORCE_1000\n");
+			ei_local->architecture |= GE1_RGMII_FORCE_1000;
+		} else if (!strcasecmp(pm, "an")) {
+			pr_info("GE1_RGMII_AN\n");
+			of_property_read_u32(pdev->dev.of_node, "gmac1-phy-address", &val);
+			mac_to_gigaphy_mode_addr = val;
+			ei_local->architecture |= GE1_RGMII_AN;
+			pr_info("mac_to_gigaphy_mode_addr = 0x%x\n", mac_to_gigaphy_mode_addr);
+		} else if (!strcasecmp(pm, "one-ephy")) {
+			pr_info("GE1_RGMII_ONE_EPHY\n");
+			ei_local->architecture |= GE1_RGMII_ONE_EPHY;
+		}
+
+	} else if (!strcasecmp(pm, "esw")) {
+		pr_info("Embedded 5-Port Switch\n");
+		ei_local->architecture |= RAETH_ESW;
+		if (ei_local->chip_name == MT7622_FE) {
+			ei_local->architecture |= MT7622_EPHY;
+		} else if (ei_local->chip_name == LEOPARD_FE) {
+			ret = of_property_read_string(pdev->dev.of_node, "gmac0", &pm);
+			if (!ret && !strcasecmp(pm, "gmii"))
+				ei_local->architecture |= LEOPARD_EPHY_GMII;
+			ei_local->architecture |= LEOPARD_EPHY;
+		}
+	} else if (!strcasecmp(pm, "none")) {
+		pr_info("GE1_RGMII_NONE\n");
+		ei_local->architecture |= GE1_RGMII_NONE;
+	}  else {
+		pr_info("GE1 dts parsing error\n");
+	}
+
+	ret = of_property_read_string(pdev->dev.of_node, "gmac2-support", &pm);
+	if (!ret) {
+		ei_local->architecture |= GMAC2;
+		ei_local->features |= FE_GE2_SUPPORT;
+	}
+	if (!ret && !strcasecmp(pm, "sgmii-2")) {
+		ei_local->architecture |= GE2_RAETH_SGMII;
+		pr_info("GMAC2 support SGMII\n");
+		ret = of_property_read_string(pdev->dev.of_node, "sgmii-mode-2", &pm);
+		if (!ret && !strcasecmp(pm, "force-2500")) {
+			pr_info("GE2_SGMII_FORCE_2500\n");
+			ei_local->architecture |= GE2_SGMII_FORCE_2500;
+			ret = of_property_read_string(pdev->dev.of_node, "gmac2-force", &pm);
+			if (!ret && !strcasecmp(pm, "sgmii-switch")) {
+				ei_local->architecture |= SGMII_SWITCH;
+				pr_info("GE2_SGMII_FORCE LINK SWITCH\n");
+			}
+		} else if (!strcasecmp(pm, "an")) {
+			pr_info("GE2_SGMII_AN\n");
+			ei_local->architecture |= GE2_SGMII_AN;
+			of_property_read_u32(pdev->dev.of_node, "gmac2-phy-address", &val);
+			mac_to_gigaphy_mode_addr2 = val;
+		}
+	} else if (!strcasecmp(pm, "rgmii-2")) {
+		pr_info("GMAC2 support rgmii\n");
+		ret = of_property_read_string(pdev->dev.of_node, "rgmii-mode-2", &pm);
+		if (!ret && !strcasecmp(pm, "force-1000")) {
+			pr_info("GE2_RGMII_FORCE_1000\n");
+			ei_local->architecture |= GE2_RGMII_FORCE_1000;
+		} else if (!strcasecmp(pm, "an")) {
+			pr_info("RGMII_AN (External GigaPhy)\n");
+			of_property_read_u32(pdev->dev.of_node, "gmac2-phy-address", &val);
+			mac_to_gigaphy_mode_addr2 = val;
+			pr_info("mac_to_gigaphy_mode_addr2 = 0x%x\n", mac_to_gigaphy_mode_addr2);
+			ei_local->architecture |= GE2_RGMII_AN;
+		} else if (!strcasecmp(pm, "an-internal")) {
+			pr_info("RGMII_AN (Internal GigaPhy)\n");
+			ei_local->architecture |= GE2_INTERNAL_GPHY;
+		}
+	} else {
+		pr_info("GE2 no connect\n");
+	}
+}
+
+void fe_tx_rx_dec(struct END_DEVICE *ei_local, struct platform_device *pdev)
+{
+	u32 val;
+	u8 i;
+
+	of_property_read_u32(pdev->dev.of_node, "gmac1_txq_num", &val);
+	gmac1_txq_num = val;
+	of_property_read_u32(pdev->dev.of_node, "gmac1_txq_txd_num", &val);
+	gmac1_txq_txd_num = val;
+	gmac1_txd_num = gmac1_txq_num * gmac1_txq_txd_num;
+
+	of_property_read_u32(pdev->dev.of_node, "gmac2_txq_num", &val);
+	gmac2_txq_num = val;
+	of_property_read_u32(pdev->dev.of_node, "gmac2_txq_txd_num", &val);
+	gmac2_txq_txd_num = val;
+	gmac2_txd_num = gmac2_txq_num * gmac2_txq_txd_num;
+
+	num_tx_desc = gmac1_txd_num + gmac2_txd_num;
+	total_txq_num = gmac1_txq_num + gmac2_txq_num;
+
+	of_property_read_u32(pdev->dev.of_node, "num_rx_desc", &val);
+	num_rx_desc = val;
+	num_tx_max_process = num_tx_desc;
+
+	ei_local->free_skb = kmalloc_array(num_tx_desc, sizeof(struct sk_buff *), GFP_KERNEL);
+
+	ei_local->free_txd_num = kmalloc_array(total_txq_num, sizeof(atomic_t), GFP_KERNEL);
+	ei_local->free_txd_head = kmalloc_array(total_txq_num, sizeof(unsigned int), GFP_KERNEL);
+	ei_local->free_txd_tail = kmalloc_array(total_txq_num, sizeof(unsigned int), GFP_KERNEL);
+	ei_local->txd_pool_info = kmalloc_array(num_tx_desc, sizeof(unsigned int), GFP_KERNEL);
+	ei_local->skb_free = kmalloc_array(num_tx_desc, sizeof(struct sk_buff *), GFP_KERNEL);
+	ei_local->rls_cnt = kmalloc_array(total_txq_num, sizeof(unsigned int), GFP_KERNEL);
+	for (i = 0; i < MAX_RX_RING_NUM; i++)
+		ei_local->netrx_skb_data[i] =
+			kmalloc_array(num_rx_desc, sizeof(void *), GFP_KERNEL);
+	ei_local->netrx0_skb_data = kmalloc_array(num_rx_desc, sizeof(void *), GFP_KERNEL);
+}
+
+/* static struct wakeup_source eth_wake_lock; */
+
 
 void fe_chip_name_config(struct END_DEVICE *ei_local, struct platform_device *pdev)
 {
@@ -3306,6 +3524,7 @@ static int rather_probe(struct platform_device *pdev)
 	const char *mac_addr;
 	int ret;
 	int i;
+	int clocks_enabled = 0;
 
 	netdev = alloc_etherdev_mqs(sizeof(struct END_DEVICE),
 				    1, 1);
@@ -3348,19 +3567,32 @@ static int rather_probe(struct platform_device *pdev)
 
 	/* iomap registers */
 	node = of_parse_phandle(pdev->dev.of_node, "mediatek,ethsys", 0);
+	if (!node) {
+		dev_err(&pdev->dev, "no ethsys device-tree node found\n");
+		ret = -ENODEV;
+		goto err_free_dev;
+	}
 	ethdma_sysctl_base = of_iomap(node, 0);
-	if (IS_ERR(ethdma_sysctl_base)) {
-		dev_err(&pdev->dev, "no ethdma_sysctl_base found\n");
-		return PTR_ERR(ethdma_sysctl_base);
+	of_node_put(node);
+	if (!ethdma_sysctl_base) {
+		dev_err(&pdev->dev, "failed to map ethdma_sysctl_base\n");
+		ret = -ENOMEM;
+		goto err_free_dev;
 	}
 
 	ethdma_frame_engine_base = devm_ioremap_resource(&pdev->dev, res);
 	if (IS_ERR(ethdma_frame_engine_base)) {
-		dev_err(&pdev->dev, "no ethdma_frame_engine_base found\n");
-		return PTR_ERR(ethdma_frame_engine_base);
+		ret = PTR_ERR(ethdma_frame_engine_base);
+		dev_err(&pdev->dev, "no ethdma_frame_engine_base found: %d\n", ret);
+		goto err_free_dev;
 	}
 
 	ethdma_mac_base = ioremap(0x1b110000, 0x300);
+	if (!ethdma_mac_base) {
+		dev_err(&pdev->dev, "failed to map ethdma_mac_base\n");
+		ret = -ENOMEM;
+		goto err_free_dev;
+	}
 
 	/* get clock ctrl */
 	if (ei_local->chip_name != MT7621_FE) {
@@ -3403,10 +3635,20 @@ static int rather_probe(struct platform_device *pdev)
 		ei_local->esw_irq = platform_get_irq(pdev, 1);
 	}
 
-	ei_clock_enable(ei_local);
+	ret = ei_clock_enable(ei_local);
+	if (ret) {
+		dev_err(&pdev->dev, "failed to enable Ethernet clocks: %d\n", ret);
+		goto err_free_dev;
+	}
+	clocks_enabled = 1;
 
-	if (ei_local->chip_name == MT7622_FE || ei_local->chip_name == LEOPARD_FE)
-		ei_ioc_setting(pdev, ei_local);
+	if (ei_local->chip_name == MT7622_FE || ei_local->chip_name == LEOPARD_FE) {
+		ret = ei_ioc_setting(pdev, ei_local);
+		if (ret) {
+			dev_err(&pdev->dev, "failed to configure DMA coherence: %d\n", ret);
+			goto err_free_dev;
+		}
+	}
 
 	raeth_setup_dev_fptable(netdev);
 	ei_mac_addr_setting(netdev);
@@ -3458,6 +3700,16 @@ static int rather_probe(struct platform_device *pdev)
 	return 0;
 
 err_free_dev:
+	if (clocks_enabled)
+		ei_clock_disable(ei_local);
+	if (ethdma_mac_base) {
+		iounmap(ethdma_mac_base);
+		ethdma_mac_base = NULL;
+	}
+	if (ethdma_sysctl_base) {
+		iounmap(ethdma_sysctl_base);
+		ethdma_sysctl_base = NULL;
+	}
 	free_netdev(netdev);
 	return ret;
 }
