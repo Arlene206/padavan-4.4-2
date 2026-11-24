@@ -4593,7 +4593,7 @@ jobs:
           assert "write_js_string(wp, nvram_safe_get(name));" in js_nvram_get
           assert '"nvram_get_js", ej_nvram_get_js' in ej_table
           ddns_template = (ui_root / "Advanced_DDNS_Content.asp").read_text()
-          assert 'var ddns_hname = <% nvram_get_js("", "ddns_hostname_x"); %>;' in ddns_template
+          assert 'var ddns_hname = <% nvram_get_js("","ddns_hostname_x"); %>;' in ddns_template
           assert "var ddns_hname = '<% nvram_get_x" not in ddns_template
           assert policy_classifications.get("nvram_get_js") == "HTTPD_DIRECT_EJ_ESCAPED_OUTPUT"
           parameter_start = web.index("static int ej_get_parameter(")
