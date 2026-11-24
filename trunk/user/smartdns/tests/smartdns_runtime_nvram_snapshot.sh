@@ -52,6 +52,9 @@ md5sum()
     printf '%s  %s\n' '0123456789abcdef' "$1"
 }
 
+dnsmasq_Conf="$T/dnsmasq.conf"
+: > "$dnsmasq_Conf"
+
 KEYS='sdns_enable sdns_port sdns_redirect sdnse_enable sdnse_port
 sdns_name sdns_tcp_server sdns_ipv6_server sdns_cache sdns_cache_persist
 sdns_tcp_idle_time sdns_rr_ttl sdns_rr_ttl_min sdns_rr_ttl_max
