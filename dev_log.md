@@ -1,3 +1,11 @@
+## 2026-11-24 — Restore C89 declarations for pinned-mount helpers
+
+- Exact XY-C1 run 45461770986 on product SHA 572ec294eeae01befe36684ed7ab3102b9430e21 failed during MIPS musl compilation in disk_share.c: initial_all_var_file_in_mount_path() called disk_share_account_metadata_status_at() before its static definition; disk_share_create_folder_staging_paths() similarly called disk_share_remove_folder_path() before its static definition. The compiler emitted implicit declarations followed by conflicting static definitions. TRX and artifact steps were skipped.
+- Added file-scope prototypes and static source-contract checks that each declaration precedes its first use and definition. Also corrected the add_folder checker to match the actual failure path (close the mount fd before releasing the NVRAM transaction; the success path releases the transaction first). Product behavior outside buildability is unchanged.
+- Parent c7b44c5facfd78736909a869b79f07d6d7f8c5f3 libdisk run 45462879523 passed both GNU89 ASan/UBSan host executables but failed the incorrect add_folder ordering assertion; AI handoff run 45462879233 PASS. New exact-head reruns pending.
+
+---
+
 ## 2026-11-24 — Align add_folder source contract with the pinned-directory implementation
 
 - Exact-head libdisk run 45462263753 on 3629400054732dc685d102cb2aee0e78b9604e94 passed both GNU89 ASan/UBSan host executables, then failed the Python source checker at line 1338 because its add_folder contract still required pathname-based folder lookup, mkdir, ACL initialization and rollback. Production now pins one mount directory descriptor for lookup, creation, folder-list publication, ACL setup, deletion compensation and ACL compensation.

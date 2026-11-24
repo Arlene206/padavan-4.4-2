@@ -580,12 +580,33 @@ add_failed_end = add_compact.index(
     "disk_share_account_nvram_end(&transaction)", add_snapshot_restore
 )
 add_close = add_compact.index("close(mount_directory_fd)", add_snapshot_restore)
+metadata_status_prototype = DISK_SOURCE.index(
+    "static int disk_share_account_metadata_status_at(int directory_fd, const char *account);"
+)
+metadata_status_first_use = DISK_SOURCE.index(
+    "disk_share_account_metadata_status_at(", metadata_status_prototype + 1
+)
+metadata_status_definition = DISK_SOURCE.index(
+    "\nstatic int\ndisk_share_account_metadata_status_at(", metadata_status_first_use
+)
+remove_path_prototype = DISK_SOURCE.index(
+    "static int disk_share_remove_folder_path(const char *path);"
+)
+remove_path_first_use = DISK_SOURCE.index(
+    "disk_share_remove_folder_path(", remove_path_prototype + 1
+)
+remove_path_definition = DISK_SOURCE.index(
+    "\nstatic int\ndisk_share_remove_folder_path(const char *path)", remove_path_first_use
+)
+require(metadata_status_prototype < metadata_status_first_use < metadata_status_definition and
+        remove_path_prototype < remove_path_first_use < remove_path_definition,
+        "descriptor-relative helpers must be prototyped before their first C89 call site")
 require(
     add_inventory < add_folder_length < add_target_allocate < add_target_format <
     add_begin < add_validate < add_open < add_lookup < add_mkdir < add_publish <
     add_permissions < add_success_end < add_rollback < add_remove_guard <
     add_permission_rollback < add_anonymous_rollback < add_snapshot_restore <
-    add_failed_end < add_close and
+    add_close < add_failed_end and
     "errno=EEXIST;" in add_compact and
     "errno=ENAMETOOLONG;" in add_compact and
     "initial_folder_list_in_mount_path(" not in add_folder_body and

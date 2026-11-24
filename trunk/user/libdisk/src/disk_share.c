@@ -37,6 +37,10 @@
 #include "disk_share_list_policy.h"
 #include "disk_share_account_nvram_policy.h"
 
+/* Descriptor-relative helpers called before their definitions below. */
+static int disk_share_account_metadata_status_at(int directory_fd, const char *account);
+static int disk_share_remove_folder_path(const char *path);
+
 static int nvram_commit_safe(void)
 {
 	char *manual_value = NULL;
