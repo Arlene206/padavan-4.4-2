@@ -51,4 +51,11 @@ ftp_rest_offset_mode_is_valid(int is_ascii, filesize_t offset)
   return offset >= 0 && (!is_ascii || offset == 0);
 }
 
+/* Preserve APPE append semantics only when no REST marker was supplied. */
+static int
+ftp_rest_append_is_active(int is_append, int restart_pos_set)
+{
+  return is_append && !restart_pos_set;
+}
+
 #endif /* VSF_FTP_REST_OFFSET_POLICY_H */

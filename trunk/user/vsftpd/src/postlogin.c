@@ -667,6 +667,7 @@ handle_retr(struct vsf_session* p_sess, int is_http)
   int is_ascii = 0;
   filesize_t offset = p_sess->restart_pos;
   p_sess->restart_pos = 0;
+  p_sess->restart_pos_set = 0;
   if (!is_http && !data_transfer_checks_ok(p_sess))
   {
     return;
@@ -1066,7 +1067,11 @@ handle_upload_common(struct vsf_session* p_sess, int is_append, int is_unique)
   int created = 0;
   int do_truncate = 0;
   filesize_t offset = p_sess->restart_pos;
+  int has_restart_pos = p_sess->restart_pos_set;
+  int append_at_end;
   p_sess->restart_pos = 0;
+  p_sess->restart_pos_set = 0;
+  append_at_end = ftp_rest_append_is_active(is_append, has_restart_pos);
   if (!data_transfer_checks_ok(p_sess))
   {
     return;
@@ -1096,17 +1101,17 @@ handle_upload_common(struct vsf_session* p_sess, int is_append, int is_unique)
   if (is_unique || (p_sess->is_anonymous && !tunable_anon_other_write_enable))
   {
     new_file_fd = asus_open_upload_path(
-      p_sess, p_filename, 1, is_append, tunable_file_open_mode,
+      p_sess, p_filename, 1, append_at_end, tunable_file_open_mode,
       &upload_parent_fd,
       upload_leaf, sizeof(upload_leaf), &cleanup_allowed);
   }
   else
   {
     new_file_fd = asus_open_upload_path(
-      p_sess, p_filename, 0, is_append, tunable_file_open_mode,
+      p_sess, p_filename, 0, append_at_end, tunable_file_open_mode,
       &upload_parent_fd,
       upload_leaf, sizeof(upload_leaf), &cleanup_allowed);
-    if (!is_append && offset == 0)
+    if ((!is_append || has_restart_pos) && offset == 0)
     {
       do_truncate = 1;
     }
@@ -1118,7 +1123,7 @@ handle_upload_common(struct vsf_session* p_sess, int is_append, int is_unique)
   }
   created = 1;
   vsf_sysutil_fstat(new_file_fd, &s_p_statbuf);
-  if (!is_append && offset != 0 &&
+  if (has_restart_pos &&
       !ftp_rest_offset_is_within_file(
           offset, vsf_sysutil_statbuf_get_size(s_p_statbuf)))
   {
@@ -1157,7 +1162,7 @@ handle_upload_common(struct vsf_session* p_sess, int is_append, int is_unique)
     vsf_sysutil_ftruncate(new_file_fd);
     vsf_sysutil_lseek_to(new_file_fd, 0);
   }
-  if (!is_append && offset != 0)
+  if (has_restart_pos)
   {
     vsf_sysutil_lseek_to(new_file_fd, offset);
   }
@@ -1348,10 +1353,12 @@ handle_rest(struct vsf_session* p_sess)
   {
     /* An invalid marker must not leave a stale one-shot offset armed. */
     p_sess->restart_pos = 0;
+    p_sess->restart_pos_set = 0;
     vsf_cmdio_write(p_sess, FTP_BADCMD, "Bad REST argument.");
     return;
   }
   p_sess->restart_pos = val;
+  p_sess->restart_pos_set = 1;
   str_alloc_text(&s_rest_str, "Restart position accepted (");
   str_append_filesize_t(&s_rest_str, val);
   str_append_text(&s_rest_str, ").");

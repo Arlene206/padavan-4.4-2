@@ -65,6 +65,15 @@ main(void)
     failed = 1;
   }
 
+  if (ftp_rest_append_is_active(0, 0) ||
+      !ftp_rest_append_is_active(1, 0) ||
+      ftp_rest_append_is_active(1, 1) ||
+      ftp_rest_append_is_active(0, 1))
+  {
+    fprintf(stderr, "REST/APPE append-mode selection mismatch\n");
+    failed = 1;
+  }
+
   if (failed)
   {
     return 1;

@@ -7,6 +7,8 @@ on:
       - "trunk/user/vsftpd/src/asus_ext.c"
       - "trunk/user/vsftpd/src/asus_ext.h"
       - "trunk/user/vsftpd/src/postlogin.c"
+      - "trunk/user/vsftpd/src/session.h"
+      - "trunk/user/vsftpd/src/main.c"
       - "trunk/user/vsftpd/src/ipaddrparse.c"
       - "trunk/user/vsftpd/src/ipaddrparse.h"
       - "trunk/user/vsftpd/src/tests/ipaddrparse_policy.c"
@@ -47,6 +49,8 @@ on:
       - "trunk/user/vsftpd/src/asus_ext.c"
       - "trunk/user/vsftpd/src/asus_ext.h"
       - "trunk/user/vsftpd/src/postlogin.c"
+      - "trunk/user/vsftpd/src/session.h"
+      - "trunk/user/vsftpd/src/main.c"
       - "trunk/user/vsftpd/src/ipaddrparse.c"
       - "trunk/user/vsftpd/src/ipaddrparse.h"
       - "trunk/user/vsftpd/src/tests/ipaddrparse_policy.c"
@@ -162,6 +166,8 @@ jobs:
           vsftpd_acl = Path("trunk/user/vsftpd/src/asus_ext.c").read_text()
           vsftpd_acl_header = Path("trunk/user/vsftpd/src/asus_ext.h").read_text()
           vsftpd_postlogin = Path("trunk/user/vsftpd/src/postlogin.c").read_text()
+          vsftpd_session = Path("trunk/user/vsftpd/src/session.h").read_text()
+          vsftpd_main = Path("trunk/user/vsftpd/src/main.c").read_text()
           vsftpd_octal_policy = Path("trunk/user/vsftpd/src/ftp_octal_arg_policy.h").read_text()
           octal_arg_test = Path("trunk/user/vsftpd/src/tests/ftp_octal_arg_policy.c").read_text()
           vsftpd_active_port_policy = Path("trunk/user/vsftpd/src/ftp_active_port_policy.h").read_text()
@@ -347,6 +353,23 @@ jobs:
           chmod = function_body(vsftpd_postlogin, "static void\nhandle_site_chmod")
           umask_handler = function_body(vsftpd_postlogin, "static void\nhandle_site_umask")
           upload = function_body(vsftpd_postlogin, "static void\nhandle_upload_common")
+          assert "int restart_pos_set;" in vsftpd_session
+          assert "0, 0, 1, INIT_MYSTR, 0, 0" in vsftpd_main
+          assert "int has_restart_pos = p_sess->restart_pos_set;" in upload
+          assert "p_sess->restart_pos_set = 0;" in upload
+          assert "append_at_end = ftp_rest_append_is_active(is_append, has_restart_pos);" in upload
+          assert upload.count("append_at_end, tunable_file_open_mode") == 2
+          assert upload.index("ftp_rest_append_is_active(") < upload.index("asus_open_upload_path(")
+          assert "if ((!is_append || has_restart_pos) && offset == 0)" in upload
+          assert "if (has_restart_pos)" in upload
+          assert "ftp_rest_append_is_active(1, 1)" in rest_offset_test
+          rest_command = function_body(vsftpd_postlogin, "handle_rest(")
+          assert "p_sess->restart_pos_set = 0;" in rest_command
+          assert "p_sess->restart_pos_set = 1;" in rest_command
+          assert "flags | O_CREAT | O_EXCL, mode" in upload_entry
+          assert "flags | O_CREAT | O_EXCL | O_APPEND" not in upload_entry
+          assert "ordinary APPE lost O_APPEND semantics" in acl_path_test
+          assert "APPE with REST ignored the restart marker" in acl_path_test
           assert "ftp_rest_offset_is_within_file(" in upload
           assert upload.index("ftp_rest_offset_is_within_file(") < upload.index("vsf_sysutil_ftruncate(new_file_fd)")
           assert upload.index("ftp_rest_offset_is_within_file(") < upload.index("vsf_sysutil_lseek_to(new_file_fd, offset)")

@@ -42,6 +42,7 @@ struct vsf_session
 
   /* Details of the FTP protocol state */
   filesize_t restart_pos;
+  int restart_pos_set;
   int is_ascii;
   struct mystr rnfr_filename_str;
   int abor_received;

@@ -564,7 +564,7 @@ ftp_acl_path_open_upload_entry(int dir_fd, const char *leaf, int exclusive,
     flags |= O_APPEND;
   if (exclusive) {
     file_fd = openat(dir_fd, leaf,
-                     flags | O_CREAT | O_EXCL | O_APPEND, mode);
+                     flags | O_CREAT | O_EXCL, mode);
     if (file_fd >= 0)
       *cleanup_allowed = 1;
     return file_fd;

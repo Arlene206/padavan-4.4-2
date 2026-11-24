@@ -69,7 +69,7 @@ main(void)
   int cleanup_allowed, dir_fd, race_fd, rollback_fd, replacement_fd;
   int upload_dir_fd, upload_fd, existing_upload_fd;
   int upload_fifo_reader_fd;
-  int append_fd_a, append_fd_b;
+  int append_fd_a, append_fd_b, rest_append_fd;
   int duplicate_cleanup_allowed;
   int existing_dir_fd, existing_file_fd, remove_parent_fd;
   int child_parent_fd, child_dir_fd;
@@ -629,6 +629,10 @@ main(void)
   }
   append_fd_a = ftp_acl_path_open_upload_entry(
       upload_dir_fd, "appe-target.txt", 0, 1, 0600, &cleanup_allowed);
+  if (append_fd_a >= 0 && !(fcntl(append_fd_a, F_GETFL) & O_APPEND)) {
+    fprintf(stderr, "ordinary APPE lost O_APPEND semantics\n");
+    return 1;
+  }
   if (append_fd_a < 0 || cleanup_allowed) {
     fprintf(stderr, "first APPE session could not open existing target\n");
     return 1;
@@ -659,6 +663,40 @@ main(void)
   }
   if (unlinkat(upload_dir_fd, "appe-target.txt", 0) != 0) {
     perror("clean APPE concurrency fixture");
+    return 1;
+  }
+
+  existing_upload_fd = openat(upload_dir_fd, "appe-target.txt",
+                               O_CREAT | O_EXCL | O_WRONLY | O_CLOEXEC,
+                               0600);
+  if (existing_upload_fd < 0 ||
+      write(existing_upload_fd, "base", 4) != 4 ||
+      close(existing_upload_fd) != 0) {
+    perror("prepare APPE REST offset fixture");
+    return 1;
+  }
+  rest_append_fd = ftp_acl_path_open_upload_entry(
+      upload_dir_fd, "appe-target.txt", 0, 0, 0600, &cleanup_allowed);
+  if (rest_append_fd < 0 || cleanup_allowed ||
+      (fcntl(rest_append_fd, F_GETFL) & O_APPEND) != 0 ||
+      lseek(rest_append_fd, 2, SEEK_SET) != 2 ||
+      write(rest_append_fd, "R", 1) != 1 ||
+      close(rest_append_fd) != 0) {
+    fprintf(stderr, "APPE with REST did not open a seekable non-append target\n");
+    return 1;
+  }
+  existing_upload_fd = openat(upload_dir_fd, "appe-target.txt",
+                              O_RDONLY | O_CLOEXEC);
+  read_length = existing_upload_fd < 0 ? -1 :
+      read(existing_upload_fd, readback, sizeof(readback));
+  if (existing_upload_fd < 0 || read_length != 4 ||
+      memcmp(readback, "baRe", 4) != 0 ||
+      close(existing_upload_fd) != 0) {
+    fprintf(stderr, "APPE with REST ignored the restart marker\n");
+    return 1;
+  }
+  if (unlinkat(upload_dir_fd, "appe-target.txt", 0) != 0) {
+    perror("clean APPE REST fixture");
     return 1;
   }
 
