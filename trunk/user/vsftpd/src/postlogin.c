@@ -35,6 +35,7 @@
 #include "ftp_listing_policy.h"
 #include "ftp_rest_offset_policy.h"
 #include "ftp_octal_arg_policy.h"
+#include "ftp_active_port_policy.h"
 
 /* Private local functions */
 static void handle_pwd(struct vsf_session* p_sess);
@@ -1016,6 +1017,11 @@ handle_port(struct vsf_session* p_sess)
     return;
   }
   the_port = (unsigned short) ((vals[4] << 8) | vals[5]);
+  if (!ftp_active_data_port_is_valid((unsigned int) the_port))
+  {
+    vsf_cmdio_write(p_sess, FTP_BADCMD, "Illegal PORT command.");
+    return;
+  }
   vsf_sysutil_sockaddr_clone(&p_sess->p_port_sockaddr, p_sess->p_local_addr);
   vsf_sysutil_sockaddr_set_ipv4addr(p_sess->p_port_sockaddr, vals);
   vsf_sysutil_sockaddr_set_port(p_sess->p_port_sockaddr, the_port);
@@ -1868,7 +1874,8 @@ handle_eprt(struct vsf_session* p_sess)
   {
     goto bad_eprt;
   }
-  if (!vsf_sysutil_parse_uint(&s_part2_str, 65535U, &port_value))
+  if (!vsf_sysutil_parse_uint(&s_part2_str, 65535U, &port_value) ||
+      !ftp_active_data_port_is_valid(port_value))
   {
     goto bad_eprt;
   }
