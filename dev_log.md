@@ -1,3 +1,12 @@
+## 2026-11-24 — Preflight MiniUPnP range deletes against secure-mode mapping owners
+
+- Found a second authorization defect in `DeletePortMappingRange()`: unlike the single-entry `DeletePortMapping()` action, the range action did not enforce `SECUREMODEMASK` ownership. A LAN peer could request deletion of another internal host's mapping when secure mode was enabled.
+- Added a complete read-only preflight of every mapping's internal IPv4 owner before the first delete. Foreign mappings return SOAP 606; lookup or invalid-address failures return 501. No range member is deleted until every owner is verified, avoiding partial deletion when a later entry is unauthorized.
+- Added IPv4 identity policy coverage (same, different, null) and extended the source-order checker to require the owner preflight and cleanup gates before the first mutation. Restored the legacy SOAP policy success banner expected by the integrated workflow contract.
+- Base `0f7f90f`: MiniUPnP exact run #45405070252 PASS (false-success policy/source checks), AI docs #45405070245 PASS. Exact target firmware Build/TRX/artifact is not yet verified for the current product source; previous XUPnP-only L3 evidence remains isolated to `eb0fbb1`.
+
+---
+
 ## 2026-11-24 — Align MiniUPnP SOAP policy workflow marker with the expanded regression
 
 - Exact MiniUPnP run #45404676427 on `e1fb2a714b8bbe225294d8f58d8996c7750658c2` passed the GNU89 ASan/UBSan SOAP input regression and the new DeletePortMappingRange source-order contract. The enclosing inline workflow contract still expected the old banner `MiniUPnP SOAP unsigned input policy: PASS`; update it to the test's expanded `...unsigned input and range-delete result policy...` banner so integrated CI checks the added behavior instead of rejecting a valid regression result.

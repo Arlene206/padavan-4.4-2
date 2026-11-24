@@ -171,6 +171,20 @@ test_ipv6_peer_identity_comparison(void)
 }
 
 static void
+test_ipv4_peer_identity_comparison(void)
+{
+	struct in_addr sender, equivalent, different;
+
+	assert(inet_pton(AF_INET, "192.0.2.1", &sender) == 1);
+	assert(inet_pton(AF_INET, "192.0.2.1", &equivalent) == 1);
+	assert(inet_pton(AF_INET, "192.0.2.2", &different) == 1);
+	assert(miniupnpd_soap_ipv4_peer_matches(&sender, &equivalent));
+	assert(!miniupnpd_soap_ipv4_peer_matches(&sender, &different));
+	assert(!miniupnpd_soap_ipv4_peer_matches(NULL, &sender));
+	assert(!miniupnpd_soap_ipv4_peer_matches(&sender, NULL));
+}
+
+static void
 test_required_text_presence(void)
 {
 	assert(!miniupnpd_soap_required_text_present(NULL));
@@ -215,9 +229,10 @@ main(void)
 	test_nonnegative_int_boundaries();
 	test_protocol_number_boundaries();
 	test_ipv6_peer_identity_comparison();
+	test_ipv4_peer_identity_comparison();
 	test_required_text_presence();
 	test_delete_range_result_status();
 	test_invalid_output_arguments();
-	puts("MiniUPnP SOAP unsigned input and range-delete result policy: PASS");
+	puts("MiniUPnP SOAP unsigned input policy: PASS");
 	return 0;
 }

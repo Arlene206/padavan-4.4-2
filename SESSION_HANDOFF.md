@@ -1,32 +1,32 @@
 ## Current repository state
 
-- Active branch: `main`; follow-up checker and handoff-log integrity correction parent: `c2dc6d334f8bceb8a3f0f4d458a8b59ea763769a`. Frozen archive `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable. No open PRs.
+- Active branch: `main`; secure-mode range-delete authorization slice is based on `0f7f90fa4d49835566dbaa0ef5a0ec08c0a74bb8`. Frozen archive `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable. No open PRs.
 - MTK AP private-ioctl, HTTPD selector, WAN source-PHY range and QMI WDS/PDH teardown fixes retain recorded exact-SHA L3 Build/TRX/artifact evidence. Physical-router L4 remains unverified.
 - DHCPDECLINE retry/send-result chain: `4ca919b` / `02ddda7` / `4015869` / `aae46a6`. Exact-head udhcpc GNU89 ASan/UBSan regression/source contract #45400755028 PASS after the renamed test runner was fixed. AI handoff #45400755063 and Process lifecycle #45400755089 PASS; USB storage #45400755158 and NVRAM #45400755163 were pending at last poll. XY-C1 for production `4015869` #45400399157 was still building; TRX/artifact pending. Latest `aae46a6` is test/docs-only.
  
-## Active task — MiniUPnP DeletePortMappingRange false-success handling
+## Active task — Enforce secure-mode ownership before MiniUPnP range deletion
 
-- DeletePortMappingRange now records every upnp_delete_redirection result and emits SOAP 501 ActionFailed when any backend deletion fails; only a complete successful loop sends the success response. Empty range retains SOAP 730.
-- On `f12d4d5`, the source-order contract then exposed that its first `free(port_list)` match was the empty-range cleanup, not the post-loop release. This `e1fb2a7` correction anchors the match after per-result recording. On `e1fb2a7`, the GNU89 ASan/UBSan SOAP policy binary and DeletePortMappingRange source-order checker PASS; the integrated workflow then failed only because its inline contract expected the old test banner. This commit updates that marker; recheck the integrated workflow on this SHA.
+- `DeletePortMappingRange()` now preflights every mapping's internal IPv4 owner when `SECUREMODEMASK` is enabled. It verifies all entries before the first delete, returns SOAP 606 for a foreign owner, and fails closed with 501 if an entry cannot be resolved or parsed. This prevents both unauthorized deletion and partial range deletion before a later ownership denial.
+- A host regression covers equal/different IPv4 identities and null inputs. The source checker pins the full preflight/cleanup order before the first mutation.
+- At base `0f7f90f`, exact MiniUPnP range-delete workflow #45405070252 PASS and AI handoff #45405070245 PASS. The previous test banner was restored for the integrated source contract. New secure-mode C/source regressions must pass on this source SHA.
 
 ## Previous task — XUPnP generated Lua configuration pair
 
 - Product-source commit eb0fbb1 stages and fsyncs both Lua files before pair publication through dnsmasq_file_publish_pair, with backup restoration after a second-publish failure.
 - DNSMasq lifecycle #45402050207 on 2fd4c74 PASS. Process lifecycle #45402861054 on 364383b PASS after the whitespace-normalized checker correction; follow-on Process inventory #45403376647 on c2dc6d3 PASS. NVRAM #45401700436 on eb0fbb1 PASS.
-- XY-C1 #45401700209 on exact product source eb0fbb1: Build XY-C1 PASS, TRX output verification PASS, artifact upload PASS. L3 is complete for this XUPnP source slice; physical-router L4 is not verified.
+- XY-C1 #45401700209 on exact product source eb0fbb1: Build XY-C1 PASS, TRX output verification PASS, artifact upload PASS. L3 is complete for this XUPnP ## Verification boundary
 
-## Verification boundary
-
-- MiniUPnP SOAP range-delete source fix `c2dc6d3`: GNU89 ASan/UBSan policy binary PASS. The checker syntax was fixed in `f12d4d5`; `e1fb2a7` then fixed its ordering matcher, and both the policy binary and source-order checker passed on that SHA. Integrated MiniUPnP workflow #45404676427 failed only on an obsolete inline stdout-banner assertion, corrected here. XY-C1 #45403376426 and NVRAM #45403376634 for the MiniUPnP source SHA `c2dc6d3` were still in progress at last recorded status.
-- AI handoff #45403376294 on c2dc6d3 failed because dev_log.md had been unintentionally replaced with a partial line-range fetch. Full 119-entry history is restored here. Process inventory #45403376647 on c2dc6d3 PASS.
-- XUPnP pair implementation SHA eb0fbb1 has Build/TRX/artifact PASS via exact run #45401700209, DNSMasq validator #45402050207 PASS, and NVRAM #45401700436 PASS. L3 applies to that source slice only; hardware L4 remains not verified.
-- Frozen backup remains unchanged at 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- MiniUPnP false-success fix from `c2dc6d3`: GNU89 ASan/UBSan policy test and dedicated range-delete source-order check PASS on exact MiniUPnP workflow #45405070252 at follow-up baseline `0f7f90f`. AI handoff #45405070245 PASS on the same SHA.
+- This commit adds secure-mode owner preflight; exact MiniUPnP workflow and AI docs must pass on its new SHA. No L3 claim yet for this source slice.
+- XY-C1 run #45403376426 for product source `c2dc6d3` was still building at last poll (TRX/artifact pending); NVRAM #45403376634 PASS and Process #45403376647 PASS. Do not infer a successful firmware artifact from a pending build.
+- XUPnP pair implementation SHA `eb0fbb1` retains its separate exact Build/TRX/artifact PASS via #45401700209, DNSMasq #45402050207 PASS, and NVRAM #45401700436 PASS. Physical-router L4 remains unverified.
+- Frozen backup remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main; check exact-head MiniUPnP SOAP range-delete workflow and AI handoff contract after this checker/log repair.
-2. Check same-SHA XY-C1 Build/TRX/artifact and NVRAM workflow; do not transfer XUPnP L3 evidence to the newer MiniUPnP source SHA.
-3. Continue an independent userland security/stability fix while pending checks run.
+1. Fetch live main and verify exact-head MiniUPnP secure-mode range preflight GNU89 ASan/UBSan test plus source-order contract.
+2. Check XY-C1 Build/TRX/artifact on this exact production source SHA; update the firmware evidence boundary only after all three steps PASS.
+3. Continue the next independent userland stability/security defect while unrelated CI is pending.
 
 ## Mandatory handoff checkpoint
 

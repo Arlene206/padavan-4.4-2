@@ -166,6 +166,15 @@ miniupnpd_soap_protocol_valid(const char *protocol)
 }
 
 
+/* Compare IPv4 owner addresses without accepting missing identities. */
+static inline int
+miniupnpd_soap_ipv4_peer_matches(const struct in_addr *sender,
+                                  const struct in_addr *internal)
+{
+	return sender != NULL && internal != NULL &&
+	       sender->s_addr == internal->s_addr;
+}
+
 /* A range-delete action must not report success after any backend failure. */
 struct miniupnpd_soap_delete_range_status {
 	unsigned int attempted;

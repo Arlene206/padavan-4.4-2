@@ -993,6 +993,48 @@ DeletePortMappingRange(struct upnphttp * h, const char * action, const char * ns
 		return;
 	}
 
+	if(GETFLAG(SECUREMODEMASK))
+	{
+		/*
+		 * Validate ownership of the entire range before deleting anything.
+		 * A later unauthorized mapping must not leave an earlier subset deleted.
+		 */
+		for(i = 0; i < number; i++)
+		{
+			char int_ip[32];
+			struct in_addr int_ip_addr;
+			unsigned short iport;
+			unsigned int leaseduration = 0;
+
+			int_ip[0] = '\0';
+			r = upnp_get_redirection_infos(port_list[i], protocol,
+			                               &iport, int_ip, sizeof(int_ip),
+			                               NULL, 0, NULL, 0, &leaseduration);
+			if(r != 0)
+			{
+				free(port_list);
+				SoapError(h, 501, "ActionFailed");
+				ClearNameValueList(&data);
+				return;
+			}
+			int_ip[sizeof(int_ip) - 1] = '\0';
+			if(inet_pton(AF_INET, int_ip, &int_ip_addr) != 1)
+			{
+				free(port_list);
+				SoapError(h, 501, "ActionFailed");
+				ClearNameValueList(&data);
+				return;
+			}
+			if(!miniupnpd_soap_ipv4_peer_matches(&h->clientaddr, &int_ip_addr))
+			{
+				free(port_list);
+				SoapError(h, 606, "Action not authorized");
+				ClearNameValueList(&data);
+				return;
+			}
+		}
+	}
+
 	miniupnpd_soap_delete_range_status_init(&delete_status);
 	for(i = 0; i < number; i++)
 	{

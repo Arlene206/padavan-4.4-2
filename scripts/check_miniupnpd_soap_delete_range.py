@@ -74,4 +74,23 @@ for case in (
     "miniupnpd_soap_delete_range_error(&status) == 501",
 ):
     assert case in test
+
+secure_start = compact.index("if(GETFLAG(SECUREMODEMASK))")
+lookup_at = compact.index("upnp_get_redirection_infos(port_list[i], protocol", secure_start)
+parse_at = compact.index("inet_pton(AF_INET, int_ip, &int_ip_addr)", lookup_at)
+peer_at = compact.index("miniupnpd_soap_ipv4_peer_matches(&h->clientaddr, &int_ip_addr)", parse_at)
+unauthorized_at = compact.index('SoapError(h, 606, "Action not authorized")', peer_at)
+first_delete_at = compact.index("upnp_delete_redirection(port_list[i], protocol)")
+assert secure_start < lookup_at < parse_at < peer_at < unauthorized_at < first_delete_at
+secure_preflight = compact[secure_start:first_delete_at]
+assert "if(r != 0)" in secure_preflight
+assert secure_preflight.count("SoapError(h, 501, \\"ActionFailed\\")") == 2
+assert secure_preflight.count("free(port_list)") == 3
+assert secure_preflight.count("ClearNameValueList(&data)") == 3
+assert "return;" in secure_preflight
+assert "miniupnpd_soap_ipv4_peer_matches" in policy
+assert "sender->s_addr == internal->s_addr" in policy
+assert "test_ipv4_peer_identity_comparison" in test
+assert "MiniUPnP SOAP unsigned input policy: PASS" in test
+
 print("MiniUPnP DeletePortMappingRange reports backend deletion failures: PASS")
