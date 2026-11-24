@@ -2,14 +2,15 @@
 
 ## Current repository state
 
-- Current live `main`: `e3a7bd0f1e5df8e5d1ad7e2addaf281df13c3f49` — `test(switch): correct packed ioctl boundary expectation`.
-- The prior `d148793` Switch CLI and HTTPD failures were caused by an incorrect host-test expectation. With the 8-bit command field preserved, the packed boundary result is `0xffffff10`, not `UINT_MAX`; `e3a7bd0` updates only that assertion.
-- Exact `e3a7bd0` Actions: Switch CLI ioctl regression `#45306697005`, HTTPD Authentication/Security Regression `#45306697003`, AI handoff contract `#45306697038`, Process lifecycle inventory `#45306697000`, and NVRAM transaction audit `#45306697097`: **PASS**.
-- Archival backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged and read-only. No same-SHA XY-C1 firmware build was triggered/verified by this test-only correction; no new L3 or L4 claim.
+- Live `main` parent for this WAN counter status slice: `400e3779d39c0ac28a94e1a5de7ba7315dd5c037`.
+- Exact `e3a7bd0` Switch CLI ioctl `#45306697005`, HTTPD Authentication/Security `#45306697003`, AI handoff `#45306697038`, Process inventory `#45306697000`, and NVRAM audit `#45306697097`: **PASS**. Exact `25d077e` XY-C1 firmware validation `#45306112829`: **PASS** on that earlier SHA only.
+- New stability defect: `get_ifstats_counter()` converted invalid paths, `fopen`/read failures and malformed sysfs data to numeric zero. `wanlink_hook()` propagated only numbers; `device-map/internet.asp` hid the row when both were zero, so failed reads looked like a valid idle WAN link.
+- This slice adds an errno-returning RX/TX pair API, keeps legacy scalar wrappers, prevents WAN-up from overwriting its baseline after a partial/error read, and exposes tri-state status to the UI (valid, failed, not collected).
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Active task
 
-The switch ioctl parameter-boundary fix and its host-test expectation are now green on the same main SHA. Resume the repository-wide stability queue with a new independently evidenced defect; prioritize errors being collapsed into success/zero, unsafe resource lifetime, and hardware-facing failure propagation. Do not reopen the completed switch assertion or repeat its green Actions without new evidence.
+Verify the checked net_ifstats pair reader and end-to-end UI status propagation on this commit's exact SHA. A failed RX or TX read must clear both outputs and display N/A; a valid zero sample must remain distinguishable from read failure; unsupported/uncollected modes remain hidden. Legacy scalar APIs retain zero-on-error compatibility behavior.
 
 ## Completed development slices
 
@@ -39,19 +40,16 @@ Independent snapshot/lifecycle changes remain in `99ad9397e3cf4450c6fc07758b58c3
 
 ## Verification boundary
 
-- Exact `e3a7bd0` Switch CLI ioctl failure-status regression `#45306697005`: **PASS**.
-- Exact `e3a7bd0` HTTPD Authentication/Security Regression `#45306697003`: **PASS**.
-- Exact `e3a7bd0` AI handoff documentation contract `#45306697038`: **PASS**.
-- Exact `e3a7bd0` Process lifecycle inventory `#45306697000`: **PASS**.
-- Exact `e3a7bd0` NVRAM transaction boundary audit `#45306697097`: **PASS**.
-- No XY-C1 run is present for this test-only SHA; older firmware runs are not transferable to current main. No current-head L3 or physical-device L4 result is claimed.
-- Backup branch remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Exact `e3a7bd0` Switch CLI `#45306697005`, HTTPD `#45306697003`, AI handoff `#45306697038`, Process inventory `#45306697000`, and NVRAM audit `#45306697097`: **PASS**.
+- Exact `25d077e` XY-C1 firmware validation `#45306112829`: **PASS** on that earlier SHA only. This net_ifstats commit requires its own host-policy/source-contract run; no same-SHA firmware or device result is claimed.
+- The new workflow compiles the policy suite under GNU89, `-Werror`, ASan and UBSan, then checks propagation through WAN baseline, HTTPD callback and valid/error/uncollected UI states. Frozen backup remains unchanged.
 
 ## Exact first action for the next GPT
 
-1. Continue from `e3a7bd0f1e5df8e5d1ad7e2addaf281df13c3f49` by tracing a concrete error-propagation defect outside the already-green switch ioctl slice.
-2. Inspect `net_ifstats` counter reads only if the UI can distinguish a failed/malformed read from a valid zero without breaking legacy consumers; otherwise select another clear stability defect.
-3. For each source slice: add a focused regression, commit one complete atomic tree with expected-SHA update, and inspect only that SHA's Actions. Keep the archival backup read-only.
+1. Verify exact-SHA `WAN sysfs byte-counter status regression`; inspect its host or source-contract log if it fails.
+2. Confirm the three UI states: valid sample (including numeric zero), read failure/N/A, and not-collected/hidden; also verify scalar getter compatibility.
+3. Continue with another independently evidenced stability defect outside this counter slice. Keep the frozen backup read-only.
+
 
 # Cross-session execution mandate
 

@@ -210,6 +210,8 @@ extern int       brport_set_param_int(const char *ifname, const char *param, int
 extern int       brport_set_m2u(const char *ifname, int m2u_on);
 
 extern const char* get_ifname_descriptor(const char* ifname, int ap_mode, int *ifindex, int *wan_no);
+/* Checked pair: zero on success, errno on failure; clears both outputs on error. */
+extern int         get_ifstats_bytes_status(const char* ifname, uint64_t *rx_bytes, uint64_t *tx_bytes);
 extern uint64_t    get_ifstats_bytes_rx(const char* ifname);
 extern uint64_t    get_ifstats_bytes_tx(const char* ifname);
 

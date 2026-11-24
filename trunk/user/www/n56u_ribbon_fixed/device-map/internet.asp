@@ -193,8 +193,20 @@ function fill_wan_addr6(wan_ip,lan_ip){
 		$("row_lan_ip6").style.display = "none";
 }
 
-function fill_wan_bytes(rx,tx,now){
-	if (rx > 0 || tx > 0){
+function fill_wan_bytes(rx,tx,status,now){
+	if (status === 0){
+		last_bytes_rx = 0;
+		last_bytes_tx = 0;
+		last_time = 0;
+		$("WANBytesRX").innerHTML = '<i class="icon-arrow-down"></i>N/A';
+		$("WANBytesTX").innerHTML = '<i class="icon-arrow-up"></i>N/A';
+		$("WANBRateRX").innerHTML = 'N/A';
+		$("WANBRateTX").innerHTML = 'N/A';
+		$("row_bytes").style.display = "";
+		$("row_brate").style.display = "";
+		return;
+	}
+	if (status > 0){
 		var diff_rx = 0;
 		var diff_tx = 0;
 		if (last_time > 0 && now > last_time){
@@ -219,7 +231,6 @@ function fill_wan_bytes(rx,tx,now){
 		last_bytes_rx = rx;
 		last_bytes_tx = tx;
 		last_time = now;
-		
 		$("WANBytesRX").innerHTML = '<i class="icon-arrow-down"></i>'+bytesToIEC(rx,2);
 		$("WANBytesTX").innerHTML = '<i class="icon-arrow-up"></i>'+bytesToIEC(tx,2);
 		$("WANBRateRX").innerHTML = '<i class="icon-arrow-down"></i>'+kbitsToRate(diff_rx,2);
@@ -227,6 +238,9 @@ function fill_wan_bytes(rx,tx,now){
 		$("row_bytes").style.display = "";
 		$("row_brate").style.display = "";
 	}else{
+		last_bytes_rx = 0;
+		last_bytes_tx = 0;
+		last_time = 0;
 		$("row_bytes").style.display = "none";
 		$("row_brate").style.display = "none";
 	}
@@ -239,7 +253,7 @@ function fill_info(){
 	fill_phylink(wanlink_etherlink(), wanlink_apclilink());
 	fill_man_addr4(wanlink_ip4_man(), wanlink_gw4_man());
 	fill_wan_addr6(wanlink_ip6_wan(), wanlink_ip6_lan());
-	fill_wan_bytes(wanlink_bytes_rx(), wanlink_bytes_tx(), now);
+	fill_wan_bytes(wanlink_bytes_rx(), wanlink_bytes_tx(), wanlink_bytes_status(), now);
 	$("WANIP4").innerHTML = wanlink_ip4_wan();
 	$("WANGW4").innerHTML = wanlink_gw4_wan();
 	$("WANDNS").innerHTML = wanlink_dns();

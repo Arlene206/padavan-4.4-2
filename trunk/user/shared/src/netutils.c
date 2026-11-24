@@ -158,40 +158,91 @@ int is_usbnet_interface(const char *ifname)
 	return 0;
 }
 
-static uint64_t
-get_ifstats_counter(const char* ifname, const char* cnt_name)
+static int
+get_ifstats_counter_status(const char *ifname, const char *cnt_name,
+                           uint64_t *cnt_val64)
 {
 	FILE *fp;
-	uint64_t cnt_val64 = 0;
 	char cnt_path[64], cnt_data[32];
-	int path_status;
+	int path_status, status = 0;
+
+	if (cnt_val64 == NULL) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+	*cnt_val64 = 0;
 
 	path_status = net_ifstats_build_path(cnt_path, sizeof(cnt_path), ifname, cnt_name);
 	if (path_status != 0) {
 		errno = path_status;
-		return 0;
+		return path_status;
 	}
 
+	errno = 0;
 	fp = fopen(cnt_path, "r");
-	if (fp) {
-		if (fgets(cnt_data, sizeof(cnt_data), fp))
-			(void)net_ifstats_parse_counter(cnt_data, &cnt_val64);
-		fclose(fp);
+	if (fp == NULL) {
+		status = errno > 0 ? errno : EIO;
+		errno = status;
+		return status;
 	}
 
-	return cnt_val64;
+	errno = 0;
+	if (fgets(cnt_data, sizeof(cnt_data), fp) == NULL) {
+		status = ferror(fp) ? (errno > 0 ? errno : EIO) : EIO;
+	} else {
+		status = net_ifstats_parse_counter(cnt_data, cnt_val64);
+	}
+	if (fclose(fp) != 0 && status == 0)
+		status = errno > 0 ? errno : EIO;
+
+	if (status != 0) {
+		*cnt_val64 = 0;
+		errno = status;
+	}
+	return status;
+}
+
+int
+get_ifstats_bytes_status(const char *ifname,
+                         uint64_t *rx_bytes, uint64_t *tx_bytes)
+{
+	int rx_status, tx_status, status;
+
+	if (rx_bytes == NULL || tx_bytes == NULL || rx_bytes == tx_bytes) {
+		if (rx_bytes != NULL)
+			*rx_bytes = 0;
+		if (tx_bytes != NULL)
+			*tx_bytes = 0;
+		errno = EINVAL;
+		return EINVAL;
+	}
+	*rx_bytes = 0;
+	*tx_bytes = 0;
+
+	rx_status = get_ifstats_counter_status(ifname, "rx_bytes", rx_bytes);
+	tx_status = get_ifstats_counter_status(ifname, "tx_bytes", tx_bytes);
+	status = net_ifstats_pair_result(rx_status, tx_status, rx_bytes, tx_bytes);
+	if (status != 0)
+		errno = status;
+	return status;
 }
 
 uint64_t
-get_ifstats_bytes_rx(const char* ifname)
+get_ifstats_bytes_rx(const char *ifname)
 {
-	return get_ifstats_counter(ifname, "rx_bytes");
+	uint64_t value = 0;
+
+	(void)get_ifstats_counter_status(ifname, "rx_bytes", &value);
+	return value;
 }
 
 uint64_t
-get_ifstats_bytes_tx(const char* ifname)
+get_ifstats_bytes_tx(const char *ifname)
 {
-	return get_ifstats_counter(ifname, "tx_bytes");
+	uint64_t value = 0;
+
+	(void)get_ifstats_counter_status(ifname, "tx_bytes", &value);
+	return value;
 }
 
 static int

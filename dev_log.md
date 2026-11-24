@@ -1,3 +1,12 @@
+## 2026-11-23 — Preserve WAN sysfs byte-counter read status through the UI
+
+- `get_ifstats_counter()` returned zero for invalid paths, `fopen`, `fgets`, parse and close failures. The WAN status hook propagated only scalar values, and the page hid byte/rate rows when both were zero, making a failed read indistinguishable from a valid idle counter.
+- Added `get_ifstats_bytes_status()`, which returns errno-style status and publishes RX/TX as an all-or-nothing pair; either failed read clears both outputs. Legacy `get_ifstats_bytes_rx/tx()` APIs remain zero-on-error wrappers for compatibility.
+- WAN-up now updates saved baselines only after a complete RX/TX pair; HTTPD emits a tri-state callback; the UI displays numeric zero for a valid zero sample, N/A for read failure, and hides rows when collection is not applicable. GNU89 ASan/UBSan pair-policy regression and end-to-end source contracts cover the change.
+- Parent `400e3779d39c0ac28a94e1a5de7ba7315dd5c037`: exact `e3a7bd0` Switch CLI, HTTPD, AI, Process and NVRAM checks **PASS**; exact `25d077e` XY-C1 validation `#45306112829` **PASS** on the earlier SHA only. This commit awaits its own Actions.
+
+---
+
 ## 2026-11-23 — Revalidate switch ioctl field-boundary correction
 
 - The prior `d148793` Switch CLI and HTTPD Actions failed because the host regression expected `UINT_MAX` for a 24-bit parameter packed above the low-byte command. The low-byte command `0x10` is intentionally preserved, so the correct expected result is `0xffffff10`.

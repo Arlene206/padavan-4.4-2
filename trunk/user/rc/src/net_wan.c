@@ -5115,6 +5115,8 @@ wan_up_internal(char *wan_ifname, int unit, int is_static)
 	int pppoemwan_status, pppoemwan_enabled;
 	int gateway_arp_status, gateway_arp_enabled;
 	int route_snapshot_status, wan_addr_status, wan_mask_status, wan_gate_status;
+	int ifstats_status;
+	uint64_t ifstats_rx_bytes, ifstats_tx_bytes;
 #if defined (USE_IPV6)
 	int ipv6_status, ipv6_type_status, ipv6_is_sit;
 #endif
@@ -5144,11 +5146,18 @@ wan_up_internal(char *wan_ifname, int unit, int is_static)
 	set_wan_unit_value(unit, "uptime", wan_cnt);
 
 	if (modem_unit_id || wan_proto != IPV4_WAN_PROTO_IPOE_STATIC) {
-		snprintf(wan_cnt, sizeof(wan_cnt), "%llu", get_ifstats_bytes_rx(wan_ifname));
-		set_wan_unit_value(unit, "bytes_rx", wan_cnt);
-		
-		snprintf(wan_cnt, sizeof(wan_cnt), "%llu", get_ifstats_bytes_tx(wan_ifname));
-		set_wan_unit_value(unit, "bytes_tx", wan_cnt);
+		ifstats_status = get_ifstats_bytes_status(
+			wan_ifname, &ifstats_rx_bytes, &ifstats_tx_bytes);
+		if (ifstats_status == 0) {
+			snprintf(wan_cnt, sizeof(wan_cnt), "%llu", ifstats_rx_bytes);
+			set_wan_unit_value(unit, "bytes_rx", wan_cnt);
+			snprintf(wan_cnt, sizeof(wan_cnt), "%llu", ifstats_tx_bytes);
+			set_wan_unit_value(unit, "bytes_tx", wan_cnt);
+		} else {
+			logmessage(LOGNAME,
+				   "cannot establish WAN byte-counter baseline on %s (status=%d); preserving prior baseline",
+				   wan_ifname, ifstats_status);
+		}
 	}
 
 	/*

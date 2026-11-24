@@ -1867,6 +1867,7 @@ wanlink_hook(int eid, webs_t wp, int argc, char **argv)
 	char addr4_wan[INET_ADDRSTRLEN], addr4_man[INET_ADDRSTRLEN];
 	char *wan0_ip, *wanx_ip, *wan0_gw, *wanx_gw, *wan_ip6, *lan_ip6, *wan_ifname, *man_ifname;
 	int unit, status_code, wan_proto, wan_ifstate, man_ifstate, need_eth_link, phy_failed, ppp_mode;
+	int wan_bytes_status;
 	uint64_t wan_bytes_rx, wan_bytes_tx;
 	long wan_uptime, wan_dltime, wan_lease, now;
 #if defined (USE_IPV6)
@@ -1886,6 +1887,7 @@ wanlink_hook(int eid, webs_t wp, int argc, char **argv)
 	wan_dltime = 0;
 	wan_bytes_rx = 0;
 	wan_bytes_tx = 0;
+	wan_bytes_status = -1;
 
 	/* current unit */
 	unit = 0;
@@ -1930,8 +1932,7 @@ wanlink_hook(int eid, webs_t wp, int argc, char **argv)
 								mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 						}
 						
-						wan_bytes_rx = get_ifstats_bytes_rx(wan_ifname);
-						wan_bytes_tx = get_ifstats_bytes_tx(wan_ifname);
+						wan_bytes_status = (get_ifstats_bytes_status(wan_ifname, &wan_bytes_rx, &wan_bytes_tx) == 0) ? 1 : 0;
 					}
 				}
 				strcpy(wan_desc, "USB Modem (NDIS/RNDIS)");
@@ -1944,8 +1945,7 @@ wanlink_hook(int eid, webs_t wp, int argc, char **argv)
 #endif
 				wan_ifstate = get_if_state(wan_ifname, addr4_wan);
 				if (wan_ifstate > 0) {
-					wan_bytes_rx = get_ifstats_bytes_rx(wan_ifname);
-					wan_bytes_tx = get_ifstats_bytes_tx(wan_ifname);
+					wan_bytes_status = (get_ifstats_bytes_status(wan_ifname, &wan_bytes_rx, &wan_bytes_tx) == 0) ? 1 : 0;
 				}
 				
 				ppp_mode = 1;
@@ -2014,8 +2014,7 @@ wanlink_hook(int eid, webs_t wp, int argc, char **argv)
 				
 				/* skip PPPoE traffic collect with HW_NAT enabled */
 				if (wan_ifstate > 0 && (wisp || wan_proto != IPV4_WAN_PROTO_PPPOE || nvram_get_int("hw_nat_mode") == 0)) {
-					wan_bytes_rx = get_ifstats_bytes_rx(wan_ifname);
-					wan_bytes_tx = get_ifstats_bytes_tx(wan_ifname);
+					wan_bytes_status = (get_ifstats_bytes_status(wan_ifname, &wan_bytes_rx, &wan_bytes_tx) == 0) ? 1 : 0;
 				}
 				
 				ppp_mode = (wan_proto == IPV4_WAN_PROTO_L2TP) ? 2 : 1;
@@ -2029,8 +2028,7 @@ wanlink_hook(int eid, webs_t wp, int argc, char **argv)
 								nvram_get_int("hw_nat_mode") == 0
 							)
 				    ) {
-					wan_bytes_rx = get_ifstats_bytes_rx(man_ifname);
-					wan_bytes_tx = get_ifstats_bytes_tx(man_ifname);
+					wan_bytes_status = (get_ifstats_bytes_status(man_ifname, &wan_bytes_rx, &wan_bytes_tx) == 0) ? 1 : 0;
 				}
 			}
 			
@@ -2108,7 +2106,7 @@ wanlink_hook(int eid, webs_t wp, int argc, char **argv)
 				wanx_gw = "---";
 		}
 		
-		if (wan_uptime > 0 && (wan_bytes_rx || wan_bytes_tx)) {
+		if (wan_bytes_status == 1 && wan_uptime > 0 && (wan_bytes_rx || wan_bytes_tx)) {
 			uint64_t init_bytes_rx, init_bytes_tx;
 			
 			init_bytes_rx = strtoull(nvram_safe_get(strcat_r(prefix, "bytes_rx", tmp)), NULL, 10);
@@ -2253,6 +2251,7 @@ wanlink_hook(int eid, webs_t wp, int argc, char **argv)
 	websWrite(wp, ";}\n");
 	websWrite(wp, "function wanlink_bytes_rx() { return %llu;}\n", wan_bytes_rx);
 	websWrite(wp, "function wanlink_bytes_tx() { return %llu;}\n", wan_bytes_tx);
+	websWrite(wp, "function wanlink_bytes_status() { return %d;}\n", wan_bytes_status);
 
 	return 0;
 }

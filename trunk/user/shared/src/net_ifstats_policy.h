@@ -57,6 +57,26 @@ net_ifstats_build_path(char *path, size_t path_size,
 	return 0;
 }
 
+/* Publish a counter pair only when both sysfs reads succeeded. */
+static inline int
+net_ifstats_pair_result(int rx_status, int tx_status,
+                        uint64_t *rx_bytes, uint64_t *tx_bytes)
+{
+	if (rx_bytes == NULL || tx_bytes == NULL || rx_bytes == tx_bytes) {
+		if (rx_bytes != NULL)
+			*rx_bytes = 0;
+		if (tx_bytes != NULL)
+			*tx_bytes = 0;
+		return EINVAL;
+	}
+	if (rx_status != 0 || tx_status != 0) {
+		*rx_bytes = 0;
+		*tx_bytes = 0;
+		return rx_status != 0 ? rx_status : tx_status;
+	}
+	return 0;
+}
+
 /* Parse the single unsigned-decimal line emitted by a sysfs byte counter.
  * Reject signs, leading whitespace, partial numbers, junk and overflow. */
 static inline int
