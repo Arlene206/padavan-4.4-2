@@ -1,3 +1,14 @@
+## 2026-11-23 — Harden HTTPD group operations and bounded request parsing
+
+- Refreshed the live handoff from the stale 3ec4e18 checkpoint to exact main c7bcd00; backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157 and untouched.
+- Fixed NVRAM group compaction's stale count race (09576b6), completed AiDisk folder-tree HTML escaping and Node regression (beb5777), made HTTPD group Add transaction-locked with count-last publication and rollback (c89d1d7 / 6262b52), and added incomplete-rollback/count-read fault injections (3e02326 / 0136ceb).
+- Hardened websScan group-delete index parsing against oversized values whose valid numeric prefix could previously survive fixed-buffer truncation; preserved the legacy exact "-1" terminator and added a GNU89 policy regression. Final source/test chain: 96431bb, 2b8333e, c7bcd00.
+- Exact c7bcd00 HTTPD regression #45294291762 PASS (51/51, including group-delete, group compaction/add, AiDisk XSS); Process lifecycle inventory #45294291601 PASS. NVRAM boundary #45294292010 remained IN_PROGRESS at 12/14. XY-C1 run #45294157650 for the current production-source SHA 96431bb remained IN_PROGRESS at Build (37/44); no L3 claim until Build/TRX/artifact all pass.
+- Independent IPTV/process follow-ups on main include 99ad939, d38250b and b645113; corrected oversized IPTV fixture and stale checker contracts, with earlier exact-SHA WAN route, Process, storage, and firmware passes recorded in SESSION_HANDOFF.
+- No local MIPS build or hardware verification performed. Next: poll #45294292010 and #45294157650; continue targeted userland security work while pending.
+
+---
+
 ## 2026-11-23 — Repair stale handoff and record userland stability work
 
 - Updated the live checkpoint from stale main `02f174a93bf275930cede271d233dcf2c57438fa` to `3ec4e18b735a1e132884d91ab259b365a420aebc`; backup branch remains `72f4f157a084f8184b9597ca5bf334b8080e5807` and was not modified.

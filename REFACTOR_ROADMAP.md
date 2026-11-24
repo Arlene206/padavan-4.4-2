@@ -1,3 +1,11 @@
+## 2026-11-23 状态增量：HTTPD NVRAM group / AiDisk 输入边界
+
+- Group compaction 在事务锁内复核调用方 count snapshot；Group Add 已改为单事务、全列 snapshot、count 最后发布、失败回滚，并将失败返回给 HTTP 500。回归覆盖 count 读取失败、目标列写入失败、count 已写入后报告失败，以及回滚不完整。
+- AiDisk 文件夹名在树视图的文本节点与 title 属性全部 HTML 转义；移除组索引解析不再静默截断长值后只接受数字前缀，保持精确 `-1` 终止符。HTTPD 精确 SHA `c7bcd00d` 的 51 步回归全部 PASS。
+- 当前 main `c7bcd00d`：Process inventory PASS；NVRAM transaction-boundary audit PENDING（12/14）；产品源 SHA `96431bbd` 的 XY-C1 Build/TRX/artifact 尚在 Build 阶段，故 L3 暂不宣称。备份分支只读未动。
+
+---
+
 ## 2026-11-23 状态增量：RAETH MDIO / Switch 初始化
 
 | 子系统 | 当前进展 | 验证/风险 | 下一步 |
