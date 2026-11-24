@@ -57,6 +57,8 @@ dnsmasq_static_host_nvram_snapshot_read(
 		get_value, context, "dhcp_static_x", text, sizeof(text));
 	if (status == 0)
 		status = rc_wan_nvram_parse_int_value(text, &snapshot->enabled);
+	if (status == 0 && snapshot->enabled != 0 && snapshot->enabled != 1)
+		status = EINVAL;
 
 	if (status == 0 && snapshot->enabled == 1) {
 		status = rc_wan_nvram_copy_value(
