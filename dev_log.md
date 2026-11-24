@@ -1,3 +1,10 @@
+## 2026-11-24 — Restore separate QMI contract assertions
+
+- Exact main `d8f6092c6af34f1c8ec45c746ce9411e40522577` USB modem WDM/NDIS Action #45362480729 failed before evaluating the client-ID contract because two Python `assert` statements had been concatenated onto one line in the workflow heredoc. The traceback was a genuine `SyntaxError`, not a QMI production failure.
+- Restored the missing newline between the persisted-WDS-ID diagnostic assertion and the first `_eval()` command-status assertion. No modem runtime source was changed. Exact-head rerun is pending.
+
+---
+
 ## 2026-11-24 — Align HTTPD Samba trust-boundary check with one-read ACL snapshot
 
 - Exact main `d8f6092c6af34f1c8ec45c746ce9411e40522577` HTTPD job #45362480519 failed in the Samba share trust-boundary checker after the Samba writer was improved to snapshot each user's ACL permission once per share.
