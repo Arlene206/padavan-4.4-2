@@ -504,9 +504,26 @@ TEST_KILL_COUNT=0
 TEST_SLEEP_COUNT=0
 start_ald || { echo "FAIL: disabled start did not stop the daemon" >&2; exit 1; }
 [ "$TEST_RUNNING" -eq 0 ] && [ "$TEST_TERM_COUNT" -eq 1 ] &&
-[ "$TEST_KILL_COUNT" -eq 0 ] || {
+ [ "$TEST_KILL_COUNT" -eq 0 ] || {
   echo "FAIL: disabled start did not complete graceful stop" >&2; exit 1;
 }
+
+# A malformed enable selector is not an explicit disable: preserve the daemon.
+TEST_RUNNING=1
+TEST_ENABLE=unexpected
+TEST_TERM_COUNT=0
+TEST_KILL_COUNT=0
+rm -f "$TEST_ARG_LOG"
+if start_ald; then
+  echo "FAIL: malformed enable selector was accepted" >&2
+  exit 1
+fi
+[ "$TEST_RUNNING" -eq 1 ] && [ "$TEST_TERM_COUNT" -eq 0 ] &&
+[ "$TEST_KILL_COUNT" -eq 0 ] && [ ! -e "$TEST_ARG_LOG" ] || {
+  echo "FAIL: malformed enable selector stopped or relaunched the healthy daemon" >&2
+  exit 1;
+}
+TEST_ENABLE=1
 
 # A failed checked-get is not an absent/disabled key; never stop a live daemon.
 TEST_RUNNING=1

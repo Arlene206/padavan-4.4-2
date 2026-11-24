@@ -211,6 +211,16 @@ nvram_keys = (
 require(all(f"ald_nvram_get {key}" in start for key in nvram_keys),
         "every AliyunDrive startup setting must fail closed on NVRAM read errors")
 
+enable_cases = start.split('case "$enable" in', 1)[1].split("\\n  esac", 1)[0]
+require("1|on|true|yes|enabled)" in enable_cases and
+        "''|0|off|false|no|disabled|OFF|FALSE|NO|DISABLED)" in enable_cases and
+        "NVRAM enable selector is invalid; preserving current service" in enable_cases and
+        "ald_kill_unlocked" not in enable_cases.split("*)", 1)[1],
+        "only explicit disabled values may stop AliyunDrive; malformed selectors must preserve the existing service")
+require("TEST_ENABLE=unexpected" in test and
+        "FAIL: malformed enable selector stopped or relaunched the healthy daemon" in test,
+        "lifecycle regression must prove malformed enable values do not stop or relaunch a healthy daemon")
+
 workdir = function_body(launcher, "ald_secure_workdir() {")
 
 require('-L "$ALD_WORK_DIR"' in workdir and

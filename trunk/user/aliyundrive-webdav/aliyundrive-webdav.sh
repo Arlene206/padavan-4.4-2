@@ -471,8 +471,12 @@ ald_start_unlocked() {
         return 1
       fi
       ;;
-    *)
+    ''|0|off|false|no|disabled|OFF|FALSE|NO|DISABLED)
       ald_kill_unlocked
+      ;;
+    *)
+      logger -t "阿里云盘" "NVRAM enable selector is invalid; preserving current service"
+      return 1
       ;;
   esac
 }
