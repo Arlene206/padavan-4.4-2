@@ -102,9 +102,8 @@ ftp_acl_path_share_permission(const char *contents, size_t contents_size,
   while (line < end)
   {
     newline = memchr(line, '\n', (size_t)(end - line));
-    if (newline == NULL)
-      break;
-    line_size = (size_t)(newline - line);
+    line_size = newline != NULL ?
+                (size_t)(newline - line) : (size_t)(end - line);
     if (line_size >= folder_size + 2U &&
         line[0] == '*' &&
         line[folder_size + 1U] == '=' &&
@@ -115,7 +114,7 @@ ftp_acl_path_share_permission(const char *contents, size_t contents_size,
        * invalidate the permission file rather than being skipped in favour
        * of a later well-formed record.
        */
-      if (found || line_size != folder_size + 5U ||
+      if (found || newline == NULL || line_size != folder_size + 5U ||
           line[folder_size + 2U] < '0' || line[folder_size + 2U] > '3' ||
           line[folder_size + 3U] < '0' || line[folder_size + 3U] > '3' ||
           line[folder_size + 4U] < '0' || line[folder_size + 4U] > '3')
@@ -123,6 +122,8 @@ ftp_acl_path_share_permission(const char *contents, size_t contents_size,
       result = line[folder_size + 3U] - '0';
       found = 1;
     }
+    if (newline == NULL)
+      break;
     line = newline + 1;
   }
   return found ? result : -1;

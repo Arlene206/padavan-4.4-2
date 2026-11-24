@@ -362,7 +362,8 @@ jobs:
           assert "memchr(line, " in share_permission
           assert "line_size >= folder_size + 2U" in share_permission
           assert "line_size != folder_size + 5U" in share_permission
-          assert "if (found ||" in share_permission
+          assert "if (found || newline == NULL" in share_permission
+          assert "line_size = newline != NULL ?" in share_permission
           assert "memcmp(line + 1, folder, folder_size)" in share_permission
           assert "line[folder_size + 3U] - '0'" in share_permission
           assert "record-boundary injection" in acl_path_test

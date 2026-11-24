@@ -64,6 +64,8 @@ test_share_permission_records(void)
   static const char malformed_suffix[] = "*secret=033EXTRA\n";
   static const char malformed_then_valid[] = "*secret=000EXTRA\n*secret=033\n";
   static const char valid_then_malformed[] = "*secret=033\n*secret=000EXTRA\n";
+  static const char valid_then_unterminated[] = "*secret=033\n*secret=000EXTRA";
+  static const char valid_then_unterminated_duplicate[] = "*secret=033\n*secret=000";
   static const char injected_folder[] = "public=000\n*secret";
   static const char reversed_injection[] = "secret\n*public";
   static const char crlf_injection[] = "public=000\r\n*secret";
@@ -97,6 +99,12 @@ test_share_permission_records(void)
                                     "secret") != -1 ||
       ftp_acl_path_share_permission(valid_then_malformed,
                                     sizeof(valid_then_malformed) - 1U,
+                                    "secret") != -1 ||
+      ftp_acl_path_share_permission(valid_then_unterminated,
+                                    sizeof(valid_then_unterminated) - 1U,
+                                    "secret") != -1 ||
+      ftp_acl_path_share_permission(valid_then_unterminated_duplicate,
+                                    sizeof(valid_then_unterminated_duplicate) - 1U,
                                     "secret") != -1)
   {
     fprintf(stderr, "FTP share ACL record-boundary injection policy failed\n");

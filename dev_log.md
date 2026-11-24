@@ -1,3 +1,11 @@
+## 2026-11-24 — Reject unterminated duplicate VSFTPD ACL records
+
+- Follow-up review found the same fail-open pattern at EOF: after a valid permission line, the parser stopped at a final unterminated line before checking whether it repeated the requested `*folder=` key. A truncated duplicate could therefore be silently ignored.
+- The parser now evaluates the final byte range even when it lacks a newline, but will never accept a matching permission record without its required terminator. Matching malformed/truncated or duplicate final records now invalidate the result.
+- Added regressions for a valid record followed by an overlong unterminated record and by an unterminated exact duplicate. The workflow source contract now pins EOF processing and the final-newline requirement. Exact-head validation is pending.
+
+---
+
 ## 2026-11-24 — Reject malformed duplicate VSFTPD share ACL records
 
 - Review of the new exact-record parser found an edge case: it matched only lines of the expected total length. An overlong malformed line with the exact requested `*folder=` key could therefore be ignored, allowing a later valid duplicate record to determine the permission. This was fail-open on malformed ACL input.
