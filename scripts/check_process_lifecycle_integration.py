@@ -1721,7 +1721,8 @@ assert "O_NOFOLLOW" in storage_time_load and "O_NONBLOCK" in storage_time_load
 assert "fstat(fd, &st)" in storage_time_load and "S_ISREG(st.st_mode)" in storage_time_load
 assert "st_uid != geteuid()" in storage_time_load and "st_nlink != 1" in storage_time_load
 assert "S_IWGRP | S_IWOTH" in storage_time_load
-assert "rc_storage_time_parse_status(buffer, length, &storage_time)" in storage_time_load
+storage_time_load_compact = "".join(storage_time_load.split())
+assert "rc_storage_time_parse_status(buffer,length,&storage_time)" in storage_time_load_compact
 assert "strtoul(buf, NULL, 0)" not in storage_time_load
 assert "if (stime(&adjusted_time) != 0)" in storage_time_load
 assert "test_overflow_and_invalid_arguments_fail_closed();" in storage_time_test
