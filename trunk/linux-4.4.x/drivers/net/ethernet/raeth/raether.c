@@ -22,6 +22,7 @@
 #include "ra_desc_policy.h"
 #include "raeth_private_ioctl_access_policy.h"
 #include "raeth_mdio_ioctl_status_policy.h"
+#include "raeth_lan_ip_ioctl_policy.h"
 #include "raether_hwlro.h"
 #include "ra_ethtool.h"
 
@@ -3244,7 +3245,11 @@ int ei_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 			break;
 		}
 		spin_lock_irq(&ei_local->page_lock);
-		strncpy(ei_local->lan_ip4_addr, ip_tmp, IP4_ADDR_LEN);
+		ret = raeth_lan_ip_ioctl_status(ip_tmp, sizeof(ip_tmp));
+		if (ret != 0)
+			break;
+		strlcpy(ei_local->lan_ip4_addr, ip_tmp,
+			sizeof(ei_local->lan_ip4_addr));
 		pr_info("RAETH_SET_LAN_IP: %s\n", ei_local->lan_ip4_addr);
 
 		if (ei_local->features & FE_SW_LRO)

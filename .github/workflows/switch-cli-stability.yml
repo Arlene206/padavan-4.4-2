@@ -17,6 +17,8 @@ on:
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_private_ioctl_access_policy.h"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_mdio_ioctl_status_policy.h"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_mdio_ioctl_status_policy.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_lan_ip_ioctl_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_lan_ip_ioctl_policy.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_private_ioctl_access_policy.c"
       - "trunk/linux-4.4.x/net/core/dev_ioctl.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether_pdma.c"
@@ -78,6 +80,8 @@ on:
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_private_ioctl_access_policy.h"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_mdio_ioctl_status_policy.h"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_mdio_ioctl_status_policy.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_lan_ip_ioctl_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_lan_ip_ioctl_policy.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_private_ioctl_access_policy.c"
       - "trunk/linux-4.4.x/net/core/dev_ioctl.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether_pdma.c"
@@ -778,6 +782,12 @@ jobs:
             -o /tmp/raeth-mdio-ioctl-status
           ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 \
             /tmp/raeth-mdio-ioctl-status
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I "$RAETH_DIR" \
+            "$RAETH_DIR/tests/raeth_lan_ip_ioctl_policy.c" \
+            -o /tmp/raeth-lan-ip-ioctl
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 \
+            /tmp/raeth-lan-ip-ioctl
           python3 - <<'PY'
           from pathlib import Path
 
@@ -787,6 +797,8 @@ jobs:
           test = (raeth / "tests/raeth_private_ioctl_access_policy.c").read_text()
           mdio_policy = (raeth / "raeth_mdio_ioctl_status_policy.h").read_text()
           mdio_test = (raeth / "tests/raeth_mdio_ioctl_status_policy.c").read_text()
+          lan_policy = (raeth / "raeth_lan_ip_ioctl_policy.h").read_text()
+          lan_test = (raeth / "tests/raeth_lan_ip_ioctl_policy.c").read_text()
           uapi = (raeth / "ra_ioctl.h").read_text()
           net_core = Path("trunk/linux-4.4.x/net/core/dev_ioctl.c").read_text()
           switch_workflow = Path(".github/workflows/switch-cli-stability.yml").read_text()
@@ -813,6 +825,8 @@ jobs:
           assert "raeth_private_ioctl_access_status(0) == -EPERM" in test
           assert "mdio_status == 1U ? 0 : -EIO" in mdio_policy
           assert "raeth_mdio_ioctl_status(0U) == -EIO" in mdio_test
+          assert "value[0] == '\\0'" in lan_policy
+          assert "raeth_lan_ip_ioctl_status(unterminated, sizeof(unterminated)) == -EINVAL" in lan_test
           assert "#define RAETH_SW_IOCTL          0x89F0" in uapi
 
           for signature, boundary in (
@@ -835,6 +849,14 @@ jobs:
               assert authorization < deny < denied_return < first_operation
           assert ".ndo_do_ioctl = virtualif_ioctl" in driver
           assert ".ndo_do_ioctl = ei_ioctl" in driver
+          lan_handler = function_body(driver, "int ei_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)")
+          copy_in = lan_handler.index("copy_from_user(ip_tmp, ifr->ifr_data, IP4_ADDR_LEN)")
+          validate = lan_handler.index("ret = raeth_lan_ip_ioctl_status(ip_tmp, sizeof(ip_tmp))", copy_in)
+          validate_fail = lan_handler.index("if (ret != 0)", validate)
+          bounded_copy = lan_handler.index("strlcpy(ei_local->lan_ip4_addr, ip_tmp", validate_fail)
+          log_string = lan_handler.index('pr_info("RAETH_SET_LAN_IP: %s\\n", ei_local->lan_ip4_addr)', bounded_copy)
+          assert copy_in < validate < validate_fail < bounded_copy < log_string
+          assert "strncpy(ei_local->lan_ip4_addr, ip_tmp, IP4_ADDR_LEN)" not in lan_handler
           ioctl_handler = function_body(
               driver, "int ei_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)"
           )
@@ -881,7 +903,7 @@ jobs:
           for path in ("trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_private_ioctl_access_policy.h", "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_private_ioctl_access_policy.c", "trunk/linux-4.4.x/net/core/dev_ioctl.c"):
               assert xy_push.count('"' + path + '"') == 1, path
 
-          print("RAETH private ioctls enforce CAP_NET_ADMIN and propagate MDIO failures: PASS")
+          print("RAETH ioctls enforce CAP_NET_ADMIN, propagate MDIO errors and bound LAN IP strings: PASS")
           PY
 
       - name: Validate strict numeric parsing in RC switch front-ends

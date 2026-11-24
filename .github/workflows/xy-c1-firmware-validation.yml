@@ -239,6 +239,8 @@ on:
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_private_ioctl_access_policy.h"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_mdio_ioctl_status_policy.h"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_mdio_ioctl_status_policy.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_lan_ip_ioctl_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_lan_ip_ioctl_policy.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_private_ioctl_access_policy.c"
       - "trunk/linux-4.4.x/net/core/dev_ioctl.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether_pdma.c"
