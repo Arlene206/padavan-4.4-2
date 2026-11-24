@@ -2,15 +2,15 @@
 
 ## Current repository state
 
-- Live `main` parent for this HTTPD watchdog probe-I/O slice: `cfd69a709a2399459d5422fa383c81a95934833f`.
-- Exact `cfd69a7` WAN sysfs byte-counter regression `#45308740232` and AI handoff contract `#45308740182` were **IN_PROGRESS** at the latest poll. Its parent `b757cc5` WAN test `#45308457252` failed only because the host compile omitted `-I trunk/user/shared/src`; commit `cfd69a7` adds that include path and triggers a fresh run.
-- The checked WAN RX/TX pair and UI tri-state implementation is committed on `b757cc5`; no result is claimed until the corrected exact-SHA run completes.
-- New independent stability finding: `httpd_check_v2()` treated every `fopen`/read result-file failure as an empty probe response. When the watchdog itself hits `EMFILE`, `EACCES` or `EIO`, this can falsely conclude HTTPD is dead and restart a healthy daemon. The result-file read path now distinguishes expected `ENOENT` during detached wget startup from other I/O errors and skips the restart decision on the latter.
+- Live `main` parent for the WAN source-contract count correction: `97dccf5a886ac490d5b86949444ab1d0796f5607`.
+- Exact `cfd69a7` WAN sysfs regression `#45308740232` **FAILED** at the Python source contract after the GNU89 ASan/UBSan policy executable **PASSED**. The checker expected one `get_ifstats_counter_status(..., "rx_bytes")` call, but there are correctly two: the checked pair API and the retained legacy scalar RX wrapper. The TX count has the same expected pair-plus-wrapper shape. No production test failed.
+- Exact `cfd69a7` AI handoff contract `#45308740182`: **PASS**. Exact `97dccf5` watchdog HTTPD probe file-I/O regression `#45308912671`, HTTPD security `#45308912702`, Process inventory `#45308912664`, and remaining dependent actions were **IN_PROGRESS** at last poll.
+- The watchdog slice in `97dccf5` distinguishes expected `ENOENT` during detached wget startup from permission/resource/read/close errors; the latter now skip restart decisions.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Active task
 
-Verify watchdog HTTPD probe result-file error handling on this commit's exact SHA. Expected `ENOENT` while detached wget creates the result file must continue retrying; other open/read/close errors must skip the liveness/restart decision rather than mark HTTPD dead.
+Correct the WAN workflow source-contract counts to include both legitimate uses of the checked file reader: one in the all-or-nothing RX/TX API and one in each legacy scalar compatibility wrapper. Re-run exact-SHA WAN validation, then reconcile the watchdog probe I/O regression on its own SHA.
 
 ## Completed development slices
 
@@ -40,15 +40,15 @@ Independent snapshot/lifecycle changes remain in `99ad9397e3cf4450c6fc07758b58c3
 
 ## Verification boundary
 
-- Exact `cfd69a7` WAN counter regression `#45308740232` and AI handoff `#45308740182`: **IN_PROGRESS** at last poll; the preceding `b757cc5` test failed only at missing include path before running host assertions.
-- This watchdog slice adds a GNU89 `-Werror` ASan/UBSan policy regression and an exact source-order contract. It requires its own exact-SHA run.
-- No same-SHA XY-C1 firmware L3 or hardware L4 result is claimed. Frozen backup unchanged.
+- Exact `cfd69a7` WAN host policy executable **PASS**; integration source contract **FAIL** only because it expected one counter-reader call while the implementation correctly contains two (checked pair + compatibility wrapper).
+- Exact `cfd69a7` AI handoff `#45308740182`: **PASS**. The watchdog slice and dependent HTTPD/Process/NVRAM/firmware Actions on `97dccf5` were **IN_PROGRESS** at last poll.
+- This commit changes only the WAN source-contract expectation and handoff/dev log. No new firmware L3 or hardware L4 result is claimed.
 
 ## Exact first action for the next GPT
 
-1. Verify exact-SHA watchdog HTTPD probe-file I/O regression; inspect any failed host/source contract log.
-2. Refresh the corrected WAN sysfs regression and AI handoff runs on their exact current SHA; do not reuse the failed parent result.
-3. Continue the stability queue with another cross-subsystem source-proven defect; keep the frozen backup read-only.
+1. Verify corrected WAN sysfs regression on this commit's exact SHA; inspect any remaining source-contract failure.
+2. Reconcile watchdog HTTPD probe-I/O regression `#45308912671` and the `97dccf5` Process/HTTPD/NVRAM/XY-C1 checks against their exact run IDs.
+3. Continue with a separate source-proven userland stability defect while any checks remain pending. Keep the frozen backup read-only.
 
 
 # Cross-session execution mandate

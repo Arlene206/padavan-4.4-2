@@ -57,8 +57,8 @@ jobs:
           assert "net_ifstats_parse_counter(" in netutils
           assert "fclose(fp)" in netutils
           assert "net_ifstats_pair_result(" in netutils
-          assert netutils.count('get_ifstats_counter_status(ifname, "rx_bytes"') == 1
-          assert netutils.count('get_ifstats_counter_status(ifname, "tx_bytes"') == 1
+          assert netutils.count('get_ifstats_counter_status(ifname, "rx_bytes"') == 2  # checked pair + legacy scalar wrapper
+          assert netutils.count('get_ifstats_counter_status(ifname, "tx_bytes"') == 2  # checked pair + legacy scalar wrapper
           assert "get_ifstats_bytes_status" in header
           assert "net_ifstats_pair_result" in policy
           assert "test_counter_pair_result" in tests

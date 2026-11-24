@@ -1,3 +1,11 @@
+## 2026-11-23 — Count checked-reader compatibility wrappers in WAN regression contract
+
+- Exact `cfd69a7` WAN regression `#45308740232` passed the GNU89 `-Werror` ASan/UBSan policy executable, then failed its inline Python contract because it expected one `get_ifstats_counter_status(..., "rx_bytes")` reference. The implementation correctly has two: the new atomic pair reader and the retained scalar RX compatibility wrapper (likewise TX).
+- Updated the source contract to expect both references and documented why. Production C and the policy test are unchanged.
+- Exact `cfd69a7` AI handoff `#45308740182`: **PASS**. Exact `97dccf5` watchdog, HTTPD, Process, and dependent Actions were in progress at last poll; the corrected WAN workflow requires a new exact-SHA run.
+
+---
+
 ## 2026-11-23 — Do not restart HTTPD on watchdog probe-file I/O errors
 
 - `httpd_check_v2()` interpreted every missing/unreadable/empty result file as a failed HTTPD response. A watchdog-side `EMFILE`, `EACCES` or `EIO` could therefore trigger a restart of a healthy HTTPD daemon.
