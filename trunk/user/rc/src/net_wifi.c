@@ -1739,7 +1739,7 @@ start_wifi_apcli_wl(int radio_on)
 		{
 			if (!wireless_radio_status_success(doSystem("iwpriv %s set %s=%d", ifname_apcli, "ApCliAutoConnect", 1))) {
 				logmessage(LOGNAME, "failed to configure APCLI auto-connect on %s", ifname_apcli);
-				return -EIO;
+				return wireless_apcli_start_fail(ifname_apcli, 1, -EIO);
 			}
 			logmessage(LOGNAME, "Set ApCliAutoConnect to 1");
 		}
@@ -1824,7 +1824,7 @@ start_wifi_apcli_rt(int radio_on)
 		{
 			if (!wireless_radio_status_success(doSystem("iwpriv %s set %s=%d", ifname_apcli, "ApCliAutoConnect", 1))) {
 				logmessage(LOGNAME, "failed to configure APCLI auto-connect on %s", ifname_apcli);
-				return -EIO;
+				return wireless_apcli_start_fail(ifname_apcli, 1, -EIO);
 			}
 			logmessage(LOGNAME, "Set ApCliAutoConnect to 1");
 		}
