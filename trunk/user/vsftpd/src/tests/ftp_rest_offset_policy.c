@@ -42,6 +42,18 @@ main(void)
   failed |= expect_rest_offset(embedded_nul, (unsigned int) sizeof(embedded_nul),
                                0, 0);
 
+  if (!ftp_rest_offset_is_within_file(0, 0) ||
+      !ftp_rest_offset_is_within_file(0, 4096) ||
+      !ftp_rest_offset_is_within_file(4096, 4096) ||
+      ftp_rest_offset_is_within_file(4097, 4096) ||
+      ftp_rest_offset_is_within_file(1, 0) ||
+      ftp_rest_offset_is_within_file(-1, 4096) ||
+      ftp_rest_offset_is_within_file(0, -1))
+  {
+    fprintf(stderr, "REST upload offset/file-size policy mismatch\n");
+    failed = 1;
+  }
+
   if (failed)
   {
     return 1;

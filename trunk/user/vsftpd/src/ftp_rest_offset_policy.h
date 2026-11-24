@@ -5,6 +5,15 @@
 #include "filesize.h"
 #endif
 
+/* Reject upload restart positions that would create sparse holes. A marker
+ * equal to EOF is valid; a marker beyond EOF is not a resumable upload offset.
+ */
+static int
+ftp_rest_offset_is_within_file(filesize_t offset, filesize_t file_size)
+{
+  return offset >= 0 && file_size >= 0 && offset <= file_size;
+}
+
 /*
  * Parse the decimal restart marker accepted by the FTP REST command.
  * Preserve the existing 15-digit range while rejecting signs, whitespace,

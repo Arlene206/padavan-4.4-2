@@ -1112,6 +1112,14 @@ handle_upload_common(struct vsf_session* p_sess, int is_append, int is_unique)
   }
   created = 1;
   vsf_sysutil_fstat(new_file_fd, &s_p_statbuf);
+  if (!is_append && offset != 0 &&
+      !ftp_rest_offset_is_within_file(
+          offset, vsf_sysutil_statbuf_get_size(s_p_statbuf)))
+  {
+    vsf_cmdio_write(p_sess, FTP_UPLOADFAIL,
+                    "Restart position exceeds existing file size.");
+    goto port_pasv_cleanup_out;
+  }
   if (vsf_sysutil_statbuf_is_regfile(s_p_statbuf))
   {
     /* Now deactive O_NONBLOCK, otherwise we have a problem on DMAPI filesystems
@@ -1145,7 +1153,6 @@ handle_upload_common(struct vsf_session* p_sess, int is_append, int is_unique)
   }
   if (!is_append && offset != 0)
   {
-    /* XXX - warning, allows seek past end of file! Check for seek > size? */
     vsf_sysutil_lseek_to(new_file_fd, offset);
   }
   else if (is_append)
