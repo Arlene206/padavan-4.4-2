@@ -329,6 +329,7 @@ process_post_login(struct vsf_session* p_sess)
       handle_mdtm(p_sess);
     }
     else if (tunable_port_enable &&
+             !p_sess->epsv_all &&
              str_equal_text(&p_sess->ftp_cmd_str, "EPRT"))
     {
       handle_eprt(p_sess);

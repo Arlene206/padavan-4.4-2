@@ -787,6 +787,7 @@ jobs:
           port = function_body(vsftpd_postlogin, "handle_port(")
           eprt = function_body(vsftpd_postlogin, "handle_eprt(")
           pasv = function_body(vsftpd_postlogin, "handle_pasv(")
+          postlogin_dispatch = function_body(vsftpd_postlogin, "process_post_login(")
           assert "ftp_active_data_port_is_valid((unsigned int) the_port)" in port
           assert "ftp_active_data_port_is_valid(port_value)" in eprt
           assert "port > 0U && port <= 65535U" in vsftpd_active_port_policy
@@ -806,6 +807,9 @@ jobs:
           assert "argval < 1U || (!is_ipv6 && argval == 2U)" in pasv
           assert "vsf_sysutil_atoi" not in pasv
           assert 'str_equal_text(&p_sess->ftp_arg_str, "ALL")' in pasv
+          assert 'tunable_pasv_enable &&\n             !p_sess->epsv_all &&\n             (str_equal_text(&p_sess->ftp_cmd_str, "PASV") ||' in postlogin_dispatch
+          assert 'tunable_port_enable &&\n             !p_sess->epsv_all &&\n             str_equal_text(&p_sess->ftp_cmd_str, "PORT")' in postlogin_dispatch
+          assert 'tunable_port_enable &&\n             !p_sess->epsv_all &&\n             str_equal_text(&p_sess->ftp_cmd_str, "EPRT")' in postlogin_dispatch
           assert "expect_epsv_protocol" in ipaddrparse_test
           assert 'expect_epsv_protocol("2", 0, 0)' in ipaddrparse_test
           assert 'expect_epsv_protocol("1tail", 1, 0)' in ipaddrparse_test

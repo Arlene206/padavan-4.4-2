@@ -1,3 +1,12 @@
+## 2026-11-24 — Enforce EPSV ALL against EPRT active-mode setup
+
+- RFC 2428 section 3 requires a server that accepted `EPSV ALL` to reject all data-connection setup commands other than EPSV, explicitly including EPRT, PORT and PASV.
+- The VSFTPD command dispatcher already gated PASV and PORT on `!p_sess->epsv_all`, but the EPRT branch omitted the same session-state check. A client could therefore switch back to active-mode EPRT after declaring EPSV-only operation.
+- Added the missing EPRT dispatch guard. Extended the existing VSFTPD source-contract workflow to assert that PASV, PORT and EPRT are all disabled once `epsv_all` is set; ordinary EPRT address/port validation is unchanged.
+- Exact-SHA VSFTPD and AI handoff Actions will be used for verification. No local daemon integration or firmware/hardware result is claimed.
+
+---
+
 ## 2026-11-24 — Reject malformed EPSV protocol selectors
 
 - `handle_pasv()` previously used `atoi()` for the optional EPSV network-protocol selector. Numeric prefixes such as `1junk` and signed/whitespace forms could therefore be accepted as protocol 1 instead of rejected.
