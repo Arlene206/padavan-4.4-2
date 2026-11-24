@@ -208,6 +208,10 @@ ipv6_parse_hex(struct mystr* p_out_str, const struct mystr* p_in_str)
   unsigned int len = str_getlen(p_in_str);
   unsigned int i;
   unsigned int val = 0;
+  if (len == 0 || len > 4)
+  {
+    return 0;
+  }
   for (i=0; i<len; ++i)
   {
     int ch = vsf_sysutil_toupper(str_get_char_at(p_in_str, i));

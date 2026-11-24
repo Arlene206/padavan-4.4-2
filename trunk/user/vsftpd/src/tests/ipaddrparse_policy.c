@@ -465,6 +465,8 @@ main(void)
   failed |= expect_ipv6("1::", ipv6_one_prefix_expected, 1);
   failed |= expect_ipv6("::ffff:192.0.2.1", ipv6_mapped_expected, 1);
   failed |= expect_ipv6("2001:db8:1", ipv6_full_expected, 0);
+  failed |= expect_ipv6("00000:0:0:0:0:0:0:1",
+      ipv6_loopback_expected, 0);
   failed |= expect_ipv6("1:2:3:4:5:6:7:8:", ipv6_full_expected, 0);
   failed |= expect_ipv6("1:2:3:4:5:6:7:8::", ipv6_full_expected, 0);
   failed |= expect_ipv6("1::192.0.2.1:3", ipv6_full_expected, 0);

@@ -702,6 +702,8 @@ jobs:
           assert "int vsf_sysutil_parse_uint(const struct mystr* p_str" in vsftpd_ipaddrparse_header
           ipv6_parser = function_body(vsftpd_ipaddrparse, "vsf_sysutil_parse_ipv6(")
           ipv6_components = function_body(vsftpd_ipaddrparse, "ipv6_parse_main(struct mystr* p_out_str")
+          ipv6_hex = function_body(vsftpd_ipaddrparse, "ipv6_parse_hex(struct mystr* p_out_str")
+          assert "if (len == 0 || len > 4)" in ipv6_hex
           assert "compression_ret = str_locate_text(p_str, \"::\")" in ipv6_parser
           assert "lhs_len + rhs_len >= 16" in ipv6_parser
           assert "lhs_len != 16 || rhs_len != 0" in ipv6_parser
@@ -716,6 +718,7 @@ jobs:
               "IPv6 parser status mismatch",
               "2001:db8:1",
               "1:2:3:4:5:6:7:8::",
+              "00000:0:0:0:0:0:0:1",
               "IPv6 parser returned incorrect bytes",
           ):
               assert token in ipaddrparse_test
