@@ -20,17 +20,20 @@ assert 'smartdns_process_lifecycle_lib="/usr/bin/smartdns_process_lifecycle.sh"'
 assert '. "$smartdns_process_lifecycle_lib"' in script
 assert '$(INSTALL_BIN) ./smartdns_process_lifecycle.sh $(ROMFSDIR)/usr/bin/smartdns_process_lifecycle.sh' in makefile
 assert 'smartdns_process_state()' in helper and 'smartdns_stop_process()' in helper
-assert '_smartdns_process_name=${1:-smartdns}' in helper
-assert 'pidof "$_smartdns_process_name"' in helper
+named_state = body(helper, 'smartdns_named_process_state()\n{', '\n}\n\n# Return start_time')
+process_state = body(helper, 'smartdns_process_state()\n{', '\n}\n\n# Return 0 when absent')
+stop_state = body(helper, 'smartdns_stop_process()\n{', '\n}')
+assert '_smartdns_name=$1' in named_state
+assert 'pidof "$_smartdns_name"' in named_state
 change_adbyby = body(script, 'Change_adbyby () {', "\n}\n\nChange_dnsmasq")
-assert 'smartdns_process_state adbyby' in change_adbyby
+assert 'smartdns_named_process_state adbyby' in change_adbyby
 assert 'Cannot determine Adbyby process state' in change_adbyby
 assert 'pidof adbyby' not in script
 assert 'Adbyby process inventory errors preserve DNS ownership' in test
-assert '[ -z "$_smartdns_pid_output" ] && return 1' in helper
-assert '*)\n            return 2' in helper
-assert 'killall smartdns' in helper and 'killall -9 smartdns' in helper
-assert 'smartdns_wait_stopped' in helper
+assert '[ -z "$_smartdns_pid_output" ] || return 2' in process_state
+assert '*) return 2 ;;' in named_state
+assert 'smartdns_signal_process_ids TERM' in stop_state and 'smartdns_signal_process_ids KILL' in stop_state
+assert 'smartdns_wait_stopped' in stop_state
 reader = body(script, 'Read_ini () {', '\n}\n\nCheck_md5')
 assert 'if [ -L "$smartdns_Ini" ]; then' in reader
 assert '[ -r "$smartdns_Ini" ] && [ -s "$smartdns_Ini" ] || return 1' in reader
