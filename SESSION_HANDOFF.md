@@ -2,36 +2,41 @@
 
 ## Current repository state
 
-- Parent main for this corrective commit: 49c37472f8e6c1c630382869ef0bbb4b12d492a7. Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains read-only at 72f4f157a084f8184b9597ca5bf334b8080e5807.
-- Clock-lifecycle implementation commit 49c37472f8e6c1c630382869ef0bbb4b12d492a7: AI docs #45326822074 PASS. Switch CLI #45326822109 failed in its existing inline probe/clock check because the GE2 temporary ioremap had been moved after PM-runtime start, and that test explicitly requires the mapping/ENOMEM failure before PM acquisition. This correction restores that failure boundary. NVRAM #45326822151 remains running; XY-C1 #45326822049 remains running at the IAPP firewall lifecycle validation stage. Build/TRX/artifact stages are not confirmed.
-- Main source commit 3ea3089230ea2696e518c525ec6cf1132aa1ea83 before the clock changes had AI docs #45326081842, Switch CLI #45326081376 and NVRAM #45326081336 PASS; XY-C1 #45326081305 was still building at last poll. Previous firmware completion on f7bd670 predates later source changes.
-- Frozen backup remains untouched. No physical-router or latest-source firmware PASS is claimed.
+- Latest main before this documentation checkpoint: `ae615df132c429ee58373bfa248be2df4d1e828d`; its parent production-source SHA is `a89ebc296b817403086e052b3f1fb4a52ed183b8`. The only change in `ae615` is a checker syntax correction in `scripts/check_adbyby_hosts_config.py`; it does not change firmware inputs.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`. No backup branch edits, force pushes or history rewrites were made.
+- This session completed atomic fixes across startup and resolver state handling: Autostart's missing regression helper/fixture; AliyunDrive WebDAV invalid enable selector; LAN DHCP static-DNS selector validation; AliDDNS, DDNSTO, AdGuardHome, Adbyby and SmartDNS binary enable-selector validation. DDNSTO and Adbyby intermediate test/checker failures were diagnosed and corrected in follow-up commits.
+- Main-only writes used complete Git trees and non-forced expected-SHA updates. All source and test slices are recorded at the top of `dev_log.md`.
 
 ## Active task
 
-Inspect the exact Actions for this correction commit. Switch CLI should now pass because the GE2 sysctl mapping is mapped, checked, programmed and unmapped before PM-runtime/clocks are acquired; an ioremap failure returns -ENOMEM with no PM or clock state to unwind. If it passes, continue the repository stability ledger outside RAETH while NVRAM/XY-C1 run. Diagnose any exact-head source or build failure and fix it atomically.
+Poll the exact production-source XY-C1 run `#45335248142` for SHA `a89ebc296b817403086e052b3f1fb4a52ed183b8`. At the last inspection, its `Build XY-C1` step was still running; `Verify TRX output` and artifact upload were pending. Inspect those three steps independently and claim firmware L3 only if all complete successfully.
+
+The checker-only successor `ae615df132c429ee58373bfa248be2df4d1e828d` has the Adbyby stability regression PASS; no product source changed after the `a89ebc` firmware input SHA. While firmware CI is pending, select a separate evidence-backed stability/security defect from the whole userland ledger rather than waiting or repeating completed audits.
 
 ## Completed development slices
 
-- RAETH DMA/RX/TX and allocation lifecycle: PDMA/QDMA RX partial allocation rollback and DMA-unmap accounting; RSS/HW-LRO ring rollback; QDMA TX/FQ/SFQ staged-allocation cleanup; staged DMA init unwind.
-- RAETH IRQ and netdev lifecycle: partial IRQ request tracking/unwind; GSW source disable before handler release; open/close worker and module-reference ordering; pseudo-netdev safety; NAPI removal; primary netdev unregister/free on platform remove.
-- MT7622/MTK switch lifecycle: checked platform-device lookup/put, regulator voltage/enable error propagation and per-rail state; correct IRQ mapping, pctl node/regmap handling, pinctrl ERR_PTR check and put.
-- Primary RAETH probe/remove ownership: switch_np ref release on failed registration and ndo-uninit; debug-proc cleanup only after successful init; descriptor release before QDMA helper platform_device_put; drvdata-backed primary netdev remove and MMIO unmap.
-- RAETH clock lifecycle: successful-enable bitmap, required error-pointer propagation, PM-runtime get/put balancing, partial failure unwind, shared SGMII PLL de-duplication, SGMII_TOP and GE2 SGMII1 disable pairing. The GE2 temporary register mapping is restored to the pre-PM failure boundary by this correction.
-- Shared PID-file safety: no-follow open plus regular-file, effective-UID, single-link and no group/world write policy; strict GNU89-compatible predicate and complete metadata regression binding.
-- Earlier HTTPD, WAN/DHCP, NVRAM, storage and add-on stability slices remain in the Roadmap/dev-log archives; do not repeat completed audits without new evidence.
+- Autostart: supplied the missing `fail()` helper and corrected the concurrent-publish fixture newline. Process lifecycle Actions #45332907096 and #45332907032 PASS on `6bc7b0665719835a6f45e54c3dfd13e3516f6b73`.
+- AliyunDrive WebDAV: only explicit disabled values stop the service; malformed enable values fail without killing/relaunching a healthy daemon. Lifecycle #45333513857 and Process #45333513772 PASS on `5cfb70929934a800f867a7e21179e11fafb9d86c`.
+- LAN DHCP: strict binary validation for `lan_dns_x` before resolver publication and deconfig route/resolver side effects; GNU89 policy test includes boundary/corrupt values. WAN DHCP callback stability #45333806032 PASS on `d0c7bb76c70f23b18046719d1d8ede572dfca05b`.
+- AliDDNS: malformed persisted and runtime selectors no longer become implicit enable/disable decisions or terminate the keeper. Exact lifecycle #45334063814 and Process #45334063878 PASS on `248e045b1526868c9324485bfb18234ca268c7cf`.
+- DDNSTO: start/restart preflight validates checked NVRAM values before signalling a healthy daemon; fixture restore correction made its selector matrix pass. Lifecycle #45334345903 and Process #45334345858 PASS on `10ca6cb384a9f83864216f5302d5f44ea59fd0cf`.
+- AdGuardHome: restart preflights checked enable state before stopping; invalid values/read errors leave the daemon untouched. Config/security #45334530232 and Process #45334530159 PASS on `e3d7f4b0f347f01da2cf4a84e58bee511934ea41`.
+- Adbyby: start/restart reject malformed enable selectors and preserve NVRAM read error statuses. Intermediate exact-head failures exposed, in order, a multiline function extraction mismatch, lost read status, and a checker IndentationError; these were corrected in `053393ee`, `560d78e` and `ae615df`. Final Adbyby download/DNSMasq regression #45335321139 PASS on `ae615df132c429ee58373bfa248be2df4d1e828d`.
+- SmartDNS: start/restart/reset accept only the binary UI selector (with legacy empty default) before service-state changes; stop remains available for shutdown. DNSMasq lifecycle #45335248129, Process inventory #45335248118 and AI handoff contract #45335248114 PASS on production SHA `a89ebc296b817403086e052b3f1fb4a52ed183b8`.
+- USB storage hotplug regression #45335248143 also PASS on `a89ebc`.
 
 ## Verification boundary
 
-- Commit 49c37472f8e6c1c630382869ef0bbb4b12d492a7: AI handoff #45326822074 PASS; Switch CLI #45326822109 FAIL at the existing inline ioremap-before-PM contract. NVRAM #45326822151 and XY-C1 #45326822049 were in progress at last poll. The corrective source change in this commit is not yet verified.
-- Do not infer a firmware build/TRX/artifact result for current source from the older f7bd670 SHA.
-- Hardware L4 remains NOT VERIFIED.
+- Targeted source/test work above is backed by the listed exact-SHA GitHub Actions results. The intermediate DDNSTO and Adbyby failures are historical and have passing corrections on descendant SHAs.
+- Latest production-input SHA `a89ebc296b817403086e052b3f1fb4a52ed183b8`: XY-C1 run #45335248142 remains IN_PROGRESS at last poll (Build running; TRX and artifact upload pending). Older XY-C1 runs do not establish validation for this production SHA. Do not claim L3 until Build, TRX verification and artifact upload all pass on #45335248142.
+- No local MIPS firmware compile was run in this session. Physical-router/hardware L4 remains NOT VERIFIED.
+- AI handoff contract #45335248114 passed on the preceding handoff state; the current documentation checkpoint requires its own exact-SHA run.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main; poll the exact-SHA AI docs, Switch CLI, NVRAM and XY-C1 runs for this correction. Inspect XY-C1 Build, TRX and artifact upload individually.
-2. If Switch CLI passes, continue an independent stability/security bug outside RAETH while other jobs are pending. If it fails, inspect the exact failing step/log before changing source.
-3. Maintain the main-only atomic tree/commit/CAS workflow and refresh handoff only for material changes.
+1. Fetch live main and poll XY-C1 run #45335248142 for production SHA `a89ebc296b817403086e052b3f1fb4a52ed183b8`; inspect Build XY-C1, Verify TRX output and artifact upload separately.
+2. Poll the AI handoff documentation contract and Process inventory checks triggered by this documentation checkpoint. If XY-C1 remains pending, continue a different evidence-backed userland stability/security slice without waiting.
+3. Keep the frozen backup read-only; use complete trees, one atomic commit per logical task and non-forced expected-SHA updates.
 
 # Cross-session execution mandate
 

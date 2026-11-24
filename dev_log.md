@@ -1,3 +1,19 @@
+## 2026-11-24 — Validate service selectors across userland and repair exact-head regression contracts
+
+- Fixed the Autostart lifecycle test's missing `fail()` helper, then corrected its concurrent-publish fixture so the shell writes a real newline. Process lifecycle Actions #45332907096 and #45332907032 passed on `6bc7b0665719835a6f45e54c3dfd13e3516f6b73`.
+- AliyunDrive WebDAV startup now treats only explicit disabled values as a stop request; corrupt selectors fail without stopping or relaunching a healthy daemon. Its lifecycle and Process regressions passed on `5cfb70929934a800f867a7e21179e11fafb9d86c`.
+- LAN DHCP now validates `lan_dns_x` as a binary selector in both automatic resolver publication and lease deconfig, before route/resolver side effects. GNU89 policy coverage includes valid values and integer boundaries; WAN DHCP callback stability #45333806032 passed on `d0c7bb76c70f23b18046719d1d8ede572dfca05b`.
+- AliDDNS now rejects corrupt startup/runtime enable values without converting them to a stop or terminating its keeper; exact lifecycle #45334063814 and Process #45334063878 passed on `248e045b1526868c9324485bfb18234ca268c7cf`.
+- DDNSTO now validates checked `ddnsto_enable` before start/restart, leaving an active daemon untouched on invalid values. Its first regression run exposed a fixture that left enable=0 before later launch tests; the fixture was restored to 1. Exact lifecycle #45334345903 and Process #45334345858 passed on `10ca6cb384a9f83864216f5302d5f44ea59fd0cf`.
+- AdGuardHome restart now preflights checked enable-state and accepts only empty/0/1 before stopping the daemon. Exact config-security #45334530232 and Process #45334530159 passed on `e3d7f4b0f347f01da2cf4a84e58bee511934ea41`.
+- Adbyby now rejects malformed enable selectors before lifecycle mutations and preserves the original status from each checked NVRAM read. Its regression failures exposed a multiline awk extraction mismatch, then the lost NVRAM status, then a checker-only IndentationError; each was fixed atomically. Final Adbyby regression #45335321139 passed on `ae615df132c429ee58373bfa248be2df4d1e828d`.
+- SmartDNS now validates its binary UI enable selector before start/restart/reset while leaving stop usable for shutdown. DNSMasq lifecycle #45335248129, Process inventory #45335248118 and AI handoff #45335248114 passed on production SHA `a89ebc296b817403086e052b3f1fb4a52ed183b8`; USB storage hotplug #45335248143 also passed there.
+- Latest production-source SHA `a89ebc296b817403086e052b3f1fb4a52ed183b8` XY-C1 run #45335248142 was IN_PROGRESS at checkpoint: Build running, TRX validation and artifact upload pending. Do not infer L3 from older firmware runs. No local target compile or physical-router L4 verification is claimed.
+- The subsequent `ae615df` commit is checker-only (Adbyby source-contract syntax); no product source changed after `a89ebc`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807` remains untouched.
+- Next: poll #45335248142's Build, TRX and artifact steps; then continue an independent, evidence-backed stability/security fix while pending checks run.
+
+---
+
 ## 2026-11-24 — Preserve the pre-PM GE2 register-map failure boundary
 
 - Switch CLI #45326822109 on parent 49c37472f8e6c1c630382869ef0bbb4b12d492a7 failed at its existing inline contract: the GE2 temporary sysctl ioremap is required to occur before pm_runtime_enable, and the mapping-failure branch must return -ENOMEM before acquiring PM state. The clock helper now correctly unwinds later failures, but the temporary mapping's location had changed that tested boundary.
