@@ -1,3 +1,11 @@
+## 2026-11-24 — Restore VSFTPD decimal parser source-contract binding
+
+- Exact b87 VSFTPD run #45355332629 compiled and ran the GNU89 REST policy and existing parser tests successfully, but the workflow's Python source checker raised NameError: name 'decimal_parser' is not defined: REST assertions had displaced an existing local function-body binding.
+- Restored the decimal parser binding before the octet parser binding. This is checker-only; no source/test behavior change. Exact-head validation pending.
+- Exact b87 Process #45355332631 and AI handoff #45355332668 PASS; XY-C1 #45355332727 and NVRAM #45355332714 were in progress at last observation. e942 AliDNS #45355770998 failed at the shell regression step; Process #45355770855 PASS.
+
+---
+
 ## 2026-11-24 — Reject malformed FTP REST restart markers
 
 - `handle_rest()` passed client text to `str_a_to_filesize_t()`, then checked for a negative result. That converter returns zero for invalid characters and strings longer than 15 bytes, so malformed REST values were accepted with FTP 350 and restart offset zero.

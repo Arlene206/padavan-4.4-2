@@ -715,6 +715,7 @@ jobs:
                         '" 1"', '"1 "', "embedded_nul"):
               assert token in rest_offset_test
 
+          decimal_parser = function_body(vsftpd_ipaddrparse, "vsf_sysutil_parse_uint(")
           octet_parser = function_body(vsftpd_ipaddrparse, "vsf_sysutil_parse_uchar_string_sep(")
           port = function_body(vsftpd_postlogin, "handle_port(")
           eprt = function_body(vsftpd_postlogin, "handle_eprt(")
