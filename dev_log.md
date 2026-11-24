@@ -1,3 +1,10 @@
+## 2026-11-24 — Correct PSK regression contract after CI feedback
+
+- The first exact-SHA MTK run exposed an over-escaped regular-expression in the new source checker; production code compiled neither failed nor regressed, but the static contract falsely rejected the correctly-added length guard.
+- Replaced the brittle regex with direct source-token and ordering assertions for the 64-byte cap, single user copy, EFAULT early exit, and staged AP/APCLI/WSC writes. The dedicated MTK workflow is re-run on the checker-only commit.
+
+---
+
 ## 2026-11-24 — Bound MT76x3 OID_SET_PSK input copies
 
 - The MT76x3 `OID_SET_PSK` case only capped the temporary log buffer; the subsequent AP/APCLI/WSC copies still used the unrestricted user-supplied length. `WPAKeyString[65]` and WSC's `WpaPsk[64]` made oversized requests capable of overflowing fixed storage.
