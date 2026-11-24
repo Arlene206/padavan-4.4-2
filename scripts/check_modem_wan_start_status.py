@@ -1512,7 +1512,7 @@ for signature, band, old_wisp_getter in (
     assert read_call in apcli_start
     assert config_gate in apcli_start
     assert start_gate in apcli_start
-    assert "if(!wif_control_success(ifname_apcli,0))" in apcli_start
+    assert "wireless_apcli_start_fail(ifname_apcli," in apcli_start
     assert f'nvram_wlan_get({band_id},"sta_ssid")' not in apcli_start
     assert old_wisp_getter not in apcli_start
     assert apcli_start.index(read_call) < apcli_start.index(config_gate) < apcli_start.index(start_gate)
@@ -1522,6 +1522,17 @@ for signature, band, old_wisp_getter in (
     else:
         assert "wireless_bridge_membership_record(&all_started,ifname_apcli,!is_wisp||get_ap_mode())" in apcli_start
         assert "#if!defined(USE_RT3352_MII)" in apcli_start
+apcli_cleanup = tight(body(
+    NET_WIFI_SOURCE,
+    "wireless_apcli_start_fail(const char *ifname, int bridge_managed,"
+))
+assert "wireless_apcli_start_cleanup_run(" in apcli_cleanup
+assert "wireless_apcli_cleanup_interface_down" in apcli_cleanup
+assert "wireless_apcli_cleanup_bridge_detach" in apcli_cleanup
+assert apcli_cleanup.index("wireless_apcli_start_cleanup_run(") < apcli_cleanup.index(
+    "if (interface_status != 0)"
+) < apcli_cleanup.index("if (bridge_status != 0)")
+assert "test_apcli_rollback_attempts_both_steps_and_preserves_primary_error" in WIRELESS_TEST
 assert "test_apcli_wisp_config_fails_closed" in WIRELESS_TEST
 
 # detect_link's delayed modem recovery must retry checked-state and queue failures.
