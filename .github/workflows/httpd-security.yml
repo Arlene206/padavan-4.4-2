@@ -4204,8 +4204,15 @@ jobs:
           assert "ipv6_disable_required = (nvram_ipv6_type == IPV6_DISABLED);" in rc_source
           assert "ipv6_init_status = init_ipv6();" in rc_source
           assert "Blocking WAN startup: IPv6 is configured disabled but global disable sysctls could not be verified" in rc_source
-          assert "firewall_startup_policy_allows_wan_checked(" in boot
-          assert boot.index("firewall_startup_policy_allows_wan_checked(") < boot.index("start_wan();")
+          assert "firewall_startup_status =" in boot
+          policy_call = boot.index("firewall_startup_policy_wan_failure_status(")
+          status_gate = boot.index("if (firewall_startup_status != 0)", policy_call)
+          status_merge = boot.index(
+              "boot_services_status = rc_first_service_start_status(", status_gate
+          )
+          status_merge_end = boot.index(";", status_merge)
+          assert "boot_services_status, firewall_startup_status" in boot[status_merge:status_merge_end]
+          assert policy_call < status_gate < status_merge < boot.index("start_wan();")
           assert "set_ipv4_forward(0);" in boot
           assert 'ipv6_forward_disable_status = set_interface_conf_int("ipv6", "all", "forwarding", 0);' in boot
           print("Early WAN startup fails closed when an active firewall filter cannot be installed: OK")

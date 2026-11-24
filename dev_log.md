@@ -1,3 +1,11 @@
+## 2026-11-25 00:49 CST (UTC+8) — Align HTTPD Security firewall contract with status-return gate
+
+- HTTPD Authentication/Security run #45441167757 on source SHA `7ff02de99fc676e0262b7c5770356b1e31bda758` failed at `Check firewall command status reporting`. The firewall C policy/restore tests passed before its static script asserted the obsolete `firewall_startup_policy_allows_wan_checked()` call. This was a stale cross-workflow contract after RC now returns and merges `firewall_startup_status`.
+- Replaced only that assertion with checks for the status helper, nonzero rejection branch, exact `boot_services_status, firewall_startup_status` merge operands and ordering before `start_wan()`. Existing forwarding-disable and actual HTTPD auth/disclosure assertions remain intact.
+- The roadmap size correction commit `5248d91` is validated by AI handoff #45441892663 PASS. FTP source commit `7ff02de` XY-C1 #45441167736 still IN_PROGRESS at last poll.
+
+---
+
 ## 2026-11-25 00:46 CST (UTC+8) — Fit active roadmap within the handoff validator limit
 
 - AI handoff #45441278100 on exact main `a8284ea16840ffbd10f3c0444e68a829bfc7d9d5` failed only in live handoff/roadmap validation: the roadmap was 131,452 UTF-8 bytes, 380 bytes above the 131,072-byte cap. Switch CLI #45441278142 PASS.
