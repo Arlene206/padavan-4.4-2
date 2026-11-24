@@ -1,29 +1,30 @@
 ## Current repository state
 
-- Active development branch: `main`; source parent for the WAN source PHY slice: `659b91b497b5cf8073b54feab849a91623092c70`. Always fetch live `main` and its tree before any write.
-- Frozen archive `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`; it is immutable and must not be modified, used for development, or deleted.
-- No open PRs; legacy PR #1 is closed and its valid unmerged work was ported to main.
-- HTTPD protocol-selector guard and regression are L3 VERIFIED on exact SHA `659b91b497b5cf8073b54feab849a91623092c70`: HTTPD lifecycle #45388114470 PASS, AI handoff docs #45388114468 PASS, Process lifecycle #45388114507 PASS, and XY-C1 #45388114515 PASS including Build XY-C1, TRX verification and artifact upload. Physical-router L4 remains NOT VERIFIED.
-- MTK AP private-ioctl safety has prior L3 verification on exact source SHA `d33fcf06b73fbe2771ab0b559116d3e750dc4918`; physical-router L4 remains NOT VERIFIED.
+- Active branch: `main`; follow-up parent SHA: `d3733ecbec2e0cf652c00eadf1db4645ae5ff13e`. Re-fetch live main before any write.
+- Frozen archive `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable, never develop on or modify it.
+- No open PRs.
+- HTTPD protocol-selector guard is L3 VERIFIED on exact SHA `659b91b497b5cf8073b54feab849a91623092c70`: HTTPD #45388114470, AI #45388114468, Process #45388114507 and XY-C1 #45388114515 PASS, including Build/TRX/artifact. Physical L4 unverified.
+- MTK AP private-ioctl safety remains previously L3 verified on `d33fcf06b73fbe2771ab0b559116d3e750dc4918`; physical L4 unverified.
 
-## Active task — Bound the persisted WAN source PHY selector
+## Active task — WAN source PHY selector range guard
 
-- `get_wan_ether_link_direct()` reads `wan_src_phy` through a checked NVRAM accessor but previously sent every nonnegative integer directly to `phy_status_port_link()`. The MTK kernel maps an unsupported UAPI port ID to a successful zero-valued link result; corrupt selectors (including CPU port IDs) could therefore be mistaken for a real cable disconnect and trigger WAN teardown.
-- The generic switch UAPI defines WAN=0 and external LAN ports 1..5, while CPU ports 14/15 are not external WAN PHYs. THIS COMMIT preserves legacy negative-value fallback to WAN=0 but rejects positive IDs >5 with `ERANGE` before ioctl. The caller returns `-1` with errno so detect_link retains the last valid sample and retries.
-- Regression covers external IDs 0..5, negative compatibility including INT_MIN, and invalid 6/13/14/15/INT_MAX with untouched output. The detect-link workflow runs GNU89/`-Werror`/ASan/UBSan plus source-order contract; the XY-C1 workflow watches the new policy header/test and production caller.
-- Historic DNSMasq/Process failures from older stale source contracts are superseded; current Process inventory #45388114507 PASS confirms no need to replay those assertions.
+- Source change in `net_wan.c` and policy `wan_src_phy_policy.h` reject positive `wan_src_phy` IDs >5 before switch ioctl; negative values retain historical WAN=0 fallback. Reason: MTK's unsupported UAPI port mapping reports success with link=0, which otherwise looks like a real cable disconnect.
+- Host regression in detect-link run #45390205127 PASS (GNU89/Werror/ASan/UBSan); the pre-existing detect_link integration contract also PASS. The new final source-contract step FAILED because it expected direct `test_name();` while the test uses repository convention `CHECK(test_name() == 0)`. THIS COMMIT corrects the assertion and C diagnostic newline.
+- AI docs run #45390205125 FAILED only because `REFACTOR_ROADMAP.md` reached 131111 bytes, 39 bytes over its 131072-byte hard limit. THIS COMMIT shortens the two new priority entries; encoded roadmap size is checked below the limit before publication.
+- XY-C1 run #45390205170 was still building when last checked; no Build/TRX/artifact conclusion yet. WAN route status #45390205087 PASS. Process #45390205058 and NVRAM #45390205138 were still running at last poll.
+- Parent SHA: `d3733ecbec2e0cf652c00eadf1db4645ae5ff13e`; HTTPD selector L3 remains proven on its earlier exact SHA, not this WAN change.
 
 ## Verification boundary
 
-- THIS COMMIT contains the source change, policy, test, workflow contracts/path triggers and current handoff in one atomic commit.
-- Check exact-head detect-link regression, XY-C1 Build/TRX/artifact, AI docs, Process and NVRAM Actions. Physical router L4 remains unverified.
-- HTTPD selector source is L3 verified on parent SHA `659b91b`.
+- THIS FOLLOW-UP contains the corrected regression contract, valid C diagnostic string, reduced roadmap and handoff/log status.
+- Recheck detect-link, AI docs, XY-C1 Build/TRX/artifact, Process and NVRAM by this exact SHA. L3 for the WAN selector requires same-SHA XY-C1 Build, TRX and artifact PASS.
+- Physical router L4 remains unverified.
 
 ## Exact first action for the next GPT
 
-1. Fetch current `main` and query push Actions by exact head SHA; inspect detect-link WAN source PHY regression and XY-C1 Build/TRX/artifact, plus AI/Process/NVRAM exact-head checks.
-2. Fix any first causal exact-head failure atomically; do not claim L3 while a firmware Build/TRX/artifact step is pending or skipped.
-3. After this WAN selector slice passes, continue the next highest-priority unresolved stability/security issue outside completed MTK AP ioctl and HTTPD selector work.
+1. Fetch current `main` and poll exact-head push Actions for detect-link, AI docs, XY-C1, Process and NVRAM. Confirm the two known checker corrections now PASS.
+2. Fix any new first-causal failure atomically; keep L3 open until same-SHA XY-C1 Build/TRX/artifact PASS.
+3. Continue the next highest-priority independent stability/security defect; do not re-audit the verified HTTPD/MTK slices without new evidence.
 
 ## Mandatory handoff checkpoint
 

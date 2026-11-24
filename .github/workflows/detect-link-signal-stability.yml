@@ -375,6 +375,6 @@ jobs:
               "test_negative_legacy_values_keep_wan_default",
               "test_unknown_and_cpu_ports_fail_without_publishing",
           ):
-              assert marker + "();" in test
+              assert marker in test and marker + "() == 0" in test
           print("WAN source PHY selector fail-closed integration: PASS")
           PY
