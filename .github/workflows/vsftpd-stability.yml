@@ -366,6 +366,8 @@ jobs:
           rest_command = function_body(vsftpd_postlogin, "handle_rest(")
           assert "p_sess->restart_pos_set = 0;" in rest_command
           assert "p_sess->restart_pos_set = 1;" in rest_command
+          upload_entry = function_body(acl_path_policy, "ftp_acl_path_open_upload_entry(")
+          resolve_upload = function_body(acl_path_policy, "ftp_acl_path_resolve_write_entry(")
           assert "flags | O_CREAT | O_EXCL, mode" in upload_entry
           assert "flags | O_CREAT | O_EXCL | O_APPEND" not in upload_entry
           assert "ordinary APPE lost O_APPEND semantics" in acl_path_test
@@ -416,8 +418,6 @@ jobs:
           assert "p_sess, p_filename, 0, is_append, tunable_file_open_mode" in upload
           assert upload_open.index("ftp_acl_path_open_verified_directory(resolved_parent)") < upload_open.index("asus_check_permission_at(p_sess, PERM_WRITE, resolved_parent)")
           assert upload_open.index("asus_check_permission_at(p_sess, PERM_WRITE, resolved_parent)") < upload_open.index("ftp_acl_path_verify_directory_identity(resolved_parent, parent_fd)")
-          upload_entry = function_body(acl_path_policy, "ftp_acl_path_open_upload_entry(")
-          resolve_upload = function_body(acl_path_policy, "ftp_acl_path_resolve_write_entry(")
           assert "file_fd = ftp_acl_path_open_upload_entry(" in upload_open
           normalized_upload_open = " ".join(upload_open.split())
           assert "exclusive, append, (mode_t)mode" in normalized_upload_open
