@@ -13,12 +13,12 @@
 ## Current repository state
 
 - Parent main before this implementation commit: `54f23c27f924b31ad8d3caefc25ed9973a82bd08`; frozen backup: `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- This handoff commit is the new source baseline for RSS/HW-LRO RX allocation capacity: add `NET_SKB_PAD` to both RSS ring modes and hardware LRO ring setup, matching PDMA/QDMA and runtime buffer replacement.
+- Source fix is in exact commit `a52ded9e6c0982ff7b838a59b4fb62df3fbd1815`: RSS 2/4-ring and hardware-LRO initial RX capacity includes `NET_SKB_PAD`, matching PDMA/QDMA and runtime replacement. Its Switch CLI run #45321100540 PASS; XY-C1 #45321100612 was IN_PROGRESS; AI docs #45321100686 failed only on the roadmap byte limit, corrected by this documentation-only commit.
 - Parent-SHA Actions are historical only and do not validate this implementation commit. Inspect the exact commit containing this handoff for new push-triggered workflow results.
 - The backup branch remains read-only.
 ## Active task
 
-Verify the exact-SHA Switch CLI run for this commit, including the extended five-path RX skb-capacity source contract. Check exact-SHA AI handoff documentation and XY-C1 Build, TRX verification and artifact upload. Continue another independent stability fix while checks are pending; do not wait idly.
+Verify the AI handoff rerun on this documentation correction SHA. For the product source SHA `a52ded9`, preserve the Switch CLI PASS and inspect XY-C1 Build → TRX → artifact completion; the docs-only descendant is not a new product-source validation SHA. Continue independent stability work while XY-C1 is pending.
 ## Completed development slices
 
 ### HTTPD / web UI security
@@ -49,14 +49,14 @@ Independent snapshot/lifecycle changes remain in `99ad9397e3cf4450c6fc07758b58c3
 
 - Source changes in this commit correct the RSS 2-ring/4-ring and hardware-LRO initial RX buffer capacity by adding `NET_SKB_PAD`; the existing PDMA and QDMA paths already include it.
 - The extended source checker is wired into the existing Switch CLI regression workflow, whose push filter includes the RSS, HW-LRO and checker paths. XY-C1 push filters already include both modified driver files.
-- Exact-SHA host regression, AI documentation validation, XY-C1 kernel build, TRX verification and artifact upload for this commit are not yet observed at commit creation. No local test, MIPS build, TRX, artifact or hardware result is claimed.
+- Exact source-SHA Switch CLI #45321100540 passed all host checks, including the newly added RX-capacity contract. AI docs #45321100686 failed solely because the roadmap was 131250 bytes against the 131072-byte limit; this follow-up reduces it below the limit and requires a new exact-SHA documentation run. XY-C1 #45321100612 remained IN_PROGRESS. No local MIPS build, TRX, artifact or hardware result is claimed.
 - Historical L3 artifact #14884935723 belongs only to `dd0b374694cf9d1e99ca65c8b35fa53b482d377b`, not this source baseline.
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and read its exact SHA. Inspect that SHA's push-triggered Switch CLI, AI handoff documentation, NVRAM and XY-C1 Actions.
-2. Confirm the Switch CLI job passes the new RX buffer capacity checks for PDMA, QDMA, RSS 4-ring, RSS 2-ring and HW LRO. Diagnose any failure on the first causal step.
-3. Inspect XY-C1 Build → TRX verification → artifact upload on the same SHA; record exact run ID and completion state.
-4. If any run is PENDING, continue independent repository-wide stability work. Keep the backup branch untouched and do not promote another SHA's result.
+1. Fetch live `main`; inspect AI handoff docs on the documentation-fix SHA and record its rerun result.
+2. Inspect XY-C1 #45321100612 for product SHA `a52ded9`; verify Build → TRX → artifact completion on that identical SHA.
+3. Confirm exact-SHA NVRAM #45321100619 and any follow-up run state; do not transfer results between SHAs.
+4. Continue independent repository-wide stability work while anything is pending. Keep the backup branch untouched.
 
 # Cross-session execution mandate
 

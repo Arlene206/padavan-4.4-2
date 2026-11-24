@@ -1,3 +1,10 @@
+## 2026-11-24 — Keep the handoff roadmap within the validator byte limit
+
+- AI handoff run #45321100686 on source SHA `a52ded9e6c0982ff7b838a59b4fb62df3fbd1815` failed only because `REFACTOR_ROADMAP.md` was 131250 UTF-8 bytes, 178 bytes above the 131072-byte hard limit. The new RAETH DMA/RX status row was longer than necessary.
+- Compressed that row without removing the source status or verification boundary. The revised file is now below the validator limit; this documentation-only commit needs a fresh exact-SHA AI handoff run.
+- Source SHA `a52ded9`: Switch CLI #45321100540 PASS; XY-C1 #45321100612 and NVRAM #45321100619 were pending/in progress at last poll. The docs follow-up does not change firmware inputs and must not be treated as a product-source build.
+
+---
 ## 2026-11-24 — Add reserved headroom to RSS and hardware-LRO RX buffers
 
 - RSS 4-ring/2-ring initialization and hardware-LRO ring setup allocated skb buffers without `NET_SKB_PAD`, although their DMA mappings start at `buffer + NET_SKB_PAD` and the receive path reserves `NET_SKB_PAD + NET_IP_ALIGN`. This left the initial buffers smaller than the corresponding PDMA/QDMA and runtime replacement allocations.
