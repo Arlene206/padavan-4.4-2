@@ -1975,7 +1975,14 @@ INT RTMPAPSetInformation(
     	case RT_SET_APD_PID:
 			{
 				unsigned long apd_pid;
-				if (copy_from_user(&apd_pid, wrq->u.data.pointer, wrq->u.data.length))
+
+				if (wrq->u.data.length != sizeof(apd_pid)) {
+					Status = -EFAULT;
+					break;
+				}
+
+				if (copy_from_user(&apd_pid, wrq->u.data.pointer,
+						   sizeof(apd_pid)))
 				{
 					Status = -EFAULT;
 				}

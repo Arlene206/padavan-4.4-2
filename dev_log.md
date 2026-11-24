@@ -1,3 +1,12 @@
+## 2026-11-24 — Bound legacy MTK APD PID ioctl copies
+
+- Found a kernel stack-buffer overrun in the legacy MT76x2 and MT76x3 AP ioctl handlers: `RT_SET_APD_PID` copied the caller-controlled `wrq->u.data.length` bytes into a single `unsigned long` local. Zero/short lengths also left the PID partially or wholly uninitialized before publication.
+- Added an exact `sizeof(apd_pid)` length check before `copy_from_user()` and changed the copy length to the fixed destination size in both affected handlers. The newer MT7615 and MT7915 handlers already perform the same exact-size check and were left unchanged.
+- Added a source-contract regression for both legacy handlers and made the XY-C1 firmware workflow trigger on these kernel-driver source paths, so target compilation is not silently skipped.
+- Exact-SHA source-contract and XY-C1 Build/TRX/artifact Actions are required before claiming L2/L3; no local kernel or router hardware result is claimed.
+
+---
+
 ## 2026-11-24 — Enforce EPSV ALL against EPRT active-mode setup
 
 - RFC 2428 section 3 requires a server that accepted `EPSV ALL` to reject all data-connection setup commands other than EPSV, explicitly including EPRT, PORT and PASV.
