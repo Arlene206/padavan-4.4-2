@@ -13,12 +13,11 @@ Continue one autonomous engineering stream on main. For each logical source/test
 
 ## Active task
 
-### Active LAN DHCP deconfig retry — treat an already-removed route as complete
+### Active LAN DHCP deconfig retry — idempotent deletion fixed; duplicate source contracts being synchronized
 
-A concrete retry deadlock was found in `lan_down_auto()`: it removed the saved DHCP default route with raw `route_del()`, then could fail a later static-interface restore/resolver/hosts step and return to BusyBox's `DECONFIG_PENDING` retry. On the next callback the same route was already absent, so Linux `SIOCDELRT` returns `ESRCH`; without idempotent-delete normalization, deconfig aborted before reaching the remaining cleanup and could repeat forever. The same raw delete existed in the BOUND/RENEW transaction's old-gateway callback.
+A retry deadlock was found in `lan_down_auto()`: it removed the saved DHCP default route with raw `route_del()`, then could fail a later static-interface restore/resolver/hosts step and return to BusyBox's `DECONFIG_PENDING` retry. The next callback received `ESRCH` for that already-absent route and stopped before completing the remaining cleanup. The same raw delete existed in the BOUND/RENEW transaction's old-gateway callback.
 
-This slice wraps both LAN DHCP route-delete operations with the existing `route_status_idempotent_delete()`, which maps only `ESRCH` (already absent) to success and preserves real failures. The source contract now asserts both call sites use the helper; the existing route-policy regression already distinguishes `ESRCH` from `EIO`/`EPERM`. Exact-head WAN DHCP callback workflow must confirm the change. Target MIPS/uClibc runtime and physical-router L4 remain unverified.
-
+Commit 1572f3e5c91ec78de42382e02f8cc40d0e7fd18c wraps both deletions with `route_status_idempotent_delete()`: only `ESRCH` is treated as already complete; genuine failures remain visible. The exact-head WAN DHCP callback workflow #45496718762 PASS on 1572, including the updated source checker. The duplicate HTTPD workflow failed at its own stale line-108 assertion, which still expected the old raw `return route_del(context->lan_ifname...)`; this follow-up updates that contract to require the idempotent wrapper at both LAN cleanup paths. Its new exact-head run must pass before the source-contract slice is closed.
 
 ### SCUT watchdog auth-marker reader trust boundary
 
@@ -50,6 +49,15 @@ dhcpc.c passes the client state to the server-ID filter. Outside REBINDING, NAKs
 The initial source commit ff9cb0ec0f9143cd398d8de1d9b4eb13dca87be5 was mistakenly built with an empty tree base and omitted unrelated paths. This was detected by inspecting GitHub commit stats before claiming validation. Non-forced recovery commit 717f983f07434cd78a4ad00ebdb944b8f6d30fa5 restored the complete root tree from the actual parent and retained the four intended DHCP files. REST compare from original main 054ff22bf517a45bf29f2da21963a4206f8b3b83 to 717 confirmed exactly those four paths changed. Do not rewrite or erase intermediate history. For future Git Data API commits, fetch the live main commit's commit.tree.sha and use it as base_tree_sha.
 
 ## Verification boundary
+
+### Exact source SHA 1572f3e5c91ec78de42382e02f8cc40d0e7fd18c
+
+- WAN DHCP callback state stability #45496718762: PASS; this covers the updated LAN callback/deconfig source checker.
+- HTTPD Authentication and Security #45496718781: FAIL at inline source assertion 108 because it still expected the old raw LAN `return route_del(context->lan_ifname...)`. Production now correctly returns `route_status_idempotent_delete(route_del(...))`; a follow-up updates that duplicate assertion.
+- AI handoff documentation #45496718769: PASS.
+- XY-C1 Firmware Validation #45496718759: IN_PROGRESS at ccache setup on this source SHA; no Build/TRX/artifact PASS yet.
+- WAN route operation status #45496719195: PASS. Other exact-head passes include DNSMasq #45496718999, watchdog #45496718783, wireless #45496718894, IPv6 #45496718668 and Firewall #45496720059.
+- No target MIPS/uClibc runtime or physical-router L4 validation.
 
 ### Exact source SHA 1708fe61dbed08802f8c5b4ea29126c4ad6b6ca4
 
@@ -114,11 +122,10 @@ The initial source commit ff9cb0ec0f9143cd398d8de1d9b4eb13dca87be5 was mistakenl
 
 ## Exact first action for the next GPT
 
-1. Verify the LAN DHCP deconfig-route idempotency fix in exact-head WAN DHCP callback state stability; inspect the route helper regression and source checker. Any failure must be tied to this commit SHA and fixed atomically.
-2. Recheck XY-C1 Firmware Validation #45495287536 on source SHA 402fc1cc455490c9c678be28966bf30f5597e1e3: Build XY-C1 was active at last poll; TRX and artifact upload still need separate confirmation. No L3 until all three PASS on that SHA.
-3. Continue LAN DHCP/AP-mode recovery edge cases after the route fix; do not reopen the closed DHCPNAK REBINDING identity fix. Target MIPS/uClibc runtime and physical-router L4 remain open.
-4. DHCP lease parity already passed udhcpc #45495287614 and WAN callback #45495287778 on SHA 402fc; corrected HTTPD #45495732037 and AI docs #45495731574 passed on SHA 7c77568b8148c31604b107972c2d8427e6b04d5d. Do not repeat completed tests absent changed source.
-5. Before context exhaustion, refresh main/backup refs and exact-head Actions, then checkpoint the exact commit SHA and first actionable task.
+1. Verify corrected HTTPD Authentication and Security run triggered by the duplicated LAN route-contract correction; it must now require `route_status_idempotent_delete()` and preserve raw `route_del()` as the nested syscall.
+2. Commit 1572f3e5c91ec78de42382e02f8cc40d0e7fd18c: WAN DHCP callback state stability #45496718762 PASS; HTTPD #45496718781 failed only because its duplicated assertion still expected the raw LAN route-delete call. XY-C1 #45496718759 was in ccache setup at last poll; confirm Build, TRX, artifact upload separately and do not claim L3 while pending.
+3. Continue LAN DHCP/AP-mode retry tests only for a concrete gap; already fixed missing-route ESRCH retry. Keep the closed DHCPNAK REBINDING identity fix closed. Then move to an uncovered userland stability/security task.
+4. Before context exhaustion, checkpoint live main/backup refs, exact SHA Actions, and first actionable next task.
 
 ## Mandatory handoff checkpoint
 

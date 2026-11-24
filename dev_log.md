@@ -1,3 +1,12 @@
+## 2026-11-24 — Sync HTTPD duplicate contract with idempotent LAN DHCP route cleanup
+
+- Exact-head WAN DHCP callback state stability #45496718762 PASS on 1572f3e5c91ec78de42382e02f8cc40d0e7fd18c; the LAN deconfig source checker and existing route-policy regression passed.
+- HTTPD Authentication and Security #45496718781 failed at inline assertion 108 because it still required `return route_del(context->lan_ifname...)`, while the LAN BOUND/RENEW callback now wraps that operation with `route_status_idempotent_delete()`. The production fix is intentional; the duplicate static contract is updated here to require the idempotent wrapper and nested route syscall, plus the deconfig wrapper.
+- AI handoff #45496718769 and WAN route status #45496719195 PASS on this SHA. XY-C1 #45496718759 remained in ccache setup at last poll; Build/TRX/artifact not yet confirmed.
+- No MIPS/uClibc runtime or physical-router L4 validation.
+
+---
+
 ## 2026-11-24 — Make LAN DHCP route deletion safe across DECONFIG_PENDING retries
 
 - `lan_down_auto()` removed the saved DHCP gateway with raw `route_del()`. If route deletion succeeded but a later cleanup step failed, BusyBox retried `deconfig`; Linux then returned `ESRCH` for the already-absent route, and the callback aborted before re-running static address/resolver/hosts cleanup. This could strand DHCP teardown in an endless `DECONFIG_PENDING` loop.

@@ -2743,7 +2743,9 @@ jobs:
           assert "dnsmasq_file_open(resolv_temp)" in resolver
           assert "dnsmasq_file_publish(fp, resolv_temp, DNS_RESOLV_CONF, 0644)" in resolver
           assert 'fopen(DNS_RESOLV_CONF' not in resolver
-          assert "return route_del(context->lan_ifname" in lan
+          assert "return route_status_idempotent_delete(" in lan
+          assert "route_del(context->lan_ifname" in lan
+          assert "route_status = route_status_idempotent_delete(" in cleanup
           assert "return route_add(context->lan_ifname" in lan
           assert "return ifconfig(context->lan_ifname, IFUP" in lan
           assert 'lease_state[2].name = "lan_gateway_t";' in lan_bound
