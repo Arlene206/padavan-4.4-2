@@ -35,6 +35,19 @@ struct SFQ_table *sfq0;
 struct SFQ_table *sfq1;
 struct SFQ_table *sfq2;
 struct SFQ_table *sfq3;
+struct SFQ_table *sfq4;
+struct SFQ_table *sfq5;
+struct SFQ_table *sfq6;
+struct SFQ_table *sfq7;
+
+static dma_addr_t sfq_phy0;
+static dma_addr_t sfq_phy1;
+static dma_addr_t sfq_phy2;
+static dma_addr_t sfq_phy3;
+static dma_addr_t sfq_phy4;
+static dma_addr_t sfq_phy5;
+static dma_addr_t sfq_phy6;
+static dma_addr_t sfq_phy7;
 
 #define KSEG1                   0xa0000000
 #define PHYS_TO_VIRT(x)         phys_to_virt(x)
@@ -250,29 +263,52 @@ bool qdma_tx_desc_alloc(void)
 	return 1;
 }
 
+static void sfq_deinit(struct net_device *dev)
+{
+	struct END_DEVICE *ei_local = netdev_priv(dev);
+	struct SFQ_table **tables[] = {
+		&sfq0, &sfq1, &sfq2, &sfq3,
+		&sfq4, &sfq5, &sfq6, &sfq7
+	};
+	dma_addr_t *phys[] = {
+		&sfq_phy0, &sfq_phy1, &sfq_phy2, &sfq_phy3,
+		&sfq_phy4, &sfq_phy5, &sfq_phy6, &sfq_phy7
+	};
+	unsigned int sizes[] = {
+		VQ_NUM0, VQ_NUM1, VQ_NUM2, VQ_NUM3,
+		VQ_NUM4, VQ_NUM5, VQ_NUM6, VQ_NUM7
+	};
+	int i;
+
+	for (i = 0; i < 8; i++) {
+		if (*tables[i]) {
+			dma_free_coherent(&ei_local->qdma_pdev->dev,
+					  sizes[i] * sizeof(struct SFQ_table),
+					  *tables[i], *phys[i]);
+			*tables[i] = NULL;
+		}
+		*phys[i] = 0;
+	}
+}
+
 bool sfq_init(struct net_device *dev)
 {
-	struct END_DEVICE *ei_local = netdev_priv(dev_raether);
+	struct END_DEVICE *ei_local = netdev_priv(dev);
+	struct SFQ_table **tables[] = {
+		&sfq0, &sfq1, &sfq2, &sfq3,
+		&sfq4, &sfq5, &sfq6, &sfq7
+	};
+	dma_addr_t *phys[] = {
+		&sfq_phy0, &sfq_phy1, &sfq_phy2, &sfq_phy3,
+		&sfq_phy4, &sfq_phy5, &sfq_phy6, &sfq_phy7
+	};
+	unsigned int sizes[] = {
+		VQ_NUM0, VQ_NUM1, VQ_NUM2, VQ_NUM3,
+		VQ_NUM4, VQ_NUM5, VQ_NUM6, VQ_NUM7
+	};
 	unsigned int reg_val;
-	dma_addr_t sfq_phy0;
-	dma_addr_t sfq_phy1;
-	dma_addr_t sfq_phy2;
-	dma_addr_t sfq_phy3;
-	struct SFQ_table *sfq0 = NULL;
-	struct SFQ_table *sfq1 = NULL;
-	struct SFQ_table *sfq2 = NULL;
-	struct SFQ_table *sfq3 = NULL;
-
-	dma_addr_t sfq_phy4;
-	dma_addr_t sfq_phy5;
-	dma_addr_t sfq_phy6;
-	dma_addr_t sfq_phy7;
-	struct SFQ_table *sfq4 = NULL;
-	struct SFQ_table *sfq5 = NULL;
-	struct SFQ_table *sfq6 = NULL;
-	struct SFQ_table *sfq7 = NULL;
-
-	int i = 0;
+	int table_count;
+	int i, j;
 
 	reg_val = sys_reg_read(VQTX_GLO);
 	reg_val = reg_val | VQTX_MIB_EN;
@@ -280,11 +316,13 @@ bool sfq_init(struct net_device *dev)
 	sys_reg_write(VQTX_GLO, reg_val);
 	reg_val = sys_reg_read(VQTX_GLO);
 	if (ei_local->chip_name == MT7622_FE || ei_local->chip_name == LEOPARD_FE) {
+		table_count = 8;
 		sys_reg_write(VQTX_NUM,
 			      (VQTX_NUM_0) | (VQTX_NUM_1) | (VQTX_NUM_2) |
 			      (VQTX_NUM_3) | (VQTX_NUM_4) | (VQTX_NUM_5) |
 			      (VQTX_NUM_6) | (VQTX_NUM_7));
 	} else {
+		table_count = 4;
 		sys_reg_write(VQTX_NUM,
 			      (VQTX_NUM_0) | (VQTX_NUM_1) | (VQTX_NUM_2) |
 			      (VQTX_NUM_3));
@@ -303,7 +341,7 @@ bool sfq_init(struct net_device *dev)
 	sys_reg_write(QDMA_HRED2, 0);
 	sys_reg_write(QDMA_SRED1, 0);
 	sys_reg_write(QDMA_SRED2, 0);
-	if (ei_local->chip_name == MT7622_FE || ei_local->chip_name == LEOPARD_FE) {
+	if (table_count == 8) {
 		sys_reg_write(VQTX_0_3_BIND_QID,
 			      (VQTX_0_BIND_QID) | (VQTX_1_BIND_QID) |
 			      (VQTX_2_BIND_QID) | (VQTX_3_BIND_QID));
@@ -316,121 +354,46 @@ bool sfq_init(struct net_device *dev)
 		       sys_reg_read(VQTX_4_7_BIND_QID));
 	}
 
-	sfq0 = dma_alloc_coherent(&ei_local->qdma_pdev->dev,
-				  VQ_NUM0 * sizeof(struct SFQ_table), &sfq_phy0,
-				  GFP_KERNEL);
+	for (i = 0; i < table_count; i++) {
+		*tables[i] = dma_alloc_coherent(&ei_local->qdma_pdev->dev,
+					       sizes[i] * sizeof(struct SFQ_table),
+					       phys[i], GFP_KERNEL);
+		if (!*tables[i]) {
+			pr_err("QDMA SFQ%d VQ allocation failed\n", i);
+			goto no_sfq_mem;
+		}
 
-	memset(sfq0, 0x0, VQ_NUM0 * sizeof(struct SFQ_table));
-	for (i = 0; i < VQ_NUM0; i++) {
-		sfq0[i].sfq_info1.VQHPTR = 0xdeadbeef;
-		sfq0[i].sfq_info2.VQTPTR = 0xdeadbeef;
-	}
-	sfq1 = dma_alloc_coherent(&ei_local->qdma_pdev->dev,
-				  VQ_NUM1 * sizeof(struct SFQ_table), &sfq_phy1,
-				  GFP_KERNEL);
-	memset(sfq1, 0x0, VQ_NUM1 * sizeof(struct SFQ_table));
-	for (i = 0; i < VQ_NUM1; i++) {
-		sfq1[i].sfq_info1.VQHPTR = 0xdeadbeef;
-		sfq1[i].sfq_info2.VQTPTR = 0xdeadbeef;
-	}
-
-	sfq2 = dma_alloc_coherent(&ei_local->qdma_pdev->dev,
-				  VQ_NUM2 * sizeof(struct SFQ_table), &sfq_phy2,
-				  GFP_KERNEL);
-	memset(sfq2, 0x0, VQ_NUM2 * sizeof(struct SFQ_table));
-	for (i = 0; i < VQ_NUM2; i++) {
-		sfq2[i].sfq_info1.VQHPTR = 0xdeadbeef;
-		sfq2[i].sfq_info2.VQTPTR = 0xdeadbeef;
-	}
-
-	sfq3 = dma_alloc_coherent(&ei_local->qdma_pdev->dev,
-				  VQ_NUM3 * sizeof(struct SFQ_table), &sfq_phy3,
-				  GFP_KERNEL);
-	memset(sfq3, 0x0, VQ_NUM3 * sizeof(struct SFQ_table));
-	for (i = 0; i < VQ_NUM3; i++) {
-		sfq3[i].sfq_info1.VQHPTR = 0xdeadbeef;
-		sfq3[i].sfq_info2.VQTPTR = 0xdeadbeef;
-	}
-	if (unlikely((!sfq0)) || unlikely((!sfq1)) ||
-	    unlikely((!sfq2)) || unlikely((!sfq3))) {
-		pr_err("QDMA SFQ0~3 VQ not available...\n");
-		return 1;
-	}
-	if (ei_local->chip_name == MT7622_FE || ei_local->chip_name == LEOPARD_FE) {
-		sfq4 =
-		    dma_alloc_coherent(&ei_local->qdma_pdev->dev,
-				       VQ_NUM4 * sizeof(struct SFQ_table),
-				       &sfq_phy4, GFP_KERNEL);
-		memset(sfq4, 0x0, VQ_NUM4 * sizeof(struct SFQ_table));
-		for (i = 0; i < VQ_NUM4; i++) {
-			sfq4[i].sfq_info1.VQHPTR = 0xdeadbeef;
-			sfq4[i].sfq_info2.VQTPTR = 0xdeadbeef;
-		}
-		sfq5 =
-		    dma_alloc_coherent(&ei_local->qdma_pdev->dev,
-				       VQ_NUM5 * sizeof(struct SFQ_table),
-				       &sfq_phy5, GFP_KERNEL);
-		memset(sfq5, 0x0, VQ_NUM5 * sizeof(struct SFQ_table));
-		for (i = 0; i < VQ_NUM5; i++) {
-			sfq5[i].sfq_info1.VQHPTR = 0xdeadbeef;
-			sfq5[i].sfq_info2.VQTPTR = 0xdeadbeef;
-		}
-		sfq6 =
-		    dma_alloc_coherent(&ei_local->qdma_pdev->dev,
-				       VQ_NUM6 * sizeof(struct SFQ_table),
-				       &sfq_phy6, GFP_KERNEL);
-		memset(sfq6, 0x0, VQ_NUM6 * sizeof(struct SFQ_table));
-		for (i = 0; i < VQ_NUM6; i++) {
-			sfq6[i].sfq_info1.VQHPTR = 0xdeadbeef;
-			sfq6[i].sfq_info2.VQTPTR = 0xdeadbeef;
-		}
-		sfq7 =
-		    dma_alloc_coherent(&ei_local->qdma_pdev->dev,
-				       VQ_NUM7 * sizeof(struct SFQ_table),
-				       &sfq_phy7, GFP_KERNEL);
-		memset(sfq7, 0x0, VQ_NUM7 * sizeof(struct SFQ_table));
-		for (i = 0; i < VQ_NUM7; i++) {
-			sfq7[i].sfq_info1.VQHPTR = 0xdeadbeef;
-			sfq7[i].sfq_info2.VQTPTR = 0xdeadbeef;
-		}
-		if (unlikely((!sfq4)) || unlikely((!sfq5)) ||
-		    unlikely((!sfq6)) || unlikely((!sfq7))) {
-			pr_err("QDMA SFQ4~7 VQ not available...\n");
-			return 1;
+		memset(*tables[i], 0x0,
+		       sizes[i] * sizeof(struct SFQ_table));
+		for (j = 0; j < sizes[i]; j++) {
+			(*tables[i])[j].sfq_info1.VQHPTR = 0xdeadbeef;
+			(*tables[i])[j].sfq_info2.VQTPTR = 0xdeadbeef;
 		}
 	}
 
-	pr_err("*****sfq_phy0 is 0x%p!!!*******\n", (void *)sfq_phy0);
-	pr_err("*****sfq_phy1 is 0x%p!!!*******\n", (void *)sfq_phy1);
-	pr_err("*****sfq_phy2 is 0x%p!!!*******\n", (void *)sfq_phy2);
-	pr_err("*****sfq_phy3 is 0x%p!!!*******\n", (void *)sfq_phy3);
-	pr_err("*****sfq_virt0 is 0x%p!!!*******\n", sfq0);
-	pr_err("*****sfq_virt1 is 0x%p!!!*******\n", sfq1);
-	pr_err("*****sfq_virt2 is 0x%p!!!*******\n", sfq2);
-	pr_err("*****sfq_virt3 is 0x%p!!!*******\n", sfq3);
-	if (ei_local->chip_name == MT7622_FE || ei_local->chip_name == LEOPARD_FE) {
-		pr_err("*****sfq_phy4 is 0x%p!!!*******\n", (void *)sfq_phy4);
-		pr_err("*****sfq_phy5 is 0x%p!!!*******\n", (void *)sfq_phy5);
-		pr_err("*****sfq_phy6 is 0x%p!!!*******\n", (void *)sfq_phy6);
-		pr_err("*****sfq_phy7 is 0x%p!!!*******\n", (void *)sfq_phy7);
-		pr_err("*****sfq_virt4 is 0x%p!!!*******\n", sfq4);
-		pr_err("*****sfq_virt5 is 0x%p!!!*******\n", sfq5);
-		pr_err("*****sfq_virt6 is 0x%p!!!*******\n", sfq6);
-		pr_err("*****sfq_virt7 is 0x%p!!!*******\n", sfq7);
-	}
+	for (i = 0; i < table_count; i++)
+		pr_err("*****sfq_phy%d is 0x%p!!!*******\n",
+		       i, (void *)*phys[i]);
+	for (i = 0; i < table_count; i++)
+		pr_err("*****sfq_virt%d is 0x%p!!!*******\n",
+		       i, *tables[i]);
 
 	sys_reg_write(VQTX_TB_BASE0, (u32)sfq_phy0);
 	sys_reg_write(VQTX_TB_BASE1, (u32)sfq_phy1);
 	sys_reg_write(VQTX_TB_BASE2, (u32)sfq_phy2);
 	sys_reg_write(VQTX_TB_BASE3, (u32)sfq_phy3);
-	if (ei_local->chip_name == MT7622_FE || ei_local->chip_name == LEOPARD_FE) {
+	if (table_count == 8) {
 		sys_reg_write(VQTX_TB_BASE4, (u32)sfq_phy4);
 		sys_reg_write(VQTX_TB_BASE5, (u32)sfq_phy5);
 		sys_reg_write(VQTX_TB_BASE6, (u32)sfq_phy6);
 		sys_reg_write(VQTX_TB_BASE7, (u32)sfq_phy7);
 	}
 
-	return 0;
+	return true;
+
+no_sfq_mem:
+	sfq_deinit(dev);
+	return false;
 }
 
 bool fq_qdma_init(struct net_device *dev)
@@ -1187,8 +1150,8 @@ int fe_qdma_tx_dma_init(struct net_device *dev)
 	bool pass;
 	struct END_DEVICE *ei_local = netdev_priv(dev_raether);
 
-	if (ei_local->features & FE_HW_SFQ)
-		sfq_init(dev);
+	if ((ei_local->features & FE_HW_SFQ) && !sfq_init(dev))
+		return -ENOMEM;
 	/*tx desc alloc, add a NULL TXD to HW */
 	pass = qdma_tx_desc_alloc();
 	if (!pass) {
@@ -1236,6 +1199,8 @@ void fe_qdma_tx_dma_deinit(struct net_device *dev)
 {
 	struct END_DEVICE *ei_local = netdev_priv(dev);
 	int i;
+
+	sfq_deinit(dev);
 
 	/* free TX Ring */
 	if (ei_local->txd_pool) {

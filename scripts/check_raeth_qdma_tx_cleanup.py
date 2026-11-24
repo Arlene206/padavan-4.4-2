@@ -53,3 +53,31 @@ assert "ei_local->free_head = NULL;" in tx_deinit
 assert "ei_local->free_page_head = NULL;" in tx_deinit
 assert "ei_local->skb_free[i] = NULL;" in tx_deinit
 print("QDMA TX staged allocation failure rollback and teardown: PASS")
+
+sfq_init = function_body(SOURCE, "bool sfq_init(")
+assert "netdev_priv(dev)" in sfq_init
+assert "netdev_priv(dev_raether)" not in sfq_init
+assert "struct SFQ_table *sfq0 =" not in sfq_init
+assert "struct SFQ_table *sfq7 =" not in sfq_init
+alloc_at = sfq_init.index("dma_alloc_coherent(")
+alloc_check = sfq_init.index("if (!*tables[i])", alloc_at)
+memset_at = sfq_init.index("memset(*tables[i]", alloc_check)
+assert alloc_at < alloc_check < memset_at
+assert "for (i = 0; i < table_count; i++)" in sfq_init
+assert "table_count = 8;" in sfq_init and "table_count = 4;" in sfq_init
+sfq_fail = sfq_init.index("no_sfq_mem:")
+sfq_rollback = sfq_init.index("sfq_deinit(dev);", sfq_fail)
+assert sfq_fail < sfq_rollback < sfq_init.index("return false;", sfq_rollback)
+assert "return true;" in sfq_init
+
+sfq_cleanup = function_body(SOURCE, "static void sfq_deinit(")
+assert "dma_free_coherent(" in sfq_cleanup
+assert "*tables[i] = NULL;" in sfq_cleanup
+assert "*phys[i] = 0;" in sfq_cleanup
+
+tx_init = function_body(SOURCE, "int fe_qdma_tx_dma_init(")
+assert "if ((ei_local->features & FE_HW_SFQ) && !sfq_init(dev))" in tx_init
+assert "return -ENOMEM;" in tx_init
+tx_deinit = function_body(SOURCE, "void fe_qdma_tx_dma_deinit(")
+assert "sfq_deinit(dev);" in tx_deinit
+print("QDMA SFQ allocation failure propagation and DMA lifetime cleanup: PASS")
