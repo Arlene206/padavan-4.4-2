@@ -37,6 +37,9 @@
 | `docs/dev-log/2026/11/part-028.md` | 100 | 2026-11-22 → 2026-11-23 08:53 UTC+8 | 104525 | `85261db802939a9a3f2204531ae08e6a7282da10` |
 | `docs/dev-log/2026/11/part-029.md` | 100 | 2026-11-23 08:55 UTC+8 → 2026-11-23 UTC | 125656 | `0e05f30d39b22ae0dc1baf997ff16b47fcf5f497` |
 | `docs/dev-log/2026/11/part-030.md` | 100 | 2026-11-23 UTC — Normalize DBDC error-return contract and restore handoff heading → 2026-11-23 UTC — Snapshot AP-client SSID presence before the next NVRAM read | 87781 | `d70f5f113c50c6785b91689199b6c06da0ce42e3` |
+| `docs/dev-log/2026/11/part-031.md` | 102 | 2026-11-23 持续开发 → 2026-11-23 — Count checked-reader compatibility wrappers in WAN regression contract | 104705 | `b3cc8b26887ea1aac609c5c6b4a61d69217967e3` |
+- **Rolling-window catch-up:** 102 oldest complete records evicted from root `dev_log.md` when it contained 122 entries at parent main `7cd1ffd3eecc05786846be684053428f20e8f535` are preserved verbatim, oldest first, in `part-031.md`; root retains the newest 20 pre-existing records plus this rotation checkpoint (21 total). No record was rewritten or discarded.
+
 
 
 - **Post-migration rotation:** the first evicted root-window record is preserved verbatim in `part-003.md`; its original root source blob was `733d3c678575611642b3f69fe4cfe5e19ece9b57`.
