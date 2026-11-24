@@ -747,24 +747,41 @@ get_qmi_handle(const char *fn)
 	FILE *fp;
 	char buffer[64];
 	int qmi_handle = -1;
-	int extra;
+	int extra, read_error = 0;
 
-	if (!fn)
+	if (!fn) {
+		errno = EINVAL;
 		return -1;
+	}
+	errno = 0;
 	fp = fopen(fn, "r");
 	if (!fp)
 		return -1;
-	if (!fgets(buffer, sizeof(buffer), fp) || ferror(fp))
+	if (!fgets(buffer, sizeof(buffer), fp) || ferror(fp)) {
+		read_error = ferror(fp) ? (errno > 0 ? errno : EIO) : EINVAL;
 		goto done;
+	}
 	/* Reject extra lines and values that do not fit in the bounded buffer. */
 	extra = fgetc(fp);
-	if (extra != EOF || ferror(fp))
+	if (extra != EOF) {
+		read_error = EINVAL;
 		goto done;
-	if (modem_qmi_parse_handle(buffer, &qmi_handle) != 0)
-		qmi_handle = -1;
+	}
+	if (ferror(fp)) {
+		read_error = errno > 0 ? errno : EIO;
+		goto done;
+	}
+	if (modem_qmi_parse_handle(buffer, &qmi_handle) != 0) {
+		read_error = EINVAL;
+		goto done;
+	}
 done:
-	if (fclose(fp) != 0)
-		qmi_handle = -1;
+	if (fclose(fp) != 0 && read_error == 0)
+		read_error = errno > 0 ? errno : EIO;
+	if (read_error != 0) {
+		errno = read_error;
+		return -1;
+	}
 	return qmi_handle;
 }
 
@@ -783,7 +800,7 @@ qmi_control_network_start(const char *device_path)
 	char *qmi_nets;
 	int modem_nets = 0, qmi_client_id = -1, pdh_handle = -1;
 	int snapshot_status, status, cleanup_status, start_status;
-	int unlink_status, attempt_status, ambiguous_session, i;
+	int unlink_status, attempt_status, ambiguous_session, handle_read_status, i;
 	int result = 1;
 
 	fields[0].param_name = "modem_pin";
@@ -814,6 +831,18 @@ qmi_control_network_start(const char *device_path)
 		goto done;
 	}
 	status = rc_wan_nvram_parse_int_value(modem_nets_text, &modem_nets);
+
+	/* A valid PDH file represents a prior session; never erase it and start another. */
+	errno = 0;
+	pdh_handle = get_qmi_handle(QMI_HANDLE_PDH);
+	status = modem_qmi_existing_pdh_start_status(pdh_handle, errno);
+	if (status != 0) {
+		if (status == EBUSY)
+			logmessage(LOGNAME, "existing QMI packet-data handle %d; refusing duplicate session start", pdh_handle);
+		else
+			logmessage(LOGNAME, "cannot validate existing QMI packet-data handle (status=%d); refusing network start", status);
+		goto done;
+	}
 	if (status != 0) {
 		logmessage(LOGNAME,
 			   "invalid QMI modem network-mode setting (status=%d)", status);
@@ -875,12 +904,17 @@ qmi_control_network_start(const char *device_path)
 		_eval(mode_argv, NULL, 0, NULL);
 	}
 
-	/* obtain new client id */
-	{
+	/* Reuse the persisted WDS CID; allocating a second one leaks the old CID. */
+	errno = 0;
+	qmi_client_id = get_qmi_handle(QMI_CLIENT_ID);
+	if (modem_qmi_client_id_is_valid(qmi_client_id)) {
+		logmessage(LOGNAME, "reusing persisted WDS client ID %d", qmi_client_id);
+	} else if (modem_qmi_client_id_should_allocate(qmi_client_id, errno)) {
 		char *client_argv[] = {
 			"/bin/uqmi", "-d", (char *)device_path,
 			"--get-client-id", "wds", NULL
 		};
+
 		status = _eval(client_argv, NULL, 0, NULL);
 		if (status != 0) {
 			logmessage(LOGNAME,
@@ -888,24 +922,19 @@ qmi_control_network_start(const char *device_path)
 				   status);
 			goto done;
 		}
-	}
-	qmi_client_id = get_qmi_handle(QMI_CLIENT_ID);
-	if (qmi_client_id < 0) {
-		status = EIO;
-		logmessage(LOGNAME,
-			   "uqmi reported success without a readable WDS client ID; refusing to keep an untracked CID");
+		errno = 0;
+		qmi_client_id = get_qmi_handle(QMI_CLIENT_ID);
+		if (!modem_qmi_client_id_is_valid(qmi_client_id)) {
+			status = errno > 0 ? errno : EINVAL;
+			logmessage(LOGNAME, "uqmi reported success without a valid one-byte WDS client ID (status=%d)", status);
+			goto done;
+		}
+	} else {
+		status = errno > 0 ? errno : EINVAL;
+		logmessage(LOGNAME, "persisted WDS client ID is invalid or unreadable (status=%d); refusing to overwrite it", status);
 		goto done;
 	}
 	snprintf(client_id_arg, sizeof(client_id_arg), "wds,%d", qmi_client_id);
-
-	unlink_status = unlink(QMI_HANDLE_PDH);
-	cleanup_status = modem_qmi_handle_file_unlink_status(unlink_status, errno);
-	if (cleanup_status != 0) {
-		logmessage(LOGNAME,
-			   "cannot remove stale QMI packet-data handle (status=%d); refusing network start",
-			   cleanup_status);
-		goto done;
-	}
 
 	for (i = 0; i < MAX_QMI_TRIES; i++) {
 		char *start_argv[20];
@@ -939,11 +968,13 @@ qmi_control_network_start(const char *device_path)
 		start_argv[argc++] = "--autoconnect";
 		start_argv[argc] = NULL;
 		start_status = _eval(start_argv, NULL, 0, NULL);
+		errno = 0;
 		pdh_handle = get_qmi_handle(QMI_HANDLE_PDH);
+		handle_read_status = errno;
 		attempt_status = modem_qmi_start_attempt_status(start_status,
 							       pdh_handle);
 		ambiguous_session = modem_qmi_start_attempt_is_ambiguous(start_status,
-								       pdh_handle);
+								       pdh_handle, handle_read_status);
 
 		if (has_credentials) {
 			cleanup_status = modem_qmi_credentials_file_cleanup(&credentials_file);
@@ -1042,9 +1073,15 @@ qmi_control_network(const char *control_node, int is_start)
 	}
 
 	/* Release the client ID only after stop-network has succeeded. */
+	errno = 0;
 	qmi_client_id = get_qmi_handle(QMI_CLIENT_ID);
 	if (qmi_client_id >= 0) {
 		char client_id_arg[32];
+
+		if (!modem_qmi_client_id_is_valid(qmi_client_id)) {
+			logmessage(LOGNAME, "invalid persisted WDS client ID %d; preserving it for recovery", qmi_client_id);
+			return 1;
+		}
 		char *release_argv[] = {
 			"/bin/uqmi", "-d", device_path, "--set-client-id",
 			client_id_arg, "--release-client-id", "wds", NULL
@@ -1058,9 +1095,12 @@ qmi_control_network(const char *control_node, int is_start)
 				   release_status);
 			return 1;
 		}
+	} else if (errno != ENOENT) {
+		logmessage(LOGNAME, "cannot read persisted WDS client ID (status=%d); preserving it for recovery", errno > 0 ? errno : EIO);
+		return 1;
 	}
 
-	/* A malformed/missing ID needs no release, but stale-file cleanup is checked. */
+	/* A missing ID needs no release, but stale-file cleanup is checked. */
 	unlink_status = unlink(QMI_CLIENT_ID);
 	cleanup_status = modem_qmi_handle_file_unlink_status(unlink_status, errno);
 	if (cleanup_status != 0) {

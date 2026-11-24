@@ -1,3 +1,12 @@
+## 2026-11-23 — Reuse persisted QMI client IDs and block duplicate sessions
+
+- Found that qmi_control_network_start() always requested a new WDS CID, even when a previous failed/ambiguous start left a kept CID file. The next invocation could leak the old CID by atomically overwriting its only record. It also erased a valid prior PDH marker before another start.
+- Added errno-aware status-file reads, a PDH preflight that refuses to start over an existing session marker, and CID reuse when a valid persisted one-byte ID exists. CID allocation occurs only when the file is genuinely absent; malformed or unreadable state fails closed rather than being overwritten. Teardown also preserves invalid/unreadable CID state instead of silently unlinking it.
+- Extended GNU89 policy regressions to cover PDH preflight, CID bounds/reuse, and ambiguous starts where the marker read itself fails. Updated the USB modem workflow source contract for the full QMI start function and teardown validation.
+- Parent main: f12c4a3292e53378751eefb7c2c8b05364791900. Exact f12c4a3 USB modem identity #45348552081 and AI handoff #45348552061 passed; Process inventory #45348551991 passed. NVRAM audit #45348551978 and XY-C1 #45348552126 remained in progress at last poll; no same-SHA firmware L3 claim.
+
+---
+
 ## 2026-11-23 — Validate QMI client IDs before narrowing to the wire field
 
 - `cmd_set_client_id_prepare()` used `strtoul()` without checking ERANGE, no-digit input or the one-byte CID range. Since `qmi_service_connect()` stores the CID in `uint8_t`, values over 255 were silently truncated and negative/empty tokens could select an unintended CID.

@@ -921,21 +921,20 @@ jobs:
           assert "test_client_id_parser_accepts_valid_8_bit_values" in client_policy_test
           assert "test_client_id_parser_rejects_invalid_numbers" in client_policy_test
 
-          qmi_start = modem.split("/* obtain new client id */", 1)[1].split("unlink(QMI_HANDLE_PDH);", 1)[0]
-          assert "_eval(client_argv, NULL, 0, NULL)" in qmi_start
-          assert "if (status != 0)" in qmi_start
-          assert "qmi_client_id = get_qmi_handle(QMI_CLIENT_ID);" in qmi_start
-          assert "if (qmi_client_id < 0)" in qmi_start
-          assert "refusing to keep an untracked CID" in qmi_start
+          qmi_start_offset = modem.index("qmi_control_network_start(const char *device_path)")
+          qmi_start_end = modem.index("qmi_control_network(const char *control_node", qmi_start_offset)
+          qmi_start_function = modem[qmi_start_offset:qmi_start_end]
+          assert "modem_qmi_existing_pdh_start_status(pdh_handle, errno)" in qmi_start_function
+          assert qmi_start_function.index("modem_qmi_existing_pdh_start_status") < qmi_start_function.index("if (pin_code[0])")
+          assert "modem_qmi_client_id_should_allocate(qmi_client_id, errno)" in qmi_start_function
+          assert "reusing persisted WDS client ID" in qmi_start_function
+          assert "persisted WDS client ID is invalid or unreadable" in qmi_start_function
 
           assert "mkstemp(staging)" in helper
           assert "fchmod(fd, 0600)" in helper
           assert "fsync(fd)" in helper
           assert "rename(staging, path)" in helper
           assert "unlink(staging)" in helper
-          qmi_start_offset = modem.index("qmi_control_network_start(const char *device_path)")
-          qmi_start_end = modem.index("qmi_control_network(const char *control_node", qmi_start_offset)
-          qmi_start_function = modem[qmi_start_offset:qmi_start_end]
           assert "modem_qmi_parse_handle(buffer, &qmi_handle)" in modem
           assert "if (fclose(fp) != 0)" in modem
           assert "fgetc(fp)" in modem
@@ -946,6 +945,8 @@ jobs:
           assert "if (check_if_file_exist(QMI_HANDLE_PDH))" not in qmi_start_function
           assert "ambiguous_session" in qmi_start_function
           assert "modem_qmi_start_attempt_is_ambiguous(start_status," in qmi_start_function
+          assert "handle_read_status = errno" in qmi_start_function
+          assert "modem_qmi_client_id_is_valid(qmi_client_id)" in qmi_start_function
           preserve_handle = qmi_start_function.index("modem_qmi_start_attempt_preserve_handle(ambiguous_session,")
           partial_cleanup = qmi_start_function.index("unlink_status = unlink(QMI_HANDLE_PDH)", preserve_handle)
           assert preserve_handle < partial_cleanup
@@ -958,6 +959,7 @@ jobs:
               "test_qmi_handle_parser_rejects_partial_and_out_of_range_values",
               "test_qmi_start_retry_is_blocked_when_session_may_exist",
               "test_qmi_ambiguous_start_preserves_published_handle",
+              "test_qmi_start_preflight_reuses_cid_and_blocks_duplicate_pdh",
           ):
               assert policy_case in qmi_policy_test
           wds_callback_start = wds_source.index("cmd_wds_start_network_cb(struct qmi_dev")
@@ -979,6 +981,8 @@ jobs:
           assert "modem_qmi_handle_file_unlink_status" in qmi_stop_function
           assert "uqmi release-client-id failed" in qmi_stop_function
           assert "preserving client ID for retry" in qmi_stop_function
+          assert "modem_qmi_client_id_is_valid(qmi_client_id)" in qmi_stop_function
+          assert "errno != ENOENT" in qmi_stop_function
           assert qmi_stop_function.count("_eval(") == 2
           print("QMI client ID and packet-data handle fail-closed contract: PASS")
           PY

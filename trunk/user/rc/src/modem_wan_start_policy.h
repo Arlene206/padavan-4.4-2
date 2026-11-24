@@ -35,10 +35,35 @@ modem_qmi_command_status(int command_status)
  */
 static inline int
 modem_qmi_start_attempt_is_ambiguous(int command_status,
-				     int packet_data_handle)
+				     int packet_data_handle, int handle_read_status)
 {
-	return command_status == 0 ? packet_data_handle < 0 :
-		packet_data_handle >= 0;
+	if (command_status == 0)
+		return packet_data_handle < 0;
+	return packet_data_handle >= 0 || handle_read_status != ENOENT;
+}
+
+/* Do not discard an existing session marker and start a second data call. */
+static inline int
+modem_qmi_existing_pdh_start_status(int packet_data_handle, int read_status)
+{
+	if (packet_data_handle >= 0)
+		return EBUSY;
+	if (read_status == ENOENT)
+		return 0;
+	return read_status > 0 ? read_status : EIO;
+}
+
+/* A persisted WDS CID is reusable only when it fits the QMI one-byte field. */
+static inline int
+modem_qmi_client_id_is_valid(int client_id)
+{
+	return client_id >= 0 && client_id <= UCHAR_MAX;
+}
+
+static inline int
+modem_qmi_client_id_should_allocate(int client_id, int read_status)
+{
+	return client_id < 0 && read_status == ENOENT;
 }
 
 /* A valid PDH from an ambiguous start may be the only recovery handle. */

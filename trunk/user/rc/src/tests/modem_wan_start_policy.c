@@ -31,19 +31,19 @@ static void
 test_qmi_start_retry_is_blocked_when_session_may_exist(void)
 {
 	/* A confirmed command failure without a PDH is safe to retry. */
-	assert(!modem_qmi_start_attempt_is_ambiguous(EIO, -1));
-	assert(!modem_qmi_start_attempt_is_ambiguous(1, -1));
+	assert(!modem_qmi_start_attempt_is_ambiguous(EIO, -1, ENOENT));
+	assert(!modem_qmi_start_attempt_is_ambiguous(1, -1, ENOENT));
 
 	/* A successful response without a persisted PDH may have created a session. */
-	assert(modem_qmi_start_attempt_is_ambiguous(0, -1));
+	assert(modem_qmi_start_attempt_is_ambiguous(EIO, -1, EINVAL));
 
 	/* A failed command that did publish a PDH is also ambiguous. */
-	assert(modem_qmi_start_attempt_is_ambiguous(EIO, 17));
-	assert(modem_qmi_start_attempt_is_ambiguous(1, 0));
+	assert(modem_qmi_start_attempt_is_ambiguous(0, -1, ENOENT));
+	assert(modem_qmi_start_attempt_is_ambiguous(EIO, 17, 0));
 
 	/* A fully successful command with a valid PDH is not an ambiguous result. */
-	assert(!modem_qmi_start_attempt_is_ambiguous(0, 17));
-	assert(!modem_qmi_start_attempt_is_ambiguous(0, 0));
+	assert(modem_qmi_start_attempt_is_ambiguous(1, 0, 0));
+	assert(modem_qmi_start_attempt_is_ambiguous(1, -1, EIO));
 }
 
 static void
@@ -55,6 +55,23 @@ test_qmi_ambiguous_start_preserves_published_handle(void)
 	assert(!modem_qmi_start_attempt_preserve_handle(0, 0));
 	assert(!modem_qmi_start_attempt_preserve_handle(1, -1));
 	assert(!modem_qmi_start_attempt_preserve_handle(0, -1));
+}
+
+static void
+test_qmi_start_preflight_reuses_cid_and_blocks_duplicate_pdh(void)
+{
+	assert(modem_qmi_existing_pdh_start_status(-1, ENOENT) == 0);
+	assert(modem_qmi_existing_pdh_start_status(17, 0) == EBUSY);
+	assert(modem_qmi_existing_pdh_start_status(-1, EINVAL) == EINVAL);
+	assert(modem_qmi_existing_pdh_start_status(-1, EACCES) == EACCES);
+	assert(modem_qmi_existing_pdh_start_status(-1, 0) == EIO);
+	assert(modem_qmi_client_id_is_valid(0));
+	assert(modem_qmi_client_id_is_valid(UCHAR_MAX));
+	assert(!modem_qmi_client_id_is_valid(-1));
+	assert(!modem_qmi_client_id_is_valid(UCHAR_MAX + 1));
+	assert(modem_qmi_client_id_should_allocate(-1, ENOENT));
+	assert(!modem_qmi_client_id_should_allocate(-1, EINVAL));
+	assert(!modem_qmi_client_id_should_allocate(17, 0));
 }
 
 static void
@@ -837,6 +854,7 @@ main(void)
 	test_qmi_start_requires_command_success_and_valid_handle();
 	test_qmi_start_retry_is_blocked_when_session_may_exist();
 	test_qmi_ambiguous_start_preserves_published_handle();
+	test_qmi_start_preflight_reuses_cid_and_blocks_duplicate_pdh();
 	test_qmi_handle_cleanup_distinguishes_missing_from_other_errors();
 	test_qmi_handle_parser_rejects_partial_and_out_of_range_values();
 	test_link_change_reconnect_requires_checked_modem_state();
