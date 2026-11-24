@@ -1189,7 +1189,7 @@ static int perform_release(uint32_t server_addr, uint32_t requested_ip)
 		bb_info_msg("Unicasting a release of %s to %s",
 				inet_ntoa(temp_addr), buffer);
 		release_status = send_release(server_addr, requested_ip);
-		if (release_status != 0)
+		if (udhcpc_packet_send_failed(release_status))
 			bb_error_msg("DHCP release packet send failed with status %d", release_status);
 		if (state == DECONFIG_PENDING)
 			deconfig_release_on_usr2 = 0;
@@ -1761,7 +1761,7 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 				int decline_status = send_decline(decline_server_addr,
 								   decline_requested_ip);
 
-					if (udhcpc_decline_retry_required(decline_status)) {
+					if (udhcpc_packet_send_failed(decline_status)) {
 						bb_error_msg("DHCPDECLINE retry failed (status %d); delaying address selection",
 							decline_status);
 						timeout = udhcpc_decline_retry_delay(tryagain_timeout);
@@ -1996,7 +1996,7 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 						bb_info_msg("Offered address is in use "
 							"(got ARP reply), declining");
 						decline_status = send_decline(server_addr, packet.yiaddr);
-						if (udhcpc_decline_retry_required(decline_status)) {
+						if (udhcpc_packet_send_failed(decline_status)) {
 							bb_error_msg("DHCPDECLINE send failed (status %d); blocking address reselection",
 								decline_status);
 							decline_server_addr = server_addr;
@@ -2007,7 +2007,7 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 							int deconfig_status = udhcp_run_script(NULL, "deconfig");
 							if (udhcpc_deconfig_retry_required(deconfig_status)) {
 								bb_error_msg("ARP conflict deconfig failed; deferring DHCP restart");
-								int resume_state = udhcpc_decline_retry_required(decline_status) ?
+								int resume_state = udhcpc_packet_send_failed(decline_status) ?
 									DECLINE_PENDING : INIT_SELECTING;
 
 								udhcpc_schedule_deconfig_retry(resume_state, 0,
@@ -2017,7 +2017,7 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 							}
 						}
 
-						if (udhcpc_decline_retry_required(decline_status)) {
+						if (udhcpc_packet_send_failed(decline_status)) {
 							change_listen_mode(LISTEN_NONE);
 							state = DECLINE_PENDING;
 							timeout = udhcpc_decline_retry_delay(tryagain_timeout);

@@ -58,11 +58,11 @@ udhcpc_deconfig_pending_release_required(int lease_was_active,
 }
 
 
-/* Do not restart discovery until the server has accepted DHCPDECLINE. */
+/* sendto()/safe_write() return a byte count on success and -1 on failure. */
 static inline int
-udhcpc_decline_retry_required(int send_status)
+udhcpc_packet_send_failed(int send_status)
 {
-	return send_status != 0;
+	return send_status < 0;
 }
 
 /* Keep retries bounded away from a busy loop when -A is zero or negative. */

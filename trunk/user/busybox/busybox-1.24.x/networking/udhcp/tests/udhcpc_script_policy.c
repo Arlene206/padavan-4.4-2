@@ -19,11 +19,11 @@ static int test_failed_deconfig_blocks_state_transition(void)
 }
 
 
-static int test_failed_dhcpdecline_blocks_reselection_until_retry(void)
+static int test_failed_packet_send_blocks_dhcp_reselection_until_retry(void)
 {
-	CHECK(!udhcpc_decline_retry_required(0));
-	CHECK(udhcpc_decline_retry_required(-1));
-	CHECK(udhcpc_decline_retry_required(1));
+	CHECK(!udhcpc_packet_send_failed(0));
+	CHECK(!udhcpc_packet_send_failed(548));
+	CHECK(udhcpc_packet_send_failed(-1));
 	CHECK(udhcpc_decline_retry_delay(5) == 5);
 	CHECK(udhcpc_decline_retry_delay(0) == 1);
 	CHECK(udhcpc_decline_retry_delay(-3) == 1);

@@ -1,3 +1,10 @@
+## 2026-11-24 — Honor sendto byte-count semantics in DHCP retries
+
+- Review of BusyBox packet.c confirmed udhcp_send_raw_packet() and udhcp_send_kernel_packet() return sendto()/safe_write() byte counts on success and -1 on failure. The new DHCPDECLINE retry predicate initially treated every nonzero result as an error, which would have retried successful transmissions forever. The recent perform_release() diagnostic similarly mislabeled successful DHCPRELEASE sends as failures.
+- Replaced the predicate with udhcpc_packet_send_failed(status < 0), using it for both DECLINE retries and RELEASE logging. Regression now covers positive byte-count success, zero success and negative failure; source checker pins the release diagnostic to the same convention. This is a correctness repair to the DHCPDECLINE slice, not merely a wording change.
+- Exact SHA 4ca919b's first udhcpc run passed GNU89/ASan/UBSan but failed the Python contract on its outdated literal INIT_SELECTING assertion. AI docs also flagged the handoff checkpoint wording; both validator fixes were committed in 02ddda7 and have exact-head reruns queued at last poll.
+
+---
 ## 2026-11-24 — Repair exact-head DHCPDECLINE and handoff validator failures
 
 - Exact push SHA 4ca919b compiled and passed the GNU89 ASan/UBSan udhcpc policy binary, but its Python source contract retained one old assertion requiring a literal INIT_SELECTING argument after the ARP-conflict retry path became a status-dependent resume_state. Updated the contract to check the new resume_state call.
