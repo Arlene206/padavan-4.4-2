@@ -1,3 +1,10 @@
+## 2026-11-24 — Make SmartDNS procfs-root fallback safe under nounset
+
+- The SmartDNS process-state helper defaulted `_smartdns_proc_root` to `/proc` but then expanded an unset `SMARTDNS_PROC_ROOT` directly. In strict-shell callers (`set -u`), a confirmed-absent `pidof` result could therefore abort before checking `/proc/1/stat`; the earlier identity helper had the same unsafe override expansion.
+- Both `smartdns_process_state()` and `smartdns_process_identity()` now use `${SMARTDNS_PROC_ROOT:-/proc}`. The regression explicitly unsets the override and confirms the absent-process result before building a fake proc tree; the source checker pins both default expressions and the regression case.
+- Parent `9e602b00973a2c41c109fc47dc50b57f43ecf7ba`: AI documentation #45420686264 PASS; DNSMasq lifecycle #45420685909 was queued at last observation. Prior runtime tests passed through process lifecycle, Adbyby ownership, DNSMasq preservation and atomic config; the then-failing static assertion was updated in the parent. New exact-head Actions are required for this change.
+
+---
 ## 2026-11-24 — Align SmartDNS process checker with deterministic PID reuse test
 
 - DNSMasq's runtime regressions now pass through the deterministic snapshot/replacement test, but the source checker still looked for the old race-test phrase. It now asserts the observable invariant: a replacement process must never receive a signal.

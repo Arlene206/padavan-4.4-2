@@ -33,8 +33,7 @@ smartdns_process_identity()
 {
     _smartdns_identity_pid=$1
     case "$_smartdns_identity_pid" in ''|0|1|0*|*[!0-9]*) return 1 ;; esac
-    _smartdns_proc_root=/proc
-    [ -n "$SMARTDNS_PROC_ROOT" ] && _smartdns_proc_root=$SMARTDNS_PROC_ROOT
+    _smartdns_proc_root=${SMARTDNS_PROC_ROOT:-/proc}
     _smartdns_proc_dir="$_smartdns_proc_root/$_smartdns_identity_pid"
     [ -d "$_smartdns_proc_dir" ] || return 1
     [ -L "$_smartdns_proc_dir/exe" ] || return 2
@@ -101,8 +100,7 @@ smartdns_process_state()
 {
     smartdns_process_pids=
     smartdns_process_ids=
-    _smartdns_proc_root=/proc
-    [ -n "$SMARTDNS_PROC_ROOT" ] && _smartdns_proc_root=$SMARTDNS_PROC_ROOT
+    _smartdns_proc_root=${SMARTDNS_PROC_ROOT:-/proc}
     _smartdns_pid_output=$(pidof smartdns 2>/dev/null)
     _smartdns_pid_status=$?
     case "$_smartdns_pid_status" in

@@ -81,6 +81,14 @@ expect_state 2 "noncanonical leading-zero PID is rejected"
 PIDOF_OUTPUT="$(printf '123\t456')"
 expect_state 2 "unexpected PID delimiter is rejected"
 
+# A confirmed-absent lookup must not depend on a prior PID identity probe.
+# The test runs with set -u, so the production default must be nounset-safe.
+unset SMARTDNS_PROC_ROOT
+PIDOF_STATUS=1; PIDOF_OUTPUT=
+if smartdns_process_state; then proc_root_state=0; else proc_root_state=$?; fi
+[ "$proc_root_state" -eq 1 ] || fail "unset procfs override returned state $proc_root_state"
+pass "confirmed-absent process lookup uses default /proc with an unset override"
+
 SMARTDNS_PROC_ROOT="$tmpdir/proc"
 smartdns_Bin="$tmpdir/smartdns"
 smartdns_Conf="$tmpdir/smartdns.conf"

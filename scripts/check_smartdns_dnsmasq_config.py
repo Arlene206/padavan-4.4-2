@@ -253,7 +253,10 @@ for path in paths:
 
 process_identity = body(process_helper, "smartdns_process_identity")
 process_state = body(process_helper, "smartdns_process_state")
-assert '_smartdns_proc_root=/proc' in process_state and '$SMARTDNS_PROC_ROOT' in process_state
+assert '_smartdns_proc_root=${SMARTDNS_PROC_ROOT:-/proc}' in process_identity
+assert '_smartdns_proc_root=${SMARTDNS_PROC_ROOT:-/proc}' in process_state
+assert 'unset SMARTDNS_PROC_ROOT' in process_test
+assert 'confirmed-absent process lookup uses default /proc' in process_test
 process_stop = body(process_helper, "smartdns_stop_process")
 assert "readlink" in process_identity and "cmdline" in process_identity
 assert "$20" in process_identity and "start_time" in process_helper
