@@ -31,20 +31,22 @@ test_qmi_handle_cleanup_distinguishes_missing_from_other_errors(void)
 static void
 test_qmi_handle_parser_rejects_partial_and_out_of_range_values(void)
 {
+	char line_break[] = { '0', 10, '\0' };
+	char second_line[] = { '1', '7', 10, '8', '8', '\0' };
 	int handle = 99;
 
 	assert(modem_qmi_parse_handle("17", &handle) == 0);
 	assert(handle == 17);
-	assert(modem_qmi_parse_handle("0\\n", &handle) == 0);
+	assert(modem_qmi_parse_handle(line_break, &handle) == 0);
 	assert(handle == 0);
-	assert(modem_qmi_parse_handle(" 23 \\t", &handle) == 0);
+	assert(modem_qmi_parse_handle(" 23 ", &handle) == 0);
 	assert(handle == 23);
 
 	handle = 99;
 	assert(modem_qmi_parse_handle("", &handle) == EINVAL);
 	assert(handle == -1);
 	assert(modem_qmi_parse_handle("17junk", &handle) == EINVAL);
-	assert(modem_qmi_parse_handle("17\\n88", &handle) == EINVAL);
+	assert(modem_qmi_parse_handle(second_line, &handle) == EINVAL);
 	assert(modem_qmi_parse_handle("-1", &handle) == EINVAL);
 	assert(modem_qmi_parse_handle("2147483648", &handle) == EINVAL);
 	assert(modem_qmi_parse_handle("not-a-handle", &handle) == EINVAL);

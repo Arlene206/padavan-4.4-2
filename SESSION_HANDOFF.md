@@ -8,22 +8,22 @@
 ## Active task
 
 QMI WAN session startup fail-closed:
-- The ZeroTier process-ownership changes through 3724008 passed their exact ZeroTier lifecycle, Process inventory, WAN route and AI handoff checks; do not re-audit them.
-- PID 1 MTD emergency-reboot fallback source change is in 6130ebd. The old checker assertion was overbroad; 33680078 introduced an incomplete Python raw string and is superseded by 69045235245d1b9bbdf8e830e9a5570906329929, which uses a complete line-anchored regex. Exact Process/AliyunDrive/HTTPD/AI handoff results for 6904523 must be checked.
-- Current QMI source defect: qmi_control_network_start() previously removed QMI_HANDLE_PDH without checking unlink, ignored uqmi --start-network's _eval status, and reported success from file existence alone. get_qmi_handle() also ignored fscanf/fclose results and accepted partial numeric strings. A stale/malformed file could falsely report WAN session creation.
-- Require checked stale-handle removal (ENOENT benign), parse one complete nonnegative integer token within INT_MAX, and accept an attempt only when both _eval succeeds and the PDH handle is valid. Clean invalid files before retry; if uqmi fails after publishing a valid handle, stop retries to avoid blindly creating a duplicate possible live session.
-- Add GNU89 regressions and USB modem workflow source contract. No physical-modem hardware validation is claimed.
+- The current QMI change on 2b7281b requires successful uqmi --start-network plus a strictly parsed PDH handle, checked stale-file removal, and cleanup between retries.
+- Exact USB modem identity Action #45346405084 initially failed in the GNU89 modem WAN policy test because the test fixture accidentally encoded backslash-plus-n instead of a newline. The source parser is behaving correctly. Replaced the test fixture with explicit byte arrays containing ASCII newline and fixed the workflow's function slicing to avoid over-escaped newline delimiters.
+- Re-run the exact USB modem identity Action and WAN teardown / NVRAM / Process lifecycle Actions for the follow-up commit. Check the static source contract after the C regression passes.
+- Separately, the 6904523 MTD checker correction exposed further unrelated assertions in Process and AliyunDrive Actions. The next handoff must inspect the exact logs and correct the common contract without reverting the PID 1 fallback.
+- No physical modem or target MTD hardware validation is claimed.
 
 ## Verification boundary
 
-- Exact 69045235245d1b9bbdf8e830e9a5570906329929: AliyunDrive WebDAV #45346026318, Process inventory #45346026329, HTTPD #45346026346 and AI handoff #45346026565 were queued at first observation; verify their final outcomes.
-- Exact 6130ebd28962da5bf55439349632175dfc0d858e: DNSMasq #45345435699 PASS; PID1 notification queue #45345435667 PASS; Process inventory #45345435999 PASS; HTTPD #45345435733 PASS; PID1 mdev security #45345435825 PASS; DNS forwarder #45345435708 PASS; RC timezone #45345435849 PASS; USB storage #45345435532 PASS; NVRAM transaction audit #45345435848 PASS; AI handoff #45345435583 PASS. Process fail-closed #45345435889 and AliyunDrive #45345435736 failed only on the obsolete negative checker assertion, corrected in follow-up.
-- Exact ZeroTier commit 372400813c7d0888c508d6e6595353c46ea5d960: ZeroTier lifecycle #45344943818 PASS; Process inventory #45344943892 PASS; WAN route #45344943905 PASS; AI handoff #45344943861 PASS. XY-C1 #45344943825 was still in progress at Build; no firmware L3 claim.
+- Exact 2b7281bca3ed4be30f65b5ec803413e6cd78f86f: USB modem identity #45346405084 failed in the new parser unit test because its string fixture encoded literal backslash-n, not newline. WAN teardown #45346404889, HTTPD #45346404898, DHCP callback #45346405088, Process inventory #45346405010 and NVRAM audit #45346404844 were in progress at last poll; rerun exact head after fixture/workflow correction.
+- Exact 69045235245d1b9bbdf8e830e9a5570906329929: AI handoff #45346026565 PASS; HTTPD #45346026346 PASS. AliyunDrive #45346026318 and Process inventory #45346026329 failed on further shared MTD/PID1 source-contract assertions (exact logs pending triage).
+- Exact 6130ebd28962da5bf55439349632175dfc0d858e: the bulk of Process, DNSMasq, PID1 notification, HTTPD, PID1 mdev, DNS forwarder, RC timezone, USB storage, NVRAM and AI handoff checks PASS; initial Process fail-closed and AliyunDrive failed only on the stale negative MTD checker assertion.
 ## Exact first action for the next GPT
 
-1. Verify exact-SHA USB modem identity Actions for the QMI PDH parser/start-network status change, including the GNU89 modem WAN policy regression.
-2. Check exact Process inventory, AliyunDrive, HTTPD and AI handoff reruns for 6904523; resolve any remaining failure.
-3. Poll XY-C1 Build/TRX/artifact for the current production source SHA. Do not claim firmware L3 without all same-SHA steps passing.
+1. Verify exact-head USB modem identity, WAN teardown, DHCP callback, Process inventory, NVRAM audit, and AI handoff Actions after the QMI test fixture/workflow correction.
+2. Inspect exact failures on 6904523 Process inventory and AliyunDrive, then fix their shared PID 1 source-contract expectations without changing production behavior unless a real defect is proven.
+3. Poll XY-C1 Build/TRX/artifact for the latest production SHA. Do not claim L3 without same-SHA success.
 
 # Cross-session execution mandate
 

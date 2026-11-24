@@ -1,3 +1,12 @@
+## 2026-11-23 — Correct QMI regression fixture and static checker slicing
+
+- Exact QMI commit 2b7281bca3ed4be30f65b5ec803413e6cd78f86f: USB modem identity #45346405084 reached the modem WAN policy test and failed because the test source encoded backslash+n as two literal characters. Replaced it with explicit ASCII newline bytes and added a separate multi-line rejection fixture.
+- Corrected the embedded workflow check to slice qmi_control_network_start by its function signature rather than escaped newline strings; this removes sensitivity to Python/string escaping in the YAML block.
+- Production QMI code is unchanged in this follow-up. The exact USB modem workflow must rerun and reach the later static QMI contract assertions.
+- On 6904523, AI handoff and HTTPD passed; Process inventory and AliyunDrive failed on additional MTD/PID1 assertions. Exact logs need triage independently.
+
+---
+
 ## 2026-11-23 — Reject stale or malformed QMI packet-data handles
 
 - QMI WAN startup had three linked false-success paths: unchecked unlink(QMI_HANDLE_PDH), ignored _eval(--start-network) status, and a plain file-existence success check. get_qmi_handle() also ignored fscanf/fclose and accepted a leading integer from malformed trailing data.
