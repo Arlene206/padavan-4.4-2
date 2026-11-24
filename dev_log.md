@@ -1,3 +1,10 @@
+## 2026-11-24 — Confirm ambiguous DNS Forwarder pidof absence with procfs
+
+- `dns_forwarder_process_state()` documented that BusyBox `pidof` status 1 can mean an incomplete procfs scan, but treated empty output as confirmed ABSENT. That could launch a duplicate DNS Forwarder instance when process discovery was unreliable.
+- The service now cross-checks ambiguous pidof absence with the installed shared `pl_process_state()` inventory. A procfs-visible matching task or an incomplete procfs scan maps to UNKNOWN and blocks start/stop actions. Regression cases inject a hidden `/proc/4242` daemon and a missing procfs root; both must leave launch and signal counts unchanged. The source checker pins helper installation and workflow path filters.
+- Parent `fd81fc8c6863f2ca59d3610dfead53db076173ee` contains the latest SmartDNS source/test follow-up. This change requires fresh exact-head DNS Forwarder, Process, AI and XY-C1 validation; no firmware L3 or hardware L4 claim.
+
+---
 ## 2026-11-24 — Align generated include redirection with source contract
 
 - The exact-head DNSMasq run confirmed both new runtime write-failure regressions pass. Its source checker then caught a formatting mismatch in the two checked whitelist/blacklist truncation statements (the shell accepted `: >/tmp/...`, while the contract expected `: > /tmp/...`). Normalize the spacing; no behavior change.

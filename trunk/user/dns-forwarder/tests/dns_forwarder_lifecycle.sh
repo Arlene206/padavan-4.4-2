@@ -5,8 +5,10 @@ script_dir=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
 source_script="$script_dir/../dns-forwarder.sh"
 tmp=$(mktemp -d "${TMPDIR:-/tmp}/dns-forwarder-lifecycle.XXXXXX")
 trap 'rm -rf "$tmp"' 0 HUP INT TERM
+export PROCESS_LIFECYCLE_LIB="$script_dir/../../shared/scripts/process_lifecycle.sh"
+export PL_PROC_ROOT="$tmp/proc"
 
-mkdir -m 700 "$tmp/lock" "$tmp/bin"
+mkdir -m 700 "$tmp/lock" "$tmp/bin" "$tmp/proc"
 sed -e "s@/tmp/.dns-forwarder.lifecycle.lock@$tmp/lock/.lock@" \
   -e 's@kill -TERM "$dns_forwarder_pid"@fake_kill -TERM "$dns_forwarder_pid"@' \
   "$source_script" > "$tmp/dns-forwarder.sh"
@@ -111,6 +113,25 @@ run_status 2 stop
 [ "$(launch_count)" = "$launches_before" ]
 [ "$(wc -l < "$FAKE_STOP_LOG" | tr -d ' ')" = "$stops_before" ]
 [ -s "$FAKE_RUNNING_FILE" ]
+
+# pidof status 1 with empty output can hide a daemon when procfs is incomplete.
+mkdir -p "$tmp/proc/4242"
+printf '%s\n' '4242 (dns-forwarder) S 0 0 0' > "$tmp/proc/4242/stat"
+FAKE_PIDOF_STATUS=1 FAKE_PIDOF_OUTPUT=
+export FAKE_PIDOF_STATUS FAKE_PIDOF_OUTPUT
+run_status 2 start
+run_status 2 stop
+[ "$(launch_count)" = "$launches_before" ]
+[ "$(wc -l < "$FAKE_STOP_LOG" | tr -d ' ')" = "$stops_before" ]
+rm -rf "$tmp/proc/4242"
+PL_PROC_ROOT="$tmp/missing-proc"
+export PL_PROC_ROOT
+run_status 2 start
+run_status 2 stop
+[ "$(launch_count)" = "$launches_before" ]
+[ "$(wc -l < "$FAKE_STOP_LOG" | tr -d ' ')" = "$stops_before" ]
+PL_PROC_ROOT="$tmp/proc"
+export PL_PROC_ROOT
 
 FAKE_PIDOF_STATUS=0 FAKE_PIDOF_OUTPUT=
 export FAKE_PIDOF_STATUS FAKE_PIDOF_OUTPUT

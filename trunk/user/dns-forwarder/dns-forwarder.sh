@@ -1,5 +1,11 @@
 #!/bin/sh
 
+PROCESS_LIFECYCLE_LIB="${PROCESS_LIFECYCLE_LIB:-/usr/lib/process_lifecycle.sh}"
+if [ ! -r "$PROCESS_LIFECYCLE_LIB" ]; then
+  logger -t "DNS Forwarder" "process lifecycle helper is unavailable"
+  exit 127
+fi
+. "$PROCESS_LIFECYCLE_LIB" || exit 127
 dns_forwarder_lifecycle_lock_path() {
   echo /tmp/.dns-forwarder.lifecycle.lock
 }
@@ -132,7 +138,14 @@ dns_forwarder_process_state() {
       return 0
       ;;
     1)
-      [ -z "$dns_forwarder_pid_output" ] && return 1
+      [ -z "$dns_forwarder_pid_output" ] || return 2
+      # BusyBox pidof status 1 is ambiguous; verify absence via procfs.
+      if pl_process_state dns-forwarder; then
+        return 2
+      else
+        dns_forwarder_inventory_status=$?
+      fi
+      [ "$dns_forwarder_inventory_status" -eq 1 ] && return 1
       return 2
       ;;
     *)

@@ -67,6 +67,8 @@ shutils_header = read("trunk/user/shared/src/shutils.h")
 package_makefile = read("trunk/user/dns-forwarder/Makefile")
 launcher_script = read("trunk/user/dns-forwarder/dns-forwarder.sh")
 lifecycle_test = read("trunk/user/dns-forwarder/tests/dns_forwarder_lifecycle.sh")
+shared_process_helper = read("trunk/user/shared/scripts/process_lifecycle.sh")
+shared_makefile = read("trunk/user/shared/Makefile")
 assert r"*[!0123456789\ ]*" in launcher_script
 subprocess.run(["/bin/sh", "-n", str(ROOT / "trunk/user/dns-forwarder/dns-forwarder.sh")], check=True)
 workflow = read(".github/workflows/dns-forwarder-launch-path.yml")
@@ -103,6 +105,13 @@ assert "dns_forwarder_lifecycle_lock_execute" in launcher_script
 assert "flock -n 9" in launcher_script
 assert "pidof dns-forwarder" in launcher_script
 assert "dns_forwarder_process_state()" in launcher_script
+assert 'PROCESS_LIFECYCLE_LIB="${PROCESS_LIFECYCLE_LIB:-/usr/lib/process_lifecycle.sh}"' in launcher_script
+assert '. "$PROCESS_LIFECYCLE_LIB" || exit 127' in launcher_script
+process_state_body = function_body(launcher_script, "dns_forwarder_process_state()")
+assert "pl_process_state dns-forwarder" in process_state_body
+assert "dns_forwarder_inventory_status" in process_state_body
+assert "pl_process_state()" in shared_process_helper
+assert "$(INSTALL_BIN) $(CURDIR)/scripts/process_lifecycle.sh $(ROMFSDIR)/usr/lib/process_lifecycle.sh" in shared_makefile
 assert "cannot verify existing daemon state" in launcher_script
 assert "cannot verify daemon stop postcondition" in launcher_script
 stop_body = function_body(launcher_script, "func_stop()")
@@ -114,6 +123,10 @@ assert 'dns_forwarder_pids="$*"' in function_body(
 assert '123 456' in lifecycle_test
 assert '-TERM 123' in lifecycle_test and '-TERM 456' in lifecycle_test
 assert "FAKE_PIDOF_STATUS=2" in lifecycle_test
+assert 'PROCESS_LIFECYCLE_LIB="$script_dir/../../shared/scripts/process_lifecycle.sh"' in lifecycle_test
+assert 'PL_PROC_ROOT="$tmp/proc"' in lifecycle_test
+assert "4242 (dns-forwarder)" in lifecycle_test
+assert 'PL_PROC_ROOT="$tmp/missing-proc"' in lifecycle_test
 assert "start-stop-daemon -S -b -x /usr/bin/dns-forwarder --" in launcher_script
 assert "launcher returned success but no daemon appeared" in launcher_script
 assert "restart aborted because stop did not complete" in launcher_script
@@ -180,6 +193,8 @@ paths = (
     "trunk/user/rc/src/init.c",
     "trunk/user/shared/src/shutils.c",
     "trunk/user/shared/src/shutils.h",
+    "trunk/user/shared/Makefile",
+    "trunk/user/shared/scripts/process_lifecycle.sh",
     "trunk/user/dns-forwarder/Makefile",
     "trunk/user/dns-forwarder/dns-forwarder.sh",
     "trunk/user/dns-forwarder/tests/dns_forwarder_lifecycle.sh",

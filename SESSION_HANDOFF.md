@@ -1,34 +1,36 @@
 ## Current repository state
 
-- Active branch: `main`. Source parent: `9804865fa5c34b5e7e00b57ce3949dca89ab5893`; the next atomic commit fixes the RAETH lock-balance defect, strengthens its Switch CLI source contract, and records this handoff.
-- Frozen archive `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; it is read-only. Legacy PR #1 is closed and unmerged.
-- Development uses complete Git trees and one commit per logical slice, then non-forced expected-SHA update of `main`. No force-pushes, work branches or PR-based development.
+- Active development branch: `main`. Source parent for this DNS Forwarder procfs correction: `fd81fc8c6863f2ca59d3610dfead53db076173ee`; this atomic commit updates daemon discovery, regression, checker, workflow filters and handoff together. Resolve live `main` before every later write.
+- Frozen archive `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; keep it read-only. Legacy PR #1 is closed and unmerged.
+- Use one complete Git tree and one commit per logical task, then a non-forced expected-SHA update of `main`.
 
 ## Active task
 
-### RAETH `RAETH_SET_LAN_IP` page-lock balance
+### DNS Forwarder process-state confirmation
 
-- In `ei_ioctl()`, this case drops `page_lock` around `copy_from_user()`. The bounded NUL-termination check previously ran after reacquiring the lock. Its invalid-input `break` therefore bypassed a balanced locked state, but the common function epilogue still unconditionally called `spin_unlock_irq()`. Empty or unterminated input could trigger an unbalanced spin unlock / IRQ restore.
-- The fix validates the local copied buffer while `page_lock` remains released, then unconditionally reacquires `page_lock` before checking the return status. Both success and rejection now reach the common epilogue with the expected lock held.
-- Existing GNU89 regression checks valid, empty, unterminated, NULL and zero-length input. The Switch CLI inline Python contract now enforces unlock → copy → validate → reacquire → error branch → copy state ordering.
+- `dns_forwarder_process_state()` accepted `pidof dns-forwarder` status 1 with empty output as confirmed ABSENT, although BusyBox may also return 1 after incomplete procfs enumeration. `func_start()` could launch a duplicate daemon when process discovery was unreliable.
+- The fix sources `/usr/lib/process_lifecycle.sh` and cross-checks ambiguous pidof absence with shared `pl_process_state dns-forwarder`. Only shared-helper ABSENT is accepted; a procfs-visible matching task without a usable pidof PID list, or an incomplete/unavailable procfs scan, returns UNKNOWN. Start and stop fail closed.
+- Regression injects a hidden `4242 (dns-forwarder)` procfs stat entry and a missing-procfs-root case; both must block start and stop without changing launch or signal counts. The Python checker pins helper inclusion/installation; workflow filters include the helper and Makefile.
+
+### Previously completed RAETH lock-balance fix
+
+- Commit `522210d812578bb0d64b546a7ea8b3fb1b7dfe15` restores `page_lock` before the common epilogue when `RAETH_SET_LAN_IP` rejects malformed input. Its exact-head Switch CLI #45421759200, AI handoff #45421759120 and NVRAM #45421759308 passed. Do not infer firmware L3 from host checks.
 
 ## Verification boundary
 
-- Parent SHA `9804865fa5c34b5e7e00b57ce3949dca89ab5893`: DNSMasq lifecycle #45421011367 PASS; Process inventory #45421011328 PASS; USB storage #45421011314 PASS; XY-C1 #45421011312 was IN_PROGRESS at last poll.
-- Parent AI handoff #45421011316 FAILED because `check_ai_handoff_docs.py` requires the exact literal `The checkpoint is mandatory; a document edit is conditional.`. This handoff includes that required sentence. New exact-head AI validation is required.
-- The SmartDNS procfs fallback in parent `9804865` is covered by exact-head DNSMasq and Process PASS. Do not reopen that issue absent new failure.
-- Host policy regression was previously run with GNU89, `-Wall -Wextra -Werror`, ASan/UBSan and passed. The new source-order contract requires fresh exact-head Switch CLI validation. L3 requires Build, TRX verification and artifact upload to PASS on the same source SHA; hardware L4 remains unverified.
+- Parent `fd81fc8c6863f2ca59d3610dfead53db076173ee` includes the latest SmartDNS source/test follow-up. This DNS Forwarder regression and source checker have not yet run on the new commit; inspect exact-head DNS Forwarder launch-path, Process inventory, AI handoff and XY-C1 Actions.
+- L3 requires Build, TRX verification and artifact upload all PASS on the same product-source SHA. Physical-router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and check exact-head Switch CLI, AI handoff, Process inventory, NVRAM, DNSMasq and XY-C1 Actions for the lock-balance commit. Diagnose any failure; ignore stale parent results.
-2. Confirm XY-C1 Build, TRX verification and artifact upload all PASS on one exact source SHA before claiming L3. Hardware L4 is NOT VERIFIED.
-3. Continue the next independent stability/security defect outside RAETH after this bounded correction is verified; do not repeat completed MTK ESW authorization, AliDDNS persistence, VSFTPD ACL, MiniUPnP or SmartDNS procfs checks.
+1. Fetch live `main` and inspect exact-head DNS Forwarder launch-path, Process inventory, AI handoff and XY-C1 Actions for the procfs confirmation fix; diagnose any failure.
+2. If XY-C1 remains pending, continue an independent stability/security slice rather than waiting. Do not claim L3 until Build/TRX/artifact all pass on one source SHA.
+3. Continue outside DNS Forwarder after this fix is verified; do not repeat completed RAETH lock-balance or SmartDNS write-failure work without new evidence.
 
 ## Mandatory handoff checkpoint
 
-The checkpoint is mandatory; a document edit is conditional. Every session must inspect the live `main` ref, exact-head relevant push Actions, validation boundary, blockers and the next precise task. Update this file only when those resumable facts materially change; if they remain accurate, do not create a no-op commit.
+The checkpoint is mandatory; a document edit is conditional. Every session must inspect live `main`, exact-head relevant push Actions, validation boundary, blockers and the precise next task. Update only when resumable facts materially change.
 
 # Cross-session execution mandate
 
-Recover once, then implement. Keep work source-led: one bounded source fix, meaningful regression, necessary validation, one complete Git tree and one atomic main commit, followed by a non-forced compare-and-swap. Pending CI does not block independent work. Before context exhaustion, finish the safe slice and leave the next GPT one precise first action. Never overstate host, firmware or hardware evidence.
+Recover once, then implement. Keep work source-led: a bounded source fix, meaningful regression, necessary validation, one complete Git tree and one atomic main commit, followed by a non-forced compare-and-swap. Pending CI does not block independent work. Before context exhaustion, finish the safe slice and leave the next GPT one precise first action. Never force-push, use work branches/PRs, or overstate host, firmware or hardware evidence.
