@@ -1,3 +1,9 @@
+## 2026-11-24 — Update SmartDNS Adbyby ownership source contract
+
+- The DNSMasq contract checker still required the old shared SmartDNS process-state helper name after the production code split it into a dedicated executable-identity inventory and an Adbyby-only read-only name probe. Updated the stale source assertion to match the new call site; the runtime regression itself passed on the prior exact SHA.
+
+---
+
 ## 2026-11-24 — Make SmartDNS PID-reuse regression deterministic
 
 - The first fake-proc race test attempted to swap the executable during the helper's internal readlink call; command-substitution boundaries made the expected read count brittle. Replace it with an explicit snapshot, process replacement, then PID-scoped signal attempt. This directly verifies that revalidation refuses to signal a reused PID without relying on timing.

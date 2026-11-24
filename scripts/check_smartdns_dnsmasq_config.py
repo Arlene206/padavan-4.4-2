@@ -176,7 +176,7 @@ for field in ("name", "ip", "port", "type", "ipc", "named", "non", "ipset"):
     assert 'smartdns_nvram_read_checked "sdnss_' + field + '_x$j" || return $?' in get_conf
 assert '$(nvram get ' not in get_conf and '$(seq 1 ' not in get_conf
 adbyby_change = body(smartdns, "Change_adbyby")
-assert 'smartdns_process_state adbyby' in adbyby_change
+assert 'smartdns_named_process_state adbyby' in adbyby_change
 assert 'Cannot determine Adbyby process state' in adbyby_change
 assert test.count("sed -n '/^smartdns_process_state()/,/^}/p'") == 2
 assert "/usr/bin/adbyby.sh switch" not in adbyby_change, \
