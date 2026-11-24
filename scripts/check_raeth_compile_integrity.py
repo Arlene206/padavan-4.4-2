@@ -44,11 +44,13 @@ probe = function_body(source, "static int rather_probe(")
 require(chip_name.index("if (ret)") < chip_name.index("strcasecmp(pm") and
         "return ret;" in chip_name and "return -EINVAL;" in chip_name,
         "chip-name parsing must reject failed or unsupported compatible data before comparing it")
-require(not re.search(r"else\\s+if\\s*\\(\\s*!strcasecmp\\(pm,", arch_setting),
+require(all("!ret" in line.split("strcasecmp(pm,", 1)[0]
+            for line in arch_setting.splitlines() if "strcasecmp(pm," in line),
+        "every device-tree selector comparison must be dominated by its latest read status")
         "every alternate DT selector comparison must be guarded by the latest successful property read")
 require("ret = fe_chip_name_config(ei_local, pdev);" in probe and
-        "if (ret)\\n\\t\\tgoto err_free_dev;" in probe and
-        "if (dev_raether == netdev)\\n\\t\\tdev_raether = NULL;" in probe,
+        "if (ret)\n\t\tgoto err_free_dev;" in probe and
+        "if (dev_raether == netdev)\n\t\tdev_raether = NULL;" in probe,
         "probe must propagate chip-name parse failures and clear its unpublished global device pointer")
 
 print("RAETH function uniqueness and GMII status declaration contract: PASS")

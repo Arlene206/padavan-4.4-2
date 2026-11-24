@@ -1,3 +1,9 @@
+## 2026-11-24 — Tighten the RAETH DT-selector regression matcher
+
+- The first source-checker commit accidentally double-escaped its Python regex and C-source newline assertions, so those new assertions would search for literal backslash sequences rather than whitespace/newlines. Corrected the matchers before treating them as validation, and strengthened the selector contract to require `!ret` before every `strcasecmp(pm, ...)` comparison in `raeth_arch_setting()`.
+- The source change remains `7f7aee3b5df94c6996743e58834ee2ec4d67eafd`; this checker-only follow-up requires a fresh exact-head Switch CLI run. No test PASS is inferred from the earlier checker version.
+
+---
 ## 2026-11-24 — Fail closed on missing RAETH device-tree selectors
 
 - `raeth_arch_setting()` reused one `pm` pointer across `of_property_read_string()` calls. When `gmac1-support` was absent, the first `else if (!strcasecmp(pm, ...))` dereferenced an uninitialized/stale pointer; when later selector reads failed, their `else if` branches could interpret the previous property's value as the missing selector.
