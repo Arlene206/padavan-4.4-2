@@ -1527,7 +1527,7 @@ jobs:
 
           link = body("static int esw_link_status_changed(", "\nirqreturn_t gsw_interrupt(")
           gsw = body("irqreturn_t gsw_interrupt(", "\nu32 phy_tr_dbg(")
-          esw = body("irqreturn_t esw_interrupt(", "\nvoid sw_ioctl(")
+          esw = body("irqreturn_t esw_interrupt(", "\nint sw_ioctl(")
           assert "ra_switch_mdio_read_link_status(" in link
           assert re.search(r"if\s*\(\s*status\s*!=\s*0\s*\)\s*return status;", link)
           assert link.index("return status;") < link.index("esw_link_status_hook(")
