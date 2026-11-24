@@ -1,3 +1,11 @@
+## 2026-11-25 00:36 CST (UTC+8) — Correct Clause 45 regression call count and restore the required handoff rule
+
+- Exact source SHA 7ae410c1ff14d974e659b8c29bbcd83d18269f0c: its Clause 45 GNU89/ASan/UBSan policy binary passed; Switch CLI #45438347998 then failed because the newly added source checker used undefined policy/test variables. The parallel checker-load fix landed as 52e34a54f58930247d5ec5c5df0f1a99b6de52fb, but exact Switch CLI #45438676877 exposed a second checker-only mismatch: the regression contains exactly four calls to raeth_mdio_cl45_write_data_status(), not five. This commit asserts four calls, verifies the named boundary test and directly pins the policy header include at the kernel call site.
+- AI handoff #45438348166 (7ae) and #45438677094 (52e) both failed the same required-handoff-token check: SESSION_HANDOFF.md must contain the exact phrase "one atomic main commit". THIS commit restores that governance statement.
+- Exact XY-C1 #45438348129 and NVRAM audit #45438348160 on source SHA 7ae were still IN_PROGRESS at the last poll; do not transfer their outcomes to later commits. XY Build was still running, TRX/artifact pending. L3 requires Build, TRX and artifact PASS on one exact production SHA.
+
+---
+
 ## 2026-11-25 00:26 CST (UTC+8) — Bound Clause 45 MDIO write payload to 16 bits
 
 - Confirmed `mii_mgr_write_cl45()` ORed a full-width `u32 write_data` directly into the MDIO command register although Clause 45 payload data is only 16 bits. Added a fail-closed policy check before lock acquisition and any MMIO/MDIO access.

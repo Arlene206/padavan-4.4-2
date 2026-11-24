@@ -416,7 +416,9 @@ jobs:
           data_command = write.index("sys_reg_write(MDIO_PHY_CONTROL_0", data_lock)
           assert data_guard < data_reject < data_lock < data_command
           assert policy.count("raeth_mdio_cl45_write_data_status(") == 1
-          assert test.count("raeth_mdio_cl45_write_data_status(") >= 5
+          assert test.count("raeth_mdio_cl45_write_data_status(") == 4
+          assert "test_write_data_is_limited_to_sixteen_bits" in test
+          assert '#include "raeth_mdio_cl45_address_policy.h"' in manager
           guard = setup.index(
               "if (raeth_mdio_cl45_address_status(port_num, dev_addr, reg_addr) != 0)"
           )
