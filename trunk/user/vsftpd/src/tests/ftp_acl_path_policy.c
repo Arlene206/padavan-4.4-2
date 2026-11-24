@@ -343,7 +343,21 @@ main(void)
   }
   if (ftp_acl_path_open_bounded_regular_file(
           metadata_alias, 16 * 1024 * 1024, &st) >= 0) {
-    fprintf(stderr, "ACL config symlink was followed\n");
+    fprintf(stderr, "ACL config symlink was followed\\n");
+    return 1;
+  }
+  checked_path(path, sizeof(path), dir_alias, ".__alice_var.txt");
+  checked_path(marker_path, sizeof(marker_path), dir_b, ".__alice_var.txt");
+  create_fixture_file(marker_path);
+  metadata_fd = ftp_acl_path_open_bounded_regular_file(
+      path, 16 * 1024 * 1024, &st);
+  if (metadata_fd >= 0) {
+    close(metadata_fd);
+    fprintf(stderr, "ACL config symlinked parent was followed\\n");
+    return 1;
+  }
+  if (unlink(marker_path) != 0) {
+    perror("remove symlinked-parent ACL fixture");
     return 1;
   }
   if (ftp_acl_path_open_bounded_regular_file(metadata_file, 1, &st) >= 0) {

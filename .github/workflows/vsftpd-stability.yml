@@ -585,6 +585,9 @@ jobs:
           assert "retval == 0 ? VSF_LISTING_STAT_COMPLETE_TEXT" in directory
           assert "VSF_LISTING_STAT_INCOMPLETE_TEXT" in directory
           assert directory.index("if (p_dir != 0 && dir_allow_read)") < directory.index("else if (stat_cmd)") < directory.index("retval = -1;")
+          assert "ftp_acl_path_split_entry(path, parent" in bounded_file_open
+          assert "ftp_acl_path_open_verified_directory(parent)" in bounded_file_open
+          assert "openat(dir_fd, leaf" in bounded_file_open
           assert "O_NOFOLLOW | O_NONBLOCK" in bounded_file_open
           assert "O_CLOEXEC" in bounded_file_open
           assert "fstat(fd, &opened)" in bounded_file_open
@@ -596,6 +599,7 @@ jobs:
           assert "final_stat.st_size != stat_buf.st_size" in acl_file_reader
           assert "ACL config FIFO was accepted" in acl_path_test
           assert "ACL config symlink was followed" in acl_path_test
+          assert "ACL config symlinked parent was followed" in acl_path_test
           assert "oversized ACL config fixture was accepted" in acl_path_test
           assert "return -1;" in listing_entries
           assert "return;" not in listing_entries

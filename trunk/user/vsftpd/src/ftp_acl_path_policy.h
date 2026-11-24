@@ -758,23 +758,45 @@ ftp_acl_path_build_child_path(const char *resolved_parent, const char *leaf,
  * The final component is never re-resolved after the WRITE ACL check.
  */
 /*
- * Open a bounded regular file without following a symlink or blocking on a
- * FIFO/device node. The returned stat data describes the opened descriptor,
- * not a separate pathname lookup.
+ * The path is used for an authorization metadata file under the shared mount
+ * root. Pin every parent component without following symlinks, then open the
+ * final file relative to that descriptor so an ancestor cannot redirect the
+ * lookup to a different storage tree.
  */
+static int ftp_acl_path_split_entry(const char *path, char *parent,
+                                    size_t parent_size, char *leaf,
+                                    size_t leaf_size);
+static int ftp_acl_path_open_verified_directory(const char *path);
+
 static int
 ftp_acl_path_open_bounded_regular_file(const char *path, off_t max_size,
                                        struct stat *p_stat)
 {
   struct stat opened;
-  int fd, saved_errno;
-  if (!path || !*path || max_size < 1 || !p_stat) {
+  char parent[PATH_MAX], leaf[PATH_MAX];
+  int dir_fd, fd, saved_errno;
+
+  if (!path || path[0] != '/' || max_size < 1 || !p_stat) {
     errno = EINVAL;
     return -1;
   }
-  fd = open(path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK);
-  if (fd < 0)
+  if (ftp_acl_path_split_entry(path, parent, sizeof(parent),
+                               leaf, sizeof(leaf)) != 0) {
+    errno = EACCES;
     return -1;
+  }
+  dir_fd = ftp_acl_path_open_verified_directory(parent);
+  if (dir_fd < 0)
+    return -1;
+
+  fd = openat(dir_fd, leaf,
+              O_RDONLY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK);
+  saved_errno = errno;
+  (void) close(dir_fd);
+  if (fd < 0) {
+    errno = saved_errno;
+    return -1;
+  }
   if (fstat(fd, &opened) != 0)
     goto open_error;
   if (!S_ISREG(opened.st_mode) || opened.st_size < 1 ||
