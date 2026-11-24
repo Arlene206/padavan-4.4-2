@@ -1,3 +1,10 @@
+## 2026-11-23 — Route AiDisk USB enum labels through the JSON writer
+
+- The remaining AiDisk `%s` JavaScript outputs in `ej_get_usb_ports_info()` represented a bounded set of compile-time enum labels (hub/printer/modem/storage/unknown and RAS/NDIS). They were not sourced from external input, but direct `%s` formatting left an avoidable raw JS string sink. Routed the return labels through the shared JSON writer.
+- Added source-contract coverage for all enum labels and modem transport labels; numeric port/device IDs remain numeric.
+- Parent 1027e90's exact-SHA HTTPD and AI checks had started; no completed status was available at checkpoint. No result for this child SHA is claimed.
+
+---
 ## 2026-11-23 — Fix AiDisk checker escape semantics
 
 - Exact eae527b HTTPD run #45302091248 exposed a false-negative in the new source-contract check: Python interpreted the C source's two-character backslash-n sequence as an actual newline. The preceding JSON/HTML sanitizer tests, JS NVRAM checks, dynamic hook checks and WOL DOM checks had passed.

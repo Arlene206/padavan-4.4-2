@@ -229,12 +229,26 @@ def check_aidisk_script_messages():
     assert source.count('write_script_message(wp, "safely_remove_disk_error"') == 2
     print("AiDisk JavaScript error-message encoding: PASS")
 
+def check_aidisk_usb_string_outputs():
+    source = AIDISK_SOURCE.read_text(encoding="utf-8")
+    start = source.index("int\\nej_get_usb_ports_info(")
+    end = source.index("\\n#endif", start)
+    usb = source[start:end]
+    for label in ("hub", "printer", "modem_eth", "modem_tty", "storage", "unknown"):
+        assert f'= "{label}";' in usb
+    assert "write_json_string(wp, usb_dev_string[0]);" in usb
+    assert "write_json_string(wp, usb_dev_string[1]);" in usb
+    assert 'write_json_string(wp, "unknown");' in usb
+    assert 'write_json_string(wp, (follow_usb->dev_type == DEVICE_TYPE_MODEM_TTY) ? "RAS" : "NDIS/RNDIS");' in usb
+    print("AiDisk USB enum JavaScript string encoding: PASS")
+
 def main():
     check_handler_wiring()
     check_dynamic_js_hooks()
     check_templates()
     check_wol_dom_sinks()
     check_aidisk_script_messages()
+    check_aidisk_usb_string_outputs()
 
 
 if __name__ == "__main__":

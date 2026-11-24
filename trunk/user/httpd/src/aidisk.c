@@ -140,11 +140,17 @@ ej_get_usb_ports_info(int eid, webs_t wp, int argc, char **argv)
 	/* usb device types */
 	websWrite(wp, "function get_device_type_usb(port_num){\n");
 	websWrite(wp, "    if (port_num == 1)\n");
-	websWrite(wp, "        return \"%s\";\n", usb_dev_string[0]);
+		websWrite(wp, "        return ");
+		write_json_string(wp, usb_dev_string[0]);
+		websWrite(wp, ";\n");
 	websWrite(wp, "    else if (port_num == 2)\n");
-	websWrite(wp, "        return \"%s\";\n", usb_dev_string[1]);
+		websWrite(wp, "        return ");
+		write_json_string(wp, usb_dev_string[1]);
+		websWrite(wp, ";\n");
 	websWrite(wp, "    else\n");
-	websWrite(wp, "        return \"%s\";\n", "unknown");
+		websWrite(wp, "        return ");
+		write_json_string(wp, "unknown");
+		websWrite(wp, ";\n");
 	websWrite(wp, "}\n\n");
 
 	/* printers */
@@ -231,7 +237,7 @@ ej_get_usb_ports_info(int eid, webs_t wp, int argc, char **argv)
 				first = 0;
 			else
 				websWrite(wp, ", ");
-			websWrite(wp, "\"%s\"", (follow_usb->dev_type == DEVICE_TYPE_MODEM_TTY) ? "RAS" : "NDIS/RNDIS");
+			write_json_string(wp, (follow_usb->dev_type == DEVICE_TYPE_MODEM_TTY) ? "RAS" : "NDIS/RNDIS");
 		}
 	}
 	websWrite(wp, "];\n}\n\n");
