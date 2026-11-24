@@ -1091,11 +1091,13 @@ int fe_qdma_wait_dma_idle(void)
 
 int fe_qdma_rx_dma_init(struct net_device *dev)
 {
-	int i;
+	int i, j;
+	int allocated = 0;
+	int mapped = 0;
 	struct END_DEVICE *ei_local = netdev_priv(dev);
 	unsigned int skb_size;
-	/* Initial QDMA RX Ring */
 
+	/* Initial QDMA RX Ring */
 	skb_size = SKB_DATA_ALIGN(MAX_RX_LENGTH + NET_IP_ALIGN + NET_SKB_PAD) +
 		   SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
 
@@ -1104,6 +1106,9 @@ int fe_qdma_rx_dma_init(struct net_device *dev)
 			       NUM_QRX_DESC * sizeof(struct PDMA_rxdesc),
 			       &ei_local->phy_qrx_ring,
 			       GFP_ATOMIC | __GFP_ZERO);
+	if (!ei_local->qrx_ring)
+		goto no_rx_mem;
+
 	for (i = 0; i < NUM_QRX_DESC; i++) {
 		ei_local->netrx0_skb_data[i] =
 		    raeth_alloc_skb_data(skb_size, GFP_KERNEL);
@@ -1111,6 +1116,7 @@ int fe_qdma_rx_dma_init(struct net_device *dev)
 			pr_err("rx skbuff buffer allocation failed!");
 			goto no_rx_mem;
 		}
+		allocated++;
 
 		memset(&ei_local->qrx_ring[i], 0, sizeof(struct PDMA_rxdesc));
 		ei_local->qrx_ring[i].rxd_info2.DDONE_bit = 0;
@@ -1129,6 +1135,7 @@ int fe_qdma_rx_dma_init(struct net_device *dev)
 			pr_err("[%s]dma_map_single() failed...\n", __func__);
 			goto no_rx_mem;
 		}
+		mapped++;
 	}
 	pr_err("\nphy_qrx_ring = 0x%p, qrx_ring = 0x%p\n",
 	       (void *)ei_local->phy_qrx_ring, ei_local->qrx_ring);
@@ -1145,6 +1152,26 @@ int fe_qdma_rx_dma_init(struct net_device *dev)
 	return 0;
 
 no_rx_mem:
+	/*
+	 * RX setup is transactional: undo only mappings and skb pointers
+	 * created by this invocation, then release the coherent descriptor ring.
+	 */
+	for (j = 0; j < mapped; j++)
+		dma_unmap_single(&ei_local->qdma_pdev->dev,
+				ei_local->qrx_ring[j].rxd_info1.PDP0,
+				MAX_RX_LENGTH, DMA_FROM_DEVICE);
+
+	for (j = 0; j < allocated; j++) {
+		raeth_free_skb_data(ei_local->netrx0_skb_data[j]);
+		ei_local->netrx0_skb_data[j] = NULL;
+	}
+
+	if (ei_local->qrx_ring)
+		dma_free_coherent(&ei_local->qdma_pdev->dev,
+				  NUM_QRX_DESC * sizeof(struct PDMA_rxdesc),
+				  ei_local->qrx_ring, ei_local->phy_qrx_ring);
+	ei_local->qrx_ring = NULL;
+	ei_local->rx_ring[0] = NULL;
 	return -ENOMEM;
 }
 
@@ -1172,16 +1199,26 @@ void fe_qdma_rx_dma_deinit(struct net_device *dev)
 	struct END_DEVICE *ei_local = netdev_priv(dev);
 	int i;
 
-	/* free RX Ring */
-	dma_free_coherent(&ei_local->qdma_pdev->dev,
-			  NUM_QRX_DESC * sizeof(struct PDMA_rxdesc),
-			  ei_local->qrx_ring, ei_local->phy_qrx_ring);
-
-	/* free RX skb */
+	/*
+	 * Unmap hardware-owned RX buffers before releasing their backing memory.
+	 */
 	for (i = 0; i < NUM_QRX_DESC; i++) {
-		raeth_free_skb_data(ei_local->netrx0_skb_data[i]);
-		ei_local->netrx0_skb_data[i] = NULL;
+		if (ei_local->netrx0_skb_data[i]) {
+			if (ei_local->qrx_ring)
+				dma_unmap_single(&ei_local->qdma_pdev->dev,
+						ei_local->qrx_ring[i].rxd_info1.PDP0,
+						MAX_RX_LENGTH, DMA_FROM_DEVICE);
+			raeth_free_skb_data(ei_local->netrx0_skb_data[i]);
+			ei_local->netrx0_skb_data[i] = NULL;
+		}
 	}
+
+	if (ei_local->qrx_ring)
+		dma_free_coherent(&ei_local->qdma_pdev->dev,
+				  NUM_QRX_DESC * sizeof(struct PDMA_rxdesc),
+				  ei_local->qrx_ring, ei_local->phy_qrx_ring);
+	ei_local->qrx_ring = NULL;
+	ei_local->rx_ring[0] = NULL;
 }
 
 void fe_qdma_tx_dma_deinit(struct net_device *dev)

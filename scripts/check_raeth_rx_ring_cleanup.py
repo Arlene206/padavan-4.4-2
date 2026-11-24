@@ -75,3 +75,34 @@ tx_clear = tx_teardown.index("ei_local->tx_ring0 = NULL;", tx_free)
 assert "if (ei_local->tx_ring0)" in tx_teardown[:tx_free]
 assert tx_free < tx_clear
 print("PDMA TX allocation failure is detected before descriptor access: PASS")
+
+QDMA_SOURCE = Path(
+    "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether_qdma.c"
+).read_text()
+qdma_body = function_body(QDMA_SOURCE, "int fe_qdma_rx_dma_init(")
+assert "int allocated = 0;" in qdma_body and "int mapped = 0;" in qdma_body
+qdma_alloc = qdma_body.index("ei_local->qrx_ring =")
+qdma_ring_check = qdma_body.index("if (!ei_local->qrx_ring)", qdma_alloc)
+qdma_skb_alloc = qdma_body.index("raeth_alloc_skb_data(", qdma_ring_check)
+qdma_allocated = qdma_body.index("allocated++;", qdma_skb_alloc)
+qdma_ring_use = qdma_body.index("&ei_local->qrx_ring[i]", qdma_allocated)
+qdma_map_check = qdma_body.index("dma_mapping_error", qdma_ring_use)
+qdma_mapped = qdma_body.index("mapped++;", qdma_map_check)
+assert qdma_alloc < qdma_ring_check < qdma_skb_alloc < qdma_allocated < qdma_ring_use < qdma_map_check < qdma_mapped
+qdma_rollback = qdma_body.index("no_rx_mem:")
+qdma_unmap = qdma_body.index("dma_unmap_single(", qdma_rollback)
+qdma_free_skb = qdma_body.index("raeth_free_skb_data(", qdma_unmap)
+qdma_free_ring = qdma_body.index("dma_free_coherent(", qdma_free_skb)
+assert "for (j = 0; j < mapped; j++)" in qdma_body[qdma_rollback:qdma_free_skb]
+assert "for (j = 0; j < allocated; j++)" in qdma_body[qdma_free_skb:qdma_free_ring]
+assert "ei_local->netrx0_skb_data[j] = NULL;" in qdma_body[qdma_free_skb:qdma_free_ring]
+assert "ei_local->qrx_ring = NULL;" in qdma_body[qdma_free_ring:]
+
+qdma_teardown = function_body(QDMA_SOURCE, "void fe_qdma_rx_dma_deinit(")
+qdma_unmap_at = qdma_teardown.index("dma_unmap_single(")
+qdma_free_data_at = qdma_teardown.index("raeth_free_skb_data(")
+qdma_free_ring_at = qdma_teardown.index("dma_free_coherent(")
+assert qdma_unmap_at < qdma_free_data_at < qdma_free_ring_at
+assert "ei_local->qrx_ring = NULL;" in qdma_teardown[qdma_free_ring_at:]
+assert "ei_local->rx_ring[0] = NULL;" in qdma_teardown[qdma_free_ring_at:]
+print("QDMA RX partial-init rollback and normal DMA teardown: PASS")
