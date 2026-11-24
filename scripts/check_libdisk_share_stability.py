@@ -930,9 +930,10 @@ permission_batch_prepare = function_body(
 )
 permission_batch_prepare_compact = "".join(permission_batch_prepare.split())
 require("read_whole_file(" not in DISK_SOURCE and
-        DISK_SOURCE.count("read_regular_file_nofollow(") >= 6 and
+        DISK_SOURCE.count("read_regular_file_nofollow(") >= 4 and
+        DISK_SOURCE.count("read_regular_file_nofollow_at(") >= 6 and
         "test_if_file(var_file)" not in DISK_SOURCE,
-        "all account ACL files on removable volumes must use no-follow regular-file inspection/read paths")
+        "all account ACL files on removable volumes must use no-follow regular-file inspection/read paths, using path wrappers only where the caller has not yet adopted a pinned mount descriptor")
 require("disk_share_format_account_var_path(" in permission_batch_prepare_compact and
         "read_regular_file_nofollow(" in permission_batch_prepare_compact and
         "disk_share_permission_rewrite(" in permission_batch_prepare_compact and

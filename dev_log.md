@@ -1,3 +1,10 @@
+## 2026-11-25 — Update libdisk no-follow reader inventory contract for pinned-FD migration
+
+- Exact dc09472450a390828a9814b0690585a088c2f11e libdisk run #45467759017 passed both GNU89 ASan/UBSan binaries but the Python source contract failed its global reader-count assertion. The set_permission() descriptor migration intentionally converted several former path reads to `read_regular_file_nofollow_at()`, reducing legacy path-wrapper occurrences from six to four while adding six FD-relative calls. Updated the guard to require both the remaining wrappers and descriptor-relative readers separately; no production source or test semantics changed.
+- On dc094, AI handoff #45467759273 and Process inventory #45467759132 PASS. XY-C1 #45467758980, HTTPD auth #45467759477 and NVRAM #45467759168 were IN_PROGRESS at last poll. The libdisk fix needs fresh exact-head rerun.
+
+---
+
 ## 2026-11-25 — Pin set_permission ACL read/modify/write to one volume
 
 - Identified a mountpoint replacement race: set_permission() independently resolved mount_path for folder stat/cache, ACL read, missing ACL creation and atomic replacement. A hotplug replacement could read one device and write another.
