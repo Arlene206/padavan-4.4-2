@@ -508,6 +508,24 @@ start_ald || { echo "FAIL: disabled start did not stop the daemon" >&2; exit 1; 
   echo "FAIL: disabled start did not complete graceful stop" >&2; exit 1;
 }
 
+# Every supported disabled spelling retains the historical stop behavior.
+for TEST_ENABLE in '' off false no disabled OFF FALSE NO DISABLED; do
+  TEST_RUNNING=1
+  TEST_TERM_BEHAVIOR=after-one-poll
+  TEST_TERM_COUNT=0
+  TEST_KILL_COUNT=0
+  TEST_SLEEP_COUNT=0
+  start_ald || {
+    echo "FAIL: explicit disabled selector '$TEST_ENABLE' did not stop the daemon" >&2
+    exit 1
+  }
+  [ "$TEST_RUNNING" -eq 0 ] && [ "$TEST_TERM_COUNT" -eq 1 ] &&
+  [ "$TEST_KILL_COUNT" -eq 0 ] || {
+    echo "FAIL: explicit disabled selector '$TEST_ENABLE' did not use graceful stop" >&2
+    exit 1;
+  }
+done
+
 # A malformed enable selector is not an explicit disable: preserve the daemon.
 TEST_RUNNING=1
 TEST_ENABLE=unexpected
