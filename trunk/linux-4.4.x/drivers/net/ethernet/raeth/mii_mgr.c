@@ -14,6 +14,7 @@
 
 #include "mii_mgr.h"
 #include "mii_mgr_timeout_policy.h"
+#include "mii_mgr_indirect_policy.h"
 
 void set_an_polling(u32 an_status)
 {
@@ -23,16 +24,14 @@ void set_an_polling(u32 an_status)
 		*(unsigned long *)(ESW_PHY_POLLING) &= ~(1 << 31);
 }
 
-u32 __mii_mgr_read(u32 phy_addr, u32 phy_register, u32 *read_data)
+static u32 __mii_mgr_read_locked(u32 phy_addr, u32 phy_register,
+				 u32 *read_data)
 {
 	u32 status = 0;
 	u32 rc = 0;
 	u64 t_start_ns;
 	u32 data = 0;
-	struct END_DEVICE *ei_local = netdev_priv(dev_raether);
-	unsigned long flags;
 
-	spin_lock_irqsave(&ei_local->mdio_lock, flags);
 	t_start_ns = ktime_get_ns();
 	/* We enable mdio gpio purpose register, and disable it when exit. */
 	enable_mdio(1);
@@ -69,25 +68,21 @@ u32 __mii_mgr_read(u32 phy_addr, u32 phy_register, u32 *read_data)
 		} else if (mii_mgr_busy_timeout_expired(t_start_ns, ktime_get_ns())) {
 			enable_mdio(0);
 			rc = 0;
-			pr_err
-			    ("\n MDIO Read operation Time Out!!\n");
+			pr_err("\n MDIO Read operation Time Out!!\n");
 			goto out;
 		}
 	}
 out:
-	spin_unlock_irqrestore(&ei_local->mdio_lock, flags);
 	return rc;
 }
 
-u32 __mii_mgr_write(u32 phy_addr, u32 phy_register, u32 write_data)
+static u32 __mii_mgr_write_locked(u32 phy_addr, u32 phy_register,
+				  u32 write_data)
 {
 	u64 t_start_ns;
 	u32 data;
 	u32 rc = 0;
-	struct END_DEVICE *ei_local = netdev_priv(dev_raether);
-	unsigned long flags;
 
-	spin_lock_irqsave(&ei_local->mdio_lock, flags);
 	t_start_ns = ktime_get_ns();
 	enable_mdio(1);
 
@@ -108,7 +103,6 @@ u32 __mii_mgr_write(u32 phy_addr, u32 phy_register, u32 write_data)
 	    write_data;
 	sys_reg_write(MDIO_PHY_CONTROL_0, data);
 	sys_reg_write(MDIO_PHY_CONTROL_0, (data | (1 << 31))); /*start*/
-	/* pr_err("\n Set Command [0x%08X] to PHY !!\n",MDIO_PHY_CONTROL_0); */
 
 	t_start_ns = ktime_get_ns();
 
@@ -126,16 +120,63 @@ u32 __mii_mgr_write(u32 phy_addr, u32 phy_register, u32 write_data)
 		}
 	}
 out:
-	spin_unlock_irqrestore(&ei_local->mdio_lock, flags);
 	return rc;
+}
+
+
+/* Single-register callers still acquire the MDIO bus lock around one command. */
+static u32 __mii_mgr_read(u32 phy_addr, u32 phy_register, u32 *read_data)
+{
+	struct END_DEVICE *ei_local;
+	unsigned long flags;
+	u32 status;
+
+	if (!dev_raether)
+		return 0;
+	ei_local = netdev_priv(dev_raether);
+	spin_lock_irqsave(&ei_local->mdio_lock, flags);
+	status = __mii_mgr_read_locked(phy_addr, phy_register, read_data);
+	spin_unlock_irqrestore(&ei_local->mdio_lock, flags);
+	return status;
+}
+
+static u32 __mii_mgr_write(u32 phy_addr, u32 phy_register, u32 write_data)
+{
+	struct END_DEVICE *ei_local;
+	unsigned long flags;
+	u32 status;
+
+	if (!dev_raether)
+		return 0;
+	ei_local = netdev_priv(dev_raether);
+	spin_lock_irqsave(&ei_local->mdio_lock, flags);
+	status = __mii_mgr_write_locked(phy_addr, phy_register, write_data);
+	spin_unlock_irqrestore(&ei_local->mdio_lock, flags);
+	return status;
+}
+
+static unsigned int
+mii_mgr_indirect_locked_read(void *context, unsigned int phy_addr,
+			     unsigned int phy_register, unsigned int *read_data)
+{
+	(void)context;
+	return __mii_mgr_read_locked(phy_addr, phy_register, read_data);
+}
+
+static unsigned int
+mii_mgr_indirect_locked_write(void *context, unsigned int phy_addr,
+			      unsigned int phy_register, unsigned int write_data)
+{
+	(void)context;
+	return __mii_mgr_write_locked(phy_addr, phy_register, write_data);
 }
 
 u32 mii_mgr_read(u32 phy_addr, u32 phy_register, u32 *read_data)
 {
 	struct END_DEVICE *ei_local;
-	u32 low_word;
-	u32 high_word;
+	unsigned long flags;
 	u32 an_status = 0;
+	u32 status;
 
 	if (!read_data)
 		return 0;
@@ -147,38 +188,31 @@ u32 mii_mgr_read(u32 phy_addr, u32 phy_register, u32 *read_data)
 	if ((ei_local->architecture &
 	     (GE1_RGMII_FORCE_1000 | GE1_TRGMII_FORCE_2000 |
 	      GE1_TRGMII_FORCE_2600)) && (phy_addr == 31)) {
+		/* Keep page-select and both data words indivisible to every MDIO user. */
+		spin_lock_irqsave(&ei_local->mdio_lock, flags);
 		an_status = (*(unsigned long *)(ESW_PHY_POLLING) & (1 << 31));
 		if (an_status)
 			set_an_polling(0);
-		if (__mii_mgr_write
-		    (phy_addr, 0x1f, ((phy_register >> 6) & 0x3FF))) {
-			if (__mii_mgr_read
-			    (phy_addr, (phy_register >> 2) & 0xF, &low_word)) {
-				if (__mii_mgr_read
-				    (phy_addr, (0x1 << 4), &high_word)) {
-					*read_data =
-					    (high_word << 16) | (low_word &
-								 0xFFFF);
-					if (an_status)
-						set_an_polling(1);
-					return 1;
-				}
-			}
-		}
+		status = mii_mgr_indirect_read(
+			phy_addr, phy_register, ei_local,
+			mii_mgr_indirect_locked_write,
+			mii_mgr_indirect_locked_read, read_data);
 		if (an_status)
 			set_an_polling(1);
-	} else {
-		if (__mii_mgr_read(phy_addr, phy_register, read_data))
-			return 1;
+		spin_unlock_irqrestore(&ei_local->mdio_lock, flags);
+		return status;
 	}
-	return 0;
+
+	return __mii_mgr_read(phy_addr, phy_register, read_data);
 }
 EXPORT_SYMBOL(mii_mgr_read);
 
 u32 mii_mgr_write(u32 phy_addr, u32 phy_register, u32 write_data)
 {
 	struct END_DEVICE *ei_local;
+	unsigned long flags;
 	u32 an_status = 0;
+	u32 status;
 
 	if (!dev_raether)
 		return 0;
@@ -187,30 +221,21 @@ u32 mii_mgr_write(u32 phy_addr, u32 phy_register, u32 write_data)
 	if ((ei_local->architecture &
 	     (GE1_RGMII_FORCE_1000 | GE1_TRGMII_FORCE_2000 |
 	      GE1_TRGMII_FORCE_2600)) && (phy_addr == 31)) {
+		/* Page-select and both data words share one bus-lock critical section. */
+		spin_lock_irqsave(&ei_local->mdio_lock, flags);
 		an_status = (*(unsigned long *)(ESW_PHY_POLLING) & (1 << 31));
 		if (an_status)
 			set_an_polling(0);
-		if (__mii_mgr_write
-		    (phy_addr, 0x1f, (phy_register >> 6) & 0x3FF)) {
-			if (__mii_mgr_write
-			    (phy_addr, ((phy_register >> 2) & 0xF),
-			     write_data & 0xFFFF)) {
-				if (__mii_mgr_write
-				    (phy_addr, (0x1 << 4), write_data >> 16)) {
-					if (an_status)
-						set_an_polling(1);
-					return 1;
-				}
-			}
-		}
+		status = mii_mgr_indirect_write(
+			phy_addr, phy_register, write_data, ei_local,
+			mii_mgr_indirect_locked_write);
 		if (an_status)
 			set_an_polling(1);
-	} else {
-		if (__mii_mgr_write(phy_addr, phy_register, write_data))
-			return 1;
+		spin_unlock_irqrestore(&ei_local->mdio_lock, flags);
+		return status;
 	}
 
-	return 0;
+	return __mii_mgr_write(phy_addr, phy_register, write_data);
 }
 EXPORT_SYMBOL(mii_mgr_write);
 

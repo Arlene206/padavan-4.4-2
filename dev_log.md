@@ -1,3 +1,12 @@
+## 2026-11-24 — Serialize forced-mode indirect MMD access as one MDIO transaction
+
+- In forced 1000/2000/2600 mode on PHY address 31, `mii_mgr_read()` and `mii_mgr_write()` issue three Clause-22 commands: select the MMD page, access the low word, then access the high word. Previously every command independently acquired/released `mdio_lock`, so another MDIO user (including Clause 45) could interleave and replace the page selector between phases. The operation could then return or write data from the wrong MMD register. Auto-negotiation polling was also toggled outside that multi-command critical section.
+- Split the register-level primitives into caller-locked implementations and one-command lock-taking wrappers. The extended MMD path now holds the shared `mdio_lock` across page select, both data words, and AN-polling disable/restore; it uses only the locked primitives while inside the transaction. Ordinary Clause-22 and Clause-45 access keep their existing locking.
+- Added an isolated GNU89 policy regression for exact page/data register order, 32-bit read assembly, 32-bit write splitting, failure short-circuiting and output clearing. Added a source checker that verifies transaction lock scope, locked callback wiring, direct-command wrappers and existing Clause-45 lock scope. The switch stability workflow compiles/runs both checks and now filters the new test/helper/checker paths.
+- Local host regression with AddressSanitizer and UBSan: PASS. Exact-head Actions for this commit: pending. Firmware build and router hardware validation are not yet claimed.
+
+---
+
 ## 2026-11-24 — Restore separate QMI contract assertions
 
 - Exact main `d8f6092c6af34f1c8ec45c746ce9411e40522577` USB modem WDM/NDIS Action #45362480729 failed before evaluating the client-ID contract because two Python `assert` statements had been concatenated onto one line in the workflow heredoc. The traceback was a genuine `SyntaxError`, not a QMI production failure.
@@ -9,7 +18,7 @@
 
 - Exact main `d8f6092c6af34f1c8ec45c746ce9411e40522577` HTTPD job #45362480519 failed in the Samba share trust-boundary checker after the Samba writer was improved to snapshot each user's ACL permission once per share.
 - The production change now validates account identity in the snapshot loop (five guard occurrences total) and reuses `account_rights[i]` in the four output-list passes. The older HTTPD contract still expected four identity guards and did not enforce the one-read cache. Updated it to require exactly one per-share `get_permission()`, one cached assignment, and four cached consumers. The separate Samba workflow's policy regression already passes on this same source.
-- This is a checker-only correction; no Samba production behavior changed. Exact-head HTTPD rerun is pending.
+- This is a checker-only correction; no Samba production behavior changed. Exact follow-up Action status will be recorded at the next handoff checkpoint.
 
 ---
 

@@ -31,6 +31,9 @@ on:
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.h"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mii_mgr_timeout_policy.h"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/mii_mgr_timeout_policy.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mii_mgr_indirect_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/mii_mgr_indirect_policy.c"
+      - "scripts/check_mii_mgr_indirect_locking.py"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl_mt762x.h"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/link_mode_policy.h"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/mib_snapshot_policy.h"
@@ -81,6 +84,9 @@ on:
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.h"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mii_mgr_timeout_policy.h"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/mii_mgr_timeout_policy.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mii_mgr_indirect_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/mii_mgr_indirect_policy.c"
+      - "scripts/check_mii_mgr_indirect_locking.py"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl_mt762x.h"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/link_mode_policy.h"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/mib_snapshot_policy.h"
@@ -1690,6 +1696,17 @@ jobs:
             trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/mii_mgr_timeout_policy.c \
             -o "$RUNNER_TEMP/raeth-mii-mgr-timeout-policy"
           ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/raeth-mii-mgr-timeout-policy"
+
+      - name: Verify indirect RAETH MMD transactions hold the MDIO lock
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -g \
+            -fsanitize=address,undefined -fno-omit-frame-pointer \
+            trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/mii_mgr_indirect_policy.c \
+            -o "$RUNNER_TEMP/raeth-mii-mgr-indirect-policy"
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 \
+            "$RUNNER_TEMP/raeth-mii-mgr-indirect-policy"
+          python3 scripts/check_mii_mgr_indirect_locking.py
 
       - name: Validate RAETH probe and clock mapping failures fail closed
         run: |
