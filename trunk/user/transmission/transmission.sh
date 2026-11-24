@@ -428,15 +428,25 @@ func_reload()
 	esac
 
 	echo -n "Reload $SVC_NAME config:."
-	if killall -SIGHUP transmission-daemon; then
+	tr_reload_status=0
+	for tr_reload_pid in $tr_reload_pids; do
+		if kill -HUP "$tr_reload_pid"; then
+			:
+		else
+			tr_reload_signal_status=$?
+			if [ "$tr_reload_status" -eq 0 ]; then
+				tr_reload_status=$tr_reload_signal_status
+				[ "$tr_reload_status" -ne 0 ] || tr_reload_status=1
+			fi
+		fi
+	done
+	if [ "$tr_reload_status" -eq 0 ]; then
 		echo "[  OK  ]"
 		return 0
-	else
-		tr_reload_status=$?
-		echo "[FAILED]"
-		logger -t "$SVC_NAME" "daemon reload signal failed (status=$tr_reload_status)" >/dev/null 2>&1 || true
-		return "$tr_reload_status"
 	fi
+	echo "[FAILED]"
+	logger -t "$SVC_NAME" "daemon reload signal failed (status=$tr_reload_status)" >/dev/null 2>&1 || true
+	return "$tr_reload_status"
 }
 
 case "$1" in

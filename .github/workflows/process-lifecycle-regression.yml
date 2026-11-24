@@ -241,6 +241,7 @@ on:
       - "trunk/user/vlmcsd/vlmcsd.sh"
       - "trunk/user/transmission/transmission.sh"
       - "trunk/user/transmission/tests/stop_pid_snapshot.sh"
+      - "trunk/user/transmission/tests/reload_status.sh"
       - "trunk/user/wireguard/wireguard.sh"
       - "trunk/user/wireguard/tests/wireguard_lifecycle.sh"
 
@@ -489,6 +490,7 @@ on:
       - "trunk/user/vlmcsd/vlmcsd.sh"
       - "trunk/user/transmission/transmission.sh"
       - "trunk/user/transmission/tests/stop_pid_snapshot.sh"
+      - "trunk/user/transmission/tests/reload_status.sh"
       - "trunk/user/wireguard/wireguard.sh"
       - "trunk/user/wireguard/tests/wireguard_lifecycle.sh"
 
