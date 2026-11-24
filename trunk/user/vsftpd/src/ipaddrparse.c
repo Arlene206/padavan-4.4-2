@@ -65,36 +65,83 @@ vsf_sysutil_parse_ipv4(const struct mystr* p_str)
   return vsf_sysutil_parse_uchar_string_sep(p_str, '.', items, sizeof(items));
 }
 
+int
+vsf_sysutil_parse_uint(const struct mystr* p_str, unsigned int maximum,
+                       unsigned int* p_value)
+{
+  unsigned int length;
+  unsigned int i;
+  unsigned int value = 0;
+  if (p_str == 0 || p_value == 0)
+  {
+    return 0;
+  }
+  length = str_getlen(p_str);
+  if (length == 0)
+  {
+    return 0;
+  }
+  for (i = 0; i < length; ++i)
+  {
+    int ch = (unsigned char) str_get_char_at(p_str, i);
+    unsigned int digit;
+    if (ch < '0' || ch > '9')
+    {
+      return 0;
+    }
+    digit = (unsigned int) (ch - '0');
+    if (digit > maximum || value > (maximum - digit) / 10U)
+    {
+      return 0;
+    }
+    value = value * 10U + digit;
+  }
+  *p_value = value;
+  return 1;
+}
+
 const unsigned char*
 vsf_sysutil_parse_uchar_string_sep(
   const struct mystr* p_str, char sep, unsigned char* p_items,
   unsigned int items)
 {
   static struct mystr s_tmp_str;
+  static struct mystr s_rhs_sep_str;
   unsigned int i;
-  str_copy(&s_tmp_str, p_str);
-  for (i=0; i<items; i++)
+  unsigned int length;
+  unsigned int separator_count = 0;
+  if (p_str == 0 || p_items == 0 || items == 0 || sep == '\0')
   {
-    static struct mystr s_rhs_sep_str;
-    int this_number;
-    /* This puts a single separator delimited field in tmp_str */
+    return 0;
+  }
+  length = str_getlen(p_str);
+  for (i = 0; i < length; ++i)
+  {
+    if (str_get_char_at(p_str, i) == sep)
+    {
+      ++separator_count;
+    }
+  }
+  if (separator_count != items - 1)
+  {
+    return 0;
+  }
+  str_copy(&s_tmp_str, p_str);
+  for (i = 0; i < items; ++i)
+  {
+    unsigned int this_number;
+    /* Split one field; the preflight above requires exactly items - 1 separators. */
     str_split_char(&s_tmp_str, &s_rhs_sep_str, sep);
-    /* Sanity - check for too many or two few dots! */
-    if ( (i < (items-1) && str_isempty(&s_rhs_sep_str)) ||
-         (i == (items-1) && !str_isempty(&s_rhs_sep_str)))
+    if ((i < items - 1 && str_isempty(&s_rhs_sep_str)) ||
+        (i == items - 1 && !str_isempty(&s_rhs_sep_str)))
     {
       return 0;
     }
-    this_number = str_atoi(&s_tmp_str);
-    if (this_number < 0 || this_number > 255)
+    if (!vsf_sysutil_parse_uint(&s_tmp_str, 255U, &this_number))
     {
       return 0;
     }
-    /* If this truncates from int to uchar, we don't care */
     p_items[i] = (unsigned char) this_number;
-    /* The right hand side of the comma now becomes the new string to
-     * breakdown
-     */
     str_copy(&s_tmp_str, &s_rhs_sep_str);
   }
   return p_items;

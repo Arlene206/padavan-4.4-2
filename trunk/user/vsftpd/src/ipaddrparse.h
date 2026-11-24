@@ -12,6 +12,10 @@ const unsigned char* vsf_sysutil_parse_ipv6(const struct mystr* p_str);
 
 const unsigned char* vsf_sysutil_parse_ipv4(const struct mystr* p_str);
 
+/* Parse a non-empty, unsigned decimal field without accepting atoi prefixes. */
+int vsf_sysutil_parse_uint(const struct mystr* p_str, unsigned int maximum,
+                           unsigned int* p_value);
+
 const unsigned char* vsf_sysutil_parse_uchar_string_sep(
   const struct mystr* p_str, char sep, unsigned char* p_items,
   unsigned int items);

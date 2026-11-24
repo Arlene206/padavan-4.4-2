@@ -1798,6 +1798,8 @@ handle_eprt(struct vsf_session* p_sess)
   static struct mystr s_scopeid_str;
   int proto;
   int port;
+  unsigned int proto_value;
+  unsigned int port_value;
   const unsigned char* p_raw_addr;
   int is_ipv6 = vsf_sysutil_sockaddr_is_ipv6(p_sess->p_local_addr);
   port_cleanup(p_sess);
@@ -1810,7 +1812,13 @@ handle_eprt(struct vsf_session* p_sess)
   }
   /* Split out the protocol and check it */
   str_split_char(&s_part2_str, &s_part1_str, '|');
-  proto = str_atoi(&s_part2_str);
+  if (!vsf_sysutil_parse_uint(&s_part2_str, 2U, &proto_value) ||
+      proto_value < 1U)
+  {
+    vsf_cmdio_write(p_sess, FTP_BADCMD, "Bad EPRT protocol.");
+    return;
+  }
+  proto = (int) proto_value;
   if (proto < 1 || proto > 2 || (!is_ipv6 && proto == 2))
   {
     vsf_cmdio_write(p_sess, FTP_BADCMD, "Bad EPRT protocol.");
@@ -1837,11 +1845,11 @@ handle_eprt(struct vsf_session* p_sess)
   {
     goto bad_eprt;
   }
-  port = str_atoi(&s_part2_str);
-  if (port < 0 || port > 65535)
+  if (!vsf_sysutil_parse_uint(&s_part2_str, 65535U, &port_value))
   {
     goto bad_eprt;
   }
+  port = (int) port_value;
   vsf_sysutil_sockaddr_clone(&p_sess->p_port_sockaddr, p_sess->p_local_addr);
   if (proto == 2)
   {
