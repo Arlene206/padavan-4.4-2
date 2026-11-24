@@ -1,3 +1,12 @@
+## 2026-11-24 — Reject malformed OpenVPN client certificate lifetime arguments
+
+- `ovpn_server_expcli_main()` parsed the optional `days_valid` argument twice with `atoi()`. Numeric-prefix values such as `30junk` silently became 30 days, while values outside the `int` range had undefined conversion behavior before being passed to certificate generation.
+- Added a strict GNU89-compatible parser: preserves the historical 365-day default and whitespace/leading-plus compatibility, accepts 1–36,500 days, and rejects negatives, zero, suffix junk, fractions, out-of-policy values and integer overflow before configuration/key-generation side effects.
+- Added ASan/UBSan regression coverage and exact-source lifecycle contract; wired the header/test into both VPN workflow path filters. XY-C1 run #45499228265 completed SUCCESS on product source SHA `8a2fbd592e1f0ddbd7a014d97bd00a8e08fb949a`, with Build, TRX and artifact upload all PASS. PID 1 #45500981047 and AI docs #45500980887 passed on `8ebf9dfc1aadd4dc45aeaa10514086aa97ed74ef`.
+- Parent main SHA: `8ebf9dfc1aadd4dc45aeaa10514086aa97ed74ef`. New VPN lifecycle regression, exact-source contract, XY-C1 and AI docs validation are pending on this commit. No physical-router L4 validation is claimed.
+
+---
+
 ## 2026-11-24 — Repair PID 1 queue workflow's stale modem restart assertions
 
 - Exact-head PID 1 notification queue run #45499228171 on source SHA `8a2fbd592e1f0ddbd7a014d97bd00a8e08fb949a` passed the bounded-batch, secure-marker, enqueue-status, optional-daemon and SSH GNU89 policy tests, then failed in the final inline source contract. The modem assertions still expected the removed `stop_failed` flag after the USB retry fix had correctly replaced it with `transition_failed` and guarded cache publication.

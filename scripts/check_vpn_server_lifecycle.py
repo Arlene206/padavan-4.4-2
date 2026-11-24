@@ -42,6 +42,8 @@ def ordered(txt,tokens,label):
 vpn=read("trunk/user/rc/src/vpn_server.c")
 vpn_openvpn=read("trunk/user/rc/src/vpn_openvpn.c")
 cert_script=read("trunk/user/openvpn/openvpn-cert.sh")
+cert_input_policy=read("trunk/user/rc/src/openvpn_cert_input_policy.h")
+cert_input_policy_test=read("trunk/user/rc/src/tests/openvpn_cert_input_policy.c")
 config_policy=read("trunk/user/rc/src/vpn_server_config_policy.h")
 config_policy_test=read("trunk/user/rc/src/tests/vpn_server_config_policy.c")
 route_status_policy=read("trunk/user/rc/src/route_status_policy.h")
@@ -1218,6 +1220,9 @@ ordered(server_options_snapshot,[
 ],"OpenVPN server option snapshot must check every scalar and copied DHCP option before publication")
 server_export=body(vpn_openvpn,"ovpn_server_expcli_main(int argc, char **argv)")
 ordered(server_export,[
+    "openvpn_cert_days_valid_parse(",
+    "if (days_status != 0)",
+    "return 1;",
     "openvpn_read_server_network_snapshot(&network)",
     "openvpn_read_server_options_snapshot(&options)",
     "openvpn_check_key",
@@ -1227,6 +1232,12 @@ ordered(server_export,[
     "network.is_tun",
     "options.port"
 ],"OpenVPN exported client profile must use checked server snapshots before filesystem/key-generation side effects")
+require("atoi(argv[3])" not in server_export and
+        "OPENVPN_CERT_DAYS_MIN 1" in cert_input_policy and
+        "OPENVPN_CERT_DAYS_MAX 36500" in cert_input_policy and
+        "test_malformed_and_out_of_range_lifetimes" in cert_input_policy_test and
+        "test_invalid_api_arguments" in cert_input_policy_test,
+        "OpenVPN client certificate export must reject malformed/overflowing lifetime arguments before side effects")
 require("options.auth_digest" in server_export and
         "options.cipher" in server_export and
         "options.compression" in server_export,

@@ -41,6 +41,7 @@
 #include "vpn_client_nvram_policy.h"
 #include "vpn_server_config_policy.h"
 #include "openvpn_ipv6_protocol_policy.h"
+#include "openvpn_cert_input_policy.h"
 
 #define OPENVPN_EXE		"/usr/sbin/openvpn"
 #define COMMON_TEMP_DIR		"/tmp/openvpn"
@@ -2377,7 +2378,7 @@ ovpn_server_expcli_main(int argc, char **argv)
 	struct openvpn_server_options_config options;
 	int i, i_prot, i_atls, i_tcv2, days_valid, config_status;
 	int cert_status, keygen_status, env_set = 0, temp_dir_created = 0;
-	int protocol_status;
+	int protocol_status, days_status;
 #if defined (USE_IPV6)
 	int wan_addr6_status;
 #endif
@@ -2397,9 +2398,14 @@ ovpn_server_expcli_main(int argc, char **argv)
 	rsa_bits = "1024";
 	if (argc > 2)
 		rsa_bits = argv[2];
-	days_valid = 365;
-	if (argc > 3 && atoi(argv[3]) > 0)
-		days_valid = atoi(argv[3]);
+	days_status = openvpn_cert_days_valid_parse(
+		argc > 3 ? argv[3] : NULL, 365, &days_valid);
+	if (days_status != 0) {
+		logmessage(SERVER_LOG_NAME,
+			   "invalid OpenVPN client certificate validity period (status=%d)",
+			   days_status);
+		return 1;
+	}
 
 	/* Match the exported profile to the currently validated server settings. */
 	config_status = openvpn_read_server_network_snapshot(&network);
