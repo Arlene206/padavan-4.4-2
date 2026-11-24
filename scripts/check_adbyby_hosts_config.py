@@ -112,7 +112,6 @@ require('case "$adbyby_enable" in' in refresh_nvram_state and
             "adbyby_enable", "adbyby_ip_x", "adbyby_rules_x", "adbyby_set",
             "http_username", "adbyby_update", "adbyby_update_hour", "adbyby_update_min")),
         "Adbyby must reject invalid enable values and preserve each NVRAM read error status")
-        "Adbyby start/restart must reject corrupt enable selectors before changing service state")
 require("Adbyby invalid enable selectors preserve existing service: PASS" in lifecycle_test,
         "Adbyby lifecycle regression must cover malformed selectors without NVRAM or process side effects")
 
