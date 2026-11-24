@@ -756,6 +756,10 @@ fi
 [ "$(cat "$TEST_ADG_PID_LOG")" = "$(printf '%s\n' '-TERM 24680' '-9 13579')" ] || fail "SIGKILL did not use the freshly validated replacement PID"
 [ "$(wc -l < "$TEST_ADG_SLEEP_LOG" | tr -d ' ')" = 5 ] || fail "TERM grace period was not bounded to five polls"
 [ "$(tail -n 3 "$TEST_ADG_CLEANUP_LOG")" = "$(printf 'clear_iptable\ndel_dns\nrm:-rf /tmp/AdGuardHome')" ] || fail "cleanup did not follow confirmed SIGKILL exit"
+# The next stuck-daemon case begins a fresh process fixture; do not leak the
+# replacement PID from this scenario into its initial TERM snapshot.
+TEST_ADG_PID_OUTPUT=24680
+export TEST_ADG_PID_OUTPUT
 
 # Firewall cleanup failure preserves runtime and resolver state for retry.
 : > "$TEST_ADG_CLEANUP_LOG"

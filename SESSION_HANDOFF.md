@@ -1,9 +1,10 @@
 ## Current repository state
 
 - Parent main for this Adbyby syntax/postcondition correction: `db75aed4c9005bcbdcb4eba503b3c65be8f99644`; live main/tree fetched before building the complete tree.
-- Adbyby process identity code is in `db75aed4c9005bcbdcb4eba503b3c65be8f99644`. Exact Adbyby #45338516192 failed at `sh -n` due an accidentally omitted closing brace and bounded wait tail; exact HTTPD #45338516101 and Process fail-closed #45338516189 failed at dependent Adbyby source checks. DNSMasq #45338516248, AI docs #45338516151 and Process inventory #45338516089 PASS on DB75.
+- Adbyby process identity code is in `db75aed4c9005bcbdcb4eba503b3c65be8f99644`. Its first exact-head run failed shell syntax; correction `5e9ce769a1f274d99da21686f3b9c0f9c7b43a11` restored the bounded wait loop and corrected fake procfs start_time offsets; exact reruns are pending. Exact Adbyby #45338516192 failed at `sh -n` due an accidentally omitted closing brace and bounded wait tail; exact HTTPD #45338516101 and Process fail-closed #45338516189 failed at dependent Adbyby source checks. DNSMasq #45338516248, AI docs #45338516151 and Process inventory #45338516089 PASS on DB75.
 - THIS COMMIT restores the bounded five-probe post-TERM postcondition and fixes fake procfs stat layout so the PID-reuse test modifies kernel start_time field 22, not vsize.
 - SmartDNS NVRAM-independent stop SHA `2294ae89092db384169b533ed6c0ab4e8c6b639c`: DNSMasq, Process, AI docs and USB passed; its XY-C1 run was still in progress at last poll.
+- AdGuardHome per-PID stop/escalation fix `ceda64c` had a host regression failure unrelated to production: the test failed to reset a mock PID after a replacement-PID case. THIS COMMIT resets the independent stuck-daemon fixture; its exact-head workflow rerun is required.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 - Main-only atomic complete-tree commits; expected-SHA non-forced updates; no force-push.
 
@@ -29,13 +30,14 @@ Close Adbyby process identity regression:
 
 ## Verification boundary
 
+- AdGuardHome #45338317817 on `ceda64c`: shell tests passed through the fresh replacement-PID case, then the stuck-daemon expected PID mismatched because test state leaked 13579; THIS COMMIT resets the fixture. New exact-head AdGuardHome rerun pending.
 - DB75 exact head: Adbyby #45338516192 FAILED at shell syntax (`adbyby.sh:1891: Syntax error: end of file unexpected (expecting "}")`). HTTPD #45338516101 failed at dependent add-on staging syntax; Process fail-closed #45338516189 failed its Adbyby stop-gate check. DNSMasq #45338516248 PASS; AI docs #45338516151 PASS; Process inventory #45338516089 PASS.
 - THIS COMMIT restores the function brace/wait loop and corrects the procfs test field offset. New exact-head reruns pending.
 - XY-C1 DB75 #45338516092 remained IN_PROGRESS at the last poll; no same-SHA L3 claim until Build, TRX and artifact all pass. Physical-router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect this correction's exact-head Adbyby host, HTTPD security and Process fail-closed runs; fix any remaining first failure.
+1. Inspect the newest exact-head Adbyby/HTTPD/Process runs for `5e9ce769` and AdGuardHome config-security for this PID-fixture reset; fix any remaining first failure.
 2. Poll DB75 XY-C1 #45338516092 for final Build, TRX and artifact-upload outcomes; claim L3 only if every required step passes on DB75's product source.
 3. If regressions pass or are pending, continue an evidence-backed P1 stability/security task outside already-completed SmartDNS/RAETH coverage.
 4. Keep the backup immutable and main commits atomic/non-forced.

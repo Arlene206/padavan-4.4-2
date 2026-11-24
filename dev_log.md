@@ -1,3 +1,12 @@
+## 2026-11-24 — Reset AdGuardHome PID fixture after replacement-PID escalation
+
+- Exact AdGuardHome config-security run #45338317817 on `ceda64cdd021684c8b9b876fb29ecafa150a9e81` failed only in the stuck-daemon regression after the preceding fresh-snapshot replacement-PID case.
+- The preceding `-9-exits` case intentionally changes `TEST_ADG_PID_OUTPUT` from 24680 to 13579 on its first sleep and expects SIGKILL to target 13579. The next independent `stuck` case forgot to restore its initial PID but still asserted `-9 24680`; production correctly signalled the stale fixture's 13579. Reset the mock PID after the replacement test so the stuck case starts with a clean independent snapshot.
+- No AdGuardHome production source changed in this test-only slice. Exact-head AdGuardHome workflow must be rerun.
+- Parent main: `5e9ce769a1f274d99da21686f3b9c0f9c7b43a11`.
+
+---
+
 ## 2026-11-24 — Preserve Adbyby stop postcondition and correct procfs fixture fields
 
 - Exact SHA `db75aed4c9005bcbdcb4eba503b3c65be8f99644` exposed an implementation truncation: while replacing the pre-signal section of `adbyby_stop_daemon()`, the bounded five-probe post-TERM wait and function-closing brace were omitted. `sh -n` caught the missing brace; Adbyby host, HTTPD firewall-hook staging and Process stop-gate workflows consequently failed before dependent tests. DNSMasq and Process inventory passed; AI handoff passed.
