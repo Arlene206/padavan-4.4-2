@@ -143,6 +143,7 @@ on:
       - "trunk/user/httpd/src/httpd.h"
       - "trunk/user/shared/src/include/ralink_boards.h"
       - "trunk/user/httpd/src/web_ex.c"
+      - "trunk/user/www/n56u_ribbon_fixed/Advanced_DDNS_Content.asp"
       - "trunk/user/httpd/src/httpd_watchdog_stop_policy.h"
       - "trunk/user/httpd/src/tests/httpd_watchdog_stop_policy.c"
       - "trunk/user/httpd/src/nvram_x.c"
@@ -353,6 +354,7 @@ on:
       - "trunk/user/httpd/src/httpd.c"
       - "trunk/user/httpd/src/ej.c"
       - "trunk/user/httpd/src/web_ex.c"
+      - "trunk/user/www/n56u_ribbon_fixed/Advanced_DDNS_Content.asp"
       - "trunk/user/httpd/src/httpd_watchdog_stop_policy.h"
       - "trunk/user/httpd/src/tests/httpd_watchdog_stop_policy.c"
       - "trunk/user/httpd/src/nvram_x.c"
@@ -438,6 +440,7 @@ on:
       - "trunk/user/httpd/src/httpd.h"
       - "trunk/user/shared/src/include/ralink_boards.h"
       - "trunk/user/httpd/src/web_ex.c"
+      - "trunk/user/www/n56u_ribbon_fixed/Advanced_DDNS_Content.asp"
       - "trunk/user/httpd/src/httpd_watchdog_stop_policy.h"
       - "trunk/user/httpd/src/tests/httpd_watchdog_stop_policy.c"
       - "trunk/user/httpd/src/httpd_script_policy.h"
@@ -4550,7 +4553,7 @@ jobs:
               f"missing={source_registered_callbacks - set(policy_classifications)}, "
               f"stale={set(policy_classifications) - source_registered_callbacks}"
           )
-          assert len(source_registered_callbacks) == 88, (
+          assert len(source_registered_callbacks) == 89, (
               f"review the EJ registry inventory when its size changes: {len(source_registered_callbacks)}"
           )
           assert {
@@ -4575,7 +4578,7 @@ jobs:
           assert {
               name for name, classification in policy_classifications.items()
               if classification == "HTTPD_DIRECT_EJ_ESCAPED_OUTPUT"
-          } == {"get_parameter"}
+          } == {"get_parameter", "nvram_get_js"}
           assert set(policy_classifications.values()) == {
               "HTTPD_DIRECT_EJ_READ_ONLY",
               "HTTPD_DIRECT_EJ_ESCAPED_OUTPUT",
@@ -4583,6 +4586,14 @@ jobs:
               "HTTPD_DIRECT_EJ_SELF_GUARDED",
               "HTTPD_DIRECT_EJ_TRUSTED_MUTATION",
           }
+          js_nvram_get = body(web, "static int\\nej_nvram_get_js(")
+          assert 'ejArgs(argc, argv, "%s %s", &sid, &name)' in js_nvram_get
+          assert "write_js_string(wp, nvram_safe_get(name));" in js_nvram_get
+          assert '"nvram_get_js", ej_nvram_get_js' in ej_table
+          ddns_template = (ui_root / "Advanced_DDNS_Content.asp").read_text()
+          assert 'var ddns_hname = <% nvram_get_js("", "ddns_hostname_x"); %>;' in ddns_template
+          assert "var ddns_hname = '<% nvram_get_x" not in ddns_template
+          assert policy_classifications.get("nvram_get_js") == "HTTPD_DIRECT_EJ_ESCAPED_OUTPUT"
           parameter_start = web.index("static int ej_get_parameter(")
           parameter_end = web.index("\nstatic int login_state_hook", parameter_start)
           parameter_callback = web[parameter_start:parameter_end]

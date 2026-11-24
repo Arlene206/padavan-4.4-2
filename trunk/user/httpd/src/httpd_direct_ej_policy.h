@@ -37,6 +37,7 @@ httpd_direct_ej_classify(const char *name)
 		int classification;
 	} callback_policies[] = {
 		{ "nvram_get_x", HTTPD_DIRECT_EJ_READ_ONLY },
+		{ "nvram_get_js", HTTPD_DIRECT_EJ_ESCAPED_OUTPUT },
 		{ "nvram_get_list_x", HTTPD_DIRECT_EJ_READ_ONLY },
 		{ "nvram_get_buf_x", HTTPD_DIRECT_EJ_READ_ONLY },
 		{ "nvram_get_table_x", HTTPD_DIRECT_EJ_READ_ONLY },

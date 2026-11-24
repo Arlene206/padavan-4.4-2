@@ -34,7 +34,7 @@ $j(document).ready(function() {
 
 var ddns_prov1 = '<% nvram_get_x("","ddns_server_x"); %>';
 var ddns_prov2 = '<% nvram_get_x("","ddns2_server"); %>';
-var ddns_hname = '<% nvram_get_x("","ddns_hostname_x"); %>';
+var ddns_hname = <% nvram_get_js("","ddns_hostname_x"); %>;
 var ddns_list = [
 	[ 0x0f, "WWW.DYNDNS.ORG",       "", "https://account.dyn.com/entrance/" ],
 	[ 0x0f, "WWW.ZONEEDIT.COM",     "", "http://www.zoneedit.com/signUp.html" ],

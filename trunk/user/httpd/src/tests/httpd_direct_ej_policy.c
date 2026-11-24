@@ -42,6 +42,7 @@ main(void)
 	};
 	static const char * const escaped_output_callbacks[] = {
 		"get_parameter",
+		"nvram_get_js",
 		NULL
 	};
 	static const char * const read_only_callbacks[] = {

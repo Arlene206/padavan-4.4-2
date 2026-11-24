@@ -76,6 +76,7 @@
 static int apply_cgi_group(webs_t wp, int sid, struct variable *var, const char *groupName, int flag);
 static void nvram_clr_group_temp(struct variable *v);
 static int nvram_generate_table(webs_t wp, char *serviceId, char *groupName);
+static void write_js_string(webs_t wp, const char *value);
 
 static int nvram_modified = 0;
 #if BOARD_HAS_5G_RADIO
@@ -726,6 +727,26 @@ ej_nvram_get_x(int eid, webs_t wp, int argc, char **argv)
 	fflush(wp);
 
 	return ret;
+}
+
+/*
+ * Emit one NVRAM value as a complete JavaScript string literal. Unlike
+ * nvram_get_x(), this callback is safe inside JavaScript source, not only
+ * HTML text or a quoted HTML attribute.
+ */
+static int
+ej_nvram_get_js(int eid, webs_t wp, int argc, char **argv)
+{
+	char *sid, *name;
+
+	if (ejArgs(argc, argv, "%s %s", &sid, &name) < 2) {
+		websError(wp, 400, "Insufficient args\n");
+		return -1;
+	}
+
+	write_js_string(wp, nvram_safe_get(name));
+	fflush(wp);
+	return 0;
 }
 
 static int
@@ -5211,6 +5232,7 @@ ej_available_disk_names_and_sizes(int eid, webs_t wp, int argc, char **argv)
 struct ej_handler ej_handlers[] =
 {
 	{ "nvram_get_x", ej_nvram_get_x},
+	{ "nvram_get_js", ej_nvram_get_js},
 	{ "nvram_get_list_x", ej_nvram_get_list_x},
 	{ "nvram_get_buf_x", ej_nvram_get_buf_x},
 	{ "nvram_get_table_x", ej_nvram_get_table_x},
