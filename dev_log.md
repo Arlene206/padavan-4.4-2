@@ -1,5 +1,20 @@
 ## 2026-11-24 — Align PID metadata source contracts and XY-C1 header triggers
 
+<!-- 2026-11-23 RAETH DEV LOG -->
+## 2026-11-23 — RAETH lifecycle and allocation hardening
+
+Baseline before this documentation commit: `f7bd670c88520298c8c4628b1ff06e0c95251f12`. Backup `backup/pre-plugin-overhaul-2026-11-14` remains frozen at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+
+Implemented small, separately committed source slices covering PDMA/QDMA RX and TX allocation rollback, RSS/HW-LRO descriptor ring teardown, QDMA FQ/SFQ lifetime, staged DMA initialization rollback, IRQ request tracking and unwind, switch IRQ-source shutdown, open/close worker sequencing, pseudo-netdev registration failure handling, primary netdev `ndo_uninit`/NAPI teardown, MT7621 GP0 clock-enable failure propagation, and removal of cancellation of an uninitialized `reset_task`. Added/expanded `scripts/check_raeth_rx_ring_cleanup.py` and related static assertions.
+
+Exact-SHA Actions for `f7bd670c88520298c8c4628b1ff06e0c95251f12`:
+- XY-C1 Firmware Validation: in_progress (run 45323341920)
+- Switch CLI ioctl failure-status regression: completed / success (run 45323341869)
+- NVRAM transaction boundary audit: in_progress (run 45323341860)
+
+No local MIPS firmware compile is claimed. Next: audit `fe_sw_init()` resource/reference unwind and verify XY-C1 firmware Actions against the latest source SHA.
+
+
 - Process lifecycle run #45322826402 on `fdc7ac1` passed the strict-GNU89 compile stage but failed later in `check_process_lifecycle_integration.py`: the checker still required inline `S_ISREG(st.st_mode)` even though production now calls `shutils_pidfile_metadata_is_safe(&st, geteuid())`. Replaced the stale assertion with checks for the helper and the complete owner, file-type, link-count and mode policy.
 - Made `shutils_pidfile_policy.h` self-contained with `<sys/stat.h>` and added the include contract to the legacy wrapper checker.
 - Found that XY-C1 firmware push paths included `shutils.c` but not its newly included policy header. Added the header path and a source-contract assertion to prevent future silent skips of header-only target changes.

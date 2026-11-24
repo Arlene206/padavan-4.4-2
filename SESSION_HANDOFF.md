@@ -1,5 +1,34 @@
 ## 2026-11-24 持续开发接力（最新）
 
+<!-- 2026-11-23 RAETH CONTINUATION SNAPSHOT -->
+## 2026-11-23 — RAETH continuation snapshot
+
+This snapshot was written against `main` **f7bd670c88520298c8c4628b1ff06e0c95251f12** (the handoff-only commit that follows this snapshot will become the new main HEAD). Frozen backup branch remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify or force-push it.
+
+Recent implementation commits:
+- `f7bd670c88520298c8c4628b1ff06e0c95251f12` — fix(raeth): tolerate unavailable pseudo interface on close
+- `776c84b04a194d0260830eb14f8732df864ee7c3` — test(raeth): distinguish legacy reset task from kthread
+- `2652b1bb7b775db37bfc89e8e44eab514ca1ca80` — fix(raeth): remove cancellation of uninitialized reset work
+- `dd5e71103ee4ea1e2b312d358f253f662c0ddc0f` — fix(raeth): propagate MT7621 switch clock enable failures
+- `7627383723a2c33bc6ff7456384ec248db3236fa` — fix(raeth): stop background workers before hardware reset
+- `69c15a20e8ce91bf8c31e3ac600547421ba3bfd1` — fix(raeth): tear down MT7622 switch on open failures
+- `f686f62b3200f17b19d8aeaceb3af4a85a08d967` — test(raeth): correct pseudo registration assertion
+- `2563943c3c51f8bf72459b8d71b38d4a6f7254a5` — fix(raeth): remove NAPI registrations during netdev uninit
+- `254514be6a9d25512ac40a7c206b4356558ccf2f` — fix(raeth): respect netdev uninit lifecycle and pseudo registration
+- `e22aea0d3000117892d82992a9d88b96fe179599` — docs: fit handoff roadmap within validator limit
+
+Exact-SHA Actions observed for baseline `f7bd670c88520298c8c4628b1ff06e0c95251f12`:
+- XY-C1 Firmware Validation: in_progress (run 45323341920)
+- Switch CLI ioctl failure-status regression: completed / success (run 45323341869)
+- NVRAM transaction boundary audit: in_progress (run 45323341860)
+
+The implementation slice addressed PDMA/QDMA RX partial allocation rollback and DMA unmapping, QDMA TX/FQ/SFQ staged allocation cleanup, RSS and hardware-LRO ring rollback/teardown, multi-stage DMA init unwind, IRQ request tracking/partial unwind (including disabling the GSW source before releasing its handler), open/close worker ordering and error cleanup, pseudo-netdev registration/uninit/NAPI lifecycle, MT7621 GP0 clock-enable error propagation, and removal of cancellation of the never-initialized `reset_task` work item. Regression source checks are in `scripts/check_raeth_rx_ring_cleanup.py`, wired into the Switch CLI stability workflow; relevant RAETH source paths are also used by firmware validation triggers.
+
+Verification boundary: no local MIPS firmware build was run from this chat. Treat Actions as authoritative only for the exact SHA shown above; do not infer PASS for later documentation or source commits.
+
+**First task for the next session:** fetch the new main HEAD and inspect its exact-SHA Actions, then continue a focused resource-lifecycle audit of `ra_switch.c::fe_sw_init()` / `fe_sw_deinit()` (platform-device references, regulator enable/disable pairing, clock state and ioremap unwind). After that, run/confirm the XY-C1 firmware build on the final source SHA. Do not repeat the completed DMA/IRQ/NAPI audits unless a new regression is found.
+
+
 - 当前 main 接力基线：`776c84b04a194d0260830eb14f8732df864ee7c3`；归档备份 `backup/pre-plugin-overhaul-2026-11-14` 保持只读（`72f4f157a084f8184b9597ca5bf334b8080e5807`）。
 - LAN DHCP `lan_dns_x` 严格解析修复 `17441ec` 的 WAN DHCP callback #45321875664 PASS、AI docs #45321875753 PASS；HTTPD、Firewall、process inventory、NVRAM、WAN route/signal regressions 在该 SHA 均 PASS。
 - RAETH 最近连续修复包括 MT7621 GP0 clock enable error propagation、MT7622 open-failure switch teardown、先停止 kreset/kphy workers 再 reset、删除未初始化/从未 queue 的 `reset_task` work item。`7627383` Switch CLI #45322123792 PASS；后续 checker 更新需按新 SHA 单独核验。

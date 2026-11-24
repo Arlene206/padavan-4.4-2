@@ -377,3 +377,22 @@ Firmware/device verification is separate; do not mark XY-C1 or hardware as passe
 
 The following source slices have been implemented on `main`: checked modem-WAN reconnect delivery/retry (`e01860c`), checked WAN ARP egress-interface identity (`1cb8179`), idempotent U2EC/LPRng startup (`e6dc19c`), bounded printer-start rollback (`0b6226d`), per-device p910nd port/process identity (`9e03bac`), and port-scoped p910nd rollback (`e6a6a38`). The earlier `ecff475` XY-C1 build/TRX/artifact PASS predates the final printer rollback and p910nd updates; it is not current-head firmware evidence. Exact-current-SHA Actions (USB, Process, Storage, XY-C1) are the next verification gate. Hardware multi-printer behavior remains unverified.
 
+
+## 2026-11-23 — RAETH lifecycle slice
+
+Completed in this continuation:
+- [x] PDMA/QDMA RX partial-allocation rollback, successful DMA-map accounting, and normal teardown unmapping.
+- [x] RSS 4-ring/2-ring and hardware-LRO secondary RX ring rollback and DMA teardown.
+- [x] QDMA TX/FQ/SFQ staged-allocation cleanup and safe pointer clearing.
+- [x] Multi-stage PDMA/QDMA init failure unwinding.
+- [x] IRQ request bitmap, partial IRQ unwind, GSW source disable before free, and error propagation.
+- [x] RAETH open/close worker and module-reference failure cleanup; safe pseudo-netdev registration/uninit and NAPI removal.
+- [x] MT7621 GP0 clock-enable failure propagation and removal of the never-initialized `reset_task` cancellation.
+- [x] Regression assertions integrated into the Switch CLI stability workflow.
+
+Verification snapshot: baseline source SHA `f7bd670c88520298c8c4628b1ff06e0c95251f12`; exact-SHA workflow state is recorded in `SESSION_HANDOFF.md` and `dev_log.md`. No local MIPS build is claimed.
+
+Next active item:
+- [ ] Audit `ra_switch.c::fe_sw_init()` / `fe_sw_deinit()` for platform-device reference balancing, regulator/clock state pairing, and every partial-failure unwind.
+- [ ] Confirm the XY-C1 firmware build and artifacts for the latest source SHA after the audit commits.
+
