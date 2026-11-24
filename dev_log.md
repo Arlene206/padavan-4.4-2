@@ -1,3 +1,11 @@
+## 2026-11-24 14:38 UTC+8 — Correct FRP fake process-exit fixtures
+
+- Exact FRP run #45341083663 on `fa3dd0012cea550b339d01df4ff6ec97d0fdc00a` failed at `client missing`: the fake `kill()` callback removed only `/proc/PID/cmdline`, leaving the PID directory and `/proc/PID/exe` link behind. The production scanner correctly interpreted that as an extant process with incomplete identity (UNKNOWN), so the stop path refused to claim a successful replacement.
+- Corrected both FRP lifecycle/stop test helpers to remove the complete synthetic PID directory when a process terminates. Tests that intentionally model post-TERM metadata loss continue to remove only `cmdline`, preserving `exe` and the directory; this keeps the fail-closed regression intact.
+- No production FRP shell code was changed. Exact FRP, Process inventory and AI handoff checks are required on the follow-up main SHA; predecessor FRP failed, while Process #45341083645 and AI docs #45341083665 passed.
+- Parent main: `56931489867a3772ef4b8f45a8559705ebd0fbbc`.
+
+---
 ## 2026-11-23 — Exact-head FRP tri-state Actions checkpoint
 
 - Commit: `fa3dd0012cea550b339d01df4ff6ec97d0fdc00a`.

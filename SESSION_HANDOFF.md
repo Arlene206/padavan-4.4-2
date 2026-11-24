@@ -1,44 +1,36 @@
 ## Current repository state
 
-- FRP tri-state source/test commit on main: `fa3dd0012cea550b339d01df4ff6ec97d0fdc00a`; exact-head Actions: FRP asynchronous startup lifecycle regression #45341083663 completed/failure; AI handoff documentation contract #45341083665 completed/success; Process lifecycle inventory - fa3dd0012cea550b339d01df4ff6ec97d0fdc00a #45341083645 completed/success.
-- Adbyby executable/start_time hardening: exact host #45339125309 and Process fail-closed #45339125213 PASS on `17d08de1ed22fe2ff102992d28c974b42b77de3a`.
-- AdGuardHome executable/config/workdir argv + start_time identity: config-security #45339988745, Process inventory #45339988758 and AI docs #45339988750 PASS on `cbbb27636807b7f195d7d87ccefb476366a07995`.
-- Latest main before this slice `8584845fa7ce78b928bfb6e47c5cf8eb8223982f`: HTTPD security #45340186122 and AI handoff #45340186109 PASS.
-- This FRP slice fixes loss of UNKNOWN process state and prevents TERM→KILL escalation when procfs metadata or the wait primitive fails.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- All writes remain main-only, complete-tree, single-commit, expected-SHA non-forced updates; no force-push.
+- Live parent `main`: `56931489867a3772ef4b8f45a8559705ebd0fbbc`; this commit is a focused FRP host-test fixture correction. The exact source SHA is rechecked before ref update.
+- FRP process-inventory hardening is in `fa3dd0012cea550b339d01df4ff6ec97d0fdc00a`: incomplete procfs metadata is UNKNOWN; a failed wait does not justify SIGKILL escalation.
+- FRP run #45341083663 failed at `client missing` because the fake process-exit helper deleted only `cmdline`, leaving the synthetic PID directory and executable symlink present. The scanner correctly failed closed on this impossible-to-call-terminated state. This follow-up removes the whole synthetic PID directory for actual TERM/KILL exits; dedicated UNKNOWN tests still remove only `cmdline` and retain the executable link.
+- Process inventory #45341083645 and AI handoff #45341083665 PASS on `fa3dd0012cea550b339d01df4ff6ec97d0fdc00a`; FRP lifecycle on that SHA FAILED. Exact reruns are required on this commit.
+- HTTPD security #45340186122 and AI handoff #45340186109 PASS on `8584845fa7ce78b928bfb6e47c5cf8eb8223982f`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Active task
 
-Implement and verify FRP tri-state process inventory and safe escalation:
-- `frp_process_matches()`: 0 for exact owned executable+argv; 1 only for vanished/unowned; 2 when an extant matching executable has unreadable/incomplete cmdline or procfs identity cannot be inspected.
-- `frp_service_pids()`, `frp_service_running()` and `frp_any_running()` propagate UNKNOWN rather than converting command-substitution failures to ABSENT.
-- `frp_wait_stopped()`: 0 confirmed stopped, 1 verified still-running timeout, 2 UNKNOWN or failed sleep.
-- `frp_stop_daemons()` permits SIGKILL only after the five-probe TERM wait returns verified-timeout status 1.
-- New tests cover bad proc root, missing cmdline, post-TERM metadata loss and sleep failure.
-- Exact-head FRP lifecycle, Process inventory/fail-closed and AI handoff Actions are required after publication.
+FRP test fixture correction only:
+- The production `frp_process_matches()` returns UNKNOWN when `/proc/PID` and its executable link still exist but `cmdline` is missing. This is deliberate fail-closed behavior.
+- The old fake `remove_process()` represented a terminated process by unlinking only `cmdline`; this instead models metadata loss while a process remains visible.
+- Both `frp_lifecycle.sh` and `frp_stop.sh` now remove the complete synthetic PID directory for actual process exit. The dedicated `TERM_MAKES_CMDLINE_UNKNOWN` and explicit missing-cmdline cases still preserve the executable link and directory, exercising UNKNOWN handling.
 
 ## Completed development slices
 
-- Adbyby executable/start_time identity: host #45339125309 and Process fail-closed #45339125213 PASS on `17d08de1`.
-- AdGuardHome executable/config/workdir argv + start_time identity: config-security #45339988745, Process #45339988758 and AI docs #45339988750 PASS on `cbbb2763`.
-- SmartDNS stop independent of config NVRAM reads: DNSMasq #45336719172, Process #45336719252, AI docs #45336719249 and USB #45336719220 PASS on `2294ae89`; its XY-C1 build was not confirmed completed at last poll.
-- HTTPD security + AI handoff on the immediate parent main: #45340186122 and #45340186109 PASS.
-- Router hostname/domain callback fixes on predecessor: WAN DHCP #45339568432, WAN route #45339568336 and DNSMasq #45339568424 PASS on `a26746d`.
+- FRP process inventory and stop escalation (`fa3dd001`): preserve RUNNING/ABSENT/UNKNOWN, propagate scan failures, and allow SIGKILL only after verified TERM timeout. Source/test checker and Process inventory regression are in place; exact FRP rerun was initially blocked by the inaccurate fake exit fixture.
+- Inadyn process identity extension remains the next independent security task: existing stop/reload/manual-update identity validation is comm/argv/start-time bound but not bound to `/proc/PID/exe`; the installed binary is `/bin/inadyn`. No changes have been committed for it yet.
+- Router hostname/domain callback failure propagation (`a26746d`) and HTTPD contract correction (`8584845`) remain completed predecessor slices with the exact action statuses recorded in `dev_log.md`.
 
 ## Verification boundary
 
-- Exact FRP commit `fa3dd0012cea550b339d01df4ff6ec97d0fdc00a`: FRP asynchronous startup lifecycle regression #45341083663 completed/failure; AI handoff documentation contract #45341083665 completed/success; Process lifecycle inventory - fa3dd0012cea550b339d01df4ff6ec97d0fdc00a #45341083645 completed/success; do not mark the slice complete until FRP lifecycle, Process inventory and AI handoff checks are all PASS.
-- This FRP source/test/checker change is pending publication and exact-head Actions; no FRP/Process/AI result is claimed for it yet.
-- No MIPS/uClibc firmware build, TRX artifact or physical-router L4 result is claimed for this shell-only slice.
-- Linux 4.4 lacks pidfd; process identity checks reduce risk but cannot eliminate the final procfs-check-to-kill(2) race.
-
+- Predecessor `fa3dd0012cea550b339d01df4ff6ec97d0fdc00a`: FRP async startup regression #45341083663 FAILED at `client missing` due only to the test helper leaving an extant synthetic PID with missing cmdline; Process lifecycle inventory #45341083645 PASS; AI docs #45341083665 PASS.
+- This follow-up test-only correction is pending exact-SHA FRP workflow rerun and AI handoff docs. No MIPS firmware, TRX artifact or hardware L4 result is claimed.
+- The UNKNOWN metadata fixtures are intentionally retained: tests explicitly remove only `cmdline` while preserving `/proc/PID/exe` to prove a live but uninspectable process blocks unsafe escalation.
 
 ## Exact first action for the next GPT
-1. Inspect exact-head commit `fa3dd0012cea550b339d01df4ff6ec97d0fdc00a` Actions; first fix any failed FRP lifecycle, Process or AI handoff job.
 
-2. If these checks pass or remain pending, continue an independent P1 stability/security fix outside completed SmartDNS, Adbyby, AdGuardHome and RAETH areas.
-3. Keep the frozen backup immutable; all main changes remain complete-tree atomic commits with expected-SHA non-forced ref updates.
+1. Inspect exact-SHA FRP async lifecycle, FRP stop, Process inventory and AI handoff Actions for this commit; fix any failure.
+2. If FRP/Process checks pass or remain pending, continue the Inadyn executable-bound stop/reload/manual-update fix and add GNU89 sanitizer regressions.
+3. Keep the frozen backup immutable; main writes remain complete-tree atomic commits with expected-SHA non-forced updates.
 
 # Cross-session execution mandate
 

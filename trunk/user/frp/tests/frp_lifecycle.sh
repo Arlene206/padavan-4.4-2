@@ -44,7 +44,9 @@ add_process()
 }
 remove_process()
 {
-	rm -f "$FRP_PROC_ROOT/$1/cmdline"
+	# A terminated PID disappears from procfs; retain cmdline-only removal
+	# explicitly in tests that model an extant process with UNKNOWN metadata.
+	rm -rf "$FRP_PROC_ROOT/$1"
 }
 clear_processes()
 {
