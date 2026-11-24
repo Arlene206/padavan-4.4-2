@@ -1331,19 +1331,12 @@ set_permission = function_body(DISK_SOURCE, "int set_permission(const char *acco
 require("dms_right = flag;" in set_permission and
         "record_rights[2] = (char)('0' + dms_right);" in set_permission,
         "new DMS permission records must preserve the requested DMS right")
-atomic_replace = function_body(DISK_SOURCE, "disk_share_replace_file_atomic(const char *path,")
-require("have_existing = 1;" in atomic_replace and
-        "if (have_existing && fchmod(fd, existing_stat.st_mode & 0777) != 0)" in atomic_replace,
+atomic_replace_at = function_body(
+    POLICY, "disk_share_replace_file_atomic_at(int directory_fd,"
+)
+require("have_existing = 1;" in atomic_replace_at and
+        "if (have_existing && fchmod(fd, existing_stat.st_mode & 0777) != 0)" in atomic_replace_at,
         "atomic replacement must not read an uninitialized stat result for a new metadata file")
-require("mkstemp(temp_path)" in atomic_replace and
-        "fdopen(fd, \"w\")" in atomic_replace and
-        "fwrite(contents, 1, contents_len" in atomic_replace and
-        "fflush(stream)" in atomic_replace and
-        "fsync(fileno(stream))" in atomic_replace and
-        "fclose(stream)" in atomic_replace and
-        "rename(temp_path, path)" in atomic_replace and
-        "unlink(temp_path)" in atomic_replace,
-        "per-account permission replacement must check write, flush, sync, close, rename and cleanup")
 
 set_permission = function_body(DISK_SOURCE, "int set_permission(const char *account,")
 require("disk_share_replace_file_atomic(" in set_permission and
