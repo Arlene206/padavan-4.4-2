@@ -1,3 +1,11 @@
+## 2026-11-24 — Close the rename-destination quarantine alias gap
+
+- Exact SHA `77e281ea0d165520fd5782e04550fcfd7a7293dd` VSFTPD #45486387054 compiled and ran the existing C policies. The new symlink-alias regression first passed the write-parent fence, then exposed that `ftp_acl_path_resolve_rename_entry()` still returned success because the canonical-parent check had not landed in that function.
+- Added the missing `ftp_acl_path_is_internal_metadata(resolved_parent)` check in the rename resolver itself, returning EACCES before any caller can open or rename through a symlinked quarantine parent. The regression already asserts this exact behavior.
+- VSFTPD #45486387054 therefore remains FAIL; AI handoff #45486386998 PASS. Exact-head VSFTPD rerun and same-SHA XY-C1 Build/TRX/artifact validation remain pending. No L3/hardware claim.
+ 
+---
+
 ## 2026-11-24 — Block symlink aliases into the VSFTPD cleanup quarantine
 
 - Security review found a canonicalization bypass in the new hidden quarantine: lexical checks blocked direct `.__vsftpd_cleanup_*` paths, but a symlinked parent with a missing final leaf passed through `ftp_acl_path_resolve_parent()` without rechecking the canonical parent. New-file uploads and rename destinations could therefore resolve into the internal quarantine through an alias.

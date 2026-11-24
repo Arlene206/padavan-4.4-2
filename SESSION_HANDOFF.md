@@ -33,11 +33,12 @@ THIS follow-up removes duplicate `static int` declarations accidentally left by 
 - Parent a35ae98: AI handoff #45484687791 PASS. Process lifecycle inventory #45484687868, XY-C1 #45484687835, NVRAM #45484687920, DNSMasq #45484687914, button timing #45484687913, crond #45484687872, combined Process inventory/lifecycle #45484688144 and link detection #45484687806 were pending at last poll.
 - Earlier f5b01d9 storage-hotplug #45484032665 and XY-C1 #45484032783 PASS for f5b01d9 only. They do not verify current VSFTPD source.
 - Exact checker SHA `ebb67734c1eae61e1835806eea689187801c1a2d`: VSFTPD #45485681381 PASS (GNU89 binaries and embedded source contracts); AI handoff #45485681367 PASS. Exact product SHA `4ee6d7bc1b55c81bab7022e160397c7f7da297d6`: Process inventory #45485311380 and NVRAM #45485311362 PASS; XY-C1 #45485311337 was still running at last poll. The `ebb` change only normalized workflow whitespace and documentation; no firmware inputs changed from `4ee`.
+- Exact source SHA `77e281ea0d165520fd5782e04550fcfd7a7293dd`, VSFTPD #45486387054 compiled all C policy binaries but the new regression caught a remaining rename-destination gap: write-parent was denied correctly, but `ftp_acl_path_resolve_rename_entry()` still returned success through the symlink alias. The missing canonical-parent check is now added specifically inside the rename resolver; fresh exact-head tests are required.
 - New canonical-parent symlink-alias regression is not yet tested. It requires exact-head VSFTPD GNU89 regression/source contract PASS and same-SHA XY-C1 Build, TRX and artifact upload; no L3 or hardware L4 claim is made.
 - No local host compile, MIPS build or physical-router test was performed. Hardware L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head VSFTPD Actions for the new canonical-parent symlink-alias regression. Require GNU89 `-Wall -Wextra -Werror` ACL regression and every embedded Python contract PASS; fix the first causal failure without weakening the quarantine guarantee.
+1. Inspect exact-head VSFTPD Actions after the rename-resolver canonical-parent correction. Require GNU89 `-Wall -Wextra -Werror` ACL regression and every embedded Python contract PASS; fix the first causal failure without weakening the quarantine guarantee.
 2. Inspect same-SHA XY-C1 Build, TRX verification and artifact upload separately. All three must pass before claiming L3.
 3. Recheck parent a35ae98 process-inventory, NVRAM, DNSMasq, button, crond and link-detection runs by exact SHA; then continue with the next high-risk userland item. Keep backup immutable and main updates expected-SHA/non-force only.

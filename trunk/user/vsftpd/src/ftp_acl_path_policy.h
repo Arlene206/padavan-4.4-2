@@ -380,6 +380,10 @@ ftp_acl_path_resolve_rename_entry(const char *path, char *resolved_parent,
   }
   if (realpath(parent, resolved_parent) == NULL)
     return -1;
+  if (ftp_acl_path_is_internal_metadata(resolved_parent)) {
+    errno = EACCES;
+    return -1;
+  }
   return 0;
 }
 
