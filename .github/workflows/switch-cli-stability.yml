@@ -315,6 +315,9 @@ jobs:
           source = Path(
               "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether.c"
           ).read_text()
+          manager = Path(
+              "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mii_mgr.c"
+          ).read_text()
 
           def case_body(start, end):
               start_at = source.index(start)
@@ -335,7 +338,19 @@ jobs:
               transaction = body.index(operation, reject)
               assert validate < reject < transaction, name
           assert source.count("raeth_mdio_cl45_address_status(") == 2
-          print("Clause 45 user addresses are validated before MDIO transactions: PASS")
+
+          setup = manager.split("u32 mii_mgr_cl45_set_address(", 1)[1].split(
+              "u32 mii_mgr_read_cl45(", 1
+          )[0]
+          guard = setup.index(
+              "if (raeth_mdio_cl45_address_status(port_num, dev_addr, reg_addr) != 0)"
+          )
+          reject = setup.index("return rc;", guard)
+          enable = setup.index("enable_mdio(1);", guard)
+          command_write = setup.index("sys_reg_write(MDIO_PHY_CONTROL_0", enable)
+          assert guard < reject < enable < command_write
+          assert setup.count("raeth_mdio_cl45_address_status(") == 1
+          print("Clause 45 user and shared MDIO entry points validate addresses before transactions: PASS")
           PY
 
       - name: Compile and verify RAETH ESW raw register offset alignment

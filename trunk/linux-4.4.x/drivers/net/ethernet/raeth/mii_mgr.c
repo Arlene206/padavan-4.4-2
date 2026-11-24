@@ -249,9 +249,14 @@ EXPORT_SYMBOL(mii_mgr_write);
 u32 mii_mgr_cl45_set_address(u32 port_num, u32 dev_addr, u32 reg_addr)
 {
 	u32 rc = 0;
-	u64 t_start_ns = ktime_get_ns();
+	u64 t_start_ns;
 	u32 data = 0;
 
+	/* Validate even internal callers before composing the MDIO command word. */
+	if (raeth_mdio_cl45_address_status(port_num, dev_addr, reg_addr) != 0)
+		return rc;
+
+	t_start_ns = ktime_get_ns();
 	enable_mdio(1);
 
 	while (1) {
