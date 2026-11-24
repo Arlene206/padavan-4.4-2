@@ -208,21 +208,14 @@ require("disk_share_list_write_snapshot" in POLICY and
 initial_writer = function_body(
     DISK_SOURCE, "int initial_folder_list_in_mount_path(const char *const mount_path)"
 )
-mkstemp = initial_writer.index("fd = mkstemp(temp_file)")
-snapshot_write = initial_writer.index(
-    "disk_share_list_write_snapshot(fp, sh_num, folder_list)", mkstemp
-)
-sync_file = initial_writer.index("fsync(fileno(fp))", snapshot_write)
-close_file = initial_writer.index("if (fclose(fp) != 0)", sync_file)
-publish_file = initial_writer.index("rename(temp_file, list_file)", close_file)
-require(mkstemp < snapshot_write < sync_file < close_file < publish_file,
-        "folder-list metadata must be flushed and closed before atomic publish")
-require('fopen(list_file, "w")' not in initial_writer,
-        "folder-list refresh must not truncate the last complete snapshot")
-write_failure = initial_writer[initial_writer.index("failed:"):]
-require("unlink(temp_file)" in write_failure and
-        "errno = saved_errno;" in write_failure,
-        "failed snapshot writes must remove the temporary file and preserve errno")
+initial_writer_compact = "".join(initial_writer.split())
+require("disk_share_write_stream_atomic(list_file,disk_share_write_snapshot_stream,&writer_context,0)" in
+        initial_writer_compact and
+        "mkstemp(" not in initial_writer_compact and
+        "rename(" not in initial_writer_compact and
+        'fopen(list_file,"w")' not in initial_writer_compact and
+        "errno=saved_errno;" in initial_writer_compact,
+        "folder-list snapshots must use the pinned-directory atomic stream publisher and preserve the last complete cache on failure")
 
 
 metadata_begin_body = function_body(
@@ -259,22 +252,14 @@ account_writer = function_body(
     DISK_SOURCE,
     "static int initial_one_var_file_in_mount_path_locked(const char *const account,"
 )
-account_mkstemp = account_writer.index("fd = mkstemp(temp_file)")
-account_content = account_writer.index(
-    "disk_share_write_account_defaults(fp, sh_num, folder_list",
-    account_mkstemp
-)
-account_sync = account_writer.index("fsync(fileno(fp))", account_content)
-account_close = account_writer.index("if (fclose(fp) != 0)", account_sync)
-account_publish = account_writer.index("rename(temp_file, var_file)", account_close)
-require(account_mkstemp < account_content < account_sync < account_close < account_publish,
-        "account defaults must be fully written and closed before atomic publish")
-account_failure = account_writer[account_writer.index("failed:"):]
-require("unlink(temp_file)" in account_failure and
-        "errno = saved_errno;" in account_failure,
-        "failed account defaults writes must discard the temporary file")
-require('fopen(var_file, "w")' not in account_writer,
-        "account defaults must not truncate the last complete permission file")
+account_writer_compact = "".join(account_writer.split())
+require("disk_share_write_stream_atomic(var_file,disk_share_write_defaults_stream,&writer_context,0)" in
+        account_writer_compact and
+        "disk_share_write_account_defaults" in POLICY and
+        "mkstemp(" not in account_writer_compact and
+        "rename(" not in account_writer_compact and
+        'fopen(var_file,"w")' not in account_writer_compact,
+        "account defaults must use the pinned-directory publisher and never truncate the last complete permission file")
 
 
 atomic_replace = function_body(
@@ -285,6 +270,10 @@ atomic_replace_at = function_body(
     POLICY, "disk_share_replace_file_atomic_at(int directory_fd,"
 )
 atomic_replace_at_compact = "".join(atomic_replace_at.split())
+atomic_stream = function_body(
+    POLICY, "disk_share_write_stream_atomic_at(int directory_fd,"
+)
+atomic_stream_compact = "".join(atomic_stream.split())
 parent_opener = function_body(
     DISK_IO_SOURCE, "disk_io_open_parent_nofollow(const char *target,"
 )
@@ -300,41 +289,39 @@ require("disk_io_open_parent_nofollow(path,&leaf)" in atomic_replace_compact and
         "mkstemp(" not in atomic_replace_compact and
         "rename(" not in atomic_replace_compact,
         "metadata publication must remain relative to the pinned parent directory")
-require("fstatat(directory_fd,leaf,&existing_stat,AT_SYMLINK_NOFOLLOW)" in atomic_replace_at_compact and
-        "openat(directory_fd,temp_leaf,O_WRONLY|O_CREAT|O_EXCL|O_NOFOLLOW|O_CLOEXEC,0600)" in atomic_replace_at_compact and
-        "renameat(directory_fd,temp_leaf,directory_fd,leaf)" in atomic_replace_at_compact and
-        "unlinkat(directory_fd,temp_leaf,0)" in atomic_replace_at_compact and
+require("disk_share_write_stream_atomic_at(directory_fd,leaf,disk_share_write_atomic_buffer,&context,1)" in
+        atomic_replace_at_compact and
+        "fstatat(directory_fd,leaf,&existing_stat,AT_SYMLINK_NOFOLLOW)" in atomic_stream_compact and
+        "openat(directory_fd,temp_leaf,O_WRONLY|O_CREAT|O_EXCL|O_NOFOLLOW|O_CLOEXEC,0600)" in atomic_stream_compact and
+        "renameat(directory_fd,temp_leaf,directory_fd,leaf)" in atomic_stream_compact and
+        "unlinkat(directory_fd,temp_leaf,0)" in atomic_stream_compact and
+        "fflush(stream)" in atomic_stream_compact and
+        "fsync(fileno(stream))" in atomic_stream_compact and
+        "fclose(stream)" in atomic_stream_compact and
         "test_atomic_metadata_replace_stays_in_pinned_directory();" in POLICY_TEST,
-        "atomic ACL metadata replacement must reject symlink targets and create/publish/clean temporary files through one dirfd")
+        "atomic ACL metadata replacement must use the checked stream publisher through one pinned dirfd")
 
 
 modify_writer = function_body(
     DISK_SOURCE,
     "static int modify_if_exist_new_folder_locked(const char *const account,"
 )
-compact_modify = " ".join(modify_writer.split())
+compact_modify = "".join(modify_writer.split())
 folder_lookup = compact_modify.index(
-    "test_if_exist_folder_in_mount_path(mount_path, folder_list[i])"
+    "test_if_exist_folder_in_mount_path(mount_path,folder_list[i])"
 )
-lookup_error = compact_modify.index("if (result < 0)", folder_lookup)
-lookup_missing = compact_modify.index("if (result == 0)", lookup_error)
-modify_mkstemp = compact_modify.index("fd = mkstemp(temp_file)", lookup_missing)
-modify_copy = compact_modify.index("fwrite(old_info, 1, old_len, fp)", modify_mkstemp)
-modify_write = compact_modify.index(
-    "disk_share_write_account_defaults(fp, missing_count", modify_copy
+lookup_error = compact_modify.index("if(result<0)", folder_lookup)
+lookup_missing = compact_modify.index("if(result==0)", lookup_error)
+modify_read = compact_modify.index("read_regular_file_nofollow(var_file)", lookup_missing)
+modify_publish = compact_modify.index(
+    "disk_share_write_stream_atomic(var_file,disk_share_write_update_stream,&writer_context,0)",
+    modify_read
 )
-modify_sync = compact_modify.index("fsync(fileno(fp))", modify_write)
-modify_close = compact_modify.index("if (fclose(fp) != 0)", modify_sync)
-modify_rename = compact_modify.index("rename(temp_file, var_file)", modify_close)
-require(folder_lookup < lookup_error < lookup_missing < modify_mkstemp <
-        modify_copy < modify_write < modify_sync < modify_close < modify_rename,
-        "new-folder permission updates must fail closed and atomically publish")
-modify_failure = compact_modify[compact_modify.index("failed:"):]
-require("unlink(temp_file)" in modify_failure and
-        "errno = saved_errno;" in modify_failure,
-        "failed new-folder updates must discard the temporary file")
-require('fopen(var_file, "a+")' not in modify_writer,
-        "new-folder updates must not append unchecked partial rows")
+require(folder_lookup < lookup_error < lookup_missing < modify_read < modify_publish and
+        "mkstemp(" not in compact_modify and
+        "rename(" not in compact_modify and
+        'fopen(var_file,"a+")' not in compact_modify,
+        "new-folder ACL extension must read through no-follow helpers and publish through the pinned-directory stream writer")
 
 
 stale_pruner = function_body(
