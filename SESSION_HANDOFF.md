@@ -10,7 +10,8 @@
 
 ## Active task
 
-An additional output-context defect was found in AiDisk. All 48 action-error responses formatted dictionary messages directly into JavaScript calls; they are being routed through the shared JSON encoder, with a regression requiring every dictionary message to use the safe helper. The WOL DOM text-sink fix and checker from parent a5794a0 are pending exact-SHA verification.
+The AiDisk error-message encoder source change is committed, but its first exact-SHA HTTPD run exposed a false-negative in the new checker: Python assertions interpreted C string `\\n` as literal newlines. Fix the checker with raw-string expectations and verify the exact child SHA. Then continue reviewing AiDisk's remaining dynamic JavaScript output paths.
+
 ## Completed development slices
 
 ### HTTPD / web UI security
@@ -33,18 +34,19 @@ Independent snapshot/lifecycle changes remain in `99ad9397e3cf4450c6fc07758b58c3
 
 ## Verification boundary
 
-- Exact fbbedd7 HTTPD #45301473424 and AI handoff #45301473510: PASS, including the corrected WOL JSON source-boundary checker.
-- Exact a5794a0 WOL UI DOM XSS change: HTTPD #45301947513, AI handoff #45301947575, Process lifecycle inventory #45301947519 and XY-C1 #45301947500 were IN_PROGRESS at checkpoint; no result claimed.
-- Exact 89128ba HTTPD #45300665513 and all associated AI/process/NVRAM/FRP/Inadyn/AdGuardHome/USB/AliyunDrive regression jobs: PASS. Its XY-C1 #45300665497 detector PASS; Build IN_PROGRESS; TRX/artifact PENDING at last check.
-- Exact dd099f6 HTTPD #45300345684 failed due to an over-broad source-contract assertion; c6f5805 corrected it, and HTTPD #45300471389 and AI #45300471279 passed.
-- Exact 08c6d43 HTTPD #45299995452 and its AI/process/security side regression jobs passed. Exact 5c8c62f XY-C1 #45298161504 and 861e3fe XY-C1 #45298770098 passed Build, TRX and artifact upload.
-- No physical-router L4 result is claimed. Backup backup/pre-plugin-overhaul-2026-11-14 remains read-only at 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- Exact `eae527b` HTTPD Authentication/Security Regression `#45302091248`: **FAIL** only at the new AiDisk source-contract helper assertions; the prior HTML/JSON sanitizer, NVRAM context check, dynamic HTTPD hook check and WOL DOM sink check all passed immediately before the AiDisk assertion ran. The error was caused by Python test strings interpreting C source's literal backslash-n sequences as actual newlines. Fix is in the following test-only commit; do not mark `eae527b` green.
+- Exact `eae527b` AI handoff `#45302091049`: **PASS**; Process lifecycle inventory `#45302091220`: **PASS**; NVRAM audit `#45302091118` still **IN_PROGRESS**; XY-C1 `#45302091120` still **IN_PROGRESS**, detector/build/TRX/artifact steps pending at last poll.
+- Exact `a5794a0` WOL DOM XSS commit: HTTPD `#45301947513`, AI `#45301947575`, Process lifecycle `#45301947519`, XY-C1 `#45301947500` were running at the last earlier poll; no completed outcome recorded.
+- Exact `fbbedd7` HTTPD `#45301473424` and AI `#45301473510`: **PASS**, including the WOL JSON encoder/source contract and previous sanitizer tests.
+- Exact `89128ba` HTTPD `#45300665513` and the associated AI/process/NVRAM/FRP/Inadyn/AdGuardHome/USB/AliyunDrive jobs: **PASS**. Its XY-C1 detector `#45300665497` **PASS**, Build **IN_PROGRESS**, TRX/artifact **PENDING** at last poll.
+- Exact `dd099f6` HTTPD `#45300345684` failed on a broad source assertion; corrected in `c6f5805`, whose HTTPD `#45300471389` and AI `#45300471279` **PASS**.
+- No physical-router L4 result is claimed. Backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Exact first action for the next GPT
 
-1. Verify exact-SHA HTTPD coverage for AiDisk: all 48 dictionary-backed error callbacks must use write_script_message(), which emits a complete JSON-encoded JavaScript string.
-2. Review remaining AiDisk JavaScript data emitters (USB enumeration, printer/manufacturer/model lists and initial disk mapping) for runtime strings still bypassing the common encoder.
-3. Check exact-head XY-C1 detector/build/TRX/artifact status without waiting; keep the backup immutable.
+1. Verify the test-only raw-string correction to the AiDisk checker on the exact new SHA; HTTPD must reach and pass `check_aidisk_script_messages()`.
+2. Review remaining AiDisk JavaScript data emitters and ensure runtime strings use `write_json_string()`; distinguish genuinely static enum labels from external/device-derived strings.
+3. Poll exact-SHA XY-C1/NVRAM/AI/Process checks without waiting; keep backup immutable.
 
 # Cross-session execution mandate
 

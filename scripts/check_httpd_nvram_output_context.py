@@ -217,9 +217,9 @@ def check_aidisk_script_messages():
     helper_start = source.index("static void\nwrite_script_message(")
     helper_end = source.index("\nstatic void\nwrite_tree_entry(", helper_start)
     helper = source[helper_start:helper_end]
-    assert 'websWrite(wp, "<script>\n%s(", callback);' in helper
+    assert r'websWrite(wp, "<script>\n%s(", callback);' in helper
     assert "write_json_string(wp, message);" in helper
-    assert 'websWrite(wp, ");\n</script>\n");' in helper
+    assert r'websWrite(wp, ");\n</script>\n");' in helper
     message_lines = [line for line in source.splitlines() if "get_alert_msg_from_dict(" in line]
     assert len(message_lines) == 48, (
         f"expected 48 AiDisk error messages, found {len(message_lines)}"

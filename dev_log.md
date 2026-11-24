@@ -1,3 +1,10 @@
+## 2026-11-23 — Fix AiDisk checker escape semantics
+
+- Exact eae527b HTTPD run #45302091248 exposed a false-negative in the new source-contract check: Python interpreted the C source's two-character backslash-n sequence as an actual newline. The preceding JSON/HTML sanitizer tests, JS NVRAM checks, dynamic hook checks and WOL DOM checks had passed.
+- Changed the two helper assertions to Python raw strings so they compare literal C `\\n` text. This is a test-only follow-up; all 48 AiDisk dictionary message callsites remain routed through write_script_message().
+- Exact eae527b AI handoff #45302091049 and Process lifecycle #45302091220 passed; NVRAM audit #45302091118 and XY-C1 #45302091120 were still running. No child-SHA result claimed.
+
+---
 ## 2026-11-23 — Fix AiDisk dynamic JavaScript error-message output
 
 - Found 48 AiDisk action-error callsites that formatted translated dictionary messages directly into JavaScript source. The legacy formats did not protect backslashes, quotes, controls, script terminators or Unicode line separators; several also emitted escaped apostrophes outside a JavaScript string literal.
