@@ -18,12 +18,24 @@ static int test_nak_only_deconfigures_an_active_lease(void)
 }
 
 
-static int test_nak_server_id_filter_rejects_missing_and_mismatched_server(void)
+static int test_nak_server_id_filter_respects_rebinding_broadcast(void)
 {
-	CHECK(!udhcpc_nak_server_id_rejected(0, 0, 0));
-	CHECK(!udhcpc_nak_server_id_rejected(0x01020304U, 1, 0x01020304U));
-	CHECK(udhcpc_nak_server_id_rejected(0x01020304U, 0, 0));
-	CHECK(udhcpc_nak_server_id_rejected(0x01020304U, 1, 0x05060708U));
+	uint32_t original_server = 0x01020304U;
+	uint32_t alternate_server = 0x05060708U;
+
+	/* Preserve address-less server compatibility before a server is known. */
+	CHECK(!udhcpc_nak_server_id_rejected(0, 0, 0, 0));
+	CHECK(!udhcpc_nak_server_id_rejected(0, 0, 1, alternate_server));
+
+	/* SELECTING/RENEWING replies stay pinned to the selected server. */
+	CHECK(!udhcpc_nak_server_id_rejected(0, original_server, 1, original_server));
+	CHECK(udhcpc_nak_server_id_rejected(0, original_server, 0, 0));
+	CHECK(udhcpc_nak_server_id_rejected(0, original_server, 1, alternate_server));
+
+	/* REBINDING broadcasts to every server: accept an alternate server's NAK. */
+	CHECK(!udhcpc_nak_server_id_rejected(1, original_server, 1, alternate_server));
+	CHECK(!udhcpc_nak_server_id_rejected(1, original_server, 1, original_server));
+	CHECK(udhcpc_nak_server_id_rejected(1, original_server, 0, 0));
 	return 0;
 }
 
@@ -199,7 +211,7 @@ static int test_already_expired_lease_is_not_resurrected(void)
 int main(void)
 {
 	if (test_nak_only_deconfigures_an_active_lease() != 0 ||
-	    test_nak_server_id_filter_rejects_missing_and_mismatched_server() != 0 ||
+	    test_nak_server_id_filter_respects_rebinding_broadcast() != 0 ||
 	    test_arp_probe_errors_do_not_publish_a_dhcp_lease() != 0 ||
 	    test_failed_deconfig_blocks_state_transition() != 0 ||
 	    test_deconfig_retry_plan_resets_state_and_timer() != 0 ||

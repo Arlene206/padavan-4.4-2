@@ -136,18 +136,25 @@ nak_branch_compact = "".join(nak_branch.split())
 policy_compact = "".join(policy.split())
 test_compact = "".join(test.split())
 nak_id_read = nak_branch_compact.index("temp=udhcp_get_option32(&packet,DHCP_SERVER_ID)")
-nak_id_check = nak_branch_compact.index("udhcpc_nak_server_id_rejected(server_addr,temp!=NULL,svid)")
+nak_id_check = nak_branch_compact.index("udhcpc_nak_server_id_rejected(state==REBINDING,server_addr,temp!=NULL,svid)")
 nak_event = nak_branch_compact.index('udhcp_run_script(&packet,"nak")')
 nak_deconfig = nak_branch_compact.index('udhcp_run_script(NULL,"deconfig")')
 nak_retry = nak_branch_compact.index("udhcpc_schedule_deconfig_retry(INIT_SELECTING", nak_deconfig)
 assert nak_id_read < nak_id_check < nak_event < nak_deconfig < nak_retry
 assert "received DHCP NAK with wrong" in nak_branch
-assert ("staticinlineintudhcpc_nak_server_id_rejected(uint32_texpected_server_id,"
+assert ("staticinlineintudhcpc_nak_server_id_rejected(intrebinding,uint32_texpected_server_id,"
         "intserver_id_present,uint32_treceived_server_id)") in policy_compact
-assert "expected_server_id!=0&&(!server_id_present||received_server_id!=expected_server_id)" in policy_compact
-assert "test_nak_server_id_filter_rejects_missing_and_mismatched_server" in test
-assert "test_nak_server_id_filter_rejects_missing_and_mismatched_server()!=0" in test_compact
+assert "if(rebinding)return!server_id_present;returnexpected_server_id!=0&&(!server_id_present||received_server_id!=expected_server_id)" in policy_compact
+assert "test_nak_server_id_filter_respects_rebinding_broadcast" in test
+assert "test_nak_server_id_filter_respects_rebinding_broadcast()!=0" in test_compact
 assert "udhcpc_nak_requires_deconfig(state==REQUESTING)" in nak_branch_compact[nak_event:nak_retry]
+
+# A REBINDING request is broadcast to any server; don't pin its DHCPNAK to
+# the server that issued the original lease. Missing server IDs stay invalid.
+assert "state == REBINDING, server_addr" in nak_branch
+assert "if (rebinding)" in policy
+assert "return !server_id_present;" in policy
+assert "test_nak_server_id_filter_respects_rebinding_broadcast" in test
 
 # leasefail is advisory: its exit status must not suppress retry/background/
 # abort behavior after DHCP discovery is exhausted.

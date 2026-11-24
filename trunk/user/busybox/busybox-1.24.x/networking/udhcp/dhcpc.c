@@ -2115,7 +2115,8 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 					if (temp)
 						move_from_unaligned32(svid, temp);
 					if (udhcpc_nak_server_id_rejected(
-						    server_addr, temp != NULL, svid)) {
+						    state == REBINDING, server_addr,
+						    temp != NULL, svid)) {
 						log1("received DHCP NAK with wrong"
 							" server ID, ignoring packet");
 						continue;
