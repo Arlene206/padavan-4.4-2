@@ -44,7 +44,10 @@ first_cleanup = tx_init.index("fe_qdma_tx_dma_deinit(dev);", first_failure)
 second_failure = tx_init.index("if (!pass)", first_cleanup)
 second_cleanup = tx_init.index("fe_qdma_tx_dma_deinit(dev);", second_failure)
 assert first_failure < first_cleanup < second_failure < second_cleanup
-assert tx_init.count("return -ENOMEM;") == 2
+sfq_failure = tx_init.index("!sfq_init(dev)")
+assert sfq_failure < first_failure
+assert "return -ENOMEM;" in tx_init[sfq_failure:first_failure]
+assert tx_init.count("return -ENOMEM;") == 3
 
 tx_deinit = function_body(SOURCE, "void fe_qdma_tx_dma_deinit(")
 assert "if (ei_local->txd_pool)" in tx_deinit
