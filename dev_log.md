@@ -1,3 +1,11 @@
+## 2026-11-24 — Restore exact wording required by AI handoff validator
+
+- Exact `0c23ad7c82fc2e033f73d4a94f6fb02a77324ca5` VSFTPD stability regression #45359061300 PASS, including strict SITE CHMOD/UMASK policy compile/run and source/workflow contract.
+- AI handoff contract #45359061366 failed at its explicit string guard because the handoff described “one atomic commit” but did not contain the required literal phrase “one atomic main commit”. The operating rule was already implemented; this change aligns the handoff wording with the validator without changing behavior.
+- Exact checker rerun is pending. Root dev log currently contains 75 complete entries (below 120 rotation threshold) and is approximately 85 KiB (below 384 KiB target), so no archive rotation is required.
+
+---
+
 ## 2026-11-24 — Fix VSFTPD workflow path-filter checker scope
 
 - Exact `ea7d7e28be9988175fbcc423f9378e5d765de764` VSFTPD runtime compile/regression ran before the inline source contract failed at its path-coverage assertion. The parser-test content checks for `0777` and `UINT_MAX` were valid.

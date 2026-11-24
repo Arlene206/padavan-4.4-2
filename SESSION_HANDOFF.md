@@ -30,7 +30,7 @@
 
 # Cross-session execution mandate
 
-Treat this as continuous work across GPT conversations. Recover once, then execute on `main`; each logical source or CI change is one atomic commit. Create all changed blobs, one complete Git tree and one commit before updating the branch with a non-forced expected-SHA compare-and-swap. Never force-push or modify the frozen backup.
+Treat this as continuous work across GPT conversations. Recover once, then execute on `main`; each logical source or CI change must land as one atomic main commit. Create all changed blobs, one complete Git tree and one commit before updating the branch with a non-forced expected-SHA compare-and-swap. Never force-push or modify the frozen backup.
 
 ## Mandatory handoff checkpoint
 
