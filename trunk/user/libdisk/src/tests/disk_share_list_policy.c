@@ -2684,7 +2684,7 @@ test_folder_rename_uses_pinned_parent_descriptors(void)
 {
 	char root_template[] = "/tmp/disk-share-renameat-XXXXXX";
 	char mount_dir[256], moved_dir[256], redirect_dir[256];
-	char moved_new[256], redirect_new[256], moved_link[256];
+	char moved_new[256], redirect_new[256];
 	char *root;
 	struct stat status;
 	int source_directory_fd, redirect_directory_fd;
@@ -2696,7 +2696,6 @@ test_folder_rename_uses_pinned_parent_descriptors(void)
 	assert(snprintf(redirect_dir, sizeof(redirect_dir), "%s/redirect", root) > 0);
 	assert(snprintf(moved_new, sizeof(moved_new), "%s/New", moved_dir) > 0);
 	assert(snprintf(redirect_new, sizeof(redirect_new), "%s/New", redirect_dir) > 0);
-	assert(snprintf(moved_link, sizeof(moved_link), "%s/Link", moved_dir) > 0);
 	assert(mkdir(mount_dir, 0700) == 0);
 	assert(mkdir(redirect_dir, 0700) == 0);
 	assert(mkdir(redirect_new, 0700) == 0);
@@ -2718,7 +2717,7 @@ test_folder_rename_uses_pinned_parent_descriptors(void)
 
 	errno = 0;
 	assert(disk_share_rename_directory_entry_nofollow(
-		source_directory_fd, "New", source_directory_fd, "New") == -1);
+		source_directory_fd, "New", redirect_directory_fd, "New") == -1);
 	assert(errno == EEXIST);
 	assert(symlinkat(redirect_new, source_directory_fd, "Link") == 0);
 	errno = 0;
