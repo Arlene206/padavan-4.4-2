@@ -1,27 +1,28 @@
 ## Current repository state
 
-- Live branch: `main`; parent for the SmartDNS stop-contract fixture/workflow slice is `af57e892ed4f1671cd1262feb83c0a98eaea9272`. It adds a runtime guard forbidding name-wide killall, strengthens the source checker to pin PID/start_time revalidation, and ensures both Process workflow push and pull-request filters watch the complete `trunk/user/smartdns/**` subtree.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable. Legacy PR #1 remains closed and unmerged.
-- Use only atomic main commits: complete one tree and one commit, then non-forced expected-SHA compare-and-swap. No branches, PRs or force pushes.
+- Live branch: `main`; parent for this SmartDNS checker/runtime-regression correction is `9416e328a409b4cc37a75c1bb7d6df436bec23f4`. The parent added PID-scoped signal assertions and a killall tripwire, but its exact-head checks exposed two test-harness issues now corrected: the Python checker encoded newline delimiters incorrectly when extracting the signal helper, and the lifecycle fixture lacked several documented stop-postcondition markers/a stuck-daemon-after-KILL case.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, immutable. Legacy PR #1 remains closed and unmerged.
+- Every logical task must be one atomic main commit: create one complete tree and one commit, then update `main` by non-forced expected-SHA compare-and-swap. No branches, PRs or force pushes.
 
 ## Active task
 
-### SmartDNS process lifecycle validation
+### Close the SmartDNS process lifecycle regression contract
 
-- Process inventory #45425821194 on `822d8a8c40808290825d838d746d7fec034bb2fc` passed `smartdns_process_lifecycle.sh` runtime cases, then failed because `scripts/check_smartdns_lifecycle.py` expected removed `_smartdns_process_name` and name-wide `killall` behavior. The checker-contract mismatch was corrected by `af57e892ed4f1671cd1262feb83c0a98eaea9272`; this slice adds missing test-level no-killall assertion and triggers Process regression for any SmartDNS source/helper/test modification.
-- Current helper separates generic Adbyby detection (`smartdns_named_process_state`) from exact SmartDNS executable/argv/start_time inventory; TERM/KILL uses PID-scoped signals with identity revalidation. UNKNOWN procfs state prevents unsafe escalation. Linux 4.4 retains a final validate-to-signal race without pidfd.
+- `scripts/check_smartdns_lifecycle.py` now checks separate `smartdns_named_process_state()` and exact SmartDNS process identity, plus PID/start_time revalidation before PID-scoped TERM/KILL. Parent `9416e328` added checks for the exact signal function, but mistakenly wrote a double-escaped newline in the Python `body()` extraction string; the Action fails at that assertion.
+- The shell suite's existing cases already test valid/absent/UNKNOWN process inventory, executable/argv impostors, bounded graceful/force/UNKNOWN stop and PID replacement. The checker also expects named markers for unknown state, verified graceful absence, force-after-timeout, unknown post-signal no-KILL, and reporting a process that survives KILL. This correction restores those pass markers, asserts TERM-before-KILL order, and adds a stuck-daemon case proving stop returns running status after both signals. It also keeps the no-name-wide-killall tripwire.
+- The Process workflow push/PR filters now include `trunk/user/smartdns/**`, so future source/helper/test changes trigger the Process regression.
 
 ## Verification boundary
 
-- On `822d8a8`, Process #45425821194 failed only after the runtime test passed, at stale source checker assertions. AI docs #45425821211 passed. XY-C1 #45425821347 was still in progress (Build active, TRX/artifact pending) when last inspected.
-- Checker contract correction on `af57e892` launched Process inventory #45427108566 (IN_PROGRESS at last inspection); inspect its exact logs and this new commit's Process/AI runs. Do not claim L2 until the whole Process job passes.
-- DNS Forwarder #45424750772, Process #45424750807 and AI #45424750770 on `0761c14` passed; XY-C1 path trigger correction is `822d8a8`. L3 requires Build, TRX and artifact all PASS on a single exact production-source SHA. Hardware L4 remains NOT VERIFIED.
+- Exact parent `9416e328a409b4cc37a75c1bb7d6df436bec23f4`: Process inventory #45427406147 FAILED at the checker helper-body extraction (`expected one function marker`); the preceding SmartDNS shell regression in the separate Process lifecycle inventory #45427405894 passed. AI handoff #45427406412 FAILED because handoff lacked exact required wording `one atomic main commit`. This correction fixes both.
+- Parent `9416e328`: Process lifecycle inventory #45427405894 PASS; DNSMasq #45427405995 PASS. USB storage #45427406211 was IN_PROGRESS; XY-C1 Firmware Validation #45427405793 was IN_PROGRESS. Check exact final Build/TRX/artifact steps before any firmware L3 claim.
+- Previous 822d8a8 XY-C1 run #45425821347 is an older parent and must not be used to certify a newer production source tree. No L3 claim without same-SHA Build, TRX and artifact PASS. Physical L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch current `main`; inspect exact-head Process inventory and AI handoff for this no-killall test/filter update, including the result/logs of #45427108566 on parent `af57e892`.
-2. Poll XY-C1 #45425821347 for parent `822d8a8` and confirm Build, TRX and artifact; diagnose failures without attributing results to a different SHA.
-3. After validation, continue a separate P1 reliability/security defect outside DNS Forwarder/SmartDNS, with a real regression and atomic commit. Do not wait idle on PENDING actions.
+1. Fetch current `main` and query its exact-head Process inventory, AI handoff, USB storage and XY-C1 Actions. Inspect logs for any failing job; in particular verify the new stuck-daemon test and corrected checker helper extraction.
+2. Query `9416e328` XY-C1 #45427405793 for final Build, TRX and artifact status, while keeping its result tied to that exact older SHA.
+3. After the regression suite is green, continue an independent P1 security/stability defect outside SmartDNS and DNS Forwarder. Do not idle on pending CI.
 
 ## Mandatory handoff checkpoint
 
@@ -29,4 +30,4 @@ Every session MUST perform a handoff checkpoint before ending. A relevant exact-
 
 # Cross-session execution mandate
 
-Recover once, then implement. Keep work source-led. Before context exhaustion, finish a safe slice, record tests and exact-SHA CI state, and leave the next GPT one precise first action. Create all blobs, one full tree, one commit; update `main` only using a non-forced expected-SHA compare-and-swap. Never force-push or overstate tests/CI/hardware.
+Recover once, implement, test, and hand off. Use one complete Git tree and one atomic main commit per logical task, with a non-forced expected-SHA update. Before context exhaustion, record real tests and exact-head CI, and leave the next GPT one precise first action. Never force-push or overstate firmware/hardware evidence.

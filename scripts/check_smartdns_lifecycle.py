@@ -34,7 +34,7 @@ assert '[ -z "$_smartdns_pid_output" ] || return 2' in process_state
 assert '*) return 2 ;;' in named_state
 assert 'smartdns_signal_process_ids TERM' in stop_state and 'smartdns_signal_process_ids KILL' in stop_state
 assert 'smartdns_wait_stopped' in stop_state
-signal_helper = body(helper, 'smartdns_signal_process_ids()\\n{', '\\n}\\n\\nsmartdns_stop_process')
+signal_helper = body(helper, 'smartdns_signal_process_ids()\n{', '\n}\n\nsmartdns_stop_process')
 assert 'smartdns_process_identity "$_smartdns_signal_pid"' in signal_helper
 assert '[ "$_smartdns_current_start" = "$_smartdns_signal_start" ] || continue' in signal_helper
 assert 'kill "-$_smartdns_signal" "$_smartdns_signal_pid"' in signal_helper

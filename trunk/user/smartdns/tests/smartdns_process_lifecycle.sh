@@ -143,6 +143,7 @@ PIDOF_OUTPUT=2348
 expect_smartdns_state 2 "incomplete proc metadata is unknown"
 PIDOF_STATUS=2; PIDOF_OUTPUT=
 expect_smartdns_state 2 "pidof failure cannot prove SmartDNS absence"
+pass "unknown daemon state fails closed"
 
 KILL_LOG="$tmpdir/signals.log"
 : > "$KILL_LOG"
@@ -161,6 +162,9 @@ kill() {
         unknown:-TERM)
             PIDOF_STATUS=2
             ;;
+        still-running:-TERM|still-running:-KILL)
+            : # Simulate a daemon which ignores both bounded stop signals.
+            ;;
     esac
     return 0
 }
@@ -169,6 +173,8 @@ PIDOF_STATUS=0; PIDOF_OUTPUT=2345
 smartdns_stop_process || fail "verified graceful stop failed"
 grep -Fqx -- '-TERM 2345' "$KILL_LOG" || fail "stop did not target the validated PID"
 [ "$(wc -l < "$KILL_LOG")" -eq 1 ] || fail "graceful stop unexpectedly escalated"
+[ "$KILLALL_CALLS" -eq 0 ] || fail "graceful stop used name-wide killall"
+pass "graceful signal is verified by fresh absent snapshot"
 
 : > "$KILL_LOG"
 create_smartdns_proc 2345 "$smartdns_Bin" "$smartdns_Conf" "" 32345
@@ -178,6 +184,25 @@ smartdns_stop_process || fail "SIGKILL did not stop the same verified daemon"
 grep -Fqx -- '-TERM 2345' "$KILL_LOG" || fail "force stop skipped TERM"
 grep -Fqx -- '-KILL 2345' "$KILL_LOG" || fail "force stop did not target the validated PID"
 [ "$(wc -l < "$KILL_LOG")" -eq 2 ] || fail "force stop used an unexpected signal sequence"
+expected_force_signals=$(printf '%s\n' '-TERM 2345' '-KILL 2345')
+[ "$(cat "$KILL_LOG")" = "$expected_force_signals" ] || fail "force stop signal order was not TERM then KILL"
+[ "$KILLALL_CALLS" -eq 0 ] || fail "force stop used name-wide killall"
+pass "force escalation occurs only after graceful timeout"
+
+: > "$KILL_LOG"
+create_smartdns_proc 2345 "$smartdns_Bin" "$smartdns_Conf" "" 37345
+PIDOF_STATUS=0; PIDOF_OUTPUT=2345
+KILL_MODE=still-running
+if smartdns_stop_process; then
+    fail "daemon still running after force escalation was accepted as stopped"
+else
+    stop_status=$?
+fi
+[ "$stop_status" -eq 1 ] || fail "daemon still running after force escalation returned $stop_status"
+expected_stuck_signals=$(printf '%s\n' '-TERM 2345' '-KILL 2345')
+[ "$(cat "$KILL_LOG")" = "$expected_stuck_signals" ] || fail "stuck daemon did not receive exactly TERM then KILL"
+[ "$KILLALL_CALLS" -eq 0 ] || fail "stuck daemon stop used name-wide killall"
+pass "daemon still running after force escalation is reported"
 
 : > "$KILL_LOG"
 create_smartdns_proc 2345 "$smartdns_Bin" "$smartdns_Conf" "" 42345
@@ -187,6 +212,7 @@ if smartdns_stop_process; then fail "unknown post-TERM process inventory was acc
 [ "$stop_status" -eq 2 ] || fail "unknown post-TERM state returned $stop_status"
 [ "$(wc -l < "$KILL_LOG")" -eq 1 ] || fail "unknown inventory must prevent SIGKILL escalation"
 [ "$KILLALL_CALLS" -eq 0 ] || fail "PID-scoped stop never calls name-wide killall"
+pass "unknown post-signal state prevents force escalation"
 
 # A PID reused for another executable between inventory and signal must not
 # let the replacement process receive a signal.

@@ -1,3 +1,10 @@
+## 2026-11-24 — Fix SmartDNS checker extraction and cover failed KILL postcondition
+
+- Exact parent `9416e328`: Process inventory #45427406147 failed because the static checker supplied a literal backslash-n in the function-boundary string for `smartdns_signal_process_ids()` instead of matching actual newlines. AI handoff #45427406412 also failed because `SESSION_HANDOFF.md` did not include the exact required phrase `one atomic main commit`.
+- Correct the checker delimiters; add executable test markers for unknown daemon state, verified absence after graceful TERM, unknown post-signal no-KILL, and TERM-before-KILL escalation. Add a stuck-daemon test proving the stop function reports still-running after both bounded signals, while continuing to assert zero name-wide killall calls.
+- Parent `9416e328` Process lifecycle inventory #45427405894 and DNSMasq #45427405995 passed; USB storage #45427406211 and XY-C1 #45427405793 were pending at last poll. This correction needs fresh exact-head Process/AI/firmware validation.
+
+---
 ## 2026-11-24 — Pin PID-scoped SmartDNS stop in runtime and workflow triggers
 
 - The SmartDNS source checker was aligned with the live helper contract in `af57e892ed4f1671cd1262feb83c0a98eaea9272`; this follow-up adds executable assertions for per-PID executable/start_time revalidation and the exact `kill -TERM/-KILL <pid>` path.
