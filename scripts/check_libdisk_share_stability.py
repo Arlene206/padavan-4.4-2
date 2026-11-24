@@ -306,15 +306,89 @@ require("disk_share_write_account_defaults" in POLICY and
         "if (fflush(stream) != 0)" in POLICY,
         "account defaults writer must report buffered stream failures")
 account_writer = function_body(
+    DISK_SOURCE, "initial_one_var_file_in_directory_fd_locked(const char *account,"
+)
+account_writer_compact = "".join(account_writer.split())
+require("get_all_folder_in_directory_fd(directory_fd,&sh_num,&folder_list)" in account_writer_compact and
+        "disk_share_write_stream_atomic_at(directory_fd,var_leaf,disk_share_write_defaults_stream,&writer_context,0)" in account_writer_compact and
+        "disk_share_open_mount_directory" not in account_writer_compact and
+        "mkstemp(" not in account_writer_compact and
+        "rename(" not in account_writer_compact,
+        "new account ACL defaults must write through the pinned mount descriptor without path re-resolution")
+
+account_wrapper = function_body(
     DISK_SOURCE,
     "static int initial_one_var_file_in_mount_path_locked(const char *const account,"
 )
-account_writer_compact = "".join(account_writer.split())
-require("disk_share_open_mount_directory(mount_path)" in account_writer_compact and
-        "get_all_folder_in_directory_fd(directory_fd,&sh_num,&folder_list)" in account_writer_compact and
-        "disk_share_write_stream_atomic_at(directory_fd,var_leaf,disk_share_write_defaults_stream,&writer_context,0)" in account_writer_compact and
-        "mkstemp(" not in account_writer_compact and "rename(" not in account_writer_compact,
-        "new account ACL defaults must enumerate and publish through the same pinned mount descriptor")
+account_wrapper_compact = "".join(account_wrapper.split())
+require("disk_share_open_mount_directory(mount_path)" in account_wrapper_compact and
+        "initial_one_var_file_in_directory_fd_locked(account,directory_fd)" in account_wrapper_compact and
+        "close(directory_fd)" in account_wrapper_compact,
+        "path API must pin the mount once and delegate all metadata work to the descriptor-relative ACL writer")
+
+account_status = function_body(
+    DISK_SOURCE, "disk_share_account_metadata_status_at(int directory_fd, const char *account)"
+)
+account_status_compact = "".join(account_status.split())
+require("fstatat(directory_fd,var_leaf,&status,AT_SYMLINK_NOFOLLOW)" in account_status_compact and
+        "!S_ISREG(status.st_mode)" in account_status_compact and
+        "errno==ENOENT" in account_status_compact,
+        "incremental ACL status must distinguish missing files from unsafe symlinks and non-regular entries")
+
+account_create_or_update = function_body(
+    DISK_SOURCE, "disk_share_create_or_update_account_metadata_at(int directory_fd,"
+)
+account_create_or_update_compact = "".join(account_create_or_update.split())
+require("disk_share_account_metadata_status_at(directory_fd,account)" in account_create_or_update_compact and
+        "initial_one_var_file_in_directory_fd_locked(account,directory_fd)" in account_create_or_update_compact and
+        "modify_if_exist_new_folder_in_directory_fd_locked(account,directory_fd)" in account_create_or_update_compact,
+        "incremental account ACL creation must initialize missing files and extend existing files using the same pinned mount descriptor")
+
+create_with_accounts = function_body(
+    DISK_SOURCE, "create_if_no_var_files_with_accounts(const char *mount_path,"
+)
+create_with_accounts_compact = "".join(create_with_accounts.split())
+anonymous_preflight = create_with_accounts_compact.index(
+    "disk_share_account_metadata_status_at(directory_fd,FTP_ANONYMOUS_USER)"
+)
+account_preflight = create_with_accounts_compact.index(
+    "disk_share_account_metadata_status_at(directory_fd,account_list[i])",
+    anonymous_preflight
+)
+anonymous_publish = create_with_accounts_compact.index(
+    "disk_share_create_or_update_account_metadata_at(directory_fd,FTP_ANONYMOUS_USER)",
+    account_preflight
+)
+account_publish = create_with_accounts_compact.index(
+    "disk_share_create_or_update_account_metadata_at(directory_fd,account_list[i])",
+    anonymous_publish
+)
+require("acc_num>MAX_ACCOUNT_NUM" in create_with_accounts_compact and
+        "is_valid_account_name(account_list[i])" in create_with_accounts_compact and
+        "strcmp(account_list[i],account_list[j])==0" in create_with_accounts_compact and
+        "disk_share_open_mount_directory(mount_path)" in create_with_accounts_compact and
+        anonymous_preflight < account_preflight < anonymous_publish < account_publish,
+        "incremental metadata worker must validate and preflight the complete active ACL set before updating accounts on one descriptor")
+
+create_public = function_body(
+    DISK_SOURCE, "create_if_no_var_files(const char *const mount_path)"
+)
+create_public_compact = "".join(create_public.split())
+public_begin = create_public_compact.index("disk_share_account_nvram_begin(&transaction)")
+public_validate = create_public_compact.index(
+    "disk_share_account_inventory_matches_locked(&disk_share_account_nvram_operations,&transaction,acc_num,MAX_ACCOUNT_NUM,account_list)",
+    public_begin
+)
+public_worker = create_public_compact.index(
+    "create_if_no_var_files_with_accounts(mount_path,acc_num,account_list)",
+    public_validate
+)
+public_end = create_public_compact.index("disk_share_account_nvram_end(&transaction)", public_worker)
+require("get_account_list(&acc_num,&account_list)" in create_public_compact and
+        public_begin < public_validate < public_worker < public_end,
+        "public incremental initializer must serialize its account snapshot before publishing ACL metadata")
+
+
 
 
 atomic_replace = function_body(
