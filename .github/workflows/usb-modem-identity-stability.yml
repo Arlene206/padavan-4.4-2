@@ -929,7 +929,12 @@ jobs:
           assert qmi_start_function.index("rc_wan_nvram_parse_int_value(modem_nets_text, &modem_nets)") < qmi_start_function.index("invalid QMI modem network-mode setting") < qmi_start_function.index("modem_qmi_existing_pdh_start_status")
           assert "modem_qmi_client_id_should_allocate(qmi_client_id, errno)" in qmi_start_function
           assert "reusing persisted WDS client ID" in qmi_start_function
-          assert "persisted WDS client ID is invalid or unreadable" in qmi_start_function
+          assert "persisted WDS client ID is invalid or unreadable" in qmi_start_function          assert "modem_qmi_command_status(_eval(pin_argv, NULL, 0, NULL))" in qmi_start_function
+          assert "modem_qmi_command_status(_eval(format_argv, NULL, 0, NULL))" in qmi_start_function
+          assert "modem_qmi_command_status(_eval(mode_argv, NULL, 0, NULL))" in qmi_start_function
+          assert qmi_start_function.index("uqmi SIM PIN verification failed") < qmi_start_function.index("/* set interface format as 802.3 */")
+          assert qmi_start_function.index("uqmi failed to set 802.3 data format") < qmi_start_function.index("/* setup network modes;")
+          assert qmi_start_function.index("uqmi failed to set requested network modes") < qmi_start_function.index("/* Reuse the persisted WDS CID;")
 
           assert "mkstemp(staging)" in helper
           assert "fchmod(fd, 0600)" in helper

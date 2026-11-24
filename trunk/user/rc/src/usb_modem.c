@@ -863,13 +863,16 @@ qmi_control_network_start(const char *device_path)
 				   "cannot stage private QMI SIM PIN file (status=%d)", status);
 			goto done;
 		}
-		if (_eval(pin_argv, NULL, 0, NULL) != 0)
-			logmessage(LOGNAME, "uqmi SIM PIN verification command failed");
+		status = modem_qmi_command_status(_eval(pin_argv, NULL, 0, NULL));
 		cleanup_status = modem_qmi_credentials_file_cleanup(&credentials_file);
 		if (cleanup_status != 0) {
 			logmessage(LOGNAME,
 				   "cannot remove private QMI SIM PIN staging directory (status=%d)",
 				   cleanup_status);
+			goto done;
+		}
+		if (status != 0) {
+			logmessage(LOGNAME, "uqmi SIM PIN verification failed (status=%d)", status);
 			goto done;
 		}
 	}
@@ -880,7 +883,11 @@ qmi_control_network_start(const char *device_path)
 			"/bin/uqmi", "-d", (char *)device_path,
 			"--set-data-format", "802.3", NULL
 		};
-		_eval(format_argv, NULL, 0, NULL);
+		status = modem_qmi_command_status(_eval(format_argv, NULL, 0, NULL));
+		if (status != 0) {
+			logmessage(LOGNAME, "uqmi failed to set 802.3 data format (status=%d)", status);
+			goto done;
+		}
 	}
 
 	/* setup network modes; an empty legacy NVRAM value still means zero/all. */
@@ -901,7 +908,11 @@ qmi_control_network_start(const char *device_path)
 			"/bin/uqmi", "-d", (char *)device_path,
 			"--set-network-modes", qmi_nets, NULL
 		};
-		_eval(mode_argv, NULL, 0, NULL);
+		status = modem_qmi_command_status(_eval(mode_argv, NULL, 0, NULL));
+		if (status != 0) {
+			logmessage(LOGNAME, "uqmi failed to set requested network modes (status=%d)", status);
+			goto done;
+		}
 	}
 
 	/* Reuse the persisted WDS CID; allocating a second one leaks the old CID. */

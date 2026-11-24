@@ -1,3 +1,12 @@
+## 2026-11-23 — Fail closed on QMI modem setup command errors
+
+- Found that SIM PIN verification, `--set-data-format 802.3`, and `--set-network-modes` errors were logged or ignored while QMI startup continued toward CID allocation and `--start-network`. This could ignore required configuration or continue after a rejected PIN.
+- Each required setup command now uses the common wait-status normalizer and aborts on a nonzero result. PIN staging cleanup is still attempted before the PIN-command error is propagated.
+- Added exact-source workflow assertions for the three checked command calls and fail-fast ordering; existing GNU89 tests exercise positive and negative command-runner statuses.
+- Parent main: 1c5d38531a62094501f3ab12b5043ba884b358f0. Exact Actions were still running at last poll; no pending result is claimed.
+
+---
+
 ## 2026-11-23 — Preserve ambiguous unreadable QMI packet-data markers
 
 - Review found that ambiguous QMI start cleanup unlinked `/tmp/qmi-handle` when the file existed but strict parsing failed or the read returned EACCES/EIO. It could therefore erase the only recovery marker for a live session.
