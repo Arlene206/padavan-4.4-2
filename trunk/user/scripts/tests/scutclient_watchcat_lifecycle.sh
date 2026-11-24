@@ -48,6 +48,10 @@ cat > "$TEST_BIN/mtk_esw" <<'MOCK'
 [ "${MTK_ESW_STATUS:-0}" -eq 0 ] || exit "$MTK_ESW_STATUS"
 printf '%s\n' "${WAN_LINK_STATE:-WAN ports link state: 1}"
 MOCK
+cat > "$TEST_BIN/ping" <<'MOCK'
+#!/bin/sh
+exit "${PING_STATUS:-0}"
+MOCK
 cat > "$TEST_BIN/scutclient.sh" <<'MOCK'
 #!/bin/sh
 printf '%s\n' "$*" >> "$CLIENT_LOG"
@@ -78,8 +82,10 @@ AUTH_FLAG="$TEST_TMP/auth.flag"
 : > "$LOG_LOG"
 : > "$CLIENT_LOG"
 printf '1\n' > "$AUTH_FLAG"
+chmod 600 "$AUTH_FLAG"
 export NVRAM_LOG KILL_LOG RM_BLOCKED LOG_LOG CLIENT_LOG
 export SCUTCLIENT_WATCHCAT_AUTH_FLAG="$AUTH_FLAG"
+export SCUTCLIENT_WATCHCAT_PING_BIN="$TEST_BIN/ping"
 export SCUTCLIENT_WATCHCAT_CLIENT_BIN="$TEST_BIN/scutclient.sh"
 WATCHCAT_ENABLED=0
 SCUTCLIENT_ENABLED=0
@@ -370,5 +376,46 @@ run_watchcat 0
 [ "$(wc -l < "$NVRAM_LOG")" -eq 2 ] && [ ! -s "$CLIENT_LOG" ] || {
 	echo "confirmed WAN-down state did not skip SCUTClient probing" >&2; exit 1;
 }
+
+# User-controlled symlink, hard-link or writable status files must not
+# spoof the privileged authentication marker.
+reset_watchcat_case
+WATCHCAT_ENABLED=1
+SCUTCLIENT_ENABLED=1
+WATCHCAT_FLAG_ENABLED=1
+rm -f "$AUTH_FLAG"
+printf '1\n' > "$TEST_TMP/auth-outside"
+chmod 600 "$TEST_TMP/auth-outside"
+ln -s "$TEST_TMP/auth-outside" "$AUTH_FLAG"
+run_watchcat 0
+[ ! -s "$CLIENT_LOG" ] && [ -L "$AUTH_FLAG" ] && [ "$(cat "$TEST_TMP/auth-outside")" = 1 ] || {
+	echo "watchdog trusted a symlinked authentication marker" >&2; exit 1;
+}
+
+reset_watchcat_case
+WATCHCAT_ENABLED=1
+SCUTCLIENT_ENABLED=1
+WATCHCAT_FLAG_ENABLED=1
+rm -f "$AUTH_FLAG"
+printf '1\n' > "$TEST_TMP/auth-hardlink"
+chmod 600 "$TEST_TMP/auth-hardlink"
+ln "$TEST_TMP/auth-hardlink" "$AUTH_FLAG"
+run_watchcat 0
+[ ! -s "$CLIENT_LOG" ] && [ "$(stat -c %h "$AUTH_FLAG")" = 2 ] || {
+	echo "watchdog trusted a hard-linked authentication marker" >&2; exit 1;
+}
+
+reset_watchcat_case
+WATCHCAT_ENABLED=1
+SCUTCLIENT_ENABLED=1
+WATCHCAT_FLAG_ENABLED=1
+rm -f "$AUTH_FLAG"
+printf '1\n' > "$AUTH_FLAG"
+chmod 666 "$AUTH_FLAG"
+run_watchcat 0
+[ ! -s "$CLIENT_LOG" ] || {
+	echo "watchdog trusted a group/other-writable authentication marker" >&2; exit 1;
+}
+
 
 echo "SCUT watchdog PID identity, serialized stale-PID reclaim, and checked NVRAM/link-state policy regression: PASS"

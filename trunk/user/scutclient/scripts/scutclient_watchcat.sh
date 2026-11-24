@@ -5,6 +5,7 @@ proc_root="${SCUTCLIENT_WATCHCAT_PROC_ROOT:-/proc}"
 script_path="/usr/bin/scutclient_watchcat.sh"
 net="114.114.114.114 119.29.29.29"
 auth_flag="${SCUTCLIENT_WATCHCAT_AUTH_FLAG:-/tmp/scutclient_status}"
+watchcat_ping_bin="${SCUTCLIENT_WATCHCAT_PING_BIN:-/bin/ping}"
 scutclient_client_bin="${SCUTCLIENT_WATCHCAT_CLIENT_BIN:-/usr/bin/scutclient.sh}"
 
 # Return 0 only when the PID still identifies this exact watchdog script,
@@ -212,6 +213,29 @@ watchcat_read_force(){
 	return 0
 }
 
+# Trust only a marker published by the privileged watchdog/service account.
+# /tmp is sticky, so after validating ownership an unprivileged user cannot
+# swap a root-owned inode out from under this read.
+watchcat_auth_flag_enabled()
+{
+	[ ! -L "$auth_flag" ] && [ -f "$auth_flag" ] || return 1
+	[ -f "$pidfile" ] && [ ! -L "$pidfile" ] || return 1
+
+	watchcat_pid_owner=$(stat -c '%u' "$pidfile" 2>/dev/null) || return 1
+	watchcat_auth_metadata=$(stat -c '%u %a %h %s' "$auth_flag" 2>/dev/null) || return 1
+	set -- $watchcat_auth_metadata
+	[ "$#" -eq 4 ] || return 1
+	[ "$1" = "$watchcat_pid_owner" ] || return 1
+	[ "$3" = 1 ] && [ "$4" = 2 ] || return 1
+	case "$2" in
+		''|*[!0-7]*) return 1 ;;
+	esac
+	[ "$((0$2 & 0022))" -eq 0 ] || return 1
+
+	IFS= read -r watchcat_auth_value < "$auth_flag" || return 1
+	[ "$watchcat_auth_value" = "1" ]
+}
+
 auth(){
 	if [ "$(date '+%H')" -lt 6 ]; then
 		# NTP failure forces re-auth; otherwise honor the checked UI selector.
@@ -263,13 +287,12 @@ if [ "$watchcat_link_state" != "WAN ports link state: 0" ]; then
 		watchcat_config_status=$?
 		watchcat_fail "$watchcat_config_status" "cannot verify watchdog auth flag"
 	fi
-	if [ "$watchcat_enabled" = "1" ] && [ -f "$auth_flag" ] &&
-	   [ "$(cat "$auth_flag")" = "1" ]; then
+	if [ "$watchcat_enabled" = "1" ] && watchcat_auth_flag_enabled; then
 		auth "flag"
 	fi
 
 	for n in $net; do
-		/bin/ping -c 3 "$n" -w 5 >/dev/null 2>&1
+		"$watchcat_ping_bin" -c 3 "$n" -w 5 >/dev/null 2>&1
 		if [ "$?" = "0" ]; then
 			go_exit
 		fi

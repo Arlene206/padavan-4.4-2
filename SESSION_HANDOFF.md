@@ -13,6 +13,11 @@ Continue one autonomous engineering stream on main. For each logical source/test
 
 ## Active task
 
+### SCUT watchdog auth-marker reader trust boundary
+
+The preceding commit 64a2e4b7147f01a85f0068189b94e4ec552ca22b replaced privileged shell redirection in the default SCUTClient -E/-Q hooks with an atomic, mode-0600 status writer. This follow-up closes the reader side: watchcat_auth_flag_enabled() now accepts only a non-symlink regular file owned by the same UID as the watchdog's own PID file, one hard link, exactly two bytes, and no group/other write bits. It validates metadata before reading; sticky /tmp semantics prevent an unprivileged pathname swap after owner validation. Regression cases cover symlink, hard-link and writable-mode spoof markers. A ping executable override gives deterministic, offline test behavior. The exact-head SCUT watchdog workflow must pass before this slice is validated.
+
+
 ### SCUTClient auth-status hook — prevent privileged /tmp symlink writes
 
 Default -E and -Q event hooks in trunk/user/scutclient/scripts/scutclient.sh previously used shell redirection directly to /tmp/scutclient_status. Since the SCUTClient daemon is launched by the privileged service wrapper, a local user could pre-create a symlink at that shared /tmp path and redirect the privileged shell write to an unrelated file.
@@ -56,11 +61,10 @@ The initial source commit ff9cb0ec0f9143cd398d8de1d9b4eb13dca87be5 was mistakenl
 
 ## Exact first action for the next GPT
 
-1. Fetch the live main SHA and exact-head Actions. Inspect the new SCUT watchdog/status-hook regression and new XY-C1 run triggered by this commit. The prior 347628 XY build was still in progress; never attribute its result to a later SHA.
-2. Confirm the new status-hook regression's symlink/hardlink/directory cases pass on the exact commit SHA. If any fail, diagnose the specific command and correct in one atomic source/test commit.
-3. Recheck XY-C1 Build, TRX and artifact upload separately. L3 must be tied to one exact source SHA; PENDING must not block other work.
-4. Continue repository-wide security/stability work. LAN DHCP/AP-mode remains PARTIAL/AUDITING (leasefail, full live transitions, target MIPS/uClibc runtime, physical L4 open). Do not repeat completed QMI, Wireless, udhcpc, NVRAM, process, WAN teardown or HTTPD audits.
-5. Before context exhaustion, perform the mandatory handoff checkpoint; update root docs only if a material validation result, blocker or first next action changes.
+1. Fetch live main and exact-head Actions. Inspect the SCUT watchdog auth-marker reader regression triggered by this commit; verify symlink, hard-link and writable-mode cases pass on that exact SHA. Fix failures in one atomic source/test commit.
+2. Poll XY-C1 for the source SHA recorded in the newest root dev_log entry. Do not conflate the prior 64a2 firmware run or earlier QMI builds; L3 requires Build, TRX and artifact upload all PASS on one identical SHA.
+3. Continue independent stability/security work; PENDING build jobs never block it. LAN DHCP/AP-mode remains PARTIAL/AUDITING (leasefail, full live transitions, target MIPS/uClibc runtime and physical L4 open). Do not repeat completed QMI, Wireless, udhcpc, NVRAM, process or HTTPD audits.
+4. Before context exhaustion, perform the mandatory handoff checkpoint; update root docs only if a material validation result, blocker or first next action changes.
 
 ## Mandatory handoff checkpoint
 

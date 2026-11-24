@@ -11,6 +11,7 @@ on:
       - "trunk/user/scripts/tests/scutclient_status_file_atomic.sh"
       - "trunk/user/scripts/tests/scutclient_watchcat_lifecycle.sh"
       - "trunk/user/busybox/busybox-1.24.x/util-linux/Config.src"
+      - "trunk/user/busybox/busybox-1.24.x/coreutils/Config.src"
   pull_request:
     paths:
       - ".github/workflows/scutclient-watchcat-safety.yml"
@@ -20,6 +21,7 @@ on:
       - "trunk/user/scripts/tests/scutclient_status_file_atomic.sh"
       - "trunk/user/scripts/tests/scutclient_watchcat_lifecycle.sh"
       - "trunk/user/busybox/busybox-1.24.x/util-linux/Config.src"
+      - "trunk/user/busybox/busybox-1.24.x/coreutils/Config.src"
 
 permissions:
   contents: read
@@ -99,5 +101,18 @@ jobs:
           assert "if watchcat_link_state=$(mtk_esw 11); then" in source
           assert 'watchcat_fail "$watchcat_link_status" "cannot verify WAN link state"' in source
           assert "MTK_ESW_STATUS" in Path("trunk/user/scripts/tests/scutclient_watchcat_lifecycle.sh").read_text()
+          assert "watchcat_auth_flag_enabled" in source
+          assert '[ ! -L "$auth_flag" ] && [ -f "$auth_flag" ]' in source
+          assert 'watchcat_pid_owner=$(stat -c \'%u\' "$pidfile")' in source
+          assert 'stat -c \'%u %a %h %s\' "$auth_flag"' in source
+          assert '[ "$1" = "$watchcat_pid_owner" ]' in source
+          assert '[ "$3" = 1 ] && [ "$4" = 2 ]' in source
+          assert '0$2 & 0022' in source
+          assert 'watchcat_ping_bin="${SCUTCLIENT_WATCHCAT_PING_BIN:-/bin/ping}"' in source
+          assert '"$watchcat_ping_bin" -c 3' in source
+          assert "watchdog trusted a symlinked authentication marker" in watchcat_test
+          assert "watchdog trusted a hard-linked authentication marker" in watchcat_test
+          assert "group/other-writable authentication marker" in watchcat_test
+          assert 'config STAT\n\tbool "stat"\n\tdefault y' in Path("trunk/user/busybox/busybox-1.24.x/coreutils/Config.src").read_text()
           print("SCUT watchdog refuses stale/reused PID signals and unknown process identity: PASS")
           PY

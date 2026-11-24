@@ -1,3 +1,13 @@
+## 2026-11-24 — Validate SCUT watchdog auth marker inode before restart
+
+- The watchdog still trusted /tmp/scutclient_status with -f plus cat. A user-created symlink or hard link containing "1" could make the privileged watchdog run the SCUTClient restart path even though the default writer had been changed to atomic publication.
+- Added watchcat_auth_flag_enabled(): reject symlinks, non-regular files, non-current-service-owner files, multi-link inodes, non-two-byte values and group/other-writable modes. It uses BusyBox stat -c (STAT and FEATURE_STAT_FORMAT default enabled) and compares marker UID with the watchdog-owned PID-file UID. Since /tmp is sticky, an unprivileged user cannot replace that validated root-owned inode. Root-owned custom hooks producing mode 0644 remain compatible.
+- Added an injectable ping executable for deterministic tests and regression cases for symlink, hard-link and writable-mode spoofing. The SCUT watchdog workflow runs the expanded shell test and statically checks the new trust boundary.
+- Parent exact SHA 64a2e4b7147f01a85f0068189b94e4ec552ca22b: SCUT watchdog status writer/PID suite #45493427133 PASS; AI handoff #45493427136 PASS; Legacy wrapper #45493427241 PASS; Process inventory #45493427332/#45493427337 PASS. XY-C1 #45493427214 was still building at step 38; TRX/artifact pending. Do not claim L3.
+- No physical-router L4 validation.
+
+---
+
 ## 2026-11-24 — Publish SCUTClient auth status without following /tmp symlinks
 
 - Default SCUTClient -E/-Q event hooks previously executed shell redirection to /tmp/scutclient_status. Since the daemon is launched by the privileged service wrapper, a local user could pre-create a symlink at that shared /tmp path and redirect the privileged write into an unrelated file.
