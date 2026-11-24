@@ -1,17 +1,19 @@
 ## Current repository state
 
-- Live parent `main`: `9ce145922915fa4b09217b1253a5490a9e2fbda9`; this atomic continuation will be its direct child. Re-fetch `main` before every later write and never force-push.
-- Current source task: router hostname publication in `trunk/user/rc/src/net_wan.c:update_hosts_router()`. The caller `prepare_dns_dhcpd()` in `services_ex.c` already aborts on its returned error.
-- Adbyby executable/PID-start_time stop identity hardening is present on parent `9ce145922915fa4b09217b1253a5490a9e2fbda9`, following parent source `ceda64cdd021684c8b9b876fb29ecafa150a9e81`. Its source regressions and exact-main push Actions still require live verification; do not infer status from earlier SHA results.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Only `main` is the development branch. Branch inventory contains main + this archive; no open PRs were found.
+- Parent main for this AdGuardHome identity-hardening slice: `a26746d033ffa19d9b576010f4fe4a583b4a859a`; live main/tree were read immediately before atomic tree construction.
+- Adbyby executable/start_time hardening: exact Adbyby host #45339125309 PASS and Process fail-closed #45339125213 PASS on `17d08de1ed22fe2ff102992d28c974b42b77de3a`.
+- AdGuardHome baseline after test-only repairs: exact config-security #45339223189 PASS and Process inventory #45339223352 PASS on `9ce145922915fa4b09217b1253a5490a9e2fbda9`.
+- This slice addresses the same confirmed PID-ownership weakness in AdGuardHome: numeric `pidof` candidates are no longer sufficient evidence to signal a process.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Main-only atomic complete-tree commits, expected-SHA non-forced updates, no force-push.
 
 ## Active task
 
-Router kernel hostname/domain failure propagation:
-- `update_hosts_router()` atomically publishes `/etc/hostname` and `/etc/hosts`, then previously ignored `sethostname()` / `setdomainname()` return values.
-- `prepare_dns_dhcpd()` already consumes a nonzero return as a hard preparation gate; preserve that caller contract.
-- This slice reuses `lan_kernel_names_apply()` with errno-preserving WAN adapters, attempts both syscalls, returns the first error, and retains a primary kernel error if lock release also fails. It does not roll back a valid published file pair.
-- Existing `trunk/user/rc/src/tests/lan_kernel_name_policy.c` is added to Process GNU89/ASan/UBSan CI; source contract pins adapters, publication→kernel update→unlock ordering, and returned status.
+Implement AdGuardHome process identity:
+- Match `/proc/PID/exe` to `/usr/bin/AdGuardHome`, require the service's exact config/workdir argv tuple, parse non-zombie `/proc/PID/stat` start_time.
+- Snapshot stores `PID:start_time`; TERM and refreshed SIGKILL each revalidate identity immediately before signaling.
+- Host regression uses synthetic procfs for wrong executable, wrong config argv and malformed metadata; existing multi-PID and changed-PID escalation tests remain.
+- Exact-head AdGuardHome config-security and Process inventory/fail-closed Actions are required after publication.
 
 ## Completed development slices
 
@@ -21,18 +23,16 @@ Router kernel hostname/domain failure propagation:
 
 ## Verification boundary
 
-- Local verification: the existing LAN kernel-name policy test is compiled/run in GNU89 mode with ASan/UBSan during this session; Process Actions compile/run the same test on the exact main SHA.
-- Exact-head Push Actions for parent `9ce145922915fa4b09217b1253a5490a9e2fbda9` cannot be listed with the available GitHub connector: combined commit status returned an empty status array, and its workflow-run action only exposes PR runs. This means NOT INSPECTABLE, not PASS or confirmed PENDING. No exact-head result is invented.
-- The new WAN router change requires exact-main Process regression and XY-C1 production-source Build/TRX/artifact validation. No MIPS target build or physical-router L4 result is claimed.
-- The prior Adbyby exact-main Actions should also be verified when push-run listing is available; its source result must not be conflated with the older PASS evidence recorded in history.
-- SmartDNS XY-C1 run `45336719186` on `2294ae89092db384169b533ed6c0ab4e8c6b639c` was last recorded as IN_PROGRESS; check its final Build/TRX/artifact only if the run remains accessible and do not infer L3.
+- Baseline `9ce1459`: AdGuardHome config-security #45339223189 PASS; Process inventory #45339223352 PASS. Those checks predate the new executable/argv identity code in THIS COMMIT.
+- Exact-head checks for THIS COMMIT are pending immediately after publication; no new MIPS build or physical-router result is claimed.
+- Linux 4.4 lacks pidfd support in this firmware baseline; executable/argv/start_time are revalidated directly before each signal, but the final tiny validate-to-signal race cannot be eliminated here.
+- No same-SHA L3 claim; target hardware L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch the live `main` SHA and inspect exact-head Push Actions for THIS COMMIT; triage the first failure or record the run IDs/head SHA if still pending.
-2. Confirm XY-C1 Build, TRX verification and artifact upload on this production-source SHA before claiming L3; separately inspect the unresolved Adbyby exact-main checks.
-3. Continue a concrete P1 stability repair outside already-completed SmartDNS/RAETH scopes, preferably from the WAN/DHCP, DNSMasq, storage or service-lifecycle backlog; do not re-audit resolved items.
-4. Keep `backup/pre-plugin-overhaul-2026-11-14` immutable; all source updates remain single-tree atomic commits on `main` using expected-SHA non-forced updates.
+1. Inspect this commit's exact-head AdGuardHome config-security, Process inventory/fail-closed and AI handoff Actions; fix any first failing assertion or fixture.
+2. If these checks pass or remain pending, continue a separate evidence-backed P1 stability/security fix outside Adbyby, AdGuardHome and SmartDNS rather than re-auditing completed work.
+3. Keep the frozen backup immutable and main updates atomic/non-forced.
 
 # Cross-session execution mandate
 

@@ -538,11 +538,51 @@ TEST_ADG_PID_OUTPUT=24680
 export TEST_ADG_PID_OUTPUT
 TEST_ADG_PID_LOG=$TEST_TMP/pid-signals.log
 export TEST_ADG_PID_LOG
+ADG_PROC_ROOT="$TEST_TMP/proc"
+ADG_EXECUTABLE="$TEST_TMP/AdGuardHome"
+: > "$ADG_EXECUTABLE"
+chmod 755 "$ADG_EXECUTABLE"
+mkdir -p "$ADG_PROC_ROOT/1"
+printf '1 (init) S 0 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 100\n' > "$ADG_PROC_ROOT/1/stat"
+adg_test_add_proc_pid()
+{
+	adg_test_pid="$1"
+	adg_test_exe="$2"
+	adg_test_config="$3"
+	adg_test_start="${4:-1000}"
+	mkdir -p "$ADG_PROC_ROOT/$adg_test_pid"
+	ln -sfn "$adg_test_exe" "$ADG_PROC_ROOT/$adg_test_pid/exe"
+	printf '%s (AdGuardHome) S 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 %s\n' \
+		"$adg_test_pid" "$adg_test_start" > "$ADG_PROC_ROOT/$adg_test_pid/stat"
+	printf 'AdGuardHome\0-c\0%s\0-w\0/tmp/AdGuardHome\0-v\0' \
+		"$adg_test_config" > "$ADG_PROC_ROOT/$adg_test_pid/cmdline"
+}
+TEST_ADG_PROC_CASE=valid
 
 pidof() {
 	[ "$1" = AdGuardHome ] || return 1
 	case "$(cat "$TEST_ADG_STATE")" in
-		running) printf '%s\n' "${TEST_ADG_PID_OUTPUT:-24680}"; return 0 ;;
+		running)
+			for adg_test_pid in ${TEST_ADG_PID_OUTPUT:-24680}; do
+				case "$TEST_ADG_PROC_CASE" in
+					wrong-exe)
+						adg_test_add_proc_pid "$adg_test_pid" /bin/sleep "${ADG_CONFIG_FILE:-/etc/storage/adg.sh}"
+						;;
+					wrong-argv)
+						adg_test_add_proc_pid "$adg_test_pid" "$ADG_EXECUTABLE" "$TEST_TMP/decoy.yml"
+						;;
+					bad-stat)
+						adg_test_add_proc_pid "$adg_test_pid" "$ADG_EXECUTABLE" "${ADG_CONFIG_FILE:-/etc/storage/adg.sh}"
+						printf 'truncated\n' > "$ADG_PROC_ROOT/$adg_test_pid/stat"
+						;;
+					*)
+						adg_test_add_proc_pid "$adg_test_pid" "$ADG_EXECUTABLE" "${ADG_CONFIG_FILE:-/etc/storage/adg.sh}"
+						;;
+				esac
+			done
+			printf '%s\n' "${TEST_ADG_PID_OUTPUT:-24680}"
+			return 0
+			;;
 		error|unknown) return 2 ;;
 		malformed) echo "24680 invalid"; return 0 ;;
 		empty-success) return 0 ;;
@@ -653,6 +693,38 @@ fi
 [ ! -s "$TEST_ADG_KILL_LOG" ] || fail "no-process stop sent a signal"
 [ ! -s "$TEST_ADG_SLEEP_LOG" ] || fail "no-process stop waited"
 [ "$(cat "$TEST_ADG_CLEANUP_LOG")" = "$(printf 'clear_iptable\ndel_dns\nrm:-rf /tmp/AdGuardHome')" ] || fail "no-process cleanup ordering changed"
+
+# A same-name PID with another executable or a different config argv is not
+# this managed service and must never receive TERM or SIGKILL.
+for TEST_ADG_PROC_CASE in wrong-exe wrong-argv; do
+	: > "$TEST_ADG_KILL_LOG"
+	: > "$TEST_ADG_PID_LOG"
+	: > "$TEST_ADG_SLEEP_LOG"
+	: > "$TEST_ADG_CLEANUP_LOG"
+	echo running > "$TEST_ADG_STATE"
+	if adg_process_state; then fail "AdGuardHome accepted an unowned process candidate: $TEST_ADG_PROC_CASE"; else adg_identity_state=$?; fi
+	[ "$adg_identity_state" -eq 1 ] || fail "unowned process did not classify as ABSENT: $TEST_ADG_PROC_CASE"
+	if ! stop_adg; then fail "stop refused confirmed-absent decoy case: $TEST_ADG_PROC_CASE"; fi
+	[ ! -s "$TEST_ADG_PID_LOG" ] || fail "AdGuardHome signalled a same-name unowned process: $TEST_ADG_PROC_CASE"
+done
+
+# Matching executable with malformed proc metadata is UNKNOWN, not a reason
+# to signal or clear the managed work directory.
+: > "$TEST_ADG_KILL_LOG"
+: > "$TEST_ADG_PID_LOG"
+: > "$TEST_ADG_SLEEP_LOG"
+: > "$TEST_ADG_CLEANUP_LOG"
+echo running > "$TEST_ADG_STATE"
+TEST_ADG_PROC_CASE=bad-stat
+if adg_process_state; then fail "malformed AdGuardHome proc metadata was accepted"; else adg_identity_state=$?; fi
+[ "$adg_identity_state" -eq 2 ] || fail "malformed AdGuardHome proc metadata was not UNKNOWN"
+if stop_adg; then fail "stop accepted UNKNOWN AdGuardHome executable metadata"; fi
+[ ! -s "$TEST_ADG_PID_LOG" ] || fail "AdGuardHome signalled a process with unverified metadata"
+[ "$(cat "$TEST_ADG_CLEANUP_LOG")" = "$(printf 'clear_iptable\ndel_dns')" ] ||
+	fail "UNKNOWN process identity removed workdir or skipped pre-stop cleanup"
+TEST_ADG_PROC_CASE=valid
+
+
 
 # pidof errors, malformed successful output and inconsistent status/output
 # are UNKNOWN; none may be interpreted as a confirmed ABSENT process.

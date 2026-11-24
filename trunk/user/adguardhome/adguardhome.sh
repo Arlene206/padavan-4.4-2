@@ -1,6 +1,8 @@
 #!/bin/sh
 
 ADG_START_WAIT_ATTEMPTS=5
+ADG_PROC_ROOT='/proc'
+ADG_EXECUTABLE='/usr/bin/AdGuardHome'
 
 adg_lifecycle_lock_path() {
   echo /tmp/.adguardhome.lifecycle.lock
@@ -553,34 +555,121 @@ start_adg(){
   return 1
 }
 
+# pidof only enumerates candidates. Bind each one to the installed binary,
+# the service's exact argument tuple and the kernel PID start_time.
+adg_process_identity() {
+  adg_identity_pid="$1"
+  case "$adg_identity_pid" in
+    ''|0|1|0*|*[!0-9]*) return 1 ;;
+  esac
+  adg_identity_dir="$ADG_PROC_ROOT/$adg_identity_pid"
+  [ -d "$adg_identity_dir" ] || return 1
+  [ -L "$adg_identity_dir/exe" ] || return 2
+  adg_identity_exe=$(readlink "$adg_identity_dir/exe" 2>/dev/null) || return 2
+  case "$adg_identity_exe" in
+    "$ADG_EXECUTABLE"|"$ADG_EXECUTABLE (deleted)") ;;
+    *) return 1 ;;
+  esac
+
+  [ -r "$adg_identity_dir/stat" ] && [ -f "$adg_identity_dir/stat" ] || return 2
+  adg_identity_start=$(awk '
+    NR != 1 { invalid = 1 }
+    NR == 1 {
+      sub(/^.*\) /, "")
+      if (NF < 20 || $1 !~ /^[A-Za-z]$/ ||
+          $20 !~ /^[0-9]+$/ ||
+          $1 == "Z" || $1 == "X" || $1 == "x")
+        invalid = 1
+      else
+        start_time = $20
+    }
+    END {
+      if (invalid || NR != 1)
+        exit 1
+      print start_time
+    }
+  ' "$adg_identity_dir/stat" 2>/dev/null) || return 2
+  case "$adg_identity_start" in
+    ''|*[!0-9]*) return 2 ;;
+  esac
+
+  [ -r "$adg_identity_dir/cmdline" ] &&
+    [ -f "$adg_identity_dir/cmdline" ] &&
+    [ -s "$adg_identity_dir/cmdline" ] || return 2
+  adg_identity_config="${ADG_CONFIG_FILE:-/etc/storage/adg.sh}"
+  if ! tr '\000' '\n' < "$adg_identity_dir/cmdline" 2>/dev/null |
+    awk -v config="$adg_identity_config" -v workdir="/tmp/AdGuardHome" '
+      NR == 1 {
+        executable = $0
+        sub(/^.*\//, "", executable)
+        if (executable != "AdGuardHome")
+          invalid = 1
+        next
+      }
+      NR == 2 { if ($0 != "-c") invalid = 1; next }
+      NR == 3 { if ($0 != config) invalid = 1; next }
+      NR == 4 { if ($0 != "-w") invalid = 1; next }
+      NR == 5 { if ($0 != workdir) invalid = 1; next }
+      NR == 6 { if ($0 != "-v") invalid = 1; next }
+      { invalid = 1 }
+      END {
+        if (NR == 6 && !invalid)
+          exit 0
+        exit 1
+      }
+    '; then
+    return 1
+  fi
+  printf '%s\n' "$adg_identity_start"
+}
+
 # Return 0 for RUNNING, 1 only for confirmed ABSENT, and 2 for UNKNOWN.
-# pidof errors and malformed output must never authorize duplicate starts or stop cleanup.
+# A pidof name match alone never authorizes a duplicate start or a signal.
 adg_process_state() {
-  if adg_process_pids=$(pidof AdGuardHome 2>/dev/null); then
+  adg_process_pids=
+  adg_process_ids=
+  if adg_pidof_output=$(pidof AdGuardHome 2>/dev/null); then
     adg_pidof_status=0
   else
     adg_pidof_status=$?
   fi
   case "$adg_pidof_status" in
     0)
-      [ -n "$adg_process_pids" ] || return 2
-      case "$adg_process_pids" in
+      [ -n "$adg_pidof_output" ] || return 2
+      case "$adg_pidof_output" in
         *[!0123456789\ ]*) return 2 ;;
       esac
-      adg_process_count=0
-      for adg_process_pid in $adg_process_pids; do
-        case "$adg_process_pid" in
+      for adg_candidate_pid in $adg_pidof_output; do
+        case "$adg_candidate_pid" in
           ''|0*|1|*[!0-9]*) return 2 ;;
         esac
-        [ "${#adg_process_pid}" -le 10 ] || return 2
-        [ "$adg_process_pid" -gt 1 ] 2>/dev/null || return 2
-        adg_process_count=$((adg_process_count + 1))
+        [ "${#adg_candidate_pid}" -le 10 ] || return 2
+        [ "$adg_candidate_pid" -gt 1 ] 2>/dev/null || return 2
+        if adg_candidate_start=$(adg_process_identity "$adg_candidate_pid"); then
+          if [ -n "$adg_process_pids" ]; then
+            adg_process_pids="$adg_process_pids $adg_candidate_pid"
+            adg_process_ids="$adg_process_ids $adg_candidate_pid:$adg_candidate_start"
+          else
+            adg_process_pids="$adg_candidate_pid"
+            adg_process_ids="$adg_candidate_pid:$adg_candidate_start"
+          fi
+        else
+          adg_candidate_status=$?
+          case "$adg_candidate_status" in
+            1) ;; # vanished or not the configured AdGuardHome process
+            *) return 2 ;; # procfs could not prove process identity
+          esac
+        fi
       done
-      [ "$adg_process_count" -gt 0 ] || return 2
-      return 0
+      [ -n "$adg_process_pids" ] && return 0
+      [ -f "$ADG_PROC_ROOT/1/stat" ] &&
+        [ -r "$ADG_PROC_ROOT/1/stat" ] && return 1
+      return 2
       ;;
     1)
-      [ -z "$adg_process_pids" ] && return 1
+      [ -z "$adg_pidof_output" ] || return 2
+      [ -f "$ADG_PROC_ROOT/1/stat" ] &&
+        [ -r "$ADG_PROC_ROOT/1/stat" ] && return 1
       return 2
       ;;
     *) return 2 ;;
@@ -653,16 +742,29 @@ adg_stop_daemon() {
   fi
   case "$adg_stop_state" in
     1) return 0 ;;
-    0) adg_stop_pids="$adg_process_pids" ;;
+    0) adg_stop_process_ids="$adg_process_ids" ;;
     *)
-      logger -t "AdGuardHome" "无法读取AdGuardHome进程状态，拒绝发送信号"
+      logger -t "AdGuardHome" "无法验证AdGuardHome进程身份，拒绝发送信号"
       return 1
       ;;
   esac
 
-  # Signal only the validated PID snapshot; never rescan procfs by name.
+  # Recheck executable, argv and start_time immediately before every signal.
+  # Linux 4.4 has no pidfd, so a final validate-to-kill race remains.
   adg_term_status=0
-  for adg_stop_pid in $adg_stop_pids; do
+  for adg_stop_identity in $adg_stop_process_ids; do
+    case "$adg_stop_identity" in *:*) ;; *) return 1 ;; esac
+    adg_stop_pid="${adg_stop_identity%%:*}"
+    adg_stop_start="${adg_stop_identity#*:}"
+    if adg_current_start=$(adg_process_identity "$adg_stop_pid"); then
+      [ "$adg_current_start" = "$adg_stop_start" ] || continue
+    else
+      adg_identity_status=$?
+      case "$adg_identity_status" in
+        1) continue ;;
+        *) return 1 ;;
+      esac
+    fi
     if kill -TERM "$adg_stop_pid" >/dev/null 2>&1; then
       :
     else
@@ -682,7 +784,7 @@ adg_stop_daemon() {
     adg_wait_status=$?
   fi
   case "$adg_wait_status" in
-    1) adg_kill_pids="$adg_process_pids" ;;
+    1) adg_kill_process_ids="$adg_process_ids" ;;
     *)
       logger -t "AdGuardHome" "TERM后进程状态未知，拒绝升级信号"
       return 1
@@ -690,9 +792,21 @@ adg_stop_daemon() {
   esac
 
   logger -t "AdGuardHome" "正常停止超时，尝试强制停止"
-  # The wait helper's final RUNNING result refreshed adg_process_pids.
+  # adg_wait_stopped's final RUNNING result refreshed PID:start_time identities.
   adg_kill_status=0
-  for adg_kill_pid in $adg_kill_pids; do
+  for adg_kill_identity in $adg_kill_process_ids; do
+    case "$adg_kill_identity" in *:*) ;; *) return 1 ;; esac
+    adg_kill_pid="${adg_kill_identity%%:*}"
+    adg_kill_start="${adg_kill_identity#*:}"
+    if adg_current_start=$(adg_process_identity "$adg_kill_pid"); then
+      [ "$adg_current_start" = "$adg_kill_start" ] || continue
+    else
+      adg_identity_status=$?
+      case "$adg_identity_status" in
+        1) continue ;;
+        *) return 1 ;;
+      esac
+    fi
     if kill -9 "$adg_kill_pid" >/dev/null 2>&1; then
       :
     else

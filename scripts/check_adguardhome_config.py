@@ -172,27 +172,42 @@ require('if adg_process_state; then' in start and
         start.index('if ! set_iptable; then') < start.index('change_dns') <
         start.index('eval "AdGuardHome'),
         "duplicate start must require a validated process inventory before side effects")
+process_identity = function_body(script, "adg_process_identity() {")
 require('pidof AdGuardHome' in process_state and 'adg_pidof_status' in process_state and
+        'adg_process_identity "$adg_candidate_pid"' in process_state and
+        'adg_process_ids="$adg_process_ids' in process_state and
         'return 2' in process_state and 'return 1' in process_state and
         'return 0' in process_state,
-        "AdGuardHome process inventory must distinguish RUNNING, ABSENT and UNKNOWN")
+        "AdGuardHome process inventory must distinguish verified RUNNING, ABSENT and UNKNOWN")
+require('readlink "$adg_identity_dir/exe"' in process_identity and
+        '"$ADG_EXECUTABLE"' in process_identity and
+        'start_time = $20' in process_identity and
+        '"$adg_identity_dir/cmdline"' in process_identity and
+        'config="$adg_identity_config"' in process_identity and
+        'workdir="/tmp/AdGuardHome"' in process_identity and
+        'NR == 6' in process_identity,
+        "AdGuardHome identity must bind executable, config/workdir argv and procfs start_time")
 require('while [ "$adg_wait" -lt 5 ]; do' in wait_stopped and
         'adg_process_state' in wait_stopped and 'sleep 1' in wait_stopped and
         'return 2' in wait_stopped,
         "daemon wait must use bounded tri-state polling and propagate UNKNOWN")
 require('adg_process_state' in stop_daemon and 'adg_wait_status' in stop_daemon and
-        'adg_stop_pids="$adg_process_pids"' in stop_daemon and
+        'adg_stop_process_ids="$adg_process_ids"' in stop_daemon and
+        'adg_process_identity "$adg_stop_pid"' in stop_daemon and
+        '[ "$adg_current_start" = "$adg_stop_start" ]' in stop_daemon and
         'kill -TERM "$adg_stop_pid"' in stop_daemon and
-        'adg_kill_pids="$adg_process_pids"' in stop_daemon and
+        'adg_kill_process_ids="$adg_process_ids"' in stop_daemon and
+        'adg_process_identity "$adg_kill_pid"' in stop_daemon and
+        '[ "$adg_current_start" = "$adg_kill_start" ]' in stop_daemon and
         'kill -9 "$adg_kill_pid"' in stop_daemon and
         stop_daemon.index('kill -TERM "$adg_stop_pid"') <
         stop_daemon.index('adg_wait_stopped') <
-        stop_daemon.index('adg_kill_pids="$adg_process_pids"') <
+        stop_daemon.index('adg_kill_process_ids="$adg_process_ids"') <
         stop_daemon.index('kill -9 "$adg_kill_pid"') <
         stop_daemon.rindex('adg_wait_stopped') and
         'killall AdGuardHome' not in stop_daemon and
         'killall -9 AdGuardHome' not in stop_daemon,
-        "daemon stop must use validated per-PID snapshots, refresh before KILL, and block escalation on UNKNOWN")
+        "daemon stop must revalidate PID/start_time before per-PID TERM/KILL and block escalation on UNKNOWN")
 require('if ! clear_iptable; then' in stop and
         'if ! del_dns; then' in stop and 'if ! adg_stop_daemon; then' in stop and
         stop.index('if ! clear_iptable; then') < stop.index('if ! del_dns; then') <
@@ -231,9 +246,11 @@ require('adg_read_enable_state || return $?' in restart_body and
 require('nvram get adg_enable' not in restart_body,
         "restart must not use an unchecked enable-state read")
 require("AdGuardHome stop signals only validated PID snapshots: PASS" in test and
+        "wrong-exe" in test and "wrong-argv" in test and "bad-stat" in test and
+        "malformed AdGuardHome proc metadata was not UNKNOWN" in test and
         "'-TERM 12345' '-TERM 23456'" in test and
         "'-TERM 24680' '-9 13579'" in test,
-        "AdGuardHome lifecycle test must cover all PIDs and refreshed escalation targets")
+        "AdGuardHome lifecycle tests must cover procfs ownership, multiple PIDs and refreshed escalation targets")
 require("AdGuardHome restart preserves a healthy daemon on enable-read errors or invalid selectors: PASS" in test,
         "restart regression must verify NVRAM read failures and malformed selectors cause no stop/start side effects")
 require('adg_lifecycle_lock_prepare "$adg_lock_file"' in lock_run and

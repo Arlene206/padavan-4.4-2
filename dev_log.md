@@ -1,3 +1,13 @@
+## 2026-11-24 — Bind AdGuardHome stop signals to the managed executable and argv
+
+- `adg_process_state()` previously accepted every numeric PID from `pidof AdGuardHome` as owned by this service. Linux comm names are mutable and do not prove executable identity; another binary with the same comm could be signalled, and a real AdGuardHome launched with a different config/workdir could be stopped accidentally.
+- Added `adg_process_identity()`: it verifies `/proc/PID/exe` against `/usr/bin/AdGuardHome` (including the exact deleted-image suffix), parses non-zombie `/proc/PID/stat` start_time, and requires the complete `AdGuardHome -c <configured-file> -w /tmp/AdGuardHome -v` argv tuple.
+- Inventory now filters pidof candidates and records `PID:start_time`; both TERM and refreshed SIGKILL snapshots revalidate executable, argv and start_time immediately before each per-PID signal. Wrong-executable/config decoys count as ABSENT; unreadable/malformed proc metadata is UNKNOWN and blocks signaling.
+- Added synthetic-procfs host regressions for wrong executable, wrong config argv and malformed stat while retaining multi-PID, refreshed-escalation and bounded-wait tests. Linux 4.4 still has a final validate-to-signal race because pidfd is unavailable.
+- Parent main: `a26746d033ffa19d9b576010f4fe4a583b4a859a`. Exact-head AdGuardHome and Process Actions required; no MIPS build/hardware result claimed.
+
+---
+
 ## 2026-11-24 14:11 UTC+8 — Preserve router kernel hostname/domain update failures
 
 - `prepare_dns_dhcpd()` already aborts when `update_hosts_router()` returns an error, but the router path ignored both `sethostname(2)` and `setdomainname(2)` failures after atomically publishing `/etc/hostname` and `/etc/hosts`. DNSMasq could therefore proceed with stale runtime kernel identity while the updater reported success.
