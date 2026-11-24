@@ -429,6 +429,24 @@ test_add_group_missing_count_starts_at_zero(void)
 }
 
 static int
+test_add_group_count_read_failure_aborts_before_mutation(void)
+{
+	struct fake_nvram fake;
+	const char *names[] = { "alpha", "beta" };
+	const char *values[] = { "new-alpha", "new-beta" };
+
+	memset(&fake, 0, sizeof(fake));
+	fake.fail_read_key = "group_count";
+	if (httpd_nvram_group_add(names, 2, "group_count", values, 128,
+				  &fake_ops, &fake) == 0)
+		return 1;
+	return fake.operation_count == 0 &&
+	       expect_value(&fake, "group_count", NULL) &&
+	       expect_value(&fake, "alpha0", NULL) &&
+	       expect_value(&fake, "beta0", NULL) ? 0 : 1;
+}
+
+static int
 test_add_group_read_failure_aborts_before_mutation(void)
 {
 	struct fake_nvram fake;
@@ -602,6 +620,7 @@ main(void)
 {
 	if (test_add_group_appends_all_columns_and_clears_delete_cache() ||
 	    test_add_group_missing_count_starts_at_zero() ||
+	    test_add_group_count_read_failure_aborts_before_mutation() ||
 	    test_add_group_read_failure_aborts_before_mutation() ||
 	    test_add_group_row_write_failure_rolls_back_every_column() ||
 	    test_add_group_reports_incomplete_rollback() ||

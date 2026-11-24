@@ -1676,6 +1676,7 @@ jobs:
           assert "nvram_add_group_map_x(names, name_count, v->argv[3], values)" in add_item
           assert "return nvram_add_group_item(wp, v) == 0 ? 1 : -1;" in add_dispatch
           assert "test_add_group_appends_all_columns_and_clears_delete_cache" in group_tests
+          assert "test_add_group_count_read_failure_aborts_before_mutation" in group_tests
           assert "test_add_group_read_failure_aborts_before_mutation" in group_tests
           assert "test_add_group_row_write_failure_rolls_back_every_column" in group_tests
           assert "test_add_group_reports_incomplete_rollback" in group_tests
