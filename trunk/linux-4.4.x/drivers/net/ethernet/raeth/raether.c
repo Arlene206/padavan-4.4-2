@@ -3304,7 +3304,7 @@ phy_dump_done:
 			break;
 		}
 		spin_lock_irq(&ei_local->page_lock);
-		ei_qdma_ioctl(dev, ifr, &qdma_data);
+		ret = ei_qdma_ioctl(dev, ifr, &qdma_data);
 
 		break;
 

@@ -229,6 +229,31 @@ jobs:
           print("RAETH ingress/egress rate inputs are validated before MMIO/MDIO access: PASS")
           PY
 
+      - name: Verify QDMA ioctl errors propagate to userspace
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth")
+          driver = (root / "raether.c").read_text()
+          qdma = (root / "raether_qdma.c").read_text()
+
+          caller = driver.split("case RAETH_QDMA_IOCTL:", 1)[1].split(
+              "case RAETH_EPHY_IOCTL:", 1
+          )[0]
+          assert "ret = ei_qdma_ioctl(dev, ifr, &qdma_data);" in caller
+          assert "ei_qdma_ioctl(dev, ifr, &qdma_data);" not in caller.replace(
+              "ret = ei_qdma_ioctl(dev, ifr, &qdma_data);", ""
+          )
+
+          handler = qdma.split("int ei_qdma_ioctl(", 1)[1]
+          default = handler.split("default:", 1)[1].split("break;", 1)[0]
+          assert "ret = -EOPNOTSUPP;" in default
+          assert "ret = 1;" not in default
+          assert "return ret;" in handler
+          print("QDMA ioctl operation errors and unsupported commands reach userspace: PASS")
+          PY
+
       - name: Compile and verify RAETH ESW raw register offset alignment
         run: |
           set -eu
