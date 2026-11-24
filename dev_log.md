@@ -1,3 +1,13 @@
+## 2026-11-24 — Require CAP_NET_ADMIN for MTK ESW switch ioctls
+
+- Found a local privilege-boundary defect: `/dev/mtk_esw` was created world-writable and the kernel ioctl handler accepted switch-state changes without checking caller capabilities.
+- Atomic source commit `c28bc0011a34f04e45b27f25891b37824634e15e` changes the node mode to `0600` and requires `CAP_NET_ADMIN` before every ioctl enters the switch lock. It adds a host-testable denial policy and regression; the Switch workflow also checks the kernel call ordering, node mode, and both CI trigger lists.
+- Local GNU89 `-Wall -Wextra -Werror` ASan/UBSan policy test PASS. Exact Switch CLI #45410754770, Process lifecycle #45410754891, Process inventory #45410754960, HTTPD #45410754925 and NVRAM #45410754900 all PASS on this SHA.
+- AI documentation #45410754763 failed only because the roadmap exceeded its 131,072-byte hard limit (131,220 bytes). This checkpoint shortens the new P1 entry and updates the handoff; exact documentation rerun pending.
+- XY-C1 #45410754918 was still building at last poll. Build/TRX/artifact L3 and physical hardware L4 are not yet claimed.
+
+---
+
 ## 2026-11-24 — Verify VSFTPD malformed ACL record rejection
 
 - Exact VSFTPD workflow #45408307661 passed on `82962240fea531c282def4176c5a0833ceeae676`, including GNU89 ACL policy regressions and source-order assertions for malformed duplicate and unterminated records.
