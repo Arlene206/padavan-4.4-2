@@ -44,6 +44,14 @@ The initial source commit ff9cb0ec0f9143cd398d8de1d9b4eb13dca87be5 was mistakenl
 
 ## Verification boundary
 
+### SCUT watchdog marker reader follow-up on parent 0d9b3b51d174ef281a5a379c12c59b29811b9734
+
+- Parent run #45494178433: shell syntax, watchdog lifecycle regression (including symlink/hardlink/writable-mode marker spoof tests), and atomic status writer regression all PASS; only the final source-contract step failed because assertion 58 omitted the actual stat command's stderr redirection.
+- Commit 0d9b3b51d174ef281a5a379c12c59b29811b9734 corrected that assertion. AI handoff validation #45494472680 PASS on 0d9. The SCUT workflow did not start on this checker-only push, so the next source-path-triggered exact-head SCUT run must confirm the corrected contract.
+- XY-C1 build run #45494178359 remained in progress at last poll (build step 38); TRX and artifact upload were not complete. No L3 claim.
+
+
+
 ### SCUT watchdog auth-marker reader follow-up (parent SHA 495da8f95041bee67025fe52ede7cba526b133c9)
 
 - Exact-head run #45494178433 failed only in the final Python source-contract block at assertion 58: the static expectation omitted the intentional 2>/dev/null on the stat call. The actual reader code is correct.
@@ -68,10 +76,10 @@ The initial source commit ff9cb0ec0f9143cd398d8de1d9b4eb13dca87be5 was mistakenl
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and exact-head Actions. Confirm the SCUT watchdog workflow rerun for the checker-only correction passes its complete shell syntax, PID, atomic writer, auth marker spoof and static source-contract steps.
-2. Check the XY-C1 Firmware Validation run on parent SHA 495da8f95041bee67025fe52ede7cba526b133c9; it had not reached its product-input detector at last poll. Then inspect the exact-head run for this correction separately. L3 requires Build, TRX verification and artifact upload all PASS on one identical SHA; a host-only skip is not L3.
-3. Continue independent repository stability/security tasks while any build is pending. LAN DHCP/AP-mode remains PARTIAL/AUDITING (leasefail, full live transitions, target MIPS/uClibc runtime and physical L4 open). Do not repeat completed QMI, Wireless, udhcpc, NVRAM or process audits.
-4. Before context exhaustion, perform the mandatory handoff checkpoint; update root docs only if a material validation result, blocker or first next action changes.
+1. Confirm the SCUT watchdog regression runs on the next exact main SHA with a changed SCUT source path. Verify shell syntax, PID safety, atomic writer, symlink/hard-link/writable-mode auth-marker tests and static contract including STAT and FEATURE_STAT_FORMAT.
+2. Recheck XY-C1 #45494178359 on parent SHA 495da8f95041bee67025fe52ede7cba526b133c9; it had Build step 38 in progress and TRX/artifact pending at last poll. L3 needs Build, TRX and artifact PASS on one SHA.
+3. Continue independent stability/security work while firmware is pending. LAN DHCP/AP-mode remains PARTIAL/AUDITING (leasefail, full live transitions, target MIPS/uClibc runtime and physical L4 open); do not repeat completed QMI, Wireless, udhcpc, NVRAM or process audits.
+4. Before context exhaustion, perform the mandatory handoff checkpoint; update root docs only when validation or first action materially changes.
 
 ## Mandatory handoff checkpoint
 

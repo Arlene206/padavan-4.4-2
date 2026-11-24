@@ -214,6 +214,7 @@ watchcat_read_force(){
 }
 
 # Trust only a marker published by the privileged watchdog/service account.
+# stat -c uses BusyBox STAT plus FEATURE_STAT_FORMAT, both enabled by the board config.
 # /tmp is sticky, so after validating ownership an unprivileged user cannot
 # swap a root-owned inode out from under this read.
 watchcat_auth_flag_enabled()

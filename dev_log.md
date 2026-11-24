@@ -1,3 +1,11 @@
+## 2026-11-24 — Pin BusyBox stat format support for watchdog marker checks
+
+- Confirmed the watchdog's `stat -c` metadata checks depend on both BusyBox STAT and FEATURE_STAT_FORMAT; the board configuration enables each by default. Added an explicit source comment and workflow contract for FEATURE_STAT_FORMAT so an applet configuration regression cannot silently break marker validation.
+- Exact parent SHA 0d9b3b51d174ef281a5a379c12c59b29811b9734: AI handoff #45494472680 PASS. SCUT workflow was not retriggered by the checker-only push; the preceding SCUT run #45494178433 had runtime tests PASS and only its static source assertion failed on missing stderr-redirection text. The checker fix is now present; trigger and verify the complete workflow on this source-path commit.
+- XY-C1 #45494178359 remained in cross-build at step 38; no TRX/artifact completion yet. No L3 or physical L4 claim.
+
+---
+
 ## 2026-11-24 — Correct SCUT watchdog auth-marker source contract
 
 - The extended exact-head SCUT watchdog run #45494178433 reached all runtime tests successfully, including symlink, hard-link and writable-mode auth-marker spoof rejection, but failed the final Python static contract at assertion 58. The checker expected the pidfile stat command without its intentional 2>/dev/null redirection; this was a stale assertion, not a production behavior failure.
