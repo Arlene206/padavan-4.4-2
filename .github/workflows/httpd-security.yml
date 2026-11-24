@@ -259,6 +259,7 @@ on:
       - "trunk/user/pppd/ppp-2.4.7/pppd/ipcp.c"
       - "trunk/user/pppd/ppp-2.4.7/pppd/ipv6cp.c"
       - "trunk/user/rc/src/dnsmasq_file.h"
+      - "trunk/user/rc/src/dnsmasq_safe_read.h"
       - "trunk/user/rc/src/tests/dnsmasq_file.c"
       - "trunk/user/rc/src/dnsmasq_restart_policy.h"
       - "trunk/user/rc/src/tests/dnsmasq_restart_policy.c"
@@ -573,6 +574,7 @@ on:
       - "trunk/user/pppd/ppp-2.4.7/pppd/ipcp.c"
       - "trunk/user/pppd/ppp-2.4.7/pppd/ipv6cp.c"
       - "trunk/user/rc/src/dnsmasq_file.h"
+      - "trunk/user/rc/src/dnsmasq_safe_read.h"
       - "trunk/user/rc/src/tests/dnsmasq_file.c"
       - "trunk/user/rc/src/dnsmasq_restart_policy.h"
       - "trunk/user/rc/src/tests/dnsmasq_restart_policy.c"
@@ -1988,6 +1990,7 @@ jobs:
           resolver_policy = Path("trunk/user/rc/src/wan_resolver_refresh_policy.h").read_text()
           resolver_test = Path("trunk/user/rc/src/tests/wan_resolver_refresh_policy.c").read_text()
           helper = Path("trunk/user/rc/src/dnsmasq_file.h").read_text()
+          safe_read = Path("trunk/user/rc/src/dnsmasq_safe_read.h").read_text()
           domain_policy = Path("trunk/user/rc/src/dnsmasq_domain_policy.h").read_text()
           test = Path("trunk/user/rc/src/tests/dnsmasq_file.c").read_text()
           workflow = Path(".github/workflows/httpd-security.yml").read_text()
@@ -2161,9 +2164,34 @@ jobs:
           ):
               assert expected in net_wan
           assert 'static int\ndnsmasq_file_contents_equal' in helper
-          assert 'dnsmasq_file_is_safe_regular(path)' in helper
+          assert 'static int\ndnsmasq_file_contents_equal' in helper
+          path_guard = function_body(helper, "dnsmasq_file_is_safe_regular(const char *path)")
+          contents_equal = function_body(helper, "dnsmasq_file_contents_equal(")
+          safe_read_body = function_body(safe_read, "dnsmasq_file_open_safe_read(const char *path)")
+          assert "lstat(path, &st)" in path_guard
+          assert "S_ISREG(st.st_mode)" in path_guard
+          assert "st.st_uid != geteuid()" in path_guard
+          assert "st.st_nlink != 1" in path_guard
+          assert "(st.st_mode & (S_IWGRP | S_IWOTH))" in path_guard
+          assert '#include "dnsmasq_safe_read.h"' in helper
+          assert "dnsmasq_file_open_safe_read(path)" in contents_equal
+          assert "dnsmasq_file_open_safe_read(staged_path)" in contents_equal
+          assert 'fopen(path, "r")' not in contents_equal
+          assert 'fopen(staged_path, "r")' not in contents_equal
+          assert "open(path, O_RDONLY | O_NOFOLLOW | O_NONBLOCK, 0)" in safe_read_body
+          assert "while (fd < 0 && errno == EINTR)" in safe_read_body
+          assert "fstat(fd, &st)" in safe_read_body
+          assert "!S_ISREG(st.st_mode)" in safe_read_body
+          assert "st.st_uid != geteuid()" in safe_read_body
+          assert "st.st_nlink != 1" in safe_read_body
+          assert "(st.st_mode & (S_IWGRP | S_IWOTH))" in safe_read_body
+          assert 'fdopen(fd, "r")' in safe_read_body
+          assert safe_read_body.count("close(fd)") == 3
+          assert "dnsmasq_file_open_safe_read(symlink_lease) == NULL" in test
+          assert "dnsmasq_file_open_safe_read(unsafe_read) == NULL" in test
+          assert "dnsmasq_file_open_safe_read(hardlink_lease) == NULL" in test
+          assert "dnsmasq_file_open_safe_read(fifo_lease) == NULL" in test
           assert 'ferror(current)' in helper and 'ferror(staged)' in helper
-          assert 'fclose(current)' in helper and 'fclose(staged)' in helper
           assert 'dnsmasq_file_contents_equal(resolv_destination, resolv_same_template) == 1' in test
           assert 'dnsmasq_file_contents_equal(resolv_destination, resolv_diff_template) == 0' in test
           assert 'dnsmasq_file_contents_equal(resolv_symlink, resolv_link_template) == 0' in test
