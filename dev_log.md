@@ -1,3 +1,11 @@
+## 2026-11-24 — Restore the required handoff checkpoint contract wording
+
+- AI handoff documentation #45503784498 on SHA `2be0e5125bb29f01fc3a9a15fe8938a554387452` failed only because the rewritten handoff omitted the validator's exact sentence `The checkpoint is mandatory; a document edit is conditional.`.
+- Restored that mandatory no-churn checkpoint statement. This corrects a handoff contract omission; no production source is changed.
+- Parent main SHA: `2be0e5125bb29f01fc3a9a15fe8938a554387452`. AI docs rerun is pending after this commit; firewall VTS source checker correction and GNU89 sanitizer regression are running separately on 2be0.
+
+---
+
 ## 2026-11-24 — Align VTS source checker with wrapped checked-read call
 
 - Firewall Startup Stability #45503440459 on product SHA `6d5d5376e425587e6f116d09f88cbcc7ac6a05c1` failed before compiling the new policy test: the Python source checker searched for the checked NVRAM call as one line while the C invocation is intentionally wrapped.
