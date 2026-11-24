@@ -1538,7 +1538,16 @@ init_router(void)
 	}
 
 	set_timezone();
-	set_pagecache_reclaim();
+	{
+		int pagecache_status = set_pagecache_reclaim();
+
+		if (pagecache_status != 0)
+			logmessage(LOGNAME,
+				   "page-cache reclaim initialization incomplete (status=%d)",
+				   pagecache_status);
+		boot_services_status = rc_first_service_start_status(
+			boot_services_status, pagecache_status);
+	}
 
 	storage_load_time();
 
@@ -2435,7 +2444,16 @@ handle_notifications(void)
 					   hddtune_status);
 			action_result = rc_notify_merge_action_result(action_result,
 							      hddtune_status);
-			set_pagecache_reclaim();
+			{
+				int pagecache_status = set_pagecache_reclaim();
+
+				if (pagecache_status != 0)
+					logmessage(LOGNAME,
+						   "page-cache reclaim refresh after HDD tuning failed (status=%d)",
+						   pagecache_status);
+				action_result = rc_notify_merge_action_result(
+					action_result, pagecache_status);
+			}
 		}
 #if defined(APP_FTPD)
 		else if (strcmp(entry->d_name, RCN_RESTART_FTPD) == 0)

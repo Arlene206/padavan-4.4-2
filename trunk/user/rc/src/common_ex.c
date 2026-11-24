@@ -54,6 +54,7 @@
 #include <process_pidfile.h>
 #include <file_write_status.h>
 #include "create_file_policy.h"
+#include "pagecache_reclaim_policy.h"
 
 #define XSTR(s) STR(s)
 #define STR(s) #s
@@ -458,29 +459,38 @@ failed:
 	return status;
 }
 
-void
+int
 set_pagecache_reclaim(void)
 {
-	int pagecache_ratio = 100;
-	int pagecache_reclaim = nvram_get_int("pcache_reclaim");
+	char *pagecache_reclaim_value = NULL;
+	int api_result, saved_errno, reclaim_mode = 0;
+	int pagecache_ratio, status;
 
-	switch (pagecache_reclaim)
-	{
-	case 1:
-		pagecache_ratio = 30;
-		break;
-	case 2:
-		pagecache_ratio = 50;
-		break;
-	case 3:
-		pagecache_ratio = 70;
-		break;
-	case 4:
-		pagecache_ratio = 85;
-		break;
+	errno = 0;
+	api_result = nvram_get_checked("pcache_reclaim", &pagecache_reclaim_value);
+	saved_errno = errno;
+	status = rc_pagecache_reclaim_read_status(
+		api_result, saved_errno, pagecache_reclaim_value, &reclaim_mode);
+	if (status != 0) {
+		logmessage(LOGNAME,
+			   "cannot read page-cache reclaim setting; preserving kernel value (status=%d)",
+			   status);
+		errno = status;
+		return status;
 	}
 
-	fput_int("/proc/sys/vm/pagecache_ratio", pagecache_ratio);
+	pagecache_ratio = rc_pagecache_reclaim_ratio(reclaim_mode);
+	errno = 0;
+	status = fput_int("/proc/sys/vm/pagecache_ratio", pagecache_ratio);
+	saved_errno = errno;
+	status = rc_pagecache_reclaim_write_status(status, saved_errno);
+	if (status != 0) {
+		logmessage(LOGNAME,
+			   "cannot update kernel page-cache reclaim ratio to %d (status=%d)",
+			   pagecache_ratio, status);
+		errno = status;
+	}
+	return status;
 }
 
 int

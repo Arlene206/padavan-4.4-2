@@ -2604,3 +2604,33 @@ for token in (
     assert token in module_refcount_policy
 for test_case in ("test_valid_refcounts", "test_invalid_or_partial_records"):
     assert "CHECK(" + test_case + "() == 0);" in module_refcount_test
+
+# Page-cache reclaim must not mask NVRAM reads or kernel sysctl write failures.
+pagecache_policy = (root / "trunk/user/rc/src/pagecache_reclaim_policy.h").read_text()
+pagecache_test = (root / "trunk/user/rc/src/tests/pagecache_reclaim_policy.c").read_text()
+pagecache_apply = c_function_body(common_ex, "int\nset_pagecache_reclaim(void)")
+assert '#include "pagecache_reclaim_policy.h"' in common_ex
+assert "nvram_get_checked(\"pcache_reclaim\", &pagecache_reclaim_value)" in pagecache_apply
+assert "nvram_get_int(\"pcache_reclaim\")" not in pagecache_apply
+assert pagecache_apply.index("rc_pagecache_reclaim_read_status(") < pagecache_apply.index('fput_int("/proc/sys/vm/pagecache_ratio"')
+assert "rc_pagecache_reclaim_write_status(status, saved_errno)" in pagecache_apply
+assert "errno = status;" in pagecache_apply
+assert "rc_pagecache_reclaim_ratio" in pagecache_policy
+for test_case in (
+    "test_missing_setting_keeps_legacy_default",
+    "test_present_values_keep_legacy_atoi_and_ratio_mapping",
+    "test_read_failures_never_publish_a_default",
+    "test_write_failures_are_preserved",
+):
+    assert test_case + "();" in pagecache_test
+
+pagecache_boot = c_function_body(rc_source, "init_router(void)")
+assert "int pagecache_status = set_pagecache_reclaim();" in pagecache_boot
+assert "boot_services_status = rc_first_service_start_status(" in pagecache_boot
+hddtune_event = rc_source.split(
+    "strcmp(entry->d_name, RCN_RESTART_HDDTUNE) == 0", 1
+)[1].split("#if defined(APP_FTPD)", 1)[0]
+assert "int pagecache_status = set_pagecache_reclaim();" in hddtune_event
+assert "action_result = rc_notify_merge_action_result(" in hddtune_event
+assert "return status;" in pagecache_apply
+print("RC page-cache reclaim NVRAM and sysctl failure propagation: PASS")

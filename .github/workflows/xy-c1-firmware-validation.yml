@@ -28,6 +28,8 @@ on:
       - "trunk/user/rc/src/nat_helper_settings_policy.h"
       - ".github/workflows/wan-route-status.yml"
       - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/common_ex.c"
+      - "trunk/user/rc/src/pagecache_reclaim_policy.h"
       - "trunk/user/rc/src/ddns_enabled_policy.h"
       - "trunk/user/shared/src/netutils.c"
       - "trunk/user/shared/src/netutils.h"
