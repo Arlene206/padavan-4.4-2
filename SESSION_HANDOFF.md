@@ -2,12 +2,14 @@
 
 ## Current repository state
 
-- Live `main` parent for the switch ioctl regression expectation correction: `d1487933d7aa3accc8685d5dcc5eda5e23f4533b`.
-- Exact `d148793` Switch CLI run `#45306528577` and HTTPD regression `#45306528609` both **FAILED** in the shared host `switch_status_policy.c` assertion: the test expected `UINT_MAX`, but the packed command correctly retains the low-byte command value `0x10`, so the correct result is `0xffffff10`. The production pack helper and both ioctl wrappers have not failed their source contract; the test expectation was incorrect.
-- Exact `d148793` AI handoff `#45306528686` and Process lifecycle inventory `#45306528560`: **PASS**. NVRAM audit `#45306528688` and XY-C1 build `#45306528636` remained in progress at last poll.
-- The checked RStats work is green on exact `25d077e`: RStats `#45306112824`, Process inventory `#45306112818`, Process regression `#45306112866`, AI handoff `#45306112832`, HTTPD `#45306112793`, NVRAM## Active task
+- Current live `main`: `e3a7bd0f1e5df8e5d1ad7e2addaf281df13c3f49` — `test(switch): correct packed ioctl boundary expectation`.
+- The prior `d148793` Switch CLI and HTTPD failures were caused by an incorrect host-test expectation. With the 8-bit command field preserved, the packed boundary result is `0xffffff10`, not `UINT_MAX`; `e3a7bd0` updates only that assertion.
+- Exact `e3a7bd0` Actions: Switch CLI ioctl regression `#45306697005`, HTTPD Authentication/Security Regression `#45306697003`, AI handoff contract `#45306697038`, Process lifecycle inventory `#45306697000`, and NVRAM transaction audit `#45306697097`: **PASS**.
+- Archival backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged and read-only. No same-SHA XY-C1 firmware build was triggered/verified by this test-only correction; no new L3 or L4 claim.
 
-Correct the switch ioctl packing boundary regression to expect `0xffffff10` (the 24-bit maximum argument shifted by eight bits, plus preserved low-byte command `0x10`). Re-run exact-SHA Switch CLI and HTTPD consumers; no production source change is expected for this checker correction.
+## Active task
+
+The switch ioctl parameter-boundary fix and its host-test expectation are now green on the same main SHA. Resume the repository-wide stability queue with a new independently evidenced defect; prioritize errors being collapsed into success/zero, unsafe resource lifetime, and hardware-facing failure propagation. Do not reopen the completed switch assertion or repeat its green Actions without new evidence.
 
 ## Completed development slices
 
@@ -37,16 +39,19 @@ Independent snapshot/lifecycle changes remain in `99ad9397e3cf4450c6fc07758b58c3
 
 ## Verification boundary
 
-- Exact `d148793` Switch CLI `#45306528577` and HTTPD `#45306528609` failed because the new host test expected `UINT_MAX` instead of the correct packed value `0xffffff10`. The failure is an incorrect assertion; the helper preserves the low command field as designed.
-- Exact `d148793` AI handoff `#45306528686` and Process inventory `#45306528560`: **PASS**. NVRAM audit and XY-C1 build remained in progress; no firmware L3 or hardware L4 claim.
-- This test-only correction awaits exact-SHA Switch CLI, HTTPD and AI checks. Frozen backup unchanged.
+- Exact `e3a7bd0` Switch CLI ioctl failure-status regression `#45306697005`: **PASS**.
+- Exact `e3a7bd0` HTTPD Authentication/Security Regression `#45306697003`: **PASS**.
+- Exact `e3a7bd0` AI handoff documentation contract `#45306697038`: **PASS**.
+- Exact `e3a7bd0` Process lifecycle inventory `#45306697000`: **PASS**.
+- Exact `e3a7bd0` NVRAM transaction boundary audit `#45306697097`: **PASS**.
+- No XY-C1 run is present for this test-only SHA; older firmware runs are not transferable to current main. No current-head L3 or physical-device L4 result is claimed.
+- Backup branch remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
-## Exact first## Exact first action for the next GPT
+## Exact first action for the next GPT
 
-1. Verify Switch CLI and HTTPD regression runs on the corrected test SHA; inspect the first failed step if either remains red.
-2. Reconcile pending `d148793` NVRAM and XY-C1 Build/TRX/artifact checks against that exact SHA.
-3. Continue switch boundary/error-propagation review after the host source contract is green; keep the frozen backup read-only.
-
+1. Continue from `e3a7bd0f1e5df8e5d1ad7e2addaf281df13c3f49` by tracing a concrete error-propagation defect outside the already-green switch ioctl slice.
+2. Inspect `net_ifstats` counter reads only if the UI can distinguish a failed/malformed read from a valid zero without breaking legacy consumers; otherwise select another clear stability defect.
+3. For each source slice: add a focused regression, commit one complete atomic tree with expected-SHA update, and inspect only that SHA's Actions. Keep the archival backup read-only.
 
 # Cross-session execution mandate
 

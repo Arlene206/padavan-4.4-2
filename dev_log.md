@@ -1,3 +1,11 @@
+## 2026-11-23 — Revalidate switch ioctl field-boundary correction
+
+- The prior `d148793` Switch CLI and HTTPD Actions failed because the host regression expected `UINT_MAX` for a 24-bit parameter packed above the low-byte command. The low-byte command `0x10` is intentionally preserved, so the correct expected result is `0xffffff10`.
+- `e3a7bd0f1e5df8e5d1ad7e2addaf281df13c3f49` changes only the erroneous test expectation. Exact-SHA Switch CLI `#45306697005`, HTTPD `#45306697003`, AI handoff `#45306697038`, Process inventory `#45306697000` and NVRAM audit `#45306697097` all **PASS**.
+- This test-only commit had no same-SHA XY-C1 run; no new firmware L3 or hardware L4 result is claimed. The backup branch remains unchanged.
+
+---
+
 ## 2026-11-23 — Correct the packed-switch ioctl boundary test value
 
 - Exact `d148793` Switch CLI run `#45306528577` and HTTPD run `#45306528609` both failed in the shared `switch_status_policy.c` host regression. The failure was in the test: with an 8-bit command field and a 24-bit maximum parameter, command `0x10` is preserved, so the packed result is `0xffffff10`, not `UINT_MAX`.
