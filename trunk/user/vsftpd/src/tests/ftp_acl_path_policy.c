@@ -171,6 +171,7 @@ main(void)
   char tiny[2];
   char marker_path[PATH_MAX], marker_small[256], long_mount_path[257];
   int cleanup_allowed, dir_fd, race_fd, rollback_fd, replacement_fd;
+  int metadata_dir_fd;
   int upload_dir_fd, upload_fd, existing_upload_fd;
   int upload_fifo_reader_fd;
   int append_fd_a, append_fd_b, rest_append_fd;
@@ -364,6 +365,41 @@ main(void)
     fprintf(stderr, "oversized ACL config fixture was accepted\n");
     return 1;
   }
+  metadata_dir_fd = ftp_acl_path_open_verified_directory(root);
+  if (metadata_dir_fd < 0) {
+    perror("pin ACL metadata root");
+    return 1;
+  }
+  metadata_fd = ftp_acl_path_open_bounded_regular_file_at(
+      metadata_dir_fd, ".__alice_var.txt", 16 * 1024 * 1024, &st);
+  if (metadata_fd < 0 || !S_ISREG(st.st_mode) ||
+      close(metadata_fd) != 0 || close(metadata_dir_fd) != 0) {
+    fprintf(stderr, "descriptor-relative ACL metadata open failed\n");
+    return 1;
+  }
+
+  metadata_dir_fd = ftp_acl_path_open_verified_directory(a);
+  if (metadata_dir_fd < 0) {
+    perror("pin ACL metadata symlink/FIFO fixtures");
+    return 1;
+  }
+  if (ftp_acl_path_open_bounded_regular_file_at(
+          metadata_dir_fd, "metadata-alias", 16 * 1024 * 1024, &st) >= 0) {
+    close(metadata_dir_fd);
+    fprintf(stderr, "descriptor-relative ACL metadata read followed a symlink\n");
+    return 1;
+  }
+  if (ftp_acl_path_open_bounded_regular_file_at(
+          metadata_dir_fd, "acl-config-fifo", 16 * 1024 * 1024, &st) >= 0) {
+    close(metadata_dir_fd);
+    fprintf(stderr, "descriptor-relative ACL metadata read accepted a FIFO\n");
+    return 1;
+  }
+  if (close(metadata_dir_fd) != 0) {
+    perror("close ACL metadata fixture directory");
+    return 1;
+  }
+
   /*
    * LIST metadata must be obtained relative to the directory descriptor:
    * lstat semantics retain symlink identity and readlinkat sees its target.
@@ -899,8 +935,29 @@ main(void)
    */
   checked_path(held_a, sizeof(held_a), root, "shareA-held");
   dir_fd = ftp_acl_path_open_verified_directory(a);
-  if (dir_fd < 0 || rename(a, held_a) || symlink(b, a)) {
+  if (dir_fd < 0) {
     perror("pin authorized upload directory");
+    return 1;
+  }
+  metadata_seed_fd = openat(dir_fd, ".__acl-reader-race.txt",
+      O_CREAT | O_EXCL | O_WRONLY | O_NOFOLLOW | O_CLOEXEC, 0600);
+  if (metadata_seed_fd < 0 ||
+      write(metadata_seed_fd, "pinned\n", 7) != 7 ||
+      close(metadata_seed_fd) != 0 ||
+      rename(a, held_a) || symlink(b, a)) {
+    perror("prepare pinned ACL metadata path substitution");
+    return 1;
+  }
+  metadata_fd = ftp_acl_path_open_bounded_regular_file_at(
+      dir_fd, ".__acl-reader-race.txt", 16 * 1024 * 1024, &st);
+  if (metadata_fd < 0 || read(metadata_fd, readback, 7) != 7 ||
+      close(metadata_fd) != 0) {
+    fprintf(stderr, "pinned ACL metadata read failed after path replacement\n");
+    return 1;
+  }
+  readback[7] = '\0';
+  if (strcmp(readback, "pinned\n") != 0) {
+    fprintf(stderr, "pinned ACL metadata read followed the replaced mount path\n");
     return 1;
   }
   errno = 0;
@@ -1022,6 +1079,7 @@ main(void)
   close(replacement_fd);
   if (unlinkat(dir_fd, "rollback.txt", 0) != 0 ||
       unlinkat(dir_fd, "rollback.saved", 0) != 0 ||
+      unlinkat(dir_fd, ".__acl-reader-race.txt", 0) != 0 ||
       unlinkat(dir_fd, "dirfd-created.txt", 0) != 0 ||
       unlinkat(dir_fd, "race-link", 0) != 0 ||
       close(dir_fd) != 0 || rmdir(a) != 0 || rename(held_a, a) != 0) {

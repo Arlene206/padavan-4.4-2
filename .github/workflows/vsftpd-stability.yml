@@ -455,7 +455,9 @@ jobs:
           resolve_listing_base = function_body(vsftpd_acl, "asus_resolve_listing_base(")
           child_path = function_body(acl_path_policy, "ftp_acl_path_build_child_path(")
           bounded_file_open = function_body(acl_path_policy, "ftp_acl_path_open_bounded_regular_file(")
-          acl_file_reader = function_body(vsftpd_acl, "read_file_to_buffer(")
+          bounded_file_open_at = function_body(acl_path_policy, "ftp_acl_path_open_bounded_regular_file_at(")
+          acl_file_reader = function_body(vsftpd_acl, "read_file_to_buffer_at(")
+          acl_permission_reader = function_body(vsftpd_acl, "int get_permission_ftp(")
           sys_fdopendir = function_body(vsftpd_sysutil, "vsf_sysutil_fdopendir(")
           sys_dirfd = function_body(vsftpd_sysutil, "vsf_sysutil_dirfd(")
           sys_lstatat = function_body(vsftpd_sysutil, "vsf_sysutil_lstatat(")
@@ -587,19 +589,31 @@ jobs:
           assert directory.index("if (p_dir != 0 && dir_allow_read)") < directory.index("else if (stat_cmd)") < directory.index("retval = -1;")
           assert "ftp_acl_path_split_entry(path, parent" in bounded_file_open
           assert "ftp_acl_path_open_verified_directory(parent)" in bounded_file_open
-          assert "openat(dir_fd, leaf" in bounded_file_open
-          assert "O_NOFOLLOW | O_NONBLOCK" in bounded_file_open
-          assert "O_CLOEXEC" in bounded_file_open
-          assert "fstat(fd, &opened)" in bounded_file_open
+          assert "ftp_acl_path_open_bounded_regular_file_at(" in bounded_file_open
+          assert "ftp_acl_path_verify_directory_identity(parent, dir_fd)" in bounded_file_open
+          assert "openat(directory_fd, leaf" in bounded_file_open_at
+          assert "O_NOFOLLOW | O_NONBLOCK" in bounded_file_open_at
+          assert "O_CLOEXEC" in bounded_file_open_at
+          assert "fstat(fd, &opened)" in bounded_file_open_at
+          assert "!S_ISREG(opened.st_mode)" in bounded_file_open_at
+          assert "opened.st_size > max_size" in bounded_file_open_at
           assert "!S_ISREG(opened.st_mode)" in bounded_file_open
           assert "opened.st_size > max_size" in bounded_file_open
-          assert "ftp_acl_path_open_bounded_regular_file(" in acl_file_reader
+          assert "ftp_acl_path_open_bounded_regular_file_at(" in acl_file_reader
+          assert acl_file_reader.count("ftp_acl_path_verify_directory_identity(directory_path,") >= 3
           assert "read(fd, buffer + read_total, file_size - read_total)" in acl_file_reader
           assert "errno == EINTR" in acl_file_reader
+          assert "final_stat.st_dev != stat_buf.st_dev" in acl_file_reader
+          assert "final_stat.st_ino != stat_buf.st_ino" in acl_file_reader
           assert "final_stat.st_size != stat_buf.st_size" in acl_file_reader
+          assert "ftp_acl_path_open_verified_directory(mount_path)" in acl_permission_reader
+          assert "read_file_to_buffer_at(mount_fd, mount_path, var_leaf)" in " ".join(acl_permission_reader.split())
           assert "ACL config FIFO was accepted" in acl_path_test
           assert "ACL config symlink was followed" in acl_path_test
           assert "ACL config symlinked parent was followed" in acl_path_test
+          assert "descriptor-relative ACL metadata read followed a symlink" in acl_path_test
+          assert "descriptor-relative ACL metadata read accepted a FIFO" in acl_path_test
+          assert "pinned ACL metadata read followed the replaced mount path" in acl_path_test
           assert "oversized ACL config fixture was accepted" in acl_path_test
           assert "return -1;" in listing_entries
           assert "return;" not in listing_entries

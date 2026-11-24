@@ -1,3 +1,13 @@
+## 2026-11-24 — Revalidate FTP ACL mount identity across metadata reads
+
+- Parent-pinning commit `ecb381796f856495b41d0d76e87718c82944ea6d` changed the ACL path helper to pin the complete parent directory and open the metadata leaf with `openat()`; ancestor symlinks, final symlinks and FIFO/device nodes are rejected. Exact-head VSFTPD #45447276290, Process #45447276310 and AI handoff #45447276525 PASS; XY-C1 #45447276297 and NVRAM #45447276423 were IN_PROGRESS at last poll.
+- A second race remained: the helper closed the pinned parent immediately after opening the leaf, so the reader could not detect a mount pathname replacement during the read. This slice retains the directory descriptor through the full ACL read, verifies parent identity before open, after open and after reading, and compares the opened file device, inode and size before accepting its contents. A changed mount path or file object now fails closed.
+- Added GNU89 host regressions for descriptor-relative regular metadata open, symlink and FIFO denial, and a parent-path replacement where the pinned descriptor still accesses the original metadata inode while path identity returns `ESTALE`. The VSFTPD source contract now checks the production revalidation sequence.
+- Metadata writer audit: `libdisk/disk_share.c` stages ACL metadata with `mkstemp`, `fsync` and atomic `rename`; shared account validation excludes path separators. Writer parent-dirfd conversion remains separate work.
+- Source SHA `6d4b0537316390ca00a388a015edb828456cc213` has exact VSFTPD #45444917834, Process #45444917951, NVRAM #45444916236 and XY-C1 #45444916327 PASS; Build, TRX verification and artifact upload all passed on that exact SHA (L3 verified for it only). Documentation-only descendant `f6ed1313a31c9a4a89cc9a44d3994869719e5c08` passed AI handoff #45445344806. This follow-up's exact-head Actions are pending.
+
+---
+
 ## 2026-11-25 — Restore required AI handoff section contract
 
 - Exact parent SHA `6d4b0537316390ca00a388a015edb828456cc213`: VSFTPD #45444917834 and Process inventory #45444917951 PASS; NVRAM #45444916236 and XY-C1 #45444916327 IN_PROGRESS. AI docs #45444916200 failed because the handoff had renamed the required `## Active task` section to `## Active source tasks`.

@@ -133,7 +133,9 @@ int get_mount_layer(const char *basedir, char **mount_path, char **share)
 
 	return layer;
 }
-char* read_file_to_buffer(const char *target_file)
+static char *
+read_file_to_buffer_at(int directory_fd, const char *directory_path,
+                       const char *leaf)
 {
 	char *buffer;
 	struct stat stat_buf, final_stat;
@@ -141,10 +143,16 @@ char* read_file_to_buffer(const char *target_file)
 	ssize_t read_size;
 	int fd, saved_errno;
 
-	fd = ftp_acl_path_open_bounded_regular_file(
-	    target_file, 16 * 1024 * 1024, &stat_buf);
+	if (ftp_acl_path_verify_directory_identity(directory_path,
+	                                           directory_fd) != 0)
+		return NULL;
+	fd = ftp_acl_path_open_bounded_regular_file_at(
+	    directory_fd, leaf, 16 * 1024 * 1024, &stat_buf);
 	if (fd < 0)
 		return NULL;
+	if (ftp_acl_path_verify_directory_identity(directory_path,
+	                                           directory_fd) != 0)
+		goto read_error;
 
 	file_size = (size_t) stat_buf.st_size;
 	buffer = (char *) malloc(file_size + 1);
@@ -165,15 +173,20 @@ char* read_file_to_buffer(const char *target_file)
 			continue;
 		if (read_size == 0)
 			errno = EIO;
-		goto read_error;
+		goto read_buffer_error;
 	}
 
 	if (fstat(fd, &final_stat) != 0)
-		goto read_error;
-	if (final_stat.st_size != stat_buf.st_size) {
+		goto read_buffer_error;
+	if (final_stat.st_dev != stat_buf.st_dev ||
+	    final_stat.st_ino != stat_buf.st_ino ||
+	    final_stat.st_size != stat_buf.st_size) {
 		errno = EAGAIN;
-		goto read_error;
+		goto read_buffer_error;
 	}
+	if (ftp_acl_path_verify_directory_identity(directory_path,
+	                                           directory_fd) != 0)
+		goto read_buffer_error;
 	if (close(fd) != 0) {
 		saved_errno = errno;
 		free(buffer);
@@ -184,18 +197,25 @@ char* read_file_to_buffer(const char *target_file)
 	buffer[read_total] = '\0';
 	return buffer;
 
-read_error:
-	saved_errno = errno;
+read_buffer_error:
+	saved_errno = errno ? errno : EIO;
 	close(fd);
 	free(buffer);
 	errno = saved_errno;
 	return NULL;
-}
 
+read_error:
+	saved_errno = errno ? errno : EIO;
+	close(fd);
+	errno = saved_errno;
+	return NULL;
+}
 int get_permission_ftp(const char *account, const char *mount_path, const char *folder)
 {
-	char var_file[256], *var_info;
-	int result;
+	char var_file[PATH_MAX], *var_info;
+	const char *var_leaf;
+	size_t mount_len;
+	int result, mount_fd, saved_errno;
 
 	if (!account || !mount_path || !*mount_path || !folder || !*folder)
 		return -1;
@@ -203,7 +223,22 @@ int get_permission_ftp(const char *account, const char *mount_path, const char *
 	if (ftp_acl_path_build_account_permission_path(
 		    mount_path, account, var_file, sizeof(var_file)) != 0)
 		return 0;
-	var_info = read_file_to_buffer(var_file);
+	mount_len = strlen(mount_path);
+	if (mount_len >= sizeof(var_file) - 1 ||
+	    var_file[mount_len] != '/' || var_file[mount_len + 1] == '\0')
+		return 0;
+	var_leaf = strrchr(var_file, '/') + 1;
+
+	mount_fd = ftp_acl_path_open_verified_directory(mount_path);
+	if (mount_fd < 0)
+		return 0;
+	var_info = read_file_to_buffer_at(mount_fd, mount_path, var_leaf);
+	if (close(mount_fd) != 0) {
+		saved_errno = errno ? errno : EIO;
+		free(var_info);
+		errno = saved_errno;
+		return 0;
+	}
 	if (!var_info)
 		return 0;
 
