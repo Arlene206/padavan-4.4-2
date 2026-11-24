@@ -1,3 +1,11 @@
+## 2026-11-24 — Fix AliDNS require() contract call
+
+- Exact e4fdbc7 AliDNS run #45357277912 passed shell syntax, signed transport, IPv4/IPv6 lookup, lifecycle/NVRAM, CA bootstrap and HMAC argument-privacy tests. The final checker failed with TypeError because its first new `require()` call omitted its second message argument.
+- Added the missing comma and a Python regex token-boundary check for a standalone `od` command. Production encoder and test fixture are unchanged.
+- Exact e4 AI handoff #45357277937 PASS. Corrected checker SHA requires exact-head re-run.
+
+---
+
 ## 2026-11-24 — Fix AliDNS od-command contract false positive
 
 - Exact 32263 AliDNS #45356801815 passed shell syntax and every functional test, then the static check failed because a substring search for "od" matched the word "encode" in the comments.
