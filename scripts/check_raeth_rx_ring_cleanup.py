@@ -160,3 +160,40 @@ def check_rss_ring(mode: str, max_rings: str) -> None:
 check_rss_ring("4", "MAX_RX_RING_NUM")
 check_rss_ring("2", "MAX_RX_RING_NUM_2RING")
 print("PDMA RSS 4-ring/2-ring partial-init rollback and DMA teardown: PASS")
+
+LRO_SOURCE = Path(
+    "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether_hwlro.c"
+).read_text()
+lro_init = function_body(LRO_SOURCE, "int fe_hw_lro_init(")
+assert "int allocated[MAX_RX_RING_NUM] = { 0 };" in lro_init
+assert "int mapped[MAX_RX_RING_NUM] = { 0 };" in lro_init
+lro_ring_alloc = lro_init.index("ei_local->rx_ring[i] =")
+lro_ring_check = lro_init.index("if (!ei_local->rx_ring[i])", lro_ring_alloc)
+lro_skb_alloc = lro_init.index("raeth_alloc_skb_data(", lro_ring_check)
+lro_allocated = lro_init.index("allocated[i]++;", lro_skb_alloc)
+lro_desc = lro_init.index("&ei_local->rx_ring[i][j]", lro_allocated)
+lro_map_check = lro_init.index("dma_mapping_error", lro_desc)
+lro_mapped = lro_init.index("mapped[i]++;", lro_map_check)
+assert lro_ring_alloc < lro_ring_check < lro_skb_alloc < lro_allocated < lro_desc < lro_map_check < lro_mapped
+lro_failure = lro_init.index("no_rx_mem:")
+lro_unmap = lro_init.index("dma_unmap_single(", lro_failure)
+lro_free_loop = lro_init.index("for (j = 0; j < allocated[i]; j++)", lro_unmap)
+lro_free_skb = lro_init.index("raeth_free_skb_data(", lro_free_loop)
+lro_free_ring = lro_init.index("dma_free_coherent(", lro_free_skb)
+lro_ring_guard = lro_init.rfind("if (ei_local->rx_ring[i])", 0, lro_free_ring)
+assert lro_failure < lro_unmap < lro_free_loop < lro_free_skb < lro_free_ring
+assert lro_ring_guard >= 0 and lro_ring_guard < lro_free_ring
+assert "for (j = 0; j < mapped[i]; j++)" in lro_init[lro_failure:lro_free_loop]
+assert "ei_local->netrx_skb_data[i][j] = NULL;" in lro_init[lro_free_skb:lro_free_ring]
+
+lro_deinit = function_body(LRO_SOURCE, "void fe_hw_lro_deinit(")
+lro_unmap_at = lro_deinit.index("dma_unmap_single(")
+lro_skb_free_at = lro_deinit.index("raeth_free_skb_data(")
+lro_ring_free_at = lro_deinit.index("dma_free_coherent(")
+assert lro_unmap_at < lro_skb_free_at < lro_ring_free_at
+lro_unmap_guard = lro_deinit.rfind("if (ei_local->rx_ring[i])", 0, lro_unmap_at)
+lro_ring_free_guard = lro_deinit.rfind("if (ei_local->rx_ring[i])", 0, lro_ring_free_at)
+assert lro_unmap_guard >= 0 and lro_unmap_guard < lro_unmap_at
+assert lro_ring_free_guard >= 0 and lro_ring_free_guard < lro_ring_free_at
+assert "ei_local->rx_ring[i] = NULL;" in lro_deinit[lro_ring_free_at:]
+print("Hardware LRO partial-init rollback and DMA teardown: PASS")
