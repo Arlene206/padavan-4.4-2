@@ -163,7 +163,7 @@ def verify_ft_r0khid_copy(path: Path, source: str) -> None:
     temporary = "UCHAR r0kh_id[FT_ROKH_ID_LEN + 1] = {0};"
     copy = "if (copy_from_user(r0kh_id, wrq->u.data.pointer, wrq->u.data.length))"
     normalize = (
-        "else if (mtk_ft_r0khid_normalize_length(r0kh_id, wrq->u.data.length, "
+        "else if (mtk_ft_r0khid_normalize_length( r0kh_id, wrq->u.data.length, "
         "FT_ROKH_ID_LEN, &r0kh_id_len))"
     )
     assert guard in compact, f"{path}: reject lengths beyond payload plus optional NUL"

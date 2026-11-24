@@ -1,3 +1,10 @@
+## 2026-11-24 19:38 Beijing — Correct R0KH-ID source-contract formatting
+
+- Exact MTK run #45379089623 on `b04620659840fd488a0320543d8e92872f9821f2` passed the GNU89 ASan/UBSan boundary fixture and the vendor-header byte matcher, then exposed a whitespace mismatch in the checker’s expected normalized-call string: the source places a newline immediately after the function's opening parenthesis.
+- Updated the source contract to match the actual collapsed whitespace; no production code changed. Exact MTK and AI handoff reruns are pending.
+
+---
+
 ## 2026-11-24 19:31 Beijing — Fix R0KH-ID vendor-header contract matcher
 
 - Exact focused MTK run #45378781924 on `b9d55bfcbf23c751c2f548e35ba78e9e05e5118b` passed the new GNU89 ASan/UBSan R0KH-ID C regression, then failed in the Python contract because its raw-byte regex used double-escaped metacharacters and therefore did not match the vendor macro. Production code was not implicated.
