@@ -1,3 +1,11 @@
+## 2026-11-24 — Read private credentials before applying UID/GID changes
+
+- The new `lanauth -f` reader validates the credential file against `geteuid()`. A review found that the existing option parser immediately called `setuid(atoi(optarg))` / `setgid(atoi(optarg))`, before loading `-f`; a command containing `-u` could therefore drop privileges and then fail to read the intended root-owned 0600 file. In the old parser, `-u` before `-g` could also make the later setgid fail.
+- UID/GID options are now recorded during getopt parsing. lanauth consumes the private password file first, then applies GID before UID independent of argument order; both operations' failures abort startup. A host injectable policy regression covers correct ordering, each failure boundary, no-op and missing callbacks. The file-reader error diagnostic newline was also corrected.
+- Exact-head Process/AI and source-SHA XY-C1 Build/TRX/artifact checks pending. Parent main SHA: a30043d18ebf28e4c0dbef2205af2819073aa92f.
+
+---
+
 ## 2026-11-24 — Align inline Process workflow with private lanauth credentials
 
 - Process lifecycle #45508464483 on SHA 76c951349c99e3f96ea3226de15438004ce4f756 compiled and ran the LAN authentication restart policy regression successfully, then failed the inline YAML Python contract because that duplicate block still expected the removed `-p password` call. The external `scripts/check_process_lifecycle_integration.py` had already been updated; this correction brings the inline check into sync, verifies normalized -f argv for both gateway cases, asserts the managed writer's mode/write/fsync behavior, and checks daemon loader no-follow/mode/owner/link/inode/unlink protections.

@@ -1667,6 +1667,26 @@ assert "fsync(fd)" in auth_credential_writer
 assert "memset(credential_path, 0, sizeof(credential_path))" in auth_source
 lanauth_source = (root / "trunk/user/lanauth/src/lanauth.c").read_text()
 lanauth_policy = (root / "trunk/user/lanauth/src/lanauth_credential_file_policy.h").read_text()
+lanauth_privilege_policy = (root / "trunk/user/lanauth/src/lanauth_privilege_drop_policy.h").read_text()
+lanauth_privilege_test = (root / "trunk/user/lanauth/src/tests/lanauth_privilege_drop_policy.c").read_text()
+lanauth_main = c_function_body(lanauth_source, "int main(int argc, char **argv)")
+lanauth_drop = c_function_body(lanauth_source, "lanauth_drop_privileges(")
+assert "requested_uid = (uid_t)atoi(optarg)" in lanauth_main
+assert "requested_gid = (gid_t)atoi(optarg)" in lanauth_main
+assert "setuid(atoi(optarg))" not in lanauth_main
+assert "setgid(atoi(optarg))" not in lanauth_main
+assert lanauth_main.index("lanauth_read_private_password_file(") < lanauth_main.index("lanauth_drop_privileges(") < lanauth_main.index("daemon(0, 0)")
+assert "setgid(gid)" in lanauth_source
+assert "setuid(uid)" in lanauth_source
+assert "lanauth_apply_privilege_drop_with_ops(" in lanauth_drop
+lanauth_privilege_body = c_function_body(lanauth_privilege_policy, "lanauth_apply_privilege_drop_with_ops(")
+assert lanauth_privilege_body.index("set_gid(context, gid)") < lanauth_privilege_body.index("set_uid(context, uid)")
+for case in ("test_group_is_applied_before_user_and_option_order_is_irrelevant",
+             "test_group_failure_prevents_user_drop",
+             "test_user_failure_is_reported_after_group_drop",
+             "test_unrequested_ids_are_not_changed",
+             "test_missing_requested_callback_fails_closed"):
+    assert case in lanauth_privilege_test
 assert 'getopt(argc, argv, "iv:b:ns:p:f:l:u:g:")' in lanauth_source
 assert "case 'f':" in lanauth_source
 assert "lanauth_read_private_password_file(" in lanauth_source

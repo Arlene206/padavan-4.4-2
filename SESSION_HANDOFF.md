@@ -6,16 +6,16 @@ Continue one autonomous engineering stream on `main`. For each logical slice, cr
 
 ## Branch and checkpoint
 
-- Parent main SHA for this handoff update: `76c951349c99e3f96ea3226de15438004ce4f756`; refresh live refs before future writes.
+- Parent main SHA for this handoff update: `a30043d18ebf28e4c0dbef2205af2819073aa92f`; refresh live refs before future writes.
 - Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only.
 - `main` is the only development ref. PR #1 is closed/unmerged and must not be ported.
 - Bootstrap, protocol and handoff were recovered once; do not repeat startup audits without a new reason.
 
 ## Active task
 
-### Verify private LAN authentication credential transport
+### Verify private LAN credential transport and deferred privilege drop
 
-The checked-read fix and file-based `lanauth -f` transport are committed. Verify exact-head Process and XY-C1 runs for the private credential file loader, its no-follow/permissions checks, one-shot unlink, and the RC caller contract. Repair only real failures; no firmware L3 claim until Build, TRX and artifact upload all pass on the same SHA.
+The managed RC path passes a one-shot mode-0600 credential-file path instead of the password in argv. The daemon now reads that file before any requested UID drop, applies a requested GID before UID regardless of CLI option order, and fails closed when either privilege change fails. Verify the dedicated file-reader and privilege-order GNU89 ASan/UBSan regressions, Process integration contracts, and same-source XY-C1 Build/TRX/artifact checks.
 
 ## Completed source slices
 
@@ -119,9 +119,10 @@ Commit `786c504c8247fe42d5d1d5f2dc3ad28757fafc80` strictly parses persisted RX/T
 
 ## Exact first action for the next GPT
 
-1. Verify the new exact-head Process regression triggered by the inline workflow contract correction. Run #45508464483 on SHA 76c951349c99e3f96ea3226de15438004ce4f756 passed the LAN authentication restart policy test but failed in the following inline source contract because it still expected the obsolete `-p password` argv. That inline contract is now aligned with the -f private credential transport and explicitly checks writer/reader permissions and one-shot consumption.
-2. Confirm the private credential-file GNU89 ASan/UBSan regression actually runs and passes, then check XY-C1 Build, TRX and artifact upload on exact production source SHA 4e9d0c25f02e0c83c8657215f7cfa6b7b6ac0120.
-3. Continue after recording exact-head Process/AI and source-SHA firmware results. Preserve main-only atomic compare-and-swap commits and keep the backup read-only.
+1. Verify exact-head Process and XY-C1 runs for the deferred lanauth privilege-drop source slice. Confirm the private credential-file test and privilege policy test both compile/run with GNU89, ASan and UBSan.
+2. The prior Process SHA `a30043d18ebf28e4c0dbef2205af2819073aa92f` passed its full fail-closed regression, including both LAN authentication policy tests and the private credential-file reader test. Its AI handoff check also PASSed.
+3. Verify Build, TRX and artifact upload on the same new production-source SHA before claiming L3. The previous XY-C1 run for source SHA `4e9d0c25f02e0c83c8657215f7cfa6b7b6ac0120` was still building at last check.
+4. Then continue one uncovered stability/security defect, using main-only atomic CAS commits and leaving the frozen backup untouched.
 
 
 ## Mandatory handoff checkpoint

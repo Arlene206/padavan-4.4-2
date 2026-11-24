@@ -27,6 +27,7 @@
 #include<syslog.h>
 
 #include "lanauth_credential_file_policy.h"
+#include "lanauth_privilege_drop_policy.h"
 
 #define LTC_NO_CIPHERS
 #define LTC_NO_MODES
@@ -70,10 +71,38 @@ static void fatal(char *s, ...) {
 	exit(1);
 }
 
+static int
+lanauth_set_group(void *context, gid_t gid)
+{
+    (void)context;
+    return setgid(gid);
+}
+static int
+lanauth_set_user(void *context, uid_t uid)
+{
+    (void)context;
+    return setuid(uid);
+}
+static int
+lanauth_drop_privileges(int change_gid, gid_t gid,
+                        int change_uid, uid_t uid,
+                        enum lanauth_privilege_drop_stage *failure_stage)
+{
+    return lanauth_apply_privilege_drop_with_ops(
+        change_gid, gid, change_uid, uid,
+        lanauth_set_group, lanauth_set_user, NULL, failure_stage);
+}
+
 int main(int argc, char **argv) {
 	char *s;
 	char *password_file = NULL;
 	int password_argument = 0;
+	uid_t requested_uid = 0;
+	gid_t requested_gid = 0;
+	int change_uid = 0;
+	int change_gid = 0;
+	int privilege_status;
+	enum lanauth_privilege_drop_stage privilege_failure_stage;
 	int op;
 	unsigned char ch;
 	unsigned char curlevel = 0xff;
@@ -119,10 +148,12 @@ int main(int argc, char **argv) {
 				level = atoi(optarg);
 				break;
 			case 'u':
-				setuid(atoi(optarg));
+				requested_uid = (uid_t)atoi(optarg);
+				change_uid = 1;
 				break;
 			case 'g':
-				setgid(atoi(optarg));
+				requested_gid = (gid_t)atoi(optarg);
+				change_gid = 1;
 				break;
 			default:
 				usage();
@@ -133,7 +164,7 @@ int main(int argc, char **argv) {
 		int password_status = lanauth_read_private_password_file(
 			password_file, pass, sizeof(pass));
 		if (password_status != 0) {
-			fprintf(stderr, "lanauth: cannot read private password file (status=%d)\\n",
+			fprintf(stderr, "lanauth: cannot read private password file (status=%d)\n",
 				password_status);
 			return 1;
 		}
@@ -142,6 +173,20 @@ int main(int argc, char **argv) {
 	}
 
 	openlog("lanauth", nodaemon ? LOG_PERROR|LOG_PID : LOG_PID, LOG_DAEMON);
+
+	privilege_status = lanauth_drop_privileges(
+		change_gid, requested_gid, change_uid, requested_uid,
+		&privilege_failure_stage);
+	if (privilege_status != 0) {
+		if (privilege_failure_stage == LANAUTH_PRIVILEGE_DROP_STAGE_GID)
+			fatal("setgid(%lu) failed (status=%d)",
+			      (unsigned long)requested_gid, privilege_status);
+		if (privilege_failure_stage == LANAUTH_PRIVILEGE_DROP_STAGE_UID)
+			fatal("setuid(%lu) failed (status=%d)",
+			      (unsigned long)requested_uid, privilege_status);
+		fatal("cannot apply requested privilege drop (status=%d)",
+		      privilege_status);
+	}
 
 	signal(SIGUSR1, sigusr);
 	signal(SIGUSR2, sigusr);
