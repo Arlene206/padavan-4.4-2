@@ -15,6 +15,7 @@ sed -n '/^enc() {/,/^}/p' "$SOURCE" >> "$FUNCTIONS"
 sed -n '/^send_request() {/,/^}/p' "$SOURCE" >> "$FUNCTIONS"
 sed -n '/^aliddns_hmac_sha1() {/,/^}/p' "$SOURCE" >> "$FUNCTIONS"
 sed -n '/^aliddns_response_ok() {/,/^}/p' "$SOURCE" >> "$FUNCTIONS"
+sed -n '/^aliddns_nvram_write_checked() {/,/^}/p' "$SOURCE" >> "$FUNCTIONS"
 sed -n '/^aliddns_update_failed() {/,/^}/p' "$SOURCE" >> "$FUNCTIONS"
 sed -n '/^aliddns_ipv4_valid() {/,/^}/p' "$SOURCE" >> "$FUNCTIONS"
 sed -n '/^aliddns_ipv6_valid() {/,/^}/p' "$SOURCE" >> "$FUNCTIONS"
@@ -44,11 +45,18 @@ NVRAM_LOG="$TEST_DIR/nvram.log"
 : > "$NVRAM_LOG"
 export CURL_ARGS_LOG CURL_CONFIG_LOG CURL_COUNT_FILE NVRAM_LOG
 
-logger() { :; }
+LOGGER_LOG="$TEST_DIR/logger.log"
+: > "$LOGGER_LOG"
+logger() { printf '%s\n' "$*" >> "$LOGGER_LOG"; }
 nvram() {
 	[ "$1" = "set" ] || return 1
 	shift
 	printf '%s\n' "$*" >> "$NVRAM_LOG"
+	nvram_key=${1%%=*}
+	if [ "${FAIL_NVRAM_KEY:-}" = "$nvram_key" ]; then
+		return "${FAIL_NVRAM_STATUS:-37}"
+	fi
+	return 0
 }
 sleep() { :; }
 cat > "$MOCK_BIN/curl" <<'MOCK_CURL'
@@ -136,8 +144,10 @@ aliddns_ttl="600"
 reset_scenario() {
 	FAKE_SCENARIO="$1"
 	export FAKE_SCENARIO
+	unset FAIL_NVRAM_KEY FAIL_NVRAM_STATUS
 	rm -f "$CURL_COUNT_FILE"
 	: > "$NVRAM_LOG"
+	: > "$LOGGER_LOG"
 }
 fail() {
 	echo "AliDDNS API transport regression: FAIL: $1" >&2
@@ -246,6 +256,41 @@ arDdnsUpdate || fail "successful update response was rejected"
 [ "$(cat "$CURL_COUNT_FILE")" -eq 2 ] || fail "successful update made an unexpected number of requests"
 grep -Fqx 'aliddns_record_id=123' "$NVRAM_LOG" || fail "successful update did not save the record ID"
 grep -Fq '成功更新：203.0.113.9' "$NVRAM_LOG" || fail "successful update status was not published"
+
+# A successful provider response is not a local success until both pieces
+# of UI/state metadata are actually persisted.
+reset_scenario update-success
+FAIL_NVRAM_KEY=aliddns_record_id
+FAIL_NVRAM_STATUS=37
+export FAIL_NVRAM_KEY FAIL_NVRAM_STATUS
+persist_status=0
+arDdnsUpdate || persist_status=$?
+[ "$persist_status" -eq 37 ] || fail "record-ID NVRAM failure was hidden"
+grep -Fqx 'aliddns_record_id=123' "$NVRAM_LOG" || fail "failed record-ID persistence was not attempted"
+! grep -Fq 'aliddns_last_act=' "$NVRAM_LOG" || fail "last-action success state was published after record-ID failure"
+! grep -Fq '成功更新：' "$LOGGER_LOG" || fail "record-ID persistence failure was logged as a complete success"
+
+reset_scenario update-success
+FAIL_NVRAM_KEY=aliddns_last_act
+FAIL_NVRAM_STATUS=37
+export FAIL_NVRAM_KEY FAIL_NVRAM_STATUS
+persist_status=0
+arDdnsUpdate || persist_status=$?
+[ "$persist_status" -eq 37 ] || fail "last-action NVRAM failure was hidden"
+grep -Fqx 'aliddns_record_id=123' "$NVRAM_LOG" || fail "record-ID persistence was skipped"
+grep -Fq 'aliddns_last_act=' "$NVRAM_LOG" || fail "failed last-action persistence was not attempted"
+! grep -Fq '成功更新：' "$LOGGER_LOG" || fail "last-action persistence failure was logged as a complete success"
+
+reset_scenario add-success
+FAIL_NVRAM_KEY=aliddns_record_id
+FAIL_NVRAM_STATUS=37
+export FAIL_NVRAM_KEY FAIL_NVRAM_STATUS
+persist_status=0
+arDdnsUpdate || persist_status=$?
+[ "$persist_status" -eq 37 ] || fail "new-record ID persistence failure was hidden"
+[ "$(cat "$CURL_COUNT_FILE")" -eq 4 ] || fail "new-record persistence scenario did not complete the expected API flow"
+! grep -Fq 'aliddns_last_act=' "$NVRAM_LOG" || fail "new-record success state was published after record-ID failure"
+! grep -Fq '成功更新：' "$LOGGER_LOG" || fail "new-record persistence failure was logged as a complete success"
 
 # JSON whitespace around separators must not turn an existing record into
 # an empty lookup (which could otherwise create a duplicate DNS record).

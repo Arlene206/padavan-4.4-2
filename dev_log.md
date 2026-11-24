@@ -1,3 +1,11 @@
+## 2026-11-24 — Propagate AliDDNS success-state persistence failures
+
+- Found that arDdnsUpdate() ignored both NVRAM writes after AliDNS had accepted an add/update. A failed record-ID or last-action write could therefore return success and log a complete local update while persistent state remained stale.
+- The function now uses the checked NVRAM writer for aliddns_record_id and aliddns_last_act, stops at the first failed write, preserves the original errno/status, and logs that the remote DNS change succeeded but local state could not be saved.
+- Extended the API transport fixture with injectable NVRAM write failures for existing-record updates and new-record creation; the source checker pins both checked writes before the final success log. Exact-head Actions pending; XY-C1 L3 and physical-router L4 are not claimed.
+
+---
+
 ## 2026-11-24 — Require CAP_NET_ADMIN for MTK ESW switch ioctls
 
 - Found a local privilege-boundary defect: `/dev/mtk_esw` was created world-writable and the kernel ioctl handler accepted switch-state changes without checking caller capabilities.

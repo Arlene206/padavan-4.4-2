@@ -81,6 +81,7 @@ urlencode = function_body(source, "urlencode() {")
 enc = function_body(source, "enc() {")
 send_request = function_body(source, "send_request() {")
 response_ok = function_body(source, "aliddns_response_ok() {")
+nvram_writer = function_body(source, "aliddns_nvram_write_checked() {")
 hmac_helper = function_body(source, "aliddns_hmac_sha1() {")
 info = function_body(source, "arDdnsInfo() {")
 update = function_body(source, "arDdnsUpdate() {")
@@ -192,10 +193,20 @@ require('query_ok=0' in update and
         "failed record discovery must never be treated as a valid empty record set")
 require("return 2" in info and '"$info_status" -eq 2' in ddns_check,
         "valid empty-record responses must remain distinguishable from transport/API failures")
+require('[ "$#" -eq 2 ]' in nvram_writer and
+        'nvram set "$1=$2"' in nvram_writer and
+        'return "$aliddns_nvram_status"' in nvram_writer,
+        "AliDDNS NVRAM writer must validate arguments and propagate persistence failures")
 require('response=$(add_record)' in update and
         'response=$(update_record "$aliddns_record_id")' in update and
-        update.index('response=$(update_record "$aliddns_record_id")') < update.index('nvram set aliddns_record_id='),
-        "updates/additions must validate their API response before publishing success state")
+        update.index('response=$(update_record "$aliddns_record_id")') <
+        update.index('aliddns_nvram_write_checked aliddns_record_id') <
+        update.index('aliddns_nvram_write_checked aliddns_last_act') and
+        'nvram set aliddns_record_id=' not in update and
+        'nvram set aliddns_last_act=' not in update and
+        update.index('aliddns_nvram_write_checked aliddns_last_act') <
+        update.index('logger -t "【AliDDNS动态域名】" "成功更新： $hostIP"'),
+        "updates/additions must check both success-state writes before reporting completion")
 
 require('--with-openssl=$(STAGING_DIR)' in libcurl_makefile and
         '--with-ca-bundle=/etc/ssl/certs/ca-certificates.crt' in libcurl_makefile,

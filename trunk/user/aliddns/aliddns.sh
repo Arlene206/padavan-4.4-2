@@ -1096,8 +1096,16 @@ esac
 		logger -t "【AliDDNS动态域名】" "更新的记录  $aliddns_record_id"
 	fi
 
-	nvram set aliddns_record_id="$aliddns_record_id"
-	nvram set aliddns_last_act="$(date '+%Y-%m-%d %H:%M:%S')   成功更新：$hostIP"
+	aliddns_nvram_write_checked aliddns_record_id "$aliddns_record_id" || {
+		aliddns_persist_status=$?
+		logger -t "【AliDDNS动态域名】" "远端 DNS 记录已更新，但记录 ID 未能保存 (status=$aliddns_persist_status)"
+		return "$aliddns_persist_status"
+	}
+	aliddns_nvram_write_checked aliddns_last_act "$(date '+%Y-%m-%d %H:%M:%S')   成功更新：$hostIP" || {
+		aliddns_persist_status=$?
+		logger -t "【AliDDNS动态域名】" "远端 DNS 记录已更新，但状态未能保存 (status=$aliddns_persist_status)"
+		return "$aliddns_persist_status"
+	}
 	logger -t "【AliDDNS动态域名】" "成功更新： $hostIP"
 	return 0
 }
