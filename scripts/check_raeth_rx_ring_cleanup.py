@@ -41,13 +41,14 @@ assert map_check < map_fail < map_account
 
 rollback = body.index("no_rx_mem:")
 unmap = body.index("dma_unmap_single(", rollback)
-free_skb = body.index("raeth_free_skb_data(", unmap)
+allocated_loop = body.index("for (j = 0; j < allocated; j++)", unmap)
+free_skb = body.index("raeth_free_skb_data(", allocated_loop)
 free_ring = body.index("dma_free_coherent(", free_skb)
 null_ring = body.index("ei_local->rx_ring[0] = NULL;", free_ring)
 assert rollback < unmap < free_skb < free_ring < null_ring
 assert "for (j = 0; j < mapped; j++)" in body[rollback:free_skb]
-assert "for (j = 0; j < allocated; j++)" in body[free_skb:free_ring]
-assert "for (j = 0; j < num_rx_desc; j++)" not in body[free_skb:free_ring]
+assert allocated_loop < free_skb < free_ring
+assert "for (j = 0; j < num_rx_desc; j++)" not in body[allocated_loop:free_ring]
 assert "if (ei_local->rx_ring[0])" in body[free_ring:null_ring]
 assert "ei_local->netrx_skb_data[0][j] = NULL;" in body[free_skb:free_ring]
 print("PDMA RX partial-allocation rollback and DMA-unmap ordering: PASS")
@@ -91,10 +92,11 @@ qdma_mapped = qdma_body.index("mapped++;", qdma_map_check)
 assert qdma_alloc < qdma_ring_check < qdma_skb_alloc < qdma_allocated < qdma_ring_use < qdma_map_check < qdma_mapped
 qdma_rollback = qdma_body.index("no_rx_mem:")
 qdma_unmap = qdma_body.index("dma_unmap_single(", qdma_rollback)
-qdma_free_skb = qdma_body.index("raeth_free_skb_data(", qdma_unmap)
+qdma_allocated_loop = qdma_body.index("for (j = 0; j < allocated; j++)", qdma_unmap)
+qdma_free_skb = qdma_body.index("raeth_free_skb_data(", qdma_allocated_loop)
 qdma_free_ring = qdma_body.index("dma_free_coherent(", qdma_free_skb)
 assert "for (j = 0; j < mapped; j++)" in qdma_body[qdma_rollback:qdma_free_skb]
-assert "for (j = 0; j < allocated; j++)" in qdma_body[qdma_free_skb:qdma_free_ring]
+assert qdma_allocated_loop < qdma_free_skb < qdma_free_ring
 assert "ei_local->netrx0_skb_data[j] = NULL;" in qdma_body[qdma_free_skb:qdma_free_ring]
 assert "ei_local->qrx_ring = NULL;" in qdma_body[qdma_free_ring:]
 
