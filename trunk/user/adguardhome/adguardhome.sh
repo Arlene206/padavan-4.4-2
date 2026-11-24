@@ -653,18 +653,28 @@ adg_stop_daemon() {
   fi
   case "$adg_stop_state" in
     1) return 0 ;;
-    0) ;;
+    0) adg_stop_pids="$adg_process_pids" ;;
     *)
       logger -t "AdGuardHome" "无法读取AdGuardHome进程状态，拒绝发送信号"
       return 1
       ;;
   esac
 
-  if killall AdGuardHome >/dev/null 2>&1; then
-    adg_term_status=0
-  else
-    adg_term_status=$?
-    logger -t "AdGuardHome" "TERM信号命令返回错误(status=$adg_term_status)，继续验证进程状态"
+  # Signal only the validated PID snapshot; never rescan procfs by name.
+  adg_term_status=0
+  for adg_stop_pid in $adg_stop_pids; do
+    if kill -TERM "$adg_stop_pid" >/dev/null 2>&1; then
+      :
+    else
+      adg_signal_status=$?
+      if [ "$adg_term_status" -eq 0 ]; then
+        adg_term_status=$adg_signal_status
+        [ "$adg_term_status" -ne 0 ] || adg_term_status=1
+      fi
+    fi
+  done
+  if [ "$adg_term_status" -ne 0 ]; then
+    logger -t "AdGuardHome" "TERM信号返回错误(status=$adg_term_status)，继续验证进程状态"
   fi
   if adg_wait_stopped; then
     return 0
@@ -672,7 +682,7 @@ adg_stop_daemon() {
     adg_wait_status=$?
   fi
   case "$adg_wait_status" in
-    1) ;;
+    1) adg_kill_pids="$adg_process_pids" ;;
     *)
       logger -t "AdGuardHome" "TERM后进程状态未知，拒绝升级信号"
       return 1
@@ -680,12 +690,21 @@ adg_stop_daemon() {
   esac
 
   logger -t "AdGuardHome" "正常停止超时，尝试强制停止"
-  # Re-enumerate by process name; never signal a cached PID or after UNKNOWN.
-  if killall -9 AdGuardHome >/dev/null 2>&1; then
-    adg_kill_status=0
-  else
-    adg_kill_status=$?
-    logger -t "AdGuardHome" "SIGKILL命令返回错误(status=$adg_kill_status)，继续验证进程状态"
+  # The wait helper's final RUNNING result refreshed adg_process_pids.
+  adg_kill_status=0
+  for adg_kill_pid in $adg_kill_pids; do
+    if kill -9 "$adg_kill_pid" >/dev/null 2>&1; then
+      :
+    else
+      adg_signal_status=$?
+      if [ "$adg_kill_status" -eq 0 ]; then
+        adg_kill_status=$adg_signal_status
+        [ "$adg_kill_status" -ne 0 ] || adg_kill_status=1
+      fi
+    fi
+  done
+  if [ "$adg_kill_status" -ne 0 ]; then
+    logger -t "AdGuardHome" "SIGKILL信号返回错误(status=$adg_kill_status)，继续验证进程状态"
   fi
   if adg_wait_stopped; then
     return 0

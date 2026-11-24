@@ -534,11 +534,15 @@ TEST_ADG_CLEANUP_LOG="$TEST_TMP/adguardhome.cleanup.log"
 TEST_ADG_EFFECTS_LOG="$TEST_TMP/adguardhome.start-effects.log"
 export TEST_ADG_STATE TEST_ADG_KILL_LOG TEST_ADG_SLEEP_LOG
 export TEST_ADG_CLEANUP_LOG TEST_ADG_EFFECTS_LOG
+TEST_ADG_PID_OUTPUT=24680
+export TEST_ADG_PID_OUTPUT
+TEST_ADG_PID_LOG=$TEST_TMP/pid-signals.log
+export TEST_ADG_PID_LOG
 
 pidof() {
 	[ "$1" = AdGuardHome ] || return 1
 	case "$(cat "$TEST_ADG_STATE")" in
-		running) echo 24680; return 0 ;;
+		running) printf '%s\n' "${TEST_ADG_PID_OUTPUT:-24680}"; return 0 ;;
 		error|unknown) return 2 ;;
 		malformed) echo "24680 invalid"; return 0 ;;
 		empty-success) return 0 ;;
@@ -548,23 +552,38 @@ pidof() {
 }
 
 killall() {
-	printf '%s\n' "$*" >> "$TEST_ADG_KILL_LOG"
-	case "$TEST_ADG_MODE:$*" in
-		graceful:AdGuardHome|nonzero-graceful:AdGuardHome|-9-exits:-9\ AdGuardHome)
+	printf 'killall:%s\n' "$*" >> "$TEST_ADG_KILL_LOG"
+	return 0
+}
+
+kill() {
+	case "$1" in
+		-TERM) echo AdGuardHome >> "$TEST_ADG_KILL_LOG" ;;
+		-9) echo "-9 AdGuardHome" >> "$TEST_ADG_KILL_LOG" ;;
+	esac
+	printf '%s %s\n' "$1" "$2" >> "$TEST_ADG_PID_LOG"
+	case "$TEST_ADG_MODE:$1" in
+		graceful:-TERM|nonzero-graceful:-TERM)
 			echo stopped > "$TEST_ADG_STATE"
 			;;
-		unknown-after-term:AdGuardHome)
+		unknown-after-term:-TERM)
 			echo error > "$TEST_ADG_STATE"
 			;;
-		*)
+		-9-exits:-9)
+			echo stopped > "$TEST_ADG_STATE"
 			;;
 	esac
-	[ "$TEST_ADG_MODE" != nonzero-graceful ] || return 29
+	[ "$TEST_ADG_MODE:$1" != nonzero-graceful:-TERM ] || return 29
 	return 0
 }
 
 sleep() {
 	printf '%s\n' "$*" >> "$TEST_ADG_SLEEP_LOG"
+	if [ "${TEST_ADG_REPLACE_PID_ON_SLEEP:-0}" = 1 ]; then
+		TEST_ADG_PID_OUTPUT=13579
+		export TEST_ADG_PID_OUTPUT
+		TEST_ADG_REPLACE_PID_ON_SLEEP=0
+	fi
 	if [ -n "${TEST_ADG_START_TRANSITION:-}" ]; then
 		/bin/sleep 0.05
 		printf '%s\n' "$TEST_ADG_START_TRANSITION" > "$TEST_ADG_STATE"
@@ -598,6 +617,7 @@ clear_iptable() {
 }
 
 : > "$TEST_ADG_KILL_LOG"
+: > "$TEST_ADG_PID_LOG"
 : > "$TEST_ADG_SLEEP_LOG"
 : > "$TEST_ADG_CLEANUP_LOG"
 : > "$TEST_ADG_EFFECTS_LOG"
@@ -622,6 +642,7 @@ echo running > "$TEST_ADG_STATE"
 
 # No-process stop should clean stale DNS/firewall/workdir state without signalling.
 : > "$TEST_ADG_KILL_LOG"
+: > "$TEST_ADG_PID_LOG"
 : > "$TEST_ADG_SLEEP_LOG"
 : > "$TEST_ADG_CLEANUP_LOG"
 echo stopped > "$TEST_ADG_STATE"
@@ -637,6 +658,7 @@ fi
 # are UNKNOWN; none may be interpreted as a confirmed ABSENT process.
 for unknown_state in error malformed empty-success inconsistent; do
 	: > "$TEST_ADG_KILL_LOG"
+: > "$TEST_ADG_PID_LOG"
 	: > "$TEST_ADG_SLEEP_LOG"
 	: > "$TEST_ADG_CLEANUP_LOG"
 	echo "$unknown_state" > "$TEST_ADG_STATE"
@@ -650,8 +672,25 @@ for unknown_state in error malformed empty-success inconsistent; do
 		fail "stop removed workdir or changed pre-stop cleanup for UNKNOWN inventory: $unknown_state"
 done
 
-# UNKNOWN after TERM blocks name-wide SIGKILL escalation.
+# Every PID in a validated RUNNING snapshot receives TERM individually.
 : > "$TEST_ADG_KILL_LOG"
+: > "$TEST_ADG_PID_LOG"
+: > "$TEST_ADG_SLEEP_LOG"
+: > "$TEST_ADG_CLEANUP_LOG"
+echo running > "$TEST_ADG_STATE"
+TEST_ADG_PID_OUTPUT='12345 23456'
+export TEST_ADG_PID_OUTPUT
+TEST_ADG_MODE=graceful
+if ! stop_adg; then fail "multi-PID graceful stop failed"; fi
+[ "$(cat "$TEST_ADG_PID_LOG")" = "$(printf '%s\n' '-TERM 12345' '-TERM 23456')" ] ||
+	fail "stop did not signal every validated PID individually"
+! grep -q '^killall:' "$TEST_ADG_KILL_LOG" || fail "stop used process-name-wide killall"
+TEST_ADG_PID_OUTPUT=24680
+export TEST_ADG_PID_OUTPUT
+
+# UNKNOWN after TERM blocks SIGKILL escalation.
+: > "$TEST_ADG_KILL_LOG"
+: > "$TEST_ADG_PID_LOG"
 : > "$TEST_ADG_SLEEP_LOG"
 : > "$TEST_ADG_CLEANUP_LOG"
 echo running > "$TEST_ADG_STATE"
@@ -664,6 +703,7 @@ if stop_adg; then fail "stop accepted UNKNOWN state after TERM"; fi
 
 # A failed wait primitive is UNKNOWN and also blocks escalation.
 : > "$TEST_ADG_KILL_LOG"
+: > "$TEST_ADG_PID_LOG"
 : > "$TEST_ADG_SLEEP_LOG"
 : > "$TEST_ADG_CLEANUP_LOG"
 echo running > "$TEST_ADG_STATE"
@@ -678,6 +718,7 @@ TEST_ADG_SLEEP_FAIL=0
 
 # A failed TERM command is not decisive when a fresh snapshot confirms ABSENT.
 : > "$TEST_ADG_KILL_LOG"
+: > "$TEST_ADG_PID_LOG"
 : > "$TEST_ADG_SLEEP_LOG"
 : > "$TEST_ADG_CLEANUP_LOG"
 echo running > "$TEST_ADG_STATE"
@@ -688,6 +729,7 @@ if ! stop_adg; then fail "nonzero TERM status overrode confirmed ABSENT"; fi
 
 # A daemon that exits on TERM must not receive SIGKILL.
 : > "$TEST_ADG_KILL_LOG"
+: > "$TEST_ADG_PID_LOG"
 : > "$TEST_ADG_SLEEP_LOG"
 : > "$TEST_ADG_CLEANUP_LOG"
 echo running > "$TEST_ADG_STATE"
@@ -701,14 +743,17 @@ fi
 
 # A TERM-resistant daemon is escalated only after five bounded polls.
 : > "$TEST_ADG_KILL_LOG"
+: > "$TEST_ADG_PID_LOG"
 : > "$TEST_ADG_SLEEP_LOG"
 : > "$TEST_ADG_CLEANUP_LOG"
 echo running > "$TEST_ADG_STATE"
 TEST_ADG_MODE=-9-exits
+TEST_ADG_REPLACE_PID_ON_SLEEP=1
 if ! stop_adg; then
 	fail "TERM-resistant daemon did not stop after name-based SIGKILL"
 fi
 [ "$(cat "$TEST_ADG_KILL_LOG")" = "$(printf 'AdGuardHome\n-9 AdGuardHome')" ] || fail "stop did not perform TERM then fresh name-based SIGKILL"
+[ "$(cat "$TEST_ADG_PID_LOG")" = "$(printf '%s\n' '-TERM 24680' '-9 13579')" ] || fail "SIGKILL did not use the freshly validated replacement PID"
 [ "$(wc -l < "$TEST_ADG_SLEEP_LOG" | tr -d ' ')" = 5 ] || fail "TERM grace period was not bounded to five polls"
 [ "$(tail -n 3 "$TEST_ADG_CLEANUP_LOG")" = "$(printf 'clear_iptable\ndel_dns\nrm:-rf /tmp/AdGuardHome')" ] || fail "cleanup did not follow confirmed SIGKILL exit"
 
@@ -724,6 +769,7 @@ TEST_ADG_CLEAR_FAIL=0
 
 # Resolver update failure must leave the daemon and workdir available for retry.
 : > "$TEST_ADG_KILL_LOG"
+: > "$TEST_ADG_PID_LOG"
 : > "$TEST_ADG_SLEEP_LOG"
 : > "$TEST_ADG_CLEANUP_LOG"
 echo running > "$TEST_ADG_STATE"
@@ -739,6 +785,7 @@ TEST_ADG_DEL_DNS_FAIL=0
 
 # A daemon that survives SIGKILL must retain its workdir and traffic state.
 : > "$TEST_ADG_KILL_LOG"
+: > "$TEST_ADG_PID_LOG"
 : > "$TEST_ADG_SLEEP_LOG"
 : > "$TEST_ADG_CLEANUP_LOG"
 echo running > "$TEST_ADG_STATE"
@@ -747,6 +794,7 @@ if stop_adg; then
 	fail "stop reported success while AdGuardHome remained alive after SIGKILL"
 fi
 [ "$(cat "$TEST_ADG_KILL_LOG")" = "$(printf 'AdGuardHome\n-9 AdGuardHome')" ] || fail "stuck daemon did not receive TERM then name-based SIGKILL"
+[ "$(cat "$TEST_ADG_PID_LOG")" = "$(printf '%s\n' '-TERM 24680' '-9 24680')" ] || fail "stuck daemon did not receive per-PID SIGKILL"
 [ "$(wc -l < "$TEST_ADG_SLEEP_LOG" | tr -d ' ')" = 10 ] || fail "TERM/KILL waits were not bounded to five polls each"
 [ "$(cat "$TEST_ADG_CLEANUP_LOG")" = "$(printf 'clear_iptable\ndel_dns')" ] || fail "failed stop removed the workdir or skipped pre-stop resolver cleanup"
 

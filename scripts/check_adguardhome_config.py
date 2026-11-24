@@ -181,22 +181,28 @@ require('while [ "$adg_wait" -lt 5 ]; do' in wait_stopped and
         'return 2' in wait_stopped,
         "daemon wait must use bounded tri-state polling and propagate UNKNOWN")
 require('adg_process_state' in stop_daemon and 'adg_wait_status' in stop_daemon and
-        'TERM后进程状态未知' in stop_daemon and
-        stop_daemon.index('killall AdGuardHome') <
+        'adg_stop_pids="$adg_process_pids"' in stop_daemon and
+        'kill -TERM "$adg_stop_pid"' in stop_daemon and
+        'adg_kill_pids="$adg_process_pids"' in stop_daemon and
+        'kill -9 "$adg_kill_pid"' in stop_daemon and
+        stop_daemon.index('kill -TERM "$adg_stop_pid"') <
         stop_daemon.index('adg_wait_stopped') <
-        stop_daemon.index('killall -9 AdGuardHome') <
+        stop_daemon.index('adg_kill_pids="$adg_process_pids"') <
+        stop_daemon.index('kill -9 "$adg_kill_pid"') <
         stop_daemon.rindex('adg_wait_stopped') and
-        'if ! pidof AdGuardHome' not in stop_daemon,
-        "daemon stop must verify TERM grace, block KILL on UNKNOWN, and post-verify absence")
+        'killall AdGuardHome' not in stop_daemon and
+        'killall -9 AdGuardHome' not in stop_daemon,
+        "daemon stop must use validated per-PID snapshots, refresh before KILL, and block escalation on UNKNOWN")
 require('if ! clear_iptable; then' in stop and
         'if ! del_dns; then' in stop and 'if ! adg_stop_daemon; then' in stop and
         stop.index('if ! clear_iptable; then') < stop.index('if ! del_dns; then') <
         stop.index('if ! adg_stop_daemon; then') < stop.index('rm -rf /tmp/AdGuardHome'),
         "stop must verify firewall cleanup and resolver reload before stopping daemon and removing its workdir")
 require('pidof AdGuardHome' in process_state and
-        'adg_process_state' in stop_daemon and 'killall -9 AdGuardHome' in stop_daemon and
-        'adg_process_state' in wait_stopped,
-        "stop must re-enumerate and validate the live process by name, not cache a numeric PID")
+        'adg_process_state' in stop_daemon and 'adg_process_state' in wait_stopped and
+        'kill -TERM "$adg_stop_pid"' in stop_daemon and
+        'kill -9 "$adg_kill_pid"' in stop_daemon,
+        "stop must re-enumerate and signal only validated live PID snapshots")
 require('echo /tmp/.adguardhome.lifecycle.lock' in lock_path and
         'never unlink this file' in script and
         '[ -L "$adg_lock_file" ]' in lock_prepare and
@@ -224,6 +230,10 @@ require('adg_read_enable_state || return $?' in restart_body and
         "restart must preflight enable state before stopping and conditionally starting")
 require('nvram get adg_enable' not in restart_body,
         "restart must not use an unchecked enable-state read")
+require("AdGuardHome stop signals only validated PID snapshots: PASS" in test and
+        "'-TERM 12345' '-TERM 23456'" in test and
+        "'-TERM 24680' '-9 13579'" in test,
+        "AdGuardHome lifecycle test must cover all PIDs and refreshed escalation targets")
 require("AdGuardHome restart preserves a healthy daemon on enable-read errors or invalid selectors: PASS" in test,
         "restart regression must verify NVRAM read failures and malformed selectors cause no stop/start side effects")
 require('adg_lifecycle_lock_prepare "$adg_lock_file"' in lock_run and
