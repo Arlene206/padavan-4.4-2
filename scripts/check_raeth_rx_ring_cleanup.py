@@ -66,7 +66,7 @@ assert "ei_local->rx_ring[0] = NULL;" in teardown[free_ring_at:]
 print("PDMA RX teardown unmaps each live descriptor before releasing its buffer: PASS")
 
 tx_body = function_body(SOURCE, "int fe_pdma_tx_dma_init(")
-tx_alloc = tx_body.index("ei_local->tx_ring0 = dma_alloc_coherent(")
+tx_alloc = tx_body.index("ei_local->tx_ring0 =")
 tx_null = tx_body.index("if (!ei_local->tx_ring0)", tx_alloc)
 tx_return = tx_body.index("return -ENOMEM;", tx_null)
 tx_first_access = tx_body.index("&ei_local->tx_ring0[i]", tx_return)
@@ -114,3 +114,49 @@ assert qdma_unmap_guard >= 0 and qdma_unmap_guard < qdma_unmap_at
 assert "ei_local->qrx_ring = NULL;" in qdma_teardown[qdma_free_ring_at:]
 assert "ei_local->rx_ring[0] = NULL;" in qdma_teardown[qdma_free_ring_at:]
 print("QDMA RX partial-init rollback and normal DMA teardown: PASS")
+
+RSS_SOURCE = Path(
+    "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether_rss.c"
+).read_text()
+
+
+def check_rss_ring(mode: str, max_rings: str) -> None:
+    init = function_body(RSS_SOURCE, f"int fe_rss_{mode}ring_init(")
+    assert "int allocated[" in init and "int mapped[" in init
+    ring_alloc = init.index("ei_local->rx_ring[i] =")
+    ring_check = init.index("if (!ei_local->rx_ring[i])", ring_alloc)
+    skb_alloc = init.index("raeth_alloc_skb_data(", ring_check)
+    allocated = init.index("allocated[i]++;", skb_alloc)
+    first_desc = init.index("&ei_local->rx_ring[i][j]", allocated)
+    map_check = init.index("dma_mapping_error", first_desc)
+    mapped = init.index("mapped[i]++;", map_check)
+    assert ring_alloc < ring_check < skb_alloc < allocated < first_desc < map_check < mapped
+
+    failure = init.index("no_rx_mem:")
+    unmap = init.index("dma_unmap_single(", failure)
+    free_loop = init.index("for (j = 0; j < allocated[i]; j++)", unmap)
+    free_skb = init.index("raeth_free_skb_data(", free_loop)
+    free_ring = init.index("dma_free_coherent(", free_skb)
+    ring_clear = init.index("ei_local->rx_ring[i] = NULL;", free_ring)
+    assert failure < unmap < free_loop < free_skb < free_ring < ring_clear
+    assert "for (j = 0; j < mapped[i]; j++)" in init[failure:free_loop]
+    ring_guard = init.rfind("if (ei_local->rx_ring[i])", 0, free_ring)
+    assert ring_guard >= 0 and ring_guard < free_ring
+    assert "ei_local->netrx_skb_data[i][j] = NULL;" in init[free_skb:free_ring]
+
+    deinit = function_body(RSS_SOURCE, f"void fe_rss_{mode}ring_deinit(")
+    unmap_at = deinit.index("dma_unmap_single(")
+    skb_free_at = deinit.index("raeth_free_skb_data(")
+    ring_free_at = deinit.index("dma_free_coherent(")
+    assert unmap_at < skb_free_at < ring_free_at
+    unmap_guard = deinit.rfind("if (ei_local->rx_ring[i])", 0, unmap_at)
+    ring_free_guard = deinit.rfind("if (ei_local->rx_ring[i])", 0, ring_free_at)
+    assert unmap_guard >= 0 and unmap_guard < unmap_at
+    assert ring_free_guard >= 0 and ring_free_guard < ring_free_at
+    assert "ei_local->netrx_skb_data[i][j] = NULL;" in deinit[skb_free_at:ring_free_at]
+    assert "ei_local->rx_ring[i] = NULL;" in deinit[ring_free_at:]
+
+
+check_rss_ring("4", "MAX_RX_RING_NUM")
+check_rss_ring("2", "MAX_RX_RING_NUM_2RING")
+print("PDMA RSS 4-ring/2-ring partial-init rollback and DMA teardown: PASS")

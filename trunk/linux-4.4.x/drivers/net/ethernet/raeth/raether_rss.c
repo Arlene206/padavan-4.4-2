@@ -21,12 +21,14 @@ int fe_rss_4ring_init(struct net_device *dev)
 {
 	struct END_DEVICE *ei_local = netdev_priv(dev);
 	int skb_size;
+	int allocated[MAX_RX_RING_NUM] = { 0 };
+	int mapped[MAX_RX_RING_NUM] = { 0 };
 	int i, j;
 
 	skb_size = SKB_DATA_ALIGN(MAX_RX_LENGTH + NET_IP_ALIGN) +
 		   SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
 
-	/* Initial RX Ring 1 ~ 3 */
+	/* Allocate all secondary RX rings before publishing them to hardware. */
 	for (i = 1; i < MAX_RX_RING_NUM; i++) {
 		ei_local->rx_ring[i] =
 			dma_alloc_coherent(dev->dev.parent,
@@ -34,14 +36,17 @@ int fe_rss_4ring_init(struct net_device *dev)
 					   sizeof(struct PDMA_rxdesc),
 					   &ei_local->phy_rx_ring[i],
 					   GFP_ATOMIC | __GFP_ZERO);
+		if (!ei_local->rx_ring[i])
+			goto no_rx_mem;
+
 		for (j = 0; j < NUM_RSS_RX_DESC; j++) {
 			ei_local->netrx_skb_data[i][j] =
 				raeth_alloc_skb_data(skb_size, GFP_KERNEL);
-
 			if (!ei_local->netrx_skb_data[i][j]) {
 				pr_info("rx skbuff buffer allocation failed!\n");
 				goto no_rx_mem;
 			}
+			allocated[i]++;
 
 			memset(&ei_local->rx_ring[i][j], 0,
 			       sizeof(struct PDMA_rxdesc));
@@ -62,6 +67,7 @@ int fe_rss_4ring_init(struct net_device *dev)
 					__func__);
 				goto no_rx_mem;
 			}
+			mapped[i]++;
 		}
 		pr_info("\nphy_rx_ring[%d] = 0x%08x, rx_ring[%d] = 0x%p\n",
 			i, (unsigned int)ei_local->phy_rx_ring[i],
@@ -101,6 +107,7 @@ int fe_rss_4ring_init(struct net_device *dev)
 	SET_PDMA_RSS_CR_VALUE(ADMA_RSS_INDR_TABLE_DW5, 0x93939393);
 	SET_PDMA_RSS_CR_VALUE(ADMA_RSS_INDR_TABLE_DW6, 0x39399393);
 	SET_PDMA_RSS_CR_VALUE(ADMA_RSS_INDR_TABLE_DW7, 0x93933939);
+
 	/* 4. Pause */
 	SET_PDMA_RSS_CFG_REQ(1);
 
@@ -113,6 +120,26 @@ int fe_rss_4ring_init(struct net_device *dev)
 	return 0;
 
 no_rx_mem:
+	/* Unwind only mapped descriptors and allocated skb pointers. */
+	for (i = 1; i < MAX_RX_RING_NUM; i++) {
+		for (j = 0; j < mapped[i]; j++)
+			dma_unmap_single(dev->dev.parent,
+					 ei_local->rx_ring[i][j].rxd_info1.PDP0,
+					 MAX_RX_LENGTH, DMA_FROM_DEVICE);
+
+		for (j = 0; j < allocated[i]; j++) {
+			raeth_free_skb_data(ei_local->netrx_skb_data[i][j]);
+			ei_local->netrx_skb_data[i][j] = NULL;
+		}
+
+		if (ei_local->rx_ring[i])
+			dma_free_coherent(dev->dev.parent,
+					  NUM_RSS_RX_DESC *
+					  sizeof(struct PDMA_rxdesc),
+					  ei_local->rx_ring[i],
+					  ei_local->phy_rx_ring[i]);
+		ei_local->rx_ring[i] = NULL;
+	}
 	return -ENOMEM;
 }
 
@@ -122,16 +149,24 @@ void fe_rss_4ring_deinit(struct net_device *dev)
 	int i, j;
 
 	for (i = 1; i < MAX_RX_RING_NUM; i++) {
-		/* free RX Ring */
-		dma_free_coherent(dev->dev.parent,
-				  NUM_RSS_RX_DESC * sizeof(struct PDMA_rxdesc),
-				  ei_local->rx_ring[i],
-				  ei_local->phy_rx_ring[i]);
-		/* free RX data */
 		for (j = 0; j < NUM_RSS_RX_DESC; j++) {
-			raeth_free_skb_data(ei_local->netrx_skb_data[i][j]);
-			ei_local->netrx_skb_data[i][j] = NULL;
+			if (ei_local->netrx_skb_data[i][j]) {
+				if (ei_local->rx_ring[i])
+					dma_unmap_single(dev->dev.parent,
+							ei_local->rx_ring[i][j].rxd_info1.PDP0,
+							MAX_RX_LENGTH, DMA_FROM_DEVICE);
+				raeth_free_skb_data(ei_local->netrx_skb_data[i][j]);
+				ei_local->netrx_skb_data[i][j] = NULL;
+			}
 		}
+
+		if (ei_local->rx_ring[i])
+			dma_free_coherent(dev->dev.parent,
+					  NUM_RSS_RX_DESC *
+					  sizeof(struct PDMA_rxdesc),
+					  ei_local->rx_ring[i],
+					  ei_local->phy_rx_ring[i]);
+		ei_local->rx_ring[i] = NULL;
 	}
 }
 
@@ -139,11 +174,14 @@ int fe_rss_2ring_init(struct net_device *dev)
 {
 	struct END_DEVICE *ei_local = netdev_priv(dev);
 	int skb_size;
+	int allocated[MAX_RX_RING_NUM_2RING] = { 0 };
+	int mapped[MAX_RX_RING_NUM_2RING] = { 0 };
 	int i, j;
 
 	skb_size = SKB_DATA_ALIGN(MAX_RX_LENGTH + NET_IP_ALIGN) +
 		   SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
 
+	/* Allocate all secondary RX rings before publishing them to hardware. */
 	for (i = 1; i < MAX_RX_RING_NUM_2RING; i++) {
 		ei_local->rx_ring[i] =
 			dma_alloc_coherent(dev->dev.parent,
@@ -151,14 +189,17 @@ int fe_rss_2ring_init(struct net_device *dev)
 					   sizeof(struct PDMA_rxdesc),
 					   &ei_local->phy_rx_ring[i],
 					   GFP_ATOMIC | __GFP_ZERO);
+		if (!ei_local->rx_ring[i])
+			goto no_rx_mem;
+
 		for (j = 0; j < NUM_RSS_RX_DESC; j++) {
 			ei_local->netrx_skb_data[i][j] =
 				raeth_alloc_skb_data(skb_size, GFP_KERNEL);
-
 			if (!ei_local->netrx_skb_data[i][j]) {
 				pr_info("rx skbuff buffer allocation failed!\n");
 				goto no_rx_mem;
 			}
+			allocated[i]++;
 
 			memset(&ei_local->rx_ring[i][j], 0,
 			       sizeof(struct PDMA_rxdesc));
@@ -179,6 +220,7 @@ int fe_rss_2ring_init(struct net_device *dev)
 					__func__);
 				goto no_rx_mem;
 			}
+			mapped[i]++;
 		}
 		pr_info("\nphy_rx_ring[%d] = 0x%08x, rx_ring[%d] = 0x%p\n",
 			i, (unsigned int)ei_local->phy_rx_ring[i],
@@ -190,7 +232,7 @@ int fe_rss_2ring_init(struct net_device *dev)
 	sys_reg_write(RX_CALC_IDX1, cpu_to_le32((u32)(NUM_RSS_RX_DESC - 1)));
 	sys_reg_write(PDMA_RST_CFG, PST_DRX_IDX1);
 
-	/* 1. Set RX ring1~3 to pse modes */
+	/* 1. Set RX ring1 to pse mode */
 	SET_PDMA_RXRING_MODE(ADMA_RX_RING1, PDMA_RX_PSE_MODE);
 
 	/* 2. Enable non-lro multiple rx */
@@ -208,6 +250,7 @@ int fe_rss_2ring_init(struct net_device *dev)
 	SET_PDMA_RSS_CR_VALUE(ADMA_RSS_INDR_TABLE_DW5, 0x44444444);
 	SET_PDMA_RSS_CR_VALUE(ADMA_RSS_INDR_TABLE_DW6, 0x44444444);
 	SET_PDMA_RSS_CR_VALUE(ADMA_RSS_INDR_TABLE_DW7, 0x44444444);
+
 	/* 4. Pause */
 	SET_PDMA_RSS_CFG_REQ(1);
 
@@ -220,6 +263,26 @@ int fe_rss_2ring_init(struct net_device *dev)
 	return 0;
 
 no_rx_mem:
+	/* Unwind only mapped descriptors and allocated skb pointers. */
+	for (i = 1; i < MAX_RX_RING_NUM_2RING; i++) {
+		for (j = 0; j < mapped[i]; j++)
+			dma_unmap_single(dev->dev.parent,
+					 ei_local->rx_ring[i][j].rxd_info1.PDP0,
+					 MAX_RX_LENGTH, DMA_FROM_DEVICE);
+
+		for (j = 0; j < allocated[i]; j++) {
+			raeth_free_skb_data(ei_local->netrx_skb_data[i][j]);
+			ei_local->netrx_skb_data[i][j] = NULL;
+		}
+
+		if (ei_local->rx_ring[i])
+			dma_free_coherent(dev->dev.parent,
+					  NUM_RSS_RX_DESC *
+					  sizeof(struct PDMA_rxdesc),
+					  ei_local->rx_ring[i],
+					  ei_local->phy_rx_ring[i]);
+		ei_local->rx_ring[i] = NULL;
+	}
 	return -ENOMEM;
 }
 
@@ -229,16 +292,24 @@ void fe_rss_2ring_deinit(struct net_device *dev)
 	int i, j;
 
 	for (i = 1; i < MAX_RX_RING_NUM_2RING; i++) {
-		/* free RX Ring */
-		dma_free_coherent(dev->dev.parent,
-				  NUM_RSS_RX_DESC * sizeof(struct PDMA_rxdesc),
-				  ei_local->rx_ring[i],
-				  ei_local->phy_rx_ring[i]);
-		/* free RX data */
 		for (j = 0; j < NUM_RSS_RX_DESC; j++) {
-			raeth_free_skb_data(ei_local->netrx_skb_data[i][j]);
-			ei_local->netrx_skb_data[i][j] = NULL;
+			if (ei_local->netrx_skb_data[i][j]) {
+				if (ei_local->rx_ring[i])
+					dma_unmap_single(dev->dev.parent,
+							ei_local->rx_ring[i][j].rxd_info1.PDP0,
+							MAX_RX_LENGTH, DMA_FROM_DEVICE);
+				raeth_free_skb_data(ei_local->netrx_skb_data[i][j]);
+				ei_local->netrx_skb_data[i][j] = NULL;
+			}
 		}
+
+		if (ei_local->rx_ring[i])
+			dma_free_coherent(dev->dev.parent,
+					  NUM_RSS_RX_DESC *
+					  sizeof(struct PDMA_rxdesc),
+					  ei_local->rx_ring[i],
+					  ei_local->phy_rx_ring[i]);
+		ei_local->rx_ring[i] = NULL;
 	}
 }
 
