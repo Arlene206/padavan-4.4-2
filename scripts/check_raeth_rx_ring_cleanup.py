@@ -362,3 +362,17 @@ pseudo_return = pseudo_init.index("return;", pseudo_free_failed)
 assert pseudo_register < pseudo_fail < pseudo_clear < pseudo_free_failed < pseudo_return
 assert "register_netdev(dev);" not in pseudo_init[pseudo_register + len("err = "):]
 print("RAETH ndo_uninit no longer recursively frees the primary netdev; failed pseudo registration is released safely: PASS")
+
+napi_uninit = function_body(RAETHER_SOURCE, "static void ei_uninit(")
+napi_remove = napi_uninit.index("if (ei_local->features & FE_INT_NAPI)")
+napi_remove_end = napi_uninit.index("if ((ei_local->features & FE_GE2_SUPPORT) && pseudo_dev)")
+for napi_name in (
+    "napi_rx", "napi_tx", "napi_rx_rss0", "napi_rx_rss1",
+    "napi_rx_rss2", "napi_rx_rss3", "napi",
+):
+    assert f"netif_napi_del(&ei_local->{napi_name});" in napi_uninit[napi_remove:napi_remove_end]
+assert "netif_napi_del(" not in napi_uninit[napi_remove_end:]
+assert "unregister_netdev(dev);" not in napi_uninit
+assert "free_netdev(dev);" not in napi_uninit
+assert napi_remove < napi_remove_end
+print("RAETH ndo_uninit unregisters every configured NAPI instance before its dummy netdev is freed: PASS")

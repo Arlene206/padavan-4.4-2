@@ -774,7 +774,32 @@ static void ei_uninit(struct net_device *dev)
 
 	/*
 	 * ndo_uninit runs as part of the core's unregister/free lifecycle.
-	 * It must not unregister or free the primary net_device itself.
+	 * Remove NAPI instances registered on the embedded dummy device here;
+	 * ndo_stop has already disabled them when the interface was running.
+	 */
+	if (ei_local->features & FE_INT_NAPI) {
+		if (ei_local->features & FE_INT_NAPI_TX_RX) {
+			netif_napi_del(&ei_local->napi_rx);
+			netif_napi_del(&ei_local->napi_tx);
+		} else if (ei_local->features & FE_INT_NAPI_RX_ONLY) {
+			if (ei_local->features & FE_RSS_4RING) {
+				netif_napi_del(&ei_local->napi_rx_rss0);
+				netif_napi_del(&ei_local->napi_rx_rss1);
+				netif_napi_del(&ei_local->napi_rx_rss2);
+				netif_napi_del(&ei_local->napi_rx_rss3);
+			} else if (ei_local->features & FE_RSS_2RING) {
+				netif_napi_del(&ei_local->napi_rx_rss0);
+				netif_napi_del(&ei_local->napi_rx_rss1);
+			} else {
+				netif_napi_del(&ei_local->napi_rx);
+			}
+		} else {
+			netif_napi_del(&ei_local->napi);
+		}
+	}
+
+	/*
+	 * ndo_uninit must never unregister or free the primary net_device.
 	 */
 	if ((ei_local->features & FE_GE2_SUPPORT) && pseudo_dev) {
 		ei_local->pseudo_dev = NULL;
