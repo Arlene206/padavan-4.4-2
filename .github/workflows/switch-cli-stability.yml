@@ -26,6 +26,8 @@ on:
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether_hwlro.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether_qdma.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_qdma_queue_mapping_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_qdma_register_offset_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_qdma_register_offset_policy.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_qdma_queue_mapping_policy.c"
       - "scripts/check_raeth_rx_ring_cleanup.py"
       - "scripts/check_raeth_qdma_tx_cleanup.py"
@@ -92,6 +94,8 @@ on:
       - "scripts/check_raeth_rx_ring_cleanup.py"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether_qdma.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_qdma_queue_mapping_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_qdma_register_offset_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_qdma_register_offset_policy.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_qdma_queue_mapping_policy.c"
       - "scripts/check_raeth_qdma_tx_cleanup.py"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl.c"
@@ -163,6 +167,45 @@ jobs:
 
       - name: Verify QDMA TX staged allocation rollback is complete
         run: python3 scripts/check_raeth_qdma_tx_cleanup.py
+
+      - name: Compile and verify QDMA register offset alignment
+        run: |
+          set -eu
+          RAETH=trunk/linux-4.4.x/drivers/net/ethernet/raeth
+          cc -std=gnu89 -Wall -Wextra -Werror -g \
+            -fsanitize=address,undefined -fno-omit-frame-pointer \
+            "$RAETH/tests/raeth_qdma_register_offset_policy.c" \
+            -o "$RUNNER_TEMP/raeth_qdma_register_offset_policy"
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 \
+            "$RUNNER_TEMP/raeth_qdma_register_offset_policy"
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path(
+              "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether_qdma.c"
+          ).read_text()
+          policy = Path(
+              "trunk/linux-4.4.x/drivers/net/ethernet/raeth/"
+              "raeth_qdma_register_offset_policy.h"
+          ).read_text()
+          ioctl = source.split("int ei_qdma_ioctl(", 1)[1]
+          read_case = ioctl.split("case RAETH_QDMA_REG_READ:", 1)[1].split(
+              "case RAETH_QDMA_REG_WRITE:", 1
+          )[0]
+          write_case = ioctl.split("case RAETH_QDMA_REG_WRITE:", 1)[1].split(
+              "case RAETH_QDMA_QUEUE_MAPPING:", 1
+          )[0]
+          for name, body in (("read", read_case), ("write", write_case)):
+              check = body.index("raeth_qdma_register_offset_status(")
+              reject = body.index("ret = -EINVAL;", check)
+              mmio = body.index("sys_reg_", reject)
+              assert check < reject < mmio, name
+          assert source.count("raeth_qdma_register_offset_status(") == 2
+          assert "if (data->off > REG_HQOS_MAX)" not in source
+          assert "offset & (RAETH_QDMA_REGISTER_OFFSET_ALIGNMENT - 1U)" in policy
+          assert "RAETH_QDMA_REGISTER_OFFSET_LEGACY_MAGIC 0x777U" in policy
+          print("QDMA user offsets are aligned and bounded before all MMIO access: PASS")
+          PY
 
       - name: Compile and verify QDMA queue-mapping selector bounds
         run: |

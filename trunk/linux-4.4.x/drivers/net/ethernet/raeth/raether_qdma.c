@@ -15,6 +15,7 @@
 #include "ra_ioctl.h"
 #include "raether_qdma.h"
 #include "raeth_qdma_queue_mapping_policy.h"
+#include "raeth_qdma_register_offset_policy.h"
 
 /* skb->mark to queue mapping table */
 struct QDMA_txdesc *free_head;
@@ -1403,7 +1404,9 @@ int ei_qdma_ioctl(struct net_device *dev, struct ifreq *ifr,
 	switch (cmd) {
 	case RAETH_QDMA_REG_READ:
 
-		if (data->off > REG_HQOS_MAX) {
+		if (raeth_qdma_register_offset_status(
+			    data->off, REG_HQOS_MAX,
+			    ei_local->chip_name == MT7622_FE) != 0) {
 			ret = -EINVAL;
 			break;
 		}
