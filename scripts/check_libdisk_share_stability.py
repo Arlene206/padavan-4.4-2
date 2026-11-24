@@ -217,13 +217,11 @@ initial_writer = function_body(
     DISK_SOURCE, "int initial_folder_list_in_mount_path(const char *const mount_path)"
 )
 initial_writer_compact = "".join(initial_writer.split())
-require("disk_share_write_stream_atomic(list_file,disk_share_write_snapshot_stream,&writer_context,0)" in
-        initial_writer_compact and
-        "mkstemp(" not in initial_writer_compact and
-        "rename(" not in initial_writer_compact and
-        'fopen(list_file,"w")' not in initial_writer_compact and
-        "errno=saved_errno;" in initial_writer_compact,
-        "folder-list snapshots must use the pinned-directory atomic stream publisher and preserve the last complete cache on failure")
+require("disk_share_open_mount_directory(mount_path)" in initial_writer_compact and
+        "initial_folder_list_in_directory_fd(directory_fd)" in initial_writer_compact and
+        "close(directory_fd)" in initial_writer_compact and
+        "disk_share_write_stream_atomic(" not in initial_writer_compact,
+        "folder-list snapshots must open the mount once and keep that directory descriptor through atomic publication")
 
 
 metadata_begin_body = function_body(
