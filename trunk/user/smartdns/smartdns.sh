@@ -285,8 +285,8 @@ Check_ss()
 
 Get_sdns_conf () {
     # 【基本设置】
-    :>"$smartdns_tmp_Conf"
-    echo "server-name $sdns_name" >> "$smartdns_tmp_Conf"
+    : > "$smartdns_tmp_Conf" || return $?
+    echo "server-name $sdns_name" >> "$smartdns_tmp_Conf" || return $?
     ARGS_1=""
     if [ "$sdns_address" = "1" ] ; then
      ARGS_1="$ARGS_1 -no-rule-addr"
@@ -304,72 +304,72 @@ Get_sdns_conf () {
         ARGS_1="$ARGS_1 -no-rule-soa"
     fi
     if [ "$sdns_ipv6_server" = "1" ] ; then
-        echo "bind" "[::]:$sdns_port $ARGS_1" >> "$smartdns_tmp_Conf"
+        echo "bind" "[::]:$sdns_port $ARGS_1" >> "$smartdns_tmp_Conf" || return $?
     else
-        echo "bind" ":$sdns_port $ARGS_1" >> "$smartdns_tmp_Conf"
+        echo "bind" ":$sdns_port $ARGS_1" >> "$smartdns_tmp_Conf" || return $?
     fi
     if [ "$sdns_tcp_server" = "1" ] ; then
         if [ "$sdns_ipv6_server" = "1" ] ; then
-            echo "bind-tcp" "[::]:$sdns_port $ARGS_1" >> "$smartdns_tmp_Conf"
+            echo "bind-tcp" "[::]:$sdns_port $ARGS_1" >> "$smartdns_tmp_Conf" || return $?
         else
-            echo "bind-tcp" ":$sdns_port $ARGS_1" >> "$smartdns_tmp_Conf"
+            echo "bind-tcp" ":$sdns_port $ARGS_1" >> "$smartdns_tmp_Conf" || return $?
         fi
     fi
     # 【读取配置】
     Get_sdnse_conf || return $?
-    echo "cache-size $sdns_cache" >> "$smartdns_tmp_Conf"
-    echo "rr-ttl $sdns_rr_ttl" >> "$smartdns_tmp_Conf"
-    echo "rr-ttl-min $sdns_rr_ttl_min" >> "$smartdns_tmp_Conf"
-    echo "rr-ttl-max $sdns_rr_ttl_max" >> "$smartdns_tmp_Conf"
-    echo "tcp-idle-time $sdns_tcp_idle_time" >> "$smartdns_tmp_Conf"
-    echo "rr-ttl-reply-max $sdns_rr_ttl_reply_max" >> "$smartdns_tmp_Conf"
-    echo "max-reply-ip-num $sdns_max_reply_ip_num" >> "$smartdns_tmp_Conf"
-    echo "serve-expired-ttl $sdns_exp_ttl" >> "$smartdns_tmp_Conf"
-    echo "serve-expired-reply-ttl $sdns_exp_ttl_max" >> "$smartdns_tmp_Conf"
-    echo "serve-expired-prefetch-time $sdns_exp_prefetch_time" >> "$smartdns_tmp_Conf"
-    echo "force-qtype-SOA $sdns_force_qtype_soa" >> "$smartdns_tmp_Conf"
-    echo "speed-check-mode $sdns_speed_mode" >> "$smartdns_tmp_Conf"
+    echo "cache-size $sdns_cache" >> "$smartdns_tmp_Conf" || return $?
+    echo "rr-ttl $sdns_rr_ttl" >> "$smartdns_tmp_Conf" || return $?
+    echo "rr-ttl-min $sdns_rr_ttl_min" >> "$smartdns_tmp_Conf" || return $?
+    echo "rr-ttl-max $sdns_rr_ttl_max" >> "$smartdns_tmp_Conf" || return $?
+    echo "tcp-idle-time $sdns_tcp_idle_time" >> "$smartdns_tmp_Conf" || return $?
+    echo "rr-ttl-reply-max $sdns_rr_ttl_reply_max" >> "$smartdns_tmp_Conf" || return $?
+    echo "max-reply-ip-num $sdns_max_reply_ip_num" >> "$smartdns_tmp_Conf" || return $?
+    echo "serve-expired-ttl $sdns_exp_ttl" >> "$smartdns_tmp_Conf" || return $?
+    echo "serve-expired-reply-ttl $sdns_exp_ttl_max" >> "$smartdns_tmp_Conf" || return $?
+    echo "serve-expired-prefetch-time $sdns_exp_prefetch_time" >> "$smartdns_tmp_Conf" || return $?
+    echo "force-qtype-SOA $sdns_force_qtype_soa" >> "$smartdns_tmp_Conf" || return $?
+    echo "speed-check-mode $sdns_speed_mode" >> "$smartdns_tmp_Conf" || return $?
     if [ "$sdns_ip_change" -eq 1 ] ;then
-        echo "dualstack-ip-selection yes" >> "$smartdns_tmp_Conf"
-        echo "dualstack-ip-selection-threshold $sdns_ip_change_time" >> "$smartdns_tmp_Conf"
+        echo "dualstack-ip-selection yes" >> "$smartdns_tmp_Conf" || return $?
+        echo "dualstack-ip-selection-threshold $sdns_ip_change_time" >> "$smartdns_tmp_Conf" || return $?
     elif [ "$sdns_force_aaaa_soa" -eq 1 ] ;then
-        echo "force-AAAA-SOA yes" >> "$smartdns_tmp_Conf"
+        echo "force-AAAA-SOA yes" >> "$smartdns_tmp_Conf" || return $?
     fi
     if [ "$sdns_dualstack_ip_allow_force_aaaa" -eq 1 ] && [ " $sdns_cache" -gt 0 ] ;then
-        echo "dualstack-ip-allow-force-AAAA yes" >> "$smartdns_tmp_Conf"
+        echo "dualstack-ip-allow-force-AAAA yes" >> "$smartdns_tmp_Conf" || return $?
     else
-        echo "dualstack-ip-allow-force-AAAA no" >> "$smartdns_tmp_Conf"
+        echo "dualstack-ip-allow-force-AAAA no" >> "$smartdns_tmp_Conf" || return $?
     fi
     if [ "$sdns_cache_persist" -eq 1 ] && [ "$sdns_cache" -gt 0 ] ;then
-        echo "cache-persist yes" >> "$smartdns_tmp_Conf"
-        echo "cache-file /tmp/smartdns.cache" >> "$smartdns_tmp_Conf"
+        echo "cache-persist yes" >> "$smartdns_tmp_Conf" || return $?
+        echo "cache-file /tmp/smartdns.cache" >> "$smartdns_tmp_Conf" || return $?
     else
-        echo "cache-persist no" >> "$smartdns_tmp_Conf"
+        echo "cache-persist no" >> "$smartdns_tmp_Conf" || return $?
     fi
     if [ "$sdns_prefetch_domain" -eq 1 ] && [ " $sdns_cache" -gt 0 ] ;then
-        echo "prefetch-domain yes" >> "$smartdns_tmp_Conf"
+        echo "prefetch-domain yes" >> "$smartdns_tmp_Conf" || return $?
     else
-        echo "prefetch-domain no" >> "$smartdns_tmp_Conf"
+        echo "prefetch-domain no" >> "$smartdns_tmp_Conf" || return $?
     fi
     if [ "$sdns_ipset_timeout" -eq 1 ] && [ " $sdns_cache" -gt 0 ] ;then
-        echo "ipset-timeout yes" >> "$smartdns_tmp_Conf"
+        echo "ipset-timeout yes" >> "$smartdns_tmp_Conf" || return $?
     else
-        echo "ipset-timeout no" >> "$smartdns_tmp_Conf"
+        echo "ipset-timeout no" >> "$smartdns_tmp_Conf" || return $?
     fi
     if [ "$sdns_force_aaaa_soa" -eq 1 ] && [ " $sdns_cache" -gt 0 ] ;then
-        echo "force-AAAA-SOA yes" >> "$smartdns_tmp_Conf"
+        echo "force-AAAA-SOA yes" >> "$smartdns_tmp_Conf" || return $?
     else
-        echo "force-AAAA-SOA no" >> "$smartdns_tmp_Conf"
+        echo "force-AAAA-SOA no" >> "$smartdns_tmp_Conf" || return $?
     fi
     if [ "$sdns_exp" -eq 1 ] && [ "$sdns_cache" -gt 0 ] ;then
-        echo "serve-expired yes" >> "$smartdns_tmp_Conf"
+        echo "serve-expired yes" >> "$smartdns_tmp_Conf" || return $?
     else
-        echo "serve-expired no" >> "$smartdns_tmp_Conf"
+        echo "serve-expired no" >> "$smartdns_tmp_Conf" || return $?
     fi
     if [ "$sdns_adblock" -eq 1 ] && [ "$sdns_cache" -gt 0 ] ;then
-        echo "conf-file /tmp/anti-ad-for-smartdns.conf" >> "$smartdns_tmp_Conf"
+        echo "conf-file /tmp/anti-ad-for-smartdns.conf" >> "$smartdns_tmp_Conf" || return $?
     fi
-    echo "log-level error" >> "$smartdns_tmp_Conf"
+    echo "log-level error" >> "$smartdns_tmp_Conf" || return $?
     smartdns_nvram_read_checked sdns_staticnum_x || return $?
     listnum=$smartdns_nvram_value
     case "$listnum" in
@@ -420,33 +420,33 @@ Get_sdns_conf () {
             fi
             if [ "$sdnss_type" = "tcp" ] ; then
                 if [ "$sdnss_port" = "default" ] ; then
-                    echo "server-tcp $sdnss_ip:53 $ipc $named $non" >> "$smartdns_tmp_Conf"
+                    echo "server-tcp $sdnss_ip:53 $ipc $named $non" >> "$smartdns_tmp_Conf" || return $?
                 else
-                    echo "server-tcp $sdnss_ip:$sdnss_port $ipc $named $non" >> "$smartdns_tmp_Conf"
+                    echo "server-tcp $sdnss_ip:$sdnss_port $ipc $named $non" >> "$smartdns_tmp_Conf" || return $?
                 fi
             elif [ "$sdnss_type" = "udp" ] ; then
                 if [ "$sdnss_port" = "default" ] ; then
-                    echo "server $sdnss_ip:53 $ipc $named $non" >> "$smartdns_tmp_Conf"
+                    echo "server $sdnss_ip:53 $ipc $named $non" >> "$smartdns_tmp_Conf" || return $?
                 else
-                    echo "server $sdnss_ip:$sdnss_port $ipc $named $non" >> "$smartdns_tmp_Conf"
+                    echo "server $sdnss_ip:$sdnss_port $ipc $named $non" >> "$smartdns_tmp_Conf" || return $?
                 fi
             elif [ "$sdnss_type" = "tls" ] ; then
                 if [ "$sdnss_port" = "default" ] ; then
-                    echo "server-tls $sdnss_ip:853 $ipc $named $non" >> "$smartdns_tmp_Conf"
+                    echo "server-tls $sdnss_ip:853 $ipc $named $non" >> "$smartdns_tmp_Conf" || return $?
                 else
-                    echo "server-tls $sdnss_ip:$sdnss_port $ipc $named $non" >> "$smartdns_tmp_Conf"
+                    echo "server-tls $sdnss_ip:$sdnss_port $ipc $named $non" >> "$smartdns_tmp_Conf" || return $?
                 fi
             elif [ "$sdnss_type" = "https" ] ; then
                 if [ "$sdnss_port" = "default" ] ; then
-                    echo "server-https $sdnss_ip:443 $ipc $named $non" >> "$smartdns_tmp_Conf"
+                    echo "server-https $sdnss_ip:443 $ipc $named $non" >> "$smartdns_tmp_Conf" || return $?
                 else
-                    echo "server-https $sdnss_ip:$sdnss_port $ipc $named $non" >> "$smartdns_tmp_Conf"
+                    echo "server-https $sdnss_ip:$sdnss_port $ipc $named $non" >> "$smartdns_tmp_Conf" || return $?
                 fi
             fi
             if [ "$sdnss_ipset"x != x ] ; then
                 Check_ip_addr "$sdnss_ipset"
                 if [ "$?" = "1" ] ;then
-                    echo "ipset /$sdnss_ipset/smartdns" >> "$smartdns_tmp_Conf"
+                    echo "ipset /$sdnss_ipset/smartdns" >> "$smartdns_tmp_Conf" || return $?
                 else
                     ipset add smartdns "$sdnss_ipset" 2>/dev/null
                 fi
@@ -458,16 +458,16 @@ Get_sdns_conf () {
         j=$((j + 1))
     done
     if [ "$sdns_white" = "1" ] && [ -f "$chn_Route" ] ; then
-        :>/tmp/whitelist.conf
+        : >/tmp/whitelist.conf || return $?
         logger -t "SmartDNS" "开始处理白名单IP..."
-        awk '{printf("whitelist-ip %s\n", $1, $1 )}' "$chn_Route" >> /tmp/whitelist.conf
-        echo "conf-file /tmp/whitelist.conf" >> "$smartdns_tmp_Conf"
+        awk '{printf("whitelist-ip %s\n", $1, $1 )}' "$chn_Route" >> /tmp/whitelist.conf || return $?
+        echo "conf-file /tmp/whitelist.conf" >> "$smartdns_tmp_Conf" || return $?
     fi
     if [ "$sdns_black" = "1" ] && [ -f "$chn_Route" ] ; then
-        :>/tmp/blacklist.conf
+        : >/tmp/blacklist.conf || return $?
         logger -t "SmartDNS" "开始处理黑名单IP..."
-        awk '{printf("blacklist-ip %s\n", $1, $1 )}' "$chn_Route" >> /tmp/blacklist.conf
-        echo "conf-file /tmp/blacklist.conf" >> "$smartdns_tmp_Conf"
+        awk '{printf("blacklist-ip %s\n", $1, $1 )}' "$chn_Route" >> /tmp/blacklist.conf || return $?
+        echo "conf-file /tmp/blacklist.conf" >> "$smartdns_tmp_Conf" || return $?
     fi
 }
 

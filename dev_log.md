@@ -1,3 +1,11 @@
+## 2026-11-24 — Fail closed on every SmartDNS base-config write
+
+- `Get_sdns_conf()` checked the secondary resolver helper after the previous slice, but its own dozens of staged-config appends remained unchecked. If the staging filesystem filled or an individual append failed, a later successful echo or conditional could mask the error and allow an incomplete resolver config to be published.
+- Every base-config append now returns its write status immediately. The primary stage truncation and generated whitelist/blacklist files are checked as well, so a missing include cannot be silently referenced.
+- Extended the existing generator regression to inject a mid-file echo failure (asserting the exact status and that no later directive is written) and a `/dev/full` failure. The source checker requires every staged-config append and generated include write to be guarded.
+
+---
+
 ## 2026-11-24 — Propagate SmartDNS secondary resolver bind write failures
 
 - `Get_sdnse_conf()` ignored both generated bind-line write statuses. With TCP binding disabled, a failed UDP bind append was followed by a false conditional whose success masked the write error; `Get_sdns_conf()` also ignored the helper return, allowing publication of a config missing the secondary listener.

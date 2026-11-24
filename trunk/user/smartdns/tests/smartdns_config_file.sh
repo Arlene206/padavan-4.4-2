@@ -8,11 +8,73 @@ trap 'exit 1' HUP INT TERM
 fail() { echo "SmartDNS atomic config regression: FAIL: $*" >&2; exit 1; }
 pass() { echo "SmartDNS atomic config regression: PASS: $*"; }
 
+# The full base generator must not return success after a middle append
+# fails: the previous unchecked echoes let a later successful command hide it.
+smartdns_nvram_read_checked() {
+    [ "$#" -eq 1 ] && [ "$1" = "sdns_staticnum_x" ] || return 90
+    smartdns_nvram_value=0
+    return 0
+}
+sdns_name=router
+sdns_port=6053
+sdns_address=0
+sdns_ns=0
+sdns_ipset=0
+sdns_speed=0
+sdns_as=0
+sdns_ipv6_server=0
+sdns_tcp_server=0
+sdns_cache=4096
+sdns_rr_ttl=60
+sdns_rr_ttl_min=1
+sdns_rr_ttl_max=86400
+sdns_tcp_idle_time=300
+sdns_rr_ttl_reply_max=3600
+sdns_max_reply_ip_num=16
+sdns_exp_ttl=600
+sdns_exp_ttl_max=60
+sdns_exp_prefetch_time=30
+sdns_force_qtype_soa=0
+sdns_speed_mode=ping,tcp:80
+sdns_ip_change=0
+sdns_ip_change_time=0
+sdns_dualstack_ip_allow_force_aaaa=0
+sdns_cache_persist=0
+sdns_prefetch_domain=0
+sdns_ipset_timeout=0
+sdns_force_aaaa_soa=0
+sdns_exp=0
+sdns_adblock=0
+sdns_white=0
+sdns_black=0
+sdnse_enable=0
+smartdns_echo_count=0
+echo() {
+    smartdns_echo_count=$((smartdns_echo_count + 1))
+    [ "$smartdns_echo_count" -ne 5 ] || return 43
+    command echo "$@"
+}
+smartdns_tmp_Conf="$T/base-config-failed.conf"
+if Get_sdns_conf; then fail "base config generator hid a middle append failure"; else status=$?; fi
+unset -f echo
+[ "$status" -eq 43 ] || fail "base config generator changed the append error to $status"
+[ "$smartdns_echo_count" -eq 5 ] || fail "base config generator continued after failed append"
+[ "$(wc -l < "$smartdns_tmp_Conf")" -eq 4 ] || fail "base config generator wrote past the failed append"
+! grep -Fq 'rr-ttl-min ' "$smartdns_tmp_Conf" || fail "directive after failed append was published"
+pass "base config generator propagates the exact mid-file append failure"
+
+# A full filesystem must be reported on the first base-config write too.
+smartdns_tmp_Conf=/dev/full
+if Get_sdns_conf; then fail "base config generator ignored /dev/full"; else status=$?; fi
+[ "$status" -ne 0 ] || fail "base config /dev/full failure returned success"
+pass "base config generator rejects an unwritable staged file"
+
 # A secondary listener write error must be visible even when TCP binding is
 # disabled (the false conditional used to mask the failed first write).
-sed -n '/^Get_sdnse_conf () {/,/^}/p' "$HERE/../smartdns.sh" > "$T/get_sdnse_conf.sh"
-[ -s "$T/get_sdnse_conf.sh" ] || fail "secondary resolver generator extraction failed"
-. "$T/get_sdnse_conf.sh"
+sed -n '/^Get_sdns_conf () {/,/^}/p' "$HERE/../smartdns.sh" > "$T/smartdns_generators.sh"
+sed -n '/^Get_sdnse_conf () {/,/^}/p' "$HERE/../smartdns.sh" >> "$T/smartdns_generators.sh"
+[ -s "$T/smartdns_generators.sh" ] || fail "SmartDNS generator extraction failed"
+. "$T/smartdns_generators.sh"
 sdnse_enable=1
 sdnse_speed=0
 sdnse_name=

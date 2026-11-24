@@ -279,6 +279,18 @@ secondary_bind = body(smartdns, "Get_sdnse_conf")
 config_generator = body(smartdns, "Get_sdns_conf")
 assert secondary_bind.count('>> "$smartdns_tmp_Conf" || return $?') == 2
 assert "Get_sdnse_conf || return $?" in config_generator
+unchecked_config_appends = re.findall(
+    r'(?m)^\s*(?:echo|printf).*>> "\$smartdns_tmp_Conf"(?!\s*\|\|\s*return \$\?)',
+    config_generator,
+)
+assert not unchecked_config_appends, unchecked_config_appends
+assert ': > "$smartdns_tmp_Conf" || return $?' in config_generator
+assert ': > /tmp/whitelist.conf || return $?' in config_generator
+assert '>> /tmp/whitelist.conf || return $?' in config_generator
+assert ': > /tmp/blacklist.conf || return $?' in config_generator
+assert '>> /tmp/blacklist.conf || return $?' in config_generator
+assert "base config generator propagates the exact mid-file append failure" in config_file_test
+assert "base config generator rejects an unwritable staged file" in config_file_test
 assert "secondary UDP bind write failure propagates" in config_file_test
 assert "secondary TCP bind failure propagates" in config_file_test
 for token in ('[ ! -f "$_smartdns_source" ]',
