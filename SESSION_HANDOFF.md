@@ -7,14 +7,15 @@
 
 ## Active task
 
-ZeroTier daemon-stop ownership hardening:
-- The existing stop path first used `pidof zerotier-one` as its process inventory and then used name-wide `killall zerotier-one` / `killall -9 zerotier-one`. A process can set its mutable comm name to `zerotier-one` without executing the ZeroTier binary, so this could signal unrelated same-name processes.
-- Replace name matching with tri-state procfs inventory that requires `/proc/PID/exe` to resolve to the installed `/usr/bin/zerotier-one` and argv[0] to match the launcher path. Unknown/incomplete metadata blocks stop/restart. Re-enumerate and revalidate each PID immediately before TERM/KILL, retaining bounded waits and UNKNOWN fail-closed escalation.
-- Expand `zerotier_lifecycle.sh` with synthetic procfs cases for a same-name impostor, mismatched argv[0], incomplete executable metadata, unavailable proc root, graceful TERM, KILL escalation and stuck-daemon failure. Exact ZeroTier lifecycle and AI handoff Actions must be checked for the resulting commit.
-- Linux 4.4 lacks pidfd; the residual validation-to-signal race remains documented and is not claimed eliminated.
+ZeroTier exact-executable stop refinement:
+- Commit 1bfeb82 replaces mutable-name pidof/killall with procfs executable and argv identity, revalidates numeric PID before TERM/KILL, and preserves UNKNOWN fail-closed escalation.
+- Exact commit 1bfeb82 results: ZeroTier lifecycle #45344505217 PASS; Process inventory #45344505230 PASS; WAN route #45344505319 PASS; AI handoff #45344505295 PASS. XY-C1 #45344505235 was still building at last poll; Build/TRX/artifact are not yet confirmed.
+- Follow-up hardens two ownership edges: require argv[1] to equal this service's configured state directory (so another ZeroTier instance is not stopped), and treat a still-existing same-name process with missing /exe metadata as UNKNOWN. Add direct regressions; retain rejection of same-name impostors with a readable nonmatching executable.
+- Linux 4.4 lacks pidfd; the final validated-PID-to-signal race remains a known limitation.
 
 ## Verification boundary
 
+- Exact 1bfeb82bb180116882f8c6f942cad21cd50f548d: ZeroTier lifecycle #45344505217 PASS; Process inventory #45344505230 PASS; WAN route #45344505319 PASS; AI handoff #45344505295 PASS. XY-C1 #45344505235 remained IN_PROGRESS at last poll; do not claim firmware Build/TRX/artifact or L3 until the same-SHA run completes.
 - Exact bc34d1db: FRP asynchronous startup lifecycle regression #45343199725 PASS; AI handoff documentation contract #45343199794 PASS. The earlier FRP source-contract mismatch is closed; do not repeat the FRP audit.
 - Exact c8985b2b: FRP #45343036173 passed the executable FRP startup, crontab, boot/config, process-stop and lock regressions, then failed only on one test-message mismatch in check_frp_lifecycle.py. This commit aligns the expected message with the actual test while retaining its UNKNOWN and no-signal checks. AI docs #45343036253 was IN_PROGRESS at last poll.
 - Exact ebbd4dd: AI handoff #45342815724 PASS; FRP #45342815755 passed all executable regressions and failed only on the obsolete "verified timeout" checker literal, fixed in c8985b2b.
@@ -26,9 +27,9 @@ ZeroTier daemon-stop ownership hardening:
 
 ## Exact first action for the next GPT
 
-1. Check the exact-head ZeroTier lifecycle and AI handoff Actions for the exact-executable stop change. Triage the first failing assertion and correct it before proceeding.
-2. Once those Actions pass, continue the next independent P1 service stability/security defect; do not repeat FRP or completed process-identity audits.
-3. Keep the backup immutable and all main writes complete-tree atomic with expected-SHA non-forced ref updates.
+1. Check exact-head ZeroTier lifecycle and AI handoff Actions for the state-directory/executable-metadata refinement; fix the first real failure.
+2. Poll XY-C1 Build/TRX/artifact for 1bfeb82 without blocking independent work. Once current ZeroTier checks pass, continue one independent P1 stability/security source fix.
+3. Keep backup immutable and all main writes complete-tree atomic with expected-SHA non-forced ref updates.
 
 # Cross-session execution mandate
 

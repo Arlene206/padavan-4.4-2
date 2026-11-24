@@ -1,3 +1,12 @@
+## 2026-11-24 15:12 UTC+8 — Bind ZeroTier process identity to its state directory
+
+- Exact 1bfeb82 Actions: ZeroTier lifecycle #45344505217 PASS; Process inventory #45344505230 PASS; WAN route #45344505319 PASS; AI handoff #45344505295 PASS. XY-C1 #45344505235 remains IN_PROGRESS at Build; no TRX/artifact/L3 claim.
+- Follow-up threat review found that matching only executable and argv[0] could still stop a separately launched ZeroTier instance using another data directory. The actual service invocation is `/usr/bin/zerotier-one [args] /etc/storage/zerotier-one`; ownership now also requires argv[1] to be the exact configured state directory.
+- A process with `comm=zerotier-one` but missing `/proc/PID/exe` is now UNKNOWN while its proc directory still exists, instead of being silently treated as absent. A readable nonmatching executable remains a confirmed non-owner and is never signalled.
+- Regression harness now uses the actual two-argument daemon command line and covers a different state directory and missing executable link; old stale numeric-kill log assertions are removed. Parent main: 1bfeb82bb180116882f8c6f942cad21cd50f548d; this atomic follow-up requires exact ZeroTier and AI handoff reruns.
+
+---
+
 ## 2026-11-24 15:04 UTC+8 — Replace ZeroTier name-wide stop with exact executable PID validation
 
 - FRP exact-head run #45343199725 on bc34d1db PASS; AI handoff #45343199794 PASS. The previous FRP checker correction is closed.

@@ -118,7 +118,9 @@ require('readlink "$zt_match_exe_path"' in process_matches_body and
         'case "$zt_match_exe" in' in process_matches_body and
         '"$PROG"' in process_matches_body and
         "tr '\\000' '\\n'" in process_matches_body and
-        '[ "$zt_match_argv0" = "$PROG" ]' in process_matches_body,
+        '[ "$zt_match_argv0" = "$PROG" ]' in process_matches_body and
+        '[ "$zt_match_argv1" = "$config_path" ]' in process_matches_body and
+        'zt_match_comm=$(cat "$zt_match_proc_dir/comm" 2>/dev/null)' in process_matches_body,
         "process identity must match the exact executable and argv[0], not the mutable comm name")
 require('"$ZT_PROC_ROOT"/[0-9]*' in process_pids_body and
         'zerotier_process_matches "$zt_scan_pid"' in process_pids_body and
@@ -510,6 +512,8 @@ require('pidof zerotier-one' not in kill_body and
 for marker in (
     "same-name impostor executable was signalled",
     "executable with mismatched argv[0] was signalled",
+    "an independent ZeroTier instance was signalled",
+    "stop signalled a same-name process without executable identity",
     "stop signalled a process with incomplete executable identity",
     "stop signalled with an unavailable procfs root",
     "stop escalated after process identity became UNKNOWN",

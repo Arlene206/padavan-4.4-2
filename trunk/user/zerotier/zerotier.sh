@@ -1097,7 +1097,14 @@ zerotier_process_matches() {
 	zt_match_proc_dir="$ZT_PROC_ROOT/$zt_match_pid"
 	[ -d "$zt_match_proc_dir" ] || return 1
 	zt_match_exe_path="$zt_match_proc_dir/exe"
-	[ -L "$zt_match_exe_path" ] || return 1
+	if [ ! -L "$zt_match_exe_path" ]; then
+		[ -d "$zt_match_proc_dir" ] || return 1
+		if zt_match_comm=$(cat "$zt_match_proc_dir/comm" 2>/dev/null); then
+			[ "$zt_match_comm" = "zerotier-one" ] && return 2
+			return 1
+		fi
+		return 2
+	fi
 	if zt_match_exe=$(readlink "$zt_match_exe_path" 2>/dev/null); then
 		:
 	else
@@ -1119,7 +1126,8 @@ zerotier_process_matches() {
 	}
 	[ -n "$zt_match_cmdline_text" ] || return 2
 	zt_match_argv0=$(printf '%s\n' "$zt_match_cmdline_text" | sed -n '1p') || return 2
-	[ "$zt_match_argv0" = "$PROG" ] || return 1
+	zt_match_argv1=$(printf '%s\n' "$zt_match_cmdline_text" | sed -n '2p') || return 2
+	[ "$zt_match_argv0" = "$PROG" ] && [ "$zt_match_argv1" = "$config_path" ] || return 1
 	return 0
 }
 

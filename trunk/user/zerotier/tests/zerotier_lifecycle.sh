@@ -97,10 +97,11 @@ test_proc_add() {
 	test_proc_pid="$1"
 	test_proc_exe="$2"
 	test_proc_argv0="$3"
+	test_proc_config="${4:-$config_path}"
 	mkdir -p "$ZT_PROC_ROOT/$test_proc_pid"
 	printf '%s\n' zerotier-one > "$ZT_PROC_ROOT/$test_proc_pid/comm"
 	ln -s "$test_proc_exe" "$ZT_PROC_ROOT/$test_proc_pid/exe"
-	printf '%s\000%s\000%s\000' "$test_proc_argv0" "-c" "$config_path" > "$ZT_PROC_ROOT/$test_proc_pid/cmdline"
+	printf '%s\000%s\000' "$test_proc_argv0" "$test_proc_config" > "$ZT_PROC_ROOT/$test_proc_pid/cmdline"
 }
 
 sleep() {
@@ -499,6 +500,25 @@ if ! kill_z; then
 	fail "unowned argv[0] process prevented a confirmed-absent result"
 fi
 [ ! -s "$TEST_KILL_LOG" ] || fail "executable with mismatched argv[0] was signalled"
+
+# A second ZeroTier binary using another state directory is not this service.
+: > "$TEST_KILL_LOG"
+test_proc_reset
+test_proc_add 4324 "$PROG" "$PROG" "$TEST_TMP/other-zerotier-state"
+if ! kill_z; then
+	fail "an independent ZeroTier instance prevented a confirmed-absent result"
+fi
+[ ! -s "$TEST_KILL_LOG" ] || fail "an independent ZeroTier instance was signalled"
+
+# A same-name process without readable executable identity is UNKNOWN, not absent.
+: > "$TEST_KILL_LOG"
+test_proc_reset
+test_proc_add 4325 "$TEST_TMP/not-readable" "$PROG"
+ /bin/rm -f "$ZT_PROC_ROOT/4325/exe"
+if kill_z; then
+	fail "stop accepted a same-name process whose executable identity is unavailable"
+fi
+[ ! -s "$TEST_KILL_LOG" ] || fail "stop signalled a same-name process without executable identity"
 
 # Missing executable metadata for the exact binary is UNKNOWN, not ABSENT.
 : > "$TEST_KILL_LOG"
@@ -1697,7 +1717,6 @@ TEST_ROUTE_SHOW_STATUS=0
 TEST_ROUTE_DEL_STATUS=0
 TEST_ROUTE_DELETE_PERSISTS=0
 
-[ ! -s "$TEST_TMP/numeric-kill.log" ] || fail "a stale numeric PID was signalled"
 
 # Direct rules() coverage models start_instance() after its config directory exists.
 mkdir -p "$TEST_CONFIG"
