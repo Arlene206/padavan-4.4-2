@@ -13,11 +13,11 @@ Continue one autonomous engineering stream on main. For each logical source/test
 
 ## Active task
 
-### Active LAN DHCP deconfig retry — idempotent deletion fixed; duplicate source contracts being synchronized
+### Active LAN DHCP deconfig retry — source fix and WAN callback gate PASS; HTTPD contract corrected
 
-A retry deadlock was found in `lan_down_auto()`: it removed the saved DHCP default route with raw `route_del()`, then could fail a later static-interface restore/resolver/hosts step and return to BusyBox's `DECONFIG_PENDING` retry. The next callback received `ESRCH` for that already-absent route and stopped before completing the remaining cleanup. The same raw delete existed in the BOUND/RENEW transaction's old-gateway callback.
+A retry deadlock in `lan_down_auto()` was fixed by commit 1572f3e5c91ec78de42382e02f8cc40d0e7fd18c: after a DHCP route was deleted, later cleanup failure caused BusyBox to retry DECONFIG; the next raw delete returned `ESRCH` and aborted cleanup. Both LAN deconfig and BOUND/RENEW old-gateway deletion now use `route_status_idempotent_delete()`, mapping only already-absent `ESRCH` to success.
 
-Commit 1572f3e5c91ec78de42382e02f8cc40d0e7fd18c wraps both deletions with `route_status_idempotent_delete()`: only `ESRCH` is treated as already complete; genuine failures remain visible. The exact-head WAN DHCP callback workflow #45496718762 PASS on 1572, including the updated source checker. The duplicate HTTPD workflow failed at its own stale line-108 assertion, which still expected the old raw `return route_del(context->lan_ifname...)`; this follow-up updates that contract to require the idempotent wrapper at both LAN cleanup paths. Its new exact-head run must pass before the source-contract slice is closed.
+WAN DHCP callback state stability #45496718762 PASS on 1572. HTTPD's duplicate checker next failed because it still expected the raw BOUND route-delete return; commit 8f69bb2cbbfe296d3913d3c4b55eb65eb92a2ca4 changed that check but accidentally referred to an undefined `cleanup` variable. This follow-up derives a bounded `lan_down_auto()` body and asserts idempotent delete there. The new HTTPD run must pass before closing the static-contract synchronization.
 
 ### SCUT watchdog auth-marker reader trust boundary
 
@@ -49,6 +49,14 @@ dhcpc.c passes the client state to the server-ID filter. Outside REBINDING, NAKs
 The initial source commit ff9cb0ec0f9143cd398d8de1d9b4eb13dca87be5 was mistakenly built with an empty tree base and omitted unrelated paths. This was detected by inspecting GitHub commit stats before claiming validation. Non-forced recovery commit 717f983f07434cd78a4ad00ebdb944b8f6d30fa5 restored the complete root tree from the actual parent and retained the four intended DHCP files. REST compare from original main 054ff22bf517a45bf29f2da21963a4206f8b3b83 to 717 confirmed exactly those four paths changed. Do not rewrite or erase intermediate history. For future Git Data API commits, fetch the live main commit's commit.tree.sha and use it as base_tree_sha.
 
 ## Verification boundary
+
+### Exact source SHA 8f69bb2cbbfe296d3913d3c4b55eb65eb92a2ca4
+
+- AI handoff documentation contract #45497016593: PASS.
+- HTTPD Authentication and Security #45497016612: FAIL at inline source assertion line 110 with `NameError: name 'cleanup' is not defined`; the source contract correction referenced an undefined helper variable. The workflow-only follow-up now defines a bounded `lan_down_auto()` slice and checks it.
+- Product sources are unchanged from 1572f3e5c91ec78de42382e02f8cc40d0e7fd18c.
+- XY-C1 Firmware Validation #45496718759: IN_PROGRESS at Build XY-C1; TRX/artifact steps not yet confirmed. No L3 claim.
+- No target MIPS/uClibc runtime or physical-router L4 validation.
 
 ### Exact source SHA 1572f3e5c91ec78de42382e02f8cc40d0e7fd18c
 
@@ -122,10 +130,11 @@ The initial source commit ff9cb0ec0f9143cd398d8de1d9b4eb13dca87be5 was mistakenl
 
 ## Exact first action for the next GPT
 
-1. Verify corrected HTTPD Authentication and Security run triggered by the duplicated LAN route-contract correction; it must now require `route_status_idempotent_delete()` and preserve raw `route_del()` as the nested syscall.
-2. Commit 1572f3e5c91ec78de42382e02f8cc40d0e7fd18c: WAN DHCP callback state stability #45496718762 PASS; HTTPD #45496718781 failed only because its duplicated assertion still expected the raw LAN route-delete call. XY-C1 #45496718759 was in ccache setup at last poll; confirm Build, TRX, artifact upload separately and do not claim L3 while pending.
-3. Continue LAN DHCP/AP-mode retry tests only for a concrete gap; already fixed missing-route ESRCH retry. Keep the closed DHCPNAK REBINDING identity fix closed. Then move to an uncovered userland stability/security task.
-4. Before context exhaustion, checkpoint live main/backup refs, exact SHA Actions, and first actionable next task.
+1. Verify the corrected HTTPD Authentication and Security workflow triggered by the bounded lan_down_auto() source slice; it should pass the former NameError and assert the deconfig wrapper on the right function body.
+2. Check XY-C1 Firmware Validation #45496718759 on product source SHA 1572f3e5c91ec78de42382e02f8cc40d0e7fd18c. Build XY-C1 was active at last poll; confirm Build, TRX and artifact upload separately. L3 only when all three PASS on that same SHA.
+3. LAN DHCP old-route retry fix in 1572 is already validated by WAN DHCP callback #45496718762 PASS. Avoid repeating green route/DHCP gates absent source changes. Continue only concrete uncovered transition defects, then move to a different unreviewed userland issue.
+4. On child 8f69bb2cbbfe296d3913d3c4b55eb65eb92a2ca4, AI handoff #45497016593 PASS; HTTPD #45497016612 failed due an undefined variable in the new inline test contract. This follow-up fixes that test-only defect.
+5. Before context exhaustion, refresh main/backup refs and exact SHA Actions, then record the next actionable task.
 
 ## Mandatory handoff checkpoint
 

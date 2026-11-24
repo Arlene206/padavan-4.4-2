@@ -2745,7 +2745,11 @@ jobs:
           assert 'fopen(DNS_RESOLV_CONF' not in resolver
           assert "return route_status_idempotent_delete(" in lan
           assert "route_del(context->lan_ifname" in lan
-          assert "route_status = route_status_idempotent_delete(" in cleanup
+          lan_down_start = lan.index("lan_down_auto(char *lan_ifname)")
+          lan_down_end = lan.index("struct lan_dhcp_runtime_snapshot", lan_down_start)
+          lan_down = lan[lan_down_start:lan_down_end]
+          assert "route_status = route_status_idempotent_delete(" in lan_down
+          assert "route_del(lan_ifname" in lan_down
           assert "return route_add(context->lan_ifname" in lan
           assert "return ifconfig(context->lan_ifname, IFUP" in lan
           assert 'lease_state[2].name = "lan_gateway_t";' in lan_bound

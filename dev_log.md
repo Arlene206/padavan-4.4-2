@@ -1,3 +1,12 @@
+## 2026-11-24 — Fix HTTPD workflow's deconfig-scope assertion
+
+- On 8f69bb2cbbfe296d3913d3c4b55eb65eb92a2ca4, AI handoff #45497016593 PASS. HTTPD Authentication and Security #45497016612 failed at inline Python line 110 with `NameError: name 'cleanup' is not defined`.
+- The production LAN route fix was unchanged and WAN DHCP callback #45496718762 had already passed on 1572f3e5c91ec78de42382e02f8cc40d0e7fd18c. The prior checker correction mistakenly referenced a variable from another workflow. This follow-up scopes `lan_down_auto()` directly from `net_lan.c` and asserts the idempotent delete wrapper inside that function.
+- XY-C1 Firmware Validation #45496718759 remained IN_PROGRESS at Build XY-C1 on product source 1572; TRX and artifact upload still needed confirmation. No L3 claim.
+- No MIPS/uClibc runtime or physical-router L4 validation.
+
+---
+
 ## 2026-11-24 — Sync HTTPD duplicate contract with idempotent LAN DHCP route cleanup
 
 - Exact-head WAN DHCP callback state stability #45496718762 PASS on 1572f3e5c91ec78de42382e02f8cc40d0e7fd18c; the LAN deconfig source checker and existing route-policy regression passed.
