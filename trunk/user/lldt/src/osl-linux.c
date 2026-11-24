@@ -79,6 +79,10 @@ if_get_index(int sock, char *interface)
     struct ifreq req;
     int ret;
 
+    if (lldt_validate_interface_name(interface) != 0)
+	die("if_get_index: invalid interface name %s: %s\n",
+	    interface ? interface : "(null)", strerror(errno));
+
     memset(&req, 0, sizeof(req));
     strncpy(req.ifr_name, interface, sizeof(req.ifr_name));
     ret = ioctl(sock, SIOCGIFINDEX, &req);
@@ -159,10 +163,11 @@ osl_write_pidfile(osl_t *osl)
     size_t written;
     ssize_t io_status;
 
-    ret = snprintf(pidfile, sizeof(pidfile), "/var/run/%s-%.10s.pid",
-                   g_Progname, osl->responder_if);
-    if (ret < 0 || ret >= (int)sizeof(pidfile))
-        die("osl_write_pidfile: PID-file path is too long\n");
+    ret = lldt_pidfile_format_path(pidfile, sizeof(pidfile),
+                                   g_Progname, osl->responder_if);
+    if (ret != 0)
+        die("osl_write_pidfile: invalid PID-file path/interface: %s\n",
+            strerror(errno));
 
     pidfile_lock_fd = osl_open_pidfile_lock(pidfile);
 	if (pidfile_lock_fd < 0)

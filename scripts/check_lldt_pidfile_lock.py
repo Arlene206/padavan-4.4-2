@@ -71,6 +71,15 @@ assert "st_uid != expected_uid" in policy
 assert "st_nlink != 1" in policy
 assert "(st->st_mode & (S_IWGRP | S_IWOTH))" in policy
 assert "test_pidfile_descriptor_validation" in test
+assert "LLDT_INTERFACE_NAME_MAX 15U" in policy
+assert "lldt_validate_interface_name" in policy
+assert "lldt_pidfile_format_path" in policy
+assert '/var/run/%s-%s.pid' in policy
+assert '"/var/run/%s-%.10s.pid"' not in source
+assert "lldt_validate_interface_name(interface)" in source
+assert "test_interface_name_and_pidfile_path_identity" in test
+assert "same_prefix_a" in test and "same_prefix_b" in test
+assert "LLTD full interface-name/PID-path identity regression: PASS" in test
 assert "LLTD PID-file descriptor ownership/mode/hard-link regression: PASS" in test
 assert "S_ISREG(st->st_mode)" in policy
 assert "flock(fd, LOCK_EX | LOCK_NB)" in policy

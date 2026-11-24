@@ -34,6 +34,48 @@ expect_invalid(const char *text, size_t length, int expected_errno)
 
 
 static void
+test_interface_name_and_pidfile_path_identity(void)
+{
+	char path_a[80];
+	char path_b[80];
+	char too_small[8];
+	const char *same_prefix_a = "abcdefghij0";
+	const char *same_prefix_b = "abcdefghij1";
+	const char *max_interface = "abcdefghijklmno";
+	const char *too_long_interface = "abcdefghijklmnop";
+
+	assert(lldt_validate_interface_name("br0") == 0);
+	assert(lldt_validate_interface_name(max_interface) == 0);
+	errno = 0;
+	assert(lldt_validate_interface_name(too_long_interface) == -1);
+	assert(errno == ENAMETOOLONG);
+	errno = 0;
+	assert(lldt_validate_interface_name("") == -1);
+	assert(errno == EINVAL);
+	errno = 0;
+	assert(lldt_validate_interface_name("br0/../../tmp") == -1);
+	assert(errno == EINVAL);
+	errno = 0;
+	assert(lldt_validate_interface_name(NULL) == -1);
+	assert(errno == EINVAL);
+
+	assert(lldt_pidfile_format_path(path_a, sizeof(path_a), "lld2d", same_prefix_a) == 0);
+	assert(lldt_pidfile_format_path(path_b, sizeof(path_b), "lld2d", same_prefix_b) == 0);
+	assert(strcmp(path_a, path_b) != 0);
+	assert(strcmp(path_a, "/var/run/lld2d-abcdefghij0.pid") == 0);
+	assert(strcmp(path_b, "/var/run/lld2d-abcdefghij1.pid") == 0);
+	assert(lldt_pidfile_format_path(path_a, sizeof(path_a), "lld2d", max_interface) == 0);
+	errno = 0;
+	assert(lldt_pidfile_format_path(path_a, sizeof(path_a), "lld2d", too_long_interface) == -1);
+	assert(errno == ENAMETOOLONG);
+	errno = 0;
+	assert(lldt_pidfile_format_path(path_a, sizeof(path_a), "/tmp/lld2d", "br0") == -1);
+	assert(errno == EINVAL);
+	errno = 0;
+	assert(lldt_pidfile_format_path(too_small, sizeof(too_small), "lld2d", "br0") == -1);
+	assert(errno == ENAMETOOLONG);
+}
+static void
 test_pidfile_descriptor_validation(void)
 {
 	struct stat st;
@@ -147,6 +189,8 @@ main(void)
 	assert(lldt_pidfile_parse_pid(NULL, 0, &actual) == -1);
 	assert(errno == EINVAL);
 
+test_interface_name_and_pidfile_path_identity();
+	puts("LLTD full interface-name/PID-path identity regression: PASS");
 	test_pidfile_descriptor_validation();
 	puts("LLTD PID-file descriptor ownership/mode/hard-link regression: PASS");
 	puts("LLTD bounded PID-file parser regression: PASS");
