@@ -1,3 +1,12 @@
+## 2026-11-24 — Prevent FRP argv separator spoofing with embedded newlines
+
+- Reviewing the FRP process matcher after the checked-procfs-read fix exposed a distinct false-positive: it translated NUL argument separators into LF and split the result with AWK, but did not reject literal LF bytes already present inside an argv element. A process with the real `frpc` executable and argv[0] equal to `/usr/bin/frpc\n-c`, followed by the config path, was therefore misidentified as the managed three-argument daemon. `frp_close()` could send TERM/KILL to that unrelated invocation.
+- Added a checked, non-pipeline `wc -l < /proc/PID/cmdline` pass before NUL-to-LF conversion. A read/utility error stays UNKNOWN; any raw LF means a definite argv mismatch. The configured target BusyBox has `CONFIG_WC=y`, and the FRP workflow now watches that config dependency.
+- Added a stop regression with the forged two-argument cmdline. It proves the old parser accepted the decoy, while the new parser rejects it and `frp_close()` sends no signal. The source checker binds the guard, target applet config and regression.
+- Local BusyBox-sh reproduction: old conversion/AWK matcher returned MATCH for the newline-injected argv; checked raw LF count returned 1 and rejected it. Full FRP exact-head Actions are pending. No new firmware or hardware result is claimed for this patch.
+
+---
+
 ## 2026-11-24 — Restore exact wording required by AI handoff validator
 
 - Exact `0c23ad7c82fc2e033f73d4a94f6fb02a77324ca5` VSFTPD stability regression #45359061300 PASS, including strict SITE CHMOD/UMASK policy compile/run and source/workflow contract.

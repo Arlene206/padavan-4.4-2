@@ -88,6 +88,22 @@ frp_process_matches()
 		return 2
 	fi
 
+	# NUL is the argv separator in procfs. Reject literal LF bytes before
+	# translating NUL to LF; otherwise a newline embedded in argv[0] or
+	# another argument can masquerade as an additional argv boundary.
+	frp_match_lf_count=$(LC_ALL=C wc -l < "$frp_match_cmdline" 2>/dev/null) || {
+		[ -d "$frp_match_proc_dir" ] || return 1
+		return 2
+	}
+	case "$frp_match_lf_count" in
+		0) ;;
+		''|*[!0-9]*)
+			[ -d "$frp_match_proc_dir" ] || return 1
+			return 2
+			;;
+		*) return 1 ;;
+	esac
+
 	# Avoid "tr | wc": POSIX pipeline status reports only wc's result, so a
 	# failed procfs read could be mistaken for a definite argv mismatch.
 	# The sentinel keeps trailing newlines intact in command substitution.

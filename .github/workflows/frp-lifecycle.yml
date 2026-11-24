@@ -5,6 +5,7 @@ on:
     paths:
       - ".github/workflows/frp-lifecycle.yml"
       - "trunk/user/frp/frp.sh"
+      - "trunk/configs/boards/busybox.config"
       - "trunk/user/frp/tests/frp_lifecycle.sh"
       - "trunk/user/frp/tests/frp_crontab.sh"
       - "trunk/user/frp/tests/frp_autostart.sh"
@@ -27,6 +28,7 @@ on:
     paths:
       - ".github/workflows/frp-lifecycle.yml"
       - "trunk/user/frp/frp.sh"
+      - "trunk/configs/boards/busybox.config"
       - "trunk/user/frp/tests/frp_lifecycle.sh"
       - "trunk/user/frp/tests/frp_crontab.sh"
       - "trunk/user/frp/tests/frp_autostart.sh"

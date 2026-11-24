@@ -206,6 +206,23 @@ ln -sfn /bin/sleep "$FRP_PROC_ROOT/204/exe"
 process_exists 204 || fail "argv-matching impostor executable was altered"
 [ "$KILLALL_CALLS" -eq 0 ] || fail "name-based killall was invoked"
 
+# A literal LF inside argv[0] must not masquerade as a NUL argument separator.
+setup_crontab
+clear_processes
+mkdir -p "$FRP_PROC_ROOT/206"
+printf '/usr/bin/frpc\n-c\000/tmp/frp/myfrpc.ini\000' > "$FRP_PROC_ROOT/206/cmdline"
+ln -sfn /usr/bin/frpc "$FRP_PROC_ROOT/206/exe"
+if frp_process_matches 206 frpc; then
+	fail "newline-injected argv was accepted as the exact FRPC command"
+else
+	match_status=$?
+	[ "$match_status" -eq 1 ] ||
+		fail "newline-injected argv was not rejected as a definite mismatch"
+fi
+if frp_close; then :; else fail "stop failed on a definite newline-injected argv mismatch"; fi
+[ ! -s "$SIGNAL_LOG" ] || fail "newline-injected decoy process received a signal"
+process_exists 206 || fail "newline-injected decoy process was altered"
+
 # An unenumerable procfs root is UNKNOWN, never confirmed absence.
 setup_crontab
 clear_processes

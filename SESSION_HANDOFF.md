@@ -1,32 +1,34 @@
 ## Current repository state
 
-- Live parent main before the VSFTPD workflow path-checker correction: `ea7d7e28be9988175fbcc423f9378e5d765de764`.
+- Live parent main before the FRP argv-boundary correction: `e779430780d42896c8172469c5a358babc20355f`.
 - Frozen archive `backup/pre-plugin-overhaul-2026-11-14` remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- FRP procfs transform failure remains UNKNOWN instead of false ABSENT: `0104186915ee6132d99871bede241ecf1835c279`; exact FRP lifecycle #45358242268 and Process inventory #45358242232 PASS.
-- VSFTPD SITE CHMOD/UMASK strict parser and GNU89 regression: `ea7d7e28be9988175fbcc423f9378e5d765de764`. Runtime compile/test completed before the inline workflow contract failed at a global YAML path count; correction now validates each new path in the proper push/PR filter blocks.
-- AliDNS POSIX byte encoder source `ca9267b3c71a9fb2a8de96e82a2878fcf31e5dc6`; exact AliDNS #45357686604 PASS on checker SHA `824f2b4fcc2365af7502ad833a1ad0cacec1e5a4`. Exact XY-C1 #45356505924 on ca9267 PASS for Build, TRX and artifact upload; Process #45356505921 and HTTPD auth #45356505920 PASS.
-- VSFTPD REST strict decimal parser `b87b1c10f3808f8bd4f47e374fdc5b0472bdfb94`; checker binding correction `21699dc5a854afb6aea0121a64421bb836aa447c`; their exact validation is recorded in the preceding handoff.
-- Main remains the active branch; the frozen backup is untouched.
+- Product-source SHA `ea7d7e28be9988175fbcc423f9378e5d765de764` passed exact XY-C1 #45358712652, including Build, TRX verification and artifact upload; Process #45358712716 and NVRAM #45358712663 also PASS. Later commits `0c23ad7c82fc2e033f73d4a94f6fb02a77324ca5` (workflow checker only) and `e779430780d42896c8172469c5a358babc20355f` (handoff/dev-log only) did not modify firmware production inputs. L3 is verified for that product-source baseline; no physical L4 validation is claimed.
+- FRP checked procfs transform-status fix `0104186915ee6132d99871bede241ecf1835c279`: exact FRP lifecycle #45358242268 and Process inventory #45358242232 PASS.
+- VSFTPD SITE CHMOD/UMASK strict octal source `ea7d7e28be9988175fbcc423f9378e5d765de764`: checker-scope correction `0c23ad7c82fc2e033f73d4a94f6fb02a77324ca5`; exact VSFTPD stability #45359061300 PASS. AI handoff wording correction `e779430780d42896c8172469c5a358babc20355f` passed exact AI handoff #45359300706.
+- AliDNS POSIX byte encoder source `ca9267b3c71a9fb2a8de96e82a2878fcf31e5dc6`: exact AliDNS #45357686604 PASS. XY-C1 product baseline above includes this source as well.
+- Main remains the active development branch; the frozen backup is unchanged.
 
-## Active task — Re-run SITE CHMOD/UMASK strict parser checks
+## Active task — FRP process argv must distinguish literal LF from NUL separators
 
-- `ftp_octal_arg_parse()` accepts only complete ASCII octal tokens in 0000..0777 with overflow checks and unchanged output on failure. Both SITE handlers validate before fchmod/open-side effects or process umask mutation.
-- The runtime policy regression compiled under GNU89 and passed locally. Exact `ea7d7e2` VSFTPD run #45358712640 failed later in the inline Python source contract. The failure was the generic global occurrence count for the new file paths, not the parser/test assertions: those paths appear in push+PR filters plus build/checker references. This checker-only commit moves both paths into the existing filter-specific validation tuple.
-- Exact `ea7d7e2` AI handoff #45358712746 PASS. Process/NVRAM/XY-C1 runs were still pending at the last checkpoint; inspect their exact-head state independently.
+- The current matcher validates the executable symlink and translates NUL-delimited `/proc/PID/cmdline` into LF-delimited records. Literal LF inside a real argv element was not rejected, so argv[0] `/usr/bin/frpc\n-c` plus the config path produced the same three AWK records as the managed `frpc -c <config>` command. This could make a stop operation signal the wrong FRPC invocation.
+- This patch preflights raw `/proc/PID/cmdline` with checked `wc -l`, rejects any literal LF as a definite mismatch, and preserves UNKNOWN when that read fails. The target BusyBox config explicitly enables `wc`; workflow path filters now include the config. The stop test checks both parser return status and zero TERM/KILL signals for the spoofed argv.
+- Local BusyBox-sh reproducer: the old matcher returned MATCH for the forged argv; the raw LF guard detects one literal newline. Full exact-head CI for this implementation is pending.
 
 ## Verification boundary
 
+- Exact `ea7d7e28be9988175fbcc423f9378e5d765de764`: XY-C1 #45358712652 PASS (Build, TRX and artifact upload); Process #45358712716 PASS; NVRAM #45358712663 PASS; AI handoff #45358712746 PASS.
+- Exact `0c23ad7c82fc2e033f73d4a94f6fb02a77324ca5`: VSFTPD stability #45359061300 PASS.
+- Exact `e779430780d42896c8172469c5a358babc20355f`: AI handoff #45359300706 PASS.
 - Exact `0104186915ee6132d99871bede241ecf1835c279`: FRP lifecycle #45358242268 PASS; Process inventory #45358242232 PASS.
-- Exact `ea7d7e28be9988175fbcc423f9378e5d765de764`: AI handoff #45358712746 PASS; VSFTPD #45358712640 FAIL in static workflow path-count assertion after runtime policy compile/test. Process inventory #45358712716, NVRAM #45358712663 and XY-C1 #45358712652 were IN_PROGRESS at last poll.
-- Exact AliDNS #45357686604 and earlier XY-C1 build/TRX/artifact validations are as above.
-- No physical router L4 validation is claimed.
+- FRP newline-boundary patch: exact-head CI pending.
+- L3 product build is verified for the `ea7d7e2` production tree; no L4 hardware result is claimed.
 
 ## Exact first action for the next GPT
 
-1. Check the exact-head VSFTPD and AI handoff Actions for this path-filter checker repair. Fix any further source-contract failure based on its exact failing assertion.
-2. Confirm Process, NVRAM and XY-C1 outcomes for product SHA `ea7d7e28be9988175fbcc423f9378e5d765de764`; only claim L3 if Build, TRX verification and artifact upload all pass on the same SHA.
-3. Once this slice passes, continue the next open userland stability/security item; do not repeat completed FRP/AliDNS audits.
-4. Keep the frozen backup immutable and only advance main through non-forced expected-SHA commits.
+1. Check the FRP lifecycle workflow and Process inventory Actions for the exact SHA produced by the argv-boundary patch. If either fails, inspect its first causal assertion and keep literal-LF arguments rejected without weakening UNKNOWN handling.
+2. Confirm the new stop regression passes on the actual test runner and the static checker sees `CONFIG_WC=y` in the target BusyBox config.
+3. Once the FRP slice is green, continue the next independent P1 user-space stability/security item in `REFACTOR_ROADMAP.md`; do not repeat the completed FRP, AliDNS or VSFTPD audits.
+4. Keep the backup branch immutable and update only `main` via a non-forced expected-SHA compare-and-swap.
 
 # Cross-session execution mandate
 
