@@ -8,6 +8,11 @@ trap 'exit 1' HUP INT TERM
 fail() { echo "SmartDNS atomic config regression: FAIL: $*" >&2; exit 1; }
 pass() { echo "SmartDNS atomic config regression: PASS: $*"; }
 
+sed -n '/^Get_sdns_conf () {/,/^}/p' "$HERE/../smartdns.sh" > "$T/smartdns_generators.sh"
+sed -n '/^Get_sdnse_conf () {/,/^}/p' "$HERE/../smartdns.sh" >> "$T/smartdns_generators.sh"
+[ -s "$T/smartdns_generators.sh" ] || fail "SmartDNS generator extraction failed"
+. "$T/smartdns_generators.sh"
+
 # The full base generator must not return success after a middle append
 # fails: the previous unchecked echoes let a later successful command hide it.
 smartdns_nvram_read_checked() {
@@ -71,10 +76,6 @@ pass "base config generator rejects an unwritable staged file"
 
 # A secondary listener write error must be visible even when TCP binding is
 # disabled (the false conditional used to mask the failed first write).
-sed -n '/^Get_sdns_conf () {/,/^}/p' "$HERE/../smartdns.sh" > "$T/smartdns_generators.sh"
-sed -n '/^Get_sdnse_conf () {/,/^}/p' "$HERE/../smartdns.sh" >> "$T/smartdns_generators.sh"
-[ -s "$T/smartdns_generators.sh" ] || fail "SmartDNS generator extraction failed"
-. "$T/smartdns_generators.sh"
 sdnse_enable=1
 sdnse_speed=0
 sdnse_name=

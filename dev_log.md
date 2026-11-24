@@ -1,3 +1,9 @@
+## 2026-11-24 — Load SmartDNS generators before their write-failure tests
+
+- Review of the newly extended fixture caught that the real generator extraction block was still located below the inserted base-generator tests. Move the extraction/source step to the test preamble so both base and secondary regressions execute against the production function definitions.
+
+---
+
 ## 2026-11-24 — Fail closed on every SmartDNS base-config write
 
 - `Get_sdns_conf()` checked the secondary resolver helper after the previous slice, but its own dozens of staged-config appends remained unchecked. If the staging filesystem filled or an individual append failed, a later successful echo or conditional could mask the error and allow an incomplete resolver config to be published.
