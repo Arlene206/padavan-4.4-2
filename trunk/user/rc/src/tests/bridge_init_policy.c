@@ -482,6 +482,28 @@ test_reload_marker_write_failures_are_reported_and_aggregated(void)
 }
 
 static void
+test_wan_bridge_port_selection_fails_closed_on_mode_read_error(void)
+{
+	static const int enabled_modes[] = { 1, 2, 3, 4, 5, 6, 7 };
+	unsigned int index;
+	int uses_vlan = 1;
+
+	assert(rc_bridge_init_wan_port_uses_vlan(EIO, 3, 0,
+						 &uses_vlan) == EIO);
+	assert(uses_vlan == 0);
+	assert(rc_bridge_init_wan_port_uses_vlan(0, 0, 0,
+						 &uses_vlan) == 0);
+	assert(uses_vlan == 0);
+	for (index = 0; index < sizeof(enabled_modes) / sizeof(enabled_modes[0]);
+	     ++index) {
+		assert(rc_bridge_init_wan_port_uses_vlan(
+			       0, enabled_modes[index], 0, &uses_vlan) == 0);
+		assert(uses_vlan == 1);
+	}
+	assert(rc_bridge_init_wan_port_uses_vlan(EIO, 3, 0, NULL) == EINVAL);
+}
+
+static void
 test_bridge_add_idempotency_requires_confirmed_bridge(void)
 {
 	assert(rc_bridge_init_add_bridge_result(0, 0, -1) == 0);
@@ -516,6 +538,7 @@ main(void)
 	test_radio_setup_failures_are_recorded_without_stopping_later_operations();
 	test_wireless_config_generation_failure_reaches_bridge_status();
 	test_reload_marker_write_failures_are_reported_and_aggregated();
+	test_wan_bridge_port_selection_fails_closed_on_mode_read_error();
 	test_bridge_add_idempotency_requires_confirmed_bridge();
 	puts("RC bridge/LAN/hostname/IPTV NVRAM cache ownership policy: PASS");
 	return 0;

@@ -1540,6 +1540,15 @@ jobs:
           assert "int init_bridge(int is_ap_mode, int *switch_vlan_status);" in header
           assert "operation_status = switch_config_vlan(1);" in init_bridge
           bridge_compact = " ".join(init_bridge.split())
+          assert "test_wan_bridge_port_selection_fails_closed_on_mode_read_error();" in bridge_init_regression
+          assert "get_wan_bridge_mode()" not in init_bridge
+          wan_mode_read_at = bridge_compact.index("lan_wan_bridge_mode_status(&wan_bridge_mode)")
+          wan_mode_policy_at = bridge_compact.index("rc_bridge_init_wan_port_uses_vlan(", wan_mode_read_at)
+          wan_mode_error_at = bridge_compact.index("if (operation_status != 0)", wan_mode_policy_at)
+          wan_mode_return_at = bridge_compact.index("return operation_status;", wan_mode_error_at)
+          wireless_preflight_at = bridge_compact.index("rc_bridge_wireless_state_read(")
+          assert wan_mode_read_at < wan_mode_policy_at < wan_mode_error_at < wan_mode_return_at < wireless_preflight_at
+          assert "if (wan_port_uses_vlan)" in bridge_compact
           wireless_state_read = body(bridge_init_policy, "rc_bridge_wireless_state_read(")
           for key in ('"rt_radio_x"', '"rt_mode_x"', '"wl_radio_x"', '"wl_mode_x"'):
               assert key in wireless_state_read

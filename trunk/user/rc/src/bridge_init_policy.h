@@ -93,6 +93,20 @@ rc_bridge_init_result(const rc_bridge_init_status_t *status)
 	return status ? status->first_status : EINVAL;
 }
 
+/* Never select a physical WAN/LAN bridge member from an error-collapsed mode. */
+static inline int
+rc_bridge_init_wan_port_uses_vlan(int mode_status, int bridge_mode,
+                                  int disabled_mode, int *uses_vlan)
+{
+	if (!uses_vlan)
+		return EINVAL;
+	*uses_vlan = 0;
+	if (mode_status != 0)
+		return mode_status;
+	*uses_vlan = (bridge_mode != disabled_mode);
+	return 0;
+}
+
 /* An existing bridge is success only when a kernel bridge-port query confirms it. */
 static inline int
 rc_bridge_init_add_bridge_result(int add_status, int add_errno,

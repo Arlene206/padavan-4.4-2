@@ -327,6 +327,10 @@ init_bridge(int is_ap_mode, int *switch_vlan_status)
 	int wl_guest_start_attempted = 0;
 	int guest_isolation_status;
 	int rt_radio_on = 0;
+#if defined (USE_GMAC2_TO_GPHY) || defined (USE_GMAC2_TO_GSW)
+	int wan_bridge_mode = SWAPI_WAN_BRIDGE_DISABLE;
+	int wan_port_uses_vlan = 0;
+#endif
 #if !defined(USE_RT3352_MII)
 	int rt_mode_x = 0;
 #endif
@@ -340,6 +344,27 @@ init_bridge(int is_ap_mode, int *switch_vlan_status)
 	rc_bridge_init_status_reset(&bridge_status);
 	if (switch_vlan_status)
 		*switch_vlan_status = 0;
+
+#if defined (USE_GMAC2_TO_GPHY) || defined (USE_GMAC2_TO_GSW)
+	/*
+	 * The router-mode bridge member depends on wan_stb_x. The legacy getter
+	 * maps a failed checked read to DISABLE, which can attach eth2 instead of
+	 * eth2.1. Resolve it before touching the switch or network interfaces.
+	 */
+	if (!is_ap_mode) {
+		operation_status = lan_wan_bridge_mode_status(&wan_bridge_mode);
+		operation_status = rc_bridge_init_wan_port_uses_vlan(
+			operation_status, wan_bridge_mode, SWAPI_WAN_BRIDGE_DISABLE,
+			&wan_port_uses_vlan);
+		if (operation_status != 0) {
+			errno = operation_status > 0 ? operation_status : EIO;
+			logmessage(LOGNAME,
+				   "cannot select LAN bridge WAN member before bridge setup (status=%d)",
+				   operation_status);
+			return operation_status;
+		}
+	}
+#endif
 
 	/* Checked selector snapshot precedes all switch and interface side effects. */
 	operation_status = rc_bridge_wireless_state_read(
@@ -501,7 +526,7 @@ init_bridge(int is_ap_mode, int *switch_vlan_status)
 	if (!is_ap_mode) {
 		/* add eth2 (or eth2.1) to bridge */
 #if defined (USE_GMAC2_TO_GPHY) || defined (USE_GMAC2_TO_GSW)
-		if (get_wan_bridge_mode() != SWAPI_WAN_BRIDGE_DISABLE) {
+		if (wan_port_uses_vlan) {
 			operation_status = create_vlan_iface(IFNAME_MAC, 1, -1, -1, lan_hwaddr, 1);
 			rc_bridge_init_record(&bridge_status, "create GMAC2 VLAN1", operation_status);
 			operation_status = br_add_del_if(IFNAME_BR, "eth2.1", 1);
