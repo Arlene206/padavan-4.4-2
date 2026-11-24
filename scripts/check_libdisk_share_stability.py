@@ -1266,6 +1266,26 @@ require(policy_move < policy_refresh < policy_apply < policy_rollback <
         policy_move_back < policy_refresh_back,
         "rename policy must compensate permission contents, directory name and folder snapshot after a failed step")
 
+rename_folder = function_body(
+    DISK_SOURCE, "static int\\ndisk_share_rename_folder_path("
+)
+rename_folder_compact = "".join(rename_folder.split())
+rename_policy = function_body(
+    POLICY, "disk_share_rename_directory_entry_nofollow("
+)
+rename_policy_compact = "".join(rename_policy.split())
+require("disk_io_open_parent_nofollow(old_path,&old_leaf)" in rename_folder_compact and
+        "disk_io_open_parent_nofollow(new_path,&new_leaf)" in rename_folder_compact and
+        "disk_share_rename_directory_entry_nofollow(old_directory_fd,old_leaf,new_directory_fd,new_leaf)" in rename_folder_compact and
+        "rename(old_path,new_path)" not in rename_folder_compact and
+        "fstatat(old_directory_fd,old_leaf,&source_status,AT_SYMLINK_NOFOLLOW)" in rename_policy_compact and
+        "!S_ISDIR(source_status.st_mode)" in rename_policy_compact and
+        "fstatat(new_directory_fd,new_leaf,&target_status,AT_SYMLINK_NOFOLLOW)" in rename_policy_compact and
+        "return renameat(old_directory_fd,old_leaf,new_directory_fd,new_leaf)" in rename_policy_compact and
+        "test_folder_rename_uses_pinned_parent_descriptors();" in POLICY_TEST,
+        "folder moves must pin both parent directories and reject symlink/non-directory sources or occupied targets")
+
+
 
 
 permission_update = function_body(

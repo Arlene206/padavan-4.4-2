@@ -2680,6 +2680,68 @@ init_fake_folder_rename(
 }
 
 static void
+test_folder_rename_uses_pinned_parent_descriptors(void)
+{
+	char root_template[] = "/tmp/disk-share-renameat-XXXXXX";
+	char mount_dir[256], moved_dir[256], redirect_dir[256];
+	char moved_new[256], redirect_new[256], moved_link[256];
+	char *root;
+	struct stat status;
+	int source_directory_fd, redirect_directory_fd;
+
+	root = mkdtemp(root_template);
+	assert(root != NULL);
+	assert(snprintf(mount_dir, sizeof(mount_dir), "%s/mount", root) > 0);
+	assert(snprintf(moved_dir, sizeof(moved_dir), "%s/moved", root) > 0);
+	assert(snprintf(redirect_dir, sizeof(redirect_dir), "%s/redirect", root) > 0);
+	assert(snprintf(moved_new, sizeof(moved_new), "%s/New", moved_dir) > 0);
+	assert(snprintf(redirect_new, sizeof(redirect_new), "%s/New", redirect_dir) > 0);
+	assert(snprintf(moved_link, sizeof(moved_link), "%s/Link", moved_dir) > 0);
+	assert(mkdir(mount_dir, 0700) == 0);
+	assert(mkdir(redirect_dir, 0700) == 0);
+	assert(mkdir(redirect_new, 0700) == 0);
+
+	source_directory_fd = open(mount_dir, O_RDONLY | O_DIRECTORY);
+	assert(source_directory_fd >= 0);
+	assert(mkdirat(source_directory_fd, "Old", 0700) == 0);
+	redirect_directory_fd = open(redirect_dir, O_RDONLY | O_DIRECTORY);
+	assert(redirect_directory_fd >= 0);
+
+	assert(rename(mount_dir, moved_dir) == 0);
+	assert(symlink(redirect_dir, mount_dir) == 0);
+	assert(disk_share_rename_directory_entry_nofollow(
+		source_directory_fd, "Old", source_directory_fd, "New") == 0);
+	assert(lstat(moved_new, &status) == 0);
+	assert(S_ISDIR(status.st_mode));
+	assert(lstat(redirect_new, &status) == 0);
+	assert(S_ISDIR(status.st_mode));
+
+	errno = 0;
+	assert(disk_share_rename_directory_entry_nofollow(
+		source_directory_fd, "New", source_directory_fd, "New") == -1);
+	assert(errno == EEXIST);
+	assert(symlinkat(redirect_new, source_directory_fd, "Link") == 0);
+	errno = 0;
+	assert(disk_share_rename_directory_entry_nofollow(
+		source_directory_fd, "Link", source_directory_fd, "MovedLink") == -1);
+	assert(errno == ENOTDIR);
+	assert(fstatat(source_directory_fd, "Link", &status,
+	               AT_SYMLINK_NOFOLLOW) == 0);
+	assert(S_ISLNK(status.st_mode));
+
+	assert(unlinkat(source_directory_fd, "Link", 0) == 0);
+	assert(rmdir(moved_new) == 0);
+	assert(close(redirect_directory_fd) == 0);
+	assert(close(source_directory_fd) == 0);
+	assert(unlink(mount_dir) == 0);
+	assert(rmdir(redirect_new) == 0);
+	assert(rmdir(moved_dir) == 0);
+	assert(rmdir(redirect_dir) == 0);
+	assert(rmdir(root) == 0);
+}
+
+
+static void
 test_folder_rename_batch_commits_directory_snapshot_and_permissions(void)
 {
 	struct disk_share_permission_batch_entry entries[2];
@@ -2924,6 +2986,7 @@ test_folder_name_visibility_policy();
 	test_folder_delete_batch_restores_files_and_directory_after_write_failure();
 	test_folder_delete_batch_restores_after_staged_directory_remove_failure();
 	test_folder_delete_batch_preserves_staging_on_directory_compensation_failure();
+	test_folder_rename_uses_pinned_parent_descriptors();
 	test_folder_rename_batch_commits_directory_snapshot_and_permissions();
 	test_folder_rename_batch_restores_directory_after_snapshot_failure();
 	test_folder_rename_batch_restores_files_and_directory_after_write_failure();

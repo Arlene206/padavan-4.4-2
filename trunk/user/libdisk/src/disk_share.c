@@ -2428,7 +2428,38 @@ disk_share_create_folder_staging_paths(
 static int
 disk_share_rename_folder_path(const char *old_path, const char *new_path)
 {
-	return rename(old_path, new_path);
+	char *old_leaf = NULL, *new_leaf = NULL;
+	int old_directory_fd = -1, new_directory_fd = -1;
+	int result, saved_errno;
+
+	old_directory_fd = disk_io_open_parent_nofollow(old_path, &old_leaf);
+	if (old_directory_fd < 0)
+		goto failed;
+	new_directory_fd = disk_io_open_parent_nofollow(new_path, &new_leaf);
+	if (new_directory_fd < 0)
+		goto failed;
+
+	result = disk_share_rename_directory_entry_nofollow(
+		old_directory_fd, old_leaf, new_directory_fd, new_leaf);
+	saved_errno = errno;
+	(void)close(new_directory_fd);
+	(void)close(old_directory_fd);
+	free(new_leaf);
+	free(old_leaf);
+	if (result != 0)
+		errno = saved_errno ? saved_errno : EIO;
+	return result;
+
+failed:
+	saved_errno = errno ? errno : EIO;
+	if (new_directory_fd >= 0)
+		(void)close(new_directory_fd);
+	if (old_directory_fd >= 0)
+		(void)close(old_directory_fd);
+	free(new_leaf);
+	free(old_leaf);
+	errno = saved_errno;
+	return -1;
 }
 
 static int

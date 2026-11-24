@@ -687,6 +687,47 @@ disk_share_reserve_staging_directory(
 }
 
 
+/*
+ * Rename a directory entry without following its final component or any
+ * parent symlink. The caller pins both parent directories before reaching
+ * this helper, so renameat() remains anchored if a mount path is replaced.
+ */
+static inline int
+disk_share_rename_directory_entry_nofollow(int old_directory_fd,
+                                            const char *old_leaf,
+                                            int new_directory_fd,
+                                            const char *new_leaf)
+{
+	struct stat source_status, target_status;
+
+	if (old_directory_fd < 0 || new_directory_fd < 0 ||
+	    !old_leaf || !*old_leaf || !new_leaf || !*new_leaf ||
+	    strchr(old_leaf, '/') || strchr(new_leaf, '/') ||
+	    !strcmp(old_leaf, ".") || !strcmp(old_leaf, "..") ||
+	    !strcmp(new_leaf, ".") || !strcmp(new_leaf, "..")) {
+		errno = EINVAL;
+		return -1;
+	}
+	if (fstatat(old_directory_fd, old_leaf, &source_status,
+	            AT_SYMLINK_NOFOLLOW) != 0)
+		return -1;
+	if (!S_ISDIR(source_status.st_mode)) {
+		errno = ENOTDIR;
+		return -1;
+	}
+	if (fstatat(new_directory_fd, new_leaf, &target_status,
+	            AT_SYMLINK_NOFOLLOW) == 0) {
+		errno = EEXIST;
+		return -1;
+	}
+	if (errno != ENOENT)
+		return -1;
+
+	return renameat(old_directory_fd, old_leaf,
+	                new_directory_fd, new_leaf);
+}
+
+
 typedef int (*disk_share_folder_move_fn)(const char *, const char *);
 typedef int (*disk_share_folder_refresh_fn)(const char *);
 
