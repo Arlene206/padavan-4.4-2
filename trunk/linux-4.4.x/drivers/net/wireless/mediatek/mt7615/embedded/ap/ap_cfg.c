@@ -26,6 +26,7 @@
 
 
 #include "rt_config.h"
+#include "../../../mtk_wpa_psk_policy.h"
 #include "../../../mtk_ft_r0khid_policy.h"
 
 #ifdef VENDOR_FEATURE7_SUPPORT
@@ -3629,23 +3630,32 @@ INT RTMPAPSetInformation(
 	case OID_SET_PSK:
 		{
 			struct _SECURITY_CONFIG *pSecConfig = pObj->pSecConfig;
+			UCHAR psk[LEN_PSK + 1] = {0};
 
 			if (pSecConfig == NULL) {
 				MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
-					("%s:: pSecConfig == NULL \n", __func__));
+					("%s:: pSecConfig == NULL\n", __func__));
 				return FALSE;
 			}
 
-			if (wrq->u.data.length < 65) {
-				Status = copy_from_user(pSecConfig->PSK,
-							wrq->u.data.pointer,
-							wrq->u.data.length);
-				pSecConfig->PSK[wrq->u.data.length] = '\0';
-			} else
-				pSecConfig->PSK[0] = '\0';
+			if (!mtk_wpa_psk_length_valid(wrq->u.data.length, LEN_PSK)) {
+				Status = -EINVAL;
+				break;
+			}
 
-			MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s: PSK = %s\n",
-				__func__, pSecConfig->PSK));
+			if (copy_from_user(psk, wrq->u.data.pointer,
+					   wrq->u.data.length)) {
+				Status = -EFAULT;
+				break;
+			}
+
+			psk[wrq->u.data.length] = '\0';
+			NdisZeroMemory(pSecConfig->PSK, sizeof(pSecConfig->PSK));
+			NdisMoveMemory(pSecConfig->PSK, psk,
+				       wrq->u.data.length + 1);
+			Status = 0;
+			MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+				("%s: PSK length = %d\n", __func__, wrq->u.data.length));
 #ifdef CONFIG_AP_SUPPORT
 #ifdef WSC_AP_SUPPORT
 			IF_DEV_CONFIG_OPMODE_ON_AP(pAd) {
@@ -3659,22 +3669,21 @@ INT RTMPAPSetInformation(
 
 #ifdef APCLI_SUPPORT
 				else if (pObj->ioctl_if_type == INT_APCLI) {
-					UCHAR    apcli_idx = pObj->ioctl_if;
+					UCHAR apcli_idx = pObj->ioctl_if;
 
 					pWscControl = &pAd->ApCfg.ApCliTab[apcli_idx].wdev.WscControl;
 				}
-
 #endif /* APCLI_SUPPORT */
 
 				if (pWscControl) {
-					NdisZeroMemory(pWscControl->WpaPsk, 64);
-					pWscControl->WpaPskLen = 0;
+					NdisZeroMemory(pWscControl->WpaPsk,
+						       sizeof(pWscControl->WpaPsk));
+					NdisMoveMemory(pWscControl->WpaPsk, psk,
+						       wrq->u.data.length);
 					pWscControl->WpaPskLen = wrq->u.data.length;
-					Status = copy_from_user(pWscControl->WpaPsk,
-								wrq->u.data.pointer,
-								wrq->u.data.length);
-					MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s: PSK = %s\n",
-						__func__, pWscControl->WpaPsk));
+					MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+						("%s: WSC PSK length = %d\n",
+						 __func__, pWscControl->WpaPskLen));
 				}
 			}
 #endif /* WSC_AP_SUPPORT */

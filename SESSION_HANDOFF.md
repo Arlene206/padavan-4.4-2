@@ -1,50 +1,48 @@
 ## Current repository state
 
-- Active branch: `main`; source parent for this checkpoint: `2789d637423205f209fae72461b1163ba45967a4`. Re-fetch live main before every write.
-- Frozen archive `backup/pre-plugin-overhaul-2026-11-14` remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`; never modify it.
+- Active branch: `main`; source parent for this logical slice: `8f639815fa60bcfa9a44514832ad895d36dd5a68`. Re-fetch live main before every write.
+- Frozen archive `backup/pre-plugin-overhaul-2026-11-14` remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify, develop on, or delete it.
 - No open PRs were found. Legacy PR #1 is closed; its valid CA trust-store bootstrap and AliDDNS HMAC work were ported to main.
-- LLDT PID descriptor hardening: `529cf073`; fixture/checker fixes `8796b356`, `2fdf8e7a`, `9b97f743`; Process contract `be370293`; full interface identity `0b532570`; pathname checker fix `b270bcc` (Process #45376899681 PASS).
-- MTK AP 802.11r Boolean fix: `72e1e72`; MT76x3 PSK fix: `e32120d`; PSK checker fixes: `f22cdf9`, `570be1e`; R0KH-ID bounded-copy source commit: `0517ce5e9e67d94a82e546b67a7876e5f110691b`.
+- Latest concurrent MTK usercopy fault source checkpoint: `8f639815fa60bcfa9a44514832ad895d36dd5a68`. It checks AuthMode/WepStatus/SSID usercopy faults in four AP families and APCLI 802.1X Boolean setter faults in MT76x2/MT7915.
+- LLDT descriptor/path hardening: `529cf073`, `8796b356`, `2fdf8e7a`, `9b97f743`, `be370293`, `0b532570`, `b270bcc`. Process #45376899681 PASS on `b270bcc`; dedicated LLDT #45376256149 PASS on `0b532570`.
+- MTK 802.11r Boolean fix `72e1e72`; MT76x3 PSK initial bounds fix `e32120d` with checker fixes `f22cdf9`/`570be1e`; R0KH-ID final input policy `b9d55bf` and checker/docs fixes `b046206`/`2789d637`.
 
-## Active task — Fail closed on MTK AP usercopy faults and finish R0KH-ID validation
+## Active task — Validate the cross-family WPA PSK hardening
 
-- All four driver families have `FT_ROKH_ID_LEN == 48` and a 49-byte `FtR0khId` field. The original `length <= 48` check rejected valid identifiers and then copied unbounded user length into fixed storage.
-- A wider pass over the same AP ioctl dispatchers found exact-size `AuthMode`, `WepStatus` and `Ssid` stack copies in all four families that ignored nonzero `copy_from_user()` results and continued consuming partially initialized data. MT76x2 and MT7915 APCLI 802.1X/required-key Boolean setters had the same publish-after-fault defect. This slice changes each to return `-EFAULT` and break before using or publishing the input; the source checker now enforces the length/copy/failure/stop ordering for all ten paths.
-- Commit `0517ce5` introduced a 1–48 byte payload guard, zeroed 49-byte staging buffer, checked `copy_from_user()`, and publish-after-success behavior. Its focused C boundary test passed in #45378091419; the source checker failed because it decoded a vendor header as UTF-8. The next commit changes the source contract to inspect vendor headers as bytes.
-- Follow-up also handles Wireless Extensions character arguments that include the terminating NUL in `wrq->u.data.length`: raw 1–48-byte payload and 2–49-byte payload-plus-NUL forms are normalized to a 1–48-byte identifier, with the maximum 49-byte input checked before copy. A 49-byte non-NUL input is rejected after copy to the bounded staging buffer; no stored state changes on either copy or normalization failure.
-- New shared helper/test covers invalid 0/50/UINT_MAX lengths, valid payload sizes 1 and 48, both raw and NUL-inclusive maximum-length encodings, missing terminator on the 49-byte form, empty payload and NULL arguments. Four driver contracts enforce the usercopy/normalization/publish ordering.
-- MT76x3 `OID_SET_PSK` fix in `e32120d` caps at 64 bytes and stages one checked user copy before AP/APCLI/WSC publication. Focused MTK #45377817802 and AI docs #45377817942 PASS on `570be1e`.
-- LLDT integration checker correction `b270bcc` PASS #45376899681 on exact SHA; dedicated LLDT #45376256149, Process inventory #45376256035 and NVRAM #45376256079 PASS on `0b532570`.
+- MT7615 and MT7915 used a 65-byte security PSK field but also copied the caller's unrestricted length directly into the 64-byte WSC PSK field, even after the ordinary PSK branch rejected lengths of 65 or more. Usercopy errors were ignored and plaintext PSKs were logged.
+- This slice caps PSK input at 64 bytes, stages one checked copy into a zeroed 65-byte temporary, and returns `-EINVAL`/`-EFAULT` before modifying either destination. It then clears and publishes the terminated value to the security field and only the bounded payload to WSC storage; WSC length is updated after successful staging. All three relevant families now log only lengths, not credentials.
+- MT76x3 also uses the shared length predicate instead of its inline check. Added `mtk_wpa_psk_policy.h` and `tests/wpa_psk_policy.c` for 0, 1, 63, 64, 65, UINT_MAX and invalid zero maximum; tests compile under GNU89 with ASan/UBSan. Python source contracts cover MT76x3, MT7615 and MT7915, verify the 64/65-byte structure contract, checked-copy ordering, no independent WSC usercopy and absence of plaintext diagnostics.
+- The prior R0KH-ID fix supports both raw and trailing-NUL Wireless Extensions inputs, stores a NUL-terminated 1–48-byte ID safely in 49 bytes. Exact focused MTK #45379297940 and AI docs #45379297910 PASS on checker/docs SHA `2789d637423205f209fae72461b1163ba45967a4`; source SHA `b9d55bfcbf23c751c2f548e35ba78e9e05e5118b`. NVRAM #45378781951 on b9d PASS; XY-C1 #45378781960 was still in Build XY-C1 at last observation, TRX/artifact pending.
+- Concurrent fail-closed selector/Boolean slice on `8f639815`: exact MTK #45380653108 and AI #45380653126 PASS; XY-C1 #45380653170 and NVRAM #45380653441 were still running at last observation.
 
 ## Verification boundary
 
-- R0KH-ID GNU89 ASan/UBSan boundary fixture and four-driver source contract PASS on exact SHA `2789d637423205f209fae72461b1163ba45967a4` (MTK #45379297940); AI handoff contract #45379297910 PASS. The exact-source XY-C1 run #45378781960 on production-source SHA `b9d55bfcbf23c751c2f548e35ba78e9e05e5118b` was in Build at last poll; TRX and artifact were pending.
-- This slice's fail-closed AuthMode/WepStatus/SSID and APCLI Boolean copy-fault contracts are added but have not yet run in Actions.
-- MT76x3 PSK focused regression #45377817802 PASS on `570be1e`; AI handoff #45377817942 PASS.
-- LLDT Process integration #45376899681 PASS on `b270bcc`; dedicated LLDT #45376256149 PASS on `0b532570`.
-- XY-C1 #45378091249 on `0517ce5` was still in progress at last check; this follow-up must receive its own Build/TRX/artifact validation.
+- R0KH-ID GNU89 ASan/UBSan regression plus four-driver source contract PASS #45379297940; AI handoff #45379297910 PASS on SHA `2789d637`.
+- Usercopy fault-handling contracts in `8f639815`: MTK #45380653108 PASS; AI #45380653126 PASS. XY-C1 #45380653170 and NVRAM #45380653441 IN_PROGRESS at last observation.
+- WPA PSK C test and MT76x3/MT7615/MT7915 source contracts are newly added here; exact-SHA results pending.
+- XY-C1 #45378781960 for R0KH-ID source `b9d55bf` was IN_PROGRESS at last observation. This commit changes production sources and requires a fresh same-SHA Build/TRX/artifact PASS.
 - L4 physical-router validation: NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch exact-head MTK and AI handoff Actions for this usercopy-fault slice. Confirm GNU89 ASan/UBSan R0KH-ID boundaries plus all ten source-contract cases pass; resolve any real failure.
-2. Fetch exact-head XY-C1 Build/TRX/artifact Actions. The previous R0KH-ID source baseline #45378781960 was building on `b9d55bf`; require a result for a SHA containing this production-source slice before claiming L3.
-3. After checks are closed or running independently, select the next concrete P1 security/stability issue outside this R0KH-ID slice and continue the source → regression → atomic commit → exact-SHA Actions loop.
+1. Fetch exact-head MTK and AI handoff Actions for this PSK commit. Verify GNU89 ASan/UBSan boundaries and all three PSK source contracts; fix real failures without weakening checks.
+2. Inspect exact-head XY-C1 Build/TRX/artifact and NVRAM/Process runs for the current source SHA. Also refresh earlier XY #45378781960 and #45380653170, but never claim L3 from a different source SHA.
+3. Continue with the next concrete P1 stability/security defect beyond the MTK private-ioctl cluster; pending Actions do not block independent work.
 
 ## Mandatory handoff checkpoint
 
 The checkpoint is mandatory; a document edit is conditional.
 
-Every session MUST inspect live repository state before ending. Record only material exact-head Action transitions, new source commits, genuine unresolved failures or a changed first action. Do not manufacture documentation churn or no-op commits.
+Every session MUST inspect the live repository before ending. Record only material exact-head Action transitions, new source commits, genuine unresolved failures, or a changed first action. Do not manufacture documentation churn or no-op commits.
 
-A relevant exact-head Action changing from PENDING to PASS/FAIL is checkpoint information. If all checkpoint facts and the first action are already accurate, explicitly conclude the check with no file change and no commit.
+A relevant exact-head Action changing from PENDING to PASS/FAIL is checkpoint information. If all checkpoint facts and the first action remain accurate, explicitly conclude the check with no file change and no commit.
 
 # Cross-session execution mandate
 
-Recover once from live repository state, then execute on `main`. Never create or use a development branch or PR; the frozen backup is immutable.
+Recover once from live repository state and execute development on `main`. Never create or use a development branch or PR; the frozen backup is immutable.
 
-For every multi-file logical slice, use Git data APIs to create all blobs, one complete tree based on the latest main tree, and one commit with the exact main parent. Update `main` using a non-forced compare-and-swap with `expected_sha`. This is one atomic main commit; never issue sequential partial file commits, force-push, amend, or rewrite published history.
+For each multi-file logical slice, create all blobs, one complete tree based on the latest main tree and one commit with the exact main parent, then update `main` using a non-forced compare-and-swap with `expected_sha`. This is one atomic main commit. Never issue sequential partial file commits, force-push, amend, or rewrite published history.
 
-Continue implementation rather than repeating completed audits or stopping at planning. PASS advances; FAIL is investigated and fixed; PENDING does not block independent work. Preserve Linux 4.4, GNU89, MIPS/uClibc, router configuration, security and compatibility.
+Continue implementation rather than repeating completed audits or stopping at planning. PASS advances; FAIL is investigated and fixed; PENDING does not block independent tasks. Preserve Linux 4.4, GNU89, MIPS/uClibc, router compatibility, security and configuration.
 
 Before context exhaustion, finish the current safe slice and record exact latest main SHA, tests, CI states, unresolved issues and one concrete first action for the next GPT. At session end, inspect live main and exact-head push Actions; update this handoff only when active task or first action materially changes, append substantive milestones to `dev_log.md`, and update roadmap only for material module/status/priority changes. Do not create no-op documentation commits.

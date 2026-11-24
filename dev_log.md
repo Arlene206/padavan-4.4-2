@@ -1,3 +1,13 @@
+## 2026-11-24 — Bound MT7615/MT7915 WSC PSK copies and remove credential logs
+
+- Extended review of the same AP ioctl dispatchers found an unbounded WSC usercopy in MT7615 and MT7915. The ordinary security PSK field is 65 bytes, but `WSC_CTRL.WpaPsk` is only 64; the code still copied the original caller length even after the main PSK branch rejected lengths >=65. This was a heap/struct-adjacent kernel memory overwrite risk.
+- Reworked both handlers to reject lengths >64 before copy, stage exactly one usercopy in a zeroed 65-byte temporary, return `-EFAULT` before changing security/WSC state, then clear and publish the validated key to the 65-byte terminated security field and the 64-byte WSC field. WSC length is updated only after the bounded copy.
+- MT76x3 now uses the shared 64-byte predicate too. Removed plaintext PSK `%s` diagnostics from MT76x3/MT7615/MT7915; only lengths remain in logs.
+- Added GNU89 ASan/UBSan boundary fixture and source contracts for maximum 64, overlength, UINT_MAX, checked-copy ordering, destination sizes, and secret-log absence. Exact focused/AI/XY-C1/NVRAM Actions are pending.
+- Concurrent main checkpoint `8f639815fa60bcfa9a44514832ad895d36dd5a68` also added fail-closed handling for AuthMode/WepStatus/SSID exact-size copies in all four AP driver families and MT76x2/MT7915 APCLI 802.1X Boolean setters. Exact MTK #45380653108 and AI #45380653126 PASS; XY #45380653170 and NVRAM #45380653441 were in progress at last observation.
+
+---
+
 ## 2026-11-24 — Fail closed on MTK AP security-selector usercopy faults
 
 - A follow-up review of the four MTK AP ioctl dispatchers found that exact-size copies for `AuthMode`, `WepStatus` and `Ssid` still proceeded after `copy_from_user()` returned a nonzero uncopied-byte count. That allowed partially initialized stack values to influence authentication, cipher and SSID state.

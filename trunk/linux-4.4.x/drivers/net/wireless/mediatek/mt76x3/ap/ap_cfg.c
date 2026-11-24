@@ -26,6 +26,7 @@
 
 
 #include "rt_config.h"
+#include "../../mtk_wpa_psk_policy.h"
 #include "../../mtk_ft_r0khid_policy.h"
 
 #ifdef STA_FORCE_ROAM_SUPPORT
@@ -2410,7 +2411,7 @@ INT RTMPAPSetInformation(
 			{
 				UCHAR PSK[64 + 1]; /* Add "\0" length */
 
-				if (wrq->u.data.length > sizeof(PSK) - 1) {
+				if (!mtk_wpa_psk_length_valid(wrq->u.data.length, sizeof(PSK) - 1)) {
 					Status = -EINVAL;
 					break;
 				}
@@ -2423,8 +2424,8 @@ INT RTMPAPSetInformation(
 				}
 				PSK[wrq->u.data.length] = '\0';
 
-				DBGPRINT(RT_DEBUG_TRACE, ("%s: PSK = %s\n",
-					__func__, PSK));
+				DBGPRINT(RT_DEBUG_TRACE, ("%s: PSK length = %d\n",
+					__func__, wrq->u.data.length));
 				if (pObj->ioctl_if_type == INT_APCLI) {
 					NdisMoveMemory(pAd->ApCfg.ApCliTab[pObj->ioctl_if].PSK,
 						       PSK, wrq->u.data.length + 1);

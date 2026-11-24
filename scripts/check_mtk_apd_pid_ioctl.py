@@ -171,41 +171,78 @@ def verify_apcli_boolean_copy_fail_closed(path: Path, source: str) -> None:
         )
 
 
+
 def verify_psk_length_contract(path: Path, source: str) -> None:
     case = extract_case(source, "case OID_SET_PSK:", "#ifdef SNMP_SUPPORT")
-    length_guard = "if (wrq->u.data.length > sizeof(PSK) - 1)"
-    copy_guard = "if (copy_from_user(PSK,"
-    assert length_guard in case, f"{path}: PSK length must be capped at 64 bytes"
-    assert copy_guard in case, f"{path}: stage PSK in the bounded local buffer"
-    assert case.index(length_guard) < case.index(copy_guard), (
-        f"{path}: reject oversized PSK input before copy_from_user"
-    )
-    copy_pos = case.index(copy_guard)
-    error_pos = case.index("Status = -EFAULT;", copy_pos)
-    error_break = case.index("break;", error_pos)
-    terminator_pos = case.index("PSK[wrq->u.data.length] = '\\0';")
-    assert copy_pos < error_pos < error_break < terminator_pos, (
-        f"{path}: failed user copies must stop before using the staged PSK"
-    )
-    assert case.count("copy_from_user(") == 1, (
-        f"{path}: all PSK destinations must use the validated staged copy"
-    )
-    assert "NdisMoveMemory(pAd->ApCfg.ApCliTab[pObj->ioctl_if].PSK," in case
-    assert "NdisMoveMemory(pAd->ApCfg.MBSSID[pObj->ioctl_if].WPAKeyString," in case
-    assert "NdisMoveMemory(pWscControl->WpaPsk, PSK," in case
-    assert case.count("wrq->u.data.length + 1") == 2, (
-        f"{path}: the two string destinations must copy only the validated terminator"
-    )
-    assert "sizeof(pWscControl->WpaPsk)" in case, (
-        f"{path}: zero the complete fixed-size WSC PSK storage"
-    )
-    assert "__func__, PSK" in case, (
-        f"{path}: log only the NUL-terminated staging buffer"
-    )
-    assert 'WSC PSK length = %d' in case, (
-        f"{path}: diagnostics must print the length, not the WSC PSK array"
-    )
+    compact = " ".join(case.split())
+    guard = "if (!mtk_wpa_psk_length_valid(wrq->u.data.length, sizeof(PSK) - 1))"
+    copy = "if (copy_from_user(PSK, wrq->u.data.pointer, wrq->u.data.length))"
+    terminator = r"PSK[wrq->u.data.length] = '\0';"
+    assert '#include "../../mtk_wpa_psk_policy.h"' in source
+    assert guard in compact, f"{path}: PSK input must be capped at 64 bytes"
+    assert copy in compact, f"{path}: copy PSK once into bounded staging"
+    copy_pos = compact.index(copy)
+    error_pos = compact.index("Status = -EFAULT;", copy_pos)
+    error_break = compact.index("break;", error_pos)
+    terminator_pos = compact.index(terminator)
+    assert copy_pos < error_pos < error_break < terminator_pos
+    assert compact.count("copy_from_user(") == 1
+    assert "NdisMoveMemory(pAd->ApCfg.ApCliTab[pObj->ioctl_if].PSK," in compact
+    assert "NdisMoveMemory(pAd->ApCfg.MBSSID[pObj->ioctl_if].WPAKeyString," in compact
+    assert "NdisMoveMemory(pWscControl->WpaPsk, PSK," in compact
+    assert "PSK length = %d" in compact
+    assert "PSK = %s" not in compact, f"{path}: do not log plaintext PSKs"
+    assert "WSC PSK length = %d" in compact
 
+
+def verify_extended_psk_copy(path: Path, source: str) -> None:
+    assert '#include "../../../mtk_wpa_psk_policy.h"' in source
+    case = extract_case(source, "case OID_SET_PSK:", "#ifdef SNMP_SUPPORT")
+    compact = " ".join(case.split())
+    guard = "if (!mtk_wpa_psk_length_valid(wrq->u.data.length, LEN_PSK))"
+    temporary = "UCHAR psk[LEN_PSK + 1] = {0};"
+    copy = "if (copy_from_user(psk, wrq->u.data.pointer, wrq->u.data.length))"
+    terminator = r"psk[wrq->u.data.length] = '\0';"
+    assert guard in compact, f"{path}: cap PSK to LEN_PSK"
+    assert temporary in compact, f"{path}: stage PSK in LEN_PSK+1 bytes"
+    assert copy in compact, f"{path}: copy only into staging buffer"
+    copy_pos = compact.index(copy)
+    error_pos = compact.index("Status = -EFAULT;", copy_pos)
+    error_break = compact.index("break;", error_pos)
+    terminator_pos = compact.index(terminator)
+    psec_clear = compact.index("NdisZeroMemory(pSecConfig->PSK, sizeof(pSecConfig->PSK));")
+    psec_publish = compact.index("NdisMoveMemory(pSecConfig->PSK, psk, wrq->u.data.length + 1);")
+    wsc_clear = compact.index("NdisZeroMemory(pWscControl->WpaPsk, sizeof(pWscControl->WpaPsk));")
+    wsc_publish = compact.index("NdisMoveMemory(pWscControl->WpaPsk, psk, wrq->u.data.length);")
+    wsc_len = compact.index("pWscControl->WpaPskLen = wrq->u.data.length;")
+    assert compact.index(guard) < copy_pos < error_pos < error_break < terminator_pos
+    assert terminator_pos < psec_clear < psec_publish < wsc_clear < wsc_publish < wsc_len
+    assert compact.count("copy_from_user(") == 1, (
+        f"{path}: do not usercopy independently into WSC storage"
+    )
+    assert "PSK length = %d" in compact
+    assert "WSC PSK length = %d" in compact
+    assert "PSK = %s" not in compact, f"{path}: do not log plaintext PSKs"
+    assert "copy_from_user(pWscControl->WpaPsk" not in compact
+
+
+def verify_wpa_psk_policy() -> None:
+    header = ROOT / "trunk/linux-4.4.x/drivers/net/wireless/mediatek/mtk_wpa_psk_policy.h"
+    test = ROOT / "trunk/linux-4.4.x/drivers/net/wireless/mediatek/tests/wpa_psk_policy.c"
+    policy = header.read_text(encoding="utf-8")
+    regression = test.read_text(encoding="utf-8")
+    assert "return maximum != 0U && length <= maximum;" in policy
+    for path in SOURCES[2:]:
+        include_dir = path.parents[1] / "include"
+        wpa = b" ".join((include_dir / "security/dot11i_wpa.h").read_bytes().split())
+        sec = b" ".join((include_dir / "security/sec_cmm.h").read_bytes().split())
+        wsc = b" ".join((include_dir / "wsc.h").read_bytes().split())
+        assert b"#define LEN_PSK 64" in wpa
+        assert b"PSK[LEN_PSK + 1]" in sec
+        assert b"WpaPsk[LEN_PSK]" in wsc
+    for marker in ("length_valid(0U, 64U)", "length_valid(64U, 64U)",
+                   "length_valid(65U, 64U)", "length_valid(UINT_MAX, 64U)"):
+        assert marker in regression, f"missing PSK boundary: {marker}"
 
 def verify_ft_r0khid_copy(path: Path, source: str) -> None:
     include_by_source = {
@@ -278,6 +315,7 @@ def verify_ft_r0khid_policy() -> None:
 
 def main() -> None:
     verify_ft_r0khid_policy()
+    verify_wpa_psk_policy()
     for path in SOURCES:
         source = path.read_text(encoding="utf-8")
         if path in SOURCES[:2]:
@@ -290,6 +328,8 @@ def main() -> None:
         verify_ft_r0khid_copy(path, source)
         if path == SOURCES[1]:
             verify_psk_length_contract(path, source)
+        elif path in SOURCES[2:]:
+            verify_extended_psk_copy(path, source)
         print(f"MTK AP ioctl copy contracts: PASS ({path.relative_to(ROOT)})")
 
 
