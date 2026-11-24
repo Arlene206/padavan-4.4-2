@@ -1,35 +1,38 @@
 ## Current repository state
 
-- Active development branch: `main`. Source/test commit for the completed VSFTPD EPSV fix: `974315bb0113d5fbc294a716579edceeb7b5d68f` (parent `36d712d5a7899a95510950e43289e9b68491cff2`). This handoff checkpoint is committed directly on top of that source SHA; resolve the live main head before making further changes.
+- Active branch: `main`. Latest source parent for this handoff checkpoint: `21ca0c368ea6968823a6c1eca6ecfad8766f7212` (`fix(frp): reject unsafe crontab directories and files`). This handoff-only commit is placed on top of that source commit; always re-read live main before editing.
 - Frozen archive `backup/pre-plugin-overhaul-2026-11-14` remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- RAETH forced-mode indirect MMD page/data transaction is complete: source change `e721cb0e2f42f22a8189937ac2311d246ea9912c`, followed by test include-path correction `542b8f7e38a30dca616db877a1757d22b1b19060`; exact Switch CLI regression #45363906601 and AI handoff #45363906553 PASS. The initial Switch run failed on the compile include path; the correction was followed by the passing exact-SHA run. No repeat audit is needed.
-- VSFTPD SITE CHMOD/UMASK strict-octal validation remains verified: source `ea7d7e28be9988175fbcc423f9378e5d765de764`, checker correction `0c23ad7c82fc2e033f73d4a94f6fb02a77324ca5`; exact VSFTPD stability #45359061300 PASS.
-- FRP procfs-read and argv newline-spoofing fixes `0104186915ee6132d99871bede241ecf1835c279` and `5ca9761969591766c583d3146cf5f32155ab7891`; exact FRP lifecycle #45361194679, AI handoff #45361194624, Process inventory #45361194576 PASS.
-- AliDNS POSIX byte encoder `ca9267b3c71a9fb2a8de96e82a2878fcf31e5dc6`; exact AliDNS #45357686604 PASS.
-- Samba per-share ACL snapshot source `d8f6092c6af34f1c8ec45c746ce9411e40522577`; HTTPD legacy source-contract correction `3026ffe460fe9d01ad5b72312978ff957b400479` exact HTTPD job #45363047352 PASS.
-- QMI client-ID workflow heredoc correction `4985f33bda8360f4dfb92581b7b7d47d7850a03c`; exact USB modem run #45363094446 PASS.
-- XY-C1 L3 firmware validation was previously completed for the production-source baseline `ea7d7e28be9988175fbcc423f9378e5d765de764`: exact Build/TRX/artifact #45358712652, Process #45358712716 and NVRAM #45358712663 PASS. This is not a build claim for later source commits. No physical L4 router validation is claimed.
+- VSFTPD strict EPSV numeric parser: source/test/workflow commit `974315bb0113d5fbc294a716579edceeb7b5d68f`; exact VSFTPD #45372034160, AI handoff #45372034407, Process inventory #45372034153 PASS.
+- VSFTPD EPSV ALL EPRT restriction: source/workflow commit `1b504eeda669d6c71df32ae3692adb99ffcaf13a`; exact VSFTPD #45372453417 PASS. The missing EPRT `!epsv_all` dispatcher gate is now present; PASV/PORT already had the guard. Its handoff contract run #45372453431 failed only because the previous handoff heading had `## Completed task` rather than the validator-required `## Active task`; this handoff checkpoint restores that heading.
+- Current FRP crontab hardening: source/test/checker commit `21ca0c368ea6968823a6c1eca6ecfad8766f7212`. It rejects unsafe or symlinked cron ancestors, wrong ownership, group/other-writable modes, unsafe existing crontab files and hardlinks before publishing; regression coverage includes the unsafe directory/file cases. Exact FRP lifecycle #45372520302 PASS; Process inventory #45372520381 was IN_PROGRESS at last check.
+- RAETH forced-mode indirect MMD page/data transaction: source `e721cb0e2f42f22a8189937ac2311d246ea9912c`, test include-path correction `542b8f7e38a30dca616db877a1757d22b1b19060`; exact Switch CLI regression #45363906601 and AI handoff #45363906553 PASS.
+- FRP procfs read and newline-spoofing corrections: `0104186915ee6132d99871bede241ecf1835c279` and `5ca9761969591766c583d3146cf5f32155ab7891`; exact FRP lifecycle #45361194679, AI handoff #45361194624 and Process inventory #45361194576 PASS.
+- VSFTPD SITE CHMOD/UMASK strict-octal validation: `ea7d7e28be9988175fbcc423f9378e5d765de764`, checker correction `0c23ad7c82fc2e033f73d4a94f6fb02a77324ca5`; exact VSFTPD #45359061300 PASS.
+- Samba per-share ACL snapshot `d8f6092c6af34f1c8ec45c746ce9411e40522577`; HTTPD source-contract correction `3026ffe460fe9d01ad5b72312978ff957b400479`, exact HTTPD #45363047352 PASS.
+- QMI client-ID workflow heredoc correction `4985f33bda8360f4dfb92581b7b7d47d7850a03c`; exact USB modem #45363094446 PASS.
+- XY-C1 L3 firmware build/TRX/artifact verification is valid only for production-source baseline `ea7d7e28be9988175fbcc423f9378e5d765de764`: Build/TRX/artifact #45358712652, Process #45358712716, NVRAM #45358712663 PASS. No current later source SHA has a completed firmware-build claim. No physical L4 validation is claimed.
 
-## Completed task — Strict VSFTPD EPSV protocol selector parsing
+## Active task — Close the handoff validation and verify current FRP checks
 
-- `handle_pasv()` previously parsed optional `EPSV <protocol>` with `atoi()`. Prefix forms such as `1junk`, signs, and whitespace were accepted as protocol 1 instead of rejected.
-- Replaced that conversion with `vsf_sysutil_parse_uint()` bounded to 2 and the existing address-family check. `EPSV ALL` remains unchanged; protocol 1 is accepted on IPv4/IPv6 and protocol 2 only on IPv6.
-- Extended the existing production-parser host regression in `trunk/user/vsftpd/src/tests/ipaddrparse_policy.c` with IPv4/IPv6 protocol cases and malformed-selector cases. The VSFTPD workflow already compiles/runs that test; its source contract now pins strict parser use and forbids an `atoi()` regression in `handle_pasv()`.
-- Source/test/workflow/dev-log changes are one atomic commit: `974315bb0113d5fbc294a716579edceeb7b5d68f`.
+- Production code and regression for the EPSV numeric-selector fix and the EPSV ALL/EPRT dispatcher guard are complete; exact VSFTPD Actions passed on `974315bb` and `1b504eed`.
+- The documentation-only checkpoint `2593bd3bf54d3ddf670ac2bc17e3ac0d491a1e72` failed AI handoff #45372274258 because the validator requires the literal heading `## Active task`. The next fix preserves that mandatory heading; no firmware/runtime source change is involved.
+- The latest FRP crontab source/test/checker slice is complete on `21ca0c368ea6968823a6c1eca6ecfad8766f7212`; FRP lifecycle #45372520302 PASS. Its Process inventory exact run #45372520381 was still in progress.
+- Continue the normal loop after closing those exact checks; PENDING is not a reason to stop independent work.
 
 ## Verification boundary
 
-- Exact source SHA `974315bb0113d5fbc294a716579edceeb7b5d68f`: VSFTPD stability #45372034160 PASS; AI handoff #45372034407 PASS; Process inventory #45372034153 PASS.
-- At the last check, NVRAM transaction audit #45372034333 and XY-C1 firmware validation #45372034143 were still IN_PROGRESS on that exact SHA. Recheck before making any L3 claim. Do not claim a current-SHA firmware build until Build, TRX and artifact upload all finish successfully.
-- Exact parent SHA `36d712d5a7899a95510950e43289e9b68491cff2`: AI handoff #45371307227, Process inventory #45371307371, DNSMasq lifecycle #45371307256 and NVRAM audit #45371307355 PASS; XY-C1 #45371307318 was still IN_PROGRESS at the last recorded poll.
-- The VSFTPD regression workflow on `974315bb` compiled and ran all C policy regressions, including the extended `ipaddrparse_policy.c`, and its inline source-contract job passed.
-- No local repository clone was available in this runtime (network DNS resolution failed); no local compile result is claimed. The exact-SHA GitHub Actions run is the test evidence.
+- Exact `21ca0c368ea6968823a6c1eca6ecfad8766f7212`: FRP asynchronous startup lifecycle #45372520302 PASS; Process lifecycle inventory #45372520381 IN_PROGRESS at last poll.
+- Exact `1b504eeda669d6c71df32ae3692adb99ffcaf13a`: VSFTPD stability #45372453417 PASS; AI handoff #45372453431 FAIL solely due the required section heading; NVRAM #45372453247 and XY-C1 firmware #45372453296 were IN_PROGRESS.
+- Exact `974315bb0113d5fbc294a716579edceeb7b5d68f`: VSFTPD stability #45372034160 PASS; AI handoff #45372034407 PASS; Process inventory #45372034153 PASS. NVRAM #45372034333 and XY-C1 #45372034143 were IN_PROGRESS at last poll.
+- The VSFTPD regression workflow compiled and ran its C policy suite, including the EPSV parser regression, and its inline contract passed on both relevant source commits. This runtime could not clone GitHub due DNS resolution failure; no separate local compile is claimed.
+- Current FRP work has no firmware or physical-router result claimed. Verify Build, TRX and artifact on the same exact SHA before asserting firmware validation.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-SHA NVRAM #45372034333 and XY-C1 #45372034143 for `974315bb0113d5fbc294a716579edceeb7b5d68f`. Both were pending at the last check; resolve an actual failure, but do not wait on a pending job before moving to independent work.
-2. The VSFTPD EPSV fix and its exact regression are complete; do not repeat this audit. Continue with a fresh concrete P1 stability/security defect elsewhere in the userland, preserving Linux 4.4/GNU89/MIPS-uClibc constraints and small atomic commits.
-3. Keep `backup/pre-plugin-overhaul-2026-11-14` immutable. Use complete Git trees/commits and non-forced expected-SHA updates to `main`.
+1. Inspect the AI handoff Action triggered by this corrected handoff checkpoint. The prior failure was the missing required `## Active task` title; fix any further exact assertion failure without changing source behavior.
+2. Refresh Process inventory #45372520381 on source SHA `21ca0c368ea6968823a6c1eca6ecfad8766f7212`; resolve any actual failure, but do not wait on a pending run.
+3. Refresh NVRAM and XY-C1 exact checks for the latest source SHA. Do not claim current firmware success unless Build/TRX/artifact all pass on that identical SHA.
+4. Then select a fresh concrete P1 stability/security bug outside the already-closed EPSV slices. Keep the frozen backup immutable and advance main only via complete-tree atomic commits with non-forced expected-SHA compare-and-swap.
 
 
 # Cross-session execution mandate
