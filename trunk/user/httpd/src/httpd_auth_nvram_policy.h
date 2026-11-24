@@ -104,4 +104,15 @@ httpd_auth_nvram_snapshot_credentials(
 	return status;
 }
 
+/* Map passwd/shadow update failures to a stable errno-style result. */
+static inline int
+httpd_auth_account_update_status(int operation_status, int saved_errno)
+{
+	if (operation_status == 0)
+		return 0;
+	if (saved_errno > 0)
+		return saved_errno;
+	return operation_status > 0 ? operation_status : EIO;
+}
+
 #endif /* HTTPD_AUTH_NVRAM_POLICY_H */

@@ -240,6 +240,15 @@ test_invalid_arguments_fail_closed(void)
 	assert(fake.begins == 0 && fake.reads == 0 && fake.ends == 0);
 }
 
+static void
+test_account_update_status_preserves_operation_errors(void)
+{
+	assert(httpd_auth_account_update_status(0, 0) == 0);
+	assert(httpd_auth_account_update_status(EACCES, 0) == EACCES);
+	assert(httpd_auth_account_update_status(-1, ENOSPC) == ENOSPC);
+	assert(httpd_auth_account_update_status(-1, 0) == EIO);
+}
+
 int
 main(void)
 {
@@ -253,6 +262,7 @@ main(void)
 	test_primary_read_error_wins_over_end_error();
 	test_oversized_credential_invalidates_pair();
 	test_invalid_arguments_fail_closed();
+	test_account_update_status_preserves_operation_errors();
 	puts("HTTPD checked credential snapshot regression: PASS");
 	return 0;
 }

@@ -5,6 +5,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = (ROOT / "trunk/user/httpd/src/httpd.c").read_text()
+WEB_SOURCE = (ROOT / "trunk/user/httpd/src/web_ex.c").read_text()
 
 
 def require(condition, message):
@@ -13,16 +14,16 @@ def require(condition, message):
         raise SystemExit(1)
 
 
-def body(signature):
-    start = SOURCE.index(signature)
-    opening = SOURCE.index("{", start)
+def body(signature, source=SOURCE):
+    start = source.index(signature)
+    opening = source.index("{", start)
     depth = 0
     state = "code"
     quote = ""
     index = opening
-    while index < len(SOURCE):
-        char = SOURCE[index]
-        nxt = SOURCE[index + 1] if index + 1 < len(SOURCE) else ""
+    while index < len(source):
+        char = source[index]
+        nxt = source[index + 1] if index + 1 < len(source) else ""
         if state == "code":
             if char == "/" and nxt == "*":
                 state = "block_comment"
@@ -80,4 +81,21 @@ require("auth_check( const char *authorization )" in SOURCE and
         "!auth_basic_valid" in body("auth_check( const char *authorization )"),
         "request authentication must reject an invalid credential snapshot")
 
+WEB_VALIDATE = body("validate_asp_apply(webs_t wp, int sid)", WEB_SOURCE)
+WEB_UPDATE = body("update_variables_ex(int eid, webs_t wp, int argc, char **argv)", WEB_SOURCE)
+require('#include "httpd_auth_nvram_policy.h"' in WEB_SOURCE and
+        "httpd_auth_account_update_status(account_status, errno)" in WEB_VALIDATE,
+        "web settings must use the tested account-update status policy")
+require("account_status = recreate_passwd_unix(1);" in WEB_VALIDATE and
+        "account_status = change_passwd_unix(" in WEB_VALIDATE and
+        "if (account_status != 0)" in WEB_VALIDATE and
+        "return -1;" in WEB_VALIDATE,
+        "passwd/shadow update failures must propagate out of validation")
+require(WEB_UPDATE.count("if (result < 0)") == 3 and
+        WEB_UPDATE.count("websError(wp, 500") == 3,
+        "Save/Apply, Update and Restart handlers must stop on account-update failure")
+require(WEB_UPDATE.index("if (result < 0)") < WEB_UPDATE.index("done_committing"),
+        "failed account updates must not report a successful commit")
+
 print("HTTPD auth NVRAM status contract: PASS")
+print("HTTPD Unix-account update failure propagation: PASS")

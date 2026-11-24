@@ -67,6 +67,7 @@
 #include "httpd_nvram_restore_policy.h"
 #include "httpd_watchdog_stop_policy.h"
 #include "httpd_nvram_commit_policy.h"
+#include "httpd_auth_nvram_policy.h"
 #include "httpd_js_output_policy.h"
 #include "httpd_html_output_policy.h"
 #include "httpd_json_output_policy.h"
@@ -1234,6 +1235,7 @@ validate_asp_apply(webs_t wp, int sid)
 	int user_changed = 0;
 	int pass_changed = 0;
 	int lanip_changed = 0;
+	int account_status = 0, account_error;
 	struct variable *v;
 	char *value;
 	char name[64];
@@ -1487,10 +1489,21 @@ validate_asp_apply(webs_t wp, int sid)
 	if (user_changed || pass_changed)
 		auth_nvram_changed = 1;
 
+	errno = 0;
 	if (user_changed)
-		recreate_passwd_unix(1);
+		account_status = recreate_passwd_unix(1);
 	else if (pass_changed)
-		change_passwd_unix(nvram_safe_get("http_username"), nvram_safe_get("http_passwd"));
+		account_status = change_passwd_unix(nvram_safe_get("http_username"),
+						    nvram_safe_get("http_passwd"));
+
+	if (account_status != 0) {
+		account_error = httpd_auth_account_update_status(account_status, errno);
+		logmessage("HTTPD",
+			   "system account database update failed (status=%d, errno=%d)",
+			   account_status, account_error);
+		errno = account_error;
+		return -1;
+	}
 
 	if (lanip_changed)
 		validate_nvram_lan_subnet();
@@ -1563,13 +1576,22 @@ update_variables_ex(int eid, webs_t wp, int argc, char **argv)
 		}
 		
 		if (!strcmp(action_mode, "  Save  ") || !strcmp(action_mode, " Apply ")) {
-			if (!validate_asp_apply(wp, sid))
+			result = validate_asp_apply(wp, sid);
+			if (result < 0) {
+				websError(wp, 500, "System account update failed; check the router log and retry.\n");
+				return 0;
+			}
+			if (!result)
 				websWrite(wp, "<script>no_changes_and_no_committing();</script>\n");
 			else
 				websWrite(wp, "<script>done_committing();</script>\n");
 		}
 		else if (!strcmp(action_mode, "Update")) {
-			validate_asp_apply(wp, sid);
+			result = validate_asp_apply(wp, sid);
+			if (result < 0) {
+				websError(wp, 500, "System account update failed; check the router log and retry.\n");
+				return 0;
+			}
 			/* block restart signal (only nvram update + call script) */
 			restart_needed_bits = 0;
 		}
@@ -1604,7 +1626,11 @@ update_variables_ex(int eid, webs_t wp, int argc, char **argv)
 							break;
 					}
 					
-					validate_asp_apply(wp, sid);	// for some nvram with this group
+					result = validate_asp_apply(wp, sid);
+					if (result < 0) {
+						websError(wp, 500, "System account update failed; check the router log and retry.\n");
+						return 0;
+					}
 					
 					if (v->name && nvram_get_int(group_id) > 0) {
 						restart_needed_bits |= (v->event_mask & ~(EVM_BLOCK_UNSAFE));
