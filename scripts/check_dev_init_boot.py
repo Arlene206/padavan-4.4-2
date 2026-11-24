@@ -417,7 +417,6 @@ for token in ("fake_getattr", "fake_setattr", "getter_errno = 0",
 assert "pid1_console_configure" in console_policy
 
 print("PID 1 required boot environment gating integration: PASS")
-, fatal_shutdown) is None
 
 nodes = c_function(init, "init_nodes(int *optional_status)")
 node_prepare = c_function(init, "init_optional_device_node(const char *path, dev_t device)")
