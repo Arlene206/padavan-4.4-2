@@ -9,7 +9,7 @@
 
 ## Active task
 
-Continue the HTTPD dynamic JavaScript output audit beyond NVRAM callbacks. The WAN/LAN status hooks, captive-client version and status counters now emit runtime strings through the existing tested JavaScript string writer. Inspect remaining C-side `websWrite()` script emitters and add source-contract assertions for any newly identified dynamic values.
+Verify the dynamic JavaScript hook migration and continue scanning remaining C-side `websWrite()` script emitters for runtime strings that still bypass `write_js_string()`.
 
 ## Completed development slices
 
@@ -31,18 +31,17 @@ Independent snapshot/lifecycle changes remain in `99ad9397e3cf4450c6fc07758b58c3
 
 ## Verification boundary
 
-- Exact `08c6d43` HTTPD Authentication and Security Regression `#45299995452`: **PASS**, including the JSON NVRAM output-context step and template checker. Exact AI handoff `#45299995515`, Process lifecycle inventory `#45299995326`, Process regression `#45299995463`, FRP `#45299995540`, Inadyn `#45299995467`, AliyunDrive `#45299995485`, AdGuardHome `#45299995325` and USB storage regression job `#45299995495`: their jobs **PASS** at last poll; NVRAM transaction audit `#45299995549` was still running.
-- Exact `08c6d43` XY-C1 Firmware Validation `#45299995388`: job in progress; Build step still pending, TRX and artifact upload pending.
-- Exact `212aed2` XY-C1 `#45299517972`: detector regression **PASS**, Build running with TRX/artifact pending at last check. AI handoff `#45299517974` and Process inventory `#45299517987`: **PASS**.
-- Exact `5c8c62f` XY-C1 `#45298161504`: **PASS**, including Build, TRX verification and artifact upload. This historical result does not substitute for exact-head checks on later sources.
-- Exact `861e3fe` HTTPD `#45298769831`, AI handoff `#45298769865`, Process inventory `#45298769872`, Process lifecycle `#45298769967` and NVRAM transaction `#45298769873`: **PASS**. Its XY-C1 Build `#45298770098` remained in progress at last poll.
+- Exact `dd099f6` HTTPD Authentication/Security run `#45300345684` and related checks had started. The LAN port-status contract check was narrowed in the follow-up commit to distinguish dynamic values from the literal `"No link"` fallback; the exact child SHA Actions must be checked.
+- Exact `08c6d43` HTTPD `#45299995452`, AI handoff `#45299995515`, Process lifecycle inventory `#45299995326`, Process regression `#45299995463`, FRP `#45299995540`, Inadyn `#45299995467`, AliyunDrive `#45299995485`, AdGuardHome `#45299995325` and USB storage job `#45299995495`: **PASS** at last poll; NVRAM transaction audit `#45299995549` was still running. Its XY-C1 run `#45299995388` had Build pending.
+- Exact `212aed2` XY-C1 `#45299517972`: detector test **PASS**, Build in progress with TRX/artifact pending. AI handoff `#45299517974` and Process inventory `#45299517987`: **PASS**.
+- Exact `5c8c62f` XY-C1 `#45298161504`: **PASS**, including Build, TRX verification and artifact upload.
 - No physical-router L4 result is claimed. Backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-SHA HTTPD Actions for the dynamic-hook migration and verify the source-contract checker. Confirm exact-head XY-C1 Build, TRX and artifact status.
-2. Continue auditing C-side `websWrite()` calls that embed data-derived values in JavaScript source. Any runtime strings must use `write_js_string()` or a type-specific safe encoder; static literals and numeric values can remain unchanged.
-3. Keep the backup immutable and continue atomic commits while independent Actions are pending.
+1. Verify the corrected dynamic-hook source-contract assertion on the exact new SHA and inspect HTTPD/XY-C1 Actions.
+2. Continue finding any data-derived JavaScript values emitted through raw `websWrite()` format strings; route runtime strings through `write_js_string()`, keeping numeric/static output unchanged.
+3. Keep backup read-only and continue atomic commits while independent Actions are pending.
 
 # Cross-session execution mandate
 

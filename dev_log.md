@@ -1,3 +1,10 @@
+## 2026-11-23 — Narrow dynamic-hook regression assertion
+
+- Tightened the new C-side JavaScript hook contract check to reject the dynamic LAN port-status formatter specifically while allowing the literal `"No link"` fallback. This avoids a false positive from a safe source-controlled string without weakening coverage of runtime `port_status` escaping.
+- Parent `dd099f6` Actions had started; exact child-SHA results pending. Backup remains untouched.
+
+---
+
 ## 2026-11-23 — Escape dynamic HTTPD status-hook strings for JavaScript
 
 - Audited C-side JavaScript emitters in `web_ex.c`. WAN status strings (link state, connection type, IP/gateway fields, DNS and MAC), per-port LAN status, captive-client version and route/connection counters were interpolated directly between single quotes with `websWrite("%s")`. Routed these values through the existing tested `write_js_string()` encoder. Numeric fields remain numeric; existing DNS `<br/>` display markup is preserved after JavaScript parsing.

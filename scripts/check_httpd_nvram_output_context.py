@@ -172,7 +172,7 @@ def check_dynamic_js_hooks():
     lan_end = source.index("\nstatic int\nwan_action_hook(", lan_start)
     lan = source[lan_start:lan_end]
     assert "write_js_string(wp, port_status);" in lan
-    assert "return '%s'" not in lan
+    assert '", i, port_status);' not in lan
 
     for value in ("ver", "nf_count"):
         assert f"write_js_string(wp, {value});" in source, (
