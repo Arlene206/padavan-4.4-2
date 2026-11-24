@@ -132,14 +132,16 @@ assert "udhcpc_schedule_deconfig_retry(INIT_SELECTING" in expiry
 renew = function_body(dhcpc, "static int perform_renew")
 assert "return script_status;" in renew
 release = function_body(dhcpc, "static int perform_release")
+assert "udhcpc_deconfig_pending_release_required(deconfig_release_on_usr2, 1)" in release
+assert "release_status = send_release(server_addr, requested_ip);" in release
+assert "DHCP release packet send failed with status %d" in release
+assert "deconfig_release_on_usr2 = 0;" in release
 assert "return script_status;" in release
 assert "if (!udhcpc_deconfig_retry_required(script_status))" in release
 signal_release = dhcpc[dhcpc.index("case SIGUSR2:"):dhcpc.index("/* Is it a packet? */")]
 assert "deconfig_resume_state = RELEASED;" in signal_release
-assert "udhcpc_deconfig_pending_release_required(" in signal_release
-assert "send_release(server_addr, requested_ip)" in signal_release
-assert signal_release.index("send_release(server_addr, requested_ip)") < signal_release.index("deconfig_resume_state = RELEASED")
-assert "deconfig_release_on_usr2 = 0;" in signal_release
+assert "script_status = perform_release(server_addr, requested_ip)" in signal_release
+assert "udhcpc_schedule_deconfig_retry(RELEASED, 0," in " ".join(signal_release.split())
 assert "udhcpc_deconfig_pending_release_required" in policy
 assert "test_pending_deconfig_manual_stop_releases_existing_lease" in test
 assert "udhcpc_schedule_deconfig_retry(RELEASED" in signal_release

@@ -1164,18 +1164,29 @@ static int perform_release(uint32_t server_addr, uint32_t requested_ip)
 	struct in_addr temp_addr;
 	int script_status;
 
-	/* send release packet */
-	if (state == BOUND
-	 || state == RENEWING
-	 || state == REBINDING
-	 || state == RENEW_REQUESTED
-	) {
+	/* send release when a prior lease is still active */
+	if (state == DECONFIG_PENDING) {
+		if (udhcpc_deconfig_pending_release_required(deconfig_release_on_usr2, 1))
+			script_status = 1;
+		else
+			script_status = 0;
+	} else {
+		script_status = (state == BOUND || state == RENEWING ||
+				 state == REBINDING || state == RENEW_REQUESTED);
+	}
+	if (script_status) {
+		int release_status;
+
 		temp_addr.s_addr = server_addr;
 		strcpy(buffer, inet_ntoa(temp_addr));
 		temp_addr.s_addr = requested_ip;
 		bb_info_msg("Unicasting a release of %s to %s",
 				inet_ntoa(temp_addr), buffer);
-		send_release(server_addr, requested_ip); /* unicast */
+		release_status = send_release(server_addr, requested_ip);
+		if (release_status != 0)
+			bb_error_msg("DHCP release packet send failed with status %d", release_status);
+		if (state == DECONFIG_PENDING)
+			deconfig_release_on_usr2 = 0;
 	}
 	bb_info_msg("Entering released state");
 
@@ -1782,19 +1793,15 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 			continue;
 		case SIGUSR2:
 			if (state == DECONFIG_PENDING) {
-				/* A failed repeated manual renew still owns the previous lease. */
-				if (udhcpc_deconfig_pending_release_required(
-					deconfig_release_on_usr2, 1)) {
-					int release_status = send_release(server_addr, requested_ip);
-					if (release_status != 0)
-						bb_error_msg("DHCP release during pending deconfig failed with status %d",
-							release_status);
+				/* Reuse release handling so -R and SIGUSR2 stay equivalent. */
+				script_status = perform_release(server_addr, requested_ip);
+				if (udhcpc_deconfig_retry_required(script_status)) {
+					bb_error_msg("release deconfig failed while cleanup was pending; retrying");
+					udhcpc_schedule_deconfig_retry(RELEASED, 0, tryagain_timeout,
+						&timeout, &packet_num, &already_waited_sec);
+				} else {
+					timeout = INT_MAX;
 				}
-				deconfig_release_on_usr2 = 0;
-				/* Preserve pending cleanup but honor the requested release. */
-				deconfig_resume_state = RELEASED;
-				timeout = 0;
-				already_waited_sec = 0;
 				continue;
 			}
 			script_status = perform_release(server_addr, requested_ip);

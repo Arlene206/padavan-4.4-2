@@ -1,3 +1,11 @@
+## 2026-11-24 — Unify pending DHCP release and -R exit handling
+
+- Follow-up state-path review found that the initial SIGUSR2 pending-state repair bypassed `perform_release()`; a daemon exiting through `-R` while the same deconfig was pending could still skip DHCPRELEASE. The release routine now recognizes the saved “lease still active” bit while `DECONFIG_PENDING`, and the signal handler reuses that routine instead of duplicating packet logic.
+- Normal BOUND/RENEWING/REBINDING/RENEW_REQUESTED release behavior is preserved. Pending NAK/expiry/ARP cleanup and an already-sent release do not emit duplicates; pending release send errors are now logged. Source contracts pin the shared SIGUSR2/`-R` path.
+- Parent `afba6d0005263387d20539f6719c1befbe8b223b`: udhcpc GNU89 ASan/UBSan and Python source contract #45397570960 PASS; AI docs #45397570943 PASS. XY-C1 #45397571031 still pending at cache/build preparation; Process inventory #45397571017 PASS; USB storage #45397570936 and NVRAM #45397571009 in progress. L3 remains pending.
+
+---
+
 ## 2026-11-24 — Honor DHCPRELEASE during pending manual-renew cleanup
 
 - Found a state-machine gap in BusyBox udhcpc: a repeated SIGUSR1 while RENEW_REQUESTED can fail its deconfig callback and enter DECONFIG_PENDING with the prior lease still active. A subsequent SIGUSR2 only changed the resume state to RELEASED; it skipped the DHCPRELEASE packet that the normal perform_release() path sends.
