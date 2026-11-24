@@ -1,3 +1,12 @@
+## 2026-11-25 04:29 CST — Normalize conditional branch token in DHCP checker
+
+- Exact main SHA `c522dc20b504eac7a7c701d341034752ac3f0ec1`, udhcpc run #45480285457: GNU89 `-Werror` ASan/UBSan policy binary PASS; Python checker failed at line 276 because the code compacts whitespace but the expected token still contained the space in `else if`. The actual compact spelling is `elseif(state==DECLINE_PENDING)`.
+- Corrected the source-contract token only. The test still requires the DECLINE_PENDING resume branch and the following non-discovery path to close the listener and use `INT_MAX`; no production C or regression behavior changed.
+- Exact SHA `c522dc20` AI handoff run #45480285572 was IN_PROGRESS at last observation. On parent `fd59df3`, AI handoff #45480041430, Process inventory #45480041644, Process regression #45480041481 and USB storage #45480041346 PASS; NVRAM #45480041721 and XY-C1 #45480041423 were still in progress. New exact-SHA udhcpc/handoff runs are required for THIS checker correction.
+- Prior L3 source baseline remains `36a10c0e5844daf31b3cc483c20d9e25a798ef6b` (XY-C1 #45476128451 Build/TRX/artifact PASS); the `fd59df3` DHCP product changes need same-SHA target build evidence. Hardware L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-25 — Align DHCP retry scheduler checker with tested plan
 
 - Exact main SHA `fd59df3710ddcadfd9ca96f9e3b486f5cce7866e`, udhcpc run #45480041494: GNU89 -Werror ASan/UBSan policy regression PASS; Python source checker failed at line 238 because it still expected `udhcpc_retry_delay(retry_timeout)` to appear directly in the scheduler after the call moved into `udhcpc_deconfig_retry_plan_init()`.

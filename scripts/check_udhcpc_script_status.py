@@ -273,7 +273,7 @@ assert "client_config.first_secs=0;" in pending_compact[resume_init:]
 assert "requested_ip=0;" in pending_compact[resume_init:]
 assert "packet_num=0;" in pending_compact[resume_init:]
 assert "timeout=0;" in pending_compact[resume_init:]
-resume_decline = pending_compact.index("else if(state==DECLINE_PENDING)", resume_init)
+resume_decline = pending_compact.index("elseif(state==DECLINE_PENDING)", resume_init)
 resume_other = pending_compact.index("else{", resume_decline)
 assert "change_listen_mode(LISTEN_NONE);" in pending_compact[resume_other:]
 assert "timeout=INT_MAX;" in pending_compact[resume_other:]
