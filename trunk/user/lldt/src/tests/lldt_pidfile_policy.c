@@ -6,6 +6,7 @@
 #include <limits.h>
 #include <stdio.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 
 #include "lldt_pidfile_policy.h"
 
@@ -31,6 +32,51 @@ expect_invalid(const char *text, size_t length, int expected_errno)
 }
 
 
+static void
+test_pidfile_descriptor_validation(void)
+{
+	struct stat st;
+	uid_t expected_uid = (uid_t)1000;
+
+	memset(&st, 0, sizeof(st));
+	st.st_mode = S_IFREG | 0644;
+	st.st_uid = expected_uid;
+	st.st_nlink = 1;
+	errno = 0;
+	assert(lldt_pidfile_validate_regular_file(&st, expected_uid) == 0);
+
+	st.st_mode = S_IFDIR | 0755;
+	errno = 0;
+	assert(lldt_pidfile_validate_regular_file(&st, expected_uid) == -1);
+	assert(errno == EPERM);
+
+	st.st_mode = S_IFREG | 0644;
+	st.st_uid = (uid_t)1001;
+	errno = 0;
+	assert(lldt_pidfile_validate_regular_file(&st, expected_uid) == -1);
+	assert(errno == EPERM);
+
+	st.st_uid = expected_uid;
+	st.st_nlink = 2;
+	errno = 0;
+	assert(lldt_pidfile_validate_regular_file(&st, expected_uid) == -1);
+	assert(errno == EPERM);
+
+	st.st_nlink = 1;
+	st.st_mode = S_IFREG | 0664;
+	errno = 0;
+	assert(lldt_pidfile_validate_regular_file(&st, expected_uid) == -1);
+	assert(errno == EPERM);
+
+	st.st_mode = S_IFREG | 0666;
+	errno = 0;
+	assert(lldt_pidfile_validate_regular_file(&st, expected_uid) == -1);
+	assert(errno == EPERM);
+
+	errno = 0;
+	assert(lldt_pidfile_validate_regular_file(NULL, expected_uid) == -1);
+	assert(errno == EPERM);
+}
 static int
 test_pidfile_lock_serializes_competing_open(void)
 {
@@ -100,6 +146,8 @@ main(void)
 	assert(lldt_pidfile_parse_pid(NULL, 0, &actual) == -1);
 	assert(errno == EINVAL);
 
+	test_pidfile_descriptor_validation();
+	puts("LLTD PID-file descriptor ownership/mode/hard-link regression: PASS");
 	puts("LLTD bounded PID-file parser regression: PASS");
 	if (test_pidfile_lock_serializes_competing_open() != 0)
 		return 1;

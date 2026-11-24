@@ -129,13 +129,8 @@ osl_open_pidfile_lock(const char *pidfile)
 		return -1;
 	if (fstat(fd, &lock_stat) != 0)
 		goto fail;
-	if (!S_ISREG(lock_stat.st_mode) ||
-	    lock_stat.st_uid != geteuid() ||
-	    lock_stat.st_nlink != 1 ||
-	    (lock_stat.st_mode & (S_IWGRP | S_IWOTH))) {
-		errno = EPERM;
+	if (lldt_pidfile_validate_regular_file(&lock_stat, geteuid()) != 0)
 		goto fail;
-	}
 	if (lldt_pidfile_try_exclusive_lock(fd) != 0)
 		goto fail;
 	return fd;
@@ -184,9 +179,9 @@ osl_write_pidfile(osl_t *osl)
         if (fstat(fd, &st) != 0)
             die("osl_write_pidfile: stat of pre-existing %s failed: %s\n",
                 pidfile, strerror(errno));
-        if (!S_ISREG(st.st_mode))
-            die("osl_write_pidfile: pre-existing %s is not a regular file\n",
-                pidfile);
+        if (lldt_pidfile_validate_regular_file(&st, geteuid()) != 0)
+            die("osl_write_pidfile: unsafe pre-existing PID file %s: %s\n",
+                pidfile, strerror(errno));
 
         pidbuf_length = 0;
         while (pidbuf_length < sizeof(pidbuf))
@@ -233,8 +228,9 @@ osl_write_pidfile(osl_t *osl)
     if (fstat(fd, &st) != 0)
         die("osl_write_pidfile: stat %s for write failed: %s\n",
             pidfile, strerror(errno));
-    if (!S_ISREG(st.st_mode))
-        die("osl_write_pidfile: refusing non-regular PID file %s\n", pidfile);
+    if (lldt_pidfile_validate_regular_file(&st, geteuid()) != 0)
+        die("osl_write_pidfile: refusing unsafe PID file %s: %s\n",
+            pidfile, strerror(errno));
     if (ftruncate(fd, 0) != 0)
         die("osl_write_pidfile: truncate %s failed: %s\n",
             pidfile, strerror(errno));

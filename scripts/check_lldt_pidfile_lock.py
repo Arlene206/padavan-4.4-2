@@ -60,6 +60,18 @@ assert lock_open < first_pid_open < last_pid_open < lock_close
 assert "O_NOFOLLOW" in source and "O_NONBLOCK" in source
 assert "st_uid != geteuid()" in source
 assert "st_nlink != 1" in source
+assert "lldt_pidfile_validate_regular_file(&lock_stat, geteuid())" in source
+assert source.count("lldt_pidfile_validate_regular_file(&st, geteuid())") == 2
+read_stat = writer.index("lldt_pidfile_validate_regular_file(&st, geteuid())")
+write_stat = writer.rindex("lldt_pidfile_validate_regular_file(&st, geteuid())")
+truncate_pid = writer.index("ftruncate(fd, 0)")
+assert first_pid_open < read_stat < write_stat < truncate_pid
+assert "lldt_pidfile_validate_regular_file" in policy
+assert "st_uid != expected_uid" in policy
+assert "st_nlink != 1" in policy
+assert "(st->st_mode & (S_IWGRP | S_IWOTH))" in policy
+assert "test_pidfile_descriptor_validation" in test
+assert "LLDT PID-file descriptor ownership/mode/hard-link regression: PASS" in test
 assert "S_ISREG(lock_stat.st_mode)" in source
 assert "flock(fd, LOCK_EX | LOCK_NB)" in policy
 assert "test_pidfile_lock_serializes_competing_open" in test

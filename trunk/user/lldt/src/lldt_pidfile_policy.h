@@ -6,6 +6,7 @@
 #include <limits.h>
 #include <stddef.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 
 #define LLDT_PIDFILE_MAX_DIGITS 10U
 #define LLDT_PIDFILE_MAX_TEXT 11U
@@ -72,6 +73,18 @@ lldt_pidfile_try_exclusive_lock(int fd)
 		return -1;
 	}
 	return flock(fd, LOCK_EX | LOCK_NB);
+}
+
+/* Validate an opened PID/lock descriptor before reading or truncating it. */
+static inline int
+lldt_pidfile_validate_regular_file(const struct stat *st, uid_t expected_uid)
+{
+	if (!st || !S_ISREG(st->st_mode) || st->st_uid != expected_uid ||
+	    st->st_nlink != 1 || (st->st_mode & (S_IWGRP | S_IWOTH))) {
+		errno = EPERM;
+		return -1;
+	}
+	return 0;
 }
 
 #endif /* PADAVAN_LLDT_PIDFILE_POLICY_H */
