@@ -290,13 +290,13 @@ class FirmwareInputPathTests(unittest.TestCase):
         def fake_git(args):
             calls.append(args)
             if args[:2] == ["rev-parse", "HEAD"]:
-                return result(args, stdout=AFTER + "\\n")
+                return result(args, stdout=AFTER + "\n")
             if args[0] == "fetch":
                 return result(args)
             if args[0] == "diff":
                 return result(args, stdout=(
-                    "trunk/user/www/n56u_ribbon_fixed/Advanced_WAN_Content.asp\\0"
-                    "trunk/user/www/n56u_ribbon_fixed/disk_folder_tree.js\\0"
+                    "trunk/user/www/n56u_ribbon_fixed/Advanced_WAN_Content.asp\0"
+                    "trunk/user/www/n56u_ribbon_fixed/disk_folder_tree.js\0"
                 ))
             self.fail("unexpected git args: " + repr(args))
 

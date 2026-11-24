@@ -29,21 +29,17 @@ Independent snapshot/lifecycle changes remain in `99ad9397e3cf4450c6fc07758b58c3
 
 ## Verification boundary
 
-- Exact `51bd80e` HTTPD Authentication/Security Regression `#45296325091`: **PASS**, 51/51 steps.
-- Exact `51bd80e` Process lifecycle inventory `#45296325017`: **PASS**, 5/5 steps.
-- Exact `58cbb67` AI handoff contract `#45296533165`: **FAIL**, because `REFACTOR_ROADMAP.md` was 131,598 bytes, above its 131,072-byte limit. This correction reduces its size; no source/test failure was reported.
-- XY-C1 Firmware Validation `#45295392702` remains **IN_PROGRESS** on production source `edc313c`, at `Build XY-C1` (37/44 steps at last poll); TRX and artifact remain pending. This SHA predates the seven ASP updates in `51bd80e`; it does not verify latest main's UI payload.
-- NVRAM transaction-boundary audit `#45295392634` on `edc313c`: **PASS**, 15/15. Its audited C transaction code is unchanged in `51bd80e`.
-- No local MIPS cross-build, physical router test, or hardware L3/L4 validation is claimed.
+- Exact `453aefd` HTTPD Authentication/Security Regression `#45297345701`: **PASS**. Exact Process lifecycle inventory `#45297345736`: **PASS**. Exact AI handoff contract `#45297345889`: **PASS**.
+- Exact `453aefd` XY-C1 Firmware Validation `#45297345772`: **FAIL** in the detector unit-test job before firmware build. The new web-asset fixture encoded newline/NUL separators as literal backslash sequences, so the fake Git runner did not satisfy the detector's exact HEAD/path-diff contract. The production detector and workflow path filters were not implicated; the test fixture is corrected in the next atomic commit. No Build, TRX or artifact result exists for this SHA.
+- Previous exact `51bd80e` HTTPD run `#45296325091`: **PASS**, 51/51; Process inventory `#45296325017`: **PASS**, 5/5. No MIPS cross-build or physical-router validation is claimed.
+- Backup `backup/pre-plugin-overhaul-2026-11-14` remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Exact first action for the next GPT
 
-1. Poll AI handoff validation for this documentation correction and confirm the roadmap byte-limit fix.
-2. Find a supported way to run XY-C1 validation for source/template SHA `51bd80e`; verify Build, TRX output and artifact upload individually.
-3. Continue scanning remaining web templates for NVRAM output inside JavaScript source; preserve HTML handling and add regression markers for each newly confirmed JS sink.
-4. Continue independent fixes while Actions are pending; keep `backup/pre-plugin-overhaul-2026-11-14` read-only.
-
----
+1. Inspect exact-SHA Actions for the test-fixture correction commit. Confirm HTTPD, AI handoff and Process inventory results; confirm the XY-C1 detector test passes and the actual Build, TRX verification and artifact upload steps are reached.
+2. Once the XY-C1 fixture is verified, continue the remaining web UI JavaScript-output audit. Seven pages were migrated in `51bd80e`, and four more in `453aefd`; finish other verified script contexts without replacing HTML callsites indiscriminately.
+3. After the 174-asset `nvram_get_x` pass, inspect the distinct `nvram_get_list_x`, `nvram_get_buf_x`, `nvram_get_table_x` and other emitters with context-specific regressions.
+4. Continue independent development while Actions are pending; preserve the backup branch and use one complete tree/atomic commit per logical task.
 
 # Cross-session execution mandate
 

@@ -1,3 +1,11 @@
+## 2026-11-24 — Correct XY-C1 web-asset path test fixture
+
+- Exact main `453aefd46d577206fc606fc0f58b9f51a4b2d15b` HTTPD regression `#45297345701`, Process inventory `#45297345736` and AI handoff contract `#45297345889` passed. XY-C1 run `#45297345772` stopped in `test_web_ui_asset_push_triggers_firmware_build` before firmware compilation.
+- Root cause was in the new test fixture, not the path detector: Python test source used double-escaped newline and NUL separators (`"\\n"`, `"\\0"`) so the mocked `rev-parse HEAD` and `git diff -z` responses were not the protocol responses consumed by the detector. Replaced them with actual Python newline/NUL escapes; production fail-closed behavior remains unchanged.
+- This atomic correction updates only the regression fixture plus the handoff/log. Exact-SHA rerun must confirm the detector test now passes and the XY-C1 build, TRX check and artifact upload actually run. No firmware/hardware result is claimed.
+
+---
+
 ## 2026-11-23 — Correct handoff byte limit and refresh verification
 
 - The handoff CI on 58cbb67 failed because REFACTOR_ROADMAP.md was 131,598 UTF-8 bytes, 526 bytes above the 128 KiB limit. Replaced its redundant leading status block with a shorter current summary.
