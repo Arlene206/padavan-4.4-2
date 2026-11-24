@@ -370,6 +370,13 @@ jobs:
           chmod = function_body(vsftpd_postlogin, "static void\nhandle_site_chmod")
           umask_handler = function_body(vsftpd_postlogin, "static void\nhandle_site_umask")
           upload = function_body(vsftpd_postlogin, "static void\nhandle_upload_common")
+          assert "ftp_acl_path_build_account_permission_path(" in folder_permission
+          assert "snprintf(var_file" not in folder_permission
+          account_path_builder = function_body(acl_path_policy, "ftp_acl_path_build_account_permission_path(")
+          assert "strchr(account, '/') != NULL" in account_path_builder
+          assert "written >= path_size" in account_path_builder
+          assert "account path separator" in acl_path_test
+          assert "truncated account ACL path" in acl_path_test
           assert "ftp_acl_path_share_permission(var_info, strlen(var_info), folder)" in folder_permission
           assert "strstr(var_info, target)" not in folder_permission
           assert share_permission.count("strchr(folder, ") == 2

@@ -75,6 +75,45 @@ ftp_acl_path_is_internal_metadata(const char *path)
 
 
 /*
+ * The account name comes from the authenticated FTP USER field and is used
+ * to select a protected ACL metadata file. Never let it add path components
+ * or silently truncate the metadata path to a different filename.
+ */
+static int
+ftp_acl_path_build_account_permission_path(const char *mount_path,
+                                           const char *account,
+                                           char *path, size_t path_size)
+{
+  int written;
+
+  if (!mount_path || mount_path[0] != '/' || !account || !*account ||
+      !path || path_size == 0)
+  {
+    errno = EINVAL;
+    return -1;
+  }
+  if (strchr(account, '/') != NULL)
+  {
+    errno = EACCES;
+    return -1;
+  }
+  written = snprintf(path, path_size, "%s/.__%s_var.txt",
+                     mount_path, account);
+  if (written < 0)
+  {
+    errno = EIO;
+    return -1;
+  }
+  if ((size_t) written >= path_size)
+  {
+    errno = ENAMETOOLONG;
+    return -1;
+  }
+  return 0;
+}
+
+
+/*
  * Resolve one share permission record without allowing a folder name to span
  * metadata lines. Folder names may contain arbitrary bytes other than NUL and
  * '/', including newlines; treating the file as independent records prevents

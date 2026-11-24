@@ -1,3 +1,12 @@
+## 2026-11-25 — Reject FTP account path separators in ACL metadata lookup
+
+- The post-login ACL reader `get_permission_ftp()` built `mount_path/.__<username>_var.txt` from the authenticated FTP username without rejecting `/`; this username originates in the FTP `USER` command and Padavan's custom NVRAM account lookup does not itself validate path characters. The old 256-byte `snprintf` result was also unchecked, so a long mount/user string could silently select a truncated filename.
+- Added `ftp_acl_path_build_account_permission_path()`: mount paths must be absolute, usernames cannot add path components, and any output truncation is rejected with `ENAMETOOLONG`. Invalid metadata paths fail closed (zero ACL rights). The valid filename convention is unchanged.
+- Added GNU89 host regressions for a normal account, slash-based traversal input, relative mount path and short output buffer; extended the VSFTPD source contract to pin the helper and forbid the old unchecked formatter.
+- Parent `0fa6f300b6bfa8353dd5a756a41c099b6afa9d73`: VSFTPD #45443260653 PASS; USB Storage Hotplug #45443260461 PASS; NVRAM #45443260389 PASS; Process Inventory #45443259419 PASS; HTTPD #45443259557 PASS; AI handoff #45443260460 PASS; Firewall Startup #45443260423 PASS; XY-C1 #45443260501 remained IN_PROGRESS, so current firmware L3 is not yet established. This source slice's exact-head Actions are pending.
+
+---
+
 ## 2026-11-25 — Reconcile firewall state after a direct FTP stop
 
 - Found a second path bypassing the restart fix: `rc.c` dispatches the public `/sbin/rc stop_ftp` action to `stop_ftp()`, but that function stopped the daemon under the storage lock and unlocked immediately without invoking `control_ftp_fw()`. A confirmed RUNNING-to-ABSENT transition could therefore retain stale FTP firewall/UPnP mappings when using the direct stop command.

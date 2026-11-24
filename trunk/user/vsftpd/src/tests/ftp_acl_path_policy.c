@@ -113,6 +113,49 @@ test_share_permission_records(void)
   return 0;
 }
 
+static int
+test_account_permission_path_builder(void)
+{
+  char path[PATH_MAX];
+  char short_path[8];
+
+  if (ftp_acl_path_build_account_permission_path(
+          "/mnt", "alice", path, sizeof(path)) != 0 ||
+      strcmp(path, "/mnt/.__alice_var.txt") != 0)
+  {
+    fprintf(stderr, "valid account ACL path construction failed\n");
+    return 1;
+  }
+
+  errno = 0;
+  if (ftp_acl_path_build_account_permission_path(
+          "/mnt", "/../../etc/.__alice", path, sizeof(path)) == 0 ||
+      errno != EACCES)
+  {
+    fprintf(stderr, "account path separator was not rejected\n");
+    return 1;
+  }
+
+  errno = 0;
+  if (ftp_acl_path_build_account_permission_path(
+          "mnt", "alice", path, sizeof(path)) == 0 ||
+      errno != EINVAL)
+  {
+    fprintf(stderr, "relative mount path was accepted\n");
+    return 1;
+  }
+
+  errno = 0;
+  if (ftp_acl_path_build_account_permission_path(
+          "/mnt", "alice", short_path, sizeof(short_path)) == 0 ||
+      errno != ENAMETOOLONG)
+  {
+    fprintf(stderr, "truncated account ACL path was accepted\n");
+    return 1;
+  }
+  return 0;
+}
+
 int
 main(void)
 {
@@ -148,7 +191,8 @@ main(void)
   struct stat st, canonical_st;
   char *created;
 
-  if (test_share_permission_records() != 0)
+  if (test_share_permission_records() != 0 ||
+      test_account_permission_path_builder() != 0)
     return 1;
 
   if (!ftp_acl_path_is_internal_metadata("/mnt/.__folder_list.txt") ||

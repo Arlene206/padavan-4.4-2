@@ -200,7 +200,9 @@ int get_permission_ftp(const char *account, const char *mount_path, const char *
 	if (!account || !mount_path || !*mount_path || !folder || !*folder)
 		return -1;
 
-	snprintf(var_file, sizeof(var_file), "%s/.__%s_var.txt", mount_path, account);
+	if (ftp_acl_path_build_account_permission_path(
+		    mount_path, account, var_file, sizeof(var_file)) != 0)
+		return 0;
 	var_info = read_file_to_buffer(var_file);
 	if (!var_info)
 		return 0;
