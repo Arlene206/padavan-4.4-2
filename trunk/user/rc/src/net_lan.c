@@ -2430,8 +2430,9 @@ lan_dhcp_bound_delete_route(void *opaque, const char *gateway)
 	struct lan_dhcp_bound_context *context =
 		(struct lan_dhcp_bound_context *)opaque;
 
-	return route_del(context->lan_ifname, 0, "0.0.0.0",
-			 (char *)gateway, "0.0.0.0");
+	return route_status_idempotent_delete(
+		route_del(context->lan_ifname, 0, "0.0.0.0",
+			  (char *)gateway, "0.0.0.0"));
 }
 
 static int
@@ -2656,8 +2657,9 @@ lan_down_auto(char *lan_ifname)
 	 * later callback still knows which route needs reconciliation.
 	 */
 	if (is_valid_ipv4(snapshot.lease_gateway)) {
-		route_status = route_del(lan_ifname, 0, "0.0.0.0",
-					 snapshot.lease_gateway, "0.0.0.0");
+		route_status = route_status_idempotent_delete(
+			route_del(lan_ifname, 0, "0.0.0.0",
+				  snapshot.lease_gateway, "0.0.0.0"));
 		status = dhcp_lease_deconfig_status(route_status, 0, 0, 0);
 		if (status != 0) {
 			logmessage("DHCP LAN Client",

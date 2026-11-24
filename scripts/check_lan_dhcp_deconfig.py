@@ -103,7 +103,7 @@ end = lan.index("return 0;", start)
 cleanup = lan[start:end]
 snapshot_call = cleanup.index("snapshot_status = lan_dhcp_deconfig_snapshot(")
 snapshot_failure = cleanup.index("if (snapshot_status != 0)", snapshot_call)
-route_delete = cleanup.index("route_status = route_del(", snapshot_failure)
+route_delete = cleanup.index("route_status = route_status_idempotent_delete(", snapshot_failure)
 static_restore = cleanup.index("ifconfig_status = ifconfig(lan_ifname, IFUP,")
 status_update = cleanup.index(
     "status = dhcp_lease_deconfig_status(route_status, ifconfig_status, 0, 0);"
@@ -128,6 +128,15 @@ hosts_error = cleanup.index("if (hosts_status != 0)", restore)
 preserve = cleanup.index("if (status == 0)", hosts_error)
 failure = cleanup.index("if (status != 0)", preserve)
 assert snapshot_call < snapshot_failure < route_delete < static_restore < status_update < static_gateway_restore < static_gateway_add < resolver_stage < final_status_update < ready < restore < hosts_error < preserve < failure
+assert "route_del(lan_ifname, 0, \"0.0.0.0\"," in cleanup[route_delete:static_restore]
+assert "route_status_idempotent_delete(" in cleanup[route_delete:static_restore]
+
+# A BOUND/RENEW route transition can retry after a previously absent route.
+bound_route_delete = c_function_body(
+    lan, "lan_dhcp_bound_delete_route(void *opaque, const char *gateway)"
+)
+assert "return route_status_idempotent_delete(" in bound_route_delete
+assert "route_del(context->lan_ifname, 0, \"0.0.0.0\"," in bound_route_delete
 assert "if (is_valid_ipv4(snapshot.static_gateway))" in cleanup
 assert "failed to restore static LAN gateway route" in cleanup
 assert "status = hosts_status;" in cleanup[preserve:failure]
@@ -141,7 +150,7 @@ dns_mode_guard = cleanup.index("if (status != 0)", dns_mode_parse)
 dns_mode_return = cleanup.index("return status;", dns_mode_guard)
 dns_mode_range_guard = cleanup.index("if (!dhcp_lease_binary_selector_is_valid(static_dns_mode))", dns_mode_return)
 dns_mode_range_return = cleanup.index("return EINVAL;", dns_mode_range_guard)
-route_delete_for_mode = cleanup.index("route_status = route_del(", dns_mode_range_return)
+route_delete_for_mode = cleanup.index("route_status = route_status_idempotent_delete(", dns_mode_range_return)
 assert dns_mode_parse < dns_mode_guard < dns_mode_return < dns_mode_range_guard < dns_mode_range_return < route_delete_for_mode
 assert "cannot parse LAN DNS mode during deconfig" in cleanup
 assert "invalid LAN DNS mode during deconfig" in cleanup

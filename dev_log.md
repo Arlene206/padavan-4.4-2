@@ -1,3 +1,12 @@
+## 2026-11-24 — Make LAN DHCP route deletion safe across DECONFIG_PENDING retries
+
+- `lan_down_auto()` removed the saved DHCP gateway with raw `route_del()`. If route deletion succeeded but a later cleanup step failed, BusyBox retried `deconfig`; Linux then returned `ESRCH` for the already-absent route, and the callback aborted before re-running static address/resolver/hosts cleanup. This could strand DHCP teardown in an endless `DECONFIG_PENDING` loop.
+- The same raw delete appeared when BOUND/RENEW transaction logic removed an old gateway before applying a replacement. Both call sites now use `route_status_idempotent_delete()`, accepting only `ESRCH` as already complete while preserving `EIO`, `EPERM` and other real errors.
+- Extended `scripts/check_lan_dhcp_deconfig.py` to require the helper at both call sites. Existing `route_status_policy.c` exercises the idempotent-delete mapping and confirms other errno values remain failures. WAN DHCP callback CI is the exact-head regression gate.
+- Parent main SHA: `1708fe61dbed08802f8c5b4ea29126c4ad6b6ca4`. No target MIPS/uClibc or physical-router L4 validation is claimed.
+
+---
+
 ## 2026-11-24 — Close stale HTTPD lease-parser contract; refresh exact validation status
 
 - Commit 7c77568b8148c31604b107972c2d8427e6b04d5d updates the duplicate HTTPD static checker to the current canonical LAN DHCP lease callback. The old assertion demanded a raw 0..INT_MAX parser that was intentionally removed; the checker now requires `lan_dhcp_effective_lease_seconds()`, canonical parsed assignment, the shared one-hour default and the matching regression test, and forbids the obsolete expression.
