@@ -295,6 +295,8 @@ struct END_DEVICE {
 	unsigned int irq2;
 	unsigned int irq3;
 	unsigned int esw_irq;
+	unsigned int irq_requested;
+	unsigned int gsw_irq;
 	void __iomem *fe_tx_int_status;
 	void __iomem *fe_tx_int_enable;
 	void __iomem *fe_rx_int_status;

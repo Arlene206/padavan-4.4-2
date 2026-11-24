@@ -1804,15 +1804,48 @@ static void ei_receive_workq(struct work_struct *work)
 	ei_receive();
 }
 
+#define RAETH_IRQ_REQ_IRQ0	(1U << 0)
+#define RAETH_IRQ_REQ_IRQ1	(1U << 1)
+#define RAETH_IRQ_REQ_IRQ2	(1U << 2)
+#define RAETH_IRQ_REQ_IRQ3	(1U << 3)
+#define RAETH_IRQ_REQ_ESW	(1U << 4)
+#define RAETH_IRQ_REQ_GSW	(1U << 5)
+
+static void fe_int_free_requested_irqs(struct net_device *dev)
+{
+	struct END_DEVICE *ei_local = netdev_priv(dev);
+	unsigned int requested = ei_local->irq_requested;
+
+	if (requested & RAETH_IRQ_REQ_ESW)
+		free_irq(ei_local->esw_irq, dev);
+	if (requested & RAETH_IRQ_REQ_GSW)
+		free_irq(ei_local->gsw_irq, NULL);
+	if (requested & RAETH_IRQ_REQ_IRQ3)
+		free_irq(ei_local->irq3, dev);
+	if (requested & RAETH_IRQ_REQ_IRQ2)
+		free_irq(ei_local->irq2, dev);
+	if (requested & RAETH_IRQ_REQ_IRQ1)
+		free_irq(ei_local->irq1, dev);
+	if (requested & RAETH_IRQ_REQ_IRQ0)
+		free_irq(ei_local->irq0, dev);
+
+	ei_local->irq_requested = 0;
+	ei_local->gsw_irq = 0;
+}
+
 static int fe_int_enable(struct net_device *dev)
 {
 	struct END_DEVICE *ei_local = netdev_priv(dev);
 	struct device_node *np = ei_local->switch_np;
-	struct platform_device *pdev = of_find_device_by_node(np);
+	struct platform_device *pdev;
 	int err0 = 0, err1 = 0, err2 = 0, err3 = 0;
+	int err;
 	struct mtk_gsw *gsw;
 	unsigned int reg_val = 0;
 	unsigned long flags;
+
+	if (ei_local->irq_requested)
+		return -EBUSY;
 
 	if (ei_local->architecture & (GE1_SGMII_AN | GE2_SGMII_AN)) {
 		err0 = request_irq(ei_local->irq0, ei_fe_interrupt,
@@ -1904,29 +1937,64 @@ static int fe_int_enable(struct net_device *dev)
 					MT_TRIGGER_LOW, "eth_rx", dev);
 		}
 	}
-	if (err0 | err1 | err2 | err3)
-		return (err0 | err1 | err2 | err3);
+	if (!err0)
+		ei_local->irq_requested |= RAETH_IRQ_REQ_IRQ0;
+	if (ei_local->features & FE_IRQ_SEPARATE) {
+		if (!err1)
+			ei_local->irq_requested |= RAETH_IRQ_REQ_IRQ1;
+		if (!err2)
+			ei_local->irq_requested |= RAETH_IRQ_REQ_IRQ2;
+		if ((ei_local->features & FE_INT_NAPI_RX_ONLY) &&
+		    (ei_local->features & (FE_RSS_4RING | FE_RSS_2RING)) &&
+		    !err3)
+			ei_local->irq_requested |= RAETH_IRQ_REQ_IRQ3;
+	}
+
+	err = err0 ? err0 : (err1 ? err1 : (err2 ? err2 : err3));
+	if (err)
+		goto fail_irqs;
 
 	if (ei_local->chip_name == MT7623_FE) {
+		pdev = of_find_device_by_node(np);
+		if (!pdev) {
+			err = -ENODEV;
+			goto fail_irqs;
+		}
 		gsw = platform_get_drvdata(pdev);
-		if (request_threaded_irq(gsw->irq, gsw_interrupt, NULL, 0,
-					 "gsw", NULL))
-			pr_err("fail to request irq\n");
+		if (!gsw) {
+			put_device(&pdev->dev);
+			err = -ENODEV;
+			goto fail_irqs;
+		}
+		ei_local->gsw_irq = gsw->irq;
+		put_device(&pdev->dev);
+		err = request_threaded_irq(ei_local->gsw_irq,
+					   gsw_interrupt, NULL, 0,
+					   "gsw", NULL);
+		if (err)
+			goto fail_irqs;
+		ei_local->irq_requested |= RAETH_IRQ_REQ_GSW;
 
 		/* enable switch link change intr */
 		mii_mgr_write(31, 0x7008, 0x1f);
 	} else if (ei_local->chip_name == MT7621_FE) {
-		if (request_threaded_irq(ei_local->esw_irq, gsw_interrupt, NULL, 0,
-					 "gsw", NULL))
-			pr_err("fail to request irq\n");
+		ei_local->gsw_irq = ei_local->esw_irq;
+		err = request_threaded_irq(ei_local->gsw_irq,
+					   gsw_interrupt, NULL, 0,
+					   "gsw", NULL);
+		if (err)
+			goto fail_irqs;
+		ei_local->irq_requested |= RAETH_IRQ_REQ_GSW;
 
 		mii_mgr_write(31, 0x7008, 0x1f);
 	}
 
 	if (ei_local->architecture & RAETH_ESW) {
-		err3 = request_irq(ei_local->esw_irq, esw_interrupt, MT_TRIGGER_LOW, "esw", dev);
-		if (err3)
-			return err3;
+		err = request_irq(ei_local->esw_irq, esw_interrupt,
+				  MT_TRIGGER_LOW, "esw", dev);
+		if (err)
+			goto fail_irqs;
+		ei_local->irq_requested |= RAETH_IRQ_REQ_ESW;
 	}
 
 	spin_lock_irqsave(&ei_local->irq_lock, flags);
@@ -2060,25 +2128,17 @@ static int fe_int_enable(struct net_device *dev)
 	spin_unlock_irqrestore(&ei_local->irq_lock, flags);
 
 	return 0;
+
+fail_irqs:
+	fe_int_free_requested_irqs(dev);
+	return err;
 }
 
 static int fe_int_disable(struct net_device *dev)
 {
 	struct END_DEVICE *ei_local = netdev_priv(dev);
 
-	/*always request irq0*/
-	free_irq(ei_local->irq0, dev);
-
-	if (ei_local->features & FE_IRQ_SEPARATE) {
-		free_irq(ei_local->irq1, dev);
-		free_irq(ei_local->irq2, dev);
-	}
-
-	if (ei_local->architecture & RAETH_ESW || ei_local->chip_name == MT7621_FE)
-		free_irq(ei_local->esw_irq, dev);
-
-	if (ei_local->features & (FE_RSS_4RING | FE_RSS_2RING))
-		free_irq(ei_local->irq3, dev);
+	fe_int_free_requested_irqs(dev);
 
 	cancel_work_sync(&ei_local->reset_task);
 
@@ -2667,7 +2727,22 @@ int ei_open(struct net_device *dev)
 
 	netif_start_queue(dev);
 
-	fe_int_enable(dev);
+	err = fe_int_enable(dev);
+	if (err) {
+		netif_stop_queue(dev);
+		if (!IS_ERR_OR_NULL(ei_local->kphy_poll_task)) {
+			kthread_stop(ei_local->kphy_poll_task);
+			ei_local->kphy_poll_task = NULL;
+		}
+		if (!IS_ERR_OR_NULL(ei_local->kreset_task)) {
+			kthread_stop(ei_local->kreset_task);
+			ei_local->kreset_task = NULL;
+		}
+		fe_reset();
+		ei_deinit_dma(dev);
+		module_put(THIS_MODULE);
+		return err;
+	}
 
 	return 0;
 }

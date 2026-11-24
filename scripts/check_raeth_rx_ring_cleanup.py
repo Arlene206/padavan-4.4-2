@@ -268,3 +268,31 @@ assert "IS_ERR_OR_NULL(ei_local->kphy_poll_task)" in close_body
 assert "ei_local->kreset_task = NULL;" in close_body
 assert "ei_local->kphy_poll_task = NULL;" in close_body
 print("RAETH open/close balances module refs and DMA on early setup failures, with optional thread guards: PASS")
+
+irq_free = function_body(RAETHER_SOURCE, "static void fe_int_free_requested_irqs(")
+for mask in ("RAETH_IRQ_REQ_IRQ0", "RAETH_IRQ_REQ_IRQ1",
+             "RAETH_IRQ_REQ_IRQ2", "RAETH_IRQ_REQ_IRQ3",
+             "RAETH_IRQ_REQ_ESW", "RAETH_IRQ_REQ_GSW"):
+    assert mask in irq_free
+assert "free_irq(ei_local->gsw_irq, NULL);" in irq_free
+assert "ei_local->irq_requested = 0;" in irq_free
+
+irq_enable = function_body(RAETHER_SOURCE, "static int fe_int_enable(")
+assert "if (err) goto fail_irqs;" in " ".join(irq_enable.split())
+assert "put_device(&pdev->dev);" in irq_enable
+assert "ei_local->irq_requested |= RAETH_IRQ_REQ_GSW;" in irq_enable
+assert "fe_int_free_requested_irqs(dev);" in irq_enable
+irq_disable = function_body(RAETHER_SOURCE, "static int fe_int_disable(")
+assert "fe_int_free_requested_irqs(dev);" in irq_disable
+assert "free_irq(ei_local->irq0, dev);" not in irq_disable
+
+open_irq_at = open_body.index("err = fe_int_enable(dev);")
+open_irq_cleanup = open_body.index("fe_int_free_requested_irqs", open_irq_at) if "fe_int_free_requested_irqs" in open_body[open_irq_at:] else -1
+open_reset = open_body.index("fe_reset();", open_irq_at)
+open_deinit = open_body.index("ei_deinit_dma(dev);", open_reset)
+open_module_put = open_body.index("module_put(THIS_MODULE);", open_deinit)
+open_return = open_body.index("return err;", open_module_put)
+assert open_irq_at < open_reset < open_deinit < open_module_put < open_return
+assert "kthread_stop(ei_local->kphy_poll_task);" in open_body[open_irq_at:open_reset]
+assert "kthread_stop(ei_local->kreset_task);" in open_body[open_irq_at:open_reset]
+print("RAETH IRQ acquisition now tracks each request, frees partial sets on error, and propagates IRQ setup failures: PASS")
