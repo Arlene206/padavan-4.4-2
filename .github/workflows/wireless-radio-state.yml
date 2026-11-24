@@ -1077,7 +1077,11 @@ jobs:
           assert "ralink_config_publish_symlink_atomic(sku_link,sku_file)" in sku_link_compact
           assert "ralink_config_unlink_optional(sku_file)" in sku_link_compact
           assert "status=sku_file_status(sku_link,&sku_exist)" in sku_link_compact
-          assert "if(check_regspec_code(regspec))" in sku_link_compact
+          assert "read_result=nvram_get_checked(\"regspec_code\",&regspec)" in sku_link_compact
+          assert "status=ralink_config_nvram_read_status(read_result,read_errno,regspec)" in sku_link_compact
+          assert "read_result==1&&check_regspec_code(regspec)" in sku_link_compact
+          assert "nvram_safe_get(\"regspec_code\")" not in sku_link_compact
+          assert sku_link_compact.index("nvram_get_checked(") < sku_link_compact.index("ralink_config_nvram_read_status(") < sku_link_compact.index("check_regspec_code(regspec)")
           assert "unlink(sku_file)" not in sku_link_compact
           assert "symlink(sku_link,sku_file)" not in sku_link_compact
           assert "static int\nsymlink_sku_file(" in ralink_source
@@ -1098,6 +1102,8 @@ jobs:
           assert "test_symlink_publication_replaces_live_link_atomically" in sku_policy_test
           assert "test_symlink_publication_failure_preserves_destination" in sku_policy_test
           assert "test_optional_unlink_is_idempotent_and_checks_errors" in sku_policy_test
+          assert "ralink_config_nvram_read_status" in sku_policy_header
+          assert "test_checked_nvram_read_status" in sku_policy_test
           assert "ralink_config_file.c" in workflow
 
           print("Wireless driver/restart failure state-publication contracts: PASS")

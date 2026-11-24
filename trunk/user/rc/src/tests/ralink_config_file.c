@@ -255,6 +255,18 @@ test_optional_unlink_is_idempotent_and_checks_errors(const char *directory)
     return 0;
 }
 
+static int
+test_checked_nvram_read_status(void)
+{
+    CHECK(ralink_config_nvram_read_status(1, 0, "CE") == 0);
+    CHECK(ralink_config_nvram_read_status(0, 0, NULL) == 0);
+    CHECK(ralink_config_nvram_read_status(-1, EACCES, NULL) == EACCES);
+    CHECK(ralink_config_nvram_read_status(-1, 0, NULL) == EIO);
+    CHECK(ralink_config_nvram_read_status(2, 0, "CE") == EIO);
+    CHECK(ralink_config_nvram_read_status(1, 0, NULL) == EIO);
+    return 0;
+}
+
 int
 main(void)
 {
@@ -271,6 +283,7 @@ main(void)
     CHECK(test_symlink_publication_replaces_live_link_atomically(directory) == 0);
     CHECK(test_symlink_publication_failure_preserves_destination(directory) == 0);
     CHECK(test_optional_unlink_is_idempotent_and_checks_errors(directory) == 0);
+    CHECK(test_checked_nvram_read_status() == 0);
 
     snprintf(path, sizeof(path), "%s/wireless.dat", directory);
     CHECK(unlink(path) == 0);

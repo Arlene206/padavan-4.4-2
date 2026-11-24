@@ -202,6 +202,22 @@ failed:
     return -1;
 }
 
+/*
+ * nvram_get_checked() returns 1 for a value, 0 for an absent optional key,
+ * and a negative result on backend failure. Preserve that distinction so a
+ * transient read error cannot silently select a different regulatory SKU.
+ */
+static inline int
+ralink_config_nvram_read_status(int read_result, int read_errno,
+                                const char *value)
+{
+    if (read_result < 0)
+        return read_errno > 0 ? read_errno : EIO;
+    if (read_result > 1 || (read_result == 1 && !value))
+        return EIO;
+    return 0;
+}
+
 /* Missing optional links are already clean; other unlink errors are real. */
 static inline int
 ralink_config_unlink_optional(const char *path)

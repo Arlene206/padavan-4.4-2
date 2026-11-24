@@ -1,26 +1,25 @@
 ## Current repository state
 
-- Active branch: `main`; parent for this slice: `aa3d55bf141f88590c6b675d09ff28c51eb0e6ce`. Frozen archive `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable. No open PRs.
-- MTK AP private-ioctl and HTTPD selector fixes remain L3 verified on `d33fcf0` and `659b91b` respectively, including exact-SHA firmware Build/TRX/artifact. WAN source-PHY range guard is L3 verified on `d3733ec` with XY-C1 Build/TRX/artifact PASS.
-- WAN first-sample UNKNOWN guard: detect-link #45392147396, AI #45392146896, Process #45392147378/#45392146934, HTTPD #45392147738, NVRAM #45392147111 and USB modem #45392146933 PASS on `18af4fb`; its firmware Build/TRX/artifact verification is not recorded as complete.
-- VSFTPD hidden-share fix on `5a7500e`: VSFTPD #45392889702, AI #45392889910 and Process #45392889923 PASS. EPSV ALL cleanup on `aa3d55b`: VSFTPD #45393626354, AI #45393626335, Process #45393626312 and NVRAM #45393626295 PASS. Current XY-C1 #45393626376 is still building; TRX and artifact steps are pending. Both VSFTPD production fixes remain below L3 pending same-SHA firmware verification.
+- Active branch: `main`; parent for this slice: `5a7b2c4a625a5ebdae1e30494680875157848533`. Frozen archive `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable. No open PRs.
+- MTK AP private-ioctl and HTTPD selector fixes remain L3 verified on `d33fcf0` and `659b91b`; WAN source-PHY range guard is L3 verified on `d3733ec`, all with exact-SHA firmware Build/TRX/artifact PASS.
+- WAN first-sample UNKNOWN guard: detect-link #45392147396, AI #45392146896, Process #45392147378/#45392146934, HTTPD #45392147738, NVRAM #45392147111 and USB modem #45392146933 PASS on `18af4fb`; same-source firmware L3 not recorded.
+- SYN-cookie selector whitespace/sign fix on `5a7b2c4`: WAN route #45394597807, AI docs #45394597880, Process inventory #45394597845 and NVRAM audit #45394598006 PASS. XY-C1 #45394597932 is building; TRX/artifact pending. VSFTPD hidden-share and EPSV ALL fixes are included in that firmware candidate and remain below L3 until same-SHA Build/TRX/artifact pass.
 
-## Active task — Reject whitespace/sign prefixes in the SYN-cookie selector
+## Active task — Fail closed on Ralink regspec NVRAM read errors
 
-- `rc_network_sysctl_parse_syncookies_status()` used `strtol()` and checked its final boolean domain, but `strtol()` normalizes leading whitespace and optional signs. Corrupt NVRAM values such as `" 0"`, `"\t1"`, `"+0"` or `"-0"` could therefore be treated as a deliberate SYN-cookie disable.
-- Reject a non-decimal first byte before calling `strtol()`, preserving full-token, 0/1 and overflow checks. Regression covers signs, spaces, tabs/newlines and unchanged output on rejection. `wan-route-status.yml` already compiles/runs the GNU89 ASan/UBSan regression and executes the Python source contract; XY-C1 watches the production policy header.
-- Concurrent XY-C1 #45393626376 is still running Build with TRX/artifact pending; the changed policy header will trigger a fresh exact-head firmware Build.
+- `symlink_sku_file()` read optional `regspec_code` via `nvram_safe_get()`, collapsing an absent key and backend failure into the same empty-string fallback. A transient NVRAM error could silently select a different regulatory SKU rather than abort config generation.
+- Replaced it with `nvram_get_checked()`: missing key preserves existing fallback, a present value is table-validated before path construction, and read/API errors fail the generator. Added a pure status-policy regression and wireless workflow source-order contract. The Ralink source and helper/test files are already in wireless stability and XY-C1 path filters.
 
 ## Verification boundary
 
-- Parent `aa3d55bf141f88590c6b675d09ff28c51eb0e6ce`: VSFTPD, AI docs, Process and NVRAM PASS; XY-C1 Build in progress, TRX/artifact pending.
-- New exact-head WAN route regression/source checker, AI docs, NVRAM and XY-C1 Build/TRX/artifact must be checked. No L3 claim while any firmware step remains pending or skipped. Physical-router L4 remains unverified.
+- Parent `5a7b2c4`: GNU89 SYN-cookie policy regression/source checker, AI docs, Process inventory and NVRAM audit PASS. XY-C1 Build running; TRX/artifact pending.
+- New Ralink wireless regression/source contract, AI docs, Process/NVRAM audits and XY-C1 production Build/TRX/artifact must be checked on its exact SHA. No L3 claim before firmware evidence. Physical-router L4 remains unverified.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and query Actions by that exact SHA.
-2. Inspect SYN-cookie GNU89/ASan/UBSan policy regression and source checker; fix any causal failure atomically.
-3. Inspect XY-C1 Build/TRX/artifact for the same production SHA, then continue the next independent stability/security defect without re-auditing completed MTK/HTTPD/WAN-selector slices.
+1. Fetch live `main` and query Actions for its exact head SHA.
+2. Inspect Ralink wireless configuration regression/source contract for checked `regspec_code` semantics; fix any causal failure atomically.
+3. Inspect XY-C1 Build/TRX/artifact for this production SHA and the prior VSFTPD/SYN-cookie changes; then continue an independent stability/security issue.
 
 ## Mandatory handoff checkpoint
 

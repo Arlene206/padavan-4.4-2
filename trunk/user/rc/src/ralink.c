@@ -569,9 +569,9 @@ symlink_sku_file(const char *sku_file, const char *prefix,
 		 const char *cc, int region, int is_aband)
 {
 	int i, sku_exist = 0;
-	int path_length, status;
+	int path_length, status, read_result, read_errno;
 	char sku_link[64];
-	char *regspec;
+	char *regspec = NULL;
 	const char *cc_regspec;
 
 	if (!sku_file || !*sku_file || !prefix) {
@@ -597,9 +597,17 @@ symlink_sku_file(const char *sku_file, const char *prefix,
 			goto failed;
 
 		if (!sku_exist) {
-			/* Never use an unchecked NVRAM value as a path component. */
-			regspec = nvram_safe_get("regspec_code");
-			if (check_regspec_code(regspec)) {
+			/* Missing override is optional; a failed read is not. */
+			errno = 0;
+			read_result = nvram_get_checked("regspec_code", &regspec);
+			read_errno = errno;
+			status = ralink_config_nvram_read_status(
+				read_result, read_errno, regspec);
+			if (status != 0) {
+				errno = status;
+				goto failed;
+			}
+			if (read_result == 1 && check_regspec_code(regspec)) {
 				status = check_sku_file_exist(prefix, regspec, sku_link,
 							      sizeof(sku_link),
 							      &sku_exist);
