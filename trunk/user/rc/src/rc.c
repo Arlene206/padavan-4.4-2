@@ -67,6 +67,7 @@
 #include "ddns_restart_policy.h"
 #include "logger_start_policy.h"
 #include "timezone_env_policy.h"
+#include "storage_time_file_policy.h"
 #include "console_loglevel_policy.h"
 #if defined (USE_IPV6)
 #include "ipv6_restart_policy.h"
@@ -1138,25 +1139,106 @@ static void
 storage_load_time(void)
 {
 #if !defined (USE_RTC_HCTOSYS)
-	FILE *fp;
-	char buf[32];
+	int fd = -1, status = 0, saved_errno;
+	struct stat st;
+	char buffer[33];
+	size_t length = 0;
+	ssize_t bytes_read;
 	struct tm storage_tm;
-	time_t storage_time = 0;
+	time_t storage_time, adjusted_time;
 
-	fp = fopen("/etc/storage/system_time", "r");
-	if (fp) {
-		if (fgets(buf, sizeof(buf), fp))
-			storage_time = (time_t)strtoul(buf, NULL, 0);
-		fclose(fp);
+	do {
+		fd = open("/etc/storage/system_time",
+			  O_RDONLY | O_NOFOLLOW | O_NONBLOCK, 0);
+	} while (fd < 0 && errno == EINTR);
+	if (fd < 0) {
+		if (errno != ENOENT) {
+			saved_errno = errno ? errno : EIO;
+			logmessage(LOGNAME,
+				   "cannot open persisted system time (status=%d)",
+				   saved_errno);
+		}
+		return;
 	}
 
-	if (storage_time > 0) {
-		localtime_r(&storage_time, &storage_tm);
-		if (storage_tm.tm_year >= (SYS_START_YEAR - 1900)) {
-			storage_time = mktime(&storage_tm);
-			storage_time += 5; // add delta 5 sec (~boot time)
-			stime(&storage_time);
+	if (fstat(fd, &st) != 0) {
+		status = errno ? errno : EIO;
+	} else if (!S_ISREG(st.st_mode) || st.st_uid != geteuid() ||
+		   st.st_nlink != 1 || (st.st_mode & (S_IWGRP | S_IWOTH))) {
+		status = !S_ISREG(st.st_mode) ? EINVAL :
+			(st.st_uid != geteuid() ? EPERM :
+			 (st.st_nlink != 1 ? EMLINK : EPERM));
+	} else {
+		while (length < sizeof(buffer)) {
+			do {
+				bytes_read = read(fd, buffer + length,
+						  sizeof(buffer) - length);
+			} while (bytes_read < 0 && errno == EINTR);
+			if (bytes_read < 0) {
+				status = errno ? errno : EIO;
+				break;
+			}
+			if (bytes_read == 0)
+				break;
+			length += (size_t)bytes_read;
 		}
+		if (status == 0) {
+			if (length == 0)
+				status = EINVAL;
+			else if (length == sizeof(buffer))
+				status = EOVERFLOW;
+			else
+				status = rc_storage_time_parse_status(
+					buffer, length, &storage_time);
+		}
+	}
+
+	if (close(fd) != 0 && status == 0)
+		status = errno ? errno : EIO;
+	if (status != 0) {
+		logmessage(LOGNAME,
+			   "refusing invalid or unsafe persisted system time (status=%d)",
+			   status);
+		errno = status;
+		return;
+	}
+
+	errno = 0;
+	if (!localtime_r(&storage_time, &storage_tm)) {
+		status = errno ? errno : EOVERFLOW;
+		logmessage(LOGNAME,
+			   "cannot convert persisted system time to local calendar (status=%d)",
+			   status);
+		errno = status;
+		return;
+	}
+	if (storage_tm.tm_year < (SYS_START_YEAR - 1900))
+		return;
+
+	errno = 0;
+	adjusted_time = mktime(&storage_tm);
+	if (adjusted_time == (time_t)-1) {
+		status = errno ? errno : EOVERFLOW;
+		logmessage(LOGNAME,
+			   "cannot normalize persisted system time (status=%d)",
+			   status);
+		errno = status;
+		return;
+	}
+	if (adjusted_time > (time_t)(LONG_MAX - 5L)) {
+		errno = EOVERFLOW;
+		logmessage(LOGNAME, "persisted system time is too large to adjust safely");
+		return;
+	}
+	adjusted_time += 5; /* add delta 5 sec (~boot time) */
+
+	errno = 0;
+	if (stime(&adjusted_time) != 0) {
+		status = errno ? errno : EIO;
+		logmessage(LOGNAME,
+			   "cannot restore persisted system clock (status=%d)",
+			   status);
+		errno = status;
 	}
 #endif
 }

@@ -1709,6 +1709,22 @@ timezone_test = (root / "trunk/user/rc/src/tests/timezone_env_policy.c").read_te
 assert "if (syscall_status != 0)" in timezone_policy
 assert "*cached_minuteswest = requested_minuteswest;" in timezone_policy
 assert "test_kernel_timezone_cache_changes_only_after_success();" in timezone_test
+
+# Persisted clock state is a privileged boot input: reject links, non-regular
+# files, unsafe ownership/mode, incomplete reads and non-decimal timestamps.
+storage_time_load = c_function_body(rc_source, "storage_load_time(void)")
+storage_time_policy = (root / "trunk/user/rc/src/storage_time_file_policy.h").read_text()
+storage_time_test = (root / "trunk/user/rc/src/tests/storage_time_file_policy.c").read_text()
+assert '#include "storage_time_file_policy.h"' in rc_source
+assert 'open("/etc/storage/system_time"' in storage_time_load
+assert "O_NOFOLLOW" in storage_time_load and "O_NONBLOCK" in storage_time_load
+assert "fstat(fd, &st)" in storage_time_load and "S_ISREG(st.st_mode)" in storage_time_load
+assert "st_uid != geteuid()" in storage_time_load and "st_nlink != 1" in storage_time_load
+assert "S_IWGRP | S_IWOTH" in storage_time_load
+assert "rc_storage_time_parse_status(buffer, length, &storage_time)" in storage_time_load
+assert "strtoul(buf, NULL, 0)" not in storage_time_load
+assert "if (stime(&adjusted_time) != 0)" in storage_time_load
+assert "test_overflow_and_invalid_arguments_fail_closed();" in storage_time_test
 httpd_probe = watchdog_source.split("static int\nhttpd_check_v2()", 1)[1].split(
     "\nstatic int\nrefresh_ntp(void)", 1
 )[0]
