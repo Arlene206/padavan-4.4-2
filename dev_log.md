@@ -1,3 +1,11 @@
+## 2026-11-24 — Align storage BusyBox caller contract with the second DHCP retry gate
+
+- Exact 57db1f707f65c8f753d964ebf69d9cacfb26ec28 USB storage run #45465005107 compiled the host BusyBox after the DHCP brace fix, then failed its embedded Python caller-graph check because it expected exactly one call to udhcpc_script_failure_prepare_retry(). The new fail-closed ARP-probe path intentionally adds a second distinct caller alongside the existing event-script failure path; updated the expected count to two.
+- Also moved resume_state to the top of the ARP-conflict deconfig block so this branch remains C89 declaration-before-statement compatible.
+- Exact 57db udhcpc run #45465005678 PASS; its USB hotplug run failed only the stale call-count assertion. Its XY-C1 run #45465005302 was still IN_PROGRESS at last poll; inspect Build, TRX and upload steps.
+
+---
+
 ## 2026-11-24 — Correct the escaped staging-helper signature in the libdisk checker
 
 - Exact eb75f63ecd7ac2779fdbf53b989c94531ff3cd13 libdisk run #45464697321 passed both GNU89 ASan/UBSan host binaries, then the declaration-aware source checker failed at line 812 because the staging-cleanup signature was stored with literal backslash+n instead of matching the C function definition. Changed the contract to search by function name and let the extractor skip its earlier prototype.

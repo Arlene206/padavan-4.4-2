@@ -1821,7 +1821,7 @@ jobs:
           assert "# Busybox version: 1.24.2" in busybox_config
           # Keep the production DHCP retry call linked to its shared policy helper.
           assert '#include "udhcpc_script_policy.h"' in busybox_dhcpc
-          assert busybox_dhcpc.count("udhcpc_script_failure_prepare_retry(") == 1
+          assert busybox_dhcpc.count("udhcpc_script_failure_prepare_retry(") == 2
           assert "udhcp_script_failure_prepare_retry(" not in busybox_dhcpc
           assert "static inline void udhcpc_script_failure_prepare_retry(" in busybox_udhcpc_policy
           # DHCPv6 DUID is shared user-space policy; both firmware package and

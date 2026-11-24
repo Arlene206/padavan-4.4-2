@@ -2021,9 +2021,10 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 
 						if (state != REQUESTING) {
 							int deconfig_status = udhcp_run_script(NULL, "deconfig");
+							int resume_state;
 							if (udhcpc_deconfig_retry_required(deconfig_status)) {
 								bb_error_msg("ARP conflict deconfig failed; deferring DHCP restart");
-								int resume_state = udhcpc_packet_send_failed(decline_status) ?
+								resume_state = udhcpc_packet_send_failed(decline_status) ?
 									DECLINE_PENDING : INIT_SELECTING;
 
 								udhcpc_schedule_deconfig_retry(resume_state, 0,
