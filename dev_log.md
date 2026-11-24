@@ -1,3 +1,11 @@
+## 2026-11-25 — Align storage-wide FTP caller graph with final process state
+
+- Exact source b3f165ef4e08b585cc5a77ccdfb791165ba60496 VSFTPD run #45482945754 failed source assertions while its GNU89 C policy binary passed. Checker-only descendant 155a8be964e1ceb1ce82583df241be2248d1ec9d VSFTPD #45483093422 and AI docs #45483093417 both PASS.
+- The same b3 SHA storage-hotplug run #45482945464 passed compiled policy/storage regressions, including FTP tri-state presence and stop-postcondition tests, but failed the Python whole-caller-graph step at a stale no-argument stop_ftp_locked signature. THIS commit updates the locked-definition matcher and asserts final-presence propagation plus firewall ordering in grouped stop and FTP restart. No product source changed.
+- Exact-head storage-hotplug rerun and handoff Action pending. Frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
+
+---
+
 ## 2026-11-25 — Align VSFTPD source checker with final-presence stop output
 
 - On exact source SHA `b3f165ef4e08b585cc5a77ccdfb791165ba60496`, VSFTPD workflow #45482945754 was triggered. A static pass over its embedded Python contract found three assertions still looking for the old no-argument `stop_ftp_locked()` and one ordering assertion still matching `storage_service_stop_complete(status, is_ftp_run())`.

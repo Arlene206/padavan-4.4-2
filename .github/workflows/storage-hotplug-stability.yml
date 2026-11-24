@@ -1668,7 +1668,7 @@ jobs:
               public_body = function_body(storage, signature)
               # Search the definition, not an earlier forward declaration or call.
               locked_definitions = {
-                  "stop_ftp_locked": "static int\nstop_ftp_locked(void)\n{",
+                  "stop_ftp_locked": "static int\nstop_ftp_locked(int *final_presence)\n{",
                   "stop_samba_locked": "static int\nstop_samba_locked(int force_stop)\n{",
                   "stop_dms_locked": "static int\nstop_dms_locked(void)\n{",
                   "stop_itunes_locked": "static int\nstop_itunes_locked(void)\n{",
@@ -1686,7 +1686,9 @@ jobs:
               if stop_name in ("stop_ftp", "stop_samba"):
                   assert "kill_services" in locked_body
                   if stop_name == "stop_ftp":
-                      assert "storage_service_stop_complete(status, is_ftp_run())" in locked_body
+                      assert "final_state = is_ftp_run();" in locked_body
+                      assert "*final_presence = final_state;" in locked_body
+                      assert "storage_service_stop_complete(status, final_state)" in locked_body
               else:
                   running_check = {
                       "stop_dms": "is_dms_run",
@@ -1711,9 +1713,14 @@ jobs:
               assert "int " + signature + ";" in rc_header
           assert "int stop_ftpsamba(void);" in rc_header
           group_stop = function_body(storage, "stop_ftpsamba(void)")
-          assert group_stop.index("storage_operation_lock_acquire(file_lock)") < group_stop.index("stop_ftp_locked()")
-          assert group_stop.index("stop_ftp_locked()") < group_stop.index("stop_samba_locked(0)")
+          assert group_stop.index("storage_operation_lock_acquire(file_lock)") < group_stop.index("is_run_before = is_ftp_run();")
+          assert group_stop.index("is_run_before = is_ftp_run();") < group_stop.index("stop_ftp_locked(&final_presence)")
+          assert group_stop.index("stop_ftp_locked(&final_presence)") < group_stop.index("ftp_stop_should_reconcile_firewall(final_presence)")
+          assert group_stop.index("ftp_stop_should_reconcile_firewall(final_presence)") < group_stop.index("control_ftp_fw(is_run_before)")
+          assert group_stop.index("control_ftp_fw(is_run_before)") < group_stop.index("stop_samba_locked(0)")
           assert group_stop.index("stop_samba_locked(0)") < group_stop.index("file_unlock(storage_lock);")
+          assert group_stop.count("control_ftp_fw(is_run_before)") == 1
+          assert "PROCESS_PRESENCE_ABSENT" in ftp_policy
           assert group_stop.count("file_unlock(storage_lock);") == 1
           assert "storage_service_stop_status_merge" in group_stop
           assert "stop_ftp()" not in group_stop and "stop_samba(0)" not in group_stop
@@ -1794,8 +1801,14 @@ jobs:
           # eject barrier used by mdev and safe removal, without nesting it
           # inside start_stor_apps()/stop_stor_apps() locked callers.
           ftp_restart = function_body(storage, "restart_ftpd(void)")
-          assert ftp_restart.index("storage_operation_lock_acquire(file_lock)") < ftp_restart.index("stop_ftp_locked()")
-          assert ftp_restart.index("stop_ftp_locked()") < ftp_restart.index("storage_has_mounted_devices")
+          assert ftp_restart.index("storage_operation_lock_acquire(file_lock)") < ftp_restart.index("stop_status = stop_ftp_locked(&final_presence)")
+          assert ftp_restart.index("stop_status = stop_ftp_locked(&final_presence)") < ftp_restart.index("storage_has_mounted_devices")
+          failed_stop_gate = ftp_restart.index("if (stop_status != 0)")
+          failed_firewall_gate = ftp_restart.index("if (ftp_stop_should_reconcile_firewall(final_presence))", failed_stop_gate)
+          failed_firewall_call = ftp_restart.index("firewall_status = control_ftp_fw(is_run_before)", failed_firewall_gate)
+          failed_abort = ftp_restart.index("goto out;", failed_firewall_call)
+          assert failed_stop_gate < failed_firewall_gate < failed_firewall_call < failed_abort < ftp_restart.index("storage_has_mounted_devices")
+          assert "restart_status = rc_first_service_start_status(stop_status, firewall_status)" in ftp_restart
           assert ftp_restart.index("storage_has_mounted_devices") < ftp_restart.index("run_ftp()")
           assert ftp_restart.index("run_ftp()") < ftp_restart.index("file_unlock(storage_lock);")
           assert ftp_restart.count("file_unlock(storage_lock);") == 1
