@@ -37,8 +37,8 @@ $j(document).ready(function() {
 	init_itoggle('adbyby_rules_x', change_adbyby_rules_enabled);
 	var i=0;
     var z=0;
-    var adbyby_update_hour = '<% nvram_get_x("", "adbyby_update_hour"); %>';
-    var adbyby_update_min = '<% nvram_get_x("", "adbyby_update_min"); %>';
+    var adbyby_update_hour = '' + <% nvram_get_js("", "adbyby_update_hour"); %> + '';
+    var adbyby_update_min = '' + <% nvram_get_js("", "adbyby_update_min"); %> + '';
     while (i<24){
 	i=i>9?i:"0"+i;
 $j("#adbyby_update_hour").append("<option value='"+i+"'>"+i+"</option>");

@@ -67,6 +67,7 @@
 #include "httpd_watchdog_stop_policy.h"
 #include "httpd_nvram_commit_policy.h"
 #include "httpd_js_output_policy.h"
+#include "httpd_html_output_policy.h"
 #include "dbapi.h"
 #define GROUP_FLAG_REFRESH 	0
 #define GROUP_FLAG_DELETE 	1
@@ -708,7 +709,8 @@ websApply(webs_t wp, const char *url)
 static int
 ej_nvram_get_x(int eid, webs_t wp, int argc, char **argv)
 {
-	char *sid, *name, *cn, *c;
+	char *sid, *name, *cn;
+	const unsigned char *c;
 	int ret = 0;
 
 	if (ejArgs(argc, argv, "%s %s", &sid, &name) < 2) {
@@ -717,11 +719,16 @@ ej_nvram_get_x(int eid, webs_t wp, int argc, char **argv)
 	}
 
 	cn = nvram_safe_get(name);
-	for (c = cn; *c; c++) {
-		if (*c < 0 || (*c >= 0x20 && *c != '"' && *c != '&' && *c != '<' && *c != '>'))
-			ret += fprintf(wp, "%c", *c);
-		else
-			ret += fprintf(wp, "&#%d;", *c);
+	for (c = (const unsigned char *)cn; *c; c++) {
+		char escaped[8];
+		size_t escaped_len = httpd_html_escape_byte(*c, escaped);
+		size_t written = fwrite(escaped, 1, escaped_len, wp);
+
+		if (written != escaped_len) {
+			ret = -1;
+			break;
+		}
+		ret += (int)written;
 	}
 
 	fflush(wp);
@@ -752,7 +759,7 @@ ej_nvram_get_js(int eid, webs_t wp, int argc, char **argv)
 static int
 ej_nvram_get_ddns(int eid, webs_t wp, int argc, char **argv)
 {
-	int ret = ej_nvram_get_x(eid, wp, argc, argv);
+	int ret = ej_nvram_get_js(eid, wp, argc, argv);
 
 	if (!nvram_match("ddns_return_code", "ddns_query"))
 		nvram_set_temp("ddns_return_code", "");

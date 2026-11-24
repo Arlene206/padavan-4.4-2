@@ -2,14 +2,14 @@
 
 ## Current repository state
 
-- Reviewed production/template source baseline: `51bd80eff75efd16fc49e46ac612b2dc39ea41ae`.
-- Main descends through the documentation-only checkpoint `58cbb6735d00ceb648ae1c377611f2c35e97b35d`; this correction also changes documentation only.
-- Read-only backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged.
-- Development commits use complete Git trees and non-forced expected-SHA updates.
+- Parent live `main` immediately before this atomic HTTPD security slice: `5c8c62f51b722ebeda9cbce811dd571392832a5a`. The HTML/JavaScript output handler, remaining UI migrations, regressions, workflow triggers, roadmap and handoff will be published in one complete commit; fetch the resulting exact SHA from live `main` before another write.
+- Read-only backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged and never written.
+- Prior migrations: `51bd80e` moved seven ASP pages to safe JS output and `453aefd` moved four more. This slice completes the audited 174-asset context pass while preserving HTML-only callsites.
+- Main-only development; one complete Git tree/commit, non-forced expected-SHA ref updates, no partial file commits or force-push.
 
 ## Active task
 
-Continue the HTTPD JS-output-context audit. The seven ASP pages in `51bd80e` were changed only at JavaScript-source sinks; HTML input/attribute/text uses intentionally remain on `nvram_get_x`. Inspect remaining templates and add focused regressions for each proven JS sink.
+Complete the remaining NVRAM output context boundary: migrate the last 89 JavaScript-source `nvram_get_x()` sinks, make the HTML output callback escape apostrophes in quoted attributes, and route the three JavaScript `nvram_get_ddns()` sinks through the safe JavaScript-string writer. The full pass covers 117 JavaScript `nvram_get_x()` insertions across 38 pages (11 were already fixed by the two preceding commits) and adds both a byte-level encoder test and a repository-wide template-context checker.
 
 ## Completed development slices
 
@@ -23,6 +23,8 @@ Continue the HTTPD JS-output-context audit. The seven ASP pages in `51bd80e` wer
 - `6cb5c16818eb5a91382a97365692f58105e4b5c2`, `2a50ce0c6653de44fe071c13049747b406d49f3c`: fixed the HTTPD workflow source extraction and exact DDNS template assertion.
 - `51bd80eff75efd16fc49e46ac612b2dc39ea41ae`: applied JS-context escaping to WAN, LAN, DHCP, IPTV, Services, SettingBackup and MACFilter ASP pages, with per-template workflow source assertions. HTML contexts remain on the HTML escape path.
 
+- NVRAM HTML/JavaScript output-context hardening (this commit): finished the 174-asset audit by migrating the remaining 89 JS-source `nvram_get_x` sinks; all 117 such sinks are now protected across `51bd80e`, `453aefd` and this slice. The three DDNS JS callsites use the JS-string writer, and generic HTML NVRAM output escapes apostrophes. A GNU89 ASan/UBSan byte regression and a source-template context checker are wired into HTTPD push/PR CI.
+
 ### IPTV / process lifecycle
 
 Independent snapshot/lifecycle changes remain in `99ad9397e3cf4450c6fc07758b58c3f7b51de115`, `d38250bfa213607dbf02ac65a75f60e933be34c9`, `b64511308e12091035a745055e2882a15addd166`, and `57c466d3001da525511160fc30418a774b99aa85`. The too-short overflow fixture and stale checker expectations were corrected; historical exact-SHA WAN/process/storage/XY-C1 results remain in earlier dev-log entries.
@@ -30,16 +32,18 @@ Independent snapshot/lifecycle changes remain in `99ad9397e3cf4450c6fc07758b58c3
 ## Verification boundary
 
 - Exact `453aefd` HTTPD Authentication/Security Regression `#45297345701`: **PASS**. Exact Process lifecycle inventory `#45297345736`: **PASS**. Exact AI handoff contract `#45297345889`: **PASS**.
-- Exact `453aefd` XY-C1 Firmware Validation `#45297345772`: **FAIL** in the detector unit-test job before firmware build. The new web-asset fixture encoded newline/NUL separators as literal backslash sequences, so the fake Git runner did not satisfy the detector's exact HEAD/path-diff contract. The production detector and workflow path filters were not implicated; the test fixture is corrected in the next atomic commit. No Build, TRX or artifact result exists for this SHA.
-- Previous exact `51bd80e` HTTPD run `#45296325091`: **PASS**, 51/51; Process inventory `#45296325017`: **PASS**, 5/5. No MIPS cross-build or physical-router validation is claimed.
-- Backup `backup/pre-plugin-overhaul-2026-11-14` remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Exact test-fixture correction `a2310ad` XY-C1 run `#45297887131`: **PASS** for the path-detector test. Build, TRX and artifact upload were **SKIPPED**, because this test/docs-only commit had no firmware production input. Do not represent it as an image build.
+- Exact `5c8c62f` XY-C1 run `#45298161504`: **IN_PROGRESS**, with Build XY-C1 running at last poll; TRX verification and artifact upload are pending. AI handoff `#45298161525`: **PASS**; Process inventory `#45298161485`: **PASS**.
+- Earlier `453aefd` XY-C1 run `#45297345772` failed only because the test fixture encoded newline/NUL separators twice; the corrected test passed on `a2310ad`. The production path detector remains fail-closed.
+- Local GNU89 ASan/UBSan HTML byte-encoder regression: **PASS**. The JavaScript-template checker passes Python syntax compilation and is wired into the new exact-head HTTPD workflow, but its repository-wide CI result is pending.
+- Backup `backup/pre-plugin-overhaul-2026-11-14` remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`. No MIPS/hardware result claimed.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-SHA Actions for the test-fixture correction commit. Confirm HTTPD, AI handoff and Process inventory results; confirm the XY-C1 detector test passes and the actual Build, TRX verification and artifact upload steps are reached.
-2. Once the XY-C1 fixture is verified, continue the remaining web UI JavaScript-output audit. Seven pages were migrated in `51bd80e`, and four more in `453aefd`; finish other verified script contexts without replacing HTML callsites indiscriminately.
-3. After the 174-asset `nvram_get_x` pass, inspect the distinct `nvram_get_list_x`, `nvram_get_buf_x`, `nvram_get_table_x` and other emitters with context-specific regressions.
-4. Continue independent development while Actions are pending; preserve the backup branch and use one complete tree/atomic commit per logical task.
+1. Fetch live `main` and inspect HTTPD Authentication/Security, AI handoff, Process inventory and XY-C1 Actions for the exact SHA created by this slice. Diagnose and fix relevant failures; never transfer parent-SHA results.
+2. Confirm the XY-C1 Build XY-C1, TRX verification and artifact upload steps run to completion for the UI-bearing SHA (not skipped).
+3. Continue outside the completed `nvram_get_x` audit with context analysis of `nvram_get_list_x`, `nvram_get_buf_x`, `nvram_get_table_x` and other emitters. Add focused regressions before any change.
+4. Keep the backup immutable and continue atomic commits while independent Actions are pending.
 
 # Cross-session execution mandate
 

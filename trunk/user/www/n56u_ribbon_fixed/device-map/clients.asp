@@ -21,11 +21,11 @@ var $j = jQuery.noConflict();
 var ipmonitor = [<% get_static_client(); %>];
 var wireless = {<% wl_auth_list(); %>};
 
-var list_type = '<% nvram_get_x("", "macfilter_enable_x"); %>';
+var list_type = '' + <% nvram_get_js("", "macfilter_enable_x"); %> + '';
 var list_of_BlockedClient = [<% get_nvram_list("FirewallConfig", "MFList"); %>];
 var m_dhcp = [<% get_nvram_list("LANHostConfig", "ManualDHCPList"); %>];
 
-var nmap_fullscan = '<% nvram_get_x("", "networkmap_fullscan"); %>';
+var nmap_fullscan = '' + <% nvram_get_js("", "networkmap_fullscan"); %> + '';
 
 var DEVICE_TYPE = ["", "<#Device_type_01_PC#>", "<#Device_type_02_RT#>", "<#Device_type_03_AP#>", "<#Device_type_04_NAS#>", "<#Device_type_05_IC#>", "<#Device_type_06_OD#>"];
 
@@ -162,8 +162,8 @@ function add_client_row(table, atIndex, client, blocked, j){
 	var rssiCell = row.insertCell(4);
 	var blockCell = row.insertCell(5);
 
-	var arpon = <% nvram_get_x("","dhcp_static_arp"); %>;
-	var mdhcp = <% nvram_get_x("","dhcp_static_x"); %>;
+	var arpon = Number(<% nvram_get_js("","dhcp_static_arp"); %>);
+	var mdhcp = Number(<% nvram_get_js("","dhcp_static_x"); %>);
 	if (arpon == 1 && mdhcp == 1){
 	   var j;
 	   for(j = 0; j < m_dhcp.length; ++j){

@@ -35,11 +35,11 @@ $j(document).ready(function() {
 </script>
 <script>
 
-lan_ipaddr_x = '<% nvram_get_x("", "lan_ipaddr"); %>';
-lan_netmask_x = '<% nvram_get_x("", "lan_netmask"); %>';
-fw_enable_x = '<% nvram_get_x("", "fw_enable_x"); %>';
-vpnc_state_last = '<% nvram_get_x("", "vpnc_state_t"); %>';
-ip6_service = '<% nvram_get_x("", "ip6_service"); %>';
+lan_ipaddr_x = '' + <% nvram_get_js("", "lan_ipaddr"); %> + '';
+lan_netmask_x = '' + <% nvram_get_js("", "lan_netmask"); %> + '';
+fw_enable_x = '' + <% nvram_get_js("", "fw_enable_x"); %> + '';
+vpnc_state_last = '' + <% nvram_get_js("", "vpnc_state_t"); %> + '';
+ip6_service = '' + <% nvram_get_js("", "ip6_service"); %> + '';
 
 <% login_state_hook(); %>
 <% openvpn_cli_cert_hook(); %>

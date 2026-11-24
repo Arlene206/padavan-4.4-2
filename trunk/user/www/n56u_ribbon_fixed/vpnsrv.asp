@@ -35,13 +35,13 @@ $j(document).ready(function() {
 </script>
 <script>
 
-lan_ipaddr_x = '<% nvram_get_x("", "lan_ipaddr"); %>';
-lan_netmask_x = '<% nvram_get_x("", "lan_netmask"); %>';
-vpn_ipvnet_x = '<% nvram_get_x("", "vpns_vnet"); %>';
-vpn_ipvuse_x = '<% nvram_get_x("", "vpns_vuse"); %>';
-fw_enable_x = '<% nvram_get_x("", "fw_enable_x"); %>';
-dhcp_enable_x = '<% nvram_get_x("", "dhcp_enable_x"); %>';
-ip6_service = '<% nvram_get_x("", "ip6_service"); %>';
+lan_ipaddr_x = '' + <% nvram_get_js("", "lan_ipaddr"); %> + '';
+lan_netmask_x = '' + <% nvram_get_js("", "lan_netmask"); %> + '';
+vpn_ipvnet_x = '' + <% nvram_get_js("", "vpns_vnet"); %> + '';
+vpn_ipvuse_x = '' + <% nvram_get_js("", "vpns_vuse"); %> + '';
+fw_enable_x = '' + <% nvram_get_js("", "fw_enable_x"); %> + '';
+dhcp_enable_x = '' + <% nvram_get_js("", "dhcp_enable_x"); %> + '';
+ip6_service = '' + <% nvram_get_js("", "ip6_service"); %> + '';
 
 var ACLList = [<% get_nvram_list("LANHostConfig", "VPNSACLList", "vpns_pass_x"); %>];
 

@@ -68,8 +68,8 @@ function initial(){
 			o2.remove(2);
 			o2.remove(2);
 		}
-		o1.value = '<% nvram_get_x("","ez_action_short"); %>';
-		o2.value = '<% nvram_get_x("","ez_action_long"); %>';
+		o1.value = '' + <% nvram_get_js("","ez_action_short"); %> + '';
+		o2.value = '' + <% nvram_get_js("","ez_action_long"); %> + '';
 	}
 
 	if (support_but_fn1()){
@@ -99,8 +99,8 @@ function initial(){
 			o2.remove(2);
 			o2.remove(2);
 		}
-		o1.value = '<% nvram_get_x("","fn1_action_short"); %>';
-		o2.value = '<% nvram_get_x("","fn1_action_long"); %>';
+		o1.value = '' + <% nvram_get_js("","fn1_action_short"); %> + '';
+		o2.value = '' + <% nvram_get_js("","fn1_action_long"); %> + '';
 		showhide_div('tbl_fn1_actions', 1);
 	}
 
@@ -131,8 +131,8 @@ function initial(){
 			o2.remove(2);
 			o2.remove(2);
 		}
-		o1.value = '<% nvram_get_x("","fn2_action_short"); %>';
-		o2.value = '<% nvram_get_x("","fn2_action_long"); %>';
+		o1.value = '' + <% nvram_get_js("","fn2_action_short"); %> + '';
+		o2.value = '' + <% nvram_get_js("","fn2_action_long"); %> + '';
 		showhide_div('tbl_fn2_actions', 1);
 	}
 

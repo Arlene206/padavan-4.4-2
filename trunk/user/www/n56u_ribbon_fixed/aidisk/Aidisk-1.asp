@@ -14,14 +14,14 @@
 <script type="text/javascript" src="/jquery.js"></script>
 <script type="text/javascript" src="/state.js"></script>
 <script>
-var dummyShareway = '<% nvram_get_x("", "dummyShareway"); %>';
+var dummyShareway = '' + <% nvram_get_js("", "dummyShareway"); %> + '';
 
 var FTP_status = parent.get_ftp_status();  // FTP  0=disable 1=enable
 var FTP_mode = parent.get_share_management_status("ftp");  // if share by account. 1=no 2=yes
 var accounts = [<% get_all_accounts("ftp"); %>];
-var ddns_enable = '<% nvram_get_x("", "ddns_enable_x"); %>';
-var ddns_server = '<% nvram_get_x("", "ddns_server_x"); %>';
-var ddns_hostname = '<% nvram_get_x("", "ddns_hostname_x"); %>';
+var ddns_enable = '' + <% nvram_get_js("", "ddns_enable_x"); %> + '';
+var ddns_server = '' + <% nvram_get_js("", "ddns_server_x"); %> + '';
+var ddns_hostname = '' + <% nvram_get_js("", "ddns_hostname_x"); %> + '';
 var format_of_first_partition = parent.pool_types()[0]; //"ntfs";
 
 function initial(){

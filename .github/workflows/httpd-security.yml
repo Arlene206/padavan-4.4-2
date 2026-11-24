@@ -75,6 +75,10 @@ on:
       - "trunk/user/httpd/src/httpd_direct_ej_policy.h"
       - "trunk/user/httpd/src/tests/httpd_direct_ej_policy.c"
       - "trunk/user/httpd/src/httpd_js_output_policy.h"
+      - "trunk/user/httpd/src/httpd_html_output_policy.h"
+      - "trunk/user/httpd/src/tests/httpd_html_output_policy.c"
+      - "scripts/check_httpd_nvram_output_context.py"
+      - "trunk/user/www/n56u_ribbon_fixed/**"
       - "trunk/user/httpd/src/tests/httpd_js_output_policy.c"
       - "trunk/user/www/n56u_ribbon_fixed/Advanced_WOL_Content.asp"
       - "trunk/user/www/n56u_ribbon_fixed/wol_action.asp"
@@ -395,6 +399,10 @@ on:
       - "trunk/user/httpd/src/httpd_direct_ej_policy.h"
       - "trunk/user/httpd/src/tests/httpd_direct_ej_policy.c"
       - "trunk/user/httpd/src/httpd_js_output_policy.h"
+      - "trunk/user/httpd/src/httpd_html_output_policy.h"
+      - "trunk/user/httpd/src/tests/httpd_html_output_policy.c"
+      - "scripts/check_httpd_nvram_output_context.py"
+      - "trunk/user/www/n56u_ribbon_fixed/**"
       - "trunk/user/httpd/src/tests/httpd_js_output_policy.c"
       - "trunk/user/www/n56u_ribbon_fixed/Advanced_WOL_Content.asp"
       - "trunk/user/www/n56u_ribbon_fixed/wol_action.asp"
@@ -5640,6 +5648,17 @@ jobs:
 
           print("HTTPD private-key access policy and call-site wiring: OK")
           PY
+
+      - name: Verify HTTPD NVRAM HTML and JavaScript output contexts
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -g \
+            -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -I trunk/user/httpd/src \
+            trunk/user/httpd/src/tests/httpd_html_output_policy.c \
+            -o "$RUNNER_TEMP/httpd_html_output_policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/httpd_html_output_policy"
+          python3 scripts/check_httpd_nvram_output_context.py
 
       - name: Verify AiDisk folder names are HTML-escaped before DOM insertion
         run: |

@@ -32,12 +32,12 @@ $j(document).ready(function() {
 </script>
 <script>
 
-var country = '<% nvram_get_x("", "modem_country"); %>';
-var isp = '<% nvram_get_x("", "modem_isp"); %>';
-var apn = '<% nvram_get_x("", "modem_apn"); %>';
-var dialnum = '<% nvram_get_x("", "modem_dialnum"); %>';
-var user = '<% nvram_get_x("", "modem_user"); %>';
-var pass = '<% nvram_get_x("", "modem_pass"); %>';
+var country = '' + <% nvram_get_js("", "modem_country"); %> + '';
+var isp = '' + <% nvram_get_js("", "modem_isp"); %> + '';
+var apn = '' + <% nvram_get_js("", "modem_apn"); %> + '';
+var dialnum = '' + <% nvram_get_js("", "modem_dialnum"); %> + '';
+var user = '' + <% nvram_get_js("", "modem_user"); %> + '';
+var pass = '' + <% nvram_get_js("", "modem_pass"); %> + '';
 
 var countrylist = new Array();
 var protolist = new Array();

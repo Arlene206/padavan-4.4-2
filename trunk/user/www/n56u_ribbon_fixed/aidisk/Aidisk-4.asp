@@ -15,8 +15,8 @@
 <script type="text/javascript" src="/state.js"></script>
 <script>
 var ddns_enable_x = parent.getASUSDDNS_enable();
-var ddns_server_x = '<% nvram_get_x("", "ddns_server_x"); %>';
-var ddns_hostname_x = '<% nvram_get_x("", "ddns_hostname_x"); %>';
+var ddns_server_x = '' + <% nvram_get_js("", "ddns_server_x"); %> + '';
+var ddns_hostname_x = '' + <% nvram_get_js("", "ddns_hostname_x"); %> + '';
 
 var ddns_hostname_title;
 
@@ -52,7 +52,7 @@ function show_dummyshareway(){
 }
 
 function showDDNS(){
-	var enable_ftp = '<% nvram_get_x("", "enable_ftp"); %>';
+	var enable_ftp = '' + <% nvram_get_js("", "enable_ftp"); %> + '';
 
 	if(enable_ftp == "1"){
 		$("noFTP").style.display = "none";

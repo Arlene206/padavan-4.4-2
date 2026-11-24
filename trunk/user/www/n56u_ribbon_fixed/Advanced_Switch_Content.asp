@@ -95,9 +95,9 @@ function show_links(){
 	led1 = (switch_type >= 10) ? 2 : 0;
 
 	if (support_led_phy() > 0)
-		led0 = parseInt("<% nvram_get_x("","ether_led0"); %>");
+		led0 = parseInt("" + <% nvram_get_js("","ether_led0"); %> + "");
 	if (support_led_phy() > 1)
-		led1 = parseInt("<% nvram_get_x("","ether_led1"); %>");
+		led1 = parseInt("" + <% nvram_get_js("","ether_led1"); %> + "");
 
 	show_port_link("linkstate_wan", 0, led0, led1);
 

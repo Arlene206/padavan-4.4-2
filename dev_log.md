@@ -1,3 +1,12 @@
+## 2026-11-24 — Complete HTTPD NVRAM HTML/JavaScript output-context isolation
+
+- Parent main SHA: `5c8c62f51b722ebeda9cbce811dd571392832a5a`. Continued the previous seven-page JS-string migration (`51bd80e`) and four-page follow-up (`453aefd`): migrated the remaining 89 executable JavaScript-source `nvram_get_x` template sinks across 27 ASP/JS assets, bringing the verified total to 117. All three `nvram_get_ddns` script sinks now emit complete JS string literals while retaining their DDNS reset behavior.
+- Hardened generic HTML `nvram_get_x` output to encode apostrophes and controls alongside ampersand/angle/quote syntax, protecting single-quoted attributes without altering unrelated HTML contexts.
+- Added a GNU89 ASan/UBSan byte-level encoder regression and a repository-wide ASP/JS/HTM/HTML context checker for comments, quoting, callback registration and DDNS delegation. HTTPD path filters now include the complete UI subtree and run both checks on push/pull request.
+- Parent exact verification: `453aefd` HTTPD `#45297345701`, Process inventory `#45297345736`, AI handoff `#45297345889` PASS; XY detector regression `a2310ad` `#45297887131` PASS with firmware Build/TRX/artifact skipped (test-only); `5c8c62f` XY build `#45298161504` was IN_PROGRESS, AI `#45298161525` and Process `#45298161485` PASS. This production source/UI SHA needs fresh exact-head Actions; no hardware result claimed.
+
+---
+
 ## 2026-11-24 — Correct XY-C1 web-asset path test fixture
 
 - Exact main `453aefd46d577206fc606fc0f58b9f51a4b2d15b` HTTPD regression `#45297345701`, Process inventory `#45297345736` and AI handoff contract `#45297345889` passed. XY-C1 run `#45297345772` stopped in `test_web_ui_asset_push_triggers_firmware_build` before firmware compilation.

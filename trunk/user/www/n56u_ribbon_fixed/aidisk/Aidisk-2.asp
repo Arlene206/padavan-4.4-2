@@ -16,13 +16,13 @@
 <script>
 var next_page = "";
 var dummyShareway = 0;
-var ddns_return_code = '<% nvram_get_ddns("", "ddns_return_code"); %>';
+var ddns_return_code = '' + <% nvram_get_ddns("", "ddns_return_code"); %> + '';
 
 function initial(){
 	parent.hideLoading();
 	parent.openHint(15, 2);
 	
-	parent.$("dummyShareway").value = "<% nvram_get_x("", "dummyShareway"); %>";
+	parent.$("dummyShareway").value = "" + <% nvram_get_js("", "dummyShareway"); %> + "";
 	if(parent.$("dummyShareway").value == "")
 		parent.$("dummyShareway").value = 0;
 	showTextinWizard(parent.$("dummyShareway").value);

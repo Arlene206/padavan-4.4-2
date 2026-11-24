@@ -220,7 +220,7 @@ function switchDDNS(){
 	document.ddnsForm.submit();
 }
 
-var ddns_enable_x = '<% nvram_get_x("LANHostConfig", "ddns_enable_x"); %>';
+var ddns_enable_x = '' + <% nvram_get_js("LANHostConfig", "ddns_enable_x"); %> + '';
 
 function setASUSDDNS_enable(flag){
 	this.ddns_enable_x = flag;

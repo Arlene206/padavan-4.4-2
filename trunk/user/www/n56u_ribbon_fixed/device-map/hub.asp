@@ -30,7 +30,7 @@ var printer_ports_array = parent.printer_ports();
 var printer_manufacts_array = parent.printer_manufacts();
 var printer_models_array = parent.printer_models();
 
-var modem_active = '<% nvram_get_x("", "wan0_modem_dev"); %>';
+var modem_active = '' + <% nvram_get_js("", "wan0_modem_dev"); %> + '';
 
 function initial(){
 	var i, total_mounted, total_devices;

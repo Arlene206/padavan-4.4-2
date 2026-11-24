@@ -1,9 +1,9 @@
-var sw_mode = '<% nvram_get_x("", "sw_mode"); %>';
-var wan_route_x = '<% nvram_get_x("", "wan_route_x"); %>';
-var wan_proto = '<% nvram_get_x("", "wan_proto"); %>';
-var lan_proto = '<% nvram_get_x("", "lan_proto_x"); %>';
-var log_float = '<% nvram_get_x("", "log_float_ui"); %>';
-var reboot_schedule_support = '<% nvram_get_x("", "reboot_schedule_enable"); %>';
+var sw_mode = '' + <% nvram_get_js("", "sw_mode"); %> + '';
+var wan_route_x = '' + <% nvram_get_js("", "wan_route_x"); %> + '';
+var wan_proto = '' + <% nvram_get_js("", "wan_proto"); %> + '';
+var lan_proto = '' + <% nvram_get_js("", "lan_proto_x"); %> + '';
+var log_float = '' + <% nvram_get_js("", "log_float_ui"); %> + '';
+var reboot_schedule_support = '' + <% nvram_get_js("", "reboot_schedule_enable"); %> + '';
 var log_stamp = 0;
 var sysinfo = <% json_system_status(); %>;
 var uptimeStr = "<% uptime(); %>";
@@ -12,12 +12,12 @@ var newformat_systime = uptimeStr.substring(8,11) + " " + uptimeStr.substring(5,
 var systime_millsec = Date.parse(newformat_systime); // millsec from system
 var JS_timeObj = new Date(); // 1970.1.1
 var cookie_pref = 'n56u_cookie_';
-var ss_schedule_support = '<% nvram_get_x("", "ss_schedule_enable"); %>';
+var ss_schedule_support = '' + <% nvram_get_js("", "ss_schedule_enable"); %> + '';
 var uagent = navigator.userAgent.toLowerCase();
 var is_ie11p = (/trident\/7\./).test(uagent);
 var is_mobile = (/iphone|ipod|ipad|iemobile|android|blackberry|fennec/).test(uagent);
 
-var new_wan_internet = '<% nvram_get_x("", "link_internet"); %>';
+var new_wan_internet = '' + <% nvram_get_js("", "link_internet"); %> + '';
 var id_check_status = 0;
 var id_system_info = 0;
 
@@ -764,7 +764,7 @@ function show_top_status(){
 	id_system_info = setTimeout('get_system_info()', 2000);
 	showSystemInfo({busy: 0, user: 0, nice: 0, system: 0, idle: 0, iowait: 0, irq: 0, sirq: 0}, 0);
 
-	showtext($("firmver"), '<% nvram_get_x("",  "firmver_sub"); %>');
+	showtext($("firmver"), '' + <% nvram_get_js("",  "firmver_sub"); %> + '');
 
 	/*if(sw_mode == "3")
 		$("sw_mode_span").innerHTML = "AP";

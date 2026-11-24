@@ -28,9 +28,9 @@ var FTP_status = get_ftp_status();
 var FTP_mode = get_share_management_status("ftp");
 var accounts = [<% get_all_accounts("ftp"); %>];
 
-var ddns_enable = '<% nvram_get_x("", "ddns_enable_x"); %>';
-var ddns_server = '<% nvram_get_x("", "ddns_server_x"); %>';
-var ddns_hostname = '<% nvram_get_x("", "ddns_hostname_x"); %>';
+var ddns_enable = '' + <% nvram_get_js("", "ddns_enable_x"); %> + '';
+var ddns_server = '' + <% nvram_get_js("", "ddns_server_x"); %> + '';
+var ddns_hostname = '' + <% nvram_get_js("", "ddns_hostname_x"); %> + '';
 
 function initial(){
 	flash_button();
@@ -89,10 +89,10 @@ function show_disk_link(){
 					$("ddnslink2_LAN").style.display = "";
 					
  					var account = accounts[accounts.length-1]
-					$("selected_account_link").href = 'ftp://'+account+'@<% nvram_get_x("", "ddns_hostname_x"); %>';
-					showtext($("selected_account_str"), 'ftp://'+account+'@<% nvram_get_x("", "ddns_hostname_x"); %>');
-					$("selected_account_link_LAN").href = 'ftp://'+account+'@<% nvram_get_x("", "lan_ipaddr_t"); %>';
-					showtext($("selected_account_str_LAN"), 'ftp://'+account+'@<% nvram_get_x("", "lan_ipaddr_t"); %>');
+					$("selected_account_link").href = 'ftp://'+account+'@' + <% nvram_get_js("", "ddns_hostname_x"); %> + '';
+					showtext($("selected_account_str"), 'ftp://'+account+'@' + <% nvram_get_js("", "ddns_hostname_x"); %> + '');
+					$("selected_account_link_LAN").href = 'ftp://'+account+'@' + <% nvram_get_js("", "lan_ipaddr_t"); %> + '';
+					showtext($("selected_account_str_LAN"), 'ftp://'+account+'@' + <% nvram_get_js("", "lan_ipaddr_t"); %> + '');
 				}
 				$("desc_2").style.display = "";
 			}else{

@@ -23,7 +23,7 @@ var modem_vendors_array = parent.modem_manufacts();
 
 var modem_order = parent.get_clicked_device_order();
 
-var modem_active = '<% nvram_get_x("", "wan0_modem_dev"); %>';
+var modem_active = '' + <% nvram_get_js("", "wan0_modem_dev"); %> + '';
 
 function initial(){
 	if(modem_models_array.length > 0 ) {

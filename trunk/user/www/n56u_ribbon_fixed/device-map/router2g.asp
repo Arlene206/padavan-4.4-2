@@ -399,11 +399,11 @@ function show_key(){
 }
 
 function show_LAN_info(){
-	var lan_ipaddr_t = '<% nvram_get_x("LANHostConfig", "lan_ipaddr_t"); %>';
+	var lan_ipaddr_t = '' + <% nvram_get_js("LANHostConfig", "lan_ipaddr_t"); %> + '';
 	if(lan_ipaddr_t != '')
-		showtext($("LANIP"), '<% nvram_get_x("LANHostConfig", "lan_ipaddr_t"); %>');
+		showtext($("LANIP"), '' + <% nvram_get_js("LANHostConfig", "lan_ipaddr_t"); %> + '');
 	else	
-		showtext($("LANIP"), '<% nvram_get_x("LANHostConfig", "lan_ipaddr"); %>');
+		showtext($("LANIP"), '' + <% nvram_get_js("LANHostConfig", "lan_ipaddr"); %> + '');
 	showtext($("MAC"), get_bssid_rai0());
 }
 

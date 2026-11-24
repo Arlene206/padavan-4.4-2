@@ -33,7 +33,7 @@ $j(document).ready(function() {
 
 </script>
 <script>
-var usb3_disable = '<% nvram_get_x("", "usb3_disable"); %>';
+var usb3_disable = '' + <% nvram_get_js("", "usb3_disable"); %> + '';
 
 function initial(){
 	show_banner(1);

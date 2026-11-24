@@ -32,8 +32,8 @@ $j(document).ready(function() {
 
 <% wanlink(); %>
 
-var ddns_prov1 = '<% nvram_get_x("","ddns_server_x"); %>';
-var ddns_prov2 = '<% nvram_get_x("","ddns2_server"); %>';
+var ddns_prov1 = '' + <% nvram_get_js("","ddns_server_x"); %> + '';
+var ddns_prov2 = '' + <% nvram_get_js("","ddns2_server"); %> + '';
 var ddns_hname = <% nvram_get_js("","ddns_hostname_x"); %>;
 var ddns_list = [
 	[ 0x0f, "WWW.DYNDNS.ORG",       "", "https://account.dyn.com/entrance/" ],
@@ -268,7 +268,7 @@ function fill_provider_list(oname,sel,mask){
 
 function show_asus_alert(hname)
 {
-	var ddns_return_code = '<% nvram_get_ddns("","ddns_return_code"); %>';
+	var ddns_return_code = '' + <% nvram_get_ddns("","ddns_return_code"); %> + '';
 
 	if(ddns_return_code == 'register,-1')
 		alert("<#LANHostConfig_x_DDNS_alarm_2#>");

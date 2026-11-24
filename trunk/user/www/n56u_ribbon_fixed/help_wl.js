@@ -1,5 +1,5 @@
 var helpcontent = new Array(5);
-var help_enable = '<% nvram_get_x("", "help_enable"); %>';
+var help_enable = '' + <% nvram_get_js("", "help_enable"); %> + '';
 
 helpcontent[0] = new Array("",
 				"<#WLANConfig11b_SSID_itemdesc#>",

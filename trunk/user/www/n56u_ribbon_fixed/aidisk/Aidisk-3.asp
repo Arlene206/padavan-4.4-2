@@ -14,9 +14,9 @@
 <script type="text/javascript" src="/jquery.js"></script>
 <script type="text/javascript" src="/state.js"></script>
 <script>
-var ddns_server_x = '<% nvram_get_x("", "ddns_server_x"); %>';
-var ddns_hostname_x = '<% nvram_get_x("", "ddns_hostname_x"); %>';
-var ddns_return_code = '<% nvram_get_ddns("", "ddns_return_code"); %>';
+var ddns_server_x = '' + <% nvram_get_js("", "ddns_server_x"); %> + '';
+var ddns_hostname_x = '' + <% nvram_get_js("", "ddns_hostname_x"); %> + '';
+var ddns_return_code = '' + <% nvram_get_ddns("", "ddns_return_code"); %> + '';
 
 var ddns_hostname_title;
 var $j = jQuery.noConflict();
@@ -41,7 +41,7 @@ function switch_ddns(){
 		document.DDNSForm.ddns_server_x.value = "WWW.ASUS.COM";
 	}
 	else{
-		var ddns_enable_x = '<% nvram_get_x("", "ddns_enable_x"); %>';
+		var ddns_enable_x = '' + <% nvram_get_js("", "ddns_enable_x"); %> + '';
 		parent.setASUSDDNS_enable(ddns_enable_x);
 		document.DDNSForm.ddns_server_x.value = this.ddns_server_x;
 		

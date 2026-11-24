@@ -129,7 +129,7 @@ setTimeout('document.getElementById("btn_ctime").style.display="none";',1000);
 			fill_ss_status(shadowsocks_status());
 			fill_dns2tcp_status(dns2tcp_status());
 			fill_dnsproxy_status(dnsproxy_status());
-			var wan0_dns = '<% nvram_get_x("","wan0_dns"); %>';
+			var wan0_dns = '' + <% nvram_get_js("","wan0_dns"); %> + '';
 			// use local DNS
 			if (wan0_dns.length > 0){
 					$j("select[name='china_dns']").prepend($j('<option value="'+wan0_dns+'" selected>本地DNS ' + wan0_dns + '</option>'));
@@ -146,12 +146,12 @@ setTimeout('document.getElementById("btn_ctime").style.display="none";',1000);
 			var o5 = document.form.pdnsd_enable;
 			//var o6 = document.form.socks5_enable;
 			var o7 = document.form.tunnel_forward;
-			o2.value = '<% nvram_get_x("","lan_con"); %>';
-			o3.value = '<% nvram_get_x("","ss_threads"); %>';
-			o4.value = '<% nvram_get_x("","china_dns"); %>';
-			o5.value = '<% nvram_get_x("","pdnsd_enable"); %>';
+			o2.value = '' + <% nvram_get_js("","lan_con"); %> + '';
+			o3.value = '' + <% nvram_get_js("","ss_threads"); %> + '';
+			o4.value = '' + <% nvram_get_js("","china_dns"); %> + '';
+			o5.value = '' + <% nvram_get_js("","pdnsd_enable"); %> + '';
 			//o6.value = '<% nvram_get_x("","socks5_enable"); %>';
-			o7.value = '<% nvram_get_x("","tunnel_forward"); %>';
+			o7.value = '' + <% nvram_get_js("","tunnel_forward"); %> + '';
 			switch_dns();
 			if (ss_schedule_support) {
 				document.form.ss_date_x_Sun.checked = getDateCheck(document.form.ss_schedule.value, 0);
@@ -561,9 +561,9 @@ setTimeout('document.getElementById("btn_ctime").style.display="none";',1000);
 						$j('#s5_nodeList>option').eq(0).attr("selected", "selected");
 						//$j('#nodeList').selectpicker('val', '<% nvram_get_x("","global_server"); %>'); //主服务器列表默认
 						//$j('#u_nodeList').selectpicker('val', '<% nvram_get_x("","udp_relay_server"); %>'); //UDP服务器列表默认
-						document.form.global_server.value = '<% nvram_get_x("","global_server"); %>';
-						document.form.udp_relay_server.value = '<% nvram_get_x("","udp_relay_server"); %>';
-						document.form.socks5_enable.value = '<% nvram_get_x("","socks5_enable"); %>';
+						document.form.global_server.value = '' + <% nvram_get_js("","global_server"); %> + '';
+						document.form.udp_relay_server.value = '' + <% nvram_get_js("","udp_relay_server"); %> + '';
+						document.form.socks5_enable.value = '' + <% nvram_get_js("","socks5_enable"); %> + '';
 						//}
 					}
 					//订阅节点表格
