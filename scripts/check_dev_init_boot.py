@@ -103,6 +103,16 @@ assert "mdev -s || exit 1" in normalized
 assert script.rstrip().endswith("exit 0")
 assert script.index("/etc/storage/start_script.sh") < script.rindex("exit 0")
 
+fatal_shutdown = c_function(init, "handle_sig_fatal(int sig)")
+assert "mtd_unlock_status = system(\"/bin/mtd_write -r unlock mtd1\");" in fatal_shutdown
+assert "if (mtd_unlock_status != 0)" in fatal_shutdown
+mtd_helper_call = fatal_shutdown.index("mtd_unlock_status = system(")
+mtd_failure_log = fatal_shutdown.index("MTD unlock/reboot helper failed", mtd_helper_call)
+mtd_reboot_fallback = fatal_shutdown.index("reboot(RB_AUTOBOOT);", mtd_failure_log)
+assert mtd_helper_call < mtd_failure_log < mtd_reboot_fallback
+assert fatal_shutdown.count("reboot(RB_AUTOBOOT);") == 2
+assert "system(\"/bin/mtd_write -r unlock mtd1\");" not in fatal_shutdown
+
 nodes = c_function(init, "init_nodes(int *optional_status)")
 node_prepare = c_function(init, "init_optional_device_node(const char *path, dev_t device)")
 node_recorder = c_function(init, "init_nodes_record_optional_status(int first_status, const char *path,")

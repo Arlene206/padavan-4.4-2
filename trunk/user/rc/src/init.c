@@ -95,6 +95,9 @@ reset_signals(void);
 static void
 handle_sig_fatal(int sig)
 {
+#ifdef MTD_FLASH_32M_REBOOT_BUG
+	int mtd_unlock_status;
+#endif
 	int reset_status;
 
 	printf("%s signal: %s\n", "fatal", strsignal(sig));
@@ -116,7 +119,15 @@ handle_sig_fatal(int sig)
 	sync();
 
 #ifdef MTD_FLASH_32M_REBOOT_BUG
-	system("/bin/mtd_write -r unlock mtd1");
+	mtd_unlock_status = system("/bin/mtd_write -r unlock mtd1");
+	if (mtd_unlock_status != 0)
+		printf("MTD unlock/reboot helper failed (wait status=%d); trying reboot syscall\n",
+		       mtd_unlock_status);
+	/*
+	 * The helper is expected to reboot after unlocking the flash. If it
+	 * returns for any reason, do not strand PID 1 in the fatal-signal loop.
+	 */
+	reboot(RB_AUTOBOOT);
 #else
 	reboot(RB_AUTOBOOT);
 #endif

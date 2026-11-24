@@ -7,14 +7,15 @@
 
 ## Active task
 
-ZeroTier exact-executable stop refinement:
-- Commit 1bfeb82 replaces mutable-name pidof/killall with procfs executable and argv identity, revalidates numeric PID before TERM/KILL, and preserves UNKNOWN fail-closed escalation.
-- Exact commit 1bfeb82 results: ZeroTier lifecycle #45344505217 PASS; Process inventory #45344505230 PASS; WAN route #45344505319 PASS; AI handoff #45344505295 PASS. XY-C1 #45344505235 was still building at last poll; Build/TRX/artifact are not yet confirmed.
-- Follow-up hardens two ownership edges: require argv[1] to equal this service's configured state directory (so another ZeroTier instance is not stopped), and treat a still-existing same-name process with missing /exe metadata as UNKNOWN. Add direct regressions; retain rejection of same-name impostors with a readable nonmatching executable.
-- Linux 4.4 lacks pidfd; the final validated-PID-to-signal race remains a known limitation.
+PID 1 emergency reboot fallback:
+- ZeroTier process-ownership changes through commit 3724008 are passing their ZeroTier lifecycle, Process inventory, WAN route and AI handoff checks; exact results are recorded below.
+- New reliability defect: on `MTD_FLASH_32M_REBOOT_BUG` builds, `handle_sig_fatal()` called `mtd_write -r unlock mtd1` and then entered an infinite sleep loop. If the helper returns nonzero or returns without rebooting, PID 1 never attempts the direct reboot syscall and the router remains stuck after a fatal signal.
+- Capture/log the helper wait status and always attempt `reboot(RB_AUTOBOOT)` if the helper returns. The process-inventory checker now pins the fallback ordering. Hardware behavior for this MTD-specific path still needs target-device confirmation; do not claim hardware validation.
+- Current ZeroTier PID ownership requires executable path, argv[0], and argv[1] state directory; procfs UNKNOWN remains fail-closed. Linux 4.4 pidfd race remains documented.
 
 ## Verification boundary
 
+- Exact 372400813c7d0888c508d6e6595353c46ea5d960: ZeroTier lifecycle #45344943818 PASS; Process inventory #45344943892 PASS; WAN route #45344943905 PASS; AI handoff #45344943861 PASS. XY-C1 firmware #45344943825 remained IN_PROGRESS at last poll (Build step active; TRX/artifact pending), so no L3 claim.
 - Exact 1bfeb82bb180116882f8c6f942cad21cd50f548d: ZeroTier lifecycle #45344505217 PASS; Process inventory #45344505230 PASS; WAN route #45344505319 PASS; AI handoff #45344505295 PASS. XY-C1 #45344505235 remained IN_PROGRESS at last poll; do not claim firmware Build/TRX/artifact or L3 until the same-SHA run completes.
 - Exact bc34d1db: FRP asynchronous startup lifecycle regression #45343199725 PASS; AI handoff documentation contract #45343199794 PASS. The earlier FRP source-contract mismatch is closed; do not repeat the FRP audit.
 - Exact c8985b2b: FRP #45343036173 passed the executable FRP startup, crontab, boot/config, process-stop and lock regressions, then failed only on one test-message mismatch in check_frp_lifecycle.py. This commit aligns the expected message with the actual test while retaining its UNKNOWN and no-signal checks. AI docs #45343036253 was IN_PROGRESS at last poll.
@@ -27,9 +28,9 @@ ZeroTier exact-executable stop refinement:
 
 ## Exact first action for the next GPT
 
-1. Check exact-head ZeroTier lifecycle and AI handoff Actions for the state-directory/executable-metadata refinement; fix the first real failure.
-2. Poll XY-C1 Build/TRX/artifact for 1bfeb82 without blocking independent work. Once current ZeroTier checks pass, continue one independent P1 stability/security source fix.
-3. Keep backup immutable and all main writes complete-tree atomic with expected-SHA non-forced ref updates.
+1. Check exact-head Process inventory and AI handoff Actions for the PID 1 MTD reboot fallback change; fix any source-contract or compile failure.
+2. Check exact-head ZeroTier lifecycle and WAN route status Actions; poll XY-C1 Build/TRX/artifact and report only the exact-SHA completion.
+3. Continue an independent stability/security source fix while Actions run; keep backup untouched and all writes atomic with expected-SHA non-forced ref updates.
 
 # Cross-session execution mandate
 

@@ -1,3 +1,12 @@
+## 2026-11-24 15:18 UTC+8 — Add PID 1 fallback when MTD reboot helper returns
+
+- Exact 3724008 results: ZeroTier lifecycle #45344943818 PASS; Process inventory #45344943892 PASS; WAN route #45344943905 PASS; AI handoff #45344943861 PASS. XY-C1 #45344943825 still IN_PROGRESS at the Build step; TRX/artifact pending, no L3 claim.
+- Found a concrete PID 1 failure path: under MTD_FLASH_32M_REBOOT_BUG, handle_sig_fatal() invoked `mtd_write -r unlock mtd1` but discarded the return status, then entered an infinite sleep loop. If the helper cannot execute, fails to unlock, or returns without rebooting, PID 1 never tries the direct reboot syscall.
+- The handler now captures and logs a nonzero wait status, and unconditionally attempts `reboot(RB_AUTOBOOT)` if the helper returns. The process-lifecycle checker pins status handling and fallback ordering; the helper-return fallback is still not hardware-tested on the target MTD board.
+- Parent main: 372400813c7d0888c508d6e6595353c46ea5d960. Atomic files: init.c, check_dev_init_boot.py, SESSION_HANDOFF.md, dev_log.md.
+
+---
+
 ## 2026-11-24 15:12 UTC+8 — Bind ZeroTier process identity to its state directory
 
 - Exact 1bfeb82 Actions: ZeroTier lifecycle #45344505217 PASS; Process inventory #45344505230 PASS; WAN route #45344505319 PASS; AI handoff #45344505295 PASS. XY-C1 #45344505235 remains IN_PROGRESS at Build; no TRX/artifact/L3 claim.
