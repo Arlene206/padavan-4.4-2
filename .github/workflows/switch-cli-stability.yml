@@ -1701,7 +1701,10 @@ jobs:
           assert "of_node_put(node);" in probe
           assert "if (!ethdma_sysctl_base)" in probe
           assert "ret = -ENOMEM;" in probe[probe.index("if (!ethdma_sysctl_base)"):]
-          assert "if (IS_ERR(ethdma_frame_engine_base))" in probe
+          assert "if (!ethdma_frame_engine_base)" in probe
+          frame_guard = probe.index("if (!ethdma_frame_engine_base)")
+          frame_failure = probe.index("ret = -ENOMEM;", frame_guard)
+          assert "goto err_free_dev;" in probe[frame_guard:frame_failure + 100]
           assert "if (!ethdma_mac_base)" in probe
           assert "ret = ei_clock_enable(ei_local);" in probe
           assert "ret = ei_ioc_setting(pdev, ei_local);" in probe

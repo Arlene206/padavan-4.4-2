@@ -3381,9 +3381,9 @@ static int rather_probe(struct platform_device *pdev)
 	}
 
 	ethdma_frame_engine_base = devm_ioremap_resource(&pdev->dev, res);
-	if (IS_ERR(ethdma_frame_engine_base)) {
-		ret = PTR_ERR(ethdma_frame_engine_base);
-		dev_err(&pdev->dev, "no ethdma_frame_engine_base found: %d\n", ret);
+	if (!ethdma_frame_engine_base) {
+		dev_err(&pdev->dev, "failed to map ethdma_frame_engine_base\n");
+		ret = -ENOMEM;
 		goto err_free_dev;
 	}
 
