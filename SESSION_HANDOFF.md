@@ -2,15 +2,15 @@
 
 ## Current repository state
 
-- Current live main parent for this slice: `8f1d1d5251a0f5658ac38ca46633b5391996f885`.
-- Exact `8f1d1d5` HTTPD Security Regression `#45304169207`, AI handoff `#45304169314` and process lifecycle inventory `#45304169499`: **PASS**. NVRAM transaction boundary audit `#45304169309` was IN_PROGRESS at last poll.
-- Exact `f3c83db` HTTPD `#45303585359`, AI `#45303585354`, process inventory/regression, NVRAM audit, USB storage, AdGuardHome, AliyunDrive, Inadyn and FRP checks: **PASS**. XY-C1 `#45303585432` remains IN_PROGRESS.
-- Exact `8f1d1d5` JSON-encodes all four strings emitted by 5 GHz/2.4 GHz AP scan handlers, encodes both BSSID JavaScript values and fixes the AP-client caption format string. Exact HTTPD, AI and process inventory checks passed.
-- Backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Current live main parent for this checker correction: `fd586053e9f1366fe785b87102d8dba6c9046a91`.
+- Exact `fd5860` AI handoff contract `#45304722690`: **PASS**; process lifecycle inventory `#45304722668`: **PASS**; NVRAM transaction audit `#45304722867`: IN_PROGRESS at last poll.
+- Exact `fd5860` HTTPD Security Regression `#45304722638`: **FAIL** only because two new Python assertions in `check_ralink_status_textarea_sinks()` were syntactically invalid around a quoted space. The C status-table source changes and those assertions were not executed due to this SyntaxError. This commit corrects only the checker strings.
+- Exact `8f1d1d5` wireless scan JSON commit: HTTPD `#45304169207`, AI `#45304169314`, process inventory `#45304169499`: **PASS**.
+- Read-only backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged.
 
 ## Active task
 
-Escape Ralink status-table fields that are returned into HTML textareas. DHCP lease, VPN lease, NAT, route and conntrack text dumps currently format dynamic string fields directly; particularly VPN peer names and interface names are not HTML escaped. Reuse the shared HTML byte encoder, preserve column layout, and pin each text-dump route in the HTTPD source-contract regression.
+Verify the Python checker correction for `check_ralink_status_textarea_sinks()` on its exact SHA. The two expected C snippets now use single-quoted Python literals around `" "`; no source-output safety assertion has been weakened.
 
 ## Completed development slices
 
@@ -40,16 +40,16 @@ Independent snapshot/lifecycle changes remain in `99ad9397e3cf4450c6fc07758b58c3
 
 ## Verification boundary
 
-- Exact `8f1d1d5` HTTPD Regression `#45304169207`, AI handoff `#45304169314` and process lifecycle inventory `#45304169499`: **PASS**, including the Ralink wireless scan source-contract and JSON SSID byte fixture. NVRAM audit `#45304169309` was IN_PROGRESS at last poll.
-- Exact `f3c83db` HTTPD `#45303585359`, AI `#45303585354`, process inventory/regression, NVRAM audit, USB storage, AdGuardHome, AliyunDrive, Inadyn and FRP checks: **PASS**. XY-C1 `#45303585432` remains IN_PROGRESS.
-- This Ralink status-table escaping update and its source contract await exact-head Actions. No local firmware build, same-SHA L3 or hardware L4 result is claimed.
-- Backup `backup/pre-plugin-overhaul-2026-11-14` remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Exact `fd5860` HTTPD Security Regression `#45304722638`: **FAIL** at Python parse time; all earlier compile, sanitizer, NVRAM transaction, wireless configuration, switch ioctl, auth/ACL and storage checks passed. The status-table source-contract checker did not run.
+- Exact `fd5860` AI handoff `#45304722690` and process inventory `#45304722668`: **PASS**. NVRAM transaction audit `#45304722867` was IN_PROGRESS at last poll.
+- This test-only fix corrects the two expected-string Python literals; exact-head HTTPD must now execute the Ralink status-table source check before claiming it passes.
+- Backup `backup/pre-plugin-overhaul-2026-11-14` remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`. No new firmware L3 or hardware L4 result is claimed.
 
 ## Exact first action for the next GPT
 
-1. Verify the exact-head HTTPD source-contract and sanitizer checks for DHCP/VPN/NAT/route/conntrack status text output.
-2. Continue tracing the generic `nvram_dump()`/file-dump callback and wireless status output to their template contexts before widening any encoder change.
-3. Check the pending exact-head NVRAM audit and historical XY-C1 runs without waiting; keep backup read-only.
+1. Confirm the exact-head HTTPD run executes `check_ralink_status_textarea_sinks()` and passes.
+2. Inspect exact-head NVRAM and XY-C1 action statuses, then continue auditing other dynamic userland output producers such as rstats bandwidth history.
+3. Keep the backup branch read-only and use atomic expected-SHA updates on main.
 
 # Cross-session execution mandate
 

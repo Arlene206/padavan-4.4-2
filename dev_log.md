@@ -1,3 +1,10 @@
+## 2026-11-24 — Correct Ralink status checker Python quoting
+
+- Exact `fd5860` HTTPD `#45304722638` failed before the new Ralink assertions ran: Python reported `SyntaxError: unexpected character after line continuation character` for the DHCP IP/MAC expected snippets. The C changes were not disproven; the source checker could not parse.
+- Replaced both assertions with single-quoted Python literals containing the expected C string literal `" "`. Kept the source-context checks strict. This checker-only slice awaits exact-SHA Actions.
+
+---
+
 ## 2026-11-23 — Escape Ralink status-table fields in text dumps
 
 - The `nvram_dump()` status panes render DHCP leases, NAT rules, routes and conntrack records into HTML textareas; VPN lease output is also reachable through the `vpns_list.log` `get_logs()` route. Dynamic tokens included peer usernames, interface names and file/kernel-derived string fields.

@@ -372,8 +372,8 @@ def check_ralink_status_textarea_sinks():
     lan_start = source.index("int\nej_lan_leases(")
     vpn_start = source.index("\nint\nej_vpns_leases(", lan_start)
     lan = source[lan_start:vpn_start]
-    assert "write_escaped_html_column(wp, (dh_ip[0]!=0) ? dh_ip : \\" \", 19)" in lan
-    assert "write_escaped_html_column(wp, (dh_mac[0]!=0) ? dh_mac : \\" \", 21)" in lan
+    assert 'write_escaped_html_column(wp, (dh_ip[0]!=0) ? dh_ip : " ", 19)' in lan
+    assert 'write_escaped_html_column(wp, (dh_mac[0]!=0) ? dh_mac : " ", 21)' in lan
     assert "write_escaped_html_field(wp, dh_host)" in lan
 
     nat_start = source.index("int\nej_nat_table(")
