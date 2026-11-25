@@ -44,6 +44,41 @@ expect_invalid(char *record, size_t length, const char *label)
 	      "failed parse clears both output pointers");
 }
 
+
+static void
+test_fast_parser_requires_complete_numeric_tail(void)
+{
+	char valid_21[] = "1 2 3 4 -1 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22";
+	char valid_36[] = "1 2 3 4 -1 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37";
+	char truncated_21[] = "1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21";
+	char truncated_36[] = "1 2 3 4 -1 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36";
+	char malformed[] = "1 2 3 bad 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22";
+	char sign_only[] = "1 2 3 4 - 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22";
+	char embedded_nul[] = { '1', ' ', '2', '\0', ' ', '3', ' ', '4', '\0' };
+
+	CHECK(procps_stat_tail_fields_valid(valid_21, strlen(valid_21), 21U),
+	      "FAST_TOP accepts 21 complete stat tail fields");
+	CHECK(!procps_stat_tail_fields_valid(truncated_21,
+	                                     strlen(truncated_21), 21U),
+	      "FAST_TOP rejects a tail truncated before its 21st delimiter");
+	CHECK(procps_stat_tail_fields_valid(valid_36, strlen(valid_36), 36U),
+	      "SMP FAST_TOP accepts 36 complete stat tail fields");
+	CHECK(!procps_stat_tail_fields_valid(truncated_36,
+	                                     strlen(truncated_36), 36U),
+	      "SMP FAST_TOP rejects a tail truncated before field 39 delimiter");
+	CHECK(!procps_stat_tail_fields_valid(malformed, strlen(malformed), 21U),
+	      "FAST_TOP rejects nonnumeric stat fields");
+	CHECK(!procps_stat_tail_fields_valid(sign_only, strlen(sign_only), 21U),
+	      "FAST_TOP rejects sign-only numeric fields");
+	CHECK(!procps_stat_tail_fields_valid(embedded_nul,
+	                                     sizeof(embedded_nul) - 1, 3U),
+	      "FAST_TOP rejects embedded NULs in a stat tail");
+	CHECK(!procps_stat_tail_fields_valid("1 2 3", 5U, 3U),
+	      "FAST_TOP rejects an unterminated final field");
+	CHECK(!procps_stat_tail_fields_valid(valid_21, strlen(valid_21), 0U),
+	      "FAST_TOP rejects a zero-field request");
+}
+
 int
 main(void)
 {
@@ -84,6 +119,8 @@ main(void)
 	               "missing state field");
 	expect_invalid(embedded_nul, sizeof(embedded_nul) - 1,
 	               "embedded NUL in proc stat read");
+
+	test_fast_parser_requires_complete_numeric_tail();
 
 	result = procps_stat_comm_bounds(NULL, 0, &start, &end);
 	CHECK(result == 0 && start == NULL && end == NULL,

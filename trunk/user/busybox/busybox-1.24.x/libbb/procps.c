@@ -385,6 +385,16 @@ procps_status_t* FAST_FUNC procps_scan(procps_status_t* sp, int flags)
 				continue; /* process exited or stat read was empty */
 			if (!procps_stat_comm_bounds(buf, (size_t)n, &comm1, &cp))
 				continue; /* skip a truncated or malformed procfs record */
+#if ENABLE_FEATURE_FAST_TOP
+# if ENABLE_FEATURE_TOP_SMP_PROCESS
+			if (!procps_stat_tail_fields_valid(cp + 4,
+					(size_t)((buf + n) - (cp + 4)), 36U))
+# else
+			if (!procps_stat_tail_fields_valid(cp + 4,
+					(size_t)((buf + n) - (cp + 4)), 21U))
+# endif
+				continue; /* fast parser requires every consumed stat field */
+#endif
 			*cp = '\0';
 			if (sizeof(sp->comm) < 16)
 				BUG_comm_size();

@@ -52,6 +52,29 @@ require(read_block.index("procps_stat_comm_bounds") <
 require("/*if (!cp" not in read_block and "/*if (comm1)" not in read_block,
         "disabled NULL checks must not return to the procps parser")
 
+fast_guard_start = source.index("#if ENABLE_FEATURE_FAST_TOP", read_start)
+fast_guard_end = source.index("\n#endif /* FEATURE_FAST_TOP */", fast_guard_start)
+fast_guard = source[fast_guard_start:fast_guard_end]
+for token in (
+    "procps_stat_tail_fields_valid(cp + 4",
+    "21U",
+    "36U",
+    "continue; /* fast parser requires every consumed stat field */",
+):
+    require(token in fast_guard,
+            f"FAST_TOP must bound its numeric tail before pointer walks: {token}")
+require("procps_stat_tail_fields_valid" in header and
+        "cursor >= end" in header and "cursor == digits" in header,
+        "tail validation must bound every numeric field access")
+for token in (
+    "test_fast_parser_requires_complete_numeric_tail",
+    "FAST_TOP rejects a tail truncated before its 21st delimiter",
+    "SMP FAST_TOP rejects a tail truncated before field 39 delimiter",
+    "FAST_TOP rejects nonnumeric stat fields",
+    "FAST_TOP rejects an unterminated final field",
+):
+    require(token in test, f"FAST_TOP regression must retain {token}")
+
 for token in (
     "memchr(buffer, '\\0', length)",
     "open_paren[-1] != ' '",

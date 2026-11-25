@@ -66,4 +66,54 @@ procps_stat_comm_bounds(char *buffer, size_t length,
 	return 1;
 }
 
+/*
+ * The optimized top parser uses unchecked pointer walks through fields 4-24
+ * (and field 39 when SMP process columns are enabled). A positive short
+ * procfs read can still end in the middle of this tail, so validate every
+ * token and its delimiter before the fast parser consumes it.
+ */
+static inline int
+procps_stat_tail_fields_valid(const char *tail, size_t length,
+                              unsigned int required_fields)
+{
+	const char *cursor;
+	const char *end;
+	unsigned int field;
+
+	if (!tail || length == 0 || required_fields == 0 ||
+	    tail[length] != '\0' || memchr(tail, '\0', length) != NULL)
+		return 0;
+
+	cursor = tail;
+	end = tail + length;
+	for (field = 0; field < required_fields; ++field) {
+		const char *digits;
+
+		if (cursor >= end)
+			return 0;
+		if (*cursor == '-' || *cursor == '+')
+			++cursor;
+		digits = cursor;
+		while (cursor < end && *cursor >= '0' && *cursor <= '9')
+			++cursor;
+		if (cursor == digits || cursor >= end)
+			return 0;
+
+		/*
+		 * All fields used by fast_strtoul_10()/skip_fields() must
+		 * have a real space separator. Newline is only accepted as
+		 * the final record delimiter when the required field is last.
+		 */
+		if (field + 1U == required_fields) {
+			if (*cursor != ' ' && *cursor != '\n' && *cursor != '\r')
+				return 0;
+		} else if (*cursor != ' ') {
+			return 0;
+		}
+		++cursor;
+	}
+	return 1;
+}
+
+
 #endif /* BB_PROCPS_STAT_POLICY_H */
