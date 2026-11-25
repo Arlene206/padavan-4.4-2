@@ -243,6 +243,114 @@ dnsmasq_file_backup_restore(const char *destination, char *backup_path)
 	return 0;
 }
 
+
+#define DNSMASQ_FILE_SNAPSHOT_SET_MAX 3
+
+/*
+ * Keep a hard-link snapshot of a small set of published outputs while a
+ * higher-level service transition is in progress. Empty backup names record
+ * destinations that did not exist and must therefore be removed on rollback.
+ */
+static inline int
+dnsmasq_file_snapshot_set_create(const char **destinations,
+				 char **backup_paths, size_t count)
+{
+	size_t i, j;
+	int saved_errno;
+
+	if (!destinations || !backup_paths || count == 0 ||
+	    count > DNSMASQ_FILE_SNAPSHOT_SET_MAX) {
+		errno = EINVAL;
+		return -1;
+	}
+	for (i = 0; i < count; ++i) {
+		if (!destinations[i] || !destinations[i][0] ||
+		    !backup_paths[i] || !backup_paths[i][0]) {
+			errno = EINVAL;
+			return -1;
+		}
+		for (j = 0; j < i; ++j) {
+			if (strcmp(destinations[i], destinations[j]) == 0) {
+				errno = EINVAL;
+				return -1;
+			}
+		}
+	}
+	for (i = 0; i < count; ++i) {
+		if (dnsmasq_file_backup_create(destinations[i], backup_paths[i]) < 0) {
+			saved_errno = errno ? errno : EIO;
+			for (j = 0; j < count; ++j) {
+				if (backup_paths[j] && backup_paths[j][0])
+					(void)dnsmasq_file_backup_discard(backup_paths[j]);
+			}
+			errno = saved_errno;
+			return -1;
+		}
+	}
+	return 0;
+}
+
+static inline int
+dnsmasq_file_snapshot_set_restore(const char **destinations,
+				  char **backup_paths, size_t count)
+{
+	size_t i;
+	int result = 0, saved_errno = 0;
+
+	if (!destinations || !backup_paths || count == 0 ||
+	    count > DNSMASQ_FILE_SNAPSHOT_SET_MAX) {
+		errno = EINVAL;
+		return -1;
+	}
+	for (i = 0; i < count; ++i) {
+		if (!destinations[i] || !destinations[i][0] || !backup_paths[i]) {
+			errno = EINVAL;
+			return -1;
+		}
+	}
+	for (i = count; i > 0; --i) {
+		if (dnsmasq_file_backup_restore(destinations[i - 1],
+						backup_paths[i - 1]) != 0) {
+			if (result == 0)
+				saved_errno = errno ? errno : EIO;
+			result = -1;
+		}
+	}
+	if (result != 0)
+		errno = saved_errno ? saved_errno : EIO;
+	return result;
+}
+
+static inline int
+dnsmasq_file_snapshot_set_discard(const char **destinations,
+				  char **backup_paths, size_t count)
+{
+	size_t i;
+	int result = 0, saved_errno = 0;
+
+	if (!destinations || !backup_paths || count == 0 ||
+	    count > DNSMASQ_FILE_SNAPSHOT_SET_MAX) {
+		errno = EINVAL;
+		return -1;
+	}
+	for (i = 0; i < count; ++i) {
+		if (!destinations[i] || !destinations[i][0] || !backup_paths[i]) {
+			errno = EINVAL;
+			return -1;
+		}
+	}
+	for (i = count; i > 0; --i) {
+		if (dnsmasq_file_backup_discard(backup_paths[i - 1]) != 0) {
+			if (result == 0)
+				saved_errno = errno ? errno : EIO;
+			result = -1;
+		}
+	}
+	if (result != 0)
+		errno = saved_errno ? saved_errno : EIO;
+	return result;
+}
+
 static inline int
 dnsmasq_file_publish_pair(FILE *first_fp, char *first_stage_path,
 			  const char *first_destination, char *first_backup_path,

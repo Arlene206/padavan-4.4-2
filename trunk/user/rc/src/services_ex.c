@@ -1544,6 +1544,146 @@ dnsmasq_lifecycle_lock_finish(int lock_fd, int operation_status, const char *ope
 	return operation_status != 0 ? operation_status : lock_errno;
 }
 
+
+#define DNSMASQ_STATIC_HOST_OUTPUT_COUNT 3
+
+struct dnsmasq_static_host_files_snapshot {
+	char destinations[DNSMASQ_STATIC_HOST_OUTPUT_COUNT][256];
+	char backups[DNSMASQ_STATIC_HOST_OUTPUT_COUNT][320];
+	int active;
+};
+
+static int
+dnsmasq_static_host_files_snapshot_begin(
+	struct dnsmasq_static_host_files_snapshot *snapshot)
+{
+	const char *destinations[DNSMASQ_STATIC_HOST_OUTPUT_COUNT];
+	char *backups[DNSMASQ_STATIC_HOST_OUTPUT_COUNT];
+	int length;
+
+	if (!snapshot) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+	memset(snapshot, 0, sizeof(*snapshot));
+	length = snprintf(snapshot->destinations[0],
+			  sizeof(snapshot->destinations[0]),
+			  "%s/dhcp-hosts.rc", DHCPD_HOSTS_DIR);
+	if (length < 0 || length >= (int)sizeof(snapshot->destinations[0])) {
+		errno = ENAMETOOLONG;
+		return ENAMETOOLONG;
+	}
+	strcpy(snapshot->destinations[1], "/etc/ethers");
+	strcpy(snapshot->destinations[2], "/tmp/hosts.static");
+
+	length = snprintf(snapshot->backups[0], sizeof(snapshot->backups[0]),
+			  "%s.lifecycle.rollback.XXXXXX",
+			  snapshot->destinations[0]);
+	if (length < 0 || length >= (int)sizeof(snapshot->backups[0])) {
+		errno = ENAMETOOLONG;
+		return ENAMETOOLONG;
+	}
+	length = snprintf(snapshot->backups[1], sizeof(snapshot->backups[1]),
+			  "%s.lifecycle.rollback.XXXXXX",
+			  snapshot->destinations[1]);
+	if (length < 0 || length >= (int)sizeof(snapshot->backups[1])) {
+		errno = ENAMETOOLONG;
+		return ENAMETOOLONG;
+	}
+	length = snprintf(snapshot->backups[2], sizeof(snapshot->backups[2]),
+			  "%s.lifecycle.rollback.XXXXXX",
+			  snapshot->destinations[2]);
+	if (length < 0 || length >= (int)sizeof(snapshot->backups[2])) {
+		errno = ENAMETOOLONG;
+		return ENAMETOOLONG;
+	}
+
+	destinations[0] = snapshot->destinations[0];
+	destinations[1] = snapshot->destinations[1];
+	destinations[2] = snapshot->destinations[2];
+	backups[0] = snapshot->backups[0];
+	backups[1] = snapshot->backups[1];
+	backups[2] = snapshot->backups[2];
+	if (dnsmasq_file_snapshot_set_create(destinations, backups,
+					     DNSMASQ_STATIC_HOST_OUTPUT_COUNT) != 0) {
+		int saved_errno = errno ? errno : EIO;
+		logmessage(LOGNAME,
+			   "cannot snapshot static DHCP host outputs before DNSMasq preparation (errno=%d)",
+			   saved_errno);
+		if (dnsmasq_file_snapshot_set_discard(
+				destinations, backups,
+				DNSMASQ_STATIC_HOST_OUTPUT_COUNT) != 0) {
+			logmessage(LOGNAME,
+				   "static host snapshot setup cleanup failed; retained paths: '%s', '%s', '%s'",
+				   snapshot->backups[0], snapshot->backups[1],
+				   snapshot->backups[2]);
+		}
+		errno = saved_errno;
+		return saved_errno;
+	}
+
+	snapshot->active = 1;
+	return 0;
+}
+
+static int
+dnsmasq_static_host_files_snapshot_restore(
+	struct dnsmasq_static_host_files_snapshot *snapshot)
+{
+	const char *destinations[DNSMASQ_STATIC_HOST_OUTPUT_COUNT];
+	char *backups[DNSMASQ_STATIC_HOST_OUTPUT_COUNT];
+	int status;
+
+	if (!snapshot || !snapshot->active)
+		return 0;
+	destinations[0] = snapshot->destinations[0];
+	destinations[1] = snapshot->destinations[1];
+	destinations[2] = snapshot->destinations[2];
+	backups[0] = snapshot->backups[0];
+	backups[1] = snapshot->backups[1];
+	backups[2] = snapshot->backups[2];
+	status = dnsmasq_file_snapshot_set_restore(
+		destinations, backups, DNSMASQ_STATIC_HOST_OUTPUT_COUNT);
+	if (status == 0) {
+		snapshot->active = 0;
+	} else {
+		logmessage(LOGNAME,
+			   "DNSMasq preparation rollback could not restore every static host output; rollback links retained (errno=%d)",
+			   errno ? errno : EIO);
+		logmessage(LOGNAME, "static host rollback paths: '%s', '%s', '%s'",
+			   snapshot->backups[0], snapshot->backups[1],
+			   snapshot->backups[2]);
+	}
+	return status == 0 ? 0 : (errno ? errno : EIO);
+}
+
+static void
+dnsmasq_static_host_files_snapshot_commit(
+	struct dnsmasq_static_host_files_snapshot *snapshot)
+{
+	const char *destinations[DNSMASQ_STATIC_HOST_OUTPUT_COUNT];
+	char *backups[DNSMASQ_STATIC_HOST_OUTPUT_COUNT];
+
+	if (!snapshot || !snapshot->active)
+		return;
+	destinations[0] = snapshot->destinations[0];
+	destinations[1] = snapshot->destinations[1];
+	destinations[2] = snapshot->destinations[2];
+	backups[0] = snapshot->backups[0];
+	backups[1] = snapshot->backups[1];
+	backups[2] = snapshot->backups[2];
+	if (dnsmasq_file_snapshot_set_discard(
+		destinations, backups, DNSMASQ_STATIC_HOST_OUTPUT_COUNT) != 0) {
+		logmessage(LOGNAME,
+			   "DNSMasq committed static host outputs but could not discard every rollback link (errno=%d)",
+			   errno ? errno : EIO);
+		logmessage(LOGNAME, "remaining static host rollback paths: '%s', '%s', '%s'",
+			   snapshot->backups[0], snapshot->backups[1],
+			   snapshot->backups[2]);
+	}
+	snapshot->active = 0;
+}
+
 static int dnsmasq_rollback_failed_start(int start_status, const char *operation);
 
 int
@@ -1554,6 +1694,7 @@ start_dns_dhcpd_locked(int is_ap_mode)
 	int arp_status;
 	int launch_status;
 	struct dnsmasq_static_arp_snapshot previous_ethers;
+	struct dnsmasq_static_host_files_snapshot static_hosts_snapshot;
 
 	status = dnsmasq_require_absent("before configuration preparation");
 	if (status != 0)
@@ -1565,21 +1706,38 @@ start_dns_dhcpd_locked(int is_ap_mode)
 			   arp_status);
 		return arp_status;
 	}
-	status = prepare_dns_dhcpd(is_ap_mode, &service_enabled);
-	if (status != 0 || !service_enabled)
-		return status;
-	/* Retain a second complete scan against launchers outside this lock. */
-	status = dnsmasq_require_absent("after configuration preparation");
+	status = dnsmasq_static_host_files_snapshot_begin(&static_hosts_snapshot);
 	if (status != 0)
 		return status;
-	/* Remove only entries from the old /etc/ethers snapshot captured before
-	 * prepare_dns_dhcpd() atomically publishes the new desired host list. */
+	status = prepare_dns_dhcpd(is_ap_mode, &service_enabled);
+	if (status != 0) {
+		dnsmasq_static_host_files_snapshot_restore(&static_hosts_snapshot);
+		return status;
+	}
+	if (!service_enabled) {
+		arp_status = arpbind_clear(&previous_ethers);
+		if (arp_status != 0) {
+			dnsmasq_static_host_files_snapshot_restore(&static_hosts_snapshot);
+			return arp_status;
+		}
+		dnsmasq_static_host_files_snapshot_commit(&static_hosts_snapshot);
+		return 0;
+	}
+	/* Retain a second complete scan against launchers outside this lock. */
+	status = dnsmasq_require_absent("after configuration preparation");
+	if (status != 0) {
+		dnsmasq_static_host_files_snapshot_restore(&static_hosts_snapshot);
+		return status;
+	}
+	/* The previous owner list remains recoverable until its ARP cleanup is done. */
 	arp_status = arpbind_clear(&previous_ethers);
 	if (arp_status != 0) {
 		logmessage(LOGNAME, "cannot clear stale static ARP bindings before DNSMasq start (errno=%d)",
 			   arp_status);
+		dnsmasq_static_host_files_snapshot_restore(&static_hosts_snapshot);
 		return arp_status;
 	}
+	dnsmasq_static_host_files_snapshot_commit(&static_hosts_snapshot);
 	arp_status = arpbind_apply_current_ethers();
 	if (arp_status != 0)
 		return arp_status;
@@ -1705,6 +1863,7 @@ restart_dhcpd_locked(void)
 	int launch_status;
 	int start_status;
 	struct dnsmasq_static_arp_snapshot previous_ethers;
+	struct dnsmasq_static_host_files_snapshot static_hosts_snapshot;
 	enum process_presence initial_presence;
 	enum process_presence final_presence;
 	enum dnsmasq_restart_action action;
@@ -1734,14 +1893,20 @@ restart_dhcpd_locked(void)
 			   arp_status);
 		return arp_status;
 	}
+	arp_status = dnsmasq_static_host_files_snapshot_begin(&static_hosts_snapshot);
+	if (arp_status != 0)
+		return arp_status;
 	prepare_status = prepare_dns_dhcpd(is_ap_mode, &service_enabled);
 	action = dnsmasq_restart_policy_action(was_running, prepare_status, service_enabled);
 	if (action == DNSMASQ_RESTART_KEEP_RUNNING) {
 		logmessage(LOGNAME, "DNSMasq refresh preparation failed (status=%d); keeping the running daemon", prepare_status);
+		dnsmasq_static_host_files_snapshot_restore(&static_hosts_snapshot);
 		return prepare_status;
 	}
-	if (action == DNSMASQ_RESTART_ABORT)
+	if (action == DNSMASQ_RESTART_ABORT) {
+		dnsmasq_static_host_files_snapshot_restore(&static_hosts_snapshot);
 		return prepare_status;
+	}
 
 	stop_status = stop_dns_dhcpd_locked_with_snapshot(&previous_ethers, 0);
 	final_presence = dnsmasq_process_presence(&scan_error);
@@ -1752,8 +1917,11 @@ restart_dhcpd_locked(void)
 		logmessage(LOGNAME,
 			   "DNSMasq stop incomplete (stop_status=%d, presence=%d, scan_error=%d); refusing duplicate launch",
 			   stop_status, final_presence, scan_error);
+		dnsmasq_static_host_files_snapshot_restore(&static_hosts_snapshot);
 		return stop_postcondition;
 	}
+	/* Stop and old-ARP cleanup are confirmed; the new owner files may commit. */
+	dnsmasq_static_host_files_snapshot_commit(&static_hosts_snapshot);
 	if (action == DNSMASQ_RESTART_STOP_ONLY)
 		return 0;
 

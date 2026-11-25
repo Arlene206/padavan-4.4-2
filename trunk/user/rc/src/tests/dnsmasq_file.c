@@ -134,6 +134,79 @@ read_exact(const char *path, const char *expected)
 	assert(fclose(fp) == 0);
 }
 
+
+static void
+replace_file_contents(const char *destination, const char *contents)
+{
+	char stage[320];
+	FILE *fp;
+
+	assert(snprintf(stage, sizeof(stage), "%s.stage.XXXXXX", destination) > 0);
+	fp = dnsmasq_file_open(stage);
+	assert(fp != NULL);
+	assert(fputs(contents, fp) >= 0);
+	assert(dnsmasq_file_publish(fp, stage, destination, 0644) == 0);
+}
+
+static void
+test_snapshot_set_restore_and_commit(const char *directory)
+{
+	char first[256], second[256], third[256];
+	char first_backup[320], second_backup[320], third_backup[320];
+	char *backups[3];
+	const char *destinations[3];
+	FILE *fp;
+
+	assert(snprintf(first, sizeof(first), "%s/snapshot-first", directory) > 0);
+	assert(snprintf(second, sizeof(second), "%s/snapshot-second", directory) > 0);
+	assert(snprintf(third, sizeof(third), "%s/snapshot-third", directory) > 0);
+	assert(snprintf(first_backup, sizeof(first_backup),
+			"%s/snapshot-first.rollback.XXXXXX", directory) > 0);
+	assert(snprintf(second_backup, sizeof(second_backup),
+			"%s/snapshot-second.rollback.XXXXXX", directory) > 0);
+	assert(snprintf(third_backup, sizeof(third_backup),
+			"%s/snapshot-third.rollback.XXXXXX", directory) > 0);
+	destinations[0] = first;
+	destinations[1] = second;
+	destinations[2] = third;
+	backups[0] = first_backup;
+	backups[1] = second_backup;
+	backups[2] = third_backup;
+
+	fp = fopen(first, "w");
+	assert(fp != NULL && fputs("old-first\n", fp) >= 0 && fclose(fp) == 0);
+	fp = fopen(third, "w");
+	assert(fp != NULL && fputs("old-third\n", fp) >= 0 && fclose(fp) == 0);
+
+	/* Rollback restores both old files and removes a formerly absent output. */
+	assert(dnsmasq_file_snapshot_set_create(destinations, backups, 3) == 0);
+	assert(first_backup[0] != '\0' && second_backup[0] == '\0' &&
+	       third_backup[0] != '\0');
+	replace_file_contents(first, "new-first\n");
+	replace_file_contents(second, "new-second\n");
+	replace_file_contents(third, "new-third\n");
+	assert(dnsmasq_file_snapshot_set_restore(destinations, backups, 3) == 0);
+	read_exact(first, "old-first\n");
+	read_exact(third, "old-third\n");
+	assert(access(second, F_OK) != 0 && errno == ENOENT);
+	assert(first_backup[0] == '\0' && second_backup[0] == '\0' &&
+	       third_backup[0] == '\0');
+
+	/* Commit discards rollback links but retains every replacement file. */
+	assert(dnsmasq_file_snapshot_set_create(destinations, backups, 3) == 0);
+	replace_file_contents(first, "committed-first\n");
+	replace_file_contents(second, "committed-second\n");
+	replace_file_contents(third, "committed-third\n");
+	assert(dnsmasq_file_snapshot_set_discard(destinations, backups, 3) == 0);
+	assert(first_backup[0] == '\0' && second_backup[0] == '\0' &&
+	       third_backup[0] == '\0');
+	read_exact(first, "committed-first\n");
+	read_exact(second, "committed-second\n");
+	read_exact(third, "committed-third\n");
+
+	assert(unlink(first) == 0 && unlink(second) == 0 && unlink(third) == 0);
+}
+
 static int
 test_xupnpd_pair_preserves_modes_and_rolls_back(void)
 {
@@ -269,6 +342,7 @@ main(void)
 					 DNSMASQ_DHCP_FEATURE_RA));
 
 	assert(mkdtemp(directory) != NULL);
+	test_snapshot_set_restore_and_commit(directory);
 	test_open_failure_retains_path_for_retry(directory);
 	test_discard_retries_interrupted_unlink();
 	assert(snprintf(sentinel, sizeof(sentinel), "%s/sentinel", directory) > 0);
