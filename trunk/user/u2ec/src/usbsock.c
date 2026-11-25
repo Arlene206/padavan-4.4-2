@@ -2814,9 +2814,9 @@ void add_remote_device()
 	command_timeout.tv_usec = 0;
 
 	for (;;) {
-		read_fds = master_fds;
-		while ((ret = select(fdmax+1, &read_fds, NULL, NULL, NULL) == -1) && (errno == EINTR));
-		if (ret == -1) {
+		ret = u2ec_select_readable_retry(fdmax + 1, &master_fds,
+		                                  &read_fds);
+		if (ret < 0) {
 			PERROR("select");
 			return;
 		}
@@ -4360,9 +4360,9 @@ int main(int argc, char *argv[])
 	PDEBUG("\nU2EC initialized, listening...\n");
 
 	for (;;) {
-		read_fds = master_fds;
-		while ((rtvl = select(fdmax+1, &read_fds, NULL, NULL, NULL) == -1) && (errno == EINTR));
-		if (rtvl == -1) {
+		rtvl = u2ec_select_readable_retry(fdmax + 1, &master_fds,
+		                                   &read_fds);
+		if (rtvl < 0) {
 			PERROR("select");
 			return 1;
 		}

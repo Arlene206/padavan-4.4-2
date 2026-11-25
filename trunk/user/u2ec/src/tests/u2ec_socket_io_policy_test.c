@@ -130,6 +130,76 @@ test_usb_selection_indices_and_variable_interface_records_are_bounded(void)
     assert(!u2ec_urb_interface_record_bounds_valid(40U, 40U, 1UL, 8U, 0U));
 }
 
+static int u2ec_test_select_calls;
+
+static int
+u2ec_test_select_interrupt_once(int nfds, fd_set *readfds,
+                                fd_set *writefds, fd_set *exceptfds,
+                                struct timeval *timeout)
+{
+    (void)writefds;
+    (void)exceptfds;
+    (void)timeout;
+    assert(nfds == 8);
+    assert(FD_ISSET(3, readfds));
+    if (u2ec_test_select_calls++ == 0) {
+        FD_ZERO(readfds);
+        errno = EINTR;
+        return -1;
+    }
+    return 1;
+}
+
+static int
+u2ec_test_select_hard_failure(int nfds, fd_set *readfds,
+                              fd_set *writefds, fd_set *exceptfds,
+                              struct timeval *timeout)
+{
+    (void)nfds;
+    (void)readfds;
+    (void)writefds;
+    (void)exceptfds;
+    (void)timeout;
+    u2ec_test_select_calls++;
+    errno = EINVAL;
+    return -1;
+}
+
+static void
+test_select_retries_restore_fdsets_and_preserve_errors(void)
+{
+    fd_set master, readfds;
+    int result;
+
+    FD_ZERO(&master);
+    FD_SET(3, &master);
+    FD_ZERO(&readfds);
+
+    u2ec_test_select_calls = 0;
+    result = u2ec_select_readable_retry_with(
+        8, &master, &readfds, u2ec_test_select_interrupt_once);
+    assert(result == 1);
+    assert(u2ec_test_select_calls == 2);
+    assert(FD_ISSET(3, &readfds));
+
+    u2ec_test_select_calls = 0;
+    errno = 0;
+    result = u2ec_select_readable_retry_with(
+        8, &master, &readfds, u2ec_test_select_hard_failure);
+    assert(result == -1);
+    assert(errno == EINVAL);
+    assert(u2ec_test_select_calls == 1);
+
+    u2ec_test_select_calls = 0;
+    errno = 0;
+    result = u2ec_select_readable_retry_with(
+        FD_SETSIZE + 1, &master, &readfds,
+        u2ec_test_select_hard_failure);
+    assert(result == -1);
+    assert(errno == EINVAL);
+    assert(u2ec_test_select_calls == 0);
+}
+
 static void
 test_discovery_commands_are_read_as_complete_stream_tokens(void)
 {
@@ -201,7 +271,8 @@ main(void)
     test_urb_buffer_bounds_reject_underflow_and_oversized_transfers();
     test_usb_selection_indices_and_variable_interface_records_are_bounded();
     test_discovery_commands_are_read_as_complete_stream_tokens();
+    test_select_retries_restore_fdsets_and_preserve_errors();
     test_invalid_buffers_are_rejected();
-    puts("U2EC bounded TCP framing, discovery command reads and SIGPIPE-safe I/O policy: PASS");
+    puts("U2EC TCP framing, discovery commands, select retry and SIGPIPE-safe I/O policy: PASS");
     return 0;
 }

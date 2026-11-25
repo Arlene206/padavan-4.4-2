@@ -33,6 +33,7 @@ def body(text, signature):
 
 
 add_remote = body(source, "void add_remote_device()")
+daemon_main = body(source, "int main(int argc, char *argv[])")
 usb_connection = body(source, "int usb_connection(int sockfd)")
 handle_urb32 = body(source, "int handleURB(PIRP_SAVE")
 handle_urb64 = body(source, "int handleURB_64(PIRP_SAVE")
@@ -40,6 +41,7 @@ exchange = body(source, "int exchangeIRP(")
 establish = body(source, "int establish_connection(int sockfd)")
 send_policy = body(policy, "u2ec_send_all_no_sigpipe(")
 recv_policy = body(policy, "u2ec_recv_all(")
+select_policy = body(policy, "u2ec_select_readable_retry_with(")
 
 assert '#include "u2ec_socket_io_policy.h"' in source
 assert "MSG_NOSIGNAL" in send_policy
@@ -47,6 +49,16 @@ assert "errno == EINTR" in send_policy
 assert "return (ssize_t)sent;" in send_policy
 assert "errno = ECONNRESET;" in recv_policy
 assert "errno == EINTR" in recv_policy
+assert "nfds > FD_SETSIZE" in select_policy
+assert "*readfds = *master;" in select_policy
+assert "result < 0 && errno == EINTR" in select_policy
+assert "u2ec_select_readable_retry_with(nfds, master, readfds, select)" in policy
+assert "u2ec_select_readable_retry(fdmax + 1, &master_fds" in add_remote
+assert "u2ec_select_readable_retry(fdmax + 1, &master_fds" in daemon_main
+assert "while ((ret = select(" not in add_remote
+assert "while ((rtvl = select(" not in daemon_main
+assert "if (ret < 0)" in add_remote
+assert "if (rtvl < 0)" in daemon_main
 assert "frame_size >= 0" in policy
 assert "minimum <= capacity" in policy
 assert "(size_t)frame_size >= minimum" in policy
@@ -118,6 +130,7 @@ for token in (
     "test_urb_buffer_bounds_reject_underflow_and_oversized_transfers",
     "test_usb_selection_indices_and_variable_interface_records_are_bounded",
     "test_discovery_commands_are_read_as_complete_stream_tokens",
+    "test_select_retries_restore_fdsets_and_preserve_errors",
     "test_invalid_buffers_are_rejected",
 ):
     assert token in test, token

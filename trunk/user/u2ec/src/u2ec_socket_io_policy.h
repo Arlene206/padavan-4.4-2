@@ -4,7 +4,9 @@
 #include <errno.h>
 #include <stddef.h>
 #include <string.h>
+#include <sys/select.h>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <sys/types.h>
 
 #define U2EC_CONFIG_COMMAND_UNKNOWN    0
@@ -25,6 +27,42 @@ u2ec_config_command_kind(const char *message, size_t length)
     if (length == 9U && memcmp(message, "GETCONFIG", 9U) == 0)
         return U2EC_CONFIG_COMMAND_GETCONFIG;
     return U2EC_CONFIG_COMMAND_UNKNOWN;
+}
+
+/*
+ * select() may modify the supplied fd_sets even when interrupted. Always
+ * rebuild the working set from the immutable master set before retrying.
+ * Returning the actual select result (rather than its EINTR comparison)
+ * also preserves non-EINTR errors for the caller.
+ */
+typedef int (*u2ec_select_call_fn)(int, fd_set *, fd_set *, fd_set *,
+                                   struct timeval *);
+
+static inline int
+u2ec_select_readable_retry_with(int nfds, const fd_set *master,
+                                fd_set *readfds,
+                                u2ec_select_call_fn select_call)
+{
+    int result;
+
+    if (nfds < 0 || nfds > FD_SETSIZE || !master || !readfds ||
+        !select_call) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    do {
+        *readfds = *master;
+        result = select_call(nfds, readfds, NULL, NULL, NULL);
+    } while (result < 0 && errno == EINTR);
+
+    return result;
+}
+
+static inline int
+u2ec_select_readable_retry(int nfds, const fd_set *master, fd_set *readfds)
+{
+    return u2ec_select_readable_retry_with(nfds, master, readfds, select);
 }
 
 /*
