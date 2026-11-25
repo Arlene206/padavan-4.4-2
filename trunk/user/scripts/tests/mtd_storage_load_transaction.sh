@@ -4,6 +4,7 @@ script_dir=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
 repo_root=$(CDPATH= cd -- "$script_dir/../../../.." && pwd)
 sandbox=$(mktemp -d "${TMPDIR:-/tmp}/mtd-storage-load.XXXXXX")
 real_rm=$(command -v rm)
+real_mkdir=$(command -v mkdir)
 trap 'status=$?; "$real_rm" -rf "$sandbox"; exit "$status"' EXIT
 trap 'exit 129' HUP
 trap 'exit 130' INT
@@ -23,7 +24,6 @@ sed \
   -e "s|^lock_dir=.*|lock_dir=\"$sandbox/private\"|" \
   -e "s|^tmp=.*|tmp=\"$sandbox/private/storage.tar\"|" \
   -e "s|^hsh=.*|hsh=\"$sandbox/private/storage_md5\"|" \
-  -e "s|/proc/mtd|$sandbox/proc-mtd|g" \
   -e "s|/proc/mtd|$sandbox/proc-mtd|g" \
   "$repo_root/trunk/user/scripts/files/sbin/mtd_storage.sh" > "$sandbox/mtd_storage.sh"
 

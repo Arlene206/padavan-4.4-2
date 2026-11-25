@@ -1,3 +1,10 @@
+## 2026-11-25 — Define the real mkdir command in the MTD fill safety test
+
+- The storage-hotplug workflow on `5733132a` passed RWFS, reset_ss, MTD save/retry and the MTD restore rollback regression after the procfs fixture redirect. The next `mtd_storage_load_transaction.sh` step failed under `set -u` because the new symlink/non-directory fill test called `$real_mkdir` without capturing it. Added the same real-command capture pattern already used for `rm`; removed the duplicate `/proc/mtd` rewrite introduced while the fixture redirect was being developed.
+- This is a regression test harness correction; production `func_mdir()` remains unchanged. Re-run storage-hotplug on the exact new SHA to verify the fill path guard and later storage checks.
+
+---
+
 ## 2026-11-25 — Reject a symlinked storage root in SCUT cron registration
 
 - The cron helper hardened `cron/` and `cron/crontabs/` but ran `cd /etc/storage` before checking the storage root itself. A symlinked `/etc/storage` would redirect privileged lock and crontab writes into another directory. Require the storage root to be a real directory and not a symlink before changing directory.
