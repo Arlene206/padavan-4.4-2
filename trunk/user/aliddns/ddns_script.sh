@@ -14,24 +14,32 @@ arIpAddress6 () {
 	esac
 	[ "${#wan6_ifname}" -le 15 ] || return 1
 
-	# Match RC's get_wan_addr6_host(): use the configured WAN6 interface.
-	ifconfig_output=$(ifconfig "$wan6_ifname" 2>/dev/null) || return 1
-	wan6_address=$(printf '%s\n' "$ifconfig_output" | awk '
-		/Scope:Global/ {
-			for (i = 1; i < NF; i++) {
-				if ($i != "addr:")
-					continue
-				address = $(i + 1)
-				split(address, address_parts, "/")
-				address = address_parts[1]
-				if (address ~ /^[23][[:xdigit:]:]+$/)
-					addresses[++count] = address
+	# BusyBox ip marks temporary IPv6 addresses as "secondary". Prefer the
+	# stable global address so privacy-address churn cannot make DDNS fail
+	# merely because an interface has more than one global IPv6 address.
+	ip_output=$(ip -6 addr show dev "$wan6_ifname" 2>/dev/null) || return 1
+	wan6_address=$(printf '%s\n' "$ip_output" | awk '
+		/^[[:space:]]*inet6[[:space:]]/ {
+			address = $2
+			sub(/\/.*/, "", address)
+			global = 0
+			unusable = 0
+			for (i = 3; i <= NF; i++) {
+				if ($i == "scope" && $(i + 1) == "global")
+					global = 1
+				if ($i == "secondary" || $i == "tentative" ||
+				    $i == "deprecated")
+					unusable = 1
+			}
+			if (global && !unusable) {
+				selected = address
+				count++
 			}
 		}
 		END {
-			if (count != 1)
+			if (count != 1 || selected == "")
 				exit 1
-			print addresses[1]
+			print selected
 		}
 	') || return 1
 	aliddns_ipv6_public_valid "$wan6_address" || return 1

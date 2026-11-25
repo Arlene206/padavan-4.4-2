@@ -1,3 +1,13 @@
+## 2026-11-25 — Select a stable WAN IPv6 address for AliDDNS privacy mode
+
+- AliDDNS WAN IPv6 discovery previously required exactly one global address from `ifconfig`. With IPv6 privacy extensions enabled, Linux may expose a temporary/secondary global address alongside the stable address; the legitimate pair was classified as ambiguous and the DDNS update failed.
+- Switched discovery to BusyBox `ip -6 addr show dev`. It now accepts exactly one usable global address, excludes temporary/secondary, tentative and deprecated entries, and retains the strict public-GUA validator. Multiple stable addresses and a temporary-only interface still fail closed.
+- Extended the shell regression with temporary+stable selection, temporary-only, deprecated-only, tentative-only and ambiguous-stable cases; existing NVRAM, interface-boundary, public-range and command-failure cases remain.
+- Local stable-address selection smoke test and shell syntax checks PASS. Exact-head AliDDNS Actions are pending at commit creation; no firmware or physical-router result is claimed.
+- Changed paths: `trunk/user/aliddns/ddns_script.sh`, `trunk/user/aliddns/tests/aliddns_ipv6_lookup.sh`.
+
+---
+
 ## 2026-11-25 — Fix DDNSTO UNKNOWN-start fixture and duplicate XY-C1 path
 
 - DDNSTO exact-head #45711617256 on `4abf56ad` passed the executable/UID rejection and procfs-confirmation cases, then failed at UNKNOWN-start. Initial stop does a direct pidof lookup and the shared procfs fallback does a second; the fixture had injected UNKNOWN at call two before launch. Changed injection to call three (first post-launch probe), still independent of daemon scheduling.
