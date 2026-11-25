@@ -1,3 +1,9 @@
+## 2026-11-24 — Correct the PPPoE-MWAN LAN-prefix fixture splice
+
+- The preceding repair attempt remained malformed: the remote test file still had duplicated fragments of the normal-run section, so the exact-head WAN rerun could not parse it. Rebuilt the shell regression directly from the intact `0b85e2e` baseline and inserted the two prefix cases by line index, not substring replacement.
+- The /16 case now verifies both mangle and NAT command arguments; the non-contiguous mask case verifies rejection before firewall or route changes. The AI docs roadmap-size correction remains in effect.
+- Exact-head WAN route / AI docs / XY-C1 reruns are required; no local shell or firmware result is claimed.
+
 ## 2026-11-24 — Repair PPPoE-MWAN prefix regression fixture and roadmap budget
 
 - The first exact-head WAN rerun found a fixture-edit error: the /16 and non-contiguous mask assertions were inserted into the middle of the existing shell test, leaving invalid Bash. Restored the intact pre-slice test and inserted both cases at the unique normal-run boundary; the br0 mock now supplies a configurable `LAN_MASK`.
