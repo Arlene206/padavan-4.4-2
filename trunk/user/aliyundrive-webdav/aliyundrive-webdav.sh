@@ -21,6 +21,10 @@ ald_process_state() {
       case "$ald_pid_output" in
         *[!0123456789\ ]*) return 2 ;;
       esac
+      ald_expected_uid=$(id -u 2>/dev/null) || return 2
+      case "$ald_expected_uid" in
+        ''|*[!0-9]*) return 2 ;;
+      esac
       ald_pid_count=0
       for ald_pid in $ald_pid_output; do
         case "$ald_pid" in
@@ -29,8 +33,14 @@ ald_process_state() {
         [ "${#ald_pid}" -le 10 ] || return 2
         [ "$ald_pid" -gt 1 ] 2>/dev/null || return 2
 
-        # BusyBox pidof also matches comm/argv[0]. Bind every candidate to
-        # the configured executable so a spoofed process name is never signaled.
+        # pidof matches comm/argv[0]. Require every candidate to belong to
+        # this lifecycle caller before checking its executable identity.
+        ald_actual_uid=$(stat -c %u "/proc/$ald_pid" 2>/dev/null) || return 2
+        case "$ald_actual_uid" in
+          ''|*[!0-9]*) return 2 ;;
+        esac
+        [ "$ald_actual_uid" = "$ald_expected_uid" ] || return 2
+
         ald_expected_exe=$(stat -L -c '%d:%i' "$ALD_BIN" 2>/dev/null) || return 2
         case "$ald_expected_exe" in
           *:*) ;;

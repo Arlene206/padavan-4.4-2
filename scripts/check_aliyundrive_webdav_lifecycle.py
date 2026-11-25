@@ -249,18 +249,27 @@ require('pidof "$NAME"' in process_state and
         'case "$ald_pid_status" in' in process_state and
         '[ -z "$ald_pid_output" ] && return 1' in process_state and
         '[ -n "$ald_pid_output" ] || return 2' in process_state and
+        'ald_expected_uid=$(id -u 2>/dev/null) || return 2' in process_state and
+        'stat -c %u "/proc/$ald_pid"' in process_state and
+        '[ "$ald_actual_uid" = "$ald_expected_uid" ] || return 2' in process_state and
         "stat -L -c '%d:%i' \"$ALD_BIN\"" in process_state and
         "stat -L -c '%d:%i' \"/proc/$ald_pid/exe\"" in process_state and
         '[ "$ald_actual_exe" = "$ald_expected_exe" ] || return 2' in process_state and
         'return 2' in process_state,
-        "pidof candidates must be bound to the configured executable inode and UNKNOWN on mismatch/error")
+        "pidof candidates must match lifecycle caller UID and configured executable inode, failing closed on mismatch/error")
 
 require("TEST_EXE_IDENTITY_MODE=impostor" in test and
         "TEST_EXE_IDENTITY_MODE=inaccessible" in test and
         "TEST_EXE_IDENTITY_MODE=malformed" in test and
         "same-name process with a different executable" in test and
-        "executable mismatch caused a signal" in test,
-        "lifecycle regression must reject pidof name spoofing and unreadable/malformed executable identity")
+        "executable mismatch caused a signal" in test and
+        "TEST_PROCESS_UID_MODE=foreign" in test and
+        "TEST_PROCESS_UID_MODE=inaccessible" in test and
+        "TEST_PROCESS_UID_MODE=malformed" in test and
+        "same-binary process owned by another UID" in test and
+        "foreign UID caused a signal" in test and
+        "foreign UID process allowed a duplicate daemon launch" in test,
+        "lifecycle regression must reject spoofed executables and foreign/unreadable/malformed process UID data")
 
 require('while [ "$ald_wait" -lt "$ALD_STOP_WAIT_SECONDS" ]; do' in wait_stopped and
         'ald_process_state' in wait_stopped and 'sleep 1 || return 2' in wait_stopped and

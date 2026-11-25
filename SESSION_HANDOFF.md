@@ -1,20 +1,20 @@
 ## 2026-11-25 autonomous handoff checkpoint
 
-This checkpoint supersedes older task pointers below. The historical completed-slice and verification sections are retained for evidence; do not repeat completed audits or stale task pointers.
+This checkpoint supersedes older active-task pointers below. Historical completed source and verification entries are retained; do not repeat completed audits.
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; `main` is the sole development ref. The frozen `backup/pre-plugin-overhaul-2026-11-14` exists and remains read-only. Branch inventory contains only `main` plus that preserved backup.
-- Main parent before this atomic slice: `ea41f1ba2e1c44463d0c8c1dce31211d250ded61` (`ci(firmware): include DHCP domain codec input`). Fetch the live main SHA and tree again before every subsequent write. This commit carries decoder source/test, dev-log entry and this handoff correction together; its resulting SHA is the live source baseline and must be read from the ref.
-- PR #1 is closed/unmerged and remains inventory-only. Its 17-commit branch contains no unique file-level work still missing from main: all 13 changed paths (including CA bootstrap and the HMAC-SHA1 helper/tests/workflow) are present on main. Do not re-port or reactivate it.
-- Main includes the XY-C1 trigger-filter correction for `networking/udhcp/domain_codec.c`, so edits to this shipped BusyBox source trigger the target firmware workflow.
+- Repository `Arlene206/padavan-4.4-2`; `main` is the sole development ref. The frozen `backup/pre-plugin-overhaul-2026-11-14` remains read-only. PR #1 is closed/unmerged and inventory-only; its changed paths are represented on main.
+- Parent before this atomic slice: `af929e3ee793f7e0af3bbba091f3a8bb1becb753` (`test(zerotier): fix route output mock newline`). This slice updates AliyunDrive launcher/test/checker, dev log, handoff and roadmap in one commit. Fetch live main and tree before every subsequent write.
+- RFC1035 reserved extended-label rejection is committed in `658b3f4c29d2afd00d45decd18ddc06c8c7aa450`; decoder regression #45557646457 and AI docs #45557646434 PASS. Its XY-C1 #45557646546 was PENDING at the previous exact-head check.
+- Exact-head actions on parent: AI handoff docs #45558740777, ZeroTier lifecycle #45558740874, Process inventory #45558740829, WAN route operation #45558740832 and XY-C1 #45558740920 were IN_PROGRESS at last poll.
+- ZeroTier shutdown coverage now includes damaged-checkpoint recovery and conflicting/multipath route tuples. Recovery validates full checkpoint fields/CIDR and requires positive route inventory proving the saved interface absent. Route cleanup distinguishes absent destinations from conflicting nexthops and searches each multipath via/dev pair. The latest route-output fixture newline was corrected in this parent. Do not reopen these items unless a new failing CI result identifies a defect.
 
-## Branch and checkpoint
+## Active source task: AliyunDrive caller-UID process identity
 
-- Latest source slice: harden RFC1035 decoding against reserved extended-label encodings. `dname_dec()` previously treated `01xxxxxx` and `10xxxxxx` bytes as ordinary label lengths; 64-byte and 128-byte payloads could pass despite those encodings being reserved/unsupported. The new guard rejects these classes while retaining `00xxxxxx` labels and `11xxxxxx` compression pointers.
-- Regression includes both reserved classes, the valid maximum 63-byte label, and all existing truncation, compression-pointer, API-boundary and encode/decode round-trip cases.
-- Parent exact-head Actions on `ea41f1ba2e1c44463d0c8c1dce31211d250ded61`: AI handoff documentation #45557374006 PASS; XY-C1 Firmware Validation #45557373931 IN_PROGRESS; Process inventory/lifecycle #45557373946 IN_PROGRESS. Earlier decoder sanitizer #45557023082 PASS on `66efb19`; the latest parent has the firmware path-filter fix. The new commit's decoder, XY-C1 and AI push runs must be checked by exact head SHA. A pending job never blocks independent work.
-- No local compile, MIPS build, TRX validation, artifact upload, or hardware test is claimed for the new slice until its exact-SHA steps finish.
+- `ald_process_state()` previously checked each `pidof` candidate's executable inode but not its owner. A same-binary process started by another account could be confused with the managed service and reach the name-wide stop path.
+- This slice reads the lifecycle caller UID and requires `stat -c %u /proc/$pid` to match. Foreign, inaccessible and malformed owner data returns UNKNOWN (2), preventing start/stop side effects. The regression preserves the matching executable inode while varying only process ownership and requires no TERM/KILL or duplicate launch. The source checker and roadmap pin the behavior.
+- Exact-head AliyunDrive lifecycle, Process and AI documentation runs must be inspected after commit. XY-C1 Build, TRX validation and artifact upload are separate gates; no target/hardware result is claimed.
 
 # Cross-session execution mandate
 
@@ -22,7 +22,7 @@ Continue one autonomous engineering stream on main. For each logical slice, crea
 
 ## Active task
 
-The RFC1035 reserved-label guard and sanitizer regression are included in the current atomic main commit. Next, verify the exact-head decoder sanitizer, XY-C1 Build/TRX/artifact and AI documentation Actions; repair a real failure before closing the slice. Then resume the next distinct P1/P2 stability/security issue from the live main handoff/roadmap (the previous recorded candidate was ZeroTier stop-path firewall-checkpoint recovery, but revalidate its current state before editing).
+The caller-UID process identity guard, host regression, exact-source contract and status entries are included in the current atomic commit. Next verify exact-head AliyunDrive lifecycle, Process and AI runs, repair any real failure, and inspect XY-C1 Build/TRX/artifact separately. Then continue another distinct P1/P2 whole-userland defect from the live roadmap.
 
 ## Completed source slices
 
@@ -129,17 +129,10 @@ Commit `786c504c8247fe42d5d1d5f2dc3ad28757fafc80` strictly parses persisted RX/T
 
 ## Exact first action for the next GPT
 
-1. Confirm the AI handoff documentation workflow passes on the current main SHA after shrinking REFACTOR_ROADMAP.md below 131,072 bytes; repair any exact-SHA failure.
-2. Recheck XY-C1 Build/TRX/artifact on the unchanged product-source baseline `c009462148d00369007edaf3e5b87d31899b07c2`; do not claim L3 while its run remains pending.
-3. Resume the next distinct userland stability/security fix, starting with the ZeroTier stop path's corrupt firewall-checkpoint recovery gap; keep source/test/checker changes atomic and do not wait on unrelated PENDING runs.
-
-
-## Exact first action for the next GPT
-
-1. Fetch the live `main` SHA and inspect its exact-head DHCP domain decoder, XY-C1 Firmware Validation and AI documentation push runs. Diagnose any FAIL at its failing step; do not wait on PENDING.
-2. Confirm the decoder sanitizer executes the GNU89 ASan/UBSan regression, including rejection of both reserved label classes and acceptance of a 63-byte label.
-3. Inspect XY-C1 job steps separately: Build XY-C1, TRX verification and artifact upload must all complete successfully on the same product-source SHA before claiming L3. Hardware L4 remains unverified.
-4. Continue the next independent whole-userland P1/P2 item from the live roadmap/handoff. Recheck the ZeroTier firewall-checkpoint recovery candidate rather than assuming its historical status; keep all work on main.
+1. Fetch live `main`; inspect exact-head AliyunDrive WebDAV lifecycle, Process inventory and AI documentation runs. Diagnose FAIL at the failing step; do not wait idly on PENDING.
+2. Confirm the foreign, inaccessible and malformed UID fixtures retain the matching executable inode, return UNKNOWN and cause no TERM/KILL or duplicate launch.
+3. Inspect XY-C1 Build, TRX validation and artifact upload separately on the same source SHA. Claim L3 only after all pass; physical L4 remains unverified.
+4. Continue the next distinct P1/P2 whole-userland issue; do not reopen ZeroTier checkpoint/route cleanup without a new failing regression.
 
 ## Mandatory handoff checkpoint
 

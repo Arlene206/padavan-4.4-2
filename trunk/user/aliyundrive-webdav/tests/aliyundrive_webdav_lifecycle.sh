@@ -132,12 +132,25 @@ ALD_BIN="$TEST_DIR/mock-aliyundrive-webdav"
 ALD_WORK_DIR="$TEST_DIR/aliyundrive-webdav-workdir"
 TEST_UMASK_LOG="$TEST_DIR/umask.log"
 TEST_EXE_IDENTITY_MODE=valid
+TEST_PROCESS_UID_MODE=owner
+TEST_EXPECTED_UID=$(id -u)
+TEST_FOREIGN_UID=$((TEST_EXPECTED_UID + 1))
 export ALD_WORK_DIR TEST_UMASK_LOG
 
 # Model the kernel's /proc/PID/exe identity without requiring a real daemon.
 # All other stat calls still exercise the real filesystem and BusyBox-compatible
 # stat format used by the lifecycle lock and private token directory checks.
 stat() {
+  if [ "$#" -eq 3 ] && [ "$1" = "-c" ] &&
+     [ "$2" = "%u" ] && [ "$3" = "/proc/12345" ]; then
+    case "$TEST_PROCESS_UID_MODE" in
+      owner) printf '%s\n' "$TEST_EXPECTED_UID"; return 0 ;;
+      foreign) printf '%s\n' "$TEST_FOREIGN_UID"; return 0 ;;
+      inaccessible) return 1 ;;
+      malformed) printf '%s\n' 'not-a-uid'; return 0 ;;
+      *) return 2 ;;
+    esac
+  fi
   if [ "$#" -eq 4 ] && [ "$1" = "-L" ] &&
      [ "$2" = "-c" ] && [ "$3" = "%d:%i" ]; then
     case "$4" in
@@ -370,6 +383,39 @@ fi
 [ ! -e "$TEST_ARG_LOG" ] || {
   echo "FAIL: start launched another daemon while inventory was UNKNOWN" >&2; exit 1;
 }
+
+# A same-binary process owned by another account is not our managed service.
+# Keep its executable inode valid while testing foreign, unreadable and malformed UID data.
+TEST_EXE_IDENTITY_MODE=valid
+for TEST_PROCESS_UID_MODE in foreign inaccessible malformed; do
+  if ald_process_state; then
+    echo "FAIL: same-binary process owned by another UID was accepted ($TEST_PROCESS_UID_MODE)" >&2
+    exit 1
+  else
+    TEST_STATE_STATUS=$?
+  fi
+  [ "$TEST_STATE_STATUS" -eq 2 ] || {
+    echo "FAIL: process UID mode $TEST_PROCESS_UID_MODE was not reported as UNKNOWN" >&2; exit 1;
+  }
+  TEST_TERM_COUNT=0
+  TEST_KILL_COUNT=0
+  if kill_ald; then
+    echo "FAIL: stop accepted a same-binary process with UID mode $TEST_PROCESS_UID_MODE" >&2
+    exit 1
+  fi
+  [ "$TEST_TERM_COUNT" -eq 0 ] && [ "$TEST_KILL_COUNT" -eq 0 ] || {
+    echo "FAIL: foreign UID caused a signal ($TEST_PROCESS_UID_MODE)" >&2; exit 1;
+  }
+  rm -f "$TEST_ARG_LOG"
+  if start_ald; then
+    echo "FAIL: start treated process UID mode $TEST_PROCESS_UID_MODE as the managed daemon" >&2
+    exit 1
+  fi
+  [ ! -e "$TEST_ARG_LOG" ] || {
+    echo "FAIL: foreign UID process allowed a duplicate daemon launch ($TEST_PROCESS_UID_MODE)" >&2; exit 1;
+  }
+done
+TEST_PROCESS_UID_MODE=owner
 
 TEST_EXE_IDENTITY_MODE=inaccessible
 if ald_process_state; then

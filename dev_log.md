@@ -1,3 +1,9 @@
+## 2026-11-25 — Bind AliyunDrive process identity to the lifecycle caller
+
+- The AliyunDrive launcher matched each `pidof` candidate to the managed binary's executable inode, but did not verify the PID owner. Since the binary is executable by other accounts, a same-binary process launched by another user could be mistaken for the managed service; name-wide stop could then signal it. Record the lifecycle caller UID and require every candidate's `/proc/PID` owner to match. Foreign, inaccessible or malformed UID data returns UNKNOWN. The host regression retains the matching executable inode while varying only PID ownership data, and asserts no signal or duplicate launch. Exact-head AliyunDrive lifecycle, Process and XY-C1 checks required; no local runtime result claimed.
+
+---
+
 ## 2026-11-25 — Correct ZeroTier route mock newline format
 
 - A post-commit fixture review found the new route-output override used two backslashes before `n` in its `printf` format, which would append the literal characters `\n` rather than a record newline. Correct the test double to emit the same line framing as `ip route show`; production route matching is unchanged.
