@@ -1,3 +1,11 @@
+## 2026-11-25 21:42 CST (UTC+8) — Align IPv6 source contract with SIT LAN restore callback
+
+- Exact-head WAN route run #45626020132 on `0ae462027968d0d31ddf9c349cd0b5f15ab0cdc7` failed only in the final embedded source-contract step. All preceding 52 steps, including the new WAN IPv6 identity test compile and `check_wan_vlan_setup.py`, passed.
+- The failure was a stale hard-coded count: the route workflow expected three argv-based `ip -6 addr add` calls in `net_wan6.c`, while the new safe LAN-address restoration callback correctly adds a fourth. Updated the expected count and added an explicit assertion that the restoration callback passes the saved address as one argv argument on `br0`. No production code changed in this follow-up.
+- This correction needs fresh exact-head WAN route validation. On source SHA `0bed846b6ac67f8f77f0104f06decddcaa62ce1a`, all listed stability workflows and NVRAM audit #45624855071 PASS; XY-C1 #45624855182 was still building when last inspected, with TRX/artifact pending. L3 not yet claimed.
+
+---
+
 ## 2026-11-25 21:39 CST (UTC+8) — Restore prior LAN IPv6 address when SIT activation fails
 
 - Found a concrete rollback hole in `start_sit_tunnel()`: after the tunnel and routes were ready, the function flushed all global addresses from `br0` and attempted to add a derived 6to4/6rd LAN address. If the clear partially failed, the add failed, or publishing the new address to NVRAM failed, the common failure path removed the incomplete SIT tunnel but never restored the previously configured `lan_addr6`. The old address could therefore be lost after a failed WAN IPv6 transition.

@@ -1,15 +1,14 @@
-## 2026-11-25 autonomous handoff — SIT LAN IPv6 rollback gap closed
+## 2026-11-25 autonomous handoff — SIT rollback contract correction
 
-- Main baseline for this source/test slice: `0bed846b6ac67f8f77f0104f06decddcaa62ce1a`.
-- Found and fixed a partial-update defect in `start_sit_tunnel()`: the previous global LAN IPv6 address on `br0` was flushed before adding the derived 6to4/6rd address; later failure could remove the new tunnel and routes but leave the prior LAN address missing. The fix checked-snapshots NVRAM `lan_addr6` before mutation, marks the LAN transaction before flush, and restores the prior value on every later SIT startup failure. Empty snapshots and restoration failures are explicitly handled.
-- Added callback policy + GNU89 regressions in `wan6_identity_policy.h` and `tests/wan6_identity_policy.c`; `check_wan_vlan_setup.py` now verifies snapshot-before-mutation and the compensating failure path. This file set is already covered by the WAN route workflow path filters.
-- On parent `0bed846b6ac67f8f77f0104f06decddcaa62ce1a`: WAN route #45624855225, Wireless #45624855188, WAN DHCP #45624855254, Process inventory #45624855312, Process fail-closed #45624855157, WAN sysfs #45624855211, USB modem #45624855066, USB storage #45624855128, AI docs #45624855327 and IPv6 type #45624855120 PASS. NVRAM #45624855071 and XY-C1 #45624855182 remained IN_PROGRESS at the last poll; current slice must be verified on its own exact SHA.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, immutable. Physical router L4 NOT VERIFIED.
+- Main parent SHA: `0ae462027968d0d31ddf9c349cd0b5f15ab0cdc7`. The SIT-derived LAN IPv6 rollback implementation is in `0ae462027968d0d31ddf9c349cd0b5f15ab0cdc7`.
+- Exact WAN route run #45626020132 failed at its final embedded source check, not at compilation or sanitizer tests. The source check expected three `ip -6 addr add` argv calls; the new rollback callback adds a fourth legitimate, argv-safe call. All 52 preceding steps passed, including the WAN6 identity regression and the existing VLAN/bridge checker. The next commit updates the count to four and directly verifies that the restoration callback passes one address argv element on `br0`.
+- AI handoff docs #45626020264 PASS on `0ae462`. XY-C1 #45626020329, WAN DHCP #45626020186, IPv6 service #45626020180, Process inventory #45626020343, NVRAM #45626020337 and HTTPD security #45626020041 were in progress at last poll. The earlier parent SHA `0bed846` had NVRAM #45624855071 PASS and all stability workflows PASS; XY-C1 #45624855182 had Build in progress, TRX/artifact pending.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, immutable. Physical-router L4 NOT VERIFIED.
 
 ### First actions
-1. Inspect exact-head WAN route and AI documentation results for this SIT rollback commit; fix only the first causal regression if one appears.
-2. Resolve NVRAM and XY-C1 outcomes on their exact SHA. L3 still requires Build XY-C1, TRX verification and artifact upload all PASS on one identical production-source SHA.
-3. Continue concrete WAN/IPv6 route lifecycle work with a demonstrated failure path; do not repeat M2U/VLAN audits already closed by exact route CI.
+1. Verify this workflow-only correction on its exact SHA; only repair a first causal failure.
+2. Track XY-C1 Build, TRX and artifact on one identical production-source SHA; no L3 claim until all pass.
+3. Continue concrete WAN/IPv6 lifecycle defect fixes and keep source/test contracts synchronized.
 
 ### Execution contract
 Source/test → complete tree/commit → non-forced expected-SHA update → exact-SHA Actions. Main only; no branches/PRs/force pushes or backup mutation.

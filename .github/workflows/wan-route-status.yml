@@ -1525,7 +1525,8 @@ jobs:
               assert case in wan6_test, case
           
           assert 'doSystem("ip -6 addr add %s dev %s"' not in wan6
-          assert wan6.count('eval("ip", "-6", "addr", "add",') == 3
+          assert wan6.count('eval("ip", "-6", "addr", "add",') == 4
+assert 'return eval("ip", "-6", "addr", "add", address_arg, "dev", IFNAME_BR);' in wan6
           assert 'inet_ntop(AF_INET6, &addr6, addr6s, INET6_ADDRSTRLEN)' in wan6
           assert 'inet_ntop(AF_INET6, &lan_addr6, lan_addr6s, INET6_ADDRSTRLEN)' in wan6
           assert 'format_ipv6_literal(wan_addr6, addr6_text,' in wan6
