@@ -131,6 +131,48 @@ test_usb_selection_indices_and_variable_interface_records_are_bounded(void)
 }
 
 static void
+test_discovery_commands_are_read_as_complete_stream_tokens(void)
+{
+    int sockets[2];
+    char command[10] = {0};
+
+    assert(u2ec_config_command_kind("GETNAME", 7U) ==
+           U2EC_CONFIG_COMMAND_GETNAME);
+    assert(u2ec_config_command_kind("GETCONFIG", 9U) ==
+           U2EC_CONFIG_COMMAND_GETCONFIG);
+    assert(u2ec_config_command_kind("GETCONF", 7U) ==
+           U2EC_CONFIG_COMMAND_UNKNOWN);
+    assert(u2ec_config_command_kind("GETCONFIG", 8U) ==
+           U2EC_CONFIG_COMMAND_UNKNOWN);
+    assert(u2ec_config_command_kind(NULL, 7U) ==
+           U2EC_CONFIG_COMMAND_UNKNOWN);
+
+    assert(socketpair(AF_UNIX, SOCK_STREAM, 0, sockets) == 0);
+    /* Two writes model a command split across TCP segments. */
+    assert(write(sockets[0], "GETCON", 6U) == 6);
+    assert(write(sockets[0], "FIG", 3U) == 3);
+    assert(u2ec_recv_all(sockets[1], command, 7U) == 7);
+    assert(memcmp(command, "GETCONF", 7U) == 0);
+    assert(u2ec_config_command_kind(command, 7U) ==
+           U2EC_CONFIG_COMMAND_UNKNOWN);
+    assert(u2ec_recv_all(sockets[1], command + 7, 2U) == 2);
+    assert(u2ec_config_command_kind(command, 9U) ==
+           U2EC_CONFIG_COMMAND_GETCONFIG);
+    close(sockets[0]);
+    close(sockets[1]);
+
+    assert(socketpair(AF_UNIX, SOCK_STREAM, 0, sockets) == 0);
+    assert(write(sockets[0], "GET", 3U) == 3);
+    assert(write(sockets[0], "NAME", 4U) == 4);
+    memset(command, 0, sizeof(command));
+    assert(u2ec_recv_all(sockets[1], command, 7U) == 7);
+    assert(u2ec_config_command_kind(command, 7U) ==
+           U2EC_CONFIG_COMMAND_GETNAME);
+    close(sockets[0]);
+    close(sockets[1]);
+}
+
+static void
 test_invalid_buffers_are_rejected(void)
 {
     int sockets[2];
@@ -158,7 +200,8 @@ main(void)
     test_irp_buffer_size_must_fit_actual_received_frame();
     test_urb_buffer_bounds_reject_underflow_and_oversized_transfers();
     test_usb_selection_indices_and_variable_interface_records_are_bounded();
+    test_discovery_commands_are_read_as_complete_stream_tokens();
     test_invalid_buffers_are_rejected();
-    puts("U2EC bounded TCP framing and SIGPIPE-safe I/O policy: PASS");
+    puts("U2EC bounded TCP framing, discovery command reads and SIGPIPE-safe I/O policy: PASS");
     return 0;
 }

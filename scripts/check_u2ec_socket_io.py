@@ -76,8 +76,17 @@ assert "interface_info->Length" in handle_urb32 and "interface_info->Length" in 
 assert "tmp_len -= interface_info->Length" in handle_urb32
 assert "tmp_len -= interface_info->Length" in handle_urb64
 
-assert "u2ec_send_all_no_sigpipe" not in add_remote or add_remote.count("u2ec_send_all_no_sigpipe") == 2
 assert add_remote.count("u2ec_send_all_no_sigpipe") == 2
+assert "SO_RCVTIMEO" in add_remote and "command_timeout.tv_sec = 1" in add_remote
+assert "u2ec_recv_all(new_fd, message, 7U)" in add_remote
+assert "u2ec_recv_all(new_fd, message + 7, 2U)" in add_remote
+assert "recv(new_fd, message, 9, 0)" not in add_remote
+assert "u2ec_config_command_kind(message, 7U)" in add_remote
+assert "u2ec_config_command_kind(message, 9U)" in add_remote
+assert "U2EC_CONFIG_COMMAND_GETCONFIG" in add_remote
+assert "U2EC_CONFIG_COMMAND_GETNAME" in add_remote
+assert "length == 7U && memcmp(message, \"GETNAME\", 7U) == 0" in policy
+assert "length == 9U && memcmp(message, \"GETCONFIG\", 9U) == 0" in policy
 assert "u2ec_recv_all(sockfd, (char *)&tcp_pack, sizeof(tcp_pack))" in usb_connection
 assert "u2ec_frame_size_is_valid((long)tcp_pack.SizeBuffer" in usb_connection
 assert "u2ec_irp_frame_buffer_bounds_valid(" in usb_connection
@@ -108,6 +117,7 @@ for token in (
     "test_frame_size_is_bounded_and_positive",
     "test_urb_buffer_bounds_reject_underflow_and_oversized_transfers",
     "test_usb_selection_indices_and_variable_interface_records_are_bounded",
+    "test_discovery_commands_are_read_as_complete_stream_tokens",
     "test_invalid_buffers_are_rejected",
 ):
     assert token in test, token

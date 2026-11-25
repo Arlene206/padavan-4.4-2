@@ -3,8 +3,29 @@
 
 #include <errno.h>
 #include <stddef.h>
+#include <string.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+
+#define U2EC_CONFIG_COMMAND_UNKNOWN    0
+#define U2EC_CONFIG_COMMAND_GETNAME    1
+#define U2EC_CONFIG_COMMAND_GETCONFIG  2
+
+/*
+ * The discovery protocol uses fixed command tokens (7 and 9 bytes), not
+ * NUL-terminated strings. Do not accept an incomplete TCP read as a command.
+ */
+static inline int
+u2ec_config_command_kind(const char *message, size_t length)
+{
+    if (!message)
+        return U2EC_CONFIG_COMMAND_UNKNOWN;
+    if (length == 7U && memcmp(message, "GETNAME", 7U) == 0)
+        return U2EC_CONFIG_COMMAND_GETNAME;
+    if (length == 9U && memcmp(message, "GETCONFIG", 9U) == 0)
+        return U2EC_CONFIG_COMMAND_GETCONFIG;
+    return U2EC_CONFIG_COMMAND_UNKNOWN;
+}
 
 /*
  * Complete a TCP write without allowing a disconnected client to deliver

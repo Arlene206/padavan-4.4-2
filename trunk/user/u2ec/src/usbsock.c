@@ -2786,9 +2786,10 @@ void add_remote_device()
 {
 	int			find_fd, conf_fd, new_fd;
 	fd_set			master_fds, read_fds;
-	int			fdmax, ret;
+	int			fdmax, ret, command_type;
 	struct sockaddr_in	cli_addr;
 	int			addr_len = sizeof(cli_addr);
+	struct timeval		command_timeout;
 	char			message[192];
 
 	FD_ZERO(&master_fds);
@@ -2809,6 +2810,8 @@ void add_remote_device()
 	FD_SET(find_fd, &master_fds);
 	FD_SET(conf_fd, &master_fds);
 	fdmax = find_fd > conf_fd ? find_fd : conf_fd;
+	command_timeout.tv_sec = 1;
+	command_timeout.tv_usec = 0;
 
 	for (;;) {
 		read_fds = master_fds;
@@ -2836,13 +2839,34 @@ void add_remote_device()
 			}
 
 			bzero(message, 192);
-			if ((ret = recv(new_fd, message, 9, 0)) <= 0) {
-				PERROR("recv");
+			/*
+			 * GETNAME is 7 bytes; GETCONFIG is 9. recv() may return a
+			 * short prefix even when the peer sends a complete command.
+			 * SO_RCVTIMEO keeps a partial-command peer from holding this
+			 * discovery worker indefinitely.
+			 */
+			if (setsockopt(new_fd, SOL_SOCKET, SO_RCVTIMEO,
+			               &command_timeout, sizeof(command_timeout)) != 0) {
+				PERROR("setsockopt SO_RCVTIMEO");
 				goto next;
 			}
-			message[ret] = '\0';
+			if (u2ec_recv_all(new_fd, message, 7U) < 0) {
+				PERROR("recv discovery command prefix");
+				goto next;
+			}
+			message[7] = '\0';
 			PSNDRECV("add_remote_device from fd: %d received: %s\n", new_fd, message);
-			if (strncmp(message, "GETCONFIG", 9) == 0) {
+			command_type = u2ec_config_command_kind(message, 7U);
+			if (command_type == U2EC_CONFIG_COMMAND_UNKNOWN &&
+			    memcmp(message, "GETCONF", 7U) == 0) {
+				if (u2ec_recv_all(new_fd, message + 7, 2U) < 0) {
+					PERROR("recv GETCONFIG suffix");
+					goto next;
+				}
+				message[9] = '\0';
+				command_type = u2ec_config_command_kind(message, 9U);
+			}
+			if (command_type == U2EC_CONFIG_COMMAND_GETCONFIG) {
 				sprintf(message, "RootHub#1|Port1:%d!", uTCPUSB);
 				if (u2ec_send_all_no_sigpipe(new_fd, message, strlen(message)) < 0) {
 					PERROR("send");
@@ -2850,7 +2874,7 @@ void add_remote_device()
 				}
 				PSNDRECV("add_remote_device GETCONFIG sent: %s\n", message);
 			}
-			else if (strncmp(message, "GETNAME", 7) == 0) {
+			else if (command_type == U2EC_CONFIG_COMMAND_GETNAME) {
 				if (dev)
 					sprintf(message, "RootHub#1|Port1(%s)!", str_product);
 				else
