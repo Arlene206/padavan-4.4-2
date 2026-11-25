@@ -15,6 +15,10 @@ def compact(text):
     return re.sub(r"\s+", " ", text).strip()
 
 
+def compact_c(text):
+    """Remove comments and whitespace for formatting-independent C checks."""
+    without_comments = re.sub(r"/[*].*?[*]/", "", text, flags=re.S)
+    return re.sub(r"\s+", "", without_comments)
 assert '#include "p910nd_sigpipe_policy.h"' in SOURCE
 
 main_start = SOURCE.index("int main(")
@@ -87,9 +91,9 @@ assert "device=lpname;" not in open_printer
 # and its capacity before accepting a new IPv4/IPv6 peer.
 server_start = SOURCE.index("void server(")
 server_end = SOURCE.index("int is_standalone(", server_start)
-server = compact(re.sub(r"/[*].*?[*]/", "", SOURCE[server_start:server_end], flags=re.S))
+server = compact_c(SOURCE[server_start:server_end])
 accept_loop = (
-    "for (;;){"
+    "for(;;){"
     "clientlen=sizeof(client);"
     "memset(&client,0,sizeof(client));"
     "do{fd=accept(netfd,(struct sockaddr *)&client,&clientlen);}"
