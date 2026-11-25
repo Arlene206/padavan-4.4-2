@@ -51,6 +51,21 @@ test_content_length_rejects_ambiguous_or_malformed_values(void)
 }
 
 static void
+test_duplicate_content_length_rejected(void)
+{
+    int seen = 0;
+    size_t parsed = 5U;
+
+    assert(miniupnpd_http_record_content_length("8", 1U, &seen, &parsed) == 0);
+    assert(seen == 1 && parsed == 8U);
+
+    errno = 0;
+    assert(miniupnpd_http_record_content_length("8", 1U, &seen, &parsed) == -1);
+    assert(errno == EINVAL);
+    assert(seen == 1 && parsed == 8U);
+}
+
+static void
 test_invalid_destination_is_rejected(void)
 {
     errno = 0;
@@ -88,6 +103,7 @@ main(void)
     assert(MINIUPNPD_HTTP_MAX_BODY_BYTES == 65536U);
     test_content_length_boundaries();
     test_content_length_rejects_ambiguous_or_malformed_values();
+    test_duplicate_content_length_rejected();
     test_invalid_destination_is_rejected();
     test_request_buffer_growth_boundaries();
     puts("MiniUPnP bounded HTTP request framing policy: PASS");

@@ -59,6 +59,33 @@ miniupnpd_http_parse_content_length(const char *value, size_t length,
     return 0;
 }
 
+/*
+ * Accept only one Content-Length field. A duplicate is rejected even when
+ * both values match, so different HTTP components cannot choose different
+ * message boundaries.
+ */
+static inline int
+miniupnpd_http_record_content_length(const char *value, size_t length,
+                                     int *seen, size_t *length_out)
+{
+    size_t parsed;
+
+    if (!seen || !length_out) {
+        errno = EINVAL;
+        return -1;
+    }
+    if (*seen) {
+        errno = EINVAL;
+        return -1;
+    }
+    if (miniupnpd_http_parse_content_length(value, length, &parsed) != 0)
+        return -1;
+
+    *seen = 1;
+    *length_out = parsed;
+    return 0;
+}
+
 /* Overflow-safe bound check used before every request-buffer growth. */
 static inline int
 miniupnpd_http_request_append_fits(size_t current, size_t incoming,

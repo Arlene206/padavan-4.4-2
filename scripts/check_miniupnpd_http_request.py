@@ -6,6 +6,8 @@ BASE = ROOT / "trunk/user/miniupnpd/miniupnpd-2.x"
 source = (BASE / "upnphttp.c").read_text()
 policy = (BASE / "miniupnpd_http_request_policy.h").read_text()
 test = (BASE / "tests/miniupnpd_http_request_policy_test.c").read_text()
+linux_makefile = (BASE / "Makefile.linux").read_text()
+nft_makefile = (BASE / "Makefile.linux_nft").read_text()
 workflow = (ROOT / ".github/workflows/miniupnpd-http-request-stability.yml").read_text()
 
 
@@ -31,6 +33,7 @@ assert '#include "miniupnpd_http_request_policy.h"' in source
 assert "int\nParseHttpHeaders(struct upnphttp * h)" in source
 assert "content_length_seen" in headers
 assert "miniupnpd_http_parse_content_length(" in headers
+assert "miniupnpd_http_record_content_length(" in headers
 assert "strncasecmp(line, \"Transfer-Encoding\", 17)==0" in headers
 assert "return EINVAL;" in headers
 assert "header_status = ParseHttpHeaders(h);" in query
@@ -48,6 +51,9 @@ assert "current_length + append_length + 1U" in process
 assert "h->req_buf[h->req_buflen] = '\\0';" in process
 assert "memcpy(h->req_buf + h->req_buflen, buf, append_length);" in process
 
+for makefile in (linux_makefile, nft_makefile):
+    assert "upnphttp.o: upnpevents.h upnputils.h miniupnpd_http_request_policy.h" in makefile
+
 for token in (
     "MINIUPNPD_HTTP_MAX_HEADER_BYTES 8192U",
     "MINIUPNPD_HTTP_MAX_BODY_BYTES 65536U",
@@ -58,6 +64,7 @@ for token in (
 for token in (
     "test_content_length_boundaries",
     "test_content_length_rejects_ambiguous_or_malformed_values",
+    "test_duplicate_content_length_rejected",
     "test_invalid_destination_is_rejected",
     "test_request_buffer_growth_boundaries",
 ):
@@ -68,6 +75,8 @@ paths = (
     "trunk/user/miniupnpd/miniupnpd-2.x/upnphttp.c",
     "trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd_http_request_policy.h",
     "trunk/user/miniupnpd/miniupnpd-2.x/tests/miniupnpd_http_request_policy_test.c",
+    "trunk/user/miniupnpd/miniupnpd-2.x/Makefile.linux",
+    "trunk/user/miniupnpd/miniupnpd-2.x/Makefile.linux_nft",
     "scripts/check_miniupnpd_http_request.py",
 )
 push, pr = workflow.split("  pull_request:", 1)[0], workflow.split("  pull_request:", 1)[1].split("permissions:", 1)[0]

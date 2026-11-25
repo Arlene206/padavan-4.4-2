@@ -230,16 +230,15 @@ ParseHttpHeaders(struct upnphttp * h)
 				const char * value_end;
 				size_t parsed_length;
 
-				if (colon != line + 14 || content_length_seen)
+				if (colon != line + 14)
 					return EINVAL;
-				content_length_seen = 1;
 				value_start = colon + 1;
 				value_end = value_start;
 				while (*value_end != '\r' && *value_end != '\n')
 					++value_end;
-				if (miniupnpd_http_parse_content_length(
+				if (miniupnpd_http_record_content_length(
 				        value_start, (size_t)(value_end - value_start),
-				        &parsed_length) != 0)
+				        &content_length_seen, &parsed_length) != 0)
 					return errno ? errno : EINVAL;
 				h->req_contentlen = (int)parsed_length;
 			}
