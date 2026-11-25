@@ -71,7 +71,6 @@ mock_unload(const char *name, void *context)
 	int index = find_module_index(name);
 	int status;
 
-	(void)context;
 	assert(index >= 0);
 	unload_calls[index]++;
 	status = rc_modem_module_unload_attempt_status(
@@ -81,6 +80,9 @@ mock_unload(const char *name, void *context)
 		errno = status;
 		return 0;
 	}
+	if (module_presence[index] == 1 &&
+	    module_remaining_presence[index] == 0 && context)
+		++*(size_t *)context;
 	return 1;
 }
 
@@ -382,12 +384,24 @@ test_module_reload_cache_published_only_after_success(void)
 static void
 test_absent_modules_are_successful_noop_unloads(void)
 {
-	size_t successful = 99;
+	size_t successful = 99, unloaded = 99;
 
 	reset_case();
 	assert(rc_modem_module_unload_group_status(module_names, TEST_MODULES,
-			mock_unload, NULL, &successful) == 0);
+			mock_unload, &unloaded, &successful) == 0);
 	assert(successful == TEST_MODULES);
+	assert(unloaded == 0);
+	assert_all_unload_attempted();
+
+	reset_case();
+	unloaded = 99;
+	module_presence[0] = 1;
+	unload_results[0] = 1;
+	module_remaining_presence[0] = 0;
+	assert(rc_modem_module_unload_group_status(module_names, TEST_MODULES,
+			mock_unload, &unloaded, &successful) == 0);
+	assert(successful == TEST_MODULES);
+	assert(unloaded == 1);
 	assert_all_unload_attempted();
 }
 
