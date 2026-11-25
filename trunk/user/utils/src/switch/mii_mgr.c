@@ -17,6 +17,11 @@
 
 #define MII_MGR_HELP 1
 
+#if defined(CONFIG_RALINK_MT7628)
+/* Register 31 contains a three-bit page plus the separate local selector. */
+#define MII_MGR_PAGE_SELECT_MAX 7UL
+#endif
+
 void show_usage(void)
 {
 #if MII_MGR_HELP
@@ -118,7 +123,7 @@ static int parse_arguments(int argc, char **argv,
 		case 'L':
 		case 'G':
 			if (page_seen ||
-			    parse_unsigned_argument(optarg, 16, UINT_MAX >> 12,
+			    parse_unsigned_argument(optarg, 16, MII_MGR_PAGE_SELECT_MAX,
 						    &number) < 0)
 				return -1;
 			parsed->page_mii.reg_num = 31;

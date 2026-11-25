@@ -1,3 +1,9 @@
+## 2026-11-25 — Bound MT7628 switch CLI page selector to its three-bit field
+
+- `mii_mgr -L/-G` accepted page values up to `UINT_MAX >> 12`, although register 31 encodes the page in bits 12–14 and reserves bit 15 for the local/global selector. Values 8–15 therefore overlapped the selector bit; larger values could exceed the 16-bit Clause 22 payload and be rejected by the kernel after the CLI had accepted them. Limit parsing to 0–7. Extend the host regression to assert valid maximum local/global encodings (`0xf000` and `0x7000`) and reject page 8 for both modes. Add an MT7628-specific compile and ASan/UBSan execution so this previously unbuilt conditional parser path is exercised alongside MT7621. Exact-head switch CLI workflow required; no board hardware result claimed.
+
+---
+
 ## 2026-11-25 — Restore explicit end-of-session checkpoint instruction
 
 - Exact-head AI documentation check #45559337773 validated the roadmap's byte cap after the previous correction, then failed because the current handoff's cross-session mandate omitted the required literal `Before context exhaustion`. Restore the explicit instruction to finish the safe slice and checkpoint the next concrete action before context exhaustion. No source code or test behavior changes.

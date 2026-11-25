@@ -96,20 +96,31 @@ static void test_write_and_ranges(void)
 static void test_page_select(void)
 {
 	char *page_only[] = {
-		"mii_mgr", "-L", "0x12", "-p", "3", NULL
+		"mii_mgr", "-L", "0x7", "-p", "3", NULL
 	};
 	char *page_and_read[] = {
-		"mii_mgr", "-G", "0x2", "-p", "3", "-g", "-r", "4", NULL
+		"mii_mgr", "-G", "0x7", "-p", "3", "-g", "-r", "4", NULL
+	};
+	char *local_page_overflow[] = {
+		"mii_mgr", "-L", "0x8", "-p", "3", NULL
+	};
+	char *global_page_overflow[] = {
+		"mii_mgr", "-G", "0x8", "-p", "3", NULL
 	};
 	struct mii_mgr_options parsed;
 
 	assert(parse_arguments(5, page_only, &parsed) == 0);
 	assert(parsed.page_select == 1 && parsed.page_mii.phy_id == 3);
 	assert(parsed.page_mii.reg_num == 31);
-	assert(parsed.page_mii.val_in == ((0x12U << 12) | 0x8000U));
+	assert(parsed.page_mii.val_in == ((0x7U << 12) | 0x8000U));
+	assert(parsed.page_mii.val_in <= 0xffffU);
 	assert(parse_arguments(8, page_and_read, &parsed) == 0);
 	assert(parsed.page_select == 1 && parsed.method == RAETH_MII_READ);
-	assert(parsed.mii.reg_num == 4 && parsed.page_mii.val_in == (0x2U << 12));
+	assert(parsed.mii.reg_num == 4 && parsed.page_mii.val_in == (0x7U << 12));
+	assert(parsed.page_mii.val_in <= 0xffffU);
+	/* Page 8 aliases the local/global selector bit and must be rejected. */
+	assert(parse_arguments(5, local_page_overflow, &parsed) < 0);
+	assert(parse_arguments(5, global_page_overflow, &parsed) < 0);
 }
 #endif
 

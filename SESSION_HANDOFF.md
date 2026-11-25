@@ -1,19 +1,18 @@
 ## 2026-11-25 autonomous handoff checkpoint
 
-This checkpoint supersedes older active-task pointers below. Historical completed source and verification records are retained; do not repeat completed audits.
+This checkpoint supersedes older active-task pointers below. Historical completed source slices and verification records are retained; do not repeat completed audits.
 
 ## Current repository state
 
-- Repository `Arlene206/padavan-4.4-2`; work only on `main`. Frozen `backup/pre-plugin-overhaul-2026-11-14` remains read-only; PR #1 remains closed/unmerged and inventory-only.
-- Parent before this handoff-rule correction: `3e412c4bbe72db1b2a23fac3b631255934327f71` (`docs: keep roadmap within UTF-8 byte limit`). AliyunDrive caller-UID guard, foreign/unreadable/malformed UID host tests and corrected checker are committed.
-- Exact-head AliyunDrive lifecycle #45559141117 PASS on `ed40cf1`: launcher syntax, bundled MIPSel binary CLI under QEMU, lifecycle regression, early private lock and source/RC contracts all passed. Process inventory #45558899583 PASS.
-- The roadmap is now 130,587 UTF-8 bytes, below its 131,072-byte hard limit. Exact-head AI docs #45559337773 on `3e412c4` then reached the continuous-execution contract and failed because this handoff's mandate omitted the required literal `Before context exhaustion`. This commit restores the explicit checkpoint sentence; all source/test code remains unchanged.
-- ZeroTier lifecycle #45558740874, Process #45558740829, WAN route #45558740832, AI docs #45558740777 and XY-C1 #45558740920 PASS on `af929e3`. The new commits since that product baseline are docs or AliyunDrive addon files, not XY-C1 firmware inputs.
-- ZeroTier damaged-checkpoint recovery and conflicting/multipath route cleanup are implemented and covered; do not reopen absent a new failing regression.
+- Repository `Arlene206/padavan-4.4-2`; development only on `main`. Frozen `backup/pre-plugin-overhaul-2026-11-14` remains read-only; PR #1 remains closed/unmerged and inventory-only.
+- Parent before the MT7628 parser fix: `65566f90e19c48e4e13e96afad9a7afea22fafa9` (`docs: restore handoff checkpoint instruction`). Exact-head AI documentation #45559561503 PASS; AliyunDrive lifecycle #45559141117 PASS. Earlier ZeroTier, WAN route, Process, and XY-C1 runs #45558740874, #45558740832, #45558740829 and #45558740920 PASS on `af929e3`.
+- New defect: MT7628-only `mii_mgr -L/-G` parser accepted a page up to 20 bits even though register 31 has a 3-bit page field (bits 12–14) and bit 15 is the local/global selector. Values 8–15 alias the selector; larger values can exceed the 16-bit Clause 22 payload and fail in the kernel ioctl. Previous regression compiled only MT7621, leaving this MT7628 branch untested.
+- This slice constrains page values to 0–7, tests max local/global encodings and rejects page 8 for both modes, and adds an MT7628-specific host compile plus ASan/UBSan run. MT7621 remains covered. Exact-head Switch CLI workflow must pass before closing this slice.
+- No physical switch/PHY, XY-C1 firmware, or hardware L4 result is inferred from host tests.
 
 ## Active task
 
-The AliyunDrive caller-UID identity fix passed exact-head lifecycle CI. The roadmap byte-cap correction is verified at 130,587 UTF-8 bytes. The latest AI docs run failed because this handoff omitted the required explicit "Before context exhaustion" checkpoint line; this commit restores it. Next verify the exact-head AI docs run, then resume a distinct whole-userland P1/P2 stability/security issue.
+The MT7628 page-range production fix, MT7628-specific regression, static source contract, CI step and status documentation are included in one atomic commit. Inspect the exact-head Switch CLI workflow and repair any failure at its failing step. Then continue a distinct whole-userland P1/P2 stability/security issue.
 
 # Cross-session execution mandate
 
@@ -124,9 +123,10 @@ Commit `786c504c8247fe42d5d1d5f2dc3ad28757fafc80` strictly parses persisted RX/T
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`; verify exact-head AI documentation contract after restoring the explicit `Before context exhaustion` sentence.
-2. Confirm `REFACTOR_ROADMAP.md` remains below 131,072 UTF-8 bytes (last verified: 130,587) using an encoded-byte preflight, not character count.
-3. Once docs CI passes, continue a distinct P1/P2 whole-userland reliability/security defect; AliyunDrive lifecycle is verified on `ed40cf1`.
+1. Fetch live `main` and inspect exact-head Switch CLI regression, especially MT7628-specific compile and ASan/UBSan test.
+2. Confirm MT7628 accepts pages 0–7, encodes local page 7 as `0xf000` and global page 7 as `0x7000`, and rejects page 8 in both modes. MT7621 parser regression must remain passing.
+3. Diagnose and repair any real CI failure; do not claim physical hardware validation from host tests.
+4. Continue the next distinct P1/P2 whole-userland reliability/security issue from the live roadmap.
 
 ## Mandatory handoff checkpoint
 

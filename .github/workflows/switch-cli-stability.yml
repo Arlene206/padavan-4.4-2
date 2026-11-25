@@ -1107,11 +1107,17 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
 
+          workflow = Path(".github/workflows/switch-cli-stability.yml").read_text()
           driver = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether.c").read_text()
           cli = Path("trunk/user/utils/src/switch/mii_mgr.c").read_text()
+          cli_test = Path("trunk/user/utils/src/switch/tests/mii_mgr_cli.c").read_text()
           makefile = Path("trunk/user/utils/src/switch/Makefile").read_text()
 
           assert "mii_mgr: invalid or incomplete arguments" in cli
+          assert "#define MII_MGR_PAGE_SELECT_MAX 7UL" in cli
+          assert "parse_unsigned_argument(optarg, 16, MII_MGR_PAGE_SELECT_MAX" in cli
+          assert "local_page_overflow" in cli_test and "global_page_overflow" in cli_test
+          assert "-DCONFIG_RALINK_MT7628" in workflow
           assert "parse_arguments(argc, argv, &options)" in cli
           main = cli.split("int main(", 1)[1]
           assert main.index("parse_arguments(") < main.index("socket(AF_INET")
@@ -1129,8 +1135,9 @@ jobs:
           assert real.index("if (!mii_mgr_read(") < real.index("copy_to_user(ifr->ifr_data, &mii, sizeof(mii))")
           print("Clause 22 MDIO timeout/error results reach both ioctl handlers: OK")
           PY
-      - name: Build MII manager and run host argument regression
+      - name: Build MT7621 and MT7628 MII manager host regressions
         run: |
+          set -eu
           SWITCH_DIR=trunk/user/utils/src/switch
           RAETH_INCLUDE=trunk/linux-4.4.x/drivers/net/ethernet/raeth
           cc -std=gnu89 -Wall -Wextra -Werror -DCONFIG_RALINK_MT7621 \
@@ -1139,7 +1146,14 @@ jobs:
             -I "$RAETH_INCLUDE" -fsanitize=address,undefined \
             -fno-omit-frame-pointer "$SWITCH_DIR/tests/mii_mgr_cli.c" \
             -o /tmp/mii_mgr_cli
-          ASAN_OPTIONS=detect_leaks=1 /tmp/mii_mgr_cli
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/mii_mgr_cli
+          cc -std=gnu89 -Wall -Wextra -Werror -DCONFIG_RALINK_MT7628 \
+            -I "$RAETH_INCLUDE" -c "$SWITCH_DIR/mii_mgr.c" -o /tmp/mii_mgr_mt7628.o
+          cc -std=gnu89 -Wall -Wextra -Werror -DCONFIG_RALINK_MT7628 \
+            -I "$RAETH_INCLUDE" -fsanitize=address,undefined \
+            -fno-omit-frame-pointer "$SWITCH_DIR/tests/mii_mgr_cli.c" \
+            -o /tmp/mii_mgr_cli_mt7628
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/mii_mgr_cli_mt7628
 
       - name: Enforce the MTK ESW ioctl CAP_NET_ADMIN boundary
         run: |
