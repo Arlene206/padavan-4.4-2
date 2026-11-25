@@ -376,11 +376,29 @@ test_fifo_idle_readiness_and_event_bytes_are_safe(void)
 }
 
 
+static void
+test_socket_initialization_failure_closes_descriptor_and_preserves_errno(void)
+{
+    int sockets[2];
+
+    assert(socketpair(AF_UNIX, SOCK_STREAM, 0, sockets) == 0);
+    errno = EADDRINUSE;
+    assert(u2ec_close_failed_socket(sockets[0]) == -1);
+    assert(errno == EADDRINUSE);
+
+    errno = 0;
+    assert(fcntl(sockets[0], F_GETFD) == -1);
+    assert(errno == EBADF);
+    close(sockets[1]);
+}
+
+
 int
 main(void)
 {
     test_lock_fd_is_released_exactly_once();
     test_fifo_idle_readiness_and_event_bytes_are_safe();
+    test_socket_initialization_failure_closes_descriptor_and_preserves_errno();
     test_send_completes_a_tcp_stream_write();
     test_disconnected_peer_returns_epipe_without_sigpipe();
     test_mid_frame_eof_is_reported_as_reset();

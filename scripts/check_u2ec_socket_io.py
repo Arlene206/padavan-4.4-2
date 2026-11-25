@@ -146,6 +146,17 @@ assert "u2ec_send_all_no_sigpipe(new_fd, \"\\0\\0\", 2U)" in establish
 assert "close(new_fd);" in establish
 assert "send(new_fd," not in source and "send(sockfd," not in source
 
+for signature in ("int dgram_sock_init(int port)",
+                  "int stream_sock_init(int port)"):
+    initializer = body(source, signature)
+    socket_check = initializer.index("if ((sockfd = socket(")
+    post_socket = initializer[socket_check:]
+    assert post_socket.count("return u2ec_close_failed_socket(sockfd);") == 4
+    assert "return -1;" not in post_socket.split("if (setsockopt", 1)[-1]
+assert "u2ec_close_failed_socket" in policy
+assert "test_socket_initialization_failure_closes_descriptor_and_preserves_errno" in test
+assert "errno = EADDRINUSE;" in test and "errno == EBADF" in test
+
 fifo_reader = body(source, "static int handle_fifo(")
 assert "u2ec_read_fifo_event(*fd, &c)" in fifo_reader
 assert fifo_reader.index("if (fifo_status < 0)") < fifo_reader.index("if (c == 'a')")

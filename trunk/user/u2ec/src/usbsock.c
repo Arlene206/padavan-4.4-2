@@ -2708,18 +2708,18 @@ int dgram_sock_init(int port)
 	strncpy(ifr.ifr_name, "br0", IFNAMSIZ);
 	if (setsockopt(sockfd, SOL_SOCKET, SO_BINDTODEVICE, (char *)&ifr, sizeof(ifr)) < 0) {
 		perror("setsockopt: bind to device");
-		return -1;
+		return u2ec_close_failed_socket(sockfd);
 	}
 #endif
 
 	if (setsockopt(sockfd, SOL_SOCKET, SO_BROADCAST, (char *)&broadcast, sizeof(broadcast)) < 0) {
 		perror("setsockopt: bin to broadcast");
-		return -1;
+		return u2ec_close_failed_socket(sockfd);
 	}
 
 	if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) < 0) {
 		PERROR("setsockopt");
-		return -1;
+		return u2ec_close_failed_socket(sockfd);
 	}
 
 	bzero((char *)&serv_addr, sizeof(serv_addr));
@@ -2729,7 +2729,7 @@ int dgram_sock_init(int port)
 
 	if (bind(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
 		perror("bind");
-		return -1;
+		return u2ec_close_failed_socket(sockfd);
 	}
 
 	return sockfd;
@@ -2753,12 +2753,12 @@ int stream_sock_init(int port)
 
 	if (setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, &no_delay, sizeof(no_delay)) < 0) {
 		PERROR("setsockopt");
-		return -1;
+		return u2ec_close_failed_socket(sockfd);
 	}
 
 	if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) < 0) {
 		PERROR("setsockopt");
-		return -1;
+		return u2ec_close_failed_socket(sockfd);
 	}
 
 	bzero((char *)&serv_addr, sizeof(serv_addr));
@@ -2768,12 +2768,12 @@ int stream_sock_init(int port)
 
 	if (bind(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
 		PERROR("bind");
-		return -1;
+		return u2ec_close_failed_socket(sockfd);
 	}
 
 	if (listen(sockfd, BACKLOG) < 0) {
 		PERROR("listen");
-		return -1;
+		return u2ec_close_failed_socket(sockfd);
 	}
 
 	return sockfd;

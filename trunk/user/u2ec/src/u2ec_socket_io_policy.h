@@ -14,6 +14,18 @@
 #define U2EC_CONFIG_COMMAND_GETNAME    1
 #define U2EC_CONFIG_COMMAND_GETCONFIG  2
 
+/* Close a socket whose initialization failed without losing the cause. */
+static inline int
+u2ec_close_failed_socket(int fd)
+{
+    int saved_errno = errno;
+
+    if (fd >= 0)
+        (void)close(fd);
+    errno = saved_errno;
+    return -1;
+}
+
 /*
  * The discovery protocol uses fixed command tokens (7 and 9 bytes), not
  * NUL-terminated strings. Do not accept an incomplete TCP read as a command.
