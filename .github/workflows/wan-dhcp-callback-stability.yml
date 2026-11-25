@@ -1491,6 +1491,18 @@ jobs:
           ):
               assert operation in sit_start, f"unchecked/missing SIT operation: {operation}"
           assert "int start_sit_tunnel(" in wan6_source
+          sit_endpoint_policy = sit_start.index("wan6_sit_endpoint_route_add_status(")
+          sit_endpoint_add = sit_start.index(
+              "route_add(wan_ifname, 0, sit_ep, wan_gate4", sit_endpoint_policy
+          )
+          sit_endpoint_owner = sit_start.index("&wan_route_added", sit_endpoint_add)
+          sit_endpoint_failure = sit_start.index("if (status != 0)", sit_endpoint_owner)
+          assert (
+              sit_endpoint_policy < sit_endpoint_add < sit_endpoint_owner < sit_endpoint_failure
+          )
+          assert "if (add_status == EEXIST)" in wan6_identity_policy
+          assert "test_sit_endpoint_route_duplicate_is_accepted_without_ownership" in wan6_identity_test
+          assert "test_sit_endpoint_route_failure_is_not_hidden" in wan6_identity_test
           assert "if (wan_route_added)" in sit_start
           assert "if (tunnel_created)" in sit_start
           assert sit_start.index("route_add(wan_ifname, 0, sit_ep") < sit_start.index('eval("ip", "-6", "addr", "add", addr6s')
@@ -1544,7 +1556,7 @@ jobs:
               'WAN6_SIT_CHECK(eval("ip", "tunnel", "del", IFNAME_SIT)',
               'WAN6_SIT_CHECK(eval("ip", "tunnel", "add", IFNAME_SIT, "mode", "sit"',
               'WAN6_SIT_CHECK(eval("ip", "tunnel", "6rd", "dev", IFNAME_SIT',
-              "WAN6_SIT_CHECK(route_add(wan_ifname, 0, sit_ep",
+              "wan6_sit_endpoint_route_add_status(",
               "WAN6_SIT_CHECK(control_if_ipv6_radv(IFNAME_SIT, 0)",
               'WAN6_SIT_CHECK(eval("ip", "link", "set", "mtu", sit_mtu_text',
               "WAN6_SIT_CHECK(control_if_ipv6(IFNAME_SIT, 1)",
