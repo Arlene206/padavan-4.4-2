@@ -183,7 +183,6 @@ main(void)
   char alias[PATH_MAX], path[PATH_MAX], parent[PATH_MAX], resolved[PATH_MAX];
   char file_a[PATH_MAX], file_b[PATH_MAX], link_file[PATH_MAX];
   char hardlink_file[PATH_MAX];
-  char cleanup_hardlink_file[PATH_MAX];
   char broken_link[PATH_MAX], dir_b[PATH_MAX], dir_alias[PATH_MAX];
   char metadata_file[PATH_MAX], metadata_alias[PATH_MAX];
   char new_file[PATH_MAX], leaf[PATH_MAX];
@@ -325,8 +324,6 @@ main(void)
   checked_path(file_b, sizeof(file_b), b, "protected.txt");
   checked_path(link_file, sizeof(link_file), a, "cross-share-link");
   checked_path(hardlink_file, sizeof(hardlink_file), a, "cross-share-hardlink");
-  checked_path(cleanup_hardlink_file, sizeof(cleanup_hardlink_file), b,
-               "cleanup-upload-alias.txt");
   checked_path(broken_link, sizeof(broken_link), a, "dangling-link");
   checked_path(dir_b, sizeof(dir_b), b, "subdir");
   checked_path(dir_alias, sizeof(dir_alias), a, "directory-link");
