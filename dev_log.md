@@ -1,3 +1,7 @@
+## 2026-11-24 — Repair SmartDNS DNSMasq source-checker initialization order
+
+- Exact DNSMasq run #45549996147 on `5d713067` passed all SmartDNS shell regressions, then the Python integration contract failed with `NameError: stop is not defined`: it inspected the `Stop_smartdns` body before assigning it. Moved the body extraction before its first use; no production source changed. Exact-head rerun is required.
+
 ## 2026-11-24 — Bind AP static-host fallback to its file-safety branch
 
 - `create_hosts_lan()` omitted braces around the safe `/tmp/hosts.static` branch, so the `else` bound to the nested load-error check rather than the file-safety test. A successful copy with non-`ENOENT` stale `errno` could emit a false “skipping” warning. Added explicit braces and a DNSMasq workflow source-contract regression for the complete branch.

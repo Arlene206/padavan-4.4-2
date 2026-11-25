@@ -190,6 +190,7 @@ assert adbyby_change.index("nvram set adbyby_add=0") < adbyby_change.index('host
 assert adbyby_change.index("nvram set adbyby_add=1") < adbyby_change.index('hosts_type="SmartDNS"')
 
 start = body(smartdns, "Start_smartdns")
+stop = body(smartdns, "Stop_smartdns")
 assert 'if Change_adbyby; then' in start
 assert 'smartdns_restore_previous_instance || :' in start[start.index('if Change_adbyby; then'):start.index('sdns_redirected=')]
 clean_at = start.find("smartdns_dnsmasq_remove_saved_directives")
@@ -209,7 +210,6 @@ assert 'Change_iptable reset' in body(smartdns, "Main")
 assert "SmartDNS stop explicitly removes firewall redirects during start rollback" in test
 assert "SmartDNS start and restart install DNS redirects from the saved prior mode" in test
 assert "smartdns_state_version=managed-v1" in start
-stop = body(smartdns, "Stop_smartdns")
 assert 'if Change_adbyby; then' in stop
 assert stop.index("smartdns_stop_process") < stop.index('if Change_adbyby; then') < stop.index("Change_iptable")
 assert 'return "$smartdns_adbyby_status"' in stop
