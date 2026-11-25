@@ -4047,15 +4047,23 @@ static void multi_client_tick(void)
 	    now - last_busy_live->time > U2EC_TIMEOUT) {
 		PDEBUG(" U2EC TIMEOUT!\n");
 
-		alarm(0);
 		u2ec_fifo = open(U2EC_FIFO, O_WRONLY|O_NONBLOCK);
 		if (u2ec_fifo < 0) {
 			PERROR("open U2EC FIFO for multi-client timeout");
-			return;
+			return; /* alarm(1) remains armed; retry on the next tick */
 		}
-		if (write(u2ec_fifo, "c", 1) != 1)
+		if (write(u2ec_fifo, "c", 1) != 1) {
+			int write_errno = errno;
+
+			close(u2ec_fifo);
+			if (write_errno == 0)
+				write_errno = EIO;
+			errno = write_errno;
 			PERROR("write U2EC FIFO multi-client timeout");
+			return; /* do not lose the timeout event on a transient FIFO error */
+		}
 		close(u2ec_fifo);
+		alarm(0);
 	}
 }
 

@@ -185,6 +185,9 @@ assert "last_busy_conn = NULL" in alarm_tick
 assert "last_busy_live->time" in alarm_tick
 assert "u2ec_fifo = open(U2EC_FIFO, O_WRONLY|O_NONBLOCK)" in alarm_tick
 assert "if (u2ec_fifo < 0)" in alarm_tick
+assert alarm_tick.index("alarm(1)") < alarm_tick.index("u2ec_fifo = open")
+assert "alarm(0)" in alarm_tick
+assert alarm_tick.index("alarm(0)") > alarm_tick.index('write(u2ec_fifo, "c", 1)') if 'write(u2ec_fifo, "c", 1)' in alarm_tick else False
 assert "pthread_sigmask(SIG_BLOCK, &sigs_to_catch" in daemon_main
 assert "sigaction(SIGALRM, &alarm_action, NULL)" in daemon_main
 assert daemon_main.index("pthread_sigmask(SIG_BLOCK, &sigs_to_catch") < daemon_main.index("pthread_create(")
