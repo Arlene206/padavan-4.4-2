@@ -1,3 +1,8 @@
+## 2026-11-24 — Align storage CI with the third DHCP retry call site
+
+- Exact SHA b19ffd89d64441c763be6ba218aa9b73787fe847: udhcpc regression #45523015896, Process inventory #45523015238, Process fail-closed #45523015250 and AI docs #45523015265 PASS; NVRAM boundary #45523015241 PASS. XY-C1 #45523015263 remained IN_PROGRESS at Build.
+- Storage-hotplug #45523015407 built BusyBox and passed all preceding storage shell regressions, then failed inline source-contract line 1347 because it still expected two `udhcpc_script_failure_prepare_retry()` call sites. The newly added malformed-subnet DHCPACK deferral is a legitimate third call. Update the contract to require three and assert the mask gate runs before script execution; keep all runtime tests and path filters.
+
 ## 2026-11-24 — Reject non-contiguous DHCPv4 subnet masks
 
 - `dhcpc.c:mton()` counted every set bit after shifting the mask, but never checked that the one-bits were contiguous from the most-significant bit. A malformed DHCP option 1 such as 255.0.255.0 was therefore exported as `mask=16`, silently changing the mask's meaning and allowing a server response to misconfigure the client's interface.
