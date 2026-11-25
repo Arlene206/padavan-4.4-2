@@ -1,3 +1,12 @@
+## 2026-11-26 03:24 CST (UTC+8) — Scope interface ownership checks to declarations
+
+- Base SHA: `615469fc69f100ad6dfce63a27b2a0b3f46f2864`; focused source-check correction, no production-code changes.
+- Exact-SHA VPN lifecycle #45661993374 passed all C regressions and the earlier lifecycle source contracts, including the two-snapshot OpenVPN rollback policy test. It then failed because the new ownership checker searched the function body for the parameter declaration `int *interface_created`; the shared `body()` parser intentionally returns only statements inside braces. Moved declaration inspection to the signature span and kept the initialization/ownership assignments asserted inside the function body for both TAP and TUN.
+- Exact-SHA OpenVPN credential staging #45661993123 PASS and AI handoff docs #45661992916 PASS. The prior d9 VPN run #45661762483 failed at the double-escaped signatures, now normalized in `615469fc69f100ad6dfce63a27b2a0b3f46f2864`; the 615 run exposed this final checker-scope issue.
+- Parent dc6 XY-C1 #45660655080 was still building at last poll; process lifecycle #45660655082, process inventory #45660655142, NVRAM #45660655603 and HTTPD #45660655362 had completed SUCCESS. Same-SHA L3 requires the XY job's Build, TRX and artifact steps. Physical-router L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-26 03:10 CST (UTC+8) — Fix escaped OpenVPN lifecycle checker signatures
 
 - Base SHA: `d9add97d1b68a5fcb468f27dc8accda1ab1e0e0b`; this is a checker/workflow dependency repair, committed as one main descendant.

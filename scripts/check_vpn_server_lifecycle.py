@@ -1639,13 +1639,19 @@ ordered(rollback_fn, [
 require("resource_created == 1" in openvpn_rollback_policy and
         "process_state == PROCESS_PRESENCE_ABSENT" in openvpn_rollback_policy,
         "OpenVPN cleanup requires this attempt's ownership and confirmed absence")
-for helper, label in (
-    (body(vpn_openvpn, "static int\nopenvpn_tapif_start"), "TAP"),
-    (body(vpn_openvpn, "static int\nopenvpn_tunif_start"), "TUN"),
+for helper_signature, label in (
+    ("static int\nopenvpn_tapif_start", "TAP"),
+    ("static int\nopenvpn_tunif_start", "TUN"),
 ):
-    require("int *interface_created" in helper and
-            "*interface_created = 0;" in helper and
-            "*interface_created = created;" in helper,
+    require(helper_signature in vpn_openvpn,
+            f"OpenVPN {label} interface helper declaration is missing")
+    helper_start = vpn_openvpn.index(helper_signature)
+    helper_brace = vpn_openvpn.index("{", helper_start)
+    helper_declaration = vpn_openvpn[helper_start:helper_brace]
+    helper_body = body(vpn_openvpn, helper_signature)
+    require("int *interface_created" in helper_declaration and
+            "*interface_created = 0;" in helper_body and
+            "*interface_created = created;" in helper_body,
             f"OpenVPN {label} helper must report only resources created by this attempt")
 for signature, pidfile, label in (
     ("start_openvpn_server(void)", "SERVER_PID_FILE", "server"),
