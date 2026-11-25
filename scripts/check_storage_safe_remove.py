@@ -1206,13 +1206,14 @@ reset_case_start = mtd_storage.index("\nreset)\n") + 1
 reset_case_end = mtd_storage.index("\n\t;;", reset_case_start)
 reset_dispatch = mtd_storage[reset_case_start:reset_case_end]
 require("if func_reset && func_fill; then" in reset_dispatch and
-        reset_dispatch.index('if ! rm -f "$slk"; then') <
-        reset_dispatch.index("func_start_apps"),
-        "reset dispatch must fill defaults before unlocking and starting applications")
+        reset_dispatch.index("if ! func_start_apps; then") <
+        reset_dispatch.index('elif ! rm -f "$slk"; then') and
+        "Defaults prepared but storage applications failed to start; save lock retained" in reset_dispatch,
+        "reset dispatch must confirm application startup before releasing the save barrier")
 require("Reset preparation failed; storage save lock retained" in reset_dispatch,
         "failed reset preparation must not continue into default fill or app startup")
 for item in ("MTD_WRITE_STATUS", "EVENT_LOG", "erase-stop-failure", "FAIL_TOUCH_PATH", "FAIL_RM_PATH",
-             "FAIL_MKDIR_PATH", "FILL_FAIL", "reset-lock-release-failure",
+             "FAIL_MKDIR_PATH", "FILL_FAIL", "reset-start-failure", "START_FAIL", "reset-lock-release-failure",
              "erase-directory-recreation-failure", "STOP_APPS_FAIL",
              "reset-stop-failure", 'grep -Fqx stop "$STOP_LOG"'):
     require(item in mtd_storage_erase_reset_test,

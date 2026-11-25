@@ -1193,14 +1193,13 @@ reset)
 		result=1
 		logger -t "Storage reset" "Reset aborted because rstats did not stop cleanly; save lock retained"
 	elif func_reset && func_fill; then
-		# Release the barrier only after the complete default tree exists.
-		if ! rm -f "$slk"; then
-			result=1
-			logger -t "Storage reset" "Defaults prepared but storage save lock cleanup failed: $slk"
-		fi
+		# Keep the save barrier until the services are confirmed started.
 		if ! func_start_apps; then
 			result=1
-			logger -t "Storage reset" "Defaults prepared but storage applications failed to start"
+			logger -t "Storage reset" "Defaults prepared but storage applications failed to start; save lock retained"
+		elif ! rm -f "$slk"; then
+			result=1
+			logger -t "Storage reset" "Defaults prepared and applications started, but storage save lock cleanup failed: $slk"
 		fi
 	else
 		result=1

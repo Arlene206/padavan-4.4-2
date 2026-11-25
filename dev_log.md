@@ -1,3 +1,11 @@
+## 2026-11-25 — Retain the MTD reset save barrier when services fail to restart
+
+- Review of the reset dispatch found the same recovery-state bug recently fixed in restore: reset removed `.storage_locked` before calling `func_start_apps()` and only set a failure status if startup failed. This allowed subsequent MTD saves to run even though the default storage service set had not restarted.
+- Reset now requires `func_start_apps()` to succeed while the save barrier is still present, and only then removes the marker. A startup failure returns non-zero and retains the marker. Extended the host/BusyBox ash erase-reset regression so the mock verifies the marker exists at every start call and injects a failed restart; source-contract assertions now enforce the ordering.
+- Exact-head storage-hotplug CI is required. No device test is claimed.
+
+---
+
 ## 2026-11-25 — Remove the unnecessary unbound mkdir helper from the MTD load fixture
 
 - USB-storage exact-head run #45597345823 passed the MTD save-retry and restore transaction tests (including BusyBox ash), then failed in the load transaction fixture at its symlinked-storage check with `real_mkdir: parameter not set`.

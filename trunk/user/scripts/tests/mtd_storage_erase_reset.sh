@@ -64,6 +64,7 @@ prepare_case()
 	START_FAIL=0
 	STOP_APPS_FAIL=0
 	export FAIL_RM_PATH FAIL_MKDIR_PATH FAIL_TOUCH_PATH MTD_WRITE_STATUS FILL_FAIL START_FAIL STOP_APPS_FAIL
+	export SAVE_LOCK_PATH="$base/private/.storage_locked"
 	export STOP_LOG="$base/stop-apps.log"
 	: > "$STOP_LOG"
 	sed \
@@ -91,6 +92,10 @@ func_fill()
 func_start_apps()
 {
 	printf '%s\n' start >> "$CALL_LOG"
+	[ -e "$SAVE_LOCK_PATH" ] || {
+		printf '%s\n' "start without save lock" >> "$CALL_LOG"
+		return 1
+	}
 	[ "${START_FAIL:-0}" != 1 ]
 }
 EOF_MOCK_FUNCTIONS
@@ -232,6 +237,16 @@ expect_failure reset "default fill"
 [ -e "$base/private/.storage_locked" ]
 grep -Fqx fill "$CALL_LOG"
 ! grep -Fqx start "$CALL_LOG"
+
+prepare_case reset-start-failure
+START_FAIL=1
+export START_FAIL
+expect_failure reset "application restart"
+[ -e "$base/private/.storage_locked" ]
+assert_empty_storage
+grep -Fqx fill "$CALL_LOG"
+grep -Fqx start "$CALL_LOG"
+! grep -Fqx "start without save lock" "$CALL_LOG"
 
 prepare_case reset-lock-release-failure
 FAIL_RM_PATH="$base/private/.storage_locked"
