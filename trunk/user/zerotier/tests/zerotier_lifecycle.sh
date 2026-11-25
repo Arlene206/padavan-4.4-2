@@ -227,6 +227,11 @@ ip() {
 				printf '%s\n' "${TEST_ROUTE_SEGMENT:-10.147.17.0/24} dev ztunit proto static scope link"
 			fi
 			;;
+		daemon-multipath)
+			if [ "$(cat "$TEST_STATE")" = running ]; then
+				printf '%s\n' 'default proto static nexthop via 192.0.2.1 dev ztunit weight 1 nexthop via 192.0.2.2 dev br0 weight 1'
+			fi
+			;;
 		*)
 			;;
 	esac
@@ -1795,6 +1800,42 @@ fi
 grep -Fqx -- "nat POSTROUTING -s 10.148.18.0/24 -j MASQUERADE" "$TEST_IPTABLES_STATE_FILE" || fail "live static route fixture lost the older source-NAT rule"
 grep -Fqx -- "corrupt-extra-record" "$TEST_CONFIG/.firewall-state" || fail "live static route normalized the corrupt checkpoint"
 [ -f "$TEST_CONFIG/identity.secret" ] || fail "live static route removed persistent identity"
+# A multipath route may contain multiple dev tokens on one line. Any
+# nexthop using the saved interface must block damaged-prefix recovery.
+/bin/rm -rf "$TEST_CONFIG"
+mkdir -p "$TEST_CONFIG"
+echo identity > "$TEST_CONFIG/identity.secret"
+: > "$TEST_IPTABLES_STATE_FILE"
+: > "$TEST_IPTABLES_LOG"
+printf '%s\n' 'ztunit' '10.147.17.0/24' 'corrupt-extra-record' > "$TEST_CONFIG/.firewall-state"
+TEST_STATIC_ROUTE_COUNT=0
+TEST_STATIC_ROUTE_ENABLE=0
+TEST_NAT_ENABLE=0
+TEST_IFCONFIG_MODE=running-only
+TEST_ROUTE_MODE=daemon-multipath
+TEST_ROUTE_DUMP_STATUS=0
+echo 0 > "$TEST_ROUTE_COUNT"
+: > "$TEST_KILL_LOG"
+: > "$TEST_ACTION_LOG"
+test_proc_reset
+test_proc_add 4338 "$PROG" "$PROG"
+echo running > "$TEST_STATE"
+TEST_MODE=graceful
+if stop_zero; then
+	fail "stop recovered a damaged checkpoint with a multipath nexthop on the saved interface"
+fi
+[ "$(cat "$TEST_STATE")" = running ] || fail "multipath route on saved interface stopped the daemon"
+[ ! -s "$TEST_KILL_LOG" ] || fail "multipath route on saved interface signalled the daemon"
+[ ! -s "$TEST_IPTABLES_LOG" ] || fail "multipath route on saved interface edited firewall state"
+grep -Fqx -- "corrupt-extra-record" "$TEST_CONFIG/.firewall-state" || fail "multipath route normalized the damaged checkpoint"
+[ -f "$TEST_CONFIG/identity.secret" ] || fail "multipath route removed persistent identity"
+TEST_ROUTE_MODE=none
+/bin/rm -rf "$TEST_CONFIG"
+: > "$TEST_IPTABLES_LOG"
+: > "$TEST_IPTABLES_STATE_FILE"
+test_proc_reset
+TEST_IFCONFIG_MODE=none
+
 TEST_ROUTE_MODE=none
 /bin/rm -rf "$TEST_CONFIG"
 : > "$TEST_IPTABLES_LOG"

@@ -1,3 +1,9 @@
+## 2026-11-24 — Detect ZeroTier multipath routes on every nexthop
+
+- Review of the damaged-checkpoint route guard found that its AWK parser retained only the last `dev` token on each `ip route` line. Multipath routes can contain multiple nexthops on one line; if the ZeroTier interface appeared before a later `br0` nexthop, the parser could miss the live ZeroTier path and incorrectly allow prefix recovery.
+- Changed the route scan to compare every `dev` token directly with the saved interface. Added a regression with a single multipath line where `ztunit` is the first nexthop and `br0` the final one; damaged-checkpoint recovery must remain fail-closed, leaving daemon, checkpoint, identity and firewall untouched.
+- Added exact-source contract coverage. No local shell run claimed; exact-head ZeroTier Actions required.
+
 ## 2026-11-24 — Refresh active handoff after ZeroTier recovery and UDHCP verification
 
 - Live main at checkpoint: `11402f44cdaf2a172c950cbb0d62be0fa9246d74`; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.

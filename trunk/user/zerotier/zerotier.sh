@@ -808,16 +808,10 @@ zerotier_firewall_state_recover_prefix() {
 	zt_recovery_routes="$(ip route)" || return 1
 	zt_recovery_route_found="$(printf '%s\n' "$zt_recovery_routes" | awk -v zt_if="$zt_state_saved_interface" '
 		{
-			dev = ""
-			proto = ""
 			for (i = 1; i < NF; i++) {
-				if ($i == "dev")
-					dev = $(i + 1)
-				else if ($i == "proto")
-					proto = $(i + 1)
+				if ($i == "dev" && $(i + 1) == zt_if)
+					found = 1
 			}
-			if (dev == zt_if)
-				found = 1
 		}
 		END { print found ? 1 : 0 }
 	')" || return 1

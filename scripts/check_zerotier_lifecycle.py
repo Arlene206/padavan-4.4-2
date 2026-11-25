@@ -415,7 +415,8 @@ require('zt_state_file="$config_path/.firewall-state"' in stop_body and
         'stop recovered a truncated checkpoint prefix' in test and
         'stop accepted an unterminated trailing checkpoint fragment' in test and
         'stop recovered a damaged checkpoint with an unreadable live route inventory' in test and
-        'stop recovered a damaged checkpoint despite a live static route on the saved interface' in test,
+        'stop recovered a damaged checkpoint despite a live static route on the saved interface' in test and
+        'stop recovered a damaged checkpoint with a multipath nexthop on the saved interface' in test,
         "stop may sanitize only a complete, validated checkpoint prefix; a truncated or semantically invalid tuple must still block shutdown")
 for marker in ("rules accepted an unreadable NAT selector as disabled",
                "NAT selector read failure stopped the daemon",
@@ -531,8 +532,8 @@ require('[ -f "$zt_state_file" ] && [ ! -L "$zt_state_file" ]' in state_recover_
         'IFS= read -r zt_state_extra || return 1' in state_recover_body and
         'zerotier_ipv4_cidr_is_valid "$zt_state_saved_segment"' in state_recover_body and
         'zt_recovery_routes="$(ip route)" || return 1' in state_recover_body and
-        'if (dev == zt_if)' in state_recover_body and
-        'proto == "kernel"' not in state_recover_body and
+        'if ($i == "dev" && $(i + 1) == zt_if)' in state_recover_body and
+        'dev = $(i + 1)' not in state_recover_body and
         'zt_recovery_routes="$(ip route)" || return 1' in state_recover_body and
         "printf '%s\\n' \"$zt_recovery_routes\"" in state_recover_body and
         '[ "$zt_recovery_route_found" = "0" ] || return 1' in state_recover_body and
