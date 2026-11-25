@@ -1,3 +1,13 @@
+## 2026-11-26 03:08 CST (UTC+8) — Fail closed on USB SCSI-generic modem_zcd reads
+
+- `mdev_sg_main()` selected between loading `sr_mod` and executing the privileged `/sbin/zerocd` helper using unchecked `nvram_get_int("modem_zcd")`. A backend read failure was therefore indistinguishable from the legacy missing-key/default value and could take the wrong device-mode transition.
+- Replaced the lossy getter with `nvram_get_checked()` and a dedicated bounded decimal policy. A missing key preserves the historical zero default; a backend failure, impossible API status, missing returned value, overflow or trailing junk aborts before either side effect. The policy output is initialized to fail closed.
+- Added GNU89 regression cases for absent/default, configured 0/1/negative nonzero, backend errors, malformed values, overflow, NULL value and impossible API status. The USB modem workflow now pins checked-read-before-branch ordering and the regression cases.
+- Exact parent `38fe0fadc4eca4dd35431b72bad079725fe56887` WAN6 #45708135345, NVRAM #45708135328, Process #45708135338 and AI docs #45708135299 PASS. Exact-head USB modem/Process/NVRAM/AI checks for this slice are pending; no firmware or physical USB test is claimed.
+- Changed paths: `hotplug_usb.c`, `modem_sg_module_policy.h`, `tests/modem_sg_module_policy.c`, `usb-modem-identity-stability.yml`, `SESSION_HANDOFF.md`, `dev_log.md`.
+
+---
+
 ## 2026-11-26 02:52 CST (UTC+8) — Enforce the RFC 5969 6rd relay-count ceiling
 
 - The DHCP 6rd binary-option validator limits the payload to its one-byte length and requires the 18-byte fixed header plus complete four-byte relay addresses, so a valid option can contain at most 59 relays. The downstream text policy documented that limit but accepted arbitrarily more addresses when called with a synthetic or future non-wire input.

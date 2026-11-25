@@ -1,26 +1,25 @@
 ## Current repository state — 2026-11-26
 
-- Entry main SHA: `a2979282ae6bd462289bf55016fe7dca4b1c9149` (documentation checkpoint); product-source baseline is `6534ff95d5a6368bc7f6f438a3427ea6048fb6df`.
+- Live main source SHA before this USB hotplug slice: `38fe0fadc4eca4dd35431b72bad079725fe56887`. The 6rd relay-list upper bound is explicit: 59 accepted; 60 rejected; failure clears the output.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- On source SHA `6534ff95`: VSFTPD #45707415023, Process inventory #45707415097, NVRAM boundary #45707414901 and AI docs #45707414961 all PASS. XY-C1 #45707417102 was still IN_PROGRESS at last observation; no L3 result is inferred.
-- Parent 6rd implementation `360ccb32e57ffa4689992b3c8efda20cde5d5262`: WAN 6rd multiple-relay regression #45706623877, WAN DHCP callback #45706623959, WAN route #45706623962, IPv6 service-type #45706624080, HTTPD #45706624066, NVRAM #45706624093, Process #45706623957 and AI docs #45706623837 PASS. XY-C1 #45706623960 was still building; no L3 result is inferred.
-- The AI documentation run on docs checkpoint `a2979282` is #45708009019, IN_PROGRESS at the last observation.
+- Exact-head CI on `38fe0fad`: WAN 6rd #45708135345 PASS; NVRAM transaction #45708135328 PASS; Process lifecycle inventory #45708135338 PASS; AI handoff docs #45708135299 PASS.
+- Earlier source baseline `6534ff95`: VSFTPD #45707415023, Process #45707415097, NVRAM #45707414901 and AI docs #45707414961 PASS; XY-C1 #45707417102 was still in progress at last recorded observation. No firmware L3 result is inferred.
+- 6rd parent source `360ccb32`: WAN 6rd #45706623877 and its related WAN/IPv6/HTTPD/NVRAM/Process/AI checks PASS; XY-C1 #45706623960 remained in progress at last recorded observation.
 
 ## Active task
 
-The RFC 5969 option has a one-octet payload length, an 18-byte fixed portion and four bytes per border relay. Therefore no valid option can contain more than 59 relays. The upstream BusyBox validator rejects malformed option lengths and partial relay tuples, but the downstream text-policy helper documented a 59-relay maximum without enforcing it. This slice adds an explicit ceiling to the helper. Its regression accepts 59, rejects 60, and verifies failed parsing clears the selected-relay output.
+USB SCSI generic hotplug read `modem_zcd` using unchecked `nvram_get_int()`. If the NVRAM backend failed, the legacy integer getter could collapse the error to zero and run `/sbin/zerocd` instead of the configured `sr_mod` module branch (or vice versa for an inconsistent default). The handler now uses `nvram_get_checked()`, preserves the historical missing-key default of zero, validates a complete decimal value, and refuses either module-loading or ZeroCD side effects when the read fails or the stored value is malformed. Regression covers missing/default, 0/1/nonzero, backend failure, malformed/trailing input, overflow, missing value pointer and invalid API status.
 
 ## Verification boundary
 
-- Local GNU89 `-Wall -Wextra -Werror -fsanitize=address,undefined` regression with leak detection: PASS.
-- Parent exact-head WAN 6rd run #45706623877 PASS on `360ccb32`; it does not verify the current follow-up.
-- Exact-head WAN 6rd, Process inventory/fail-closed, NVRAM, AI docs and XY-C1 Actions for the resulting main SHA must be fetched by exact `head_sha`.
-- L3 requires Build, TRX verification and artifact upload PASS on the same exact SHA. Physical-router L4 is NOT VERIFIED.
+- Exact parent WAN 6rd relay-count commit `38fe0fadc4eca4dd35431b72bad079725fe56887`: WAN6, NVRAM, Process inventory and AI documentation Actions all PASS.
+- The USB modem checked-read policy regression and source-order contract are in this commit; exact-head USB modem identity/stability, Process, NVRAM and AI Actions must be inspected after publication.
+- No MIPS firmware, XY-C1 build, live USB modem or physical-router result is claimed for this slice.
 
 ## Exact first actions for next GPT
 
-1. Fetch push Actions for the resulting live `main` SHA and inspect WAN 6rd, Process inventory/fail-closed, NVRAM, AI docs and XY-C1. Repair any causal same-SHA failure; do not infer this result from parent #45706623877.
-2. Continue one independent Padavan userland reliability/security fix from the roadmap (outside the completed RStats snapshot, WAN ARP EINTR deadline and this 6rd relay-count guard). PENDING Actions do not block independent work.
+1. Fetch exact-head USB modem identity/stability, Process inventory/fail-closed, NVRAM and AI docs Actions for the resulting main SHA. Repair any same-SHA failure.
+2. Continue another independent Padavan userland reliability/security fix outside the completed RStats snapshot, WAN ARP EINTR deadline, 6rd relay-count cap and USB SCSI-generic NVRAM read fix. PENDING Actions do not block independent work.
 
 # Cross-session execution mandate
 

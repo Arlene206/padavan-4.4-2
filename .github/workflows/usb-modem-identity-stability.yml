@@ -468,6 +468,12 @@ jobs:
           assert 'find_modem_node("cdc-wdm", 0, 0, -1, NULL)' not in ndis
           sg = body(hotplug, "int mdev_sg_main(")
           assert '#include "modem_sg_module_policy.h"' in hotplug
+          assert 'modem_zcd_api_result = nvram_get_checked("modem_zcd", &modem_zcd_value);' in sg
+          assert "modem_sg_zero_cd_mode_status(" in sg
+          assert 'nvram_get_int("modem_zcd")' not in sg
+          assert "cannot read modem ZeroCD mode" in sg
+          assert sg.index('nvram_get_checked("modem_zcd"') < sg.index("modem_sg_zero_cd_mode_status(") < sg.index("if (use_sr_mod)")
+          assert "modem_sg_zero_cd_mode_status(" in sg_policy
           assert "module_load_status = module_smart_load(\"sr_mod\", NULL);" in sg
           assert 'module_presence = is_module_loaded_status("sr_mod");' in sg
           assert "modem_sg_module_ready_status(module_presence)" in sg
@@ -486,6 +492,10 @@ jobs:
               "test_unknown_module_state_fails_closed",
               "test_zerocd_success_is_accepted",
               "test_zerocd_failure_is_reported",
+              "test_missing_zero_cd_setting_preserves_legacy_default",
+              "test_present_zero_cd_setting_selects_configured_mode",
+              "test_zero_cd_backend_read_failure_fails_closed",
+              "test_zero_cd_malformed_value_fails_closed",
               "USB SCSI generic/ZeroCD command status policy: PASS",
           ):
               assert marker in sg_test

@@ -139,6 +139,8 @@ out_unlock:
 int mdev_sg_main(int argc, char **argv)
 {
 	int isLock, module_load_status, module_presence;
+	int modem_zcd_api_result, modem_zcd_read_errno, modem_zcd_status, use_sr_mod;
+	char *modem_zcd_value = NULL;
 	char *device_name, *action;
 
 	if (argc < 3){
@@ -166,7 +168,21 @@ int mdev_sg_main(int argc, char **argv)
 		return 1;
 	}
 
-	if (nvram_get_int("modem_zcd") != 0) {
+	errno = 0;
+	modem_zcd_api_result = nvram_get_checked("modem_zcd", &modem_zcd_value);
+	modem_zcd_read_errno = errno;
+	modem_zcd_status = modem_sg_zero_cd_mode_status(
+		modem_zcd_api_result, modem_zcd_read_errno,
+		modem_zcd_value, &use_sr_mod);
+	if (modem_zcd_status != 0) {
+		logmessage("USB",
+			   "cannot read modem ZeroCD mode for %s; refusing mode switch (status=%d)",
+			   device_name, modem_zcd_status);
+		file_unlock(isLock);
+		return 1;
+	}
+
+	if (use_sr_mod) {
 		module_load_status = module_smart_load("sr_mod", NULL);
 		if (module_load_status != 0)
 			sleep(1);
