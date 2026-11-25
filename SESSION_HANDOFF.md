@@ -1,27 +1,26 @@
 ## Current repository state — 2026-11-25
 
-- Live main parent before this follow-up: e02fd3651bb5fa4030fe90876100b9cdec123cc3; the first directory-filter ACL gate and this fallback-parent ACL gate are separate atomic descendants, both on main.
+- Live main parent before this IAPP firewall slice: 8b9b63401dd85232b257120111bb18475db6b5b6; production script, host regression, dev log and handoff are one atomic descendant.
 - Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains read-only at 72f4f157a084f8184b9597ca5bf334b8080e5807.
-- First slice commit e02fd3651bb5fa4030fe90876100b9cdec123cc3 added READ ACL before str_opendir(&s_filter_str). Its exact-head VSFTPD #45685238395, AI Docs #45685238517, XY-C1 #45685238577, Process inventory #45685238507, and NVRAM #45685238452 were IN_PROGRESS at last inspection; no result has been inferred.
-- This follow-up adds the matching precheck before str_opendir(&s_dir_name_str), closing the second pre-authorization filesystem lookup. Both opened-directory descriptor checks remain in place. The exact-head Actions for this follow-up must be checked after publication.
-- Prior SHA f83b28fc9f09f7f3c8fd9a002a8f07af9ca7e15d has VSFTPD #45684331270, AI docs #45684331618, storage #45684331348 and XY-C1 #45684331281 all PASS; XY-C1 job logs show Build/TRX/artifact steps SKIPPED because production inputs were unchanged, so this is not L3.
-- PR #1 remains closed/unmerged (head ba48e22609e0c81ad757b06756fe91d05f39cbf6, base 9d5a5cb4ab574c0e610ed7a0815c0b1ad749da74). Its divergent 13-file delta still needs a path-by-path comparison with evolved main before deciding what is missing and valid.
-- Physical-router L4 NOT VERIFIED.
+- VSFTPD directory-filter and fallback-parent READ-ACL gates are committed on main in e02fd3651bb5fa4030fe90876100b9cdec123cc3 and 8b9b63401dd85232b257120111bb18475db6b5b6. Exact 8b VSFTPD #45685416732, AI docs #45685416698, Process inventory #45685416728 and NVRAM audit #45685416782 PASS. XY-C1 #45685416720 was still executing Build XY-C1 at last poll; TRX and artifact steps pending, so do not claim L3.
+- PR #1 (closed/unmerged, head ba48e22609e0c81ad757b06756fe91d05f39cbf6) has been inventoried across all 13 changed paths. Main already contains the valid HMAC/CA source and regression functionality or newer implementations; its pull_request trigger is intentionally superseded by main's push-only CI contract. Old PR handoff/roadmap/dev-log copies are stale. No code port required; keep the PR branch untouched.
+- New IAPP fix: iapp_ensure_firewall_rule() previously accepted substring collisions (for example port 35170 and comment ralinkiappd-tcp-extra) and tolerated duplicate owned rules. It now verifies the full rule with iptables -C and checks unique tag inventory; three host regressions cover collision, duplicates and query errors. Exact-head IAPP CI is pending.
+- Physical-router L4 remains NOT VERIFIED.
 
 ## Active task
 
-Validate the two-stage FTP listing authorization change on its exact main SHA. Then complete the targeted postlogin.c/asus_ext.c ACL ordering review and the PR #1 unmerged-change inventory. Do not repeat completed ACL checks.
+Check exact-head IAPP lifecycle Actions for the firewall-rule identity fix. Continue review only when a concrete process/firewall state transition defect can be demonstrated. Also poll the 8b9b63401dd85232b257120111bb18475db6b5b6 XY-C1 run #45685416720 for Build/TRX/artifact completion.
 
 ## Exact first actions for next GPT
 
-1. Fetch live main and inspect the exact-head VSFTPD + AI handoff runs for the latest commit; also reconcile the e02fd36 runs listed above. Repair actual failures using first causal logs.
-2. Continue the bounded search for filesystem opens/lookups that precede ACL checks; the directory filter and fallback parent probes are now guarded, with descriptor checks retained.
-3. Compare each of the 13 PR #1 changed paths against current main, then port only genuinely missing valid work directly to main in atomic commits.
-4. Require actual XY-C1 Build, TRX verification and artifact upload on the same source SHA for L3. Physical-router L4 remains unverified.
+1. Fetch live main and inspect exact-head IAPP workflow logs; repair the first causal source/test failure without weakening the regressions.
+2. Check latest XY-C1 exact SHA. L3 requires Build, TRX verification and artifact upload all PASS on the same production-source SHA.
+3. Do not cherry-pick PR #1; valid changes are integrated or superseded on main. Preserve the frozen backup.
+4. Continue with another concrete userland reliability/security defect; do not repeat the completed VSFTPD, PR or already-verified module audits.
 
 ## Execution contract
 
-Main only; preserve frozen backup; no force-push, development branches or PRs. For each multi-file slice create all blobs, one complete tree, one commit and a non-forced expected-SHA main update. PENDING Actions do not block independent work.
+Main only; keep backup/pre-plugin-overhaul-2026-11-14 read-only; no force-push, development branches or PRs. Each multi-file slice uses all blobs, one complete tree, one commit and a non-forced expected-SHA main update. PENDING Actions do not block independent work.
 ## 2026-11-25 autonomous handoff checkpoint
 
 This checkpoint supersedes older active task pointers below; retain historical completed work without re-auditing completed areas.

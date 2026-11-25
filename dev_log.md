@@ -1,3 +1,10 @@
+## 2026-11-25 — Match Ralink IAPP firewall rules by exact xtables identity
+
+- Found a firewall readiness false-positive in iapp_ensure_firewall_rule(): substring filters accepted a TCP rule for port 35170 with comment ralinkiappd-tcp-extra as the required TCP/3517 rule. The previous check also tolerated duplicate owned tags because one matching line was sufficient.
+- Replaced substring acceptance with iptables -C over the complete protocol/interface/port/comment/target tuple. Saved-rule tag counts now reject duplicate/conflicting tags, and newly added rules are checked again with xtables plus a fresh inventory. Query errors remain distinct from a genuinely absent rule.
+- Added lifecycle regressions for port/tag substring collisions, duplicate exact rules and xtables query failure. The existing IAPP workflow already tracks both changed paths. Exact-head Actions pending; no target-router result claimed.
+
+---
 ## 2026-11-25 — Gate FTP listing parent opens on READ ACL
 
 - After the first directory-filter probe was gated, the fallback branch still opened the derived parent directory with str_opendir(&s_dir_name_str) before checking its share ACL. A filtered file path under an unreadable share could therefore still reach a pre-authorization parent lookup.

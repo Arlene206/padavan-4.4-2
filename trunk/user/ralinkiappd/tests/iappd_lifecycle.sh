@@ -46,6 +46,14 @@ case "$name" in
       mv "$RULES_FILE.tmp" "$RULES_FILE" || exit 94
       exit 0
     fi
+    if [ "$1" = "-C" ]; then
+      [ "$MOCK_IPTABLES_CHECK" -eq 0 ] || exit "$MOCK_IPTABLES_CHECK"
+      shift
+      target="-A"
+      for arg in "$@"; do target="$target $arg"; done
+      grep -Fqx -- "$target" "$RULES_FILE"
+      exit $?
+    fi
     exit 0 ;;
   iptables-save)
     [ "$MOCK_IPTABLES_SAVE" -eq 0 ] || exit "$MOCK_IPTABLES_SAVE"
@@ -76,7 +84,7 @@ export PATH="$tmp/bin:$PATH" STATE_DIR="$tmp/state" COMMAND_LOG="$tmp/commands" 
 : > "$RULES_FILE"
 export PROC_ROOT IAPPD_PROC_ROOT="$PROC_ROOT"
 export IAPPD_KILL_HELPER="$tmp/kill-helper"
-export MOCK_START=0 MOCK_PARTIAL_START=0 MOCK_EXIT_AFTER_LAUNCH=0 MOCK_SYSCTL=0 MOCK_IPTABLES=0 MOCK_IPTABLES_FAIL_AT=0 MOCK_IPTABLES_DELETE=0 MOCK_IPTABLES_SAVE=0 MOCK_KILL=0 MOCK_REMOVE=1
+export MOCK_START=0 MOCK_PARTIAL_START=0 MOCK_EXIT_AFTER_LAUNCH=0 MOCK_SYSCTL=0 MOCK_IPTABLES=0 MOCK_IPTABLES_FAIL_AT=0 MOCK_IPTABLES_DELETE=0 MOCK_IPTABLES_SAVE=0 MOCK_IPTABLES_CHECK=0 MOCK_KILL=0 MOCK_REMOVE=1
 export IAPPD_PROC_MODULES="$tmp/modules" IAPPD_PROC_INTERRUPTS="$tmp/interrupts"
 fail() { echo "$*" >&2; exit 1; }
 status_count=0
@@ -88,7 +96,7 @@ run() { /bin/sh "$base/iappd.sh" "$1"; }
 capture_status() { "$@"; rc=$?; printf "%s" "$rc"; }
 mark_running() { mkdir -p "$PROC_ROOT/123"; printf '%s\n' '123 (ralinkiappd) S 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19' > "$PROC_ROOT/123/stat"; ln -sf /sbin/ralinkiappd "$PROC_ROOT/123/exe"; : > "$STATE_DIR/daemon"; }
 mark_stopped() { rm -f "$STATE_DIR/daemon"; rm -rf "$PROC_ROOT/123"; }
-reset() { mark_stopped; rm -rf "$PROC_ROOT/234"; IAPPD_PROC_ROOT="$PROC_ROOT"; export IAPPD_PROC_ROOT; : > "$COMMAND_LOG"; : > "$DAEMON_LOG"; : > "$RULES_FILE"; MOCK_START=0 MOCK_PARTIAL_START=0 MOCK_EXIT_AFTER_LAUNCH=0 MOCK_IPTABLES=0 MOCK_IPTABLES_FAIL_AT=0 MOCK_IPTABLES_DELETE=0 MOCK_IPTABLES_SAVE=0 MOCK_KILL=0 MOCK_REMOVE=1; }
+reset() { mark_stopped; rm -rf "$PROC_ROOT/234"; IAPPD_PROC_ROOT="$PROC_ROOT"; export IAPPD_PROC_ROOT; : > "$COMMAND_LOG"; : > "$DAEMON_LOG"; : > "$RULES_FILE"; MOCK_START=0 MOCK_PARTIAL_START=0 MOCK_EXIT_AFTER_LAUNCH=0 MOCK_IPTABLES=0 MOCK_IPTABLES_FAIL_AT=0 MOCK_IPTABLES_DELETE=0 MOCK_IPTABLES_SAVE=0 MOCK_IPTABLES_CHECK=0 MOCK_KILL=0 MOCK_REMOVE=1; }
 
 reset
 IAPPD_PROC_ROOT="$tmp/missing-proc"
@@ -260,6 +268,30 @@ rc=$(capture_status run start); status "$rc" 1
 [ "$(grep -c "ralinkiappd-" "$RULES_FILE")" -eq 1 ] || fail "conflicting tagged rule was replaced or duplicated"
 [ "$(grep -c "^iptables -A " "$COMMAND_LOG")" -eq 0 ] || fail "added a duplicate rule next to a conflicting tag"
 ! grep -q "^ralinkiappd " "$COMMAND_LOG" || fail "conflicting tagged rule relaunched the daemon"
+
+
+# Exact rule identity rejects substring collisions in saved firewall entries.
+reset
+mark_running
+printf '%s\n' '-A INPUT -i br0 -p tcp --dport 35170 -m comment --comment ralinkiappd-tcp-extra -j ACCEPT' > "$RULES_FILE"
+rc=$(capture_status run start); status "$rc" 1
+[ "$(grep -c "ralinkiappd-" "$RULES_FILE")" -eq 1 ] || fail "substring collision was modified"
+[ "$(grep -c "^iptables -A " "$COMMAND_LOG")" -eq 0 ] || fail "added a rule beside conflicting substring tag"
+
+# Duplicate exact owned entries are not a healthy firewall state.
+reset
+mark_running
+printf '%s\n' '-A INPUT -i br0 -p tcp --dport 3517 -m comment --comment ralinkiappd-tcp -j ACCEPT' '-A INPUT -i br0 -p tcp --dport 3517 -m comment --comment ralinkiappd-tcp -j ACCEPT' > "$RULES_FILE"
+rc=$(capture_status run start); status "$rc" 1
+[ "$(grep -c "ralinkiappd-" "$RULES_FILE")" -eq 2 ] || fail "duplicate exact rules were modified"
+
+# An xtables query error is UNKNOWN, not proof that a rule is absent.
+reset
+mark_running
+MOCK_IPTABLES_CHECK=2
+rc=$(capture_status run start); status "$rc" 2
+[ -f "$STATE_DIR/daemon" ] || fail "iptables query error changed daemon state"
+[ ! -s "$RULES_FILE" ] || fail "iptables query error changed firewall state"
 
 # A stop with no daemon also reconciles stale IAPP-owned rules but preserves
 # administrator rules with the same protocol/port tuple and no ownership tag.

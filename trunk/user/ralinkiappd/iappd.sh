@@ -66,7 +66,7 @@ iapp_remove_firewall_rules() {
 
 
 iapp_ensure_firewall_rule() {
-  local proto tag rules rc
+  local proto tag rules rc tag_count
   proto="$1"
   case "$proto" in tcp|udp) ;; *) return 2 ;; esac
   tag="ralinkiappd-$proto"
@@ -83,18 +83,35 @@ iapp_ensure_firewall_rule() {
     log_iapp "cannot inspect filter rules while reconciling $tag (status=$rc)"
     return "$rc"
   }
-  if printf '%s\n' "$rules" |
-      grep -F -- "-A INPUT -i br0 -p $proto " |
-      grep -F -- "--dport 3517" |
-      grep -F -- "--comment $tag" |
-      grep -F -- "-j ACCEPT" >/dev/null 2>&1; then
-    return 0
-  fi
-
-  case "$rules" in
-    *"$tag"*)
-      log_iapp "found a conflicting rule using owned tag $tag; refusing to add a duplicate"
+  tag_count=$(printf '%s\n' "$rules" | grep -F -c -- "$tag" || :)
+  case "$tag_count" in
+    0|1) ;;
+    *)
+      log_iapp "found duplicate or conflicting owned tags for $tag; refusing reconciliation"
       return 1
+      ;;
+  esac
+
+  # Use xtables' exact matcher; substring checks can mistake port 35170 or a
+  # suffixed comment tag for the required port-3517 firewall rule.
+  iptables -C INPUT -i br0 -p "$proto" --dport 3517 \
+    -m comment --comment "$tag" -j ACCEPT
+  rc=$?
+  case "$rc" in
+    0)
+      [ "$tag_count" -eq 1 ] && return 0
+      log_iapp "exact $tag rule is present but its saved inventory is inconsistent"
+      return 1
+      ;;
+    1)
+      if [ "$tag_count" -ne 0 ]; then
+        log_iapp "found a conflicting rule using owned tag $tag; refusing to add a duplicate"
+        return 1
+      fi
+      ;;
+    *)
+      log_iapp "cannot check exact $tag rule (status=$rc)"
+      return "$rc"
       ;;
   esac
 
@@ -104,22 +121,25 @@ iapp_ensure_firewall_rule() {
     return "$rc"
   }
 
+  iptables -C INPUT -i br0 -p "$proto" --dport 3517 \
+    -m comment --comment "$tag" -j ACCEPT
+  rc=$?
+  if [ "$rc" -ne 0 ]; then
+    log_iapp "restored $tag firewall rule did not pass exact rule verification (status=$rc)"
+    return "$rc"
+  fi
   rules=$(iptables-save -t filter) || {
     rc=$?
-    log_iapp "cannot verify restored $tag firewall rule (status=$rc)"
+    log_iapp "cannot verify restored $tag rule inventory (status=$rc)"
     return "$rc"
   }
-  if ! printf '%s\n' "$rules" |
-      grep -F -- "-A INPUT -i br0 -p $proto " |
-      grep -F -- "--dport 3517" |
-      grep -F -- "--comment $tag" |
-      grep -F -- "-j ACCEPT" >/dev/null 2>&1; then
-    log_iapp "restored $tag firewall rule did not appear in filter inventory"
+  tag_count=$(printf '%s\n' "$rules" | grep -F -c -- "$tag" || :)
+  if [ "$tag_count" -ne 1 ]; then
+    log_iapp "restored $tag rule inventory is duplicated or inconsistent"
     return 1
   fi
   return 0
 }
-
 # Return 0=RUNNING, 1=confirmed ABSENT, 2=UNKNOWN. BusyBox pidof returns
 # the same status for an empty process list and some /proc scan failures, so
 # inspect the complete procfs listing and classify per-PID read failures.
