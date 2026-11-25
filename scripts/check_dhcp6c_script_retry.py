@@ -75,12 +75,7 @@ assert "return NULL;" in env_builder
 assert "int saved_errno = errno ? errno : ENOMEM;" in env_builder
 assert "for (curr = envp; *curr != NULL; ++curr)" in env_builder
 assert "free(envp);" in env_builder
-publication = function_body(policy, "dhcp6c_script_env_publish(")
-assert "if (!envp || !publish || !unset_value)" in publication
-assert "int saved_errno = errno ? errno : ENOMEM;" in publication
-assert "while (published > 0)" in publication
-assert "unset_value(envp[--published]);" in publication
-assert "errno = saved_errno;" in publication
+# The compatibility wrapper delegates to the shared publisher below.
 assert "dhcp_script_env_publish(envp, publish, unset_value)" in policy
 shared_publication = function_body(shared_policy, "dhcp_script_env_publish(")
 assert "if (!envp || !publish || !unset_value)" in shared_publication

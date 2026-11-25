@@ -1,3 +1,12 @@
+## 2026-11-25 — Correct DHCPv6 retry contract after sharing environment publisher
+
+- Exact DHCP callback workflow #45717584995 on `894147f71750b1345a6f3492e47255913aeb0364` passed, and the GNU89 ASan/UBSan policy binary including the new DHCPv4 rollback cases also passed. The dedicated DHCPv6 retry workflow #45717584759 failed only because its Python checker still expected the full rollback implementation to live in the DHCPv6 compatibility wrapper after that implementation had been extracted into `dhcp_script_env_policy.h`.
+- Removed the obsolete wrapper-level assertions; the checker continues to require the wrapper delegate and pins every rollback/errno/null-argument invariant directly in the shared implementation. No DHCPv4/v6 product behavior changed.
+- Exact-head DHCPv6 retry rerun will be checked on this commit. XY-C1/Process validations on `fad21c23` are now green at the required-contract layer; XY-C1 Build/TRX/artifact remained skipped because this checker-only commit does not modify product firmware sources. No L3 firmware result is claimed.
+- Changed paths: `scripts/check_dhcp6c_script_retry.py`, `dev_log.md`.
+
+---
+
 ## 2026-11-25 — Align native IPv6 WAN route source contract with interface-scoped default route
 
 - Exact-SHA XY-C1 run #45717290218 and Process fail-closed run #45717290172 on `6cefc636e9d4df21db869d3c6e2497f20dd26161` both stopped in `scripts/check_modem_wan_start_status.py:830`: the checker still expected `ip -6 route add default via <gateway> metric 1`, while the already-committed native-static IPv6 route correctly includes `dev <wan_ifname>` to bind link-local next hops to the WAN link.
