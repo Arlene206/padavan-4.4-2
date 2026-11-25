@@ -675,6 +675,7 @@ jobs:
           assert "fstatat(source_dir_fd, source_leaf, &source_stat" in rename_policy
           assert "!S_ISDIR(source_stat.st_mode) && source_stat.st_nlink != 1" in rename_policy
           assert "renameat moved a multiply-linked file across shares" in acl_path_test
+          assert 'fstatat(rename_destination_fd, "cross-share-hardlink-moved"' in acl_path_test
           cleanup_start = acl_path_policy.index("ftp_acl_path_unlink_opened_entry(")
           cleanup_end = acl_path_policy.index("\n}", cleanup_start)
           cleanup_policy = acl_path_policy[cleanup_start:cleanup_end]

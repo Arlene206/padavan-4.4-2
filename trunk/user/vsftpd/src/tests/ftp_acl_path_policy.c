@@ -619,7 +619,9 @@ main(void)
   }
   if (lstat(hardlink_file, &st) != 0 || st.st_nlink != 2 ||
       lstat(file_b, &st) != 0 || st.st_nlink != 2 ||
-      lstat(rename_destination, &st) != 0) {
+      lstat(rename_destination, &st) != 0 ||
+      fstatat(rename_destination_fd, "cross-share-hardlink-moved", &st,
+              AT_SYMLINK_NOFOLLOW) == 0 || errno != ENOENT) {
     fprintf(stderr, "hard-linked rename rejection changed source or destination\n");
     return 1;
   }
