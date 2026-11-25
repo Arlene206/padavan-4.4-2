@@ -1,3 +1,9 @@
+## 2026-11-25 — Align AliyunDrive UID fixture contract with the mode loop
+
+- Exact-head AliyunDrive workflow #45558898981 passed shell syntax, bundled MIPSel QEMU CLI compatibility, the lifecycle host regression (including foreign/unreadable/malformed UID cases), and early private-lock provisioning. Its final Python contract failed because it looked for three literal variable assignments, while the test correctly sets the mode through `for TEST_PROCESS_UID_MODE in foreign inaccessible malformed; do`. Replace the stale marker with the actual loop contract. Production launcher and regression behavior are unchanged; rerun the exact-head lifecycle workflow.
+
+---
+
 ## 2026-11-25 — Bind AliyunDrive process identity to the lifecycle caller
 
 - The AliyunDrive launcher matched each `pidof` candidate to the managed binary's executable inode, but did not verify the PID owner. Since the binary is executable by other accounts, a same-binary process launched by another user could be mistaken for the managed service; name-wide stop could then signal it. Record the lifecycle caller UID and require every candidate's `/proc/PID` owner to match. Foreign, inaccessible or malformed UID data returns UNKNOWN. The host regression retains the matching executable inode while varying only PID ownership data, and asserts no signal or duplicate launch. Exact-head AliyunDrive lifecycle, Process and XY-C1 checks required; no local runtime result claimed.

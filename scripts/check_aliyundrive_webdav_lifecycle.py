@@ -263,9 +263,7 @@ require("TEST_EXE_IDENTITY_MODE=impostor" in test and
         "TEST_EXE_IDENTITY_MODE=malformed" in test and
         "same-name process with a different executable" in test and
         "executable mismatch caused a signal" in test and
-        "TEST_PROCESS_UID_MODE=foreign" in test and
-        "TEST_PROCESS_UID_MODE=inaccessible" in test and
-        "TEST_PROCESS_UID_MODE=malformed" in test and
+        "for TEST_PROCESS_UID_MODE in foreign inaccessible malformed; do" in test and
         "same-binary process owned by another UID" in test and
         "foreign UID caused a signal" in test and
         "foreign UID process allowed a duplicate daemon launch" in test,

@@ -1,28 +1,28 @@
 ## 2026-11-25 autonomous handoff checkpoint
 
-This checkpoint supersedes older active-task pointers below. Historical completed source and verification entries are retained; do not repeat completed audits.
+This checkpoint supersedes older active-task pointers below. Historical completed slices and verification notes are retained; do not repeat completed audits.
 
 ## Current repository state
 
-- Repository `Arlene206/padavan-4.4-2`; `main` is the sole development ref. The frozen `backup/pre-plugin-overhaul-2026-11-14` remains read-only. PR #1 is closed/unmerged and inventory-only; its changed paths are represented on main.
-- Parent before this atomic slice: `af929e3ee793f7e0af3bbba091f3a8bb1becb753` (`test(zerotier): fix route output mock newline`). This slice updates AliyunDrive launcher/test/checker, dev log, handoff and roadmap in one commit. Fetch live main and tree before every subsequent write.
-- RFC1035 reserved extended-label rejection is committed in `658b3f4c29d2afd00d45decd18ddc06c8c7aa450`; decoder regression #45557646457 and AI docs #45557646434 PASS. Its XY-C1 #45557646546 was PENDING at the previous exact-head check.
-- Exact-head actions on parent: AI handoff docs #45558740777, ZeroTier lifecycle #45558740874, Process inventory #45558740829, WAN route operation #45558740832 and XY-C1 #45558740920 were IN_PROGRESS at last poll.
-- ZeroTier shutdown coverage now includes damaged-checkpoint recovery and conflicting/multipath route tuples. Recovery validates full checkpoint fields/CIDR and requires positive route inventory proving the saved interface absent. Route cleanup distinguishes absent destinations from conflicting nexthops and searches each multipath via/dev pair. The latest route-output fixture newline was corrected in this parent. Do not reopen these items unless a new failing CI result identifies a defect.
+- Repository `Arlene206/padavan-4.4-2`; `main` is the sole development ref. The frozen `backup/pre-plugin-overhaul-2026-11-14` remains read-only. PR #1 is closed/unmerged and inventory-only.
+- Parent before this checker correction: `87bc26bf08b3c617f45718b3935ffc2e9450c498` (`fix(aliyundrive): bind process ownership to caller`). The AliyunDrive caller-UID source guard and host test are present. This follow-up changes the exact-source checker and records the CI-discovered assertion mismatch.
+- Exact-head Process inventory #45558899583 PASS; AI handoff docs #45558899218 PASS. AliyunDrive lifecycle #45558898981 FAIL at the final source/RC integration contract only. Shell syntax, MIPSel QEMU CLI capability, full host lifecycle regression (including owner modes), and early private-lock provisioning all PASS. Root cause: checker expected literal UID-mode assignments while regression uses a for-loop. This correction pins the actual loop.
+- On predecessor `af929e3ee793f7e0af3bbba091f3a8bb1becb753`, ZeroTier lifecycle #45558740874, Process #45558740829, WAN route #45558740832, AI docs #45558740777 and XY-C1 #45558740920 PASS. The current Aliyun-only and checker-only commits do not change firmware product sources.
+- ZeroTier recovery and exact conflicting/multipath static-route cleanup are implemented and tested; the route fixture newline correction also passed its exact-head ZeroTier run. Do not reopen without a new failing regression.
 
-## Active source task: AliyunDrive caller-UID process identity
+## Active source task: AliyunDrive process identity
 
-- `ald_process_state()` previously checked each `pidof` candidate's executable inode but not its owner. A same-binary process started by another account could be confused with the managed service and reach the name-wide stop path.
-- This slice reads the lifecycle caller UID and requires `stat -c %u /proc/$pid` to match. Foreign, inaccessible and malformed owner data returns UNKNOWN (2), preventing start/stop side effects. The regression preserves the matching executable inode while varying only process ownership and requires no TERM/KILL or duplicate launch. The source checker and roadmap pin the behavior.
-- Exact-head AliyunDrive lifecycle, Process and AI documentation runs must be inspected after commit. XY-C1 Build, TRX validation and artifact upload are separate gates; no target/hardware result is claimed.
+- `ald_process_state()` now requires every `pidof` candidate to match both the caller UID and the configured executable inode. Foreign, unreadable and malformed PID ownership is UNKNOWN (2), preventing start/stop side effects.
+- Regression loops over foreign, inaccessible and malformed UID status while retaining a matching executable inode; asserts no TERM/KILL and no duplicate launch. The functional host regression passed. Only a stale Python checker marker failed; this commit corrects it to assert the loop header.
+- Rerun exact-head AliyunDrive lifecycle workflow and require all steps PASS. Process and AI doc gates already passed on the source commit; AI docs will rerun on this docs correction. No target firmware or physical L4 result is claimed for this AliyunDrive change.
 
 # Cross-session execution mandate
 
-Continue one autonomous engineering stream on main. For each logical slice, create all changed blobs, one complete Git tree based on the live main root tree, and one atomic main commit; update main with a non-forced expected-SHA compare-and-swap. Never force-push, create/use feature branches, make PRs, split one logical change into per-file commits, or modify the frozen backup. A PENDING workflow never blocks independent work. Before context exhaustion, finish the current safe slice and checkpoint the first concrete next action.
+Continue one autonomous engineering stream on main. For each logical slice, create all changed blobs, one complete Git tree based on the live main root tree, and one atomic main commit; update main with a non-forced expected-SHA compare-and-swap. Never force-push, create/use feature branches, make PRs, split one logical change into per-file commits, or modify the frozen backup. A PENDING workflow never blocks independent work.
 
 ## Active task
 
-The caller-UID process identity guard, host regression, exact-source contract and status entries are included in the current atomic commit. Next verify exact-head AliyunDrive lifecycle, Process and AI runs, repair any real failure, and inspect XY-C1 Build/TRX/artifact separately. Then continue another distinct P1/P2 whole-userland defect from the live roadmap.
+The checker loop assertion fix is in this atomic follow-up commit. Verify the exact-head AliyunDrive rerun, then resume another distinct P1/P2 whole-userland stability or security defect.
 
 ## Completed source slices
 
@@ -129,10 +129,9 @@ Commit `786c504c8247fe42d5d1d5f2dc3ad28757fafc80` strictly parses persisted RX/T
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`; inspect exact-head AliyunDrive WebDAV lifecycle, Process inventory and AI documentation runs. Diagnose FAIL at the failing step; do not wait idly on PENDING.
-2. Confirm the foreign, inaccessible and malformed UID fixtures retain the matching executable inode, return UNKNOWN and cause no TERM/KILL or duplicate launch.
-3. Inspect XY-C1 Build, TRX validation and artifact upload separately on the same source SHA. Claim L3 only after all pass; physical L4 remains unverified.
-4. Continue the next distinct P1/P2 whole-userland issue; do not reopen ZeroTier checkpoint/route cleanup without a new failing regression.
+1. Fetch live `main` and inspect the exact-head AliyunDrive lifecycle and AI documentation runs after the checker-only correction. The AliyunDrive job must complete all source/RC contract steps successfully.
+2. Keep the committed caller-UID guard and its functional foreign/unreadable/malformed UID regression; do not undo it to satisfy an obsolete literal-marker assertion.
+3. After the rerun, continue an independent P1/P2 reliability/security task from the current roadmap; do not wait on unrelated PENDING actions.
 
 ## Mandatory handoff checkpoint
 
