@@ -1,3 +1,12 @@
+## 2026-11-24 — Fail closed on malformed IPTV multicast altnet values
+
+- The IPTV proxy reads the user-configured mr_altnet_x snapshot and passes it to igmpproxy_config_publish(). The config token check only allowed digits/dots/slashes, so values such as 192.0.2.256/24 and 192.0.2.1/33 were published as if they were valid networks.
+- A second fallback issue widened malformed short values: start_igmpproxy_with_settings() silently replaced every value with length <=6 by 0.0.0.0/0, instead of defaulting only a missing/empty setting.
+- Added strict four-octet decimal IPv4 plus /0..32 CIDR parsing, an empty-only default resolver, and changed the caller to pass every non-empty value through validation. GNU89 regression checks valid /0 and /32, out-of-range octets, bad prefixes, missing separators, extra components, malformed short inputs and preservation of the last-good config. Process-lifecycle workflow also statically checks the production caller uses empty-only fallback.
+- Prior checks: HTTPD Security PASS on e02d1e3; AI docs PASS on 139d245; FRP lifecycle PASS on 8b93aa3. XY-C1 Build remained IN_PROGRESS on e02d1e3; no L3 or L4 claim.
+
+---
+
 ## 2026-11-24 — Align FRP cross-workflow contract with shared HTTPD uploader
 
 - FRP lifecycle #45517975418 ran every shell syntax check and asynchronous startup, crontab, private config, stop and lock regression successfully on e02d1e3a1c631b308885ba3279fd97247564a4ea. Its only failure was the final scripts/check_frp_lifecycle.py source assertion, which still required the old inline FRP-only mkstemp/chmod/rename logic.

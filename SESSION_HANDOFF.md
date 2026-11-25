@@ -6,18 +6,16 @@ Continue one autonomous engineering stream on main. For each logical slice, crea
 
 ## Branch and checkpoint
 
-- Current production source baseline: 139d24533a8f106d07306091320f820f04912548; refresh live main before every future write.
+- Current production source baseline: 8b93aa36b93b1e21eaafa69640d4b12b55bdaf9c; refresh live main before every future write.
 - Frozen backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807; verified unchanged and read-only.
 - main is the only development ref. PR #1 is closed/unmerged and is not a development target.
 - Bootstrap, protocol, handoff, roadmap, dev-log window/index and live refs were recovered once. The recorded RC whole-line parser gate has been superseded by subsequent main commits; do not repeat it.
 
 ## Active task
 
-### HTTPD storage-file atomic publication and symlink safety
+### IPTV multicast proxy altnet validation
 
-The existing write_textarea_to_file() path has an identified root-write defect: non-private config/key/authorized_keys updates used fopen(real_path, "w"), following a pre-existing symlink and truncating the old file before the replacement had been completely written. Only the FRP private-script path had same-directory atomic rename. The active slice generalizes regular-target validation, stages all updates beside the destination, compares via O_NOFOLLOW file descriptors, and publishes through checked flush/fsync/close plus atomic rename. Preserve existing file-type access checks, empty key/authorized_keys deletion, modes, change/no-op behavior, and authorized_keys copy side effects.
-
-Regression coverage must prove regular/missing target acceptance; symlink/FIFO/directory rejection; no-follow compare; exact text normalization; old-target retention after write/flush/fsync/close/rename failures; and successful same-filesystem publication. Fix only genuine CI/compiler failures, then continue with a separate userland stability/security defect.
+The live NVRAM snapshot is passed into igmpproxy_config_publish(), but the former altnet validator only allowed digits/dots/slashes and did not validate IPv4 octet or CIDR prefix ranges. Separately, start_igmpproxy_with_settings() treated every value with length <= 6 as the default 0.0.0.0/0, silently widening malformed short configuration rather than failing closed. The active source slice adds strict four-octet decimal IPv4 and /0..32 parsing, defaults only an empty value, and adds malformed-input/last-good-config regressions plus a workflow source contract.
 
 ## Current exact-head Actions
 
@@ -133,10 +131,9 @@ Commit `786c504c8247fe42d5d1d5f2dc3ad28757fafc80` strictly parses persisted RX/T
 
 ## Exact first action for the next GPT
 
-1. Fetch the live main ref; confirm the HTTPD source/test/workflow commit is still the current engineering baseline. Do not repeat the RC parser audit or completed startup recovery.
-2. Inspect exact-head push Actions for the HTTPD storage-file publication slice. HTTPD Security must compile/run httpd_upload_file.c and pass the inline source contract; AI handoff docs must pass; XY-C1 Build, TRX verification and artifact upload must all complete on the same SHA before claiming L3.
-3. Diagnose any failed run at its first causal step and fix only that cause in one atomic main commit. If checks are pending, continue with an independent stability/security task.
-4. After this slice closes, resume repository-wide userland coverage outside the recently active RAETH, VSFTPD and HTTPD paths. Hardware L4 remains NOT VERIFIED.
+1. Fetch live main and inspect exact-head Process/Lifecycle regression for IPTV altnet parsing plus XY-C1 Build/TRX/artifact checks; do not repeat prior startup recovery.
+2. Diagnose the first causal CI failure in the strict IPv4/CIDR parser, test, or workflow contract and correct it in one atomic main commit. Pending workflows never block independent work.
+3. Continue to another userland stability/security defect outside the recently active RAETH, VSFTPD, HTTPD, FRP and IPTV paths. No L3 claim until exact-SHA XY-C1 build/TRX/artifact succeeds; no L4 claim without hardware validation.
 
 ## Mandatory handoff checkpoint
 

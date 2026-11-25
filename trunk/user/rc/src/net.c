@@ -1349,8 +1349,7 @@ start_igmpproxy_with_settings(char *wan_ifname,
 		logmessage("IPTV", "igmpproxy is already present or its state is invalid; refusing duplicate startup");
 		return rc_first_service_start_status(start_status, saved_errno);
 	}
-	if (strlen(settings->altnet) > 6)
-		altnet_mask = settings->altnet;
+	altnet_mask = igmpproxy_config_altnet_or_default(settings->altnet);
 	config_values.upstream_interface = wan_ifname;
 	config_values.altnet = (char *)altnet_mask;
 	config_values.downstream_interface = IFNAME_BR;

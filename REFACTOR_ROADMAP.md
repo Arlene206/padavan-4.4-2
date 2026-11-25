@@ -197,7 +197,7 @@ Current implementation checkpoint (2026-11-21):
 
 ## Priority queue
 - P1 — HTTPD text writes now reject symlink/special targets and use same-directory staging, O_NOFOLLOW comparison and checked atomic rename; regression/source contracts added. e02d1e3 HTTPD PASS; XY-C1 pending.
-- P1 — VSFTPD ACL metadata path construction: username separators and truncation are rejected; parent components are pinned and ACL leaf opened with bounded `openat(O_NOFOLLOW|O_NONBLOCK)`. Reader rechecks directory identity around the read. GNU89 covers traversal, truncation, symlink/FIFO, oversize and parent replacement.
+- P1 — VSFTPD ACL paths reject separator/truncation usernames, pin parent directories and safely open ACL leaves; traversal/symlink regressions cover it.
 - P1 — VSFTPD stop/restart cleanup reconciles firewall/UPnP only after procfs confirms daemon absence; preserves stop errors and fails closed on UNKNOWN. GNU89 and source-order tests added; exact-head CI pending.
 - P1 — VSFTPD EPSV ALL cleanup: VSFTPD #45393626354, AI/Process/NVRAM PASS on `aa3d55b`; XY-C1 Build running, TRX/artifact pending. L3 open.
 - P2 — VSFTPD hidden-share truncation fix: VSFTPD #45392889702 PASS; included in `aa3d55b` XY-C1 Build (running; TRX/artifact pending).
@@ -323,6 +323,7 @@ Current implementation checkpoint (2026-11-21):
 - Preserve existing handoff/roadmap archive snapshots and indexes byte-for-byte as legacy history. Continue validating their inventory and hashes; do not add new snapshots for ordinary edits.
 - Run scripts/check_ai_handoff_docs.py when a local checkout is available, then inspect the documentation workflow on the exact pushed SHA. Do not create a follow-up docs-only commit solely to write completed CI results into the files.
 
+- P1 — IPTV proxy altnet: validate IPv4 octets and CIDR prefix; only empty NVRAM maps to 0/0. Reject malformed short values before publishing config; GNU89 regression added.
 ## Verification matrix
 
 | p910nd USB print server | PARTIAL / BIDIRECTIONAL SIGPIPE DAEMON-CRASH FIX IMPLEMENTED; GNU89 ASAN/UBSAN SOCKETPAIR L2 PASS; EXACT-SHA L3 PASS | In `-b` mode printer-return writes target the TCP client. Peer disconnect could raise default SIGPIPE and kill the daemon before EPIPE recovery. Ignore SIGPIPE only in bidirectional mode and fail startup if setup fails; existing write error handling remains authoritative. Exact p910nd, Process inventory, Process lifecycle and AI checks PASS on source `23248f7`. | Exact XY-C1 #44941685839 Build/TRX/artifact PASS on source `23248f7`; physical printer disconnect and hardware L4 NOT VERIFIED. |

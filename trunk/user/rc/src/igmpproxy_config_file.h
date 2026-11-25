@@ -35,17 +35,54 @@ igmpproxy_config_token(const char *value)
 static int
 igmpproxy_config_altnet_token(const char *value)
 {
-	const unsigned char *cursor = (const unsigned char *)value;
+	const char *cursor = value;
+	unsigned int octet_index, octet, digits, prefix;
 
 	if (!igmpproxy_config_token(value))
 		return 0;
-	while (*cursor != '\0') {
-		if ((*cursor < '0' || *cursor > '9') &&
-		    *cursor != '.' && *cursor != '/')
+
+	/* Accept only four decimal IPv4 octets followed by a CIDR prefix. */
+	for (octet_index = 0; octet_index < 4; ++octet_index) {
+		octet = 0;
+		digits = 0;
+		while (*cursor >= '0' && *cursor <= '9') {
+			unsigned int digit = (unsigned int)(*cursor - '0');
+
+			if (octet > 25 || (octet == 25 && digit > 5))
+				return 0;
+			octet = octet * 10 + digit;
+			++digits;
+			++cursor;
+		}
+		if (digits == 0)
 			return 0;
+		if (octet_index < 3) {
+			if (*cursor != '.')
+				return 0;
+		} else if (*cursor != '/') {
+			return 0;
+		}
 		++cursor;
 	}
-	return 1;
+
+	prefix = 0;
+	digits = 0;
+	while (*cursor >= '0' && *cursor <= '9') {
+		unsigned int digit = (unsigned int)(*cursor - '0');
+
+		if (prefix > 3 || (prefix == 3 && digit > 2))
+			return 0;
+		prefix = prefix * 10 + digit;
+		++digits;
+		++cursor;
+	}
+	return digits != 0 && *cursor == '\0';
+}
+
+static const char *
+igmpproxy_config_altnet_or_default(const char *value)
+{
+	return (value && value[0] != '\0') ? value : "0.0.0.0/0";
 }
 
 static int

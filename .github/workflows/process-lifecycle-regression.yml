@@ -1249,6 +1249,19 @@ jobs:
             trunk/user/rc/src/tests/igmpproxy_config_file.c \
             -o "$RUNNER_TEMP/igmpproxy-config-file-regression"
           ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/igmpproxy-config-file-regression"
+      - name: Verify IPTV proxy altnet validation and empty-only fallback
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          net = Path("trunk/user/rc/src/net.c").read_text()
+          policy = Path("trunk/user/rc/src/igmpproxy_config_file.h").read_text()
+          assert "igmpproxy_config_altnet_or_default(settings->altnet)" in net
+          assert "if (strlen(settings->altnet) > 6)" not in net
+          assert "igmpproxy_config_altnet_token(values->altnet)" in policy
+          assert "prefix > 3 || (prefix == 3 && digit > 2)" in policy
+          print("IPTV proxy IPv4/CIDR validation and empty-only default contract: PASS")
+          PY
       - name: Compile and run XUPnPD unique temporary-file regression
         run: |
           cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \

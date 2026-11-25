@@ -67,6 +67,12 @@ main(void)
 	struct rlimit constrained_limit;
 	void (*old_sigxfsz)(int);
 	int status;
+	unsigned int i;
+	static const char *const invalid_altnets[] = {
+		"bad", "192.0.2.256/24", "256.0.2.1/24",
+		"192.0.2.1/33", "192.0.2/24", "192.0.2.1",
+		"192.0.2.1/24/8", "192.0.2.1/"
+	};
 
 	directory = mkdtemp(directory_template);
 	assert(directory != NULL);
@@ -96,7 +102,7 @@ main(void)
 	assert_no_temporary_files(directory, "igmpproxy.conf.tmp.");
 
 	/* Preserve legacy default altnet and disabled quickleave output. */
-	values.altnet = "0.0.0.0/0";
+	values.altnet = (char *)igmpproxy_config_altnet_or_default("");
 	values.quickleave = 0;
 	status = igmpproxy_config_publish(config_path, &values);
 	assert(status == 0);
@@ -107,6 +113,24 @@ main(void)
 		"\taltnet 0.0.0.0/0\n"
 		"\nphyint br0 downstream ratelimit 0  threshold 1\n"
 		"\n");
+
+	/* Empty settings keep the legacy default, but malformed short values
+	 * must not silently widen the accepted multicast source network.
+	 */
+	assert(strcmp(igmpproxy_config_altnet_or_default(""),
+		      "0.0.0.0/0") == 0);
+	assert(strcmp(igmpproxy_config_altnet_or_default("bad"), "bad") == 0);
+	assert(igmpproxy_config_altnet_token("0.0.0.0/0"));
+	assert(igmpproxy_config_altnet_token("255.255.255.255/32"));
+	write_file(config_path, "last-good-altnet-validation\n");
+	for (i = 0; i < sizeof(invalid_altnets) / sizeof(invalid_altnets[0]); ++i) {
+		values.altnet = (char *)invalid_altnets[i];
+		assert(!igmpproxy_config_altnet_token(values.altnet));
+		assert(igmpproxy_config_publish(config_path, &values) == EINVAL);
+		assert_file_equals(config_path, "last-good-altnet-validation\n");
+	}
+	values.altnet = "192.0.2.0/24";
+	values.quickleave = 1;
 
 	/* Reject line injection and leave the live configuration untouched. */
 	write_file(config_path, "last-good-configuration\n");
