@@ -1,3 +1,9 @@
+## 2026-11-25 — Restore explicit end-of-session checkpoint instruction
+
+- Exact-head AI documentation check #45559337773 validated the roadmap's byte cap after the previous correction, then failed because the current handoff's cross-session mandate omitted the required literal `Before context exhaustion`. Restore the explicit instruction to finish the safe slice and checkpoint the next concrete action before context exhaustion. No source code or test behavior changes.
+
+---
+
 ## 2026-11-25 — Keep the validated roadmap below the AI handoff byte cap
 
 - The AliyunDrive source and lifecycle checks passed on `ed40cf1` (#45559141117), but the AI documentation contract rejected `REFACTOR_ROADMAP.md` at 131,145 UTF-8 bytes, 73 bytes above its 131,072-byte hard limit. The prior preflight counted JavaScript characters rather than encoded bytes. Compress the AliyunDrive status row without dropping its process-owner boundary, regression coverage or remaining validation limits. Revalidate using UTF-8 byte length and exact-head documentation Actions.

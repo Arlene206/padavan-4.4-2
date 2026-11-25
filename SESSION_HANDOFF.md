@@ -5,19 +5,19 @@ This checkpoint supersedes older active-task pointers below. Historical complete
 ## Current repository state
 
 - Repository `Arlene206/padavan-4.4-2`; work only on `main`. Frozen `backup/pre-plugin-overhaul-2026-11-14` remains read-only; PR #1 remains closed/unmerged and inventory-only.
-- Parent before this documentation-size correction: `ed40cf146909c3adfd898d69dee664b1d07dfd36` (`test(aliyundrive): align UID fixture contract`). AliyunDrive caller-UID source guard, foreign/unreadable/malformed UID tests, and corrected checker are committed.
-- Exact-head AliyunDrive lifecycle #45559141117 PASS on `ed40cf1`: shell syntax, bundled MIPSel binary CLI under QEMU, lifecycle regression, early private lock and source/RC contracts all pass. The prior #45558898981 checker-only failure is superseded by this successful run. Process inventory #45558899583 PASS.
-- Exact-head AI docs #45559141042 FAIL only because `REFACTOR_ROADMAP.md` was 131,145 UTF-8 bytes, 73 bytes above the 131,072-byte contract. This follow-up compresses the AliyunDrive roadmap row and checks true UTF-8 byte length; all functional code/tests remain unchanged. Earlier AI docs #45558899218 PASS was on the previous source head.
-- On `af929e3ee793f7e0af3bbba091f3a8bb1becb753`, ZeroTier lifecycle #45558740874, Process #45558740829, WAN route #45558740832, AI docs #45558740777 and XY-C1 #45558740920 PASS. Current docs-only correction does not change firmware product source.
-- ZeroTier damaged-checkpoint recovery and conflicting/multipath route cleanup are already implemented and covered; do not reopen absent a new failing regression.
+- Parent before this handoff-rule correction: `3e412c4bbe72db1b2a23fac3b631255934327f71` (`docs: keep roadmap within UTF-8 byte limit`). AliyunDrive caller-UID guard, foreign/unreadable/malformed UID host tests and corrected checker are committed.
+- Exact-head AliyunDrive lifecycle #45559141117 PASS on `ed40cf1`: launcher syntax, bundled MIPSel binary CLI under QEMU, lifecycle regression, early private lock and source/RC contracts all passed. Process inventory #45558899583 PASS.
+- The roadmap is now 130,587 UTF-8 bytes, below its 131,072-byte hard limit. Exact-head AI docs #45559337773 on `3e412c4` then reached the continuous-execution contract and failed because this handoff's mandate omitted the required literal `Before context exhaustion`. This commit restores the explicit checkpoint sentence; all source/test code remains unchanged.
+- ZeroTier lifecycle #45558740874, Process #45558740829, WAN route #45558740832, AI docs #45558740777 and XY-C1 #45558740920 PASS on `af929e3`. The new commits since that product baseline are docs or AliyunDrive addon files, not XY-C1 firmware inputs.
+- ZeroTier damaged-checkpoint recovery and conflicting/multipath route cleanup are implemented and covered; do not reopen absent a new failing regression.
 
 ## Active task
 
-The AliyunDrive identity fix is functionally verified by its exact-head workflow. This commit solely trims the roadmap to satisfy the validator's UTF-8 byte cap. Next verify exact-head AI documentation Actions PASS; then select a distinct whole-userland P1/P2 stability/security issue.
+The AliyunDrive caller-UID identity fix passed exact-head lifecycle CI. The roadmap byte-cap correction is verified at 130,587 UTF-8 bytes. The latest AI docs run failed because this handoff omitted the required explicit "Before context exhaustion" checkpoint line; this commit restores it. Next verify the exact-head AI docs run, then resume a distinct whole-userland P1/P2 stability/security issue.
 
 # Cross-session execution mandate
 
-Continue one autonomous engineering stream on main. For each logical slice, create all changed blobs, one complete Git tree based on the live main root tree, and one atomic main commit; update main with a non-forced expected-SHA compare-and-swap. Never force-push, use feature branches or PRs, split one logical change into per-file commits, or modify the frozen backup. PENDING never blocks independent work.
+Continue one autonomous engineering stream on main. For each logical slice, create all changed blobs, one complete Git tree based on the live main root tree, and one atomic main commit; update main with a non-forced expected-SHA compare-and-swap. Never force-push, use feature branches or PRs, split one logical change into per-file commits, or modify the frozen backup. PENDING never blocks independent work. Before context exhaustion, finish the current safe slice and checkpoint the first concrete next action.
 
 ## Completed source slices
 
@@ -124,9 +124,9 @@ Commit `786c504c8247fe42d5d1d5f2dc3ad28757fafc80` strictly parses persisted RX/T
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`; verify the exact-head AI handoff documentation contract after this UTF-8-byte-cap correction.
-2. Confirm `REFACTOR_ROADMAP.md` is below 131,072 UTF-8 bytes and keep the actual encoded-byte preflight for future doc updates.
-3. Continue a distinct P1/P2 reliability/security defect from the live roadmap; AliyunDrive source and lifecycle are verified on `ed40cf1`.
+1. Fetch live `main`; verify exact-head AI documentation contract after restoring the explicit `Before context exhaustion` sentence.
+2. Confirm `REFACTOR_ROADMAP.md` remains below 131,072 UTF-8 bytes (last verified: 130,587) using an encoded-byte preflight, not character count.
+3. Once docs CI passes, continue a distinct P1/P2 whole-userland reliability/security defect; AliyunDrive lifecycle is verified on `ed40cf1`.
 
 ## Mandatory handoff checkpoint
 
