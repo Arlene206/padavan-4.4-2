@@ -176,6 +176,21 @@ assert "return first_error;" in update_ia
 assert "update_status = reestablish_ia(ia);" in update_ia
 assert "dhcp6c_ia_operation_error(update_status, errno)" in update_ia
 assert "first_error = dhcp6c_ia_first_error(first_error, ia_error);" in update_ia
+assert "dhcp6c_ia_nobinding_requires_request" in policy
+assert "test_nobinding_is_detected_before_ia_suboption_application" in test
+assert "if (siav->lvtype == DHCP6_LISTVAL_NUM16 &&" in update_ia
+assert "siav->val_num16 == D6_OPT_STCODE_NOBINDING" in update_ia
+nobinding_preflight = update_ia.index("if (dhcp6c_ia_nobinding_requires_request(")
+main_suboption_loop = update_ia.index("/* update IA configuration information */")
+first_prefix_update = update_ia.index("update_prefix6(ia, siav")
+assert update_ia.index("TAILQ_FOREACH(siav, &iav->sublist, link)") < nobinding_preflight < main_suboption_loop < first_prefix_update
+preflight_body = update_ia[nobinding_preflight:main_suboption_loop]
+assert "is_renew_or_rebind" in preflight_body
+assert "no_binding_found" in preflight_body
+assert "update_status = reestablish_ia(ia);" in preflight_body
+assert "goto nextia;" in preflight_body
+ordinary_suboption_loop = update_ia[main_suboption_loop:]
+assert "siav->val_num16 == D6_OPT_STCODE_NOBINDING" not in ordinary_suboption_loop
 assert "test_operation_error_is_retryable" in test
 assert update_ia.index("update_status = reestablish_ia(ia);") < update_ia.index("goto nextia;", update_ia.index("update_status = reestablish_ia(ia);"))
 

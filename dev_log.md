@@ -1,3 +1,11 @@
+## 2026-11-25 — Pre-scan DHCPv6 NoBinding before applying IA addresses or prefixes
+
+- In Renew/Rebind replies, RFC 9915 §18.2.10.1 directs the client to send a Request for any IA carrying NoBinding while continuing to use bindings for which the server returned no error.
+- `update_ia()` previously consumed each IA's suboptions in wire order. If an IA Address/Prefix appeared before its NoBinding Status Code, it could mutate kernel state before the handler switched to Request. The outcome therefore depended on suboption order. The client now scans the entire IA sublist first and takes the NoBinding re-establishment path before any address/prefix update; unrelated IAs continue through normal processing.
+- Added GNU89 policy truth-table coverage and source-order contracts. Exact-head DHCPv6 IA and XY-C1 checks are required; hardware L4 is not implied.
+
+---
+
 ## 2026-11-25 — Validate UTF-8 before emitting MiniUPnP SOAP XML text
 
 - The SOAP text escaper handled markup delimiters and ASCII controls byte-by-byte, but copied every byte at or above 0x80 without validating UTF-8. A truncated/stray continuation, overlong form, UTF-16 surrogate encoding, code point above U+10FFFF or XML 1.0 U+FFFE/U+FFFF could therefore be emitted into SOAP XML text and make the response ill-formed for control points.
@@ -10,8 +18,8 @@
 
 ## 2026-11-25 — Free unqueued DHCPv6 IA event data after request preparation failure
 
-- `prepare_iaevent()` allocated an event-data node before `iapref_renew()`, but that helper can fail while copying IA prefix data before the node is linked into the event's data list. The shared `dhcp6_remove_event()` cleanup only destroys queued nodes, so each failed preparation leaked the unqueued allocation; repeated NoBinding re-establishment attempts could accumulate the leak under memory pressure.
-- The failure branch now frees the still-unowned node before removing the event. Once the node is queued, the existing event destructor remains its sole owner.
+- `prepare_iaevent()` allocates an event-data wrapper before `iapref_renew()`. If the helper reports an invalid/unexpected list value while copying IA data, that wrapper has not yet been linked into the event's data list, so `dhcp6_remove_event()` cannot own or release it. This is an explicit error-path ownership gap, separate from BusyBox's fatal `xzalloc()` allocation-failure behavior.
+- The failure branch now frees the still-unowned wrapper before removing the event. Once queued, the existing event destructor remains its sole owner.
 - Extended the DHCPv6 IA source-contract regression to pin the pre-queue free and ordering. Exact-head DHCPv6 IA/XY-C1 validation will be checked on this commit; no MIPS firmware or physical-router result is claimed.
 
 ---

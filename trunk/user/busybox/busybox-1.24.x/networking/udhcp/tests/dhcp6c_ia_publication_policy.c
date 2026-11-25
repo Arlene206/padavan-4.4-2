@@ -74,6 +74,16 @@ test_operation_error_is_retryable(void)
 }
 
 static void
+test_nobinding_is_detected_before_ia_suboption_application(void)
+{
+	assert(dhcp6c_ia_nobinding_requires_request(1, 1));
+	assert(dhcp6c_ia_nobinding_requires_request(1, 1)); /* Renew and Rebind */
+	assert(!dhcp6c_ia_nobinding_requires_request(0, 1));
+	assert(!dhcp6c_ia_nobinding_requires_request(1, 0));
+	assert(!dhcp6c_ia_nobinding_requires_request(0, 0));
+}
+
+static void
 test_first_error_and_retry_gate(void)
 {
 	int status = 0;
@@ -202,6 +212,7 @@ main(void)
 {
 	test_partial_pd_failure_is_retried_without_reapplying_successes();
 	test_operation_error_is_retryable();
+	test_nobinding_is_detected_before_ia_suboption_application();
 	test_first_error_and_retry_gate();
 	test_default_ia_timer_ratios_do_not_overflow();
 	test_prefix_expiry_is_required_for_finite_lifetimes();

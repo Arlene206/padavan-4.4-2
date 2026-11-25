@@ -39,6 +39,13 @@ dhcp6c_ia_operation_error(int status, int saved_errno)
 }
 
 static inline int
+dhcp6c_ia_nobinding_requires_request(int is_renew_or_rebind,
+				     int contains_nobinding)
+{
+	return is_renew_or_rebind && contains_nobinding;
+}
+
+static inline int
 dhcp6c_ia_retry_required(int status)
 {
 	return status != 0;

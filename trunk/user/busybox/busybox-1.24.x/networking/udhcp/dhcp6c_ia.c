@@ -181,6 +181,7 @@ int update_ia(struct dhcp6_list *iahead, struct dhcp6_if *ifp,
 
 	TAILQ_FOREACH(iav, iahead, link) {
 		int ia_error = 0, update_status;
+		int is_renew_or_rebind, no_binding_found = 0;
 
 		/* if we're not interested in this IA, ignore it. */
 		iac = find_iaconf(&ifp->iaconf_list, iav->dh6optype, iav->val_ia.iaid);
@@ -217,6 +218,39 @@ int update_ia(struct dhcp6_list *iahead, struct dhcp6_if *ifp,
 		}
 #endif
 
+		/*
+		 * NoBinding applies to the whole IA, not just the suboption sequence
+		 * position where its Status Code appears. Inspect the complete IA
+		 * before installing/updating any address or delegated prefix.
+		 */
+		is_renew_or_rebind =
+			ia->state == IAS_RENEW || ia->state == IAS_REBIND;
+		if (is_renew_or_rebind) {
+			TAILQ_FOREACH(siav, &iav->sublist, link) {
+				if (siav->lvtype == DHCP6_LISTVAL_NUM16 &&
+				    siav->val_num16 == D6_OPT_STCODE_NOBINDING) {
+					no_binding_found = 1;
+					break;
+				}
+			}
+		}
+		if (dhcp6c_ia_nobinding_requires_request(
+			is_renew_or_rebind, no_binding_found)) {
+			bb_info_msg("receive NoBinding against "
+				    "renew/rebind for %s-%u",
+				    dhcp6optstr(ia->conf->type), ia->conf->iaid);
+			errno = 0;
+			update_status = reestablish_ia(ia);
+			if (update_status != 0) {
+				ia_error = dhcp6c_ia_first_error(ia_error,
+				    dhcp6c_ia_operation_error(update_status, errno));
+				first_error = dhcp6c_ia_first_error(first_error, ia_error);
+				bb_error_msg("cannot re-establish %s-%u after NoBinding (status=%d)",
+				    dhcp6optstr(ia->conf->type), ia->conf->iaid, ia_error);
+			}
+			goto nextia;
+		}
+
 		/* update IA configuration information */
 		TAILQ_FOREACH(siav, &iav->sublist, link) {
 			char p[INET6_ADDRSTRLEN];
@@ -248,31 +282,6 @@ int update_ia(struct dhcp6_list *iahead, struct dhcp6_if *ifp,
 				bb_info_msg("status code for %s-%u: %s",
 				    dhcp6optstr(iav->dh6optype), iav->val_ia.iaid,
 				    dhcp6stcodestr(siav->val_num16));
-				if ((ia->state == IAS_RENEW || ia->state == IAS_REBIND) &&
-				    siav->val_num16 == D6_OPT_STCODE_NOBINDING) {
-					/*
-					 * For each IA in the original Renew or
-					 * Rebind message, the client
-					 * sends a Request message if the IA
-					 * contained a Status Code option
-					 * with the NoBinding status.
-					 * [RFC3315 18.1.8]
-					 * XXX: what about the PD case?
-					 */
-					bb_info_msg("receive NoBinding against "
-					    "renew/rebind for %s-%u",
-					    dhcp6optstr(ia->conf->type), ia->conf->iaid);
-					errno = 0;
-					update_status = reestablish_ia(ia);
-					if (update_status != 0) {
-						ia_error = dhcp6c_ia_first_error(ia_error,
-						    dhcp6c_ia_operation_error(update_status, errno));
-						first_error = dhcp6c_ia_first_error(first_error, ia_error);
-						bb_error_msg("cannot re-establish %s-%u after NoBinding (status=%d)",
-						    dhcp6optstr(ia->conf->type), ia->conf->iaid, ia_error);
-					}
-					goto nextia;
-				}
 				break;
 			default:
 				bb_error_msg("impossible subopt");
