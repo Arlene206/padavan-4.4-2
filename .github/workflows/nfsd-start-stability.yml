@@ -272,7 +272,12 @@ jobs:
           assert export_writer.index("storage_nfs_export_read_acl_snapshot(") < export_writer.index('procpt = fopen(PROC_MOUNTS_FILE, "r")')
           assert "nvram_get_int(" not in export_writer
           assert "get_ap_mode()" not in export_writer
-          assert "rc_wan_nvram_parse_int_value(" in export_writer
+          assert "storage_nfs_export_parse_selector(" in export_writer
+          assert "rc_wan_nvram_parse_int_value(" not in export_writer
+          assert "storage_nfs_export_parse_selector(acl_snapshot.vpn_enabled, 1U, &vpn_enabled)" in export_compact
+          assert "storage_nfs_export_parse_selector(acl_snapshot.vpn_use, 2U, &vpn_use)" in export_compact
+          assert "test_vpn_export_selectors_are_strict_enumerations" in policy_test
+          assert "text[1] != '\\0'" in policy
           assert "gotoacl_nvram_error;" in export_compact
           assert "test_acl_nvram_copies_survive_shared_cache_reuse" in policy_test
           assert "test_acl_nvram_copy_fails_closed_on_missing_error_and_truncation" in policy_test

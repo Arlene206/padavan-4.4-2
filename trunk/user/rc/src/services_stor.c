@@ -2395,12 +2395,12 @@ write_nfsd_exports(void)
 		strcpy(acl_lan_addr, acl_snapshot.fallback_address);
 		strcpy(acl_lan_mask, acl_snapshot.fallback_netmask);
 	}
-	acl_nvram_status = rc_wan_nvram_parse_int_value(
-		acl_snapshot.vpn_enabled, &vpn_enabled);
+	acl_nvram_status = storage_nfs_export_parse_selector(
+		acl_snapshot.vpn_enabled, 1U, &vpn_enabled);
 	if (acl_nvram_status != 0)
 		goto acl_nvram_error;
-	acl_nvram_status = rc_wan_nvram_parse_int_value(
-		acl_snapshot.vpn_use, &vpn_use);
+	acl_nvram_status = storage_nfs_export_parse_selector(
+		acl_snapshot.vpn_use, 2U, &vpn_use);
 	if (acl_nvram_status != 0)
 		goto acl_nvram_error;
 	acl_lan[0] = '\0';
@@ -2434,12 +2434,12 @@ write_nfsd_exports(void)
 	    vpn_enabled && vpn_use) {
 		strcpy(acl_vpn_addr, acl_snapshot.vpn_address);
 #if defined (APP_OPENVPN)
-		acl_nvram_status = rc_wan_nvram_parse_int_value(
-			acl_snapshot.vpn_type, &vpn_type);
+		acl_nvram_status = storage_nfs_export_parse_selector(
+			acl_snapshot.vpn_type, 2U, &vpn_type);
 		if (acl_nvram_status != 0)
 			goto acl_nvram_error;
-		acl_nvram_status = rc_wan_nvram_parse_int_value(
-			acl_snapshot.vpn_openvpn_mode, &vpn_openvpn_mode);
+		acl_nvram_status = storage_nfs_export_parse_selector(
+			acl_snapshot.vpn_openvpn_mode, 1U, &vpn_openvpn_mode);
 		if (acl_nvram_status != 0)
 			goto acl_nvram_error;
 		if (vpn_type == 2) {

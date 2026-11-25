@@ -340,6 +340,49 @@ test_nfs_acl_snapshot_discards_all_fields_on_read_or_close_error(void)
 }
 
 
+static void
+test_vpn_export_selectors_are_strict_enumerations(void)
+{
+	static const char *const invalid[] = {
+		"2", "3", "-1", "+1", "01", " 1", "1 ", "true", "1junk"
+	};
+	static const struct {
+		const char *text;
+		unsigned int maximum;
+		int expected;
+	} valid[] = {
+		{ "", 1U, 0 }, { "0", 1U, 0 }, { "1", 1U, 1 },
+		{ "", 2U, 0 }, { "0", 2U, 0 }, { "1", 2U, 1 },
+		{ "2", 2U, 2 }
+	};
+	unsigned int i;
+	int value;
+
+	for (i = 0; i < sizeof(valid) / sizeof(valid[0]); ++i) {
+		value = 99;
+		assert(storage_nfs_export_parse_selector(valid[i].text,
+			valid[i].maximum, &value) == 0);
+		assert(value == valid[i].expected);
+	}
+
+	for (i = 0; i < sizeof(invalid) / sizeof(invalid[0]); ++i) {
+		value = 99;
+		assert(storage_nfs_export_parse_selector(invalid[i], 1U,
+			&value) == EINVAL);
+		assert(value == 0);
+		value = 99;
+		assert(storage_nfs_export_parse_selector(invalid[i], 2U,
+			&value) == EINVAL);
+		assert(value == 0);
+	}
+
+	value = 99;
+	assert(storage_nfs_export_parse_selector("0", 10U, &value) == EINVAL);
+	assert(value == 99);
+	assert(storage_nfs_export_parse_selector(NULL, 1U, &value) == EINVAL);
+	assert(storage_nfs_export_parse_selector("1", 1U, NULL) == EINVAL);
+}
+
 int
 main(void)
 {
@@ -350,6 +393,7 @@ main(void)
 	char ipv6_acl[INET6_ADDRSTRLEN + 4];
 #endif
 
+	test_vpn_export_selectors_are_strict_enumerations();
 	test_nfs_acl_inputs_are_copied_from_one_transaction();
 	test_nfs_acl_snapshot_discards_all_fields_on_read_or_close_error();
 

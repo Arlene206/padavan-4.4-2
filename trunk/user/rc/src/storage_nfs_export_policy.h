@@ -419,6 +419,29 @@ storage_nfs_export_copy_nvram_value(
 }
 
 
+/*
+ * VPN export selectors are small enumerations from the web UI, not arbitrary
+ * integers. Reject signs, whitespace, prefixes and out-of-range values so a
+ * corrupt "enabled" selector cannot grant a wider NFS client ACL. An absent
+ * NVRAM key retains the legacy zero default.
+ */
+static int
+storage_nfs_export_parse_selector(const char *text, unsigned int maximum,
+                                  int *value)
+{
+	if (!text || !value || maximum > 9U)
+		return EINVAL;
+	*value = 0;
+	if (!text[0])
+		return 0;
+	if (text[1] != '\0' || text[0] < '0' || text[0] > '9' ||
+	    (unsigned int)(text[0] - '0') > maximum)
+		return EINVAL;
+	*value = text[0] - '0';
+	return 0;
+}
+
+
 static int
 storage_nfs_enabled_status(int api_result, int saved_errno,
 			   const char *value, int *enabled)
