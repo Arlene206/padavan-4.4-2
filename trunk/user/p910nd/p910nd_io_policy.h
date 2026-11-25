@@ -45,4 +45,11 @@ p910nd_write_no_progress(ssize_t result, size_t requested)
 	return requested > 0 && result == 0;
 }
 
+/* FD_SET is only defined for descriptor values in [0, FD_SETSIZE). */
+static inline int
+p910nd_fd_is_selectable(int fd, int fd_setsize)
+{
+	return fd >= 0 && fd_setsize > 0 && fd < fd_setsize;
+}
+
 #endif

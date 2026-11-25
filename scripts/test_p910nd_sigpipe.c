@@ -3,6 +3,7 @@
 #include <signal.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <sys/select.h>
 #include <unistd.h>
 
 #include "../trunk/user/p910nd/p910nd_sigpipe_policy.h"
@@ -94,6 +95,18 @@ test_io_would_block_is_transient(void)
 }
 
 static void
+test_select_fd_bounds_are_checked_before_fd_set(void)
+{
+	assert(p910nd_fd_is_selectable(0, FD_SETSIZE));
+	assert(p910nd_fd_is_selectable(FD_SETSIZE - 1, FD_SETSIZE));
+	assert(!p910nd_fd_is_selectable(-1, FD_SETSIZE));
+	assert(!p910nd_fd_is_selectable(FD_SETSIZE, FD_SETSIZE));
+	assert(!p910nd_fd_is_selectable(FD_SETSIZE + 1, FD_SETSIZE));
+	assert(!p910nd_fd_is_selectable(0, 0));
+	assert(!p910nd_fd_is_selectable(0, -1));
+}
+
+static void
 test_zero_length_write_progress_contract(void)
 {
 	assert(p910nd_write_no_progress(0, 1));
@@ -115,6 +128,7 @@ main(void)
 	test_io_retries_interrupted_calls();
 	test_io_would_block_is_transient();
 	test_zero_length_write_progress_contract();
+	test_select_fd_bounds_are_checked_before_fd_set();
 
 	assert(signal(SIGPIPE, SIG_DFL) != SIG_ERR);
 	assert(socketpair(AF_UNIX, SOCK_STREAM, 0, sockets) == 0);

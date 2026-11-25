@@ -123,6 +123,7 @@
 #include	<sys/resource.h>
 #include	<sys/stat.h>
 #include	<sys/socket.h>
+#include	<sys/select.h>
 #include	<netinet/in.h>
 #include	<arpa/inet.h>
 
@@ -412,6 +413,20 @@ ssize_t writeBuffer(Buffer_t * b)
 int copy_stream(int fd, int lp)
 {
 	int result;
+
+	/*
+	 * FD_SET indexes a fixed-size fd_set. A descriptor at or above
+	 * FD_SETSIZE would write beyond the stack object before select() runs.
+	 * Reject it only on the bidirectional path, which uses select().
+	 */
+	if (bidir &&
+	    (!p910nd_fd_is_selectable(fd, FD_SETSIZE) ||
+	     !p910nd_fd_is_selectable(lp, FD_SETSIZE))) {
+		errno = EINVAL;
+		dolog(LOG_ERR, "copy_stream: descriptor exceeds FD_SETSIZE (%d)\\n",
+		      FD_SETSIZE);
+		return -1;
+	}
 	Buffer_t networkToPrinterBuffer;
 	initBuffer(&networkToPrinterBuffer, fd, lp, 1);
 

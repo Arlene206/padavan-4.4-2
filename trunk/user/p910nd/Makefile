@@ -11,8 +11,8 @@ CONFIGDIR = /etc/sysconfig
 SCRIPTDIR = /etc/init.d
 MANDIR = /usr/share/man/man8
 
-$(PROG): p910nd.c
-	$(CC) -o $@ $^ $(CFLAGS) $(DEFINES) $(LIBS)
+$(PROG): p910nd.c p910nd_io_policy.h p910nd_sigpipe_policy.h
+	$(CC) -o $@ p910nd.c $(CFLAGS) $(DEFINES) $(LIBS)
 
 strip: $(PROG)
 	$(STRIP) -s $(PROG)

@@ -8,6 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SOURCE = (ROOT / "trunk/user/p910nd/p910nd.c").read_text()
 POLICY = (ROOT / "trunk/user/p910nd/p910nd_sigpipe_policy.h").read_text()
 IO_POLICY = (ROOT / "trunk/user/p910nd/p910nd_io_policy.h").read_text()
+MAKEFILE = (ROOT / "trunk/user/p910nd/Makefile").read_text()
 
 
 def compact(text):
@@ -39,12 +40,18 @@ assert "initBuffer(&printerToNetworkBuffer, lp, fd, 0)" in copy
 assert "writeBuffer(&printerToNetworkBuffer)" in copy
 assert "printerToNetworkBuffer.outfd = -1;" in copy
 assert "printerToNetworkBuffer.err = 0;" in copy
+assert "p910nd_fd_is_selectable(fd, FD_SETSIZE)" in copy
+assert "p910nd_fd_is_selectable(lp, FD_SETSIZE)" in copy
+assert copy.index("p910nd_fd_is_selectable") < copy.index("prepBuffer(&networkToPrinterBuffer")
 
 assert '#include "p910nd_io_policy.h"' in SOURCE
 io_policy = compact(IO_POLICY)
 assert "while (result < 0 && errno == EINTR)" in io_policy
 assert "return error == EAGAIN || error == EWOULDBLOCK;" in io_policy
 assert "return requested > 0 && result == 0;" in io_policy
+assert "return fd >= 0 && fd_setsize > 0 && fd < fd_setsize;" in io_policy
+assert "$(PROG): p910nd.c p910nd_io_policy.h p910nd_sigpipe_policy.h" in MAKEFILE
+assert "$(CC) -o $@ p910nd.c $(CFLAGS) $(DEFINES) $(LIBS)" in MAKEFILE
 
 read_start = SOURCE.index("ssize_t readBuffer(")
 write_start = SOURCE.index("ssize_t writeBuffer(", read_start)
