@@ -25,7 +25,9 @@ wait = body("redsocks_wait_stopped()")
 wait_start = body("redsocks_wait_started()")
 start_verify = body("redsocks_start_and_verify()")
 start_offset = source.index("func_start(){")
-start_end_offset = source.index("func_clean(){", start_offset)
+clean_match = re.search(r"(?m)^func_clean\(\)\s*\{", source[start_offset:])
+require(clean_match is not None, "missing func_clean() after func_start")
+start_end_offset = start_offset + clean_match.start()
 start = source[start_offset:start_end_offset]
 stop = body("func_stop()")
 require('pidof "$BINARY_NAME"' in state and 'redsocks_pid_status' in state and

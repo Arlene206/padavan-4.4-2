@@ -1,3 +1,10 @@
+## 2026-11-25 — Align Redsocks checker with split function braces
+
+- Exact Redsocks run on `dd12814` passed the full shell regression matrix, including invalid-address preservation, duplicate draining, check/delete error propagation and partial rollback. The source-contract step then crashed with `ValueError` because it searched for literal `func_clean(){`, while production uses `func_clean()` followed by a newline and `{`.
+- Replace the brittle substring lookup with a line-anchored regex accepting whitespace before the opening brace. This preserves the start-function boundary and all semantic assertions; exact-head rerun required.
+
+---
+
 ## 2026-11-25 — Isolate Redsocks cleanup-failure trace assertion
 
 - Exact Redsocks run #45555165127 on `437fd9e` passed invalid IPv4 rejection, duplicate-draining/idempotent reapply, and iptables check-error handling. The delete-error test then falsely detected `-N REDSOCKS` from the earlier successful setup because it reused the same diagnostic log. Clear only the command trace before injecting the delete failure; keep the existing rules and chain state intact so the assertion proves no new chain is created after cleanup failure.
