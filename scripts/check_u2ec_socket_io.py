@@ -61,7 +61,9 @@ assert "u2ec_fd_is_usable(conn_fd, sizeof(fd_in_use))" in daemon_main
 assert daemon_main.index("u2ec_fd_is_usable(conn_fd") < daemon_main.index("fd_in_use[conn_fd]")
 assert "u2ec_fd_is_usable(new_fd, sizeof(fd_in_use))" in daemon_main
 assert daemon_main.index("u2ec_fd_is_usable(new_fd") < daemon_main.index("fd_in_use[new_fd]") < daemon_main.index("FD_SET(new_fd")
-rejected_new_fd = daemon_main[daemon_main.index("if (!u2ec_fd_is_usable(new_fd"):daemon_main.index("continue;", daemon_main.index("if (!u2ec_fd_is_usable(new_fd")))]
+rejected_new_fd_start = daemon_main.index("if (!u2ec_fd_is_usable(new_fd")
+rejected_new_fd_end = daemon_main.index("continue;", rejected_new_fd_start)
+rejected_new_fd = daemon_main[rejected_new_fd_start:rejected_new_fd_end]
 assert "fd_in_use[new_fd]" not in rejected_new_fd
 assert "u2ec_fd_is_usable(*fd, sizeof(fd_in_use))" in handle_fifo
 assert handle_fifo.index("u2ec_fd_is_usable(*fd") < handle_fifo.index("FD_SET(*fd")
