@@ -13,17 +13,16 @@ Continue one autonomous engineering stream on main. For each logical slice, crea
 
 ## Active task
 
-### IPTV multicast proxy altnet validation
+### PPP WAN callback generation state: stable lock + atomic publication
 
-The live NVRAM snapshot is passed into igmpproxy_config_publish(), but the former altnet validator only allowed digits/dots/slashes and did not validate IPv4 octet or CIDR prefix ranges. Separately, start_igmpproxy_with_settings() treated every value with length <= 6 as the default 0.0.0.0/0, silently widening malformed short configuration rather than failing closed. The active source slice adds strict four-octet decimal IPv4 and /0..32 parsing, defaults only an empty value, and adds malformed-input/last-good-config regressions plus a workflow source contract.
+The PPP session token was stored in the same inode used as its fcntl lock. The generation-change path sought to offset zero and truncated this live lock file before writing the next generation. Any short write, I/O error or power loss after truncate permanently left an existing empty/corrupt state file; the lock reader deliberately rejects such a file rather than resetting the token, so subsequent callback entry and WAN teardown remain blocked. The new slice separates a stable wan-session.lock inode from wan-session.state, keeps all ## Current exact-head Actions on 0a92a8422ecbc9d38eb48f52992b967a4210fb5b
 
-## Current exact-head Actions
-
-- HTTPD Authentication and Security Regression #45517975390: PASS on e02d1e3a1c631b308885ba3279fd97247564a4ea, including the shared uploader and GNU89 policy tests.
-- AI handoff documentation #45517975544 failed on e02d1e3a1c631b308885ba3279fd97247564a4ea because the roadmap exceeded the 131072-byte limit. Its size correction is committed at 139d24533a8f106d07306091320f820f04912548; AI docs run #45518436003 was IN_PROGRESS when last checked.
-- FRP lifecycle #45517975418: all shell/lifecycle tests passed; the final source checker alone failed because it expected the old inline FRP-only staging writer. A follow-up corrects the checker to validate the new shared no-follow uploader and FRP 0700 policy; rerun on the next exact SHA.
-- WAN sysfs, Process, NVRAM, Inadyn, AdGuardHome, AliyunDrive and USB tests passed on e02d1e3. XY-C1 #45517975662 remained IN_PROGRESS; NVRAM #45517975469 subsequently passed.
-- No local compile is claimed. L3 remains unverified until the latest exact-SHA XY-C1 Build/TRX/artifact pass; L4 remains unverified.
+- Process inventory/lifecycle #45519156108: PASS; the new IPTV/IGMP parser regression and empty-only fallback source contract both passed.
+- AI handoff #45519155900, HTTPD Security #45519155825, Firewall Startup #45519155838, DNSMasq lifecycle #45519155972, WAN route #45519156013 and WAN DHCP callback state #45519156194: PASS.
+- NVRAM boundary audit #45519155834 and USB hotplug #45519156121: PASS.
+- XY-C1 Firmware Validation #45519156024: Build XY-C1 was still IN_PROGRESS; TRX verification and artifact upload had not started at last poll. L3 is NOT VERIFIED. L4 hardware remains NOT VERIFIED.
+- Next active slice: PPP generation-state corruption after truncate/write failure. The new sidecar lock and staged generation publication must pass exact-head Process/Lifecycle regression before this slice is considered complete.
+- No local compile is claimed.
 
 
 ## Completed source slices

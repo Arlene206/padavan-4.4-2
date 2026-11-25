@@ -1,3 +1,12 @@
+## 2026-11-24 — Preserve PPP callback generations on failed state writes
+
+- A concrete fault path existed in PPP WAN session fencing: ppp_wan_session_generation_change() used the same inode as its fcntl lock and executed lseek()+ftruncate(0) before writing the next decimal generation. A short write or I/O failure after truncation left the pre-existing state file empty/partial; ppp_callback_generation_initial_state_allowed() correctly refuses to reset a pre-existing empty file, so later callback entry and WAN teardown remained fail-closed but wedged.
+- Split the persistent lock to /tmp/ppp/wan-session.lock and keep /tmp/ppp/wan-session.state as replaceable data. Readers acquire/validate the stable owner-only lock inode before reading state with O_NOFOLLOW; writers create an owner-only same-directory stage, write the complete token, fsync, close and atomically rename without truncating the prior generation.
+- Added a GNU89 ASan/UBSan regression for missing vs existing-empty state, malformed/link/directory state rejection, lock inode stability over atomic replacement, cross-process lock exclusion, RLIMIT_FSIZE short-write failure retaining the previous token, and staged-file cleanup. Added workflow path triggers for net_ppp.c and the new policy/test, plus a source contract prohibiting in-place truncate in the generation-change path.
+- Parent main SHA: 0a92a8422ecbc9d38eb48f52992b967a4210fb5b. Process/Lifecycle and XY-C1 exact-head validations for this slice are pending; do not claim local compilation or firmware/hardware verification.
+
+---
+
 ## 2026-11-24 — Fail closed on malformed IPTV multicast altnet values
 
 - The IPTV proxy reads the user-configured mr_altnet_x snapshot and passes it to igmpproxy_config_publish(). The config token check only allowed digits/dots/slashes, so values such as 192.0.2.256/24 and 192.0.2.1/33 were published as if they were valid networks.

@@ -42,6 +42,7 @@
 #include "ppp_option_value_policy.h"
 #include "ppp_callback_identity_policy.h"
 #include "ppp_callback_generation_policy.h"
+#include "ppp_callback_state_file.h"
 #include "ppp_wan_ipup_policy.h"
 #include "dhcp_lease_policy.h"
 #include "wan_nvram_status_policy.h"
@@ -52,142 +53,25 @@
 #endif
 
 #define PPP_WAN_SESSION_STATE_FILE "/tmp/ppp/wan-session.state"
+#define PPP_WAN_SESSION_LOCK_FILE "/tmp/ppp/wan-session.lock"
 #define PPP_WAN_SESSION_LOCK_ATTEMPTS 500
 
-/* The state file is also the inter-process lock. Holding it for a complete
- * callback makes session invalidation wait for all in-flight WAN mutations. */
+/* Keep the lock inode stable while generation state is atomically replaced. */
 static int
 ppp_wan_session_state_lock(unsigned long *generation, int allow_empty)
 {
-	int fd, attempt, locked, created;
-	struct stat st;
-	struct flock file_lock;
-	char state_text[sizeof(unsigned long) * CHAR_BIT + 2];
-	size_t used;
-	ssize_t count;
-
-	if (!generation) {
-		errno = EINVAL;
-		return -1;
-	}
 	if (ppp_options_directory_ready("/tmp/ppp") != 0)
 		return -1;
-
-	created = 0;
-	fd = open(PPP_WAN_SESSION_STATE_FILE,
-		  O_RDWR | O_CREAT | O_EXCL | O_NOFOLLOW | O_NONBLOCK, 0600);
-	if (fd >= 0) {
-		created = 1;
-	} else if (errno == EEXIST) {
-		fd = open(PPP_WAN_SESSION_STATE_FILE,
-			  O_RDWR | O_NOFOLLOW | O_NONBLOCK);
-	}
-	if (fd < 0)
-		return -1;
-	if (fstat(fd, &st) != 0)
-		goto failed;
-	if (!S_ISREG(st.st_mode) || st.st_uid != geteuid() || st.st_nlink != 1) {
-		errno = !S_ISREG(st.st_mode) ? EINVAL :
-			(st.st_uid != geteuid() ? EPERM : EMLINK);
-		goto failed;
-	}
-	if (fchmod(fd, S_IRUSR | S_IWUSR) != 0)
-		goto failed;
-
-	memset(&file_lock, 0, sizeof(file_lock));
-	file_lock.l_type = F_WRLCK;
-	file_lock.l_whence = SEEK_SET;
-	file_lock.l_start = 0;
-	file_lock.l_len = 0;
-	locked = 0;
-	for (attempt = 0; attempt < PPP_WAN_SESSION_LOCK_ATTEMPTS; ++attempt) {
-		if (fcntl(fd, F_SETLK, &file_lock) == 0) {
-			locked = 1;
-			break;
-		}
-		if (errno == EINTR)
-			continue;
-		if (errno != EACCES && errno != EAGAIN)
-			goto failed;
-		usleep(10000);
-	}
-	if (!locked) {
-		errno = EBUSY;
-		goto failed;
-	}
-
-	if (lseek(fd, 0, SEEK_SET) < 0)
-		goto failed_locked;
-	used = 0;
-	for (;;) {
-		count = read(fd, state_text + used, sizeof(state_text) - 1 - used);
-		if (count < 0) {
-			if (errno == EINTR)
-				continue;
-			goto failed_locked;
-		}
-		if (count == 0)
-			break;
-		used += (size_t)count;
-		if (used >= sizeof(state_text) - 1) {
-			errno = EOVERFLOW;
-			goto failed_locked;
-		}
-	}
-	state_text[used] = '\0';
-	if (used > 0 && state_text[used - 1] == '\n')
-		state_text[--used] = '\0';
-	if (used == 0) {
-		if (!ppp_callback_generation_initial_state_allowed(created, allow_empty)) {
-			errno = ENOENT;
-			goto failed_locked;
-		}
-		*generation = 0;
-	} else if (ppp_callback_generation_parse(state_text, generation) != 0) {
-		goto failed_locked;
-	}
-
-	return fd;
-
-failed_locked:
-	file_lock.l_type = F_UNLCK;
-	(void)fcntl(fd, F_SETLK, &file_lock);
-failed:
-	{
-		int saved_errno = errno ? errno : EIO;
-		(void)close(fd);
-		errno = saved_errno;
-	}
-	return -1;
+	return ppp_callback_state_file_lock(PPP_WAN_SESSION_LOCK_FILE,
+					    PPP_WAN_SESSION_STATE_FILE,
+					    generation, allow_empty,
+					    PPP_WAN_SESSION_LOCK_ATTEMPTS);
 }
 
 static int
 ppp_wan_session_state_unlock(int fd)
 {
-	struct flock file_lock;
-	int result = 0;
-	int saved_errno = 0;
-
-	if (fd < 0) {
-		errno = EINVAL;
-		return -1;
-	}
-	memset(&file_lock, 0, sizeof(file_lock));
-	file_lock.l_type = F_UNLCK;
-	file_lock.l_whence = SEEK_SET;
-	file_lock.l_start = 0;
-	file_lock.l_len = 0;
-	if (fcntl(fd, F_SETLK, &file_lock) != 0) {
-		result = -1;
-		saved_errno = errno ? errno : EIO;
-	}
-	if (close(fd) != 0 && result == 0) {
-		result = -1;
-		saved_errno = errno ? errno : EIO;
-	}
-	if (result != 0)
-		errno = saved_errno;
-	return result;
+	return ppp_callback_state_file_unlock(fd);
 }
 
 static int
@@ -195,37 +79,13 @@ ppp_wan_session_generation_change(unsigned long *generation_out)
 {
 	int fd, saved_errno;
 	unsigned long current, next;
-	char state_text[sizeof(unsigned long) * CHAR_BIT + 2];
-	size_t length, written;
-	ssize_t count;
 
 	fd = ppp_wan_session_state_lock(&current, 1);
 	if (fd < 0)
 		return -1;
 	if (ppp_callback_generation_next(current, &next) != 0)
 		goto failed_locked;
-	if (ppp_callback_generation_format(next, state_text, sizeof(state_text)) != 0)
-		goto failed_locked;
-	length = strlen(state_text);
-	state_text[length++] = '\n';
-
-	if (lseek(fd, 0, SEEK_SET) < 0 || ftruncate(fd, 0) != 0)
-		goto failed_locked;
-	written = 0;
-	while (written < length) {
-		count = write(fd, state_text + written, length - written);
-		if (count < 0) {
-			if (errno == EINTR)
-				continue;
-			goto failed_locked;
-		}
-		if (count == 0) {
-			errno = EIO;
-			goto failed_locked;
-		}
-		written += (size_t)count;
-	}
-	if (fsync(fd) != 0)
+	if (ppp_callback_state_file_publish(PPP_WAN_SESSION_STATE_FILE, next) != 0)
 		goto failed_locked;
 	if (ppp_wan_session_state_unlock(fd) != 0)
 		return -1;
