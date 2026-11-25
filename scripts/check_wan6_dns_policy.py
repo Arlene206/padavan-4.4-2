@@ -27,6 +27,8 @@ policy = (ROOT / "trunk/user/rc/src/wan6_dns_policy.h").read_text()
 test = (ROOT / "trunk/user/rc/src/tests/wan6_dns_policy.c").read_text()
 identity_policy = (ROOT / "trunk/user/rc/src/wan6_identity_policy.h").read_text()
 identity_test = (ROOT / "trunk/user/rc/src/tests/wan6_identity_policy.c").read_text()
+callback_policy = (ROOT / "trunk/user/rc/src/dhcp6c_callback_generation_policy.h").read_text()
+callback_test = (ROOT / "trunk/user/rc/src/tests/dhcp6c_callback_generation.c").read_text()
 header = (ROOT / "trunk/user/rc/src/rc.h").read_text()
 busybox = (ROOT / "trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcp6c_script.c").read_text()
 workflow = (ROOT / ".github/workflows/wan-dhcp-callback-stability.yml").read_text()
@@ -528,3 +530,26 @@ vpn_export = body(vpn_source, "ovpn_server_expcli_main(int argc, char **argv)")
 assert "wan_addr6_status = get_wan_addr6_host_status(addr6s, &wan_addr);" in vpn_export
 assert "if (wan_addr6_status != 0)" in vpn_export and "goto failed;" in vpn_export
 assert vpn_export.index("if (wan_addr6_status != 0)") < vpn_export.index("get_lan_addr6_host(addr6s)")
+
+
+# If eval() launched dhcp6c but unsetting the callback environment failed,
+# invalidate queued callbacks and stop that just-started daemon before
+# releasing the cross-process generation lock. Otherwise the caller sees a
+# failed startup while a background client remains alive with stale state.
+dhcp6_start = body(source, "int start_dhcp6c(char *wan_ifname)")
+assert "client_stop_required = dhcp6c_callback_start_requires_stop(" in dhcp6_start
+assert "dhcp6c_callback_start_requires_stop(start_status, cleanup_status)" in callback_policy
+assert "test_successful_start_with_environment_cleanup_failure_requires_stop" in callback_test
+generation_failure = dhcp6_start.index("if (start_status != 0)")
+generation_advance = dhcp6_start.index(
+    "dhcp6c_callback_session_advance(session_fd, &generation)", generation_failure
+)
+stop_required = dhcp6_start.index("if (client_stop_required)", generation_advance)
+stop_call = dhcp6_start.index("client_stop_status = kill_services(svcs, 3, 1);", stop_required)
+unlock_after_cleanup = dhcp6_start.index(
+    "unlock_status = dhcp6c_callback_session_unlock(session_fd);", stop_call
+)
+assert generation_advance < stop_required < stop_call < unlock_after_cleanup
+assert 'char *svcs[] = { "dhcp6c", NULL };' in dhcp6_start
+assert "if (client_stop_status != 0)" in dhcp6_start
+assert "failed to stop client after callback environment cleanup failure" in dhcp6_start

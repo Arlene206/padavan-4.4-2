@@ -1,30 +1,29 @@
-## 2026-11-25 autonomous handoff — DHCPv6 IA publication and cleanup
+## 2026-11-25 autonomous handoff — DHCPv6 startup cleanup rollback
 
-Startup recovery for this work period is complete. This active checkpoint supersedes older task pointers; the remainder is historical. Do not repeat completed U2EC, procps, WAN/PPP or other audits without new evidence.
+Startup recovery is complete. Current work includes the earlier DHCPv6 IA cleanup retry and DHCPv4 select-wait saturation. Do not repeat completed U2EC, MTD, WAN/PPP or process audits without new evidence.
 
-### Live Git state
-- Main parent before this atomic cleanup slice: `c623f1e352db3f54dc6d10e2b7d2dd3e9cc2591d`. Publication retry source commit `0b41a2ed600fdf2c39358a6ef46d5acb4dc593fa`; checker follow-ups `fd0e5818afc44b1a7a55658d5ce22718a3f377b7`, `a319ffe3edd200f2f5634d34345b63563425dd7c`, and `aa1bdf567d3100f5e773bdd9b41235cc85346bbc`.
-- Frozen read-only backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`. Main-only, full-tree atomic commits; use force:false and expected SHA.
+### Git state
+- Main source baseline for this slice: `6a1faf201e57eab3e9757cc845c15a779b8e8baa`; this commit contains one atomic source/policy/test/checker/docs tree.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- No branch, PR or force push used. Continue using complete trees, non-forced expected-SHA updates.
 
-### DHCPv6 IA verified/follow-up
-- IA_NA/IA_PD add failures propagate from `update_ia()`; the client retries the same Reply at the existing 5-second interval before invoking the configuration script.
-- IA_PD retries missing downstream interfaces without repeating successful installations.
-- IA publication workflow #45618045032 and AI docs workflow #45618045228: PASS on `a319ffe`. DHCPv6 script retry #45617826451, WAN callback #45617826457 and NVRAM #45617826329: PASS on `a319ffe`.
-- XY-C1 workflow #45617826332 for `a319ffe`: Build XY-C1 was in progress at last poll; TRX and artifact upload remain unverified.
-- New finding: `remove_iaprefix()` discarded IA_PD tracking despite kernel delete failure; IA_NA deletion errors were also ignored by cleanup callers. `pref_cleanup()` unlinked entries before a helper unlinked them again. This could leave stale addresses with no retry state.
-- This slice retains failed delete nodes, schedules 5-second retry, keeps the IA/controller allocated until cleanup completes, and resumes pending IA cleanup after each prefix timer. Already-absent deletes are idempotent; EEXIST is success only for ADD.
+### Prior current-main source changes
+- `c623f1e352db3f54dc6d10e2b7d2dd3e9cc2591d`: `udhcpc` signed/unsigned timeout underflow is clamped with `udhcpc_wait_remaining_seconds()`; GNU89 boundary regression and checker added.
+- Concurrent parent commit `6a1faf201e57eab3e9757cc845c15a779b8e8baa`: DHCPv6 IA cleanup now retains failed delete nodes and retry state instead of dropping kernel-cleanup errors; exact regressions are running.
+- The earlier IA_NA/IA_PD Reply retry and partial PD reconciliation are in the source ancestry from `0b41a2ed`; IA and AI doc exact-head PASS evidence exists on `aa1bdf5`. Physical router L4 remains unverified.
 
-### Verification
-- Cleanup host regression, source-contract checker and exact-head workflows are pending on this slice. Physical router L4 remains unverified.
+### Current DHCPv6 startup rollback fix
+- `start_dhcp6c()` previously treated temporary callback environment cleanup failure after a successful `eval("/sbin/dhcp6c", ...)` as failed startup, invalidated the callback generation, but left the successfully launched background `dhcp6c` process running.
+- This slice distinguishes a successful launch plus failed cleanup from a failed launch. It advances the generation and calls the existing bounded `kill_services(svcs, 3, 1)` while holding the callback session lock, before unlock; failed launch does not incur an unnecessary stop.
+- Regression tests cover all launch/cleanup combinations. The existing WAN DHCP callback workflow includes the affected source, policy, test and semantic checker. Exact-head checks must pass before claiming L2.
 
-### First next actions
-1. Verify cleanup regression and source checker on exact main; inspect and fix any failure logs.
-2. Poll XY-C1 Build → TRX → artifact on one identical source SHA; do not claim L3 before all pass.
-3. Continue independent WAN/IPv6 route lifecycle and MIPS/uClibc runtime stability work while Actions are pending.
+### Exact-head CI and next actions
+- On parent `c623f1e`, udhcpc event-script regression and AI handoff validator passed; process inventory passed. XY-C1 build, storage, process lifecycle and NVRAM checks were still in progress when the next commit landed.
+- This source slice triggers exact-head WAN DHCP callback, WAN route status if path filters match, AI docs, Process/NVRAM and XY-C1 validation. Inspect first failures from job logs; PENDING does not block independent tasks.
+- First continue with exact-head callback checks, then inspect WAN/IPv6 route lifecycle and M2U/VLAN restoration issues only for concrete failure paths. XY-C1 Build→TRX→artifact must all PASS on one product-source SHA for L3. Hardware L4 is NOT VERIFIED.
 
 ### Execution contract
-Source change → focused regression → one atomic complete-tree commit → exact-SHA Actions. No per-file intermediate commits, force update, PR/branch creation or backup edits. Update this handoff with exact SHA and CI evidence before context exhaustion.
-
+Source/test → one complete Git tree/commit → non-forced expected-SHA main update → exact-SHA Actions. Preserve the backup and avoid repeating completed audits.
 
 ---
 

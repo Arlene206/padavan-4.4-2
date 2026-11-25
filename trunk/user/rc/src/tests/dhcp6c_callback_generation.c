@@ -97,6 +97,16 @@ test_environment_cleanup_success(void)
 }
 
 static void
+test_successful_start_with_environment_cleanup_failure_requires_stop(void)
+{
+	assert(dhcp6c_callback_start_requires_stop(0, -1));
+	assert(dhcp6c_callback_start_requires_stop(0, EIO));
+	assert(!dhcp6c_callback_start_requires_stop(0, 0));
+	assert(!dhcp6c_callback_start_requires_stop(-1, EIO));
+	assert(!dhcp6c_callback_start_requires_stop(-1, 0));
+}
+
+static void
 test_start_errno_uses_cleanup_error_after_successful_launch(void)
 {
 	/* errno may be stale after a successful eval()/launch. */
@@ -219,6 +229,7 @@ int main(void)
 	test_primary_operation_errno_survives_cleanup_failure();
 	test_environment_cleanup_attempts_both_and_preserves_first_error();
 	test_environment_cleanup_success();
+	test_successful_start_with_environment_cleanup_failure_requires_stop();
 	test_start_errno_uses_cleanup_error_after_successful_launch();
 	test_callback_does_not_create_missing_generation_file();
 	test_symlink_state_file_is_rejected();

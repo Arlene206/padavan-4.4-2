@@ -1892,11 +1892,13 @@ int start_dhcp6c(char *wan_ifname)
 	struct rc_wan_nvram_snapshot_field wan6_hwaddr_field;
 	int wan6_hwaddr_status;
 
+	char *svcs[] = { "dhcp6c", NULL };
 	static const char *const setting_names[] = {
 		"ip6_wan_dhcp", "ip6_dns_auto", "ip6_lan_auto"
 	};
 	FILE *fp;
 	int duid_fd, session_fd, start_status, unlock_status;
+	int client_stop_required, client_stop_status;
 	int wan6_dhcp, dns6_auto, lan6_auto, setting_values[3], settings_status;
 	int sla_id, sla_len;
 	int duid_error, saved_errno, start_errno, cleanup_errno;
@@ -2086,8 +2088,10 @@ int start_dhcp6c(char *wan_ifname)
 	cleanup_errno = env_cleanup_status != 0 ? (errno ? errno : EIO) : 0;
 	saved_errno = dhcp6c_callback_start_errno(start_status, start_errno,
 							 env_cleanup_status, cleanup_errno);
+	client_stop_required = dhcp6c_callback_start_requires_stop(
+		start_status, env_cleanup_status);
 	if (env_cleanup_status != 0) {
-		if (start_status == 0)
+		if (client_stop_required)
 			start_status = -1;
 		logmessage("DHCPv6 WAN Client",
 			   "cannot clear temporary callback environment after client start (errno=%d)",
@@ -2097,6 +2101,13 @@ int start_dhcp6c(char *wan_ifname)
 		if (dhcp6c_callback_session_advance(session_fd, &generation) != 0)
 			logmessage("DHCPv6 WAN Client",
 				   "cannot invalidate failed client start (errno=%d)", errno ? errno : EIO);
+		if (client_stop_required) {
+			client_stop_status = kill_services(svcs, 3, 1);
+			if (client_stop_status != 0)
+				logmessage("DHCPv6 WAN Client",
+					   "failed to stop client after callback environment cleanup failure (status=%d)",
+					   client_stop_status);
+		}
 		unlock_status = dhcp6c_callback_session_unlock(session_fd);
 		if (unlock_status != 0)
 			logmessage("DHCPv6 WAN Client",

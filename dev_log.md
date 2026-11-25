@@ -1,3 +1,12 @@
+## 2026-11-25 21:14 CST (UTC+8) — Stop DHCPv6 client after failed environment cleanup
+
+- Base SHA: `6a1faf201e57eab3e9757cc845c15a779b8e8baa`.
+- Found a resource/state leak in `start_dhcp6c()`: `eval("/sbin/dhcp6c", ...)` could launch the background client successfully, then `dhcp6c_callback_environment_clear()` could fail. The function converted this to startup failure and advanced the callback generation, but never stopped the already-running `dhcp6c`; callers could roll back IPv6 setup while the client remained alive.
+- Added `dhcp6c_callback_start_requires_stop()` plus regression cases to distinguish failed launch from successful launch + cleanup failure. On that latter path, `start_dhcp6c()` now advances the generation then invokes the same bounded `kill_services("dhcp6c")` stop under the held session lock, logs stop failure, and only then unlocks. A failed launch still avoids unnecessary stop.
+- Extended the existing DHCPv6 semantic source checker. Workflow `wan-dhcp-callback-stability.yml` already tracks the modified source, policy, test and checker. Exact-head CI required; no live-router test claimed.
+
+---
+
 ## 2026-11-25 — Retain failed DHCPv6 address removals for retry
 - remove_iaprefix() previously discarded IA_PD target records even when kernel deletion failed; IA_NA failures were ignored by cleanup callers. pref_cleanup() also unlinked the same entry twice. Stale IPv6 addresses could remain installed without retry state.
 - Cleanup now retains failed targets, schedules bounded retry, keeps the IA/controller allocated until all deletes succeed, and resumes pending IA cleanup after each prefix timer. Already-absent deletes are idempotent; EEXIST is accepted only for ADD.

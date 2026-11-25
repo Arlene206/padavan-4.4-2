@@ -24,6 +24,13 @@ dhcp6c_callback_primary_errno(int operation_errno, int cleanup_errno)
 }
 
 typedef int (*dhcp6c_callback_unsetenv_fn)(const char *name);
+/* A successful daemon launch followed by failed env cleanup is still live. */
+static int
+dhcp6c_callback_start_requires_stop(int start_status, int cleanup_status)
+{
+	return start_status == 0 && cleanup_status != 0;
+}
+
 
 /* Always attempt both cleanups; preserve the first failure for the caller. */
 static int

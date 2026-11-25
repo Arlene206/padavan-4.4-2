@@ -1,3 +1,8 @@
+## 2026-11-25 — DHCPv6 startup rollback after environment cleanup failure
+- If `eval("/sbin/dhcp6c")` succeeds but clearing its temporary callback environment fails, startup must not return failure while leaving the daemon alive. Invalidate its callback generation and stop that exact DHCPv6 service under the existing session lock before unlock; ASan/UBSan policy fixture and source-order contract added. Exact-head Actions pending.
+
+---
+
 ## DHCPv6 IA (2026-11-25)
 - Add failures retry Reply; PD retries missing interfaces. Remove failures retain IA state and retry; host regressions added, exact CI pending.
 
