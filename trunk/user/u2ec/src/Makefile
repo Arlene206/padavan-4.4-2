@@ -7,6 +7,8 @@
 
 PROGS	= u2ec
 OBJS	= usbsock.o testusb.o
+
+usbsock.o: u2ec_socket_io_policy.h
 DEBUG	= n
 
 ifeq ($(DEBUG),y)

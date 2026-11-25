@@ -32,6 +32,7 @@
 #include "usbdi.h"
 #include "usb.h"
 #include "urb64.h"
+#include "u2ec_socket_io_policy.h"
 
 void decode(char *file);
 int testusb();
@@ -2606,7 +2607,7 @@ void add_remote_device()
 			PSNDRECV("add_remote_device from fd: %d received: %s\n", new_fd, message);
 			if (strncmp(message, "GETCONFIG", 9) == 0) {
 				sprintf(message, "RootHub#1|Port1:%d!", uTCPUSB);
-				if (send(new_fd, message, strlen(message), 0) < 0) {
+				if (u2ec_send_all_no_sigpipe(new_fd, message, strlen(message)) < 0) {
 					PERROR("send");
 					goto next;
 				}
@@ -2617,7 +2618,7 @@ void add_remote_device()
 					sprintf(message, "RootHub#1|Port1(%s)!", str_product);
 				else
 					sprintf(message, "RootHub#1|Port1!");
-				if (send(new_fd, message, strlen(message), 0) < 0) {
+				if (u2ec_send_all_no_sigpipe(new_fd, message, strlen(message)) < 0) {
 					PERROR("send");
 					goto next;
 				}
@@ -2837,31 +2838,42 @@ int usb_connection(int sockfd)
 		goto CLOSE_CONN;
 	}
 
-	/* Recv tcp_pack and close the socket if necessary. */
+	/* Read the fixed TCP header exactly; stream recv() may be short. */
 	bzero(&tcp_pack, sizeof(tcp_pack));
-	if ((i = recv(sockfd, (char *)&tcp_pack, sizeof(tcp_pack), 0)) == sizeof(tcp_pack)) {
-#if __BYTE_ORDER == __BIG_ENDIAN
-		tcp_pack.Type = SWAP32(tcp_pack.Type);
-		tcp_pack.SizeBuffer = SWAP32(tcp_pack.SizeBuffer);
-#endif
-		PSNDRECV("\nReceived from fd: %d tcp_pack: type %d , size %d.\n", sockfd, tcp_pack.Type, tcp_pack.SizeBuffer);
-	} else {	// got error or connection closed by client
-		if (i < 0)
-			PERROR("recv");
-		else if (i == 0) // connection closed
-			PDEBUG("usb_connection: socket %d hung up\n", sockfd);
+	if (u2ec_recv_all(sockfd, (char *)&tcp_pack, sizeof(tcp_pack)) < 0) {
+		if (errno == ECONNRESET)
+			PDEBUG("usb_connection: socket %d hung up or sent a truncated header\n", sockfd);
+		else
+			PERROR("recv tcp_pack");
 		goto CLOSE_CONN;
 	}
+#if __BYTE_ORDER == __BIG_ENDIAN
+	tcp_pack.Type = SWAP32(tcp_pack.Type);
+	tcp_pack.SizeBuffer = SWAP32(tcp_pack.SizeBuffer);
+#endif
+	PSNDRECV("\nReceived from fd: %d tcp_pack: type %d , size %d.\n", sockfd, tcp_pack.Type, tcp_pack.SizeBuffer);
 
 	switch (tcp_pack.Type) {
 	case ControlPing:
 		break;
 	case IrpToTcp:
-		bzero(data_buf, MAX_BUF_LEN);
+		if (!u2ec_frame_size_is_valid((long)tcp_pack.SizeBuffer,
+		                              sizeof(data_buf))) {
+			PDEBUG("usb_connection: invalid IRP frame size %d\n",
+			       tcp_pack.SizeBuffer);
+			goto CLOSE_CONN;
+		}
+		bzero(data_buf, sizeof(data_buf));
 		pirp_save = (PIRP_SAVE)data_buf;
 		pirp_save_swap = (PIRP_SAVE_SWAP)data_buf;
-		for (i = 0, j = 0; i < tcp_pack.SizeBuffer; i += j)
-			j = recv(sockfd, (char *)pirp_save + i, tcp_pack.SizeBuffer - i, 0);
+		if (u2ec_recv_all(sockfd, (char *)pirp_save,
+		                  (size_t)tcp_pack.SizeBuffer) < 0) {
+			if (errno == ECONNRESET)
+				PDEBUG("usb_connection: socket %d closed during IRP frame\n", sockfd);
+			else
+				PERROR("recv IRP frame");
+			goto CLOSE_CONN;
+		}
 
 #if __BYTE_ORDER == __BIG_ENDIAN
 		pirp_save->Size = SWAP32(pirp_save->Size);
@@ -3258,12 +3270,21 @@ EXCHANGE_IRP:
 		tcp_pack.Type = SWAP_BACK32(IrpAnswerTcp);
 		tcp_pack.SizeBuffer = SWAP_BACK32(pirp_saverw->NeedSize);
 #endif
-		send(sockfd, (char *)&tcp_pack, sizeof(tcp_pack), 0);
+		if (u2ec_send_all_no_sigpipe(sockfd, (char *)&tcp_pack,
+		                             sizeof(tcp_pack)) < 0) {
+			PERROR("send tcp pack");
+			goto CLOSE_CONN;
+		}
 		PSNDRECV("usb_connection: sent tcp pack, size:%d.\n", sizeof(tcp_pack));
 
 		/* Send irp_save. */
 #if __BYTE_ORDER == __LITTLE_ENDIAN
-		send(sockfd, (char *)pirp_saverw, pirp_saverw->NeedSize, 0);
+		if (u2ec_send_all_no_sigpipe(
+		        sockfd, (char *)pirp_saverw,
+		        (size_t)pirp_saverw->NeedSize) < 0) {
+			PERROR("send IRP reply");
+			goto CLOSE_CONN;
+		}
 		PSNDRECV("usb_connection: sent pirp_saverw, size:%d.\n", pirp_saverw->NeedSize);
 #else
 		pirp_saverw->Size = SWAP_BACK32(pirp_saverw->Size);
@@ -3486,7 +3507,12 @@ EXCHANGE_IRP:
 			}
 		}
 
-		send(sockfd, (char *)pirp_saverw, SWAP32(pirp_saverw->NeedSize), 0);
+		if (u2ec_send_all_no_sigpipe(
+		        sockfd, (char *)pirp_saverw,
+		        (size_t)SWAP32(pirp_saverw->NeedSize)) < 0) {
+			PERROR("send IRP reply");
+			goto CLOSE_CONN;
+		}
 		PSNDRECV("usb_connection: sent pirp_saverw, size:%d.\n", SWAP32(pirp_saverw->NeedSize));
 #endif
 
@@ -3563,8 +3589,9 @@ int establish_connection(int sockfd)
 		return -1;
 	}
 
-	if (send(new_fd, "\0\0", 2, 0) < 0) {
+	if (u2ec_send_all_no_sigpipe(new_fd, "\0\0", 2U) < 0) {
 		PERROR("send");
+		close(new_fd);
 		return -1;
 	}
 
