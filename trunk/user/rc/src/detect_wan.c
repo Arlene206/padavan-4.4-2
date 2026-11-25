@@ -245,9 +245,20 @@ arpping_gateway(int ap_mode)
                    ip_lookup_status);
         return detect_wan_arp_probe_result(0, ip_lookup_status);
     }
-    gateway_ip = inet_addr_safe(gateway_storage);
+    if (ip == INADDR_ANY)
+        return DETECT_WAN_ARP_PROBE_REPLY;
 
-    if (gateway_ip == INADDR_ANY || ip == INADDR_ANY || gateway_ip == ip)
+    config_status = detect_wan_arp_parse_gateway_address(
+        gateway_storage, &gateway_ip);
+    if (config_status != 0) {
+        errno = config_status;
+        logmessage("detect_wan",
+                   "invalid configured gateway IPv4 address (status=%d)",
+                   config_status);
+        return detect_wan_arp_probe_result(0, config_status);
+    }
+
+    if (gateway_ip == INADDR_ANY || gateway_ip == ip)
         return DETECT_WAN_ARP_PROBE_REPLY;
 
     config_status = detect_wan_arp_parse_hardware_address(

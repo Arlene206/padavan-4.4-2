@@ -9,6 +9,7 @@ on:
       - "trunk/user/rc/src/tests/wan_nvram_status_policy.c"
       - "trunk/user/rc/src/detect_wan_arp_result_policy.h"
       - "trunk/user/rc/src/tests/detect_wan_arp_result_policy.c"
+      - "trunk/user/rc/src/tests/detect_wan_gateway_address_policy.c"
       - "trunk/user/rc/src/detect_wan_signal_policy.h"
       - "trunk/user/rc/src/tests/detect_wan_signal_policy.c"
       - "trunk/user/rc/src/detect_wan_arp_socket_policy.h"
@@ -60,6 +61,14 @@ jobs:
             trunk/user/rc/src/tests/detect_wan_arp_result_policy.c \
             -o /tmp/detect-wan-arp-result-policy
           ASAN_OPTIONS=detect_leaks=1 /tmp/detect-wan-arp-result-policy
+      - name: Compile and run GNU89 gateway address parsing regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/detect_wan_gateway_address_policy.c \
+            -o /tmp/detect-wan-gateway-address-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/detect-wan-gateway-address-policy
       - name: Compile and run GNU89 checked NVRAM copy regression
         run: |
           set -eu
@@ -89,6 +98,7 @@ jobs:
           signal_test = (rc / "tests/detect_wan_signal_policy.c").read_text()
           probe_policy = (rc / "detect_wan_arp_result_policy.h").read_text()
           probe_test = (rc / "tests/detect_wan_arp_result_policy.c").read_text()
+          gateway_test = (rc / "tests/detect_wan_gateway_address_policy.c").read_text()
           nvram_status_test = (rc / "tests/wan_nvram_status_policy.c").read_text()
           wan = (rc / "net_wan.c").read_text()
           services = (rc / "services.c").read_text()
@@ -241,16 +251,26 @@ jobs:
           assert 'rc_wan_nvram_copy_value(detect_wan_nvram_get_checked,NULL,"lan_hwaddr",hardware_address_storage,sizeof(hardware_address_storage))' in arp_compact
           assert "config_status!=0" in arp_compact
           assert "returndetect_wan_arp_probe_result(0,config_status);" in arp_compact
+          gateway_parse = arp_compact.index(
+              "config_status=detect_wan_arp_parse_gateway_address(gateway_storage,&gateway_ip);")
+          gateway_error = arp_compact.index("if(config_status!=0)", gateway_parse)
+          no_probe = arp_compact.index(
+              "if(gateway_ip==INADDR_ANY||gateway_ip==ip)")
           mac_parse = arp_compact.index(
               "config_status=detect_wan_arp_parse_hardware_address(hardware_address_storage,mac);")
           mac_error = arp_compact.index("if(config_status!=0)", mac_parse)
-          no_probe = arp_compact.index(
-              "if(gateway_ip==INADDR_ANY||ip==INADDR_ANY||gateway_ip==ip)")
           device_name_prepare = arp_compact.index(
               "detect_wan_arp_socket_device_name_prepare(interface_storage,&ifr,&addr)")
           socket_create = arp_compact.index(
               "s=socket(PF_PACKET,SOCK_PACKET,htons(ETH_P_ARP));")
-          assert no_probe < mac_parse < mac_error < device_name_prepare < socket_create
+          assert "inet_addr_safe(gateway_storage)" not in arp_compact
+          assert gateway_parse < gateway_error < no_probe < mac_parse < mac_error < device_name_prepare < socket_create
+          assert "detect_wan_arp_parse_gateway_address" in policy
+          assert "if (!*text)" in policy and "if (!inet_aton(text, &parsed))" in policy
+          assert "test_empty_and_unspecified_gateway_keep_legacy_no_gateway_state" in gateway_test
+          assert "test_valid_gateway_is_parsed_in_network_byte_order" in gateway_test
+          assert "test_invalid_gateway_is_not_aliased_to_no_gateway" in gateway_test
+          assert "test_invalid_arguments_fail_without_publishing_output" in gateway_test
           assert "nvram_safe_get(" not in arp_probe
           assert "get_wan_unit_value(" not in arp_probe
           assert "arp_reply.ethernet_source = arp.h_source;" in arp_probe
@@ -324,6 +344,7 @@ jobs:
               "trunk/user/rc/src/detect_wan.c",
               "trunk/user/rc/src/detect_wan_arp_result_policy.h",
               "trunk/user/rc/src/tests/detect_wan_arp_result_policy.c",
+              "trunk/user/rc/src/tests/detect_wan_gateway_address_policy.c",
               "trunk/user/rc/src/detect_wan_signal_policy.h",
               "trunk/user/rc/src/tests/detect_wan_signal_policy.c",
               "trunk/user/rc/src/detect_wan_arp_socket_policy.h",
@@ -341,5 +362,6 @@ jobs:
               assert pr_filters.count(path) == 1, f"pull_request path missing/duplicated: {path}"
           assert "Compile and run GNU89 signal deferral policy regression" in workflow
           assert "Compile and run GNU89 ARP probe local-error policy regression" in workflow
+          assert "Compile and run GNU89 gateway address parsing regression" in workflow
           print("WAN gateway ARP reply identity/error/renewal fail-closed contract: PASS")
           PY

@@ -1,6 +1,7 @@
 #ifndef DETECT_WAN_ARP_RESULT_POLICY_H
 #define DETECT_WAN_ARP_RESULT_POLICY_H
 #include <errno.h>
+#include <arpa/inet.h>
 #include <stdint.h>
 #include <string.h>
 #include <net/if_arp.h>
@@ -10,6 +11,30 @@
 #define DETECT_WAN_ARP_PROBE_ERROR (-1)
 #define DETECT_WAN_ARP_PROBE_NO_REPLY 0
 #define DETECT_WAN_ARP_PROBE_REPLY 1
+
+/*
+ * Parse the configured gateway without collapsing malformed non-empty input
+ * into INADDR_ANY. Empty and explicit 0.0.0.0 retain the legacy no-gateway
+ * behavior; keep the caller's output unchanged when parsing fails.
+ */
+static inline int
+detect_wan_arp_parse_gateway_address(const char *text,
+                                     uint32_t *gateway_address)
+{
+    struct in_addr parsed;
+
+    if (!text || !gateway_address)
+        return EINVAL;
+    if (!*text) {
+        *gateway_address = INADDR_ANY;
+        return 0;
+    }
+    if (!inet_aton(text, &parsed))
+        return EINVAL;
+
+    *gateway_address = parsed.s_addr;
+    return 0;
+}
 
 static inline int
 detect_wan_arp_hex_nibble(char value)
