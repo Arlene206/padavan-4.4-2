@@ -430,7 +430,7 @@ test_unknown_or_invalid_module_presence_fails_closed(void)
 {
 	assert(rc_modem_module_unload_attempt_status(-EACCES, 1, 0, 0) == EACCES);
 	assert(rc_modem_module_unload_attempt_status(2, 1, 0, 0) == EIO);
-	assert(rc_modem_module_unload_attempt_status(1, 0, 0, 1) == EIO);
+	assert(rc_modem_module_unload_attempt_status(1, 0, 0, 1) == EBUSY);
 	assert(rc_modem_module_unload_attempt_status(1, 0, EPERM, 1) == EPERM);
 	assert(rc_modem_module_unload_attempt_status(1, 1, 0, 0) == 0);
 	assert(rc_modem_module_unload_attempt_status(1, 1, 0, 1) == EBUSY);
