@@ -28,9 +28,11 @@
  * SUCH DAMAGE.
  */
 
+#include <errno.h>
 #include <netinet/in.h>
 
 #include "dhcp6c.h"
+#include "dhcp6c_ia_policy.h"
 
 typedef enum {IAS_ACTIVE, IAS_RENEW, IAS_REBIND} iastate_t;
 
@@ -126,6 +128,7 @@ static void pref_cleanup(struct iactl *);
 static struct dhcp6_timer *iapref_timo(void *);
 static int add_ifprefix(struct iaprefix *,
     struct dhcp6_prefix *, struct prefix_ifconf *);
+static int ifprefix_is_installed(struct iaprefix *, struct prefix_ifconf *);
 
 
 #if ENABLE_FEATURE_DHCP6_AUTH
@@ -164,15 +167,18 @@ static int update_authparam(struct ia *ia, struct authparam *authparam)
 }
 #endif /* ENABLE_FEATURE_DHCP6_AUTH */
 
-void update_ia(struct dhcp6_list *iahead, struct dhcp6_if *ifp,
+int update_ia(struct dhcp6_list *iahead, struct dhcp6_if *ifp,
 	  struct dhcp6_vbuf *serverid
 	  IF_FEATURE_DHCP6_AUTH(,struct authparam *authparam))
 {
+	int first_error = 0;
 	struct ia *ia;
 	struct ia_conf *iac;
 	struct dhcp6_listval *iav, *siav;
 
 	TAILQ_FOREACH(iav, iahead, link) {
+		int ia_error = 0, update_status;
+
 		/* if we're not interested in this IA, ignore it. */
 		iac = find_iaconf(&ifp->iaconf_list, iav->dh6optype, iav->val_ia.iaid);
 		if (iac == NULL)
@@ -215,16 +221,24 @@ void update_ia(struct dhcp6_list *iahead, struct dhcp6_if *ifp,
 			switch (siav->lvtype) {
 			case DHCP6_LISTVAL_PREFIX6:
 				/* add or update the prefix */
-				if (update_prefix6(ia, siav, &iac->iapd_pif_list, ifp, &ia->ctl)) {
+				update_status = update_prefix6(ia, siav, &iac->iapd_pif_list, ifp, &ia->ctl);
+				if (update_status != 0) {
+					ia_error = dhcp6c_ia_first_error(ia_error,
+					    errno > 0 ? errno : EIO);
+					first_error = dhcp6c_ia_first_error(first_error, ia_error);
 					sprint_nip6(p, (const uint8_t *)&siav->val_prefix6.addr);
-					bb_error_msg("can't update a prefix %s/%d",
-					    p, siav->val_prefix6.plen);
+					bb_error_msg("can't update a prefix %s/%d (status=%d)",
+					    p, siav->val_prefix6.plen, ia_error);
 				}
 				break;
 			case DHCP6_LISTVAL_STATEFULADDR6:
-				if (update_prefix6(ia, siav, NULL, ifp, &ia->ctl)) {
+				update_status = update_prefix6(ia, siav, NULL, ifp, &ia->ctl);
+				if (update_status != 0) {
+					ia_error = dhcp6c_ia_first_error(ia_error,
+					    errno > 0 ? errno : EIO);
+					first_error = dhcp6c_ia_first_error(first_error, ia_error);
 					sprint_nip6(p, (const uint8_t *)&siav->val_statefuladdr6.addr);
-					bb_error_msg("can't update an address %s", p);
+					bb_error_msg("can't update an address %s (status=%d)", p, ia_error);
 				}
 				break;
 			case DHCP6_LISTVAL_NUM16:
@@ -254,6 +268,11 @@ void update_ia(struct dhcp6_list *iahead, struct dhcp6_if *ifp,
 				goto nextia;
 			}
 		}
+
+		/* Do not publish an IA as active or advance its renewal timers until
+		 * every address/prefix operation for it has succeeded. */
+		if (ia_error != 0)
+			goto nextia;
 
 		/* see if this IA is still valid.  if not, remove it. */
 		if (ia->ctl == NULL || !pref_isvalid(ia->ctl)) {
@@ -322,6 +341,7 @@ void update_ia(struct dhcp6_list *iahead, struct dhcp6_if *ifp,
 	  nextia:
 		;
 	}
+	return first_error;
 }
 
 static int prepare_iaevent(struct ia *ia, int dhcpstate)
@@ -581,6 +601,7 @@ static int update_prefix6(struct ia *ia, struct dhcp6_listval *lv,
 	    pinfo.pltime > pinfo.vltime)) {
 		bb_info_msg("%s/%d has larger preferred lifetime than valid lifetime",
 				p, pinfo.plen);
+		errno = EINVAL;
 		return -1;
 	}
 
@@ -626,10 +647,14 @@ static int update_prefix6(struct ia *ia, struct dhcp6_listval *lv,
 	    spcreate ? "create" : "update",
 	    p, pinfo.plen, pinfo.pltime, pinfo.vltime);
 
-	/* update prefix interfaces if necessary */
+	/* Reconcile all configured downstream interfaces on every Reply.
+	 * A prior add may have failed after another interface succeeded; retry
+	 * only targets without a successful interface-prefix entry. */
 	if (sp->pa.vltime != 0) {
-		if (lv->lvtype == DHCP6_LISTVAL_PREFIX6 && spcreate) {
+		if (lv->lvtype == DHCP6_LISTVAL_PREFIX6) {
 			TAILQ_FOREACH(pif, iac->pifc_head, link) {
+				int is_dhcp_interface =
+				    strcmp(pif->ifname, dhcpifp->ifname) == 0;
 			/*
 			 * The requesting router MUST NOT assign any delegated
 			 * prefixes or subnets from the delegated prefix(es) to
@@ -637,13 +662,14 @@ static int update_prefix6(struct ia *ia, struct dhcp6_listval *lv,
 			 * from the delegating router.
 			 * [RFC3633 Section 12.1]
 			 */
-				if (strcmp(pif->ifname, dhcpifp->ifname) == 0) {
+				if (is_dhcp_interface)
 					bb_info_msg("skip %s as a prefix interface",
 					    dhcpifp->ifname);
+				if (!dhcp6c_ia_pd_target_needs_apply(
+				    is_dhcp_interface, ifprefix_is_installed(sp, pif)))
 					continue;
-				}
-
-				add_ifprefix(sp, &pinfo, pif);
+				if (add_ifprefix(sp, &pinfo, pif) != 0)
+					return -1;
 			}
 		}
 		else if (lv->lvtype == DHCP6_LISTVAL_STATEFULADDR6) {
@@ -675,6 +701,17 @@ static int update_prefix6(struct ia *ia, struct dhcp6_listval *lv,
 		break;
 	}
 
+	return 0;
+}
+
+static int ifprefix_is_installed(struct iaprefix *sp, struct prefix_ifconf *pif)
+{
+	struct dhcp6_ifprefix *ip;
+
+	TAILQ_FOREACH(ip, &sp->u.ifprefix_list, plink) {
+		if (ip->ifconf == pif)
+			return 1;
+	}
 	return 0;
 }
 
@@ -841,12 +878,14 @@ static int add_ifprefix(struct iaprefix *iaprefix,
 	 */
 	if ((pconf->ifid_len % 8) != 0) {
 		bb_error_msg("length of interface ID must be multiple of 8");
+		errno = EINVAL;
 		goto bad;
 	}
 	if (ifpfx->plen + pconf->ifid_len < 0 ||
 	    ifpfx->plen + pconf->ifid_len > 128) {
 		bb_info_msg("invalid prefix length: %d + %d + %d",
 			prefix->plen, pconf->sla_len, pconf->ifid_len);
+		errno = EINVAL;
 		goto bad;
 	}
 
@@ -871,8 +910,11 @@ static int add_ifprefix(struct iaprefix *iaprefix,
 		ifpfx->ifaddr.s6_addr[i] = pconf->ifid[i];
 	}
 	if (ifaddrconf(IFADDRCONF_ADD, ifpfx->ifconf->ifname, &ifpfx->ifaddr,
-		 ifpfx->plen, DHCP6_DURATION_INFINITE, DHCP6_DURATION_INFINITE))
+		 ifpfx->plen, DHCP6_DURATION_INFINITE, DHCP6_DURATION_INFINITE)) {
+		if (errno == 0)
+			errno = EIO;
 		goto bad;
+	}
 
 	/* TODO: send a control message for other processes */
 

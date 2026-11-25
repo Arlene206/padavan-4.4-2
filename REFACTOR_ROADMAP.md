@@ -1,3 +1,11 @@
+## 2026-11-25 状态增量：DHCPv6 IA 内核配置失败重试
+
+- 修复 DHCPv6 IA_NA 地址与 IA_PD 委派前缀安装失败被吞掉的问题：update_ia() 返回首个内核配置错误，Reply 保持活动并使用现有 5 秒有界重试路径；内核配置成功前不执行配置回调。
+- IA_PD 每次 Reply 都重新核对下游接口，只重试尚无成功记录的目标；避免部分成功后永久漏配，并防止对已成功接口重复操作。
+- 新增 GNU89 ASan/UBSan 部分失败后重试回归、生产源码合同检查和独立 Actions 工作流；本地回归通过。Exact-SHA Actions 与 XY-C1 Build/TRX/Artifact 待验证，物理路由器 L4 未验证。
+
+---
+
 ## 2026-11-25 状态增量
 - WAN ARP 网关非法值 fail-closed：#45565621317 PASS（583576a）。
 - MiniUPnP HTTP framing/长度上限：#45566912855 PASS（019f005）。

@@ -168,7 +168,7 @@ char **fill_envp_relay6(struct dhcp6_optinfo *optinfo, const char *clientaddr);
 int dhcp6_script(const char *scriptpath, char **envp);
 
 /* dhcp6c_ia.c */
-void update_ia(struct dhcp6_list *iahead, struct dhcp6_if *ifp,
+int update_ia(struct dhcp6_list *iahead, struct dhcp6_if *ifp,
 		struct dhcp6_vbuf *serverid
 		IF_FEATURE_DHCP6_AUTH(, struct authparam *));
 void release_all_ia(struct dhcp6_if *);

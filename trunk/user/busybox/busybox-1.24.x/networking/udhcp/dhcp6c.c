@@ -39,6 +39,7 @@
 /* Override ENABLE_FEATURE_PIDFILE */
 #define WANT_PIDFILE 1
 #include "dhcp6c.h"
+#include "dhcp6c_ia_policy.h"
 #include "dhcp6c_script_retry_policy.h"
 #include "dhcp6c_auth.h"
 
@@ -1060,7 +1061,7 @@ static int client6_recvreply(struct dhcp6_if *ifp, struct dhcp6_event *ev,
 				struct dhcp6_optinfo *optinfo)
 {
 	struct dhcp6_listval *lv;
-	int state, script_status = 0;
+	int state, script_status = 0, ia_status = 0;
 
 	state = ev->state;
 	if (state != DHCP6S_INFOREQ &&
@@ -1097,9 +1098,19 @@ static int client6_recvreply(struct dhcp6_if *ifp, struct dhcp6_event *ev,
 	}
 
 
-	/* update stateful configuration information */
+	/* Apply addresses and delegated prefixes before acknowledging the Reply.
+	 * If a kernel operation fails, keep the exchange alive and retry the same
+	 * Reply before running the configuration callback. */
 	if (state != DHCP6S_RELEASE) {
-		update_ia(&optinfo->ia_list, ifp, &optinfo->serverID IF_FEATURE_DHCP6_AUTH(, ev->authparam));
+		ia_status = update_ia(&optinfo->ia_list, ifp, &optinfo->serverID IF_FEATURE_DHCP6_AUTH(, ev->authparam));
+		if (dhcp6c_ia_retry_required(ia_status)) {
+			bb_error_msg("DHCPv6 address/prefix application failed (status=%d); retrying event",
+				     ia_status);
+			ev->timeouts = 0;
+			dhcp6_set_timeoparam(ev);
+			dhcp6_timer_set(DHCP6C_SCRIPT_RETRY_DELAY_MS, ev->timer);
+			return -1;
+		}
 	}
 
 	/*

@@ -1,3 +1,13 @@
+## 2026-11-25 — Retry failed DHCPv6 IA kernel publication
+
+- DHCPv6 IA_NA address-add and IA_PD downstream-prefix-add failures were logged and swallowed by update_ia(); the Reply was then considered handled and the configuration callback could run.
+- IA_PD installation was gated on first creation and ignored add_ifprefix() status. If one downstream interface failed after another succeeded, later Replies skipped the missing interface permanently.
+- update_ia() now returns the first kernel-configuration error. client6_recvreply() keeps the exchange alive and retries the same Reply after the existing bounded 5-second delay before running the callback. IA_PD reconciles every configured downstream interface on each Reply, skipping successful entries and propagating missing-target failures.
+- Added a GNU89 ASan/UBSan partial-failure/selective-retry/idempotence regression, production-source checker and dedicated Actions workflow. Local host regression passed; exact-SHA Actions and XY-C1 Build/TRX/artifact verification are pending.
+- Added dhcp6c_ia.c and its policy header to the XY-C1 firmware path filter, which previously did not rebuild the IA implementation when changed.
+
+---
+
 ## 2026-11-25 — Point U2EC send assertions at bounded implementation
 
 - Exact U2EC run #45610564863 on `e258dbf3` compiled and passed all GNU89 ASan/UBSan socketpair tests, including the new non-reading-peer timeout case. The production source checker then failed three legacy assertions because `send_policy` now correctly represents the compatibility wrapper, while `MSG_NOSIGNAL`, EINTR handling and the sent-byte return are in the new `send_timeout_policy` helper.

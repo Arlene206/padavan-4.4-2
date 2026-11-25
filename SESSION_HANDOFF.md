@@ -1,40 +1,33 @@
-## 2026-11-25 autonomous handoff checkpoint — BusyBox procps and U2EC
+## 2026-11-25 autonomous handoff — DHCPv6 IA publication retry
 
-This checkpoint supersedes all earlier active task pointers below. Historical entries remain reference only; do not repeat completed source audits or rerun completed regressions without a concrete reason. Startup recovery was performed for this work period.
+This checkpoint supersedes all older active task pointers below. Startup recovery is complete for this work period. Do not repeat completed U2EC, BusyBox procps, WAN, PPP or other audits without new evidence.
 
-### Live Git state
+### Live Git state and safety
+- Main parent before this atomic engineering slice: 89996a30a7d995bc8cb54d27c10988c139d1565a. The source, regression, workflow and handoff changes are committed together as one complete tree and one main commit; read live main for the resulting SHA.
+- Frozen backup/pre-plugin-overhaul-2026-11-14 remains read-only. No branch creation, PR, force-push or force-update.
+- Refresh main and its root tree before every later update; construct the complete tree and use a non-forced expected-SHA compare-and-swap.
 
-- Source baseline before this documentation commit: `640a9580f30035a46ec7e1265ecf63a86947fa40` on `main`. The following documentation commit will be its descendant.
-- Frozen, read-only backup: `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`. It was not modified.
-- Main-only updates; no branch, PR, force-push or force-update was used. Other autonomous sessions continue committing to main. Re-fetch the current ref and parent tree immediately before every update; create a complete tree and use `force:false` plus the expected old SHA.
-- A concurrent update series briefly produced a subtree-only root tree at `95ea99d`/`85dfaea`. The complete repository tree was restored by the non-force `9294af65edd5e79ff55c8686b8e6bb96632191ea` commit. The current tree is a descendant of that restoration and again contains the repository root, workflows, docs, scripts, toolchain and full `trunk`; do not repeat the incident repair unless a new tree integrity failure is observed.
+### Completed in this slice
+- Fixed DHCPv6 IA_NA and IA_PD kernel-configuration errors being logged and swallowed. update_ia() now returns the first failure; client6_recvreply() retains and retries the same Reply using the existing bounded 5-second interval before calling the configuration script.
+- IA_PD now reconciles configured downstream interfaces on every Reply. Successful interface-prefix entries are tracked by interface identity; later Replies skip successful targets, retry missing ones, and propagate add_ifprefix() errors. This fixes permanent partial publication after a transient kernel failure.
+- Added a GNU89 ASan/UBSan regression for partial success, injected failure, selective retry and idempotent completion; a source-contract checker and dedicated Actions workflow. XY-C1 and WAN path filters now include the IA implementation and policy header.
+- Local GNU89 ASan/UBSan regression passed. Firmware build or physical-router results are not claimed before exact-SHA verification.
 
-### Completed source work and evidence
+### Exact-SHA verification to record
+- The dedicated DHCPv6 IA publication regression must pass on the resulting main SHA.
+- Check the WAN DHCP callback regression on the exact SHA because dhcp6c.c and dhcp6c_ia.c changed.
+- XY-C1 Build, TRX verification and artifact upload must all pass on one identical product-source SHA before claiming L3. The firmware path filter now explicitly includes dhcp6c_ia.c and dhcp6c_ia_policy.h.
+- Check AI handoff/docs and Process/NVRAM umbrella workflows for exact SHA. PENDING never blocks independent work; inspect and fix specific failure logs.
+- Physical router L4 remains unverified.
 
-- BusyBox `procps_scan()`: `d018a324` rejects empty/malformed `/proc/PID/stat` records before dereferencing the command delimiter; `f097a5b5` retries bounded `EINTR` reads; `63d18699` validates numeric fields consumed by `ENABLE_FEATURE_FAST_TOP` (21 fields normally, 36 for SMP); `7b65f0d9` removes helper sentinel reads beyond the supplied length and adds exact-length, non-NUL-terminated input coverage. Host ASan/UBSan/source-contract runs passed on #45575979483, #45577415801 and the final bounded-input run #45578684818 (exact source SHA `7b65f0d9`). Intermediate workflow/checker corrections are recorded in git history; the final parser regression passed.
-- U2EC FIFO lifecycle: `a9231a89` adds a bounded FIFO event reader and uses an RDWR nonblocking FIFO descriptor so a read-only FIFO cannot spin on post-writer EOF; it also prevents an uninitialized event byte from being treated as a command. The test was corrected to model an actual writer-open/write/close lifecycle before asserting the read-only EOF readiness, and verifies the RDWR idle case does not spin.
-- U2EC network descriptor/resource handling: `6112d036` closes descriptors when datagram/stream socket initialization fails; `b6fc588b` closes both discovery listeners when the select loop terminates on a non-EINTR error. Existing fd-set bounds and stream framing checks remain intact.
-- Concurrent U2EC follow-ups include `0d20e25f` (release printer lock at most once) and `640a9580` (release the printer lock on cancelled/rate-limited FIFO events). The current exact-head U2EC Actions run #45580921217 on `640a9580` is PASS, including GNU89 ASan/UBSan host regression and the production source contract.
-- U2EC had several intermediate test-only CI failures (missing test headers, an incomplete FIFO test setup/sentinel, then an over-specific checker token); these were corrected in separate atomic test commits. The final exact-head run above is green. Do not report the intermediate failures as source/runtime failures.
-- Root-tree integrity was checked after the restoration. The separate concurrent `fix(ttyd): validate configured listen port` commit `65bf39c8` is also part of current main.
+### First next action
+1. Poll Actions for the resulting exact main SHA and record run IDs/statuses, especially DHCPv6 IA, WAN callback, AI handoff and XY-C1 Build → TRX → artifact.
+2. Continue independent cross-userland stability work while runs are pending. Do not restart startup audits or revisit the completed U2EC signal/list race.
+3. After DHCPv6 exact-SHA verification, continue WAN/IPv6 route lifecycle reconciliation and MIPS/uClibc target-runtime coverage. Keep hardware L4 unverified until an actual router test.
 
-### Current Actions / verification boundary
+### Execution contract
+For each logical task: source change → focused regression → one atomic complete-tree commit → exact-SHA Actions. No per-file intermediate commits, no force update and no edits to the frozen backup. Before context exhaustion, finish the safe slice and update this handoff with the exact SHA and CI evidence.
 
-- U2EC exact-head #45580921217 on `640a9580`: PASS.
-- Process lifecycle inventory #45580921120 on the same exact SHA: PASS.
-- XY-C1 Firmware Validation #45580921143 on `640a9580`: IN_PROGRESS at last poll. The job was still in earlier preparation/host checks; `Build XY-C1`, `Verify TRX output` and artifact upload had not yet started/completed. Do not claim L3 until all three are explicitly PASS on one exact source SHA.
-- NVRAM transaction boundary audit #45580921210 on `640a9580`: IN_PROGRESS at last poll.
-- AI handoff documentation contract #45579577795 passed on `9294af65`; this docs update must trigger a fresh exact-head run. Do not carry the old pass forward as verification of this new documentation commit.
-- BusyBox parser host regression is green on exact source SHA `7b65f0d9`; no new BusyBox source changes were made after it.
-- No local firmware build or physical router test is claimed. L4 hardware validation remains outstanding.
-
-### First actions for the next GPT
-
-1. Read this checkpoint and continue; do not repeat the completed startup audit.
-2. Poll the new exact-head AI handoff contract run after this documentation commit. Also poll XY-C1 #45580921143 and NVRAM #45580921210 or their newer descendant runs. If pending, work on an independent issue rather than waiting.
-3. Keep L3 conditional on a successful exact-SHA Build XY-C1, TRX verification and artifact upload. Do not claim L4 without physical device evidence.
-4. Continue broad userland stability review. One unclosed candidate is U2EC `multi_client()`: its SIGALRM handler traverses shared connection-list state and dereferences `last_busy_conn`, while worker/main-thread lifecycle operations may mutate that state. Investigate signal delivery, masking and list ownership before changing it; no speculative fix has been committed.
-5. Preserve the user workflow: source change → targeted regression → small atomic commit → exact-SHA Actions check; on PENDING continue independent work; on FAIL inspect logs and fix.
 
 ---
 
