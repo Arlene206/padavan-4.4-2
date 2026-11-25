@@ -38,6 +38,8 @@
 #include "vpn_server_lease_lock.h"
 #include <process_inventory.h>
 #include "openvpn_process_stop_policy.h"
+#include "detached_daemon_start_policy.h"
+#include "openvpn_start_rollback_policy.h"
 #include "vpn_server_restart_policy.h"
 #include "route_status_policy.h"
 #include "vpn_client_nvram_policy.h"
@@ -1518,23 +1520,32 @@ openvpn_create_client_conf(const char *conf_file,
 }
 
 static int
-openvpn_tapif_start(const char *ifname, int is_server, int insert_to_bridge)
+openvpn_tapif_start(const char *ifname, int is_server, int insert_to_bridge,
+		    int *interface_created)
 {
 	int created = 0;
 	int status;
 
+	if (!interface_created) {
+		errno = EINVAL;
+		return -1;
+	}
+	*interface_created = 0;
 	if (!is_interface_exist(ifname)) {
 		status = doSystem("%s %s --dev %s", OPENVPN_EXE, "--mktun", ifname);
 		if (status != 0)
 			return status;
 		created = 1;
 	}
+	/* Expose ownership even if a later ifconfig step fails. */
+	*interface_created = created;
 
 	if (insert_to_bridge)
 		br_add_del_if(IFNAME_BR, ifname, 1);
 	status = doSystem("ifconfig %s %s %s", ifname, "0.0.0.0", "promisc up");
 	if (status != 0) {
-		/* Roll back only a TAP device created by this invocation. */
+		/* Best-effort local rollback; caller retries only after a full
+		 * process inventory proves that no OpenVPN daemon is running. */
 		if (created) {
 			if (insert_to_bridge)
 				br_add_del_if(IFNAME_BR, ifname, 0);
@@ -1561,15 +1572,23 @@ openvpn_tapif_stop(const char *ifname)
 }
 
 static int
-openvpn_tunif_start(const char *ifname, int is_server)
+openvpn_tunif_start(const char *ifname, int is_server, int *interface_created)
 {
+	int created = 0;
 	int status;
 
+	if (!interface_created) {
+		errno = EINVAL;
+		return -1;
+	}
+	*interface_created = 0;
 	if (!is_interface_exist(ifname)) {
 		status = doSystem("%s %s --dev %s", OPENVPN_EXE, "--mktun", ifname);
 		if (status != 0)
 			return status;
+		created = 1;
 	}
+	*interface_created = created;
 	set_vpn_balancing(ifname, is_server);
 	return 0;
 }
@@ -1683,6 +1702,105 @@ failed:
 	(void)close(fd);
 	errno = saved_errno;
 	return PROCESS_PRESENCE_UNKNOWN;
+}
+
+
+/* Resolve the exact detached PID file before reporting successful startup. */
+static enum process_presence
+openvpn_start_pidfile_presence(void *context, int *scan_error)
+{
+	struct process_identity identity;
+	enum process_presence state;
+
+	if (!context) {
+		errno = EINVAL;
+		if (scan_error)
+			*scan_error = EINVAL;
+		return PROCESS_PRESENCE_UNKNOWN;
+	}
+	state = openvpn_read_process_identity((const char *)context, &identity);
+	if (scan_error)
+		*scan_error = state == PROCESS_PRESENCE_UNKNOWN ?
+			(errno ? errno : EIO) : 0;
+	return state;
+}
+
+static int
+openvpn_start_probe_wait(void *context, unsigned int seconds)
+{
+	(void)context;
+	if (seconds == 0)
+		return 0;
+	if (sleep(seconds) != 0) {
+		errno = EINTR;
+		return -1;
+	}
+	return 0;
+}
+
+/* Rollback uses the whole process inventory, never a missing PID-file
+ * inference. UNKNOWN/RUNNING prevents resource teardown. */
+static enum process_presence
+openvpn_start_rollback_scan(void *context, int *scan_error)
+{
+	struct process_snapshot snapshot;
+	enum process_presence state;
+	int error;
+
+	(void)context;
+	state = process_inventory_scan("openvpn", &snapshot);
+	error = snapshot.error;
+	process_snapshot_release(&snapshot);
+	if (scan_error)
+		*scan_error = state == PROCESS_PRESENCE_UNKNOWN ?
+			(error > 0 ? error : EIO) : 0;
+	return state;
+}
+
+static enum process_presence
+openvpn_start_rollback_presence(void *context, int *scan_error)
+{
+	return openvpn_start_rollback_confirm_absent_with_ops(
+		openvpn_start_rollback_scan, openvpn_start_probe_wait,
+		context, scan_error);
+}
+
+static int
+openvpn_start_rollback_failed(const char *service_name, const char *ifname,
+			      int is_tun, int interface_created,
+			      const char *script_path, int script_link_created,
+			      int start_status, int start_errno)
+{
+	enum process_presence process_state;
+	int scan_error = 0;
+	int cleanup_status;
+	int saved_errno = start_errno > 0 ? start_errno :
+		(start_status > 0 ? start_status : EIO);
+
+	process_state = openvpn_start_rollback_presence(NULL, &scan_error);
+	if (openvpn_start_rollback_cleanup_owned(process_state,
+						 interface_created)) {
+		cleanup_status = is_tun ? openvpn_tunif_stop(ifname) :
+			openvpn_tapif_stop(ifname);
+		if (cleanup_status != 0)
+			logmessage(service_name,
+				   "cannot remove OpenVPN interface %s during startup rollback (status=%d)",
+				   ifname, cleanup_status);
+	}
+	if (openvpn_start_rollback_cleanup_owned(process_state,
+						 script_link_created)) {
+		if (openvpn_script_link_remove_created(script_path,
+						       script_link_created) != 0)
+			logmessage(service_name,
+				   "cannot remove owned OpenVPN callback link during startup rollback (errno=%d)",
+				   errno ? errno : EIO);
+	}
+	if (process_state != PROCESS_PRESENCE_ABSENT)
+		logmessage(service_name,
+			   "OpenVPN startup rollback deferred: process inventory state=%d scan_error=%d; retaining interface and callback link",
+			   process_state, scan_error);
+	errno = saved_errno;
+	return start_status;
 }
 
 static int
@@ -2144,7 +2262,8 @@ start_openvpn_server(void)
 {
 	struct openvpn_server_network_config network;
 	struct openvpn_server_options_config options;
-	int interface_status, script_link_created = 0;
+	int interface_status, script_link_created = 0, interface_created = 0;
+	int launch_status, launch_errno;
 	char vpns_cfg[64], vpns_scr[64];
 	char *server_conf = "server.conf";
 	char *openvpn_argv[] = {
@@ -2199,25 +2318,49 @@ start_openvpn_server(void)
 
 	/* create tun or tap device (and add tap to bridge) */
 	if (network.is_tun)
-		interface_status = openvpn_tunif_start(IFNAME_SERVER_TUN, 1);
+		interface_status = openvpn_tunif_start(IFNAME_SERVER_TUN, 1, &interface_created);
 	else
-		interface_status = openvpn_tapif_start(IFNAME_SERVER_TAP, 1, 1);
+		interface_status = openvpn_tapif_start(IFNAME_SERVER_TAP, 1, 1, &interface_created);
 	if (interface_status != 0) {
-		int saved_errno = errno;
+		int saved_errno = errno ? errno :
+			(interface_status > 0 ? interface_status : EIO);
 
-		if (openvpn_script_link_remove_created(vpns_scr,
-						       script_link_created) != 0)
-			logmessage(SERVER_LOG_NAME,
-				   "cannot remove callback link after interface failure (errno=%d)",
-				   errno ? errno : EIO);
-		logmessage(SERVER_LOG_NAME, "cannot prepare OpenVPN server interface (status=%d)", interface_status);
-		errno = saved_errno;
-		return interface_status;
+		logmessage(SERVER_LOG_NAME,
+			   "cannot prepare OpenVPN server interface (status=%d)",
+			   interface_status);
+		return openvpn_start_rollback_failed(
+			SERVER_LOG_NAME,
+			network.is_tun ? IFNAME_SERVER_TUN : IFNAME_SERVER_TAP,
+			network.is_tun, interface_created,
+			vpns_scr, script_link_created, interface_status, saved_errno);
 	}
 
 	logmessage(LOGNAME, "starting %s...", SERVER_LOG_NAME);
 
-	return _eval(openvpn_argv, NULL, 0, NULL);
+	errno = 0;
+	launch_status = _eval(openvpn_argv, NULL, 0, NULL);
+	launch_errno = errno;
+	if (launch_status == 0) {
+		launch_status = detached_daemon_start_postcondition_with_ops(
+			0, openvpn_start_pidfile_presence, openvpn_start_probe_wait,
+			SERVER_PID_FILE, PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS,
+			PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS,
+			PROCESS_PRESENCE_START_PROBE_ATTEMPTS);
+		launch_errno = errno;
+	}
+	if (launch_status != 0) {
+		if (launch_errno == 0)
+			launch_errno = launch_status > 0 ? launch_status : EIO;
+		logmessage(SERVER_LOG_NAME,
+			   "OpenVPN server daemon failed its startup identity check (status=%d, errno=%d)",
+			   launch_status, launch_errno);
+		return openvpn_start_rollback_failed(
+			SERVER_LOG_NAME,
+			network.is_tun ? IFNAME_SERVER_TUN : IFNAME_SERVER_TAP,
+			network.is_tun, interface_created,
+			vpns_scr, script_link_created, launch_status, launch_errno);
+	}
+	return 0;
 }
 
 int
@@ -2225,7 +2368,8 @@ start_openvpn_client(void)
 {
 	struct openvpn_client_config_snapshot config;
 	int interface_status, cleanup_status, config_status;
-	int script_link_created = 0;
+	int script_link_created = 0, interface_created = 0;
+	int launch_status, launch_errno;
 	char vpnc_cfg[64], vpnc_scr[64];
 	char *client_conf = "client.conf";
 	char *openvpn_argv[] = {
@@ -2280,25 +2424,49 @@ start_openvpn_client(void)
 
 	/* create tun or tap device */
 	if (config.is_tun)
-		interface_status = openvpn_tunif_start(IFNAME_CLIENT_TUN, 0);
+		interface_status = openvpn_tunif_start(IFNAME_CLIENT_TUN, 0, &interface_created);
 	else
-		interface_status = openvpn_tapif_start(IFNAME_CLIENT_TAP, 0, config.client_nat ? 0 : 1);
+		interface_status = openvpn_tapif_start(IFNAME_CLIENT_TAP, 0, config.client_nat ? 0 : 1, &interface_created);
 	if (interface_status != 0) {
-		int saved_errno = errno;
+		int saved_errno = errno ? errno :
+			(interface_status > 0 ? interface_status : EIO);
 
-		if (openvpn_script_link_remove_created(vpnc_scr,
-						       script_link_created) != 0)
-			logmessage(CLIENT_LOG_NAME,
-				   "cannot remove callback link after interface failure (errno=%d)",
-				   errno ? errno : EIO);
-		logmessage(CLIENT_LOG_NAME, "cannot prepare OpenVPN client interface (status=%d)", interface_status);
-		errno = saved_errno;
-		return interface_status;
+		logmessage(CLIENT_LOG_NAME,
+			   "cannot prepare OpenVPN client interface (status=%d)",
+			   interface_status);
+		return openvpn_start_rollback_failed(
+			CLIENT_LOG_NAME,
+			config.is_tun ? IFNAME_CLIENT_TUN : IFNAME_CLIENT_TAP,
+			config.is_tun, interface_created,
+			vpnc_scr, script_link_created, interface_status, saved_errno);
 	}
 
 	logmessage(LOGNAME, "starting %s...", CLIENT_LOG_NAME);
 
-	return _eval(openvpn_argv, NULL, 0, NULL);
+	errno = 0;
+	launch_status = _eval(openvpn_argv, NULL, 0, NULL);
+	launch_errno = errno;
+	if (launch_status == 0) {
+		launch_status = detached_daemon_start_postcondition_with_ops(
+			0, openvpn_start_pidfile_presence, openvpn_start_probe_wait,
+			CLIENT_PID_FILE, PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS,
+			PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS,
+			PROCESS_PRESENCE_START_PROBE_ATTEMPTS);
+		launch_errno = errno;
+	}
+	if (launch_status != 0) {
+		if (launch_errno == 0)
+			launch_errno = launch_status > 0 ? launch_status : EIO;
+		logmessage(CLIENT_LOG_NAME,
+			   "OpenVPN client daemon failed its startup identity check (status=%d, errno=%d)",
+			   launch_status, launch_errno);
+		return openvpn_start_rollback_failed(
+			CLIENT_LOG_NAME,
+			config.is_tun ? IFNAME_CLIENT_TUN : IFNAME_CLIENT_TAP,
+			config.is_tun, interface_created,
+			vpnc_scr, script_link_created, launch_status, launch_errno);
+	}
+	return 0;
 }
 
 int

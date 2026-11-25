@@ -176,6 +176,7 @@ on:
       - "trunk/user/rc/src/ddns_restart_policy.h"
       - "trunk/user/rc/src/tests/ddns_restart_policy.c"
       - "trunk/user/rc/src/vpn_server.c"
+      - "trunk/user/rc/src/openvpn_start_rollback_policy.h"
       - "trunk/user/rc/src/route_status_policy.h"
       - "trunk/user/rc/src/vpn_client.c"
       - "trunk/user/rc/src/vpn_client_nvram_policy.h"

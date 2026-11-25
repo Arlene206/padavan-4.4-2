@@ -15,6 +15,8 @@ on:
       - 'trunk/user/rc/src/process_presence_start_policy.h'
       - 'trunk/user/rc/src/tests/process_presence_start_policy.c'
       - 'trunk/user/rc/src/vpn_openvpn.c'
+      - 'trunk/user/rc/src/tests/openvpn_start_rollback_policy.c'
+      - 'trunk/user/rc/src/openvpn_start_rollback_policy.h'
       - 'trunk/user/rc/src/openvpn_script_link.h'
       - 'trunk/user/rc/src/openvpn_cert_input_policy.h'
       - 'trunk/user/rc/src/tests/openvpn_cert_input_policy.c'
@@ -66,6 +68,8 @@ on:
       - 'trunk/user/rc/src/process_presence_start_policy.h'
       - 'trunk/user/rc/src/tests/process_presence_start_policy.c'
       - 'trunk/user/rc/src/vpn_openvpn.c'
+      - 'trunk/user/rc/src/tests/openvpn_start_rollback_policy.c'
+      - 'trunk/user/rc/src/openvpn_start_rollback_policy.h'
       - 'trunk/user/rc/src/openvpn_script_link.h'
       - 'trunk/user/rc/src/openvpn_cert_input_policy.h'
       - 'trunk/user/rc/src/tests/openvpn_cert_input_policy.c'
@@ -193,5 +197,13 @@ jobs:
           ASAN_OPTIONS=detect_leaks=1 /tmp/ppp-option-value-policy
       - name: Verify VPN client runtime NVRAM/DNS integration
         run: python3 scripts/check_vpn_client_nvram_state.py
+      - name: Compile and run OpenVPN startup rollback inventory regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src -I trunk/user/shared/src \
+            trunk/user/rc/src/tests/openvpn_start_rollback_policy.c \
+            -o /tmp/openvpn-start-rollback-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/openvpn-start-rollback-policy
       - name: Verify VPN lifecycle serialization and caller integration
         run: python3 scripts/check_vpn_server_lifecycle.py

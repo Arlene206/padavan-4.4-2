@@ -1570,3 +1570,100 @@ for path in (
     push, pull_request = workflow.split("  pull_request:", 1)
     require(push.count(path) == 1 and pull_request.count(path) == 1,
             f"VPN workflow missing/duplicated process-presence dependency: {path}")
+
+
+# OpenVPN detached startup requires the exact daemon writepid identity. Rollback
+# is permitted only for owned resources after two complete ABSENT inventories.
+openvpn_rollback_policy = read("trunk/user/rc/src/openvpn_start_rollback_policy.h")
+openvpn_rollback_test = read("trunk/user/rc/src/tests/openvpn_start_rollback_policy.c")
+require('#include "detached_daemon_start_policy.h"' in vpn_openvpn and
+        '#include "openvpn_start_rollback_policy.h"' in vpn_openvpn,
+        "OpenVPN startup readiness/rollback policies must be included")
+for token in ("OPENVPN_START_ROLLBACK_CONFIRM_SCANS 2",
+              "OPENVPN_START_ROLLBACK_CONFIRM_WAIT_SECONDS 1",
+              "state == PROCESS_PRESENCE_ABSENT",
+              "state == PROCESS_PRESENCE_UNKNOWN",
+              "state == PROCESS_PRESENCE_RUNNING",
+              "errno = EIO"):
+    require(token in openvpn_rollback_policy,
+            f"OpenVPN rollback policy missing fail-closed rule {token}")
+for token in ("test_two_absent_scans_are_required",
+              "test_second_running_scan_revokes_absence_confirmation",
+              "test_unknown_inventory_propagates_error",
+              "test_invalid_inventory_state_fails_closed",
+              "test_interrupted_wait_fails_closed",
+              "test_cleanup_requires_absence_and_ownership"):
+    require(token in openvpn_rollback_test,
+            f"OpenVPN rollback regression missing {token}")
+pidfile_scan = body(vpn_openvpn,
+    "static enum process_presence\\nopenvpn_start_pidfile_presence")
+require("openvpn_read_process_identity((const char *)context, &identity)" in pidfile_scan,
+        "OpenVPN startup readiness must bind to its exact writepid process identity")
+rollback_scan = body(vpn_openvpn,
+    "static enum process_presence\\nopenvpn_start_rollback_scan")
+require('process_inventory_scan("openvpn", &snapshot)' in rollback_scan and
+        "process_snapshot_release(&snapshot)" in rollback_scan,
+        "OpenVPN rollback must use and release a complete process inventory")
+rollback_presence = body(vpn_openvpn,
+    "static enum process_presence\\nopenvpn_start_rollback_presence")
+require("openvpn_start_rollback_confirm_absent_with_ops" in rollback_presence,
+        "OpenVPN rollback must use the two-snapshot absence policy")
+rollback_fn = body(vpn_openvpn,
+    "static int\\nopenvpn_start_rollback_failed")
+ordered(rollback_fn, [
+    "openvpn_start_rollback_presence(NULL, &scan_error)",
+    "openvpn_start_rollback_cleanup_owned(process_state,",
+    "openvpn_tunif_stop(ifname)",
+    "openvpn_tapif_stop(ifname)",
+    "openvpn_script_link_remove_created(script_path,",
+    "if (process_state != PROCESS_PRESENCE_ABSENT)",
+    "retaining interface and callback link"
+], "OpenVPN startup rollback cleanup ownership/order")
+require("resource_created == 1" in openvpn_rollback_policy and
+        "process_state == PROCESS_PRESENCE_ABSENT" in openvpn_rollback_policy,
+        "OpenVPN cleanup requires this attempt's ownership and confirmed absence")
+for helper, label in (
+    (body(vpn_openvpn, "static int\\nopenvpn_tapif_start"), "TAP"),
+    (body(vpn_openvpn, "static int\\nopenvpn_tunif_start"), "TUN"),
+):
+    require("int *interface_created" in helper and
+            "*interface_created = 0;" in helper and
+            "*interface_created = created;" in helper,
+            f"OpenVPN {label} helper must report only resources created by this attempt")
+for signature, pidfile, label in (
+    ("start_openvpn_server(void)", "SERVER_PID_FILE", "server"),
+    ("start_openvpn_client(void)", "CLIENT_PID_FILE", "client"),
+):
+    start_fn = body(vpn_openvpn, signature)
+    ordered(start_fn, [
+        "openvpn_script_link_ensure",
+        "&interface_created",
+        "if (interface_status != 0)",
+        "openvpn_start_rollback_failed(",
+        "_eval(openvpn_argv, NULL, 0, NULL)",
+        "detached_daemon_start_postcondition_with_ops(",
+        pidfile,
+        "if (launch_status != 0)"
+    ], f"OpenVPN {label} startup/readiness/rollback sequence")
+    require("launch_errno" in start_fn and "launch_status" in start_fn,
+            f"OpenVPN {label} startup must preserve the primary error")
+require(vpn_openvpn.count("openvpn_start_rollback_failed(") >= 5,
+        "both OpenVPN start paths must gate interface and daemon failures")
+for path in (
+    "trunk/user/rc/src/openvpn_start_rollback_policy.h",
+    "trunk/user/rc/src/tests/openvpn_start_rollback_policy.c",
+):
+    push, pull_request = workflow.split("  pull_request:", 1)
+    require(push.count("      - '" + path + "'") == 1 and
+            pull_request.count("      - '" + path + "'") == 1,
+            f"VPN workflow missing/duplicated OpenVPN rollback dependency: {path}")
+require("openvpn_start_rollback_policy.c" in workflow and
+        "ASAN_OPTIONS=detect_leaks=1 /tmp/openvpn-start-rollback-policy" in workflow,
+        "VPN workflow must compile and run the rollback regression")
+xy_workflow = read(".github/workflows/xy-c1-firmware-validation.yml")
+xy_test = read("scripts/tests/test_xy_c1_firmware_inputs.py")
+xy_policy_path = "trunk/user/rc/src/openvpn_start_rollback_policy.h"
+require(xy_workflow.count('      - "' + xy_policy_path + '"') == 1 and
+        "test_openvpn_start_rollback_policy_header_triggers_xy_c1_build" in xy_test,
+        "XY-C1 detector/workflow must treat the rollback policy as production input")
+print("OpenVPN detached startup readiness and safe rollback source contract: PASS")

@@ -1,15 +1,17 @@
-## 2026-11-26 active handoff — erase transaction-scoped NVRAM value cache
+## 2026-11-26 active handoff — OpenVPN detached startup identity and rollback
 
-- Live main parent: `d91bc841fddf1cc311cda431796de5a731cf0fd7`. OpenVPN credential staging #45657032237 PASS (CR/LF rejection, atomic file publication, secret wipe, callback-link regression and source contract); VPN lifecycle #45657032067 PASS; AI handoff docs #45657032165 PASS; Process inventory #45657032815 PASS; process lifecycle regression #45657032140 PASS. NVRAM audit #45657032113 and XY-C1 #45657032169 were still in progress at last poll.
-- The callback-link source checker update is verified: VPN lifecycle and AI docs #45656077803 / #45656077743 passed on `c2366fd5...`; d91's dedicated VPN/OpenVPN tests also pass. d91's production XY-C1 Build/TRX/artifact remains pending; no L3 claim is made. Physical-router L4 remains NOT VERIFIED.
-- New memory-hygiene issue: `nvram_transaction_get()` returned values from the same process-global static cache as legacy getters. Transaction callers copy values before another read, but copied NVRAM credentials remained in static memory indefinitely after `nvram_transaction_end()`. This slice separates legacy and transaction caches and securely erases the transaction cache at begin/end; its API contract documents that values must be copied before the next read and the cache is erased at end.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Main base: `273f4ea22773e2bbe2ce62d85936b2ff49ee3700`; this source/test/workflow slice is committed as one atomic non-forced descendant. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- OpenVPN server/client now require their own trusted writepid file to resolve to a live process identity before reporting detached-daemon startup success.
+- TUN/TAP start helpers report whether this invocation created the interface. Startup failure performs no process signal. Rollback uses two complete `process_inventory_scan("openvpn")` snapshots one second apart; a missing PID file is never proof of global absence. RUNNING, UNKNOWN, invalid state, or interrupted wait preserves the interface and callback link. Cleanup is allowed only for resources created by this attempt after confirmed ABSENT.
+- Added GNU89 ASan/UBSan tests for two-snapshot confirmation, ABSENT→RUNNING, UNKNOWN/error propagation, invalid states, interrupted wait, and ownership gating. VPN source checker pins exact PID identity and rollback ordering. XY-C1 path regression pins the production helper header.
+- CI repairs immediately before this slice: `f9f071b8da74ec52e2db35aea3784a7a1604c81b` adds the missing NVRAM policy-header include path; NVRAM run `#45659128163` was pending at last poll. `273f4ea22773e2bbe2ce62d85936b2ff49ee3700` updates the HTTPD embedded source check to the new NVRAM getter signature; HTTPD rerun `#45659190171` was pending at last poll. c4ed XY-C1 run `#45658659753` was still compiling; d91 exact-SHA XY-C1 job `#139356366796` passed. Verify exact steps before any L3 claim.
+- Physical-router L4 NOT VERIFIED.
 
 ### First actions
 
-1. Run the NVRAM cache erasure regression and source checker on the exact result SHA; fix any failure without weakening the cache lifetime contract.
-2. Inspect exact d91 XY-C1 Build, TRX and artifact steps, then the new commit's own XY-C1 run.
-3. Continue the OpenVPN daemon-start failure rollback review with the process-identity safety gates intact.
+1. Check this commit's exact-SHA VPN lifecycle, OpenVPN credential, AI docs, Process inventory, and XY-C1 Actions. Confirm the new GNU89/ASan/UBSan regression/source contract and XY-C1 Build, TRX and artifact upload on this exact production SHA.
+2. Resolve `#45659128163`, `#45659190171`, and c4ed XY-C1 `#45658659753`; repair any remaining failure without weakening behavior.
+3. Continue OpenVPN startup/stop lifecycle review, then another independent userland stability/security issue. PENDING must not block work.
 
 ### Execution contract
 

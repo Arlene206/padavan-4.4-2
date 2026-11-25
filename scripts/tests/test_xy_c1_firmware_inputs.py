@@ -396,6 +396,12 @@ class FirmwareInputPathTests(unittest.TestCase):
         self.assertEqual(paths, [])
         self.assertIn("fail-safe", reason)
 
+    def test_openvpn_start_rollback_policy_header_triggers_xy_c1_build(self):
+        workflow = (ROOT / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
+        path = "trunk/user/rc/src/openvpn_start_rollback_policy.h"
+        self.assertEqual(workflow.count('      - "' + path + '"'), 1)
+        self.assertFalse(is_non_firmware_input(path))
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
