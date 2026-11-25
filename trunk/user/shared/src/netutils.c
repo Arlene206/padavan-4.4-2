@@ -1271,7 +1271,12 @@ brport_get_param_int(const char *ifname, const char *param, int *value)
 	long parsed;
 	int path_len;
 
-	if (!value || !is_safe_path_component(ifname) ||
+	if (!value) {
+		errno = EINVAL;
+		return -1;
+	}
+	*value = 0;
+	if (!is_safe_path_component(ifname) ||
 	    !is_safe_path_component(param)) {
 		errno = EINVAL;
 		return -1;
@@ -1314,11 +1319,27 @@ brport_get_param_int(const char *ifname, const char *param, int *value)
 	return 0;
 }
 
+static int
+brport_m2u_set_param(const char *ifname, const char *param, int value)
+{
+	int status;
+
+	errno = 0;
+	status = brport_set_param_int(ifname, param, value);
+	if (status == 0)
+		return 0;
+	if (status > 0)
+		errno = status;
+	else if (errno == 0)
+		errno = EIO;
+	return -1;
+}
+
 int
 brport_set_m2u(const char *ifname, int m2u_on)
 {
 	static const bridge_port_m2u_ops_t ops = {
-		brport_get_param_int, brport_set_param_int
+		brport_get_param_int, brport_m2u_set_param
 	};
 	int rollback_status = 0, rollback_errno = 0;
 	int ret;

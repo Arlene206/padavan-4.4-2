@@ -1,3 +1,12 @@
+## 2026-11-25 21:31 CST (UTC+8) — Harden bridge M2U errno and snapshot validation
+
+- Reviewed the M2U transaction after its harness corrections. Linux 4.4 exposes both bridge-port flags as boolean 0/1 values; the policy now fails closed with EPROTO if readback violates that kernel contract.
+- The production setter adapter normalizes positive status-code errors and negative/-1 failures into -1 with a reliable errno, clearing stale errno before each write. The sysfs reader initializes its output on failure.
+- Added GNU89 cases for rollback after the first setter itself fails and for impossible non-boolean snapshots. Existing second-write rollback, reverse-order restore and primary-error preservation cases remain.
+- On parent `7192958c21ddce8798b8793c9b34df34717ed15d`, WAN route #45624479165 and AI docs #45624479128 were IN_PROGRESS at last poll. This follow-up requires fresh exact-head checks; no XY-C1 L3 or physical L4 claim is made.
+
+---
+
 ## 2026-11-25 22:12 CST (UTC+8) — Correct M2U rollback-order checker symbol
 
 - Exact-head WAN route #45624201337 on `fb86393c` passed the ASan/UBSan policy test binaries and failed only in the Python source checker: the declaration was named `m2u_restore_second`, but the ordering assertion referenced undefined `m2u_second_restore`.

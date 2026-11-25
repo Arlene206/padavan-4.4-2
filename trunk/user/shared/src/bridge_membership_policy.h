@@ -158,6 +158,12 @@ bridge_port_m2u_apply_with_ops(const char *ifname, int enabled,
 	if (ret != 0)
 		return ret;
 
+	if ((old_fast_leave != 0 && old_fast_leave != 1) ||
+	    (old_to_unicast != 0 && old_to_unicast != 1)) {
+		errno = EPROTO;
+		return -1;
+	}
+
 	if (old_fast_leave != enabled) {
 		attempted |= 1;
 		ret = ops->set_param(ifname, "multicast_fast_leave", enabled);

@@ -1,16 +1,18 @@
-## 2026-11-25 autonomous handoff — M2U checker identifier correction
+## 2026-11-25 autonomous handoff — M2U errno and validation hardening
 
-- Main baseline for this checker-only repair: `fb86393ccdcda3a8554eecba45399e9f423a3089`.
-- Exact WAN route #45624201337 on `fb86393c` passed all sanitizer binaries, then `check_wan_vlan_setup.py` failed with `NameError`: the declaration is `m2u_restore_second` but the ordering assertion used `m2u_second_restore`. Corrected the assertion to reference the declared variable.
-- Wireless radio #45624201448 PASS and AI handoff #45624201233 PASS on `fb86393c`. Process lifecycle inventory #45624201262 passed; NVRAM #45624201309 was still in progress. Need rerun route after checker correction.
-- M2U implementation at `d9d23febf98a8c9e9a2c1529247c9f694baff2f0` remains as described below; build was still running on that source SHA. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; no force pushes or branches. Physical L4 NOT VERIFIED.
+- Main baseline: `7192958c21ddce8798b8793c9b34df34717ed15d`; parent M2U source commit `d9d23febf98a8c9e9a2c1529247c9f694baff2f0`. Harness follow-ups `fb86393ccdcda3a8554eecba45399e9f423a3089` and `7192958c21ddce8798b8793c9b34df34717ed15d` added `<assert.h>` and fixed the source-checker restore-order identifier.
+- Source review found the setter callback could return a positive error code without synchronizing `errno`; the policy depends on errno to retain the primary cause across rollback. The new adapter normalizes that case and clears stale errno before calls. The sysfs getter initializes outputs on failure; the policy rejects non-0/1 snapshots with EPROTO.
+- New GNU89 tests cover first-write rollback and non-boolean snapshots. Prior sanitizer fixtures passed on `fb86393c` before its Python checker hit the separately fixed restore-order symbol.
+- WAN route #45624479165 and AI docs #45624479128 on `7192958c` were IN_PROGRESS at last poll. This commit needs fresh exact-head checks. XY-C1 Build/TRX/artifact must be evaluated on one identical production-source SHA; physical L4 NOT VERIFIED.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only.
 
-### Next actions
-1. Poll exact-head WAN route, AI docs and XY-C1 build/TRX/artifact after this fix.
-2. Continue cross-userland networking stability work after tests pass.
+### First actions
+1. Inspect this commit's exact WAN route and AI-doc Actions; fix any first causal failure without weakening coverage.
+2. Track XY-C1 Build → TRX → artifact for one identical product-source SHA.
+3. Continue concrete IPv6/WAN route-lifecycle stability work after M2U validation.
 
 ### Execution contract
-Source/test → complete tree/commit → non-forced expected-SHA update → exact-SHA Actions. Preserve backup.
+Source/test → complete tree/commit → non-forced expected-SHA update → exact-SHA Actions. Main only; no branches, PRs, force pushes or backup mutation.
 
 ---
 

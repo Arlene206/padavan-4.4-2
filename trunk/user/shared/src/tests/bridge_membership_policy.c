@@ -242,6 +242,25 @@ test_m2u_rollback_failures_are_reported_without_losing_primary_errno(void)
 }
 
 static void
+test_m2u_first_write_failure_restores_attempted_flag(void)
+{
+	int rollback_status, rollback_errno;
+	m2u_reset(0, 0);
+	m2u_call_status[2] = -1;
+	m2u_call_errno[2] = EPERM;
+	errno = 0;
+	assert(m2u_apply(1, &rollback_status, &rollback_errno) == -1);
+	assert(errno == EPERM);
+	assert(m2u_call_count == 4);
+	assert(strcmp(m2u_calls[2], "set-fast") == 0 &&
+	       m2u_call_values[2] == 1);
+	assert(strcmp(m2u_calls[3], "set-fast") == 0 &&
+	       m2u_call_values[3] == 0);
+	assert(m2u_fast_leave == 0 && m2u_to_unicast == 0);
+	assert(rollback_status == 0 && rollback_errno == 0);
+}
+
+static void
 test_m2u_snapshot_failure_does_not_mutate_either_flag(void)
 {
 	int rollback_status, rollback_errno;
@@ -253,6 +272,19 @@ test_m2u_snapshot_failure_does_not_mutate_either_flag(void)
 	assert(errno == EACCES);
 	assert(m2u_call_count == 2);
 	assert(m2u_fast_leave == 0 && m2u_to_unicast == 0);
+}
+
+static void
+test_m2u_snapshot_rejects_non_boolean_flag_state(void)
+{
+	int rollback_status, rollback_errno;
+	m2u_reset(2, 0);
+	errno = 0;
+	assert(m2u_apply(1, &rollback_status, &rollback_errno) == -1);
+	assert(errno == EPROTO);
+	assert(m2u_call_count == 2);
+	assert(m2u_fast_leave == 2 && m2u_to_unicast == 0);
+	assert(rollback_status == 0 && rollback_errno == 0);
 }
 
 static void
@@ -354,9 +386,11 @@ main(void)
 
 	test_m2u_update_snapshots_both_flags_before_mutation();
 	test_m2u_second_write_failure_restores_first_flag();
+	test_m2u_first_write_failure_restores_attempted_flag();
 	test_m2u_rollback_failures_are_reported_without_losing_primary_errno();
 	test_m2u_snapshot_failure_does_not_mutate_either_flag();
 	test_m2u_repeated_target_state_is_idempotent();
+	test_m2u_snapshot_rejects_non_boolean_flag_state();
 
 	puts("Bridge membership and teardown policy regression: PASS");
 	return 0;

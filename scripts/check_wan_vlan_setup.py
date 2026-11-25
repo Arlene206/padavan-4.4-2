@@ -143,6 +143,8 @@ assert m2u_restore_second < m2u_restore_first
 for test_name in (
     "test_m2u_update_snapshots_both_flags_before_mutation",
     "test_m2u_second_write_failure_restores_first_flag",
+    "test_m2u_first_write_failure_restores_attempted_flag",
+    "test_m2u_snapshot_rejects_non_boolean_flag_state",
     "test_m2u_rollback_failures_are_reported_without_losing_primary_errno",
     "test_m2u_snapshot_failure_does_not_mutate_either_flag",
     "test_m2u_repeated_target_state_is_idempotent",
