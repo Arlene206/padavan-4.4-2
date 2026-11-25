@@ -152,3 +152,15 @@ run
 [ "$(cat "$T/victim")" = 'do not follow this symlink' ] || fail "symlink target modified"
 ! grep -q 'pppd file .*options.wan0' "$LOG" || fail "PPPD launched with symlink options"
 echo 'PPPoE-MWAN refuses symlink credential files: PASS'
+
+# mv into an existing directory succeeds but places credentials inside it.
+# Refuse that path and continue independent PPP sessions without publishing.
+reset
+mkdir "$OPTIONS/options.wan0"
+run
+[ "$RC" -ne 0 ] || fail "directory option path accepted"
+[ -d "$OPTIONS/options.wan0" ] || fail "non-regular option path was replaced"
+[ -z "$(find "$OPTIONS/options.wan0" -mindepth 1 -print -quit)" ] || fail "staged credentials were moved inside the directory"
+! grep -q 'pppd file .*options.wan0' "$LOG" || fail "PPPD launched with directory options path"
+grep -q 'pppd file .*options.wan1' "$LOG" || fail "second PPP session did not continue after first path failure"
+echo 'PPPoE-MWAN refuses non-regular credential paths: PASS'

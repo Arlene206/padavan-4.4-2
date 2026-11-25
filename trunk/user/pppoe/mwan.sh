@@ -191,6 +191,13 @@ while [ "$i" -le "$PPP_COUNT" ]; do
 		i=$((i + 1))
 		continue
 	fi
+	# mv treats an existing directory as a container, not a file to replace.
+	# Reject every pre-existing non-regular path before staging or launching PPPD.
+	if [ -e "$options_file" ] && [ ! -f "$options_file" ]; then
+		mwan_fail 1 "refusing non-regular PPP options path $options_file"
+		i=$((i + 1))
+		continue
+	fi
 	if ( set -C; : > "$options_tmp" ) 2>/dev/null; then :; else
 		mwan_rc=$?
 		mwan_fail "$mwan_rc" "cannot create temporary PPP options file for $macvlan"

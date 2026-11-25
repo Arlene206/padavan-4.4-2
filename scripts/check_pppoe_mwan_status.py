@@ -207,6 +207,7 @@ require(
     and 'options_file="/tmp/ppp/options.wan$count"' in MWAN
     and 'options_tmp="/tmp/ppp/.options.wan$count.$$"' in MWAN
     and 'if [ -L "$options_file" ]; then' in MWAN
+    and 'if [ -e "$options_file" ] && [ ! -f "$options_file" ]; then' in MWAN
     and 'chmod 600 "$options_tmp"' in MWAN
     and 'mv -f "$options_tmp" "$options_file"' in MWAN
     and "printf 'user %s\\n' \"$quoted_user\"" in MWAN
@@ -225,7 +226,8 @@ require(
     and "PPPoE-MWAN avoids reusing a parent MAC suffix: PASS" in MWAN_TEST
     and "PPPoE-MWAN preserves the virtual MAC sequence for an unused parent suffix: PASS" in MWAN_TEST
     and "PPPoE-MWAN preserves first PPPD launch failure after later success: PASS" in MWAN_TEST
-    and "PPPoE-MWAN refuses symlink credential files: PASS" in MWAN_TEST,
+    and "PPPoE-MWAN refuses symlink credential files: PASS" in MWAN_TEST
+    and "PPPoE-MWAN refuses non-regular credential paths: PASS" in MWAN_TEST,
     "multi-WAN regression must cover credential escaping/injection, partial launch and symlink paths",
 )
 
