@@ -153,6 +153,13 @@ test_received_payload_bounds(void)
 	assert(!iapp_rx_payload_fits(60, 24, 37));
 	assert(iapp_rx_payload_fits(64, 24, 40));
 	assert(!iapp_rx_payload_fits(64, 24, 41));
+
+	/* 32-bit target ABI: packed RT_SIGNAL_STRUC fixed prefix (28 bytes)
+	 * plus the 8-byte FT event header, before the declared event body. */
+	assert(iapp_rx_payload_fits(36, 36, 0));
+	assert(iapp_rx_payload_fits(40, 36, 4));
+	assert(!iapp_rx_payload_fits(39, 36, 4));
+	assert(!iapp_rx_payload_fits(35, 36, 0));
 }
 
 static void

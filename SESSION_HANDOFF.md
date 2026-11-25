@@ -1,26 +1,26 @@
 ## Current repository state — 2026-11-25
 
-- Main base before this raw RRB frame bounds slice: e1f16872b7e2792db9acf0184f2fe9c5d736c966; RT RRB length checks, compiled boundary tests, lifecycle contracts, dev log and handoff are one atomic descendant (THIS COMMIT).
+- Main base before this raw-driver signal payload guard: 0952cb923e5a15fc2e4b5c566691640301d52f17; event bounds, raw frame minimum size, helper tests, lifecycle contract, dev log and handoff are a single atomic descendant (THIS COMMIT).
 - Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains read-only at 72f4f157a084f8184b9597ca5bf334b8080e5807.
-- Exact parent `e1f16872b7e2792db9acf0184f2fe9c5d736c966`: IAPP #45691498805 PASS; process lifecycle regression #45691498859 PASS; inventory #45691498965 PASS; AI handoff #45691498755 PASS; NVRAM #45691499740 PASS. XY-C1 #45691498871 was still building at last poll.
-- Parent e1 incorporates: bounded FT security-block stack copy with actual post-decrypt length + exact key-element size, TCP/UDP minimum IAPP headers, ACK payload bound, and actual-received-length validation for AP-information payloads.
-- This slice guards raw RRB before reading fixed header fields and bounds the rounded (8-byte padded + 8-byte cipher overhead) encrypted action block using the actual frame length, retaining the code's Ethernet minimum-frame zero-padding note. GNU89 ASan/UBSan helper tests exercise the 60- and 64-byte frame boundaries.
-- Historic XY-C1 L3 remains verified only on `8b9b63401dd85232b257120111bb18475db6b5` (Build/TRX/artifact all PASS). No later SHA inherits the result. Physical-router L4 NOT VERIFIED; backup unchanged; PR #1 inventoried.
+- Parent `e1f16872b7e2792db9acf0184f2fe9c5d736c966`: IAPP #45691498805 PASS; process lifecycle #45691498859 PASS; inventory #45691498965 PASS; AI #45691498755 PASS; NVRAM #45691499740 PASS. XY-C1 #45691498871 was still building at last poll; inspect exact Build/TRX/artifact separately.
+- Parent e1 includes the FT key stack-copy guard, TCP/UDP header guards, AP information received-length guard, and RRB padded encrypted payload guard (commit `0952cb923e5a15fc2e4b5c566691640301d52f17`).
+- This slice validates raw driver Ethernet+signal+event fixed prefixes before any pointer dereference, passes signal length excluding Ethernet, bounds FT event payload by EventLen, and requires debug-level payload size. It addresses the previously ignored Len argument in IAPP_SIG_Process().
+- Historic XY-C1 L3 remains proven only on `8b9b63401dd85232b257120111bb18475db6b5` (Build/TRX/artifact PASS); no later SHA inherits this. Physical-router L4 NOT VERIFIED. Backup unchanged; PR #1 inventoried.
 
 ## Active task
 
-Validate this raw RRB boundary fix on exact-head IAPP and XY-C1 Actions, then verify the raw driver signal path's fixed prefixes and variable event length before any payload dereference.
+Run exact IAPP and XY firmware validation for the raw driver signal length fix. Then inspect exact-SHA XY build outcomes for receive-length slice and check for remaining raw packet minimum lengths.
 
 ## Exact first actions for next GPT
 
-1. Poll IAPP lifecycle, XY-C1 Build/TRX/artifact, Process lifecycle/inventory, NVRAM and AI checks for THIS COMMIT; require exact SHA match.
-2. Check that the GNU89 ASan/UBSan policy test passes the 60-byte/64-byte RRB boundaries and shell contracts see both guard-before-dereference and aligned-span validation.
-3. Investigate `RT_SIGNAL_STRUC` declaration and all `IAPP_SIG_Process()` call sites; validate raw Ethernet and event fixed-prefix/payload lengths using actual signal length.
-4. Preserve backup and main-only atomic expected-SHA updates.
+1. Poll current SHA IAPP, XY-C1 Build/TRX/artifact, process lifecycle/inventory, NVRAM and AI actions independently. A pending XY build does not inherit the earlier pass.
+2. Inspect the IAPP sanitizer policy regression and source-order contracts for raw driver frame length + EventLen; check XY-C1 production compiler separately.
+3. Continue examining `FT_KDP_SIG_*` event handlers for their own minimum payload field sizes, plus TCP/UDP IAPP command-specific fixed struct lengths.
+4. Preserve frozen backup and main-only complete atomic expected-SHA updates.
 
 ## Execution contract
 
-Main only, one complete tree and commit per logical task; non-force update with expected SHA. No force-push, development branch or PR. PENDING Actions do not block.
+Main only; complete tree, atomic commits, exact expected-SHA non-force update. No force-push, development branches or PR. PENDING Actions do not block independent work.
 
 ## 2026-11-25 autonomous handoff checkpoint
 

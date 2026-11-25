@@ -141,6 +141,12 @@ grep -Fq "SizeRcvMsg < (INT32)FT_RRB_HEADER_SIZE" "$iapp_source" ||
   fail "IAPP raw RRB must verify the fixed frame header before field access"
 grep -Fq "iapp_rx_payload_fits((size_t)ReceivedLength" "$iapp_source" ||
   fail "IAPP raw RRB must bound aligned encrypted length by the actual frame"
+grep -Fq "RT_SIGNAL_STRUC_HDR_SIZE + FT_KDP_EVT_HEADER_SIZE" "$iapp_source" ||
+  fail "IAPP raw driver signal must contain its fixed event prefix"
+grep -Fq "(size_t)pEvtHeader->EventLen" "$iapp_source" ||
+  fail "IAPP driver event payload must fit the actual signal bytes"
+grep -Fq 'SizeRcvMsg - (INT32)sizeof(FT_ETH_HEADER)' "$iapp_source" ||
+  fail "IAPP raw driver must pass the signal length without the Ethernet header"
 ap_info_guard_line=$(grep -n -F "pApIB->Length))" "$iapp_source" | cut -d: -f1)
 ap_info_copy_line=$(grep -n -F "IAPP_MEM_MOVE(OidReq->Buf+FT_IP_ADDRESS_SIZE, pApIB->IB, pApIB->Length)" "$iapp_source" | cut -d: -f1)
 [ -n "$ap_info_guard_line" ] && [ -n "$ap_info_copy_line" ] && [ "$ap_info_guard_line" -lt "$ap_info_copy_line" ] ||

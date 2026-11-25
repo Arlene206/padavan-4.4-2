@@ -987,7 +987,28 @@ static BOOLEAN IAPP_SIG_Process(
 		return FALSE;
 	}
 
+	if (Len < (INT32)(RT_SIGNAL_STRUC_HDR_SIZE + FT_KDP_EVT_HEADER_SIZE)) {
+		DBGPRINT(RT_DEBUG_ERROR,
+			 "iapp> Short raw driver signal header (%d bytes)!\n", Len);
+		return FALSE;
+	}
+
 	pEvtHeader = (FT_KDP_EVT_HEADER *)(pSig->Content);
+	if (!iapp_rx_payload_fits((size_t)Len,
+				  RT_SIGNAL_STRUC_HDR_SIZE + FT_KDP_EVT_HEADER_SIZE,
+				  (size_t)pEvtHeader->EventLen)) {
+		DBGPRINT(RT_DEBUG_ERROR,
+			 "iapp> Truncated raw driver event payload (%u bytes)!\n",
+			 pEvtHeader->EventLen);
+		return FALSE;
+	}
+
+	if (pSig->Sig == FT_KSP_SIG_DEBUG_TRACE &&
+	    pEvtHeader->EventLen < sizeof(INT32)) {
+		DBGPRINT(RT_DEBUG_ERROR,
+			 "iapp> Short raw driver debug-level event!\n");
+		return FALSE;
+	}
 
 	DBGPRINT(RT_DEBUG_TRACE,
 			"iapp> Sig = 0x%02x, pEvtHeader->EventLen = %d, "
@@ -2565,6 +2586,15 @@ static VOID IAPP_RcvHandlerRawDrv(
 	if (SizeRcvMsg > 0)
 	{
 		UCHAR WifiMAC[ETH_ALEN];
+
+		if (SizeRcvMsg < (INT32)(sizeof(FT_ETH_HEADER) +
+					 RT_SIGNAL_STRUC_HDR_SIZE +
+					 FT_KDP_EVT_HEADER_SIZE)) {
+			DBGPRINT(RT_DEBUG_ERROR,
+				 "iapp> Short raw driver Ethernet/signal frame (%d bytes)!\n",
+				 SizeRcvMsg);
+			return;
+		}
 		
 		DBGPRINT(RT_DEBUG_TRACE,
 				"iapp> Recvfrom RAW CMD successfully (%d, %d)!\n",
@@ -2575,7 +2605,9 @@ static VOID IAPP_RcvHandlerRawDrv(
 
 		/* handle the signal context, assoicate or reassociate or terminate */
 		pSignal = (RT_SIGNAL_STRUC *)(pPktBuf + sizeof(FT_ETH_HEADER));
-		IAPP_SIG_Process(pCtrlBK, WifiMAC, pSignal, SizeRcvMsg, pCmdBuf, pRspBuf);
+		IAPP_SIG_Process(pCtrlBK, WifiMAC, pSignal,
+				 SizeRcvMsg - (INT32)sizeof(FT_ETH_HEADER),
+				 pCmdBuf, pRspBuf);
 	} /* End of if */
 } /* End of IAPP_RcvHandlerRawDrv */
 
