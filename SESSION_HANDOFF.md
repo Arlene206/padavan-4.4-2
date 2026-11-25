@@ -1,14 +1,15 @@
-## 2026-11-25 autonomous handoff — SIT rollback contract correction
+## 2026-11-25 autonomous handoff — correct workflow indentation
 
-- Main parent SHA: `0ae462027968d0d31ddf9c349cd0b5f15ab0cdc7`. The SIT-derived LAN IPv6 rollback implementation is in `0ae462027968d0d31ddf9c349cd0b5f15ab0cdc7`.
-- Exact WAN route run #45626020132 failed at its final embedded source check, not at compilation or sanitizer tests. The source check expected three `ip -6 addr add` argv calls; the new rollback callback adds a fourth legitimate, argv-safe call. All 52 preceding steps passed, including the WAN6 identity regression and the existing VLAN/bridge checker. The next commit updates the count to four and directly verifies that the restoration callback passes one address argv element on `br0`.
-- AI handoff docs #45626020264 PASS on `0ae462`. XY-C1 #45626020329, WAN DHCP #45626020186, IPv6 service #45626020180, Process inventory #45626020343, NVRAM #45626020337 and HTTPD security #45626020041 were in progress at last poll. The earlier parent SHA `0bed846` had NVRAM #45624855071 PASS and all stability workflows PASS; XY-C1 #45624855182 had Build in progress, TRX/artifact pending.
+- Main parent: `92578d786df806f9da1f68d0b6ce835b0c397207`. SIT rollback source/test commit: `0ae462027968d0d31ddf9c349cd0b5f15ab0cdc7`.
+- The workflow-only command-count correction in `92578d78` added the correct count of four argv-based `ip -6 addr add` calls, but review caught that its second Python assertion was at column zero rather than indented under YAML `run: |`. This commit corrects the indentation. Do not treat the WAN workflow as verified until its exact-head run passes.
+- On `0ae462`, AI handoff #45626020264, NVRAM #45626020337 and Process inventory #45626020343 PASS; IPv6 service #45626020180 PASS and HTTPD security #45626020041 PASS. WAN route #45626020132 failed its final source-count assertion; WAN DHCP #45626020186 failed (needs log triage if relevant). XY-C1 #45626020329 failed, details not yet inspected.
+- XY-C1 workflow on `92578d78` is #45626456137; job # has not yet completed, Build currently pending, TRX/artifact pending. No L3.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, immutable. Physical-router L4 NOT VERIFIED.
 
 ### First actions
-1. Verify this workflow-only correction on its exact SHA; only repair a first causal failure.
-2. Track XY-C1 Build, TRX and artifact on one identical production-source SHA; no L3 claim until all pass.
-3. Continue concrete WAN/IPv6 lifecycle defect fixes and keep source/test contracts synchronized.
+1. Verify the corrected WAN route workflow syntax and source contract on its exact SHA; inspect and fix the first failure if any.
+2. Triage XY-C1 #45626456137 and the failed XY-C1 / WAN DHCP runs on prior SHAs; only claim L3 if Build, TRX and artifact all pass for one identical product-source SHA.
+3. Continue independent stability/security work after the route workflow is healthy.
 
 ### Execution contract
 Source/test → complete tree/commit → non-forced expected-SHA update → exact-SHA Actions. Main only; no branches/PRs/force pushes or backup mutation.

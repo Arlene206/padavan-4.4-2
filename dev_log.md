@@ -1,3 +1,11 @@
+## 2026-11-25 21:43 CST (UTC+8) — Fix YAML block indentation in WAN route contract
+
+- Review of the follow-up commit `92578d786df806f9da1f68d0b6ce835b0c397207` caught a formatting error in the newly added embedded Python assertion: it had been inserted at column zero instead of the ten-space indentation required by the YAML `run: |` block. This made the workflow file invalid; corrected the indentation here.
+- The earlier exact WAN route failure on `0ae4620` remains attributed to the old hard-coded command count (3 vs the new 4); this commit now contains both the count update and properly nested argv-safety assertion. Require a fresh exact-head workflow validation before claiming PASS.
+- XY-C1 run #45626456137 on `92578d7` is IN_PROGRESS with Build pending at last check; TRX and artifact upload are pending. No L3 claim.
+
+---
+
 ## 2026-11-25 21:42 CST (UTC+8) — Align IPv6 source contract with SIT LAN restore callback
 
 - Exact-head WAN route run #45626020132 on `0ae462027968d0d31ddf9c349cd0b5f15ab0cdc7` failed only in the final embedded source-contract step. All preceding 52 steps, including the new WAN IPv6 identity test compile and `check_wan_vlan_setup.py`, passed.
