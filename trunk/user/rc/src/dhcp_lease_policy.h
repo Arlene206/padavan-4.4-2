@@ -696,6 +696,145 @@ dhcp_lease_route_text_is_safe(const char *value)
 	return 1;
 }
 
+/* The route apply path tokenizes on one literal space, not arbitrary
+ * whitespace. Reject separators it cannot consume without silently skipping
+ * entries (tabs, leading spaces and repeated spaces). A single trailing
+ * space is harmless to its existing strsep loop. */
+static inline int
+dhcp_lease_route_separators_are_valid(const char *value)
+{
+	const unsigned char *p = (const unsigned char *)value;
+	int previous_space = 0;
+
+	if (!p || *p == ' ')
+		return 0;
+	for (; *p; ++p) {
+		if (*p == '\t')
+			return 0;
+		if (*p == ' ') {
+			if (previous_space)
+				return 0;
+			previous_space = 1;
+		} else {
+			previous_space = 0;
+		}
+	}
+	return 1;
+}
+
+/* Read one bounded space-separated route token without truncation. */
+static inline int
+dhcp_lease_route_token_next(const unsigned char **cursor,
+			    char *token, size_t token_size)
+{
+	const unsigned char *p, *start;
+	size_t length;
+
+	if (!cursor || !*cursor || !token || token_size == 0)
+		return -1;
+	p = *cursor;
+	while (*p == ' ')
+		++p;
+	if (!*p) {
+		*cursor = p;
+		token[0] = '\0';
+		return 0;
+	}
+	start = p;
+	while (*p && *p != ' ')
+		++p;
+	length = (size_t)(p - start);
+	if (length == 0 || length >= token_size)
+		return -1;
+	memcpy(token, start, length);
+	token[length] = '\0';
+	*cursor = p;
+	return 1;
+}
+
+/* Legacy DHCP option 33 is a whitespace-separated list of destination/gateway
+ * pairs. Validate the whole list before either installation or deletion. */
+static inline int
+dhcp_lease_legacy_route_list_is_valid(const char *value,
+				     unsigned int max_routes,
+				     int allow_empty)
+{
+	const unsigned char *cursor;
+	char token[INET_ADDRSTRLEN * 2 + 2];
+	char *separator;
+	unsigned int count = 0;
+	int status;
+
+	if (!dhcp_lease_route_text_is_safe(value) ||
+	    !dhcp_lease_route_separators_are_valid(value))
+		return 0;
+	cursor = (const unsigned char *)value;
+	while ((status = dhcp_lease_route_token_next(
+			&cursor, token, sizeof(token))) > 0) {
+		separator = strchr(token, '/');
+		if (!separator || strchr(separator + 1, '/'))
+			return 0;
+		*separator++ = '\0';
+		if (!dhcp_lease_ipv4_is_valid(token) ||
+		    !dhcp_lease_ipv4_is_valid(separator))
+			return 0;
+		if (++count > max_routes)
+			return 0;
+	}
+	if (status < 0)
+		return 0;
+	return count > 0 || allow_empty;
+}
+
+/* RFC3442/249 route lists are destination/prefix, gateway token pairs. */
+static inline int
+dhcp_lease_classless_route_list_is_valid(const char *value,
+					unsigned int max_routes,
+					int allow_empty)
+{
+	const unsigned char *cursor;
+	char destination_prefix[INET_ADDRSTRLEN + 4];
+	char gateway[INET_ADDRSTRLEN];
+	char *separator, *prefix;
+	unsigned int count = 0, bits;
+	int status, digit;
+
+	if (!dhcp_lease_route_text_is_safe(value) ||
+	    !dhcp_lease_route_separators_are_valid(value))
+		return 0;
+	cursor = (const unsigned char *)value;
+	while ((status = dhcp_lease_route_token_next(
+			&cursor, destination_prefix, sizeof(destination_prefix))) > 0) {
+		separator = strchr(destination_prefix, '/');
+		if (!separator || strchr(separator + 1, '/'))
+			return 0;
+		*separator++ = '\0';
+		prefix = separator;
+		if (!*prefix)
+			return 0;
+		bits = 0;
+		while (*prefix) {
+			if (*prefix < '0' || *prefix > '9')
+				return 0;
+			digit = *prefix++ - '0';
+			bits = bits * 10U + (unsigned int)digit;
+			if (bits > 32U)
+				return 0;
+		}
+		status = dhcp_lease_route_token_next(
+			&cursor, gateway, sizeof(gateway));
+		if (status != 1 ||
+		    !dhcp_lease_route_destination_is_valid(destination_prefix, bits) ||
+		    !dhcp_lease_ipv4_is_valid(gateway))
+			return 0;
+		if (++count > max_routes)
+			return 0;
+	}
+	if (status < 0)
+		return 0;
+	return count > 0 || allow_empty;
+}
+
 
 /* Clear a withdrawn IPTV lease address and delete its old routes even if
  * either operation fails. Keep lease identity until both are complete so

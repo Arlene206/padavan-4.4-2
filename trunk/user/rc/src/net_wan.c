@@ -6948,6 +6948,15 @@ control_dhcp_routes(char *rt, char *rt_rfc, char *rt_ms,
 	if (!rt_ms)
 		rt_ms = "";
 
+	/* Refuse partial route inventories: malformed tokens must not be skipped
+	 * after some earlier entries were already added or removed. */
+	if (!dhcp_lease_legacy_route_list_is_valid(rt, 128U, 1) ||
+	    !dhcp_lease_classless_route_list_is_valid(rt_rfc, 128U, 1) ||
+	    !dhcp_lease_classless_route_list_is_valid(rt_ms, 128U, 1)) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+
 	/* Legacy destination/gateway pairs. */
 	routes = NULL;
 	if (*rt) {
@@ -7950,21 +7959,21 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 	 * must not be published as an empty list after the old routes are removed. */
 	value = getenv("routes");
 	lease_routes = value ? value : "";
-	if (!dhcp_lease_route_text_is_safe(lease_routes)) {
+	if (!dhcp_lease_legacy_route_list_is_valid(lease_routes, 128U, 1)) {
 		logmessage(log_prefix, "%s (%s) rejected invalid DHCP routes option",
 			   udhcpc_state, wan_ifname);
 		return EINVAL;
 	}
 	value = getenv("msstaticroutes");
 	lease_routes_ms = value ? value : "";
-	if (!dhcp_lease_route_text_is_safe(lease_routes_ms)) {
+	if (!dhcp_lease_classless_route_list_is_valid(lease_routes_ms, 128U, 1)) {
 		logmessage(log_prefix, "%s (%s) rejected invalid DHCP Microsoft routes option",
 			   udhcpc_state, wan_ifname);
 		return EINVAL;
 	}
 	value = getenv("staticroutes");
 	lease_routes_rfc = value ? value : "";
-	if (!dhcp_lease_route_text_is_safe(lease_routes_rfc)) {
+	if (!dhcp_lease_classless_route_list_is_valid(lease_routes_rfc, 128U, 1)) {
 		logmessage(log_prefix, "%s (%s) rejected invalid DHCP classless routes option",
 			   udhcpc_state, wan_ifname);
 		return EINVAL;

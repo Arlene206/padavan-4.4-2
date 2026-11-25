@@ -1114,6 +1114,50 @@ main(void)
 	assert(!dhcp_lease_route_text_is_safe("192.0.2.0/24\nCOMMIT"));
 	assert(!dhcp_lease_route_text_is_safe("192.0.2.0/24 198.51.100.1 extra"));
 
+	assert(dhcp_lease_legacy_route_list_is_valid("", 64, 1));
+	assert(dhcp_lease_legacy_route_list_is_valid(
+		"192.0.2.0/198.51.100.1 192.0.3.0/198.51.100.2", 64, 1));
+	assert(dhcp_lease_legacy_route_list_is_valid(
+		"192.0.2.0/198.51.100.1 ", 64, 1));
+	assert(!dhcp_lease_legacy_route_list_is_valid(
+		"0.0.0.0/198.51.100.1", 64, 1));
+	assert(!dhcp_lease_legacy_route_list_is_valid(
+		"192.0.2.0/198.51.100.1  192.0.3.0/198.51.100.2", 64, 1));
+	assert(!dhcp_lease_legacy_route_list_is_valid(
+		" 192.0.2.0/198.51.100.1", 64, 1));
+	assert(!dhcp_lease_legacy_route_list_is_valid(
+		"192.0.2.0/198.51.100.1\t192.0.3.0/198.51.100.2", 64, 1));
+	assert(!dhcp_lease_legacy_route_list_is_valid(
+		"192.0.2.0/198.51.100.1", 0, 1));
+	assert(!dhcp_lease_legacy_route_list_is_valid(
+		"192.0.2.0/198.51.100.1 malformed", 64, 1));
+	assert(!dhcp_lease_legacy_route_list_is_valid(
+		"192.0.2.0/999.1.1.1", 64, 1));
+	assert(!dhcp_lease_legacy_route_list_is_valid(
+		"192.0.2.0/198.51.100.1/extra", 64, 1));
+	assert(!dhcp_lease_legacy_route_list_is_valid(
+		"192.0.2.0/", 64, 1));
+
+	assert(dhcp_lease_classless_route_list_is_valid("", 64, 1));
+	assert(dhcp_lease_classless_route_list_is_valid(
+		"192.0.2.0/24 198.51.100.1 0.0.0.0/0 198.51.100.2", 64, 1));
+	assert(!dhcp_lease_classless_route_list_is_valid(
+		"192.0.2.0/24 198.51.100.1 broken", 64, 1));
+	assert(!dhcp_lease_classless_route_list_is_valid(
+		"192.0.2.0/33 198.51.100.1", 64, 1));
+	assert(!dhcp_lease_classless_route_list_is_valid(
+		"192.0.2.0/24 999.1.1.1", 64, 1));
+	assert(!dhcp_lease_classless_route_list_is_valid(
+		"192.0.2.0/ 198.51.100.1", 64, 1));
+	assert(!dhcp_lease_classless_route_list_is_valid(
+		"192.0.2.0/24", 64, 1));
+	assert(!dhcp_lease_classless_route_list_is_valid(
+		"192.0.2.0/24  198.51.100.1", 64, 1));
+	assert(!dhcp_lease_classless_route_list_is_valid(
+		"192.0.2.0/24\t198.51.100.1", 64, 1));
+	assert(!dhcp_lease_classless_route_list_is_valid(
+		"192.0.2.0/24 198.51.100.1 192.0.3.0/24 198.51.100.2", 1, 1));
+
 
 	assert(dhcp_lease_route_add_is_ok(0));
 	assert(dhcp_lease_route_add_is_ok(EEXIST));

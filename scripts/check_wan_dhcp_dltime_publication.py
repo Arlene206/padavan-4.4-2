@@ -86,6 +86,29 @@ assert "dhcp_lease_router_option_parse" in (
 )
 assert 'dhcp_lease_router_option_parse("192.0.2.1 999.1.1.1"' in test_source
 
+# DHCP route-list validation mirrors the exact token grammar consumed by
+# control_dhcp_routes(); reject partial or malformed inventories before any
+# add/delete operation can begin.
+lease_policy = Path("trunk/user/rc/src/dhcp_lease_policy.h").read_text()
+assert "dhcp_lease_route_separators_are_valid(value)" in lease_policy
+assert "dhcp_lease_legacy_route_list_is_valid" in lease_policy
+assert "dhcp_lease_classless_route_list_is_valid" in lease_policy
+assert '"0.0.0.0/198.51.100.1"' in test_source
+assert '"192.0.2.0/198.51.100.1  192.0.3.0/198.51.100.2"' in test_source
+assert '"192.0.2.0/24  198.51.100.1"' in test_source
+assert '"192.0.2.0/24\\t198.51.100.1"' in test_source
+control_body = function_body(source, "control_dhcp_routes(")
+legacy_validation = control_body.index(
+    "dhcp_lease_legacy_route_list_is_valid("
+)
+classless_validation = control_body.index(
+    "dhcp_lease_classless_route_list_is_valid("
+)
+route_add = control_body.index("route_add(")
+route_delete = control_body.index("route_del(")
+assert legacy_validation < route_add < route_delete
+assert classless_validation < route_add < route_delete
+
 bound_dltime = bound.index("bound_names[WAN_DHCP_BOUND_DLTIME]")
 bound_publish = bound.index("snapshot_status = wan_dhcp_nvram_state_publish(")
 assert bound.rfind("if (!is_man)", 0, bound_dltime) >= 0
