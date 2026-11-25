@@ -1914,6 +1914,38 @@ if grep -Fqx -- "zero_route:del" "$TEST_ACTION_LOG"; then
 	fail "cleanup issued a gateway/device delete that removes the full multipath FIB alias"
 fi
 
+# On-link ECMP legs have no "via" token, but are still separate
+# nexthops and make the gateway/device delete ambiguous.
+TEST_ROUTE_SHOW_OUTPUT="$TEST_STATIC_ROUTE_IP proto static nexthop via $TEST_STATIC_ROUTE_GATEWAY dev ztunit weight 1 nexthop dev br0 weight 1"
+: > "$TEST_ACTION_LOG"
+/bin/rm -rf "$TEST_CONFIG"
+mkdir -p "$TEST_CONFIG"
+echo identity > "$TEST_CONFIG/identity.secret"
+echo running > "$TEST_STATE"
+TEST_MODE=graceful
+if stop_zero; then
+	fail "stop accepted a multipath route with a configured gateway and an on-link second nexthop"
+fi
+[ -f "$TEST_CONFIG/identity.secret" ] || fail "on-link multipath ambiguity removed the persistent identity"
+if grep -Fqx -- "zero_route:del" "$TEST_ACTION_LOG"; then
+	fail "cleanup deleted a multipath route with an on-link ECMP leg"
+fi
+
+TEST_ROUTE_SHOW_OUTPUT="$TEST_STATIC_ROUTE_IP proto static nexthop dev br0 weight 1 nexthop via $TEST_STATIC_ROUTE_GATEWAY dev ztunit weight 1"
+: > "$TEST_ACTION_LOG"
+/bin/rm -rf "$TEST_CONFIG"
+mkdir -p "$TEST_CONFIG"
+echo identity > "$TEST_CONFIG/identity.secret"
+echo running > "$TEST_STATE"
+TEST_MODE=graceful
+if stop_zero; then
+	fail "stop accepted a multipath route with an on-link first nexthop and configured later gateway"
+fi
+[ -f "$TEST_CONFIG/identity.secret" ] || fail "on-link-first multipath ambiguity removed the persistent identity"
+if grep -Fqx -- "zero_route:del" "$TEST_ACTION_LOG"; then
+	fail "cleanup deleted a multipath route with an on-link first ECMP leg"
+fi
+
 # The same fail-closed rule applies when the configured nexthop is not first.
 TEST_ROUTE_SHOW_OUTPUT="$TEST_STATIC_ROUTE_IP proto static nexthop via 192.0.2.2 dev br0 weight 1 nexthop via $TEST_STATIC_ROUTE_GATEWAY dev ztunit weight 1"
 : > "$TEST_ACTION_LOG"

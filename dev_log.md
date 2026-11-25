@@ -1,3 +1,13 @@
+## 2026-11-25 — Count on-link nexthops in ZeroTier ECMP cleanup guard
+
+- Follow-up review of the just-committed ZeroTier ECMP guard found it counted repeated `via` tokens. Linux iproute2 also renders a valid on-link multipath leg as `nexthop dev IFACE` with no `via`, so a route with one configured ZeroTier via leg plus one on-link leg could still be misclassified as a single path and passed to the Linux 4.4 gateway/device delete that removes the entire FIB alias.
+- The matcher now counts explicit `nexthop` blocks and inspects each block independently; legacy single-path `via ... dev ...` output remains supported. Any explicit record with multiple nexthop blocks fails closed even when one leg has no gateway.
+- Added stop regressions for both orderings (configured via leg followed by on-link leg, and on-link leg followed by configured via leg), asserting no route-delete command and persistent identity retention. The Python source contract pins the block-count logic and both cases.
+- Parent baseline: `009a17adaf3ac7bc3f22742c0ade2062ea8c7956`. Exact-SHA ZeroTier lifecycle and XY-C1 validation pending; the previous commit's first-/later-via tests had passed but did not cover on-link ECMP. No live-router or firmware result is claimed.
+- Changed paths: `zerotier.sh`, `tests/zerotier_lifecycle.sh`, `scripts/check_zerotier_lifecycle.py`, `dev_log.md`.
+
+---
+
 ## 2026-11-25 — Fail closed when ZeroTier cleanup encounters an ECMP route
 
 - The ZeroTier route matcher previously accepted a configured gateway/device pair if it appeared anywhere on a multipath route line. The subsequent cleanup command is only `ip route del <prefix> via <gateway> dev <zt0>`; in this repository's Linux 4.4 `fib_nh_match()`, the gateway/device branch compares only `fi->fib_nh` (the first nexthop) and then `fib_table_delete()` removes the entire FIB alias. Deleting a route merely because the ZeroTier pair matched the first ECMP nexthop could therefore also remove unrelated nexthops on other interfaces.

@@ -1113,22 +1113,44 @@ zero_route_entry_matches() {
 			destination_found = 1
 			route_hop_count = 0
 			line_found = 0
-			for (i = 2; i <= NF; i++) {
-				if ($i != "via")
-					continue
-				route_hop_count++
-				hop_gateway = $(i + 1)
-				hop_interface = ""
-				for (j = i + 2; j <= NF; j++) {
-					if ($j == "nexthop")
-						break
-					if ($j == "dev") {
-						hop_interface = $(j + 1)
-						break
+			# iproute2 renders multipath records as repeated "nexthop"
+			# blocks. Count blocks, not only "via" tokens: an on-link leg
+			# is rendered as "nexthop dev IFACE" and has no gateway.
+			for (i = 2; i <= NF; i++)
+				if ($i == "nexthop")
+					route_hop_count++
+			if (route_hop_count > 0) {
+				for (i = 2; i <= NF; i++) {
+					if ($i != "nexthop")
+						continue
+					hop_gateway = ""
+					hop_interface = ""
+					for (j = i + 1; j <= NF && $j != "nexthop"; j++) {
+						if ($j == "via" && j < NF)
+							hop_gateway = $(j + 1)
+						else if ($j == "dev" && j < NF)
+							hop_interface = $(j + 1)
 					}
+					if (hop_gateway == gateway && hop_interface == interface)
+						line_found = 1
 				}
-				if (hop_gateway == gateway && hop_interface == interface)
-					line_found = 1
+			} else {
+				# Legacy single-path output has no "nexthop" keyword.
+				for (i = 2; i <= NF; i++) {
+					if ($i != "via")
+						continue
+					route_hop_count++
+					hop_gateway = $(i + 1)
+					hop_interface = ""
+					for (j = i + 2; j <= NF; j++) {
+						if ($j == "dev" && j < NF) {
+							hop_interface = $(j + 1)
+							break
+						}
+					}
+					if (hop_gateway == gateway && hop_interface == interface)
+						line_found = 1
+				}
 			}
 			# Linux 4.4 fib_nh_match() checks only the first nexthop when
 			# deleting by gateway/device, then removes the entire FIB alias.

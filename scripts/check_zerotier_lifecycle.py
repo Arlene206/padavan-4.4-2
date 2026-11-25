@@ -741,6 +741,9 @@ require('function route_destination_key(value, slash)' in route_match_body and
         'substr(value, slash + 1) == "32"' in route_match_body and
         'destination_found = 1' in route_match_body and
         'route_hop_count++' in route_match_body and
+        'if ($i == "nexthop")' in route_match_body and
+        'if (route_hop_count > 0)' in route_match_body and
+        'nexthop dev IFACE' in route_match_body and
         'if (route_hop_count > 1)' in route_match_body and
         'multipath_found = 1' in route_match_body and
         'if (multipath_found)' in route_match_body and
@@ -751,6 +754,8 @@ require('function route_destination_key(value, slash)' in route_match_body and
 require('TEST_ROUTE_SHOW_OUTPUT' in test and
         'stop accepted a conflicting route to the configured destination' in test and
         'stop accepted and deleted a multipath route containing a configured first nexthop' in test and
+        'stop accepted a multipath route with a configured gateway and an on-link second nexthop' in test and
+        'stop accepted a multipath route with an on-link first nexthop and configured later gateway' in test and
         'stop accepted a multipath route containing a configured later nexthop' in test and
         'stop failed to match a /32 route displayed without its prefix' in test,
         "static-route regressions must reject first- and later-hop multipath aliases while preserving /32 display handling")
