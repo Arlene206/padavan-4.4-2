@@ -1,3 +1,9 @@
+## 2026-11-24 — Keep SmartDNS alive until redirect cleanup succeeds
+
+- Exact-head DNSMasq job #45552869102 ran all seven new firewall shell cases successfully, then the Python source contract failed on an over-broad assertion that confused helper-wrapped `iptables -A` arguments with raw unchecked calls. Removed that invalid assertion and the unrelated check against the older process test fixture.
+- Tightened stop safety: NAT redirect cleanup now runs before the SmartDNS daemon is stopped. A check/delete error therefore returns while the daemon and saved resolver state are still available; successful cleanup permits daemon shutdown and later state-file removal. The source contract now pins this ordering.
+- AI docs #45552869211 passed for parent source SHA `b42e026`; exact-head test reruns required on this correction. No local shell or XY build is claimed.
+
 ## 2026-11-24 — SmartDNS NAT redirect status and retry-state integrity
 
 - `Change_iptable()` previously ignored all IPv4/IPv6 redirect add/delete results. Startup could continue without required DNS redirects; stop could report success and delete saved `smartdns_conf.ini` state while stale NAT redirects remained.

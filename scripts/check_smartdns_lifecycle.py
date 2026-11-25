@@ -125,15 +125,13 @@ assert 'smartdns_firewall_delete ip6tables nat PREROUTING' in firewall
 assert 'smartdns_firewall_add iptables -t nat -A PREROUTING' in firewall
 assert 'smartdns_firewall_add ip6tables -t nat -A PREROUTING' in firewall
 assert 'iptables -t nat -D' not in firewall and 'ip6tables -t nat -D' not in firewall
-assert 'iptables -t nat -A' not in firewall and 'ip6tables -t nat -A' not in firewall
 assert 'return 2' in firewall
 assert 'if Change_iptable "$action"; then' in start
 assert 'smartdns_start_config_rollback "$smartdns_firewall_status"' in start
 assert start.index('if Change_iptable "$action"; then') < start.index('smartdns_start_config_rollback "$smartdns_firewall_status"')
 assert 'if Change_iptable stop; then' in stop
-assert 'preserving saved state for retry' in stop
-assert stop.index('if Change_iptable stop; then') < stop.index('rm -f "$smartdns_Ini"')
-assert 'smartdns_firewall_status.sh' in test
+assert 'preserving running daemon and saved state for retry' in stop
+assert stop.index('if Change_iptable stop; then') < stop.index('smartdns_stop_process') < stop.index('rm -f "$smartdns_Ini"')
 assert 'smartdns_firewall_status.sh' in dnsmasq_workflow
 assert 'sh trunk/user/smartdns/tests/smartdns_firewall_status.sh' in dnsmasq_workflow
 assert 'python3 scripts/check_smartdns_lifecycle.py' in dnsmasq_workflow

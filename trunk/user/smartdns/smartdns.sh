@@ -1143,6 +1143,14 @@ Stop_smartdns () {
         logger -t "SmartDNS" "DNSmasq 进程已重启..."
     fi
 
+    if Change_iptable stop; then
+        :
+    else
+        smartdns_firewall_status=$?
+        logger -t "SmartDNS" "DNS redirect rule cleanup failed; preserving running daemon and saved state for retry (status=$smartdns_firewall_status)"
+        return "$smartdns_firewall_status"
+    fi
+
     smartdns_stop_process
     stop_status=$?
     if [ "$stop_status" -ne 0 ]; then
@@ -1157,13 +1165,6 @@ Stop_smartdns () {
         smartdns_adbyby_status=$?
         logger -t "SmartDNS" "Adbyby DNS target transition failed; preserving SmartDNS retry state (status=$smartdns_adbyby_status)"
         return "$smartdns_adbyby_status"
-    fi
-    if Change_iptable stop; then
-        :
-    else
-        smartdns_firewall_status=$?
-        logger -t "SmartDNS" "DNS redirect rule cleanup failed; preserving saved state for retry (status=$smartdns_firewall_status)"
-        return "$smartdns_firewall_status"
     fi
     if [ "$sdns_enable" = 0 ] ; then
         rm -f "$smartdns_Ini"

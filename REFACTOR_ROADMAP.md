@@ -1,3 +1,9 @@
+## 2026-11-24 状态增量：SmartDNS 停止顺序修正
+
+- 停止 SmartDNS 时先完成 NAT redirect 清理，再停 daemon；清理失败保持 daemon 与持久状态以供重试。源码合同固定该顺序；首轮 firewall shell 回归已在 exact SHA 运行通过。
+
+---
+
 ## 2026-11-24 状态增量：SmartDNS NAT 状态传播
 
 - `Change_iptable()` 增加规则检查/删除 helper：缺失规则幂等，检查/删除错误保留首个状态；启动失败进入回滚，停止仅在 NAT 清理成功后删除持久状态。新增 IPv4/IPv6 回归与源码合同。
