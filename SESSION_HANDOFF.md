@@ -1,15 +1,15 @@
-## 2026-11-25 active handoff — Dropbear executable-identity lifecycle
+## 2026-11-25 active handoff — Dropbear executable-identity correction
 
-- Live main baseline before this slice: `871d010a9aacaf63e405c1133cdb3259ef2be13d`. The controller used BusyBox `pidof dropbear` and broad `killall -q dropbear`; BusyBox `find_pid_by_name()` treats a short comm match as sufficient, so a process can spoof the name with `PR_SET_NAME` and be counted or killed by the root controller.
-- Replaced process-name-only discovery with a procfs inventory verifying the stat PID/state/start time, exact comm and executable device/inode against the installed Dropbear binary. UNKNOWN/incomplete procfs blocks service state changes. Stop revalidates each PID/start-time/executable tuple before TERM and again before bounded KILL.
-- New shell fixture tests real executable identity vs spoofed comm, PID reuse, targeted TERM, TERM/KILL escalation, failed signal propagation, missing procfs, malformed stat and missing exe. Local test PASS; exact GitHub Actions pending.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. Physical-router L4 NOT VERIFIED.
+- Main source baseline before this correction: `880c339949419967b6f58a881e0ffb8ce993e113`. The first Dropbear commit `880c339` replaced BusyBox comm-only `pidof`/broad `killall` with procfs PID/start-time and executable identity checks, plus spoof/UNKNOWN/escalation shell tests.
+- Source review found 13 accidentally escaped shell parameter expansions in the first implementation. This commit removes those literal backslashes; do not rely on the earlier local prototype test as verification of the published source.
+- Exact Process lifecycle workflow #45649732824 on `880c339` was still IN_PROGRESS at last poll. The corrected source triggers a new exact-SHA run; inspect its fixture result before claiming PASS.
+- Backup `backup/pre-plugin-overhaul-2026-11-14` remains frozen at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Physical-router L4 NOT VERIFIED.
 
 ### First actions
 
-1. Inspect exact-SHA Process lifecycle and XY-C1 Actions for this Dropbear fix; repair the first causal failure.
-2. Confirm all new spoof/UNKNOWN/stop cases run in GitHub Actions; L3 only when Build, TRX and artifact all pass on the same product SHA.
-3. Continue another independent userland stability/security fix while unrelated Actions are pending.
+1. Inspect exact-SHA Process lifecycle runs for the correction; diagnose and repair any fixture/source failure.
+2. Confirm the test exercises real `/proc/PID/stat` parsing, spoofed comm rejection and targeted stop. Do not claim L2 before all steps pass on the corrected SHA.
+3. Continue another independent userland stability/security source fix while other Actions are pending.
 
 ### Execution contract
 
@@ -17,33 +17,33 @@ Source/test → one complete Git tree/commit → non-force expected-SHA update �
 
 ## 2026-11-25 autonomous handoff checkpoint
 
-This checkpoint supersedes older active task pointers below. Historical completed work remains recorded.
+This checkpoint supersedes older active task pointers below; retain historical completed work without repeating audits.
 
 ## Current repository state
 
-- Live main baseline: `871d010a9aacaf63e405c1133cdb3259ef2be13d`; this Dropbear source/test/workflow/docs change is its single non-forced descendant. Resolve live main on takeover.
+- Live main baseline before the shell-expansion correction: `880c339949419967b6f58a881e0ffb8ce993e113`; the correction is its single non-forced descendant. Resolve live main on takeover.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only.
-- DHCPv6 finite-expiry exact IA #45647751899, process inventory #45647752064, WAN DHCP #45647751951 and USB storage #45647752298 passed on `cb8f014`; AI docs #45648215022 passed on `84fadb0`.
-- XY-C1 #45647751940 on product SHA `cb8f014` remained in Build at last poll; TRX/artifact pending; no L3 claim.
+- Process lifecycle run #45649732824 on `880c339`: IN_PROGRESS at last poll. Its result does not verify the corrected descendant.
+- DHCPv6 finite-expiry IA #45647751899, Process inventory #45647752064, WAN DHCP #45647751951 and USB storage #45647752298 PASS on `cb8f014`; AI handoff #45648215022 PASS on `84fadb0`.
+- XY-C1 #45647751940 on `cb8f014` was still in Build at last poll, TRX/artifact pending; no L3 claim.
 - Physical-router L4 NOT VERIFIED.
 
 ## Active task
 
-Dropbear start/stop now requires exact executable identity rather than a comm-only name match. It validates procfs PID/stat/starttime and executable identity, then revalidates before sending TERM/KILL; UNKNOWN blocks lifecycle changes. A new shell regression was added to the process-lifecycle workflow.
+Dropbear process discovery and stop are being changed from comm-only matching to full procfs PID/start-time/executable identity. The first source commit had escaped shell parameter expansions; the current correction removes them. Re-run the process lifecycle tests on the corrected exact SHA.
 
 ## Verification boundary
 
-- Dropbear shell fixture: local test PASS; exact process-lifecycle workflow for this SHA pending.
-- Prior DHCPv6 IA #45647751899, process inventory #45647752064, WAN DHCP #45647751951 and USB storage #45647752298 passed on `cb8f014`.
-- AI handoff #45648215022 passed on `84fadb0`.
-- XY-C1 #45647751940 on `cb8f014`: Build pending at last poll; TRX/artifact pending. No L3 claim.
+- Dropbear test prototype: local fixture PASS, but it preceded this committed-shell correction and is not the exact GitHub verification.
+- Exact Process lifecycle #45649732824 on `880c339`: IN_PROGRESS at last poll; it predates the shell correction.
+- Prior DHCPv6/Process/WAN DHCP/USB tests on `cb8f014` and AI docs #45648215022 on `84fadb0` remain historical exact-SHA PASS only.
 - Physical-router L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`; inspect the exact-SHA Process lifecycle regression and XY-C1 Actions for the Dropbear identity fix.
-2. Diagnose the first causal failure without weakening assertions; confirm the new spoof/UNKNOWN/TERM/KILL test cases ran.
-3. Continue an independent userland stability/security source fix while Actions are pending.
+1. Fetch live `main`; inspect the Process lifecycle and XY-C1 runs for the corrected Dropbear shell source.
+2. Verify every spoof, malformed procfs, PID identity, TERM/KILL and error-propagation case before claiming L2.
+3. Continue an independent source fix while unrelated Actions are pending; keep L3 tied to one product SHA.
 
 # Cross-session execution mandate
 

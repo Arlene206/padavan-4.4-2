@@ -23,7 +23,7 @@ dropbear_process_identity_matches()
 {
 	dropbear_identity_pid="$1"
 	dropbear_identity_required_start="$2"
-	dropbear_identity_root="\${DROPBEAR_PROC_ROOT:-/proc}"
+	dropbear_identity_root="${DROPBEAR_PROC_ROOT:-/proc}"
 	case "$dropbear_identity_pid" in ''|0*|*[!0-9]*) return 1 ;; esac
 	dropbear_identity_dir="$dropbear_identity_root/$dropbear_identity_pid"
 	[ -d "$dropbear_identity_dir" ] || return 1
@@ -37,19 +37,19 @@ dropbear_process_identity_matches()
 		"$dropbear_identity_pid ("*") "*) ;;
 		*) return 2 ;;
 	esac
-	dropbear_identity_fields=\${dropbear_identity_stat_line##*) }
+	dropbear_identity_fields=${dropbear_identity_stat_line##*) }
 	set -- $dropbear_identity_fields
 	[ "$#" -ge 20 ] || return 2
 	dropbear_identity_state="$1"
-	dropbear_identity_start_time="\${20}"
+	dropbear_identity_start_time="${20}"
 	case "$dropbear_identity_state" in
 		R|S|D|Z|T|t|X|x|K|W|P|I) ;;
 		*) return 2 ;;
 	esac
 	case "$dropbear_identity_start_time" in ''|*[!0-9]*) return 2 ;; esac
 	case "$dropbear_identity_state" in Z|X|x) return 1 ;; esac
-	dropbear_identity_comm=\${dropbear_identity_stat_line#*(}
-	dropbear_identity_comm=\${dropbear_identity_comm%)*}
+	dropbear_identity_comm=${dropbear_identity_stat_line#*(}
+	dropbear_identity_comm=${dropbear_identity_comm%)*}
 	[ "$dropbear_identity_comm" = dropbear ] || return 1
 	if [ -n "$dropbear_identity_required_start" ] &&
 	   [ "$dropbear_identity_start_time" != "$dropbear_identity_required_start" ]; then
@@ -70,7 +70,7 @@ dropbear_process_state()
 {
 	dropbear_process_pids=
 	dropbear_expected_exe=
-	dropbear_process_root="\${DROPBEAR_PROC_ROOT:-/proc}"
+	dropbear_process_root="${DROPBEAR_PROC_ROOT:-/proc}"
 	if [ ! -d "$dropbear_process_root" ] ||
 	   [ ! -r "$dropbear_process_root" ] ||
 	   [ ! -x "$dropbear_process_root" ] ||
@@ -83,10 +83,10 @@ dropbear_process_state()
 	esac
 	for dropbear_proc_dir in "$dropbear_process_root"/[0-9]*; do
 		[ -d "$dropbear_proc_dir" ] || continue
-		dropbear_proc_pid=\${dropbear_proc_dir##*/}
+		dropbear_proc_pid=${dropbear_proc_dir##*/}
 		case "$dropbear_proc_pid" in ''|0*|*[!0-9]*) return 2 ;; esac
 		if dropbear_process_identity_matches "$dropbear_proc_pid" ""; then
-			dropbear_process_pids="\${dropbear_process_pids}\${dropbear_process_pids:+ }$dropbear_proc_pid:$dropbear_identity_start_time"
+			dropbear_process_pids="${dropbear_process_pids}${dropbear_process_pids:+ }$dropbear_proc_pid:$dropbear_identity_start_time"
 		else
 			dropbear_identity_status=$?
 			case "$dropbear_identity_status" in
@@ -271,8 +271,8 @@ func_stop()
 	esac
 	dropbear_stop_snapshot="$dropbear_process_pids"
 	for dropbear_stop_entry in $dropbear_stop_snapshot; do
-		dropbear_stop_pid=\${dropbear_stop_entry%%:*}
-		dropbear_stop_start=\${dropbear_stop_entry#*:}
+		dropbear_stop_pid=${dropbear_stop_entry%%:*}
+		dropbear_stop_start=${dropbear_stop_entry#*:}
 		if dropbear_process_identity_matches "$dropbear_stop_pid" "$dropbear_stop_start"; then
 			if kill -TERM "$dropbear_stop_pid" 2>/dev/null; then :
 			else
@@ -299,8 +299,8 @@ func_stop()
 		return 2
 	fi
 	for dropbear_stop_entry in $dropbear_stop_snapshot; do
-		dropbear_stop_pid=\${dropbear_stop_entry%%:*}
-		dropbear_stop_start=\${dropbear_stop_entry#*:}
+		dropbear_stop_pid=${dropbear_stop_entry%%:*}
+		dropbear_stop_start=${dropbear_stop_entry#*:}
 		if dropbear_process_identity_matches "$dropbear_stop_pid" "$dropbear_stop_start"; then
 			if kill -KILL "$dropbear_stop_pid" 2>/dev/null; then :
 			else

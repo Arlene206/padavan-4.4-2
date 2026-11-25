@@ -1,3 +1,10 @@
+## 2026-11-25 — Correct Dropbear shell parameter expansion in identity checks
+
+- Review of the first published Dropbear identity change found that the generated shell source contained literal backslashes before 13 `${...}` expansions. That would prevent procfs-root, stat-field and PID snapshot variables from expanding as intended.
+- Removed the stray backslashes in the source. This is a required correction to the Dropbear scanner/stop implementation; the exact process-lifecycle workflow must pass on the corrected SHA before claiming verification.
+
+---
+
 ## 2026-11-25 — Bind Dropbear lifecycle signals to executable identity
 
 - The service controller used BusyBox `pidof dropbear` and `killall -q dropbear`. BusyBox `find_pid_by_name()` accepts a short process-`comm` match without validating the executable, so an unrelated process can spoof `dropbear` via `PR_SET_NAME` and be counted or killed by the root stop command.
