@@ -1,24 +1,24 @@
 ## Current repository state — 2026-11-26
 
-- Live main parent for this slice: `f8f87f19ab1bd145ceddf8c5b6ebab8f5a271dd0`; this RStats follow-up increases the staged `/proc/net/dev` row buffer to 512 bytes so a valid 16-counter record with 64-bit-width decimal fields is not mistaken for truncation.
+- Live main parent for this slice: `274f0042db2e4e7f6ecb44fd8f5902b6f2a47f96`; this WAN gateway monitor follow-up applies its existing five-second ARP receive deadline to EINTR as well as EAGAIN/EWOULDBLOCK and normal packet wakeups.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Exact-head results for RStats snapshot commit `f8f87f19ab1bd145ceddf8c5b6ebab8f5a271dd0`: RStats regression #45702409711 PASS; Process lifecycle inventory #45702409582 PASS; HTTPD security #45702409529 PASS; AI docs #45702409433 PASS. Process fail-closed #45702409483 and NVRAM #45702409511 remained IN_PROGRESS; XY-C1 #45702409540 remained IN_PROGRESS (firmware result not inferred).
-- The preceding WDM fix `b47d5ef9d44cdec6736414a4e4d52bb90b48b0ee`: USB modem WDM #45701307930, AI docs #45701307827, Process inventory #45701307914, NVRAM #45701307926 and HTTPD #45701307732 PASS; XY-C1 #45701307950 remained IN_PROGRESS.
-- AdGuardHome daemon-argv fix `5e3c8312605861fda69ccae2bf94c0f0d168883c`: AdGuardHome security #45701455808, Process #45701455295 and AI docs #45701455540 PASS. DHCPv6 NoBinding/32-bit timer and earlier IAPP framed-IPC slices remain closed on their respective exact SHAs.
+- Exact-head RStats full-width row fix `274f0042db2e4e7f6ecb44fd8f5902b6f2a47f96`: RStats regression #45702809332 PASS; Process lifecycle inventory #45702809053 PASS; AI docs #45702809111 PASS. Process fail-closed #45702809178, NVRAM #45702809234, HTTPD security #45702809077 and XY-C1 #45702809103 were IN_PROGRESS at the last poll. No firmware result inferred.
+- The parent RStats transactional snapshot change `f8f87f19ab1bd145ceddf8c5b6ebab8f5a271dd0` passed RStats #45702409711, Process lifecycle #45702409582, HTTPD #45702409529 and AI docs #45702409433. Process fail-closed #45702409483, NVRAM #45702409511 and XY-C1 #45702409540 were still running at last poll.
+- WDM #45701307930, NVRAM #45701307926, Process #45701307914, HTTPD #45701307732 and AI #45701307827 passed on `b47d5ef9d44cdec6736414a4e4d52bb90b48b0ee`; XY-C1 #45701307950 remained IN_PROGRESS. AdGuardHome source/security, Process and AI checks passed on `5e3c8312605861fda69ccae2bf94c0f0d168883c`.
 
 ## Active task
 
-The complete-snapshot parser introduced by `f8f87f19ab1bd145ceddf8c5b6ebab8f5a271dd0` rejects any row missing a newline in the 256-byte `fgets()` buffer. A legitimate 16-counter `/proc/net/dev` row can exceed 255 bytes when counters are represented as 64-bit decimal values (16 × 20 digits plus separators and interface name), so this could suppress all RStats updates on a heavily used interface rather than parse the valid sample. The input buffer is now 512 bytes, with a fixture proving a complete max-width 16-counter row fits and parses.
+The packet-socket gateway probe used a finite one-second `SO_RCVTIMEO` and a five-second absolute deadline for EAGAIN and received packets, but the `recvfrom()` EINTR branch immediately retried without checking elapsed time. A stream of unrelated signals interrupting the receive could therefore bypass the deadline and hold the gateway-monitor loop inside one probe indefinitely. EINTR now checks the same monotonic uptime budget before retrying; EAGAIN and successful packet wakeups use the same helper so all receive exits share one strict deadline. GNU89 regression pins just-before, exact-deadline, after-deadline and invalid elapsed/timeout cases.
 
 ## Verification boundary
 
-- Parent f8 exact RStats #45702409711, Process #45702409582, HTTPD #45702409529 and AI docs #45702409433 PASS. Parent Process fail-closed #45702409483 / NVRAM #45702409511 / XY-C1 #45702409540 were still IN_PROGRESS at last poll.
-- The max-width regression is added to the existing GNU89 ASan/UBSan RStats fixture and source-contract workflow; exact-head checks for THIS COMMIT must be fetched after push. No local, MIPS or hardware result is claimed.
+- Existing WAN ARP GNU89 `-Wall -Wextra -Werror -fsanitize=address,undefined` result-policy fixture and Python source contract now cover the EINTR deadline check; exact-head WAN ARP, Process, NVRAM, AI and XY-C1 workflows for THIS COMMIT must be checked after push.
+- Parent 274 exact WAN-related workflow was not run; do not infer it from the RStats checks. No MIPS firmware, live gateway or physical-router result is claimed.
 
 ## Exact first actions for next GPT
 
-1. Fetch exact-SHA RStats, Process, AI docs, NVRAM and XY-C1 Actions for THIS COMMIT. Fix failures; require Build, TRX verification and artifact upload on the same product SHA for L3.
-2. Continue a different Padavan userland stability/security source fix; do not repeat RStats snapshot/line parsing, WDM marker cleanup, AdGuardHome eval removal, IAPP IPC or DHCPv6 IA fixes.
+1. Fetch exact-SHA WAN ARP, Process inventory/fail-closed, NVRAM, AI docs and XY-C1 runs for THIS COMMIT. Repair any same-SHA failure; require same-SHA Build/TRX/artifact for L3.
+2. Continue a new Padavan userland reliability/security source slice outside RStats and the WAN ARP receive loop; do not repeat the closed RStats snapshot parser or EINTR deadline fix.
 
 # Cross-session execution mandate
 

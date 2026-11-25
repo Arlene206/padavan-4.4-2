@@ -212,4 +212,16 @@ detect_wan_arp_should_renew(int retries_exhausted, int probe_count,
            probe_count == required_probes && !probe_error &&
            (ap_mode || link_up);
 }
+/*
+ * SO_RCVTIMEO normally wakes the probe once per second, but EINTR can also
+ * wake recvfrom(). Every wakeup must consult the same elapsed-time budget or
+ * repeated unrelated signals can keep one gateway probe alive indefinitely.
+ */
+static inline int
+detect_wan_arp_wait_remaining(long elapsed_seconds, long timeout_seconds)
+{
+    return elapsed_seconds >= 0 && timeout_seconds > 0 &&
+           elapsed_seconds < timeout_seconds;
+}
+
 #endif /* DETECT_WAN_ARP_RESULT_POLICY_H */

@@ -229,6 +229,13 @@ jobs:
           assert "detect_wan_arp_probe_result(0, ip_lookup_status)" in arp_probe
           assert arp_config_failure < arp_ip_failure
           assert "errno == EINTR" in arp_probe
+          assert "detect_wan_arp_wait_remaining(" in arp_probe
+          assert arp_probe.count("detect_wan_arp_wait_remaining(") == 3
+          interrupted_branch = arp_probe[arp_probe.index("if (errno == EINTR)"):arp_probe.index("if (errno == EAGAIN")]
+          assert "detect_wan_arp_wait_remaining(" in interrupted_branch
+          assert "test_arp_probe_deadline_applies_after_interrupted_receives" in probe_test
+          assert "test_arp_probe_deadline_applies_after_interrupted_receives() == 0" in probe_test
+          assert "elapsed_seconds < timeout_seconds" in probe_policy
           assert "errno == EAGAIN || errno == EWOULDBLOCK" in arp_probe
           assert "probe_errno = errno ? errno : EIO;" in arp_probe
           assert "if (close(s) < 0 && probe_errno == 0)" in arp_probe

@@ -328,10 +328,15 @@ arpping_gateway(int ap_mode)
         if (dw_stopping)
             break;
         if (rcv_bytes < 0) {
-            if (errno == EINTR)
+            if (errno == EINTR) {
+                if (!detect_wan_arp_wait_remaining(
+                        uptime() - timeStart, MAX_ARP_WAIT))
+                    break;
                 continue;
+            }
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                if (uptime() - timeStart > MAX_ARP_WAIT)
+                if (!detect_wan_arp_wait_remaining(
+                        uptime() - timeStart, MAX_ARP_WAIT))
                     break;
                 continue;
             }
@@ -364,7 +369,8 @@ arpping_gateway(int ap_mode)
             }
         }
 
-        if (uptime() - timeStart > MAX_ARP_WAIT)
+        if (!detect_wan_arp_wait_remaining(
+                uptime() - timeStart, MAX_ARP_WAIT))
             break;
     }
 

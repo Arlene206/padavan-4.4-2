@@ -242,6 +242,19 @@ test_local_ipv4_lookup_errors_are_not_absent_addresses(void)
 }
 
 static int
+test_arp_probe_deadline_applies_after_interrupted_receives(void)
+{
+    CHECK(detect_wan_arp_wait_remaining(0, 5));
+    CHECK(detect_wan_arp_wait_remaining(4, 5));
+    CHECK(!detect_wan_arp_wait_remaining(5, 5));
+    CHECK(!detect_wan_arp_wait_remaining(6, 5));
+    CHECK(!detect_wan_arp_wait_remaining(-1, 5));
+    CHECK(!detect_wan_arp_wait_remaining(0, 0));
+    CHECK(!detect_wan_arp_wait_remaining(0, -1));
+    return 0;
+}
+
+static int
 test_probe_result_keeps_local_errors_distinct(void)
 {
     errno = 0;
@@ -281,6 +294,7 @@ main(void)
     CHECK(test_arp_source_hardware_address_requires_colon_hex() == 0);
     CHECK(test_invalid_arp_source_hardware_address_is_rejected_transactionally() == 0);
     CHECK(test_local_ipv4_lookup_errors_are_not_absent_addresses() == 0);
+    CHECK(test_arp_probe_deadline_applies_after_interrupted_receives() == 0);
     CHECK(test_probe_result_keeps_local_errors_distinct() == 0);
     CHECK(test_dhcp_renew_requires_three_real_no_reply_probes() == 0);
     puts("WAN ARP reply validation and DHCP-renewal policy: PASS");

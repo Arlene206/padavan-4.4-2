@@ -1,3 +1,13 @@
+## 2026-11-26 — Keep detect_wan ARP receive deadline across EINTR
+
+- The gateway ARP probe had a finite one-second socket timeout and a five-second elapsed-time bound for EAGAIN and normal packet wakeups, but its EINTR branch retried unconditionally. Repeated unrelated signal interruptions could therefore keep a single gateway probe alive beyond its advertised deadline and stall monitoring/recovery.
+- Added `detect_wan_arp_wait_remaining()` and use it after EINTR, EAGAIN/EWOULDBLOCK and received packets. The receive loop now terminates at the same five-second deadline regardless of why recvfrom returned. A negative elapsed time also fails closed.
+- Extended the existing GNU89/Werror/ASan/UBSan ARP policy fixture with before/exact/after deadline and invalid-argument cases, and the WAN ARP workflow source contract requires the helper in all three wakeup paths.
+- Parent 274 RStats #45702809332, Process inventory #45702809053 and AI docs #45702809111 PASS; Process fail-closed #45702809178, NVRAM #45702809234, HTTPD #45702809077 and XY-C1 #45702809103 were IN_PROGRESS at last poll. Exact WAN ARP / shared checks for this follow-up are pending at commit creation. No local, MIPS or hardware result is claimed.
+- Changed paths: `detect_wan.c`, `detect_wan_arp_result_policy.h`, `tests/detect_wan_arp_result_policy.c`, `detect-wan-arp-stability.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`.
+
+---
+
 ## 2026-11-26 — Size the RStats row buffer for full-width counters
 
 - The transactional `/proc/net/dev` parser rejects truncated line input. A valid row containing sixteen 20-digit 64-bit counters plus labels and separators can exceed the prior 256-byte `fgets()` buffer, falsely classifying a valid snapshot as corrupt.
