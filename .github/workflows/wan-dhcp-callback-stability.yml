@@ -1469,7 +1469,8 @@ jobs:
           assert "void stop_sit_tunnel(void);" not in rc_header
 
           assert 'doSystem("ip -6 addr add %s dev %s"' not in wan6_source
-          assert wan6_source.count('eval("ip", "-6", "addr", "add",') == 3
+          assert wan6_source.count('eval("ip", "-6", "addr", "add",') == 4
+          assert 'return eval("ip", "-6", "addr", "add", address_arg, "dev", IFNAME_BR);' in wan6_source
           sit_start = body(wan6_source, "int start_sit_tunnel(int ipv6_type, char *wan_ifname")
           assert "WAN6_SIT_CHECK(" in sit_start
           for operation in (

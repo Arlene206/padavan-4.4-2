@@ -1,3 +1,12 @@
+## 2026-11-25 21:44 CST (UTC+8) — Synchronize duplicate WAN6 command-count checks
+
+- Two additional exact-head validations on `0ae462027968d0d31ddf9c349cd0b5f15ab0cdc7` failed on the same stale pre-SIT source-count assertion: XY-C1 #45626020329 at `scripts/check_modem_wan_start_status.py:744`, and WAN DHCP callback #45626020186 in its embedded source contract (workflow line 1472). All earlier C regression steps in those jobs passed; XY-C1 Build/TRX/artifact steps were skipped because host validation stopped at that contract.
+- The source now has four argv-based `ip -6 addr add` sites after adding the rollback adapter. Updated both checks to expect four and explicitly require the saved address be passed as a single argument to `ip` on `br0`. The route workflow check had already been updated to four in `92578d78` and its YAML indentation corrected in `14bbc0a`.
+- L3 record: XY-C1 run #45624855182 on exact source SHA `0bed846b6ac67f8f77f0104f06decddcaa62ce1a` completed successfully, including Build XY-C1, TRX verification and artifact upload. This does NOT validate later SIT source commit `0ae4620`; on `0ae4620`, XY-C1 host validation failed before build/TRX/artifact.
+- Exact reruns of WAN route, WAN DHCP and XY-C1 are required for the current source; no physical-router L4 claim.
+
+---
+
 ## 2026-11-25 21:43 CST (UTC+8) — Fix YAML block indentation in WAN route contract
 
 - Review of the follow-up commit `92578d786df806f9da1f68d0b6ce835b0c397207` caught a formatting error in the newly added embedded Python assertion: it had been inserted at column zero instead of the ten-space indentation required by the YAML `run: |` block. This made the workflow file invalid; corrected the indentation here.

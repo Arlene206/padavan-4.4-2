@@ -741,7 +741,8 @@ assert "IPv6 enable could not apply global sysctls (status=%d)" in NET6_SOURCE
 
 # Dynamic WAN IPv6 addresses are passed directly as argv, not through a shell.
 assert 'doSystem("ip -6 addr add %s dev %s"' not in NET_WAN6_SOURCE
-assert NET_WAN6_SOURCE.count('eval("ip", "-6", "addr", "add",') == 3
+assert NET_WAN6_SOURCE.count('eval("ip", "-6", "addr", "add",') == 4
+assert 'return eval("ip", "-6", "addr", "add", address_arg, "dev", IFNAME_BR);' in NET_WAN6_SOURCE
 assert 'inet_ntop(AF_INET6, &addr6, addr6s, INET6_ADDRSTRLEN)' in NET_WAN6_SOURCE
 assert 'inet_ntop(AF_INET6, &lan_addr6, lan_addr6s, INET6_ADDRSTRLEN)' in NET_WAN6_SOURCE
 assert 'format_ipv6_literal(wan_addr6, addr6_text,' in NET_WAN6_SOURCE
