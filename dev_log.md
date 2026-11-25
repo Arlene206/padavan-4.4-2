@@ -1,10 +1,10 @@
-## 2026-11-25 — Make the MTD fill guard explicit for regular files in BusyBox ash
+## 2026-11-25 — Correct the MTD fill test's escaped newline
 
-- Exact storage-hotplug run #45597825821 on `429aa42a` passed the restore staging/rollback regression after the `/proc/mtd` fixture rewrite, then failed only in the BusyBox ash pass of `mtd_storage_load_transaction.sh`: `func_mdir()` allowed the regular-file `etc/storage` fixture to proceed far enough that `func_fill()` modified the test path. The host-sh pass had already completed. Add an explicit `-f` rejection alongside the symlink and generic existing-non-directory checks so the expected storage-root type is unambiguous across the firmware shell.
-- The source-contract checker now requires this fast-path guard. The existing fill regression verifies that both symlink and regular-file paths fail without modifying their targets. Re-run exact-head storage-hotplug and XY-C1 workflows; no local firmware shell run or router result is claimed.
+- Exact storage-hotplug run #45597825821 on `429aa42a` failed at the final non-directory storage-root assertion. Inspection of the fixture showed its `printf` format contained two backslashes (`\\n`), so it wrote the literal characters `\n` and the equality check failed even if the storage path was unchanged. Corrected the fixture to emit a real newline; the CI message did not establish a production storage-path mutation.
+- Kept the explicit regular-file rejection in `func_mdir()` as defense in depth alongside its symlink and generic non-directory checks, and pinned it in the source contract. This updated test needs a fresh exact-head host/BusyBox ash run.
+- No local shell, MTD or hardware result is claimed.
 
 ---
-
 ## 2026-11-25 — Verify rstats readiness after a zero-exit launcher
 
 - Follow-up to the restore failure fix: `func_start_apps()` previously treated `/sbin/rstats` exit status 0 as proof the daemon was running. A daemon that forks then exits immediately (or whose startup wrapper returns success without leaving a process) could still cause restore/reset to be reported as successful.

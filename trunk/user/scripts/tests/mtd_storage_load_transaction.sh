@@ -204,7 +204,7 @@ fi
 # A non-directory storage path must also propagate failure instead of
 # continuing into func_fill() and returning a misleading success status.
 "$real_rm" -f "$sandbox/etc/storage"
-printf '%s\\n' 'not a directory' > "$sandbox/etc/storage"
+printf '%s\n' 'not a directory' > "$sandbox/etc/storage"
 if run_fill; then
 	echo "MTD storage fill accepted a non-directory storage path" >&2
 	exit 1
