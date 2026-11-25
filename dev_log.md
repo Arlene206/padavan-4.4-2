@@ -1,7 +1,7 @@
-## 2026-11-25 — Correct VSFTPD MDTM fixture token-length input
+## 2026-11-25 — Correct VSFTPD MDTM fixture and source contract
 
-- Exact VSFTPD run #45644905866 failed in the new GNU89 sanitizer fixture: `expect_valid()` passed the full command-string length, while the policy expects only the timestamp token length (the production caller correctly passes `loc.index`). The fixture therefore rejected valid timestamp cases.
-- Updated the fixture adapter to measure bytes before the first space, retaining the full-length negative case when no separator exists. No production behavior changed; exact-head rerun is pending.
+- Exact VSFTPD run #45644905866 first exposed a fixture-adapter error: the test passed the full command length instead of the timestamp-token length. The fixture now extracts the first-space offset; a local GNU89 ASan/UBSan compile/run passed.
+- Exact run #45645513224 compiled and ran the corrected fixture successfully, then failed only because the source checker searched for the removed `str_stat()` name inside an explanatory comment. Narrowed the checker to the actual raw-argument call expression and asserted the test's separator-based token extraction; exact-head rerun is pending.
 
 ---
 

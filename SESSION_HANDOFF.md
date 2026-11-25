@@ -1,7 +1,7 @@
-## 2026-11-25 active handoff — VSFTPD MDTM regression fixture correction
+## 2026-11-25 active handoff — VSFTPD MDTM source-contract correction
 
 - Live main baseline before this fixture-only correction: `4b8aebab367f2892ccb1134caf86d7eae308b54f`. The MDTM source change removes the pre-ACL `str_stat()` probe from `handle_mdtm()` and classifies the timestamp token syntactically.
-- Exact VSFTPD run #45644905866 failed in `ftp_mdtm_policy.c`: the test adapter passed `strlen(full_command)`, but `ftp_mdtm_timeval_is_valid()` expects only the date/time token length. Production correctly passes `loc.index`; this correction fixes the fixture helper to stop at the first space.
+- Exact VSFTPD run #45644905866 failed in the new fixture because its adapter passed the whole command length; the test now extracts the timestamp-token length from the first space and passed local GNU89 ASan/UBSan. Exact VSFTPD run #45645513224 then passed all C fixtures and failed only at a source-checker false positive: the removed `str_stat()` identifier remained in a comment. The checker now searches for the actual raw-argument call expression instead and validates the token-length adapter.
 - WAN strict parser regression #45642479262 PASS on `8835ec2`; XY-C1 #45642479259 PASS on product SHA `8835ec2` with Build, TRX and artifact all successful (L3 for that exact SHA). The current later XY-C1 run on newer source is separately tracked. DNSMasq lifecycle #45645256714 PASS on the current `4b8aebab` source SHA; HTTPD security #45645256648 PASS on the same SHA. Physical-router L4 remains NOT VERIFIED.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
