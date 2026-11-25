@@ -1,3 +1,9 @@
+## 2026-11-25 — Repair GNU89 receive-length test dependency
+
+- Exact IAPP lifecycle run #45691011094 on d444b0e8c2347bf70f5cafec9b05aee08a6e6ffd FAILED before running the policy tests: the new SIZE_MAX boundary assertions lacked their required <stdint.h> include. This was a test-fixture compile error; production receive guards were not exercised by that job. Add the direct standard header include so the test does not depend on transitive definitions.
+- d444 exact Actions at correction time: AI handoff #45691011016 PASS; XY-C1 #45691011111, Process lifecycle #45691011010, process lifecycle regression #45691011103 and NVRAM #45691010984 pending. The previous IAPP failure is corrected here; rerun its workflow on this descendant.
+
+---
 ## 2026-11-25 — Bound IAPP FT security-block copies by received bytes
 
 - IAPP_RcvHandlerSSB() copied attacker-controlled pSendSB->Length bytes into fixed-size stack object FT_KDP_EVT_KEY_ELM kdp_info; an oversized field could overwrite the stack. The handler now validates post-decrypt received bytes, checks the declared payload span without size_t addition overflow, and requires the exact fixed key-element size before either copy.

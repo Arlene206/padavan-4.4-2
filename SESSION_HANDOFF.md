@@ -1,27 +1,26 @@
 ## Current repository state — 2026-11-25
 
-- Main base before this IAPP receive-length/FT key-copy slice: 4efeeb960091ca2eeadd45b8c7da038754f087b1; this stack-copy guard and tests are one atomic descendant (THIS COMMIT).
+- Main base before the GNU89 test include correction: d444b0e8c2347bf70f5cafec9b05aee08a6e6ffd; test header and handoff/dev log are one atomic descendant (THIS COMMIT).
 - Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains untouched at 72f4f157a084f8184b9597ca5bf334b8080e5807.
-- Parent 6997d011f9a13bcdd7ba99ebc87e266231b2b85b exact-head: IAPP lifecycle #45690065484 PASS, process inventory #45690065932 PASS, AI handoff #45690065549 PASS and NVRAM #45690067282 PASS. XY-C1 #45690065506 was still building at last poll.
-- Parent 6997 BSS bounds helper passed local GNU89 + ASan/UBSan compile/run. Production rtmpiapp.c still awaits exact firmware cross-build.
-- Immediate parent 4efeeb960091ca2eeadd45b8c7da038754f087b1 fixed FT-client hash-slot reuse with detach-before-release and bounded hash policy. Exact SHA 4efe: IAPP #45690490121 PASS and AI #45690490005 PASS; XY-C1 #45690490006, process inventory #45690490151, process lifecycle #45690489904 and NVRAM #45690490165 were pending at last poll.
-- New fix: IAPP_RcvHandlerSSB() previously copied untrusted Length into fixed FT_KDP_EVT_KEY_ELM; it now checks actual post-decrypt receive bytes and exact destination size. TCP/UDP dispatchers propagate lengths, reject short protocol headers, and TCP ACK SB input is bounded before copying.
-- Historic XY-C1 L3 remains verified only on 8b9b63401dd85232b257120111bb18475db6b5 (Build, TRX, artifact PASS). Physical-router L4 NOT VERIFIED. Closed PR #1 inventory complete; backup untouched.
+- Parent d444b0e8c2347bf70f5cafec9b05aee08a6e6ffd introduced the IAPP FT security-block payload guard. Exact IAPP lifecycle #45691011094 FAILED only at compile: SIZE_MAX was undeclared because test lacked <stdint.h>; no policy test or production source test ran. This descendant adds the direct include; exact-head IAPP must rerun.
+- On exact d444: AI handoff #45691011016 PASS; XY-C1 #45691011111, Process lifecycle #45691011010, process lifecycle regression #45691011103 and NVRAM #45691010984 were pending at the correction point.
+- Current IAPP stack guard checks actual post-decrypt received size and requires `pSendSB->Length == sizeof(kdp_info)` before copying. TCP/UDP short IAPP headers and TCP ACK SB declared payloads are bounded. The failure above is test harness dependency only, not a demonstrated production failure.
+- Exact firmware L3 remains proven only at 8b9b63401dd85232b257120111bb18475db6b5 (Build, TRX, artifact upload PASS); newer product source SHAs need separate completed runs. Physical-router L4 NOT VERIFIED. Backup unchanged; PR #1 closed/inventoried.
 
 ## Active task
 
-Validate this receive-length fix on exact-head IAPP and XY-C1 Actions. Then continue AP information payload and raw RRB FTActionLength checks.
+Verify the corrected receive-length GNU89/ASan/UBSan regression on exact IAPP workflow, then validate production source with exact XY-C1 firmware build. Continue raw RRB and AP information receive length hardening after those checks.
 
 ## Exact first actions for next GPT
 
-1. Poll IAPP lifecycle, Process lifecycle/inventory, NVRAM, AI and XY-C1 exact-SHA Actions for THIS COMMIT; do not transfer results across SHAs.
-2. Inspect any first failing test step/log. The IAPP source compiler is XY-C1; GNU89 sanitizer policy coverage is in IAPP lifecycle.
-3. Next inspect IAPP_RcvHandlerApInfor() declared payload length against actual received bytes, then RRB FTActionLength and raw-driver signal size before pointer dereferences/copies.
-4. Preserve the frozen backup and continue main-only atomic expected-SHA commits.
+1. Poll this commit's exact-SHA IAPP, Process lifecycle/inventory, XY-C1 Build/TRX/artifact, NVRAM and AI Actions separately.
+2. Confirm IAPP's <stdint.h>/SIZE_MAX fix; investigate any further sanitizer/compiler failure from the exact job logs.
+3. Continue with `IAPP_RcvHandlerApInfor()` payload bound, RRB FTActionLength and raw-driver signal minimum size.
+4. Preserve frozen backup and main-only expected-SHA atomic commit policy.
 
 ## Execution contract
 
-Main only; one complete tree and atomic commit per logical task; non-force expected-SHA update. No force-push, development branch or new PR. PENDING Actions do not block.
+Main only; complete Git tree, one logical task per atomic commit, update via non-force expected-SHA compare-and-swap. No force push, development branches or new PR. PENDING does not block independent work.
 
 ## 2026-11-25 autonomous handoff checkpoint
 
