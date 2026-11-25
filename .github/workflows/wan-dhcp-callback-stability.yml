@@ -1486,7 +1486,7 @@ jobs:
               'eval("ip", "-6", "route", "add", "default", "dev", IFNAME_SIT, "metric", "2048")',
               'eval("ip", "-6", "route", "add", "default", "via", wan_gate6, "dev", IFNAME_SIT, "metric", "1")',
               "clear_if_addr6(IFNAME_BR)",
-              "route_del(wan_ifname, 0, sit_ep",
+              "cleanup_status = route_del(",
               "stop_sit_tunnel()",
           ):
               assert operation in sit_start, f"unchecked/missing SIT operation: {operation}"
@@ -1505,6 +1505,8 @@ jobs:
           assert "test_sit_endpoint_route_failure_is_not_hidden" in wan6_identity_test
           sit_failed = sit_start[sit_start.index("failed:"):]
           sit_rollback = sit_failed.index("cleanup_status = route_del(")
+          sit_failed_compact = "".join(sit_failed.split())
+          assert "cleanup_status=route_del(wan_ifname,0,sit_ep," in sit_failed_compact
           assert "(char *)wan6_sit_route4_gateway_argument(wan_gate4)" in sit_failed[sit_rollback:]
           assert "if (wan_route_added)" in sit_start
           assert "wan6_sit_route4_cleanup(unit)" in sit_start
