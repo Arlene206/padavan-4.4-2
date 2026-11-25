@@ -127,6 +127,22 @@ set ttyd_port=7681
 commit" ] || fail "default port setup was not scoped to start"
 [ "$(cat "$START_LOG")" = "-S -b -x ttyd -- -i br0 -p 7681 -W -t disableReconnect=true -t disableLeaveAlert=true login" ] || fail "launch arguments changed"
 
+# Leading zeroes are normalized before decimal range validation.
+echo absent > "$STATE"; reset
+MOCK_TTYD_PORT=00080; MOCK_START_STATUS=0; MOCK_START_APPEARS=1
+export MOCK_TTYD_PORT MOCK_START_STATUS MOCK_START_APPEARS
+run start || fail "zero-padded decimal port was rejected"
+[ "$(cat "$START_LOG")" = "-S -b -x ttyd -- -i br0 -p 80 -W -t disableReconnect=true -t disableLeaveAlert=true login" ] || fail "zero-padded port was not normalized"
+
+# Malformed, zero and out-of-range ports must fail before the daemonizer runs.
+for invalid_port in abc 0 00000 65536 123456 -1; do
+ echo absent > "$STATE"; reset
+ MOCK_TTYD_PORT="$invalid_port"; export MOCK_TTYD_PORT
+ if run start; then fail "invalid ttyd port '$invalid_port' was accepted"; else rc=$?; fi
+ [ "$rc" -eq 2 ] && [ ! -s "$START_LOG" ] || fail "invalid ttyd port '$invalid_port' launched or returned $rc"
+ [ "$(cat "$NVRAM_LOG")" = "get ttyd_port" ] || fail "invalid ttyd port '$invalid_port' caused NVRAM mutation"
+done
+
 # Launcher errors propagate; the configured port is not rewritten.
 echo absent > "$STATE"; reset
 MOCK_TTYD_PORT=4444; MOCK_START_STATUS=37; export MOCK_TTYD_PORT MOCK_START_STATUS
