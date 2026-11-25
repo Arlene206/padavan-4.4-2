@@ -4,6 +4,7 @@ from pathlib import Path
 ROOT = Path(".")
 BASE = ROOT / "trunk/user/u2ec/src"
 source = (BASE / "usbsock.c").read_text()
+usb_test_source = (BASE / "testusb.c").read_text()
 policy = (BASE / "u2ec_socket_io_policy.h").read_text()
 test = (BASE / "tests/u2ec_socket_io_policy_test.c").read_text()
 makefile = (BASE / "Makefile").read_text()
@@ -13,6 +14,8 @@ workflow = (ROOT / ".github/workflows/u2ec-socket-io-stability.yml").read_text()
 # the default goal so its first object dependency cannot suppress the link.
 assert makefile.index(".DEFAULT_GOAL := all") < makefile.index("usbsock.o: u2ec_socket_io_policy.h")
 assert "all: $(PROGS)" in makefile
+assert "testusb.o: u2ec_discovery_snapshot_policy.h" in makefile
+assert "trunk/user/u2ec/src/testusb.c" in workflow
 assert "$(PROGS): $(OBJS)" in makefile
 assert "OBJS\t= usbsock.o testusb.o" in makefile
 xy_workflow = (ROOT / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
@@ -133,6 +136,10 @@ assert "str_product" not in add_remote
 assert "u2ec_discovery_snapshot_policy.h" in makefile
 assert "u2ec_discovery_snapshot_policy.h" in workflow
 assert "test_discovery_product_snapshot_copy_is_bounded" in test
+assert '#include "u2ec_discovery_snapshot_policy.h"' in usb_test_source
+assert "sizeof(string) - 1" in usb_test_source
+assert "u2ec_copy_discovery_product(1, string, str_product" in usb_test_source
+assert "strcpy(str_product, string)" not in usb_test_source
 assert "SO_RCVTIMEO" in add_remote and "command_timeout.tv_sec = 1" in add_remote
 assert "u2ec_recv_all(new_fd, message, 7U)" in add_remote
 assert "u2ec_recv_all(new_fd, message + 7, 2U)" in add_remote

@@ -23,6 +23,7 @@
 
 #include "typeconvert.h"
 #include "usbsock.h"
+#include "u2ec_discovery_snapshot_policy.h"
 
 #define USBLP_FIRST_PROTOCOL	1
 #define USBLP_LAST_PROTOCOL	3
@@ -206,7 +207,10 @@ int print_device(struct usb_device *dev, int level)
       			if (ret > 0)
       			{
 				snprintf(description + strlen(description), sizeof(description) - strlen(description), "%s", string);
-				strcpy(str_product, string);
+                string[sizeof(string) - 1] = '\0';
+                if (u2ec_copy_discovery_product(1, string, str_product,
+                                                sizeof(str_product)) < 0)
+                    str_product[0] = '\0';
 				nvram_set_temp("u2ec_device", str_product);
 			}
 			else

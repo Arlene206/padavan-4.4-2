@@ -6,6 +6,7 @@ on:
     paths:
       - ".github/workflows/u2ec-socket-io-stability.yml"
       - "trunk/user/u2ec/src/usbsock.c"
+      - "trunk/user/u2ec/src/testusb.c"
       - "trunk/user/u2ec/src/u2ec_socket_io_policy.h"
       - "trunk/user/u2ec/src/u2ec_discovery_snapshot_policy.h"
       - "trunk/user/u2ec/src/tests/u2ec_socket_io_policy_test.c"
@@ -15,6 +16,7 @@ on:
     paths:
       - ".github/workflows/u2ec-socket-io-stability.yml"
       - "trunk/user/u2ec/src/usbsock.c"
+      - "trunk/user/u2ec/src/testusb.c"
       - "trunk/user/u2ec/src/u2ec_socket_io_policy.h"
       - "trunk/user/u2ec/src/u2ec_discovery_snapshot_policy.h"
       - "trunk/user/u2ec/src/tests/u2ec_socket_io_policy_test.c"
