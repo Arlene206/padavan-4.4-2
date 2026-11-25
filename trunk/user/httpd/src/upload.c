@@ -195,7 +195,7 @@ static int
 do_upload_file(FILE *stream, int clen, char *bndr, const char *fn, const char *publish_to, const char *obj_name, check_header_t func_hdr, int hdr_size, FILE *output_fp, const httpd_upload_file_ops_t *ops)
 {
 	FILE *fp = output_fp;
-	char buf[64+UPLOAD_BUF_SIZE+1], buf_obj[32], *ptr;
+	char buf[HTTPD_UPLOAD_BOUNDARY_LOOKBEHIND+UPLOAD_BUF_SIZE+1], buf_obj[32], *ptr;
 	int cnt, count, offset, ret, ch, valid_header, boundary_found;
 	long filelen, max_payload_len, end_pos, back_len;
 
@@ -247,8 +247,8 @@ do_upload_file(FILE *stream, int clen, char *bndr, const char *fn, const char *p
 	filelen = clen;
 	offset = 0;
 	cnt = 0;
-	ptr = buf + 64;
-	memset(buf, 0, 64);
+	ptr = buf + HTTPD_UPLOAD_BOUNDARY_LOOKBEHIND;
+	memset(buf, 0, HTTPD_UPLOAD_BOUNDARY_LOOKBEHIND);
 
 	/* Pipe the rest to the FIFO */
 	while (clen > 0 && filelen > 0) {
@@ -278,9 +278,13 @@ do_upload_file(FILE *stream, int clen, char *bndr, const char *fn, const char *p
 		
 		/* check boundary marker (after \r\n or \n) */
 		if (bndr) {
-			char *pb = memmem(buf, 64 + count, bndr, strlen(bndr));
+			char *pb = httpd_upload_find_multipart_boundary(
+				buf, HTTPD_UPLOAD_BOUNDARY_LOOKBEHIND + (size_t)count,
+				bndr);
 			if (!pb)
-				pb = memmem(buf, 64 + count, bndr+1, strlen(bndr+1));
+				pb = httpd_upload_find_multipart_boundary(
+					buf, HTTPD_UPLOAD_BOUNDARY_LOOKBEHIND + (size_t)count,
+					bndr + 1);
 			if (pb) {
 				boundary_found = 1;
 				if (pb >= ptr) {
@@ -308,11 +312,14 @@ do_upload_file(FILE *stream, int clen, char *bndr, const char *fn, const char *p
 			goto err;
 
 		if (bndr) {
-			if (count >= 64) {
-				memcpy(buf, ptr + count - 64, 64);
+			if (count >= HTTPD_UPLOAD_BOUNDARY_LOOKBEHIND) {
+				memcpy(buf, ptr + count - HTTPD_UPLOAD_BOUNDARY_LOOKBEHIND,
+				       HTTPD_UPLOAD_BOUNDARY_LOOKBEHIND);
 			} else if (count > 0) {
-				memmove(buf, buf + count, 64 - count);
-				memcpy(buf + 64 - count, ptr, (size_t)count);
+				memmove(buf, buf + count,
+					HTTPD_UPLOAD_BOUNDARY_LOOKBEHIND - count);
+				memcpy(buf + HTTPD_UPLOAD_BOUNDARY_LOOKBEHIND - count,
+				       ptr, (size_t)count);
 			}
 		}
 	}

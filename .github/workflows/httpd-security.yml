@@ -5218,6 +5218,14 @@ jobs:
           parse_part = upload_helper.index("/* Look for our part */")
           assert stale_clear < parse_part, "ordinary upload target is not cleared before multipart parsing"
           assert "httpd_upload_publish_staged(&fp, fn, publish_to, ops)" in upload_helper
+          normalized_upload = "".join(upload_helper.split())
+          assert "HTTPD_UPLOAD_BOUNDARY_LOOKBEHIND+UPLOAD_BUF_SIZE+1" in normalized_upload
+          assert "ptr=buf+HTTPD_UPLOAD_BOUNDARY_LOOKBEHIND;" in normalized_upload
+          assert "httpd_upload_find_multipart_boundary(" in upload_helper
+          assert "memmem(buf,64+count,bndr" not in normalized_upload
+          assert "HTTPD_UPLOAD_BOUNDARY_MAX_PADDING" in upload_policy
+          assert "test_multipart_boundary_requires_a_complete_delimiter" in upload_policy_test
+          assert "test_multipart_boundary_carry_covers_maximum_marker_and_padding" in upload_policy_test
           storage_post_start = upload.index(chr(10) + "void" + chr(10) + "do_restore_st_post")
           storage_post = upload[storage_post_start:]
           assert "unlink(upload_file);" not in storage_post, "restore POST must preserve the previous retry archive"

@@ -1,3 +1,11 @@
+## 2026-11-25 — Validate complete HTTPD multipart delimiters
+
+- Storage-restore scanning previously accepted any `\r\n--boundary` prefix without checking the following delimiter-line syntax. A BZ2 payload containing the same prefix followed by an ordinary byte could be mistaken for end-of-part; the truncated upload could be atomically published and flagged ready, replacing the retained retry archive.
+- The rolling lookbehind was 64 bytes although the fixed 128-byte boundary buffer permits a 127-byte marker. A marker split across reads could therefore be missed. Recognition now requires a regular/closing delimiter followed by CRLF or the existing LF compatibility ending, with bounded 128-byte transport padding; the carry is 257 bytes.
+- Added GNU89 fixture cases for false prefixes, malformed closing suffixes, regular/closing/LF delimiters, transport padding, and a maximum-size marker split across reads. Focused local ASan/UBSan harness PASS; exact-head HTTPD and firmware Actions pending.
+
+---
+
 ## 2026-11-25 — Correct VSFTPD MDTM fixture and source contract
 
 - Exact VSFTPD run #45644905866 first exposed a fixture-adapter error: the test passed the full command length instead of the timestamp-token length. The fixture now extracts the first-space offset; a local GNU89 ASan/UBSan compile/run passed.

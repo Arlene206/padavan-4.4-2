@@ -13,6 +13,59 @@
 #error "O_NOFOLLOW required for safe HTTPD upload file handling"
 #endif
 
+/*
+ * Retain the complete accepted delimiter, bounded MIME transport padding,
+ * and its line terminator across fread() boundaries. The upload handler's
+ * 128-byte marker buffer permits a 127-byte marker.
+ */
+#define HTTPD_UPLOAD_BOUNDARY_LOOKBEHIND 257
+#define HTTPD_UPLOAD_BOUNDARY_MAX_PADDING 128
+
+static inline char *
+httpd_upload_find_multipart_boundary(char *buffer, size_t buffer_length,
+                                     const char *marker)
+{
+    size_t marker_length, offset, suffix, remaining, padding;
+
+    if (!buffer || !marker || !*marker)
+        return NULL;
+
+    marker_length = strlen(marker);
+    if (marker_length > buffer_length)
+        return NULL;
+
+    for (offset = 0; offset <= buffer_length - marker_length; ++offset) {
+        if (memcmp(buffer + offset, marker, marker_length) != 0)
+            continue;
+
+        suffix = offset + marker_length;
+        remaining = buffer_length - suffix;
+        if (remaining >= 2U && buffer[suffix] == '-' &&
+            buffer[suffix + 1U] == '-') {
+            suffix += 2U;
+            remaining -= 2U;
+        }
+
+        padding = 0;
+        while (padding < remaining &&
+               (buffer[suffix + padding] == ' ' ||
+                buffer[suffix + padding] == '\t'))
+            ++padding;
+        if (padding > HTTPD_UPLOAD_BOUNDARY_MAX_PADDING)
+            continue;
+
+        suffix += padding;
+        remaining -= padding;
+        if (remaining >= 2U && buffer[suffix] == '\r' &&
+            buffer[suffix + 1U] == '\n')
+            return buffer + offset;
+        if (remaining >= 1U && buffer[suffix] == '\n')
+            return buffer + offset;
+    }
+
+    return NULL;
+}
+
 static inline int
 httpd_upload_write_dos2unix(FILE *stream, const char *value)
 {
