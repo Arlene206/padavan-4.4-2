@@ -340,6 +340,8 @@ if func_iptables; then fail "iptables -C error was treated as an absent rule"; e
 unset TEST_IPTABLES_FAIL_CHECK
 echo "Redsocks firewall check errors fail closed: PASS"
 
+# Isolate the trace so old successful -N calls cannot mask this failure assertion.
+: > "$TEST_IPTABLES_LOG"
 TEST_IPTABLES_FAIL_DELETE=1
 if func_iptables; then fail "iptables -D error was ignored"; else firewall_status=$?; fi
 [[ "$firewall_status" == 7 ]] || fail "iptables -D error status was $firewall_status"

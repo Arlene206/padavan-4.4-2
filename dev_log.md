@@ -1,3 +1,8 @@
+## 2026-11-25 — Isolate Redsocks cleanup-failure trace assertion
+
+- Exact Redsocks run #45555165127 on `437fd9e` passed invalid IPv4 rejection, duplicate-draining/idempotent reapply, and iptables check-error handling. The delete-error test then falsely detected `-N REDSOCKS` from the earlier successful setup because it reused the same diagnostic log. Clear only the command trace before injecting the delete failure; keep the existing rules and chain state intact so the assertion proves no new chain is created after cleanup failure.
+- Exact-head regression rerun required. Production source unchanged; no local test result is claimed.
+
 ## 2026-11-25 — Correct Redsocks mock rule keys after chain parsing
 
 - Exact `7cfd647` regression still failed because the stateful mock stored `table|chain rule` using an explicit `$chain` prefix while `$rule="$*"` already contains the chain token. This left an invalid doubled key and the test observed zero PREROUTING jumps. Updated check/delete/append and append-fault matching to use the complete original argv once (`table|$rule`).
