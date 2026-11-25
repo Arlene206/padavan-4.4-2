@@ -1266,6 +1266,8 @@ require('find . ! -name . -print0' in tar_builder and
         'tar -cf "$tmp" .' in tar_builder and
         'xargs -0 tar -cf' not in tar_builder and
         'find *' not in tar_builder and
+        'sort_list' not in tar_builder and
+        tar_builder.count('mktemp ') == 1 and
         '! -type d' not in tar_builder,
         "storage backup must include hidden files and empty directories in the complete tree")
 require('storage/.hidden.conf' in mtd_storage_backup_test and

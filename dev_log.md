@@ -1,3 +1,10 @@
+## 2026-11-25 19:15 CST — Remove the obsolete second MTD backup temp file
+
+- After the recursive-tar repair, `func_tarb()` still allocated a `.sort.*` temp file that is no longer read or written. That dead allocation could cause a backup to fail on a second `mktemp` error despite the only required NUL inventory file being available. Removed the unused path and cleanup references; the source contract now requires exactly one temporary inventory allocation and no stale `sort_list` state.
+- Exact USB-storage regression and XY-C1 Build/TRX/artifact checks required for this production shell change. No local BusyBox/firmware/hardware result is claimed.
+
+---
+
 ## 2026-11-25 19:10 CST — Match backup fixture contract to its streaming AWK assertions
 
 - Exact USB-storage run #45600452827 on `b0a6b00d` passed the recursive archive builder contract and the 1,200-file host/BusyBox-ash regression, then failed another legacy fixture assertion: the checker still required single-quoted grep patterns, while the corrected test now validates archive entries within one AWK stream to avoid early pipe closure and counts only files, not the `./bulk/` directory.
