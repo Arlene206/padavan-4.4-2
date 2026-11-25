@@ -9,12 +9,18 @@
  * The active count is also the next write index, so both bounds must hold.
  */
 static inline int
+iapp_ifname_arg_valid(size_t name_length, size_t slot_size)
+{
+	return name_length > 0 && name_length < slot_size;
+}
+
+static inline int
 iapp_ioctl_ifname_arg_valid(int configured_count, size_t capacity,
                            size_t name_length, size_t slot_size)
 {
 	return configured_count >= 0 &&
 	       (size_t)configured_count < capacity &&
-	       name_length > 0 && name_length < slot_size;
+	       iapp_ifname_arg_valid(name_length, slot_size);
 }
 
 /*

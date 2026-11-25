@@ -94,6 +94,16 @@ status() {
 }
 run() { /bin/sh "$base/iappd.sh" "$1"; }
 iapp_source="$base/src/rtmpiapp.c"
+eth_guard_line=$(grep -n -F "iapp_ifname_arg_valid(strlen(pArgv[0]), sizeof(pCtrlBK->IfNameEth))" "$iapp_source" | cut -d: -f1)
+eth_store_line=$(grep -n -F "strcpy(pCtrlBK->IfNameEth, pArgv[0]);" "$iapp_source" | cut -d: -f1)
+[ -n "$eth_guard_line" ] && [ -n "$eth_store_line" ] && [ "$eth_guard_line" -lt "$eth_store_line" ] ||
+  fail "IAPP -e parser must bound the Ethernet interface name before copying"
+wlan_guard_line=$(grep -n -F "iapp_ifname_arg_valid(strlen(pArgv[0]), sizeof(pCtrlBK->IfNameWlan))" "$iapp_source" | cut -d: -f1)
+wlan_store_line=$(grep -n -F "strcpy(pCtrlBK->IfNameWlan, pArgv[0]);" "$iapp_source" | cut -d: -f1)
+[ -n "$wlan_guard_line" ] && [ -n "$wlan_store_line" ] && [ "$wlan_guard_line" -lt "$wlan_store_line" ] ||
+  fail "IAPP -w parser must bound the wireless interface name before copying"
+[ "$(grep -F -c "iapp_ifname_arg_valid(strlen(pArgv[0])," "$iapp_source")" -eq 2 ] ||
+  fail "IAPP -e and -w parser must both validate fixed-size interface names"
 grep -Fq "iapp_ioctl_ifname_arg_valid(" "$iapp_source" ||
   fail "IAPP -wi parser must validate interface count and name length"
 parser_guard_line=$(grep -n -F "iapp_ioctl_ifname_arg_valid(" "$iapp_source" | head -1 | cut -d: -f1)

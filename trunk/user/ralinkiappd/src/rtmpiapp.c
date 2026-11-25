@@ -510,7 +510,12 @@ static BOOLEAN IAPP_ArgumentParse(
 
 			if (Argc > 0)
 			{
-				strcpy(pCtrlBK->IfNameEth, pArgv[0]);
+				if (!iapp_ifname_arg_valid(strlen(pArgv[0]), sizeof(pCtrlBK->IfNameEth)))
+{
+	DBGPRINT(RT_DEBUG_ERROR, "iapp> Invalid ethernet interface name!\\n");
+	return FALSE;
+}
+strcpy(pCtrlBK->IfNameEth, pArgv[0]);
 				IAPP_AGP_CMD_PARSE_NEXT_ONE;
 			} /* End of if */
 		}
@@ -525,7 +530,7 @@ static BOOLEAN IAPP_ArgumentParse(
 					pCtrlBK->IfNameWlanCount, MAX_WIFI_COUNT,
 					strlen(pArgv[0]), sizeof(pCtrlBK->IfNameWlanIoctl[0])))
 				{
-					DBGPRINT(RT_DEBUG_ERROR, "iapp> Invalid -wi interface or too many interfaces!\\n");
+					DBGPRINT(RT_DEBUG_ERROR, "iapp> Invalid -wi interface or too many interfaces!\n");
 					return FALSE;
 				}
 				strcpy(pCtrlBK->IfNameWlanIoctl[pCtrlBK->IfNameWlanCount], pArgv[0]);
@@ -540,7 +545,12 @@ static BOOLEAN IAPP_ArgumentParse(
 
 			if (Argc > 0)
 			{
-				strcpy(pCtrlBK->IfNameWlan, pArgv[0]);
+				if (!iapp_ifname_arg_valid(strlen(pArgv[0]), sizeof(pCtrlBK->IfNameWlan)))
+{
+	DBGPRINT(RT_DEBUG_ERROR, "iapp> Invalid wireless interface name!\\n");
+	return FALSE;
+}
+strcpy(pCtrlBK->IfNameWlan, pArgv[0]);
 				IAPP_AGP_CMD_PARSE_NEXT_ONE;
 			} /* End of if */
 		}

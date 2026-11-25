@@ -1,3 +1,10 @@
+## 2026-11-25 — Bound all IAPP command-line interface names
+
+- The exact-head IAPP regression on `c89a47e69fbdec2edc43a36bd01de458f36ec122` FAILED in the newly added C fixture only: `char too_long[2][16]` was initialized with a 24-byte string under `-Werror`. The production index-bound source contract ran before the compiler stopped. The fixture now uses a 32-byte slot while still testing fallback against the 12-byte ioctl destination.
+- Extended the same input hardening to the `-e` Ethernet and `-w` wireless parser options, whose fixed IFNAMSIZ buffers were also populated with unchecked `strcpy`. A generic length predicate now rejects empty/overlong names before each copy; the `-wi` path retains count/capacity validation.
+- Added source-order checks for all three parser options and tests for the generic name-length boundary. Also normalized the -wi diagnostic to a normal C newline escape. Exact-head IAPP/XY-C1 Actions pending.
+
+---
 ## 2026-11-25 — Bound Ralink IAPP wireless interface indices
 
 - Fixed a concrete out-of-bounds read/write in the Ralink IAPP daemon. `MAX_WIFI_COUNT` is 2, but `IAPP_IoctlToWLAN()` dereferenced `IfNameWlanIoctl[ApIdx]` before testing the index and used `ApIdx > MAX_WIFI_COUNT`, allowing index 2 (and larger values) to access beyond the two-slot array. The `-wi` parser also incremented `IfNameWlanCount` and wrote into the array without checking capacity or interface-name length.
