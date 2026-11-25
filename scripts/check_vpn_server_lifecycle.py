@@ -1487,8 +1487,8 @@ ordered(openvpn_server_start,[
     "mkdir_if_none(SERVER_ROOT_DIR, \"755\")",
     "openvpn_create_server_conf(vpns_cfg, &network, &options)",
     "if (network.is_tun)",
-    "openvpn_tunif_start(IFNAME_SERVER_TUN, 1)",
-    "openvpn_tapif_start(IFNAME_SERVER_TAP, 1, 1)"
+    "openvpn_tunif_start(IFNAME_SERVER_TUN, 1, &interface_created)",
+    "openvpn_tapif_start(IFNAME_SERVER_TAP, 1, 1, &interface_created)"
 ],"OpenVPN must validate topology and service options before filesystem/config/interface side effects")
 openvpn_server_writer=body(vpn_openvpn,"openvpn_create_server_conf(const char *conf_file,")
 require("network->lan_ip" in openvpn_server_writer and

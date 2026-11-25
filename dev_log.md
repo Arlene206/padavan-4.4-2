@@ -1,3 +1,12 @@
+## 2026-11-25 — Align the remaining OpenVPN server TAP/TUN source-order assertions
+
+- Base SHA: 1aa51a6ef623bdc50c4351e50bd4175f3410f670; result SHA: resolve from next main handoff. Scope: scripts/check_vpn_server_lifecycle.py, SESSION_HANDOFF.md, dev_log.md.
+- Follow-up exact SHA 1aa51a6ef623bdc50c4351e50bd4175f3410f670: OpenVPN client credential staging #45661438519 PASS, AI handoff docs #45661438442 PASS. VPN lifecycle #45661438577 reached its last source-order assertion and failed because two tokens still expected the pre-ownership signatures openvpn_tunif_start(IFNAME_SERVER_TUN, 1) and openvpn_tapif_start(IFNAME_SERVER_TAP, 1, 1). The production helpers now correctly take &interface_created; updated those ordered tokens without relaxing the check.
+- The preceding rollback checker now verifies exact detached-daemon postcondition ordering, invokes the shared rollback handler, and asserts that handler requires two full ABSENT inventories and per-attempt resource ownership. The dedicated startup rollback regression passed.
+- dc6 XY-C1 run #45660655080 was still pending at last poll; verify its Build/TRX/artifact steps before claiming L3. Earlier d91 exact-SHA L3 remains PASS. L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-25 — Repair OpenVPN detached-startup contracts and restore the log archive
 
 - Base SHA: dc6e17b4874cfb7a6d07d8b69fb2d195176efeb7; result SHA: resolve from the next main handoff. Scope: OpenVPN server/client source checkers, SESSION_HANDOFF.md, and dev_log.md.

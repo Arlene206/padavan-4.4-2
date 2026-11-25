@@ -1,16 +1,16 @@
-## 2026-11-26 active handoff — verify identity-safe OpenVPN startup rollback
+## 2026-11-26 active handoff — finish OpenVPN startup source-contract reruns
 
-- Live main parent: dc6e17b4874cfb7a6d07d8b69fb2d195176efeb7. The current source now requires server/client detached-start PID identity verification and permits rollback only after two complete process-inventory snapshots confirm ABSENT; UNKNOWN/RUNNING/invalid/error/interrupted states preserve resources. TAP/TUN helpers report per-attempt ownership. The new C policy regression passed in the exact OpenVPN and VPN workflows.
-- Exact-SHA failures on dc6e17b4874cfb7a6d07d8b69fb2d195176efeb7 are stale source/documentation contracts, not the helper regression: OpenVPN client credential #45660655024 fails because its checker expects the old two-argument server TUN helper; VPN lifecycle #45660655211 fails because its checker expects callback removal inline instead of in openvpn_start_rollback_failed(); AI docs #45660655384 fails because dev_log.md had been truncated to one entry. The follow-up restores the complete prior log and updates both checkers.
-- Earlier validation remains: NVRAM transaction audit #45659128163 PASS on f9f071b8; HTTPD security #45659190171 and AI docs #45659190213 PASS on 273f4ea2; Process inventory #45658659607 and process lifecycle #45658659693 PASS on c4ed4689. Exact d91 production source SHA #45657032169 passed Build XY-C1, TRX verification and artifact upload. Check the dc6 exact-SHA XY-C1 run before making any L3 claim for this newer OpenVPN production code.
-- NVRAM cache on main uses a separate transaction-only cache erased at begin/end before releasing its lease; legacy getter storage remains separate. OpenVPN credential CR/LF rejection, in-memory zeroization, callback link exact-target checks remain in main.
+- Live main parent: 1aa51a6ef623bdc50c4351e50bd4175f3410f670. The detached-start implementation requires exact writepid process identity before success. On startup failure, rollback is allowed only for resources created by this attempt and only after two complete process-inventory scans confirm ABSENT; RUNNING, UNKNOWN, invalid state, or interrupted wait preserves resources. The dedicated GNU89/ASan/UBSan rollback policy regression passed.
+- Exact 1aa51a6ef623bdc50c4351e50bd4175f3410f670 OpenVPN client credential workflow #45661438519 PASS and AI handoff docs #45661438442 PASS. VPN server lifecycle #45661438577 fails only at one remaining stale checker token in the side-effect ordering assertion: it expects the old two-argument server TAP/TUN helper calls, while the source correctly passes the new ownership out-parameter. The preceding stale rollback-inline assertion and the rollback policy fixture are already fixed/passing.
+- Prior exact proof: NVRAM audit #45659128163 PASS on f9f071b8; HTTPD security #45659190171 and AI docs #45659190213 PASS on 273f4ea2; process inventory #45658659607 and process lifecycle #45658659693 PASS on c4ed4689. d91 production SHA #45657032169 passed Build XY-C1, TRX and artifact upload. dc6 XY-C1 run #45660655080 must be checked before any L3 claim for the detached-start production code.
+- Transactional NVRAM uses a dedicated value cache wiped before lease release. OpenVPN credential newline rejection, memory zeroization, exact callback link validation and ownership-aware startup rollback remain active on main.
 - Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains read-only at 72f4f157a084f8184b9597ca5bf334b8080e5807. Physical-router L4 NOT VERIFIED.
 
 ### First actions
 
-1. Confirm this follow-up's OpenVPN secret and VPN lifecycle source contracts, plus AI handoff docs, all pass on its exact SHA.
-2. Inspect dc6 XY-C1 Build, TRX, and artifact steps; require all three before claiming L3 for dc6.
-3. Continue independent stability/security review across Padavan userland while unrelated checks are pending.
+1. Verify the server lifecycle source contract on this exact follow-up SHA; the remaining server TAP/TUN ordered-call assertions now include interface_created.
+2. Inspect dc6 XY-C1 Build, TRX verification and artifact upload; require all three before claiming L3 for dc6.
+3. Continue independent Padavan userland stability/security work while unrelated Actions are pending.
 
 ### Execution contract
 
