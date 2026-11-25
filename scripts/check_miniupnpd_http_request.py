@@ -33,7 +33,8 @@ header_too_large = body(source, "SendRequestHeaderTooLarge(struct upnphttp * h)"
 assert '#include "miniupnpd_http_request_policy.h"' in source
 assert "int\nParseHttpHeaders(struct upnphttp * h)" in source
 assert "content_length_seen" in headers
-assert "miniupnpd_http_parse_content_length(" in headers
+assert "miniupnpd_http_record_content_length(" in headers
+assert "miniupnpd_http_parse_content_length(" in policy
 assert "miniupnpd_http_record_content_length(" in headers
 assert "strncasecmp(line, \"Transfer-Encoding\", 17)==0" in headers
 assert "return EINVAL;" in headers
