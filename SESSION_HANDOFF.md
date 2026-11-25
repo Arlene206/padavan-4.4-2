@@ -1,20 +1,23 @@
 ## 2026-11-24 autonomous handoff snapshot
 
-This snapshot supersedes older task pointers below where they conflict with live Git state.
+This is the active checkpoint and supersedes older task pointers below where they conflict with the live Git state. Historical records are retained for traceability; do not repeat completed audits.
 
-- Main before this ZeroTier checker correction: `af2635bf8cf445768032648039cbe63260e62511`. Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged. PR #1 remains closed/unmerged.
-- Exact af263 runs: ZeroTier shell regression #45540935579 PASS, Python source contract FAIL because a stale assertion still required the old kernel-only predicate after the route guard had been broadened. The checker contained contradictory conditions: it required `proto == "kernel"` to be absent and then required the old `dev == zt_if && proto == "kernel"` string to be present. Removed the stale assertion and updated the contract message. The new static-route test itself passed.
-- Exact af263 AI handoff docs #45540935621 PASS; Process inventory #45540935726 PASS; WAN route #45540935503 PASS. XY-C1 firmware #45540935577 remained IN_PROGRESS as last observed; no Build/TRX/artifact claim.
-- Exact 956a UDHCP #45540259545 PASS (GNU89, ASan/UBSan, Python source contract); AI docs #45540259712 PASS. UDHCP TLV bounds and option-overload constraints are covered.
-- No local shell regression claimed. Backup remains frozen/read-only.
+- Live `main`: `11402f44cdaf2a172c950cbb0d62be0fa9246d74`. Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged. PR #1 remains closed/unmerged.
+- Exact-current-SHA ZeroTier lifecycle run #45541130864: PASS; AI handoff documentation contract #45541130819: PASS. The shell regression and source checker now both pass with damaged-checkpoint prefix recovery limited to a complete validated prefix, only when `ip route` is readable and no route of any protocol uses the saved interface. Valid strict checkpoints remain authoritative; startup replay and firewall deletion stay strict.
+- UDHCP parser verification #45540259545: PASS on `956a385a88d3aebeb8029ee704b101acf2ea67a2` (GNU89 compile, ASan/UBSan runtime and source contract). Since that SHA, no UDHCP parser/header/test/checker changes have been made. The tested parser validates complete TLV bounds and option-overload length/value (1..3), uniqueness and main-options-only placement.
+- XY-C1 full firmware build #45540135607: PASS on `e43ee62f7c56a49f1744f08375990c3dde1864cd`; Build, TRX verification and artifact upload all succeeded. This is the last confirmed full build and includes the UDHCP production parser changes. Later ZeroTier source change at `af46929e` triggered #45540935577, which passed host-only validation but skipped Build/TRX/artifact. Therefore do not claim a full firmware build for current `11402...` until a full build is run on a production-source SHA containing that ZeroTier change.
+- On `e43ee62f`: Process inventory #45540135599 PASS; AI docs #45540135576 PASS; NVRAM transaction #45540135593 PASS; USB storage #45540135666 PASS; XY-C1 #45540135607 PASS. On `af2635b`: Process inventory #45540935726 PASS; WAN route #45540935503 PASS; AI docs #45540935621 PASS. The current-head AI docs workflow has passed again on `11402...`.
+- The previous AI handoff-documentation size failure noted in the legacy section below is no longer an active task: the current exact-head documentation contract passes. Do not repeat its old size audit without a new failure.
+- No local checkout/host compile is available in this session; all stated test results above are GitHub Actions results for their exact SHAs.
 
 ## Exact first action for the next GPT
 
-1. Verify ZeroTier exact-head source contract after removing the stale kernel-only assertion; shell runtime had already passed.
-2. Poll XY-C1 #45540935577; do not claim firmware success unless Build, TRX and artifact upload all pass for that exact SHA.
-3. Continue independent stability/security work while other checks remain pending. No force-push or backup mutation.
+1. Continue one independent P1/P2 userland stability or security defect; do not re-audit the completed ZeroTier, UDHCP, NVRAM or USB slices. The DNSMasq static-ARP cleanup ownership boundary is a candidate to investigate, but do not change its broad permanent-entry cleanup until a regression proves which entries are owned by this service.
+2. For any new source slice, add a focused regression and source contract, then use one complete Git tree/commit and an expected-SHA non-forced update.
+3. Check the exact new SHA's Actions. Keep the firmware level at "full build verified on e43ee62f; current head host-only validation" until a full XY-C1 Build/TRX/artifact run covers the ZeroTier source change.
+4. Preserve the frozen backup and update this file plus `dev_log.md` before context handoff.
 
-No force-push.
+No force-push. Backup remains read-only.
 
 ## Current repository state
 

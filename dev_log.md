@@ -1,3 +1,11 @@
+## 2026-11-24 — Refresh active handoff after ZeroTier recovery and UDHCP verification
+
+- Live main at checkpoint: `11402f44cdaf2a172c950cbb0d62be0fa9246d74`; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Exact-main ZeroTier lifecycle #45541130864 PASS and AI handoff docs #45541130819 PASS. The recovery fallback now refuses damaged-prefix normalization whenever route inventory is unreadable or any route uses the saved interface; strict valid checkpoint handling is unchanged.
+- UDHCP GNU89/ASan/UBSan/source-contract run #45540259545 PASS on `956a385a88d3aebeb8029ee704b101acf2ea67a2`; its production/test paths are unchanged on current main.
+- Full XY-C1 Build/TRX/artifact #45540135607 PASS on `e43ee62f7c56a49f1744f08375990c3dde1864cd`. Later exact-af263 #45540935577 passed host-only validation but skipped Build/TRX/artifact; current head has no full firmware build result. Do not overstate L3.
+- Process, WAN, NVRAM and USB exact-SHA pass results are recorded in the handoff. The old AI docs size failure is closed by current-head docs PASS. No local tests are claimed.
+
 ## 2026-11-24 — Remove stale kernel-only ZeroTier source assertion
 
 - Exact af263 ZeroTier shell regression passed, including the new `proto static` route refusal. The Python source contract failed because it simultaneously asserted that the old `proto == "kernel"` condition was absent and that the old combined predicate was present.
