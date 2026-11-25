@@ -1,3 +1,12 @@
+## 2026-11-24 — Repair cross-workflow contracts after shared HTTPD uploader change
+
+- Exact-head HTTPD Security #45517975390 passed on e02d1e3a1c631b308885ba3279fd97247564a4ea, including the updated GNU89 policy regression and source contract.
+- AI handoff #45517975544 failed because REFACTOR_ROADMAP.md measured 131566 bytes against the 131072-byte validator limit. Compressed two verbose P1 bullets without deleting completed findings; the resulting roadmap must be rechecked on the correction SHA.
+- FRP Lifecycle #45517975418 passed every shell syntax and lifecycle regression, then failed only at scripts/check_frp_lifecycle.py: its HTTPD contract still expected the former inline FRP-only staging path. The new shared writer preserves FRP's 0700 mode and strict access policy but stages every file class through httpd_upload_create_staging/httpd_upload_publish_staged. Update the checker to verify this shared contract rather than restore the unsafe legacy path.
+- XY-C1 #45517975662 was IN_PROGRESS; NVRAM audit #45517975469 had reached its final raw-ioctl audit. No L3 build/TRX/artifact result is claimed for this SHA.
+
+---
+
 ## 2026-11-24 — Atomically publish HTTPD storage text files
 
 - Security review found that write_textarea_to_file() protected only FRP private scripts with same-directory staging; normal dnsmasq, crontab, OpenVPN, certificate and authorized_keys updates still opened the final pathname with fopen(..., "w"), followed a destination symlink and truncated the previous file before the full replacement had been written.
