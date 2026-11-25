@@ -1,3 +1,11 @@
+## 2026-11-25 — Repair VSFTPD and storage workflow source contracts
+
+- Exact VSFTPD run #45683682240 on f356cfad passed its C regression stage but the Python contract then failed at line 679 because five old assertions still required the removed path-based stat()/HIDE_PARTITION_FILE implementation. Replaced them with the descriptor-relative marker wrapper and behavioral fixture tokens for empty file, FIFO, directory, symlink and dangling symlink.
+- Exact USB storage run #45683527825 on dc4ad757 passed earlier test/build contracts, then the source checker raised NameError at line 162: `pr_filters` was undefined while the script had defined `pull_filters`. Corrected the identifier; the storage workflow path filter includes this checker.
+- XY-C1 run #45683527955 on dc4ad757 ended workflow-success but its job summary explicitly says Build/TRX/artifact were intentionally skipped because production inputs were unchanged. This is not a new L3 validation claim.
+
+---
+
 ## 2026-11-25 — Run VSFTPD hidden-marker contract after function helper setup
 
 - The VSFTPD C regression compilation/execution step completed, then the Python source-contract step failed with NameError because the new hidden-marker assertions were placed above the workflow's function_body() helper definition.

@@ -159,7 +159,7 @@ require("mkfifo(fifo_path, 0600)" in msd_test and
         "MSD Lite regression must prove FIFO source rejection is bounded")
 for path in ("trunk/user/rc/src/msd_lite_config_file.h",
              "trunk/user/rc/src/tests/msd_lite_config_file.c"):
-    require(push_filters.count(path) == 1 and pr_filters.count(path) == 1,
+    require(push_filters.count(path) == 1 and pull_filters.count(path) == 1,
             "MSD Lite config source and regression must trigger push and PR checks")
 require("Compile and run MSD Lite nonblocking config source regression" in workflow,
         "MSD Lite FIFO regression must compile and execute in the storage workflow")

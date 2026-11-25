@@ -1,25 +1,27 @@
 ## Current repository state — 2026-11-25
 
-- Main at this checker follow-up: dc4ad7579e9f4f0cd05b8cddaa40c234f126aaf0. Fetch the live ref before the next write.
-- Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains read-only at 72f4f157a084f8184b9597ca5bf334b8080e5807.
-- Firefly bounded-line source fix 284ececc912a496705db825f3643fa0121d5f1d7 and embedded-NUL fixture ae740fbff80c62f23c6f4b280ee96c5610bc28d6 are verified: on ae740, Firefly #45682623104, AI Docs #45682623337, Process lifecycle #45682623367, Process inventory #45682623222 and NVRAM #45682623246 all PASS.
-- NFS selector hardening/checker fix verified on ffcd7ceb5f5092935203e078d4acb2ea6a2598ba: NFS start/reload #45681847110 and AI Docs #45681847147 PASS.
-- VSFTPD hidden-share fail-open fix is source commit 3bcf67e205a9be881d9d6a54b817c550156c797f. It replaced path-based stat() with fstatat(AT_SYMLINK_NOFOLLOW) against a pinned/revalidated share descriptor; every present entry hides the share, and only ENOENT means visible. Host C regression suite completed before the workflow's Python source-contract step. Exact VSFTPD run #45683462187 failed at that checker: the new assertions called function_body() before its Python definition (NameError), not a source compile or C-test failure. This commit moves the assertions below the helper definition.
-- On 3bcf67..., AI Docs #45683462177 PASS. Process inventory #45683462211, NVRAM #45683462252 and XY-C1 #45683462309 were still in progress when inspected. No same-SHA Build/TRX/artifact success is claimed. Physical L4 remains NOT VERIFIED.
+- Live main before the current checker fix: f356cfad007312e2667c91bb0ea27e1f58ddec14. The update is one atomic descendant; re-fetch live main for subsequent work.
+- Frozen backup branch backup/pre-plugin-overhaul-2026-11-14 remains read-only at 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- Firefly bounded-line source fix 284ececc912a496705db825f3643fa0121d5f1d7 plus embedded-NUL regression follow-up ae740fbff80c62f23c6f4b280ee96c5610bc28d6 are verified. On exact SHA ae740..., Firefly #45682623104, AI Docs #45682623337, Process lifecycle #45682623367, Process inventory #45682623222 and NVRAM #45682623246 all PASS.
+- NFS selector hardening/checker correction is verified on exact SHA ffcd7ceb5f5092935203e078d4acb2ea6a2598ba: NFS start/reload #45681847110 and AI Docs #45681847147 PASS.
+- VSFTPD hidden-share fix is production source commit 3bcf67e205a9be881d9d6a54b817c550156c797f. The first exact VSFTPD failure #45683462187 was Python checker ordering (NameError); moved helper calls below def function_body in f356cfad007312e2667c91bb0ea27e1f58ddec14. Exact f356 run #45683682240 then failed later at stale assertions requiring the old stat()/HIDE_PARTITION_FILE implementation (traceback line 679); the C regression suite had already run. This current commit updates those stale assertions to the new descriptor-relative policy and its FIFO/directory/symlink fixture set.
+- USB storage checker failure #45683527825 on dc4ad7579e9f4f0cd05b8cddaa40c234f126aaf0 reached all earlier C/host/source checks, then failed in scripts/check_storage_safe_remove.py line 162 because it referenced undefined pr_filters instead of defined pull_filters. This commit fixes that genuine Python contract typo; storage workflow explicitly watches the script path.
+- XY-C1 workflow #45683527955 on dc4ad757... concluded SUCCESS at workflow level, but its job log shows the cross-build/TRX/artifact actions were intentionally skipped because production inputs were unchanged. Therefore this is not a new L3 Build/TRX/artifact validation claim. Physical-router L4 remains NOT VERIFIED.
+- On f356, AI handoff #45683682314 PASS. No exact-SHA VSFTPD PASS yet; its Python contract failure above is pending rerun. No same-SHA firmware Build/TRX/artifact pass claimed.
 
 ## Active task
 
-Re-run the VSFTPD stability workflow after the checker-order correction. Continue the descriptor-relative ACL call-site audit for independently demonstrated path-based authorization gaps. PENDING independent jobs do not block source work.
+Re-run exact-head VSFTPD and USB storage regression workflows after fixing their stale/undefined Python assertions. Then continue the VSFTPD descriptor-relative ACL call-site audit or the next concrete independent storage reliability issue. PENDING does not block independent source work.
 
 ## Exact first actions for next GPT
 
-1. Fetch live main; inspect exact-SHA VSFTPD #Actions and firmware verification. Diagnose any actual C regression separately from source-contract failures.
-2. Continue postlogin.c/asus_ext.c filesystem call-site review, prioritizing path-based lookup before permission checks or path re-resolution after authorization.
-3. For L3 require Build, TRX validation and artifact upload on one identical exact SHA. Physical L4 remains unverified.
+1. Fetch live main and check exact-SHA VSFTPD, USB storage, Process, NVRAM, AI and XY-C1 Actions for this commit. Fix failures from actual logs, not speculation.
+2. Continue ACL review in postlogin.c/asus_ext.c only where a concrete pre-authorization path lookup or post-authorization pathname re-resolution remains.
+3. For L3 require real Build, TRX validation and artifact upload all PASS on the same source SHA. A workflow-level success that intentionally skips these steps is not L3. Physical L4 remains unverified.
 
 ## Execution contract
 
-Main only; never modify/delete backup/pre-plugin-overhaul-2026-11-14; no force-push, feature branches or PRs. Build complete blobs/tree/commit atomically, then non-forced expected-SHA update. Check Actions by exact commit SHA and record only confirmed states.
+Main only; never modify/delete backup/pre-plugin-overhaul-2026-11-14; no force-push, branches or PRs. Create all blobs, one complete tree and one commit per logical task; update main with force:false and expected SHA. Check Actions by exact commit SHA and record only confirmed states.
 
 ## 2026-11-25 autonomous handoff checkpoint
 

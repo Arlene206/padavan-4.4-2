@@ -846,11 +846,15 @@ jobs:
           assert "ENAMETOOLONG" in child_path
           assert "length < 0" in child_path
           assert "(size_t) length >= child_size" in child_path
-          assert "static char s_share_test[PATH_MAX];" in hidden_share
-          assert "static char s_share_test[256];" not in hidden_share
-          assert "ftp_acl_path_build_child_path(share_path, HIDE_PARTITION_FILE" in " ".join(hidden_share.split())
-          assert hidden_share.index("ftp_acl_path_build_child_path(") < hidden_share.index("stat(s_share_test, &st)")
-          assert "return 1;" in hidden_share
+          assert "return ftp_acl_path_share_is_hidden(share_path);" in hidden_share
+          for token in (
+              "empty .hidden marker did not hide the share",
+              "FIFO .hidden entry did not fail closed",
+              "directory .hidden entry did not fail closed",
+              "symlink .hidden entry did not fail closed",
+              "dangling .hidden symlink did not fail closed",
+          ):
+              assert token in acl_path_test
           assert "hidden-share marker path truncation policy failed" in acl_path_test
           assert "marker_small" in acl_path_test and "long_mount_path" in acl_path_test
           assert directory.index("asus_check_permission_open_directory(") < directory.index("get_remote_transfer_fd(")
