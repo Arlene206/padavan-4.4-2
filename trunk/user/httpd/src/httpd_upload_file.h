@@ -5,12 +5,46 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
 #ifndef O_NOFOLLOW
 #define O_NOFOLLOW 0
 #endif
+
+static int
+httpd_upload_write_dos2unix(FILE *stream, const char *value)
+{
+	const char *cursor, *newline;
+	size_t line_size, remaining;
+
+	if (!stream || !value) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	cursor = value;
+	while ((newline = strstr(cursor, "\r\n")) != NULL) {
+		line_size = (size_t)(newline - cursor);
+		if (line_size != 0 &&
+		    fwrite(cursor, 1, line_size, stream) != line_size)
+			return -1;
+		if (fputc('\n', stream) == EOF)
+			return -1;
+		cursor = newline + 2;
+	}
+
+	remaining = strlen(cursor);
+	if (remaining != 0 &&
+	    fwrite(cursor, 1, remaining, stream) != remaining)
+		return -1;
+	if (remaining != 0 && cursor[remaining - 1] != '\n' &&
+	    fputc('\n', stream) == EOF)
+		return -1;
+
+	return 0;
+}
 
 static FILE *
 httpd_upload_open_exclusive(const char *path)

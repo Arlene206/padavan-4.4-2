@@ -89,6 +89,44 @@ fail_rename(const char *source, const char *destination)
 	return -1;
 }
 
+static void
+test_dos2unix_preserves_long_records(void)
+{
+	char input[8198], expected[8196], actual[8198];
+	size_t expected_size = 8195U, actual_size;
+	FILE *stream;
+
+	memset(input, 'x', 8192U);
+	memcpy(input + 8192U, "\r\nB\r\n", 6U);
+	memset(expected, 'x', 8192U);
+	expected[8192] = '\n';
+	expected[8193] = 'B';
+	expected[8194] = '\n';
+	expected[8195] = '\0';
+
+	stream = tmpfile();
+	assert(stream != NULL);
+	assert(httpd_upload_write_dos2unix(stream, input) == 0);
+	assert(fflush(stream) == 0);
+	rewind(stream);
+	actual_size = fread(actual, 1, sizeof(actual) - 1U, stream);
+	assert(ferror(stream) == 0);
+	actual[actual_size] = '\0';
+	assert(actual_size == expected_size);
+	assert(memcmp(actual, expected, expected_size) == 0);
+	assert(fclose(stream) == 0);
+
+	stream = tmpfile();
+	assert(stream != NULL);
+	assert(httpd_upload_write_dos2unix(stream, "alpha\r\nbeta") == 0);
+	assert(fflush(stream) == 0);
+	rewind(stream);
+	actual_size = fread(actual, 1, sizeof(actual) - 1U, stream);
+	assert(actual_size == sizeof("alpha\nbeta\n") - 1U);
+	assert(memcmp(actual, "alpha\nbeta\n", actual_size) == 0);
+	assert(fclose(stream) == 0);
+}
+
 int
 main(void)
 {
@@ -99,6 +137,7 @@ main(void)
 	httpd_upload_file_ops_t ops;
 	int n;
 
+	test_dos2unix_preserves_long_records();
 	assert(mkdtemp(dir) != NULL);
 	n = snprintf(target, sizeof(target), "%s/upload.bin", dir);
 	assert(n > 0 && (size_t)n < sizeof(target));

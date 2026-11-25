@@ -421,34 +421,12 @@ sys_script(char *name)
 static int
 write_file_dos2unix_fp(const char* value, FILE *fp)
 {
-	int i_len, result = 0;
-	char *v1, *v2, *v3;
-	char buf[MAX_FILE_LINE_SIZE];
+	int result;
 
 	if (!value || !fp)
 		return -1;
 
-	v1 = (char *)value;
-	v3 = (char *)value + strlen(value);
-	while ((v2 = strstr(v1, "\r\n"))) {
-		i_len = v2 - v1;
-		if (i_len > (MAX_FILE_LINE_SIZE - 2))
-		    i_len = (MAX_FILE_LINE_SIZE - 2);
-		memcpy(buf, v1, i_len);
-		buf[i_len  ] = '\n';
-		buf[i_len+1] = '\0';
-		if (fputs(buf, fp) == EOF) {
-			result = -1;
-			break;
-		}
-		v1 = v2 + 2;
-	}
-	if (result == 0 && v1 < v3) {
-		if (fputs(v1, fp) == EOF ||
-		    (*(v3-1) != '\n' && fputs("\n", fp) == EOF))
-			result = -1;
-	}
-
+	result = httpd_upload_write_dos2unix(fp, value);
 	if (fclose(fp) != 0)
 		result = -1;
 
