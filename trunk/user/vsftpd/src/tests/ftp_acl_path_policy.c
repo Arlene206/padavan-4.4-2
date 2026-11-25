@@ -1480,7 +1480,13 @@ main(void)
             duplicate_upload_fd, duplicate_open_errno,
             FTP_STOU_COLLISION_MAX_RETRIES) ||
         ftp_stou_collision_should_retry(0, EEXIST, 0) ||
-        ftp_stou_collision_should_retry(-1, EACCES, 0)) {
+        ftp_stou_collision_should_retry(-1, EACCES, 0) ||
+        !ftp_stou_candidate_probe_allowed(0U) ||
+        !ftp_stou_candidate_probe_allowed(
+            FTP_STOU_CANDIDATE_MAX_PROBES - 1U) ||
+        ftp_stou_candidate_probe_allowed(FTP_STOU_CANDIDATE_MAX_PROBES) ||
+        ftp_stou_candidate_probe_allowed(FTP_STOU_CANDIDATE_MAX_PROBES + 1U) ||
+        ftp_stou_candidate_probe_allowed(UINT_MAX)) {
       if (duplicate_upload_fd >= 0)
         close(duplicate_upload_fd);
       fprintf(stderr, "exclusive upload collision retry policy failed\n");

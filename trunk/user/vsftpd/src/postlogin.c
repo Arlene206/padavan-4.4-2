@@ -2026,6 +2026,7 @@ get_unique_filename(struct vsf_session* p_sess, struct mystr* p_outstr,
 {
   static struct mystr s_stou_str;
   unsigned int suffix = 1;
+  unsigned int candidate_probes = 0;
   const struct mystr* p_real_base_str = p_base_str;
   int exists = 0;
 
@@ -2055,7 +2056,8 @@ get_unique_filename(struct vsf_session* p_sess, struct mystr* p_outstr,
   }
 
 choose_suffix:
-  while (1) {
+  while (ftp_stou_candidate_probe_allowed(candidate_probes)) {
+    ++candidate_probes;
     str_copy(p_outstr, p_real_base_str);
     str_append_char(p_outstr, '.');
     str_append_ulong(p_outstr, suffix);
@@ -2075,6 +2077,9 @@ choose_suffix:
     }
     ++suffix;
   }
+  /* Do not spend unbounded filesystem probes on a crowded STOU namespace. */
+  errno = EEXIST;
+  return -1;
 }
 static void
 handle_stat(struct vsf_session* p_sess)

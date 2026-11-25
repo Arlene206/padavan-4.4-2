@@ -9,6 +9,13 @@
  * authorization, resolution and I/O failures must remain fail-closed.
  */
 #define FTP_STOU_COLLISION_MAX_RETRIES 16U
+#define FTP_STOU_CANDIDATE_MAX_PROBES 128U
+
+static inline int
+ftp_stou_candidate_probe_allowed(unsigned int candidate_probes)
+{
+  return candidate_probes < FTP_STOU_CANDIDATE_MAX_PROBES;
+}
 
 static inline int
 ftp_stou_collision_should_retry(int open_result, int saved_errno,

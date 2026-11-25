@@ -980,6 +980,13 @@ jobs:
           assert "UINT_MAX" in unique_filename
           assert "get_unique_filename(p_sess, &s_filename" in upload_handler
           assert "Could not select a unique filename." in upload_handler
+          stou_candidate_policy = function_body(
+              vsftpd_stou_policy, "ftp_stou_candidate_probe_allowed(")
+          assert "FTP_STOU_CANDIDATE_MAX_PROBES" in vsftpd_stou_policy
+          assert "candidate_probes < FTP_STOU_CANDIDATE_MAX_PROBES" in stou_candidate_policy
+          assert "while (ftp_stou_candidate_probe_allowed(candidate_probes))" in unique_filename
+          assert "++candidate_probes;" in unique_filename
+          assert "errno = EEXIST;" in unique_filename
           assert "FTP_STOU_COLLISION_MAX_RETRIES" in vsftpd_stou_policy
           assert "open_result < 0" in stou_collision_policy
           assert "saved_errno == EEXIST" in stou_collision_policy
