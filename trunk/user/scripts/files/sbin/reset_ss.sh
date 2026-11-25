@@ -1,9 +1,31 @@
 #!/bin/sh
 
-script_start="/etc/storage/start_script.sh"
+script_dir=/etc/storage
+script_start="$script_dir/start_script.sh"
+script_tmp=
 
-# create start script
-cat > "$script_start" <<EOF
+if [ -L "$script_dir" ] || [ ! -d "$script_dir" ]; then
+	echo "reset_ss: unsafe storage script directory: $script_dir" >&2
+	exit 1
+fi
+script_tmp=$(mktemp "$script_dir/.start_script.sh.XXXXXX") || {
+	echo "reset_ss: cannot stage start script in $script_dir" >&2
+	exit 1
+}
+cleanup_script_tmp()
+{
+	if [ -n "$script_tmp" ]; then
+		rm -f "$script_tmp"
+	fi
+}
+trap 'cleanup_script_tmp' EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+# Publish the complete template atomically. Quoted EOF keeps runtime
+# variables and command substitutions inside start_script.sh.
+cat > "$script_tmp" <<'EOF'
 #!/bin/sh
 
 ### Custom user script for tuning router before start
@@ -91,9 +113,22 @@ echo 1        > /proc/sys/kernel/panic_on_oops
 echo 0        > /proc/sys/vm/panic_on_oom
 
 EOF
-chmod 755 "$script_start"
+if [ "$?" -ne 0 ]; then
+	echo "reset_ss: cannot write staged start script" >&2
+	exit 1
+fi
+if ! chmod 755 "$script_tmp"; then
+	echo "reset_ss: cannot set start script permissions" >&2
+	exit 1
+fi
+if ! mv -f "$script_tmp" "$script_start"; then
+	echo "reset_ss: cannot publish start script: $script_start" >&2
+	exit 1
+fi
+script_tmp=
+trap - EXIT HUP INT TERM
 
 if [ -z "$1" ] ; then
-	$script_start
+	"$script_start"
 	mtd_storage.sh save
 fi

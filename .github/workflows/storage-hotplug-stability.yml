@@ -20,6 +20,7 @@ on:
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/scripts/files/sbin/mtd_storage.sh"
       - "trunk/user/scripts/files/sbin/rwfs2ubi.sh"
+      - "trunk/user/scripts/files/sbin/reset_ss.sh"
       - "trunk/user/httpd/src/httpd.h"
       - "trunk/user/httpd/src/upload.c"
       - "trunk/user/httpd/src/web_ex.c"
@@ -27,6 +28,7 @@ on:
       - "trunk/user/scripts/tests/mtd_storage_restore_transaction.sh"
       - "trunk/user/scripts/tests/mtd_storage_backup_failure.sh"
       - "trunk/user/scripts/tests/rwfs2ubi_status.sh"
+      - "trunk/user/scripts/tests/reset_ss_template.sh"
       - "trunk/user/scripts/tests/mtd_storage_load_transaction.sh"
       - "trunk/user/scripts/tests/mtd_storage_erase_reset.sh"
       - "trunk/user/rc/src/storage_persistence_policy.h"
@@ -115,6 +117,7 @@ on:
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/scripts/files/sbin/mtd_storage.sh"
       - "trunk/user/scripts/files/sbin/rwfs2ubi.sh"
+      - "trunk/user/scripts/files/sbin/reset_ss.sh"
       - "trunk/user/httpd/src/httpd.h"
       - "trunk/user/httpd/src/upload.c"
       - "trunk/user/httpd/src/web_ex.c"
@@ -124,6 +127,7 @@ on:
       - "trunk/user/scripts/tests/mtd_storage_erase_reset.sh"
       - "trunk/user/scripts/tests/mtd_storage_backup_failure.sh"
       - "trunk/user/scripts/tests/rwfs2ubi_status.sh"
+      - "trunk/user/scripts/tests/reset_ss_template.sh"
       - "trunk/user/rc/src/storage_persistence_policy.h"
       - "trunk/user/rc/src/tests/storage_persistence_policy.c"
       - "trunk/user/rc/src/common_ex.c"
@@ -348,6 +352,15 @@ jobs:
           busybox_bin="$PWD/trunk/user/busybox/busybox-1.24.x/busybox"
           test -x "$busybox_bin"
           BUSYBOX_BIN="$busybox_bin" sh trunk/user/scripts/tests/rwfs2ubi_status.sh
+      - name: Verify reset_ss deferred template expansion and atomic publication
+        run: |
+          set -eu
+          sh -n trunk/user/scripts/files/sbin/reset_ss.sh
+          sh -n trunk/user/scripts/tests/reset_ss_template.sh
+          sh trunk/user/scripts/tests/reset_ss_template.sh
+          busybox_bin="$PWD/trunk/user/busybox/busybox-1.24.x/busybox"
+          test -x "$busybox_bin"
+          BUSYBOX_BIN="$busybox_bin" sh trunk/user/scripts/tests/reset_ss_template.sh
       - name: Check MTD storage save script syntax
         run: sh -n trunk/user/scripts/files/sbin/mtd_storage.sh
       - name: Verify MTD storage save retry after flash failure

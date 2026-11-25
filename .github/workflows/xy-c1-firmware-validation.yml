@@ -313,6 +313,7 @@ on:
       - "trunk/user/rc/src/storage_persistence_policy.h"
       - "trunk/user/scripts/files/sbin/mtd_storage.sh"
       - "trunk/user/scripts/files/sbin/rwfs2ubi.sh"
+      - "trunk/user/scripts/files/sbin/reset_ss.sh"
       - "trunk/user/scripts/files/sbin/check_crontab.sh"
       - "trunk/user/scripts/files/sbin/automount.sh"
       - "trunk/user/rc/src/services.c"
