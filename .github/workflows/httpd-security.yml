@@ -5727,8 +5727,8 @@ jobs:
           assert "httpd_upload_open_regular_readonly(alias)" in upload_policy_test
           assert "httpd_upload_open_regular_readonly(fifo)" in upload_policy_test
           assert "httpd_upload_open_regular_readonly(hardlink)" in upload_policy_test
-          crc_start = upload.index("static int\\ncheck_crc_image(const char *fw_image)")
-          crc_end = upload.index("\\nstatic int\\ndo_upload_file", crc_start)
+          crc_start = upload.index("static int" + chr(10) + "check_crc_image(const char *fw_image)")
+          crc_end = upload.index(chr(10) + "static int" + chr(10) + "do_upload_file", crc_start)
           crc_check = upload[crc_start:crc_end]
           assert "httpd_upload_open_regular_readonly(fw_image)" in crc_check
           assert "open(fw_image, O_RDONLY|O_BINARY)" not in crc_check
