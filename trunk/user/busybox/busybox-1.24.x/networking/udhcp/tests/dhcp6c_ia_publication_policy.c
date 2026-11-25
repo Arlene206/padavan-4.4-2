@@ -73,11 +73,75 @@ test_first_error_and_retry_gate(void)
 	assert(dhcp6c_ia_first_error(0, 0) == 0);
 }
 
+struct fake_remove_target {
+	int pending;
+	int error;
+	int attempts;
+};
+
+static int
+remove_targets(struct fake_remove_target *targets, size_t count)
+{
+	size_t i;
+	int first_error = 0;
+
+	for (i = 0; i < count; ++i) {
+		if (!targets[i].pending)
+			continue;
+		++targets[i].attempts;
+		if (!dhcp6c_ia_ifaddr_change_complete(0, targets[i].error)) {
+			if (first_error == 0)
+				first_error = targets[i].error ? targets[i].error : EIO;
+			continue;
+		}
+		targets[i].pending = 0;
+	}
+	return first_error;
+}
+
+static void
+test_failed_address_removal_is_retained_and_retried(void)
+{
+	struct fake_remove_target targets[] = {
+		{ 1, 0, 0 },
+		{ 1, EIO, 0 },
+		{ 1, ENOENT, 0 }
+	};
+
+	assert(remove_targets(targets, sizeof(targets) / sizeof(targets[0])) == EIO);
+	assert(!targets[0].pending && targets[0].attempts == 1);
+	assert(targets[1].pending && targets[1].attempts == 1);
+	assert(!targets[2].pending && targets[2].attempts == 1);
+
+	targets[1].error = 0;
+	assert(remove_targets(targets, sizeof(targets) / sizeof(targets[0])) == 0);
+	assert(!targets[1].pending && targets[1].attempts == 2);
+	assert(remove_targets(targets, sizeof(targets) / sizeof(targets[0])) == 0);
+	assert(targets[0].attempts == 1 && targets[1].attempts == 2);
+	assert(targets[2].attempts == 1);
+}
+
+static void
+test_address_change_absent_and_duplicate_errors(void)
+{
+	assert(DHCP6C_IA_CLEANUP_RETRY_DELAY_MS == 5000ULL);
+	assert(dhcp6c_ia_ifaddr_change_complete(1, 0));
+	assert(dhcp6c_ia_ifaddr_change_complete(1, EEXIST));
+	assert(!dhcp6c_ia_ifaddr_change_complete(1, ENOENT));
+	assert(dhcp6c_ia_ifaddr_change_complete(0, 0));
+	assert(dhcp6c_ia_ifaddr_change_complete(0, ENOENT));
+	assert(dhcp6c_ia_ifaddr_change_complete(0, EADDRNOTAVAIL));
+	assert(!dhcp6c_ia_ifaddr_change_complete(0, EEXIST));
+	assert(!dhcp6c_ia_ifaddr_change_complete(0, EIO));
+}
+
 int
 main(void)
 {
 	test_partial_pd_failure_is_retried_without_reapplying_successes();
 	test_first_error_and_retry_gate();
-	puts("DHCPv6 IA delegated-prefix retry policy: PASS");
+	test_failed_address_removal_is_retained_and_retried();
+	test_address_change_absent_and_duplicate_errors();
+	puts("DHCPv6 IA delegated-prefix retry and removal policy: PASS");
 	return 0;
 }

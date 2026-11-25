@@ -64,6 +64,7 @@ struct ia {
 
 	/* internal parameters for renewal/rebinding */
 	iastate_t state;
+	int cleanup_pending;		/* cleanup retries outlive the IA event */
 	struct dhcp6_timer *timer;
 
 	/* DHCP related parameters */
@@ -105,7 +106,7 @@ void destruct_iadata(struct dhcp6_eventdata *evd);
 
 static int prepare_iaevent(struct ia *, int);
 static int reestablish_ia(struct ia *);
-static void remove_ia(struct ia *);
+static int remove_ia(struct ia *);
 static struct ia *get_ia(struct dhcp6_if *, struct ia_conf *,
     struct dhcp6_listval *, struct dhcp6_vbuf *);
 static struct dhcp6_timer *ia_timo(void *);
@@ -124,7 +125,7 @@ static int iapref_renew(struct iactl *, struct dhcp6_ia *,
         struct dhcp6_eventdata *);
 static ALWAYS_INLINE int pref_isvalid(struct iactl *);
 static uint32_t pref_duration(struct iactl *);
-static void pref_cleanup(struct iactl *);
+static int pref_cleanup(struct iactl *);
 static struct dhcp6_timer *iapref_timo(void *);
 static int add_ifprefix(struct iaprefix *,
     struct dhcp6_prefix *, struct prefix_ifconf *);
@@ -437,27 +438,28 @@ void release_all_ia(struct dhcp6_if *ifp)
 	}
 }
 
-static void remove_ia(struct ia *ia)
+static int remove_ia(struct ia *ia)
 {
 	struct ia_conf *iac = ia->conf;
 	struct dhcp6_if *ifp = ia->ifp;
 
 	log1("remove an %s-%u", dhcp6optstr(ia->conf->type), ia->conf->iaid);
 
-	TAILQ_REMOVE(&iac->iadata, ia, link);
-
-	dhcp6_vbuf_free(&ia->serverid);
-
+	ia->cleanup_pending = 1;
 	if (ia->timer)
 		dhcp6_timer_remove(&ia->timer);
 
-	if (ia->ctl)
-		pref_cleanup(ia->ctl);
+	/* Keep the IA and controller alive while kernel address deletion retries. */
+	if (ia->ctl && pref_cleanup(ia->ctl) != 0)
+		return -1;
 
+	TAILQ_REMOVE(&iac->iadata, ia, link);
+	dhcp6_vbuf_free(&ia->serverid);
 	free(ia->authparam);
 	free(ia);
 
 	client6_start(ifp);
+	return 0;
 }
 
 static struct dhcp6_timer *ia_timo(void *arg)
@@ -685,8 +687,9 @@ static int update_prefix6(struct ia *ia, struct dhcp6_listval *lv,
 	 */
 	switch (sp->pa.vltime) {
 	case 0:
-		remove_iaprefix(sp, (lv->lvtype == DHCP6_LISTVAL_PREFIX6) ?
-				     D6_OPT_IA_PD : D6_OPT_IA_NA);
+		if (remove_iaprefix(sp, (lv->lvtype == DHCP6_LISTVAL_PREFIX6) ?
+				    D6_OPT_IA_PD : D6_OPT_IA_NA) != 0)
+			return -1;
 		break;
 	case DHCP6_DURATION_INFINITE:
 		if (sp->timer)
@@ -744,24 +747,40 @@ static int remove_iaprefix(struct iaprefix *sp, int type)
 		dhcp6_timer_remove(&sp->timer);
 
 	if (type == D6_OPT_IA_PD) {
-		struct dhcp6_ifprefix *ip;
+		struct dhcp6_ifprefix *ip, *next;
 
-		/* remove all interface prefixes */
-		while ((ip = TAILQ_FIRST(&sp->u.ifprefix_list)) != NULL) {
+		/* Keep failed deletions tracked and retry them independently. */
+		for (ip = TAILQ_FIRST(&sp->u.ifprefix_list); ip != NULL; ip = next) {
+			next = TAILQ_NEXT(ip, plink);
+			if (ifaddrconf(IFADDRCONF_REMOVE, ip->ifconf->ifname,
+				       &ip->ifaddr, ip->plen,
+				       DHCP6_DURATION_INFINITE, DHCP6_DURATION_INFINITE) != 0) {
+				ret = errno > 0 ? errno : EIO;
+				continue;
+			}
 			TAILQ_REMOVE(&sp->u.ifprefix_list, ip, plink);
-			ifaddrconf(IFADDRCONF_REMOVE, ip->ifconf->ifname,
-						&ip->ifaddr, ip->plen,
-						DHCP6_DURATION_INFINITE, DHCP6_DURATION_INFINITE);
 			free(ip);
 		}
-	} else {
-		ret = ifaddrconf(IFADDRCONF_REMOVE, sp->u.dhcpif->ifname, &sp->pa.addr,
-						128, sp->pa.pltime, sp->pa.vltime);
+		if (ret != 0)
+			goto retry;
+	} else if (ifaddrconf(IFADDRCONF_REMOVE, sp->u.dhcpif->ifname, &sp->pa.addr,
+			     128, sp->pa.pltime, sp->pa.vltime) != 0) {
+		ret = errno > 0 ? errno : EIO;
+		goto retry;
 	}
 
 	TAILQ_REMOVE(&sp->ctl->iaprefix_head, sp, link);
 	free(sp);
-	return ret;
+	return 0;
+
+  retry:
+	/* The IA stays alive while this timer retries kernel cleanup. */
+	if (sp->timer == NULL)
+		sp->timer = dhcp6_timer_add(iapref_timo, sp);
+	if (sp->timer != NULL)
+		dhcp6_timer_set(DHCP6C_IA_CLEANUP_RETRY_DELAY_MS, sp->timer);
+	errno = ret;
+	return -1;
 }
 
 static ALWAYS_INLINE int pref_isvalid(struct iactl *iac)
@@ -790,16 +809,18 @@ static uint32_t pref_duration(struct iactl *iac)
 	return base;
 }
 
-static void pref_cleanup(struct iactl *iac)
+static int pref_cleanup(struct iactl *iac)
 {
 	struct iaprefix *sp;
 
 	while ((sp = TAILQ_FIRST(&iac->iaprefix_head)) != NULL) {
-		TAILQ_REMOVE(&iac->iaprefix_head, sp, link);
-		remove_iaprefix(sp, iac->type);
+		/* remove_iaprefix() unlinks only after all kernel deletes succeed. */
+		if (remove_iaprefix(sp, iac->type) != 0)
+			return -1;
 	}
 
 	free(iac);
+	return 0;
 }
 
 static int iapref_renew(struct iactl *iac, struct dhcp6_ia *iaparam,
@@ -847,10 +868,11 @@ static struct dhcp6_timer *iapref_timo(void *arg)
 	if (sp->timer)
 		dhcp6_timer_remove(&sp->timer);
 
-	remove_iaprefix(sp, sp->ctl->type);
+	if (remove_iaprefix(sp, sp->ctl->type) != 0)
+		return NULL;
 
-	/* see if this IA is still valid.  if not, remove it. */
-	if (ia->ctl == NULL || !pref_isvalid(ia->ctl)) {
+	/* Continue release/auth cleanup even when other prefixes remain. */
+	if (ia->cleanup_pending || ia->ctl == NULL || !pref_isvalid(ia->ctl)) {
 		log1("%s-%u is invalidated",
 		    dhcp6optstr(ia->conf->type), ia->conf->iaid);
 		remove_ia(ia);

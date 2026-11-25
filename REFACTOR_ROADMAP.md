@@ -1,6 +1,5 @@
-## 2026-11-25 — udhcpc select timeout underflow
-- Fixed signed `timeout` minus unsigned `already_waited_sec` in the event loop: after an EINTR that consumes the remaining budget, the old subtraction could wrap to a huge positive `timeval.tv_sec` and stall lease-state transitions.
-- Added a saturating remaining-time policy and GNU89 ASan/UBSan boundary coverage for before/at/after-deadline, negative/zero budgets and large elapsed values. Exact-host Actions and XY-C1 validation pending.
+## DHCPv6 IA (2026-11-25)
+- Add failures retry Reply; PD retries missing interfaces. Remove failures retain IA state and retry; host regressions added, exact CI pending.
 
 ---
 

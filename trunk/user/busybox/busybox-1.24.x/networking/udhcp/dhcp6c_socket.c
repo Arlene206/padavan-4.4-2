@@ -32,6 +32,7 @@
 #include <netinet/in.h>
 
 #include "dhcp6c.h"
+#include "dhcp6c_ia_policy.h"
 
 #ifndef SO_REUSEPORT
 #define SO_REUSEPORT SO_REUSEADDR
@@ -133,7 +134,7 @@ int ifaddrconf(ifaddrconf_cmd_t cmd, const char *ifname, struct in6_addr *addr,
 	req.ifr6_ifindex = ifr.ifr_ifindex;
 
 	if (ioctl(sk, ioctl_cmd, &req)) {
-		if (errno == EEXIST) /* Ignore address duplicate */
+		if (dhcp6c_ia_ifaddr_change_complete(cmd == IFADDRCONF_ADD, errno))
 			goto out;
 		bb_perror_msg("can't %s address on %s", cmdstr[cmd], ifname);
 		close(sk);

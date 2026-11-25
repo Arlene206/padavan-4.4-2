@@ -1,29 +1,30 @@
-## 2026-11-25 autonomous handoff — udhcpc select timeout saturation
+## 2026-11-25 autonomous handoff — DHCPv6 IA publication and cleanup
 
-Startup recovery and the DHCPv6 IA retry slice are complete for this work period. Resume from the current main state; do not repeat the completed U2EC, MTD fill, WAN/PPP, DHCPv6 source or process-inventory audits without new evidence.
+Startup recovery for this work period is complete. This active checkpoint supersedes older task pointers; the remainder is historical. Do not repeat completed U2EC, procps, WAN/PPP or other audits without new evidence.
 
-### Main / archival state
-- Main immediately before this atomic source slice: `aa1bdf567d3100f5e773bdd9b41235cc85346bbc`. The new source, policy helper, regression, checker and live status records are committed together in one complete Git tree.
-- Frozen `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`. No development branch, PR or force update was used.
-- Closed, unmerged PR #1 has 17 commits / 13 changed files. All 13 paths exist on current main; its core CA bootstrap and OpenSSL 3 EVP_MAC HMAC-secret-stdin changes are present in current main (`copyscripts.sh`, the AliDDNS helper source/Makefiles, shell caller, regressions and workflow). Do not revive or develop on the closed PR ref; no separate branch port is currently needed for those already-present paths. Reconcile any residual diff only if a concrete missing behavior is found.
+### Live Git state
+- Main parent before this atomic cleanup slice: `c623f1e352db3f54dc6d10e2b7d2dd3e9cc2591d`. Publication retry source commit `0b41a2ed600fdf2c39358a6ef46d5acb4dc593fa`; checker follow-ups `fd0e5818afc44b1a7a55658d5ce22718a3f377b7`, `a319ffe3edd200f2f5634d34345b63563425dd7c`, and `aa1bdf567d3100f5e773bdd9b41235cc85346bbc`.
+- Frozen read-only backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`. Main-only, full-tree atomic commits; use force:false and expected SHA.
 
-### Completed DHCPv6 IA slice
-- Product source commit `0b41a2ed600fdf2c39358a6ef46d5acb4dc593fa` propagates IA_NA/IA_PD kernel publication errors, retries the same Reply before configuration callback, and reconciles missing downstream PD interfaces without reapplying successful ones.
-- Exact-head DHCPv6 IA regression #45618045032 PASS and AI handoff docs #45618045228 PASS on main SHA `aa1bdf567d3100f5e773bdd9b41235cc85346bbc`. Reply-script #45617826451, WAN callback #45617826457, NVRAM audit #45617826329, Process inventory #45617826560, storage #45617826515 and AI docs #45617826480 all PASS on `a319ffe3edd200f2f5634d34345b63563425dd7c`.
-- XY-C1 #45617826332 was still in Build XY-C1 on `a319ffe3` at the last observed poll; TRX and artifact were therefore not yet proven on that SHA. The new DHCPv4 code change triggers a fresh product-source run.
+### DHCPv6 IA verified/follow-up
+- IA_NA/IA_PD add failures propagate from `update_ia()`; the client retries the same Reply at the existing 5-second interval before invoking the configuration script.
+- IA_PD retries missing downstream interfaces without repeating successful installations.
+- IA publication workflow #45618045032 and AI docs workflow #45618045228: PASS on `a319ffe`. DHCPv6 script retry #45617826451, WAN callback #45617826457 and NVRAM #45617826329: PASS on `a319ffe`.
+- XY-C1 workflow #45617826332 for `a319ffe`: Build XY-C1 was in progress at last poll; TRX and artifact upload remain unverified.
+- New finding: `remove_iaprefix()` discarded IA_PD tracking despite kernel delete failure; IA_NA deletion errors were also ignored by cleanup callers. `pref_cleanup()` unlinked entries before a helper unlinked them again. This could leave stale addresses with no retry state.
+- This slice retains failed delete nodes, schedules 5-second retry, keeps the IA/controller allocated until cleanup completes, and resumes pending IA cleanup after each prefix timer. Already-absent deletes are idempotent; EEXIST is success only for ADD.
 
-### Current DHCPv4 / udhcpc fix
-- In `dhcpc.c`, `timeout` is signed while `already_waited_sec` is unsigned. After an EINTR, when elapsed time reached/exceeded the timeout, the prior subtraction could wrap and assign a huge positive wait to `timeval.tv_sec`, delaying lease-state timeout processing.
-- This slice adds a saturating `udhcpc_wait_remaining_seconds()` policy, replaces the unsafe subtraction, and adds GNU89 regression boundaries for exact/over deadline and extreme values. Existing `udhcpc-script-status-stability.yml` filters already include the changed C source, policy header, regression and checker; XY-C1 filters include the C source and policy header.
-- A local isolated GNU89 ASan/UBSan policy smoke test passed. This is not the full repository regression. Exact-head Actions are pending until the new commit is pushed; MIPS/uClibc Build/TRX/artifact must run on the same product-source SHA before L3 is claimed.
+### Verification
+- Cleanup host regression, source-contract checker and exact-head workflows are pending on this slice. Physical router L4 remains unverified.
 
 ### First next actions
-1. Inspect exact-main `udhcpc-script-status-stability`, AI docs, and XY-C1 runs for this commit. The host regression should cover the saturating wait helper; diagnose the first causal failure if any.
-2. Confirm XY-C1 Build, TRX verification and artifact upload all succeed on one identical SHA. The older #45617826332 run on `a319ffe3` was pending at its last poll and is not sufficient for the new DHCPv4 source edit.
-3. Continue cross-userland WAN/IPv6 route lifecycle stability work; preserve physical-router L4 as NOT VERIFIED until an actual device result.
+1. Verify cleanup regression and source checker on exact main; inspect and fix any failure logs.
+2. Poll XY-C1 Build → TRX → artifact on one identical source SHA; do not claim L3 before all pass.
+3. Continue independent WAN/IPv6 route lifecycle and MIPS/uClibc runtime stability work while Actions are pending.
 
 ### Execution contract
-Use source change → focused regression → one complete tree/commit → non-forced expected-SHA main update → exact-head Actions. PENDING checks never block independent work. Do not edit the frozen backup, create branches/PRs, or perform force updates. Update this handoff before stopping if the task, validation boundary or next action changes materially.
+Source change → focused regression → one atomic complete-tree commit → exact-SHA Actions. No per-file intermediate commits, force update, PR/branch creation or backup edits. Update this handoff with exact SHA and CI evidence before context exhaustion.
+
 
 ---
 

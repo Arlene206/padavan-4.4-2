@@ -52,6 +52,7 @@ def function_body(source, signature):
 
 ia = read(BASE + "dhcp6c_ia.c")
 client = read(BASE + "dhcp6c.c")
+socket = read(BASE + "dhcp6c_socket.c")
 header = read(BASE + "dhcp6c.h")
 policy = read(BASE + "dhcp6c_ia_policy.h")
 test = read(BASE + "tests/dhcp6c_ia_publication_policy.c")
@@ -64,6 +65,8 @@ assert "int update_ia(struct dhcp6_list *iahead" in header
 assert "dhcp6c_ia_pd_target_needs_apply" in policy
 assert "dhcp6c_ia_first_error" in policy
 assert "dhcp6c_ia_retry_required" in policy
+assert "dhcp6c_ia_ifaddr_change_complete" in policy
+assert "DHCP6C_IA_CLEANUP_RETRY_DELAY_MS == 5000ULL" in test
 
 installed = function_body(ia, "static int ifprefix_is_installed(struct iaprefix *sp, struct prefix_ifconf *pif)")
 assert "TAILQ_FOREACH(ip, &sp->u.ifprefix_list, plink)" in installed
@@ -96,6 +99,36 @@ assert "DHCP6C_SCRIPT_RETRY_DELAY_MS" in apply_block
 assert "return -1;" in apply_block
 assert "script_status = dhcp6_script(" in reply
 
+remove_prefix = function_body(ia, "static int remove_iaprefix(struct iaprefix *sp, int type)")
+assert "TAILQ_NEXT(ip, plink)" in remove_prefix
+assert "ret = errno > 0 ? errno : EIO;" in remove_prefix
+assert "goto retry;" in remove_prefix
+assert "dhcp6_timer_add(iapref_timo, sp)" in remove_prefix
+assert "dhcp6_timer_set(DHCP6C_IA_CLEANUP_RETRY_DELAY_MS, sp->timer)" in remove_prefix
+assert "TAILQ_REMOVE(&sp->u.ifprefix_list, ip, plink);" in remove_prefix
+
+cleanup = function_body(ia, "static int pref_cleanup(struct iactl *iac)")
+assert "if (remove_iaprefix(sp, iac->type) != 0)" in cleanup
+assert cleanup.index("if (remove_iaprefix") < cleanup.index("free(iac)")
+assert "TAILQ_REMOVE(&iac->iaprefix_head, sp, link)" not in cleanup
+
+remove_ia = function_body(ia, "static int remove_ia(struct ia *ia)")
+assert "ia->cleanup_pending = 1;" in remove_ia
+assert "if (ia->ctl && pref_cleanup(ia->ctl) != 0)" in remove_ia
+assert remove_ia.index("pref_cleanup(ia->ctl)") < remove_ia.index("TAILQ_REMOVE(&iac->iadata, ia, link)")
+
+expiry = function_body(ia, "static struct dhcp6_timer *iapref_timo(void *arg)")
+assert "if (remove_iaprefix(sp, sp->ctl->type) != 0)" in expiry
+assert "ia->cleanup_pending || ia->ctl == NULL || !pref_isvalid(ia->ctl)" in expiry
+
+socket_body = function_body(socket, "int ifaddrconf(ifaddrconf_cmd_t cmd, const char *ifname, struct in6_addr *addr,")
+assert "dhcp6c_ia_ifaddr_change_complete(cmd == IFADDRCONF_ADD, errno)" in socket_body
+assert "if (errno == EEXIST)" not in socket_body
+
+assert "test_failed_address_removal_is_retained_and_retried" in test
+assert "test_address_change_absent_and_duplicate_errors" in test
+assert "DHCPv6 IA delegated-prefix retry and removal policy: PASS" in test
+
 assert "test_partial_pd_failure_is_retried_without_reapplying_successes" in test
 assert "test_first_error_and_retry_gate" in test
 assert "DHCPv6 IA delegated-prefix retry policy: PASS" in test
@@ -105,6 +138,7 @@ required_paths = (
     "scripts/check_dhcp6c_ia_publication.py",
     BASE + "dhcp6c_ia.c",
     BASE + "dhcp6c.c",
+    BASE + "dhcp6c_socket.c",
     BASE + "dhcp6c.h",
     BASE + "dhcp6c_ia_policy.h",
     BASE + "tests/dhcp6c_ia_publication_policy.c",

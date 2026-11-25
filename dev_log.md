@@ -1,3 +1,10 @@
+## 2026-11-25 — Retain failed DHCPv6 address removals for retry
+- remove_iaprefix() previously discarded IA_PD target records even when kernel deletion failed; IA_NA failures were ignored by cleanup callers. pref_cleanup() also unlinked the same entry twice. Stale IPv6 addresses could remain installed without retry state.
+- Cleanup now retains failed targets, schedules bounded retry, keeps the IA/controller allocated until all deletes succeed, and resumes pending IA cleanup after each prefix timer. Already-absent deletes are idempotent; EEXIST is accepted only for ADD.
+- Added host errno-classification/selective-removal regression and production source-contract checks. Exact-head Actions and XY-C1 Build/TRX verification pending.
+
+---
+
 ## 2026-11-25 20:59 CST (UTC+8) — Clamp expired udhcpc select waits
 
 - Base SHA: `aa1bdf567d3100f5e773bdd9b41235cc85346bbc`.
