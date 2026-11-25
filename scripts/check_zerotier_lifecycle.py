@@ -407,6 +407,7 @@ require('zt_state_file="$config_path/.firewall-state"' in stop_body and
         stop_body.index('if ! zerotier_read_nat_enabled; then') and
         'stop accepted a corrupt firewall checkpoint with an unknown saved source-NAT segment' in test and
         'corrupt firewall checkpoint was overwritten or removed' in test,
+        'stop accepted a corrupt firewall checkpoint with a live route and unknown old source-NAT segment' in test and
         "stop must fail closed before signalling when an existing firewall recovery checkpoint cannot be parsed")
 for marker in ("rules accepted an unreadable NAT selector as disabled",
                "NAT selector read failure stopped the daemon",

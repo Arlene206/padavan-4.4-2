@@ -1438,6 +1438,50 @@ TEST_IFCONFIG_MODE=none
 TEST_ROUTE_MODE=none
 TEST_NAT_ENABLE=0
 
+# A live route cannot reconstruct an older source-NAT segment either. A corrupt
+# checkpoint must block shutdown before any rules are overwritten or signalled.
+/bin/rm -rf "$TEST_CONFIG"
+mkdir -p "$TEST_CONFIG"
+: > "$TEST_IPTABLES_LOG"
+: > "$TEST_IPTABLES_STATE_FILE"
+TEST_IPTABLES_FAIL_ON=""
+TEST_IPTABLES_CHECK_FAIL_ON=""
+TEST_IPTABLES_DELETE_FAIL_ON=""
+test_seed_firewall_rules
+printf '%s\n' 'nat POSTROUTING -s 10.148.18.0/24 -j MASQUERADE' >> "$TEST_IPTABLES_STATE_FILE"
+: > "$TEST_IPTABLES_LOG"
+printf '%s\n' 'ztunit' '10.147.17.0/24' 'corrupt-extra-record' > "$TEST_CONFIG/.firewall-state"
+TEST_STATIC_ROUTE_COUNT=0
+TEST_STATIC_ROUTE_ENABLE=0
+TEST_NAT_ENABLE=0
+TEST_IFCONFIG_MODE=running-only
+TEST_ROUTE_MODE=daemon-only
+echo 0 > "$TEST_ROUTE_COUNT"
+zt0=""
+ip_segment=""
+: > "$TEST_KILL_LOG"
+: > "$TEST_ACTION_LOG"
+test_proc_reset
+test_proc_add 4322 "$PROG" "$PROG"
+echo running > "$TEST_STATE"
+TEST_MODE=graceful
+if stop_zero; then
+	fail "stop accepted a corrupt firewall checkpoint with a live route and unknown old source-NAT segment"
+fi
+[ "$(cat "$TEST_STATE")" = running ] || fail "live-route corrupt checkpoint stopped the daemon"
+[ ! -s "$TEST_KILL_LOG" ] || fail "live-route corrupt checkpoint still signalled the daemon"
+[ ! -s "$TEST_IPTABLES_LOG" ] || fail "live-route corrupt checkpoint attempted firewall edits"
+grep -Fqx -- "nat POSTROUTING -s 10.148.18.0/24 -j MASQUERADE" "$TEST_IPTABLES_STATE_FILE" || fail "live-route corrupt checkpoint lost the older source-NAT rule"
+[ "$(wc -l < "$TEST_CONFIG/.firewall-state" | tr -d ' ')" = 3 ] || fail "live-route corrupt checkpoint was overwritten or removed"
+grep -Fqx -- "corrupt-extra-record" "$TEST_CONFIG/.firewall-state" || fail "live-route corrupt checkpoint marker was removed"
+/bin/rm -rf "$TEST_CONFIG"
+: > "$TEST_IPTABLES_STATE_FILE"
+: > "$TEST_IPTABLES_LOG"
+test_proc_reset
+TEST_IFCONFIG_MODE=none
+TEST_ROUTE_MODE=none
+TEST_NAT_ENABLE=0
+
 # An already-absent configured route is an idempotent success.
 TEST_STATIC_ROUTE_COUNT=1
 TEST_STATIC_ROUTE_ENABLE=1
