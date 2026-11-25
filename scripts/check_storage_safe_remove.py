@@ -1378,8 +1378,8 @@ require("if func_reset && func_fill; then" in reset_dispatch and
 require("Reset preparation failed; storage save lock retained" in reset_dispatch,
         "failed reset preparation must not continue into default fill or app startup")
 
-fill_case_start = mtd_storage.index("\\nfill)\\n") + 1
-fill_case_end = mtd_storage.index("\\n\\t;;", fill_case_start)
+fill_case_start = mtd_storage.index("\nfill)\n") + 1
+fill_case_end = mtd_storage.index("\n\t;;", fill_case_start)
 fill_case = mtd_storage[fill_case_start:fill_case_end]
 require("if ! func_fill; then" in fill_case and "result=1" in fill_case,
         "direct MTD fill command must propagate path and extraction failures to its exit status")
