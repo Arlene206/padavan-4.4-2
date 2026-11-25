@@ -1,0 +1,33 @@
+name: WAN 6rd multiple border-relay stability regression
+
+on:
+  push:
+    paths:
+      - ".github/workflows/wan6-sixrd-relay-stability.yml"
+      - "scripts/check_wan6_sixrd_relay.py"
+      - "trunk/user/rc/src/net_wan6.c"
+      - "trunk/user/rc/src/wan6_sixrd_option_policy.h"
+      - "trunk/user/rc/src/tests/wan6_sixrd_option_policy.c"
+  pull_request:
+    paths:
+      - ".github/workflows/wan6-sixrd-relay-stability.yml"
+      - "scripts/check_wan6_sixrd_relay.py"
+      - "trunk/user/rc/src/net_wan6.c"
+      - "trunk/user/rc/src/wan6_sixrd_option_policy.h"
+      - "trunk/user/rc/src/tests/wan6_sixrd_option_policy.c"
+
+jobs:
+  wan6-sixrd-relay:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and run multi-relay option regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer \
+            trunk/user/rc/src/tests/wan6_sixrd_option_policy.c \
+            -o /tmp/wan6-sixrd-option-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/wan6-sixrd-option-policy
+      - name: Verify production parser integration
+        run: python3 scripts/check_wan6_sixrd_relay.py

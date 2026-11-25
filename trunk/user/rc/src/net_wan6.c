@@ -40,6 +40,7 @@
 #include "dhcp6c_config_file.h"
 #include "wan6_dns_policy.h"
 #include "wan6_sixrd_prefix_policy.h"
+#include "wan6_sixrd_option_policy.h"
 #include "dhcp6c_callback_generation_policy.h"
 #include "service_wait_policy.h"
 
@@ -815,9 +816,10 @@ store_ip6rd_from_dhcp_status(const char *env_value, const char *prefix)
 {
 	int i, written;
 	long ipv4_mask_len, ipv6_prefix_len;
-	char ip6rd[64];
+	char ip6rd[WAN6_SIXRD_OPTION_VALUE_MAX];
 	char addr6[INET6_ADDRSTRLEN + 5];
-	char *value, *values[4], *end;
+	char first_relay[WAN6_SIXRD_IPV4_TEXT_SIZE];
+	char *value, *values[3], *end;
 	struct in6_addr prefix6;
 	int sixrd_dhcp_disabled = 0;
 	int status, rollback_status = 0;
@@ -830,12 +832,17 @@ store_ip6rd_from_dhcp_status(const char *env_value, const char *prefix)
 
 	snprintf(ip6rd, sizeof(ip6rd), "%s", env_value);
 	value = ip6rd;
-	for (i = 0; i < 4; i++) {
+	for (i = 0; i < 3; i++) {
 		values[i] = strtok_r(i == 0 ? value : NULL, " \t\r\n", &value);
 		if (!values[i])
 			return 0;
 	}
-	if (strtok_r(NULL, " \t\r\n", &value))
+	/*
+	 * RFC 5969 permits multiple border relays. This platform stores one
+	 * relay in NVRAM, so validate the full DHCP list and use its first entry.
+	 */
+	if (!wan6_sixrd_relay_list_first_valid(
+		    value, first_relay, sizeof(first_relay), is_valid_ipv4))
 		return 0;
 
 	for (end = values[0]; *end; end++)
@@ -861,8 +868,7 @@ store_ip6rd_from_dhcp_status(const char *env_value, const char *prefix)
 					       (int)ipv6_prefix_len))
 		return 0;
 
-	if (inet_pton(AF_INET6, values[2], &prefix6) != 1 ||
-	    !is_valid_ipv4(values[3]))
+	if (inet_pton(AF_INET6, values[2], &prefix6) != 1)
 		return 0;
 	if (!wan6_sixrd_prefix_clear_host_bits(prefix6.s6_addr,
 					       (int)ipv6_prefix_len))
@@ -893,7 +899,7 @@ store_ip6rd_from_dhcp_status(const char *env_value, const char *prefix)
 	}
 
 	status = wan6_publish_6rd_snapshot(
-		prefix, addr6, values[0], values[3], &rollback_status);
+		prefix, addr6, values[0], first_relay, &rollback_status);
 	if (status != 0)
 		logmessage("WAN IPv6",
 			   "failed to publish DHCP 6rd configuration (status=%d, rollback=%d)",
