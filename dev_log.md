@@ -1,3 +1,10 @@
+## 2026-11-25 10:59 CST — Recover validated ZeroTier firewall checkpoint prefix during stop (THIS COMMIT)
+
+- Strict checkpoint loading correctly rejects trailing records, but stop previously had no recovery path: one extra line could strand a running ZeroTier daemon and leave its exact source-NAT rule installed even though the first two newline-terminated fields still identified the published cleanup tuple.
+- Added a stop-only recovery helper. It requires a real config directory, a regular non-symlink checkpoint and three complete LF-terminated reads; validates the original `zt*` interface and canonical optional IPv4/CIDR segment; and only then publishes those first two fields through the existing private atomic checkpoint writer before any daemon signal. Startup replay and `del_rules()` remain strict. A short base tuple or an unterminated first extra record still blocks stop.
+- Regression injects a trailing record with the live kernel route absent, injects a first-rule delete failure to prove the canonicalized checkpoint survives for retry, confirms the saved NAT source segment is deleted, and completes a second stop retry. A missing LF on the second field remains unrecoverable. Python workflow contract binds the stop-only helper and ordering.
+- Local shell/host regression: NOT RUN (no local checkout). Exact-head ZeroTier, AI docs, Process, WAN and XY-C1 Actions: PENDING until this commit's push runs report. No L3 or L4 claim.
+
 ## 2026-11-24 — Correct IAPPD process-identity regressions and governance
 
 - Exact SHA `ddcfce2bee04b977b29692660b3a633214ca1cdc` exposed two verification-layer issues: the IAPPD lifecycle test's zombie `/proc/PID/stat` fixture was truncated (only three post-state fields), so the production parser correctly returned UNKNOWN (2); the Process umbrella checker still required the removed `failed killall` assertion.

@@ -105,6 +105,7 @@ rule_action_body = function_body(script, "zerotier_firewall_rule_action()")
 segment_body = function_body(script, "zerotier_ipv4_cidr_is_valid()")
 state_save_body = function_body(script, "zerotier_firewall_state_save()")
 state_load_body = function_body(script, "zerotier_firewall_state_load()")
+state_recover_body = function_body(script, "zerotier_firewall_state_recover_prefix()")
 state_clear_body = function_body(script, "zerotier_firewall_state_clear()")
 static_route_body = function_body(script, "zero_route()")
 route_match_body = function_body(script, "zero_route_entry_matches()")
@@ -404,13 +405,15 @@ require('if ! zerotier_preflight_static_routes; then' in stop_body and
 require('zt_state_file="$config_path/.firewall-state"' in stop_body and
         'if [ -e "$zt_state_file" ] || [ -L "$zt_state_file" ]; then' in stop_body and
         'if ! zerotier_firewall_state_load; then' in stop_body and
+        'if ! zerotier_firewall_state_recover_prefix; then' in stop_body and
         'ZeroTier防火墙恢复检查点无效' in stop_body and
         stop_body.index('if ! zerotier_firewall_state_load; then') <
+        stop_body.index('if ! zerotier_firewall_state_recover_prefix; then') <
         stop_body.index('if ! zerotier_read_nat_enabled; then') and
-        'stop accepted a corrupt firewall checkpoint with an unknown saved source-NAT segment' in test and
-        'corrupt firewall checkpoint was overwritten or removed' in test,
-        'stop accepted a corrupt firewall checkpoint with a live route and unknown old source-NAT segment' in test and
-        "stop must fail closed before signalling when an existing firewall recovery checkpoint cannot be parsed")
+        'stop ignored a firewall deletion failure after recovering a valid checkpoint prefix' in test and
+        'recovered checkpoint did not retain its canonical retry tuple' in test and
+        'stop recovered a truncated checkpoint prefix' in test,
+        "stop may sanitize only a complete, validated checkpoint prefix; a truncated or semantically invalid tuple must still block shutdown")
 for marker in ("rules accepted an unreadable NAT selector as disabled",
                "NAT selector read failure stopped the daemon",
                "static-route add accepted a checked-read error",
@@ -514,6 +517,15 @@ require('[ -f "$zt_state_file" ] && [ ! -L "$zt_state_file" ]' in state_load_bod
         'zt_state_saved_segment' in state_load_body,
         "firewall retry state must reject symlinks and restore the validated interface/network")
 
+require('[ -f "$zt_state_file" ] && [ ! -L "$zt_state_file" ]' in state_recover_body and
+        'IFS= read -r zt_state_saved_interface || return 1' in state_recover_body and
+        'IFS= read -r zt_state_saved_segment || return 1' in state_recover_body and
+        'IFS= read -r zt_state_extra || return 1' in state_recover_body and
+        'zerotier_ipv4_cidr_is_valid "$zt_state_saved_segment"' in state_recover_body and
+        'zt_firewall_state_checkpoint_loaded=1' in state_recover_body,
+        "stop-only checkpoint recovery must require complete LF-terminated fields, a safe file and the same canonical tuple validator")
+
+
 require('zerotier_ipv4_cidr_is_valid "$ip_segment"' in state_save_body and
         'zerotier_ipv4_cidr_is_valid "$zt_state_saved_segment"' in state_load_body and
         'awk -F/' in segment_body and
@@ -544,14 +556,17 @@ require('if [ -z "$zt0" ]; then' in stop_body and
         stop_body.index('ip_segment="$(zerotier_kernel_route_segment "$zt0")"') <
         stop_body.index('if ! kill_z; then'),
         "stop must capture both the ZeroTier interface and NAT source segment before daemon shutdown")
-checkpoint_load = stop_body.index("if ! zerotier_firewall_state_load; then")
-saved_interface = stop_body.index('zt0="$zt_state_saved_interface"', checkpoint_load)
-saved_segment = stop_body.index('ip_segment="$zt_state_saved_segment"', saved_interface)
-checkpoint_refresh = stop_body.index("zerotier_firewall_state_save", saved_segment)
+checkpoint_load = stop_body.indexOf("if ! zerotier_firewall_state_load; then")
+checkpoint_recovery = stop_body.indexOf("if ! zerotier_firewall_state_recover_prefix; then", checkpoint_load)
+saved_interface = stop_body.indexOf('zt0="$zt_state_saved_interface"', checkpoint_recovery)
+saved_segment = stop_body.indexOf('ip_segment="$zt_state_saved_segment"', saved_interface)
+checkpoint_refresh = stop_body.indexOf("zerotier_firewall_state_save", saved_segment)
 require(
-    checkpoint_load < saved_interface < saved_segment < checkpoint_refresh,
-    "a valid checkpoint, including an empty source segment, must remain authoritative over a newer live snapshot",
+    checkpoint_load < checkpoint_recovery < saved_interface < saved_segment < checkpoint_refresh <
+    stop_body.index("if ! kill_z; then"),
+    "a valid or safely recovered checkpoint must remain authoritative and be atomically normalized before daemon signalling",
 )
+
 require(
     "live route can change while that older rule remains" in test
     and "stop did not delete the saved NAT source segment" in test

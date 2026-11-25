@@ -423,6 +423,14 @@ iptables() {
 	shift
 	iptables_key="$iptables_table $*"
 
+	if [ "${TEST_EXPECT_CANONICAL_CHECKPOINT:-0}" -eq 1 ] &&
+	   { [ "$iptables_operation" = "-C" ] || [ "$iptables_operation" = "-D" ]; }; then
+		[ -f "$config_path/.firewall-state" ] &&
+		[ "$(cat "$config_path/.firewall-state")" = "$(printf 'ztunit\n10.147.17.0/24')" ] &&
+		[ "$(wc -l < "$config_path/.firewall-state" | tr -d ' ')" = 2 ] ||
+			fail "checkpoint recovery did not preserve the validated tuple"
+	fi
+
 	if [ "$TEST_EXPECT_SAVED_SEGMENT" -eq 1 ] && { [ "$iptables_operation" = "-C" ] || [ "$iptables_operation" = "-D" ]; }; then
 		case "$iptables_key" in
 			"filter INPUT -i ztunit -j ACCEPT"|"filter FORWARD -i ztunit -o ztunit -j ACCEPT"|"filter FORWARD -i ztunit -j ACCEPT"|"nat POSTROUTING -o ztunit -j MASQUERADE"|"nat POSTROUTING -s 10.147.17.0/24 -j MASQUERADE") ;;
@@ -1502,16 +1510,17 @@ for invalid_segment in \
 	fi
 done
 
-# A corrupt firewall checkpoint can contain the only record of an old
-# source-NAT segment after its kernel route has disappeared. Stop must not
-# replace that recovery record with an empty snapshot or leave stale rules.
+# A trailing corrupt record must not strand a daemon when the first two
+# newline-terminated checkpoint fields still identify the exact installed rules.
+# Stop sanitizes this validated prefix before signalling, then keeps that
+# canonical checkpoint if firewall deletion needs a later retry.
 /bin/rm -rf "$TEST_CONFIG"
 mkdir -p "$TEST_CONFIG"
 : > "$TEST_IPTABLES_LOG"
 : > "$TEST_IPTABLES_STATE_FILE"
 TEST_IPTABLES_FAIL_ON=""
 TEST_IPTABLES_CHECK_FAIL_ON=""
-TEST_IPTABLES_DELETE_FAIL_ON=""
+TEST_IPTABLES_DELETE_FAIL_ON="filter INPUT -i ztunit -j ACCEPT"
 test_seed_firewall_rules
 : > "$TEST_IPTABLES_LOG"
 printf '%s\n' 'ztunit' '10.147.17.0/24' 'corrupt-extra-record' > "$TEST_CONFIG/.firewall-state"
@@ -1519,6 +1528,8 @@ TEST_STATIC_ROUTE_COUNT=0
 TEST_NAT_ENABLE=0
 TEST_IFCONFIG_MODE=running-only
 TEST_ROUTE_MODE=none
+TEST_EXPECT_SAVED_SEGMENT=1
+TEST_EXPECT_CANONICAL_CHECKPOINT=1
 : > "$TEST_KILL_LOG"
 : > "$TEST_ACTION_LOG"
 test_proc_reset
@@ -1526,18 +1537,35 @@ test_proc_add 4321 "$PROG" "$PROG"
 echo running > "$TEST_STATE"
 TEST_MODE=graceful
 if stop_zero; then
-	fail "stop accepted a corrupt firewall checkpoint with an unknown saved source-NAT segment"
+	fail "stop ignored a firewall deletion failure after recovering a valid checkpoint prefix"
 fi
-[ "$(cat "$TEST_STATE")" = running ] || fail "corrupt firewall checkpoint stopped the daemon before cleanup could be guaranteed"
-[ ! -s "$TEST_KILL_LOG" ] || fail "corrupt firewall checkpoint still signalled the daemon"
-[ ! -s "$TEST_IPTABLES_LOG" ] || fail "corrupt firewall checkpoint attempted firewall edits"
-grep -Fqx -- "nat POSTROUTING -s 10.147.17.0/24 -j MASQUERADE" "$TEST_IPTABLES_STATE_FILE" || fail "corrupt checkpoint fixture lost its stale source-NAT rule"
-[ "$(wc -l < "$TEST_CONFIG/.firewall-state" | tr -d ' ')" = 3 ] || fail "corrupt firewall checkpoint was overwritten or removed"
-[ "$(sed -n '1p' "$TEST_CONFIG/.firewall-state")" = "ztunit" ] || fail "corrupt firewall checkpoint interface was changed"
-[ "$(sed -n '2p' "$TEST_CONFIG/.firewall-state")" = "10.147.17.0/24" ] || fail "corrupt firewall checkpoint segment was changed"
-grep -Fqx -- "corrupt-extra-record" "$TEST_CONFIG/.firewall-state" || fail "corrupt firewall checkpoint corruption marker was removed"
-[ ! -s "$TEST_ACTION_LOG" ] || fail "corrupt firewall checkpoint changed persistent configuration"
-/bin/rm -rf "$TEST_CONFIG"
+[ "$(cat "$TEST_STATE")" = stopped ] || fail "checkpoint prefix recovery did not stop the identified daemon"
+[ "$(cat "$TEST_KILL_LOG")" = "-TERM 4321" ] || fail "checkpoint prefix recovery did not signal only the owned daemon"
+[ -f "$TEST_CONFIG/identity.secret" ] || fail "partial recovered-checkpoint cleanup removed persistent identity"
+[ "$(cat "$TEST_CONFIG/.firewall-state")" = "$(printf 'ztunit\n10.147.17.0/24')" ] || fail "recovered checkpoint did not retain its canonical retry tuple"
+[ "$(wc -l < "$TEST_CONFIG/.firewall-state" | tr -d ' ')" = 2 ] || fail "recovered checkpoint retained trailing records"
+[ "$(cat "$TEST_IPTABLES_STATE_FILE")" = "filter INPUT -i ztunit -j ACCEPT" ] || fail "recovered checkpoint cleanup did not continue independent firewall deletions"
+grep -Fqx -- "-t nat -D POSTROUTING -s 10.147.17.0/24 -j MASQUERADE" "$TEST_IPTABLES_LOG" || fail "recovery did not delete the saved source-NAT rule after the live route disappeared"
+if grep -Fqx -- "zero_route:del" "$TEST_ACTION_LOG"; then
+	fail "stop continued to remove static routes after recovered firewall deletion failed"
+fi
+
+TEST_IPTABLES_DELETE_FAIL_ON=""
+TEST_IFCONFIG_MODE=none
+TEST_ROUTE_MODE=none
+zt0=""
+ip_segment=""
+: > "$TEST_KILL_LOG"
+: > "$TEST_ACTION_LOG"
+: > "$TEST_IPTABLES_LOG"
+if ! stop_zero; then
+	fail "stop could not retry cleanup from the canonicalized recovered checkpoint"
+fi
+[ ! -e "$TEST_CONFIG" ] || fail "successful recovered-checkpoint retry retained persistent config"
+[ ! -s "$TEST_IPTABLES_STATE_FILE" ] || fail "successful recovered-checkpoint retry left a firewall rule"
+grep -Fqx -- "-t nat -C POSTROUTING -s 10.147.17.0/24 -j MASQUERADE" "$TEST_IPTABLES_LOG" || fail "recovered-checkpoint retry did not check the saved NAT segment"
+TEST_EXPECT_CANONICAL_CHECKPOINT=0
+TEST_EXPECT_SAVED_SEGMENT=0
 : > "$TEST_IPTABLES_STATE_FILE"
 : > "$TEST_IPTABLES_LOG"
 test_proc_reset
@@ -1585,6 +1613,40 @@ for malformed_segment in \
 	[ "$(sed -n '2p' "$TEST_CONFIG/.firewall-state")" = "$malformed_segment" ] || fail "malformed checkpoint was rewritten: $malformed_segment"
 	[ ! -s "$TEST_ACTION_LOG" ] || fail "malformed checkpoint changed persistent configuration: $malformed_segment"
 done
+
+# A truncated second field lacks its terminating LF and is never recoverable,
+# even when its visible bytes look like a valid source-NAT tuple.
+/bin/rm -rf "$TEST_CONFIG"
+mkdir -p "$TEST_CONFIG"
+: > "$TEST_IPTABLES_LOG"
+: > "$TEST_IPTABLES_STATE_FILE"
+test_seed_firewall_rules
+: > "$TEST_IPTABLES_LOG"
+printf '%s\n%s' 'ztunit' '10.147.17.0/24' > "$TEST_CONFIG/.firewall-state"
+echo identity > "$TEST_CONFIG/identity.secret"
+echo running > "$TEST_STATE"
+TEST_STATIC_ROUTE_COUNT=0
+TEST_STATIC_ROUTE_ENABLE=0
+TEST_NAT_ENABLE=0
+TEST_IFCONFIG_MODE=running-only
+TEST_ROUTE_MODE=none
+TEST_EXPECT_SAVED_SEGMENT=1
+: > "$TEST_KILL_LOG"
+: > "$TEST_ACTION_LOG"
+test_proc_reset
+test_proc_add 4334 "$PROG" "$PROG"
+TEST_MODE=graceful
+if stop_zero; then
+	fail "stop recovered a truncated checkpoint prefix"
+fi
+[ "$(cat "$TEST_STATE")" = running ] || fail "truncated checkpoint prefix stopped the daemon"
+[ ! -s "$TEST_KILL_LOG" ] || fail "truncated checkpoint prefix signalled the daemon"
+[ ! -s "$TEST_IPTABLES_LOG" ] || fail "truncated checkpoint prefix changed firewall state"
+[ -f "$TEST_CONFIG/identity.secret" ] || fail "truncated checkpoint prefix removed persistent identity"
+[ "$(cat "$TEST_CONFIG/.firewall-state")" = "10.147.17.0/24" ] || fail "truncated checkpoint prefix was rewritten"
+[ ! -s "$TEST_ACTION_LOG" ] || fail "truncated checkpoint prefix changed persistent configuration"
+TEST_EXPECT_SAVED_SEGMENT=0
+
 /bin/rm -rf "$TEST_CONFIG"
 : > "$TEST_IPTABLES_STATE_FILE"
 : > "$TEST_IPTABLES_LOG"

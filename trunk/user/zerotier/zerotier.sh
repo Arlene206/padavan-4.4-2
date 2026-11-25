@@ -768,6 +768,38 @@ zerotier_firewall_state_load() {
 }
 
 # Clear only a regular, non-symlink checkpoint after cleanup has been verified.
+
+# Recover only a validated, complete two-line prefix during explicit stop.
+# The first two LF-terminated fields identify the rules we installed; a
+# trailing complete record is discarded only after the tuple is validated.
+# Startup replay and firewall deletion remain strict and never call this helper.
+zerotier_firewall_state_recover_prefix() {
+	zt_firewall_state_checkpoint_loaded=0
+	[ -d "$config_path" ] && [ ! -L "$config_path" ] || return 1
+	zt_state_file="$config_path/.firewall-state"
+	[ -f "$zt_state_file" ] && [ ! -L "$zt_state_file" ] || return 1
+	{
+		IFS= read -r zt_state_saved_interface || return 1
+		IFS= read -r zt_state_saved_segment || return 1
+		# Require a complete extra record: a short base tuple or an
+		# unterminated first extra record remains fail-closed.
+		IFS= read -r zt_state_extra || return 1
+	} < "$zt_state_file" || return 1
+	case "$zt_state_saved_interface" in
+		zt*) ;;
+		*) return 1 ;;
+	esac
+	case "$zt_state_saved_interface" in
+		*[!A-Za-z0-9_.:-]*) return 1 ;;
+	esac
+	if [ -n "$zt_state_saved_segment" ] &&
+	   ! zerotier_ipv4_cidr_is_valid "$zt_state_saved_segment"; then
+		return 1
+	fi
+	zt_firewall_state_checkpoint_loaded=1
+	return 0
+}
+
 zerotier_firewall_state_clear() {
 	[ -d "$config_path" ] && [ ! -L "$config_path" ] || return 1
 	zt_state_file="$config_path/.firewall-state"
@@ -1358,8 +1390,11 @@ stop_zero() {
 		# Even with a current route, a corrupt checkpoint may describe older
 		# source-NAT rules that cannot be reconstructed from the live route.
 		if ! zerotier_firewall_state_load; then
-			logger -t "zerotier" "ZeroTier防火墙恢复检查点无效，拒绝停止并保留现有网络状态"
-			return 1
+			if ! zerotier_firewall_state_recover_prefix; then
+				logger -t "zerotier" "ZeroTier防火墙恢复检查点无效，拒绝停止并保留现有网络状态"
+				return 1
+			fi
+			logger -t "zerotier" "已验证防火墙检查点前缀，丢弃尾随损坏记录并重建恢复状态"
 		fi
 		# The checkpoint is the exact tuple used when this firewall
 		# ruleset was published. A live route may already describe a new
