@@ -1,3 +1,12 @@
+## 2026-11-26 05:02 CST (UTC+8) — Revalidate STOU candidate parent after nofollow stat
+
+- Base SHA: `8f2f34597dd87318be2478ef58f00d3ef0ee6073`; focused VSFTPD source/workflow/handoff update.
+- STOU candidate checks already resolve the authorized parent, enforce WRITE ACL and use a nofollow descriptor-relative entry stat. Added a second `ftp_acl_path_verify_directory_identity()` immediately after the candidate stat, before releasing the pinned directory FD, so a path replacement during the probe cannot be accepted as a stable parent result.
+- Added a workflow source contract requiring WRITE ACL → first parent identity → nofollow stat → second parent identity ordering.
+- Exact-SHA Actions and the FTP ACL C regression for this commit are pending inspection; no result is assumed. Physical-router L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-25 — Authorize STOU candidate probes before filesystem lookup
 
 - Base SHA: `3ec6ac84a096d953b9ecda469c0c2e13f998ee5f`; source commit: `c683355e539de6e435cf8b25b749960bfcb10653`. Scope: vsftpd ACL helper/API, post-login STOU selection, shared entry-stat contract and VSFTPD workflow.

@@ -1217,3 +1217,29 @@ jobs:
 
           print("vsftpd configuration, lifecycle and path-scoped ACL contracts: PASS")
           PY
+      - name: Verify upload-candidate parent identity around nofollow stat
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/user/vsftpd/src/asus_ext.c").read_text()
+          signature = "int\\nasus_check_upload_candidate_exists("
+          start = source.index(signature)
+          brace = source.index("{", start)
+          depth = 0
+          end = brace
+          while end < len(source):
+              if source[end] == "{":
+                  depth += 1
+              elif source[end] == "}":
+                  depth -= 1
+                  if depth == 0:
+                      break
+              end += 1
+          body = source[brace + 1:end]
+          assert body.count("ftp_acl_path_verify_directory_identity(") == 2
+          assert body.index("asus_check_permission_at(p_sess, PERM_WRITE") < body.index("ftp_acl_path_verify_directory_identity(")
+          assert body.index("ftp_acl_path_verify_directory_identity(") < body.index("ftp_acl_path_stat_entry_at(parent_fd, leaf, &entry_stat)") < body.rindex("ftp_acl_path_verify_directory_identity(")
+          print("VSFTPD upload-candidate descriptor identity contract: PASS")
+          PY

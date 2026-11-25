@@ -1,60 +1,29 @@
-## Latest checkpoint — 2026-11-25
-
-### Repository state
-
-- Main source checkpoint: `c683355e539de6e435cf8b25b749960bfcb10653`. Main-only atomic commits; no force push.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains untouched at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- OpenVPN startup/rollback protections remain in place; no new OpenVPN changes in this slice.
-- Physical-router L4 remains NOT VERIFIED.
-
-### Completed VSFTPD source slices
-
-- `88e39a42dad0f3fa3a33f964e604563f47b5860d`: reserve the partition-level `.hidden` marker as internal metadata. Without this, an FTP writer at mount root could create the marker and make subsequent access treat the whole partition as hidden. Added classifier regression and workflow contract. Exact VSFTPD #45663863759, Process #45663864028, AI docs #45663863712 and NVRAM #45663863693 PASS. XY-C1 #45663863730 was still building at last poll.
-- `755db25f9241f69997261c55d5b6dd62341c810c` plus follow-up `3ec6ac84a096d953b9ecda469c0c2e13f998ee5f`: replace RNFR path-following `str_stat()` with parent-FD-relative `fstatat(AT_SYMLINK_NOFOLLOW)`, authorize and pin the parent first, preserve dangling-symlink rename semantics, and revalidate parent identity after the entry probe. Regression covers external-target symlink, dangling symlink, true ENOENT, reserved metadata and malformed leaves. The earlier 755/6ba workflows failed at stale source-contract assertions; exact VSFTPD #45665056338, Process #45665056354 and AI docs #45665056506 PASS on 3ec. XY-C1 #45665056355 and NVRAM #45665056396 were pending at last poll.
-- `c683355e539de6e435cf8b25b749960bfcb10653`: eliminate the remaining pre-authorization filesystem probes in STOU. The old `get_unique_filename()` used path-based `str_stat()` before the share ACL check, following final symlinks and probing whether external/dangling targets existed. Candidate selection now applies the deny-file filter, authorizes `PERM_WRITE`, pins and verifies the parent directory, uses `fstatat(AT_SYMLINK_NOFOLLOW)` to inspect only the final directory entry, and revalidates parent identity. Any lookup/ACL error fails closed; suffix overflow returns `EOVERFLOW`; the final upload still uses exclusive creation to resolve races. The path-policy GNU89/Werror regression covers external and dangling symlinks, missing entries, metadata and invalid leaves; workflow source contracts pin filter → ACL → descriptor-relative probe → parent revalidation and reject `str_stat()` in the unique-name chooser.
-
-### Exact-SHA verification boundary
-
-- On `c683355e539de6e435cf8b25b749960bfcb10653`: VSFTPD configuration/ACL regression #45666057681 PASS, including the C compile/run and embedded source contract; Process inventory #45666057417 PASS; AI handoff docs #45666057477 PASS.
-- XY-C1 #45666057475: VSFTPD header self-containment PASS; `Build XY-C1` IN_PROGRESS at last poll; TRX verification and artifact upload PENDING. No L3 claim until all three finish on this same SHA.
-- NVRAM transaction boundary #45666057562: host policy binaries PASS; raw userland/kernel caller audit IN_PROGRESS.
-- No physical-router L4 result is claimed. Earlier 88e/755/3ec XY-C1 runs remain pending and are superseded for current source proof by c683's exact-SHA run.
-
-### Exact first actions for the next GPT
-
-1. Poll only current production SHA `c683355e539de6e435cf8b25b749960bfcb10653`: require XY-C1 Build, TRX and artifact; finish the NVRAM audit and inspect any FAIL.
-2. Continue the remaining VSFTPD descriptor-relative ACL call-site review. The STOU candidate existence probe and RNFR source probe are now descriptor-relative; do not re-audit those completed fixes.
-3. Pick the next independent P1 reliability/security source defect across the userland while any Actions remain pending.
-
-Execution remains: source/test → one complete Git tree/commit → non-forced expected-SHA main update → exact-SHA Actions. PENDING does not block independent work. Preserve all historical dev-log entries and keep the frozen backup untouched.
-
----
-
 ## Current repository state
 
-- Main parent for the RNFR source-contract repair: `6ba2336de958c44fc214f2d50a00af0fc68adc63`; this update is an atomic descendant on `main`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains untouched at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- OpenVPN detached startup remains guarded by exact writepid process identity; failed-start rollback requires two ABSENT process inventories and current-attempt resource ownership.
-- VSFTPD RNFR now checks the final entry using `fstatat(..., AT_SYMLINK_NOFOLLOW)` through a pinned directory descriptor. Exact-SHA #45664520554 C regression passed; the first workflow rerun #45664790224 passed docs but still failed at a stale `asus_check_permission_path` order assertion. Its signature lookup is already corrected in main `6ba2336de958c44fc214f2d50a00af0fc68adc63`.
+- Main parent for this focused VSFTPD upload-candidate fix: `8f2f34597dd87318be2478ef58f00d3ef0ee6073`; this change is one atomic non-forced descendant.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- OpenVPN startup readiness and rollback protections are retained. RNFR checks final symlink entries with descriptor-relative `fstatat(AT_SYMLINK_NOFOLLOW)`.
+- STOU unique-name selection now checks candidate existence only after WRITE ACL authorization and uses nofollow entry stat; this slice revalidates the canonical parent identity again after the candidate stat before accepting the result.
 
-## Active fix
+## Active task
 
-- Remove that obsolete source assertion, verify the parent path still identifies the pinned FD after the nofollow stat, and extend the regression for reserved metadata and malformed leaves.
+- Close the remaining parent-path replacement window in `asus_check_upload_candidate_exists()`: a second canonical path/descriptor identity verification must succeed after the nofollow candidate stat and before the pinned FD is released.
 
 ## Verification boundary
 
-- Exact SHA `755db25f9241f69997261c55d5b6dd62341c810c`: C regression step PASS; VSFTPD embedded source contract FAIL (initially the literal-backslash-n signature). AI docs #45664520327 PASS.
-- Exact SHA `6ba2336de958c44fc214f2d50a00af0fc68adc63`: AI docs #45664790212 PASS; VSFTPD #45664790224 FAIL because the old inline permission-path order assertion remained. No same-SHA firmware result or physical-router L4 result is claimed.
+- Parent `8f2f34597dd87318be2478ef58f00d3ef0ee6073` is the source state; this new source guard and embedded workflow assertion require exact-SHA VSFTPD Actions. No test or CI result is assumed for the new commit.
+- The prior RNFR source/test fix is retained; its C regression and source-contract run passed on its validated SHA.
+- Physical-router L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Check this repair's exact-SHA VSFTPD and AI docs Actions; inspect source-contract completion after all new assertions.
-2. Check same-SHA XY-C1 only if triggered; require Build XY-C1, TRX and artifact on this exact source SHA.
-3. Continue remaining VSFTPD ACL call-site review, then another independent stability/security fix.
+1. Check this commit's exact-SHA VSFTPD stability workflow; confirm the new parent-identity contract and all FTP ACL path C regressions pass.
+2. Continue STOU exclusive-create collision handling and remaining VSFTPD ACL call-site review; if checks are pending, work another independent stability issue.
+3. For any XY-C1-triggered run, require Build XY-C1, TRX verification and artifact upload on the exact source SHA before claiming firmware validation.
 
 ## Execution contract
 
-Source/test → one complete Git tree/commit → non-force expected-SHA update → exact-SHA Actions. Main only; backup immutable; preserve the complete rolling log and handoff history.
+Source/test → one complete Git tree/commit → non-force expected-SHA update → exact-SHA Actions. Main only; backup immutable; preserve the rolling root log and handoff history.
 
 ## 2026-11-25 autonomous handoff checkpoint
 
