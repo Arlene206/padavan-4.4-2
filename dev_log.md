@@ -1,3 +1,13 @@
+## 2026-11-26 00:36 CST (UTC+8) — Zeroize OpenVPN client credential snapshots
+
+- Base SHA: `21c84c9c7550bc06a8f987378cb08651d6f4db53`; result SHA: THIS COMMIT (resolve on next recovery). Scope: `vpn_openvpn.c`, new `openvpn_client_credentials_policy.h`, new regression `tests/openvpn_client_credentials_policy.c`, OpenVPN source checker/workflow, XY-C1 workflow path filter, live handoff/log.
+- Review found copied OpenVPN client username/password remained in the temporary `pending` snapshot after copying to the caller, and in the caller's stack config after config-file generation or an earlier runtime-state cleanup failure. A failed snapshot could also leave partially read secrets in the local pending struct.
+- Added an explicit volatile-byte zeroization primitive and regression. The source clears the pending snapshot on both success and failure after ending the NVRAM transaction, and clears caller credential arrays on runtime-state cleanup failure or immediately after OpenVPN config generation (whether it succeeds or fails). Non-secret fields remain available for interface setup.
+- Wired the regression/source contract into push and pull_request OpenVPN path filters; added the production helper header to the XY-C1 firmware path filter. Focused tests and exact-head Actions are PENDING.
+- Prior proof: VPN lifecycle #45653816232 PASS; OpenVPN credential suite #45653449852 PASS; NVRAM audit #45653449837 PASS; Process inventory #45653449686 PASS; AI docs #45653449768 PASS. XY-C1 Build/TRX/artifact PASS on production SHA `311d6080fd7cb5d6e4cb5906f5923b45c350e108`; this new production-source commit requires its own full XY-C1 run. L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-26 00:28 CST (UTC+8) — Correct VPN PPP source-order assertion
 
 - Base SHA: `d32243c4ab0eaf23cbdaf40e15ef73db4edcd9ff`; result SHA: THIS COMMIT (resolve on next recovery). Scope: `scripts/check_vpn_client_nvram_state.py`, `SESSION_HANDOFF.md`, `dev_log.md`.

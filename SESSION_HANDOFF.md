@@ -1,17 +1,15 @@
-## 2026-11-26 active handoff — correct VPN PPP source-order contract
+## 2026-11-26 active handoff — zeroize OpenVPN client credential snapshots
 
-- Live main parent: `d32243c4ab0eaf23cbdaf40e15ef73db4edcd9ff`. The exact-head rerun #45653449911 now passes the VPN client NVRAM C policy regression and all preceding VPN/PPP host binaries, but the final `check_vpn_client_nvram_state.py` fails at line 96: its old assertion demands `config.peer_line` appear before `ppp_options_file_open()`, while the implementation correctly writes the already-snapshotted field after opening the destination file. The production ordering is not the failure; the source contract is stale.
-- The exact-head OpenVPN client secret suite #45653449852 PASS, AI handoff docs #45653449768 PASS, and Process lifecycle inventory #45653449686 PASS on `d32243c4ab0eaf23cbdaf40e15ef73db4edcd9ff`. NVRAM boundary audit #45653449837 is in progress.
-- XY-C1 #45653449737 remains in progress on `d32243c4ab0eaf23cbdaf40e15ef73db4edcd9ff`; TRX verification and artifact upload have not completed. No L3 result is claimed.
-- The preceding correction on `d32243c4ab0eaf23cbdaf40e15ef73db4edcd9ff` fixed the undersized VPN NVRAM text-copy fixture and updated the OpenVPN credential checker to enforce copied snapshot credentials; both changes are validated by the passing relevant jobs above.
-- Production VPN startup snapshot in `d32243c4ab0eaf23cbdaf40e15ef73db4edcd9ff` remains as documented: checked transactional selector/credential reads, fail-closed on backend/malformed/oversized values, and secret publication from the copied snapshot. Physical-router L4 remains NOT VERIFIED.
+- Live main parent: `21c84c9c7550bc06a8f987378cb08651d6f4db53`. VPN server lifecycle rerun #45653816232 PASS, including client NVRAM policy, PPP scalar/multiline, and VPN client NVRAM/DNS integration. OpenVPN secret suite #45653449852 PASS; NVRAM transaction audit #45653449837 PASS; Process lifecycle inventory #45653449686 PASS; AI handoff docs #45653449768 PASS.
+- Production source evidence: XY-C1 run #45652102254 on source SHA `311d6080fd7cb5d6e4cb5906f5923b45c350e108` completed Build XY-C1, TRX verification and artifact upload successfully. Descendant commits `d32243c4` and `21c84c9c` changed test/checker/docs only, not firmware production source. L3 is confirmed for source SHA `311d6080...`; no newer production-source L3 is inferred. Physical-router L4 remains NOT VERIFIED.
+- This slice adds a volatile-store credential wipe helper and regression, wipes the temporary OpenVPN snapshot after transaction copy, wipes it on snapshot failure, and wipes the caller's username/password immediately after config generation or when runtime-state cleanup aborts startup.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ### First actions
 
-1. Correct the PPP source contract so it requires the checked configuration snapshot before opening the options file and confirms all snapshotted fields are consumed after the file is opened.
-2. Verify the VPN server workflow, VPN client/OpenVPN credential, NVRAM audit, process inventory, AI docs and exact XY-C1 runs on the resulting SHA; fix any further causal checker failures without weakening production requirements.
-3. Continue the independent OpenVPN startup failure-cleanup review while unrelated Actions are pending.
+1. Run the exact-head OpenVPN credential wipe host regression, source contract, and full OpenVPN secret workflow.
+2. Inspect XY-C1 exact-SHA Build/TRX/artifact; the new helper header is a production input and is now included in the XY-C1 path filter.
+3. Continue the independent OpenVPN startup callback-symlink/result propagation review; preserve existing symlink behavior and do not treat EEXIST as a failure without verifying the target.
 
 ### Execution contract
 

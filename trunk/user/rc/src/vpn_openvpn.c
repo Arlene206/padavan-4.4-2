@@ -31,6 +31,7 @@
 
 #include "rc.h"
 #include "openvpn_client_secret_file.h"
+#include "openvpn_client_credentials_policy.h"
 #include "openvpn_config_file.h"
 #include "openvpn_server_lease_policy.h"
 #include "vpn_server_lease_lock.h"
@@ -310,6 +311,17 @@ struct openvpn_client_config_snapshot {
 	char password[256];
 	char ncp_cipher_list[257];
 };
+
+static void
+openvpn_client_config_clear_credentials(struct openvpn_client_config_snapshot *config)
+{
+	if (!config)
+		return;
+	openvpn_client_credentials_secure_clear(config->username,
+					 sizeof(config->username));
+	openvpn_client_credentials_secure_clear(config->password,
+					 sizeof(config->password));
+}
 
 static int
 openvpn_server_transaction_get_int(struct nvram_transaction *transaction,
@@ -1366,10 +1378,12 @@ finish_transaction:
 		saved_errno = errno ? errno : EIO;
 	}
 	if (result != 0) {
+		openvpn_client_config_clear_credentials(&pending);
 		errno = saved_errno;
 		return -1;
 	}
 	*config = pending;
+	openvpn_client_config_clear_credentials(&pending);
 	return 0;
 }
 
@@ -2192,7 +2206,7 @@ int
 start_openvpn_client(void)
 {
 	struct openvpn_client_config_snapshot config;
-	int interface_status, cleanup_status;
+	int interface_status, cleanup_status, config_status;
 	char vpnc_cfg[64], vpnc_scr[64];
 	char *client_conf = "client.conf";
 	char *openvpn_argv[] = {
@@ -2221,13 +2235,16 @@ start_openvpn_client(void)
 		logmessage(CLIENT_LOG_NAME,
 			   "cannot clear stale VPN DNS/state before OpenVPN startup (status=%d)",
 			   cleanup_status);
+		openvpn_client_config_clear_credentials(&config);
 		return cleanup_status;
 	}
 
 	doSystem("mkdir -p -m %s %s", "755", CLIENT_ROOT_DIR);
 
-	/* create conf file */
-	if (openvpn_create_client_conf(vpnc_cfg, &config))
+	/* create conf file, then erase the in-memory credential snapshot. */
+	config_status = openvpn_create_client_conf(vpnc_cfg, &config);
+	openvpn_client_config_clear_credentials(&config);
+	if (config_status)
 		return 1;
 
 	/* create tun or tap device */

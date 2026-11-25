@@ -37,6 +37,8 @@ lease_lock_test = read("trunk/user/rc/src/tests/vpn_server_lease_lock.c")
 rc_header = read("trunk/user/rc/src/rc.h")
 helper = read("trunk/user/rc/src/openvpn_client_secret_file.h")
 test = read("trunk/user/rc/src/tests/openvpn_client_secret_file.c")
+credentials_policy = read("trunk/user/rc/src/openvpn_client_credentials_policy.h")
+credentials_policy_test = read("trunk/user/rc/src/tests/openvpn_client_credentials_policy.c")
 config_helper = read("trunk/user/rc/src/openvpn_config_file.h")
 config_test = read("trunk/user/rc/src/tests/openvpn_config_file.c")
 workflow = read(".github/workflows/openvpn-client-secret.yml")
@@ -47,12 +49,41 @@ lease_lock_test = read("trunk/user/rc/src/tests/vpn_server_lease_lock.c")
 
 assert '#include "openvpn_client_secret_file.h"' in source
 assert '#include "vpn_server_lease_lock.h"' in source
+assert '#include "openvpn_client_credentials_policy.h"' in source
+assert "volatile unsigned char *cursor" in credentials_policy
+assert "*cursor++ = 0;" in credentials_policy
+assert "openvpn_client_credentials_secure_clear" in credentials_policy_test
+assert "memcmp(credentials.username, zero_username" in credentials_policy_test
+assert "memcmp(credentials.password, zero_password" in credentials_policy_test
+
 secret_writer = body(source, "static int\nopenvpn_create_client_secret")
 assert "if (!username || !password)" in secret_writer
 assert "openvpn_client_secret_publish(secret_file, username, password)" in secret_writer
 assert "fopen(" not in secret_writer and "chmod(" not in secret_writer
 assert 'nvram_safe_get("vpnc_user")' not in secret_writer
 assert 'nvram_safe_get("vpnc_pass")' not in secret_writer
+
+client_snapshot = body(source, "static int\nopenvpn_read_client_config_snapshot")
+ordered(client_snapshot, [
+    "end_status = nvram_transaction_end(&transaction);",
+    "openvpn_client_config_clear_credentials(&pending);",
+    "errno = saved_errno;",
+    "return -1;",
+    "*config = pending;",
+    "openvpn_client_config_clear_credentials(&pending);",
+    "return 0;",
+], "OpenVPN client credential snapshot cleanup")
+
+client_start = body(source, "int\nstart_openvpn_client(void)")
+ordered(client_start, [
+    "openvpn_read_client_config_snapshot(&config)",
+    "vpn_client_clear_runtime_state_status()",
+    "openvpn_client_config_clear_credentials(&config);",
+    "config_status = openvpn_create_client_conf(vpnc_cfg, &config);",
+    "openvpn_client_config_clear_credentials(&config);",
+    "if (config_status)",
+    "if (config.is_tun)",
+], "OpenVPN client credentials erased before interface setup")
 
 client_conf = body(source, "static int\nopenvpn_create_client_conf")
 secret_gate = ('if (i_auth == 1 && openvpn_create_client_secret('
@@ -219,6 +250,8 @@ paths = (
     "trunk/user/rc/src/tests/openvpn_client_secret_file.c",
     "trunk/user/rc/src/tests/openvpn_config_file.c",
     "trunk/user/rc/src/tests/openvpn_server_lease_policy.c",
+    "trunk/user/rc/src/openvpn_client_credentials_policy.h",
+    "trunk/user/rc/src/tests/openvpn_client_credentials_policy.c",
     "trunk/user/rc/src/tests/vpn_server_lease_lock.c",
     "scripts/check_openvpn_client_secret.py",
     ".github/workflows/openvpn-client-secret.yml",
