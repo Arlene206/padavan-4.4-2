@@ -51,6 +51,45 @@ mwan_ipv4_valid() {
 		[ "$octet" -le 255 ] 2>/dev/null || return 1
 	done
 }
+mwan_ipv4_mask_from_ifconfig() {
+	printf '%s\n' "$1" | awk '
+		{
+			for (i = 1; i <= NF; ++i) {
+				if ($i ~ /^Mask:[0-9.]+$/) {
+					value = $i
+					sub(/^Mask:/, "", value)
+					print value
+					exit
+				}
+				if ($i == "netmask" && i < NF) {
+					print $(i + 1)
+					exit
+				}
+			}
+		}
+	'
+}
+
+mwan_ipv4_prefix_from_netmask() {
+	local netmask="$1" octet bit bit_value zero_seen=0 prefix=0
+	local -a octets
+
+	mwan_ipv4_valid "$netmask" || return 1
+	IFS=. read -r -a octets <<< "$netmask"
+	for octet in "${octets[@]}"; do
+		for ((bit = 7; bit >= 0; bit--)); do
+			bit_value=$(((octet >> bit) & 1))
+			if [ "$bit_value" -eq 1 ]; then
+				[ "$zero_seen" -eq 0 ] || return 1
+				prefix=$((prefix + 1))
+			else
+				zero_seen=1
+			fi
+		done
+	done
+	printf '%s\n' "$prefix"
+}
+
 mwan_ipv4_from_ifconfig() {
 	printf '%s\n' "$1" | awk '
 		/inet addr:/ { sub(/^.*inet addr:/, ""); sub(/[[:space:]].*/, ""); print; exit }
@@ -153,8 +192,17 @@ mwan_log "flush the rules"
 if PPP_NUM=$(nvram get pppoe_num); then :; else mwan_die "$?" "cannot read pppoe_num"; fi
 mwan_uint_max_valid "$PPP_NUM" 255 || mwan_die 2 "invalid pppoe_num: $PPP_NUM"
 PPP_COUNT=$((10#$PPP_NUM))
-if bridge=$(ifconfig br0); then lanip=$(mwan_ipv4_from_ifconfig "$bridge"); else mwan_die "$?" "cannot inspect br0"; fi
+if bridge=$(ifconfig br0); then
+	lanip=$(mwan_ipv4_from_ifconfig "$bridge")
+	lanmask=$(mwan_ipv4_mask_from_ifconfig "$bridge")
+else
+	mwan_die "$?" "cannot inspect br0"
+fi
 mwan_ipv4_valid "$lanip" || mwan_die 2 "invalid br0 IPv4 address: $lanip"
+if lanprefix=$(mwan_ipv4_prefix_from_netmask "$lanmask"); then :; else
+	mwan_die 2 "invalid or non-contiguous br0 IPv4 netmask: $lanmask"
+fi
+lan_cidr="$lanip/$lanprefix"
 
 # Snapshot and validate every optional selector before touching the current
 # firewall policy. A failed NVRAM read must preserve the previous working rules.
@@ -198,7 +246,7 @@ for ((i=1; i<=PPP_COUNT; i++)); do
 	count=$((i-1))
 	if mwan_get_ppp_ipv4 "ppp$count"; then ppp_ip="$MWAN_PPP_IPV4"; else continue; fi
 	if mwan_ipv4_valid "$ppp_ip"; then
-		mwan_run iptables -t mangle -A PREROUTING -m comment --comment "$MWAN_RULE_TAG" -s "$lanip/24" -m conntrack --ctstate NEW -m statistic --mode nth --every "$PPP_COUNT" --packet "$count" -j CONNMARK --set-mark "2$i"
+		mwan_run iptables -t mangle -A PREROUTING -m comment --comment "$MWAN_RULE_TAG" -s "$lan_cidr" -m conntrack --ctstate NEW -m statistic --mode nth --every "$PPP_COUNT" --packet "$count" -j CONNMARK --set-mark "2$i"
 		last=$i
 		route_replace+=(nexthop via "$ppp_ip" dev "ppp$count" weight 1)
 	fi
@@ -221,7 +269,7 @@ for ((i=1; i<=PPP_COUNT; i++)); do
 	if mwan_get_ppp_ipv4 "ppp$count"; then ppp_ip="$MWAN_PPP_IPV4"; else continue; fi
 	if mwan_ipv4_valid "$ppp_ip"; then
 		mwan_run iptables -t mangle -A PREROUTING -m comment --comment "$MWAN_RULE_TAG" -i br0 -m connmark --mark "2$i" -j MARK --set-mark "2$i"
-		mwan_run iptables -t nat -A POSTROUTING -m comment --comment "$MWAN_RULE_TAG" -o "ppp$count" -s "$lanip/24" -j FULLCONENAT
+		mwan_run iptables -t nat -A POSTROUTING -m comment --comment "$MWAN_RULE_TAG" -o "ppp$count" -s "$lan_cidr" -j FULLCONENAT
 		mwan_run iptables -t nat -A PREROUTING -m comment --comment "$MWAN_RULE_TAG" -i "ppp$count" -j FULLCONENAT
 		mwan_run ip rule add fwmark "2$i" table "2${i}0"
 		mwan_run ip route add default via "$ppp_ip" dev "ppp$count" table "2${i}0"

@@ -1,3 +1,9 @@
+## 2026-11-24 状态增量：PPPoE-MWAN 按实际 LAN mask 生成源匹配
+
+- `detect.sh` 不再假设 LAN 永远为 /24：读取 `ifconfig br0` 的当前 netmask，校验连续前缀后将 CIDR 用于 mangle 与 NAT；回归覆盖 /16 生效及非连续掩码在清理旧规则前拒绝。
+
+---
+
 ## 2026-11-24 状态增量：PPPoE-MWAN IPv4 前导零歧义
 
 - `detect.sh` 的 IPv4 校验现在拒绝多位前导零 octet：bundled iptables 1.8.7 的 `xtables_strtoui(..., base=0, ...)` 会将 `010` 解析为八进制。回归在旧规则清理前注入歧义静态源地址，并确认 firewall/route 保持不变。

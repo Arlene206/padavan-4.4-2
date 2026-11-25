@@ -1,3 +1,9 @@
+## 2026-11-24 — Derive PPPoE-MWAN source scope from the active LAN netmask
+
+- The web LAN settings expose configurable `lan_netmask`, but `detect.sh` hard-coded `$lanip/24` in both the mangle source match and NAT masquerade rule. On /16 or /25 LANs the policy therefore omitted valid clients or matched an unintended range.
+- The detector now extracts the live bridge mask from `ifconfig`, validates that its IPv4 bits are a contiguous prefix, and uses the resulting CIDR in both rules. Regression coverage checks that a /16 setting reaches both mangle and NAT argv and that a non-contiguous mask fails before existing rules or routes are changed.
+- Exact-head WAN-route, XY-C1 Build/TRX/artifact and AI-docs checks are pending; no local shell or firmware result is claimed.
+
 ## 2026-11-24 — Reject octal-ambiguous PPPoE-MWAN IPv4 inputs
 
 - `detect.sh` accepted multi-digit IPv4 octets beginning with zero, but the bundled iptables 1.8.7 `xtables_numeric_to_ipaddr()` parser uses `xtables_strtoui(..., base=0, ...)`; an octet such as `010` is therefore interpreted as octal rather than decimal. A static source rule could target a different address than the NVRAM value represents.

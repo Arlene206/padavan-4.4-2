@@ -203,6 +203,18 @@ require(
     "static IPv4 input must reject leading-zero octal aliases before old firewall policy is changed",
 )
 require(
+    "mwan_ipv4_mask_from_ifconfig()" in DETECT
+    and "mwan_ipv4_prefix_from_netmask()" in DETECT
+    and 'lanmask=$(mwan_ipv4_mask_from_ifconfig "$bridge")' in DETECT
+    and 'lanprefix=$(mwan_ipv4_prefix_from_netmask "$lanmask")' in DETECT
+    and 'lan_cidr="$lanip/$lanprefix"' in DETECT
+    and DETECT.count('-s "$lan_cidr"') == 2
+    and '"$lanip/24"' not in DETECT
+    and "PPPoE-MWAN uses the configured /16 LAN subnet for mangle and NAT rules: PASS" in DETECT_TEST
+    and "PPPoE-MWAN rejects non-contiguous bridge netmasks before policy cleanup: PASS" in DETECT_TEST,
+    "multi-WAN firewall rules must use the active contiguous LAN netmask rather than assuming /24",
+)
+require(
     "PPPoE-MWAN 443 selector read failure preserves the old policy: PASS" in DETECT_TEST
     and "PPPoE-MWAN static-rule enable read failure preserves the old policy: PASS" in DETECT_TEST
     and "PPPoE-MWAN static-rule count read failure preserves the old policy: PASS" in DETECT_TEST
