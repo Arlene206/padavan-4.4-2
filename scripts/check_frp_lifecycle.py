@@ -358,14 +358,23 @@ require("HTTPD_FILE_TYPE_PRIVATE_SCRIPT" in script_policy and
         "httpd_script_file_read_allowed" in script_policy and
         'strcmp(name, "frp_script.sh")' in script_policy,
         "HTTPD must apply FRP-specific private-script read, write and mode policy")
-require('httpd_script_file_type(file_name)' in web_ex and
-        'get_login_private_key_access()' in web_ex and
-        'lstat(real_path, &target_stat)' in web_ex and
-        'S_ISREG(target_stat.st_mode)' in web_ex and
-        '/.frp_script.XXXXXX' in web_ex and
-        'chmod(temp_path, httpd_script_file_mode(file_type))' in web_ex and
-        'rename(temp_path, real_path)' in web_ex,
-        "HTTPD must stage FRP script privately, reject symlinks/non-regular targets and atomically publish mode 0700")
+upload_policy = (ROOT / "trunk/user/httpd/src/httpd_upload_file.h").read_text()
+upload_writer = function_body(web_ex, "write_textarea_to_file(")
+staging_helper = function_body(upload_policy, "httpd_upload_create_staging(")
+publish_helper = function_body(upload_policy, "httpd_upload_publish_staged(")
+require('httpd_script_file_type(file_name)' in upload_writer and
+        'get_login_private_key_access()' in upload_writer and
+        'httpd_script_file_mode(file_type)' in upload_writer and
+        'file_type == HTTPD_FILE_TYPE_PRIVATE_SCRIPT' in upload_writer and
+        'httpd_upload_target_is_regular_or_missing(real_path)' in upload_writer and
+        'httpd_upload_create_staging(real_path, temp_path' in upload_writer and
+        'httpd_upload_publish_staged(&temp_fp, temp_path, real_path, NULL)' in upload_writer and
+        'O_NOFOLLOW' in upload_policy and
+        'snprintf(path, path_size, "%s.upload.XXXXXX", destination)' in staging_helper and
+        'fchmod(fd, S_IRUSR | S_IWUSR)' in staging_helper and
+        'httpd_upload_sync_close(stream, ops)' in publish_helper and
+        'rename_fn(staging_path, destination_path)' in publish_helper,
+        "HTTPD must stage FRP scripts through the shared private, no-follow atomic uploader and preserve mode 0700")
 dump = function_body(web_ex, "dump_file(webs_t wp, char *filename)")
 require('STORAGE_SCRIPTS_DIR "/frp_script.sh"' in dump and
         "httpd_script_file_read_allowed" in dump and

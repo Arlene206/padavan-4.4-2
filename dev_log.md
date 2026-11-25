@@ -1,3 +1,11 @@
+## 2026-11-24 — Align FRP cross-workflow contract with shared HTTPD uploader
+
+- FRP lifecycle #45517975418 ran every shell syntax check and asynchronous startup, crontab, private config, stop and lock regression successfully on e02d1e3a1c631b308885ba3279fd97247564a4ea. Its only failure was the final scripts/check_frp_lifecycle.py source assertion, which still required the old inline FRP-only mkstemp/chmod/rename logic.
+- Updated the checker to inspect the shared HTTPD upload helpers and assert the same security invariants through the generalized implementation: private-key session gate, FRP file type/mode policy, rejection of non-regular targets, same-directory mkstemp 0600 staging, O_NOFOLLOW, fsync/close and atomic rename.
+- AI handoff size correction was committed in 139d24533a8f106d07306091320f820f04912548. Exact AI run #45518436003 was still running; this checker correction needs a new exact-head AI and FRP validation. HTTPD Security passed on e02d1e3; XY-C1 remained pending.
+
+---
+
 ## 2026-11-24 — Repair cross-workflow contracts after shared HTTPD uploader change
 
 - Exact-head HTTPD Security #45517975390 passed on e02d1e3a1c631b308885ba3279fd97247564a4ea, including the updated GNU89 policy regression and source contract.

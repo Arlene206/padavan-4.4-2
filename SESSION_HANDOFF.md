@@ -6,7 +6,7 @@ Continue one autonomous engineering stream on main. For each logical slice, crea
 
 ## Branch and checkpoint
 
-- Current production source baseline: e02d1e3a1c631b308885ba3279fd97247564a4ea; refresh live main before every future write.
+- Current production source baseline: 139d24533a8f106d07306091320f820f04912548; refresh live main before every future write.
 - Frozen backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807; verified unchanged and read-only.
 - main is the only development ref. PR #1 is closed/unmerged and is not a development target.
 - Bootstrap, protocol, handoff, roadmap, dev-log window/index and live refs were recovered once. The recorded RC whole-line parser gate has been superseded by subsequent main commits; do not repeat it.
@@ -19,13 +19,13 @@ The existing write_textarea_to_file() path has an identified root-write defect: 
 
 Regression coverage must prove regular/missing target acceptance; symlink/FIFO/directory rejection; no-follow compare; exact text normalization; old-target retention after write/flush/fsync/close/rename failures; and successful same-filesystem publication. Fix only genuine CI/compiler failures, then continue with a separate userland stability/security defect.
 
-## Current exact-head Actions for e02d1e3a1c631b308885ba3279fd97247564a4ea
+## Current exact-head Actions
 
-- HTTPD Authentication and Security Regression #45517975390: PASS, including the updated upload policy source contract and HTTPD test compilation/execution.
-- AI handoff documentation #45517975544: FAIL only on the 131072-byte REFACTOR_ROADMAP.md hard limit (actual 131566 bytes). The priority bullets were compressed in the next docs-only correction; rerun the validator on that correction SHA.
-- FRP lifecycle #45517975418: all shell and FRP lifecycle regressions PASS; final source contract FAILs because scripts/check_frp_lifecycle.py still expects the old inline .frp_script.XXXXXX path/lstat/rename implementation. Production writer was generalized to the shared same-directory staged uploader, retaining the private-script mode policy. Update this exact source contract and rerun.
-- XY-C1 Firmware Validation #45517975662: IN_PROGRESS at the last poll; Build/TRX/artifact not yet confirmed. NVRAM boundary audit #45517975469 was still running its raw ioctl audit.
-- The new source has no local compile in this session. L3 remains unverified until exact-SHA XY-C1 Build/TRX/artifact complete; L4 remains unverified.
+- HTTPD Authentication and Security Regression #45517975390: PASS on e02d1e3a1c631b308885ba3279fd97247564a4ea, including the shared uploader and GNU89 policy tests.
+- AI handoff documentation #45517975544 failed on e02d1e3a1c631b308885ba3279fd97247564a4ea because the roadmap exceeded the 131072-byte limit. Its size correction is committed at 139d24533a8f106d07306091320f820f04912548; AI docs run #45518436003 was IN_PROGRESS when last checked.
+- FRP lifecycle #45517975418: all shell/lifecycle tests passed; the final source checker alone failed because it expected the old inline FRP-only staging writer. A follow-up corrects the checker to validate the new shared no-follow uploader and FRP 0700 policy; rerun on the next exact SHA.
+- WAN sysfs, Process, NVRAM, Inadyn, AdGuardHome, AliyunDrive and USB tests passed on e02d1e3. XY-C1 #45517975662 remained IN_PROGRESS; NVRAM #45517975469 subsequently passed.
+- No local compile is claimed. L3 remains unverified until the latest exact-SHA XY-C1 Build/TRX/artifact pass; L4 remains unverified.
 
 
 ## Completed source slices
