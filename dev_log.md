@@ -1,3 +1,9 @@
+## 2026-11-25 — Make domain-codec sanitizer harness leak-clean
+
+- The domain-codec sanitizer progressed past compilation after the validated signed/unsigned input-length change, then LeakSanitizer exposed allocations intentionally printed but never freed by the legacy demonstration `main()`. Replace print-only demos with checked decode/encode round-trip helpers that release every buffer; retain valid no-compression, suffix-compression and whole-name-compression coverage.
+
+---
+
 ## 2026-11-25 — Cover zero and negative domain input lengths
 
 - Extend the domain-decoder regression to exercise the new API guard with zero and negative lengths as well as malformed wire payloads. The input pointer remains valid in these cases, isolating length validation.

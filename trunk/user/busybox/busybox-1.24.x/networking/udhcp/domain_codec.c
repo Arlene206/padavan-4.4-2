@@ -266,6 +266,42 @@ static int expect_rejected(const uint8_t *wire, int wire_len)
 	return 0;
 }
 
+static int expect_encode_decoded(const uint8_t *cache, int cache_len,
+				 const char *name, const char *expected)
+{
+	uint8_t *encoded;
+	uint8_t *wire;
+	char *decoded;
+	int encoded_len;
+	int wire_len;
+	int result = -1;
+
+	encoded = dname_enc(cache, cache_len, name, &encoded_len);
+	if (encoded == NULL)
+		return -1;
+
+	wire_len = cache_len + encoded_len;
+	wire = malloc(wire_len);
+	if (wire == NULL) {
+		free(encoded);
+		return -1;
+	}
+	if (cache_len != 0)
+		memcpy(wire, cache, cache_len);
+	memcpy(wire + cache_len, encoded, encoded_len);
+	decoded = dname_dec(wire, wire_len, "");
+	if (decoded != NULL && strcmp(decoded, expected) == 0)
+		result = 0;
+	else
+		fprintf(stderr, "encoded domain did not round-trip as %s\\n",
+			expected);
+
+	free(decoded);
+	free(wire);
+	free(encoded);
+	return result;
+}
+
 static int test_domain_decoder_bounds(void)
 {
 	static const uint8_t valid_compressed[] = {
@@ -292,34 +328,22 @@ static int test_domain_decoder_bounds(void)
 	return 0;
 }
 
-int main(int argc, char **argv)
+int main(void)
 {
-	int len;
-	uint8_t *encoded;
+	static const uint8_t net_cache[] = { 3, 'n', 'e', 't', 0 };
+	static const uint8_t full_cache[] = {
+		4, 't', 'e', 's', 't', 3, 'n', 'e', 't', 0
+	};
 
-	(void)argc;
-	(void)argv;
-	if (test_domain_decoder_bounds() != 0)
+	if (test_domain_decoder_bounds() != 0 ||
+	    expect_encode_decoded(NULL, 0, "test.net", "test.net") != 0 ||
+	    expect_encode_decoded(net_cache, sizeof(net_cache),
+			  "test.net", "net test.net") != 0 ||
+	    expect_encode_decoded(full_cache, sizeof(full_cache),
+			  "test.net", "test.net test.net") != 0)
 		return 1;
+
 	puts("RFC1035 domain decoder malformed-input bounds: PASS");
-
-	uint8_t str[6] = { 0x00, 0x00, 0x02, 0x65, 0x65, 0x00 };
-	printf("NUL:'%s'\n",   dname_dec(str, 6, ""));
-
-#define DNAME_DEC(encoded,pre) dname_dec((uint8_t*)(encoded), sizeof(encoded), (pre))
-	printf("'%s'\n",       DNAME_DEC("\4host\3com\0", "test1:"));
-	printf("test2:'%s'\n", DNAME_DEC("\4host\3com\0\4host\3com\0", ""));
-	printf("test3:'%s'\n", DNAME_DEC("\4host\3com\0\xC0\0", ""));
-	printf("test4:'%s'\n", DNAME_DEC("\4host\3com\0\xC0\5", ""));
-	printf("test5:'%s'\n", DNAME_DEC("\4host\3com\0\xC0\5\1z\xC0\xA", ""));
-
-#define DNAME_ENC(cache,source,lenp) dname_enc((uint8_t*)(cache), sizeof(cache), (source), (lenp))
-	encoded = dname_enc(NULL, 0, "test.net", &len);
-	printf("test6:'%s' len:%d\n", dname_dec(encoded, len, ""), len);
-	encoded = DNAME_ENC("\3net\0", "test.net", &len);
-	printf("test7:'%s' len:%d\n", dname_dec(encoded, len, ""), len);
-	encoded = DNAME_ENC("\4test\3net\0", "test.net", &len);
-	printf("test8:'%s' len:%d\n", dname_dec(encoded, len, ""), len);
 	return 0;
 }
 #endif
