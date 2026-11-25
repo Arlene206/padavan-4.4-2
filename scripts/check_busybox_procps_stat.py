@@ -95,4 +95,12 @@ for token in (
 ):
     require(token in test, f"host regression must retain {token}")
 
+
+require("buffer[length]" not in header and "tail[length]" not in header,
+        "bounded procfs helpers must not read a sentinel byte past the supplied length")
+require("test_exact_length_inputs_need_no_sentinel_byte" in test and
+        "exact-length stat record is parsed without a NUL sentinel" in test and
+        "exact-length numeric tail is validated without a NUL sentinel" in test,
+        "exact-length non-NUL-terminated inputs must be covered by the host regression")
+
 print("BusyBox procps stat source contract: PASS")

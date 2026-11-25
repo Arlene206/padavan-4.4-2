@@ -45,6 +45,28 @@ expect_invalid(char *record, size_t length, const char *label)
 }
 
 
+
+static void
+test_exact_length_inputs_need_no_sentinel_byte(void)
+{
+	char exact_record[] = {
+		'1', '2', '3', ' ', '(', 'x', ')', ' ', 'S', ' ', '1'
+	};
+	char exact_tail[] = { '1', ' ', '2', ' ', '3', ' ' };
+	char *start = NULL;
+	char *end = NULL;
+	int result = procps_stat_comm_bounds(
+		exact_record, sizeof(exact_record), &start, &end);
+
+	CHECK(result == 1, "exact-length stat record is parsed without a NUL sentinel");
+	if (result) {
+		CHECK((size_t)(end - start) == 1U && *start == 'x',
+		      "exact-length stat record returns bounded comm pointers");
+	}
+	CHECK(procps_stat_tail_fields_valid(exact_tail, sizeof(exact_tail), 3U),
+	      "exact-length numeric tail is validated without a NUL sentinel");
+}
+
 static void
 test_fast_parser_requires_complete_numeric_tail(void)
 {
@@ -120,6 +142,7 @@ main(void)
 	expect_invalid(embedded_nul, sizeof(embedded_nul) - 1,
 	               "embedded NUL in proc stat read");
 
+	test_exact_length_inputs_need_no_sentinel_byte();
 	test_fast_parser_requires_complete_numeric_tail();
 
 	result = procps_stat_comm_bounds(NULL, 0, &start, &end);

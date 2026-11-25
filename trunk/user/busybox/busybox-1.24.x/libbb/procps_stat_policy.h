@@ -26,8 +26,7 @@ procps_stat_comm_bounds(char *buffer, size_t length,
 	*comm_start = NULL;
 	*comm_end = NULL;
 
-	if (!buffer || length == 0 || buffer[length] != '\0' ||
-	    memchr(buffer, '\0', length) != NULL)
+	if (!buffer || length == 0 || memchr(buffer, '\0', length) != NULL)
 		return 0;
 
 	end = buffer + length;
@@ -81,7 +80,7 @@ procps_stat_tail_fields_valid(const char *tail, size_t length,
 	unsigned int field;
 
 	if (!tail || length == 0 || required_fields == 0 ||
-	    tail[length] != '\0' || memchr(tail, '\0', length) != NULL)
+	    memchr(tail, '\0', length) != NULL)
 		return 0;
 
 	cursor = tail;
