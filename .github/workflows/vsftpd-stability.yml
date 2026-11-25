@@ -914,7 +914,7 @@ jobs:
 
           rnfr = function_body(vsftpd_postlogin, "static void\nhandle_rnfr(struct vsf_session* p_sess)\n{")
           rnto = function_body(vsftpd_postlogin, "static void\nhandle_rnto(struct vsf_session* p_sess)\n{")
-          rename_source = function_body(vsftpd_acl, "int\\nasus_check_rename_source_path(")
+          rename_source = function_body(vsftpd_acl, "int\nasus_check_rename_source_path(")
           rename_entry_stat = function_body(acl_path_policy, "ftp_acl_path_stat_entry_at(")
           assert '#include "ftp_acl_path_policy.h"' in vsftpd_acl
           assert "asus_check_permission_path" in vsftpd_acl_header
