@@ -233,7 +233,7 @@ require('if _autostart_nvram_value=$(nvram get "$_autostart_nvram_key"); then' i
         'if autostart_nvram_enabled aliddns_enable; then' in autostart and
         'if [ -f /etc/ssl/certs/ca-certificates.crt ] && [ -s /etc/ssl/certs/ca-certificates.crt ] && [ -r /etc/ssl/certs/ca-certificates.crt ]; then' in autostart and
         'run_optional_start "AliDDNS" /usr/bin/aliddns.sh start' in autostart and
-        'AliDDNS autostart skipped: CA trust bundle is missing, empty or unreadable' in autostart and
+        'AliDDNS autostart skipped: CA trust bundle is not readable (missing, empty or not a regular file)' in autostart and
         autostart.index('if autostart_nvram_enabled aliddns_enable; then') <
         autostart.index('if [ -f /etc/ssl/certs/ca-certificates.crt ] && [ -s /etc/ssl/certs/ca-certificates.crt ] && [ -r /etc/ssl/certs/ca-certificates.crt ]; then') <
         autostart.index('run_optional_start "AliDDNS" /usr/bin/aliddns.sh start') <

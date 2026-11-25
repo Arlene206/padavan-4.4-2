@@ -196,7 +196,7 @@ if autostart_nvram_enabled aliddns_enable; then
 		logger -t "自动启动" "正在启动阿里 ddns..."
 		run_optional_start "AliDDNS" /usr/bin/aliddns.sh start
 	else
-		logger -t "自动启动" "AliDDNS autostart skipped: CA trust bundle is missing, empty or unreadable"
+		logger -t "自动启动" "AliDDNS autostart skipped: CA trust bundle is not readable (missing, empty or not a regular file)"
 	fi
 fi
 
