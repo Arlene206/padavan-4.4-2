@@ -1407,7 +1407,7 @@ TEST_IPTABLES_CHECK_FAIL_ON=""
 TEST_IPTABLES_DELETE_FAIL_ON=""
 test_seed_firewall_rules
 : > "$TEST_IPTABLES_LOG"
-printf 'ztunit\\n10.147.17.0/24\\ncorrupt-extra-record\\n' > "$TEST_CONFIG/.firewall-state"
+printf '%s\n' 'ztunit' '10.147.17.0/24' 'corrupt-extra-record' > "$TEST_CONFIG/.firewall-state"
 TEST_STATIC_ROUTE_COUNT=0
 TEST_NAT_ENABLE=0
 TEST_IFCONFIG_MODE=running-only
@@ -1425,7 +1425,10 @@ fi
 [ ! -s "$TEST_KILL_LOG" ] || fail "corrupt firewall checkpoint still signalled the daemon"
 [ ! -s "$TEST_IPTABLES_LOG" ] || fail "corrupt firewall checkpoint attempted firewall edits"
 grep -Fqx -- "nat POSTROUTING -s 10.147.17.0/24 -j MASQUERADE" "$TEST_IPTABLES_STATE_FILE" || fail "corrupt checkpoint fixture lost its stale source-NAT rule"
-[ "$(cat "$TEST_CONFIG/.firewall-state")" = "$(printf 'ztunit\\n10.147.17.0/24\\ncorrupt-extra-record')" ] || fail "corrupt firewall checkpoint was overwritten or removed"
+[ "$(wc -l < "$TEST_CONFIG/.firewall-state" | tr -d ' ')" = 3 ] || fail "corrupt firewall checkpoint was overwritten or removed"
+[ "$(sed -n '1p' "$TEST_CONFIG/.firewall-state")" = "ztunit" ] || fail "corrupt firewall checkpoint interface was changed"
+[ "$(sed -n '2p' "$TEST_CONFIG/.firewall-state")" = "10.147.17.0/24" ] || fail "corrupt firewall checkpoint segment was changed"
+grep -Fqx -- "corrupt-extra-record" "$TEST_CONFIG/.firewall-state" || fail "corrupt firewall checkpoint corruption marker was removed"
 [ ! -s "$TEST_ACTION_LOG" ] || fail "corrupt firewall checkpoint changed persistent configuration"
 /bin/rm -rf "$TEST_CONFIG"
 : > "$TEST_IPTABLES_STATE_FILE"
