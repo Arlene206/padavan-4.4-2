@@ -304,6 +304,7 @@ jobs:
           wan6_identity_test = (rc / "tests/wan6_identity_policy.c").read_text()
           ppp_source = (rc / "net_ppp.c").read_text()
           ppp_state_policy = (rc / "ppp_callback_state_file.h").read_text()
+          state_test = (rc / "tests/ppp_callback_state_file.c").read_text()
           rc_header = (rc / "rc.h").read_text()
           net6_source = (rc / "net6.c").read_text()
           shared = Path("trunk/user/shared/src")
