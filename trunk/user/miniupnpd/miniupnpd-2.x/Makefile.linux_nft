@@ -160,7 +160,7 @@ miniupnpd.o: getifaddr.h upnpsoap.h options.h minissdp.h upnpredirect.h
 miniupnpd.o: upnppinhole.h daemonize.h upnpevents.h asyncsendto.h natpmp.h
 miniupnpd.o: pcpserver.h commonrdr.h upnputils.h ifacewatcher.h
 upnphttp.o: config.h upnphttp.h upnpdescgen.h miniupnpdpath.h upnpsoap.h
-upnphttp.o: upnpevents.h upnputils.h
+upnphttp.o: upnpevents.h upnputils.h miniupnpd_http_request_policy.h
 upnpdescgen.o: config.h getifaddr.h upnpredirect.h upnpdescgen.h
 upnpdescgen.o: miniupnpdpath.h upnpglobalvars.h upnppermissions.h
 upnpdescgen.o: miniupnpdtypes.h upnpdescstrings.h upnpurns.h getconnstatus.h
