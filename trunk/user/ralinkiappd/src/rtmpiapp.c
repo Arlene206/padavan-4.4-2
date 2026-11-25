@@ -1720,7 +1720,7 @@ static BOOLEAN IAPP_SocketOpen(
 	/* The signal handler shares the event-loop thread with the pipe reader.
 	 * A blocking write here could deadlock when the pipe is full. */
 	PipeBufSize = fpathconf(pCtrlBK->PipeRawDrv[FT_KDP_PIPE_ID_WRITE], _PC_PIPE_BUF);
-	if (PipeBufSize < 0 || (size_t)PipeBufSize < sizeof(RT_SIGNAL_STRUC))
+	if (PipeBufSize < 0 || (size_t)PipeBufSize < sizeof(size_t) + sizeof(RT_SIGNAL_STRUC))
 	{
 		DBGPRINT(RT_DEBUG_ERROR, "iapp> Invalid raw drv pipe atomic-write limit!\n");
 		goto label_fail;
@@ -2087,15 +2087,19 @@ VOID IAPP_RcvHandler(
 #ifdef IAPP_OS_LINUX
 		if (FD_ISSET(pCtrlBK->PipeRawDrv[FT_KDP_PIPE_ID_READ], &FdSet))
 		{
-			UINT32 CmdLen;
+			size_t CmdLen;
 
-			CmdLen = read(pCtrlBK->PipeRawDrv[FT_KDP_PIPE_ID_READ],\
-											pPktBuf, IAPP_MAX_RCV_PKT_SIZE);
-			if (CmdLen > 0)
+			if (iapp_signal_pipe_read_record(
+				pCtrlBK->PipeRawDrv[FT_KDP_PIPE_ID_READ], pPktBuf,
+				sizeof(RT_SIGNAL_STRUC), &CmdLen, read) == 0)
 			{
-				/* handle the signal context, assoicate or reassociate or terminate */
-				IAPP_SIG_Process((RT_SIGNAL_STRUC *)pPktBuf, CmdLen, pCmdBuf, pRspBuf);
-			} /* End of if */
+				/* Dispatch one complete signal context per pipe record. */
+				IAPP_SIG_Process((RT_SIGNAL_STRUC *)pPktBuf,
+						(INT32)CmdLen, pCmdBuf, pRspBuf);
+			}
+			else
+				DBGPRINT(RT_DEBUG_ERROR,
+					 "iapp> Read signal context from pipe failed (errno=%d)!\n", errno);
 		} /* End of if */
 #endif // IAPP_OS_LINUX //
 #endif // FT_KDP_FUNC_SOCK_COMM //
@@ -3380,6 +3384,8 @@ static VOID IAPP_USR2Handle(
 {
 #ifndef FT_KDP_FUNC_SOCK_COMM
 	RT_SIGNAL_STRUC *pSigBuf;
+	UCHAR PipeRecord[sizeof(size_t) + sizeof(RT_SIGNAL_STRUC)];
+	size_t SignalLen;
 	INT32 DataLen;
 	INT32	if_idx = 0;
 
@@ -3412,13 +3418,18 @@ static VOID IAPP_USR2Handle(
 
 	DBGPRINT(RT_DEBUG_TRACE, "iapp> Receive a signal (Len = %d)!\n", DataLen);
 
-	/* Queue one complete record without blocking the event-loop reader. */
-	if (DataLen > 0 &&
-	    iapp_signal_pipe_write_record(
-		pCtrlBK->PipeRawDrv[FT_KDP_PIPE_ID_WRITE], pSigBuf,
-		(size_t)DataLen, IAPP_RawDrvPipeBufSize, write) < 0)
-		DBGPRINT(RT_DEBUG_ERROR,
-			 "iapp> Write signal context to pipe failed (errno=%d)!\n", errno);
+	/* Prefix each atomic write so the byte-stream reader can split records. */
+	if (DataLen > 0) {
+		SignalLen = (size_t)DataLen;
+		IAPP_MEM_MOVE(PipeRecord, &SignalLen, sizeof(SignalLen));
+		IAPP_MEM_MOVE(PipeRecord + sizeof(SignalLen), pSigBuf, SignalLen);
+		if (iapp_signal_pipe_write_record(
+			pCtrlBK->PipeRawDrv[FT_KDP_PIPE_ID_WRITE], PipeRecord,
+			sizeof(SignalLen) + SignalLen,
+			IAPP_RawDrvPipeBufSize, write) < 0)
+			DBGPRINT(RT_DEBUG_ERROR,
+				 "iapp> Write signal context to pipe failed (errno=%d)!\n", errno);
+	}
 
 	IAPP_MEM_FREE(pSigBuf);
 #endif // FT_KDP_FUNC_SOCK_COMM //

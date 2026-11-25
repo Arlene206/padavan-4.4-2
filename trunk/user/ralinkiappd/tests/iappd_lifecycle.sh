@@ -171,8 +171,12 @@ grep -Fq '#include "iapp_signal_pipe_policy.h"' "$iapp_source" ||
   fail "IAPP Linux driver-pipe signal enqueue must use the bounded policy helper"
 grep -Fq 'fpathconf(pCtrlBK->PipeRawDrv[FT_KDP_PIPE_ID_WRITE], _PC_PIPE_BUF)' "$iapp_source" ||
   fail "IAPP driver pipe must query its runtime atomic-write limit"
-grep -Fq 'PipeBufSize < 0 || (size_t)PipeBufSize < sizeof(RT_SIGNAL_STRUC)' "$iapp_source" ||
-  fail "IAPP signal record must fit within the runtime PIPE_BUF limit"
+grep -Fq 'PipeBufSize < 0 || (size_t)PipeBufSize < sizeof(size_t) + sizeof(RT_SIGNAL_STRUC)' "$iapp_source" ||
+  fail "length-prefixed IAPP signal record must fit within the runtime PIPE_BUF limit"
+grep -Fq 'iapp_signal_pipe_read_record(' "$iapp_source" ||
+  fail "IAPP signal reader must consume exactly one framed record per dispatch"
+grep -Fq 'PipeRecord + sizeof(SignalLen)' "$iapp_source" ||
+  fail "IAPP signal writer must frame the returned signal-context length"
 grep -Fq 'PipeFlags | O_NONBLOCK' "$iapp_source" ||
   fail "IAPP driver signal pipe writer must be nonblocking before handler registration"
 grep -Fq 'iapp_signal_pipe_write_record(' "$iapp_source" ||

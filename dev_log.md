@@ -1,3 +1,13 @@
+## 2026-11-26 04:56 CST (UTC+8) — Frame and drain each queued IAPP driver signal separately
+
+- The new nonblocking writer made each driver signal one atomic `PIPE_BUF`-bounded write, but the consumer still requested up to `IAPP_MAX_RCV_PKT_SIZE` in one `read()`. Pipe reads may combine several atomic writes; `IAPP_SIG_Process()` handles only one structure, so a coalesced read could silently discard later queued events.
+- Each write now carries a native `size_t` payload-length prefix, and the runtime atomic-write check includes that prefix. The reader consumes exactly one prefix and exactly its declared payload (retrying interrupted/short reads) before dispatch, leaving subsequent records queued for the next select iteration.
+- Extended the GNU89 ASan/UBSan policy fixture with two queued records, one-byte fragmented read delivery, and oversized-length rejection. The same test job covers nonblocking pipe saturation, EINTR, short-write rejection and EAGAIN.
+- Local helper regression: GNU89 compile with `-Wall -Wextra -Werror -fsanitize=address,undefined` and leak detection — PASS. Parent IAPP host workflow #45698920147 PASS; exact-head checks for THIS COMMIT pending at commit creation. No MIPS build or hardware result is claimed.
+- Changed paths: `rtmpiapp.c`, `iapp_signal_pipe_policy.h`, `iapp_signal_pipe_policy.c`, `iappd_lifecycle.sh`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`.
+
+---
+
 ## 2026-11-26 04:45 CST (UTC+8) — Make the IAPP driver-signal pipe nonblocking and record-atomic
 
 - `IAPP_USR2Handle()` previously wrote a driver signal context to a blocking pipe, while the pipe reader runs in the same IAPP event-loop thread. A full pipe could therefore block the callback and prevent the reader that would free capacity from running.

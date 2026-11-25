@@ -1,34 +1,26 @@
 ## Current repository state — 2026-11-26
 
-- Live main parent before this slice: `fd0c5cd2a69fca87e685854804614ea63104763e`; this atomic commit adds bounded, nonblocking Linux driver-signal pipe enqueueing and its regression coverage (THIS COMMIT).
+- Live main parent before this slice: `96d5da2bcc43069eefac919c49906d948afb94c6`; this atomic commit adds explicit length-prefixed driver-signal records so the pipe reader dispatches one complete record even when multiple writes are queued (THIS COMMIT).
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Parent exact-head Actions: IAPP lifecycle #45696823296 PASS; Process inventory #45696823293 PASS; Process regression #45696823202 PASS; AI docs #45696823284 PASS. XY-C1 #45696823320 and NVRAM #45696823165 were still running at the last poll. This new SHA requires its own exact-head checks.
-- Prior code context remains the IAPP TCP read/write/connect deadline and framing hardening through `fd0c5cd2a69fca87e685854804614ea63104763e`. Earlier XY-C1 Build/TRX/artifact L3 on `e1f16872b7e2792db9acf0184f2fe9c5d736c966` does not validate later source SHAs.
+- Parent exact-head Actions: IAPP lifecycle #45698920147 PASS; Process regression #45698920089 PASS; Process inventory #45698920081 PASS; AI docs #45698920145 PASS. XY-C1 #45698920140 and NVRAM #45698920155 remained in progress at the last poll. This new SHA needs independent exact-head checks.
+- The preceding nonblocking/atomic writer fix is `96d5da2bcc43069eefac919c49906d948afb94c6`; its host IAPP workflow passed. Its parent is `fd0c5cd2a69fca87e685854804614ea63104763e`.
 
 ## Active task
 
-Bound the non-FT Linux SIGUSR2 driver-context pipe write. Previously the signal callback used a blocking `write()` on a pipe whose reader runs in the same IAPP event-loop thread; a full pipe could therefore block the only reader forever. The current slice queries the write fd's runtime `_PC_PIPE_BUF`, checks the fixed record fits, sets only the writer O_NONBLOCK, retries EINTR and rejects short writes without splitting the record. Queue saturation returns EAGAIN promptly and is logged; the callback never waits for the event loop to drain itself.
+The first pipe fix bounded one atomic write but left the consumer using a single large `read()`. Multiple successful writes can be coalesced by a pipe read; the old code then passed the aggregate byte count to `IAPP_SIG_Process()`, which processes only the first `RT_SIGNAL_STRUC`. The current slice prefixes each record with its `size_t` payload length, includes the prefix in the `PIPE_BUF` bound, and reads exactly one header and one payload per dispatch. This prevents queued records from being silently discarded and handles EINTR/short reads.
 
 ## Verification boundary
 
-- GNU89 ASan/UBSan policy regression: local compile/run PASS (argument/capacity bounds, EINTR retry, partial-write rejection, EAGAIN propagation, and a full nonblocking pipe).
-- Exact-head IAPP lifecycle / Process / AI / XY-C1 Actions for THIS COMMIT must be fetched by its resulting main SHA; they were not yet available at commit creation.
+- GNU89 ASan/UBSan policy regression: local compile/run PASS. Coverage includes nonblocking saturation, EINTR retry, short-write rejection, EAGAIN propagation, two queued/coalesced records, one-byte fragmented reader delivery, and oversized record rejection.
+- Parent exact-head IAPP lifecycle #45698920147 PASS. Exact-head IAPP / Process / AI / XY-C1 results for THIS COMMIT must be fetched by its resulting SHA.
 - No full MIPS image or physical-router claim. L3/L4 remain NOT VERIFIED for this source slice.
 
 ## Exact first actions for next GPT
 
-1. Fetch live main and inspect push Actions for THIS COMMIT's exact SHA. Resolve any IAPP/Process failure first; do not substitute parent run results. XY-C1 pending is not a reason to idle.
-2. Inspect the pipe consumer's stream-read behavior under multiple queued atomic signal records; determine whether one read can coalesce records and, if so, add bounded record framing/dispatch regression separately.
-3. Continue another independent stability/security task after the pipe queue semantics are closed.
+1. Fetch live main and inspect push Actions for THIS COMMIT's exact SHA. Resolve any IAPP/Process failure first; do not substitute parent run results. Keep XY-C1 PENDING distinct from host regression status.
+2. Confirm the IAPP test job compiles and runs the extended record framing tests on the exact SHA.
+3. Continue another stability/security issue across a different Padavan userland module after this IPC slice is validated.
 
-## 2026-11-26 autonomous handoff checkpoint
-
-This checkpoint supersedes the older RStats/Dropbear pointer below; retain completed findings in the log/roadmap and do not resume that old task.
-
-
-## Superseded prior checkpoint (historical — do not resume)
-
-The earlier RStats ring-cursor and Dropbear checker checkpoint was superseded by the IAPP network/IPC hardening stream. Its validation history remains in the development log; the active task and first action are defined above.
 # Cross-session execution mandate
 
 Continue one autonomous engineering stream on main. For each logical slice, create all changed blobs, one complete Git tree based on the live main root tree, and one atomic main commit; update main with a non-forced expected-SHA compare-and-swap. Never force-push, use feature branches or PRs, split one logical change into per-file commits, or modify the frozen backup. PENDING never blocks independent work. Before context exhaustion, finish the current safe slice and checkpoint the first concrete next action.

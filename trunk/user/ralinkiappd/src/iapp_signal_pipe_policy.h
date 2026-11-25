@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 #include <errno.h>
+#include <string.h>
 #include <sys/types.h>
 
 /*
@@ -38,6 +39,79 @@ static inline int iapp_signal_pipe_write_record(
 		return -1;
 	}
 
+	return 0;
+}
+
+
+/*
+ * Read exactly one length-prefixed record. Separate pipe writes may be
+ * coalesced by read(), so the reader must consume the prefix and payload
+ * lengths explicitly instead of passing an aggregate byte count downstream.
+ */
+static inline int iapp_signal_pipe_read_record(
+	int fd,
+	void *buffer,
+	size_t capacity,
+	size_t *record_length,
+	ssize_t (*read_fn)(int, void *, size_t))
+{
+	unsigned char header[sizeof(size_t)];
+	size_t payload_length;
+	size_t received = 0;
+	ssize_t bytes_read;
+
+	if (fd < 0 || buffer == NULL || capacity == 0 ||
+	    record_length == NULL || read_fn == NULL) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	while (received < sizeof(header)) {
+		bytes_read = read_fn(fd, header + received,
+				     sizeof(header) - received);
+		if (bytes_read < 0 && errno == EINTR)
+			continue;
+		if (bytes_read <= 0) {
+			if (bytes_read == 0)
+				errno = EPIPE;
+			return -1;
+		}
+		if ((size_t)bytes_read > sizeof(header) - received) {
+			errno = EIO;
+			return -1;
+		}
+		received += (size_t)bytes_read;
+	}
+
+	memcpy(&payload_length, header, sizeof(payload_length));
+	if (payload_length == 0) {
+		errno = EINVAL;
+		return -1;
+	}
+	if (payload_length > capacity) {
+		errno = EMSGSIZE;
+		return -1;
+	}
+
+	received = 0;
+	while (received < payload_length) {
+		bytes_read = read_fn(fd, (unsigned char *)buffer + received,
+				     payload_length - received);
+		if (bytes_read < 0 && errno == EINTR)
+			continue;
+		if (bytes_read <= 0) {
+			if (bytes_read == 0)
+				errno = EPIPE;
+			return -1;
+		}
+		if ((size_t)bytes_read > payload_length - received) {
+			errno = EIO;
+			return -1;
+		}
+		received += (size_t)bytes_read;
+	}
+
+	*record_length = payload_length;
 	return 0;
 }
 
