@@ -1307,7 +1307,7 @@ TEST_IPTABLES_FAIL_ON=""
 TEST_IPTABLES_CHECK_FAIL_ON=""
 TEST_IPTABLES_DELETE_FAIL_ON=""
 test_seed_firewall_rules
-printf '%s\\n' 'ztunit' '10.147.17.0/24' > "$TEST_CONFIG/.firewall-state"
+printf '%s\n' 'ztunit' '10.147.17.0/24' > "$TEST_CONFIG/.firewall-state"
 chmod 600 "$TEST_CONFIG/.firewall-state"
 echo identity > "$TEST_CONFIG/identity.secret"
 echo running > "$TEST_STATE"
