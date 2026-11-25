@@ -1,3 +1,9 @@
+## 2026-11-25 — Correct ZeroTier route mock newline format
+
+- A post-commit fixture review found the new route-output override used two backslashes before `n` in its `printf` format, which would append the literal characters `\n` rather than a record newline. Correct the test double to emit the same line framing as `ip route show`; production route matching is unchanged.
+
+---
+
 ## 2026-11-25 — Keep ZeroTier shutdown fail-closed for conflicting and multipath routes
 
 - Found a route-cleanup ambiguity in `zero_route_entry_matches()`: it returned the same status for “destination absent” and “destination exists but its gateway/interface differs.” `zero_route()` treats status 1 as an idempotent absence, so a route still installed for a configured destination could be left behind while `stop_zero()` removed ZeroTier persistent identity and retry state. The parser also retained only the last `via/dev` pair on a multipath line, potentially missing the configured ZeroTier nexthop when another nexthop followed it.

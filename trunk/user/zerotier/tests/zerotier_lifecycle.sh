@@ -186,7 +186,7 @@ ip() {
 	if [ "$1" = route ] && [ "${2:-}" = show ]; then
 		[ "$TEST_ROUTE_SHOW_STATUS" -eq 0 ] || return "$TEST_ROUTE_SHOW_STATUS"
 		if [ -n "${TEST_ROUTE_SHOW_OUTPUT:-}" ]; then
-			printf '%s\\n' "$TEST_ROUTE_SHOW_OUTPUT"
+			printf '%s\n' "$TEST_ROUTE_SHOW_OUTPUT"
 			return 0
 		fi
 		if [ "$TEST_ROUTE_PRESENT" -eq 1 ] && [ "${3:-}" = "$TEST_STATIC_ROUTE_IP" ]; then
