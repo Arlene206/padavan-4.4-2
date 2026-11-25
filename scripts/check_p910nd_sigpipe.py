@@ -18,7 +18,7 @@ def compact(text):
 def compact_c(text):
     """Remove C comments and whitespace for formatting-independent checks."""
     without_comments = re.sub(
-        r"/[*].*?[*]/|//[^\\r\\n]*", "", text, flags=re.S
+        r"/[*].*?[*]/|//[^\r\n]*", "", text, flags=re.S
     )
     return re.sub(r"\s+", "", without_comments)
 assert '#include "p910nd_sigpipe_policy.h"' in SOURCE
