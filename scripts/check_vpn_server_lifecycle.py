@@ -93,6 +93,8 @@ workflow=read(".github/workflows/vpn-server-stability.yml")
 test=read("trunk/user/rc/src/tests/vpn_server_lifecycle_lock.c")
 callback_policy=read("trunk/user/rc/src/vpn_server_callback_policy.h")
 callback_test=read("trunk/user/rc/src/tests/vpn_server_callback_policy.c")
+client_callback_policy=read("trunk/user/rc/src/vpn_client_callback_policy.h")
+client_callback_test=read("trunk/user/rc/src/tests/vpn_client_callback_policy.c")
 restart_policy=read("trunk/user/rc/src/vpn_server_restart_policy.h")
 restart_policy_test=read("trunk/user/rc/src/tests/vpn_server_restart_policy.c")
 process_pidfile=read("trunk/user/shared/src/process_pidfile.c")
@@ -925,6 +927,69 @@ require('script_setenv("PPPD_PID", numbuf, 1)' in pppd_main and
 require("expect_invalid" in callback_test and
         "vpn_server_callback_pids_match" in callback_test,
         "callback regression lacks parser/session coverage")
+
+# VPN-client PPP callbacks must be fenced before route, DNS or NVRAM effects.
+for token in ("vpn_client_callback_interface_is_valid",
+              "vpn_client_callback_session_matches",
+              "VPN_CLIENT_CALLBACK_MAX_PPP_UNITS"):
+    require(token in client_callback_policy,
+            f"VPN client callback policy missing {token}")
+for token in ("ppp_callback_parse_index", "vpn_server_callback_pid_parse",
+              "vpn_server_callback_pids_match"):
+    require(token in client_callback_policy,
+            f"VPN client callback identity invariant missing {token}")
+for token in ("ppp0", "ppp255", "ppp00", "ppp256",
+              "VPN client PPP callback identity policy: PASS"):
+    require(token in client_callback_test,
+            f"VPN client callback regression missing {token}")
+client_session=body(vpn_client,
+    "static int\nvpn_client_callback_session_is_current(const char *ifname)")
+ordered(client_session, [
+    "vpn_client_callback_interface_is_valid(ifname)",
+    'safe_getenv("PPPD_PID")',
+    "getppid()",
+    '"/var/run/%s.pid"',
+    'process_pidfile_read_identity(pidfile, "pppd", &identity)',
+    "vpn_client_callback_session_matches("
+], "VPN client callback parent and pidfile authentication")
+client_enter=body(vpn_client,
+    "static int\nvpn_client_callback_lifecycle_enter(const char *ifname, int *lifecycle_fd)")
+ordered(client_enter, [
+    "vpn_server_lifecycle_lock_acquire()",
+    "vpn_client_callback_session_is_current(ifname)",
+    "vpn_server_lifecycle_lock_release(fd)"
+], "VPN client callback lifecycle gate")
+require('#include "vpn_client_callback_policy.h"' in vpn_client and
+        '#include <process_pidfile.h>' in vpn_client,
+        "VPN client callback implementation missing identity dependencies")
+for signature,label,side_effect in (
+    ("ipup_vpnc_main(int argc, char **argv)", "up",
+     'vpn_client_nvram_set_temp_status(\n\t\tNULL, "vpnc_state_t", "1")'),
+    ("ipdown_vpnc_main(int argc, char **argv)", "down",
+     'vpn_client_nvram_set_temp_status(\n\t\tNULL, "vpnc_state_t", "0")')
+):
+    callback=body(vpn_client,signature)
+    ordered(callback, [
+        "if (argc < 2 || !argv || !argv[1] || !ifname",
+        "vpn_client_callback_lifecycle_enter(\n\t\targv[1], &lifecycle_fd)",
+        "umask(0000)",
+        side_effect,
+        "vpn_server_lifecycle_lock_release(lifecycle_fd)",
+        "return status;"
+    ], "VPN client "+label+" callback fencing")
+    require("ignoring stale VPN client "+label+" callback" in callback,
+            "VPN client "+label+" callback must ignore stale sessions")
+client_stop=body(vpn_client,"static int\nstop_vpn_client_locked(void)")
+ordered(client_stop, [
+    "stop_vpn_client_ppp(0)",
+    "restore_dns_from_vpnc()",
+    'vpn_client_nvram_set_temp_status(\n\t\tNULL, "vpnc_state_t", "0")',
+    "unlink(VPNC_PPP_UP_SCRIPT)"
+], "VPN client stop must restore DNS after stopping the PPP peer")
+client_restart=body(vpn_client,"static int\nrestart_vpn_client_locked(void)")
+require("restore_dns_from_vpnc()" not in client_restart,
+        "VPN client restart must not repeat the DNS restoration already performed by stop")
+
 
 # OpenVPN callbacks run after privilege drop and must serialize against the
 # root RC lease clear on the same inode, with a PID fence checked after lock.

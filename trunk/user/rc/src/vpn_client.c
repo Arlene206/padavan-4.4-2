@@ -35,6 +35,9 @@
 #include "ppp_options_file.h"
 #include "ppp_option_value_policy.h"
 #include "vpn_server_lifecycle_lock.h"
+#include "vpn_server_callback_policy.h"
+#include "vpn_client_callback_policy.h"
+#include <process_pidfile.h>
 
 #define VPNC_LOG_NAME		"VPN client"
 #define VPNC_PPP_LINK_NAME	"vpnc"
@@ -518,6 +521,13 @@ stop_vpn_client_locked(void)
 	}
 #endif
 
+	route_status = restore_dns_from_vpnc();
+	cleanup_status = route_status_accumulate(cleanup_status, route_status);
+	if (route_status != 0)
+		logmessage(VPNC_LOG_NAME,
+			   "cannot restore DNS state after VPN client stop (status=%d)",
+			   route_status);
+
 	route_status = vpn_client_nvram_set_temp_status(
 		NULL, "l2tp_cli_t", "0");
 	cleanup_status = route_status_accumulate(cleanup_status, route_status);
@@ -710,19 +720,10 @@ restart_vpn_client_locked(void)
 		return stop_status;
 	}
 
-	restore_status = restore_dns_from_vpnc();
-	if (restore_status != 0) {
-		start_status = restore_status;
-		saved_errno = restore_status;
-		logmessage(VPNC_LOG_NAME,
-			   "refusing VPN client restart because the previous DNS/domain snapshot could not be cleared (status=%d)",
-			   restore_status);
-	} else {
-		sleep(1);
-		start_status = start_vpn_client_locked();
-		if (start_status != 0)
-			saved_errno = errno ? errno : EIO;
-	}
+	sleep(1);
+	start_status = start_vpn_client_locked();
+	if (start_status != 0)
+		saved_errno = errno ? errno : EIO;
 	firewall_status = restart_firewall();
 	if (start_status == 0 && firewall_status != 0) {
 		start_status = firewall_status;
@@ -873,16 +874,110 @@ vpnc_route_to_remote_lan(char *ifname, char *gw, int add)
 	return route_status;
 }
 
+/*
+ * A PPP callback runs in a child of pppd and may outlive a client stop.
+ * Serialize with client/WAN/server lifecycle transitions, then authenticate
+ * both the direct parent and its current per-interface identity pidfile.
+ */
+static int
+vpn_client_callback_session_is_current(const char *ifname)
+{
+	const char *pid_text;
+	pid_t parent_pid;
+	char pidfile[64];
+	struct process_identity identity;
+	enum process_presence state;
+	int path_length;
+
+	if (!vpn_client_callback_interface_is_valid(ifname)) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	pid_text = safe_getenv("PPPD_PID");
+	parent_pid = getppid();
+	path_length = snprintf(pidfile, sizeof(pidfile),
+			       "/var/run/%s.pid", ifname);
+	if (path_length < 0 || path_length >= (int)sizeof(pidfile)) {
+		errno = ENAMETOOLONG;
+		return -1;
+	}
+
+	state = process_pidfile_read_identity(pidfile, "pppd", &identity);
+	if (state != PROCESS_PRESENCE_RUNNING) {
+		if (state == PROCESS_PRESENCE_ABSENT)
+			errno = ESRCH;
+		else if (!errno)
+			errno = EIO;
+		return -1;
+	}
+
+	return vpn_client_callback_session_matches(
+		ifname, pid_text, parent_pid, identity.pid);
+}
+
+/* Hold the same inode lock as start/stop/restart through every side effect. */
+static int
+vpn_client_callback_lifecycle_enter(const char *ifname, int *lifecycle_fd)
+{
+	int fd, current, saved_errno;
+
+	if (!lifecycle_fd) {
+		errno = EINVAL;
+		return -1;
+	}
+	*lifecycle_fd = -1;
+	fd = vpn_server_lifecycle_lock_acquire();
+	if (fd < 0)
+		return -1;
+
+	current = vpn_client_callback_session_is_current(ifname);
+	if (current != 1) {
+		saved_errno = errno ? errno : EIO;
+		if (vpn_server_lifecycle_lock_release(fd) != 0) {
+			logmessage(VPNC_LOG_NAME,
+				   "cannot release VPN client lifecycle lock after callback identity rejection (errno=%d)",
+				   errno ? errno : EIO);
+			return -1;
+		}
+		if (current < 0)
+			errno = saved_errno;
+		return current;
+	}
+
+	*lifecycle_fd = fd;
+	return 1;
+}
+
 int
 ipup_vpnc_main(int argc, char **argv)
 {
 	int status = 0, route_status, api_result, read_errno;
 	int pdns_status, vpnc_pdns = 0;
+	int lifecycle_fd, callback_state;
 	char *pdns_value = NULL;
 	char buf[256];
 	char *script_name = VPN_CLIENT_UPDOWN_SCRIPT;
 	char *ifname = safe_getenv("IFNAME");
 	char *gw = getenv("IPREMOTE");
+
+	if (argc < 2 || !argv || !argv[1] || !ifname ||
+	    strcmp(argv[1], ifname) != 0) {
+		errno = EINVAL;
+		return -1;
+	}
+	callback_state = vpn_client_callback_lifecycle_enter(
+		argv[1], &lifecycle_fd);
+	if (callback_state <= 0) {
+		if (callback_state == 0)
+			logmessage(VPNC_LOG_NAME,
+				   "ignoring stale VPN client up callback for %s", argv[1]);
+		else
+			logmessage(VPNC_LOG_NAME,
+				   "cannot authenticate VPN client up callback for %s (errno=%d)",
+				   argv[1], errno ? errno : EIO);
+		return callback_state == 0 ? 0 : -1;
+	}
 
 	umask(0000);
 
@@ -946,15 +1041,45 @@ ipup_vpnc_main(int argc, char **argv)
 			logmessage(VPNC_LOG_NAME, "VPN client up hook failed (status=%d)", route_status);
 	}
 
+	if (vpn_server_lifecycle_lock_release(lifecycle_fd) != 0) {
+		int release_errno = errno ? errno : EIO;
+
+		logmessage(VPNC_LOG_NAME,
+			   "cannot release VPN client lifecycle lock after up callback (errno=%d)",
+			   release_errno);
+		if (status == 0) {
+			status = -1;
+			errno = release_errno;
+		}
+	}
 	return status;
 }
 int
 ipdown_vpnc_main(int argc, char **argv)
 {
 	int status = 0, route_status;
+	int lifecycle_fd, callback_state;
 	char *script_name = VPN_CLIENT_UPDOWN_SCRIPT;
 	char *ifname = safe_getenv("IFNAME");
 	char *gw = getenv("IPREMOTE");
+
+	if (argc < 2 || !argv || !argv[1] || !ifname ||
+	    strcmp(argv[1], ifname) != 0) {
+		errno = EINVAL;
+		return -1;
+	}
+	callback_state = vpn_client_callback_lifecycle_enter(
+		argv[1], &lifecycle_fd);
+	if (callback_state <= 0) {
+		if (callback_state == 0)
+			logmessage(VPNC_LOG_NAME,
+				   "ignoring stale VPN client down callback for %s", argv[1]);
+		else
+			logmessage(VPNC_LOG_NAME,
+				   "cannot authenticate VPN client down callback for %s (errno=%d)",
+				   argv[1], errno ? errno : EIO);
+		return callback_state == 0 ? 0 : -1;
+	}
 
 	umask(0000);
 
@@ -981,6 +1106,17 @@ ipdown_vpnc_main(int argc, char **argv)
 			logmessage(VPNC_LOG_NAME, "VPN client down hook failed (status=%d)", route_status);
 	}
 
+	if (vpn_server_lifecycle_lock_release(lifecycle_fd) != 0) {
+		int release_errno = errno ? errno : EIO;
+
+		logmessage(VPNC_LOG_NAME,
+			   "cannot release VPN client lifecycle lock after down callback (errno=%d)",
+			   release_errno);
+		if (status == 0) {
+			status = -1;
+			errno = release_errno;
+		}
+	}
 	return status;
 }
 
