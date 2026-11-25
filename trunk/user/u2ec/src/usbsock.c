@@ -3020,7 +3020,7 @@ int usb_connection(int sockfd)
 		        (long)tcp_pack.SizeBuffer, (long)pirp_save->BufferSize,
 		        offsetof(IRP_SAVE, Buffer),
 		        sizeof(data_buf) - offsetof(IRP_SAVE, Buffer))) {
-			PDEBUG("usb_connection: IRP buffer length exceeds received frame\\n");
+			PDEBUG("usb_connection: IRP buffer length exceeds received frame\n");
 			goto CLOSE_CONN;
 		}
 
