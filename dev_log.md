@@ -1,3 +1,12 @@
+## 2026-11-25 — Align WAN DHCP callback contract with scoped native IPv6 gateway route
+
+- Exact-head WAN route operation status regression #45716808610 passed on `6a6fd241bc90dcf3e68d0001a00f619a63fb0ebd`; the same SHA's WAN DHCP callback regression #45716808673 failed only because its inline source contract still demanded the former unscoped static IPv6 default-route command.
+- Updated both assertions (native operation presence and status-gated invocation) to require the explicit WAN `dev` argument added in the route fix. No product source was changed by this contract-only correction.
+- Exact-head WAN callback rerun and XY-C1 rebuild will be checked on the new SHA. Earlier XY-C1 run #45716808564 failed before starting firmware build because this same WAN workflow assertion failed in a separate required validation job; Build/TRX/artifact had been skipped. No firmware result is claimed.
+- Changed paths: `.github/workflows/wan-dhcp-callback-stability.yml`, `dev_log.md`.
+
+---
+
 ## 2026-11-25 — Bind native static IPv6 default routes to the WAN interface
 
 - Confirmed a native-static IPv6 edge in `net_wan6.c`: the gateway host route is installed with `dev <wan>`, but the following default route used `via <gateway>` without an output device. For a link-local router next-hop (common on IPv6 WANs), the Padavan Linux 4.4 route path does not infer an output device for that gateway class; the route has no `fc_ifindex` and is rejected as `-ENODEV`. Global nexthops can be resolved through a prior route lookup, which is why this issue is specific to link-local gateways.
