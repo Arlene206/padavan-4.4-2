@@ -218,7 +218,7 @@ ip() {
 			;;
 		daemon-only)
 			if [ "$(cat "$TEST_STATE")" = running ]; then
-				printf '%s\n' "10.147.17.0/24 dev ztunit proto kernel scope link"
+				printf '%s\n' "${TEST_ROUTE_SEGMENT:-10.147.17.0/24} dev ztunit proto kernel scope link"
 			fi
 			;;
 		*)
@@ -1282,6 +1282,49 @@ if [ "$deleted_firewall_rule_count" -ne 5 ]; then
 	fail "successful stop did not delete all five installed firewall rules"
 fi
 TEST_EXPECT_SAVED_SEGMENT=0
+TEST_ROUTE_MODE=none
+
+# The checkpoint records the source segment used by the installed NAT rule.
+# A live route can change while that older rule remains; stop must remove the
+# saved tuple rather than replace it with the current route before deletion.
+/bin/rm -rf "$TEST_CONFIG"
+mkdir -p "$TEST_CONFIG"
+: > "$TEST_IPTABLES_STATE_FILE"
+: > "$TEST_IPTABLES_LOG"
+: > "$TEST_ACTION_LOG"
+TEST_STATIC_ROUTE_COUNT=0
+TEST_STATIC_ROUTE_ENABLE=0
+TEST_ROUTE_PRESENT=1
+TEST_ROUTE_SHOW_STATUS=0
+TEST_ROUTE_DEL_STATUS=0
+TEST_ROUTE_DELETE_PERSISTS=0
+TEST_NAT_ENABLE=0
+TEST_IFCONFIG_MODE=running-only
+TEST_ROUTE_MODE=daemon-only
+TEST_ROUTE_SEGMENT=10.148.18.0/24
+TEST_EXPECT_SAVED_SEGMENT=1
+TEST_IPTABLES_FAIL_ON=""
+TEST_IPTABLES_CHECK_FAIL_ON=""
+TEST_IPTABLES_DELETE_FAIL_ON=""
+test_seed_firewall_rules
+printf '%s\\n' 'ztunit' '10.147.17.0/24' > "$TEST_CONFIG/.firewall-state"
+chmod 600 "$TEST_CONFIG/.firewall-state"
+echo identity > "$TEST_CONFIG/identity.secret"
+echo running > "$TEST_STATE"
+TEST_MODE=graceful
+test_proc_reset
+test_proc_add 4330 "$PROG" "$PROG"
+if ! stop_zero; then
+	fail "stop failed while replaying the saved firewall tuple after the live route changed"
+fi
+[ ! -s "$TEST_IPTABLES_STATE_FILE" ] || fail "stop left the firewall rule tied to the saved NAT source segment"
+grep -Fqx -- "-t nat -D POSTROUTING -s 10.147.17.0/24 -j MASQUERADE" "$TEST_IPTABLES_LOG" || fail "stop did not delete the saved NAT source segment"
+if grep -Fqx -- "-t nat -D POSTROUTING -s 10.148.18.0/24 -j MASQUERADE" "$TEST_IPTABLES_LOG"; then
+	fail "stop deleted the newly observed route instead of the saved firewall source segment"
+fi
+[ ! -e "$TEST_CONFIG" ] || fail "stop retained config after saved firewall tuple cleanup"
+TEST_EXPECT_SAVED_SEGMENT=0
+TEST_ROUTE_SEGMENT=""
 TEST_ROUTE_MODE=none
 
 # A firewall deletion failure must retain identity plus the exact interface/

@@ -1321,8 +1321,13 @@ stop_zero() {
 			logger -t "zerotier" "ZeroTier防火墙恢复检查点无效，拒绝停止并保留现有网络状态"
 			return 1
 		fi
-		[ -n "$zt0" ] || zt0="$zt_state_saved_interface"
-		[ -n "$ip_segment" ] || ip_segment="$zt_state_saved_segment"
+		# The checkpoint is the exact tuple used when this firewall
+		# ruleset was published. A live route may already describe a new
+		# network and must never overwrite the saved cleanup identity.
+		zt0="$zt_state_saved_interface"
+		if [ -n "$zt_state_saved_segment" ]; then
+			ip_segment="$zt_state_saved_segment"
+		fi
 	fi
 	if ! zerotier_read_nat_enabled; then
 		logger -t "zerotier" "无法读取NAT策略，保留当前ZeroTier服务"

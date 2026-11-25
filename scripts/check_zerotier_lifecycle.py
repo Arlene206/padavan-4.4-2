@@ -528,6 +528,21 @@ require('if [ -z "$zt0" ]; then' in stop_body and
         stop_body.index('ip_segment="$(zerotier_kernel_route_segment "$zt0")"') <
         stop_body.index('if ! kill_z; then'),
         "stop must capture both the ZeroTier interface and NAT source segment before daemon shutdown")
+checkpoint_load = stop_body.index("if ! zerotier_firewall_state_load; then")
+saved_interface = stop_body.index('zt0="$zt_state_saved_interface"', checkpoint_load)
+saved_segment_gate = stop_body.index('if [ -n "$zt_state_saved_segment" ]; then', saved_interface)
+saved_segment = stop_body.index('ip_segment="$zt_state_saved_segment"', saved_segment_gate)
+checkpoint_refresh = stop_body.index("zerotier_firewall_state_save", saved_segment)
+require(
+    checkpoint_load < saved_interface < saved_segment_gate < saved_segment < checkpoint_refresh,
+    "a valid checkpoint must remain authoritative over a newer live interface/route snapshot",
+)
+require(
+    "live route can change while that older rule remains" in test
+    and "stop did not delete the saved NAT source segment" in test
+    and "stop deleted the newly observed route instead of the saved firewall source segment" in test,
+    "regression must prove stop deletes the exact published NAT tuple when the live route changes",
+)
 require('if [ -z "$ip_segment" ]; then' in del_rules_body and
         'ip_segment="$(zerotier_kernel_route_segment "$zt0")"' in del_rules_body,
         "firewall cleanup must reuse a pre-captured NAT source segment after the daemon route disappears")
