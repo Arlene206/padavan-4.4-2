@@ -1,3 +1,11 @@
+## 2026-11-25 — Correct XY-C1 path allowlist duplicate
+
+- XY-C1 run #45563653212 on `7492a52` failed before firmware-input detection: `Verify Samba shared-header staging contract` reported two entries for the XY-C1 workflow in its push path list. The workflow already contained its self-trigger lower in the long path allowlist; the previous commit accidentally added a duplicate at the top while adding the AliyunDrive ROMFS pattern. Removed only the duplicate, retained the existing self-trigger once and kept `trunk/user/aliyundrive-webdav/**` exactly once. Re-run on this correction SHA should proceed to production input detection and Build XY-C1.
+- XY-C1 run #45564032922 on `0abdaee` was also triggered while the duplicate was present; inspect its result as historical failure, then verify this correction SHA.
+- VSFTPD ACL metadata single-link source/test change remains in `0abdaee`; its exact-head regression is pending.
+
+---
+
 ## 2026-11-25 — Reject multiply-linked FTP ACL metadata
 
 - Targeted VSFTPD review found that ordinary share-file opens reject hard-linked inodes (`st_nlink != 1`) to prevent cross-share aliases, while the bounded ACL metadata reader accepted any regular file regardless of link count. Since the ACL metadata file is an authorization source, a hard link can alias content writable through another path or local service. `ftp_acl_path_open_bounded_regular_file_at()` now rejects link counts other than one with `EACCES`; host regression covers both pathname and descriptor-relative readers, and the exact-head workflow source contract pins the rule.

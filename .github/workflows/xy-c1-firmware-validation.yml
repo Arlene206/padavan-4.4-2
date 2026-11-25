@@ -6,7 +6,6 @@ on:
       - main
     paths:
       - "Makefile"
-      - ".github/workflows/xy-c1-firmware-validation.yml"
       - "trunk/user/aliyundrive-webdav/**"
       - "trunk/user/www/**"
       - "scripts/install_musl_queue_header.sh"
