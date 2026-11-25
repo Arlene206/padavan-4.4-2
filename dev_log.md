@@ -1,3 +1,9 @@
+## 2026-11-25 — Correct DHCPv6 regression contracts
+- First exact-head iteration exposed checker-only failures after the GNU89 ASan/UBSan IA test passed: helper-definition lookup and an incorrect Reply-state anchor. The existing DHCPv6 script checker also depends on the original local declaration; retain it and declare IA status separately.
+- AI handoff validation caught the 128 KiB roadmap hard limit. Replaced the oversized status paragraph with a compact entry. Re-run exact-head Actions after this correction.
+
+---
+
 ## 2026-11-25 — Retry failed DHCPv6 IA kernel publication
 
 - DHCPv6 IA_NA address-add and IA_PD downstream-prefix-add failures were logged and swallowed by update_ia(); the Reply was then considered handled and the configuration callback could run.

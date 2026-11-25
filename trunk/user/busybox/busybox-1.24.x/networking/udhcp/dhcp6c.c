@@ -1061,7 +1061,8 @@ static int client6_recvreply(struct dhcp6_if *ifp, struct dhcp6_event *ev,
 				struct dhcp6_optinfo *optinfo)
 {
 	struct dhcp6_listval *lv;
-	int state, script_status = 0, ia_status = 0;
+	int state, script_status = 0;
+	int ia_status = 0;
 
 	state = ev->state;
 	if (state != DHCP6S_INFOREQ &&
