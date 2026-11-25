@@ -384,6 +384,7 @@ require('1) ;;' in route_preflight_body and
         "static route enable selectors must accept only the UI's 0/1 values")
 require('for invalid_ip in default blackhole' in test and
         '192.0.2.0/33' in test and
+        '192.0.2.1/24' in test and
         'for invalid_gateway in default 192.0.2.256' in test and
         '192.0.2.1/24' in test and
         'valid 0.0.0.0/0 destination' in test,
@@ -404,6 +405,11 @@ require('nvram get_checked zero_staticnum_x' in static_route_body and
         'nvram get zero_staticnum_x' not in static_route_body and
         'nvram get zero_enable_x$j' not in static_route_body,
         "static-route executor must propagate checked NVRAM errors during add/delete")
+require('prefix = 32' in segment_body and
+        'if (octets[i] + 0 != 0)' in segment_body and
+        'for (j = remaining; j < 8; ++j)' in segment_body and
+        'if ((octets[i] + 0) % block != 0)' in segment_body,
+        "IPv4 CIDR validation must reject host bits set in route destinations")
 require('zerotier_ipv4_cidr_is_valid "$1" || return 1' in route_tuple_body and
         '[ "${2#*/}" = "$2" ] || return 1' in route_tuple_body and
         'zerotier_ipv4_cidr_is_valid "$2"' in route_tuple_body and

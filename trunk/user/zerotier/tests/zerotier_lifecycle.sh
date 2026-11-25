@@ -2495,7 +2495,7 @@ TEST_IFCONFIG_MODE=running-only
 TEST_ROUTE_MODE=none
 zt0=ztunit
 ip_segment=10.147.17.0/24
-for invalid_ip in default blackhole 192.0.2.256/24 192.0.2.0/33 010.0.0.0/24 "192.0.2.0/24 dev br0"; do
+for invalid_ip in default blackhole 192.0.2.256/24 192.0.2.0/33 192.0.2.1/24 010.0.0.0/24 "192.0.2.0/24 dev br0"; do
 	TEST_STATIC_ROUTE_IP="$invalid_ip"
 	: > "$TEST_ACTION_LOG"
 	if zerotier_preflight_static_routes; then

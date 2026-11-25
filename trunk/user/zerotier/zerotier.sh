@@ -700,11 +700,34 @@ zerotier_ipv4_cidr_is_valid() {
 				    octets[i] + 0 > 255)
 					exit 1
 			}
-			if (NF == 2 &&
-			    ($2 !~ /^[0-9]+$/ ||
-			     (length($2) > 1 && substr($2, 1, 1) == "0") ||
-			     $2 + 0 > 32))
-				exit 1
+			prefix = 32
+			if (NF == 2) {
+				if ($2 !~ /^[0-9]+$/ ||
+				    (length($2) > 1 && substr($2, 1, 1) == "0") ||
+				    $2 + 0 > 32)
+					exit 1
+				prefix = $2 + 0
+			}
+			# Linux IPv4 routes require a canonical network prefix: host bits
+			# set in a destination fail with EINVAL rather than being masked.
+			remaining = prefix
+			for (i = 1; i <= 4; ++i) {
+				if (remaining >= 8) {
+					remaining -= 8
+					continue
+				}
+				if (remaining == 0) {
+					if (octets[i] + 0 != 0)
+						exit 1
+				} else {
+					block = 1
+					for (j = remaining; j < 8; ++j)
+						block *= 2
+					if ((octets[i] + 0) % block != 0)
+						exit 1
+				}
+				remaining = 0
+			}
 			exit 0
 		}
 	'
