@@ -1,24 +1,25 @@
-## Current repository state — 2026-11-26
+## Current repository state — 2026-11-25
 
-- Live main parent for this slice: `274f0042db2e4e7f6ecb44fd8f5902b6f2a47f96`; this WAN gateway monitor follow-up applies its existing five-second ARP receive deadline to EINTR as well as EAGAIN/EWOULDBLOCK and normal packet wakeups.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Exact-head RStats full-width row fix `274f0042db2e4e7f6ecb44fd8f5902b6f2a47f96`: RStats regression #45702809332 PASS; Process lifecycle inventory #45702809053 PASS; AI docs #45702809111 PASS. Process fail-closed #45702809178, NVRAM #45702809234, HTTPD security #45702809077 and XY-C1 #45702809103 were IN_PROGRESS at the last poll. No firmware result inferred.
-- The parent RStats transactional snapshot change `f8f87f19ab1bd145ceddf8c5b6ebab8f5a271dd0` passed RStats #45702409711, Process lifecycle #45702409582, HTTPD #45702409529 and AI docs #45702409433. Process fail-closed #45702409483, NVRAM #45702409511 and XY-C1 #45702409540 were still running at last poll.
-- WDM #45701307930, NVRAM #45701307926, Process #45701307914, HTTPD #45701307732 and AI #45701307827 passed on `b47d5ef9d44cdec6736414a4e4d52bb90b48b0ee`; XY-C1 #45701307950 remained IN_PROGRESS. AdGuardHome source/security, Process and AI checks passed on `5e3c8312605861fda69ccae2bf94c0f0d168883c`.
+- Live `main` source SHA: `6534ff95d5a6368bc7f6f438a3427ea6048fb6df`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- The 6RD DHCP relay-list slice `360ccb32e57ffa4689992b3c8efda20cde5d5262` added BusyBox OPTION_6RD type-mask discrimination, prefix/length validation and bounded relay formatting; WAN IPv6 now validates all relay addresses and selects the first for the existing single-relay NVRAM/route model. WAN 6rd #45706623877, WAN DHCP callback #45706623959, WAN route status #45706623962, IPv6 service-type #45706624080, HTTPD security #45706624066, NVRAM #45706624093, Process inventory #45706623957 and AI docs #45706623837 PASS. XY-C1 #45706623960 was still at Build XY-C1, with TRX and artifact steps pending at last poll.
+- CA trust bundle hardening `1b8ea87b` / `0e8f4dac` / `22b2a943` now rejects empty, non-regular and symlinked files after archive extraction and at the AliDDNS startup gate. Actual tar fixtures and the optional-service preservation regression were included; AliDDNS API transport #45705446010 PASS on the symlink-hardening source SHA `22b2a943a4993a7ca2f1c838ea98b36dfacec4f4`.
+- VSFTPD STOU candidate scanning is capped at 128 filesystem probes (`b4d727d1`, refined by `8522ac96` to return EAGAIN after budget exhaustion); exact VSFTPD and related host checks passed on `8522ac96487d506ca948e52030e155a7697d53af`.
+- Current source fix `6534ff95d5a6368bc7f6f438a3427ea6048fb6df`: the HTTP download endpoint no longer emits `200 OK` before ACL, no-follow open, regular-file and anonymous-read checks. HTTP errors now use HTTP status responses rather than FTP reply text. VSFTPD #45707415023 PASS; Process inventory #45707415097 PASS; AI docs #45707414961 PASS. NVRAM audit #45707414901 and XY-C1 #45707417102 remained IN_PROGRESS at last poll; XY was at Build XY-C1, TRX/artifact pending. No firmware L3 result is claimed.
 
 ## Active task
 
-The packet-socket gateway probe used a finite one-second `SO_RCVTIMEO` and a five-second absolute deadline for EAGAIN and received packets, but the `recvfrom()` EINTR branch immediately retried without checking elapsed time. A stream of unrelated signals interrupting the receive could therefore bypass the deadline and hold the gateway-monitor loop inside one probe indefinitely. EINTR now checks the same monotonic uptime budget before retrying; EAGAIN and successful packet wakeups use the same helper so all receive exits share one strict deadline. GNU89 regression pins just-before, exact-deadline, after-deadline and invalid elapsed/timeout cases.
+The vsftpd HTTP compatibility handler wrote an HTTP 200 status line and headers before parsing and authorizing the requested file. The shared RETR path then performed ACL checks, descriptor-relative no-follow open, regular-file validation and anonymous-readable checks; failures consequently returned FTP 550 text after HTTP 200. The fix moves successful headers into RETR after all these checks and returns HTTP 400/403/404 with an empty body for pre-transfer failures. The existing VSFTPD workflow's source contract now enforces the ordering and error mapping.
 
 ## Verification boundary
 
-- Existing WAN ARP GNU89 `-Wall -Wextra -Werror -fsanitize=address,undefined` result-policy fixture and Python source contract now cover the EINTR deadline check; exact-head WAN ARP, Process, NVRAM, AI and XY-C1 workflows for THIS COMMIT must be checked after push.
-- Parent 274 exact WAN-related workflow was not run; do not infer it from the RStats checks. No MIPS firmware, live gateway or physical-router result is claimed.
+- Exact VSFTPD #45707415023 PASS on `6534ff95d5a6368bc7f6f438a3427ea6048fb6df`: all GNU89 policy binaries, source/configuration contracts and upload-parent identity checks passed. The workflow does not run a live HTTP socket test; HTTP response behavior is verified by the source-order contract only.
+- Process inventory #45707415097 and AI handoff docs #45707414961 PASS on the same SHA. NVRAM audit #45707414901 and XY-C1 #45707417102 were still IN_PROGRESS at the last poll. The XY-C1 job had reached Build XY-C1; TRX verification and artifact upload were pending. Do not claim firmware success until all three exact-SHA steps pass.
+- 6RD workflow and WAN/IPv6/NVRAM/HTTPD/Process checks listed above passed on `360ccb32e57ffa4689992b3c8efda20cde5d5262`; its XY-C1 build was pending at the last poll. No hardware L4 behavior is verified.
 
-## Exact first actions for next GPT
+## Exact first action for the next GPT
 
-1. Fetch exact-SHA WAN ARP, Process inventory/fail-closed, NVRAM, AI docs and XY-C1 runs for THIS COMMIT. Repair any same-SHA failure; require same-SHA Build/TRX/artifact for L3.
-2. Continue a new Padavan userland reliability/security source slice outside RStats and the WAN ARP receive loop; do not repeat the closed RStats snapshot parser or EINTR deadline fix.
+1. Poll exact-SHA XY-C1 #45707417102 and NVRAM #45707414901 for `6534ff95d5a6368bc7f6f438a3427ea6048fb6df`; repair any failure. Require Build, TRX verification and artifact upload PASS on one exact source SHA before marking firmware L3 verified.
+2. Continue a new source-level stability/security slice outside the just-closed VSFTPD HTTP response, WAN 6RD relay-list, CA trust-bundle and STOU probe-budget fixes. In particular, continue the open WAN IPv6 route and BusyBox callback live-transition review or the remaining VSFTPD ACL path-callsite audit; do not repeat completed audits.
 
 # Cross-session execution mandate
 

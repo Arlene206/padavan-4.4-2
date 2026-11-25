@@ -1,3 +1,12 @@
+## 2026-11-25 — VSFTPD HTTP response ordering and WAN 6RD relay-list support
+
+- VSFTPD HTTP GET now sends 200 only after RETR completes ACL validation, descriptor-relative no-follow open, regular-file and anonymous-read checks; pre-transfer failures return HTTP 400/403/404 with an empty body. The exact source-order/error-contract regression passed VSFTPD #45707415023 on `6534ff95`; Process inventory #45707415097 passed. The workflow does not emulate a live HTTP client.
+- DHCPv4 OPTION_6RD is now selected by exact option type rather than overlapping route flags, validates the RFC 5969 header and complete relay tuples before formatting, and bounds relay iteration. WAN IPv6 validates all advertised relays and selects the first for the current single-relay route/NVRAM model; GNU89 regression #45706623877 PASS on `360ccb32`.
+- CA trust-store installation/startup rejects empty, non-regular and symlinked bundle paths; mocked and real-tar regressions include empty/directory/symlink entries and preserve unrelated optional-service startup. AliDDNS API transport #45705446010 PASS on `22b2a943`.
+- STOU candidate lookup is limited to 128 probes and reports EAGAIN when exhausted rather than repeating the bounded scan; VSFTPD workflow #45705011734 PASS on `8522ac96`. Current XY-C1/NVRAM checks for `6534ff95` were still pending at checkpoint; no current-source L3 claim.
+
+---
+
 ## 2026-11-26 — Prevent shell injection in AdGuardHome daemon config argument
 
 - The background launch interpolated `ADG_CONFIG_FILE` into an `eval` string, causing the path to be reparsed as shell syntax. A path containing shell metacharacters could append commands to the root-launched service operation.
