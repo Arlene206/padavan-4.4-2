@@ -23,7 +23,7 @@ require('#include "procps_stat_policy.h"' in source,
 require('#include "procps_io_policy.h"' in source,
         "production procps scanner must include the bounded read retry policy")
 read_to_buf_start = source.index("static int read_to_buf(")
-read_to_buf_end = source.index("\\nstatic procps_status_t*", read_to_buf_start)
+read_to_buf_end = source.index("\nstatic procps_status_t*", read_to_buf_start)
 read_to_buf = source[read_to_buf_start:read_to_buf_end]
 require("procps_read_with_retry(fd, buf, PROCPS_BUFSIZE-1)" in read_to_buf,
         "procfs reads must retry transient EINTR instead of dropping the PID")
