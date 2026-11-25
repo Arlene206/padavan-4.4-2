@@ -4458,7 +4458,6 @@ int main(int argc, char *argv[])
 				if (!u2ec_fd_is_usable(new_fd, sizeof(fd_in_use))) {
 					FD_CLR(index, &master_fds);
 					close(new_fd);
-					fd_in_use[new_fd] = 0;
 					continue;
 				}
 				FD_SET(new_fd, &master_fds);
