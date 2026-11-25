@@ -137,6 +137,22 @@ test_address_change_absent_and_duplicate_errors(void)
 }
 
 static void
+test_default_ia_timer_ratios_do_not_overflow(void)
+{
+	assert(dhcp6c_ia_t2_from_duration(0U) == 0U);
+	assert(dhcp6c_ia_t2_from_duration(1U) == 0U);
+	assert(dhcp6c_ia_t2_from_duration(5U) == 4U);
+	assert(dhcp6c_ia_t2_from_duration(1800U) == 1440U);
+	assert(dhcp6c_ia_t2_from_duration(2000000000U) == 1600000000U);
+	assert(dhcp6c_ia_t2_from_duration(0xfffffffeU) == 3435973835U);
+
+	assert(dhcp6c_ia_t1_from_t2(0U) == 0U);
+	assert(dhcp6c_ia_t1_from_t2(8U) == 5U);
+	assert(dhcp6c_ia_t1_from_t2(2000000000U) == 1250000000U);
+	assert(dhcp6c_ia_t1_from_t2(0xfffffffeU) == 2684354558U);
+}
+
+static void
 test_prefix_expiry_is_required_for_finite_lifetimes(void)
 {
 	assert(!dhcp6c_ia_prefix_expiry_timer_required(0UL, 0xffffffffUL));
@@ -174,6 +190,7 @@ main(void)
 {
 	test_partial_pd_failure_is_retried_without_reapplying_successes();
 	test_first_error_and_retry_gate();
+	test_default_ia_timer_ratios_do_not_overflow();
 	test_prefix_expiry_is_required_for_finite_lifetimes();
 	test_failed_address_removal_is_retained_and_retried();
 	test_address_change_absent_and_duplicate_errors();

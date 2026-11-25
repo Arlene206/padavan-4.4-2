@@ -304,12 +304,12 @@ int update_ia(struct dhcp6_list *iahead, struct dhcp6_if *ifp,
 				if (duration == DHCP6_DURATION_INFINITE)
 					ia->t2 = DHCP6_DURATION_INFINITE;
 				else
-					ia->t2 = duration * 4 / 5;
+					ia->t2 = dhcp6c_ia_t2_from_duration(duration);
 			}
 
 			/* make sure T1 <= T2 */
 			if (ia->t1 > ia->t2)
-				ia->t1 = ia->t2 * 5 / 8;
+				ia->t1 = dhcp6c_ia_t1_from_t2(ia->t2);
 
 			bb_info_msg("T1(%u) and/or T2(%u) is locally determined",
 						ia->t1, ia->t2);
@@ -323,7 +323,7 @@ int update_ia(struct dhcp6_list *iahead, struct dhcp6_if *ifp,
 		if (ia->t2 < DHCP6_DURATION_MIN) {
 			bb_info_msg("T1 (%u) or T2 (%u) is too small", ia->t1, ia->t2);
 			ia->t2 = DHCP6_DURATION_MIN;
-			ia->t1 = ia->t2 * 5 / 8;
+			ia->t1 = dhcp6c_ia_t1_from_t2(ia->t2);
 			bb_info_msg(" adjusted to %u and %u", ia->t1, ia->t2);
 		}
 

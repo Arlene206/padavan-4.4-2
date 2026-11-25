@@ -158,6 +158,13 @@ zero_return = update_prefix.index("return 0;", zero_cleanup)
 reconcile_start = update_prefix.index("/* Reconcile all configured downstream interfaces", zero_return)
 assert zero_lifetime < zero_cleanup < zero_return < reconcile_start
 
+assert "dhcp6c_ia_t2_from_duration(duration)" in ia
+assert "dhcp6c_ia_t1_from_t2(ia->t2)" in ia
+assert "duration * 4 / 5" not in ia
+assert "ia->t2 * 5 / 8" not in ia
+assert "test_default_ia_timer_ratios_do_not_overflow" in test
+assert "0xfffffffeU" in test and "2000000000U" in test
+
 update_ia = function_body(ia, "int update_ia(struct dhcp6_list *iahead")
 assert "int ia_error = 0, update_status;" in update_ia
 assert "dhcp6c_ia_first_error(ia_error" in update_ia

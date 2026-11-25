@@ -1,25 +1,25 @@
 ## Current repository state — 2026-11-26
 
-- Live main parent before this slice: `96d5da2bcc43069eefac919c49906d948afb94c6`; this atomic commit adds explicit length-prefixed driver-signal records so the pipe reader dispatches one complete record even when multiple writes are queued (THIS COMMIT).
+- Parent main: `e110d1e248bc6ccd2a759275c81ff71cdf2cd99e`. Current slice replaces three overflowing 32-bit DHCPv6 IA T1/T2 ratio expressions with exact quotient/remainder helpers and extends the existing GNU89 ASan/UBSan regression plus source checker.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Parent exact-head Actions: IAPP lifecycle #45698920147 PASS; Process regression #45698920089 PASS; Process inventory #45698920081 PASS; AI docs #45698920145 PASS. XY-C1 #45698920140 and NVRAM #45698920155 remained in progress at the last poll. This new SHA needs independent exact-head checks.
-- The preceding nonblocking/atomic writer fix is `96d5da2bcc43069eefac919c49906d948afb94c6`; its host IAPP workflow passed. Its parent is `fd0c5cd2a69fca87e685854804614ea63104763e`.
+- Parent exact-head Actions for `e110d1e248bc6ccd2a759275c81ff71cdf2cd99e`: IAPP lifecycle #45699507476 PASS; Process inventory #45699507465 PASS; Process lifecycle/fail-closed #45699507375 PASS; NVRAM #45699507413 PASS; AI docs #45699507378 PASS. XY-C1 #45699507488 remains IN_PROGRESS at last poll.
+- Previous IAPP IPC work is complete through `e110d1e248bc6ccd2a759275c81ff71cdf2cd99e`; its exact-host IAPP, Process, NVRAM and AI workflows passed. Do not repeat IAPP source review unless a new failure appears.
 
 ## Active task
 
-The first pipe fix bounded one atomic write but left the consumer using a single large `read()`. Multiple successful writes can be coalesced by a pipe read; the old code then passed the aggregate byte count to `IAPP_SIG_Process()`, which processes only the first `RT_SIGNAL_STRUC`. The current slice prefixes each record with its `size_t` payload length, includes the prefix in the `PIPE_BUF` bound, and reads exactly one header and one payload per dispatch. This prevents queued records from being silently discarded and handles EINTR/short reads.
+DHCPv6 IA default timer calculation previously used 32-bit expressions `duration * 4 / 5` and `t2 * 5 / 8`. Since DHCP lifetimes are unsigned 32-bit values and `0xffffffff` is the infinite sentinel, valid large finite lifetimes can overflow before division. This produced T2/T1 values far shorter than the intended 4/5 and 5/8 ratios and caused unnecessary early renew/rebind traffic. New quotient/remainder helpers calculate the exact floor ratios without a wide intermediate; both T1 adjustment sites and the default T2 path use them.
 
 ## Verification boundary
 
-- GNU89 ASan/UBSan policy regression: local compile/run PASS. Coverage includes nonblocking saturation, EINTR retry, short-write rejection, EAGAIN propagation, two queued/coalesced records, one-byte fragmented reader delivery, and oversized record rejection.
-- Parent exact-head IAPP lifecycle #45698920147 PASS. Exact-head IAPP / Process / AI / XY-C1 results for THIS COMMIT must be fetched by its resulting SHA.
-- No full MIPS image or physical-router claim. L3/L4 remain NOT VERIFIED for this source slice.
+- Focused GNU89 `-Wall -Wextra -Werror -fsanitize=address,undefined` test PASS locally for zero/small/default, 2,000,000,000-second and maximum finite inputs. Exact outputs include T2(2,000,000,000)=1,600,000,000 and T1(2,000,000,000)=1,250,000,000; maximum finite values also match the mathematically exact floor.
+- The existing DHCPv6 IA publication fixture and Python source contract are extended; exact-head DHCPv6 IA / Process / NVRAM / AI / XY-C1 checks for THIS COMMIT remain to be read after commit.
+- No MIPS firmware or live-router DHCPv6 lease result is claimed. Product L3/L4 remain unverified for this source slice.
 
 ## Exact first actions for next GPT
 
-1. Fetch live main and inspect push Actions for THIS COMMIT's exact SHA. Resolve any IAPP/Process failure first; do not substitute parent run results. Keep XY-C1 PENDING distinct from host regression status.
-2. Confirm the IAPP test job compiles and runs the extended record framing tests on the exact SHA.
-3. Continue another stability/security issue across a different Padavan userland module after this IPC slice is validated.
+1. Fetch exact-SHA Actions for THIS COMMIT. Verify the DHCPv6 IA regression, Process inventory/fail-closed, NVRAM and AI docs results; XY-C1 must run Build, TRX verification and artifact upload on the same source SHA before any L3 claim.
+2. Check the actual cross-compile result for the 64-bit timer multiplication path (the new helper intentionally avoids 64-bit division and preserves exact integer-floor behavior).
+3. Continue an independent stability/security defect across another Padavan userland component; do not repeat the closed IAPP pipe work.
 
 # Cross-session execution mandate
 

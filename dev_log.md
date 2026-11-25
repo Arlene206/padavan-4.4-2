@@ -1,3 +1,13 @@
+## 2026-11-26 05:10 CST (UTC+8) — Prevent DHCPv6 IA T1/T2 ratio overflow
+
+- `update_ia()` computed default T2 with `duration * 4 / 5` and adjusted T1 with `t2 * 5 / 8`. Both operands are 32-bit unsigned DHCP lifetime fields; multiplication wrapped before division for large but valid finite leases, scheduling T2/T1 much earlier than the intended ratios.
+- Added exact 4/5 and 5/8 quotient/remainder helpers to `dhcp6c_ia_policy.h` and replaced all three production arithmetic sites. The helper avoids both overflow and target-side 64-bit division.
+- Existing DHCPv6 IA publication regression now tests zero/small/default, two-billion-second and maximum finite inputs; the source checker rejects both legacy expressions and requires both policy helpers.
+- Local focused GNU89 `-Wall -Wextra -Werror -fsanitize=address,undefined` compile/run — PASS. Exact-head DHCPv6 IA, Process, NVRAM, AI docs and XY-C1 Actions remain pending at commit creation; no MIPS or physical-router result claimed.
+- Changed paths: `dhcp6c_ia.c`, `dhcp6c_ia_policy.h`, `tests/dhcp6c_ia_publication_policy.c`, `scripts/check_dhcp6c_ia_publication.py`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`.
+
+---
+
 ## 2026-11-26 04:56 CST (UTC+8) — Frame and drain each queued IAPP driver signal separately
 
 - The new nonblocking writer made each driver signal one atomic `PIPE_BUF`-bounded write, but the consumer still requested up to `IAPP_MAX_RCV_PKT_SIZE` in one `read()`. Pipe reads may combine several atomic writes; `IAPP_SIG_Process()` handles only one structure, so a coalesced read could silently discard later queued events.

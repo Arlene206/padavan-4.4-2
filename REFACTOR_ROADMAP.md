@@ -1,3 +1,11 @@
+## 2026-11-26 — Avoid 32-bit overflow in DHCPv6 IA default timer ratios
+
+- DHCP lifetimes are unsigned 32-bit values; `0xffffffff` is reserved for infinity, leaving very large finite lifetimes valid. `update_ia()` previously computed default T2 as `duration * 4 / 5` and adjusted T1 as `t2 * 5 / 8`. Multiplication overflowed before division and could schedule premature Renew/Rebind exchanges.
+- Added exact quotient/remainder helpers for 4/5 and 5/8, applied to default T2 and both T1 correction sites. No 64-bit division or rounded-up result is introduced.
+- GNU89 ASan/UBSan boundary tests cover zero/small inputs, normal values, 2,000,000,000 seconds and maximum finite lifetime; the Python source checker prevents reintroduction of either overflowing expression. Focused local test PASS; exact-head Actions pending. MIPS/physical-router L3/L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-25 — USB modem driver unload postcondition
 
 - Unload verifies module absence; held-reference/UNKNOWN states block driver-family and QMI/cache transitions. Delay occurs only after confirmed removal.

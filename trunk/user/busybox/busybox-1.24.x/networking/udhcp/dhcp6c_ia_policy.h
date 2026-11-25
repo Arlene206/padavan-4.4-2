@@ -3,8 +3,23 @@
 #define DHCP6C_IA_POLICY_H
 
 #include <errno.h>
+#include <stdint.h>
 
 #define DHCP6C_IA_CLEANUP_RETRY_DELAY_MS 5000ULL
+
+/*
+ * Calculate the 4/5 and 5/8 timer ratios without overflowing 32-bit DHCP
+ * lifetime fields before division. Quotient/remainder arithmetic is exact.
+ */
+static inline uint32_t dhcp6c_ia_t2_from_duration(uint32_t duration)
+{
+	return (duration / 5U) * 4U + ((duration % 5U) * 4U) / 5U;
+}
+
+static inline uint32_t dhcp6c_ia_t1_from_t2(uint32_t t2)
+{
+	return (t2 / 8U) * 5U + ((t2 % 8U) * 5U) / 8U;
+}
 static inline int
 dhcp6c_ia_pd_target_needs_apply(int is_dhcp_interface, int already_installed)
 {
