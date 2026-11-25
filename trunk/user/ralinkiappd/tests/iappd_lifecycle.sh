@@ -189,6 +189,10 @@ grep -Fq 'iapp_rx_buffer_append_fits(' "$iapp_source" ||
   fail "all IAPP TCP send paths must use the complete-write helper"
 grep -Fq 'if (BytesSent == 0)' "$iapp_source" ||
   fail "IAPP TCP complete-write helper must reject zero-byte writes"
+grep -Fq '#ifdef MSG_NOSIGNAL' "$iapp_source" ||
+  fail "IAPP TCP writes must suppress SIGPIPE on platforms supporting MSG_NOSIGNAL"
+grep -Fq 'send(Socket, Buffer + TotalSent, Length - TotalSent, MSG_NOSIGNAL)' "$iapp_source" ||
+  fail "IAPP TCP complete-write helper must use MSG_NOSIGNAL when available"
 ap_info_guard_line=$(grep -n -F "pApIB->Length))" "$iapp_source" | cut -d: -f1)
 ap_info_copy_line=$(grep -n -F "IAPP_MEM_MOVE(OidReq->Buf+FT_IP_ADDRESS_SIZE, pApIB->IB, pApIB->Length)" "$iapp_source" | cut -d: -f1)
 [ -n "$ap_info_guard_line" ] && [ -n "$ap_info_copy_line" ] && [ "$ap_info_guard_line" -lt "$ap_info_copy_line" ] ||

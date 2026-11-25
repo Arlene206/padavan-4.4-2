@@ -3612,7 +3612,11 @@ static BOOLEAN IAPP_TCP_WriteFrame(INT32 Socket, const UCHAR *Buffer, UINT32 Len
 	INT32 BytesSent;
 
 	while (TotalSent < Length) {
+#ifdef MSG_NOSIGNAL
+		BytesSent = send(Socket, Buffer + TotalSent, Length - TotalSent, MSG_NOSIGNAL);
+#else
 		BytesSent = send(Socket, Buffer + TotalSent, Length - TotalSent, 0);
+#endif
 		if (BytesSent < 0) {
 			if (errno == EINTR)
 				continue;

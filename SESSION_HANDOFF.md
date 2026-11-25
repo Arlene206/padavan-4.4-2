@@ -1,26 +1,25 @@
 ## Current repository state — 2026-11-25
 
-- Main base before TCP/UDP feature-independent receive-length validation: 9a0488bba624adfabecf79975ebc108b5ed712af; both guards now execute outside the optional FT encryption conditional (THIS COMMIT).
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Parent `9a0488bba624adfabecf79975ebc108b5ed712af`: IAPP lifecycle #45694865535 PASS; process inventory/lifecycle #45694865528 PASS; AI handoff #45694865480 PASS. Process regression #45694865500 and NVRAM #45694865670 were in progress; XY-C1 #45694865790 in progress (job #139489505991, ccache setup).
-- Parent source adds `IAPP_EncryptFrame()` and routes six transmit encryption IOCTLs through signed output and tail-capacity validation. Its exact IAPP run passed.
-- Follow-up fixes a feature-off configuration gap: the original received-vs-decrypt-output size guards now run whether or not `FT_KDP_FUNC_PKT_ENCRYPT` is enabled, so no unused set-only variable remains and raw unencrypted transport is explicitly bounded too.
-- Exact XY-C1 L3 Build/TRX/artifact is still only proven at `e1f16872b7e2792db9acf0184f2fe9c5d736c966`; newer SHAs require their own completed firmware workflow.
+- Main base before MSG_NOSIGNAL send protection: 8688f3aaffbf0278004e730b6fbe16a671b09fe1; TCP frame sender now suppresses SIGPIPE when supported (THIS COMMIT).
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains untouched at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Parent current baseline includes validated driver crypto IOCTL outputs (all six TX encryptions through `IAPP_EncryptFrame`, TCP/UDP decrypt outputs bounded by actual input, signal-context output length bounded) plus feature-independent TCP/UDP length guards.
+- This slice changes the `send()` flags only for TCP frame writes: `MSG_NOSIGNAL` is used when defined so peer disconnects are returned as errors rather than process-level SIGPIPE. It remains compatible with targets lacking that flag.
+- Exact XY-C1 L3 Build/TRX/artifact remains proven only on `e1f16872b7e2792db9acf0184f2fe9c5d736c966`; current/later commits need their own exact completed build.
 
 ## Active task
 
-Verify current transmit-encryption wrapper and feature-independent input bounds on exact IAPP/XY Actions; then audit remaining non-encrypt driver IOCTLs and TCP connect/send timeout behavior.
+Validate no-SIGPIPE and encryption output hardening on current IAPP/XY Actions, then continue checking any remaining raw driver or TCP IPC boundaries.
 
 ## Exact first actions for next GPT
 
-1. Poll parent 9a0488 exact process/NVRAM/XY statuses and THIS COMMIT exact-SHA runs independently.
-2. Confirm IAPP GNU89 ASan/UBSan regression and source contract; inspect XY compiler steps.
-3. Search remaining `IAPP_IOCTL_TO_WLAN` call sites. For any returned output length, validate signedness and actual allocated capacity before copy/send.
-4. Keep backup read-only; main-only atomic trees with non-force expected-SHA updates.
+1. Poll parent baseline IAPP/XY/Process/NVRAM/AI outcomes and this commit's exact-SHA runs independently.
+2. Confirm IAPP GNU89 sanitizer tests, six-site encryption wrapper source contract, and MSG_NOSIGNAL assertion.
+3. Review daemon pipe SIGPIPE handling and any other signal/IPC writes; determine whether startup already ignores SIGPIPE before changing process-wide behavior.
+4. Keep backup frozen and main-only full-tree atomic commits with non-force expected-SHA updates.
 
 ## Execution contract
 
-Main only; complete tree, atomic task commit, force=false with exact expected SHA. No force-push, branches or new PR. PENDING does not block independent work.
+Main only; complete tree per logical task, non-force exact expected-SHA update. No force-push, development branch or PR. PENDING does not block.
 
 ## 2026-11-25 autonomous handoff checkpoint
 
