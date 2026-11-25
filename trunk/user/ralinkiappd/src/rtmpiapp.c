@@ -3449,6 +3449,30 @@ Note:
 	If PeerIP is 0, the func will use UDP broadcast frame.
 ========================================================================
 */
+/* Send a framed TCP message completely, retrying interrupted/partial writes. */
+static BOOLEAN IAPP_TCP_WriteFrame(INT32 Socket, const UCHAR *Buffer, UINT32 Length)
+{
+	UINT32 TotalSent = 0;
+	INT32 BytesSent;
+
+	while (TotalSent < Length) {
+		BytesSent = send(Socket, Buffer + TotalSent, Length - TotalSent, 0);
+		if (BytesSent < 0) {
+			if (errno == EINTR)
+				continue;
+			return FALSE;
+		}
+		if (BytesSent == 0)
+			return FALSE;
+		if (!iapp_rx_buffer_append_fits((size_t)Length,
+					       (size_t)TotalSent, (size_t)BytesSent))
+			return FALSE;
+		TotalSent += (UINT32)BytesSent;
+	}
+
+	return TRUE;
+}
+
 static BOOLEAN IAPP_TCP_PacketSend(
 	IAPP_IN		RTMP_IAPP			*pCtrlBK,
 /*	IAPP_IN		UCHAR				*WifiMAC,*/
@@ -3518,7 +3542,7 @@ static BOOLEAN IAPP_TCP_PacketSend(
 
 		//IAPP_HEX_DUMP("Send Content: ", pPkt, PktLen); //snowpin test
 
-		if (send(SocketPeer, pBufEncrypt, PktLen, 0) < 0)
+		if (IAPP_TCP_WriteFrame(SocketPeer, pBufEncrypt, PktLen) != TRUE)
 		{
 			DBGPRINT(RT_DEBUG_ERROR, "iapp> Send socket failed %d.%d.%d.%d!\n",
 					IAPP_SHOW_IP(AddrSockConn.sin_addr.s_addr));
@@ -3640,7 +3664,7 @@ static VOID FT_KDP_SecurityBlockSend(
 							pBufFrame, &buf_len, if_idx, RT_FT_DATA_ENCRYPT);
 #endif // FT_KDP_FUNC_PKT_ENCRYPT //
 
-		if (send(SocketPeer, pBufFrame, buf_len, 0) < 0)
+		if (IAPP_TCP_WriteFrame(SocketPeer, pBufFrame, buf_len) != TRUE)
 		{
 			DBGPRINT(RT_DEBUG_ERROR, "iapp> Send socket failed %d.%d.%d.%d!\n",
 					IAPP_SHOW_IP(AddrSockConn.sin_addr.s_addr));
@@ -3747,7 +3771,7 @@ static VOID FT_KDP_SecurityBlockAck(
 #endif // FT_KDP_FUNC_PKT_ENCRYPT //
 
 	/* send out the frame */
-	if (send(SocketPeer, pBufFrame, PktLen, 0) < 0)
+	if (IAPP_TCP_WriteFrame(SocketPeer, pBufFrame, PktLen) != TRUE)
 	{
 		DBGPRINT(RT_DEBUG_ERROR, "iapp> Send socket failed %d.%d.%d.%d!\n",
 				IAPP_SHOW_IP(AddrSockConn.sin_addr.s_addr));
@@ -3913,7 +3937,7 @@ static VOID FT_KDP_InformationResponseSend(
 #endif // FT_KDP_FUNC_PKT_ENCRYPT //
 
 	/* send out the frame */
-	if (send(SocketPeer, pBufFrame, PktLen, 0) < 0)
+	if (IAPP_TCP_WriteFrame(SocketPeer, pBufFrame, PktLen) != TRUE)
 	{
 		DBGPRINT(RT_DEBUG_ERROR, "iapp> Send socket failed %d.%d.%d.%d!\n",
 				IAPP_SHOW_IP(AddrSockConn.sin_addr.s_addr));

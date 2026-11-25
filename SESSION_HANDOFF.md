@@ -1,28 +1,28 @@
 ## Current repository state — 2026-11-25
 
-- Main base before this TCP receive framing slice: 16ebc650e94661a5cef16d73e380128f50b6d739; TCP EOF reader, append-capacity helper/tests, lifecycle source contract, dev log and handoff are one atomic descendant (THIS COMMIT).
+- Main base before complete TCP write handling: 5e40e4e0b38ce4a6629ce89e4d8347299e597ac2; four sender conversions, EOF receiver, helper tests/source contracts, dev log and handoff are one atomic descendant (THIS COMMIT).
 - Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains read-only at 72f4f157a084f8184b9597ca5bf334b8080e5807.
-- Parent 16ebc650e94661a5cef16d73e380128f50b6d739 fixed actual-size parsing of MOVE_NOTIFY (TCP/UDP) and ADD_NOTIFY (UDP). Exact Actions #45692512586 IAPP, #45692512533 process lifecycle regression, #45692512148 XY-C1, #45692512133 inventory, #45692512162 AI were still running at last poll; #45692512428 NVRAM pending.
-- Parent f4835dbf275d93706d0c3bc4d257462f1cb87f83 exact IAPP #45692154521 PASS, process inventory #45692154527 PASS, lifecycle inventory #45692154900 PASS, AI #45692155087 PASS; XY-C1 #45692154988 and NVRAM #45692155088 still running at last poll.
-- Parent 0952cb923e5a15fc2e4b5c566691640301d52f17 IAPP #45691956076 PASS, process/inventory #45691956024/#45691956025 PASS, AI #45691956084 PASS; XY #45691956064 still in progress at last check.
-- This slice resolves TCP partial-read fragility: receive accumulates bytes until EOF on the sender's one-connection-per-frame lifecycle, retries EINTR and rejects extra bytes beyond IAPP_MAX_RCV_PKT_SIZE. GNU89 ASan/UBSan covers append bounds.
-- Existing security bounds include FT security-block stack copy, ACK/AP-info payloads, short TCP/UDP IAPP headers, raw RRB aligned cipher span, raw driver signal EventLen, and ADD/MOVE fixed message lengths.
-- Historic XY-C1 L3 verified only at 8b9b63401dd85232b257120111bb18475db6b5 (Build/TRX/artifact PASS); no later SHA inherits it. Physical router L4 NOT VERIFIED. Backup frozen; PR #1 inventoried.
+- Parent 5e40e4e0b38ce4a6629ce89e4d8347299e597ac2 added receive-until-EOF TCP frame handling. Exact-head Actions not yet checked at last handoff.
+- Parent 16ebc650e94661a5cef16d73e380128f50b6d739 fixed actual-size parsing for ADD/MOVE notifications. Its exact Actions were in progress at last poll.
+- Parent f4835dbf275d93706d0c3bc4d257462f1cb87f83 IAPP PASS; process inventory/lifecycle PASS; AI PASS; XY and NVRAM still in progress at last poll.
+- This slice closes the send-side counterpart to partial TCP reads: all four TCP frame senders now loop until all encrypted bytes are transmitted, retry EINTR and reject zero/error writes. UDP/raw-Ethernet datagram sends remain atomic message calls.
+- Prior receive/security bounds: FT security-block stack copy, ACK/AP-info payloads, TCP/UDP IAPP headers, raw RRB encrypted payload, raw driver EventLen, ADD/MOVE exact frame sizes, TCP receive accumulation.
+- Historic XY-C1 L3 verified only on 8b9b63401dd85232b257120111bb18475db6b5 (Build/TRX/artifact PASS); no later SHA inherits. Physical router L4 NOT VERIFIED. Backup frozen; PR #1 inventoried.
 
 ## Active task
 
-Validate TCP receive framing and sanitizer tests on exact-head Actions; then make TCP sends handle partial writes (including direct security-block sender) and continue fixed-command length checks.
+Validate current TCP read/write implementation on exact IAPP and XY-C1 Actions; then check command-header Length consistency and SECURITY_MONITOR fixed-size bounds.
 
 ## Exact first actions for next GPT
 
-1. Poll exact IAPP/XY-C1 Build/TRX/artifact/Process/NVRAM/AI workflows for THIS COMMIT.
-2. Inspect receive-frame source assertions, GNU89 ASan/UBSan tests and exact-SHA firmware build result.
-3. Replace all single-call TCP `send()` assumptions with bounded send-all behavior; repository senders close each one-frame connection.
-4. Continue command-specific IAPP fixed-size and protocol Length-vs-actual-byte validation.
+1. Poll exact-head IAPP, XY-C1 Build/TRX/artifact, Process lifecycle/inventory, NVRAM and AI Actions for THIS COMMIT.
+2. Confirm all four TCP sender call sites use IAPP_TCP_WriteFrame and receiver uses IAPP_TCP_ReadFrame; inspect C89 cross-build logs.
+3. Verify `RT_IAPP_HEADER.Length` equals actual received bytes for each supported command; add SECURITY_MONITOR size guard if enabled.
+4. Continue main-only atomic complete-tree commits using non-force expected-SHA updates; backup remains frozen.
 
 ## Execution contract
 
-Main only; complete Git tree, atomic task commits, main updated with non-force expected-SHA compare-and-swap. No force push, branches or PR. PENDING does not block.
+Main only; atomic task commits, non-force expected-SHA update. No force-push, new branches or PR. PENDING does not block.
 
 ## 2026-11-25 autonomous handoff checkpoint
 
