@@ -996,7 +996,7 @@ wan6_identity_test = (rc / "tests/wan6_identity_policy.c").read_text()
 sit_start = body(wan6, "int start_sit_tunnel(")
 sit_failed = sit_start[sit_start.index("failed:"):]
 sit_endpoint_policy = sit_start.index("wan6_sit_endpoint_route_add_status(")
-sit_endpoint_add = sit_start.index("route_add(wan_ifname, 0, sit_ep, wan_gate4,", sit_endpoint_policy)
+sit_endpoint_add = sit_start.index("route_add(wan_ifname, 0, sit_ep,", sit_endpoint_policy)
 sit_endpoint_owner = sit_start.index("&wan_route_added", sit_endpoint_policy)
 require(sit_endpoint_policy < sit_endpoint_add < sit_endpoint_owner,
         "SIT endpoint route result must be classified before ownership is recorded")
