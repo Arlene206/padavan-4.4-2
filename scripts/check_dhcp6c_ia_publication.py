@@ -96,12 +96,12 @@ assert '#include "dhcp6c_pd_sla_policy.h"' in config
 assert "dhcp6c_pd_sla_id_valid" in sla_policy
 assert "dhcp6c_pd_sla_insert" in sla_policy
 assert "dhcp6c_pd_prefix_clear_host_bits" in sla_policy
+add_ifprefix = function_body(ia_source, "static int add_ifprefix(struct iaprefix *iaprefix,")
 assert "dhcp6c_pd_prefix_clear_host_bits(ifpfx->paddr.s6_addr," in add_ifprefix
 assert add_ifprefix.index("dhcp6c_pd_prefix_clear_host_bits(") < add_ifprefix.index("dhcp6c_pd_sla_insert(")
 assert "test_delegated_prefix_clears_host_bits_at_byte_boundaries" in sla_test
 assert "test_sla_insertion_preserves_only_canonical_prefix_bits" in sla_test
 assert "test_prefix_canonicalization_rejects_invalid_input_atomically" in sla_test
-add_ifprefix = function_body(ia_source, "static int add_ifprefix(struct iaprefix *iaprefix,")
 assert "dhcp6c_pd_sla_insert(" in add_ifprefix
 assert "htonl(pconf->sla_id)" not in add_ifprefix
 assert "sp = ((char *)&sla_id + 3)" not in add_ifprefix
