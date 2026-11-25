@@ -8399,7 +8399,7 @@ udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)
 	char mtu_text[16];
 	unsigned int parsed_value;
 	size_t i, snapshot_count, previous_snapshot_count;
-	int lease_dur, is_changed, i_err, dhcp_mtu, mtu_seen, route_result;
+	int lease_dur, is_changed, i_err, dhcp_mtu, mtu_seen, route_result, has_gateway;
 	int mtu_supported;
 	int interface_status, rollback_status, route_setup_status, mtu_status;
 	int lan_config_status;
@@ -8424,6 +8424,43 @@ udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)
 	if (!dhcp_lease_ipv4_is_valid(ip) || !dhcp_lease_netmask_is_valid(nm)) {
 		logmessage(log_prefix, "%s (%s) rejected invalid DHCP address/netmask",
 			udhcpc_state, man_ifname);
+		return EINVAL;
+	}
+
+	/* Reject malformed IPTV route inputs before changing the interface or
+	 * removing the previous lease's route inventory. Do not convert a bad
+	 * non-empty option into an empty withdrawal. */
+	value = getenv("router");
+	route_result = dhcp_lease_router_option_parse(
+		value ? trim_r(value) : NULL,
+		gateway_buf, sizeof(gateway_buf), &has_gateway);
+	if (route_result != 0) {
+		logmessage(log_prefix,
+			   "%s (%s) rejected invalid DHCP router list (status=%d)",
+			   udhcpc_state, man_ifname, route_result);
+		return route_result;
+	}
+	gw = has_gateway ? gateway_buf : "";
+
+	value = getenv("routes");
+	rt = value ? trim_r(value) : "";
+	if (!dhcp_lease_legacy_route_list_is_valid(rt, 128U, 1)) {
+		logmessage(log_prefix, "%s (%s) rejected invalid IPTV DHCP route option",
+			   udhcpc_state, man_ifname);
+		return EINVAL;
+	}
+	value = getenv("msstaticroutes");
+	rt_ms = value ? trim_r(value) : "";
+	if (!dhcp_lease_classless_route_list_is_valid(rt_ms, 128U, 1)) {
+		logmessage(log_prefix, "%s (%s) rejected invalid IPTV DHCP Microsoft route option",
+			   udhcpc_state, man_ifname);
+		return EINVAL;
+	}
+	value = getenv("staticroutes");
+	rt_rfc = value ? trim_r(value) : "";
+	if (!dhcp_lease_classless_route_list_is_valid(rt_rfc, 128U, 1)) {
+		logmessage(log_prefix, "%s (%s) rejected invalid IPTV DHCP classless route option",
+			   udhcpc_state, man_ifname);
 		return EINVAL;
 	}
 
@@ -8465,34 +8502,6 @@ udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)
 	interface_context.ifname = man_ifname;
 	is_changed = strcmp(old_ip, ip) != 0;
 
-	gateway_buf[0] = '\0';
-	value = getenv("router");
-	if (value) {
-		route_result = dhcp_lease_ipv4_list_first(trim_r(value),
-			gateway_buf, sizeof(gateway_buf));
-		if (route_result < 0)
-			logmessage(log_prefix, "ignoring invalid DHCP router list on %s", man_ifname);
-	}
-	gw = gateway_buf;
-
-	value = getenv("routes");
-	rt = value ? trim_r(value) : "";
-	if (!dhcp_lease_route_text_is_safe(rt)) {
-		logmessage(log_prefix, "ignoring invalid DHCP IPTV route option on %s", man_ifname);
-		rt = "";
-	}
-	value = getenv("msstaticroutes");
-	rt_ms = value ? trim_r(value) : "";
-	if (!dhcp_lease_route_text_is_safe(rt_ms)) {
-		logmessage(log_prefix, "ignoring invalid DHCP IPTV Microsoft route option on %s", man_ifname);
-		rt_ms = "";
-	}
-	value = getenv("staticroutes");
-	rt_rfc = value ? trim_r(value) : "";
-	if (!dhcp_lease_route_text_is_safe(rt_rfc)) {
-		logmessage(log_prefix, "ignoring invalid DHCP IPTV classless route option on %s", man_ifname);
-		rt_rfc = "";
-	}
 
 	lease_dur = 0;
 	dhcp_mtu = 0;

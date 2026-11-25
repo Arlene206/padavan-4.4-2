@@ -34,6 +34,9 @@ def function_body(text, signature):
 bound = function_body(
     source, "udhcpc_bound(char *wan_ifname, int is_renew_mode)"
 )
+iptv_bound = function_body(
+    source, "udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)"
+)
 renew = function_body(source, "udhcpc_renew(char *wan_ifname)")
 
 assert "WAN_DHCP_BOUND_DLTIME" in source
@@ -108,6 +111,50 @@ route_add = control_body.index("route_add(")
 route_delete = control_body.index("route_del(")
 assert legacy_validation < route_add < route_delete
 assert classless_validation < route_add < route_delete
+
+# IPTV must reject malformed route and Router options before the previous
+# interface/route inventory can be modified or its replacement published.
+iptv_router_preflight = iptv_bound.index(
+    "route_result = dhcp_lease_router_option_parse("
+)
+iptv_router_reject = iptv_bound.index("return route_result;", iptv_router_preflight)
+iptv_legacy_routes = iptv_bound.index(
+    "dhcp_lease_legacy_route_list_is_valid("
+)
+iptv_legacy_reject = iptv_bound.index(
+    "rejected invalid IPTV DHCP route option", iptv_legacy_routes
+)
+iptv_ms_routes = iptv_bound.index(
+    "dhcp_lease_classless_route_list_is_valid(", iptv_legacy_reject
+)
+iptv_ms_reject = iptv_bound.index(
+    "rejected invalid IPTV DHCP Microsoft route option", iptv_ms_routes
+)
+iptv_rfc_routes = iptv_bound.index(
+    "dhcp_lease_classless_route_list_is_valid(", iptv_ms_reject
+)
+iptv_rfc_reject = iptv_bound.index(
+    "rejected invalid IPTV DHCP classless route option", iptv_rfc_routes
+)
+iptv_previous_snapshot = iptv_bound.index("rc_wan_nvram_copy_snapshot(")
+iptv_interface_change = min(
+    iptv_bound.index("wan_dhcp_interface_clear("),
+    iptv_bound.index("dhcp_wan_interface_apply(")
+)
+iptv_route_teardown = iptv_bound.index("dhcp_wan_route_transition_apply(")
+iptv_publish = iptv_bound.index("wan_dhcp_nvram_state_publish(")
+assert iptv_router_preflight < iptv_router_reject < iptv_legacy_routes
+assert iptv_legacy_routes < iptv_legacy_reject < iptv_ms_routes
+assert iptv_ms_routes < iptv_ms_reject < iptv_rfc_routes
+assert iptv_rfc_routes < iptv_rfc_reject < iptv_previous_snapshot
+assert iptv_previous_snapshot < iptv_interface_change < iptv_route_teardown < iptv_publish
+for ignored in (
+    "ignoring invalid DHCP router list",
+    "ignoring invalid DHCP IPTV route option",
+    "ignoring invalid DHCP IPTV Microsoft route option",
+    "ignoring invalid DHCP IPTV classless route option",
+):
+    assert ignored not in iptv_bound
 
 bound_dltime = bound.index("bound_names[WAN_DHCP_BOUND_DLTIME]")
 bound_publish = bound.index("snapshot_status = wan_dhcp_nvram_state_publish(")
