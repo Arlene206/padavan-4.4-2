@@ -364,7 +364,8 @@ wan6_sit_route4_delete(void *context, const char *ifname,
 {
 	(void)context;
 	return route_del((char *)ifname, 0, (char *)endpoint,
-			 (char *)gateway, "255.255.255.255");
+			 (char *)wan6_sit_route4_gateway_argument(gateway),
+			 "255.255.255.255");
 }
 
 static int
@@ -1275,7 +1276,9 @@ int start_sit_tunnel(int ipv6_type, char *wan_ifname, char *wan_addr4,
 
 	/* Route the IPv4 tunnel endpoint through the physical WAN first. */
 	status = wan6_sit_endpoint_route_add_status(
-		route_add(wan_ifname, 0, sit_ep, wan_gate4, "255.255.255.255"),
+		route_add(wan_ifname, 0, sit_ep,
+			wan6_sit_route4_gateway_argument(wan_gate4),
+			"255.255.255.255"),
 		&wan_route_added);
 	if (status != 0) {
 		failure = "route SIT IPv4 endpoint";

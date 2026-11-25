@@ -599,6 +599,21 @@ fake_sit_route4_clear(void *context, int unit)
 }
 
 static void
+test_sit_route4_empty_gateway_maps_to_null_kernel_argument(void)
+{
+	assert(wan6_sit_route4_gateway_argument(NULL) == NULL);
+	assert(wan6_sit_route4_gateway_argument("") == NULL);
+}
+
+static void
+test_sit_route4_nonempty_gateway_is_preserved(void)
+{
+	const char *gateway = "192.0.2.254";
+
+	assert(wan6_sit_route4_gateway_argument(gateway) == gateway);
+}
+
+static void
 test_sit_route4_record_format_and_parse_round_trip(void)
 {
 	char record[WAN6_SIT_ROUTE4_RECORD_SIZE];
@@ -748,6 +763,8 @@ main(void)
 	test_sit_endpoint_route_duplicate_is_accepted_without_ownership();
 	test_sit_endpoint_route_failure_is_not_hidden();
 	test_sit_endpoint_route_requires_ownership_output();
+	test_sit_route4_empty_gateway_maps_to_null_kernel_argument();
+	test_sit_route4_nonempty_gateway_is_preserved();
 	test_sit_route4_record_format_and_parse_round_trip();
 	test_sit_route4_record_allows_direct_endpoint_route();
 	test_sit_route4_record_rejects_ambiguous_delimiters();

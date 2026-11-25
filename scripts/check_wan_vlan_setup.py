@@ -1000,6 +1000,10 @@ sit_endpoint_add = sit_start.index("route_add(wan_ifname, 0, sit_ep, wan_gate4,"
 sit_endpoint_owner = sit_start.index("&wan_route_added", sit_endpoint_policy)
 require(sit_endpoint_policy < sit_endpoint_add < sit_endpoint_owner,
         "SIT endpoint route result must be classified before ownership is recorded")
+require("wan6_sit_route4_gateway_argument" in wan6_identity_policy and
+        "wan6_sit_route4_gateway_argument(gateway)" in wan6 and
+        "wan6_sit_route4_gateway_argument(wan_gate4)" in sit_start,
+        "empty route gateways must be passed as NULL to the IPv4 route API")
 require("wan6_sit_route4_record_format" in wan6_identity_policy and
         "wan6_sit_route4_cleanup_record" in wan6_identity_policy and
         "status != 0 && status != ESRCH && status != ENODEV" in wan6_identity_policy,
@@ -1009,6 +1013,8 @@ require("wan6_sit_route4_cleanup(unit)" in sit_start and
         "wan6_sit_route4_cleanup(unit)" in wan6,
         "SIT endpoint route ownership must be persisted after creation and cleaned during teardown")
 for test_name in (
+    "test_sit_route4_empty_gateway_maps_to_null_kernel_argument",
+    "test_sit_route4_nonempty_gateway_is_preserved",
     "test_sit_route4_record_format_and_parse_round_trip",
     "test_sit_route4_cleanup_preserves_record_when_route_delete_fails",
     "test_sit_route4_cleanup_clears_record_when_route_is_already_absent",

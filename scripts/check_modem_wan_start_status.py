@@ -865,8 +865,13 @@ assert "operation_status = wan6_sit_route4_cleanup(unit);" in wan6_down
 assert wan6_down.index("operation_status = stop_sit_tunnel();") < wan6_down.index("operation_status = wan6_sit_route4_cleanup(unit);")
 assert "wan6_sit_route4_cleanup(unit)" in sit_start
 assert "wan6_sit_route4_publish(" in sit_start
+assert "wan6_sit_route4_gateway_argument" in NET_WAN6_IDENTITY_POLICY_SOURCE
+assert "wan6_sit_route4_gateway_argument(gateway)" in NET_WAN6_SOURCE
+assert "wan6_sit_route4_gateway_argument(wan_gate4)" in NET_WAN6_SOURCE
 assert "wan6_sit_route4_cleanup_record" in NET_WAN6_IDENTITY_POLICY_SOURCE
 for test_name in (
+    "test_sit_route4_empty_gateway_maps_to_null_kernel_argument",
+    "test_sit_route4_nonempty_gateway_is_preserved",
     "test_sit_route4_record_format_and_parse_round_trip",
     "test_sit_route4_cleanup_preserves_record_when_route_delete_fails",
     "test_sit_route4_cleanup_clears_record_when_route_is_already_absent",

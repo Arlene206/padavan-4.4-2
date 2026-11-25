@@ -222,6 +222,13 @@ wan6_sit_endpoint_route_add_status(int add_status, int *route_added)
 }
 
 
+/* route_manip() treats an empty non-NULL gateway as invalid input. */
+static inline const char *
+wan6_sit_route4_gateway_argument(const char *gateway)
+{
+	return (gateway && gateway[0]) ? gateway : NULL;
+}
+
 #define WAN6_SIT_ROUTE4_RECORD_SIZE 64
 #define WAN6_SIT_ROUTE4_IFNAME_SIZE 16
 #define WAN6_SIT_ROUTE4_IPV4_SIZE 16
