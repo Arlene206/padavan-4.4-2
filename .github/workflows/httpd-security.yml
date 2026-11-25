@@ -5684,6 +5684,7 @@ jobs:
           assert "file_type = httpd_script_file_type(file_name);" in write_helper
           assert "HTTPD_FILE_TYPE_PRIVATE_SCRIPT" in write_helper
           assert "get_login_private_key_access() : get_login_safe()" in write_helper
+          assert '#include "httpd_upload_file.h"' in web
           normalize_start = web.index("write_file_dos2unix_fp(const char* value")
           normalize_end = web.index("\nstatic int\nwrite_file_dos2unix(", normalize_start)
           normalize = web[normalize_start:normalize_end]

@@ -62,6 +62,7 @@
 #include "httpd.h"
 #include "httpd_netdev_policy.h"
 #include "httpd_script_policy.h"
+#include "httpd_upload_file.h"
 #include "httpd_apply_request_policy.h"
 #include "httpd_group_delete_policy.h"
 #include "httpd_update_output_policy.h"
