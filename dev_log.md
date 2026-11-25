@@ -1,3 +1,12 @@
+## 2026-11-25 — Fix MiniUPnP event-subscriber source checker function boundary
+
+- Exact-SHA event-subscriber workflow #45721322812 on `149e8729b333e37f9d3da0d146fe97cb86be3d3f` passed the GNU89 ASan/UBSan capacity-boundary test but failed in the Python source contract. The generic brace counter used by the checker treated conditional-compilation branches in `ProcessHTTPSubscribe_upnphttp()` as one preprocessed body and failed to find a matching close brace.
+- Replaced this extraction with the actual source boundary: the SUBSCRIBE handler begins at its declaration and ends immediately before the following `ProcessHTTPUnSubscribe_upnphttp()` declaration. This avoids interpreting mutually-exclusive preprocessor branches as a single C parse while keeping all response-policy assertions on the whole handler.
+- Live main before this correction: `4daa654ba5f31cb6a74357f98c432a7eb1c85e1e`; the failure was in validator extraction, not the GNU89 helper test. Exact-SHA rerun pending. No firmware or device-runtime result is claimed.
+- Changed paths: `scripts/check_miniupnpd_event_subscription.py`, `dev_log.md`.
+
+---
+
 ## 2026-11-25 — Include DHCPv6 packet bounds policy in the client receive unit
 
 - Follow-up source inspection found the new datagram-size helper was defined as `static inline` in the shared bounds-policy header but the receive translation unit did not yet include that header. The source-contract checker now requires the include in both parser and client units, preventing an implicit-declaration/linkage mismatch from escaping.
