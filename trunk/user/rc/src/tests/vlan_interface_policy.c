@@ -17,7 +17,7 @@ check_probe(int ifflags, int probe_errno, int expected_status, int expected_exis
 }
 
 
-static const char *restore_calls[3];
+static const char *restore_calls[4];
 static int restore_values[4];
 static int restore_results[4];
 static int restore_call_count;
@@ -26,7 +26,7 @@ static int
 record_restore(const char *name, int value)
 {
 	int index = restore_call_count++;
-	assert(index >= 0 && index < 5);
+	assert(index >= 0 && index < 4);
 	restore_calls[index] = name;
 	restore_values[index] = value;
 	return restore_results[index];
@@ -89,7 +89,7 @@ test_reused_vlan_restore_attempts_all_operations_after_failure(void)
 	assert(vlan_interface_restore_existing(&restore_ops, "eth2.35", 0,
 		1, 1500, 1, "00:11:22:33:44:55", &failures) == EBUSY);
 	assert(failures == 3 && restore_call_count == 4);
-	assert(strcmp(restore_calls[4], "down") == 0);
+	assert(strcmp(restore_calls[3], "down") == 0);
 }
 
 static void

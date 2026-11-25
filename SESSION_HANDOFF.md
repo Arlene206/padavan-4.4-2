@@ -1,32 +1,12 @@
-## 2026-11-25 autonomous handoff — reused VLAN rollback, target-kernel compatibility correction
+## 2026-11-25 autonomous handoff — VLAN rollback test correction
 
-Startup recovery is complete. Recent source slices cover DHCPv4 select-timeout saturation, DHCPv6 IA cleanup retry and DHCPv6 startup rollback. Continue cross-userland IPv6/M2U and WAN lifecycle work without repeating closed audits.
-
-### Main and backup
-- Main baseline for this VLAN follow-up: `7aa3a523b86230951455196841b73c58845c0820`; this commit atomically corrects the VLAN rollback transaction and its exact-source checks.
-- Frozen `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`. No branches/PRs/force push.
-
-### Completed source slices
-- `c623f1e352db3f54dc6d10e2b7d2dd3e9cc2591d`: saturating DHCPv4 `udhcpc` elapsed-time calculation; exact stability workflow PASS.
-- `6a1faf201e57eab3e9757cc845c15a779b8e8baa`: retain failed DHCPv6 address/PD deletes for retry. IA output checker fixed in `94c75e4`; IA #45620275164 and AI docs #45620275432 PASS.
-- `28a6bb022c0c58b19cbfafb3eb1f06460b55a969`: rollback newly launched `dhcp6c` after temporary callback environment cleanup failure. The source checker fix is in `4180e4d`.
-- `4180e4da45dd8da3e9e06163a96281b58dabe797`: exact WAN DHCP callback #45620475975 and AI docs #45620475988 PASS.
-- VLAN rollback first landed in `5e367ef`; a following docs/test-only commit `7aa3a523` added the missing `<string.h>` include after the exact route job identified the implicit declaration. The subsequent kernel compatibility correction removes reliance on unsupported egress GET.
-
-### Reused VLAN rollback and target 4.4 constraint
-- Defect: reconfiguring an existing VLAN brought it down and changed egress priority/MTU/MAC. Any later failure left it down or partially changed because rollback deleted only VLANs created by the current call.
-- Existing VLANs now snapshot original IFF_UP and requested MTU/MAC using status-bearing readers before the first mutation. On failure rollback attempts down, MTU, MAC and original up/down state; it reports the first rollback failure while preserving primary setup errno. New VLAN delete/ownership handling is unchanged.
-- Important kernel finding: repository Linux 4.4 `vlan_ioctl_handler()` does not implement `GET_VLAN_EGRESS_PRIORITY_CMD`; do not use that ioctl. `vlan_dev_set_egress_priority()` updates an existing mapping and returns success, or allocates before publishing a new mapping and returns `-ENOBUFS` before publication. The setter is therefore moved to the final configuration step, after the optional UP operation. A failed map update leaves the old value unchanged; a successful map update has no later fallible operation.
-- GNU89 policy regression covers restore order, continued attempts after rollback failures and omitted untouched settings. Semantic checker now verifies setter order/atomicity against the in-repo Linux 4.4 kernel implementation.
-
-### Exact CI and next actions
-- On `4180e4d`, exact WAN DHCP callback #45620475975 and AI docs #45620475988 PASS.
-- On first VLAN commit `5e367ef`, WAN route #45621857629 failed only because the regression test used `strcmp()` without `<string.h>`. Commit `7aa3a52` added the header; its exact route run #45622196928 and AI docs #45622197086 were in progress at last poll.
-- The target XY-C1 job #45621857480 was still running on `5e367ef`; verify fresh build/TRX/artifact on this corrected code SHA before L3 claim. Hardware L4 remains NOT VERIFIED.
-- First poll the newest exact-head WAN route, AI docs, and XY-C1 actions. Fix any real compiler/checker failure, then continue IPv6/M2U or WAN route lifecycle with concrete evidence.
+- Main baseline for this test-only correction: `64bd4201f03e4b7d60f5be8b701dee7dbdbcc268`. Exact WAN route run #45622569505 failed in the new VLAN host fixture: UBSan found a pointer recorder array of 3 slots used for four restore operations. Production firmware source was not implicated; enlarge the array to 4 and bound the recorder at 4.
+- Previous code-bearing VLAN commit `64bd4201f03e4b7d60f5be8b701dee7dbdbcc268` adds reused-VLAN MTU/MAC/UP snapshots and moves the QoS map setter to the final fallible operation. Kernel 4.4 source confirms egress GET ioctl is unsupported; its setter allocates before publishing and cannot fail after successful publication.
+- Exact WAN DHCP callback and AI docs passed on parent `4180e4d`. XY-C1 #45622569603 for `64bd4201` was still in progress at last poll. This test correction needs new WAN route, AI docs and XY-C1 exact-head validation.
+- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. Next: inspect corrected exact-head route and firmware actions, then continue remaining WAN/IPv6 M2U route stability.
 
 ### Execution contract
-Source/test → one complete tree/commit → non-forced expected-SHA update → exact-SHA Actions. Keep backup read-only; never force update or make branches/PRs.
+Source/test → one complete tree/commit → non-forced expected-SHA update → exact-SHA Actions. Do not modify backup.
 
 ---
 

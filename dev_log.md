@@ -1,3 +1,11 @@
+## 2026-11-25 21:48 CST (UTC+8) — Correct VLAN rollback mock capacity
+
+- Exact WAN route run #45622569505 on `64bd4201` compiled the policy fixtures, but UBSan caught the new VLAN restore mock's pointer array as length 3 while the successful rollback path records 4 operations (down, MTU, MAC, final up). No production code was reached by this fixture failure.
+- Corrected the mock array to four slots, recorder bound to four, and final restore-order assertion to index 3. Re-run the complete exact-head WAN route workflow; the source checker follows the sanitizer fixture.
+- XY-C1 #45622569603 was still in progress on `64bd4201`; the correction commit triggers a fresh target build.
+
+---
+
 ## 2026-11-25 21:43 CST (UTC+8) — Make reused VLAN rollback compatible with target 4.4 VLAN ioctl
 
 - Kernel-source inspection found this repository's Linux 4.4 `vlan_ioctl_handler()` does not implement `GET_VLAN_EGRESS_PRIORITY_CMD` (it returns `-EOPNOTSUPP`). A snapshot design relying on that ioctl would make every existing VLAN with requested QoS fail closed.
