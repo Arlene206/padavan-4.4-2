@@ -1636,7 +1636,10 @@ jobs:
           assert "ra_switch_mdio_legacy_bool_status(0U) == -EIO" in test
           assert "ra_switch_mdio_legacy_bool_status(2U) == -EIO" in test
           assert cleanup.count("ra_switch_mdio_legacy_bool_status(") == 1
-          assert "if (status == 0 && cleanup_status != 0)" in cleanup
+          assert "if (cleanup_status != 0)" in cleanup
+          assert "disable_irq(ei_local->gsw_irq);" in cleanup
+          assert cleanup.index("disable_irq(ei_local->gsw_irq);") < cleanup.index("free_irq(ei_local->gsw_irq, NULL);")
+          assert "if (status == 0)" in cleanup
           assert cleanup.index("cleanup_status = ra_switch_mdio_legacy_bool_status(") < cleanup.index("free_irq(ei_local->gsw_irq, NULL);")
           assert enable.count("ra_switch_mdio_legacy_bool_status(") == 2
           assert enable.count("mii_mgr_write(31, 0x7008, 0x1f)") == 2

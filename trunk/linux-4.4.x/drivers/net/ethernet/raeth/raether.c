@@ -1864,8 +1864,15 @@ static int fe_int_free_requested_irqs(struct net_device *dev)
 		/* Stop link-change sources before releasing their handler. */
 		cleanup_status = ra_switch_mdio_legacy_bool_status(
 			mii_mgr_write(31, 0x7008, 0));
-		if (status == 0 && cleanup_status != 0)
-			status = cleanup_status;
+		if (cleanup_status != 0) {
+			/*
+			 * If the chip-side mask cannot be cleared, disable the
+			 * parent IRQ before releasing its only registered handler.
+			 */
+			disable_irq(ei_local->gsw_irq);
+			if (status == 0)
+				status = cleanup_status;
+		}
 		free_irq(ei_local->gsw_irq, NULL);
 	}
 	if (requested & RAETH_IRQ_REQ_IRQ3)
