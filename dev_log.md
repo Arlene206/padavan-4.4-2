@@ -1,3 +1,13 @@
+## 2026-11-25 — Handoff checkpoint at 9ed539a04e4c4df96aef03f9d1a6f9637fd3e3b9
+
+- Main: `9ed539a04e4c4df96aef03f9d1a6f9637fd3e3b9`; frozen backup: `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Exact-head Actions snapshot: #45719100773 Process lifecycle inventory - 9ed539a04e4c4df96aef03f9d1a6f9637fd3e3b9=success; #45719100546 AI handoff documentation contract=success; #45719100509 WAN route operation status regression=success; #45719100341 XY-C1 Firmware Validation=in_progress; #45719100260 ZeroTier lifecycle stability regression=success.
+- ZeroTier route cleanup is fail-closed for ECMP, including explicit nexthop counting (direct on-link marker refinement not landed); source/test/checker are on this mainline.
+- XY-C1 L3 is not claimed unless build, TRX validation and artifact upload all pass together on the same source SHA. Physical-router L4 remains NOT VERIFIED.
+- Handoff top section refreshed; archive below `# Cross-session execution mandate` preserved unchanged.
+
+---
+
 ## 2026-11-25 — Count on-link nexthops in ZeroTier ECMP cleanup guard
 
 - Follow-up review of the just-committed ZeroTier ECMP guard found it counted repeated `via` tokens. Linux iproute2 also renders a valid on-link multipath leg as `nexthop dev IFACE` with no `via`, so a route with one configured ZeroTier via leg plus one on-link leg could still be misclassified as a single path and passed to the Linux 4.4 gateway/device delete that removes the entire FIB alias.
