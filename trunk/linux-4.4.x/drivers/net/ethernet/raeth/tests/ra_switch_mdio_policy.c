@@ -11,6 +11,13 @@ struct fake_io {
 	char op[3];
 };
 
+static void test_legacy_mdio_boolean_status_fails_closed(void)
+{
+	assert(ra_switch_mdio_legacy_bool_status(1U) == 0);
+	assert(ra_switch_mdio_legacy_bool_status(0U) == -EIO);
+	assert(ra_switch_mdio_legacy_bool_status(2U) == -EIO);
+}
+
 static int fake_read(void *ctx, unsigned int port, unsigned int reg, unsigned int *value)
 {
 	struct fake_io *f = ctx;
@@ -875,6 +882,7 @@ test_calibration_code_step_wraps_inside_six_bit_field(void)
 
 int main(void)
 {
+	test_legacy_mdio_boolean_status_fails_closed();
 	test_calibration_cleanup_runs_only_after_setup_attempted();
 	test_calibration_code_step_wraps_inside_six_bit_field();
 	test_page_read_selects_global_and_local_bank();

@@ -1852,16 +1852,20 @@ static void ei_receive_workq(struct work_struct *work)
 #define RAETH_IRQ_REQ_ESW	(1U << 4)
 #define RAETH_IRQ_REQ_GSW	(1U << 5)
 
-static void fe_int_free_requested_irqs(struct net_device *dev)
+static int fe_int_free_requested_irqs(struct net_device *dev)
 {
 	struct END_DEVICE *ei_local = netdev_priv(dev);
 	unsigned int requested = ei_local->irq_requested;
+	int status = 0, cleanup_status;
 
 	if (requested & RAETH_IRQ_REQ_ESW)
 		free_irq(ei_local->esw_irq, dev);
 	if (requested & RAETH_IRQ_REQ_GSW) {
-		/* Stop switch link-change sources before releasing their handler. */
-		mii_mgr_write(31, 0x7008, 0);
+		/* Stop link-change sources before releasing their handler. */
+		cleanup_status = ra_switch_mdio_legacy_bool_status(
+			mii_mgr_write(31, 0x7008, 0));
+		if (status == 0 && cleanup_status != 0)
+			status = cleanup_status;
 		free_irq(ei_local->gsw_irq, NULL);
 	}
 	if (requested & RAETH_IRQ_REQ_IRQ3)
@@ -1875,6 +1879,7 @@ static void fe_int_free_requested_irqs(struct net_device *dev)
 
 	ei_local->irq_requested = 0;
 	ei_local->gsw_irq = 0;
+	return status;
 }
 
 static int fe_int_enable(struct net_device *dev)
@@ -1883,7 +1888,7 @@ static int fe_int_enable(struct net_device *dev)
 	struct device_node *np = ei_local->switch_np;
 	struct platform_device *pdev;
 	int err0 = 0, err1 = 0, err2 = 0, err3 = 0;
-	int err;
+	int err, cleanup_status;
 	struct mtk_gsw *gsw;
 	unsigned int reg_val = 0;
 	unsigned long flags;
@@ -2020,7 +2025,10 @@ static int fe_int_enable(struct net_device *dev)
 		ei_local->irq_requested |= RAETH_IRQ_REQ_GSW;
 
 		/* enable switch link change intr */
-		mii_mgr_write(31, 0x7008, 0x1f);
+		err = ra_switch_mdio_legacy_bool_status(
+			mii_mgr_write(31, 0x7008, 0x1f));
+		if (err)
+			goto fail_irqs;
 	} else if (ei_local->chip_name == MT7621_FE) {
 		ei_local->gsw_irq = ei_local->esw_irq;
 		err = request_threaded_irq(ei_local->gsw_irq,
@@ -2030,7 +2038,10 @@ static int fe_int_enable(struct net_device *dev)
 			goto fail_irqs;
 		ei_local->irq_requested |= RAETH_IRQ_REQ_GSW;
 
-		mii_mgr_write(31, 0x7008, 0x1f);
+		err = ra_switch_mdio_legacy_bool_status(
+			mii_mgr_write(31, 0x7008, 0x1f));
+		if (err)
+			goto fail_irqs;
 	}
 
 	if (ei_local->architecture & RAETH_ESW) {
@@ -2174,15 +2185,18 @@ static int fe_int_enable(struct net_device *dev)
 	return 0;
 
 fail_irqs:
-	fe_int_free_requested_irqs(dev);
+	cleanup_status = fe_int_free_requested_irqs(dev);
+	if (err == 0)
+		err = cleanup_status;
 	return err;
 }
 
 static int fe_int_disable(struct net_device *dev)
 {
 	struct END_DEVICE *ei_local = netdev_priv(dev);
+	int status;
 
-	fe_int_free_requested_irqs(dev);
+	status = fe_int_free_requested_irqs(dev);
 
 
 	if (ei_local->features & FE_INT_WORKQ)
@@ -2211,7 +2225,7 @@ static int fe_int_disable(struct net_device *dev)
 		}
 	}
 
-	return 0;
+	return status;
 }
 
 int forward_config(struct net_device *dev)
@@ -2886,6 +2900,7 @@ int ei_open(struct net_device *dev)
 int ei_close(struct net_device *dev)
 {
 	struct END_DEVICE *ei_local = netdev_priv(dev);
+	int irq_status;
 
 	/*
 	 * Stop background workers and new TX before resetting registers;
@@ -2909,7 +2924,7 @@ int ei_close(struct net_device *dev)
 	ra2880stop(ei_local);
 
 	fe_reset();
-	fe_int_disable(dev);
+	irq_status = fe_int_disable(dev);
 
 	if ((ei_local->features & FE_GE2_SUPPORT) && ei_local->pseudo_dev)
 		virtualif_close(ei_local->pseudo_dev);
@@ -2921,7 +2936,7 @@ int ei_close(struct net_device *dev)
 
 	module_put(THIS_MODULE);
 
-	return 0;
+	return irq_status;
 }
 
 static int ei_start_xmit_fake(struct sk_buff *skb, struct net_device *dev)

@@ -1609,6 +1609,45 @@ jobs:
           print("RAETH GSW/ESW link events are published only after successful MDIO reads: PASS")
           PY
 
+      - name: Verify GSW link IRQ MDIO mask failures propagate
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth")
+          source = (root / "raether.c").read_text()
+          policy = (root / "ra_switch_mdio_policy.h").read_text()
+          test = (root / "tests/ra_switch_mdio_policy.c").read_text()
+
+          def body(signature, next_signature):
+              start = source.index(signature)
+              end = source.index(next_signature, start + len(signature))
+              return source[start:end]
+
+          cleanup = body("static int fe_int_free_requested_irqs(", "static int fe_int_enable(")
+          enable = body("static int fe_int_enable(", "static int fe_int_disable(")
+          disable = body("static int fe_int_disable(", "int forward_config(")
+          close = body("int ei_close(struct net_device *dev)", "static int ei_start_xmit_fake(")
+          assert "ra_switch_mdio_legacy_bool_status(unsigned int result)" in policy
+          assert "return result == 1U ? 0 : -EIO;" in policy
+          assert "test_legacy_mdio_boolean_status_fails_closed" in test
+          assert "ra_switch_mdio_legacy_bool_status(1U) == 0" in test
+          assert "ra_switch_mdio_legacy_bool_status(0U) == -EIO" in test
+          assert "ra_switch_mdio_legacy_bool_status(2U) == -EIO" in test
+          assert cleanup.count("ra_switch_mdio_legacy_bool_status(") == 1
+          assert "if (status == 0 && cleanup_status != 0)" in cleanup
+          assert cleanup.index("cleanup_status = ra_switch_mdio_legacy_bool_status(") < cleanup.index("free_irq(ei_local->gsw_irq, NULL);")
+          assert enable.count("ra_switch_mdio_legacy_bool_status(") == 2
+          assert enable.count("mii_mgr_write(31, 0x7008, 0x1f)") == 2
+          assert enable.count("goto fail_irqs;") >= 3
+          assert "cleanup_status = fe_int_free_requested_irqs(dev);" in enable
+          assert "status = fe_int_free_requested_irqs(dev);" in disable
+          assert "return status;" in disable
+          assert "irq_status = fe_int_disable(dev);" in close
+          assert "return irq_status;" in close
+          print("RAETH GSW link IRQ enable/disable MDIO failures propagate through interface lifecycle: PASS")
+          PY
+
       - name: Validate RAETH PHY debug MDIO error propagation
         run: |
           python3 - <<'PY'

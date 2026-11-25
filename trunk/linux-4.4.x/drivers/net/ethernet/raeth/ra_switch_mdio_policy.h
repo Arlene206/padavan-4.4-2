@@ -22,6 +22,13 @@ static inline int ra_switch_mdio_normalize_status(int status)
 	return status > 0 ? -EIO : status;
 }
 
+/* Legacy mii_mgr_{read,write} APIs return exactly one on success. */
+static inline int
+ra_switch_mdio_legacy_bool_status(unsigned int result)
+{
+	return result == 1U ? 0 : -EIO;
+}
+
 /* Gate hardware-specific calibration teardown until setup has started. */
 typedef int (*ra_switch_mdio_cleanup_fn)(void *context);
 
