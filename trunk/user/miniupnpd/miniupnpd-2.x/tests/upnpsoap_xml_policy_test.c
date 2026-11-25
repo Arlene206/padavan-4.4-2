@@ -55,6 +55,10 @@ main(void)
 {
 	test_markup_escaping();
 	test_control_character_sanitization();
+	test_utf8_well_formed_sequences_are_preserved();
+	test_malformed_utf8_is_replaced_without_leaking_invalid_bytes();
+	test_surrogates_out_of_range_and_xml_noncharacters_are_replaced();
+	test_multibyte_sequence_never_partially_fills_output();
 	test_empty_and_invalid_inputs();
 	puts("MiniUPnP SOAP XML text escaping policy: PASS");
 	return 0;

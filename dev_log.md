@@ -1,3 +1,13 @@
+## 2026-11-25 — Validate UTF-8 before emitting MiniUPnP SOAP XML text
+
+- The SOAP text escaper handled markup delimiters and ASCII controls byte-by-byte, but copied every byte at or above 0x80 without validating UTF-8. A truncated/stray continuation, overlong form, UTF-16 surrogate encoding, code point above U+10FFFF or XML 1.0 U+FFFE/U+FFFF could therefore be emitted into SOAP XML text and make the response ill-formed for control points.
+- Added strict UTF-8 sequence decoding and replacement of malformed or XML-disallowed sequences with spaces, while preserving valid 2/3/4-byte UTF-8 and existing markup/control sanitization. Multibyte sequences are copied atomically; buffer exhaustion still clears output and returns ENOSPC instead of emitting a partial character/entity.
+- Added GNU89 ASan/UBSan regressions for valid Unicode, isolated continuations, overlong/truncated forms, surrogates, out-of-range values, U+FFFE/U+FFFF and multibyte output-capacity boundaries. Also fixed the nftables Makefile dependency list so changes to the SOAP policy headers trigger a rebuild; added that Makefile to config-regression path filters.
+- Parent baseline: `e7cf7e737cd5a9a0669b6ba5f4757adba394687f`. Exact-SHA MiniUPnP config regression / XY-C1 validation pending. No firmware or device-runtime result is claimed.
+- Changed paths: `upnpsoap_xml_policy.h`, `tests/upnpsoap_xml_policy_test.c`, `Makefile.linux_nft`, `.github/workflows/miniupnpd-config-stability.yml`, `dev_log.md`.
+
+---
+
 ## 2026-11-25 — Free unqueued DHCPv6 IA event data after request preparation failure
 
 - `prepare_iaevent()` allocated an event-data node before `iapref_renew()`, but that helper can fail while copying IA prefix data before the node is linked into the event's data list. The shared `dhcp6_remove_event()` cleanup only destroys queued nodes, so each failed preparation leaked the unqueued allocation; repeated NoBinding re-establishment attempts could accumulate the leak under memory pressure.
