@@ -1,3 +1,8 @@
+## 2026-11-24 — Update the existing DNSMasq preservation fixture for checked firewall helpers
+
+- Exact-head DNSMasq run #45553050279 confirmed all seven new firewall-policy shell cases passed, then the older `dnsmasq_config_preservation.sh` fixture failed because it extracted `Change_iptable()` without the newly required helper functions. Updated its extraction block to source add, delete and dispatch helpers together.
+- Extended the source contract to reject unchecked direct `iptables`/`ip6tables` invocations inside the dispatcher. Prior exact-head AI docs and process lifecycle checks passed; DNSMasq rerun required. No local shell or firmware result is claimed.
+
 ## 2026-11-24 — Keep SmartDNS alive until redirect cleanup succeeds
 
 - Exact-head DNSMasq job #45552869102 ran all seven new firewall shell cases successfully, then the Python source contract failed on an over-broad assertion that confused helper-wrapped `iptables -A` arguments with raw unchecked calls. Removed that invalid assertion and the unrelated check against the older process test fixture.

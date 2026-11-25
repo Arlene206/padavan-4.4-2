@@ -631,8 +631,12 @@ pass "SmartDNS port-53 mode keeps DNSMasq-only Adbyby rules separate from SmartD
 # rules. Preserve Read_ini's prior mode separately so first start and restart
 # can still detect that mode-2 redirects need to be installed.
 SMARTDNS_SOURCE="$HERE/../smartdns.sh"
-sed -n '/^Change_iptable () {$/,/^}/p' "$SMARTDNS_SOURCE" > "$T/change-iptable.sh"
-[ -s "$T/change-iptable.sh" ] || fail "Change_iptable function missing"
+{
+    sed -n '/^smartdns_firewall_add () {$/,/^}/p' "$SMARTDNS_SOURCE"
+    sed -n '/^smartdns_firewall_delete () {$/,/^}/p' "$SMARTDNS_SOURCE"
+    sed -n '/^Change_iptable () {$/,/^}/p' "$SMARTDNS_SOURCE"
+} > "$T/change-iptable.sh"
+[ -s "$T/change-iptable.sh" ] || fail "SmartDNS firewall policy functions missing"
 . "$T/change-iptable.sh"
 iptables() { printf 'iptables %s\n' "$*" >> "$T/firewall.log"; }
 ip6tables() { printf 'ip6tables %s\n' "$*" >> "$T/firewall.log"; }

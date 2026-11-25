@@ -125,6 +125,7 @@ assert 'smartdns_firewall_delete ip6tables nat PREROUTING' in firewall
 assert 'smartdns_firewall_add iptables -t nat -A PREROUTING' in firewall
 assert 'smartdns_firewall_add ip6tables -t nat -A PREROUTING' in firewall
 assert 'iptables -t nat -D' not in firewall and 'ip6tables -t nat -D' not in firewall
+assert not any(line.lstrip().startswith(("iptables ", "ip6tables ")) for line in firewall.splitlines())
 assert 'return 2' in firewall
 assert 'if Change_iptable "$action"; then' in start
 assert 'smartdns_start_config_rollback "$smartdns_firewall_status"' in start

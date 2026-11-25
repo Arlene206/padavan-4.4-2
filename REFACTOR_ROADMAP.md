@@ -1,3 +1,9 @@
+## 2026-11-24 状态增量：SmartDNS 现有 DNSMasq 回归适配
+
+- 更新 `dnsmasq_config_preservation.sh`，同时加载新增 firewall add/delete helper 与 dispatcher；源码合同禁止 dispatcher 绕过状态包装器直接调用 iptables。
+
+---
+
 ## 2026-11-24 状态增量：SmartDNS 停止顺序修正
 
 - 停止 SmartDNS 时先完成 NAT redirect 清理，再停 daemon；清理失败保持 daemon 与持久状态以供重试。源码合同固定该顺序；首轮 firewall shell 回归已在 exact SHA 运行通过。
