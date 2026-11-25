@@ -918,8 +918,14 @@ handle_dir_common(struct vsf_session* p_sess, int full_details, int stat_cmd)
   }
   if (p_dir == 0)
   {
-    /* NOTE - failure check done below, it's not forgotten */
-    p_dir = str_opendir(&s_dir_name_str);
+    /*
+     * Do not probe the parent path until its share READ ACL is known.
+     * The opened descriptor is still revalidated below.
+     */
+    if (asus_check_permission_directory(p_sess, &s_dir_name_str))
+    {
+      p_dir = str_opendir(&s_dir_name_str);
+    }
   }
   /* Check the directory actually opened, not the session CWD. */
   if (p_dir != 0 && !asus_check_permission_open_directory(

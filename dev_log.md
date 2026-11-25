@@ -1,3 +1,10 @@
+## 2026-11-25 — Gate FTP listing parent opens on READ ACL
+
+- After the first directory-filter probe was gated, the fallback branch still opened the derived parent directory with str_opendir(&s_dir_name_str) before checking its share ACL. A filtered file path under an unreadable share could therefore still reach a pre-authorization parent lookup.
+- Added the same READ ACL precheck before the fallback parent open. The descriptor-bound ACL/identity revalidation remains after open. The VSFTPD source contract now independently pins both prechecks before their respective opendir calls and the opened-FD check afterward.
+- This is a follow-up to the preceding filter-probe slice; no local test, MIPS build, firmware artifact, or hardware result is claimed. Exact-head VSFTPD and AI handoff Actions must validate the complete current source.
+
+---
 ## 2026-11-25 — Check FTP directory READ ACL before path probing
 
 - handle_dir_common() previously called str_opendir(&s_filter_str) to distinguish a directory filter from a filename before checking the share READ ACL. The opened directory was denied later, but the pre-authorization path lookup could reveal whether a candidate path resolves as a directory through different FTP outcomes.
