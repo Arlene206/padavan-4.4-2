@@ -65,6 +65,9 @@ sla_policy = read(BASE + "dhcp6c_pd_sla_policy.h")
 sla_test = read(BASE + "tests/dhcp6c_pd_sla_policy.c")
 config_cleanup = read(BASE + "dhcp6c_config_cleanup_policy.h")
 config_cleanup_test = read(BASE + "tests/dhcp6c_config_cleanup_policy.c")
+common = read(BASE + "dhcp6c_common.c")
+bounds_policy = read(BASE + "dhcp6c_option_bounds_policy.h")
+bounds_test = read(BASE + "tests/dhcp6c_option_bounds_policy.c")
 xy_workflow = read(".github/workflows/xy-c1-firmware-validation.yml")
 workflow = read(".github/workflows/dhcp6c-ia-publication-stability.yml")
 
@@ -173,6 +176,27 @@ assert "if (ia_error != 0)" in update_ia
 assert update_ia.index("if (ia_error != 0)") < update_ia.index("if (ia->ctl == NULL || !pref_isvalid(ia->ctl))")
 assert update_ia.index("if (ia_error != 0)") < update_ia.index("dhcp6_timer_set(ia->t1 * 1000ULL, ia->timer)")
 assert "return first_error;" in update_ia
+
+# Both DHCPv6 option decoders validate lengths before forming the option-end
+# pointer, and reject any truncated trailing header instead of silently
+# accepting the packet/suboption list.
+assert '#include "dhcp6c_option_bounds_policy.h"' in common
+assert "dhcp6c_option_wire_length_valid" in bounds_policy
+assert "DHCPv6 option header/payload bounds policy: PASS" in bounds_test
+outer_options = function_body(common, "int dhcp6_get_options(")
+nested_options = function_body(common, "static int copyin_option(int type, struct dhcp6opt *p,")
+for option_parser in (outer_options, nested_options):
+    assert "for (; (char *)p < (char *)ep; p = np)" in option_parser
+    assert "for (; p + 1 <= ep; p = np)" not in option_parser
+    assert "dhcp6c_option_wire_length_valid(remaining," in option_parser
+    assert "np > ep" not in option_parser
+    assert option_parser.index("dhcp6c_option_wire_length_valid(remaining,") < option_parser.index("np = (struct dhcp6opt *)(cp + optlen);")
+assert "truncated DHCP6 option header" in outer_options
+nested_wire_check = nested_options.index("dhcp6c_option_wire_length_valid(remaining,")
+nested_switch = nested_options.index("/* check option context & minimum known-option length */")
+nested_skip = nested_options.index("goto nextoption;", nested_switch)
+assert nested_wire_check < nested_switch < nested_skip
+
 assert "update_status = reestablish_ia(ia);" in update_ia
 assert "dhcp6c_ia_operation_error(update_status, errno)" in update_ia
 assert "first_error = dhcp6c_ia_first_error(first_error, ia_error);" in update_ia
@@ -269,6 +293,9 @@ required_paths = (
     BASE + "tests/dhcp6c_pd_sla_policy.c",
     BASE + "dhcp6c_config_cleanup_policy.h",
     BASE + "tests/dhcp6c_config_cleanup_policy.c",
+    BASE + "dhcp6c_common.c",
+    BASE + "dhcp6c_option_bounds_policy.h",
+    BASE + "tests/dhcp6c_option_bounds_policy.c",
 )
 filters = workflow.split("jobs:", 1)[0]
 push, pull = filters.split("  pull_request:", 1)

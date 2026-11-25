@@ -1,3 +1,11 @@
+## 2026-11-25 — Reject truncated and overlong DHCPv6 option payloads before pointer arithmetic
+
+- Both the top-level DHCPv6 option decoder and the nested IA suboption decoder formed `cp + optlen` before checking whether the untrusted wire length fit in the remaining packet. That created an out-of-bounds pointer before validation; the nested parser also skipped unknown suboptions before doing any payload bounds check.
+- The decoders now validate remaining/header/payload lengths with overflow-safe subtraction before forming the option-end pointer. A 1–3 byte trailing fragment is rejected as a truncated header, and even unknown IA suboptions must have an in-bounds payload before they can be skipped.
+- Added a GNU89 bounds-policy regression, workflow compilation/run wiring, and source-order contracts. This is host-test/source-contract coverage; XY-C1 firmware and physical-router results are tracked separately.
+
+---
+
 ## 2026-11-25 — Make MiniUPnP workflow path checks exact, not substring-based
 
 - The second exact-SHA rerun, #45720405943 on `00f9d03bc54d0b351a3684f9c68552aa4d1a7fcb`, again failed in the embedded path-filter contract, now at stdin line 618. The new `Makefile.linux_nft` entry caused a prefix collision: the raw substring count for `Makefile.linux` also matched the longer nft filename, so the source-contract checker falsely counted two hits.

@@ -38,6 +38,7 @@
 #include "dhcp6c.h"
 #include "dhcp6c_duid_file_policy.h"
 #include "dhcp6c_script_retry_policy.h"
+#include "dhcp6c_option_bounds_policy.h"
 
 
 static int copyin_option(int, struct dhcp6opt *, struct dhcp6opt *,
@@ -821,6 +822,7 @@ int dhcp6_get_options(struct dhcp6opt *p, struct dhcp6opt *ep,
 {
 	struct dhcp6opt *np;
 	int opt, optlen, tlen;
+	size_t remaining;
 	char *cp, *val;
 	union {
 		struct dhcp6opt h;
@@ -841,7 +843,13 @@ int dhcp6_get_options(struct dhcp6opt *p, struct dhcp6opt *ep,
 
 	TAILQ_INIT(&sublist);
 
-	for (; p + 1 <= ep; p = np) {
+	for (; (char *)p < (char *)ep; p = np) {
+		remaining = (size_t)((char *)ep - (char *)p);
+		if (!dhcp6c_option_wire_length_valid(remaining,
+			    sizeof(struct dhcp6opt), 0)) {
+			bb_error_msg("truncated DHCP6 option header");
+			goto fail;
+		}
 		/*
 		 * get the option header.  XXX: since there is no guarantee
 		 * about the header alignment, we need to make a local copy.
@@ -851,15 +859,20 @@ int dhcp6_get_options(struct dhcp6opt *p, struct dhcp6opt *ep,
 		opt = ntohs(u.h.dh6opt_type);
 
 		cp = (char *)(p + 1);
-		np = (struct dhcp6opt *)(cp + optlen);
 
 		log2("get DHCP6 option %s, len %d", dhcp6optstr(opt), optlen);
+
+		/* Check the wire length before forming a pointer past this option. */
+		if (!dhcp6c_option_wire_length_valid(remaining,
+			    sizeof(struct dhcp6opt), (size_t)optlen))
+			goto malformed;
+		np = (struct dhcp6opt *)(cp + optlen);
 
 		/* option length field overrun */
 		if (opt > D6_OPT__MAX)
 			goto unexpected;
 		tlen = dhcp6_option_typelens[opt].minlen;
-		if (np > ep || optlen < tlen)
+		if (optlen < tlen)
 			goto malformed;
 
 		switch (opt) {
@@ -1137,6 +1150,7 @@ static int copyin_option(int type, struct dhcp6opt *p, struct dhcp6opt *ep,
 			 struct dhcp6_list *list)
 {
 	int opt, optlen, tlen;
+	size_t remaining;
 	char *cp;
 	struct dhcp6opt *np;
 	union {
@@ -1156,17 +1170,32 @@ static int copyin_option(int type, struct dhcp6opt *p, struct dhcp6opt *ep,
 
 	TAILQ_INIT(&sublist);
 
-	for (; p + 1 <= ep; p = np) {
+	for (; (char *)p < (char *)ep; p = np) {
+		remaining = (size_t)((char *)ep - (char *)p);
+		if (!dhcp6c_option_wire_length_valid(remaining,
+			    sizeof(struct dhcp6opt), 0))
+			goto fail;
 		memcpy(&u.h, p, sizeof(struct dhcp6opt));
 		optlen = ntohs(u.h.dh6opt_len);
 		opt = ntohs(u.h.dh6opt_type);
 
 		cp = (char *)(p + 1);
-		np = (struct dhcp6opt *)(cp + optlen);
 
 		log2("get DHCP6 option %s, len %d", dhcp6optstr(opt), optlen);
 
-		/* check option context & length */
+		/*
+		 * Validate even unknown IA suboptions before their skip path. Do
+		 * not form cp + optlen until the packet bounds have been proven.
+		 */
+		if (!dhcp6c_option_wire_length_valid(remaining,
+			    sizeof(struct dhcp6opt), (size_t)optlen)) {
+			bb_error_msg("malformed DHCP6 option: type %d, len %d",
+				opt, optlen);
+			goto fail;
+		}
+		np = (struct dhcp6opt *)(cp + optlen);
+
+		/* check option context & minimum known-option length */
 		switch (opt) {
 		case D6_OPT_IA_PD_PREFIX:
 			if (type != D6_OPT_IA_PD) {
@@ -1191,7 +1220,7 @@ static int copyin_option(int type, struct dhcp6opt *p, struct dhcp6opt *ep,
 		} /* switch1(opt) */
 		lvtype = dhcp6_option_typelens[opt].lvtype;
 		tlen = dhcp6_option_typelens[opt].minlen;
-		if (np > ep || optlen < tlen) {
+		if (optlen < tlen) {
 				bb_error_msg("malformed DHCP6 option: type %d, len %d",
 					opt, optlen);
 				goto fail;
