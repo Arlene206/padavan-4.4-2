@@ -729,14 +729,14 @@ main(void)
     perror("create cross-share hard-link fixture");
     return 1;
   }
-  existing_dir_fd = ftp_acl_path_open_verified_directory(b);
+  existing_dir_fd = ftp_acl_path_open_verified_directory(a);
   if (existing_dir_fd < 0) {
     perror("open cross-share hard-link target directory");
     return 1;
   }
   errno = 0;
   existing_file_fd = ftp_acl_path_open_existing_file(
-      existing_dir_fd, "protected.txt", 0);
+      existing_dir_fd, "cross-share-hardlink", 0);
   if (existing_file_fd >= 0 || errno != EACCES) {
     if (existing_file_fd >= 0)
       close(existing_file_fd);
@@ -745,7 +745,7 @@ main(void)
   }
   errno = 0;
   existing_file_fd = ftp_acl_path_open_existing_file(
-      existing_dir_fd, "protected.txt", 1);
+      existing_dir_fd, "cross-share-hardlink", 1);
   if (existing_file_fd >= 0 || errno != EACCES) {
     if (existing_file_fd >= 0)
       close(existing_file_fd);
@@ -755,14 +755,14 @@ main(void)
   cleanup_allowed = 1;
   errno = 0;
   upload_fd = ftp_acl_path_open_upload_entry(
-      existing_dir_fd, "protected.txt", 0, 0, 0600, &cleanup_allowed);
+      existing_dir_fd, "cross-share-hardlink", 0, 0, 0600, &cleanup_allowed);
   if (upload_fd >= 0 || errno != EACCES || cleanup_allowed) {
     if (upload_fd >= 0)
       close(upload_fd);
     fprintf(stderr, "cross-share hard link was writable through its protected pathname\n");
     return 1;
   }
-  if (fstatat(existing_dir_fd, "protected.txt", &st,
+  if (fstatat(existing_dir_fd, "cross-share-hardlink", &st,
               AT_SYMLINK_NOFOLLOW) != 0 || st.st_nlink != 2) {
     fprintf(stderr, "cross-share hard-link rejection changed the protected inode\n");
     return 1;
