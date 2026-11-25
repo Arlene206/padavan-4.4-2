@@ -1,41 +1,29 @@
 ## Current repository state — 2026-11-25
 
-- Main source checkpoint: `ada6ebecc055d781200fa6621b2a2b60a4777889` (bounded STOU exclusive-create collision retry).
+- Live `main` HEAD: `6dbd63d496aa2da65a40657b859d09e718e30900` (WAN route checker-only follow-up); its production-source parent is `cdd7e4523ef8945f9d83427b1d3e24dc2dd1da5c`. Continue from the live main ref, not an older checkpoint.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains untouched at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- STOU now retries a final descriptor-relative `O_CREAT | O_EXCL` failure only when errno is `EEXIST`, with a maximum of 16 retries. Each retry reselects from the original FTP argument and repeats deny-file filtering, ACL approval, pinned-parent/nofollow candidate probing, and final exclusive creation. Other errors remain fail-closed and retain their original errno.
-- Regression updates exercise duplicate exclusive creation (`EEXIST`), the retry limit, success/non-`EEXIST` rejection, and the existing upload cleanup invariant. Exact-SHA VSFTPD workflow compiles/runs the C path-policy regression and source contract.
-- The WAN 6rd prefix hardening remains in the source lineage. The initial 778714 DHCP callback run failed only because its Python checker referenced undefined `sixrd_body`; checker-only commit `b7828a9da9ca5f15fc513f7806efcf46aebb4daf` corrected the source-scope assertion, and WAN DHCP callback run #45672691417 then PASSed.
-- OpenVPN startup/readiness and rollback protections remain unchanged. Physical-router L4 is NOT VERIFIED.
+- Current USB modem slice: unload transitions now re-probe module state after `module_smart_unload()`; a legacy success return with a remaining module is treated as `EBUSY`, UNKNOWN/error states fail closed, and the next driver family/QMI marker/cache transition is withheld until unload succeeds. The settle delay is counted only when a previously loaded module is confirmed absent.
+- USB policy/regression source lineage: `f561a44e1332101ea6e8f42f91b3399134b2d138` introduced the post-unload absence check; `6d75c4f67f39fb95fbe5626ef97a50b2145f2a54` made the remaining-loaded state explicit; `2f29cde4dde752472cd83dd496a9a44376a9befa` and `76d78219e70a4f211b40089eb28efc58ffcd9e04` account for modules actually removed; `87406ad733a35d505823373addf3a30ea7c534b1` added callback accounting regression coverage; `ed0c1d9342bbe38469926c30145df389a5bc9076` initialized that test fixture correctly.
+- A test-only failure on `87406ad...` was caused by the test's local `unloaded` counter starting at 99; `ed0c1d9...` sets it to zero before each fixture run. Exact USB workflow #45677107277 on `ed0c1d9...` PASS.
+- Concurrent ZeroTier lifecycle work on `92ebe37ca59308a66780b09f3f746583d9892f6e` PASSed exact workflow #45677056983. The earlier `4c746b...` failure was a stale Python function-body checker and is resolved in the descendant.
+- Static-route netmask source fix `cdd7e4523ef8945f9d83427b1d3e24dc2dd1da5c` rejects non-contiguous masks. Its WAN route run #45677711691 failed at the old source assertion; checker follow-up `6dbd63d...` passes exact WAN route #45678120958 and AI handoff docs #45678121059.
+- On `cdd7e45...`, Process inventory #45677711700, process fail-closed #45677711853, HTTPD #45677711707, WAN DHCP callback #45677711661, Firewall #45677711875, DNSMasq #45677712025, USB storage #45677711693 and NVRAM audit #45677711890 PASS. XY-C1 run #45677711638 is still IN_PROGRESS at Build XY-C1.
+- The descendant `6dbd63d...` XY-C1 host validation #45678120929 passed its host checks but skipped Build XY-C1, TRX verification and artifact upload because this commit changed only a workflow checker. Do not treat that as an L3 firmware pass. Physical-router L4 is NOT VERIFIED.
 
 ## Active task
 
-- Continue with an independent P1 stability/security defect in another userland area; do not repeat completed FTP `.hidden`, RNFR symlink handling, STOU pre-authorization/parent identity, WAN 6rd bounds/host-bit handling, or the new STOU collision-retry slice.
-
-## Verification boundary — exact source SHA
-
-On `ada6ebecc055d781200fa6621b2a2b60a4777889`:
-- VSFTPD configuration publication stability #45673063824 PASS. This includes the GNU89/Werror FTP ACL C regression with the new duplicate-`O_EXCL` collision policy checks, source-order contract, and parent-identity check.
-- AI handoff documentation #45673063860 PASS.
-- Process inventory/lifecycle commit check #45673063812 PASS.
-- Process inventory and lifecycle fail-closed regression #45673063825 PASS.
-- NVRAM transaction boundary audit #45673063811 PASS.
-- XY-C1 firmware validation #45673063864 remains IN_PROGRESS at the `Build XY-C1` step. Header/source host checks preceding the build completed successfully; TRX verification and artifact upload are still pending. No L3 firmware result is claimed for this SHA.
-- A standalone GNU89/`-Wall -Wextra -Werror`/ASan/UBSan harness for the collision predicate passed; this is a focused helper smoke test, not a full firmware build.
-- WAN DHCP callback checker correction `b7828a9...` was separately verified by run #45672691417 PASS; the VSFTPD descendant `ada6ebe...` did not alter the WAN DHCP source/checker inputs.
-- Physical-router L4 NOT VERIFIED.
+Continue a new independent P2 storage/configuration-boundary slice after checking the cdd7 XY-C1 producer run. Review privileged writers in `trunk/user/rc/src/services_stor.c`, concentrating on NFS custom-export publication and Firefly configuration staging; establish a concrete race/error defect before changing source. Do not re-audit completed USB modem/ZeroTier/FTP work.
 
 ## Exact first actions for next GPT
 
-1. Poll XY-C1 run #45673063864 on the exact source SHA. Require Build XY-C1, TRX verification and artifact upload all PASS before recording L3.
-2. Continue an independent P1 userland fix with a focused C regression and semantic source/workflow contract; PENDING Actions do not block other work.
-3. Commit each logical source/test slice as one tree and one commit, with a non-force expected-SHA update to main.
-4. Update this handoff and the root development log after validated source slices; preserve all historical entries.
+1. Poll XY-C1 run #45677711638 on exact source SHA `cdd7e4523ef8945f9d83427b1d3e24dc2dd1da5c`. Require Build XY-C1, TRX verification and artifact upload all SUCCESS before marking L3. The `6dbd63d...` host-only run is not a substitute.
+2. Continue the independent `services_stor.c` storage/configuration writer review. Make a source change only for a demonstrated defect, add a deterministic regression, and keep GNU89/uClibc compatibility.
+3. Use one complete tree and atomic commit per logical slice; update `main` with `force:false` and expected current SHA. PENDING Actions do not block independent work.
+4. Keep this checkpoint current after the next validated source slice. Never claim L4 without physical-router evidence.
 
 ## Execution contract
 
-Source/test → one complete Git tree/commit → non-force expected-SHA update → exact-SHA Actions. Main only; never force-push; frozen backup untouched. PENDING does not block independent work.
-
----
+Main only; frozen backup remains read-only. Source/test → one complete Git tree/commit → non-force expected-SHA update → exact-SHA Actions. No force-push, no partial multi-file commits, no repeated bootstrap audit. L3 requires same-source Build, TRX and artifact upload; L4 remains NOT VERIFIED.
 
 ## 2026-11-25 autonomous handoff checkpoint
 

@@ -1,3 +1,11 @@
+## 2026-11-25 — USB modem driver unload postcondition and delay accounting
+
+- `module_smart_unload()` can report a nonzero result while leaving a module loaded because its reference count is still held. The modem callback now verifies the postcondition through module state; a remaining module returns `EBUSY`, UNKNOWN/error fails closed, and a new driver family or QMI marker/cache transition is blocked until the old family is actually unloaded.
+- The post-unload delay now counts only modules that were present before the operation and confirmed absent afterward. The GNU89 policy fixture covers absent no-op modules, actual removals, busy/unknown/error states, invalid groups and first-error aggregation. USB run #45676795528 exposed a test fixture that failed to initialize its local removal counter; follow-up `ed0c1d9342bbe38469926c30145df389a5bc9076` initializes both fixture paths, and exact USB #45677107277 PASSes.
+- XY-C1 on production-source SHA `cdd7e4523ef8945f9d83427b1d3e24dc2dd1da5c` remains at Build XY-C1 in run #45677711638. The descendant `6dbd63d...` validation skipped Build/TRX/artifact because it changed only the WAN checker. L3 is not yet claimed; physical L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-25 — DHCPv6 IA lease expiry before kernel publication
 
 - Fixed a partial-publication timeout gap: update_prefix6() previously updated per-prefix expiry only after every downstream address add succeeded. A later failure could leave earlier installed addresses without their updated expiry timer while Reply retry continued.

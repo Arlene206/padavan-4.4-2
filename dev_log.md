@@ -1,3 +1,13 @@
+## 2026-11-25 — Fail closed on modem driver unload postcondition
+
+- Source fix: `f561a44e1332101ea6e8f42f91b3399134b2d138` made the unload callback verify that a module disappeared from `/sys/module`; a legacy unload helper success with a held reference is not treated as proof of removal. `6d75c4f67f39fb95fbe5626ef97a50b2145f2a54` explicitly classifies the remaining-loaded state as `EBUSY` and preserves a concrete unload errno. This blocks NDIS/RAS family load, QMI client-marker deletion and cache publication after an incomplete unload.
+- `2f29cde4dde752472cd83dd496a9a44376a9befa` / `76d78219e70a4f211b40089eb28efc58ffcd9e04` add removal accounting so the one-second settle delay occurs only if at least one previously loaded module is confirmed removed. The host policy regression covers no-op absent modules, actual removal counts, busy/unknown/error outcomes and invalid groups.
+- Test-only follow-up `87406ad733a35d505823373addf3a30ea7c534b1` first exposed an uninitialized test counter; `ed0c1d9342bbe38469926c30145df389a5bc9076` initializes it for each fixture. Exact USB modem workflow #45677107277 PASS on ed0c1d9. The source remains in the current main lineage.
+- Related exact-head checks: ZeroTier #45677056983 PASS on `92ebe37...`; on `cdd7e45...` Process inventory #45677711700, Process fail-closed #45677711853, HTTPD #45677711707, WAN DHCP #45677711661, Firewall #45677711875, DNSMasq #45677712025, USB storage #45677711693 and NVRAM #45677711890 PASS. WAN route #45677711691 failed at a stale checker assertion and was corrected: #45678120958 PASS on `6dbd63d...`; AI docs #45678121059 PASS.
+- XY-C1 #45677711638 on cdd7e45 is still in progress at Build XY-C1; the 6dbd63d checker-only descendant #45678120929 passed host checks but skipped Build/TRX/artifact. No current L3 claim; physical-router L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-25 — Retry STOU after a concurrent exclusive-create collision
 
 - Base SHA: `b7828a9da9ca5f15fc513f7806efcf46aebb4daf`; atomic source commit: `ada6ebecc055d781200fa6621b2a2b60a4777889`.
