@@ -627,4 +627,39 @@ for bad in '' 0 65536 999999 abc 000000; do
 	if smartdns_dnsmasq_normalize_port "$bad" >/dev/null; then fail "invalid port accepted"; fi
 done
 pass "SmartDNS port-53 mode keeps DNSMasq-only Adbyby rules separate from SmartDNS input"
+# The start routine stores the desired redirect mode before applying firewall
+# rules. Preserve Read_ini's prior mode separately so first start and restart
+# can still detect that mode-2 redirects need to be installed.
+SMARTDNS_SOURCE="$HERE/../smartdns.sh"
+sed -n '/^Change_iptable () {$/,/^}/p' "$SMARTDNS_SOURCE" > "$T/change-iptable.sh"
+[ -s "$T/change-iptable.sh" ] || fail "Change_iptable function missing"
+. "$T/change-iptable.sh"
+iptables() { printf 'iptables %s\n' "$*" >> "$T/firewall.log"; }
+ip6tables() { printf 'ip6tables %s\n' "$*" >> "$T/firewall.log"; }
+logger() { :; }
+for firewall_action in start restart; do
+    : > "$T/firewall.log"
+    action=$firewall_action
+    smartdns_previous_redirected=0
+    sdns_redirected=2
+    sdns_redirect=2
+    sdns_port=6053
+    sdns_ported=6053
+    sdns_tcp_server=1
+    sdns_ipv6_server=1
+    IPS4=192.0.2.1
+    IPS6=2001:db8::1
+    Change_iptable || fail "$firewall_action did not install mode-2 redirects"
+    [ "$(grep -c -- '-A PREROUTING' "$T/firewall.log" || :)" -eq 4 ] ||
+        fail "$firewall_action did not install all four IPv4/IPv6 TCP/UDP rules"
+done
+: > "$T/firewall.log"
+action=restart
+smartdns_previous_redirected=2
+sdns_redirected=2
+sdns_redirect=2
+Change_iptable || fail "unchanged mode-2 restart failed"
+[ ! -s "$T/firewall.log" ] || fail "unchanged mode-2 restart duplicated redirect rules"
+pass "SmartDNS start and restart install DNS redirects from the saved prior mode"
+
 echo "SmartDNS DNSMasq configuration preservation regression: PASS"

@@ -787,8 +787,8 @@ Change_iptable () {
             iptables -t nat -D PREROUTING -p udp -d "$IPS4" --dport 53 -j REDIRECT --to-ports 53 >/dev/null 2>&1
         fi
         ;;
-    start)
-        if [ "$sdns_redirected" != 2 ] && [ "$sdns_redirect" = 2 ] ; then
+    start|restart)
+        if [ "$smartdns_previous_redirected" != 2 ] && [ "$sdns_redirect" = 2 ] ; then
             statu=1
             logger -t "SmartDNS" "重定向 xxx.xxx.xxx:53 至 $IPS4:$sdns_port"
             if [ "$sdnse_enable" = 1 ] ; then
@@ -870,6 +870,8 @@ smartdns_start_config_rollback()
 
 Start_smartdns () {
     smartdns_previous_running=0
+    # Read_ini loaded the last committed redirect mode before this start changes it.
+    smartdns_previous_redirected="$sdns_redirected"
     # Do not modify DNS, firewall or persisted state until the old daemon is
     # positively classified and, when running, confirmed stopped.
     smartdns_process_state

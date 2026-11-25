@@ -197,6 +197,11 @@ write_at = start.find("smartdns_write_ini_state")
 publish_at = start.find("Change_dnsmasq start")
 assert clean_at >= 0 and write_at > clean_at and publish_at > write_at
 assert 'sdns_ported="$sdns_port"' in start and 'sdns_redirected="$sdns_redirect"' in start
+assert 'smartdns_previous_redirected="$sdns_redirected"' in start
+assert start.index('smartdns_previous_redirected="$sdns_redirected"') < start.index('sdns_redirected="$sdns_redirect"')
+firewall = body(smartdns, "Change_iptable")
+assert "start|restart)" in firewall and 'smartdns_previous_redirected' in firewall
+assert "SmartDNS start and restart install DNS redirects from the saved prior mode" in test
 assert "smartdns_state_version=managed-v1" in start
 stop = body(smartdns, "Stop_smartdns")
 assert 'if Change_adbyby; then' in stop
