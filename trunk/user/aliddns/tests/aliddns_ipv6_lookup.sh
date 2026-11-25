@@ -114,6 +114,12 @@ OUTPUT
 inet6 2001:4860::abcd/64 scope global secondary dynamic
 OUTPUT
 		;;
+	multiple-temporary)
+		cat <<'OUTPUT'
+inet6 2001:4860::abcd/64 scope global secondary dynamic
+inet6 2606:4700::abcd/64 scope global secondary dynamic
+OUTPUT
+		;;
 	deprecated-only)
 		cat <<'OUTPUT'
 inet6 2001:4860::abcd/64 scope global deprecated dynamic
@@ -165,6 +171,7 @@ expect_failure() {
 expect_success ppp0 global 2001:4860:4860::8888
 expect_success sit0 sit-global 2001:4860::1
 expect_success ppp0 privacy-multiple-global 2001:4860:4860::8888
+expect_success ppp0 only-temporary 2001:4860::abcd
 expect_success ppp0 allocated-boundary '2cff::1' 2cff
 calls_before=$(wc -l < "$IP_LOG")
 FAKE_NVRAM_STATUS=7
@@ -194,7 +201,7 @@ done
 expect_failure ppp0 ppp0 ula
 expect_failure ppp0 ppp0 link-local-only
 expect_failure ppp0 ppp0 multiple-global
-expect_failure ppp0 ppp0 only-temporary
+expect_failure ppp0 ppp0 multiple-temporary
 expect_failure ppp0 ppp0 deprecated-only
 expect_failure ppp0 ppp0 tentative-only
 expect_failure ppp0 ppp0 partial-failure

@@ -23,23 +23,33 @@ arIpAddress6 () {
 			address = $2
 			sub(/\/.*/, "", address)
 			global = 0
+			secondary = 0
 			unusable = 0
 			for (i = 3; i <= NF; i++) {
 				if ($i == "scope" && $(i + 1) == "global")
 					global = 1
-				if ($i == "secondary" || $i == "tentative" ||
-				    $i == "deprecated")
+				if ($i == "secondary")
+					secondary = 1
+				if ($i == "tentative" || $i == "deprecated")
 					unusable = 1
 			}
 			if (global && !unusable) {
-				selected = address
-				count++
+				if (secondary) {
+					secondary_address = address
+					secondary_count++
+				} else {
+					stable_address = address
+					stable_count++
+				}
 			}
 		}
 		END {
-			if (count != 1 || selected == "")
+			if (stable_count == 1) {
+				print stable_address
+			} else if (stable_count == 0 && secondary_count == 1) {
+				print secondary_address
+			} else {
 				exit 1
-			print selected
 		}
 	') || return 1
 	aliddns_ipv6_public_valid "$wan6_address" || return 1

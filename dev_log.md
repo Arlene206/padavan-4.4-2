@@ -1,3 +1,13 @@
+## 2026-11-25 — Preserve temporary-only WAN IPv6 fallback for AliDDNS
+
+- Review of the new stable-address preference found a compatibility edge: the first implementation rejected a sole temporary/secondary global address, whereas the prior single-address behavior accepted it. A privacy-enabled WAN can legitimately need that fallback when no stable preferred address remains.
+- Selection now prefers exactly one usable stable global address when present; if none exists, exactly one usable temporary/secondary global address is accepted. Tentative/deprecated addresses are excluded, and ambiguous stable or temporary-only sets still fail closed.
+- Regression now checks stable-over-temporary preference, temporary-only compatibility, multiple stable/temporary ambiguity, and tentative/deprecated exclusion. The Python source contract pins both selection branches.
+- Local smoke verification is being repeated for this compatibility refinement; exact-head AliDDNS and XY-C1 checks will be required. No firmware or physical-router result is claimed.
+- Changed paths: `trunk/user/aliddns/ddns_script.sh`, `trunk/user/aliddns/tests/aliddns_ipv6_lookup.sh`, `scripts/check_aliddns_api_transport.py`, `dev_log.md`.
+
+---
+
 ## 2026-11-25 — Repair DDNSTO lifecycle regression's truncated grep expression
 
 - Exact DDNSTO workflow #45712559118 on `373b4a12` failed after the process-identity and procfs cases passed. The signal-record assertion at test line 559 had an unterminated single-quoted ERE; its quote captured a later AWK program and grep reported `Unmatched (`.

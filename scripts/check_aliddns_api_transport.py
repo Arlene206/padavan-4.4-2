@@ -436,6 +436,8 @@ require(
     and '[ "${#wan6_ifname}" -le 15 ]' in ipv6_discovery
     and '$i == "scope" && $(i + 1) == "global"' in ipv6_discovery
     and '$i == "secondary"' in ipv6_discovery
+    and "stable_count == 1" in ipv6_discovery
+    and "stable_count == 0 && secondary_count == 1" in ipv6_discovery
     and '$i == "tentative"' in ipv6_discovery
     and '$i == "deprecated"' in ipv6_discovery
     and 'aliddns_ipv6_public_valid "$wan6_address" || return 1' in ipv6_discovery
@@ -451,6 +453,8 @@ require(
     and "multiple-global" in ipv6_test
     and "privacy-multiple-global" in ipv6_test
     and "only-temporary" in ipv6_test
+    and "multiple-temporary" in ipv6_test
+    and "expect_success ppp0 only-temporary 2001:4860::abcd" in ipv6_test
     and "deprecated-only" in ipv6_test
     and "tentative-only" in ipv6_test
     and "partial-failure" in ipv6_test
