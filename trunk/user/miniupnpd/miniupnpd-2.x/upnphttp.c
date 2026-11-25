@@ -234,8 +234,11 @@ ParseHttpHeaders(struct upnphttp * h)
 					return EINVAL;
 				value_start = colon + 1;
 				value_end = value_start;
-				while (*value_end != '\r' && *value_end != '\n')
+				while (value_end < h->req_buf + h->req_contentoff &&
+				       *value_end != '\r' && *value_end != '\n')
 					++value_end;
+				if (value_end >= h->req_buf + h->req_contentoff)
+					return EINVAL;
 				if (miniupnpd_http_record_content_length(
 				        value_start, (size_t)(value_end - value_start),
 				        &content_length_seen, &parsed_length) != 0)
@@ -260,19 +263,24 @@ ParseHttpHeaders(struct upnphttp * h)
 			}
 			else if(strncasecmp(line, "SOAPAction:", 11)==0)
 			{
-				p = colon;
-				n = 0;
-				while(*p == ':' || *p == ' ' || *p == '\t')
-					p++;
-				while(p[n]>=' ')
-					n++;
-				if((p[0] == '"' && p[n-1] == '"')
-				  || (p[0] == '\'' && p[n-1] == '\''))
-				{
-					p++; n -= 2;
-				}
-				h->req_soapActionOff = p - h->req_buf;
-				h->req_soapActionLen = n;
+				const char * value_start;
+				const char * value_end;
+				size_t action_offset;
+				size_t action_length;
+
+				value_start = colon + 1;
+				value_end = value_start;
+				while (value_end < h->req_buf + h->req_contentoff &&
+				       *value_end != '\r' && *value_end != '\n')
+					++value_end;
+				if (value_end >= h->req_buf + h->req_contentoff ||
+				    miniupnpd_http_parse_soap_action(
+				        value_start, (size_t)(value_end - value_start),
+				        &action_offset, &action_length) != 0)
+					return EINVAL;
+				h->req_soapActionOff =
+				    (value_start + action_offset) - h->req_buf;
+				h->req_soapActionLen = (int)action_length;
 			}
 			else if(strncasecmp(line, "accept-language:", 16) == 0)
 			{

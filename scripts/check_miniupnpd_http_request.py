@@ -35,6 +35,10 @@ assert "int\nParseHttpHeaders(struct upnphttp * h)" in source
 assert "content_length_seen" in headers
 assert "miniupnpd_http_record_content_length(" in headers
 assert "miniupnpd_http_parse_content_length(" in policy
+assert "miniupnpd_http_parse_soap_action(" in policy
+assert "miniupnpd_http_parse_soap_action(" in headers
+assert "action_length" in headers
+assert "value_end < h->req_buf + h->req_contentoff" in headers
 assert "miniupnpd_http_record_content_length(" in headers
 assert "strncasecmp(line, \"Transfer-Encoding\", 17)==0" in headers
 assert "return EINVAL;" in headers
@@ -69,6 +73,8 @@ for token in (
 for token in (
     "test_content_length_boundaries",
     "test_content_length_rejects_ambiguous_or_malformed_values",
+    "test_soap_action_quote_boundaries",
+    "test_soap_action_rejects_unbalanced_quotes_and_controls",
     "test_duplicate_content_length_rejected",
     "test_invalid_destination_is_rejected",
     "test_request_buffer_growth_boundaries",

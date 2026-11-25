@@ -86,6 +86,76 @@ miniupnpd_http_record_content_length(const char *value, size_t length,
     return 0;
 }
 
+/*
+ * Validate and normalize a SOAPAction field value. A one-byte quote or an
+ * unmatched quote must not underflow the signed length consumed by the SOAP
+ * action dispatcher. Optional HTTP whitespace is removed at the edges.
+ */
+static inline int
+miniupnpd_http_parse_soap_action(const char *value, size_t length,
+                                 size_t *offset_out, size_t *length_out)
+{
+    size_t first = 0;
+    size_t last = length;
+    size_t index;
+    char quote;
+
+    if (!value || !offset_out || !length_out) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    while (first < last &&
+           (value[first] == ' ' || value[first] == '\t'))
+        ++first;
+    while (last > first &&
+           (value[last - 1] == ' ' || value[last - 1] == '\t'))
+        --last;
+
+    for (index = first; index < last; ++index) {
+        unsigned int character = (unsigned char)value[index];
+
+        if (character < 0x20U || character == 0x7fU) {
+            errno = EINVAL;
+            return -1;
+        }
+    }
+
+    if (first == last) {
+        *offset_out = first;
+        *length_out = 0U;
+        return 0;
+    }
+
+    quote = value[first];
+    if (quote == '"' || quote == '\'') {
+        if (last - first < 2U || value[last - 1U] != quote) {
+            errno = EINVAL;
+            return -1;
+        }
+        for (index = first + 1U; index + 1U < last; ++index) {
+            if (value[index] == '"' || value[index] == '\'') {
+                errno = EINVAL;
+                return -1;
+            }
+        }
+        *offset_out = first + 1U;
+        *length_out = last - first - 2U;
+        return 0;
+    }
+
+    for (index = first; index < last; ++index) {
+        if (value[index] == '"' || value[index] == '\'') {
+            errno = EINVAL;
+            return -1;
+        }
+    }
+
+    *offset_out = first;
+    *length_out = last - first;
+    return 0;
+}
+
 /* Overflow-safe bound check used before every request-buffer growth. */
 static inline int
 miniupnpd_http_request_append_fits(size_t current, size_t incoming,

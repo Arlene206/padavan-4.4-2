@@ -51,6 +51,56 @@ test_content_length_rejects_ambiguous_or_malformed_values(void)
 }
 
 static void
+test_soap_action_quote_boundaries(void)
+{
+    size_t offset = 99U;
+    size_t length = 99U;
+    const char quoted[] = "  \"urn:schemas-upnp-org:service:WANIPConnection:1#GetStatus\" \t";
+    const char unquoted[] = "urn:schemas-upnp-org:service:WANIPConnection:1#GetStatus";
+
+    assert(miniupnpd_http_parse_soap_action(
+        quoted, sizeof(quoted) - 1U, &offset, &length) == 0);
+    assert(offset == 3U);
+    assert(length == sizeof(unquoted) - 1U);
+    assert(memcmp(quoted + offset, unquoted, length) == 0);
+
+    assert(miniupnpd_http_parse_soap_action(
+        unquoted, sizeof(unquoted) - 1U, &offset, &length) == 0);
+    assert(offset == 0U && length == sizeof(unquoted) - 1U);
+
+    assert(miniupnpd_http_parse_soap_action("\"\"", 2U, &offset, &length) == 0);
+    assert(offset == 1U && length == 0U);
+    assert(miniupnpd_http_parse_soap_action("", 0U, &offset, &length) == 0);
+    assert(offset == 0U && length == 0U);
+}
+
+static void
+expect_soap_action_error(const char *value, size_t size)
+{
+    size_t offset = 17U;
+    size_t length = 23U;
+
+    errno = 0;
+    assert(miniupnpd_http_parse_soap_action(value, size, &offset, &length) == -1);
+    assert(errno == EINVAL);
+    assert(offset == 17U && length == 23U);
+}
+
+static void
+test_soap_action_rejects_unbalanced_quotes_and_controls(void)
+{
+    expect_soap_action_error("\"", 1U);
+    expect_soap_action_error("\"x", 2U);
+    expect_soap_action_error("x\"", 2U);
+    expect_soap_action_error("\"x'", 3U);
+    expect_soap_action_error("x'y", 3U);
+    expect_soap_action_error("x\"y", 3U);
+    expect_soap_action_error("x\ty", 3U);
+    expect_soap_action_error("x\177y", 3U);
+    expect_soap_action_error(NULL, 0U);
+}
+
+static void
 test_duplicate_content_length_rejected(void)
 {
     int seen = 0;
@@ -103,6 +153,8 @@ main(void)
     assert(MINIUPNPD_HTTP_MAX_BODY_BYTES == 65536U);
     test_content_length_boundaries();
     test_content_length_rejects_ambiguous_or_malformed_values();
+    test_soap_action_quote_boundaries();
+    test_soap_action_rejects_unbalanced_quotes_and_controls();
     test_duplicate_content_length_rejected();
     test_invalid_destination_is_rejected();
     test_request_buffer_growth_boundaries();
