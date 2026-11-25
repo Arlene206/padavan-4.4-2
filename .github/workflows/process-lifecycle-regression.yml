@@ -39,6 +39,7 @@ on:
       - "trunk/user/busybox/busybox-1.24.x/sysklogd/syslogd.c"
       - "trunk/user/dropbear/Makefile"
       - "trunk/user/dropbear/sshd.sh"
+      - "trunk/user/dropbear/tests/dropbear_daemon_lifecycle.sh"
       - "trunk/user/httpd/src/web_ex.c"
       - "trunk/user/iperf3/Makefile"
       - "trunk/user/iperf3/iperf3.sh"
@@ -315,6 +316,7 @@ on:
       - "trunk/user/busybox/busybox-1.24.x/sysklogd/syslogd.c"
       - "trunk/user/dropbear/Makefile"
       - "trunk/user/dropbear/sshd.sh"
+      - "trunk/user/dropbear/tests/dropbear_daemon_lifecycle.sh"
       - "trunk/user/httpd/src/web_ex.c"
       - "trunk/user/iperf3/Makefile"
       - "trunk/user/iperf3/iperf3.sh"
@@ -1275,6 +1277,11 @@ jobs:
           ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/scutclient-credentials-test"
       - name: Check SCUT, vlmcsd, iperf3, mentohust, ttyd, OpenSSH and Dropbear lifecycle status propagation
         run: python3 scripts/check_optional_app_start_status.py
+      - name: Exercise Dropbear executable-identity lifecycle regression
+        run: |
+          sh -n trunk/user/dropbear/sshd.sh
+          sh -n trunk/user/dropbear/tests/dropbear_daemon_lifecycle.sh
+          sh trunk/user/dropbear/tests/dropbear_daemon_lifecycle.sh
       - name: Exercise Ralink IAPP daemon lifecycle postconditions
         run: |
           sh -n trunk/user/ralinkiappd/iappd.sh

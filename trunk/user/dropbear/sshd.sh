@@ -15,44 +15,105 @@ func_log()
 	logger -t "dropbear" "$1"
 }
 
-# Return 0=RUNNING, 1=confirmed ABSENT, 2=UNKNOWN.
-# BusyBox pidof can return 1 after a failed procfs scan, so validate both
-# its status and output before authorizing any daemon lifecycle action.
+
+# Match a PID only when its procfs identity is complete and its executable is
+# the installed Dropbear binary. BusyBox pidof/killall use the short comm name,
+# which any process can spoof with PR_SET_NAME.
+dropbear_process_identity_matches()
+{
+	dropbear_identity_pid="$1"
+	dropbear_identity_required_start="$2"
+	dropbear_identity_root="\${DROPBEAR_PROC_ROOT:-/proc}"
+	case "$dropbear_identity_pid" in ''|0*|*[!0-9]*) return 1 ;; esac
+	dropbear_identity_dir="$dropbear_identity_root/$dropbear_identity_pid"
+	[ -d "$dropbear_identity_dir" ] || return 1
+	if IFS= read -r dropbear_identity_stat_line < "$dropbear_identity_dir/stat"; then
+		:
+	else
+		[ -d "$dropbear_identity_dir" ] && return 2
+		return 1
+	fi
+	case "$dropbear_identity_stat_line" in
+		"$dropbear_identity_pid ("*") "*) ;;
+		*) return 2 ;;
+	esac
+	dropbear_identity_fields=\${dropbear_identity_stat_line##*) }
+	set -- $dropbear_identity_fields
+	[ "$#" -ge 20 ] || return 2
+	dropbear_identity_state="$1"
+	dropbear_identity_start_time="\${20}"
+	case "$dropbear_identity_state" in
+		R|S|D|Z|T|t|X|x|K|W|P|I) ;;
+		*) return 2 ;;
+	esac
+	case "$dropbear_identity_start_time" in ''|*[!0-9]*) return 2 ;; esac
+	case "$dropbear_identity_state" in Z|X|x) return 1 ;; esac
+	dropbear_identity_comm=\${dropbear_identity_stat_line#*(}
+	dropbear_identity_comm=\${dropbear_identity_comm%)*}
+	[ "$dropbear_identity_comm" = dropbear ] || return 1
+	if [ -n "$dropbear_identity_required_start" ] &&
+	   [ "$dropbear_identity_start_time" != "$dropbear_identity_required_start" ]; then
+		return 1
+	fi
+	[ -n "$dropbear_expected_exe" ] || return 2
+	dropbear_identity_actual_exe=$(stat -L -c '%d:%i' "$dropbear_identity_dir/exe" 2>/dev/null) || {
+		[ -d "$dropbear_identity_dir" ] && return 2
+		return 1
+	}
+	[ "$dropbear_identity_actual_exe" = "$dropbear_expected_exe" ] || return 1
+	return 0
+}
+
+# Return 0=verified RUNNING, 1=verified ABSENT, 2=UNKNOWN/incomplete procfs.
+# Publish only exact executable identities; a comm-only match is ignored.
 dropbear_process_state()
 {
-	if dropbear_pid_output=$(pidof dropbear 2>/dev/null); then
-		dropbear_pidof_status=0
-	else
-		dropbear_pidof_status=$?
+	dropbear_process_pids=
+	dropbear_expected_exe=
+	dropbear_process_root="\${DROPBEAR_PROC_ROOT:-/proc}"
+	if [ ! -d "$dropbear_process_root" ] ||
+	   [ ! -r "$dropbear_process_root" ] ||
+	   [ ! -x "$dropbear_process_root" ] ||
+	   ! command -v stat >/dev/null 2>&1; then
+		return 2
 	fi
-	case "$dropbear_pidof_status" in
-	0)
-		[ -n "$dropbear_pid_output" ] || return 2
-		case "$dropbear_pid_output" in
-			*[!0123456789\ ]*) return 2 ;;
-		esac
-		case $- in
-			*f*) dropbear_restore_noglob=0 ;;
-			*) set -f; dropbear_restore_noglob=1 ;;
-		esac
-		set -- $dropbear_pid_output
-		[ "$dropbear_restore_noglob" -eq 0 ] || set +f
-		[ "$#" -gt 0 ] || return 2
-		for dropbear_pid in "$@"; do
-			case "$dropbear_pid" in
-				''|0*|*[!0-9]*) return 2 ;;
-			esac
-		done
-		return 0
-		;;
-	1)
-		[ -z "$dropbear_pid_output" ] && return 1
-		return 2
-		;;
-	*)
-		return 2
-		;;
+	dropbear_expected_exe=$(stat -L -c '%d:%i' "$dropbear_bin" 2>/dev/null) || return 2
+	case "$dropbear_expected_exe" in
+		''|*[!0-9:]*|:*|*:|*:*:*) return 2 ;;
 	esac
+	for dropbear_proc_dir in "$dropbear_process_root"/[0-9]*; do
+		[ -d "$dropbear_proc_dir" ] || continue
+		dropbear_proc_pid=\${dropbear_proc_dir##*/}
+		case "$dropbear_proc_pid" in ''|0*|*[!0-9]*) return 2 ;; esac
+		if dropbear_process_identity_matches "$dropbear_proc_pid" ""; then
+			dropbear_process_pids="\${dropbear_process_pids}\${dropbear_process_pids:+ }$dropbear_proc_pid:$dropbear_identity_start_time"
+		else
+			dropbear_identity_status=$?
+			case "$dropbear_identity_status" in
+				1) ;;
+				*) return 2 ;;
+			esac
+		fi
+	done
+	[ -n "$dropbear_process_pids" ] && return 0
+	return 1
+}
+
+dropbear_wait_stopped()
+{
+	dropbear_wait_limit="$1"
+	dropbear_wait_attempt=0
+	while :; do
+		if dropbear_process_state; then dropbear_wait_state=0; else dropbear_wait_state=$?; fi
+		case "$dropbear_wait_state" in
+			1) return 0 ;;
+			0) ;;
+			*) return 2 ;;
+		esac
+		[ "$dropbear_wait_attempt" -lt "$dropbear_wait_limit" ] || return 1
+		sleep 1 || return 2
+		dropbear_wait_attempt=$((dropbear_wait_attempt + 1))
+	done
 }
 
 func_keygen()
@@ -202,55 +263,66 @@ func_start()
 
 func_stop()
 {
-	dropbear_process_state
-	process_status=$?
-	case "$process_status" in
-	1) return 0 ;;
-	0) ;;
-	*)
-		func_log "cannot verify daemon state; refusing stop"
-		return 2
-		;;
-	esac
-
-	if killall -q dropbear; then
-		:
-	else
-		stop_status=$?
-		dropbear_process_state
-		process_status=$?
-		case "$process_status" in
-		1) return 0 ;;
-		0)
-			func_log "daemon stop failed (status=$stop_status)"
-			return "$stop_status"
-			;;
-		*)
-			func_log "cannot verify daemon after failed stop signal"
-			return 2
-			;;
-		esac
-	fi
-
-	attempt=0
-	while :; do
-		dropbear_process_state
-		process_status=$?
-		case "$process_status" in
+	if dropbear_process_state; then dropbear_stop_state=0; else dropbear_stop_state=$?; fi
+	case "$dropbear_stop_state" in
 		1) return 0 ;;
 		0) ;;
-		*)
-			func_log "cannot verify daemon stop postcondition"
-			return 2
-			;;
-		esac
-		if [ "$attempt" -ge 5 ]; then
-			func_log "daemon is still running after the bounded stop wait"
-			return 1
+		*) func_log "cannot verify daemon state; refusing stop"; return 2 ;;
+	esac
+	dropbear_stop_snapshot="$dropbear_process_pids"
+	for dropbear_stop_entry in $dropbear_stop_snapshot; do
+		dropbear_stop_pid=\${dropbear_stop_entry%%:*}
+		dropbear_stop_start=\${dropbear_stop_entry#*:}
+		if dropbear_process_identity_matches "$dropbear_stop_pid" "$dropbear_stop_start"; then
+			if kill -TERM "$dropbear_stop_pid" 2>/dev/null; then :
+			else
+				dropbear_signal_status=$?
+				if dropbear_process_identity_matches "$dropbear_stop_pid" "$dropbear_stop_start"; then
+					func_log "TERM failed for verified daemon PID $dropbear_stop_pid (status=$dropbear_signal_status)"
+					return "$dropbear_signal_status"
+				else
+					dropbear_identity_status=$?
+					[ "$dropbear_identity_status" -eq 1 ] || return 2
+				fi
+			fi
+		else
+			dropbear_identity_status=$?
+			[ "$dropbear_identity_status" -eq 1 ] || return 2
 		fi
-		attempt=$((attempt + 1))
-		sleep 1 || return 2
 	done
+	if dropbear_wait_stopped 5; then return 0; else dropbear_wait_status=$?; fi
+	[ "$dropbear_wait_status" -eq 1 ] || return 2
+	if dropbear_process_state; then dropbear_stop_snapshot="$dropbear_process_pids"
+	else
+		dropbear_stop_state=$?
+		[ "$dropbear_stop_state" -eq 1 ] && return 0
+		return 2
+	fi
+	for dropbear_stop_entry in $dropbear_stop_snapshot; do
+		dropbear_stop_pid=\${dropbear_stop_entry%%:*}
+		dropbear_stop_start=\${dropbear_stop_entry#*:}
+		if dropbear_process_identity_matches "$dropbear_stop_pid" "$dropbear_stop_start"; then
+			if kill -KILL "$dropbear_stop_pid" 2>/dev/null; then :
+			else
+				dropbear_signal_status=$?
+				if dropbear_process_identity_matches "$dropbear_stop_pid" "$dropbear_stop_start"; then
+					func_log "KILL failed for verified daemon PID $dropbear_stop_pid (status=$dropbear_signal_status)"
+					return "$dropbear_signal_status"
+				else
+					dropbear_identity_status=$?
+					[ "$dropbear_identity_status" -eq 1 ] || return 2
+				fi
+			fi
+		else
+			dropbear_identity_status=$?
+			[ "$dropbear_identity_status" -eq 1 ] || return 2
+		fi
+	done
+	if dropbear_wait_stopped 2; then return 0; else dropbear_wait_status=$?; fi
+	case "$dropbear_wait_status" in
+		1) func_log "verified daemon remained after bounded TERM/KILL waits"; return 1 ;;
+		*) func_log "daemon state became unknown during stop"; return 2 ;;
+	esac
 }
 
 action_status=0

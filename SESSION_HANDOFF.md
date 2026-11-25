@@ -1,15 +1,15 @@
-## 2026-11-25 active handoff — HTTPD multipart maximum closing-delimiter carry
+## 2026-11-25 active handoff — Dropbear executable-identity lifecycle
 
-- Main source SHA: `84fadb0388691efcd052bfc1f923be4b36028fd5`. AI handoff byte-limit repair `84fadb0` removed obsolete 2026-11-14 roadmap snapshots; roadmap is below the 131072-byte hard limit and exact AI run #45648215022 PASS. On `cb8f014`, DHCPv6 IA #45647751899, Process inventory #45647752064, WAN DHCP callback #45647751951, USB storage #45647752298 and NVRAM #45647752146 PASS. Product XY-C1 #45647751940 was still in Build with TRX/artifact pending at last poll.
-- HTTPD multipart upload carries 257 bytes between reads. A maximal closing delimiter is 259 bytes (127-byte marker + closing `--` + 128 padding + CRLF); if split immediately before final LF, the old carry can lose the leading marker byte. This patch sizes the carry to 259 and tests that exact split, preventing delimiter bytes from remaining in the uploaded file.
-- Earlier HTTPD fixture correction passed exact run #45647312009 on `b65c574`; the maximum closing-delimiter expansion needs a new exact-SHA HTTPD run.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`. Physical-router L4 remains NOT VERIFIED.
+- Live main baseline before this slice: `871d010a9aacaf63e405c1133cdb3259ef2be13d`. The controller used BusyBox `pidof dropbear` and broad `killall -q dropbear`; BusyBox `find_pid_by_name()` treats a short comm match as sufficient, so a process can spoof the name with `PR_SET_NAME` and be counted or killed by the root controller.
+- Replaced process-name-only discovery with a procfs inventory verifying the stat PID/state/start time, exact comm and executable device/inode against the installed Dropbear binary. UNKNOWN/incomplete procfs blocks service state changes. Stop revalidates each PID/start-time/executable tuple before TERM and again before bounded KILL.
+- New shell fixture tests real executable identity vs spoofed comm, PID reuse, targeted TERM, TERM/KILL escalation, failed signal propagation, missing procfs, malformed stat and missing exe. Local test PASS; exact GitHub Actions pending.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. Physical-router L4 NOT VERIFIED.
 
 ### First actions
 
-1. Inspect exact-head AI docs, XY-C1 and NVRAM checks for the roadmap compaction commit.
-2. Record XY-C1 L3 only if Build XY-C1, TRX verification and artifact upload all PASS on the same exact product-source SHA.
-3. Continue another independent userland stability/security source fix while pending Actions run.
+1. Inspect exact-SHA Process lifecycle and XY-C1 Actions for this Dropbear fix; repair the first causal failure.
+2. Confirm all new spoof/UNKNOWN/stop cases run in GitHub Actions; L3 only when Build, TRX and artifact all pass on the same product SHA.
+3. Continue another independent userland stability/security fix while unrelated Actions are pending.
 
 ### Execution contract
 
@@ -17,20 +17,33 @@ Source/test → one complete Git tree/commit → non-force expected-SHA update �
 
 ## 2026-11-25 autonomous handoff checkpoint
 
-This checkpoint supersedes older task pointers below. Historical completed work and verification remain; do not repeat completed audits.
+This checkpoint supersedes older active task pointers below. Historical completed work remains recorded.
 
 ## Current repository state
 
-- Live main at test-follow-up start: `7d3091f5892524cf6222d4f91404fa131dbd570c`; the fixture-only follow-up is its non-forced descendant. Resolve live main on takeover.
+- Live main baseline: `871d010a9aacaf63e405c1133cdb3259ef2be13d`; this Dropbear source/test/workflow/docs change is its single non-forced descendant. Resolve live main on takeover.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only.
-- VSFTPD #45645904216 and AI handoff #45645904067 PASS on `bed104b`.
-- WAN strict IPv4 regression #45642479262 PASS on `8835ec2`; XY-C1 #45642479259 on product SHA `8835ec2` passed Build, TRX and artifact upload (L3 only for that SHA).
-- DNSMasq #45645256714 and HTTPD security #45645256648 PASS on `4b8aebab`. These precede the current multipart fix and do not validate it.
+- DHCPv6 finite-expiry exact IA #45647751899, process inventory #45647752064, WAN DHCP #45647751951 and USB storage #45647752298 passed on `cb8f014`; AI docs #45648215022 passed on `84fadb0`.
+- XY-C1 #45647751940 on product SHA `cb8f014` remained in Build at last poll; TRX/artifact pending; no L3 claim.
 - Physical-router L4 NOT VERIFIED.
 
 ## Active task
 
-The HTTPD multipart storage-restore scanner now requires a valid CRLF/LF suffix after ordinary or closing boundary markers and retains 257 bytes between read chunks. The current test-only follow-up corrects C escapes so the regression exercises actual CR/LF/tab bytes instead of literal backslash text. Exact CI verification is pending.
+Dropbear start/stop now requires exact executable identity rather than a comm-only name match. It validates procfs PID/stat/starttime and executable identity, then revalidates before sending TERM/KILL; UNKNOWN blocks lifecycle changes. A new shell regression was added to the process-lifecycle workflow.
+
+## Verification boundary
+
+- Dropbear shell fixture: local test PASS; exact process-lifecycle workflow for this SHA pending.
+- Prior DHCPv6 IA #45647751899, process inventory #45647752064, WAN DHCP #45647751951 and USB storage #45647752298 passed on `cb8f014`.
+- AI handoff #45648215022 passed on `84fadb0`.
+- XY-C1 #45647751940 on `cb8f014`: Build pending at last poll; TRX/artifact pending. No L3 claim.
+- Physical-router L4 NOT VERIFIED.
+
+## Exact first action for the next GPT
+
+1. Fetch live `main`; inspect the exact-SHA Process lifecycle regression and XY-C1 Actions for the Dropbear identity fix.
+2. Diagnose the first causal failure without weakening assertions; confirm the new spoof/UNKNOWN/TERM/KILL test cases ran.
+3. Continue an independent userland stability/security source fix while Actions are pending.
 
 # Cross-session execution mandate
 

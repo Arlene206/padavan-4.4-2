@@ -1,3 +1,11 @@
+## 2026-11-25 — Bind Dropbear lifecycle signals to executable identity
+
+- The service controller used BusyBox `pidof dropbear` and `killall -q dropbear`. BusyBox `find_pid_by_name()` accepts a short process-`comm` match without validating the executable, so an unrelated process can spoof `dropbear` via `PR_SET_NAME` and be counted or killed by the root stop command.
+- Replaced name-only discovery with a complete numeric procfs scan that validates the stat record, PID, state, start time, exact comm and `/proc/PID/exe` device/inode against the installed Dropbear binary. Incomplete/unknown procfs blocks start and stop; TERM/KILL signal only freshly revalidated PID/start-time/executable identities.
+- Added a shell regression for comm spoofing, executable mismatch, PID-reuse mismatch, targeted TERM, bounded KILL, signal failure propagation, missing procfs, malformed stat and unreadable executable identity. Local fixture PASS; exact GitHub Actions pending.
+
+---
+
 ## 2026-11-25 — Retain the complete maximum HTTPD closing delimiter across reads
 
 - The parser accepts a 127-byte marker, optional closing `--`, up to 128 bytes of transport padding and a CRLF terminator. The former 257-byte carry window covered a regular delimiter but could truncate the leading marker byte when the maximum 259-byte closing delimiter was split immediately before its final LF; this could leave delimiter bytes in the uploaded file.
