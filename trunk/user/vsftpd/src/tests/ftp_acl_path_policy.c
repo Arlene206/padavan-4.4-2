@@ -182,6 +182,7 @@ main(void)
   char cwd[PATH_MAX], root[PATH_MAX], a[PATH_MAX], b[PATH_MAX];
   char alias[PATH_MAX], path[PATH_MAX], parent[PATH_MAX], resolved[PATH_MAX];
   char file_a[PATH_MAX], file_b[PATH_MAX], link_file[PATH_MAX];
+  char hardlink_file[PATH_MAX];
   char broken_link[PATH_MAX], dir_b[PATH_MAX], dir_alias[PATH_MAX];
   char metadata_file[PATH_MAX], metadata_alias[PATH_MAX];
   char new_file[PATH_MAX], leaf[PATH_MAX];
@@ -322,6 +323,7 @@ main(void)
   checked_path(file_a, sizeof(file_a), a, "owned.txt");
   checked_path(file_b, sizeof(file_b), b, "protected.txt");
   checked_path(link_file, sizeof(link_file), a, "cross-share-link");
+  checked_path(hardlink_file, sizeof(hardlink_file), a, "cross-share-hardlink");
   checked_path(broken_link, sizeof(broken_link), a, "dangling-link");
   checked_path(dir_b, sizeof(dir_b), b, "subdir");
   checked_path(dir_alias, sizeof(dir_alias), a, "directory-link");
@@ -718,6 +720,59 @@ main(void)
   }
   close(existing_file_fd);
   close(existing_dir_fd);
+
+  /*
+   * A hard link in shareA to a file physically stored in shareB must not be
+   * readable, stat-able, or writable by an ACL path resolved in either share.
+   */
+  if (link(file_b, hardlink_file) != 0) {
+    perror("create cross-share hard-link fixture");
+    return 1;
+  }
+  existing_dir_fd = ftp_acl_path_open_verified_directory(b);
+  if (existing_dir_fd < 0) {
+    perror("open cross-share hard-link target directory");
+    return 1;
+  }
+  errno = 0;
+  existing_file_fd = ftp_acl_path_open_existing_file(
+      existing_dir_fd, "protected.txt", 0);
+  if (existing_file_fd >= 0 || errno != EACCES) {
+    if (existing_file_fd >= 0)
+      close(existing_file_fd);
+    fprintf(stderr, "cross-share hard link was readable through its protected pathname\n");
+    return 1;
+  }
+  errno = 0;
+  existing_file_fd = ftp_acl_path_open_existing_file(
+      existing_dir_fd, "protected.txt", 1);
+  if (existing_file_fd >= 0 || errno != EACCES) {
+    if (existing_file_fd >= 0)
+      close(existing_file_fd);
+    fprintf(stderr, "cross-share hard link was stat-able through its protected pathname\n");
+    return 1;
+  }
+  cleanup_allowed = 1;
+  errno = 0;
+  upload_fd = ftp_acl_path_open_upload_entry(
+      existing_dir_fd, "protected.txt", 0, 0, 0600, &cleanup_allowed);
+  if (upload_fd >= 0 || errno != EACCES || cleanup_allowed) {
+    if (upload_fd >= 0)
+      close(upload_fd);
+    fprintf(stderr, "cross-share hard link was writable through its protected pathname\n");
+    return 1;
+  }
+  if (fstatat(existing_dir_fd, "protected.txt", &st,
+              AT_SYMLINK_NOFOLLOW) != 0 || st.st_nlink != 2) {
+    fprintf(stderr, "cross-share hard-link rejection changed the protected inode\n");
+    return 1;
+  }
+  close(existing_dir_fd);
+  if (unlink(hardlink_file) != 0) {
+    perror("remove cross-share hard-link fixture");
+    return 1;
+  }
+
   if (ftp_acl_path_resolve_existing_entry(broken_link, resolved,
           sizeof(resolved), existing_leaf, sizeof(existing_leaf)) == 0 ||
       ftp_acl_path_resolve_existing_entry(metadata_alias, resolved,

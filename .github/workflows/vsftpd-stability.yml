@@ -667,6 +667,11 @@ jobs:
           assert "fstatat(dir_fd, leaf, &expected, AT_SYMLINK_NOFOLLOW)" in acl_path_policy
           assert "O_PATH : (O_RDONLY | O_NONBLOCK)" in acl_path_policy
           assert "expected.st_ino != opened.st_ino" in acl_path_policy
+          assert "expected.st_nlink != 1" in acl_path_policy
+          assert "opened.st_nlink != 1" in acl_path_policy
+          assert "cross-share hard link was readable through its protected pathname" in acl_path_test
+          assert "cross-share hard link was stat-able through its protected pathname" in acl_path_test
+          assert "cross-share hard link was writable through its protected pathname" in acl_path_test
           assert "existing final symlink target was not canonicalized" in acl_path_test
           assert "stat-only descriptor did not pin the regular target" in acl_path_test
           assert "existing-file helper did not reject a substituted final symlink" in acl_path_test

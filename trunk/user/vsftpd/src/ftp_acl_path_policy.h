@@ -614,6 +614,15 @@ ftp_acl_path_open_existing_file(int dir_fd, const char *leaf, int stat_only)
     errno = EINVAL;
     return -1;
   }
+  /*
+   * A hard link inside an authorized share can alias an inode whose other
+   * pathname is outside that share. Do not expose or modify multiply-linked
+   * files through the path-based share ACL.
+   */
+  if (expected.st_nlink != 1) {
+    errno = EACCES;
+    return -1;
+  }
   flags = (stat_only ? O_PATH : (O_RDONLY | O_NONBLOCK)) |
           O_NOFOLLOW | O_CLOEXEC;
   file_fd = openat(dir_fd, leaf, flags);
@@ -630,6 +639,11 @@ ftp_acl_path_open_existing_file(int dir_fd, const char *leaf, int stat_only)
       expected.st_ino != opened.st_ino) {
     close(file_fd);
     errno = ESTALE;
+    return -1;
+  }
+  if (opened.st_nlink != 1) {
+    close(file_fd);
+    errno = EACCES;
     return -1;
   }
   return file_fd;
@@ -737,6 +751,11 @@ ftp_acl_path_open_upload_entry(int dir_fd, const char *leaf, int exclusive,
   if (!S_ISREG(opened.st_mode)) {
     close(file_fd);
     errno = EINVAL;
+    return -1;
+  }
+  if (opened.st_nlink != 1) {
+    close(file_fd);
+    errno = EACCES;
     return -1;
   }
   return file_fd;
