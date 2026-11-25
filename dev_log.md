@@ -1,3 +1,10 @@
+## 2026-11-25 — Bound IAPP FT security-block copies by received bytes
+
+- IAPP_RcvHandlerSSB() copied attacker-controlled pSendSB->Length bytes into fixed-size stack object FT_KDP_EVT_KEY_ELM kdp_info; an oversized field could overwrite the stack. The handler now validates post-decrypt received bytes, checks the declared payload span without size_t addition overflow, and requires the exact fixed key-element size before either copy.
+- TCP and UDP dispatchers pass their actual receive length to the SSB handler and reject buffers shorter than the fixed IAPP header before reading Version/Command. The TCP ACK-security-block path checks its fixed prefix and payload length before copying.
+- Added an overflow-safe receive-span policy and boundary regression (exact, truncated, oversized, zero payload and SIZE_MAX). IAPP lifecycle now compiles the combined policy test as GNU89 with ASan/UBSan; shell source contracts pin both short-header gates and stack-copy guard. Exact-head Actions pending.
+
+---
 ## 2026-11-25 — Prevent stale FT-client hash links on slot reuse
 
 - Fixed a concrete IAPP FT-client table corruption path. Deletion unlinked an entry from its hash bucket but left its `next` pointer intact; when that fixed-array slot was reused in another MAC-hash bucket, the stale pointer could splice the old bucket's tail into the new chain. Insertion also assumed a free slot existed after checking only the table count, then incremented the count even if no unused slot was found.

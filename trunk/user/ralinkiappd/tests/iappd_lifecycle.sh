@@ -131,6 +131,12 @@ udp_mac_line=$(grep -n -F "pCtrlBK->IfNameWlanMAC[if_idx]" "$iapp_source" | cut 
   fail "IAPP UDP sender must validate the BSS index before reading its MAC array"
 grep -Fq "iapp_wifi_index_valid(" "$base/src/iapp_ioctl_ifname_policy.h" ||
   fail "IAPP fixed-array index policy helper is missing"
+grep -Fq "iapp_rx_payload_fits(" "$iapp_source" ||
+  fail "IAPP FT payload handlers must validate actual receive bounds"
+grep -Fq "pSendSB->Length != sizeof(kdp_info)" "$iapp_source" ||
+  fail "IAPP FT security block must bound the fixed stack destination"
+[ "$(grep -F -c "SizeRcvMsg < (INT32)sizeof(RT_IAPP_HEADER)" "$iapp_source")" -eq 2 ] ||
+  fail "IAPP TCP and UDP handlers must reject truncated headers"
 grep -Fq "iapp_ioctl_ifname_select(" "$iapp_source" ||
   fail "IAPP ioctl path must use the bounded interface selector"
 grep -Fq "ApIdx, sizeof(IfName), FT_KDP_DEFAULT_IF_WLAN_IOCTL" "$iapp_source" ||
@@ -139,9 +145,9 @@ grep -Fq "strlen(pCtrlBK->IfNameWlanIoctl[ApIdx])" "$iapp_source" &&
   fail "IAPP ioctl path must not read the interface array before validating ApIdx"
 
 iapp_ifname_test="$tmp/iapp_ioctl_ifname_policy"
-cc -std=c99 -Wall -Wextra -Werror "$base/tests/iapp_ioctl_ifname_policy.c" -o "$iapp_ifname_test" ||
-  fail "could not compile IAPP ioctl interface bounds regression"
-"$iapp_ifname_test" || fail "IAPP ioctl interface bounds regression failed"
+cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer "$base/tests/iapp_ioctl_ifname_policy.c" -o "$iapp_ifname_test" ||
+  fail "could not compile IAPP interface and receive-length regression"
+ASAN_OPTIONS=detect_leaks=1 "$iapp_ifname_test" || fail "IAPP interface and receive-length regression failed"
 grep -Fq 'if (listen(pCtrlBK->SocketTcpRcv, 128) < 0)' "$iapp_source" ||
   fail "IAPP TCP listener setup must fail closed when listen() fails"
 grep -A4 -F 'if (listen(pCtrlBK->SocketTcpRcv, 128) < 0)' "$iapp_source" |

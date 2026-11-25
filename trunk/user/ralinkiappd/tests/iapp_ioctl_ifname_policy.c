@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "../src/iapp_ioctl_ifname_policy.h"
+#include "../src/iapp_rx_length_policy.h"
 
 typedef struct _FT_CLIENT_INFO {
 	struct _FT_CLIENT_INFO *next;
@@ -134,6 +135,19 @@ test_wifi_index_bounds(void)
 }
 
 static void
+test_received_payload_bounds(void)
+{
+	assert(iapp_rx_payload_fits(16, 16, 0));
+	assert(iapp_rx_payload_fits(32, 16, 16));
+	assert(iapp_rx_payload_fits(33, 16, 17));
+	assert(!iapp_rx_payload_fits(15, 16, 0));
+	assert(!iapp_rx_payload_fits(31, 16, 16));
+	assert(!iapp_rx_payload_fits(32, 16, 17));
+	assert(!iapp_rx_payload_fits(SIZE_MAX, SIZE_MAX, 1));
+	assert(iapp_rx_payload_fits(SIZE_MAX, SIZE_MAX, 0));
+}
+
+static void
 test_parser_rejects_count_overflow_and_invalid_names(void)
 {
 	assert(iapp_ioctl_ifname_arg_valid(0, 2, 4, 16));
@@ -156,6 +170,7 @@ main(void)
 	test_out_of_range_and_unconfigured_indices_fall_back();
 	test_malformed_slots_and_names_fall_back();
 	test_wifi_index_bounds();
+	test_received_payload_bounds();
 	test_parser_rejects_count_overflow_and_invalid_names();
 	puts("IAPP ioctl interface index and parser bounds policy: PASS");
 	return 0;

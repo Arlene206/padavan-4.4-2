@@ -26,6 +26,7 @@
 #include "rtmpiapp.h"
 #include "iappdefs.h"
 #include "iapp_ioctl_ifname_policy.h"
+#include "iapp_rx_length_policy.h"
 
 INT32 RTDebugLevel = RT_DEBUG_ERROR;
 
@@ -196,6 +197,7 @@ static VOID IAPP_RcvHandlerMoveReq(
 static VOID IAPP_RcvHandlerSSB(
 	IAPP_IN		RTMP_IAPP			*pCtrlBK,
 	IAPP_IN		UCHAR				*pPktBuf,
+	IAPP_IN		INT32				received_len,
 	IAPP_IN		UINT32				PeerIP,
 	IAPP_IN		UCHAR				*pCmdBuf);
 static VOID IAPP_RcvHandlerApInfor(
@@ -2077,11 +2079,10 @@ static VOID IAPP_RcvHandlerTcp(
 		}
 #endif // FT_KDP_FUNC_PKT_ENCRYPT //
 
-		if (!pPktBuf) {
-			DBGPRINT(RT_DEBUG_ERROR, "iapp> pPktBuf is null!\n");
+		if (SizeRcvMsg < (INT32)sizeof(RT_IAPP_HEADER)) {
+			DBGPRINT(RT_DEBUG_ERROR, "iapp> Short TCP IAPP header (%d bytes)!\n", SizeRcvMsg);
 			return;
 		}
-
 
 		/* get IAPP frame body */
 		pIappHdr = (RT_IAPP_HEADER *)(pPktBuf);
@@ -2137,6 +2138,7 @@ static VOID IAPP_RcvHandlerTcp(
 			case IAPP_CMD_FT_SEND_SECURITY_BLOCK:
 				IAPP_RcvHandlerSSB(pCtrlBK,
 									(UCHAR *)pIappHdr,
+									SizeRcvMsg,
 									AddrPeer.sin_addr.s_addr,
 									pCmdBuf);
 				break;
@@ -2151,6 +2153,13 @@ static VOID IAPP_RcvHandlerTcp(
 
 				/* init */
 				pAckSB = (RT_IAPP_SEND_SECURITY_BLOCK *) pIappHdr;
+				if (SizeRcvMsg < (INT32)sizeof(*pAckSB) ||
+				    !iapp_rx_payload_fits((size_t)SizeRcvMsg,
+							  sizeof(*pAckSB), pAckSB->Length)) {
+					DBGPRINT(RT_DEBUG_ERROR,
+						 "iapp> Truncated ACK security block payload!\n");
+					break;
+				}
 
 				BufLen = sizeof(OID_REQ);
 				BufLen += FT_IP_ADDRESS_SIZE + IAPP_SB_INIT_VEC_SIZE +
@@ -2341,6 +2350,7 @@ Note:
 static VOID IAPP_RcvHandlerSSB(
 	IAPP_IN		RTMP_IAPP			*pCtrlBK,
 	IAPP_IN		UCHAR				*pPktBuf,
+	IAPP_IN		INT32				received_len,
 	IAPP_IN		UINT32				PeerIP,
 	IAPP_IN		UCHAR				*pCmdBuf)
 {
@@ -2354,6 +2364,16 @@ static VOID IAPP_RcvHandlerSSB(
 
 	/* init */
 	pSendSB = (RT_IAPP_SEND_SECURITY_BLOCK *) pPktBuf;
+
+	if (received_len < (INT32)sizeof(*pSendSB) ||
+	    !iapp_rx_payload_fits((size_t)received_len,
+				  sizeof(*pSendSB), pSendSB->Length) ||
+	    pSendSB->Length != sizeof(kdp_info)) {
+		DBGPRINT(RT_DEBUG_ERROR,
+			 "iapp> Invalid or truncated FT security block length (%u)!\n",
+			 pSendSB->Length);
+		return;
+	}
 
 	BufLen = sizeof(OID_REQ);
 	BufLen += FT_IP_ADDRESS_SIZE + IAPP_SB_INIT_VEC_SIZE + pSendSB->Length;
@@ -2821,8 +2841,8 @@ static VOID IAPP_RcvHandlerUdp(
 		}
 #endif // FT_KDP_FUNC_PKT_ENCRYPT //
 
-		if (!pPktBuf) {
-			DBGPRINT(RT_DEBUG_ERROR, "iapp> pPktBuf is null!\n");
+		if (SizeRcvMsg < (INT32)sizeof(RT_IAPP_HEADER)) {
+			DBGPRINT(RT_DEBUG_ERROR, "iapp> Short UDP IAPP header (%d bytes)!\n", SizeRcvMsg);
 			return;
 		}
 
@@ -2994,6 +3014,7 @@ static VOID IAPP_RcvHandlerUdp(
 			case IAPP_CMD_FT_SEND_SECURITY_BLOCK:
 				IAPP_RcvHandlerSSB(pCtrlBK,
 										(UCHAR *)pIappHdr,
+										SizeRcvMsg,
 										AddrPeer.sin_addr.s_addr,
 										pCmdBuf);
 				break;
