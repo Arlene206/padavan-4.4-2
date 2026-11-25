@@ -1,3 +1,14 @@
+## 2026-11-26 03:10 CST (UTC+8) — Fix escaped OpenVPN lifecycle checker signatures
+
+- Base SHA: `d9add97d1b68a5fcb468f27dc8accda1ab1e0e0b`; this is a checker/workflow dependency repair, committed as one main descendant.
+- The server TUN/TAP topology-order contract was updated in exact SHA `d9add97d1b68a5fcb468f27dc8accda1ab1e0e0b`. Review of the same checker found six appended body() lookups with double-escaped newline markers; Python would search for literal backslash-n text instead of the actual C function signature when execution reaches those checks. Normalized them to one Python newline escape.
+- The two-snapshot owned-resource OpenVPN rollback regression had already compiled and passed under GNU89 ASan/UBSan in exact VPN runs #45660655211 and #45661438577; the latter failed before reaching the appended function-body checks, on the stale TUN/TAP order markers now fixed in d9.
+- Added the rollback policy header and test to the OpenVPN client credential workflow's push and pull_request path filters; its checker reads these files directly.
+- Exact d9 VPN lifecycle #45661762483 and AI docs #45661762480 were in progress at last poll. Previous 1aa OpenVPN credential #45661438519 and AI docs #45661438442 PASS; VPN #45661438577 failed at the stale server topology/start TUN/TAP markers.
+- XY-C1 Build/TRX/artifact on the detached-start production SHA remains to be verified; physical-router L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-25 — Align the remaining OpenVPN server TAP/TUN source-order assertions
 
 - Base SHA: 1aa51a6ef623bdc50c4351e50bd4175f3410f670; result SHA: resolve from next main handoff. Scope: scripts/check_vpn_server_lifecycle.py, SESSION_HANDOFF.md, dev_log.md.

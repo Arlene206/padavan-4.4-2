@@ -1,20 +1,28 @@
-## 2026-11-26 active handoff — finish OpenVPN startup source-contract reruns
+## Current repository state
 
-- Live main parent: 1aa51a6ef623bdc50c4351e50bd4175f3410f670. The detached-start implementation requires exact writepid process identity before success. On startup failure, rollback is allowed only for resources created by this attempt and only after two complete process-inventory scans confirm ABSENT; RUNNING, UNKNOWN, invalid state, or interrupted wait preserves resources. The dedicated GNU89/ASan/UBSan rollback policy regression passed.
-- Exact 1aa51a6ef623bdc50c4351e50bd4175f3410f670 OpenVPN client credential workflow #45661438519 PASS and AI handoff docs #45661438442 PASS. VPN server lifecycle #45661438577 fails only at one remaining stale checker token in the side-effect ordering assertion: it expects the old two-argument server TAP/TUN helper calls, while the source correctly passes the new ownership out-parameter. The preceding stale rollback-inline assertion and the rollback policy fixture are already fixed/passing.
-- Prior exact proof: NVRAM audit #45659128163 PASS on f9f071b8; HTTPD security #45659190171 and AI docs #45659190213 PASS on 273f4ea2; process inventory #45658659607 and process lifecycle #45658659693 PASS on c4ed4689. d91 production SHA #45657032169 passed Build XY-C1, TRX and artifact upload. dc6 XY-C1 run #45660655080 must be checked before any L3 claim for the detached-start production code.
-- Transactional NVRAM uses a dedicated value cache wiped before lease release. OpenVPN credential newline rejection, memory zeroization, exact callback link validation and ownership-aware startup rollback remain active on main.
-- Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains read-only at 72f4f157a084f8184b9597ca5bf334b8080e5807. Physical-router L4 NOT VERIFIED.
+- Main parent for this focused checker fix: `d9add97d1b68a5fcb468f27dc8accda1ab1e0e0b`; this commit will be a non-forced expected-SHA descendant.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- OpenVPN startup now checks the exact server/client writepid process identity before success. Failed-start cleanup requires two complete process-inventory scans confirming ABSENT and only removes interface/callback resources created by the current start attempt.
 
-### First actions
+## Active task
 
-1. Verify the server lifecycle source contract on this exact follow-up SHA; the remaining server TAP/TUN ordered-call assertions now include interface_created.
-2. Inspect dc6 XY-C1 Build, TRX verification and artifact upload; require all three before claiming L3 for dc6.
-3. Continue independent Padavan userland stability/security work while unrelated Actions are pending.
+- Normalize the remaining appended lifecycle checker function-body signatures and track the rollback policy header/test in the credential workflow path filters.
 
-### Execution contract
+## Verification boundary
 
-Source/test -> one complete Git tree/commit -> non-force expected-SHA update -> exact-SHA Actions. Main only; backup immutable; no branches, PRs or force pushes.
+- Exact SHA `1aa51a6ef623bdc50c4351e50bd4175f3410f670`: OpenVPN client credential #45661438519 PASS; AI docs #45661438442 PASS; VPN lifecycle #45661438577 failed at stale server TUN/TAP ordered-call markers. d9 updates those two call markers; its exact VPN #45661762483 and AI docs #45661762480 were in progress at last poll.
+- Parent `dc6e17b4874cfb7a6d07d8b69fb2d195176efeb7`: rollback C regression PASS; IPv6 #45660655386 PASS; XY-C1 #45660655080, process lifecycle #45660655082, process inventory #45660655142, NVRAM #45660655603 and HTTPD #45660655362 were pending at last confirmed poll.
+- Earlier exact results: NVRAM #45659128163 PASS on `f9f071b8`; HTTPD #45659190171 and AI docs #45659190213 PASS on `273f4ea2`. Same-SHA XY-C1 Build/TRX/artifact not yet confirmed for the new detached-start code. Physical-router L4 NOT VERIFIED.
+
+## Exact first action for the next GPT
+
+1. Check this commit's exact-SHA VPN lifecycle and AI docs Actions; verify the normalized function-body source contracts actually execute and pass.
+2. Poll d9/dc6 XY-C1 Build, TRX and artifact steps independently. Do not transfer a prior SHA's L3 result to the current source.
+3. Continue independent stability/security work across Padavan userland while Actions are pending.
+
+## Execution contract
+
+Source/test → one complete Git tree/commit → non-force expected-SHA update → exact-SHA Actions. Main only; backup immutable; no branches, PRs or force pushes.
 
 ## 2026-11-25 autonomous handoff checkpoint
 

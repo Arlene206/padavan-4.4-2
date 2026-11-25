@@ -1613,20 +1613,20 @@ for token in ("test_two_absent_scans_are_required",
     require(token in openvpn_rollback_test,
             f"OpenVPN rollback regression missing {token}")
 pidfile_scan = body(vpn_openvpn,
-    "static enum process_presence\\nopenvpn_start_pidfile_presence")
+    "static enum process_presence\nopenvpn_start_pidfile_presence")
 require("openvpn_read_process_identity((const char *)context, &identity)" in pidfile_scan,
         "OpenVPN startup readiness must bind to its exact writepid process identity")
 rollback_scan = body(vpn_openvpn,
-    "static enum process_presence\\nopenvpn_start_rollback_scan")
+    "static enum process_presence\nopenvpn_start_rollback_scan")
 require('process_inventory_scan("openvpn", &snapshot)' in rollback_scan and
         "process_snapshot_release(&snapshot)" in rollback_scan,
         "OpenVPN rollback must use and release a complete process inventory")
 rollback_presence = body(vpn_openvpn,
-    "static enum process_presence\\nopenvpn_start_rollback_presence")
+    "static enum process_presence\nopenvpn_start_rollback_presence")
 require("openvpn_start_rollback_confirm_absent_with_ops" in rollback_presence,
         "OpenVPN rollback must use the two-snapshot absence policy")
 rollback_fn = body(vpn_openvpn,
-    "static int\\nopenvpn_start_rollback_failed")
+    "static int\nopenvpn_start_rollback_failed")
 ordered(rollback_fn, [
     "openvpn_start_rollback_presence(NULL, &scan_error)",
     "openvpn_start_rollback_cleanup_owned(process_state,",
@@ -1640,8 +1640,8 @@ require("resource_created == 1" in openvpn_rollback_policy and
         "process_state == PROCESS_PRESENCE_ABSENT" in openvpn_rollback_policy,
         "OpenVPN cleanup requires this attempt's ownership and confirmed absence")
 for helper, label in (
-    (body(vpn_openvpn, "static int\\nopenvpn_tapif_start"), "TAP"),
-    (body(vpn_openvpn, "static int\\nopenvpn_tunif_start"), "TUN"),
+    (body(vpn_openvpn, "static int\nopenvpn_tapif_start"), "TAP"),
+    (body(vpn_openvpn, "static int\nopenvpn_tunif_start"), "TUN"),
 ):
     require("int *interface_created" in helper and
             "*interface_created = 0;" in helper and
