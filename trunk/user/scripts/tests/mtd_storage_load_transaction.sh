@@ -9,7 +9,7 @@ trap 'exit 129' HUP
 trap 'exit 130' INT
 trap 'exit 143' TERM
 mkdir -p "$sandbox/etc/storage" "$sandbox/private" "$sandbox/bin" "$sandbox/archive"
-printf '%s\n' 'mtd5: 00010000 00010000 "Storage"' > "$sandbox/proc-mtd"
+printf '%s\n' 'mtd100: 00010000 00010000 "Storage"' > "$sandbox/proc-mtd"
 printf '%s\n' 'previous configuration' > "$sandbox/etc/storage/previous.conf"
 printf '%s\n' 'previous-checkpoint' > "$sandbox/private/storage_md5"
 : > "$sandbox/private/.storage_locked"
@@ -39,8 +39,9 @@ exec "$REAL_RM" "$@"
 EOF_RM
 cat > "$sandbox/bin/bzcat" <<'EOF'
 #!/bin/sh
-[ "${BZCAT_EMPTY:-0}" = 1 ] || cat "$BZCAT_FIXTURE"
-exit "${BZCAT_STATUS:-0}"
+printf '%s\n' "$*" >> "$BZCAT_LOG"
+[ "\${BZCAT_EMPTY:-0}" = 1 ] || cat "$BZCAT_FIXTURE"
+exit "\${BZCAT_STATUS:-0}"
 EOF
 cat > "$sandbox/bin/tar" <<'EOF'
 #!/bin/sh
@@ -71,6 +72,8 @@ EOF
 chmod +x "$sandbox/bin/logger" "$sandbox/bin/rm" "$sandbox/bin/bzcat" "$sandbox/bin/tar" "$sandbox/bin/mv"
 export REAL_RM="$real_rm" PATH="$sandbox/bin:$PATH" BZCAT_FIXTURE="$sandbox/full.tar"
 export TAR_LOG="$sandbox/tar.log" REAL_TAR="$real_tar" MV_COUNT_FILE="$sandbox/mv-count"
+export BZCAT_LOG="$sandbox/bzcat.log"
+: > "$BZCAT_LOG"
 
 run_load()
 {
@@ -89,6 +92,25 @@ assert_old_storage()
 	done
 }
 
+# Exact partition lookup must reject missing, malformed, or duplicate labels
+# before reading from a device node.
+printf '%s\n' 'mtd9: 00010000 00010000 "StorageBackup"' > "$sandbox/proc-mtd"
+: > "$BZCAT_LOG"
+if run_load; then echo "missing exact Storage partition unexpectedly succeeded" >&2; exit 1; fi
+[ ! -s "$BZCAT_LOG" ] || { echo "missing partition reached bzcat" >&2; exit 1; }
+
+printf '%s\n' 'mtd100: 00010000 00010000 "Storage"' 'mtd101: 00010000 00010000 "Storage"' > "$sandbox/proc-mtd"
+: > "$BZCAT_LOG"
+if run_load; then echo "duplicate Storage partitions unexpectedly succeeded" >&2; exit 1; fi
+[ ! -s "$BZCAT_LOG" ] || { echo "ambiguous partition reached bzcat" >&2; exit 1; }
+
+printf '%s\n' 'mtdbad: 00010000 00010000 "Storage"' > "$sandbox/proc-mtd"
+: > "$BZCAT_LOG"
+if run_load; then echo "malformed Storage MTD record unexpectedly succeeded" >&2; exit 1; fi
+[ ! -s "$BZCAT_LOG" ] || { echo "malformed partition reached bzcat" >&2; exit 1; }
+
+printf '%s\n' 'mtd100: 00010000 00010000 "Storage"' > "$sandbox/proc-mtd"
+: > "$BZCAT_LOG"
 export BZCAT_STATUS=2 TAR_FAIL=0 MV_FAIL_AT=0 BZCAT_EMPTY=1
 : > "$TAR_LOG"
 if run_load; then echo "blank MTD unexpectedly loaded" >&2; exit 1; fi
@@ -150,4 +172,10 @@ if ! run_load; then echo "valid storage load unexpectedly failed" >&2; exit 1; f
 for scratch in "$sandbox/etc"/.storage.load.* "$sandbox/etc"/.storage.load-backup.*; do
 	[ ! -e "$scratch" ] || { echo "successful load left scratch data: $scratch" >&2; exit 1; }
 done
+[ -s "$BZCAT_LOG" ] || { echo "MTD load did not read the selected partition" >&2; exit 1; }
+grep -Fqx '/dev/mtdblock100' "$BZCAT_LOG" || { echo "MTD index >=100 was truncated: $(cat "$BZCAT_LOG")" >&2; exit 1; }
+if grep -Fqx '/dev/mtdblock10' "$BZCAT_LOG"; then
+	echo "MTD load selected truncated /dev/mtdblock10" >&2
+	exit 1
+fi
 echo "MTD storage load transactional extraction regression: PASS"

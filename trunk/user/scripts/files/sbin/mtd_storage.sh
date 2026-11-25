@@ -45,18 +45,44 @@ fi
 
 func_get_mtd()
 {
-	local mtd_part mtd_char mtd_idx mtd_hex
-	mtd_part=`cat /proc/mtd | grep \"$mtd_part_name\"`
-	mtd_char=`echo $mtd_part | cut -d':' -f1`
-	mtd_hex=`echo $mtd_part | cut -d' ' -f2`
-	mtd_idx=`echo $mtd_char | cut -c4-5`
-	if [ -n "$mtd_idx" ] && [ $mtd_idx -ge 4 ] ; then
-		mtd_part_dev="/dev/mtdblock${mtd_idx}"
-		mtd_part_size=`echo $((0x$mtd_hex))`
-	else
-		logger -t "Storage" "Cannot find MTD partition: $mtd_part_name"
+	local mtd_info mtd_idx mtd_hex
+
+	# Parse exactly one complete /proc/mtd record. Do not truncate the device
+	# number to two characters or let duplicate/malformed labels pick a target.
+	mtd_info=$(awk -v name="\"$mtd_part_name\"" '
+		$4 == name {
+			if (NF != 4 || $1 !~ /^mtd[0-9]+:$/ ||
+			    $2 !~ /^[[:xdigit:]]+$/ || $3 !~ /^[[:xdigit:]]+$/) {
+				invalid = 1
+				next
+			}
+			idx = substr($1, 4, length($1) - 4)
+			if (idx ~ /^0[0-9]/ || idx + 0 < 4) {
+				invalid = 1
+				next
+			}
+			matches++
+			selected_idx = idx
+			selected_size = $2
+		}
+		END {
+			if (invalid || matches != 1)
+				exit 1
+			printf "%s %s\n", selected_idx, selected_size
+		}
+	' /proc/mtd) || {
+		logger -t "Storage" "Cannot identify one valid MTD partition: $mtd_part_name"
+		exit 1
+	}
+	IFS=' ' read -r mtd_idx mtd_hex <<EOF_MTD_INFO
+$mtd_info
+EOF_MTD_INFO
+	mtd_part_size=$((0x$mtd_hex))
+	if [ "$mtd_part_size" -le 0 ]; then
+		logger -t "Storage" "Invalid MTD partition size: $mtd_part_name"
 		exit 1
 	fi
+	mtd_part_dev="/dev/mtdblock$mtd_idx"
 }
 
 func_mdir()
