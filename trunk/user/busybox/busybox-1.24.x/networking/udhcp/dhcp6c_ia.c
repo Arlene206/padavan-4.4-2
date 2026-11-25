@@ -907,6 +907,12 @@ static int add_ifprefix(struct iaprefix *iaprefix,
 		goto bad;
 	}
 	ifpfx->paddr = prefix->addr;
+
+	if (dhcp6c_pd_prefix_clear_host_bits(ifpfx->paddr.s6_addr,
+					     prefix->plen) != 0) {
+		bb_error_msg("cannot canonicalize delegated prefix");
+		goto bad;
+	}
 	ifpfx->plen = prefix->plen + pconf->sla_len;
 	/*
 	 * XXX: our current implementation assumes ifid len is a multiple of 8

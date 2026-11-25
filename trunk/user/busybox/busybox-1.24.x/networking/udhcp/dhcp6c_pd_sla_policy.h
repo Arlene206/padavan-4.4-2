@@ -20,6 +20,29 @@ dhcp6c_pd_sla_id_valid(int sla_len, uint32_t sla_id)
 	return 0;
 }
 
+/* Canonicalize a delegated prefix before adding SLA and interface-ID bits. */
+static inline int
+dhcp6c_pd_prefix_clear_host_bits(unsigned char address[16], int prefix_len)
+{
+	int full_bytes, remaining_bits, i;
+
+	if (!address || prefix_len < 0 || prefix_len > 128) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	full_bytes = prefix_len / 8;
+	remaining_bits = prefix_len % 8;
+	if (remaining_bits) {
+		address[full_bytes] &= (unsigned char)(0xffU << (8 - remaining_bits));
+		full_bytes++;
+	}
+	for (i = full_bytes; i < 16; ++i)
+		address[i] = 0;
+
+	return 0;
+}
+
 /* Insert the SLA ID in network bit order without touching neighboring bits. */
 static inline int
 dhcp6c_pd_sla_insert(unsigned char address[16], int prefix_len,
