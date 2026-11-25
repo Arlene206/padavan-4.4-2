@@ -236,6 +236,7 @@ void dolog(int level, char* msg, ...)
 int open_printer(int lpnumber)
 {
 	int lp;
+	const char *printer_device;
 	char lpname[sizeof(PRINTERFILE)];
 
 #ifdef	TESTING
@@ -243,11 +244,15 @@ int open_printer(int lpnumber)
 #else
 	(void)snprintf(lpname, sizeof(lpname), PRINTERFILE, lpnumber);
 #endif
-	if (device == 0)
-		device = lpname;
-	if ((lp = open(device, bidir ? (O_RDWR|O_NONBLOCK) : O_WRONLY)) == -1) {
+	/*
+	 * Keep the default path local to this call. Storing lpname in the
+	 * global device pointer would leave it pointing at an expired stack
+	 * object when open_printer() returns and is retried later.
+	 */
+	printer_device = device ? device : lpname;
+	if ((lp = open(printer_device, bidir ? (O_RDWR|O_NONBLOCK) : O_WRONLY)) == -1) {
 		if (errno != EBUSY)
-			dolog(LOGOPTS, "%s: %m, will try opening later\n", device);
+			dolog(LOGOPTS, "%s: %m, will try opening later\n", printer_device);
 	}
 	return (lp);
 }

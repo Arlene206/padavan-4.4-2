@@ -71,6 +71,17 @@ assert "if (result < 0 && p910nd_io_would_block(errno))" in write_body
 assert "p910nd_write_no_progress(result, avail)" in write_body
 assert "errno = EIO;" in write_body
 
+# Opening the default printer path must not retain open_printer()'s
+# automatic local array in the global device pointer across retries.
+open_printer_start = SOURCE.index("int open_printer(")
+open_printer_end = SOURCE.index("int get_lock(", open_printer_start)
+open_printer = compact(SOURCE[open_printer_start:open_printer_end])
+assert "const char *printer_device;" in open_printer
+assert "printer_device=device?device:lpname;" in open_printer
+assert "open(printer_device," in open_printer
+assert "dolog(LOGOPTS, \"%s: %m, will try opening later\\n\", printer_device)" in open_printer
+assert "device=lpname;" not in open_printer
+
 # accept(2) overwrites addrlen with the actual peer-address length.
 # The server is dual-stack, so each iteration must reset the sockaddr storage
 # and its capacity before accepting a new IPv4/IPv6 peer.
