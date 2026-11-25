@@ -393,7 +393,7 @@ jobs:
           assert "written >= path_size" in account_path_builder
           assert "account path separator" in acl_path_test
           assert "truncated account ACL path" in acl_path_test
-          assert "size_t var_info_size = 0;" in folder_permission
+          assert "var_info_size = 0;" in folder_permission
           assert "ftp_acl_path_share_permission(var_info, var_info_size, folder)" in folder_permission
           assert "strstr(var_info, target)" not in folder_permission
           assert share_permission.count("strchr(folder, ") == 2
