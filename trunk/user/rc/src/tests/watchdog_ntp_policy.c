@@ -88,6 +88,24 @@ test_ntp_ready_publication_retries_only_after_a_real_step(void)
 }
 
 static void
+test_deferred_wanup_requires_checked_deadline(void)
+{
+	int due = 1;
+
+	assert(watchdog_deferred_wanup_due(0, 0, 100, &due) == 0);
+	assert(due == 0);
+	assert(watchdog_deferred_wanup_due(0, 50, 49, &due) == 0);
+	assert(due == 0);
+	assert(watchdog_deferred_wanup_due(0, 50, 50, &due) == 0);
+	assert(due == 1);
+	assert(watchdog_deferred_wanup_due(0, -1, 100, &due) == 0);
+	assert(due == 0);
+	assert(watchdog_deferred_wanup_due(EIO, 50, 100, &due) == EIO);
+	assert(due == 0);
+	assert(watchdog_deferred_wanup_due(0, 50, 100, NULL) == EINVAL);
+}
+
+static void
 test_ntp_counter_advance_rejects_corruption_and_saturates(void)
 {
 	int next = -1;
@@ -246,6 +264,7 @@ main(void)
 	test_ntp_step_requires_nonempty_offset();
 	test_ntp_ready_publication_retries_only_after_a_real_step();
 	test_ntp_counter_advance_rejects_corruption_and_saturates();
+	test_deferred_wanup_requires_checked_deadline();
 	test_ntp_ready_decision_requires_both_checked_reads();
 	CHECK(test_ntp_server_pair_copies_cache_before_next_read() == 0);
 	CHECK(test_ntp_server_pair_failure_clears_partial_snapshot() == 0);

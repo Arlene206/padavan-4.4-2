@@ -437,11 +437,20 @@ inet_handler(int is_ap_mode)
 {
 	if (!is_ap_mode)
 	{
-		long i_deferred_wanup = nvram_get_int("deferred_wanup_t");
-		if (i_deferred_wanup > 0 && uptime() >= i_deferred_wanup)
-		{
+		int deferred_wanup = 0, deferred_wanup_due = 0;
+		int deferred_wanup_status;
+
+		deferred_wanup_status = watchdog_nvram_read_int_status(
+			"deferred_wanup_t", 0, &deferred_wanup);
+		if (deferred_wanup_status == 0)
+			deferred_wanup_status = watchdog_deferred_wanup_due(
+				0, deferred_wanup, uptime(), &deferred_wanup_due);
+		if (deferred_wanup_status != 0)
+			logmessage("watchdog",
+				   "cannot check deferred WAN-up deadline; retrying next timer cycle (status=%d)",
+				   deferred_wanup_status);
+		else if (deferred_wanup_due) {
 			notify_rc("deferred_wan_connect");
-			
 			return;
 		}
 		

@@ -84,6 +84,23 @@ watchdog_ntp_counter_advance(int current, int *next)
 	return 0;
 }
 
+/*
+ * A transient NVRAM read failure must not be converted to deadline zero:
+ * defer this one check and retry on the next watchdog timer cycle.
+ */
+static inline int
+watchdog_deferred_wanup_due(int read_status, long deadline,
+			    long current_uptime, int *due)
+{
+	if (!due)
+		return EINVAL;
+	*due = 0;
+	if (read_status != 0)
+		return read_status;
+	*due = (deadline > 0 && current_uptime >= deadline);
+	return 0;
+}
+
 #define WATCHDOG_NTP_SERVER_MAX 256
 
 typedef int (*watchdog_ntp_nvram_get_fn)(void *context,

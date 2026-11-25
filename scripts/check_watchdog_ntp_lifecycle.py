@@ -198,6 +198,13 @@ assert 'watchdog_nvram_read_int_status(\n\t\t"ntpc_counter", 0, &ntpc_counter)' 
 assert "watchdog_ntp_counter_advance(\n\t\tntpc_counter, &next_counter)" in _ntpc_updated_callback
 assert 'nvram_get_int("ntpc_counter")' not in _ntpc_updated_callback
 assert "test_ntp_counter_advance_rejects_corruption_and_saturates" in _ntp_test
+assert "test_deferred_wanup_requires_checked_deadline" in _ntp_test
+_inet_handler = function_body(_ntp_watchdog, "inet_handler(int is_ap_mode)")
+assert 'watchdog_nvram_read_int_status(\n\t\t\t"deferred_wanup_t", 0, &deferred_wanup)' in _inet_handler
+assert "watchdog_deferred_wanup_due(" in _inet_handler
+assert 'nvram_get_int("deferred_wanup_t")' not in _inet_handler
+assert _inet_handler.index("watchdog_nvram_read_int_status(") < _inet_handler.index("notify_rc(\"deferred_wan_connect\")")
+
 
 
 assert _ntp_watchdog.index("if (!watchdog_ntp_step_has_offset(offset))") < _ntp_watchdog.index('counter_status = nvram_set_int_temp("ntpc_counter"')
