@@ -1,3 +1,10 @@
+## 2026-11-25 — Fix literal backslash count in chnroute source contract
+
+- Exact USB-storage run #45608329431 on `14ec3f27` passed runtime MTD fill regressions but the checker-only chnroute rewrite assertion failed: the test shell source contains one backslash before each escaped quote, while the Python raw-string expectation contained two.
+- Corrected the raw-string expectation to one literal backslash. This calibrates only the source contract; MTD runtime source and fixtures are unchanged.
+- Exact-head storage rerun required.
+
+---
 ## 2026-11-25 — Bound U2EC client TCP field reads
 
 - `usb_connection()` runs synchronously in the sole U2EC event loop. Its blocking `u2ec_recv_all()` calls could wait indefinitely after a peer sent only part of the fixed TCP header or advertised IRP body, preventing other printer clients, FIFO events and timeout processing from running.
