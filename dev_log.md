@@ -1,3 +1,11 @@
+## 2026-11-25 — Add missing XY-C1 trigger for AliyunDrive ROMFS package
+
+- AliyunDrive exact-head lifecycle #45563131218 and AI handoff #45563131174 on `fdba8a4` PASS, including shell syntax, QEMU MIPSel CLI, host stop regression, early private-lock provisioning and final source/RC integration contracts.
+- Firmware verification gap: XY-C1 workflow used a push path allowlist which omitted `trunk/user/aliyundrive-webdav/**`; edits to this ROMFS package therefore did not trigger a build. Added both the workflow file itself and the complete add-on package to its push paths. This push should trigger an exact-head XY-C1 build of the exact-PID launcher. No build result is claimed until its Build XY-C1, TRX and artifact steps complete.
+- Older XY-C1 run #45562193492 on unrelated parent `63da84a` finished success (Build XY-C1, TRX, artifact upload), but predates the AliyunDrive production change and is not a substitute for this build.
+
+---
+
 ## 2026-11-25 — Pin sleep-fixture counter reset without escaped-newline ambiguity
 
 - Exact-head AliyunDrive lifecycle #45562928673 on `5544b95`: shell syntax, QEMU MIPSel CLI, stop lifecycle regression and early private-lock provisioning all PASS; final Python source contract alone failed because its fixture assertion searched for literal backslash-n separators instead of actual line breaks. The test fixture itself did reset both signal counters correctly. THIS commit scopes the checker to the `TEST_SLEEP_FAIL=1` fixture and checks the two reset tokens without a newline-encoding dependency. AI docs #45562928669 PASS; Process inventory #45562928835 was still running at last poll.

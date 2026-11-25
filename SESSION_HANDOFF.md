@@ -4,16 +4,16 @@ This checkpoint supersedes older task pointers below. Historical completed work 
 
 ## Current repository state
 
-- Repository `Arlene206/padavan-4.4-2`; development only on `main`. Frozen `backup/pre-plugin-overhaul-2026-11-14` remains read-only; PR #1 remains closed/unmerged and inventory-only.
-- Parent before this AliyunDrive checker correction: `5544b954b68b7c4db30bb463690d52825d47dd0d` (`5544b954b68b7c4db30bb463690d52825d47dd0d`). Exact-head AliyunDrive #45562928673: shell syntax PASS; bundled MIPSel daemon CLI under QEMU PASS; host stop lifecycle regression PASS; early private-lock provisioning PASS. Final Python source contract alone failed because the checker searched for literal escaped-newline text instead of actual line breaks in the new sleep-fixture counter reset. THIS commit checks reset tokens within the specific sleep-failure fixture.
-- Exact-head AI handoff #45562928669 PASS; Process inventory #45562928835 was in progress at last inspection.
-- Prior SHA `3a08741884db19988068c5fa47c8227186c75fd9`: AI handoff #45562716449 and Process inventory #45562716611 PASS. AliyunDrive #45562716442 passed shell syntax and QEMU but exposed the sleep-fixture signal-counter isolation issue, fixed in 5544b95.
-- Parent `63da84a3ae0b68e64ab1731f60a580dbc2495970`: USB hotplug #45562193389, udhcpc #45562193392, Process inventory #45562193453, Process umbrella #45562193451, AI docs #45562193455 and NVRAM audit #45562193495 PASS. XY-C1 #45562193492 was still at Build XY-C1 at last inspection; TRX/artifact pending. Do not claim L3 until exact source build completes.
+- Repository `Arlene206/padavan-4.4-2`; development only on `main`. Frozen `backup/pre-plugin-overhaul-2026-11-14` remains read-only (last verified `72f4f157a084f8184b9597ca5bf334b8080e5807`); PR #1 remains closed/unmerged and inventory-only.
+- Parent before this XY-C1 trigger correction: `fdba8a4330c1bc867899dc52d4af0344899758bd` (`fdba8a4330c1bc867899dc52d4af0344899758bd`). Exact-head AliyunDrive lifecycle #45563131218 PASS: shell syntax, QEMU MIPSel daemon CLI, host lifecycle including foreign-UID-after-TERM behavior, early private-lock provisioning, and source/RC integration contract. AI handoff #45563131174 PASS.
+- XY-C1 workflow's push path allowlist omitted `trunk/user/aliyundrive-webdav/**`, so the exact-PID ROMFS launcher edit did not trigger a firmware build. THIS COMMIT adds that package plus the workflow file itself to push paths. Exact-head Build XY-C1, TRX verification and artifact upload remain pending.
+- Older XY-C1 run #45562193492 on parent `63da84a3ae0b68e64ab1731f60a580dbc2495970` completed success (Build XY-C1, TRX and artifact upload); it predates AliyunDrive exact-PID source changes and is not this firmware verification.
+- Process inventory #45562525082 on `a2715db` PASS; Process inventory #45562928835 on `5544b95` PASS. This workflow-only change does not alter process inventory.
 - Linux 4.4 has no pidfd path here; a narrow PID-reuse race remains between procfs validation and `kill(2)`. Physical router behavior and authenticated remote storage readiness are not claimed.
 
 ## Active task
 
-Inspect exact-head AliyunDrive rerun for the checker-only newline-robust assertion. Confirm host tests, QEMU, early lock and source integration are all PASS; then inspect Process and XY-C1 exact-SHA outcomes.
+Confirm this XY-C1 trigger change starts an exact-head firmware run. Verify Build XY-C1, TRX and artifact upload for the AliyunDrive exact-PID ROMFS source; investigate any failure. Then continue the next independent stability/security defect.
 
 # Cross-session execution mandate
 
