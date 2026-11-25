@@ -6,6 +6,8 @@
 #include <stddef.h>
 #include <string.h>
 
+#include "iptv_proxy_altnet_policy.h"
+
 #define IPTV_PROXY_ALTN_MAX 64
 
 struct iptv_proxy_nvram_settings {
@@ -51,6 +53,10 @@ iptv_proxy_nvram_settings_read(struct iptv_proxy_nvram_settings *settings,
 	if (settings->enabled) {
 		status = copy_value(context, "mr_altnet_x", settings->altnet,
 				    sizeof(settings->altnet));
+		if (status != 0)
+			goto failed;
+		status = iptv_proxy_altnet_normalize(settings->altnet,
+						      sizeof(settings->altnet));
 		if (status != 0)
 			goto failed;
 

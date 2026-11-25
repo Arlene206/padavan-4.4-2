@@ -99,9 +99,15 @@ test_missing_keys_preserve_legacy_defaults(void)
 	assert(take_snapshot(&fake, &settings) == 0);
 	assert(settings.viptv_ifname[0] == '\0');
 	assert(settings.enabled == 1);
-	assert(settings.altnet[0] == '\0');
+	assert(strcmp(settings.altnet, IPTV_PROXY_ALTN_DEFAULT) == 0);
 	assert(settings.quickleave == 0);
 	assert(fake.altnet_reads == 1 && fake.quickleave_reads == 1);
+
+	/* Explicitly empty values normalize to the same legacy default. */
+	fake.mr_enable = "1";
+	fake.mr_altnet = "";
+	assert(take_snapshot(&fake, &settings) == 0);
+	assert(strcmp(settings.altnet, IPTV_PROXY_ALTN_DEFAULT) == 0);
 }
 
 static void
@@ -165,6 +171,34 @@ test_any_required_read_failure_invalidates_snapshot(void)
 }
 
 static void
+test_invalid_altnet_values_fail_closed(void)
+{
+	static const char *const invalid[] = {
+		"bad", "192.0.2.256/24", "256.0.2.1/24",
+		"192.0.2/24", "192.0.2.1", "192.0.2.1/33",
+		"192.0.2.1/", "192.0.2.1/24/8",
+		"010.0.0.0/8", "192.168.001.1/24",
+		"255.255.255.255/32", "192.0.2.1/24 extra"
+	};
+	unsigned int i;
+
+	for (i = 0; i < sizeof(invalid) / sizeof(invalid[0]); ++i) {
+		struct fake_nvram fake;
+		struct iptv_proxy_nvram_settings settings;
+
+		memset(&fake, 0, sizeof(fake));
+		fake.mr_enable = "1";
+		fake.mr_altnet = invalid[i];
+		fake.mr_qleave = "1";
+		memset(&settings, 0x5a, sizeof(settings));
+		assert(take_snapshot(&fake, &settings) == EINVAL);
+		assert(settings.altnet[0] == '\0');
+		assert(settings.viptv_ifname[0] == '\0');
+		assert(settings.enabled == 0 && settings.quickleave == 0);
+	}
+}
+
+static void
 test_oversized_values_fail_closed(void)
 {
 	struct fake_nvram fake;
@@ -190,6 +224,7 @@ main(void)
 	test_configured_values_are_copied_to_one_snapshot();
 	test_disabled_proxy_skips_dependent_reads();
 	test_any_required_read_failure_invalidates_snapshot();
+	test_invalid_altnet_values_fail_closed();
 	test_oversized_values_fail_closed();
 	return 0;
 }

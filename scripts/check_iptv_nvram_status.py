@@ -6,6 +6,8 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = (ROOT / "trunk/user/rc/src/net.c").read_text()
 IGMP_CONFIG_POLICY = (ROOT / "trunk/user/rc/src/igmpproxy_config_file.h").read_text()
+IPTV_NVRAM_POLICY = (ROOT / "trunk/user/rc/src/iptv_proxy_nvram_policy.h").read_text()
+IPTV_ALTNET_POLICY = (ROOT / "trunk/user/rc/src/iptv_proxy_altnet_policy.h").read_text()
 IGMP_CONFIG_TEST = (ROOT / "trunk/user/rc/src/tests/igmpproxy_config_file.c").read_text()
 
 
@@ -70,6 +72,13 @@ stop_internal = body("stop_igmpproxy_with_viptv(")
 
 require('#include "iptv_proxy_nvram_policy.h"' in SOURCE,
         "production source must include the tested settings policy")
+require('#include "iptv_proxy_altnet_policy.h"' in IPTV_NVRAM_POLICY and
+        "iptv_proxy_altnet_normalize(settings->altnet" in IPTV_NVRAM_POLICY,
+        "the checked snapshot must normalize empty altnet and reject invalid IPv4/CIDR before proxy transitions")
+require('#include "iptv_proxy_altnet_policy.h"' in IGMP_CONFIG_POLICY and
+        "iptv_proxy_altnet_is_valid(value)" in IGMP_CONFIG_POLICY and
+        "IPTV_PROXY_ALTN_DEFAULT" in IPTV_ALTNET_POLICY,
+        "IGMP writer and NVRAM preflight must share strict inet_addr-compatible IPv4/CIDR validation")
 require("iptv_proxy_nvram_settings_read(" in settings_reader and
         "net_nvram_transaction_begin(&transaction)" in settings_reader and
         "net_nvram_transaction_end(&transaction)" in settings_reader and
@@ -123,7 +132,8 @@ for marker in ("test_missing_keys_preserve_legacy_defaults",
                "test_configured_values_are_copied_to_one_snapshot",
                "test_disabled_proxy_skips_dependent_reads",
                "test_any_required_read_failure_invalidates_snapshot",
-               "test_oversized_values_fail_closed"):
+               "test_invalid_altnet_values_fail_closed",
+               "test_oversized_values_fail_closed")
     require(marker in policy_test, "IPTV snapshot regression is missing: " + marker)
 
 print("IPTV NVRAM status contract: PASS")

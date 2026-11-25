@@ -8,6 +8,8 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "iptv_proxy_altnet_policy.h"
+
 struct igmpproxy_config_values {
 	const char *upstream_interface;
 	const char *altnet;
@@ -35,66 +37,9 @@ igmpproxy_config_token(const char *value)
 static int
 igmpproxy_config_altnet_token(const char *value)
 {
-	const char *cursor = value;
-	unsigned int octet_index, octet, digits, prefix;
-	int all_ones = 1;
-
-	if (!igmpproxy_config_token(value))
-		return 0;
-
-	/*
-	 * igmpproxy 0.3 parses the address with inet_addr(), where a
-	 * multi-digit leading-zero octet is interpreted as octal.
-	 */
-	for (octet_index = 0; octet_index < 4; ++octet_index) {
-		octet = 0;
-		digits = 0;
-		if (*cursor == '0' && cursor[1] >= '0' && cursor[1] <= '9')
-			return 0;
-		while (*cursor >= '0' && *cursor <= '9') {
-			unsigned int digit = (unsigned int)(*cursor - '0');
-
-			if (octet > 25 || (octet == 25 && digit > 5))
-				return 0;
-			octet = octet * 10 + digit;
-			++digits;
-			++cursor;
-		}
-		if (digits == 0)
-			return 0;
-		if (octet != 255U)
-			all_ones = 0;
-		if (octet_index < 3) {
-			if (*cursor != '.')
-				return 0;
-		} else if (*cursor != '/') {
-			return 0;
-		}
-		++cursor;
-	}
-
-	/*
-	 * The bundled parser treats inet_addr() == INADDR_NONE as failure,
-	 * which also rejects the otherwise syntactically valid all-ones IPv4
-	 * address. Do not publish a config that the daemon cannot parse.
-	 */
-	if (all_ones)
-		return 0;
-
-	prefix = 0;
-	digits = 0;
-	while (*cursor >= '0' && *cursor <= '9') {
-		unsigned int digit = (unsigned int)(*cursor - '0');
-
-		if (prefix > 3 || (prefix == 3 && digit > 2))
-			return 0;
-		prefix = prefix * 10 + digit;
-		++digits;
-		++cursor;
-	}
-	return digits != 0 && *cursor == '\0';
+	return igmpproxy_config_token(value) &&
+		iptv_proxy_altnet_is_valid(value);
 }
-
 static const char *
 igmpproxy_config_altnet_or_default(const char *value)
 {
