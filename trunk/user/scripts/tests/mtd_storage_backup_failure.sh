@@ -27,7 +27,7 @@ EOF
 cat > "$sandbox/bin/find" <<'EOF_FIND'
 #!/bin/sh
 if [ "${FIND_MODE:-valid}" = partial-failure ]; then
-	printf '%s\\0' './config.conf'
+	printf '%s\0' './config.conf'
 	exit 1
 fi
 exec "$REAL_FIND" "$@"
