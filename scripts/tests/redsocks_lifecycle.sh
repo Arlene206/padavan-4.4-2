@@ -248,13 +248,13 @@ iptables() {
   case "$operation" in
     -C)
       [[ "\${TEST_IPTABLES_FAIL_CHECK:-0}" == 0 ]] || return 4
-      key="$table|$rule"
+      key="$table|$chain $rule"
       grep -Fqx -- "$key" "$TEST_IPTABLES_RULES" && return 0
       return 1
       ;;
     -D)
       [[ "\${TEST_IPTABLES_FAIL_DELETE:-0}" == 0 ]] || return 7
-      key="$table|$rule"
+      key="$table|$chain $rule"
       grep -Fqx -- "$key" "$TEST_IPTABLES_RULES" || return 1
       tmp_file="$TEST_IPTABLES_RULES.tmp"
       awk -v key="$key" 'BEGIN { removed=0 } !removed && $0==key { removed=1; next } { print }' "$TEST_IPTABLES_RULES" > "$tmp_file" || return 90
@@ -280,7 +280,7 @@ iptables() {
       mv "$TEST_IPTABLES_CHAINS.tmp" "$TEST_IPTABLES_CHAINS"
       ;;
     -A)
-      if [[ "\${TEST_IPTABLES_FAIL_APPEND:-}" == "$rule" ]]; then return 23; fi
+      if [[ "${TEST_IPTABLES_FAIL_APPEND:-}" == "$chain $rule" ]]; then return 23; fi
       printf '%s|%s\n' "$table" "$rule" >> "$TEST_IPTABLES_RULES"
       ;;
     *)

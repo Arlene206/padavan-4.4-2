@@ -1,3 +1,10 @@
+## 2026-11-25 — Correct Redsocks firewall regression mock command handling
+
+- Exact Redsocks Actions #45554742701 on `e51171f` exposed a test-fixture defect: the firewall mock escaped its failure-injection variable, so every `iptables -C` returned synthetic status 4; it also omitted the chain name from stored rule keys, conflicting with flush/count/rollback expectations.
+- Unescaped the mock's test-only failure controls and made `-C/-D/-A` use the complete `table|chain rule` identity. This changes only regression fixture behavior; production firewall policy is unchanged. AI handoff docs #45554742775 PASS; exact Redsocks rerun required.
+
+---
+
 ## 2026-11-25 — Diagnose Redsocks initial NAT apply regression
 
 - Exact Redsocks Actions run #45554360655 on `87a3eea` passed shell syntax and rejected the octal REMOTE_IP correctly, then failed the first valid firewall apply. Added the mock's command trace and exact return status to the regression failure path so the failed iptables operation can be identified without weakening assertions.
