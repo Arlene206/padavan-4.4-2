@@ -244,7 +244,7 @@ iptables() {
   shift
   chain=$1
   rule="$*"
-  printf '%s %s %s\n' "$table" "$operation" "$rule" >> "$TEST_IPTABLES_LOG"
+  printf '%s %s %s %s\\n' "$table" "$operation" "$chain" "$rule" >> "$TEST_IPTABLES_LOG"
   case "$operation" in
     -C)
       [[ "${TEST_IPTABLES_FAIL_CHECK:-0}" == 0 ]] || return 4
@@ -281,7 +281,7 @@ iptables() {
       ;;
     -A)
       if [[ "${TEST_IPTABLES_FAIL_APPEND:-}" == "$chain $rule" ]]; then return 23; fi
-      printf '%s|%s\n' "$table" "$rule" >> "$TEST_IPTABLES_RULES"
+      printf '%s|%s %s\\n' "$table" "$chain" "$rule" >> "$TEST_IPTABLES_RULES"
       ;;
     *)
       return 2

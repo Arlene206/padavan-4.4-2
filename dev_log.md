@@ -1,3 +1,10 @@
+## 2026-11-25 — Preserve complete chain identity in Redsocks firewall mock
+
+- The next fixture review found a second inconsistency after clearing the escaped CHECK/DELETE controls: mocked `-C/-D` already keyed rules as `table|chain rule`, but `-A` still omitted the chain. This made valid additions invisible to the mock's own lookup/count/flush logic. Updated `-A` storage and command traces to retain chain identity consistently.
+- This is regression-fixture-only; no production code change. Confirm exact Redsocks run after this correction.
+
+---
+
 ## 2026-11-25 — Fix Redsocks mock's escaped failure controls and chain keys
 
 - The diagnostic exact-head Redsocks run confirmed the initial failure was status 4 from the mock's very first `iptables -C PREROUTING`: a backslash left the CHECK failure-injection expression literal, so the mock always returned an error. The adjacent DELETE failure control had the same escaping defect.
