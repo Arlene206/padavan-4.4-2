@@ -78,9 +78,12 @@ rc_modem_module_unload_attempt_status(int loaded_status, int unload_status,
 		return EIO;
 	if (remaining_status == 0)
 		return 0;
-	if (unload_status == 0 && unload_errno > 0)
-		return unload_errno;
-	return EBUSY;
+	if (remaining_status == 1) {
+		if (unload_status == 0 && unload_errno > 0)
+			return unload_errno;
+		return EBUSY;
+	}
+	return EIO;
 }
 
 /* Validate the entire module set before causing unload side effects. */
