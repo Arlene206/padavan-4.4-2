@@ -13,18 +13,19 @@ Continue one autonomous engineering stream on main. For each logical slice, crea
 
 ## Active task
 
-### DHCPv6 timer remaining arithmetic — clamp expired deadlines
+### DHCPv6 timer arithmetic — fix stale source-checker output marker
 
-`dhcp6_timer_rest()` compared `timer->t - now <= 0` with both operands unsigned. A deadline already in the past therefore wrapped to a huge remaining interval instead of returning zero. The only current consumer happens to saturate its derived retry delay afterwards, so the present call path masks the value; nevertheless the helper contract is wrong and unsafe for future direct consumers. Added shared `dhcp6_timer_remaining_ms(deadline, now)` and used it in production timer code. Regression checks future, exact-deadline, expired and maximum unsigned deadlines; the static source contract ensures production calls the helper and cannot regress to unsigned subtraction.
+The production helper and regression for expired DHCPv6 timer deadlines are committed in `c009462148d00369007edaf3e5b87d31899b07c2`. The GNU89 test compiled and ran successfully with ASan/UBSan, printing the new `DHCPv6 configuration-script retry and timer policy: PASS` label. The exact-head workflow then failed only because `scripts/check_dhcp6c_script_retry.py` still required the old retry-only output label at marker assertion line 95. Aligning that one checker marker; retaining the production timer-source binding and all regression assertions.
 
-Storage checker alignment is committed on 3390da31fe8c37b5d4f5293282058679abd3360e; exact-head storage-hotplug and AI-doc workflows both PASS. The DHCPv4 subnet-mask fix is on parent source SHA b19ffd89 and its own udhcpc/Process/NVRAM checks passed. No local compile claim.
+## Current exact-head Actions on c009462148d00369007edaf3e5b87d31899b07c2
 
-## Current exact-head Actions on 3390da31fe8c37b5d4f5293282058679abd3360e
-
-- USB storage hotplug #45523378897: PASS; stale inline retry-call count corrected from two to three, and the contract now requires the malformed-subnet ACK gate before script execution.
-- AI handoff documentation #45523378953: PASS.
-- Production source parent b19ffd89: udhcpc #45523015896, Process inventory #45523015238, Process fail-closed #45523015250, NVRAM boundary #45523015241 and AI docs #45523015265: PASS.
-- XY-C1 Firmware Validation #45523015263, for the unchanged production source SHA b19ffd89: still IN_PROGRESS at Build XY-C1; no TRX/artifact confirmation. L3 NOT VERIFIED; L4 hardware NOT VERIFIED.
+- DHCPv6 Reply script retry regression #45523977371: FAIL only at stale output-marker assertion. Its GNU89 ASan/UBSan compile and runtime tests passed first, including future/equal/expired/max timer boundary cases.
+- Process lifecycle inventory #45523977446: PASS.
+- HTTPD Authentication/Security #45523977367: PASS.
+- AI handoff documentation #45523977673: PASS.
+- USB storage hotplug #45523977447: IN_PROGRESS.
+- NVRAM transaction boundary #45523977503: IN_PROGRESS.
+- XY-C1 Firmware Validation #45523977414: IN_PROGRESS; exact-head Build/TRX/artifact completion not confirmed. L3 NOT VERIFIED; L4 hardware NOT VERIFIED.
 - No local compile is claimed.
 
 ## Completed source slices
@@ -132,9 +133,9 @@ Commit `786c504c8247fe42d5d1d5f2dc3ad28757fafc80` strictly parses persisted RX/T
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and check exact-head DHCPv6 retry/timer, DHCPv4 udhcpc, storage-hotplug, Process/Lifecycle, NVRAM, AI docs and XY-C1 Actions after this timer change. Fix failures on the exact SHA.
-2. Verify XY-C1 Build, TRX and artifact upload on the same final production source SHA before claiming L3. L4 requires hardware testing.
-3. Continue another concrete userland stability/security defect outside the recent PPP/DHCP/HTTPD/IPTV/FRP focus; do not wait on unrelated PENDING jobs.
+1. Check exact-head DHCPv6, storage, NVRAM and XY-C1 Actions after the marker-only correction; repair any remaining failure against that SHA.
+2. Verify XY-C1 Build, TRX verification and artifact upload on the final production source SHA before any L3 claim. L4 requires hardware testing.
+3. Continue the next distinct userland stability/security issue beyond the recent PPP/DHCP/HTTPD/IPTV/FRP focus; PENDING Actions do not block independent work.
 
 ## Mandatory handoff checkpoint
 

@@ -1,7 +1,7 @@
 ## 2026-11-24 状态增量：DHCPv4 subnet mask 前缀校验
 
 - 修复 `mton()` 将任意掩码的置位数量误当作 CIDR 前缀长度的问题；非连续掩码（例如 `255.0.255.0`）此前会被导出为 `mask=16`，误导配置脚本。
-- 新增严格 host-order 连续前缀策略；非法 DHCPACK 在脚本执行和租约发布前被延后重试，保留现有 renewal lease；回归覆盖 /0、/1、/24、/32 与非连续掩码。b19ffd89 的 udhcpc、Process、NVRAM、AI PASS；storage 的陈旧 retry-call 计数已修正，3390da31 storage/AI PASS。另修复 DHCPv6 expired timer 的 unsigned-underflow，增加 exact/past deadline 回归。
+- 新增严格 host-order 连续前缀策略；非法 DHCPACK 在脚本执行和租约发布前被延后重试，保留现有 renewal lease；回归覆盖 /0、/1、/24、/32 与非连续掩码。b19ffd89 的 udhcpc、Process、NVRAM、AI PASS；storage 的陈旧 retry-call 计数已修正，3390da31 storage/AI PASS。另修复 DHCPv6 expired timer 的 unsigned-underflow，增加 exact/past deadline 回归；c009462 的 DHCPv6 CI 运行测试通过，首轮仅旧输出标签断言失败，现已同步更新 checker。
 
 ---
 

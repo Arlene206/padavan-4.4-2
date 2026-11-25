@@ -1,3 +1,8 @@
+## 2026-11-24 — Correct DHCPv6 timer checker output marker
+
+- Exact SHA c009462148d00369007edaf3e5b87d31899b07c2: DHCPv6 GNU89 ASan/UBSan runtime regression printed the updated retry-and-timer PASS line, but the source checker still required the previous retry-only label and failed at marker assertion line 95. This was a checker mismatch, not a runtime/test failure.
+- Updated the checker marker to the new exact test output; retained the timer source/helper checks. Other exact-head results at observation: Process lifecycle #45523977446 PASS, HTTPD security #45523977367 PASS, AI docs #45523977673 PASS; storage #45523977447, NVRAM #45523977503 and XY-C1 #45523977414 remained IN_PROGRESS. No TRX/artifact or L3 claim; no local compile claim.
+
 ## 2026-11-24 — Correct expired DHCPv6 timer remaining arithmetic
 
 - `dhcp6_timer_rest()` compared `timer->t - now <= 0` even though both operands are unsigned. An expired deadline therefore wrapped to a huge remaining interval instead of returning zero; its current caller happens to saturate the derived retry delay later, so the present call path masks the value, but the helper's return contract is broken and unsafe for future consumers.

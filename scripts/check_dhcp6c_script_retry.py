@@ -90,7 +90,7 @@ for marker in (
     "test_positive_exit_status_retries",
     "test_spawn_failure_retries",
     "test_retry_delay_is_bounded_and_nonzero",
-    "DHCPv6 configuration-script retry policy: PASS",
+    "DHCPv6 configuration-script retry and timer policy: PASS",
 ):
     assert marker in test, marker
 
