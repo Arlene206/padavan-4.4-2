@@ -555,11 +555,17 @@ func_restore()
 		return 1
 	fi
 
+	if ! func_start_apps; then
+		result=1
+		rm -rf "$tmp_storage"
+		logger -t "Storage restore" "Restored storage tree is active, but rstats failed to start; save lock, archive and rollback snapshot retained"
+		return 1
+	fi
+
 	if ! rm -f "$slk"; then
 		result=1
 		rm -rf "$tmp_storage"
-		func_start_apps
-		logger -t "Storage restore" "Storage restore installed, but the storage lock marker could not be removed"
+		logger -t "Storage restore" "Storage restore installed and rstats started, but the storage lock marker could not be removed"
 		return 1
 	fi
 
@@ -568,7 +574,6 @@ func_restore()
 	if [ "$had_storage" -eq 1 ] && ! rm -rf "$rollback_storage"; then
 		logger -t "Storage restore" "Restored settings are active; previous storage backup remains at $rollback_storage"
 	fi
-	func_start_apps
 	return 0
 }
 func_erase()

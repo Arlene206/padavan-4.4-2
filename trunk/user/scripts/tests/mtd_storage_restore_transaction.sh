@@ -98,6 +98,7 @@ exit 0
 EOF
 cat > "$sandbox/bin/rstats" <<'EOF'
 #!/bin/sh
+[ "${RSTAT_START_FAIL:-0}" != 1 ] || exit 1
 printf '%s\n' started >> "$RSTAT_LOG"
 mkdir -p "$RSTAT_PROC_ROOT/321"
 printf '%s\n' '321 (rstats) S 1 321 321' > "$RSTAT_PROC_ROOT/321/stat"
@@ -245,6 +246,28 @@ test ! -s "$MV_COUNT_FILE"
 test -s "$sandbox/private/storage-restore.tar.bz2"
 test -f "$sandbox/private/storage_locked"
 test ! -e "$sandbox/restore"
+
+# A failed rstats restart must not be reported as a successful restore.
+# Keep the save barrier, restore archive and previous tree so the failure can
+# be diagnosed/retried without losing the rollback snapshot.
+"$real_tar" -cjf "$sandbox/private/storage-restore.tar.bz2" -C "$sandbox/incoming" .
+mkdir -p "$RSTAT_PROC_ROOT/321"
+printf '%s\n' '321 (rstats) S 1 321 321' > "$RSTAT_PROC_ROOT/321/stat"
+: > "$RSTAT_LOG"
+: > "$RSTAT_KILL_LOG"
+: > "$MV_COUNT_FILE"
+if RSTAT_START_FAIL=1 run_restore; then
+	echo "failed rstats restart unexpectedly reported a successful restore" >&2
+	exit 1
+fi
+grep -Fqx 'new=restored-value' "$sandbox/storage/new.conf"
+set -- "$sandbox"/storage.rollback.*
+test -d "$1"
+grep -Fqx 'old=preserve-after-symlink' "$1/original.conf"
+test -f "$sandbox/private/storage_locked"
+test -s "$sandbox/private/storage-restore.tar.bz2"
+test ! -s "$RSTAT_LOG"
+rm -rf "$sandbox"/storage.rollback.*
 
 # Rebuild the ordinary archive before the existing successful restore case.
 "$real_tar" -cjf "$sandbox/private/storage-restore.tar.bz2" -C "$sandbox/incoming" .

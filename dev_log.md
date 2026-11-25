@@ -1,3 +1,10 @@
+## 2026-11-25 — Report and preserve MTD restore state when rstats restart fails
+
+- The restore transaction previously called func_start_apps() after deleting its save-lock marker, archive and rollback tree, then returned success without checking the start result. A failed rstats launch could therefore be reported as a successful restore with no service.
+- Restore now starts rstats before clearing the barrier or deleting recovery inputs. A start failure returns non-zero and retains the lock marker, archive and previous storage snapshot. Added an injected start-failure regression that verifies the failure is surfaced and all recovery state remains available. Exact-head storage Actions are required; no device test is claimed.
+
+---
+
 ## 2026-11-25 — Define the real mkdir command in the MTD fill safety test
 
 - The storage-hotplug workflow on `5733132a` passed RWFS, reset_ss, MTD save/retry and the MTD restore rollback regression after the procfs fixture redirect. The next `mtd_storage_load_transaction.sh` step failed under `set -u` because the new symlink/non-directory fill test called `$real_mkdir` without capturing it. Added the same real-command capture pattern already used for `rm`; removed the duplicate `/proc/mtd` rewrite introduced while the fixture redirect was being developed.
