@@ -36,12 +36,20 @@ main(void)
 	struct stat lock_fd_stat, lock_path_stat, state_stat;
 	struct rlimit saved_limit, limited;
 	void (*saved_sigxfsz)(int);
-	unsigned long generation;
+	unsigned long generation, next_generation;
+	char formatted[sizeof(unsigned long) * CHAR_BIT + 2];
 	int lock_fd, status, fd;
 	pid_t child;
 	int child_status;
 
 	assert(mkdtemp(directory) != NULL);
+	assert(ppp_callback_generation_matches("42", 42));
+	assert(ppp_callback_generation_initial_state_allowed(1, 1));
+	assert(ppp_callback_generation_next(42, &next_generation) == 0);
+	assert(next_generation == 43);
+	assert(ppp_callback_generation_format(next_generation, formatted,
+					      sizeof(formatted)) == 0);
+	assert(strcmp(formatted, "43") == 0);
 	assert(snprintf(lock_path, sizeof(lock_path), "%s/wan-session.lock",
 			directory) > 0);
 	assert(snprintf(state_path, sizeof(state_path), "%s/wan-session.state",

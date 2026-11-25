@@ -32,7 +32,8 @@ ppp_callback_state_file_read(const char *path, int allow_missing,
 	*generation_out = 0;
 	fd = open(path, O_RDONLY | O_NOFOLLOW | O_NONBLOCK);
 	if (fd < 0) {
-		if (errno == ENOENT && allow_missing)
+		if (errno == ENOENT &&
+		    ppp_callback_generation_initial_state_allowed(1, allow_missing))
 			return 0;
 		return -1;
 	}

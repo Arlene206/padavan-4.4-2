@@ -46,11 +46,12 @@ ppp_callback_generation_parse(const char *text, unsigned long *generation_out)
 }
 
 static int
-ppp_callback_generation_initial_state_allowed(int created, int allow_empty)
+ppp_callback_generation_initial_state_allowed(int state_missing,
+					      int allow_missing)
 {
-	/* Empty is valid only for the process that atomically created the file.
-	 * A truncated/corrupt pre-existing file must never reset the token. */
-	return created && allow_empty;
+	/* Only a missing state path explicitly allowed by the caller may start
+	 * at generation zero. An existing empty/truncated file is corruption. */
+	return state_missing && allow_missing;
 }
 
 static int
