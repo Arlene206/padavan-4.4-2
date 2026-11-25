@@ -1363,8 +1363,10 @@ failed:
 		if (route_recorded) {
 			cleanup_status = wan6_sit_route4_cleanup(unit);
 		} else {
-			cleanup_status = route_del(wan_ifname, 0, sit_ep, wan_gate4,
-						   "255.255.255.255");
+			cleanup_status = route_del(
+			wan_ifname, 0, sit_ep,
+			(char *)wan6_sit_route4_gateway_argument(wan_gate4),
+			"255.255.255.255");
 			if (cleanup_status == ESRCH || cleanup_status == ENODEV)
 				cleanup_status = 0;
 			if (cleanup_status == 0) {

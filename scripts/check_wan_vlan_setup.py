@@ -1000,6 +1000,9 @@ sit_endpoint_add = sit_start.index("route_add(wan_ifname, 0, sit_ep,", sit_endpo
 sit_endpoint_owner = sit_start.index("&wan_route_added", sit_endpoint_policy)
 require(sit_endpoint_policy < sit_endpoint_add < sit_endpoint_owner,
         "SIT endpoint route result must be classified before ownership is recorded")
+sit_rollback = sit_failed.index("cleanup_status = route_del(")
+require("(char *)wan6_sit_route4_gateway_argument(wan_gate4)" in sit_failed[sit_rollback:],
+        "SIT startup rollback must normalize an empty direct-route gateway")
 require("wan6_sit_route4_gateway_argument" in wan6_identity_policy and
         "wan6_sit_route4_gateway_argument(gateway)" in wan6 and
         "wan6_sit_route4_gateway_argument(wan_gate4)" in sit_start,

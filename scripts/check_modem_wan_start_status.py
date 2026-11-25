@@ -868,6 +868,9 @@ assert "wan6_sit_route4_publish(" in sit_start
 assert "wan6_sit_route4_gateway_argument" in NET_WAN6_IDENTITY_POLICY_SOURCE
 assert "wan6_sit_route4_gateway_argument(gateway)" in NET_WAN6_SOURCE
 assert "wan6_sit_route4_gateway_argument(wan_gate4)" in NET_WAN6_SOURCE
+sit_failed = sit_start[sit_start.index("failed:"):]
+sit_rollback = sit_failed.index("cleanup_status = route_del(")
+assert "(char *)wan6_sit_route4_gateway_argument(wan_gate4)" in sit_failed[sit_rollback:]
 assert "wan6_sit_route4_cleanup_record" in NET_WAN6_IDENTITY_POLICY_SOURCE
 for test_name in (
     "test_sit_route4_empty_gateway_maps_to_null_kernel_argument",

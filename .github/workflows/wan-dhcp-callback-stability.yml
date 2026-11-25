@@ -1503,6 +1503,9 @@ jobs:
           assert "if (add_status == EEXIST)" in wan6_identity_policy
           assert "test_sit_endpoint_route_duplicate_is_accepted_without_ownership" in wan6_identity_test
           assert "test_sit_endpoint_route_failure_is_not_hidden" in wan6_identity_test
+          sit_failed = sit_start[sit_start.index("failed:"):]
+          sit_rollback = sit_failed.index("cleanup_status = route_del(")
+          assert "(char *)wan6_sit_route4_gateway_argument(wan_gate4)" in sit_failed[sit_rollback:]
           assert "if (wan_route_added)" in sit_start
           assert "wan6_sit_route4_cleanup(unit)" in sit_start
           assert "wan6_sit_route4_publish(" in sit_start
