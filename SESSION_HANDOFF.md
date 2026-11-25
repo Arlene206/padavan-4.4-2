@@ -2,17 +2,16 @@
 
 This snapshot supersedes older task pointers below where they conflict with live Git state.
 
-- Main before this fixture correction: `d6d2cb95b3e665fa4b6e94ff007bd9b238ced1ae`. Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, untouched. PR #1 remains closed/unmerged.
-- Exact-head ZeroTier lifecycle run #45537157310 on `d6d2cb95b3e665fa4b6e94ff007bd9b238ced1ae` failed in the new retry assertion because the fixture asserted `identity.secret` preservation but had never created that file. The run passed the preceding recovery/stop checks and reached the absent-file assertion; this follow-up seeds the identity fixture rather than weakening the preservation assertion. Production source is unchanged in this correction.
-- Exact-head WAN route run #45537157320 PASS. XY-C1 Firmware Validation #45537157364 remains IN_PROGRESS; Build/TRX/artifact are not confirmed. Check every other run by exact SHA before recording its state.
-- The recovery implementation itself is stop-only and narrowly accepts a trailing complete record after validating two complete LF-terminated fields, interface and canonical IPv4/CIDR. It atomically rewrites that exact tuple before signalling. A malformed/short base tuple, an unterminated first extra record, unsafe path, or invalid address remains fail-closed. Startup replay and `del_rules()` remain strict.
-- The updated regression injects the first firewall deletion failure and verifies exact daemon signalling, canonical tuple retention, deletion of the saved source-NAT rule and successful retry; it also verifies a missing LF on the second field is not recoverable. The exact-head run after this fixture-only correction must pass before closing the slice. No local shell test or firmware result is claimed.
+- Main before this strict-tail correction: `a4927aee49ef7f82657a67247c21874840c1f59d`. Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, untouched. PR #1 remains closed/unmerged.
+- Exact-head Actions on `a4927aee49ef7f82657a67247c21874840c1f59d`: AI handoff #45537336220 PASS, Process inventory #45537336336 PASS, WAN route #45537336271 PASS, XY-C1 #45537336218 PASS (Build/TRX/artifact all success). ZeroTier #45537336228 FAILED in the shell regression at the truncated-checkpoint test assertion. The test compared the entire two-line checkpoint to only its second line; the implementation correctly left the unterminated second line intact. This correction fixes the byte-content expectation and strengthens strict loading to reject a nonempty unterminated trailing fragment.
+- ZeroTier stop recovery remains narrowly scoped: complete trailing record + validated first two complete LF-terminated fields can be normalized atomically before daemon signalling. An unterminated second field or third-field fragment, malformed tuple, unsafe path remain fail-closed. Startup replay remains strict.
+- Regression now explicitly covers both an unterminated second field and an unterminated third-field fragment, in addition to recoverable complete extra-record cleanup/retry after live route disappearance. Local host regression not run; verify exact-head ZeroTier run after this commit.
 
 ## Exact first action for the next GPT
 
-1. Verify ZeroTier lifecycle run and shell test on the new exact main SHA. If it fails, inspect the job log and fix the failing assertion/runtime path; do not infer success from the earlier prefix recovery.
-2. Verify same-SHA AI docs, Process inventory/umbrella, WAN route and XY-C1 Build/TRX/artifact. Do not claim L3 without the complete product-source result.
-3. Continue an independent stability/security fix while unrelated exact-head checks are pending. Frozen backup remains read-only.
+1. Verify exact-head ZeroTier workflow (shell runtime + Python contracts) on current main. Fix any new FAIL from the log before treating checkpoint recovery as complete.
+2. Confirm same-SHA AI docs, Process inventory/umbrella, WAN and XY-C1 remain green; XY-C1 L3 should be claimed only when Build/TRX/artifact all success on production source.
+3. Continue an independent userland reliability/security fix while unrelated CI is pending. Frozen backup remains read-only.
 
 No force-push. The backup branch remains unchanged.
 

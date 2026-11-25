@@ -1,3 +1,9 @@
+## 2026-11-25 11:08 CST — Reject unterminated trailing ZeroTier checkpoint fragments
+
+- Exact-head ZeroTier run #45537336228 on `a4927aee49ef7f82657a67247c21874840c1f59d` failed only at the new test's `truncated checkpoint prefix was rewritten` assertion. The fixture compared the whole unchanged two-line checkpoint with only its second line; no production failure was shown.
+- Corrected the assertion to compare both exact saved fields. Code review also found the strict loader treated a failed third-line `read` as clean EOF even when it had populated a partial non-newline-terminated fragment. The loader now rejects nonempty data after read returns EOF.
+- Added a third-line partial-fragment regression proving stop does not signal the daemon, edit firewall state, rewrite the checkpoint or remove identity. The existing second-field truncated-record regression remains. Exact-head ZeroTier rerun required; local host test not run.
+
 ## 2026-11-25 11:04 CST — Seed identity in recovered ZeroTier stop-retry fixture (THIS COMMIT)
 
 - Exact-head ZeroTier run #45537157310 on `d6d2cb95b3e665fa4b6e94ff007bd9b238ced1ae` reached the injected firewall-delete failure path, confirmed the daemon stopped and exact PID TERM assertion, then failed at `partial recovered-checkpoint cleanup removed persistent identity`. Root cause was a test-fixture omission: the new assertion checked `identity.secret` preservation, but this case had not created the file.

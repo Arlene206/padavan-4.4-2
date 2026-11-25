@@ -748,9 +748,13 @@ zerotier_firewall_state_load() {
 	{
 		IFS= read -r zt_state_saved_interface || return 1
 		IFS= read -r zt_state_saved_segment || return 1
+		zt_state_extra=""
 		if IFS= read -r zt_state_extra; then
 			return 1
 		fi
+		# read returns failure both for clean EOF and for an unterminated
+		# trailing fragment. Only an empty value is a clean end of file.
+		[ -z "$zt_state_extra" ] || return 1
 	} < "$zt_state_file"
 	case "$zt_state_saved_interface" in
 		zt*) ;;

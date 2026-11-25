@@ -1644,8 +1644,40 @@ fi
 [ ! -s "$TEST_KILL_LOG" ] || fail "truncated checkpoint prefix signalled the daemon"
 [ ! -s "$TEST_IPTABLES_LOG" ] || fail "truncated checkpoint prefix changed firewall state"
 [ -f "$TEST_CONFIG/identity.secret" ] || fail "truncated checkpoint prefix removed persistent identity"
-[ "$(cat "$TEST_CONFIG/.firewall-state")" = "10.147.17.0/24" ] || fail "truncated checkpoint prefix was rewritten"
+[ "$(cat "$TEST_CONFIG/.firewall-state")" = "$(printf 'ztunit\n10.147.17.0/24')" ] || fail "truncated checkpoint prefix was rewritten"
 [ ! -s "$TEST_ACTION_LOG" ] || fail "truncated checkpoint prefix changed persistent configuration"
+# An unterminated trailing fragment is not a clean EOF for the strict
+# loader, and stop-only prefix recovery also requires a complete extra line.
+/bin/rm -rf "$TEST_CONFIG"
+mkdir -p "$TEST_CONFIG"
+: > "$TEST_IPTABLES_STATE_FILE"
+test_seed_firewall_rules
+: > "$TEST_IPTABLES_LOG"
+printf '%s\n%s\n%s' 'ztunit' '10.147.17.0/24' 'partial-tail' > "$TEST_CONFIG/.firewall-state"
+echo identity > "$TEST_CONFIG/identity.secret"
+echo running > "$TEST_STATE"
+TEST_STATIC_ROUTE_COUNT=0
+TEST_STATIC_ROUTE_ENABLE=0
+TEST_NAT_ENABLE=0
+TEST_IFCONFIG_MODE=running-only
+TEST_ROUTE_MODE=none
+TEST_EXPECT_SAVED_SEGMENT=1
+: > "$TEST_KILL_LOG"
+: > "$TEST_ACTION_LOG"
+test_proc_reset
+test_proc_add 4335 "$PROG" "$PROG"
+TEST_MODE=graceful
+if stop_zero; then
+	fail "stop accepted an unterminated trailing checkpoint fragment"
+fi
+[ "$(cat "$TEST_STATE")" = running ] || fail "unterminated trailing fragment stopped the daemon"
+[ ! -s "$TEST_KILL_LOG" ] || fail "unterminated trailing fragment signalled the daemon"
+[ ! -s "$TEST_IPTABLES_LOG" ] || fail "unterminated trailing fragment changed firewall state"
+[ -f "$TEST_CONFIG/identity.secret" ] || fail "unterminated trailing fragment removed persistent identity"
+[ "$(cat "$TEST_CONFIG/.firewall-state")" = "$(printf 'ztunit\n10.147.17.0/24\npartial-tail')" ] || fail "unterminated trailing fragment was rewritten"
+[ ! -s "$TEST_ACTION_LOG" ] || fail "unterminated trailing fragment changed persistent configuration"
+TEST_EXPECT_SAVED_SEGMENT=0
+
 TEST_EXPECT_SAVED_SEGMENT=0
 
 /bin/rm -rf "$TEST_CONFIG"

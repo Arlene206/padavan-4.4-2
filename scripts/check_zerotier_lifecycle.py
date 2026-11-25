@@ -412,7 +412,8 @@ require('zt_state_file="$config_path/.firewall-state"' in stop_body and
         stop_body.index('if ! zerotier_read_nat_enabled; then') and
         'stop ignored a firewall deletion failure after recovering a valid checkpoint prefix' in test and
         'recovered checkpoint did not retain its canonical retry tuple' in test and
-        'stop recovered a truncated checkpoint prefix' in test,
+        'stop recovered a truncated checkpoint prefix' in test and
+        'stop accepted an unterminated trailing checkpoint fragment' in test,
         "stop may sanitize only a complete, validated checkpoint prefix; a truncated or semantically invalid tuple must still block shutdown")
 for marker in ("rules accepted an unreadable NAT selector as disabled",
                "NAT selector read failure stopped the daemon",
@@ -516,6 +517,11 @@ require('[ -f "$zt_state_file" ] && [ ! -L "$zt_state_file" ]' in state_load_bod
         'zt_state_saved_interface' in state_load_body and
         'zt_state_saved_segment' in state_load_body,
         "firewall retry state must reject symlinks and restore the validated interface/network")
+
+require('zt_state_extra=""' in state_load_body and
+        '[ -z "$zt_state_extra" ] || return 1' in state_load_body,
+        "strict checkpoint loading must reject unterminated trailing bytes instead of treating read's EOF status as an empty file")
+
 
 require('[ -f "$zt_state_file" ] && [ ! -L "$zt_state_file" ]' in state_recover_body and
         'IFS= read -r zt_state_saved_interface || return 1' in state_recover_body and
