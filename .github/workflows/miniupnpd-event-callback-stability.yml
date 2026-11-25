@@ -1,0 +1,43 @@
+name: miniupnpd event callback URL and buffer bounds regression
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/miniupnpd-event-callback-stability.yml"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/upnphttp.c"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/upnpevents.c"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd_event_callback_policy.h"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/tests/miniupnpd_event_callback_policy_test.c"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/Makefile.linux"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/Makefile.linux_nft"
+      - "scripts/check_miniupnpd_event_callback.py"
+  pull_request:
+    paths:
+      - ".github/workflows/miniupnpd-event-callback-stability.yml"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/upnphttp.c"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/upnpevents.c"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd_event_callback_policy.h"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/tests/miniupnpd_event_callback_policy_test.c"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/Makefile.linux"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/Makefile.linux_nft"
+      - "scripts/check_miniupnpd_event_callback.py"
+
+permissions:
+  contents: read
+
+jobs:
+  miniupnpd-event-callback:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and run GNU89 callback URL and buffer policy tests
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -Itrunk/user/miniupnpd/miniupnpd-2.x \
+            trunk/user/miniupnpd/miniupnpd-2.x/tests/miniupnpd_event_callback_policy_test.c \
+            -o /tmp/miniupnpd_event_callback_policy_test
+          ASAN_OPTIONS=detect_leaks=1 /tmp/miniupnpd_event_callback_policy_test
+      - name: Verify production callback and notification boundaries
+        run: python3 scripts/check_miniupnpd_event_callback.py

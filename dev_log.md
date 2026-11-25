@@ -1,3 +1,15 @@
+## 2026-11-25 — Bound MiniUPnP event callback URLs and notification lengths
+
+- `checkCallbackURL()` accepted IP-literal callback URLs without a slash path (for example `http://192.0.2.10`) and did not validate ports. The later notification worker scanned for `/` without a string bound and parsed the port with `atoi()`, permitting an out-of-bounds read from a malformed, LAN-supplied callback.
+- Added a shared bounded callback parser for numeric IPv4/IPv6 URLs, a strict decimal port range (1–65535), mandatory absolute path, and rejected raw controls/whitespace, fragments, invalid percent escapes and HTTP delimiter bytes. The SUBSCRIBE validator searches within its declared header span and only stores a valid callback whose literal address matches the requesting client.
+- The notification worker now re-parses its NUL-terminated callback using the same policy; it uses the validated port/path and checks inet_pton results. No unbounded port/path scan or `atoi()` remains.
+- The notification request builder also used `snprintf()`'s would-have-written return value as the send length without checking it against the fixed allocation. It now rejects negative/truncated formatting before setting `tosend`.
+- Added GNU89 ASan/UBSan tests for IPv4/IPv6, default and boundary ports, missing paths, malformed authorities, path injection bytes, percent escapes and notification buffer size boundaries. Both Linux Makefiles depend on the new policy header.
+- Parent baseline: `7bcef331344c956d3983e88ab82460af399035ab`. Exact-SHA callback regression and XY-C1 build checks pending; no firmware or live-router runtime result is claimed.
+- Changed paths: `upnphttp.c`, `upnpevents.c`, new callback policy header/test/checker/workflow, both Linux Makefiles and `dev_log.md`.
+
+---
+
 ## 2026-11-25 — Avoid signed-char undefined behavior in UDPXY relay option parsing
 
 - The bounded relay parser still used `strchr(SEP, host[i])` while scanning an attacker-controlled group literal. On targets with signed `char`, bytes 0x80..0xff become negative; passing those values to `strchr` violates its requirement that the argument be EOF or an unsigned-char value.

@@ -159,7 +159,7 @@ miniupnpd.o: miniupnpdtypes.h upnphttp.h upnpdescgen.h miniupnpdpath.h
 miniupnpd.o: getifaddr.h upnpsoap.h options.h minissdp.h upnpredirect.h
 miniupnpd.o: upnppinhole.h daemonize.h upnpevents.h asyncsendto.h natpmp.h
 miniupnpd.o: pcpserver.h commonrdr.h upnputils.h ifacewatcher.h
-upnphttp.o: config.h upnphttp.h upnpdescgen.h miniupnpdpath.h upnpsoap.h
+upnphttp.o: config.h upnphttp.h upnpdescgen.h miniupnpdpath.h upnpsoap.h miniupnpd_event_callback_policy.h
 upnphttp.o: upnpevents.h upnputils.h miniupnpd_http_request_policy.h
 upnpdescgen.o: config.h getifaddr.h upnpredirect.h upnpdescgen.h
 upnpdescgen.o: miniupnpdpath.h upnpglobalvars.h upnppermissions.h
@@ -193,7 +193,7 @@ pcpserver.o: config.h pcpserver.h macros.h upnpglobalvars.h upnppermissions.h
 pcpserver.o: miniupnpdtypes.h pcplearndscp.h upnpredirect.h commonrdr.h
 pcpserver.o: getifaddr.h asyncsendto.h pcp_msg_struct.h netfilter_nft/nftnlrdr.h
 pcpserver.o: commonrdr.h
-upnpevents.o: config.h upnpevents.h miniupnpdpath.h upnpglobalvars.h
+upnpevents.o: config.h upnpevents.h miniupnpdpath.h upnpglobalvars.h miniupnpd_event_callback_policy.h
 upnpevents.o: upnppermissions.h miniupnpdtypes.h upnpdescgen.h upnputils.h miniupnpd_event_subscription_policy.h
 upnputils.o: config.h upnputils.h upnpglobalvars.h upnppermissions.h
 upnputils.o: miniupnpdtypes.h getroute.h

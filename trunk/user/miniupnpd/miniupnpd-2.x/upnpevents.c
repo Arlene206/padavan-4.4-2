@@ -26,6 +26,7 @@
 #endif /* LIB_UUID / BSD_UUID */
 #include "upnpevents.h"
 #include "miniupnpd_event_subscription_policy.h"
+#include "miniupnpd_event_callback_policy.h"
 #include "miniupnpdpath.h"
 #include "upnpglobalvars.h"
 #include "upnpdescgen.h"
@@ -315,8 +316,9 @@ error:
 static void
 upnp_event_notify_connect(struct upnp_event_notify * obj)
 {
-	unsigned int i;
-	const char * p;
+	struct miniupnpd_event_callback parsed;
+	const char *callback;
+	size_t callback_len;
 	unsigned short port;
 #ifdef ENABLE_IPV6
 	struct sockaddr_storage addr;
@@ -326,77 +328,60 @@ upnp_event_notify_connect(struct upnp_event_notify * obj)
 	socklen_t addrlen;
 #endif
 
-	if(!obj)
+	if(!obj || obj->sub == NULL) {
+		if(obj)
+			obj->state = EError;
 		return;
-	memset(&addr, 0, sizeof(addr));
-	i = 0;
-	if(obj->sub == NULL) {
+	}
+	callback = obj->sub->callback;
+	callback_len = strlen(callback);
+	if(miniupnpd_event_parse_callback_url(callback, callback_len,
+	                                      &parsed) != 0) {
 		obj->state = EError;
 		return;
 	}
-	p = obj->sub->callback;
-	p += 7;	/* http:// */
+	memset(&addr, 0, sizeof(addr));
+	port = parsed.port;
+	obj->path = callback + parsed.path_offset;
 #ifdef ENABLE_IPV6
-	if(*p == '[') {	/* ip v6 */
-		obj->addrstr[i++] = '[';
-		p++;
+	if(parsed.family == AF_INET6) {
+		struct sockaddr_in6 *sa = (struct sockaddr_in6 *)&addr;
+
 		obj->ipv6 = 1;
-		while(*p != ']' && i < (sizeof(obj->addrstr)-1))
-			obj->addrstr[i++] = *(p++);
-		if(*p == ']')
-			p++;
-		if(i < (sizeof(obj->addrstr)-1))
-			obj->addrstr[i++] = ']';
-	} else {
-#endif
-		while(*p != '/' && *p != ':' && i < (sizeof(obj->addrstr)-1))
-			obj->addrstr[i++] = *(p++);
-#ifdef ENABLE_IPV6
-	}
-#endif
-	obj->addrstr[i] = '\0';
-	if(*p == ':') {
-		obj->portstr[0] = *p;
-		i = 1;
-		p++;
-		port = (unsigned short)atoi(p);
-		while(*p != '/') {
-			if(i<7) obj->portstr[i++] = *p;
-			p++;
+		if(snprintf(obj->addrstr, sizeof(obj->addrstr), "[%s]",
+		            parsed.host) >= (int)sizeof(obj->addrstr) ||
+		   inet_pton(AF_INET6, parsed.host, &(sa->sin6_addr)) != 1) {
+			obj->state = EError;
+			return;
 		}
-		obj->portstr[i] = 0;
-	} else {
-		port = 80;
-		obj->portstr[0] = '\0';
-	}
-	obj->path = p;
-#ifdef ENABLE_IPV6
-	if(obj->ipv6) {
-		char addrstr_tmp[48];
-		struct sockaddr_in6 * sa = (struct sockaddr_in6 *)&addr;
 		sa->sin6_family = AF_INET6;
-		i = (int)strlen(obj->addrstr);
-		if(i > 2) {
-			i -= 2;
-			memcpy(addrstr_tmp, obj->addrstr + 1, i);
-			addrstr_tmp[i] = '\0';
-			inet_pton(AF_INET6, addrstr_tmp, &(sa->sin6_addr));
-		}
 		sa->sin6_port = htons(port);
-		addrlen = sizeof(struct sockaddr_in6);
-	} else {
-		struct sockaddr_in * sa = (struct sockaddr_in *)&addr;
-		sa->sin_family = AF_INET;
-		inet_pton(AF_INET, obj->addrstr, &(sa->sin_addr));
-		sa->sin_port = htons(port);
-		addrlen = sizeof(struct sockaddr_in);
-	}
-#else
-	addr.sin_family = AF_INET;
-	inet_aton(obj->addrstr, &addr.sin_addr);
-	addr.sin_port = htons(port);
-	addrlen = sizeof(struct sockaddr_in);
+		addrlen = sizeof(*sa);
+	} else
 #endif
+	{
+		struct sockaddr_in *sa;
+#ifdef ENABLE_IPV6
+		obj->ipv6 = 0;
+		sa = (struct sockaddr_in *)&addr;
+#else
+		sa = &addr;
+#endif
+		if(parsed.family != AF_INET ||
+		   snprintf(obj->addrstr, sizeof(obj->addrstr), "%s",
+		            parsed.host) >= (int)sizeof(obj->addrstr) ||
+		   inet_pton(AF_INET, parsed.host, &(sa->sin_addr)) != 1) {
+			obj->state = EError;
+			return;
+		}
+		sa->sin_family = AF_INET;
+		sa->sin_port = htons(port);
+		addrlen = sizeof(*sa);
+	}
+	if(port == 80)
+		obj->portstr[0] = '\0';
+	else
+		(void)snprintf(obj->portstr, sizeof(obj->portstr), ":%hu", port);
 	syslog(LOG_DEBUG, "%s: '%s' %hu '%s'", "upnp_event_notify_connect",
 	       obj->addrstr, port, obj->path);
 	obj->state = EConnecting;
@@ -471,10 +456,26 @@ static void upnp_event_prepare(struct upnp_event_notify * obj)
 		obj->state = EError;
 		return;
 	}
-	obj->tosend = snprintf(obj->buffer, obj->buffersize, notifymsg,
+	{
+		int written;
+
+		written = snprintf(obj->buffer, obj->buffersize, notifymsg,
 	                       obj->path, obj->addrstr, obj->portstr, l+2,
 	                       obj->sub->uuid, obj->sub->seq,
 	                       l, xml);
+		if(!miniupnpd_event_buffer_length_fits(written,
+		                                       (size_t)obj->buffersize)) {
+			syslog(LOG_WARNING,
+			       "event notification request exceeds buffer capacity");
+			if(xml) {
+				free(xml);
+				xml = NULL;
+			}
+			obj->state = EError;
+			return;
+		}
+		obj->tosend = (unsigned int)written;
+	}
 	if(xml) {
 		free(xml);
 		xml = NULL;

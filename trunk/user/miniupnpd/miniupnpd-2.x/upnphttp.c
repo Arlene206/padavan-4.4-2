@@ -30,6 +30,7 @@
 #include "miniupnpdpath.h"
 #include "upnpsoap.h"
 #include "upnpevents.h"
+#include "miniupnpd_event_callback_policy.h"
 #include "upnputils.h"
 
 #ifdef ENABLE_HTTPS
@@ -546,81 +547,66 @@ ProcessHTTPPOST_upnphttp(struct upnphttp * h)
 static int
 checkCallbackURL(struct upnphttp * h)
 {
-	char addrstr[48];
-	int ipv6;
-	const char * p;
-	unsigned int i;
+	const char *cursor;
+	const char *end;
 
-start_again:
-	if(h->req_CallbackOff <= 0 || h->req_CallbackLen < 10)
+	if(h->req_CallbackOff <= 0 || h->req_CallbackLen <= 0)
 		return 0;
-	if(memcmp(h->req_buf + h->req_CallbackOff, "<http://", 8) != 0) {
-		p = h->req_buf + h->req_CallbackOff + 1;
-		goto invalid;
-	}
-	/* extract host from url to addrstr[] */
-	i = 0;
-	p = h->req_buf + h->req_CallbackOff + 8;
-	if(*p == '[') {
-		p++;
-		ipv6 = 1;
-		while(*p != ']' && *p != '>' && i < (sizeof(addrstr)-1)
-		      && p < (h->req_buf + h->req_CallbackOff + h->req_CallbackLen))
-			addrstr[i++] = *(p++);
-	} else {
-		ipv6 = 0;
-		while(*p != '/' && *p != ':' && *p != '>' && i < (sizeof(addrstr)-1)
-		      && p < (h->req_buf + h->req_CallbackOff + h->req_CallbackLen))
-			addrstr[i++] = *(p++);
-	}
-	addrstr[i] = '\0';
-	/* check addrstr */
-	if(ipv6) {
+	cursor = h->req_buf + h->req_CallbackOff;
+	end = cursor + h->req_CallbackLen;
+	while(cursor < end) {
+		const char *open;
+		const char *close;
+		struct miniupnpd_event_callback parsed;
+		int same_client = 0;
+
+		open = memchr(cursor, '<', (size_t)(end - cursor));
+		if(open == NULL)
+			return 0;
+		close = memchr(open + 1, '>', (size_t)(end - open - 1));
+		if(close == NULL)
+			return 0;
+		if(miniupnpd_event_parse_callback_url(open + 1,
+		                                      (size_t)(close - open - 1),
+		                                      &parsed) == 0) {
+			if(parsed.family == AF_INET) {
+				struct in_addr address;
+
+				if(inet_pton(AF_INET, parsed.host, &address) == 1) {
 #ifdef ENABLE_IPV6
-		struct in6_addr addr;
-		if(inet_pton(AF_INET6, addrstr, &addr) <= 0)
-			goto invalid;
-		if(!h->ipv6
-		  || (0!=memcmp(&addr, &(h->clientaddr_v6), sizeof(struct in6_addr))))
-			goto invalid;
-#else
-		goto invalid;
+					if(h->ipv6) {
+						if(IN6_IS_ADDR_V4MAPPED(&(h->clientaddr_v6)) &&
+						   memcmp(&address,
+						          ((const char *)&(h->clientaddr_v6) + 12),
+						          sizeof(address)) == 0)
+							same_client = 1;
+					} else
 #endif
-	} else {
-		struct in_addr addr;
-		if(inet_pton(AF_INET, addrstr, &addr) <= 0)
-			goto invalid;
+					if(memcmp(&address, &(h->clientaddr),
+					          sizeof(address)) == 0)
+						same_client = 1;
+				}
+			}
 #ifdef ENABLE_IPV6
-		if(h->ipv6) {
-			if(!IN6_IS_ADDR_V4MAPPED(&(h->clientaddr_v6)))
-				goto invalid;
-			if(0!=memcmp(&addr, ((const char *)&(h->clientaddr_v6) + 12), 4))
-				goto invalid;
-		} else {
-			if(0!=memcmp(&addr, &(h->clientaddr), sizeof(struct in_addr)))
-				goto invalid;
+			else if(parsed.family == AF_INET6) {
+				struct in6_addr address;
+
+				if(h->ipv6 &&
+				   inet_pton(AF_INET6, parsed.host, &address) == 1 &&
+				   memcmp(&address, &(h->clientaddr_v6),
+				          sizeof(address)) == 0)
+					same_client = 1;
+			}
+#endif
 		}
-#else
-		if(0!=memcmp(&addr, &(h->clientaddr), sizeof(struct in_addr)))
-			goto invalid;
-#endif
+		if(same_client) {
+			h->req_CallbackOff = (int)(open + 1 - h->req_buf);
+			h->req_CallbackLen = (int)(close - open - 1);
+			return 1;
+		}
+		cursor = close + 1;
 	}
-	/* select only the good callback url */
-	while(p < h->req_buf + h->req_CallbackOff + h->req_CallbackLen && *p != '>')
-		p++;
-	h->req_CallbackOff++;	/* skip initial '<' */
-	h->req_CallbackLen = (int)(p - h->req_buf - h->req_CallbackOff);
-	return 1;
-invalid:
-	while(p < h->req_buf + h->req_CallbackOff + h->req_CallbackLen && *p != '>')
-		p++;
-	if(*p != '>') return 0;
-	while(p < h->req_buf + h->req_CallbackOff + h->req_CallbackLen && *p != '<')
-		p++;
-	if(*p != '<') return 0;
-	h->req_CallbackLen -= (int)(p - h->req_buf - h->req_CallbackOff);
-	h->req_CallbackOff = (int)(p - h->req_buf);
-	goto start_again;
+	return 0;
 }
 
 static void
