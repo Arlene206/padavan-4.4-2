@@ -94,6 +94,23 @@ status() {
 }
 run() { /bin/sh "$base/iappd.sh" "$1"; }
 iapp_source="$base/src/rtmpiapp.c"
+grep -Fq "iapp_ioctl_ifname_arg_valid(" "$iapp_source" ||
+  fail "IAPP -wi parser must validate interface count and name length"
+parser_guard_line=$(grep -n -F "iapp_ioctl_ifname_arg_valid(" "$iapp_source" | head -1 | cut -d: -f1)
+parser_store_line=$(grep -n -F "strcpy(pCtrlBK->IfNameWlanIoctl[pCtrlBK->IfNameWlanCount]," "$iapp_source" | head -1 | cut -d: -f1)
+[ -n "$parser_guard_line" ] && [ -n "$parser_store_line" ] && [ "$parser_guard_line" -lt "$parser_store_line" ] ||
+  fail "IAPP -wi parser must validate before writing the fixed interface array"
+grep -Fq "iapp_ioctl_ifname_select(" "$iapp_source" ||
+  fail "IAPP ioctl path must use the bounded interface selector"
+grep -Fq "ApIdx, sizeof(IfName), FT_KDP_DEFAULT_IF_WLAN_IOCTL" "$iapp_source" ||
+  fail "IAPP ioctl selector must receive the BSS index, output bound and fallback"
+grep -Fq "strlen(pCtrlBK->IfNameWlanIoctl[ApIdx])" "$iapp_source" &&
+  fail "IAPP ioctl path must not read the interface array before validating ApIdx"
+
+iapp_ifname_test="$tmp/iapp_ioctl_ifname_policy"
+cc -std=c99 -Wall -Wextra -Werror "$base/tests/iapp_ioctl_ifname_policy.c" -o "$iapp_ifname_test" ||
+  fail "could not compile IAPP ioctl interface bounds regression"
+"$iapp_ifname_test" || fail "IAPP ioctl interface bounds regression failed"
 grep -Fq 'if (listen(pCtrlBK->SocketTcpRcv, 128) < 0)' "$iapp_source" ||
   fail "IAPP TCP listener setup must fail closed when listen() fails"
 grep -A4 -F 'if (listen(pCtrlBK->SocketTcpRcv, 128) < 0)' "$iapp_source" |

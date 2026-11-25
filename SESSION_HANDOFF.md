@@ -1,28 +1,29 @@
 ## Current repository state — 2026-11-25
 
-- Live main parent before this IAPP TCP restart slice: 1bc8702aafaa7f33c6517f0b3980a7699d5dc929; production C source, host socket regression, shell source contract, IAPP workflow path, dev log and handoff are one atomic descendant.
+- Live main parent before this IAPP index-safety slice: 7d525c481a9cac2868b6ac58b3123cbf53278d05; C source, new policy header, C regression, shell regression, IAPP workflow, dev log and handoff are one atomic descendant.
 - Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains read-only at 72f4f157a084f8184b9597ca5bf334b8080e5807.
-- XY-C1 firmware L3 was achieved on `8b9b63401dd85232b257120111bb18475db6b5b6`: exact run #45685416720 Build XY-C1 PASS, TRX verification PASS, artifact upload PASS. This is not a physical router L4 result.
-- IAPP firewall exact-match fix `defc1fe850158dd8c2bb179ad39a650037c11f5a` passed IAPP lifecycle #45686985107, AI handoff #45686985129, process lifecycle #45686985030 and inventory #45686985036; its XY-C1 #45686985116 was in progress at last poll.
-- IAPP TCP listen failure fix `5ff68edb06869f3f58d7f69f5db1a96f9788ef2e` passed IAPP lifecycle #45687310341, inventory #45687310391 and AI handoff #45687310376; Process #45687310401 PASS; NVRAM run #45687310476 cancelled by later concurrency. XY-C1 #45687310380 was still building at last poll.
-- XY-C1 workflow source coverage was repaired in `1bc8702aafaa7f33c6517f0b3980a7699d5dc929`, adding `trunk/user/ralinkiappd/src/**` to push and PR path filters; exact Build/Process/handoff runs were queued at last poll.
-- This IAPP slice adds SO_REUSEADDR to TCP listener setup and a compiled host regression for immediate rebind after server-side TIME_WAIT. Exact-head IAPP/XY-C1 CI is pending.
-- PR #1 inventory complete and no code port needed. Backup untouched. Physical-router L4 NOT VERIFIED.
+- XY-C1 L3 verified on exact SHA 8b9b63401dd85232b257120111bb18475db6b5b6: Build, TRX validation and artifact upload all PASS. Physical-router L4 remains NOT VERIFIED.
+- IAPP firewall exact-match fix defc1fe850158dd8c2bb179ad39a650037c11f5a: IAPP, process, AI handoff and inventory PASS; XY-C1 was still building at last poll.
+- IAPP listen failure fix 5ff68edb06869f3f58d7f69f5db1a96f9788ef2e: IAPP, Process, AI handoff and inventory PASS; XY-C1 was building at last poll; NVRAM was cancelled by concurrency.
+- IAPP source-trigger correction 1bc8702aafaa7f33c6517f0b3980a7699d5dc929 adds `trunk/user/ralinkiappd/src/**` to XY-C1 push+PR path filters; its exact workflow runs were queued at last poll.
+- SO_REUSEADDR/TIME_WAIT fix is committed at 7d525c481a9cac2868b6ac58b3123cbf53278d05. Exact-head IAPP, Process, NVRAM, inventory, AI and XY-C1 runs were in progress when checked; no result is inferred.
+- New bounded-index fix addresses the two-element `IfNameWlanIoctl` array: `IAPP_IoctlToWLAN()` previously indexed before checking and compared `ApIdx > 2`; the argument parser also wrote the third `-wi` into memory out of bounds. The new selector and parser guard have host C tests. Exact-head Actions pending.
+- PR #1 inventory remains complete; all valid HMAC/CA changes integrated or superseded. No cherry-pick. Backup untouched.
 
 ## Active task
 
-Validate the IAPP TCP TIME_WAIT restart test and exact-head XY-C1 firmware build for the SO_REUSEADDR source change. Then continue reviewing IAPP's remaining fatal startup system calls and move across userland.
+Validate the exact-head IAPP ioctl interface bounds policy and XY-C1 build, then continue the bounded IAPP fatal-resource/security review.
 
 ## Exact first actions for next GPT
 
-1. Inspect exact-head IAPP workflow's compiled C regression and source-contract steps; repair any real host-test failure.
-2. Verify exact same-SHA XY-C1 Build, TRX and artifact upload for this production C change. L3 is only met when all three PASS.
-3. Poll the 1bc8702 XY-C1 workflow/path coverage tests and previous 5ff/defc runs; record outcomes without waiting when other work is available.
-4. Preserve backup and do not cherry-pick PR #1.
+1. Inspect exact-head IAPP workflow C helper regression and parser/selector source contract; fix any actual mismatch.
+2. Verify exact same-SHA XY-C1 Build, TRX and artifact upload for this production C source update.
+3. Poll the 7d525c exact-head runs and the 1bc8702 source-path regression without re-auditing completed VSFTPD/PR work.
+4. Preserve frozen backup; no cherry-pick of closed PR #1.
 
 ## Execution contract
 
-Main only; backup/pre-plugin-overhaul-2026-11-14 read-only. Full Git trees and one commit per logical slice; non-force update with expected parent SHA. No force push, development branches, new PRs.
+Main-only; complete Git tree + one commit per logical slice, non-force expected-SHA update. No force push, development branches or new PRs. PENDING Actions do not block independent work.
 ## 2026-11-25 autonomous handoff checkpoint
 
 This checkpoint supersedes older active task pointers below; retain historical completed work without re-auditing completed areas.

@@ -25,6 +25,7 @@
 #include "rt_config.h"
 #include "rtmpiapp.h"
 #include "iappdefs.h"
+#include "iapp_ioctl_ifname_policy.h"
 
 INT32 RTDebugLevel = RT_DEBUG_ERROR;
 
@@ -520,7 +521,15 @@ static BOOLEAN IAPP_ArgumentParse(
 
 			if (Argc > 0)
 			{
-				strcpy(pCtrlBK->IfNameWlanIoctl[pCtrlBK->IfNameWlanCount++], pArgv[0]);
+				if (!iapp_ioctl_ifname_arg_valid(
+					pCtrlBK->IfNameWlanCount, MAX_WIFI_COUNT,
+					strlen(pArgv[0]), sizeof(pCtrlBK->IfNameWlanIoctl[0])))
+				{
+					DBGPRINT(RT_DEBUG_ERROR, "iapp> Invalid -wi interface or too many interfaces!\\n");
+					return FALSE;
+				}
+				strcpy(pCtrlBK->IfNameWlanIoctl[pCtrlBK->IfNameWlanCount], pArgv[0]);
+				pCtrlBK->IfNameWlanCount++;
 				IAPP_AGP_CMD_PARSE_NEXT_ONE;
 			} /* End of if */
 		}
@@ -704,11 +713,10 @@ BOOLEAN IAPP_IoctlToWLAN(
 	memset(&Wrq, 0, sizeof(Wrq));
 
 #ifdef IAPP_OS_LINUX
-	if ((strlen(pCtrlBK->IfNameWlanIoctl[ApIdx]) >= sizeof(IfName)) ||
-		(ApIdx > MAX_WIFI_COUNT))
-		strcpy(IfName, FT_KDP_DEFAULT_IF_WLAN_IOCTL);
-	else
-		strcpy(IfName, pCtrlBK->IfNameWlanIoctl[ApIdx]);
+	strcpy(IfName, iapp_ioctl_ifname_select(
+		(const CHAR *)pCtrlBK->IfNameWlanIoctl, MAX_WIFI_COUNT,
+		sizeof(pCtrlBK->IfNameWlanIoctl[0]), pCtrlBK->IfNameWlanCount,
+		ApIdx, sizeof(IfName), FT_KDP_DEFAULT_IF_WLAN_IOCTL));
 	/* End of if */
 
 	strncpy(Wrq.ifr_name, IfName, 11);

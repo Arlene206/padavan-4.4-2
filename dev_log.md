@@ -1,3 +1,10 @@
+## 2026-11-25 — Bound Ralink IAPP wireless interface indices
+
+- Fixed a concrete out-of-bounds read/write in the Ralink IAPP daemon. `MAX_WIFI_COUNT` is 2, but `IAPP_IoctlToWLAN()` dereferenced `IfNameWlanIoctl[ApIdx]` before testing the index and used `ApIdx > MAX_WIFI_COUNT`, allowing index 2 (and larger values) to access beyond the two-slot array. The `-wi` parser also incremented `IfNameWlanCount` and wrote into the array without checking capacity or interface-name length.
+- Added a bounded interface-name policy: the `-wi` parser validates count and nonempty NUL-terminated argument length before storing; ioctl selection validates configured count and index before pointer arithmetic, bounds the NUL search to the slot, and falls back for invalid/empty/too-long slots.
+- Added a compiled C regression for valid slots, index 2/255, negative/unconfigured indices, invalid counts, empty/unterminated/oversized names and parser capacity. The IAPP lifecycle suite enforces parser/selector source ordering and runs the new C test. Exact-head IAPP and XY-C1 Actions pending.
+
+---
 ## 2026-11-25 — Make the IAPP TCP listener restart-safe after TIME_WAIT
 
 - The Ralink IAPP TCP listener bound port 3517 without SO_REUSEADDR. A graceful stop after accepted TCP peers can leave the server endpoint in TIME_WAIT; an immediate restart then fails bind with EADDRINUSE. A local Linux socket reproduction confirmed the replacement listener must set SO_REUSEADDR and the previous listener must also have had it enabled.
