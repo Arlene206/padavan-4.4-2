@@ -927,7 +927,10 @@ jobs:
           assert "realpath(parent, resolved)" in acl_path_policy
           assert rnfr.index("resolve_tilde(") < rnfr.index("vsf_access_check_file(")
           assert rnfr.index("vsf_access_check_file(") < rnfr.index("prepend_path_to_filename(&p_sess->ftp_arg_str)")
-          assert rnfr.index("prepend_path_to_filename(&p_sess->ftp_arg_str)") < rnfr.index("asus_check_permission_path(p_sess, PERM_DELETE")
+          assert rnfr.index("prepend_path_to_filename(&p_sess->ftp_arg_str)") < rnfr.index("asus_check_rename_source_path(")
+          assert "asus_check_permission_path(" not in rnfr
+          assert rename_source.count("ftp_acl_path_verify_directory_identity(") == 2
+          assert rename_source.index("asus_check_permission_at(p_sess, PERM_DELETE") < rename_source.index("ftp_acl_path_verify_directory_identity(") < rename_source.index("ftp_acl_path_stat_entry_at(") < rename_source.rindex("ftp_acl_path_verify_directory_identity(")
           assert "asus_check_rename_source_path" in vsftpd_acl_header
           assert "ftp_acl_path_stat_entry_at(parent_fd, leaf, &entry_stat)" in rename_source
           assert rename_source.index("asus_check_permission_at(p_sess, PERM_DELETE") < rename_source.index("ftp_acl_path_verify_directory_identity(") < rename_source.index("ftp_acl_path_stat_entry_at(")
@@ -937,6 +940,10 @@ jobs:
           assert "test_rename_source_entry_stat" in acl_path_test
           assert "RNFR source stat followed an external symlink target" in acl_path_test
           assert "dangling RNFR source symlink was treated as missing" in acl_path_test
+          assert "RNFR source stat accepted reserved FTP metadata" in acl_path_test
+          assert "RNFR source stat accepted partition control metadata" in acl_path_test
+          assert "RNFR source stat accepted a slash-containing leaf" in acl_path_test
+          assert "RNFR source stat accepted a dot-dot leaf" in acl_path_test
           assert "str_copy(&p_sess->rnfr_filename_str, &p_sess->ftp_arg_str)" in rnfr
           assert rnto.index("vsf_access_check_file(") < rnto.index("prepend_path_to_filename(&p_sess->ftp_arg_str)")
           assert "asus_rename_path(p_sess, &p_sess->rnfr_filename_str" in rnto

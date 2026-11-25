@@ -115,6 +115,31 @@ test_rename_source_entry_stat(void)
     return 1;
   }
 
+  errno = 0;
+  if (ftp_acl_path_stat_entry_at(dir_fd, ".__alice_var.txt", &entry_stat) == 0 ||
+      errno != EACCES) {
+    fprintf(stderr, "RNFR source stat accepted reserved FTP metadata\\n");
+    return 1;
+  }
+  errno = 0;
+  if (ftp_acl_path_stat_entry_at(dir_fd, ".hidden", &entry_stat) == 0 ||
+      errno != EACCES) {
+    fprintf(stderr, "RNFR source stat accepted partition control metadata\\n");
+    return 1;
+  }
+  errno = 0;
+  if (ftp_acl_path_stat_entry_at(dir_fd, "bad/leaf", &entry_stat) == 0 ||
+      errno != EINVAL) {
+    fprintf(stderr, "RNFR source stat accepted a slash-containing leaf\\n");
+    return 1;
+  }
+  errno = 0;
+  if (ftp_acl_path_stat_entry_at(dir_fd, "..", &entry_stat) == 0 ||
+      errno != EINVAL) {
+    fprintf(stderr, "RNFR source stat accepted a dot-dot leaf\\n");
+    return 1;
+  }
+
   if (close(dir_fd) != 0 || unlink(dangling_link) != 0 ||
       unlink(outside_link) != 0 || unlink(target) != 0 ||
       rmdir(share) != 0 || rmdir(root) != 0) {

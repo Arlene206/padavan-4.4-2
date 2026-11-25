@@ -1,29 +1,28 @@
 ## Current repository state
 
-- Main parent for this checker repair: `b8b8b366ee8eee33be0726081e9ff636f7f3644c`; the next commit is a single non-forced expected-SHA descendant.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- OpenVPN detached startup requires the exact trusted writepid process identity before success. Failed-start rollback only removes resources created by that attempt after two complete OpenVPN process inventories report ABSENT.
-- The TAP preparation helper now reports interface ownership before its fallible `ifconfig` step and no longer removes bridge membership or issues `--rmtun` locally; it leaves cleanup to the guarded caller.
+- Main parent for the RNFR source-contract repair: `6ba2336de958c44fc214f2d50a00af0fc68adc63`; this update is an atomic descendant on `main`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains untouched at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- OpenVPN detached startup remains guarded by exact writepid process identity; failed-start rollback requires two ABSENT process inventories and current-attempt resource ownership.
+- VSFTPD RNFR now checks the final entry using `fstatat(..., AT_SYMLINK_NOFOLLOW)` through a pinned directory descriptor. Exact-SHA #45664520554 C regression passed; the first workflow rerun #45664790224 passed docs but still failed at a stale `asus_check_permission_path` order assertion. Its signature lookup is already corrected in main `6ba2336de958c44fc214f2d50a00af0fc68adc63`.
 
-## Active task
+## Active fix
 
-- Correct the lifecycle source checker to assert deferred TAP cleanup rather than the deleted local rollback.
+- Remove that obsolete source assertion, verify the parent path still identifies the pinned FD after the nofollow stat, and extend the regression for reserved metadata and malformed leaves.
 
 ## Verification boundary
 
-- Exact SHA `b8b8b366ee8eee33be0726081e9ff636f7f3644c`: VPN lifecycle #45662893097 FAILED only at the stale old TAP cleanup ordering assertion; all C regressions passed, including OpenVPN rollback under GNU89 ASan/UBSan. AI docs #45662892982, OpenVPN credential #45662893530, process lifecycle #45662893062, HTTPD #45662893005 and IPv6 #45662893357 PASS.
-- b8 XY-C1 #45662893279 and NVRAM #45662893093 were pending at last poll. dc6 XY-C1 #45660655080 did complete Build XY-C1, TRX verification and artifact upload, but this predates the b8 TAP source change and does not validate b8.
-- Physical-router L4 NOT VERIFIED.
+- Exact SHA `755db25f9241f69997261c55d5b6dd62341c810c`: C regression step PASS; VSFTPD embedded source contract FAIL (initially the literal-backslash-n signature). AI docs #45664520327 PASS.
+- Exact SHA `6ba2336de958c44fc214f2d50a00af0fc68adc63`: AI docs #45664790212 PASS; VSFTPD #45664790224 FAIL because the old inline permission-path order assertion remained. No same-SHA firmware result or physical-router L4 result is claimed.
 
 ## Exact first action for the next GPT
 
-1. Check exact-SHA VPN lifecycle, AI docs, OpenVPN credential and XY-C1 runs for this checker repair commit; inspect any final source-contract assertion.
-2. Confirm b8's XY-C1 job has Build XY-C1, TRX and artifact upload SUCCESS; do not transfer dc6's earlier result.
-3. Continue VSFTPD ACL call-site review. RNFR currently follows the final symlink with path-based `str_stat()` after ACL checks; replace it with descriptor-relative `fstatat(AT_SYMLINK_NOFOLLOW)` on the pinned, authorized parent, with a dangling/external symlink regression.
+1. Check this repair's exact-SHA VSFTPD and AI docs Actions; inspect source-contract completion after all new assertions.
+2. Check same-SHA XY-C1 only if triggered; require Build XY-C1, TRX and artifact on this exact source SHA.
+3. Continue remaining VSFTPD ACL call-site review, then another independent stability/security fix.
 
 ## Execution contract
 
-Source/test → one complete Git tree/commit → non-force expected-SHA update → exact-SHA Actions. Main only; backup immutable; do not truncate the rolling root log.
+Source/test → one complete Git tree/commit → non-force expected-SHA update → exact-SHA Actions. Main only; backup immutable; preserve the complete rolling log and handoff history.
 
 ## 2026-11-25 autonomous handoff checkpoint
 

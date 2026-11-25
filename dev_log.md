@@ -1,3 +1,13 @@
+## 2026-11-26 04:30 CST (UTC+8) — Close RNFR descriptor and source-contract checks
+
+- Base SHA: `6ba2336de958c44fc214f2d50a00af0fc68adc63`; atomic follow-up to the RNFR nofollow-entry implementation.
+- Exact-SHA #45664790224 on `6ba2336de958c44fc214f2d50a00af0fc68adc63` still failed only because the workflow retained one obsolete assertion ordering RNFR through `asus_check_permission_path()`; the helper signature itself was corrected. Removed that assertion and replaced it with the nofollow helper ordering.
+- Revalidate the canonical parent identity after the descriptor-relative stat before releasing the pinned parent FD, so a concurrent path replacement is detected even after the entry probe.
+- Added regression cases for `.__alice_var.txt`, partition `.hidden`, slash-containing leaf and dot-dot leaf. Existing tests already cover external-target and dangling symlinks and genuine ENOENT.
+- Parent #45664790212 AI docs PASS. This repair commit's VSFTPD and any production-triggered XY checks must be polled by exact SHA; no build or router L4 result is assumed.
+
+---
+
 ## 2026-11-26 03:36 CST (UTC+8) — Align VPN TAP checker with fail-closed cleanup
 
 - Base SHA: `b8b8b366ee8eee33be0726081e9ff636f7f3644c`; this is a checker-only repair following the TAP setup rollback safety fix.

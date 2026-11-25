@@ -580,6 +580,11 @@ asus_check_rename_source_path(struct vsf_session* p_sess,
   }
   retval = ftp_acl_path_stat_entry_at(parent_fd, leaf, &entry_stat);
   saved_errno = errno;
+  if (ftp_acl_path_verify_directory_identity(resolved_parent,
+                                              parent_fd) != 0) {
+    *p_permission_denied = 1;
+    goto rename_source_out;
+  }
   close(parent_fd);
   errno = saved_errno;
   return retval;
