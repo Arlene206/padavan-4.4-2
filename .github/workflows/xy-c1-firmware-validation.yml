@@ -239,6 +239,7 @@ on:
       - "trunk/user/rc/src/dnsmasq_lifecycle_lock.h"
       - "trunk/user/rc/src/vpn_openvpn.c"
       - "trunk/user/rc/src/openvpn_client_credentials_policy.h"
+      - "trunk/user/rc/src/openvpn_script_link.h"
       - "trunk/user/openvpn/openvpn-cert.sh"
       - "trunk/user/rc/src/openvpn_process_stop_policy.h"
       - "trunk/user/rc/src/usb_modem.c"

@@ -1,3 +1,12 @@
+## 2026-11-26 00:48 CST (UTC+8) — Fail closed when OpenVPN callback symlink setup fails
+
+- Base SHA: `98f74b97af0d83f6b5d6542c8d355815b30274e8`; result SHA: THIS COMMIT (resolve on next recovery). Scope: `vpn_openvpn.c`, new `openvpn_script_link.h` and regression, OpenVPN workflow/source checker, XY-C1 workflow path filter, handoff/log.
+- Both OpenVPN server and client startup ignored `symlink("/sbin/rc", ...)` return values and continued starting the daemon. A missing/incorrect callback link would leave OpenVPN connected without the state/DNS callback lifecycle. New header code verifies the link is a symlink with literal target `/sbin/rc` using `lstat/readlink`, rechecks inode identity after reading, idempotently reuses a correct existing link, and fails closed for regular files, wrong links, or other errors.
+- Server/client startup now ensures the callback link before interface setup; if interface setup fails, only the link created by this attempt is removed. Host regression covers create/reuse, mismatch, regular-file conflict, and ownership-aware cleanup. This regression and source contract are pending exact-head validation.
+- At base SHA: OpenVPN credential wipe suite #45655016393 PASS; VPN lifecycle #45655016612 PASS; AI docs #45655016470 PASS; IPv6 service type #45655016600 PASS. NVRAM/process/HTTPD and XY-C1 run #45655016829 were still pending. The credential-wipe XY build requires confirmation; predecessor L3 PASS at production SHA `311d6080fd7cb5d6e4cb5906f5923b45c350e108`. L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-26 00:36 CST (UTC+8) — Zeroize OpenVPN client credential snapshots
 
 - Base SHA: `21c84c9c7550bc06a8f987378cb08651d6f4db53`; result SHA: THIS COMMIT (resolve on next recovery). Scope: `vpn_openvpn.c`, new `openvpn_client_credentials_policy.h`, new regression `tests/openvpn_client_credentials_policy.c`, OpenVPN source checker/workflow, XY-C1 workflow path filter, live handoff/log.

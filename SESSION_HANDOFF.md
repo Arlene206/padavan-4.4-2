@@ -1,15 +1,16 @@
-## 2026-11-26 active handoff — zeroize OpenVPN client credential snapshots
+## 2026-11-26 active handoff — make OpenVPN callback links fail closed
 
-- Live main parent: `21c84c9c7550bc06a8f987378cb08651d6f4db53`. VPN server lifecycle rerun #45653816232 PASS, including client NVRAM policy, PPP scalar/multiline, and VPN client NVRAM/DNS integration. OpenVPN secret suite #45653449852 PASS; NVRAM transaction audit #45653449837 PASS; Process lifecycle inventory #45653449686 PASS; AI handoff docs #45653449768 PASS.
-- Production source evidence: XY-C1 run #45652102254 on source SHA `311d6080fd7cb5d6e4cb5906f5923b45c350e108` completed Build XY-C1, TRX verification and artifact upload successfully. Descendant commits `d32243c4` and `21c84c9c` changed test/checker/docs only, not firmware production source. L3 is confirmed for source SHA `311d6080...`; no newer production-source L3 is inferred. Physical-router L4 remains NOT VERIFIED.
-- This slice adds a volatile-store credential wipe helper and regression, wipes the temporary OpenVPN snapshot after transaction copy, wipes it on snapshot failure, and wipes the caller's username/password immediately after config generation or when runtime-state cleanup aborts startup.
+- Live main parent: `98f74b97af0d83f6b5d6542c8d355815b30274e8`. OpenVPN credential staging #45655016393 PASS, including the new volatile-memory wipe regression and source contract. VPN server lifecycle #45655016612 PASS; AI handoff docs #45655016470 PASS; IPv6 service-type #45655016600 PASS. NVRAM audit #45655016419, Process lifecycle inventory #45655016579, process-lifecycle regression #45655016525, HTTPD security #45655016963 and XY-C1 #45655016829 are still running at the last poll.
+- Credential wipe implementation in `98f74b97af0d83f6b5d6542c8d355815b30274e8`: source snapshot pending copy is wiped on success/failure; caller's credentials are wiped on runtime-state cleanup failure and immediately after config generation. The exact-head dedicated OpenVPN secret workflow's in-memory wipe step and contract passed.
+- Production L3 for predecessor source SHA `311d6080fd7cb5d6e4cb5906f5923b45c350e108` was fully verified: XY-C1 build, TRX, artifact upload PASS. The credential wipe commit adds a production helper header and triggered XY-C1 #45655016829; its build/TRX/artifact result remains pending. L4 NOT VERIFIED.
+- New active issue: server/client startup previously ignored `symlink("/sbin/rc", ...)` failures and proceeded to launch OpenVPN without callback scripts, preventing state/DNS lifecycle hooks. This slice makes startup validate/create the exact expected symlink before interface creation, reuse a correct existing link, reject a mismatched symlink or regular file, and remove only links created by this attempt if interface setup fails.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ### First actions
 
-1. Run the exact-head OpenVPN credential wipe host regression, source contract, and full OpenVPN secret workflow.
-2. Inspect XY-C1 exact-SHA Build/TRX/artifact; the new helper header is a production input and is now included in the XY-C1 path filter.
-3. Continue the independent OpenVPN startup callback-symlink/result propagation review; preserve existing symlink behavior and do not treat EEXIST as a failure without verifying the target.
+1. Run the OpenVPN callback link host regression and full source/workflow contract on the resulting SHA; fix any failure without relaxing the exact-target/no-follow checks.
+2. Inspect exact-SHA XY-C1 Build, TRX, and artifact steps, plus NVRAM/process/HTTPD suites still pending.
+3. Continue examining OpenVPN daemon-launch failure rollback and callback teardown, keeping this fix isolated.
 
 ### Execution contract
 

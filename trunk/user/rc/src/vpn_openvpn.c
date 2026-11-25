@@ -31,6 +31,7 @@
 
 #include "rc.h"
 #include "openvpn_client_secret_file.h"
+#include "openvpn_script_link.h"
 #include "openvpn_client_credentials_policy.h"
 #include "openvpn_config_file.h"
 #include "openvpn_server_lease_policy.h"
@@ -2143,7 +2144,7 @@ start_openvpn_server(void)
 {
 	struct openvpn_server_network_config network;
 	struct openvpn_server_options_config options;
-	int interface_status;
+	int interface_status, script_link_created = 0;
 	char vpns_cfg[64], vpns_scr[64];
 	char *server_conf = "server.conf";
 	char *openvpn_argv[] = {
@@ -2184,18 +2185,35 @@ start_openvpn_server(void)
 	if (openvpn_create_server_conf(vpns_cfg, &network, &options))
 		return 1;
 
+	/* Fail closed if the callback path is missing or points somewhere else. */
+	if (openvpn_script_link_ensure(vpns_scr, "/sbin/rc",
+				       &script_link_created) != 0) {
+		int saved_errno = errno ? errno : EIO;
+
+		logmessage(SERVER_LOG_NAME,
+			   "cannot prepare OpenVPN server callback link (errno=%d)",
+			   saved_errno);
+		errno = saved_errno;
+		return -1;
+	}
+
 	/* create tun or tap device (and add tap to bridge) */
 	if (network.is_tun)
 		interface_status = openvpn_tunif_start(IFNAME_SERVER_TUN, 1);
 	else
 		interface_status = openvpn_tapif_start(IFNAME_SERVER_TAP, 1, 1);
 	if (interface_status != 0) {
+		int saved_errno = errno;
+
+		if (openvpn_script_link_remove_created(vpns_scr,
+						       script_link_created) != 0)
+			logmessage(SERVER_LOG_NAME,
+				   "cannot remove callback link after interface failure (errno=%d)",
+				   errno ? errno : EIO);
 		logmessage(SERVER_LOG_NAME, "cannot prepare OpenVPN server interface (status=%d)", interface_status);
+		errno = saved_errno;
 		return interface_status;
 	}
-
-	/* create script symlink */
-	symlink("/sbin/rc", vpns_scr);
 
 	logmessage(LOGNAME, "starting %s...", SERVER_LOG_NAME);
 
@@ -2207,6 +2225,7 @@ start_openvpn_client(void)
 {
 	struct openvpn_client_config_snapshot config;
 	int interface_status, cleanup_status, config_status;
+	int script_link_created = 0;
 	char vpnc_cfg[64], vpnc_scr[64];
 	char *client_conf = "client.conf";
 	char *openvpn_argv[] = {
@@ -2247,18 +2266,35 @@ start_openvpn_client(void)
 	if (config_status)
 		return 1;
 
+	/* Fail closed if the callback path is missing or points somewhere else. */
+	if (openvpn_script_link_ensure(vpnc_scr, "/sbin/rc",
+				       &script_link_created) != 0) {
+		int saved_errno = errno ? errno : EIO;
+
+		logmessage(CLIENT_LOG_NAME,
+			   "cannot prepare OpenVPN client callback link (errno=%d)",
+			   saved_errno);
+		errno = saved_errno;
+		return -1;
+	}
+
 	/* create tun or tap device */
 	if (config.is_tun)
 		interface_status = openvpn_tunif_start(IFNAME_CLIENT_TUN, 0);
 	else
 		interface_status = openvpn_tapif_start(IFNAME_CLIENT_TAP, 0, config.client_nat ? 0 : 1);
 	if (interface_status != 0) {
+		int saved_errno = errno;
+
+		if (openvpn_script_link_remove_created(vpnc_scr,
+						       script_link_created) != 0)
+			logmessage(CLIENT_LOG_NAME,
+				   "cannot remove callback link after interface failure (errno=%d)",
+				   errno ? errno : EIO);
 		logmessage(CLIENT_LOG_NAME, "cannot prepare OpenVPN client interface (status=%d)", interface_status);
+		errno = saved_errno;
 		return interface_status;
 	}
-
-	/* create script symlink */
-	symlink("/sbin/rc", vpnc_scr);
 
 	logmessage(LOGNAME, "starting %s...", CLIENT_LOG_NAME);
 
