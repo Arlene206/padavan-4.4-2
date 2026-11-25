@@ -1,3 +1,10 @@
+## 2026-11-25 22:12 CST (UTC+8) — Correct M2U rollback-order checker symbol
+
+- Exact-head WAN route #45624201337 on `fb86393c` passed the ASan/UBSan policy test binaries and failed only in the Python source checker: the declaration was named `m2u_restore_second`, but the ordering assertion referenced undefined `m2u_second_restore`.
+- Corrected the identifier in the assertion. Wireless radio #45624201448 passed on the same `fb86393c` after the missing `<assert.h>` include. Exact-head WAN route and XY-C1 still need a green run on the next code-bearing SHA.
+
+---
+
 ## 2026-11-25 22:08 CST (UTC+8) — Add assert declaration to bridge M2U regression
 
 - Exact-head WAN route #45623857230 and wireless radio #45623856807 on `d9d23fe` both failed at compile time because new bridge M2U regression cases used `assert()` without including `<assert.h>`; `-Werror=implicit-function-declaration` stopped compilation. The existing bridge tests use manual expect helpers and did not previously need this header.

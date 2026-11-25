@@ -139,7 +139,7 @@ m2u_second_set = m2u_policy.index('set_param(ifname, "multicast_to_unicast"')
 m2u_restore_second = m2u_policy.index('ifname, "multicast_to_unicast", old_to_unicast')
 m2u_restore_first = m2u_policy.index('ifname, "multicast_fast_leave", old_fast_leave')
 assert m2u_first_get < m2u_second_get < m2u_first_set < m2u_second_set
-assert m2u_second_restore < m2u_restore_first
+assert m2u_restore_second < m2u_restore_first
 for test_name in (
     "test_m2u_update_snapshots_both_flags_before_mutation",
     "test_m2u_second_write_failure_restores_first_flag",

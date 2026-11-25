@@ -1,17 +1,16 @@
-## 2026-11-25 autonomous handoff — M2U compile correction
+## 2026-11-25 autonomous handoff — M2U checker identifier correction
 
-- Main baseline for this test-only fix: `d9d23febf98a8c9e9a2c1529247c9f694baff2f0`.
-- Exact WAN route #45623857230 and wireless radio #45623856807 both failed for the same test compile defect: bridge_membership_policy.c tests now call `assert()` but lacked `<assert.h>`. Add only that header; no production source change.
-- M2U production transaction in parent `d9d23febf98a8c9e9a2c1529247c9f694baff2f0`: read both multicast_fast_leave/multicast_to_unicast sysfs values before writes; apply changed values and reverse attempted writes after failure, preserving primary errno and logging rollback failures. Existing bridge policy regression now exercises these paths.
-- Exact-head d9d23 statuses before correction: Process lifecycle inventory #45623857020 PASS; WAN sysfs #45623856962 PASS; WAN DHCP callback #45623856881 PASS; USB modem #45623856690 PASS; IPv6 type #45623856684 PASS; AI docs #45623856631 PASS. Process lifecycle umbrella #45623857064, NVRAM #45623856847, USB storage #45623856816 and XY-C1 #45623856954 were still in progress. Check new WAN route, wireless and firmware checks after this commit.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`. No branches/PRs/force pushes. L4 hardware remains NOT VERIFIED.
+- Main baseline for this checker-only repair: `fb86393ccdcda3a8554eecba45399e9f423a3089`.
+- Exact WAN route #45624201337 on `fb86393c` passed all sanitizer binaries, then `check_wan_vlan_setup.py` failed with `NameError`: the declaration is `m2u_restore_second` but the ordering assertion used `m2u_second_restore`. Corrected the assertion to reference the declared variable.
+- Wireless radio #45624201448 PASS and AI handoff #45624201233 PASS on `fb86393c`. Process lifecycle inventory #45624201262 passed; NVRAM #45624201309 was still in progress. Need rerun route after checker correction.
+- M2U implementation at `d9d23febf98a8c9e9a2c1529247c9f694baff2f0` remains as described below; build was still running on that source SHA. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; no force pushes or branches. Physical L4 NOT VERIFIED.
 
 ### Next actions
-1. Inspect corrected exact-head WAN route, wireless and XY-C1 Actions.
-2. If sanitizer passes, continue M2U syscall error and IPv6 route lifecycle review without duplicating prior audits.
+1. Poll exact-head WAN route, AI docs and XY-C1 build/TRX/artifact after this fix.
+2. Continue cross-userland networking stability work after tests pass.
 
 ### Execution contract
-Source/test → complete tree/commit → non-forced expected-SHA main update → exact-SHA Actions. Preserve backup.
+Source/test → complete tree/commit → non-forced expected-SHA update → exact-SHA Actions. Preserve backup.
 
 ---
 
