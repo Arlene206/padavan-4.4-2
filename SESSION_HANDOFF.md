@@ -1,29 +1,28 @@
 ## Current repository state — 2026-11-25
 
-- Live `main` HEAD: `6dbd63d496aa2da65a40657b859d09e718e30900` (WAN route checker-only follow-up); its production-source parent is `cdd7e4523ef8945f9d83427b1d3e24dc2dd1da5c`. Continue from the live main ref, not an older checkpoint.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains untouched at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Current USB modem slice: unload transitions now re-probe module state after `module_smart_unload()`; a legacy success return with a remaining module is treated as `EBUSY`, UNKNOWN/error states fail closed, and the next driver family/QMI marker/cache transition is withheld until unload succeeds. The settle delay is counted only when a previously loaded module is confirmed absent.
-- USB policy/regression source lineage: `f561a44e1332101ea6e8f42f91b3399134b2d138` introduced the post-unload absence check; `6d75c4f67f39fb95fbe5626ef97a50b2145f2a54` made the remaining-loaded state explicit; `2f29cde4dde752472cd83dd496a9a44376a9befa` and `76d78219e70a4f211b40089eb28efc58ffcd9e04` account for modules actually removed; `87406ad733a35d505823373addf3a30ea7c534b1` added callback accounting regression coverage; `ed0c1d9342bbe38469926c30145df389a5bc9076` initialized that test fixture correctly.
-- A test-only failure on `87406ad...` was caused by the test's local `unloaded` counter starting at 99; `ed0c1d9...` sets it to zero before each fixture run. Exact USB workflow #45677107277 on `ed0c1d9...` PASS.
-- Concurrent ZeroTier lifecycle work on `92ebe37ca59308a66780b09f3f746583d9892f6e` PASSed exact workflow #45677056983. The earlier `4c746b...` failure was a stale Python function-body checker and is resolved in the descendant.
-- Static-route netmask source fix `cdd7e4523ef8945f9d83427b1d3e24dc2dd1da5c` rejects non-contiguous masks. Its WAN route run #45677711691 failed at the old source assertion; checker follow-up `6dbd63d...` passes exact WAN route #45678120958 and AI handoff docs #45678121059.
-- On `cdd7e45...`, Process inventory #45677711700, process fail-closed #45677711853, HTTPD #45677711707, WAN DHCP callback #45677711661, Firewall #45677711875, DNSMasq #45677712025, USB storage #45677711693 and NVRAM audit #45677711890 PASS. XY-C1 run #45677711638 is still IN_PROGRESS at Build XY-C1.
-- The descendant `6dbd63d...` XY-C1 host validation #45678120929 passed its host checks but skipped Build XY-C1, TRX verification and artifact upload because this commit changed only a workflow checker. Do not treat that as an L3 firmware pass. Physical-router L4 is NOT VERIFIED.
+- Live `main`: `9a8b0de149ec90331207cb7913d41d70f1d55a25`. It includes the static-route explicit-gateway policy follow-up `191e864...`, the IPTV proxy boolean validation slice `c5f4cb4...`, and the route checker correction `9a8b0de...`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, untouched.
+- USB modem unload postcondition and actual-removal delay accounting are implemented; exact USB workflow #45677107277 PASS on `ed0c1d9`.
+- The stale route-source assertions in WAN-route #45678884920 and Firewall Startup #45678887655 on `191e864...` were fixed in `9a8b0de...`; exact reruns #45679742908 and #45679743071 are IN_PROGRESS.
+- AI Docs #45678887525 failed because the roadmap exceeded 131072 bytes; this commit shortens the new USB note and WAN-route ledger row. The exact docs rerun on this head is #45679742771.
+- On `191e864...`, Process inventory #45678887468, HTTPD #45678887488, FULLCONENAT #45678887485, WAN DHCP callback #45678887462, IPv6 service-type #45678887553 and NVRAM audit #45678887648 PASS. XY-C1 #45678887803 was still IN_PROGRESS at last poll. Current head `9a8b0de149ec...` has exact XY-C1 #45679742904 IN_PROGRESS. Do not claim L3 without Build/TRX/artifact on one SHA. Physical L4 NOT VERIFIED.
+- Current concurrent IPTV slice on `c5f4cb4...` adds strict IPTV proxy boolean parsing/regression; its Firewall, Process, AI Docs and NVRAM jobs are separate exact-head checks from the descendant. Wait for exact current-head checks rather than merging prior run claims.
 
 ## Active task
 
-Continue a new independent P2 storage/configuration-boundary slice after checking the cdd7 XY-C1 producer run. Review privileged writers in `trunk/user/rc/src/services_stor.c`, concentrating on NFS custom-export publication and Firefly configuration staging; establish a concrete race/error defect before changing source. Do not re-audit completed USB modem/ZeroTier/FTP work.
+Poll exact-head validation on the current commit. Once route/firewall checks pass, resume the P2 storage/configuration-boundary review in `services_stor.c`: NFS custom-export and Firefly config publication callers. Change source only for a demonstrated privilege-boundary or I/O defect with a deterministic GNU89-compatible regression.
 
 ## Exact first actions for next GPT
 
-1. Poll XY-C1 run #45677711638 on exact source SHA `cdd7e4523ef8945f9d83427b1d3e24dc2dd1da5c`. Require Build XY-C1, TRX verification and artifact upload all SUCCESS before marking L3. The `6dbd63d...` host-only run is not a substitute.
-2. Continue the independent `services_stor.c` storage/configuration writer review. Make a source change only for a demonstrated defect, add a deterministic regression, and keep GNU89/uClibc compatibility.
-3. Use one complete tree and atomic commit per logical slice; update `main` with `force:false` and expected current SHA. PENDING Actions do not block independent work.
-4. Keep this checkpoint current after the next validated source slice. Never claim L4 without physical-router evidence.
+1. Poll XY-C1 #45679742904, WAN-route #45679742908, Firewall #45679743071 and AI Docs #45679742771 on this exact head.
+2. Inspect NFS custom-export and Firefly config callers and tests; establish the concrete defect before patching.
+3. Use one complete tree/atomic commit per logical task, CAS-update `main` with `force:false`, and keep backup read-only.
+4. L3 requires Build/TRX/artifact on the same source SHA; physical L4 remains NOT VERIFIED.
 
 ## Execution contract
 
-Main only; frozen backup remains read-only. Source/test → one complete Git tree/commit → non-force expected-SHA update → exact-SHA Actions. No force-push, no partial multi-file commits, no repeated bootstrap audit. L3 requires same-source Build, TRX and artifact upload; L4 remains NOT VERIFIED.
+Main only; no force-push. Source/test → complete tree/atomic commit → expected-SHA non-force update → exact-SHA Actions. PENDING does not block independent work.
+
 
 ## 2026-11-25 autonomous handoff checkpoint
 
