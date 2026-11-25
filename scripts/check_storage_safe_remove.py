@@ -215,11 +215,45 @@ require('[ -L "$target" ] || [ ! -f "$target" ]' in fill_set_mode and
         'if ! chmod "$mode" "$target"; then' in fill_set_mode and
         'Cannot set default file mode:' in fill_set_mode,
         "MTD fill must verify each generated file and propagate chmod failure")
-require(fill_body.count('if [ "$?" -ne 0 ]; then') == 23 and
-        'if ! func_fill_set_mode "$script_started" 755; then return 1; fi' in fill_body and
-        'if ! func_fill_set_mode "$user_dnsmasq_conf" 644; then return 1; fi' in fill_body and
-        'chmod 755 "$script_started"' not in fill_body,
-        "MTD fill must check every heredoc write immediately and all generated-file mode changes")
+fill_begin = body(mtd_storage, "func_fill_begin_file()")
+fill_abort = body(mtd_storage, "func_fill_abort_file()")
+fill_publish = body(mtd_storage, "func_fill_publish_file()")
+fill_write = body(mtd_storage, "func_fill_write_file()")
+require('func_fill_check_file "$target"' in fill_begin and
+        'mktemp "${target}.tmp.XXXXXX"' in fill_begin,
+        "MTD defaults must be staged in the checked target directory")
+require('rm -f "$stage"' in fill_abort and
+        'CRITICAL: cannot remove incomplete default stage:' in fill_abort,
+        "MTD fill must remove or diagnose incomplete staged files")
+require('func_fill_set_mode "$fill_stage" "$mode"' in fill_publish and
+        'mv -n "$fill_stage" "$target"' in fill_publish and
+        '[ -f "$target" ] && [ ! -L "$target" ]' in fill_publish and
+        '[ -L "$target" ] || [ ! -f "$target" ]' in fill_publish,
+        "MTD fill must validate staged mode and publish with a checked no-clobber rename")
+require('if ! cat > "$fill_stage"; then' in fill_write and
+        'func_fill_publish_file "$target" "$mode"' in fill_write and
+        'func_fill_abort_file || true' in fill_write,
+        "MTD fill must discard partial writes before publishing a complete default")
+dns_conf_start = fill_body.index('if [ ! -f "$user_dnsmasq_conf" ] ; then')
+dns_conf_end = fill_body.index("# create user dns servers", dns_conf_start)
+dns_conf_block = fill_body[dns_conf_start:dns_conf_end]
+require('func_fill_begin_file "$user_dnsmasq_conf"' in dns_conf_block and
+        'cat > "$fill_stage" <<EOF' in dns_conf_block and
+        dns_conf_block.count('cat >> "$fill_stage" <<EOF') == 3 and
+        'func_fill_publish_file "$user_dnsmasq_conf" 644' in dns_conf_block,
+        "MTD dnsmasq base and optional overlays must publish as a single complete file")
+for target in ("$script_started", "$script_shutd", "$script_postf", "$script_postw",
+               "$script_inets", "$script_vpnsc", "$script_vpncs", "$script_ezbtn",
+               "$user_dnsmasq_servers", "$user_dhcp_conf", "$user_inadyn_conf",
+               "$user_hosts", "$dir_wlan/AP.dat", "$dir_wlan/AP_5G.dat",
+               "$user_ovpnsvr_conf", "$user_ovpncli_conf", "$user_sswan_conf",
+               "$user_sswan_ipsec_conf", "$user_sswan_secrets"):
+    require('func_fill_write_file "' + target + '" ' in fill_body,
+            "MTD default file is not atomically published: " + target)
+require('if [ "$?" -ne 0 ]; then' not in fill_body and
+        'Cannot migrate legacy dnsmasq file:' in fill_body and
+        'Cannot migrate legacy OpenVPN file:' in fill_body,
+        "MTD fill must check write failures and legacy configuration migrations")
 require('func_fill_mkdir "$dir_crond" 730' in fill_body and
         'func_fill_mkdir "$dir_httpssl" 700' in fill_body and
         'func_fill_mkdir "$dir_dnsmasq" 755' in fill_body and
@@ -256,9 +290,11 @@ for item in ("dnsmasq directory symlink unexpectedly accepted",
              "failed reset_ss start-script generation unexpectedly succeeded",
              "Cannot generate default start script:",
              "failed default file write unexpectedly succeeded",
-             "Cannot write default file:",
+             "Cannot write default storage file:",
              "failed default file mode change unexpectedly succeeded",
              "Cannot set default file mode:",
+             "default file publication failure unexpectedly succeeded",
+             "Cannot publish default storage file:",
              "partial chnroute extraction unexpectedly succeeded",
              "Cannot extract chnroute archive:"):
     require(item in mtd_storage_fill_test,

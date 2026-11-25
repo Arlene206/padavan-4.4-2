@@ -8,6 +8,7 @@ real_rm=$(command -v rm)
 real_mkdir=$(command -v mkdir)
 real_cat=$(command -v cat)
 real_chmod=$(command -v chmod)
+real_mv=$(command -v mv)
 cleanup()
 {
 	"$real_rm" -rf "$sandbox"
@@ -49,10 +50,17 @@ EOF_CAT
 cat > "$sandbox/bin/chmod" <<'EOF_CHMOD'
 #!/bin/sh
 for arg do
-	[ "${FILL_CHMOD_FAIL_PATH:-}" != "$arg" ] || exit 1
+	case "$arg" in
+		"$FILL_CHMOD_FAIL_PATH"|"$FILL_CHMOD_FAIL_PATH".tmp.*) [ -z "${FILL_CHMOD_FAIL_PATH:-}" ] || exit 1 ;;
+	esac
 done
 exec "$REAL_CHMOD" "$@"
 EOF_CHMOD
+cat > "$sandbox/bin/mv" <<'EOF_MV'
+#!/bin/sh
+[ "${FILL_MV_FAIL:-0}" != 1 ] || exit 1
+exec "$REAL_MV" "$@"
+EOF_MV
 cat > "$sandbox/bin/tar" <<'EOF_TAR'
 #!/bin/sh
 target=
@@ -82,7 +90,7 @@ sed \
 chmod +x "$sandbox/mtd_storage.sh"
 
 export PATH="$sandbox/bin:$PATH"
-export REAL_MKDIR="$real_mkdir" REAL_CAT="$real_cat" REAL_CHMOD="$real_chmod"
+export REAL_MKDIR="$real_mkdir" REAL_CAT="$real_cat" REAL_CHMOD="$real_chmod" REAL_MV="$real_mv"
 export FILL_MKDIR_FAIL_PATH= FILL_CAT_FAIL=0 FILL_CHMOD_FAIL_PATH= RESET_SS_FAIL=0
 export LOGGER_LOG="$sandbox/logger.log" RESET_SS_LOG="$sandbox/reset-ss.log"
 export STORAGE_ROOT="$sandbox/storage"
@@ -105,8 +113,9 @@ reset_case()
 	FILL_MKDIR_FAIL_PATH=
 	FILL_CAT_FAIL=0
 	FILL_CHMOD_FAIL_PATH=
+	FILL_MV_FAIL=0
 	RESET_SS_FAIL=0
-	export FILL_MKDIR_FAIL_PATH FILL_CAT_FAIL FILL_CHMOD_FAIL_PATH RESET_SS_FAIL
+	export FILL_MKDIR_FAIL_PATH FILL_CAT_FAIL FILL_CHMOD_FAIL_PATH FILL_MV_FAIL RESET_SS_FAIL
 }
 
 # A nested directory symlink must not let dnsmasq defaults escape /etc/storage.
@@ -162,9 +171,9 @@ if run_fill >/dev/null 2>&1; then
 fi
 FILL_CAT_FAIL=0
 export FILL_CAT_FAIL
-test -f "$sandbox/storage/started_script.sh"
-test ! -s "$sandbox/storage/started_script.sh"
-grep -Fq 'Cannot write default file:' "$LOGGER_LOG"
+test ! -e "$sandbox/storage/started_script.sh"
+test -z "$(find "$sandbox/storage" -name 'started_script.sh.tmp.*' -print)"
+grep -Fq 'Cannot write default storage file:' "$LOGGER_LOG"
 
 # A chmod failure is also fatal; do not continue with non-executable hooks.
 reset_case
@@ -176,9 +185,24 @@ if run_fill >/dev/null 2>&1; then
 fi
 FILL_CHMOD_FAIL_PATH=
 export FILL_CHMOD_FAIL_PATH
-test -s "$sandbox/storage/started_script.sh"
+test ! -e "$sandbox/storage/started_script.sh"
+test -z "$(find "$sandbox/storage" -name 'started_script.sh.tmp.*' -print)"
 test ! -e "$sandbox/storage/shutdown_script.sh"
 grep -Fq 'Cannot set default file mode:' "$LOGGER_LOG"
+
+# A failed atomic rename must leave no final file or staging residue.
+reset_case
+FILL_MV_FAIL=1
+export FILL_MV_FAIL
+if run_fill >/dev/null 2>&1; then
+	echo "default file publication failure unexpectedly succeeded" >&2
+	exit 1
+fi
+FILL_MV_FAIL=0
+export FILL_MV_FAIL
+test ! -e "$sandbox/storage/started_script.sh"
+test -z "$(find "$sandbox/storage" -name 'started_script.sh.tmp.*' -print)"
+grep -Fq 'Cannot publish default storage file:' "$LOGGER_LOG"
 
 # A required default directory failure must stop fill and reach its caller.
 reset_case
@@ -228,6 +252,8 @@ test -s "$sandbox/storage/started_script.sh"
 test -s "$sandbox/storage/dnsmasq/dnsmasq.conf"
 test -s "$sandbox/storage/inadyn/inadyn.conf"
 test -s "$sandbox/storage/wlan/AP.dat"
+test -x "$sandbox/storage/started_script.sh"
+test -z "$(find "$sandbox/storage" -name '*.tmp.*' -print)"
 grep -Fqx -- '-a' "$RESET_SS_LOG"
 
 echo "MTD storage fill symlink-path regression: PASS"

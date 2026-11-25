@@ -839,6 +839,86 @@ func_fill_mkdir()
 	return 0
 }
 
+func_fill_begin_file()
+{
+	local target
+
+	target=$1
+	if ! func_fill_check_file "$target"; then
+		return 1
+	fi
+	fill_stage=$(mktemp "${target}.tmp.XXXXXX") || {
+		logger -t "Storage fill" "Cannot stage default storage file: $target"
+		fill_stage=
+		return 1
+	}
+	return 0
+}
+
+func_fill_abort_file()
+{
+	local stage
+
+	stage=$fill_stage
+	fill_stage=
+	if [ -n "$stage" ] && ! rm -f "$stage"; then
+		logger -t "Storage fill" "CRITICAL: cannot remove incomplete default stage: $stage"
+		return 1
+	fi
+	return 0
+}
+
+func_fill_publish_file()
+{
+	local target mode
+
+	target=$1
+	mode=$2
+	if ! func_fill_set_mode "$fill_stage" "$mode"; then
+		return 1
+	fi
+	# -n preserves a user file created after the initial absence check.
+	if ! mv -n "$fill_stage" "$target"; then
+		logger -t "Storage fill" "Cannot publish default storage file: $target"
+		return 1
+	fi
+	if [ -e "$fill_stage" ] || [ -L "$fill_stage" ]; then
+		if [ -f "$target" ] && [ ! -L "$target" ]; then
+			func_fill_abort_file
+			return 0
+		fi
+		logger -t "Storage fill" "Default storage target changed during publication: $target"
+		return 1
+	fi
+	if [ -L "$target" ] || [ ! -f "$target" ]; then
+		logger -t "Storage fill" "Published default storage file is not regular: $target"
+		return 1
+	fi
+	fill_stage=
+	return 0
+}
+
+func_fill_write_file()
+{
+	local target mode
+
+	target=$1
+	mode=$2
+	if ! func_fill_begin_file "$target"; then
+		return 1
+	fi
+	if ! cat > "$fill_stage"; then
+		logger -t "Storage fill" "Cannot write default storage file: $target"
+		func_fill_abort_file || true
+		return 1
+	fi
+	if ! func_fill_publish_file "$target" "$mode"; then
+		func_fill_abort_file || true
+		return 1
+	fi
+	return 0
+}
+
 func_fill()
 {
 	dir_httpssl="$dir_storage/https"
@@ -926,7 +1006,7 @@ func_fill()
 
 	# create started script
 	if [ ! -f "$script_started" ] ; then
-		cat > "$script_started" <<EOF
+		if ! func_fill_write_file "$script_started" 755 <<EOF
 #!/bin/sh
 
 ### Custom user script
@@ -964,16 +1044,14 @@ sync && echo 3 > /proc/sys/vm/drop_caches
 
 
 EOF
-if [ "$?" -ne 0 ]; then
-			logger -t "Storage fill" "Cannot write default file: $script_started"
+		then
 			return 1
 		fi
-		if ! func_fill_set_mode "$script_started" 755; then return 1; fi
 	fi
 
 	# create shutdown script
 	if [ ! -f "$script_shutd" ] ; then
-		cat > "$script_shutd" <<EOF
+		if ! func_fill_write_file "$script_shutd" 755 <<EOF
 #!/bin/sh
 
 ### Custom user script
@@ -981,16 +1059,14 @@ if [ "$?" -ne 0 ]; then
 ### \$1 - action (0: reboot, 1: halt, 2: power-off)
 
 EOF
-if [ "$?" -ne 0 ]; then
-			logger -t "Storage fill" "Cannot write default file: $script_shutd"
+		then
 			return 1
 		fi
-		if ! func_fill_set_mode "$script_shutd" 755; then return 1; fi
 	fi
 
 	# create post-iptables script
 	if [ ! -f "$script_postf" ] ; then
-		cat > "$script_postf" <<EOF
+		if ! func_fill_write_file "$script_postf" 755 <<EOF
 #!/bin/sh
 
 ### Custom user script
@@ -999,16 +1075,14 @@ if [ "$?" -ne 0 ]; then
 #wing resume
 
 EOF
-if [ "$?" -ne 0 ]; then
-			logger -t "Storage fill" "Cannot write default file: $script_postf"
+		then
 			return 1
 		fi
-		if ! func_fill_set_mode "$script_postf" 755; then return 1; fi
 	fi
 
 	# create post-wan script
 	if [ ! -f "$script_postw" ] ; then
-		cat > "$script_postw" <<EOF
+		if ! func_fill_write_file "$script_postw" 755 <<EOF
 #!/bin/sh
 
 ### Custom user script
@@ -1021,16 +1095,14 @@ if [ "$?" -ne 0 ]; then
 #echo "ext_ip=1.1.1.1" >> /etc/miniupnpd.conf && killall miniupnpd && miniupnpd -f /etc/miniupnpd.conf
 
 EOF
-if [ "$?" -ne 0 ]; then
-			logger -t "Storage fill" "Cannot write default file: $script_postw"
+		then
 			return 1
 		fi
-		if ! func_fill_set_mode "$script_postw" 755; then return 1; fi
 	fi
 
 	# create inet-state script
 	if [ ! -f "$script_inets" ] ; then
-		cat > "$script_inets" <<EOF
+		if ! func_fill_write_file "$script_inets" 755 <<EOF
 #!/bin/sh
 
 ### Custom user script
@@ -1041,16 +1113,14 @@ if [ "$?" -ne 0 ]; then
 logger -t "di" "Internet state: \$1, elapsed time: \$2s."
 
 EOF
-if [ "$?" -ne 0 ]; then
-			logger -t "Storage fill" "Cannot write default file: $script_inets"
+		then
 			return 1
 		fi
-		if ! func_fill_set_mode "$script_inets" 755; then return 1; fi
 	fi
 
 	# create vpn server action script
 	if [ ! -f "$script_vpnsc" ] ; then
-		cat > "$script_vpnsc" <<EOF
+		if ! func_fill_write_file "$script_vpnsc" 755 <<EOF
 #!/bin/sh
 
 ### Custom user script
@@ -1097,16 +1167,14 @@ down)
 esac
 
 EOF
-if [ "$?" -ne 0 ]; then
-			logger -t "Storage fill" "Cannot write default file: $script_vpnsc"
+		then
 			return 1
 		fi
-		if ! func_fill_set_mode "$script_vpnsc" 755; then return 1; fi
 	fi
 
 	# create vpn client action script
 	if [ ! -f "$script_vpncs" ] ; then
-		cat > "$script_vpncs" <<EOF
+		if ! func_fill_write_file "$script_vpncs" 755 <<EOF
 #!/bin/sh
 
 ### Custom user script
@@ -1148,16 +1216,14 @@ down)
 esac
 
 EOF
-if [ "$?" -ne 0 ]; then
-			logger -t "Storage fill" "Cannot write default file: $script_vpncs"
+		then
 			return 1
 		fi
-		if ! func_fill_set_mode "$script_vpncs" 755; then return 1; fi
 	fi
 
 	# create Ez-Buttons script
 	if [ ! -f "$script_ezbtn" ] ; then
-		cat > "$script_ezbtn" <<EOF
+		if ! func_fill_write_file "$script_ezbtn" 755 <<EOF
 #!/bin/sh
 
 ### Custom user script
@@ -1167,20 +1233,24 @@ if [ "$?" -ne 0 ]; then
 [ -x /opt/bin/on_wps.sh ] && /opt/bin/on_wps.sh \$1 &
 
 EOF
-if [ "$?" -ne 0 ]; then
-			logger -t "Storage fill" "Cannot write default file: $script_ezbtn"
+		then
 			return 1
 		fi
-		if ! func_fill_set_mode "$script_ezbtn" 755; then return 1; fi
 	fi
 
 	# create user dnsmasq.conf
 	if ! func_fill_mkdir "$dir_dnsmasq" 755; then return 1; fi
 	for i in dnsmasq.conf hosts ; do
-		[ -f "$dir_storage/$i" ] && mv -n "$dir_storage/$i" "$dir_dnsmasq"
+		if [ -f "$dir_storage/$i" ]; then
+			if ! mv -n "$dir_storage/$i" "$dir_dnsmasq"; then
+				logger -t "Storage fill" "Cannot migrate legacy dnsmasq file: $dir_storage/$i"
+				return 1
+			fi
+		fi
 	done
 	if [ ! -f "$user_dnsmasq_conf" ] ; then
-		cat > "$user_dnsmasq_conf" <<EOF
+		if ! func_fill_begin_file "$user_dnsmasq_conf"; then return 1; fi
+		if ! cat > "$fill_stage" <<EOF
 # Custom user conf file for dnsmasq
 # Please add needed params only!
 
@@ -1217,83 +1287,86 @@ dhcp-option=252,"\n"
 domain-needed
 
 EOF
-if [ "$?" -ne 0 ]; then
-			logger -t "Storage fill" "Cannot write default file: $user_dnsmasq_conf"
+		then
+			logger -t "Storage fill" "Cannot write default storage file: $user_dnsmasq_conf"
+			func_fill_abort_file || true
 			return 1
 		fi
 	if [ -f /usr/bin/vlmcsd ]; then
-		cat >> "$user_dnsmasq_conf" <<EOF
+		if ! cat >> "$fill_stage" <<EOF
 ### vlmcsd related
 srv-host=_vlmcs._tcp,my.router,1688,0,100
 
 EOF
-if [ "$?" -ne 0 ]; then
-			logger -t "Storage fill" "Cannot write default file: $user_dnsmasq_conf"
+		then
+			logger -t "Storage fill" "Cannot append default storage file: $user_dnsmasq_conf"
+			func_fill_abort_file || true
 			return 1
 		fi
 	fi
 
 	if [ -f /usr/bin/wing ]; then
-		cat >> "$user_dnsmasq_conf" <<EOF
+		if ! cat >> "$fill_stage" <<EOF
 # Custom domains to gfwlist
 #gfwlist=mit.edu
 
 EOF
-if [ "$?" -ne 0 ]; then
-			logger -t "Storage fill" "Cannot write default file: $user_dnsmasq_conf"
+		then
+			logger -t "Storage fill" "Cannot append default storage file: $user_dnsmasq_conf"
+			func_fill_abort_file || true
 			return 1
 		fi
 	fi
 
 	if [ -d $dir_gfwlist ]; then
-		cat >> "$user_dnsmasq_conf" <<EOF
+		if ! cat >> "$fill_stage" <<EOF
 ### gfwlist related (resolve by port 5353)
 #min-cache-ttl=3600
 #conf-dir=/etc/storage/gfwlist
 
 EOF
-if [ "$?" -ne 0 ]; then
-			logger -t "Storage fill" "Cannot write default file: $user_dnsmasq_conf"
+		then
+			logger -t "Storage fill" "Cannot append default storage file: $user_dnsmasq_conf"
+			func_fill_abort_file || true
 			return 1
 		fi
 	fi
-		if ! func_fill_set_mode "$user_dnsmasq_conf" 644; then return 1; fi
+		if ! func_fill_publish_file "$user_dnsmasq_conf" 644; then
+			func_fill_abort_file || true
+			return 1
+		fi
 	fi
 
 	# create user dns servers
 	if [ ! -f "$user_dnsmasq_servers" ] ; then
-		cat > "$user_dnsmasq_servers" <<EOF
+		if ! func_fill_write_file "$user_dnsmasq_servers" 644 <<EOF
 # Custom user servers file for dnsmasq
 # Example:
 #server=/mit.ru/izmuroma.ru/10.25.11.30
 
 EOF
-if [ "$?" -ne 0 ]; then
-			logger -t "Storage fill" "Cannot write default file: $user_dnsmasq_servers"
+		then
 			return 1
 		fi
-		if ! func_fill_set_mode "$user_dnsmasq_servers" 644; then return 1; fi
 	fi
 
 	# create user dns dhcp_conf
 	if [ ! -f "$user_dhcp_conf" ] ; then
-		cat > "$user_dhcp_conf" <<EOF
+		if ! func_fill_write_file "$user_dhcp_conf" 644 <<EOF
 # Custom user hosts for dhcp_hostsfile
 # Example:
 #6C:96:CF:E0:95:55,192.168.1.10,iMac
 
 EOF
-if [ "$?" -ne 0 ]; then
-			logger -t "Storage fill" "Cannot write default file: $user_dhcp_conf"
+		then
 			return 1
 		fi
-		if ! func_fill_set_mode "$user_dhcp_conf" 644; then return 1; fi
 	fi
 
 	# create user inadyn.conf"
 	if ! func_fill_mkdir "$dir_inadyn" 755; then return 1; fi
 	if [ ! -f "$user_inadyn_conf" ] ; then
-		cat > "$user_inadyn_conf" <<EOF
+		if ! func_fill_write_file "$user_inadyn_conf" 644 <<EOF
 # Custom user conf file for inadyn DDNS client
 # Please add only new custom system!
 
@@ -1309,52 +1382,44 @@ if [ "$?" -ne 0 ]; then
 #  alias example.dd-dns.de
 
 EOF
-if [ "$?" -ne 0 ]; then
-			logger -t "Storage fill" "Cannot write default file: $user_inadyn_conf"
+		then
 			return 1
 		fi
-		if ! func_fill_set_mode "$user_inadyn_conf" 644; then return 1; fi
 	fi
 
 	# create user hosts
 	if [ ! -f "$user_hosts" ] ; then
-		cat > "$user_hosts" <<EOF
+		if ! func_fill_write_file "$user_hosts" 644 <<EOF
 # Custom user hosts file
 # Example:
 # 192.168.1.100		Boo
 
 EOF
-if [ "$?" -ne 0 ]; then
-			logger -t "Storage fill" "Cannot write default file: $user_hosts"
+		then
 			return 1
 		fi
-		if ! func_fill_set_mode "$user_hosts" 644; then return 1; fi
 	fi
 
 	# create user AP confs
 	if ! func_fill_mkdir "$dir_wlan" 755; then return 1; fi
 	if [ ! -f "$dir_wlan/AP.dat" ] ; then
-		cat > "$dir_wlan/AP.dat" <<EOF
+		if ! func_fill_write_file "$dir_wlan/AP.dat" 644 <<EOF
 # Custom user AP conf file
 
 EOF
-if [ "$?" -ne 0 ]; then
-			logger -t "Storage fill" "Cannot write default file: $dir_wlan/AP.dat"
+		then
 			return 1
 		fi
-		if ! func_fill_set_mode "$dir_wlan/AP.dat" 644; then return 1; fi
 	fi
 
 	if [ ! -f "$dir_wlan/AP_5G.dat" ] ; then
-		cat > "$dir_wlan/AP_5G.dat" <<EOF
+		if ! func_fill_write_file "$dir_wlan/AP_5G.dat" 644 <<EOF
 # Custom user AP conf file
 
 EOF
-if [ "$?" -ne 0 ]; then
-			logger -t "Storage fill" "Cannot write default file: $dir_wlan/AP_5G.dat"
+		then
 			return 1
 		fi
-		if ! func_fill_set_mode "$dir_wlan/AP_5G.dat" 644; then return 1; fi
 	fi
 
 	# create openvpn files
@@ -1365,10 +1430,15 @@ if [ "$?" -ne 0 ]; then
 		fi
 		dir_ovpn="$dir_storage/openvpn"
 		for i in ca.crt dh1024.pem server.crt server.key server.conf ta.key ; do
-			[ -f "$dir_ovpn/$i" ] && mv -n "$dir_ovpn/$i" "$dir_ovpnsvr"
+			if [ -f "$dir_ovpn/$i" ]; then
+				if ! mv -n "$dir_ovpn/$i" "$dir_ovpnsvr"; then
+					logger -t "Storage fill" "Cannot migrate legacy OpenVPN file: $dir_ovpn/$i"
+					return 1
+				fi
+			fi
 		done
 		if [ ! -f "$user_ovpnsvr_conf" ] ; then
-			cat > "$user_ovpnsvr_conf" <<EOF
+			if ! func_fill_write_file "$user_ovpnsvr_conf" 644 <<EOF
 # Custom user conf file for OpenVPN server
 # Please add needed params only!
 
@@ -1396,15 +1466,13 @@ verb 0
 mute 10
 
 EOF
-if [ "$?" -ne 0 ]; then
-				logger -t "Storage fill" "Cannot write default file: $user_ovpnsvr_conf"
+			then
 				return 1
 			fi
-			if ! func_fill_set_mode "$user_ovpnsvr_conf" 644; then return 1; fi
 		fi
 
 		if [ ! -f "$user_ovpncli_conf" ] ; then
-			cat > "$user_ovpncli_conf" <<EOF
+			if ! func_fill_write_file "$user_ovpncli_conf" 644 <<EOF
 # Custom user conf file for OpenVPN client
 # Please add needed params only!
 
@@ -1419,11 +1487,9 @@ verb 0
 mute 10
 
 EOF
-if [ "$?" -ne 0 ]; then
-				logger -t "Storage fill" "Cannot write default file: $user_ovpncli_conf"
+			then
 				return 1
 			fi
-			if ! func_fill_set_mode "$user_ovpncli_conf" 644; then return 1; fi
 		fi
 	fi
 
@@ -1438,37 +1504,31 @@ if [ "$?" -ne 0 ]; then
 		fi
 
 		if [ ! -f "$user_sswan_conf" ] ; then
-			cat > "$user_sswan_conf" <<EOF
+			if ! func_fill_write_file "$user_sswan_conf" 644 <<EOF
 ### strongswan.conf - user strongswan configuration file
 
 EOF
-if [ "$?" -ne 0 ]; then
-				logger -t "Storage fill" "Cannot write default file: $user_sswan_conf"
+			then
 				return 1
 			fi
-			if ! func_fill_set_mode "$user_sswan_conf" 644; then return 1; fi
 		fi
 		if [ ! -f "$user_sswan_ipsec_conf" ] ; then
-			cat > "$user_sswan_ipsec_conf" <<EOF
+			if ! func_fill_write_file "$user_sswan_ipsec_conf" 644 <<EOF
 ### ipsec.conf - user strongswan IPsec configuration file
 
 EOF
-if [ "$?" -ne 0 ]; then
-				logger -t "Storage fill" "Cannot write default file: $user_sswan_ipsec_conf"
+			then
 				return 1
 			fi
-			if ! func_fill_set_mode "$user_sswan_ipsec_conf" 644; then return 1; fi
 		fi
 		if [ ! -f "$user_sswan_secrets" ] ; then
-			cat > "$user_sswan_secrets" <<EOF
+			if ! func_fill_write_file "$user_sswan_secrets" 644 <<EOF
 ### ipsec.secrets - user strongswan IPsec secrets file
 
 EOF
-if [ "$?" -ne 0 ]; then
-				logger -t "Storage fill" "Cannot write default file: $user_sswan_secrets"
+			then
 				return 1
 			fi
-			if ! func_fill_set_mode "$user_sswan_secrets" 644; then return 1; fi
 		fi
 	fi
 }
