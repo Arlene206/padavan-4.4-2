@@ -921,7 +921,7 @@ jobs:
           assert 'nvram_get_checked("sr_enable_x", &enable_value)' in static
           assert "static_route_nvram_enabled_status(api_result, saved_errno" in static
           strict_ipv4_validation = static.index("static_route_ipv4_address_is_valid(ipaddr)")
-          strict_netmask_validation = static.index("static_route_ipv4_address_is_valid(netmask)")
+          strict_netmask_validation = static.index("static_route_ipv4_netmask_is_valid(netmask)")
           strict_gateway_validation = static.index("static_route_ipv4_address_is_valid(gateway)")
           route_add_delete = static.index("route_status = is_add ?")
           assert "if (is_add &&" not in static[:strict_ipv4_validation]
