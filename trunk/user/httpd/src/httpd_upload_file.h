@@ -13,7 +13,7 @@
 #define O_NOFOLLOW 0
 #endif
 
-static int
+static inline int
 httpd_upload_write_dos2unix(FILE *stream, const char *value)
 {
 	const char *cursor, *newline;

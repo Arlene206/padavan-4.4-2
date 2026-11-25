@@ -5689,7 +5689,7 @@ jobs:
           normalize = web[normalize_start:normalize_end]
           assert "httpd_upload_write_dos2unix(fp, value)" in normalize
           assert "fclose(fp)" in normalize
-          assert "static int\nhttpd_upload_write_dos2unix(FILE *stream, const char *value)" in upload_policy
+          assert "static inline int\nhttpd_upload_write_dos2unix(FILE *stream, const char *value)" in upload_policy
           assert "fwrite(cursor, 1, line_size, stream) != line_size" in upload_policy
           assert "test_dos2unix_preserves_long_records" in upload_policy_test
           assert "expected_size == 8195U" in upload_policy_test
