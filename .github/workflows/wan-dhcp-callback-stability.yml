@@ -15,6 +15,8 @@ on:
       - "trunk/user/rc/src/tests/dhcp_lease_policy.c"
       - "trunk/user/rc/src/lan_kernel_name_policy.h"
       - "trunk/user/rc/src/tests/lan_kernel_name_policy.c"
+      - "trunk/user/rc/src/lan_udhcpc_hostname_policy.h"
+      - "trunk/user/rc/src/tests/lan_udhcpc_hostname_policy.c"
       - "trunk/user/rc/src/dhcp_lease_policy.h"
       - ".github/workflows/wan-dhcp-callback-stability.yml"
       - "scripts/check_wan_dhcp_dltime_publication.py"
@@ -84,6 +86,8 @@ on:
       - "trunk/user/rc/src/tests/dhcp_lease_policy.c"
       - "trunk/user/rc/src/lan_kernel_name_policy.h"
       - "trunk/user/rc/src/tests/lan_kernel_name_policy.c"
+      - "trunk/user/rc/src/lan_udhcpc_hostname_policy.h"
+      - "trunk/user/rc/src/tests/lan_udhcpc_hostname_policy.c"
       - "trunk/user/rc/src/dhcp_lease_policy.h"
       - ".github/workflows/wan-dhcp-callback-stability.yml"
       - "scripts/check_wan_dhcp_dltime_publication.py"
@@ -197,6 +201,14 @@ jobs:
           set -eu
           cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer -I trunk/user/rc/src trunk/user/rc/src/tests/lan_kernel_name_policy.c -o /tmp/lan-kernel-name-policy
           ASAN_OPTIONS=detect_leaks=1 /tmp/lan-kernel-name-policy
+      - name: Compile and run LAN udhcpc hostname preflight regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/lan_udhcpc_hostname_policy.c \
+            -o /tmp/lan-udhcpc-hostname-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/lan-udhcpc-hostname-policy
       - name: Compile and run WAN DHCP lease/route retry policy regression
         run: |
           set -eu
@@ -277,6 +289,22 @@ jobs:
           assert "return saved_errno;" in lan_source
           assert "!lan_hname || !is_valid_hostname(lan_hname)" not in lan_source
           assert "!is_valid_hostname(lan_hname)" in lan_source
+          lan_dhcp_start = body(lan_source, "start_udhcpc_lan(char *lan_ifname)")
+          lan_dhcp_start_compact = "".join(lan_dhcp_start.split())
+          assert "char*lan_hostname=get_our_hostname();" in lan_dhcp_start_compact
+          assert "lan_udhcpc_hostname_status(" in lan_dhcp_start
+          assert "lan_hostname?0:(errno>0?errno:EIO)" in lan_dhcp_start_compact
+          assert "lan_hostname&&is_valid_hostname(lan_hostname)" in lan_dhcp_start_compact
+          hostname_guard = lan_dhcp_start.index("if (hostname_status != 0)")
+          assert hostname_guard < lan_dhcp_start.index("udhcpc_start_and_verify(")
+          assert "errno = hostname_status;" in lan_dhcp_start
+          assert "return hostname_status;" in lan_dhcp_start
+          hostname_policy = (rc / "lan_udhcpc_hostname_policy.h").read_text()
+          hostname_test = (rc / "tests/lan_udhcpc_hostname_policy.c").read_text()
+          assert "test_nvram_lookup_error_is_preserved" in hostname_test
+          assert "test_missing_or_invalid_hostname_is_rejected" in hostname_test
+          assert "test_valid_hostname_is_accepted" in hostname_test
+          assert "return lookup_status;" in hostname_policy
           lan_callback_policy = (rc / "lan_dhcp_callback_policy.h").read_text()
           lan_callback_test = (rc / "tests/lan_dhcp_callback_policy.c").read_text()
           wan6_source = (rc / "net_wan6.c").read_text()

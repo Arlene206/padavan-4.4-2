@@ -35,6 +35,7 @@
 #include "dnsmasq_domain_policy.h"
 #include "dhcp_lease_policy.h"
 #include "lan_kernel_name_policy.h"
+#include "lan_udhcpc_hostname_policy.h"
 #include "lan_dhcp_callback_policy.h"
 #include "wan_nvram_status_policy.h"
 #include "route_status_policy.h"
@@ -3544,6 +3545,9 @@ int
 start_udhcpc_lan(char *lan_ifname)
 {
 	char *lan_hostname = get_our_hostname();
+	int hostname_status = lan_udhcpc_hostname_status(
+		lan_hostname, lan_hostname ? 0 : (errno > 0 ? errno : EIO),
+		lan_hostname && is_valid_hostname(lan_hostname));
 	char *dhcp_argv[] = {
 		"/sbin/udhcpc",
 		"-i", lan_ifname,
@@ -3555,6 +3559,14 @@ start_udhcpc_lan(char *lan_ifname)
 		"-H", lan_hostname,
 		NULL
 	};
+
+	if (hostname_status != 0) {
+		logmessage(LOGNAME,
+			   "refusing to start LAN DHCP client without a verified hostname (status=%d)",
+			   hostname_status);
+		errno = hostname_status;
+		return hostname_status;
+	}
 
 	return udhcpc_start_and_verify(dhcp_argv, "/var/run/udhcpc_lan.pid",
 				       lan_ifname, "DHCP LAN Client");

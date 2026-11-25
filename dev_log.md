@@ -1,3 +1,8 @@
+## 2026-11-24 — Fail closed before starting LAN udhcpc without a valid hostname
+
+- `start_udhcpc_lan()` passed `get_our_hostname()` directly into the `-H` argv slot. When the checked NVRAM lookup failed, the helper returned NULL; that NULL terminated argv immediately after `-H`, so udhcpc was still spawned with a missing argument and the later readiness timeout obscured the original NVRAM error.
+- Added a pre-spawn policy that preserves lookup errno (or EIO when absent), rejects empty/invalid hostname values, and returns before calling the launcher. GNU89 ASan/UBSan boundary tests and a WAN source-order contract cover lookup errors, missing/invalid values and valid names. Exact-head WAN/Process/NVRAM/XY-C1 checks pending; no local compile or firmware build is claimed.
+
 ## 2026-11-24 — Repair SmartDNS DNSMasq source-checker initialization order
 
 - Exact DNSMasq run #45549996147 on `5d713067` passed all SmartDNS shell regressions, then the Python integration contract failed with `NameError: stop is not defined`: it inspected the `Stop_smartdns` body before assigning it. Moved the body extraction before its first use; no production source changed. Exact-head rerun is required.
