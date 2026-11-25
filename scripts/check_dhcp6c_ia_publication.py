@@ -86,7 +86,7 @@ assert update_ia.index("if (ia_error != 0)") < update_ia.index("if (ia->ctl == N
 assert update_ia.index("if (ia_error != 0)") < update_ia.index("dhcp6_timer_set(ia->t1 * 1000ULL, ia->timer)")
 assert "return first_error;" in update_ia
 
-reply = function_body(client, "static int client6_recvreply(")
+reply = function_body(client, "static int client6_recvreply(struct dhcp6_if *ifp, struct dhcp6_event *ev,")
 apply_begin = reply.index("ia_status = update_ia(")
 script_begin = reply.index("if (ifp->scriptpath != NULL")
 apply_block = reply[apply_begin:script_begin]

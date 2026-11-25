@@ -3,33 +3,33 @@
 Startup recovery for this work period is complete. This is the active checkpoint; older records below are historical. Do not repeat completed U2EC, procps, WAN/PPP or other audits without new evidence.
 
 ### Live Git state
-- Main baseline before this corrective slice: `fd0e5818afc44b1a7a55658d5ce22718a3f377b7`. DHCPv6 IA source/test/workflow commit: `0b41a2ed600fdf2c39358a6ef46d5acb4dc593fa`; checker follow-up: `fd0e5818afc44b1a7a55658d5ce22718a3f377b7`.
+- Main baseline before this checker correction: `a319ffe3edd200f2f5634d34345b63563425dd7c`. Source/test/workflow commit: `0b41a2ed600fdf2c39358a6ef46d5acb4dc593fa`; checker follow-up: `fd0e5818afc44b1a7a55658d5ce22718a3f377b7`; source/declaration/docs correction: `a319ffe3edd200f2f5634d34345b63563425dd7c`.
 - Frozen read-only backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`. Do not update it.
 - Main-only, full-tree, atomic commits. Re-fetch current main/root tree before each commit and use force:false plus expected SHA.
 
 ### DHCPv6 IA source fix
-- `update_ia()` now returns the first IA_NA/IA_PD kernel configuration error; caller `client6_recvreply()` retries the same Reply using the existing bounded 5-second delay before running the configuration script.
+- `update_ia()` returns the first IA_NA/IA_PD kernel configuration error; `client6_recvreply()` retries the same Reply using the existing bounded 5-second delay before the configuration script.
 - IA_PD checks every configured downstream interface on each Reply; successful interface entries are not repeated, missing targets are retried, and `add_ifprefix()` failures propagate.
-- Commit `0b41a2e` added the source fix, GNU89 ASan/UBSan regression, source checker, dedicated Actions workflow and firmware/WAN filter coverage. Local regression and the exact-SHA Actions compile/run step passed.
-- Commit `fd0e581` fixed checker function lookup (it had found the forward declaration, not the function definition). This corrective slice fixes the second checker assumption and a legacy declaration assertion without changing runtime semantics.
+- GNU89 ASan/UBSan partial-success/failure/selective-retry regression passes. The a319 checker run reached the final source-contract stage only after the host compile/run passed.
 
 ### Exact-SHA CI evidence and failures
-- DHCPv6 IA run #45617024430 on `0b41a2e`: regression compiled and passed; source checker failed because it resolved the helper prototype.
-- DHCPv6 IA run #45617262785 on `fd0e581`: regression compiled and passed; source checker failed because it searched for a non-existent `if (state != DHCP6S_RELEASE)` anchor. The corrected checker anchors on `ia_status = update_ia(`.
-- Existing DHCPv6 script retry run #45617024385 on `0b41a2e`: regression passed; source checker expects `int state, script_status = 0;`. This correction preserves that declaration and puts `ia_status` on its own line.
-- AI handoff/docs run #45617024419 on `0b41a2e` failed the hard 128 KiB roadmap limit (131312 bytes). The oversized status paragraph is replaced with a compact entry.
-- WAN callback run #45617024383: PASS on `0b41a2e`. Process inventory #45617024400 and fail-closed regression #45617024379: PASS. Storage hotplug #45617024412: PASS.
-- NVRAM transaction audit #45617024394 was still running at last poll.
-- XY-C1 #45617024353 on `0b41a2e`: all pre-build checks passed; Build XY-C1 was in progress; TRX and artifact upload were pending. Do not claim L3 until Build, TRX and artifact upload all pass on the same product-source SHA.
-- The current correction must trigger fresh exact-head checks. Physical router L4 remains unverified.
+- #45617024430 (`0b41a2e`): C regression PASS; checker failed on the helper prototype rather than definition.
+- #45617262785 (`fd0e581`): C regression PASS; checker then used an invalid Reply-state anchor.
+- #45617826455 (`a319ffe`): C regression PASS; checker now reaches a third mistaken forward-declaration lookup for `client6_recvreply`. This correction uses its full definition signature.
+- #45617024385 (`0b41a2e`) DHCPv6 script checker failed on a changed local declaration; #45617826451 (`a319ffe`) is PASS after preserving the legacy declaration and separating `ia_status`.
+- #45617024419 (`0b41a2e`) AI docs failed roadmap 128 KiB cap; the compact roadmap update passed in #45617826480 (`a319ffe`).
+- WAN callback #45617024383 and #45617826457: PASS. Process inventory #45617024400 and process fail-closed #45617024379: PASS. Storage hotplug #45617024412: PASS.
+- NVRAM #45617024394 (older source SHA) and #45617826329 (`a319ffe`) were still running at last poll.
+- XY-C1 #45617024353 (`0b41a2e`) had reached Build XY-C1 with earlier preflight checks PASS; XY-C1 #45617826332 (`a319ffe`) was in progress after checkout. Neither result is L3 until Build, TRX and artifact upload all pass on one exact source SHA.
+- Physical router L4 remains unverified.
 
 ### First next actions
-1. Poll new exact-main DHCPv6 IA, DHCPv6 script retry, AI handoff/docs, WAN, NVRAM and XY-C1 Actions; inspect logs and fix real failures. PENDING never blocks independent work.
-2. For L3, verify all three XY-C1 steps on one identical product-source SHA.
-3. Continue independent WAN/IPv6 route-lifecycle and MIPS/uClibc review; avoid repeated audits already recorded above.
+1. Poll the fresh IA checker run, NVRAM and XY-C1 exact-head workflows; resolve any failing assertion or build error using job logs.
+2. Verify all three XY-C1 Build, TRX and artifact steps on one identical SHA.
+3. Continue independent WAN/IPv6 route lifecycle and MIPS/uClibc target-runtime review. Do not repeat startup audits.
 
 ### Execution contract
-Source change → focused regression → one atomic complete-tree commit → exact-SHA Actions. No per-file intermediate commits, no force update, no PR/branch creation, and no backup edits. Before context exhaustion, close this slice and update this checkpoint with exact commit and CI evidence.
+Source change → focused regression → one atomic complete-tree commit → exact-SHA Actions. No per-file intermediate commits, no force update, no PR/branch creation, no backup edits. Update this handoff with exact SHA and CI evidence before context exhaustion.
 
 
 ---

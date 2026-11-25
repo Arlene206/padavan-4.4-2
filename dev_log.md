@@ -1,3 +1,9 @@
+## 2026-11-25 — Resolve DHCPv6 checker definition lookup
+- The latest IA workflow's GNU89 ASan/UBSan regression passed, but its static checker matched the client6_recvreply forward declaration. It now anchors on the full definition signature, consistent with the production callback checker.
+- Exact-head AI docs, DHCPv6 script retry and WAN callback workflows passed after the compact roadmap and legacy declaration fixes. XY-C1 Build/TRX and NVRAM audit remain in progress.
+
+---
+
 ## 2026-11-25 — Correct DHCPv6 regression contracts
 - First exact-head iteration exposed checker-only failures after the GNU89 ASan/UBSan IA test passed: helper-definition lookup and an incorrect Reply-state anchor. The existing DHCPv6 script checker also depends on the original local declaration; retain it and declare IA status separately.
 - AI handoff validation caught the 128 KiB roadmap hard limit. Replaced the oversized status paragraph with a compact entry. Re-run exact-head Actions after this correction.
