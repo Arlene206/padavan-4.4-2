@@ -297,15 +297,13 @@ control_static_routes(char *ift, char *ifname, int is_add)
 		gateway = strsep(&metric, ":");
 		if (!gateway || !metric)
 			continue;
-		/* fill_static_routes() resolves the WAN fallback, but route_manip()
-		 * ultimately uses inet_aton(), which accepts abbreviated and
-		 * octal-looking IPv4 aliases. Reject those on install; leave delete
-		 * parsing compatible so routes created by older firmware can be
-		 * removed when the user disables or edits them. */
-		if (is_add &&
-		    (!static_route_ipv4_address_is_valid(ipaddr) ||
-		     !static_route_ipv4_address_is_valid(netmask) ||
-		     !static_route_ipv4_address_is_valid(gateway))) {
+		/* route_manip() uses inet_aton(), which accepts abbreviated and
+		 * octal-looking IPv4 aliases. Reject them before either adding or
+		 * deleting a route: a malformed persisted value must not be able
+		 * to alias and remove a different kernel route. */
+		if (!static_route_ipv4_address_is_valid(ipaddr) ||
+		    !static_route_ipv4_address_is_valid(netmask) ||
+		    !static_route_ipv4_address_is_valid(gateway)) {
 			route_status = EINVAL;
 			status = route_status_accumulate(status, route_status);
 			logmessage(LOGNAME,

@@ -924,8 +924,9 @@ jobs:
           strict_netmask_validation = static.index("static_route_ipv4_address_is_valid(netmask)")
           strict_gateway_validation = static.index("static_route_ipv4_address_is_valid(gateway)")
           route_add_delete = static.index("route_status = is_add ?")
-          assert "if (is_add &&" in static[:strict_ipv4_validation]
+          assert "if (is_add &&" not in static[:strict_ipv4_validation]
           assert "route_status = EINVAL;" in static[strict_gateway_validation:route_add_delete]
+          assert static.index("static_route_ipv4_address_is_valid(ipaddr)") < static.index("route_status = is_add ?")
           assert strict_ipv4_validation < strict_netmask_validation < strict_gateway_validation < route_add_delete
           assert "static_route_ipv4_address_is_valid" in static_route_policy
           assert 'static_route_ipv4_address_is_valid("01.2.3.4")' in static_route_test
