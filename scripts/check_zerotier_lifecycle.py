@@ -559,6 +559,8 @@ require("empty saved source segment is authoritative" in test and
         "empty checkpoint cleanup removed an unrelated source-NAT rule" in test and
         "empty checkpoint cleanup consulted or deleted the source segment from the current route" in test,
         "regression must preserve an unrelated source-NAT rule when a valid checkpoint has no source segment")
+require("if grep -E -- '^-t nat -(C|D) POSTROUTING -s 10\\.148\\.18\\.0/24 -j MASQUERADE'" in test,
+        "empty-checkpoint cleanup assertion must ignore fixture -A commands and reject only current-route checks/deletes")
 require('if ! zerotier_read_nat_enabled; then' in stop_body and
         'if [ "$nat_enable" = "1" ] && [ -z "$ip_segment" ]; then' in stop_body and
         'return 1' in stop_body and

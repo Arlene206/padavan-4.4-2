@@ -1,43 +1,20 @@
-## 2026-11-24 autonomous handoff snapshot
+## 2026-11-25 autonomous handoff snapshot
 
-This addendum supersedes older task pointers below where they conflict with the live Git state.
+This snapshot supersedes older task pointers below where they conflict with live Git state.
 
-- Main at snapshot: `904d7b489b96a99c72cedb022667c67d4e3b2eb3`.
-- Backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only; do not move it).
-- Recent main history:
-- `904d7b489b96a99c72cedb022667c67d4e3b2eb3` — test(zerotier): ignore NAT fixture seeding in cleanup assertion
-- `74946cc36589c72b0582fa5dc3132b246e805da7` — test(zerotier): encode empty checkpoint lines correctly
-- `f2724cd666c7265759b23a72b7dd634041fa7975` — fix(zerotier): honor empty NAT cleanup checkpoints
-- `33d0f4c2edaa3f74b004abf2939bad9ca530763d` — test(vsftpd): assert hard-link rename leaves no alias
-- `453ef6f30e0ad21b474602eab8d37a6b4d32ecbf` — fix(vsftpd): block cross-share hard-link renames
-- `fe0a700656aa90b3f2fcf1c0929c3bd129d80521` — test(zerotier): write checkpoint fixture as two lines
-- `6a5b74fdb75537599055151b01eea7c20ef6141e` — fix(zerotier): preserve published NAT cleanup checkpoint
-- `0b68b5f86479c766e0d5204cb1ee6fd76f78a2ee` — test(vsftpd): remove unused hard-link fixture path
-- `7d9efe339fb102c366bf15fda490f4aff49f2233` — fix(vsftpd): retain hard-linked uploads during rollback
-- `a247cd34ac841b12f57f692209eebd01ce9d5611` — test(udhcpc): match multiline static route guard
-- Exact-head Actions currently known:
-- Process lifecycle inventory - 904d7b489b96a99c72cedb022667c67d4e3b2eb3 (#45530983779, SHA 904d7b489b96): in_progress.
-- WAN route operation status regression (#45530983759, SHA 904d7b489b96): in_progress.
-- XY-C1 Firmware Validation (#45530983731, SHA 904d7b489b96): in_progress.
-- ZeroTier lifecycle stability regression (#45530983712, SHA 904d7b489b96): in_progress.
-- Latest relevant workflow observations (may refer to older SHAs and are not proof for current main):
-- vsftpd configuration publication stability regression (#45530467033, SHA 33d0f4c2edaa): completed/success.
-- ZeroTier lifecycle stability regression (#45530983712, SHA 904d7b489b96): in_progress.
-- XY-C1 Firmware Validation (#45530983731, SHA 904d7b489b96): in_progress.
-- WAN DHCP callback state stability regression (#45528021031, SHA f72030990d75): completed/success.
-- DNSMasq lifecycle stability regression (#45528020810, SHA f72030990d75): completed/success.
-- Wireless radio state regression (#45528020753, SHA f72030990d75): completed/success.
-- AI handoff documentation contract (#45530467034, SHA 33d0f4c2edaa): completed/success.
-- Process lifecycle inventory - 904d7b489b96a99c72cedb022667c67d4e3b2eb3 (#45530983779, SHA 904d7b489b96): in_progress.
+- Main before this repair: `a51d1547c248b4ee8d58451913dd31e33a7ebd69`; source baseline `f2724cd666c7265759b23a72b7dd634041fa7975` includes empty NAT checkpoint authority in ZeroTier stop/cleanup. Live main must be fetched before every new write.
+- Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only and unchanged.
+- Parent ZeroTier run #45530983712 on SHA `904d7b489b96a99c72cedb022667c67d4e3b2eb3` FAIL: job #138925932343 passed the bounded stop/start and Moon-orbit groups, then failed at the empty-source-checkpoint fixture. Log shows grep treating words from the following comment as file operands and a shell fragment trying to execute the log path with permission denied. Inspection found the grep command truncated in line 1367 and its tail stranded near EOF; the test file grew to 3,170 lines from the clean 2,270-line fixture. This is test-source corruption, not a demonstrated product-source failure.
+- This atomic repair restores the clean fixture from `74946cc36589c72b0582fa5dc3132b246e805da7`, keeps its corrected two-line checkpoint encoding, and checks only NAT `-C/-D` operations so setup `-A` rules do not trigger a false positive. The Python checker now locks this assertion shape. Product `zerotier.sh` is unchanged.
+- On parent SHA 904d, Process inventory #45530983779 and WAN route #45530983759 PASS; ZeroTier #45530983712 FAIL as above; XY-C1 #45530983731 IN_PROGRESS. On VSFTPD test SHA `33d0f4c2edaa3f74b004abf2939bad9ca530763d`, VSFTPD #45530467033, Process #45530467005, AI docs #45530467034, NVRAM #45530466995 and XY-C1 #45530467001 PASS. Do not transfer results to a different SHA.
+- AI docs #45531042314 was IN_PROGRESS on doc-only SHA `a51d1547`; this repair's test/checker/docs commit needs its own exact-head Actions. No local shell/C build, current-head MIPS L3 or physical-router L4 is claimed.
+- Next engineering task after this ZeroTier test repair: close the VSFTPD rename source TOCTOU. `ftp_acl_path_rename_entry()` currently does public-leaf `fstatat()` followed by `renameat()`, permitting a concurrent source-name replacement between the link-count check and move. Atomically quarantine the exact source entry before checking link count; preserve directory rename and failed-publication restore semantics. Implement source/test/checker together.
 
-Completed implementation slices in the current development line include: ZeroTier stop now fails closed on malformed firewall recovery checkpoints; WAN DHCP Router and legacy/classless route lists are validated before lease/interface/route teardown; DNSMasq static ARP parser requires Ethernet hardware type; Ralink radio config checker covers all observed atomic-discard paths; VSFTPD denies multiply-linked non-directory entries on open/stat/upload, refuses rollback deletion of a multiply-linked upload, and blocks cross-share hard-link renames. Their regression/source-contract changes are committed in the recent history above. Treat each workflow's exact SHA and conclusion as authoritative; do not infer a product firmware build from a host-only regression workflow.
+## Exact first action for the next GPT
 
-First tasks for the next session:
-1. Inspect any exact-head FAIL above, beginning with the current ZeroTier firewall lifecycle run if it is failed; read the failing job log, distinguish product defect from stale test/source contract, fix and add regression tests.
-2. Confirm the current-head VSFTPD run includes the hard-link rename and rollback regressions. Check the corresponding job, not only a workflow with a similar name on an older SHA.
-3. Check current-head WAN DHCP callback and route-operation Actions; resolve compiler/test/checker failures before moving to another unrelated module.
-4. Check XY-C1 Build, TRX verification and artifact upload on a production-source SHA. L3 remains NOT VERIFIED until those exact steps pass; L4 remains hardware NOT VERIFIED. No local compile is claimed by this handoff.
-5. Continue with the next independent userland stability/security defect after the above, preserving small atomic commits and expected-SHA updates. Do not wait on unrelated PENDING workflows.
+1. Fetch live main and inspect exact-head push runs for ZeroTier lifecycle and AI handoff documentation; require `head_sha` to equal the live main tip. Fix any FAIL on main. Also verify Process inventory and WAN route results for that SHA.
+2. Check XY-C1 Build, TRX verification and artifact upload on one identical product-source SHA before claiming L3. L4 remains hardware NOT VERIFIED.
+3. Resume the VSFTPD rename TOCTOU item above after confirming the repaired ZeroTier test is green; do not repeat completed audits or wait on unrelated PENDING runs.
 
 No force-push. The backup branch remains unchanged.
 

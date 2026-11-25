@@ -1,3 +1,9 @@
+## 2026-11-25 — Repair ZeroTier empty-checkpoint lifecycle regression fixture
+
+- Exact-head ZeroTier run #45530983712 on main `904d7b489b96a99c72cedb022667c67d4e3b2eb3` failed after the earlier test-only commit malformed the shell fixture: the empty-checkpoint grep command was truncated at line 1367 and its tail was appended near EOF, duplicating roughly 900 lines. The log showed the functional lifecycle tests passed before the malformed empty-checkpoint assertion failed; this was test-source corruption, not evidence of a production ZeroTier failure.
+- Restored the clean 2,270-line fixture from parent `74946cc36589c72b0582fa5dc3132b246e805da7`, preserving its corrected two-line checkpoint encoding, and narrowed the assertion to only NAT `-C/-D` operations so the deliberate `-A` fixture seeding is ignored. Added a Python source-contract assertion for that exact guard. Product `zerotier.sh` is unchanged.
+- Parent 904d exact-head Process inventory #45530983779 and WAN route #45530983759 PASS; ZeroTier #45530983712 FAILs in the malformed shell fixture; XY-C1 #45530983731 was still IN_PROGRESS. Exact-head reruns on this atomic repair are required. No local shell run or MIPS/L4 validation is claimed; no product source changed in this test/contract slice.
+
 ## 2026-11-24 — Cross-share hard-link rename guard and handoff refresh
 
 - Added a VSFTPD rename boundary: `ftp_acl_path_rename_entry()` checks the source entry without following symlinks and rejects multiply-linked non-directory entries with `EACCES`, preventing a hard-link alias from being moved between authorized shares. Added regression coverage that verifies both original names remain, the destination alias is not created, and link count remains unchanged.
