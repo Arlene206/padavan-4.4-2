@@ -1,3 +1,10 @@
+## 2026-11-25 21:51 CST (UTC+8) — Fix VLAN checker local-name collision
+
+- Exact WAN route run #45622867970 on `134638e4` passed all sanitizer test binaries, including the corrected VLAN rollback test. The Python source checker then failed because an older section reused the name `create_vlan` for an integer offset, shadowing the function-body string expected by the new assertion.
+- The appended assertions now use a distinct `vlan_create_body` variable from `body(net, ...)`. No product source or runtime test changed; exact-head route rerun required.
+
+---
+
 ## 2026-11-25 21:48 CST (UTC+8) — Correct VLAN rollback mock capacity
 
 - Exact WAN route run #45622569505 on `64bd4201` compiled the policy fixtures, but UBSan caught the new VLAN restore mock's pointer array as length 3 while the successful rollback path records 4 operations (down, MTU, MAC, final up). No production code was reached by this fixture failure.

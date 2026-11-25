@@ -1,12 +1,13 @@
-## 2026-11-25 autonomous handoff — VLAN rollback test correction
+## 2026-11-25 autonomous handoff — VLAN rollback checker name fix
 
-- Main baseline for this test-only correction: `64bd4201f03e4b7d60f5be8b701dee7dbdbcc268`. Exact WAN route run #45622569505 failed in the new VLAN host fixture: UBSan found a pointer recorder array of 3 slots used for four restore operations. Production firmware source was not implicated; enlarge the array to 4 and bound the recorder at 4.
-- Previous code-bearing VLAN commit `64bd4201f03e4b7d60f5be8b701dee7dbdbcc268` adds reused-VLAN MTU/MAC/UP snapshots and moves the QoS map setter to the final fallible operation. Kernel 4.4 source confirms egress GET ioctl is unsupported; its setter allocates before publishing and cannot fail after successful publication.
-- Exact WAN DHCP callback and AI docs passed on parent `4180e4d`. XY-C1 #45622569603 for `64bd4201` was still in progress at last poll. This test correction needs new WAN route, AI docs and XY-C1 exact-head validation.
-- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. Next: inspect corrected exact-head route and firmware actions, then continue remaining WAN/IPv6 M2U route stability.
+- Main baseline for this checker-only correction: `134638e4b36959e35af220b137c23907061fdcc6`.
+- WAN route exact run #45622867970 passed every sanitizer fixture, including the updated four-entry VLAN rollback mock. It then failed in `check_wan_vlan_setup.py`: the earlier check code had reassigned `create_vlan` to an integer position, so the new appended source-order assertion raised `AttributeError`. The follow-up renames its body string to `vlan_create_body`.
+- Product fix in `64bd4201f03e4b7d60f5be8b701dee7dbdbcc268` restores reused VLAN IFF_UP, requested MTU and MAC on later configuration failure; QoS setter is last because the in-tree Linux 4.4 ioctl does not implement GET and publishes a new mapping only after allocation. Test array capacity fix is in `134638e4`.
+- AI docs #45622868245 was pending on 134638, and XY-C1 #45622569603 was still building on 64bd at last poll. Check exact current route/docs and firmware runs after this update. L3 must be established on the exact product-source SHA; physical L4 remains unverified.
+- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. Next code target: assess the bridge-port M2U multi-sysfs update for partial rollback.
 
 ### Execution contract
-Source/test → one complete tree/commit → non-forced expected-SHA update → exact-SHA Actions. Do not modify backup.
+Source/test → one atomic tree/commit → non-forced expected-SHA update → exact-SHA Actions. No branches, PRs or force update.
 
 ---
 

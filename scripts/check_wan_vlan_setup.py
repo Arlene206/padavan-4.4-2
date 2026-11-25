@@ -939,16 +939,17 @@ for case in (
 ):
     require(case in vlan_test and case + "();" in vlan_test,
             "VLAN reused-interface restoration regression missing " + case)
-restore_vlan = create_vlan.index("vlan_interface_restore_existing(")
-existing_down = create_vlan.index("ret = ifconfig(vlan_ifname, 0, NULL, NULL)")
-egress_set = create_vlan.index("ret = vconfig_egress_map(vlan_ifname, 0, prio)")
-final_up = create_vlan.index('ret = ifconfig(vlan_ifname, IFUP, "0.0.0.0", NULL)')
-assert create_vlan.index("get_interface_flags(vlan_ifname)") < existing_down
-assert create_vlan.index("get_interface_mtu_status(vlan_ifname, &original_mtu)") < existing_down
-assert create_vlan.index("get_interface_hwaddr_status(vlan_ifname, original_hwaddr)") < existing_down
+vlan_create_body = body(net, "create_vlan_iface_internal(")
+restore_vlan = vlan_create_body.index("vlan_interface_restore_existing(")
+existing_down = vlan_create_body.index("ret = ifconfig(vlan_ifname, 0, NULL, NULL)")
+egress_set = vlan_create_body.index("ret = vconfig_egress_map(vlan_ifname, 0, prio)")
+final_up = vlan_create_body.index('ret = ifconfig(vlan_ifname, IFUP, "0.0.0.0", NULL)')
+assert vlan_create_body.index("get_interface_flags(vlan_ifname)") < existing_down
+assert vlan_create_body.index("get_interface_mtu_status(vlan_ifname, &original_mtu)") < existing_down
+assert vlan_create_body.index("get_interface_hwaddr_status(vlan_ifname, original_hwaddr)") < existing_down
 assert existing_down < restore_vlan
 assert final_up < egress_set
-assert egress_set < create_vlan.index("if (created_out)", egress_set)
+assert egress_set < vlan_create_body.index("if (created_out)", egress_set)
 kernel_vlan = (ROOT / "trunk/linux-4.4.x/net/8021q/vlan.c").read_text()
 kernel_vlan_dev = (ROOT / "trunk/linux-4.4.x/net/8021q/vlan_dev.c").read_text()
 kernel_ioctl = body(kernel_vlan, "static int vlan_ioctl_handler(")
