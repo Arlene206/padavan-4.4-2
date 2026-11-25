@@ -2,16 +2,16 @@
 
 This snapshot supersedes older task pointers below where they conflict with live Git state.
 
-- Main before this UDHCP option-overload hardening: c921d6bdbbf0c9f8c33b02e706490deaa918d513. Frozen backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807, unchanged. PR #1 remains closed/unmerged.
-- Exact c921 checks: ZeroTier lifecycle #45539243439 PASS; AI handoff docs #45539243452 PASS. Exact a514 product-source run #45539043720 passed XY-C1 Build/TRX/artifact; no build-affecting files changed between a514 and c921. UDHCP parser sanitizer suite passed on a8f5f0a2 (#45538273420); this new option-52 hardening needs a fresh exact-head UDHCP run.
-- Current fix: RFC 2132 legal option-overload selector values are only 1/2/3; the previous policy accepted 0. RFC 2131 requires the selector in the main options area before file/sname are interpreted. The parser previously merged repeated selectors and could process selector 52 again inside an overloaded field. This slice rejects value 0, repeated selectors and selectors encountered in overloaded fields.
-- No local compile/host regression claimed. Verify exact-head UDHCP GNU89/ASan/UBSan and Python source contract; verify Process/AI/XY-C1 workflows when triggered. Backup remains read-only.
+- Main before this UDHCP checker correction: `e43ee62f7c56a49f1744f08375990c3dde1864cd`. Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged. PR #1 remains closed/unmerged.
+- Exact e43 actions: AI handoff docs #45540135576 PASS; Process inventory #45540135599 PASS. UDHCP #45540135661: GNU89 compile and ASan/UBSan runtime PASSED, then Python source contract FAILED because its old assertion still expected the pre-hardening reserved-bit mask expression. The checker now expects the new valid selector range 1..3. NVRAM #45540135593, USB storage #45540135666 and XY-C1 Firmware Validation #45540135607 remained IN_PROGRESS at last poll.
+- The production parser now rejects option 52 value 0, duplicates, and selectors parsed in overloaded file/sname fields. Regression helper tests and source contract were added in e43; only the stale assertion caused the exact-head failure.
+- Exact-head UDHCP rerun required. No local compile or firmware result claimed. Backup remains read-only.
 
 ## Exact first action for the next GPT
 
-1. Verify the exact-head UDHCP regression and source checker for legal selector values, uniqueness and main-field placement; fix any failure.
-2. Check Process inventory/umbrella and XY-C1 Build/TRX/artifact on the new source SHA.
-3. Continue a separate userland P1/P2 reliability/security slice while unrelated Actions are pending. No force-push or backup mutation.
+1. Verify exact-head UDHCP GNU89/ASan/UBSan and Python source contract after this assertion update. Fix any subsequent checker or runtime failure.
+2. Check same-SHA XY-C1 Build/TRX/artifact and NVRAM/USB/Process/AI results.
+3. Continue a separate userland reliability/security slice while unrelated Actions are pending. No force-push or backup mutation.
 
 No force-push.
 

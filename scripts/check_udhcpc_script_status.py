@@ -73,7 +73,7 @@ assert 'udhcp_option_overload_location_valid' in option_parser
 assert 'remaining < 2U' in option_parser
 assert 'payload_length > remaining - 2U' in option_parser
 assert 'option[1] != 1U' in option_parser
-assert '(option[2] & (uint8_t)~0x03U) != 0U' in option_parser
+assert 'option[2] < 1U || option[2] > 3U' in option_parser
 option_parser_body = function_body(common, "uint8_t* FAST_FUNC udhcp_get_option")
 tlv_guard = option_parser_body.index("udhcp_option_tlv_size(optionptr")
 overload_check = option_parser_body.index("udhcp_option_overload_fields(optionptr")

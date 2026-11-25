@@ -1,3 +1,9 @@
+## 2026-11-25 11:49 CST — Align UDHCP contract with legal option-overload values
+
+- Exact UDHCP run #45540135661 on e43ee62 passed GNU89 compilation and the ASan/UBSan runtime tests. The Python source contract then failed because its original assertion still required the old reserved-bit mask expression, while the new production policy expresses legal values as 1..3.
+- Updated the stale source-contract assertion to the explicit range. Added location/uniqueness assertions were already present. Production source and sanitizer tests are unchanged. Exact-head rerun required.
+- Exact-SHA AI docs #45540135576 and Process inventory #45540135599 PASS; NVRAM #45540135593, USB storage #45540135666 and XY-C1 #45540135607 were pending at last poll.
+
 ## 2026-11-25 11:45 CST — Reject invalid, duplicate and misplaced DHCP option-overload selectors
 
 - UDHCP parser review against RFC 2131/2132 exposed two remaining validation gaps: selector value 0 was accepted although only 1, 2 and 3 are legal; and the parser merged repeated option-52 values or accepted the selector a second time while walking overloaded file/sname fields.
