@@ -28,6 +28,8 @@ on:
       - "trunk/user/rc/src/tests/wan_nvram_status_policy.c"
       - "trunk/user/rc/src/wan6_identity_policy.h"
       - "trunk/user/rc/src/tests/wan6_identity_policy.c"
+      - "trunk/user/rc/src/wan6_sixrd_prefix_policy.h"
+      - "trunk/user/rc/src/tests/wan6_sixrd_prefix_policy.c"
       - "trunk/user/rc/src/wan6_teardown_policy.h"
       - "trunk/user/rc/src/tests/wan6_teardown_policy.c"
       - "trunk/user/rc/src/common_ex.c"
@@ -102,6 +104,8 @@ on:
       - "trunk/user/rc/src/tests/wan_nvram_status_policy.c"
       - "trunk/user/rc/src/wan6_identity_policy.h"
       - "trunk/user/rc/src/tests/wan6_identity_policy.c"
+      - "trunk/user/rc/src/wan6_sixrd_prefix_policy.h"
+      - "trunk/user/rc/src/tests/wan6_sixrd_prefix_policy.c"
       - "trunk/user/rc/src/wan6_teardown_policy.h"
       - "trunk/user/rc/src/tests/wan6_teardown_policy.c"
       - "trunk/user/rc/src/common_ex.c"
@@ -202,6 +206,11 @@ jobs:
           set -eu
           cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer -I trunk/user/rc/src trunk/user/rc/src/tests/wan6_identity_policy.c -o /tmp/wan6-identity-policy
           ASAN_OPTIONS=detect_leaks=1 /tmp/wan6-identity-policy
+      - name: Compile and run WAN DHCPv4 6rd prefix bounds regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer -I trunk/user/rc/src trunk/user/rc/src/tests/wan6_sixrd_prefix_policy.c -o /tmp/wan6-sixrd-prefix-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/wan6-sixrd-prefix-policy
       - name: Compile and run LAN kernel hostname/domain status regression
         run: |
           set -eu

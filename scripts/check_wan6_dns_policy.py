@@ -27,6 +27,8 @@ policy = (ROOT / "trunk/user/rc/src/wan6_dns_policy.h").read_text()
 test = (ROOT / "trunk/user/rc/src/tests/wan6_dns_policy.c").read_text()
 identity_policy = (ROOT / "trunk/user/rc/src/wan6_identity_policy.h").read_text()
 identity_test = (ROOT / "trunk/user/rc/src/tests/wan6_identity_policy.c").read_text()
+sixrd_policy = (ROOT / "trunk/user/rc/src/wan6_sixrd_prefix_policy.h").read_text()
+sixrd_test = (ROOT / "trunk/user/rc/src/tests/wan6_sixrd_prefix_policy.c").read_text()
 callback_policy = (ROOT / "trunk/user/rc/src/dhcp6c_callback_generation_policy.h").read_text()
 callback_test = (ROOT / "trunk/user/rc/src/tests/dhcp6c_callback_generation.c").read_text()
 header = (ROOT / "trunk/user/rc/src/rc.h").read_text()
@@ -146,6 +148,17 @@ assert "dhcp_lease_nvram_restore(" in sixrd_restore
 sixrd_store = body(source, "int\nstore_ip6rd_from_dhcp_status(")
 assert "wan6_publish_6rd_snapshot(" in sixrd_store
 assert "status != 0" in sixrd_store
+assert '#include "wan6_sixrd_prefix_policy.h"' in source
+assert "wan6_sixrd_prefix_mapping_is_valid((int)ipv4_mask_len" in sixrd_store
+assert sixrd_store.index("wan6_sixrd_prefix_mapping_is_valid(") < sixrd_store.index("wan6_publish_6rd_snapshot(")
+for marker in (
+    "test_valid_mapping_boundaries",
+    "test_rejects_oversized_derived_prefix",
+    "test_rejects_out_of_range_lengths",
+    "WAN DHCPv4 6rd prefix bounds regression: PASS",
+):
+    assert marker in sixrd_test
+assert "32 - ipv4_mask_len" in sixrd_policy
 wan_bound = body(wan_source, "static int\nudhcpc_bound(")
 sixrd_call = wan_bound.index("snapshot_status = store_ip6rd_from_dhcp_status(value, prefix);")
 sixrd_abort = wan_bound.index("goto snapshot_publication_failed;", sixrd_call)

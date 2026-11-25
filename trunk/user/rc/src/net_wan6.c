@@ -39,6 +39,7 @@
 #include <dhcp6c_duid_file_policy.h>
 #include "dhcp6c_config_file.h"
 #include "wan6_dns_policy.h"
+#include "wan6_sixrd_prefix_policy.h"
 #include "dhcp6c_callback_generation_policy.h"
 #include "service_wait_policy.h"
 
@@ -849,6 +850,15 @@ store_ip6rd_from_dhcp_status(const char *env_value, const char *prefix)
 			return 0;
 	ipv6_prefix_len = strtol(values[1], &end, 10);
 	if (*end || ipv6_prefix_len < 0 || ipv6_prefix_len > 128)
+		return 0;
+
+	/*
+	 * Reject an impossible RFC 5969 mapping before publishing the DHCP
+	 * option tuple. Otherwise an invalid prefix poisons NVRAM and makes a
+	 * later WAN restart fail even though the previous 6rd tuple was usable.
+	 */
+	if (!wan6_sixrd_prefix_mapping_is_valid((int)ipv4_mask_len,
+					       (int)ipv6_prefix_len))
 		return 0;
 
 	if (inet_pton(AF_INET6, values[2], &prefix6) != 1 ||
