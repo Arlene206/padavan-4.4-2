@@ -1,3 +1,12 @@
+## 2026-11-25 — VSFTPD HTTP status correctness and cross-userland hardening
+
+- VSFTPD HTTP GET previously emitted `HTTP/1.1 200 OK` before the shared RETR handler checked ACL access, securely opened the requested path, confirmed a regular file and enforced anonymous-world-readable policy. Missing/denied paths could therefore produce an HTTP 200 response followed by an FTP 550 reply. Commit `6534ff95d5a6368bc7f6f438a3427ea6048fb6df` delays success headers until all pre-transfer checks pass and maps invalid REST, permission, missing-file and non-regular-file failures to HTTP 400/403/404 with an empty body. The VSFTPD workflow source contract and GNU89 policy suite #45707415023 PASS; Process inventory #45707415097 and AI docs #45707414961 PASS on the same SHA. NVRAM #45707414901 and XY-C1 #45707417102 were IN_PROGRESS at checkpoint; XY Build was running and TRX/artifact pending. No live HTTP socket test or firmware L3 result is claimed.
+- Earlier source commits in this session: `1b8ea87b` / `0e8f4dac` / `22b2a943` reject empty, non-regular and symlinked AliDDNS CA bundles (actual tar and startup regressions; AliDDNS #45705446010 PASS on 22b2a943); `70b5733c` fixes BusyBox DHCP 6RD type confusion and bounds relay formatting; `b4d727d1` / `8522ac96` cap VSFTPD STOU candidate probes at 128 and avoid an outer retry rescan; `360ccb32` validates every DHCPv6 6rd relay-list token and supports the first relay under the existing single-relay NVRAM model (WAN 6rd #45706623877 PASS).
+- Exact current-main verification remains source-specific: `6534ff95` VSFTPD #45707415023, Process inventory #45707415097, AI docs #45707414961 PASS; NVRAM #45707414901 and XY-C1 #45707417102 IN_PROGRESS at last poll. Earlier 360ccb32 WAN/IPv6/NVRAM/HTTPD/Process/6RD checks passed; its XY-C1 build had not completed at last poll. Do not infer firmware L3 or hardware L4 from host Actions.
+- Changed source paths across these slices include BusyBox `dhcpc.c` and 6RD policy/tests, WAN IPv6 `net_wan6.c` and relay policy/tests, AliDDNS CA bootstrap/autostart scripts and regressions, and VSFTPD `postlogin.c` plus workflow source contracts.
+
+---
+
 ## 2026-11-26 — Keep detect_wan ARP receive deadline across EINTR
 
 - The gateway ARP probe had a finite one-second socket timeout and a five-second elapsed-time bound for EAGAIN and normal packet wakeups, but its EINTR branch retried unconditionally. Repeated unrelated signal interruptions could therefore keep a single gateway probe alive beyond its advertised deadline and stall monitoring/recovery.
