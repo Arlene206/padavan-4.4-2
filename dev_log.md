@@ -1,3 +1,10 @@
+## 2026-11-25 — Update remaining MTD fixtures for direct procfs parsing
+
+- The save-retry regression now passes on both host sh and firmware BusyBox ash after replacing the actual /proc/mtd pathname. The next restore-transaction step still used an older cat-wrapper fixture, but production func_get_mtd() now invokes awk directly; that wrapper cannot redirect the read. The backup, load and erase/reset fixtures retained the same stale assumption.
+- Updated all four remaining harnesses to rewrite /proc/mtd itself, preventing the host tests from reading the runner's absent procfs node and allowing the restore/backup/load/erase transaction assertions to execute against their intended synthetic MTD inventory. Exact-head storage Actions are required; no local router/firmware run is claimed.
+
+---
+
 ## 2026-11-25 — Fail closed on FTP LIST entry-stat errors
 
 - Review of the no-chroot LIST fast path found a visibility bypass: it treated an entry as visible when fstatat(..., AT_SYMLINK_NOFOLLOW) failed, because symlink resolution ran only after a successful stat. A dangling/replaced entry or transient lookup error could therefore skip the internal-metadata symlink gate.

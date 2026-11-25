@@ -41,6 +41,7 @@ sed \
   -e "s|proc_root=\"/proc\"|proc_root=\"$sandbox/proc\"|" \
   -e "s|tmp_storage=\"/tmp/.httpd-private/storage-restore\"|tmp_storage=\"$sandbox/restore\"|" \
   -e "s|/sbin/rstats|$sandbox/bin/rstats|" \
+  -e "s|/proc/mtd|$sandbox/proc-mtd|g" \
   "$repo_root/trunk/user/scripts/files/sbin/mtd_storage.sh" > "$sandbox/mtd_storage.sh"
 chmod +x "$sandbox/mtd_storage.sh"
 

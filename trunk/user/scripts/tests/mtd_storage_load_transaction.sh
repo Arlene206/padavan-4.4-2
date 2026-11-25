@@ -23,7 +23,8 @@ sed \
   -e "s|^lock_dir=.*|lock_dir=\"$sandbox/private\"|" \
   -e "s|^tmp=.*|tmp=\"$sandbox/private/storage.tar\"|" \
   -e "s|^hsh=.*|hsh=\"$sandbox/private/storage_md5\"|" \
-  -e "s|cat /proc/mtd|cat \"$sandbox/proc-mtd\"|" \
+  -e "s|/proc/mtd|$sandbox/proc-mtd|g" \
+  -e "s|/proc/mtd|$sandbox/proc-mtd|g" \
   "$repo_root/trunk/user/scripts/files/sbin/mtd_storage.sh" > "$sandbox/mtd_storage.sh"
 
 cat > "$sandbox/bin/logger" <<'EOF'

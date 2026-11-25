@@ -72,7 +72,8 @@ prepare_case()
   -e "s|^lock_dir=.*|lock_dir=\"$base/private\"|" \
 		-e "s|^tmp=.*|tmp=\"$base/private/storage.tar\"|" \
 		-e "s|^hsh=.*|hsh=\"$base/private/storage_md5\"|" \
-		-e "s|cat /proc/mtd|cat \"$base/proc-mtd\"|" \
+		-e "s|/proc/mtd|$base/proc-mtd|g" \
+  -e "s|/proc/mtd|$base/proc-mtd|g" \
 		"$repo_root/trunk/user/scripts/files/sbin/mtd_storage.sh" > "$base/source.sh"
 	sed '/^case "\$1" in$/,$d' "$base/source.sh" > "$base/mtd_storage.sh"
 	cat >> "$base/mtd_storage.sh" <<'EOF_MOCK_FUNCTIONS'
