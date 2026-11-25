@@ -1,3 +1,10 @@
+## 2026-11-25 — Align U2EC framing source contract with bounded reads
+
+- Exact U2EC run #45608574671 on `0c505e0b` compiled the GNU89 policy test with ASan/UBSan and passed both complete-field and partial-field timeout regressions. The final source checker failed only because three pre-existing assertions still required the old unbounded `u2ec_recv_all()` call sites in `usb_connection()`.
+- Updated the production-source contract and read-order assertion to require `u2ec_recv_all_timeout()` for both the fixed header and IRP body. No runtime source changed in this follow-up.
+- Exact-head U2EC, storage, and XY-C1 checks remain required.
+
+---
 ## 2026-11-25 — Fix literal backslash count in chnroute source contract
 
 - Exact USB-storage run #45608329431 on `14ec3f27` passed runtime MTD fill regressions but the checker-only chnroute rewrite assertion failed: the test shell source contains one backslash before each escaped quote, while the Python raw-string expectation contained two.

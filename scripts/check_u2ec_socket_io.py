@@ -164,7 +164,7 @@ assert "U2EC_CONFIG_COMMAND_GETCONFIG" in add_remote
 assert "U2EC_CONFIG_COMMAND_GETNAME" in add_remote
 assert "length == 7U && memcmp(message, \"GETNAME\", 7U) == 0" in policy
 assert "length == 9U && memcmp(message, \"GETCONFIG\", 9U) == 0" in policy
-assert "u2ec_recv_all(sockfd, (char *)&tcp_pack, sizeof(tcp_pack))" in usb_connection
+assert "u2ec_recv_all_timeout(sockfd, (char *)&tcp_pack" in usb_connection
 assert "u2ec_frame_size_is_valid((long)tcp_pack.SizeBuffer" in usb_connection
 assert "u2ec_irp_frame_buffer_bounds_valid(" in usb_connection
 assert "offsetof(IRP_SAVE, Buffer)" in usb_connection
@@ -176,9 +176,9 @@ assert usb_connection.index("if (!u2ec_irp_frame_buffer_bounds_valid(") < usb_co
 assert "sizeof(IRP_SAVE), sizeof(data_buf)" in usb_connection
 assert "u2ec_frame_size_is_valid((long)pirp_saverw->NeedSize" in usb_connection
 assert "sizeof(IRP_SAVE), sizeof(data_bufrw)" in usb_connection
-assert usb_connection.index("u2ec_frame_size_is_valid((long)tcp_pack.SizeBuffer") < usb_connection.index("bzero(data_buf, sizeof(data_buf))") < usb_connection.index("u2ec_recv_all(sockfd, (char *)pirp_save")
+assert usb_connection.index("u2ec_frame_size_is_valid((long)tcp_pack.SizeBuffer") < usb_connection.index("bzero(data_buf, sizeof(data_buf))") < usb_connection.index("u2ec_recv_all_timeout(sockfd, (char *)pirp_save")
 assert "sizeof(data_buf)" in usb_connection
-assert "u2ec_recv_all(sockfd, (char *)pirp_save" in usb_connection
+assert "u2ec_recv_all_timeout(sockfd, (char *)pirp_save" in usb_connection
 assert "for (i = 0, j = 0; i < tcp_pack.SizeBuffer; i += j)" not in usb_connection
 assert usb_connection.count("u2ec_send_all_no_sigpipe") == 3
 assert "goto CLOSE_CONN;" in usb_connection
