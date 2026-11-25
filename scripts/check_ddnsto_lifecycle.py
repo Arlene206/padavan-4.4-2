@@ -19,6 +19,7 @@ services = services_path.read_text()
 rc_header = rc_header_path.read_text()
 rc = rc_path.read_text()
 workflow = workflow_path.read_text()
+shared_makefile = (ROOT / "trunk/user/shared/Makefile").read_text()
 xy_workflow = xy_workflow_path.read_text()
 
 
@@ -37,6 +38,8 @@ state_body = function_body(script, "ddnsto_process_state()")
 wait_body = function_body(script, "ddnsto_wait_stopped()")
 wait_started_body = function_body(script, "ddnsto_wait_started()")
 kill_body = function_body(script, "kill_z()")
+signal_body = function_body(script, "ddnsto_signal_validated_processes()")
+absence_body = function_body(script, "ddnsto_confirm_absent()")
 start_body = function_body(script, "start_zero()")
 stop_body = function_body(script, "stop_zero()")
 lock_path_body = function_body(script, "ddnsto_lifecycle_lock_path()")
@@ -68,12 +71,23 @@ require('[ ! -x "$DDNSTO_BIN" ]' in start_body and
         start_body.index('"$DDNSTO_BIN" -u "$ddnsto_start_id"') <
         start_body.index('ddnsto_wait_started'),
         "start must preflight executable and identity before stopping, then verify RUNNING")
-require(kill_body.count('killall ddnsto') == 1 and kill_body.count('killall -9 ddnsto') == 1,
-        "stop must send TERM then a name-re-enumerated SIGKILL only once")
-require(kill_body.index('killall ddnsto') < kill_body.index('ddnsto_wait_stopped') <
-        kill_body.index('killall -9 ddnsto'), "TERM grace period must precede force kill")
-require(kill_body.rfind('ddnsto_wait_stopped') > kill_body.index('killall -9 ddnsto'),
-        "force kill must have a bounded process-absence postcondition")
+require("stat -L -c '%d:%i'" in state_body and
+        'stat -c %u "/proc/$ddnsto_process_pid"' in state_body and
+        'stat -L -c \'%d:%i\' "/proc/$ddnsto_process_pid/exe"' in state_body and
+        '[ "$ddnsto_actual_exe" = "$ddnsto_expected_exe" ]' in state_body and
+        '[ "$ddnsto_actual_uid" = "$ddnsto_expected_uid" ]' in state_body,
+        "RUNNING must bind each candidate to the installed executable inode and service UID")
+require('DDNSTO_PROCESS_LIFECYCLE_LIB' in absence_body and
+        'pl_process_state ddnsto' in absence_body and
+        '[ "$ddnsto_procfs_status" -eq 1 ]' in absence_body,
+        "pidof status 1 must be confirmed ABSENT by the shared procfs scanner")
+require('killall' not in script and
+        'ddnsto_signal_validated_processes TERM' in kill_body and
+        'ddnsto_signal_validated_processes KILL' in kill_body and
+        kill_body.index('ddnsto_signal_validated_processes TERM') < kill_body.index('ddnsto_wait_stopped') < kill_body.index('ddnsto_signal_validated_processes KILL') < kill_body.rindex('ddnsto_wait_stopped') and
+        'kill "-$ddnsto_signal" "$ddnsto_signal_pid"' in signal_body and
+        'case " $ddnsto_process_pids " in' in signal_body,
+        "TERM/KILL must use fresh exact-PID snapshots in bounded TERM-before-KILL order")
 require('return 1' in kill_body and 'ddnsto_process_state' in kill_body and
         'ddnsto_wait_status' in kill_body and 'TERM后进程状态未知' in kill_body and
         'if ! kill_z; then' in start_body and
@@ -135,6 +149,8 @@ require(not re.search(r'\bkill\s+-9\s+"?\$ddnsto_process', script),
 require('$(pidof ddnsto)' not in script, "no cached numeric pidof snapshot is permitted")
 require('$(ROMFSINST) -p +x $(THISDIR)/ddnsto.sh /usr/bin/ddnsto.sh' in makefile,
         "ROMFS must install the exercised DDNSTO launcher")
+require('$(INSTALL_BIN) $(CURDIR)/scripts/process_lifecycle.sh $(ROMFSDIR)/usr/lib/process_lifecycle.sh' in shared_makefile,
+        "shared package must install the procfs absence helper used by DDNSTO")
 require('eval("/usr/bin/ddnsto.sh","stop")' in services and
         'eval("/usr/bin/ddnsto.sh","start")' in services,
         "RC service wrappers must retain DDNSTO stop/start integration")
@@ -148,7 +164,9 @@ require('return eval("/usr/bin/ddnsto.sh","restart");' in restart_body and
         "RC must not split DDNSTO restart across independently locked commands")
 require('int restart_ddnsto(void);' in rc_header and 'rc_notify_merge_action_result(action_result, restart_ddnsto())' in rc,
         "RC declaration / notification caller must remain wired")
-for marker in ("UNKNOWN process inventory", "UNKNOWN after TERM", "sleep failure",
+for marker in ("spoofed executable", "foreign UID", "unreadable executable metadata",
+               "pidof absence is verified against procfs",
+               "UNKNOWN process inventory", "UNKNOWN after TERM", "sleep failure",
                "missing DDNSTO executable", "NVRAM identity read failure",
                "NVRAM enable-state read failure", "after an NVRAM read failure",
                "empty DDNSTO identity", "immediate-exit daemon",
@@ -157,7 +175,7 @@ for marker in ("UNKNOWN process inventory", "UNKNOWN after TERM", "sleep failure
                "private inode", "unsafe paths", "bounds lock contention",
                "inherited FD 9", "concurrent start", "TERM-END",
                "detached daemons do not retain FD 9", "serialized restart",
-               "numeric PID signalling"):
+               "numeric PID"):
     require(marker in test, f"regression omits lifecycle lock contract {marker}")
 require('flock -n 8' in test and 'TERM-BEGIN' in test and
         'awk ' in test, "regression must exercise two independent launchers and stop/start ordering")
@@ -173,6 +191,8 @@ paths = [
     'scripts/check_ddnsto_lifecycle.py',
     'trunk/user/ddnsto/ddnsto.sh',
     'trunk/user/ddnsto/tests/ddnsto_lifecycle.sh',
+    'trunk/user/shared/scripts/process_lifecycle.sh',
+    'trunk/user/shared/Makefile',
     'trunk/user/ddnsto/Makefile',
     'trunk/user/rc/src/services.c',
     'trunk/user/rc/src/rc.h',
@@ -186,7 +206,9 @@ for path in paths:
             f"{path} must appear exactly once in push and pull_request path filters")
 
 xy_push = xy_workflow.split('  push:', 1)[1].split('  workflow_dispatch:', 1)[0]
-require(xy_push.count('      - "trunk/user/ddnsto/ddnsto.sh"') == 1,
-        "XY-C1 firmware workflow must trigger for packaged DDNSTO launcher changes")
+require(xy_push.count('      - "trunk/user/ddnsto/ddnsto.sh"') == 1 and
+        xy_push.count('      - "trunk/user/shared/scripts/process_lifecycle.sh"') == 1 and
+        xy_push.count('      - "trunk/user/shared/Makefile"') == 1,
+        "XY-C1 firmware workflow must trigger for DDNSTO and shared process packaging changes")
 
 print("DDNSTO lifecycle, RC integration and XY-C1 packaging contracts: PASS")

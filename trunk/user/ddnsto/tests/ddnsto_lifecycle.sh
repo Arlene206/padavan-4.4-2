@@ -6,19 +6,24 @@ SCRIPT="$ROOT/trunk/user/ddnsto/ddnsto.sh"
 TEST_TMP=$(mktemp -d "${TMPDIR:-/tmp}/ddnsto-lifecycle.XXXXXX")
 TEST_BIN="$TEST_TMP/bin"
 TEST_STATE="$TEST_TMP/state"
-TEST_LOG="$TEST_TMP/killall.log"
+TEST_LOG="$TEST_TMP/signals.log"
 TEST_SLEEP_LOG="$TEST_TMP/sleep.log"
 TEST_NVRAM_LOG="$TEST_TMP/nvram.log"
 TEST_OPS="$TEST_TMP/operations.log"
 TEST_DAEMON_PID="$TEST_TMP/daemon.pid"
 TEST_PIDOF_CALLS="$TEST_TMP/pidof.calls"
 TEST_ENABLE_FILE="$TEST_TMP/enable"
+TEST_PROC_EXE_ID="8:128"
+TEST_PROC_UID="$(id -u)"
+TEST_PROC_STAT_FAIL=0
+DDNSTO_PROCESS_LIFECYCLE_LIB="$ROOT/trunk/user/shared/scripts/process_lifecycle.sh"
+DDNSTO_PROC_ROOT="$TEST_TMP/proc"
 TEST_HELPERS="$TEST_TMP/helpers.sh"
 LOCK_FILE="$TEST_TMP/.ddnsto.lifecycle.lock"
-export TEST_TMP TEST_STATE TEST_LOG TEST_SLEEP_LOG TEST_NVRAM_LOG TEST_OPS TEST_DAEMON_PID TEST_PIDOF_CALLS TEST_ENABLE_FILE
+export TEST_TMP TEST_STATE TEST_LOG TEST_SLEEP_LOG TEST_NVRAM_LOG TEST_OPS TEST_DAEMON_PID TEST_PIDOF_CALLS TEST_ENABLE_FILE TEST_PROC_EXE_ID TEST_PROC_UID TEST_PROC_STAT_FAIL DDNSTO_PROCESS_LIFECYCLE_LIB DDNSTO_PROC_ROOT
 
-mkdir -p "$TEST_BIN"
-trap 'if [ -s "$TEST_DAEMON_PID" ]; then kill -9 "$(cat "$TEST_DAEMON_PID")" 2>/dev/null || :; fi; rm -rf "$TEST_TMP"' EXIT HUP INT TERM
+mkdir -p "$TEST_BIN" "$DDNSTO_PROC_ROOT"
+trap 'if [ -s "$TEST_DAEMON_PID" ]; then /bin/kill -9 "$(cat "$TEST_DAEMON_PID")" 2>/dev/null || :; fi; rm -rf "$TEST_TMP"' EXIT HUP INT TERM
 
 fail() {
 	echo "DDNSTO lifecycle regression: FAIL: $*" >&2
@@ -28,9 +33,11 @@ fail() {
 # Import the exact production helpers without executing the installed command dispatcher.
 sed -n \
 	-e '/^start_zero() {$/,/^}/p' \
+	-e '/^ddnsto_confirm_absent() {$/,/^}/p' \
 	-e '/^ddnsto_process_state() {$/,/^}/p' \
 	-e '/^ddnsto_wait_started() {$/,/^}/p' \
 	-e '/^ddnsto_wait_stopped() {$/,/^}/p' \
+	-e '/^ddnsto_signal_validated_processes() {$/,/^}/p' \
 	-e '/^kill_z() {$/,/^}/p' \
 	-e '/^stop_zero() {$/,/^}/p' \
 	-e '/^ddnsto_read_enable_state() {$/,/^}/p' \
@@ -78,50 +85,66 @@ case "$(cat "$TEST_STATE")" in
 esac
 MOCK
 
-cat > "$TEST_BIN/killall" <<'MOCK'
+cat > "$TEST_BIN/stat" <<'MOCK'
 #!/bin/sh
-printf '%s\n' "$*" >> "$TEST_LOG"
-daemon_pid=$(cat "$TEST_DAEMON_PID" 2>/dev/null || :)
-stop_pid()
-{
-	[ -n "$daemon_pid" ] || return 0
-	kill "-$1" "$daemon_pid" 2>/dev/null || :
-	i=0
-	while kill -0 "$daemon_pid" 2>/dev/null && [ "$i" -lt 20 ]; do
-		/bin/sleep 0.05
-		i=$((i + 1))
-	done
-}
-case "$TEST_MODE:$*" in
-	graceful:ddnsto|nonzero-graceful:ddnsto)
-		stop_pid TERM
-		echo stopped > "$TEST_STATE"
-		;;
-	force:ddnsto)
-		: # Simulate a daemon that ignores TERM.
-		;;
-	force:-9\ ddnsto)
-		stop_pid KILL
-		echo stopped > "$TEST_STATE"
-		;;
-	stuck:ddnsto|stuck:-9\ ddnsto)
-		: # Simulate an unkillable process; the test trap removes the fixture.
-		;;
-	unknown-after-term:ddnsto)
-		echo error > "$TEST_STATE"
-		;;
-	slow:ddnsto)
-		echo TERM-BEGIN >> "$TEST_OPS"
-		/bin/sleep 0.1
-		stop_pid TERM
-		echo stopped > "$TEST_STATE"
-		echo TERM-END >> "$TEST_OPS"
-		;;
-	*) exit 2 ;;
-esac
-[ "$TEST_MODE" != nonzero-graceful ] || exit 29
-exit 0
+if [ "$1" = "-L" ] && [ "$2" = "-c" ] && [ "$3" = "%d:%i" ]; then
+	case "$4" in
+		"$DDNSTO_BIN") echo 8:128; exit 0 ;;
+		/proc/*/exe)
+			[ "$TEST_PROC_STAT_FAIL" = 0 ] || exit 1
+			echo "$TEST_PROC_EXE_ID"
+			exit 0
+			;;
+	esac
+fi
+if [ "$1" = "-c" ] && [ "$2" = "%u" ]; then
+	case "$3" in /proc/*) echo "$TEST_PROC_UID"; exit 0 ;; esac
+fi
+exec /usr/bin/stat "$@"
 MOCK
+chmod +x "$TEST_BIN/stat"
+
+ddnsto_test_real_signal() {
+	ddnsto_real_signal="$1"
+	ddnsto_real_pid="$2"
+	if [ -s "$TEST_DAEMON_PID" ] &&
+	   [ "$(cat "$TEST_DAEMON_PID")" = "$ddnsto_real_pid" ]; then
+		/bin/kill "-$ddnsto_real_signal" "$ddnsto_real_pid" >/dev/null 2>&1 || :
+	fi
+}
+
+# Intercept process-helper signals in this fixture and log exact PID arguments.
+kill() {
+	printf '%s\n' "$*" >> "$TEST_LOG"
+	ddnsto_test_signal_name="${1#-}"
+	ddnsto_test_signal_pid="$2"
+	case "$TEST_MODE:$ddnsto_test_signal_name" in
+		graceful:TERM|nonzero-graceful:TERM)
+			ddnsto_test_real_signal TERM "$ddnsto_test_signal_pid"
+			echo stopped > "$TEST_STATE"
+			;;
+		force:TERM|stuck:TERM|stuck:KILL)
+			: # Simulate a daemon which ignores these signals.
+			;;
+		force:KILL)
+			ddnsto_test_real_signal KILL "$ddnsto_test_signal_pid"
+			echo stopped > "$TEST_STATE"
+			;;
+		unknown-after-term:TERM)
+			echo error > "$TEST_STATE"
+			;;
+		slow:TERM)
+			echo TERM-BEGIN >> "$TEST_OPS"
+			/bin/sleep 0.1
+			ddnsto_test_real_signal TERM "$ddnsto_test_signal_pid"
+			echo stopped > "$TEST_STATE"
+			echo TERM-END >> "$TEST_OPS"
+			;;
+		*) ddnsto_test_real_signal "$ddnsto_test_signal_name" "$ddnsto_test_signal_pid" ;;
+	esac
+	[ "$TEST_MODE" != nonzero-graceful ] || return 29
+	return 0
+}
 
 cat > "$TEST_BIN/sleep" <<'MOCK'
 #!/bin/sh
@@ -264,6 +287,52 @@ if run_action unused start; then fail "contended zero-wait start unexpectedly su
 wait "$holder_pid" || fail "competing lock holder failed"
 DDNSTO_LOCK_WAIT_SECONDS=5
 echo "DDNSTO lifecycle lock propagates failures and bounds lock contention: PASS"
+
+# A same-name PID is UNKNOWN unless executable inode and UID match the installed daemon.
+: > "$TEST_LOG"
+: > "$TEST_SLEEP_LOG"
+echo running > "$TEST_STATE"
+TEST_PROC_EXE_ID=8:129
+export TEST_PROC_EXE_ID
+if run_action unused stop; then fail "stop accepted a same-name process with another executable"; fi
+[ ! -s "$TEST_LOG" ] && [ ! -s "$TEST_SLEEP_LOG" ] || fail "spoofed executable was signalled"
+TEST_PROC_EXE_ID=8:128
+TEST_PROC_UID=65534
+export TEST_PROC_UID
+if run_action unused stop; then fail "stop accepted a DDNSTO PID owned by another UID"; fi
+[ ! -s "$TEST_LOG" ] && [ ! -s "$TEST_SLEEP_LOG" ] || fail "foreign-UID process was signalled"
+TEST_PROC_UID="$(id -u)"
+TEST_PROC_STAT_FAIL=1
+export TEST_PROC_UID TEST_PROC_STAT_FAIL
+if run_action unused stop; then fail "stop accepted unreadable executable metadata"; fi
+[ ! -s "$TEST_LOG" ] && [ ! -s "$TEST_SLEEP_LOG" ] || fail "unknown executable metadata was signalled"
+TEST_PROC_STAT_FAIL=0
+export TEST_PROC_STAT_FAIL
+echo "DDNSTO stop rejects spoofed executable, foreign UID and unreadable process identity: PASS"
+
+# A pidof miss is ABSENT only after the shared procfs inventory confirms absence.
+echo stopped > "$TEST_STATE"
+if ddnsto_process_state; then fail "empty pidof result with empty procfs was reported RUNNING"; else
+	absence_status=$?
+fi
+[ "$absence_status" -eq 1 ] || fail "empty procfs did not confirm process absence"
+mkdir -p "$DDNSTO_PROC_ROOT/23456"
+printf '23456 (ddnsto) S 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1\n' > "$DDNSTO_PROC_ROOT/23456/stat"
+if ddnsto_process_state; then fail "pidof miss hid a visible same-name process"; else
+	absence_status=$?
+fi
+[ "$absence_status" -eq 2 ] || fail "pidof/procfs disagreement was not UNKNOWN"
+rm -rf "$DDNSTO_PROC_ROOT/23456"
+saved_proc_root="$DDNSTO_PROC_ROOT"
+DDNSTO_PROC_ROOT="$TEST_TMP/missing-proc"
+export DDNSTO_PROC_ROOT
+if ddnsto_process_state; then fail "unreadable procfs was treated as ABSENT"; else
+	absence_status=$?
+fi
+[ "$absence_status" -eq 2 ] || fail "unreadable procfs did not produce UNKNOWN"
+DDNSTO_PROC_ROOT="$saved_proc_root"
+export DDNSTO_PROC_ROOT
+echo "DDNSTO pidof absence is verified against procfs; ambiguous and unreadable scans fail closed: PASS"
 
 # Process inventory errors and malformed PID lists are UNKNOWN, never ABSENT.
 for unknown_state in error malformed empty-success inconsistent; do
@@ -435,12 +504,12 @@ run_action graceful stop || fail "delayed-start cleanup failed"
 echo stopped > "$TEST_STATE"
 : > "$TEST_DAEMON_PID"
 
-# UNKNOWN after TERM blocks name-wide SIGKILL escalation.
+# UNKNOWN after TERM blocks exact-PID SIGKILL escalation.
 : > "$TEST_LOG"
 : > "$TEST_SLEEP_LOG"
 echo running > "$TEST_STATE"
 if run_action unknown-after-term stop; then fail "stop accepted UNKNOWN state after TERM"; fi
-[ "$(cat "$TEST_LOG")" = ddnsto ] || fail "UNKNOWN after TERM triggered SIGKILL"
+[ "$(cat "$TEST_LOG")" = "-TERM 12345" ] || fail "UNKNOWN after TERM triggered SIGKILL"
 [ ! -s "$TEST_SLEEP_LOG" ] || fail "UNKNOWN after TERM did not abort immediately"
 
 # Sleep failure is UNKNOWN and cannot trigger force-kill escalation.
@@ -450,7 +519,7 @@ echo running > "$TEST_STATE"
 TEST_SLEEP_FAIL=1
 export TEST_SLEEP_FAIL
 if run_action unused stop; then fail "stop accepted a failed wait primitive"; fi
-[ "$(cat "$TEST_LOG")" = ddnsto ] || fail "sleep failure triggered SIGKILL"
+[ "$(cat "$TEST_LOG")" = "-TERM 12345" ] || fail "sleep failure triggered SIGKILL"
 [ "$(wc -l < "$TEST_SLEEP_LOG" | tr -d ' ')" = 1 ] || fail "sleep failure was not observed once"
 TEST_SLEEP_FAIL=0
 export TEST_SLEEP_FAIL
@@ -460,7 +529,7 @@ export TEST_SLEEP_FAIL
 : > "$TEST_SLEEP_LOG"
 echo running > "$TEST_STATE"
 if run_action nonzero-graceful stop; then :; else fail "nonzero TERM result overrode confirmed ABSENT"; fi
-[ "$(cat "$TEST_LOG")" = ddnsto ] || fail "failed TERM path used unexpected signals"
+[ "$(cat "$TEST_LOG")" = "-TERM 12345" ] || fail "failed TERM path used unexpected signals"
 [ ! -s "$TEST_SLEEP_LOG" ] || fail "failed TERM path waited after confirmed ABSENT"
 
 # Existing stop postconditions remain intact under the lifecycle dispatcher.
@@ -468,7 +537,7 @@ if run_action nonzero-graceful stop; then :; else fail "nonzero TERM result over
 : > "$TEST_SLEEP_LOG"
 echo running > "$TEST_STATE"
 run_action graceful stop || fail "graceful stop returned failure"
-[ "$(cat "$TEST_LOG")" = "ddnsto" ] || fail "graceful stop did not send TERM exactly once"
+[ "$(cat "$TEST_LOG")" = "-TERM 12345" ] || fail "graceful stop did not send exact-PID TERM exactly once"
 [ ! -s "$TEST_SLEEP_LOG" ] || fail "graceful exit was not observed immediately"
 [ "$(cat "$TEST_STATE")" = stopped ] || fail "graceful stop postcondition missing"
 
@@ -476,7 +545,7 @@ run_action graceful stop || fail "graceful stop returned failure"
 : > "$TEST_SLEEP_LOG"
 echo running > "$TEST_STATE"
 run_action force stop || fail "TERM-resistant daemon did not stop after escalation"
-[ "$(cat "$TEST_LOG")" = "$(printf 'ddnsto\n-9 ddnsto')" ] || fail "force stop did not re-enumerate after TERM wait"
+[ "$(cat "$TEST_LOG")" = "$(printf '%s\n' '-TERM 12345' '-KILL 12345')" ] || fail "force stop did not revalidate exact PID after TERM wait"
 [ "$(wc -l < "$TEST_SLEEP_LOG" | tr -d ' ')" = 5 ] || fail "TERM grace period was not bounded to five polls"
 [ "$(cat "$TEST_STATE")" = stopped ] || fail "force-stop postcondition missing"
 
@@ -484,9 +553,92 @@ run_action force stop || fail "TERM-resistant daemon did not stop after escalati
 : > "$TEST_SLEEP_LOG"
 echo running > "$TEST_STATE"
 if run_action stuck stop; then fail "stop reported success while daemon remained alive after SIGKILL"; fi
-[ "$(cat "$TEST_LOG")" = "$(printf 'ddnsto\n-9 ddnsto')" ] || fail "stuck daemon did not receive TERM then KILL"
+[ "$(cat "$TEST_LOG")" = "$(printf '%s\n' '-TERM 12345' '-KILL 12345')" ] || fail "stuck daemon did not receive exact-PID TERM then KILL"
 [ "$(wc -l < "$TEST_SLEEP_LOG" | tr -d ' ')" = 10 ] || fail "TERM/KILL waits were not bounded to five polls each"
-[ ! -s "$TEST_TMP/numeric-kill.log" ] || fail "numeric PID signalling was unexpectedly used"
+grep -Eq '^-TERM [1-9][0-9]*
+echo "DDNSTO stop retains bounded TERM/KILL and fail-closed postconditions: PASS"
+
+# A stop and a concurrent start serialize: start cannot launch until stop has completed.
+: > "$TEST_LOG"
+: > "$TEST_SLEEP_LOG"
+: > "$TEST_OPS"
+echo stopped > "$TEST_STATE"
+run_action normal start || fail "initial start did not confirm daemon presence"
+# The start call now returns only after pidof confirms the detached daemon.
+start_attempt=0
+while { [ "$(cat "$TEST_STATE")" != running ] || [ ! -s "$TEST_DAEMON_PID" ]; } &&
+      [ "$start_attempt" -lt 100 ]; do
+	/bin/sleep 0.02
+	start_attempt=$((start_attempt + 1))
+done
+[ "$(cat "$TEST_STATE")" = running ] && [ -s "$TEST_DAEMON_PID" ] ||
+	fail "mock daemon did not start within the bounded observation window"
+# The detached child must not retain FD 9 and keep the launcher lock held.
+(
+	exec 8>>"$LOCK_FILE"
+	flock -n 8
+) || fail "background DDNSTO child retained the lifecycle lock descriptor"
+
+DDNSTO_LOCK_WAIT_SECONDS=30
+TEST_MODE=slow run_action slow stop &
+stop_pid=$!
+ready_attempt=0
+while ! grep -Fqx TERM-BEGIN "$TEST_OPS" 2>/dev/null && [ "$ready_attempt" -lt 100 ]; do
+	/bin/sleep 0.02
+	ready_attempt=$((ready_attempt + 1))
+done
+grep -Fqx TERM-BEGIN "$TEST_OPS" || fail "slow stop did not enter its critical section"
+run_action normal start || fail "start did not proceed after the serialized stop released the lock"
+wait "$stop_pid" || fail "serialized stop failed"
+DDNSTO_LOCK_WAIT_SECONDS=5
+# The launcher has already waited for validated process presence; observe the
+# detached child's START marker before asserting the serialized event ordering.
+start_after_stop_attempt=0
+while { [ "$(grep -Fxc START "$TEST_OPS" || :)" -lt 2 ] ||
+        [ "$(cat "$TEST_STATE")" != running ]; } &&
+      [ "$start_after_stop_attempt" -lt 100 ]; do
+	/bin/sleep 0.02
+	start_after_stop_attempt=$((start_after_stop_attempt + 1))
+done
+[ "$(grep -Fxc START "$TEST_OPS" || :)" -ge 2 ] &&
+[ "$(cat "$TEST_STATE")" = running ] || fail "serialized replacement start was not observed"
+awk '/TERM-END/ { stop_end = NR } /^START$/ && stop_end && NR > stop_end { started_after_stop = 1 } END { exit !started_after_stop }' "$TEST_OPS" ||
+	fail "concurrent start overlapped the in-progress stop"
+echo "DDNSTO start/stop operations serialize and detached daemons do not retain FD 9: PASS"
+
+# RC restart is one stop/start transaction; disabling DDNSTO still performs stop only.
+: > "$TEST_LOG"
+: > "$TEST_OPS"
+echo running > "$TEST_STATE"
+run_action graceful restart || fail "serialized restart failed"
+# The replacement daemon is detached; wait for its marker with a hard bound.
+restart_attempt=0
+while { [ "$(grep -Fxc START "$TEST_OPS" || :)" -ne 1 ] ||
+        [ "$(cat "$TEST_STATE")" != running ]; } &&
+      [ "$restart_attempt" -lt 100 ]; do
+	/bin/sleep 0.02
+	restart_attempt=$((restart_attempt + 1))
+done
+restart_starts=$(grep -Fxc START "$TEST_OPS" || :)
+if [ "$restart_starts" -ne 1 ]; then
+	echo "restart diagnostics: enable_file=$(cat "$TEST_ENABLE_FILE") state=$(cat "$TEST_STATE") nvram=$(cat "$TEST_NVRAM_LOG") kill=$(cat "$TEST_LOG") ops=$(cat "$TEST_OPS")" >&2
+	fail "restart did not launch exactly one replacement"
+fi
+[ "$(cat "$TEST_STATE")" = running ] || fail "restart replacement was not launched"
+echo 0 > "$TEST_ENABLE_FILE"
+: > "$TEST_OPS"
+run_action graceful restart || fail "disabled restart failed to stop existing daemon"
+[ ! -s "$TEST_OPS" ] || fail "disabled restart launched a replacement"
+[ "$(cat "$TEST_STATE")" = stopped ] || fail "disabled restart left the daemon running"
+
+: > "$TEST_OPS"
+echo stopped > "$TEST_STATE"
+run_action normal start || fail "disabled direct start failed"
+[ ! -s "$TEST_OPS" ] || fail "disabled direct start launched DDNSTO"
+[ "$(cat "$TEST_STATE")" = stopped ] || fail "disabled direct start changed process state"
+
+echo "DDNSTO restart is one serialized stop/start action and honors the disabled state: PASS"
+ "$TEST_LOG" || fail "stop did not signal a numeric PID"
 echo "DDNSTO stop retains bounded TERM/KILL and fail-closed postconditions: PASS"
 
 # A stop and a concurrent start serialize: start cannot launch until stop has completed.

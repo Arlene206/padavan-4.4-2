@@ -1,3 +1,13 @@
+## 2026-11-25 — Bind DDNSTO stop signals to verified process identity
+
+- DDNSTO's numeric-only `pidof` check and name-wide TERM/KILL could signal an unrelated process which merely adopted the `ddnsto` comm name. It also treated `pidof` status 1 as absence without verifying procfs.
+- Candidate PIDs must now match the installed `/usr/bin/ddnsto` device/inode and service UID. A `pidof` miss is confirmed ABSENT only by the shared procfs scanner; TERM and KILL use fresh validated inventory snapshots and exact numeric PIDs, with UNKNOWN blocking escalation.
+- Regression extends lifecycle fixtures for spoofed executable, foreign UID, unreadable `/proc/PID/exe`, pidof/procfs disagreement, unreadable procfs and numeric PID signals. DDNSTO CI follows the shared procfs helper/package; XY-C1 follows the shared Makefile packaging dependency.
+- Parent exact-SHA WAN DNS #45710242187, HTTPD #45710242155, WAN route #45710242121, Process #45710242116, NVRAM #45710242112, WAN DHCP callback #45710242082, WAN 6rd #45710242043 and IPv6 service-type #45710241898 PASS on `c0926c37`; XY-C1 #45710242062 remained IN_PROGRESS. AI docs #45711063239 PASS on `199c9f04`. Current-slice Actions pending; no hardware result claimed.
+- Changed paths: `ddnsto.sh`, `tests/ddnsto_lifecycle.sh`, `check_ddnsto_lifecycle.py`, `ddnsto-lifecycle.yml`, `xy-c1-firmware-validation.yml`, `SESSION_HANDOFF.md`, `dev_log.md`.
+
+---
+
 ## 2026-11-26 06:05 CST (UTC+8) — Validate static and DHCPv6 WAN DNS server literals
 
 - Static WAN DNS fields `ip6_dns1..3` were combined into the resolver-facing value without validating each slot. DHCPv6 `new_domain_name_servers` was copied into the `dns6` NVRAM value without validating its individual addresses. Malformed text or CR/LF could therefore enter resolver state.

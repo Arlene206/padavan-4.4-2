@@ -1,6 +1,8 @@
 #!/bin/sh
 
 DDNSTO_BIN="/usr/bin/ddnsto"
+DDNSTO_PROCESS_LIFECYCLE_LIB="/usr/lib/process_lifecycle.sh"
+DDNSTO_PROC_ROOT="/proc"
 DDNSTO_LOCK_WAIT_SECONDS=10
 DDNSTO_START_WAIT_ATTEMPTS=5
 
@@ -46,33 +48,68 @@ start_zero() {
 
 # Return 0 for RUNNING, 1 only for confirmed ABSENT, and 2 for UNKNOWN.
 # A failed or malformed pidof result must never authorize a new daemon launch.
+ddnsto_confirm_absent() {
+	[ -r "$DDNSTO_PROCESS_LIFECYCLE_LIB" ] || return 2
+	PL_PROC_ROOT="$DDNSTO_PROC_ROOT"
+	export PL_PROC_ROOT
+	. "$DDNSTO_PROCESS_LIFECYCLE_LIB" || return 2
+	if pl_process_state ddnsto; then
+		return 2
+	else
+		ddnsto_procfs_status=$?
+	fi
+	[ "$ddnsto_procfs_status" -eq 1 ] && return 1
+	return 2
+}
+
 ddnsto_process_state() {
-	if ddnsto_process_pids=$(pidof ddnsto 2>/dev/null); then
+	ddnsto_process_pids=
+	if ddnsto_pid_output=$(pidof ddnsto 2>/dev/null); then
 		ddnsto_pidof_status=0
 	else
 		ddnsto_pidof_status=$?
 	fi
 	case "$ddnsto_pidof_status" in
 		0)
-			[ -n "$ddnsto_process_pids" ] || return 2
-			case "$ddnsto_process_pids" in
+			[ -n "$ddnsto_pid_output" ] || return 2
+			case "$ddnsto_pid_output" in
 				*[!0123456789\ ]*) return 2 ;;
 			esac
+			ddnsto_expected_uid=$(id -u 2>/dev/null) || return 2
+			case "$ddnsto_expected_uid" in
+				''|*[!0-9]*) return 2 ;;
+			esac
+			ddnsto_expected_exe=$(stat -L -c '%d:%i' "$DDNSTO_BIN" 2>/dev/null) || return 2
+			case "$ddnsto_expected_exe" in
+				[0-9]*:[0-9]*) ;;
+				*) return 2 ;;
+			esac
+			ddnsto_validated_pids=
 			ddnsto_process_count=0
-			for ddnsto_process_pid in $ddnsto_process_pids; do
+			for ddnsto_process_pid in $ddnsto_pid_output; do
 				case "$ddnsto_process_pid" in
 					''|0*|1|*[!0-9]*) return 2 ;;
 				esac
 				[ "${#ddnsto_process_pid}" -le 10 ] || return 2
 				[ "$ddnsto_process_pid" -gt 1 ] 2>/dev/null || return 2
+				ddnsto_actual_uid=$(stat -c %u "/proc/$ddnsto_process_pid" 2>/dev/null) || return 2
+				case "$ddnsto_actual_uid" in
+					''|*[!0-9]*) return 2 ;;
+				esac
+				[ "$ddnsto_actual_uid" = "$ddnsto_expected_uid" ] || return 2
+				ddnsto_actual_exe=$(stat -L -c '%d:%i' "/proc/$ddnsto_process_pid/exe" 2>/dev/null) || return 2
+				[ "$ddnsto_actual_exe" = "$ddnsto_expected_exe" ] || return 2
+				ddnsto_validated_pids="${ddnsto_validated_pids}${ddnsto_validated_pids:+ }$ddnsto_process_pid"
 				ddnsto_process_count=$((ddnsto_process_count + 1))
 			done
 			[ "$ddnsto_process_count" -gt 0 ] || return 2
+			ddnsto_process_pids=$ddnsto_validated_pids
 			return 0
 			;;
 		1)
-			[ -z "$ddnsto_process_pids" ] && return 1
-			return 2
+			[ -z "$ddnsto_pid_output" ] || return 2
+			ddnsto_confirm_absent
+			return $?
 			;;
 		*) return 2 ;;
 	esac
@@ -136,6 +173,51 @@ ddnsto_wait_stopped() {
 	esac
 }
 
+ddnsto_signal_validated_processes() {
+	case "$1" in
+		TERM|KILL) ddnsto_signal=$1 ;;
+		*) return 1 ;;
+	esac
+	if ddnsto_process_state; then
+		ddnsto_state=0
+	else
+		ddnsto_state=$?
+	fi
+	case "$ddnsto_state" in
+		1) return 0 ;;
+		0) ;;
+		*) return 1 ;;
+	esac
+	ddnsto_signal_targets=$ddnsto_process_pids
+
+	for ddnsto_signal_pid in $ddnsto_signal_targets; do
+		if ddnsto_process_state; then
+			ddnsto_state=0
+		else
+			ddnsto_state=$?
+		fi
+		case "$ddnsto_state" in
+			1) return 0 ;;
+			0) ;;
+			*) return 1 ;;
+		esac
+		case " $ddnsto_process_pids " in
+			*" $ddnsto_signal_pid "*) ;;
+			*) continue ;;
+		esac
+		if ! kill "-$ddnsto_signal" "$ddnsto_signal_pid" >/dev/null 2>&1; then
+			if ddnsto_process_state; then
+				ddnsto_state=0
+			else
+				ddnsto_state=$?
+			fi
+			[ "$ddnsto_state" -eq 1 ] && return 0
+			return 1
+		fi
+	done
+	return 0
+}
+
 kill_z() {
 	if ddnsto_process_state; then
 		ddnsto_stop_state=0
@@ -146,17 +228,14 @@ kill_z() {
 		1) return 0 ;;
 		0) ;;
 		*)
-			logger -t "DDNSTO" "无法读取DDNSTO进程状态，拒绝发送信号"
+			logger -t "DDNSTO" "无法读取或验证DDNSTO进程身份，拒绝发送信号"
 			return 1
 			;;
 	esac
 
 	logger -t "DDNSTO" "关闭进程..."
-	if killall ddnsto >/dev/null 2>&1; then
-		ddnsto_term_status=0
-	else
-		ddnsto_term_status=$?
-		logger -t "DDNSTO" "TERM信号命令返回错误(status=$ddnsto_term_status)，继续验证进程状态"
+	if ! ddnsto_signal_validated_processes TERM; then
+		logger -t "DDNSTO" "TERM前进程身份未知或精确PID信号失败"
 	fi
 	if ddnsto_wait_stopped; then
 		return 0
@@ -172,11 +251,8 @@ kill_z() {
 	esac
 
 	logger -t "DDNSTO" "正常停止超时，强制结束进程..."
-	if killall -9 ddnsto >/dev/null 2>&1; then
-		ddnsto_kill_status=0
-	else
-		ddnsto_kill_status=$?
-		logger -t "DDNSTO" "SIGKILL命令返回错误(status=$ddnsto_kill_status)，继续验证进程状态"
+	if ! ddnsto_signal_validated_processes KILL; then
+		logger -t "DDNSTO" "SIGKILL前进程身份未知或精确PID信号失败"
 	fi
 	if ddnsto_wait_stopped; then
 		return 0
