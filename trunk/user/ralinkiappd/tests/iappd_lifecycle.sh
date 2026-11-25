@@ -141,6 +141,8 @@ grep -Fq "SizeRcvMsg < (INT32)FT_RRB_HEADER_SIZE" "$iapp_source" ||
   fail "IAPP raw RRB must verify the fixed frame header before field access"
 grep -Fq "iapp_rx_payload_fits((size_t)ReceivedLength" "$iapp_source" ||
   fail "IAPP raw RRB must bound aligned encrypted length by the actual frame"
+grep -Fq "iapp_rx_buffer_append_fits((size_t)ReceivedLength" "$iapp_source" ||
+  fail "IAPP raw RRB must bound driver-returned plaintext length before copying"
 grep -Fq "RT_SIGNAL_STRUC_HDR_SIZE + FT_KDP_EVT_HEADER_SIZE" "$iapp_source" ||
   fail "IAPP raw driver signal must contain its fixed event prefix"
 grep -Fq "(size_t)pEvtHeader->EventLen" "$iapp_source" ||

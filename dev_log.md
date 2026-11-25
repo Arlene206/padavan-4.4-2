@@ -1,3 +1,10 @@
+## 2026-11-25 — Validate the raw RRB decryptor's returned length
+
+- The raw RRB path now checks the rounded encrypted input span before ioctl, but then trusted the in/out `SizeRcvMsg` returned by the driver decrypt ioctl and added the fixed header before allocating/copying it. A negative or unexpectedly large returned length could make the later copy exceed the received frame buffer.
+- After a successful decrypt, reject negative lengths and require the plaintext length to fit the actual received frame bytes after `FT_RRB_HEADER_SIZE` before adding the header or copying into the OID request.
+- Lifecycle source contract now pins both pre-decrypt encrypted-span and post-decrypt plaintext-span checks.
+
+---
 ## 2026-11-25 — Bound TCP frame receive time against slow peers
 
 - Review of the new read-until-EOF loop found an availability regression: a peer could connect, send a prefix, and keep the stream open indefinitely, blocking the IAPP event loop. Added an absolute five-second frame deadline with `select()` before each read (including the overflow probe); EINTR is retried without extending the deadline.

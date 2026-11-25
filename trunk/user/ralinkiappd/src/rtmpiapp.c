@@ -2830,6 +2830,15 @@ static VOID IAPP_RcvHandlerRawRRB(
 			DBGPRINT(RT_DEBUG_ERROR, "iapp> RRB Decrypt frame failed!\n");
 			return;
 		}
+		if (SizeRcvMsg < 0 ||
+		    !iapp_rx_buffer_append_fits((size_t)ReceivedLength,
+						FT_RRB_HEADER_SIZE,
+						(size_t)SizeRcvMsg)) {
+			DBGPRINT(RT_DEBUG_ERROR,
+				 "iapp> Invalid decrypted RRB length (%d, frame=%d)!\n",
+				 SizeRcvMsg, ReceivedLength);
+			return;
+		}
 
 		SizeRcvMsg += FT_RRB_HEADER_SIZE;
 #endif // FT_KDP_FUNC_PKT_ENCRYPT //
