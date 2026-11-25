@@ -1,3 +1,8 @@
+## 2026-11-24 — Bind AP static-host fallback to its file-safety branch
+
+- `create_hosts_lan()` omitted braces around the safe `/tmp/hosts.static` branch, so the `else` bound to the nested load-error check rather than the file-safety test. A successful copy with non-`ENOENT` stale `errno` could emit a false “skipping” warning. Added explicit braces and a DNSMasq workflow source-contract regression for the complete branch.
+- The source-contract job is the verification path; no local firmware or target build is claimed.
+
 ## 2026-11-24 — Preflight PPPoE-MWAN settings before deleting working firewall rules
 
 - The detector previously read 443 and static policy selectors only after cleaning prior rules; transient NVRAM errors could leave a partially rebuilt firewall policy. All selectors are now read and validated first, with static entries snapshotted in Bash arrays before cleanup.

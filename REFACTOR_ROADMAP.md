@@ -1,3 +1,9 @@
+## 2026-11-24 状态增量：AP hosts.static 分支绑定
+
+- 修复 `create_hosts_lan()` 缺失花括号导致 `else` 绑定错误、成功读取时可能误报跳过静态 hosts；workflow 源码合同固定安全检查/加载失败/不安全文件三条分支。
+
+---
+
 ## 2026-11-24 状态增量：DNSMasq static-ARP 地址解析一致性
 
 - BusyBox 1.24 `arp` 使用 `INET_resolve()`/`inet_aton()`；多位前导零 octet 会按八进制解释。静态 ARP 地址校验现在拒绝这类十进制/八进制歧义，GNU89 回归和 workflow 源码合同覆盖该解析链。
