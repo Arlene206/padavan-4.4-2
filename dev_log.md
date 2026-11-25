@@ -1,3 +1,8 @@
+## 2026-11-24 — Update DNSMasq lock-release contract for overlay abort path
+
+- Exact-head DNSMasq lifecycle #45534852657 on `b26aa7b35cfd11ca13d5c1e1eb295377ab18fcce` passed all C fixtures and earlier source contracts, then failed in the existing inline postconditions checker at its exact `file_unlock(lock);` count. The new fail-closed user-overlay branch correctly adds one release; the checker still expected the old four paths.
+- The same stale assertion failed on later source SHA `d462412f616dac2341955c61c011f93c24d5e52c` (#45534932250). Updated the contract to require five release paths and documented which five they represent. No other DNSMasq fixture failed; exact-head rerun is required.
+
 ## 2026-11-24 — Fail closed on Inadyn user overlay copy errors
 
 - `write_inadyn_conf()` also ignored the integer status from `load_user_config()`. A present but unreadable, truncated, or unwritable `/etc/storage/inadyn/inadyn.conf` overlay could therefore yield an incomplete staged config which was still published and then reloaded into the running daemon.
