@@ -21,6 +21,16 @@ ftp_stop_should_reconcile_firewall(int final_presence)
 	return final_presence == PROCESS_PRESENCE_ABSENT;
 }
 
+/* Storage-stop reconciliation keeps the legacy refresh for a daemon that
+ * was present/unknown before the stop, and additionally clears stale rules
+ * whenever the post-stop inventory proves the daemon absent. */
+static inline int
+ftp_storage_stop_needs_firewall_refresh(int was_present, int final_presence)
+{
+	return was_present != 0 ||
+	       ftp_stop_should_reconcile_firewall(final_presence);
+}
+
 /* Do not turn an NVRAM backend error into an implicit disabled value. */
 static inline int
 ftp_enable_value_status(int read_status, int value, int *enabled)

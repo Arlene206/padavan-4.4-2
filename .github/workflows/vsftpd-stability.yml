@@ -948,8 +948,17 @@ jobs:
           assert "goto out;" in restart and "return restart_status;" in restart
 
           stop_stor = function_body(source, "stop_stor_apps(void)")
-          assert "if (stop_ftp_locked(NULL) != 0)" in stop_stor
+          assert "stop_ftp_locked(&ftp_final_presence)" in stop_stor
+          assert "ftp_was_present = is_ftp_run() != PROCESS_PRESENCE_ABSENT;" in stop_stor
+          assert "ftp_storage_stop_needs_firewall_refresh(" in stop_stor
           assert "FTP server did not stop cleanly" in stop_stor
+          assert stop_stor.index("ftp_was_present = is_ftp_run()") < stop_stor.index(
+              "stop_ftp_locked(&ftp_final_presence)"
+          ) < stop_stor.index("ftp_storage_stop_needs_firewall_refresh(")
+          assert "ftp_storage_stop_needs_firewall_refresh(int was_present, int final_presence)" in daemon_policy
+          assert "ftp_stop_should_reconcile_firewall(final_presence)" in daemon_policy
+          assert "ftp_storage_stop_needs_firewall_refresh(0," in daemon_test
+          assert "An absent-before / unknown-after observation must fail closed." in daemon_test
           start_stor = function_body(source, "start_stor_apps(void)")
           assert "service_status = run_ftp();" in start_stor
           assert "if (service_status != 0)" in start_stor

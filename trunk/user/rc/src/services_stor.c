@@ -4710,7 +4710,9 @@ int
 stop_stor_apps(void)
 {
 	int need_restart_fw = 0;
-
+#if defined (APP_FTPD)
+	int ftp_was_present, ftp_final_presence;
+#endif
 	int stop_status = 0;
 	int firewall_status;
 
@@ -4727,12 +4729,15 @@ stop_stor_apps(void)
 	}
 #endif
 #if defined (APP_FTPD)
-	/* Refresh even with external FTP disabled so stale rules are removed. */
-	need_restart_fw |= (is_ftp_run() != PROCESS_PRESENCE_ABSENT);
-	if (stop_ftp_locked(NULL) != 0) {
+	/* Preserve refresh for an initially present/unknown daemon, and also
+	 * remove stale FTP rules when the daemon was already absent. */
+	ftp_was_present = is_ftp_run() != PROCESS_PRESENCE_ABSENT;
+	if (stop_ftp_locked(&ftp_final_presence) != 0) {
 		logmessage("Storage", "FTP server did not stop cleanly; storage removal must be aborted");
 		stop_status = -1;
 	}
+	need_restart_fw |= ftp_storage_stop_needs_firewall_refresh(
+		ftp_was_present, ftp_final_presence);
 #endif
 #if defined (APP_MINIDLNA)
 	if (stop_dms_locked() != 0) {

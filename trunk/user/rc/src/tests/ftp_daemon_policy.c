@@ -75,6 +75,25 @@ main(void)
 	assert(!ftp_stop_should_reconcile_firewall(PROCESS_PRESENCE_UNKNOWN));
 	assert(!ftp_stop_should_reconcile_firewall((enum process_presence)9));
 
+	/* Storage-stop must clear stale FTP rules when no daemon was running. */
+	assert(ftp_storage_stop_needs_firewall_refresh(0,
+						     PROCESS_PRESENCE_ABSENT));
+	assert(ftp_storage_stop_needs_firewall_refresh(1,
+						     PROCESS_PRESENCE_ABSENT));
+	/* Preserve refresh attempts for previously present/unknown daemons. */
+	assert(ftp_storage_stop_needs_firewall_refresh(1,
+						     PROCESS_PRESENCE_RUNNING));
+	assert(ftp_storage_stop_needs_firewall_refresh(1,
+						     PROCESS_PRESENCE_UNKNOWN));
+	assert(ftp_storage_stop_needs_firewall_refresh(1, (enum process_presence)9));
+	/* An absent-before / unknown-after observation must fail closed. */
+	assert(!ftp_storage_stop_needs_firewall_refresh(0,
+						      PROCESS_PRESENCE_RUNNING));
+	assert(!ftp_storage_stop_needs_firewall_refresh(0,
+						      PROCESS_PRESENCE_UNKNOWN));
+	assert(!ftp_storage_stop_needs_firewall_refresh(0,
+						      (enum process_presence)9));
+
 	assert(!ftp_failed_start_may_leave_daemon(PROCESS_PRESENCE_ABSENT));
 	assert(ftp_failed_start_may_leave_daemon(PROCESS_PRESENCE_RUNNING));
 	assert(ftp_failed_start_may_leave_daemon(PROCESS_PRESENCE_UNKNOWN));

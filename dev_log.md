@@ -1,3 +1,8 @@
+## 2026-11-24 — Reconcile stale FTP firewall rules during storage-stop
+
+- `stop_stor_apps()` claimed it refreshes FTP firewall state even when external FTP is disabled, but only set its refresh flag when the pre-stop daemon inventory was non-ABSENT. If FTP was already absent (including stale rules left by a previous crash), and no other storage service was running, the refresh path was skipped.
+- The stop now captures pre-stop presence and the final state from `stop_ftp_locked()`. It preserves the prior refresh behavior for pre-existing RUNNING/UNKNOWN daemons and additionally refreshes whenever final inventory confirms ABSENT; an initially absent daemon that becomes UNKNOWN/RUNNING does not authorize cleanup. The original stop error still aborts storage removal. Added GNU89 policy matrix coverage and source-order assertions. Exact-head VSFTPD/AI/XY-C1 checks pending; no local compile or target build is claimed.
+
 ## 2026-11-24 — Throttle zero-delay udhcpc leasefail and DECLINE retries
 
 - BusyBox `getopt32` documents the `A+` argument as nonnegative (0..INT_MAX), so `-A 0` is valid. Exhausted discovery (`leasefail`) and successful DHCPDECLINE recovery previously assigned the value directly; zero could spin immediate DISCOVER/ARP/DECLINE cycles. The client now applies the existing one-second retry floor to leasefail and both successful DECLINE restart paths.
