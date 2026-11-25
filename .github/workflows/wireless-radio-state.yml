@@ -1120,7 +1120,20 @@ jobs:
           assert sku_config_compact.count(
               "if(symlink_sku_file(sku_file,\"_5G\",p_str,i_val,1)!=0)") == 1
           assert sku_config_compact.count(
-              "ralink_config_discard_atomic(&fp,temp_path);return-1;") == 2
+              "ralink_config_discard_atomic(&fp,temp_path);return-1;") == 3
+          storage_config_load = sku_config.index("user_config_status = load_user_config(")
+          storage_config_failure = sku_config.index(
+              "if (user_config_status != 0)", storage_config_load
+          )
+          storage_config_discard = sku_config.index(
+              "ralink_config_discard_atomic(&fp, temp_path);", storage_config_failure
+          )
+          storage_config_return = sku_config.index("return -1;", storage_config_discard)
+          storage_config_publish = sku_config.index(
+              "ralink_config_publish_atomic(&fp, temp_path, dat_file)", storage_config_load
+          )
+          assert storage_config_load < storage_config_failure < storage_config_discard
+          assert storage_config_discard < storage_config_return < storage_config_publish
           sku_policy_header = (rc / "ralink_config_file.h").read_text()
           sku_policy_test = (rc / "tests/ralink_config_file.c").read_text()
           assert "mkdtemp(temporary_directory)" in sku_policy_header
