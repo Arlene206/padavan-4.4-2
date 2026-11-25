@@ -318,9 +318,25 @@ ftp_acl_path_split_entry(const char *path, char *parent, size_t parent_size,
 }
 
 /*
- * Listing visibility is permitted only after the entry was inspected and,
- * for symlinks, its canonical target was resolved successfully.
+ * Query a final directory entry without following a symbolic link. RNFR and
+ * renameat() operate on the link itself; a dangling link is still an entry,
+ * and its target must not be probed as part of the source existence check.
  */
+static int
+ftp_acl_path_stat_entry_at(int dir_fd, const char *leaf, struct stat *p_stat)
+{
+  if (dir_fd < 0 || !leaf || !*leaf || strchr(leaf, '/') ||
+      strcmp(leaf, ".") == 0 || strcmp(leaf, "..") == 0 || !p_stat) {
+    errno = EINVAL;
+    return -1;
+  }
+  if (ftp_acl_path_is_internal_metadata(leaf)) {
+    errno = EACCES;
+    return -1;
+  }
+  return fstatat(dir_fd, leaf, p_stat, AT_SYMLINK_NOFOLLOW);
+}
+
 static int
 ftp_acl_path_listing_entry_is_visible(int stat_status, int is_symlink,
                                       int resolve_status)

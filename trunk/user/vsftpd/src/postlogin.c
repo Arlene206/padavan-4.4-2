@@ -1390,8 +1390,7 @@ handle_rest(struct vsf_session* p_sess)
 static void
 handle_rnfr(struct vsf_session* p_sess)
 {
-  static struct vsf_sysutil_statbuf* p_statbuf;
-  int retval;
+  int retval, permission_denied = 0;
   /* Clear old value */
   str_free(&p_sess->rnfr_filename_str);
   resolve_tilde(&p_sess->ftp_arg_str, p_sess);
@@ -1405,19 +1404,16 @@ handle_rnfr(struct vsf_session* p_sess)
   }
   /* Pin source to the CWD at RNFR time, rather than later RNTO CWD. */
   prepend_path_to_filename(&p_sess->ftp_arg_str);
-  if (!asus_check_permission_path(p_sess, PERM_DELETE,
-                                  &p_sess->ftp_arg_str))
-  {
-    vsf_cmdio_write(p_sess, FTP_NOPERM, "Permission denied.");
-    return;
-  }
-  /* Does it exist? */
-  retval = str_stat(&p_sess->ftp_arg_str, &p_statbuf);
+  retval = asus_check_rename_source_path(p_sess, &p_sess->ftp_arg_str,
+                                         &permission_denied);
   if (retval == 0)
   {
-    /* Yes */
     str_copy(&p_sess->rnfr_filename_str, &p_sess->ftp_arg_str);
     vsf_cmdio_write(p_sess, FTP_RNFROK, "Ready for RNTO.");
+  }
+  else if (permission_denied)
+  {
+    vsf_cmdio_write(p_sess, FTP_NOPERM, "Permission denied.");
   }
   else
   {

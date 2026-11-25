@@ -29,6 +29,9 @@ int asus_make_directory_path(struct vsf_session* p_sess,
 int asus_remove_path(struct vsf_session* p_sess,
                      const struct mystr* p_path_str, int remove_directory,
                      int* p_permission_denied);
+int asus_check_rename_source_path(struct vsf_session* p_sess,
+                                  const struct mystr* p_path_str,
+                                  int* p_permission_denied);
 int asus_rename_path(struct vsf_session* p_sess,
                      const struct mystr* p_source_path_str,
                      const struct mystr* p_destination_path_str,

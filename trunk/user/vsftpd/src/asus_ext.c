@@ -537,6 +537,60 @@ asus_remove_path(struct vsf_session* p_sess, const struct mystr* p_path_str,
   return retval;
 }
 
+/*
+ * RNFR authorizes the source directory and inspects its final entry without
+ * following a symlink. This preserves rename semantics for dangling links and
+ * prevents the preliminary existence check from probing another share.
+ */
+int
+asus_check_rename_source_path(struct vsf_session* p_sess,
+                              const struct mystr* p_path_str,
+                              int* p_permission_denied)
+{
+  char resolved_parent[PATH_MAX], leaf[PATH_MAX];
+  struct stat entry_stat;
+  int parent_fd, retval, saved_errno;
+
+  if (!p_sess || !p_path_str || !p_permission_denied) {
+    errno = EINVAL;
+    return -1;
+  }
+  *p_permission_denied = 0;
+  if (ftp_acl_path_resolve_rename_entry(str_getbuf(p_path_str),
+                                        resolved_parent,
+                                        sizeof(resolved_parent),
+                                        leaf, sizeof(leaf)) != 0) {
+    *p_permission_denied = 1;
+    return -1;
+  }
+  parent_fd = ftp_acl_path_open_verified_directory(resolved_parent);
+  if (parent_fd < 0) {
+    *p_permission_denied = 1;
+    return -1;
+  }
+  if (!asus_check_permission_at(p_sess, PERM_DELETE, resolved_parent)) {
+    errno = EACCES;
+    *p_permission_denied = 1;
+    goto rename_source_out;
+  }
+  if (ftp_acl_path_verify_directory_identity(resolved_parent,
+                                              parent_fd) != 0) {
+    *p_permission_denied = 1;
+    goto rename_source_out;
+  }
+  retval = ftp_acl_path_stat_entry_at(parent_fd, leaf, &entry_stat);
+  saved_errno = errno;
+  close(parent_fd);
+  errno = saved_errno;
+  return retval;
+
+rename_source_out:
+  saved_errno = errno;
+  close(parent_fd);
+  errno = saved_errno;
+  return -1;
+}
+
 int
 asus_rename_path(struct vsf_session* p_sess,
                  const struct mystr* p_source_path_str,

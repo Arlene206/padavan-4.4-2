@@ -53,6 +53,77 @@ checked_path(char *out, size_t size, const char *base, const char *name)
     exit(1);
   }
 }
+
+static int
+test_rename_source_entry_stat(void)
+{
+  char template[] = "/tmp/ftp-rename-entry-XXXXXX";
+  char share[PATH_MAX], target[PATH_MAX], outside_link[PATH_MAX];
+  char dangling_link[PATH_MAX];
+  char *root;
+  int dir_fd = -1;
+  struct stat entry_stat, link_stat, followed_stat;
+
+  root = mkdtemp(template);
+  if (!root) {
+    perror("create RNFR entry fixture");
+    return 1;
+  }
+  checked_path(share, sizeof(share), root, "share");
+  checked_path(target, sizeof(target), root, "outside-target");
+  checked_path(outside_link, sizeof(outside_link), share, "outside-link");
+  checked_path(dangling_link, sizeof(dangling_link), share, "dangling-link");
+  if (mkdir(share, 0700) != 0) {
+    perror("create RNFR share fixture");
+    return 1;
+  }
+  create_fixture_file(target);
+  if (symlink(target, outside_link) != 0 ||
+      symlink("missing-target", dangling_link) != 0) {
+    perror("create RNFR symlink fixtures");
+    return 1;
+  }
+  dir_fd = open(share, O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+  if (dir_fd < 0) {
+    perror("open RNFR share fixture");
+    return 1;
+  }
+
+  if (ftp_acl_path_stat_entry_at(dir_fd, "outside-link", &entry_stat) != 0 ||
+      !S_ISLNK(entry_stat.st_mode) ||
+      lstat(outside_link, &link_stat) != 0 ||
+      entry_stat.st_dev != link_stat.st_dev ||
+      entry_stat.st_ino != link_stat.st_ino ||
+      stat(outside_link, &followed_stat) != 0 ||
+      !S_ISREG(followed_stat.st_mode)) {
+    fprintf(stderr, "RNFR source stat followed an external symlink target\n");
+    return 1;
+  }
+
+  errno = 0;
+  if (ftp_acl_path_stat_entry_at(dir_fd, "dangling-link", &entry_stat) != 0 ||
+      !S_ISLNK(entry_stat.st_mode) ||
+      stat(dangling_link, &followed_stat) == 0 || errno != ENOENT) {
+    fprintf(stderr, "dangling RNFR source symlink was treated as missing\n");
+    return 1;
+  }
+
+  errno = 0;
+  if (ftp_acl_path_stat_entry_at(dir_fd, "missing-entry", &entry_stat) == 0 ||
+      errno != ENOENT) {
+    fprintf(stderr, "RNFR source stat accepted a genuinely missing entry\n");
+    return 1;
+  }
+
+  if (close(dir_fd) != 0 || unlink(dangling_link) != 0 ||
+      unlink(outside_link) != 0 || unlink(target) != 0 ||
+      rmdir(share) != 0 || rmdir(root) != 0) {
+    perror("clean RNFR entry fixture");
+    return 1;
+  }
+  return 0;
+}
+
 static int
 test_share_permission_records(void)
 {
@@ -230,6 +301,7 @@ main(void)
 
   if (test_share_read_permission_policy() != 0 ||
       test_share_permission_records() != 0 ||
+      test_rename_source_entry_stat() != 0 ||
       test_account_permission_path_builder() != 0 ||
       ftp_acl_path_cleanup_directory_name(cleanup_dir_leaf,
                                           sizeof(cleanup_dir_leaf)) != 0)
