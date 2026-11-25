@@ -954,6 +954,8 @@ jobs:
           assert unique_candidate.index("ftp_acl_path_stat_entry_at(") < unique_candidate.rindex("ftp_acl_path_verify_directory_identity(")
           assert "saved_errno == ENOENT" in unique_candidate
           assert unique_filename.index("vsf_access_check_file(") < unique_filename.index("asus_check_upload_candidate_exists(")
+          assert "#include <errno.h>" in vsftpd_postlogin
+          assert "#include <limits.h>" in vsftpd_postlogin
           assert "str_stat(" not in unique_filename
           assert "UINT_MAX" in unique_filename
           assert "get_unique_filename(p_sess, &s_filename" in upload_handler

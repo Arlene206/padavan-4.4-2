@@ -5,6 +5,7 @@
  * postlogin.c
  */
 
+#include <errno.h>
 #include <limits.h>
 
 #include "postlogin.h"
