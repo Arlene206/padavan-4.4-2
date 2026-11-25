@@ -955,7 +955,12 @@ jobs:
           qmi_start_function = modem[qmi_start_offset:qmi_start_end]
           assert "modem_qmi_existing_pdh_start_status(pdh_handle, errno)" in qmi_start_function
           assert qmi_start_function.index("modem_qmi_existing_pdh_start_status") < qmi_start_function.index("if (pin_code[0])")
-          assert qmi_start_function.index("rc_wan_nvram_parse_int_value(modem_nets_text, &modem_nets)") < qmi_start_function.index("invalid QMI modem network-mode setting") < qmi_start_function.index("modem_qmi_existing_pdh_start_status")
+          assert qmi_start_function.index("rc_wan_nvram_parse_int_value(modem_nets_text, &modem_nets)") < qmi_start_function.index("invalid QMI modem network-mode setting")
+          mode_range_gate = qmi_start_function.index("if (!modem_qmi_network_mode_is_valid(modem_nets))")
+          assert qmi_start_function.index("invalid QMI modem network-mode setting") < mode_range_gate
+          assert mode_range_gate < qmi_start_function.index("unsupported QMI modem network-mode setting") < qmi_start_function.index("modem_qmi_existing_pdh_start_status")
+          assert "return network_mode >= 0 && network_mode <= 9;" in retry_policy
+          assert "modem_qmi_network_mode_is_valid" in qmi_policy_test
           assert "modem_qmi_client_id_should_allocate(qmi_client_id, errno)" in qmi_start_function
           assert "reusing persisted WDS client ID" in qmi_start_function
           assert "persisted WDS client ID is invalid or unreadable" in qmi_start_function
@@ -1018,6 +1023,7 @@ jobs:
               "test_qmi_start_retry_is_blocked_when_session_may_exist",
               "test_qmi_ambiguous_start_preserves_published_handle",
               "test_qmi_start_preflight_reuses_cid_and_blocks_duplicate_pdh",
+              "test_qmi_network_mode_selection_rejects_out_of_range_values",
           ):
               assert policy_case in qmi_policy_test
           wds_callback_start = wds_source.index("cmd_wds_start_network_cb(struct qmi_dev")

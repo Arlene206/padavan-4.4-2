@@ -19,6 +19,13 @@ modem_qmi_start_attempt_status(int command_status, int packet_data_handle)
 	return packet_data_handle >= 0 ? 0 : EIO;
 }
 
+/* The modem UI exposes only Auto and the nine explicit network profiles. */
+static inline int
+modem_qmi_network_mode_is_valid(int network_mode)
+{
+	return network_mode >= 0 && network_mode <= 9;
+}
+
 /* Normalize the wait status returned by the command runner. */
 static inline int
 modem_qmi_command_status(int command_status)

@@ -1,3 +1,9 @@
+## 2026-11-24 — Reject out-of-range QMI modem network selectors
+
+- The modem UI exposes exactly `modem_nets=0..9` (Auto, LTE profiles, UMTS/GSM, CDMA and TD-SCDMA). `qmi_control_network_start()` parsed the NVRAM value but its switch left the default `"all"` for every unrecognized integer. A corrupted value such as `10` or `-1` therefore silently broadened a requested radio restriction to all network modes.
+- Added a shared range policy and GNU89 regression for both valid UI boundaries and negative/oversized values. The production QMI start path now rejects values outside 0..9 with `EINVAL` before PIN verification, modem configuration or WDS/PDH operations. The USB modem workflow source contract now pins this fail-closed gate and the regression marker.
+- This is a source/test/workflow change; exact-head Actions and XY-C1 firmware validation are pending. No local compile result is claimed.
+
 ## 2026-11-24 — Align HTTPD restart contracts with pre-publication ARP ownership
 
 - The HTTPD rerun #45544612868 reached another stale assertion in its DNSMasq integration step: it still expected restart to call the public `stop_dns_dhcpd_locked()` wrapper. Restart now intentionally captures `/etc/ethers` before `prepare_dns_dhcpd()` publishes new files, then passes that prior snapshot directly to `stop_dns_dhcpd_locked_with_snapshot()`.

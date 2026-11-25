@@ -807,6 +807,14 @@ qmi_control_network_start(const char *device_path)
 			   "invalid QMI modem network-mode setting (status=%d)", status);
 		goto done;
 	}
+	/* Reject corrupt selectors before uqmi can broaden them to "all". */
+	if (!modem_qmi_network_mode_is_valid(modem_nets)) {
+		status = EINVAL;
+		logmessage(LOGNAME,
+			   "unsupported QMI modem network-mode setting %d (expected 0..9)",
+			   modem_nets);
+		goto done;
+	}
 
 	/* A valid PDH file represents a prior session; never erase it and start another. */
 	errno = 0;

@@ -78,6 +78,19 @@ test_qmi_start_preflight_reuses_cid_and_blocks_duplicate_pdh(void)
 }
 
 static void
+test_qmi_network_mode_selection_rejects_out_of_range_values(void)
+{
+	/* These are the exact option values exposed by Advanced_Modem_others.asp. */
+	assert(modem_qmi_network_mode_is_valid(0)); /* Auto / all */
+	assert(modem_qmi_network_mode_is_valid(1)); /* LTE */
+	assert(modem_qmi_network_mode_is_valid(9)); /* TD-SCDMA */
+	assert(!modem_qmi_network_mode_is_valid(-1));
+	assert(!modem_qmi_network_mode_is_valid(10));
+	assert(!modem_qmi_network_mode_is_valid(INT_MIN));
+	assert(!modem_qmi_network_mode_is_valid(INT_MAX));
+}
+
+static void
 test_qmi_handle_cleanup_distinguishes_missing_from_other_errors(void)
 {
 	assert(modem_qmi_handle_file_unlink_status(0, 0) == 0);
@@ -867,6 +880,7 @@ main(void)
 	test_qmi_start_retry_is_blocked_when_session_may_exist();
 	test_qmi_ambiguous_start_preserves_published_handle();
 	test_qmi_start_preflight_reuses_cid_and_blocks_duplicate_pdh();
+	test_qmi_network_mode_selection_rejects_out_of_range_values();
 	test_qmi_handle_cleanup_distinguishes_missing_from_other_errors();
 	test_qmi_client_id_release_waits_for_pdh_cleanup();
 	test_qmi_handle_parser_rejects_partial_and_out_of_range_values();
