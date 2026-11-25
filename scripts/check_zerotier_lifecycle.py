@@ -570,11 +570,11 @@ require('if [ -z "$zt0" ]; then' in stop_body and
         stop_body.index('ip_segment="$(zerotier_kernel_route_segment "$zt0")"') <
         stop_body.index('if ! kill_z; then'),
         "stop must capture both the ZeroTier interface and NAT source segment before daemon shutdown")
-checkpoint_load = stop_body.indexOf("if ! zerotier_firewall_state_load; then")
-checkpoint_recovery = stop_body.indexOf("if ! zerotier_firewall_state_recover_prefix; then", checkpoint_load)
-saved_interface = stop_body.indexOf('zt0="$zt_state_saved_interface"', checkpoint_recovery)
-saved_segment = stop_body.indexOf('ip_segment="$zt_state_saved_segment"', saved_interface)
-checkpoint_refresh = stop_body.indexOf("zerotier_firewall_state_save", saved_segment)
+checkpoint_load = stop_body.index("if ! zerotier_firewall_state_load; then")
+checkpoint_recovery = stop_body.index("if ! zerotier_firewall_state_recover_prefix; then", checkpoint_load)
+saved_interface = stop_body.index('zt0="$zt_state_saved_interface"', checkpoint_recovery)
+saved_segment = stop_body.index('ip_segment="$zt_state_saved_segment"', saved_interface)
+checkpoint_refresh = stop_body.index("zerotier_firewall_state_save", saved_segment)
 require(
     checkpoint_load < checkpoint_recovery < saved_interface < saved_segment < checkpoint_refresh <
     stop_body.index("if ! kill_z; then"),

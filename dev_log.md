@@ -1,3 +1,8 @@
+## 2026-11-25 11:38 CST — Repair ZeroTier Python source-contract index calls
+
+- Exact a514 run #45539043663 passed the complete shell runtime suite, including the route-absent recovery path and new unreadable-route check, but failed the Python contract immediately after that because five ordering assertions called JavaScript's `.indexOf()` on Python strings.
+- Replaced those five calls with Python `.index()`. The assertions still enforce strict-load → recovery fallback → restore saved tuple → atomically refresh checkpoint → signal daemon ordering; no production or shell-test behavior changed. Exact-head rerun required.
+
 ## 2026-11-25 11:34 CST — Correct ZeroTier UNKNOWN-route fixture line endings
 
 - Exact 6e8648f ZeroTier run #45538871178 failed only at `unknown route inventory normalized the checkpoint`. The test fixture had a double-escaped `printf` format, so it wrote the supposed interface, segment and corruption record as one line rather than three LF-terminated records. The strict loader therefore saw a different state than intended.

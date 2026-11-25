@@ -2,17 +2,17 @@
 
 This snapshot supersedes older task pointers below where they conflict with live Git state.
 
-- Main before this ZeroTier fixture correction: `6e8648fe35af5e883878b30ab60a17e36221493c`. Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, untouched. PR #1 remains closed/unmerged.
-- Exact b940 Actions: Process inventory #45538507549 PASS; AI handoff docs #45538507644 PASS; WAN route #45538507655 PASS; ZeroTier #45538507537 FAILED because route guard was in strict loader; XY-C1 #45538507557 was IN_PROGRESS at last poll.
-- Exact 6e Actions: Process inventory #45538871150 PASS; AI docs #45538871183 PASS; ZeroTier #45538871178 FAILED in the new unreadable-route fixture because its checkpoint setup used a double-escaped newline format, writing one literal line rather than three records. The fixture now writes actual LF-delimited fields; production route-guard placement is correct. WAN #45538871125 and XY-C1 #45538871147 were still in progress at last poll.
-- UDHCP fix at `a8f5f0a2a4d8aacfea275811dc79d444afeee78d`: #45538273420 PASS (GNU89/ASan/UBSan + source contract); AI docs #45538273270 PASS; Process inventory #45538273178 PASS; USB storage #45538273267 PASS; XY-C1 #45538273173 PASS (Build/TRX/artifact). NVRAM #45538273244 was pending at last poll.
-- New route-guard regression ensures UNKNOWN route inventory cannot authorize damaged-checkpoint normalization; this fixture correction needs exact-head rerun. No local host regression claimed.
+- Main before this checker correction: `a51496ebf3219d1070edb794718447554dc3cf72`. Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, untouched. PR #1 remains closed/unmerged.
+- Exact a514 ZeroTier run #45539043663: bounded lifecycle shell regression PASS, including damaged-prefix recovery when routes are absent, fail-closed when route inventory is unreadable, valid checkpoint/live-route handling and truncated-tail refusal. Its Python source contract failed due five mistakenly JavaScript-style `.indexOf()` calls in the Python checker; changed to Python `.index()` below. Exact-head rerun required.
+- Exact a514 Process inventory #45539043654 PASS; AI docs #45539043727 PASS; WAN route #45539043652 PASS. XY-C1 #45539043720 was still IN_PROGRESS at last poll.
+- UDHCP at `a8f5f0a2a4d8aacfea275811dc79d444afeee78d`: #45538273420 PASS (GNU89/ASan/UBSan + source contract); AI docs, Process, USB storage and XY-C1 Build/TRX/artifact PASS on that exact SHA.
+- No local host test claimed. Frozen backup remains unchanged.
 
 ## Exact first action for the next GPT
 
-1. Verify exact-head ZeroTier regression after correcting the fixture's LF delimiter; inspect and fix any remaining test/runtime issue.
-2. Verify XY-C1 Build/TRX/artifact and same-SHA WAN/Process/AI results.
-3. Continue another separate reliability/security fix while any unrelated Actions are pending; frozen backup remains read-only.
+1. Verify exact-head ZeroTier shell regression and Python source contract after replacing the invalid string method calls.
+2. Confirm XY-C1 Build/TRX/artifact for the latest source SHA and check AI/Process/WAN same-SHA results.
+3. Continue a separate userland reliability/security slice while independent Actions remain pending.
 
 No force-push.
 
