@@ -4053,30 +4053,37 @@ static void multi_client_tick(void)
 		return;
 	}
 
-	alarm(1);
 	now = time((time_t *)NULL);
-	if (now != (time_t)-1 && now > last_busy_live->time &&
-	    now - last_busy_live->time > U2EC_TIMEOUT) {
-		PDEBUG(" U2EC TIMEOUT!\n");
-
-		u2ec_fifo = open(U2EC_FIFO, O_WRONLY|O_NONBLOCK);
-		if (u2ec_fifo < 0) {
-			PERROR("open U2EC FIFO for multi-client timeout");
-			return; /* alarm(1) remains armed; retry on the next tick */
-		}
-		if (write(u2ec_fifo, "c", 1) != 1) {
-			int write_errno = errno;
-
-			close(u2ec_fifo);
-			if (write_errno == 0)
-				write_errno = EIO;
-			errno = write_errno;
-			PERROR("write U2EC FIFO multi-client timeout");
-			return; /* do not lose the timeout event on a transient FIFO error */
-		}
-		close(u2ec_fifo);
-		alarm(0);
+	/*
+	 * The signal that entered this tick has expired. Do not re-arm while
+	 * attempting FIFO delivery: a blocked SIGALRM that expires during the
+	 * write remains pending even after alarm(0), causing duplicate work.
+	 */
+	if (now == (time_t)-1 || now <= last_busy_live->time ||
+	    now - last_busy_live->time <= U2EC_TIMEOUT) {
+		alarm(1);
+		return;
 	}
+
+	PDEBUG(" U2EC TIMEOUT!\n");
+	u2ec_fifo = open(U2EC_FIFO, O_WRONLY|O_NONBLOCK);
+	if (u2ec_fifo < 0) {
+		PERROR("open U2EC FIFO for multi-client timeout");
+		alarm(1);
+		return;
+	}
+	if (write(u2ec_fifo, "c", 1) != 1) {
+		int write_errno = errno;
+
+		close(u2ec_fifo);
+		if (write_errno == 0)
+			write_errno = EIO;
+		errno = write_errno;
+		PERROR("write U2EC FIFO multi-client timeout");
+		alarm(1);
+		return;
+	}
+	close(u2ec_fifo);
 }
 
 /*

@@ -196,10 +196,18 @@ while free_at >= 0:
 assert "last_busy_live->time" in alarm_tick
 assert "u2ec_fifo = open(U2EC_FIFO, O_WRONLY|O_NONBLOCK)" in alarm_tick
 assert "if (u2ec_fifo < 0)" in alarm_tick
-assert alarm_tick.index("alarm(1)") < alarm_tick.index("u2ec_fifo = open")
-assert "alarm(0)" in alarm_tick
+time_check_at = alarm_tick.index("if (now == (time_t)-1")
+open_fifo_at = alarm_tick.index("u2ec_fifo = open(U2EC_FIFO, O_WRONLY|O_NONBLOCK)")
 write_event_at = alarm_tick.index('write(u2ec_fifo, "c", 1)')
-assert alarm_tick.index("alarm(0)", write_event_at) > write_event_at
+assert time_check_at < alarm_tick.index("alarm(1)") < open_fifo_at
+assert alarm_tick.count("alarm(1)") == 3
+open_failure = alarm_tick[alarm_tick.index("if (u2ec_fifo < 0)"):write_event_at]
+write_failure_start = alarm_tick.index("if (write(u2ec_fifo")
+write_failure = alarm_tick[write_failure_start:alarm_tick.index("close(u2ec_fifo);", write_failure_start)]
+assert "alarm(1)" in open_failure
+assert "alarm(1)" in write_failure
+successful_delivery = alarm_tick[write_event_at:alarm_tick.index("close(u2ec_fifo);", write_event_at)]
+assert "alarm(1)" not in successful_delivery and "alarm(0)" not in successful_delivery
 assert "pthread_sigmask(SIG_BLOCK, &sigs_to_catch" in daemon_main
 assert "sigaction(SIGALRM, &alarm_action, NULL)" in daemon_main
 assert daemon_main.index("pthread_sigmask(SIG_BLOCK, &sigs_to_catch") < daemon_main.index("pthread_create(")
