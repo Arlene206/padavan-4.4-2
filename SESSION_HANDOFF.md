@@ -1,28 +1,27 @@
 ## Current repository state — 2026-11-25
 
-- Main base before complete TCP write handling: 5e40e4e0b38ce4a6629ce89e4d8347299e597ac2; four sender conversions, EOF receiver, helper tests/source contracts, dev log and handoff are one atomic descendant (THIS COMMIT).
+- Main base before exact IAPP header-length matching: a487a2ba43df7b6a69eac331fe848cf25b3fa837; TCP/UDP declared-length gates, optional event-log fixed-size guard, GNU89 policy tests, lifecycle contracts, dev log and handoff are one atomic descendant (THIS COMMIT).
 - Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains read-only at 72f4f157a084f8184b9597ca5bf334b8080e5807.
-- Parent 5e40e4e0b38ce4a6629ce89e4d8347299e597ac2 added receive-until-EOF TCP frame handling. Exact-head Actions not yet checked at last handoff.
-- Parent 16ebc650e94661a5cef16d73e380128f50b6d739 fixed actual-size parsing for ADD/MOVE notifications. Its exact Actions were in progress at last poll.
-- Parent f4835dbf275d93706d0c3bc4d257462f1cb87f83 IAPP PASS; process inventory/lifecycle PASS; AI PASS; XY and NVRAM still in progress at last poll.
-- This slice closes the send-side counterpart to partial TCP reads: all four TCP frame senders now loop until all encrypted bytes are transmitted, retry EINTR and reject zero/error writes. UDP/raw-Ethernet datagram sends remain atomic message calls.
-- Prior receive/security bounds: FT security-block stack copy, ACK/AP-info payloads, TCP/UDP IAPP headers, raw RRB encrypted payload, raw driver EventLen, ADD/MOVE exact frame sizes, TCP receive accumulation.
-- Historic XY-C1 L3 verified only on 8b9b63401dd85232b257120111bb18475db6b5 (Build/TRX/artifact PASS); no later SHA inherits. Physical router L4 NOT VERIFIED. Backup frozen; PR #1 inventoried.
+- Parent a487a2ba43df7b6a69eac331fe848cf25b3fa837 added `IAPP_TCP_WriteFrame()` for all four TCP frame senders; its exact workflows were in progress at last poll. Parent 5e40e4e0b38ce4a6629ce89e4d8347299e597ac2 has IAPP #45692815127 PASS, Process lifecycle #45692815286 PASS, inventory #45692815185 PASS, AI #45692815200 PASS; XY-C1 #45692815165 and NVRAM #45692816804 in progress.
+- Exact XY-C1 L3 was verified on SHA `e1f16872b7e2792db9acf0184f2fe9c5d736c966`: Build, TRX and artifact upload PASS (workflow #45691498871, job #139477832244). Later source SHAs require their own exact completed build.
+- Parent 16eb actual-size ADD/MOVE notification checks; f483 raw driver signal/EventLen guards; 0952 RRB fixed-header/aligned encrypted-payload guard. All are already in main and their IAPP shell checks passed on recorded exact SHAs.
+- This slice ties declared IAPP frame Length to actual bytes for both TCP and UDP before dispatch, and bounds optional security-monitor struct access.
+- Physical router L4 NOT VERIFIED. Backup frozen; PR #1 inventoried.
 
 ## Active task
 
-Validate current TCP read/write implementation on exact IAPP and XY-C1 Actions; then check command-header Length consistency and SECURITY_MONITOR fixed-size bounds.
+Validate exact frame Length change and current TCP read/write helpers on exact-head IAPP/XY Actions. Then finish remaining command-specific frame validation and TCP socket reliability review.
 
 ## Exact first actions for next GPT
 
-1. Poll exact-head IAPP, XY-C1 Build/TRX/artifact, Process lifecycle/inventory, NVRAM and AI Actions for THIS COMMIT.
-2. Confirm all four TCP sender call sites use IAPP_TCP_WriteFrame and receiver uses IAPP_TCP_ReadFrame; inspect C89 cross-build logs.
-3. Verify `RT_IAPP_HEADER.Length` equals actual received bytes for each supported command; add SECURITY_MONITOR size guard if enabled.
-4. Continue main-only atomic complete-tree commits using non-force expected-SHA updates; backup remains frozen.
+1. Poll this commit's IAPP, XY-C1 Build/TRX/artifact, Process lifecycle/inventory, NVRAM and AI Actions separately by exact SHA.
+2. Confirm both dispatchers have exact received-vs-declared frame length check and sanitizer tests for exact/short/long.
+3. Review socket timeout/backpressure and optional event-log branch compile coverage; continue auditing supported command structures for exact field requirements.
+4. Keep backup read-only and main-only complete atomic trees with non-force expected-SHA update.
 
 ## Execution contract
 
-Main only; atomic task commits, non-force expected-SHA update. No force-push, new branches or PR. PENDING does not block.
+Main only; complete Git tree and atomic commit per task. No force-push, branches or PR. PENDING actions do not block.
 
 ## 2026-11-25 autonomous handoff checkpoint
 

@@ -167,6 +167,10 @@ test_received_payload_bounds(void)
 	assert(!iapp_rx_buffer_append_fits(8, 3, 6));
 	assert(!iapp_rx_buffer_append_fits(8, 9, 0));
 	assert(!iapp_rx_buffer_append_fits(SIZE_MAX, SIZE_MAX, 1));
+
+	assert(iapp_rx_frame_length_matches(6, 6));
+	assert(!iapp_rx_frame_length_matches(5, 6));
+	assert(!iapp_rx_frame_length_matches(7, 6));
 }
 
 static void

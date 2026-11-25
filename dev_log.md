@@ -1,3 +1,10 @@
+## 2026-11-25 — Require exact IAPP protocol frame lengths
+
+- TCP and UDP dispatchers previously checked only the fixed IAPP header minimum and trusted its 16-bit `Length` field independently of actual post-decrypt bytes. This allowed packets with truncated or trailing data to reach command handlers when the command-specific payload check did not reject them.
+- Added shared equality policy and require `SWAP_16(RT_IAPP_HEADER.Length) == SizeRcvMsg` in both dispatchers before command dispatch. The optional IAPP_EVENT_LOG security monitor now requires the full `RT_IAPP_SECURITY_MONITOR` struct before reading its event table.
+- Added exact/short/long header-length unit cases and lifecycle source contracts for TCP, UDP and security-monitor checks.
+
+---
 ## 2026-11-25 — Complete partial TCP writes for IAPP frames
 
 - Four IAPP TCP paths used a single `send()` and treated any nonnegative return as a complete frame. A short write can leave the peer with a truncated encrypted IAPP packet, while the sender closes the one-frame connection immediately afterward.

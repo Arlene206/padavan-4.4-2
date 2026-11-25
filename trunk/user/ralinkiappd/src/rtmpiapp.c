@@ -2154,6 +2154,14 @@ static VOID IAPP_RcvHandlerTcp(
 			return;
 		}
 
+		if (!iapp_rx_frame_length_matches((size_t)SizeRcvMsg,
+						  (size_t)SWAP_16(pIappHdr->Length))) {
+			DBGPRINT(RT_DEBUG_ERROR,
+				 "iapp> IAPP Length mismatch (declared=%u, received=%d)!\n",
+				 SWAP_16(pIappHdr->Length), SizeRcvMsg);
+			return;
+		}
+
 		if (pIappHdr->Version != IAPP_VERSION)
 		{
 			DBGPRINT(RT_DEBUG_TRACE, "iapp> IAPP version not match %d!\n", pIappHdr->Version);
@@ -2959,6 +2967,14 @@ static VOID IAPP_RcvHandlerUdp(
 			return;
 		}
 
+		if (!iapp_rx_frame_length_matches((size_t)SizeRcvMsg,
+						  (size_t)SWAP_16(pIappHdr->Length))) {
+			DBGPRINT(RT_DEBUG_ERROR,
+				 "iapp> IAPP Length mismatch (declared=%u, received=%d)!\n",
+				 SWAP_16(pIappHdr->Length), SizeRcvMsg);
+			return;
+		}
+
 		if (pIappHdr->Version != IAPP_VERSION)
 		{
 			DBGPRINT(RT_DEBUG_TRACE, "iapp> IAPP version not match %d!\n",
@@ -3099,6 +3115,12 @@ static VOID IAPP_RcvHandlerUdp(
 
 
 				SM_p = (PRT_IAPP_SECURITY_MONITOR) pIappHdr;
+				if (SizeRcvMsg != (INT32)sizeof(*SM_p)) {
+					DBGPRINT(RT_DEBUG_ERROR,
+						 "iapp> Truncated security monitor frame (%d bytes)!\n",
+						 SizeRcvMsg);
+					break;
+				}
 
 				DBGPRINT(RT_DEBUG_TRACE, "iapp> pkt = IAPP_CMD_SECURITY_MONITOR\n");
 

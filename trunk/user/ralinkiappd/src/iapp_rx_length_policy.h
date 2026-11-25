@@ -18,4 +18,10 @@ iapp_rx_buffer_append_fits(size_t capacity, size_t current_size, size_t append_s
 	       append_size <= capacity - current_size;
 }
 
+static inline int
+iapp_rx_frame_length_matches(size_t received_size, size_t declared_size)
+{
+	return received_size == declared_size;
+}
+
 #endif /* IAPP_RX_LENGTH_POLICY_H */

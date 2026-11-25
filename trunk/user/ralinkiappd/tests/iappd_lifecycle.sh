@@ -151,6 +151,10 @@ grep -Fq 'received_len != (INT32)sizeof(*pNotify)' "$iapp_source" ||
   fail "IAPP MOVE_NOTIFY must match its complete received frame size"
 grep -Fq 'SizeRcvMsg != (INT32)sizeof(*pNotify)' "$iapp_source" ||
   fail "IAPP ADD_NOTIFY must match its complete received frame size"
+[ "$(grep -F -c 'iapp_rx_frame_length_matches((size_t)SizeRcvMsg' "$iapp_source")" -eq 2 ] ||
+  fail "IAPP TCP and UDP must match declared Length to actual received bytes"
+grep -Fq 'SizeRcvMsg != (INT32)sizeof(*SM_p)' "$iapp_source" ||
+  fail "IAPP security-monitor event must match its fixed frame size"
 grep -Fq 'IAPP_TCP_ReadFrame(SockNew, pPktBuf, IAPP_MAX_RCV_PKT_SIZE)' "$iapp_source" ||
   fail "IAPP TCP receive must accumulate fragmented frames through EOF"
 grep -Fq 'if (BytesRead == 0)' "$iapp_source" ||
