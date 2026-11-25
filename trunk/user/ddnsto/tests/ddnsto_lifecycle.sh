@@ -556,7 +556,9 @@ echo running > "$TEST_STATE"
 if run_action stuck stop; then fail "stop reported success while daemon remained alive after SIGKILL"; fi
 [ "$(cat "$TEST_LOG")" = "$(printf '%s\n' '-TERM 12345' '-KILL 12345')" ] || fail "stuck daemon did not receive exact-PID TERM then KILL"
 [ "$(wc -l < "$TEST_SLEEP_LOG" | tr -d ' ')" = 10 ] || fail "TERM/KILL waits were not bounded to five polls each"
-[ "$(grep -Ec '^-(TERM|KILL) [1-9][0-9]*echo "DDNSTO stop retains bounded TERM/KILL and fail-closed postconditions: PASS"
+[ "$([ "$(grep -Ec '^-(TERM|KILL) [1-9][0-9]*$' "$TEST_LOG" || :)" = 2 ] ||
+	fail "force-stop signal records did not carry positive numeric PIDs"
+echo "DDNSTO stop retains bounded TERM/KILL and fail-closed postconditions: PASS"
 
 # A stop and a concurrent start serialize: start cannot launch until stop has completed.
 : > "$TEST_LOG"

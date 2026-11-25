@@ -1,3 +1,12 @@
+## 2026-11-25 — Repair the complete DDNSTO TERM/KILL test assertion
+
+- DDNSTO exact-head run #45712559118 on `373b4a12` failed at the original unterminated ERE. The first test-only correction was incomplete: a replacement boundary left the following PASS message concatenated into the grep expression. Exact-head run #45713236953 on `a9dd0b06` therefore failed again with `grep: Unmatched (`.
+- Replaced the entire damaged region up to the next stable section heading, restoring a complete ERE that checks exactly two positive numeric TERM/KILL PID records and a separate PASS message. Production DDNSTO code is unchanged.
+- Local shell syntax and numeric-PID assertion smoke checks PASS. Exact-head DDNSTO lifecycle run for this commit is pending; no firmware or hardware result is claimed.
+- Changed paths: `trunk/user/ddnsto/tests/ddnsto_lifecycle.sh`, `dev_log.md`.
+
+---
+
 ## 2026-11-25 — Preserve temporary-only WAN IPv6 fallback for AliDDNS
 
 - Review of the new stable-address preference found a compatibility edge: the first implementation rejected a sole temporary/secondary global address, whereas the prior single-address behavior accepted it. A privacy-enabled WAN can legitimately need that fallback when no stable preferred address remains.
