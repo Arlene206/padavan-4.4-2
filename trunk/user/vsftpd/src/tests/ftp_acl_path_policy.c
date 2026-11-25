@@ -755,7 +755,9 @@ main(void)
       unlinkat(rename_source_fd, "rename-directory-link", 0) != 0 ||
       unlinkat(rename_destination_fd, "rename-link-moved", 0) != 0 ||
       unlinkat(rename_destination_fd, "rename-destination.txt", 0) != 0 ||
-      unlinkat(rename_source_fd, "rename-directory", AT_REMOVEDIR) != 0) {
+      unlinkat(rename_source_fd, "rename-directory", AT_REMOVEDIR) != 0 ||
+      unlinkat(rename_source_fd, cleanup_dir_leaf, AT_REMOVEDIR) != 0 ||
+      unlinkat(rename_destination_fd, cleanup_dir_leaf, AT_REMOVEDIR) != 0) {
     perror("remove rename fixtures through pinned descriptors");
     return 1;
   }

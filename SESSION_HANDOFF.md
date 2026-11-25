@@ -2,17 +2,17 @@
 
 This snapshot supersedes older task pointers below where they conflict with live Git state.
 
-- Main before this VSFTPD source slice: `ae8a252781ffbaae06e0c51842264293b24e2368`. Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. PR #1 remains closed/unmerged.
-- The previous ZeroTier test corruption is fixed on exact main SHA `ae8a252781ffbaae06e0c51842264293b24e2368`: ZeroTier lifecycle #45531424627, AI handoff docs #45531424568, WAN route #45531424512 and Process inventory #45531424459 PASS. The shell test is back to 2,270 lines with the empty-source checkpoint grep scoped to NAT `-C/-D`; do not repeat this repair.
-- XY-C1 Firmware Validation #45531424536 was IN_PROGRESS at the last observation on that same SHA. Do not claim L3 unless Build, TRX verification and artifact upload all pass on one identical production-source SHA. Physical-router L4 remains NOT VERIFIED.
-- Active source slice closes the VSFTPD rename hard-link check/use race. Parent implementation checked the public leaf with `fstatat()` then separately used `renameat()`; a concurrent directory writer could substitute a multiply-linked inode between those operations. This slice moves the current entry atomically into the existing per-euid 0700 quarantine via `RENAME_NOREPLACE`, checks link count after the move, rejects multiply-linked non-directories, allows directories, then publishes to the pinned destination. Validation/publication failures restore with no-replace semantics to avoid overwriting a concurrent source replacement. GNU89 tests cover hard-link denial, directories with normal multi-link counts and failed-publication restoration; the inline workflow contract rejects the old check/use sequence.
-- Parent VSFTPD baseline `33d0f4c2edaa3f74b004abf2939bad9ca530763d`: VSFTPD #45530467033, Process #45530467005, AI docs #45530467034, NVRAM #45530466995 and XY-C1 #45530467001 PASS; those results predate this rename race fix. Exact-head reruns on the new commit are required. No local C compile, current-head MIPS L3 or physical L4 is claimed.
+- Main before this VSFTPD regression follow-up: `0019166358a005af4e764fa0d7e2dbe3972599b7`. Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. PR #1 remains closed/unmerged.
+- ZeroTier shell regression repair remains verified on exact SHA `ae8a252781ffbaae06e0c51842264293b24e2368`: ZeroTier #45531424627, AI docs #45531424568, WAN route #45531424512 and Process #45531424459 PASS. Do not repeat it.
+- VSFTPD rename TOCTOU fix is committed on parent `0019166358a005af4e764fa0d7e2dbe3972599b7`: exact-head VSFTPD run #45531752808 compiled the GNU89 tests and passed the earlier FTP policy binaries. The new ACL test cases ran through hard-link denial, directory rename and failed-publication source restoration, then final fixture teardown failed because the tests did not remove the two empty private `.__vsftpd_cleanup_<euid>` directories created under their source parents. The source fix is retained; this follow-up removes both directories using pinned dirfds and asserts those cleanup steps in the workflow contract. No production source changes in this follow-up.
+- Parent `0019166` AI handoff #45531752824 and Process inventory #45531752917 PASS; NVRAM #45531752784 and XY-C1 #45531752849 were IN_PROGRESS at last observation. Parent VSFTPD failure is a test teardown omission, not a compiler or asserted policy failure. Exact-head reruns on the next main SHA are required.
+- Earlier VSFTPD baseline `33d0f4c2edaa3f74b004abf2939bad9ca530763d` passed its own VSFTPD/Process/AI/NVRAM/XY-C1 checks but predates the rename quarantine implementation. Do not transfer any results across SHAs. No local compiler, current-head MIPS L3 or physical-router L4 result is claimed.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and inspect push-triggered exact-head VSFTPD, AI handoff docs, Process inventory, NVRAM boundary and XY-C1 Actions. Require every result's `head_sha` to match the live tip. Diagnose and fix any FAIL with a new atomic main commit; a PENDING run must not block independent work.
-2. Confirm XY-C1 Build, TRX and artifact upload on that same production-source SHA before claiming L3. Hardware L4 remains NOT VERIFIED.
-3. Continue with the next distinct userland stability/security defect in the roadmap. Do not repeat the ZeroTier fixture repair or VSFTPD rename audit.
+1. Fetch live main and inspect exact-head VSFTPD, AI docs, Process, NVRAM and XY-C1 push runs. Confirm each `head_sha` equals the live tip. Repair any FAIL; do not wait on unrelated PENDING runs.
+2. Confirm XY-C1 Build, TRX verification and artifact upload all pass on one identical production-source SHA before claiming L3. Physical-router L4 remains NOT VERIFIED.
+3. Continue with the next distinct userland reliability/security item in the roadmap after the VSFTPD exact-head regression passes; do not repeat ZeroTier or VSFTPD source audits already completed.
 
 No force-push. The backup branch remains unchanged.
 

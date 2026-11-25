@@ -1,3 +1,9 @@
+## 2026-11-24 — Clean up VSFTPD rename quarantine directories in regression fixture
+
+- Exact-head VSFTPD run #45531752808 on `0019166358a005af4e764fa0d7e2dbe3972599b7` compiled the GNU89 test binary and passed all preceding FTP policy binaries; the new ACL rename assertions (hard-link rejection, multi-link directory compatibility and failed-publication restore) all ran before the final fixture teardown. Teardown then failed with `remove fixture: Directory not empty`.
+- Root cause: the source-quarantine rename implementation correctly creates an empty `.__vsftpd_cleanup_<euid>` directory beneath each source parent it uses. The test moved a directory from source to destination and back, so both parents retained their private empty quarantine directories; the fixture removed its ordinary entries but did not remove those two directories before `rmdir(a/b)`.
+- This test/contract-only follow-up removes the empty cleanup directories through the pinned source/destination descriptors and adds source-contract assertions to keep both teardown operations covered. Production VSFTPD source is unchanged. Parent AI handoff #45531752824 and Process inventory #45531752917 PASS; NVRAM #45531752784 and XY-C1 #45531752849 were IN_PROGRESS at observation. Exact-head VSFTPD rerun is required; this is not yet a PASS. No local compile or MIPS/L4 result is claimed.
+
 ## 2026-11-24 — Close the VSFTPD hard-link rename check/use race
 
 - On parent main SHA `ae8a252781ffbaae06e0c51842264293b24e2368`, `ftp_acl_path_rename_entry()` checked the public source leaf with `fstatat()` and only then called `renameat()`. A concurrent writer could replace that leaf between the two syscalls and move a multiply-linked inode across ACL shares despite the hard-link guard.

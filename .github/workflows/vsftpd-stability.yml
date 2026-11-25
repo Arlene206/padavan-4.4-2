@@ -681,6 +681,8 @@ jobs:
           assert "fstatat(source_dir_fd, source_leaf" not in rename_policy
           assert "renameat rejected a directory with multiple links" in acl_path_test
           assert "failed rename publication did not restore its source entry" in acl_path_test
+          assert 'unlinkat(rename_source_fd, cleanup_dir_leaf, AT_REMOVEDIR)' in acl_path_test
+          assert 'unlinkat(rename_destination_fd, cleanup_dir_leaf, AT_REMOVEDIR)' in acl_path_test
           assert "renameat moved a multiply-linked file across shares" in acl_path_test
           assert 'fstatat(rename_destination_fd, "cross-share-hardlink-moved"' in acl_path_test
           cleanup_start = acl_path_policy.index("ftp_acl_path_unlink_opened_entry(")
