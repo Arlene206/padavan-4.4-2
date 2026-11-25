@@ -6,13 +6,13 @@
 - DHCPv6 client callback environment publication fix: `898f67081429468f9e41f2603645b73112d71324` checks every `putenv()`, rolls back earlier publications in reverse order on failure, frees the staged vector, and prevents the script from running with a partial environment. Its dedicated retry regression #45715277126 PASS; source-contract strengthening #45715802810 PASS on `c79100c7`.
 - The WAN cross-workflow contract was aligned with atomic DHCPv6 publication; WAN callback #45715551138 PASS and AI docs #45715551148 PASS on `b839cd32fc594e3ac86a9c480232bda4746cda76`.
 - AliDDNS stable/temporary WAN IPv6 selection and mixed ULA/GUA filtering passed signed API transport workflow #45714500332 on `c18629bb7d1fcaff7c3b5b999df6373ae0efe8ed`; DDNSTO lifecycle passed #45714204122 on `284bb616b5f56d513d65bc95a0cf80cd6eb9cdd0`. These paths have not changed since their respective PASS runs.
-- Exact-head current build gates on `7d57bb62`: XY-C1 #45715924026 is IN_PROGRESS (Build XY-C1 step in progress; TRX verification and artifact upload pending); NVRAM transaction audit #45715924022 is IN_PROGRESS. Do not call this L3 until Build, TRX and artifact upload all PASS on the same source SHA.
+- Exact-head current build gates on `7d57bb62`: XY-C1 #45715924026 is IN_PROGRESS (Build XY-C1 step in progress; TRX verification and artifact upload pending); NVRAM transaction audit #45715924022 PASS. The documentation-only handoff checkpoint AI contract #45716217978 PASS on `cee09a84`. Do not call this L3 until Build, TRX and artifact upload all PASS on the same product source SHA.
 - Older WAN callback run #45715277083 failed on `898f6708` only because its independent inline contract still expected unchecked `putenv(*curr++)`; fixed in `b839cd32`, and the exact rerun #45715551138 passed. Do not reopen this completed contract repair.
 - Physical router verification is NOT VERIFIED (L4). No live-router result is claimed.
 
 ## Active task
 
-Finish verification of the current exact main SHA before claiming firmware status. Poll XY-C1 #45715924026 and NVRAM audit #45715924022. If XY-C1 fails, inspect the exact job log and fix the actual failing step. L3 requires successful Build XY-C1, TRX validation and artifact upload on the same SHA. PENDING jobs do not block independent source work.
+Finish verification of the current exact main SHA before claiming firmware status. Poll XY-C1 #45715924026. NVRAM audit #45715924022 has completed PASS. If XY-C1 fails, inspect the exact job log and fix the actual failing step. L3 requires successful Build XY-C1, TRX validation and artifact upload on the same SHA. PENDING jobs do not block independent source work.
 
 ## Exact first actions for next GPT
 
