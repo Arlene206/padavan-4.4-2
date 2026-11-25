@@ -1,16 +1,15 @@
-## 2026-11-26 active handoff — repair the callback-link source contract
+## 2026-11-26 active handoff — reject OpenVPN credential line breaks
 
-- Live main parent: `c4c12ce5cf7b4e0098d71723ddde30e87c1e5ad6`. The OpenVPN callback-link regression and OpenVPN credential suite #45655706781 PASS, including all compiled C tests and the OpenVPN source/workflow contract. The new link-policy header/test compiles and passes in the OpenVPN workflow.
-- VPN server lifecycle #45655706646 failed only at the final source checker: it still expected `symlink("/sbin/rc")` to occur after interface setup. Production code now correctly validates/creates the callback link before interface creation, reuses only an exact `/sbin/rc` target, and cleans up only a link created by this attempt when interface setup fails. All 13 earlier VPN C/source checks passed, including the VPN client NVRAM/DNS contract. The stale lifecycle checker assertion is being updated; this is not a C regression.
-- AI handoff docs #45655707053 PASS; HTTPD security #45655706750 PASS; IPv6 service type #45655706937 PASS; Process inventory #45655706888 PASS. NVRAM audit #45655706763, process lifecycle #45655706696, and XY-C1 #45655706852 remained in progress at last poll. XY-C1 #45655706852 must complete Build XY-C1, TRX verification and artifact upload for this production-source SHA before L3 can be claimed.
-- Credential wipe source fix from `98f74b97af0d83f6b5d6542c8d355815b30274e8` passed the exact OpenVPN wipe regression and source contract. Main's latest production slice still requires L3. Physical-router L4 NOT VERIFIED.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Live main parent: `c2366fd5c60833e7e42f0aef457ea8e0773d11d3`. Callback-link helper/header and host regression are in `c4c12ce5cf7b4e0098d71723ddde30e87c1e5ad6`; OpenVPN credential regression #45655706781 PASS. The VPN lifecycle source-contract correction #45656077803 PASS and AI handoff docs #45656077743 PASS on `c2366fd5c60833e7e42f0aef457ea8e0773d11d3`.
+- The c4 VPN server lifecycle run #45655706646 was a checker-only failure against the old raw `symlink()` order; `scripts/check_vpn_server_lifecycle.py` was corrected and its exact-main rerun PASS. Other c4 runs: HTTPD security #45655706750 PASS; IPv6 service-type #45655706937 PASS; Process inventory #45655706888 PASS; process lifecycle #45655706696 PASS. NVRAM #45655706763 and XY-C1 #45655706852 were still in progress at last poll. XY-C1 #45655706852 must finish Build/TRX/artifact for production source SHA `c4c12ce5...` before L3 is claimed.
+- New security issue found: OpenVPN auth-user-pass publisher writes raw NVRAM credentials as two newline-delimited records. CR/LF in username/password can inject extra lines into the file. This slice rejects CR/LF before creating the staging file, tests that previous secret content remains unchanged and no stage file is left, and adds the header to the XY-C1 production path filter so header-only modifications trigger a firmware build.
+- Credential memory zeroization is already green on `98f74b97...` (#45655016393). Physical-router L4 NOT VERIFIED. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ### First actions
 
-1. Verify the updated VPN server lifecycle source contract on the next exact SHA and confirm the OpenVPN callback-link regression remains green.
-2. Finish inspecting XY-C1 exact SHA Build/TRX/artifact for `98f74b97...`, then inspect the new source commit's own XY-C1 run.
-3. Continue examining daemon launch failure rollback without disturbing the already fail-closed callback link behavior.
+1. Run the OpenVPN staging regression and source contract on the new exact SHA; ensure CR/LF inputs are rejected and no staging file is created.
+2. Check the XY-C1 run for `c4c12ce5...` to see whether Build XY-C1, TRX verification and upload completed; the CR/LF helper change also triggers a new exact-SHA L3 run.
+3. Continue the OpenVPN daemon-start failure rollback review without assuming that a missing PID file proves no daemon is alive.
 
 ### Execution contract
 

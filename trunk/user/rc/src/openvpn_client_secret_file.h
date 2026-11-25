@@ -5,6 +5,7 @@
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -27,7 +28,8 @@ openvpn_client_secret_publish(const char *path, const char *username,
 	FILE *fp = NULL;
 	struct stat st;
 
-	if (!path || !path[0] || !username || !password) {
+	if (!path || !path[0] || !username || !password ||
+	    strpbrk(username, "\r\n") || strpbrk(password, "\r\n")) {
 		errno = EINVAL;
 		return -1;
 	}

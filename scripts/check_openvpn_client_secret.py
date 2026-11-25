@@ -124,6 +124,11 @@ assert 'fprintf(fp, "auth-user-pass %s\\n", "secret");' in client_conf
 assert client_conf.count(
     'openvpn_create_client_secret("secret", config->username, config->password)') == 1
 
+assert 'strpbrk(username, "\\r\\n")' in helper
+assert 'strpbrk(password, "\\r\\n")' in helper
+assert helper.index('strpbrk(username, "\\r\\n")') < helper.index("fd = mkstemp(staged_path)")
+assert helper.index('strpbrk(password, "\\r\\n")') < helper.index("fd = mkstemp(staged_path)")
+
 ordered(helper, [
     "fd = mkstemp(staged_path)",
     "fchmod(fd, S_IRUSR | S_IWUSR)",

@@ -1075,6 +1075,7 @@ xy_workflow=read(".github/workflows/xy-c1-firmware-validation.yml")
 for path in ("trunk/user/rc/src/l2tp_config_file.h",
              "trunk/user/rc/src/tests/l2tp_config_file.c",
              "trunk/user/rc/src/vpn_openvpn.c",
+             "trunk/user/rc/src/openvpn_client_secret_file.h",
              "trunk/user/rc/src/openvpn_script_link.h",
              "trunk/user/openvpn/openvpn-cert.sh",
              "trunk/user/rc/src/openvpn_process_stop_policy.h"):

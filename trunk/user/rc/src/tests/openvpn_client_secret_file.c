@@ -75,6 +75,18 @@ main(void)
 	assert(before.st_ino != after.st_ino);
 	read_exact(secret, "vpn-user\nvpn-password\n");
 
+	/* Credentials are exactly two lines; CR/LF injection is rejected pre-stage. */
+	errno = 0;
+	assert(openvpn_client_secret_publish(secret, "bad\nuser", "unused") == -1);
+	assert(errno == EINVAL);
+	read_exact(secret, "vpn-user\nvpn-password\n");
+	assert(count_staged_files(directory, "secret.tmp.") == 0);
+	errno = 0;
+	assert(openvpn_client_secret_publish(secret, "unused", "bad\rpassword") == -1);
+	assert(errno == EINVAL);
+	read_exact(secret, "vpn-user\nvpn-password\n");
+	assert(count_staged_files(directory, "secret.tmp.") == 0);
+
 	/* Atomic rename replaces a symlink itself; it must not overwrite target. */
 	fp = fopen(victim, "w");
 	assert(fp != NULL);

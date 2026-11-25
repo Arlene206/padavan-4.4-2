@@ -1,3 +1,13 @@
+## 2026-11-26 01:12 CST (UTC+8) — Reject newline injection in OpenVPN client credentials
+
+- Base SHA: `c2366fd5c60833e7e42f0aef457ea8e0773d11d3`; result SHA: THIS COMMIT (resolve on next recovery). Scope: `openvpn_client_secret_file.h`, its regression, OpenVPN source checker, VPN lifecycle dependency checker, XY-C1 firmware path filter, handoff/log.
+- The private auth-user-pass publisher used `fprintf("%s\\n%s\\n")` without rejecting CR/LF in either input. A newline in an NVRAM username or password could create extra records and violate the two-line credentials format. It now rejects CR/LF before `mkstemp()`, so an invalid input cannot create/replace any file.
+- Regression tests assert both username-LF and password-CR rejection, `EINVAL`, unchanged previously published credentials, and zero leftover stage files. Source contract pins validation before staging.
+- Added `openvpn_client_secret_file.h` to the XY-C1 production path filter and VPN lifecycle checker dependency list; a future header-only code change can no longer silently skip the firmware build.
+- Exact predecessor evidence: OpenVPN callback link regression and source contract PASS #45655706781; VPN lifecycle source contract rerun PASS #45656077803; AI handoff docs #45656077743 PASS. XY-C1 on production SHA `c4c12ce5cf7b4e0098d71723ddde30e87c1e5ad6` was still running at last poll. This CR/LF change needs a new exact-SHA build/TRX/artifact; L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-26 01:02 CST (UTC+8) — Refresh OpenVPN callback link source contract
 
 - Base SHA: `c4c12ce5cf7b4e0098d71723ddde30e87c1e5ad6`; result SHA: THIS COMMIT (resolve on next recovery). Scope: `scripts/check_vpn_server_lifecycle.py`, `.github/workflows/vpn-server-stability.yml`, handoff/log.
