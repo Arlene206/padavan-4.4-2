@@ -2804,6 +2804,15 @@ void add_remote_device()
 	/* The listener for get config & get name. */
 	if ((conf_fd = stream_sock_init(uTcpPortConfig)) < 0) {
 		PERROR("get config and name: can't bind to any address\n");
+		close(find_fd);
+		return;
+	}
+	if (!u2ec_fd_is_usable(find_fd, sizeof(fd_in_use)) ||
+	    !u2ec_fd_is_usable(conf_fd, sizeof(fd_in_use))) {
+		errno = EMFILE;
+		PERROR("discovery socket exceeds fd_set capacity");
+		close(conf_fd);
+		close(find_fd);
 		return;
 	}
 
@@ -3073,7 +3082,9 @@ int usb_connection(int sockfd)
 #endif
 	int lock;
 
-	if (!sockfd || !fd_in_use[sockfd])
+	if (sockfd <= 0 ||
+	    !u2ec_fd_is_usable(sockfd, sizeof(fd_in_use)) ||
+	    !fd_in_use[sockfd])
 	{
 		PDEBUG("closed connection, return\n");
 		return -1;
@@ -3873,6 +3884,12 @@ int establish_connection(int sockfd)
 		PERROR("accept");
 		return -1;
 	}
+	if (!u2ec_fd_is_usable(new_fd, sizeof(fd_in_use))) {
+		errno = EMFILE;
+		PERROR("accepted client exceeds fd_set capacity");
+		close(new_fd);
+		return -1;
+	}
 
 	if (u2ec_send_all_no_sigpipe(new_fd, "\0\0", 2U) < 0) {
 		PERROR("send");
@@ -3890,6 +3907,11 @@ int establish_connection(int sockfd)
 	}
 
 	new_conn = malloc(sizeof(CONNECTION_INFO));
+	if (!new_conn) {
+		PERROR("allocate U2EC client state");
+		close(new_fd);
+		return -1;
+	}
 	bzero((char *)new_conn, sizeof(CONNECTION_INFO));
 	new_conn->sockfd = new_fd;
 	new_conn->busy = CONN_IS_IDLE;
@@ -4035,6 +4057,10 @@ static int handle_fifo(int *fd, fd_set *pfds, int *pfdm, int conn_fd)
 		nvram_set_temp("u2ec_busyip", "");
 		update_device();
 		file_unlock(lock);
+		if (!u2ec_fd_is_usable(conn_fd, sizeof(fd_in_use))) {
+			errno = EMFILE;
+			return -1;
+		}
 		FD_SET(conn_fd, pfds);
 		*pfdm = conn_fd > *pfdm ? conn_fd : *pfdm;
 		rtvl = 1;
@@ -4264,6 +4290,14 @@ static int handle_fifo(int *fd, fd_set *pfds, int *pfdm, int conn_fd)
 CANCEL:
 #endif
 	*fd = open(U2EC_FIFO, O_RDONLY|O_NONBLOCK);
+	if (*fd < 0)
+		return -1;
+	if (!u2ec_fd_is_usable(*fd, sizeof(fd_in_use))) {
+		close(*fd);
+		*fd = -1;
+		errno = EMFILE;
+		return -1;
+	}
 	FD_SET(*fd, pfds);
 	*pfdm = *fd > *pfdm ? *fd : *pfdm;
 
@@ -4332,6 +4366,16 @@ int main(int argc, char *argv[])
 #endif
 	mkfifo(U2EC_FIFO, 0666);
 	fifo_fd = open(U2EC_FIFO, O_RDONLY|O_NONBLOCK);
+	if (fifo_fd < 0) {
+		PERROR("open U2EC FIFO");
+		return 1;
+	}
+	if (!u2ec_fd_is_usable(fifo_fd, sizeof(fd_in_use))) {
+		errno = EMFILE;
+		PERROR("U2EC FIFO descriptor exceeds fd_set capacity");
+		close(fifo_fd);
+		return 1;
+	}
 	FD_SET(fifo_fd, &master_fds);
 	fdmax = fifo_fd;
 	fd_in_use[fifo_fd] = 1;
@@ -4340,10 +4384,19 @@ int main(int argc, char *argv[])
 	/* The listener for establish_connection. */
 	if ((conn_fd = stream_sock_init(uTCPUSB)) < 0) {
 		PERROR("connection: can't bind to any address\n");
+		close(fifo_fd);
+		unlink(U2EC_FIFO);
 		return 1;
 	}
-	else
-		fd_in_use[conn_fd] = 1;
+	if (!u2ec_fd_is_usable(conn_fd, sizeof(fd_in_use))) {
+		errno = EMFILE;
+		PERROR("U2EC listener exceeds fd_set capacity");
+		close(conn_fd);
+		close(fifo_fd);
+		unlink(U2EC_FIFO);
+		return 1;
+	}
+	fd_in_use[conn_fd] = 1;
 
 	/* write pid */
 	if ((fp=fopen("/var/run/u2ec.pid", "w")) != NULL)
@@ -4384,7 +4437,12 @@ int main(int argc, char *argv[])
 				continue;
 
 			if (index == fifo_fd) {
-				if (handle_fifo(&fifo_fd, &master_fds, &fdmax, conn_fd) == 1)
+				rtvl = handle_fifo(&fifo_fd, &master_fds, &fdmax, conn_fd);
+				if (rtvl < 0) {
+					PERROR("reopen U2EC FIFO");
+					return 1;
+				}
+				if (rtvl == 1)
 					break;
 			} else if (index == conn_fd) {
 				if (!dev)
@@ -4397,6 +4455,12 @@ int main(int argc, char *argv[])
 					continue;
 
 				fd_in_use[new_fd] = 1;
+				if (!u2ec_fd_is_usable(new_fd, sizeof(fd_in_use))) {
+					FD_CLR(index, &master_fds);
+					close(new_fd);
+					fd_in_use[new_fd] = 0;
+					continue;
+				}
 				FD_SET(new_fd, &master_fds);
 				fdmax = new_fd > fdmax ? new_fd : fdmax;
 			} else if (!fd_in_use[index] || usb_connection(index) < 0) {

@@ -34,6 +34,8 @@ def body(text, signature):
 
 add_remote = body(source, "void add_remote_device()")
 daemon_main = body(source, "int main(int argc, char *argv[])")
+establish = body(source, "int establish_connection(int sockfd)")
+handle_fifo = body(source, "static int handle_fifo(")
 usb_connection = body(source, "int usb_connection(int sockfd)")
 handle_urb32 = body(source, "int handleURB(PIRP_SAVE")
 handle_urb64 = body(source, "int handleURB_64(PIRP_SAVE")
@@ -44,6 +46,25 @@ recv_policy = body(policy, "u2ec_recv_all(")
 select_policy = body(policy, "u2ec_select_readable_retry_with(")
 
 assert '#include "u2ec_socket_io_policy.h"' in source
+assert "fd >= 0 && fd < FD_SETSIZE" in policy
+assert "(size_t)fd < tracked_capacity" in policy
+assert "u2ec_fd_is_usable(find_fd, sizeof(fd_in_use))" in add_remote
+assert "u2ec_fd_is_usable(conf_fd, sizeof(fd_in_use))" in add_remote
+assert add_remote.index("u2ec_fd_is_usable(find_fd") < add_remote.index("FD_SET(find_fd")
+assert add_remote.index("u2ec_fd_is_usable(conf_fd") < add_remote.index("FD_SET(conf_fd")
+assert "u2ec_fd_is_usable(sockfd, sizeof(fd_in_use))" in usb_connection
+assert "u2ec_fd_is_usable(new_fd, sizeof(fd_in_use))" in establish
+assert establish.index("u2ec_fd_is_usable(new_fd") < establish.index("u2ec_send_all_no_sigpipe")
+assert "u2ec_fd_is_usable(fifo_fd, sizeof(fd_in_use))" in daemon_main
+assert daemon_main.index("u2ec_fd_is_usable(fifo_fd") < daemon_main.index("FD_SET(fifo_fd")
+assert "u2ec_fd_is_usable(conn_fd, sizeof(fd_in_use))" in daemon_main
+assert daemon_main.index("u2ec_fd_is_usable(conn_fd") < daemon_main.index("fd_in_use[conn_fd]")
+assert "u2ec_fd_is_usable(new_fd, sizeof(fd_in_use))" in daemon_main
+assert daemon_main.index("u2ec_fd_is_usable(new_fd") < daemon_main.index("FD_SET(new_fd")
+assert "u2ec_fd_is_usable(*fd, sizeof(fd_in_use))" in handle_fifo
+assert handle_fifo.index("u2ec_fd_is_usable(*fd") < handle_fifo.index("FD_SET(*fd")
+assert "return -1;" in handle_fifo
+assert "if (rtvl < 0)" in daemon_main
 assert "MSG_NOSIGNAL" in send_policy
 assert "errno == EINTR" in send_policy
 assert "return (ssize_t)sent;" in send_policy
@@ -131,6 +152,7 @@ for token in (
     "test_usb_selection_indices_and_variable_interface_records_are_bounded",
     "test_discovery_commands_are_read_as_complete_stream_tokens",
     "test_select_retries_restore_fdsets_and_preserve_errors",
+    "test_fd_set_descriptors_must_fit_both_capacities",
     "test_invalid_buffers_are_rejected",
 ):
     assert token in test, token

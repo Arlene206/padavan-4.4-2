@@ -130,6 +130,17 @@ test_usb_selection_indices_and_variable_interface_records_are_bounded(void)
     assert(!u2ec_urb_interface_record_bounds_valid(40U, 40U, 1UL, 8U, 0U));
 }
 
+static void
+test_fd_set_descriptors_must_fit_both_capacities(void)
+{
+    assert(u2ec_fd_is_usable(0, 1U));
+    assert(u2ec_fd_is_usable(FD_SETSIZE - 1, (size_t)FD_SETSIZE));
+    assert(!u2ec_fd_is_usable(-1, 8U));
+    assert(!u2ec_fd_is_usable(FD_SETSIZE, (size_t)FD_SETSIZE + 1U));
+    assert(!u2ec_fd_is_usable(8, 8U));
+    assert(!u2ec_fd_is_usable(0, 0U));
+}
+
 static int u2ec_test_select_calls;
 
 static int
@@ -272,7 +283,8 @@ main(void)
     test_usb_selection_indices_and_variable_interface_records_are_bounded();
     test_discovery_commands_are_read_as_complete_stream_tokens();
     test_select_retries_restore_fdsets_and_preserve_errors();
+    test_fd_set_descriptors_must_fit_both_capacities();
     test_invalid_buffers_are_rejected();
-    puts("U2EC TCP framing, discovery commands, select retry and SIGPIPE-safe I/O policy: PASS");
+    puts("U2EC TCP framing, fd_set bounds, discovery commands, select retry and SIGPIPE-safe I/O policy: PASS");
     return 0;
 }

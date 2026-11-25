@@ -30,6 +30,16 @@ u2ec_config_command_kind(const char *message, size_t length)
 }
 
 /*
+ * The daemon mirrors descriptors in fd_set and fd_in_use. Both have finite
+ * capacities; check both before indexing or passing a descriptor to FD_SET.
+ */
+static inline int
+u2ec_fd_is_usable(int fd, size_t tracked_capacity)
+{
+    return fd >= 0 && fd < FD_SETSIZE && (size_t)fd < tracked_capacity;
+}
+
+/*
  * select() may modify the supplied fd_sets even when interrupted. Always
  * rebuild the working set from the immutable master set before retrying.
  * Returning the actual select result (rather than its EINTR comparison)
