@@ -1,3 +1,10 @@
+## 2026-11-25 — Fix Redsocks mock's escaped failure controls and chain keys
+
+- The diagnostic exact-head Redsocks run confirmed the initial failure was status 4 from the mock's very first `iptables -C PREROUTING`: a backslash left the CHECK failure-injection expression literal, so the mock always returned an error. The adjacent DELETE failure control had the same escaping defect.
+- Removed the unintended escapes from both controls and made mocked `-A` / trace output retain the chain as well as the table and rule. The full rule key now agrees with the existing `-C/-D/-F/-X` model and the test's duplicate-count assertions. Production source remains unchanged; rerun required.
+
+---
+
 ## 2026-11-25 — Correct Redsocks firewall regression mock command handling
 
 - Exact Redsocks Actions #45554742701 on `e51171f` exposed a test-fixture defect: the firewall mock escaped its failure-injection variable, so every `iptables -C` returned synthetic status 4; it also omitted the chain name from stored rule keys, conflicting with flush/count/rollback expectations.

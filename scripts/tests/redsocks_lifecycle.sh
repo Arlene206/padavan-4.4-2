@@ -247,13 +247,13 @@ iptables() {
   printf '%s %s %s\n' "$table" "$operation" "$rule" >> "$TEST_IPTABLES_LOG"
   case "$operation" in
     -C)
-      [[ "\${TEST_IPTABLES_FAIL_CHECK:-0}" == 0 ]] || return 4
+      [[ "${TEST_IPTABLES_FAIL_CHECK:-0}" == 0 ]] || return 4
       key="$table|$chain $rule"
       grep -Fqx -- "$key" "$TEST_IPTABLES_RULES" && return 0
       return 1
       ;;
     -D)
-      [[ "\${TEST_IPTABLES_FAIL_DELETE:-0}" == 0 ]] || return 7
+      [[ "${TEST_IPTABLES_FAIL_DELETE:-0}" == 0 ]] || return 7
       key="$table|$chain $rule"
       grep -Fqx -- "$key" "$TEST_IPTABLES_RULES" || return 1
       tmp_file="$TEST_IPTABLES_RULES.tmp"
