@@ -39,10 +39,11 @@ iptv_bound = function_body(
 )
 iptv_renew = function_body(source, "udhcpc_viptv_renew(char *man_ifname)")
 
-physical_mtu = physical_bound[
-    physical_bound.index('value = getenv("mtu");'):
-    physical_bound.index('route_value = safe_getenv("routes");')
-]
+physical_mtu_start = physical_bound.index('value = getenv("mtu");')
+physical_route_snapshot = physical_bound.index(
+    "bound_names[WAN_DHCP_BOUND_ROUTES],", physical_mtu_start
+)
+physical_mtu = physical_bound[physical_mtu_start:physical_route_snapshot]
 assert "dhcp_lease_mtu_option_value(" in physical_mtu
 assert "bound_names[WAN_DHCP_BOUND_MTU]" in physical_mtu
 assert "if (value) {" not in physical_mtu
