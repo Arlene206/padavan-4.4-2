@@ -989,3 +989,35 @@ assert alloc < alloc_failure < publish
 for api in ("get_interface_mtu_status", "get_interface_hwaddr_status"):
     require(api in netutils_header and api in netutils,
             "checked VLAN snapshot API is missing: " + api)
+
+wan6 = (rc / "net_wan6.c").read_text()
+wan6_identity_policy = (rc / "wan6_identity_policy.h").read_text()
+wan6_identity_test = (rc / "tests/wan6_identity_policy.c").read_text()
+sit_start = body(wan6, "int start_sit_tunnel(")
+sit_failed = sit_start[sit_start.index("failed:"):]
+lan_snapshot = sit_start.index('wan6_read_nvram_copy_status(\n\t\t\t"lan_addr6"')
+lan_touched = sit_start.index("lan_address_touched = 1;", lan_snapshot)
+lan_clear = sit_start.index("clear_if_addr6(IFNAME_BR)", lan_touched)
+lan_add = sit_start.index('eval("ip", "-6", "addr", "add", lan_addr6s', lan_clear)
+lan_publish = sit_start.index("store_lan_addr6(lan_addr6s)", lan_add)
+lan_rollback = sit_failed.index("wan6_sit_restore_lan_addr6(")
+require(lan_snapshot < lan_touched < lan_clear < lan_add < lan_publish,
+        "SIT LAN address replacement must snapshot its old NVRAM value before any flush/add")
+require("previous_lan_addr6" in sit_failed[:sit_failed.index("if (wan_route_added)")] and
+        "wan6_sit_clear_lan_addr6" in sit_failed and
+        "wan6_sit_add_lan_addr6" in sit_failed and
+        "lan_rollback_status" in sit_failed,
+        "SIT failure path must clear partial LAN state, restore the prior address and report rollback errors")
+require("wan6_sit_restore_lan_addr6" in wan6_identity_policy and
+        "if (!address_touched)" in wan6_identity_policy and
+        "if (previous_address[0])" in wan6_identity_policy,
+        "SIT LAN rollback policy must avoid mutation before touch and restore only a non-empty snapshot")
+for test_name in (
+    "test_sit_lan_addr6_failure_restores_previous_address",
+    "test_sit_lan_addr6_empty_snapshot_only_clears_partial_address",
+    "test_sit_lan_addr6_restore_attempts_add_after_clear_failure",
+    "test_sit_lan_addr6_no_mutation_skips_compensation",
+    "test_sit_lan_addr6_restore_rejects_missing_callbacks",
+):
+    require(test_name in wan6_identity_test and test_name + "();" in wan6_identity_test,
+            "SIT derived LAN IPv6 rollback regression missing " + test_name)

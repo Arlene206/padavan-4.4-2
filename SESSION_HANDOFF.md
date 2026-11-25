@@ -1,20 +1,18 @@
-## 2026-11-25 autonomous handoff — M2U errno and validation hardening
+## 2026-11-25 autonomous handoff — SIT LAN IPv6 rollback gap closed
 
-- Main baseline: `7192958c21ddce8798b8793c9b34df34717ed15d`; parent M2U source commit `d9d23febf98a8c9e9a2c1529247c9f694baff2f0`. Harness follow-ups `fb86393ccdcda3a8554eecba45399e9f423a3089` and `7192958c21ddce8798b8793c9b34df34717ed15d` added `<assert.h>` and fixed the source-checker restore-order identifier.
-- Source review found the setter callback could return a positive error code without synchronizing `errno`; the policy depends on errno to retain the primary cause across rollback. The new adapter normalizes that case and clears stale errno before calls. The sysfs getter initializes outputs on failure; the policy rejects non-0/1 snapshots with EPROTO.
-- New GNU89 tests cover first-write rollback and non-boolean snapshots. Prior sanitizer fixtures passed on `fb86393c` before its Python checker hit the separately fixed restore-order symbol.
-- WAN route #45624479165 and AI docs #45624479128 on `7192958c` were IN_PROGRESS at last poll. This commit needs fresh exact-head checks. XY-C1 Build/TRX/artifact must be evaluated on one identical production-source SHA; physical L4 NOT VERIFIED.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only.
+- Main baseline for this source/test slice: `0bed846b6ac67f8f77f0104f06decddcaa62ce1a`.
+- Found and fixed a partial-update defect in `start_sit_tunnel()`: the previous global LAN IPv6 address on `br0` was flushed before adding the derived 6to4/6rd address; later failure could remove the new tunnel and routes but leave the prior LAN address missing. The fix checked-snapshots NVRAM `lan_addr6` before mutation, marks the LAN transaction before flush, and restores the prior value on every later SIT startup failure. Empty snapshots and restoration failures are explicitly handled.
+- Added callback policy + GNU89 regressions in `wan6_identity_policy.h` and `tests/wan6_identity_policy.c`; `check_wan_vlan_setup.py` now verifies snapshot-before-mutation and the compensating failure path. This file set is already covered by the WAN route workflow path filters.
+- On parent `0bed846b6ac67f8f77f0104f06decddcaa62ce1a`: WAN route #45624855225, Wireless #45624855188, WAN DHCP #45624855254, Process inventory #45624855312, Process fail-closed #45624855157, WAN sysfs #45624855211, USB modem #45624855066, USB storage #45624855128, AI docs #45624855327 and IPv6 type #45624855120 PASS. NVRAM #45624855071 and XY-C1 #45624855182 remained IN_PROGRESS at the last poll; current slice must be verified on its own exact SHA.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, immutable. Physical router L4 NOT VERIFIED.
 
 ### First actions
-1. Inspect this commit's exact WAN route and AI-doc Actions; fix any first causal failure without weakening coverage.
-2. Track XY-C1 Build → TRX → artifact for one identical product-source SHA.
-3. Continue concrete IPv6/WAN route-lifecycle stability work after M2U validation.
+1. Inspect exact-head WAN route and AI documentation results for this SIT rollback commit; fix only the first causal regression if one appears.
+2. Resolve NVRAM and XY-C1 outcomes on their exact SHA. L3 still requires Build XY-C1, TRX verification and artifact upload all PASS on one identical production-source SHA.
+3. Continue concrete WAN/IPv6 route lifecycle work with a demonstrated failure path; do not repeat M2U/VLAN audits already closed by exact route CI.
 
 ### Execution contract
-Source/test → complete tree/commit → non-forced expected-SHA update → exact-SHA Actions. Main only; no branches, PRs, force pushes or backup mutation.
-
----
+Source/test → complete tree/commit → non-forced expected-SHA update → exact-SHA Actions. Main only; no branches/PRs/force pushes or backup mutation.
 
 ## 2026-11-25 autonomous handoff checkpoint
 

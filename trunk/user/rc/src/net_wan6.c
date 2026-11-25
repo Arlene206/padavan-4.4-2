@@ -941,6 +941,27 @@ wan6_read_nvram_copy_status(const char *param_name, char *destination,
 				       destination_size);
 }
 
+
+static int
+wan6_sit_clear_lan_addr6(void *context)
+{
+	(void)context;
+	return clear_if_addr6(IFNAME_BR);
+}
+
+static int
+wan6_sit_add_lan_addr6(void *context, const char *address)
+{
+	char *address_arg = (char *)address;
+
+	(void)context;
+	if (!address || !address[0]) {
+		errno = EINVAL;
+		return -1;
+	}
+	return eval("ip", "-6", "addr", "add", address_arg, "dev", IFNAME_BR);
+}
+
 static int
 wan6_read_nvram_int_status(const char *param_name, int *value)
 {
@@ -978,6 +999,7 @@ int start_sit_tunnel(int ipv6_type, char *wan_ifname, char *wan_addr4,
 {
 	int sit_ttl, sit_mtu, size4, size6, status, cleanup_status;
 	int tunnel_created, wan_route_added, written;
+	int lan_address_touched, lan_rollback_status;
 	char *sit_remote, *sit_relay, *sit_ep, *wan_gate6;
 	char wan_addr4_text[INET_ADDRSTRLEN];
 	char sit_remote_value[INET_ADDRSTRLEN];
@@ -988,6 +1010,7 @@ int start_sit_tunnel(int ipv6_type, char *wan_ifname, char *wan_addr4,
 	char wan_gate6_text[INET6_ADDRSTRLEN];
 	char generated_gate6_text[INET6_ADDRSTRLEN];
 	char addr6s[INET6_ADDRSTRLEN + 5];
+	char previous_lan_addr6[INET6_ADDRSTRLEN + 5];
 	char lan_addr6s[INET6_ADDRSTRLEN + 5];
 	char sit_6rd_prefix[INET6_ADDRSTRLEN + 5];
 	char sit_6rd_relay_prefix[32];
@@ -999,6 +1022,9 @@ int start_sit_tunnel(int ipv6_type, char *wan_ifname, char *wan_addr4,
 	status = -1;
 	tunnel_created = 0;
 	wan_route_added = 0;
+	lan_address_touched = 0;
+	lan_rollback_status = 0;
+	previous_lan_addr6[0] = '\0';
 	sit_ep = NULL;
 	sit_relay = "";
 	sit_remote = "any";
@@ -1233,17 +1259,17 @@ int start_sit_tunnel(int ipv6_type, char *wan_ifname, char *wan_addr4,
 
 	/* Publish a derived LAN address only after tunnel and routes are ready. */
 	if (*lan_addr6s) {
+		WAN6_SIT_READ_CHECK(wan6_read_nvram_copy_status(
+			"lan_addr6", previous_lan_addr6, sizeof(previous_lan_addr6)),
+			"snapshot previous LAN IPv6 address before replacement");
+		lan_address_touched = 1;
 		WAN6_SIT_CHECK(clear_if_addr6(IFNAME_BR),
 			       "clear previous LAN IPv6 address");
-		WAN6_SIT_CHECK(eval("ip", "-6", "addr", "add", lan_addr6s, "dev", IFNAME_BR), "add derived LAN IPv6 address");
+		WAN6_SIT_CHECK(eval("ip", "-6", "addr", "add", lan_addr6s, "dev", IFNAME_BR),
+			       "add derived LAN IPv6 address");
 		if (store_lan_addr6(lan_addr6s) < 0) {
 			status = errno ? errno : EIO;
 			failure = "publish derived LAN IPv6 address";
-			cleanup_status = clear_if_addr6(IFNAME_BR);
-			if (cleanup_status != 0)
-				logmessage("WAN IPv6",
-					   "failed to remove derived LAN address after NVRAM publication failure (status=%d)",
-					   cleanup_status);
 			goto failed;
 		}
 	}
@@ -1252,6 +1278,16 @@ int start_sit_tunnel(int ipv6_type, char *wan_ifname, char *wan_addr4,
 	return 0;
 
 failed:
+	if (lan_address_touched) {
+		cleanup_status = wan6_sit_restore_lan_addr6(
+			lan_address_touched, previous_lan_addr6,
+			wan6_sit_clear_lan_addr6, wan6_sit_add_lan_addr6,
+			NULL, &lan_rollback_status);
+		if (cleanup_status != 0)
+			logmessage("WAN IPv6",
+				   "failed to restore previous LAN IPv6 address after SIT startup failure (status=%d)",
+				   lan_rollback_status);
+	}
 	if (wan_route_added) {
 		cleanup_status = route_del(wan_ifname, 0, sit_ep, wan_gate4,
 					   "255.255.255.255");

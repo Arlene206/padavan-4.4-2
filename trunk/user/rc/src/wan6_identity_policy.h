@@ -162,4 +162,44 @@ wan6_identity_publish_lan_addr6(wan6_lan_addr6_lookup_fn lookup,
 	return publish(context, address);
 }
 
+
+typedef int (*wan6_sit_lan_addr6_clear_fn)(void *context);
+typedef int (*wan6_sit_lan_addr6_add_fn)(void *context, const char *address);
+
+/*
+ * start_sit_tunnel() replaces the derived LAN address only after the SIT
+ * endpoint and tunnel are configured. If a later operation fails, remove any
+ * partial replacement and put the previous NVRAM-configured address back.
+ * Both compensation operations are attempted; the first rollback error is
+ * returned separately from the primary startup failure.
+ */
+static inline int
+wan6_sit_restore_lan_addr6(int address_touched, const char *previous_address,
+			   wan6_sit_lan_addr6_clear_fn clear_address,
+			   wan6_sit_lan_addr6_add_fn add_address,
+			   void *context, int *rollback_status)
+{
+	int status;
+	int first_status = 0;
+
+	if (rollback_status)
+		*rollback_status = 0;
+	if (!address_touched)
+		return 0;
+	if (!previous_address || !clear_address || !add_address)
+		return EINVAL;
+
+	status = clear_address(context);
+	if (status != 0)
+		first_status = status;
+	if (previous_address[0]) {
+		status = add_address(context, previous_address);
+		if (status != 0 && first_status == 0)
+			first_status = status;
+	}
+	if (rollback_status)
+		*rollback_status = first_status;
+	return first_status;
+}
+
 #endif /* WAN6_IDENTITY_POLICY_H */

@@ -1,3 +1,12 @@
+## 2026-11-25 21:39 CST (UTC+8) — Restore prior LAN IPv6 address when SIT activation fails
+
+- Found a concrete rollback hole in `start_sit_tunnel()`: after the tunnel and routes were ready, the function flushed all global addresses from `br0` and attempted to add a derived 6to4/6rd LAN address. If the clear partially failed, the add failed, or publishing the new address to NVRAM failed, the common failure path removed the incomplete SIT tunnel but never restored the previously configured `lan_addr6`. The old address could therefore be lost after a failed WAN IPv6 transition.
+- The code now performs a checked snapshot of `lan_addr6` before touching bridge addresses, marks the address transaction before the flush, and restores the previous configured value through argv-based `ip -6 addr add` after clearing partial state on any subsequent failure. Empty prior configuration is preserved as empty; rollback errors are logged separately and do not replace the original SIT startup failure.
+- Added a callback-driven GNU89 policy and regression cases for restoration ordering, empty snapshot, clear/add failure aggregation, untouched state and invalid callbacks. Source-order checks are added to `scripts/check_wan_vlan_setup.py`; existing WAN route workflow already includes the touched source, policy, test and checker paths. Exact-head Actions pending.
+- On parent `0bed846b6ac67f8f77f0104f06decddcaa62ce1a`: WAN route #45624855225, Wireless #45624855188, WAN DHCP #45624855254, Process inventory #45624855312, Process fail-closed #45624855157, WAN sysfs counters #45624855211, USB modem #45624855066, USB storage #45624855128, AI docs #45624855327 and IPv6 service type #45624855120 PASS. NVRAM #45624855071 and XY-C1 #45624855182 remained IN_PROGRESS at last poll. No same-SHA XY-C1 Build/TRX/artifact completion or physical L4 claim yet.
+
+---
+
 ## 2026-11-25 21:31 CST (UTC+8) — Harden bridge M2U errno and snapshot validation
 
 - Reviewed the M2U transaction after its harness corrections. Linux 4.4 exposes both bridge-port flags as boolean 0/1 values; the policy now fails closed with EPROTO if readback violates that kernel contract.

@@ -424,6 +424,109 @@ test_metadata_clear_rejects_invalid_arguments_before_side_effects(void)
 	assert(fake.set_calls == 0 && fake.stop_calls == 0);
 }
 
+
+struct fake_sit_lan_addr6_backend {
+	int clear_status;
+	int add_status;
+	int clear_calls;
+	int add_calls;
+	char restored_address[64];
+};
+
+static int
+fake_sit_lan_addr6_clear(void *opaque)
+{
+	struct fake_sit_lan_addr6_backend *fake =
+		(struct fake_sit_lan_addr6_backend *)opaque;
+
+	++fake->clear_calls;
+	return fake->clear_status;
+}
+
+static int
+fake_sit_lan_addr6_add(void *opaque, const char *address)
+{
+	struct fake_sit_lan_addr6_backend *fake =
+		(struct fake_sit_lan_addr6_backend *)opaque;
+
+	++fake->add_calls;
+	snprintf(fake->restored_address, sizeof(fake->restored_address),
+		 "%s", address);
+	return fake->add_status;
+}
+
+static void
+test_sit_lan_addr6_failure_restores_previous_address(void)
+{
+	struct fake_sit_lan_addr6_backend fake;
+	int rollback_status = -1;
+
+	memset(&fake, 0, sizeof(fake));
+	assert(wan6_sit_restore_lan_addr6(
+		1, "2001:db8:1::1/64", fake_sit_lan_addr6_clear,
+		fake_sit_lan_addr6_add, &fake, &rollback_status) == 0);
+	assert(rollback_status == 0);
+	assert(fake.clear_calls == 1 && fake.add_calls == 1);
+	assert(strcmp(fake.restored_address, "2001:db8:1::1/64") == 0);
+}
+
+static void
+test_sit_lan_addr6_empty_snapshot_only_clears_partial_address(void)
+{
+	struct fake_sit_lan_addr6_backend fake;
+	int rollback_status = -1;
+
+	memset(&fake, 0, sizeof(fake));
+	assert(wan6_sit_restore_lan_addr6(
+		1, "", fake_sit_lan_addr6_clear,
+		fake_sit_lan_addr6_add, &fake, &rollback_status) == 0);
+	assert(rollback_status == 0);
+	assert(fake.clear_calls == 1 && fake.add_calls == 0);
+}
+
+static void
+test_sit_lan_addr6_restore_attempts_add_after_clear_failure(void)
+{
+	struct fake_sit_lan_addr6_backend fake;
+	int rollback_status = 0;
+
+	memset(&fake, 0, sizeof(fake));
+	fake.clear_status = EBUSY;
+	fake.add_status = EIO;
+	assert(wan6_sit_restore_lan_addr6(
+		1, "2001:db8:1::1/64", fake_sit_lan_addr6_clear,
+		fake_sit_lan_addr6_add, &fake, &rollback_status) == EBUSY);
+	assert(rollback_status == EBUSY);
+	assert(fake.clear_calls == 1 && fake.add_calls == 1);
+	assert(strcmp(fake.restored_address, "2001:db8:1::1/64") == 0);
+}
+
+static void
+test_sit_lan_addr6_no_mutation_skips_compensation(void)
+{
+	struct fake_sit_lan_addr6_backend fake;
+	int rollback_status = -1;
+
+	memset(&fake, 0, sizeof(fake));
+	assert(wan6_sit_restore_lan_addr6(
+		0, NULL, NULL, NULL, &fake, &rollback_status) == 0);
+	assert(rollback_status == 0);
+	assert(fake.clear_calls == 0 && fake.add_calls == 0);
+}
+
+static void
+test_sit_lan_addr6_restore_rejects_missing_callbacks(void)
+{
+	struct fake_sit_lan_addr6_backend fake;
+
+	memset(&fake, 0, sizeof(fake));
+	assert(wan6_sit_restore_lan_addr6(
+		1, "2001:db8:1::1/64", NULL,
+		fake_sit_lan_addr6_add, &fake, NULL) == EINVAL);
+	assert(fake.clear_calls == 0 && fake.add_calls == 0);
+}
+
+
 int
 main(void)
 {
@@ -450,6 +553,11 @@ main(void)
 	test_metadata_clear_attempts_both_fields_and_preserves_first_error();
 	test_metadata_clear_can_preserve_dns_when_requested();
 	test_metadata_clear_rejects_invalid_arguments_before_side_effects();
+	test_sit_lan_addr6_failure_restores_previous_address();
+	test_sit_lan_addr6_empty_snapshot_only_clears_partial_address();
+	test_sit_lan_addr6_restore_attempts_add_after_clear_failure();
+	test_sit_lan_addr6_no_mutation_skips_compensation();
+	test_sit_lan_addr6_restore_rejects_missing_callbacks();
 	puts("WAN IPv6 identity publication policy: PASS");
 	return 0;
 }
