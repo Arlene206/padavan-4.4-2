@@ -1,3 +1,15 @@
+## 2026-11-25 20:59 CST (UTC+8) — Clamp expired udhcpc select waits
+
+- Base SHA: `aa1bdf567d3100f5e773bdd9b41235cc85346bbc`.
+- Confirmed a signed/unsigned arithmetic defect in the BusyBox udhcpc main loop: after select() returns EINTR, `already_waited_sec` is increased. If it reaches or exceeds the signed `timeout`, `timeout - already_waited_sec` underwent unsigned subtraction and could produce a huge positive wait instead of processing the expired DHCP transition.
+- Added `udhcpc_wait_remaining_seconds()`, which saturates expired/non-positive budgets at zero before subtraction, and routed `timeval.tv_sec` through it. Added GNU89 regression boundaries for elapsed less than/equal to/greater than timeout, UINT_MAX-like elapsed input, negative/zero timeouts and INT_MAX.
+- Updated the existing source contract. The existing udhcpc workflow already filters the changed source, policy header, test and checker; the XY-C1 workflow already filters the source and policy header.
+- Local isolated GNU89 ASan/UBSan policy smoke test passed. Full repository regression and target build are delegated to exact-head Actions; no complete-repository local test or firmware result is claimed.
+- Pre-change current-main evidence: DHCPv6 IA #45618045032 PASS and AI handoff #45618045228 PASS on `aa1bdf5`; XY-C1 #45617826332 remained in progress on `a319ffe`. New exact-head udhcpc and XY-C1 workflows required.
+- Resulting source/test/checker/docs commit: THIS COMMIT. Physical-router L4 remains unverified.
+
+---
+
 ## 2026-11-25 — Resolve DHCPv6 checker definition lookup
 - The latest IA workflow's GNU89 ASan/UBSan regression passed, but its static checker matched the client6_recvreply forward declaration. It now anchors on the full definition signature, consistent with the production callback checker.
 - Exact-head AI docs, DHCPv6 script retry and WAN callback workflows passed after the compact roadmap and legacy declaration fixes. XY-C1 Build/TRX and NVRAM audit remain in progress.

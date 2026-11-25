@@ -68,6 +68,13 @@ assert '#include "udhcpc_script_policy.h"' in dhcpc
 # Every automatic read must begin defined; blocking waits refresh it before use.
 assert "unsigned timestamp_before_wait = 0;" in dhcpc
 assert "unsigned timestamp_before_wait = timestamp_before_wait;" not in dhcpc
+assert "tv.tv_sec = (long)udhcpc_wait_remaining_seconds(timeout, already_waited_sec);" in dhcpc
+wait_remaining = function_body(policy, "udhcpc_wait_remaining_seconds(")
+assert "timeout <= 0" in wait_remaining
+assert "already_waited_sec >= (unsigned int)timeout" in wait_remaining
+assert "return (unsigned int)timeout - already_waited_sec;" in wait_remaining
+assert "test_select_wait_clamps_elapsed_timeout_before_unsigned_subtraction" in test
+assert "test_select_wait_clamps_elapsed_timeout_before_unsigned_subtraction() != 0" in test
 
 # DHCP option TLV parsing validates header and full payload before use.
 assert '#include "option_parser_policy.h"' in common

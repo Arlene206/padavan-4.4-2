@@ -4,6 +4,18 @@
 
 #include <stdint.h>
 
+/*
+ * EINTR can consume the full timeout. Saturate before subtracting because
+ * timeout is signed while already_waited_sec is unsigned.
+ */
+static inline unsigned int
+udhcpc_wait_remaining_seconds(int timeout, unsigned int already_waited_sec)
+{
+	if (timeout <= 0 || already_waited_sec >= (unsigned int)timeout)
+		return 0U;
+	return (unsigned int)timeout - already_waited_sec;
+}
+
 /* The IPv4 subnet mask must be contiguous, in host byte order. */
 static inline int
 udhcpc_subnet_mask_prefix_length(uint32_t mask, unsigned int *prefix_length)

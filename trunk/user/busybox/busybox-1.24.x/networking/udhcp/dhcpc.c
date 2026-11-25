@@ -1637,7 +1637,8 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 
 		max_fd = udhcp_sp_fd_set(&rfds, sockfd);
 
-		tv.tv_sec = timeout - already_waited_sec;
+		/* Clamp elapsed select time before subtracting the unsigned wait budget. */
+		tv.tv_sec = (long)udhcpc_wait_remaining_seconds(timeout, already_waited_sec);
 		tv.tv_usec = 0;
 		retval = 0;
 		/* If we already timed out, fall through with retval = 0, else... */

@@ -456,9 +456,25 @@ static int test_dhcp_option_overload_is_unique_to_main_field(void)
 	return 0;
 }
 
+static int
+test_select_wait_clamps_elapsed_timeout_before_unsigned_subtraction(void)
+{
+	CHECK(udhcpc_wait_remaining_seconds(30, 0U) == 30U);
+	CHECK(udhcpc_wait_remaining_seconds(30, 29U) == 1U);
+	CHECK(udhcpc_wait_remaining_seconds(30, 30U) == 0U);
+	CHECK(udhcpc_wait_remaining_seconds(30, 31U) == 0U);
+	CHECK(udhcpc_wait_remaining_seconds(30, 0xffffffffU) == 0U);
+	CHECK(udhcpc_wait_remaining_seconds(0, 0U) == 0U);
+	CHECK(udhcpc_wait_remaining_seconds(-1, 0U) == 0U);
+	CHECK(udhcpc_wait_remaining_seconds(2147483647, 2147483646U) == 1U);
+	CHECK(udhcpc_wait_remaining_seconds(2147483647, 2147483647U) == 0U);
+	return 0;
+}
+
 int main(void)
 {
-	if (test_dhcp_option_tlv_bounds() != 0 ||
+	if (test_select_wait_clamps_elapsed_timeout_before_unsigned_subtraction() != 0 ||
+	    test_dhcp_option_tlv_bounds() != 0 ||
 	    test_dhcp_option_overload_is_a_validated_single_byte() != 0 ||
 	    test_dhcp_option_overload_is_unique_to_main_field() != 0 ||
 	    test_fixed_route_options_reject_partial_tuples() != 0 ||
