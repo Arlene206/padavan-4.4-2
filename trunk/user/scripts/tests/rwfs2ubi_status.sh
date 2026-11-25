@@ -6,6 +6,7 @@ repo_root=$(CDPATH= cd -- "$script_dir/../../../.." && pwd)
 sandbox=$(mktemp -d "${TMPDIR:-/tmp}/rwfs2ubi-status.XXXXXX")
 real_rm=$(command -v rm)
 real_mkdir=$(command -v mkdir)
+original_path=$PATH
 trap 'status=$?; "$real_rm" -rf "$sandbox"; exit "$status"' EXIT HUP INT TERM
 
 fail()
@@ -80,19 +81,11 @@ EOF_UBI
 	ln "$base/sbin/ubiattach" "$base/sbin/ubidetach"
 	chmod +x "$base/bin/mount" "$base/bin/mtd_write" "$base/bin/flock" "$base/bin/nvram" "$base/sbin/ubiattach"
 
-	# Use explicit wrappers so both host sh and BusyBox ash resolve the
-	# same firmware applets through this isolated command PATH.
+	# Let BusyBox dispatch its tested applets by argv[0] without a shell wrapper.
 	if [ -n "${BUSYBOX_BIN:-}" ]; then
 		[ -x "$BUSYBOX_BIN" ] || fail "BUSYBOX_BIN is not executable"
-		cat > "$base/bin/awk" <<'EOF_AWK'
-#!/bin/sh
-exec "$BUSYBOX_BIN" awk "$@"
-EOF_AWK
-		cat > "$base/bin/cat" <<'EOF_CAT'
-#!/bin/sh
-exec "$BUSYBOX_BIN" cat "$@"
-EOF_CAT
-		chmod +x "$base/bin/awk" "$base/bin/cat"
+		ln -s "$BUSYBOX_BIN" "$base/bin/awk"
+		ln -s "$BUSYBOX_BIN" "$base/bin/cat"
 	fi
 
 	sed \
@@ -102,7 +95,7 @@ EOF_CAT
 		-e "s|^operation_lock_dir=.*|operation_lock_dir=\"$base/private\"|" \
 		"$repo_root/trunk/user/scripts/files/sbin/rwfs2ubi.sh" > "$base/rwfs2ubi.sh"
 
-	PATH="$base/bin:$PATH"
+	PATH="$base/bin:$original_path"
 	export PATH
 	MOUNT_OUTPUT="/dev/root on / type rootfs (rw)"
 	MOUNT_STATUS=0
@@ -122,10 +115,12 @@ EOF_CAT
 
 run_conversion()
 {
+	PATH="$base/bin:$original_path"
+	export PATH
 	if [ -n "${BUSYBOX_BIN:-}" ]; then
-		PATH="$base/bin:$PATH" "$BUSYBOX_BIN" ash "$base/rwfs2ubi.sh"
+		"$BUSYBOX_BIN" ash "$base/rwfs2ubi.sh"
 	else
-		PATH="$base/bin:$PATH" sh "$base/rwfs2ubi.sh"
+		sh "$base/rwfs2ubi.sh"
 	fi
 }
 

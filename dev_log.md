@@ -1,3 +1,10 @@
+## 2026-11-25 — Make the BusyBox ash RWFS fixture resolve applets deterministically
+
+- Exact storage-hotplug #45592026746 on `6eac6fbe` passed all host-sh tests, including the newline-separated multi-mount guard and blank-inventory rejection, but its second run under BusyBox ash failed before the first conversion: the source preflight could not resolve `awk` from the fixture PATH. The test now exposes the firmware BusyBox binary through `awk`/`cat` applet-name symlinks and resets PATH per fixture instead of accumulating prior sandbox paths.
+- This is test-harness-only; RWFS production parser changes are unchanged. Fresh exact-head storage-hotplug and XY-C1 checks are required. No local firmware BusyBox run is claimed.
+
+---
+
 ## 2026-11-25 — Reject blank mount output before RWFS erase
 
 - Exact storage-hotplug #45591520927 on `5b9938c5` passed the multi-line `ubi50` decoy / later `ubi5` mounted-volume regression but failed the empty-inventory case. The mocked `mount` emits a single newline for empty output; AWK increments `NR` for that blank line even though it is skipped. The parser now counts structurally valid mount records and rejects zero valid records. The existing empty-inventory fixture covers this case.
