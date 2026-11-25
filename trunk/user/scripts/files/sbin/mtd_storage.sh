@@ -803,6 +803,23 @@ func_fill_validate_paths()
 	return 0
 }
 
+func_fill_set_mode()
+{
+	local target mode
+
+	target=$1
+	mode=$2
+	if [ -L "$target" ] || [ ! -f "$target" ]; then
+		logger -t "Storage fill" "Missing or unsafe default file: $target"
+		return 1
+	fi
+	if ! chmod "$mode" "$target"; then
+		logger -t "Storage fill" "Cannot set default file mode: $target"
+		return 1
+	fi
+	return 0
+}
+
 func_fill_mkdir()
 {
 	local target mode
@@ -947,7 +964,11 @@ sync && echo 3 > /proc/sys/vm/drop_caches
 
 
 EOF
-		chmod 755 "$script_started"
+if [ "$?" -ne 0 ]; then
+			logger -t "Storage fill" "Cannot write default file: $script_started"
+			return 1
+		fi
+		if ! func_fill_set_mode "$script_started" 755; then return 1; fi
 	fi
 
 	# create shutdown script
@@ -960,7 +981,11 @@ EOF
 ### \$1 - action (0: reboot, 1: halt, 2: power-off)
 
 EOF
-		chmod 755 "$script_shutd"
+if [ "$?" -ne 0 ]; then
+			logger -t "Storage fill" "Cannot write default file: $script_shutd"
+			return 1
+		fi
+		if ! func_fill_set_mode "$script_shutd" 755; then return 1; fi
 	fi
 
 	# create post-iptables script
@@ -974,7 +999,11 @@ EOF
 #wing resume
 
 EOF
-		chmod 755 "$script_postf"
+if [ "$?" -ne 0 ]; then
+			logger -t "Storage fill" "Cannot write default file: $script_postf"
+			return 1
+		fi
+		if ! func_fill_set_mode "$script_postf" 755; then return 1; fi
 	fi
 
 	# create post-wan script
@@ -992,7 +1021,11 @@ EOF
 #echo "ext_ip=1.1.1.1" >> /etc/miniupnpd.conf && killall miniupnpd && miniupnpd -f /etc/miniupnpd.conf
 
 EOF
-		chmod 755 "$script_postw"
+if [ "$?" -ne 0 ]; then
+			logger -t "Storage fill" "Cannot write default file: $script_postw"
+			return 1
+		fi
+		if ! func_fill_set_mode "$script_postw" 755; then return 1; fi
 	fi
 
 	# create inet-state script
@@ -1008,7 +1041,11 @@ EOF
 logger -t "di" "Internet state: \$1, elapsed time: \$2s."
 
 EOF
-		chmod 755 "$script_inets"
+if [ "$?" -ne 0 ]; then
+			logger -t "Storage fill" "Cannot write default file: $script_inets"
+			return 1
+		fi
+		if ! func_fill_set_mode "$script_inets" 755; then return 1; fi
 	fi
 
 	# create vpn server action script
@@ -1060,7 +1097,11 @@ down)
 esac
 
 EOF
-		chmod 755 "$script_vpnsc"
+if [ "$?" -ne 0 ]; then
+			logger -t "Storage fill" "Cannot write default file: $script_vpnsc"
+			return 1
+		fi
+		if ! func_fill_set_mode "$script_vpnsc" 755; then return 1; fi
 	fi
 
 	# create vpn client action script
@@ -1107,7 +1148,11 @@ down)
 esac
 
 EOF
-		chmod 755 "$script_vpncs"
+if [ "$?" -ne 0 ]; then
+			logger -t "Storage fill" "Cannot write default file: $script_vpncs"
+			return 1
+		fi
+		if ! func_fill_set_mode "$script_vpncs" 755; then return 1; fi
 	fi
 
 	# create Ez-Buttons script
@@ -1122,7 +1167,11 @@ EOF
 [ -x /opt/bin/on_wps.sh ] && /opt/bin/on_wps.sh \$1 &
 
 EOF
-		chmod 755 "$script_ezbtn"
+if [ "$?" -ne 0 ]; then
+			logger -t "Storage fill" "Cannot write default file: $script_ezbtn"
+			return 1
+		fi
+		if ! func_fill_set_mode "$script_ezbtn" 755; then return 1; fi
 	fi
 
 	# create user dnsmasq.conf
@@ -1168,12 +1217,20 @@ dhcp-option=252,"\n"
 domain-needed
 
 EOF
+if [ "$?" -ne 0 ]; then
+			logger -t "Storage fill" "Cannot write default file: $user_dnsmasq_conf"
+			return 1
+		fi
 	if [ -f /usr/bin/vlmcsd ]; then
 		cat >> "$user_dnsmasq_conf" <<EOF
 ### vlmcsd related
 srv-host=_vlmcs._tcp,my.router,1688,0,100
 
 EOF
+if [ "$?" -ne 0 ]; then
+			logger -t "Storage fill" "Cannot write default file: $user_dnsmasq_conf"
+			return 1
+		fi
 	fi
 
 	if [ -f /usr/bin/wing ]; then
@@ -1182,6 +1239,10 @@ EOF
 #gfwlist=mit.edu
 
 EOF
+if [ "$?" -ne 0 ]; then
+			logger -t "Storage fill" "Cannot write default file: $user_dnsmasq_conf"
+			return 1
+		fi
 	fi
 
 	if [ -d $dir_gfwlist ]; then
@@ -1191,8 +1252,12 @@ EOF
 #conf-dir=/etc/storage/gfwlist
 
 EOF
+if [ "$?" -ne 0 ]; then
+			logger -t "Storage fill" "Cannot write default file: $user_dnsmasq_conf"
+			return 1
+		fi
 	fi
-		chmod 644 "$user_dnsmasq_conf"
+		if ! func_fill_set_mode "$user_dnsmasq_conf" 644; then return 1; fi
 	fi
 
 	# create user dns servers
@@ -1203,7 +1268,11 @@ EOF
 #server=/mit.ru/izmuroma.ru/10.25.11.30
 
 EOF
-		chmod 644 "$user_dnsmasq_servers"
+if [ "$?" -ne 0 ]; then
+			logger -t "Storage fill" "Cannot write default file: $user_dnsmasq_servers"
+			return 1
+		fi
+		if ! func_fill_set_mode "$user_dnsmasq_servers" 644; then return 1; fi
 	fi
 
 	# create user dns dhcp_conf
@@ -1214,7 +1283,11 @@ EOF
 #6C:96:CF:E0:95:55,192.168.1.10,iMac
 
 EOF
-		chmod 644 "$user_dhcp_conf"
+if [ "$?" -ne 0 ]; then
+			logger -t "Storage fill" "Cannot write default file: $user_dhcp_conf"
+			return 1
+		fi
+		if ! func_fill_set_mode "$user_dhcp_conf" 644; then return 1; fi
 	fi
 
 	# create user inadyn.conf"
@@ -1236,7 +1309,11 @@ EOF
 #  alias example.dd-dns.de
 
 EOF
-		chmod 644 "$user_inadyn_conf"
+if [ "$?" -ne 0 ]; then
+			logger -t "Storage fill" "Cannot write default file: $user_inadyn_conf"
+			return 1
+		fi
+		if ! func_fill_set_mode "$user_inadyn_conf" 644; then return 1; fi
 	fi
 
 	# create user hosts
@@ -1247,7 +1324,11 @@ EOF
 # 192.168.1.100		Boo
 
 EOF
-		chmod 644 "$user_hosts"
+if [ "$?" -ne 0 ]; then
+			logger -t "Storage fill" "Cannot write default file: $user_hosts"
+			return 1
+		fi
+		if ! func_fill_set_mode "$user_hosts" 644; then return 1; fi
 	fi
 
 	# create user AP confs
@@ -1257,7 +1338,11 @@ EOF
 # Custom user AP conf file
 
 EOF
-		chmod 644 "$dir_wlan/AP.dat"
+if [ "$?" -ne 0 ]; then
+			logger -t "Storage fill" "Cannot write default file: $dir_wlan/AP.dat"
+			return 1
+		fi
+		if ! func_fill_set_mode "$dir_wlan/AP.dat" 644; then return 1; fi
 	fi
 
 	if [ ! -f "$dir_wlan/AP_5G.dat" ] ; then
@@ -1265,7 +1350,11 @@ EOF
 # Custom user AP conf file
 
 EOF
-		chmod 644 "$dir_wlan/AP_5G.dat"
+if [ "$?" -ne 0 ]; then
+			logger -t "Storage fill" "Cannot write default file: $dir_wlan/AP_5G.dat"
+			return 1
+		fi
+		if ! func_fill_set_mode "$dir_wlan/AP_5G.dat" 644; then return 1; fi
 	fi
 
 	# create openvpn files
@@ -1307,7 +1396,11 @@ verb 0
 mute 10
 
 EOF
-			chmod 644 "$user_ovpnsvr_conf"
+if [ "$?" -ne 0 ]; then
+				logger -t "Storage fill" "Cannot write default file: $user_ovpnsvr_conf"
+				return 1
+			fi
+			if ! func_fill_set_mode "$user_ovpnsvr_conf" 644; then return 1; fi
 		fi
 
 		if [ ! -f "$user_ovpncli_conf" ] ; then
@@ -1326,7 +1419,11 @@ verb 0
 mute 10
 
 EOF
-			chmod 644 "$user_ovpncli_conf"
+if [ "$?" -ne 0 ]; then
+				logger -t "Storage fill" "Cannot write default file: $user_ovpncli_conf"
+				return 1
+			fi
+			if ! func_fill_set_mode "$user_ovpncli_conf" 644; then return 1; fi
 		fi
 	fi
 
@@ -1345,21 +1442,33 @@ EOF
 ### strongswan.conf - user strongswan configuration file
 
 EOF
-			chmod 644 "$user_sswan_conf"
+if [ "$?" -ne 0 ]; then
+				logger -t "Storage fill" "Cannot write default file: $user_sswan_conf"
+				return 1
+			fi
+			if ! func_fill_set_mode "$user_sswan_conf" 644; then return 1; fi
 		fi
 		if [ ! -f "$user_sswan_ipsec_conf" ] ; then
 			cat > "$user_sswan_ipsec_conf" <<EOF
 ### ipsec.conf - user strongswan IPsec configuration file
 
 EOF
-			chmod 644 "$user_sswan_ipsec_conf"
+if [ "$?" -ne 0 ]; then
+				logger -t "Storage fill" "Cannot write default file: $user_sswan_ipsec_conf"
+				return 1
+			fi
+			if ! func_fill_set_mode "$user_sswan_ipsec_conf" 644; then return 1; fi
 		fi
 		if [ ! -f "$user_sswan_secrets" ] ; then
 			cat > "$user_sswan_secrets" <<EOF
 ### ipsec.secrets - user strongswan IPsec secrets file
 
 EOF
-			chmod 644 "$user_sswan_secrets"
+if [ "$?" -ne 0 ]; then
+				logger -t "Storage fill" "Cannot write default file: $user_sswan_secrets"
+				return 1
+			fi
+			if ! func_fill_set_mode "$user_sswan_secrets" 644; then return 1; fi
 		fi
 	fi
 }

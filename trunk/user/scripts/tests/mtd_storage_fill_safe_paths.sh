@@ -6,6 +6,8 @@ repo_root=$(CDPATH= cd -- "$script_dir/../../../.." && pwd)
 sandbox=$(mktemp -d "${TMPDIR:-/tmp}/mtd-storage-fill.XXXXXX")
 real_rm=$(command -v rm)
 real_mkdir=$(command -v mkdir)
+real_cat=$(command -v cat)
+real_chmod=$(command -v chmod)
 cleanup()
 {
 	"$real_rm" -rf "$sandbox"
@@ -39,6 +41,18 @@ for arg do
 done
 exec "$REAL_MKDIR" "$@"
 EOF_MKDIR
+cat > "$sandbox/bin/cat" <<'EOF_CAT'
+#!/bin/sh
+[ "${FILL_CAT_FAIL:-0}" != 1 ] || exit 1
+exec "$REAL_CAT" "$@"
+EOF_CAT
+cat > "$sandbox/bin/chmod" <<'EOF_CHMOD'
+#!/bin/sh
+for arg do
+	[ "${FILL_CHMOD_FAIL_PATH:-}" != "$arg" ] || exit 1
+done
+exec "$REAL_CHMOD" "$@"
+EOF_CHMOD
 cat > "$sandbox/bin/tar" <<'EOF_TAR'
 #!/bin/sh
 target=
@@ -68,7 +82,8 @@ sed \
 chmod +x "$sandbox/mtd_storage.sh"
 
 export PATH="$sandbox/bin:$PATH"
-export REAL_MKDIR="$real_mkdir" FILL_MKDIR_FAIL_PATH= RESET_SS_FAIL=0
+export REAL_MKDIR="$real_mkdir" REAL_CAT="$real_cat" REAL_CHMOD="$real_chmod"
+export FILL_MKDIR_FAIL_PATH= FILL_CAT_FAIL=0 FILL_CHMOD_FAIL_PATH= RESET_SS_FAIL=0
 export LOGGER_LOG="$sandbox/logger.log" RESET_SS_LOG="$sandbox/reset-ss.log"
 export STORAGE_ROOT="$sandbox/storage"
 
@@ -88,8 +103,10 @@ reset_case()
 	: > "$LOGGER_LOG"
 	FILL_TAR_FAIL=0
 	FILL_MKDIR_FAIL_PATH=
+	FILL_CAT_FAIL=0
+	FILL_CHMOD_FAIL_PATH=
 	RESET_SS_FAIL=0
-	export FILL_MKDIR_FAIL_PATH RESET_SS_FAIL
+	export FILL_MKDIR_FAIL_PATH FILL_CAT_FAIL FILL_CHMOD_FAIL_PATH RESET_SS_FAIL
 }
 
 # A nested directory symlink must not let dnsmasq defaults escape /etc/storage.
@@ -134,6 +151,34 @@ if run_fill >/dev/null 2>&1; then
 fi
 test "$(cat "$sandbox/outside/sentinel")" = outside-sentinel
 test ! -s "$RESET_SS_LOG"
+
+# A failed default-file heredoc write must stop fill before chmod/next file.
+reset_case
+FILL_CAT_FAIL=1
+export FILL_CAT_FAIL
+if run_fill >/dev/null 2>&1; then
+	echo "failed default file write unexpectedly succeeded" >&2
+	exit 1
+fi
+FILL_CAT_FAIL=0
+export FILL_CAT_FAIL
+test -f "$sandbox/storage/started_script.sh"
+test ! -s "$sandbox/storage/started_script.sh"
+grep -Fq 'Cannot write default file:' "$LOGGER_LOG"
+
+# A chmod failure is also fatal; do not continue with non-executable hooks.
+reset_case
+FILL_CHMOD_FAIL_PATH="$sandbox/storage/started_script.sh"
+export FILL_CHMOD_FAIL_PATH
+if run_fill >/dev/null 2>&1; then
+	echo "failed default file mode change unexpectedly succeeded" >&2
+	exit 1
+fi
+FILL_CHMOD_FAIL_PATH=
+export FILL_CHMOD_FAIL_PATH
+test -s "$sandbox/storage/started_script.sh"
+test ! -e "$sandbox/storage/shutdown_script.sh"
+grep -Fq 'Cannot set default file mode:' "$LOGGER_LOG"
 
 # A required default directory failure must stop fill and reach its caller.
 reset_case

@@ -169,6 +169,7 @@ fill_check_dir = body(mtd_storage, "func_fill_check_dir()")
 fill_check_file = body(mtd_storage, "func_fill_check_file()")
 fill_validate = body(mtd_storage, "func_fill_validate_paths()")
 fill_mkdir = body(mtd_storage, "func_fill_mkdir()")
+fill_set_mode = body(mtd_storage, "func_fill_set_mode()")
 fill_body = body(mtd_storage, "func_fill()")
 chnroute_start = fill_body.index("# create chnroute.txt")
 chnroute_end = fill_body.index("# create gfwlist", chnroute_start)
@@ -192,6 +193,15 @@ require('func_fill_check_dir "$target"' in fill_mkdir and
         'Cannot create storage directory:' in fill_mkdir and
         'return 1' in fill_mkdir,
         "MTD fill must check and propagate each required default directory creation")
+require('[ -L "$target" ] || [ ! -f "$target" ]' in fill_set_mode and
+        'if ! chmod "$mode" "$target"; then' in fill_set_mode and
+        'Cannot set default file mode:' in fill_set_mode,
+        "MTD fill must verify each generated file and propagate chmod failure")
+require(fill_body.count('if [ "$?" -ne 0 ]; then') == 23 and
+        'if ! func_fill_set_mode "$script_started" 755; then return 1; fi' in fill_body and
+        'if ! func_fill_set_mode "$user_dnsmasq_conf" 644; then return 1; fi' in fill_body and
+        'chmod 755 "$script_started"' not in fill_body,
+        "MTD fill must check every heredoc write immediately and all generated-file mode changes")
 require('func_fill_mkdir "$dir_crond" 730' in fill_body and
         'func_fill_mkdir "$dir_httpssl" 700' in fill_body and
         'func_fill_mkdir "$dir_dnsmasq" 755' in fill_body and
@@ -227,6 +237,10 @@ for item in ("dnsmasq directory symlink unexpectedly accepted",
              "Cannot create storage directory:",
              "failed reset_ss start-script generation unexpectedly succeeded",
              "Cannot generate default start script:",
+             "failed default file write unexpectedly succeeded",
+             "Cannot write default file:",
+             "failed default file mode change unexpectedly succeeded",
+             "Cannot set default file mode:",
              "partial chnroute extraction unexpectedly succeeded",
              "Cannot extract chnroute archive:"):
     require(item in mtd_storage_fill_test,
