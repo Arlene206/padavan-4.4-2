@@ -10,6 +10,7 @@ printf '%s\n' 'backup configuration payload' > "$sandbox/storage/config.conf"
 printf '%s\n' 'hidden backup payload' > "$sandbox/storage/.hidden.conf"
 real_bzip2=$(command -v bzip2)
 real_bzcat=$(command -v bzcat)
+real_find=$(command -v find)
 sed \
   -e "s|^dir_storage=.*|dir_storage=\"$sandbox/storage\"|" \
   -e "s|^slk=.*|slk=\"$sandbox/private/.storage_locked\"|" \
@@ -23,6 +24,14 @@ cat > "$sandbox/bin/logger" <<'EOF'
 #!/bin/sh
 exit 0
 EOF
+cat > "$sandbox/bin/find" <<'EOF_FIND'
+#!/bin/sh
+if [ "${FIND_MODE:-valid}" = partial-failure ]; then
+	printf '%s\\0' './config.conf'
+	exit 1
+fi
+exec "$REAL_FIND" "$@"
+EOF_FIND
 cat > "$sandbox/bin/bzip2" <<'EOF'
 #!/bin/sh
 case "${BZIP2_MODE:-valid}:$1" in
@@ -57,8 +66,8 @@ case "${BZCAT_MODE:-valid}" in
 		;;
 esac
 EOF
-chmod +x "$sandbox/bin/logger" "$sandbox/bin/bzip2" "$sandbox/bin/bzcat"
-export PATH="$sandbox/bin:$PATH" REAL_BZIP2="$real_bzip2" REAL_BZCAT="$real_bzcat"
+chmod +x "$sandbox/bin/logger" "$sandbox/bin/bzip2" "$sandbox/bin/bzcat" "$sandbox/bin/find"
+export PATH="$sandbox/bin:$PATH" REAL_BZIP2="$real_bzip2" REAL_BZCAT="$real_bzcat" REAL_FIND="$real_find"
 run_backup()
 {
 	if [ -n "${BUSYBOX_BIN:-}" ]; then "$BUSYBOX_BIN" ash "$sandbox/mtd_storage.sh" backup
@@ -71,7 +80,11 @@ assert_no_archive()
 	[ ! -e "$sandbox/private/storage.tar" ] || { echo "failed backup left a temporary tarball" >&2; exit 1; }
 }
 
-export BZIP2_MODE=fail BZCAT_MODE=valid
+export FIND_MODE=partial-failure BZIP2_MODE=valid BZCAT_MODE=valid
+if run_backup; then echo "partial find inventory unexpectedly produced a successful backup" >&2; exit 1; fi
+assert_no_archive
+
+export FIND_MODE=valid BZIP2_MODE=fail BZCAT_MODE=valid
 if run_backup; then echo "injected bzip2 failure unexpectedly succeeded" >&2; exit 1; fi
 assert_no_archive
 

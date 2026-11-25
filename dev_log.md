@@ -1,3 +1,10 @@
+## 2026-11-25 — Do not mask partial MTD backup inventory failures
+
+- `func_tarb()` piped `find` and `sort` directly into `xargs`. Padavan's BusyBox ash does not enable `pipefail`, so a partial `find`/sort result followed by successful `xargs` could be treated as a complete snapshot and written to flash. This risks persisting an incomplete /etc/storage tree after an inventory I/O error.
+- The inventory is now written to a private NUL-delimited temporary file, and find, touch, sort and tar/xargs each have independently checked exit status. The backup regression injects a find command that emits a valid prefix and exits 1; backup must fail and leave no archive. Added a source-contract assertion. Exact-head storage Actions required; no local BusyBox or firmware execution claimed.
+
+---
+
 ## 2026-11-25 — Correct the MTD fill test's escaped newline
 
 - Exact storage-hotplug run #45597825821 on `429aa42a` failed at the final non-directory storage-root assertion. Inspection of the fixture showed its `printf` format contained two backslashes (`\\n`), so it wrote the literal characters `\n` and the equality check failed even if the storage path was unchanged. Corrected the fixture to emit a real newline; the CI message did not establish a production storage-path mutation.

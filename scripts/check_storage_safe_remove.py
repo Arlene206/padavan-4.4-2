@@ -147,6 +147,17 @@ mtd_storage_erase_reset_test = read("trunk/user/scripts/tests/mtd_storage_erase_
 mtd_mdir_start = mtd_storage.index("func_mdir()")
 mtd_mdir_end = mtd_storage.index("\\nfunc_rstats_presence()", mtd_mdir_start)
 mtd_mdir = mtd_storage[mtd_mdir_start:mtd_mdir_end]
+mtd_tarb_start = mtd_storage.index("func_tarb()")
+mtd_tarb_end = mtd_storage.index("\\nfunc_save()", mtd_tarb_start)
+mtd_tarb = mtd_storage[mtd_tarb_start:mtd_tarb_end]
+require('find . ! -name . -print0 > "$find_list"' in mtd_tarb and
+        'sort -z "$find_list" > "$sort_list"' in mtd_tarb and
+        "xargs -0 tar -cf \"$tmp\" < \"$sort_list\"" in mtd_tarb and
+        "find . ! -name . -print0 |" not in mtd_tarb,
+        "MTD backup must not mask partial find/sort inventory failures in pipelines")
+require("partial-failure" in mtd_storage_backup_test and
+        "partial find inventory unexpectedly produced a successful backup" in mtd_storage_backup_test,
+        "MTD backup regression must cover a partial find failure")
 require('[ -L "$dir_storage" ] || [ -f "$dir_storage" ]' in mtd_mdir,
         "MTD storage root guard must reject symlinks and regular files before fill")
 

@@ -339,23 +339,54 @@ func_load()
 }
 func_tarb()
 {
+	local find_list sort_list
+
 	rm -f "$tmp"
 	if ! cd "$dir_storage"; then
 		logger -t "Storage" "Cannot enter storage directory: $dir_storage"
 		exit 1
 	fi
 	# A shell glob omits dotfiles, and filtering directories drops empty dirs.
-	# Enumerate from dot so the backup preserves the complete storage tree.
-	if ! find . ! -name . -print0 | xargs -0 touch -c -h -t 201001010000.00; then
+	# Snapshot the NUL-delimited inventory first: without pipefail, a find or
+	# sort error in the old pipelines could be masked by a successful xargs.
+	find_list=$(mktemp "${tmp}.find.XXXXXX" 2>/dev/null)
+	if [ -z "$find_list" ] || [ ! -f "$find_list" ]; then
+		cd - >/dev/null
+		logger -t "Storage" "Cannot allocate storage inventory list"
+		exit 1
+	fi
+	sort_list=$(mktemp "${tmp}.sort.XXXXXX" 2>/dev/null)
+	if [ -z "$sort_list" ] || [ ! -f "$sort_list" ]; then
+		rm -f "$find_list"
+		cd - >/dev/null
+		logger -t "Storage" "Cannot allocate sorted storage inventory list"
+		exit 1
+	fi
+	if ! find . ! -name . -print0 > "$find_list"; then
+		rm -f "$find_list" "$sort_list" "$tmp"
+		cd - >/dev/null
+		logger -t "Storage" "Cannot enumerate complete storage tree"
+		exit 1
+	fi
+	if ! xargs -0 touch -c -h -t 201001010000.00 < "$find_list"; then
+		rm -f "$find_list" "$sort_list" "$tmp"
 		cd - >/dev/null
 		logger -t "Storage" "Cannot normalize storage file timestamps"
 		exit 1
 	fi
-	if ! find . ! -name . -print0 | sort -z | xargs -0 tar -cf "$tmp" 2>/dev/null; then
+	if ! sort -z "$find_list" > "$sort_list"; then
+		rm -f "$find_list" "$sort_list" "$tmp"
+		cd - >/dev/null
+		logger -t "Storage" "Cannot sort storage inventory"
+		exit 1
+	fi
+	if ! xargs -0 tar -cf "$tmp" < "$sort_list" 2>/dev/null; then
+		rm -f "$find_list" "$sort_list" "$tmp"
 		cd - >/dev/null
 		logger -t "Storage" "Cannot create tarball file: $tmp"
 		exit 1
 	fi
+	rm -f "$find_list" "$sort_list"
 	cd - >/dev/null
 	if [ ! -f "$tmp" ] || [ ! -s "$tmp" ]; then
 		logger -t "Storage" "Cannot create tarball file: $tmp"
