@@ -204,6 +204,7 @@ static VOID IAPP_RcvHandlerApInfor(
 	IAPP_IN		RTMP_IAPP			*pCtrlBK,
 	IAPP_IN		UCHAR				Type,
 	IAPP_IN		UCHAR				*pPktBuf,
+	IAPP_IN		INT32				received_len,
 	IAPP_IN		UINT32				PeerIP,
 	IAPP_IN		UCHAR				*pCmdBuf,
 	IAPP_IN		INT32				if_idx);
@@ -2204,6 +2205,7 @@ static VOID IAPP_RcvHandlerTcp(
 				IAPP_RcvHandlerApInfor(pCtrlBK,
 										IAPP_INFO_TYPE_RSP,
 										(UCHAR *)pIappHdr,
+										SizeRcvMsg,
 										AddrPeer.sin_addr.s_addr,
 										pCmdBuf,
 										if_idx);
@@ -2444,6 +2446,7 @@ static VOID IAPP_RcvHandlerApInfor(
 	IAPP_IN		RTMP_IAPP			*pCtrlBK,
 	IAPP_IN		UCHAR				Type,
 	IAPP_IN		UCHAR				*pPktBuf,
+	IAPP_IN		INT32				received_len,
 	IAPP_IN		UINT32				PeerIP,
 	IAPP_IN		UCHAR				*pCmdBuf,
 	IAPP_IN		INT32				if_idx)
@@ -2465,6 +2468,14 @@ static VOID IAPP_RcvHandlerApInfor(
 
 	/* init */
 	pApIB = (RT_IAPP_INFORMATION *) pPktBuf;
+
+	if (received_len < (INT32)sizeof(*pApIB) ||
+	    !iapp_rx_payload_fits((size_t)received_len,
+				  sizeof(*pApIB), pApIB->Length)) {
+		DBGPRINT(RT_DEBUG_ERROR,
+			 "iapp> Truncated AP information payload!\n");
+		return;
+	}
 
 	BufLen = sizeof(OID_REQ);
 	BufLen += FT_IP_ADDRESS_SIZE + pApIB->Length;
@@ -3024,6 +3035,7 @@ static VOID IAPP_RcvHandlerUdp(
 				IAPP_RcvHandlerApInfor(pCtrlBK,
 										IAPP_INFO_TYPE_BC,
 										(UCHAR *)pIappHdr,
+										SizeRcvMsg,
 										AddrPeer.sin_addr.s_addr,
 										pCmdBuf,
 										if_idx);
@@ -3034,6 +3046,7 @@ static VOID IAPP_RcvHandlerUdp(
 				IAPP_RcvHandlerApInfor(pCtrlBK,
 										IAPP_INFO_TYPE_REQ,
 										(UCHAR *)pIappHdr,
+										SizeRcvMsg,
 										AddrPeer.sin_addr.s_addr,
 										pCmdBuf,
 										if_idx);

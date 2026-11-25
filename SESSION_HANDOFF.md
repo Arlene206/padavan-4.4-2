@@ -1,26 +1,27 @@
 ## Current repository state — 2026-11-25
 
-- Main base before the GNU89 test include correction: d444b0e8c2347bf70f5cafec9b05aee08a6e6ffd; test header and handoff/dev log are one atomic descendant (THIS COMMIT).
-- Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains untouched at 72f4f157a084f8184b9597ca5bf334b8080e5807.
-- Parent d444b0e8c2347bf70f5cafec9b05aee08a6e6ffd introduced the IAPP FT security-block payload guard. Exact IAPP lifecycle #45691011094 FAILED only at compile: SIZE_MAX was undeclared because test lacked <stdint.h>; no policy test or production source test ran. This descendant adds the direct include; exact-head IAPP must rerun.
-- On exact d444: AI handoff #45691011016 PASS; XY-C1 #45691011111, Process lifecycle #45691011010, process lifecycle regression #45691011103 and NVRAM #45691010984 were pending at the correction point.
-- Current IAPP stack guard checks actual post-decrypt received size and requires `pSendSB->Length == sizeof(kdp_info)` before copying. TCP/UDP short IAPP headers and TCP ACK SB declared payloads are bounded. The failure above is test harness dependency only, not a demonstrated production failure.
-- Exact firmware L3 remains proven only at 8b9b63401dd85232b257120111bb18475db6b5 (Build, TRX, artifact upload PASS); newer product source SHAs need separate completed runs. Physical-router L4 NOT VERIFIED. Backup unchanged; PR #1 closed/inventoried.
+- Main base before the AP-information receive-length guard: 069b2a64b005ce9d85ad511138d6b88341ae1af5; all caller-length propagation, handler bounds, source contract and handoff are one atomic descendant (THIS COMMIT).
+- Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains read-only at 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- Parent d444b0e8c2347bf70f5cafec9b05aee08a6e6ffd IAPP #45691011094 FAILED only because the GNU89 test lacked a direct <stdint.h> include for SIZE_MAX; correction is test-only commit 069b2a64b005ce9d85ad511138d6b88341ae1af5.
+- Exact SHA 069b2a64b005ce9d85ad511138d6b88341ae1af5: IAPP #45691169678, AI #45691169378 and inventory #45691169276 were running at last poll; NVRAM #45691169257 was pending.
+- Parent d444 includes the FT security-block guard: actual post-decrypt receive size plus exact `sizeof(kdp_info)` check before fixed stack copy; TCP/UDP short header gates and TCP ACK declared length guard.
+- This slice passes actual receive length to AP-info from TCP INFO_RESPONSE and UDP INFO_BROADCAST/INFO_REQUEST; declared IB length must fit the received buffer before any payload copy.
+- Historic XY-C1 L3 remains verified only on 8b9b63401dd85232b257120111bb18475db6b5 (Build/TRX/artifact PASS). New SHAs require their own exact run. Physical-router L4 NOT VERIFIED; backup frozen; PR #1 inventoried.
 
 ## Active task
 
-Verify the corrected receive-length GNU89/ASan/UBSan regression on exact IAPP workflow, then validate production source with exact XY-C1 firmware build. Continue raw RRB and AP information receive length hardening after those checks.
+Verify receive-length guards on exact IAPP and XY-C1 SHAs, then continue raw RRB FTActionLength review.
 
 ## Exact first actions for next GPT
 
-1. Poll this commit's exact-SHA IAPP, Process lifecycle/inventory, XY-C1 Build/TRX/artifact, NVRAM and AI Actions separately.
-2. Confirm IAPP's <stdint.h>/SIZE_MAX fix; investigate any further sanitizer/compiler failure from the exact job logs.
-3. Continue with `IAPP_RcvHandlerApInfor()` payload bound, RRB FTActionLength and raw-driver signal minimum size.
-4. Preserve frozen backup and main-only expected-SHA atomic commit policy.
+1. Poll exact 069b2a64... IAPP run for the SIZE_MAX include correction and THIS COMMIT's IAPP/Process/NVRAM/AI/XY Actions individually.
+2. Confirm GNU89/ASan/UBSan policy run passes; require same-SHA XY-C1 Build/TRX/artifact before L3 claim.
+3. Add actual frame size validation to raw RRB `FTActionLength`, preserving 802.3 minimum-frame padding/alignment; then check raw driver signal prefix.
+4. Keep frozen backup untouched and use main-only complete atomic expected-SHA updates.
 
 ## Execution contract
 
-Main only; complete Git tree, one logical task per atomic commit, update via non-force expected-SHA compare-and-swap. No force push, development branches or new PR. PENDING does not block independent work.
+Main only; one complete tree, one atomic task, non-forced expected-SHA update. No force push, branch or new PR. PENDING Actions do not block.
 
 ## 2026-11-25 autonomous handoff checkpoint
 
