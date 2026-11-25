@@ -612,33 +612,43 @@ smartdns_prepare_adblock_filter()
 Start_AD () {
 # Download and normalize the optional Adblock Plus/SmartDNS rule list.
     _smartdns_adblock_output=/tmp/anti-ad-for-smartdns.conf
-    _smartdns_adblock_empty=$(mktemp "${_smartdns_adblock_output}.empty.XXXXXX") || {
-        logger -t "SmartDNS" "无法创建广告过滤临时文件，跳过广告过滤"
+
+    # Keep the last successfully published filter if the next download or
+    # validation fails. Initialize an empty file only on a fresh installation.
+    if [ -L "$_smartdns_adblock_output" ] ||
+        { [ -e "$_smartdns_adblock_output" ] && [ ! -f "$_smartdns_adblock_output" ]; }; then
+        logger -t "SmartDNS" "广告过滤目标不是普通文件，保留现有状态并跳过更新"
         return 1
-    }
-    if ! mv -f "$_smartdns_adblock_empty" "$_smartdns_adblock_output"; then
-        rm -f "$_smartdns_adblock_empty"
-        logger -t "SmartDNS" "无法初始化广告过滤文件，跳过广告过滤"
-        return 1
+    fi
+    if [ ! -e "$_smartdns_adblock_output" ]; then
+        _smartdns_adblock_empty=$(mktemp "${_smartdns_adblock_output}.empty.XXXXXX") || {
+            logger -t "SmartDNS" "无法创建广告过滤临时文件，跳过广告过滤"
+            return 1
+        }
+        if ! mv -f "$_smartdns_adblock_empty" "$_smartdns_adblock_output"; then
+            rm -f "$_smartdns_adblock_empty"
+            logger -t "SmartDNS" "无法初始化广告过滤文件，跳过广告过滤"
+            return 1
+        fi
     fi
 
     _smartdns_adblock_download=$(mktemp /tmp/sdnsadnew.conf.XXXXXX) || {
-        logger -t "SmartDNS" "无法创建广告过滤下载文件，跳过广告过滤"
+        logger -t "SmartDNS" "无法创建广告过滤下载文件，继续使用上次有效过滤列表"
         return 1
     }
     if [ -z "$sdns_adblock_url" ] ||
         ! curl -fsS -o "$_smartdns_adblock_download" --connect-timeout 10 --max-time 30 --retry 1 "$sdns_adblock_url"; then
-        logger -t "SmartDNS" "广告过滤文件下载失败，继续使用空过滤列表"
+        logger -t "SmartDNS" "广告过滤文件下载失败，继续使用上次有效过滤列表"
         rm -f "$_smartdns_adblock_download"
         return 1
     fi
     if [ ! -s "$_smartdns_adblock_download" ]; then
-        logger -t "SmartDNS" "广告过滤文件为空，继续使用空过滤列表"
+        logger -t "SmartDNS" "广告过滤文件为空，继续使用上次有效过滤列表"
         rm -f "$_smartdns_adblock_download"
         return 1
     fi
     if ! smartdns_prepare_adblock_filter "$_smartdns_adblock_download" "$_smartdns_adblock_output"; then
-        logger -t "SmartDNS" "广告过滤文件格式无效，继续使用空过滤列表"
+        logger -t "SmartDNS" "广告过滤文件格式无效，继续使用上次有效过滤列表"
         rm -f "$_smartdns_adblock_download"
         return 1
     fi

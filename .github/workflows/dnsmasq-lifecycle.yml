@@ -66,6 +66,7 @@ on:
       - "trunk/user/smartdns/smartdns_lifecycle_lock.sh"
       - "trunk/user/smartdns/smartdns_process_lifecycle.sh"
       - "trunk/user/smartdns/tests/smartdns_process_lifecycle.sh"
+      - "trunk/user/smartdns/tests/smartdns_adblock_preservation.sh"
       - "trunk/user/smartdns/tests/smartdns_firewall_status.sh"
       - "trunk/user/smartdns/tests/smartdns_lifecycle_lock.sh"
       - "trunk/user/smartdns/tests/smartdns_enable_selector.sh"
@@ -142,6 +143,7 @@ on:
       - "trunk/user/smartdns/smartdns_lifecycle_lock.sh"
       - "trunk/user/smartdns/smartdns_process_lifecycle.sh"
       - "trunk/user/smartdns/tests/smartdns_process_lifecycle.sh"
+      - "trunk/user/smartdns/tests/smartdns_adblock_preservation.sh"
       - "trunk/user/smartdns/tests/smartdns_firewall_status.sh"
       - "trunk/user/smartdns/tests/smartdns_lifecycle_lock.sh"
       - "trunk/user/smartdns/tests/smartdns_enable_selector.sh"
@@ -172,6 +174,8 @@ jobs:
           sh -n trunk/user/smartdns/smartdns_process_lifecycle.sh
           sh -n trunk/user/smartdns/tests/smartdns_process_lifecycle.sh
           sh trunk/user/smartdns/tests/smartdns_process_lifecycle.sh
+          sh -n trunk/user/smartdns/tests/smartdns_adblock_preservation.sh
+          sh trunk/user/smartdns/tests/smartdns_adblock_preservation.sh
           sh -n trunk/user/smartdns/tests/smartdns_firewall_status.sh
           sh trunk/user/smartdns/tests/smartdns_firewall_status.sh
           python3 scripts/check_smartdns_lifecycle.py

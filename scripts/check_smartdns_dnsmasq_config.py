@@ -244,6 +244,7 @@ paths = (
     "trunk/user/smartdns/smartdns_lifecycle_lock.sh",
     "trunk/user/smartdns/smartdns_process_lifecycle.sh",
     "trunk/user/smartdns/tests/smartdns_process_lifecycle.sh",
+    "trunk/user/smartdns/tests/smartdns_adblock_preservation.sh",
     "trunk/user/smartdns/tests/smartdns_lifecycle_lock.sh",
     "trunk/user/smartdns/tests/smartdns_enable_selector.sh",
     "trunk/user/smartdns/tests/smartdns_stop_nvram_failure.sh",

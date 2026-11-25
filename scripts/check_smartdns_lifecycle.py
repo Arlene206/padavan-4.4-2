@@ -95,6 +95,7 @@ for phrase in ('status 1 plus empty output means absent','status 0 plus empty ou
     assert phrase in test, phrase
 adblock = body(script, 'smartdns_prepare_adblock_filter()', '\n}\n\nStart_AD')
 adblock_start = body(script, 'Start_AD () {', '\n}\n\nChange_adbyby')
+adblock_preservation_test = (root / "trunk/user/smartdns/tests/smartdns_adblock_preservation.sh").read_text()
 assert 'mktemp ' in adblock and 'cat "$_smartdns_adblock_input"' in adblock
 assert 'grep -Eq' in adblock and 'awk ' in adblock
 assert 'index(rule, "||") != 1' in adblock
@@ -103,6 +104,14 @@ assert '^[[:space:]]*address=' in adblock and 'invalid = 1' in adblock
 assert 'mv -f "$_smartdns_adblock_tmp" "$_smartdns_adblock_output"' in adblock
 assert 'curl -fsS' in adblock_start
 assert 'smartdns_prepare_adblock_filter "$_smartdns_adblock_download" "$_smartdns_adblock_output"' in adblock_start
+assert '[ -L "$_smartdns_adblock_output" ]' in adblock_start
+assert '[ ! -e "$_smartdns_adblock_output" ]' in adblock_start
+assert "上次有效过滤列表" in adblock_start
+assert "download failure preserves the previous valid filter" in adblock_preservation_test
+assert "invalid native directive preserves the previous valid filter" in adblock_preservation_test
+assert "first failed download initializes an empty filter" in adblock_preservation_test
+assert "symlinked filter target is rejected without following it" in adblock_preservation_test
+assert "sh trunk/user/smartdns/tests/smartdns_adblock_preservation.sh" in dnsmasq_workflow
 assert 'check =' not in adblock_start
 assert 'sdns_adblock_url' in adblock_start
 assert '--connect-timeout 10' in adblock_start and '--max-time 30' in adblock_start
