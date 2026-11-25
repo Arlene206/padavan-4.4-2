@@ -744,6 +744,15 @@ ftp_acl_path_resolve_write_entry(const char *path, char *resolved_parent,
                                leaf, leaf_size) != 0 ||
       realpath(parent, resolved_parent) == NULL)
     return -1;
+  /*
+   * The lexical path may use a symlinked parent. Apply the reserved-metadata
+   * policy to the canonical parent too, including uploads to a new leaf
+   * (where realpath(path) cannot resolve the not-yet-created target).
+   */
+  if (ftp_acl_path_is_internal_metadata(resolved_parent)) {
+    errno = EACCES;
+    return -1;
+  }
   return 0;
 }
 

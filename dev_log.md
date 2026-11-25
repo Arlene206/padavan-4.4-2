@@ -1,3 +1,13 @@
+## 2026-11-25 — Reject VSFTPD upload aliases into reserved metadata directories
+
+- ftp_acl_path_resolve_write_entry rejected reserved metadata in the supplied path and in an existing resolved target, but the new-file branch only canonicalized the parent and never re-applied the reserved-component policy. A symlink alias to a canonical .hidden parent could therefore reach openat() for a new upload despite the metadata-path guard.
+- The missing-leaf branch now rejects a canonical parent containing reserved FTP metadata components before it returns the descriptor-relative parent/leaf. Normal symlinked parents remain accepted.
+- Added a host regression proving the .hidden alias is rejected with EACCES, the cleanup flag stays clear, and an ordinary symlinked parent remains usable. The VSFTPD workflow source contract pins the canonical-parent guard and regression.
+- Parent baseline c79100c7. Exact SHA VSFTPD regression and firmware checks are to be recorded after this commit; no firmware or physical-router result is inferred.
+- Changed paths: ftp_acl_path_policy.h, tests/ftp_acl_path_policy.c, .github/workflows/vsftpd-stability.yml, dev_log.md.
+
+---
+
 ## 2026-11-25 — Pin atomic DHCPv6 environment rollback in the source contract
 
 - The BusyBox DHCPv6 callback retry regression on exact source SHA `898f67081429468f9e41f2603645b73112d71324` completed PASS (#45715277126). The cross-workflow WAN callback contract was then updated and completed PASS on `b839cd32fc594e3ac86a9c480232bda4746cda76` (#45715551138); AI handoff docs also passed on that SHA (#45715551148).

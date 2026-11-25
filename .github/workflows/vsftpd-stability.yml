@@ -444,6 +444,11 @@ jobs:
           assert "p_sess->restart_pos_set = 1;" in rest_command
           upload_entry = function_body(acl_path_policy, "ftp_acl_path_open_upload_entry(")
           resolve_upload = function_body(acl_path_policy, "ftp_acl_path_resolve_write_entry(")
+          assert "realpath(parent, resolved_parent)" in resolve_upload
+          assert "ftp_acl_path_is_internal_metadata(resolved_parent)" in resolve_upload
+          assert resolve_upload.index("realpath(parent, resolved_parent)") < resolve_upload.index("ftp_acl_path_is_internal_metadata(resolved_parent)")
+          assert "test_write_entry_canonical_parent_metadata" in acl_path_test
+          assert "FTP upload accepted a symlinked reserved directory parent" in acl_path_test
           assert "flags | O_CREAT | O_EXCL, mode" in upload_entry
           assert "flags | O_CREAT | O_EXCL | O_APPEND" not in upload_entry
           assert "ordinary APPE lost O_APPEND semantics" in acl_path_test

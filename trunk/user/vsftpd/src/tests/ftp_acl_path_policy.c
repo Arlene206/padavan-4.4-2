@@ -151,6 +151,67 @@ test_rename_source_entry_stat(void)
 }
 
 static int
+test_write_entry_canonical_parent_metadata(void)
+{
+  char template[] = "/tmp/ftp-write-metadata-parent-XXXXXX";
+  char reserved_dir[PATH_MAX], alias_dir[PATH_MAX], candidate[PATH_MAX];
+  char allowed_dir[PATH_MAX], allowed_alias[PATH_MAX], allowed_candidate[PATH_MAX];
+  char resolved_parent[PATH_MAX], leaf[PATH_MAX];
+  char *root;
+  int cleanup_allowed = 0;
+
+  root = mkdtemp(template);
+  if (!root) {
+    perror("create write metadata-parent fixture");
+    return 1;
+  }
+  checked_path(reserved_dir, sizeof(reserved_dir), root, ".hidden");
+  checked_path(alias_dir, sizeof(alias_dir), root, "reserved-alias");
+  checked_path(candidate, sizeof(candidate), alias_dir, "new-upload.bin");
+  if (mkdir(reserved_dir, 0700) != 0 ||
+      symlink(reserved_dir, alias_dir) != 0) {
+    perror("create reserved-parent alias fixture");
+    return 1;
+  }
+
+  errno = 0;
+  if (ftp_acl_path_resolve_write_entry(candidate, resolved_parent,
+                                       sizeof(resolved_parent), leaf,
+                                       sizeof(leaf), &cleanup_allowed) == 0 ||
+      errno != EACCES || cleanup_allowed != 0) {
+    fprintf(stderr, "FTP upload accepted a symlinked reserved directory parent\n");
+    return 1;
+  }
+
+  /*
+   * A normal symlinked parent remains supported; only canonical reserved
+   * metadata components are denied.
+   */
+  checked_path(allowed_dir, sizeof(allowed_dir), root, "ordinary");
+  checked_path(allowed_alias, sizeof(allowed_alias), root, "ordinary-alias");
+  checked_path(allowed_candidate, sizeof(allowed_candidate), allowed_alias,
+               "new-upload.bin");
+  if (mkdir(allowed_dir, 0700) != 0 ||
+      symlink(allowed_dir, allowed_alias) != 0 ||
+      ftp_acl_path_resolve_write_entry(allowed_candidate, resolved_parent,
+                                       sizeof(resolved_parent), leaf,
+                                       sizeof(leaf), &cleanup_allowed) != 0 ||
+      strcmp(resolved_parent, allowed_dir) != 0 ||
+      strcmp(leaf, "new-upload.bin") != 0 || cleanup_allowed != 0) {
+    fprintf(stderr, "FTP upload rejected an ordinary symlinked parent\n");
+    return 1;
+  }
+
+  if (unlink(allowed_alias) != 0 || rmdir(allowed_dir) != 0 ||
+      unlink(alias_dir) != 0 || rmdir(reserved_dir) != 0 ||
+      rmdir(root) != 0) {
+    perror("clean write metadata-parent fixture");
+    return 1;
+  }
+  return 0;
+}
+
+static int
 test_share_permission_records(void)
 {
   static const char contents[] =
@@ -416,6 +477,7 @@ main(void)
 
   if (test_share_read_permission_policy() != 0 ||
       test_hidden_share_marker_fails_closed() != 0 ||
+      test_write_entry_canonical_parent_metadata() != 0 ||
       test_share_permission_records() != 0 ||
       test_rename_source_entry_stat() != 0 ||
       test_account_permission_path_builder() != 0 ||
