@@ -163,6 +163,8 @@ grep -Fq '#define IAPP_TCP_FRAME_TIMEOUT_SEC 5' "$iapp_source" ||
   fail "IAPP TCP frame receive must have a total peer timeout"
 grep -Fq 'IAPP_TCP_Wait(Socket, Deadline, FALSE)' "$iapp_source" ||
   fail "IAPP TCP reader must enforce its absolute deadline before each read"
+grep -Fq 'Socket >= FD_SETSIZE' "$iapp_source" ||
+  fail "IAPP TCP select helper must reject descriptors outside fd_set capacity"
 grep -Fq 'if (BytesRead == 0)' "$iapp_source" ||
   fail "IAPP TCP frame reader must stop only at connection EOF"
 grep -Fq 'errno == EINTR' "$iapp_source" ||

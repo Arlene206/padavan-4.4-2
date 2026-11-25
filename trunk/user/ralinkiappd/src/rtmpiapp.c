@@ -2078,6 +2078,10 @@ static INT32 IAPP_TCP_Wait(INT32 Socket, time_t Deadline, BOOLEAN WriteReady)
 	time_t Now;
 	INT32 SelectStatus;
 
+	/* FD_SET writes into a fixed fd_set; reject descriptors outside it. */
+	if (Socket < 0 || Socket >= FD_SETSIZE)
+		return -1;
+
 	for (;;) {
 		Now = time(NULL);
 		if (Now >= Deadline)
