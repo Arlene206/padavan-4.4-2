@@ -133,7 +133,7 @@ for marker in ("test_missing_keys_preserve_legacy_defaults",
                "test_disabled_proxy_skips_dependent_reads",
                "test_any_required_read_failure_invalidates_snapshot",
                "test_invalid_altnet_values_fail_closed",
-               "test_oversized_values_fail_closed")
+               "test_oversized_values_fail_closed"):
     require(marker in policy_test, "IPTV snapshot regression is missing: " + marker)
 
 print("IPTV NVRAM status contract: PASS")
