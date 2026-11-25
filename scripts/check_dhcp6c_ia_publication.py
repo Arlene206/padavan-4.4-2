@@ -288,7 +288,7 @@ receive = function_body(client, "static void client6_recv(void)")
 receive_call = receive.index("len = recv_from_to(")
 receive_error = receive.index("if (len < 0)")
 receive_call_end = receive.index(";", receive_call)
-short_check = receive.index("if (len < sizeof(struct dhcp6))")
+short_check = receive.index("if (len < (ssize_t)sizeof(struct dhcp6))")
 datagram_check = receive.index("dhcp6c_datagram_length_fits(")
 option_parse = receive.index("dhcp6_get_options(")
 assert "MSG_TRUNC" in receive[receive_call:receive_call_end]

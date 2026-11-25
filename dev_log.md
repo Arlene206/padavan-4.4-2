@@ -1,3 +1,10 @@
+## 2026-11-25 — Correct DHCPv6 receive checker after signed-length guard
+
+- The exact-SHA DHCPv6 regression on `90b82d0737c58913b1af1cd21f88a128b892fc58` compiled and ran all five GNU89/ASan/UBSan policy tests successfully, then failed in the Python source checker because its expected short-packet expression did not include the new explicit `ssize_t` cast.
+- Updated the source contract to match the intentional signed comparison. This was a checker-only failure; no policy C test or firmware build failure was involved.
+
+---
+
 ## 2026-11-25 — Fix MiniUPnP event-subscriber source checker function boundary
 
 - Exact-SHA event-subscriber workflow #45721322812 on `149e8729b333e37f9d3da0d146fe97cb86be3d3f` passed the GNU89 ASan/UBSan capacity-boundary test but failed in the Python source contract. The generic brace counter used by the checker treated conditional-compilation branches in `ProcessHTTPSubscribe_upnphttp()` as one preprocessed body and failed to find a matching close brace.
