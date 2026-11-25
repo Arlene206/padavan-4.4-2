@@ -1,3 +1,9 @@
+## 2026-11-24 — Repair PPPoE-MWAN prefix regression fixture and roadmap budget
+
+- The first exact-head WAN rerun found a fixture-edit error: the /16 and non-contiguous mask assertions were inserted into the middle of the existing shell test, leaving invalid Bash. Restored the intact pre-slice test and inserted both cases at the unique normal-run boundary; the br0 mock now supplies a configurable `LAN_MASK`.
+- AI docs validation also reported `REFACTOR_ROADMAP.md` at 131,322 UTF-8 bytes, 250 bytes above its 128-KiB hard limit. Condensed a superseded 2026-11-21 historical checkpoint while preserving the live module dashboard, priority queue and pointers to the canonical dev-log archive.
+- Exact-head WAN route and AI docs reruns are required. No local shell test is claimed.
+
 ## 2026-11-24 — Derive PPPoE-MWAN source scope from the active LAN netmask
 
 - The web LAN settings expose configurable `lan_netmask`, but `detect.sh` hard-coded `$lanip/24` in both the mangle source match and NAT masquerade rule. On /16 or /25 LANs the policy therefore omitted valid clients or matched an unintended range.

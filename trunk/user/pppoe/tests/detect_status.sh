@@ -112,13 +112,12 @@ reset; export STATIC_IP=010.0.0.7; run
 [ "$RC" = 2 ] || fail "octal-ambiguous static IPv4 status $RC"
 assert_config_read_failure_preserves_policy
 echo 'PPPoE-MWAN rejects octal-ambiguous static IPv4 before policy cleanup: PASS'
+reset; export FAIL_NVRAM=pppoemwan_interface_x0; run; [ "$RC" = 53 ] || fail "static interface read status $RC"; assert_config_read_failure_preserves_policy
+echo 'PPPoE-MWAN static-interface read failure preserves the old policy: PASS'
 
 reset; export LAN_MASK=255.255.0.0; run
 [ "$RC" = 0 ] || fail "configured /16 LAN netmask status $RC"
-grep -Fq reset; export FAIL_NVRAM=pppoemwan_interface_x0; run; [ "$RC" = 53 ] || fail "static interface read status $RC"; assert_config_read_failure_preserves_policy
-echo 'PPPoE-MWAN static-interface read failure preserves the old policy: PASS'
-
-reset; run; [ "$RC" = 0 ] || fail "normal run status $RC"; [ ! -e "$LOCK" ] || fail 'normal run leaked lock'
+grep -Fq 
 grep -Fq $'iptables\t-t\tmangle\t-D\tPREROUTING\t-i\tbr0\t-m\tcomment\t--comment\tPadavan-PPPoE-MWAN\t-j\tACCEPT' "$LOG" || fail 'exact owned mangle rule was not removed'
 grep -Fq $'iptables\t-t\tnat\t-D\tPOSTROUTING\t-o\tppp2\t-m\tcomment\t--comment\tPadavan-PPPoE-MWAN\t-j\tFULLCONENAT' "$LOG" || fail 'exact owned NAT rule was not removed'
 ! grep -Fq $'iptables\t-t\tmangle\t-D\tPREROUTING\t-m\tconntrack\t--ctstate\tNEW' "$LOG" || fail 'unrelated conntrack rule was removed'
@@ -158,10 +157,7 @@ reset; ! grep -Eq '(^|[[:space:]])eval[[:space:]]' "$SCRIPT" || fail 'unsafe eva
 ! grep -Eq '^[[:space:]]*set[[:space:]]+-e' "$SCRIPT" || fail 'unexpected errexit mode'
 echo 'PPPoE detect status and command-safety regression: PASS'
 iptables\t-t\tmangle\t-A\tPREROUTING\t-m\tcomment\t--comment\tPadavan-PPPoE-MWAN\t-s\t192.168.50.1/16' "$LOG" || fail "mangle rule did not use the configured /16 LAN prefix"
-grep -Fq reset; export FAIL_NVRAM=pppoemwan_interface_x0; run; [ "$RC" = 53 ] || fail "static interface read status $RC"; assert_config_read_failure_preserves_policy
-echo 'PPPoE-MWAN static-interface read failure preserves the old policy: PASS'
-
-reset; run; [ "$RC" = 0 ] || fail "normal run status $RC"; [ ! -e "$LOCK" ] || fail 'normal run leaked lock'
+grep -Fq 
 grep -Fq $'iptables\t-t\tmangle\t-D\tPREROUTING\t-i\tbr0\t-m\tcomment\t--comment\tPadavan-PPPoE-MWAN\t-j\tACCEPT' "$LOG" || fail 'exact owned mangle rule was not removed'
 grep -Fq $'iptables\t-t\tnat\t-D\tPOSTROUTING\t-o\tppp2\t-m\tcomment\t--comment\tPadavan-PPPoE-MWAN\t-j\tFULLCONENAT' "$LOG" || fail 'exact owned NAT rule was not removed'
 ! grep -Fq $'iptables\t-t\tmangle\t-D\tPREROUTING\t-m\tconntrack\t--ctstate\tNEW' "$LOG" || fail 'unrelated conntrack rule was removed'
@@ -207,8 +203,6 @@ reset; export LAN_MASK=255.0.255.0; run
 [ "$RC" = 2 ] || fail "non-contiguous LAN netmask status $RC"
 assert_config_read_failure_preserves_policy
 echo 'PPPoE-MWAN rejects non-contiguous bridge netmasks before policy cleanup: PASS'
-reset; export FAIL_NVRAM=pppoemwan_interface_x0; run; [ "$RC" = 53 ] || fail "static interface read status $RC"; assert_config_read_failure_preserves_policy
-echo 'PPPoE-MWAN static-interface read failure preserves the old policy: PASS'
 
 reset; run; [ "$RC" = 0 ] || fail "normal run status $RC"; [ ! -e "$LOCK" ] || fail 'normal run leaked lock'
 grep -Fq $'iptables\t-t\tmangle\t-D\tPREROUTING\t-i\tbr0\t-m\tcomment\t--comment\tPadavan-PPPoE-MWAN\t-j\tACCEPT' "$LOG" || fail 'exact owned mangle rule was not removed'

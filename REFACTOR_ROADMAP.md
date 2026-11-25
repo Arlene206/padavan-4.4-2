@@ -137,22 +137,9 @@ Current implementation checkpoint (2026-11-21):
 
 ## Historical checkpoint — 2026-11-21
 
-- Parent main SHA before this Samba source/test checkpoint: `9a0ed45f2be0f67807b53c0b8e6d33723436b0ac`. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- WSD TCP send-all source `9a0ed45f2be0f67807b53c0b8e6d33723436b0ac`: WSD send #44946503639, XML #44946503555, HTTP #44946503545, Process inventory #44946503511, AI docs #44946503574 and NVRAM #44946503644 all completed/success. XY-C1 #44946503534 was still building at last poll; TRX/artifact pending, so no L3 claim for `9a0ed45`.
-- WSD HTTP framing source `1c0ac607` and XML metadata source `edc9d594` each passed same-SHA XY-C1 Build/TRX/artifact. LLMNR regression #44945105615 passed on `63854309`.
-- p910nd exact XY-C1 #44941685839 passed on source `23248f7`; MiniUPnP checked-configuration exact XY-C1 #44941839623 passed on `be4952e`.
-- MiniUPnP SOAP internal-port-zero validation is already closed on source `1eb75818300dbefc79fbd3f706670df0e3011a6a`: same-SHA XY-C1 #44747620571, MiniUPnP #44747620606, Process #44747620682, NVRAM #44747620692 and AI docs #44747620662 completed/success. Do not repeat this item.
-- HTTPD security checker correction passed exact descendant-head run #44945662341 on `f56fe999`; hardware L4 remains NOT VERIFIED.
+Older WSD, Samba, printer and RT3352 exact-SHA outcomes are retained in `dev_log.md` and the canonical archive index. The active module dashboard and priority queue below supersede these historical work pointers. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; hardware L4 is not implied by host/CI success.
 
-- DNSMasq DHCP integer snapshot hardening: this checkpoint validates `dhcp_lease` (present values 120..604800 seconds) and `dhcp_verbose` (present values 0..3) before generated-file writes; missing keys keep legacy zero defaults. Exact-head DNSMasq/Process/NVRAM/XY-C1 pending.
 ---
-
-# 2026-11-20 active checkpoint
-
-- Parent main before RT3352 TxPower failure handling: `31de47640faed47555e830d86cd69f7228887d7e`; frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` remains read-only.
-- RT3352 MII boot-state isolation and six-event rollback regression passed Wireless/AI/Process exact-head checks on `31de4764`; NVRAM #44746039252 was pending. Product-source XY-C1 #44745705732 on `d250aff4` remained in progress; NVRAM #44745706021 passed there.
-- This slice closes another enable gap: TxPower command failure now prevents unisolation/state publication and triggers best-effort radio-off. Fresh same-SHA Wireless, AI, NVRAM and XY-C1 Build/TRX/artifact are required.
-- Hardware L4 remains NOT VERIFIED.
 
 ## Whole-repository module status
 
