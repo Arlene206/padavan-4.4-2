@@ -1706,7 +1706,8 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 					goto ret;
 				}
 				/* wait before trying again */
-				timeout = tryagain_timeout;
+				/* -A accepts zero; keep exhausted discovery retries throttled. */
+				timeout = udhcpc_retry_delay(tryagain_timeout);
 				packet_num = 0;
 				continue;
 			case REQUESTING:
@@ -1827,7 +1828,7 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 					change_listen_mode(LISTEN_RAW);
 					client_config.first_secs = 0;
 					requested_ip = 0;
-					timeout = tryagain_timeout;
+					timeout = udhcpc_decline_retry_delay(tryagain_timeout);
 					packet_num = 0;
 					already_waited_sec = 0;
 					continue;
@@ -2105,7 +2106,7 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 						state = INIT_SELECTING;
 						client_config.first_secs = 0; /* make secs field count from 0 */
 						requested_ip = 0;
-						timeout = tryagain_timeout;
+						timeout = udhcpc_decline_retry_delay(tryagain_timeout);
 						packet_num = 0;
 						already_waited_sec = 0;
 						continue; /* back to main loop */

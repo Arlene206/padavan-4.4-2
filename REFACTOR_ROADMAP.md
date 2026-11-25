@@ -14,7 +14,7 @@
 ## 2026-11-24 状态增量：BusyBox udhcpc 选项位图 UB
 
 - `fill_envp()` 对任意 DHCP option code 计算位图掩码，旧宏 `1 << 31` 是 signed `int` 符号位移位，属于未定义行为；option 31/63/…/255 可经远端 DHCP 响应触发。
-- 新增 unsigned `1U` 位掩码策略并让 `BMASK` 统一调用；GNU89 回归覆盖 bit 30/31、32/63 跨 word 和 option 255；脚本源合同确保 `fill_envp` 不回退到有符号移位。
+- 新增 unsigned `1U` 位掩码策略并让 `BMASK` 统一调用；GNU89 回归覆盖 bit 30/31、32/63 跨 word 和 option 255；脚本源合同确保 `fill_envp` 不回退到有符号移位。 同一重试策略现在也将合法 `-A 0` 的 leasefail 与成功 DECLINE 重试延迟限制为至少 1 秒，避免忙循环。
 - 父 SHA `bccbe535` 的 Process/Lifecycle、Process inventory、HTTPD、WAN DHCP、NVRAM boundary 与 AI docs 均 PASS；XY-C1 Build 仍 PENDING，L3 未验证。
 
 ---

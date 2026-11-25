@@ -237,6 +237,18 @@ static int test_cleanup_retry_delay_has_one_second_floor(void)
 	return 0;
 }
 
+
+static int test_leasefail_and_decline_backoff_have_one_second_floor(void)
+{
+	CHECK(udhcpc_retry_delay(20) == 20);
+	CHECK(udhcpc_retry_delay(0) == 1);
+	CHECK(udhcpc_retry_delay(-1) == 1);
+	CHECK(udhcpc_decline_retry_delay(20) == 20);
+	CHECK(udhcpc_decline_retry_delay(0) == 1);
+	CHECK(udhcpc_decline_retry_delay(-1) == 1);
+	return 0;
+}
+
 static int test_failed_packet_send_blocks_dhcp_reselection_until_retry(void)
 {
 	CHECK(!udhcpc_packet_send_failed(0));
@@ -440,6 +452,7 @@ int main(void)
 	    test_failed_deconfig_blocks_state_transition() != 0 ||
 	    test_deconfig_retry_plan_resets_state_and_timer() != 0 ||
 	    test_cleanup_retry_delay_has_one_second_floor() != 0 ||
+	    test_leasefail_and_decline_backoff_have_one_second_floor() != 0 ||
 	    test_failed_packet_send_blocks_dhcp_reselection_until_retry() != 0 ||
 	    test_pending_deconfig_manual_stop_releases_existing_lease() != 0 ||
 	    test_initial_acquisition_retries_selected_request() != 0 ||

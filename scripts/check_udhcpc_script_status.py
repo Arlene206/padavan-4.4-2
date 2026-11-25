@@ -264,10 +264,12 @@ leasefail_end = dhcpc.index("\n\t\t\tcase REQUESTING:", leasefail_start)
 leasefail = dhcpc[leasefail_start:leasefail_end]
 assert 'udhcp_run_script(NULL, "leasefail");' in leasefail
 assert 'script_status = udhcp_run_script(NULL, "leasefail")' not in leasefail
-assert "timeout = tryagain_timeout;" in leasefail
+assert "timeout = udhcpc_retry_delay(tryagain_timeout);" in leasefail
+assert "timeout = tryagain_timeout;" not in leasefail
+assert 'opt_complementary = "O::x::T+:t+:A+"' in dhcpc
 assert "packet_num = 0;" in leasefail
 assert "continue;" in leasefail
-assert leasefail.index('udhcp_run_script(NULL, "leasefail");') < leasefail.index("timeout = tryagain_timeout;") < leasefail.index("continue;")
+assert leasefail.index('udhcp_run_script(NULL, "leasefail");') < leasefail.index("udhcpc_retry_delay(tryagain_timeout);") < leasefail.index("continue;")
 
 arpping_body = function_body(arpping_source, "int FAST_FUNC arpping(")
 assert "Returns 1 for no conflict, 0 for conflict, and -1 on probe I/O error." in arpping_source
@@ -292,7 +294,7 @@ assert "decline_server_addr = server_addr;" in arp_conflict
 assert "decline_requested_ip = packet.yiaddr;" in arp_conflict
 assert "DECLINE_PENDING : INIT_SELECTING" in " ".join(arp_conflict.split())
 assert "state = DECLINE_PENDING;" in arp_conflict
-assert "udhcpc_decline_retry_delay(tryagain_timeout)" in arp_conflict
+assert arp_conflict.count("timeout = udhcpc_decline_retry_delay(tryagain_timeout);") == 2
 assert "udhcpc_packet_send_failed(int send_status)" in policy
 assert "udhcpc_decline_retry_delay(int retry_timeout)" in policy
 assert "test_failed_packet_send_blocks_dhcp_reselection_until_retry" in test
@@ -306,7 +308,7 @@ decline_pending = dhcpc[decline_start:decline_end]
 assert "send_decline(decline_server_addr" in decline_pending
 assert "decline_requested_ip" in decline_pending
 assert "udhcpc_packet_send_failed(decline_status)" in decline_pending
-assert "timeout = udhcpc_decline_retry_delay(tryagain_timeout);" in decline_pending
+assert decline_pending.count("timeout = udhcpc_decline_retry_delay(tryagain_timeout);") == 2
 assert decline_pending.index("send_decline(") < decline_pending.index("state = INIT_SELECTING;")
 resume_pending = pending_body[pending_body.index("state = deconfig_resume_state;"):]
 assert "else if (state == DECLINE_PENDING)" in resume_pending
@@ -450,6 +452,8 @@ assert "test_failed_deconfig_blocks_state_transition" in test
 for marker in (
     "test_initial_acquisition_retries_selected_request",
     "test_nonpositive_retry_interval_is_throttled",
+    "test_leasefail_and_decline_backoff_have_one_second_floor",
+    "test_leasefail_and_decline_backoff_have_one_second_floor() != 0",
     "test_failed_renewal_preserves_existing_lease_deadline",
     "test_script_runtime_cannot_extend_expired_lease",
     "test_exact_lease_deadline_is_expired",

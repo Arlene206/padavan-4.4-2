@@ -1,3 +1,12 @@
+## 2026-11-24 — Throttle zero-delay udhcpc leasefail and DECLINE retries
+
+- BusyBox `getopt32` documents the `A+` argument as nonnegative (0..INT_MAX), so `-A 0` is valid. Exhausted discovery (`leasefail`) and successful DHCPDECLINE recovery previously assigned the value directly; zero could spin immediate DISCOVER/ARP/DECLINE cycles. The client now applies the existing one-second retry floor to leasefail and both successful DECLINE restart paths.
+- Added GNU89 ASan/UBSan policy boundaries for zero/negative/positive retry values and strengthened the source contract to pin all three call sites. Exact-head UDHCP and XY-C1 checks are pending; no local compile is claimed.
+
+## 2026-11-24 — Record IAPPD lifecycle test assertion diagnostics
+
+- Main commit `5b7df92aaaad83eb9f903582982070da95c92aad` adds an ordinal to the IAPPD lifecycle status assertion so a failing fixture identifies its assertion index. Exact IAPPD run #45547735320 PASS; Process lifecycle inventory #45547735377 PASS; Process inventory umbrella #45547735444 and XY-C1 #45547735319 were still pending at checkpoint. This commit changes test diagnostics only.
+
 ## 2026-11-24 — Fix QMI source-contract test-file initialization order
 
 - The exact rerun #45545714961 on `6672e316f615818d19b29d56938c36b556bbfbca` again passed every compiled regression, including `modem_wan_start_policy.c`; the final inline source-contract step failed because `qmi_policy_test` was referenced before its later assignment in that same Python block.
