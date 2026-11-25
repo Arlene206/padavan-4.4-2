@@ -8,13 +8,14 @@ This snapshot supersedes older task pointers below where they conflict with live
 - This follow-up closes the equivalent static-ARP mismatch: BusyBox 1.24 `arp` passes addresses through `INET_input` → `INET_resolve` → `inet_aton`, so `010.0.0.1` means octal `8.0.0.1`. Static-ARP IPv4 validation now rejects multi-digit leading-zero octets; GNU89 coverage tests every octet position and preserves canonical zero/all-ones addresses. DNSMasq source contract checks the exact BusyBox parser chain.
 - DNSMasq static-ARP fix exact head `21ef708f191b395f04a0c37a4e2b4933b876c1e4`: DNSMasq lifecycle #45533740252, AI docs #45533740258 and Process inventory #45533740231 PASS; NVRAM audit #45533740255 and XY-C1 #45533740364 remain IN_PROGRESS. The IGMPProxy/WAN and prior handoff checks on parent `bab40c4f40d22a65b5d4d0bac0bb5b036507ab3e` passed. L3 is not claimed.
 - ZeroTier firewall-checkpoint validator exact SHA `c1817e63362bdc8f8adcffe5205cd0cb29d5bbb9`: ZeroTier lifecycle #45534264830, AI docs #45534264906, Process inventory #45534264894 and WAN route #45534264927 PASS. XY-C1 #45534264859 remains IN_PROGRESS; Build/TRX/artifact are not yet confirmed, so L3 is not claimed.
-- Active source slice makes DNSMasq abort user-server overlay publication when `load_user_config()` reports a copy/read/flush/close error, preserving the existing server file and cleaning the failed stage. The new exact-source contract pins helper status propagation and cleanup ordering.
+- DNSMasq server-overlay production fix is on `6cabb42410a67007cb23a8bdace9ccc49caae693`: the first exact-head DNSMasq run #45534703563 failed only in the added checker because it named the callback `is_forbidden` instead of production `is_param_forbidden`; all earlier fixture steps passed. Checker-only correction is committed below and must rerun before calling the workflow green.
+- Active follow-up checks the separate Inadyn `load_user_config()` caller, which also ignored the helper's returned copy/read/flush/close status.
 
 ## Exact first action for the next GPT
 
-1. Fetch exact-head DNSMasq lifecycle, AI docs, Process inventory, WAN route, NVRAM boundary and XY-C1 Actions for this DNSMasq user-overlay failure path; require matching `head_sha` and repair any FAIL without waiting on independent PENDING work.
-2. Finish checking ZeroTier exact SHA `c1817e63362bdc8f8adcffe5205cd0cb29d5bbb9` XY-C1 #45534264859; claim L3 only if Build, TRX and artifact upload all pass on that exact product source. The next DNSMasq source SHA needs its own Build/TRX/artifact result. Physical-router L4 remains NOT VERIFIED.
-3. Continue with another distinct userland reliability/security defect; do not repeat the ZeroTier checkpoint validator or completed IGMPProxy/static-ARP parser fixes.
+1. Verify the checker-only correction against exact-head DNSMasq lifecycle #45534703563 on `6cabb42410a67007cb23a8bdace9ccc49caae693`; the root cause was the incorrect callback-name expectation, not the production fix. Require matching `head_sha`.
+2. Continue the independent Inadyn overlay status fix; run #45534703438 passed before this follow-up and did not assert the ignored user-config return. Product L3 remains unverified until Build, TRX and artifact upload all pass on one SHA.
+3. Preserve frozen backup and keep the next change small and atomic; do not repeat prior ZeroTier, IGMPProxy or static-ARP slices.
 
 No force-push. The backup branch remains unchanged.
 

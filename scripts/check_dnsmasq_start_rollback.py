@@ -100,7 +100,7 @@ assert restart.index("dnsmasq_confirm_started(launch_status)") < restart.index(
 # A missing user overlay is optional, but a read/copy/flush/close failure must
 # not publish a partial DNS server file over the last-known-good snapshot.
 user_config_loader = compact(body(COMMON_EX, "int\nload_user_config("))
-assert "rc_user_config_copy_stream(fp, fp_user, forbid_list, is_forbidden)" in user_config_loader
+assert "rc_user_config_copy_stream(fp, fp_user, forbid_list, is_param_forbidden)" in user_config_loader
 assert "if (fclose(fp_user) != 0 && status == 0)" in user_config_loader
 assert "return status;" in user_config_loader
 

@@ -1,3 +1,8 @@
+## 2026-11-24 — Correct DNSMasq user-overlay source-contract callback marker
+
+- Exact-head DNSMasq lifecycle run #45534703563 on `6cabb42410a67007cb23a8bdace9ccc49caae693` compiled and passed its earlier fixtures, then failed in the new Python source contract: the checker expected callback name `is_forbidden`, while the production `load_user_config()` correctly passes `is_param_forbidden`. This was a checker expectation error, not a source compile or runtime-test failure.
+- Corrected the assertion to match the real helper callback. The DNSMasq writer still checks the returned status and discards its staged file before publication. Exact-head rerun is pending; no PASS is claimed until the rerun reports success.
+
 ## 2026-11-24 — Fail closed when DNSMasq user server overlay cannot be copied
 
 - `load_user_config()` already returns errors from safe-open, whole-line stream copy, input read, output write/flush and input close, while preserving ENOENT as the optional-file default. `fill_dnsmasq_servers()` ignored that return value and published its stage anyway, so an unreadable or partially copied `dnsmasq.servers` could replace the last-known-good split-DNS rules with an incomplete file.
