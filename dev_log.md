@@ -1,3 +1,10 @@
+## 2026-11-25 19:30 CST — Repair zombie fixture setup after failed daemon launch
+
+- Exact USB-storage run #45602345339 confirmed the new parser accepted the complete live proc records and passed all preceding restore checks, then the final zombie scenario failed before the restore command: the preceding no-daemon launcher case had removed the synthetic PID directory, and the zombie fixture wrote directly into the now-missing `stat` path. Restored explicit directory setup and corrected the fixture's printf format. Production parser is unchanged.
+- Exact storage and XY-C1 checks required. No local BusyBox/firmware/hardware result is claimed.
+
+---
+
 ## 2026-11-25 19:25 CST — Complete the proc stat host fixtures
 
 - Exact storage run #45601959884 exposed a test-fixture defect in the new full-record check: the synthetic `rstats` records stopped at field 21 and omitted `starttime` (field 22), so the production parser correctly returned UNKNOWN before the restore scenarios began.
