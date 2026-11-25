@@ -10,7 +10,8 @@ def read(path):
 
 
 def function_body(source, signature):
-    start = source.index(signature)
+    # Prefer the definition over an earlier forward declaration.
+    start = source.rindex(signature)
     brace = source.index("{", start)
     depth, state, pos = 0, "code", brace
     while pos < len(source):
