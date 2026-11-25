@@ -300,9 +300,11 @@ require('ald_signal_validated_processes TERM' in stop and
         'return 1' in stop,
         "stop must block KILL on UNKNOWN and use fresh validated exact-PID snapshots")
 
+sleep_fixture = test.split("TEST_SLEEP_FAIL=1", 1)[1].split("TEST_SLEEP_FAIL=0", 1)[0]
 require('TEST_TARGETED_SIGNAL_COUNT' in test and
         'TEST_UNEXPECTED_SIGNAL_COUNT' in test and
-        'TEST_SLEEP_FAIL=1\\nTEST_TERM_COUNT=0\\nTEST_KILL_COUNT=0\\nTEST_TARGETED_SIGNAL_COUNT=0\\nTEST_UNEXPECTED_SIGNAL_COUNT=0' in test and
+        'TEST_TARGETED_SIGNAL_COUNT=0' in sleep_fixture and
+        'TEST_UNEXPECTED_SIGNAL_COUNT=0' in sleep_fixture and
         'foreign-after-term' in test and
         'FAIL: foreign UID after TERM received KILL or an unvalidated signal' in test and
         'FAIL: graceful stop did not signal exactly the validated PID once' in test and

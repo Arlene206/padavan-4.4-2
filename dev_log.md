@@ -1,3 +1,9 @@
+## 2026-11-25 — Pin sleep-fixture counter reset without escaped-newline ambiguity
+
+- Exact-head AliyunDrive lifecycle #45562928673 on `5544b95`: shell syntax, QEMU MIPSel CLI, stop lifecycle regression and early private-lock provisioning all PASS; final Python source contract alone failed because its fixture assertion searched for literal backslash-n separators instead of actual line breaks. The test fixture itself did reset both signal counters correctly. THIS commit scopes the checker to the `TEST_SLEEP_FAIL=1` fixture and checks the two reset tokens without a newline-encoding dependency. AI docs #45562928669 PASS; Process inventory #45562928835 was still running at last poll.
+
+---
+
 ## 2026-11-25 — Reset exact-PID signal counter in sleep-failure fixture
 
 - Exact-head AliyunDrive lifecycle #45562716442 on `3a08741`: shell syntax and QEMU CLI checks PASS; lifecycle regression reached the stop cases and failed because the newly inserted foreign-UID-after-TERM case left `TEST_TARGETED_SIGNAL_COUNT=1`, while the following sleep-failure fixture did not reset it before expecting exactly one TERM signal. This was a test-fixture isolation defect, not extra production signalling. Reset both target/unexpected counters before sleep failure and pin that reset in the source checker.
