@@ -1,3 +1,10 @@
+## 2026-11-25 — Point MTD save-retry fixture at the strict procfs parser
+
+- USB-storage exact-head run #45596308813 on `62254bda` passed the preceding storage checks, RWFS conversion under host sh/BusyBox ash, and reset_ss publication regression. It then failed before testing save retry because the fixture still rewrote `cat /proc/mtd`, while production `func_get_mtd()` had been hardened to parse `/proc/mtd` directly with awk. The test therefore read the host runner's absent `/proc/mtd` instead of its fixture.
+- Updated the fixture rewrite to substitute the procfs pathname itself. This is a regression-harness correction only; exact-head storage Actions must rerun the save failure→retry flow and all later storage gates. No local firmware/MTD execution is claimed.
+
+---
+
 ## 2026-11-25 — Reject symlinked MTD storage directories before fill/save/load
 
 - Review found `func_mdir()` treated a symlink to an existing directory as valid (`[ -d symlink ]` succeeds) and did not propagate `mkdir` failure to callers. The `fill` action could therefore write privileged defaults through a symlinked `/etc/storage`; `save`/`backup` could archive the symlink target, and `load` did unnecessary device reads before its later check. The helper now rejects symlinks and non-directory objects, quotes its path, reports creation failures, and every caller aborts before continuing.
