@@ -137,6 +137,10 @@ grep -Fq "pSendSB->Length != sizeof(kdp_info)" "$iapp_source" ||
   fail "IAPP FT security block must bound the fixed stack destination"
 grep -Fq "pApIB->Length))" "$iapp_source" ||
   fail "IAPP AP information must bound its declared payload by received bytes"
+grep -Fq "SizeRcvMsg < (INT32)FT_RRB_HEADER_SIZE" "$iapp_source" ||
+  fail "IAPP raw RRB must verify the fixed frame header before field access"
+grep -Fq "iapp_rx_payload_fits((size_t)ReceivedLength" "$iapp_source" ||
+  fail "IAPP raw RRB must bound aligned encrypted length by the actual frame"
 ap_info_guard_line=$(grep -n -F "pApIB->Length))" "$iapp_source" | cut -d: -f1)
 ap_info_copy_line=$(grep -n -F "IAPP_MEM_MOVE(OidReq->Buf+FT_IP_ADDRESS_SIZE, pApIB->IB, pApIB->Length)" "$iapp_source" | cut -d: -f1)
 [ -n "$ap_info_guard_line" ] && [ -n "$ap_info_copy_line" ] && [ "$ap_info_guard_line" -lt "$ap_info_copy_line" ] ||

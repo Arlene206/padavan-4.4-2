@@ -146,6 +146,13 @@ test_received_payload_bounds(void)
 	assert(!iapp_rx_payload_fits(32, 16, 17));
 	assert(!iapp_rx_payload_fits(SIZE_MAX, SIZE_MAX, 1));
 	assert(iapp_rx_payload_fits(SIZE_MAX, SIZE_MAX, 0));
+
+	/* A short Ethernet frame is zero-padded to the minimum wire length.
+	 * RRB's 24-byte fixed prefix leaves 36 bytes in a 60-byte frame. */
+	assert(iapp_rx_payload_fits(60, 24, 36));
+	assert(!iapp_rx_payload_fits(60, 24, 37));
+	assert(iapp_rx_payload_fits(64, 24, 40));
+	assert(!iapp_rx_payload_fits(64, 24, 41));
 }
 
 static void

@@ -2604,6 +2604,7 @@ static VOID IAPP_RcvHandlerRawRRB(
 	IAPP_IN		UCHAR				*pRspBuf)
 {
 	INT32 SizeRcvMsg;
+	INT32 ReceivedLength;
 	UCHAR *pBufMsg;
 	POID_REQ OidReq;
 	FT_RRB_FRAME *pFrameRRB;
@@ -2644,6 +2645,15 @@ static VOID IAPP_RcvHandlerRawRRB(
 				SizeRcvMsg);
 
 #ifdef FT_KDP_FUNC_PKT_ENCRYPT
+		/* The fixed RRB header must be present before reading DA or fields. */
+		if (SizeRcvMsg < (INT32)FT_RRB_HEADER_SIZE) {
+			DBGPRINT(RT_DEBUG_ERROR,
+				 "iapp> Truncated raw RRB header (%d bytes)!\n",
+				 SizeRcvMsg);
+			return;
+		}
+		ReceivedLength = SizeRcvMsg;
+
 		/* copy DA (detination adress) from packet */
 		NdisZeroMemory(WifiMAC, ETH_ALEN);
 		NdisCopyMemory(WifiMAC, pPktBuf, ETH_ALEN);
@@ -2673,6 +2683,14 @@ static VOID IAPP_RcvHandlerRawRRB(
 		*/
 		SizeRcvMsg = pFrameRRB->FTActionLength;
 		IAPP_ENCRYPTED_DATA_SIZE_CAL(SizeRcvMsg);
+		if (!iapp_rx_payload_fits((size_t)ReceivedLength,
+					  FT_RRB_HEADER_SIZE,
+					  (size_t)SizeRcvMsg)) {
+			DBGPRINT(RT_DEBUG_ERROR,
+				 "iapp> Truncated raw RRB action payload (declared=%u, frame=%d)!\n",
+				 pFrameRRB->FTActionLength, ReceivedLength);
+			return;
+		}
 
 		if(IAPP_IOCTL_TO_WLAN(pCtrlBK, RT_IOCTL_IAPP, pPktBuf+FT_RRB_HEADER_SIZE, &SizeRcvMsg, wifi_if_idx, RT_FT_DATA_DECRYPT) == FALSE) {
 			DBGPRINT(RT_DEBUG_ERROR, "iapp> RRB Decrypt frame failed!\n");
