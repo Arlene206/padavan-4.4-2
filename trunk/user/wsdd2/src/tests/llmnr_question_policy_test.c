@@ -22,6 +22,186 @@ make_question(uint8_t *packet, const uint8_t *labels, size_t labels_len,
 }
 
 static void
+append_opt(uint8_t *packet, size_t *length, uint8_t version,
+           const uint8_t *options, size_t options_length)
+{
+	size_t pos = *length;
+	assert(options_length <= 0xffffU);
+	packet[pos++] = 0;
+	packet[pos++] = 0;
+	packet[pos++] = 41;
+	packet[pos++] = 0x04;
+	packet[pos++] = 0xd0;
+	packet[pos++] = 0;
+	packet[pos++] = version;
+	packet[pos++] = 0;
+	packet[pos++] = 0;
+	packet[pos++] = (uint8_t)(options_length >> 8);
+	packet[pos++] = (uint8_t)options_length;
+	if (options_length) {
+		memcpy(packet + pos, options, options_length);
+		pos += options_length;
+	}
+	*length = pos;
+}
+
+static void
+test_edns0_response_layout_keeps_answer_before_opt(void)
+{
+	uint8_t packet[512] = {0}, response[512] = {0};
+	const uint8_t labels[] = {6, 'r','o','u','t','e','r', 0};
+	const uint8_t options[] = {0xfd, 0xe9, 0, 0};
+	const uint8_t answer[] = {0xc0, 0x0c, 0, 1, 0, 1, 0, 0, 0, 0, 0, 4, 192, 0, 2, 1};
+	struct llmnr_additional_info info;
+	char name[256];
+	uint16_t qtype, qclass;
+	size_t question_end, packet_len, response_len, opt_offset;
+
+	packet_len = make_question(packet, labels, sizeof(labels), 1, 1);
+	packet[11] = 1;
+	append_opt(packet, &packet_len, 0, options, sizeof(options));
+	assert(llmnr_parse_question_ex(packet, packet_len, name, sizeof(name),
+	                               &qtype, &qclass, &question_end) == 0);
+	assert(llmnr_parse_additional_section(packet, packet_len, question_end, 1, &info) == 0);
+	assert(strcmp(name, "router") == 0 && info.has_opt && !info.duplicate_opt && !info.malformed_opt);
+	assert(info.version == 0);
+	assert(llmnr_build_response_packet(packet, packet_len, question_end, answer, sizeof(answer),
+	                                   1, 0, 0, response, sizeof(response), &response_len) == 0);
+	assert(response[2] == 0x80 && response[3] == 0);
+	assert(response[6] == 0 && response[7] == 1 && response[8] == 0 && response[9] == 0);
+	assert(response[10] == 0 && response[11] == 1);
+	assert(memcmp(response + question_end, answer, sizeof(answer)) == 0);
+	opt_offset = question_end + sizeof(answer);
+	assert(response[opt_offset] == 0 && response[opt_offset + 1] == 0 && response[opt_offset + 2] == 41);
+	assert(response[opt_offset + 3] == 2 && response[opt_offset + 4] == 0);
+	assert(response[opt_offset + 5] == 0 && response[opt_offset + 6] == 0);
+	assert(response[opt_offset + 9] == 0 && response[opt_offset + 10] == 0);
+	assert(response_len == opt_offset + 11);
+	assert(llmnr_parse_additional_section(response, response_len, opt_offset, 1, &info) == 0);
+	assert(info.has_opt && !info.malformed_opt && !info.duplicate_opt);
+}
+
+static void
+test_non_opt_additional_records_are_ignored_in_reply(void)
+{
+	uint8_t packet[128] = {0}, response[128] = {0};
+	const uint8_t labels[] = {6, 'r','o','u','t','e','r', 0};
+	const uint8_t answer[] = {0xc0, 0x0c, 0, 1, 0, 1, 0, 0, 0, 0, 0, 4, 192, 0, 2, 1};
+	struct llmnr_additional_info info;
+	char name[256];
+	uint16_t qtype, qclass;
+	size_t question_end, packet_len, response_len;
+
+	packet_len = make_question(packet, labels, sizeof(labels), 1, 1);
+	packet[11] = 1;
+	packet[packet_len++] = 0;
+	packet[packet_len++] = 0;
+	packet[packet_len++] = 16; /* TXT */
+	packet[packet_len++] = 0;
+	packet[packet_len++] = 1;
+	memset(packet + packet_len, 0, 4);
+	packet_len += 4;
+	packet[packet_len++] = 0;
+	packet[packet_len++] = 3;
+	memcpy(packet + packet_len, "abc", 3);
+	packet_len += 3;
+	assert(llmnr_parse_question_ex(packet, packet_len, name, sizeof(name), &qtype, &qclass, &question_end) == 0);
+	assert(llmnr_parse_additional_section(packet, packet_len, question_end, 1, &info) == 0);
+	assert(!info.has_opt);
+	assert(llmnr_build_response_packet(packet, packet_len, question_end, answer, sizeof(answer),
+	                                   0, 0, 0, response, sizeof(response), &response_len) == 0);
+	assert(response[7] == 1 && response[11] == 0);
+	assert(response_len == question_end + sizeof(answer));
+	assert(memcmp(response + question_end, answer, sizeof(answer)) == 0);
+}
+
+static void
+test_duplicate_malformed_and_future_version_opt_errors(void)
+{
+	uint8_t packet[256] = {0}, response[256] = {0};
+	const uint8_t labels[] = {6, 'r','o','u','t','e','r', 0};
+	const uint8_t malformed_option[] = {0, 10, 0, 1};
+	struct llmnr_additional_info info;
+	char name[256];
+	uint16_t qtype, qclass;
+	size_t question_end, packet_len, response_len;
+
+	packet_len = make_question(packet, labels, sizeof(labels), 1, 1);
+	packet[11] = 1;
+	append_opt(packet, &packet_len, 0, malformed_option, sizeof(malformed_option));
+	assert(llmnr_parse_question_ex(packet, packet_len, name, sizeof(name), &qtype, &qclass, &question_end) == 0);
+	assert(llmnr_parse_additional_section(packet, packet_len, question_end, 1, &info) == 0);
+	assert(info.has_opt && info.malformed_opt);
+	assert(llmnr_build_response_packet(packet, packet_len, question_end, NULL, 0, 1, 1, 0,
+	                                   response, sizeof(response), &response_len) == 0);
+	assert(response[7] == 0 && response[11] == 1 && response[3] == 1);
+
+	memset(packet, 0, sizeof(packet));
+	packet_len = make_question(packet, labels, sizeof(labels), 1, 1);
+	packet[11] = 2;
+	append_opt(packet, &packet_len, 0, NULL, 0);
+	append_opt(packet, &packet_len, 0, NULL, 0);
+	assert(llmnr_parse_question_ex(packet, packet_len, name, sizeof(name), &qtype, &qclass, &question_end) == 0);
+	assert(llmnr_parse_additional_section(packet, packet_len, question_end, 2, &info) == 0);
+	assert(info.has_opt && info.duplicate_opt);
+	assert(llmnr_build_response_packet(packet, packet_len, question_end, NULL, 0, 1, 1, 0,
+	                                   response, sizeof(response), &response_len) == 0);
+	assert(response[3] == 1 && response[7] == 0 && response[11] == 1);
+
+	memset(packet, 0, sizeof(packet));
+	packet_len = make_question(packet, labels, sizeof(labels), 1, 1);
+	packet[11] = 1;
+	append_opt(packet, &packet_len, 1, NULL, 0);
+	assert(llmnr_parse_question_ex(packet, packet_len, name, sizeof(name), &qtype, &qclass, &question_end) == 0);
+	assert(llmnr_parse_additional_section(packet, packet_len, question_end, 1, &info) == 0);
+	assert(info.has_opt && info.version == 1 && !info.malformed_opt);
+	assert(llmnr_build_response_packet(packet, packet_len, question_end, NULL, 0, 1, 0, 1,
+	                                   response, sizeof(response), &response_len) == 0);
+	assert(response[3] == 0 && response[7] == 0 && response[11] == 1);
+	assert(response[question_end + 5] == 1 && response[question_end + 6] == 0);
+}
+
+static void
+test_additional_section_bounds_and_compressed_names(void)
+{
+	uint8_t packet[128] = {0};
+	const uint8_t labels[] = {6, 'r','o','u','t','e','r', 0};
+	struct llmnr_additional_info info;
+	char name[256];
+	uint16_t qtype, qclass;
+	size_t question_end, packet_len;
+
+	packet_len = make_question(packet, labels, sizeof(labels), 1, 1);
+	packet[11] = 1;
+	packet[packet_len++] = 0xc0;
+	packet[packet_len++] = 0x0c;
+	packet[packet_len++] = 0;
+	packet[packet_len++] = 16;
+	packet[packet_len++] = 0;
+	packet[packet_len++] = 1;
+	memset(packet + packet_len, 0, 4);
+	packet_len += 4;
+	packet[packet_len++] = 0;
+	packet[packet_len++] = 0;
+	assert(llmnr_parse_question_ex(packet, packet_len, name, sizeof(name), &qtype, &qclass, &question_end) == 0);
+	assert(llmnr_parse_additional_section(packet, packet_len, question_end, 1, &info) == 0);
+	assert(!info.has_opt);
+
+	packet[11] = 0;
+	packet[packet_len++] = 0xaa;
+	assert(llmnr_parse_additional_section(packet, packet_len, question_end, 0, &info) == -1);
+
+	memset(packet, 0, sizeof(packet));
+	packet_len = make_question(packet, labels, sizeof(labels), 1, 1);
+	packet[11] = 1;
+	packet[packet_len++] = 0;
+	packet[packet_len++] = 0;
+	packet[packet_len++] = 41;
+	assert(llmnr_parse_question_ex(packet, packet_len, name, sizeof(name), &qtype, &qclass, &question_end) == 0);
+	assert(llmnr_parse_additional_section(packet, packet_len, question_end, 1, &info) == -1);
+}
+
+static void
 test_hostname_is_always_terminated(void)
 {
 	char hostname[256];
@@ -164,6 +344,10 @@ int
 main(void)
 {
 	test_hostname_is_always_terminated();
+	test_edns0_response_layout_keeps_answer_before_opt();
+	test_non_opt_additional_records_are_ignored_in_reply();
+	test_duplicate_malformed_and_future_version_opt_errors();
+	test_additional_section_bounds_and_compressed_names();
 	uint8_t packet[300] = {0};
 	char name[256];
 	uint16_t qtype, qclass;

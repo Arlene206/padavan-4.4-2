@@ -79,12 +79,15 @@ static int llmnr_send_response(struct endpoint *ep,
 				const uint8_t *in, size_t inlen,
 				const char *myname)
 {
-	uint16_t qdcount, ancount, nscount;
+	uint16_t qdcount, ancount, nscount, arcount;
 	uint16_t qtype, qclass;
 	char in_name[256];
-	size_t in_name_len = 0, out_name_len = 0;
-	char *out = NULL;
-	size_t answer_len = 0;
+	size_t question_end = 0, answer_len = 0, answer_pos = 0;
+	size_t response_len = 0, response_capacity;
+	uint8_t answer[28];
+	uint8_t *out;
+	uint8_t response_rcode = 0, extended_rcode = 0;
+	struct llmnr_additional_info additional;
 	int ret;
 	_saddr_t ci;
 	socklen_t slen = (sa->ss.ss_family == AF_INET)
@@ -92,241 +95,119 @@ static int llmnr_send_response(struct endpoint *ep,
 				: sizeof sa->in6;
 
 	dumphex("LLMNR INPUT:\n", in, inlen);
-
 	if (connected_if(sa, &ci)) {
 		char buf[_ADDRSTRLEN];
-
 		DEBUG(1, L, "llmnr: connected_if: %s",
-			inet_ntop(sa->ss.ss_family, _SIN_ADDR(sa),
-					buf, sizeof buf));
+			inet_ntop(sa->ss.ss_family, _SIN_ADDR(sa), buf, sizeof buf));
 		return -1;
 	}
-
-	/*
-	 * LLMNR header format according to RFC 4795:
-	 *
-	 *   0  1  2  3  4  5  6  7  8  9  0  1  2  3  4  5
-	 * +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-	 * |                   ID                          |
-	 * +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-	 * |QR|   Opcode  | C|TC| T| Z| Z| Z| Z|   RCODE   |
-	 * +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-	 * |                  QDCOUNT                      |
-	 * +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-	 * |                  ANCOUNT                      |
-	 * +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-	 * |                  NSCOUNT                      |
-	 * +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-	 * |                  ARCOUNT                      |
-	 * +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-	 */
 	errno = EINVAL;
-	/*
-	 * LLMNR packet format has a header of 12 bytes
-	 * plus at least 1 byte of question section
-	 * (see RFCs 4795, 1035, 3596)
-	 */
 	if (inlen < 17) {
 		DEBUG(1, L, "llmnr: packet shorter than DNS header and question");
 		return -1;
 	}
-
-	/*
-	 * 3rd octect of LLMNR header
-	 * check for standard query:
-	 * - Q/R (1-bit)     = 0
-	 * - OPCODE (4-bits) = 0
-	 */
 	if (in[2] & 0xF8) {
 		DEBUG(1, L, "llmnr: not standard query");
 		return -1;
 	}
-
-	/* check whether conflict bit (C) is not set */
 	if (in[2] & 0x04) {
 		DEBUG(1, L, "llmnr: conflict bit set in query");
 		return -1;
 	}
-
-	/* check whether truncation bit is not set */
-	if (in[2] & 0x02) {
-		DEBUG(1, L, "llmnr: truncation bit set in query");
-		return -1;
-	}
-
-	/*
-	 * check number of entries in question section (QDCOUNT)
-	 * it must be just one
-	 */
-	qdcount = (in[4]*256) + in[5];
+	/* RFC 4795: a query's prohibited TC bit is ignored by responders. */
+	qdcount = (uint16_t)(((uint16_t)in[4] << 8) | in[5]);
 	if (qdcount != 1) {
-		DEBUG(1, L, "llmnr: only a question entry allowed, found %u",
+		DEBUG(1, L, "llmnr: only one question entry is allowed, found %u",
 			qdcount);
 		return -1;
 	}
-
-	/*
-	 * check number of entries in answer and nameserver sections
-	 * must be zero in the request
-	 */
-	ancount = (in[6]*256) + in[7];
-	nscount = (in[8]*256) + in[9];
-	if (ancount > 0 || nscount > 0) {
-		DEBUG(1, L, "llmnr: number of answer and/or nameserver entries "
-			  "in query is invalid (ancount: %u, nscount: %u)",
-			  ancount, nscount);
+	ancount = (uint16_t)(((uint16_t)in[6] << 8) | in[7]);
+	nscount = (uint16_t)(((uint16_t)in[8] << 8) | in[9]);
+	arcount = (uint16_t)(((uint16_t)in[10] << 8) | in[11]);
+	if (ancount != 0 || nscount != 0) {
+		DEBUG(1, L, "llmnr: answer and nameserver counts must be zero");
 		return -1;
 	}
-
-	/* Parse one DNS question with bounded label and QTYPE/QCLASS reads. */
-	if (llmnr_parse_question(in, inlen, in_name, sizeof(in_name),
-				 &qtype, &qclass) != 0) {
+	if (llmnr_parse_question_ex(in, inlen, in_name, sizeof(in_name),
+				    &qtype, &qclass, &question_end) != 0) {
 		DEBUG(1, L, "llmnr: malformed or truncated question section");
 		return -1;
 	}
-	in_name_len = strlen(in_name);
-	DEBUG(2, L, "llmnr: name in query %s (length: %zu)", in_name,
-		  in_name_len);
-
-	/*
-	 * this implementation only supports questions of type A
-	 * or AAAA
-	 */
+	if (llmnr_parse_additional_section(in, inlen, question_end, arcount,
+					   &additional) != 0) {
+		DEBUG(1, L, "llmnr: malformed or truncated Additional section");
+		return -1;
+	}
+	DEBUG(2, L, "llmnr: name in query %s", in_name);
 	if (qtype != DNS_TYPE_A && qtype != DNS_TYPE_AAAA) {
-		DEBUG(1, L, "llmnr: record in question not of type A or AAAA");
+		DEBUG(1, L, "llmnr: record in question is not A or AAAA");
 		return -1;
 	}
-
-	/* this implementation only supports questions of class IN */
 	if (qclass != DNS_CLASS_IN) {
-		DEBUG(1, L, "llmnr: record is not of class IN");
+		DEBUG(1, L, "llmnr: record is not class IN");
 		return -1;
 	}
-
-	/* check whether we are authorize for resolving this query */
-	if (strlen(myname) != in_name_len ||
-	    strncasecmp(myname, in_name, in_name_len)) {
+	if (strlen(myname) != strlen(in_name) ||
+	    strncasecmp(myname, in_name, strlen(in_name))) {
 		DEBUG(2, L, "llmnr: not authoritative for name %s", in_name);
 		return -1;
 	}
 
-	/*
-	 * start building up the LLMNR response
-	 */
-#if 0
-	/* interpret whether IP is IPv4 or IPv6 and build up */
-	if (!interpret_string_addr(&ss, ip, AI_NUMERICHOST)) {
-		DEBUG(1, ("llmnr: can't interpret address %s\n", ip));
-		return out;
+	if (additional.duplicate_opt || additional.malformed_opt) {
+		response_rcode = 1; /* FORMERR */
+	} else if (additional.has_opt && additional.version != 0) {
+		extended_rcode = 1; /* BADVERS */
+	} else if (!((qtype == DNS_TYPE_A && sa->ss.ss_family == AF_INET6) ||
+		     (qtype == DNS_TYPE_AAAA && sa->ss.ss_family == AF_INET))) {
+		if (sa->ss.ss_family == AF_INET)
+			answer_len = 12 + sizeof(ci.in.sin_addr);
+		else if (sa->ss.ss_family == AF_INET6)
+			answer_len = 12 + sizeof(ci.in6.sin6_addr);
+		else {
+			DEBUG(1, L, "%s: %d", strerror(EAFNOSUPPORT), sa->ss.ss_family);
+			return -1;
+		}
 	}
-#endif
-	/*
-	 * determine the length of answer section
-	 * see RFC 4795 section 2.3 for rules
-	 */
-	if ((qtype == DNS_TYPE_A && sa->ss.ss_family == AF_INET6) ||
-	    (qtype == DNS_TYPE_AAAA && sa->ss.ss_family == AF_INET)) {
-		answer_len = 0;
-	} else
-	/*
-	 * according to RFC 1035, answer section size will be:
-	 * - 2 bytes for pointer a name in query section (we are using a
-	 *   referral)
-	 * - 2 bytes QTYPE
-	 * - 2 bytes QCLASS
-	 * - 4 bytes TTL
-	 * - 2 bytes RDLENGTH ... up to here 12 bytes
-	 * - 4 bytes (AF_INET) or 16 bytes (AF_INET6) RDATA
-	 */
-	if (sa->ss.ss_family == AF_INET) {
-		answer_len = 12 + sizeof(ci.in.sin_addr);
-	} else if (sa->ss.ss_family == AF_INET6) {
-		answer_len = 12 + sizeof(ci.in6.sin6_addr);
-	} else {
-		DEBUG(1, L, "llmnr: %s: %d", strerror(EAFNOSUPPORT),
-			sa->ss.ss_family);
-		return -1;
+	if (answer_len != 0) {
+		answer[answer_pos++] = 0xC0;
+		answer[answer_pos++] = 0x0C;
+		answer[answer_pos++] = 0;
+		answer[answer_pos++] = sa->ss.ss_family == AF_INET ? 1 : 28;
+		answer[answer_pos++] = 0;
+		answer[answer_pos++] = 1;
+		answer[answer_pos++] = 0;
+		answer[answer_pos++] = 0;
+		answer[answer_pos++] = 0;
+		answer[answer_pos++] = 0;
+		answer[answer_pos++] = 0;
+		if (sa->ss.ss_family == AF_INET) {
+			answer[answer_pos++] = sizeof(ci.in.sin_addr);
+			memcpy(answer + answer_pos, &ci.in.sin_addr, sizeof(ci.in.sin_addr));
+			answer_pos += sizeof(ci.in.sin_addr);
+		} else {
+			answer[answer_pos++] = sizeof(ci.in6.sin6_addr);
+			memcpy(answer + answer_pos, &ci.in6.sin6_addr, sizeof(ci.in6.sin6_addr));
+			answer_pos += sizeof(ci.in6.sin6_addr);
+		}
+		answer_len = answer_pos;
 	}
 
-	/*
-	 * allocate output buffer
-	 * size will be same one as incoming query plus the answer section
-	 */
-	out = calloc(inlen + answer_len, 1);
-	if (out == NULL) {
+	response_capacity = question_end + answer_len +
+			    (additional.has_opt ? 11U : 0U);
+	out = calloc(response_capacity, 1);
+	if (!out) {
 		DEBUG(0, L, "llmnr: no memory for output buffer");
 		return -1;
 	}
-
-	/* copy incoming message to output buffer */
-	memcpy(out, in, inlen);
-
-	/*
-	 * set flags in response:
-	 * - QR bit sets to 1
-	 * - OPCODE sets to 0
-	 * - C, TC and T bits set to 0
-	 * - RCODE sets to 0
-	 */
-	out[2] = 0x80;
-	out[3] = 0x00;
-
-	/* length of answer section */
-	out[6] = 0x00;
-	if (answer_len == 0) {
-		/* that's it, no answer section to build */
-		out[7] = 0x00;
-		goto send;
+	if (llmnr_build_response_packet(in, inlen, question_end,
+					answer, answer_len, additional.has_opt,
+					response_rcode, extended_rcode, out,
+					response_capacity, &response_len) != 0) {
+		free(out);
+		return -1;
 	}
-	/* otherwise one answer */
-	out[7] = 0x01;
-
-	/* offset to beginning of answer section */
-	out_name_len = inlen;
-
-	/*
-	 * pointer to name in question section
-	 * (offset is 12th bytes from packet beginning)
-	 */
-	out[out_name_len++] = 0xC0;
-	out[out_name_len++] = 0x0C;
-
-	/* record type */
-	out[out_name_len++] = 0x00;
-	if (sa->ss.ss_family == AF_INET) {
-		/* type A */
-		out[out_name_len++] = 0x01;
-	} else {
-		/* type AAAA */
-		out[out_name_len++] = 0x1C;
-	}
-
-	/* class IN */
-	out[out_name_len++] = 0x00;
-	out[out_name_len++] = 0x01;
-
-	/* TTL */
-	out[out_name_len++] = 0x00;
-	out[out_name_len++] = 0x00;
-	out[out_name_len++] = 0x00;
-	out[out_name_len++] = 0x00;
-
-	/* RDLENGTH and RDATA in answer section */
-	out[out_name_len++] = 0x00;
-
-	if (sa->ss.ss_family == AF_INET) {
-		size_t len = out[out_name_len++] = sizeof(ci.in.sin_addr);
-
-		memcpy(out + out_name_len, &ci.in.sin_addr, len);
-	} else {
-		size_t len = out[out_name_len++] = sizeof(ci.in6.sin6_addr);
-
-		memcpy(out + out_name_len, &ci.in6.sin6_addr, len);
-	}
-send:
-	dumphex("LLMNR OUTPUT:\n", out, inlen + answer_len);
-	ret = sendto(ep->sock, out, inlen + answer_len, 0,
-			(struct sockaddr *)sa, slen);
+	dumphex("LLMNR OUTPUT:\n", out, response_len);
+	ret = sendto(ep->sock, out, response_len, 0, (struct sockaddr *)sa, slen);
 	free(out);
 	return ret;
 }

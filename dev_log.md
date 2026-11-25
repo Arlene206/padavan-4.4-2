@@ -1,3 +1,13 @@
+## 2026-11-25 — Preserve EDNS0 Additional-section ordering in LLMNR replies
+
+- The LLMNR responder copied the entire query, kept ARCOUNT, then appended its A/AAAA answer at `inlen`. For a valid EDNS0 request the OPT pseudo-RR remained before the appended answer while ANCOUNT was incremented, so receivers parsed the OPT bytes as the Answer RR and the packet sections were malformed. The responder also failed to emit the mandatory OPT RR in replies.
+- Added bounded Additional-section parsing, compressed owner-name skipping, RR/RDLENGTH and EDNS option-TLV bounds, OPT owner validation, duplicate-OPT detection, and EDNS-version detection. Replies are rebuilt as header + question + answer + one minimal version-zero OPT record; ordinary additional records are not echoed. Duplicate/malformed OPT yields FORMERR; unsupported EDNS version yields BADVERS. The prohibited query TC bit is ignored per RFC 4795.
+- RFC 4795 sections 2.1.1/2.9 require TC-bit ignore behavior, EDNS0 support and ignoring ordinary Additional RRs; RFC 6891 requires an OPT in responses to OPT-bearing requests, with FORMERR for duplicate/bad OPT and BADVERS for unsupported versions. Added GNU99 ASan/UBSan cases for section ordering, empty/unknown options, ordinary Additional RRs, duplicate/malformed OPT, future versions, compressed owners and truncation.
+- Parent baseline: `5ae8cc52f42681d618fbaf8d0c03d8a34120a27c`. Exact-SHA LLMNR regression and XY-C1 build gates are pending; no firmware, router runtime or L4 result is claimed.
+- Changed paths: `llmnr.c`, `llmnr_question_policy.h`, `tests/llmnr_question_policy_test.c`, `scripts/check_wsdd2_llmnr_question.py`, `dev_log.md`.
+
+---
+
 ## 2026-11-25 — Correct DHCPv6 retry contract after sharing environment publisher
 
 - Exact DHCP callback workflow #45717584995 on `894147f71750b1345a6f3492e47255913aeb0364` passed, and the GNU89 ASan/UBSan policy binary including the new DHCPv4 rollback cases also passed. The dedicated DHCPv6 retry workflow #45717584759 failed only because its Python checker still expected the full rollback implementation to live in the DHCPv6 compatibility wrapper after that implementation had been extracted into `dhcp_script_env_policy.h`.

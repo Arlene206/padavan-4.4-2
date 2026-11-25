@@ -21,7 +21,12 @@ assert "if (inlen < 17)" in SOURCE
 assert "llmnr_read_hostname(name, sizeof(name))" in SOURCE
 assert "status = gethostname(name, capacity)" in POLICY
 assert "name[capacity - 1]" in POLICY
-assert "llmnr_parse_question(in, inlen, in_name, sizeof(in_name)," in compact(SOURCE)
+assert "llmnr_parse_question_ex(in, inlen, in_name, sizeof(in_name)," in compact(SOURCE)
+assert "llmnr_parse_additional_section(in, inlen, question_end, arcount," in compact(SOURCE)
+assert "llmnr_build_response_packet(in, inlen, question_end," in compact(SOURCE)
+assert "llmnr_parse_additional_section" in POLICY
+assert "type == 41U" in POLICY
+assert "response[opt++] = 41" in POLICY
 start = SOURCE.index("static int llmnr_send_response(")
 end = SOURCE.index("int llmnr_init(", start)
 parser = SOURCE[start:end]
