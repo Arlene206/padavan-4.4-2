@@ -1,3 +1,46 @@
+## 2026-11-24 autonomous handoff snapshot
+
+This addendum supersedes older task pointers below where they conflict with the live Git state.
+
+- Main at snapshot: `904d7b489b96a99c72cedb022667c67d4e3b2eb3`.
+- Backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only; do not move it).
+- Recent main history:
+- `904d7b489b96a99c72cedb022667c67d4e3b2eb3` — test(zerotier): ignore NAT fixture seeding in cleanup assertion
+- `74946cc36589c72b0582fa5dc3132b246e805da7` — test(zerotier): encode empty checkpoint lines correctly
+- `f2724cd666c7265759b23a72b7dd634041fa7975` — fix(zerotier): honor empty NAT cleanup checkpoints
+- `33d0f4c2edaa3f74b004abf2939bad9ca530763d` — test(vsftpd): assert hard-link rename leaves no alias
+- `453ef6f30e0ad21b474602eab8d37a6b4d32ecbf` — fix(vsftpd): block cross-share hard-link renames
+- `fe0a700656aa90b3f2fcf1c0929c3bd129d80521` — test(zerotier): write checkpoint fixture as two lines
+- `6a5b74fdb75537599055151b01eea7c20ef6141e` — fix(zerotier): preserve published NAT cleanup checkpoint
+- `0b68b5f86479c766e0d5204cb1ee6fd76f78a2ee` — test(vsftpd): remove unused hard-link fixture path
+- `7d9efe339fb102c366bf15fda490f4aff49f2233` — fix(vsftpd): retain hard-linked uploads during rollback
+- `a247cd34ac841b12f57f692209eebd01ce9d5611` — test(udhcpc): match multiline static route guard
+- Exact-head Actions currently known:
+- Process lifecycle inventory - 904d7b489b96a99c72cedb022667c67d4e3b2eb3 (#45530983779, SHA 904d7b489b96): in_progress.
+- WAN route operation status regression (#45530983759, SHA 904d7b489b96): in_progress.
+- XY-C1 Firmware Validation (#45530983731, SHA 904d7b489b96): in_progress.
+- ZeroTier lifecycle stability regression (#45530983712, SHA 904d7b489b96): in_progress.
+- Latest relevant workflow observations (may refer to older SHAs and are not proof for current main):
+- vsftpd configuration publication stability regression (#45530467033, SHA 33d0f4c2edaa): completed/success.
+- ZeroTier lifecycle stability regression (#45530983712, SHA 904d7b489b96): in_progress.
+- XY-C1 Firmware Validation (#45530983731, SHA 904d7b489b96): in_progress.
+- WAN DHCP callback state stability regression (#45528021031, SHA f72030990d75): completed/success.
+- DNSMasq lifecycle stability regression (#45528020810, SHA f72030990d75): completed/success.
+- Wireless radio state regression (#45528020753, SHA f72030990d75): completed/success.
+- AI handoff documentation contract (#45530467034, SHA 33d0f4c2edaa): completed/success.
+- Process lifecycle inventory - 904d7b489b96a99c72cedb022667c67d4e3b2eb3 (#45530983779, SHA 904d7b489b96): in_progress.
+
+Completed implementation slices in the current development line include: ZeroTier stop now fails closed on malformed firewall recovery checkpoints; WAN DHCP Router and legacy/classless route lists are validated before lease/interface/route teardown; DNSMasq static ARP parser requires Ethernet hardware type; Ralink radio config checker covers all observed atomic-discard paths; VSFTPD denies multiply-linked non-directory entries on open/stat/upload, refuses rollback deletion of a multiply-linked upload, and blocks cross-share hard-link renames. Their regression/source-contract changes are committed in the recent history above. Treat each workflow's exact SHA and conclusion as authoritative; do not infer a product firmware build from a host-only regression workflow.
+
+First tasks for the next session:
+1. Inspect any exact-head FAIL above, beginning with the current ZeroTier firewall lifecycle run if it is failed; read the failing job log, distinguish product defect from stale test/source contract, fix and add regression tests.
+2. Confirm the current-head VSFTPD run includes the hard-link rename and rollback regressions. Check the corresponding job, not only a workflow with a similar name on an older SHA.
+3. Check current-head WAN DHCP callback and route-operation Actions; resolve compiler/test/checker failures before moving to another unrelated module.
+4. Check XY-C1 Build, TRX verification and artifact upload on a production-source SHA. L3 remains NOT VERIFIED until those exact steps pass; L4 remains hardware NOT VERIFIED. No local compile is claimed by this handoff.
+5. Continue with the next independent userland stability/security defect after the above, preserving small atomic commits and expected-SHA updates. Do not wait on unrelated PENDING workflows.
+
+No force-push. The backup branch remains unchanged.
+
 ## Current repository state
 
 # Cross-session execution mandate

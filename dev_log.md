@@ -1,3 +1,15 @@
+## 2026-11-24 — Cross-share hard-link rename guard and handoff refresh
+
+- Added a VSFTPD rename boundary: `ftp_acl_path_rename_entry()` checks the source entry without following symlinks and rejects multiply-linked non-directory entries with `EACCES`, preventing a hard-link alias from being moved between authorized shares. Added regression coverage that verifies both original names remain, the destination alias is not created, and link count remains unchanged.
+- The earlier VSFTPD hard-link slice also guards existing-file read/stat, upload-target open, and failed-upload rollback. Its regression suite covers read/stat/upload denial, rollback preserving both aliases until the outside link is removed, and cross-share rename denial. Use exact-head Actions to confirm the full test executable and checker; do not infer current status from an older SHA.
+- This record is a handoff, not a claim that every current-head workflow passed. Main at snapshot: `904d7b489b96a99c72cedb022667c67d4e3b2eb3`; backup branch: `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Exact-head Actions:
+- Process lifecycle inventory - 904d7b489b96a99c72cedb022667c67d4e3b2eb3 (#45530983779, SHA 904d7b489b96): in_progress.
+- WAN route operation status regression (#45530983759, SHA 904d7b489b96): in_progress.
+- XY-C1 Firmware Validation (#45530983731, SHA 904d7b489b96): in_progress.
+- ZeroTier lifecycle stability regression (#45530983712, SHA 904d7b489b96): in_progress.
+- XY-C1 Build/TRX/artifact and physical L3/L4 validation must be reported independently; no local compile or hardware result is claimed here.
+
 ## 2026-11-24 — Restore AI handoff roadmap size compliance
 
 - Exact main SHA 5b54971422023d9e1dd0d3e7f2f21f2d73816ffb: DHCPv6 retry/timer regression #45524153756 PASS; AI docs #45524153765 failed only because REFACTOR_ROADMAP.md was 131,167 bytes, exceeding the 131,072-byte hard limit. Condensed the duplicate top-level historical summary while retaining the current mask/timer implementation record; the docs workflow must pass on this new exact SHA. The product-source baseline c009462 remains the last XY-C1 candidate; its Build/TRX/artifact run was still pending, so L3 is not claimed.
