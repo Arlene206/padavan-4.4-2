@@ -681,9 +681,19 @@ void server(int lpnumber)
 		break;
 	}
 	freeaddrinfo(ressave);
-	clientlen = sizeof(client);
-	memset(&client, 0, sizeof(client));
-	while ((fd = accept(netfd, (struct sockaddr *)&client, &clientlen)) >= 0) {
+	for (;;) {
+		/*
+		 * accept() updates addrlen to the peer's actual address size.
+		 * Reinitialize both outputs for every connection so a prior IPv4
+		 * or IPv6 peer cannot truncate the next address or ACL lookup.
+		 */
+		clientlen = sizeof(client);
+		memset(&client, 0, sizeof(client));
+		do {
+			fd = accept(netfd, (struct sockaddr *)&client, &clientlen);
+		} while (fd < 0 && errno == EINTR);
+		if (fd < 0)
+			break;
 		char host[INET6_ADDRSTRLEN];
 #ifdef	USE_LIBWRAP
 		if (hosts_ctl("p910nd", STRING_UNKNOWN, get_ip_str((struct sockaddr *)&client, host, sizeof(host)), STRING_UNKNOWN) == 0) {

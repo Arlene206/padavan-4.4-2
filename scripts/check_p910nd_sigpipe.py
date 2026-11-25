@@ -71,4 +71,26 @@ assert "if (result < 0 && p910nd_io_would_block(errno))" in write_body
 assert "p910nd_write_no_progress(result, avail)" in write_body
 assert "errno = EIO;" in write_body
 
+# accept(2) overwrites addrlen with the actual peer-address length.
+# The server is dual-stack, so each iteration must reset the sockaddr storage
+# and its capacity before accepting a new IPv4/IPv6 peer.
+server_start = SOURCE.index("void server(")
+server_end = SOURCE.index("int is_standalone(", server_start)
+server = compact(SOURCE[server_start:server_end])
+accept_loop = (
+    "for (;;){"
+    "clientlen=sizeof(client);"
+    "memset(&client,0,sizeof(client));"
+    "do{fd=accept(netfd,(struct sockaddr *)&client,&clientlen);}"
+    "while(fd<0&&errno==EINTR);"
+    "if(fd<0)break;"
+)
+assert accept_loop in server, (
+    "server must reset accept address storage/length on every iteration "
+    "and retry interrupted accept calls"
+)
+accept_loop_at = server.index(accept_loop)
+assert accept_loop_at < server.index("get_ip_str((struct sockaddr *)&client", accept_loop_at)
+assert accept_loop_at < server.index("hosts_ctl(", accept_loop_at) if "hosts_ctl(" in server else True
+
 print("p910nd bidirectional SIGPIPE and stream-I/O source contract: PASS")
