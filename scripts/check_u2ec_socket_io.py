@@ -197,7 +197,7 @@ cancel_at = fifo_reader.index("CANCEL:")
 reopen_at = fifo_reader.index("REOPEN_FIFO:", cancel_at)
 assert "u2ec_release_lock_once(&lock, file_unlock)" in fifo_reader[cancel_at:reopen_at]
 assert "u2ec_release_lock_once" in policy
-assert "file_lock(\\"printer\\")" in lock_acquire
+assert 'file_lock("printer")' in lock_acquire
 assert "errno = 0" in lock_acquire
 assert "lock_errno = errno" in lock_acquire
 assert "u2ec_lock_acquisition_is_valid" in lock_acquire
