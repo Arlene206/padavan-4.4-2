@@ -212,7 +212,7 @@ echo 'PPPoE-MWAN lock contention is bounded and foreign lock preserved: PASS'
 reset; ! grep -Eq '(^|[[:space:]])eval[[:space:]]' "$SCRIPT" || fail 'unsafe eval remains'
 ! grep -Eq '^[[:space:]]*set[[:space:]]+-e' "$SCRIPT" || fail 'unexpected errexit mode'
 echo 'PPPoE detect status and command-safety regression: PASS'
-iptables\t-t\tmangle\t-D\tFORWARD\t-i\tbr0' "$LOG" || fail 'unrelated bridge rule was removed'
+iptables\t-t\tmangle\t-D\tFORWARD\t-i\tbr0\t-j\tACCEPT' "$LOG" || fail 'unrelated bridge rule was removed'
 ! grep -Fq 
 reset; export FAIL_SAVE=mangle; run; [ "$RC" = 33 ] || fail "iptables-save status $RC"; [ ! -e "$LOCK" ] || fail 'save failure leaked lock'; assert_cleanup_failure_stops_policy
 echo 'PPPoE-MWAN mangle snapshot failure blocks new policy: PASS'
@@ -243,7 +243,7 @@ echo 'PPPoE-MWAN lock contention is bounded and foreign lock preserved: PASS'
 reset; ! grep -Eq '(^|[[:space:]])eval[[:space:]]' "$SCRIPT" || fail 'unsafe eval remains'
 ! grep -Eq '^[[:space:]]*set[[:space:]]+-e' "$SCRIPT" || fail 'unexpected errexit mode'
 echo 'PPPoE detect status and command-safety regression: PASS'
-iptables\t-t\tmangle\t-D\tINPUT\t-m\tcomment\t--comment\tunrelated br0 rule' "$LOG" || fail 'unrelated quoted comment rule was removed'
+iptables\t-t\tmangle\t-D\tINPUT\t-m\tcomment\t--comment\tunrelated br0 rule\t-j\tACCEPT' "$LOG" || fail 'unrelated comment rule was removed'
 ! grep -Fq 
 reset; export FAIL_SAVE=mangle; run; [ "$RC" = 33 ] || fail "iptables-save status $RC"; [ ! -e "$LOCK" ] || fail 'save failure leaked lock'; assert_cleanup_failure_stops_policy
 echo 'PPPoE-MWAN mangle snapshot failure blocks new policy: PASS'
@@ -274,7 +274,7 @@ echo 'PPPoE-MWAN lock contention is bounded and foreign lock preserved: PASS'
 reset; ! grep -Eq '(^|[[:space:]])eval[[:space:]]' "$SCRIPT" || fail 'unsafe eval remains'
 ! grep -Eq '^[[:space:]]*set[[:space:]]+-e' "$SCRIPT" || fail 'unexpected errexit mode'
 echo 'PPPoE detect status and command-safety regression: PASS'
-iptables\t-t\tnat\t-D\tPOSTROUTING\t-o\tppp0\t-j\tMASQUERADE' "$LOG" || fail 'unrelated PPP masquerade rule was removed'
+iptables\t-t\tnat\t-D\tPOSTROUTING\t-o\tppp0\t-j\tMASQUERADE' "$LOG" || fail 'primary PPP masquerade rule was removed'
 ! grep -Fq 
 reset; export FAIL_SAVE=mangle; run; [ "$RC" = 33 ] || fail "iptables-save status $RC"; [ ! -e "$LOCK" ] || fail 'save failure leaked lock'; assert_cleanup_failure_stops_policy
 echo 'PPPoE-MWAN mangle snapshot failure blocks new policy: PASS'
@@ -305,8 +305,7 @@ echo 'PPPoE-MWAN lock contention is bounded and foreign lock preserved: PASS'
 reset; ! grep -Eq '(^|[[:space:]])eval[[:space:]]' "$SCRIPT" || fail 'unsafe eval remains'
 ! grep -Eq '^[[:space:]]*set[[:space:]]+-e' "$SCRIPT" || fail 'unexpected errexit mode'
 echo 'PPPoE detect status and command-safety regression: PASS'
-iptables\t-t\tnat\t-D\tPREROUTING\t-i\tppp1\t-j\tACCEPT' "$LOG" || fail 'unrelated PPP ingress rule was removed'
-echo 'PPPoE-MWAN cleanup deletes only rules with the exact owner comment: PASS'
+iptables\t-t\tnat\t-D\tPREROUTING\t-i\tppp1\t-j\tACCEPT' "$LOG" || fail 'unrelated PPP NAT rule was removed'
 grep -Fq 
 reset; export FAIL_SAVE=mangle; run; [ "$RC" = 33 ] || fail "iptables-save status $RC"; [ ! -e "$LOCK" ] || fail 'save failure leaked lock'; assert_cleanup_failure_stops_policy
 echo 'PPPoE-MWAN mangle snapshot failure blocks new policy: PASS'
@@ -338,6 +337,7 @@ reset; ! grep -Eq '(^|[[:space:]])eval[[:space:]]' "$SCRIPT" || fail 'unsafe eva
 ! grep -Eq '^[[:space:]]*set[[:space:]]+-e' "$SCRIPT" || fail 'unexpected errexit mode'
 echo 'PPPoE detect status and command-safety regression: PASS'
 ip\troute\treplace\tdefault\tnexthop\tvia\t198.51.100.2\tdev\tppp0\tweight\t1\tnexthop\tvia\t203.0.113.2\tdev\tppp1\tweight\t1' "$LOG" || fail 'multipath default route'
+echo 'PPPoE-MWAN cleanup deletes only rules with the exact owner comment: PASS'
 reset; export FAIL_SAVE=mangle; run; [ "$RC" = 33 ] || fail "iptables-save status $RC"; [ ! -e "$LOCK" ] || fail 'save failure leaked lock'; assert_cleanup_failure_stops_policy
 echo 'PPPoE-MWAN mangle snapshot failure blocks new policy: PASS'
 reset; export FAIL_SAVE=nat; run; [ "$RC" = 33 ] || fail "NAT snapshot status $RC"; assert_cleanup_failure_stops_policy
