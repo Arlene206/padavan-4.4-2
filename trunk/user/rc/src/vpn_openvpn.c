@@ -1544,13 +1544,8 @@ openvpn_tapif_start(const char *ifname, int is_server, int insert_to_bridge,
 		br_add_del_if(IFNAME_BR, ifname, 1);
 	status = doSystem("ifconfig %s %s %s", ifname, "0.0.0.0", "promisc up");
 	if (status != 0) {
-		/* Best-effort local rollback; caller retries only after a full
-		 * process inventory proves that no OpenVPN daemon is running. */
-		if (created) {
-			if (insert_to_bridge)
-				br_add_del_if(IFNAME_BR, ifname, 0);
-			(void)doSystem("%s %s --dev %s", OPENVPN_EXE, "--rmtun", ifname);
-		}
+		/* Keep any newly-created device/bridge membership until the caller
+		 * confirms two complete process-inventory scans show ABSENT. */
 		return status;
 	}
 	set_vpn_balancing(ifname, is_server);

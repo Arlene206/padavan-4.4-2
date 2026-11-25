@@ -4,25 +4,22 @@
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 - OpenVPN server/client detached startup requires matching trusted PID-file process identity. Failed startup rollback is bounded by two complete process-inventory scans and removes only newly-created resources after confirmed ABSENT.
 
+## Current repository state
+
+- Main parent for this TAP cleanup deferral fix: `7b67475e01d13139d9fb97cc9ada5a5cda9b5361`. Exact SHA `7b67475e01d13139d9fb97cc9ada5a5cda9b5361` VPN lifecycle #45662378987 PASS and AI handoff docs #45662378978 PASS.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- OpenVPN detached startup requires trusted writepid process identity. Failed-start rollback is permitted only when the process inventory confirms two complete ABSENT scans and resources were created by that attempt. Unknown/running/invalid/interrupted inventory preserves resources.
+- Newly found defect: TAP setup failure performed local bridge unlink and `--rmtun` inside `openvpn_tapif_start()`, before the caller's two-scan process-absence gate. This contradicted the surrounding safety design and could tear down an interface after another daemon had started using it. The current fix leaves the interface and bridge membership intact on TAP preparation failure; the caller routes the error through `openvpn_start_rollback_failed()`, which checks process absence and ownership before cleanup.
+
 ## Active task
 
-- Correct the ownership regression source checker to inspect the function declaration for the out-parameter and the function body for ownership initialization/assignment.
-
-## Verification boundary
-
-- Exact SHA `615469fc69f100ad6dfce63a27b2a0b3f46f2864`: OpenVPN client credential #45661993123 PASS; AI handoff docs #45661992916 PASS; VPN lifecycle #45661993374 FAIL only because the checker looked for the parameter declaration inside the body-only extraction. All C regressions passed, including the startup rollback policy fixture.
-- Earlier exact SHA `1aa51a6ef623bdc50c4351e50bd4175f3410f670`: OpenVPN credential #45661438519 PASS and AI docs #45661438442 PASS; VPN lifecycle failed at stale server TUN/TAP call markers fixed by d9.
-- dc6 XY-C1 #45660655080 remained in progress at last poll; process lifecycle #45660655082, process inventory #45660655142, NVRAM #45660655603 and HTTPD #45660655362 completed SUCCESS. No L3 claim until the XY run confirms Build, TRX and artifact on the production source SHA. Physical-router L4 NOT VERIFIED.
-
-## Exact first action for the next GPT
-
-1. Check this commit's exact-SHA VPN lifecycle and AI docs Actions; verify the TAP and TUN declaration/body ownership assertions.
-2. Inspect dc6 XY-C1 #45660655080 job steps for Build XY-C1, TRX verification and artifact upload; do not transfer older build claims.
-3. Continue an independent stability/security defect in the broader Padavan userland while pending Actions run.
+1. Verify the exact-SHA TAP cleanup deferral contract and the VPN/OpenVPN regression Actions.
+2. Poll dc6 XY-C1 #45660655080 for Build XY-C1, TRX and artifact upload; do not claim L3 until all pass for the exact production SHA.
+3. Continue a separate stability/security slice in the Padavan userland while unrelated checks run.
 
 ## Execution contract
 
-Source/test → one complete Git tree/commit → non-force expected-SHA update → exact-SHA Actions. Main only; backup immutable; no branches, PRs or force pushes.
+Source/test → complete Git tree/commit → expected-SHA non-force update of main → exact-SHA Actions. Backup remains immutable; preserve full dev_log history.
 
 ## 2026-11-25 autonomous handoff checkpoint
 

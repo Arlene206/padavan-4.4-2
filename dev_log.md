@@ -1,3 +1,12 @@
+## 2026-11-25 — Defer TAP setup rollback until OpenVPN process absence is confirmed
+
+- Base SHA: `7b67475e01d13139d9fb97cc9ada5a5cda9b5361`; result SHA: this commit. Scope: `vpn_openvpn.c`, `check_vpn_server_lifecycle.py`, current handoff/log.
+- Review found `openvpn_tapif_start()` performed immediate local bridge removal and `--rmtun` when the subsequent `ifconfig` command failed. The outer server/client caller already routes this failure through `openvpn_start_rollback_failed()`, whose policy requires two complete process-inventory scans confirming ABSENT and only permits cleanup of resources created by the current attempt. The local rollback bypassed that mandatory gate and contradicted the adjacent safety comment.
+- Removed the local destructive cleanup. The helper still reports `interface_created` before the fallible `ifconfig` step; on failure it returns the status so the caller can preserve resources for RUNNING/UNKNOWN/error states or safely clean them after confirmed absence. Added a source-contract assertion that the ownership report precedes ifconfig and the TAP helper contains no local bridge unlink or `--rmtun`.
+- Exact base `7b67475e01d13139d9fb97cc9ada5a5cda9b5361`: VPN server lifecycle #45662378987 PASS; AI docs #45662378978 PASS. Current fix tests and exact-SHA Actions pending. Earlier d91 XY-C1 Build/TRX/artifact PASS applies only to `d91bc841...`; dc6 exact build #45660655080 was still running at last poll. Physical-router L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-26 03:24 CST (UTC+8) — Scope interface ownership checks to declarations
 
 - Base SHA: `615469fc69f100ad6dfce63a27b2a0b3f46f2864`; focused source-check correction, no production-code changes.

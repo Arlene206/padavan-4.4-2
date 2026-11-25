@@ -1653,6 +1653,12 @@ for helper_signature, label in (
             "*interface_created = 0;" in helper_body and
             "*interface_created = created;" in helper_body,
             f"OpenVPN {label} helper must report only resources created by this attempt")
+    if label == "TAP":
+        require(helper_body.index("*interface_created = created;") <
+                helper_body.index('status = doSystem("ifconfig %s %s %s"') and
+                '"--rmtun"' not in helper_body and
+                "br_add_del_if(IFNAME_BR, ifname, 0)" not in helper_body,
+                "TAP preparation failure must defer cleanup to the process-inventory-gated caller")
 for signature, pidfile, label in (
     ("start_openvpn_server(void)", "SERVER_PID_FILE", "server"),
     ("start_openvpn_client(void)", "CLIENT_PID_FILE", "client"),
