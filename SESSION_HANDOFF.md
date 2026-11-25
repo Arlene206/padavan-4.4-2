@@ -2,17 +2,16 @@
 
 This snapshot supersedes older task pointers below where they conflict with live Git state.
 
-- Main before this checker correction: `a51496ebf3219d1070edb794718447554dc3cf72`. Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, untouched. PR #1 remains closed/unmerged.
-- Exact a514 ZeroTier run #45539043663: bounded lifecycle shell regression PASS, including damaged-prefix recovery when routes are absent, fail-closed when route inventory is unreadable, valid checkpoint/live-route handling and truncated-tail refusal. Its Python source contract failed due five mistakenly JavaScript-style `.indexOf()` calls in the Python checker; changed to Python `.index()` below. Exact-head rerun required.
-- Exact a514 Process inventory #45539043654 PASS; AI docs #45539043727 PASS; WAN route #45539043652 PASS. XY-C1 #45539043720 was still IN_PROGRESS at last poll.
-- UDHCP at `a8f5f0a2a4d8aacfea275811dc79d444afeee78d`: #45538273420 PASS (GNU89/ASan/UBSan + source contract); AI docs, Process, USB storage and XY-C1 Build/TRX/artifact PASS on that exact SHA.
-- No local host test claimed. Frozen backup remains unchanged.
+- Main before this UDHCP option-overload hardening: c921d6bdbbf0c9f8c33b02e706490deaa918d513. Frozen backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807, unchanged. PR #1 remains closed/unmerged.
+- Exact c921 checks: ZeroTier lifecycle #45539243439 PASS; AI handoff docs #45539243452 PASS. Exact a514 product-source run #45539043720 passed XY-C1 Build/TRX/artifact; no build-affecting files changed between a514 and c921. UDHCP parser sanitizer suite passed on a8f5f0a2 (#45538273420); this new option-52 hardening needs a fresh exact-head UDHCP run.
+- Current fix: RFC 2132 legal option-overload selector values are only 1/2/3; the previous policy accepted 0. RFC 2131 requires the selector in the main options area before file/sname are interpreted. The parser previously merged repeated selectors and could process selector 52 again inside an overloaded field. This slice rejects value 0, repeated selectors and selectors encountered in overloaded fields.
+- No local compile/host regression claimed. Verify exact-head UDHCP GNU89/ASan/UBSan and Python source contract; verify Process/AI/XY-C1 workflows when triggered. Backup remains read-only.
 
 ## Exact first action for the next GPT
 
-1. Verify exact-head ZeroTier shell regression and Python source contract after replacing the invalid string method calls.
-2. Confirm XY-C1 Build/TRX/artifact for the latest source SHA and check AI/Process/WAN same-SHA results.
-3. Continue a separate userland reliability/security slice while independent Actions remain pending.
+1. Verify the exact-head UDHCP regression and source checker for legal selector values, uniqueness and main-field placement; fix any failure.
+2. Check Process inventory/umbrella and XY-C1 Build/TRX/artifact on the new source SHA.
+3. Continue a separate userland P1/P2 reliability/security slice while unrelated Actions are pending. No force-push or backup mutation.
 
 No force-push.
 

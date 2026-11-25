@@ -1,3 +1,9 @@
+## 2026-11-25 11:45 CST — Reject invalid, duplicate and misplaced DHCP option-overload selectors
+
+- UDHCP parser review against RFC 2131/2132 exposed two remaining validation gaps: selector value 0 was accepted although only 1, 2 and 3 are legal; and the parser merged repeated option-52 values or accepted the selector a second time while walking overloaded file/sname fields.
+- Added a valid-value range and a location/uniqueness state check. Option 52 is now accepted once, only in the main options field, before any overloaded field is visited. File-then-sname traversal remains unchanged.
+- Added GNU89 sanitizer fixtures for zero/valid selectors, duplicate values and overloaded-field placement; extended the exact-source Python contract. No local compile claimed; exact-head Actions pending.
+
 ## 2026-11-25 11:38 CST — Repair ZeroTier Python source-contract index calls
 
 - Exact a514 run #45539043663 passed the complete shell runtime suite, including the route-absent recovery path and new unreadable-route check, but failed the Python contract immediately after that because five ordering assertions called JavaScript's `.indexOf()` on Python strings.

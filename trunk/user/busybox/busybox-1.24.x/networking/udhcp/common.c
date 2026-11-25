@@ -222,6 +222,8 @@ uint8_t* FAST_FUNC udhcp_get_option(struct dhcp_packet *packet, int code)
 	uint8_t *optionptr;
 	int rem;
 	int overload = 0;
+	int overload_seen = 0;
+	int in_overloaded_field = 0;
 	unsigned int option_size;
 	uint8_t overload_fields;
 	enum {
@@ -246,6 +248,7 @@ uint8_t* FAST_FUNC udhcp_get_option(struct dhcp_packet *packet, int code)
 			if ((overload & FILE_FIELD101) == FILE_FIELD) {
 				/* can use packet->file, and didn't look at it yet */
 				overload |= FILE_FIELD101; /* "we looked at it" */
+				in_overloaded_field = 1;
 				optionptr = packet->file;
 				rem = sizeof(packet->file);
 				continue;
@@ -253,6 +256,7 @@ uint8_t* FAST_FUNC udhcp_get_option(struct dhcp_packet *packet, int code)
 			if ((overload & SNAME_FIELD101) == SNAME_FIELD) {
 				/* can use packet->sname, and didn't look at it yet */
 				overload |= SNAME_FIELD101; /* "we looked at it" */
+				in_overloaded_field = 1;
 				optionptr = packet->sname;
 				rem = sizeof(packet->sname);
 				continue;
@@ -268,12 +272,20 @@ uint8_t* FAST_FUNC udhcp_get_option(struct dhcp_packet *packet, int code)
 		}
 
 		if (optionptr[OPT_CODE] == DHCP_OPTION_OVERLOAD) {
+			/* RFC 2131 requires this selector once in packet->options. */
+			if (!udhcp_option_overload_location_valid(
+					(unsigned int)overload_seen,
+					(unsigned int)in_overloaded_field)) {
+				bb_error_msg("bad packet, misplaced or duplicate option overload");
+				return NULL;
+			}
 			if (!udhcp_option_overload_fields(optionptr,
 							  (unsigned int)rem,
 							  &overload_fields)) {
 				bb_error_msg("bad packet, malformed option overload");
 				return NULL;
 			}
+			overload_seen = 1;
 			overload |= overload_fields;
 		}
 

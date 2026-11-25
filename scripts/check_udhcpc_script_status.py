@@ -68,6 +68,8 @@ assert '#include "udhcpc_script_policy.h"' in dhcpc
 # DHCP option TLV parsing validates header and full payload before use.
 assert '#include "option_parser_policy.h"' in common
 assert 'udhcp_option_tlv_size(const uint8_t *option' in option_parser
+assert 'option[2] < 1U || option[2] > 3U' in option_parser
+assert 'udhcp_option_overload_location_valid' in option_parser
 assert 'remaining < 2U' in option_parser
 assert 'payload_length > remaining - 2U' in option_parser
 assert 'option[1] != 1U' in option_parser
@@ -78,12 +80,18 @@ overload_check = option_parser_body.index("udhcp_option_overload_fields(optionpt
 length_access = option_parser_body.index("optionptr[OPT_LEN]")
 cursor_advance = option_parser_body.index("optionptr += option_size")
 assert tlv_guard < overload_check < length_access < cursor_advance
+overload_location_check = option_parser_body.index("udhcp_option_overload_location_valid")
+overload_seen_mark = option_parser_body.index("overload_seen = 1", overload_location_check)
+assert overload_location_check < overload_check < overload_seen_mark
+assert option_parser_body.count("in_overloaded_field = 1") == 2
 assert 'if (optionptr[OPT_CODE] == code && optionptr[OPT_LEN] != 0)' in option_parser_body
 assert 'if (rem < 0) continue' not in option_parser_body
 assert "test_dhcp_option_tlv_bounds" in test
 assert "test_dhcp_option_overload_is_a_validated_single_byte" in test
 assert "test_dhcp_option_tlv_bounds() != 0" in test
 assert "test_dhcp_option_overload_is_a_validated_single_byte() != 0" in test
+assert "test_dhcp_option_overload_is_unique_to_main_field" in test
+assert "test_dhcp_option_overload_is_unique_to_main_field() != 0" in test
 assert 'option_parser_policy.h' in workflow
 assert 'udhcpc_subnet_mask_prefix_length(uint32_t mask, unsigned int *prefix_length)' in policy
 assert 'test_subnet_mask_requires_contiguous_network_bits' in test

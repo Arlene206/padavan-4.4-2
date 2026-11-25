@@ -31,11 +31,18 @@ static inline int udhcp_option_overload_fields(const uint8_t *option,
 	    option[0] != 0x34U ||
 	    option[1] != 1U ||
 	    total_size != 3U ||
-	    (option[2] & (uint8_t)~0x03U) != 0U)
+	    option[2] < 1U || option[2] > 3U)
 		return 0;
 
 	*fields = option[2];
 	return 1;
+}
+
+/* RFC 2131 section 4.1: option-overload appears once in main options. */
+static inline int udhcp_option_overload_location_valid(
+		unsigned int already_seen, unsigned int in_overloaded_field)
+{
+	return already_seen == 0U && in_overloaded_field == 0U;
 }
 
 #endif

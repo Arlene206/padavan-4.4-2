@@ -376,6 +376,7 @@ static int test_dhcp_option_tlv_bounds(void)
 
 static int test_dhcp_option_overload_is_a_validated_single_byte(void)
 {
+	static const uint8_t zero_value[] = { 0x34U, 1U, 0U };
 	static const uint8_t valid_file[] = { 0x34U, 1U, 1U };
 	static const uint8_t valid_sname[] = { 0x34U, 1U, 2U };
 	static const uint8_t valid_both[] = { 0x34U, 1U, 3U };
@@ -406,8 +407,20 @@ static int test_dhcp_option_overload_is_a_validated_single_byte(void)
 	CHECK(fields == 0xa5U);
 	CHECK(!udhcp_option_overload_fields(reserved_bits, 3U, &fields));
 	CHECK(fields == 0xa5U);
+	CHECK(!udhcp_option_overload_fields(zero_value, 3U, &fields));
+	CHECK(fields == 0xa5U);
 	CHECK(!udhcp_option_overload_fields(valid_both, 2U, &fields));
 	CHECK(fields == 0xa5U);
+	return 0;
+}
+
+static int test_dhcp_option_overload_is_unique_to_main_field(void)
+{
+	CHECK(udhcp_option_overload_location_valid(0U, 0U));
+	CHECK(!udhcp_option_overload_location_valid(1U, 0U));
+	CHECK(!udhcp_option_overload_location_valid(0U, 1U));
+	CHECK(!udhcp_option_overload_location_valid(1U, 1U));
+	CHECK(!udhcp_option_overload_location_valid(2U, 0U));
 	return 0;
 }
 
@@ -415,6 +428,7 @@ int main(void)
 {
 	if (test_dhcp_option_tlv_bounds() != 0 ||
 	    test_dhcp_option_overload_is_a_validated_single_byte() != 0 ||
+	    test_dhcp_option_overload_is_unique_to_main_field() != 0 ||
 	    test_fixed_route_options_reject_partial_tuples() != 0 ||
 	    test_static_routes_reject_malformed_trailing_tuples() != 0 ||
 	    test_subnet_mask_requires_contiguous_network_bits() != 0 ||
