@@ -1,3 +1,9 @@
+## 2026-11-25 11:15 CST — Bound BusyBox UDHCP option TLV parsing
+
+- `udhcp_get_option()` read `optionptr[OPT_LEN]` before ensuring two header bytes remained. A packet ending with one non-PAD/non-END byte could cause a one-byte-header overread at an option-field boundary. Option-overload handling also read `OPT_DATA` before enforcing its required one-byte length; zero-length requested TLVs continued without advancing the cursor.
+- Added a shared parser policy helper validating the complete TLV header and payload, and option-overload code, exact length and reserved selector bits. Production parsing rejects truncated TLVs and malformed overload options; empty option instances advance safely.
+- Added GNU89 ASan/UBSan tests for one-byte headers, truncated/exact/max payloads, null arguments, overload lengths 0/1/2, reserved flags and valid FILE/SNAME/BOTH selectors. Extended the udhcpc source checker and push/PR path filters to watch `common.c`, `common.h` and the new policy header. No local compile claimed; exact-head Actions pending.
+
 ## 2026-11-25 11:08 CST — Reject unterminated trailing ZeroTier checkpoint fragments
 
 - Exact-head ZeroTier run #45537336228 on `a4927aee49ef7f82657a67247c21874840c1f59d` failed only at the new test's `truncated checkpoint prefix was rewritten` assertion. The fixture compared the whole unchanged two-line checkpoint with only its second line; no production failure was shown.

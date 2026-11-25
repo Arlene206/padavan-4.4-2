@@ -2,16 +2,16 @@
 
 This snapshot supersedes older task pointers below where they conflict with live Git state.
 
-- Main before this strict-tail correction: `a4927aee49ef7f82657a67247c21874840c1f59d`. Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, untouched. PR #1 remains closed/unmerged.
-- Exact-head Actions on `a4927aee49ef7f82657a67247c21874840c1f59d`: AI handoff #45537336220 PASS, Process inventory #45537336336 PASS, WAN route #45537336271 PASS, XY-C1 #45537336218 PASS (Build/TRX/artifact all success). ZeroTier #45537336228 FAILED in the shell regression at the truncated-checkpoint test assertion. The test compared the entire two-line checkpoint to only its second line; the implementation correctly left the unterminated second line intact. This correction fixes the byte-content expectation and strengthens strict loading to reject a nonempty unterminated trailing fragment.
-- ZeroTier stop recovery remains narrowly scoped: complete trailing record + validated first two complete LF-terminated fields can be normalized atomically before daemon signalling. An unterminated second field or third-field fragment, malformed tuple, unsafe path remain fail-closed. Startup replay remains strict.
-- Regression now explicitly covers both an unterminated second field and an unterminated third-field fragment, in addition to recoverable complete extra-record cleanup/retry after live route disappearance. Local host regression not run; verify exact-head ZeroTier run after this commit.
+- Main before this BusyBox UDHCP hardening slice: `43d03d8b6fa88c4119b12cf869c3c663d5d44742`. Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, untouched. PR #1 remains closed/unmerged.
+- ZeroTier checkpoint follow-up on `a4927aee49ef7f82657a67247c21874840c1f59d`: AI docs #45537336220 PASS, Process inventory #45537336336 PASS, WAN route #45537336271 PASS, XY-C1 #45537336218 PASS (Build/TRX/artifact). ZeroTier #45537336228 failed because the truncated-second-line test compared the full file to just its second field; production kept it intact. Current `43d03d8` tightens strict handling of unterminated trailing fragments and adds regressions; exact-head ZeroTier verification remains open.
+- New independent BusyBox UDHCP issue: `udhcp_get_option()` read a TLV length byte without ensuring two header bytes remained and consumed option-overload data before validating its required one-byte length. A malformed zero-length queried TLV also continued without advancing the cursor. This slice adds bounded TLV/overload validation in a pure GNU89 header, production wiring in `common.c`, ASan/UBSan fixtures and source-contract/path-filter coverage.
+- Local host compilation not run. Verify exact-head udhcpc script-status regression and checker, Process inventory/umbrella, WAN, and XY-C1 Build/TRX/artifact on the new production-source SHA. Backup remains read-only.
 
 ## Exact first action for the next GPT
 
-1. Verify exact-head ZeroTier workflow (shell runtime + Python contracts) on current main. Fix any new FAIL from the log before treating checkpoint recovery as complete.
-2. Confirm same-SHA AI docs, Process inventory/umbrella, WAN and XY-C1 remain green; XY-C1 L3 should be claimed only when Build/TRX/artifact all success on production source.
-3. Continue an independent userland reliability/security fix while unrelated CI is pending. Frozen backup remains read-only.
+1. Verify UDHCP sanitizer regression and source contract on exact main; inspect and fix any compiler/test/checker issue.
+2. Verify ZeroTier checkpoint recovery suite on current SHA and close it only after exact-head PASS.
+3. Continue independent userland reliability/security hardening while other Actions are pending. No force-push or backup mutation.
 
 No force-push. The backup branch remains unchanged.
 

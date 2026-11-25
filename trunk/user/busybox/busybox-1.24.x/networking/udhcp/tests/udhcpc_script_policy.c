@@ -1,6 +1,7 @@
 #include <stdio.h>
 
 #include "udhcpc_script_policy.h"
+#include "option_parser_policy.h"
 
 #define CHECK(condition) do { \
 	if (!(condition)) { \
@@ -347,8 +348,73 @@ static int test_already_expired_lease_is_not_resurrected(void)
 	return 0;
 }
 
+
+static int test_dhcp_option_tlv_bounds(void)
+{
+	static const uint8_t one_byte_header[] = { 0x35U };
+	static const uint8_t truncated_payload[] = { 0x35U, 2U, 1U };
+	static const uint8_t exact_payload[] = { 0x35U, 2U, 1U, 2U };
+	static const uint8_t maximum_payload[257] = { 0x35U, 255U };
+	unsigned int total_size;
+
+	total_size = 77U;
+	CHECK(!udhcp_option_tlv_size(NULL, 2U, &total_size));
+	CHECK(total_size == 77U);
+	CHECK(!udhcp_option_tlv_size(one_byte_header, 1U, &total_size));
+	CHECK(total_size == 77U);
+	CHECK(!udhcp_option_tlv_size(truncated_payload, 3U, &total_size));
+	CHECK(total_size == 77U);
+	CHECK(udhcp_option_tlv_size(exact_payload, 4U, &total_size));
+	CHECK(total_size == 4U);
+	CHECK(udhcp_option_tlv_size(maximum_payload, 257U, &total_size));
+	CHECK(total_size == 257U);
+	CHECK(!udhcp_option_tlv_size(maximum_payload, 256U, &total_size));
+	CHECK(total_size == 257U);
+	CHECK(!udhcp_option_tlv_size(exact_payload, 2U, &total_size));
+	return 0;
+}
+
+static int test_dhcp_option_overload_is_a_validated_single_byte(void)
+{
+	static const uint8_t valid_file[] = { 0x34U, 1U, 1U };
+	static const uint8_t valid_sname[] = { 0x34U, 1U, 2U };
+	static const uint8_t valid_both[] = { 0x34U, 1U, 3U };
+	static const uint8_t reserved_bits[] = { 0x34U, 1U, 0x81U };
+	static const uint8_t empty[] = { 0x34U, 0U, 0U };
+	static const uint8_t overlong[] = { 0x34U, 2U, 3U, 0U };
+	static const uint8_t wrong_code[] = { 0x35U, 1U, 1U };
+	static const uint8_t short_header[] = { 0x34U };
+	uint8_t fields = 0xa5U;
+
+	CHECK(udhcp_option_overload_fields(valid_file, 3U, &fields));
+	CHECK(fields == 1U);
+	CHECK(udhcp_option_overload_fields(valid_sname, 3U, &fields));
+	CHECK(fields == 2U);
+	CHECK(udhcp_option_overload_fields(valid_both, 3U, &fields));
+	CHECK(fields == 3U);
+
+	fields = 0xa5U;
+	CHECK(!udhcp_option_overload_fields(NULL, 3U, &fields));
+	CHECK(fields == 0xa5U);
+	CHECK(!udhcp_option_overload_fields(short_header, 1U, &fields));
+	CHECK(fields == 0xa5U);
+	CHECK(!udhcp_option_overload_fields(empty, 3U, &fields));
+	CHECK(fields == 0xa5U);
+	CHECK(!udhcp_option_overload_fields(overlong, 4U, &fields));
+	CHECK(fields == 0xa5U);
+	CHECK(!udhcp_option_overload_fields(wrong_code, 3U, &fields));
+	CHECK(fields == 0xa5U);
+	CHECK(!udhcp_option_overload_fields(reserved_bits, 3U, &fields));
+	CHECK(fields == 0xa5U);
+	CHECK(!udhcp_option_overload_fields(valid_both, 2U, &fields));
+	CHECK(fields == 0xa5U);
+	return 0;
+}
+
 int main(void)
 {
+	if (test_dhcp_option_tlv_bounds() != 0 ||
+	    test_dhcp_option_overload_is_a_validated_single_byte() != 0 ||
 	if (test_fixed_route_options_reject_partial_tuples() != 0 ||
 	    test_static_routes_reject_malformed_trailing_tuples() != 0 ||
 	    test_subnet_mask_requires_contiguous_network_bits() != 0 ||

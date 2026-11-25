@@ -54,6 +54,8 @@ def function_body(source, signature):
 
 udhcp_dir = "trunk/user/busybox/busybox-1.24.x/networking/udhcp/"
 dhcpc = read(udhcp_dir + "dhcpc.c")
+common = read(udhcp_dir + "common.c")
+option_parser = read(udhcp_dir + "option_parser_policy.h")
 policy = read(udhcp_dir + "udhcpc_script_policy.h")
 test = read(udhcp_dir + "tests/udhcpc_script_policy.c")
 arpping_source = read(udhcp_dir + "arpping.c")
@@ -62,6 +64,27 @@ libbb = read("trunk/user/busybox/busybox-1.24.x/include/libbb.h")
 workflow = read(".github/workflows/udhcpc-script-status-stability.yml")
 
 assert '#include "udhcpc_script_policy.h"' in dhcpc
+
+# DHCP option TLV parsing validates header and full payload before use.
+assert '#include "option_parser_policy.h"' in common
+assert 'udhcp_option_tlv_size(const uint8_t *option' in option_parser
+assert 'remaining < 2U' in option_parser
+assert 'payload_length > remaining - 2U' in option_parser
+assert 'option[1] != 1U' in option_parser
+assert '(option[2] & (uint8_t)~0x03U) != 0U' in option_parser
+option_parser_body = function_body(common, "uint8_t* FAST_FUNC udhcp_get_option")
+tlv_guard = option_parser_body.index("udhcp_option_tlv_size(optionptr")
+overload_check = option_parser_body.index("udhcp_option_overload_fields(optionptr")
+length_access = option_parser_body.index("optionptr[OPT_LEN]")
+cursor_advance = option_parser_body.index("optionptr += option_size")
+assert tlv_guard < overload_check < length_access < cursor_advance
+assert 'if (optionptr[OPT_CODE] == code && optionptr[OPT_LEN] != 0)' in option_parser_body
+assert 'if (rem < 0) continue' not in option_parser_body
+assert "test_dhcp_option_tlv_bounds" in test
+assert "test_dhcp_option_overload_is_a_validated_single_byte" in test
+assert "test_dhcp_option_tlv_bounds() != 0" in test
+assert "test_dhcp_option_overload_is_a_validated_single_byte() != 0" in test
+assert 'option_parser_policy.h' in workflow
 assert 'udhcpc_subnet_mask_prefix_length(uint32_t mask, unsigned int *prefix_length)' in policy
 assert 'test_subnet_mask_requires_contiguous_network_bits' in test
 assert 'test_subnet_mask_requires_contiguous_network_bits() != 0' in test

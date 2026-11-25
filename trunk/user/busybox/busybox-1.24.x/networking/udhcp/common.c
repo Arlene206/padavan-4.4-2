@@ -5,6 +5,7 @@
  * Licensed under GPLv2, see file LICENSE in this source tree.
  */
 #include "common.h"
+#include "option_parser_policy.h"
 
 #if defined CONFIG_UDHCP_DEBUG && CONFIG_UDHCP_DEBUG >= 1
 unsigned dhcp_verbose;
@@ -219,9 +220,10 @@ unsigned FAST_FUNC udhcp_option_idx(const char *name)
 uint8_t* FAST_FUNC udhcp_get_option(struct dhcp_packet *packet, int code)
 {
 	uint8_t *optionptr;
-	int len;
 	int rem;
 	int overload = 0;
+	unsigned int option_size;
+	uint8_t overload_fields;
 	enum {
 		FILE_FIELD101  = FILE_FIELD  * 0x101,
 		SNAME_FIELD101 = SNAME_FIELD * 0x101,
@@ -257,30 +259,32 @@ uint8_t* FAST_FUNC udhcp_get_option(struct dhcp_packet *packet, int code)
 			}
 			break;
 		}
-		len = 2 + optionptr[OPT_LEN];
-		rem -= len;
-		if (rem < 0)
-			continue; /* complain and return NULL */
 
-		if (optionptr[OPT_CODE] == code) {
-			if (optionptr[OPT_LEN] == 0) {
-				/* So far no valid option with length 0 known.
-				 * Having this check means that searching
-				 * for DHCP_MESSAGE_TYPE need not worry
-				 * that returned pointer might be unsafe
-				 * to dereference.
-				 */
-				continue; /* complain and return NULL */
+		/* Validate both header bytes and the full payload before access. */
+		if (!udhcp_option_tlv_size(optionptr, (unsigned int)rem,
+					   &option_size)) {
+			bb_error_msg("bad packet, malformed option field");
+			return NULL;
+		}
+
+		if (optionptr[OPT_CODE] == DHCP_OPTION_OVERLOAD) {
+			if (!udhcp_option_overload_fields(optionptr,
+							  (unsigned int)rem,
+							  &overload_fields)) {
+				bb_error_msg("bad packet, malformed option overload");
+				return NULL;
 			}
+			overload |= overload_fields;
+		}
+
+		if (optionptr[OPT_CODE] == code && optionptr[OPT_LEN] != 0) {
 			log_option("Option found", optionptr);
 			return optionptr + OPT_DATA;
 		}
 
-		if (optionptr[OPT_CODE] == DHCP_OPTION_OVERLOAD) {
-			overload |= optionptr[OPT_DATA];
-			/* fall through */
-		}
-		optionptr += len;
+		/* Advance even for a zero-length instance; do not strand the cursor. */
+		optionptr += option_size;
+		rem -= (int)option_size;
 	}
 
 	/* log3 because udhcpc uses it a lot - very noisy */
