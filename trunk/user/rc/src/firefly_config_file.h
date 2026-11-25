@@ -2,10 +2,12 @@
 #define FIREFLY_CONFIG_FILE_H
 
 #include <errno.h>
+#include <fcntl.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 struct firefly_config_values {
@@ -126,10 +128,12 @@ firefly_config_publish(const char *path, const char *source_path,
 {
 	static const char suffix[] = ".tmp.XXXXXX";
 	struct firefly_config_values values;
+	struct stat source_info;
 	char *temporary_path = NULL;
 	size_t path_length;
 	FILE *source = NULL;
 	FILE *output = NULL;
+	int source_fd = -1;
 	int fd = -1;
 	int status = 0;
 	int sync_status;
@@ -145,10 +149,33 @@ firefly_config_publish(const char *path, const char *source_path,
 	values.password = password;
 
 	if (source_path != NULL && source_path[0] != '\0') {
+		/*
+		 * A corrupt FIFO at the persisted config path must not block
+		 * service startup forever. Open nonblocking, pin the object with
+		 * fstat(), and only read a regular file. Symlinks to regular files
+		 * remain compatible because open() follows and pins their target.
+		 */
 		errno = 0;
-		source = fopen(source_path, "r");
-		if (source == NULL && errno != ENOENT)
-			return errno ? errno : EIO;
+		source_fd = open(source_path, O_RDONLY | O_NONBLOCK | O_NOCTTY);
+		if (source_fd < 0) {
+			if (errno != ENOENT)
+				return errno ? errno : EIO;
+		} else {
+			if (fstat(source_fd, &source_info) != 0) {
+				status = errno ? errno : EIO;
+				goto out;
+			}
+			if (!S_ISREG(source_info.st_mode)) {
+				status = EINVAL;
+				goto out;
+			}
+			source = fdopen(source_fd, "r");
+			if (source == NULL) {
+				status = errno ? errno : EIO;
+				goto out;
+			}
+			source_fd = -1;
+		}
 	}
 
 	path_length = strlen(path);
@@ -216,6 +243,8 @@ firefly_config_publish(const char *path, const char *source_path,
 out:
 	if (source != NULL)
 		fclose(source);
+	if (source_fd >= 0)
+		close(source_fd);
 	if (output != NULL)
 		fclose(output);
 	if (fd >= 0)

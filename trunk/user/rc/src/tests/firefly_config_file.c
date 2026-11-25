@@ -68,6 +68,9 @@ main(void)
 	char path[256];
 	char default_path[256];
 	char directory_target[256];
+	char symlink_source[256];
+	char symlink_output[256];
+	char fifo_path[256];
 	struct stat st;
 	int status;
 
@@ -75,6 +78,9 @@ main(void)
 	assert(snprintf(path, sizeof(path), "%s/mt-daapd.conf", directory) > 0);
 	assert(snprintf(default_path, sizeof(default_path), "%s/default.conf", directory) > 0);
 	assert(snprintf(directory_target, sizeof(directory_target), "%s/directory-target", directory) > 0);
+	assert(snprintf(symlink_source, sizeof(symlink_source), "%s/source-link", directory) > 0);
+	assert(snprintf(symlink_output, sizeof(symlink_output), "%s/symlink-output.conf", directory) > 0);
+	assert(snprintf(fifo_path, sizeof(fifo_path), "%s/fifo.conf", directory) > 0);
 
 	write_file(path,
 		   "[general]\n"
@@ -98,6 +104,15 @@ main(void)
 	assert_contains(path, "plugin_dir = /usr/lib/mt-daapd\n");
 	assert_contains(path, "custom_setting = preserve-me\n");
 	assert_not_contains(path, "old-user");
+	assert_no_temporary_files(directory);
+
+	/* Symlinks to regular source files remain supported and are pinned open. */
+	assert(symlink(path, symlink_source) == 0);
+	status = firefly_config_publish(symlink_output, symlink_source,
+					"/mnt/firefly", "media-user", "media-pass");
+	assert(status == 0);
+	assert_contains(symlink_output, "custom_setting = preserve-me\n");
+	assert(stat(symlink_output, &st) == 0 && S_ISREG(st.st_mode));
 	assert_no_temporary_files(directory);
 
 	status = firefly_config_publish(default_path, default_path, "/mnt/firefly",
@@ -135,6 +150,20 @@ main(void)
 	assert_contains(path, "last-good-configuration\n");
 	assert_no_temporary_files(directory);
 
+	/*
+	 * A FIFO at the persisted source path used to block fopen() indefinitely.
+	 * The bounded alarm turns a regression into a fast, deterministic failure.
+	 */
+	assert(mkfifo(fifo_path, 0600) == 0);
+	alarm(5);
+	status = firefly_config_publish(fifo_path, fifo_path, "/mnt/firefly",
+					"media-user", "media-pass");
+	alarm(0);
+	assert(status == EINVAL);
+	assert(lstat(fifo_path, &st) == 0 && S_ISFIFO(st.st_mode));
+	assert_no_temporary_files(directory);
+	assert(unlink(fifo_path) == 0);
+
 	assert(mkdir(directory_target, 0700) == 0);
 	status = firefly_config_publish(directory_target, NULL, "/mnt/firefly",
 					"media-user", "media-pass");
@@ -149,6 +178,8 @@ main(void)
 
 	assert(unlink(path) == 0);
 	assert(unlink(default_path) == 0);
+	assert(unlink(symlink_source) == 0);
+	assert(unlink(symlink_output) == 0);
 	assert(rmdir(directory_target) == 0);
 	assert(rmdir(directory) == 0);
 	puts("Firefly atomic configuration publication: PASS");
