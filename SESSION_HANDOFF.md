@@ -1,28 +1,26 @@
 ## Current repository state — 2026-11-25
 
-- Live main before the current checker fix: f356cfad007312e2667c91bb0ea27e1f58ddec14. The update is one atomic descendant; re-fetch live main for subsequent work.
-- Frozen backup branch backup/pre-plugin-overhaul-2026-11-14 remains read-only at 72f4f157a084f8184b9597ca5bf334b8080e5807.
-- Firefly bounded-line source fix 284ececc912a496705db825f3643fa0121d5f1d7 plus embedded-NUL regression follow-up ae740fbff80c62f23c6f4b280ee96c5610bc28d6 are verified. On exact SHA ae740..., Firefly #45682623104, AI Docs #45682623337, Process lifecycle #45682623367, Process inventory #45682623222 and NVRAM #45682623246 all PASS.
-- NFS selector hardening/checker correction is verified on exact SHA ffcd7ceb5f5092935203e078d4acb2ea6a2598ba: NFS start/reload #45681847110 and AI Docs #45681847147 PASS.
-- VSFTPD hidden-share fix is production source commit 3bcf67e205a9be881d9d6a54b817c550156c797f. The first exact VSFTPD failure #45683462187 was Python checker ordering (NameError); moved helper calls below def function_body in f356cfad007312e2667c91bb0ea27e1f58ddec14. Exact f356 run #45683682240 then failed later at stale assertions requiring the old stat()/HIDE_PARTITION_FILE implementation (traceback line 679); the C regression suite had already run. This current commit updates those stale assertions to the new descriptor-relative policy and its FIFO/directory/symlink fixture set.
-- USB storage checker failure #45683527825 on dc4ad7579e9f4f0cd05b8cddaa40c234f126aaf0 reached all earlier C/host/source checks, then failed in scripts/check_storage_safe_remove.py line 162 because it referenced undefined pr_filters instead of defined pull_filters. This commit fixes that genuine Python contract typo; storage workflow explicitly watches the script path.
-- XY-C1 workflow #45683527955 on dc4ad757... concluded SUCCESS at workflow level, but its job log shows the cross-build/TRX/artifact actions were intentionally skipped because production inputs were unchanged. Therefore this is not a new L3 Build/TRX/artifact validation claim. Physical-router L4 remains NOT VERIFIED.
-- On f356, AI handoff #45683682314 PASS. No exact-SHA VSFTPD PASS yet; its Python contract failure above is pending rerun. No same-SHA firmware Build/TRX/artifact pass claimed.
+- Live main parent before this ACL slice: f83b28fc9f09f7f3c8fd9a002a8f07af9ca7e15d; the directory-preauthorization fix, CI source contract, milestone log and this checkpoint are one atomic descendant.
+- Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains read-only at 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- On exact SHA f83b28fc9f09f7f3c8fd9a002a8f07af9ca7e15d, VSFTPD run #45684331270 PASS and AI handoff #45684331618 PASS; USB storage #45684331348 and XY-C1 #45684331281 were IN_PROGRESS at recovery. These do not validate this descendant.
+- The new VSFTPD fix moves the share READ ACL check before the first path-based str_opendir(&s_filter_str); the later opened-directory FD/identity ACL check remains mandatory. Workflow source-contract assertions cover this ordering.
+- PR #1 is closed and unmerged (head ba48e22609e0c81ad757b06756fe91d05f39cbf6, base 9d5a5cb4ab574c0e610ed7a0815c0b1ad749da74). Its 17 commits are divergent from current main; the 13-file candidate change set still needs a path-by-path check against evolved main before a porting decision. No PR content was copied by this slice.
+- Physical-router L4 remains NOT VERIFIED. No same-SHA L3 Build/TRX/artifact result is claimed.
 
 ## Active task
 
-Re-run exact-head VSFTPD and USB storage regression workflows after fixing their stale/undefined Python assertions. Then continue the VSFTPD descriptor-relative ACL call-site audit or the next concrete independent storage reliability issue. PENDING does not block independent source work.
+Validate the FTP directory pre-authorization fix on its exact main SHA. Then finish the bounded review of remaining postlogin.c / asus_ext.c filesystem lookups and authorization ordering, only where a concrete pre-ACL lookup or post-ACL pathname re-resolution remains. In parallel, complete the required PR #1 unmerged-change inventory against current main without using its closed branch as a workspace.
 
 ## Exact first actions for next GPT
 
-1. Fetch live main and check exact-SHA VSFTPD, USB storage, Process, NVRAM, AI and XY-C1 Actions for this commit. Fix failures from actual logs, not speculation.
-2. Continue ACL review in postlogin.c/asus_ext.c only where a concrete pre-authorization path lookup or post-authorization pathname re-resolution remains.
-3. For L3 require real Build, TRX validation and artifact upload all PASS on the same source SHA. A workflow-level success that intentionally skips these steps is not L3. Physical L4 remains unverified.
+1. Fetch live main, enumerate push Actions with an exact matching head_sha, and inspect VSFTPD + AI handoff results for this slice. Repair any actual source/build/checker failure from its first causal log.
+2. If those checks pass, continue the narrowly scoped VSFTPD filesystem authorization audit; avoid re-auditing completed ACL paths documented in existing test contracts.
+3. Inspect the 13 paths in PR #1's compare result against current main to determine which changes are genuinely missing and still valid; port only those directly to main in atomic slices. Keep the frozen backup untouched.
+4. For L3 require Build, TRX verification and artifact upload all PASS on one identical product-source SHA. Physical-router L4 remains unverified.
 
 ## Execution contract
 
-Main only; never modify/delete backup/pre-plugin-overhaul-2026-11-14; no force-push, branches or PRs. Create all blobs, one complete tree and one commit per logical task; update main with force:false and expected SHA. Check Actions by exact commit SHA and record only confirmed states.
-
+Main only; never modify/delete backup/pre-plugin-overhaul-2026-11-14; no force-push, development branches or PRs. Create all blobs, one complete tree and one commit per logical task; update main with force:false and the exact expected parent SHA. PENDING Actions do not block independent engineering.
 ## 2026-11-25 autonomous handoff checkpoint
 
 This checkpoint supersedes older active task pointers below; retain historical completed work without re-auditing completed areas.

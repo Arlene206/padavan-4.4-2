@@ -881,8 +881,14 @@ handle_dir_common(struct vsf_session* p_sess, int full_details, int stat_cmd)
       vsf_cmdio_write(p_sess, FTP_NOPERM, "Permission denied.");
       return;
     }
-    /* First check - is it an outright directory, as in "ls /pub" */
-    p_dir = str_opendir(&s_filter_str);
+    /*
+     * Check the share READ ACL before probing whether the filter names a
+     * directory. The opened directory is checked again by descriptor below.
+     */
+    if (asus_check_permission_directory(p_sess, &s_filter_str))
+    {
+      p_dir = str_opendir(&s_filter_str);
+    }
     if (p_dir != 0)
     {
       /* Listing a directory! */

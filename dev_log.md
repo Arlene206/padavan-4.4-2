@@ -1,3 +1,10 @@
+## 2026-11-25 — Check FTP directory READ ACL before path probing
+
+- handle_dir_common() previously called str_opendir(&s_filter_str) to distinguish a directory filter from a filename before checking the share READ ACL. The opened directory was denied later, but the pre-authorization path lookup could reveal whether a candidate path resolves as a directory through different FTP outcomes.
+- Added asus_check_permission_directory() before that path-based open. The existing descriptor-bound asus_check_permission_open_directory() remains after open, preserving protection against path replacement between precheck and use. The VSFTPD workflow source contract now enforces precheck → path open → opened-FD ACL verification.
+- Production source and workflow regression are included in this atomic commit. No local host test, MIPS build, firmware artifact, or hardware result is claimed. Exact-head Actions are the required validation.
+
+---
 ## 2026-11-25 — Repair VSFTPD and storage workflow source contracts
 
 - Exact VSFTPD run #45683682240 on f356cfad passed its C regression stage but the Python contract then failed at line 679 because five old assertions still required the removed path-based stat()/HIDE_PARTITION_FILE implementation. Replaced them with the descriptor-relative marker wrapper and behavioral fixture tokens for empty file, FIFO, directory, symlink and dangling symlink.

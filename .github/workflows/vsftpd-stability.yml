@@ -567,7 +567,10 @@ jobs:
           assert "asus_open_existing_path(p_sess, PERM_READ" in retr
           assert "&p_sess->ftp_arg_str, 0," in retr
           assert "str_open(" not in retr
+          assert "asus_check_permission_directory(p_sess, &s_filter_str)" in directory
+          assert directory.index("asus_check_permission_directory(p_sess, &s_filter_str)") < directory.index("str_opendir(&s_filter_str)")
           assert "asus_check_permission_open_directory(" in directory
+          assert directory.index("str_opendir(&s_filter_str)") < directory.index("asus_check_permission_open_directory(")
           assert "vsf_sysutil_dirfd(p_dir)" in directory
           assert "ftp_acl_path_verify_directory_identity(resolved, directory_fd)" in open_list_directory
           assert "asus_check_permission_at(p_sess, PERM_READ, resolved)" in open_list_directory
