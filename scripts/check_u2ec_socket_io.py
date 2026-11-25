@@ -79,6 +79,9 @@ assert "*readfds = *master;" in select_policy
 assert "result < 0 && errno == EINTR" in select_policy
 assert "u2ec_select_readable_retry_with(nfds, master, readfds, select)" in policy
 assert "u2ec_select_readable_retry(fdmax + 1, &master_fds" in add_remote
+select_error = add_remote[add_remote.index("if (ret < 0)"):add_remote.index("/* handle GETIP", add_remote.index("if (ret < 0)"))]
+assert "u2ec_close_failed_socket(conf_fd)" in select_error
+assert "u2ec_close_failed_socket(find_fd)" in select_error
 assert "u2ec_select_readable_retry(fdmax + 1, &master_fds" in daemon_main
 assert "while ((ret = select(" not in add_remote
 assert "while ((rtvl = select(" not in daemon_main

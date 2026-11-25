@@ -2827,6 +2827,8 @@ void add_remote_device()
 		                                  &read_fds);
 		if (ret < 0) {
 			PERROR("select");
+			(void)u2ec_close_failed_socket(conf_fd);
+			(void)u2ec_close_failed_socket(find_fd);
 			return;
 		}
 
