@@ -15,7 +15,7 @@ for tool in ubiattach ubiformat ubimkvol ubidetach; do
 		fail "Unable to find executable: $sbin_dir/$tool"
 	fi
 done
-for tool in awk mount mtd_write nvram; do
+for tool in mount mtd_write nvram; do
 	if ! command -v "$tool" >/dev/null 2>&1; then
 		fail "Unable to find executable: $tool"
 	fi
@@ -76,33 +76,47 @@ if ! flock -n 9; then
 fi
 
 
-# Match one exact RWFS partition. A substring match could select RWFS_BACKUP,
-# and multiple matches make the target ambiguous; both cases must fail closed.
-rwfs_idx=$(awk '
-	$4 == "\"RWFS\"" {
-		if (NF != 4 || $1 !~ /^mtd[0-9]+:$/ ||
-		    $2 !~ /^[[:xdigit:]]+$/ || $3 !~ /^[[:xdigit:]]+$/) {
-			invalid = 1
-			next
-		}
-		idx_value = substr($1, 4, length($1) - 4)
-		if (idx_value ~ /^0[0-9]/) {
-			invalid = 1
-			next
-		}
-		matches++
-		selected = idx_value
-	}
-	END {
-		if (invalid || matches != 1)
-			exit 1
-		print selected
-	}
-' "$proc_mtd") || fail "RWFS partition is missing, malformed, or ambiguous in $proc_mtd"
-
-case "$rwfs_idx" in
-	''|*[!0-9]*) fail "Invalid RWFS MTD index: $rwfs_idx" ;;
-esac
+# Match one exact RWFS partition using shell built-ins only. The firmware
+# BusyBox configuration does not guarantee the awk applet is available.
+rwfs_matches=0
+rwfs_invalid=0
+rwfs_idx=
+while IFS= read -r mtd_line || [ -n "$mtd_line" ]; do
+	set -f
+	set -- $mtd_line
+	set +f
+	if [ "$#" -lt 4 ] || [ "$4" != '"RWFS"' ]; then
+		continue
+	fi
+	rwfs_matches=$((rwfs_matches + 1))
+	if [ "$#" -ne 4 ]; then
+		rwfs_invalid=1
+		continue
+	fi
+	case "$1" in
+		mtd[0-9]*:) ;;
+		*) rwfs_invalid=1; continue ;;
+	esac
+	candidate_idx=${1#mtd}
+	candidate_idx=${candidate_idx%:}
+	case "$candidate_idx" in
+		''|0*|*[!0-9]*) rwfs_invalid=1; continue ;;
+	esac
+	if [ "$candidate_idx" -lt 4 ]; then
+		rwfs_invalid=1
+		continue
+	fi
+	case "$2" in
+		''|*[!0123456789abcdefABCDEF]*) rwfs_invalid=1; continue ;;
+	esac
+	case "$3" in
+		''|*[!0123456789abcdefABCDEF]*) rwfs_invalid=1; continue ;;
+	esac
+	rwfs_idx=$candidate_idx
+done < "$proc_mtd"
+if [ "$rwfs_invalid" -ne 0 ] || [ "$rwfs_matches" -ne 1 ] || [ -z "$rwfs_idx" ]; then
+	fail "RWFS partition is missing, malformed, or ambiguous in $proc_mtd"
+fi
 
 mtd_device="$dev_dir/mtd$rwfs_idx"
 ubi_device="$dev_dir/ubi$rwfs_idx"
@@ -115,31 +129,32 @@ fi
 if ! mount_inventory=$(mount 2>/dev/null); then
 	fail "Unable to inspect mounted filesystems before RWFS conversion"
 fi
-printf '%s\n' "$mount_inventory" | awk -v idx="$rwfs_idx" '
-	NF == 0 { next }
-	{
-		if (NF < 6 || $2 != "on" || $4 != "type") {
-			invalid = 1
-			next
-		}
-		valid_records++
-		source = $1
-		ubi = "/dev/ubi" idx
-		if (source == ubi ||
-		    index(source, ubi "_") == 1 ||
-		    index(source, "/dev/ubiblock" idx "_") == 1 ||
-		    source == "/dev/mtdblock" idx ||
-		    index(source, "ubi" idx ":") == 1)
-			found = 1
-	}
-	END {
-		if (valid_records == 0 || invalid)
-			exit 2
-		exit !found
-	}
-'
-
-mount_check_status=$?
+mount_records=0
+mount_invalid=0
+mount_found=0
+while IFS=' ' read -r mount_source mount_on mount_path mount_type mount_fs mount_opts; do
+	[ -n "$mount_source" ] || continue
+	mount_records=$((mount_records + 1))
+	if [ "$mount_on" != "on" ] || [ -z "$mount_path" ] ||
+	   [ "$mount_type" != "type" ] || [ -z "$mount_fs" ] || [ -z "$mount_opts" ]; then
+		mount_invalid=1
+		continue
+	fi
+	case "$mount_source" in
+		"/dev/ubi$rwfs_idx"|"/dev/ubi${rwfs_idx}_"*|"/dev/ubiblock${rwfs_idx}_"*|"/dev/mtdblock$rwfs_idx"|"ubi${rwfs_idx}:"*)
+			mount_found=1
+			;;
+	esac
+done <<EOF_MOUNT
+$mount_inventory
+EOF_MOUNT
+if [ "$mount_invalid" -ne 0 ] || [ "$mount_records" -eq 0 ]; then
+	mount_check_status=2
+elif [ "$mount_found" -eq 1 ]; then
+	mount_check_status=0
+else
+	mount_check_status=1
+fi
 case "$mount_check_status" in
 	0) fail "RWFS UBI/MTD device is already mounted; refusing to erase $mtd_device" ;;
 	1) ;;

@@ -81,10 +81,9 @@ EOF_UBI
 	ln "$base/sbin/ubiattach" "$base/sbin/ubidetach"
 	chmod +x "$base/bin/mount" "$base/bin/mtd_write" "$base/bin/flock" "$base/bin/nvram" "$base/sbin/ubiattach"
 
-	# Let BusyBox dispatch its tested applets by argv[0] without a shell wrapper.
+	# Let BusyBox dispatch the cat applet by argv[0] for mocked commands.
 	if [ -n "${BUSYBOX_BIN:-}" ]; then
 		[ -x "$BUSYBOX_BIN" ] || fail "BUSYBOX_BIN is not executable"
-		ln -s "$BUSYBOX_BIN" "$base/bin/awk"
 		ln -s "$BUSYBOX_BIN" "$base/bin/cat"
 	fi
 
@@ -201,6 +200,21 @@ expect_failure "symlink lock directory"
 assert_no_flash_commands
 [ "$(cat "$base/private-target/marker")" = "preserve directory target" ] ||
 	fail "symlinked lock directory target was modified"
+
+# Full decimal MTD indices must survive unchanged; mtd100 must not become mtd10.
+prepare_case high-index-partition
+rm -f "$base/dev/mtd5"
+: > "$base/dev/mtd100"
+cat > "$base/proc/mtd" <<'EOF_MTD_100'
+dev:    size   erasesize  name
+mtd4: 00010000 00001000 "RWFS_BACKUP"
+mtd100: 00020000 00001000 "RWFS"
+EOF_MTD_100
+run_conversion || fail "high-index RWFS conversion failed"
+assert_logged "mtd_write erase $base/dev/mtd100"
+assert_logged "ubiformat $base/dev/mtd100 -y -q"
+assert_logged "ubiattach -p $base/dev/mtd100 -d 100"
+assert_logged "ubimkvol $base/dev/ubi100 -m -N rwfs"
 
 # A real mounted RWFS volume is rejected before the first detach/erase.
 prepare_case mounted-ubi
