@@ -317,6 +317,41 @@ def run() -> int:
                 f"{function} does not finish the locked operation through {unlocked}"
             )
 
+    value_cache_path = ROOT / "trunk/user/shared/src/nvram_value_cache_policy.h"
+    value_cache_test_path = ROOT / "trunk/user/shared/src/tests/nvram_value_cache_policy.c"
+    value_cache_policy = value_cache_path.read_text(encoding="utf-8", errors="replace")
+    value_cache_test = value_cache_test_path.read_text(encoding="utf-8", errors="replace")
+    for marker in ("volatile unsigned char *cursor", "*cursor++ = 0;",
+                   "*next_index = 0"):
+        if marker not in value_cache_policy:
+            failures.append("NVRAM transaction cache erasure policy is missing " + marker)
+    for marker in ("test_full_cache_is_erased_and_cursor_reset",
+                   "test_null_cache_still_resets_cursor"):
+        if marker not in value_cache_test:
+            failures.append("NVRAM transaction cache regression is missing " + marker)
+
+    try:
+        cache_reader = extract_function(adapter, "nvram_get_checked_unlocked")
+        if ("char *nvr_cache, int *nvr_index" not in adapter or
+            "*nvr_index = i_cache + nvr.len_value" not in cache_reader):
+            failures.append("NVRAM checked-get must use an explicit cache and cursor")
+        tx_begin = extract_function(adapter, "nvram_transaction_begin")
+        tx_end = extract_function(adapter, "nvram_transaction_end")
+        tx_get = extract_function(adapter, "nvram_transaction_get")
+        public_get = extract_function(adapter, "nvram_get_checked")
+        if ("nvram_transaction_cache" not in tx_get or
+            "nvram_api_cache" not in public_get):
+            failures.append("transaction and legacy NVRAM getters must use separate value caches")
+        if ("nvram_value_cache_secure_clear" not in tx_begin or
+            "nvram_value_cache_secure_clear" not in tx_end):
+            failures.append("NVRAM transaction cache must be erased at begin and end")
+        if (tx_end.find("nvram_value_cache_secure_clear") < 0 or
+            tx_end.find("nvram_value_cache_secure_clear") >
+            tx_end.find("nvram_transaction_lock_release")):
+            failures.append("NVRAM transaction cache must be erased before releasing its lease")
+    except ValueError as error:
+        failures.append("NVRAM transaction value-cache source contract: " + str(error))
+
     transaction_contracts = (
         ("nvram_transaction_getall", "nvram_getall_unlocked"),
         ("nvram_transaction_get", "nvram_get_checked_unlocked"),

@@ -23,8 +23,8 @@ extern int nvram_transaction_end(struct nvram_transaction *transaction);
 extern int nvram_transaction_getall(struct nvram_transaction *transaction,
 				    char *buf, int count, int include_temp);
 /* Return 1=value present, 0=key absent, -1=backend/read/close error.
- * The returned value uses the shared NVRAM cache and must be copied before
- * the next NVRAM read. The caller must hold a valid transaction lease. */
+ * The returned value uses a transaction-only cache and must be copied before
+ * the next NVRAM read. The full cache is securely erased by transaction_end. */
 extern int nvram_transaction_get(struct nvram_transaction *transaction,
 				 const char *name, char **value);
 extern int nvram_transaction_set(struct nvram_transaction *transaction,

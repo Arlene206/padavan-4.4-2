@@ -1,15 +1,15 @@
-## 2026-11-26 active handoff — reject OpenVPN credential line breaks
+## 2026-11-26 active handoff — erase transaction-scoped NVRAM value cache
 
-- Live main parent: `c2366fd5c60833e7e42f0aef457ea8e0773d11d3`. Callback-link helper/header and host regression are in `c4c12ce5cf7b4e0098d71723ddde30e87c1e5ad6`; OpenVPN credential regression #45655706781 PASS. The VPN lifecycle source-contract correction #45656077803 PASS and AI handoff docs #45656077743 PASS on `c2366fd5c60833e7e42f0aef457ea8e0773d11d3`.
-- The c4 VPN server lifecycle run #45655706646 was a checker-only failure against the old raw `symlink()` order; `scripts/check_vpn_server_lifecycle.py` was corrected and its exact-main rerun PASS. Other c4 runs: HTTPD security #45655706750 PASS; IPv6 service-type #45655706937 PASS; Process inventory #45655706888 PASS; process lifecycle #45655706696 PASS. NVRAM #45655706763 and XY-C1 #45655706852 were still in progress at last poll. XY-C1 #45655706852 must finish Build/TRX/artifact for production source SHA `c4c12ce5...` before L3 is claimed.
-- New security issue found: OpenVPN auth-user-pass publisher writes raw NVRAM credentials as two newline-delimited records. CR/LF in username/password can inject extra lines into the file. This slice rejects CR/LF before creating the staging file, tests that previous secret content remains unchanged and no stage file is left, and adds the header to the XY-C1 production path filter so header-only modifications trigger a firmware build.
-- Credential memory zeroization is already green on `98f74b97...` (#45655016393). Physical-router L4 NOT VERIFIED. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Live main parent: `d91bc841fddf1cc311cda431796de5a731cf0fd7`. OpenVPN credential staging #45657032237 PASS (CR/LF rejection, atomic file publication, secret wipe, callback-link regression and source contract); VPN lifecycle #45657032067 PASS; AI handoff docs #45657032165 PASS; Process inventory #45657032815 PASS; process lifecycle regression #45657032140 PASS. NVRAM audit #45657032113 and XY-C1 #45657032169 were still in progress at last poll.
+- The callback-link source checker update is verified: VPN lifecycle and AI docs #45656077803 / #45656077743 passed on `c2366fd5...`; d91's dedicated VPN/OpenVPN tests also pass. d91's production XY-C1 Build/TRX/artifact remains pending; no L3 claim is made. Physical-router L4 remains NOT VERIFIED.
+- New memory-hygiene issue: `nvram_transaction_get()` returned values from the same process-global static cache as legacy getters. Transaction callers copy values before another read, but copied NVRAM credentials remained in static memory indefinitely after `nvram_transaction_end()`. This slice separates legacy and transaction caches and securely erases the transaction cache at begin/end; its API contract documents that values must be copied before the next read and the cache is erased at end.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ### First actions
 
-1. Run the OpenVPN staging regression and source contract on the new exact SHA; ensure CR/LF inputs are rejected and no staging file is created.
-2. Check the XY-C1 run for `c4c12ce5...` to see whether Build XY-C1, TRX verification and upload completed; the CR/LF helper change also triggers a new exact-SHA L3 run.
-3. Continue the OpenVPN daemon-start failure rollback review without assuming that a missing PID file proves no daemon is alive.
+1. Run the NVRAM cache erasure regression and source checker on the exact result SHA; fix any failure without weakening the cache lifetime contract.
+2. Inspect exact d91 XY-C1 Build, TRX and artifact steps, then the new commit's own XY-C1 run.
+3. Continue the OpenVPN daemon-start failure rollback review with the process-identity safety gates intact.
 
 ### Execution contract
 

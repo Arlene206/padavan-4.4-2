@@ -31,23 +31,32 @@
 #include "nvram_linux.h"
 #include "nvram_transaction_lock.h"
 #include "nvram_ioctl_close_policy.h"
+#include "nvram_value_cache_policy.h"
 
 #define PATH_DEV_NVRAM	"/dev/nvram"
 
 #define MAX_CACHE_LEN	(2*NVRAM_MAX_VALUE_LEN)
 #define MIN_CACHE_RES	32
 
+static int nvram_api_cache_index;
+static char nvram_api_cache[MAX_CACHE_LEN];
+static int nvram_transaction_cache_index;
+static char nvram_transaction_cache[MAX_CACHE_LEN];
+
 static int
-nvram_get_checked_unlocked(const char *name, char **value)
+nvram_get_checked_unlocked(const char *name, char **value,
+			   char *nvr_cache, int *nvr_index)
 {
-	static int nvr_index = 0;
-	static char nvr_cache[MAX_CACHE_LEN] = {0};
 	int ret, i_cache, nvram_fd;
 	int saved_errno = 0;
 	anvram_ioctl_t nvr;
 
-	if (!name || !value) {
+	if (!name || !value || !nvr_cache || !nvr_index) {
 		errno = EINVAL;
+		return -1;
+	}
+	if (*nvr_index < 0 || *nvr_index > MAX_CACHE_LEN) {
+		errno = EIO;
 		return -1;
 	}
 
@@ -58,7 +67,7 @@ nvram_get_checked_unlocked(const char *name, char **value)
 		return -1;
 	}
 
-	i_cache = nvr_index;
+	i_cache = *nvr_index;
 	if ((MAX_CACHE_LEN - i_cache) < MIN_CACHE_RES)
 		i_cache = 0;
 
@@ -97,7 +106,7 @@ nvram_get_checked_unlocked(const char *name, char **value)
 			return -1;
 		}
 		*value = nvr.value;
-		nvr_index = i_cache + nvr.len_value;
+		*nvr_index = i_cache + nvr.len_value;
 	}
 
 	if (close(nvram_fd) < 0) {
@@ -161,7 +170,8 @@ nvram_get_checked(const char *name, char **value)
 	lock_fd = nvram_api_lock_acquire(1);
 	if (lock_fd < 0)
 		return -1;
-	ret = nvram_get_checked_unlocked(name, value);
+	ret = nvram_get_checked_unlocked(name, value,
+					 nvram_api_cache, &nvram_api_cache_index);
 	return nvram_api_lock_finish(lock_fd, ret);
 }
 
@@ -448,6 +458,9 @@ nvram_transaction_begin(struct nvram_transaction *transaction)
 		1, NVRAM_TRANSACTION_LOCK_WAIT_SECONDS * 4);
 	if (lock_fd < 0)
 		return -1;
+	nvram_value_cache_secure_clear(nvram_transaction_cache,
+				       sizeof(nvram_transaction_cache),
+				       &nvram_transaction_cache_index);
 	transaction->lock_fd = lock_fd;
 	transaction->owner_pid = getpid();
 	return 0;
@@ -480,6 +493,9 @@ nvram_transaction_end(struct nvram_transaction *transaction)
 	}
 	lock_fd = transaction->lock_fd;
 	transaction->lock_fd = -1;
+	nvram_value_cache_secure_clear(nvram_transaction_cache,
+				       sizeof(nvram_transaction_cache),
+				       &nvram_transaction_cache_index);
 	if (transaction->owner_pid != getpid()) {
 		transaction->owner_pid = 0;
 		(void)close(lock_fd);
@@ -510,7 +526,9 @@ nvram_transaction_get(struct nvram_transaction *transaction,
 	*value = NULL;
 	if (!nvram_transaction_valid(transaction))
 		return -1;
-	return nvram_get_checked_unlocked(name, value);
+	return nvram_get_checked_unlocked(name, value,
+					 nvram_transaction_cache,
+					 &nvram_transaction_cache_index);
 }
 
 int

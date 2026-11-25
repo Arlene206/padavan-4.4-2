@@ -1,3 +1,13 @@
+## 2026-11-26 01:34 CST (UTC+8) — Erase transaction-scoped NVRAM value cache
+
+- Base SHA: `d91bc841fddf1cc311cda431796de5a731cf0fd7`; result SHA: THIS COMMIT (resolve on next recovery). Scope: `nvram_linux.c`, `nvram_linux.h`, new `nvram_value_cache_policy.h`/test, NVRAM source checker/workflow, XY-C1 filter, handoff/log.
+- Review found `nvram_get_checked_unlocked()` used one process-global static ring cache for both legacy `nvram_get_checked()` and `nvram_transaction_get()`. The transaction API requires callers to copy values before the next read and holds the exclusive NVRAM lock, but sensitive transaction values remained resident after the lease ended.
+- Introduced a transaction-specific cache separated from the legacy getter cache. Transaction begin wipes it before reuse; transaction end volatile-wipes the full array and resets the ring cursor before releasing the exclusive lock, including the wrong-owner child path. Legacy getter pointer storage is not invalidated.
+- Added a GNU89/ASan/UBSan policy test for full-buffer erasure and cursor reset, source contracts for cache separation and erase-before-unlock, and documented the transaction value lifetime. Added shared NVRAM source/header/helper to XY-C1 path filtering so future production changes trigger a build.
+- Exact base `d91bc841fddf1cc311cda431796de5a731cf0fd7`: OpenVPN credential #45657032237 PASS; VPN lifecycle #45657032067 PASS; AI docs #45657032165 PASS; Process inventory #45657032815 PASS; process lifecycle #45657032140 PASS. NVRAM audit #45657032113 and XY-C1 #45657032169 were still running at last poll. This new code requires its own exact-SHA NVRAM and XY-C1 validations. L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-26 01:12 CST (UTC+8) — Reject newline injection in OpenVPN client credentials
 
 - Base SHA: `c2366fd5c60833e7e42f0aef457ea8e0773d11d3`; result SHA: THIS COMMIT (resolve on next recovery). Scope: `openvpn_client_secret_file.h`, its regression, OpenVPN source checker, VPN lifecycle dependency checker, XY-C1 firmware path filter, handoff/log.
