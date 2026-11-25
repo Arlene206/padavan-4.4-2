@@ -1083,6 +1083,35 @@ ftp_acl_path_build_child_path(const char *resolved_parent, const char *leaf,
  * The final component is never re-resolved after the WRITE ACL check.
  */
 /*
+ * Revalidate the ACL metadata name after reading it. An attacker can rename
+ * the opened inode elsewhere and publish a replacement at the same leaf;
+ * the descriptor still has st_nlink == 1, so descriptor-only checks miss
+ * that the ACL now names different policy bytes.
+ */
+static int
+ftp_acl_path_verify_opened_file_entry_at(int directory_fd, const char *leaf,
+                                         const struct stat *opened)
+{
+  struct stat named;
+
+  if (directory_fd < 0 || !leaf || !*leaf || strchr(leaf, '/') ||
+      strcmp(leaf, ".") == 0 || strcmp(leaf, "..") == 0 || !opened) {
+    errno = EINVAL;
+    return -1;
+  }
+  if (fstatat(directory_fd, leaf, &named, AT_SYMLINK_NOFOLLOW) != 0)
+    return -1;
+  if (!S_ISREG(opened->st_mode) || !S_ISREG(named.st_mode) ||
+      opened->st_nlink != 1 || named.st_nlink != 1 ||
+      opened->st_dev != named.st_dev || opened->st_ino != named.st_ino ||
+      opened->st_size != named.st_size) {
+    errno = EAGAIN;
+    return -1;
+  }
+  return 0;
+}
+
+/*
  * Open a bounded regular metadata file relative to an already-pinned
  * directory. O_NOFOLLOW protects the final component; O_NONBLOCK prevents a
  * swapped FIFO/device node from hanging the privileged FTP process.

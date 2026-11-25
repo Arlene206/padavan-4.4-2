@@ -217,6 +217,9 @@ read_file_to_buffer_at(int directory_fd, const char *directory_path,
 		errno = EAGAIN;
 		goto read_buffer_error;
 	}
+	if (ftp_acl_path_verify_opened_file_entry_at(directory_fd, leaf,
+	                                             &final_stat) != 0)
+		goto read_buffer_error;
 	if (ftp_acl_path_verify_directory_identity(directory_path,
 	                                           directory_fd) != 0)
 		goto read_buffer_error;

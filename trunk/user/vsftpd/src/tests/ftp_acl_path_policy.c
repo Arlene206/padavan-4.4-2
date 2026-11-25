@@ -426,6 +426,48 @@ main(void)
     return 1;
   }
 
+  metadata_dir_fd = ftp_acl_path_open_verified_directory(root);
+  if (metadata_dir_fd < 0) {
+    perror("pin ACL metadata entry replacement fixture");
+    return 1;
+  }
+  metadata_fd = ftp_acl_path_open_bounded_regular_file_at(
+      metadata_dir_fd, ".__alice_var.txt", 16 * 1024 * 1024, &st);
+  if (metadata_fd < 0 ||
+      renameat(metadata_dir_fd, ".__alice_var.txt",
+               metadata_dir_fd, ".__alice_var.saved") != 0) {
+    perror("open and rename ACL metadata entry");
+    return 1;
+  }
+  metadata_seed_fd = openat(metadata_dir_fd, ".__alice_var.txt",
+      O_CREAT | O_EXCL | O_WRONLY | O_NOFOLLOW | O_CLOEXEC, 0600);
+  if (metadata_seed_fd < 0 ||
+      write(metadata_seed_fd, "replacement\n", 12) != 12) {
+    perror("publish replacement ACL metadata entry");
+    return 1;
+  }
+  {
+    struct stat opened_stat;
+
+    errno = 0;
+    if (fstat(metadata_fd, &opened_stat) != 0 ||
+        ftp_acl_path_verify_opened_file_entry_at(
+            metadata_dir_fd, ".__alice_var.txt", &opened_stat) == 0 ||
+        errno != EAGAIN) {
+      fprintf(stderr,
+          "ACL metadata entry replacement after open was accepted\n");
+      return 1;
+    }
+  }
+  if (close(metadata_fd) != 0 || close(metadata_seed_fd) != 0 ||
+      unlinkat(metadata_dir_fd, ".__alice_var.txt", 0) != 0 ||
+      renameat(metadata_dir_fd, ".__alice_var.saved",
+               metadata_dir_fd, ".__alice_var.txt") != 0 ||
+      close(metadata_dir_fd) != 0) {
+    perror("restore ACL metadata entry replacement fixture");
+    return 1;
+  }
+
   metadata_dir_fd = ftp_acl_path_open_verified_directory(a);
   if (metadata_dir_fd < 0) {
     perror("pin ACL metadata symlink/FIFO fixtures");

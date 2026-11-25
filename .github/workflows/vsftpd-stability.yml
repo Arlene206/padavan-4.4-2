@@ -475,6 +475,7 @@ jobs:
           child_path = function_body(acl_path_policy, "ftp_acl_path_build_child_path(")
           bounded_file_open = function_body(acl_path_policy, "ftp_acl_path_open_bounded_regular_file(")
           bounded_file_open_at = function_body(acl_path_policy, "ftp_acl_path_open_bounded_regular_file_at(")
+          verify_acl_entry = function_body(acl_path_policy, "ftp_acl_path_verify_opened_file_entry_at(")
           acl_file_reader = function_body(vsftpd_acl, "read_file_to_buffer_at(")
           acl_permission_reader = function_body(vsftpd_acl, "int get_permission_ftp(")
           sys_fdopendir = function_body(vsftpd_sysutil, "vsf_sysutil_fdopendir(")
@@ -632,6 +633,14 @@ jobs:
           assert "final_stat.st_ino != stat_buf.st_ino" in acl_file_reader
           assert "final_stat.st_size != stat_buf.st_size" in acl_file_reader
           assert "final_stat.st_nlink != 1" in acl_file_reader
+          normalized_acl_reader = " ".join(acl_file_reader.split())
+          assert "ftp_acl_path_verify_opened_file_entry_at(directory_fd, leaf, &final_stat)" in normalized_acl_reader
+          assert "fstatat(directory_fd, leaf, &named, AT_SYMLINK_NOFOLLOW)" in verify_acl_entry
+          assert "opened->st_dev != named.st_dev" in verify_acl_entry
+          assert "opened->st_ino != named.st_ino" in verify_acl_entry
+          assert "named.st_nlink != 1" in verify_acl_entry
+          assert "ACL metadata entry replacement after open was accepted" in acl_path_test
+          assert 'renameat(metadata_dir_fd, ".__alice_var.txt"' in acl_path_test
           assert "ftp_acl_path_open_verified_directory(mount_path)" in acl_permission_reader
           assert "read_file_to_buffer_at(mount_fd, mount_path, var_leaf, &var_info_size)" in " ".join(acl_permission_reader.split())
           assert "ACL config FIFO was accepted" in acl_path_test
