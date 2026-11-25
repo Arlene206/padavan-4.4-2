@@ -42,7 +42,8 @@ rstats_file_open_readonly_with(const char *path, rstats_file_open_fn open_fn,
     return -1;
   }
   for (;;) {
-    int fd = open_fn(path, O_RDONLY, context);
+    int fd = open_fn(path, O_RDONLY | O_NONBLOCK | O_NOFOLLOW | O_CLOEXEC,
+                     context);
 
     if (fd >= 0)
       return fd;
@@ -59,10 +60,44 @@ rstats_file_system_open(const char *path, int flags, void *context)
   return open(path, flags);
 }
 
+/*
+ * Raw history is loaded from writable persistent storage. Never follow a
+ * symlink, block on a FIFO, or import a multiply-linked file from another
+ * location. O_NONBLOCK lets fstat reject FIFOs without waiting for a writer.
+ */
+static inline int
+rstats_file_readonly_fd_status(int fd)
+{
+  struct stat metadata;
+
+  if (fd < 0) {
+    errno = EINVAL;
+    return -1;
+  }
+  if (fstat(fd, &metadata) != 0)
+    return -1;
+  if (!S_ISREG(metadata.st_mode) || metadata.st_nlink != 1) {
+    errno = EPERM;
+    return -1;
+  }
+  return 0;
+}
+
 static inline int
 rstats_file_open_readonly(const char *path)
 {
-  return rstats_file_open_readonly_with(path, rstats_file_system_open, NULL);
+  int fd, saved_errno;
+
+  fd = rstats_file_open_readonly_with(path, rstats_file_system_open, NULL);
+  if (fd < 0)
+    return -1;
+  if (rstats_file_readonly_fd_status(fd) == 0)
+    return fd;
+
+  saved_errno = errno > 0 ? errno : EIO;
+  (void)close(fd);
+  errno = saved_errno;
+  return -1;
 }
 
 /*

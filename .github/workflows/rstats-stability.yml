@@ -164,6 +164,12 @@ jobs:
           assert "rstats_file_read_close_result(" in file_policy
           assert "if (read_result < 0)" in file_policy
           assert "if (close_result != 0)" in file_policy
+          for token in ("O_NONBLOCK", "O_NOFOLLOW", "O_CLOEXEC",
+                        "rstats_file_readonly_fd_status", "fstat(fd, &metadata)",
+                        "S_ISREG(metadata.st_mode)", "metadata.st_nlink != 1"):
+              assert token in file_policy
+          assert "test_readonly_open_rejects_symlinks_nonregular_and_hardlinks" in test
+          assert "test_readonly_open_rejects_symlinks_nonregular_and_hardlinks(dir);" in test
           assert "test_read_close_results" in test
           assert "test_read_close_results();" in test
 

@@ -173,7 +173,7 @@ static int scripted_open_readonly(const char *path, int flags, void *opaque) {
   struct scripted_open_fixture *fixture =
       (struct scripted_open_fixture *)opaque;
   assert(strcmp(path, "/etc/storage/rstats-history") == 0);
-  assert(flags == O_RDONLY);
+  assert(flags == (O_RDONLY | O_NONBLOCK | O_NOFOLLOW | O_CLOEXEC));
   ++fixture->calls;
   if (fixture->calls <= fixture->interruptions) {
     errno = EINTR;
@@ -208,6 +208,56 @@ static void test_bounded_open_eintr(void) {
   assert(rstats_file_open_readonly_with("/etc/storage/rstats-history",
       scripted_open_readonly, &fixture) == -1);
   assert(errno == EACCES && fixture.calls == 1);
+}
+
+static void
+test_readonly_open_rejects_symlinks_nonregular_and_hardlinks(
+    const char *directory)
+{
+  char regular[PATH_MAX], symbolic[PATH_MAX], fifo[PATH_MAX];
+  char alias[PATH_MAX], subdirectory[PATH_MAX];
+  int fd;
+
+  assert(snprintf(regular, sizeof(regular), "%s/history-reader", directory) > 0);
+  assert(snprintf(symbolic, sizeof(symbolic), "%s/history-symlink", directory) > 0);
+  assert(snprintf(fifo, sizeof(fifo), "%s/history-fifo", directory) > 0);
+  assert(snprintf(alias, sizeof(alias), "%s/history-hardlink", directory) > 0);
+  assert(snprintf(subdirectory, sizeof(subdirectory), "%s/history-directory", directory) > 0);
+
+  put(regular, "trusted");
+  fd = rstats_file_open_readonly(regular);
+  assert(fd >= 0);
+  assert(close(fd) == 0);
+
+  assert(symlink(regular, symbolic) == 0);
+  errno = 0;
+  assert(rstats_file_open_readonly(symbolic) == -1);
+  assert(errno == ELOOP);
+  assert(unlink(symbolic) == 0);
+
+  /* O_NONBLOCK must make this return immediately; fstat rejects the FIFO. */
+  assert(mkfifo(fifo, 0600) == 0);
+  errno = 0;
+  assert(rstats_file_open_readonly(fifo) == -1);
+  assert(errno == EPERM);
+  assert(unlink(fifo) == 0);
+
+  assert(link(regular, alias) == 0);
+  errno = 0;
+  assert(rstats_file_open_readonly(regular) == -1);
+  assert(errno == EPERM);
+  assert(unlink(alias) == 0);
+
+  assert(mkdir(subdirectory, 0700) == 0);
+  errno = 0;
+  assert(rstats_file_open_readonly(subdirectory) == -1);
+  assert(errno == EPERM);
+  assert(rmdir(subdirectory) == 0);
+
+  fd = rstats_file_open_readonly(regular);
+  assert(fd >= 0);
+  assert(close(fd) == 0);
+  assert(unlink(regular) == 0);
 }
 
 static void test_exact_read_retries_eintr_and_short_reads(void)
@@ -629,6 +679,7 @@ int main(void) {
   FILE *fp;
   assert(mkdtemp(dir) != NULL);
   test_new_file_modes_follow_umask(dir);
+  test_readonly_open_rejects_symlinks_nonregular_and_hardlinks(dir);
   snprintf(target, sizeof(target), "%s/history", dir);
   snprintf(victim, sizeof(victim), "%s/victim", dir);
   snprintf(stage, sizeof(stage), "%s/view.tmp", dir);

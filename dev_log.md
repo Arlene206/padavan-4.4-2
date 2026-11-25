@@ -1,3 +1,11 @@
+## 2026-11-25 — Harden rstats raw-history reads against special files and path redirection
+
+- `load_history_raw()` opens `/etc/storage/rstats-history*` through `rstats_file_open_readonly()`. The old helper used plain `open(path, O_RDONLY)`: a FIFO placed at a history path could block the rstats daemon indefinitely, and a symlink could redirect root's fixed-size record read to an unrelated file.
+- Read opens now use `O_NONBLOCK | O_NOFOLLOW | O_CLOEXEC`, then validate the opened descriptor with `fstat()` and require a single-link regular file before any record read. The descriptor is closed with the validation errno preserved on rejection.
+- Added real filesystem regressions for regular-file acceptance, symlink rejection, nonblocking FIFO rejection, directory rejection and hardlink rejection; updated the injected-open flag contract and the rstats workflow's source assertions.
+
+---
+
 ## 2026-11-25 — Correct MiniUPnP SUBSCRIBE source boundary literal
 
 - The handler-boundary correction on `dc70484fd4a27d36c645500a754fcd7d9f82e5bb` removed the preprocessor-sensitive brace parser but the Python search expression was over-escaped, so it searched for literal backslash-`n` characters. Exact-SHA event workflow #45721625362 consequently failed at `subscribe_end`, after the GNU89 capacity test had passed.
