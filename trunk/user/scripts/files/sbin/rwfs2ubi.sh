@@ -24,6 +24,18 @@ if [ ! -r "$proc_mtd" ]; then
 	fail "Unable to read MTD partition inventory: $proc_mtd"
 fi
 
+# Serialize destructive conversion so concurrent invocations cannot race.
+operation_lock=/tmp/.rwfs2ubi.lock
+if ! command -v flock >/dev/null 2>&1; then
+	fail "Unable to find executable: flock"
+fi
+if ! exec 9>"$operation_lock"; then
+	fail "Unable to open RWFS conversion lock: $operation_lock"
+fi
+if ! flock -n 9; then
+	fail "Another RWFS conversion is already running"
+fi
+
 # Match one exact RWFS partition. A substring match could select RWFS_BACKUP,
 # and multiple matches make the target ambiguous; both cases must fail closed.
 rwfs_idx=$(awk '

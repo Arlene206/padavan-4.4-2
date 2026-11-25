@@ -18,7 +18,7 @@ prepare_case()
 {
 	name=$1
 	base="$sandbox/$name"
-	"$real_mkdir" -p "$base/bin" "$base/sbin" "$base/proc" "$base/dev"
+	"$real_mkdir" -p "$base/bin" "$base/sbin" "$base/proc" "$base/dev" "$base/private"
 	: > "$base/dev/mtd5"
 	cat > "$base/proc/mtd" <<'EOF_MTD'
 dev:    size   erasesize  name
@@ -41,6 +41,11 @@ EOF_MOUNT
 printf '%s\n' "mtd_write $*" >> "$CALL_LOG"
 exit "${MTD_WRITE_STATUS:-0}"
 EOF_MTD_WRITE
+	cat > "$base/bin/flock" <<'EOF_FLOCK'
+#!/bin/sh
+printf '%s\n' "flock $*" >> "$CALL_LOG"
+exit "${FLOCK_STATUS:-0}"
+EOF_FLOCK
 	cat > "$base/bin/nvram" <<'EOF_NVRAM'
 #!/bin/sh
 printf '%s\n' "nvram $*" >> "$CALL_LOG"
@@ -73,7 +78,7 @@ EOF_UBI
 	ln "$base/sbin/ubiattach" "$base/sbin/ubiformat"
 	ln "$base/sbin/ubiattach" "$base/sbin/ubimkvol"
 	ln "$base/sbin/ubiattach" "$base/sbin/ubidetach"
-	chmod +x "$base/bin/mount" "$base/bin/mtd_write" "$base/bin/nvram" "$base/sbin/ubiattach"
+	chmod +x "$base/bin/mount" "$base/bin/mtd_write" "$base/bin/flock" "$base/bin/nvram" "$base/sbin/ubiattach"
 
 	# Use explicit wrappers so both host sh and BusyBox ash resolve the
 	# same firmware applets through this isolated command PATH.
@@ -94,6 +99,7 @@ EOF_CAT
 		-e "s|^sbin_dir=.*|sbin_dir=\"$base/sbin\"|" \
 		-e "s|^proc_mtd=.*|proc_mtd=\"$base/proc/mtd\"|" \
 		-e "s|^dev_dir=.*|dev_dir=\"$base/dev\"|" \
+		-e "s|^operation_lock=.*|operation_lock=\"$base/private/rwfs2ubi.lock\"|" \
 		"$repo_root/trunk/user/scripts/files/sbin/rwfs2ubi.sh" > "$base/rwfs2ubi.sh"
 
 	PATH="$base/bin:$PATH"
@@ -101,6 +107,7 @@ EOF_CAT
 	MOUNT_OUTPUT=
 	MOUNT_STATUS=0
 	MTD_WRITE_STATUS=0
+	FLOCK_STATUS=0
 	UBIFORMAT_STATUS=0
 	UBIATTACH_STATUS=0
 	UBIMKVOL_STATUS=0
@@ -108,7 +115,7 @@ EOF_CAT
 	UBIDETACH_FINAL_STATUS=0
 	NVRAM_SET_STATUS=0
 	NVRAM_COMMIT_STATUS=0
-	export MOUNT_OUTPUT MOUNT_STATUS MTD_WRITE_STATUS UBIFORMAT_STATUS
+	export MOUNT_OUTPUT MOUNT_STATUS MTD_WRITE_STATUS FLOCK_STATUS UBIFORMAT_STATUS
 	export UBIATTACH_STATUS UBIMKVOL_STATUS UBIDETACH_INITIAL_STATUS
 	export UBIDETACH_FINAL_STATUS NVRAM_SET_STATUS NVRAM_COMMIT_STATUS
 }
@@ -165,6 +172,14 @@ awk '
 	END { exit !(erase < format && format < attach && attach < volume &&
 		     volume < setting && setting < commit && commit < detach) }
 ' "$CALL_LOG" || fail "successful operation order changed"
+
+# A concurrent conversion must fail before inspecting or changing the MTD.
+prepare_case conversion-lock-contention
+FLOCK_STATUS=1
+export FLOCK_STATUS
+expect_failure "conversion lock contention"
+grep -Fqx 'flock -n 9' "$CALL_LOG"
+assert_not_logged "mtd_write erase $base/dev/mtd5"
 
 # A real mounted RWFS volume is rejected before the first detach/erase.
 prepare_case mounted-ubi
