@@ -1,7 +1,7 @@
 ## 2026-11-25 — Exact-head status follow-up
 
 - On e487703a3163f9bb7bf10fe09d4e389602ce34d3, Process lifecycle fail-closed #45569803612 and NVRAM transaction boundary audit #45569803507 both completed PASS. XY-C1 #45569803520 remains IN_PROGRESS in Build XY-C1; TRX and artifact upload are not yet confirmed.
-- Documentation checkpoint commit 1a816f9897d9a9c010121fab5375c89ecbc3b22a triggered AI handoff documentation contract #45570297646; it was QUEUED at last observation. Recheck against its exact SHA; do not treat the queued run as PASS.
+- Documentation checkpoint dbac68aff56555f92369f9d224f1e894fbe40322 triggered AI handoff documentation contract #45570435066, which completed PASS. The code-bearing source SHA remains e487703a3163f9bb7bf10fe09d4e389602ce34d3.
 
 ---
 ## 2026-11-25 — Harden WAN gateway parsing, MiniUPnP framing, SmartDNS refresh and printer TCP I/O

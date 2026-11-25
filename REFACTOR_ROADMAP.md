@@ -1,3 +1,11 @@
+## 2026-11-25 状态增量
+- WAN ARP 网关非法值 fail-closed：#45565621317 PASS（583576a）。
+- MiniUPnP HTTP framing/长度上限：#45566912855 PASS（019f005）。
+- SmartDNS 保留 last-good adblock：#45568556249 PASS（1817dd6）。
+- U2EC 实际 TCP/IRP/URB 长度边界：#45569202180 PASS（e5d039b）。
+- p910nd FD_SET 范围保护：#45569803535 PASS（e487703）。XY-C1 #45569803520 Build 仍待 TRX/产物确认。
+
+---
 ## 2026-11-25 状态增量：跨模块网络与打印数据边界
 
 - WAN ARP：拒绝非空非法网关；#45565621317 PASS（583576a）。
