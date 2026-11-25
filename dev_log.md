@@ -1,3 +1,12 @@
+## 2026-11-25 — Align AliDDNS source contract with stable IPv6 address selection
+
+- The privacy-mode source and shell regression were committed as `5a855d59c5b1313cb4459609ee8444e3589a110d`. Reviewing the full CI path revealed the Python source-contract checker still required the retired `ifconfig` parser, so it would reject the intended implementation.
+- Updated the exact-source contract to require the BusyBox `ip -6 addr` lookup and explicit exclusion of secondary/temporary, tentative and deprecated addresses; it also requires the new privacy-mode and non-usable-address fixtures.
+- The local address-selection smoke test and `sh -n` checks passed before the first commit. The exact-head AliDDNS workflow has not yet been observed for that SHA; this atomic checker follow-up restores its source-contract consistency.
+- Changed paths: `scripts/check_aliddns_api_transport.py`, `dev_log.md`.
+
+---
+
 ## 2026-11-25 — Select a stable WAN IPv6 address for AliDDNS privacy mode
 
 - AliDDNS WAN IPv6 discovery previously required exactly one global address from `ifconfig`. With IPv6 privacy extensions enabled, Linux may expose a temporary/secondary global address alongside the stable address; the legitimate pair was classified as ambiguous and the DDNS update failed.
