@@ -535,11 +535,10 @@ require('[ -f "$zt_state_file" ] && [ ! -L "$zt_state_file" ]' in state_recover_
         'proto == "kernel"' not in state_recover_body and
         'zt_recovery_routes="$(ip route)" || return 1' in state_recover_body and
         "printf '%s\\n' \"$zt_recovery_routes\"" in state_recover_body and
-        'dev == zt_if && proto == "kernel"' in state_recover_body and
         '[ "$zt_recovery_route_found" = "0" ] || return 1' in state_recover_body and
         state_recover_body.index('[ "$zt_recovery_route_found" = "0" ] || return 1') <
         state_recover_body.index('zt_firewall_state_checkpoint_loaded=1'),
-        "stop-only recovery requires a clean route inventory with no live kernel route, complete fields, safe path and canonical tuple")
+        "stop-only recovery requires a clean route inventory with no route on the saved interface, complete fields, safe path and canonical tuple")
 
 
 require('zerotier_ipv4_cidr_is_valid "$ip_segment"' in state_save_body and

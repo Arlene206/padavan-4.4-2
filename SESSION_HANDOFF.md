@@ -2,17 +2,17 @@
 
 This snapshot supersedes older task pointers below where they conflict with live Git state.
 
-- Main before this ZeroTier test-fixture correction: `af46929e7a34ea1335dc25e66251398ca9152d23`. Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged. PR #1 remains closed/unmerged.
-- Exact af469 checks: AI handoff docs #45540610285 PASS; Process inventory #45540610042 PASS; WAN route #45540610035 PASS. ZeroTier #45540610026 FAILED only at the new static-route fixture's persistent-identity assertion: the fixture checked that `identity.secret` survived but did not create it. Earlier assertions in the same test had already confirmed the static route blocked recovery, left the daemon running, did not signal it, and did not edit the firewall or corrupt checkpoint. This fixture-only correction seeds the file before stop; production source is unchanged.
-- XY-C1 Firmware Validation #45540610201 remains IN_PROGRESS as last observed; Build/TRX/artifact are not confirmed. Do not claim L3 for af469 until the run completes.
-- UDHCP exact 956a run #45540259545 PASS (GNU89, ASan/UBSan and Python source contract); AI docs #45540259712 PASS. This includes TLV bounds and option-overload legal selector/uniqueness/location assertions.
-- ZeroTier now blocks damaged-prefix recovery if *any* route uses the saved interface, regardless of `proto`; unreadable route inventory remains fail-closed. The corrected static-route regression still needs an exact-head PASS. No local shell run claimed.
+- Main before this ZeroTier checker correction: `af2635bf8cf445768032648039cbe63260e62511`. Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged. PR #1 remains closed/unmerged.
+- Exact af263 runs: ZeroTier shell regression #45540935579 PASS, Python source contract FAIL because a stale assertion still required the old kernel-only predicate after the route guard had been broadened. The checker contained contradictory conditions: it required `proto == "kernel"` to be absent and then required the old `dev == zt_if && proto == "kernel"` string to be present. Removed the stale assertion and updated the contract message. The new static-route test itself passed.
+- Exact af263 AI handoff docs #45540935621 PASS; Process inventory #45540935726 PASS; WAN route #45540935503 PASS. XY-C1 firmware #45540935577 remained IN_PROGRESS as last observed; no Build/TRX/artifact claim.
+- Exact 956a UDHCP #45540259545 PASS (GNU89, ASan/UBSan, Python source contract); AI docs #45540259712 PASS. UDHCP TLV bounds and option-overload constraints are covered.
+- No local shell regression claimed. Backup remains frozen/read-only.
 
 ## Exact first action for the next GPT
 
-1. Verify ZeroTier lifecycle regression and Python source contract on the corrected fixture commit. If another assertion fails, inspect that exact job log and fix only the demonstrated issue.
-2. Poll XY-C1 #45540610201; report firmware level only after Build, TRX and artifact upload all succeed on the same product-source SHA.
-3. Continue with an independent userland reliability/security defect. Frozen backup remains read-only; no force-push.
+1. Verify ZeroTier exact-head source contract after removing the stale kernel-only assertion; shell runtime had already passed.
+2. Poll XY-C1 #45540935577; do not claim firmware success unless Build, TRX and artifact upload all pass for that exact SHA.
+3. Continue independent stability/security work while other checks remain pending. No force-push or backup mutation.
 
 No force-push.
 

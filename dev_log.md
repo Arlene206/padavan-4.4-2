@@ -1,3 +1,9 @@
+## 2026-11-24 — Remove stale kernel-only ZeroTier source assertion
+
+- Exact af263 ZeroTier shell regression passed, including the new `proto static` route refusal. The Python source contract failed because it simultaneously asserted that the old `proto == "kernel"` condition was absent and that the old combined predicate was present.
+- Removed the obsolete second assertion and updated the contract description to state the actual rule: damaged-prefix recovery requires no route of any protocol on the saved interface. No production source or test fixture changes in this correction.
+- Exact af263 AI docs, Process inventory and WAN route passed; XY-C1 firmware remained in progress. Exact-head ZeroTier rerun required.
+
 ## 2026-11-24 — Seed persistent identity in ZeroTier static-route refusal fixture
 
 - Exact af469 ZeroTier run #45540610026 failed at `live static route removed persistent identity`. The fixture asserted that the existing identity file survived a fail-closed stop, but had created only the config directory and checkpoint, not the identity file.
