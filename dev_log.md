@@ -1,3 +1,13 @@
+## 2026-11-25 — Filter WAN IPv6 candidates through the public-GUA policy before preference
+
+- Review found a mixed-address edge in the stable/temporary selector: Linux reports ULA and other reserved IPv6 addresses with `scope global`. Counting candidates before the public-GUA validation meant a single stable ULA could mask an otherwise usable public temporary GUA (or create false ambiguity alongside a public stable address).
+- Changed discovery to collect global, non-tentative, non-deprecated candidates with stable/temporary tags, validate each candidate with the existing strict `aliddns_ipv6_public_valid()` policy, then prefer exactly one valid stable GUA or fall back to exactly one valid temporary GUA. Invalid ULA/reserved candidates no longer affect the valid-candidate cardinality.
+- Added fixtures for ULA + public stable and ULA + public temporary address combinations; existing stable preference, temporary-only and ambiguity cases remain.
+- Local AWK and shell regression checks are pending this commit; exact-head AliDDNS and XY-C1 workflows are required. No firmware or physical-router result is claimed.
+- Changed paths: `trunk/user/aliddns/ddns_script.sh`, `trunk/user/aliddns/tests/aliddns_ipv6_lookup.sh`, `scripts/check_aliddns_api_transport.py`, `dev_log.md`.
+
+---
+
 ## 2026-11-25 — Align DDNSTO tri-state source contract with procfs absence helper
 
 - Exact DDNSTO run #45713996599 on `230cf171` passed all lifecycle shell regressions, including lock serialization, exact-PID TERM/KILL, process identity, and serialized restart. The final Python source checker then failed because it still required a literal `return 1` inside `ddnsto_process_state()`.

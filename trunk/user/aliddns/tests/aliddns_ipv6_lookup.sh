@@ -92,6 +92,18 @@ OUTPUT
 inet6 fd12:3456::1/64 scope global dynamic
 OUTPUT
 		;;
+	ula-and-public-stable)
+		cat <<'OUTPUT'
+inet6 fd12:3456::1/64 scope global dynamic
+inet6 2001:4860::1/64 scope global dynamic
+OUTPUT
+		;;
+	ula-and-public-temporary)
+		cat <<'OUTPUT'
+inet6 fd12:3456::1/64 scope global dynamic
+inet6 2001:4860::abcd/64 scope global secondary dynamic
+OUTPUT
+		;;
 	link-local-only)
 		cat <<'OUTPUT'
 inet6 fe80::1/64 scope link
@@ -171,6 +183,8 @@ expect_failure() {
 expect_success ppp0 global 2001:4860:4860::8888
 expect_success sit0 sit-global 2001:4860::1
 expect_success ppp0 privacy-multiple-global 2001:4860:4860::8888
+expect_success ppp0 ula-and-public-stable 2001:4860::1
+expect_success ppp0 ula-and-public-temporary 2001:4860::abcd
 expect_success ppp0 only-temporary 2001:4860::abcd
 expect_success ppp0 allocated-boundary '2cff::1' 2cff
 calls_before=$(wc -l < "$IP_LOG")
