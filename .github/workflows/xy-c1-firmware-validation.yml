@@ -13,6 +13,7 @@ on:
       - "trunk/user/ralinkiappd/tests/iappd_lifecycle.sh"
       - "trunk/user/ralinkiappd/iappd.sh"
       - "trunk/user/ralinkiappd/src/**"
+      - "trunk/user/udpxy/**"
       - "trunk/user/aliddns/Makefile"
       - "trunk/user/aliddns/aliddns.sh"
       - "trunk/user/aliddns/aliddns-ipv4.sh"

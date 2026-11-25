@@ -1,0 +1,42 @@
+name: UDPXY HTTP request parser bounds regression
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/udpxy-request-parser-stability.yml"
+      - "trunk/user/udpxy/src/rparse.c"
+      - "trunk/user/udpxy/src/rparse.h"
+      - "trunk/user/udpxy/src/udpxy.c"
+      - "trunk/user/udpxy/src/test/rparse_request_bounds.c"
+      - "scripts/check_udpxy_request_parser.py"
+  pull_request:
+    paths:
+      - ".github/workflows/udpxy-request-parser-stability.yml"
+      - "trunk/user/udpxy/src/rparse.c"
+      - "trunk/user/udpxy/src/rparse.h"
+      - "trunk/user/udpxy/src/udpxy.c"
+      - "trunk/user/udpxy/src/test/rparse_request_bounds.c"
+      - "scripts/check_udpxy_request_parser.py"
+
+permissions:
+  contents: read
+
+jobs:
+  udpxy-request-parser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and run GNU89 ASan/UBSan production parser regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer \
+            -Itrunk/user/udpxy/src \
+            trunk/user/udpxy/src/rparse.c \
+            trunk/user/udpxy/src/test/rparse_request_bounds.c \
+            -o /tmp/udpxy_request_parser_bounds_test
+          ASAN_OPTIONS=detect_leaks=1:abort_on_error=1 \
+            /tmp/udpxy_request_parser_bounds_test
+      - name: Verify parser bounds and firmware integration contract
+        run: python3 scripts/check_udpxy_request_parser.py

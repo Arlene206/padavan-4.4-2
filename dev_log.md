@@ -1,3 +1,14 @@
+## 2026-11-26 — Bound UDPXY multicast relay request parsing
+
+- The HTTP control path passes the exact recv() byte count to get_request(), but get_request() used unbounded strstr()/strcspn() and calculated an end pointer by subtracting one from the supplied length. A full receive buffer has no terminating NUL, so malformed client traffic could drive reads beyond the 2048-byte stack buffer.
+- parse_param() also inspected s[slen] and used an unbounded option scan despite receiving an explicit length. parse_udprelay() copied the untrusted source-address length before checking its 16-byte destination, left the optional source output uninitialized when no @ was supplied, and accepted non-decimal port suffixes through atoi().
+- Replaced those scans with length-bounded memchr()/memcmp()/memcpy(), checked source/group capacities before publication, initialized the optional source result, and parsed the legacy port separators with overflow-safe decimal validation while retaining the existing 1..65534 port range.
+- Added a GNU89 ASan/UBSan regression that compiles the production rparse.c, plus semantic source/call-site checks and a dedicated fast workflow. Added the complete UDPXY package path to the XY-C1 production-input trigger; the detector already treats unknown production paths as requiring a full build.
+- Parent SHA: 6631da6bc711d0b24d791fd8e4d6fd6578b06f20. Exact-head workflow results: THIS COMMIT / pending. A temporary standalone GNU89 ASan/UBSan harness of these boundary cases passed; repository-linked CI remains the authoritative production-source test.
+- Changed paths: trunk/user/udpxy/src/rparse.c, trunk/user/udpxy/src/test/rparse_request_bounds.c, scripts/check_udpxy_request_parser.py, .github/workflows/udpxy-request-parser-stability.yml, .github/workflows/xy-c1-firmware-validation.yml, SESSION_HANDOFF.md, dev_log.md.
+
+---
+
 ## 2026-11-25 — Harden rstats raw-history reads against special files and path redirection
 
 - `load_history_raw()` opens `/etc/storage/rstats-history*` through `rstats_file_open_readonly()`. The old helper used plain `open(path, O_RDONLY)`: a FIFO placed at a history path could block the rstats daemon indefinitely, and a symlink could redirect root's fixed-size record read to an unrelated file.

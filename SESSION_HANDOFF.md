@@ -1,30 +1,22 @@
 ## Current repository state — 2026-11-25
 
-- Live `main` immediately before this handoff update: `453c58202da8c435a1a029be2c12f7b98f0218de` (`test(miniupnpd): simplify SUBSCRIBE handler boundary`). Latest DHCPv6 product-source checkpoint is `4daa654ba5f31cb6a74357f98c432a7eb1c85e1e`; later `cc401362` and `453c582` commits changed test/docs/checker material, not DHCPv6 product source.
-- Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (do not modify; unchanged).
-- DHCPv6 changes in the active development stream:
-  - `e7cf7e7`: release an IA event-data wrapper if `iapref_renew()` fails before it is linked to the event-owned queue. This addresses that recoverable preparation error path; it does not claim to change BusyBox's fatal `xzalloc()` allocation-failure behavior.
-  - `7b2c912`: pre-scan all IA suboptions for NoBinding during Renew/Rebind before applying any IA address/delegated prefix, so wire ordering cannot partially publish bindings before Request re-establishment.
-  - `7614f9a`: both top-level and nested option decoders validate header/payload remaining lengths using overflow-safe subtraction before forming an option-end pointer; reject truncated trailing headers and malformed unknown nested IA options.
-  - `6975c9b`: use Linux `MSG_TRUNC` to get the original UDP datagram size and reject oversized datagrams before packet parsing.
-  - `90b82d0`: distinguish negative socket receive errors before packet-size comparisons; `4daa654` adds the bounds-policy header to the receive translation unit.
-  - `cc401362`: fix the Python source contract for the explicit `(ssize_t)sizeof(struct dhcp6)` comparison.
-- Host GNU89 bounds-policy test with `-Wall -Wextra -Werror -fsanitize=address,undefined`: PASS. In the failed pre-correction run the five DHCPv6 policy executables all passed; only the stale Python source assertion failed. The exact-SHA DHCPv6 IA run on `cc401362` passed (#45721709809), as did handoff-contract validation (#45721710003).
-- Exact checks last observed:
-  - Product-source SHA `4daa654`: XY-C1 run #45721587647 remains `in_progress` (Build XY-C1 still running; TRX verification and artifact upload pending). Do not claim Build/TRX/artifact or L3 until all three pass on that same source SHA.
-  - `4daa654`: NVRAM transaction boundary #45721587345 PASS; storage hotplug, WAN DHCP callback, inventory, and DHCPv6 script retry PASS. Its DHCPv6 IA workflow failure was the stale source assertion, corrected and passing at `cc401362`.
-  - `453c582`: MiniUPnP event subscriber regression #45721956369 PASS and handoff contract #45721956496 PASS.
-- XY-C1 L3 remains **NOT VERIFIED**; physical-router L4 remains **NOT VERIFIED**.
+- Live main immediately before this engineering slice: `6631da6bc711d0b24d791fd8e4d6fd6578b06f20` (`fix(rstats): reject special files in raw history reader`). Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable, do not modify.
+- Parent-head checks on `6631da6`: RStats regression #45722628854 PASS, Process inventory #45722628823 PASS and AI handoff contract #45722628813 PASS. NVRAM #45722628890 and XY-C1 #45722628889 were still IN_PROGRESS at the last observation; this new source commit will require its own exact-head runs.
+- The previous ZeroTier on-link ECMP uncertainty is closed; exact ZeroTier #45719100260, Process #45719100773, WAN route #45719100509 and AI docs #45719100546 passed on `9ed539a04e4c4df96aef03f9d1a6f9637fd3e3b9`.
+- The latest confirmed XY-C1 L3 baseline is `9ed539a04e4c4df96aef03f9d1a6f9637fd3e3b9`, run #45719100341: Build XY-C1, TRX verification and artifact upload all succeeded. Later production changes (including DHCPv6 packet bounds, rstats and this UDPXY slice) are not covered by that image. Current-source L3 and physical-router L4 remain NOT VERIFIED.
 
-## Active task
+## Last engineering slice — UDPXY parser memory-safety and input-boundary repair
 
-Resolve the exact-SHA XY-C1 run for product source `4daa654ba5f31cb6a74357f98c432a7eb1c85e1e`. If the build is still pending, proceed with a separate evidenced stability/security defect outside the DHCPv6 packet-input slice. If it fails, inspect that exact job log and repair the failing step. Do not infer a firmware result from a different SHA or a partial build.
+- `read_command()` receives up to 2048 bytes and passes the exact `recv()` length to `get_request()`. The old `strstr()`/`strcspn()` scans were unbounded when malformed client traffic filled the buffer without NUL termination.
+- `parse_param()` read `s[i]` after the supplied span and used unbounded `strcspn()`. `parse_udprelay()` could copy an attacker-controlled SSM source length into a 16-byte destination before checking capacity; absent `@` also left the caller's source-address array uninitialized, and `atoi()` accepted trailing non-digits.
+- This slice replaces those scans with explicit-length operations, checks source/group output capacities before copying, initializes absent source output, validates decimal port syntax/overflow, and adds a production-linked GNU89 ASan/UBSan regression plus a semantic source contract.
+- The UDPXY package path is added to the XY-C1 production-input workflow. Exact-head UDPXY, XY-C1, Process inventory and AI handoff Actions must be checked after the combined main commit. No current-source MIPS/L3 or hardware/L4 result is claimed.
 
 ## Exact first actions for next GPT
 
-1. Confirm live `main` and the frozen backup ref; this handoff update itself will add one docs-only commit on top of `453c582`.
-2. Poll #45721587647 for `4daa654`; require Build, TRX output validation and artifact upload all PASS on that exact product source SHA. NVRAM run #45721587345 is already PASS.
-3. Continue a new, evidence-backed Padavan userland stability/security fix with regression coverage and an exact-SHA Actions check. Do not repeat the DHCPv6 NoBinding, option-bounds or UDP truncation fixes absent new regression evidence.
+1. Fetch live main and exact-head push Actions for the UDPXY engineering commit created on top of `6631da6bc711d0b24d791fd8e4d6fd6578b06f20`; triage any failure from its first causal job. Do not use PR or older-SHA green results.
+2. Require the UDPXY GNU89 ASan/UBSan regression and source contract to pass. For L3, require the XY-C1 Build, TRX verification and artifact upload to all pass on the same resulting product-source SHA.
+3. Continue within `trunk/user/udpxy/src` only for a distinct demonstrated socket-I/O defect (candidate inspections: short HTTP response sends and multicast refresh failure handling); do not redo these parser fixes. Keep source and tests in bounded atomic commits.
 
 # Cross-session execution mandate
 

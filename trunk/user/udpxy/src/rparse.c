@@ -49,30 +49,48 @@ int
 get_request( const char* src, size_t srclen,
              char* request, size_t* rqlen )
 {
-    const char HEAD[] = "GET /";
-    char* p = NULL;
-    const char* EOD = src + srclen - 1;
-    size_t n = 0;
-    const char SPACE[] = " ";
+    static const char HEAD[] = "GET /";
+    const size_t head_len = sizeof(HEAD) - 1U;
+    const char *nul, *end, *p = NULL, *space;
+    size_t input_len = srclen, i, remaining, n;
 
-    p = strstr( src, HEAD );
-    if( NULL == p ) return 1;   /* no header */
-
-    p += (sizeof(HEAD) - 1);
-    if( p >= EOD)               /* no request */
-        return 2;
-
-    n = strcspn( p, " " );
-    if( (SPACE[0] != p[n]) || ((p + n) > EOD) || (n >= *rqlen) ) /* overflow */
+    if (!src || !request || !rqlen || *rqlen == 0U)
         return 3;
 
-    (void) strncpy( request, p, n );
-    request[ n ] = '\0';
+    /* recv() does not append a NUL when the buffer is filled exactly. */
+    nul = (const char *)memchr(src, '\0', srclen);
+    if (nul)
+        input_len = (size_t)(nul - src);
+    if (input_len < head_len)
+        return 1;
 
+    for (i = 0; i <= input_len - head_len; ++i) {
+        if (memcmp(src + i, HEAD, head_len) == 0) {
+            p = src + i + head_len;
+            break;
+        }
+    }
+    if (!p)
+        return 1;
+
+    end = src + input_len;
+    remaining = (size_t)(end - p);
+    if (remaining <= 1U)
+        return 2;
+
+    space = (const char *)memchr(p, ' ', remaining);
+    if (!space)
+        return 3;
+    n = (size_t)(space - p);
+    if (n >= *rqlen)
+        return 3;
+
+    memcpy(request, p, n);
+    request[n] = '\0';
     *rqlen = n;
-
     return 0;
 }
+
 
 
 /* parse (GET) request into command and parameters (options)
@@ -96,52 +114,56 @@ parse_param( const char* s, size_t slen,
              char* tail,    size_t tlen)
 {
     const char DLM = '/';
-    size_t i, j, n = 0;
+    const char *nul, *query;
+    size_t len = slen, i, j, n, tail_len, copy_len;
 
-    assert( s && cmd && (clen > (size_t)0) && opt && (optlen > (size_t)0) );
+    if (!s || !cmd || clen == 0U || !opt || optlen == 0U)
+        return EINVAL;
 
-    *cmd = *opt = '\0';
-    if( (size_t)0 == slen ) return 0;   /* empty source */
-
-    /* request ::= [DLM] cmd [DLM opt] */
-
-    /* skip leading delimiter */
-    i = ( DLM == s[0] ) ? 1 : 0;
-
-    /* copy into cmd until next delimiter or EOD */
-    for( j = 0; (i < slen) && (j < clen) && s[i] && (s[i] != DLM); ) {
-        cmd[j++] = s[i++];
-    }
-    if( j >= clen ) return EOVERFLOW;
-    cmd[ j ] = '\0';
-
-    /* skip dividing delimiter */
-    if( DLM == s[i] )
-        ++i;
-
-    /* over the edge yet? */
-    if (i >= slen)
+    *cmd = '\0';
+    *opt = '\0';
+    if (tail && tlen > 0U)
+        tail[0] = '\0';
+    if (slen == 0U)
         return 0;
 
-    /* look for '?' separating options from tail */
-    n = strcspn(s + i, "?");
-    if (n < optlen) {
-        (void) strncpy( opt, s + i, n );
-        opt[n] = '\0';
+    /* Treat an embedded NUL as the end of the supplied byte span. */
+    nul = (const char *)memchr(s, '\0', slen);
+    if (nul)
+        len = (size_t)(nul - s);
+    if (len == 0U)
+        return 0;
+
+    i = (DLM == s[0]) ? 1U : 0U;
+    for (j = 0; (i < len) && (j < clen) &&
+                (s[i] != '\0') && (s[i] != DLM); ) {
+        cmd[j++] = s[i++];
     }
-    else
+    if (j >= clen)
         return EOVERFLOW;
+    cmd[j] = '\0';
 
-    i += n;
-    if (i >= slen) return 0;
+    if ((i < len) && (s[i] == DLM))
+        ++i;
+    if (i >= len)
+        return 0;
 
-    if (tail && tlen > 0) {
-        (void) strncpy(tail, s + i, tlen);
-        tail[tlen - 1] = '\0';
+    query = (const char *)memchr(s + i, '?', len - i);
+    n = query ? (size_t)(query - (s + i)) : len - i;
+    if (n >= optlen)
+        return EOVERFLOW;
+    memcpy(opt, s + i, n);
+    opt[n] = '\0';
+
+    if (query && tail && tlen > 0U) {
+        tail_len = len - (size_t)(query - s);
+        copy_len = (tail_len < (tlen - 1U)) ? tail_len : (tlen - 1U);
+        memcpy(tail, query, copy_len);
+        tail[copy_len] = '\0';
     }
-
     return 0;
 }
+
 
 
 
@@ -157,64 +179,99 @@ parse_param( const char* s, size_t slen,
  *         non-zero if error
  */
 int
-parse_udprelay( const char*  opt, size_t optlen,
+parse_udprelay( const char* opt, size_t optlen,
                 char* s_addr,     size_t s_addrlen,
                 char* addr,       size_t addrlen,
                 uint16_t* port )
 {
-    int rc = 1;
-    size_t n;
-    int pval;
+    static const char SEP[] = ":%~+-^";
+    const char *nul, *source;
+    char buffer[512];
+    char *host;
+    size_t input_len, at, host_len, host_remaining, sep, i;
+    unsigned int value = 0U;
+    int has_source = 0;
 
-    const char* SEP = ":%~+-^";
-    const int MAX_PORT = 65535;
+    if (s_addr && s_addrlen > 0U)
+        s_addr[0] = '\0';
+    if (addr && addrlen > 0U)
+        addr[0] = '\0';
+    if (!opt || !s_addr || !addr || !port ||
+        s_addrlen == 0U || addrlen == 0U || optlen == 0U)
+        return 1;
 
-    #define MAX_OPTLEN 512
-    char buffer[ MAX_OPTLEN ];
-    char *s = buffer;
+    /* optlen includes the terminator; reject truncated/nonterminated input. */
+    nul = (const char *)memchr(opt, '\0', optlen);
+    if (!nul)
+        return 1;
+    input_len = (size_t)(nul - opt);
+    if (input_len == 0U || input_len >= sizeof(buffer))
+        return 1;
+    memcpy(buffer, opt, input_len);
+    buffer[input_len] = '\0';
 
-    assert( opt && s_addr && s_addrlen && addr && addrlen && port );
-
-    (void) strncpy( s, opt, MAX_OPTLEN );
-    s[ MAX_OPTLEN - 1 ] = '\0';
-
-    do {
-        size_t s_index = strcspn( s, "@" );
-
-        /*If s_index is not the original string size, then we have a match for SSM*/
-        if (s_index != strlen(s)){
-            s[s_index] = '\0';
-            strncpy( s_addr, s, s_index);
-            s_addr[ s_addrlen - 1 ] ='\0';
-            s += s_index + 1;
-            optlen -= s_index + 1;
-        }
-    } while(0);
-
-    do {
-        n = strcspn( s, SEP );
-        if( !n || n >= optlen ) break;
-        s[n] = '\0';
-
-        strncpy( addr, s, addrlen );
-        addr[ addrlen - 1 ] ='\0';
-
-        ++n;
-        pval = atoi( s + n );
-        if( (pval > 0) && (pval < MAX_PORT) ) {
-            *port = (uint16_t)pval;
-        }
-        else {
-            rc = 3;
+    at = input_len;
+    for (i = 0; i < input_len; ++i) {
+        if (buffer[i] == '@') {
+            at = i;
+            has_source = 1;
             break;
         }
-
-        rc = 0;
     }
-    while(0);
 
-    return rc;
+    source = buffer;
+    host = buffer;
+    if (has_source) {
+        if (at == 0U || (at + 1U) >= input_len)
+            return 1;
+        host = buffer + at + 1U;
+    }
+
+    host_remaining = input_len - (size_t)(host - buffer);
+    sep = host_remaining;
+    for (i = 0; i < host_remaining; ++i) {
+        if (strchr(SEP, host[i]) != NULL) {
+            sep = i;
+            break;
+        }
+        if (host[i] == '@')
+            return 1;
+    }
+    if (sep == 0U || sep >= host_remaining)
+        return 1;
+    host_len = sep;
+
+    if (sep + 1U >= host_remaining)
+        return 3;
+    for (i = sep + 1U; i < host_remaining; ++i) {
+        unsigned int digit;
+        if (host[i] < '0' || host[i] > '9')
+            return 3;
+        digit = (unsigned int)(host[i] - '0');
+        if (value > (65534U - digit) / 10U)
+            return 3;
+        value = value * 10U + digit;
+    }
+    if (value == 0U)
+        return 3;
+
+    /* Never truncate a source/group literal into a different address. */
+    if ((has_source && at >= s_addrlen) || host_len >= addrlen)
+        return 3;
+
+    if (has_source) {
+        memcpy(s_addr, source, at);
+        s_addr[at] = '\0';
+    }
+    else {
+        s_addr[0] = '\0';
+    }
+    memcpy(addr, host, host_len);
+    addr[host_len] = '\0';
+    *port = (uint16_t)value;
+    return 0;
 }
+
 
 /* __EOF__ */
 
