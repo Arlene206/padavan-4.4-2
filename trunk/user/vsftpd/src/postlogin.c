@@ -38,6 +38,7 @@
 #include "ftp_octal_arg_policy.h"
 #include "ftp_active_port_policy.h"
 #include "ftp_mdtm_policy.h"
+#include "ftp_stou_collision_policy.h"
 
 /* Private local functions */
 static void handle_pwd(struct vsf_session* p_sess);
@@ -1090,6 +1091,8 @@ handle_upload_common(struct vsf_session* p_sess, int is_append, int is_unique)
   int success = 0;
   int created = 0;
   int unique_permission_denied = 0;
+  unsigned int stou_collision_retries = 0;
+  int upload_open_errno;
   int do_truncate = 0;
   filesize_t offset = p_sess->restart_pos;
   int has_restart_pos = p_sess->restart_pos_set;
@@ -1125,6 +1128,7 @@ handle_upload_common(struct vsf_session* p_sess, int is_append, int is_unique)
   vsf_log_start_entry(p_sess, kVSFLogEntryUpload);
   str_copy(&p_sess->log_str, &p_sess->ftp_arg_str);
   prepend_path_to_filename(&p_sess->log_str);
+retry_unique_candidate:
   if (!vsf_access_check_file(p_filename))
   {
     vsf_cmdio_write(p_sess, FTP_NOPERM, "Permission denied.");
@@ -1151,6 +1155,27 @@ handle_upload_common(struct vsf_session* p_sess, int is_append, int is_unique)
   }
   if (vsf_sysutil_retval_is_error(new_file_fd))
   {
+    upload_open_errno = errno;
+    if (is_unique &&
+        ftp_stou_collision_should_retry(new_file_fd, upload_open_errno,
+                                        stou_collision_retries))
+    {
+      ++stou_collision_retries;
+      unique_permission_denied = 0;
+      if (get_unique_filename(p_sess, &s_filename,
+                              &p_sess->ftp_arg_str,
+                              &unique_permission_denied) != 0)
+      {
+        vsf_cmdio_write(p_sess,
+            unique_permission_denied ? FTP_NOPERM : FTP_UPLOADFAIL,
+            unique_permission_denied ? "Permission denied." :
+                                       "Could not select a unique filename.");
+        return;
+      }
+      p_filename = &s_filename;
+      goto retry_unique_candidate;
+    }
+    errno = upload_open_errno;
     vsf_cmdio_write(p_sess, FTP_UPLOADFAIL, "Could not create file.");
     return;
   }

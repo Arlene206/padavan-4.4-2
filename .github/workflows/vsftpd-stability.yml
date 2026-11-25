@@ -19,6 +19,7 @@ on:
       - "trunk/user/vsftpd/src/tests/ftp_octal_arg_policy.c"
       - "trunk/user/vsftpd/src/tests/ftp_rest_offset_policy.c"
       - "trunk/user/vsftpd/src/ftp_acl_path_policy.h"
+      - "trunk/user/vsftpd/src/ftp_stou_collision_policy.h"
       - "trunk/user/vsftpd/src/ftp_account_auth_policy.h"
       - "trunk/user/vsftpd/src/tests/ftp_account_auth_policy.c"
       - "trunk/user/vsftpd/src/tests/ftp_acl_path_policy.c"
@@ -65,6 +66,7 @@ on:
       - "trunk/user/vsftpd/src/tests/ftp_octal_arg_policy.c"
       - "trunk/user/vsftpd/src/tests/ftp_rest_offset_policy.c"
       - "trunk/user/vsftpd/src/ftp_acl_path_policy.h"
+      - "trunk/user/vsftpd/src/ftp_stou_collision_policy.h"
       - "trunk/user/vsftpd/src/ftp_account_auth_policy.h"
       - "trunk/user/vsftpd/src/tests/ftp_account_auth_policy.c"
       - "trunk/user/vsftpd/src/tests/ftp_acl_path_policy.c"
@@ -184,6 +186,7 @@ jobs:
           vsftpd_acl = Path("trunk/user/vsftpd/src/asus_ext.c").read_text()
           vsftpd_acl_header = Path("trunk/user/vsftpd/src/asus_ext.h").read_text()
           vsftpd_postlogin = Path("trunk/user/vsftpd/src/postlogin.c").read_text()
+          vsftpd_stou_policy = Path("trunk/user/vsftpd/src/ftp_stou_collision_policy.h").read_text()
           vsftpd_mdtm_policy = Path("trunk/user/vsftpd/src/ftp_mdtm_policy.h").read_text()
           vsftpd_mdtm_test = Path("trunk/user/vsftpd/src/tests/ftp_mdtm_policy.c").read_text()
           vsftpd_session = Path("trunk/user/vsftpd/src/session.h").read_text()
@@ -915,6 +918,7 @@ jobs:
           unique_filename = function_body(vsftpd_postlogin, "static int\nget_unique_filename(")
           unique_candidate = function_body(vsftpd_acl, "int\nasus_check_upload_candidate_exists(")
           upload_handler = function_body(vsftpd_postlogin, "static void\nhandle_upload_common(")
+          stou_collision_policy = function_body(vsftpd_stou_policy, "ftp_stou_collision_should_retry(")
           rnfr = function_body(vsftpd_postlogin, "static void\nhandle_rnfr(struct vsf_session* p_sess)\n{")
           rnto = function_body(vsftpd_postlogin, "static void\nhandle_rnto(struct vsf_session* p_sess)\n{")
           rename_source = function_body(vsftpd_acl, "int\nasus_check_rename_source_path(")
@@ -960,6 +964,19 @@ jobs:
           assert "UINT_MAX" in unique_filename
           assert "get_unique_filename(p_sess, &s_filename" in upload_handler
           assert "Could not select a unique filename." in upload_handler
+          assert "FTP_STOU_COLLISION_MAX_RETRIES" in vsftpd_stou_policy
+          assert "open_result < 0" in stou_collision_policy
+          assert "saved_errno == EEXIST" in stou_collision_policy
+          assert "collision_retries < FTP_STOU_COLLISION_MAX_RETRIES" in stou_collision_policy
+          upload_handler_compact = "".join(upload_handler.split())
+          assert "is_unique&&ftp_stou_collision_should_retry(" in upload_handler_compact
+          assert "upload_open_errno=errno;" in upload_handler_compact
+          assert "stou_collision_retries" in upload_handler
+          assert "get_unique_filename(p_sess,&s_filename,&p_sess->ftp_arg_str" in upload_handler_compact
+          assert "goto retry_unique_candidate;" in upload_handler
+          assert upload_handler.index("retry_unique_candidate:") < upload_handler.index("if (!vsf_access_check_file(p_filename))") < upload_handler.index("asus_open_upload_path(")
+          assert "ftp_stou_collision_should_retry(duplicate_upload_fd" in acl_path_test
+          assert "duplicate_open_errno != EEXIST" in acl_path_test
           assert rnto.index("vsf_access_check_file(") < rnto.index("prepend_path_to_filename(&p_sess->ftp_arg_str)")
           assert "asus_rename_path(p_sess, &p_sess->rnfr_filename_str" in rnto
           assert "str_rename(" not in rnto

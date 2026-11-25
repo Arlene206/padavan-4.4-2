@@ -11,6 +11,7 @@
 #include <unistd.h>
 #include <limits.h>
 #include "ftp_acl_path_policy.h"
+#include "ftp_stou_collision_policy.h"
 #include "ftp_listing_policy.h"
 
 
@@ -1361,17 +1362,46 @@ main(void)
     return 1;
   }
 
-  upload_fd = ftp_acl_path_open_upload_entry(
-      upload_dir_fd, "failed-unique-upload.txt", 1, 0, 0600, &cleanup_allowed);
-  duplicate_cleanup_allowed = 1;
-  if (upload_fd < 0 || !cleanup_allowed ||
-      ftp_acl_path_open_upload_entry(upload_dir_fd, "failed-unique-upload.txt", 1, 0, 0600, &duplicate_cleanup_allowed) >= 0 ||
-      duplicate_cleanup_allowed ||
-      ftp_acl_path_unlink_opened_entry(upload_dir_fd,
-          "failed-unique-upload.txt", upload_fd) != 0 ||
-      close(upload_fd) != 0) {
-    fprintf(stderr, "exclusive upload creation/rollback contract failed\n");
-    return 1;
+  {
+    int duplicate_upload_fd;
+    int duplicate_open_errno;
+
+    upload_fd = ftp_acl_path_open_upload_entry(
+        upload_dir_fd, "failed-unique-upload.txt", 1, 0, 0600,
+        &cleanup_allowed);
+    if (upload_fd < 0 || !cleanup_allowed) {
+      fprintf(stderr, "exclusive upload fixture creation failed\n");
+      return 1;
+    }
+    duplicate_cleanup_allowed = 1;
+    errno = 0;
+    duplicate_upload_fd = ftp_acl_path_open_upload_entry(
+        upload_dir_fd, "failed-unique-upload.txt", 1, 0, 0600,
+        &duplicate_cleanup_allowed);
+    duplicate_open_errno = errno;
+    if (duplicate_upload_fd >= 0 ||
+        duplicate_open_errno != EEXIST || duplicate_cleanup_allowed ||
+        !ftp_stou_collision_should_retry(duplicate_upload_fd,
+                                         duplicate_open_errno, 0) ||
+        !ftp_stou_collision_should_retry(
+            duplicate_upload_fd, duplicate_open_errno,
+            FTP_STOU_COLLISION_MAX_RETRIES - 1U) ||
+        ftp_stou_collision_should_retry(
+            duplicate_upload_fd, duplicate_open_errno,
+            FTP_STOU_COLLISION_MAX_RETRIES) ||
+        ftp_stou_collision_should_retry(0, EEXIST, 0) ||
+        ftp_stou_collision_should_retry(-1, EACCES, 0)) {
+      if (duplicate_upload_fd >= 0)
+        close(duplicate_upload_fd);
+      fprintf(stderr, "exclusive upload collision retry policy failed\n");
+      return 1;
+    }
+    if (ftp_acl_path_unlink_opened_entry(upload_dir_fd,
+            "failed-unique-upload.txt", upload_fd) != 0 ||
+        close(upload_fd) != 0) {
+      fprintf(stderr, "exclusive upload rollback failed\n");
+      return 1;
+    }
   }
   if (unlinkat(upload_dir_fd, "failed-existing-upload.txt", 0) != 0 ||
       close(upload_dir_fd) != 0) {

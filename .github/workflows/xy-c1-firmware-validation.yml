@@ -435,6 +435,7 @@ on:
       - "trunk/user/vsftpd/src/asus_ext.c"
       - "trunk/user/vsftpd/src/postlogin.c"
       - "trunk/user/vsftpd/src/ftp_acl_path_policy.h"
+      - "trunk/user/vsftpd/src/ftp_stou_collision_policy.h"
       - "trunk/user/vsftpd/src/tests/ftp_acl_path_policy.c"
       - "trunk/user/rc/src/samba_share_policy.h"
       - "trunk/user/rc/src/samba_config_mode_policy.h"
