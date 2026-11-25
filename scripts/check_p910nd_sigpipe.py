@@ -76,7 +76,7 @@ assert "errno = EIO;" in write_body
 # and its capacity before accepting a new IPv4/IPv6 peer.
 server_start = SOURCE.index("void server(")
 server_end = SOURCE.index("int is_standalone(", server_start)
-server = compact(SOURCE[server_start:server_end])
+server = compact(re.sub(r"/\\*.*?\\*/", "", SOURCE[server_start:server_end], flags=re.S))
 accept_loop = (
     "for (;;){"
     "clientlen=sizeof(client);"
