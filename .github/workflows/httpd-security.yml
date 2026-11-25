@@ -2711,9 +2711,9 @@ jobs:
           assert "dhcp_wan_route_transition_abort_snapshot(" in bound
           assert "dhcp_lease_netmask_is_valid(lease_netmask)" in bound
           assert "dhcp_lease_router_option_parse" in bound
-          assert "dhcp_lease_legacy_route_list_is_valid(lease_routes, 128U, 1)" in bound
-assert "dhcp_lease_classless_route_list_is_valid(lease_routes_ms, 128U, 1)" in bound
-assert "dhcp_lease_classless_route_list_is_valid(lease_routes_rfc, 128U, 1)" in bound
+                    assert "dhcp_lease_legacy_route_list_is_valid(lease_routes, 128U, 1)" in bound
+          assert "dhcp_lease_classless_route_list_is_valid(lease_routes_ms, 128U, 1)" in bound
+          assert "dhcp_lease_classless_route_list_is_valid(lease_routes_rfc, 128U, 1)" in bound
           assert "dnsmasq_valid_server_domain(lease_domain)" in bound
 
           assert "dnsmasq_valid_server_domain" in domain_policy
