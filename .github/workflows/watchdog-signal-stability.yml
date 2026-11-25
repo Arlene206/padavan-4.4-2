@@ -1,0 +1,425 @@
+name: watchdog signal lifecycle stability regression
+
+on:
+  push:
+    paths:
+      - ".github/workflows/watchdog-signal-stability.yml"
+      - "trunk/user/rc/src/watchdog.c"
+      - "trunk/user/rc/src/watchdog_httpd_probe_policy.h"
+      - "trunk/user/rc/src/tests/watchdog_httpd_probe_policy.c"
+      - "trunk/user/rc/src/process_presence_start_policy.h"
+      - "trunk/user/rc/src/detached_daemon_start_policy.h"
+      - "trunk/user/rc/src/tests/detached_daemon_start_policy.c"
+      - "trunk/user/rc/src/tests/process_presence_start_policy.c"
+      - "trunk/user/rc/src/watchdog_ntp_policy.h"
+      - "trunk/user/rc/src/tests/watchdog_ntp_policy.c"
+      - "trunk/user/rc/src/common_ex.c"
+      - "trunk/user/rc/src/service_lifecycle_policy.h"
+      - "trunk/user/rc/src/tests/service_lifecycle_policy.c"
+      - "trunk/user/shared/src/process_inventory.h"
+      - "trunk/user/shared/src/process_pidfile.c"
+      - "trunk/user/shared/src/process_pidfile.h"
+      - "scripts/check_watchdog_ntp_lifecycle.py"
+      - "trunk/user/rc/src/watchdog_signal_policy.h"
+      - "trunk/user/rc/src/tests/watchdog_signal_policy.c"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/init_router_result_policy.h"
+      - "trunk/user/rc/src/tests/init_router_result_policy.c"
+      - "trunk/user/rc/src/net_lan.c"
+      - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/service_wait_policy.h"
+      - "trunk/user/rc/src/rc.h"
+      - "trunk/user/rc/src/services.c"
+      - "trunk/user/rc/src/tests/watchdog_cpu_restart_policy.c"
+      - "trunk/user/rc/src/watchdog_cpu_restart_policy.h"
+      - "trunk/user/rc/src/wan_nvram_status_policy.h"
+      - "trunk/user/rc/src/net_wifi.c"
+      - "trunk/user/rc/src/Makefile"
+      - "trunk/user/rc/Makefile"
+  pull_request:
+    paths:
+      - ".github/workflows/watchdog-signal-stability.yml"
+      - "trunk/user/rc/src/watchdog.c"
+      - "trunk/user/rc/src/watchdog_httpd_probe_policy.h"
+      - "trunk/user/rc/src/tests/watchdog_httpd_probe_policy.c"
+      - "trunk/user/rc/src/process_presence_start_policy.h"
+      - "trunk/user/rc/src/detached_daemon_start_policy.h"
+      - "trunk/user/rc/src/tests/detached_daemon_start_policy.c"
+      - "trunk/user/rc/src/tests/process_presence_start_policy.c"
+      - "trunk/user/rc/src/watchdog_ntp_policy.h"
+      - "trunk/user/rc/src/tests/watchdog_ntp_policy.c"
+      - "trunk/user/rc/src/common_ex.c"
+      - "trunk/user/rc/src/service_lifecycle_policy.h"
+      - "trunk/user/rc/src/tests/service_lifecycle_policy.c"
+      - "trunk/user/shared/src/process_inventory.h"
+      - "trunk/user/shared/src/process_pidfile.c"
+      - "trunk/user/shared/src/process_pidfile.h"
+      - "scripts/check_watchdog_ntp_lifecycle.py"
+      - "trunk/user/rc/src/watchdog_signal_policy.h"
+      - "trunk/user/rc/src/tests/watchdog_signal_policy.c"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/init_router_result_policy.h"
+      - "trunk/user/rc/src/tests/init_router_result_policy.c"
+      - "trunk/user/rc/src/net_lan.c"
+      - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/service_wait_policy.h"
+      - "trunk/user/rc/src/rc.h"
+      - "trunk/user/rc/src/services.c"
+      - "trunk/user/rc/src/tests/watchdog_cpu_restart_policy.c"
+      - "trunk/user/rc/src/watchdog_cpu_restart_policy.h"
+      - "trunk/user/rc/src/wan_nvram_status_policy.h"
+      - "trunk/user/rc/src/net_wifi.c"
+      - "trunk/user/rc/src/Makefile"
+      - "trunk/user/rc/Makefile"
+
+permissions:
+  contents: read
+
+jobs:
+  watchdog-signal:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and run HTTPD probe configuration safety regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/watchdog_httpd_probe_policy.c \
+            -o /tmp/watchdog-httpd-probe-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/watchdog-httpd-probe-policy
+      - name: Compile and run GNU89 signal deferral policy regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/watchdog_signal_policy.c \
+            -o /tmp/watchdog-signal-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/watchdog-signal-policy
+      - name: Compile and run NTP stop-before-start and shared service lifecycle regressions
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/watchdog_ntp_policy.c \
+            -o /tmp/watchdog-ntp-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/watchdog-ntp-policy
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -I trunk/user/rc/src -I trunk/user/shared/src \
+            trunk/user/rc/src/tests/service_lifecycle_policy.c \
+            -o /tmp/service-lifecycle-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/service-lifecycle-policy
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/init_router_result_policy.c \
+            -o /tmp/init-router-result-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/init-router-result-policy
+      - name: Compile and run CPU watchdog module restart postcondition regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/watchdog_cpu_restart_policy.c \
+            -o /tmp/watchdog-cpu-restart-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/watchdog-cpu-restart-policy
+      - name: Verify NTP stop-before-start integration and service lifecycle return path
+        run: python3 scripts/check_watchdog_ntp_lifecycle.py
+      - name: Verify deferred dispatch, signal masks and caller wiring
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          rc = Path("trunk/user/rc/src")
+          watchdog = (rc / "watchdog.c").read_text()
+          presence_policy = (rc / "process_presence_start_policy.h").read_text()
+          presence_test = (rc / "tests/process_presence_start_policy.c").read_text()
+          policy = (rc / "watchdog_signal_policy.h").read_text()
+          test = (rc / "tests/watchdog_signal_policy.c").read_text()
+          httpd_policy = (rc / "watchdog_httpd_probe_policy.h").read_text()
+          httpd_test = (rc / "tests/watchdog_httpd_probe_policy.c").read_text()
+          dispatcher = (rc / "rc.c").read_text()
+          lan = (rc / "net_lan.c").read_text()
+          wan = (rc / "net_wan.c").read_text()
+          header = (rc / "rc.h").read_text()
+          services = (rc / "services.c").read_text()
+          cpu_policy = (rc / "watchdog_cpu_restart_policy.h").read_text()
+          cpu_test = (rc / "tests/watchdog_cpu_restart_policy.c").read_text()
+          wireless = (rc / "net_wifi.c").read_text()
+          makefile = (rc / "Makefile").read_text()
+          package_makefile = Path("trunk/user/rc/Makefile").read_text()
+          workflow = Path(".github/workflows/watchdog-signal-stability.yml").read_text()
+          xy_workflow = Path(".github/workflows/xy-c1-firmware-validation.yml").read_text()
+
+          def body(source, signature):
+              start = source.index(signature)
+              brace = source.index("{", start)
+              depth = 0
+              for pos in range(brace, len(source)):
+                  if source[pos] == "{":
+                      depth += 1
+                  elif source[pos] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source[brace + 1:pos]
+              raise AssertionError("unterminated function: " + signature)
+
+          httpd_probe = body(watchdog, "httpd_check_v2()")
+          assert '#include "watchdog_httpd_probe_policy.h"' in watchdog
+          assert "watchdog_httpd_login_timestamp_parse(" in httpd_probe
+          assert "watchdog_httpd_probe_config_usable(" in httpd_probe
+          assert "watchdog_httpd_probe_port_unchanged(" in httpd_probe
+          assert 'nvram_safe_get("login_timestamp")' not in httpd_probe
+          assert 'nvram_get_int("http_proto")' not in httpd_probe
+          assert 'nvram_get_int("http_lanport")' not in httpd_probe
+          assert "cannot read HTTPD LAN port; skipping liveness probe" in httpd_probe
+          assert "watchdog_httpd_probe_stale_file_remove_status(" in httpd_probe
+          assert "cannot clear stale HTTPD probe result; skipping liveness decision" in httpd_probe
+          assert "watchdog_httpd_probe_file_io_status(" in httpd_probe
+          assert "probe_read_error = ferror(fp);" in httpd_probe
+          assert "probe_close_result = fclose(fp);" in httpd_probe
+          assert "cannot read HTTPD probe result; skipping liveness decision" in httpd_probe
+          assert "watchdog_httpd_probe_file_io_status" in httpd_policy
+          assert "test_probe_file_io_errors_skip_restart_decision" in httpd_test
+          file_status = httpd_probe.index("watchdog_httpd_probe_file_io_status(")
+          file_error_guard = httpd_probe.index("if (status != 0)", file_status)
+          live_decision = httpd_probe.index("if (httpd_live)", file_error_guard)
+          assert file_status < file_error_guard < live_decision
+          assert "test_stale_probe_result_must_be_removed_before_probe" in httpd_test
+          remove_result = httpd_probe.index("remove_result = remove(DETECT_HTTPD_FILE)")
+          remove_guard = httpd_probe.index("if (status != 0)", remove_result)
+          probe_launch = httpd_probe.index('doSystem("wget -q -T 1', remove_guard)
+          assert remove_result < remove_guard < probe_launch
+          assert "test_login_timestamp_requires_complete_decimal_value" in httpd_test
+          assert "test_probe_requires_trustworthy_http_configuration" in httpd_test
+          assert "test_port_recheck_does_not_hide_read_errors_or_changes" in httpd_test
+          assert "watchdog_httpd_probe_config_usable" in httpd_policy
+
+          assert '#include "watchdog_signal_policy.h"' in watchdog
+          assert '#include "process_presence_start_policy.h"' in watchdog
+          assert '#include <process_inventory.h>' in watchdog
+          for marker in ("PROCESS_PRESENCE_ABSENT", "PROCESS_PRESENCE_RUNNING",
+                         "PROCESS_PRESENCE_UNKNOWN", "(enum process_presence)7"):
+              assert marker in presence_test
+          assert "PROCESS_PRESENCE_START_ABORT" in presence_policy
+          handler = body(watchdog, "catch_sig_watchdog(int sig)")
+          assert "watchdog_record_signal(&wd_pending_events, sig)" in handler
+          for forbidden in ("watchdog_on_timer(", "watchdog_on_sighup(",
+                            "watchdog_on_sigusr1(", "remove(", "wd_alarmtimer(",
+                            "exit(", "nvram_", "notify_rc(", "doSystem(",
+                            "system(", "eval(", "setenv_tz(", "storage_save_time("):
+              assert forbidden not in handler, "signal handler still performs work: " + forbidden
+
+          main = body(watchdog, "watchdog_main(int argc, char *argv[])")
+          block = main.index("sigprocmask(SIG_BLOCK, &managed_signals, &original_mask)")
+          install = main.index("sigaction(SIGHUP, &sa, NULL)")
+          assert block < install
+          assert "sa.sa_mask = managed_signals;" in main
+          for signal_name in ("SIGALRM", "SIGHUP", "SIGUSR1", "SIGTERM"):
+              assert f"sigaddset(&managed_signals, {signal_name})" in main
+              assert f"sigaction({signal_name}, &sa, NULL)" in main
+              assert f"sigdelset(&dispatch_mask, {signal_name})" in main
+          assert "sigaction(SIGPIPE, &sa, NULL) < 0" in main
+          assert "sigsuspend(&dispatch_mask)" in main
+          assert "pause()" not in main
+          assert "events = watchdog_take_pending_events(&wd_pending_events)" in main
+
+          # Normalize C whitespace once; literal escaped newlines in the old
+          # checks made the source contract depend on an exact formatter layout.
+          main_compact = "".join(main.split())
+          stop = main_compact.index("if(events&WD_PENDING_TERMINATE)")
+          refresh = main_compact.index(
+              "watchdog_should_dispatch_pending_event(&wd_pending_events,events,WD_PENDING_TIME_REFRESH)",
+              stop
+          )
+          wifi = main_compact.index(
+              "watchdog_should_dispatch_pending_event(&wd_pending_events,events,WD_PENDING_WIFI_STATE)",
+              refresh
+          )
+          timer = main_compact.index(
+              "watchdog_should_dispatch_pending_event(&wd_pending_events,events,WD_PENDING_TIMER)",
+              wifi
+          )
+          assert stop < refresh < wifi < timer
+          unblock = main_compact.index("sigprocmask(SIG_SETMASK,&dispatch_mask,NULL)")
+          assert unblock < refresh
+          reblock = main_compact.index("sigprocmask(SIG_BLOCK,&managed_signals,NULL)", timer)
+          assert timer < reblock
+          assert "if (wd_alarmtimer(WD_NORMAL_PERIOD, 0) < 0)" in main
+          cleanup = main.index("watchdog_cleanup:")
+          assert "wd_alarmtimer(0, 0)" in main[cleanup:]
+          publish = main.index('if (process_pidfile_write(WD_PID_FILE, "watchdog") < 0)')
+          publish_failure = main.index("goto watchdog_cleanup;", publish)
+          timer_start = main.index("if (wd_alarmtimer(WD_NORMAL_PERIOD, 0) < 0)")
+          assert main.index("daemon(0, 0)") < publish < publish_failure < timer_start
+          assert "remove(WD_PID_FILE)" not in main
+          assert "unlink(WD_PID_FILE)" not in main
+          assert "stale PID/start_time pairs are rejected" in main
+
+          alarm = body(watchdog, "wd_alarmtimer(unsigned long sec, unsigned long usec)")
+          assert "return setitimer(ITIMER_REAL, &wd_itv, NULL);" in alarm
+
+          timer_body = body(watchdog, "watchdog_on_timer(void)")
+          timer_calls = ("svc_timecheck();", "httpd_process_check();",
+                         "dnsmasq_process_check();", "inet_handler(is_ap_mode);",
+                         "setkernel_tz();", "storage_save_time(10);")
+          positions = [timer_body.index(call) for call in timer_calls]
+          assert positions == sorted(positions)
+          assert timer_body.count("wd_pending_events & WD_PENDING_TERMINATE") >= 6
+
+          schedule = body(watchdog, "svc_timecheck(void)")
+          update = schedule.index('doSystem("/usr/bin/update_dlink.sh %s", "update");')
+          stop_guard = schedule.index("wd_pending_events & WD_PENDING_TERMINATE", update)
+          delay = schedule.index("sleep(70);", stop_guard)
+          assert update < stop_guard < delay
+
+          assert "watchdog_should_dispatch_pending_event" in policy
+          assert "WD_PENDING_TERMINATE" in body(policy, "watchdog_should_dispatch_pending_event(")
+          for bit in ("WD_PENDING_TIMER", "WD_PENDING_TIME_REFRESH",
+                      "WD_PENDING_WIFI_STATE", "WD_PENDING_TERMINATE"):
+              assert bit in policy
+          for marker in ("test_signal_events_are_recorded",
+                         "test_repeated_standard_signals_coalesce",
+                         "test_termination_is_sticky_and_coexists_with_work",
+                         "test_snapshot_clears_only_the_consumed_batch",
+                         "test_pending_termination_suppresses_remaining_batch_work"):
+              assert marker in test
+
+          time_notify = body(watchdog, "notify_watchdog_time(void)")
+          wifi_notify = body(watchdog, "notify_watchdog_wifi(int is_5ghz)")
+          assert 'process_pidfile_signal(WD_PID_FILE, "watchdog", SIGHUP)' in time_notify
+          assert "kill_pidfile_s(WD_PID_FILE" not in time_notify
+          assert time_notify.index("process_pidfile_signal(") < time_notify.index("start_watchdog();")
+          assert "pids(" not in time_notify
+          assert "signal_errno == ENOENT || signal_errno == ESRCH" in time_notify
+          assert 'nvram_set_int_temp("wd_notify_id", wd_notify_id)' in wifi_notify
+          assert 'process_pidfile_signal(WD_PID_FILE, "watchdog", SIGUSR1)' in wifi_notify
+          assert "kill_pidfile_s(WD_PID_FILE" not in wifi_notify
+          assert wifi_notify.index('nvram_set_int_temp("wd_notify_id", wd_notify_id)') < wifi_notify.index("process_pidfile_signal(")
+          assert "notify_watchdog_time()" in dispatcher
+          assert "RCN_RESTART_NTPC" in dispatcher and "RCN_RESTART_TIME" in dispatcher
+          assert "notify_watchdog_wifi(0)" in wireless and "notify_watchdog_wifi(1)" in wireless
+          assert "watchdog_time_notification_error(" in time_notify
+          assert "return operation_error;" in time_notify
+          assert "notify_status = notify_watchdog_time();" in lan
+          assert "rc_first_service_start_status(status, notify_status)" in lan
+          assert "route_status = notify_watchdog_time();" in wan
+          assert "route_status_accumulate(status, route_status)" in wan
+          assert '#include "watchdog_cpu_restart_policy.h"' in services
+          assert '#include "wan_nvram_status_policy.h"' in services
+          config_reader = body(services, "watchdog_cpu_config_enabled(int *should_load)")
+          assert 'nvram_get_checked("watchdog_cpu", &value)' in config_reader
+          assert "rc_wan_nvram_read_int_status(" in config_reader
+          assert "rc_watchdog_cpu_restart_config_status(" in config_reader
+          assert 'nvram_get_int("watchdog_cpu")' not in config_reader
+          assert config_reader.index("nvram_get_checked(") < config_reader.index("rc_wan_nvram_read_int_status(")
+          cpu_start = body(services, "start_watchdog_cpu(void)")
+          cpu_restart = body(services, "restart_watchdog_cpu(void)")
+          assert "watchdog_cpu_config_enabled(&should_load)" in cpu_start
+          assert cpu_start.index("watchdog_cpu_config_enabled(&should_load)") < cpu_start.index('module_smart_load("rt_timer_wdg", NULL)')
+          assert "watchdog_cpu_config_enabled(&should_load)" in cpu_restart
+          assert cpu_restart.index("watchdog_cpu_config_enabled(&should_load)") < cpu_restart.index("rc_watchdog_cpu_restart_verified(")
+          assert "return config_status;" in cpu_start and "return config_status;" in cpu_restart
+          assert 'nvram_get_int("watchdog_cpu")' not in cpu_start + cpu_restart
+          cpu_start = body(services, "start_watchdog_cpu(void)")
+          cpu_restart = body(services, "restart_watchdog_cpu(void)")
+          assert 'module_smart_load("rt_timer_wdg", NULL)' in cpu_start
+          assert 'is_module_loaded_status("rt_timer_wdg")' in cpu_start
+          assert 'rc_watchdog_cpu_restart_verified("rt_timer_wdg", should_load,' in cpu_restart
+          for marker in (
+              "test_enabled_module_already_loaded_is_success",
+              "test_enabled_new_module_is_verified",
+              "test_failed_load_is_not_success",
+              "test_disabled_module_unload_is_verified",
+              "test_busy_module_prevents_false_disable_success",
+              "test_unknown_module_state_is_not_treated_as_absent",
+              "test_invalid_probe_state_fails_closed",
+              "test_invalid_inputs_fail_before_side_effects",
+              "RC watchdog module restart postcondition policy: PASS",
+          ):
+              assert marker in cpu_test, marker
+          for marker in (
+              "if (should_load)",
+              "(void)ops->load(module_name, NULL)",
+              "(void)ops->unload(module_name, 0)",
+              "probe_status = ops->is_loaded(module_name)",
+              "return should_load ? 0 : EBUSY;",
+              "return should_load ? EIO : 0;",
+          ):
+              assert marker in cpu_policy, marker
+
+          watchdog_boot = body(services, "start_services_once(int is_ap_mode)")
+          assert "rc_first_service_start_status(start_status, start_watchdog())" in watchdog_boot
+          watchdog_start = body(watchdog, "start_watchdog(void)")
+          assert 'launch_status = eval("/sbin/watchdog")' in watchdog_start
+          assert "if (launch_status != 0)" in watchdog_start
+          assert "watchdog launcher failed (status=%d)" in watchdog_start
+          watchdog_start_stop = body(watchdog, "watchdog_start_rollback_stop(void *context)")
+          watchdog_start_scan = body(watchdog, "watchdog_start_rollback_scan(void *context, int *scan_error)")
+          watchdog_start_rollback = body(watchdog, "watchdog_rollback_failed_start(int start_status, int start_errno,")
+          assert "detached_daemon_start_rollback_with_ops(" in watchdog_start_rollback
+          assert "watchdog_start_rollback_stop" in watchdog_start_rollback
+          assert "watchdog_start_rollback_scan" in watchdog_start_rollback
+          assert "kill_services(service_names, 3, 1)" in watchdog_start_stop
+          assert "process_inventory_scan((const char *)context, &snapshot)" in watchdog_start_scan
+          assert watchdog_start.count("watchdog_rollback_failed_start(") == 6
+          assert watchdog_start.index("if (action == PROCESS_PRESENCE_START_NEW)") < watchdog_start.index(
+              'launch_status = eval("/sbin/watchdog")'
+          ) < watchdog_start.index("if (launch_status != 0)")
+          for marker in (
+              'launch_status, launch_errno, "launcher"',
+              'wait_status, wait_errno, "initial readiness wait"',
+              '-1, scan_error, "process inventory"',
+              '-1, EIO, "invalid process inventory state"',
+              'wait_status, wait_errno, "retry readiness wait"',
+              '-1, ETIMEDOUT, "readiness timeout"',
+          ):
+              assert marker in watchdog_start, marker
+          assert '"watchdog"' in body(services, "stop_misc(void)")
+          assert '"watchdog"' in dispatcher and "watchdog_main" in dispatcher
+          assert "int  watchdog_main(int argc, char *argv[]);" in header
+          assert "int  notify_watchdog_time(void);" in header
+          assert "void notify_watchdog_wifi(int is_5ghz);" in header
+          assert "watchdog.o" in makefile
+          assert '$(LN) rc $(ROMFSDIR)/sbin/watchdog' in package_makefile
+
+          paths = (
+              ".github/workflows/watchdog-signal-stability.yml",
+              "trunk/user/rc/src/watchdog.c",
+              "trunk/user/rc/src/process_presence_start_policy.h",
+              "trunk/user/rc/src/detached_daemon_start_policy.h",
+              "trunk/user/rc/src/tests/detached_daemon_start_policy.c",
+              "trunk/user/rc/src/tests/process_presence_start_policy.c",
+              "trunk/user/shared/src/process_pidfile.c",
+              "trunk/user/shared/src/process_pidfile.h",
+              "trunk/user/rc/src/watchdog_signal_policy.h",
+              "trunk/user/rc/src/tests/watchdog_signal_policy.c",
+              "trunk/user/rc/src/rc.c",
+              "trunk/user/rc/src/init_router_result_policy.h",
+              "trunk/user/rc/src/tests/init_router_result_policy.c",
+              "trunk/user/rc/src/net_lan.c",
+              "trunk/user/rc/src/net_wan.c",
+              "trunk/user/rc/src/rc.h",
+              "trunk/user/rc/src/services.c",
+              "trunk/user/rc/src/tests/watchdog_cpu_restart_policy.c",
+              "trunk/user/rc/src/watchdog_cpu_restart_policy.h",
+              "trunk/user/rc/src/wan_nvram_status_policy.h",
+              "trunk/user/rc/src/net_wifi.c",
+              "trunk/user/rc/src/Makefile",
+              "trunk/user/rc/Makefile",
+          )
+          filters = workflow.split("jobs:", 1)[0]
+          push_filters, pr_filters = filters.split("  pull_request:", 1)
+          for path in paths:
+              assert push_filters.count(path) == 1, f"push path missing/duplicated: {path}"
+              assert pr_filters.count(path) == 1, f"pull_request path missing/duplicated: {path}"
+
+          xy_filters = xy_workflow.split("  workflow_dispatch:", 1)[0]
+          for path in (
+              "trunk/user/rc/src/watchdog_ntp_policy.h",
+              "trunk/user/rc/src/watchdog_signal_policy.h",
+          ):
+              quoted = '"' + path + '"'
+              assert xy_filters.count(quoted) == 1, "XY-C1 push path missing/duplicated: " + path
+
+          print("watchdog signal/context and caller contract: PASS")
+          PY

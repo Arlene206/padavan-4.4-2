@@ -1,0 +1,23 @@
+name: Ralink IAPP daemon firewall lifecycle regression
+
+on:
+  push:
+    paths:
+      - ".github/workflows/iappd-lifecycle.yml"
+      - "trunk/user/ralinkiappd/iappd.sh"
+      - "trunk/user/ralinkiappd/tests/iappd_lifecycle.sh"
+  pull_request:
+    paths:
+      - ".github/workflows/iappd-lifecycle.yml"
+      - "trunk/user/ralinkiappd/iappd.sh"
+      - "trunk/user/ralinkiappd/tests/iappd_lifecycle.sh"
+
+jobs:
+  iappd-firewall-lifecycle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check POSIX shell syntax
+        run: sh -n trunk/user/ralinkiappd/iappd.sh
+      - name: Run Ralink IAPP daemon lifecycle regression
+        run: sh trunk/user/ralinkiappd/tests/iappd_lifecycle.sh

@@ -1,0 +1,37 @@
+name: LLDT PID File Lock Regression
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "trunk/user/lldt/src/osl-linux.c"
+      - "trunk/user/lldt/src/S75lld2"
+      - "trunk/user/lldt/src/lldt_pidfile_policy.h"
+      - "trunk/user/lldt/src/tests/lldt_pidfile_policy.c"
+      - "scripts/check_lldt_pidfile_lock.py"
+      - ".github/workflows/lldt-pidfile-lock.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "trunk/user/lldt/src/osl-linux.c"
+      - "trunk/user/lldt/src/S75lld2"
+      - "trunk/user/lldt/src/lldt_pidfile_policy.h"
+      - "trunk/user/lldt/src/tests/lldt_pidfile_policy.c"
+      - "scripts/check_lldt_pidfile_lock.py"
+      - ".github/workflows/lldt-pidfile-lock.yml"
+  workflow_dispatch:
+
+jobs:
+  lldt-pidfile-lock:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and run LLDT pidfile lock regression
+        run: |
+          cc -D_GNU_SOURCE -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/lldt/src \
+            trunk/user/lldt/src/tests/lldt_pidfile_policy.c \
+            -o /tmp/lldt_pidfile_policy
+          /tmp/lldt_pidfile_policy
+      - name: Verify production lock placement and hardening
+        run: python3 scripts/check_lldt_pidfile_lock.py

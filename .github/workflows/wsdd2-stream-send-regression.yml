@@ -1,0 +1,33 @@
+name: wsdd2 WSD TCP stream send regression
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/wsdd2-stream-send-regression.yml"
+      - "trunk/user/wsdd2/src/wsd.c"
+      - "trunk/user/wsdd2/src/wsd_stream_send_policy.h"
+      - "trunk/user/wsdd2/src/tests/wsd_stream_send_policy_test.c"
+      - "scripts/test_wsdd2_stream_send.sh"
+      - "scripts/check_wsdd2_stream_send.py"
+  pull_request:
+    paths:
+      - ".github/workflows/wsdd2-stream-send-regression.yml"
+      - "trunk/user/wsdd2/src/wsd.c"
+      - "trunk/user/wsdd2/src/wsd_stream_send_policy.h"
+      - "trunk/user/wsdd2/src/tests/wsd_stream_send_policy_test.c"
+      - "scripts/test_wsdd2_stream_send.sh"
+      - "scripts/check_wsdd2_stream_send.py"
+
+permissions:
+  contents: read
+
+jobs:
+  stream-send:
+    name: WSD TCP response write completion
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and run GNU89 ASan/UBSan send-all regression and source contract
+        run: sh scripts/test_wsdd2_stream_send.sh

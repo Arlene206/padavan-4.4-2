@@ -1,0 +1,3505 @@
+name: Switch CLI ioctl failure-status regression
+
+on:
+  push:
+    paths:
+      - "trunk/user/utils/src/switch/switch_gsw.c"
+      - "trunk/user/utils/src/switch/switch_ipv4_parse_policy.h"
+      - "trunk/user/utils/src/switch/tests/switch_ipv4_parse_policy.c"
+      - "trunk/user/utils/src/switch/switch_wait_policy.h"
+      - "trunk/user/utils/src/switch/tests/switch_wait_policy.c"
+      - "trunk/user/utils/src/switch/Makefile"
+      - "trunk/user/utils/src/switch/mii_mgr_cl45.c"
+      - "trunk/user/utils/src/switch/tests/mii_mgr_cl45_cli.c"
+      - "trunk/user/utils/src/switch/mii_mgr.c"
+      - "trunk/user/utils/src/switch/tests/mii_mgr_cli.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_private_ioctl_access_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_mdio_ioctl_status_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_mdio_cl45_address_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_mdio_cl45_address_policy.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_mdio_ioctl_status_policy.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_lan_ip_ioctl_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_esw_rate_ioctl_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_esw_reg_offset_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_esw_reg_offset_policy.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_esw_rate_ioctl_policy.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_lan_ip_ioctl_policy.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_private_ioctl_access_policy.c"
+      - "trunk/linux-4.4.x/net/core/dev_ioctl.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether_pdma.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether_rss.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether_hwlro.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether_qdma.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_qdma_queue_mapping_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_qdma_register_offset_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_qdma_register_offset_policy.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_qdma_queue_mapping_policy.c"
+      - "scripts/check_raeth_rx_ring_cleanup.py"
+      - "scripts/check_raeth_qdma_tx_cleanup.py"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl_access_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/tests/ioctl_access_policy.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl_mt762x.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mii_mgr.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/ra_switch_mdio_policy.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch_mdio_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_dbg_proc.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_dbg_proc.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mii_mgr_timeout_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/mii_mgr_timeout_policy.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mii_mgr_indirect_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mii_mgr_phy_address_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/mii_mgr_phy_address_policy.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/mii_mgr_indirect_policy.c"
+      - "scripts/check_mii_mgr_indirect_locking.py"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl_mt762x.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/link_mode_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/mib_snapshot_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/tests/link_mode_policy.c"
+      - ".github/workflows/switch-cli-stability.yml"
+      - "trunk/user/rc/src/switch_rtl8367.c"
+      - "trunk/user/rc/src/switch_mtk_esw.c"
+      - "trunk/user/rc/src/switch_cli_parse_policy.h"
+      - "trunk/user/rc/src/tests/switch_cli_parse_policy.c"
+      - "trunk/user/rc/src/switch_status_policy.h"
+      - "trunk/user/rc/src/tests/switch_status_policy.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_dbg_hwioc.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_dbg_hwioc_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/ra_dbg_hwioc_policy.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_desc_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_desc_policy.c"
+      - "scripts/check_raeth_compile_integrity.py"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_mac.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_mac.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether.h"
+      - "scripts/check_raeth_hwioc_pmu.py"
+  pull_request:
+    paths:
+      - "trunk/user/utils/src/switch/switch_gsw.c"
+      - "trunk/user/utils/src/switch/switch_ipv4_parse_policy.h"
+      - "trunk/user/utils/src/switch/tests/switch_ipv4_parse_policy.c"
+      - "trunk/user/utils/src/switch/switch_wait_policy.h"
+      - "trunk/user/utils/src/switch/tests/switch_wait_policy.c"
+      - "trunk/user/utils/src/switch/Makefile"
+      - "trunk/user/utils/src/switch/mii_mgr_cl45.c"
+      - "trunk/user/utils/src/switch/tests/mii_mgr_cl45_cli.c"
+      - "trunk/user/utils/src/switch/mii_mgr.c"
+      - "trunk/user/utils/src/switch/tests/mii_mgr_cli.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_private_ioctl_access_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_mdio_ioctl_status_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_mdio_cl45_address_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_mdio_cl45_address_policy.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_mdio_ioctl_status_policy.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_lan_ip_ioctl_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_esw_rate_ioctl_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_esw_reg_offset_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_esw_reg_offset_policy.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_esw_rate_ioctl_policy.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_lan_ip_ioctl_policy.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_private_ioctl_access_policy.c"
+      - "trunk/linux-4.4.x/net/core/dev_ioctl.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether_pdma.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether_rss.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether_hwlro.c"
+      - "scripts/check_raeth_rx_ring_cleanup.py"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether_qdma.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_qdma_queue_mapping_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_qdma_register_offset_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_qdma_register_offset_policy.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_qdma_queue_mapping_policy.c"
+      - "scripts/check_raeth_qdma_tx_cleanup.py"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl_access_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/tests/ioctl_access_policy.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl_mt762x.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mii_mgr.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/ra_switch_mdio_policy.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch_mdio_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_dbg_proc.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_dbg_proc.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mii_mgr_timeout_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/mii_mgr_timeout_policy.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mii_mgr_indirect_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mii_mgr_phy_address_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/mii_mgr_phy_address_policy.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/mii_mgr_indirect_policy.c"
+      - "scripts/check_mii_mgr_indirect_locking.py"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl_mt762x.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/link_mode_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/mib_snapshot_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/tests/link_mode_policy.c"
+      - ".github/workflows/switch-cli-stability.yml"
+      - "trunk/user/rc/src/switch_rtl8367.c"
+      - "trunk/user/rc/src/switch_mtk_esw.c"
+      - "trunk/user/rc/src/switch_cli_parse_policy.h"
+      - "trunk/user/rc/src/tests/switch_cli_parse_policy.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_dbg_hwioc.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_dbg_hwioc_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/ra_dbg_hwioc_policy.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_desc_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_desc_policy.c"
+      - "scripts/check_raeth_hwioc_pmu.py"
+  workflow_dispatch:
+
+jobs:
+  switch-cli-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate RAETH HW-IOC PMU proc bounds and MMIO failures
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -g \
+            -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -I trunk/linux-4.4.x/drivers/net/ethernet/raeth \
+            trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/ra_dbg_hwioc_policy.c \
+            -o "$RUNNER_TEMP/ra_dbg_hwioc_policy"
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 \
+            "$RUNNER_TEMP/ra_dbg_hwioc_policy"
+          python3 scripts/check_raeth_hwioc_pmu.py
+
+      - name: Validate RAETH descriptor count and allocation policy
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -g \
+            -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -I trunk/linux-4.4.x/drivers/net/ethernet/raeth \
+            trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_desc_policy.c \
+            -o "$RUNNER_TEMP/raeth_desc_policy"
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 \
+            "$RUNNER_TEMP/raeth_desc_policy"
+
+      - name: Verify RAETH source declarations and definitions are unique
+        run: python3 scripts/check_raeth_compile_integrity.py
+
+      - name: Verify PDMA RX allocation rollback is complete
+        run: python3 scripts/check_raeth_rx_ring_cleanup.py
+
+      - name: Verify QDMA TX staged allocation rollback is complete
+        run: python3 scripts/check_raeth_qdma_tx_cleanup.py
+
+      - name: Compile and verify RAETH ESW rate ioctl bounds
+        run: |
+          set -eu
+          RAETH=trunk/linux-4.4.x/drivers/net/ethernet/raeth
+          cc -std=gnu89 -Wall -Wextra -Werror -g \
+            -fsanitize=address,undefined -fno-omit-frame-pointer \
+            "$RAETH/tests/raeth_esw_rate_ioctl_policy.c" \
+            -o "$RUNNER_TEMP/raeth_esw_rate_ioctl_policy"
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 \
+            "$RUNNER_TEMP/raeth_esw_rate_ioctl_policy"
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth")
+          source = (root / "raether.c").read_text()
+          policy = (root / "raeth_esw_rate_ioctl_policy.h").read_text()
+          cli = Path("trunk/user/utils/src/switch/switch_gsw.c").read_text()
+
+          def case_body(start, end):
+              start_at = source.index(start)
+              end_at = source.index(end, start_at + len(start))
+              return " ".join(source[start_at + len(start):end_at].split())
+
+          ingress = case_body(
+              "case RAETH_ESW_INGRESS_RATE:", "case RAETH_ESW_EGRESS_RATE:"
+          )
+          egress = case_body(
+              "case RAETH_ESW_EGRESS_RATE:", "case RAETH_SET_LAN_IP:"
+          )
+          for name, body, offset in (
+              ("ingress", ingress, "offset = 0x1800"),
+              ("egress", egress, "offset = 0x1040"),
+          ):
+              check = body.index("raeth_esw_rate_ioctl_status(")
+              reject = body.index("if (ret != 0)", check)
+              offset_calc = body.index(offset, reject)
+              mmio_read = body.index(
+                  "sys_reg_read(RALINK_ETH_SW_BASE + offset)", offset_calc
+              )
+              mdio_write = body.index(
+                  "mii_mgr_write(0x1f, offset, value)", mmio_read
+              )
+              assert check < reject < offset_calc < mmio_read < mdio_write, name
+
+          assert "RAETH_ESW_RATE_MAX_PORT 4U" in policy
+          assert "RAETH_ESW_RATE_MAX_BANDWIDTH_MBPS (255U * 10000U)" in policy
+          assert cli.count(
+              "switch_parse_uint_range(argv[4], 0U, 2550000U,"
+          ) == 2
+          assert "2147483647U" not in cli
+          print("RAETH ingress/egress rate inputs are validated before MMIO/MDIO access: PASS")
+          PY
+
+      - name: Verify switch ioctl reports unsupported subcommands
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth")
+          switch = (root / "ra_switch.c").read_text()
+          header = (root / "ra_switch.h").read_text()
+          driver = (root / "raether.c").read_text()
+          handler = switch.split(
+              "int sw_ioctl(struct ra_switch_ioctl_data *ioctl_data)", 1
+          )[1].split("int ephy_ioctl(", 1)[0]
+          unsupported = handler.split("default:", 1)[1].split("break;", 1)[0]
+          assert "ret = -EOPNOTSUPP;" in unsupported
+          assert "void sw_ioctl(" not in header
+          assert "int sw_ioctl(struct ra_switch_ioctl_data *ioctl_data);" in header
+          dispatch = driver.split("case RAETH_SW_IOCTL:", 1)[1].split(
+              "case RAETH_QDMA_IOCTL:", 1
+          )[0]
+          assert "ret = sw_ioctl(&ioctl_data);" in dispatch
+          trunk = handler.split("case SW_IOCTL_SET_PORT_TRUNK:", 1)[1]
+          assert trunk.index("rtk_hal_set_port_trunk(ioctl_data);") < trunk.index("break;")
+          assert trunk.index("break;") < trunk.index("default:")
+          print("Unsupported switch ioctl commands propagate -EOPNOTSUPP; trunk command does not fall through: PASS")
+          PY
+
+      - name: Verify EPHY ioctl rejects unsupported commands
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth")
+          switch = (root / "ra_switch.c").read_text()
+          driver = (root / "raether.c").read_text()
+          handler = switch.split("int ephy_ioctl(", 1)[1].split(
+              "static const struct of_device_id mediatek_gsw_match[]", 1
+          )[0]
+          unsupported = handler.split("default:", 1)[1].split("break;", 1)[0]
+          assert "ret = -EOPNOTSUPP;" in unsupported
+          assert "ret = 1;" not in unsupported
+          for command in (
+              "RAETH_VBG_IEXT_CALIBRATION",
+              "RAETH_TXG_R50_CALIBRATION",
+              "RAETH_TXG_OFFSET_CALIBRATION",
+              "RAETH_TXG_AMP_CALIBRATION",
+              "GE_TXG_R50_CALIBRATION",
+              "GE_TXG_OFFSET_CALIBRATION",
+              "GE_TXG_AMP_CALIBRATION",
+          ):
+              assert "case " + command + ":" in handler, command
+          dispatch = driver.split("case RAETH_EPHY_IOCTL:", 1)[1].split(
+              "default:", 1
+          )[0]
+          assert "ret = ephy_ioctl(dev, ifr, &ephy_data);" in dispatch
+          print("Unknown EPHY ioctl commands return -EOPNOTSUPP to userspace: PASS")
+          PY
+
+      - name: Verify QDMA ioctl errors propagate to userspace
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth")
+          driver = (root / "raether.c").read_text()
+          qdma = (root / "raether_qdma.c").read_text()
+
+          caller = driver.split("case RAETH_QDMA_IOCTL:", 1)[1].split(
+              "case RAETH_EPHY_IOCTL:", 1
+          )[0]
+          assert "ret = ei_qdma_ioctl(dev, ifr, &qdma_data);" in caller
+          assert "ei_qdma_ioctl(dev, ifr, &qdma_data);" not in caller.replace(
+              "ret = ei_qdma_ioctl(dev, ifr, &qdma_data);", ""
+          )
+
+          handler = qdma.split("int ei_qdma_ioctl(", 1)[1]
+          default = handler.split("default:", 1)[1].split("break;", 1)[0]
+          assert "ret = -EOPNOTSUPP;" in default
+          assert "ret = 1;" not in default
+          assert "return ret;" in handler
+          print("QDMA ioctl operation errors and unsupported commands reach userspace: PASS")
+          PY
+
+      - name: Compile and verify Clause 22 PHY address bounds
+        run: |
+          set -eu
+          RAETH=trunk/linux-4.4.x/drivers/net/ethernet/raeth
+          cc -std=gnu89 -Wall -Wextra -Werror -g \
+            -fsanitize=address,undefined -fno-omit-frame-pointer \
+            "$RAETH/tests/mii_mgr_phy_address_policy.c" \
+            -o "$RUNNER_TEMP/mii_mgr_phy_address_policy"
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 \
+            "$RUNNER_TEMP/mii_mgr_phy_address_policy"
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path(
+              "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mii_mgr.c"
+          ).read_text()
+          policy = Path(
+              "trunk/linux-4.4.x/drivers/net/ethernet/raeth/"
+              "mii_mgr_phy_address_policy.h"
+          ).read_text()
+          test = Path(
+              "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/"
+              "mii_mgr_phy_address_policy.c"
+          ).read_text()
+
+          read = source.split("u32 mii_mgr_read(u32 phy_addr", 1)[1].split(
+              "EXPORT_SYMBOL(mii_mgr_read)", 1
+          )[0]
+          write = source.split("u32 mii_mgr_write(u32 phy_addr", 1)[1].split(
+              "EXPORT_SYMBOL(mii_mgr_write)", 1
+          )[0]
+          read_address_guard = read.index(
+              "if (mii_mgr_phy_address_status(phy_addr) != 0)"
+          )
+          read_indirect = read.index("if ((ei_local->architecture")
+          read_indirect_reg = read.index(
+              "mii_mgr_indirect_register_status(phy_register) != 0",
+              read_indirect,
+          )
+          read_indirect_call = read.index("mii_mgr_indirect_read(", read_indirect_reg)
+          read_direct_reg = read.index(
+              "mii_mgr_phy_register_status(phy_register) != 0",
+              read_indirect_call,
+          )
+          read_direct_call = read.index("return __mii_mgr_read(", read_direct_reg)
+          assert read_address_guard < read_indirect < read_indirect_reg < read_indirect_call
+          assert read_indirect_call < read_direct_reg < read_direct_call
+
+          write_address_guard = write.index(
+              "if (mii_mgr_phy_address_status(phy_addr) != 0)"
+          )
+          write_indirect = write.index("if ((ei_local->architecture")
+          write_indirect_reg = write.index(
+              "mii_mgr_indirect_register_status(phy_register) != 0",
+              write_indirect,
+          )
+          write_indirect_call = write.index("mii_mgr_indirect_write(", write_indirect_reg)
+          write_direct_reg = write.index(
+              "mii_mgr_phy_register_status(phy_register) != 0",
+              write_indirect_call,
+          )
+          write_direct_data = write.index(
+              "mii_mgr_phy_write_data_status(write_data) != 0",
+              write_direct_reg,
+          )
+          write_direct_call = write.index("return __mii_mgr_write(", write_direct_data)
+          assert write_address_guard < write_indirect < write_indirect_reg < write_indirect_call
+          assert write_indirect_call < write_direct_reg < write_direct_data < write_direct_call
+
+          assert source.count("mii_mgr_phy_address_status(phy_addr)") == 2
+          assert source.count("mii_mgr_phy_register_status(phy_register)") == 2
+          assert source.count("mii_mgr_indirect_register_status(phy_register)") == 2
+          assert source.count("mii_mgr_phy_write_data_status(write_data)") == 1
+          assert "RAETH_MII_PHY_REGISTER_MAX 31U" in policy
+          assert "RAETH_MII_PHY_WRITE_DATA_MAX 0xffffU" in policy
+          assert "RAETH_MII_INDIRECT_REGISTER_MAX 0xffffU" in policy
+          assert "test_sixteen_bit_indirect_register_boundaries" in test
+          assert "test_five_bit_clause22_register_boundaries" in test
+          assert "test_sixteen_bit_clause22_write_data_boundaries" in test
+          print("MDIO Clause 22 address/register/data operands are validated before direct or indirect transactions: PASS")
+          PY
+
+      - name: Compile and verify Clause 45 ioctl address bounds
+        run: |
+          set -eu
+          RAETH=trunk/linux-4.4.x/drivers/net/ethernet/raeth
+          cc -std=gnu89 -Wall -Wextra -Werror -g \
+            -fsanitize=address,undefined -fno-omit-frame-pointer \
+            "$RAETH/tests/raeth_mdio_cl45_address_policy.c" \
+            -o "$RUNNER_TEMP/raeth_mdio_cl45_address_policy"
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 \
+            "$RUNNER_TEMP/raeth_mdio_cl45_address_policy"
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path(
+              "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether.c"
+          ).read_text()
+          manager = Path(
+              "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mii_mgr.c"
+          ).read_text()
+          policy = Path(
+              "trunk/linux-4.4.x/drivers/net/ethernet/raeth/"
+              "raeth_mdio_cl45_address_policy.h"
+          ).read_text()
+          test = Path(
+              "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/"
+              "raeth_mdio_cl45_address_policy.c"
+          ).read_text()
+
+          def case_body(start, end):
+              start_at = source.index(start)
+              end_at = source.index(end, start_at + len(start))
+              return " ".join(source[start_at + len(start):end_at].split())
+
+          cases = (
+              ("read", case_body(
+                  "case RAETH_MII_READ_CL45:", "case RAETH_MII_WRITE_CL45:"
+              ), "mii_mgr_read_cl45("),
+              ("write", case_body(
+                  "case RAETH_MII_WRITE_CL45:", "case RAETH_ESW_REG_READ:"
+              ), "mii_mgr_write_cl45("),
+          )
+          for name, body, operation in cases:
+              validate = body.index("raeth_mdio_cl45_address_status(")
+              reject = body.index("if (ret != 0)", validate)
+              transaction = body.index(operation, reject)
+              assert validate < reject < transaction, name
+          assert source.count("raeth_mdio_cl45_address_status(") == 2
+
+          setup = manager.split("u32 mii_mgr_cl45_set_address(", 1)[1].split(
+              "u32 mii_mgr_read_cl45(", 1
+          )[0]
+          write = manager.split("u32 mii_mgr_write_cl45(", 1)[1]
+          data_guard = write.index(
+              "if (raeth_mdio_cl45_write_data_status(write_data) != 0)"
+          )
+          data_reject = write.index("return rc;", data_guard)
+          data_lock = write.index("spin_lock_irqsave(&ei_local->mdio_lock, flags);")
+          data_command = write.index("sys_reg_write(MDIO_PHY_CONTROL_0", data_lock)
+          assert data_guard < data_reject < data_lock < data_command
+          assert policy.count("raeth_mdio_cl45_write_data_status(") == 1
+          assert test.count("raeth_mdio_cl45_write_data_status(") == 4
+          assert "test_write_data_is_limited_to_sixteen_bits" in test
+          assert '#include "raeth_mdio_cl45_address_policy.h"' in manager
+          guard = setup.index(
+              "if (raeth_mdio_cl45_address_status(port_num, dev_addr, reg_addr) != 0)"
+          )
+          reject = setup.index("return rc;", guard)
+          enable = setup.index("enable_mdio(1);", guard)
+          command_write = setup.index("sys_reg_write(MDIO_PHY_CONTROL_0", enable)
+          assert guard < reject < enable < command_write
+          assert setup.count("raeth_mdio_cl45_address_status(") == 1
+          print("Clause 45 user/shared MDIO address and write-data bounds: PASS")
+          PY
+
+      - name: Compile and verify RAETH ESW raw register offset alignment
+        run: |
+          set -eu
+          RAETH=trunk/linux-4.4.x/drivers/net/ethernet/raeth
+          cc -std=gnu89 -Wall -Wextra -Werror -g \
+            -fsanitize=address,undefined -fno-omit-frame-pointer \
+            "$RAETH/tests/raeth_esw_reg_offset_policy.c" \
+            -o "$RUNNER_TEMP/raeth_esw_reg_offset_policy"
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 \
+            "$RUNNER_TEMP/raeth_esw_reg_offset_policy"
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth")
+          source = (root / "raether.c").read_text()
+          policy = (root / "raeth_esw_reg_offset_policy.h").read_text()
+
+          def case_body(start, end):
+              start_at = source.index(start)
+              end_at = source.index(end, start_at + len(start))
+              return " ".join(source[start_at + len(start):end_at].split())
+
+          for name, body, access in (
+              ("read", case_body("case RAETH_ESW_REG_READ:", "case RAETH_ESW_REG_WRITE:"),
+               "sys_reg_read(RALINK_ETH_SW_BASE + reg.off)"),
+              ("write", case_body("case RAETH_ESW_REG_WRITE:", "case RAETH_ESW_PHY_DUMP:"),
+               "sys_reg_write(RALINK_ETH_SW_BASE + reg.off, reg.val)"),
+          ):
+              check = body.index("raeth_esw_reg_offset_status(reg.off, REG_ESW_MAX)")
+              reject = body.index("if (ret", check) if "if (ret" in body[check:] else body.index("ret = -EINVAL;", check)
+              mmio = body.index(access, reject)
+              assert check < reject < mmio, name
+
+          assert source.count("raeth_esw_reg_offset_status(reg.off, REG_ESW_MAX)") == 2
+          assert "if (reg.off > REG_ESW_MAX)" not in source
+          assert "RAETH_ESW_REG_OFFSET_ALIGNMENT 4U" in policy
+          print("RAETH ESW raw register reads/writes reject unaligned offsets before MMIO: PASS")
+          PY
+
+      - name: Compile and verify QDMA register offset alignment
+        run: |
+          set -eu
+          RAETH=trunk/linux-4.4.x/drivers/net/ethernet/raeth
+          cc -std=gnu89 -Wall -Wextra -Werror -g \
+            -fsanitize=address,undefined -fno-omit-frame-pointer \
+            "$RAETH/tests/raeth_qdma_register_offset_policy.c" \
+            -o "$RUNNER_TEMP/raeth_qdma_register_offset_policy"
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 \
+            "$RUNNER_TEMP/raeth_qdma_register_offset_policy"
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path(
+              "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether_qdma.c"
+          ).read_text()
+          policy = Path(
+              "trunk/linux-4.4.x/drivers/net/ethernet/raeth/"
+              "raeth_qdma_register_offset_policy.h"
+          ).read_text()
+          ioctl = source.split("int ei_qdma_ioctl(", 1)[1]
+          read_case = ioctl.split("case RAETH_QDMA_REG_READ:", 1)[1].split(
+              "case RAETH_QDMA_REG_WRITE:", 1
+          )[0]
+          write_case = ioctl.split("case RAETH_QDMA_REG_WRITE:", 1)[1].split(
+              "case RAETH_QDMA_QUEUE_MAPPING:", 1
+          )[0]
+          for name, body in (("read", read_case), ("write", write_case)):
+              check = body.index("raeth_qdma_register_offset_status(")
+              reject = body.index("ret = -EINVAL;", check)
+              mmio = body.index("sys_reg_", reject)
+              assert check < reject < mmio, name
+          assert source.count("raeth_qdma_register_offset_status(") == 2
+          assert "if (data->off > REG_HQOS_MAX)" not in source
+          assert "offset & (RAETH_QDMA_REGISTER_OFFSET_ALIGNMENT - 1U)" in policy
+          assert "RAETH_QDMA_REGISTER_OFFSET_LEGACY_MAGIC 0x777U" in policy
+          print("QDMA user offsets are aligned and bounded before all MMIO access: PASS")
+          PY
+
+      - name: Compile and verify QDMA queue-mapping selector bounds
+        run: |
+          set -eu
+          RAETH=trunk/linux-4.4.x/drivers/net/ethernet/raeth
+          cc -std=gnu89 -Wall -Wextra -Werror -g \
+            -fsanitize=address,undefined -fno-omit-frame-pointer \
+            "$RAETH/tests/raeth_qdma_queue_mapping_policy.c" \
+            -o "$RUNNER_TEMP/raeth_qdma_queue_mapping_policy"
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 \
+            "$RUNNER_TEMP/raeth_qdma_queue_mapping_policy"
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth")
+          source = (root / "raether_qdma.c").read_text()
+          policy = (root / "raeth_qdma_queue_mapping_policy.h").read_text()
+          test = (root / "tests/raeth_qdma_queue_mapping_policy.c").read_text()
+
+          assert '#include "raeth_qdma_queue_mapping_policy.h"' in source
+          assert "unsigned int M2Q_table[RAETH_QDMA_QUEUE_MAPPING_TABLE_SIZE]" in source
+          assert source.count(
+              "if (skb->mark < RAETH_QDMA_QUEUE_MAPPING_TABLE_SIZE)"
+          ) == 2
+          assert "if (skb->mark < 64)" not in source
+
+          ioctl = source.split("int ei_qdma_ioctl(", 1)[1]
+          queue = ioctl.split("case RAETH_QDMA_QUEUE_MAPPING:", 1)[1].split(
+              "case RAETH_QDMA_SFQ_WEB_ENABLE:", 1
+          )[0]
+          # Normalize C whitespace so harmless line wrapping cannot stale the contract.
+          queue = " ".join(queue.split())
+          decode = queue.index(
+              "raeth_qdma_queue_mapping_decode(data->off, &map_index, &map_separate)"
+          )
+          reject = queue.index("if (ret != 0)")
+          value_check = queue.index("raeth_qdma_queue_id_status(data->val)", reject)
+          value_reject = queue.index("if (ret != 0)", value_check)
+          separate = queue.index("lan_wan_separate = map_separate;", value_reject)
+          publish = queue.index("M2Q_table[map_index] = data->val;", separate)
+          assert decode < reject < value_check < value_reject < separate < publish
+          assert "RAETH_QDMA_QUEUE_ID_MAX 63U" in policy
+          assert "test_queue_ids_fit_the_six_bit_descriptor_field" in test
+          assert "data->off &= 0xff;" not in queue
+          assert "0x100U" in policy and "TABLE_SIZE - 1U" in policy
+          for marker in (
+              "test_valid_selectors",
+              "test_reserved_bits_are_rejected_without_output_changes",
+              "test_null_outputs_are_rejected",
+          ):
+              assert marker in test
+          print("RAETH QDMA queue mapping is range-checked before global or table updates: PASS")
+          PY
+
+      - name: Compile and run switch status/ioctl packing regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/switch_status_policy.c \
+            -o /tmp/switch-status-policy
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 \
+            /tmp/switch-status-policy
+      - name: Verify both switch ioctl wrappers reject truncated parameters
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          rc = Path("trunk/user/rc/src")
+          policy = (rc / "switch_status_policy.h").read_text()
+          test = (rc / "tests/switch_status_policy.c").read_text()
+
+          def body(source, signature):
+              start = source.index(signature)
+              brace = source.index("{", start)
+              depth = 0
+              for pos in range(brace, len(source)):
+                  if source[pos] == "{":
+                      depth += 1
+                  elif source[pos] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source[brace + 1:pos]
+              raise AssertionError("unterminated function: " + signature)
+
+          assert "switch_status_pack_ioctl_command(" in policy
+          assert "test_ioctl_parameter_packing_rejects_truncation" in test
+          for source_name, signature, device, bits in (
+              ("switch_mtk_esw.c", "mtk_esw_ioctl(", "MTK_ESW_DEVPATH",
+               "MTK_ESW_IOCTL_CMD_LENGTH_BITS"),
+              ("switch_rtl8367.c", "rtl8367_ioctl(", "RTL8367_DEVPATH",
+               "RTL8367_IOCTL_CMD_LENGTH_BITS"),
+          ):
+              source = (rc / source_name).read_text()
+              wrapper = body(source, signature)
+              pack = wrapper.index("switch_status_pack_ioctl_command(")
+              reject = wrapper.index("if (pack_status != 0)")
+              open_device = wrapper.index("open(" + device)
+              invoke = wrapper.index("ioctl(fd, ioctl_command, value)")
+              assert pack < reject < open_device < invoke
+              assert bits in wrapper
+              assert "cmd |= (par <<" not in wrapper
+          rtl_source = (rc / "switch_rtl8367.c").read_text()
+          rtl_node = body(rtl_source, "int rtl8367_node(void)")
+          assert "S_IFCHR | 0600" in rtl_node
+          assert "0666" not in rtl_node
+          print("MTK ESW/RTL8367 device-node permissions and ioctl parameter bounds: PASS")
+          PY
+      - name: Check built switch CLI reports operational failures
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          makefile = Path("trunk/user/utils/src/switch/Makefile").read_text()
+          source = Path("trunk/user/utils/src/switch/switch_gsw.c").read_text()
+          lines = source.splitlines()
+
+          # The MT7621 switch_gsw.c translation unit is wired into this target;
+          # the legacy switch.c is not the production source.
+          assert "SRC = switch_gsw.c" in makefile
+
+          socket_failures = [
+              i for i, line in enumerate(lines) if 'perror("socket");' in line
+          ]
+          assert len(socket_failures) == 1
+          assert lines[socket_failures[0] + 1].strip() == "exit(EXIT_FAILURE);"
+
+          ioctl_failures = [
+              i for i, line in enumerate(lines) if 'perror("ioctl");' in line
+          ]
+          assert len(ioctl_failures) == 7, (
+              f"expected 7 ioctl failure branches, got {len(ioctl_failures)}"
+          )
+          for index in ioctl_failures:
+              assert lines[index + 1].strip() == "close(esw_fd);"
+              assert lines[index + 2].strip() == "exit(EXIT_FAILURE);"
+
+          # Operational failures, malformed arguments and unknown commands fail closed.
+          # One socket + seven ioctl + bounded wait + IPv4 + port-map + numeric parse + usage.
+          assert source.count("exit(EXIT_FAILURE);") == 13
+          assert source.count("exit(0);") == 0
+          usage = source.split("void usage(char *cmd)", 1)[1].split("\n}", 1)[0]
+          assert "switch_fini();" in usage
+          assert "exit(EXIT_FAILURE);" in usage
+          assert "exit(0);" not in usage
+
+          def function_body(signature):
+              start = source.index(signature)
+              opening = source.index("{", start)
+              depth = 0
+              for position in range(opening, len(source)):
+                  if source[position] == "{":
+                      depth += 1
+                  elif source[position] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source[opening + 1:position]
+              raise AssertionError(f"unterminated function: {signature}")
+
+          numeric_parser = function_body("parse_uint_range_argument(")
+          assert "switch_parse_uint_range(text, 0U, maximum, &value)" in numeric_parser
+          assert "switch_fini();" in numeric_parser
+          assert numeric_parser.index("switch_fini();") < numeric_parser.index("exit(EXIT_FAILURE);")
+
+          acl_dispatch = source.split(
+              'else if (!strncmp(argv[1], "acl", 4)) {', 1
+          )[1].split("\n\t}\n#endif", 1)[0]
+          assert "if (argc < 4)" in acl_dispatch
+          assert "if (argc < 3)" not in acl_dispatch
+          assert acl_dispatch.index("if (argc < 4)") < acl_dispatch.index("argv[3]")
+
+          for signature, guard, first_arg in (
+              ("set_mirror_to(int argc, char *argv[])", "if (argc != 4 ||", "argv[3]"),
+              ("set_mirror_from(int argc, char *argv[])", "if (argc != 5 ||", "argv[3]"),
+              ("acl_dip_trtcm(int argc, char *argv[])", "if (argc != 10)", "argv[4]"),
+              ("void dip_add(int argc, char *argv[])", "if (argc < 5)", "argv[3]"),
+              ("void dip_del(int argc, char *argv[])", "if (argc < 4)", "argv[3]"),
+              ("void sip_add(int argc, char *argv[])", "if (argc < 6)", "argv[3]"),
+              ("void sip_del(int argc, char *argv[])", "if (argc < 5)", "argv[3]"),
+          ):
+              body = function_body(signature)
+              assert guard in body, signature
+              assert body.index(guard) < body.index(first_arg), signature
+              if signature.startswith("set_mirror_"):
+                  parse_call = body.index("switch_parse_uint_range(")
+                  assert body.index(guard) < parse_call, signature
+                  assert body.index("usage(argv[0]);") > parse_call, signature
+              else:
+                  assert "usage(argv[0]);" in body[:body.index(first_arg)], signature
+          for signature in ("void set_mirror_to(int argc, char *argv[])", "void set_mirror_from(int argc, char *argv[])"):
+              body = function_body(signature)
+              assert "switch_parse_uint_range(" in body
+              assert "strtoul(" not in body
+          main = function_body("int main(int argc, char *argv[])")
+          for command, token, maximum in (
+              ('!strncmp(argv[1], "ingress-rate", 6)', "argv[3]", "4U"),
+              ('!strncmp(argv[1], "egress-rate", 6)', "argv[3]", "4U"),
+              ('!strncmp(argv[1], "tag", 4)', "argv[3]", "MAX_PORT"),
+              ('!strncmp(argv[1], "pvid", 5)', "argv[2]", "MAX_PORT"),
+          ):
+              start = main.index(command)
+              ends = [main.find('else if (!strncmp(argv[1]', start + len(command)),
+                       main.find('if (!strncmp(argv[1]', start + len(command))]
+              ends = [position for position in ends if position >= 0]
+              end = min(ends) if ends else len(main)
+              block = main[start:end]
+              assert "switch_parse_uint_range(" + token in block
+              assert maximum in block
+              assert " & 0x7" not in block
+          assert 'strcmp(argv[2], "on") == 0' in main
+          assert 'strcmp(argv[2], "off") == 0' in main
+          for command in ('!strncmp(argv[1], "ingress-rate", 6)',
+                          '!strncmp(argv[1], "egress-rate", 6)'):
+              start = main.index(command)
+              subcommand = main.index("if (argc < 3)", start)
+              selector = main.index('strcmp(argv[2], "on")', start)
+              assert subcommand < selector
+          assert "argv[2][1]" not in main
+          meter = function_body("void acl_dip_meter(int argc, char *argv[])")
+          trtcm = function_body("void acl_dip_trtcm(int argc, char *argv[])")
+          for body, guard in ((meter, "argc != 7"), (trtcm, "argc != 10")):
+              assert guard in body
+              assert "parse_portmap_argument(argv[5])" in body
+              assert "parse_ipv4_argument(argv[4])" in body
+              assert "strtoul(" not in body
+              assert body.index("parse_portmap_argument(argv[5])") < body.index("reg_write(")
+              assert body.index("parse_ipv4_argument(argv[4])") < body.index("reg_write(")
+              assert body.index("parse_uint_range_argument(") < body.index("reg_write(")
+          assert "0x1fffc0U" in meter
+          assert "0x3fffc0U" in trtcm
+          assert "0xffffU" in trtcm
+          print("switch command port indices and numeric selectors reject invalid or aliased inputs: PASS")
+          print("DIP meter/TrTCM fields are validated before the first MMIO write: PASS")
+          print("switch_gsw invalid usage and truncated ACL/mirror/TrTCM/DIP/SIP commands fail safely: PASS")
+          PY
+
+      - name: Compile and verify strict switch IPv4 argument parsing
+        run: |
+          set -eu
+          SWITCH_DIR=trunk/user/utils/src/switch
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I "$SWITCH_DIR" \
+            "$SWITCH_DIR/tests/switch_ipv4_parse_policy.c" \
+            -o /tmp/switch_ipv4_parse_policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/switch_ipv4_parse_policy
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/user/utils/src/switch/switch_gsw.c").read_text()
+          workflow = Path(".github/workflows/switch-cli-stability.yml").read_text()
+
+          assert "switch_parse_ipv4_address(text, &address)" in source
+          assert "str_to_ip(" not in source
+          assert "getnext(" not in source
+          assert source.count("parse_ipv4_argument(argv[4])") == 7
+          assert source.count("parse_ipv4_argument(argv[3])") == 4
+
+          for name in ("sip_add", "sip_del", "dip_add", "dip_del"):
+              body = source.split("void " + name + "(int argc, char *argv[])", 1)[1]
+              body = body.split("\nvoid ", 1)[0]
+              assert body.index("if (argc < ") < body.index("argv[3]")
+              assert body.index("parse_ipv4_argument(argv[3])") < body.index("reg_write(")
+
+          for name in ("sip_add", "sip_del"):
+              body = source.split("void " + name + "(int argc, char *argv[])", 1)[1]
+              body = body.split("\nvoid ", 1)[0]
+              assert body.index("parse_ipv4_argument(argv[4])") < body.index("reg_write(")
+
+          for name, portmap_arg in (("dip_add", "argv[4]"), ("sip_add", "argv[5]")):
+              body = source.split("void " + name + "(int argc, char *argv[])", 1)[1]
+              body = body.split("\nvoid ", 1)[0]
+              assert body.index("parse_portmap_argument(" + portmap_arg + ")") < body.index("reg_write(")
+          assert "switch_parse_portmap(text, &portmap)" in source
+          assert "switch_parse_portmap" in Path(
+              "trunk/user/utils/src/switch/switch_ipv4_parse_policy.h"
+          ).read_text()
+          tests = Path("trunk/user/utils/src/switch/tests/switch_ipv4_parse_policy.c").read_text()
+          policy = Path("trunk/user/utils/src/switch/switch_ipv4_parse_policy.h").read_text()
+          assert "test_invalid_portmaps" in tests
+          assert "test_mac_parser" in tests
+          assert "test_uint_range_parser" in tests
+          assert "test_table_portmap_parser" in tests
+          assert "test_switch_command_numeric_boundaries" in tests
+          assert "switch_parse_mac_address" in policy
+          mt_vlan = source.split("void vlan_set(int argc, char *argv[])", 1)[1].split("\n#else\nvoid vlan_set", 1)[0]
+          legacy_vlan = source.split("\n#else\nvoid vlan_set(int argc, char *argv[])", 1)[1].split("\n#endif", 1)[0]
+          for vlan_body, count_guard in ((mt_vlan, "argc < 5 || argc > 8"),
+                                         (legacy_vlan, "argc < 6 || argc > 9")):
+              assert count_guard in vlan_body
+              assert "strtoul(" not in vlan_body
+              assert vlan_body.index("switch_parse_uint_range(") < vlan_body.index("reg_write(")
+          assert "switch_parse_uint_range(argv[3], 0U, 4095U, &cvid)" in mt_vlan
+          assert "switch_parse_uint_range(argv[3], 0U, 15U, &idx)" in legacy_vlan
+          assert "switch_parse_uint_range(argv[4], 0U, 4095U, &cvid)" in legacy_vlan
+          assert "switch_parse_uint_range" in policy
+          assert "switch_parse_table_portmap" in policy
+
+          table_add = source.split("void table_add(int argc, char *argv[])", 1)[1].split("\n}", 1)[0]
+          first_add_write = table_add.index("reg_write(")
+          for expression in ("switch_parse_mac_address(argv[2]", "switch_parse_table_portmap(argv[3]",
+                            "switch_parse_uint_range(argv[4]", "switch_parse_uint_range(argv[5]",
+                            "switch_parse_uint_range(argv[6]"):
+              assert table_add.index(expression) < first_add_write
+          assert "argc < 3 || argc > 7" in table_add
+          assert "strtoul(" not in table_add
+
+          table_del = source.split("void table_del(int argc, char *argv[])", 1)[1].split("void table_clear", 1)[0]
+          first_del_write = table_del.index("reg_write(")
+          assert table_del.index("switch_parse_mac_address(argv[2]") < first_del_write
+          assert table_del.index("switch_parse_uint_range(argv[3], 0U, 7U") < first_del_write
+          assert "argc < 3 || argc > 4" in table_del
+          assert "strtoul(" not in table_del
+
+          filters = workflow.split("jobs:", 1)[0]
+          push, pull_request = filters.split("  pull_request:", 1)
+          for path in (
+              "trunk/user/utils/src/switch/switch_ipv4_parse_policy.h",
+              "trunk/user/utils/src/switch/tests/switch_ipv4_parse_policy.c",
+          ):
+              assert push.count('"' + path + '"') == 1
+              assert pull_request.count('"' + path + '"') == 1
+          print("All switch IPv4 inputs are strictly parsed before register writes: PASS")
+          PY
+      - name: Validate ACL arguments before switch register writes
+        run: |
+          set -eu
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/user/utils/src/switch/switch_gsw.c").read_text()
+          parser = Path("trunk/user/utils/src/switch/switch_ipv4_parse_policy.h").read_text()
+          tests = Path("trunk/user/utils/src/switch/tests/switch_ipv4_parse_policy.c").read_text()
+
+          def function_body(signature):
+              start = source.index(signature)
+              opening = source.index("{", start)
+              depth = 0
+              for position in range(opening, len(source)):
+                  if source[position] == "{":
+                      depth += 1
+                  elif source[position] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source[opening + 1:position]
+              raise AssertionError("unterminated function: " + signature)
+
+          contracts = (
+              ("void acl_ethertype(int argc, char *argv[])",
+               "switch_parse_hex_range(argv[4], 0xffffU, &ethertype)"),
+              ("void acl_l4_add(int argc, char *argv[])",
+               "switch_parse_hex_range(argv[4], 0xffffU, &value)"),
+              ("void acl_sp_add(int argc, char *argv[])",
+               "switch_parse_uint_range(argv[4], 0U, 0xffffU, &value)"),
+          )
+          for signature, parser_call in contracts:
+              body = function_body(signature)
+              assert "if (argc != 6)" in body, signature
+              assert "usage(argv[0]);" in body and "return;" in body, signature
+              assert parser_call in body, signature
+              parser_guard = "if (" + parser_call + " != 0)"
+              assert parser_guard in body, signature
+              first_write = body.index("reg_write(")
+              assert body.index(parser_guard) < body.index("usage(argv[0]);", body.index(parser_guard)) < first_write
+              assert body.index("parse_portmap_argument(argv[5])") < first_write, signature
+              assert "strtoul(" not in body, signature
+
+          assert "switch_parse_hex_range" in parser
+          assert "test_hex_range_parser" in tests
+          assert "test_invalid_portmaps" in tests
+          assert "switch_parse_portmap(text, &portmap)" in source
+          print("EtherType, L4 payload and source-port ACL inputs validate before MMIO writes: PASS")
+          PY
+      - name: Validate PHY, VLAN dump and raw register numeric arguments
+        run: |
+          set -eu
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/user/utils/src/switch/switch_gsw.c").read_text()
+          policy = Path("trunk/user/utils/src/switch/switch_ipv4_parse_policy.h").read_text()
+          tests = Path("trunk/user/utils/src/switch/tests/switch_ipv4_parse_policy.c").read_text()
+          main_start = source.index("int main(int argc, char *argv[])")
+          main = source[main_start:]
+
+          phy_start = main.index('else if (!strncmp(argv[1], "phy", 4))')
+          phy_end = main.index('else if (!strncmp(argv[1], "sip", 5))', phy_start)
+          phy = " ".join(main[phy_start:phy_end].split())
+          assert "argc == 3" in phy and "argc == 2" in phy
+          assert "switch_parse_decimal_range(argv[2], 0U, 31U, &phy_addr)" in phy
+          assert "strtoul(" not in phy
+
+          vlan_start = main.index('else if (!strncmp(argv[1], "vlan", 5))')
+          vlan_end = main.index('else if (!strncmp(argv[1], "reg", 4))', vlan_start)
+          vlan = " ".join(main[vlan_start:vlan_end].split())
+          assert "switch_parse_decimal_range(argv[3], 0U, 0x7fffffffU, &max_vid)" in vlan
+          assert "argc != 3" in vlan and "argc == 4" in vlan
+          assert "strtoul(" not in vlan
+
+          reg_start = main.index('else if (!strncmp(argv[1], "reg", 4))')
+          reg_end = main.index('else if (!strncmp(argv[1], "ingress-rate", 6))', reg_start)
+          reg = " ".join(main[reg_start:reg_end].split())
+          for mode in ('"r"', '"w"', '"d"'):
+              assert "strcmp(argv[2], " + mode + ")" in reg
+          assert "switch_parse_hex_range(argv[3], 0x7fffffffU, &parsed)" in reg
+          assert "switch_parse_hex_range(argv[3], 0x7fffff03U, &parsed)" in reg
+          assert "switch_parse_hex_range(argv[4], 0xffffffffU, &parsed)" in reg
+          assert "strtoul(" not in reg
+          assert "off = (int)parsed;" in reg
+          assert "val = (int)parsed;" in reg
+
+          assert "switch_parse_decimal_range" in policy
+          assert "test_decimal_range_parser" in tests
+          assert "reg d" in source and "vlan dump" in source and "phy [phy_addr]" in source
+          print("PHY, VLAN dump and raw switch register commands reject incomplete numeric input: PASS")
+          PY
+      - name: Compile and verify bounded switch table waits
+        run: |
+          set -eu
+          SWITCH_DIR=trunk/user/utils/src/switch
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I "$SWITCH_DIR" \
+            "$SWITCH_DIR/tests/switch_wait_policy.c" -o /tmp/switch_wait_policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/switch_wait_policy
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/user/utils/src/switch/switch_gsw.c").read_text()
+          policy = Path("trunk/user/utils/src/switch/switch_wait_policy.h").read_text()
+          test = Path("trunk/user/utils/src/switch/tests/switch_wait_policy.c").read_text()
+          workflow = Path(".github/workflows/switch-cli-stability.yml").read_text()
+
+          def function_body(text, signature):
+              start = text.index(signature)
+              brace = text.index("{", start + len(signature))
+              depth = 0
+              state = "code"
+              index = brace
+              while index < len(text):
+                  char = text[index]
+                  nxt = text[index + 1] if index + 1 < len(text) else ""
+                  if state == "code":
+                      if char == "/" and nxt == "*":
+                          state = "block"
+                          index += 1
+                      elif char == "/" and nxt == "/":
+                          state = "line"
+                          index += 1
+                      elif char == '"':
+                          state = "string"
+                      elif char == "'":
+                          state = "char"
+                      elif char == "{":
+                          depth += 1
+                      elif char == "}":
+                          depth -= 1
+                          if depth == 0:
+                              return text[brace + 1:index]
+                  elif state in ("string", "char"):
+                      if char == "\\":
+                          index += 1
+                      elif (state == "string" and char == '"') or (state == "char" and char == "'"):
+                          state = "code"
+                  elif state == "block" and char == "*" and nxt == "/":
+                      state = "code"
+                      index += 1
+                  elif state == "line" and char == "\n":
+                      state = "code"
+                  index += 1
+              raise AssertionError("unterminated function: " + signature)
+
+          assert '#include "switch_wait_policy.h"' in source
+          vtcr = function_body(source, "wait_vtcr(void)")
+          mac = function_body(source, "wait_mac_atc(void)")
+          search = function_body(source, "wait_search_ready(int *value, const char *table_name)")
+          failure = function_body(source, "switch_wait_failure(")
+          assert "switch_wait_until_clear(" in vtcr and "0x80000000U" in vtcr
+          assert "20U" in vtcr and "1000U" in vtcr
+          assert "switch_wait_until_clear(" in mac and "0x8000U" in mac
+          assert "20U" in mac and "1000U" in mac
+          assert "switch_wait_for_table_result(" in search
+          assert "0x8000U" in search and "0x6000U" in search
+          assert "20U" in search and "5000U" in search
+          assert "ETIMEDOUT" in failure and "switch_fini();" in failure
+          assert "exit(EXIT_FAILURE);" in failure
+          for signature in ("void dip_dump(void)", "void sip_dump(void)", "void table_dump(void)"):
+              body = function_body(source, signature)
+              assert "wait_search_ready(&value" in body, signature
+              assert "while(1)" not in body and "while (1)" not in body
+          for signature in ("void table_clear(void)", "void dip_clear(void)", "void sip_clear(void)"):
+              body = function_body(source, signature)
+              assert body.index("reg_write(REG_ESW_WT_MAC_ATC,") < body.index("wait_mac_atc();")
+              assert body.index("wait_mac_atc();") < body.index("reg_read(REG_ESW_WT_MAC_ATC, &value)")
+              assert "usleep(5000)" not in body, signature
+              assert r'printf("REG_ESW_WT_MAC_ATC is 0x%x\n\r", value);' in body
+          assert "return ETIMEDOUT;" in policy
+          assert "return EINVAL;" in policy
+          for marker in (
+              "test_busy_timeout_is_reported",
+              "test_register_read_error_is_propagated",
+              "test_search_waits_for_idle_and_ready_or_end",
+              "test_search_timeout_is_bounded",
+              "test_invalid_wait_inputs_fail",
+              "switch table-engine bounded wait policy: PASS",
+          ):
+              assert marker in test, marker
+          filters = workflow.split("jobs:", 1)[0]
+          push, pull_request = filters.split("  pull_request:", 1)
+          for path in (
+              "trunk/user/utils/src/switch/switch_wait_policy.h",
+              "trunk/user/utils/src/switch/tests/switch_wait_policy.c",
+          ):
+              assert push.count('"' + path + '"') == 1
+              assert pull_request.count('"' + path + '"') == 1
+          print("switch VLAN/MAC table busy waits and bounded DIP/SIP/MAC searches: PASS")
+          PY
+
+      - name: Check Clause 45 argument handling and source contracts
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/user/utils/src/switch/mii_mgr_cl45.c").read_text()
+          workflow = Path(".github/workflows/switch-cli-stability.yml").read_text()
+          assert "static int parse_hex_argument(" in source
+          assert "static int parse_arguments(" in source
+          assert "case 'd':" in source and "case 'r':" in source
+          assert source.index("parse_arguments(argc, argv, &mii, &method)") < source.index("socket(AF_INET")
+          assert "if (close(sk) < 0 && status == EXIT_SUCCESS)" in source
+          assert "parsed > max_value" in source
+          assert source.count("case 'd':") == 1
+          assert source.count("case 'r':") == 1
+          filters = workflow.split("jobs:", 1)[0]
+          assert filters.count("trunk/user/utils/src/switch/mii_mgr_cl45.c") == 2
+          assert filters.count("trunk/user/utils/src/switch/tests/mii_mgr_cl45_cli.c") == 2
+          test_path = Path("trunk/user/utils/src/switch/tests/mii_mgr_cl45_cli.c")
+          assert test_path.is_file()
+          print("Clause 45 parser, validation-before-socket, cleanup and CI path contracts: OK")
+          PY
+      - name: Build Clause 45 CLI and run host argument regression
+        run: |
+          SWITCH_DIR=trunk/user/utils/src/switch
+          RAETH_INCLUDE=trunk/linux-4.4.x/drivers/net/ethernet/raeth
+          cc -std=gnu89 -Wall -Wextra -Werror -I "$RAETH_INCLUDE" \
+            -c "$SWITCH_DIR/mii_mgr_cl45.c" -o /tmp/mii_mgr_cl45.o
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -I "$RAETH_INCLUDE" "$SWITCH_DIR/tests/mii_mgr_cl45_cli.c" \
+            -o /tmp/mii_mgr_cl45_cli
+          ASAN_OPTIONS=detect_leaks=1 /tmp/mii_mgr_cl45_cli
+
+      - name: Check Clause 22 MDIO ioctl failure propagation
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          workflow = Path(".github/workflows/switch-cli-stability.yml").read_text()
+          driver = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether.c").read_text()
+          cli = Path("trunk/user/utils/src/switch/mii_mgr.c").read_text()
+          cli_test = Path("trunk/user/utils/src/switch/tests/mii_mgr_cli.c").read_text()
+          makefile = Path("trunk/user/utils/src/switch/Makefile").read_text()
+
+          assert "mii_mgr: invalid or incomplete arguments" in cli
+          assert "#define MII_MGR_PAGE_SELECT_MAX 7UL" in cli
+          assert "parse_unsigned_argument(optarg, 16, MII_MGR_PAGE_SELECT_MAX" in cli
+          assert "local_page_overflow" in cli_test and "global_page_overflow" in cli_test
+          assert "-DCONFIG_RALINK_MT7628" in workflow
+          assert "parse_arguments(argc, argv, &options)" in cli
+          main = cli.split("int main(", 1)[1]
+          assert main.index("parse_arguments(") < main.index("socket(AF_INET")
+          assert "errno == ERANGE" in cli and "parsed > maximum" in cli
+          assert "if (close(sk) < 0)" in cli
+          assert "SRC = switch_gsw.c" in makefile and "mii_mgr: mii_mgr.c" in makefile
+
+          virtual = driver.split("int virtualif_ioctl(", 1)[1].split("static int ei_change_mtu", 1)[0]
+          real = driver.split("int ei_ioctl(", 1)[1].split("static const struct net_device_ops ei_netdev_ops", 1)[0]
+          assert "if (!mii_mgr_read(mii.phy_id, mii.reg_num, &mii.val_out))\n\t\t\treturn -EIO;" in virtual
+          assert "if (!mii_mgr_write(mii.phy_id, mii.reg_num, mii.val_in))\n\t\t\treturn -EIO;" in virtual
+          assert "if (!mii_mgr_read(mii.phy_id, mii.reg_num, &mii.val_out)) {\n\t\t\tret = -EIO;\n\t\t\tbreak;\n\t\t}" in real
+          assert "if (!mii_mgr_write(mii.phy_id, mii.reg_num, mii.val_in))\n\t\t\tret = -EIO;" in real
+          assert virtual.index("if (!mii_mgr_read(") < virtual.index("copy_to_user(ifr->ifr_data, &mii, sizeof(mii))")
+          assert real.index("if (!mii_mgr_read(") < real.index("copy_to_user(ifr->ifr_data, &mii, sizeof(mii))")
+          print("Clause 22 MDIO timeout/error results reach both ioctl handlers: OK")
+          PY
+      - name: Build MT7621 and MT7628 MII manager host regressions
+        run: |
+          set -eu
+          SWITCH_DIR=trunk/user/utils/src/switch
+          RAETH_INCLUDE=trunk/linux-4.4.x/drivers/net/ethernet/raeth
+          cc -std=gnu89 -Wall -Wextra -Werror -DCONFIG_RALINK_MT7621 \
+            -I "$RAETH_INCLUDE" -c "$SWITCH_DIR/mii_mgr.c" -o /tmp/mii_mgr.o
+          cc -std=gnu89 -Wall -Wextra -Werror -DCONFIG_RALINK_MT7621 \
+            -I "$RAETH_INCLUDE" -fsanitize=address,undefined \
+            -fno-omit-frame-pointer "$SWITCH_DIR/tests/mii_mgr_cli.c" \
+            -o /tmp/mii_mgr_cli
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/mii_mgr_cli
+          cc -std=gnu89 -Wall -Wextra -Werror -DCONFIG_RALINK_MT7628 \
+            -I "$RAETH_INCLUDE" -c "$SWITCH_DIR/mii_mgr.c" -o /tmp/mii_mgr_mt7628.o
+          cc -std=gnu89 -Wall -Wextra -Werror -DCONFIG_RALINK_MT7628 \
+            -I "$RAETH_INCLUDE" -fsanitize=address,undefined \
+            -fno-omit-frame-pointer "$SWITCH_DIR/tests/mii_mgr_cli.c" \
+            -o /tmp/mii_mgr_cli_mt7628
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/mii_mgr_cli_mt7628
+
+      - name: Enforce the MTK ESW ioctl CAP_NET_ADMIN boundary
+        run: |
+          set -eu
+          ESW_DIR=trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I "$ESW_DIR" \
+            "$ESW_DIR/tests/ioctl_access_policy.c" \
+            -o /tmp/mtk-esw-ioctl-access
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 \
+            /tmp/mtk-esw-ioctl-access
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path(".")
+          esw = root / "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw"
+          ioctl = (esw / "ioctl.c").read_text()
+          driver = (esw / "ioctl_mt762x.c").read_text()
+          policy = (esw / "ioctl_access_policy.h").read_text()
+          test = (esw / "tests/ioctl_access_policy.c").read_text()
+          rc = (root / "trunk/user/rc/src/switch_mtk_esw.c").read_text()
+          workflow = (root / ".github/workflows/switch-cli-stability.yml").read_text()
+          xy_workflow = (root / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
+
+          def function_body(source, signature):
+              start = source.find(signature)
+              assert start >= 0, "missing function: " + signature
+              opening = source.find("{", start + len(signature))
+              assert opening >= 0, "missing body: " + signature
+              depth = 0
+              for position in range(opening, len(source)):
+                  if source[position] == "{":
+                      depth += 1
+                  elif source[position] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source[opening + 1:position]
+              raise AssertionError("unterminated function: " + signature)
+
+          assert "#include <linux/capability.h>" in ioctl
+          assert '#include "ioctl_access_policy.h"' in ioctl
+          assert "has_cap_net_admin == 1 ? 0 : -EPERM" in policy
+          assert "mtk_esw_ioctl_access_status(0) == -EPERM" in test
+          handler = function_body(ioctl, "static long mtk_esw_ioctl(")
+          authorization = handler.index(
+              "mtk_esw_ioctl_access_status(capable(CAP_NET_ADMIN))"
+          )
+          denial = handler.index("if (access_status != 0)", authorization)
+          denial_return = handler.index("return access_status;", denial)
+          lock = handler.index("mutex_lock(&esw_access_mutex)")
+          assert authorization < denial < denial_return < lock
+          assert ".unlocked_ioctl\t= mtk_esw_ioctl" in ioctl
+          assert '#include "ioctl.c"' in driver
+
+          node = function_body(rc, "int mtk_esw_node(void)")
+          assert "S_IFCHR | 0600" in node
+          assert "0666" not in node
+
+          filters = workflow.split("jobs:", 1)[0]
+          push, pull_request = filters.split("  pull_request:", 1)
+          for path in (
+              "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl_access_policy.h",
+              "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/tests/ioctl_access_policy.c",
+          ):
+              assert push.count('"' + path + '"') == 1, path
+              assert pull_request.count('"' + path + '"') == 1, path
+
+          xy_push = xy_workflow.split("  workflow_dispatch:", 1)[0]
+          for path in (
+              "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl_access_policy.h",
+              "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/tests/ioctl_access_policy.c",
+          ):
+              assert xy_push.count('"' + path + '"') == 1, path
+
+          print("MTK ESW ioctl CAP_NET_ADMIN gate, device-node mode and trigger paths: PASS")
+          PY
+
+      - name: Guard RAETH private network ioctls with CAP_NET_ADMIN
+        run: |
+          set -eu
+          RAETH_DIR=trunk/linux-4.4.x/drivers/net/ethernet/raeth
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I "$RAETH_DIR" \
+            "$RAETH_DIR/tests/raeth_private_ioctl_access_policy.c" \
+            -o /tmp/raeth-private-ioctl-access
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 \
+            /tmp/raeth-private-ioctl-access
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I "$RAETH_DIR" \
+            "$RAETH_DIR/tests/raeth_mdio_ioctl_status_policy.c" \
+            -o /tmp/raeth-mdio-ioctl-status
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 \
+            /tmp/raeth-mdio-ioctl-status
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I "$RAETH_DIR" \
+            "$RAETH_DIR/tests/raeth_lan_ip_ioctl_policy.c" \
+            -o /tmp/raeth-lan-ip-ioctl
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 \
+            /tmp/raeth-lan-ip-ioctl
+          python3 - <<'PY'
+          from pathlib import Path
+
+          raeth = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth")
+          driver = (raeth / "raether.c").read_text()
+          policy = (raeth / "raeth_private_ioctl_access_policy.h").read_text()
+          test = (raeth / "tests/raeth_private_ioctl_access_policy.c").read_text()
+          mdio_policy = (raeth / "raeth_mdio_ioctl_status_policy.h").read_text()
+          mdio_test = (raeth / "tests/raeth_mdio_ioctl_status_policy.c").read_text()
+          lan_policy = (raeth / "raeth_lan_ip_ioctl_policy.h").read_text()
+          lan_test = (raeth / "tests/raeth_lan_ip_ioctl_policy.c").read_text()
+          uapi = (raeth / "ra_ioctl.h").read_text()
+          net_core = Path("trunk/linux-4.4.x/net/core/dev_ioctl.c").read_text()
+          switch_workflow = Path(".github/workflows/switch-cli-stability.yml").read_text()
+          xy_workflow = Path(".github/workflows/xy-c1-firmware-validation.yml").read_text()
+
+          def function_body(source, signature):
+              start = source.find(signature)
+              assert start >= 0, "missing function: " + signature
+              opening = source.find("{", start + len(signature))
+              assert opening >= 0, "missing body: " + signature
+              depth = 0
+              for position in range(opening, len(source)):
+                  if source[position] == "{":
+                      depth += 1
+                  elif source[position] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source[opening + 1:position]
+              raise AssertionError("unterminated function: " + signature)
+
+          assert "#include <linux/capability.h>" in driver
+          assert '#include "raeth_private_ioctl_access_policy.h"' in driver
+          assert "has_cap_net_admin == 1 ? 0 : -EPERM" in policy
+          assert "raeth_private_ioctl_access_status(0) == -EPERM" in test
+          assert "mdio_status == 1U ? 0 : -EIO" in mdio_policy
+          assert "raeth_mdio_ioctl_status(0U) == -EIO" in mdio_test
+          assert "value[0] == '\\0'" in lan_policy
+          assert "raeth_lan_ip_ioctl_status(unterminated, sizeof(unterminated)) == -EINVAL" in lan_test
+          assert "#define RAETH_SW_IOCTL          0x89F0" in uapi
+
+          for signature, boundary in (
+              (
+                  "int ei_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)",
+                  "spin_lock_irq(&ei_local->page_lock)",
+              ),
+              (
+                  "int virtualif_ioctl(struct net_device *net_dev, struct ifreq *ifr, int cmd)",
+                  "switch (cmd)",
+              ),
+          ):
+              handler = function_body(driver, signature)
+              authorization = handler.index(
+                  "raeth_private_ioctl_access_status(capable(CAP_NET_ADMIN))"
+              )
+              deny = handler.index("if (access_status != 0)", authorization)
+              denied_return = handler.index("return access_status;", deny)
+              first_operation = handler.index(boundary)
+              assert authorization < deny < denied_return < first_operation
+          assert ".ndo_do_ioctl = virtualif_ioctl" in driver
+          assert ".ndo_do_ioctl = ei_ioctl" in driver
+          lan_handler = function_body(driver, "int ei_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)")
+          lan_case = lan_handler.index("case RAETH_SET_LAN_IP:")
+          unlock = lan_handler.index("spin_unlock_irq(&ei_local->page_lock)", lan_case)
+          copy_in = lan_handler.index("copy_from_user(ip_tmp, ifr->ifr_data, IP4_ADDR_LEN)", lan_case)
+          validate = lan_handler.index("ret = raeth_lan_ip_ioctl_status(ip_tmp, sizeof(ip_tmp))", copy_in)
+          restore_lock = lan_handler.index("spin_lock_irq(&ei_local->page_lock)", validate)
+          validate_fail = lan_handler.index("if (ret != 0)", restore_lock)
+          bounded_copy = lan_handler.index("strlcpy(ei_local->lan_ip4_addr, ip_tmp", validate_fail)
+          log_string = lan_handler.index('pr_info("RAETH_SET_LAN_IP: %s\\n", ei_local->lan_ip4_addr)', bounded_copy)
+          assert lan_case < unlock < copy_in < validate < restore_lock < validate_fail < bounded_copy < log_string
+          assert "strncpy(ei_local->lan_ip4_addr, ip_tmp, IP4_ADDR_LEN)" not in lan_handler
+          phy_dump = function_body(
+              driver, "int dump_phy_reg(int port_no, int from, int to, int is_local, int page_no)"
+          )
+          assert phy_dump.count("if (!mii_mgr_write(port_no, 31, r31))") == 2
+          assert phy_dump.count("if (!mii_mgr_read(port_no, i, &temp))") == 2
+          assert phy_dump.count("return -EIO;") == 4
+          dump_case_start = driver.index("case RAETH_ESW_PHY_DUMP:")
+          dump_case_end = driver.index("case RAETH_ESW_INGRESS_RATE:", dump_case_start)
+          dump_case = driver[dump_case_start:dump_case_end]
+          assert dump_case.count("if (!mii_mgr_read(") == 2
+          assert dump_case.count("goto phy_dump_done;") == 6
+          assert dump_case.count("dump_phy_reg(") >= 7
+          assert "phy_dump_done:" in dump_case
+          assert dump_case.index("phy_dump_done:") > dump_case.index("goto phy_dump_done;")
+          print("RAETH PHY dump aborts on any failed MDIO access: PASS")
+          ioctl_handler = function_body(
+              driver, "int ei_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)"
+          )
+          cl45_read = ioctl_handler.index("raeth_mdio_ioctl_status(")
+          cl45_read_failure = ioctl_handler.index("if (ret != 0)", cl45_read)
+          cl45_read_break = ioctl_handler.index("break;", cl45_read_failure)
+          cl45_copyout = ioctl_handler.index("copy_to_user(ifr->ifr_data, &mii", cl45_read)
+          cl45_write = ioctl_handler.index("mii_mgr_write_cl45(", cl45_read_break)
+          cl45_write_status = ioctl_handler.rfind("raeth_mdio_ioctl_status(", 0, cl45_write)
+          assert cl45_read < cl45_read_failure < cl45_read_break < cl45_copyout
+          assert cl45_write_status >= 0 and cl45_write_status < cl45_write
+          assert "mii_mgr_read_cl45(mii.port_num" in ioctl_handler
+          assert "mii_mgr_write_cl45(mii.port_num" in ioctl_handler
+          ingress = ioctl_handler.index("case RAETH_ESW_INGRESS_RATE:")
+          egress = ioctl_handler.index("case RAETH_ESW_EGRESS_RATE:", ingress)
+          ingress_write = ioctl_handler.index(
+              "ret = raeth_mdio_ioctl_status(mii_mgr_write(", ingress
+          )
+          egress_write = ioctl_handler.index(
+              "ret = raeth_mdio_ioctl_status(mii_mgr_write(", egress
+          )
+          ingress_break = ioctl_handler.index("break;", ingress_write)
+          egress_break = ioctl_handler.index("break;", egress_write)
+          assert ingress_write < ingress_break < egress < egress_write < egress_break
+
+          generic = function_body(
+              net_core, "int dev_ioctl(struct net *net, unsigned int cmd, void __user *arg)"
+          )
+          private_range = generic.index("cmd >= SIOCDEVPRIVATE")
+          assert "SIOCDEVPRIVATE + 15" in generic
+          driver_dispatch = generic.index("ret = dev_ifsioc(net, &ifr, cmd)", private_range)
+          dispatch = function_body(
+              net_core, "static int dev_ifsioc(struct net *net, struct ifreq *ifr, unsigned int cmd)"
+          )
+          ndo_call = dispatch.index("ops->ndo_do_ioctl(dev, ifr, cmd)")
+          assert private_range < driver_dispatch and ndo_call >= 0
+
+          filters = switch_workflow.split("jobs:", 1)[0]
+          push, pull_request = filters.split("  pull_request:", 1)
+          for event_paths in (push, pull_request):
+              for path in ("trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_private_ioctl_access_policy.h", "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_private_ioctl_access_policy.c", "trunk/linux-4.4.x/net/core/dev_ioctl.c"):
+                  assert event_paths.count('"' + path + '"') == 1, path
+          xy_push = xy_workflow.split("  workflow_dispatch:", 1)[0]
+          for path in ("trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_private_ioctl_access_policy.h", "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_private_ioctl_access_policy.c", "trunk/linux-4.4.x/net/core/dev_ioctl.c"):
+              assert xy_push.count('"' + path + '"') == 1, path
+
+          print("RAETH ioctls enforce CAP_NET_ADMIN, propagate MDIO errors and bound LAN IP strings: PASS")
+          PY
+
+      - name: Validate strict numeric parsing in RC switch front-ends
+        run: |
+          set -eu
+          RC_DIR=trunk/user/rc/src
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I "$RC_DIR" \
+            "$RC_DIR/tests/switch_cli_parse_policy.c" \
+            -o /tmp/rc-switch-cli-parse
+          ASAN_OPTIONS=detect_leaks=1 /tmp/rc-switch-cli-parse
+          python3 - <<'PY'
+          from pathlib import Path
+
+          rc = Path("trunk/user/rc/src")
+          policy = (rc / "switch_cli_parse_policy.h").read_text()
+          test = (rc / "tests/switch_cli_parse_policy.c").read_text()
+          workflow = Path(".github/workflows/switch-cli-stability.yml").read_text()
+
+          def function_body(source, signature):
+              start = source.find(signature)
+              assert start >= 0, f"missing function: {signature}"
+              opening = source.find("{", start + len(signature))
+              assert opening >= 0, f"missing function body: {signature}"
+              depth = 0
+              for position in range(opening, len(source)):
+                  if source[position] == "{":
+                      depth += 1
+                  elif source[position] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source[opening + 1:position]
+              raise AssertionError(f"unterminated function: {signature}")
+
+          assert "UINT_MAX" in policy and "return ERANGE;" in policy
+          assert "return EINVAL;" in policy
+          assert "parsed > (UINT_MAX - digit) / base" in policy
+          assert "test_malformed_values_are_rejected_without_output_changes" in test
+          assert "test_overflow_is_rejected_without_output_changes" in test
+          assert "test_ioctl_fields_must_fit_packed_request" in test
+          assert "UINT_MAX>>command_bits" in "".join(policy.split())
+
+          for path, signature in (
+              ("switch_rtl8367.c", "rtl8367_main(int argc, char **argv)"),
+              ("switch_mtk_esw.c", "mtk_esw_main(int argc, char **argv)"),
+          ):
+              source = (rc / path).read_text()
+              assert '#include "switch_cli_parse_policy.h"' in source
+              main = function_body(source, signature)
+              assert "argc < 2 || argc > 4" in main
+              main_compact = "".join(main.split())
+              if path == "switch_rtl8367.c":
+                  command_bits = "RTL8367_IOCTL_CMD_LENGTH_BITS"
+              else:
+                  command_bits = "MTK_ESW_IOCTL_CMD_LENGTH_BITS"
+              assert "switch_cli_parse_ioctl_command(argv[1]," + command_bits + ",&cmd)" in main_compact
+              assert "switch_cli_parse_ioctl_parameter(argv[2]," + command_bits + ",1,&arg)" in main_compact
+              assert "switch_cli_parse_uint(argv[2], 1, &arg)" in main
+              if path == "switch_rtl8367.c":
+                  arg_policy = function_body(source, "rtl8367_command_uses_packed_argument(unsigned int cmd)")
+                  for command in ("RTL8367_IOCTL_STATUS_LINK_PORT", "RTL8367_IOCTL_STATUS_SPEED_PORT", "RTL8367_IOCTL_STATUS_MIB_PORT", "RTL8367_IOCTL_REG_GET", "RTL8367_IOCTL_PHY_REG_GET", "RTL8367_IOCTL_REG_SET", "RTL8367_IOCTL_PHY_REG_SET"):
+                      assert "case " + command + ":" in arg_policy
+                  assert "cmd == RTL8367_IOCTL_REG_SET || cmd == RTL8367_IOCTL_PHY_REG_SET" in main
+                  assert "switch_cli_parse_uint(argv[3], 1, &par)" in main
+                  assert "switch_cli_parse_ioctl_parameter(argv[3], RTL8367_IOCTL_CMD_LENGTH_BITS, 1, &par)" in main
+              else:
+                  arg_policy = function_body(source, "mtk_esw_command_uses_packed_argument(unsigned int cmd)")
+                  for command in ("MTK_ESW_IOCTL_STATUS_LINK_PORT", "MTK_ESW_IOCTL_STATUS_LINK_PORTS_WAN", "MTK_ESW_IOCTL_STATUS_LINK_PORTS_LAN", "MTK_ESW_IOCTL_STATUS_SPEED_PORT", "MTK_ESW_IOCTL_STATUS_MIB_PORT"):
+                      assert "case " + command + ":" in arg_policy
+                  assert "switch_cli_parse_ioctl_parameter(argv[2], MTK_ESW_IOCTL_CMD_LENGTH_BITS, 1, &arg)" in main
+                  assert "switch_cli_parse_ioctl_parameter(argv[3], MTK_ESW_IOCTL_CMD_LENGTH_BITS, 1, &par)" in main
+              assert "switch_cli_parse_uint(argv[1], 0, &cmd)" not in main
+              assert "atoi(argv[1])" not in main
+              assert "get_param_int_hex(argv[" not in main
+
+          filters = workflow.split("jobs:", 1)[0]
+          push, pull_request = filters.split("  pull_request:", 1)
+          for path in (
+              "trunk/user/rc/src/switch_rtl8367.c",
+              "trunk/user/rc/src/switch_mtk_esw.c",
+              "trunk/user/rc/src/switch_cli_parse_policy.h",
+              "trunk/user/rc/src/tests/switch_cli_parse_policy.c",
+          ):
+              assert push.count('"' + path + '"') == 1, path
+              assert pull_request.count('"' + path + '"') == 1, path
+          print("RC RTL8367/MTK switch commands reject malformed, partial and overflowing numeric input: PASS")
+          PY
+
+      - name: Compile and run RAETH paged PHY MDIO failure regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer \
+            trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/ra_switch_mdio_policy.c \
+            -o "$RUNNER_TEMP/raeth-paged-phy-mdio-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/raeth-paged-phy-mdio-policy"
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.c").read_text()
+          assert '#include "ra_switch_mdio_policy.h"' in source
+          assert "tc_phy_read_page_reg_checked(" in source
+          assert "tc_phy_write_page_reg_checked(" in source
+          assert "ra_switch_mdio_page_read(" in source
+          assert "ra_switch_mdio_page_write(" in source
+
+          for wrapper_start, call_name in (
+              ("static int tc_phy_read_page_reg_checked", "ra_switch_mdio_page_read("),
+              ("static int tc_phy_write_page_reg_checked", "ra_switch_mdio_page_write("),
+          ):
+              wrapper = source.split(wrapper_start, 1)[1].split("\\n}", 1)[0]
+              lock_at = wrapper.index("spin_lock_irqsave(&ra_switch_phy_page_lock")
+              call_at = wrapper.index(call_name)
+              unlock_at = wrapper.index("spin_unlock_irqrestore(&ra_switch_phy_page_lock")
+              assert lock_at < call_at < unlock_at
+          assert "static DEFINE_SPINLOCK(ra_switch_phy_page_lock);" in source
+          print("RAETH paged PHY selector/data serialization: PASS")
+          assert "ra_switch_mdio_wait_nonzero(" in source
+          assert "status = setup_internal_gsw();" in source
+          assert "int fe_sw_init(void)" in source
+          assert "reset-ready check failed" in source
+          setup_internal = source.split("static int setup_internal_gsw(void)", 1)[1].split(
+              "void setup_external_gsw", 1
+          )[0]
+          assert "mii_mgr_read(" not in setup_internal
+          assert "mii_mgr_write(" not in setup_internal
+          assert "mii_mgr_write_cl45(" not in setup_internal
+          assert "goto mdio_error;" in setup_internal
+          vlan_wait = source.split("static int is_switch_vlan_table_busy(void)", 1)[1].split(
+              "static int lan_wan_partition(void)", 1
+          )[0]
+          vlan_partition = source.split("static int lan_wan_partition(void)", 1)[1].split(
+              "static int mt7530_phy_setting(void)", 1
+          )[0]
+          assert "mii_mgr_read(" not in vlan_wait
+          assert "mii_mgr_write(" not in vlan_partition
+          assert "return -ETIMEDOUT;" in vlan_wait
+          assert "status = is_switch_vlan_table_busy();" in vlan_partition
+          assert "status = lan_wan_partition();" in setup_internal
+          trgmii_7623 = source.split("static int trgmii_calibration_7623(void)", 1)[1].split(
+              "static int trgmii_calibration_7530(void)", 1
+          )[0]
+          trgmii_7530 = source.split("static int trgmii_calibration_7530(void)", 1)[1].split(
+              "static int mt7530_trgmii_clock_setting(u32 xtal_mode)", 1
+          )[0]
+          trgmii_clock = source.split("static int mt7530_trgmii_clock_setting(u32 xtal_mode)", 1)[1].split(
+              "void trgmii_set_7621", 1
+          )[0]
+          assert "mii_mgr_read(" not in trgmii_7623 and "mii_mgr_write(" not in trgmii_7623
+          assert "mii_mgr_read(" not in trgmii_7530 and "mii_mgr_write(" not in trgmii_7530
+          assert "mii_mgr_write_cl45(" not in trgmii_clock and "mii_mgr_read(" not in trgmii_clock
+          assert "status = trgmii_calibration_7623();" in trgmii_clock
+          assert "status = trgmii_calibration_7530();" in trgmii_clock
+          assert "status = mt7530_trgmii_clock_setting(xtal_mode);" in setup_internal
+          trgmii_7621 = source.split("int trgmii_set_7530(void)", 1)[1].split(
+              "static int setup_internal_gsw(void)", 1
+          )[0]
+          assert "mii_mgr_read(" not in trgmii_7621
+          assert "mii_mgr_write(" not in trgmii_7621
+          assert "mii_mgr_write_cl45(" not in trgmii_7621
+          assert "status = trgmii_set_7530();" in setup_internal
+          assert "if (regValue == 0x3) { /* 25MHz */" in trgmii_7621
+          assert "} else {" in trgmii_7621
+          mt7623_setup = setup_internal.split(
+              "if (ei_local->chip_name == MT7623_FE) {", 1
+          )[1].split("\n\t}", 1)[0]
+          assert "status = mt7530_trgmii_clock_setting(xtal_mode);" in mt7623_setup
+          assert "if (status != 0)" in mt7623_setup
+          phy_setup = source.split("static int mt7530_phy_setting(void)", 1)[1].split(
+              "static void ra_switch_mdio_reset_delay(", 1
+          )[0]
+          assert "mii_mgr_read(" not in phy_setup
+          assert "mii_mgr_write(" not in phy_setup
+          assert "mii_mgr_write_cl45(" not in phy_setup
+          assert "status = mt7530_phy_setting();" in setup_internal
+          def function_body(signature):
+              start = source.index(signature)
+              brace = source.index("{", start)
+              depth = 0
+              for offset in range(brace, len(source)):
+                  if source[offset] == "{":
+                      depth += 1
+                  elif source[offset] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source[brace:offset + 1]
+              raise AssertionError("unterminated function: " + signature)
+
+          fe_init = function_body("int fe_sw_init(void)")
+          vtss = function_body("int is_vtss_gigaphy(int ge)")
+          assert "mii_mgr_read(" not in fe_init and "mii_mgr_write(" not in fe_init
+          assert "status = ra_switch_mdio_read(NULL, mac_to_gigaphy_mode_addr" in fe_init
+          assert "status = ra_switch_mdio_write(NULL, mac_to_gigaphy_mode_addr" in fe_init
+          assert "status = is_vtss_gigaphy(1);" in fe_init
+          assert "status = is_vtss_gigaphy(2);" in fe_init
+          marvell = function_body("int is_marvell_gigaphy(int ge)")
+          assert "mii_mgr_read(" not in marvell
+          assert "return -EIO;" in marvell
+          assert "status = is_marvell_gigaphy(1);" in fe_init
+          assert "status = is_marvell_gigaphy(2);" in fe_init
+          gpio_init = function_body("static int mt7622_esw_5port_gpio(void)")
+          assert "mii_mgr_read(" not in gpio_init and "mii_mgr_write(" not in gpio_init
+          assert "goto mdio_error;" in gpio_init
+          assert "status = mt7622_esw_5port_gpio();" in fe_init
+          assert "clk_disable_unprepare(ei_local->clks[MTK_CLK_GP0]);" in fe_init
+          assert "return -EIO;" in vtss
+          assert "mii_mgr_read(" not in vtss
+          print("RAETH global/local PHY helpers stop on page-select and register I/O failures: PASS")
+          PY
+
+      - name: Validate link IRQs ignore failed PHY status reads
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          source = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.c").read_text()
+
+          def body(start, end):
+              left = source.index(start)
+              right = source.index(end, left)
+              return source[left:right]
+
+          link = body("static int esw_link_status_changed(", "\nirqreturn_t gsw_interrupt(")
+          gsw = body("irqreturn_t gsw_interrupt(", "\nu32 phy_tr_dbg(")
+          esw = body("irqreturn_t esw_interrupt(", "\nint sw_ioctl(")
+          assert "ra_switch_mdio_read_link_status(" in link
+          assert re.search(r"if\s*\(\s*status\s*!=\s*0\s*\)\s*return status;", link)
+          assert link.index("return status;") < link.index("esw_link_status_hook(")
+          assert "reg_int_val = 0" in gsw and "ra_switch_mdio_read_checked(" in gsw
+          assert "ack_mask |= P4_LINK_CH" in gsw and "ack_mask |= P0_LINK_CH" in gsw
+          assert "if (ack_mask && !mii_mgr_write(31U, 0x700cU, ack_mask))" in gsw
+          assert "ra_switch_mdio_read_link_status(" in esw
+          assert esw.index("if (status != 0)") < esw.index("if (port_status[i] != (unsigned int)link_up)")
+          assert "continue;" in esw
+          print("RAETH GSW/ESW link events are published only after successful MDIO reads: PASS")
+          PY
+
+      - name: Verify GSW link IRQ MDIO mask failures propagate
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth")
+          source = (root / "raether.c").read_text()
+          policy = (root / "ra_switch_mdio_policy.h").read_text()
+          test = (root / "tests/ra_switch_mdio_policy.c").read_text()
+
+          def body(signature, next_signature):
+              start = source.index(signature)
+              end = source.index(next_signature, start + len(signature))
+              return source[start:end]
+
+          cleanup = body("static int fe_int_free_requested_irqs(", "static int fe_int_enable(")
+          enable = body("static int fe_int_enable(", "static int fe_int_disable(")
+          disable = body("static int fe_int_disable(", "int forward_config(")
+          close = body("int ei_close(struct net_device *dev)", "static int ei_start_xmit_fake(")
+          open_body = body("int ei_open(struct net_device *dev)", "int ei_close(struct net_device *dev)")
+          assert "ra_switch_mdio_legacy_bool_status(unsigned int result)" in policy
+          assert "return result == 1U ? 0 : -EIO;" in policy
+          assert "test_legacy_mdio_boolean_status_fails_closed" in test
+          assert "ra_switch_mdio_legacy_bool_status(1U) == 0" in test
+          assert "ra_switch_mdio_legacy_bool_status(0U) == -EIO" in test
+          assert "ra_switch_mdio_legacy_bool_status(2U) == -EIO" in test
+          assert cleanup.count("ra_switch_mdio_legacy_bool_status(") == 1
+          assert "if (cleanup_status != 0)" in cleanup
+          assert "disable_irq(ei_local->gsw_irq);" in cleanup
+          assert cleanup.index("disable_irq(ei_local->gsw_irq);") < cleanup.index("free_irq(ei_local->gsw_irq, NULL);")
+          assert "if (status == 0)" in cleanup
+          assert cleanup.index("cleanup_status = ra_switch_mdio_legacy_bool_status(") < cleanup.index("free_irq(ei_local->gsw_irq, NULL);")
+          assert enable.count("ra_switch_mdio_legacy_bool_status(") == 2
+          assert enable.count("mii_mgr_write(31, 0x7008, 0x1f)") == 2
+          assert enable.count("goto fail_irqs;") >= 3
+          assert "cleanup_status = fe_int_free_requested_irqs(dev);" in enable
+          assert "status = fe_int_free_requested_irqs(dev);" in disable
+          assert "return status;" in disable
+          assert "irq_status = fe_int_disable(dev);" in close
+          assert "return irq_status;" in close
+          assert close.index("ra2880stop(ei_local);") < close.index("irq_status = fe_int_disable(dev);") < close.index("fe_reset();")
+          assert open_body.count("ra_switch_mdio_legacy_bool_status(") == 4
+          assert open_body.count("mii_mgr_write(0, 9, 0x200)") == 2
+          assert open_body.count("mii_mgr_write(0, 0, 0x1340)") == 2
+          assert open_body.count("goto fail_open;") >= 7
+          assert open_body.index("ra_switch_mdio_legacy_bool_status(") < open_body.index("netif_start_queue(dev);")
+          fail_open = open_body[open_body.index("fail_open:"):]
+          assert "kthread_stop(ei_local->kphy_poll_task);" in fail_open
+          assert "kthread_stop(ei_local->kreset_task);" in fail_open
+          assert "fe_reset();" in fail_open
+          assert "ei_deinit_dma(dev);" in fail_open
+          assert "module_put(THIS_MODULE);" in fail_open
+          assert "return err;" in fail_open
+          print("RAETH PHY autoneg MDIO failures fail the open path and unwind resources: PASS")
+          print("RAETH GSW link IRQ enable/disable MDIO failures propagate through interface lifecycle: PASS")
+          PY
+
+      - name: Validate RAETH PHY debug MDIO error propagation
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.c").read_text()
+          policy = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch_mdio_policy.h").read_text()
+          test = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/ra_switch_mdio_policy.c").read_text()
+
+          def body(start, end):
+              left = source.index(start)
+              right = source.index(end, left)
+              return source[left:right]
+
+          assert "ra_switch_mdio_read_cl45_checked(" in policy
+          assert "test_checked_cl45_reads_reject_partial_samples();" in test
+          cl45_adapter = body("static int ra_switch_mdio_read_cl45(", "\nstatic int ra_switch_mdio_write_cl45(")
+          assert "mii_mgr_read_cl45(port, dev, reg, value) ? 0 : -EIO" in cl45_adapter
+
+          token = body("static int phy_tr_dbg_checked(", "\nu32 phy_tr_dbg(")
+          assert token.count("ra_switch_mdio_write(") >= 3
+          assert token.count("ra_switch_mdio_read_checked(") == 2
+          assert "spin_lock_irqsave(&ra_switch_phy_page_lock" in token
+          assert "spin_unlock_irqrestore(&ra_switch_phy_page_lock" in token
+          assert "restore_status = ra_switch_mdio_write(NULL, phyaddr, page_reg, 0);" in token
+
+          show = body("void esw_show_debug_log(u32 phy_addr)", "\nirqreturn_t esw_interrupt(")
+          assert "phy_tr_dbg_checked(" in show
+          assert show.count("esw_debug_read_mmd(") == 4
+          assert show.count("return;") >= 5
+          assert "ra_switch_mdio_read_cl45_checked(" in body(
+              "static int esw_debug_read_mmd(", "\nvoid esw_show_debug_log("
+          )
+          print("RAETH token-ring and MMD debug reads stop on MDIO failures: PASS")
+          PY
+
+      - name: Validate RAETH GE2 PHY polling fail-closed status updates
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether.c").read_text()
+          policy = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch_mdio_policy.h").read_text()
+          test = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/ra_switch_mdio_policy.c").read_text()
+
+          poll = source.split("static int phy_polling_thread(", 1)[1].split(
+              chr(10) + "static irqreturn_t ei_interrupt_napi_rx_only", 1
+          )[0]
+          c22 = source.split("static int raether_phy_poll_read_c22(", 1)[1].split(
+              chr(10) + "static int raether_phy_poll_read_cl45", 1
+          )[0]
+          c45 = source.split("static int raether_phy_poll_read_cl45(", 1)[1].split(
+              chr(10) + "static int phy_polling_thread", 1
+          )[0]
+          assert "ra_switch_mdio_read_phy_link_snapshot(" in poll
+          assert "mii_mgr_read(" not in poll and "mii_mgr_read_cl45(" not in poll
+          assert "mii_mgr_read(port, reg, value) ? 0 : -EIO;" in c22
+          assert "mii_mgr_read_cl45(port, dev, reg, value) ? 0 : -EIO;" in c45
+          assert poll.index("if (status != 0)") < poll.index("else if (snapshot.link_up)")
+          error_branch = poll.split("if (status != 0)", 1)[1].split(
+              "else if (snapshot.link_up)", 1
+          )[0]
+          assert "set_ge2_force_link_down" not in error_branch
+          assert "sys_reg_write" not in error_branch
+          assert "set_ge2_force_link_down();" in poll
+          assert "ra_switch_mdio_update_ge2_mac_value(" in poll
+          snapshot = policy.split("ra_switch_mdio_read_phy_link_snapshot(", 1)[1].split(
+              chr(10) + "/* Keep the caller", 1
+          )[0]
+          assert snapshot.index("ra_switch_mdio_read_checked(port, 0x1U") < snapshot.index(
+              "if (!sample.link_up)"
+          ) < snapshot.index("ra_switch_mdio_read_checked(port, 0x4U")
+          assert snapshot.index("ra_switch_mdio_read_cl45_checked(port, 0x1eU") < snapshot.index(
+              "ra_switch_mdio_read_cl45_checked(port, 0x7U, 0x3cU"
+          ) < snapshot.index("ra_switch_mdio_read_cl45_checked(port, 0x7U, 0x3dU")
+          update = policy.split("ra_switch_mdio_update_ge2_mac_value(", 1)[1].split(
+              chr(10) + "#endif", 1
+          )[0]
+          assert "value &= ~(0x80U | 0x40U);" in update
+          for marker in (
+              "test_phy_poll_snapshot_stops_and_discards_every_failed_read",
+              "test_phy_poll_snapshot_publishes_only_complete_sample",
+              "test_ge2_mac_value_rebuild_clears_stale_eee_bits",
+              "test_phy_poll_snapshot_rejects_invalid_callbacks",
+          ):
+              assert marker in test and marker + "();" in test
+          print("RAETH GE2 link polling preserves prior state on MDIO errors and clears stale EEE: PASS")
+          PY
+
+      - name: Validate legacy PHY wrappers expose MDIO failures safely
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.c").read_text()
+          policy = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch_mdio_policy.h").read_text()
+          test = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/ra_switch_mdio_policy.c").read_text()
+
+          assert "ra_switch_mdio_write_checked(" in policy
+          assert "ra_switch_mdio_write_cl45_checked(" in policy
+          for signature, end in (
+              ("u32 tc_phy_read_dev_reg(", chr(10) + "void tc_phy_write_dev_reg("),
+              ("void tc_phy_write_dev_reg(", chr(10) + "u32 tc_mii_read("),
+              ("u32 tc_mii_read(", chr(10) + "void tc_mii_write("),
+              ("void tc_mii_write(", chr(10) + "void clear_ckinv_ana_txvos("),
+          ):
+              body = source.split(signature, 1)[1].split(end, 1)[0]
+              assert "status != 0" in body
+              assert "pr_err_ratelimited(" in body
+          assert "u32 phy_val = 0;" in source.split("u32 tc_phy_read_dev_reg(", 1)[1].split(
+              chr(10) + "}", 1
+          )[0]
+          assert "u32 phy_val = 0;" in source.split("u32 tc_mii_read(", 1)[1].split(
+              chr(10) + "}", 1
+          )[0]
+          for marker in (
+              "test_checked_phy_writes_propagate_and_normalize_failures",
+              "test_checked_phy_writes_propagate_and_normalize_failures();",
+          ):
+              assert marker in test
+          print("RAETH legacy Clause 22/45 PHY wrappers report failed MDIO reads and writes: PASS")
+          PY
+
+      - name: Validate GE analog calibration MDIO wait cleanup
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.c").read_text()
+          policy = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch_mdio_policy.h").read_text()
+          test = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/ra_switch_mdio_policy.c").read_text()
+
+          wait = source.split("static int all_ge_ana_cal_wait_checked(", 1)[1].split(
+              chr(10) + "u8 all_ge_ana_cal_wait(", 1
+          )[0]
+          legacy = source.split("u8 all_ge_ana_cal_wait(", 1)[1].split(
+              chr(10) + "void ge_cal_rext", 1
+          )[0]
+          policy_wait = policy.split("ra_switch_mdio_calibration_wait(", 1)[1].split(
+              chr(10) + "/* One coherent snapshot", 1
+          )[0]
+          assert "ra_switch_mdio_calibration_wait(" in wait
+          assert "tc_phy_read_page_reg_checked(port, 7U" in source
+          assert "tc_phy_write_page_reg_checked(port, 7U" in source
+          assert "ANACAL_ERROR" in legacy and "status != 0" in legacy
+          assert "cleanup_status = ra_switch_mdio_read_checked(" in policy_wait
+          assert "value & ~trigger_mask" in policy_wait
+          assert "if (status != 0)" in policy_wait
+          for marker in (
+              "test_calibration_wait_checks_all_io_and_restores_trigger",
+              "test_calibration_wait_checks_all_io_and_restores_trigger();",
+          ):
+              assert marker in test
+          print("RAETH GE calibration wait distinguishes MDIO errors from timeout and clears trigger: PASS")
+          PY
+
+      - name: Validate GE analog cleanup checked read-modify-write
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.c").read_text()
+          policy = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch_mdio_policy.h").read_text()
+          test = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/ra_switch_mdio_policy.c").read_text()
+
+          cleanup = source.split("static int clear_ckinv_ana_txvos_checked(", 1)[1].split(
+              chr(10) + "void clear_ckinv_ana_txvos(", 1
+          )[0]
+          legacy = source.split("void clear_ckinv_ana_txvos(", 1)[1].split(
+              chr(10) + "u8 all_fe_ana_cal_wait_txamp", 1
+          )[0]
+          assert "ra_switch_mdio_update_bits_checked(" in cleanup
+          assert cleanup.count("ra_switch_mdio_update_bits_checked(") == 3
+          assert "goto cleanup;" in cleanup
+          assert "tc_phy_write_page_reg_checked(" in cleanup
+          assert "24U, 0, 0U" in cleanup
+          assert "cleanup_status" in cleanup
+          assert "clear_ckinv_ana_txvos_checked();" in legacy
+          assert "pr_err_ratelimited(" in legacy and "status != 0" in legacy
+          update = policy.split("ra_switch_mdio_update_bits_checked(", 1)[1].split(
+              chr(10) + "/*", 1
+          )[0]
+          assert "ra_switch_mdio_read_checked(" in update
+          assert "ra_switch_mdio_write_checked(" in update
+          assert update.index("if (status != 0)") < update.index("ra_switch_mdio_write_checked(")
+          assert "*updated_value = value;" in update
+          assert "test_checked_update_bits_stops_on_read_error_and_preserves_bits();" in test
+          print("RAETH analog cleanup RMW stops on MDIO error and retains final zero cleanup: PASS")
+          PY
+
+      - name: Validate FE analog calibration checked wait and local cleanup
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.c").read_text()
+          policy = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch_mdio_policy.h").read_text()
+          test = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/ra_switch_mdio_policy.c").read_text()
+
+          fe = source.split("static int all_fe_ana_cal_wait_checked(", 1)[1].split(
+              chr(10) + "u8 all_fe_ana_cal_wait_txamp", 1
+          )[0]
+          txamp = source.split("u8 all_fe_ana_cal_wait_txamp(", 1)[1].split(
+              chr(10) + "u8 all_fe_ana_cal_wait(", 1
+          )[0]
+          normal = source.split("u8 all_fe_ana_cal_wait(", 1)[1].split(
+              chr(10) + "void fe_cal_tx_amp", 1
+          )[0]
+          assert "all_ge_ana_cal_wait_checked(delay, port_num, ready)" in fe
+          assert "ra_switch_mdio_write_checked(" in fe
+          assert "ra_switch_mdio_cleanup_two_writes(" in fe
+          assert "FE_CAL_COMMON, 23U, 0U, port_num, 23U, 0U" in fe
+          assert "page.page = 4U;" in fe and "page.local = 1;" in fe
+          assert "all_fe_ana_cal_wait_checked(delay, port_num, 0, &ready)" in txamp
+          assert "all_fe_ana_cal_wait_checked(delay, port_num, 1, &ready)" in normal
+          assert "ANACAL_ERROR" in txamp and "ANACAL_ERROR" in normal
+          assert "pr_err_ratelimited(" in txamp and "pr_err_ratelimited(" in normal
+          assert "ra_switch_mdio_cleanup_two_writes(" in policy
+          assert "second_status = ra_switch_mdio_write_checked(" in policy
+          assert "return first_status != 0 ? first_status : second_status;" in policy
+          assert "test_checked_cleanup_attempts_both_writes_and_keeps_first_error();" in test
+          print("RAETH FE calibration wait preserves pre-trigger modes and always attempts both local cleanup writes: PASS")
+          PY
+
+      - name: Validate GE Rext calibration checks each MDIO operation and cleanup
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.c").read_text()
+          policy = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch_mdio_policy.h").read_text()
+          test = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/ra_switch_mdio_policy.c").read_text()
+
+          rext = source.split("void ge_cal_rext(", 1)[1].split(
+              chr(10) + "void ge_cal_r50(", 1
+          )[0]
+          assert "tc_phy_read_dev_reg_checked(" in rext
+          assert "tc_phy_write_dev_reg_checked(" in rext
+          assert "tc_phy_read_dev_reg(" not in rext
+          assert "tc_phy_write_dev_reg(" not in rext
+          assert rext.count("all_ge_ana_cal_wait_checked(") == 2
+          assert "ra_switch_mdio_restore_cl45_and_disable(" in rext
+          assert "snapshot_valid && !keep_calibrated" in rext
+          assert rext.index("cleanup_status = ra_switch_mdio_restore_cl45_and_disable(") < rext.index("ge_cal_flag = 1;")
+          assert "test_restore_cl45_register_always_attempts_disable();" in test
+          helper = policy.split("ra_switch_mdio_restore_cl45_and_disable(", 1)[1].split(
+              chr(10) + "/*", 1
+          )[0]
+          assert "if (restore_valid)" in helper
+          assert "cleanup_status = ra_switch_mdio_write_cl45_checked(" in helper
+          assert "if (status == 0)" in helper
+          print("RAETH GE Rext calibration checks each MDIO transaction and always disables calibration: PASS")
+          PY
+
+      - name: Validate GE R50 calibration fails closed on MDIO errors
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.c").read_text()
+          r50 = source.split("void ge_cal_r50(", 1)[1].split(
+              chr(10) + "void ge_cal_tx_amp(", 1
+          )[0]
+          common = source.split("static int fe_ge_r50_common_checked(", 1)[1].split(
+              chr(10) + "void fe_ge_r50_common(", 1
+          )[0]
+          for body in (r50, common):
+              assert "tc_phy_read_dev_reg(" not in body
+              assert "tc_phy_write_dev_reg(" not in body
+              assert "tc_phy_read_g_reg(" not in body
+              assert "tc_phy_write_g_reg(" not in body
+              assert "tc_phy_read_l_reg(" not in body
+              assert "tc_phy_write_l_reg(" not in body
+          assert "all_ge_ana_cal_wait_checked(" in r50
+          assert "static int fe_ge_r50_common_checked(" in source
+          assert "void fe_ge_r50_common(" in source
+          assert "status = fe_ge_r50_common_checked(phyaddr);" in r50
+          assert "ra_switch_mdio_update_bits_checked(" in r50
+          assert "clear_ckinv_ana_txvos_checked()" in r50
+          assert "tc_phy_write_dev_reg_checked(" in r50
+          assert "ge_cal_r50_flag = 1;" in r50
+          assert r50.index("clear_ckinv_ana_txvos_checked()") < r50.index("ge_cal_r50_flag = 1;")
+          assert "ra_switch_mdio_update_bits_checked(" in common
+          print("RAETH GE R50 calibration checks Clause 45 and paged MDIO paths and always runs cleanup: PASS")
+          PY
+
+      - name: Validate GE TX amplitude calibration checks MDIO and best-effort cleanup
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.c").read_text()
+          policy = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch_mdio_policy.h").read_text()
+          test = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/ra_switch_mdio_policy.c").read_text()
+          txamp = source.split("void ge_cal_tx_amp(", 1)[1].split(
+              chr(10) + "void ge_cal_tx_offset(", 1
+          )[0]
+          assert "tc_phy_read_dev_reg(" not in txamp
+          assert "tc_phy_write_dev_reg(" not in txamp
+          assert "tc_phy_read_g_reg(" not in txamp
+          assert "tc_phy_write_g_reg(" not in txamp
+          assert "tc_phy_read_l_reg(" not in txamp
+          assert "tc_phy_write_l_reg(" not in txamp
+          assert "all_ge_ana_cal_wait(" not in txamp
+          assert txamp.count("all_ge_ana_cal_wait_checked(") == 2
+          assert "ra_switch_mdio_cleanup_cl45_writes(" in txamp
+          assert "cnt < 254U" in txamp
+          assert "all_ana_cal_status == ANACAL_SATURATION" in txamp
+          assert "cnt >= 254U" in txamp
+          assert "tx_amp_temp = 0x20;" in txamp
+          assert "clear_ckinv_ana_txvos_checked()" in txamp
+          assert txamp.index("cleanup:") < txamp.index("ge_cal_flag = 1;")
+          assert "ra_switch_mdio_cleanup_cl45_writes(" in policy
+          assert "test_cl45_cleanup_sequence_attempts_all_and_keeps_first_error();" in test
+          print("RAETH GE TX-amplitude path checks every MDIO operation and attempts all cleanup writes: PASS")
+          PY
+
+      - name: Validate GE TX offset calibration checked snapshots and cleanup
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.c").read_text()
+          offset = source.split("void ge_cal_tx_offset(", 1)[1].split(
+              chr(10) + "int do_ge_phy_all_analog_cal(", 1
+          )[0]
+          assert "tc_phy_read_dev_reg(" not in offset
+          assert "tc_phy_write_dev_reg(" not in offset
+          assert "tc_phy_read_g_reg(" not in offset
+          assert "tc_phy_write_g_reg(" not in offset
+          assert "tc_phy_read_l_reg(" not in offset
+          assert "tc_phy_write_l_reg(" not in offset
+          assert "all_ge_ana_cal_wait(" not in offset
+          assert offset.count("all_ge_ana_cal_wait_checked(") == 2
+          assert "cnt < 254U" in offset
+          assert "all_ana_cal_status == ANACAL_SATURATION" in offset
+          assert "tx_offset_temp = 0x20;" in offset
+          assert offset.count("tc_phy_read_dev_reg_checked(") == 4
+          assert "ra_switch_mdio_cleanup_cl45_writes(" in offset
+          assert "clear_ckinv_ana_txvos_checked()" in offset
+          assert offset.index("cleanup:") < offset.index("ge_cal_tx_offset_flag = 1;")
+          print("RAETH GE TX-offset routine checks all MDIO samples and always clears analog/force state: PASS")
+          PY
+
+      - name: Validate GE analog wait context is complete before callback use
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.c").read_text()
+          declaration = source.index("struct ra_switch_ge_cal_wait_context {")
+          delay = source.index("static void ra_switch_ge_cal_wait_delay(")
+          wait = source.index("static int all_ge_ana_cal_wait_checked(", delay)
+          assert declaration < delay < wait
+          block = source[declaration:delay]
+          assert "unsigned int delay;" in block
+          assert "struct ra_switch_ge_cal_wait_context *wait = context;" in source[delay:wait]
+          print("GE analog wait callback context is fully defined before use: PASS")
+          PY
+
+      - name: Validate RAETH EPHY ioctl propagates calibration failure status
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether.c").read_text()
+          case = source.split("case RAETH_EPHY_IOCTL:", 1)[1].split(
+              chr(10) + "\tdefault:", 1
+          )[0]
+          assert "ret = ephy_ioctl(dev, ifr, &ephy_data);" in case
+          call_at = case.index("ret = ephy_ioctl(dev, ifr, &ephy_data);")
+          before_call = case[:call_at]
+          after_error_block = before_call.rsplit("}", 1)[-1]
+          after_call = case[call_at:]
+          assert "spin_unlock_irq(&ei_local->page_lock);" in before_call
+          assert "spin_lock_irq(&ei_local->page_lock);" not in after_error_block
+          assert after_call.index("spin_lock_irq(&ei_local->page_lock);") < after_call.index("break;")
+          assert "ephy_ioctl(dev, ifr, &ephy_data);" in case
+          assert "ret = ephy_ioctl(dev, ifr, &ephy_data);" in case
+          assert "return ret;" in source.split("int ei_ioctl(", 1)[1].split(
+              chr(10) + "static const struct net_device_ops", 1
+          )[0]
+          print("RAETH_EPHY_IOCTL propagates calibration -EIO to ndo_do_ioctl caller: PASS")
+          PY
+
+      - name: Validate calibration ioctl retries each port and reports failures
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.c").read_text()
+          ioctl = source.split("int ephy_ioctl(", 1)[1].split(
+              chr(10) + "static const struct of_device_id", 1
+          )[0]
+          vbg = ioctl.split("case RAETH_VBG_IEXT_CALIBRATION:", 1)[1].split(
+              "case RAETH_TXG_R50_CALIBRATION:", 1
+          )[0]
+          r50 = ioctl.split("case RAETH_TXG_R50_CALIBRATION:", 1)[1].split(
+              "case RAETH_TXG_OFFSET_CALIBRATION:", 1
+          )[0]
+          for block, flag in ((vbg, "fe_cal_vbg_flag"), (r50, "fe_cal_r50_flag")):
+              assert "for (port_num = 0; port_num < 5; port_num++)" in block
+              assert "cnt = 0;" in block
+              assert flag + " = 0;" in block
+              assert "if (!" + flag + ")" in block
+              assert "ret = -EIO;" in block
+          offset = ioctl.split("case RAETH_TXG_OFFSET_CALIBRATION:", 1)[1].split(
+              "case RAETH_TXG_AMP_CALIBRATION:", 1
+          )[0]
+          amp = ioctl.split("case RAETH_TXG_AMP_CALIBRATION:", 1)[1].split(
+              "case GE_TXG_R50_CALIBRATION:", 1
+          )[0]
+          for block, flags in (
+              (offset, ("fe_cal_tx_offset_flag", "fe_cal_tx_offset_flag_mdix")),
+              (amp, ("fe_cal_flag", "fe_cal_flag_mdix"))
+          ):
+              for flag in flags:
+                  assert flag + " = 0;" in block
+                  assert "if (!" + flag + ")" in block
+              assert block.count("ret = -EIO;") == 2
+          for case, flag, end in (
+              ("GE_TXG_R50_CALIBRATION", "ge_cal_r50_flag", "GE_TXG_OFFSET_CALIBRATION"),
+              ("GE_TXG_OFFSET_CALIBRATION", "ge_cal_tx_offset_flag", "GE_TXG_AMP_CALIBRATION"),
+              ("GE_TXG_AMP_CALIBRATION", "ge_cal_flag", "default:")
+          ):
+              block = ioctl.split("case " + case + ":", 1)[1].split(end, 1)[0]
+              assert "if (!" + flag + ")" in block
+              assert "ret = -EIO;" in block
+          print("Calibration ioctl resets per-port retries and returns -EIO after exhausted FE/GE calibration attempts: PASS")
+          PY
+
+      - name: Validate EPHY batch initialization propagates analog failures
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth")
+          source = (root / "ra_switch.c").read_text()
+          header = (root / "ra_switch.h").read_text()
+          ge = source.split("int do_ge_phy_all_analog_cal(", 1)[1].split(
+              chr(10) + "static int mt7622_ephy_cal(", 1
+          )[0]
+          mt = source.split("static int mt7622_ephy_cal(", 1)[1].split(
+              chr(10) + "static int leopard_ephy_cal(", 1
+          )[0]
+          leopard = source.split("static int leopard_ephy_cal(", 1)[1].split(
+              chr(10) + "static void wait_loop(", 1
+          )[0]
+          init = source.split("int fe_sw_init(void)", 1)[1].split(
+              chr(10) + "void fe_sw_deinit(", 1
+          )[0]
+          assert "int do_ge_phy_all_analog_cal(u8 phyaddr);" in header
+          assert "return status;" in ge
+          for runner in (mt, leopard):
+              assert "do_fe_phy_all_analog_cal_checked(" in runner
+              assert "if (status != 0)" in runner
+              assert "return status;" in runner
+          assert "do_fe_phy_all_analog_cal(i);" not in init
+          assert "status = do_ge_phy_all_analog_cal(0U);" in init
+          assert "status = mt7622_ephy_cal();" in init
+          assert "status = leopard_ephy_cal();" in init
+          assert "if (status != 0)" in init and "goto mdio_error;" in init
+          print("FE/GE calibration failures propagate through both EPHY batch runners into fe_sw_init: PASS")
+          PY
+
+      - name: Validate Leopard EPHY initialization checks each local MDIO operation
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.c").read_text()
+          init_start = source.index("int fe_sw_init(void)")
+          init_end = source.index(chr(10) + "void fe_sw_deinit(", init_start)
+          init = source[init_start:init_end]
+          setup_start = init.index(
+              "/* Stop initialization if any Leopard EPHY MDIO operation fails. */"
+          )
+          setup_end = init.index(
+              chr(10) + "\t}" + chr(10) + chr(10) +
+              "\tif (ei_local->chip_name == MT7621_FE)", setup_start
+          )
+          setup = init[setup_start:setup_end]
+          assert "tc_phy_write_l_reg(" not in init
+          assert "tc_phy_read_l_reg(" not in init
+          assert setup.count("tc_phy_write_page_reg_checked(") == 9
+          assert setup.count("tc_phy_read_page_reg_checked(") == 1
+          assert setup.count("goto mdio_error;") == 10
+          assert "r0_tmp = (u16)(reg_value | 0x0200U);" in setup
+          assert "mdio_error:" in init and "return status;" in init
+          assert "status = leopard_ephy_cal();" in init
+          assert "if (status != 0)" in init
+          print("Leopard EPHY initialization checks every local MDIO read/write and aborts on failure: PASS")
+          PY
+
+      - name: Validate FE all-analog orchestration propagates child and MDIO failures
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.c").read_text()
+          body = source.split("static int do_fe_phy_all_analog_cal_checked(", 1)[1].split(
+              chr(10) + "void do_fe_phy_all_analog_cal(", 1
+          )[0]
+          cleanup = source.split("static int ra_switch_fe_analog_cal_cleanup(void *context)", 1)[1].split(
+              "static int do_fe_phy_all_analog_cal_checked(", 1
+          )[0]
+          for legacy in (
+              "tc_phy_read_l_reg(", "tc_phy_write_l_reg(",
+              "tc_phy_read_g_reg(", "tc_phy_write_g_reg(",
+              "tc_phy_write_dev_reg("
+          ):
+              assert legacy not in body, legacy
+          assert "tc_phy_read_page_reg_checked(" in body
+          assert "tc_phy_write_page_reg_checked(" in body
+          assert "tc_phy_write_dev_reg_checked(" in body
+          assert "l0r26_saved" in body and "l0r30_saved" in body
+          assert "if (cleanup->l0r26_saved)" in cleanup and "if (cleanup->l0r30_saved)" in cleanup
+          for flag in (
+              "fe_cal_vbg_flag", "fe_cal_r50_flag",
+              "fe_cal_tx_offset_flag", "fe_cal_tx_offset_flag_mdix",
+              "fe_cal_flag", "fe_cal_flag_mdix"
+          ):
+              assert "if (!" + flag + ")" in body, flag
+          assert body.index("if (!fe_cal_r50_flag)") < body.index("fe_cal_tx_offset(port_num")
+          assert body.index("if (!fe_cal_tx_offset_flag)") < body.index("fe_cal_tx_offset_mdix(port_num")
+          assert body.index("if (!fe_cal_flag)") < body.index("fe_cal_tx_amp_mdix(port_num")
+          assert "clear_ckinv_ana_txvos_checked()" in cleanup
+          assert "ra_switch_mdio_cleanup_if_started(" in body
+          assert "setup_attempted = 1;" in body
+          assert "failed_stage" in body and "return status;" in body
+          print("FE analog orchestrator checks paged/C45 I/O, restores only valid snapshots and aborts after child failure: PASS")
+          PY
+
+      - name: Validate FE orchestrator gates teardown until setup write is attempted
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          root = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth")
+          source = (root / "ra_switch.c").read_text()
+          policy = (root / "ra_switch_mdio_policy.h").read_text()
+          test = (root / "tests/ra_switch_mdio_policy.c").read_text()
+          body = source.split("static int do_fe_phy_all_analog_cal_checked(", 1)[1].split(
+              chr(10) + "/* Keep the public void entry point", 1
+          )[0]
+          cleanup = source.split("static int ra_switch_fe_analog_cal_cleanup(void *context)", 1)[1].split(
+              "static int do_fe_phy_all_analog_cal_checked(", 1
+          )[0]
+          first_setup = body.index("setup_attempted = 1;")
+          first_write = body.index("tc_phy_write_page_reg_checked(port_num, 0U, 26U, 1, 0x5600U)")
+          assert body.index("l0r26_saved = 1;") < body.index("l0r30_saved = 1;") < first_setup < first_write
+          assert body.index("ra_switch_mdio_cleanup_if_started(") > body.index("cleanup:")
+          assert "if (!setup_attempted)" in policy and "if (!cleanup)" in policy
+          for required in (
+              "clear_ckinv_ana_txvos_checked()", "0x1000U, 0U",
+              "0U, 0U, 1, 0x3100U", "0U, 4U, 0, 0x05e1U",
+              "if (cleanup->l0r26_saved)", "if (cleanup->l0r30_saved)"
+          ):
+              assert required in cleanup, required
+          assert cleanup.count("if (status == 0 && cleanup_status != 0)") >= 7
+          assert "test_calibration_cleanup_runs_only_after_setup_attempted();" in test
+          print("FE analog teardown is skipped on snapshot failure and preserves best-effort cleanup after setup attempt: PASS")
+          PY
+
+      - name: Validate GE all-analog orchestration propagates child and MDIO failures
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.c").read_text()
+          body = source.split("int do_ge_phy_all_analog_cal(", 1)[1].split(
+              chr(10) + "static int mt7622_ephy_cal(", 1
+          )[0]
+          for legacy in ("tc_phy_read_dev_reg(", "tc_phy_write_dev_reg(",
+                         "tc_mii_read(", "tc_mii_write("):
+              assert legacy not in body
+          for checked in ("tc_phy_read_dev_reg_checked(", "tc_phy_write_dev_reg_checked(",
+                          "tc_mii_read_checked(", "tc_mii_write_checked("):
+              assert checked in body
+          assert "reg0_saved" in body and "dev145_saved" in body
+          assert "return status;" in body
+          assert "if (!ge_cal_r50_flag)" in body
+          assert "if (!ge_cal_tx_offset_flag)" in body
+          assert "if (!ge_cal_flag)" in body
+          print("GE analog orchestrator checked I/O, child result gates and saved-state restore: PASS")
+          PY
+
+      - name: Validate FE VBG calibration checks MDIO, bounds code and cleans up
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth")
+          source = (root / "ra_switch.c").read_text()
+          policy = (root / "ra_switch_mdio_policy.h").read_text()
+          test = (root / "tests/ra_switch_mdio_policy.c").read_text()
+          vbg = source.split("void fe_cal_vbg(", 1)[1].split(
+              chr(10) + "#define CALDLY", 1
+          )[0]
+          for legacy in (
+              "tc_phy_read_l_reg(", "tc_phy_write_l_reg(",
+              "tc_phy_read_g_reg(", "tc_phy_write_g_reg(",
+              "all_fe_ana_cal_wait("
+          ):
+              assert legacy not in vbg, legacy
+          assert vbg.count("all_fe_ana_cal_wait_checked(") == 2
+          assert vbg.count("ra_switch_mdio_update_bits_checked(") >= 7
+          assert "fe_cal_vbg_flag = 0;" in vbg
+          assert "ra_switch_mdio_calibration_code_step(" in vbg
+          assert "ARRAY_SIZE(ZCAL_TO_REXT_TBL)" in vbg
+          assert "rg_zcal_ctrl = 0x20U;" in vbg
+          assert "clear_ckinv_ana_txvos_checked()" in vbg
+          assert vbg.index("cleanup:") < vbg.index("iext_cal_result = rg_zcal_ctrl;")
+          assert vbg.index("if (status != 0)") < vbg.index("fe_cal_vbg_flag = 1;")
+          compact = " ".join(vbg.split())
+          for cleanup in (
+              "tc_phy_write_page_reg_checked( port_num, 3U, 25U, 1, 0U)",
+              "tc_phy_write_page_reg_checked( FE_CAL_COMMON, 3U, 25U, 1, 0U)"
+          ):
+              assert cleanup in compact, cleanup
+          assert "ra_switch_mdio_calibration_code_step(" in policy
+          assert "ra_switch_mdio_calibration_code_step(unsigned int current_code," in policy
+          assert "test_calibration_code_step_wraps_inside_six_bit_field();" in test
+          print("FE VBG checked MDIO, bounded code/table access and best-effort cleanup: PASS")
+          PY
+
+      - name: Validate FE TX amplitude calibration checks MDIO and cleanup
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.c").read_text()
+          amp = source.split("void fe_cal_tx_amp(u8 port_num, u32 delay)", 1)[1].split(
+              chr(10) + "void fe_cal_tx_amp_mdix(", 1
+          )[0]
+          for legacy in (
+              "tc_phy_read_l_reg(", "tc_phy_write_l_reg(",
+              "tc_phy_read_g_reg(", "tc_phy_write_g_reg(",
+              "all_fe_ana_cal_wait_txamp(", "all_fe_ana_cal_wait("
+          ):
+              assert legacy not in amp, legacy
+          assert amp.count("all_fe_ana_cal_wait_checked(") == 2
+          assert "all_fe_ana_cal_wait_checked(delay, port_num, 0, &ready)" in amp
+          assert "(cnt < 254U)" in amp
+          assert "ra_switch_mdio_calibration_code_step(" in amp
+          assert "fe_cal_flag = 0;" in amp
+          assert "clear_ckinv_ana_txvos_checked()" in amp
+          assert "tc_phy_write_page_reg_checked(" in amp
+          assert amp.index("cleanup:") < amp.index("if (calibration_completed)")
+          assert amp.index("if (status != 0)") < amp.index("fe_cal_flag = 1;")
+          assert "MT7622_FE" in amp and "LEOPARD_FE" in amp
+          print("FE TX-amplitude checked I/O, bounded search, chip offsets and cleanup: PASS")
+          PY
+
+      - name: Validate FE TX-amplitude MDIX calibration checks MDIO and cleanup
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.c").read_text()
+          mdix = source.split("void fe_cal_tx_amp_mdix(u8 port_num, u32 delay)", 1)[1].split(
+              chr(10) + "void fe_cal_tx_offset(", 1
+          )[0]
+          for legacy in (
+              "tc_phy_read_l_reg(", "tc_phy_write_l_reg(",
+              "tc_phy_read_g_reg(", "tc_phy_write_g_reg(",
+              "all_fe_ana_cal_wait_txamp(", "all_fe_ana_cal_wait("
+          ):
+              assert legacy not in mdix, legacy
+          assert mdix.count("all_fe_ana_cal_wait_checked(") == 2
+          assert "all_fe_ana_cal_wait_checked(delay, port_num, 0, &ready)" in mdix
+          assert "(cnt < 254U)" in mdix
+          assert "ra_switch_mdio_calibration_code_step(" in mdix
+          assert "fe_cal_flag_mdix = 0;" in mdix
+          assert "clear_ckinv_ana_txvos_checked()" in mdix
+          assert mdix.index("cleanup:") < mdix.index("if (calibration_completed)")
+          assert mdix.index("if (status != 0)") < mdix.index("fe_cal_flag_mdix = 1;")
+          assert "MT7622_FE" in mdix and "LEOPARD_FE" in mdix
+          print("FE TX-amplitude MDIX checked I/O, bounded search, per-chip offsets and cleanup: PASS")
+          PY
+
+      - name: Validate FE TX-offset MDIX calibration checks MDIO and cleanup
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.c").read_text()
+          mdix = source.split("void fe_cal_tx_offset_mdix(u8 port_num, u32 delay)", 1)[1].split(
+              chr(10) + "static int set_r50_leopard_checked(", 1
+          )[0]
+          for legacy in (
+              "tc_phy_read_l_reg(", "tc_phy_write_l_reg(",
+              "tc_phy_read_g_reg(", "tc_phy_write_g_reg(",
+              "all_fe_ana_cal_wait("
+          ):
+              assert legacy not in mdix, legacy
+          assert mdix.count("all_fe_ana_cal_wait_checked(") == 2
+          assert "ra_switch_mdio_calibration_code_step(" in mdix
+          assert "fe_cal_tx_offset_flag_mdix = 0;" in mdix
+          assert "0x3f00U" in mdix
+          assert "clear_ckinv_ana_txvos_checked()" in mdix
+          assert mdix.index("cleanup:") < mdix.index("if (calibration_completed)")
+          assert mdix.index("if (status != 0)") < mdix.index("fe_cal_tx_offset_flag_mdix = 1;")
+          compact = " ".join(mdix.split())
+          for cleanup in (
+              "tc_phy_write_page_reg_checked( port_num, 3U, 25U, 1, 0U)",
+              "tc_phy_write_page_reg_checked( FE_CAL_COMMON, 3U, 25U, 1, 0U)",
+              "tc_phy_write_page_reg_checked( port_num, 1U, 26U, 0, 0U)"
+          ):
+              assert cleanup in compact, cleanup
+          print("FE TX-offset MDIX checks paged MDIO/waits and programs explicit bounded fallback: PASS")
+          PY
+
+      - name: Validate FE TX offset calibration checks MDIO and cleanup
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.c").read_text()
+          offset = source.split("void fe_cal_tx_offset(u8 port_num, u32 delay)", 1)[1].split(
+              chr(10) + "void fe_cal_tx_offset_mdix(", 1
+          )[0]
+          for legacy in (
+              "tc_phy_read_l_reg(", "tc_phy_write_l_reg(",
+              "tc_phy_read_g_reg(", "tc_phy_write_g_reg(",
+              "all_fe_ana_cal_wait("
+          ):
+              assert legacy not in offset, legacy
+          assert offset.count("all_fe_ana_cal_wait_checked(") == 2
+          assert "ra_switch_mdio_calibration_code_step(" in offset
+          assert "fe_cal_tx_offset_flag = 0;" in offset
+          assert "clear_ckinv_ana_txvos_checked()" in offset
+          assert "0x3f00U" in offset
+          assert "calibration_completed" in offset
+          assert offset.index("cleanup:") < offset.index("if (calibration_completed)")
+          assert offset.index("if (status != 0)") < offset.index("fe_cal_tx_offset_flag = 1;")
+          compact = " ".join(offset.split())
+          for cleanup in (
+              "tc_phy_write_page_reg_checked( port_num, 3U, 25U, 1, 0U)",
+              "tc_phy_write_page_reg_checked( FE_CAL_COMMON, 3U, 25U, 1, 0U)",
+              "tc_phy_write_page_reg_checked( port_num, 1U, 26U, 0, 0U)"
+          ):
+              assert cleanup in compact, cleanup
+          print("FE TX-offset checks each MDIO sample/wait and runs fail-closed cleanup: PASS")
+          PY
+
+      - name: Validate FE R50 calibration fails closed on MDIO errors
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.c").read_text()
+          leopard = source.split("static int set_r50_leopard_checked(", 1)[1].split(
+              chr(10) + "/* Keep the legacy void entry points", 1
+          )[0]
+          mt7622 = source.split("static int set_r50_mt7622_checked(", 1)[1].split(
+              chr(10) + "/* Keep the legacy void entry points", 1
+          )[0]
+          fe_r50 = source.split("void fe_cal_r50(", 1)[1].split(
+              chr(10) + "void fe_cal_vbg(", 1
+          )[0]
+          for body in (leopard, mt7622, fe_r50):
+              for legacy in ("tc_phy_read_dev_reg(", "tc_phy_write_dev_reg(",
+                             "tc_phy_read_g_reg(", "tc_phy_write_g_reg(",
+                             "tc_phy_read_l_reg(", "tc_phy_write_l_reg("):
+                  assert legacy not in body
+          assert "r50_cal_result < tx_offset[port_num]" in mt7622
+          assert "r50_cal_result < rx_offset[port_num]" in mt7622
+          assert "ARRAY_SIZE(ZCAL_TO_R50OHM_TBL_100)" in mt7622
+          assert "all_fe_ana_cal_wait(" not in fe_r50
+          assert fe_r50.count("all_fe_ana_cal_wait_checked(") == 2
+          assert "ra_switch_mdio_update_bits_checked(" in fe_r50
+          assert "clear_ckinv_ana_txvos_checked()" in fe_r50
+          assert fe_r50.index("cleanup:") < fe_r50.index("fe_cal_r50_flag = 1;")
+          print("FE R50 checks page/C45 status, bounds table indexes, and runs best-effort cleanup: PASS")
+          PY
+
+      - name: Compile and run RAETH MDIO calibration cleanup policy regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer \
+            trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/ra_switch_mdio_policy.c \
+            -o "$RUNNER_TEMP/ra-switch-mdio-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/ra-switch-mdio-policy"
+
+      - name: Compile and run IRQ-safe RAETH MDIO timeout policy regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer \
+            trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/mii_mgr_timeout_policy.c \
+            -o "$RUNNER_TEMP/raeth-mii-mgr-timeout-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/raeth-mii-mgr-timeout-policy"
+
+      - name: Verify indirect RAETH MMD transactions hold the MDIO lock
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -g \
+            -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -I trunk/linux-4.4.x/drivers/net/ethernet/raeth \
+            trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/mii_mgr_indirect_policy.c \
+            -o "$RUNNER_TEMP/raeth-mii-mgr-indirect-policy"
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 \
+            "$RUNNER_TEMP/raeth-mii-mgr-indirect-policy"
+          python3 scripts/check_mii_mgr_indirect_locking.py
+
+      - name: Validate RAETH probe and clock mapping failures fail closed
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether.c").read_text()
+
+          def body(signature):
+              start = source.index(signature)
+              opening = source.index("{", start)
+              depth = 0
+              for position in range(opening, len(source)):
+                  if source[position] == "{":
+                      depth += 1
+                  elif source[position] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source[opening + 1:position]
+              raise AssertionError("unterminated function: " + signature)
+
+          clocks = body("static int ei_clock_enable(struct END_DEVICE *ei_local)")
+          mapped = clocks.index("clk_virt_base = ioremap(0x102100C0, 0x10);")
+          guard = clocks.index("if (!clk_virt_base)", mapped)
+          failure = clocks.index("return -ENOMEM;", guard)
+          pm_start = clocks.index("pm_runtime_enable(ei_local->dev);")
+          assert mapped < guard < failure < pm_start
+          assert clocks.count("iounmap(clk_virt_base);") == 1
+
+          ioc = body("int ei_ioc_setting(struct platform_device *pdev, struct END_DEVICE *ei_local)")
+          mapped = ioc.index("reg_virt = ioremap(0x10395000, 0x10);")
+          guard = ioc.index("if (!reg_virt)", mapped)
+          failure = ioc.index("return -ENOMEM;", guard)
+          write = ioc.index("sys_reg_write(reg_virt", mapped)
+          assert mapped < guard < failure < write
+          assert "iounmap(reg_virt);" in ioc
+          assert ioc.rstrip().endswith("return 0;")
+
+          probe = body("static int rather_probe(struct platform_device *pdev)")
+          assert "if (!node)" in probe
+          assert "of_node_put(node);" in probe
+          assert "if (!ethdma_sysctl_base)" in probe
+          assert "ret = -ENOMEM;" in probe[probe.index("if (!ethdma_sysctl_base)"):]
+          frame_map = probe.index("ethdma_frame_engine_base = devm_ioremap_resource(&pdev->dev, res);")
+          assert "if (IS_ERR(ethdma_frame_engine_base))" in probe
+          frame_guard = probe.index("if (IS_ERR(ethdma_frame_engine_base))", frame_map)
+          frame_failure = probe.index("ret = PTR_ERR(ethdma_frame_engine_base);", frame_guard)
+          assert frame_map < frame_guard < frame_failure
+          frame_rollback = probe.index("goto err_free_dev;", frame_failure)
+          assert frame_map < frame_guard < frame_failure < frame_rollback
+          assert "if (!ethdma_frame_engine_base)" not in probe
+          assert "if (!ethdma_mac_base)" in probe
+          assert "ret = ei_clock_enable(ei_local);" in probe
+          assert "ret = ei_ioc_setting(pdev, ei_local);" in probe
+          assert "if (clocks_enabled)" in probe
+          assert "ei_clock_disable(ei_local);" in probe
+          assert "iounmap(ethdma_sysctl_base);" in probe
+          assert "iounmap(ethdma_mac_base);" in probe
+          print("RAETH clock, IOC and probe MMIO mappings fail closed with probe rollback: PASS")
+          PY
+
+      - name: Validate GMII mux ioremap failures propagate to FE init
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          mac = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_mac.c").read_text()
+          switch = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.c").read_text()
+          header = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether.h").read_text()
+
+          def body(source, signature):
+              start = source.index(signature)
+              opening = source.index("{", start)
+              depth = 0
+              for position in range(opening, len(source)):
+                  if source[position] == "{":
+                      depth += 1
+                  elif source[position] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source[opening + 1:position]
+              raise AssertionError("unterminated function: " + signature)
+
+          for signature in ("int set_ge2_gmii(void)", "int set_ge0_gmii(void)"):
+              implementation = body(mac, signature)
+              mapped = implementation.index("virt_addr = ioremap(ETHSYS_BASE, 0x20);")
+              guard = implementation.index("if (!virt_addr)", mapped)
+              failure = implementation.index("return -ENOMEM;", guard)
+              first_read = implementation.index("sys_reg_read(virt_addr", mapped)
+              assert mapped < guard < failure < first_read
+              assert "iounmap(virt_addr);" in implementation
+              assert implementation.rstrip().endswith("return 0;")
+              assert signature + ";" in header
+
+          init = body(switch, "int fe_sw_init(void)")
+          for signature in ("status = set_ge2_gmii();", "status = set_ge0_gmii();"):
+              start = init.index(signature)
+              tail = init[start:start + 150]
+              assert "if (status != 0)" in tail
+              assert "goto mdio_error;" in tail
+
+          print("GE0/GE2 GMII register mappings fail closed and propagate to FE initialization: PASS")
+          PY
+
+      - name: Validate RTL8367 and Leopard GPIO mappings fail closed
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.c").read_text()
+
+          def body(signature):
+              start = source.index(signature)
+              opening = source.index("{", start)
+              depth = 0
+              for position in range(opening, len(source)):
+                  if source[position] == "{":
+                      depth += 1
+                  elif source[position] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source[opening + 1:position]
+              raise AssertionError("unterminated function: " + signature)
+
+          def check_sequential_mappings(implementation, variable, expected):
+              lines = implementation.splitlines()
+              maps = [index for index, line in enumerate(lines)
+                      if f"{variable} = ioremap(" in line]
+              assert len(maps) == expected, (variable, len(maps))
+              for mapped in maps:
+                  guard = next(
+                      (index for index in range(mapped + 1, len(lines))
+                       if lines[index].strip() == f"if (!{variable}) {{"),
+                      None,
+                  )
+                  assert guard is not None, f"{variable} map lacks NULL check"
+                  failure = next(
+                      (index for index in range(guard + 1, len(lines))
+                       if lines[index].strip() in ("return -ENOMEM;", "return;", "goto out_put_device;")),
+                      None,
+                  )
+                  assert failure is not None, f"{variable} map failure is not propagated"
+                  first_access = next(
+                      (index for index in range(mapped + 1, len(lines))
+                       if "sys_reg_read(" in lines[index] or
+                          "sys_reg_write(" in lines[index]),
+                      None,
+                  )
+                  assert first_access is not None and guard < failure < first_access, (
+                      f"{variable} is accessed before handling ioremap failure"
+                  )
+
+          rtl_init = body("int init_rtl8367s(void)")
+          check_sequential_mappings(rtl_init, "virt_addr", 3)
+          assert rtl_init.count("iounmap(virt_addr);") == 3
+
+          leopard = body("int leopard_gmii_config(u8 enable)")
+          check_sequential_mappings(leopard, "infra_base_virt", 1)
+          check_sequential_mappings(leopard, "gpio_base_virt", 1)
+          assert leopard.index("infra_base_virt = ioremap(") < leopard.index(
+              "gpio_base_virt = ioremap("
+          ) < leopard.index("sys_reg_read(")
+          assert "iounmap(infra_base_virt);\n\t\treturn -ENOMEM;" in leopard
+          assert leopard.count("iounmap(") == 3
+          assert leopard.rstrip().endswith("return 0;")
+
+          for signature in (
+              "int set_rtl8367s_sgmii(void)",
+              "int set_rtl8367s_rgmii(void)",
+          ):
+              wrapper = body(signature)
+              assert "status = init_rtl8367s();" in wrapper
+              assert "if (status != 0)" in wrapper
+              assert "return status;" in wrapper
+
+          deinit = body("void fe_sw_deinit(struct END_DEVICE *ei_local)")
+          check_sequential_mappings(deinit, "gpio_base_virt", 3)
+          assert deinit.count("iounmap(gpio_base_virt);") == 3
+
+          init = body("int fe_sw_init(void)")
+          for call in (
+              "status = set_rtl8367s_sgmii();",
+              "status = set_rtl8367s_rgmii();",
+              "status = leopard_gmii_config(0);",
+              "status = leopard_gmii_config(1);",
+          ):
+              assert call in init, call
+              start = init.index(call)
+              tail = init[start:start + 180]
+              assert "if (status != 0)" in tail, call
+              assert "goto mdio_error;" in tail, call
+
+          assert init.count("status = leopard_gmii_config(") == 3
+          assert init.count("status = set_rtl8367s_sgmii();") == 2
+          print("RTL8367, Leopard GMII and FE deinit register mappings fail closed: PASS")
+          PY
+
+      - name: Validate fe_sw_init checks every register mapping
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.c").read_text()
+
+          def body(signature):
+              start = source.index(signature)
+              opening = source.index("{", start)
+              depth = 0
+              for position in range(opening, len(source)):
+                  if source[position] == "{":
+                      depth += 1
+                  elif source[position] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source[opening + 1:position]
+              raise AssertionError("unterminated function: " + signature)
+
+          init = body("int fe_sw_init(void)")
+          lines = init.splitlines()
+          maps = [(index, line.strip().split(" = ", 1)[0])
+                  for index, line in enumerate(lines) if " = ioremap(" in line]
+          assert len(maps) == 7, f"expected seven register mappings, got {len(maps)}"
+
+          for line_number, variable in maps:
+              guard_line = next(
+                  (index for index in range(line_number + 1, len(lines))
+                   if lines[index].strip() == f"if (!{variable}) {{"),
+                  None,
+              )
+              assert guard_line is not None, f"{variable} mapping lacks a NULL guard"
+              failure_block = "\n".join(lines[guard_line:guard_line + 6])
+              assert "status = -ENOMEM;" in failure_block
+              assert "goto mdio_error;" in failure_block
+
+              mapped_text = "\n".join(lines[line_number + 1:guard_line])
+              assert not any(token in mapped_text for token in (
+                  f"{variable} +", f"sys_reg_read({variable}",
+                  f"sys_reg_write({variable}",
+              )), f"{variable} is used before its NULL guard"
+
+          expected_mapping_counts = {
+              "gpio_base_virt": 5,
+              "ethsys_base_virt": 1,
+              "infra_base_virt": 1,
+          }
+          for variable, count in expected_mapping_counts.items():
+              actual_maps = sum(name == variable for _, name in maps)
+              assert actual_maps == count
+              assert init.count(f"iounmap({variable});") == count, (
+                  f"{variable} mappings are not all released"
+              )
+
+          assert init.count("status = -ENOMEM;") == 7
+          print("fe_sw_init: all seven ioremap calls fail closed and release every successful mapping: PASS")
+          PY
+
+      - name: Validate SGMII mappings fail closed and propagate to switch init
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.c").read_text()
+
+          def body(signature):
+              start = source.index(signature)
+              opening = source.index("{", start)
+              depth = 0
+              for position in range(opening, len(source)):
+                  if source[position] == "{":
+                      depth += 1
+                  elif source[position] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source[opening + 1:position]
+              raise AssertionError("unterminated function: " + signature)
+
+          force = body("int set_sgmii_force_link(int port_num, int speed)")
+          force_maps = (
+              ("ethsys_base = ioremap(ETHSYS_BASE, 0x20);", "ethsys_base"),
+              ("phya_base = ioremap(sgmii_reg_phya, 0x100);", "phya_base"),
+              ("sgmii_base = ioremap(sgmii_reg, 0x100);", "sgmii_base"),
+          )
+          an = body("int set_sgmii_an(int port_num)")
+          an_maps = (
+              ("ethsys_base = ioremap(ETHSYS_BASE, 0x20);", "ethsys_base"),
+              ("mac_base = ioremap(ETHSYS_MAC_BASE, 0x300);", "mac_base"),
+              ("sgmii_base = ioremap(sgmii_reg, 0x100);", "sgmii_base"),
+          )
+
+          for implementation, mappings in ((force, force_maps), (an, an_maps)):
+              positions = []
+              for expression, variable in mappings:
+                  mapped = implementation.index(expression)
+                  guard = implementation.index("if (!" + variable + ")", mapped)
+                  failure = implementation.index("return -ENOMEM;", guard)
+                  positions.append(mapped)
+                  assert mapped < guard < failure
+              first_io = min(
+                  position for position in (
+                      implementation.find("sys_reg_read("),
+                      implementation.find("sys_reg_write("),
+                      implementation.find("set_ge1_force_1000("),
+                      implementation.find("set_ge2_force_1000("),
+                  ) if position >= 0
+              )
+              assert max(positions) < first_io
+              assert implementation.index("return -EINVAL;") < positions[0]
+              assert implementation.count("iounmap(") == 6
+
+          assert "iounmap(ethsys_base);\n\t\treturn -ENOMEM;" in force
+          assert "iounmap(phya_base);\n\t\tiounmap(ethsys_base);\n\t\treturn -ENOMEM;" in force
+          assert "iounmap(ethsys_base);\n\t\treturn -ENOMEM;" in an
+          assert "iounmap(mac_base);\n\t\tiounmap(ethsys_base);\n\t\treturn -ENOMEM;" in an
+
+          init = body("int fe_sw_init(void)")
+          for signature in (
+              "status = set_sgmii_force_link(1, 1);",
+              "status = set_sgmii_an(1);",
+              "status = set_sgmii_force_link(2, 1);",
+              "status = set_sgmii_an(2);",
+          ):
+              start = init.index(signature)
+              tail = init[start:start + 150]
+              assert "if (status != 0)" in tail
+              assert "goto mdio_error;" in tail
+
+          ge2_start = init.index("if (ei_local->architecture & GE2_SGMII_FORCE_2500)")
+          ge2_force = init[ge2_start:]
+          switch_start = ge2_force.index(
+              "if (ei_local->architecture & SGMII_SWITCH)"
+          )
+          switch_open = ge2_force.index("{", switch_start)
+          depth = 0
+          switch_close = None
+          for position in range(switch_open, len(ge2_force)):
+              if ge2_force[position] == "{":
+                  depth += 1
+              elif ge2_force[position] == "}":
+                  depth -= 1
+                  if depth == 0:
+                      switch_close = position
+                      break
+          assert switch_close is not None, "GE2 SGMII switch guard is not a complete block"
+          switch_body = ge2_force[switch_open + 1:switch_close]
+          assert "status = set_rtl8367s_sgmii();" in switch_body
+          assert "if (status != 0)" in switch_body
+          assert "goto mdio_error;" in switch_body
+          force_link = ge2_force.index("status = set_sgmii_force_link(2, 1);")
+          assert force_link > switch_close, "GE2 force-link setup must remain outside the optional switch guard"
+          print("SGMII mapping failure cleanup and switch-init propagation: PASS")
+          PY
+
+      - name: Validate internal switch GPIO mapping before register access
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.c").read_text()
+
+          def body(signature):
+              start = source.index(signature)
+              opening = source.index("{", start)
+              depth = 0
+              for position in range(opening, len(source)):
+                  if source[position] == "{":
+                      depth += 1
+                  elif source[position] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source[opening + 1:position]
+              raise AssertionError("unterminated function: " + signature)
+
+          setup = body("static int setup_internal_gsw(void)")
+          mapped = setup.index("gpio_base_virt = ioremap(ETH_GPIO_BASE, 0x1000);")
+          guard = setup.index("if (!gpio_base_virt)")
+          failure = setup.index("return -ENOMEM;", guard)
+          first_gpio_access = min(
+              position for position in (
+                  setup.find("gpio_base_virt + 0x520"),
+                  setup.find("gpio_base_virt + 0xf00"),
+                  setup.find("gpio_base_virt + 0x4c0"),
+                  setup.find("gpio_base_virt + 0xed0"),
+              ) if position >= 0
+          )
+          assert mapped < guard < failure < first_gpio_access
+          assert "iounmap(gpio_base_virt);" in setup
+          print("internal switch GPIO ioremap failure returns -ENOMEM before any mapped-register access: PASS")
+          PY
+
+      - name: Validate MTK ESW PHY and MAC-table MDIO failure propagation
+        run: |
+          ESW_DIR=trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -fsanitize=address,undefined -fno-omit-frame-pointer \
+            "$ESW_DIR/tests/link_mode_policy.c" -o /tmp/mtk-esw-link-mode-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/mtk-esw-link-mode-policy
+          python3 - <<'PY'
+          from pathlib import Path
+
+          esw = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw")
+          xy_workflow = Path(".github/workflows/xy-c1-firmware-validation.yml").read_text()
+          source = (esw / "ioctl_mt762x.c").read_text()
+          ioctl_source = (esw / "ioctl.c").read_text()
+          mdio_driver = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/mii_mgr.c").read_text()
+          esw_header = (esw / "ioctl_mt762x.h").read_text()
+          policy = (esw / "link_mode_policy.h").read_text()
+          test = (esw / "tests/link_mode_policy.c").read_text()
+          workflow = Path(".github/workflows/switch-cli-stability.yml").read_text()
+
+          assert '#include "link_mode_policy.h"' in source
+          body = source.split("static int change_port_link_mode_uapi", 1)[1].split(
+              "static void change_storm_control_broadcast", 1
+          )[0]
+          validate = body.index("mtk_esw_link_mode_is_valid(port_link_mode)")
+          cache = body.index("g_port_link_mode[port_id] == port_link_mode")
+          program = body.index("program_status = mtk_esw_link_mode_program(")
+          program_guard = body.index("if (program_status != 0)", program)
+          cache_update = body.index("g_port_link_mode[port_id] = port_link_mode;", program_guard)
+          assert validate < cache < program < program_guard < cache_update
+          assert "return -EINVAL;" in body[validate:cache]
+          assert "return program_status;" in body[program_guard:cache_update]
+          assert "mii_mgr_read(" not in body and "mii_mgr_write(" not in body
+          assert "mii_mgr_read(phy_addr, reg, value) ? 0 : -EIO;" in source
+          assert "mii_mgr_write(phy_addr, reg, value) ? 0 : -EIO;" in source
+          assert "msleep(milliseconds);" in source
+          for token in (
+              "MTK_ESW_LINK_MODE_VALID_MASK",
+              "MTK_ESW_LINK_MODE_REG_GIGABIT",
+              "MTK_ESW_LINK_MODE_REG_ADVERTISEMENT",
+              "MTK_ESW_LINK_MODE_REG_CONTROL",
+              "return status < 0 ? status : -EIO;",
+              "if (status != 0)",
+              "io->delay_ms(context, 500U);",
+          ):
+              assert token in policy, token
+          for marker in (
+              "test_autoneg_register_sequence_and_cache_ready_result",
+              "test_forced_mode_power_cycles_before_final_control_write",
+              "test_power_off_sets_down_bit_without_delay",
+              "test_read_and_each_write_failure_abort_without_later_io",
+              "test_mdio_errors_are_preserved_and_positive_failures_become_eio",
+              "test_forced_final_write_failure_is_not_hidden_after_delay",
+              "test_invalid_io_and_boolean_arguments_are_rejected",
+              "test_all_defined_speed_and_flow_modes",
+              "test_reserved_speed_flow_and_bits_are_rejected",
+              "test_mac_table_clear_waits_for_confirmed_idle_state",
+              "test_mac_table_clear_preserves_static_only_command",
+              "test_mac_table_clear_aborts_when_command_write_fails",
+              "test_mac_table_clear_treats_read_failure_as_unknown",
+              "test_mac_table_clear_times_out_when_busy_never_clears",
+              "test_mac_table_clear_rejects_invalid_mode_and_missing_delay",
+              "test_applied_value_cache_is_committed_only_after_success",
+              "test_vlan_rule_snapshot_is_committed_only_after_hardware_success",
+              "test_vlan_rule_snapshot_commit_rejects_invalid_buffers",
+              "test_vlan_table_write_waits_for_idle_and_propagates_io_failures",
+              "test_jumbo_frame_register_update_is_fail_closed_and_preserves_other_bits",
+              "test_port_register_writes_continue_after_first_failure",
+              "test_port_register_write_rejects_invalid_io_and_ranges",
+              "test_register_update_bits_preserves_unmasked_bits_and_propagates_errors",
+              "test_register_write_propagates_mdio_failures",
+              "test_phy_power_set_reads_and_writes_before_reporting_change",
+              "test_phy_power_set_skips_unchanged_state_but_honors_force",
+              "test_phy_power_set_read_and_write_errors_are_propagated",
+              "test_phy_power_set_normalizes_positive_callback_failure",
+              "test_phy_power_set_rejects_invalid_inputs",
+          ):
+              assert marker in test and marker + "();" in test, marker
+
+          assert "mt7530_gsw_wait_wt_mac" not in source
+          mac_start = source.index("int mt7530_gsw_mac_table_clear(int static_only)")
+          mac_end = source.index("int esw_get_port_mib_rgoc", mac_start)
+          mac_clear = source[mac_start:mac_end]
+          assert "mtk_esw_mac_table_clear(static_only, &mtk_esw_link_mode_io, NULL)" in mac_clear
+          assert "if (status != 0)" in mac_clear and "return status;" in mac_clear
+          isolate = source.split("static int esw_vlan_bridge_isolate", 1)[1].split(
+              "static int esw_mac_to_phy_enable", 1
+          )[0]
+          clear_status_at = isolate.index("status = esw_mac_table_clear();")
+          disable_wan_guard_at = isolate.index(
+              "if (wan_bridge_mode == SWAPI_WAN_BRIDGE_DISABLE_WAN)", clear_status_at
+          )
+          commit_at = isolate.index("mtk_esw_vlan_rules_commit(", clear_status_at)
+          assert clear_status_at < disable_wan_guard_at < commit_at
+          assert "g_vlan_rule_user, g_vlan_rule" in isolate[commit_at:]
+          assert "return esw_mac_table_clear();" not in isolate
+          apply_start = source.index("static int esw_vlan_apply_rules(")
+          apply_end = source.index("static int esw_vlan_init_vid1(", apply_start)
+          vlan_apply = source[apply_start:apply_end]
+          assert "g_vlan_rule[" not in vlan_apply
+          assert "g_vlan_rule[i] = g_vlan_rule_user[i];" not in source
+
+
+          vlan_rule_update = source.split("static int change_vlan_rule(", 1)[1].split(
+              "static void esw_link_status_changed_state(", 1
+          )[0]
+          assert "vlan_rule_id > SWAPI_VLAN_RULE_WAN_LAN4" in vlan_rule_update
+          assert "(vlan_rule & 0xFFFF) > 4094" in vlan_rule_update
+          assert "((vlan_rule >> 16) & 0xFF) > 7" in vlan_rule_update
+          assert "g_vlan_rule_user[vlan_rule_id] = vlan_rule;" in vlan_rule_update
+          assert "return -EINVAL;" in vlan_rule_update and "return 0;" in vlan_rule_update
+          link_callback = source.split("static void esw_link_status_changed_state(", 1)[1].split(
+              "int esw_ioctl_init_post(void)", 1
+          )[0]
+          assert "atomic_set(&g_port_link_changed, 1);" in link_callback
+          assert "get_ports_mask_wan(0, 1)" in link_callback
+          assert "get_port_desc(port_id)" in link_callback
+          assert "ioctl_result = change_vlan_rule(uint_param, uint_value);" in ioctl_source
+          assert "esw_link_status_hook = esw_link_status_changed_state;" in ioctl_source
+          assert source.index("static int change_vlan_rule(") < source.index('#include "ioctl.c"')
+          assert source.index("static void esw_link_status_changed_state(") < source.index('#include "ioctl.c"')
+
+          vlan_table_write = policy.split("mtk_esw_vlan_table_write(", 1)[1].split(
+              "/*", 1
+          )[0]
+          assert "io->write(context, MTK_ESW_MAC_TABLE_PHY, vtcr_reg" in vlan_table_write
+          assert "io->read(context, MTK_ESW_MAC_TABLE_PHY, vtcr_reg" in vlan_table_write
+          assert "io->delay_us(context, MTK_ESW_VLAN_TABLE_POLL_DELAY_US)" in vlan_table_write
+          assert "return -ETIMEDOUT;" in vlan_table_write
+          assert "test_vlan_table_write_waits_for_idle_and_propagates_io_failures" in test
+          assert "test_vlan_entry_apply_stops_on_each_failed_stage" in test
+          vlan_entry_apply = policy.split("mtk_esw_vlan_entry_apply(", 1)[1].split(
+              "/*", 1
+          )[0]
+          for reg in ("vawd1_reg", "vawd2_reg", "vtcr_reg"):
+              assert reg in vlan_entry_apply
+          assert vlan_entry_apply.index("io->write(context, MTK_ESW_MAC_TABLE_PHY, vawd1_reg") < vlan_entry_apply.index(
+              "io->write(context, MTK_ESW_MAC_TABLE_PHY, vawd2_reg"
+          )
+          assert "return mtk_esw_vlan_table_write(vtcr_reg, 1U, vid, io, context);" in vlan_entry_apply
+          vlan_set = source.split("static int esw_vlan_set", 1)[1].split(
+              "static int esw_vlan_reset_table", 1
+          )[0]
+          assert "mtk_esw_vlan_entry_apply(" in vlan_set
+          assert vlan_set.index("mtk_esw_vlan_entry_apply(") < vlan_set.index("set_bit(cvid, g_vlan_pool)")
+          fake_read = test.split("fake_read(void *context", 1)[1].split(
+              "static int\\nfake_write", 1
+          )[0]
+          assert "(reg == MTK_ESW_VLAN_TABLE_REG) ?" in fake_read
+          assert "MTK_ESW_VLAN_TABLE_BUSY_MASK" in fake_read
+          assert "MTK_ESW_MAC_TABLE_BUSY_MASK" in fake_read
+          vlan_set = source.split("static int esw_vlan_set", 1)[1].split(
+              "static int esw_vlan_reset_table", 1
+          )[0]
+          assert "mtk_esw_vlan_entry_apply(" in vlan_set
+          entry_apply_at = vlan_set.index("status = mtk_esw_vlan_entry_apply(")
+          entry_error_at = vlan_set.index("if (status != 0)", entry_apply_at)
+          pool_commit_at = vlan_set.index("set_bit(cvid, g_vlan_pool)")
+          assert entry_apply_at < entry_error_at < pool_commit_at
+          assert "esw_write_vtcr(1, cvid)" not in vlan_set
+          vlan_reset = source.split("static int esw_vlan_reset_table", 1)[1].split(
+              "static int is_vlan_rule_included", 1
+          )[0]
+          assert vlan_reset.index("if (status != 0)") < vlan_reset.index("clear_bit(i, g_vlan_pool)")
+          vlan_helpers = source.split("static int is_vlan_rule_included", 1)[0]
+          assert "#define VLAN_ENTRY_ID_MAX" in vlan_helpers
+          assert "static u32 find_vlan_slot(vlan_entry_t *vlan_entry" in vlan_helpers
+          assert "static u32 find_free_min_pvid(u32 *pvid_list, u32 vid)" in vlan_helpers
+          assert "candidate <= 4094" in vlan_helpers and "return 4095;" in vlan_helpers
+          assert vlan_helpers.index("static u32 find_vlan_slot") < source.index(
+              "static int esw_vlan_apply_rules"
+          )
+          assert "if (untg_vid > 4094)" in source
+
+          vlan_apply = source.split("static int esw_vlan_apply_rules", 1)[1].split(
+              "static int esw_vlan_init_vid1", 1
+          )[0]
+          vlan_apply_reset = vlan_apply.index("status = esw_vlan_reset_table();")
+          vlan_apply_entries = vlan_apply.index("status = esw_vlan_set(")
+          vlan_apply_ports = vlan_apply.index("esw_vlan_pvid_set(")
+          assert vlan_apply_reset < vlan_apply_entries < vlan_apply_ports
+          vlan_apply_ports = vlan_apply.index("esw_vlan_pvid_set(")
+          vlan_apply_entries = vlan_apply.index("status = esw_vlan_set(")
+          vid1_init = source.split("static int esw_vlan_init_vid1", 1)[1].split(
+              "static int esw_mask_bridge_isolate", 1
+          )[0]
+          vid1_reset = vid1_init.index("status = esw_vlan_reset_table();")
+          vid1_entry = vid1_init.index("status = esw_vlan_set(1, 0, port_member, port_untag, 0, 1);")
+          vid1_port_setup = vid1_init.index("esw_vlan_pvid_set(")
+          assert vid1_reset < vid1_entry < vid1_port_setup
+          assert "return 0;" in vid1_init[vid1_port_setup:]
+          vlan_apply = source.split("static int esw_vlan_apply_rules", 1)[1].split(
+              "static int esw_vlan_init_vid1", 1
+          )[0]
+          assert "status = esw_vlan_reset_table();" in vlan_apply
+          assert "status = esw_vlan_set(" in vlan_apply
+          bridge_isolate = source.split("static int esw_vlan_bridge_isolate", 1)[1].split(
+              "static int esw_mac_to_phy_enable", 1
+          )[0]
+          assert "status = esw_vlan_apply_rules(wan_bridge_mode, wan_bwan_isolation);" in bridge_isolate
+          assert "status = esw_vlan_init_vid1();" in bridge_isolate
+          assert bridge_isolate.index("if (status != 0)") < bridge_isolate.index("status = esw_mac_table_clear();")
+
+          port_matrix = source.split("static int esw_port_matrix_set", 1)[1].split(
+              "static int esw_port_ingress_mode_set", 1
+          )[0]
+          port_ingress = source.split("static int esw_port_ingress_mode_set", 1)[1].split(
+              "static int esw_port_attrib_set", 1
+          )[0]
+          port_attrib = source.split("static int esw_port_attrib_set", 1)[1].split(
+              "static int esw_port_accept_set", 1
+          )[0]
+          port_accept = source.split("static int esw_port_accept_set", 1)[1].split(
+              "static int esw_vlan_pvid_set", 1
+          )[0]
+          pvid_set = source.split("static int esw_vlan_pvid_set", 1)[1].split(
+              "#if !defined (CONFIG_RAETH_ESW_IGMP_SNOOP_OFF)", 1
+          )[0]
+          for setter in (port_matrix, port_ingress, port_attrib, port_accept):
+              assert "mtk_esw_register_update_bits(" in setter
+              assert "return -EINVAL;" in setter
+          assert "return esw_reg_write_checked(" in pvid_set
+
+          vlan_apply = source.split("static int esw_vlan_apply_rules", 1)[1].split(
+              "static int esw_vlan_init_vid1", 1
+          )[0]
+          for setter in ("esw_vlan_pvid_set(", "esw_port_attrib_set(",
+                         "esw_port_accept_set(", "esw_port_ingress_mode_set("):
+              assert "status = " + setter in vlan_apply
+          assert "return status;" in vlan_apply
+          cache_commit = vlan_apply.index(
+              "mtk_esw_applied_value_commit("
+          )
+          for setter in (
+              "esw_vlan_pvid_set(", "esw_port_attrib_set(",
+              "esw_port_accept_set(", "esw_port_ingress_mode_set("
+          ):
+              assert vlan_apply.rindex("status = " + setter) < cache_commit
+          assert "g_vlan_pvid_wan_untagged = untg_vid;" not in vlan_apply
+          assert "test_applied_value_cache_is_committed_only_after_success" in test
+
+          vid1_init = source.split("static int esw_vlan_init_vid1", 1)[1].split(
+              "static int esw_mask_bridge_isolate", 1
+          )[0]
+          for setter in ("esw_vlan_pvid_set(", "esw_port_attrib_set(",
+                         "esw_port_accept_set(", "esw_port_ingress_mode_set("):
+              assert "status = " + setter in vid1_init
+          assert "return status;" in vid1_init
+
+          bridge_mask = source.split("static int esw_mask_bridge_isolate", 1)[1].split(
+              "static int esw_vlan_bridge_isolate", 1
+          )[0]
+          assert "status = esw_port_matrix_set(" in bridge_mask
+          assert "first_error = mtk_esw_first_error(first_error, status);" in bridge_mask
+          assert "return first_error;" in bridge_mask
+
+          mac_enable = source.split("static int esw_mac_to_phy_enable", 1)[1].split(
+              "static int esw_port_phy_power", 1
+          )[0]
+          assert "esw_reg_write_checked(" in mac_enable
+          assert "return first_error;" in mac_enable
+
+          vlan_accept = source.split("static int vlan_accept_port_mode", 1)[1].split(
+              "static int vlan_create_entry", 1
+          )[0]
+          assert "status = esw_port_accept_set(" in vlan_accept
+          assert "first_error = mtk_esw_first_error(first_error, status);" in vlan_accept
+          assert "return first_error;" in vlan_accept
+          assert "return status;" not in vlan_accept
+          ioctl_accept = ioctl_source.split("case MTK_ESW_IOCTL_VLAN_ACCEPT_PORT_MODE", 1)[1].split(
+              "case MTK_ESW_IOCTL_VLAN_CREATE_PORT_VID", 1
+          )[0]
+          assert "ioctl_result = vlan_accept_port_mode(" in ioctl_accept
+
+          vlan_create = source.split("static int vlan_create_entry", 1)[1].split(
+              "static int change_port_link_mode_uapi", 1
+          )[0]
+          assert "status = esw_port_attrib_set(" in vlan_create
+          assert "status = esw_vlan_pvid_set(" in vlan_create
+          assert "return status;" in vlan_create
+
+          bridge = source.split("static int change_bridge_mode", 1)[1].split(
+              "static int vlan_accept_port_mode", 1
+          )[0]
+          assert "isolation_status = esw_mask_bridge_isolate(" in bridge
+          assert "if (isolation_status == 0)" in bridge
+          assert "isolation_status = esw_vlan_bridge_isolate(" in bridge
+
+          init_post = source.split("int esw_ioctl_init_post(void)", 1)[1]
+          for call in ("esw_mask_bridge_isolate(", "esw_mac_to_phy_enable(",
+                       "esw_vlan_bridge_isolate("):
+              assert "status = " + call in init_post
+          assert "if (status != 0)" in init_post and "return status;" in init_post
+
+          jumbo_apply = policy.split("mtk_esw_jumbo_frames_apply(", 1)[1].split(
+              "static inline int", 1
+          )[0]
+          assert "io->read(context, MTK_ESW_MAC_TABLE_PHY, reg, &value)" in jumbo_apply
+          assert "return mtk_esw_link_mode_io_error(status);" in jumbo_apply
+          assert "io->write(context, MTK_ESW_MAC_TABLE_PHY, reg, value)" in jumbo_apply
+          jumbo_control = source.split("static int esw_jumbo_control", 1)[1].split(
+              "static void esw_led_mode", 1
+          )[0]
+          assert "return mtk_esw_jumbo_frames_apply(REG_ESW_MAC_GMACCR," in jumbo_control
+          jumbo_change = source.split("static int change_jumbo_frames_accept", 1)[1].split(
+              "static void change_igmp_static_ports", 1
+          )[0]
+          jumbo_apply_at = jumbo_change.index("status = esw_jumbo_control(")
+          jumbo_error_at = jumbo_change.index("if (status != 0)", jumbo_apply_at)
+          jumbo_cache_at = jumbo_change.index("g_jumbo_frames_enabled = jumbo_frames_enabled;")
+          assert jumbo_apply_at < jumbo_error_at < jumbo_cache_at
+          assert "return status;" in jumbo_change[jumbo_error_at:]
+          storm_write = policy.split("mtk_esw_register_write_ports(", 1)[1].split(
+              "/*", 1
+          )[0]
+          assert "io->write(context, phy_addr" in storm_write
+          assert "first_error = mtk_esw_first_error(first_error, status);" in storm_write
+          assert "return first_error;" in storm_write
+          assert "test_port_register_writes_continue_after_first_failure" in test
+          storm_function = source.split("static int esw_storm_control", 1)[1].split(
+              "static int esw_jumbo_control", 1
+          )[0]
+          assert "mtk_esw_register_write_ports(" in storm_function
+          assert "ESW_EPHY_ID_MAX + 1U" in storm_function
+          storm_change = source.split("static int change_storm_control_broadcast", 1)[1].split(
+              "static int change_jumbo_frames_accept", 1
+          )[0]
+          storm_apply_at = storm_change.index("status = esw_storm_control(")
+          storm_error_at = storm_change.index("if (status != 0)", storm_apply_at)
+          storm_cache_at = storm_change.index("g_storm_rate_limit = control_rate_mbps;")
+          assert storm_apply_at < storm_error_at < storm_cache_at
+          assert "return status;" in storm_change[storm_error_at:]
+          assert "ioctl_result = change_storm_control_broadcast(uint_value);" in ioctl_source
+          assert "change_storm_control_broadcast(uint_value);" not in ioctl_source.replace(
+              "ioctl_result = change_storm_control_broadcast(uint_value);", ""
+          )
+          register_update = policy.split("mtk_esw_register_update_bits(", 1)[1].split(
+              "/*", 1
+          )[0]
+          assert "io->read(context, phy_addr, reg, &value)" in register_update
+          assert "io->write(context, phy_addr, reg, value)" in register_update
+          assert "test_register_update_bits_preserves_unmasked_bits_and_propagates_errors" in test
+          assert "return mtk_esw_link_mode_io_error(status);" in register_update
+          register_write = policy.split("mtk_esw_register_write(", 1)[1].split(
+              "/*", 1
+          )[0]
+          assert "io->write(context, phy_addr, reg, value)" in register_write
+          assert "return mtk_esw_link_mode_io_error(status);" in register_write
+          assert "test_register_write_propagates_mdio_failures" in test
+          assert "mtk_esw_register_update_bits(" in source[source.index("static int esw_led_mode"):source.index("static int esw_status_link_port")]
+          led_change = source[source.index("static int change_led_mode"):source.index("int esw_ioctl_init_post")]
+          assert led_change.index("status = esw_led_mode(led_mode)") < led_change.index("g_led_phy_mode = led_mode;")
+          assert "g_led_mode_applied && g_led_phy_mode == led_mode" in led_change
+          assert "ioctl_result = change_led_mode(uint_value);" in ioctl_source
+          assert "led_status = esw_led_mode(g_led_phy_mode)" in source
+          vlan_create = source.split("static int vlan_create_entry", 1)[1].split(
+              "static int change_port_link_mode_uapi", 1
+          )[0]
+          vlan_table_status_at = vlan_create.index("status = esw_vlan_set(")
+          vlan_error_gate = vlan_create.index("if (status != 0)", vlan_table_status_at)
+          vlan_error_return = vlan_create.index("return status;", vlan_error_gate)
+          port_setup = vlan_create.index("esw_port_attrib_set(", vlan_error_return)
+          assert vlan_table_status_at < vlan_error_gate < vlan_error_return < port_setup
+          assert vlan_create.rfind("return 0;") > port_setup
+          assert "ioctl_result = esw_vlan_reset_table();" in ioctl_source
+          assert "ioctl_result = vlan_create_entry(uint_param, uint_value, 1);" in ioctl_source
+          assert "ioctl_result = vlan_create_entry(uint_param, uint_value, 0);" in ioctl_source
+          assert "esw_vlan_reset_table();\\n\\t\\tbreak;" not in ioctl_source
+          assert "change_jumbo_frames_accept(uint_value);" not in ioctl_source.replace(
+              "ioctl_result = change_jumbo_frames_accept(uint_value);", ""
+          )
+          bridge = source.split("static int change_bridge_mode", 1)[1].split(
+              "static int vlan_accept_port_mode", 1
+          )[0]
+          power_down = bridge.index(
+              "power_status = change_wan_lan_ports_power(0, 1, &power_changed)"
+          )
+          propagation = bridge.index("isolation_status = esw_vlan_bridge_isolate(", power_down)
+          power_restore = bridge.index(
+              "restore_status = change_wan_lan_ports_power(1, 1, &restore_changed)",
+              propagation
+          )
+          failure_gate = bridge.index("if (isolation_status != 0)", power_restore)
+          assert power_down < propagation < power_restore < failure_gate
+          assert "g_wan_bridge_mode = previous_bridge_mode;" in bridge[failure_gate:]
+          assert "g_wan_bwan_isolation = previous_bwan_isolation;" in bridge[failure_gate:]
+          assert "return isolation_status;" in bridge[failure_gate:]
+          assert power_restore < failure_gate
+
+          power_function = source.split("static int esw_port_phy_power", 1)[1].split(
+              "static int change_ports_power", 1
+          )[0]
+          assert "mtk_esw_phy_power_set(" in power_function
+          assert "if (status != 0)" in power_function
+          assert "return status;" in power_function
+          assert "g_port_phy_power[phy_port_id] = power_on ? 1 : 0;" in power_function
+          assert "mii_mgr_read(" not in power_function and "mii_mgr_write(" not in power_function
+          wan_power = source.split("static int change_wan_lan_ports_power", 1)[1].split(
+              "static int change_bridge_mode", 1
+          )[0]
+          assert "return first_error;" in wan_power
+          assert "mtk_esw_first_error(first_error, status)" in wan_power
+          assert "continue;" in wan_power
+          assert "*any_power_changed |= port_power_changed;" in wan_power
+          assert "power_status = change_wan_lan_ports_power(0, 1, &power_changed)" in bridge
+          assert "restore_status = change_wan_lan_ports_power(1, 1, &restore_changed)" in bridge
+          assert "if (power_changed || power_status != 0)" in bridge
+
+          ports_power = source.split("static int change_ports_power", 1)[1].split(
+              "static int change_wan_lan_ports_power", 1
+          )[0]
+          assert "return first_error;" in ports_power
+          assert "mtk_esw_first_error(first_error, status)" in ports_power
+          assert "continue;" in ports_power
+          wan_ports_power = source.split("static int change_wan_lan_ports_power", 1)[1].split(
+              "static int change_bridge_mode", 1
+          )[0]
+          assert "int status, first_error = 0, port_power_changed;" in wan_ports_power
+          assert "mtk_esw_first_error(first_error, status)" in wan_ports_power
+          assert "continue;" in wan_ports_power
+          assert "*any_power_changed |= port_power_changed;" in wan_ports_power
+          assert "return first_error;" in wan_ports_power
+          assert "test_first_error_accumulator_preserves_first_failure" in test
+          assert "ioctl_result = change_ports_power(uint_param, uint_value);" in ioctl_source
+          assert "ioctl_result = change_wan_lan_ports_power(uint_param, uint_value, &power_changed);" in ioctl_source
+          assert "ioctl_result = esw_mac_table_clear();" in ioctl_source
+          assert "int power_changed = 0;" in ioctl_source
+          assert "change_wan_lan_ports_power(uint_param, uint_value);" not in ioctl_source
+          assert "change_ports_power(uint_param, uint_value);" not in ioctl_source.replace(
+              "ioctl_result = change_ports_power(uint_param, uint_value);", ""
+          )
+
+          for token in (
+              "MTK_ESW_MAC_TABLE_BUSY_MASK",
+              "MTK_ESW_MAC_TABLE_POLL_LIMIT",
+              "MTK_ESW_MAC_TABLE_CLEAR_ALL",
+              "MTK_ESW_MAC_TABLE_CLEAR_STATIC",
+              "if (status != 0)",
+              "return -ETIMEDOUT;",
+          ):
+              assert token in policy, token
+
+          filters = workflow.split("jobs:", 1)[0]
+          for path in (
+              "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl.c",
+              "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl_mt762x.c",
+              "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl_mt762x.h",
+              "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/link_mode_policy.h",
+              "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/tests/link_mode_policy.c",
+              ".github/workflows/switch-cli-stability.yml",
+              "trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_dbg_proc.h",
+              "trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_dbg_proc.c",
+          ):
+              assert filters.count('"' + path + '"') == 2, path
+          xy_filters = xy_workflow.split("workflow_dispatch:", 1)[0]
+          for path in (
+              "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl.c",
+              "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl_mt762x.c",
+              "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl_mt762x.h",
+              "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/link_mode_policy.h",
+              "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/tests/link_mode_policy.c",
+              "trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_dbg_proc.h",
+              "trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_dbg_proc.c",
+          ):
+              assert xy_filters.count('"' + path + '"') == 1, path
+          igmp_flood = source.split("int esw_igmp_flood_to_cpu", 1)[1].split(
+              "\n}\n#endif", 1
+          )[0]
+          assert "int esw_igmp_flood_to_cpu(int flood_to_cpu);" in esw_header
+          assert "mtk_esw_register_update_bits(" in igmp_flood
+          assert "esw_reg_get(" not in igmp_flood and "esw_reg_set(" not in igmp_flood
+          igmp_ports = source.split("static int esw_igmp_ports_config", 1)[1].split(
+              "static int esw_igmp_mld_snooping", 1
+          )[0]
+          assert "esw_reg_get(" not in igmp_ports and "esw_reg_set(" not in igmp_ports
+          assert "esw_reg_write_checked(" in igmp_ports
+          assert "mtk_esw_register_update_bits(" in igmp_ports
+          assert "mtk_esw_first_error(first_error, status)" in igmp_ports
+          igmp_mld = source.split("static int esw_igmp_mld_snooping", 1)[1].split(
+              "\n}\n#endif", 1
+          )[0]
+          assert "esw_reg_set(" not in igmp_mld
+          assert "esw_reg_write_checked(" in igmp_mld
+          assert "mtk_esw_first_error(first_error, status)" in igmp_mld
+          bridge_isolate = source.split("static int esw_vlan_bridge_isolate", 1)[1].split(
+              "static int esw_mac_to_phy_enable", 1
+          )[0]
+          ports_config = bridge_isolate.index("status = esw_igmp_ports_config(")
+          ports_gate = bridge_isolate.index("if (status != 0)", ports_config)
+          mld_config = bridge_isolate.index("status = esw_igmp_mld_snooping(", ports_gate)
+          mld_gate = bridge_isolate.index("if (status != 0)", mld_config)
+          assert ports_config < ports_gate < mld_config < mld_gate
+          static_ports = source.split("static int change_igmp_static_ports", 1)[1].split(
+              "static int change_igmp_snooping_control", 1
+          )[0]
+          assert "g_igmp_static_ports = previous_ports;" in static_ports
+          assert "return status;" in static_ports
+          snooping_control = source.split("static int change_igmp_snooping_control", 1)[1].split(
+              "static int change_led_mode", 1
+          )[0]
+          assert "g_igmp_snooping_enabled = previous_enabled;" in snooping_control
+          assert "return status;" in snooping_control
+          assert "ioctl_result = change_igmp_snooping_control(uint_value);" in ioctl_source
+          assert "ioctl_result = change_igmp_static_ports(uint_value);" in ioctl_source
+          init_post = source.split("int esw_ioctl_init_post(void)", 1)[1]
+          assert "status = esw_igmp_mld_snooping(" in init_post
+          assert "return status;" in init_post
+          read_wrapper = source.split("static int esw_reg_read_checked", 1)[1].split(
+              "static int esw_reg_write_checked", 1
+          )[0]
+          assert "mtk_esw_register_read(" in read_wrapper
+
+          mib_helpers = source.split("int esw_get_port_mib_rgoc", 1)[1].split(
+              "u32 get_ports_mask_lan", 1
+          )[0]
+          assert mib_helpers.count("mib_value->u.LowPart = low_part;") == 2
+          assert mib_helpers.count("mib_value->u.HighPart = high_part;") == 2
+
+          link_status = source.split("static int esw_status_link_port", 1)[1].split(
+              "static u32 esw_status_link_changed", 1
+          )[0]
+          assert "esw_reg_get(" not in link_status
+          assert "esw_reg_read_checked(" in link_status
+          assert "return status;" in link_status
+
+          mib_status = source.split("static int esw_status_mib_port_uapi", 1)[1].split(
+              "static int change_ports_power", 1
+          )[0]
+          assert "esw_reg_get(" not in mib_status
+          assert "mtk_esw_mib_snapshot_read(" in mib_status
+          assert "*mibc = snapshot;" in mib_status
+          assert "*pb = snapshot;" in mib_status
+          assert "return status;" in mib_status
+
+          wan_traffic = source.split("int esw_get_traffic_port_wan", 1)[1].split(
+              "EXPORT_SYMBOL(esw_get_traffic_port_wan)", 1
+          )[0]
+          assert "if (!stats)" in wan_traffic
+          assert "status = esw_get_port_mib_rgoc(" in wan_traffic
+          assert "status = esw_get_port_mib_tgoc(" in wan_traffic
+          assert wan_traffic.index("if (status != 0)") < wan_traffic.index("stats->rx_packets")
+          tx_read = wan_traffic.index("status = esw_get_port_mib_tgoc(")
+          assert wan_traffic.index("if (status != 0)", tx_read) < wan_traffic.index("stats->rx_packets")
+
+          for ioctl_case, next_case in (
+              ("case MTK_ESW_IOCTL_STATUS_LINK_PORT:", "case MTK_ESW_IOCTL_STATUS_LINK_PORTS_WAN:"),
+              ("case MTK_ESW_IOCTL_STATUS_LINK_PORTS_WAN:", "case MTK_ESW_IOCTL_STATUS_LINK_PORTS_LAN:"),
+              ("case MTK_ESW_IOCTL_STATUS_LINK_PORTS_LAN:", "case MTK_ESW_IOCTL_STATUS_LINK_CHANGED:"),
+              ("case MTK_ESW_IOCTL_STATUS_SPEED_PORT:", "case MTK_ESW_IOCTL_STATUS_BYTES_PORT:"),
+              ("case MTK_ESW_IOCTL_STATUS_BYTES_PORT:", "case MTK_ESW_IOCTL_STATUS_MIB_PORT:"),
+              ("case MTK_ESW_IOCTL_STATUS_MIB_PORT:", "case MTK_ESW_IOCTL_PORTS_POWER:")
+          ):
+              section = ioctl_source.split(ioctl_case, 1)[1].split(next_case, 1)[0]
+              assert "if (ioctl_result != 0)" in section
+          assert "test_register_read_propagates_mdio_failures" in test
+          assert "mtk_esw_register_read(" in policy
+          mib_policy = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/mib_snapshot_policy.h").read_text()
+          mib_status = source.split("static int esw_status_mib_port_uapi(", 1)[1].split(
+              "static int esw_status_bytes_port_uapi(", 1
+          )[0]
+          assert '#include "mib_snapshot_policy.h"' in source
+          assert "mtk_esw_mib_snapshot_read(" in mib_status
+          assert "test_mib_snapshot_propagates_each_register_failure_without_publishing" in test
+          assert "counter_offsets[]" in mib_policy
+
+          cl45_read = mdio_driver.split("u32 mii_mgr_read_cl45", 1)[1].split(
+              "u32 mii_mgr_write_cl45", 1
+          )[0]
+          cl45_write = mdio_driver.split("u32 mii_mgr_write_cl45", 1)[1]
+          for function_start, function_end in (
+              ("u32 mii_mgr_write(", "EXPORT_SYMBOL(mii_mgr_write)"),
+              ("u32 mii_mgr_write_cl45(", "")
+          ):
+              function = mdio_driver.split(function_start, 1)[1]
+              if function_end:
+                  function = function.split(function_end, 1)[0]
+              assert "if (!dev_raether)" in function
+              assert function.index("if (!dev_raether)") < function.index("netdev_priv(dev_raether)")
+          normal_read = mdio_driver.split("u32 mii_mgr_read(", 1)[1].split(
+              "EXPORT_SYMBOL(mii_mgr_read)", 1
+          )[0]
+          assert "if (!read_data)" in normal_read and "if (!read_data)" in cl45_read
+          for read_fn in (normal_read, cl45_read):
+              null_guard = read_fn.index("if (!read_data)")
+              clear_output = read_fn.index("*read_data = 0;")
+              device_guard = read_fn.index("if (!dev_raether)")
+              priv_access = read_fn.index("netdev_priv(dev_raether)")
+              assert null_guard < clear_output < device_guard < priv_access
+          for cl45_fn in (cl45_read, cl45_write):
+              addr_check = cl45_fn.index(
+                  "if (!mii_mgr_cl45_set_address(port_num, dev_addr, reg_addr))"
+              )
+              addr_failure = cl45_fn.index("goto out;", addr_check)
+              timer_reset = cl45_fn.index("t_start_ns = ktime_get_ns();", addr_check)
+              assert addr_check < addr_failure < timer_reset
+          assert "mii_mgr_cl45_set_address(port_num, dev_addr, reg_addr);" not in cl45_read
+          assert "mii_mgr_cl45_set_address(port_num, dev_addr, reg_addr);" not in cl45_write
+          timeout_policy = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/mii_mgr_timeout_policy.h").read_text()
+          assert "#include <linux/ktime.h>" in mdio_driver
+          assert '#include "mii_mgr_timeout_policy.h"' in mdio_driver
+          assert mdio_driver.count("mii_mgr_busy_timeout_expired(t_start_ns, ktime_get_ns())") == 10
+          assert "time_after(jiffies" not in mdio_driver
+          assert "MDIO_BUSY_TIMEOUT_NS" in timeout_policy
+          assert "100000000ULL" in timeout_policy
+          print("RAETH Clause 45 MDIO address-phase error propagation: PASS")
+          read_policy = policy.split("mtk_esw_register_read(", 1)[1].split(
+              "mtk_esw_register_update_bits", 1
+          )[0]
+          assert read_policy.index("if (!value)") < read_policy.index("*value = 0U;")
+          assert read_policy.index("*value = 0U;") < read_policy.index("if (!io || !io->read)")
+          print("MTK ESW link/MIB checked reads and ioctl error propagation: PASS")
+          print("MTK ESW IGMP/MLD checked writes and ioctl error propagation: PASS")
+          print("MTK ESW link-mode policy, pre-MDIO guard and XY-C1 trigger contract: PASS")
+
+          proc_header = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_dbg_proc.h").read_text()
+          proc_source = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_dbg_proc.c").read_text()
+          dump_macro = proc_header.split("#define DUMP_EACH_PORT(base)", 1)[1].split(
+              "/* HW LRO functions */", 1
+          )[0]
+          assert "if (mii_mgr_read(" in dump_macro
+          assert 'seq_printf(seq, "%8u ", pkt_cnt);' in dump_macro
+          assert 'seq_printf(seq, "%8s ", "ERR");' in dump_macro
+          assert dump_macro.index("if (mii_mgr_read(") < dump_macro.index('seq_printf(seq, "%8u ", pkt_cnt);')
+          internal_dump = proc_source.split("void internal_gsw_cnt_read(struct seq_file *seq)", 1)[1].split(
+              "void pse_qdma_drop_cnt(void)", 1
+          )[0]
+          for value in ("0xf0", "0x800000f0"):
+              assert f"if (!mii_mgr_write(31, 0x4fe0, {value}))" in internal_dump
+          assert "MIB snapshot control write 0x4fe0=0x000000f0 failed" in internal_dump
+          assert "MIB snapshot control write 0x4fe0=0x800000f0 failed" in internal_dump
+          print("RAETH proc MIB dumps distinguish MDIO failures from zero counters: PASS")
+          PY

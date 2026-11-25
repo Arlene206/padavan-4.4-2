@@ -1,0 +1,87 @@
+name: EAPoL configuration confidentiality and credential escaping
+
+on:
+  push:
+    paths:
+      - ".github/workflows/eapol-auth-config-stability.yml"
+      - "trunk/user/rc/src/auth.c"
+      - "trunk/user/rc/src/eapol_config_policy.h"
+      - "trunk/user/rc/src/tests/eapol_config_policy.c"
+  pull_request:
+    paths:
+      - ".github/workflows/eapol-auth-config-stability.yml"
+      - "trunk/user/rc/src/auth.c"
+      - "trunk/user/rc/src/eapol_config_policy.h"
+      - "trunk/user/rc/src/tests/eapol_config_policy.c"
+
+permissions:
+  contents: read
+
+jobs:
+  eapol-config:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and run GNU89 credential quoting regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/eapol_config_policy.c \
+            -o /tmp/eapol-config-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/eapol-config-policy
+      - name: Verify private atomic config and launcher result propagation
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path("trunk/user/rc/src")
+          auth = (root / "auth.c").read_text()
+          policy = (root / "eapol_config_policy.h").read_text()
+          test = (root / "tests/eapol_config_policy.c").read_text()
+
+          def body(source, signature):
+              start = source.index(signature)
+              brace = source.index("{", start)
+              depth = 0
+              for pos in range(brace, len(source)):
+                  if source[pos] == "{":
+                      depth += 1
+                  elif source[pos] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source[brace + 1:pos]
+              raise AssertionError("unterminated function: " + signature)
+
+          assert '#include "eapol_config_policy.h"' in auth
+          assert "wpa_eapol_config_write_quoted(" in policy
+          assert "control characters" in policy
+          for marker in ("test_quoted_credentials_escape_parser_metacharacters",
+                         "test_control_characters_are_rejected",
+                         "test_null_arguments_are_rejected"):
+              assert marker in test and marker + "() == 0" in test
+
+          start = body(auth, "start_auth_eapol(char *ifname, int unit, int eap_algo)")
+          user_read = start.index('get_wan_unit_value_copy_status(\n        unit, "auth_user"')
+          pass_read = start.index('get_wan_unit_value_copy_status(\n        unit, "auth_pass"')
+          temp_write = start.index("write_wpa_config_temp(")
+          stop = start.index("ret = stop_auth_eapol();")
+          publish = start.index("rename(wpa_conf_temp, wpa_conf)")
+          launch = start.index("_eval(wpa_argv, NULL, 0, NULL)")
+          assert user_read < pass_read < temp_write < stop < publish < launch
+          assert 'get_wan_unit_value(unit, "auth_user")' not in start
+          assert 'get_wan_unit_value(unit, "auth_pass")' not in start
+          assert 'fopen(wpa_conf, "w")' not in start
+
+          writer = body(auth, "write_wpa_config_temp(")
+          assert "mkstemp(temporary_path)" in writer
+          assert "fchmod(fd, S_IRUSR | S_IWUSR)" in writer
+          assert "fsync(fileno(fp))" in writer
+          assert "wpa_eapol_config_write_quoted(fp, username)" in writer
+          assert "wpa_eapol_config_write_quoted(fp, password)" in writer
+          assert "unlink(temporary_path)" in writer
+          assert "ret = _eval(cli_argv, NULL, 0, NULL);" in start
+          assert "if (ret != 0)" in start
+          assert "wpa_cli event handler failed to start" in start
+          print("EAPoL credential snapshot/config confidentiality contract: PASS")
+          PY

@@ -1,0 +1,57 @@
+name: IPv6 service-type checked-read regression
+
+on:
+  push:
+    paths:
+      - ".github/workflows/ipv6-service-type-stability.yml"
+      - "scripts/check_ipv6_service_type_status.py"
+      - "trunk/user/shared/src/netutils.c"
+      - "trunk/user/shared/src/netutils.h"
+      - "trunk/user/shared/src/ipv6_service_type_policy.h"
+      - "trunk/user/shared/src/tests/ipv6_service_type_policy.c"
+      - "trunk/user/rc/src/net6.c"
+      - "trunk/user/rc/src/net_wan6.c"
+      - "trunk/user/rc/src/net_lan6.c"
+      - "trunk/user/rc/src/net_lan.c"
+      - "trunk/user/rc/src/services_stor.c"
+      - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/vpn_openvpn.c"
+      - "trunk/user/rc/src/openvpn_ipv6_protocol_policy.h"
+      - "trunk/user/rc/src/tests/openvpn_ipv6_protocol_policy.c"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/firewall_ex.c"
+  pull_request:
+    paths:
+      - ".github/workflows/ipv6-service-type-stability.yml"
+      - "scripts/check_ipv6_service_type_status.py"
+      - "trunk/user/shared/src/netutils.c"
+      - "trunk/user/shared/src/netutils.h"
+      - "trunk/user/shared/src/ipv6_service_type_policy.h"
+      - "trunk/user/shared/src/tests/ipv6_service_type_policy.c"
+      - "trunk/user/rc/src/net6.c"
+      - "trunk/user/rc/src/net_wan6.c"
+      - "trunk/user/rc/src/net_lan6.c"
+      - "trunk/user/rc/src/net_lan.c"
+      - "trunk/user/rc/src/services_stor.c"
+      - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/vpn_openvpn.c"
+      - "trunk/user/rc/src/openvpn_ipv6_protocol_policy.h"
+      - "trunk/user/rc/src/tests/openvpn_ipv6_protocol_policy.c"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/firewall_ex.c"
+
+jobs:
+  ipv6-service-type:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and run checked IPv6 service-type regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/shared/src \
+            trunk/user/shared/src/tests/ipv6_service_type_policy.c \
+            -o /tmp/ipv6-service-type-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/ipv6-service-type-policy
+      - name: Verify checked IPv6 service-type integration
+        run: python3 scripts/check_ipv6_service_type_status.py

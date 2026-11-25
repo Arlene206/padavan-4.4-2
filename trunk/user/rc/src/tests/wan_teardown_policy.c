@@ -1,0 +1,289 @@
+#include <assert.h>
+#include <errno.h>
+#include <stddef.h>
+#include <string.h>
+#include "wan_teardown_policy.h"
+
+struct fake_context {
+	const char *seen[3];
+	int results[3];
+	unsigned int calls;
+};
+
+static int
+fake_ifdown(void *opaque, const char *ifname)
+{
+	struct fake_context *context = (struct fake_context *)opaque;
+	assert(context->calls < 3);
+	context->seen[context->calls] = ifname;
+	return context->results[context->calls++];
+}
+
+static const struct wan_teardown_interface_ops fake_ops = {
+	fake_ifdown
+};
+
+static void
+test_wired_interfaces_both_succeed_without_usbnet(void)
+{
+	struct fake_context context = { { NULL, NULL, NULL }, { 0, 0, 0 }, 0 };
+	assert(wan_teardown_ifdown_interfaces("eth2.1", "eth2.2", NULL,
+					      &fake_ops, &context) == 0);
+	assert(context.calls == 2);
+	assert(strcmp(context.seen[0], "eth2.1") == 0);
+	assert(strcmp(context.seen[1], "eth2.2") == 0);
+}
+
+static void
+test_usbnet_interface_is_checked(void)
+{
+	struct fake_context context = { { NULL, NULL, NULL }, { 0, 0, 0 }, 0 };
+	assert(wan_teardown_ifdown_interfaces("eth2.1", "eth2.2", "wwan0",
+					      &fake_ops, &context) == 0);
+	assert(context.calls == 3);
+	assert(strcmp(context.seen[2], "wwan0") == 0);
+}
+
+static void
+test_first_failure_does_not_skip_remaining_interfaces(void)
+{
+	struct fake_context context = { { NULL, NULL, NULL }, { -1, 0, 0 }, 0 };
+	assert(wan_teardown_ifdown_interfaces("eth2.1", "eth2.2", "wwan0",
+					      &fake_ops, &context) == -1);
+	assert(context.calls == 3);
+	assert(strcmp(context.seen[1], "eth2.2") == 0);
+	assert(strcmp(context.seen[2], "wwan0") == 0);
+}
+
+static void
+test_second_or_third_failure_is_reported(void)
+{
+	struct fake_context second = { { NULL, NULL, NULL }, { 0, 5, 0 }, 0 };
+	struct fake_context third = { { NULL, NULL, NULL }, { 0, 0, -1 }, 0 };
+	assert(wan_teardown_ifdown_interfaces("eth2.1", "eth2.2", "wwan0",
+					      &fake_ops, &second) == -1);
+	assert(second.calls == 3);
+	assert(wan_teardown_ifdown_interfaces("eth2.1", "eth2.2", "wwan0",
+					      &fake_ops, &third) == -1);
+	assert(third.calls == 3);
+}
+
+static void
+test_duplicate_names_are_attempted_once(void)
+{
+	struct fake_context first_third = { { NULL, NULL, NULL }, { 0, 0, 0 }, 0 };
+	struct fake_context all_same = { { NULL, NULL, NULL }, { 0, 0, 0 }, 0 };
+	assert(wan_teardown_ifdown_interfaces("wwan0", "eth2.2", "wwan0",
+					      &fake_ops, &first_third) == 0);
+	assert(first_third.calls == 2);
+	assert(strcmp(first_third.seen[1], "eth2.2") == 0);
+	assert(wan_teardown_ifdown_interfaces("wwan0", "wwan0", "wwan0",
+					      &fake_ops, &all_same) == 0);
+	assert(all_same.calls == 1);
+}
+
+static void
+test_invalid_required_inputs_fail_without_side_effects(void)
+{
+	struct fake_context context = { { NULL, NULL, NULL }, { 0, 0, 0 }, 0 };
+	assert(wan_teardown_ifdown_interfaces(NULL, "eth2.2", NULL,
+					      &fake_ops, &context) == -1);
+	assert(wan_teardown_ifdown_interfaces("", "eth2.2", NULL,
+					      &fake_ops, &context) == -1);
+	assert(wan_teardown_ifdown_interfaces("eth2.1", NULL, NULL,
+					      &fake_ops, &context) == -1);
+	assert(wan_teardown_ifdown_interfaces("eth2.1", "eth2.2", NULL,
+					      NULL, &context) == -1);
+	assert(context.calls == 0);
+}
+
+static void
+test_status_update_handles_errno_and_ioctl_failures(void)
+{
+	assert(wan_teardown_status_update(0, 0) == 0);
+	assert(wan_teardown_status_update(0, EIO) == -1);
+	assert(wan_teardown_status_update(0, -1) == -1);
+	assert(wan_teardown_status_update(-1, 0) == -1);
+	assert(wan_teardown_status_update(-1, EIO) == -1);
+}
+
+static void
+test_man_dns_route_policy_fails_closed_on_unknown_protocol(void)
+{
+	assert(wan_man_dns_route_add_allowed(0, 0, 1, 0) == 1);
+	assert(wan_man_dns_route_add_allowed(0, 1, 1, 0) == 0);
+	assert(wan_man_dns_route_add_allowed(EIO, 0, 1, 0) == 0);
+	assert(wan_man_dns_route_add_allowed(0, 0, 0, 0) == 0);
+	assert(wan_man_dns_route_add_allowed(0, 0, 1, 1) == 0);
+	assert(wan_man_dns_route_remove_allowed(0, 0, 1, 0) == 1);
+	assert(wan_man_dns_route_remove_allowed(0, 1, 1, 0) == 0);
+	assert(wan_man_dns_route_remove_allowed(EIO, 1, 1, 0) == 1);
+	assert(wan_man_dns_route_remove_allowed(EIO, 0, 1, 1) == 0);
+	assert(wan_man_dns_route_remove_allowed(0, 0, 0, 0) == 0);
+}
+
+static void
+test_protocol_error_survives_successful_independent_wan_teardown(void)
+{
+	assert(wan_teardown_first_error_status(0, EIO, 0, 0) == EIO);
+	assert(wan_teardown_first_error_status(0, EBUSY, EIO, EACCES) == EBUSY);
+	assert(wan_teardown_first_error_status(0, 0, EIO, EACCES) == EIO);
+	assert(wan_teardown_first_error_status(0, 0, 0, EACCES) == EACCES);
+	assert(wan_teardown_first_error_status(EBUSY, EIO, 0, 0) == EBUSY);
+	assert(wan_teardown_first_error_status(0, 0, 0, 0) == 0);
+}
+
+static void
+test_abort_status_preserves_primary_and_reports_resume_failures(void)
+{
+	assert(wan_teardown_abort_status(EIO, 0) == EIO);
+	assert(wan_teardown_abort_status(EIO, EBUSY) == EIO);
+	assert(wan_teardown_abort_status(-1, EBUSY) == -1);
+	assert(wan_teardown_abort_status(0, EBUSY) == EBUSY);
+	assert(wan_teardown_abort_status(0, 0) == -1);
+}
+
+static void
+test_transport_interface_snapshot_fails_closed_and_selects_targets(void)
+{
+	int manual_uses_transport = 1;
+	const char *usbnet_ifname = "stale";
+
+	assert(wan_teardown_select_interfaces(EIO, "eth2.1", "eth2.1",
+					      1, 1, &manual_uses_transport,
+					      &usbnet_ifname) == EIO);
+	assert(manual_uses_transport == 0);
+	assert(usbnet_ifname == NULL);
+
+	assert(wan_teardown_select_interfaces(0, "eth2.1", "eth2.1",
+					      0, 0, &manual_uses_transport,
+					      &usbnet_ifname) == 0);
+	assert(manual_uses_transport == 1);
+	assert(usbnet_ifname == NULL);
+
+	assert(wan_teardown_select_interfaces(0, "eth2.1", "wwan0",
+					      1, 1, &manual_uses_transport,
+					      &usbnet_ifname) == 0);
+	assert(manual_uses_transport == 0);
+	assert(usbnet_ifname != NULL);
+	assert(strcmp(usbnet_ifname, "wwan0") == 0);
+
+	assert(wan_teardown_select_interfaces(0, "eth2.1", "wwan0",
+					      1, 0, &manual_uses_transport,
+					      &usbnet_ifname) == 0);
+	assert(usbnet_ifname == NULL);
+	assert(wan_teardown_select_interfaces(0, "", "",
+					      0, 0, &manual_uses_transport,
+					      &usbnet_ifname) == 0);
+	assert(manual_uses_transport == 0);
+	assert(usbnet_ifname == NULL);
+	assert(wan_teardown_select_interfaces(0, NULL, "wwan0",
+					      1, 1, &manual_uses_transport,
+					      &usbnet_ifname) == EINVAL);
+	assert(wan_teardown_select_interfaces(0, "eth2.1", "wwan0",
+					      1, 1, NULL, &usbnet_ifname) == EINVAL);
+	assert(wan_teardown_select_interfaces(0, "eth2.1", "wwan0",
+					      1, 1, &manual_uses_transport, NULL) == EINVAL);
+}
+
+static void
+test_gateway_host_route_requires_a_complete_checked_snapshot(void)
+{
+	assert(wan_teardown_gateway_host_route_required(
+		0, 0, 0, 1, 1, 1, -1, 1) == 1);
+	assert(wan_teardown_gateway_host_route_required(
+		0, 0, 0, 1, 1, 1, -1, 0) == 0);
+	assert(wan_teardown_gateway_host_route_required(
+		0, 0, 0, 1, 1, 1, 2, 1) == 0);
+	assert(wan_teardown_gateway_host_route_required(
+		EIO, 0, 0, 1, 1, 1, -1, 1) == 0);
+	assert(wan_teardown_gateway_host_route_required(
+		0, EACCES, 0, 1, 1, 1, -1, 1) == 0);
+	assert(wan_teardown_gateway_host_route_required(
+		0, 0, EIO, 1, 1, 1, -1, 1) == 0);
+	assert(wan_teardown_gateway_host_route_required(
+		0, 0, 0, 0, 1, 1, -1, 1) == 0);
+}
+
+static void
+test_gateway_host_route_rejects_invalid_address_and_netmask(void)
+{
+	/* A successful NVRAM read may still contain an unusable value. */
+	assert(wan_teardown_gateway_host_route_required(
+		0, 0, 0, 1, 0, 1, -1, 1) == 0);
+	assert(wan_teardown_gateway_host_route_required(
+		0, 0, 0, 1, 1, 0, -1, 1) == 0);
+}
+
+static void
+test_ipoe_dns_snapshot_is_always_cleared(void)
+{
+	int clear_dns = 0;
+
+	assert(wan_teardown_should_clear_dns_snapshot(1, EIO, NULL,
+						       &clear_dns) == 0);
+	assert(clear_dns == 1);
+}
+
+static void
+test_ppp_dns_snapshot_is_cleared_only_when_man_dns_is_present(void)
+{
+	int clear_dns = -1;
+
+	assert(wan_teardown_should_clear_dns_snapshot(0, 0, "1.1.1.1",
+						       &clear_dns) == 0);
+	assert(clear_dns == 1);
+	assert(wan_teardown_should_clear_dns_snapshot(0, 0, "123456",
+						       &clear_dns) == 0);
+	assert(clear_dns == 0);
+	assert(wan_teardown_should_clear_dns_snapshot(0, 0, "",
+						       &clear_dns) == 0);
+	assert(clear_dns == 0);
+}
+
+static void
+test_ppp_dns_snapshot_survives_global_read_failure(void)
+{
+	int clear_dns = 1;
+
+	assert(wan_teardown_should_clear_dns_snapshot(0, EACCES, NULL,
+						       &clear_dns) == EACCES);
+	assert(clear_dns == 0);
+	assert(wan_teardown_should_clear_dns_snapshot(0, EIO, "1.1.1.1",
+						       &clear_dns) == EIO);
+	assert(clear_dns == 0);
+}
+
+static void
+test_dns_snapshot_clear_policy_rejects_invalid_arguments(void)
+{
+	int clear_dns = 1;
+
+	assert(wan_teardown_should_clear_dns_snapshot(0, 0, NULL,
+						       &clear_dns) == EINVAL);
+	assert(clear_dns == 0);
+	assert(wan_teardown_should_clear_dns_snapshot(1, 0, NULL, NULL) == EINVAL);
+}
+
+int
+main(void)
+{
+	test_wired_interfaces_both_succeed_without_usbnet();
+	test_usbnet_interface_is_checked();
+	test_first_failure_does_not_skip_remaining_interfaces();
+	test_second_or_third_failure_is_reported();
+	test_duplicate_names_are_attempted_once();
+	test_invalid_required_inputs_fail_without_side_effects();
+	test_status_update_handles_errno_and_ioctl_failures();
+	test_transport_interface_snapshot_fails_closed_and_selects_targets();
+	test_gateway_host_route_requires_a_complete_checked_snapshot();
+	test_gateway_host_route_rejects_invalid_address_and_netmask();
+	test_man_dns_route_policy_fails_closed_on_unknown_protocol();
+	test_protocol_error_survives_successful_independent_wan_teardown();
+	test_abort_status_preserves_primary_and_reports_resume_failures();
+	test_ipoe_dns_snapshot_is_always_cleared();
+	test_ppp_dns_snapshot_is_cleared_only_when_man_dns_is_present();
+	test_ppp_dns_snapshot_survives_global_read_failure();
+	test_dns_snapshot_clear_policy_rejects_invalid_arguments();
+	return 0;
+}

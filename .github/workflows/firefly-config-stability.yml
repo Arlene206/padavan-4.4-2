@@ -1,0 +1,89 @@
+name: Firefly configuration credential and INI safety regression
+
+on:
+  push:
+    paths:
+      - ".github/workflows/firefly-config-stability.yml"
+      - "trunk/user/rc/src/services_stor.c"
+      - "trunk/user/rc/src/firefly_config_file.h"
+      - "trunk/user/rc/src/tests/firefly_config_file.c"
+  pull_request:
+    paths:
+      - ".github/workflows/firefly-config-stability.yml"
+      - "trunk/user/rc/src/services_stor.c"
+      - "trunk/user/rc/src/firefly_config_file.h"
+      - "trunk/user/rc/src/tests/firefly_config_file.c"
+
+permissions:
+  contents: read
+
+jobs:
+  firefly-config:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and run Firefly atomic publication and INI injection regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/firefly_config_file.c \
+            -o /tmp/firefly-config-file
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/firefly-config-file
+      - name: Verify transactional credential snapshot and fail-closed publication source
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/user/rc/src/services_stor.c").read_text()
+          config = Path("trunk/user/rc/src/firefly_config_file.h").read_text()
+          test = Path("trunk/user/rc/src/tests/firefly_config_file.c").read_text()
+
+          def body(text, signature):
+              start = text.find(signature)
+              assert start >= 0, f"missing definition: {signature}"
+              brace = text.find("{", start + len(signature))
+              assert brace >= 0, f"missing body: {signature}"
+              depth = 0
+              for pos in range(brace, len(text)):
+                  if text[pos] == "{":
+                      depth += 1
+                  elif text[pos] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return text[brace + 1:pos]
+              raise AssertionError(f"unterminated body: {signature}")
+
+          credentials = body(source, "storage_read_firefly_credentials_status(")
+          updater = body(source, "update_firefly_conf(")
+          ordered = (
+              "nvram_transaction_begin(&transaction)",
+              '"http_username"',
+              '"http_passwd"',
+              "nvram_transaction_end(&transaction)",
+          )
+          positions = [credentials.index(token) for token in ordered]
+          assert positions == sorted(positions)
+          assert credentials.count("rc_wan_nvram_copy_value(") == 2
+          assert updater.index("storage_read_firefly_credentials_status(") < updater.index("firefly_config_publish(")
+          assert "if (credential_status != 0)" in updater
+          assert 'nvram_safe_get("http_username")' not in updater
+          assert 'nvram_safe_get("http_passwd")' not in updater
+
+          validator = body(config, "firefly_config_text_is_safe(")
+          publisher = body(config, "firefly_config_publish(")
+          assert "*cursor < 0x20" in validator and "*cursor == 0x7f" in validator
+          assert "firefly_config_text_is_safe(username)" in publisher
+          assert "firefly_config_text_is_safe(password)" in publisher
+          assert "firefly_config_text_is_safe(link_path)" in publisher
+          assert publisher.index("firefly_config_text_is_safe(username)") < publisher.index('fopen(source_path, "r")')
+          assert publisher.index("firefly_config_text_is_safe(username)") < publisher.index("mkstemp(")
+          for marker in (
+              '"media-user\\nadmin_pw = injected"',
+              '"media-pass\\r\\nrunas = root"',
+              '"/mnt/firefly\\n[plugins]"',
+          ):
+              assert marker in test
+          assert "last-good-configuration" in test
+          print("Firefly credential snapshot and config-injection contract: PASS")
+          PY

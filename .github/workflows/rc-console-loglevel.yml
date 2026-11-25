@@ -1,0 +1,44 @@
+name: RC kernel console loglevel NVRAM failure regression
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/rc-console-loglevel.yml"
+      - "scripts/check_console_loglevel.py"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/console_loglevel_policy.h"
+      - "trunk/user/rc/src/tests/console_loglevel_policy.c"
+  pull_request:
+    paths:
+      - ".github/workflows/rc-console-loglevel.yml"
+      - "scripts/check_console_loglevel.py"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/console_loglevel_policy.h"
+      - "trunk/user/rc/src/tests/console_loglevel_policy.c"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rc-console-loglevel-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  console-loglevel:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and run GNU89 checked-console-level policy regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/console_loglevel_policy.c \
+            -o "$RUNNER_TEMP/console_loglevel_policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/console_loglevel_policy"
+      - name: Verify early boot retains kernel logging when NVRAM read fails
+        run: python3 scripts/check_console_loglevel.py

@@ -1,0 +1,289 @@
+#include <assert.h>
+#include <errno.h>
+#include <stdio.h>
+#include <signal.h>
+
+#include "miniupnpd_daemon_policy.h"
+
+
+struct miniupnpd_fake_signal {
+	const enum process_presence *states;
+	size_t state_count;
+	size_t next_state;
+	int validation_error;
+	int signal_error;
+	int signal_count;
+	pid_t signalled_pids[4];
+	int signalled_signals[4];
+};
+
+static enum process_presence
+miniupnpd_fake_validate(void *context, const struct process_identity *identity)
+{
+	struct miniupnpd_fake_signal *fake = (struct miniupnpd_fake_signal *)context;
+	assert(identity != NULL && identity->pid > 0);
+	if (fake->next_state >= fake->state_count) {
+		errno = EIO;
+		return PROCESS_PRESENCE_UNKNOWN;
+	}
+	if (fake->states[fake->next_state] == PROCESS_PRESENCE_UNKNOWN)
+		errno = fake->validation_error ? fake->validation_error : EIO;
+	return fake->states[fake->next_state++];
+}
+
+static int
+miniupnpd_fake_send(void *context, pid_t pid, int signal_number)
+{
+	struct miniupnpd_fake_signal *fake = (struct miniupnpd_fake_signal *)context;
+	if (fake->signal_error) {
+		errno = fake->signal_error;
+		return -1;
+	}
+	assert(fake->signal_count < 4);
+	fake->signalled_pids[fake->signal_count] = pid;
+	fake->signalled_signals[fake->signal_count] = signal_number;
+	fake->signal_count++;
+	return 0;
+}
+
+static void
+miniupnpd_test_presence_policy(void)
+{
+	assert(miniupnpd_start_allowed(PROCESS_PRESENCE_ABSENT));
+	assert(!miniupnpd_start_allowed(PROCESS_PRESENCE_RUNNING));
+	assert(!miniupnpd_start_allowed(PROCESS_PRESENCE_UNKNOWN));
+	assert(!miniupnpd_start_allowed((enum process_presence)7));
+	assert(miniupnpd_action_for_presence(PROCESS_PRESENCE_ABSENT) ==
+	       MINIUPNPD_DAEMON_START);
+	assert(miniupnpd_action_for_presence(PROCESS_PRESENCE_RUNNING) ==
+	       MINIUPNPD_DAEMON_NOTIFY);
+	assert(miniupnpd_action_for_presence(PROCESS_PRESENCE_UNKNOWN) ==
+	       MINIUPNPD_DAEMON_ABORT);
+	assert(miniupnpd_action_for_presence((enum process_presence)7) ==
+	       MINIUPNPD_DAEMON_ABORT);
+	assert(miniupnpd_presence_error(PROCESS_PRESENCE_RUNNING, 0) == 0);
+	assert(miniupnpd_presence_error(PROCESS_PRESENCE_ABSENT, 0) == 0);
+	assert(miniupnpd_presence_error(PROCESS_PRESENCE_UNKNOWN, EACCES) == EACCES);
+	assert(miniupnpd_presence_error(PROCESS_PRESENCE_UNKNOWN, 0) == EIO);
+	assert(miniupnpd_presence_error((enum process_presence)7, 0) == EINVAL);
+}
+
+static void
+miniupnpd_test_identity_bound_signal(void)
+{
+	struct process_identity identities[2];
+	struct process_snapshot snapshot;
+	struct miniupnpd_fake_signal fake;
+	const enum process_presence running[] = {
+		PROCESS_PRESENCE_RUNNING, PROCESS_PRESENCE_RUNNING,
+		PROCESS_PRESENCE_RUNNING, PROCESS_PRESENCE_RUNNING
+	};
+	const enum process_presence unknown_preflight[] = {
+		PROCESS_PRESENCE_RUNNING, PROCESS_PRESENCE_UNKNOWN
+	};
+	const enum process_presence unknown_revalidate[] = {
+		PROCESS_PRESENCE_RUNNING, PROCESS_PRESENCE_RUNNING,
+		PROCESS_PRESENCE_RUNNING, PROCESS_PRESENCE_UNKNOWN
+	};
+
+	memset(identities, 0, sizeof(identities));
+	identities[0].pid = 101;
+	identities[1].pid = 202;
+	memset(&snapshot, 0, sizeof(snapshot));
+	snapshot.state = PROCESS_PRESENCE_RUNNING;
+	snapshot.items = identities;
+	snapshot.count = 2;
+
+	memset(&fake, 0, sizeof(fake));
+	fake.states = running;
+	fake.state_count = 4;
+	assert(miniupnpd_signal_snapshot(&snapshot, SIGUSR1,
+					 miniupnpd_fake_validate,
+					 miniupnpd_fake_send, &fake) == 0);
+	assert(fake.next_state == 4 && fake.signal_count == 2);
+	assert(fake.signalled_pids[0] == 101 && fake.signalled_pids[1] == 202);
+	assert(fake.signalled_signals[0] == SIGUSR1 &&
+	       fake.signalled_signals[1] == SIGUSR1);
+
+	memset(&fake, 0, sizeof(fake));
+	fake.states = unknown_preflight;
+	fake.state_count = 2;
+	fake.validation_error = EACCES;
+	errno = 0;
+	assert(miniupnpd_signal_snapshot(&snapshot, SIGUSR1,
+					 miniupnpd_fake_validate,
+					 miniupnpd_fake_send, &fake) == -1);
+	assert(errno == EACCES && fake.signal_count == 0);
+
+	memset(&fake, 0, sizeof(fake));
+	fake.states = unknown_revalidate;
+	fake.state_count = 4;
+	fake.validation_error = EPERM;
+	errno = 0;
+	assert(miniupnpd_signal_snapshot(&snapshot, SIGUSR1,
+					 miniupnpd_fake_validate,
+					 miniupnpd_fake_send, &fake) == -1);
+	assert(errno == EPERM && fake.signal_count == 1);
+
+	memset(&fake, 0, sizeof(fake));
+	fake.states = running;
+	fake.state_count = 4;
+	fake.signal_error = ESRCH;
+	assert(miniupnpd_signal_snapshot(&snapshot, SIGUSR1,
+					 miniupnpd_fake_validate,
+					 miniupnpd_fake_send, &fake) == 0);
+	assert(fake.signal_count == 0);
+
+	memset(&fake, 0, sizeof(fake));
+	fake.states = running;
+	fake.state_count = 4;
+	fake.signal_error = EPERM;
+	errno = 0;
+	assert(miniupnpd_signal_snapshot(&snapshot, SIGUSR1,
+					 miniupnpd_fake_validate,
+					 miniupnpd_fake_send, &fake) == -1);
+	assert(errno == EPERM && fake.signal_count == 0);
+
+	errno = 0;
+	assert(miniupnpd_signal_snapshot(&snapshot, SIGTERM,
+					 miniupnpd_fake_validate,
+					 miniupnpd_fake_send, &fake) == -1);
+	assert(errno == EINVAL);
+}
+
+static void
+miniupnpd_test_checked_service_integer_reads(void)
+{
+	int value = 77;
+
+	assert(miniupnpd_nvram_int_status(1, 0, "1", 0, &value) == 0);
+	assert(value == 1);
+	assert(miniupnpd_nvram_int_status(1, 0, "  -2 \t", 0, &value) == 0);
+	assert(value == -2);
+	assert(miniupnpd_nvram_int_status(1, 0, "", 0, &value) == 0);
+	assert(value == 0);
+	assert(miniupnpd_nvram_int_status(0, 0, NULL, 0, &value) == 0);
+	assert(value == 0);
+	assert(miniupnpd_nvram_int_status(0, 0, NULL, 7, &value) == 0);
+	assert(value == 7);
+
+	value = 77;
+	assert(miniupnpd_nvram_int_status(-1, EACCES, NULL, 0, &value) == EACCES);
+	assert(value == 77);
+	assert(miniupnpd_nvram_int_status(-1, 0, NULL, 0, &value) == EIO);
+	assert(value == 77);
+	assert(miniupnpd_nvram_int_status(0, 0, "1", 0, &value) == EIO);
+	assert(value == 77);
+	assert(miniupnpd_nvram_int_status(1, 0, NULL, 0, &value) == EIO);
+	assert(value == 77);
+	assert(miniupnpd_nvram_int_status(2, 0, "1", 0, &value) == EIO);
+	assert(value == 77);
+	assert(miniupnpd_nvram_int_status(1, 0, "1junk", 0, &value) == EINVAL);
+	assert(value == 77);
+	assert(miniupnpd_nvram_int_status(1, 0, "999999999999999999999", 0,
+					 &value) == ERANGE);
+	assert(value == 77);
+	assert(miniupnpd_nvram_int_status(1, 0, "2147483648", 0, &value) == ERANGE);
+	assert(value == 77);
+	assert(miniupnpd_nvram_int_status(1, 0, "1", 0, NULL) == EINVAL);
+}
+
+static void
+miniupnpd_test_checked_bridge_mode_reads(void)
+{
+	int bridged = 77;
+
+	assert(miniupnpd_nvram_bridge_status(1, 0, "IP_Bridged", &bridged) == 0);
+	assert(bridged == 1);
+	assert(miniupnpd_nvram_bridge_status(1, 0, "IP_Routed", &bridged) == 0);
+	assert(bridged == 0);
+	assert(miniupnpd_nvram_bridge_status(0, 0, NULL, &bridged) == 0);
+	assert(bridged == 0);
+
+	bridged = 77;
+	assert(miniupnpd_nvram_bridge_status(-1, EPERM, NULL, &bridged) == EPERM);
+	assert(bridged == 77);
+	assert(miniupnpd_nvram_bridge_status(-1, 0, NULL, &bridged) == EIO);
+	assert(bridged == 77);
+	assert(miniupnpd_nvram_bridge_status(0, 0, "stale", &bridged) == EIO);
+	assert(bridged == 77);
+	assert(miniupnpd_nvram_bridge_status(1, 0, NULL, &bridged) == EIO);
+	assert(bridged == 77);
+	assert(miniupnpd_nvram_bridge_status(2, 0, "IP_Bridged", &bridged) == EIO);
+	assert(bridged == 77);
+	assert(miniupnpd_nvram_bridge_status(1, 0, "IP_Bridged", NULL) == EINVAL);
+}
+
+static void
+miniupnpd_test_checked_update_decision(void)
+{
+	int should_stop = 77;
+
+	assert(miniupnpd_update_status(0, 1, 0, 1, 0, 0,
+				       &should_stop) == 0);
+	assert(should_stop == 0);
+	assert(miniupnpd_update_status(0, 0, 0, 1, 0, 0,
+				       &should_stop) == 0);
+	assert(should_stop == 1);
+	assert(miniupnpd_update_status(0, 1, 0, 1, 0, 1,
+				       &should_stop) == 0);
+	assert(should_stop == 1);
+
+	should_stop = 77;
+	assert(miniupnpd_update_status(EACCES, 1, 0, 1, 0, 0,
+				       &should_stop) == EACCES);
+	assert(should_stop == 77);
+	assert(miniupnpd_update_status(0, 1, EIO, 1, 0, 0,
+				       &should_stop) == EIO);
+	assert(should_stop == 77);
+	assert(miniupnpd_update_status(0, 1, 0, 1, EPERM, 0,
+				       &should_stop) == EPERM);
+	assert(should_stop == 77);
+	assert(miniupnpd_update_status(0, 1, 0, 1, 0, 0, NULL) == EINVAL);
+}
+
+static void
+miniupnpd_test_update_desired_state(void)
+{
+	assert(!miniupnpd_update_should_stop(1, 1, 0));
+	assert(miniupnpd_update_should_stop(0, 1, 0));
+	assert(miniupnpd_update_should_stop(1, 0, 0));
+	assert(miniupnpd_update_should_stop(1, 1, 1));
+	assert(miniupnpd_update_should_stop(0, 0, 0));
+}
+
+static void
+miniupnpd_test_failed_start_rollback_policy(void)
+{
+	assert(!miniupnpd_failed_start_may_leave_daemon(PROCESS_PRESENCE_ABSENT));
+	assert(miniupnpd_failed_start_may_leave_daemon(PROCESS_PRESENCE_RUNNING));
+	assert(miniupnpd_failed_start_may_leave_daemon(PROCESS_PRESENCE_UNKNOWN));
+	assert(miniupnpd_failed_start_may_leave_daemon((enum process_presence)7));
+}
+
+int
+main(void)
+{
+	miniupnpd_test_presence_policy();
+	miniupnpd_test_identity_bound_signal();
+	miniupnpd_test_checked_service_integer_reads();
+	miniupnpd_test_checked_bridge_mode_reads();
+	miniupnpd_test_checked_update_decision();
+	miniupnpd_test_update_desired_state();
+	miniupnpd_test_failed_start_rollback_policy();
+
+	assert(miniupnpd_start_policy_status(EIO, 0) == EIO);
+	assert(miniupnpd_start_policy_status(EIO, 1) == EIO);
+	assert(miniupnpd_start_policy_status(0, 0) == ESRCH);
+	assert(miniupnpd_start_policy_status(0, 1) == 0);
+	assert(miniupnpd_start_policy_status(0, 7) == 0);
+
+	assert(miniupnpd_stop_policy_status(EIO, 0) == EIO);
+	assert(miniupnpd_stop_policy_status(EIO, 1) == EIO);
+	assert(miniupnpd_stop_policy_status(0, 1) == EBUSY);
+	assert(miniupnpd_stop_policy_status(0, 0) == 0);
+	assert(miniupnpd_stop_policy_status(-1, 0) == -1);
+
+	puts("miniupnpd daemon lifecycle policy: PASS");
+	return 0;
+}

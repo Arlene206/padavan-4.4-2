@@ -1,0 +1,93 @@
+name: NVRAM transaction boundary audit
+
+on:
+  push:
+    paths:
+      - ".github/workflows/nvram-transaction-boundary.yml"
+      - "scripts/check_nvram_transaction_boundary.py"
+      # The audit enumerates C/C++ source and header blobs only; keep its
+      # push filter aligned with scripts/check_nvram_transaction_boundary.py.
+      - "trunk/user/**/*.c"
+      - "trunk/user/**/*.h"
+      - "trunk/user/**/*.cc"
+      - "trunk/user/**/*.cpp"
+      - "trunk/user/**/*.cxx"
+      - "trunk/user/**/*.hpp"
+      - "trunk/user/shared/src/nvram_ioctl_close_policy.h"
+      - "trunk/user/shared/src/tests/nvram_ioctl_close_policy.c"
+      - "trunk/linux-4.4.x/**/*.c"
+      - "trunk/linux-4.4.x/**/*.h"
+      - "trunk/linux-4.4.x/**/*.cc"
+      - "trunk/linux-4.4.x/**/*.cpp"
+      - "trunk/linux-4.4.x/**/*.cxx"
+      - "trunk/linux-4.4.x/**/*.hpp"
+      - "trunk/configs/boards/**/*.config"
+      - "trunk/configs/boards/**/*.cfg"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nvram-transaction-boundary-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  nvram-transaction-boundary:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and run checked-get NVRAM CLI status regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/nvram/src \
+            trunk/user/nvram/src/tests/nvram_cli_policy.c \
+            -o "$RUNNER_TEMP/nvram-cli-policy"
+          "$RUNNER_TEMP/nvram-cli-policy"
+      - name: Compile and run NVRAM ioctl/close error precedence regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            trunk/user/shared/src/tests/nvram_ioctl_close_policy.c \
+            -o "$RUNNER_TEMP/nvram-ioctl-close-policy"
+          "$RUNNER_TEMP/nvram-ioctl-close-policy"
+      - name: Compile NVRAM transaction lock regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -fsanitize=address,undefined -fno-omit-frame-pointer \
+            trunk/user/shared/src/tests/nvram_transaction_lock.c \
+            -o "$RUNNER_TEMP/nvram-transaction-lock"
+      - name: Compile NVRAM compaction and flash-capacity policy regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -I trunk/linux-4.4.x/drivers/nvram \
+            trunk/linux-4.4.x/drivers/nvram/tests/nvram_compaction_policy.c \
+            -o "$RUNNER_TEMP/nvram-compaction-policy"
+      - name: Exercise NVRAM compaction and flash-capacity policy
+        env:
+          ASAN_OPTIONS: detect_leaks=1
+        run: "$RUNNER_TEMP/nvram-compaction-policy"
+      - name: Compile NVRAM unlocked-snapshot policy regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -I trunk/linux-4.4.x/drivers/nvram \
+            trunk/linux-4.4.x/drivers/nvram/tests/nvram_snapshot_policy.c \
+            -o "$RUNNER_TEMP/nvram-snapshot-policy"
+      - name: Exercise NVRAM unlocked-snapshot sizing and retry policy
+        env:
+          ASAN_OPTIONS: detect_leaks=1
+        run: "$RUNNER_TEMP/nvram-snapshot-policy"
+      - name: Compile NVRAM device-node permission policy regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -fsanitize=address,undefined -fno-omit-frame-pointer \
+            trunk/user/rc/src/tests/nvram_device_node_policy.c \
+            -o "$RUNNER_TEMP/nvram-device-node-policy"
+      - name: Exercise NVRAM device-node permission policy
+        run: "$RUNNER_TEMP/nvram-device-node-policy"
+      - name: Exercise lock inode, permissions, contention and crash release
+        env:
+          ASAN_OPTIONS: detect_leaks=1
+        run: "$RUNNER_TEMP/nvram-transaction-lock"
+      - name: Audit raw userland ioctl paths and kernel NVRAM API callers
+        run: python3 scripts/check_nvram_transaction_boundary.py

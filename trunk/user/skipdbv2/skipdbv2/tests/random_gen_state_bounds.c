@@ -1,0 +1,160 @@
+#include "RandomGen.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <limits.h>
+
+static int check(int condition, const char *message)
+{
+	if (condition)
+		return 1;
+	fprintf(stderr, "%s\n", message);
+	return 0;
+}
+
+
+static int testZeroIndexWithNonzeroStateReseeds(void)
+{
+	RandomGen *damaged = RandomGen_new();
+	RandomGen *reference = RandomGen_new();
+	unsigned long actual, expected;
+
+	if (NULL == damaged || NULL == reference) {
+		RandomGen_free(damaged);
+		RandomGen_free(reference);
+		fprintf(stderr, "RandomGen zero-index recovery fixture allocation failed\n");
+		return 0;
+	}
+
+	RandomGen_setSeed(damaged, 1234UL);
+	RandomGen_setSeed(reference, 5489UL);
+	/* Keep valid nonzero MT words but corrupt the index to an impossible call-entry state. */
+	damaged->mti = 0;
+	actual = RandomGen_randomInt(damaged);
+	expected = RandomGen_randomInt(reference);
+
+	RandomGen_free(damaged);
+	RandomGen_free(reference);
+	if (actual != expected) {
+		fprintf(stderr, "RandomGen did not reseed a nonzero state with mti == 0\n");
+		return 0;
+	}
+	return 1;
+}
+
+int main(void)
+{
+	if (!testZeroIndexWithNonzeroStateReseeds())
+		return EXIT_FAILURE;
+
+	RandomGen *actual = RandomGen_new();
+	RandomGen *expected = RandomGen_new();
+	int value;
+	int i;
+	double actualGaussian, expectedGaussian;
+	double boundedValue;
+
+	if (actual == NULL || expected == NULL) {
+		RandomGen_free(actual);
+		RandomGen_free(expected);
+		fprintf(stderr, "RandomGen allocation failed\n");
+		return EXIT_FAILURE;
+	}
+
+	/* A zero-initialized or externally-cleared MT state is absorbing. */
+	memset(actual->mt, 0, sizeof(actual->mt));
+	actual->mti = 0;
+	RandomGen_setSeed(expected, 5489UL);
+	if (!check(RandomGen_randomDouble(actual) ==
+		RandomGen_randomDouble(expected),
+		"all-zero generator state did not recover before floating-point sampling"))
+		goto failure;
+
+	memset(actual->mt, 0, sizeof(actual->mt));
+	actual->mti = 0;
+	RandomGen_setSeed(expected, 5489UL);
+	if (!check(RandomGen_randomInt(actual) ==
+		RandomGen_randomInt(expected),
+		"all-zero generator state did not recover before integer sampling"))
+		goto failure;
+
+	/* The same recovery must happen when the next twist batch is due. */
+	memset(actual->mt, 0, sizeof(actual->mt));
+	actual->mti = RANDOMGEN_N;
+	RandomGen_setSeed(expected, 5489UL);
+	if (!check(RandomGen_randomDouble(actual) ==
+		RandomGen_randomDouble(expected),
+		"all-zero generator state did not recover at a twist boundary"))
+		goto failure;
+
+	RandomGen_setSeed(actual, 5489UL);
+	RandomGen_setSeed(expected, 5489UL);
+	actual->mti = -1;
+	value = RandomGen_randomInt(actual);
+	if (!check(value == RandomGen_randomInt(expected),
+		"negative generator index did not recover to the default seed"))
+		goto failure;
+
+	RandomGen_setSeed(actual, 5489UL);
+	RandomGen_setSeed(expected, 5489UL);
+	actual->mti = RANDOMGEN_N + 2;
+	if (!check(RandomGen_randomInt(actual) == RandomGen_randomInt(expected),
+		"out-of-range generator index did not recover to the default seed"))
+		goto failure;
+
+	RandomGen_setSeed(actual, 5489UL);
+	RandomGen_setSeed(expected, 5489UL);
+	memset(actual->mt, 0, sizeof(actual->mt));
+	actual->mti = 0;
+	if (!check(RandomGen_gaussian(actual, 5.0, 2.0) ==
+		RandomGen_gaussian(expected, 5.0, 2.0),
+		"all-zero generator state did not recover before Gaussian sampling"))
+		goto failure;
+
+	RandomGen_setSeed(actual, 5489UL);
+	RandomGen_setSeed(expected, 5489UL);
+	for (i = 0; i < RANDOMGEN_N; ++i)
+		actual->mt[i] = 1UL;
+	actual->mti = 0;
+	actualGaussian = RandomGen_gaussian(actual, 5.0, 2.0);
+	expectedGaussian = RandomGen_gaussian(expected, 5.0, 2.0);
+	if (!check(actualGaussian == expectedGaussian &&
+		RandomGen_randomDouble(actual) == RandomGen_randomDouble(expected),
+		"nonzero degenerate generator state did not recover after bounded Gaussian rejection"))
+		goto failure;
+
+#if ULONG_MAX > 0xffffffffUL
+	/* The MT state stores 32-bit words even when unsigned long is 64-bit. */
+	for (i = 0; i < RANDOMGEN_N; ++i)
+		actual->mt[i] = ULONG_MAX;
+	actual->mti = 0;
+	boundedValue = RandomGen_randomDouble(actual);
+	if (!check(boundedValue >= 0.0 && boundedValue < 1.0,
+		"wide MT state escaped the 32-bit random output range"))
+		goto failure;
+
+	for (i = 0; i < RANDOMGEN_N; ++i)
+		actual->mt[i] = ULONG_MAX;
+	actual->mti = RANDOMGEN_N;
+	boundedValue = RandomGen_randomDouble(actual);
+	if (!check(boundedValue >= 0.0 && boundedValue < 1.0,
+		"wide MT state escaped the output range after twisting"))
+		goto failure;
+	for (i = 0; i < RANDOMGEN_N; ++i) {
+		if (!check(actual->mt[i] <= 0xffffffffUL,
+			"MT twist retained bits above the 32-bit state width"))
+			goto failure;
+	}
+#endif
+
+	RandomGen_free(actual);
+	RandomGen_free(expected);
+	puts("RandomGen index bounds test passed");
+	return EXIT_SUCCESS;
+
+failure:
+	RandomGen_free(actual);
+	RandomGen_free(expected);
+	return EXIT_FAILURE;
+}

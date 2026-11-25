@@ -1,0 +1,1095 @@
+#!/usr/bin/env python3
+"""Guard libdisk share-list output initialization and Samba error cleanup."""
+
+from pathlib import Path
+import re
+
+ROOT = Path(__file__).resolve().parents[1]
+LIBDISK = ROOT / "trunk/user/libdisk/src"
+DISK_SOURCE = (LIBDISK / "disk_share.c").read_text()
+DISK_IO_SOURCE = (LIBDISK / "disk_io_tools.c").read_text()
+DISK_IO_HEADER = (LIBDISK / "disk_io_tools.h").read_text()
+POLICY_TEST = (LIBDISK / "tests/disk_share_list_policy.c").read_text()
+IO_REGRESSION = (LIBDISK / "tests/disk_io_tools_read_test.c").read_text()
+POLICY = (LIBDISK / "disk_share_list_policy.h").read_text()
+ACCOUNT_POLICY = (LIBDISK / "disk_share_account_nvram_policy.h").read_text()
+DISK_INITIAL_HEADER = (LIBDISK / "disk_initial.h").read_text()
+ACCOUNT_NAME_POLICY = (ROOT / "trunk/user/shared/src/include/router_account_policy.h").read_text()
+REGRESSION = (LIBDISK / "tests/disk_share_list_policy.c").read_text()
+SAMBA_SOURCE = (ROOT / "trunk/user/rc/src/services_stor.c").read_text()
+
+
+def function_body(source, signature):
+    """Extract a function definition, skipping earlier calls and prototypes."""
+    search_from = 0
+    while True:
+        start = source.find(signature, search_from)
+        if start < 0:
+            raise AssertionError("function definition not found: " + signature)
+        opening = source.find("{", start)
+        semicolon = source.find(";", start)
+        if opening < 0:
+            raise AssertionError("function body not found: " + signature)
+        if semicolon >= 0 and semicolon < opening:
+            search_from = semicolon + 1
+            continue
+
+        depth = 0
+        state = "code"
+        quote = ""
+        index = opening
+        while index < len(source):
+            char = source[index]
+            next_char = source[index + 1] if index + 1 < len(source) else ""
+            if state == "code":
+                if char == "/" and next_char == "*":
+                    state = "block_comment"
+                    index += 2
+                    continue
+                if char == "/" and next_char == "/":
+                    state = "line_comment"
+                    index += 2
+                    continue
+                if char in ("'", '"'):
+                    state = "quoted"
+                    quote = char
+                elif char == "{":
+                    depth += 1
+                elif char == "}":
+                    depth -= 1
+                    if depth == 0:
+                        return source[opening + 1:index]
+            elif state == "quoted":
+                if char == "\\":
+                    index += 2
+                    continue
+                if char == quote:
+                    state = "code"
+            elif state == "block_comment":
+                if char == "*" and next_char == "/":
+                    state = "code"
+                    index += 2
+                    continue
+            elif state == "line_comment" and char == "\n":
+                state = "code"
+            index += 1
+        raise AssertionError("unterminated function: " + signature)
+
+def require(condition, message):
+    if not condition:
+        raise SystemExit("libdisk share-list contract: FAIL: " + message)
+
+
+# Regression: a prototype and unrelated definition must not satisfy a
+# source contract for the later implementation.
+_function_definition_fixture = (
+    "static int fixture(int value);\n"
+    "static int unrelated(void) { return -1; }\n"
+    "static int fixture(int value) { return value; }"
+)
+_fixture_body = function_body(
+    _function_definition_fixture, "static int fixture(int value)"
+)
+require("return value;" in _fixture_body and "return -1;" not in _fixture_body,
+        "function extractor must skip prototypes and unrelated function bodies")
+
+
+require('#include "disk_share_list_policy.h"' in DISK_SOURCE,
+        "disk_share.c must include the output-preparation policy")
+require("disk_share_list_prepare_outputs" in POLICY,
+        "shared output-preparation policy is missing")
+require("disk_share_folder_entry_status" in POLICY,
+        "real-directory-only storage share entry policy is missing")
+
+folder_list_reader = function_body(
+    DISK_SOURCE,
+    "int get_folder_list_in_mount_path(const char *const mount_path, int *sh_num, char ***folder_list)"
+)
+folder_list_reader_compact = "".join(folder_list_reader.split())
+cache_read = folder_list_reader_compact.index(
+    "list_info=read_regular_file_nofollow(list_file)"
+)
+cache_missing = folder_list_reader_compact.index(
+    "if(!list_info&&errno==ENOENT)", cache_read
+)
+cache_refresh = folder_list_reader_compact.index(
+    "initial_folder_list_in_mount_path(mount_path)", cache_missing
+)
+cache_retry = folder_list_reader_compact.index(
+    "list_info=read_regular_file_nofollow(list_file)", cache_refresh
+)
+cache_cleanup = folder_list_reader_compact.index("free(list_file);", cache_retry)
+cache_null = folder_list_reader_compact.index("if(!list_info)", cache_cleanup)
+require(cache_read < cache_missing < cache_refresh < cache_retry <
+        cache_cleanup < cache_null and
+        "test_if_file(list_file)" not in folder_list_reader_compact and
+        "read_whole_file(list_file)" not in folder_list_reader_compact,
+        "removable folder-list cache must use a nonblocking no-follow regular-file read and regenerate only on ENOENT")
+
+require("disk_io_open_parent_nofollow(mount_path,&mount_leaf)" in folder_list_reader_compact and
+        "openat(mount_parent_fd,mount_leaf,O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC)" in folder_list_reader_compact and
+        "fstatat(mount_directory_fd,tmp_folder_list[i],&entry_status,AT_SYMLINK_NOFOLLOW)" in folder_list_reader_compact and
+        "lstat(folder_path,&entry_status)" not in folder_list_reader_compact and
+        "disk_share_folder_entry_status" in folder_list_reader_compact and
+        "valid_count" in folder_list_reader_compact,
+        "cached folder names must be revalidated against real non-symlink directories before sharing")
+
+for signature in (
+    "int get_folder_list_in_mount_path(const char *const mount_path, int *sh_num, char ***folder_list)",
+    "int get_all_folder_in_mount_path(const char *const mount_path, int *sh_num, char ***folder_list)",
+):
+    body = function_body(DISK_SOURCE, signature)
+    prepare = body.index("disk_share_list_prepare_outputs(mount_path, sh_num, folder_list)")
+    use = body.index("disk_io_open_parent_nofollow(mount_path, &mount_leaf)")
+    require(prepare < use,
+            signature + " must reset outputs before using the mount path")
+
+
+get_permission_body = function_body(
+    DISK_SOURCE, "int get_permission("
+)
+set_permission_body = function_body(
+    DISK_SOURCE, "int set_permission("
+)
+folder_exists_prototype = DISK_SOURCE.index(
+    "static int disk_share_folder_exists_in_directory_fd(int directory_fd,"
+)
+set_permission_definition = DISK_SOURCE.index("int set_permission(")
+require(folder_exists_prototype < set_permission_definition,
+        "set_permission must see a file-scope prototype for the later static folder lookup helper")
+
+
+permission_lookup = function_body(
+    POLICY,
+    "disk_share_permission_find_unique_record(const char *source, const char *target,"
+)
+require("errno = EEXIST;" in permission_lookup and
+        "source[value_offset + 3] != '\\n'" in permission_lookup and
+        "source[value_offset] < '0'" in permission_lookup,
+        "permission lookup must reject duplicate case-insensitive keys and malformed rights")
+require("disk_share_permission_find_unique_record" in get_permission_body and
+        "upper_strstr(var_info, target)" not in get_permission_body and
+        "disk_share_permission_find_unique_record" in set_permission_body and
+        "upper_strstr(var_info, target)" not in set_permission_body,
+        "permission reads and writes must refuse ambiguous duplicate ACL records")
+for marker in (
+    "test_permission_lookup_finds_one_case_insensitive_record",
+    "test_permission_lookup_reports_missing_record",
+    "test_permission_lookup_rejects_duplicate_case_insensitive_records",
+    "test_permission_lookup_rejects_malformed_rights",
+):
+    require(marker + "();" in POLICY_TEST,
+            marker + " needs a policy regression test")
+
+permission_rewrite = function_body(
+    POLICY,
+    "disk_share_permission_rewrite(const char *source, const char *target,"
+)
+require("if (match)" in permission_rewrite and "errno = EEXIST;" in permission_rewrite,
+        "permission rewrite must reject duplicate case-insensitive ACL keys instead of leaving stale duplicate records")
+
+require("disk_share_folder_name_is_visible" in POLICY,
+        "folder visibility policy must reject hidden and system directories")
+cached_folders = function_body(
+    DISK_SOURCE,
+    "int get_folder_list_in_mount_path(const char *const mount_path, int *sh_num, char ***folder_list)"
+)
+fresh_folders = function_body(
+    DISK_SOURCE,
+    "int get_all_folder_in_mount_path(const char *const mount_path, int *sh_num, char ***folder_list)"
+)
+require("disk_share_folder_name_is_visible" in cached_folders and
+        "test_if_System_folder" in cached_folders and
+        "disk_share_folder_name_is_visible" in fresh_folders and
+        "test_if_System_folder" in fresh_folders,
+        "cached share names must not bypass hidden/system-directory exclusions")
+require("test_folder_scans_use_pinned_directory_descriptors();" in POLICY_TEST and
+        "test_folder_name_visibility_policy();" in POLICY_TEST,
+        "hidden/system directory cache bypass needs a policy regression test")
+
+require("disk_share_list_next_entry" in POLICY,
+        "shared readdir status policy is missing")
+all_folders = function_body(DISK_SOURCE,
+                            "int get_all_folder_in_mount_path(const char *const mount_path, int *sh_num, char ***folder_list)")
+compact_all_folders = " ".join(all_folders.split())
+read_entry_match = re.search(
+    r"disk_share_list_next_entry\(\s*pool_to_open,\s*readdir,\s*&dp,\s*&read_error\s*\)",
+    compact_all_folders,
+)
+require(read_entry_match is not None,
+        "directory loop must use the checked readdir adapter")
+read_entry = read_entry_match.start()
+eof_gate = compact_all_folders.index("if (read_status == 0)", read_entry)
+error_gate = compact_all_folders.index("if (read_status < 0)", eof_gate)
+errno_restore = compact_all_folders.index(
+    "errno = read_error != 0 ? read_error : EIO;", error_gate
+)
+require(read_entry < eof_gate < error_gate < errno_restore and
+        "disk_io_open_parent_nofollow(mount_path, &mount_leaf)" in compact_all_folders and
+        "openat(mount_parent_fd, mount_leaf, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)" in compact_all_folders and
+        "fdopendir(mount_fd)" in compact_all_folders and
+        "fstatat(directory_fd, dp->d_name, &entry_status, AT_SYMLINK_NOFOLLOW)" in compact_all_folders and
+        "lstat(testdir, &entry_status)" not in compact_all_folders and
+        "disk_share_folder_entry_status" in compact_all_folders and
+        "test_if_dir(testdir)" not in compact_all_folders,
+        "directory enumeration must reject symlinked/non-directory entries without following them")
+
+require(read_entry < eof_gate < error_gate < errno_restore,
+        "directory iteration must distinguish clean EOF from readdir errors")
+failure_cleanup = compact_all_folders[compact_all_folders.index("failed:"):]
+require("saved_errno = errno ? errno : EIO;" in failure_cleanup and
+        "errno = saved_errno;" in failure_cleanup,
+        "directory read/close failures must preserve errno during cleanup")
+
+
+require("disk_share_list_write_snapshot" in POLICY and
+        "if (fflush(stream) != 0)" in POLICY,
+        "snapshot writer must report buffered stream failures")
+initial_writer = function_body(
+    DISK_SOURCE, "int initial_folder_list_in_mount_path(const char *const mount_path)"
+)
+initial_writer_compact = "".join(initial_writer.split())
+require("disk_share_open_mount_directory(mount_path)" in initial_writer_compact and
+        "initial_folder_list_in_directory_fd(directory_fd)" in initial_writer_compact and
+        "close(directory_fd)" in initial_writer_compact and
+        "disk_share_write_stream_atomic(" not in initial_writer_compact,
+        "folder-list snapshots must open the mount once and keep that directory descriptor through atomic publication")
+
+
+metadata_begin_body = function_body(
+    DISK_SOURCE, "static int\ndisk_share_account_metadata_write("
+)
+metadata_begin_compact = "".join(metadata_begin_body.split())
+require("get_account_list(&acc_num,&account_list)" in metadata_begin_compact and
+        "disk_share_account_nvram_begin(&transaction)" in metadata_begin_compact and
+        "disk_share_account_inventory_matches_locked(" in metadata_begin_compact and
+        "writer(account,mount_path)" in metadata_begin_compact and
+        "disk_share_account_nvram_end(&transaction)" in metadata_begin_compact,
+        "public account metadata writers must validate a live account snapshot and own the writer lease around file mutation")
+for public_writer in (
+    "int initial_one_var_file_in_mount_path(const char *const account,",
+    "int modify_if_exist_new_folder(const char *const account,",
+):
+    public_body = function_body(DISK_SOURCE, public_writer)
+    require("disk_share_account_metadata_write(" in public_body and
+            "disk_share_account_nvram_begin(" not in public_body,
+            "public metadata APIs must delegate to the single transaction-owning wrapper")
+for locked_writer in (
+    "static int initial_one_var_file_in_mount_path_locked(",
+    "static int modify_if_exist_new_folder_locked(",
+):
+    locked_body = function_body(DISK_SOURCE, locked_writer)
+    require("disk_share_account_nvram_begin(" not in locked_body and
+            "disk_share_account_nvram_end(" not in locked_body,
+            "lock-owned metadata workers must not acquire a nested NVRAM transaction")
+
+
+pinned_scanner = function_body(
+    DISK_SOURCE, "get_all_folder_in_directory_fd(int directory_fd,"
+)
+pinned_scanner_compact = "".join(pinned_scanner.split())
+require('openat(directory_fd,".",O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC)' in
+        pinned_scanner_compact and
+        "fdopendir(scan_fd)" in pinned_scanner_compact and
+        "fstatat(directory_fd,entry->d_name,&entry_status,AT_SYMLINK_NOFOLLOW)" in
+        pinned_scanner_compact and
+        "disk_share_list_next_entry" in pinned_scanner_compact and
+        "opendir(mount_path)" not in pinned_scanner_compact and "lstat(" not in pinned_scanner_compact,
+        "internal storage scanner must enumerate and validate entries through one pinned directory descriptor")
+
+pinned_cache = function_body(
+    DISK_SOURCE, "get_folder_list_in_directory_fd(int directory_fd,"
+)
+pinned_cache_compact = "".join(pinned_cache.split())
+cache_read_at = pinned_cache_compact.index(
+    'read_regular_file_nofollow_at(directory_fd,".__folder_list.txt")'
+)
+cache_regen = pinned_cache_compact.index(
+    "initial_folder_list_in_directory_fd(directory_fd)", cache_read_at
+)
+cache_fstatat = pinned_cache_compact.index(
+    "fstatat(directory_fd,result_list[i],&entry_status,AT_SYMLINK_NOFOLLOW)"
+)
+require(cache_read_at < cache_regen < cache_fstatat and
+        "disk_share_folder_entry_status" in pinned_cache_compact and
+        "lstat(" not in pinned_cache_compact,
+        "pinned cache parser must read, regenerate and revalidate entries within the original volume")
+
+for signature in (
+    "int initial_folder_list_in_mount_path(const char *const mount_path)",
+):
+    body = function_body(DISK_SOURCE, signature)
+    compact = "".join(body.split())
+    require("disk_share_open_mount_directory(mount_path)" in compact and
+            "initial_folder_list_in_directory_fd(directory_fd)" in compact and
+            "close(directory_fd)" in compact,
+            "folder snapshot API must keep its mount directory open through generation and publication")
+initial_snapshot = function_body(
+    DISK_SOURCE, "\nstatic int\ninitial_folder_list_in_directory_fd(int directory_fd)\n{"
+)
+initial_snapshot_compact = "".join(initial_snapshot.split())
+require("get_all_folder_in_directory_fd(directory_fd,&sh_num,&folder_list)" in
+        initial_snapshot_compact and
+        'disk_share_write_stream_atomic_at(directory_fd,".__folder_list.txt",disk_share_write_snapshot_stream,&writer_context,0)' in
+        initial_snapshot_compact,
+        "folder cache snapshot must enumerate and publish on one pinned directory descriptor")
+
+require("disk_share_write_account_defaults" in POLICY and
+        "if (fflush(stream) != 0)" in POLICY,
+        "account defaults writer must report buffered stream failures")
+account_writer = function_body(
+    DISK_SOURCE, "initial_one_var_file_in_directory_fd_locked(const char *account,"
+)
+account_writer_compact = "".join(account_writer.split())
+require("get_all_folder_in_directory_fd(directory_fd,&sh_num,&folder_list)" in account_writer_compact and
+        "disk_share_write_stream_atomic_at(directory_fd,var_leaf,disk_share_write_defaults_stream,&writer_context,0)" in account_writer_compact and
+        "disk_share_open_mount_directory" not in account_writer_compact and
+        "mkstemp(" not in account_writer_compact and
+        "rename(" not in account_writer_compact,
+        "new account ACL defaults must write through the pinned mount descriptor without path re-resolution")
+
+account_wrapper = function_body(
+    DISK_SOURCE,
+    "static int initial_one_var_file_in_mount_path_locked(const char *const account,"
+)
+account_wrapper_compact = "".join(account_wrapper.split())
+require("disk_share_open_mount_directory(mount_path)" in account_wrapper_compact and
+        "initial_one_var_file_in_directory_fd_locked(account,directory_fd)" in account_wrapper_compact and
+        "close(directory_fd)" in account_wrapper_compact,
+        "path API must pin the mount once and delegate all metadata work to the descriptor-relative ACL writer")
+
+account_status = function_body(
+    DISK_SOURCE, "disk_share_account_metadata_status_at(int directory_fd, const char *account)"
+)
+account_status_compact = "".join(account_status.split())
+require("fstatat(directory_fd,var_leaf,&status,AT_SYMLINK_NOFOLLOW)" in account_status_compact and
+        "!S_ISREG(status.st_mode)" in account_status_compact and
+        "errno==ENOENT" in account_status_compact,
+        "incremental ACL status must distinguish missing files from unsafe symlinks and non-regular entries")
+
+account_create_or_update = function_body(
+    DISK_SOURCE, "disk_share_create_or_update_account_metadata_at(int directory_fd,"
+)
+account_create_or_update_compact = "".join(account_create_or_update.split())
+require("disk_share_account_metadata_status_at(directory_fd,account)" in account_create_or_update_compact and
+        "initial_one_var_file_in_directory_fd_locked(account,directory_fd)" in account_create_or_update_compact and
+        "modify_if_exist_new_folder_in_directory_fd_locked(account,directory_fd)" in account_create_or_update_compact,
+        "incremental account ACL creation must initialize missing files and extend existing files using the same pinned mount descriptor")
+
+create_with_accounts = function_body(
+    DISK_SOURCE, "create_if_no_var_files_with_accounts_at(int directory_fd,"
+)
+create_with_accounts_compact = "".join(create_with_accounts.split())
+anonymous_preflight = create_with_accounts_compact.index(
+    "disk_share_account_metadata_status_at(directory_fd,FTP_ANONYMOUS_USER)"
+)
+account_preflight = create_with_accounts_compact.index(
+    "disk_share_account_metadata_status_at(directory_fd,account_list[i])",
+    anonymous_preflight
+)
+anonymous_publish = create_with_accounts_compact.index(
+    "disk_share_create_or_update_account_metadata_at(directory_fd,FTP_ANONYMOUS_USER)",
+    account_preflight
+)
+account_publish = create_with_accounts_compact.index(
+    "disk_share_create_or_update_account_metadata_at(directory_fd,account_list[i])",
+    anonymous_publish
+)
+require("acc_num>MAX_ACCOUNT_NUM" in create_with_accounts_compact and
+        "is_valid_account_name(account_list[i])" in create_with_accounts_compact and
+        "strcmp(account_list[i],account_list[j])==0" in create_with_accounts_compact and
+        "disk_share_open_mount_directory" not in create_with_accounts_compact and
+        anonymous_preflight < account_preflight < anonymous_publish < account_publish,
+        "descriptor-relative metadata worker must validate and preflight all active ACLs before mutating through its caller-pinned directory descriptor")
+
+create_with_accounts_wrapper = function_body(
+    DISK_SOURCE,
+    "create_if_no_var_files_with_accounts(const char *mount_path, int acc_num,"
+)
+create_with_accounts_wrapper_compact = "".join(create_with_accounts_wrapper.split())
+require("disk_share_open_mount_directory(mount_path)" in create_with_accounts_wrapper_compact and
+        "create_if_no_var_files_with_accounts_at(directory_fd,acc_num,account_list)" in create_with_accounts_wrapper_compact and
+        "close(directory_fd)" in create_with_accounts_wrapper_compact,
+        "path-based metadata wrapper must pin one mount directory and delegate to the descriptor-relative worker")
+
+
+create_public = function_body(
+    DISK_SOURCE, "create_if_no_var_files(const char *const mount_path)"
+)
+create_public_compact = "".join(create_public.split())
+public_begin = create_public_compact.index("disk_share_account_nvram_begin(&transaction)")
+public_validate = create_public_compact.index(
+    "disk_share_account_inventory_matches_locked(&disk_share_account_nvram_operations,&transaction,acc_num,MAX_ACCOUNT_NUM,account_list)",
+    public_begin
+)
+public_worker = create_public_compact.index(
+    "create_if_no_var_files_with_accounts(mount_path,acc_num,account_list)",
+    public_validate
+)
+public_end = create_public_compact.index("disk_share_account_nvram_end(&transaction)", public_worker)
+require("get_account_list(&acc_num,&account_list)" in create_public_compact and
+        public_begin < public_validate < public_worker < public_end,
+        "public incremental initializer must serialize its account snapshot before publishing ACL metadata")
+
+
+
+
+atomic_replace = function_body(
+    DISK_SOURCE, "disk_share_replace_file_atomic(const char *path,"
+)
+atomic_replace_compact = "".join(atomic_replace.split())
+atomic_replace_at = function_body(
+    POLICY, "disk_share_replace_file_atomic_at(int directory_fd,"
+)
+atomic_replace_at_compact = "".join(atomic_replace_at.split())
+atomic_stream = function_body(
+    POLICY, "disk_share_write_stream_atomic_at(int directory_fd,"
+)
+atomic_stream_compact = "".join(atomic_stream.split())
+
+read_at_body = function_body(
+    DISK_IO_SOURCE, "read_regular_file_nofollow_at(int parent_fd, const char *leaf)"
+)
+read_at_compact = "".join(read_at_body.split())
+require("openat(parent_fd,leaf,O_RDONLY|O_NONBLOCK|O_NOFOLLOW|O_CLOEXEC)" in read_at_compact and
+        "fstat(fd,&file_status)" in read_at_compact and
+        "!S_ISREG(file_status.st_mode)" in read_at_compact and
+        "test_read_regular_file_nofollow_at_stays_with_pinned_directory();" in IO_REGRESSION and
+        "externchar*read_regular_file_nofollow_at(int,constchar*);" in
+        "".join(DISK_IO_HEADER.split()),
+        "descriptor-relative metadata reader must reject links/non-regular files and pass its mount-swap regression")
+
+parent_opener = function_body(
+    DISK_IO_SOURCE, "disk_io_open_parent_nofollow(const char *target,"
+)
+parent_opener_compact = "".join(parent_opener.split())
+require("externintdisk_io_open_parent_nofollow(constchar*,char**);" in
+        "".join(DISK_IO_HEADER.split()) and
+        "intdisk_io_open_parent_nofollow(" in "".join(DISK_IO_SOURCE.split()) and
+        "openat(parent_fd,component" in parent_opener_compact and
+        "O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC" in parent_opener_compact,
+        "atomic metadata writers must obtain a no-symlink parent directory descriptor")
+require("disk_io_open_parent_nofollow(path,&leaf)" in atomic_replace_compact and
+        "disk_share_replace_file_atomic_at(directory_fd,leaf,contents,contents_len)" in atomic_replace_compact and
+        "mkstemp(" not in atomic_replace_compact and
+        "rename(" not in atomic_replace_compact,
+        "metadata publication must remain relative to the pinned parent directory")
+require("disk_share_write_stream_atomic_at(directory_fd,leaf,disk_share_write_atomic_buffer,&context,1)" in
+        atomic_replace_at_compact and
+        "fstatat(directory_fd,leaf,&existing_stat,AT_SYMLINK_NOFOLLOW)" in atomic_stream_compact and
+        "openat(directory_fd,temp_leaf,O_WRONLY|O_CREAT|O_EXCL|O_NOFOLLOW|O_CLOEXEC,0600)" in atomic_stream_compact and
+        "renameat(directory_fd,temp_leaf,directory_fd,leaf)" in atomic_stream_compact and
+        "unlinkat(directory_fd,temp_leaf,0)" in atomic_stream_compact and
+        "errno=0;if(writer(stream,context)!=0)" in atomic_stream_compact and
+        "errno=0;if(writer(stream,context)!=0)" in atomic_stream_compact and
+        "fflush(stream)" in atomic_stream_compact and
+        "fsync(fileno(stream))" in atomic_stream_compact and
+        "fclose(stream)" in atomic_stream_compact and
+        "test_atomic_metadata_replace_stays_in_pinned_directory();" in POLICY_TEST and
+        "errno = ENOENT;" in POLICY_TEST and
+        "fixture->fail_after_write == 2" in POLICY_TEST,
+        "atomic ACL metadata replacement must use the checked stream publisher through one pinned dirfd")
+
+
+modify_writer = function_body(
+    DISK_SOURCE,
+    "modify_if_exist_new_folder_in_directory_fd_locked(const char *account,"
+)
+compact_modify = "".join(modify_writer.split())
+modify_scan = compact_modify.index(
+    "get_all_folder_in_directory_fd(directory_fd,&sh_num,&folder_list)"
+)
+modify_cache = compact_modify.index(
+    "get_folder_list_in_directory_fd(directory_fd,&cached_count,&cached_folder_list)",
+    modify_scan
+)
+modify_compare = compact_modify.index(
+    "upper_strcmp(folder_list[i],cached_folder_list[j])", modify_cache
+)
+modify_read = compact_modify.index(
+    "read_regular_file_nofollow_at(directory_fd,var_leaf)", modify_compare
+)
+modify_publish = compact_modify.index(
+    "disk_share_write_stream_atomic_at(directory_fd,var_leaf,disk_share_write_update_stream,&writer_context,0)",
+    modify_read
+)
+require(modify_scan < modify_cache < modify_compare < modify_read < modify_publish and
+        "disk_share_open_mount_directory" not in compact_modify and
+        "test_if_exist_folder_in_mount_path" not in compact_modify and
+        "read_regular_file_nofollow(" not in compact_modify and
+        "disk_share_write_stream_atomic(" not in compact_modify,
+        "new-folder ACL updater must read fresh/cache/ACL metadata and publish through one already-pinned directory descriptor")
+
+modify_wrapper = function_body(
+    DISK_SOURCE, "static int modify_if_exist_new_folder_locked(const char *const account,"
+)
+modify_wrapper_compact = "".join(modify_wrapper.split())
+require("disk_share_open_mount_directory(mount_path)" in modify_wrapper_compact and
+        "modify_if_exist_new_folder_in_directory_fd_locked(account,directory_fd)" in modify_wrapper_compact and
+        "close(directory_fd)" in modify_wrapper_compact,
+        "path-based ACL update wrapper must pin one volume and delegate to the descriptor-relative worker")
+
+
+
+
+
+rollback_permission_writer = function_body(
+    DISK_SOURCE, "disk_share_update_folder_permission_file(int directory_fd,"
+)
+rollback_permission_writer_compact = "".join(rollback_permission_writer.split())
+rollback_read = rollback_permission_writer_compact.index(
+    "read_regular_file_nofollow_at(directory_fd,var_leaf)"
+)
+rollback_rewrite = rollback_permission_writer_compact.index(
+    "disk_share_permission_rewrite(var_info,target,replacement,&updated_info,&updated_len)",
+    rollback_read
+)
+rollback_publish = rollback_permission_writer_compact.index(
+    "disk_share_replace_file_atomic_at(directory_fd,var_leaf,updated_info,updated_len)",
+    rollback_rewrite
+)
+require(rollback_read < rollback_rewrite < rollback_publish and
+        "disk_share_open_mount_directory" not in rollback_permission_writer_compact and
+        "read_regular_file_nofollow(" not in rollback_permission_writer_compact and
+        "disk_share_replace_file_atomic(" not in rollback_permission_writer_compact and
+        "disk_share_format_account_var_path" not in rollback_permission_writer_compact,
+        "folder rollback ACL rewrites must use the same caller-pinned volume descriptor for read and atomic replace")
+
+
+add_folder_body = function_body(
+    DISK_SOURCE,
+    "int add_folder(const char *const mount_path, const char *const folder)"
+)
+add_compact = "".join(add_folder_body.split())
+add_inventory = add_compact.index("get_account_list(&acc_num,&account_list)")
+add_folder_length = add_compact.index("folder_len=strlen(folder);", add_inventory)
+add_target_allocate = add_compact.index("target=(char*)malloc(target_len+1);", add_folder_length)
+add_target_format = add_compact.index("target[0]='*';", add_target_allocate)
+add_begin = add_compact.index("disk_share_account_nvram_begin(&transaction)", add_target_format)
+add_validate = add_compact.index(
+    "disk_share_account_inventory_matches_locked(&disk_share_account_nvram_operations,&transaction,acc_num,MAX_ACCOUNT_NUM,account_list)",
+    add_begin
+)
+add_open = add_compact.index("disk_share_open_mount_directory(mount_path)", add_validate)
+add_lookup = add_compact.index(
+    "disk_share_folder_exists_in_directory_fd(mount_directory_fd,folder)",
+    add_open
+)
+add_mkdir = add_compact.index(
+    "disk_share_create_directory_entry_nofollow(mount_directory_fd,folder,0777)",
+    add_lookup
+)
+add_publish = add_compact.index(
+    "initial_folder_list_in_directory_fd(mount_directory_fd)", add_mkdir
+)
+add_permissions = add_compact.index(
+    "create_if_no_var_files_with_accounts_at(mount_directory_fd,acc_num,account_list)",
+    add_publish
+)
+add_success_end = add_compact.index(
+    "disk_share_account_nvram_end(&transaction)", add_permissions
+)
+add_rollback = add_compact.index(
+    "disk_share_remove_directory_entry_nofollow(mount_directory_fd,folder)",
+    add_success_end
+)
+add_remove_guard = add_compact.index(
+    "disk_share_folder_rollback_can_remove_permissions(remove_result,remove_errno)",
+    add_rollback
+)
+add_permission_rollback = add_compact.index(
+    "disk_share_update_folder_permission_file(mount_directory_fd,account_list[i],target,NULL)",
+    add_remove_guard
+)
+add_anonymous_rollback = add_compact.index(
+    "disk_share_update_folder_permission_file(mount_directory_fd,FTP_ANONYMOUS_USER,target,NULL)",
+    add_permission_rollback
+)
+add_snapshot_restore = add_compact.index(
+    "initial_folder_list_in_directory_fd(mount_directory_fd)", add_anonymous_rollback
+)
+add_failed_end = add_compact.index(
+    "disk_share_account_nvram_end(&transaction)", add_snapshot_restore
+)
+add_close = add_compact.index("close(mount_directory_fd)", add_snapshot_restore)
+metadata_status_prototype = DISK_SOURCE.index(
+    "static int disk_share_account_metadata_status_at(int directory_fd, const char *account);"
+)
+metadata_status_first_use = DISK_SOURCE.index(
+    "disk_share_account_metadata_status_at(", metadata_status_prototype + 1
+)
+metadata_status_definition = DISK_SOURCE.index(
+    "\nstatic int\ndisk_share_account_metadata_status_at(", metadata_status_first_use
+)
+remove_path_prototype = DISK_SOURCE.index(
+    "static int disk_share_remove_folder_path(const char *path);"
+)
+remove_path_first_use = DISK_SOURCE.index(
+    "disk_share_remove_folder_path(", remove_path_prototype + 1
+)
+remove_path_definition = DISK_SOURCE.index(
+    "\nstatic int\ndisk_share_remove_folder_path(const char *path)", remove_path_first_use
+)
+require(metadata_status_prototype < metadata_status_first_use < metadata_status_definition and
+        remove_path_prototype < remove_path_first_use < remove_path_definition,
+        "descriptor-relative helpers must be prototyped before their first C89 call site")
+require(
+    add_inventory < add_folder_length < add_target_allocate < add_target_format <
+    add_begin < add_validate < add_open < add_lookup < add_mkdir < add_publish <
+    add_permissions < add_success_end < add_rollback < add_remove_guard <
+    add_permission_rollback < add_anonymous_rollback < add_snapshot_restore <
+    add_close < add_failed_end and
+    "errno=EEXIST;" in add_compact and
+    "errno=ENAMETOOLONG;" in add_compact and
+    "initial_folder_list_in_mount_path(" not in add_folder_body and
+    "create_if_no_var_files_with_accounts(mount_path" not in add_folder_body and
+    "disk_share_update_folder_permission_file(mount_path" not in add_folder_body and
+    "mkdir(full_path" not in add_compact and
+    "rmdir(full_path)" not in add_compact and
+    "disk_share_folder_rollback_can_remove_permissions" in POLICY and
+    "test_folder_rollback_preserves_permissions_when_directory_survives" in POLICY_TEST and
+    "test_folder_rollback_preserves_permissions_when_directory_survives();" in POLICY_TEST and
+    "test_folder_creation_and_rollback_stay_on_pinned_mount_directory_fd" in POLICY_TEST and
+    "test_folder_creation_and_rollback_stay_on_pinned_mount_directory_fd();" in POLICY_TEST,
+    "add_folder must pin one mount directory for scan/create, ACL publication and rollback, and retain ACLs if directory removal fails"
+)
+
+
+require("disk_share_reserve_staging_directory_at" in POLICY and
+        "disk_share_create_staging_directory_at" in DISK_SOURCE and
+        "disk_share_create_directory_entry_nofollow" in DISK_SOURCE and
+        "disk_share_remove_directory_entry_nofollow" in DISK_SOURCE and
+        "disk_share_reserve_staging_directory_at" in DISK_SOURCE and
+        "mkdir(path, 0700)" not in DISK_SOURCE,
+        "folder deletion must reserve its staging parent relative to the pinned volume descriptor")
+
+del_folder = function_body(
+    DISK_SOURCE, "int del_folder(const char *const mount_path, const char *const folder)"
+)
+del_folder_compact = "".join(del_folder.split())
+del_inventory = del_folder_compact.index("get_account_list(&acc_num,&account_list)")
+del_begin = del_folder_compact.index("disk_share_account_nvram_begin(&transaction)", del_inventory)
+del_validate = del_folder_compact.index(
+    "disk_share_account_inventory_matches_locked(&disk_share_account_nvram_operations,&transaction,acc_num,MAX_ACCOUNT_NUM,account_list)",
+    del_begin
+)
+del_pin = del_folder_compact.index("disk_share_open_mount_directory(mount_path)", del_validate)
+del_stat = del_folder_compact.index(
+    "fstatat(mount_directory_fd,folder,&folder_status,AT_SYMLINK_NOFOLLOW)",
+    del_pin
+)
+del_scan = del_folder_compact.index(
+    "disk_share_folder_exists_in_directory_fd(mount_directory_fd,folder)",
+    del_stat
+)
+del_plan = del_folder_compact.index(
+    "disk_share_permission_fd_batch_prepare_rewrite(mount_directory_fd,acc_num,account_list,target,NULL",
+    del_scan
+)
+del_stage = del_folder_compact.index(
+    "disk_share_reserve_staging_directory_at(mount_directory_fd,staging_leaf",
+    del_plan
+)
+del_open_stage = del_folder_compact.index(
+    "openat(mount_directory_fd,staging_leaf,O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC)",
+    del_stage
+)
+del_batch = del_folder_compact.index(
+    "disk_share_folder_delete_fd_batch(mount_directory_fd,staging_directory_fd,folder,permission_batch,permission_batch_count,disk_share_replace_file_atomic_at,disk_share_rename_directory_entry_nofollow,disk_share_remove_directory_entry_nofollow,initial_folder_list_in_directory_fd,&staging_applied,&rollback_error)",
+    del_open_stage
+)
+del_release = del_folder_compact.index(
+    "disk_share_account_nvram_end(&transaction)", del_batch
+)
+require(del_inventory < del_begin < del_validate < del_pin < del_stat <
+        del_scan < del_plan < del_stage < del_open_stage < del_batch <
+        del_release and
+        "disk_share_permission_batch_prepare_rewrite(" not in del_folder_compact and
+        "disk_share_folder_delete_batch(" not in del_folder_compact and
+        "disk_share_create_folder_staging_paths(" not in del_folder_compact and
+        "test_if_exist_folder_in_mount_path(" not in del_folder_compact and
+        "lstat(" not in del_folder_compact and
+        "full_path" not in del_folder_compact and
+        "disk_share_remove_folder_path(" not in del_folder_compact and
+        "disk_share_folder_name_is_visible" in "".join(DISK_SOURCE.split()),
+        "del_folder must pin one volume for no-follow checks, ACL snapshot/publication, staging, snapshot refresh and compensation")
+
+for marker in (
+    "test_folder_delete_batch_commits_directory_snapshot_and_permissions",
+    "test_folder_delete_batch_restores_directory_after_snapshot_failure",
+    "test_folder_delete_batch_restores_files_and_directory_after_write_failure",
+    "test_folder_delete_batch_restores_after_staged_directory_remove_failure",
+    "test_folder_delete_batch_preserves_staging_on_directory_compensation_failure",
+    "test_folder_entry_status_rejects_symlinks_and_non_directories",
+    "test_stale_metadata_unlink_uses_pinned_directory_fd",
+    "test_folder_rename_batch_commits_directory_snapshot_and_permissions",
+    "test_folder_rename_batch_restores_directory_after_snapshot_failure",
+    "test_folder_rename_batch_restores_files_and_directory_after_write_failure",
+    "test_folder_rename_batch_reports_directory_compensation_failure",
+    "test_staging_directory_reserves_with_atomic_collision_retry",
+    "test_staging_directory_preserves_create_errors",
+    "test_staging_directory_rejects_truncated_paths_before_create",
+    "test_permission_batch_applies_and_restores_all_files",
+    "test_permission_batch_rolls_back_prior_file_after_write_failure",
+    "test_permission_batch_reports_and_retries_failed_compensation",
+):
+    require(marker in POLICY_TEST and marker + "();" in POLICY_TEST,
+            "missing permission batch rollback regression: " + marker)
+
+folder_delete_policy = function_body(POLICY, "disk_share_folder_delete_batch(")
+folder_delete_policy_compact = "".join(folder_delete_policy.split())
+delete_move = folder_delete_policy_compact.index("move_path(folder_path,staging_path)")
+delete_refresh = folder_delete_policy_compact.index("refresh_snapshot(mount_path)", delete_move)
+delete_apply = folder_delete_policy_compact.index(
+    "disk_share_permission_batch_apply(entries,count,write_file,&compensation_error)",
+    delete_refresh
+)
+delete_remove = folder_delete_policy_compact.index("remove_path(staging_path)", delete_apply)
+delete_rollback = folder_delete_policy_compact.index(
+    "disk_share_permission_batch_rollback(entries,count,write_file,&compensation_error)",
+    delete_remove
+)
+delete_move_back = folder_delete_policy_compact.index(
+    "move_path(staging_path,folder_path)", delete_rollback
+)
+delete_refresh_back = folder_delete_policy_compact.index(
+    "refresh_snapshot(mount_path)", delete_move_back
+)
+require(delete_move < delete_refresh < delete_apply < delete_remove <
+        delete_rollback < delete_move_back < delete_refresh_back,
+        "delete policy must compensate ACLs, directory placement and folder snapshot after any post-stage failure")
+
+fd_folder_delete_policy = function_body(
+    POLICY, "disk_share_folder_delete_fd_batch("
+)
+fd_folder_delete_policy_compact = "".join(fd_folder_delete_policy.split())
+fd_delete_move = fd_folder_delete_policy_compact.index(
+    "move_entry(directory_fd,folder_leaf,staging_directory_fd,folder_leaf)"
+)
+fd_delete_refresh = fd_folder_delete_policy_compact.index(
+    "refresh_snapshot(directory_fd)", fd_delete_move
+)
+fd_delete_apply = fd_folder_delete_policy_compact.index(
+    "disk_share_permission_fd_batch_apply(directory_fd,entries,count,write_file,&compensation_error)",
+    fd_delete_refresh
+)
+fd_delete_remove = fd_folder_delete_policy_compact.index(
+    "remove_staged(staging_directory_fd,folder_leaf)", fd_delete_apply
+)
+fd_delete_rollback = fd_folder_delete_policy_compact.index(
+    "disk_share_permission_fd_batch_rollback(directory_fd,entries,count,write_file,&compensation_error)",
+    fd_delete_remove
+)
+fd_delete_move_back = fd_folder_delete_policy_compact.index(
+    "move_entry(staging_directory_fd,folder_leaf,directory_fd,folder_leaf)",
+    fd_delete_rollback
+)
+fd_delete_refresh_back = fd_folder_delete_policy_compact.index(
+    "refresh_snapshot(directory_fd)", fd_delete_move_back
+)
+require(fd_delete_move < fd_delete_refresh < fd_delete_apply <
+        fd_delete_remove < fd_delete_rollback < fd_delete_move_back <
+        fd_delete_refresh_back and
+        "disk_share_reserve_staging_directory_at" in POLICY and
+        "test_staging_directory_fd_reservation_retries_only_collisions();" in POLICY_TEST and
+        "test_folder_delete_fd_batch_stays_on_original_volume_after_mount_swap();" in POLICY_TEST and
+        "test_folder_delete_fd_batch_restores_acl_and_directory_after_write_failure();" in POLICY_TEST and
+        "test_folder_delete_fd_batch_preserves_staging_on_failed_compensation();" in POLICY_TEST,
+        "pinned-FD deletion must stage, refresh, publish ACLs, remove or compensate through the same root/staging descriptors")
+fd_batch_prepare = function_body(
+    DISK_SOURCE, "disk_share_permission_fd_batch_prepare_rewrite("
+)
+fd_batch_prepare_compact = "".join(fd_batch_prepare.split())
+require('snprintf(entries[i].leaf,sizeof(entries[i].leaf),".__%s_var.txt",account)' in
+        fd_batch_prepare_compact and
+        "read_regular_file_nofollow_at(directory_fd,entries[i].leaf)" in
+        fd_batch_prepare_compact and
+        "disk_share_permission_rewrite(entries[i].before,target,replacement" in
+        fd_batch_prepare_compact and
+        "saved_errno==ENOENT" in fd_batch_prepare_compact,
+        "folder rename ACL preparation must read and transform bounded account leaves through the same pinned volume descriptor")
+
+fd_rename_policy = function_body(
+    POLICY, "disk_share_folder_rename_fd_batch("
+)
+fd_rename_policy_compact = "".join(fd_rename_policy.split())
+fd_move = fd_rename_policy_compact.index("move_entry(directory_fd,old_leaf,new_leaf)")
+fd_refresh = fd_rename_policy_compact.index("refresh_snapshot(directory_fd)", fd_move)
+fd_apply = fd_rename_policy_compact.index(
+    "disk_share_permission_fd_batch_apply(directory_fd,entries,count,write_file",
+    fd_refresh
+)
+fd_rollback = fd_rename_policy_compact.index(
+    "disk_share_permission_fd_batch_rollback(directory_fd,entries,count,write_file",
+    fd_apply
+)
+fd_move_back = fd_rename_policy_compact.index(
+    "move_entry(directory_fd,new_leaf,old_leaf)", fd_rollback
+)
+require(fd_move < fd_refresh < fd_apply < fd_rollback < fd_move_back and
+        "refresh_snapshot(directory_fd)" in fd_rename_policy_compact[fd_move_back:] and
+        "test_folder_rename_fd_batch_stays_on_original_volume_after_mount_swap();" in POLICY_TEST and
+        "test_folder_rename_fd_batch_rolls_back_after_acl_write_failure();" in POLICY_TEST,
+        "folder rename must compensate ACLs, directory name and snapshot through one FD with mount-swap and write-failure regressions")
+
+move_callback = function_body(DISK_SOURCE, "disk_share_move_folder_entry_at(")
+refresh_callback = function_body(DISK_SOURCE, "disk_share_refresh_folder_snapshot_at(")
+require("disk_share_rename_directory_entry_nofollow(directory_fd,old_leaf,directory_fd,new_leaf)" in
+        "".join(move_callback.split()) and
+        "initial_folder_list_in_directory_fd(directory_fd)" in
+        "".join(refresh_callback.split()),
+        "folder rename callbacks must remain descriptor-relative")
+
+mod_folder_body = function_body(
+    DISK_SOURCE,
+    "int mod_folder(const char *const mount_path, const char *const folder,"
+)
+mod_folder_compact = "".join(mod_folder_body.split())
+mod_pin = mod_folder_compact.index("disk_share_open_mount_directory(mount_path)")
+mod_stat = mod_folder_compact.index(
+    "fstatat(mount_directory_fd,folder,&folder_status,AT_SYMLINK_NOFOLLOW)",
+    mod_pin
+)
+mod_scan = mod_folder_compact.index(
+    "disk_share_folder_exists_in_directory_fd(mount_directory_fd,folder)",
+    mod_stat
+)
+mod_refresh = mod_folder_compact.index(
+    "initial_folder_list_in_directory_fd(mount_directory_fd)", mod_scan
+)
+mod_prepare = mod_folder_compact.index(
+    "disk_share_permission_fd_batch_prepare_rewrite(mount_directory_fd,acc_num,account_list,target,new_target",
+    mod_refresh
+)
+mod_apply = mod_folder_compact.index(
+    "disk_share_folder_rename_fd_batch(mount_directory_fd,folder,new_folder",
+    mod_prepare
+)
+require(mod_pin < mod_stat < mod_scan < mod_refresh < mod_prepare < mod_apply and
+        "disk_share_permission_batch_prepare_rewrite(" not in mod_folder_compact and
+        "disk_share_folder_rename_batch(" not in mod_folder_compact and
+        "test_if_exist_folder_in_mount_path(" not in mod_folder_compact and
+        "initial_folder_list_in_mount_path(" not in mod_folder_compact and
+        "lstat(" not in mod_folder_compact,
+        "mod_folder must keep source/destination checks, ACL reads/writes, snapshot and rollback on one pinned mount")
+
+folder_rename_policy = function_body(POLICY, "disk_share_folder_rename_batch(")
+folder_rename_policy_compact = "".join(folder_rename_policy.split())
+policy_move = folder_rename_policy_compact.index("move_path(old_path,new_path)")
+policy_refresh = folder_rename_policy_compact.index("refresh_snapshot(mount_path)", policy_move)
+policy_apply = folder_rename_policy_compact.index(
+    "disk_share_permission_batch_apply(entries,count,write_file,&compensation_error)",
+    policy_refresh
+)
+policy_rollback = folder_rename_policy_compact.index(
+    "disk_share_permission_batch_rollback(entries,count,write_file,&compensation_error)",
+    policy_apply
+)
+policy_move_back = folder_rename_policy_compact.index("move_path(new_path,old_path)", policy_rollback)
+policy_refresh_back = folder_rename_policy_compact.index("refresh_snapshot(mount_path)", policy_move_back)
+require(policy_move < policy_refresh < policy_apply < policy_rollback <
+        policy_move_back < policy_refresh_back,
+        "rename policy must compensate permission contents, directory name and folder snapshot after a failed step")
+
+rename_folder = function_body(
+    DISK_SOURCE, "disk_share_rename_folder_path("
+)
+rename_folder_compact = "".join(rename_folder.split())
+rename_policy = function_body(
+    POLICY, "disk_share_rename_directory_entry_nofollow("
+)
+rename_policy_compact = "".join(rename_policy.split())
+require("disk_io_open_parent_nofollow(old_path,&old_leaf)" in rename_folder_compact and
+        "disk_io_open_parent_nofollow(new_path,&new_leaf)" in rename_folder_compact and
+        "disk_share_rename_directory_entry_nofollow(old_directory_fd,old_leaf,new_directory_fd,new_leaf)" in rename_folder_compact and
+        "rename(old_path,new_path)" not in rename_folder_compact and
+        "fstatat(old_directory_fd,old_leaf,&source_status,AT_SYMLINK_NOFOLLOW)" in rename_policy_compact and
+        "!S_ISDIR(source_status.st_mode)" in rename_policy_compact and
+        "fstatat(new_directory_fd,new_leaf,&target_status,AT_SYMLINK_NOFOLLOW)" in rename_policy_compact and
+        "returnrenameat(old_directory_fd,old_leaf,new_directory_fd,new_leaf)" in rename_policy_compact and
+        "test_folder_rename_uses_pinned_parent_descriptors();" in POLICY_TEST,
+        "folder moves must pin both parent directories and reject symlink/non-directory sources or occupied targets")
+
+mkdir_staging = function_body(
+    DISK_SOURCE, "disk_share_mkdir_staging_directory("
+)
+mkdir_staging_compact = "".join(mkdir_staging.split())
+mkdir_entry_policy = function_body(
+    POLICY, "disk_share_create_directory_entry_nofollow("
+)
+mkdir_entry_policy_compact = "".join(mkdir_entry_policy.split())
+remove_entry_policy = function_body(
+    POLICY, "disk_share_remove_directory_entry_nofollow("
+)
+remove_entry_policy_compact = "".join(remove_entry_policy.split())
+remove_staging = function_body(
+    DISK_SOURCE, "disk_share_remove_folder_path(const char *path)"
+)
+remove_staging_compact = "".join(remove_staging.split())
+require("disk_io_open_parent_nofollow(path,&leaf)" in mkdir_staging_compact and
+        "disk_share_create_directory_entry_nofollow(directory_fd,leaf,0700)" in mkdir_staging_compact and
+        "disk_io_open_parent_nofollow(path,&leaf)" in remove_staging_compact and
+        "disk_share_remove_directory_entry_nofollow(directory_fd,leaf)" in remove_staging_compact and
+        "returnmkdirat(directory_fd,leaf,mode)" in mkdir_entry_policy_compact and
+        "returnunlinkat(directory_fd,leaf,AT_REMOVEDIR)" in remove_entry_policy_compact and
+        "test_staging_directory_operations_use_pinned_parent_fd();" in POLICY_TEST,
+        "staging directory creation and removal must remain under the pinned mount parent and reject final symlinks")
+
+
+
+
+permission_update = function_body(
+    DISK_SOURCE, "int set_permission(const char *account,"
+)
+update_compact = "".join(permission_update.split())
+update_begin = update_compact.index("disk_share_account_nvram_begin(&transaction)")
+update_snapshot = update_compact.index("disk_share_account_inventory_matches_locked(", update_begin)
+update_mount = update_compact.index("disk_share_open_mount_directory(mount_path)", update_snapshot)
+update_stat = update_compact.index("fstatat(mount_directory_fd,folder,", update_mount)
+update_scan = update_compact.index("disk_share_folder_exists_in_directory_fd(mount_directory_fd,folder)", update_stat)
+update_cache = update_compact.index("initial_folder_list_in_directory_fd(mount_directory_fd)", update_scan)
+update_leaf = update_compact.index('snprintf(var_leaf,sizeof(var_leaf),".__%s_var.txt",account)', update_cache)
+update_read = update_compact.index("read_regular_file_nofollow_at(mount_directory_fd,var_leaf)", update_leaf)
+update_default = update_compact.index("initial_one_var_file_in_directory_fd_locked(account,mount_directory_fd)", update_read)
+update_rewrite = update_compact.index("disk_share_permission_find_unique_record(", update_default)
+update_replace = update_compact.index("disk_share_replace_file_atomic_at(mount_directory_fd,var_leaf,", update_rewrite)
+require(update_begin < update_snapshot < update_mount < update_stat < update_scan <
+        update_cache < update_leaf < update_read < update_default <
+        update_rewrite < update_replace and
+        "if(saved_errno!=ENOENT)" in update_compact and
+        "lstat(" not in update_compact and
+        "test_if_exist_folder_in_mount_path(" not in update_compact and
+        "disk_share_format_account_var_path" not in update_compact and
+        "read_regular_file_nofollow(var_file)" not in update_compact and
+        "disk_share_replace_file_atomic(var_file" not in update_compact and
+        "initial_folder_list_in_mount_path(" not in update_compact,
+        "permission updater must pin one mount fd across folder validation, ACL read/default creation and atomic replacement")
+require("test_permission_metadata_update_stays_on_pinned_mount_directory_fd" in POLICY_TEST and "test_permission_metadata_update_stays_on_pinned_mount_directory_fd();" in POLICY_TEST,
+        "permission ACL path-swap regression must be compiled and invoked")
+
+
+get_permission = function_body(DISK_SOURCE, "int get_permission(")
+get_permission_compact = " ".join(get_permission.split())
+get_path_check = get_permission_compact.index(
+    "disk_share_format_account_var_path(var_file, sizeof(var_file)"
+)
+require("return -1;" in get_permission_compact[get_path_check:],
+        "permission lookup must fail closed when the metadata pathname is too long")
+
+set_permission = function_body(DISK_SOURCE, "int set_permission(const char *account,")
+require("dms_right = flag;" in set_permission and
+        "record_rights[2] = (char)('0' + dms_right);" in set_permission,
+        "new DMS permission records must preserve the requested DMS right")
+atomic_replace_at = function_body(
+    POLICY, "disk_share_replace_file_atomic_at(int directory_fd,"
+)
+atomic_replace_at_compact = "".join(atomic_replace_at.split())
+require("have_existing=1;" in atomic_stream_compact and
+        "if(preserve_existing_mode&&have_existing&&fchmod(fd,existing_stat.st_mode&0777)!=0)" in atomic_stream_compact,
+        "atomic replacement must only preserve an initialized existing-file mode when explicitly requested")
+
+set_permission = function_body(DISK_SOURCE, "int set_permission(const char *account,")
+require("disk_share_replace_file_atomic_at(" in set_permission and
+        "read_regular_file_nofollow_at(" in set_permission and
+        "disk_share_open_mount_directory(" in set_permission and
+        'fopen(var_file, "w")' not in set_permission and
+        'fopen(var_file, "a+")' not in set_permission,
+        "set_permission must read and atomically publish ACL metadata relative to its pinned mount fd")
+
+del_folder_body = function_body(
+    DISK_SOURCE, "int del_folder(const char *const mount_path, const char *const folder)"
+)
+del_folder_compact = "".join(del_folder_body.split())
+require("disk_share_permission_fd_batch_prepare_rewrite(" in del_folder_compact and
+        "disk_share_folder_delete_fd_batch(" in del_folder_compact and
+        "disk_share_reserve_staging_directory_at(" in del_folder_compact and
+        "disk_share_create_staging_directory_at" in del_folder_compact and
+        "initial_folder_list_in_directory_fd" in del_folder_compact and
+        "disk_share_permission_batch_prepare_rewrite(" not in del_folder_compact and
+        "disk_share_folder_delete_batch(" not in del_folder_compact and
+        "disk_share_create_folder_staging_paths(" not in del_folder_compact and
+        "disk_share_remove_folder_path(" not in del_folder_compact,
+        "folder deletion must keep ACL reads/writes, staging, folder placement and rollback pinned to one mount")
+
+permission_batch_prepare = function_body(
+    DISK_SOURCE, "disk_share_permission_batch_prepare_rewrite("
+)
+permission_batch_prepare_compact = "".join(permission_batch_prepare.split())
+require("read_whole_file(" not in DISK_SOURCE and
+        DISK_SOURCE.count("read_regular_file_nofollow(") >= 4 and
+        DISK_SOURCE.count("read_regular_file_nofollow_at(") >= 6 and
+        "test_if_file(var_file)" not in DISK_SOURCE,
+        "all account ACL files on removable volumes must use no-follow regular-file inspection/read paths, using path wrappers only where the caller has not yet adopted a pinned mount descriptor")
+require("disk_share_format_account_var_path(" in permission_batch_prepare_compact and
+        "read_regular_file_nofollow(" in permission_batch_prepare_compact and
+        "disk_share_permission_rewrite(" in permission_batch_prepare_compact and
+        "replacement" in permission_batch_prepare_compact and
+        "saved_errno==ENOENT" in permission_batch_prepare_compact,
+        "folder batch preparation must snapshot original contents and construct checked replacement images before publishing writes")
+
+mod_folder_body = function_body(
+    DISK_SOURCE,
+    "int mod_folder(const char *const mount_path, const char *const folder,"
+)
+require("disk_share_folder_rename_fd_batch(" in mod_folder_body and
+        "disk_share_permission_fd_batch_prepare_rewrite(" in DISK_SOURCE and
+        "disk_share_move_folder_entry_at" in DISK_SOURCE and
+        "disk_share_refresh_folder_snapshot_at" in DISK_SOURCE and
+        "disk_share_folder_rename_batch(" not in mod_folder_body and
+        "disk_share_permission_batch_prepare_rewrite(" not in mod_folder_body and
+        'fopen(var_file, "w")' not in mod_folder_body and
+        'fopen(var_file, "a+")' not in mod_folder_body,
+        "folder rename must use the descriptor-pinned ACL/filesystem compensation policy")
+
+
+for marker in (
+    "test_permission_rewrite_removes_complete_record",
+    "test_permission_rewrite_renames_key_and_preserves_rights",
+    "test_permission_rewrite_reports_missing_record_and_clears_outputs",
+):
+    require(marker in POLICY_TEST and marker + "();" in POLICY_TEST,
+            "missing permission record rewrite regression: " + marker)
+
+
+samba = function_body(SAMBA_SOURCE, "write_smb_conf_unlocked(")
+require("char **folder_list = NULL;" in samba,
+        "Samba caller must initialize folder_list before the fallible API call")
+call = samba.index("get_folder_list_in_mount_path(")
+failure = samba.index("free_2_dimension_list(&sh_num, &folder_list);", call)
+require(call < failure and "result = -1;" in samba[failure:],
+        "Samba failure path must release the initialized list output")
+
+for marker in (
+    "test_invalid_mount_paths_clear_outputs",
+    "test_missing_output_parameters_are_safe",
+    "test_valid_mount_path_starts_with_empty_outputs",
+    "test_readdir_entry_and_clean_eof",
+    "test_readdir_error_is_not_clean_eof",
+    "test_readdir_rejects_missing_adapters",
+    "test_snapshot_write_flushes_complete_content",
+    "test_snapshot_write_reports_io_failure",
+    "test_snapshot_write_rejects_invalid_data",
+    "test_account_defaults_write_complete_content",
+    "test_account_defaults_write_reports_io_failure",
+    "test_account_defaults_write_rejects_invalid_data",
+):
+    require(marker in REGRESSION and marker + "();" in REGRESSION,
+            "missing output initialization regression: " + marker)
+
+
+
+# Changes to share-list code and its installed public headers must schedule the XY-C1 build.
+XY_WORKFLOW = (ROOT / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
+from check_xy_c1_firmware_inputs import is_non_firmware_input
+for path in (
+    "trunk/user/libdisk/src/Makefile",
+    "trunk/user/libdisk/src/disk_share.c",
+    "trunk/user/libdisk/src/disk_share.h",
+    "trunk/user/libdisk/src/disk_share_list_policy.h",
+    "trunk/user/libdisk/src/disk_io_tools.c",
+):
+    require(XY_WORKFLOW.count('      - "' + path + '"') == 1 and
+            not is_non_firmware_input(path),
+            "XY-C1 firmware path filter must watch production libdisk input: " + path)
+
+print("libdisk share-list enumeration and Samba cleanup regression: PASS")
