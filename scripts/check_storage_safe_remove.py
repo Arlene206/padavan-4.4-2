@@ -117,9 +117,30 @@ require('strcmp(type, "partition") != 0' in cleanup_swap_parser and
         "storage_swap_decimal_field(priority, 1)" in cleanup_swap_parser,
         "global storage cleanup must validate swap type, size, used and priority before swapoff")
 
+msd_publish = body(msd_config, "msd_lite_config_publish(")
+require("O_RDONLY | O_NONBLOCK | O_NOCTTY" in msd_publish and
+        "fstat(source_fd, &source_stat)" in msd_publish and
+        "S_ISREG(source_stat.st_mode)" in msd_publish and
+        'fdopen(source_fd, "r")' in msd_publish,
+        "MSD Lite config reader must validate a pinned regular file after nonblocking open")
+require("if (source_fd >= 0)" in msd_publish and
+        "close(source_fd)" in msd_publish,
+        "MSD Lite config reader must close a source fd not transferred to stdio")
+require("mkfifo(fifo_path, 0600)" in msd_test and
+        "alarm(5)" in msd_test and "S_ISFIFO(st.st_mode)" in msd_test,
+        "MSD Lite regression must prove FIFO source rejection is bounded")
+for path in ("trunk/user/rc/src/msd_lite_config_file.h",
+             "trunk/user/rc/src/tests/msd_lite_config_file.c"):
+    require(push_filters.count(path) == 1 and pr_filters.count(path) == 1,
+            "MSD Lite config source and regression must trigger push and PR checks")
+require("Compile and run MSD Lite nonblocking config source regression" in workflow,
+        "MSD Lite FIFO regression must compile and execute in the storage workflow")
+
 mount_link_policy = read("trunk/user/rc/src/storage_nfs_export_policy.h")
 mount_link_policy_test = read("trunk/user/rc/src/tests/storage_nfs_export_policy.c")
 services = read("trunk/user/rc/src/services.c")
+msd_config = read("trunk/user/rc/src/msd_lite_config_file.h")
+msd_test = read("trunk/user/rc/src/tests/msd_lite_config_file.c")
 services_usb = read("trunk/user/rc/src/services_usb.c")
 usb_name_policy = read("trunk/user/rc/src/storage_hotplug_name_policy.h")
 usb_name_policy_test = read("trunk/user/rc/src/tests/storage_hotplug_name_policy.c")

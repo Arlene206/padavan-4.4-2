@@ -1,6 +1,7 @@
 #ifndef MSD_LITE_CONFIG_FILE_H
 #define MSD_LITE_CONFIG_FILE_H
 #include <errno.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -51,6 +52,7 @@ msd_lite_config_publish(const char *source_path, const char *destination_path,
     size_t path_length;
     FILE *source = NULL;
     FILE *output = NULL;
+    int source_fd = -1;
     int fd = -1;
     int status = 0;
     int sync_status;
@@ -62,11 +64,17 @@ msd_lite_config_publish(const char *source_path, const char *destination_path,
         strchr(wan_ifname, '\n') != NULL || strchr(wan_ifname, '\r') != NULL ||
         port < 1024 || port > 65535)
         return EINVAL;
+    /*
+     * The persisted source may be damaged or replaced with a FIFO. Opening
+     * with O_NONBLOCK first prevents startup from waiting for a writer; fstat
+     * then validates the pinned inode before stdio can read from it. Following
+     * symlinks to regular config files preserves the existing source contract.
+     */
     errno = 0;
-    source = fopen(source_path, "r");
-    if (source == NULL)
+    source_fd = open(source_path, O_RDONLY | O_NONBLOCK | O_NOCTTY);
+    if (source_fd < 0)
         return errno ? errno : EIO;
-    if (fstat(fileno(source), &source_stat) != 0) {
+    if (fstat(source_fd, &source_stat) != 0) {
         status = errno ? errno : EIO;
         goto out;
     }
@@ -74,6 +82,12 @@ msd_lite_config_publish(const char *source_path, const char *destination_path,
         status = EINVAL;
         goto out;
     }
+    source = fdopen(source_fd, "r");
+    if (source == NULL) {
+        status = errno ? errno : EIO;
+        goto out;
+    }
+    source_fd = -1;
     if (lstat(destination_path, &destination_stat) == 0) {
         if (!S_ISREG(destination_stat.st_mode)) {
             status = EINVAL;
@@ -145,6 +159,8 @@ msd_lite_config_publish(const char *source_path, const char *destination_path,
 out:
     if (source != NULL)
         fclose(source);
+    if (source_fd >= 0)
+        close(source_fd);
     if (output != NULL)
         fclose(output);
     if (fd >= 0)

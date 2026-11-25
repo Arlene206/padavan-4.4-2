@@ -70,6 +70,8 @@ on:
       - "trunk/user/rc/src/usb_hotplug_event_policy.h"
       - "trunk/user/rc/src/storage_nfs_export_policy.h"
       - "trunk/user/rc/src/tests/storage_nfs_export_policy.c"
+      - "trunk/user/rc/src/msd_lite_config_file.h"
+      - "trunk/user/rc/src/tests/msd_lite_config_file.c"
       - "trunk/user/transmission/transmission.sh"
       - "trunk/user/aria2/aria.sh"
       - "trunk/user/scripts/tests/storage_app_start_status.sh"
@@ -168,6 +170,8 @@ on:
       - "trunk/user/rc/src/usb_hotplug_event_policy.h"
       - "trunk/user/rc/src/storage_nfs_export_policy.h"
       - "trunk/user/rc/src/tests/storage_nfs_export_policy.c"
+      - "trunk/user/rc/src/msd_lite_config_file.h"
+      - "trunk/user/rc/src/tests/msd_lite_config_file.c"
       - "trunk/user/transmission/transmission.sh"
       - "trunk/user/aria2/aria.sh"
       - "trunk/user/scripts/tests/storage_app_start_status.sh"
@@ -456,6 +460,14 @@ jobs:
             trunk/user/rc/src/tests/storage_nfs_export_policy.c \
             -o /tmp/storage-nfs-export-policy
           /tmp/storage-nfs-export-policy
+      - name: Compile and run MSD Lite nonblocking config source regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/msd_lite_config_file.c \
+            -o /tmp/msd-lite-config-file
+          ASAN_OPTIONS=detect_leaks=1 /tmp/msd-lite-config-file
       - name: Compile and run checked USB event-marker pair regression
         run: |
           set -eu

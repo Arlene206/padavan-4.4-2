@@ -47,7 +47,7 @@ int main(void)
     char *directory;
     char source_path[512], destination_path[512], missing_source[512];
     char missing_destination[512], directory_destination[512];
-    char symlink_target[512], symlink_path[512];
+    char symlink_target[512], symlink_path[512], fifo_path[512];
     const char *source_text =
         "# keep this comment\n"
         "<ifName>old-iface</ifName>\n"
@@ -73,6 +73,7 @@ int main(void)
     assert(snprintf(directory_destination, sizeof(directory_destination), "%s/directory-target", directory) > 0);
     assert(snprintf(symlink_target, sizeof(symlink_target), "%s/symlink-target", directory) > 0);
     assert(snprintf(symlink_path, sizeof(symlink_path), "%s/symlink-config", directory) > 0);
+    assert(snprintf(fifo_path, sizeof(fifo_path), "%s/fifo-source", directory) > 0);
 
     write_file(source_path, source_text);
     assert(chmod(source_path, 0644) == 0);
@@ -92,6 +93,17 @@ int main(void)
     assert(msd_lite_config_publish(source_path, destination_path, "eth3.2", 70000) == EINVAL);
     assert_file_equals(destination_path, "last-good-configuration\n");
     assert_no_temporary_files(directory, "msd_lite.conf.tmp.");
+
+    /* A FIFO in persisted storage must fail quickly rather than block boot. */
+    assert(mkfifo(fifo_path, 0600) == 0);
+    alarm(5);
+    status = msd_lite_config_publish(fifo_path, destination_path, "eth3.2", 4022);
+    alarm(0);
+    assert(status == EINVAL);
+    assert(lstat(fifo_path, &st) == 0 && S_ISFIFO(st.st_mode));
+    assert_file_equals(destination_path, "last-good-configuration\n");
+    assert_no_temporary_files(directory, "msd_lite.conf.tmp.");
+    assert(unlink(fifo_path) == 0);
 
     status = msd_lite_config_publish(source_path, missing_destination, "eth3.2", 4022);
     assert(status != 0);
@@ -130,6 +142,7 @@ int main(void)
     assert(unlink(destination_path) == 0);
     assert(unlink(symlink_path) == 0);
     assert(unlink(symlink_target) == 0);
+    assert(unlink(fifo_path) != 0 && errno == ENOENT);
     assert(rmdir(directory_destination) == 0);
     assert(rmdir(directory) == 0);
     puts("MSD Lite atomic configuration publication: PASS");
