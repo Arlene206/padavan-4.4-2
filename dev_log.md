@@ -1,3 +1,11 @@
+## 2026-11-25 — Fix DDNSTO UNKNOWN-start fixture and duplicate XY-C1 path
+
+- DDNSTO exact-head #45711617256 on `4abf56ad` passed the executable/UID rejection and procfs-confirmation cases, then failed at UNKNOWN-start. Initial stop does a direct pidof lookup and the shared procfs fallback does a second; the fixture had injected UNKNOWN at call two before launch. Changed injection to call three (first post-launch probe), still independent of daemon scheduling.
+- XY-C1 exact-head #45711617341 failed before Build because `trunk/user/shared/Makefile` appeared twice in its push path filter. Removed the duplicate and retained one existing package dependency path.
+- Parent Process inventory #45711617474, AI docs #45711617453 and Process fail-closed #45711617537 PASS. This atomic correction needs fresh exact-SHA DDNSTO/XY-C1 checks; no firmware success is claimed.
+
+---
+
 ## 2026-11-25 — Bind DDNSTO stop signals to verified process identity
 
 - DDNSTO's numeric-only `pidof` check and name-wide TERM/KILL could signal an unrelated process which merely adopted the `ddnsto` comm name. It also treated `pidof` status 1 as absence without verifying procfs.

@@ -1,25 +1,25 @@
-## Current repository state — 2026-11-26
+## Current repository state — 2026-11-25
 
-- Live main parent for this DDNSTO process-identity slice: `199c9f04e10a54bc66a5683b94ba243b07fb2e13`; product-source baseline is `c0926c379f6f9774d4992ef550353a98a347a690`.
+- Live main parent for this DDNSTO follow-up: `4abf56ad292f1220e786d94bd5198b378ea8aedf`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- On exact source SHA `c0926c37`: WAN IPv6 DNS #45710242187 PASS; HTTPD auth/security #45710242155 PASS; WAN route #45710242121 PASS; Process inventory #45710242116 PASS; NVRAM #45710242112 PASS; WAN DHCP callback #45710242082 PASS; WAN 6rd #45710242043 PASS; IPv6 service-type #45710241898 PASS. XY-C1 #45710242062 was still IN_PROGRESS at last poll (Build running, TRX/artifact pending).
-- AI handoff documentation #45711063239 PASS on docs checkpoint `199c9f04`; product Actions were not rerun by that docs-only commit.
+- DDNSTO exact-head run #45711617256 FAILED in the lifecycle test at the UNKNOWN-start fixture. The new process-identity, UID rejection and procfs ambiguity cases passed. Root cause: pre-launch stop calls pidof once, then the shared procfs absence helper calls it a second time; the mock incorrectly injected UNKNOWN on call two before the daemon launched. The fixture now injects UNKNOWN on call three, the first post-launch poll.
+- XY-C1 exact-head run #45711617341 FAILED at the shared-header path contract because the push path list contained two `trunk/user/shared/Makefile` entries. This fix removes the duplicate and keeps the existing canonical entry.
+- Exact-head Process inventory #45711617474 PASS; AI handoff docs #45711617453 PASS; Process fail-closed #45711617537 PASS on `4abf56ad`.
 
 ## Active task
 
-DDNSTO previously accepted any numeric `pidof ddnsto` result and stopped through name-wide `killall ddnsto` / `killall -9 ddnsto`. This did not bind a candidate PID to the installed daemon executable or service UID, and could signal an unrelated process that adopted the same comm name. BusyBox `pidof` status 1 was also treated as confirmed absence without checking procfs, risking duplicate starts after incomplete enumeration. This slice validates executable device/inode and service UID, uses the shared procfs scanner to confirm absence, and takes fresh process snapshots before exact-PID TERM/KILL. Regression covers spoofed executable, foreign UID, unreadable executable metadata, pidof/procfs disagreement and unreadable procfs.
+Re-run DDNSTO lifecycle and XY-C1 on this test/workflow correction SHA. The DDNSTO implementation binds candidate PIDs to the installed executable device/inode and service UID, uses shared procfs to confirm absence, and takes fresh exact-PID TERM/KILL snapshots. This follow-up changes the regression's pidof call threshold and removes the duplicate XY-C1 path only.
 
 ## Verification boundary
 
-- Parent exact-head WAN IPv6 DNS, HTTPD, WAN route, Process inventory, NVRAM, WAN DHCP callback, WAN 6rd and IPv6 service-type Actions PASS on `c0926c37`; XY-C1 #45710242062 remained in progress at last poll.
-- AI docs #45711063239 PASS on documentation checkpoint `199c9f04`.
-- DDNSTO source, shell regression, static checker and DDNSTO/XY-C1 dependency path filters are included. Exact-SHA DDNSTO/Process/AI/WAN/NVRAM/HTTPD/XY checks must be fetched after publication.
-- No live-router DDNSTO test, firmware build, L3 or L4 result is claimed for this slice.
+- Previous DDNSTO source-contract check passed; its shell regression failed only at the UNKNOWN-start fixture due to the pre-launch lookup count documented above.
+- Previous XY-C1 failed before firmware compilation at the shared-header workflow-path check. No MIPS build, TRX, artifact or L3 result is claimed.
+- Exact-SHA DDNSTO, XY-C1, Process inventory, AI docs and Process fail-closed Actions must be fetched for the resulting main SHA. No live-router or L4 result is claimed.
 
 ## Exact first actions for next GPT
 
-1. Fetch exact-head DDNSTO lifecycle, Process inventory, AI docs, WAN6/route/DNS, NVRAM, HTTPD and XY-C1 Actions for the new SHA; repair same-SHA failures.
-2. Continue another independent Padavan userland reliability/security fix outside the RStats snapshot, WAN ARP EINTR retry, DHCP 6rd relay cap, USB SCSI-generic NVRAM checked-read, ZeroTier host-route normalization and this DDNSTO executable-bound stop. PENDING Actions do not block independent work.
+1. Fetch exact-head DDNSTO lifecycle and XY-C1 runs for the resulting SHA. If either fails, inspect its job log and repair the actual regression; only record L3 complete when Build, TRX check and artifact upload pass on the same SHA.
+2. Continue an independent Padavan userland reliability/security fix outside the completed RStats snapshot, WAN ARP EINTR retry, DHCP 6rd relay cap, USB SCSI-generic NVRAM checked-read, ZeroTier host-route normalization and DDNSTO process-identity slice. PENDING Actions do not block independent work.
 
 # Cross-session execution mandate
 

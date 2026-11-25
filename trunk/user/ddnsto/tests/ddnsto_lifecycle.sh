@@ -61,12 +61,13 @@ export DDNSTO_BIN DDNSTO_LOCK_WAIT_SECONDS
 cat > "$TEST_BIN/pidof" <<'MOCK'
 #!/bin/sh
 [ "$1" = ddnsto ] || exit 1
-# Make the first post-launch inventory UNKNOWN regardless of background scheduling.
+# Startup first checks pidof, then the shared procfs fallback checks it again.
+# Fail the first post-launch lookup (the third call) independent of scheduling.
 if [ "${TEST_UNKNOWN_AFTER_LAUNCH:-0}" = 1 ]; then
 	pidof_call_count=$(cat "$TEST_PIDOF_CALLS" 2>/dev/null || echo 0)
 	pidof_call_count=$((pidof_call_count + 1))
 	printf '%s\n' "$pidof_call_count" > "$TEST_PIDOF_CALLS"
-	[ "$pidof_call_count" -lt 2 ] || exit 2
+	[ "$pidof_call_count" -lt 3 ] || exit 2
 fi
 case "$(cat "$TEST_STATE")" in
 	running)
