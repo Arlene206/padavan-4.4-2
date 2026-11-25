@@ -1,3 +1,13 @@
+## 2026-11-25 — Make MiniUPnP workflow path checks exact, not substring-based
+
+- The second exact-SHA rerun, #45720405943 on `00f9d03bc54d0b351a3684f9c68552aa4d1a7fcb`, again failed in the embedded path-filter contract, now at stdin line 618. The new `Makefile.linux_nft` entry caused a prefix collision: the raw substring count for `Makefile.linux` also matched the longer nft filename, so the source-contract checker falsely counted two hits.
+- Changed the contract to count a path together with its closing YAML quote (`path + '"'`), which asserts an exact quoted path entry and distinguishes the two Makefiles.
+- The actual workflow push/PR filters contain each path exactly once. This fixes validator logic, not product source.
+- Parent baseline: `00f9d03bc54d0b351a3684f9c68552aa4d1a7fcb`. Exact-SHA MiniUPnP and AI handoff reruns will be checked on the next commit; AI handoff #45720405820 already passed.
+- Changed paths: `.github/workflows/miniupnpd-config-stability.yml`, `dev_log.md`.
+
+---
+
 ## 2026-11-25 — Repair MiniUPnP config workflow path-filter contract
 
 - Exact-SHA MiniUPnP config run #45720140098 on `493c184b7a3e33e90a389a17560fc366e493a355` compiled and executed the SOAP UTF-8 policy test, then failed in the workflow's embedded Python path-filter contract (stdin line 617). The workflow's push/PR filters already listed `Makefile.linux_nft`, but the contract's expected-path tuple listed only `Makefile.linux`; the assertion was stale and blocked the otherwise-valid test job.

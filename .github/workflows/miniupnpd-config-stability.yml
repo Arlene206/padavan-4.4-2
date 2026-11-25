@@ -896,8 +896,11 @@ jobs:
               "trunk/user/rc/src/upnp_restart_policy.h",
               "trunk/user/rc/src/tests/upnp_restart_policy.c",
           ):
-              assert push_filters.count(path) == 1
-              assert pr_filters.count(path) == 1
+              # Count exact quoted YAML path entries; "Makefile.linux" is a
+              # prefix of "Makefile.linux_nft" and a raw substring count
+              # would incorrectly report two matches.
+              assert push_filters.count(path + '"') == 1
+              assert pr_filters.count(path + '"') == 1
 
           print("miniupnpd config publication, daemon startup/stop gates and WAN migration contracts: PASS")
           PY
