@@ -1589,6 +1589,14 @@ static BOOLEAN IAPP_SocketOpen(
 	AddrTcp.sin_addr.s_addr = htonl(INADDR_ANY);
 	AddrTcp.sin_port = htons(IAPP_TCP_PORT);
 
+	/* Allow the listener to restart while an accepted peer is in TIME_WAIT. */
+	FlgIsReUsed = 1;
+	if (setsockopt(pCtrlBK->SocketTcpRcv, SOL_SOCKET, SO_REUSEADDR,
+				&FlgIsReUsed, sizeof(FlgIsReUsed)) < 0)
+	{
+		DBGPRINT(RT_DEBUG_ERROR, "iapp> setsockopt-TCP SO_REUSEADDR failed!\n");
+		goto label_fail;
+	} /* End of if */
 	if (bind(pCtrlBK->SocketTcpRcv,
 			(struct sockaddr *)&AddrTcp,
 			sizeof(AddrTcp)) < 0)

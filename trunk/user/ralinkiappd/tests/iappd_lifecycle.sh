@@ -102,6 +102,18 @@ grep -A4 -F 'if (listen(pCtrlBK->SocketTcpRcv, 128) < 0)' "$iapp_source" |
 grep -A4 -F 'if (listen(pCtrlBK->SocketTcpRcv, 128) < 0)' "$iapp_source" |
   grep -Fq 'Listen Rcv TCP failed' ||
   fail "IAPP listen failure must be logged"
+tcp_reuse_line=$(grep -n -F 'setsockopt(pCtrlBK->SocketTcpRcv, SOL_SOCKET, SO_REUSEADDR,' "$iapp_source" | cut -d: -f1)
+tcp_bind_line=$(grep -n -F 'if (bind(pCtrlBK->SocketTcpRcv,' "$iapp_source" | cut -d: -f1)
+[ -n "$tcp_reuse_line" ] && [ -n "$tcp_bind_line" ] && [ "$tcp_reuse_line" -lt "$tcp_bind_line" ] ||
+  fail "IAPP TCP SO_REUSEADDR must be set before bind()"
+grep -A5 -F 'setsockopt(pCtrlBK->SocketTcpRcv, SOL_SOCKET, SO_REUSEADDR,' "$iapp_source" |
+  grep -Fq 'goto label_fail;' ||
+  fail "IAPP TCP SO_REUSEADDR failure must close partial socket state"
+iapp_reuse_test="$tmp/iapp_tcp_restart_reuseaddr"
+cc -std=c99 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L \
+  "$base/tests/iapp_tcp_restart_reuseaddr.c" -o "$iapp_reuse_test" ||
+  fail "could not compile IAPP TCP restart/reuse-address regression"
+"$iapp_reuse_test" || fail "IAPP TCP TIME_WAIT restart regression failed"
 capture_status() { "$@"; rc=$?; printf "%s" "$rc"; }
 mark_running() { mkdir -p "$PROC_ROOT/123"; printf '%s\n' '123 (ralinkiappd) S 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19' > "$PROC_ROOT/123/stat"; ln -sf /sbin/ralinkiappd "$PROC_ROOT/123/exe"; : > "$STATE_DIR/daemon"; }
 mark_stopped() { rm -f "$STATE_DIR/daemon"; rm -rf "$PROC_ROOT/123"; }

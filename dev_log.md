@@ -1,3 +1,10 @@
+## 2026-11-25 — Make the IAPP TCP listener restart-safe after TIME_WAIT
+
+- The Ralink IAPP TCP listener bound port 3517 without SO_REUSEADDR. A graceful stop after accepted TCP peers can leave the server endpoint in TIME_WAIT; an immediate restart then fails bind with EADDRINUSE. A local Linux socket reproduction confirmed the replacement listener must set SO_REUSEADDR and the previous listener must also have had it enabled.
+- Set SO_REUSEADDR on SocketTcpRcv before bind(), fail closed through the existing socket cleanup if setsockopt fails, and add a host C regression that creates an accepted connection, actively closes the server endpoint and immediately rebinds the same port. The IAPP shell suite also pins option-before-bind ordering and failure cleanup.
+- The IAPP workflow now runs the compiled TIME_WAIT regression and watches its new test source. The XY-C1 workflow already watches the full production src subtree. Exact-head Actions pending; no router result claimed.
+
+---
 ## 2026-11-25 — Include Ralink IAPP C sources in XY-C1 build triggers
 
 - Exact-SHA review found a gap in xy-c1-firmware-validation.yml: push and pull_request path filters included the IAPP lifecycle test and shell wrapper but omitted trunk/user/ralinkiappd/src/**. The preceding IAPP C listener fix therefore did not itself trigger firmware validation; a host-test path in the same earlier commit happened to trigger a build.

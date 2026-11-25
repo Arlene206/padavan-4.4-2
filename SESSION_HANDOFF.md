@@ -1,27 +1,28 @@
 ## Current repository state — 2026-11-25
 
-- Live main parent before this CI-trigger correction: e96eb3f4b4fd4ba3fed06e7c8cda13368b6f29d9; XY-C1 workflow, firmware-input regression, dev log and handoff are one atomic descendant.
+- Live main parent before this IAPP TCP restart slice: 1bc8702aafaa7f33c6517f0b3980a7699d5dc929; production C source, host socket regression, shell source contract, IAPP workflow path, dev log and handoff are one atomic descendant.
 - Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains read-only at 72f4f157a084f8184b9597ca5bf334b8080e5807.
-- IAPP firewall exact-match commit defc1fe850158dd8c2bb179ad39a650037c11f5a: IAPP lifecycle #45686985107 PASS, AI handoff #45686985129 PASS, process lifecycle #45686985030 PASS, inventory #45686985036 PASS. XY-C1 #45686985116 was still in progress at last poll.
-- IAPP TCP listen failure commit 5ff68edb06869f3f58d7f69f5db1a96f9788ef2e: IAPP lifecycle #45687310341 PASS, inventory #45687310391 PASS, AI handoff #45687310376 PASS; XY-C1 #45687310380 was in progress at Build XY-C1. The later diagnostic-only source correction e96eb3f4b4fd4ba3fed06e7c8cda13368b6f29d9 did not trigger XY-C1 because its source path was omitted.
-- This commit adds trunk/user/ralinkiappd/src/** to both XY-C1 push and PR path filters and pins both entries in unit tests. The workflow-file change itself should trigger validation on the new SHA; Build/TRX/artifact are pending until observed.
-- FTP ACL gates e02fd3651bb5fa4030fe90876100b9cdec123cc3 + 8b9b63401dd85232b257120111bb18475db6b5b6: VSFTPD, AI, Process and NVRAM exact checks PASS; 8b XY-C1 #45685416720 remained in Build at last poll.
-- Closed PR #1 inventory complete; valid HMAC/CA changes are integrated or superseded, no cherry-pick. Physical-router L4 NOT VERIFIED.
+- XY-C1 firmware L3 was achieved on `8b9b63401dd85232b257120111bb18475db6b5b6`: exact run #45685416720 Build XY-C1 PASS, TRX verification PASS, artifact upload PASS. This is not a physical router L4 result.
+- IAPP firewall exact-match fix `defc1fe850158dd8c2bb179ad39a650037c11f5a` passed IAPP lifecycle #45686985107, AI handoff #45686985129, process lifecycle #45686985030 and inventory #45686985036; its XY-C1 #45686985116 was in progress at last poll.
+- IAPP TCP listen failure fix `5ff68edb06869f3f58d7f69f5db1a96f9788ef2e` passed IAPP lifecycle #45687310341, inventory #45687310391 and AI handoff #45687310376; Process #45687310401 PASS; NVRAM run #45687310476 cancelled by later concurrency. XY-C1 #45687310380 was still building at last poll.
+- XY-C1 workflow source coverage was repaired in `1bc8702aafaa7f33c6517f0b3980a7699d5dc929`, adding `trunk/user/ralinkiappd/src/**` to push and PR path filters; exact Build/Process/handoff runs were queued at last poll.
+- This IAPP slice adds SO_REUSEADDR to TCP listener setup and a compiled host regression for immediate rebind after server-side TIME_WAIT. Exact-head IAPP/XY-C1 CI is pending.
+- PR #1 inventory complete and no code port needed. Backup untouched. Physical-router L4 NOT VERIFIED.
 
 ## Active task
 
-Validate the new XY-C1 source-path trigger and IAPP lifecycle regression on the exact current SHA. L3 only when Build, TRX and artifact upload all PASS on the same SHA. Continue targeted IAPP startup audit afterward.
+Validate the IAPP TCP TIME_WAIT restart test and exact-head XY-C1 firmware build for the SO_REUSEADDR source change. Then continue reviewing IAPP's remaining fatal startup system calls and move across userland.
 
 ## Exact first actions for next GPT
 
-1. Inspect exact-head XY-C1 path-trigger and firmware-input test results; repair a real trigger or detector mismatch.
-2. Poll 5ff68ed XY-C1 #45687310380 and defc1fe XY-C1 #45686985116; record Build/TRX/artifact separately.
-3. Continue IAPP startup review only for demonstrated fatal-resource failure paths.
-4. Preserve the frozen backup and leave closed PR #1 untouched.
+1. Inspect exact-head IAPP workflow's compiled C regression and source-contract steps; repair any real host-test failure.
+2. Verify exact same-SHA XY-C1 Build, TRX and artifact upload for this production C change. L3 is only met when all three PASS.
+3. Poll the 1bc8702 XY-C1 workflow/path coverage tests and previous 5ff/defc runs; record outcomes without waiting when other work is available.
+4. Preserve backup and do not cherry-pick PR #1.
 
 ## Execution contract
 
-Main only; full Git tree, one commit per logical task, non-force update with exact expected main SHA. No force-push, development branch or new PR. PENDING Actions do not block independent work.
+Main only; backup/pre-plugin-overhaul-2026-11-14 read-only. Full Git trees and one commit per logical slice; non-force update with expected parent SHA. No force push, development branches, new PRs.
 ## 2026-11-25 autonomous handoff checkpoint
 
 This checkpoint supersedes older active task pointers below; retain historical completed work without re-auditing completed areas.
