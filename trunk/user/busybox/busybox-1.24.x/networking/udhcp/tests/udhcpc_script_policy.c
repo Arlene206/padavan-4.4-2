@@ -158,6 +158,26 @@ static int test_nak_only_deconfigures_an_active_lease(void)
 }
 
 
+static int test_ack_server_id_filter_respects_selected_server(void)
+{
+	uint32_t selected_server = 0x01020304U;
+	uint32_t alternate_server = 0x05060708U;
+
+	/* REQUESTING and RENEWING stay bound to the selected server. */
+	CHECK(!udhcpc_server_id_rejected(0, selected_server, 1, selected_server));
+	CHECK(udhcpc_server_id_rejected(0, selected_server, 0, 0));
+	CHECK(udhcpc_server_id_rejected(0, selected_server, 1, alternate_server));
+
+	/* Preserve address-less DHCP servers when the offer had no server ID. */
+	CHECK(!udhcpc_server_id_rejected(0, 0, 0, 0));
+	CHECK(!udhcpc_server_id_rejected(0, 0, 1, alternate_server));
+
+	/* REBINDING is broadcast: accept another identified server's ACK only. */
+	CHECK(!udhcpc_server_id_rejected(1, selected_server, 1, alternate_server));
+	CHECK(udhcpc_server_id_rejected(1, selected_server, 0, 0));
+	return 0;
+}
+
 static int test_nak_server_id_filter_respects_rebinding_broadcast(void)
 {
 	uint32_t original_server = 0x01020304U;
@@ -447,6 +467,7 @@ int main(void)
 	    test_option_bitmap_mask_uses_unsigned_high_bit() != 0 ||
 	    test_effective_lease_time_bounds_match_client_timer() != 0 ||
 	    test_nak_only_deconfigures_an_active_lease() != 0 ||
+	    test_ack_server_id_filter_respects_selected_server() != 0 ||
 	    test_nak_server_id_filter_respects_rebinding_broadcast() != 0 ||
 	    test_arp_probe_errors_do_not_publish_a_dhcp_lease() != 0 ||
 	    test_failed_deconfig_blocks_state_transition() != 0 ||

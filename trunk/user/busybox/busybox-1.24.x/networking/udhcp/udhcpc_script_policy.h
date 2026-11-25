@@ -212,22 +212,33 @@ udhcpc_nak_requires_deconfig(int requesting)
 }
 
 /*
- * Outside REBINDING, accept a NAK only from the server selected for the
- * request. REBINDING DHCPREQUESTs are broadcast to any server, so a different
- * server may authoritatively NAK an address that is no longer valid here.
- * RFC 2131 also requires a server to identify itself in the server-ID option.
+ * Outside REBINDING, accept an ACK or NAK only from the server selected for
+ * the request. REBINDING DHCPREQUESTs are broadcast to any server, so another
+ * server may legitimately renew or invalidate the current address. RFC 2131
+ * requires the server to identify itself in the server-ID option.
  */
 static inline int
-udhcpc_nak_server_id_rejected(int rebinding,
-			      uint32_t expected_server_id,
-			      int server_id_present,
-			      uint32_t received_server_id)
+udhcpc_server_id_rejected(int rebinding,
+			  uint32_t expected_server_id,
+			  int server_id_present,
+			  uint32_t received_server_id)
 {
 	if (rebinding)
 		return !server_id_present;
 
 	return expected_server_id != 0 &&
 	       (!server_id_present || received_server_id != expected_server_id);
+}
+
+/* Keep the existing NAK-specific callsite name while sharing the policy. */
+static inline int
+udhcpc_nak_server_id_rejected(int rebinding,
+			      uint32_t expected_server_id,
+			      int server_id_present,
+			      uint32_t received_server_id)
+{
+	return udhcpc_server_id_rejected(rebinding, expected_server_id,
+					 server_id_present, received_server_id);
 }
 
 #endif /* UDHCP_SCRIPT_POLICY_H */

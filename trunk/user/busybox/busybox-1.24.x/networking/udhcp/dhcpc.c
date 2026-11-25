@@ -2008,6 +2008,16 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 		case RENEW_REQUESTED:
 		case REBINDING:
 			if (*message == DHCPACK) {
+				uint32_t svid = 0;
+				uint8_t *server_id_option;
+				server_id_option = udhcp_get_option32(&packet, DHCP_SERVER_ID);
+				if (server_id_option)
+					move_from_unaligned32(svid, server_id_option);
+				if (udhcpc_server_id_rejected(state == REBINDING,
+						server_addr, server_id_option != NULL, svid)) {
+					log1("received DHCP ACK with wrong server ID, ignoring packet");
+					continue;
+				}
 				if (!udhcpc_subnet_mask_option_valid(&packet)) {
 					bb_error_msg("invalid DHCP subnet mask option; deferring ACK");
 					udhcpc_script_failure_prepare_retry(state == REQUESTING,
