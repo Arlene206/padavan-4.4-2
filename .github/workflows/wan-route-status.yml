@@ -17,6 +17,8 @@ on:
 
       - ".github/workflows/wan-route-status.yml"
       - "trunk/user/rc/src/net.c"
+      - "trunk/user/rc/src/static_route_policy.h"
+      - "trunk/user/rc/src/tests/static_route_policy.c"
       - "trunk/user/rc/src/iptv_proxy_nvram_policy.h"
       - "trunk/user/rc/src/iptv_proxy_altnet_policy.h"
       - "trunk/user/rc/src/tests/iptv_proxy_nvram_policy.c"
@@ -150,6 +152,8 @@ on:
       - ".github/workflows/wan-route-status.yml"
       - "trunk/user/rc/src/vpn_client.c"
       - "trunk/user/rc/src/net.c"
+      - "trunk/user/rc/src/static_route_policy.h"
+      - "trunk/user/rc/src/tests/static_route_policy.c"
       - "trunk/user/rc/src/iptv_proxy_nvram_policy.h"
       - "trunk/user/rc/src/iptv_proxy_altnet_policy.h"
       - "trunk/user/rc/src/tests/iptv_proxy_nvram_policy.c"
@@ -285,6 +289,15 @@ jobs:
             trunk/user/rc/src/tests/route_status_policy.c \
             -o /tmp/route-status-policy
           ASAN_OPTIONS=detect_leaks=1 /tmp/route-status-policy
+
+      - name: Compile and run static-route input policy regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/static_route_policy.c \
+            -o "$RUNNER_TEMP/static-route-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/static-route-policy"
 
       - name: Compile and run WAN teardown route-selection policy regression
         run: |
@@ -905,6 +918,15 @@ jobs:
           assert "int status = 0, route_status, api_result, saved_errno, enabled;" in static
           assert 'nvram_get_checked("sr_enable_x", &enable_value)' in static
           assert "static_route_nvram_enabled_status(api_result, saved_errno" in static
+          strict_ipv4_validation = static.index("static_route_ipv4_address_is_valid(ipaddr)")
+          strict_netmask_validation = static.index("static_route_ipv4_address_is_valid(netmask)")
+          strict_gateway_validation = static.index("static_route_ipv4_address_is_valid(gateway)")
+          route_add_delete = static.index("route_status = is_add ?")
+          assert "if (is_add &&" in static[:strict_ipv4_validation]
+          assert "route_status = EINVAL;" in static[strict_gateway_validation:route_add_delete]
+          assert strict_ipv4_validation < strict_netmask_validation < strict_gateway_validation < route_add_delete
+          assert "static_route_ipv4_address_is_valid" in policy
+          assert "test" not in static
           assert "if (!enabled)" in static
           assert 'nvram_invmatch("sr_enable_x", "1")' not in static
           assert 'nvram_safe_get("wanx_gateway")' not in static
