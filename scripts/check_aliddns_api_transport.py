@@ -441,9 +441,8 @@ require(
     and '$i == "tentative"' in ipv6_discovery
     and '$i == "deprecated"' in ipv6_discovery
     and 'aliddns_ipv6_public_valid "$wan6_address" || return 1' in ipv6_discovery
-    and "ifconfig " not in ipv6_discovery
-    and "count != 1" in ipv6_discovery,
-    "stock IPv6 DDNS discovery must select one usable stable GUA from the configured WAN6 interface",
+    and "ifconfig " not in ipv6_discovery,
+    "stock IPv6 DDNS discovery must prefer one usable stable GUA and retain a sole temporary fallback",
 )
 require(
     "WAN IPv6 discovery regression" in ipv6_test

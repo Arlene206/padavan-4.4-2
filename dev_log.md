@@ -1,3 +1,12 @@
+## 2026-11-25 — Remove stale single-address-count requirement from AliDDNS checker
+
+- Exact AliDDNS run #45713773321 on `6a8d91b6` passed every shell regression, including the new WAN IPv6 selector (stable preference and sole-temporary fallback), but the Python source-contract checker still required the old `count != 1` test from the ifconfig implementation.
+- Removed that obsolete checker predicate. The new stable/secondary counters and their explicit one-candidate branches remain required; the contract message now reflects both supported selection outcomes.
+- The full shell regression and AWK selector tests passed on #45713773321 before the stale contract failed. Exact-head AliDDNS CI for this checker correction is pending; no firmware or hardware result is claimed.
+- Changed paths: `scripts/check_aliddns_api_transport.py`, `dev_log.md`.
+
+---
+
 ## 2026-11-25 — Rebuild the DDNSTO lifecycle test tail without duplicated fragments
 
 - Exact DDNSTO run #45713687122 on `8cf6160f` still failed after the force-stop fixture because earlier string replacements had only partially repaired the quoted grep expression. Inspection of the full 891-line test also exposed a pre-existing duplicated concurrency/restart block and orphan command lines after the first restart PASS, which could invoke the signal log as a command.
