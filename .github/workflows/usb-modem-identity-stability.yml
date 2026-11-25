@@ -930,6 +930,7 @@ jobs:
 
           commands = Path("trunk/user/uqmi/commands.c").read_text()
           modem = Path("trunk/user/rc/src/usb_modem.c").read_text()
+          retry_policy = Path("trunk/user/rc/src/modem_wan_start_policy.h").read_text()
           helper = Path("trunk/user/uqmi/uqmi-status-file.h").read_text()
           reader = Path("trunk/user/rc/src/modem_qmi_status_file.h").read_text()
           reader_test = Path("trunk/user/rc/src/tests/modem_qmi_status_file.c").read_text()
