@@ -635,14 +635,17 @@ static void
 test_sit_route4_record_rejects_ambiguous_delimiters(void)
 {
 	char record[WAN6_SIT_ROUTE4_RECORD_SIZE];
+	char ifname[WAN6_SIT_ROUTE4_IFNAME_SIZE];
+	char endpoint[WAN6_SIT_ROUTE4_IPV4_SIZE];
+	char gateway[WAN6_SIT_ROUTE4_IPV4_SIZE];
 
 	assert(wan6_sit_route4_record_format(
 		"eth|2", "192.0.2.1", "192.0.2.254",
 		record, sizeof(record)) == EINVAL);
 	assert(wan6_sit_route4_record_parse(
 		"eth2|192.0.2.1|192.0.2.254|extra",
-		record, sizeof(record), record, sizeof(record),
-		record, sizeof(record)) == EINVAL);
+		ifname, sizeof(ifname), endpoint, sizeof(endpoint),
+		gateway, sizeof(gateway)) == EINVAL);
 }
 
 static void

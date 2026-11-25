@@ -21,6 +21,8 @@ NET_SOURCE = (RC / "net.c").read_text()
 NET_LAN_SOURCE = (RC / "net_lan.c").read_text()
 NET_LAN6_SOURCE = (RC / "net_lan6.c").read_text()
 NET_WAN6_SOURCE = (RC / "net_wan6.c").read_text()
+NET_WAN6_IDENTITY_POLICY_SOURCE = (RC / "wan6_identity_policy.h").read_text()
+NET_WAN6_IDENTITY_POLICY_TEST = (RC / "tests/wan6_identity_policy.c").read_text()
 LAN_ADDR6_RELOAD_POLICY_SOURCE = (RC / "lan_addr6_reload_policy.h").read_text()
 LAN_ADDR6_RELOAD_POLICY_TEST = (RC / "tests/lan_addr6_reload_policy.c").read_text()
 FIREWALL_SOURCE = (RC / "firewall_ex.c").read_text()
@@ -840,6 +842,13 @@ assert wan6_down.index("operation_status = stop_sit_tunnel();") < wan6_down.inde
 assert "wan6_sit_route4_cleanup(unit)" in sit_start
 assert "wan6_sit_route4_publish(" in sit_start
 assert "wan6_sit_route4_cleanup_record" in NET_WAN6_IDENTITY_POLICY_SOURCE
+for test_name in (
+    "test_sit_route4_record_format_and_parse_round_trip",
+    "test_sit_route4_cleanup_preserves_record_when_route_delete_fails",
+    "test_sit_route4_cleanup_clears_record_when_route_is_already_absent",
+    "test_sit_route4_cleanup_rejects_malformed_record_without_mutation",
+):
+    assert test_name in NET_WAN6_IDENTITY_POLICY_TEST, test_name
 assert 'reset_values[6].param_name = "sit_route4";' in NET_WAN6_SOURCE
 assert wan_route_cleanup < wan_neigh_cleanup < wan_addr_cleanup
 # The tenth aggregate preserves checked IPv6 runtime-metadata clear failures.
