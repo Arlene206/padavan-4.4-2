@@ -28,7 +28,7 @@ EOF_LOGGER
 cat > "$sandbox/bin/reset_ss.sh" <<'EOF_RESET'
 #!/bin/sh
 printf '%s\n' "$*" >> "$RESET_SS_LOG"
-exit 0
+[ "${RESET_SS_FAIL:-0}" != 1 ]
 EOF_RESET
 cat > "$sandbox/bin/mkdir" <<'EOF_MKDIR'
 #!/bin/sh
@@ -66,7 +66,7 @@ sed \
 chmod +x "$sandbox/mtd_storage.sh"
 
 export PATH="$sandbox/bin:$PATH"
-export REAL_MKDIR="$real_mkdir" FILL_MKDIR_FAIL_PATH=
+export REAL_MKDIR="$real_mkdir" FILL_MKDIR_FAIL_PATH= RESET_SS_FAIL=0
 export LOGGER_LOG="$sandbox/logger.log" RESET_SS_LOG="$sandbox/reset-ss.log"
 
 run_fill()
@@ -85,7 +85,8 @@ reset_case()
 	: > "$LOGGER_LOG"
 	FILL_TAR_FAIL=0
 	FILL_MKDIR_FAIL_PATH=
-	export FILL_MKDIR_FAIL_PATH
+	RESET_SS_FAIL=0
+	export FILL_MKDIR_FAIL_PATH RESET_SS_FAIL
 }
 
 # A nested directory symlink must not let dnsmasq defaults escape /etc/storage.
@@ -142,6 +143,17 @@ fi
 test ! -d "$sandbox/storage/cron/crontabs"
 test ! -s "$RESET_SS_LOG"
 grep -Fq 'Cannot create storage directory:' "$LOGGER_LOG"
+
+# A failed start-script generator must not be reported as a successful fill.
+reset_case
+RESET_SS_FAIL=1
+export RESET_SS_FAIL
+if run_fill >/dev/null 2>&1; then
+	echo "failed reset_ss start-script generation unexpectedly succeeded" >&2
+	exit 1
+fi
+grep -Fqx -- '-a' "$RESET_SS_LOG"
+grep -Fq 'Cannot generate default start script:' "$LOGGER_LOG"
 
 # Failed bundled archive extraction must not leave a partial directory that
 # causes later boot fills to mistake an incomplete tree for a completed one.

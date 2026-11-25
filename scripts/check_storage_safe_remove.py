@@ -202,7 +202,10 @@ require('func_fill_mkdir "$dir_crond" 730' in fill_body and
         "MTD fill must not silently ignore default storage directory creation failures")
 require('if ! func_fill_validate_paths; then' in fill_body and
         fill_body.index('if ! func_fill_validate_paths; then') <
-        fill_body.index('mkdir -p -m 730 "$dir_crond"') and
+        fill_body.index('func_fill_mkdir "$dir_crond" 730') and
+        'if ! reset_ss.sh -a; then' in fill_body and
+        'Cannot generate default start script:' in fill_body and
+        '[ -L "$script_start" ]' in fill_body and
         '"$dir_storage/dnsmasq.conf"' in fill_validate and
         '"$script_start"' in fill_validate and
         '"$dir_sswan_crt/private"' in fill_validate,
@@ -221,6 +224,8 @@ for item in ("dnsmasq directory symlink unexpectedly accepted",
              "Unsafe storage file target:",
              "storage directory creation failure unexpectedly succeeded",
              "Cannot create storage directory:",
+             "failed reset_ss start-script generation unexpectedly succeeded",
+             "Cannot generate default start script:",
              "partial chnroute extraction unexpectedly succeeded",
              "Cannot extract chnroute archive:"):
     require(item in mtd_storage_fill_test,

@@ -897,7 +897,14 @@ func_fill()
 
 	# create start script
 	if [ ! -f "$script_start" ] ; then
-		reset_ss.sh -a
+		if ! reset_ss.sh -a; then
+			logger -t "Storage fill" "Cannot generate default start script: $script_start"
+			return 1
+		fi
+		if [ ! -f "$script_start" ] || [ -L "$script_start" ]; then
+			logger -t "Storage fill" "Default start-script generator did not publish a safe file: $script_start"
+			return 1
+		fi
 	fi
 
 	# create started script

@@ -1,3 +1,11 @@
+## 2026-11-25 20:00 CST — Require successful reset_ss publication during fill
+
+- Default fill previously invoked `reset_ss.sh -a` without checking its result or confirming that the expected `start_script.sh` was published. A write/rename failure could be hidden while fill returned success and reset proceeded to service startup.
+- Fill now stops on a failing generator and independently verifies that the resulting start script is a regular non-symlink file. Added a host/BusyBox ash failure-injection case and static source-contract assertions.
+- Exact storage and XY-C1 validation required. No local shell/firmware/hardware result is claimed.
+
+---
+
 ## 2026-11-25 19:55 CST — Propagate required MTD fill directory-creation failures
 
 - MTD default fill ignored several `mkdir -p` failures for cron, HTTPS, dnsmasq, inadyn, WLAN, OpenVPN and strongSwan state. The function could continue with an incomplete configuration tree and let reset proceed to application startup. Added a checked mkdir helper that revalidates the path, preserves existing-directory modes, logs failures, and aborts fill; migrated all required default directories to it.
