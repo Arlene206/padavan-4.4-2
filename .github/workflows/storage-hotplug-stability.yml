@@ -19,12 +19,14 @@ on:
       - ".github/workflows/storage-hotplug-stability.yml"
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/scripts/files/sbin/mtd_storage.sh"
+      - "trunk/user/scripts/files/sbin/rwfs2ubi.sh"
       - "trunk/user/httpd/src/httpd.h"
       - "trunk/user/httpd/src/upload.c"
       - "trunk/user/httpd/src/web_ex.c"
       - "trunk/user/scripts/tests/mtd_storage_save_retry.sh"
       - "trunk/user/scripts/tests/mtd_storage_restore_transaction.sh"
       - "trunk/user/scripts/tests/mtd_storage_backup_failure.sh"
+      - "trunk/user/scripts/tests/rwfs2ubi_status.sh"
       - "trunk/user/scripts/tests/mtd_storage_load_transaction.sh"
       - "trunk/user/scripts/tests/mtd_storage_erase_reset.sh"
       - "trunk/user/rc/src/storage_persistence_policy.h"
@@ -112,6 +114,7 @@ on:
       - ".github/workflows/storage-hotplug-stability.yml"
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/scripts/files/sbin/mtd_storage.sh"
+      - "trunk/user/scripts/files/sbin/rwfs2ubi.sh"
       - "trunk/user/httpd/src/httpd.h"
       - "trunk/user/httpd/src/upload.c"
       - "trunk/user/httpd/src/web_ex.c"
@@ -120,6 +123,7 @@ on:
       - "trunk/user/scripts/tests/mtd_storage_load_transaction.sh"
       - "trunk/user/scripts/tests/mtd_storage_erase_reset.sh"
       - "trunk/user/scripts/tests/mtd_storage_backup_failure.sh"
+      - "trunk/user/scripts/tests/rwfs2ubi_status.sh"
       - "trunk/user/rc/src/storage_persistence_policy.h"
       - "trunk/user/rc/src/tests/storage_persistence_policy.c"
       - "trunk/user/rc/src/common_ex.c"
@@ -335,6 +339,15 @@ jobs:
           "$busybox_bin" ash -n trunk/user/smartdns/smartdns.sh
           "$busybox_bin" ash -n trunk/user/smartdns/smartdns_process_lifecycle.sh
           "$busybox_bin" ash trunk/user/smartdns/tests/smartdns_process_lifecycle.sh
+      - name: Verify RWFS-to-UBI flash and configuration failure handling
+        run: |
+          set -eu
+          sh -n trunk/user/scripts/files/sbin/rwfs2ubi.sh
+          sh -n trunk/user/scripts/tests/rwfs2ubi_status.sh
+          sh trunk/user/scripts/tests/rwfs2ubi_status.sh
+          busybox_bin="$PWD/trunk/user/busybox/busybox-1.24.x/busybox"
+          test -x "$busybox_bin"
+          BUSYBOX_BIN="$busybox_bin" sh trunk/user/scripts/tests/rwfs2ubi_status.sh
       - name: Check MTD storage save script syntax
         run: sh -n trunk/user/scripts/files/sbin/mtd_storage.sh
       - name: Verify MTD storage save retry after flash failure
