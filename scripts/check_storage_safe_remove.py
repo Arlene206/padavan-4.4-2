@@ -188,7 +188,11 @@ fill_check_file = body(mtd_storage, "func_fill_check_file()")
 fill_validate = body(mtd_storage, "func_fill_validate_paths()")
 fill_mkdir = body(mtd_storage, "func_fill_mkdir()")
 fill_set_mode = body(mtd_storage, "func_fill_set_mode()")
-fill_body = body(mtd_storage, "func_fill()")
+fill_body_start = mtd_storage.find("func_fill()")
+fill_body_end = mtd_storage.find('\\ncase "$1" in', fill_body_start)
+require(fill_body_start >= 0 and fill_body_end > fill_body_start,
+        "MTD fill function must end before the command dispatcher")
+fill_body = mtd_storage[fill_body_start:fill_body_end]
 chnroute_start = fill_body.index("# create chnroute.txt")
 chnroute_end = fill_body.index("# create gfwlist", chnroute_start)
 chnroute_block = fill_body[chnroute_start:chnroute_end]
