@@ -1,29 +1,40 @@
-## Current repository state
+## Current repository state — 2026-11-25
 
-- Main parent for this focused VSFTPD upload-candidate fix: `8f2f34597dd87318be2478ef58f00d3ef0ee6073`; this change is one atomic non-forced descendant.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- OpenVPN startup readiness and rollback protections are retained. RNFR checks final symlink entries with descriptor-relative `fstatat(AT_SYMLINK_NOFOLLOW)`.
-- STOU unique-name selection now checks candidate existence only after WRITE ACL authorization and uses nofollow entry stat; this slice revalidates the canonical parent identity again after the candidate stat before accepting the result.
+- Main source checkpoint: `4bbbcd391987de3e200770a865b0401e556b4b20` (WAN DHCPv4 OPTION_6RD validation).
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains untouched at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- FTP hardening is retained: partition `.hidden` marker reserved; RNFR and STOU candidate lookups use authorized, pinned parent descriptors and nofollow entry stats; STOU revalidates parent identity after lookup.
+- DHCPv4 OPTION_6RD validation now enforces the RFC 5969 prefix-size bound before transactional NVRAM publication, so malformed options do not replace the last known-good 6rd tuple.
+- OpenVPN startup/readiness and rollback protections remain unchanged. Physical-router L4 is NOT VERIFIED.
 
 ## Active task
 
-- Close the remaining parent-path replacement window in `asus_check_upload_candidate_exists()`: a second canonical path/descriptor identity verification must succeed after the nofollow candidate stat and before the pinned FD is released.
+- Continue independent WAN/userland reliability and security work. Do not repeat audits/fixes already completed for FTP `.hidden`, RNFR symlink handling, STOU pre-authorization/parent verification, or DHCPv4 6rd prefix bounds.
 
-## Verification boundary
+## Verification boundary — exact source SHA
 
-- Parent `8f2f34597dd87318be2478ef58f00d3ef0ee6073` is the source state; this new source guard and embedded workflow assertion require exact-SHA VSFTPD Actions. No test or CI result is assumed for the new commit.
-- The prior RNFR source/test fix is retained; its C regression and source-contract run passed on its validated SHA.
-- Physical-router L4 NOT VERIFIED.
+On `4bbbcd391987de3e200770a865b0401e556b4b20`:
+- WAN DHCP callback #45671544919 PASS, including the new GNU89/ASan/UBSan OPTION_6RD boundary regression and `check_wan6_dns_policy.py` source-order contract.
+- IPv6 service-type #45671544995 PASS.
+- WAN route status #45671545155 PASS.
+- HTTPD authentication/security #45671544917 PASS.
+- AI handoff validation #45671545086 PASS.
+- Process lifecycle inventory #45671545105 PASS.
+- NVRAM transaction audit #45671544955 still IN_PROGRESS at the raw userland ioctl/kernel caller audit stage; preceding host regressions had passed.
+- XY-C1 firmware #45671545199 still IN_PROGRESS at last poll; Build, TRX verification and artifact upload were PENDING. No L3 firmware result is claimed for this SHA yet.
+- Host-side OPTION_6RD C regression also passed locally with GNU89, `-Wall -Wextra -Werror`, ASan and UBSan.
 
-## Exact first action for the next GPT
+## Exact first actions for next GPT
 
-1. Check this commit's exact-SHA VSFTPD stability workflow; confirm the new parent-identity contract and all FTP ACL path C regressions pass.
-2. Continue STOU exclusive-create collision handling and remaining VSFTPD ACL call-site review; if checks are pending, work another independent stability issue.
-3. For any XY-C1-triggered run, require Build XY-C1, TRX verification and artifact upload on the exact source SHA before claiming firmware validation.
+1. Poll XY-C1 run #45671545199 on the exact source SHA. Require Build XY-C1, TRX verification and artifact upload all PASS before recording L3.
+2. Check NVRAM raw ioctl/kernel caller audit #45671544955 for completion or a concrete failure; do not wait if it remains pending.
+3. Continue a separate P1 source defect in WAN/userland; keep commits small and include regression tests.
+4. Update this handoff and roadmap after each validated source slice; preserve all historical dev-log entries.
 
 ## Execution contract
 
-Source/test → one complete Git tree/commit → non-force expected-SHA update → exact-SHA Actions. Main only; backup immutable; preserve the rolling root log and handoff history.
+Source/test → one complete Git tree/commit → non-force expected-SHA update → exact-SHA Actions. Main only; never force-push; frozen backup untouched. PENDING does not block independent work.
+
+---
 
 ## 2026-11-25 autonomous handoff checkpoint
 

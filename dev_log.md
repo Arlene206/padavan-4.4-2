@@ -1,3 +1,12 @@
+## 2026-11-25 — Reject impossible DHCPv4 OPTION_6RD prefix mappings
+
+- Base SHA: `7404c9e0b49f7395ad90d07b9f5f2d82cb501d26`; atomic source commit: `4bbbcd391987de3e200770a865b0401e556b4b20`.
+- Found that `store_ip6rd_from_dhcp_status()` range-checked each OPTION_6RD field independently, then transactionally published the tuple even when the derived delegated-prefix length exceeded 128 bits. The later tunnel setup rejected the mapping, but the invalid tuple had already replaced the previous valid NVRAM state.
+- Added `wan6_sixrd_prefix_mapping_is_valid()` and call it before `wan6_publish_6rd_snapshot()`. It enforces RFC 5969's `(32 - IPv4MaskLen) + 6rdPrefixLen <= 128` bound; invalid optional DHCP options remain a no-op and preserve the previous tuple. Added GNU89 boundary tests for valid /128 and /96 edges, 129-bit overflow and out-of-range fields, plus Python source-order contracts and the CI compile/run step.
+- Host C test passed with GNU89, `-Wall -Wextra -Werror`, ASan and UBSan. Exact-SHA WAN DHCP callback #45671544919 PASS, including the new C test and source checker. WAN route #45671545155, IPv6 service type #45671544995, HTTPD security #45671544917, AI docs #45671545086 and Process inventory #45671545105 PASS. NVRAM raw ioctl audit #45671544955 and XY-C1 #45671545199 were still IN_PROGRESS at last poll; XY Build/TRX/artifact not yet confirmed. Physical-router L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-26 05:02 CST (UTC+8) — Revalidate STOU candidate parent after nofollow stat
 
 - Base SHA: `8f2f34597dd87318be2478ef58f00d3ef0ee6073`; focused VSFTPD source/workflow/handoff update.
