@@ -1,3 +1,11 @@
+## 2026-11-25 21:57 CST (UTC+8) — Update WAN teardown LAN IPv6 reload contract
+
+- Exact-head WAN teardown #45629160931 on `d5adff9d7413b391d523d4b2c0d571d75de8b98a` failed in the final Python source-contract block because it still expected `rc_lan_addr6_reload_from_snapshot()`; production now uses the recovery-aware `rc_lan_addr6_reload_from_snapshot_with_recovery()`. The GNU89 LAN IPv6 policy fixture had already compiled and printed PASS in this same job; the failure was a stale assertion, not a C regression.
+- Updated the teardown contract to require the recovery-aware snapshot/apply APIs and argv-based BusyBox `ip addr replace` restoration. Added `net_lan6.c`, the policy header and fixture to the workflow's internal push/PR path assertions. No production source changed in this follow-up.
+- On `d5adff9`: Process lifecycle inventory #45629160410, IPv6 service type #45629160900, AI docs #45629161062 and DNSMasq #45629160328 PASS; WAN teardown #45629160931 failed as described; WAN route #45629160990, XY-C1 #45629161139, NVRAM #45629160447 and Process fail-closed #45629160483 were still in progress at last poll. XY Build/TRX/artifact were pending. Current-source L3 is NOT VERIFIED; physical L4 is NOT VERIFIED.
+
+---
+
 ## 2026-11-25 21:55 CST (UTC+8) — Recover LAN IPv6 address after failed reload
 
 - Found a second destructive-update gap in `reload_lan_addr6()`: it flushes all global addresses on `br0`, then adds the configured NVRAM address. If the flush partially fails or the add fails, it previously returned an error without making a compensating attempt to preserve/recreate the configured address.

@@ -1,19 +1,18 @@
-## 2026-11-25 autonomous handoff — LAN IPv6 reload compensation
+## 2026-11-25 autonomous handoff — repair stale WAN teardown LAN6 contract
 
-- Main parent: `7a9bdb35a879be1dfae3bbc8277b2a6a845249cf`. Previous product-source slices include bridge M2U rollback `d9d23feb`, SIT LAN IPv6 restoration `0ae46202`, and duplicate SIT endpoint route ownership `103e7355`; the WAN-DHCP checker correction is `7a9bdb35`.
-- Active source fix: `reload_lan_addr6()` formerly flushed global addresses and could lose configured `lan_addr6` when clear/add failed. Recovery uses BusyBox 1.24's verified argv-based `ip -6 addr replace`, preserving the primary operation error and reporting recovery failure independently. Seven GNU89 regression cases cover all paths.
-- XY-C1 path filters now include `net_lan6.c`; require Build XY-C1 + TRX verification + artifact upload to PASS on this same product-source SHA before claiming L3.
-- On `103e7355`: WAN route #45627761309, AI docs #45627761272, Process #45627761497, IPv6 service #45627761403 and HTTPD #45627761288 PASS. WAN DHCP #45627761300 failed on a stale SIT route ownership assertion; corrected in `7a9bdb3`, then WAN DHCP #45628195224 and AI docs #45628195241 PASS on that follow-up. NVRAM #45627761287 and XY-C1 #45627761382 were still running at last poll (Build active; TRX/artifact pending).
-- On `a87df81`, WAN DHCP #45627045137, Firewall #45627044735, AI docs #45627044665, Process #45627044638 and USB modem #45627045198 PASS. XY-C1 #45627044645 host tests passed but Build/TRX/artifact were skipped because it had no production-source diff. Historical L3 on `0bed846` does not validate current sources. No physical-router L4.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only.
+- Main parent: `d5adff9d7413b391d523d4b2c0d571d75de8b98a`. Current production changes are bridge M2U transactional rollback (`0bed846`), SIT LAN IPv6 rollback (`0ae462`), SIT duplicate-route ownership (`103e735`) and LAN IPv6 reload recovery (`d5adff9`).
+- Exact WAN teardown #45629160931 on `d5adff9` reached and passed the GNU89 LAN IPv6 policy regression, then failed only because its embedded Python checker expected the old `rc_lan_addr6_reload_from_snapshot()` API. Production now uses `rc_lan_addr6_reload_from_snapshot_with_recovery()`. This workflow-only correction updates the source contract and checks the LAN6 files in both push and PR filters.
+- On `d5adff9`: Process lifecycle inventory #45629160410, IPv6 service type #45629160900, AI docs #45629161062 and DNSMasq #45629160328 PASS. WAN teardown #45629160931 FAIL (stale checker, fixed here); WAN route #45629160990, XY-C1 #45629161139, NVRAM #45629160447 and Process fail-closed #45629160483 were in progress. XY Build/TRX/artifact were pending at last poll.
+- LAN IPv6 reload fix snapshots NVRAM before mutation, then tries idempotent `ip -6 addr replace` recovery after clear/add errors. Seven new fixture cases were added. XY-C1 path filter includes `net_lan6.c`; verify actual Build + TRX + artifact on a single identical SHA.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. No current-source L3 or physical L4 result is claimed.
 
 ### First actions
-1. Inspect exact-head WAN route, XY-C1, NVRAM and related Actions on this commit. Fix only genuine first failures, without weakening coverage.
-2. Confirm Build XY-C1, TRX and artifact upload all PASS on the same production-source SHA.
-3. Continue a separate concrete stability/security fix while Actions are pending; do not repeat completed M2U/VLAN/SIT audits without new evidence.
+1. Check fresh exact-head WAN teardown and WAN route outcomes; repair any next real regression.
+2. Resolve XY-C1 Build XY-C1, TRX verification and artifact upload on one identical source SHA; also check NVRAM and Process fail-closed runs.
+3. Continue independent stability/security implementation while pending; do not repeat M2U/VLAN/SIT audits without new evidence.
 
 ### Execution contract
-Source/test → one complete Git tree/commit → non-forced expected-SHA update → exact-SHA Actions. Main only; frozen backup immutable; no branches/PRs/force pushes.
+Source/test → full Git tree/commit → non-forced expected-SHA update → exact-SHA Actions. Main only; no branches, PRs, force pushes or backup changes.
 
 ## 2026-11-25 autonomous handoff checkpoint
 

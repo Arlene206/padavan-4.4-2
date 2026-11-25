@@ -84,8 +84,11 @@ jobs:
           assert "lan6_read_reset_snapshot(ipv6_type, &snapshot)" in reset_lan6
           assert reset_lan6.index("if (status != 0)") < reset_lan6.index('nvram_set_temp("lan_addr6", addr6s)')
           assert 'lan6_read_config_value_status(\n\t\t"lan_addr6"' in reload_lan6
-          assert "rc_lan_addr6_reload_from_snapshot(" in reload_lan6
-          assert "rc_lan_addr6_reload_from_snapshot(" in lan6_policy
+          assert "rc_lan_addr6_reload_from_snapshot_with_recovery(" in reload_lan6
+          assert "rc_lan_addr6_reload_from_snapshot_with_recovery(" in lan6_policy
+          assert "rc_lan_addr6_reload_apply_with_recovery(" in lan6_policy
+          assert "restore_lan_addr6_for_reload" in reload_lan6
+          assert 'eval("ip", "-6", "addr", "replace", lan_addr6, "dev", IFNAME_BR)' in lan6
           assert "rc_lan_addr6_format_prefix(addr6_text, 64, p_addr6s" in lan6_prefix
           assert 'lan6_read_config_value_status(\n\t\t"lan_addr6"' in lan6_prefix
           assert 'sprintf(addr6s, "%s/%d", addr6s' not in reset_lan6
@@ -278,6 +281,9 @@ jobs:
           paths = (
               ".github/workflows/wan-teardown-stability.yml",
               "trunk/user/rc/src/net_wan.c",
+              "trunk/user/rc/src/net_lan6.c",
+              "trunk/user/rc/src/lan_addr6_reload_policy.h",
+              "trunk/user/rc/src/tests/lan_addr6_reload_policy.c",
               "trunk/user/rc/src/usb_modem.c",
               "trunk/user/rc/src/wan_teardown_policy.h",
               "trunk/user/rc/src/tests/wan_teardown_policy.c",
