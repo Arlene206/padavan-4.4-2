@@ -1,3 +1,10 @@
+## 2026-11-25 — Correct Redsocks mock newline escaping
+
+- Exact review of the preceding fixture correction found its generated `printf` format strings contained two literal backslashes before `n`, rather than the shell's single escape. That would store the rule key with a literal backslash and letters `n`, not terminate the record, so the mock still could not validate its own rule table.
+- Normalize both command trace and rule storage to a single `\n` format escape. Keep complete `table|chain rule` identity; production source unchanged.
+
+---
+
 ## 2026-11-25 — Preserve complete chain identity in Redsocks firewall mock
 
 - The next fixture review found a second inconsistency after clearing the escaped CHECK/DELETE controls: mocked `-C/-D` already keyed rules as `table|chain rule`, but `-A` still omitted the chain. This made valid additions invisible to the mock's own lookup/count/flush logic. Updated `-A` storage and command traces to retain chain identity consistently.
