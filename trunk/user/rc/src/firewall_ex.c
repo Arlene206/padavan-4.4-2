@@ -1504,13 +1504,14 @@ fill_static_routes(char *buf, int len, const char *ift)
 			goto failed;
 
 		if (!static_route_ipv4_address_is_valid(ip) ||
-		    !static_route_ipv4_address_is_valid(netmask)) {
+		    !static_route_ipv4_netmask_is_valid(netmask) ||
+		    !static_route_gateway_is_valid_or_empty(gateway)) {
 			status = EINVAL;
 			goto failed;
 		}
-		/* Resolve the legacy WAN gateway fallback with a checked read before
-		 * any route mutation. Cache it for all entries in this snapshot. */
-		if (!static_route_ipv4_address_is_valid(gateway)) {
+		/* Resolve the legacy WAN gateway fallback only when the configured
+		 * gateway is empty. An invalid explicit value must fail closed. */
+		if (static_route_gateway_needs_fallback(gateway)) {
 			if (!fallback_gateway_loaded) {
 				status = firewall_copy_static_route_global_setting(
 					"wanx_gateway", fallback_gateway,

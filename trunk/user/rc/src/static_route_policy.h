@@ -124,6 +124,21 @@ static_route_ipv4_address_is_valid(const char *value)
 	return separators == 3 && digits > 0;
 }
 
+/* Only an empty gateway selects the legacy WAN fallback; malformed explicit
+ * values must not be silently converted into a different route. */
+static inline int
+static_route_gateway_needs_fallback(const char *value)
+{
+	return value && value[0] == '\0';
+}
+
+static inline int
+static_route_gateway_is_valid_or_empty(const char *value)
+{
+	return static_route_gateway_needs_fallback(value) ||
+	       static_route_ipv4_address_is_valid(value);
+}
+
 /*
  * An IPv4 netmask is a contiguous run of leading one bits. The all-zero
  * mask is retained for an explicit default route (0.0.0.0/0).
