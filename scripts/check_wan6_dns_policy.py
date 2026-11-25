@@ -538,7 +538,10 @@ assert vpn_export.index("if (wan_addr6_status != 0)") < vpn_export.index("get_la
 # failed startup while a background client remains alive with stale state.
 dhcp6_start = body(source, "int start_dhcp6c(char *wan_ifname)")
 assert "client_stop_required = dhcp6c_callback_start_requires_stop(" in dhcp6_start
-assert "dhcp6c_callback_start_requires_stop(start_status, cleanup_status)" in callback_policy
+callback_stop_policy = body(
+    callback_policy, "dhcp6c_callback_start_requires_stop("
+)
+assert "return start_status == 0 && cleanup_status != 0;" in callback_stop_policy
 assert "test_successful_start_with_environment_cleanup_failure_requires_stop" in callback_test
 generation_failure = dhcp6_start.index("if (start_status != 0)")
 generation_advance = dhcp6_start.index(

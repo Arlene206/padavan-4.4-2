@@ -1,30 +1,29 @@
-## 2026-11-25 autonomous handoff — DHCPv6 IA cleanup and callback rollback
+## 2026-11-25 autonomous handoff — DHCPv6 cleanup and checker correction
 
-Startup recovery is complete. Current source slices cover DHCPv4 select-timeout saturation, DHCPv6 IA address-removal retry, and DHCPv6 client startup cleanup. Do not repeat completed U2EC, MTD, WAN/PPP or process audits without new evidence.
+Startup recovery is complete. Active work covers DHCPv4 select-timeout saturation, DHCPv6 IA address-removal retries, and DHCPv6 client startup rollback. Do not repeat completed U2EC, MTD, WAN/PPP or process audits without new evidence.
 
-### Git / backup state
-- Main before this checker-only follow-up: `28a6bb022c0c58b19cbfafb3eb1f06460b55a969`; the follow-up removes one obsolete expected test banner.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. Continue full-tree atomic commits with non-forced expected-SHA updates only.
+### Git / backup
+- Main before this checker-only repair: `94c75e4acfa1f51cb70ec566e225a01ff77fa72c`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. Continue complete-tree commits with non-forced expected-SHA updates.
 
-### Completed source changes
-- `c623f1e352db3f54dc6d10e2b7d2dd3e9cc2591d`: `udhcpc` signed/unsigned elapsed-time underflow is saturated by `udhcpc_wait_remaining_seconds()`; GNU89 edge regression and source checker are wired.
-- `6a1faf201e57eab3e9757cc845c15a779b8e8baa`: DHCPv6 IA cleanup retains failed delete nodes and retries; does not drop kernel cleanup errors.
-- `28a6bb022c0c58b19cbfafb3eb1f06460b55a969`: if DHCPv6 daemon launch succeeds but callback environment cleanup fails, invalidate generation and stop the newly launched client under the session lock before unlock. Test + checker added.
-- IA_NA/IA_PD Reply retry and partial delegated-prefix reconciliation remain in ancestry from `0b41a2ed`.
+### Source slices
+- `c623f1e352db3f54dc6d10e2b7d2dd3e9cc2591d`: `udhcpc` signed/unsigned elapsed-time underflow is saturated; GNU89 regression and exact-source checker are wired.
+- `6a1faf201e57eab3e9757cc845c15a779b8e8baa`: DHCPv6 IA address-removal errors retain cleanup nodes and retry instead of dropping kernel cleanup state.
+- `28a6bb022c0c58b19cbfafb3eb1f06460b55a969`: if daemon launch succeeds but callback environment cleanup fails, generation is advanced and the new `dhcp6c` is stopped under the held session lock before unlock.
+- IA_NA/IA_PD Reply retry and delegated-prefix partial recovery remain in source ancestry from `0b41a2ed`.
 
-### CI evidence / one diagnosed failure
-- On `c623f1e`: udhcpc stability, AI handoff, process inventory/lifecycle umbrella, USB storage and NVRAM workflows passed; XY-C1 was still in progress at last poll.
-- On `6a1faf`: AI docs, WAN callback, process umbrella/inventory and storage passed; DHCPv6 IA #45619758139 failed after its GNU89 ASan/UBSan binary passed. The sole failure was the checker asserting the old output banner after the test was extended to IA_NA removal + IA_PD retry. This checker-only commit removes only the obsolete banner assertion; all new cleanup cases and the replacement banner remain asserted.
-- `28a6bb0` exact runs at last poll were queued/pending: WAN route #45620059654, NVRAM #45620059507, Process #45620059458, AI docs #45620059453, IPv6 service-type #45620059431, XY-C1 #45620059409, WAN DHCP callback #45620059391, HTTPD security #45620059387. Recheck after this follow-up; PENDING does not block independent work.
-- XY-C1 Build → TRX verification → artifact upload must all pass on one identical product-source SHA for L3. Physical router L4 is NOT VERIFIED.
+### Exact CI evidence
+- `c623f1e`: udhcpc event-script stability, AI docs, process inventory/lifecycle umbrella, USB storage and NVRAM workflows PASS; XY-C1 still in progress at last poll.
+- `6a1faf`: AI docs, WAN callback, process umbrella/inventory and storage PASS; IA #45619758139 failed only on an obsolete expected test banner after the C ASan/UBSan binary passed.
+- `94c75e4`: IA #45620275164 PASS and AI docs #45620275432 PASS. Its parent `28a6bb0` WAN callback #45620059391 failed only at the newly added source checker: the checker matched formal parameter names against a call using `env_cleanup_status`. This follow-up fixes that assertion by inspecting helper semantics. WAN route #45620059654, Process inventory #45620059458, AI docs #45620059453, IPv6 checked-read #45620059431, HTTPD security #45620059387 PASS on `28a6bb0`; NVRAM #45620059507 and XY-C1 #45620059409 were still in progress.
+- Re-run WAN DHCP callback on this checker commit. XY-C1 Build→TRX→artifact must all pass on one identical source SHA for L3; L4 is NOT VERIFIED.
 
-### First next actions
-1. Inspect this correction's exact-head DHCPv6 IA and AI docs checks; confirm the callback cleanup source checker/build also passes.
-2. Poll XY-C1 for the same product-source SHA; continue independent WAN/IPv6 route lifecycle work while builds are pending.
-3. Continue with a new concrete failure in M2U or reused VLAN/bridge-attribute restoration; avoid broad re-audits without new evidence.
+### Next actions
+1. Inspect exact-head callback, AI and new XY-C1 Actions; fix any first causal failure.
+2. Continue concrete cross-userland WAN/IPv6 route lifecycle, M2U and VLAN/bridge restoration bugs while builds are pending. Do not claim hardware behavior without L4 device validation.
 
 ### Execution contract
-Source/test → one complete Git tree/commit → non-forced expected-SHA update → exact-SHA Actions. Do not touch the frozen backup or create branches/PRs.
+Source/test → complete tree/commit → non-forced expected-SHA update → exact-SHA Actions. Do not modify frozen backup or create branches/PRs.
 
 ---
 

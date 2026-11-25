@@ -1,3 +1,11 @@
+## 2026-11-25 21:21 CST (UTC+8) — Fix DHCPv6 startup-cleanup checker assertion
+
+- Exact-head WAN DHCP callback #45620059391 on `28a6bb0` passed the UBSan/ASan policy binaries and all preceding WAN/IPv6 checks, then failed only at the new `check_wan6_dns_policy.py` source assertion. The checker incorrectly searched for the helper's formal parameter names in the call site; production correctly calls it with `start_status, env_cleanup_status`.
+- The assertion now inspects the helper body and pins the actual `start_status == 0 && cleanup_status != 0` decision. No production code or test behavior changed. Rerun required on current SHA.
+- IA publication #45620275164 and AI docs #45620275432 PASS on parent `94c75e4`. Exact-head callback check remained unverified until this rerun.
+
+---
+
 ## 2026-11-25 21:18 CST (UTC+8) — Correct DHCPv6 IA output contract
 
 - Exact-head IA workflow #45619758139 on `6a1faf201e57eab3e9757cc845c15a779b8e8baa` passed the GNU89 ASan/UBSan regression, including failed-prefix-delete retention and retry. The Python source checker then failed only because it still required the old `DHCPv6 IA delegated-prefix retry policy: PASS` banner; the test now correctly emits `DHCPv6 IA delegated-prefix retry and removal policy: PASS`.
