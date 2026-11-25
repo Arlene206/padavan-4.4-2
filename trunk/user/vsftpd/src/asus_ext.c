@@ -29,7 +29,6 @@
 #include <disk_initial.h>
 #include <disk_share.h>
 
-#define HIDE_PARTITION_FILE ".hidden"
 
 static int
 asus_account_auth_nvram_begin(void *context)
@@ -70,14 +69,7 @@ int test_if_dir_stat(const char *path)
 
 int test_if_hidden_share(const char *share_path)
 {
-	struct stat st;
-	static char s_share_test[PATH_MAX];
-
-	if (ftp_acl_path_build_child_path(share_path, HIDE_PARTITION_FILE,
-	                                  s_share_test, sizeof(s_share_test)) != 0)
-		return 1;
-
-	return (stat(s_share_test, &st) == 0) && (S_ISREG(st.st_mode));
+	return ftp_acl_path_share_is_hidden(share_path);
 }
 
 int get_mount_layer(const char *basedir, char **mount_path, char **share)

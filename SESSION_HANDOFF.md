@@ -1,25 +1,25 @@
 ## Current repository state — 2026-11-25
 
-- Live main at checkpoint: 284ececc912a496705db825f3643fa0121d5f1d7. Re-fetch main before any subsequent write.
-- Frozen backup branch backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807; read-only, must never be modified or deleted.
-- Legacy PR #1 is CLOSED/unmerged. Its AliDDNS CA trust-store bootstrap and HMAC helper/test deliverables are present on main; no unique PR-only deliverable was identified to resurrect.
-- Firefly bounded physical-line parsing is implemented in commit 284ececc912a496705db825f3643fa0121d5f1d7. It rejects physical lines exceeding 4095 bytes with EOVERFLOW and embedded NUL with EINVAL before publication. Overlong-line regression is included; this follow-up adds a binary embedded-NUL regression that checks EINVAL, byte-for-byte last-good file preservation and temporary-file cleanup.
-- Exact current-head Firefly regression #45682217110 PASS, AI Docs #45682217168 PASS, Process inventory #45682217515 PASS, Process lifecycle #45682217158 PASS. NVRAM audit #45682217149 and XY-C1 firmware workflow #45682217501 were IN_PROGRESS at this checkpoint. No same-SHA XY-C1 Build/TRX/artifact result is claimed yet; physical-router L4 remains NOT VERIFIED.
-- NFS VPN ACL selector hardening is verified: exact NFS start/reload #45681847110 and AI Docs #45681847147 PASS on ancestor SHA ffcd7ceb5f5092935203e078d4acb2ea6a2598ba. The earlier e521 NFS source-contract failure #45681563836 was repaired by that follow-up; do not reopen it.
+- Main at the start of this VSFTPD slice: 213a16e9dccbfd84c3a6e032711de1e0fafc063f. Re-fetch the live ref before any further update.
+- Frozen backup branch backup/pre-plugin-overhaul-2026-11-14 remains read-only at 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- Latest Firefly source fix is 284ececc912a496705db825f3643fa0121d5f1d7; embedded-NUL behavioral fixture follow-up is ae740fbff80c62f23c6f4b280ee96c5610bc28d6. On exact SHA ae740..., Firefly #45682623104, AI Docs #45682623337, Process lifecycle #45682623367, Process inventory #45682623222 and NVRAM #45682623246 all PASS.
+- NFS selector fix/checker resolution is complete: NFS start/reload #45681847110 and AI Docs #45681847147 PASS on ffcd7ceb5f5092935203e078d4acb2ea6a2598ba. The prior e521 NFS checker failure is historical, fixed on ffcd.
+- This source slice closes a real VSFTPD hidden-share fail-open: test_if_hidden_share() used stat() and hid only a regular-file target. A FIFO, directory, broken symlink, symlink loop, or stat error made the marker appear absent. The replacement checks the .hidden directory entry with fstatat(AT_SYMLINK_NOFOLLOW) relative to a pinned and revalidated share descriptor; any present entry or any error other than ENOENT hides the share. Tests cover absence, zero-byte regular marker, FIFO, directory, regular-target symlink and dangling symlink.
+- Firmware L3 is not claimed from the above checks: no single identical source SHA has yet been confirmed with Build, TRX and artifact upload all passing. Physical-router L4 remains NOT VERIFIED.
 
 ## Active task
 
-Finish behavioral coverage for both hostile Firefly INI physical-line cases: oversized records and embedded NUL bytes. Both must abort staged publication, preserve the existing config byte-for-byte, and leave no temporary file. Then inspect exact-SHA CI on the resulting main head and continue independent security/reliability source work.
+Finish the descriptor-relative ACL call-site audit after the .hidden control-marker fix. Verify the exact-head VSFTPD regression and firmware workflow for the newest commit; PENDING does not block independent work. Add source fixes only for demonstrated access-control or I/O defects, with host regression fixtures.
 
 ## Exact first actions for next GPT
 
-1. Fetch live main and inspect exact-SHA Firefly, AI Docs, Process, NVRAM and XY-C1 checks for the newest commit. Fix failures; PENDING must not block independent work.
-2. Verify whether XY-C1 Build, TRX and artifact upload actually completed on one identical source SHA before making an L3 claim. Physical L4 remains unverified.
-3. Continue the next concrete userland stability/security task from the current source state; avoid repeating the completed Firefly key-boundary and NFS VPN selector work.
+1. Fetch live main; inspect exact-SHA VSFTPD, AI Docs, Process, NVRAM and XY-C1 Actions for this commit. Fix any failed exact-head assertion or compile regression.
+2. Continue ACL call-site review in postlogin.c/asus_ext.c, prioritizing any remaining path-based filesystem lookup that occurs before authorization or can escape the pinned descriptor.
+3. For L3 require firmware Build, TRX validation and artifact upload on the same exact SHA. Physical-router L4 remains unverified.
 
 ## Execution contract
 
-Main only; never modify/delete the archival backup; no force push, feature branches or PRs. For each logical change: source/test → one complete tree and atomic commit → non-forced expected-SHA ref update → exact-SHA Actions. Keep handoff and dev log aligned with verified facts.
+Main only; never modify or delete backup/pre-plugin-overhaul-2026-11-14; no force-push, feature branches or PRs. For each task create all blobs, one complete tree and one commit, then update main non-forced with expected SHA. Check exact-head Actions and record only verified results.
 
 ## 2026-11-25 autonomous handoff checkpoint
 

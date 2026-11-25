@@ -285,6 +285,95 @@ test_listing_entry_visibility_policy(void)
   return 0;
 }
 
+static int
+test_hidden_share_marker_fails_closed(void)
+{
+  char template[] = "/tmp/ftp-hidden-share-XXXXXX";
+  char share[PATH_MAX], marker[PATH_MAX], target[PATH_MAX];
+  char *root;
+  int marker_fd;
+
+  root = mkdtemp(template);
+  if (!root) {
+    perror("create hidden-share fixture");
+    return 1;
+  }
+  checked_path(share, sizeof(share), root, "share");
+  checked_path(marker, sizeof(marker), share, ".hidden");
+  checked_path(target, sizeof(target), root, "outside-target");
+  if (mkdir(share, 0700) != 0) {
+    perror("create hidden-share directory");
+    return 1;
+  }
+
+  if (ftp_acl_path_share_is_hidden(share) != 0) {
+    fprintf(stderr, "share without a .hidden entry was not visible\n");
+    return 1;
+  }
+
+  /* Empty regular files are the normal marker format and must hide the share. */
+  marker_fd = open(marker, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0600);
+  if (marker_fd < 0 || close(marker_fd) != 0) {
+    perror("create empty hidden-share marker");
+    return 1;
+  }
+  if (ftp_acl_path_share_is_hidden(share) != 1) {
+    fprintf(stderr, "empty .hidden marker did not hide the share\n");
+    return 1;
+  }
+  if (unlink(marker) != 0) {
+    perror("remove empty hidden-share marker");
+    return 1;
+  }
+
+  if (mkfifo(marker, 0600) != 0) {
+    perror("create FIFO hidden-share marker");
+    return 1;
+  }
+  if (ftp_acl_path_share_is_hidden(share) != 1) {
+    fprintf(stderr, "FIFO .hidden entry did not fail closed\n");
+    return 1;
+  }
+  if (unlink(marker) != 0) {
+    perror("remove FIFO hidden-share marker");
+    return 1;
+  }
+
+  if (mkdir(marker, 0700) != 0) {
+    perror("create directory hidden-share marker");
+    return 1;
+  }
+  if (ftp_acl_path_share_is_hidden(share) != 1) {
+    fprintf(stderr, "directory .hidden entry did not fail closed\n");
+    return 1;
+  }
+  if (rmdir(marker) != 0) {
+    perror("remove directory hidden-share marker");
+    return 1;
+  }
+
+  create_fixture_file(target);
+  if (symlink(target, marker) != 0 ||
+      ftp_acl_path_share_is_hidden(share) != 1 ||
+      unlink(marker) != 0) {
+    fprintf(stderr, "symlink .hidden entry did not fail closed\n");
+    return 1;
+  }
+  if (symlink("missing-target", marker) != 0 ||
+      ftp_acl_path_share_is_hidden(share) != 1 ||
+      unlink(marker) != 0) {
+    fprintf(stderr, "dangling .hidden symlink did not fail closed\n");
+    return 1;
+  }
+
+  if (unlink(target) != 0 || rmdir(share) != 0 || rmdir(root) != 0) {
+    perror("remove hidden-share fixture");
+    return 1;
+  }
+  return 0;
+}
+
+
 int
 main(void)
 {
@@ -326,6 +415,7 @@ main(void)
   char *created;
 
   if (test_share_read_permission_policy() != 0 ||
+      test_hidden_share_marker_fails_closed() != 0 ||
       test_share_permission_records() != 0 ||
       test_rename_source_entry_stat() != 0 ||
       test_account_permission_path_builder() != 0 ||

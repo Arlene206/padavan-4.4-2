@@ -1371,4 +1371,54 @@ ftp_acl_path_chdir(int directory_fd)
   return ftp_acl_path_chdir_procfd(directory_fd);
 }
 
+/*
+ * A hidden-share marker is control metadata. Treat every directory entry at
+ * this name as present, including a symlink, FIFO or directory. Only an
+ * explicit ENOENT means the share is visible; permission and I/O errors fail
+ * closed. Resolve the marker relative to a pinned share descriptor so its
+ * lookup cannot be redirected by a parent-path replacement.
+ */
+static int
+ftp_acl_path_share_is_hidden(const char *share_path)
+{
+  struct stat marker_stat;
+  int directory_fd, hidden, saved_errno;
+
+  if (!share_path || !*share_path) {
+    errno = EINVAL;
+    return 1;
+  }
+
+  directory_fd = ftp_acl_path_open_verified_directory(share_path);
+  if (directory_fd < 0)
+    return 1;
+  if (ftp_acl_path_verify_directory_identity(share_path, directory_fd) != 0) {
+    saved_errno = errno;
+    close(directory_fd);
+    errno = saved_errno;
+    return 1;
+  }
+
+  hidden = 1;
+  if (fstatat(directory_fd, ".hidden", &marker_stat,
+              AT_SYMLINK_NOFOLLOW) == 0) {
+    hidden = 1;
+  } else {
+    saved_errno = errno ? errno : EIO;
+    hidden = (saved_errno != ENOENT);
+  }
+
+  if (ftp_acl_path_verify_directory_identity(share_path, directory_fd) != 0)
+    hidden = 1;
+  if (close(directory_fd) != 0)
+    hidden = 1;
+
+  if (hidden)
+    errno = EACCES;
+  else
+    errno = 0;
+  return hidden;
+}
+
+
 #endif /* FTP_ACL_PATH_POLICY_H */

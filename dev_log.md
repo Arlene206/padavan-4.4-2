@@ -1,3 +1,11 @@
+## 2026-11-25 — Fail closed on malformed VSFTPD hidden-share markers
+
+- Found a fail-open in test_if_hidden_share(): pathname stat() treated the mount as hidden only when the followed target was a regular file. A FIFO, directory, dangling symlink, symlink loop or other lookup error made the protected marker look absent.
+- Added a descriptor-relative policy check that pins and revalidates the share directory, inspects the .hidden dentry with fstatat(AT_SYMLINK_NOFOLLOW), treats every present entry as a hide marker, and regards only ENOENT as visible. This avoids following marker symlinks or opening special files.
+- Host regression fixtures cover absent marker, empty regular marker, FIFO, directory, symlink to a regular target and dangling symlink. Exact-head VSFTPD/AI/Process/NVRAM checks will be verified after this atomic source/test/checker commit.
+
+---
+
 ## 2026-11-25 — Exercise embedded-NUL rejection in Firefly INI input
 
 - Added a binary-input regression for a physical INI record containing an embedded NUL followed by an apparent `admin_pw` directive. The publisher must return EINVAL, preserve every input byte in the active config and remove the staged temporary file.
