@@ -71,18 +71,27 @@ for required in (
     "[ ! -L cron ] || exit 2",
     "[ ! -L cron/crontabs ] || exit 2",
     '[ ! -L "$cron_file" ] || exit 2',
-    'grep -F -- "$script_path" "$cron_file"',
-    "grep_status=$?",
-    "1) ;;",
-    "*) exit 2 ;;",
+    "lock_file=cron/.admin.lock",
+    "command -v flock >/dev/null 2>&1 || exit 2",
+    '[ ! -L "$lock_file" ] || exit 2',
+    'exec 9>>"$lock_file" || exit 2',
+    "flock -x 9 || exit 2",
+    "while IFS= read -r cron_line || [ -n \"$cron_line\" ]; do",
+    "set -- $cron_line",
+    'if [ "$#" -ge 6 ] && [ "$6" = "$script_path" ]; then',
+    'done < "$cron_file"',
     '>> "$cron_file" || exit 2',
     "exit 1",
 ):
     assert required in script, "missing check_crontab result contract: " + required
-assert script.index("grep_status=$?") < script.index('>> "$cron_file"')
+assert script.index("flock -x 9") < script.index("while IFS= read -r cron_line")
+assert script.index("while IFS= read -r cron_line") < script.index('>> "$cron_file"')
 assert "run_check 1" in shell_test and "run_check 0" in shell_test
-assert "TEST_GREP_STATUS=2" in shell_test
+assert "TEST_GREP_STATUS" not in shell_test
+assert "Comments and similarly named commands must not suppress the exact job." in shell_test
+assert "Concurrent startups must append at most one identical job." in shell_test
 assert 'ln -s "$WORK/outside" "$TEST_STORAGE_ROOT/cron"' in shell_test
+assert 'ln -s "$WORK/lock-target" "$TEST_STORAGE_ROOT/cron/.admin.lock"' in shell_test
 assert "SIGTERM" in regression and "WIFEXITED" in policy
 assert "wait_errno > 0 ? -wait_errno : -1" in policy
 assert "EPERM" in regression and "-EPERM" in regression

@@ -1,3 +1,10 @@
+## 2026-11-25 — Align SCUT crontab source checker with exact-token lookup
+
+- Exact process-lifecycle run #45595370787 on `6554727e` passed the shell regression for exact command identity, concurrent writers, lock permissions and symlink rejection, then failed in the static checker because it still required the removed grep-substring implementation and obsolete injected grep failure fixture. Updated the contract to assert the production lock and parsed sixth-field identity check, and to require the newer exact-match/concurrency/symlink regression cases.
+- This is a static-test alignment only; no production code change is claimed. Fresh exact-head process-lifecycle Actions validation is required; no local runner result is claimed.
+
+---
+
 ## 2026-11-25 — Reject directory destinations in reset_ss atomic publication\n\n- Review of the new `reset_ss.sh` staging flow found `mv temp start_script.sh` treats an existing directory destination (and a symlink to a directory) as a container, moving the staged script inside it while returning success. That violates the promised atomic replacement and can leave the actual startup-script path unchanged. Added a preflight that rejects real directories and directory symlinks while continuing to replace regular files and symlinks to non-directories.\n- Added regression cases proving directory destinations and symlinks to directories are rejected without modifying their contents or moving the staged script into them. The reset_ss test's prior indentation assertion correction is included. Exact-head host and BusyBox ash verification required; no local result is claimed.\n\n---\n\n## 2026-11-25 — Align reset_ss template regression with preserved indentation
 
 - Exact USB-storage run #45594844271 on `9e2f6dc4` passed the RWFS-to-UBI regression under host `sh` and BusyBox ash after removing shell `command -v` preflight gates. The next reset_ss test step failed because the generator correctly preserved the template's four/eight leading spaces, while the test expected unindented exact lines. Updated only the expected template lines; runtime variable and command-substitution checks remain intact.
