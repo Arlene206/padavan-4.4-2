@@ -411,7 +411,8 @@ interrupt_disable = close_order.index("fe_int_disable(dev);")
 dma_release = close_order.index("ei_deinit_dma(dev);")
 assert reset_stop < queue_stop < radio_stop < hardware_reset
 assert phy_stop < queue_stop < radio_stop < hardware_reset
-assert hardware_reset < interrupt_disable < dma_release
+assert interrupt_disable < hardware_reset < dma_release
+assert "irq_status = fe_int_disable(dev);" in close_order
 print("RAETH close stops asynchronous workers and TX before resetting hardware: PASS")
 
 switch_init = function_body(SWITCH_SOURCE, "int fe_sw_init(")
