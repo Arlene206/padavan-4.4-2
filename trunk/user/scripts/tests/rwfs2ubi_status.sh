@@ -75,11 +75,19 @@ EOF_UBI
 	ln "$base/sbin/ubiattach" "$base/sbin/ubidetach"
 	chmod +x "$base/bin/mount" "$base/bin/mtd_write" "$base/bin/nvram" "$base/sbin/ubiattach"
 
-	# BusyBox ash resolves applets through PATH symlinks in this isolated test.
+	# Use explicit wrappers so both host sh and BusyBox ash resolve the
+	# same firmware applets through this isolated command PATH.
 	if [ -n "${BUSYBOX_BIN:-}" ]; then
 		[ -x "$BUSYBOX_BIN" ] || fail "BUSYBOX_BIN is not executable"
-		ln -s "$BUSYBOX_BIN" "$base/bin/awk"
-		ln -s "$BUSYBOX_BIN" "$base/bin/cat"
+		cat > "$base/bin/awk" <<'EOF_AWK'
+#!/bin/sh
+exec "$BUSYBOX_BIN" awk "$@"
+EOF_AWK
+		cat > "$base/bin/cat" <<'EOF_CAT'
+#!/bin/sh
+exec "$BUSYBOX_BIN" cat "$@"
+EOF_CAT
+		chmod +x "$base/bin/awk" "$base/bin/cat"
 	fi
 
 	sed \
@@ -108,9 +116,9 @@ EOF_UBI
 run_conversion()
 {
 	if [ -n "${BUSYBOX_BIN:-}" ]; then
-		"$BUSYBOX_BIN" ash "$base/rwfs2ubi.sh"
+		PATH="$base/bin:$PATH" "$BUSYBOX_BIN" ash "$base/rwfs2ubi.sh"
 	else
-		sh "$base/rwfs2ubi.sh"
+		PATH="$base/bin:$PATH" sh "$base/rwfs2ubi.sh"
 	fi
 }
 
