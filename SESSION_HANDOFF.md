@@ -5,15 +5,15 @@ This checkpoint supersedes older task pointers below. Historical completed work 
 ## Current repository state
 
 - Repository `Arlene206/padavan-4.4-2`; development only on `main`. Frozen `backup/pre-plugin-overhaul-2026-11-14` remains read-only; PR #1 remains closed/unmerged and inventory-only.
-- Parent of this syntax correction: `a2715db348748bc7d3422f42fdccabbd6290b490` (`a2715db348748bc7d3422f42fdccabbd6290b490`). That commit replaced AliyunDrive name-wide `killall` with complete UID/executable-inode validation and exact-PID TERM/KILL revalidation, but its first lifecycle run #45562524959 failed immediately at `sh -n`: the PID whitespace class was double-escaped. THIS COMMIT corrects the single-character escape. QEMU/lifecycle/source checks did not run on a2715db.
-- Exact-head parent a2715db AI handoff #45562525000 PASS and Process inventory #45562525082 PASS.
-- Prior main `33a05a26882c763ac44777fc604b02501fee7c22`: USB hotplug #45561746653 PASS; AI handoff #45561746518 PASS. XY-C1 job #45561746460 PASS as a host-only validation; production input detector skipped Build XY-C1, TRX verification and artifact upload, so no firmware image was built on that SHA.
-- Exact-head AliyunDrive lifecycle rerun, Process inventory and any firmware-target check on THIS correction SHA remain pending. Previous lifecycle #45559141117 covered caller-UID/executable-inode validation and QEMU CLI, but did not cover the exact-PID signal change now being tested.
+- Parent before this lifecycle-fixture correction: `3a08741884db19988068c5fa47c8227186c75fd9` (`3a08741884db19988068c5fa47c8227186c75fd9`). Exact-head AliyunDrive #45562716442: launcher `sh -n` PASS; bundled MIPSel CLI under QEMU PASS; lifecycle regression FAIL because the foreign-UID-after-TERM test left `TEST_TARGETED_SIGNAL_COUNT=1` and the next sleep-failure case forgot to reset it. The correction resets both signal counters and pins this setup in the source checker. No full lifecycle PASS is claimed yet.
+- Exact-head AI handoff #45562716449 and Process inventory #45562716611 on `3a08741` PASS.
+- Earlier exact-head parent `63da84a3ae0b68e64ab1731f60a580dbc2495970`: USB hotplug #45562193389, udhcpc #45562193392, Process inventory #45562193453, Process umbrella #45562193451, AI docs #45562193455 and NVRAM audit #45562193495 PASS. XY-C1 validation #45562193492 was still in progress at last poll; its Build XY-C1 step had started. Confirm final result before claiming firmware success.
+- On older `33a05a26882c763ac44777fc604b02501fee7c22`, USB #45561746653 PASS and XY-C1 host validation #45561746460 PASS, but its production-input detector skipped Build, TRX and artifact upload; no firmware image was produced on that SHA.
 - Linux 4.4 has no pidfd path here; a narrow PID-reuse race remains between procfs validation and `kill(2)`. Physical router behavior and authenticated remote storage readiness are not claimed.
 
 ## Active task
 
-Inspect the exact-head AliyunDrive lifecycle run for this one-character shell syntax correction. Continue through QEMU CLI, lifecycle regression, early-lock and Python source contracts; fix the first real failure. Then inspect Process inventory and firmware build detector outcome for this SHA.
+Inspect the exact-head AliyunDrive lifecycle rerun after the counter-isolation fix. Continue through host lifecycle tests, early lock and Python source contracts. Then inspect Process inventory and XY-C1 exact-SHA outcomes.
 
 # Cross-session execution mandate
 

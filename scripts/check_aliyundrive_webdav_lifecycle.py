@@ -302,6 +302,7 @@ require('ald_signal_validated_processes TERM' in stop and
 
 require('TEST_TARGETED_SIGNAL_COUNT' in test and
         'TEST_UNEXPECTED_SIGNAL_COUNT' in test and
+        'TEST_SLEEP_FAIL=1\\nTEST_TERM_COUNT=0\\nTEST_KILL_COUNT=0\\nTEST_TARGETED_SIGNAL_COUNT=0\\nTEST_UNEXPECTED_SIGNAL_COUNT=0' in test and
         'foreign-after-term' in test and
         'FAIL: foreign UID after TERM received KILL or an unvalidated signal' in test and
         'FAIL: graceful stop did not signal exactly the validated PID once' in test and

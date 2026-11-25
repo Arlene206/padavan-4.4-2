@@ -1,3 +1,10 @@
+## 2026-11-25 — Reset exact-PID signal counter in sleep-failure fixture
+
+- Exact-head AliyunDrive lifecycle #45562716442 on `3a08741`: shell syntax and QEMU CLI checks PASS; lifecycle regression reached the stop cases and failed because the newly inserted foreign-UID-after-TERM case left `TEST_TARGETED_SIGNAL_COUNT=1`, while the following sleep-failure fixture did not reset it before expecting exactly one TERM signal. This was a test-fixture isolation defect, not extra production signalling. Reset both target/unexpected counters before sleep failure and pin that reset in the source checker.
+- Exact-head AI handoff #45562716449 and Process inventory #45562716611 on `3a08741` PASS. No AliyunDrive runtime/lifecycle PASS is claimed until the corrected exact-head rerun.
+
+---
+
 ## 2026-11-25 — Fix AliyunDrive PID-list shell pattern
 
 - Exact-head AliyunDrive lifecycle #45562524959 on `a2715db` failed at the first `sh -n`: the PID whitespace character class had two literal backslashes, causing the space to split the shell case pattern. Corrected it to one escaped-space character class. This was a syntax-only failure before QEMU or lifecycle assertions ran; rerun all lifecycle steps on this correction SHA.

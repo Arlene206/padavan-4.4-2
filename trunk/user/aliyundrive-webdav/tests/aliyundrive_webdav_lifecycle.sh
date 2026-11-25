@@ -502,6 +502,8 @@ TEST_RUNNING=1
 TEST_SLEEP_FAIL=1
 TEST_TERM_COUNT=0
 TEST_KILL_COUNT=0
+TEST_TARGETED_SIGNAL_COUNT=0
+TEST_UNEXPECTED_SIGNAL_COUNT=0
 if kill_ald; then
   echo "FAIL: sleep failure was reported as a successful stop" >&2; exit 1
 fi
