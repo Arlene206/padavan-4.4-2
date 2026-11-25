@@ -96,6 +96,41 @@ httpd_upload_target_is_regular_or_missing(const char *path)
 	return errno == ENOENT;
 }
 
+/*
+ * Read a published upload only after pinning a single-link regular inode.
+ * O_NONBLOCK prevents a substituted FIFO/device from hanging the HTTPD worker;
+ * O_NOFOLLOW prevents a symlink at the firmware path from being trusted.
+ */
+static int
+httpd_upload_open_regular_readonly(const char *path)
+{
+	int fd, saved_errno;
+	struct stat info;
+
+	if (!path || !*path) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	fd = open(path, O_RDONLY | O_NOFOLLOW | O_NONBLOCK);
+	if (fd < 0)
+		return -1;
+	if (fstat(fd, &info) != 0)
+		goto fail;
+	if (!S_ISREG(info.st_mode) || info.st_nlink != 1) {
+		errno = EINVAL;
+		goto fail;
+	}
+	return fd;
+
+fail:
+	saved_errno = errno;
+	if (close(fd) != 0 && saved_errno == 0)
+		saved_errno = errno;
+	errno = saved_errno ? saved_errno : EIO;
+	return -1;
+}
+
 static int
 httpd_upload_files_equal(const char *left_path, const char *right_path,
 			 int *equal)

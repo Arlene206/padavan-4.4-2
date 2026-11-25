@@ -122,7 +122,7 @@ check_crc_image(const char *fw_image)
 	image_header_t *hdr, *hdr2=&header2;
 	int ret = 0;
 
-	ifd = open(fw_image, O_RDONLY|O_BINARY);
+	ifd = httpd_upload_open_regular_readonly(fw_image);
 	if (ifd < 0)
 		return -1;
 

@@ -132,12 +132,15 @@ test_upload_target_policy_and_secure_comparison(const char *dir,
 						const char *target,
 						const char *victim)
 {
-	char stage[320], missing[320], alias[320], fifo[320];
+	char stage[320], missing[320], alias[320], fifo[320], hardlink[320];
 	FILE *stream;
 	struct stat stage_info;
-	int equal, n;
+	int equal, n, read_fd;
 
 	assert(httpd_upload_target_is_regular_or_missing(target));
+	read_fd = httpd_upload_open_regular_readonly(target);
+	assert(read_fd >= 0);
+	assert(close(read_fd) == 0);
 	n = snprintf(missing, sizeof(missing), "%s/not-created", dir);
 	assert(n > 0 && (size_t)n < sizeof(missing));
 	assert(httpd_upload_target_is_regular_or_missing(missing));
@@ -145,12 +148,25 @@ test_upload_target_policy_and_secure_comparison(const char *dir,
 	assert(n > 0 && (size_t)n < sizeof(alias));
 	assert(symlink(victim, alias) == 0);
 	assert(!httpd_upload_target_is_regular_or_missing(alias));
+	errno = 0;
+	assert(httpd_upload_open_regular_readonly(alias) < 0);
+	assert(errno == ELOOP);
 	assert(unlink(alias) == 0);
 	n = snprintf(fifo, sizeof(fifo), "%s/target-fifo", dir);
 	assert(n > 0 && (size_t)n < sizeof(fifo));
 	assert(mkfifo(fifo, 0600) == 0);
 	assert(!httpd_upload_target_is_regular_or_missing(fifo));
+	errno = 0;
+	assert(httpd_upload_open_regular_readonly(fifo) < 0);
+	assert(errno == EINVAL);
 	assert(unlink(fifo) == 0);
+	n = snprintf(hardlink, sizeof(hardlink), "%s/target-hardlink", dir);
+	assert(n > 0 && (size_t)n < sizeof(hardlink));
+	assert(link(target, hardlink) == 0);
+	errno = 0;
+	assert(httpd_upload_open_regular_readonly(hardlink) < 0);
+	assert(errno == EINVAL);
+	assert(unlink(hardlink) == 0);
 	assert(!httpd_upload_target_is_regular_or_missing(dir));
 
 	stream = httpd_upload_create_staging(target, stage, sizeof(stage));

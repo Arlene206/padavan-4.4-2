@@ -5721,6 +5721,17 @@ jobs:
           assert "test_upload_target_policy_and_secure_comparison" in upload_policy_test
           assert "httpd_upload_target_is_regular_or_missing(alias)" in upload_policy_test
           assert "httpd_upload_files_equal(alias, target, &equal)" in upload_policy_test
+          assert "httpd_upload_open_regular_readonly(const char *path)" in upload_policy
+          assert "open(path, O_RDONLY | O_NOFOLLOW | O_NONBLOCK)" in upload_policy
+          assert "!S_ISREG(info.st_mode) || info.st_nlink != 1" in upload_policy
+          assert "httpd_upload_open_regular_readonly(alias)" in upload_policy_test
+          assert "httpd_upload_open_regular_readonly(fifo)" in upload_policy_test
+          assert "httpd_upload_open_regular_readonly(hardlink)" in upload_policy_test
+          crc_start = upload.index("static int\\ncheck_crc_image(const char *fw_image)")
+          crc_end = upload.index("\\nstatic int\\ndo_upload_file", crc_start)
+          crc_check = upload[crc_start:crc_end]
+          assert "httpd_upload_open_regular_readonly(fw_image)" in crc_check
+          assert "open(fw_image, O_RDONLY|O_BINARY)" not in crc_check
           assert "size_t expected_size = 8195U, actual_size;" in upload_policy_test
           assert "httpd_upload_target_is_regular_or_missing(real_path)" in write_helper
           assert 'char temp_path[320] = "";' in write_helper
