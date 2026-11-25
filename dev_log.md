@@ -1,3 +1,11 @@
+## 2026-11-25 19:40 CST — Make bundled chnroute extraction fail closed
+
+- The MTD default-fill path used `mkdir -p ... && tar jxf ...` inside a conditional but discarded the compound command's failure. A corrupt bundled chnroute archive could leave a partial `/etc/storage/chinadns` directory; subsequent boots would see the directory and never retry extraction.
+- Fill now checks directory creation, checks archive extraction, removes partial output on extraction failure (logs a critical cleanup failure if necessary), and returns failure so reset retains its save barrier and does not restart apps. Extended the host/BusyBox ash fill regression with injected partial extraction and cleanup assertions.
+- Exact USB storage, static source contract and XY-C1 build verification required. No local BusyBox/firmware/hardware result is claimed.
+
+---
+
 ## 2026-11-25 19:35 CST — Block nested symlink traversal during MTD default fill
 
 - `func_mdir()` guarded only the `/etc/storage` root. The legacy `func_fill()` then treated symlinked nested directories as valid because `[ -d ]` follows them and used heredoc redirections for default scripts/configs. A crafted `dnsmasq`, `cron`, `inadyn`, `wlan`, OpenVPN or strongSwan directory link could therefore redirect privileged writes outside the storage tree; symlinked leaf config files were also silently accepted by `[ -f ]`.

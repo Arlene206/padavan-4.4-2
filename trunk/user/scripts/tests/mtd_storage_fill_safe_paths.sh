@@ -16,6 +16,8 @@ trap 'exit 143' TERM
 
 mkdir -p "$sandbox/storage" "$sandbox/private" "$sandbox/outside" "$sandbox/bin"
 printf '%s\n' outside-sentinel > "$sandbox/outside/sentinel"
+real_tar=$(command -v tar)
+export REAL_TAR="$real_tar" FILL_TAR_FAIL=0
 : > "$sandbox/reset-ss.log"
 
 cat > "$sandbox/bin/logger" <<'EOF_LOGGER'
@@ -27,6 +29,22 @@ cat > "$sandbox/bin/reset_ss.sh" <<'EOF_RESET'
 printf '%s\n' "$*" >> "$RESET_SS_LOG"
 exit 0
 EOF_RESET
+cat > "$sandbox/bin/tar" <<'EOF_TAR'
+#!/bin/sh
+target=
+want_target=0
+for arg do
+	if [ "$want_target" = 1 ]; then target=$arg; want_target=0
+	elif [ "$arg" = "-C" ]; then want_target=1
+	fi
+done
+if [ "${FILL_TAR_FAIL:-0}" = 1 ]; then
+	[ -n "$target" ] || exit 99
+	printf '%s\n' 'partial extraction must be discarded' > "$target/partial-extract.conf"
+	exit 1
+fi
+exec "$REAL_TAR" "$@"
+EOF_TAR
 chmod +x "$sandbox/bin/"*
 
 sed \
@@ -35,6 +53,7 @@ sed \
 	-e "s|^lock_dir=.*|lock_dir=\"$sandbox/private\"|" \
 	-e "s|^tmp=.*|tmp=\"$sandbox/private/storage.tar\"|" \
 	-e "s|^rtbz=.*|rtbz=\"$sandbox/private/storage-restore.tar.bz2\"|" \
+	-e "s|^chnroute_file=.*|chnroute_file=\"$sandbox/chnroute.bz2\"|" \
 	"$repo_root/trunk/user/scripts/files/sbin/mtd_storage.sh" > "$sandbox/mtd_storage.sh"
 chmod +x "$sandbox/mtd_storage.sh"
 
@@ -55,6 +74,7 @@ reset_case()
 	mkdir -p "$sandbox/storage"
 	: > "$RESET_SS_LOG"
 	: > "$LOGGER_LOG"
+	FILL_TAR_FAIL=0
 }
 
 # A nested directory symlink must not let dnsmasq defaults escape /etc/storage.
@@ -99,5 +119,17 @@ if run_fill >/dev/null 2>&1; then
 fi
 test "$(cat "$sandbox/outside/sentinel")" = outside-sentinel
 test ! -s "$RESET_SS_LOG"
+
+# Failed bundled archive extraction must not leave a partial directory that
+# causes later boot fills to mistake an incomplete tree for a completed one.
+reset_case
+printf '%s\n' 'trusted chnroute fixture' > "$sandbox/chnroute.bz2"
+if FILL_TAR_FAIL=1 run_fill >/dev/null 2>&1; then
+	echo "partial chnroute extraction unexpectedly succeeded" >&2
+	exit 1
+fi
+test ! -e "$sandbox/storage/chinadns"
+test ! -s "$RESET_SS_LOG"
+grep -Fq 'Cannot extract chnroute archive:' "$LOGGER_LOG"
 
 echo "MTD storage fill symlink-path regression: PASS"

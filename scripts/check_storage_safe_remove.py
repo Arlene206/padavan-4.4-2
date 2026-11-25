@@ -169,6 +169,9 @@ fill_check_dir = body(mtd_storage, "func_fill_check_dir()")
 fill_check_file = body(mtd_storage, "func_fill_check_file()")
 fill_validate = body(mtd_storage, "func_fill_validate_paths()")
 fill_body = body(mtd_storage, "func_fill()")
+chnroute_start = fill_body.index("# create chnroute.txt")
+chnroute_end = fill_body.index("# create gfwlist", chnroute_start)
+chnroute_block = fill_body[chnroute_start:chnroute_end]
 require('case "$target" in' in fill_check_dir and
         '"$dir_storage"/*)' in fill_check_dir and
         '[ -L "$current" ]' in fill_check_dir and
@@ -186,12 +189,20 @@ require('if ! func_fill_validate_paths; then' in fill_body and
         '"$script_start"' in fill_validate and
         '"$dir_sswan_crt/private"' in fill_validate,
         "MTD fill must validate all nested dirs and generated files before the first write")
+require('if ! mkdir -p "$dir_chnroute"; then' in chnroute_block and
+        'if ! tar jxf "$chnroute_file" -C "$dir_chnroute"; then' in chnroute_block and
+        'if ! rm -rf "$dir_chnroute"; then' in chnroute_block and
+        'Cannot extract chnroute archive:' in chnroute_block and
+        'return 1' in chnroute_block,
+        "MTD fill must remove partial chnroute output and propagate extraction failure")
 for item in ("dnsmasq directory symlink unexpectedly accepted",
              "cron parent symlink unexpectedly accepted",
              "dnsmasq config symlink unexpectedly accepted",
              "start script symlink unexpectedly accepted",
              "Unsafe storage directory component:",
-             "Unsafe storage file target:"):
+             "Unsafe storage file target:",
+             "partial chnroute extraction unexpectedly succeeded",
+             "Cannot extract chnroute archive:"):
     require(item in mtd_storage_fill_test,
             "MTD fill symlink regression lacks case: " + item)
 require('sh trunk/user/scripts/tests/mtd_storage_fill_safe_paths.sh' in workflow and

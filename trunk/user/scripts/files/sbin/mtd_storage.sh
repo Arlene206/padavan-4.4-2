@@ -856,7 +856,17 @@ func_fill()
 	# create chnroute.txt
 	if [ ! -d "$dir_chnroute" ] ; then
 		if [ -f "$chnroute_file" ]; then
-			mkdir -p "$dir_chnroute" && tar jxf "$chnroute_file" -C "$dir_chnroute"
+			if ! mkdir -p "$dir_chnroute"; then
+				logger -t "Storage fill" "Cannot create chnroute directory: $dir_chnroute"
+				return 1
+			fi
+			if ! tar jxf "$chnroute_file" -C "$dir_chnroute"; then
+				if ! rm -rf "$dir_chnroute"; then
+					logger -t "Storage fill" "CRITICAL: failed chnroute extraction left partial directory: $dir_chnroute"
+				fi
+				logger -t "Storage fill" "Cannot extract chnroute archive: $chnroute_file"
+				return 1
+			fi
 		fi
 	fi
 
