@@ -1,21 +1,22 @@
 ## 2026-11-24 autonomous handoff snapshot
 
-This is the active checkpoint and supersedes older task pointers below where they conflict with live Git state. Historical records are retained; do not repeat completed audits.
+This checkpoint supersedes earlier task pointers below where they conflict with live Git state. Historical records remain for traceability; do not repeat completed audits.
 
-- Main parent before this ZeroTier multipath hardening slice: `75f61c0c94a25bd3ea790bdccb3a8c2091791249`. The handoff-only update immediately before this slice followed source SHA `11402f44cdaf2a172c950cbb0d62be0fa9246d74`. Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged. Read live `refs/heads/main` on pickup for the resulting commit SHA.
-- Exact pre-slice main ZeroTier lifecycle #45541130864 PASS; AI docs #45541130819 PASS. Stop-only damaged-prefix recovery requires a readable route dump and no route on the saved interface. A newly found edge case: one `ip route` multipath line can contain several `dev` tokens; the old AWK saved only the last device and could miss an earlier ZeroTier nexthop. This slice changes the parser to test each `dev` token and adds a regression with `ztunit` as the first nexthop and `br0` as the last.
-- UDHCP #45540259545 PASS on `956a385a88d3aebeb8029ee704b101acf2ea67a2` (GNU89, ASan/UBSan and source contract). Its parser/header/test/checker paths have not changed since.
-- Full XY-C1 Build/TRX/artifact #45540135607 PASS on `e43ee62f7c56a49f1744f08375990c3dde1864cd`; later #45540935577 on `af2635b` was host-only, with Build/TRX/artifact skipped. Do not claim a full firmware build for the current ZeroTier production-source revision until a full build runs on its SHA.
-- On `e43ee62f`: Process inventory #45540135599, AI docs #45540135576, NVRAM #45540135593, USB storage #45540135666 and XY-C1 #45540135607 PASS. On `af2635b`: Process inventory #45540935726, WAN route #45540935503 and AI docs #45540935621 PASS. The previous AI docs-size task is closed by exact-main docs PASS.
-- No local checkout/host compile was available; only exact GitHub Actions results are claimed.
+- Source baseline before this handoff-only checkpoint: `279789f15dd9503e0102f1bfe4c819cd3ccabce2` (`fix(pppoe-mwan): reject octal IPv4 aliases`). Root tree: `e7618e35851527cad03ef6e27b3b87f70af59e66`.
+- Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged and read-only. `main` is the only development ref; no branches, PRs, force-pushes, or backup writes.
+- Closed/unmerged PR #1 remains inventory-only and is not a development target.
+- Previous checkpoint `a8e47e7c9a64ce3c888294c94ec2dbf3208206c6` had its corrected WAN DHCP callback workflow #45550864174 PASS. The current source slice fixes a verified mismatch: bundled iptables 1.8.7 parses IPv4 octets through `xtables_strtoui(..., base=0, ...)`, so a stored static source like `010.0.0.7` could be interpreted as octal. `detect.sh` now rejects any multi-digit leading-zero octet before existing rules are touched; `detect_status.sh` injects that value and requires fail-closed behavior, unchanged firewall/routes and lock cleanup. The WAN source contract pins the guard.
+- Exact SHA `279789f15dd9503e0102f1bfe4c819cd3ccabce2`: AI handoff docs #45551063204 PASS; WAN route operation #45551063250 IN_PROGRESS; XY-C1 Firmware Validation #45551063177 IN_PROGRESS; Process lifecycle inventory #45551063158 IN_PROGRESS. The shell regression is executed by the WAN route job. No local shell run, firmware build, TRX verification, or artifact upload is claimed until the corresponding Actions steps finish.
+- The previous source SHA `5d713067bd77e3d85ac0441e8ddd51b3da7a70d0` had its DNSMasq source checker repaired by `328fdffd8bb4ccf9f1fde9ca7ab674e95f8f6dc8`; exact-head DNSMasq #45550141637 and AI docs #45550141670 PASS. Do not repeat that completed checker fix.
 
 ## Exact first action for the next GPT
 
-1. Verify the new ZeroTier multipath-nexthop regression and source contract on this exact commit; fix any failure before considering route recovery complete.
-2. Request/verify a full XY-C1 Build/TRX/artifact run on a SHA containing the latest ZeroTier production script change; do not infer L3 from host-only validation.
-3. Continue another independent P1/P2 userland defect. DNSMasq static-ARP cleanup ownership remains a candidate, but do not change broad permanent-entry cleanup until an ownership regression establishes the intended boundary.
+1. Refresh live `main` (this checkpoint itself is a documentation-only commit after source SHA `279789f...`) and inspect the exact-head WAN route, XY-C1, Process lifecycle and AI docs runs. For FAIL, diagnose and repair; for PENDING, continue independent work without waiting.
+2. Confirm the WAN route job ran `trunk/user/pppoe/tests/detect_status.sh` and `scripts/check_pppoe_mwan_status.py`. The regression must reject `010.0.0.7` before any firewall deletion/addition or route mutation.
+3. Confirm the XY-C1 run's Build, TRX validation and artifact-upload steps separately. Do not infer L3 from host-only checks or a queued/in-progress run.
+4. Continue a new independent P1/P2 stability/security defect outside the completed PPPoE-MWAN IPv4 slice; avoid repeating the already-verified DNSMasq static-ARP octal parsing or older handoff audits.
 
-No force-push. Backup remains read-only.
+No force-push. Backup stays read-only.
 
 ## Current repository state
 
