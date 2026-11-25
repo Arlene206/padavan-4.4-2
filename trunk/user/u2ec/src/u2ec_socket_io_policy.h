@@ -100,4 +100,25 @@ u2ec_urb_buffer_bounds_are_valid(long buffer_size,
     return transfer_length <= (unsigned long)buffer_size - urb_length;
 }
 
+/*
+ * Ensure that the peer's IRP BufferSize is backed by bytes in the actual TCP
+ * frame, not merely by the zero-filled capacity of the daemon's staging area.
+ * frame_size includes the fixed IRP prefix before Buffer.
+ */
+static inline int
+u2ec_irp_frame_buffer_bounds_valid(long frame_size, long buffer_size,
+                                   size_t buffer_offset,
+                                   size_t buffer_capacity)
+{
+    size_t received_payload;
+
+    if (frame_size < 0 || buffer_size < 0 ||
+        buffer_offset > (size_t)frame_size)
+        return 0;
+
+    received_payload = (size_t)frame_size - buffer_offset;
+    return received_payload <= buffer_capacity &&
+           (size_t)buffer_size <= received_payload;
+}
+
 #endif /* U2EC_SOCKET_IO_POLICY_H */

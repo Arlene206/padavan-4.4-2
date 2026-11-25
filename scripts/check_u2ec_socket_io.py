@@ -59,6 +59,11 @@ assert "u2ec_send_all_no_sigpipe" not in add_remote or add_remote.count("u2ec_se
 assert add_remote.count("u2ec_send_all_no_sigpipe") == 2
 assert "u2ec_recv_all(sockfd, (char *)&tcp_pack, sizeof(tcp_pack))" in usb_connection
 assert "u2ec_frame_size_is_valid((long)tcp_pack.SizeBuffer" in usb_connection
+assert "u2ec_irp_frame_buffer_bounds_valid(" in usb_connection
+assert "offsetof(IRP_SAVE, Buffer)" in usb_connection
+assert "sizeof(data_buf) - offsetof(IRP_SAVE, Buffer)" in usb_connection
+assert "received_payload <= buffer_capacity" in policy
+assert "(size_t)buffer_size <= received_payload" in policy
 assert "sizeof(IRP_SAVE), sizeof(data_buf)" in usb_connection
 assert "u2ec_frame_size_is_valid((long)pirp_saverw->NeedSize" in usb_connection
 assert "sizeof(IRP_SAVE), sizeof(data_bufrw)" in usb_connection
@@ -76,6 +81,7 @@ for token in (
     "test_send_completes_a_tcp_stream_write",
     "test_disconnected_peer_returns_epipe_without_sigpipe",
     "test_mid_frame_eof_is_reported_as_reset",
+    "test_irp_buffer_size_must_fit_actual_received_frame",
     "test_frame_size_is_bounded_and_positive",
     "test_urb_buffer_bounds_reject_underflow_and_oversized_transfers",
     "test_invalid_buffers_are_rejected",

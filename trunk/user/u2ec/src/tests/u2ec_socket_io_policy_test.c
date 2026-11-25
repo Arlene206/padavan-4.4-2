@@ -97,6 +97,24 @@ test_urb_buffer_bounds_reject_underflow_and_oversized_transfers(void)
 }
 
 static void
+test_irp_buffer_size_must_fit_actual_received_frame(void)
+{
+    const size_t prefix = 96U;
+    const size_t capacity = 262144U;
+
+    assert(u2ec_irp_frame_buffer_bounds_valid(96L, 0L, prefix, capacity));
+    assert(u2ec_irp_frame_buffer_bounds_valid(112L, 16L, prefix, capacity));
+    assert(u2ec_irp_frame_buffer_bounds_valid(112L, 8L, prefix, capacity));
+    assert(!u2ec_irp_frame_buffer_bounds_valid(112L, 17L, prefix, capacity));
+    assert(!u2ec_irp_frame_buffer_bounds_valid(112L, -1L, prefix, capacity));
+    assert(!u2ec_irp_frame_buffer_bounds_valid(-1L, 0L, prefix, capacity));
+    assert(!u2ec_irp_frame_buffer_bounds_valid(95L, 0L, prefix, capacity));
+    assert(!u2ec_irp_frame_buffer_bounds_valid(96L, 1L, prefix, capacity));
+    assert(!u2ec_irp_frame_buffer_bounds_valid(96L, 0L, prefix - 1U, 0U));
+    assert(!u2ec_irp_frame_buffer_bounds_valid(96L, 1L, prefix, 0U));
+}
+
+static void
 test_invalid_buffers_are_rejected(void)
 {
     int sockets[2];
@@ -121,6 +139,7 @@ main(void)
     test_disconnected_peer_returns_epipe_without_sigpipe();
     test_mid_frame_eof_is_reported_as_reset();
     test_frame_size_is_bounded_and_positive();
+    test_irp_buffer_size_must_fit_actual_received_frame();
     test_urb_buffer_bounds_reject_underflow_and_oversized_transfers();
     test_invalid_buffers_are_rejected();
     puts("U2EC bounded TCP framing and SIGPIPE-safe I/O policy: PASS");

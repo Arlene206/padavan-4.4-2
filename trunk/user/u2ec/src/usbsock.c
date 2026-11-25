@@ -3008,7 +3008,23 @@ int usb_connection(int sockfd)
 		pirp_save->StackLocation.Parameters.Others.Argument4 = SWAP64(pirp_save->StackLocation.Parameters.Others.Argument4);
 		pirp_save->BufferSize = SWAP32(pirp_save->BufferSize);
 		pirp_save->Reserv = SWAP32(pirp_save->Reserv);
+#endif
 
+		/*
+		 * The outer TCP length is authoritative. Do not let a peer claim an
+		 * IRP BufferSize larger than the bytes actually received: data_buf is
+		 * zero-filled, so trusting only the inner length silently parses
+		 * fabricated zero padding as a real URB.
+		 */
+		if (!u2ec_irp_frame_buffer_bounds_valid(
+		        (long)tcp_pack.SizeBuffer, (long)pirp_save->BufferSize,
+		        offsetof(IRP_SAVE, Buffer),
+		        sizeof(data_buf) - offsetof(IRP_SAVE, Buffer))) {
+			PDEBUG("usb_connection: IRP buffer length exceeds received frame\\n");
+			goto CLOSE_CONN;
+		}
+
+#if __BYTE_ORDER == __BIG_ENDIAN
 		if (pirp_save->StackLocation.MajorFunction == IRP_MJ_INTERNAL_DEVICE_CONTROL)
 		{
 			if (pirp_save->Is64 == 0)
