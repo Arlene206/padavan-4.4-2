@@ -169,6 +169,9 @@ assert "O_RDWR|O_NONBLOCK" in daemon_main
 assert "u2ec_read_fifo_event" in policy
 assert "u2ec_release_lock_once(&lock, file_unlock)" in fifo_reader
 assert "file_unlock(lock)" not in fifo_reader
+cancel_at = fifo_reader.index("CANCEL:")
+reopen_at = fifo_reader.index("REOPEN_FIFO:", cancel_at)
+assert "u2ec_release_lock_once(&lock, file_unlock)" in fifo_reader[cancel_at:reopen_at]
 assert "u2ec_release_lock_once" in policy
 assert "test_lock_fd_is_released_exactly_once" in test
 for token in (

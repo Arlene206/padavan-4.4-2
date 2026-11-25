@@ -4295,8 +4295,10 @@ static int handle_fifo(int *fd, fd_set *pfds, int *pfdm, int conn_fd)
 				free(pos);
 			}
 	}
-CANCEL:
 #endif
+CANCEL:
+	/* Release the lock on rate-limited/cancelled FIFO events too. */
+	u2ec_release_lock_once(&lock, file_unlock);
 REOPEN_FIFO:
 	*fd = open(U2EC_FIFO, O_RDWR|O_NONBLOCK);
 	if (*fd < 0)
