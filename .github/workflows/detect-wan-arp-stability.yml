@@ -255,7 +255,7 @@ jobs:
               "config_status=detect_wan_arp_parse_gateway_address(gateway_storage,&gateway_ip);")
           gateway_error = arp_compact.index("if(config_status!=0)", gateway_parse)
           no_probe = arp_compact.index(
-              "if(gateway_ip==INADDR_ANY||gateway_ip==ip)")
+              "if(gateway_ip==INADDR_ANY||ip==INADDR_ANY||gateway_ip==ip)")
           mac_parse = arp_compact.index(
               "config_status=detect_wan_arp_parse_hardware_address(hardware_address_storage,mac);")
           mac_error = arp_compact.index("if(config_status!=0)", mac_parse)
