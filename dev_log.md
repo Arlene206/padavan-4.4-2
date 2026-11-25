@@ -1,3 +1,13 @@
+## 2026-11-26 — Remove eval from AdGuardHome daemon launch
+
+- `start_adg()` interpolated the environment-overridable `ADG_CONFIG_FILE` into an `eval` string. Whitespace split the path and shell metacharacters such as `; touch <marker> #` were parsed as a second command in the privileged launch context.
+- The launcher now directly invokes `AdGuardHome -c "$adg_file" -w /tmp/AdGuardHome -v` with no second shell parse. The lock FD is still closed in the child before daemon exec.
+- Added an adversarial regression with a path containing spaces, semicolon, a marker command and comment delimiter. The test records every argv entry and requires one exact config argument plus absence of the injected marker; Python source contracts forbid eval.
+- Static source/test/checker contract assertions PASS. Exact-head AdGuardHome security workflow and shared Process/NVRAM/AI/XY-C1 checks pending at commit creation; no MIPS/hardware result claimed.
+- Changed paths: `adguardhome.sh`, `tests/adguardhome_config_security.sh`, `scripts/check_adguardhome_config.py`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`.
+
+---
+
 ## 2026-11-26 05:30 CST (UTC+8) — Fail closed when WDM hotplug cannot clear the QMI client ID marker
 
 - \`mdev_wdm_main()\` previously ignored \`unlink(QMI_CLIENT_ID)\` and could publish a new WDM physical-identity record while a global WDS client-ID marker remained. If /tmp cleanup failed, that stale marker could be reused against a different physical modem.

@@ -876,13 +876,23 @@ fi
 
 # Detached startup is successful only after the process-name inventory confirms RUNNING.
 (
+  TEST_ADG_COMMAND_MARKER="$TEST_TMP/adguardhome-command-injected"
+  TEST_ADG_ARGV_LOG="$TEST_TMP/adguardhome.argv"
+  TEST_ADG_ARGV_EXPECTED="$TEST_TMP/adguardhome.argv.expected"
+  ADG_CONFIG_FILE="$TEST_TMP/config with spaces; touch $TEST_TMP/adguardhome-command-injected #"
+  export TEST_ADG_COMMAND_MARKER TEST_ADG_ARGV_LOG ADG_CONFIG_FILE
   mkdir() { return 0; }
-  getconfig() { adg_file="$TEST_CONFIG"; echo getconfig >> "$TEST_ADG_EFFECTS_LOG"; return 0; }
+  getconfig() { adg_file="$ADG_CONFIG_FILE"; echo getconfig >> "$TEST_ADG_EFFECTS_LOG"; return 0; }
   set_iptable() { echo set_iptable >> "$TEST_ADG_EFFECTS_LOG"; return 0; }
   change_dns() { echo change_dns >> "$TEST_ADG_EFFECTS_LOG"; return 0; }
-  AdGuardHome() { echo launch >> "$TEST_ADG_EFFECTS_LOG"; return 0; }
+  AdGuardHome() {
+    printf '<%s>\n' "$@" >> "$TEST_ADG_ARGV_LOG"
+    echo launch >> "$TEST_ADG_EFFECTS_LOG"
+    return 0
+  }
 
   : > "$TEST_ADG_EFFECTS_LOG"
+  : > "$TEST_ADG_ARGV_LOG"
   : > "$TEST_ADG_CLEANUP_LOG"
   : > "$TEST_ADG_SLEEP_LOG"
   echo stopped > "$TEST_ADG_STATE"
@@ -893,6 +903,9 @@ fi
   [ "$(wc -l < "$TEST_ADG_SLEEP_LOG" | tr -d ' ')" = 1 ] || exit 1
   /bin/sleep 0.05
   grep -Fqx launch "$TEST_ADG_EFFECTS_LOG" || exit 1
+  printf '<%s>\n' -c "$ADG_CONFIG_FILE" -w /tmp/AdGuardHome -v > "$TEST_ADG_ARGV_EXPECTED"
+  cmp "$TEST_ADG_ARGV_EXPECTED" "$TEST_ADG_ARGV_LOG" || exit 1
+  [ ! -e "$TEST_ADG_COMMAND_MARKER" ] || exit 1
   [ ! -s "$TEST_ADG_CLEANUP_LOG" ] || exit 1
 
   # A confirmed ABSENT timeout must restore resolver state before firewall rules.
@@ -930,6 +943,7 @@ fi
   TEST_ADG_SLEEP_FAIL=0
 ) || fail "AdGuardHome detached startup postcondition or fail-closed rollback failed"
 
+echo "AdGuardHome command argv quoting and metacharacter safety: PASS"
 echo "AdGuardHome stop signals only validated PID snapshots: PASS"
 echo "AdGuardHome detached startup RUNNING postcondition, timeout rollback and UNKNOWN preservation: PASS"
 echo "AdGuardHome duplicate-start and bounded stop lifecycle regression: PASS"

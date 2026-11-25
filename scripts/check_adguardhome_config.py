@@ -145,7 +145,7 @@ require('auth_pass: adguardhome' in config and 'private_key: ""' in config,
         "source contract must recognize secret-bearing config fields")
 require('if ! getconfig; then' in start and 'if ! set_iptable; then' in start and
         start.index('if ! getconfig; then') < start.index('if ! set_iptable; then') <
-        start.index('if ! change_dns; then') < start.index('eval "AdGuardHome'),
+        start.index('if ! change_dns; then') < start.index('AdGuardHome -c "$adg_file"'),
         "config, firewall and resolver failures must stop before daemon launch")
 require('mktemp "${adg_dns_conf}.adg-new.XXXXXX"' in dns_update and
         'mktemp "${adg_dns_conf}.adg-old.XXXXXX"' in dns_update and
@@ -170,7 +170,7 @@ require('if adg_process_state; then' in start and
         'if pidof AdGuardHome' not in start and
         start.index('if adg_process_state; then') < start.index('getconfig') <
         start.index('if ! set_iptable; then') < start.index('change_dns') <
-        start.index('eval "AdGuardHome'),
+        start.index('AdGuardHome -c "$adg_file"'),
         "duplicate start must require a validated process inventory before side effects")
 process_identity = function_body(script, "adg_process_identity() {")
 require('pidof AdGuardHome' in process_state and 'adg_pidof_status' in process_state and
@@ -251,6 +251,11 @@ require("AdGuardHome stop signals only validated PID snapshots: PASS" in test an
         "'-TERM 12345' '-TERM 23456'" in test and
         "'-TERM 24680' '-9 13579'" in test,
         "AdGuardHome lifecycle tests must cover procfs ownership, multiple PIDs and refreshed escalation targets")
+require("AdGuardHome command argv quoting and metacharacter safety: PASS" in test and
+        "adguardhome-command-injected" in test and
+        'printf \'<%s>\\n\' "$@"' in test and
+        'cmp "$TEST_ADG_ARGV_EXPECTED" "$TEST_ADG_ARGV_LOG"' in test,
+        "AdGuardHome launch must preserve one literal config argv argument and never evaluate its contents")
 require("AdGuardHome restart preserves a healthy daemon on enable-read errors or invalid selectors: PASS" in test,
         "restart regression must verify NVRAM read failures and malformed selectors cause no stop/start side effects")
 require('adg_lifecycle_lock_prepare "$adg_lock_file"' in lock_run and
@@ -259,7 +264,8 @@ require('adg_lifecycle_lock_prepare "$adg_lock_file"' in lock_run and
         "all launcher service actions must pass through the same checked lock")
 post_launch_del_dns = start.index("if ! del_dns; then", start.index("if adg_wait_started; then"))
 post_launch_clear_iptable = start.index("if ! clear_iptable; then", post_launch_del_dns)
-require('( exec 9>&-; eval "AdGuardHome -c $adg_file -w /tmp/AdGuardHome -v" ) &' in start and
+require('( exec 9>&-; AdGuardHome -c "$adg_file" -w /tmp/AdGuardHome -v ) &' in start and
+        'eval "AdGuardHome -c $adg_file' not in start and
         "ADG_START_WAIT_ATTEMPTS=5" in script and
         "if adg_wait_started; then" in start and
         start.index(' ) &') < start.index("if adg_wait_started; then") and

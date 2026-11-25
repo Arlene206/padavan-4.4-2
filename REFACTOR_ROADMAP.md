@@ -1,3 +1,11 @@
+## 2026-11-26 — Prevent shell injection in AdGuardHome daemon config argument
+
+- The background launch interpolated `ADG_CONFIG_FILE` into an `eval` string, causing the path to be reparsed as shell syntax. A path containing shell metacharacters could append commands to the root-launched service operation.
+- Replaced eval with a direct command invocation and separately quoted config argument. The adversarial regression passes a path containing spaces, semicolon, marker command and comment delimiter; it asserts exact argv preservation and no marker creation.
+- Existing AdGuardHome lifecycle/security suite and source checker are extended. Exact-head AdGuardHome/Process/NVRAM/AI/XY-C1 validation pending; MIPS/physical-router L3/L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-26 — Propagate DHCPv6 NoBinding re-establishment failures
 
 - On a NoBinding Status Code during Renew/Rebind, `update_ia()` previously discarded `reestablish_ia()`'s result. That helper removes the current IA timer before preparing the replacement Request and may fail while building IA options or copying authentication data. A dropped error could leave the IA without a timer or queued Request while the client acknowledges the Reply.

@@ -530,7 +530,7 @@ start_adg(){
 	fi
 	logger -t "AdGuardHome" "启动 AdGuardHome"
 	# The background daemon must not inherit the launcher lock descriptor.
-	( exec 9>&-; eval "AdGuardHome -c $adg_file -w /tmp/AdGuardHome -v" ) &
+	( exec 9>&-; AdGuardHome -c "$adg_file" -w /tmp/AdGuardHome -v ) &
   if adg_wait_started; then
     return 0
   else

@@ -1,24 +1,26 @@
 ## Current repository state — 2026-11-26
 
-- Live main parent for this slice: \`e9545b1b2f7c059076b59ebb2cf4a5c07fc86967\`; this atomic follow-up makes WDM hotplug check the global QMI client-ID marker unlink before accepting a new physical modem identity.
-- Frozen backup \`backup/pre-plugin-overhaul-2026-11-14\` remains read-only at \`72f4f157a084f8184b9597ca5bf334b8080e5807\`.
-- Parent exact-head Actions for \`e9545b1b2f7c059076b59ebb2cf4a5c07fc86967\`: DHCPv6 IA publication #45700615752 PASS; USB storage hotplug #45700615482 PASS; WAN DHCP callback #45700615454 PASS; Process inventory #45700615636 PASS; AI docs #45700615554 PASS. NVRAM #45700615438 and XY-C1 #45700615486 were IN_PROGRESS at the last poll.
-- DHCPv6 NoBinding recovery correction \`e9545b1b2f7c059076b59ebb2cf4a5c07fc86967\` passed its exact-head DHCPv6 IA, Process, WAN callback and AI docs checks. The earlier 32-bit IA timer ratio fix on \`0766d65129017e2313a12ccae26d9af0b84c94ae\` also passed the exact DHCPv6 IA regression. Prior IAPP IPC work remains closed through \`e110d1e248bc6ccd2a759275c81ff71cdf2cd99e\`.
+- Live main parent for this slice: `b47d5ef9d44cdec6736414a4e4d52bb90b48b0ee`. This slice removes shell re-evaluation from the AdGuardHome daemon launch: an environment-controlled config path interpolated into `eval` could inject commands.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Parent exact-head Actions for `b47d5ef9d44cdec6736414a4e4d52bb90b48b0ee`: HTTPD security #45701307732, USB modem WDM #45701307930, AI docs #45701307827, Process inventory #45701307914, NVRAM #45701307926 and XY-C1 #45701307950 were all IN_PROGRESS at the last poll. Parent results are not transferable.
+- The immediately preceding independent commit `b47d5ef9d44cdec6736414a4e4d52bb90b48b0ee` makes WDM hotplug fail closed when global QMI client-ID marker cleanup fails. It reuses unlink-status policy and best-effort removes device metadata; its exact-head Actions are listed above and must be closed separately.
+- DHCPv6 NoBinding recovery and 32-bit T1/T2 overflow fixes passed their exact DHCPv6 IA checks on `e9545b1b2f7c059076b59ebb2cf4a5c07fc86967`. Earlier IAPP nonblocking/framed pipe work remains complete through `e110d1e248bc6ccd2a759275c81ff71cdf2cd99e`.
 
 ## Active task
 
-\`mdev_wdm_main()\` previously called \`unlink(QMI_CLIENT_ID)\` without checking its result and then continued to publish a new WDM physical-identity record. If the old global WDS client-ID marker could not be removed (for example, a read-only/failed /tmp filesystem), a later QMI start could mistake a marker belonging to a different physical modem for the current device. The hotplug path now normalizes unlink results through the existing \`modem_qmi_handle_file_unlink_status()\` policy (ENOENT remains an idempotent success; all other errors fail closed). On add, failure prevents new identity publication and attempts to remove stale per-device metadata. On unplug, metadata removal still runs even if global marker cleanup fails, and the handler returns failure if either cleanup leg is incomplete.
+`start_adg()` launched the daemon through `eval "AdGuardHome -c $adg_file ..."`. `ADG_CONFIG_FILE` is an environment-overridable path and is not shell-escaped before the eval string is parsed again. A value containing whitespace and `; touch <path> #` splits the config argument and executes an extra command in the privileged launcher context. The launch now invokes `AdGuardHome` directly with `"$adg_file"` as one argument. The regression injects a marker command through a path containing spaces/metacharacters and verifies the marker is not created and the exact argv is preserved.
 
 ## Verification boundary
 
-- Existing \`modem_wan_start_policy.c\` GNU89 ASan/UBSan test covers successful unlink, ENOENT, EACCES, EROFS and missing-errno normalization. The USB modem workflow source contract now verifies WDM marker-unlink/status ordering, the add-side publication gate, and the remove-side best-effort metadata cleanup.
-- The source-only contract and sanitizer regression have not been run locally in this session (no checkout); the exact-head USB modem, Process, AI docs and XY-C1 Actions for THIS COMMIT must be fetched after push.
-- Parent exact-head NVRAM #45700615438 and XY-C1 #45700615486 remained IN_PROGRESS. Do not transfer their results to the new SHA. No physical multi-modem/hub L4 result is claimed.
+- Source/test/checker contract assertions validated before building the commit tree.
+- AdGuardHome regression is extended to capture exact daemon argv and detect attempted command execution. Its exact-head workflow must be checked after this commit.
+- No MIPS firmware or physical-router claim. Product L3/L4 remain unverified.
 
 ## Exact first actions for next GPT
 
-1. Fetch exact-SHA results for THIS COMMIT: USB modem WDM/NDIS identity, Process inventory, AI docs, NVRAM and XY-C1. Inspect logs for any failure; XY-C1 must complete Build, TRX verification and artifact upload on the same SHA before claiming L3.
-2. Continue an independent Padavan userland stability/security fix after this QMI marker cleanup slice; do not repeat the closed IAPP IPC or DHCPv6 timer/NoBinding work.
+1. Fetch exact-SHA Actions for THIS COMMIT: AdGuardHome config/security, Process inventory, NVRAM, AI docs, and XY-C1; repair any same-SHA failure first. Keep the parallel WDM commit `b47d5ef9d44cdec6736414a4e4d52bb90b48b0ee` separate and close its USB/Process/AI/NVRAM/XY-C1 statuses.
+2. Verify the adversarial shell path regression and Python source checker on the exact commit; only then close the AdGuardHome injection fix.
+3. Continue a separate stability/security issue in a different Padavan userland component; do not repeat closed IAPP IPC or DHCPv6 IA work.
 
 # Cross-session execution mandate
 
