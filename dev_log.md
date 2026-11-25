@@ -1,3 +1,10 @@
+## 2026-11-25 — Bound U2EC client TCP sends as well as reads
+
+- The main U2EC loop also used blocking `u2ec_send_all_no_sigpipe()` for client greetings and responses. A peer that stopped reading could fill the TCP send buffer and stall the same sole event loop, even after receive-side deadlines were added.
+- Replaced the unbounded send loop with select-driven nonblocking sends under a 10-second absolute deadline. The compatibility wrapper retains the existing API and `MSG_NOSIGNAL` behavior; timeout and EPIPE remain ordinary errors handled by the existing disconnect path.
+- Added successful socketpair delivery and a non-reading-peer send-buffer exhaustion regression; source-contract checks require all sends through the bounded wrapper. Exact U2EC ASan/UBSan/source-contract and XY-C1 validation pending.
+
+---
 ## 2026-11-25 — Trigger MTD fill regressions for pull requests
 
 - Exact USB-storage run #45609688415 on `eed1e197` passed the host-shell and BusyBox ash fill regressions and surrounding source contracts, but the workflow checker correctly found that `mtd_storage_fill_safe_paths.sh` was listed under `push.paths` and omitted from `pull_request.paths`.

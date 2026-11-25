@@ -50,6 +50,8 @@ exchange = body(source, "int exchangeIRP(")
 establish = body(source, "int establish_connection(int sockfd)")
 send_policy = body(policy, "u2ec_send_all_no_sigpipe(")
 recv_policy = body(policy, "u2ec_recv_all(")
+send_timeout_policy = body(policy, "u2ec_send_all_no_sigpipe_timeout(")
+send_policy = body(policy, "u2ec_send_all_no_sigpipe(")
 recv_timeout_policy = body(policy, "u2ec_recv_all_timeout(")
 select_policy = body(policy, "u2ec_select_readable_retry_with(")
 
@@ -82,6 +84,16 @@ assert "MSG_NOSIGNAL" in send_policy
 assert "errno == EINTR" in send_policy
 assert "return (ssize_t)sent;" in send_policy
 assert "U2EC_CLIENT_FRAME_TIMEOUT_SECONDS 10U" in policy
+assert "U2EC_CLIENT_SEND_TIMEOUT_SECONDS 10U" in policy
+assert "u2ec_timeval_remaining(&deadline, &remaining)" in send_timeout_policy
+assert "select(fd + 1, NULL, &writefds, NULL, &wait_time)" in send_timeout_policy
+assert "MSG_NOSIGNAL | MSG_DONTWAIT" in send_timeout_policy
+assert "errno = ETIMEDOUT" in send_timeout_policy
+assert "u2ec_send_all_no_sigpipe_timeout(" in send_policy
+assert "U2EC_CLIENT_SEND_TIMEOUT_SECONDS" in send_policy
+assert "test_timed_send_completes_a_ready_field" in test
+assert "test_timed_send_expires_when_peer_does_not_read" in test
+
 assert "gettimeofday(&deadline, NULL)" in recv_timeout_policy
 assert "u2ec_timeval_remaining(&deadline, &remaining)" in recv_timeout_policy
 assert "select(fd + 1, &readfds, NULL, NULL, &wait_time)" in recv_timeout_policy

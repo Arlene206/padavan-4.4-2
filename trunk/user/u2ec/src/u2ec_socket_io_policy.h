@@ -134,32 +134,74 @@ u2ec_pselect_readable_retry(int nfds, const fd_set *master, fd_set *readfds,
  * SIGPIPE to the whole printer daemon. The U2EC TCP sockets are blocking;
  * retry interruptions and treat zero progress as a broken stream.
  */
+#define U2EC_CLIENT_SEND_TIMEOUT_SECONDS 10U
+
+static inline int u2ec_timeval_remaining(const struct timeval *deadline,
+                                         struct timeval *remaining);
+
 static inline ssize_t
-u2ec_send_all_no_sigpipe(int fd, const void *buffer, size_t length)
+u2ec_send_all_no_sigpipe_timeout(int fd, const void *buffer, size_t length,
+                                 unsigned int timeout_seconds)
 {
     const unsigned char *bytes = (const unsigned char *)buffer;
     size_t sent = 0;
+    struct timeval deadline, remaining, wait_time;
+    fd_set writefds;
+    int remaining_status, ready;
+    ssize_t result;
 
-    if (!buffer && length != 0U) {
+    if (length == 0U)
+        return 0;
+    if (fd < 0 || fd >= FD_SETSIZE || !buffer || timeout_seconds == 0U) {
         errno = EINVAL;
         return -1;
     }
+    if (gettimeofday(&deadline, NULL) < 0)
+        return -1;
+    deadline.tv_sec += (time_t)timeout_seconds;
 
     while (sent < length) {
-        ssize_t result = send(fd, bytes + sent, length - sent, MSG_NOSIGNAL);
+        remaining_status = u2ec_timeval_remaining(&deadline, &remaining);
+        if (remaining_status <= 0)
+            return -1;
 
+        FD_ZERO(&writefds);
+        FD_SET(fd, &writefds);
+        wait_time = remaining;
+        ready = select(fd + 1, NULL, &writefds, NULL, &wait_time);
+        if (ready < 0) {
+            if (errno == EINTR)
+                continue;
+            return -1;
+        }
+        if (ready == 0) {
+            errno = ETIMEDOUT;
+            return -1;
+        }
+
+        result = send(fd, bytes + sent, length - sent,
+                      MSG_NOSIGNAL | MSG_DONTWAIT);
         if (result > 0) {
             sent += (size_t)result;
-        } else if (result < 0 && errno == EINTR) {
+        } else if (result == 0) {
+            errno = EPIPE;
+            return -1;
+        } else if (errno == EINTR || errno == EAGAIN ||
+                   errno == EWOULDBLOCK) {
             continue;
         } else {
-            if (result == 0)
-                errno = EPIPE;
             return -1;
         }
     }
 
     return (ssize_t)sent;
+}
+
+static inline ssize_t
+u2ec_send_all_no_sigpipe(int fd, const void *buffer, size_t length)
+{
+    return u2ec_send_all_no_sigpipe_timeout(
+        fd, buffer, length, U2EC_CLIENT_SEND_TIMEOUT_SECONDS);
 }
 
 /* Read one complete TCP frame field; EOF in the middle is a broken frame. */

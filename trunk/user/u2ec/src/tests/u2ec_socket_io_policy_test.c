@@ -2,6 +2,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
@@ -76,6 +77,46 @@ test_disconnected_peer_returns_epipe_without_sigpipe(void)
     close(sockets[0]);
 }
 
+static void
+test_timed_send_completes_a_ready_field(void)
+{
+    int sockets[2];
+    char received[5];
+    const char payload[] = "u2ec";
+
+    assert(socketpair(AF_UNIX, SOCK_STREAM, 0, sockets) == 0);
+    assert(u2ec_send_all_no_sigpipe_timeout(sockets[0], payload,
+                                           sizeof(payload), 1U) ==
+           (ssize_t)sizeof(payload));
+    assert(read(sockets[1], received, sizeof(payload)) ==
+           (ssize_t)sizeof(payload));
+    assert(memcmp(received, payload, sizeof(payload)) == 0);
+    close(sockets[0]);
+    close(sockets[1]);
+}
+
+static void
+test_timed_send_expires_when_peer_does_not_read(void)
+{
+    int sockets[2];
+    int send_buffer = 4096;
+    unsigned char *payload;
+    size_t payload_length = 1024U * 1024U;
+
+    assert(socketpair(AF_UNIX, SOCK_STREAM, 0, sockets) == 0);
+    assert(setsockopt(sockets[0], SOL_SOCKET, SO_SNDBUF, &send_buffer,
+                      sizeof(send_buffer)) == 0);
+    payload = (unsigned char *)malloc(payload_length);
+    assert(payload != NULL);
+    memset(payload, 0x5a, payload_length);
+    errno = 0;
+    assert(u2ec_send_all_no_sigpipe_timeout(sockets[0], payload,
+                                           payload_length, 1U) == -1);
+    assert(errno == ETIMEDOUT);
+    free(payload);
+    close(sockets[0]);
+    close(sockets[1]);
+}
 static void
 test_timed_recv_completes_a_ready_field(void)
 {
@@ -542,6 +583,8 @@ main(void)
     test_socket_initialization_failure_closes_descriptor_and_preserves_errno();
     test_send_completes_a_tcp_stream_write();
     test_disconnected_peer_returns_epipe_without_sigpipe();
+    test_timed_send_completes_a_ready_field();
+    test_timed_send_expires_when_peer_does_not_read();
     test_timed_recv_completes_a_ready_field();
     test_timed_recv_expires_after_a_partial_field();
     test_mid_frame_eof_is_reported_as_reset();
