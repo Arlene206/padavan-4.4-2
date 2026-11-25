@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import re
 from pathlib import Path
 
 ROOT = Path(".")
@@ -27,6 +28,9 @@ def body(source, signature):
 get_request = body(parser, "get_request( const char* src")
 parse_param = body(parser, "parse_param( const char* s")
 parse_udprelay = body(parser, "parse_udprelay( const char* opt")
+# Inspect code, not comments: the parser deliberately documents why strchr()
+# is unsafe for signed high-bit bytes, and that comment must not trip the gate.
+parse_udprelay_code = re.sub(r"/\*.*?\*/|//[^\n]*", "", parse_udprelay, flags=re.S)
 read_command = body(caller, "read_command( int sockfd")
 
 assert "memchr(src, '\\0', srclen)" in get_request
@@ -47,10 +51,10 @@ assert "at >= s_addrlen" in parse_udprelay
 assert "host_len >= addrlen" in parse_udprelay
 assert "host[i] < '0' || host[i] > '9'" in parse_udprelay
 assert "host[i] == ':' || host[i] == '%' || host[i] == '~'" in parse_udprelay
-assert "strchr(" not in parse_udprelay
+assert "strchr(" not in parse_udprelay_code
 assert "s_addr[0] = '\\0'" in parse_udprelay
-for token in ("strncpy(", "strcspn(", "atoi(", "strlen("):
-    assert token not in parse_udprelay, token
+for token in ("strchr(", "strncpy(", "strcspn(", "atoi(", "strlen("):
+    assert token not in parse_udprelay_code, token
 
 assert "recv( sockfd, httpbuf, sizeof(httpbuf), 0 )" in read_command
 assert "get_request( httpbuf, (size_t)hlen, request, &rlen )" in read_command

@@ -1,3 +1,10 @@
+## 2026-11-25 — Fix UDPXY parser contract false positive on safety comment
+
+- Exact-head UDPXY run #45723689891 on `7bcef331344c956d3983e88ab82460af399035ab` passed the GNU89 ASan/UBSan parser executable, then failed because the Python checker searched the raw C function text for `strchr(`. The implementation had removed the call; its explanatory comment correctly named the unsafe function and triggered the naive substring assertion.
+- The checker now strips C block and line comments before asserting banned calls are absent, retaining the regression against actual code while allowing the signed-byte safety explanation. No production parser behavior changed in this follow-up.
+
+---
+
 ## 2026-11-25 — Bound MiniUPnP event callback URLs and notification lengths
 
 - `checkCallbackURL()` accepted IP-literal callback URLs without a slash path (for example `http://192.0.2.10`) and did not validate ports. The later notification worker scanned for `/` without a string bound and parsed the port with `atoi()`, permitting an out-of-bounds read from a malformed, LAN-supplied callback.
