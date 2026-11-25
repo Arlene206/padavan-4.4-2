@@ -843,6 +843,21 @@ jobs:
               assert token in domain_test
           assert "if (!dnsmasq_static_mac_is_valid(smac))" in static_hosts_writer
           assert "dnsmasq_static_mac_is_valid" in static_mac_policy
+          arp_transaction = function_body(
+              static_mac_policy, "dnsmasq_static_arp_apply_transaction("
+          )
+          arp_ip_validation = arp_transaction.index(
+              "dnsmasq_static_arp_ipv4_is_valid(ips[i])"
+          )
+          arp_mac_validation = arp_transaction.index(
+              "dnsmasq_static_mac_is_valid(macs[i])"
+          )
+          arp_first_command = arp_transaction.index(
+              "command(ips[i], macs[i], 1, context)"
+          )
+          assert arp_ip_validation < arp_first_command
+          assert arp_mac_validation < arp_first_command
+          assert "test_static_arp_transaction_rejects_invalid_values_before_commands" in static_mac_test
           assert "dnsmasq_static_arp_apply_transaction" in static_mac_policy
           arp_command = function_body(services, "dnsmasq_static_arp_command(")
           assert 'doSystem("arp -i %s -s %s %s"' in arp_command

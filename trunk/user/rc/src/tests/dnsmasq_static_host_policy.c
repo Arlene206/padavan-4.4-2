@@ -302,6 +302,37 @@ test_static_arp_transaction_prevalidates_all_entries(void)
 	assert(context.calls == 0);
 }
 
+static void
+test_static_arp_transaction_rejects_invalid_values_before_commands(void)
+{
+	const char *valid_ips[] = { "192.0.2.10", "192.0.2.11" };
+	const char *injected_ips[] = {
+		"192.0.2.10", "192.0.2.11;touch /tmp/arp-policy-injection"
+	};
+	const char *valid_macs[] = { "001122334410", "001122334411" };
+	const char *injected_macs[] = {
+		"001122334410", "001122334411;touch /tmp/arp-policy-injection"
+	};
+	const char *multicast_macs[] = { "001122334410", "011122334411" };
+	struct arp_transaction_test_context context;
+
+	memset(&context, 0, sizeof(context));
+	assert(dnsmasq_static_arp_apply_transaction(injected_ips, valid_macs, 2,
+						    mock_static_arp_command, &context) == EINVAL);
+	assert(context.calls == 0);
+
+	memset(&context, 0, sizeof(context));
+	assert(dnsmasq_static_arp_apply_transaction(valid_ips, injected_macs, 2,
+						    mock_static_arp_command, &context) == EINVAL);
+	assert(context.calls == 0);
+
+	memset(&context, 0, sizeof(context));
+	assert(dnsmasq_static_arp_apply_transaction(valid_ips, multicast_macs, 2,
+						    mock_static_arp_command, &context) == EINVAL);
+	assert(context.calls == 0);
+}
+
+
 int
 main(void)
 {
@@ -317,6 +348,7 @@ main(void)
 	test_static_arp_transaction_rolls_back_prior_additions();
 	test_static_arp_transaction_continues_after_delete_failure();
 	test_static_arp_transaction_prevalidates_all_entries();
+	test_static_arp_transaction_rejects_invalid_values_before_commands();
 	puts("DNSMasq static-host MAC and ARP transaction policies: PASS");
 	return 0;
 }

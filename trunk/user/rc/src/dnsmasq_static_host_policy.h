@@ -295,7 +295,13 @@ dnsmasq_static_arp_apply_transaction(const char *const *ips,
 		return EINVAL;
 
 	for (i = 0; i < count; i++) {
-		if (!ips[i] || !ips[i][0] || !macs[i] || !macs[i][0])
+		/*
+		 * Keep this transaction safe for every caller, not only the current
+		 * /etc/ethers parser: the backend interpolates values into a command.
+		 */
+		if (!ips[i] || !ips[i][0] || !macs[i] || !macs[i][0] ||
+		    !dnsmasq_static_arp_ipv4_is_valid(ips[i]) ||
+		    !dnsmasq_static_mac_is_valid(macs[i]))
 			return EINVAL;
 	}
 
