@@ -1,3 +1,11 @@
+## 2026-11-25 — Remove pre-ACL filesystem probing from FTP MDTM
+
+- `handle_mdtm()` previously called `str_stat()` on the raw client argument before `vsf_access_check_file()` or the share ACL check. The result controlled whether a date-like token was treated as an MDTM write timestamp or as a filename, giving unauthorised path existence influence over command parsing.
+- Replaced that filesystem-dependent ambiguity check with strict RFC-style time-token grammar validation before any filesystem access. Date-only legacy tokens, 14-digit timestamps and fractional seconds remain supported; malformed calendar dates/times and malformed fractions fall back to ordinary filename handling. Actual reads/writes still use descriptor-relative ACL-checked opens and fd-based mtime operations.
+- Added GNU89 ASan/UBSan policy coverage for leap years, month/day boundaries, clock ranges, fractional syntax, delimiters and missing paths; exact-head VSFTPD workflow pending.
+
+---
+
 ## 2026-11-25 — Reject ambiguous IPv4 notation in WAN gateway ARP configuration
 
 - Confirmed that `inet_aton()` accepts abbreviated, octal, hexadecimal and single-integer IPv4 forms. For example, `0300.0.2.1` is interpreted as `192.0.2.1`, even though the value looks like a decimal dotted address; the WAN gateway monitor could therefore probe a different host than the configured text indicates.

@@ -36,6 +36,7 @@
 #include "ftp_rest_offset_policy.h"
 #include "ftp_octal_arg_policy.h"
 #include "ftp_active_port_policy.h"
+#include "ftp_mdtm_policy.h"
 
 /* Private local functions */
 static void handle_pwd(struct vsf_session* p_sess);
@@ -1771,16 +1772,14 @@ handle_mdtm(struct vsf_session* p_sess)
   long modtime = 0;
   struct str_locate_result loc = str_locate_char(&p_sess->ftp_arg_str, ' ');
 
-  /* Preserve the existing timestamp-versus-filename syntax discriminator. */
-  retval = str_stat(&p_sess->ftp_arg_str, &s_p_statbuf);
-  if (tunable_mdtm_write && retval != 0 && loc.found &&
-      vsf_sysutil_isdigit(str_get_char_at(&p_sess->ftp_arg_str, 0)))
+  /*
+   * Classify the time token syntactically before any filesystem lookup.
+   * The old str_stat() probe followed arbitrary paths before ACL checks.
+   */
+  if (tunable_mdtm_write && loc.found &&
+      ftp_mdtm_timeval_is_valid(str_getbuf(&p_sess->ftp_arg_str), loc.index))
   {
-    if (loc.index == 8 || loc.index == 14 ||
-        (loc.index > 15 && str_get_char_at(&p_sess->ftp_arg_str, 14) == '.'))
-    {
-      do_write = 1;
-    }
+    do_write = 1;
   }
   if (do_write != 0)
   {

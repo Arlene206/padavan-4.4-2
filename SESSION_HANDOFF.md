@@ -1,10 +1,9 @@
-## 2026-11-25 active handoff — strict WAN gateway IPv4 parsing
+## 2026-11-25 active handoff — strict MDTM parsing before filesystem access
 
-- Live main baseline before this slice: `5de975b84881c67262e90b016baab5c8c62d4b9b`. This slice changes `detect_wan_arp_parse_gateway_address()` from permissive `inet_aton()` to strict `inet_pton(AF_INET, ...)`; the old parser accepted shorthand/octal/hex/integer forms that can direct the ARP health check to a different address. Empty and `0.0.0.0` retain the no-gateway behavior.
-- The existing gateway-address fixture now rejects leading-zero, octal, shorthand, hexadecimal, integer and trailing-space forms. The workflow already compiles it with GNU89, `-Wall -Wextra -Werror`, ASan and UBSan and now asserts the strict parser. A focused host sanitizer harness passed; exact Actions for this source SHA remain pending.
-- DHCPv6 IA_NA/IA_PD config-list cleanup is in ancestry; exact IA publication #45639743488 passed on `541c65d`. Delegated-prefix host-bit canonicalization landed on `98b5503`; its C regression step passed, while the first overall run #45641159845 failed at a Python `NameError` because the checker used `add_ifprefix` before assignment. Checker correction `5de975b` passed exact IA run #45641451632.
-- XY-C1 #45641159900 is tied to product-source SHA `98b5503aa90eae06c80d9009eeeb5a573e63b0b9`; it was still in Build at last poll, with TRX verification and artifact upload pending. This run does not include the newer WAN parser. No L3 or physical-router L4 claim is made.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Main parent for this source slice: `a15e272653e7306738d86b38a5feec5a6ce7936e` (`docs: keep roadmap within validator size limit`). VSFTPD `handle_mdtm()` used `str_stat()` on the raw user argument before the access/ACL checks; path existence therefore selected timestamp-vs-filename parsing. The source now selects only by validated timestamp grammar and makes no filesystem probe until the existing access/ACL path.
+- The new pure policy validates calendar and clock fields, optional fractional digits, the separating space and non-empty pathname. The production handler retains fd-based ACL opens, `fstat`, and `setmodtime_fd`; only the preauthorization stat heuristic is removed.
+- Exact verification inherited from current ancestry: WAN strict parser #45642479262 PASS; NVRAM #45642479205 PASS; process inventory #45642479277 PASS; AI handoff #45642886489 PASS. XY-C1 #45642479259 on product-source SHA `8835ec27090b728f80de893b53afd1536f651dff` was still in Build at last poll (TRX/artifact pending). DHCPv6 IA exact test #45641451632 PASS; XY-C1 #45641159900 on `98b5503` PASS including Build/TRX/artifact.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Physical-router L4 remains unverified.
 
 ### First actions
 
