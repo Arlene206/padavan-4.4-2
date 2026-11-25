@@ -37,7 +37,9 @@ assert "errno == EINTR" in send_policy
 assert "return (ssize_t)sent;" in send_policy
 assert "errno = ECONNRESET;" in recv_policy
 assert "errno == EINTR" in recv_policy
-assert "frame_size > 0" in policy
+assert "frame_size >= 0" in policy
+assert "minimum <= capacity" in policy
+assert "(size_t)frame_size >= minimum" in policy
 assert "(size_t)frame_size <= capacity" in policy
 
 assert "u2ec_send_all_no_sigpipe" not in add_remote or add_remote.count("u2ec_send_all_no_sigpipe") == 2
