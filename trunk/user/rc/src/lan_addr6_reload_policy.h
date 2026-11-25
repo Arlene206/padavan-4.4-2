@@ -171,4 +171,69 @@ rc_lan_addr6_reload_from_snapshot(int read_status, const char *address,
 		address[0] != '\0', clear_address, add_address, (void *)address);
 }
 
+typedef int (*rc_lan_addr6_restore_fn)(void *context);
+
+/*
+ * Clearing global bridge addresses is destructive. If the clear or subsequent
+ * configured-address add fails, restore the configured address with "ip addr
+ * replace" so an already-present address is harmless and a missing one is
+ * recreated. Keep the original operation error primary and expose recovery
+ * status separately for diagnostics.
+ */
+static inline int
+rc_lan_addr6_reload_apply_with_recovery(
+	int has_address, rc_lan_addr6_clear_fn clear_address,
+	rc_lan_addr6_add_fn add_address, rc_lan_addr6_restore_fn restore_address,
+	void *context, int *recovery_status_out)
+{
+	int status;
+	int recovery_status = 0;
+
+	if (recovery_status_out)
+		*recovery_status_out = 0;
+	if (!clear_address ||
+	    (has_address && (!add_address || !restore_address)))
+		return EINVAL;
+
+	status = clear_address();
+	if (status != 0) {
+		if (has_address)
+			recovery_status = restore_address(context);
+		if (recovery_status_out)
+			*recovery_status_out = recovery_status;
+		return status;
+	}
+	if (!has_address)
+		return 0;
+
+	status = add_address(context);
+	if (status == 0)
+		return 0;
+
+	recovery_status = restore_address(context);
+	if (recovery_status_out)
+		*recovery_status_out = recovery_status;
+	return status;
+}
+
+/* A failed NVRAM snapshot must not trigger clear or recovery side effects. */
+static inline int
+rc_lan_addr6_reload_from_snapshot_with_recovery(
+	int read_status, const char *address,
+	rc_lan_addr6_clear_fn clear_address, rc_lan_addr6_add_fn add_address,
+	rc_lan_addr6_restore_fn restore_address, int *recovery_status_out)
+{
+	if (recovery_status_out)
+		*recovery_status_out = 0;
+	if (read_status != 0)
+		return read_status;
+	if (!address)
+		return EINVAL;
+
+	return rc_lan_addr6_reload_apply_with_recovery(
+		address[0] != '\0', clear_address, add_address, restore_address,
+		(void *)address, recovery_status_out);
+}
+
+
 #endif

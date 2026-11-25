@@ -331,6 +331,7 @@ on:
       - "trunk/user/rc/src/tests/ipv6_cleanup_policy.c"
       - "trunk/user/rc/src/tests/service_start_status.c"
       - "trunk/user/rc/src/tests/lan_addr6_reload_policy.c"
+      - "trunk/user/rc/src/net_lan6.c"
       - "trunk/user/rc/src/lan_addr6_reload_policy.h"
       - "trunk/user/rc/src/modem_wan_start_policy.h"
       - "trunk/user/rc/src/tests/modem_wan_start_policy.c"
@@ -846,6 +847,23 @@ jobs:
           assert "if (operation_status == 0)" in net6
           filters = workflow.split("jobs:", 1)[0]
           assert '"trunk/user/rc/src/net6.c"' in filters
+          assert '"trunk/user/rc/src/net_lan6.c"' in filters
+          reload_body = lan6.split("int reload_lan_addr6(void)", 1)[1].split("int clear_lan_addr6(void)", 1)[0]
+          assert "rc_lan_addr6_reload_from_snapshot_with_recovery(" in reload_body
+          assert "restore_lan_addr6_for_reload" in reload_body
+          assert 'eval("ip", "-6", "addr", "replace", lan_addr6, "dev", IFNAME_BR)' in lan6
+          ipaddress_source = Path("trunk/user/busybox/busybox-1.24.x/networking/libiproute/ipaddress.c").read_text()
+          assert '"add\\0""change\\0""chg\\0""replace\\0"' in ipaddress_source
+          for case in (
+              "test_reload_recovery_restores_address_after_clear_failure",
+              "test_reload_recovery_restores_address_after_add_failure",
+              "test_reload_recovery_error_does_not_replace_primary_error",
+              "test_reload_empty_snapshot_never_attempts_address_recovery",
+              "test_reload_recovery_requires_restore_callback_before_mutation",
+              "test_reload_snapshot_read_error_skips_clear_and_recovery",
+              "test_reload_recovery_success_keeps_normal_clear_add_order",
+          ):
+              assert case in lan6_test and case + "();" in lan6_test
           assert '"trunk/user/rc/src/rc.h"' in filters
           print("LAN IPv6 NVRAM publication failures reach startup, SIT rollback and DHCPv6 callback results: PASS")
           PY

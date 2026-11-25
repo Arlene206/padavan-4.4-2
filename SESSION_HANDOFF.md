@@ -1,19 +1,19 @@
-## 2026-11-25 autonomous handoff — align remaining IPv6 command-count contracts
+## 2026-11-25 autonomous handoff — LAN IPv6 reload compensation
 
-- Current production source is the SIT LAN restore change `0ae462027968d0d31ddf9c349cd0b5f15ab0cdc7`; following commits are contract/format-only: `92578d78` updated the route workflow count (but initially had a YAML indentation defect), and `14bbc0a` fixed indentation.
-- The exact `0ae4620` WAN route run #45626020132 failed on its final source checker because it expected 3 argv-based IPv6 address-add calls; the new LAN restore callback correctly makes 4. XY-C1 #45626020329 and WAN DHCP #45626020186 then hit the same stale count in `scripts/check_modem_wan_start_status.py:744` and the WAN DHCP workflow inline checker at line 1472. All preceding C policy tests passed; XY-C1 Build/TRX/artifact were skipped on `0ae4620`.
-- This correction updates both remaining count assertions to 4 and adds an explicit assertion that the restored address remains a single argv element on `br0`. The route workflow YAML indentation is fixed in `14bbc0a`. Verify these three workflows on the new exact SHA.
-- L3 was PASS on earlier production-source SHA `0bed846b6ac67f8f77f0104f06decddcaa62ce1a`: XY-C1 run #45624855182 completed Build XY-C1, TRX verification and artifact upload successfully. The later `0ae4620` changes `net_wan6.c`, so previous L3 does not validate current source. No physical L4.
-- On `0ae4620`: AI docs #45626020264, NVRAM #45626020337, Process inventory #45626020343, IPv6 service #45626020180 and HTTPD security #45626020041 PASS. WAN route #45626020132, WAN DHCP #45626020186 and XY-C1 #45626020329 failed only on the stale source-count assertions described above.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, immutable.
+- Main parent: `7a9bdb35a879be1dfae3bbc8277b2a6a845249cf`. Previous product-source slices include bridge M2U rollback `d9d23feb`, SIT LAN IPv6 restoration `0ae46202`, and duplicate SIT endpoint route ownership `103e7355`; the WAN-DHCP checker correction is `7a9bdb35`.
+- Active source fix: `reload_lan_addr6()` formerly flushed global addresses and could lose configured `lan_addr6` when clear/add failed. Recovery uses BusyBox 1.24's verified argv-based `ip -6 addr replace`, preserving the primary operation error and reporting recovery failure independently. Seven GNU89 regression cases cover all paths.
+- XY-C1 path filters now include `net_lan6.c`; require Build XY-C1 + TRX verification + artifact upload to PASS on this same product-source SHA before claiming L3.
+- On `103e7355`: WAN route #45627761309, AI docs #45627761272, Process #45627761497, IPv6 service #45627761403 and HTTPD #45627761288 PASS. WAN DHCP #45627761300 failed on a stale SIT route ownership assertion; corrected in `7a9bdb3`, then WAN DHCP #45628195224 and AI docs #45628195241 PASS on that follow-up. NVRAM #45627761287 and XY-C1 #45627761382 were still running at last poll (Build active; TRX/artifact pending).
+- On `a87df81`, WAN DHCP #45627045137, Firewall #45627044735, AI docs #45627044665, Process #45627044638 and USB modem #45627045198 PASS. XY-C1 #45627044645 host tests passed but Build/TRX/artifact were skipped because it had no production-source diff. Historical L3 on `0bed846` does not validate current sources. No physical-router L4.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only.
 
 ### First actions
-1. Verify current exact-head WAN route, WAN DHCP callback and XY-C1 jobs; only fix new causal failures, and require Build → TRX → artifact on the same source SHA.
-2. Continue a separate concrete reliability/security defect while those checks run.
-3. Keep the handoff status aligned with exact source SHA; previous L3 result on `0bed846` is historical, not current-source validation.
+1. Inspect exact-head WAN route, XY-C1, NVRAM and related Actions on this commit. Fix only genuine first failures, without weakening coverage.
+2. Confirm Build XY-C1, TRX and artifact upload all PASS on the same production-source SHA.
+3. Continue a separate concrete stability/security fix while Actions are pending; do not repeat completed M2U/VLAN/SIT audits without new evidence.
 
 ### Execution contract
-Source/test → complete tree/commit → non-forced expected-SHA update → exact-SHA Actions. Main only; no branches/PRs/force pushes or backup mutation.
+Source/test → one complete Git tree/commit → non-forced expected-SHA update → exact-SHA Actions. Main only; frozen backup immutable; no branches/PRs/force pushes.
 
 ## 2026-11-25 autonomous handoff checkpoint
 

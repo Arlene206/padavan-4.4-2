@@ -5,7 +5,8 @@
 
 #include "lan_addr6_reload_policy.h"
 
-static int clear_status, add_status, clear_attempts, add_attempts, operation_order;
+static int clear_status, add_status, restore_status;
+static int clear_attempts, add_attempts, restore_attempts, operation_order;
 static const void *expected_context;
 
 static void
@@ -13,8 +14,10 @@ reset_fake_operations(int clear_result, int add_result, const void *context)
 {
 	clear_status = clear_result;
 	add_status = add_result;
+	restore_status = 0;
 	clear_attempts = 0;
 	add_attempts = 0;
+	restore_attempts = 0;
 	operation_order = 0;
 	expected_context = context;
 }
@@ -36,6 +39,17 @@ fake_add_address(void *context)
 	operation_order = 2;
 	add_attempts++;
 	return add_status;
+}
+
+
+static int
+fake_restore_address(void *context)
+{
+	assert(context == expected_context);
+	assert(operation_order == 1 || operation_order == 2);
+	operation_order = 3;
+	restore_attempts++;
+	return restore_status;
 }
 
 
@@ -324,6 +338,112 @@ test_snapshot_policy_rejects_missing_address_without_mutation(void)
 }
 
 
+
+static void
+test_reload_recovery_restores_address_after_clear_failure(void)
+{
+	const char address[] = "2001:db8::41/64";
+	int recovery_status = -1;
+
+	reset_fake_operations(EIO, 0, address);
+	assert(rc_lan_addr6_reload_apply_with_recovery(
+		1, fake_clear_address, fake_add_address, fake_restore_address,
+		(void *)address, &recovery_status) == EIO);
+	assert(clear_attempts == 1 && add_attempts == 0);
+	assert(restore_attempts == 1 && operation_order == 3);
+	assert(recovery_status == 0);
+}
+
+static void
+test_reload_recovery_restores_address_after_add_failure(void)
+{
+	const char address[] = "2001:db8::42/64";
+	int recovery_status = -1;
+
+	reset_fake_operations(0, EADDRINUSE, address);
+	assert(rc_lan_addr6_reload_apply_with_recovery(
+		1, fake_clear_address, fake_add_address, fake_restore_address,
+		(void *)address, &recovery_status) == EADDRINUSE);
+	assert(clear_attempts == 1 && add_attempts == 1);
+	assert(restore_attempts == 1 && operation_order == 3);
+	assert(recovery_status == 0);
+}
+
+static void
+test_reload_recovery_error_does_not_replace_primary_error(void)
+{
+	const char address[] = "2001:db8::43/64";
+	int recovery_status = 0;
+
+	reset_fake_operations(0, ENOSPC, address);
+	restore_status = EIO;
+	assert(rc_lan_addr6_reload_apply_with_recovery(
+		1, fake_clear_address, fake_add_address, fake_restore_address,
+		(void *)address, &recovery_status) == ENOSPC);
+	assert(clear_attempts == 1 && add_attempts == 1);
+	assert(restore_attempts == 1 && operation_order == 3);
+	assert(recovery_status == EIO);
+}
+
+static void
+test_reload_empty_snapshot_never_attempts_address_recovery(void)
+{
+	int recovery_status = -1;
+
+	reset_fake_operations(EBUSY, 0, NULL);
+	assert(rc_lan_addr6_reload_apply_with_recovery(
+		0, fake_clear_address, NULL, NULL, NULL,
+		&recovery_status) == EBUSY);
+	assert(clear_attempts == 1 && add_attempts == 0);
+	assert(restore_attempts == 0 && operation_order == 1);
+	assert(recovery_status == 0);
+}
+
+static void
+test_reload_recovery_requires_restore_callback_before_mutation(void)
+{
+	const char address[] = "2001:db8::44/64";
+	int recovery_status = -1;
+
+	reset_fake_operations(0, 0, address);
+	assert(rc_lan_addr6_reload_apply_with_recovery(
+		1, fake_clear_address, fake_add_address, NULL,
+		(void *)address, &recovery_status) == EINVAL);
+	assert(clear_attempts == 0 && add_attempts == 0);
+	assert(restore_attempts == 0 && operation_order == 0);
+	assert(recovery_status == 0);
+}
+
+static void
+test_reload_snapshot_read_error_skips_clear_and_recovery(void)
+{
+	const char address[] = "2001:db8::45/64";
+	int recovery_status = -1;
+
+	reset_fake_operations(0, 0, address);
+	assert(rc_lan_addr6_reload_from_snapshot_with_recovery(
+		EIO, address, fake_clear_address, fake_add_address,
+		fake_restore_address, &recovery_status) == EIO);
+	assert(clear_attempts == 0 && add_attempts == 0);
+	assert(restore_attempts == 0 && operation_order == 0);
+	assert(recovery_status == 0);
+}
+
+static void
+test_reload_recovery_success_keeps_normal_clear_add_order(void)
+{
+	const char address[] = "2001:db8::46/64";
+	int recovery_status = -1;
+
+	reset_fake_operations(0, 0, address);
+	assert(rc_lan_addr6_reload_apply_with_recovery(
+		1, fake_clear_address, fake_add_address, fake_restore_address,
+		(void *)address, &recovery_status) == 0);
+	assert(clear_attempts == 1 && add_attempts == 1);
+	assert(restore_attempts == 0 && operation_order == 2);
+	assert(recovery_status == 0);
+}
+
 int
 main(void)
 {
@@ -347,6 +467,13 @@ main(void)
 	test_successful_snapshot_replaces_address_after_clear();
 	test_snapshot_policy_rejects_missing_address_without_mutation();
 	test_clear_failure_prevents_new_address_publication();
+	test_reload_recovery_restores_address_after_clear_failure();
+	test_reload_recovery_restores_address_after_add_failure();
+	test_reload_recovery_error_does_not_replace_primary_error();
+	test_reload_empty_snapshot_never_attempts_address_recovery();
+	test_reload_recovery_requires_restore_callback_before_mutation();
+	test_reload_snapshot_read_error_skips_clear_and_recovery();
+	test_reload_recovery_success_keeps_normal_clear_add_order();
 	test_add_failure_is_returned_after_successful_clear();
 	test_empty_configuration_only_clears_existing_address();
 	test_clear_failure_is_reported_even_without_configured_address();

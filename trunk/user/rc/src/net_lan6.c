@@ -463,23 +463,46 @@ add_lan_addr6_for_reload(void *context)
 	return eval("ip", "-6", "addr", "add", lan_addr6, "dev", IFNAME_BR);
 }
 
+
+static int
+restore_lan_addr6_for_reload(void *context)
+{
+	char *lan_addr6 = (char *)context;
+
+	if (!lan_addr6 || !lan_addr6[0]) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+
+	/*
+	 * BusyBox ip 1.24 supports "replace": recreate a cleared address or
+	 * leave an identical still-present address in place after partial flush.
+	 */
+	return eval("ip", "-6", "addr", "replace", lan_addr6, "dev", IFNAME_BR);
+}
+
 int reload_lan_addr6(void)
 {
 	char lan_addr6[LAN6_RESET_ADDRESS_SIZE] = {0};
-	int status;
+	int status, recovery_status = 0;
 
 	/* A failed read is not an empty configuration: preserve the live address. */
 	status = lan6_read_config_value_status(
 		"lan_addr6", lan_addr6, sizeof(lan_addr6));
-	status = rc_lan_addr6_reload_from_snapshot(
+	status = rc_lan_addr6_reload_from_snapshot_with_recovery(
 		status, lan_addr6, clear_lan_addr6_for_reload,
-		add_lan_addr6_for_reload);
+		add_lan_addr6_for_reload, restore_lan_addr6_for_reload,
+		&recovery_status);
 	if (status != 0) {
 		errno = status;
 		logmessage("LAN IPv6",
 			   "LAN address reload was not applied (status=%d)",
 			   status);
 	}
+	if (recovery_status != 0)
+		logmessage("LAN IPv6",
+			   "configured LAN address recovery after reload failure was incomplete (status=%d)",
+			   recovery_status);
 	return status;
 }
 

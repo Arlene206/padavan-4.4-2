@@ -698,14 +698,30 @@ jobs:
           assert route_flush_at < ipv6_cleanup_at < bridge_down_at
           
           reload_lan6 = body(net_lan6, "reload_lan_addr6(void)")
-          reload_policy = body(lan6_reload_policy, "rc_lan_addr6_reload_apply(")
+          reload_policy = body(
+              lan6_reload_policy, "rc_lan_addr6_reload_apply_with_recovery(")
           reload_snapshot_policy = body(
-              lan6_reload_policy, "rc_lan_addr6_reload_from_snapshot(")
+              lan6_reload_policy, "rc_lan_addr6_reload_from_snapshot_with_recovery(")
           assert "status = clear_address();" in reload_policy
-          assert "if (status != 0 || !has_address)" in reload_policy
-          assert "return add_address(context);" in reload_policy
+          assert "recovery_status = restore_address(context);" in reload_policy
+          assert "if (!has_address)" in reload_policy
+          assert "status = add_address(context);" in reload_policy
           assert "if (read_status != 0)" in reload_snapshot_policy
-          assert "rc_lan_addr6_reload_from_snapshot(" in reload_lan6
+          assert "rc_lan_addr6_reload_from_snapshot_with_recovery(" in reload_lan6
+          assert "restore_lan_addr6_for_reload" in reload_lan6
+          assert 'eval("ip", "-6", "addr", "replace", lan_addr6, "dev", IFNAME_BR)' in net_lan6
+          assert "if (recovery_status != 0)" in reload_lan6
+          for case in (
+              "test_reload_recovery_restores_address_after_clear_failure",
+              "test_reload_recovery_restores_address_after_add_failure",
+              "test_reload_recovery_error_does_not_replace_primary_error",
+              "test_reload_empty_snapshot_never_attempts_address_recovery",
+              "test_reload_recovery_requires_restore_callback_before_mutation",
+              "test_reload_snapshot_read_error_skips_clear_and_recovery",
+              "test_reload_recovery_success_keeps_normal_clear_add_order",
+          ):
+              require(case in lan6_reload_test and case + "();" in lan6_reload_test,
+                      "LAN IPv6 reload recovery regression missing " + case)
           assert 'lan6_read_config_value_status(\n\t\t"lan_addr6"' in reload_lan6
           assert 'nvram_safe_get("lan_addr6")' not in reload_lan6
           host_status = body(net_lan6, "get_lan_addr6_host_status(")

@@ -1,3 +1,13 @@
+## 2026-11-25 21:55 CST (UTC+8) — Recover LAN IPv6 address after failed reload
+
+- Found a second destructive-update gap in `reload_lan_addr6()`: it flushes all global addresses on `br0`, then adds the configured NVRAM address. If the flush partially fails or the add fails, it previously returned an error without making a compensating attempt to preserve/recreate the configured address.
+- Added a recovery-aware policy that retains the primary clear/add error and reports recovery status separately. Recovery uses BusyBox 1.24's verified `ip -6 addr replace <address> dev br0` operation; an already-present address is replaced idempotently, while a missing address is recreated. A failed NVRAM snapshot still blocks clear/add/recovery side effects.
+- Added seven GNU89 regression cases for recovery after clear failure, recovery after add failure, independent recovery-error reporting, empty configuration, callback preflight, NVRAM read failure and normal success ordering. Updated WAN-route source contracts and XY-C1 source checks; added `net_lan6.c` to the XY-C1 product-input filter so this production change triggers Build/TRX/artifact validation.
+- Main parent `7a9bdb35a879be1dfae3bbc8277b2a6a845249cf` follows `103e7355`'s fix for duplicate SIT endpoint host routes. On `103e7355`: WAN route #45627761309 PASS, AI docs #45627761272 PASS, Process inventory #45627761497 PASS, IPv6 service #45627761403 PASS and HTTPD security #45627761288 PASS; WAN DHCP #45627761300 failed only on an outdated `WAN6_SIT_CHECK(route_add(...))` assertion, corrected in `7a9bdb3`; WAN DHCP #45628195224 and AI docs #45628195241 PASS on `7a9bdb3`.
+- On `103e7355`, NVRAM #45627761287 and XY-C1 #45627761382 were in progress at the last poll (Build active; TRX/artifact pending). Earlier checker-only XY-C1 #45627044645 host validation passed but Build/TRX/artifact were skipped because its change set lacked a production source diff. Historical L3 on `0bed846` does not validate SIT or current LAN reload code; no current-source L3 or physical L4 claim.
+
+---
+
 ## 2026-11-25 21:44 CST (UTC+8) — Synchronize duplicate WAN6 command-count checks
 
 - Two additional exact-head validations on `0ae462027968d0d31ddf9c349cd0b5f15ab0cdc7` failed on the same stale pre-SIT source-count assertion: XY-C1 #45626020329 at `scripts/check_modem_wan_start_status.py:744`, and WAN DHCP callback #45626020186 in its embedded source contract (workflow line 1472). All earlier C regression steps in those jobs passed; XY-C1 Build/TRX/artifact steps were skipped because host validation stopped at that contract.
