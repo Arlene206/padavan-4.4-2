@@ -16,7 +16,7 @@ case "$2" in
  pppoemwan_443) echo 1;;
  pppoemwan_rules_x) echo 1;;
  pppoemwan_staticnum_x) echo 1;;
- pppoemwan_ip_x0) echo 203.0.113.7;;
+ pppoemwan_ip_x0) echo "${STATIC_IP:-203.0.113.7}";;
  pppoemwan_interface_x0) echo 2;;
  *) exit 91;;
 esac
@@ -76,7 +76,7 @@ exec /bin/rm "$@"
 MOCK
 chmod +x "$BIN"/*
 export PATH="$BIN:$PATH" LOG LOCK PWNED SLEEP_LOG MWAN_LOCKFILE="$LOCK" MWAN_SYS_CLASS_NET="$SYS_NET"
-reset() { /bin/rm -f "$LOCK" "$LOG" "$PWNED" "$SLEEP_LOG"; : > "$LOG"; : > "$SLEEP_LOG"; mkdir -p "$SYS_NET/ppp0" "$SYS_NET/ppp1"; unset FAIL_BR0 FAIL_SAVE FAIL_IPTABLES FAIL_IP FAIL_CLEANUP FAIL_PPP0 FAIL_NVRAM MALFORMED MALICIOUS PPP_NUM PPP1_UP; }
+reset() { /bin/rm -f "$LOCK" "$LOG" "$PWNED" "$SLEEP_LOG"; : > "$LOG"; : > "$SLEEP_LOG"; mkdir -p "$SYS_NET/ppp0" "$SYS_NET/ppp1"; unset FAIL_BR0 FAIL_SAVE FAIL_IPTABLES FAIL_IP FAIL_CLEANUP FAIL_PPP0 FAIL_NVRAM MALFORMED MALICIOUS PPP_NUM PPP1_UP STATIC_IP; }
 run() { set +e; bash "$SCRIPT"; RC=$?; set -e; }
 
 assert_config_read_failure_preserves_policy() {
@@ -107,6 +107,11 @@ reset; export FAIL_NVRAM=pppoemwan_staticnum_x; run; [ "$RC" = 53 ] || fail "sta
 echo 'PPPoE-MWAN static-rule count read failure preserves the old policy: PASS'
 reset; export FAIL_NVRAM=pppoemwan_ip_x0; run; [ "$RC" = 53 ] || fail "static IP read status $RC"; assert_config_read_failure_preserves_policy
 echo 'PPPoE-MWAN static-IP read failure preserves the old policy: PASS'
+
+reset; export STATIC_IP=010.0.0.7; run
+[ "$RC" = 2 ] || fail "octal-ambiguous static IPv4 status $RC"
+assert_config_read_failure_preserves_policy
+echo 'PPPoE-MWAN rejects octal-ambiguous static IPv4 before policy cleanup: PASS'
 reset; export FAIL_NVRAM=pppoemwan_interface_x0; run; [ "$RC" = 53 ] || fail "static interface read status $RC"; assert_config_read_failure_preserves_policy
 echo 'PPPoE-MWAN static-interface read failure preserves the old policy: PASS'
 

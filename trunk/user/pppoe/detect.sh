@@ -45,7 +45,11 @@ mwan_ipv4_valid() {
 	[[ "$address" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]] || return 1
 	IFS=. read -r -a octets <<< "$address"
 	[ "${#octets[@]}" -eq 4 ] || return 1
-	for octet in "${octets[@]}"; do [ "$octet" -le 255 ] 2>/dev/null || return 1; done
+	for octet in "${octets[@]}"; do
+		# xtables 1.8.7 parses IPv4 components with base 0; reject octal aliases.
+		case "$octet" in 0) ;; 0*) return 1;; esac
+		[ "$octet" -le 255 ] 2>/dev/null || return 1
+	done
 }
 mwan_ipv4_from_ifconfig() {
 	printf '%s\n' "$1" | awk '

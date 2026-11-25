@@ -193,6 +193,15 @@ require(
     and 'if_value="${STATIC_INTERFACES[i]}"' in DETECT,
     "static rules must consume the validated preflight snapshot",
 )
+ipv4_validator_start = DETECT.index("mwan_ipv4_valid() {")
+ipv4_validator_end = DETECT.index("mwan_ipv4_from_ifconfig()", ipv4_validator_start)
+ipv4_validator = DETECT[ipv4_validator_start:ipv4_validator_end]
+require(
+    'case "$octet" in 0) ;; 0*) return 1;; esac' in ipv4_validator
+    and "mwan_ipv4_valid \"$ip_value\" || mwan_die 2" in DETECT
+    and "PPPoE-MWAN rejects octal-ambiguous static IPv4 before policy cleanup: PASS" in DETECT_TEST,
+    "static IPv4 input must reject leading-zero octal aliases before old firewall policy is changed",
+)
 require(
     "PPPoE-MWAN 443 selector read failure preserves the old policy: PASS" in DETECT_TEST
     and "PPPoE-MWAN static-rule enable read failure preserves the old policy: PASS" in DETECT_TEST

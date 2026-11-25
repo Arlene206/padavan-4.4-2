@@ -1,3 +1,9 @@
+## 2026-11-24 — Reject octal-ambiguous PPPoE-MWAN IPv4 inputs
+
+- `detect.sh` accepted multi-digit IPv4 octets beginning with zero, but the bundled iptables 1.8.7 `xtables_numeric_to_ipaddr()` parser uses `xtables_strtoui(..., base=0, ...)`; an octet such as `010` is therefore interpreted as octal rather than decimal. A static source rule could target a different address than the NVRAM value represents.
+- `mwan_ipv4_valid()` now accepts only canonical decimal octets and rejects leading-zero aliases before deleting existing firewall rules. The shell regression injects `010.0.0.7` as the static source and asserts fail-closed status, unchanged firewall/routes, and lock cleanup. The existing WAN-route workflow runs the shell regression and source contract; XY-C1 path filters already include the changed source and tests.
+- Exact-head WAN-route, XY-C1 Build/TRX/artifact and AI-docs checks are pending. No local shell or firmware result is claimed.
+
 ## 2026-11-24 — Fix WAN source-contract helper ordering
 
 - Exact WAN workflow #45550662855 failed with `NameError: body is not defined`: the new LAN udhcpc hostname source assertion called the function-body parser before its definition. Moved only that assertion below the helper definition; the production hostname guard and GNU89 regression remain unchanged. Exact-head WAN rerun required.

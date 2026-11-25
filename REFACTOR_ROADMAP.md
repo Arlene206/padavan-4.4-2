@@ -1,3 +1,9 @@
+## 2026-11-24 状态增量：PPPoE-MWAN IPv4 前导零歧义
+
+- `detect.sh` 的 IPv4 校验现在拒绝多位前导零 octet：bundled iptables 1.8.7 的 `xtables_strtoui(..., base=0, ...)` 会将 `010` 解析为八进制。回归在旧规则清理前注入歧义静态源地址，并确认 firewall/route 保持不变。
+
+---
+
 ## 2026-11-24 状态增量：AP hosts.static 分支绑定
 
 - 修复 `create_hosts_lan()` 缺失花括号导致 `else` 绑定错误、成功读取时可能误报跳过静态 hosts；workflow 源码合同固定安全检查/加载失败/不安全文件三条分支。
