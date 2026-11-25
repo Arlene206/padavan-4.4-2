@@ -1,15 +1,16 @@
-## 2026-11-25 active handoff — release IA_NA config prefix ownership
+## 2026-11-25 active handoff — strict WAN gateway IPv4 parsing
 
-- Main parent for this slice: `e98587526348b508d55caf43a8048b14b9cf9cee` (`fix(dhcpv6): align SLA subnet bits and bound width`). A teardown audit found that `configure_ia()` adds IA_NA addresses to `iac->prefix_list`, while `clear_iaconf()` only freed that list via the IA_PD cleanup helper. IA_NA configuration teardown therefore leaked its prefix-list nodes and nested values.
-- This slice centralizes type-aware prefix-list cleanup for IA_NA and IA_PD, preserves IA_PD interface-record cleanup, and adds a GNU89 ASan/UBSan regression plus source-contract coverage. The exact post-commit SHA must be verified before claiming L2/L3.
-- At the last poll, parent `e985875` exact-head Actions were in progress: DHCPv6 IA publication #45638748175, XY-C1 #45638747785, NVRAM #45638747820, WAN DHCP #45638747783, USB storage #45638747877, Process umbrella #45638747879 and inventory #45638748232, AI docs #45638747818. The earlier product-source SHA `83c2809` completed XY-C1 Build/TRX/artifact (#45636636005); new source must run its own build.
-- Frozen `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`. No physical-router L4 result is claimed.
+- Live main baseline before this slice: `5de975b84881c67262e90b016baab5c8c62d4b9b`. This slice changes `detect_wan_arp_parse_gateway_address()` from permissive `inet_aton()` to strict `inet_pton(AF_INET, ...)`; the old parser accepted shorthand/octal/hex/integer forms that can direct the ARP health check to a different address. Empty and `0.0.0.0` retain the no-gateway behavior.
+- The existing gateway-address fixture now rejects leading-zero, octal, shorthand, hexadecimal, integer and trailing-space forms. The workflow already compiles it with GNU89, `-Wall -Wextra -Werror`, ASan and UBSan and now asserts the strict parser. A focused host sanitizer harness passed; exact Actions for this source SHA remain pending.
+- DHCPv6 IA_NA/IA_PD config-list cleanup is in ancestry; exact IA publication #45639743488 passed on `541c65d`. Delegated-prefix host-bit canonicalization landed on `98b5503`; its C regression step passed, while the first overall run #45641159845 failed at a Python `NameError` because the checker used `add_ifprefix` before assignment. Checker correction `5de975b` passed exact IA run #45641451632.
+- XY-C1 #45641159900 is tied to product-source SHA `98b5503aa90eae06c80d9009eeeb5a573e63b0b9`; it was still in Build at last poll, with TRX verification and artifact upload pending. This run does not include the newer WAN parser. No L3 or physical-router L4 claim is made.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ### First actions
 
-1. Check exact-head DHCPv6 IA publication regression and the NVRAM/XY-C1 workflows; resolve any real failure without relaxing source coverage.
-2. Confirm Build XY-C1, TRX verification and artifact upload all execute and pass on one identical source SHA before claiming L3.
-3. Continue a separate cross-userland stability/security defect while independent CI is pending; do not repeat completed SIT gateway, LAN6 reset, M2U or reused-VLAN work.
+1. Inspect exact-head `detect-wan-arp-stability`, AI handoff and XY-C1 runs for this strict-parser source SHA. Diagnose the first causal failure without relaxing assertions.
+2. Poll XY-C1 #45641159900 on its own SHA; only same-SHA Build XY-C1 + TRX verification + artifact upload PASS qualifies as L3 for `98b5503`.
+3. Continue another independent userland stability/security fix while unrelated Actions are pending.
 
 ### Execution contract
 
@@ -21,19 +22,17 @@ This checkpoint supersedes older task pointers below. Historical completed work 
 
 ## Current repository state
 
-- Live main source baseline at checkpoint start: `c78487d2b564b43f7a7f249618a8d5b4d340744b`. This is the latest code-bearing baseline; a documentation-only checkpoint commit may become its descendant. Development remains main-only. Frozen `backup/pre-plugin-overhaul-2026-11-14` remains read-only; no force-push, branch creation or PR was used.
-- Current exact-head results on `c78487d`: WAN DHCP callback state stability #45574283546 PASS; AI handoff documentation contract #45574283526 PASS.
-- PPP callback lock close-on-exec source fix is in `97871e6c42862b38cf152f31171ea0b631f14118`; follow-up workflow-contract corrections are in `28383a3cb38f2b85127c257fc3973eecac143879` and current `c78487d`. The final exact-head WAN regression passed on c78487d. Earlier failures on 978/283 were Python workflow-contract mistakes (undefined `state_test`, then invalid `lock_fd` expression), not C regression failures; both assertions are corrected.
-- XY-C1 run #45573521580 on exact product SHA `147a76bc637753a1f23b5aec74a59581512cd4d6` completed PASS, including Build XY-C1, TRX verification and artifact upload. This SHA includes the U2EC default-goal fix, but predates the PPP lock CLOEXEC source change; do not call it exact-head L3 for c78487d.
-- XY-C1 run #45574145443 for source SHA `97871e6c42862b38cf152f31171ea0b631f14118` was still IN_PROGRESS in Build XY-C1 at the last poll; TRX verification and artifact upload remained pending. Poll this run at the next useful checkpoint. Do not wait idly; work on independent tasks.
-- Exact regression results across this source series: VSFTPD ACL race #45571067464 PASS on a495951; udhcpc ACK server identity #45572615762 PASS on 88eaeb8; HTTPD firmware upload descriptor contract #45573299714 PASS on b59901a; U2EC framing/source contract #45573521621 and Process inventory #45573521659 PASS on 147a76b. On 97871e6, NVRAM audit #45574145573, Process inventory #45574145516, HTTPD security #45574145500, AI handoff #45574145491 and Process inventory #45574145427 all PASS.
-- No physical-router L4 validation is claimed. Exact-source build/TRX/artifact evidence must stay tied to the SHA that actually ran.
+- Live main at this slice's start: `5de975b84881c67262e90b016baab5c8c62d4b9b`; the current atomic source/test/workflow/documentation change is its non-forced descendant. Resolve live `main` on every takeover.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. Main only; no branches, PRs or force pushes.
+- Exact DHCPv6 IA regression #45641451632 on `5de975b`: PASS after fixing the checker-only ordering error exposed by #45641159845 on `98b5503`.
+- XY-C1 #45641159900 on product SHA `98b5503`: IN_PROGRESS at last poll; Build active, TRX/artifact pending. It does not validate the later WAN parser.
+- DHCPv6 startup cleanup rollback: WAN DHCP callback #45620475975 PASS on `4180e4d`. Physical-router L4 remains NOT VERIFIED.
 
 ## Active task
 
-First, poll XY-C1 #45574145443 on SHA `97871e6c42862b38cf152f31171ea0b631f14118` for Build, TRX and artifact completion; the earlier `147a76b` run already passed all three, but does not include the later PPP lock source edit. Then continue independent userland stability/security fixes.
+The current source slice hardens WAN gateway identity parsing. `inet_aton()` accepted ambiguous shorthand, octal, hexadecimal and integer IPv4 forms; the gateway monitor could probe an unintended address. The parser now requires strict dotted-decimal input with `inet_pton(AF_INET, ...)`, preserving empty/`0.0.0.0` as no gateway and leaving output unchanged on failure. The fixture adds all identified ambiguity cases, and the existing WAN ARP workflow's source assertion now pins the strict parser.
 
-A PPP umask review was started but not proven to be a defect: `net_ppp.c` contains four legacy `umask(0000)` calls in ip-up/ip-down/IPv6 callbacks; `ppp_options_file.c` explicitly reproduces that PID-1 umask and verifies credential files are tightened to 0600. Do not change the process umask blindly. Trace actual callback file-creation call paths and only patch if a concrete unsafe mode or race is demonstrated.
+A focused GNU89 ASan/UBSan host harness passed. The exact repository fixture/source checker, exact-head WAN ARP Actions and same-SHA XY-C1 build/TRX/artifact are still required. PENDING does not block independent development.
 
 # Cross-session execution mandate
 
@@ -98,71 +97,17 @@ Commit `786c504c8247fe42d5d1d5f2dc3ad28757fafc80` strictly parses persisted RX/T
 
 ## Verification boundary
 
-### Exact-head status after LAN authentication checked-read commit 3e31c744db7c4fd27665ccadc7325058c3c60a83
-
-- AI handoff documentation #45506666102: FAIL because `REFACTOR_ROADMAP.md` exceeded its 131072-byte hard limit (131503 bytes); this correction removes the redundant roadmap bullet and restores the full handoff records.
-- Process lifecycle inventory #45506666210: PASS.
-- EAPoL configuration confidentiality and credential escaping #45506666147: PASS.
-- Process lifecycle fail-closed regression #45506666241: FAIL at the aggregate integration assertion requiring `ret = stop_auth_kabinet();`; the checked-read refactor moved stop into the policy callback. Earlier host regression steps passed; this follow-up updates the assertion to validate checked read-before-stop and ordered service start.
-- NVRAM transaction boundary audit #45506666281: IN_PROGRESS at raw userland ioctl/kernel caller audit.
-- XY-C1 Firmware Validation #45506666559: IN_PROGRESS; Build active, TRX and artifact pending. Do not claim L3.
-
-### FTP account credential snapshot SHA b2afc079f262a13aa05ef0d926455b328c480dd6
-
-- VSFTPD stability #45506421995: PASS.
-- AI handoff documentation #45506421990: PASS.
-- Process lifecycle inventory #45506422053: PASS.
-- NVRAM transaction boundary audit #45506422062: CANCELLED (not a pass).
-- XY-C1 Firmware Validation #45506422126: IN_PROGRESS at Build XY-C1; TRX/artifact not confirmed.
-
-### XY-C1 exact-source results
-
-- SHA `786c504c8247fe42d5d1d5f2dc3ad28757fafc80`: #45498624157 Build, TRX and artifact upload PASS.
-- SHA `8a2fbd592e1f0ddbd7a014d97bd00a8e08fb949a`: #45499228265 Build, TRX and artifact upload PASS.
-- SHA `d096f168bfe4188f5223bf76806b4ea012742580`: XY-C1 #45502092732 PASS; Build XY-C1, TRX verification and artifact upload all completed SUCCESS.
-- SHA `6d5d5376e425587e6f116d09f88cbcc7ac6a05c1`: XY-C1 #45503440356 PASS; Build XY-C1, TRX verification and artifact upload all completed SUCCESS.
-
-### d096f168bfe4188f5223bf76806b4ea012742580 exact-head Actions
-
-- VPN lifecycle #45502092649: PASS.
-- AI handoff docs #45502092664: PASS.
-- NVRAM boundary audit #45502092721: PASS; zero raw userland bypasses, kernel snapshot/caller contract passed.
-- Process lifecycle inventory #45502093101: PASS.
-- IPv6 service checked-read #45502092750: PASS.
-- HTTPD authentication/security #45502092764: PASS.
-- OpenVPN client credential staging #45502092820: PASS.
-
-### SSH policy SHA 07e7c3453ab02d25704c2d6770a1c30d06d771f3
-
-- Process Lifecycle regression #45504233875: PASS, including `Compile and run SSH firewall fail-closed policy regression`.
-- PID 1 notification queue #45504233986: PASS, including `Compile and run GNU89 SSH daemon restart policy regression`.
-- AI handoff docs #45504233800: PASS.
-- Process lifecycle inventory #45504234314: PASS.
-- NVRAM transaction boundary audit #45504234041: PASS; raw userland NVRAM caller audit completed with no bypass finding.
-- No XY-C1 build was triggered for this SSH-only commit. The closest firmware validations are d096 #45502092732 and 6d #45503440356, both full Build/TRX/artifact PASS, but those results are tied to their exact source SHAs.
-
-### VSFTPD share-listing ACL SHA 7d589c2ea0a3f46356e8bc361d212f8a9b81776f
-
-- VSFTPD Stability #45505371869: PASS, including GNU89 ACL policy regression and exact-source read-right callsite checks.
-- AI handoff docs #45505371734: PASS.
-- Process lifecycle inventory #45505371860: PASS.
-- NVRAM transaction boundary audit #45505371707: PASS.
-- XY-C1 Firmware Validation #45505371723 was IN PROGRESS at last poll. Build, TRX verification and artifact upload must all pass on this same SHA before claiming L3.
-- No physical-router L4 validation is claimed.
-
-### Firewall / checker SHA 2be0e5125bb29f01fc3a9a15fe8938a554387452
-
-- Firewall Startup Stability #45503784466: PASS. The exact-source checker and GNU89 ASan/UBSan VTS policy test passed, together with the other firewall policy checks.
-- AI handoff documentation #45503784498: FAIL because the handoff omitted the validator's exact mandatory-checkpoint sentence. Commit #05356ed622d1762e5e251c6adeb5fcd7be7713b6 restores it; rerun #45504014822 PASS.
-- XY-C1 #45503440356 PASS on older product-source SHA 6d5d5376e425587e6f116d09f88cbcc7ac6a05c1; this does not validate later SSH source.
-- NVRAM audit #45503440350, WAN route #45503440493, IPv6 service #45503440453, AI docs #45503440345, WAN DHCP #45503440341, process inventory #45503440565, HTTPD #45503440466 and FULLCONENAT #45503440566: PASS on SHA 6d5d5376e425587e6f116d09f88cbcc7ac6a05c1.
-- No target MIPS/uClibc runtime or physical-router L4 validation is claimed.
+- WAN strict-parser slice: focused GNU89 ASan/UBSan host harness PASS. Exact repository `detect-wan-arp-stability` run for this new source SHA must pass before claiming L2.
+- DHCPv6 delegated-prefix canonicalization: the GNU89/ASan/UBSan C fixtures and semantic checker PASS on `5de975b` (#45641451632). Initial `98b5503` run #45641159845 failed only because the Python checker referenced `add_ifprefix` before assignment; the C regression step had already passed.
+- XY-C1 #45641159900 on product SHA `98b5503` remained IN_PROGRESS at last poll: Build active, TRX verify and artifact upload pending. This older SHA does not include the WAN parser in this slice; inspect any new XY-C1 run on the current product source separately.
+- Physical-router L4 is NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main; inspect XY-C1 #45569803520 on e487703a3163f9bb7bf10fe09d4e389602ce34d3 for Build, TRX and artifact completion. Process fail-closed #45569803612 and NVRAM audit #45569803507 already PASS on that SHA. If main advanced, check runs against their own recorded SHA and inspect new-head runs separately.
-2. If a run is PENDING, do not wait. Select the next independent stability/security defect from the live roadmap and continue small atomic main commits with GNU89/ASan/UBSan or target-appropriate tests.
-3. Keep WAN, MiniUPnP, SmartDNS, U2EC and p910nd results tied to their exact SHAs. Do not infer same-SHA product L3 from host-only regression PASS. L3 requires Build XY-C1 + TRX + artifact on one production-source SHA; physical-router L4 remains outstanding.
+1. Fetch live `main`, then inspect exact-SHA `detect-wan-arp-stability`, AI handoff and XY-C1 runs triggered by this strict-parser slice. Inspect logs and repair any first causal failure.
+2. Poll XY-C1 #45641159900 on `98b5503aa90eae06c80d9009eeeb5a573e63b0b9`; record L3 only if Build XY-C1, TRX verification and artifact upload all PASS on that identical SHA.
+3. Continue an independent stability/security implementation while unrelated Actions are pending; do not repeat completed audits without new evidence.
+
 ## Mandatory handoff checkpoint
 
 The checkpoint is mandatory; a document edit is conditional.

@@ -37,7 +37,9 @@ static int
 test_invalid_gateway_is_not_aliased_to_no_gateway(void)
 {
     static const char * const invalid[] = {
-        "not-an-ip", "192.0.2.256", "192.0.2.1junk"
+        "not-an-ip", "192.0.2.256", "192.0.2.1junk",
+        "192.000.002.001", "0300.0.2.1", "192.0.2",
+        "0xc0000201", "3221225985", "192.0.2.1 "
     };
     uint32_t address, before;
     size_t index;

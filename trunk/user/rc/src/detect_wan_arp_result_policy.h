@@ -13,9 +13,11 @@
 #define DETECT_WAN_ARP_PROBE_REPLY 1
 
 /*
- * Parse the configured gateway without collapsing malformed non-empty input
- * into INADDR_ANY. Empty and explicit 0.0.0.0 retain the legacy no-gateway
- * behavior; keep the caller's output unchanged when parsing fails.
+ * Parse only a four-octet dotted-decimal gateway. inet_aton() also accepts
+ * abbreviated, octal and hexadecimal forms, which can silently map a
+ * decimal-looking setting to a different address. Empty and explicit
+ * 0.0.0.0 retain the legacy no-gateway behavior; output stays unchanged on
+ * malformed input.
  */
 static inline int
 detect_wan_arp_parse_gateway_address(const char *text,
@@ -29,7 +31,7 @@ detect_wan_arp_parse_gateway_address(const char *text,
         *gateway_address = INADDR_ANY;
         return 0;
     }
-    if (!inet_aton(text, &parsed))
+    if (inet_pton(AF_INET, text, &parsed) != 1)
         return EINVAL;
 
     *gateway_address = parsed.s_addr;

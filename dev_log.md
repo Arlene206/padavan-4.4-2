@@ -1,3 +1,11 @@
+## 2026-11-25 — Reject ambiguous IPv4 notation in WAN gateway ARP configuration
+
+- Confirmed that `inet_aton()` accepts abbreviated, octal, hexadecimal and single-integer IPv4 forms. For example, `0300.0.2.1` is interpreted as `192.0.2.1`, even though the value looks like a decimal dotted address; the WAN gateway monitor could therefore probe a different host than the configured text indicates.
+- Changed the parser to `inet_pton(AF_INET, ...)`, requiring an unambiguous four-octet dotted-decimal address. Empty and explicit `0.0.0.0` retain the legacy no-gateway behavior, and parse failures leave the output untouched.
+- Extended the GNU89 gateway-address regression with leading-zero, octal, abbreviated, hexadecimal, integer and trailing-whitespace forms. A focused host GNU89 ASan/UBSan harness passed; exact-head WAN ARP and XY-C1 Actions remain the verification gate.
+
+---
+
 ## 2026-11-25 — Free IA_NA configuration prefix lists during DHCPv6 teardown
 
 - Confirmed a config-lifetime leak in BusyBox DHCPv6: `configure_ia()` stores IA_NA addresses in `iac->prefix_list`, but `clear_iaconf()` only reached `dhcp6_clear_list()` through the IA_PD-only `clear_pd_pif()` path. IA_NA list nodes and nested values were therefore abandoned on configuration cleanup.
