@@ -16,8 +16,10 @@ def compact(text):
 
 
 def compact_c(text):
-    """Remove comments and whitespace for formatting-independent C checks."""
-    without_comments = re.sub(r"/[*].*?[*]/", "", text, flags=re.S)
+    """Remove C comments and whitespace for formatting-independent checks."""
+    without_comments = re.sub(
+        r"/[*].*?[*]/|//[^\\r\\n]*", "", text, flags=re.S
+    )
     return re.sub(r"\s+", "", without_comments)
 assert '#include "p910nd_sigpipe_policy.h"' in SOURCE
 
@@ -105,7 +107,7 @@ accept_loop = (
     "for(;;){"
     "clientlen=sizeof(client);"
     "memset(&client,0,sizeof(client));"
-    "do{fd=accept(netfd,(struct sockaddr *)&client,&clientlen);}"
+    "do{fd=accept(netfd,(structsockaddr*)&client,&clientlen);}"
     "while(fd<0&&errno==EINTR);"
     "if(fd<0)break;"
 )
