@@ -3467,6 +3467,10 @@ VOID IAPP_Task(
 	}
 
 	/* init signal functions, driver will use SIGUSR1/2 to inform us */
+#ifdef IAPP_OS_LINUX
+	/* A closed raw-driver pipe must report EPIPE rather than kill the daemon. */
+	signal(SIGPIPE, SIG_IGN);
+#endif /* IAPP_OS_LINUX */
 	signal(SIGINT,  IAPP_TerminateHandle);
 	signal(SIGTERM, IAPP_TerminateHandle);
 

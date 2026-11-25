@@ -1,3 +1,9 @@
+## 2026-11-25 — Handle SIGPIPE for the raw-driver notification pipe
+
+- Follow-up to TCP `MSG_NOSIGNAL`: `IAPP_USR2Handle()` also writes driver signal contexts into `PipeRawDrv`. If the pipe reader has closed, `write()` can deliver process-wide SIGPIPE before the existing short-write/error check runs, terminating the daemon.
+- On Linux, the daemon now ignores SIGPIPE before registering the driver's SIGUSR2 handler or publishing its PID to the driver. Pipe writes therefore return EPIPE and use the existing error path; this does not alter VxWorks signal behavior. The IAPP lifecycle source contract pins the Linux guard and registration.
+
+---
 ## 2026-11-25 — Prevent SIGPIPE from terminating IAPP TCP sender
 
 - `IAPP_TCP_WriteFrame()` now uses `MSG_NOSIGNAL` when the target socket API exposes it. A remote close/reset during `send()` therefore becomes a normal send error handled by the helper instead of delivering SIGPIPE and potentially terminating the daemon. The existing zero/error handling remains fail-closed; platforms without this flag retain their native fallback.

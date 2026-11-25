@@ -1,25 +1,26 @@
 ## Current repository state — 2026-11-25
 
-- Main base before MSG_NOSIGNAL send protection: 8688f3aaffbf0278004e730b6fbe16a671b09fe1; TCP frame sender now suppresses SIGPIPE when supported (THIS COMMIT).
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains untouched at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Parent current baseline includes validated driver crypto IOCTL outputs (all six TX encryptions through `IAPP_EncryptFrame`, TCP/UDP decrypt outputs bounded by actual input, signal-context output length bounded) plus feature-independent TCP/UDP length guards.
-- This slice changes the `send()` flags only for TCP frame writes: `MSG_NOSIGNAL` is used when defined so peer disconnects are returned as errors rather than process-level SIGPIPE. It remains compatible with targets lacking that flag.
-- Exact XY-C1 L3 Build/TRX/artifact remains proven only on `e1f16872b7e2792db9acf0184f2fe9c5d736c966`; current/later commits need their own exact completed build.
+- Main base before Linux pipe SIGPIPE handling: e1750f4278dbadd6fcd97d33fc8f8138267356db; the daemon now ignores SIGPIPE on Linux before enabling driver notifications, so a closed raw-driver pipe produces EPIPE instead of process termination (THIS COMMIT).
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Parent `e1750f4278dbadd6fcd97d33fc8f8138267356db`: IAPP lifecycle #45695909160 PASS; process regression #45695909357 PASS; process inventory/lifecycle #45695909182 PASS; AI handoff #45695909142 PASS; NVRAM #45695909138 in progress; XY-C1 #45695909127 in progress. No same-SHA XY L3 result yet.
+- Parent e175 adds MSG_NOSIGNAL to TCP `send()` when supported; this slice covers the separate pipe-write path in `IAPP_USR2Handle()` with Linux-only SIGPIPE ignore. VxWorks remains unaffected.
+- Exact XY-C1 Build/TRX/artifact L3 remains confirmed only on `e1f16872b7e2792db9acf0184f2fe9c5d736c966`; later source SHAs require their own exact completed run.
+- Existing source bounds include all six checked TX encryptions, TCP/UDP decrypt output cap, query signal struct output cap, FT SB/AP info/RRB/raw driver packet length checks, TCP framed read/write with timeout and FD_SETSIZE guard.
 
 ## Active task
 
-Validate no-SIGPIPE and encryption output hardening on current IAPP/XY Actions, then continue checking any remaining raw driver or TCP IPC boundaries.
+Validate this pipe SIGPIPE change on exact-head IAPP and XY-C1. Then inspect outbound TCP connect/write blocking and the signal-context pipe's partial-write behavior.
 
 ## Exact first actions for next GPT
 
-1. Poll parent baseline IAPP/XY/Process/NVRAM/AI outcomes and this commit's exact-SHA runs independently.
-2. Confirm IAPP GNU89 sanitizer tests, six-site encryption wrapper source contract, and MSG_NOSIGNAL assertion.
-3. Review daemon pipe SIGPIPE handling and any other signal/IPC writes; determine whether startup already ignores SIGPIPE before changing process-wide behavior.
-4. Keep backup frozen and main-only full-tree atomic commits with non-force expected-SHA updates.
+1. Poll parent e175 exact XY/NVRAM outcomes and THIS COMMIT's IAPP/XY/Process/NVRAM/AI workflows separately by SHA.
+2. Confirm the IAPP lifecycle host GNU89/ASan/UBSan and the new Linux SIGPIPE source assertion pass.
+3. Review TCP connect timeout (currently synchronous) and pipe write handling: decide whether nonblocking/poll deadlines can be added without breaking legacy target compatibility.
+4. Keep backup frozen; main-only full Git tree and atomic expected-SHA non-force updates.
 
 ## Execution contract
 
-Main only; complete tree per logical task, non-force exact expected-SHA update. No force-push, development branch or PR. PENDING does not block.
+Main only; one full tree per logical task, update `main` with exact expected SHA and `force=false`. No force-push, development branch or PR. PENDING Actions do not block independent work.
 
 ## 2026-11-25 autonomous handoff checkpoint
 
