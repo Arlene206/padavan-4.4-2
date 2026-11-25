@@ -176,6 +176,31 @@ require(
     and '[ "${MWAN_RULE_ARGS[i+1]}" = "$MWAN_RULE_TAG" ]' in DETECT,
     "snapshot, parse and old-rule deletion failures must poison prior-policy cleanup",
 )
+preflight_start = DETECT.index('if webrule=$(nvram get pppoemwan_443)')
+preflight_end = DETECT.index("mwan_flush_iptables mangle")
+for marker in (
+    'if rulesenable=$(nvram get pppoemwan_rules_x)',
+    'if num=$(nvram get pppoemwan_staticnum_x)',
+    'if ip_value=$(nvram get "$ipname")',
+    'if if_value=$(nvram get "$ifname")',
+):
+    require(preflight_start < DETECT.index(marker) < preflight_end,
+            "all optional multi-WAN NVRAM inputs must be read before cleanup")
+require(
+    'STATIC_IPS[i]="$ip_value"' in DETECT
+    and 'STATIC_INTERFACES[i]="$if_value"' in DETECT
+    and 'ip_value="${STATIC_IPS[i]}"' in DETECT
+    and 'if_value="${STATIC_INTERFACES[i]}"' in DETECT,
+    "static rules must consume the validated preflight snapshot",
+)
+require(
+    "PPPoE-MWAN 443 selector read failure preserves the old policy: PASS" in DETECT_TEST
+    and "PPPoE-MWAN static-rule enable read failure preserves the old policy: PASS" in DETECT_TEST
+    and "PPPoE-MWAN static-rule count read failure preserves the old policy: PASS" in DETECT_TEST
+    and "PPPoE-MWAN static-IP read failure preserves the old policy: PASS" in DETECT_TEST
+    and "PPPoE-MWAN static-interface read failure preserves the old policy: PASS" in DETECT_TEST,
+    "NVRAM preflight failure matrix is incomplete",
+)
 flush_start = DETECT.index("mwan_flush_iptables mangle")
 flush_gate = DETECT.index('if [ "$MWAN_FLUSH_FAILED" -ne 0 ]; then', flush_start)
 new_policy_start = DETECT.index(chr(10) + "last=1", flush_start)

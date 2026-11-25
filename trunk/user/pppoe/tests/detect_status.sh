@@ -10,6 +10,7 @@ fail() { echo "PPPoE-MWAN regression: FAIL: $*" >&2; exit 1; }
 cat > "$BIN/nvram" <<'MOCK'
 #!/bin/sh
 [ "$1" = get ] || exit 90
+[ "${FAIL_NVRAM:-}" != "$2" ] || exit 53
 case "$2" in
  pppoe_num) echo "${PPP_NUM:-2}";;
  pppoemwan_443) echo 1;;
@@ -75,8 +76,18 @@ exec /bin/rm "$@"
 MOCK
 chmod +x "$BIN"/*
 export PATH="$BIN:$PATH" LOG LOCK PWNED SLEEP_LOG MWAN_LOCKFILE="$LOCK" MWAN_SYS_CLASS_NET="$SYS_NET"
-reset() { /bin/rm -f "$LOCK" "$LOG" "$PWNED" "$SLEEP_LOG"; : > "$LOG"; : > "$SLEEP_LOG"; mkdir -p "$SYS_NET/ppp0" "$SYS_NET/ppp1"; unset FAIL_BR0 FAIL_SAVE FAIL_IPTABLES FAIL_IP FAIL_CLEANUP FAIL_PPP0 MALFORMED MALICIOUS PPP_NUM PPP1_UP; }
+reset() { /bin/rm -f "$LOCK" "$LOG" "$PWNED" "$SLEEP_LOG"; : > "$LOG"; : > "$SLEEP_LOG"; mkdir -p "$SYS_NET/ppp0" "$SYS_NET/ppp1"; unset FAIL_BR0 FAIL_SAVE FAIL_IPTABLES FAIL_IP FAIL_CLEANUP FAIL_PPP0 FAIL_NVRAM MALFORMED MALICIOUS PPP_NUM PPP1_UP; }
 run() { set +e; bash "$SCRIPT"; RC=$?; set -e; }
+
+assert_config_read_failure_preserves_policy() {
+	if grep -Eq '^iptables[[:space:]]+-t[[:space:]]+(mangle|nat)[[:space:]]+(-D|-A)([[:space:]]|$)' "$LOG"; then
+		fail 'firewall policy changed after an NVRAM preflight failure'
+	fi
+	if grep -Eq '^ip[[:space:]]+(rule[[:space:]]+add|route[[:space:]]+(add|replace))([[:space:]]|$)' "$LOG"; then
+		fail 'policy/default routes changed after an NVRAM preflight failure'
+	fi
+	[ ! -e "$LOCK" ] || fail 'NVRAM preflight failure leaked the lock'
+}
 
 assert_cleanup_failure_stops_policy() {
 	if grep -Eq '^iptables[[:space:]]+-t[[:space:]]+(mangle|nat)[[:space:]]+-A([[:space:]]|$)' "$LOG"; then
@@ -87,6 +98,17 @@ assert_cleanup_failure_stops_policy() {
 	fi
 	grep -Fq $'ip\troute\tflush\tcache' "$LOG" || fail 'route-cache cleanup was skipped'
 }
+
+reset; export FAIL_NVRAM=pppoemwan_443; run; [ "$RC" = 53 ] || fail "443 selector read status $RC"; assert_config_read_failure_preserves_policy
+echo 'PPPoE-MWAN 443 selector read failure preserves the old policy: PASS'
+reset; export FAIL_NVRAM=pppoemwan_rules_x; run; [ "$RC" = 53 ] || fail "static-rule enable read status $RC"; assert_config_read_failure_preserves_policy
+echo 'PPPoE-MWAN static-rule enable read failure preserves the old policy: PASS'
+reset; export FAIL_NVRAM=pppoemwan_staticnum_x; run; [ "$RC" = 53 ] || fail "static-rule count read status $RC"; assert_config_read_failure_preserves_policy
+echo 'PPPoE-MWAN static-rule count read failure preserves the old policy: PASS'
+reset; export FAIL_NVRAM=pppoemwan_ip_x0; run; [ "$RC" = 53 ] || fail "static IP read status $RC"; assert_config_read_failure_preserves_policy
+echo 'PPPoE-MWAN static-IP read failure preserves the old policy: PASS'
+reset; export FAIL_NVRAM=pppoemwan_interface_x0; run; [ "$RC" = 53 ] || fail "static interface read status $RC"; assert_config_read_failure_preserves_policy
+echo 'PPPoE-MWAN static-interface read failure preserves the old policy: PASS'
 
 reset; run; [ "$RC" = 0 ] || fail "normal run status $RC"; [ ! -e "$LOCK" ] || fail 'normal run leaked lock'
 grep -Fq $'iptables\t-t\tmangle\t-D\tPREROUTING\t-i\tbr0\t-m\tcomment\t--comment\tPadavan-PPPoE-MWAN\t-j\tACCEPT' "$LOG" || fail 'exact owned mangle rule was not removed'

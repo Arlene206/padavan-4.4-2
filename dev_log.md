@@ -1,3 +1,9 @@
+## 2026-11-24 — Preflight PPPoE-MWAN settings before deleting working firewall rules
+
+- The detector previously read 443 and static policy selectors only after cleaning prior rules; transient NVRAM errors could leave a partially rebuilt firewall policy. All selectors are now read and validated first, with static entries snapshotted in Bash arrays before cleanup.
+- Added failure injection for each of the five optional selector classes and checks that no firewall deletion/addition or route mutation occurs and the lifecycle lock is released.
+- The exact-owner cleanup regression had failed on #45548806225/#45549253398 because a malformed test rewrite left incomplete shell assertions. The subsequent test-repair commits restored the shell fixture; WAN workflow #45549413305 PASS on `a74d142c`, XY-C1 build still pending at that checkpoint. No local shell test or firmware build is claimed.
+
 ## 2026-11-24 — Scope PPPoE-MWAN firewall cleanup to explicitly owned rules
 
 - `detect.sh` previously deleted any mangle/NAT rule whose serialized text contained the broad tokens `ctstate`, `br0` or `ppp`. This could remove unrelated QoS/firewall policies and the primary PPP WAN masquerade rule during ordinary multi-WAN reconciliation.

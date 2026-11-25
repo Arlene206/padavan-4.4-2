@@ -152,6 +152,30 @@ PPP_COUNT=$((10#$PPP_NUM))
 if bridge=$(ifconfig br0); then lanip=$(mwan_ipv4_from_ifconfig "$bridge"); else mwan_die "$?" "cannot inspect br0"; fi
 mwan_ipv4_valid "$lanip" || mwan_die 2 "invalid br0 IPv4 address: $lanip"
 
+# Snapshot and validate every optional selector before touching the current
+# firewall policy. A failed NVRAM read must preserve the previous working rules.
+if webrule=$(nvram get pppoemwan_443); then :; else mwan_die "$?" "cannot read pppoemwan_443"; fi
+mwan_uint_valid "$webrule" || mwan_die 2 "invalid pppoemwan_443 value: $webrule"
+if rulesenable=$(nvram get pppoemwan_rules_x); then :; else mwan_die "$?" "cannot read pppoemwan_rules_x"; fi
+mwan_uint_valid "$rulesenable" || mwan_die 2 "invalid pppoemwan_rules_x value: $rulesenable"
+static_count=0
+STATIC_IPS=()
+STATIC_INTERFACES=()
+if [ "$rulesenable" -ne 0 ]; then
+	if num=$(nvram get pppoemwan_staticnum_x); then :; else mwan_die "$?" "cannot read pppoemwan_staticnum_x"; fi
+	mwan_uint_max_valid "$num" 255 || mwan_die 2 "invalid pppoemwan_staticnum_x value: $num"
+	static_count=$((10#$num))
+	for ((i=0; i<static_count; i++)); do
+		ipname="pppoemwan_ip_x$i"; ifname="pppoemwan_interface_x$i"
+		if ip_value=$(nvram get "$ipname"); then :; else mwan_die "$?" "cannot read $ipname"; fi
+		if if_value=$(nvram get "$ifname"); then :; else mwan_die "$?" "cannot read $ifname"; fi
+		mwan_ipv4_valid "$ip_value" || mwan_die 2 "invalid $ipname value: $ip_value"
+		mwan_uint_max_valid "$if_value" 255 || mwan_die 2 "invalid $ifname value: $if_value"
+		STATIC_IPS[i]="$ip_value"
+		STATIC_INTERFACES[i]="$if_value"
+	done
+fi
+
 mwan_flush_iptables mangle
 mwan_flush_iptables nat
 
@@ -176,24 +200,14 @@ for ((i=1; i<=PPP_COUNT; i++)); do
 	fi
 done
 
-if webrule=$(nvram get pppoemwan_443); then :; else mwan_die "$?" "cannot read pppoemwan_443"; fi
-mwan_uint_valid "$webrule" || mwan_die 2 "invalid pppoemwan_443 value: $webrule"
 if [ "$webrule" -ne 0 ]; then
 	mwan_run iptables -t mangle -A PREROUTING -m comment --comment "$MWAN_RULE_TAG" -p tcp --dport 443 -m conntrack --ctstate NEW -j CONNMARK --set-mark "2$last"
 	mwan_run iptables -t mangle -A PREROUTING -m comment --comment "$MWAN_RULE_TAG" -p udp --dport 443 -m conntrack --ctstate NEW -j CONNMARK --set-mark "2$last"
 fi
-if rulesenable=$(nvram get pppoemwan_rules_x); then :; else mwan_die "$?" "cannot read pppoemwan_rules_x"; fi
-mwan_uint_valid "$rulesenable" || mwan_die 2 "invalid pppoemwan_rules_x value: $rulesenable"
 if [ "$rulesenable" -ne 0 ]; then
-	if num=$(nvram get pppoemwan_staticnum_x); then :; else mwan_die "$?" "cannot read pppoemwan_staticnum_x"; fi
-	mwan_uint_max_valid "$num" 255 || mwan_die 2 "invalid pppoemwan_staticnum_x value: $num"
-	static_count=$((10#$num))
 	for ((i=0; i<static_count; i++)); do
-		ipname="pppoemwan_ip_x$i"; ifname="pppoemwan_interface_x$i"
-		if ip_value=$(nvram get "$ipname"); then :; else mwan_die "$?" "cannot read $ipname"; fi
-		if if_value=$(nvram get "$ifname"); then :; else mwan_die "$?" "cannot read $ifname"; fi
-		mwan_ipv4_valid "$ip_value" || mwan_die 2 "invalid $ipname value: $ip_value"
-		mwan_uint_max_valid "$if_value" 255 || mwan_die 2 "invalid $ifname value: $if_value"
+		ip_value="${STATIC_IPS[i]}"
+		if_value="${STATIC_INTERFACES[i]}"
 		mwan_run iptables -t mangle -A PREROUTING -m comment --comment "$MWAN_RULE_TAG" -s "$ip_value/32" -m conntrack --ctstate NEW -j CONNMARK --set-mark "2$if_value"
 	done
 fi
