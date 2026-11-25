@@ -981,6 +981,7 @@ test_dhcp_lease_mtu_option_withdrawal_restores_default(void)
 int
 main(void)
 {
+	int has_gateway = 0;
 	char first[INET_ADDRSTRLEN];
 	unsigned int number = 0;
 	struct dhcp_bound_fake fake;
@@ -1074,6 +1075,30 @@ main(void)
 	assert(dhcp_lease_router_is_changed("192.0.2.1", "invalid",
 		first, sizeof(first)));
 	assert(first[0] == '\0');
+
+	/* Invalid Router options must be rejected before any live route changes. */
+	assert(dhcp_lease_router_option_parse("192.0.2.1 198.51.100.1",
+		first, sizeof(first), &has_gateway) == 0);
+	assert(has_gateway == 1 && strcmp(first, "192.0.2.1") == 0);
+	assert(dhcp_lease_router_option_parse(NULL, first, sizeof(first),
+		&has_gateway) == 0);
+	assert(has_gateway == 0 && first[0] == '\0');
+	assert(dhcp_lease_router_option_parse(" \t ", first, sizeof(first),
+		&has_gateway) == 0);
+	assert(has_gateway == 0 && first[0] == '\0');
+	assert(dhcp_lease_router_option_parse("192.0.2.1 999.1.1.1",
+		first, sizeof(first), &has_gateway) == EINVAL);
+	assert(has_gateway == 0 && first[0] == '\0');
+	assert(dhcp_lease_router_option_parse("192.0.2.1;reboot",
+		first, sizeof(first), &has_gateway) == EINVAL);
+	assert(has_gateway == 0 && first[0] == '\0');
+	assert(dhcp_lease_router_option_parse("192.0.2.1", first, 4,
+		&has_gateway) == EINVAL);
+	assert(has_gateway == 0 && first[0] == '\0');
+	assert(dhcp_lease_router_option_parse("192.0.2.1", first,
+		sizeof(first), NULL) == EINVAL);
+	assert(dhcp_lease_router_option_parse("192.0.2.1", NULL,
+		sizeof(first), &has_gateway) == EINVAL);
 
 	assert(dhcp_lease_decimal_is_valid("1500", 576, 1500, &number) && number == 1500);
 	assert(dhcp_lease_decimal_is_valid("0", 0, INT_MAX, &number) && number == 0);

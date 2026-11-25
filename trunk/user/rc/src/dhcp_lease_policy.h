@@ -141,6 +141,28 @@ dhcp_lease_ipv4_list_first(const char *value, char *out, size_t out_size)
 	return 1;
 }
 
+/* Parse the complete optional Router option before the caller changes routes.
+ * Missing/empty is a valid withdrawal; malformed or oversized input is fatal.
+ * Outputs are cleared on error so no partially parsed gateway can escape. */
+static inline int
+dhcp_lease_router_option_parse(const char *router_option, char *gateway,
+			       size_t gateway_size, int *has_gateway)
+{
+	int parsed;
+
+	if (!gateway || gateway_size == 0 || !has_gateway)
+		return EINVAL;
+	gateway[0] = '\0';
+	*has_gateway = 0;
+	parsed = dhcp_lease_ipv4_list_first(router_option, gateway, gateway_size);
+	if (parsed < 0) {
+		gateway[0] = '\0';
+		return EINVAL;
+	}
+	*has_gateway = parsed > 0;
+	return 0;
+}
+
 /* A missing or withdrawn DHCP router option is equivalent to an empty
  * gateway. Compare the normalized first router against the stored lease so
  * renewal callbacks do not preserve a gateway that the server removed. */

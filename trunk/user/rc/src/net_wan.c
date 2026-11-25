@@ -7932,6 +7932,19 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 		return EINVAL;
 	}
 
+	/* Reject a malformed Router option before interface or old-route changes.
+	 * A bad non-empty option must not be mistaken for a gateway withdrawal. */
+	value = getenv("router");
+	route_result = dhcp_lease_router_option_parse(
+		value ? trim_r(value) : NULL,
+		gateway_buf, sizeof(gateway_buf), &has_gateway);
+	if (route_result != 0) {
+		logmessage(log_prefix,
+			   "%s (%s) rejected invalid DHCP router list (status=%d)",
+			   udhcpc_state, wan_ifname, route_result);
+		return route_result;
+	}
+
 	/*
 	 * Capture the complete previous lease before changing the interface or
 	 * deleting routes. Route options can be 2048 bytes; refuse an oversized
@@ -8082,11 +8095,9 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 	}
 
 	lease_dur = 0;
-	has_gateway = 0;
 	dhcp_mtu = 0;
 	snapshot_count = 0;
 	snapshot_rollback_status = 0;
-	gateway_buf[0] = '\0';
 
 	snapshot_status = wan_dhcp_bound_snapshot_add(
 		snapshot_values, &snapshot_count,
@@ -8100,16 +8111,6 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 		previous_text[WAN_DHCP_BOUND_NETMASK]);
 	if (snapshot_status != 0)
 		goto snapshot_publication_failed;
-
-	value = getenv("router");
-	if (value) {
-		route_result = dhcp_lease_ipv4_list_first(trim_r(value),
-			gateway_buf, sizeof(gateway_buf));
-		if (route_result > 0)
-			has_gateway = 1;
-		else if (route_result < 0)
-			logmessage(log_prefix, "ignoring invalid DHCP router list on %s", wan_ifname);
-	}
 
 	value = getenv("dns");
 	lease_dns = value ? trim_r(value) : "";

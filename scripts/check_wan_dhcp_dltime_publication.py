@@ -51,6 +51,28 @@ assert "wan_nvram_transaction_end_callback" in bound[previous_snapshot:]
 assert "cannot snapshot previous DHCP NVRAM tuple" in bound
 assert "nvram_safe_get(bound_names[i])" not in bound
 
+# Validate the complete Router option before any interface mutation or old
+# route cleanup. Invalid non-empty input must not be published as withdrawal.
+router_preflight = bound.index(
+    "route_result = dhcp_lease_router_option_parse("
+)
+router_validation = bound.index("if (route_result != 0)", router_preflight)
+router_reject = bound.index("return route_result;", router_validation)
+previous_snapshot_pos = bound.index("rc_wan_nvram_copy_snapshot(")
+interface_apply_pos = bound.index("dhcp_wan_interface_apply(")
+route_cleanup_pos = bound.index("dhcp_wan_route_transition_apply(")
+assert router_preflight < router_validation < router_reject
+assert router_reject < previous_snapshot_pos < interface_apply_pos < route_cleanup_pos
+assert "ignoring invalid DHCP router list" not in bound
+post_preflight = bound[router_reject:bound.index(
+    "snapshot_status = wan_dhcp_nvram_state_publish("
+)]
+assert "gateway_buf[0] = '\\0';" not in post_preflight
+assert "dhcp_lease_router_option_parse" in (
+    Path("trunk/user/rc/src/dhcp_lease_policy.h").read_text()
+)
+assert 'dhcp_lease_router_option_parse("192.0.2.1 999.1.1.1"' in test_source
+
 bound_dltime = bound.index("bound_names[WAN_DHCP_BOUND_DLTIME]")
 bound_publish = bound.index("snapshot_status = wan_dhcp_nvram_state_publish(")
 assert bound.rfind("if (!is_man)", 0, bound_dltime) >= 0
