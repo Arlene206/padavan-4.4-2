@@ -1,3 +1,10 @@
+## 2026-11-25 21:18 CST (UTC+8) — Correct DHCPv6 IA output contract
+
+- Exact-head IA workflow #45619758139 on `6a1faf201e57eab3e9757cc845c15a779b8e8baa` passed the GNU89 ASan/UBSan regression, including failed-prefix-delete retention and retry. The Python source checker then failed only because it still required the old `DHCPv6 IA delegated-prefix retry policy: PASS` banner; the test now correctly emits `DHCPv6 IA delegated-prefix retry and removal policy: PASS`.
+- Removed only that obsolete duplicate banner assertion. The checker still pins both new cleanup regressions and the new exact output banner. Exact-head rerun on the current commit is required; no production C changes in this checker-only correction.
+
+---
+
 ## 2026-11-25 21:14 CST (UTC+8) — Stop DHCPv6 client after failed environment cleanup
 
 - Base SHA: `6a1faf201e57eab3e9757cc845c15a779b8e8baa`.

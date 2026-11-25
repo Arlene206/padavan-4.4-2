@@ -1,29 +1,30 @@
-## 2026-11-25 autonomous handoff — DHCPv6 startup cleanup rollback
+## 2026-11-25 autonomous handoff — DHCPv6 IA cleanup and callback rollback
 
-Startup recovery is complete. Current work includes the earlier DHCPv6 IA cleanup retry and DHCPv4 select-wait saturation. Do not repeat completed U2EC, MTD, WAN/PPP or process audits without new evidence.
+Startup recovery is complete. Current source slices cover DHCPv4 select-timeout saturation, DHCPv6 IA address-removal retry, and DHCPv6 client startup cleanup. Do not repeat completed U2EC, MTD, WAN/PPP or process audits without new evidence.
 
-### Git state
-- Main source baseline for this slice: `6a1faf201e57eab3e9757cc845c15a779b8e8baa`; this commit contains one atomic source/policy/test/checker/docs tree.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- No branch, PR or force push used. Continue using complete trees, non-forced expected-SHA updates.
+### Git / backup state
+- Main before this checker-only follow-up: `28a6bb022c0c58b19cbfafb3eb1f06460b55a969`; the follow-up removes one obsolete expected test banner.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. Continue full-tree atomic commits with non-forced expected-SHA updates only.
 
-### Prior current-main source changes
-- `c623f1e352db3f54dc6d10e2b7d2dd3e9cc2591d`: `udhcpc` signed/unsigned timeout underflow is clamped with `udhcpc_wait_remaining_seconds()`; GNU89 boundary regression and checker added.
-- Concurrent parent commit `6a1faf201e57eab3e9757cc845c15a779b8e8baa`: DHCPv6 IA cleanup now retains failed delete nodes and retry state instead of dropping kernel-cleanup errors; exact regressions are running.
-- The earlier IA_NA/IA_PD Reply retry and partial PD reconciliation are in the source ancestry from `0b41a2ed`; IA and AI doc exact-head PASS evidence exists on `aa1bdf5`. Physical router L4 remains unverified.
+### Completed source changes
+- `c623f1e352db3f54dc6d10e2b7d2dd3e9cc2591d`: `udhcpc` signed/unsigned elapsed-time underflow is saturated by `udhcpc_wait_remaining_seconds()`; GNU89 edge regression and source checker are wired.
+- `6a1faf201e57eab3e9757cc845c15a779b8e8baa`: DHCPv6 IA cleanup retains failed delete nodes and retries; does not drop kernel cleanup errors.
+- `28a6bb022c0c58b19cbfafb3eb1f06460b55a969`: if DHCPv6 daemon launch succeeds but callback environment cleanup fails, invalidate generation and stop the newly launched client under the session lock before unlock. Test + checker added.
+- IA_NA/IA_PD Reply retry and partial delegated-prefix reconciliation remain in ancestry from `0b41a2ed`.
 
-### Current DHCPv6 startup rollback fix
-- `start_dhcp6c()` previously treated temporary callback environment cleanup failure after a successful `eval("/sbin/dhcp6c", ...)` as failed startup, invalidated the callback generation, but left the successfully launched background `dhcp6c` process running.
-- This slice distinguishes a successful launch plus failed cleanup from a failed launch. It advances the generation and calls the existing bounded `kill_services(svcs, 3, 1)` while holding the callback session lock, before unlock; failed launch does not incur an unnecessary stop.
-- Regression tests cover all launch/cleanup combinations. The existing WAN DHCP callback workflow includes the affected source, policy, test and semantic checker. Exact-head checks must pass before claiming L2.
+### CI evidence / one diagnosed failure
+- On `c623f1e`: udhcpc stability, AI handoff, process inventory/lifecycle umbrella, USB storage and NVRAM workflows passed; XY-C1 was still in progress at last poll.
+- On `6a1faf`: AI docs, WAN callback, process umbrella/inventory and storage passed; DHCPv6 IA #45619758139 failed after its GNU89 ASan/UBSan binary passed. The sole failure was the checker asserting the old output banner after the test was extended to IA_NA removal + IA_PD retry. This checker-only commit removes only the obsolete banner assertion; all new cleanup cases and the replacement banner remain asserted.
+- `28a6bb0` exact runs at last poll were queued/pending: WAN route #45620059654, NVRAM #45620059507, Process #45620059458, AI docs #45620059453, IPv6 service-type #45620059431, XY-C1 #45620059409, WAN DHCP callback #45620059391, HTTPD security #45620059387. Recheck after this follow-up; PENDING does not block independent work.
+- XY-C1 Build → TRX verification → artifact upload must all pass on one identical product-source SHA for L3. Physical router L4 is NOT VERIFIED.
 
-### Exact-head CI and next actions
-- On parent `c623f1e`, udhcpc event-script regression and AI handoff validator passed; process inventory passed. XY-C1 build, storage, process lifecycle and NVRAM checks were still in progress when the next commit landed.
-- This source slice triggers exact-head WAN DHCP callback, WAN route status if path filters match, AI docs, Process/NVRAM and XY-C1 validation. Inspect first failures from job logs; PENDING does not block independent tasks.
-- First continue with exact-head callback checks, then inspect WAN/IPv6 route lifecycle and M2U/VLAN restoration issues only for concrete failure paths. XY-C1 Build→TRX→artifact must all PASS on one product-source SHA for L3. Hardware L4 is NOT VERIFIED.
+### First next actions
+1. Inspect this correction's exact-head DHCPv6 IA and AI docs checks; confirm the callback cleanup source checker/build also passes.
+2. Poll XY-C1 for the same product-source SHA; continue independent WAN/IPv6 route lifecycle work while builds are pending.
+3. Continue with a new concrete failure in M2U or reused VLAN/bridge-attribute restoration; avoid broad re-audits without new evidence.
 
 ### Execution contract
-Source/test → one complete Git tree/commit → non-forced expected-SHA main update → exact-SHA Actions. Preserve the backup and avoid repeating completed audits.
+Source/test → one complete Git tree/commit → non-forced expected-SHA update → exact-SHA Actions. Do not touch the frozen backup or create branches/PRs.
 
 ---
 

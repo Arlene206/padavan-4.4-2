@@ -131,7 +131,6 @@ assert "DHCPv6 IA delegated-prefix retry and removal policy: PASS" in test
 
 assert "test_partial_pd_failure_is_retried_without_reapplying_successes" in test
 assert "test_first_error_and_retry_gate" in test
-assert "DHCPv6 IA delegated-prefix retry policy: PASS" in test
 
 required_paths = (
     ".github/workflows/dhcp6c-ia-publication-stability.yml",
