@@ -561,6 +561,182 @@ test_sit_endpoint_route_requires_ownership_output(void)
 	assert(wan6_sit_endpoint_route_add_status(0, NULL) == EINVAL);
 }
 
+
+struct fake_sit_route4_state {
+	int delete_status;
+	int clear_status;
+	int delete_calls;
+	int clear_calls;
+	int clear_unit;
+	char ifname[WAN6_SIT_ROUTE4_IFNAME_SIZE];
+	char endpoint[WAN6_SIT_ROUTE4_IPV4_SIZE];
+	char gateway[WAN6_SIT_ROUTE4_IPV4_SIZE];
+};
+
+static int
+fake_sit_route4_delete(void *context, const char *ifname,
+		       const char *endpoint, const char *gateway)
+{
+	struct fake_sit_route4_state *state =
+		(struct fake_sit_route4_state *)context;
+
+	state->delete_calls++;
+	snprintf(state->ifname, sizeof(state->ifname), "%s", ifname);
+	snprintf(state->endpoint, sizeof(state->endpoint), "%s", endpoint);
+	snprintf(state->gateway, sizeof(state->gateway), "%s", gateway);
+	return state->delete_status;
+}
+
+static int
+fake_sit_route4_clear(void *context, int unit)
+{
+	struct fake_sit_route4_state *state =
+		(struct fake_sit_route4_state *)context;
+
+	state->clear_calls++;
+	state->clear_unit = unit;
+	return state->clear_status;
+}
+
+static void
+test_sit_route4_record_format_and_parse_round_trip(void)
+{
+	char record[WAN6_SIT_ROUTE4_RECORD_SIZE];
+	char ifname[WAN6_SIT_ROUTE4_IFNAME_SIZE];
+	char endpoint[WAN6_SIT_ROUTE4_IPV4_SIZE];
+	char gateway[WAN6_SIT_ROUTE4_IPV4_SIZE];
+
+	assert(wan6_sit_route4_record_format(
+		"eth2", "192.0.2.1", "192.0.2.254",
+		record, sizeof(record)) == 0);
+	assert(strcmp(record, "eth2|192.0.2.1|192.0.2.254") == 0);
+	assert(wan6_sit_route4_record_parse(
+		record, ifname, sizeof(ifname), endpoint, sizeof(endpoint),
+		gateway, sizeof(gateway)) == 0);
+	assert(strcmp(ifname, "eth2") == 0);
+	assert(strcmp(endpoint, "192.0.2.1") == 0);
+	assert(strcmp(gateway, "192.0.2.254") == 0);
+}
+
+static void
+test_sit_route4_record_allows_direct_endpoint_route(void)
+{
+	char ifname[WAN6_SIT_ROUTE4_IFNAME_SIZE];
+	char endpoint[WAN6_SIT_ROUTE4_IPV4_SIZE];
+	char gateway[WAN6_SIT_ROUTE4_IPV4_SIZE];
+
+	assert(wan6_sit_route4_record_parse(
+		"eth2|192.0.2.1|", ifname, sizeof(ifname),
+		endpoint, sizeof(endpoint), gateway, sizeof(gateway)) == 0);
+	assert(strcmp(gateway, "") == 0);
+}
+
+static void
+test_sit_route4_record_rejects_ambiguous_delimiters(void)
+{
+	char record[WAN6_SIT_ROUTE4_RECORD_SIZE];
+
+	assert(wan6_sit_route4_record_format(
+		"eth|2", "192.0.2.1", "192.0.2.254",
+		record, sizeof(record)) == EINVAL);
+	assert(wan6_sit_route4_record_parse(
+		"eth2|192.0.2.1|192.0.2.254|extra",
+		record, sizeof(record), record, sizeof(record),
+		record, sizeof(record)) == EINVAL);
+}
+
+static void
+test_sit_route4_cleanup_deletes_exact_owned_route_then_clears_record(void)
+{
+	struct fake_sit_route4_state state = {0};
+
+	assert(wan6_sit_route4_cleanup_record(
+		3, "eth2|192.0.2.1|192.0.2.254",
+		fake_sit_route4_delete, fake_sit_route4_clear, &state) == 0);
+	assert(state.delete_calls == 1);
+	assert(state.clear_calls == 1);
+	assert(state.clear_unit == 3);
+	assert(strcmp(state.ifname, "eth2") == 0);
+	assert(strcmp(state.endpoint, "192.0.2.1") == 0);
+	assert(strcmp(state.gateway, "192.0.2.254") == 0);
+}
+
+static void
+test_sit_route4_cleanup_preserves_record_when_route_delete_fails(void)
+{
+	struct fake_sit_route4_state state = {0};
+
+	state.delete_status = EIO;
+	assert(wan6_sit_route4_cleanup_record(
+		0, "eth2|192.0.2.1|192.0.2.254",
+		fake_sit_route4_delete, fake_sit_route4_clear, &state) == EIO);
+	assert(state.delete_calls == 1);
+	assert(state.clear_calls == 0);
+}
+
+static void
+test_sit_route4_cleanup_clears_record_when_route_is_already_absent(void)
+{
+	struct fake_sit_route4_state state = {0};
+
+	state.delete_status = ESRCH;
+	assert(wan6_sit_route4_cleanup_record(
+		0, "eth2|192.0.2.1|192.0.2.254",
+		fake_sit_route4_delete, fake_sit_route4_clear, &state) == 0);
+	assert(state.delete_calls == 1);
+	assert(state.clear_calls == 1);
+}
+
+static void
+test_sit_route4_cleanup_clears_record_when_interface_is_gone(void)
+{
+	struct fake_sit_route4_state state = {0};
+
+	state.delete_status = ENODEV;
+	assert(wan6_sit_route4_cleanup_record(
+		0, "eth2|192.0.2.1|192.0.2.254",
+		fake_sit_route4_delete, fake_sit_route4_clear, &state) == 0);
+	assert(state.delete_calls == 1);
+	assert(state.clear_calls == 1);
+}
+
+static void
+test_sit_route4_cleanup_retains_record_when_clear_fails(void)
+{
+	struct fake_sit_route4_state state = {0};
+
+	state.clear_status = EIO;
+	assert(wan6_sit_route4_cleanup_record(
+		1, "eth2|192.0.2.1|192.0.2.254",
+		fake_sit_route4_delete, fake_sit_route4_clear, &state) == EIO);
+	assert(state.delete_calls == 1);
+	assert(state.clear_calls == 1);
+}
+
+static void
+test_sit_route4_cleanup_rejects_malformed_record_without_mutation(void)
+{
+	struct fake_sit_route4_state state = {0};
+
+	assert(wan6_sit_route4_cleanup_record(
+		0, "eth2|bad",
+		fake_sit_route4_delete, fake_sit_route4_clear, &state) == EINVAL);
+	assert(state.delete_calls == 0);
+	assert(state.clear_calls == 0);
+}
+
+static void
+test_sit_route4_cleanup_empty_record_is_noop(void)
+{
+	struct fake_sit_route4_state state = {0};
+
+	assert(wan6_sit_route4_cleanup_record(
+		0, "", fake_sit_route4_delete, fake_sit_route4_clear,
+		&state) == 0);
+	assert(state.delete_calls == 0);
+	assert(state.clear_calls == 0);
+}
+
 int
 main(void)
 {
@@ -569,6 +745,16 @@ main(void)
 	test_sit_endpoint_route_duplicate_is_accepted_without_ownership();
 	test_sit_endpoint_route_failure_is_not_hidden();
 	test_sit_endpoint_route_requires_ownership_output();
+	test_sit_route4_record_format_and_parse_round_trip();
+	test_sit_route4_record_allows_direct_endpoint_route();
+	test_sit_route4_record_rejects_ambiguous_delimiters();
+	test_sit_route4_cleanup_deletes_exact_owned_route_then_clears_record();
+	test_sit_route4_cleanup_preserves_record_when_route_delete_fails();
+	test_sit_route4_cleanup_clears_record_when_route_is_already_absent();
+	test_sit_route4_cleanup_clears_record_when_interface_is_gone();
+	test_sit_route4_cleanup_retains_record_when_clear_fails();
+	test_sit_route4_cleanup_rejects_malformed_record_without_mutation();
+	test_sit_route4_cleanup_empty_record_is_noop();
 	test_wan6_address_host_read_error_fails_closed();
 	test_wan6_address_host_missing_interface_keeps_fallback_eligible();
 	test_wan6_address_host_extracts_prefix_free_public_address();

@@ -834,9 +834,16 @@ assert "operation_status = clear_if_neigh6(wan6_ifname);" in wan6_down
 wan_route_cleanup = wan6_down.index("operation_status = clear_if_route6(wan6_ifname);")
 wan_neigh_cleanup = wan6_down.index("operation_status = clear_if_neigh6(wan6_ifname);")
 wan_addr_cleanup = wan6_down.index("operation_status = clear_if_addr6(wan6_ifname);")
+assert "operation_status = stop_sit_tunnel();" in wan6_down
+assert "operation_status = wan6_sit_route4_cleanup(unit);" in wan6_down
+assert wan6_down.index("operation_status = stop_sit_tunnel();") < wan6_down.index("operation_status = wan6_sit_route4_cleanup(unit);")
+assert "wan6_sit_route4_cleanup(unit)" in sit_start
+assert "wan6_sit_route4_publish(" in sit_start
+assert "wan6_sit_route4_cleanup_record" in NET_WAN6_IDENTITY_POLICY_SOURCE
+assert 'reset_values[6].param_name = "sit_route4";' in NET_WAN6_SOURCE
 assert wan_route_cleanup < wan_neigh_cleanup < wan_addr_cleanup
 # The tenth aggregate preserves checked IPv6 runtime-metadata clear failures.
-assert wan6_down.count("status = route_status_accumulate(status, operation_status);") == 10
+assert wan6_down.count("status = route_status_accumulate(status, operation_status);") == 11
 assert 'return eval("ip", "tunnel", "del", IFNAME_SIT);' in stop_sit
 
 for signature in (

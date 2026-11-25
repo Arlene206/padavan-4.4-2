@@ -1000,6 +1000,22 @@ sit_endpoint_add = sit_start.index("route_add(wan_ifname, 0, sit_ep, wan_gate4,"
 sit_endpoint_owner = sit_start.index("&wan_route_added", sit_endpoint_policy)
 require(sit_endpoint_policy < sit_endpoint_add < sit_endpoint_owner,
         "SIT endpoint route result must be classified before ownership is recorded")
+require("wan6_sit_route4_record_format" in wan6_identity_policy and
+        "wan6_sit_route4_cleanup_record" in wan6_identity_policy and
+        "status != 0 && status != ESRCH && status != ENODEV" in wan6_identity_policy,
+        "SIT endpoint cleanup must target the persisted owned route and retain metadata on failure")
+require("wan6_sit_route4_cleanup(unit)" in sit_start and
+        "wan6_sit_route4_publish(" in sit_start and
+        "wan6_sit_route4_cleanup(unit)" in wan6,
+        "SIT endpoint route ownership must be persisted after creation and cleaned during teardown")
+for test_name in (
+    "test_sit_route4_record_format_and_parse_round_trip",
+    "test_sit_route4_cleanup_preserves_record_when_route_delete_fails",
+    "test_sit_route4_cleanup_clears_record_when_route_is_already_absent",
+    "test_sit_route4_cleanup_rejects_malformed_record_without_mutation",
+):
+    require(test_name in wan6_identity_test and test_name + "();" in wan6_identity_test,
+            "SIT IPv4 route teardown regression missing " + test_name)
 require("if (add_status == EEXIST)" in wan6_identity_policy and
         "*route_added = 0;" in wan6_identity_policy and
         "*route_added = 1;" in wan6_identity_policy,

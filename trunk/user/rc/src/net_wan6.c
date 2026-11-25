@@ -358,6 +358,51 @@ wan6_set_runtime_value_status(void *context, const char *param_name,
 	return set_wan_unit_value_status(0, param_name, value);
 }
 
+static int
+wan6_sit_route4_delete(void *context, const char *ifname,
+		       const char *endpoint, const char *gateway)
+{
+	(void)context;
+	return route_del((char *)ifname, 0, (char *)endpoint,
+			 (char *)gateway, "255.255.255.255");
+}
+
+static int
+wan6_sit_route4_clear_record(void *context, int unit)
+{
+	(void)context;
+	return set_wan_unit_value_status(unit, "sit_route4", "");
+}
+
+static int
+wan6_sit_route4_cleanup(int unit)
+{
+	char record[WAN6_SIT_ROUTE4_RECORD_SIZE] = {0};
+	int status;
+
+	status = get_wan_unit_value_copy_status(
+		unit, "sit_route4", record, sizeof(record));
+	if (status != 0)
+		return status;
+	return wan6_sit_route4_cleanup_record(
+		unit, record, wan6_sit_route4_delete,
+		wan6_sit_route4_clear_record, NULL);
+}
+
+static int
+wan6_sit_route4_publish(int unit, const char *ifname,
+			const char *endpoint, const char *gateway)
+{
+	char record[WAN6_SIT_ROUTE4_RECORD_SIZE];
+	int status;
+
+	status = wan6_sit_route4_record_format(
+		ifname, endpoint, gateway, record, sizeof(record));
+	if (status != 0)
+		return status;
+	return set_wan_unit_value_status(unit, "sit_route4", record);
+}
+
 int reset_wan6_vars_status(void)
 {
 	struct in6_addr addr6;
@@ -383,11 +428,14 @@ int reset_wan6_vars_status(void)
 	struct nvram_transaction transaction;
 	const char *wan_size_texts[1];
 	int parsed_wan_size[1];
-	struct rc_wan_nvram_value reset_values[6];
+	struct rc_wan_nvram_value reset_values[7];
 	unsigned int first_field, field_count, i;
 	int wan_size6 = 0;
 	int status, wan_addr6_static;
 
+	status = wan6_sit_route4_cleanup(0);
+	if (status != 0)
+		return status;
 	status = is_wan_addr6_static_status(&wan_addr6_static);
 	if (status != 0)
 		return status;
@@ -449,9 +497,11 @@ int reset_wan6_vars_status(void)
 	reset_values[4].value = dns6s;
 	reset_values[5].param_name = "ifname6";
 	reset_values[5].value = "";
+	reset_values[6].param_name = "sit_route4";
+	reset_values[6].value = "";
 
 	return rc_wan_nvram_set_required_values(
-		reset_values, 6, wan6_set_runtime_value_status, NULL);
+		reset_values, 7, wan6_set_runtime_value_status, NULL);
 }
 
 int
@@ -995,10 +1045,10 @@ wan6_read_nvram_int_status(const char *param_name, int *value)
 } while (0)
 
 int start_sit_tunnel(int ipv6_type, char *wan_ifname, char *wan_addr4,
-		     char *wan_gate4, char *wan_addr6)
+		     char *wan_gate4, char *wan_addr6, int unit)
 {
 	int sit_ttl, sit_mtu, size4, size6, status, cleanup_status;
-	int tunnel_created, wan_route_added, written;
+	int tunnel_created, wan_route_added, route_recorded, record_status, written;
 	int lan_address_touched, lan_rollback_status;
 	char *sit_remote, *sit_relay, *sit_ep, *wan_gate6;
 	char wan_addr4_text[INET_ADDRSTRLEN];
@@ -1022,6 +1072,7 @@ int start_sit_tunnel(int ipv6_type, char *wan_ifname, char *wan_addr4,
 	status = -1;
 	tunnel_created = 0;
 	wan_route_added = 0;
+	route_recorded = 0;
 	lan_address_touched = 0;
 	lan_rollback_status = 0;
 	previous_lan_addr6[0] = '\0';
@@ -1034,7 +1085,7 @@ int start_sit_tunnel(int ipv6_type, char *wan_ifname, char *wan_addr4,
 	sit_6rd_prefix[0] = '\0';
 	sit_6rd_relay_prefix[0] = '\0';
 
-	if (!wan_ifname || !*wan_ifname ||
+	if (unit < 0 || !wan_ifname || !*wan_ifname ||
 	    format_ipv4_literal(wan_addr4, wan_addr4_text,
 				 sizeof(wan_addr4_text)) < 0 ||
 	    inet_pton(AF_INET, wan_addr4_text, &addr4) != 1) {
@@ -1206,6 +1257,10 @@ int start_sit_tunnel(int ipv6_type, char *wan_ifname, char *wan_addr4,
 		return -1;
 	}
 
+	/* Reconcile the previous owned endpoint route before replacing the tunnel. */
+	WAN6_SIT_READ_CHECK(wan6_sit_route4_cleanup(unit),
+			    "remove previous owned SIT endpoint route");
+
 	if (is_interface_exist(IFNAME_SIT))
 		WAN6_SIT_CHECK(eval("ip", "tunnel", "del", IFNAME_SIT),
 			       "remove previous SIT tunnel");
@@ -1225,6 +1280,15 @@ int start_sit_tunnel(int ipv6_type, char *wan_ifname, char *wan_addr4,
 	if (status != 0) {
 		failure = "route SIT IPv4 endpoint";
 		goto failed;
+	}
+	if (wan_route_added) {
+		status = wan6_sit_route4_publish(
+			unit, wan_ifname, sit_ep, wan_gate4);
+		if (status != 0) {
+			failure = "publish owned SIT endpoint route identity";
+			goto failed;
+		}
+		route_recorded = 1;
 	}
 
 	if (!inet_ntop(AF_INET6, &addr6, addr6s, INET6_ADDRSTRLEN)) {
@@ -1293,8 +1357,25 @@ failed:
 				   lan_rollback_status);
 	}
 	if (wan_route_added) {
-		cleanup_status = route_del(wan_ifname, 0, sit_ep, wan_gate4,
-					   "255.255.255.255");
+		if (route_recorded) {
+			cleanup_status = wan6_sit_route4_cleanup(unit);
+		} else {
+			cleanup_status = route_del(wan_ifname, 0, sit_ep, wan_gate4,
+						   "255.255.255.255");
+			if (cleanup_status == ESRCH || cleanup_status == ENODEV)
+				cleanup_status = 0;
+			if (cleanup_status == 0) {
+				record_status = wan6_sit_route4_clear_record(NULL, unit);
+				cleanup_status = record_status;
+			} else {
+				record_status = wan6_sit_route4_publish(
+					unit, wan_ifname, sit_ep, wan_gate4);
+				if (record_status != 0)
+					logmessage("WAN IPv6",
+						   "failed to preserve SIT endpoint route recovery identity (status=%d)",
+						   record_status);
+			}
+		}
 		if (cleanup_status != 0)
 			logmessage("WAN IPv6", "failed to roll back SIT endpoint route (status=%d)",
 				   cleanup_status);
@@ -1486,7 +1567,7 @@ int wan6_up(char *wan_ifname, int unit)
 	if (ipv6_type == IPV6_6IN4 || ipv6_type == IPV6_6TO4 ||
 	    ipv6_type == IPV6_6RD) {
 		status = start_sit_tunnel(ipv6_type, wan_ifname, wan_addr4,
-					  wan_gate4, wan_addr6);
+					  wan_gate4, wan_addr6, unit);
 		if (status != 0) {
 			logmessage("WAN IPv6", "SIT setup incomplete on %s (status=%d)",
 				   wan_ifname, status);
@@ -1696,16 +1777,17 @@ int wan6_down(char *wan_ifname, int unit)
 		ipv6_type == IPV6_DISABLED, ipv6_sit, sit_if_exists,
 		wan_ifname, IFNAME_SIT);
 	if (!wan6_ifname) {
-		/* A vanished PPP/device interface has already lost its kernel routes
-		 * and addresses. Do not turn an ordinary disabled-WAN stop into a
-		 * failure by issuing IPv6 flushes against a nonexistent interface. */
+		/* A vanished PPP/device interface has already lost IPv6 state. Reconcile
+		 * any owned IPv4 SIT endpoint route before clearing interface identity. */
+		status = wan6_sit_route4_cleanup(unit);
 		clear_status = wan6_clear_runtime_metadata(
 			wan6_identity_set_value, NULL, unit, 1);
-		if (clear_status != 0)
+		status = route_status_accumulate(status, clear_status);
+		if (status != 0)
 			logmessage("WAN IPv6",
 				   "failed to clear metadata after IPv6 interface disappearance (status=%d)",
-				   clear_status);
-		return clear_status;
+				   status);
+		return status;
 	}
 
 	status = 0;
@@ -1771,6 +1853,14 @@ int wan6_down(char *wan_ifname, int unit)
 	if (operation_status != 0)
 		logmessage("WAN IPv6", "failed to remove SIT tunnel (status=%d)",
 			   operation_status);
+	else {
+		operation_status = wan6_sit_route4_cleanup(unit);
+		status = route_status_accumulate(status, operation_status);
+		if (operation_status != 0)
+			logmessage("WAN IPv6",
+				   "failed to remove owned SIT endpoint route (status=%d)",
+				   operation_status);
+	}
 
 	if (status == 0) {
 		operation_status = wan6_clear_runtime_metadata(

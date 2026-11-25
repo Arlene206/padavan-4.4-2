@@ -3,6 +3,7 @@
 
 #include <errno.h>
 #include <stddef.h>
+#include <stdio.h>
 #include <string.h>
 
 typedef int (*wan6_identity_set_value_fn)(void *context, int unit,
@@ -218,6 +219,115 @@ wan6_sit_endpoint_route_add_status(int add_status, int *route_added)
 		return 0;
 
 	return add_status;
+}
+
+
+#define WAN6_SIT_ROUTE4_RECORD_SIZE 64
+#define WAN6_SIT_ROUTE4_IFNAME_SIZE 16
+#define WAN6_SIT_ROUTE4_IPV4_SIZE 16
+
+static inline int
+wan6_sit_route4_record_format(const char *ifname, const char *endpoint,
+			      const char *gateway, char *record,
+			      size_t record_size)
+{
+	const char *gateway_value = gateway ? gateway : "";
+	int written;
+
+	if (!ifname || !ifname[0] || !endpoint || !endpoint[0] ||
+	    !record || record_size == 0 ||
+	    strchr(ifname, '|') || strchr(endpoint, '|') ||
+	    strchr(gateway_value, '|'))
+		return EINVAL;
+
+	record[0] = '\0';
+	written = snprintf(record, record_size, "%s|%s|%s",
+			   ifname, endpoint, gateway_value);
+	if (written < 0)
+		return EIO;
+	if ((size_t)written >= record_size) {
+		record[0] = '\0';
+		return ENAMETOOLONG;
+	}
+	return 0;
+}
+
+static inline int
+wan6_sit_route4_record_parse(const char *record, char *ifname,
+			     size_t ifname_size, char *endpoint,
+			     size_t endpoint_size, char *gateway,
+			     size_t gateway_size)
+{
+	const char *first, *second;
+	size_t ifname_length, endpoint_length, gateway_length;
+
+	if (!record || !ifname || ifname_size == 0 ||
+	    !endpoint || endpoint_size == 0 || !gateway || gateway_size == 0)
+		return EINVAL;
+
+	ifname[0] = '\0';
+	endpoint[0] = '\0';
+	gateway[0] = '\0';
+	first = strchr(record, '|');
+	if (!first || first == record)
+		return EINVAL;
+	second = strchr(first + 1, '|');
+	if (!second || second == first + 1 || strchr(second + 1, '|'))
+		return EINVAL;
+
+	ifname_length = (size_t)(first - record);
+	endpoint_length = (size_t)(second - first - 1);
+	gateway_length = strlen(second + 1);
+	if (ifname_length >= ifname_size ||
+	    endpoint_length >= endpoint_size ||
+	    gateway_length >= gateway_size)
+		return ENAMETOOLONG;
+
+	memcpy(ifname, record, ifname_length);
+	ifname[ifname_length] = '\0';
+	memcpy(endpoint, first + 1, endpoint_length);
+	endpoint[endpoint_length] = '\0';
+	memcpy(gateway, second + 1, gateway_length + 1);
+	return 0;
+}
+
+typedef int (*wan6_sit_route4_delete_fn)(void *context,
+					 const char *ifname,
+					 const char *endpoint,
+					 const char *gateway);
+typedef int (*wan6_sit_route4_clear_fn)(void *context, int unit);
+
+/*
+ * Remove only the endpoint route recorded as locally owned. Keep the record
+ * when deletion fails; ESRCH/ENODEV mean the route/interface is already gone.
+ */
+static inline int
+wan6_sit_route4_cleanup_record(int unit, const char *record,
+			       wan6_sit_route4_delete_fn delete_route,
+			       wan6_sit_route4_clear_fn clear_record,
+			       void *context)
+{
+	char ifname[WAN6_SIT_ROUTE4_IFNAME_SIZE];
+	char endpoint[WAN6_SIT_ROUTE4_IPV4_SIZE];
+	char gateway[WAN6_SIT_ROUTE4_IPV4_SIZE];
+	int status;
+
+	if (unit < 0 || !record || !delete_route || !clear_record)
+		return EINVAL;
+	if (!record[0])
+		return 0;
+
+	status = wan6_sit_route4_record_parse(
+		record, ifname, sizeof(ifname), endpoint, sizeof(endpoint),
+		gateway, sizeof(gateway));
+	if (status != 0)
+		return status;
+
+	status = delete_route(context, ifname, endpoint, gateway);
+	if (status != 0 && status != ESRCH && status != ENODEV)
+		return status;
+
+	return clear_record(context, unit);
 }
 
 #endif /* WAN6_IDENTITY_POLICY_H */

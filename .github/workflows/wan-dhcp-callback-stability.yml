@@ -1300,7 +1300,7 @@ jobs:
           teardown_positions = [wan6_down.index(item) for item in teardown_ops]
           assert teardown_positions == sorted(teardown_positions)
           # The checked metadata helper contributes one first-error aggregate.
-          assert wan6_down.count("status = route_status_accumulate(status, operation_status);") == 10
+          assert wan6_down.count("status = route_status_accumulate(status, operation_status);") == 11
           previous_interface = wan6_down.index("wan6_teardown_select_ifname(")
           clear_routes = wan6_down.index("operation_status = clear_if_route6(wan6_ifname);")
           clear_neigh = wan6_down.index("operation_status = clear_if_neigh6(wan6_ifname);")
@@ -1463,7 +1463,7 @@ jobs:
           assert "int control_if_ipv6(const char *ifname, int enable);" in rc_header
           assert "int control_if_ipv6_dad(const char *ifname, int enable);" in rc_header
           assert "int control_if_ipv6_privacy(const char *ifname, int enable);" in rc_header
-          assert "int start_sit_tunnel(int ipv6_type, char *wan_ifname, char *wan_addr4, char *wan_gate4, char *wan_addr6);" in rc_header
+          assert "int start_sit_tunnel(int ipv6_type, char *wan_ifname, char *wan_addr4, char *wan_gate4, char *wan_addr6, int unit);" in rc_header
           assert "int stop_sit_tunnel(void);" in rc_header
           assert "void start_sit_tunnel(" not in rc_header
           assert "void stop_sit_tunnel(void);" not in rc_header
@@ -1504,6 +1504,17 @@ jobs:
           assert "test_sit_endpoint_route_duplicate_is_accepted_without_ownership" in wan6_identity_test
           assert "test_sit_endpoint_route_failure_is_not_hidden" in wan6_identity_test
           assert "if (wan_route_added)" in sit_start
+          assert "wan6_sit_route4_cleanup(unit)" in sit_start
+          assert "wan6_sit_route4_publish(" in sit_start
+          assert "operation_status = wan6_sit_route4_cleanup(unit);" in wan6_down
+          assert wan6_down.index("operation_status = stop_sit_tunnel();") < wan6_down.index("operation_status = wan6_sit_route4_cleanup(unit);")
+          assert 'reset_values[6].param_name = "sit_route4";' in wan6_source
+          for test_name in (
+              "test_sit_route4_record_format_and_parse_round_trip",
+              "test_sit_route4_cleanup_preserves_record_when_route_delete_fails",
+              "test_sit_route4_cleanup_clears_record_when_route_is_already_absent",
+          ):
+              assert test_name in wan6_identity_test and test_name + "();" in wan6_identity_test
           assert "if (tunnel_created)" in sit_start
           assert sit_start.index("route_add(wan_ifname, 0, sit_ep") < sit_start.index('eval("ip", "-6", "addr", "add", addr6s')
           assert sit_start.index('eval("ip", "-6", "route", "add", "default"') < sit_start.index("store_lan_addr6(lan_addr6s)")
