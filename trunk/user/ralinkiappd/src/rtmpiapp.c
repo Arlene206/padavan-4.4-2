@@ -2229,6 +2229,8 @@ static VOID IAPP_RcvHandlerTcp(
 			DBGPRINT(RT_DEBUG_ERROR, "iapp> TCP Decrypt frame failed!\n");
 			return;
 		}
+#endif // FT_KDP_FUNC_PKT_ENCRYPT //
+
 		if (SizeRcvMsg < 0 ||
 		    !iapp_rx_buffer_append_fits((size_t)ReceivedLength, 0,
 						(size_t)SizeRcvMsg)) {
@@ -2237,7 +2239,6 @@ static VOID IAPP_RcvHandlerTcp(
 				 SizeRcvMsg, ReceivedLength);
 			return;
 		}
-#endif // FT_KDP_FUNC_PKT_ENCRYPT //
 
 		if (SizeRcvMsg < (INT32)sizeof(RT_IAPP_HEADER)) {
 			DBGPRINT(RT_DEBUG_ERROR, "iapp> Short TCP IAPP header (%d bytes)!\n", SizeRcvMsg);
@@ -3061,6 +3062,8 @@ static VOID IAPP_RcvHandlerUdp(
 			DBGPRINT(RT_DEBUG_ERROR, "iapp> UDP Decrypt frame failed!\n");
 			return;
 		}
+#endif // FT_KDP_FUNC_PKT_ENCRYPT //
+
 		if (SizeRcvMsg < 0 ||
 		    !iapp_rx_buffer_append_fits((size_t)ReceivedLength, 0,
 						(size_t)SizeRcvMsg)) {
@@ -3069,7 +3072,6 @@ static VOID IAPP_RcvHandlerUdp(
 				 SizeRcvMsg, ReceivedLength);
 			return;
 		}
-#endif // FT_KDP_FUNC_PKT_ENCRYPT //
 
 		if (SizeRcvMsg < (INT32)sizeof(RT_IAPP_HEADER)) {
 			DBGPRINT(RT_DEBUG_ERROR, "iapp> Short UDP IAPP header (%d bytes)!\n", SizeRcvMsg);

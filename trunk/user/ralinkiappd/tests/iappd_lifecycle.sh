@@ -159,6 +159,10 @@ grep -Fq 'SizeRcvMsg != (INT32)sizeof(*SM_p)' "$iapp_source" ||
   fail "IAPP security-monitor event must match its fixed frame size"
 [ "$(grep -F -c 'iapp_rx_buffer_append_fits((size_t)ReceivedLength, 0' "$iapp_source")" -eq 2 ] ||
   fail "TCP and UDP decrypt outputs must fit their original received buffers"
+tcp_length_guard=$(grep -n -F 'Invalid TCP decrypt output length' "$iapp_source" | cut -d: -f1)
+udp_length_guard=$(grep -n -F 'Invalid UDP decrypt output length' "$iapp_source" | cut -d: -f1)
+[ -n "$tcp_length_guard" ] && [ -n "$udp_length_guard" ] ||
+  fail "TCP and UDP decrypt output guards must remain present outside feature conditionals"
 grep -Fq 'iapp_rx_buffer_append_fits(sizeof(RT_SIGNAL_STRUC), 0' "$iapp_source" ||
   fail "driver signal-context ioctl output must fit its allocated structure"
 grep -Fq 'Query signal context ioctl failed' "$iapp_source" ||

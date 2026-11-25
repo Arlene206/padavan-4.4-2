@@ -1,27 +1,26 @@
 ## Current repository state — 2026-11-25
 
-- Main base before transmit encryption-result validation: 825396976a0a22ad76d9c2088080444af4d00408; checked helper, six call-site conversions, signed-length policy tests, lifecycle assertions, dev log and handoff are one atomic descendant (THIS COMMIT).
+- Main base before TCP/UDP feature-independent receive-length validation: 9a0488bba624adfabecf79975ebc108b5ed712af; both guards now execute outside the optional FT encryption conditional (THIS COMMIT).
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Parent 825396976a0a22ad76d9c2088080444af4d00408 exact Actions at last poll: Process lifecycle inventory #45694272727 and Process regression #45694272601 in progress; XY-C1 #45694272590 in progress; IAPP #45694272587 in progress; AI #45694272576 in progress; NVRAM #45694272568 pending.
-- Parent 88ba947616c1fd7e17654ec46c3da1a3f6eba600: IAPP #45694069482 PASS, process regression #45694069373 PASS, inventory #45694069366 PASS, AI #45694069551 PASS; XY #45694070174 still building; NVRAM #45694069370 in progress.
-- Driver-returned decrypt lengths are checked against original TCP/UDP input sizes; signal-context query status and reported size are bounded before forwarding.
-- New send-side finding: driver encryption ioctls can mutate output lengths and several callers ignored ioctl failure. A failed operation could still send plaintext; oversized lengths could read stale bytes. `IAPP_EncryptFrame()` now checks status plus signed output size against input + 32-byte reserved tail for all six transmit paths.
-- Exact XY-C1 L3 Build/TRX/artifact remains confirmed only on `e1f16872b7e2792db9acf0184f2fe9c5d736c966`; no later SHA inherits it.
+- Parent `9a0488bba624adfabecf79975ebc108b5ed712af`: IAPP lifecycle #45694865535 PASS; process inventory/lifecycle #45694865528 PASS; AI handoff #45694865480 PASS. Process regression #45694865500 and NVRAM #45694865670 were in progress; XY-C1 #45694865790 in progress (job #139489505991, ccache setup).
+- Parent source adds `IAPP_EncryptFrame()` and routes six transmit encryption IOCTLs through signed output and tail-capacity validation. Its exact IAPP run passed.
+- Follow-up fixes a feature-off configuration gap: the original received-vs-decrypt-output size guards now run whether or not `FT_KDP_FUNC_PKT_ENCRYPT` is enabled, so no unused set-only variable remains and raw unencrypted transport is explicitly bounded too.
+- Exact XY-C1 L3 Build/TRX/artifact is still only proven at `e1f16872b7e2792db9acf0184f2fe9c5d736c966`; newer SHAs require their own completed firmware workflow.
 
 ## Active task
 
-Validate the encryption wrapper on exact IAPP/XY Actions. Next audit other driver IOCTL output-length consumers and raw RRB output/send capacity.
+Verify current transmit-encryption wrapper and feature-independent input bounds on exact IAPP/XY Actions; then audit remaining non-encrypt driver IOCTLs and TCP connect/send timeout behavior.
 
 ## Exact first actions for next GPT
 
-1. Poll parent 825396 exact IAPP/XY/Process/AI/NVRAM results, then THIS COMMIT's exact-head checks independently.
-2. Confirm GNU89 ASan/UBSan signed-length tests and shell count for all six IAPP_EncryptFrame call paths.
-3. Inspect raw RRB frame output capacity and encrypt length after wrapper, then audit `RT_QUERY_SIGNAL_CONTEXT` and remaining IOCTL consumers.
-4. Keep backup frozen; main-only complete-tree atomic commits and non-force expected-SHA updates.
+1. Poll parent 9a0488 exact process/NVRAM/XY statuses and THIS COMMIT exact-SHA runs independently.
+2. Confirm IAPP GNU89 ASan/UBSan regression and source contract; inspect XY compiler steps.
+3. Search remaining `IAPP_IOCTL_TO_WLAN` call sites. For any returned output length, validate signedness and actual allocated capacity before copy/send.
+4. Keep backup read-only; main-only atomic trees with non-force expected-SHA updates.
 
 ## Execution contract
 
-Main only; one complete tree per logical task, update with exact expected SHA and force=false. No force-push, branch or PR. PENDING does not block.
+Main only; complete tree, atomic task commit, force=false with exact expected SHA. No force-push, branches or new PR. PENDING does not block independent work.
 
 ## 2026-11-25 autonomous handoff checkpoint
 
