@@ -64,6 +64,8 @@ assert "offsetof(IRP_SAVE, Buffer)" in usb_connection
 assert "sizeof(data_buf) - offsetof(IRP_SAVE, Buffer)" in usb_connection
 assert "received_payload <= buffer_capacity" in policy
 assert "(size_t)buffer_size <= received_payload" in policy
+assert usb_connection.index("pirp_save->BufferSize = SWAP32") < usb_connection.index("if (!u2ec_irp_frame_buffer_bounds_valid(")
+assert usb_connection.index("if (!u2ec_irp_frame_buffer_bounds_valid(") < usb_connection.index("purb->UrbHeader.Length = SWAP16")
 assert "sizeof(IRP_SAVE), sizeof(data_buf)" in usb_connection
 assert "u2ec_frame_size_is_valid((long)pirp_saverw->NeedSize" in usb_connection
 assert "sizeof(IRP_SAVE), sizeof(data_bufrw)" in usb_connection
