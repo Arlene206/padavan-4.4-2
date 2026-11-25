@@ -1,15 +1,15 @@
-## 2026-11-25 active handoff — Dropbear executable-identity correction
+## 2026-11-25 active handoff — Dropbear checker alignment
 
-- Main source baseline before this correction: `880c339949419967b6f58a881e0ffb8ce993e113`. The first Dropbear commit `880c339` replaced BusyBox comm-only `pidof`/broad `killall` with procfs PID/start-time and executable identity checks, plus spoof/UNKNOWN/escalation shell tests.
-- Source review found 13 accidentally escaped shell parameter expansions in the first implementation. This commit removes those literal backslashes; do not rely on the earlier local prototype test as verification of the published source.
-- Exact Process lifecycle workflow #45649732824 on `880c339` was still IN_PROGRESS at last poll. The corrected source triggers a new exact-SHA run; inspect its fixture result before claiming PASS.
-- Backup `backup/pre-plugin-overhaul-2026-11-14` remains frozen at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Physical-router L4 NOT VERIFIED.
+- Live main before this checker correction: `3d133996a9fe1de17d57f8c25805efee362f6106`. Dropbear process identity source and exact shell parameter expansions were corrected in `3d133996a9fe1de17d57f8c25805efee362f6106`.
+- The earlier exact Process lifecycle run #45649732824 on `880c339` failed at the optional-app Python checker, which still asserted the removed `pidof` output pattern and mock `killall` contract. This slice updates the checker to the new procfs/executable identity invariant and validates the dedicated shell fixture's presence/syntax.
+- Exact Process lifecycle run #45649964742 on corrected source `3d13399` was IN_PROGRESS at last poll; its result predates the checker correction. A new exact-SHA run must execute both the checker and behavioral fixture.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. Physical-router L4 NOT VERIFIED.
 
 ### First actions
 
-1. Inspect exact-SHA Process lifecycle runs for the correction; diagnose and repair any fixture/source failure.
-2. Confirm the test exercises real `/proc/PID/stat` parsing, spoofed comm rejection and targeted stop. Do not claim L2 before all steps pass on the corrected SHA.
-3. Continue another independent userland stability/security source fix while other Actions are pending.
+1. Inspect exact Process lifecycle and AI handoff Actions for this checker-alignment commit; repair any first causal failure.
+2. Confirm the shell fixture runs against the corrected source and all spoof/UNKNOWN/TERM/KILL cases pass.
+3. Continue another independent userland stability/security source fix while XY-C1 and other Actions remain pending.
 
 ### Execution contract
 
@@ -17,33 +17,34 @@ Source/test → one complete Git tree/commit → non-force expected-SHA update �
 
 ## 2026-11-25 autonomous handoff checkpoint
 
-This checkpoint supersedes older active task pointers below; retain historical completed work without repeating audits.
+This checkpoint supersedes older active task pointers below; retain historical completed work without re-auditing completed areas.
 
 ## Current repository state
 
-- Live main baseline before the shell-expansion correction: `880c339949419967b6f58a881e0ffb8ce993e113`; the correction is its single non-forced descendant. Resolve live main on takeover.
+- Live main before checker alignment: `3d133996a9fe1de17d57f8c25805efee362f6106`; this follow-up is its single non-forced descendant. Fetch live `main` on takeover.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only.
-- Process lifecycle run #45649732824 on `880c339`: IN_PROGRESS at last poll. Its result does not verify the corrected descendant.
-- DHCPv6 finite-expiry IA #45647751899, Process inventory #45647752064, WAN DHCP #45647751951 and USB storage #45647752298 PASS on `cb8f014`; AI handoff #45648215022 PASS on `84fadb0`.
-- XY-C1 #45647751940 on `cb8f014` was still in Build at last poll, TRX/artifact pending; no L3 claim.
+- Process lifecycle #45649732824 on `880c339` failed at the stale Python source checker; it did not reach the new process-state fixture.
+- Process lifecycle #45649964742 on `3d13399` was IN_PROGRESS at last poll; this preceded the checker alignment.
+- DHCPv6 finite-expiry IA #45647751899, Process inventory #45647752064, WAN DHCP #45647751951 and USB storage #45647752298 PASS on `cb8f014`; AI docs #45648215022 PASS on `84fadb0`.
+- XY-C1 #45647751940 on product SHA `cb8f014` remained in Build at last poll; TRX/artifact pending; no L3 claim.
 - Physical-router L4 NOT VERIFIED.
 
 ## Active task
 
-Dropbear process discovery and stop are being changed from comm-only matching to full procfs PID/start-time/executable identity. The first source commit had escaped shell parameter expansions; the current correction removes them. Re-run the process lifecycle tests on the corrected exact SHA.
+Replace the stale name-only Dropbear assertions in the optional-app source checker with procfs/executable identity invariants. The dedicated shell test executes spoof rejection, PID reuse, targeted signal, escalation and fail-closed incomplete-procfs cases.
 
 ## Verification boundary
 
-- Dropbear test prototype: local fixture PASS, but it preceded this committed-shell correction and is not the exact GitHub verification.
-- Exact Process lifecycle #45649732824 on `880c339`: IN_PROGRESS at last poll; it predates the shell correction.
-- Prior DHCPv6/Process/WAN DHCP/USB tests on `cb8f014` and AI docs #45648215022 on `84fadb0` remain historical exact-SHA PASS only.
+- Dropbear source shell-expansion correction #3d13399: exact Process lifecycle and AI runs were still in progress at last poll.
+- Old Process lifecycle #45649732824 on `880c339`: FAIL at the retired `pidof` checker assertion; checker-only update is the current slice.
+- Local shell prototype passed before the committed-source shell correction; exact GitHub behavioral fixture must pass.
 - Physical-router L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`; inspect the Process lifecycle and XY-C1 runs for the corrected Dropbear shell source.
-2. Verify every spoof, malformed procfs, PID identity, TERM/KILL and error-propagation case before claiming L2.
-3. Continue an independent source fix while unrelated Actions are pending; keep L3 tied to one product SHA.
+1. Fetch live `main`; inspect exact-SHA Process lifecycle and AI docs runs for checker alignment.
+2. Verify the optional-app checker source contract and Dropbear shell behavior fixture both pass on one SHA.
+3. Continue an independent userland stability/security implementation while other Actions remain pending; do not transfer old L3 claims.
 
 # Cross-session execution mandate
 

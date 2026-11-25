@@ -1,3 +1,10 @@
+## 2026-11-25 — Align optional-app source checker with Dropbear PID identity
+
+- The first exact Process lifecycle run #45649732824 on `880c339` failed before the new shell fixture because `scripts/check_optional_app_start_status.py::check_dropbear()` still asserted the retired `pidof` output-validation expression and its mock `killall` behavior. Those assertions no longer described the hardened procfs implementation.
+- Replaced the stale mock-specific checker with explicit source invariants for procfs identity, stat start time, exact executable identity, targeted TERM/KILL, absence of name-only discovery and presence/syntax of the new regression. The dedicated shell fixture remains the behavioral test. Exact rerun pending.
+
+---
+
 ## 2026-11-25 — Correct Dropbear shell parameter expansion in identity checks
 
 - Review of the first published Dropbear identity change found that the generated shell source contained literal backslashes before 13 `${...}` expansions. That would prevent procfs-root, stat-field and PID snapshot variables from expanding as intended.
