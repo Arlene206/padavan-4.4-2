@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <stddef.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <string.h>
 
 /* Failed periodic flash saves stay due and are retried on the next rstats
@@ -152,6 +153,94 @@ rstats_storage_save_result(long *elapsed, long threshold,
     if (operation_status > 0)
         return operation_status;
     return saved_errno > 0 ? saved_errno : EIO;
+}
+
+/*
+ * Parse one complete Linux /proc/net/dev row. The counters are RX bytes,
+ * seven other RX fields, TX bytes, and seven other TX fields. Only the byte
+ * counters are retained, but the whole row must be present before it can be
+ * committed to the live speed history.
+ */
+static inline int
+rstats_netdev_parse_record(const char *line, char *ifname,
+                           size_t ifname_capacity,
+                           uint64_t *rx_bytes, uint64_t *tx_bytes)
+{
+    const char *colon, *name_begin, *name_end, *p;
+    uint64_t rx = 0, tx = 0;
+    size_t name_length;
+    unsigned int field;
+
+    if (!line || !ifname || ifname_capacity == 0 ||
+        !rx_bytes || !tx_bytes)
+        return EINVAL;
+
+    colon = strchr(line, ':');
+    if (!colon)
+        return EINVAL;
+
+    name_begin = line;
+    while (*name_begin == ' ' || *name_begin == '\t')
+        ++name_begin;
+    name_end = colon;
+    while (name_end > name_begin &&
+           (name_end[-1] == ' ' || name_end[-1] == '\t'))
+        --name_end;
+    name_length = (size_t)(name_end - name_begin);
+    if (name_length == 0)
+        return EINVAL;
+    if (name_length >= ifname_capacity)
+        return ENAMETOOLONG;
+
+    p = colon + 1;
+    for (field = 0; field < 16; ++field) {
+        uint64_t value = 0;
+        int have_digit = 0;
+
+        while (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n')
+            ++p;
+        while (*p >= '0' && *p <= '9') {
+            unsigned int digit = (unsigned int)(*p - '0');
+
+            have_digit = 1;
+            if (value > (~(uint64_t)0 - digit) / 10U)
+                return ERANGE;
+            value = value * 10U + digit;
+            ++p;
+        }
+        if (!have_digit)
+            return EINVAL;
+        if (*p != '\0' && *p != ' ' && *p != '\t' &&
+            *p != '\r' && *p != '\n')
+            return EINVAL;
+        if (field == 0)
+            rx = value;
+        else if (field == 8)
+            tx = value;
+    }
+
+    while (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n')
+        ++p;
+    if (*p != '\0')
+        return EINVAL;
+
+    memcpy(ifname, name_begin, name_length);
+    ifname[name_length] = '\0';
+    *rx_bytes = rx;
+    *tx_bytes = tx;
+    return 0;
+}
+
+/* A failed read or close invalidates the entire interface-counter snapshot. */
+static inline int
+rstats_netdev_snapshot_status(int read_failed, int read_errno,
+                              int close_status, int close_errno)
+{
+    if (read_failed)
+        return read_errno > 0 ? read_errno : EIO;
+    if (close_status != 0)
+        return close_errno > 0 ? close_errno : EIO;
+    return 0;
 }
 
 #endif /* PADAVAN_RSTATS_PERSISTENCE_POLICY_H */

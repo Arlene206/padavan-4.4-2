@@ -1,26 +1,25 @@
 ## Current repository state — 2026-11-26
 
-- Live main parent for this slice: `b47d5ef9d44cdec6736414a4e4d52bb90b48b0ee`. This slice removes shell re-evaluation from the AdGuardHome daemon launch: an environment-controlled config path interpolated into `eval` could inject commands.
+- Live main parent for this slice: `5e3c8312605861fda69ccae2bf94c0f0d168883c`; this atomic RStats fix stages and validates the complete `/proc/net/dev` snapshot before changing speed counters or aging ring entries.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Parent exact-head Actions for `b47d5ef9d44cdec6736414a4e4d52bb90b48b0ee`: HTTPD security #45701307732, USB modem WDM #45701307930, AI docs #45701307827, Process inventory #45701307914, NVRAM #45701307926 and XY-C1 #45701307950 were all IN_PROGRESS at the last poll. Parent results are not transferable.
-- The immediately preceding independent commit `b47d5ef9d44cdec6736414a4e4d52bb90b48b0ee` makes WDM hotplug fail closed when global QMI client-ID marker cleanup fails. It reuses unlink-status policy and best-effort removes device metadata; its exact-head Actions are listed above and must be closed separately.
-- DHCPv6 NoBinding recovery and 32-bit T1/T2 overflow fixes passed their exact DHCPv6 IA checks on `e9545b1b2f7c059076b59ebb2cf4a5c07fc86967`. Earlier IAPP nonblocking/framed pipe work remains complete through `e110d1e248bc6ccd2a759275c81ff71cdf2cd99e`.
+- Exact-head Actions for the previous WDM fix `b47d5ef9d44cdec6736414a4e4d52bb90b48b0ee`: USB modem WDM #45701307930 PASS; AI docs #45701307827 PASS; Process inventory #45701307914 PASS; HTTPD security #45701307732 PASS. NVRAM #45701307926 and XY-C1 #45701307950 remained IN_PROGRESS at the last poll.
+- The immediately preceding AdGuardHome daemon-argv fix `5e3c8312605861fda69ccae2bf94c0f0d168883c` passed its AdGuardHome security #45701455808, Process inventory #45701455295 and AI docs #45701455540 exact-head checks.
+- DHCPv6 NoBinding recovery and 32-bit T1/T2 overflow fixes passed their DHCPv6 IA regression on `e9545b1b2f7c059076b59ebb2cf4a5c07fc86967`. Earlier IAPP nonblocking/framed pipe work remains complete through `e110d1e248bc6ccd2a759275c81ff71cdf2cd99e`.
 
 ## Active task
 
-`start_adg()` launched the daemon through `eval "AdGuardHome -c $adg_file ..."`. `ADG_CONFIG_FILE` is an environment-overridable path and is not shell-escaped before the eval string is parsed again. A value containing whitespace and `; touch <path> #` splits the config argument and executes an extra command in the privileged launcher context. The launch now invokes `AdGuardHome` directly with `"$adg_file"` as one argument. The regression injects a marker command through a path containing spaces/metacharacters and verifies the marker is not created and the exact argv is preserved.
+`process_rstats()` used to call `iterate_netdev()` while reading `/proc/net/dev`, ignore missing/malformed rows and file read/close errors, then advance the global speed-ring tail and save history regardless. If a pseudo-file read failed partway through, already-seen interfaces had been updated while absent rows were treated as zero-speed gaps; if open/header read failed, every tracked interface was aged despite having no valid snapshot. The code now parses complete 16-counter rows into a bounded staging array, requires both headers, a complete newline-terminated snapshot, successful stream read and close, and only then applies samples and advances the ring. The shared policy helper rejects missing, extra, signed, overlong-name and overflowing fields; regression covers valid maximum counters, malformed/truncated data, and read/close error normalization.
 
 ## Verification boundary
 
-- Source/test/checker contract assertions validated before building the commit tree.
-- AdGuardHome regression is extended to capture exact daemon argv and detect attempted command execution. Its exact-head workflow must be checked after this commit.
-- No MIPS firmware or physical-router claim. Product L3/L4 remain unverified.
+- RStats GNU89 `-Wall -Wextra -Werror -fsanitize=address,undefined` policy fixture and source-order contract are extended; local execution was unavailable in this session (no checkout).
+- Exact-head RStats workflow, Process inventory, AI docs and XY-C1 checks for THIS COMMIT must be fetched after commit. Previous b47 NVRAM #45701307926 and XY-C1 #45701307950 remained IN_PROGRESS; don't transfer those states to this SHA.
+- No MIPS firmware, live router or physical traffic result is claimed.
 
 ## Exact first actions for next GPT
 
-1. Fetch exact-SHA Actions for THIS COMMIT: AdGuardHome config/security, Process inventory, NVRAM, AI docs, and XY-C1; repair any same-SHA failure first. Keep the parallel WDM commit `b47d5ef9d44cdec6736414a4e4d52bb90b48b0ee` separate and close its USB/Process/AI/NVRAM/XY-C1 statuses.
-2. Verify the adversarial shell path regression and Python source checker on the exact commit; only then close the AdGuardHome injection fix.
-3. Continue a separate stability/security issue in a different Padavan userland component; do not repeat closed IAPP IPC or DHCPv6 IA work.
+1. Fetch exact-SHA RStats, Process inventory, AI docs, NVRAM and XY-C1 Actions for THIS COMMIT. Repair any same-SHA failures; require same-SHA Build, TRX and artifact upload for L3.
+2. Continue an independent Padavan userland stability/security source fix; do not repeat WDM marker cleanup, AdGuardHome eval removal, IAPP IPC or DHCPv6 IA fixes.
 
 # Cross-session execution mandate
 

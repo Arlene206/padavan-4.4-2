@@ -221,6 +221,21 @@ jobs:
           assert "postponing flash commit until all raw history files are saved" in raw_save
           assert raw_save.index("if (history_write_status != 0)") < raw_save.index(
               "write_storage_to_mtd();")
+          process_stats = body(rstats, "process_rstats(void)")
+          assert "rstats_netdev_parse_record(" in process_stats
+          assert "if (!fp)" in process_stats and "preserving speed history" in process_stats
+          assert "ferror(fp)" in process_stats and "close_status = fclose(fp);" in process_stats
+          assert "rstats_netdev_snapshot_status(" in process_stats
+          read_close_gate = process_stats.index("if (snapshot_status != 0)")
+          first_counter_mutation = process_stats.index("iterate_netdev(")
+          assert process_stats.index("fclose(fp);") < read_close_gate < first_counter_mutation
+          assert "samples[MAX_SPEED_IF]" in process_stats
+          assert "sample_count >= MAX_SPEED_IF" in process_stats
+          assert "test_netdev_record_parser_is_strict_and_transactional" in test
+          assert "test_netdev_record_parser_is_strict_and_transactional();" in test
+          assert "test_netdev_snapshot_requires_successful_read_and_close();" in test
+          assert "rstats_netdev_parse_record(" in persistence_policy
+          assert "rstats_netdev_snapshot_status(" in persistence_policy
           speed_export = body(rstats, "save_speed_json(long next_time)")
           history_export = body(rstats, "save_history_json(long next_time)")
           assert "rstats_file_open_stream(RSTATS_JS_SPEED, fn_tmp, sizeof(fn_tmp))" in speed_export

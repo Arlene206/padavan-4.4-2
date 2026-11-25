@@ -706,48 +706,124 @@ static int iterate_netdev(const char *ifdesc, int ifindex, int wan_no, long tick
 
 static void process_rstats(void)
 {
+	struct rstats_netdev_sample {
+		const char *ifdesc;
+		int ifindex;
+		int wan_no;
+		uint64_t counter[MAX_COUNTER];
+	} samples[MAX_SPEED_IF];
 	FILE *fp;
-	char buf[256], *p, *ifname;
-	const char *ifdesc;
+	char buf[256], ifname[16];
 	speed_item_t *item, *next;
 	uint64_t counter[MAX_COUNTER];
 	long tick, ticks;
+	size_t sample_count = 0, sample_index;
 	int i, ifindex, wan_no, tail_new;
+	int read_failed = 0, read_errno = 0;
+	int close_status, close_errno, snapshot_status;
 
 	tick = g_uptime_now - g_uptime_old;
 	ticks = tick / RSTATS_INTERVAL;
 
 	fp = fopen("/proc/net/dev", "r");
-	if (fp) {
-		fgets(buf, sizeof(buf), fp);
-		fgets(buf, sizeof(buf), fp);
-		while (fgets(buf, sizeof(buf), fp)) {
-			if ((p = strchr(buf, ':')) == NULL)
-				continue;
-			
-			*p = 0;
-			if ((ifname = strrchr(buf, ' ')) == NULL)
-				ifname = buf;
-			else
-				++ifname;
-			
-			if (strcmp(ifname, "lo") == 0)
-				continue;
-			
-			wan_no = 0;
-			ifindex = 0;
-			ifdesc = get_ifname_descriptor(ifname, g_ap_mode, &ifindex, &wan_no);
-			if (!ifdesc)
-				continue;
-			
-			// <rx bytes, packets, errors, dropped, fifo errors, frame errors, compressed, multicast><tx ...>
-			if (sscanf(p + 1, "%llu%*u%*u%*u%*u%*u%*u%*u%llu", &counter[0], &counter[1]) != 2)
-				continue;
-			
-			if (!iterate_netdev(ifdesc, ifindex, wan_no, ticks, counter))
-				continue;
+	if (!fp) {
+		int saved_errno = errno ? errno : EIO;
+		logmessage("rstats", "cannot read /proc/net/dev; preserving speed history (status=%d)",
+			   saved_errno);
+		return;
+	}
+
+	/* Both pseudo-file headers and every complete data row are required. */
+	for (i = 0; i < 2; ++i) {
+		errno = 0;
+		if (!fgets(buf, sizeof(buf), fp)) {
+			read_failed = 1;
+			read_errno = errno ? errno : EIO;
+			break;
 		}
-		fclose(fp);
+		if (!strchr(buf, '\n')) {
+			read_failed = 1;
+			read_errno = EIO;
+			break;
+		}
+	}
+
+	while (!read_failed) {
+		const char *ifdesc;
+		int parse_status;
+		size_t line_length;
+
+		errno = 0;
+		if (!fgets(buf, sizeof(buf), fp))
+			break;
+		line_length = strlen(buf);
+		if (line_length == 0 || buf[line_length - 1] != '\n') {
+			read_failed = 1;
+			read_errno = EIO;
+			break;
+		}
+		if (buf[0] == '\n')
+			continue;
+
+		parse_status = rstats_netdev_parse_record(
+			buf, ifname, sizeof(ifname), &counter[0], &counter[1]);
+		if (parse_status != 0) {
+			read_failed = 1;
+			read_errno = parse_status;
+			break;
+		}
+		if (strcmp(ifname, "lo") == 0)
+			continue;
+
+		wan_no = 0;
+		ifindex = 0;
+		ifdesc = get_ifname_descriptor(ifname, g_ap_mode, &ifindex, &wan_no);
+		if (!ifdesc)
+			continue;
+
+		/* Keep one final sample per published descriptor, as the old loop did. */
+		for (sample_index = 0; sample_index < sample_count; ++sample_index) {
+			if (strcmp(samples[sample_index].ifdesc, ifdesc) == 0)
+				break;
+		}
+		if (sample_index == sample_count) {
+			if (sample_count >= MAX_SPEED_IF) {
+				read_failed = 1;
+				read_errno = EOVERFLOW;
+				break;
+			}
+			++sample_count;
+		}
+		samples[sample_index].ifdesc = ifdesc;
+		samples[sample_index].ifindex = ifindex;
+		samples[sample_index].wan_no = wan_no;
+		memcpy(samples[sample_index].counter, counter, sizeof(counter));
+	}
+
+	if (ferror(fp)) {
+		read_failed = 1;
+		if (read_errno == 0)
+			read_errno = errno ? errno : EIO;
+	}
+	errno = 0;
+	close_status = fclose(fp);
+	close_errno = errno;
+	snapshot_status = rstats_netdev_snapshot_status(
+		read_failed, read_errno, close_status, close_errno);
+	if (snapshot_status != 0) {
+		logmessage("rstats",
+			   "incomplete /proc/net/dev snapshot; preserving speed history (status=%d)",
+			   snapshot_status);
+		return;
+	}
+
+	/* Commit the fully-read snapshot only after read and close succeeded. */
+	for (sample_index = 0; sample_index < sample_count; ++sample_index) {
+		if (!iterate_netdev(samples[sample_index].ifdesc,
+				    samples[sample_index].ifindex,
+				    samples[sample_index].wan_no, ticks,
+				    samples[sample_index].counter))
+			continue;
 	}
 
 #if !defined(RSTATS_SKIP_ESW)

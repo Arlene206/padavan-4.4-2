@@ -531,7 +531,67 @@ test_read_close_results(void)
   assert(errno == EIO); /* missing read errno is not success */
 }
 
+static void
+test_netdev_record_parser_is_strict_and_transactional(void)
+{
+  char ifname[16] = "unchanged";
+  uint64_t rx = 111, tx = 222;
+
+  assert(rstats_netdev_parse_record(
+      "  eth0: 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16\n",
+      ifname, sizeof(ifname), &rx, &tx) == 0);
+  assert(strcmp(ifname, "eth0") == 0);
+  assert(rx == 1 && tx == 9);
+
+  assert(rstats_netdev_parse_record(
+      "br-lan: 18446744073709551615 0 0 0 0 0 0 0 "
+      "18446744073709551615 0 0 0 0 0 0 0\n",
+      ifname, sizeof(ifname), &rx, &tx) == 0);
+  assert(strcmp(ifname, "br-lan") == 0);
+  assert(rx == ~(uint64_t)0 && tx == ~(uint64_t)0);
+
+  strcpy(ifname, "keep");
+  rx = 123;
+  tx = 456;
+  assert(rstats_netdev_parse_record("eth0 1 2 3\n", ifname,
+      sizeof(ifname), &rx, &tx) == EINVAL);
+  assert(strcmp(ifname, "keep") == 0 && rx == 123 && tx == 456);
+  assert(rstats_netdev_parse_record(
+      "eth0: 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15\n",
+      ifname, sizeof(ifname), &rx, &tx) == EINVAL);
+  assert(rstats_netdev_parse_record(
+      "eth0: 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17\n",
+      ifname, sizeof(ifname), &rx, &tx) == EINVAL);
+  assert(rstats_netdev_parse_record(
+      "eth0: -1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16\n",
+      ifname, sizeof(ifname), &rx, &tx) == EINVAL);
+  assert(rstats_netdev_parse_record(
+      "eth0: 18446744073709551616 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16\n",
+      ifname, sizeof(ifname), &rx, &tx) == ERANGE);
+  assert(rstats_netdev_parse_record(
+      "interface-name-too-long: 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16\n",
+      ifname, sizeof(ifname), &rx, &tx) == ENAMETOOLONG);
+  assert(rstats_netdev_parse_record(NULL, ifname, sizeof(ifname),
+      &rx, &tx) == EINVAL);
+  assert(rstats_netdev_parse_record("eth0: 1", NULL, 1,
+      &rx, &tx) == EINVAL);
+  assert(rstats_netdev_parse_record("eth0: 1", ifname, sizeof(ifname),
+      NULL, &tx) == EINVAL);
+}
+
+static void
+test_netdev_snapshot_requires_successful_read_and_close(void)
+{
+  assert(rstats_netdev_snapshot_status(0, 0, 0, EIO) == 0);
+  assert(rstats_netdev_snapshot_status(1, EIO, 0, 0) == EIO);
+  assert(rstats_netdev_snapshot_status(1, 0, 0, 0) == EIO);
+  assert(rstats_netdev_snapshot_status(0, 0, -1, EROFS) == EROFS);
+  assert(rstats_netdev_snapshot_status(0, 0, -1, 0) == EIO);
+}
+
 int main(void) {
+  test_netdev_record_parser_is_strict_and_transactional();
+  test_netdev_snapshot_requires_successful_read_and_close();
   test_null_safe_system_time_policy();
   test_bounded_open_eintr();
   test_exact_read_retries_eintr_and_short_reads();

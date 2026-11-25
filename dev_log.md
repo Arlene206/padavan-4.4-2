@@ -1,3 +1,13 @@
+## 2026-11-26 — Preserve RStats history when /proc/net/dev snapshot is incomplete
+
+- `process_rstats()` previously updated interfaces inline while reading `/proc/net/dev`, ignored malformed or missing rows and stream errors, then advanced the shared ring. A truncated read could partially update some interfaces, synthesize zero-speed gaps for others and age out their history; an open/header failure still advanced the baseline without any valid sample.
+- Added a strict shared parser for complete Linux 16-counter records and a snapshot result policy. Production now stages all selected interface samples, validates both header lines, every row, stream error and close result, and only commits samples / advances history after the entire snapshot succeeds. Errors preserve the last valid counters and retry on the next poll.
+- GNU89 ASan/UBSan regression covers valid RX/TX extraction, `UINT64_MAX`, signed/missing/extra/overflow counters, overlong interface names, NULL arguments, and read/close status precedence. RStats workflow source contract pins full read/close before the first counter mutation.
+- Previous WDM exact-head USB modem #45701307930, Process #45701307914, AI docs #45701307827 and HTTPD #45701307732 PASS; NVRAM #45701307926 and XY-C1 #45701307950 were IN_PROGRESS. Parent AdGuardHome exact-head security #45701455808, Process #45701455295 and AI docs #45701455540 PASS. New exact-head RStats / Process / AI / NVRAM / XY-C1 checks are pending at commit creation. No local, MIPS or hardware result is claimed.
+- Changed paths: `rstats.c`, `rstats_persistence_policy.h`, `tests/rstats_policy_test.c`, `rstats-stability.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`.
+
+---
+
 ## 2026-11-26 — Remove eval from AdGuardHome daemon launch
 
 - `start_adg()` interpolated the environment-overridable `ADG_CONFIG_FILE` into an `eval` string. Whitespace split the path and shell metacharacters such as `; touch <marker> #` were parsed as a second command in the privileged launch context.
