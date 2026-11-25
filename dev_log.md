@@ -1,3 +1,10 @@
+## 2026-11-25 22:08 CST (UTC+8) — Add assert declaration to bridge M2U regression
+
+- Exact-head WAN route #45623857230 and wireless radio #45623856807 on `d9d23fe` both failed at compile time because new bridge M2U regression cases used `assert()` without including `<assert.h>`; `-Werror=implicit-function-declaration` stopped compilation. The existing bridge tests use manual expect helpers and did not previously need this header.
+- Add the standard assertion header to the bridge membership test. No production logic changed. Both workflows should rerun on the corrected SHA; exact XY-C1 #45623856954 was still running at last poll.
+
+---
+
 ## 2026-11-25 22:02 CST (UTC+8) — Make bridge M2U sysfs updates transactional
 
 - Found a partial-update bug in `brport_set_m2u()`: it writes `multicast_fast_leave` then `multicast_to_unicast`; the second sysfs write can fail after the first has changed, leaving a partially applied M2U setting while returning an error.

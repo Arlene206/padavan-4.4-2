@@ -1,4 +1,5 @@
 #include <errno.h>
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include "bridge_membership_policy.h"

@@ -1,21 +1,17 @@
-## 2026-11-25 autonomous handoff — bridge M2U rollback
+## 2026-11-25 autonomous handoff — M2U compile correction
 
-- Main baseline for this M2U change: `6f12415a3a8ff38d1cba5638e55a402b920a6e22`; one atomic commit updates shared bridge policy, regression, netutils sysfs reader/writer, source checker, roadmap and handoff.
-- Existing exact status: `4180e4d` WAN DHCP callback #45620475975 and AI docs #45620475988 PASS. The VLAN transaction/follow-up on `64bd4201`, `134638e4`, and `6f12415a` still needs its latest exact WAN route run to pass after the sanitizer array and checker-variable fixes. Last known WAN route failures were respectively the 3-slot ASan mock and the shadowed `create_vlan` checker variable; both have follow-up commits, but final route validation pending.
-- Reused VLAN rollback is in place: original UP, requested MTU/MAC are captured before mutation; restore down→MTU→MAC→original UP. Target kernel 4.4 lacks egress priority GET; QoS map setter is last after all other fallible configuration.
-- New M2U defect: `brport_set_m2u()` used to write `multicast_fast_leave` and `multicast_to_unicast` without snapshots. A failure on the second write could leave the first changed. This slice reads both sysfs values first, performs writes, and rolls attempted updates back in reverse order on failure; primary errno is preserved and incomplete rollback is syslogged. GNU89 fixture added in existing bridge membership test.
-- Exact-head WAN route and AI docs checks must be inspected after commit; XY-C1 #45622569603 remains in progress on earlier product SHA `64bd4201`. Need a fresh same-SHA XY-C1 Build→TRX→artifact before L3. L4 physical router NOT VERIFIED.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. No branches, PRs, or force pushes.
+- Main baseline for this test-only fix: `d9d23febf98a8c9e9a2c1529247c9f694baff2f0`.
+- Exact WAN route #45623857230 and wireless radio #45623856807 both failed for the same test compile defect: bridge_membership_policy.c tests now call `assert()` but lacked `<assert.h>`. Add only that header; no production source change.
+- M2U production transaction in parent `d9d23febf98a8c9e9a2c1529247c9f694baff2f0`: read both multicast_fast_leave/multicast_to_unicast sysfs values before writes; apply changed values and reverse attempted writes after failure, preserving primary errno and logging rollback failures. Existing bridge policy regression now exercises these paths.
+- Exact-head d9d23 statuses before correction: Process lifecycle inventory #45623857020 PASS; WAN sysfs #45623856962 PASS; WAN DHCP callback #45623856881 PASS; USB modem #45623856690 PASS; IPv6 type #45623856684 PASS; AI docs #45623856631 PASS. Process lifecycle umbrella #45623857064, NVRAM #45623856847, USB storage #45623856816 and XY-C1 #45623856954 were still in progress. Check new WAN route, wireless and firmware checks after this commit.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`. No branches/PRs/force pushes. L4 hardware remains NOT VERIFIED.
 
 ### Next actions
-1. Inspect exact-head WAN route/AI docs and XY-C1 on the M2U commit; fix first causal failure.
-2. Confirm latest VLAN route checker/test has passed after its two diagnosed harness errors.
-3. Continue concrete WAN/IPv6 M2U route lifecycle or remaining userland stability issues.
+1. Inspect corrected exact-head WAN route, wireless and XY-C1 Actions.
+2. If sanitizer passes, continue M2U syscall error and IPv6 route lifecycle review without duplicating prior audits.
 
 ### Execution contract
-Source/test → complete tree/commit → non-forced expected-SHA update → exact-SHA Actions. Preserve backup.
-
-
+Source/test → complete tree/commit → non-forced expected-SHA main update → exact-SHA Actions. Preserve backup.
 
 ---
 
