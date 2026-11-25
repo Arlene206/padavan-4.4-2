@@ -65,6 +65,10 @@ workflow = read(".github/workflows/udhcpc-script-status-stability.yml")
 
 assert '#include "udhcpc_script_policy.h"' in dhcpc
 
+# Every automatic read must begin defined; blocking waits refresh it before use.
+assert "unsigned timestamp_before_wait = 0;" in dhcpc
+assert "unsigned timestamp_before_wait = timestamp_before_wait;" not in dhcpc
+
 # DHCP option TLV parsing validates header and full payload before use.
 assert '#include "option_parser_policy.h"' in common
 assert 'udhcp_option_tlv_size(const uint8_t *option' in option_parser

@@ -1,3 +1,9 @@
+## 2026-11-25 — Initialize the udhcpc select-wait timestamp
+
+- The DHCP client event loop declared `timestamp_before_wait` by initializing it from itself (`unsigned timestamp_before_wait = timestamp_before_wait;`). That reads an indeterminate automatic object and invokes undefined behavior, despite the comment claiming it only suppresses an uninitialized warning. The variable is refreshed from `monotonic_sec()` immediately before every blocking `select()`; waits skipped because the timeout is already exhausted do not consume the value. Initialize it to zero, retain the pre-`select()` refresh, and add an exact-source regression assertion against reintroducing self-initialization. The udhcpc workflow compiles policy tests under GNU89/ASan/UBSan; the firmware-input detector must also select XY-C1 for this production DHCP source change. No local MIPS/uClibc or hardware result is claimed.
+
+---
+
 ## 2026-11-25 — Align USB storage source contract with FTP reconciliation policy
 
 - USB storage hotplug run #45561164857 failed only at the final `scripts/check_storage_safe_remove.py` source contract. All preceding GNU89/ASan regressions, BusyBox ash Optware tests, disk inventory, eject inventory, operation locks and teardown contracts passed. The stale assertion required `storage_service_process_presence_changed()` to appear directly inside `control_ftp_fw()`; the FTP fix intentionally centralizes presence-transition plus confirmed-absence logic in `ftp_firewall_reconcile_needed()`. Update the checker to verify the production helper call, both policy predicates and the absent→absent regression marker. No production behavior changes in this follow-up; exact-head storage workflow rerun required.

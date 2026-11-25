@@ -1623,8 +1623,8 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 	for (;;) {
 		struct timeval tv;
 		struct dhcp_packet packet;
-		/* silence "uninitialized!" warning */
-		unsigned timestamp_before_wait = timestamp_before_wait;
+		/* Keep the value defined when a wait is skipped; reset before select(). */
+		unsigned timestamp_before_wait = 0;
 
 		//bb_error_msg("sockfd:%d, listen_mode:%d", sockfd, listen_mode);
 

@@ -1,20 +1,19 @@
 ## 2026-11-25 autonomous handoff checkpoint
 
-This checkpoint supersedes older active-task pointers below. Historical source slices and verification records remain for traceability; do not repeat completed work.
+This checkpoint supersedes older task pointers below. Historical completed work and verification remain; do not repeat completed audits.
 
 ## Current repository state
 
-- Repository `Arlene206/padavan-4.4-2`; development only on `main`. Frozen `backup/pre-plugin-overhaul-2026-11-14` remains read-only; PR #1 remains closed/unmerged and inventory-only.
-- Parent before this USB checker correction: `aeea15d36401e5bcbd4427be0a0f08418cdf26dd` (`test(ddns): correct restart integration contract newline check`). Main also contains FTP absent→absent firewall reconciliation, MT7628 page validation, AliyunDrive caller-UID process identity and earlier RFC1035/ZeroTier/process inventory hardening.
-- Exact-head checks on parent `aeea15d36401e5bcbd4427be0a0f08418cdf26dd`: AI handoff #45561534717 PASS; Inadyn fail-closed lifecycle #45561534774 PASS; DNSMasq #45561534711 PASS. Process inventory #45561380463 and umbrella #45561380452 PASS; NVRAM #45561380377 PASS. The Inadyn checker failure #45561380431 on predecessor `e72ef47` was due to a literal escaped-newline matcher; the current checker correction passed its exact-head rerun #45561534774.
-- On FTP source commit `cdbd82f9d47603406aa23bf3919daa73f2acc01b`, VSFTPD #45561165032, AI docs #45561164854, NFS #45561164974 and Firewall #45561164951 PASS. Process inventory #45561164837 PASS. USB storage hotplug #45561164857 FAILED only at the final Python source checker: it still expected the old direct presence-change predicate in `control_ftp_fw()`, while production now calls `ftp_firewall_reconcile_needed()`. All earlier USB storage compilation, GNU89/ASan regressions, BusyBox ash Optware tests and teardown checks passed. This follow-up updates only that checker and its documentation; rerun the exact-head storage workflow.
-- XY-C1 #45561165245 on `cdbd82f` was still IN_PROGRESS at the last poll, with Build XY-C1 active and TRX verification/artifact upload pending. No firmware build/TRX/artifact success is claimed for this SHA.
-- Switch CLI #45560823101, Process #45560823058, AI docs #45560823040 and NVRAM #45560822998 all PASS on `3eddff5`; MT7628 pages 0–7 plus page-8 rejection were verified by the dual-architecture sanitizer workflow.
-- ZeroTier checkpoint and multipath route hardening remain complete; RFC1035 reserved-label guard and AliyunDrive UID identity regression have passed their exact-head workflows. Do not repeat these slices without a new failing result.
+- Repository `Arlene206/padavan-4.4-2`; development only on `main`. Frozen `backup/pre-plugin-overhaul-2026-11-14` remains read-only; PR #1 closed/unmerged and inventory-only.
+- Parent before this DHCP production fix: `33a05a26882c763ac44777fc604b02501fee7c22` (`test(storage): align FTP reconciliation source contract`). USB storage hotplug source-check correction is exact-head PASS: #45561746653. On the same SHA, Process inventory #45561746502 PASS and XY-C1 workflow #45561746460 concluded SUCCESS, but its production-input detector skipped Build XY-C1, TRX verification and artifact upload because this docs/checker-only SHA introduced no new firmware source.
+- Previous FTP product-source change is `cdbd82f9d47603406aa23bf3919daa73f2acc01b`; VSFTPD #45561165032 PASS, storage hotplug #45561164857 initially failed only the now-corrected stale checker, Process inventory #45561164837 PASS. Its exact XY-C1 run #45561165245 remains IN_PROGRESS with Build XY-C1 active and TRX/artifact pending; do not assume or claim success from the later skipped host-only run.
+- Inadyn escaped-newline checker failure on predecessor `e72ef47` is corrected and passed on `aeea15d` via #45561534774. AI docs #45561534717 and DNSMasq #45561534711 PASS on `aeea15d`; Process umbrella/inventory and NVRAM #45561380452/#45561380463/#45561380377 PASS.
+- Current slice fixes DHCP client UB: `timestamp_before_wait` was self-initialized from its indeterminate value in the main event loop. It is reset before each blocking `select()`, so zero is a safe initializer for skipped waits. Exact-head udhcpc regression and XY-C1 build/TRX/artifact actions must be inspected after commit.
+- Switch CLI MT7628 page bound on `3eddff5` passed (#45560823101), including both MT7621/MT7628 sanitizer regressions. RFC1035, ZeroTier and AliyunDrive lifecycle fixes also passed their exact-head tests.
 
 ## Active task
 
-The USB storage source checker now follows the centralized FTP reconciliation policy and pins the absent→absent regression. Inspect the exact-head USB hotplug workflow after this checker-only commit and repair any real failure. Pending XY-C1 work remains independent; do not wait idly.
+The DHCP wait-timestamp initialization, exact-source checker contract, roadmap, log and handoff are included in one atomic commit. Inspect exact-head udhcpc and XY-C1 workflows; the production DHCP source change must trigger Build XY-C1, TRX validation and artifact upload, not only the host-only detector path. Fix any real failure. The still-running earlier FTP source SHA remains independent.
 
 # Cross-session execution mandate
 
@@ -125,10 +124,10 @@ Commit `786c504c8247fe42d5d1d5f2dc3ad28757fafc80` strictly parses persisted RX/T
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect exact-head USB storage hotplug stability regression; confirm the final `check_storage_safe_remove.py` step now accepts the shared FTP reconciliation helper while still requiring the presence-transition and confirmed-absence predicates plus absent→absent unit case.
-2. Repair any actual storage workflow failure at its failing step; do not weaken unrelated NFS, FTP, BusyBox, or storage teardown contracts.
-3. Recheck XY-C1 run #45561165245 on `cdbd82f` only if it has concluded. Build, TRX and artifact must all pass on the same source SHA before claiming L3; hardware L4 remains unverified.
-4. Continue another distinct P1/P2 whole-userland reliability/security issue without reopening completed RFC1035, ZeroTier, AliyunDrive or MT7628 work.
+1. Fetch live `main` and inspect exact-head `udhcpc` event-script stability plus XY-C1 Firmware Validation for the DHCP production-source commit.
+2. Confirm the Python source contract rejects the old self-initializer and requires `unsigned timestamp_before_wait = 0;`; GNU89/ASan/UBSan policy tests must also pass.
+3. On the DHCP source SHA, require Build XY-C1, TRX verification and artifact upload to run and pass on the same SHA. Do not confuse the docs-only skipped build at #45561746460 with a product build.
+4. Poll older FTP source XY run #45561165245 only if it concludes; then continue another distinct P1/P2 userland defect.
 
 ## Mandatory handoff checkpoint
 
