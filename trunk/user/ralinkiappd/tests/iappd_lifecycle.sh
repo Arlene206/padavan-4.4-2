@@ -205,6 +205,12 @@ grep -Fq 'IAPP_TCP_Wait(Socket, Deadline, TRUE)' "$iapp_source" ||
   fail "Linux IAPP TCP connect must enforce its absolute timeout"
 grep -Fq 'getsockopt(Socket, SOL_SOCKET, SO_ERROR' "$iapp_source" ||
   fail "Linux IAPP TCP connect must check asynchronous connection errors"
+grep -Fq 'WaitStatus = IAPP_TCP_Wait(Socket, Deadline, TRUE)' "$iapp_source" ||
+  fail "Linux TCP frame writes must enforce the absolute send deadline"
+grep -Fq 'errno == EAGAIN || errno == EWOULDBLOCK' "$iapp_source" ||
+  fail "Linux TCP nonblocking frame writes must retry when the socket would block"
+[ "$(grep -F -c 'OriginalFlags | O_NONBLOCK' "$iapp_source")" -eq 2 ] ||
+  fail "Linux connect and write helpers must each use nonblocking socket mode"
 grep -Fq 'fcntl(Socket, F_SETFL, OriginalFlags)' "$iapp_source" ||
   fail "IAPP TCP connect must restore the original socket flags"
 ap_info_guard_line=$(grep -n -F "pApIB->Length))" "$iapp_source" | cut -d: -f1)

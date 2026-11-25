@@ -1,26 +1,27 @@
 ## Current repository state — 2026-11-25
 
-- Main base before bounded outbound TCP connect: 76681c0675866a306d1c8eb2f60844a66ef9f4ef; all four outbound TCP callers now use Linux nonblocking connect with a five-second absolute timeout, SO_ERROR validation and original-flag restoration (THIS COMMIT).
+- Main base before TCP write backpressure bound: d0e9be21b179bee870054ac25fbf4f0eef8b3d5a; Linux writes now use O_NONBLOCK plus the shared five-second deadline, retry EAGAIN/EWOULDBLOCK/EINTR, and restore original flags (THIS COMMIT).
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Parent `e1750f4278dbadd6fcd97d33fc8f8138267356db`: IAPP lifecycle #45695909160 PASS; process regression #45695909357 PASS; process inventory/lifecycle #45695909182 PASS; AI handoff #45695909142 PASS; NVRAM #45695909138 and XY-C1 #45695909127 were in progress at last poll. No same-SHA XY L3 completion recorded.
-- Parent e175 uses MSG_NOSIGNAL for TCP sends where supported. Parent `76681c0675866a306d1c8eb2f60844a66ef9f4ef` adds Linux SIGPIPE ignore before driver SIGUSR2 registration, so pipe write errors become EPIPE rather than daemon termination.
-- This slice adds bounded outbound TCP connect for Linux; the VxWorks fallback retains the previous direct connect behavior.
-- Exact XY-C1 Build/TRX/artifact L3 remains confirmed only on `e1f16872b7e2792db9acf0184f2fe9c5d736c966`; later SHAs need their own exact completed firmware run.
+- Parent d0e9be21b179bee870054ac25fbf4f0eef8b3d5a: IAPP lifecycle #45696512484 PASS; AI #45696512574 PASS; process inventory #45696512427 and process lifecycle inventory #45696512482 in progress; XY-C1 #45696512422 in progress; NVRAM #45696512385 pending.
+- Parent d0e bounded all four Linux outbound TCP connects to five seconds using nonblocking connect/select/SO_ERROR, with original flags restored. The prior e175 action statuses: IAPP, process regression, process inventory/lifecycle and AI PASS; XY and NVRAM still in progress at last poll.
+- Parent 76681c0675866a306d1c8eb2f60844a66ef9f4ef adds Linux SIGPIPE ignore before driver notification; MSG_NOSIGNAL remains on TCP sends where supported.
+- This slice completes TCP transport backpressure handling for Linux: connect, receive and send now have bounded waits; non-Linux legacy transport behavior is preserved.
+- Exact XY-C1 Build/TRX/artifact L3 remains proven only on e1f16872b7e2792db9acf0184f2fe9c5d736c966; all later source SHAs require their own exact completed firmware run.
 
 ## Active task
 
-Validate this connect timeout on exact-head IAPP/XY Actions. Then review TCP write-side backpressure and signal-context pipe partial-write handling.
+Validate the write-side deadline on exact IAPP/XY Actions, then review the raw-driver pipe write for full-write/atomicity and consider nonblocking event delivery.
 
 ## Exact first actions for next GPT
 
-1. Poll parent e175 NVRAM/XY outcomes and THIS COMMIT's IAPP, XY-C1 Build/TRX/artifact, Process, NVRAM and AI Actions independently by exact SHA.
-2. Confirm GNU89 host test and source contracts for four bounded connect sites, nonblocking mode, deadline wait, SO_ERROR and flag restoration.
-3. Review `IAPP_TCP_WriteFrame()` for write deadline on a full send buffer and the notification pipe's partial-write behavior.
-4. Preserve frozen backup; main-only complete tree and atomic expected-SHA non-force update.
+1. Poll d0e9 exact Process/NVRAM/XY results and THIS COMMIT's exact IAPP, Process, NVRAM, AI and XY workflows by SHA.
+2. Confirm IAPP GNU89/ASan/UBSan policy test, four connect caller contracts and bounded write source assertions.
+3. Review pipe writes: DataLen versus PIPE_BUF, EINTR/partial-write behavior, and whether any full-write loop could block the signal callback.
+4. Preserve frozen backup and main-only atomic commits via non-force expected-SHA update.
 
 ## Execution contract
 
-Main only; one complete tree per logical task and `force=false` update using exact expected SHA. No force-push, development branch or PR. PENDING Actions do not block independent work.
+Main only; complete Git tree, one atomic logical task per commit, exact expected SHA and force=false. No force-push, branches or PR. PENDING does not block independent work.
 
 ## 2026-11-25 autonomous handoff checkpoint
 

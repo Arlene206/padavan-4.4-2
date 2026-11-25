@@ -1,3 +1,10 @@
+## 2026-11-25 — Bound TCP frame write backpressure
+
+- `IAPP_TCP_WriteFrame()` handled partial writes but used a blocking socket. If the peer stopped reading, a send could wait beyond the connect/read deadlines and stall the IAPP event loop.
+- On Linux the sender now saves current flags, sets O_NONBLOCK, waits for writability with the same five-second absolute deadline, retries EINTR/EAGAIN/EWOULDBLOCK, and restores the original flags after completion or error. `MSG_NOSIGNAL` remains used when available. Non-Linux targets retain the legacy blocking send loop for compatibility.
+- Lifecycle source contracts assert separate nonblocking connect/write setup and the write-side deadline/would-block retry path.
+
+---
 ## 2026-11-25 — Bound outbound IAPP TCP connect latency
 
 - All four outbound TCP paths called blocking `connect()` directly. A peer that drops packets or never completes a handshake could stall the daemon's event loop even though receive already has an absolute deadline.

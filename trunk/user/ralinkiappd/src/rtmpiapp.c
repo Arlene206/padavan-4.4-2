@@ -3615,8 +3615,25 @@ static BOOLEAN IAPP_TCP_WriteFrame(INT32 Socket, const UCHAR *Buffer, UINT32 Len
 {
 	UINT32 TotalSent = 0;
 	INT32 BytesSent;
+#ifdef IAPP_OS_LINUX
+	INT32 OriginalFlags;
+	INT32 WaitStatus;
+	time_t Deadline;
+
+	OriginalFlags = fcntl(Socket, F_GETFL, 0);
+	if (OriginalFlags < 0)
+		return FALSE;
+	if (fcntl(Socket, F_SETFL, OriginalFlags | O_NONBLOCK) < 0)
+		return FALSE;
+	Deadline = time(NULL) + IAPP_TCP_FRAME_TIMEOUT_SEC;
+#endif /* IAPP_OS_LINUX */
 
 	while (TotalSent < Length) {
+#ifdef IAPP_OS_LINUX
+		WaitStatus = IAPP_TCP_Wait(Socket, Deadline, TRUE);
+		if (WaitStatus <= 0)
+			goto write_fail;
+#endif /* IAPP_OS_LINUX */
 #ifdef MSG_NOSIGNAL
 		BytesSent = send(Socket, Buffer + TotalSent, Length - TotalSent, MSG_NOSIGNAL);
 #else
@@ -3625,17 +3642,33 @@ static BOOLEAN IAPP_TCP_WriteFrame(INT32 Socket, const UCHAR *Buffer, UINT32 Len
 		if (BytesSent < 0) {
 			if (errno == EINTR)
 				continue;
-			return FALSE;
+#ifdef IAPP_OS_LINUX
+			if (errno == EAGAIN || errno == EWOULDBLOCK)
+				continue;
+#endif /* IAPP_OS_LINUX */
+			goto write_fail;
 		}
 		if (BytesSent == 0)
-			return FALSE;
+			goto write_fail;
 		if (!iapp_rx_buffer_append_fits((size_t)Length,
 					       (size_t)TotalSent, (size_t)BytesSent))
-			return FALSE;
+			goto write_fail;
 		TotalSent += (UINT32)BytesSent;
 	}
 
+#ifdef IAPP_OS_LINUX
+	if (fcntl(Socket, F_SETFL, OriginalFlags) < 0)
+		return FALSE;
+#endif /* IAPP_OS_LINUX */
 	return TRUE;
+
+#ifdef IAPP_OS_LINUX
+write_fail:
+	(void)fcntl(Socket, F_SETFL, OriginalFlags);
+	return FALSE;
+#else
+	return FALSE;
+#endif /* IAPP_OS_LINUX */
 }
 
 /*
