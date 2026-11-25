@@ -147,6 +147,10 @@ grep -Fq "(size_t)pEvtHeader->EventLen" "$iapp_source" ||
   fail "IAPP driver event payload must fit the actual signal bytes"
 grep -Fq 'SizeRcvMsg - (INT32)sizeof(FT_ETH_HEADER)' "$iapp_source" ||
   fail "IAPP raw driver must pass the signal length without the Ethernet header"
+grep -Fq 'received_len != (INT32)sizeof(*pNotify)' "$iapp_source" ||
+  fail "IAPP MOVE_NOTIFY must match its complete received frame size"
+grep -Fq 'SizeRcvMsg != (INT32)sizeof(*pNotify)' "$iapp_source" ||
+  fail "IAPP ADD_NOTIFY must match its complete received frame size"
 ap_info_guard_line=$(grep -n -F "pApIB->Length))" "$iapp_source" | cut -d: -f1)
 ap_info_copy_line=$(grep -n -F "IAPP_MEM_MOVE(OidReq->Buf+FT_IP_ADDRESS_SIZE, pApIB->IB, pApIB->Length)" "$iapp_source" | cut -d: -f1)
 [ -n "$ap_info_guard_line" ] && [ -n "$ap_info_copy_line" ] && [ "$ap_info_guard_line" -lt "$ap_info_copy_line" ] ||

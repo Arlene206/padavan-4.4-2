@@ -191,6 +191,7 @@ static VOID IAPP_RcvHandlerTcp(
 static VOID IAPP_RcvHandlerMoveReq(
 	IAPP_IN		RTMP_IAPP			*pCtrlBK,
 	IAPP_IN		UCHAR				*pPktBuf,
+	IAPP_IN		INT32				received_len,
 	IAPP_IN		UINT32				PeerIP,
 	IAPP_IN		UCHAR				*pCmdBuf,
 	IAPP_IN		UCHAR				*pRspBuf);
@@ -2129,6 +2130,7 @@ static VOID IAPP_RcvHandlerTcp(
 			case IAPP_CMD_MOVE_NOTIFY:
 				IAPP_RcvHandlerMoveReq(pCtrlBK,
 										(UCHAR *)pIappHdr,
+										SizeRcvMsg,
 										AddrPeer.sin_addr.s_addr,
 										pCmdBuf,
 										pRspBuf);
@@ -2261,6 +2263,7 @@ Note:
 static VOID IAPP_RcvHandlerMoveReq(
 	IAPP_IN		RTMP_IAPP			*pCtrlBK,
 	IAPP_IN		UCHAR				*pPktBuf,
+	IAPP_IN		INT32				received_len,
 	IAPP_IN		UINT32				PeerIP,
 	IAPP_IN		UCHAR				*pCmdBuf,
 	IAPP_IN		UCHAR				*pRspBuf)
@@ -2285,12 +2288,14 @@ static VOID IAPP_RcvHandlerMoveReq(
 	/* sanity check */
 	pNotify = (RT_IAPP_MOVE_NOTIFY *) pPktBuf;
 
-	if (SWAP_16(pNotify->IappHeader.Length) != sizeof(RT_IAPP_MOVE_NOTIFY))
+	if (received_len != (INT32)sizeof(*pNotify) ||
+	    SWAP_16(pNotify->IappHeader.Length) != sizeof(*pNotify) ||
+	    pNotify->AddressLen != ETH_ALEN ||
+	    pNotify->LenOfContextBlock != 0)
 	{
-		DBGPRINT(RT_DEBUG_TRACE,
-				"iapp> Len %d != Move Request Len %d!\n",
-				SWAP_16(pNotify->IappHeader.Length),
-				sizeof(RT_IAPP_MOVE_NOTIFY));
+		DBGPRINT(RT_DEBUG_ERROR,
+				"iapp> Invalid or truncated MOVE_NOTIFY (%d bytes)!\n",
+				received_len);
 		return;
 	} /* End of if */
 
@@ -2943,12 +2948,13 @@ static VOID IAPP_RcvHandlerUdp(
 				/* sanity check for frame length */
 				pNotify = (RT_IAPP_ADD_NOTIFY *) pIappHdr;
 
-				if (SWAP_16(pIappHdr->Length) != sizeof(RT_IAPP_ADD_NOTIFY))
+				if (SizeRcvMsg != (INT32)sizeof(*pNotify) ||
+				    SWAP_16(pIappHdr->Length) != sizeof(*pNotify) ||
+				    pNotify->AddressLen != ETH_ALEN)
 				{
-					DBGPRINT(RT_DEBUG_TRACE,
-							"iapp> Len 0x%x != ADD Notify Len %d!\n",
-							SWAP_16(pIappHdr->Length),
-							sizeof(RT_IAPP_ADD_NOTIFY));
+					DBGPRINT(RT_DEBUG_ERROR,
+							"iapp> Invalid or truncated ADD_NOTIFY (%d bytes)!\n",
+							SizeRcvMsg);
 					break;
 				} /* End of if */
 
@@ -3066,6 +3072,7 @@ static VOID IAPP_RcvHandlerUdp(
 			case IAPP_CMD_MOVE_NOTIFY:
 				IAPP_RcvHandlerMoveReq(pCtrlBK,
 										(UCHAR *)pIappHdr,
+										SizeRcvMsg,
 										AddrPeer.sin_addr.s_addr,
 										pCmdBuf,
 										pRspBuf);
