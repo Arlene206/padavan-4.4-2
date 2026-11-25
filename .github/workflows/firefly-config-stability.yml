@@ -73,7 +73,7 @@ jobs:
           validator = body(config, "firefly_config_text_is_safe(")
           publisher = body(config, "firefly_config_publish(")
           key_matcher = body(config, "firefly_config_line_has_key(")
-          writer = body(config, "firefly_config_write_existing(")
+          writer = body(config, "firefly_config_write_existing(FILE *output, FILE *source,")
           assert "strncmp(line, key, key_length)" in key_matcher
           assert "return *line == '=';" in key_matcher
           assert writer.count("firefly_config_line_has_key(line,") == 6
