@@ -1,6 +1,7 @@
 #ifndef WAN6_IDENTITY_POLICY_H
 #define WAN6_IDENTITY_POLICY_H
 
+#include <arpa/inet.h>
 #include <errno.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -233,6 +234,19 @@ wan6_sit_route4_gateway_argument(const char *gateway)
 #define WAN6_SIT_ROUTE4_IFNAME_SIZE 16
 #define WAN6_SIT_ROUTE4_IPV4_SIZE 16
 
+/*
+ * route_manip() uses inet_aton(), which accepts legacy abbreviated and
+ * hexadecimal IPv4 forms. Persisted ownership records must use strict
+ * dotted-quad literals so corrupted state cannot alias a different route.
+ */
+static inline int
+wan6_sit_route4_ipv4_literal_is_valid(const char *text)
+{
+	struct in_addr address;
+
+	return text && text[0] && inet_pton(AF_INET, text, &address) == 1;
+}
+
 static inline int
 wan6_sit_route4_record_format(const char *ifname, const char *endpoint,
 			      const char *gateway, char *record,
@@ -244,7 +258,10 @@ wan6_sit_route4_record_format(const char *ifname, const char *endpoint,
 	if (!ifname || !ifname[0] || !endpoint || !endpoint[0] ||
 	    !record || record_size == 0 ||
 	    strchr(ifname, '|') || strchr(endpoint, '|') ||
-	    strchr(gateway_value, '|'))
+	    strchr(gateway_value, '|') ||
+	    !wan6_sit_route4_ipv4_literal_is_valid(endpoint) ||
+	    (gateway_value[0] &&
+	     !wan6_sit_route4_ipv4_literal_is_valid(gateway_value)))
 		return EINVAL;
 
 	record[0] = '\0';
@@ -295,6 +312,14 @@ wan6_sit_route4_record_parse(const char *record, char *ifname,
 	memcpy(endpoint, first + 1, endpoint_length);
 	endpoint[endpoint_length] = '\0';
 	memcpy(gateway, second + 1, gateway_length + 1);
+	if (!wan6_sit_route4_ipv4_literal_is_valid(endpoint) ||
+	    (gateway[0] &&
+	     !wan6_sit_route4_ipv4_literal_is_valid(gateway))) {
+		ifname[0] = '\0';
+		endpoint[0] = '\0';
+		gateway[0] = '\0';
+		return EINVAL;
+	}
 	return 0;
 }
 

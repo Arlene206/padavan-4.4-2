@@ -634,6 +634,47 @@ test_sit_route4_record_format_and_parse_round_trip(void)
 }
 
 static void
+test_sit_route4_record_format_rejects_nonliteral_ipv4_fields(void)
+{
+	char record[WAN6_SIT_ROUTE4_RECORD_SIZE];
+
+	assert(wan6_sit_route4_record_format(
+		"eth2", "127.1", "192.0.2.254",
+		record, sizeof(record)) == EINVAL);
+	assert(wan6_sit_route4_record_format(
+		"eth2", "192.0.2.1", "0xC00002FE",
+		record, sizeof(record)) == EINVAL);
+	assert(wan6_sit_route4_record_format(
+		"eth2", "192.0.2.1", "",
+		record, sizeof(record)) == 0);
+}
+
+static void
+test_sit_route4_record_parse_rejects_nonliteral_ipv4_fields(void)
+{
+	char ifname[WAN6_SIT_ROUTE4_IFNAME_SIZE] = "stale";
+	char endpoint[WAN6_SIT_ROUTE4_IPV4_SIZE] = "stale";
+	char gateway[WAN6_SIT_ROUTE4_IPV4_SIZE] = "stale";
+
+	assert(wan6_sit_route4_record_parse(
+		"eth2|127.1|192.0.2.254",
+		ifname, sizeof(ifname), endpoint, sizeof(endpoint),
+		gateway, sizeof(gateway)) == EINVAL);
+	assert(ifname[0] == '\0' && endpoint[0] == '\0' &&
+	       gateway[0] == '\0');
+
+	strcpy(ifname, "stale");
+	strcpy(endpoint, "stale");
+	strcpy(gateway, "stale");
+	assert(wan6_sit_route4_record_parse(
+		"eth2|192.0.2.1|2130706433",
+		ifname, sizeof(ifname), endpoint, sizeof(endpoint),
+		gateway, sizeof(gateway)) == EINVAL);
+	assert(ifname[0] == '\0' && endpoint[0] == '\0' &&
+	       gateway[0] == '\0');
+}
+
+static void
 test_sit_route4_record_allows_direct_endpoint_route(void)
 {
 	char ifname[WAN6_SIT_ROUTE4_IFNAME_SIZE];
@@ -766,6 +807,8 @@ main(void)
 	test_sit_route4_empty_gateway_maps_to_null_kernel_argument();
 	test_sit_route4_nonempty_gateway_is_preserved();
 	test_sit_route4_record_format_and_parse_round_trip();
+	test_sit_route4_record_format_rejects_nonliteral_ipv4_fields();
+	test_sit_route4_record_parse_rejects_nonliteral_ipv4_fields();
 	test_sit_route4_record_allows_direct_endpoint_route();
 	test_sit_route4_record_rejects_ambiguous_delimiters();
 	test_sit_route4_cleanup_deletes_exact_owned_route_then_clears_record();

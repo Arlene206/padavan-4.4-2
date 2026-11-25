@@ -1565,6 +1565,10 @@ jobs:
           assert "status = route_status_accumulate(status, clear_status);" in missing_ifname_cleanup
           assert "return status;" in missing_ifname_cleanup
           assert "wan6_publish_sit_identity" in wan6_identity_policy
+          assert "wan6_sit_route4_ipv4_literal_is_valid" in wan6_identity_policy
+          assert "inet_pton(AF_INET, text, &address)" in wan6_identity_policy
+          assert "test_sit_route4_record_format_rejects_nonliteral_ipv4_fields" in wan6_identity_test
+          assert "test_sit_route4_record_parse_rejects_nonliteral_ipv4_fields" in wan6_identity_test
           assert "test_sit_identity_failure_removes_tunnel_and_clears_partial_identity" in wan6_identity_test
           disabled_policy = body(wan6_policy, "wan6_teardown_select_ifname(")
           assert "if (previous_ifname && previous_ifname[0] && previous_if_exists)" in disabled_policy
