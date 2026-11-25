@@ -55,7 +55,10 @@ assert '#include "dhcp6c_script_retry_policy.h"' in dhcp6c
 
 # ifp->ifname is not initialized until after if_nametoindex() succeeds.
 # The fatal diagnostic must use the original argument, not the null field.
-if6init = function_body(dhcp6c, "static void if6init(struct dhcp6_if *ifp, const char *ifname)")
+if6init_signature = "static void if6init(struct dhcp6_if *ifp, const char *ifname)"
+if6init_prototype = dhcp6c.index(if6init_signature)
+if6init_definition = dhcp6c.index(if6init_signature, if6init_prototype + len(if6init_signature))
+if6init = function_body(dhcp6c[if6init_definition:], if6init_signature)
 ifindex_read = if6init.index("ifp->ifid = if_nametoindex(ifname);")
 ifindex_guard = if6init.index("if (ifp->ifid == 0)", ifindex_read)
 ifindex_die = if6init.index('bb_perror_msg_and_die("invalid interface(%s)", ifname);', ifindex_guard)

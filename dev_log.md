@@ -1,3 +1,10 @@
+## 2026-11-25 — Anchor DHCPv6 interface contract at the function definition
+
+- On exact SHA `14e4051`, the GNU89 ASan/UBSan policy binary passed, but the DHCPv6 source checker failed before its new assertion: its generic function parser matched the `if6init()` forward declaration, then encountered the intervening enum brace instead of the function body.
+- Anchor the check at the second occurrence (the definition) before using the existing body parser. This is a checker-only correction; the production diagnostic fix remains unchanged. Exact-head rerun required.
+
+---
+
 ## 2026-11-25 — Use initialized interface name in DHCPv6 startup failure
 
 - The DHCPv6 client already terminates when `if_nametoindex()` returns zero, but the fatal diagnostic formatted `ifp->ifname` before that pointer was initialized (the assignment occurs after the guard). This makes the error path depend on an uninitialized pointer and can emit a bogus interface name.
