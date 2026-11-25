@@ -1,3 +1,10 @@
+## 2026-11-25 — Repair WAN ARP workflow PR path filter
+
+- Exact-head WAN gateway ARP #45565097044 on `b35e958`: all five GNU89 regression binaries PASS (socket setup, probe error policy, gateway address parser, checked NVRAM copy, signal deferral). The production source/RC contract reached its final path-filter audit, where `trunk/user/rc/src/tests/detect_wan_gateway_address_policy.c` was present in push paths but omitted from pull_request paths. Added it once to PR paths; no source behavior changed. Exact-head rerun pending.
+- AI handoff #45565097043 PASS. On source baseline `570fc3e`, VSFTPD #45564343508, NVRAM #45564343650, AI docs #45564343731 and Process inventory #45564343830 PASS; XY-C1 #45564343590 was still building.
+
+---
+
 ## 2026-11-25 — Recheck ACL metadata link count after reading
 
 - Follow-up race closure for the hard-link ACL metadata fix: `read_file_to_buffer_at()` already re-fstat'd after consuming the bounded file to catch inode/size changes, but did not recheck link count. A hard link created after initial open could therefore evade the new open-time `st_nlink == 1` check. The post-read identity gate now also requires `final_stat.st_nlink == 1`, returning transient `EAGAIN` if an alias appeared during the read; workflow source contract pins the check.

@@ -27,6 +27,7 @@ on:
       - "trunk/user/rc/src/tests/wan_nvram_status_policy.c"
       - "trunk/user/rc/src/detect_wan_arp_result_policy.h"
       - "trunk/user/rc/src/tests/detect_wan_arp_result_policy.c"
+      - "trunk/user/rc/src/tests/detect_wan_gateway_address_policy.c"
       - "trunk/user/rc/src/detect_wan_signal_policy.h"
       - "trunk/user/rc/src/tests/detect_wan_signal_policy.c"
       - "trunk/user/rc/src/detect_wan_arp_socket_policy.h"

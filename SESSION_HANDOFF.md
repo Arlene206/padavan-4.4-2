@@ -4,16 +4,17 @@ This checkpoint supersedes older task pointers below. Historical completed work 
 
 ## Current repository state
 
-- Repository `Arlene206/padavan-4.4-2`; development only on `main`. Frozen `backup/pre-plugin-overhaul-2026-11-14` remains read-only; PR #1 remains closed/unmerged and inventory-only.
-- Parent before this post-read ACL metadata recheck: `7eab55ad9aa62a3d39584356199152922714ac73` (`7eab55ad9aa62a3d39584356199152922714ac73`). VSFTPD run #45564032851 on parent `0abdaee` PASS: all C regression binaries including `ftp_acl_path_policy.c`, plus configuration/production source contracts. That parent added open-time hard-link rejection (`st_nlink != 1`) to ACL metadata reader. THIS commit closes the concurrent-link window by rechecking `final_stat.st_nlink == 1` after metadata consumption.
-- Process inventory #45564032843 on `0abdaee` PASS. AI handoff #45564032929 PASS.
-- XY-C1 run #45563653212 on `7492a52` failed before Build due duplicate workflow self path in push filter. The duplicate was removed in parent `7eab55a`; exact-head XY-C1 #45564192244 was queued at last poll. Check this and #45564032922 (triggered while duplicate was still present).
-- AliyunDrive exact-head lifecycle #45563131218 and AI handoff #45563131174 on `fdba8a4` PASS: shell, QEMU MIPSel CLI, host stop lifecycle including foreign UID after TERM, early private lock and source/RC contracts.
-- Linux 4.4 has no pidfd path here; narrow PID-reuse race remains between procfs validation and `kill(2)`; no physical router claim.
+- Repository `Arlene206/padavan-4.4-2`; develop only on `main`. Frozen `backup/pre-plugin-overhaul-2026-11-14` remains read-only; PR #1 remains closed/unmerged and inventory-only.
+- Parent before WAN ARP workflow filter correction: `b35e9587588f25f46a4c897ffad34cb82c0d2560` (`b35e9587588f25f46a4c897ffad34cb82c0d2560`). Exact-head WAN gateway ARP #45565097044 failed only in final path-filter audit: all five GNU89 tests and production source/RC assertions passed, but `detect_wan_gateway_address_policy.c` was missing from pull_request paths while present in push paths. THIS commit adds it to PR filter exactly once. Exact-head rerun pending.
+- AI handoff #45565097043 PASS.
+- On source baseline `570fc3ef160cd6e3fc09d4e47391a77a7ba34cf9`: VSFTPD #45564343508 PASS (ACL metadata open+post-read single-link checks and policy tests); NVRAM #45564343650 PASS; AI docs #45564343731 PASS; Process lifecycle inventory #45564343830 PASS. XY-C1 #45564343590 remained in progress at last poll (input detector passed; inspect Build/TRX/artifact).
+- Previous XY-C1 #45564192244 on `7eab55a` was in progress after input detector passed; it predates latest VSFTPD metadata recheck. Earlier XY #45563653212 failed before build due duplicate workflow self path; duplicate removed on `7eab55a`.
+- AliyunDrive exact-head lifecycle #45563131218 on `fdba8a4` PASS: shell syntax, QEMU MIPSel CLI, host lifecycle with foreign-UID-after-TERM regression, early private lock and source/RC integration.
+- Linux 4.4 has no pidfd path; narrow PID reuse race remains between procfs validation and `kill(2)`. Physical gateway-loss and router L4 not claimed.
 
 ## Active task
 
-Verify this post-read hard-link contract via exact-head VSFTPD workflow; poll XY-C1 #45564192244 after duplicate path fix for Build/TRX/artifact, then continue independent stability/security work.
+Verify exact-head WAN ARP workflow after adding the missing PR path. Then poll XY-C1 #45564343590 for actual Build XY-C1, TRX and artifact upload, and continue the next independent userland stability/security defect.
 
 # Cross-session execution mandate
 
