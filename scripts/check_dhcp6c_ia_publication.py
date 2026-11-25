@@ -65,7 +65,7 @@ assert "dhcp6c_ia_pd_target_needs_apply" in policy
 assert "dhcp6c_ia_first_error" in policy
 assert "dhcp6c_ia_retry_required" in policy
 
-installed = function_body(ia, "static int ifprefix_is_installed(")
+installed = function_body(ia, "static int ifprefix_is_installed(struct iaprefix *sp, struct prefix_ifconf *pif)")
 assert "TAILQ_FOREACH(ip, &sp->u.ifprefix_list, plink)" in installed
 assert "ip->ifconf == pif" in installed
 
