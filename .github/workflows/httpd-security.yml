@@ -5692,7 +5692,7 @@ jobs:
           assert "static inline int\nhttpd_upload_write_dos2unix(FILE *stream, const char *value)" in upload_policy
           assert "fwrite(cursor, 1, line_size, stream) != line_size" in upload_policy
           assert "test_dos2unix_preserves_long_records" in upload_policy_test
-          assert "size_t expected_size = 8195U;" in upload_policy_test
+          assert "size_t expected_size = 8195U, actual_size;" in upload_policy_test
           # Ordinary script writes retain the existing private /tmp staging;
           # the FRP credential script stages beside its destination so rename
           # publishes a 0700 inode atomically on the storage filesystem.
