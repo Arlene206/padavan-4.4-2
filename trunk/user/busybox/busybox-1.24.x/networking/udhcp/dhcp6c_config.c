@@ -32,6 +32,7 @@
 
 #include "dhcp6c.h"
 #include "dhcp6c_auth.h"
+#include "dhcp6c_iaid_policy.h"
 
 /* structures and definitions used in the config file parser */
 struct cf_list {
@@ -152,15 +153,26 @@ static int configure_ia(void)
 
 	for (iap = client6_config.config_list; iap; iap = iap->next) {
 		struct cf_list *cfl;
+		uint32_t iaid;
 
 		if (iap->type != DHCPOPT_IA_PD && iap->type != DHCPOPT_IA_NA)
 			continue;
 		log3("configure %s '%s'", dhcp6optstr(iap->type), iap->ptr);
 
+
+		if (dhcp6c_iaid_parse(iap->ptr, &iaid) != 0) {
+			int parse_status = errno ? errno : EIO;
+			bb_error_msg("%s:%d invalid IAID '%s' (status=%d)",
+				    client6_config.conffile, iap->line,
+				    iap->ptr ? iap->ptr : "(null)", parse_status);
+			errno = parse_status;
+			return -1;
+		}
+
 		iac = xzalloc(sizeof(struct ia_conf));
 		/* common initialization */
 		iac->type = iap->type;
-		iac->iaid = (uint32_t)atoi(iap->ptr);
+		iac->iaid = iaid;
 		TAILQ_INIT(&iac->iadata);
 		TAILQ_INSERT_TAIL(&client6_config.ia_allconflist, iac, link);
 

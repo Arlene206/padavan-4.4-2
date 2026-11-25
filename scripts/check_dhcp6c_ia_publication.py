@@ -56,6 +56,9 @@ socket = read(BASE + "dhcp6c_socket.c")
 header = read(BASE + "dhcp6c.h")
 policy = read(BASE + "dhcp6c_ia_policy.h")
 test = read(BASE + "tests/dhcp6c_ia_publication_policy.c")
+config = read(BASE + "dhcp6c_config.c")
+iaid_policy = read(BASE + "dhcp6c_iaid_policy.h")
+iaid_test = read(BASE + "tests/dhcp6c_iaid_policy.c")
 workflow = read(".github/workflows/dhcp6c-ia-publication-stability.yml")
 
 assert '#include "dhcp6c_ia_policy.h"' in ia
@@ -66,6 +69,22 @@ assert "dhcp6c_ia_pd_target_needs_apply" in policy
 assert "dhcp6c_ia_first_error" in policy
 assert "dhcp6c_ia_retry_required" in policy
 assert "dhcp6c_ia_ifaddr_change_complete" in policy
+
+assert '#include "dhcp6c_iaid_policy.h"' in config
+assert "dhcp6c_iaid_parse" in iaid_policy
+assert "0xffffffffUL" in iaid_policy
+assert "atoi(iap->ptr)" not in config
+configure_ia = function_body(config, "static int configure_ia(void)")
+iaid_parse = configure_ia.index("dhcp6c_iaid_parse(iap->ptr, &iaid)")
+iaid_alloc = configure_ia.index("iac = xzalloc(sizeof(struct ia_conf));")
+iaid_publish = configure_ia.index("TAILQ_INSERT_TAIL(&client6_config.ia_allconflist, iac, link);")
+assert iaid_parse < iaid_alloc < iaid_publish
+assert "client6_config.conffile, iap->line" in configure_ia
+assert "test_decimal_iaid_boundaries" in iaid_test
+assert "test_malformed_iaid_is_rejected_without_partial_output" in iaid_test
+assert "test_output_pointer_is_required" in iaid_test
+assert "DHCPv6 IAID strict decimal parsing policy: PASS" in iaid_test
+assert "tests/dhcp6c_iaid_policy.c" in workflow
 assert "DHCP6C_IA_CLEANUP_RETRY_DELAY_MS == 5000ULL" in test
 
 installed = function_body(ia, "static int ifprefix_is_installed(struct iaprefix *sp, struct prefix_ifconf *pif)")
@@ -141,6 +160,9 @@ required_paths = (
     BASE + "dhcp6c.h",
     BASE + "dhcp6c_ia_policy.h",
     BASE + "tests/dhcp6c_ia_publication_policy.c",
+    BASE + "dhcp6c_config.c",
+    BASE + "dhcp6c_iaid_policy.h",
+    BASE + "tests/dhcp6c_iaid_policy.c",
 )
 filters = workflow.split("jobs:", 1)[0]
 push, pull = filters.split("  pull_request:", 1)
