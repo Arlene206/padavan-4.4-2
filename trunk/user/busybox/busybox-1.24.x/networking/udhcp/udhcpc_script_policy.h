@@ -27,6 +27,18 @@ udhcpc_subnet_mask_prefix_length(uint32_t mask, unsigned int *prefix_length)
 	return 0;
 }
 
+/* Route lists with fixed-width address tuples must not contain a
+ * partial final item; the generic formatter otherwise silently drops it. */
+static inline int
+udhcpc_fixed_route_list_option_is_well_formed(const uint8_t *option,
+					      unsigned int length,
+					      unsigned int tuple_length)
+{
+	if (tuple_length == 0U || (!option && length != 0U))
+		return 0;
+	return length % tuple_length == 0U;
+}
+
 /* DHCP classless-route options are a sequence of prefix + router tuples.
  * A truncated or invalid trailing tuple must not be silently discarded by
  * xmalloc_optname_optval(), which otherwise returns the valid prefix. */

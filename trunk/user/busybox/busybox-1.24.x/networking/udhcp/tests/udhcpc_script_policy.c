@@ -43,6 +43,39 @@ static int test_option_bitmap_mask_uses_unsigned_high_bit(void)
 	return 0;
 }
 
+static int test_fixed_route_options_reject_partial_tuples(void)
+{
+	static const uint8_t router_list[] = {
+		192, 0, 2, 1, 198, 51, 100, 1
+	};
+	static const uint8_t legacy_route_list[] = {
+		192, 0, 2, 0, 198, 51, 100, 1,
+		198, 51, 100, 0, 192, 0, 2, 1
+	};
+	static const uint8_t partial_router[] = {
+		192, 0, 2, 1, 198
+	};
+	static const uint8_t partial_legacy_route[] = {
+		192, 0, 2, 0, 198, 51, 100, 1, 192
+	};
+
+	CHECK(udhcpc_fixed_route_list_option_is_well_formed(NULL, 0U, 4U));
+	CHECK(udhcpc_fixed_route_list_option_is_well_formed(router_list,
+							 sizeof(router_list), 4U));
+	CHECK(!udhcpc_fixed_route_list_option_is_well_formed(partial_router,
+							  sizeof(partial_router), 4U));
+	CHECK(udhcpc_fixed_route_list_option_is_well_formed(NULL, 0U, 8U));
+	CHECK(udhcpc_fixed_route_list_option_is_well_formed(legacy_route_list,
+							 sizeof(legacy_route_list), 8U));
+	CHECK(!udhcpc_fixed_route_list_option_is_well_formed(
+			partial_legacy_route, sizeof(partial_legacy_route), 8U));
+	CHECK(!udhcpc_fixed_route_list_option_is_well_formed(router_list,
+							 sizeof(router_list), 0U));
+	CHECK(!udhcpc_fixed_route_list_option_is_well_formed(NULL, 1U, 4U));
+	return 0;
+}
+
+
 static int test_static_routes_reject_malformed_trailing_tuples(void)
 {
 	static const uint8_t default_route[] = {
@@ -316,6 +349,7 @@ static int test_already_expired_lease_is_not_resurrected(void)
 
 int main(void)
 {
+	if (test_fixed_route_options_reject_partial_tuples() != 0 ||
 	if (test_static_routes_reject_malformed_trailing_tuples() != 0 ||
 	if (test_subnet_mask_requires_contiguous_network_bits() != 0 ||
 	    test_option_bitmap_mask_uses_unsigned_high_bit() != 0 ||

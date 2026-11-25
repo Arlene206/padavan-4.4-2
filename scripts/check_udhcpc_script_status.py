@@ -68,6 +68,9 @@ assert 'test_subnet_mask_requires_contiguous_network_bits() != 0' in test
 assert '#define BMASK(i) (udhcpc_option_bitmap_mask((unsigned)(i)))' in dhcpc
 assert '#define BITMAP unsigned' in dhcpc
 fill_envp = function_body(dhcpc, "static char **fill_envp(struct dhcp_packet *packet)")
+fixed_routes_guard = fill_envp.index(
+    "udhcpc_fixed_route_list_option_is_well_formed("
+)
 static_routes_guard = fill_envp.index(
     "udhcpc_static_routes_option_is_well_formed(temp, route_option_length)"
 )
@@ -76,8 +79,13 @@ static_routes_convert = fill_envp.index(
     "xmalloc_optname_optval(temp, &dhcp_optflags[i], opt_name)",
     static_routes_guard
 )
-assert "dhcp_optflags[i].flags & OPTION_STATIC_ROUTES" in fill_envp
+assert "code == 0x03 || code == 0x21" in fill_envp
+assert "code == 0x03 ? 4U : 8U" in fill_envp
 assert "temp[-OPT_DATA + OPT_LEN]" in fill_envp
+assert fixed_routes_guard < static_routes_invalid < static_routes_convert
+assert "udhcpc_fixed_route_list_option_is_well_formed" in policy
+assert "test_fixed_route_options_reject_partial_tuples" in test
+assert "test_fixed_route_options_reject_partial_tuples() != 0" in test
 assert static_routes_guard < static_routes_invalid < static_routes_convert
 assert "test_static_routes_reject_malformed_trailing_tuples" in test
 assert "test_static_routes_reject_malformed_trailing_tuples() != 0" in test

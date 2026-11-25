@@ -552,6 +552,19 @@ static char **fill_envp(struct dhcp_packet *packet)
 				lease_seconds, lease_option != NULL);
 			*curr = xasprintf("%s=%u", opt_name,
 				(unsigned int)lease_seconds);
+		} else if (code == 0x03 || code == 0x21) {
+			unsigned int option_length = temp[-OPT_DATA + OPT_LEN];
+			unsigned int tuple_length = code == 0x03 ? 4U : 8U;
+
+			/* Router (option 3) is a list of IPv4 addresses; Routes
+			 * (option 33) is a list of IPv4 destination/gateway pairs.
+			 * Reject partial tails rather than silently dropping them. */
+			if (!udhcpc_fixed_route_list_option_is_well_formed(
+				    temp, option_length, tuple_length))
+				*curr = xasprintf("%s=!invalid!", opt_name);
+			else
+				*curr = xmalloc_optname_optval(
+					temp, &dhcp_optflags[i], opt_name);
 		} else if (dhcp_optflags[i].flags & OPTION_STATIC_ROUTES) {
 			unsigned int route_option_length = temp[-OPT_DATA + OPT_LEN];
 
