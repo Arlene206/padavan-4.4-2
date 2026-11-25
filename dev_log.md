@@ -1,3 +1,14 @@
+## 2026-11-25 — Bound attacker-reachable MiniUPnP event subscriptions
+
+- `upnpevents_addSubscriber()` contained an explicit TODO to cap the subscriber list. Each accepted SUBSCRIBE allocates a persistent subscriber object and may create a notification socket, but repeated distinct requests had no active-subscriber limit; the default event build enables `ENABLE_EVENTS`. An on-LAN client could therefore retain unbounded heap/socket state by repeatedly subscribing.
+- Added a 32-subscriber ceiling and count the active list before allocating the next subscriber. At the limit, the request fails closed before allocating either the subscriber or notification resources.
+- Fixed the HTTP handler too: it previously returned a success response even when `upnpevents_addSubscriber()` returned NULL (allocation failure). It now returns HTTP 503 without SID/Timeout headers unless a subscriber was actually created.
+- Added GNU89 ASan/UBSan capacity-boundary tests and a source contract for the production count-before-allocation order and 503 behavior. Both Linux and nftables Makefiles depend on the new policy header.
+- Parent baseline: `7614f9a8c215bd81bbbfe5c463023681ad818e53`. Exact-SHA Actions pending; no device runtime or firmware result is claimed.
+- Changed paths: `upnpevents.c`, `upnphttp.c`, `miniupnpd_event_subscription_policy.h`, `tests/miniupnpd_event_subscription_policy_test.c`, both Linux Makefiles, the new event-subscriber workflow/checker, `dev_log.md`.
+
+---
+
 ## 2026-11-25 — Reject truncated and overlong DHCPv6 option payloads before pointer arithmetic
 
 - Both the top-level DHCPv6 option decoder and the nested IA suboption decoder formed `cp + optlen` before checking whether the untrusted wire length fit in the remaining packet. That created an out-of-bounds pointer before validation; the nested parser also skipped unknown suboptions before doing any payload bounds check.

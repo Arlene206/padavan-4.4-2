@@ -25,6 +25,7 @@
 #include <uuid.h>
 #endif /* LIB_UUID / BSD_UUID */
 #include "upnpevents.h"
+#include "miniupnpd_event_subscription_policy.h"
 #include "miniupnpdpath.h"
 #include "upnpglobalvars.h"
 #include "upnpdescgen.h"
@@ -171,10 +172,29 @@ upnpevents_addSubscriber(const char * eventurl,
                          int timeout)
 {
 	struct subscriber * tmp;
+	struct subscriber * current;
+	size_t subscriber_count = 0;
 	/*static char uuid[42];*/
 	/* "uuid:00000000-0000-0000-0000-000000000000"; 5+36+1=42bytes */
 	syslog(LOG_DEBUG, "addSubscriber(%s, %.*s, %d)",
 	       eventurl, callbacklen, callback, timeout);
+
+	/*
+	 * Event subscriptions allocate a subscriber and a notification socket.
+	 * Bound this attacker-reachable list before allocating either resource.
+	 * The event loop is single-threaded, so this count and insertion are
+	 * serialized with other SUBSCRIBE requests.
+	 */
+	for (current = subscriberlist.lh_first; current != NULL;
+	     current = current->entries.le_next) {
+		++subscriber_count;
+		if (!miniupnpd_event_subscriber_has_capacity(subscriber_count)) {
+			syslog(LOG_WARNING, "maximum event subscribers (%u) reached",
+			       (unsigned)MINIUPNPD_EVENT_MAX_SUBSCRIBERS);
+			return NULL;
+		}
+	}
+
 	/*strncpy(uuid, uuidvalue, sizeof(uuid));
 	uuid[sizeof(uuid)-1] = '\0';*/
 	tmp = newSubscriber(eventurl, callback, callbacklen);

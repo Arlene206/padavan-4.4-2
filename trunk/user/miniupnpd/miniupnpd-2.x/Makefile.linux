@@ -205,7 +205,7 @@ pcpserver.o: miniupnpdtypes.h pcplearndscp.h upnpredirect.h commonrdr.h
 pcpserver.o: getifaddr.h asyncsendto.h pcp_msg_struct.h netfilter/iptcrdr.h
 pcpserver.o: commonrdr.h
 upnpevents.o: config.h upnpevents.h miniupnpdpath.h upnpglobalvars.h
-upnpevents.o: upnppermissions.h miniupnpdtypes.h upnpdescgen.h upnputils.h
+upnpevents.o: upnppermissions.h miniupnpdtypes.h upnpdescgen.h upnputils.h miniupnpd_event_subscription_policy.h
 upnputils.o: config.h upnputils.h upnpglobalvars.h upnppermissions.h
 upnputils.o: miniupnpdtypes.h getroute.h
 getconnstatus.o: getconnstatus.h getifaddr.h

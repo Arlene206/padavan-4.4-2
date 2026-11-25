@@ -677,13 +677,16 @@ ProcessHTTPSubscribe_upnphttp(struct upnphttp * h, const char * path)
 			if(checkCallbackURL(h)) {
 				sid = upnpevents_addSubscriber(path, h->req_buf + h->req_CallbackOff,
 				                               h->req_CallbackLen, h->req_Timeout);
-				h->respflags = FLAG_TIMEOUT;
 				if(sid) {
 					syslog(LOG_DEBUG, "generated sid=%s", sid);
-					h->respflags |= FLAG_SID;
+					h->respflags = FLAG_TIMEOUT | FLAG_SID;
 					h->res_SID = sid;
+					BuildResp_upnphttp(h, 0, 0);
+				} else {
+					/* Do not acknowledge a subscription that was not stored. */
+					h->respflags = 0;
+					BuildResp2_upnphttp(h, 503, "Service Unavailable", NULL, 0);
 				}
-				BuildResp_upnphttp(h, 0, 0);
 			} else {
 				syslog(LOG_WARNING, "Invalid Callback in SUBSCRIBE %.*s",
 				       h->req_CallbackLen, h->req_buf + h->req_CallbackOff);
