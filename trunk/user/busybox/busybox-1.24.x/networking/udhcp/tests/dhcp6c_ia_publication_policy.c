@@ -89,7 +89,7 @@ remove_targets(struct fake_remove_target *targets, size_t count)
 		if (!targets[i].pending)
 			continue;
 		++targets[i].attempts;
-		if (!dhcp6c_ia_ifaddr_change_complete(0, targets[i].error)) {
+		if (!dhcp6c_ia_ifaddr_change_complete(0, targets[i].error, 1)) {
 			if (first_error == 0)
 				first_error = targets[i].error ? targets[i].error : EIO;
 			continue;
