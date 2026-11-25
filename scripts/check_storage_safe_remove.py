@@ -1262,8 +1262,10 @@ tar_builder_start = mtd_storage.index("func_tarb()")
 tar_builder_end = mtd_storage.index(chr(10) + "func_save()", tar_builder_start)
 tar_builder = mtd_storage[tar_builder_start:tar_builder_end]
 require('find . ! -name . -print0' in tar_builder and
+        'xargs -0 touch -c -h -t 201001010000.00 < "$find_list"' in tar_builder and
+        'tar -cf "$tmp" .' in tar_builder and
+        'xargs -0 tar -cf' not in tar_builder and
         'find *' not in tar_builder and
-        'sort -z | xargs -0 tar -cf "$tmp"' in tar_builder and
         '! -type d' not in tar_builder,
         "storage backup must include hidden files and empty directories in the complete tree")
 require('storage/.hidden.conf' in mtd_storage_backup_test and

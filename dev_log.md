@@ -1,3 +1,10 @@
+## 2026-11-25 19:05 CST — Align the detailed MTD backup contract with recursive tar
+
+- Exact USB-storage run #45600031271 on `276b29f5` passed the corrected 1,200-file backup test and all earlier MTD restore/load/erase regressions, then failed a second, older source-contract assertion at line 1266. The checker still required `sort -z | xargs -0 tar`, even though the production fix now normalizes timestamps from the checked NUL inventory and performs one recursive `tar -cf "$tmp" .` to avoid BusyBox xargs command-size truncation.
+- Updated the detailed contract to pin the actual inventory/timestamp/archive sequence and explicitly reject the repeated xargs/tar form. Checker-only correction; exact-head USB-storage rerun required. No local BusyBox/firmware/hardware result is claimed.
+
+---
+
 ## 2026-11-25 19:00 CST — Count MTD backup payload files without counting the parent directory
 
 - Exact USB-storage run #45599645522 on `ae45657d` passed the restore rollback, load/fill, and erase/reset regressions, then failed the large-backup test with 1,201 entries instead of 1,200. The archive correctly contains the `./bulk/` directory plus its 1,200 files; the assertion had counted the directory as a payload file. The three separate `grep -q` pipelines also let their producer receive early pipe closure. Replaced them with one full-stream AWK assertion that checks required entries and counts only children under `./bulk/`.
