@@ -1,3 +1,9 @@
+## 2026-11-25 — Align USB storage source contract with FTP reconciliation policy
+
+- USB storage hotplug run #45561164857 failed only at the final `scripts/check_storage_safe_remove.py` source contract. All preceding GNU89/ASan regressions, BusyBox ash Optware tests, disk inventory, eject inventory, operation locks and teardown contracts passed. The stale assertion required `storage_service_process_presence_changed()` to appear directly inside `control_ftp_fw()`; the FTP fix intentionally centralizes presence-transition plus confirmed-absence logic in `ftp_firewall_reconcile_needed()`. Update the checker to verify the production helper call, both policy predicates and the absent→absent regression marker. No production behavior changes in this follow-up; exact-head storage workflow rerun required.
+
+---
+
 ## 2026-11-24 状态增量：修正 Inadyn restart contract 的换行字面量
 
 - Exact-head Inadyn workflow `#45561380431` 的 GNU89 + ASan/UBSan 三个既有回归和新接入的 DDNS restart selector 回归全部 PASS；最终源码合同因 Python 字符串把 C 函数声明换行误写成字面量反斜杠+n 而失败。THIS COMMIT 将声明检查拆成稳定 token 检查，不放宽 0/1 状态边界和回归要求；Inadyn exact-head rerun pending。同期 AI docs `#45561380495`、Process inventory `#45561380463`、DNSMasq `#45561380421` PASS；Process umbrella、NVRAM audit、XY-C1 当时仍在运行。

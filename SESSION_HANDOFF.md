@@ -1,18 +1,20 @@
 ## 2026-11-25 autonomous handoff checkpoint
 
-This checkpoint supersedes older active-task pointers below. Historical completed source slices and verification records are retained; do not repeat completed audits.
+This checkpoint supersedes older active-task pointers below. Historical source slices and verification records remain for traceability; do not repeat completed work.
 
 ## Current repository state
 
 - Repository `Arlene206/padavan-4.4-2`; development only on `main`. Frozen `backup/pre-plugin-overhaul-2026-11-14` remains read-only; PR #1 remains closed/unmerged and inventory-only.
-- Parent before this FTP reconciliation fix: `3eddff56dd1062996d389173a23c16d6b062be0c` (`fix(switch): bound MT7628 PHY page selection`). Switch CLI #45560823101, Process inventory #45560823058, AI docs #45560823040 and NVRAM #45560822998 were IN_PROGRESS at last poll; the switch job had reached its long sequence of source/host checks, with MT7621 and MT7628 regressions still pending. Do not report these as passed until exact-head conclusions are successful.
-- AliyunDrive lifecycle #45559141117 and Process #45558899583 PASS; AI docs #45559561503 PASS; prior ZeroTier/WAN/Process/XY-C1 checks #45558740874/#45558740832/#45558740829/#45558740920 PASS on `af929e3`.
-- New FTP defect: `control_ftp_fw()` rebuilt firewall rules only when process presence changed. A stop/restart with vsftpd already absent (e.g. after a crash) still passed the final-absence gate but returned early on absent→absent, leaving stale FTP NAT/UPnP rules. This slice forces reconciliation whenever final inventory confirms absence, as well as on presence transitions, with explicit policy tests.
-- No physical switch/PHY, FTP service appliance, XY-C1 target build beyond recorded Actions, or hardware L4 result is inferred from host checks.
+- Parent before this USB checker correction: `aeea15d36401e5bcbd4427be0a0f08418cdf26dd` (`test(ddns): correct restart integration contract newline check`). Main also contains FTP absent→absent firewall reconciliation, MT7628 page validation, AliyunDrive caller-UID process identity and earlier RFC1035/ZeroTier/process inventory hardening.
+- Exact-head checks on parent `aeea15d36401e5bcbd4427be0a0f08418cdf26dd`: AI handoff #45561534717 PASS; Inadyn fail-closed lifecycle #45561534774 PASS; DNSMasq #45561534711 PASS. Process inventory #45561380463 and umbrella #45561380452 PASS; NVRAM #45561380377 PASS. The Inadyn checker failure #45561380431 on predecessor `e72ef47` was due to a literal escaped-newline matcher; the current checker correction passed its exact-head rerun #45561534774.
+- On FTP source commit `cdbd82f9d47603406aa23bf3919daa73f2acc01b`, VSFTPD #45561165032, AI docs #45561164854, NFS #45561164974 and Firewall #45561164951 PASS. Process inventory #45561164837 PASS. USB storage hotplug #45561164857 FAILED only at the final Python source checker: it still expected the old direct presence-change predicate in `control_ftp_fw()`, while production now calls `ftp_firewall_reconcile_needed()`. All earlier USB storage compilation, GNU89/ASan regressions, BusyBox ash Optware tests and teardown checks passed. This follow-up updates only that checker and its documentation; rerun the exact-head storage workflow.
+- XY-C1 #45561165245 on `cdbd82f` was still IN_PROGRESS at the last poll, with Build XY-C1 active and TRX verification/artifact upload pending. No firmware build/TRX/artifact success is claimed for this SHA.
+- Switch CLI #45560823101, Process #45560823058, AI docs #45560823040 and NVRAM #45560822998 all PASS on `3eddff5`; MT7628 pages 0–7 plus page-8 rejection were verified by the dual-architecture sanitizer workflow.
+- ZeroTier checkpoint and multipath route hardening remain complete; RFC1035 reserved-label guard and AliyunDrive UID identity regression have passed their exact-head workflows. Do not repeat these slices without a new failing result.
 
 ## Active task
 
-The FTP absent→absent firewall reconciliation policy, source update, GNU89 regression, workflow contract, roadmap and handoff are included in one atomic commit. Inspect exact-head VSFTPD checks and diagnose any failure. Separately inspect the still-running Switch CLI run from `3eddff5`; pending jobs never block independent work.
+The USB storage source checker now follows the centralized FTP reconciliation policy and pins the absent→absent regression. Inspect the exact-head USB hotplug workflow after this checker-only commit and repair any real failure. Pending XY-C1 work remains independent; do not wait idly.
 
 # Cross-session execution mandate
 
@@ -123,10 +125,10 @@ Commit `786c504c8247fe42d5d1d5f2dc3ad28757fafc80` strictly parses persisted RX/T
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`; inspect the exact-head VSFTPD lifecycle/source-contract workflow for the FTP absent→absent firewall refresh change. Repair any actual failure.
-2. Poll exact runs #45560823101 (Switch CLI), #45560823058 (Process), #45560823040 (AI docs) and #45560822998 (NVRAM) for SHA `3eddff56dd1062996d389173a23c16d6b062be0c`; distinguish each run's result from the newer FTP commit.
-3. Confirm switch MT7628 accepts pages 0–7, encodes local page 7 as `0xf000` and global page 7 as `0x7000`, and rejects page 8 for both modes. Do not claim board hardware validation.
-4. Continue the next distinct P1/P2 whole-userland stability/security issue.
+1. Fetch live `main` and inspect exact-head USB storage hotplug stability regression; confirm the final `check_storage_safe_remove.py` step now accepts the shared FTP reconciliation helper while still requiring the presence-transition and confirmed-absence predicates plus absent→absent unit case.
+2. Repair any actual storage workflow failure at its failing step; do not weaken unrelated NFS, FTP, BusyBox, or storage teardown contracts.
+3. Recheck XY-C1 run #45561165245 on `cdbd82f` only if it has concluded. Build, TRX and artifact must all pass on the same source SHA before claiming L3; hardware L4 remains unverified.
+4. Continue another distinct P1/P2 whole-userland reliability/security issue without reopening completed RFC1035, ZeroTier, AliyunDrive or MT7628 work.
 
 ## Mandatory handoff checkpoint
 
