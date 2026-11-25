@@ -1,3 +1,9 @@
+## 2026-11-24 — Bind Ralink IAPP lifecycle to executable identity
+
+- `iappd.sh` previously treated the mutable `/proc/PID/stat` comm field as the daemon identity and used `killall ralinkiappd` for stop. Any unrelated process able to set its comm name to `ralinkiappd` could suppress the real daemon's start or receive the privileged stop signal.
+- Process discovery now requires the exact ROMFS executable path `/sbin/ralinkiappd` and captures PID plus kernel start_time. Stop re-reads both executable identity and start_time immediately before sending PID-scoped TERM, then performs one bounded KILL escalation; it never uses broad killall matching. Unreadable candidate executable metadata remains UNKNOWN and blocks cleanup.
+- Lifecycle regressions add spoofed-comm, unavailable-executable and exact targeted-signal cases. No local test is claimed; exact-head IAPPD lifecycle, Process inventory/umbrella, AI docs and XY-C1 checks must pass.
+
 ## 2026-11-24 — Update DNSMasq lock-release contract for overlay abort path
 
 - Exact-head DNSMasq lifecycle #45534852657 on `b26aa7b35cfd11ca13d5c1e1eb295377ab18fcce` passed all C fixtures and earlier source contracts, then failed in the existing inline postconditions checker at its exact `file_unlock(lock);` count. The new fail-closed user-overlay branch correctly adds one release; the checker still expected the old four paths.

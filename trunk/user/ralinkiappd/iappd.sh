@@ -123,11 +123,60 @@ iapp_ensure_firewall_rule() {
 # Return 0=RUNNING, 1=confirmed ABSENT, 2=UNKNOWN. BusyBox pidof returns
 # the same status for an empty process list and some /proc scan failures, so
 # inspect the complete procfs listing and classify per-PID read failures.
-process_state() {
-  local proc_root proc_listing proc_pid proc_dir proc_stat proc_name proc_fields proc_state
+# Return the process start_time only for the expected daemon executable.
+# The comm field is only a candidate filter: it is trivially spoofable with
+# PR_SET_NAME and is never sufficient to authorize a stop signal.
+iappd_process_identity() {
+  local proc_pid proc_dir proc_stat proc_name proc_fields proc_state proc_exe proc_start
 
-  proc_root="$IAPPD_PROC_ROOT"
-  [ -n "$proc_root" ] || proc_root=/proc
+  proc_pid="$1"
+  case "$proc_pid" in ''|0|1|0*|*[!0-9]*) return 1 ;; esac
+  proc_dir="${IAPPD_PROC_ROOT:-/proc}/$proc_pid"
+  [ -d "$proc_dir" ] || return 1
+
+  if IFS= read -r proc_stat < "$proc_dir/stat"; then
+    :
+  else
+    [ -d "$proc_dir" ] && return 2
+    return 1
+  fi
+  case "$proc_stat" in *") "*) ;; *) return 2 ;; esac
+  proc_name=${proc_stat#*(}
+  proc_name=${proc_name%)*}
+  [ "$proc_name" = "ralinkiappd" ] || return 1
+
+  proc_fields=${proc_stat##*) }
+  set -- $proc_fields
+  [ "$#" -ge 20 ] || return 2
+  proc_state=$1
+  case "$proc_state" in Z|X|x) return 1 ;; esac
+
+  [ -L "$proc_dir/exe" ] || return 2
+  if proc_exe=$(readlink "$proc_dir/exe" 2>/dev/null); then
+    :
+  else
+    [ -d "$proc_dir" ] && return 2
+    return 1
+  fi
+  case "$proc_exe" in
+    /sbin/ralinkiappd|"/sbin/ralinkiappd (deleted)") ;;
+    *) return 1 ;;
+  esac
+
+  shift 19
+  proc_start=$1
+  case "$proc_start" in ''|*[!0-9]*) return 2 ;; esac
+  printf '%s\n' "$proc_start"
+}
+
+# Return 0=RUNNING, 1=confirmed ABSENT, 2=UNKNOWN. Preserve a PID/start_time
+# snapshot so stop can revalidate executable identity immediately before TERM
+# and KILL instead of using broad process-name killall matching.
+process_state() {
+  local proc_root proc_listing proc_pid proc_dir proc_start proc_status
+
+  iapp_process_ids=
+  proc_root="${IAPPD_PROC_ROOT:-/proc}"
   if [ ! -d "$proc_root" ] || [ ! -r "$proc_root" ] || [ ! -x "$proc_root" ]; then
     log_iapp "process inventory directory is unavailable: $proc_root"
     return 2
@@ -140,42 +189,65 @@ process_state() {
   }
 
   for proc_pid in $proc_listing; do
-    case "$proc_pid" in ''|*[!0-9]*) continue ;; esac
+    case "$proc_pid" in ''|0|1|0*|*[!0-9]*) continue ;; esac
     proc_dir="$proc_root/$proc_pid"
     [ -d "$proc_dir" ] || continue
 
-    if IFS= read -r proc_stat < "$proc_dir/stat"; then
-      :
-    else
-      # A disappearing PID is normal. A still-present directory with an
-      # unreadable stat file means the snapshot is incomplete, not ABSENT.
-      if [ -d "$proc_dir" ]; then
-        log_iapp "cannot read process stat for PID $proc_pid"
-        return 2
+    if proc_start=$(iappd_process_identity "$proc_pid"); then
+      if [ -n "$iapp_process_ids" ]; then
+        iapp_process_ids="$iapp_process_ids $proc_pid:$proc_start"
+      else
+        iapp_process_ids="$proc_pid:$proc_start"
       fi
-      continue
+    else
+      proc_status=$?
+      case "$proc_status" in
+        1) ;; # vanished, zombie, or same-name process with another executable
+        *) log_iapp "cannot verify process identity for PID $proc_pid"; return 2 ;;
+      esac
+    fi
+  done
+
+  [ -n "$iapp_process_ids" ] && return 0
+  return 1
+}
+
+iappd_signal_snapshot() {
+  local signal_name entries entry pid saved_start current_start identity_status signal_status first_status
+
+  signal_name="$1"
+  entries="$iapp_process_ids"
+  first_status=0
+  for entry in $entries; do
+    case "$entry" in *:*) ;; *) return 2 ;; esac
+    pid=${entry%%:*}
+    saved_start=${entry#*:}
+    case "$pid" in ''|0|1|0*|*[!0-9]*) return 2 ;; esac
+    case "$saved_start" in ''|*[!0-9]*) return 2 ;; esac
+
+    if current_start=$(iappd_process_identity "$pid"); then
+      [ "$current_start" = "$saved_start" ] || continue
+    else
+      identity_status=$?
+      case "$identity_status" in
+        1) continue ;;
+        *) return "$identity_status" ;;
+      esac
     fi
 
-    case "$proc_stat" in
-      *") "*) ;;
-      *)
-        log_iapp "malformed process stat for PID $proc_pid"
-        return 2
-        ;;
-    esac
-    proc_name=${proc_stat#*(}
-    proc_name=${proc_name%)*}
-    proc_fields=${proc_stat##*) }
-    set -- $proc_fields
-    if [ "$#" -lt 1 ]; then
-      log_iapp "incomplete process stat for PID $proc_pid"
-      return 2
-    fi
-    proc_state=$1
-    case "$proc_state" in Z|X|x) continue ;; esac
-    [ "$proc_name" = "ralinkiappd" ] && return 0
+    # The helper is a host-test seam and is intentionally disabled for the
+    # real /proc tree used by the router service.
+    if [ "${IAPPD_PROC_ROOT:-/proc}" != "/proc" ] &&
+       [ -n "${IAPPD_KILL_HELPER:-}" ]; then
+      "$IAPPD_KILL_HELPER" "$signal_name" "$pid"
+    else
+      kill "-$signal_name" "$pid"
+    fi || {
+      signal_status=$?
+      [ "$first_status" -ne 0 ] || first_status="$signal_status"
+    }
   done
-  return 1
+  return "$first_status"
 }
 
 wait_running() {
@@ -215,7 +287,7 @@ start() {
     1) ;;
     *) return "$rc" ;;
   esac
-  for cmd in grep ralinkiappd iptables iptables-save; do
+  for cmd in grep readlink ralinkiappd iptables iptables-save; do
     command -v "$cmd" >/dev/null 2>&1 || { log_iapp "required command unavailable: $cmd"; return 127; }
   done
   # Remove stale rules from a previous crash before publishing a new daemon.
@@ -285,40 +357,32 @@ stop() {
     0) ;;
     *) return "$rc" ;;
   esac
-  command -v killall >/dev/null 2>&1 || { log_iapp "killall unavailable"; return 127; }
-  killall -q ralinkiappd || {
-    stop_rc=$?
-    process_state; state=$?
-    if [ "$state" -eq 1 ]; then
-      iapp_remove_firewall_rules
-      return $?
-    fi
-    log_iapp "killall failed (status=$stop_rc)"
-    return "$stop_rc"
-  }
+
+  iappd_signal_snapshot TERM
+  term_status=$?
+  [ "$term_status" -eq 0 ] ||
+    log_iapp "one or more targeted TERM signals failed (status=$term_status)"
   wait_stopped; rc=$?
   if [ "$rc" -eq 0 ]; then
     iapp_remove_firewall_rules
     return $?
   fi
   [ "$rc" -eq 1 ] || return "$rc"
-  killall -q ralinkiappd || {
-    stop_rc=$?
-    process_state; state=$?
-    if [ "$state" -eq 1 ]; then
-      iapp_remove_firewall_rules
-      return $?
-    fi
-    log_iapp "second killall failed (status=$stop_rc)"
-    return "$stop_rc"
-  }
+
+  # A daemon that ignores TERM gets one bounded KILL escalation. The refreshed
+  # process_state snapshot is revalidated by executable and start_time first.
+  iappd_signal_snapshot KILL
+  kill_status=$?
+  [ "$kill_status" -eq 0 ] ||
+    log_iapp "one or more targeted KILL signals failed (status=$kill_status)"
   wait_stopped; rc=$?
   if [ "$rc" -eq 0 ]; then
     iapp_remove_firewall_rules
     return $?
   fi
   [ "$rc" -eq 1 ] || return "$rc"
-  log_iapp "daemon remained running after bounded stop attempts"
+  log_iapp "daemon remained running after bounded TERM/KILL attempts"
+  [ "$kill_status" -eq 0 ] || return "$kill_status"
   return 1
 }
 

@@ -10,13 +10,13 @@ This snapshot supersedes older task pointers below where they conflict with live
 - ZeroTier firewall-checkpoint validator exact SHA `c1817e63362bdc8f8adcffe5205cd0cb29d5bbb9`: ZeroTier lifecycle #45534264830, AI docs #45534264906, Process inventory #45534264894 and WAN route #45534264927 PASS. XY-C1 #45534264859 remains IN_PROGRESS; Build/TRX/artifact are not yet confirmed, so L3 is not claimed.
 - DNSMasq server-overlay production fix is on `6cabb42410a67007cb23a8bdace9ccc49caae693`: the first exact-head DNSMasq run #45534703563 failed only in the added checker because it named the callback `is_forbidden` instead of production `is_param_forbidden`; all earlier fixture steps passed. Checker-only correction is committed below and must rerun before calling the workflow green.
 - DNSMasq user-overlay source fix is on `6cabb42410a67007cb23a8bdace9ccc49caae693`; its later inline checker failure on b26aa/d462 is a stale assertion: expected four writer unlocks, but the new legitimate overlay-abort cleanup path makes five. All C fixtures and preceding postcondition checks pass. The current workflow correction pins five release paths.
-- Inadyn user-config overlay status is checked on `d462412f616dac2341955c61c011f93c24d5e52c`; Inadyn #45534932117, AI #45534932051, Process inventory #45534932194, HTTPD #45534932343, WAN route #45534932219, WAN DHCP #45534932150, Samba #45534931994 and miniupnpd #45534932066 PASS. DNSMasq #45534932250 failed at the stale unlock-count assertion; NVRAM #45534931970 and XY-C1 #45534932313 were IN_PROGRESS, so L3 not claimed.
+- Inadyn user-config overlay status is checked on `d462412f616dac2341955c61c011f93c24d5e52c`; its lifecycle and related AI/Process/HTTPD/WAN/Samba/miniupnpd checks passed. DNSMasq overlay writer regression is green on follow-up workflow commit `c7a7332bcbd071c84a684dee455a5e78566a2c7a`; earlier stale checker assertions are resolved.
 
 ## Exact first action for the next GPT
 
-1. Verify exact-head DNSMasq lifecycle for the five-unlock contract on this workflow SHA, alongside AI docs and Process checks; require matching `head_sha`. The preceding C fixtures passed on b26aa and d462; inspect the precise run log if any later check fails.
-2. Recheck XY-C1 #45534932313 and NVRAM #45534931970 on production-source SHA `d462412f616dac2341955c61c011f93c24d5e52c`; claim L3 only if Build, TRX and artifact upload all pass on the same SHA.
-3. Continue with another distinct userland reliability/security item while independent Actions are PENDING; backup remains read-only and commits atomic.
+1. Verify exact-head IAPPD shell lifecycle and Process inventory/umbrella on this process-identity change; require matching `head_sha`. Recheck spoofed-comm, unreadable-exe, targeted TERM/KILL and firewall cleanup fixtures.
+2. Recheck XY-C1 #45534932313 on product-source SHA `d462412f616dac2341955c61c011f93c24d5e52c`; Build/TRX/artifact must all PASS on the same SHA before L3. NVRAM audit #45534931970 already PASSed.
+3. Continue with a distinct userland reliability/security issue while exact-head IAPPD Actions run; backup remains read-only and commits atomic.
 No force-push. The backup branch remains unchanged.
 
 ## Current repository state
