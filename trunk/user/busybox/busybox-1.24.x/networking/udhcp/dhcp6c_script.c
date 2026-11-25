@@ -29,6 +29,7 @@
  */
 
 #include "dhcp6c.h"
+#include "dhcp6c_script_retry_policy.h"
 
 typedef struct {
 	const char *name;
@@ -47,6 +48,11 @@ static const envp_list_t client6_envp_list[] = {
     { "new_nisp_servers",		D6_OPT_NISP_SERVERS   },
     { "new_nisp_name",			D6_OPT_NISP_DOMAIN    },
 };
+
+static void client6_unsetenv(const char *entry)
+{
+	bb_unsetenv(entry);
+}
 
 char **fill_envp_client6(struct dhcp6_optinfo *optinfo, const char *ifname)
 {
@@ -87,11 +93,9 @@ char **fill_envp_client6(struct dhcp6_optinfo *optinfo, const char *ifname)
 	 * Copy the parameters as environment variables
 	 */
 	/* reason */
-	*curr = xstrdup("REASON=NBI");
-	putenv(*curr++);
+	*curr++ = xstrdup("REASON=NBI");
 	/* interface name */
-	*curr = xasprintf("interface=%s", ifname);
-	putenv(*curr++);
+	*curr++ = xasprintf("interface=%s", ifname);
 
 	/* "var=addr1 addr2 ... addrN" + null char for termination */
 	for (i=0; i < ARRAY_SIZE(client6_envp_list); i++) {
@@ -119,8 +123,19 @@ char **fill_envp_client6(struct dhcp6_optinfo *optinfo, const char *ifname)
 				}
 			    strcat(*curr, " ");
 			}
-			putenv(*curr++);
+			curr++;
 	    }
+	}
+
+	/* Do not run the callback with a partial environment on putenv failure. */
+	if (dhcp6c_script_env_publish(envp, putenv, client6_unsetenv) != 0) {
+		int saved_errno = errno ? errno : ENOMEM;
+
+		for (curr = envp; *curr != NULL; ++curr)
+			free(*curr);
+		free(envp);
+		errno = saved_errno;
+		return NULL;
 	}
 
 	return envp;
@@ -134,6 +149,15 @@ int dhcp6_script(const char *scriptpath, char **envp)
 	/* if a script is not specified, do nothing */
 	if (!scriptpath || !scriptpath[0])
 		return -2;
+
+	/* A NULL environment means publication failed; retry without running a
+	 * callback that could otherwise commit incomplete DHCPv6 configuration.
+	 */
+	if (envp == NULL) {
+		if (errno == 0)
+			errno = ENOMEM;
+		return -1;
+	}
 
 	/* launch the script and retain its exit/signal status */
 	argv[0] = (char *)scriptpath;

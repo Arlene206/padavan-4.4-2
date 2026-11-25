@@ -65,7 +65,14 @@ ifindex_die = if6init.index('bb_perror_msg_and_die("invalid interface(%s)", ifna
 ifname_publish = if6init.index("ifp->ifname = xstrdup(ifname);")
 assert ifindex_read < ifindex_guard < ifindex_die < ifname_publish
 assert 'bb_perror_msg_and_die("invalid interface(%s)", ifp->ifname);' not in if6init
+assert '#include "dhcp6c_script_retry_policy.h"' in script_runner
+env_builder = function_body(script_runner, "char **fill_envp_client6(")
+assert "dhcp6c_script_env_publish(envp, putenv, client6_unsetenv)" in env_builder
+assert "putenv(*curr++)" not in env_builder
+assert "return NULL;" in env_builder
 runner = function_body(script_runner, "int dhcp6_script(const char *scriptpath, char **envp)")
+assert "if (envp == NULL)" in runner
+assert runner.index("if (envp == NULL)") < runner.index("status = spawn_and_wait(argv);")
 assert "status = spawn_and_wait(argv);" in runner
 assert "return status;" in runner
 assert "free(envp);" in runner
@@ -99,6 +106,11 @@ assert "dhcp6_timer_remaining_ms(timer->t, now)" in timer_rest
 assert "timer->t - now <= 0" not in timer_rest
 
 for marker in (
+    "test_environment_publish_rolls_back_partial_set",
+    "test_environment_publish_failure_without_errno_uses_enomem",
+    "test_environment_publish_success_keeps_all_entries",
+    "test_environment_publish_null_callback_is_rejected",
+    "dhcp6c_script_env_publish",
     "test_success_does_not_retry",
     "test_positive_exit_status_retries",
     "test_spawn_failure_retries",

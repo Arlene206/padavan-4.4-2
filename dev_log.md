@@ -1,3 +1,12 @@
+## 2026-11-25 — Make DHCPv6 callback environment publication fail atomically
+
+- `fill_envp_client6()` previously ignored every `putenv()` result. Under memory pressure, one option variable could fail to enter the parent environment while the function still launched the configuration script and treated its exit status as success. A partial DNS/SIP/NTP option set could therefore be committed without retry.
+- The builder now constructs the complete environment first, checks each publication, and removes already-published entries in reverse order if any publication fails. It frees the full temporary vector and returns NULL with the original error (or ENOMEM fallback); `dhcp6_script()` refuses to execute when environment construction failed, allowing the existing Reply retry path to retry the whole callback.
+- Added GNU89 regression cases for mid-vector failure/rollback order, missing errno normalization and successful publication, plus exact-source integration assertions. Exact-head DHCPv6 retry and XY-C1 Actions pending at commit creation; no firmware or router runtime result is claimed.
+- Changed paths: `dhcp6c_script.c`, `dhcp6c_script_retry_policy.h`, `tests/dhcp6c_script_retry_policy.c`, `scripts/check_dhcp6c_script_retry.py`.
+
+---
+
 ## 2026-11-25 — Filter WAN IPv6 candidates through the public-GUA policy before preference
 
 - Review found a mixed-address edge in the stable/temporary selector: Linux reports ULA and other reserved IPv6 addresses with `scope global`. Counting candidates before the public-GUA validation meant a single stable ULA could mask an otherwise usable public temporary GUA (or create false ambiguity alongside a public stable address).
