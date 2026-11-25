@@ -1,3 +1,9 @@
+## 2026-11-24 — Fail closed on Inadyn user overlay copy errors
+
+- `write_inadyn_conf()` also ignored the integer status from `load_user_config()`. A present but unreadable, truncated, or unwritable `/etc/storage/inadyn/inadyn.conf` overlay could therefore yield an incomplete staged config which was still published and then reloaded into the running daemon.
+- The writer now converts nonzero overlay status to a stable errno, logs the failure and enters its existing private-stage discard path before publication. Missing optional overlay still returns success. The Inadyn source checker verifies the load/error/publish order, preserved status and staged-file discard.
+- Exact-head Inadyn, DNSMasq, Process, AI and XY-C1 verification is pending. No local firmware build or live DDNS test is claimed.
+
 ## 2026-11-24 — Correct DNSMasq user-overlay source-contract callback marker
 
 - Exact-head DNSMasq lifecycle run #45534703563 on `6cabb42410a67007cb23a8bdace9ccc49caae693` compiled and passed its earlier fixtures, then failed in the new Python source contract: the checker expected callback name `is_forbidden`, while the production `load_user_config()` correctly passes `is_param_forbidden`. This was a checker expectation error, not a source compile or runtime-test failure.

@@ -9,13 +9,14 @@ This snapshot supersedes older task pointers below where they conflict with live
 - DNSMasq static-ARP fix exact head `21ef708f191b395f04a0c37a4e2b4933b876c1e4`: DNSMasq lifecycle #45533740252, AI docs #45533740258 and Process inventory #45533740231 PASS; NVRAM audit #45533740255 and XY-C1 #45533740364 remain IN_PROGRESS. The IGMPProxy/WAN and prior handoff checks on parent `bab40c4f40d22a65b5d4d0bac0bb5b036507ab3e` passed. L3 is not claimed.
 - ZeroTier firewall-checkpoint validator exact SHA `c1817e63362bdc8f8adcffe5205cd0cb29d5bbb9`: ZeroTier lifecycle #45534264830, AI docs #45534264906, Process inventory #45534264894 and WAN route #45534264927 PASS. XY-C1 #45534264859 remains IN_PROGRESS; Build/TRX/artifact are not yet confirmed, so L3 is not claimed.
 - DNSMasq server-overlay production fix is on `6cabb42410a67007cb23a8bdace9ccc49caae693`: the first exact-head DNSMasq run #45534703563 failed only in the added checker because it named the callback `is_forbidden` instead of production `is_param_forbidden`; all earlier fixture steps passed. Checker-only correction is committed below and must rerun before calling the workflow green.
-- Active follow-up checks the separate Inadyn `load_user_config()` caller, which also ignored the helper's returned copy/read/flush/close status.
+- DNSMasq overlay checker correction exact SHA `b26aa7b35cfd11ca13d5c1e1eb295377ab18fcce` has AI docs and DNSMasq lifecycle checks queued; it changes only the callback-name assertion and handoff text. The source fix remains on parent `6cabb42410a67007cb23a8bdace9ccc49caae693`; that SHA's DNSMasq checker failure was solely the wrong expected callback name, while earlier fixture steps passed. Its XY-C1 #45534703470 and NVRAM #45534703425 were IN_PROGRESS at last check.
+- Inadyn user-config overlay status is now checked too; failure routes through the existing Inadyn stage-discard path instead of publishing an incomplete config. Exact-head verification is pending.
 
 ## Exact first action for the next GPT
 
-1. Verify the checker-only correction against exact-head DNSMasq lifecycle #45534703563 on `6cabb42410a67007cb23a8bdace9ccc49caae693`; the root cause was the incorrect callback-name expectation, not the production fix. Require matching `head_sha`.
-2. Continue the independent Inadyn overlay status fix; run #45534703438 passed before this follow-up and did not assert the ignored user-config return. Product L3 remains unverified until Build, TRX and artifact upload all pass on one SHA.
-3. Preserve frozen backup and keep the next change small and atomic; do not repeat prior ZeroTier, IGMPProxy or static-ARP slices.
+1. Inspect exact-head Inadyn lifecycle and DNSMasq lifecycle/AI checks for this Inadyn overlay status change; require matching `head_sha`. The DNSMasq checker-only rerun on `b26aa7b35cfd11ca13d5c1e1eb295377ab18fcce` must also PASS before closing the prior FAIL.
+2. Recheck XY-C1 #45534703470 and NVRAM #45534703425 on production-source SHA `6cabb42410a67007cb23a8bdace9ccc49caae693`; later source changes require their own exact-SHA Build/TRX/artifact result before L3.
+3. Continue with a distinct userland reliability/security issue while other checks are PENDING; keep commits atomic and backup read-only.
 
 No force-push. The backup branch remains unchanged.
 

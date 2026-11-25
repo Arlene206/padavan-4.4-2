@@ -3402,7 +3402,7 @@ write_inadyn_conf(const char *conf_file)
 	char *config_storage;
 	char *config_value[INADYN_CFG_FIELD_COUNT];
 	size_t field_index;
-	int saved_errno = 0, interface_status, read_status;
+	int saved_errno = 0, interface_status, read_status, user_config_status;
 	int i_max, i_ddns_source, i_ddns_period, i_ddns_forced, i_ddns_ipv6;
 	int i_ddns1_ssl, i_ddns1_checkip, i_ddns1_wildcard;
 	int i_ddns2_ssl, i_ddns2_checkip, i_ddns2_wildcard;
@@ -3616,7 +3616,14 @@ write_inadyn_conf(const char *conf_file)
 		fprintf(fp, "}\n");
 	}
 
-	load_user_config(fp, INADYN_USER_DIR, "inadyn.conf", NULL);
+	user_config_status = load_user_config(fp, INADYN_USER_DIR, "inadyn.conf", NULL);
+	if (user_config_status != 0) {
+		saved_errno = user_config_status > 0 ? user_config_status : EIO;
+		logmessage(LOGNAME,
+			   "cannot copy user Inadyn configuration overlay; preserving existing configuration (status=%d)",
+			   saved_errno);
+		goto failed;
+	}
 
 	if (inadyn_config_file_publish(fp, staged_path, conf_file) != 0) {
 		saved_errno = errno ? errno : EIO;

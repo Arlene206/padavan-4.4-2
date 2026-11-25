@@ -133,6 +133,23 @@ assert 'i_ddns1_wildcard ? "true" : "false"' in config_writer
 assert 'i_ddns2_ssl ? "true" : "false"' in config_writer
 assert 'i_ddns2_wildcard ? "true" : "false"' in config_writer
 assert config_writer.count("inadyn_config_file_write_quoted_setting(fp,") == 10
+
+# Optional ENOENT remains a success in load_user_config(), but an actual
+# overlay copy/read/flush/close error must discard the whole Inadyn stage.
+user_overlay_load = config_writer.index(
+    'user_config_status = load_user_config(fp, INADYN_USER_DIR, "inadyn.conf", NULL);'
+)
+user_overlay_failure = config_writer.index("if (user_config_status != 0)", user_overlay_load)
+user_overlay_publish = config_writer.index(
+    "inadyn_config_file_publish(fp, staged_path, conf_file)", user_overlay_load
+)
+user_overlay_guard = config_writer[user_overlay_failure:user_overlay_publish]
+assert user_overlay_load < user_overlay_failure < user_overlay_publish
+assert "saved_errno = user_config_status > 0 ? user_config_status : EIO;" in user_overlay_guard
+assert "cannot copy user Inadyn configuration overlay" in user_overlay_guard
+assert "goto failed;" in user_overlay_guard
+assert "inadyn_config_file_discard(fp, staged_path)" in config_writer
+
 for value in ("ddns1_user", "ddns1_pass", "ddns1_svr", "ddns1_url",
               "ddns1_hname[0]", "ddns1_hname[1]", "ddns1_hname[2]",
               "ddns2_user", "ddns2_pass", "ddns2_hname"):
