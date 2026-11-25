@@ -62,6 +62,18 @@ test_partial_pd_failure_is_retried_without_reapplying_successes(void)
 }
 
 static void
+test_operation_error_is_retryable(void)
+{
+	assert(dhcp6c_ia_operation_error(0, EIO) == 0);
+	assert(dhcp6c_ia_operation_error(-1, EAGAIN) == EAGAIN);
+	assert(dhcp6c_ia_operation_error(-1, 0) == EIO);
+	assert(dhcp6c_ia_retry_required(
+		dhcp6c_ia_operation_error(-1, ENOMEM)));
+	assert(!dhcp6c_ia_retry_required(
+		dhcp6c_ia_operation_error(0, 0)));
+}
+
+static void
 test_first_error_and_retry_gate(void)
 {
 	int status = 0;
@@ -189,6 +201,7 @@ int
 main(void)
 {
 	test_partial_pd_failure_is_retried_without_reapplying_successes();
+	test_operation_error_is_retryable();
 	test_first_error_and_retry_gate();
 	test_default_ia_timer_ratios_do_not_overflow();
 	test_prefix_expiry_is_required_for_finite_lifetimes();

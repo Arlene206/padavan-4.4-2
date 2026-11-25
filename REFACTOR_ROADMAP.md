@@ -1,3 +1,11 @@
+## 2026-11-26 — Propagate DHCPv6 NoBinding re-establishment failures
+
+- On a NoBinding Status Code during Renew/Rebind, `update_ia()` previously discarded `reestablish_ia()`'s result. That helper removes the current IA timer before preparing the replacement Request and may fail while building IA options or copying authentication data. A dropped error could leave the IA without a timer or queued Request while the client acknowledges the Reply.
+- The NoBinding path now captures the status, clears stale errno before the operation, maps errno-less failure to EIO, and returns the first IA error through the existing delayed Reply retry path. Added a GNU89 policy regression and Python source-order contract.
+- Local GNU89 ASan/UBSan error-normalization tests PASS; parent exact-head DHCPv6 IA workflow #45700172634 PASS. This commit's exact-head checks remain pending. MIPS/physical-router L3/L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-26 — Avoid 32-bit overflow in DHCPv6 IA default timer ratios
 
 - DHCP lifetimes are unsigned 32-bit values; `0xffffffff` is reserved for infinity, leaving very large finite lifetimes valid. `update_ia()` previously computed default T2 as `duration * 4 / 5` and adjusted T1 as `t2 * 5 / 8`. Multiplication overflowed before division and could schedule premature Renew/Rebind exchanges.

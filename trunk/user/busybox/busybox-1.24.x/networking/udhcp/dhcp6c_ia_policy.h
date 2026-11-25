@@ -31,6 +31,14 @@ dhcp6c_ia_first_error(int first_error, int next_error)
 	return first_error != 0 ? first_error : next_error;
 }
 static inline int
+dhcp6c_ia_operation_error(int status, int saved_errno)
+{
+	if (status == 0)
+		return 0;
+	return saved_errno > 0 ? saved_errno : EIO;
+}
+
+static inline int
 dhcp6c_ia_retry_required(int status)
 {
 	return status != 0;

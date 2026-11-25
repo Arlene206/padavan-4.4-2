@@ -1,3 +1,13 @@
+## 2026-11-26 05:24 CST (UTC+8) — Propagate DHCPv6 NoBinding recovery failures
+
+- During Renew/Rebind, a NoBinding Status Code triggers `reestablish_ia()`, which removes the old IA timer before preparing the replacement Request. Its error return was ignored; if IA option preparation or authentication parameter copying failed, the event was acknowledged even though the IA had no new timer/request to continue recovery.
+- The branch now clears stale errno, captures the result, normalizes a missing errno to EIO, stores the first IA error and returns it through `client6_recvreply()`'s existing bounded event retry.
+- Added error-normalization regression cases and source-checker assertions proving the NoBinding result is captured and recorded before the branch exits.
+- Focused GNU89 `-Wall -Wextra -Werror -fsanitize=address,undefined` policy compile/run — PASS. Parent DHCPv6 IA workflow #45700172634 PASS; exact-head Actions for THIS COMMIT pending at commit creation. No MIPS or hardware result claimed.
+- Changed paths: `dhcp6c_ia.c`, `dhcp6c_ia_policy.h`, `tests/dhcp6c_ia_publication_policy.c`, `scripts/check_dhcp6c_ia_publication.py`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`.
+
+---
+
 ## 2026-11-26 05:10 CST (UTC+8) — Prevent DHCPv6 IA T1/T2 ratio overflow
 
 - `update_ia()` computed default T2 with `duration * 4 / 5` and adjusted T1 with `t2 * 5 / 8`. Both operands are 32-bit unsigned DHCP lifetime fields; multiplication wrapped before division for large but valid finite leases, scheduling T2/T1 much earlier than the intended ratios.

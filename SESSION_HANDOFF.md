@@ -1,25 +1,25 @@
 ## Current repository state — 2026-11-26
 
-- Parent main: `e110d1e248bc6ccd2a759275c81ff71cdf2cd99e`. Current slice replaces three overflowing 32-bit DHCPv6 IA T1/T2 ratio expressions with exact quotient/remainder helpers and extends the existing GNU89 ASan/UBSan regression plus source checker.
+- Parent main: `0766d65129017e2313a12ccae26d9af0b84c94ae`. This slice fixes a second DHCPv6 IA retry hole: failures while rebuilding a Request after NoBinding were ignored even though `reestablish_ia()` can return an error.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Parent exact-head Actions for `e110d1e248bc6ccd2a759275c81ff71cdf2cd99e`: IAPP lifecycle #45699507476 PASS; Process inventory #45699507465 PASS; Process lifecycle/fail-closed #45699507375 PASS; NVRAM #45699507413 PASS; AI docs #45699507378 PASS. XY-C1 #45699507488 remains IN_PROGRESS at last poll.
-- Previous IAPP IPC work is complete through `e110d1e248bc6ccd2a759275c81ff71cdf2cd99e`; its exact-host IAPP, Process, NVRAM and AI workflows passed. Do not repeat IAPP source review unless a new failure appears.
+- Parent exact-head Actions for `0766d65129017e2313a12ccae26d9af0b84c94ae`: DHCPv6 IA publication #45700172634 PASS; Process lifecycle inventory #45700172660 PASS; WAN DHCP callback #45700172574 PASS; AI docs #45700172637 PASS. USB storage #45700172576, NVRAM #45700172551, and XY-C1 #45700172597 were IN_PROGRESS at the last poll.
+- The preceding timer overflow fix is `0766d65129017e2313a12ccae26d9af0b84c94ae`: exact DHCPv6 IA regression PASS; local GNU89 ASan/UBSan ratios verified for large finite lifetimes. IAPP IPC remains complete through `e110d1e248bc6ccd2a759275c81ff71cdf2cd99e`.
 
 ## Active task
 
-DHCPv6 IA default timer calculation previously used 32-bit expressions `duration * 4 / 5` and `t2 * 5 / 8`. Since DHCP lifetimes are unsigned 32-bit values and `0xffffffff` is the infinite sentinel, valid large finite lifetimes can overflow before division. This produced T2/T1 values far shorter than the intended 4/5 and 5/8 ratios and caused unnecessary early renew/rebind traffic. New quotient/remainder helpers calculate the exact floor ratios without a wide intermediate; both T1 adjustment sites and the default T2 path use them.
+When a Renew/Rebind Reply contained NoBinding, `update_ia()` called `reestablish_ia(ia)` and discarded its return value. `reestablish_ia()` removes the old IA timer before creating the replacement Request and can fail while preparing IA data or copying auth parameters. Ignoring that failure let `client6_recvreply()` treat the Reply as successful, despite no replacement Request being queued and no IA timer remaining. The new code clears stale errno, captures the result, normalizes a missing errno to EIO, records the first IA error and returns it through the existing bounded Reply retry path.
 
 ## Verification boundary
 
-- Focused GNU89 `-Wall -Wextra -Werror -fsanitize=address,undefined` test PASS locally for zero/small/default, 2,000,000,000-second and maximum finite inputs. Exact outputs include T2(2,000,000,000)=1,600,000,000 and T1(2,000,000,000)=1,250,000,000; maximum finite values also match the mathematically exact floor.
-- The existing DHCPv6 IA publication fixture and Python source contract are extended; exact-head DHCPv6 IA / Process / NVRAM / AI / XY-C1 checks for THIS COMMIT remain to be read after commit.
-- No MIPS firmware or live-router DHCPv6 lease result is claimed. Product L3/L4 remain unverified for this source slice.
+- Focused GNU89 `-Wall -Wextra -Werror -fsanitize=address,undefined` policy test PASS for timer ratios and failed-operation error normalization.
+- Existing DHCPv6 IA publication workflow passed on parent `0766d65129017e2313a12ccae26d9af0b84c94ae`; source checker and regression are extended for NoBinding failure propagation. Exact-head Actions for THIS COMMIT must be checked after commit.
+- No MIPS firmware or live-router claim. Product L3/L4 remain unverified for this slice.
 
 ## Exact first actions for next GPT
 
-1. Fetch exact-SHA Actions for THIS COMMIT. Verify the DHCPv6 IA regression, Process inventory/fail-closed, NVRAM and AI docs results; XY-C1 must run Build, TRX verification and artifact upload on the same source SHA before any L3 claim.
-2. Check the actual cross-compile result for the 64-bit timer multiplication path (the new helper intentionally avoids 64-bit division and preserves exact integer-floor behavior).
-3. Continue an independent stability/security defect across another Padavan userland component; do not repeat the closed IAPP pipe work.
+1. Fetch exact-SHA Actions for THIS COMMIT: DHCPv6 IA publication, Process inventory/fail-closed, WAN DHCP callback, NVRAM, AI docs, USB storage, and XY-C1. Repair any same-SHA failure first.
+2. Confirm the NoBinding error branch reaches the existing bounded `client6_recvreply()` retry path in the target BusyBox build.
+3. Continue a separate userland stability/security fix after this DHCPv6 IA slice; do not repeat the earlier timer overflow or IAPP pipe tasks.
 
 # Cross-session execution mandate
 

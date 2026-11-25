@@ -262,7 +262,15 @@ int update_ia(struct dhcp6_list *iahead, struct dhcp6_if *ifp,
 					bb_info_msg("receive NoBinding against "
 					    "renew/rebind for %s-%u",
 					    dhcp6optstr(ia->conf->type), ia->conf->iaid);
-					reestablish_ia(ia);
+					errno = 0;
+					update_status = reestablish_ia(ia);
+					if (update_status != 0) {
+						ia_error = dhcp6c_ia_first_error(ia_error,
+						    dhcp6c_ia_operation_error(update_status, errno));
+						first_error = dhcp6c_ia_first_error(first_error, ia_error);
+						bb_error_msg("cannot re-establish %s-%u after NoBinding (status=%d)",
+						    dhcp6optstr(ia->conf->type), ia->conf->iaid, ia_error);
+					}
 					goto nextia;
 				}
 				break;

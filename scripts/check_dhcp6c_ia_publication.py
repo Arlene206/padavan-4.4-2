@@ -173,6 +173,11 @@ assert "if (ia_error != 0)" in update_ia
 assert update_ia.index("if (ia_error != 0)") < update_ia.index("if (ia->ctl == NULL || !pref_isvalid(ia->ctl))")
 assert update_ia.index("if (ia_error != 0)") < update_ia.index("dhcp6_timer_set(ia->t1 * 1000ULL, ia->timer)")
 assert "return first_error;" in update_ia
+assert "update_status = reestablish_ia(ia);" in update_ia
+assert "dhcp6c_ia_operation_error(update_status, errno)" in update_ia
+assert "first_error = dhcp6c_ia_first_error(first_error, ia_error);" in update_ia
+assert "test_operation_error_is_retryable" in test
+assert update_ia.index("update_status = reestablish_ia(ia);") < update_ia.index("goto nextia;", update_ia.index("update_status = reestablish_ia(ia);"))
 
 reply = function_body(client, "static int client6_recvreply(struct dhcp6_if *ifp, struct dhcp6_event *ev,")
 apply_begin = reply.index("ia_status = update_ia(")
