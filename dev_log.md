@@ -1,3 +1,14 @@
+## 2026-11-25 — Retry STOU after a concurrent exclusive-create collision
+
+- Base SHA: `b7828a9da9ca5f15fc513f7806efcf46aebb4daf`; atomic source commit: `ada6ebecc055d781200fa6621b2a2b60a4777889`.
+- The authorized/no-follow candidate preflight and final `openat(O_CREAT | O_EXCL)` prevent symlink and overwrite races, but a concurrent STOU could create the same candidate between those steps. The final open then returned `EEXIST` and the transfer failed immediately instead of selecting the next free suffix.
+- Added a bounded retry policy (16 retries) that treats only `EEXIST` as a name collision. On retry the original request is reprocessed, so deny-file checks, ACL authorization, pinned-parent verification, and nofollow candidate probing run again. Permission/path/I/O errors are not retried and the captured errno is restored before reporting failure. Non-STOU upload behavior is unchanged.
+- Extended `ftp_acl_path_policy.c` to assert duplicate exclusive open returns `EEXIST`, cleanup ownership remains false for the duplicate, retry is permitted only below the bound, and successful/non-`EEXIST` results do not retry. The VSFTPD workflow tracks the new policy header on push and pull_request; XY-C1 firmware path filtering also tracks it.
+- Exact-SHA VSFTPD #45673063824 PASS (C regression and source contract); AI docs #45673063860 PASS; Process inventory #45673063812 PASS; Process lifecycle #45673063825 PASS; NVRAM audit #45673063811 PASS. XY-C1 #45673063864 was still at Build XY-C1 when recorded; TRX/artifact pending, so L3 is not claimed. Standalone collision helper GNU89/Werror/ASan/UBSan smoke test PASS; no local full firmware build claimed.
+- Adjacent WAN 6rd host-bit commit `778714965a2013c2e1febb9e884eed4dd422db23` had a checker-only failure because `sixrd_body` was undefined. Follow-up `b7828a9da9ca5f15fc513f7806efcf46aebb4daf` corrected the assertion scope; WAN DHCP callback #45672691417 PASS. Physical-router L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-25 — Reject impossible DHCPv4 OPTION_6RD prefix mappings
 
 - Base SHA: `7404c9e0b49f7395ad90d07b9f5f2d82cb501d26`; atomic source commit: `4bbbcd391987de3e200770a865b0401e556b4b20`.

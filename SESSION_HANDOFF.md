@@ -1,34 +1,35 @@
 ## Current repository state — 2026-11-25
 
-- Main source checkpoint: `4bbbcd391987de3e200770a865b0401e556b4b20` (WAN DHCPv4 OPTION_6RD validation).
+- Main source checkpoint: `ada6ebecc055d781200fa6621b2a2b60a4777889` (bounded STOU exclusive-create collision retry).
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains untouched at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- FTP hardening is retained: partition `.hidden` marker reserved; RNFR and STOU candidate lookups use authorized, pinned parent descriptors and nofollow entry stats; STOU revalidates parent identity after lookup.
-- DHCPv4 OPTION_6RD validation now enforces the RFC 5969 prefix-size bound before transactional NVRAM publication, so malformed options do not replace the last known-good 6rd tuple.
+- STOU now retries a final descriptor-relative `O_CREAT | O_EXCL` failure only when errno is `EEXIST`, with a maximum of 16 retries. Each retry reselects from the original FTP argument and repeats deny-file filtering, ACL approval, pinned-parent/nofollow candidate probing, and final exclusive creation. Other errors remain fail-closed and retain their original errno.
+- Regression updates exercise duplicate exclusive creation (`EEXIST`), the retry limit, success/non-`EEXIST` rejection, and the existing upload cleanup invariant. Exact-SHA VSFTPD workflow compiles/runs the C path-policy regression and source contract.
+- The WAN 6rd prefix hardening remains in the source lineage. The initial 778714 DHCP callback run failed only because its Python checker referenced undefined `sixrd_body`; checker-only commit `b7828a9da9ca5f15fc513f7806efcf46aebb4daf` corrected the source-scope assertion, and WAN DHCP callback run #45672691417 then PASSed.
 - OpenVPN startup/readiness and rollback protections remain unchanged. Physical-router L4 is NOT VERIFIED.
 
 ## Active task
 
-- Continue independent WAN/userland reliability and security work. Do not repeat audits/fixes already completed for FTP `.hidden`, RNFR symlink handling, STOU pre-authorization/parent verification, or DHCPv4 6rd prefix bounds.
+- Continue with an independent P1 stability/security defect in another userland area; do not repeat completed FTP `.hidden`, RNFR symlink handling, STOU pre-authorization/parent identity, WAN 6rd bounds/host-bit handling, or the new STOU collision-retry slice.
 
 ## Verification boundary — exact source SHA
 
-On `4bbbcd391987de3e200770a865b0401e556b4b20`:
-- WAN DHCP callback #45671544919 PASS, including the new GNU89/ASan/UBSan OPTION_6RD boundary regression and `check_wan6_dns_policy.py` source-order contract.
-- IPv6 service-type #45671544995 PASS.
-- WAN route status #45671545155 PASS.
-- HTTPD authentication/security #45671544917 PASS.
-- AI handoff validation #45671545086 PASS.
-- Process lifecycle inventory #45671545105 PASS.
-- NVRAM transaction audit #45671544955 still IN_PROGRESS at the raw userland ioctl/kernel caller audit stage; preceding host regressions had passed.
-- XY-C1 firmware #45671545199 still IN_PROGRESS at last poll; Build, TRX verification and artifact upload were PENDING. No L3 firmware result is claimed for this SHA yet.
-- Host-side OPTION_6RD C regression also passed locally with GNU89, `-Wall -Wextra -Werror`, ASan and UBSan.
+On `ada6ebecc055d781200fa6621b2a2b60a4777889`:
+- VSFTPD configuration publication stability #45673063824 PASS. This includes the GNU89/Werror FTP ACL C regression with the new duplicate-`O_EXCL` collision policy checks, source-order contract, and parent-identity check.
+- AI handoff documentation #45673063860 PASS.
+- Process inventory/lifecycle commit check #45673063812 PASS.
+- Process inventory and lifecycle fail-closed regression #45673063825 PASS.
+- NVRAM transaction boundary audit #45673063811 PASS.
+- XY-C1 firmware validation #45673063864 remains IN_PROGRESS at the `Build XY-C1` step. Header/source host checks preceding the build completed successfully; TRX verification and artifact upload are still pending. No L3 firmware result is claimed for this SHA.
+- A standalone GNU89/`-Wall -Wextra -Werror`/ASan/UBSan harness for the collision predicate passed; this is a focused helper smoke test, not a full firmware build.
+- WAN DHCP callback checker correction `b7828a9...` was separately verified by run #45672691417 PASS; the VSFTPD descendant `ada6ebe...` did not alter the WAN DHCP source/checker inputs.
+- Physical-router L4 NOT VERIFIED.
 
 ## Exact first actions for next GPT
 
-1. Poll XY-C1 run #45671545199 on the exact source SHA. Require Build XY-C1, TRX verification and artifact upload all PASS before recording L3.
-2. Check NVRAM raw ioctl/kernel caller audit #45671544955 for completion or a concrete failure; do not wait if it remains pending.
-3. Continue a separate P1 source defect in WAN/userland; keep commits small and include regression tests.
-4. Update this handoff and roadmap after each validated source slice; preserve all historical dev-log entries.
+1. Poll XY-C1 run #45673063864 on the exact source SHA. Require Build XY-C1, TRX verification and artifact upload all PASS before recording L3.
+2. Continue an independent P1 userland fix with a focused C regression and semantic source/workflow contract; PENDING Actions do not block other work.
+3. Commit each logical source/test slice as one tree and one commit, with a non-force expected-SHA update to main.
+4. Update this handoff and the root development log after validated source slices; preserve all historical entries.
 
 ## Execution contract
 
