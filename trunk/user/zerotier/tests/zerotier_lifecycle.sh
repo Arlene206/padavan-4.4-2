@@ -1896,19 +1896,39 @@ if grep -Fqx -- "rm:-rf $TEST_CONFIG" "$TEST_ACTION_LOG"; then
 	fail "stop removed persistent configuration while a conflicting destination route remained"
 fi
 
-# The configured nexthop may be the first of several multipath pairs. Match
-# every via/dev pair, then delete and verify only the exact configured tuple.
+# Linux 4.4 fib_nh_match() treats a gateway/device delete against a
+# multipath FIB alias as a match on the first nexthop and removes the whole
+# alias. Even when one nexthop is configured for ZeroTier, never delete the
+# unrelated ECMP nexthops as collateral.
 TEST_ROUTE_SHOW_OUTPUT="$TEST_STATIC_ROUTE_IP proto static nexthop via $TEST_STATIC_ROUTE_GATEWAY dev ztunit weight 1 nexthop via 192.0.2.2 dev br0 weight 1"
 : > "$TEST_ACTION_LOG"
 mkdir -p "$TEST_CONFIG"
 echo identity > "$TEST_CONFIG/identity.secret"
 echo running > "$TEST_STATE"
 TEST_MODE=graceful
-if ! stop_zero; then
-	fail "stop failed to match and remove the configured first multipath nexthop"
+if stop_zero; then
+	fail "stop accepted and deleted a multipath route containing a configured first nexthop"
 fi
-grep -Fqx -- "zero_route:del" "$TEST_ACTION_LOG" || fail "multipath route cleanup skipped the configured nexthop"
-[ ! -e "$TEST_CONFIG" ] || fail "successful multipath cleanup retained persistent configuration"
+[ -f "$TEST_CONFIG/identity.secret" ] || fail "ambiguous multipath route removed the persistent identity"
+if grep -Fqx -- "zero_route:del" "$TEST_ACTION_LOG"; then
+	fail "cleanup issued a gateway/device delete that removes the full multipath FIB alias"
+fi
+
+# The same fail-closed rule applies when the configured nexthop is not first.
+TEST_ROUTE_SHOW_OUTPUT="$TEST_STATIC_ROUTE_IP proto static nexthop via 192.0.2.2 dev br0 weight 1 nexthop via $TEST_STATIC_ROUTE_GATEWAY dev ztunit weight 1"
+: > "$TEST_ACTION_LOG"
+/bin/rm -rf "$TEST_CONFIG"
+mkdir -p "$TEST_CONFIG"
+echo identity > "$TEST_CONFIG/identity.secret"
+echo running > "$TEST_STATE"
+TEST_MODE=graceful
+if stop_zero; then
+	fail "stop accepted a multipath route containing a configured later nexthop"
+fi
+[ -f "$TEST_CONFIG/identity.secret" ] || fail "later-nexthop ambiguity removed the persistent identity"
+if grep -Fqx -- "zero_route:del" "$TEST_ACTION_LOG"; then
+	fail "cleanup issued a delete for an ambiguous multipath route"
+fi
 TEST_ROUTE_SHOW_OUTPUT=""
 
 # iproute2 may display an explicitly configured /32 host route without /32.

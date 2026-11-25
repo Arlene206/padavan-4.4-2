@@ -1111,9 +1111,12 @@ zero_route_entry_matches() {
 		}
 		route_destination_key($1) == route_destination_key(destination) {
 			destination_found = 1
+			route_hop_count = 0
+			line_found = 0
 			for (i = 2; i <= NF; i++) {
 				if ($i != "via")
 					continue
+				route_hop_count++
 				hop_gateway = $(i + 1)
 				hop_interface = ""
 				for (j = i + 2; j <= NF; j++) {
@@ -1125,10 +1128,19 @@ zero_route_entry_matches() {
 					}
 				}
 				if (hop_gateway == gateway && hop_interface == interface)
-					found = 1
+					line_found = 1
 			}
+			# Linux 4.4 fib_nh_match() checks only the first nexthop when
+			# deleting by gateway/device, then removes the entire FIB alias.
+			# Never let a single configured leg authorize deleting an ECMP route.
+			if (route_hop_count > 1)
+				multipath_found = 1
+			else if (route_hop_count == 1 && line_found)
+				found = 1
 		}
 		END {
+			if (multipath_found)
+				exit 2
 			if (found)
 				exit 0
 			if (destination_found)

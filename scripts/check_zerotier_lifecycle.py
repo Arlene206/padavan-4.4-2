@@ -740,15 +740,20 @@ require('function route_destination_key(value, slash)' in route_match_body and
         'return value "/32"' in route_match_body and
         'substr(value, slash + 1) == "32"' in route_match_body and
         'destination_found = 1' in route_match_body and
+        'route_hop_count++' in route_match_body and
+        'if (route_hop_count > 1)' in route_match_body and
+        'multipath_found = 1' in route_match_body and
+        'if (multipath_found)' in route_match_body and
         'hop_gateway == gateway && hop_interface == interface' in route_match_body and
         'if (destination_found)' in route_match_body and
         'exit 2' in route_match_body,
-        "static-route matching must normalize implicit/explicit host prefixes and distinguish conflicting nexthops")
+        "static-route matching must normalize host routes and reject multipath aliases that Linux 4.4 cannot partially delete")
 require('TEST_ROUTE_SHOW_OUTPUT' in test and
         'stop accepted a conflicting route to the configured destination' in test and
-        'stop failed to match and remove the configured first multipath nexthop' in test and
+        'stop accepted and deleted a multipath route containing a configured first nexthop' in test and
+        'stop accepted a multipath route containing a configured later nexthop' in test and
         'stop failed to match a /32 route displayed without its prefix' in test,
-        "static-route regressions must cover conflicting nexthops, multipath and iproute2 host-route display normalization")
+        "static-route regressions must reject first- and later-hop multipath aliases while preserving /32 display handling")
 
 require('zerotier_kernel_route_segment "$zt0"' in cleanup_section,
         "firewall cleanup must use the same token-based route parser")

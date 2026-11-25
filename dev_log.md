@@ -1,3 +1,13 @@
+## 2026-11-25 — Fail closed when ZeroTier cleanup encounters an ECMP route
+
+- The ZeroTier route matcher previously accepted a configured gateway/device pair if it appeared anywhere on a multipath route line. The subsequent cleanup command is only `ip route del <prefix> via <gateway> dev <zt0>`; in this repository's Linux 4.4 `fib_nh_match()`, the gateway/device branch compares only `fi->fib_nh` (the first nexthop) and then `fib_table_delete()` removes the entire FIB alias. Deleting a route merely because the ZeroTier pair matched the first ECMP nexthop could therefore also remove unrelated nexthops on other interfaces.
+- The matcher now counts nexthops per matching destination record and returns the existing ambiguous/unknown status when more than one `via` hop is present. ZeroTier stop will preserve its daemon identity/configuration and will not issue the dangerous partial-looking delete. Single-hop exact routes and implicit/explicit /32 normalization remain supported.
+- Replaced the previous success-on-multipath regression with fail-closed cases for the configured path appearing first and later; each asserts no route-delete action and persistent identity retention. Updated the Python source contract to pin the multipath refusal.
+- Static Linux 4.4 source inspection establishes why the delete is destructive; exact-SHA ZeroTier lifecycle and XY-C1 Actions will execute the updated regressions. No live-router or firmware result is claimed.
+- Changed paths: `trunk/user/zerotier/zerotier.sh`, `trunk/user/zerotier/tests/zerotier_lifecycle.sh`, `scripts/check_zerotier_lifecycle.py`.
+
+---
+
 ## 2026-11-25 — Preserve EDNS0 Additional-section ordering in LLMNR replies
 
 - The LLMNR responder copied the entire query, kept ARCOUNT, then appended its A/AAAA answer at `inlen`. For a valid EDNS0 request the OPT pseudo-RR remained before the appended answer while ANCOUNT was incremented, so receivers parsed the OPT bytes as the Answer RR and the packet sections were malformed. The responder also failed to emit the mandatory OPT RR in replies.
