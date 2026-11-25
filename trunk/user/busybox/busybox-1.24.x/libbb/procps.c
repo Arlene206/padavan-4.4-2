@@ -10,6 +10,7 @@
  */
 
 #include "libbb.h"
+#include "procps_stat_policy.h"
 
 
 typedef struct id_to_name_map_t {
@@ -379,17 +380,14 @@ procps_status_t* FAST_FUNC procps_scan(procps_status_t* sp, int flags)
 			/* see proc(5) for some details on this */
 			strcpy(filename_tail, "stat");
 			n = read_to_buf(filename, buf);
-			if (n < 0)
-				continue; /* process probably exited */
-			cp = strrchr(buf, ')'); /* split into "PID (cmd" and "<rest>" */
-			/*if (!cp || cp[1] != ' ')
-				continue;*/
-			cp[0] = '\0';
+			if (n <= 0)
+				continue; /* process exited or stat read was empty */
+			if (!procps_stat_comm_bounds(buf, (size_t)n, &comm1, &cp))
+				continue; /* skip a truncated or malformed procfs record */
+			*cp = '\0';
 			if (sizeof(sp->comm) < 16)
 				BUG_comm_size();
-			comm1 = strchr(buf, '(');
-			/*if (comm1)*/
-				safe_strncpy(sp->comm, comm1 + 1, sizeof(sp->comm));
+			safe_strncpy(sp->comm, comm1 + 1, sizeof(sp->comm));
 
 #if !ENABLE_FEATURE_FAST_TOP
 			n = sscanf(cp+2,
