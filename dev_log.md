@@ -1,3 +1,13 @@
+## 2026-11-25 — Avoid signed-char undefined behavior in UDPXY relay option parsing
+
+- The bounded relay parser still used `strchr(SEP, host[i])` while scanning an attacker-controlled group literal. On targets with signed `char`, bytes 0x80..0xff become negative; passing those values to `strchr` violates its requirement that the argument be EOF or an unsigned-char value.
+- Replaced the lookup with direct byte comparisons for the six legacy separators and added a high-bit input regression to the production-linked GNU89 ASan/UBSan test. No address validation semantics or accepted separator set changed.
+- This commit also restores the required `## Active task`, `## Verification boundary`, `## Exact first action for the next GPT`, and mandatory-checkpoint sections after exact AI docs run #45723286575 exposed their omission.
+- Parent SHA: 4efe6e652e98579f7a852fe617d36fc1b0404e81. Exact-head parser and documentation runs for this follow-up: pending. Current XY-C1 source build status remains separately tracked in the handoff.
+- Changed paths: trunk/user/udpxy/src/rparse.c, trunk/user/udpxy/src/test/rparse_request_bounds.c, scripts/check_udpxy_request_parser.py, SESSION_HANDOFF.md, dev_log.md.
+
+---
+
 ## 2026-11-25 — Fail closed when qmi_wwan has no matching physical WDM control node
 
 - `ndis_control_network()` previously checked for `qmi_wwan` only inside the branch entered when a matching per-device `cdc-wdmN` node had already been found. If the WDM node was absent, stale, or not published yet, the function fell through with `control_required=0`; the NDIS caller ignored the returned failure and launched DHCP despite having no way to start the required QMI data session.

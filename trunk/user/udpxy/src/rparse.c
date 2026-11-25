@@ -184,7 +184,6 @@ parse_udprelay( const char* opt, size_t optlen,
                 char* addr,       size_t addrlen,
                 uint16_t* port )
 {
-    static const char SEP[] = ":%~+-^";
     const char *nul, *source;
     char buffer[512];
     char *host;
@@ -230,7 +229,10 @@ parse_udprelay( const char* opt, size_t optlen,
     host_remaining = input_len - (size_t)(host - buffer);
     sep = host_remaining;
     for (i = 0; i < host_remaining; ++i) {
-        if (strchr(SEP, host[i]) != NULL) {
+        /* Compare bytes directly: strchr() is undefined for negative
+         * signed-char values received from an untrusted HTTP request. */
+        if (host[i] == ':' || host[i] == '%' || host[i] == '~' ||
+            host[i] == '+' || host[i] == '-' || host[i] == '^') {
             sep = i;
             break;
         }

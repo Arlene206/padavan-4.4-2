@@ -46,6 +46,8 @@ assert "memchr(opt, '\\0', optlen)" in parse_udprelay
 assert "at >= s_addrlen" in parse_udprelay
 assert "host_len >= addrlen" in parse_udprelay
 assert "host[i] < '0' || host[i] > '9'" in parse_udprelay
+assert "host[i] == ':' || host[i] == '%' || host[i] == '~'" in parse_udprelay
+assert "strchr(" not in parse_udprelay
 assert "s_addr[0] = '\\0'" in parse_udprelay
 for token in ("strncpy(", "strcspn(", "atoi(", "strlen("):
     assert token not in parse_udprelay, token
@@ -57,6 +59,7 @@ for token in (
     "test_unterminated_request_buffer",
     "test_length_delimited_parameters",
     "test_source_address_bounds_and_port",
+    "high_byte_group",
     "5000junk",
     "source_len",
 ):

@@ -107,6 +107,9 @@ test_source_address_bounds_and_port(void)
     const char ordinary[] = "239.1.2.3:5000";
     const char ssm[] = "192.0.2.1@239.1.2.3:5000";
     const char invalid_port[] = "239.1.2.3:5000junk";
+    const char high_byte_group[] = {
+        (char)0x80, ':', '5', '0', '0', '0', '\0'
+    };
     char unterminated[] = {
         '2', '3', '9', '.', '1', '.', '2', '.', '3', ':', '5', '0', '0', '0'
     };
@@ -119,6 +122,14 @@ test_source_address_bounds_and_port(void)
                          group, sizeof(group), &port) == 0);
     CHECK(source[0] == '\0');
     CHECK(strcmp(group, "239.1.2.3") == 0);
+    CHECK(port == 5000U);
+
+    /* Network bytes with the high bit set must not reach strchr() as a
+     * negative signed char while scanning the group address. */
+    CHECK(parse_udprelay(high_byte_group, sizeof(high_byte_group),
+                         source, sizeof(source), group, sizeof(group),
+                         &port) == 0);
+    CHECK((unsigned char)group[0] == 0x80U);
     CHECK(port == 5000U);
 
     CHECK(parse_udprelay(ssm, sizeof(ssm), source, sizeof(source),

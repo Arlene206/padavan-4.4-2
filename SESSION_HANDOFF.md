@@ -1,22 +1,27 @@
-## Current repository state — 2026-11-25
+## Current repository state
 
-- Live main immediately before this engineering slice: `6631da6bc711d0b24d791fd8e4d6fd6578b06f20` (`fix(rstats): reject special files in raw history reader`). Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable, do not modify.
-- Parent-head checks on `6631da6`: RStats regression #45722628854 PASS, Process inventory #45722628823 PASS and AI handoff contract #45722628813 PASS. NVRAM #45722628890 and XY-C1 #45722628889 were still IN_PROGRESS at the last observation; this new source commit will require its own exact-head runs.
-- The previous ZeroTier on-link ECMP uncertainty is closed; exact ZeroTier #45719100260, Process #45719100773, WAN route #45719100509 and AI docs #45719100546 passed on `9ed539a04e4c4df96aef03f9d1a6f9637fd3e3b9`.
-- The latest confirmed XY-C1 L3 baseline is `9ed539a04e4c4df96aef03f9d1a6f9637fd3e3b9`, run #45719100341: Build XY-C1, TRX verification and artifact upload all succeeded. Later production changes (including DHCPv6 packet bounds, rstats and this UDPXY slice) are not covered by that image. Current-source L3 and physical-router L4 remain NOT VERIFIED.
+- Live `main` before this slice: `4efe6e652e98579f7a852fe617d36fc1b0404e81` (`fix(modem): fail closed without matching QMI control node`). Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; never modify it.
+- `947a1e78e3fdf3c77591a544abc03bfa6e795ace` UDPXY request-boundary workflow #45723286524 PASS; process lifecycle checks #45723286572 and #45723286480 PASS. Its AI docs run #45723286575 failed because this handoff omitted the required `## Active task` heading; the same exact validator failure repeated on `4efe6e6` as #45723458402. This commit restores the required four-section contract and preserves the execution archive.
+- On exact `4efe6e6`, USB modem identity #45723458320, WAN teardown #45723458355, detect_link #45723458450, WAN DHCP callback #45723458517, HTTPD security #45723458524 and Process inventory #45723458437 passed. Process fail-closed #45723458432, XY-C1 #45723458362 and NVRAM #45723458565 were pending at last inspection.
+- UDPXY parser source regression passed on `947a1e7`. XY-C1 on `947a1e7` (#45723286510) was still pending, while its NVRAM run #45723286578 was cancelled after the compile and initial regression steps passed. The latest previously confirmed XY-C1 L3 image remains `9ed539a04e4c4df96aef03f9d1a6f9637fd3e3b9` (#45719100341); later product-source changes are not covered. Current-source L3 and physical-router L4 remain NOT VERIFIED.
 
-## Last engineering slice — UDPXY parser memory-safety and input-boundary repair
+## Active task
 
-- `read_command()` receives up to 2048 bytes and passes the exact `recv()` length to `get_request()`. The old `strstr()`/`strcspn()` scans were unbounded when malformed client traffic filled the buffer without NUL termination.
-- `parse_param()` read `s[i]` after the supplied span and used unbounded `strcspn()`. `parse_udprelay()` could copy an attacker-controlled SSM source length into a 16-byte destination before checking capacity; absent `@` also left the caller's source-address array uninitialized, and `atoi()` accepted trailing non-digits.
-- This slice replaces those scans with explicit-length operations, checks source/group output capacities before copying, initializes absent source output, validates decimal port syntax/overflow, and adds a production-linked GNU89 ASan/UBSan regression plus a semantic source contract.
-- The UDPXY package path is added to the XY-C1 production-input workflow. Exact-head UDPXY, XY-C1, Process inventory and AI handoff Actions must be checked after the combined main commit. No current-source MIPS/L3 or hardware/L4 result is claimed.
+Continue UDPXY reliability hardening. The immediate parser follow-up replaces a `strchr()` scan whose second argument was an untrusted possibly-negative `char`; C requires the value to be EOF or representable as `unsigned char`. Direct byte comparisons plus a high-bit regression close that undefined-behavior edge. Next investigate `renew_multicast()`'s DROP-then-ADD early return and `check_mcast_refresh()`'s ignored error/normal timer advance: a successful DROP followed by failed ADD leaves the stream unsubscribed and the next DROP-first retry can never reach ADD.
 
-## Exact first actions for next GPT
+## Verification boundary
 
-1. Fetch live main and exact-head push Actions for the UDPXY engineering commit created on top of `6631da6bc711d0b24d791fd8e4d6fd6578b06f20`; triage any failure from its first causal job. Do not use PR or older-SHA green results.
-2. Require the UDPXY GNU89 ASan/UBSan regression and source contract to pass. For L3, require the XY-C1 Build, TRX verification and artifact upload to all pass on the same resulting product-source SHA.
-3. Continue within `trunk/user/udpxy/src` only for a distinct demonstrated socket-I/O defect (candidate inspections: short HTTP response sends and multicast refresh failure handling); do not redo these parser fixes. Keep source and tests in bounded atomic commits.
+- For `947a1e78e3fdf3c77591a544abc03bfa6e795ace`: UDPXY GNU89/ASan/UBSan production-linked regression and source contract PASS (#45723286524); Process checks PASS; AI documentation check FAIL only because the required active-task heading was absent; XY-C1 run #45723286510 was still in progress when last checked.
+- For `4efe6e652e98579f7a852fe617d36fc1b0404e81`: USB modem, WAN teardown, detect_link, WAN callback, HTTPD and Process inventory checks PASS; AI documentation check #45723458402 failed on the same required heading. Process fail-closed, XY-C1 and NVRAM were still pending.
+- This high-byte parsing follow-up and the documentation repair require their own exact-head UDPXY and AI handoff checks. No MIPS firmware, live multicast/HTTP or hardware validation is claimed.
+
+## Exact first action for the next GPT
+
+Fetch current `main`, then the exact-head UDPXY parser and AI documentation runs from this commit. Once those are green, implement the multicast renewal retry/return-status repair with a GNU89 sanitizer regression. Treat XY-C1 Build, TRX verification and artifact upload as L3 only when all pass on one identical product-source SHA.
+
+## Mandatory handoff checkpoint
+
+The checkpoint is mandatory; a document edit is conditional. Inspect exact live main, backup ref, and relevant exact-head Actions before ending. If all checkpoint facts and the first action are already accurate, explicitly conclude the check with no file change and no commit.
 
 # Cross-session execution mandate
 
