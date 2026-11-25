@@ -138,6 +138,44 @@ test_cache_backed_text_is_copied_without_truncation(void)
     assert(vpn_client_nvram_copy_text("peer", NULL, sizeof(destination)) ==
            EINVAL);
     assert(vpn_client_nvram_copy_text("peer", destination, 0) == EINVAL);
+
+    assert(vpn_client_nvram_copy_status(1, 0, "peer.example",
+                                        destination, sizeof(destination)) == 0);
+    assert(strcmp(destination, "peer.example") == 0);
+    assert(vpn_client_nvram_copy_status(0, 0, NULL,
+                                        destination, sizeof(destination)) == 0);
+    assert(destination[0] == '\0');
+    strcpy(destination, "stale");
+    assert(vpn_client_nvram_copy_status(-1, EACCES, NULL,
+                                        destination, sizeof(destination)) == EACCES);
+    assert(destination[0] == '\0');
+    assert(vpn_client_nvram_copy_status(1, 0, NULL,
+                                        destination, sizeof(destination)) == EIO);
+    assert(destination[0] == '\0');
+    assert(vpn_client_nvram_copy_status(1, 0, "oversized-peer",
+                                        destination, sizeof(destination)) == ENAMETOOLONG);
+
+    {
+        int mtu = -1;
+        assert(vpn_client_nvram_read_clamped_int_status(
+            0, 0, NULL, 1450, 1000, 1460, &mtu) == 0);
+        assert(mtu == 1450);
+        assert(vpn_client_nvram_read_clamped_int_status(
+            1, 0, "999", 1450, 1000, 1460, &mtu) == 0);
+        assert(mtu == 1000);
+        assert(vpn_client_nvram_read_clamped_int_status(
+            1, 0, "1500", 1450, 1000, 1460, &mtu) == 0);
+        assert(mtu == 1460);
+        assert(vpn_client_nvram_read_clamped_int_status(
+            1, 0, "  +1200  ", 1450, 1000, 1460, &mtu) == 0);
+        assert(mtu == 1200);
+        assert(vpn_client_nvram_read_clamped_int_status(
+            -1, EACCES, NULL, 1450, 1000, 1460, &mtu) == EACCES);
+        assert(vpn_client_nvram_read_clamped_int_status(
+            1, 0, "1450junk", 1450, 1000, 1460, &mtu) == EINVAL);
+        assert(vpn_client_nvram_read_clamped_int_status(
+            1, 0, "999999999999999999999999", 1450, 1000, 1460, &mtu) == ERANGE);
+    }
 }
 
 static void

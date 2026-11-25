@@ -1,3 +1,12 @@
+## 2026-11-25 — Snapshot VPN client startup settings before side effects
+
+- PPTP/L2TP startup reads enable/type/auth/MPPE/MTU/MRU/default-route/peer/user/password/custom PPP options in one checked NVRAM transaction. Backend or transaction-end errors, malformed values and oversized strings abort before runtime DNS clearing, PPP file creation or protocol selection; absent optional values retain defaults and MTU/MRU retain the 1000–1460 clamp.
+- OpenVPN enable/type/selectors and credentials join its checked client-config transaction. Runtime DNS/state clearing follows full config validation, and secret publication uses copied credentials instead of unchecked cache-backed getters.
+- Added policy regressions for read failure versus absence, stale-buffer clearing, bounded copy, defaults/clamps, malformed suffix and overflow; static contracts pin snapshot-before-side-effects. Exact VPN/Process/NVRAM/AI/XY-C1 Actions pending.
+- DHCPv6 finite-expiry fix `cb8f014` has exact-SHA L3: XY-C1 #45647751940 Build, TRX and artifact steps all PASS on the same SHA; focused DHCPv6/Process/WAN/USB/NVRAM checks PASS. Physical-router L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-25 — Reject corrupt RStats history ring cursors before restore
 
 - `load_history_raw()` accepted a persisted `history_t` when only its byte count and magic ID matched, then copied `dailyp` / `monthlyp` directly into live state. `bump_history()` indexes the daily/monthly arrays using those cursors, so a corrupt or stale record could cause an out-of-bounds access during the next statistics update.

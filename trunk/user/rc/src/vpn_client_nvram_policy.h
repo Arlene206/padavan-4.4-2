@@ -142,6 +142,73 @@ vpn_client_nvram_copy_text(const char *source, char *destination,
     return 0;
 }
 
+/* Copy transactional text only after distinguishing absence from read error. */
+static inline int
+vpn_client_nvram_copy_status(int api_result, int saved_errno,
+                             const char *value, char *destination,
+                             size_t destination_size)
+{
+    int status;
+
+    if (!destination || destination_size == 0)
+        return EINVAL;
+    destination[0] = '\0';
+    status = vpn_client_nvram_read_status(
+        api_result, saved_errno, api_result == 1 && value != NULL);
+    if (status != 0)
+        return status;
+    return vpn_client_nvram_copy_text(
+        api_result == 1 ? value : "", destination, destination_size);
+}
+
+/* Preserve safe_get_int clamping while surfacing transactional read errors. */
+static inline int
+vpn_client_nvram_read_clamped_int_status(int api_result, int saved_errno,
+                                         const char *value, int default_value,
+                                         int minimum, int maximum, int *result)
+{
+    const unsigned char *cursor;
+    char *end;
+    long parsed;
+
+    if (!result || minimum > maximum ||
+        default_value < minimum || default_value > maximum)
+        return EINVAL;
+    if (api_result < 0)
+        return saved_errno > 0 ? saved_errno : EIO;
+    if (api_result == 0) {
+        *result = default_value;
+        return 0;
+    }
+    if (api_result != 1 || !value)
+        return EIO;
+
+    cursor = (const unsigned char *)value;
+    while (*cursor && isspace(*cursor))
+        ++cursor;
+    if (!*cursor) {
+        *result = default_value;
+        return 0;
+    }
+
+    errno = 0;
+    parsed = strtol(value, &end, 10);
+    if (errno == ERANGE)
+        return ERANGE;
+    if (end == value)
+        return EINVAL;
+    while (*end && isspace((unsigned char)*end))
+        ++end;
+    if (*end)
+        return EINVAL;
+    if (parsed < minimum)
+        parsed = minimum;
+    else if (parsed > maximum)
+        parsed = maximum;
+    *result = (int)parsed;
+    return 0;
+}
+
 typedef int (*vpn_client_nvram_set_fn)(void *context, const char *name,
                                        const char *value);
 

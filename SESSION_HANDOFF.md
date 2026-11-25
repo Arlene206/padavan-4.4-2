@@ -1,15 +1,16 @@
-## 2026-11-25 active handoff — Reject corrupt RStats history ring cursors
+## 2026-11-25 active handoff — checked VPN client startup snapshot
 
-- Live main base for this slice: `195bc627d2d809da1877bc7c119a5a5e73342799`. Dropbear numeric-token source contract was corrected in the immediately preceding commit; Process inventory/fail-closed #45650274526 and AI handoff #45650274515 were in progress at last poll. Earlier #45649964742 failed at the superseded assertion and did not run the Dropbear fixture.
-- RStats raw history records were accepted based only on byte count and magic ID. Persisted `dailyp` / `monthlyp` are array indices used by `bump_history()`; corrupted values could address outside the daily/monthly arrays.
-- This slice validates both cursors before copying records to live state, discards/logs corrupt records, and adds GNU89 boundary tests plus exact-source order assertions. Exact-head RStats Actions pending; no L3/L4 claim.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. Physical-router L4 NOT VERIFIED.
+- Live main parent: `932d9b36c50f85c9af09828f19dcad293c4a37b1`. RStats history-cursor validation #45650854127 PASS; AI docs #45650853909 PASS; HTTPD security #45650853978 PASS; Process fail-closed #45650854255 PASS. NVRAM audit #45650853825 and XY-C1 #45650853972 were in progress; Process lifecycle inventory #45650854173 was queued/in progress at last poll. Parent-SHA runs do not validate this VPN source slice.
+- Dropbear source fix `3d133996a9fe1de17d57f8c25805efee362f6106` plus checker correction `195bc627d2d809da1877bc7c119a5a5e73342799`: exact Process #45650274526 PASS and AI docs #45650274515 PASS. XY-C1 #45649964829 on the Dropbear source SHA was still in progress at last poll.
+- DHCPv6 IA finite-expiry fix `cb8f014893d99e8991c55cd792443e5c2c1f4a37` has L3 VERIFIED: exact XY-C1 #45647751940 completed Build XY-C1, TRX verification and artifact upload all SUCCESS on that identical SHA. Focused DHCPv6 IA, Process, WAN DHCP callback, USB storage and NVRAM checks PASS; AI docs #45648215022 PASS on docs-only descendant 84fadb. Physical-router L4 NOT VERIFIED.
+- VPN reliability slice: PPTP/L2TP settings now use one checked transaction; backend errors, malformed values or oversized strings abort before runtime DNS clearing or PPP file publication. OpenVPN enable/type/selectors and credentials are checked together; runtime cleanup follows full snapshot validation, and secret publication consumes copied credentials. Exact VPN/Process/NVRAM/AI/XY-C1 validation for this new SHA pending.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ### First actions
 
-1. Check exact-SHA RStats workflow and repair compiler, sanitizer, or source-contract failures.
-2. Check Dropbear exact-SHA runs #45650274526 and #45650274515; confirm the executable-identity test step runs and passes.
-3. Continue another independent userland stability/security slice while unrelated Actions are pending.
+1. Inspect exact-head VPN lifecycle, Process inventory, NVRAM boundary, AI docs and XY-C1 runs; fix the first causal failure without relaxing assertions.
+2. L3 requires Build XY-C1, TRX verification and artifact upload PASS on the same product-source SHA.
+3. Continue another independent userland stability/security task while unrelated Actions are pending.
 
 ### Execution contract
 

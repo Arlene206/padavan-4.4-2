@@ -104,6 +104,202 @@ vpn_client_read_transaction_int(struct nvram_transaction *transaction,
 	return status;
 }
 
+static int
+vpn_client_read_transaction_clamped_int(struct nvram_transaction *transaction,
+                                        const char *name, int default_value,
+                                        int minimum, int maximum, int *result)
+{
+	char *value = NULL;
+	int api_result, saved_errno, status;
+
+	errno = 0;
+	api_result = nvram_transaction_get(transaction, name, &value);
+	saved_errno = errno;
+	status = vpn_client_nvram_read_clamped_int_status(
+		api_result, saved_errno, value, default_value,
+		minimum, maximum, result);
+	if (status != 0)
+		errno = status;
+	return status;
+}
+
+static int
+vpn_client_read_transaction_text(struct nvram_transaction *transaction,
+                                 const char *name, char *destination,
+                                 size_t destination_size)
+{
+	char *value = NULL;
+	int api_result, saved_errno, status;
+
+	errno = 0;
+	api_result = nvram_transaction_get(transaction, name, &value);
+	saved_errno = errno;
+	status = vpn_client_nvram_copy_status(
+		api_result, saved_errno, value, destination, destination_size);
+	if (status != 0)
+		errno = status;
+	return status;
+}
+
+static int
+vpn_client_read_transaction_alloc_text(struct nvram_transaction *transaction,
+                                       const char *name, char **destination)
+{
+	char *value = NULL;
+	char *copy;
+	int api_result, saved_errno, status;
+
+	if (!transaction || !name || !destination) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+	*destination = NULL;
+	errno = 0;
+	api_result = nvram_transaction_get(transaction, name, &value);
+	saved_errno = errno;
+	status = vpn_client_nvram_read_status(
+		api_result, saved_errno, api_result == 1 && value != NULL);
+	if (status != 0) {
+		errno = status;
+		return status;
+	}
+	copy = strdup(api_result == 1 ? value : "");
+	if (!copy) {
+		status = errno ? errno : ENOMEM;
+		errno = status;
+		return status;
+	}
+	*destination = copy;
+	return 0;
+}
+
+struct vpn_client_start_config {
+	int enabled;
+	int type;
+	int auth;
+	int mppe;
+	int mtu;
+	int mru;
+	int default_route;
+	char peer[256];
+	char peer_line[256];
+	char user_line[256];
+	char pass_line[256];
+	char *pppd_options;
+};
+
+/* Read every PPP selector and credential from one checked NVRAM snapshot. */
+static int
+vpn_client_read_start_config_snapshot(struct vpn_client_start_config *config)
+{
+	struct nvram_transaction transaction;
+	struct vpn_client_start_config pending;
+	char user[256], password[256], *custom_options = NULL;
+	int status = 0, result = -1, saved_errno = 0, end_status;
+
+	if (!config) {
+		errno = EINVAL;
+		return -1;
+	}
+	memset(&pending, 0, sizeof(pending));
+	if (nvram_transaction_begin(&transaction) != 0)
+		return -1;
+
+	status = vpn_client_read_transaction_int(
+		&transaction, "vpnc_enable", 0, 0, 1, &pending.enabled);
+	if (status != 0)
+		goto finish_transaction;
+	if (!pending.enabled) {
+		result = 0;
+		goto finish_transaction;
+	}
+	status = vpn_client_read_transaction_int(
+		&transaction, "vpnc_type", 0, 0, 2, &pending.type);
+	if (status != 0)
+		goto finish_transaction;
+#if defined(APP_OPENVPN)
+	if (pending.type == 2) {
+		result = 0;
+		goto finish_transaction;
+	}
+#endif
+	status = vpn_client_read_transaction_int(
+		&transaction, "vpnc_auth", 0, 0, 3, &pending.auth);
+	if (status != 0)
+		goto finish_transaction;
+	status = vpn_client_read_transaction_int(
+		&transaction, "vpnc_mppe", 0, 0, 3, &pending.mppe);
+	if (status != 0)
+		goto finish_transaction;
+	status = vpn_client_read_transaction_clamped_int(
+		&transaction, "vpnc_mtu", 1450, 1000, 1460, &pending.mtu);
+	if (status != 0)
+		goto finish_transaction;
+	status = vpn_client_read_transaction_clamped_int(
+		&transaction, "vpnc_mru", 1450, 1000, 1460, &pending.mru);
+	if (status != 0)
+		goto finish_transaction;
+	status = vpn_client_read_transaction_int(
+		&transaction, "vpnc_dgw", 0, 0, 1, &pending.default_route);
+	if (status != 0)
+		goto finish_transaction;
+	status = vpn_client_read_transaction_text(
+		&transaction, "vpnc_peer", pending.peer, sizeof(pending.peer));
+	if (status != 0)
+		goto finish_transaction;
+	status = vpn_client_read_transaction_text(
+		&transaction, "vpnc_user", user, sizeof(user));
+	if (status != 0)
+		goto finish_transaction;
+	status = vpn_client_read_transaction_text(
+		&transaction, "vpnc_pass", password, sizeof(password));
+	if (status != 0)
+		goto finish_transaction;
+	status = vpn_client_read_transaction_alloc_text(
+		&transaction, "vpnc_pppd", &custom_options);
+	if (status != 0)
+		goto finish_transaction;
+
+	if (!pending.peer[0]) {
+		status = EINVAL;
+		errno = status;
+		goto finish_transaction;
+	}
+	if (ppp_option_value_escape(pending.peer, pending.peer_line,
+				    sizeof(pending.peer_line)) != 0 ||
+	    ppp_option_value_escape(user, pending.user_line,
+				    sizeof(pending.user_line)) != 0 ||
+	    ppp_option_value_escape(password, pending.pass_line,
+				    sizeof(pending.pass_line)) != 0 ||
+	    ppp_option_text_escape_alloc(custom_options,
+					  &pending.pppd_options) != 0) {
+		status = errno ? errno : EINVAL;
+		goto finish_transaction;
+	}
+	result = 0;
+
+finish_transaction:
+	if (result != 0)
+		saved_errno = errno ? errno : (status ? status : EIO);
+	end_status = nvram_transaction_end(&transaction);
+	if (end_status != 0 && result == 0) {
+		result = -1;
+		saved_errno = errno ? errno : EIO;
+	}
+	free(custom_options);
+	if (result != 0) {
+		free(pending.pppd_options);
+		memset(user, 0, sizeof(user));
+		memset(password, 0, sizeof(password));
+		errno = saved_errno;
+		return -1;
+	}
+	memset(user, 0, sizeof(user));
+	memset(password, 0, sizeof(password));
+	*config = pending;
+	return 0;
+}
+
 /* Capture all selectors before touching the shared daemon or PPP state. */
 static int
 get_xl2tpd_vpnc_active(int *active)
@@ -158,153 +354,112 @@ vpn_client_nvram_set_temp_status(void *context, const char *name,
 	return status;
 }
 
+int
+vpn_client_clear_runtime_state_status(void)
+{
+	int status = vpn_client_nvram_clear_runtime_state(
+		vpn_client_nvram_set_temp_status, NULL);
+
+	if (status != 0)
+		errno = status;
+	return status;
+}
+
 
 static int
 start_vpn_client_locked(void)
 {
 	FILE *fp;
 	int i_type, i_mppe, i_auth, xl2tpd_status, saved_errno, cleanup_status;
-	char vpnc_peer_copy[256], vpnc_peer_line[256];
-	char vpnc_user_line[256], vpnc_pass_line[256];
-	char *vpnc_peer, *vpnc_opt, *vpnc_pppd_options = NULL;
+	struct vpn_client_start_config config;
+	char *vpnc_opt;
 
-	if (nvram_invmatch("vpnc_enable", "1") || get_ap_mode())
+	if (get_ap_mode())
+		return 1;
+	if (vpn_client_read_start_config_snapshot(&config) != 0) {
+		saved_errno = errno ? errno : EIO;
+		logmessage(VPNC_LOG_NAME,
+			   "cannot read/validate VPN client startup configuration; refusing startup (errno=%d)",
+			   saved_errno);
+		errno = saved_errno;
+		return -1;
+	}
+	if (!config.enabled)
 		return 1;
 
-	vpnc_peer = nvram_safe_get("vpnc_peer");
-	saved_errno = vpn_client_nvram_copy_text(
-		vpnc_peer, vpnc_peer_copy, sizeof(vpnc_peer_copy));
-	if (saved_errno != 0 || vpnc_peer_copy[0] == '\0') {
-		if (saved_errno == 0)
-			saved_errno = EINVAL;
-		logmessage(VPNC_LOG_NAME,
-			   "refusing VPN client startup: peer is empty or oversized (status=%d)",
-			   saved_errno);
-		errno = saved_errno;
-		return -1;
-	}
-	if (ppp_option_value_escape(vpnc_peer_copy, vpnc_peer_line,
-				    sizeof(vpnc_peer_line)) != 0) {
-		saved_errno = errno ? errno : EINVAL;
-		logmessage(VPNC_LOG_NAME,
-			   "refusing VPN client startup: peer contains invalid scalar data (errno=%d)",
-			   saved_errno);
-		errno = saved_errno;
-		return -1;
-	}
-
-	saved_errno = vpn_client_nvram_clear_runtime_state(
-		vpn_client_nvram_set_temp_status, NULL);
-	if (saved_errno != 0) {
-		logmessage(VPNC_LOG_NAME,
-			   "refusing VPN client startup: cannot clear stale runtime DNS/state (status=%d)",
-			   saved_errno);
-		errno = saved_errno;
-		return -1;
-	}
-
-	i_type = nvram_get_int("vpnc_type");
+	i_type = config.type;
 #if defined(APP_OPENVPN)
 	if (i_type == 2)
 		return start_openvpn_client();
 #endif
-	vpnc_opt = VPN_CLIENT_PPPD_OPTIONS;
+	cleanup_status = vpn_client_clear_runtime_state_status();
+	if (cleanup_status != 0) {
+		free(config.pppd_options);
+		logmessage(VPNC_LOG_NAME,
+			   "refusing VPN client startup: cannot clear stale runtime DNS/state (status=%d)",
+			   cleanup_status);
+		errno = cleanup_status;
+		return -1;
+	}
 
+	vpnc_opt = VPN_CLIENT_PPPD_OPTIONS;
 	if (ppp_options_directory_ready("/tmp/ppp") != 0 ||
 	    ppp_options_symlink_ready(VPNC_PPP_UP_SCRIPT, "/sbin/rc") != 0 ||
 	    ppp_options_symlink_ready(VPNC_PPP_DW_SCRIPT, "/sbin/rc") != 0) {
 		saved_errno = errno ? errno : EIO;
+		free(config.pppd_options);
 		logmessage(VPNC_LOG_NAME,
-			   "refusing VPN client startup because PPP callback directory/links are unsafe (errno=%d)",
+			   "refusing PPP VPN startup because callback directory/links are unsafe (errno=%d)",
 			   saved_errno);
 		errno = saved_errno;
 		return -1;
 	}
 
-	i_auth = nvram_get_int("vpnc_auth");
-	i_mppe = nvram_get_int("vpnc_mppe");
-
-	/*
-	 * Validate grammar-specific NVRAM values before opening/truncating the
-	 * private PPP options file. Scalar fields reject line breaks; custom
-	 * options preserve LF/TAB but cannot override RC-owned ipparam.
-	 */
-	if (ppp_option_value_escape(nvram_safe_get("vpnc_user"),
-				    vpnc_user_line, sizeof(vpnc_user_line)) != 0 ||
-	    ppp_option_value_escape(nvram_safe_get("vpnc_pass"),
-				    vpnc_pass_line, sizeof(vpnc_pass_line)) != 0 ||
-	    ppp_option_text_escape_alloc(nvram_safe_get("vpnc_pppd"),
-					  &vpnc_pppd_options) != 0) {
-		saved_errno = errno ? errno : EINVAL;
-		logmessage(VPNC_LOG_NAME,
-			   "refusing VPN client startup: PPP option value failed validation (errno=%d)",
-			   saved_errno);
-		free(vpnc_pppd_options);
-		vpnc_pppd_options = NULL;
-		errno = saved_errno;
-		return -1;
-	}
-
-	/* Credential-bearing options must be private before truncation. */
+	i_auth = config.auth;
+	i_mppe = config.mppe;
 	fp = ppp_options_file_open(vpnc_opt);
 	if (!fp) {
 		saved_errno = errno ? errno : EIO;
-		free(vpnc_pppd_options);
+		free(config.pppd_options);
 		logmessage(VPNC_LOG_NAME, "cannot safely open private PPP options (errno=%d)", saved_errno);
 		errno = saved_errno;
 		return -1;
 	}
 
 	fprintf(fp, "noauth\n");
-	fprintf(fp, "user '%s'\n", vpnc_user_line);
-	fprintf(fp, "password '%s'\n", vpnc_pass_line);
+	fprintf(fp, "user '%s'\n", config.user_line);
+	fprintf(fp, "password '%s'\n", config.pass_line);
 	fprintf(fp, "refuse-eap\n");
-
 	if (i_auth == 1) {
-		/* MS-CHAPv2 */
 		fprintf(fp, "refuse-pap\n");
 		fprintf(fp, "refuse-chap\n");
 		fprintf(fp, "refuse-mschap\n");
-	}
-	else if (i_auth == 2) {
-		/* CHAP */
+	} else if (i_auth == 2) {
 		fprintf(fp, "refuse-pap\n");
 		fprintf(fp, "refuse-mschap\n");
 		fprintf(fp, "refuse-mschap-v2\n");
-	}
-	else if (i_auth == 3) {
-		/* PAP */
+	} else if (i_auth == 3) {
 		fprintf(fp, "refuse-chap\n");
 		fprintf(fp, "refuse-mschap\n");
 		fprintf(fp, "refuse-mschap-v2\n");
 	}
-
 	if (i_type != 1) {
 		fprintf(fp, "plugin pptp.so\n");
-		fprintf(fp, "pptp_server '%s'\n", vpnc_peer_line);
-		fprintf(fp, "route_rdgw %d\n", (nvram_match("vpnc_dgw", "1")) ? 2 : 0);
+		fprintf(fp, "pptp_server '%s'\n", config.peer_line);
+		fprintf(fp, "route_rdgw %d\n", config.default_route ? 2 : 0);
 		fprintf(fp, "persist\n");
 		fprintf(fp, "linkname %s\n", VPNC_PPP_LINK_NAME);
 	}
-
-	fprintf(fp, "mtu %d\n", nvram_safe_get_int("vpnc_mtu", 1450, 1000, 1460));
-	fprintf(fp, "mru %d\n", nvram_safe_get_int("vpnc_mru", 1450, 1000, 1460));
-
+	fprintf(fp, "mtu %d\n", config.mtu);
+	fprintf(fp, "mru %d\n", config.mru);
 	fprintf(fp, "maxfail %d\n", 0);		// pppd re-call count (0=infinite)
 	fprintf(fp, "holdoff %d\n", 10);	// pppd re-call time (10s)
-
 	fprintf(fp, "ipcp-accept-remote ipcp-accept-local\n");
 	fprintf(fp, "noipdefault\n");
 	fprintf(fp, "usepeerdns\n");
-
 	fprintf(fp, "default-asyncmap\n");
-
-	/* looks like pptp also likes them */
 	fprintf(fp, "nopcomp noaccomp\n");
-
-	/* ccp should still be enabled - mppe/mppc requires this */
 	fprintf(fp, "novj nobsdcomp nodeflate\n");
-
 	if (i_mppe == 3) {
 		fprintf(fp, "nomppe nomppc\n");
 	} else {
@@ -322,39 +477,28 @@ start_vpn_client_locked(void)
 		}
 		fprintf(fp, "nomppe-stateful\n");
 	}
-
 	if (i_type == 1)
-	{
-		// Don't wait for LCP term responses; exit immediately when killed
 		fprintf(fp, "lcp-max-terminate %d\n", 0);
-	}
-
-	/* echo failures (6*20s) */
 	fprintf(fp, "lcp-echo-interval %d\n", 20);
 	fprintf(fp, "lcp-echo-failure %d\n", 6);
 	fprintf(fp, "lcp-echo-adaptive\n");
-
 	fprintf(fp, "ip-up-script %s\n", VPNC_PPP_UP_SCRIPT);
 	fprintf(fp, "ip-down-script %s\n", VPNC_PPP_DW_SCRIPT);
-
 	fprintf(fp, "minunit %d\n", VPNC_PPP_UNIT);
 	fprintf(fp, "ktune\n");
-
-	/* Custom options were checked and escaped before file truncation. */
-	fprintf(fp, "%s\n", vpnc_pppd_options);
+	fprintf(fp, "%s\n", config.pppd_options);
 
 	if (ppp_options_file_finish(fp, vpnc_opt) != 0) {
 		saved_errno = errno ? errno : EIO;
-		free(vpnc_pppd_options);
+		free(config.pppd_options);
 		logmessage(VPNC_LOG_NAME, "cannot flush or close private PPP options (errno=%d)", saved_errno);
 		errno = saved_errno;
 		return -1;
 	}
-	free(vpnc_pppd_options);
-	vpnc_pppd_options = NULL;
+	free(config.pppd_options);
+	config.pppd_options = NULL;
 
-	if (i_type == 1)
-	{
+	if (i_type == 1) {
 		saved_errno = vpn_client_nvram_set_temp_status(
 			NULL, "l2tp_cli_t", "1");
 		if (saved_errno != 0) {
@@ -372,7 +516,7 @@ start_vpn_client_locked(void)
 					NULL, "l2tp_cli_t", "0");
 				if (cleanup_status != 0)
 					logmessage(VPNC_LOG_NAME,
-						   "cannot roll back L2TP VPN client ownership marker (status=%d)",
+						   "cannot roll back L2TP client ownership marker (status=%d)",
 						   cleanup_status);
 				logmessage(VPNC_LOG_NAME,
 					   "cannot connect VPNC tunnel through xl2tpd control FIFO (errno=%d)",
@@ -386,15 +530,13 @@ start_vpn_client_locked(void)
 				NULL, "l2tp_cli_t", "0");
 			if (cleanup_status != 0)
 				logmessage(VPNC_LOG_NAME,
-					   "cannot roll back L2TP VPN client ownership marker (status=%d)",
+					   "cannot roll back L2TP client ownership marker (status=%d)",
 					   cleanup_status);
 			logmessage(VPNC_LOG_NAME, "cannot start or verify shared xl2tpd daemon (errno=%d)", saved_errno);
 			errno = saved_errno;
 			return -1;
 		}
-	}
-	else
-	{
+	} else {
 		saved_errno = vpn_client_nvram_set_temp_status(
 			NULL, "l2tp_cli_t", "0");
 		if (saved_errno != 0) {
@@ -406,7 +548,6 @@ start_vpn_client_locked(void)
 		}
 		return eval("/usr/sbin/pppd", "file", vpnc_opt);
 	}
-
 	return 0;
 }
 

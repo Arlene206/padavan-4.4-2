@@ -76,34 +76,58 @@ assert "int restore_dns_from_vpnc(void);" in rc_header
 assert "void restore_dns_from_vpnc(void);" not in rc_header
 
 start = body(vpn, "static int\nstart_vpn_client_locked(void)")
-assert "vpn_client_nvram_copy_text(" in start
-assert "ppp_option_value_escape(vpnc_peer_copy, vpnc_peer_line," in start
-assert 'ppp_option_value_escape(nvram_safe_get("vpnc_user")' in start
-assert 'ppp_option_value_escape(nvram_safe_get("vpnc_pass")' in start
-assert 'ppp_option_text_escape_alloc(nvram_safe_get("vpnc_pppd")' in start
+assert "vpn_client_read_start_config_snapshot(&config)" in start
+assert "vpn_client_clear_runtime_state_status()" in start
+assert "config.peer_line" in start and "config.user_line" in start
+assert "config.pass_line" in start and "config.pppd_options" in start
+assert "nvram_safe_get(" not in start
+assert "nvram_get_int(" not in start
+assert "nvram_match(" not in start
+assert "nvram_invmatch(" not in start
 assert "safe_pppd_line(" not in start
 file_open = start.index("fp = ppp_options_file_open(vpnc_opt);")
 for token in (
-    "ppp_option_value_escape(vpnc_peer_copy",
-    'ppp_option_value_escape(nvram_safe_get("vpnc_user")',
-    'ppp_option_value_escape(nvram_safe_get("vpnc_pass")',
-    'ppp_option_text_escape_alloc(nvram_safe_get("vpnc_pppd")',
+    "vpn_client_read_start_config_snapshot(&config)",
+    "config.peer_line",
+    "config.user_line",
+    "config.pass_line",
+    "config.pppd_options",
 ):
     assert start.index(token) < file_open, token
-assert "vpnc_user_line);" in start and "vpnc_pass_line);" in start
-assert "vpnc_pppd_options);" in start
-assert 'fprintf(fp, "%s\\n", nvram_safe_get("vpnc_pppd"));' not in start
-assert start.count("free(vpnc_pppd_options);") == 4
+assert "free(config.pppd_options);" in start
 assert "pptp_server" in start
 ordered(start, [
-    "saved_errno = vpn_client_nvram_clear_runtime_state(",
-    "if (saved_errno != 0)",
-    "return -1;",
-    "i_type = nvram_get_int(\"vpnc_type\")"
-], "VPN startup stale runtime cleanup")
-assert "nvram_set_temp(\"vpnc_dns_t\", \"\")" not in start
-assert "nvram_set_temp(\"vpnc_dom_t\", \"\")" not in start
-assert "nvram_set_int_temp(\"vpnc_state_t\", 0)" not in start
+    "vpn_client_read_start_config_snapshot(&config)",
+    "if (!config.enabled)",
+    "i_type = config.type",
+    "if (i_type == 2)",
+    "vpn_client_clear_runtime_state_status()",
+], "VPN startup snapshot before runtime mutation")
+
+snapshot = body(vpn, "static int\nvpn_client_read_start_config_snapshot(")
+ordered(snapshot, [
+    "nvram_transaction_begin(&transaction)",
+    '"vpnc_enable"',
+    '"vpnc_type"',
+    '"vpnc_auth"',
+    '"vpnc_mppe"',
+    '"vpnc_mtu"',
+    '"vpnc_mru"',
+    '"vpnc_dgw"',
+    '"vpnc_peer"',
+    '"vpnc_user"',
+    '"vpnc_pass"',
+    '"vpnc_pppd"',
+    "nvram_transaction_end(&transaction)",
+    "*config = pending;",
+], "VPN PPP startup transaction")
+assert "vpn_client_nvram_copy_status(" in vpn
+assert "vpn_client_nvram_copy_status(" in header
+assert "vpn_client_nvram_read_clamped_int_status(" in header
+assert "vpn_client_nvram_copy_status" in test
+assert "vpn_client_nvram_read_clamped_int_status" in test
+clear_runtime = body(vpn, "int\nvpn_client_clear_runtime_state_status(")
+assert "vpn_client_nvram_clear_runtime_state(" in clear_runtime
 
 setter = body(vpn, "int\nvpn_client_nvram_set_temp_status(")
 ordered(setter, [
@@ -211,6 +235,31 @@ for token in (
 
 openvpn_up = body(openvpn, "static int\non_client_ifup(void)")
 openvpn_down = body(openvpn, "static int\non_client_ifdown(void)")
+client_snapshot = body(openvpn, "static int\nopenvpn_read_client_config_snapshot(")
+ordered(client_snapshot, [
+    '"vpnc_enable"',
+    '"vpnc_type"',
+    '"vpnc_ov_mode"',
+    'openvpn_server_acl_copy_text(&transaction, "vpnc_peer"',
+    'openvpn_server_acl_copy_text(&transaction, "vpnc_user"',
+    'openvpn_server_acl_copy_text(&transaction, "vpnc_pass"',
+    "nvram_transaction_end(&transaction)",
+    "*config = pending;",
+], "OpenVPN client snapshot and credentials")
+secret = body(openvpn, "static int\nopenvpn_create_client_secret(")
+assert "openvpn_client_secret_publish(secret_file, username, password)" in secret
+assert 'nvram_safe_get("vpnc_user")' not in secret
+assert 'nvram_safe_get("vpnc_pass")' not in secret
+client_conf = body(openvpn, "static int\nopenvpn_create_client_conf(")
+assert 'openvpn_create_client_secret("secret", config->username, config->password)' in client_conf
+openvpn_start = body(openvpn, "int\nstart_openvpn_client(void)")
+ordered(openvpn_start, [
+    "openvpn_read_client_config_snapshot(&config)",
+    "vpn_client_clear_runtime_state_status()",
+    "openvpn_create_client_conf(vpnc_cfg, &config)",
+    "_eval(openvpn_argv, NULL, 0, NULL)",
+], "OpenVPN snapshot before runtime-state mutation")
+
 openvpn_entry = body(openvpn, "int\novpn_client_script_main(int argc, char **argv)")
 openvpn_up_compact = " ".join(openvpn_up.split())
 assert 'api_result = nvram_get_checked("vpnc_pdns", &pdns_value);' in openvpn_up

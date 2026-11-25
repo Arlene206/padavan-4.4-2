@@ -154,11 +154,16 @@ openvpn_check_key(const char *key_name, int is_server)
 }
 
 static int
-openvpn_create_client_secret(const char *secret_name)
+openvpn_create_client_secret(const char *secret_name, const char *username,
+			     const char *password)
 {
 	char secret_file[64];
 	int path_len;
 
+	if (!username || !password) {
+		errno = EINVAL;
+		return -1;
+	}
 	path_len = snprintf(secret_file, sizeof(secret_file), "%s/%s",
 			    CLIENT_ROOT_DIR, secret_name);
 	if (path_len < 0 || (size_t)path_len >= sizeof(secret_file)) {
@@ -166,9 +171,7 @@ openvpn_create_client_secret(const char *secret_name)
 		return -1;
 	}
 
-	return openvpn_client_secret_publish(secret_file,
-					     nvram_safe_get("vpnc_user"),
-					     nvram_safe_get("vpnc_pass"));
+	return openvpn_client_secret_publish(secret_file, username, password);
 }
 
 static int
@@ -303,6 +306,8 @@ struct openvpn_client_config_snapshot {
 	int redirect_gateway;
 	int client_nat;
 	char peer[257];
+	char username[256];
+	char password[256];
 	char ncp_cipher_list[257];
 };
 
@@ -1242,6 +1247,7 @@ openvpn_read_client_config_snapshot(struct openvpn_client_config_snapshot *confi
 	struct nvram_transaction transaction;
 	struct openvpn_client_config_snapshot pending;
 	int status, result = -1, saved_errno = 0, end_status;
+	int client_enabled, client_type;
 
 	if (!config) {
 		errno = EINVAL;
@@ -1251,6 +1257,20 @@ openvpn_read_client_config_snapshot(struct openvpn_client_config_snapshot *confi
 	if (nvram_transaction_begin(&transaction) != 0)
 		return -1;
 
+	status = openvpn_server_transaction_get_int(&transaction,
+						    "vpnc_enable", 0, 0, 1,
+						    &client_enabled);
+	if (status != 0 || !client_enabled) {
+		errno = status ? status : EINVAL;
+		goto finish_transaction;
+	}
+	status = openvpn_server_transaction_get_int(&transaction,
+						    "vpnc_type", 0, 0, 2,
+						    &client_type);
+	if (status != 0 || client_type != 2) {
+		errno = status ? status : EINVAL;
+		goto finish_transaction;
+	}
 	status = openvpn_server_transaction_get_int(&transaction,
 						    "vpnc_ov_mode", 0, 0, 1,
 						    &pending.is_tun);
@@ -1323,6 +1343,10 @@ openvpn_read_client_config_snapshot(struct openvpn_client_config_snapshot *confi
 	}
 	if (openvpn_server_acl_copy_text(&transaction, "vpnc_peer",
 					 pending.peer, sizeof(pending.peer)) != 0 ||
+	    openvpn_server_acl_copy_text(&transaction, "vpnc_user",
+					 pending.username, sizeof(pending.username)) != 0 ||
+	    openvpn_server_acl_copy_text(&transaction, "vpnc_pass",
+					 pending.password, sizeof(pending.password)) != 0 ||
 	    openvpn_server_acl_copy_text(&transaction, "vpnc_ov_ncp_clist",
 					 pending.ncp_cipher_list,
 					 sizeof(pending.ncp_cipher_list)) != 0)
@@ -1411,7 +1435,7 @@ openvpn_create_client_conf(const char *conf_file,
 	/* The detected peer family affects this generated config only. */
 
 	/* Publish auth credentials privately before writing a config that uses them. */
-	if (i_auth == 1 && openvpn_create_client_secret("secret") != 0) {
+	if (i_auth == 1 && openvpn_create_client_secret("secret", config->username, config->password) != 0) {
 		logmessage(CLIENT_LOG_NAME,
 			   "Unable to publish VPN client credentials (errno=%d).",
 			   errno ? errno : EIO);
@@ -2168,7 +2192,7 @@ int
 start_openvpn_client(void)
 {
 	struct openvpn_client_config_snapshot config;
-	int interface_status;
+	int interface_status, cleanup_status;
 	char vpnc_cfg[64], vpnc_scr[64];
 	char *client_conf = "client.conf";
 	char *openvpn_argv[] = {
@@ -2190,6 +2214,14 @@ start_openvpn_client(void)
 			   saved_errno);
 		errno = saved_errno;
 		return 1;
+	}
+
+	cleanup_status = vpn_client_clear_runtime_state_status();
+	if (cleanup_status != 0) {
+		logmessage(CLIENT_LOG_NAME,
+			   "cannot clear stale VPN DNS/state before OpenVPN startup (status=%d)",
+			   cleanup_status);
+		return cleanup_status;
 	}
 
 	doSystem("mkdir -p -m %s %s", "755", CLIENT_ROOT_DIR);
