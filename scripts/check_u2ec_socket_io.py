@@ -187,7 +187,7 @@ assert "errno = EADDRINUSE;" in test and "errno == EBADF" in test
 fifo_reader = body(source, "static int handle_fifo(")
 assert "u2ec_read_fifo_event(*fd, &c)" in fifo_reader
 assert fifo_reader.index("if (fifo_status < 0)") < fifo_reader.index("if (c == 'a')")
-assert fifo_reader.index("if (fifo_status == 0)") < fifo_reader.index('file_lock("printer")')
+assert fifo_reader.index("if (fifo_status == 0)") < fifo_reader.index("lock = u2ec_acquire_printer_lock();")
 assert "O_RDWR|O_NONBLOCK" in fifo_reader
 assert "O_RDWR|O_NONBLOCK" in daemon_main
 assert "u2ec_read_fifo_event" in policy
