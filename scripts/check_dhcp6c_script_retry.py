@@ -70,6 +70,15 @@ env_builder = function_body(script_runner, "char **fill_envp_client6(")
 assert "dhcp6c_script_env_publish(envp, putenv, client6_unsetenv)" in env_builder
 assert "putenv(*curr++)" not in env_builder
 assert "return NULL;" in env_builder
+assert "int saved_errno = errno ? errno : ENOMEM;" in env_builder
+assert "for (curr = envp; *curr != NULL; ++curr)" in env_builder
+assert "free(envp);" in env_builder
+publication = function_body(policy, "dhcp6c_script_env_publish(")
+assert "if (!envp || !publish || !unset_value)" in publication
+assert "int saved_errno = errno ? errno : ENOMEM;" in publication
+assert "while (published > 0)" in publication
+assert "unset_value(envp[--published]);" in publication
+assert "errno = saved_errno;" in publication
 runner = function_body(script_runner, "int dhcp6_script(const char *scriptpath, char **envp)")
 assert "if (envp == NULL)" in runner
 assert runner.index("if (envp == NULL)") < runner.index("status = spawn_and_wait(argv);")

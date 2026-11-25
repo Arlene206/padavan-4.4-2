@@ -1,3 +1,12 @@
+## 2026-11-25 — Pin atomic DHCPv6 environment rollback in the source contract
+
+- The BusyBox DHCPv6 callback retry regression on exact source SHA `898f67081429468f9e41f2603645b73112d71324` completed PASS (#45715277126). The cross-workflow WAN callback contract was then updated and completed PASS on `b839cd32fc594e3ac86a9c480232bda4746cda76` (#45715551138); AI handoff docs also passed on that SHA (#45715551148).
+- Strengthened `scripts/check_dhcp6c_script_retry.py` to pin the publication helper's reverse-order rollback, original-errno preservation, and environment-vector cleanup, so future edits cannot silently weaken the new failure path.
+- XY-C1 firmware build on source SHA `898f67081429468f9e41f2603645b73112d71324` remained in progress when polled; TRX verification and artifact upload had not started. No firmware completion is claimed.
+- Changed paths: `scripts/check_dhcp6c_script_retry.py`, `dev_log.md`.
+
+---
+
 ## 2026-11-25 — Align WAN callback contract with atomic DHCPv6 environment publication
 
 - The exact DHCPv6 script-retry workflow for `898f67081429468f9e41f2603645b73112d71324` passed. The broader WAN DHCP callback workflow failed only because its independent inline source contract still required the removed unchecked `putenv(*curr++)` implementation.
