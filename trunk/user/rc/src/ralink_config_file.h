@@ -5,6 +5,7 @@
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -124,24 +125,40 @@ ralink_config_discard_atomic(FILE **stream, const char *temp_path)
 
 
 /*
- * Replace a privileged SKU symlink through a private directory on the same
- * filesystem. The old destination remains intact until rename() publishes
- * the new link atomically.
+ * Stage a privileged SKU-link update together with its previous inode.
+ * Commit the snapshot only after the related wireless .dat configuration
+ * has been published; otherwise rollback restores the previous path state.
  */
+typedef struct {
+    char destination[PATH_MAX];
+    char directory[PATH_MAX];
+    char backup[PATH_MAX];
+    char staged_link[PATH_MAX];
+    int had_original;
+    int published;
+    int active;
+} ralink_config_symlink_transaction_t;
+
 static inline int
-ralink_config_publish_symlink_atomic(const char *target, const char *link_path)
+ralink_config_symlink_transaction_begin(
+    const char *link_path, ralink_config_symlink_transaction_t *transaction)
 {
+    struct stat info;
     char parent[PATH_MAX];
-    char temporary_directory[PATH_MAX];
-    char temporary_link[PATH_MAX];
     const char *slash;
     size_t parent_length;
     int length;
-    int link_created = 0;
-    int saved_errno;
 
-    if (!target || !*target || !link_path || !*link_path) {
+    if (!link_path || !*link_path || !transaction) {
         errno = EINVAL;
+        return -1;
+    }
+
+    memset(transaction, 0, sizeof(*transaction));
+    length = snprintf(transaction->destination,
+                      sizeof(transaction->destination), "%s", link_path);
+    if (length < 0 || (size_t)length >= sizeof(transaction->destination)) {
+        errno = ENAMETOOLONG;
         return -1;
     }
 
@@ -160,46 +177,167 @@ ralink_config_publish_symlink_atomic(const char *target, const char *link_path)
         parent[parent_length] = '\0';
     }
 
-    length = snprintf(temporary_directory, sizeof(temporary_directory),
+    if (lstat(link_path, &info) == 0) {
+        if (!S_ISREG(info.st_mode) && !S_ISLNK(info.st_mode)) {
+            errno = EINVAL;
+            return -1;
+        }
+        transaction->had_original = 1;
+    } else if (errno != ENOENT) {
+        return -1;
+    }
+
+    length = snprintf(transaction->directory,
+                      sizeof(transaction->directory),
                       "%s/.ralink-sku-link.XXXXXX", parent);
-    if (length < 0 || (size_t)length >= sizeof(temporary_directory)) {
+    if (length < 0 || (size_t)length >= sizeof(transaction->directory)) {
         errno = ENAMETOOLONG;
+        transaction->directory[0] = '\0';
         return -1;
     }
-    if (!mkdtemp(temporary_directory))
+    if (!mkdtemp(transaction->directory))
         return -1;
 
-    temporary_link[0] = '\0';
-    length = snprintf(temporary_link, sizeof(temporary_link),
-                      "%s/link", temporary_directory);
-    if (length < 0 || (size_t)length >= sizeof(temporary_link)) {
-        saved_errno = ENAMETOOLONG;
-        goto failed;
-    }
-
-    if (symlink(target, temporary_link) != 0) {
-        saved_errno = errno ? errno : EIO;
-        goto failed;
-    }
-    link_created = 1;
-
-    if (rename(temporary_link, link_path) != 0) {
-        saved_errno = errno ? errno : EIO;
-        goto failed;
-    }
-    link_created = 0;
-
-    if (rmdir(temporary_directory) != 0)
+    length = snprintf(transaction->backup, sizeof(transaction->backup),
+                      "%s/original", transaction->directory);
+    if (length < 0 || (size_t)length >= sizeof(transaction->backup)) {
+        errno = ENAMETOOLONG;
+        rmdir(transaction->directory);
+        transaction->directory[0] = '\0';
+        transaction->had_original = 0;
         return -1;
+    }
+    length = snprintf(transaction->staged_link,
+                      sizeof(transaction->staged_link),
+                      "%s/link", transaction->directory);
+    if (length < 0 || (size_t)length >= sizeof(transaction->staged_link)) {
+        errno = ENAMETOOLONG;
+        rmdir(transaction->directory);
+        transaction->directory[0] = '\0';
+        transaction->had_original = 0;
+        return -1;
+    }
 
+    if (transaction->had_original &&
+        link(link_path, transaction->backup) != 0) {
+        int saved_errno = errno ? errno : EIO;
+        rmdir(transaction->directory);
+        transaction->directory[0] = '\0';
+        transaction->had_original = 0;
+        errno = saved_errno;
+        return -1;
+    }
+
+    transaction->active = 1;
     return 0;
+}
 
-failed:
-    if (link_created)
-        unlink(temporary_link);
-    rmdir(temporary_directory);
-    errno = saved_errno;
-    return -1;
+static inline int
+ralink_config_symlink_transaction_publish(
+    ralink_config_symlink_transaction_t *transaction, const char *target)
+{
+    int saved_errno;
+
+    if (!transaction || !transaction->active || transaction->published) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    if (target && *target) {
+        if (symlink(target, transaction->staged_link) != 0)
+            return -1;
+        if (rename(transaction->staged_link, transaction->destination) != 0) {
+            saved_errno = errno ? errno : EIO;
+            unlink(transaction->staged_link);
+            errno = saved_errno;
+            return -1;
+        }
+    } else if (unlink(transaction->destination) != 0 && errno != ENOENT) {
+        return -1;
+    }
+
+    transaction->published = 1;
+    return 0;
+}
+
+static inline int
+ralink_config_symlink_transaction_rollback(
+    ralink_config_symlink_transaction_t *transaction)
+{
+    if (!transaction || !transaction->active) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    if (transaction->published) {
+        if (transaction->had_original) {
+            if (rename(transaction->backup, transaction->destination) != 0)
+                return -1;
+            transaction->had_original = 0;
+        } else if (unlink(transaction->destination) != 0 && errno != ENOENT) {
+            return -1;
+        }
+        transaction->published = 0;
+    }
+
+    if (unlink(transaction->staged_link) != 0 && errno != ENOENT)
+        return -1;
+    if (transaction->had_original) {
+        if (unlink(transaction->backup) != 0 && errno != ENOENT)
+            return -1;
+        transaction->had_original = 0;
+    }
+    if (rmdir(transaction->directory) != 0)
+        return -1;
+
+    transaction->active = 0;
+    return 0;
+}
+
+static inline int
+ralink_config_symlink_transaction_commit(
+    ralink_config_symlink_transaction_t *transaction)
+{
+    if (!transaction || !transaction->active || !transaction->published) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    if (transaction->had_original) {
+        if (unlink(transaction->backup) != 0 && errno != ENOENT)
+            return -1;
+        transaction->had_original = 0;
+    }
+    if (unlink(transaction->staged_link) != 0 && errno != ENOENT)
+        return -1;
+    if (rmdir(transaction->directory) != 0)
+        return -1;
+
+    transaction->active = 0;
+    transaction->published = 0;
+    return 0;
+}
+
+/* Convenience wrapper for callers without a companion configuration file. */
+static inline int
+ralink_config_publish_symlink_atomic(const char *target, const char *link_path)
+{
+    ralink_config_symlink_transaction_t transaction;
+    int saved_errno;
+
+    if (!target || !*target) {
+        errno = EINVAL;
+        return -1;
+    }
+    if (ralink_config_symlink_transaction_begin(link_path, &transaction) != 0)
+        return -1;
+    if (ralink_config_symlink_transaction_publish(&transaction, target) != 0) {
+        saved_errno = errno ? errno : EIO;
+        ralink_config_symlink_transaction_rollback(&transaction);
+        errno = saved_errno;
+        return -1;
+    }
+    return ralink_config_symlink_transaction_commit(&transaction);
 }
 
 /*

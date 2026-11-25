@@ -1100,27 +1100,24 @@ jobs:
 
           sku_link = function_body(ralink_source, "symlink_sku_file(")
           sku_link_compact = "".join(sku_link.split())
-          assert "ralink_config_publish_symlink_atomic(sku_link,sku_file)" in sku_link_compact
-          assert "ralink_config_unlink_optional(sku_file)" in sku_link_compact
+          assert "ralink_config_symlink_transaction_begin(sku_file,transaction)" in sku_link_compact
+          assert "ralink_config_symlink_transaction_publish(transaction,sku_exist?sku_link:NULL)" in sku_link_compact
           assert "status=sku_file_status(sku_link,&sku_exist)" in sku_link_compact
           assert "read_result=nvram_get_checked(\"regspec_code\",&regspec)" in sku_link_compact
           assert "status=ralink_config_nvram_read_status(read_result,read_errno,regspec)" in sku_link_compact
           assert "read_result==1&&check_regspec_code(regspec)" in sku_link_compact
           assert "nvram_safe_get(\"regspec_code\")" not in sku_link_compact
           assert sku_link_compact.index("nvram_get_checked(") < sku_link_compact.index("ralink_config_nvram_read_status(") < sku_link_compact.index("check_regspec_code(regspec)")
-          assert "unlink(sku_file)" not in sku_link_compact
-          assert "symlink(sku_link,sku_file)" not in sku_link_compact
-          assert "static int\nsymlink_sku_file(" in ralink_source
+          assert "ralink_config_publish_symlink_atomic(" not in sku_link_compact
+          assert "static int\\nsymlink_sku_file(" in ralink_source
           sku_config = function_body(
               ralink_source,
               "gen_ralink_config(int is_soc_ap, int is_aband, int disable_autoscan)")
           sku_config_compact = "".join(sku_config.split())
+          assert "symlink_sku_file(sku_file,\"\",p_str,i_val,0,&sku_transaction)" in sku_config_compact
+          assert "symlink_sku_file(sku_file,\"_5G\",p_str,i_val,1,&sku_transaction)" in sku_config_compact
           assert sku_config_compact.count(
-              "if(symlink_sku_file(sku_file,\"\",p_str,i_val,0)!=0)") == 1
-          assert sku_config_compact.count(
-              "if(symlink_sku_file(sku_file,\"_5G\",p_str,i_val,1)!=0)") == 1
-          assert sku_config_compact.count(
-              "ralink_config_discard_atomic(&fp,temp_path);return-1;") == 3
+              "ralink_config_discard_atomic(&fp,temp_path);return-1;") == 2
           storage_config_load = sku_config.index("user_config_status = load_user_config(")
           storage_config_failure = sku_config.index(
               "if (user_config_status != 0)", storage_config_load
@@ -1128,22 +1125,38 @@ jobs:
           storage_config_discard = sku_config.index(
               "ralink_config_discard_atomic(&fp, temp_path);", storage_config_failure
           )
-          storage_config_return = sku_config.index("return -1;", storage_config_discard)
+          storage_config_rollback = sku_config.index(
+              "ralink_config_symlink_transaction_rollback(&sku_transaction)",
+              storage_config_discard
+          )
+          storage_config_return = sku_config.index("return -1;", storage_config_rollback)
           storage_config_publish = sku_config.index(
               "ralink_config_publish_atomic(&fp, temp_path, dat_file)", storage_config_load
           )
+          storage_publish_failure = sku_config.index(
+              "ralink_config_symlink_transaction_rollback(&sku_transaction)",
+              storage_config_publish
+          )
+          storage_commit = sku_config.index(
+              "ralink_config_symlink_transaction_commit(&sku_transaction)",
+              storage_config_publish
+          )
           assert storage_config_load < storage_config_failure < storage_config_discard
-          assert storage_config_discard < storage_config_return < storage_config_publish
+          assert storage_config_discard < storage_config_rollback < storage_config_return
+          assert storage_config_return < storage_config_publish < storage_publish_failure < storage_commit
           sku_policy_header = (rc / "ralink_config_file.h").read_text()
           sku_policy_test = (rc / "tests/ralink_config_file.c").read_text()
-          assert "mkdtemp(temporary_directory)" in sku_policy_header
-          assert "rename(temporary_link, link_path)" in sku_policy_header
-          assert "test_symlink_publication_replaces_live_link_atomically" in sku_policy_test
-          assert "test_symlink_publication_failure_preserves_destination" in sku_policy_test
-          assert "test_optional_unlink_is_idempotent_and_checks_errors" in sku_policy_test
+          assert "mkdtemp(transaction->directory)" in sku_policy_header
+          assert "link(link_path, transaction->backup)" in sku_policy_header
+          assert "rename(transaction->backup, transaction->destination)" in sku_policy_header
+          assert "test_sku_transaction_rollback_restores_old_symlink" in sku_policy_test
+          assert "test_sku_transaction_rollback_removes_new_link" in sku_policy_test
+          assert "test_sku_transaction_rollback_restores_removed_link" in sku_policy_test
+          assert "test_sku_transaction_rollback_restores_regular_file" in sku_policy_test
+          assert "test_sku_transaction_rolls_back_after_config_publish_failure" in sku_policy_test
+          assert "test_sku_transaction_commit_keeps_published_link" in sku_policy_test
           assert "ralink_config_nvram_read_status" in sku_policy_header
           assert "test_checked_nvram_read_status" in sku_policy_test
           assert "ralink_config_file.c" in workflow
-
           print("Wireless driver/restart failure state-publication contracts: PASS")
           PY

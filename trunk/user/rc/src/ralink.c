@@ -566,7 +566,8 @@ check_sku_file_exist(const char *prefix, const char *spec,
 
 static int
 symlink_sku_file(const char *sku_file, const char *prefix,
-		 const char *cc, int region, int is_aband)
+		 const char *cc, int region, int is_aband,
+		 ralink_config_symlink_transaction_t *transaction)
 {
 	int i, sku_exist = 0;
 	int path_length, status, read_result, read_errno;
@@ -574,7 +575,7 @@ symlink_sku_file(const char *sku_file, const char *prefix,
 	char *regspec = NULL;
 	const char *cc_regspec;
 
-	if (!sku_file || !*sku_file || !prefix) {
+	if (!sku_file || !*sku_file || !prefix || !transaction) {
 		errno = EINVAL;
 		goto failed;
 	}
@@ -645,16 +646,22 @@ symlink_sku_file(const char *sku_file, const char *prefix,
 		}
 	}
 
-	if (sku_exist)
-		status = ralink_config_publish_symlink_atomic(sku_link, sku_file);
-	else
-		status = ralink_config_unlink_optional(sku_file);
+	if (ralink_config_symlink_transaction_begin(sku_file, transaction) != 0)
+		goto failed;
+	status = ralink_config_symlink_transaction_publish(
+		transaction, sku_exist ? sku_link : NULL);
 	if (status != 0)
 		goto failed;
 	return 0;
 
 failed:
 	status = errno ? errno : EIO;
+	if (transaction && transaction->active &&
+	    ralink_config_symlink_transaction_rollback(transaction) != 0) {
+		logmessage(LOGNAME,
+			   "wireless SKU rollback failed for %s (status=%d)",
+			   sku_file ? sku_file : "(null)", errno ? errno : EIO);
+	}
 	logmessage(LOGNAME,
 		   "cannot select or publish wireless SKU link %s (status=%d)",
 		   sku_file ? sku_file : "(null)", status);
@@ -675,8 +682,11 @@ gen_ralink_config(int is_soc_ap, int is_aband, int disable_autoscan)
 	int i_ssid_num, i_channel, i_channel_max, i_HTBW_MAX;
 	int i_stream_tx, i_stream_rx, i_mphy, i_mmcs, i_fphy[2], i_val_mbss[2];
 	int user_config_status;
+	int sku_transaction_active = 0;
+	ralink_config_symlink_transaction_t sku_transaction;
 	const char *dat_file, *sku_file, *prefix = (is_aband) ? "wl" : "rt";
 
+	memset(&sku_transaction, 0, sizeof(sku_transaction));
 	i_ssid_num = 2; // AP+GuestAP
 	i_channel_max = 13;
 
@@ -737,10 +747,12 @@ gen_ralink_config(int is_soc_ap, int is_aband, int disable_autoscan)
 			break;
 		}
 		
-		if (symlink_sku_file(sku_file, "", p_str, i_val, 0) != 0) {
+		if (symlink_sku_file(sku_file, "", p_str, i_val, 0,
+				     &sku_transaction) != 0) {
 			ralink_config_discard_atomic(&fp, temp_path);
 			return -1;
 		}
+		sku_transaction_active = 1;
 	}
 
 	//CountryRegion for A band
@@ -749,10 +761,12 @@ gen_ralink_config(int is_soc_ap, int is_aband, int disable_autoscan)
 	fprintf(fp, "CountryRegionABand=%d\n", i_val);
 
 	if (is_aband)
-		if (symlink_sku_file(sku_file, "_5G", p_str, i_val, 1) != 0) {
+		if (symlink_sku_file(sku_file, "_5G", p_str, i_val, 1,
+				     &sku_transaction) != 0) {
 			ralink_config_discard_atomic(&fp, temp_path);
 			return -1;
 		}
+		sku_transaction_active = 1;
 
 	//CountryCode
 	p_str = nvram_wlan_get(is_aband, "country_code");
@@ -1797,17 +1811,41 @@ gen_ralink_config(int is_soc_ap, int is_aband, int disable_autoscan)
 	user_config_status = load_user_config(
 		fp, "/etc/storage/wlan", (is_aband) ? "AP_5G.dat" : "AP.dat", NULL);
 	if (user_config_status != 0) {
-		errno = user_config_status;
+		int primary_status = user_config_status;
+		errno = primary_status;
 		logmessage(LOGNAME,
 			   "cannot append stored wireless configuration (status=%d)",
-			   user_config_status);
+			   primary_status);
 		ralink_config_discard_atomic(&fp, temp_path);
+		if (sku_transaction_active &&
+		    ralink_config_symlink_transaction_rollback(&sku_transaction) != 0) {
+			logmessage(LOGNAME,
+				   "wireless SKU rollback after config input failure was incomplete (status=%d)",
+				   errno ? errno : EIO);
+		}
+		errno = primary_status;
 		return -1;
 	}
 
 	if (ralink_config_publish_atomic(&fp, temp_path, dat_file) < 0) {
+		int primary_status = errno ? errno : EIO;
 		logmessage(LOGNAME, "Failed to publish wireless configuration %s", dat_file);
+		if (sku_transaction_active &&
+		    ralink_config_symlink_transaction_rollback(&sku_transaction) != 0) {
+			logmessage(LOGNAME,
+				   "wireless SKU rollback after config publication failure was incomplete (status=%d)",
+				   errno ? errno : EIO);
+		}
+		errno = primary_status;
 		return -1;
+	}
+
+	if (sku_transaction_active &&
+	    ralink_config_symlink_transaction_commit(&sku_transaction) != 0) {
+		/* Both live files are already consistent; report only stale backup cleanup. */
+		logmessage(LOGNAME,
+			   "wireless config published but SKU transaction cleanup failed (status=%d)",
+			   errno ? errno : EIO);
 	}
 
 	return 0;
