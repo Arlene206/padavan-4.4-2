@@ -302,9 +302,11 @@ assert "failed to clear native IPv6 interface identity after startup rollback" i
 
 wan6_down = body(source, "int wan6_down(char *wan_ifname, int unit)")
 no_interface = wan6_down.index("if (!wan6_ifname)")
+no_interface_route_cleanup = wan6_down.index("wan6_sit_route4_cleanup(unit)", no_interface)
 no_interface_clear = wan6_down.index("wan6_clear_runtime_metadata(", no_interface)
-no_interface_return = wan6_down.index("return clear_status;", no_interface_clear)
-assert no_interface < no_interface_clear < no_interface_return
+no_interface_return = wan6_down.index("return status;", no_interface_clear)
+assert no_interface < no_interface_route_cleanup < no_interface_clear < no_interface_return
+assert "status = route_status_accumulate(status, clear_status);" in wan6_down[no_interface:]
 successful_teardown = wan6_down.index("if (status == 0)")
 metadata_clear = wan6_down.index("wan6_clear_runtime_metadata(", successful_teardown)
 assert successful_teardown < metadata_clear

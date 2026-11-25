@@ -729,7 +729,7 @@ reset_conversion = compact(body(
     LAN_ADDR6_RELOAD_POLICY_SOURCE, "rc_lan_addr6_reset_conversion_status("))
 reset_parse = reset_lan.index("ipv6_from_string(snapshot.address, &addr6)")
 reset_guard = reset_lan.index(
-    "rc_lan_addr6_reset_conversion_status(parse_status, address_text_ok, errno)")
+    "rc_lan_addr6_reset_conversion_status(parse_status,address_text_ok,errno)")
 reset_error = reset_lan.index("if (status != 0)", reset_guard)
 reset_format = reset_lan.index("rc_lan_addr6_format_prefix(", reset_guard)
 reset_publish = reset_lan.index('nvram_set_temp("lan_addr6", addr6s)')
