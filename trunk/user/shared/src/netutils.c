@@ -706,6 +706,30 @@ get_interface_mtu(const char *ifname)
 }
 
 int
+get_interface_mtu_status(const char *ifname, int *mtu)
+{
+	int sockfd, status = 0;
+	struct ifreq ifr;
+
+	if (!ifname || !ifname[0] || !mtu)
+		return EINVAL;
+	*mtu = 0;
+	sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
+	if (sockfd < 0)
+		return errno ? errno : EIO;
+	memset(&ifr, 0, sizeof(ifr));
+	if (copy_ifname(ifr.ifr_name, sizeof(ifr.ifr_name), ifname) < 0)
+		status = errno ? errno : EINVAL;
+	else if (ioctl(sockfd, SIOCGIFMTU, &ifr) < 0)
+		status = errno ? errno : EIO;
+	if (close(sockfd) != 0 && status == 0)
+		status = errno ? errno : EIO;
+	if (status == 0)
+		*mtu = ifr.ifr_mtu;
+	return status;
+}
+
+int
 set_interface_mtu(const char *ifname, int mtu)
 {
 	struct ifreq ifr;
@@ -752,6 +776,30 @@ get_interface_hwaddr(const char *ifname, unsigned char mac[6])
 	close(sockfd);
 
 	return result;
+}
+
+int
+get_interface_hwaddr_status(const char *ifname, unsigned char mac[6])
+{
+	int sockfd, status = 0;
+	struct ifreq ifr;
+
+	if (!ifname || !ifname[0] || !mac)
+		return EINVAL;
+	memset(mac, 0, 6);
+	sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
+	if (sockfd < 0)
+		return errno ? errno : EIO;
+	memset(&ifr, 0, sizeof(ifr));
+	if (copy_ifname(ifr.ifr_name, sizeof(ifr.ifr_name), ifname) < 0)
+		status = errno ? errno : EINVAL;
+	else if (ioctl(sockfd, SIOCGIFHWADDR, &ifr) < 0)
+		status = errno ? errno : EIO;
+	if (close(sockfd) != 0 && status == 0)
+		status = errno ? errno : EIO;
+	if (status == 0)
+		memcpy(mac, ifr.ifr_hwaddr.sa_data, 6);
+	return status;
 }
 
 int
@@ -893,6 +941,34 @@ vconfig_egress_map(const char *vifname, int skb_prio, int qos_prio)
 	close(sockfd);
 
 	return ret;
+}
+
+int
+vconfig_get_egress_map_status(const char *vifname, int skb_prio, int *qos_prio)
+{
+	int sockfd, status = 0;
+	struct vlan_ioctl_args ifr;
+
+	if (!vifname || !vifname[0] || skb_prio < 0 || !qos_prio)
+		return EINVAL;
+	*qos_prio = 0;
+	sockfd = socket(AF_INET, SOCK_STREAM, 0);
+	if (sockfd < 0)
+		return errno ? errno : EIO;
+	memset(&ifr, 0, sizeof(ifr));
+	if (copy_ifname(ifr.device1, sizeof(ifr.device1), vifname) < 0)
+		status = errno ? errno : EINVAL;
+	else {
+		ifr.cmd = GET_VLAN_EGRESS_PRIORITY_CMD;
+		ifr.u.skb_priority = (unsigned int)skb_prio;
+		if (ioctl(sockfd, SIOCGIFVLAN, &ifr) < 0)
+			status = errno ? errno : EIO;
+	}
+	if (close(sockfd) != 0 && status == 0)
+		status = errno ? errno : EIO;
+	if (status == 0)
+		*qos_prio = (int)ifr.vlan_qos;
+	return status;
 }
 
 int

@@ -915,3 +915,45 @@ for lossy_read in (
 ):
     require(lossy_read not in wan_reset_code,
             f"manual WAN reset must not collapse NVRAM errors for {lossy_read}")
+
+# Reusing an existing VLAN is a reversible transaction: snapshot every
+# attribute create_vlan_iface_internal may mutate before taking it down.
+mtu_reader = body(netutils, "get_interface_mtu_status(const char *ifname, int *mtu)")
+mac_reader = body(netutils, "get_interface_hwaddr_status(const char *ifname, unsigned char mac[6])")
+egress_reader = body(netutils, "vconfig_get_egress_map_status(const char *vifname, int skb_prio, int *qos_prio)")
+for reader, marker in (
+    (mtu_reader, "ioctl(sockfd, SIOCGIFMTU, &ifr)"),
+    (mac_reader, "ioctl(sockfd, SIOCGIFHWADDR, &ifr)"),
+    (egress_reader, "GET_VLAN_EGRESS_PRIORITY_CMD"),
+):
+    require(marker in reader, "reused VLAN rollback snapshot reader is incomplete")
+require("ioctl(sockfd, SIOCGIFVLAN, &ifr)" in egress_reader,
+        "VLAN egress priority snapshot must use the kernel GET ioctl")
+restore_policy = body(vlan_policy, "vlan_interface_restore_existing(")
+for marker in ("set_admin_up(ifname, 0)", "set_mtu(ifname, original_mtu)",
+               "set_hwaddr(ifname, original_hwaddr)",
+               "set_egress_map(ifname, 0, original_egress)",
+               "set_admin_up(ifname, was_up ? 1 : 0)",
+               "vlan_interface_restore_record"):
+    require(marker in restore_policy,
+            "reused VLAN rollback must attempt all original attributes and final link state")
+for case in (
+    "test_reused_vlan_restore_attempts_all_original_attributes_in_order",
+    "test_reused_vlan_restore_attempts_all_operations_after_failure",
+    "test_reused_vlan_restore_skips_attributes_not_changed",
+):
+    require(case in vlan_test and case + "();" in vlan_test,
+            "VLAN reused-interface restoration regression missing " + case)
+restore_vlan = create_vlan.index("vlan_interface_restore_existing(")
+existing_down = create_vlan.index("ret = ifconfig(vlan_ifname, 0, NULL, NULL)")
+assert create_vlan.index("get_interface_flags(vlan_ifname)") < existing_down
+assert create_vlan.index("get_interface_mtu_status(vlan_ifname, &original_mtu)") < existing_down
+assert create_vlan.index("get_interface_hwaddr_status(vlan_ifname, original_hwaddr)") < existing_down
+assert create_vlan.index("vconfig_get_egress_map_status(") < existing_down
+assert existing_down < restore_vlan
+assert "restore_egress, original_egress" in create_vlan[restore_vlan:]
+assert "VLAN rollback incomplete for reused interface" in create_vlan[restore_vlan:]
+for api in ("get_interface_mtu_status", "get_interface_hwaddr_status",
+            "vconfig_get_egress_map_status"):
+    require(api in netutils_header and api in netutils,
+            "checked VLAN snapshot API is missing: " + api)

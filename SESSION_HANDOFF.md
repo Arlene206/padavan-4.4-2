@@ -1,29 +1,30 @@
-## 2026-11-25 autonomous handoff — DHCPv6 cleanup and checker correction
+## 2026-11-25 autonomous handoff — reused VLAN rollback
 
-Startup recovery is complete. Active work covers DHCPv4 select-timeout saturation, DHCPv6 IA address-removal retries, and DHCPv6 client startup rollback. Do not repeat completed U2EC, MTD, WAN/PPP or process audits without new evidence.
+Startup recovery is complete. Recent source slices cover DHCPv4 select-timeout saturation, DHCPv6 IA cleanup retry and DHCPv6 startup rollback. Current stability focus is cross-userland WAN/IPv6 lifecycle and M2U; do not repeat completed audits without new evidence.
 
 ### Git / backup
-- Main before this checker-only repair: `94c75e4acfa1f51cb70ec566e225a01ff77fa72c`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. Continue complete-tree commits with non-forced expected-SHA updates.
+- Main baseline for this VLAN source slice: `4180e4da45dd8da3e9e06163a96281b58dabe797`; the atomic tree updates shared netutils, VLAN production path/policy/test/checker and handoff records.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. No branch/PR/force update.
 
-### Source slices
-- `c623f1e352db3f54dc6d10e2b7d2dd3e9cc2591d`: `udhcpc` signed/unsigned elapsed-time underflow is saturated; GNU89 regression and exact-source checker are wired.
-- `6a1faf201e57eab3e9757cc845c15a779b8e8baa`: DHCPv6 IA address-removal errors retain cleanup nodes and retry instead of dropping kernel cleanup state.
-- `28a6bb022c0c58b19cbfafb3eb1f06460b55a969`: if daemon launch succeeds but callback environment cleanup fails, generation is advanced and the new `dhcp6c` is stopped under the held session lock before unlock.
-- IA_NA/IA_PD Reply retry and delegated-prefix partial recovery remain in source ancestry from `0b41a2ed`.
+### Completed source slices
+- `c623f1e352db3f54dc6d10e2b7d2dd3e9cc2591d`: clamp signed/unsigned expired `udhcpc` select wait; exact event-script workflow PASS.
+- `6a1faf201e57eab3e9757cc845c15a779b8e8baa`: retain failed DHCPv6 address/PD deletion nodes for retry; IA checker output mismatch corrected in `94c75e4`; IA #45620275164 and AI docs #45620275432 PASS.
+- `28a6bb022c0c58b19cbfafb3eb1f06460b55a969`: stop newly launched dhcp6c if temporary callback environment cleanup fails; callback checker repaired by `4180e4d`.
+- `4180e4da45dd8da3e9e06163a96281b58dabe797`: WAN DHCP callback #45620475975 and AI handoff #45620475988 PASS. XY-C1 runs for c623, 6a and 28a were still in progress at last poll; no L3 claim.
 
-### Exact CI evidence
-- `c623f1e`: udhcpc event-script stability, AI docs, process inventory/lifecycle umbrella, USB storage and NVRAM workflows PASS; XY-C1 still in progress at last poll.
-- `6a1faf`: AI docs, WAN callback, process umbrella/inventory and storage PASS; IA #45619758139 failed only on an obsolete expected test banner after the C ASan/UBSan binary passed.
-- `94c75e4`: IA #45620275164 PASS and AI docs #45620275432 PASS. Its parent `28a6bb0` WAN callback #45620059391 failed only at the newly added source checker: the checker matched formal parameter names against a call using `env_cleanup_status`. This follow-up fixes that assertion by inspecting helper semantics. WAN route #45620059654, Process inventory #45620059458, AI docs #45620059453, IPv6 checked-read #45620059431, HTTPD security #45620059387 PASS on `28a6bb0`; NVRAM #45620059507 and XY-C1 #45620059409 were still in progress.
-- Re-run WAN DHCP callback on this checker commit. XY-C1 Build→TRX→artifact must all pass on one identical source SHA for L3; L4 is NOT VERIFIED.
+### Reused VLAN rollback
+- Previous behavior: if a VLAN already existed, `create_vlan_iface_internal()` brought it down and changed egress priority, MTU and optional MAC. Failure rollback only cleaned up newly created VLANs, so a reused VLAN could remain down or partially reconfigured.
+- Added checked snapshots for IFF_UP, requested MTU/MAC and skb-priority-0 egress QoS before the first mutation. Failed configuration on a reused VLAN now restores each captured attribute, then original admin-up state. Rollback attempts every operation and logs the first rollback failure while preserving primary setup errno. New VLAN ownership/delete behavior remains unchanged.
+- Added GNU89 regression for restore order, best-effort continuation after failure and skipping untouched attributes; extended `scripts/check_wan_vlan_setup.py`. WAN route workflow filters already cover changed source/policy/test/checker paths. This commit must pass its exact-host checks and XY-C1 build.
+- The egress snapshot uses `GET_VLAN_EGRESS_PRIORITY_CMD` through `SIOCGIFVLAN`; verify that ioctl compiles for the target and is supported by XY-C1. Physical router L4 remains NOT VERIFIED.
 
 ### Next actions
-1. Inspect exact-head callback, AI and new XY-C1 Actions; fix any first causal failure.
-2. Continue concrete cross-userland WAN/IPv6 route lifecycle, M2U and VLAN/bridge restoration bugs while builds are pending. Do not claim hardware behavior without L4 device validation.
+1. Inspect exact-head WAN route / VLAN sanitizer, AI docs and XY-C1 Actions; fix any actual failure.
+2. Confirm MIPS/uClibc Build → TRX → artifact on one identical source SHA before claiming L3.
+3. Continue remaining IPv6/M2U and WAN route lifecycle with concrete defects; do not re-audit finished work.
 
 ### Execution contract
-Source/test → complete tree/commit → non-forced expected-SHA update → exact-SHA Actions. Do not modify frozen backup or create branches/PRs.
+Source/test → one complete tree/commit → non-forced expected-SHA update → exact-SHA Actions. Do not modify frozen backup or create branches/PRs.
 
 ---
 

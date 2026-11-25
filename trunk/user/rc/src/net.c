@@ -407,47 +407,121 @@ inspect_vlan_iface(const char *vlan_ifname, int *exists)
 }
 
 static int
+vlan_restore_admin_up(const char *ifname, int up)
+{
+	return ifconfig(ifname, up ? IFUP : 0, NULL, NULL);
+}
+
+static int
+vlan_restore_mtu(const char *ifname, int mtu)
+{
+	return set_interface_mtu(ifname, mtu);
+}
+
+static int
+vlan_restore_hwaddr(const char *ifname, const char *hwaddr)
+{
+	return set_interface_hwaddr(ifname, hwaddr);
+}
+
+static int
+vlan_restore_egress_map(const char *ifname, int skb_prio, int qos_prio)
+{
+	return vconfig_egress_map(ifname, skb_prio, qos_prio);
+}
+
+static const vlan_interface_restore_ops_t vlan_restore_ops = {
+	vlan_restore_admin_up,
+	vlan_restore_mtu,
+	vlan_restore_hwaddr,
+	vlan_restore_egress_map
+};
+
+static int
 create_vlan_iface_internal(const char *dev_ifname, int vid, int prio, int mtu,
 			   const char *hwaddr, int do_up, int *created_out)
 {
-	char vlan_ifname[24];
+	char vlan_ifname[24], original_hwaddr_text[18];
+	unsigned char original_hwaddr[6];
 	int ret, saved_errno, created = 0, path_len;
-	int vlan_exists, probe_status;
-	int cleanup_down_status, cleanup_delete_status, cleanup_status;
+	int vlan_exists, probe_status, original_flags = 0;
+	int original_up = 0, original_mtu = 0, original_egress = 0;
+	int restore_mtu = 0, restore_hwaddr = 0, restore_egress = 0;
+	int rollback_status, rollback_failures;
 
 	if (created_out)
 		*created_out = 0;
 	if (!dev_ifname || !*dev_ifname || vid < 0 || vid > 4095) {
 		errno = EINVAL;
-		return -1;
+		return EINVAL;
 	}
 	path_len = snprintf(vlan_ifname, sizeof(vlan_ifname), "%s.%d", dev_ifname, vid);
 	if (path_len < 0 || path_len >= (int)sizeof(vlan_ifname)) {
 		errno = ENAMETOOLONG;
-		return -1;
+		return ENAMETOOLONG;
 	}
 
 	probe_status = inspect_vlan_iface(vlan_ifname, &vlan_exists);
 	if (probe_status != 0)
 		return probe_status;
-
 	if (!vlan_exists) {
 		ret = vconfig_add_if(dev_ifname, (unsigned int)vid);
 		if (ret != 0) {
-			/* A concurrent network transition may have created this exact VLAN. */
 			saved_errno = errno;
 			probe_status = inspect_vlan_iface(vlan_ifname, &vlan_exists);
 			if (probe_status != 0 || !vlan_exists) {
 				errno = saved_errno;
 				return ret;
 			}
-		} else {
+		} else
 			created = 1;
+	}
+
+	/* Snapshot every requested attribute before mutating a reused VLAN. */
+	if (!created) {
+		original_flags = get_interface_flags(vlan_ifname);
+		if (original_flags < 0) {
+			saved_errno = errno ? errno : EIO;
+			errno = saved_errno;
+			return saved_errno;
 		}
-	} else {
+		original_up = (original_flags & IFF_UP) != 0;
+		if (mtu >= 1280) {
+			probe_status = get_interface_mtu_status(vlan_ifname, &original_mtu);
+			if (probe_status != 0) {
+				errno = probe_status;
+				return probe_status;
+			}
+			restore_mtu = 1;
+		}
+		if (hwaddr) {
+			probe_status = get_interface_hwaddr_status(vlan_ifname, original_hwaddr);
+			if (probe_status != 0) {
+				errno = probe_status;
+				return probe_status;
+			}
+			path_len = snprintf(original_hwaddr_text, sizeof(original_hwaddr_text),
+					    "%02X:%02X:%02X:%02X:%02X:%02X",
+					    original_hwaddr[0], original_hwaddr[1],
+					    original_hwaddr[2], original_hwaddr[3],
+					    original_hwaddr[4], original_hwaddr[5]);
+			if (path_len < 0 || path_len >= (int)sizeof(original_hwaddr_text)) {
+				errno = EOVERFLOW;
+				return EOVERFLOW;
+			}
+			restore_hwaddr = 1;
+		}
+		if (prio >= 0 && prio <= 7) {
+			probe_status = vconfig_get_egress_map_status(vlan_ifname, 0, &original_egress);
+			if (probe_status != 0) {
+				errno = probe_status;
+				return probe_status;
+			}
+			restore_egress = 1;
+		}
 		ret = ifconfig(vlan_ifname, 0, NULL, NULL);
 		if (ret != 0)
-			return ret;
+			goto fail;
 	}
 
 	if (prio >= 0 && prio <= 7) {
@@ -475,9 +549,10 @@ create_vlan_iface_internal(const char *dev_ifname, int vid, int prio, int mtu,
 	return 0;
 
 fail:
-	saved_errno = errno;
+	saved_errno = errno ? errno : EIO;
 	if (created) {
-		/* Attempt both cleanup operations and keep ownership if either fails. */
+		int cleanup_down_status, cleanup_delete_status, cleanup_status;
+
 		cleanup_down_status = ifconfig(vlan_ifname, 0, NULL, NULL);
 		cleanup_delete_status = vconfig_del_if(vlan_ifname);
 		cleanup_status = vlan_interface_cleanup_status(cleanup_down_status,
@@ -489,6 +564,16 @@ fail:
 				   "VLAN rollback incomplete for %s (down=%d delete=%d); retaining ownership",
 				   vlan_ifname, cleanup_down_status, cleanup_delete_status);
 		}
+	} else {
+		rollback_status = vlan_interface_restore_existing(
+			&vlan_restore_ops, vlan_ifname, original_up,
+			restore_mtu, original_mtu,
+			restore_hwaddr, original_hwaddr_text,
+			restore_egress, original_egress, &rollback_failures);
+		if (rollback_status != 0)
+			logmessage(LOGNAME,
+				   "VLAN rollback incomplete for reused interface %s (status=%d; failed_operations=%d)",
+				   vlan_ifname, rollback_status, rollback_failures);
 	}
 	errno = saved_errno;
 	return ret;

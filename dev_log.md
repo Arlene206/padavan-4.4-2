@@ -1,3 +1,11 @@
+## 2026-11-25 21:34 CST (UTC+8) — Restore reused VLAN attributes after failed setup
+
+- Found a real rollback defect in `create_vlan_iface_internal()`: a pre-existing VLAN was taken down and reconfigured (egress priority, MTU, MAC), but the failure path only removed newly created VLANs. A reused VLAN could remain down or partially changed.
+- Added checked snapshots for IFF_UP, requested MTU/MAC and skb-priority-0 egress QoS before mutation. On failure, rollback takes the reused VLAN down, restores captured attributes, and restores original up/down state. It attempts all rollback operations, logs first rollback error, and preserves primary setup errno. New VLAN deletion/ownership behavior is unchanged.
+- Added GNU89 policy regression for restore order, continued attempts after errors and skipped untouched settings; extended WAN VLAN source checker. WAN route workflow already filters the source, shared netutils, VLAN policy/test and checker. Exact-head checks pending; no physical-router L4 claim.
+
+---
+
 ## 2026-11-25 21:21 CST (UTC+8) — Fix DHCPv6 startup-cleanup checker assertion
 
 - Exact-head WAN DHCP callback #45620059391 on `28a6bb0` passed the UBSan/ASan policy binaries and all preceding WAN/IPv6 checks, then failed only at the new `check_wan6_dns_policy.py` source assertion. The checker incorrectly searched for the helper's formal parameter names in the call site; production correctly calls it with `start_status, env_cleanup_status`.

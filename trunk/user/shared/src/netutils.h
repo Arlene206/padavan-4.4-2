@@ -184,8 +184,10 @@ extern int       get_interface_flags(const char *ifname);
 extern int       get_interface_index(const char *ifname);
 extern int       get_interface_irq(const char *ifname);
 extern int       get_interface_mtu(const char *ifname);
+extern int       get_interface_mtu_status(const char *ifname, int *mtu);
 extern int       set_interface_mtu(const char *ifname, int mtu);
 extern int       get_interface_hwaddr(const char *ifname, unsigned char mac[6]);
+extern int       get_interface_hwaddr_status(const char *ifname, unsigned char mac[6]);
 extern int       set_interface_hwaddr(const char *ifname, const char *mac_str);
 extern in_addr_t get_interface_addr4(const char *ifname);
 extern int       set_interface_conf_int(const char *ver, const char *ifname, const char *param, int value);
@@ -197,6 +199,7 @@ extern int       get_ipv6_type(void);
 extern int       vconfig_add_if(const char *ifname, unsigned int vid);
 extern int       vconfig_del_if(const char *vifname);
 extern int       vconfig_egress_map(const char *vifname, int skb_prio, int qos_prio);
+extern int       vconfig_get_egress_map_status(const char *vifname, int skb_prio, int *qos_prio);
 
 extern int       br_add_del_bridge(const char *brname, int is_add);
 extern int       br_bridge_is_empty(const char *brname);
