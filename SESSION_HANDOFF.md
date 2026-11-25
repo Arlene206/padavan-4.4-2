@@ -16,7 +16,7 @@ WAN IPv6 DNS publication consumes two untrusted sources: static NVRAM slots and 
 - XY-C1 #45710242062 was still building at checkpoint. Its TRX check and artifact upload had not started. The latest firmware L3 status is therefore PENDING, not PASS.
 - Earlier WAN 6rd slice `360ccb32e57ffa4689992b3c8efda20cde5d5262` validated the DHCPv6 relay list and selected the first relay for the existing one-relay NVRAM/route model. No physical WAN L4 validation is claimed.
 
-## Exact first actions for the next GPT
+## Exact first action for the next GPT
 
 1. Poll exact-SHA XY-C1 run #45710242062 for `c0926c379f6f9774d4992ef550353a98a347a690`; if Build completes, require TRX verification and artifact upload to pass on that same SHA. Diagnose/fix a real failure, but do not block independent development while it is pending.
 2. Continue one new source-level WAN/BusyBox stability slice outside the completed DNS validation. Prioritize the roadmap's remaining IPv6 route edge cases or the live DHCP callback transition semantics; add a focused regression and atomic commit only when a concrete defect is confirmed.
