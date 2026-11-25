@@ -79,7 +79,11 @@ export IAPPD_KILL_HELPER="$tmp/kill-helper"
 export MOCK_START=0 MOCK_PARTIAL_START=0 MOCK_EXIT_AFTER_LAUNCH=0 MOCK_SYSCTL=0 MOCK_IPTABLES=0 MOCK_IPTABLES_FAIL_AT=0 MOCK_IPTABLES_DELETE=0 MOCK_IPTABLES_SAVE=0 MOCK_KILL=0 MOCK_REMOVE=1
 export IAPPD_PROC_MODULES="$tmp/modules" IAPPD_PROC_INTERRUPTS="$tmp/interrupts"
 fail() { echo "$*" >&2; exit 1; }
-status() { [ "$1" -eq "$2" ] || fail "expected $2, got $1"; }
+status_count=0
+status() {
+  status_count=$((status_count + 1))
+  [ "$1" -eq "$2" ] || fail "status assertion #$status_count expected $2, got $1"
+}
 run() { /bin/sh "$base/iappd.sh" "$1"; }
 capture_status() { "$@"; rc=$?; printf "%s" "$rc"; }
 mark_running() { mkdir -p "$PROC_ROOT/123"; printf '%s\n' '123 (ralinkiappd) S 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19' > "$PROC_ROOT/123/stat"; ln -sf /sbin/ralinkiappd "$PROC_ROOT/123/exe"; : > "$STATE_DIR/daemon"; }
