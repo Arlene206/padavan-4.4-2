@@ -676,7 +676,23 @@ fill_dnsmasq_servers(void)
 		logmessage(LOGNAME, "ignoring invalid domain-specific DNS routing domain");
 	}
 
-	load_user_config(fp, storage_dir, "dnsmasq.servers", NULL);
+	snapshot_status = load_user_config(fp, storage_dir, "dnsmasq.servers", NULL);
+	if (snapshot_status != 0) {
+		saved_errno = snapshot_status > 0 ? snapshot_status : EIO;
+		if (fclose(fp) != 0)
+			logmessage(LOGNAME, "cannot close failed DNS server snapshot stage (errno=%d)",
+				   errno ? errno : EIO);
+		if (dnsmasq_file_discard(servers_path) != 0)
+			logmessage(LOGNAME, "cannot remove DNS server snapshot stage after user overlay failure (errno=%d)",
+				   errno ? errno : EIO);
+		logmessage(LOGNAME,
+			   "cannot append user DNSMasq server overlay; preserving existing server file (status=%d)",
+			   saved_errno);
+		file_unlock(lock);
+		errno = saved_errno;
+		return -1;
+	}
+
 	if (dnsmasq_file_publish(fp, servers_path, DNS_SERVERS_FILE, 0644) != 0) {
 		saved_errno = errno ? errno : EIO;
 		if (dnsmasq_file_discard(servers_path) != 0)

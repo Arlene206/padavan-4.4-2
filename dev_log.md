@@ -1,3 +1,9 @@
+## 2026-11-24 — Fail closed when DNSMasq user server overlay cannot be copied
+
+- `load_user_config()` already returns errors from safe-open, whole-line stream copy, input read, output write/flush and input close, while preserving ENOENT as the optional-file default. `fill_dnsmasq_servers()` ignored that return value and published its stage anyway, so an unreadable or partially copied `dnsmasq.servers` could replace the last-known-good split-DNS rules with an incomplete file.
+- The DNSMasq writer now checks the overlay status; on failure it closes and removes the unpublished stage, releases the server-file lock, preserves the original error and leaves the active `DNS_SERVERS_FILE` untouched. The DNSMasq source contract pins the helper's error propagation and asserts close → discard → unlock → abort all precede publication.
+- Exact-head DNSMasq/AI/Process/WAN/NVRAM and XY-C1 checks are pending for the new source SHA. No full local lifecycle test or firmware result is claimed.
+
 ## 2026-11-24 — Validate ZeroTier firewall checkpoint IPv4 tuples
 
 - The firewall recovery checkpoint previously restricted saved source-NAT segments to digits, dots and slashes, but did not validate octet or prefix semantics. Corrupt values such as `999.147.17.0/24`, octal-looking `10.147.017.0/24` and prefix `/33` passed the character gate and could be replayed as iptables source matches.

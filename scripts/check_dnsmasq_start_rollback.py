@@ -6,6 +6,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 RC = ROOT / "trunk/user/rc/src"
 SERVICES = (RC / "services_ex.c").read_text()
+COMMON_EX = (RC / "common_ex.c").read_text()
 POLICY = (RC / "dnsmasq_restart_policy.h").read_text()
 TEST = (RC / "tests/dnsmasq_restart_policy.c").read_text()
 RC_H = (RC / "rc.h").read_text()
@@ -95,6 +96,30 @@ assert "start_status = dnsmasq_rollback_failed_start(start_status, \"restart\")"
 assert restart.index("dnsmasq_confirm_started(launch_status)") < restart.index(
     "dnsmasq_rollback_failed_start(start_status, \"restart\")"
 )
+
+# A missing user overlay is optional, but a read/copy/flush/close failure must
+# not publish a partial DNS server file over the last-known-good snapshot.
+user_config_loader = compact(body(COMMON_EX, "int\nload_user_config("))
+assert "rc_user_config_copy_stream(fp, fp_user, forbid_list, is_forbidden)" in user_config_loader
+assert "if (fclose(fp_user) != 0 && status == 0)" in user_config_loader
+assert "return status;" in user_config_loader
+
+servers_writer = compact(body(SERVICES, "int\nfill_dnsmasq_servers(void)"))
+overlay_load = servers_writer.index(
+    'snapshot_status = load_user_config(fp, storage_dir, "dnsmasq.servers", NULL);'
+)
+overlay_failure = servers_writer.index("if (snapshot_status != 0)", overlay_load)
+overlay_publish = servers_writer.index(
+    "dnsmasq_file_publish(fp, servers_path, DNS_SERVERS_FILE, 0644)", overlay_load
+)
+overlay_guard = servers_writer[overlay_failure:overlay_publish]
+assert overlay_load < overlay_failure < overlay_publish
+assert overlay_guard.index("fclose(fp)") < overlay_guard.index(
+    "dnsmasq_file_discard(servers_path)"
+) < overlay_guard.index("file_unlock(lock)") < overlay_guard.index("return -1;")
+assert "errno = saved_errno;" in overlay_guard
+assert "preserving existing server file" in overlay_guard
+assert "cannot append user DNSMasq server overlay" in overlay_guard
 
 for public, internal, operation in (
     ("start_dns_dhcpd(int is_ap_mode)", "start_dns_dhcpd_locked(is_ap_mode)", "start"),
