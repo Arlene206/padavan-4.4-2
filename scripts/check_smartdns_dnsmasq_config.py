@@ -211,7 +211,7 @@ assert "SmartDNS stop explicitly removes firewall redirects during start rollbac
 assert "SmartDNS start and restart install DNS redirects from the saved prior mode" in test
 assert "smartdns_state_version=managed-v1" in start
 assert 'if Change_adbyby; then' in stop
-assert stop.index("smartdns_stop_process") < stop.index('if Change_adbyby; then') < stop.index("Change_iptable")
+assert stop.index('if Change_iptable stop; then') < stop.index("smartdns_stop_process") < stop.index('if Change_adbyby; then')
 assert 'return "$smartdns_adbyby_status"' in stop
 assert "Change_dnsmasq stop" in stop and "DNSMasq resolver cleanup incomplete" in stop
 assert 'return "$smartdns_dnsmasq_status"' in stop

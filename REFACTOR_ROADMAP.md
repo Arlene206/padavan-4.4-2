@@ -1,3 +1,9 @@
+## 2026-11-24 状态增量：同步 DNSMasq SmartDNS 停止合同
+
+- `check_smartdns_dnsmasq_config.py` 改为要求先清理 NAT redirect，再停止 SmartDNS daemon，避免遗留重定向指向已停止服务。
+
+---
+
 ## 2026-11-24 状态增量：SmartDNS 现有 DNSMasq 回归适配
 
 - 更新 `dnsmasq_config_preservation.sh`，同时加载新增 firewall add/delete helper 与 dispatcher；源码合同禁止 dispatcher 绕过状态包装器直接调用 iptables。

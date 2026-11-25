@@ -1,3 +1,8 @@
+## 2026-11-24 — Align the DNSMasq source contract with safe SmartDNS stop ordering
+
+- Exact-head DNSMasq run #45553242639 confirmed the existing SmartDNS config-preservation fixture now extracts and runs with both firewall helpers, but its source checker still mandated the old unsafe order (stop daemon, then delete NAT redirects). Updated the checker to require redirect cleanup before daemon stop and Adbyby retargeting.
+- The independent SmartDNS lifecycle checker and shell cases remain in place; exact-head rerun required. No local test or firmware result is claimed.
+
 ## 2026-11-24 — Update the existing DNSMasq preservation fixture for checked firewall helpers
 
 - Exact-head DNSMasq run #45553050279 confirmed all seven new firewall-policy shell cases passed, then the older `dnsmasq_config_preservation.sh` fixture failed because it extracted `Change_iptable()` without the newly required helper functions. Updated its extraction block to source add, delete and dispatch helpers together.
