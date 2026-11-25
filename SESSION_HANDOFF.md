@@ -1,18 +1,17 @@
-## 2026-11-25 autonomous handoff — repair stale WAN teardown LAN6 contract
+## 2026-11-25 autonomous handoff — modem checker aligned with LAN6 recovery
 
-- Main parent: `d5adff9d7413b391d523d4b2c0d571d75de8b98a`. Current production changes are bridge M2U transactional rollback (`0bed846`), SIT LAN IPv6 rollback (`0ae462`), SIT duplicate-route ownership (`103e735`) and LAN IPv6 reload recovery (`d5adff9`).
-- Exact WAN teardown #45629160931 on `d5adff9` reached and passed the GNU89 LAN IPv6 policy regression, then failed only because its embedded Python checker expected the old `rc_lan_addr6_reload_from_snapshot()` API. Production now uses `rc_lan_addr6_reload_from_snapshot_with_recovery()`. This workflow-only correction updates the source contract and checks the LAN6 files in both push and PR filters.
-- On `d5adff9`: Process lifecycle inventory #45629160410, IPv6 service type #45629160900, AI docs #45629161062 and DNSMasq #45629160328 PASS. WAN teardown #45629160931 FAIL (stale checker, fixed here); WAN route #45629160990, XY-C1 #45629161139, NVRAM #45629160447 and Process fail-closed #45629160483 were in progress. XY Build/TRX/artifact were pending at last poll.
-- LAN IPv6 reload fix snapshots NVRAM before mutation, then tries idempotent `ip -6 addr replace` recovery after clear/add errors. Seven new fixture cases were added. XY-C1 path filter includes `net_lan6.c`; verify actual Build + TRX + artifact on a single identical SHA.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. No current-source L3 or physical L4 result is claimed.
+- Latest main before this slice: `3ea183528fe9d1f80f5d2304ee8f1558ab62acc4`. Previous commit `3ea183528fe9d1f80f5d2304ee8f1558ab62acc4` fixed the WAN teardown source contract; exact WAN teardown #45629626346 and AI docs #45629626161 PASS.
+- d5 source SHA `d5adff9d7413b391d523d4b2c0d571d75de8b98a` LAN IPv6 GNU89 fixture passed; WAN route #45629160990, NVRAM #45629160447, IPv6 type #45629160900, AI docs #45629161062, Process inventory #45629160410 and DNSMasq #45629160328 PASS. But XY-C1 #45629161139 and Process fail-closed #45629160483 failed at `scripts/check_modem_wan_start_status.py:699` because it still searched for the old `rc_lan_addr6_reload_from_snapshot()`; it did not reach a product build. The current change updates the checker to assert the new recovery API, source ordering, restore callback, error logging and seven fixture test names.
+- XY-C1 checker-only commit may skip Build because production inputs are unchanged; this is expected and is NOT L3 verification. The next genuine production-source commit should trigger Build XY-C1, TRX and artifact all on one identical SHA.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. No current-source L3 or physical L4 claim.
 
 ### First actions
-1. Check fresh exact-head WAN teardown and WAN route outcomes; repair any next real regression.
-2. Resolve XY-C1 Build XY-C1, TRX verification and artifact upload on one identical source SHA; also check NVRAM and Process fail-closed runs.
-3. Continue independent stability/security implementation while pending; do not repeat M2U/VLAN/SIT audits without new evidence.
+1. Check exact-head XY-C1, Process fail-closed and any workflow triggered by this checker commit; fix actual failures without weakening assertions.
+2. Continue a concrete production-source stability defect that will trigger a full XY-C1 Build/TRX/artifact cycle.
+3. Keep WAN M2U/VLAN/SIT and LAN6 recovery history intact; do not repeat audits without new evidence.
 
 ### Execution contract
-Source/test → full Git tree/commit → non-forced expected-SHA update → exact-SHA Actions. Main only; no branches, PRs, force pushes or backup changes.
+Source/test → one full Git tree/commit → non-forced expected-SHA update → exact-SHA Actions. Main only; no branch, PR, force push or backup mutation.
 
 ## 2026-11-25 autonomous handoff checkpoint
 

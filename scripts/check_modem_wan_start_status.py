@@ -686,30 +686,50 @@ assert "rc_wan_route_flush_apply(ifnames, count, flush)" in cache_policy
 assert "flush_cache ? flush_cache() : EINVAL" in cache_policy
 assert "rc_first_service_start_status(first_status, cache_status)" in cache_policy
 assert "test_global_cache_flush_is_attempted_and_errors_are_preserved" in ROUTE_FLUSH_POLICY_TEST
-# LAN IPv6 reload preserves clear/add errors and avoids shell interpolation.
+# LAN IPv6 reload preserves the previous configured address on clear/add failure.
 reload_policy = compact(LAN_ADDR6_RELOAD_POLICY_SOURCE)
-assert "if (!clear_address || (has_address && !add_address)) return EINVAL;" in reload_policy
-assert "status = clear_address();" in reload_policy
-assert "if (status != 0 || !has_address) return status;" in reload_policy
-assert "return add_address(context);" in reload_policy
-assert "test_clear_failure_prevents_new_address_publication" in LAN_ADDR6_RELOAD_POLICY_TEST
-assert "test_add_failure_is_returned_after_successful_clear" in LAN_ADDR6_RELOAD_POLICY_TEST
+reload_apply = compact(body(
+    LAN_ADDR6_RELOAD_POLICY_SOURCE, "rc_lan_addr6_reload_apply_with_recovery("))
+reload_snapshot = compact(body(
+    LAN_ADDR6_RELOAD_POLICY_SOURCE, "rc_lan_addr6_reload_from_snapshot_with_recovery("))
+assert "if (!clear_address || (has_address && (!add_address || !restore_address))) return EINVAL;" in reload_apply
+assert "status = clear_address();" in reload_apply
+assert "if (status != 0)" in reload_apply
+assert "recovery_status = restore_address(context);" in reload_apply
+assert "status = add_address(context);" in reload_apply
+assert "if (read_status != 0) return read_status;" in reload_snapshot
+assert "rc_lan_addr6_reload_apply_with_recovery(" in reload_snapshot
 reload_lan = compact(body(NET_LAN6_SOURCE, "reload_lan_addr6(void)"))
 snapshot_read = reload_lan.index("lan6_read_config_value_status(")
-snapshot_apply = reload_lan.index("rc_lan_addr6_reload_from_snapshot(")
+snapshot_apply = reload_lan.index("rc_lan_addr6_reload_from_snapshot_with_recovery(")
 assert '"lan_addr6"' in reload_lan[snapshot_read:snapshot_apply]
 assert "clear_lan_addr6_for_reload" in reload_lan[snapshot_apply:]
 assert "add_lan_addr6_for_reload" in reload_lan[snapshot_apply:]
+assert "restore_lan_addr6_for_reload" in reload_lan[snapshot_apply:]
 snapshot_error = reload_lan.index("if (status != 0)", snapshot_apply)
-snapshot_return = reload_lan.index("return status;", snapshot_error)
-assert snapshot_read < snapshot_apply < snapshot_error < snapshot_return
-assert "if (read_status != 0) return read_status;" in reload_policy
+recovery_log = reload_lan.index("if (recovery_status != 0)", snapshot_error)
+snapshot_return = reload_lan.index("return status;", recovery_log)
+assert snapshot_read < snapshot_apply < snapshot_error < recovery_log < snapshot_return
+assert "configured LAN address recovery after reload failure was incomplete" in reload_lan
 assert "test_nvram_read_failure_preserves_live_address_without_clear_or_add" in LAN_ADDR6_RELOAD_POLICY_TEST
 clear_reload = compact(body(NET_LAN6_SOURCE, "clear_lan_addr6_for_reload(void)"))
 assert "return clear_if_addr6(IFNAME_BR);" in clear_reload
 add_reload = compact(body(NET_LAN6_SOURCE, "add_lan_addr6_for_reload(void *context)"))
 assert 'return eval("ip", "-6", "addr", "add", lan_addr6, "dev", IFNAME_BR);' in add_reload
-assert "doSystem(" not in add_reload
+restore_reload = compact(body(
+    NET_LAN6_SOURCE, "restore_lan_addr6_for_reload(void *context)"))
+assert 'return eval("ip", "-6", "addr", "replace", lan_addr6, "dev", IFNAME_BR);' in restore_reload
+assert "doSystem(" not in add_reload and "doSystem(" not in restore_reload
+for test_name in (
+    "test_reload_recovery_restores_address_after_clear_failure",
+    "test_reload_recovery_restores_address_after_add_failure",
+    "test_reload_recovery_error_does_not_replace_primary_error",
+    "test_reload_empty_snapshot_never_attempts_address_recovery",
+    "test_reload_recovery_requires_restore_callback_before_mutation",
+    "test_reload_snapshot_read_error_skips_clear_and_recovery",
+    "test_reload_recovery_success_keeps_normal_clear_add_order",
+):
+    assert test_name in LAN_ADDR6_RELOAD_POLICY_TEST
 assert "int reload_lan_addr6(void);" in HEADER
 assert "void reload_lan_addr6(void);" not in HEADER
 lan_start = compact(body(NET_LAN_SOURCE, "start_lan(int is_ap_mode, int do_wait)"))

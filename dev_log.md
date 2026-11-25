@@ -1,3 +1,11 @@
+## 2026-11-25 22:02 CST (UTC+8) — Align modem/XY-C1 checker with LAN6 recovery API
+
+- Exact d5 source SHA `d5adff9d7413b391d523d4b2c0d571d75de8b98a`: LAN IPv6 regression compiled and printed PASS; WAN route #45629160990, NVRAM #45629160447, IPv6 service type #45629160900, AI docs #45629161062, Process inventory #45629160410 and DNSMasq #45629160328 PASS. WAN teardown #45629160931 failed only on a stale snapshot API assertion, corrected in `3ea1835`; exact `3ea1835` WAN teardown #45629626346 PASS and AI docs #45629626161 PASS.
+- The same stale call remained in `scripts/check_modem_wan_start_status.py:699`. It blocked XY-C1 #45629161139 before Build/TRX/artifact and Process fail-closed #45629160483. Updated the checker to require the recovery-aware apply/snapshot policy, snapshot-before-mutation, both recovery logs, argv-based `ip addr replace`, and all seven recovery fixture cases.
+- No source change in this checker-only commit; XY-C1 may run host checks but its production-input detector can skip Build. Current-source L3 remains NOT VERIFIED; physical L4 NOT VERIFIED. The next source-bearing commit must run Build + TRX + artifact on one identical SHA.
+
+---
+
 ## 2026-11-25 21:57 CST (UTC+8) — Update WAN teardown LAN IPv6 reload contract
 
 - Exact-head WAN teardown #45629160931 on `d5adff9d7413b391d523d4b2c0d571d75de8b98a` failed in the final Python source-contract block because it still expected `rc_lan_addr6_reload_from_snapshot()`; production now uses the recovery-aware `rc_lan_addr6_reload_from_snapshot_with_recovery()`. The GNU89 LAN IPv6 policy fixture had already compiled and printed PASS in this same job; the failure was a stale assertion, not a C regression.
