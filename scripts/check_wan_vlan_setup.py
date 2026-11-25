@@ -995,6 +995,23 @@ wan6_identity_policy = (rc / "wan6_identity_policy.h").read_text()
 wan6_identity_test = (rc / "tests/wan6_identity_policy.c").read_text()
 sit_start = body(wan6, "int start_sit_tunnel(")
 sit_failed = sit_start[sit_start.index("failed:"):]
+sit_endpoint_policy = sit_start.index("wan6_sit_endpoint_route_add_status(")
+sit_endpoint_add = sit_start.index("route_add(wan_ifname, 0, sit_ep, wan_gate4,", sit_endpoint_policy)
+sit_endpoint_owner = sit_start.index("&wan_route_added", sit_endpoint_policy)
+require(sit_endpoint_policy < sit_endpoint_add < sit_endpoint_owner,
+        "SIT endpoint route result must be classified before ownership is recorded")
+require("if (add_status == EEXIST)" in wan6_identity_policy and
+        "*route_added = 0;" in wan6_identity_policy and
+        "*route_added = 1;" in wan6_identity_policy,
+        "duplicate SIT endpoint routes must be accepted without claiming ownership")
+for test_name in (
+    "test_sit_endpoint_route_new_add_is_owned",
+    "test_sit_endpoint_route_duplicate_is_accepted_without_ownership",
+    "test_sit_endpoint_route_failure_is_not_hidden",
+    "test_sit_endpoint_route_requires_ownership_output",
+):
+    require(test_name in wan6_identity_test and test_name + "();" in wan6_identity_test,
+            "SIT endpoint route ownership regression missing " + test_name)
 lan_snapshot = sit_start.index('wan6_read_nvram_copy_status(\n\t\t\t"lan_addr6"')
 lan_touched = sit_start.index("lan_address_touched = 1;", lan_snapshot)
 lan_clear = sit_start.index("clear_if_addr6(IFNAME_BR)", lan_touched)

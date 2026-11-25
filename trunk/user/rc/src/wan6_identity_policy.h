@@ -202,4 +202,22 @@ wan6_sit_restore_lan_addr6(int address_touched, const char *previous_address,
 	return first_status;
 }
 
+/* A duplicate endpoint host route is already usable, but was not created here. */
+static inline int
+wan6_sit_endpoint_route_add_status(int add_status, int *route_added)
+{
+	if (!route_added)
+		return EINVAL;
+
+	*route_added = 0;
+	if (add_status == 0) {
+		*route_added = 1;
+		return 0;
+	}
+	if (add_status == EEXIST)
+		return 0;
+
+	return add_status;
+}
+
 #endif /* WAN6_IDENTITY_POLICY_H */

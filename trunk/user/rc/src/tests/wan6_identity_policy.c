@@ -527,10 +527,48 @@ test_sit_lan_addr6_restore_rejects_missing_callbacks(void)
 }
 
 
+static void
+test_sit_endpoint_route_new_add_is_owned(void)
+{
+	int route_added = -1;
+
+	assert(wan6_sit_endpoint_route_add_status(0, &route_added) == 0);
+	assert(route_added == 1);
+}
+
+static void
+test_sit_endpoint_route_duplicate_is_accepted_without_ownership(void)
+{
+	int route_added = -1;
+
+	assert(wan6_sit_endpoint_route_add_status(EEXIST, &route_added) == 0);
+	assert(route_added == 0);
+}
+
+static void
+test_sit_endpoint_route_failure_is_not_hidden(void)
+{
+	int route_added = -1;
+
+	assert(wan6_sit_endpoint_route_add_status(ENETUNREACH,
+						  &route_added) == ENETUNREACH);
+	assert(route_added == 0);
+}
+
+static void
+test_sit_endpoint_route_requires_ownership_output(void)
+{
+	assert(wan6_sit_endpoint_route_add_status(0, NULL) == EINVAL);
+}
+
 int
 main(void)
 {
 
+	test_sit_endpoint_route_new_add_is_owned();
+	test_sit_endpoint_route_duplicate_is_accepted_without_ownership();
+	test_sit_endpoint_route_failure_is_not_hidden();
+	test_sit_endpoint_route_requires_ownership_output();
 	test_wan6_address_host_read_error_fails_closed();
 	test_wan6_address_host_missing_interface_keeps_fallback_eligible();
 	test_wan6_address_host_extracts_prefix_free_public_address();

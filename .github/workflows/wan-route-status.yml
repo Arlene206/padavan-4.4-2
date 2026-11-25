@@ -431,6 +431,14 @@ jobs:
             trunk/user/rc/src/tests/wan6_teardown_policy.c \
             -o /tmp/wan6-teardown-policy
           ASAN_OPTIONS=detect_leaks=1 /tmp/wan6-teardown-policy
+      - name: Compile and run WAN IPv6 identity publication policy regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/wan6_identity_policy.c \
+            -o /tmp/wan6-identity-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/wan6-identity-policy
       - name: Compile and run static IPTV multicast startup status regression
         run: |
           set -eu

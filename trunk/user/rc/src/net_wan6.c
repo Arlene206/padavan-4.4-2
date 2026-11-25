@@ -1219,9 +1219,13 @@ int start_sit_tunnel(int ipv6_type, char *wan_ifname, char *wan_addr4,
 			       "configure 6rd tunnel");
 
 	/* Route the IPv4 tunnel endpoint through the physical WAN first. */
-	WAN6_SIT_CHECK(route_add(wan_ifname, 0, sit_ep, wan_gate4,
-				 "255.255.255.255"), "route SIT IPv4 endpoint");
-	wan_route_added = 1;
+	status = wan6_sit_endpoint_route_add_status(
+		route_add(wan_ifname, 0, sit_ep, wan_gate4, "255.255.255.255"),
+		&wan_route_added);
+	if (status != 0) {
+		failure = "route SIT IPv4 endpoint";
+		goto failed;
+	}
 
 	if (!inet_ntop(AF_INET6, &addr6, addr6s, INET6_ADDRSTRLEN)) {
 		status = -1;
