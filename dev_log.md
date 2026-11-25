@@ -1,3 +1,13 @@
+## 2026-11-26 00:16 CST (UTC+8) — Repair exact-head VPN regression contracts
+
+- Base SHA: `311d6080fd7cb5d6e4cb5906f5923b45c350e108`; result SHA: THIS COMMIT (resolve on next recovery). Scope: `trunk/user/rc/src/tests/vpn_client_nvram_policy.c`, `scripts/check_openvpn_client_secret.py`, `SESSION_HANDOFF.md`, `dev_log.md`.
+- Exact-head VPN server run #45652102199 failed because the regression asserted that a 13-byte value could be copied into an 8-byte buffer; the implementation correctly returned `ENAMETOOLONG`. The fixture now separately tests short-buffer rejection and successful full-buffer copying, and retains an explicit oversized-value failure assertion.
+- Exact-head OpenVPN client secret run #45652102448 failed because its checker required the removed cache-backed `nvram_safe_get()` credential reads. The production code now validates and passes snapshot-copied `username`/`password` to the secret publisher; this checker now pins that behavior and rejects a regression to those getters.
+- Verification before this fix: the OpenVPN secret policy binaries, config publication regression, lease snapshot policy and lease-lock policy passed; only the final stale source contract failed. VPN server suite's earlier C steps passed; the client NVRAM policy regression failed at the undersized fixture. This commit's focused tests and exact-head Actions are PENDING.
+- Related exact-head evidence on base `311d6080fd7cb5d6e4cb5906f5923b45c350e108`: Process lifecycle regression #45652102139 PASS; NVRAM boundary #45652102079 PASS; AI docs #45652102145 PASS; Process inventory #45652101913 ended `startup_failure` before job steps; XY-C1 #45652102254 Build in progress, TRX/artifact pending. No L3/L4 claim.
+
+---
+
 ## 2026-11-25 — Snapshot VPN client startup settings before side effects
 
 - PPTP/L2TP startup reads enable/type/auth/MPPE/MTU/MRU/default-route/peer/user/password/custom PPP options in one checked NVRAM transaction. Backend or transaction-end errors, malformed values and oversized strings abort before runtime DNS clearing, PPP file creation or protocol selection; absent optional values retain defaults and MTU/MRU retain the 1000–1460 clamp.

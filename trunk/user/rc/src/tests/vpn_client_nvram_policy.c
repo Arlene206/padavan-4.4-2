@@ -124,11 +124,15 @@ test_boolean_read_status_preserves_legacy_defaults_and_rejects_invalid_values(vo
 static void
 test_cache_backed_text_is_copied_without_truncation(void)
 {
-    char destination[8];
+    char destination[16];
+    char short_destination[8];
 
+    assert(vpn_client_nvram_copy_text("peer.example", short_destination,
+                                      sizeof(short_destination)) == ENAMETOOLONG);
+    assert(short_destination[0] == '\0');
     assert(vpn_client_nvram_copy_text("peer.example", destination,
-                                      sizeof(destination)) == ENAMETOOLONG);
-    assert(destination[0] == '\0');
+                                      sizeof(destination)) == 0);
+    assert(strcmp(destination, "peer.example") == 0);
     assert(vpn_client_nvram_copy_text("peer", destination,
                                       sizeof(destination)) == 0);
     assert(strcmp(destination, "peer") == 0);
@@ -152,8 +156,9 @@ test_cache_backed_text_is_copied_without_truncation(void)
     assert(vpn_client_nvram_copy_status(1, 0, NULL,
                                         destination, sizeof(destination)) == EIO);
     assert(destination[0] == '\0');
-    assert(vpn_client_nvram_copy_status(1, 0, "oversized-peer",
+    assert(vpn_client_nvram_copy_status(1, 0, "this-peer-identifier-is-longer-than-the-buffer",
                                         destination, sizeof(destination)) == ENAMETOOLONG);
+    assert(destination[0] == '\0');
 
     {
         int mtu = -1;

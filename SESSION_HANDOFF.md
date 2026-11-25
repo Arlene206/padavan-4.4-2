@@ -1,16 +1,17 @@
-## 2026-11-25 active handoff — checked VPN client startup snapshot
+## 2026-11-26 active handoff — repair exact-head VPN regression failures
 
-- Live main parent: `932d9b36c50f85c9af09828f19dcad293c4a37b1`. RStats history-cursor validation #45650854127 PASS; AI docs #45650853909 PASS; HTTPD security #45650853978 PASS; Process fail-closed #45650854255 PASS. NVRAM audit #45650853825 and XY-C1 #45650853972 were in progress; Process lifecycle inventory #45650854173 was queued/in progress at last poll. Parent-SHA runs do not validate this VPN source slice.
-- Dropbear source fix `3d133996a9fe1de17d57f8c25805efee362f6106` plus checker correction `195bc627d2d809da1877bc7c119a5a5e73342799`: exact Process #45650274526 PASS and AI docs #45650274515 PASS. XY-C1 #45649964829 on the Dropbear source SHA was still in progress at last poll.
-- DHCPv6 IA finite-expiry fix `cb8f014893d99e8991c55cd792443e5c2c1f4a37` has L3 VERIFIED: exact XY-C1 #45647751940 completed Build XY-C1, TRX verification and artifact upload all SUCCESS on that identical SHA. Focused DHCPv6 IA, Process, WAN DHCP callback, USB storage and NVRAM checks PASS; AI docs #45648215022 PASS on docs-only descendant 84fadb. Physical-router L4 NOT VERIFIED.
-- VPN reliability slice: PPTP/L2TP settings now use one checked transaction; backend errors, malformed values or oversized strings abort before runtime DNS clearing or PPP file publication. OpenVPN enable/type/selectors and credentials are checked together; runtime cleanup follows full snapshot validation, and secret publication consumes copied credentials. Exact VPN/Process/NVRAM/AI/XY-C1 validation for this new SHA pending.
+- Live main parent: `311d6080fd7cb5d6e4cb5906f5923b45c350e108`. Exact push Actions on this SHA exposed two test/contract failures: VPN server lifecycle #45652102199 / job #139339039678 fails in `vpn_client_nvram_policy.c` because the fixture expects copying `peer.example` into an 8-byte destination; OpenVPN client secret #45652102448 / job #139339040673 fails because `check_openvpn_client_secret.py` still requires direct `nvram_safe_get()` calls after the implementation correctly switched to snapshot-fed username/password arguments.
+- The corresponding C policy and Python source-contract corrections are staged in this commit; their exact-main reruns are pending. Earlier policy components in both jobs completed successfully.
+- Process lifecycle inventory #45652101913 ended as `startup_failure` before exposing any job steps; no source-test failure is evidenced. Main Process lifecycle regression #45652102139 PASS, NVRAM boundary #45652102079 PASS, and AI handoff docs #45652102145 PASS on the exact SHA above.
+- XY-C1 #45652102254 remains in progress on `311d6080fd7cb5d6e4cb5906f5923b45c350e108`: host preflight and firmware-input detector passed; Build XY-C1 was still running, with TRX and artifact verification pending. No L3 result is claimed.
+- The production VPN snapshot work in `311d6080fd7cb5d6e4cb5906f5923b45c350e108` remains: PPTP/L2TP settings use one checked transaction and abort before runtime DNS clearing/PPP file publication on backend errors, malformed values or oversized strings; OpenVPN selectors and credentials are read together and secret publication consumes copied credentials. Physical-router L4 remains NOT VERIFIED.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ### First actions
 
-1. Inspect exact-head VPN lifecycle, Process inventory, NVRAM boundary, AI docs and XY-C1 runs; fix the first causal failure without relaxing assertions.
-2. L3 requires Build XY-C1, TRX verification and artifact upload PASS on the same product-source SHA.
-3. Continue another independent userland stability/security task while unrelated Actions are pending.
+1. Verify this commit's VPN server policy fixture and OpenVPN credential checker on exact main SHA; fix any new causal failures without weakening tests.
+2. Inspect the corresponding VPN-server #45652102199 and OpenVPN-secret #45652102448 job reruns; confirm Process inventory workflow startup and exact XY-C1 Build/TRX/artifact status.
+3. Continue the independent reliability review of OpenVPN startup failure cleanup while the unrelated exact-SHA Actions are running.
 
 ### Execution contract
 
