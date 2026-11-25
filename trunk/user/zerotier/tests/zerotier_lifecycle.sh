@@ -1678,8 +1678,6 @@ fi
 [ ! -s "$TEST_ACTION_LOG" ] || fail "unterminated trailing fragment changed persistent configuration"
 TEST_EXPECT_SAVED_SEGMENT=0
 
-TEST_EXPECT_SAVED_SEGMENT=0
-
 /bin/rm -rf "$TEST_CONFIG"
 : > "$TEST_IPTABLES_STATE_FILE"
 : > "$TEST_IPTABLES_LOG"

@@ -2,17 +2,17 @@
 
 This snapshot supersedes older task pointers below where they conflict with live Git state.
 
-- Main before this UDHCP regression-call correction: `c61222654e016254e190708ff4bdfb1526cfae53`. Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, untouched. PR #1 remains closed/unmerged.
-- UDHCP workflow #45538153884 on `c612226` FAILED at compilation: an accidental second `if (` was inserted in `main()` between the new and existing regression call lists, causing existing static test functions to become unused under `-Werror`. This correction joins the new calls into the existing condition. It does not alter production code or weaken coverage.
-- Process inventory #45538153952 PASS; AI docs #45538153905 PASS. XY-C1 #45538153841 and USB storage #45538153909, NVRAM transaction #45538154070 were IN_PROGRESS at last observation. Exact-head UDHCP rerun after this correction is required.
-- BusyBox parser change on `c612226` adds bounded TLV sizing, validates one-byte DHCP option-overload and reserved bits, and advances past empty TLVs safely; sanitizer fixtures cover header/payload boundaries and overload values. No local compile claimed.
-- ZeroTier exact-head check on `43d03d8` remains open (the preceding `a4927aee` run #45537336228 failed only its incorrect truncated-file expectation; new strict-tail fix must pass a dedicated run).
+- Main before this ZeroTier recovery safety correction: a8f5f0a2a4d8aacfea275811dc79d444afeee78d. Frozen backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807, untouched. PR #1 remains closed/unmerged.
+- ZeroTier run #45537781629 on 43d03d8b6fa88c4119b12cf869c3c663d5d44742 FAILED at the existing live-route/corrupt-checkpoint regression. Root cause: stop-only prefix recovery accepted the first two saved fields while a different live kernel route could imply an older unrecorded source-NAT rule. Recovery is now restricted to cases where ip route is readable and shows no kernel route on the saved interface. A present route or unreadable inventory remains fail-closed.
+- UDHCP run #45538153884 on c61222654e016254e190708ff4bdfb1526cfae53 FAILED compilation: its new test-call insertion accidentally introduced a second if condition, leaving existing test functions unused under -Werror. Test-only fix is a8f5f0a2a4d8aacfea275811dc79d444afeee78d; exact-head rerun still required.
+- On exact c612226: Process inventory #45538153952 PASS and AI docs #45538153905 PASS; XY-C1 #45538153841, USB storage #45538153909 and NVRAM transaction #45538154070 were in progress at last observation.
+- Frozen backup unchanged. No local shell/host or firmware result is claimed unless exact Actions for that SHA report it.
 
 ## Exact first action for the next GPT
 
-1. Verify exact-head UDHCP ASan/UBSan binary and Python source contract after the compile correction.
-2. Trigger/verify ZeroTier lifecycle after its strict-tail fix and check same-SHA firmware/umbrella Actions.
-3. Continue a separate userland security/stability fix while unrelated runs remain pending. Frozen backup stays read-only.
+1. Verify exact-head ZeroTier lifecycle and checker after restricting recovery to absent routes.
+2. Verify UDHCP ASan/UBSan regression and Python source checker on a commit containing the test-call fix.
+3. Verify XY-C1 Build/TRX/artifact and umbrella checks for their exact source SHA, then continue another reliability/security slice. No force-push or backup mutation.
 
 No force-push. The backup branch remains unchanged.
 

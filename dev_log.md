@@ -1,3 +1,9 @@
+## 2026-11-25 11:25 CST — Restrict ZeroTier damaged-checkpoint recovery to absent routes
+
+- ZeroTier exact-head run #45537781629 on 43d03d8b6fa88c4119b12cf869c3c663d5d44742 reached a pre-existing fail-closed case. It showed the stop-only recovery was too permissive: it accepted a damaged checkpoint prefix while a different live kernel route could imply an older unrecorded source-NAT rule.
+- Prefix recovery now requires ip route to succeed and positively show no proto kernel route on the saved interface before recovery can be accepted. A present route or unreadable route inventory continues to refuse stop; the saved tuple remains recoverable after the route disappears. Existing live-route corruption fixture covers refusal.
+- Updated the source contract and removed a duplicated fixture reset. Exact-head ZeroTier rerun required; no local shell test claimed.
+
 ## 2026-11-25 11:19 CST — Fix UDHCP host-test main condition
 
 - Exact UDHCP run #45538153884 on `c61222654e016254e190708ff4bdfb1526cfae53` failed at GNU89 compilation. The new regression-call lines had introduced a second `if (` inside the original main condition, so the original static tests were parsed as unused functions under `-Werror`.
