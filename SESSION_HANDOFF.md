@@ -1,26 +1,25 @@
 ## Current repository state — 2026-11-25
 
-- Live `main`: `9ed539a04e4c4df96aef03f9d1a6f9637fd3e3b9`.
-- Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (this branch is immutable; do not modify).
-- Latest ZeroTier route-safety change on this mainline hardens static-route cleanup: Linux 4.4 gateway/device deletion removes an entire FIB alias when its first nexthop matches, so a configured ZeroTier leg must not authorize deletion of an ECMP route containing other nexthops. The matcher fails closed on multipath; explicit nexthop markers are counted (the follow-up check for on-link nexthops has not landed yet).
-- Related prior fixes are present on main: DHCPv4/v6 callback environment publication is atomic; native static IPv6 WAN default route is explicitly scoped to the WAN device; AliDDNS selects a public stable IPv6 address with a sole-temporary fallback; DDNSTO lifecycle cleanup has bounded TERM/KILL handling; VSFTPD blocks reserved-metadata aliases. Do not reopen these without new evidence.
-- Exact-head Actions for the live SHA:
-- #45719100773 Process lifecycle inventory - 9ed539a04e4c4df96aef03f9d1a6f9637fd3e3b9: success (inventory: success)
-- #45719100546 AI handoff documentation contract: success (validate-handoff-records: success)
-- #45719100509 WAN route operation status regression: success (wan-route-status: success)
-- #45719100341 XY-C1 Firmware Validation: in_progress (Cross-build XY-C1 firmware: in_progress; Build XY-C1=in_progress, Verify TRX output=pending, Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9=pending)
-- #45719100260 ZeroTier lifecycle stability regression: success (zerotier-lifecycle: success)
-- Do not call the current image L3-verified unless the exact same product SHA has successful XY-C1 Build, TRX validation and artifact upload. Physical-router verification remains NOT VERIFIED (L4).
+- Live `main` product/source checkpoint: `493c184b7a3e33e90a389a17560fc366e493a355`.
+- Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (do not modify).
+- ZeroTier multipath cleanup is fail-closed: Linux 4.4 deletes the entire FIB alias when gateway/device matches the first nexthop. The current matcher counts both explicit `nexthop` records and legacy repeated `via` tokens; the on-link ECMP fixture and source checker are present: **NOT CONFIRMED**.
+- Current exact-SHA Actions:
+- #45720140098 miniupnpd atomic configuration publication regression: in_progress (miniupnpd-config-regression:in_progress)
+- #45720140020 AI handoff documentation contract: success (validate-handoff-records:success)
+- #45720139952 NVRAM transaction boundary audit: in_progress (nvram-transaction-boundary:in_progress)
+- #45720139932 Process lifecycle inventory - 493c184b7a3e33e90a389a17560fc366e493a355: in_progress (inventory:in_progress)
+- XY-C1 L3 gate on this source SHA: Build=not PASS, TRX=not PASS, artifact=not PASS. L3=NOT VERIFIED.
+- Physical router verification remains NOT VERIFIED (L4).
 
 ## Active task
 
-First inspect the exact-head Actions above and finish any pending XY-C1 build/TRX/artifact sequence. If the build fails, inspect its job log and fix the actual failure. PENDING checks do not block independent work. Continue source-level stability/security fixes across Padavan userland; make small atomic commits and preserve the frozen backup.
+Poll any exact-SHA PENDING jobs above. If XY-C1 fails, inspect its exact job log and fix the failing step; do not report a firmware build until Build, TRX and artifact all pass on the same source SHA. Continue a new source-level stability/security defect in Padavan userland while independent CI is pending.
 
 ## Exact first actions for next GPT
 
-1. Fetch live `main` and confirm it still equals `9ed539a04e4c4df96aef03f9d1a6f9637fd3e3b9`; confirm the frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-2. Poll the exact-head XY-C1 run listed above. Claim L3 only after Build, TRX validation and artifact upload are all PASS on one SHA.
-3. Continue with a new evidenced defect; avoid repeating the completed DHCP callback, WAN IPv6 route, AliDDNS, DDNSTO, VSFTPD, and ZeroTier multipath fixes.
+1. Confirm live `main` still equals `493c184b7a3e33e90a389a17560fc366e493a355` and the frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+2. Check the exact-SHA runs listed above. Only claim L3 when all three XY-C1 milestones are PASS on one product SHA.
+3. Continue from a new evidenced defect. Do not repeat the completed AliDDNS IPv6 selection, DDNSTO lifecycle, DHCPv4/v6 atomic callback publication, native WAN IPv6 route scoping, VSFTPD metadata alias, or ZeroTier multipath cleanup work without new regression evidence.
 
 # Cross-session execution mandate
 

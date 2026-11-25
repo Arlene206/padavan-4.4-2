@@ -1,3 +1,13 @@
+## 2026-11-25 — Handoff checkpoint at 493c184b7a3e33e90a389a17560fc366e493a355
+
+- Main product/source checkpoint: `493c184b7a3e33e90a389a17560fc366e493a355`; frozen backup branch: `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- ZeroTier source/test/checker includes on-link ECMP nexthop counting: not confirmed.
+- Exact-SHA Actions snapshot: #45720140098 miniupnpd atomic configuration publication regression=in_progress; #45720140020 AI handoff documentation contract=success; #45720139952 NVRAM transaction boundary audit=in_progress; #45720139932 Process lifecycle inventory - 493c184b7a3e33e90a389a17560fc366e493a355=in_progress.
+- XY-C1 gates on this source SHA: Build not PASS, TRX not PASS, artifact not PASS; L3 NOT VERIFIED. Physical L4 remains NOT VERIFIED.
+- Handoff top refreshed; archive beginning at `# Cross-session execution mandate` preserved.
+
+---
+
 ## 2026-11-25 — Pre-scan DHCPv6 NoBinding before applying IA addresses or prefixes
 
 - In Renew/Rebind replies, RFC 9915 §18.2.10.1 directs the client to send a Request for any IA carrying NoBinding while continuing to use bindings for which the server returned no error.
