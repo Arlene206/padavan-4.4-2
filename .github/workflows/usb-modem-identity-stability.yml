@@ -851,7 +851,7 @@ jobs:
               restart_type_publish < restart_type_reload < restart_type_failed <
               restart_type_abort < restart_final_gate < restart_final
           )
-          assert restart_compact.count("rc_modem_module_reload_cache_publish(") == 2
+          assert restart_compact.count("rc_modem_module_reload_cache_publish(") == 3
           assert "get_usb_modem_wan(" not in restart
 
           led_link = body(detect_link_source, "dl_handle_link_wan(void)")
