@@ -15,11 +15,9 @@ for tool in ubiattach ubiformat ubimkvol ubidetach; do
 		fail "Unable to find executable: $sbin_dir/$tool"
 	fi
 done
-for tool in mount mtd_write nvram; do
-	if ! command -v "$tool" >/dev/null 2>&1; then
-		fail "Unable to find executable: $tool"
-	fi
-done
+# Do not use command -v as a gate here: BusyBox ash can resolve applets
+# differently from PATH wrappers. Every external operation below is checked
+# at the point of use, so missing commands still fail before unsafe progress.
 if [ ! -r "$proc_mtd" ]; then
 	fail "Unable to read MTD partition inventory: $proc_mtd"
 fi
@@ -65,9 +63,6 @@ if [ -e "$operation_lock_file" ]; then
 	fi
 fi
 umask 077
-if ! command -v flock >/dev/null 2>&1; then
-	fail "Unable to find executable: flock"
-fi
 if ! exec 9>>"$operation_lock_file"; then
 	fail "Unable to open RWFS conversion lock: $operation_lock_file"
 fi
