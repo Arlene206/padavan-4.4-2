@@ -100,6 +100,17 @@ test_invalid_callbacks_fail_without_side_effects(void)
     assert(start_calls == 0 && stop_calls == 0);
 }
 
+static void
+test_invalid_mode_values_fail_without_side_effects(void)
+{
+    reset_case(0, 0);
+    assert(rc_ddns_restart_run(-1, 1, mock_start, mock_stop) == EINVAL);
+    assert(rc_ddns_restart_run(2, 1, mock_start, mock_stop) == EINVAL);
+    assert(rc_ddns_restart_run(0, -1, mock_start, mock_stop) == EINVAL);
+    assert(rc_ddns_restart_run(0, 2, mock_start, mock_stop) == EINVAL);
+    assert(start_calls == 0 && stop_calls == 0);
+}
+
 int
 main(void)
 {
@@ -110,6 +121,7 @@ main(void)
     test_ap_mode_stops_even_when_ddns_is_enabled();
     test_ap_mode_propagates_stop_failure();
     test_invalid_callbacks_fail_without_side_effects();
+    test_invalid_mode_values_fail_without_side_effects();
     puts("RC DDNS restart result policy: PASS");
     return 0;
 }

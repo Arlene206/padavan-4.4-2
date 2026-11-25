@@ -17,6 +17,8 @@ notify_header = (root / "trunk/user/shared/src/notify_rc.h").read_text()
 config_file_header = (root / "trunk/user/rc/src/inadyn_config_file.h").read_text()
 config_file_test = (root / "trunk/user/rc/src/tests/inadyn_config_file.c").read_text()
 enabled_policy = (root / "trunk/user/rc/src/ddns_enabled_policy.h").read_text()
+restart_policy = (root / "trunk/user/rc/src/ddns_restart_policy.h").read_text()
+restart_test = (root / "trunk/user/rc/src/tests/ddns_restart_policy.c").read_text()
 
 def body(signature):
     # Skip forward declarations: source.index("{", start) can silently select
@@ -97,6 +99,29 @@ assert "return enabled_status;" in notify
 assert "test_ddns_enabled_read_status" in test
 assert "inadyn_ddns_enabled_status" in enabled_policy
 assert '#include "ddns_enabled_policy.h"' in source
+
+assert "static inline int\\nrc_ddns_restart_run" in restart_policy
+assert "(ap_mode != 0 && ap_mode != 1)" in restart_policy
+assert "(ddns_enabled != 0 && ddns_enabled != 1)" in restart_policy
+assert "if (ap_mode || !ddns_enabled)" in restart_policy
+for case in (
+    "test_enabled_router_uses_one_start_transaction",
+    "test_enabled_router_propagates_start_failure",
+    "test_disabled_ddns_stops_without_starting",
+    "test_disabled_ddns_propagates_stop_failure",
+    "test_ap_mode_stops_even_when_ddns_is_enabled",
+    "test_ap_mode_propagates_stop_failure",
+    "test_invalid_callbacks_fail_without_side_effects",
+    "test_invalid_mode_values_fail_without_side_effects",
+):
+    assert case in restart_test
+assert "rc_notify_merge_action_result(0, start_status) == -1" in restart_test
+assert "rc_notify_merge_action_result(0, stop_status) == -1" in restart_test
+assert "trunk/user/rc/src/ddns_restart_policy.h" in workflow
+assert "trunk/user/rc/src/tests/ddns_restart_policy.c" in workflow
+assert "Compile DDNS restart dispatch validation regression" in workflow
+assert 'ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/ddns-restart-policy"' in workflow
+
 
 assert "inadyn_config_file_read_integer_status" in config_file_header
 assert "inadyn_config_file_clear_sensitive" in config_file_header

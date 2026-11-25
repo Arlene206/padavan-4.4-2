@@ -1,3 +1,9 @@
+## 2026-11-24 状态增量：Inadyn DDNS restart selector 边界测试接入
+
+- `rc_ddns_restart_run()` 对外接收 AP-mode 与 DDNS enabled 两个整数状态，却把任意非零值都当作 true；未知/损坏的 selector 会被错误地解释为 stop 或 start 请求。现在仅接受 0/1，非法输入返回 `EINVAL` 且不调用服务回调。补齐 -1/2 双字段回归，并将原先未执行的 `ddns_restart_policy.c` 纳入 Inadyn exact-head GNU89 + ASan/UBSan workflow 与源码合同，push/PR 路径过滤均覆盖策略头和测试文件。
+
+---
+
 ## 2026-11-25 — Reconcile FTP firewall rules after an absent-to-absent stop
 
 - `stop_ftp()` and `restart_ftpd()` only called `restart_firewall()` when daemon presence changed. If vsftpd had crashed and was already absent before an explicit stop/restart, `ftp_stop_should_reconcile_firewall()` allowed the reconciliation path, but `control_ftp_fw()` returned early for absent→absent. Stale FTP NAT/UPnP rules could therefore survive a confirmed stopped state. Add a shared policy that refreshes on presence changes and whenever the final inventory positively proves absence. Apply it in `control_ftp_fw()`; test absent→absent, running→absent, absent→running, unknown transitions and stable running. The existing storage-stop stale-rule path is unchanged. Exact-head VSFTPD lifecycle/source contracts required; no target hardware result claimed.

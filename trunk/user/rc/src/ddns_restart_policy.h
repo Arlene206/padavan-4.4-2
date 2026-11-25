@@ -16,7 +16,9 @@ static inline int
 rc_ddns_restart_run(int ap_mode, int ddns_enabled,
                     rc_ddns_start_fn start, rc_ddns_stop_fn stop)
 {
-    if (start == NULL || stop == NULL)
+    if (start == NULL || stop == NULL ||
+        (ap_mode != 0 && ap_mode != 1) ||
+        (ddns_enabled != 0 && ddns_enabled != 1))
         return EINVAL;
 
     if (ap_mode || !ddns_enabled)
