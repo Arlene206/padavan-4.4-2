@@ -26,12 +26,25 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <time.h>
+#include <unistd.h>
 #include "rtmpiapp.h"
 #include "iappdefs.h"
 #include "iapp_ioctl_ifname_policy.h"
 #include "iapp_rx_length_policy.h"
+#ifndef FT_KDP_FUNC_SOCK_COMM
+#ifdef IAPP_OS_LINUX
+#include "iapp_signal_pipe_policy.h"
+#endif /* IAPP_OS_LINUX */
+#endif /* FT_KDP_FUNC_SOCK_COMM */
 
 INT32 RTDebugLevel = RT_DEBUG_ERROR;
+
+#ifndef FT_KDP_FUNC_SOCK_COMM
+#ifdef IAPP_OS_LINUX
+/* Runtime _PC_PIPE_BUF limit for the driver-to-daemon signal queue. */
+static size_t IAPP_RawDrvPipeBufSize;
+#endif /* IAPP_OS_LINUX */
+#endif /* FT_KDP_FUNC_SOCK_COMM */
 
 /* Local Variable */
 #define IAPP_SHOW_IP_HTONL(__IP)	\
@@ -1297,6 +1310,7 @@ static BOOLEAN IAPP_SocketClose(
 	if (pCtrlBK->PipeRawDrv[FT_KDP_PIPE_ID_WRITE] >= 0)
 		close(pCtrlBK->PipeRawDrv[FT_KDP_PIPE_ID_WRITE]);
 	/* End of if */
+	IAPP_RawDrvPipeBufSize = 0;
 #endif // IAPP_OS_LINUX //
 #endif // FT_KDP_FUNC_SOCK_COMM //
 
@@ -1324,6 +1338,10 @@ static BOOLEAN IAPP_SocketOpen(
 	IAPP_IN		RTMP_IAPP			*pCtrlBK)
 {
 	INT32				FlgIsLoop, FlgIsReUsed, FlgIsBroadcast;
+#if !defined(FT_KDP_FUNC_SOCK_COMM) && defined(IAPP_OS_LINUX)
+	long PipeBufSize;
+	INT32 PipeFlags;
+#endif
 	struct sockaddr_in	AddrUdp, AddrTcp;
 #ifdef IAPP_OS_LINUX
 	struct ifreq		ReqIf;
@@ -1693,14 +1711,31 @@ static BOOLEAN IAPP_SocketOpen(
 
 #ifndef FT_KDP_FUNC_SOCK_COMM
 #ifdef IAPP_OS_LINUX
-	pipe(pCtrlBK->PipeRawDrv);
-
-	if ((pCtrlBK->PipeRawDrv[FT_KDP_PIPE_ID_READ] < 0) ||
-		(pCtrlBK->PipeRawDrv[FT_KDP_PIPE_ID_WRITE] < 0))
+	if (pipe(pCtrlBK->PipeRawDrv) < 0)
 	{
 		DBGPRINT(RT_DEBUG_ERROR, "iapp> Open raw drv pipe failed!\n");
 		goto label_fail;
-	} /* End of if */
+	}
+
+	/* The signal handler shares the event-loop thread with the pipe reader.
+	 * A blocking write here could deadlock when the pipe is full. */
+	PipeBufSize = fpathconf(pCtrlBK->PipeRawDrv[FT_KDP_PIPE_ID_WRITE], _PC_PIPE_BUF);
+	if (PipeBufSize < 0 || (size_t)PipeBufSize < sizeof(RT_SIGNAL_STRUC))
+	{
+		DBGPRINT(RT_DEBUG_ERROR, "iapp> Invalid raw drv pipe atomic-write limit!\n");
+		goto label_fail;
+	}
+
+	PipeFlags = fcntl(pCtrlBK->PipeRawDrv[FT_KDP_PIPE_ID_WRITE], F_GETFL, 0);
+	if (PipeFlags < 0 ||
+	    fcntl(pCtrlBK->PipeRawDrv[FT_KDP_PIPE_ID_WRITE], F_SETFL,
+		  PipeFlags | O_NONBLOCK) < 0)
+	{
+		DBGPRINT(RT_DEBUG_ERROR, "iapp> Cannot make raw drv pipe nonblocking!\n");
+		goto label_fail;
+	}
+
+	IAPP_RawDrvPipeBufSize = (size_t)PipeBufSize;
 #endif // IAPP_OS_LINUX //
 #endif // FT_KDP_FUNC_SOCK_COMM //
 
@@ -3377,10 +3412,13 @@ static VOID IAPP_USR2Handle(
 
 	DBGPRINT(RT_DEBUG_TRACE, "iapp> Receive a signal (Len = %d)!\n", DataLen);
 
-	/* pass event to raw drv socket */
+	/* Queue one complete record without blocking the event-loop reader. */
 	if (DataLen > 0 &&
-	    write(pCtrlBK->PipeRawDrv[FT_KDP_PIPE_ID_WRITE], pSigBuf, DataLen) != DataLen)
-		DBGPRINT(RT_DEBUG_ERROR, "iapp> Write signal context to pipe failed!\n");
+	    iapp_signal_pipe_write_record(
+		pCtrlBK->PipeRawDrv[FT_KDP_PIPE_ID_WRITE], pSigBuf,
+		(size_t)DataLen, IAPP_RawDrvPipeBufSize, write) < 0)
+		DBGPRINT(RT_DEBUG_ERROR,
+			 "iapp> Write signal context to pipe failed (errno=%d)!\n", errno);
 
 	IAPP_MEM_FREE(pSigBuf);
 #endif // FT_KDP_FUNC_SOCK_COMM //

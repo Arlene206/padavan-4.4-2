@@ -167,6 +167,21 @@ grep -Fq 'iapp_rx_buffer_append_fits(sizeof(RT_SIGNAL_STRUC), 0' "$iapp_source" 
   fail "driver signal-context ioctl output must fit its allocated structure"
 grep -Fq 'Query signal context ioctl failed' "$iapp_source" ||
   fail "driver signal-context ioctl failure must not forward uninitialized bytes"
+grep -Fq '#include "iapp_signal_pipe_policy.h"' "$iapp_source" ||
+  fail "IAPP Linux driver-pipe signal enqueue must use the bounded policy helper"
+grep -Fq 'fpathconf(pCtrlBK->PipeRawDrv[FT_KDP_PIPE_ID_WRITE], _PC_PIPE_BUF)' "$iapp_source" ||
+  fail "IAPP driver pipe must query its runtime atomic-write limit"
+grep -Fq 'PipeBufSize < 0 || (size_t)PipeBufSize < sizeof(RT_SIGNAL_STRUC)' "$iapp_source" ||
+  fail "IAPP signal record must fit within the runtime PIPE_BUF limit"
+grep -Fq 'PipeFlags | O_NONBLOCK' "$iapp_source" ||
+  fail "IAPP driver signal pipe writer must be nonblocking before handler registration"
+grep -Fq 'iapp_signal_pipe_write_record(' "$iapp_source" ||
+  fail "IAPP driver signal handler must use the complete-record write helper"
+grep -Fq 'IAPP_RawDrvPipeBufSize, write)' "$iapp_source" ||
+  fail "IAPP signal handler must apply the runtime atomic-write bound"
+if grep -Fq 'write(pCtrlBK->PipeRawDrv[FT_KDP_PIPE_ID_WRITE]' "$iapp_source"; then
+  fail "IAPP signal handler must not perform an unchecked pipe write"
+fi
 grep -Fq 'iapp_rx_length_within_capacity(' "$iapp_source" ||
   fail "IAPP encryption must validate signed driver-returned output lengths"
 [ "$(grep -F -c 'IAPP_EncryptFrame(' "$iapp_source")" -eq 7 ] ||
@@ -232,6 +247,11 @@ iapp_ifname_test="$tmp/iapp_ioctl_ifname_policy"
 cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer "$base/tests/iapp_ioctl_ifname_policy.c" -o "$iapp_ifname_test" ||
   fail "could not compile IAPP interface and receive-length regression"
 ASAN_OPTIONS=detect_leaks=1 "$iapp_ifname_test" || fail "IAPP interface and receive-length regression failed"
+
+iapp_pipe_test="$tmp/iapp_signal_pipe_policy"
+cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer -I "$base/src" "$base/tests/iapp_signal_pipe_policy.c" -o "$iapp_pipe_test" ||
+  fail "could not compile IAPP signal-pipe write regression"
+ASAN_OPTIONS=detect_leaks=1 "$iapp_pipe_test" || fail "IAPP signal-pipe write regression failed"
 grep -Fq 'if (listen(pCtrlBK->SocketTcpRcv, 128) < 0)' "$iapp_source" ||
   fail "IAPP TCP listener setup must fail closed when listen() fails"
 grep -A4 -F 'if (listen(pCtrlBK->SocketTcpRcv, 128) < 0)' "$iapp_source" |

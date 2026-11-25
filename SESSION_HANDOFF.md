@@ -1,55 +1,34 @@
-## Current repository state — 2026-11-25
+## Current repository state — 2026-11-26
 
-- Main base before portable write-failure-label fix: 509b00301afeedb34b5555bdb50489babdb37360; shared `write_fail` label now exists in all platform builds; only Linux-specific fcntl restoration is conditional (THIS COMMIT).
+- Live main parent before this slice: `fd0c5cd2a69fca87e685854804614ea63104763e`; this atomic commit adds bounded, nonblocking Linux driver-signal pipe enqueueing and its regression coverage (THIS COMMIT).
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Parent 509b00301afeedb34b5555bdb50489babdb37360: IAPP lifecycle #45696705810, process inventory #45696705872 and AI #45696705793 in progress; process regression #45696705790 queued; XY-C1 #45696705812 in progress; NVRAM #45696706186 pending.
-- Parent 509 added bounded Linux TCP writes using O_NONBLOCK + the five-second absolute deadline, retrying EINTR/EAGAIN/EWOULDBLOCK. Static review then found the shared goto target was incorrectly hidden inside the Linux-only preprocessor block; this commit repairs that cross-platform compile path.
-- Earlier `d0e9be21b179bee870054ac25fbf4f0eef8b3d5a`: IAPP lifecycle #45696512484 PASS, AI #45696512574 PASS; process inventory #45696512427 and lifecycle inventory #45696512482 in progress; XY #45696512422 in progress; NVRAM #45696512385 in progress.
-- Exact XY-C1 Build/TRX/artifact L3 remains proven only on `e1f16872b7e2792db9acf0184f2fe9c5d736c966`; later SHAs need their own exact completed build.
+- Parent exact-head Actions: IAPP lifecycle #45696823296 PASS; Process inventory #45696823293 PASS; Process regression #45696823202 PASS; AI docs #45696823284 PASS. XY-C1 #45696823320 and NVRAM #45696823165 were still running at the last poll. This new SHA requires its own exact-head checks.
+- Prior code context remains the IAPP TCP read/write/connect deadline and framing hardening through `fd0c5cd2a69fca87e685854804614ea63104763e`. Earlier XY-C1 Build/TRX/artifact L3 on `e1f16872b7e2792db9acf0184f2fe9c5d736c966` does not validate later source SHAs.
 
 ## Active task
 
-Validate the portable bounded TCP write helper on exact IAPP/XY Actions. Then continue review of signal-context pipe writes and other IPC boundaries.
-
-## Exact first actions for next GPT
-
-1. Poll parent 509 exact actions and THIS COMMIT exact IAPP/XY/Process/NVRAM/AI independently.
-2. Confirm IAPP GNU89 sanitizer tests and lifecycle assertions for send deadline, EAGAIN retry and cross-platform failure label.
-3. Inspect the raw-driver signal pipe: confirm DataLen is <= PIPE_BUF, account for EINTR/partial writes and ensure the callback cannot block indefinitely.
-4. Preserve frozen backup and main-only complete-tree atomic expected-SHA updates.
-
-## Execution contract
-
-Main only; one atomic logical task per complete tree, update with exact expected SHA and `force=false`. No force-push, feature branch or PR. PENDING does not block.
-
-## 2026-11-25 autonomous handoff checkpoint
-
-This checkpoint supersedes older active task pointers below; retain historical completed work without re-auditing completed areas.
-
-## Current repository state
-
-- Main base before RStats change: `195bc627d2d809da1877bc7c119a5a5e73342799`; this source fix is committed as one atomic non-forced descendant.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only.
-- Dropbear checker update exact runs #45650274526 and #45650274515 were in progress at last poll; earlier #45649964742 failed at a stale assertion and skipped its new fixture.
-- RStats persisted-history ring-cursor validation and GNU89 boundary regression are included in this checkpoint; exact RStats workflow pending.
-- Physical-router L4 NOT VERIFIED.
-
-## Active task
-
-Reject raw RStats history records with negative or capacity-equal daily/monthly ring cursors before copying them to live state. Invalid persisted records are logged and discarded.
+Bound the non-FT Linux SIGUSR2 driver-context pipe write. Previously the signal callback used a blocking `write()` on a pipe whose reader runs in the same IAPP event-loop thread; a full pipe could therefore block the only reader forever. The current slice queries the write fd's runtime `_PC_PIPE_BUF`, checks the fixed record fits, sets only the writer O_NONBLOCK, retries EINTR and rejects short writes without splitting the record. Queue saturation returns EAGAIN promptly and is logged; the callback never waits for the event loop to drain itself.
 
 ## Verification boundary
 
-- RStats GNU89/ASan/UBSan regression and source-order contract: added; exact-head Actions pending.
-- Dropbear corrected checker run has not yet demonstrated the dedicated behavioral fixture passes.
-- No current same-SHA XY-C1 Build/TRX/artifact result is assumed. Physical-router L4 NOT VERIFIED.
+- GNU89 ASan/UBSan policy regression: local compile/run PASS (argument/capacity bounds, EINTR retry, partial-write rejection, EAGAIN propagation, and a full nonblocking pipe).
+- Exact-head IAPP lifecycle / Process / AI / XY-C1 Actions for THIS COMMIT must be fetched by its resulting main SHA; they were not yet available at commit creation.
+- No full MIPS image or physical-router claim. L3/L4 remain NOT VERIFIED for this source slice.
 
-## Exact first action for the next GPT
+## Exact first actions for next GPT
 
-1. Inspect the exact-SHA RStats workflow and repair any compiler, sanitizer, or source-contract failure.
-2. Resolve Dropbear exact-SHA runs #45650274526 and #45650274515; verify its dedicated shell fixture ran and passed.
-3. Continue an independent stability/security source fix while pending Actions run.
+1. Fetch live main and inspect push Actions for THIS COMMIT's exact SHA. Resolve any IAPP/Process failure first; do not substitute parent run results. XY-C1 pending is not a reason to idle.
+2. Inspect the pipe consumer's stream-read behavior under multiple queued atomic signal records; determine whether one read can coalesce records and, if so, add bounded record framing/dispatch regression separately.
+3. Continue another independent stability/security task after the pipe queue semantics are closed.
 
+## 2026-11-26 autonomous handoff checkpoint
+
+This checkpoint supersedes the older RStats/Dropbear pointer below; retain completed findings in the log/roadmap and do not resume that old task.
+
+
+## Superseded prior checkpoint (historical — do not resume)
+
+The earlier RStats ring-cursor and Dropbear checker checkpoint was superseded by the IAPP network/IPC hardening stream. Its validation history remains in the development log; the active task and first action are defined above.
 # Cross-session execution mandate
 
 Continue one autonomous engineering stream on main. For each logical slice, create all changed blobs, one complete Git tree based on the live main root tree, and one atomic main commit; update main with a non-forced expected-SHA compare-and-swap. Never force-push, use feature branches or PRs, split one logical change into per-file commits, or modify the frozen backup. PENDING never blocks independent work. Before context exhaustion, finish the current safe slice and checkpoint the first concrete next action.
