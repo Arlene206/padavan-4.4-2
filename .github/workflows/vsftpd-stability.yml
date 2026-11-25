@@ -919,6 +919,11 @@ jobs:
               "final_state = is_ftp_run();"
           ) < stop.index("storage_service_stop_complete(status, final_state)") < stop.index("return -1;") < stop.rindex("return 0;")
           public_stop = function_body(source, "stop_ftp(void)")
+          firewall_control = function_body(source, "control_ftp_fw(int is_run_before)")
+          assert "ftp_firewall_reconcile_needed(is_run_before, is_run_after)" in firewall_control
+          assert "ftp_stop_should_reconcile_firewall(after)" in daemon_policy
+          assert "storage_service_process_presence_changed(before, after)" in daemon_policy
+          assert "ftp_firewall_reconcile_needed(PROCESS_PRESENCE_ABSENT" in daemon_test
           assert public_stop.index("storage_operation_lock_acquire(file_lock)") < public_stop.index("is_run_before = is_ftp_run();")
           assert public_stop.index("is_run_before = is_ftp_run();") < public_stop.index("status = stop_ftp_locked(&final_presence);")
           public_stop_gate = public_stop.index("if (ftp_stop_should_reconcile_firewall(final_presence))")

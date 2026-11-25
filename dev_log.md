@@ -1,3 +1,9 @@
+## 2026-11-25 — Reconcile FTP firewall rules after an absent-to-absent stop
+
+- `stop_ftp()` and `restart_ftpd()` only called `restart_firewall()` when daemon presence changed. If vsftpd had crashed and was already absent before an explicit stop/restart, `ftp_stop_should_reconcile_firewall()` allowed the reconciliation path, but `control_ftp_fw()` returned early for absent→absent. Stale FTP NAT/UPnP rules could therefore survive a confirmed stopped state. Add a shared policy that refreshes on presence changes and whenever the final inventory positively proves absence. Apply it in `control_ftp_fw()`; test absent→absent, running→absent, absent→running, unknown transitions and stable running. The existing storage-stop stale-rule path is unchanged. Exact-head VSFTPD lifecycle/source contracts required; no target hardware result claimed.
+
+---
+
 ## 2026-11-25 — Bound MT7628 switch CLI page selector to its three-bit field
 
 - `mii_mgr -L/-G` accepted page values up to `UINT_MAX >> 12`, although register 31 encodes the page in bits 12–14 and reserves bit 15 for the local/global selector. Values 8–15 therefore overlapped the selector bit; larger values could exceed the 16-bit Clause 22 payload and be rejected by the kernel after the CLI had accepted them. Limit parsing to 0–7. Extend the host regression to assert valid maximum local/global encodings (`0xf000` and `0x7000`) and reject page 8 for both modes. Add an MT7628-specific compile and ASan/UBSan execution so this previously unbuilt conditional parser path is exercised alongside MT7621. Exact-head switch CLI workflow required; no board hardware result claimed.

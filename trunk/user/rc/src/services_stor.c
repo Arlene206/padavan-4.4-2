@@ -667,11 +667,11 @@ control_ftp_fw(int is_run_before)
 	int is_run_after = is_ftp_run();
 
 	/*
-	 * Let the firewall rebuild from its own checked configuration on every
-	 * daemon-presence transition. A lossy nvram_match() gate must not preserve
-	 * stale FTP port mappings when NVRAM is temporarily unreadable.
+	 * Rebuild from checked configuration on every presence transition. Also
+	 * force reconciliation after a confirmed stop even when the daemon was
+	 * already absent: stale FTP/NAT/UPnP rules can outlive a crashed daemon.
 	 */
-	if (storage_service_process_presence_changed(is_run_before, is_run_after))
+	if (ftp_firewall_reconcile_needed(is_run_before, is_run_after))
 		return restart_firewall();
 
 	return 0;

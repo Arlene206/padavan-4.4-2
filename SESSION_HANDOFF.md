@@ -5,14 +5,14 @@ This checkpoint supersedes older active-task pointers below. Historical complete
 ## Current repository state
 
 - Repository `Arlene206/padavan-4.4-2`; development only on `main`. Frozen `backup/pre-plugin-overhaul-2026-11-14` remains read-only; PR #1 remains closed/unmerged and inventory-only.
-- Parent before the MT7628 parser fix: `65566f90e19c48e4e13e96afad9a7afea22fafa9` (`docs: restore handoff checkpoint instruction`). Exact-head AI documentation #45559561503 PASS; AliyunDrive lifecycle #45559141117 PASS. Earlier ZeroTier, WAN route, Process, and XY-C1 runs #45558740874, #45558740832, #45558740829 and #45558740920 PASS on `af929e3`.
-- New defect: MT7628-only `mii_mgr -L/-G` parser accepted a page up to 20 bits even though register 31 has a 3-bit page field (bits 12–14) and bit 15 is the local/global selector. Values 8–15 alias the selector; larger values can exceed the 16-bit Clause 22 payload and fail in the kernel ioctl. Previous regression compiled only MT7621, leaving this MT7628 branch untested.
-- This slice constrains page values to 0–7, tests max local/global encodings and rejects page 8 for both modes, and adds an MT7628-specific host compile plus ASan/UBSan run. MT7621 remains covered. Exact-head Switch CLI workflow must pass before closing this slice.
-- No physical switch/PHY, XY-C1 firmware, or hardware L4 result is inferred from host tests.
+- Parent before this FTP reconciliation fix: `3eddff56dd1062996d389173a23c16d6b062be0c` (`fix(switch): bound MT7628 PHY page selection`). Switch CLI #45560823101, Process inventory #45560823058, AI docs #45560823040 and NVRAM #45560822998 were IN_PROGRESS at last poll; the switch job had reached its long sequence of source/host checks, with MT7621 and MT7628 regressions still pending. Do not report these as passed until exact-head conclusions are successful.
+- AliyunDrive lifecycle #45559141117 and Process #45558899583 PASS; AI docs #45559561503 PASS; prior ZeroTier/WAN/Process/XY-C1 checks #45558740874/#45558740832/#45558740829/#45558740920 PASS on `af929e3`.
+- New FTP defect: `control_ftp_fw()` rebuilt firewall rules only when process presence changed. A stop/restart with vsftpd already absent (e.g. after a crash) still passed the final-absence gate but returned early on absent→absent, leaving stale FTP NAT/UPnP rules. This slice forces reconciliation whenever final inventory confirms absence, as well as on presence transitions, with explicit policy tests.
+- No physical switch/PHY, FTP service appliance, XY-C1 target build beyond recorded Actions, or hardware L4 result is inferred from host checks.
 
 ## Active task
 
-The MT7628 page-range production fix, MT7628-specific regression, static source contract, CI step and status documentation are included in one atomic commit. Inspect the exact-head Switch CLI workflow and repair any failure at its failing step. Then continue a distinct whole-userland P1/P2 stability/security issue.
+The FTP absent→absent firewall reconciliation policy, source update, GNU89 regression, workflow contract, roadmap and handoff are included in one atomic commit. Inspect exact-head VSFTPD checks and diagnose any failure. Separately inspect the still-running Switch CLI run from `3eddff5`; pending jobs never block independent work.
 
 # Cross-session execution mandate
 
@@ -123,10 +123,10 @@ Commit `786c504c8247fe42d5d1d5f2dc3ad28757fafc80` strictly parses persisted RX/T
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect exact-head Switch CLI regression, especially MT7628-specific compile and ASan/UBSan test.
-2. Confirm MT7628 accepts pages 0–7, encodes local page 7 as `0xf000` and global page 7 as `0x7000`, and rejects page 8 in both modes. MT7621 parser regression must remain passing.
-3. Diagnose and repair any real CI failure; do not claim physical hardware validation from host tests.
-4. Continue the next distinct P1/P2 whole-userland reliability/security issue from the live roadmap.
+1. Fetch live `main`; inspect the exact-head VSFTPD lifecycle/source-contract workflow for the FTP absent→absent firewall refresh change. Repair any actual failure.
+2. Poll exact runs #45560823101 (Switch CLI), #45560823058 (Process), #45560823040 (AI docs) and #45560822998 (NVRAM) for SHA `3eddff56dd1062996d389173a23c16d6b062be0c`; distinguish each run's result from the newer FTP commit.
+3. Confirm switch MT7628 accepts pages 0–7, encodes local page 7 as `0xf000` and global page 7 as `0x7000`, and rejects page 8 for both modes. Do not claim board hardware validation.
+4. Continue the next distinct P1/P2 whole-userland stability/security issue.
 
 ## Mandatory handoff checkpoint
 

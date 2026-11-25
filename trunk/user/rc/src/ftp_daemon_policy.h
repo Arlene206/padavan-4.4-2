@@ -4,6 +4,7 @@
 #include <errno.h>
 
 #include "process_inventory.h"
+#include "storage_service_stop_policy.h"
 
 /* A failed detached launch is considered active unless absence is proven. */
 static int
@@ -19,6 +20,15 @@ static inline int
 ftp_stop_should_reconcile_firewall(int final_presence)
 {
 	return final_presence == PROCESS_PRESENCE_ABSENT;
+}
+
+/* A confirmed absent daemon requires rule reconciliation even if it was
+ * already absent before stop: stale NAT/UPnP state can outlive a crash. */
+static inline int
+ftp_firewall_reconcile_needed(int before, int after)
+{
+	return storage_service_process_presence_changed(before, after) ||
+	       ftp_stop_should_reconcile_firewall(after);
 }
 
 /* Storage-stop reconciliation keeps the legacy refresh for a daemon that
