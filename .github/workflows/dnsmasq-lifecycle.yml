@@ -743,6 +743,8 @@ jobs:
           assert "test_negative_item_count_fails_closed" in static_host_nvram_test
           static_mac_test = Path("trunk/user/rc/src/tests/dnsmasq_static_host_policy.c").read_text()
           arp_source = Path("trunk/user/busybox/busybox-1.24.x/networking/arp.c").read_text()
+          arp_interface_source = Path("trunk/user/busybox/busybox-1.24.x/networking/interface.c").read_text()
+          arp_resolver_source = Path("trunk/user/busybox/busybox-1.24.x/libbb/inet_common.c").read_text()
           static_mac_policy = Path("trunk/user/rc/src/dnsmasq_static_host_policy.h").read_text()
           prepare = function_body(services, "prepare_dns_dhcpd(int is_ap_mode, int *service_enabled)")
           resolv_policy = Path("trunk/user/rc/src/dnsmasq_resolv_file_policy.h").read_text()
@@ -846,6 +848,15 @@ jobs:
           arp_transaction = function_body(
               static_mac_policy, "dnsmasq_static_arp_apply_transaction("
           )
+          assert "octet_leading_zero = (*p == '0')" in static_mac_policy
+          assert "else if (octet_leading_zero)" in static_mac_policy
+          assert "test_static_arp_ipv4_text" in static_mac_test
+          arp_input = function_body(arp_interface_source, "static int FAST_FUNC INET_input(")
+          assert "return INET_resolve(bufp, (struct sockaddr_in *) sap, 0);" in arp_input
+          arp_resolver = function_body(arp_resolver_source, "int FAST_FUNC INET_resolve(")
+          assert "if (inet_aton(name, &s_in->sin_addr))" in arp_resolver
+          for address in ("010.0.0.1", "192.168.001.1", "192.168.1.01", "000.0.0.1"):
+              assert address in static_mac_test
           arp_ip_validation = arp_transaction.index(
               "dnsmasq_static_arp_ipv4_is_valid(ips[i])"
           )

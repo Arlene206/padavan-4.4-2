@@ -18,12 +18,17 @@ dnsmasq_static_arp_ipv4_is_valid(const char *address)
 	unsigned int octet = 0;
 	unsigned int digits = 0;
 	unsigned int separators = 0;
+	int octet_leading_zero = 0;
 	const unsigned char *p = (const unsigned char *)address;
 
 	if (!address || !*address)
 		return 0;
 	for (; *p; p++) {
 		if (*p >= '0' && *p <= '9') {
+			if (digits == 0)
+				octet_leading_zero = (*p == '0');
+			else if (octet_leading_zero)
+				return 0;
 			if (++digits > 3)
 				return 0;
 			octet = octet * 10U + (*p - '0');
@@ -33,6 +38,7 @@ dnsmasq_static_arp_ipv4_is_valid(const char *address)
 			separators++;
 			digits = 0;
 			octet = 0;
+			octet_leading_zero = 0;
 		} else {
 			return 0;
 		}

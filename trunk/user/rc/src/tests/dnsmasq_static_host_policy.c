@@ -26,6 +26,23 @@ test_static_arp_header_parser(void)
 }
 
 static void
+test_static_arp_ipv4_text(void)
+{
+	assert(dnsmasq_static_arp_ipv4_is_valid("0.0.0.0"));
+	assert(dnsmasq_static_arp_ipv4_is_valid("192.0.2.1"));
+	assert(dnsmasq_static_arp_ipv4_is_valid("255.255.255.255"));
+	assert(!dnsmasq_static_arp_ipv4_is_valid("010.0.0.1"));
+	assert(!dnsmasq_static_arp_ipv4_is_valid("192.168.001.1"));
+	assert(!dnsmasq_static_arp_ipv4_is_valid("192.168.1.01"));
+	assert(!dnsmasq_static_arp_ipv4_is_valid("000.0.0.1"));
+	assert(!dnsmasq_static_arp_ipv4_is_valid("192.0.2.256"));
+	assert(!dnsmasq_static_arp_ipv4_is_valid("192.0.2"));
+	assert(!dnsmasq_static_arp_ipv4_is_valid("192.0.2.1/24"));
+	assert(!dnsmasq_static_arp_ipv4_is_valid(NULL));
+	assert(!dnsmasq_static_arp_ipv4_is_valid(""));
+}
+
+static void
 test_static_arp_record_parser(void)
 {
 	char ip[16], ifname[32];
@@ -337,6 +354,7 @@ int
 main(void)
 {
 	test_static_arp_header_parser();
+	test_static_arp_ipv4_text();
 	test_static_arp_record_parser();
 	test_valid_unicast_mac_text();
 	test_rejects_non_unicast_addresses();

@@ -1,3 +1,9 @@
+## 2026-11-24 — Reject octal aliases in DNSMasq static-ARP IPv4 inputs
+
+- BusyBox 1.24 `arp -s` uses `INET_input()` → `INET_resolve()`, and `libbb/inet_common.c` passes numeric input to `inet_aton()`. Multi-digit leading-zero octets are therefore parsed as octal; `010.0.0.1` addresses `8.0.0.1`, not decimal `10.0.0.1`.
+- `dnsmasq_static_arp_ipv4_is_valid()` now rejects multi-digit leading-zero octets while retaining canonical IPv4 values, including `0.0.0.0` and `255.255.255.255`. Direct regression covers each octet position and valid/invalid boundaries.
+- Existing DNSMasq workflow already compiles this policy test and watches the helper/test paths. Its source contract now binds the BusyBox `arp` → `INET_input` → `INET_resolve` → `inet_aton` parser chain and requires regression markers. No local compile or target result is claimed; exact-head CI must validate this change.
+
 ## 2026-11-24 — Align IGMPProxy altnet validation with bundled daemon parser
 
 - Production `net.c` publishes the validated config before launching bundled igmpproxy 0.3, but its local CIDR validator accepted values the daemon interpreted differently or rejected. Upstream `parseSubnetAddress()` uses `inet_addr()`: multi-digit leading-zero octets are octal (for example, `010.0.0.0/8` means `8.0.0.0/8`), and `INADDR_NONE` causes literal `255.255.255.255` to be rejected.

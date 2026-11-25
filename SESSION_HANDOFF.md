@@ -2,18 +2,17 @@
 
 This snapshot supersedes older task pointers below where they conflict with live Git state.
 
-- Main before the current IGMPProxy slice: `06c6767e7f0e141e542ac2a98ad8ef4b957633a3`. Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. PR #1 remains closed/unmerged.
-- Latest DNSMasq static-ARP hardening is on `06c6767`: the transaction validates every IPv4 and MAC input before issuing any ARP command. DNSMasq lifecycle #45532535516, Process inventory #45532535327 and AI docs #45532535438 PASS on this exact SHA; NVRAM audit #45532535286 and XY-C1 #45532535426 were IN_PROGRESS at the last poll.
-- ZeroTier empty-checkpoint fixture repair is verified on `ae8a252781ffbaae06e0c51842264293b24e2368`: ZeroTier #45531424627, AI docs #45531424568, WAN route #45531424512 and Process #45531424459 PASS. Do not repeat.
-- VSFTPD rename hard-link TOCTOU fix is on `0019166358a005af4e764fa0d7e2dbe3972599b7`; exact-head VSFTPD #45532149010 and AI docs #45532149130 PASS on descendant `3bbe4b33544d4f9990e4f129eb10f097ee773789`. Its GNU89 ACL regression passed after the two private quarantine directories were removed during fixture teardown. Rename quarantines the exact source with RENAME_NOREPLACE before link-count validation, permits ordinary directory link counts and restores failed publication without overwriting concurrent replacements.
-- XY-C1 run #45531752849 on product SHA `0019166358a005af4e764fa0d7e2dbe3972599b7` was still building at the last poll: Build IN_PROGRESS, TRX/artifact PENDING. Do not claim L3 until Build, TRX and artifact upload all pass on that identical production-source SHA; L4 remains unverified.
-- Active slice aligns production IGMPProxy config validation with bundled daemon 0.3 semantics. Upstream `parseSubnetAddress()` calls `inet_addr()`, so multi-digit leading-zero IPv4 octets are octal and `255.255.255.255` is rejected via `INADDR_NONE`; the local validator previously accepted both. This slice rejects those values, adds regression coverage, adds the helper/test to WAN workflow push/PR path filters, compiles the regression under GNU89/Werror/ASan/UBSan, and extends the IPTV source contract. Exact-head Actions are pending; no local or firmware result is claimed.
+- Main before this DNSMasq static-ARP parser fix: `bab40c4f40d22a65b5d4d0bac0bb5b036507ab3e`. Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, untouched. PR #1 remains closed/unmerged.
+- On exact `bab40c4`, WAN route #45533107539, Process inventory #45533107609, Process lifecycle #45533107579, AI docs #45533107423 and NVRAM boundary #45533107546 PASS. The WAN job compiled and ran the IGMP parser regression and Process passed IGMP production wiring/altnet checks. XY-C1 #45533107475 Build was IN_PROGRESS; TRX and artifact pending. Do not claim L3 until all three pass on one product-source SHA.
+- The IGMPProxy altnet fix in `bab40c4` aligns its decimal CIDR validator with bundled igmpproxy 0.3 `inet_addr()` semantics: leading-zero multi-digit octets and `255.255.255.255` are rejected. GNU89/Werror/ASan/UBSan regression passed; no local compile claimed.
+- This follow-up closes the equivalent static-ARP mismatch: BusyBox 1.24 `arp` passes addresses through `INET_input` → `INET_resolve` → `inet_aton`, so `010.0.0.1` means octal `8.0.0.1`. Static-ARP IPv4 validation now rejects multi-digit leading-zero octets; GNU89 coverage tests every octet position and preserves canonical zero/all-ones addresses. DNSMasq source contract checks the exact BusyBox parser chain.
+- Exact-head DNSMasq, AI docs, Process inventory/lifecycle, NVRAM and XY-C1 Actions on this follow-up SHA must be inspected after publication. No local compile, Build/TRX/artifact or hardware L4 result is implied by parent CI.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and inspect exact-head WAN route (including the IGMPProxy parser regression), AI docs, Process inventory, NVRAM audit and XY-C1 Actions. Require each result's `head_sha` to match the live tip. Fix any FAIL on that SHA; keep working on independent items while runs are PENDING.
-2. Recheck XY-C1 run #45531752849 on source SHA `0019166358a005af4e764fa0d7e2dbe3972599b7`; claim L3 only if Build, TRX and artifact upload all pass. Do not use a test/docs-only descendant with skipped Build steps as L3 evidence. Physical-router L4 remains NOT VERIFIED.
-3. Continue with the next distinct userland reliability/security defect in the roadmap. Do not repeat ZeroTier fixture or VSFTPD rename-source work.
+1. Fetch live main and inspect exact-head DNSMasq lifecycle, AI docs, Process inventory, Process lifecycle, NVRAM boundary and XY-C1 Actions. Require matching `head_sha`; repair any FAIL on main and work on independent tasks while PENDING.
+2. Confirm XY-C1 Build, TRX and artifact upload all PASS on the same product-source SHA before claiming L3. Physical-router L4 remains NOT VERIFIED.
+3. Continue with the next distinct stability/security issue; do not repeat the IGMPProxy or static-ARP leading-zero parser fixes.
 
 No force-push. The backup branch remains unchanged.
 
