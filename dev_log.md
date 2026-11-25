@@ -1,3 +1,12 @@
+## 2026-11-26 03:36 CST (UTC+8) — Align VPN TAP checker with fail-closed cleanup
+
+- Base SHA: `b8b8b366ee8eee33be0726081e9ff636f7f3644c`; this is a checker-only repair following the TAP setup rollback safety fix.
+- Exact-SHA VPN lifecycle #45662893097 compiled and passed all OpenVPN/PPP/VPN C regressions, including ASan/UBSan startup rollback policy. Its final source contract still demanded the old local TAP cleanup sequence (`if (created)`, `--rmtun`) that b8 intentionally removed. Updated the ordering contract to require ownership publication before bridge/ifconfig work and absence of local bridge unlink/`--rmtun`; the outer caller remains responsible for cleanup only after two complete ABSENT process inventories.
+- Exact SHA b8 AI handoff docs #45662892982, OpenVPN client credential #45662893530, Process lifecycle #45662893062, HTTPD #45662893005 and IPv6 #45662893357 PASS. VPN lifecycle #45662893097 failed only at this stale TAP expectation. XY-C1 #45662893279 and NVRAM #45662893093 were PENDING at last poll.
+- Earlier production-source build #45660655080 (dc6 SHA) completed SUCCESS through Build XY-C1, TRX verification and artifact upload. It predates b8's TAP teardown change; the exact b8 XY-C1 run must complete before validating the new production source. Physical-router L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-25 — Defer TAP setup rollback until OpenVPN process absence is confirmed
 
 - Base SHA: `7b67475e01d13139d9fb97cc9ada5a5cda9b5361`; result SHA: this commit. Scope: `vpn_openvpn.c`, `check_vpn_server_lifecycle.py`, current handoff/log.

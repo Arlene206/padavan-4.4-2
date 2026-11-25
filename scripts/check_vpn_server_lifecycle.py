@@ -1020,15 +1020,26 @@ require("ETIMEDOUT" in openvpn and "process_identity_validate(\"openvpn\", ident
         "OpenVPN stop must wait for a verified process exit")
 tap_start=body(openvpn,"static int\nopenvpn_tapif_start")
 ordered(tap_start,[
+    "if (!interface_created)",
+    "*interface_created = 0;",
     'doSystem("%s %s --dev %s", OPENVPN_EXE, "--mktun", ifname)',
     "if (status != 0)",
+    "created = 1;",
+    "*interface_created = created;",
+    "if (insert_to_bridge)",
+    "br_add_del_if(IFNAME_BR, ifname, 1)",
     'doSystem("ifconfig %s %s %s", ifname, "0.0.0.0", "promisc up")',
     "if (status != 0)",
-    "if (created)",
-    'doSystem("%s %s --dev %s", OPENVPN_EXE, "--rmtun", ifname)',
+    "return status;",
     "set_vpn_balancing(ifname, is_server)",
-], "OpenVPN TAP setup and rollback")
+], "OpenVPN TAP setup with deferred, ownership-gated rollback")
 tun_start=body(openvpn,"static int\nopenvpn_tunif_start")
+require("*interface_created = created;" in tap_start and
+        tap_start.index("*interface_created = created;") <
+        tap_start.index('doSystem("ifconfig %s %s %s"') and
+        '"--rmtun"' not in tap_start and
+        "br_add_del_if(IFNAME_BR, ifname, 0)" not in tap_start,
+        "TAP setup failure must defer destructive cleanup to the process-inventory-gated caller")
 require('doSystem("%s %s --dev %s", OPENVPN_EXE, "--mktun", ifname)' in tun_start and
         "if (status != 0)" in tun_start and
         "set_vpn_balancing(ifname, is_server)" in tun_start,

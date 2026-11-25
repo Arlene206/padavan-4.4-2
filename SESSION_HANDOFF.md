@@ -1,25 +1,29 @@
 ## Current repository state
 
-- Main parent for the current checker repair: `615469fc69f100ad6dfce63a27b2a0b3f46f2864`; this commit is a single non-forced expected-SHA descendant.
+- Main parent for this checker repair: `b8b8b366ee8eee33be0726081e9ff636f7f3644c`; the next commit is a single non-forced expected-SHA descendant.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- OpenVPN server/client detached startup requires matching trusted PID-file process identity. Failed startup rollback is bounded by two complete process-inventory scans and removes only newly-created resources after confirmed ABSENT.
-
-## Current repository state
-
-- Main parent for this TAP cleanup deferral fix: `7b67475e01d13139d9fb97cc9ada5a5cda9b5361`. Exact SHA `7b67475e01d13139d9fb97cc9ada5a5cda9b5361` VPN lifecycle #45662378987 PASS and AI handoff docs #45662378978 PASS.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- OpenVPN detached startup requires trusted writepid process identity. Failed-start rollback is permitted only when the process inventory confirms two complete ABSENT scans and resources were created by that attempt. Unknown/running/invalid/interrupted inventory preserves resources.
-- Newly found defect: TAP setup failure performed local bridge unlink and `--rmtun` inside `openvpn_tapif_start()`, before the caller's two-scan process-absence gate. This contradicted the surrounding safety design and could tear down an interface after another daemon had started using it. The current fix leaves the interface and bridge membership intact on TAP preparation failure; the caller routes the error through `openvpn_start_rollback_failed()`, which checks process absence and ownership before cleanup.
+- OpenVPN detached startup requires the exact trusted writepid process identity before success. Failed-start rollback only removes resources created by that attempt after two complete OpenVPN process inventories report ABSENT.
+- The TAP preparation helper now reports interface ownership before its fallible `ifconfig` step and no longer removes bridge membership or issues `--rmtun` locally; it leaves cleanup to the guarded caller.
 
 ## Active task
 
-1. Verify the exact-SHA TAP cleanup deferral contract and the VPN/OpenVPN regression Actions.
-2. Poll dc6 XY-C1 #45660655080 for Build XY-C1, TRX and artifact upload; do not claim L3 until all pass for the exact production SHA.
-3. Continue a separate stability/security slice in the Padavan userland while unrelated checks run.
+- Correct the lifecycle source checker to assert deferred TAP cleanup rather than the deleted local rollback.
+
+## Verification boundary
+
+- Exact SHA `b8b8b366ee8eee33be0726081e9ff636f7f3644c`: VPN lifecycle #45662893097 FAILED only at the stale old TAP cleanup ordering assertion; all C regressions passed, including OpenVPN rollback under GNU89 ASan/UBSan. AI docs #45662892982, OpenVPN credential #45662893530, process lifecycle #45662893062, HTTPD #45662893005 and IPv6 #45662893357 PASS.
+- b8 XY-C1 #45662893279 and NVRAM #45662893093 were pending at last poll. dc6 XY-C1 #45660655080 did complete Build XY-C1, TRX verification and artifact upload, but this predates the b8 TAP source change and does not validate b8.
+- Physical-router L4 NOT VERIFIED.
+
+## Exact first action for the next GPT
+
+1. Check exact-SHA VPN lifecycle, AI docs, OpenVPN credential and XY-C1 runs for this checker repair commit; inspect any final source-contract assertion.
+2. Confirm b8's XY-C1 job has Build XY-C1, TRX and artifact upload SUCCESS; do not transfer dc6's earlier result.
+3. Continue VSFTPD ACL call-site review. RNFR currently follows the final symlink with path-based `str_stat()` after ACL checks; replace it with descriptor-relative `fstatat(AT_SYMLINK_NOFOLLOW)` on the pinned, authorized parent, with a dangling/external symlink regression.
 
 ## Execution contract
 
-Source/test → complete Git tree/commit → expected-SHA non-force update of main → exact-SHA Actions. Backup remains immutable; preserve full dev_log history.
+Source/test → one complete Git tree/commit → non-force expected-SHA update → exact-SHA Actions. Main only; backup immutable; do not truncate the rolling root log.
 
 ## 2026-11-25 autonomous handoff checkpoint
 
