@@ -1,21 +1,23 @@
 ## Current repository state
 
-- Live `main` immediately before this slice: `b320dd266be3dea74820ada79aec68c26f6b7dc9` (`fix(udpxy): retry failed multicast membership refresh`). Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable.
-- Exact `b320dd2` Actions: UDPXY multicast retry #45724141340 PASS; UDPXY parser #45724141327 PASS; WAN route operation #45724141311 PASS; AI handoff contract #45724141358 PASS; Process inventory #45724141395 PASS; NVRAM audit #45724141355 PASS. XY-C1 firmware validation #45724141332 was still IN_PROGRESS at last observation; do not transfer the older image result.
-- XY-C1 last confirmed Build/TRX/artifact all PASS remains source SHA `9ed539a04e4c4df96aef03f9d1a6f9637fd3e3b9` (#45719100341); it predates later source changes. Current-source L3 and physical-router L4 remain NOT VERIFIED.
+- Live `main` before this test-contract correction: `0f8ccd309a5274d32264164f55eff2643d07d4e5` (`fix(udhcp): reject truncated relay client datagrams`). Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable.
+- Exact `0f8ccd3` Actions: AI handoff contract #45724587171 PASS; Process lifecycle inventory #45724587198 PASS. DHCP relay inbound bounds #45724587163 FAILED in the Python source checker after its GNU89 ASan/UBSan C regression passed. The checker matched `recvfrom()` in the explanatory comment before `memset()` instead of the call, then would also have incorrectly demanded `MSG_TRUNC` text in the C regression rather than in production integration. This commit anchors the actual `packlen = recvfrom(` call and verifies the real boundary test expressions.
+- Exact `0f8ccd3` XY-C1 #45724587138, NVRAM #45724587130, Process inventory/fail-closed #45724587135 and USB hotplug #45724587166 were still in progress at the last observation. `b320dd2` UDPXY multicast/parser/WAN/AI/Process/NVRAM checks all PASS; its XY-C1 #45724141332 was still running.
+- Last confirmed XY-C1 Build/TRX/artifact baseline remains `9ed539a04e4c4df96aef03f9d1a6f9637fd3e3b9` (#45719100341), which predates all later production changes. Current source L3 and physical-router L4 remain NOT VERIFIED.
 
 ## Active task
 
-Fix DHCP relay ingress handling in `networking/udhcp/dhcprelay.c`. Its client-facing `recvfrom()` previously passed flags 0, accepted any positive short datagram, reused a `struct dhcp_packet` whose tail could contain stale/uninitialized bytes, and immediately called `udhcp_get_option()` which scans the fixed options area. Oversized UDP datagrams were silently truncated. The current slice asks Linux for the original datagram length with `MSG_TRUNC`, zero-initializes the packet, and rejects too-short/too-long datagrams, malformed sockaddr lengths/families and invalid DHCP cookies before option parsing or forwarding.
+Confirm this exact-head DHCP relay checker correction is green, then harden DHCPrelay's pending-XID transaction list against unbounded heap growth. Every accepted client DHCP transaction currently allocates a new `xid_item`, which may remain live for 120 seconds; a client-facing request flood can therefore grow the list without an application cap. Keep pending state bounded and remove entries when the upstream send fails, with a regression for limit/release behavior.
 
 ## Verification boundary
 
-- A standalone GNU89 ASan/UBSan policy regression covers negative receive status, minimum required DHCP header/options length, exact capacity and truncation boundary. A Python source contract verifies receive ordering, MSG_TRUNC, zero-fill, cookie/address checks and XY-C1 path coverage.
-- Exact-head DHCP relay policy workflow and XY-C1 Build/TRX/artifact checks are pending for the commit created from `b320dd2`. No live relay interoperability, MIPS/uClibc, firmware artifact or hardware result is claimed.
+- On `0f8ccd3`, the DHCP relay GNU89 ASan/UBSan test itself PASS; only the Python checker failed due to test-order matching a comment and an invalid test-token assertion. This correction is checker-only; parser production change remains as already committed.
+- On `0f8ccd3`, AI doc and Process inventory pass; XY-C1, NVRAM and other concurrent jobs are pending as listed. Exact-head checks for this correction: pending.
+- No live DHCP relay interoperability, MIPS/uClibc, current firmware build artifact or router L4 result is claimed.
 
 ## Exact first action for the next GPT
 
-Fetch current `main` and exact-head DHCP relay packet-bounds, AI documentation and XY-C1 workflows. Repair the first causal failure; only record L3 when XY-C1 Build, TRX verification and artifact upload pass on one identical source SHA. Then inspect the DHCP relay XID transaction list for bounded memory/duplicate-XID handling as a separate source slice.
+Fetch exact-head DHCP relay bounds, AI documentation, XY-C1 and process/NVRAM runs for the checker correction. Then implement a bounded XID allocation/cleanup policy as an independent source slice. Record L3 only when Build, TRX verification and artifact upload all pass on the same current product-source SHA.
 
 ## Mandatory handoff checkpoint
 

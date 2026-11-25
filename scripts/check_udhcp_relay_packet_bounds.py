@@ -13,9 +13,9 @@ start = relay.index("/* clients */")
 end = relay.index("\n\t\t\t}", start)
 client_loop = relay[start:end]
 memset = client_loop.index("memset(&dhcp_msg, 0, sizeof(dhcp_msg))")
-receive = client_loop.index("recvfrom(")
+receive = client_loop.index("packlen = recvfrom(")
 length_check = client_loop.index("udhcp_relay_packet_length_valid(")
-pass_request = client_loop.index("pass_to_server(")
+pass_request = client_loop.index("pass_to_server(&dhcp_msg")
 
 assert memset < receive < length_check < pass_request
 assert "sizeof(dhcp_msg), MSG_TRUNC" in client_loop
@@ -29,13 +29,11 @@ assert "received_length < 0" in policy
 assert "(size_t)received_length > packet_capacity" in policy
 assert "(size_t)received_length < minimum_length" in policy
 for token in (
-    "test_unterminated",
-    "MSG_TRUNC",
+    "udhcp_relay_packet_length_valid(-1",
+    "(int)minimum - 1",
+    "(int)capacity + 1",
     "capacity + 1U",
-    "minimum - 1U",
 ):
-    if token == "test_unterminated":
-        continue
     assert token in test, token
 
 expected_paths = (

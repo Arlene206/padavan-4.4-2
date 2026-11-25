@@ -1,3 +1,12 @@
+## 2026-11-25 — Correct DHCP relay bounds checker call-site matching
+
+- Exact-head workflow #45724587163 compiled and ran the GNU89 ASan/UBSan DHCP relay bounds regression successfully. Its Python source contract then failed because `client_loop.index("recvfrom(")` matched the explanatory `recvfrom()` comment before the buffer-clearing call, not the actual call statement. The test-token contract also incorrectly looked for the production-only `MSG_TRUNC` token in the standalone helper test.
+- The checker now anchors `packlen = recvfrom(` and the actual `pass_to_server(&dhcp_msg` invocation, and verifies the real negative/short/exact-capacity/oversize test inputs. The production receive changes and test semantics are unchanged.
+- Parent SHA: 0f8ccd309a5274d32264164f55eff2643d07d4e5. Corrected exact-head DHCP relay, AI docs and XY-C1 runs: pending.
+- Changed paths: scripts/check_udhcp_relay_packet_bounds.py, SESSION_HANDOFF.md, dev_log.md.
+
+---
+
 ## 2026-11-25 — Validate DHCP relay client datagrams before option parsing
 
 - DHCP relay client ingress used `recvfrom(..., flags=0)` and accepted every positive datagram length. Its receive structure was not cleared before reuse, while `get_dhcp_packet_type()` calls the fixed-size DHCP option parser over the entire options field. Short packets could therefore expose stale/uninitialized tail bytes as options; oversized UDP datagrams were silently truncated to the packet structure and forwarded as if complete.
