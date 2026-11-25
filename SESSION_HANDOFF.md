@@ -5,15 +5,15 @@ This checkpoint supersedes older task pointers below. Historical completed work 
 ## Current repository state
 
 - Repository `Arlene206/padavan-4.4-2`; development only on `main`. Frozen `backup/pre-plugin-overhaul-2026-11-14` remains read-only; PR #1 remains closed/unmerged and inventory-only.
-- Parent before this XY-C1 filter correction: `0abdaeeed2b9b972b9dfb99bf40d5fdfdb894897` (`0abdaeeed2b9b972b9dfb99bf40d5fdfdb894897`). Exact-head VSFTPD stability run #45564032851, Process inventory #45564032843 and NVRAM audit #45564032866 were in progress at last poll; AI docs #45564032929 passed.
-- XY-C1 run #45563653212 on `7492a52` failed in its first Samba path-contract step, before input detection/build: the XY-C1 workflow self-trigger path appeared twice (one existing entry plus one accidentally added). THIS commit removes only the duplicate, preserving the existing one and retaining the new `trunk/user/aliyundrive-webdav/**` path.
-- XY-C1 run #45564032922 on `0abdaee` was triggered by VSFTPD source edits while the duplicate self-path remained; inspect as historical result. The new correction SHA should trigger XY-C1 by the existing self-path and proceed to Build/TRX/artifact.
-- AliyunDrive exact-head lifecycle #45563131218 and AI handoff #45563131174 on `fdba8a4` PASS: shell, QEMU MIPSel CLI, host stop lifecycle including foreign UID after TERM, early private lock and source/RC contracts. Process inventory #45562525082 on `a2715db` and #45562928835 on `5544b95` passed.
-- AliyunDrive's narrow procfs-validation-to-kill PID reuse window remains on Linux 4.4 without pidfd; no physical router or authenticated remote storage readiness claim.
+- Parent before this post-read ACL metadata recheck: `7eab55ad9aa62a3d39584356199152922714ac73` (`7eab55ad9aa62a3d39584356199152922714ac73`). VSFTPD run #45564032851 on parent `0abdaee` PASS: all C regression binaries including `ftp_acl_path_policy.c`, plus configuration/production source contracts. That parent added open-time hard-link rejection (`st_nlink != 1`) to ACL metadata reader. THIS commit closes the concurrent-link window by rechecking `final_stat.st_nlink == 1` after metadata consumption.
+- Process inventory #45564032843 on `0abdaee` PASS. AI handoff #45564032929 PASS.
+- XY-C1 run #45563653212 on `7492a52` failed before Build due duplicate workflow self path in push filter. The duplicate was removed in parent `7eab55a`; exact-head XY-C1 #45564192244 was queued at last poll. Check this and #45564032922 (triggered while duplicate was still present).
+- AliyunDrive exact-head lifecycle #45563131218 and AI handoff #45563131174 on `fdba8a4` PASS: shell, QEMU MIPSel CLI, host stop lifecycle including foreign UID after TERM, early private lock and source/RC contracts.
+- Linux 4.4 has no pidfd path here; narrow PID-reuse race remains between procfs validation and `kill(2)`; no physical router claim.
 
 ## Active task
 
-Verify the corrected XY-C1 workflow trigger on this commit, including input detector, Build XY-C1, TRX and artifact upload. Inspect exact-head VSFTPD hard-linked ACL metadata regression and Process inventory run for parent `0abdaee`; fix failures in small commits.
+Verify this post-read hard-link contract via exact-head VSFTPD workflow; poll XY-C1 #45564192244 after duplicate path fix for Build/TRX/artifact, then continue independent stability/security work.
 
 # Cross-session execution mandate
 

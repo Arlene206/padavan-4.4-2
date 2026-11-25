@@ -1,3 +1,10 @@
+## 2026-11-25 — Recheck ACL metadata link count after reading
+
+- Follow-up race closure for the hard-link ACL metadata fix: `read_file_to_buffer_at()` already re-fstat'd after consuming the bounded file to catch inode/size changes, but did not recheck link count. A hard link created after initial open could therefore evade the new open-time `st_nlink == 1` check. The post-read identity gate now also requires `final_stat.st_nlink == 1`, returning transient `EAGAIN` if an alias appeared during the read; workflow source contract pins the check.
+- Parent VSFTPD run #45564032851 on `0abdaee` PASS, including host ACL policy regression and configuration/source contract. This follow-up's exact-head run is pending.
+
+---
+
 ## 2026-11-25 — Correct XY-C1 path allowlist duplicate
 
 - XY-C1 run #45563653212 on `7492a52` failed before firmware-input detection: `Verify Samba shared-header staging contract` reported two entries for the XY-C1 workflow in its push path list. The workflow already contained its self-trigger lower in the long path allowlist; the previous commit accidentally added a duplicate at the top while adding the AliyunDrive ROMFS pattern. Removed only the duplicate, retained the existing self-trigger once and kept `trunk/user/aliyundrive-webdav/**` exactly once. Re-run on this correction SHA should proceed to production input detection and Build XY-C1.

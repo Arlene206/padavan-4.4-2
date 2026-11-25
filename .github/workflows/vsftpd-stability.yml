@@ -631,6 +631,7 @@ jobs:
           assert "final_stat.st_dev != stat_buf.st_dev" in acl_file_reader
           assert "final_stat.st_ino != stat_buf.st_ino" in acl_file_reader
           assert "final_stat.st_size != stat_buf.st_size" in acl_file_reader
+          assert "final_stat.st_nlink != 1" in acl_file_reader
           assert "ftp_acl_path_open_verified_directory(mount_path)" in acl_permission_reader
           assert "read_file_to_buffer_at(mount_fd, mount_path, var_leaf, &var_info_size)" in " ".join(acl_permission_reader.split())
           assert "ACL config FIFO was accepted" in acl_path_test

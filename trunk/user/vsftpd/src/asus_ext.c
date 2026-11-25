@@ -212,7 +212,8 @@ read_file_to_buffer_at(int directory_fd, const char *directory_path,
 		goto read_buffer_error;
 	if (final_stat.st_dev != stat_buf.st_dev ||
 	    final_stat.st_ino != stat_buf.st_ino ||
-	    final_stat.st_size != stat_buf.st_size) {
+	    final_stat.st_size != stat_buf.st_size ||
+	    final_stat.st_nlink != 1) {
 		errno = EAGAIN;
 		goto read_buffer_error;
 	}
