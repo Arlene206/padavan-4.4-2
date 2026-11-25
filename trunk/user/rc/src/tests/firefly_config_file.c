@@ -84,14 +84,22 @@ main(void)
 
 	write_file(path,
 		   "[general]\n"
-		   "web_root = /old/web\n"
+		   "  web_root = /old/web\n"
 		   "port = 1234\n"
 		   "runas = old-user\n"
 		   "admin_pw = keep-this-password\n"
 		   "db_type = old\n"
 		   "db_parms = /old/database\n"
 		   "plugin_dir = /old/plugins\n"
-		   "custom_setting = preserve-me\n");
+		   "custom_setting = preserve-me\n"
+		   "web_root_alias = preserve-web-root-alias\n"
+		   "port_forward = preserve-port-forward\n"
+		   "runas_role = preserve-runas-role\n"
+		   "db_type_backup = preserve-db-type\n"
+		   "db_parms_extra = preserve-db-parms\n"
+		   "plugin_directory = preserve-plugin-dir\n"
+		   "# port = comment-port\n"
+		   "  ; runas = comment-runas\n");
 	status = firefly_config_publish(path, path, "/mnt/firefly",
 					"media-user", "media-pass");
 	assert(status == 0);
@@ -103,6 +111,14 @@ main(void)
 	assert_contains(path, "db_parms = /mnt/firefly\n");
 	assert_contains(path, "plugin_dir = /usr/lib/mt-daapd\n");
 	assert_contains(path, "custom_setting = preserve-me\n");
+	assert_contains(path, "web_root_alias = preserve-web-root-alias\n");
+	assert_contains(path, "port_forward = preserve-port-forward\n");
+	assert_contains(path, "runas_role = preserve-runas-role\n");
+	assert_contains(path, "db_type_backup = preserve-db-type\n");
+	assert_contains(path, "db_parms_extra = preserve-db-parms\n");
+	assert_contains(path, "plugin_directory = preserve-plugin-dir\n");
+	assert_contains(path, "# port = comment-port\n");
+	assert_contains(path, "  ; runas = comment-runas\n");
 	assert_not_contains(path, "old-user");
 	assert_no_temporary_files(directory);
 

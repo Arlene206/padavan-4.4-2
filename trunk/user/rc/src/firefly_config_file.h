@@ -32,6 +32,26 @@ firefly_config_printf(FILE *stream, const char *format, ...)
 	return 0;
 }
 
+/* Match an INI key name, not merely a same-prefix custom directive. */
+static int
+firefly_config_line_has_key(const char *line, const char *key)
+{
+	size_t key_length;
+
+	if (!line || !key || !key[0])
+		return 0;
+	while (*line == ' ' || *line == '\t')
+		line++;
+	key_length = strlen(key);
+	if (strncmp(line, key, key_length) != 0)
+		return 0;
+	line += key_length;
+	while (*line == ' ' || *line == '\t')
+		line++;
+	return *line == '=';
+}
+
+
 static int
 firefly_config_write_existing(FILE *output, FILE *source,
 			      const struct firefly_config_values *values)
@@ -40,21 +60,21 @@ firefly_config_write_existing(FILE *output, FILE *source,
 	int status;
 
 	while (fgets(line, sizeof(line), source) != NULL) {
-		if (strncmp(line, "web_root", 8) == 0)
+		if (firefly_config_line_has_key(line, "web_root"))
 			status = firefly_config_printf(output, "web_root = %s\n",
 						       "/usr/share/mt-daapd");
-		else if (strncmp(line, "port", 4) == 0)
+		else if (firefly_config_line_has_key(line, "port"))
 			status = firefly_config_printf(output, "port = %d\n", 3689);
-		else if (strncmp(line, "runas", 5) == 0)
+		else if (firefly_config_line_has_key(line, "runas"))
 			status = firefly_config_printf(output, "runas = %s\n",
 						       values->username);
-		else if (strncmp(line, "db_type", 7) == 0)
+		else if (firefly_config_line_has_key(line, "db_type"))
 			status = firefly_config_printf(output, "db_type = %s\n",
 						       "sqlite3");
-		else if (strncmp(line, "db_parms", 8) == 0)
+		else if (firefly_config_line_has_key(line, "db_parms"))
 			status = firefly_config_printf(output, "db_parms = %s\n",
 						       values->link_path);
-		else if (strncmp(line, "plugin_dir", 10) == 0)
+		else if (firefly_config_line_has_key(line, "plugin_dir"))
 			status = firefly_config_printf(output, "plugin_dir = %s\n",
 						       "/usr/lib/mt-daapd");
 		else

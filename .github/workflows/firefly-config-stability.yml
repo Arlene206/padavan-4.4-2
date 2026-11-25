@@ -72,6 +72,12 @@ jobs:
 
           validator = body(config, "firefly_config_text_is_safe(")
           publisher = body(config, "firefly_config_publish(")
+          key_matcher = body(config, "firefly_config_line_has_key(")
+          writer = body(config, "firefly_config_write_existing(")
+          assert "strncmp(line, key, key_length)" in key_matcher
+          assert "return *line == '=';" in key_matcher
+          assert writer.count("firefly_config_line_has_key(line,") == 6
+          assert 'strncmp(line, "port", 4)' not in writer
           assert "*cursor < 0x20" in validator and "*cursor == 0x7f" in validator
           assert "firefly_config_text_is_safe(username)" in publisher
           assert "firefly_config_text_is_safe(password)" in publisher
@@ -82,6 +88,12 @@ jobs:
               '"media-user\\nadmin_pw = injected"',
               '"media-pass\\r\\nrunas = root"',
               '"/mnt/firefly\\n[plugins]"',
+              '"web_root_alias = preserve-web-root-alias"',
+              '"port_forward = preserve-port-forward"',
+              '"runas_role = preserve-runas-role"',
+              '"db_type_backup = preserve-db-type"',
+              '"db_parms_extra = preserve-db-parms"',
+              '"plugin_directory = preserve-plugin-dir"',
           ):
               assert marker in test
           assert "last-good-configuration" in test
