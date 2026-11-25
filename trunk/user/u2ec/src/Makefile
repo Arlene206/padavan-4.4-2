@@ -5,6 +5,8 @@
 #
 #
 
+.DEFAULT_GOAL := all
+
 PROGS	= u2ec
 OBJS	= usbsock.o testusb.o
 

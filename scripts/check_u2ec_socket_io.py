@@ -8,6 +8,13 @@ policy = (BASE / "u2ec_socket_io_policy.h").read_text()
 test = (BASE / "tests/u2ec_socket_io_policy_test.c").read_text()
 makefile = (BASE / "Makefile").read_text()
 workflow = (ROOT / ".github/workflows/u2ec-socket-io-stability.yml").read_text()
+
+# The package build invokes make with no explicit target. Keep "all" as
+# the default goal so its first object dependency cannot suppress the link.
+assert makefile.index(".DEFAULT_GOAL := all") < makefile.index("usbsock.o: u2ec_socket_io_policy.h")
+assert "all: $(PROGS)" in makefile
+assert "$(PROGS): $(OBJS)" in makefile
+assert "OBJS\t= usbsock.o testusb.o" in makefile
 xy_workflow = (ROOT / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
 
 
