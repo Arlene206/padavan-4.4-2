@@ -1,3 +1,11 @@
+## 2026-11-25 — Reject oversized DHCPv6 UDP datagrams instead of parsing a truncated prefix
+
+- `client6_recv()` used a fixed `BUFSIZ` receive buffer with flags 0. On Linux, `recvmsg` then reports only copied bytes for an oversized datagram; if that truncation happened to end on an option boundary, the partial prefix could be accepted as a complete Reply.
+- The client now requests `MSG_TRUNC`, checks the original datagram size against the receive buffer before reading message fields or passing an end pointer to the option parser, and discards oversized packets. The bounds-policy regression covers exact-fit and over-capacity lengths, and the DHCPv6 source contract verifies that the check precedes parsing.
+- This is a Linux-targeted behavior consistent with the Padavan firmware; host policy test and exact-SHA CI are tracked independently.
+
+---
+
 ## 2026-11-25 — Bound attacker-reachable MiniUPnP event subscriptions
 
 - `upnpevents_addSubscriber()` contained an explicit TODO to cap the subscriber list. Each accepted SUBSCRIBE allocates a persistent subscriber object and may create a notification socket, but repeated distinct requests had no active-subscriber limit; the default event build enables `ENABLE_EVENTS`. An on-LAN client could therefore retain unbounded heap/socket state by repeatedly subscribing.

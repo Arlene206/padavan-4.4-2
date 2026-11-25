@@ -815,11 +815,17 @@ static void client6_recv(void)
 	struct dhcp6_event *ev;
 	char *a;
 
-	len = recv_from_to(csock, G.rbuf, sizeof(G.rbuf), 0,
+	len = recv_from_to(csock, G.rbuf, sizeof(G.rbuf), MSG_TRUNC,
 			&from, (struct sockaddr *)&to, sizeof(struct sockaddr_in6));
 	if (len < sizeof(struct dhcp6)) {
 		if (len >= 0)
 			bb_info_msg("short packet (%d bytes)", (int )len);
+		return;
+	}
+	/* Linux MSG_TRUNC returns the original datagram size, not copied bytes. */
+	if (!dhcp6c_datagram_length_fits((size_t)len, sizeof(G.rbuf))) {
+		bb_info_msg("oversized DHCP6 packet (%lu bytes)",
+			    (unsigned long)len);
 		return;
 	}
 

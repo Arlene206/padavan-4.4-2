@@ -16,4 +16,14 @@ dhcp6c_option_wire_length_valid(size_t remaining, size_t header_size,
 	       payload_size <= remaining - header_size;
 }
 
+/*
+ * recvmsg(MSG_TRUNC) reports the original UDP datagram size on Linux. Reject
+ * datagrams that cannot fit in the receive buffer before parsing any fields.
+ */
+static inline int
+dhcp6c_datagram_length_fits(size_t received_size, size_t buffer_size)
+{
+	return received_size <= buffer_size;
+}
+
 #endif /* DHCP6C_OPTION_BOUNDS_POLICY_H */

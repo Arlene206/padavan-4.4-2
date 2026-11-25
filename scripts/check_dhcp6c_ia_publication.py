@@ -182,7 +182,8 @@ assert "return first_error;" in update_ia
 # accepting the packet/suboption list.
 assert '#include "dhcp6c_option_bounds_policy.h"' in common
 assert "dhcp6c_option_wire_length_valid" in bounds_policy
-assert "DHCPv6 option header/payload bounds policy: PASS" in bounds_test
+assert "DHCPv6 option and UDP datagram bounds policy: PASS" in bounds_test
+assert "dhcp6c_datagram_length_fits" in bounds_policy
 outer_options = function_body(common, "int dhcp6_get_options(")
 nested_options = function_body(common, "static int copyin_option(int type, struct dhcp6opt *p,")
 for option_parser in (outer_options, nested_options):
@@ -276,6 +277,22 @@ assert "DHCPv6 IA delegated-prefix retry and removal policy: PASS" in test
 
 assert "test_partial_pd_failure_is_retried_without_reapplying_successes" in test
 assert "test_first_error_and_retry_gate" in test
+
+
+# recv_from_to() previously returned the copied buffer length for an oversized
+# UDP datagram, so a packet truncated exactly at an option boundary could look
+# complete. MSG_TRUNC exposes the original Linux datagram size; reject it before
+# computing any packet-end pointer.
+receive = function_body(client, "static void client6_recv(void)")
+receive_call = receive.index("len = recv_from_to(")
+receive_call_end = receive.index(";", receive_call)
+short_check = receive.index("if (len < sizeof(struct dhcp6))")
+datagram_check = receive.index("dhcp6c_datagram_length_fits(")
+option_parse = receive.index("dhcp6_get_options(")
+assert "MSG_TRUNC" in receive[receive_call:receive_call_end]
+assert receive_call < short_check < datagram_check < option_parse
+assert "(size_t)len, sizeof(G.rbuf)" in receive[datagram_check:option_parse]
+assert "return;" in receive[datagram_check:option_parse]
 
 required_paths = (
     ".github/workflows/dhcp6c-ia-publication-stability.yml",
