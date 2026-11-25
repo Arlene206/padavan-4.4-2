@@ -151,13 +151,16 @@ mtd_tarb_start = mtd_storage.index("func_tarb()")
 mtd_tarb_end = mtd_storage.index("\nfunc_save()", mtd_tarb_start)
 mtd_tarb = mtd_storage[mtd_tarb_start:mtd_tarb_end]
 require('find . ! -name . -print0 > "$find_list"' in mtd_tarb and
-        'sort -z "$find_list" > "$sort_list"' in mtd_tarb and
-        "xargs -0 tar -cf \"$tmp\" < \"$sort_list\"" in mtd_tarb and
+        'xargs -0 touch -c -h -t 201001010000.00 < "$find_list"' in mtd_tarb and
+        'tar -cf "$tmp" .' in mtd_tarb and
+        "xargs -0 tar -cf" not in mtd_tarb and
         "find . ! -name . -print0 |" not in mtd_tarb,
-        "MTD backup must not mask partial find/sort inventory failures in pipelines")
+        "MTD backup must check inventory status and let tar recurse once over the complete tree")
 require("partial-failure" in mtd_storage_backup_test and
-        "partial find inventory unexpectedly produced a successful backup" in mtd_storage_backup_test,
-        "MTD backup regression must cover a partial find failure")
+        "partial find inventory unexpectedly produced a successful backup" in mtd_storage_backup_test and
+        "bulk_entries" in mtd_storage_backup_test and
+        '"$bulk_entries" -eq 1200' in mtd_storage_backup_test,
+        "MTD backup regression must cover partial find failure and xargs-sized trees")
 require('[ -L "$dir_storage" ] || [ -f "$dir_storage" ]' in mtd_mdir,
         "MTD storage root guard must reject symlinks and regular files before fill")
 

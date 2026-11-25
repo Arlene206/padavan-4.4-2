@@ -374,16 +374,13 @@ func_tarb()
 		logger -t "Storage" "Cannot normalize storage file timestamps"
 		exit 1
 	fi
-	if ! sort -z "$find_list" > "$sort_list"; then
+	# Let tar recurse from the root instead of passing the inventory via
+	# xargs. BusyBox xargs caps command size at 32 KiB, so an oversized tree
+	# invokes "tar -c" repeatedly and each invocation truncates the same archive.
+	if ! tar -cf "$tmp" . 2>/dev/null; then
 		rm -f "$find_list" "$sort_list" "$tmp"
 		cd - >/dev/null
-		logger -t "Storage" "Cannot sort storage inventory"
-		exit 1
-	fi
-	if ! xargs -0 tar -cf "$tmp" < "$sort_list" 2>/dev/null; then
-		rm -f "$find_list" "$sort_list" "$tmp"
-		cd - >/dev/null
-		logger -t "Storage" "Cannot create tarball file: $tmp"
+		logger -t "Storage" "Cannot create complete storage tarball: $tmp"
 		exit 1
 	fi
 	rm -f "$find_list" "$sort_list"

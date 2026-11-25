@@ -100,6 +100,16 @@ export BZCAT_MODE=invalid
 if run_backup; then echo "non-tar backup unexpectedly succeeded" >&2; exit 1; fi
 assert_no_archive
 
+# BusyBox xargs limits a single command to 32 KiB. A large path inventory
+# must still produce one complete tar archive, not repeated -c truncations.
+mkdir -p "$sandbox/storage/bulk"
+i=1
+while [ "$i" -le 1200 ]; do
+	name=$(printf 'bulk-%04d-%0120d' "$i" 0)
+	: > "$sandbox/storage/bulk/$name"
+	i=$((i + 1))
+done
+
 export BZCAT_MODE=valid
 if ! run_backup; then echo "valid backup unexpectedly failed" >&2; exit 1; fi
 [ -s "$sandbox/private/storage.tar.bz2" ] || { echo "valid backup archive missing" >&2; exit 1; }
@@ -109,4 +119,9 @@ archive_listing=$("$REAL_BZCAT" "$sandbox/private/storage.tar.bz2" | tar tf -)
 printf '%s\n' "$archive_listing" | grep -Fqx './config.conf'
 printf '%s\n' "$archive_listing" | grep -Fqx './.hidden.conf'
 printf '%s\n' "$archive_listing" | grep -Fqx './empty-dir/'
+bulk_entries=$(printf '%s\n' "$archive_listing" | awk 'index($0, "./bulk/") == 1 { count++ } END { print count + 0 }')
+[ "$bulk_entries" -eq 1200 ] || {
+	echo "large backup archive lost entries: expected 1200, got $bulk_entries" >&2
+	exit 1
+}
 echo "MTD storage backup failure and integrity regression: PASS"

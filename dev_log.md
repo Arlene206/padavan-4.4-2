@@ -1,3 +1,11 @@
+## 2026-11-25 — Prevent large MTD backups from being truncated by BusyBox xargs batching
+
+- Review of BusyBox 1.24.2 `findutils/xargs.c` confirmed it caps each command line at 32 KiB. `func_tarb()` passed every path to `xargs -0 tar -cf "$tmp"`; on a larger `/etc/storage`, xargs launches tar multiple times and every `-c` truncates the same archive. The command can return success even though only its final batch remains, so MTD backup silently drops most files.
+- Keep the checked NUL-delimited `find` snapshot and safe timestamp normalization, but create the archive with one recursive `tar -cf "$tmp" .` invocation. BusyBox tar's recursive walk handles the whole tree without an argv-size boundary and propagates file traversal errors. Regression creates 1,200 long-path entries (>32 KiB of argv) and requires all 1,200 to appear in the archive, under host shell and BusyBox ash. Static source contract rejects the old xargs/tar pattern.
+- Exact-head storage-hotplug validation is required; no local BusyBox binary or firmware run is claimed.
+
+---
+
 ## 2026-11-25 — Correct escaped newline delimiters in storage checker
 
 - Source-contract review found the two new MTD function-boundary lookups in `check_storage_safe_remove.py` searched for the two literal characters `\\n` instead of an actual newline. This would raise `ValueError` when the storage workflow reaches the checker, despite the C/shell tests being independent.
