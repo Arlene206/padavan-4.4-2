@@ -59,6 +59,9 @@ test = read(BASE + "tests/dhcp6c_ia_publication_policy.c")
 config = read(BASE + "dhcp6c_config.c")
 iaid_policy = read(BASE + "dhcp6c_iaid_policy.h")
 iaid_test = read(BASE + "tests/dhcp6c_iaid_policy.c")
+ia_source = read(BASE + "dhcp6c_ia.c")
+sla_policy = read(BASE + "dhcp6c_pd_sla_policy.h")
+sla_test = read(BASE + "tests/dhcp6c_pd_sla_policy.c")
 workflow = read(".github/workflows/dhcp6c-ia-publication-stability.yml")
 
 assert '#include "dhcp6c_ia_policy.h"' in ia
@@ -84,6 +87,22 @@ assert "test_decimal_iaid_boundaries" in iaid_test
 assert "test_malformed_iaid_is_rejected_without_partial_output" in iaid_test
 assert "test_output_pointer_is_required" in iaid_test
 assert "DHCPv6 IAID strict decimal parsing policy: PASS" in iaid_test
+assert '#include "dhcp6c_pd_sla_policy.h"' in ia_source
+assert '#include "dhcp6c_pd_sla_policy.h"' in config
+assert "dhcp6c_pd_sla_id_valid" in sla_policy
+assert "dhcp6c_pd_sla_insert" in sla_policy
+add_ifprefix = function_body(ia_source, "static int add_ifprefix(struct iaprefix *iaprefix,")
+assert "dhcp6c_pd_sla_insert(" in add_ifprefix
+assert "htonl(pconf->sla_id)" not in add_ifprefix
+assert "sp = ((char *)&sla_id + 3)" not in add_ifprefix
+add_pd_pif = function_body(config, "static int add_pd_pif(struct ia_conf *iac,")
+assert "pif->sla_len > 32" in add_pd_pif
+assert "dhcp6c_pd_sla_id_valid(pif->sla_len, pif->sla_id)" in add_pd_pif
+assert "test_partial_sla_field_is_network_bit_aligned" in sla_test
+assert "test_byte_aligned_and_full_width_sla_fields" in sla_test
+assert "test_invalid_sla_configurations_are_rejected_atomically" in sla_test
+assert "DHCPv6 delegated-prefix SLA bit placement policy: PASS" in sla_test
+assert "tests/dhcp6c_pd_sla_policy.c" in workflow
 assert "tests/dhcp6c_iaid_policy.c" in workflow
 assert "DHCP6C_IA_CLEANUP_RETRY_DELAY_MS == 5000ULL" in test
 
@@ -172,6 +191,8 @@ required_paths = (
     BASE + "dhcp6c_config.c",
     BASE + "dhcp6c_iaid_policy.h",
     BASE + "tests/dhcp6c_iaid_policy.c",
+    BASE + "dhcp6c_pd_sla_policy.h",
+    BASE + "tests/dhcp6c_pd_sla_policy.c",
 )
 filters = workflow.split("jobs:", 1)[0]
 push, pull = filters.split("  pull_request:", 1)

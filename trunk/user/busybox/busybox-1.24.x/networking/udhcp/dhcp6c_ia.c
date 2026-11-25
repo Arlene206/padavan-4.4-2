@@ -33,6 +33,7 @@
 
 #include "dhcp6c.h"
 #include "dhcp6c_ia_policy.h"
+#include "dhcp6c_pd_sla_policy.h"
 
 typedef enum {IAS_ACTIVE, IAS_RENEW, IAS_REBIND} iastate_t;
 
@@ -892,14 +893,19 @@ static int add_ifprefix(struct iaprefix *iaprefix,
 		struct dhcp6_prefix *prefix, struct prefix_ifconf *pconf)
 {
 	struct dhcp6_ifprefix *ifpfx = NULL;
-	uint32_t sla_id;
-	char *sp;
-	int b, i;
+	int i;
 
 	ifpfx = xzalloc(sizeof(*ifpfx));
 
 	ifpfx->ifconf = pconf;
 
+	if (prefix->plen < 0 || prefix->plen > 128 ||
+	    pconf->sla_len < 0 || pconf->sla_len > 32 ||
+	    pconf->ifid_len < 0 || pconf->ifid_len > 128) {
+		bb_error_msg("invalid delegated-prefix SLA or interface ID length");
+		errno = EINVAL;
+		goto bad;
+	}
 	ifpfx->paddr = prefix->addr;
 	ifpfx->plen = prefix->plen + pconf->sla_len;
 	/*
@@ -918,19 +924,12 @@ static int add_ifprefix(struct iaprefix *iaprefix,
 		goto bad;
 	}
 
-	/* copy prefix and SLA ID */
-	b = prefix->plen;
-	for (i = 0, b = prefix->plen; b > 0; b -= 8, i++) {
-		ifpfx->paddr.s6_addr[i] = prefix->addr.s6_addr[i];
-	}
-	sla_id = htonl(pconf->sla_id);
-	sp = ((char *)&sla_id + 3);
-	i = (128 - pconf->ifid_len) / 8;
-	for (b = pconf->sla_len; b > 7; b -= 8, sp--) {
-		ifpfx->paddr.s6_addr[--i] = *sp;
-	}
-	if (b) {
-		ifpfx->paddr.s6_addr[--i] |= *sp;
+	/* Insert the SLA ID into the bits immediately after the delegated prefix. */
+	if (dhcp6c_pd_sla_insert(ifpfx->paddr.s6_addr, prefix->plen,
+				 pconf->sla_len, pconf->sla_id) != 0) {
+		bb_error_msg("invalid SLA ID %u for SLA length %d",
+			     pconf->sla_id, pconf->sla_len);
+		goto bad;
 	}
 
 	/* configure the corresponding address */

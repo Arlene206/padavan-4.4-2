@@ -84,6 +84,8 @@ on:
       - "trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcp6c_ia_policy.h"
       - "trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcp6c_config.c"
       - "trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcp6c_iaid_policy.h"
+      - "trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcp6c_pd_sla_policy.h"
+      - "trunk/user/busybox/busybox-1.24.x/networking/udhcp/tests/dhcp6c_pd_sla_policy.c"
       - "trunk/user/busybox/busybox-1.24.x/networking/udhcp/tests/dhcp6c_iaid_policy.c"
       - "trunk/user/busybox/busybox-1.24.x/networking/udhcp/domain_codec.c"
       - "trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcp6c.h"

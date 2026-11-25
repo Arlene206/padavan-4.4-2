@@ -33,6 +33,7 @@
 #include "dhcp6c.h"
 #include "dhcp6c_auth.h"
 #include "dhcp6c_iaid_policy.h"
+#include "dhcp6c_pd_sla_policy.h"
 
 /* structures and definitions used in the config file parser */
 struct cf_list {
@@ -272,8 +273,8 @@ static int add_pd_pif(struct ia_conf *iac, struct cf_list *cfl0)
 			break;
 		case IFPARAM_SLA_LEN:
 			pif->sla_len = xatou(cfl->ptr);
-			if (pif->sla_len < 0 || pif->sla_len > 128) {
-				bb_error_msg("%s:%d invalid SLA length: %d",
+			if (pif->sla_len < 0 || pif->sla_len > 32) {
+				bb_error_msg("%s:%d invalid SLA length (must be 0..32): %d",
 				    client6_config.conffile, cfl->line, pif->sla_len);
 				goto bad;
 			}
@@ -283,6 +284,12 @@ static int add_pd_pif(struct ia_conf *iac, struct cf_list *cfl0)
 			    client6_config.conffile, cfl->line);
 			goto bad;
 		}
+	}
+
+	if (dhcp6c_pd_sla_id_valid(pif->sla_len, pif->sla_id) != 0) {
+		bb_error_msg("%s:%d SLA ID %u does not fit configured SLA length %d",
+		    client6_config.conffile, cfl0->line, pif->sla_id, pif->sla_len);
+		goto bad;
 	}
 
 	TAILQ_INSERT_TAIL(&iac->iapd_pif_list, pif, link);
