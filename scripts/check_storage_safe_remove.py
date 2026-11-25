@@ -144,6 +144,7 @@ mtd_storage_restore_test = read("trunk/user/scripts/tests/mtd_storage_restore_tr
 mtd_storage_load_test = read("trunk/user/scripts/tests/mtd_storage_load_transaction.sh")
 mtd_storage_backup_test = read("trunk/user/scripts/tests/mtd_storage_backup_failure.sh")
 mtd_storage_erase_reset_test = read("trunk/user/scripts/tests/mtd_storage_erase_reset.sh")
+mtd_storage_fill_test = read("trunk/user/scripts/tests/mtd_storage_fill_safe_paths.sh")
 mtd_mdir_start = mtd_storage.index("func_mdir()")
 mtd_mdir_end = mtd_storage.index("\nfunc_rstats_presence()", mtd_mdir_start)
 mtd_mdir = mtd_storage[mtd_mdir_start:mtd_mdir_end]
@@ -163,6 +164,41 @@ require("partial-failure" in mtd_storage_backup_test and
         "MTD backup regression must cover partial find failure and xargs-sized trees")
 require('[ -L "$dir_storage" ] || [ -f "$dir_storage" ]' in mtd_mdir,
         "MTD storage root guard must reject symlinks and regular files before fill")
+
+fill_check_dir = body(mtd_storage, "func_fill_check_dir()")
+fill_check_file = body(mtd_storage, "func_fill_check_file()")
+fill_validate = body(mtd_storage, "func_fill_validate_paths()")
+fill_body = body(mtd_storage, "func_fill()")
+require('case "$target" in' in fill_check_dir and
+        '"$dir_storage"/*)' in fill_check_dir and
+        '[ -L "$current" ]' in fill_check_dir and
+        '[ ! -d "$current" ]' in fill_check_dir and
+        'current="$current/$component"' in fill_check_dir,
+        "MTD fill must reject symlink and non-directory components at every storage path level")
+require('func_fill_check_dir "$parent"' in fill_check_file and
+        '[ -L "$target" ]' in fill_check_file and
+        '[ ! -f "$target" ]' in fill_check_file,
+        "MTD fill must reject symlink and non-regular leaf file targets")
+require('if ! func_fill_validate_paths; then' in fill_body and
+        fill_body.index('if ! func_fill_validate_paths; then') <
+        fill_body.index('mkdir -p -m 730 "$dir_crond"') and
+        '"$dir_storage/dnsmasq.conf"' in fill_validate and
+        '"$script_start"' in fill_validate and
+        '"$dir_sswan_crt/private"' in fill_validate,
+        "MTD fill must validate all nested dirs and generated files before the first write")
+for item in ("dnsmasq directory symlink unexpectedly accepted",
+             "cron parent symlink unexpectedly accepted",
+             "dnsmasq config symlink unexpectedly accepted",
+             "start script symlink unexpectedly accepted",
+             "Unsafe storage directory component:",
+             "Unsafe storage file target:"):
+    require(item in mtd_storage_fill_test,
+            "MTD fill symlink regression lacks case: " + item)
+require('sh trunk/user/scripts/tests/mtd_storage_fill_safe_paths.sh' in workflow and
+        'BUSYBOX_BIN="$busybox_bin" sh trunk/user/scripts/tests/mtd_storage_fill_safe_paths.sh' in workflow and
+        '"trunk/user/scripts/tests/mtd_storage_fill_safe_paths.sh"' in push_filters and
+        '"trunk/user/scripts/tests/mtd_storage_fill_safe_paths.sh"' in pull_filters,
+        "MTD fill symlink fixture must run under host shell and BusyBox ash and be path-triggered")
 
 checked = body(libdisk, "read_disk_data_checked(disk_info_t **disk_info_out)")
 require("if (!disk_info_out)" in checked, "checked inventory must validate its output")

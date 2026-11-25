@@ -31,6 +31,7 @@ on:
       - "trunk/user/scripts/tests/reset_ss_template.sh"
       - "trunk/user/scripts/tests/mtd_storage_load_transaction.sh"
       - "trunk/user/scripts/tests/mtd_storage_erase_reset.sh"
+      - "trunk/user/scripts/tests/mtd_storage_fill_safe_paths.sh"
       - "trunk/user/rc/src/storage_persistence_policy.h"
       - "trunk/user/rc/src/tests/storage_persistence_policy.c"
       - "trunk/user/rc/src/common_ex.c"
@@ -393,6 +394,13 @@ jobs:
           busybox_bin="$PWD/trunk/user/busybox/busybox-1.24.x/busybox"
           test -x "$busybox_bin"
           BUSYBOX_BIN="$busybox_bin" sh trunk/user/scripts/tests/mtd_storage_backup_failure.sh
+      - name: Verify MTD storage fill rejects symlinked paths
+        run: |
+          set -eu
+          sh trunk/user/scripts/tests/mtd_storage_fill_safe_paths.sh
+          busybox_bin="$PWD/trunk/user/busybox/busybox-1.24.x/busybox"
+          test -x "$busybox_bin"
+          BUSYBOX_BIN="$busybox_bin" sh trunk/user/scripts/tests/mtd_storage_fill_safe_paths.sh
       - name: Compile and run storage persistence gate regression
         run: |
           set -eu

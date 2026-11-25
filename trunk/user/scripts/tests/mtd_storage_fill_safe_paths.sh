@@ -1,0 +1,103 @@
+#!/bin/sh
+set -eu
+
+script_dir=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
+repo_root=$(CDPATH= cd -- "$script_dir/../../../.." && pwd)
+sandbox=$(mktemp -d "\${TMPDIR:-/tmp}/mtd-storage-fill.XXXXXX")
+real_rm=$(command -v rm)
+cleanup()
+{
+	"$real_rm" -rf "$sandbox"
+}
+trap cleanup EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+mkdir -p "$sandbox/storage" "$sandbox/private" "$sandbox/outside" "$sandbox/bin"
+printf '%s\n' outside-sentinel > "$sandbox/outside/sentinel"
+: > "$sandbox/reset-ss.log"
+
+cat > "$sandbox/bin/logger" <<'EOF_LOGGER'
+#!/bin/sh
+printf '%s\n' "$*" >> "$LOGGER_LOG"
+EOF_LOGGER
+cat > "$sandbox/bin/reset_ss.sh" <<'EOF_RESET'
+#!/bin/sh
+printf '%s\n' "$*" >> "$RESET_SS_LOG"
+exit 0
+EOF_RESET
+chmod +x "$sandbox/bin/"*
+
+sed \
+	-e "s|^dir_storage=.*|dir_storage=\"$sandbox/storage\"|" \
+	-e "s|^slk=.*|slk=\"$sandbox/private/storage_locked\"|" \
+	-e "s|^lock_dir=.*|lock_dir=\"$sandbox/private\"|" \
+	-e "s|^tmp=.*|tmp=\"$sandbox/private/storage.tar\"|" \
+	-e "s|^rtbz=.*|rtbz=\"$sandbox/private/storage-restore.tar.bz2\"|" \
+	"$repo_root/trunk/user/scripts/files/sbin/mtd_storage.sh" > "$sandbox/mtd_storage.sh"
+chmod +x "$sandbox/mtd_storage.sh"
+
+export PATH="$sandbox/bin:$PATH"
+export LOGGER_LOG="$sandbox/logger.log" RESET_SS_LOG="$sandbox/reset-ss.log"
+
+run_fill()
+{
+	if [ -n "\${BUSYBOX_BIN:-}" ]; then
+		"$BUSYBOX_BIN" ash "$sandbox/mtd_storage.sh" fill
+	else
+		sh "$sandbox/mtd_storage.sh" fill
+	fi
+}
+reset_case()
+{
+	"$real_rm" -rf "$sandbox/storage"
+	mkdir -p "$sandbox/storage"
+	: > "$RESET_SS_LOG"
+	: > "$LOGGER_LOG"
+}
+
+# A nested directory symlink must not let dnsmasq defaults escape /etc/storage.
+reset_case
+ln -s "$sandbox/outside" "$sandbox/storage/dnsmasq"
+if run_fill >/dev/null 2>&1; then
+	echo "dnsmasq directory symlink unexpectedly accepted" >&2
+	exit 1
+fi
+test ! -e "$sandbox/outside/dnsmasq.conf"
+test ! -s "$RESET_SS_LOG"
+grep -Fq 'Unsafe storage directory component:' "$LOGGER_LOG"
+
+# The validator must inspect every ancestor, not just the final crontabs path.
+reset_case
+ln -s "$sandbox/outside" "$sandbox/storage/cron"
+if run_fill >/dev/null 2>&1; then
+	echo "cron parent symlink unexpectedly accepted" >&2
+	exit 1
+fi
+test ! -e "$sandbox/outside/crontabs"
+test ! -s "$RESET_SS_LOG"
+
+# Existing config symlinks are not trusted merely because test -f follows them.
+reset_case
+mkdir -p "$sandbox/storage/dnsmasq"
+ln -s "$sandbox/outside/sentinel" "$sandbox/storage/dnsmasq/dnsmasq.conf"
+if run_fill >/dev/null 2>&1; then
+	echo "dnsmasq config symlink unexpectedly accepted" >&2
+	exit 1
+fi
+test "$(cat "$sandbox/outside/sentinel")" = outside-sentinel
+test ! -s "$RESET_SS_LOG"
+grep -Fq 'Unsafe storage file target:' "$LOGGER_LOG"
+
+# A symlinked boot script must not be treated as an already-installed script.
+reset_case
+ln -s "$sandbox/outside/sentinel" "$sandbox/storage/start_script.sh"
+if run_fill >/dev/null 2>&1; then
+	echo "start script symlink unexpectedly accepted" >&2
+	exit 1
+fi
+test "$(cat "$sandbox/outside/sentinel")" = outside-sentinel
+test ! -s "$RESET_SS_LOG"
+
+echo "MTD storage fill symlink-path regression: PASS"

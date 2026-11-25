@@ -1,3 +1,11 @@
+## 2026-11-25 19:35 CST — Block nested symlink traversal during MTD default fill
+
+- `func_mdir()` guarded only the `/etc/storage` root. The legacy `func_fill()` then treated symlinked nested directories as valid because `[ -d ]` follows them and used heredoc redirections for default scripts/configs. A crafted `dnsmasq`, `cron`, `inadyn`, `wlan`, OpenVPN or strongSwan directory link could therefore redirect privileged writes outside the storage tree; symlinked leaf config files were also silently accepted by `[ -f ]`.
+- Added a preflight that checks each path component and every generated/migrated file leaf before any fill-side mkdir, move or heredoc write. Added production-linked regressions for a nested dnsmasq directory symlink, an ancestor cron symlink, a dnsmasq config leaf symlink, and a boot-script leaf symlink; scheduled under both host shell and firmware BusyBox ash.
+- Exact USB storage, static source contract and XY-C1 firmware validation required. No local BusyBox/firmware/hardware result is claimed.
+
+---
+
 ## 2026-11-25 19:30 CST — Repair zombie fixture setup after failed daemon launch
 
 - Exact USB-storage run #45602345339 confirmed the new parser accepted the complete live proc records and passed all preceding restore checks, then the final zombie scenario failed before the restore command: the preceding no-daemon launcher case had removed the synthetic PID directory, and the zombie fixture wrote directly into the now-missing `stat` path. Restored explicit directory setup and corrected the fixture's printf format. Production parser is unchanged.

@@ -709,6 +709,100 @@ func_reset()
 	return 0
 }
 
+func_fill_check_dir()
+{
+	local target remaining current component
+
+	target=$1
+	case "$target" in
+		"$dir_storage") remaining= ;;
+		"$dir_storage"/*) remaining=\${target#"$dir_storage"/} ;;
+		*)
+			logger -t "Storage fill" "Refusing path outside storage tree: $target"
+			return 1
+			;;
+	esac
+
+	current="$dir_storage"
+	if [ -L "$current" ] || { [ -e "$current" ] && [ ! -d "$current" ]; }; then
+		logger -t "Storage fill" "Unsafe storage root: $current"
+		return 1
+	fi
+	while [ -n "$remaining" ]; do
+		case "$remaining" in
+			*/*) component=\${remaining%%/*}; remaining=\${remaining#*/} ;;
+			*) component=$remaining; remaining= ;;
+		esac
+		current="$current/$component"
+		if [ -L "$current" ] || { [ -e "$current" ] && [ ! -d "$current" ]; }; then
+			logger -t "Storage fill" "Unsafe storage directory component: $current"
+			return 1
+		fi
+	done
+	return 0
+}
+
+func_fill_check_file()
+{
+	local target parent
+
+	target=$1
+	parent=\${target%/*}
+	if ! func_fill_check_dir "$parent"; then
+		return 1
+	fi
+	if [ -L "$target" ] || { [ -e "$target" ] && [ ! -f "$target" ]; }; then
+		logger -t "Storage fill" "Unsafe storage file target: $target"
+		return 1
+	fi
+	return 0
+}
+
+func_fill_validate_paths()
+{
+	local path
+
+	# Check every directory and all of its ancestors before mkdir -p or tar
+	# extraction can follow a symlink into a path outside /etc/storage.
+	for path in "$dir_crond" "$dir_httpssl" "$dir_chnroute" \
+		    "$dir_dnsmasq" "$dir_inadyn" "$dir_wlan" \
+		    "$dir_ovpncli" "$dir_ovpnsvr" \
+		    "$dir_sswan" "$dir_sswan_crt" \
+		    "$dir_sswan_crt/cacerts" "$dir_sswan_crt/certs" \
+		    "$dir_sswan_crt/private"; do
+		if ! func_fill_check_dir "$path"; then
+			return 1
+		fi
+	done
+
+	# Existing leaf symlinks are unsafe too: [ -f ] follows them and would
+	# otherwise make fill silently accept an external configuration file.
+	for path in "$script_start" "$script_started" "$script_shutd" \
+		    "$script_postf" "$script_postw" "$script_inets" \
+		    "$script_vpnsc" "$script_vpncs" "$script_ezbtn" \
+		    "$dir_storage/dnsmasq.conf" "$dir_storage/hosts" \
+		    "$user_hosts" "$user_dnsmasq_conf" \
+		    "$user_dnsmasq_servers" "$user_dhcp_conf" \
+		    "$user_inadyn_conf" "$dir_wlan/AP.dat" \
+		    "$dir_wlan/AP_5G.dat" "$user_ovpnsvr_conf" \
+		    "$user_ovpncli_conf" "$user_sswan_conf" \
+		    "$user_sswan_ipsec_conf" "$user_sswan_secrets" \
+		    "$dir_storage/openvpn/ca.crt" \
+		    "$dir_storage/openvpn/dh1024.pem" \
+		    "$dir_storage/openvpn/server.crt" \
+		    "$dir_storage/openvpn/server.key" \
+		    "$dir_storage/openvpn/server.conf" \
+		    "$dir_storage/openvpn/ta.key" \
+		    "$dir_ovpnsvr/ca.crt" "$dir_ovpnsvr/dh1024.pem" \
+		    "$dir_ovpnsvr/server.crt" "$dir_ovpnsvr/server.key" \
+		    "$dir_ovpnsvr/server.conf" "$dir_ovpnsvr/ta.key"; do
+		if ! func_fill_check_file "$path"; then
+			return 1
+		fi
+	done
+	return 0
+}
+
 func_fill()
 {
 	dir_httpssl="$dir_storage/https"
@@ -746,6 +840,12 @@ func_fill()
 	
 	chnroute_file="/etc_ro/chnroute.bz2"
 	#gfwlist_conf_file="/etc_ro/gfwlist.bz2"
+
+	# Refuse symlinked parents and leaves before any mkdir, move or heredoc
+	# can follow a user-controlled path outside the storage tree.
+	if ! func_fill_validate_paths; then
+		return 1
+	fi
 
 	# create crond dir
 	[ ! -d "$dir_crond" ] && mkdir -p -m 730 "$dir_crond"
