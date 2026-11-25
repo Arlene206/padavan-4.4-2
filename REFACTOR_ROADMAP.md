@@ -1,3 +1,9 @@
+## 2026-11-24 状态增量：SmartDNS 启动回滚计数
+
+- DNSMasq 源码合同将 Start rollback 调用预期数从 7 更新为 8，纳入新增 firewall 安装失败回滚分支。
+
+---
+
 ## 2026-11-24 状态增量：同步 DNSMasq SmartDNS 停止合同
 
 - `check_smartdns_dnsmasq_config.py` 改为要求先清理 NAT redirect，再停止 SmartDNS daemon，避免遗留重定向指向已停止服务。

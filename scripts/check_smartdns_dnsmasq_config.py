@@ -362,7 +362,7 @@ rollback = body(smartdns, "smartdns_start_config_rollback")
 assert "nvram set sdns_enable=0" in rollback
 assert "Stop_smartdns" in rollback
 assert "DNSMasq 回滚未完成" in rollback
-assert start.count("smartdns_start_config_rollback") == 7
+assert start.count("smartdns_start_config_rollback") == 8
 # DNSMasq must successfully reload the resolver config before SmartDNS is
 # stopped, and a failed reload must preserve the daemon and saved retry state.
 stop_compact = " ".join(stop.split())

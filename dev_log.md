@@ -1,3 +1,8 @@
+## 2026-11-24 — Update SmartDNS startup rollback count contract
+
+- DNSMasq run #45553387354 passed the shell regressions and revised stop-order assertions, then found one stale source-contract count: checked firewall setup adds a new failure branch to the existing seven SmartDNS startup rollback sites. Updated the exact expected count to eight.
+- AI docs #45553386628 passed for the parent SHA. DNSMasq and XY-C1 verification remain pending on the corrected source-contract SHA.
+
 ## 2026-11-24 — Align the DNSMasq source contract with safe SmartDNS stop ordering
 
 - Exact-head DNSMasq run #45553242639 confirmed the existing SmartDNS config-preservation fixture now extracts and runs with both firewall helpers, but its source checker still mandated the old unsafe order (stop daemon, then delete NAT redirects). Updated the checker to require redirect cleanup before daemon stop and Adbyby retargeting.
