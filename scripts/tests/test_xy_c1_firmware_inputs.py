@@ -68,6 +68,12 @@ class FirmwareInputPathTests(unittest.TestCase):
             "trunk/user/busybox/busybox-1.24.x/init/tests/init_reap_queue.c"
         ))
 
+    def test_dhcp_domain_codec_production_source_triggers_xy_c1_build(self):
+        workflow = (ROOT / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
+        path = "trunk/user/busybox/busybox-1.24.x/networking/udhcp/domain_codec.c"
+        self.assertEqual(workflow.count('      - "' + path + '"'), 1)
+        self.assertFalse(is_non_firmware_input(path))
+
     def test_production_sources_and_configuration_require_build(self):
         workflow = (ROOT / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
         self.assertEqual(

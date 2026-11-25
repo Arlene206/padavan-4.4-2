@@ -78,6 +78,7 @@ on:
       - "trunk/linux-4.4.x/net/netfilter/xt_webstr.c"
       - "trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcp6c_common.c"
       - "trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcp6c.c"
+      - "trunk/user/busybox/busybox-1.24.x/networking/udhcp/domain_codec.c"
       - "trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcp6c.h"
       - "trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcp6c_script.c"
       - "trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcp6c_script_retry_policy.h"

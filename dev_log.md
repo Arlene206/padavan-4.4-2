@@ -1,3 +1,9 @@
+## 2026-11-25 — Include DHCP domain codec in XY-C1 firmware validation paths
+
+- The new decoder sanitizer workflow passed on `66efb19`, but review of the XY-C1 workflow exposed a production-validation blind spot: `networking/udhcp/domain_codec.c` was missing from the push path filter, so edits to this shipped BusyBox source did not trigger the MIPS firmware build/TRX/artifact job. Add the source to the path filter and pin the one-entry filter plus production classification in `test_xy_c1_firmware_inputs.py`. The workflow's own path is already included, so this commit re-triggers XY-C1 against the complete current tree.
+
+---
+
 ## 2026-11-25 — Initialize domain decoder return pointer deterministically
 
 - Remove the legacy self-initialization `char *ret = ret`, which reads an indeterminate automatic pointer before the decoder assigns its successful result. Initialize it to `NULL` and add a null-buffer rejection case alongside zero/negative length checks.
