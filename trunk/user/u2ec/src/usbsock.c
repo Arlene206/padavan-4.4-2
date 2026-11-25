@@ -4003,11 +4003,31 @@ static void update_device()
  * alarm handle.
  * Only there is a busy connection, the alarm runs.
  */
+static volatile sig_atomic_t multi_client_alarm_pending;
+
 static void multi_client(int sig)
 {
+	(void)sig;
+	multi_client_alarm_pending = 1;
+}
+
+/*
+ * Run the former alarm work only from the main event loop. SIGALRM is blocked
+ * outside pselect(), so connection-list mutation and this traversal cannot
+ * interrupt one another. Compare the saved pointer against live list nodes
+ * before dereferencing it; the last connection may have been removed.
+ */
+static void multi_client_tick(void)
+{
 	struct u2ec_list_head	*pos;
-	u2ec_list_for_each(pos, &conn_info_list)
-	{
+	PCONNECTION_INFO		last_busy_live = NULL;
+	time_t				now;
+	int				u2ec_fifo;
+
+	u2ec_list_for_each(pos, &conn_info_list) {
+		if ((PCONNECTION_INFO)pos == last_busy_conn)
+			last_busy_live = (PCONNECTION_INFO)pos;
+
 		if (ip_monopoly.s_addr && ip_monopoly.s_addr == ((PCONNECTION_INFO)pos)->ip.s_addr)
 			PDEBUG("ip %s, sock %d, busy %d. Monopoly.\n", inet_ntoa(((PCONNECTION_INFO)pos)->ip), ((PCONNECTION_INFO)pos)->sockfd, ((PCONNECTION_INFO)pos)->busy);
 		else
@@ -4015,13 +4035,26 @@ static void multi_client(int sig)
 	}
 	PDEBUG("\n");
 
+	if (!last_busy_live) {
+		last_busy_conn = NULL;
+		alarm(0);
+		return;
+	}
+
 	alarm(1);
-	if (time((time_t*)NULL) - last_busy_conn->time > U2EC_TIMEOUT) {
+	now = time((time_t *)NULL);
+	if (now != (time_t)-1 && now > last_busy_live->time &&
+	    now - last_busy_live->time > U2EC_TIMEOUT) {
 		PDEBUG(" U2EC TIMEOUT!\n");
 
 		alarm(0);
-		int u2ec_fifo = open(U2EC_FIFO, O_WRONLY|O_NONBLOCK);
-		write(u2ec_fifo, "c", 1);
+		u2ec_fifo = open(U2EC_FIFO, O_WRONLY|O_NONBLOCK);
+		if (u2ec_fifo < 0) {
+			PERROR("open U2EC FIFO for multi-client timeout");
+			return;
+		}
+		if (write(u2ec_fifo, "c", 1) != 1)
+			PERROR("write U2EC FIFO multi-client timeout");
 		close(u2ec_fifo);
 	}
 }
@@ -4325,7 +4358,9 @@ int main(int argc, char *argv[])
 	int		fdmax;			// maximum file descriptor number
 	int		index, rtvl;
 	FILE		*fp;
-	sigset_t sigs_to_catch;
+	sigset_t sigs_to_catch, original_sigmask, select_sigmask;
+	struct sigaction alarm_action;
+	int		signal_status;
 	int		lock;
 
 #if defined(U2EC_DEBUG) && defined(U2EC_ONPC)
@@ -4363,12 +4398,35 @@ int main(int argc, char *argv[])
 
 	sigemptyset(&sigs_to_catch);
 	sigaddset(&sigs_to_catch, SIGALRM);
-	sigprocmask(SIG_UNBLOCK, &sigs_to_catch, NULL);
+	signal_status = pthread_sigmask(SIG_BLOCK, &sigs_to_catch,
+	                                &original_sigmask);
+	if (signal_status != 0) {
+		errno = signal_status;
+		PERROR("block SIGALRM before starting discovery worker");
+		return 1;
+	}
+	select_sigmask = original_sigmask;
+	sigdelset(&select_sigmask, SIGALRM);
 
-	signal(SIGALRM, multi_client);
+	memset(&alarm_action, 0, sizeof(alarm_action));
+	alarm_action.sa_handler = multi_client;
+	sigemptyset(&alarm_action.sa_mask);
+	alarm_action.sa_flags = 0;
+	if (sigaction(SIGALRM, &alarm_action, NULL) < 0) {
+		PERROR("install SIGALRM handler");
+		(void)pthread_sigmask(SIG_SETMASK, &original_sigmask, NULL);
+		return 1;
+	}
 
-	/* Handle get ip, get config and get name. */
-	pthread_create(&find_thread, NULL, (void *)add_remote_device, NULL);
+	/* The worker inherits SIGALRM blocked; only main unmasks it in pselect. */
+	signal_status = pthread_create(&find_thread, NULL,
+	                               (void *)add_remote_device, NULL);
+	if (signal_status != 0) {
+		errno = signal_status;
+		PERROR("create discovery worker");
+		(void)pthread_sigmask(SIG_SETMASK, &original_sigmask, NULL);
+		return 1;
+	}
 
 	/* Fifo used by service_ex.c:hotplug_usb(). */
 	unlink(U2EC_FIFO);
@@ -4424,9 +4482,16 @@ int main(int argc, char *argv[])
 	PDEBUG("\nU2EC initialized, listening...\n");
 
 	for (;;) {
-		rtvl = u2ec_select_readable_retry(fdmax + 1, &master_fds,
-		                                   &read_fds);
+		rtvl = u2ec_pselect_readable_retry(fdmax + 1, &master_fds,
+		                                    &read_fds, &select_sigmask,
+		                                    &multi_client_alarm_pending);
+		if (multi_client_alarm_pending) {
+			multi_client_alarm_pending = 0;
+			multi_client_tick();
+		}
 		if (rtvl < 0) {
+			if (errno == EINTR)
+				continue;
 			PERROR("select");
 			return 1;
 		}

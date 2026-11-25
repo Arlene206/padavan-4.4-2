@@ -173,6 +173,32 @@ cancel_at = fifo_reader.index("CANCEL:")
 reopen_at = fifo_reader.index("REOPEN_FIFO:", cancel_at)
 assert "u2ec_release_lock_once(&lock, file_unlock)" in fifo_reader[cancel_at:reopen_at]
 assert "u2ec_release_lock_once" in policy
+alarm_handler = body(source, "static void multi_client(int sig)")
+alarm_tick = body(source, "static void multi_client_tick(void)")
+assert "multi_client_alarm_pending = 1" in alarm_handler
+for token in ("conn_info_list", "last_busy_conn", "PDEBUG", "inet_ntoa",
+              "time(", "alarm(", "open(", "write(", "close("):
+    assert token not in alarm_handler, token
+assert "if ((PCONNECTION_INFO)pos == last_busy_conn)" in alarm_tick
+assert "if (!last_busy_live)" in alarm_tick
+assert "last_busy_conn = NULL" in alarm_tick
+assert "last_busy_live->time" in alarm_tick
+assert "u2ec_fifo = open(U2EC_FIFO, O_WRONLY|O_NONBLOCK)" in alarm_tick
+assert "if (u2ec_fifo < 0)" in alarm_tick
+assert "pthread_sigmask(SIG_BLOCK, &sigs_to_catch" in daemon_main
+assert "sigaction(SIGALRM, &alarm_action, NULL)" in daemon_main
+assert daemon_main.index("pthread_sigmask(SIG_BLOCK, &sigs_to_catch") < daemon_main.index("pthread_create(")
+assert daemon_main.index("pthread_create(") < daemon_main.index("u2ec_pselect_readable_retry(")
+assert "sigprocmask(SIG_UNBLOCK" not in daemon_main
+assert "u2ec_pselect_readable_retry(fdmax + 1, &master_fds" in daemon_main
+assert "multi_client_alarm_pending = 0" in daemon_main
+assert "multi_client_tick();" in daemon_main
+assert "u2ec_pselect_readable_retry_with" in policy
+assert "result < 0 && errno == EINTR && !*interrupt_pending" in policy
+assert "test_pselect_alarm_interrupt_is_not_swallowed" in test
+assert "u2ec_pselect_readable_retry_with" in test
+assert "pthread_sigmask(SIG_BLOCK" in daemon_main
+assert "sigdelset(&select_sigmask, SIGALRM)" in daemon_main
 assert "test_lock_fd_is_released_exactly_once" in test
 for token in (
     "test_fifo_idle_readiness_and_event_bytes_are_safe",

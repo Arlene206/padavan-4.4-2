@@ -2,11 +2,13 @@
 #define U2EC_SOCKET_IO_POLICY_H
 
 #include <errno.h>
+#include <signal.h>
 #include <stddef.h>
 #include <string.h>
 #include <sys/select.h>
 #include <sys/socket.h>
 #include <sys/time.h>
+#include <time.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -86,6 +88,45 @@ static inline int
 u2ec_select_readable_retry(int nfds, const fd_set *master, fd_set *readfds)
 {
     return u2ec_select_readable_retry_with(nfds, master, readfds, select);
+}
+
+/*
+ * pselect atomically applies wait_mask while waiting. When the requested
+ * signal sets interrupt_pending, return EINTR to the event loop so it can
+ * perform the work in ordinary thread context; unrelated EINTRs are retried.
+ */
+typedef int (*u2ec_pselect_call_fn)(int, fd_set *, fd_set *, fd_set *,
+                                    const struct timespec *, const sigset_t *);
+
+static inline int
+u2ec_pselect_readable_retry_with(int nfds, const fd_set *master,
+                                 fd_set *readfds, const sigset_t *wait_mask,
+                                 const volatile sig_atomic_t *interrupt_pending,
+                                 u2ec_pselect_call_fn pselect_call)
+{
+    int result;
+
+    if (nfds < 0 || nfds > FD_SETSIZE || !master || !readfds ||
+        !wait_mask || !interrupt_pending || !pselect_call) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    do {
+        *readfds = *master;
+        result = pselect_call(nfds, readfds, NULL, NULL, NULL, wait_mask);
+    } while (result < 0 && errno == EINTR && !*interrupt_pending);
+
+    return result;
+}
+
+static inline int
+u2ec_pselect_readable_retry(int nfds, const fd_set *master, fd_set *readfds,
+                            const sigset_t *wait_mask,
+                            const volatile sig_atomic_t *interrupt_pending)
+{
+    return u2ec_pselect_readable_retry_with(nfds, master, readfds, wait_mask,
+                                            interrupt_pending, pselect);
 }
 
 /*

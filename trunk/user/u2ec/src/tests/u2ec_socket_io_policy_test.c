@@ -178,6 +178,65 @@ u2ec_test_select_hard_failure(int nfds, fd_set *readfds,
     return -1;
 }
 
+static volatile sig_atomic_t *u2ec_test_alarm_pending;
+static int u2ec_test_pselect_calls;
+
+static int
+u2ec_test_pselect_alarm_interrupt(int nfds, fd_set *readfds,
+                                  fd_set *writefds, fd_set *exceptfds,
+                                  const struct timespec *timeout,
+                                  const sigset_t *wait_mask)
+{
+    (void)writefds;
+    (void)exceptfds;
+    (void)timeout;
+    assert(nfds == 8);
+    assert(wait_mask != NULL);
+    assert(FD_ISSET(3, readfds));
+    assert(!FD_ISSET(7, readfds));
+    u2ec_test_pselect_calls++;
+    FD_ZERO(readfds);
+    *u2ec_test_alarm_pending = 1;
+    errno = EINTR;
+    return -1;
+}
+
+static void
+test_pselect_alarm_interrupt_is_not_swallowed(void)
+{
+    fd_set master, readfds;
+    sigset_t wait_mask;
+    volatile sig_atomic_t alarm_pending = 0;
+    int result;
+
+    sigemptyset(&wait_mask);
+    FD_ZERO(&master);
+    FD_SET(3, &master);
+    FD_ZERO(&readfds);
+    FD_SET(7, &readfds);
+
+    u2ec_test_alarm_pending = &alarm_pending;
+    u2ec_test_pselect_calls = 0;
+    errno = 0;
+    result = u2ec_pselect_readable_retry_with(
+        8, &master, &readfds, &wait_mask, &alarm_pending,
+        u2ec_test_pselect_alarm_interrupt);
+    assert(result == -1);
+    assert(errno == EINTR);
+    assert(alarm_pending == 1);
+    assert(u2ec_test_pselect_calls == 1);
+    assert(!FD_ISSET(7, &readfds));
+    u2ec_test_alarm_pending = NULL;
+
+    errno = 0;
+    result = u2ec_pselect_readable_retry_with(
+        FD_SETSIZE + 1, &master, &readfds, &wait_mask, &alarm_pending,
+        u2ec_test_pselect_alarm_interrupt);
+    assert(result == -1);
+    assert(errno == EINVAL);
+    assert(u2ec_test_pselect_calls == 1);
+}
+
 static void
 test_select_retries_restore_fdsets_and_preserve_errors(void)
 {
@@ -408,6 +467,7 @@ main(void)
     test_usb_selection_indices_and_variable_interface_records_are_bounded();
     test_discovery_commands_are_read_as_complete_stream_tokens();
     test_select_retries_restore_fdsets_and_preserve_errors();
+    test_pselect_alarm_interrupt_is_not_swallowed();
     test_fd_set_descriptors_must_fit_both_capacities();
     test_invalid_buffers_are_rejected();
     puts("U2EC TCP framing, fd_set bounds, discovery commands, select retry and SIGPIPE-safe I/O policy: PASS");
