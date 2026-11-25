@@ -203,7 +203,7 @@ assert time_check_at < alarm_tick.index("alarm(1)") < open_fifo_at
 assert alarm_tick.count("alarm(1)") == 3
 open_failure = alarm_tick[alarm_tick.index("if (u2ec_fifo < 0)"):write_event_at]
 write_failure_start = alarm_tick.index("if (write(u2ec_fifo")
-write_failure = alarm_tick[write_failure_start:alarm_tick.index("close(u2ec_fifo);", write_failure_start)]
+write_failure = alarm_tick[write_failure_start:alarm_tick.index("return;", write_failure_start)]
 assert "alarm(1)" in open_failure
 assert "alarm(1)" in write_failure
 successful_delivery = alarm_tick[write_event_at:alarm_tick.index("close(u2ec_fifo);", write_event_at)]
