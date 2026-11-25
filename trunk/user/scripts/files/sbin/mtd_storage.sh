@@ -87,7 +87,15 @@ EOF_MTD_INFO
 
 func_mdir()
 {
-	[ ! -d "$dir_storage" ] && mkdir -p -m 755 $dir_storage
+	if [ -L "$dir_storage" ] ||
+	   { [ -e "$dir_storage" ] && [ ! -d "$dir_storage" ]; }; then
+		logger -t "Storage" "Unsafe storage directory: $dir_storage"
+		return 1
+	fi
+	if [ ! -d "$dir_storage" ] && ! mkdir -p -m 755 "$dir_storage"; then
+		logger -t "Storage" "Cannot create storage directory: $dir_storage"
+		return 1
+	fi
 }
 
 # Return 0 when rstats is running, 1 when absent and 2 when procfs
@@ -1147,19 +1155,19 @@ EOF
 case "$1" in
 load)
 	func_get_mtd
-	func_mdir
+	func_mdir || exit 1
 	func_load
 	;;
 save)
 	[ -f "$slk" ] && exit 1
 	func_get_mtd
-	func_mdir
+	func_mdir || exit 1
 	func_tarb
 	func_save
 	;;
 backup)
 	func_get_mtd
-	func_mdir
+	func_mdir || exit 1
 	func_tarb
 	func_backup
 	;;
@@ -1195,7 +1203,7 @@ reset)
 	fi
 	;;
 fill)
-	func_mdir
+	func_mdir || exit 1
 	func_fill
 	;;
 *)

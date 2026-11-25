@@ -81,6 +81,12 @@ run_load()
 	else sh "$sandbox/mtd_storage.sh" load
 	fi
 }
+run_fill()
+{
+	if [ -n "${BUSYBOX_BIN:-}" ]; then "$BUSYBOX_BIN" ash "$sandbox/mtd_storage.sh" fill
+	else sh "$sandbox/mtd_storage.sh" fill
+	fi
+}
 assert_old_storage()
 {
 	[ "$(cat "$sandbox/etc/storage/previous.conf")" = "previous configuration" ] || exit 1
@@ -178,4 +184,34 @@ if grep -Fqx '/dev/mtdblock10' "$BZCAT_LOG"; then
 	echo "MTD load selected truncated /dev/mtdblock10" >&2
 	exit 1
 fi
-echo "MTD storage load transactional extraction regression: PASS"
+# A symlinked /etc/storage path must not redirect privileged fill writes.
+"$real_mkdir" -p "$sandbox/outside-storage"
+"$real_rm" -rf "$sandbox/etc/storage"
+ln -s "$sandbox/outside-storage" "$sandbox/etc/storage"
+if run_fill; then
+	echo "MTD storage fill followed a symlinked storage directory" >&2
+	exit 1
+fi
+[ -z "$(find "$sandbox/outside-storage" -mindepth 1 -print -quit)" ] || {
+	echo "MTD storage fill wrote through the storage symlink" >&2
+	exit 1
+}
+[ -L "$sandbox/etc/storage" ] || {
+	echo "MTD storage fill replaced the symlink unexpectedly" >&2
+	exit 1
+}
+
+# A non-directory storage path must also propagate failure instead of
+# continuing into func_fill() and returning a misleading success status.
+"$real_rm" -f "$sandbox/etc/storage"
+printf '%s\\n' 'not a directory' > "$sandbox/etc/storage"
+if run_fill; then
+	echo "MTD storage fill accepted a non-directory storage path" >&2
+	exit 1
+fi
+[ "$(cat "$sandbox/etc/storage")" = "not a directory" ] || {
+	echo "MTD storage fill modified a non-directory storage path" >&2
+	exit 1
+}
+
+echo "MTD storage load and fill path policy regression: PASS"

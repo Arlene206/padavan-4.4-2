@@ -1,3 +1,11 @@
+## 2026-11-25 — Reject symlinked MTD storage directories before fill/save/load
+
+- Review found `func_mdir()` treated a symlink to an existing directory as valid (`[ -d symlink ]` succeeds) and did not propagate `mkdir` failure to callers. The `fill` action could therefore write privileged defaults through a symlinked `/etc/storage`; `save`/`backup` could archive the symlink target, and `load` did unnecessary device reads before its later check. The helper now rejects symlinks and non-directory objects, quotes its path, reports creation failures, and every caller aborts before continuing.
+- Extended the transactional MTD-load regression to invoke `fill` against a symlinked directory and a regular-file path, proving neither target is modified and failure is returned. The same test runs under host `sh` and the firmware BusyBox ash in CI.
+- Exact RWFS and MTD workflow verification is still pending after the reset_ss fixture corrections; no local hardware/firmware result is claimed.
+
+---
+
 ## 2026-11-25 — Correct the reset_ss runtime-argument assertion
 
 - Exact storage-hotplug run #45595654382 on `c3b9d616` passed the RWFS flash/NVRAM regression and the reset_ss runtime-interface and variable-preservation checks, then failed because the new assertion expected four leading spaces before `case $1 in`; the template intentionally has that case statement at column zero. Corrected the expected line. The same test commit also normalizes the prior directory-destination checkpoint entry to real Markdown line breaks.
