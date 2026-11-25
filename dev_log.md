@@ -1,3 +1,9 @@
+## 2026-11-25 — Keep the TCP write failure label portable
+
+- Source review of the bounded write helper caught a preprocessor portability defect before its exact-SHA CI completed: `goto write_fail` is part of the shared sender, but the label had been compiled only under `IAPP_OS_LINUX`. Non-Linux/VxWorks builds would therefore fail with an undefined label. Moved the label outside the platform conditional while keeping only the `fcntl()` restore conditional.
+- Added a lifecycle source contract that keeps the shared failure label present independently of Linux-specific flag restoration.
+
+---
 ## 2026-11-25 — Bound TCP frame write backpressure
 
 - `IAPP_TCP_WriteFrame()` handled partial writes but used a blocking socket. If the peer stopped reading, a send could wait beyond the connect/read deadlines and stall the IAPP event loop.

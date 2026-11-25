@@ -3662,13 +3662,11 @@ static BOOLEAN IAPP_TCP_WriteFrame(INT32 Socket, const UCHAR *Buffer, UINT32 Len
 #endif /* IAPP_OS_LINUX */
 	return TRUE;
 
-#ifdef IAPP_OS_LINUX
 write_fail:
+#ifdef IAPP_OS_LINUX
 	(void)fcntl(Socket, F_SETFL, OriginalFlags);
-	return FALSE;
-#else
-	return FALSE;
 #endif /* IAPP_OS_LINUX */
+	return FALSE;
 }
 
 /*

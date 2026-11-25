@@ -209,6 +209,8 @@ grep -Fq 'WaitStatus = IAPP_TCP_Wait(Socket, Deadline, TRUE)' "$iapp_source" ||
   fail "Linux TCP frame writes must enforce the absolute send deadline"
 grep -Fq 'errno == EAGAIN || errno == EWOULDBLOCK' "$iapp_source" ||
   fail "Linux TCP nonblocking frame writes must retry when the socket would block"
+grep -Fq 'write_fail:' "$iapp_source" ||
+  fail "TCP frame write failure path must compile on non-Linux targets too"
 [ "$(grep -F -c 'OriginalFlags | O_NONBLOCK' "$iapp_source")" -eq 2 ] ||
   fail "Linux connect and write helpers must each use nonblocking socket mode"
 grep -Fq 'fcntl(Socket, F_SETFL, OriginalFlags)' "$iapp_source" ||

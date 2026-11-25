@@ -1,27 +1,26 @@
 ## Current repository state — 2026-11-25
 
-- Main base before TCP write backpressure bound: d0e9be21b179bee870054ac25fbf4f0eef8b3d5a; Linux writes now use O_NONBLOCK plus the shared five-second deadline, retry EAGAIN/EWOULDBLOCK/EINTR, and restore original flags (THIS COMMIT).
+- Main base before portable write-failure-label fix: 509b00301afeedb34b5555bdb50489babdb37360; shared `write_fail` label now exists in all platform builds; only Linux-specific fcntl restoration is conditional (THIS COMMIT).
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Parent d0e9be21b179bee870054ac25fbf4f0eef8b3d5a: IAPP lifecycle #45696512484 PASS; AI #45696512574 PASS; process inventory #45696512427 and process lifecycle inventory #45696512482 in progress; XY-C1 #45696512422 in progress; NVRAM #45696512385 pending.
-- Parent d0e bounded all four Linux outbound TCP connects to five seconds using nonblocking connect/select/SO_ERROR, with original flags restored. The prior e175 action statuses: IAPP, process regression, process inventory/lifecycle and AI PASS; XY and NVRAM still in progress at last poll.
-- Parent 76681c0675866a306d1c8eb2f60844a66ef9f4ef adds Linux SIGPIPE ignore before driver notification; MSG_NOSIGNAL remains on TCP sends where supported.
-- This slice completes TCP transport backpressure handling for Linux: connect, receive and send now have bounded waits; non-Linux legacy transport behavior is preserved.
-- Exact XY-C1 Build/TRX/artifact L3 remains proven only on e1f16872b7e2792db9acf0184f2fe9c5d736c966; all later source SHAs require their own exact completed firmware run.
+- Parent 509b00301afeedb34b5555bdb50489babdb37360: IAPP lifecycle #45696705810, process inventory #45696705872 and AI #45696705793 in progress; process regression #45696705790 queued; XY-C1 #45696705812 in progress; NVRAM #45696706186 pending.
+- Parent 509 added bounded Linux TCP writes using O_NONBLOCK + the five-second absolute deadline, retrying EINTR/EAGAIN/EWOULDBLOCK. Static review then found the shared goto target was incorrectly hidden inside the Linux-only preprocessor block; this commit repairs that cross-platform compile path.
+- Earlier `d0e9be21b179bee870054ac25fbf4f0eef8b3d5a`: IAPP lifecycle #45696512484 PASS, AI #45696512574 PASS; process inventory #45696512427 and lifecycle inventory #45696512482 in progress; XY #45696512422 in progress; NVRAM #45696512385 in progress.
+- Exact XY-C1 Build/TRX/artifact L3 remains proven only on `e1f16872b7e2792db9acf0184f2fe9c5d736c966`; later SHAs need their own exact completed build.
 
 ## Active task
 
-Validate the write-side deadline on exact IAPP/XY Actions, then review the raw-driver pipe write for full-write/atomicity and consider nonblocking event delivery.
+Validate the portable bounded TCP write helper on exact IAPP/XY Actions. Then continue review of signal-context pipe writes and other IPC boundaries.
 
 ## Exact first actions for next GPT
 
-1. Poll d0e9 exact Process/NVRAM/XY results and THIS COMMIT's exact IAPP, Process, NVRAM, AI and XY workflows by SHA.
-2. Confirm IAPP GNU89/ASan/UBSan policy test, four connect caller contracts and bounded write source assertions.
-3. Review pipe writes: DataLen versus PIPE_BUF, EINTR/partial-write behavior, and whether any full-write loop could block the signal callback.
-4. Preserve frozen backup and main-only atomic commits via non-force expected-SHA update.
+1. Poll parent 509 exact actions and THIS COMMIT exact IAPP/XY/Process/NVRAM/AI independently.
+2. Confirm IAPP GNU89 sanitizer tests and lifecycle assertions for send deadline, EAGAIN retry and cross-platform failure label.
+3. Inspect the raw-driver signal pipe: confirm DataLen is <= PIPE_BUF, account for EINTR/partial writes and ensure the callback cannot block indefinitely.
+4. Preserve frozen backup and main-only complete-tree atomic expected-SHA updates.
 
 ## Execution contract
 
-Main only; complete Git tree, one atomic logical task per commit, exact expected SHA and force=false. No force-push, branches or PR. PENDING does not block independent work.
+Main only; one atomic logical task per complete tree, update with exact expected SHA and `force=false`. No force-push, feature branch or PR. PENDING does not block.
 
 ## 2026-11-25 autonomous handoff checkpoint
 
