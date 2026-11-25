@@ -63,7 +63,7 @@ sed \
 	-e "s|^lock_dir=.*|lock_dir=\"$sandbox/private\"|" \
 	-e "s|^tmp=.*|tmp=\"$sandbox/private/storage.tar\"|" \
 	-e "s|^rtbz=.*|rtbz=\"$sandbox/private/storage-restore.tar.bz2\"|" \
-	-e "s|^chnroute_file=.*|chnroute_file=\"$sandbox/chnroute.bz2\"|" \
+	-e "s|chnroute_file=\"/etc_ro/chnroute.bz2\"|chnroute_file=\"$sandbox/chnroute.bz2\"|" \
 	"$repo_root/trunk/user/scripts/files/sbin/mtd_storage.sh" > "$sandbox/mtd_storage.sh"
 chmod +x "$sandbox/mtd_storage.sh"
 
