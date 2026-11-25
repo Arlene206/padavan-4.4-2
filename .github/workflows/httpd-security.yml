@@ -2710,7 +2710,7 @@ jobs:
           assert "WAN_DHCP_BOUND_SNAPSHOT_COUNT" in bound
           assert "dhcp_wan_route_transition_abort_snapshot(" in bound
           assert "dhcp_lease_netmask_is_valid(lease_netmask)" in bound
-          assert "dhcp_lease_ipv4_list_first" in bound
+          assert "dhcp_lease_router_option_parse" in bound
           assert "dhcp_lease_route_text_is_safe" in bound
           assert "dnsmasq_valid_server_domain(lease_domain)" in bound
 

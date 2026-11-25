@@ -1034,8 +1034,12 @@ jobs:
               assert peer_gate in body, f"{name}: DBDC peer stop failure is not propagated"
               peer_pos = body.index(peer_gate)
               peer_failure = body.index("return -1;", peer_pos)
-              peer_auth_pos = body.index(peer_auth + "()")
-              assert peer_pos < peer_failure < peer_auth_pos < start_pos
+              peer_auth_pos = body.index(peer_auth + "()", peer_failure)
+              assert peer_pos < peer_failure < peer_auth_pos < start_pos, (
+                  f"{name}: DBDC peer shutdown/auth ordering is invalid "
+                  f"(peer={peer_pos}, failure={peer_failure}, auth={peer_auth_pos}, "
+                  f"startup={start_pos})"
+              )
 
 
           # The explicit inic_disable path is fail-safe: a failed ifconfig
