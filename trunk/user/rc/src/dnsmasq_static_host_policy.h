@@ -181,7 +181,7 @@ dnsmasq_static_arp_record_parse(const char *line,
 {
 	char parsed_ip[16], hardware_type[8], flag_text[16];
 	char hardware_address[18], mask[16], parsed_ifname[32], extra;
-	unsigned int ignored_hardware_type, parsed_flags;
+	unsigned int parsed_hardware_type, parsed_flags;
 	int fields;
 	size_t ip_length, ifname_length;
 	int status;
@@ -199,9 +199,13 @@ dnsmasq_static_arp_record_parse(const char *line,
 	     !dnsmasq_static_arp_ipv4_is_valid(mask)))
 		return EIO;
 	status = dnsmasq_static_arp_hex_value(hardware_type,
-					      &ignored_hardware_type);
+					      &parsed_hardware_type);
 	if (status != 0)
 		return status;
+	/* arpbind_clear() only manages Ethernet entries on the LAN bridge.
+	 * Do not interpret an unsupported hardware address format as a MAC. */
+	if (parsed_hardware_type != 0x1U)
+		return EIO;
 	status = dnsmasq_static_arp_hex_value(flag_text, &parsed_flags);
 	if (status != 0)
 		return status;

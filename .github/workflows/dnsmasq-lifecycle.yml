@@ -765,6 +765,10 @@ jobs:
           assert "continue;" not in arp_clear[arp_clear.index("if (parse_status != 0)"):arp_clear.index("if (!(arp_flags & 0x04)")]
           assert "test_static_arp_record_parser" in static_mac_test
           assert "dnsmasq_static_arp_record_parse" in static_mac_policy
+          assert "parsed_hardware_type != 0x1U" in static_mac_policy
+          assert '"192.0.2.1 0x0 0x4 00:11:22:33:44:55 * br0"' in static_mac_test
+          assert '"192.0.2.1 0x2 0x4 00:11:22:33:44:55 * br0"' in static_mac_test
+          assert '"192.0.2.1 0xFFFF 0x4 00:11:22:33:44:55 * br0"' in static_mac_test
           assert '#include "dnsmasq_domain_policy.h"' in services
           assert "if (!domain || (*domain && !dnsmasq_valid_server_domain(domain)))" in prepare
           assert "int wins_enabled = 0;" in prepare

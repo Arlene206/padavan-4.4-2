@@ -48,6 +48,16 @@ test_static_arp_record_parser(void)
 	assert(strcmp(ip, "10.0.0.254") == 0);
 	assert(strcmp(ifname, "eth2.1") == 0);
 
+	/* The cleanup caller issues Ethernet ARP ioctls on br0 only. */
+	assert(dnsmasq_static_arp_record_parse(
+		"192.0.2.1 0x0 0x4 00:11:22:33:44:55 * br0",
+		ip, sizeof(ip), &flags, ifname, sizeof(ifname)) == EIO);
+	assert(dnsmasq_static_arp_record_parse(
+		"192.0.2.1 0x2 0x4 00:11:22:33:44:55 * br0",
+		ip, sizeof(ip), &flags, ifname, sizeof(ifname)) == EIO);
+	assert(dnsmasq_static_arp_record_parse(
+		"192.0.2.1 0xFFFF 0x4 00:11:22:33:44:55 * br0",
+		ip, sizeof(ip), &flags, ifname, sizeof(ifname)) == EIO);
 	assert(dnsmasq_static_arp_record_parse(
 		"192.0.2.1 0x1 0x4 00:11:22:33:44:55 * br0 extra",
 		ip, sizeof(ip), &flags, ifname, sizeof(ifname)) == EIO);
