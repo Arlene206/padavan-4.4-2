@@ -16,6 +16,7 @@
 //usage:       "Relay DHCP requests between clients and server"
 
 #include "common.h"
+#include "udhcp_relay_packet_bounds.h"
 
 #define SERVER_PORT    67
 
@@ -313,10 +314,17 @@ int dhcprelay_main(int argc, char **argv)
 				if (!FD_ISSET(fds[i], &rfds))
 					continue;
 
+				/* recvfrom() otherwise leaves the tail of short datagrams
+				 * as stale/uninitialized bytes for the option parser. */
+				memset(&dhcp_msg, 0, sizeof(dhcp_msg));
 				addr_size = sizeof(client_addr);
-				packlen = recvfrom(fds[i], &dhcp_msg, sizeof(dhcp_msg), 0,
+				packlen = recvfrom(fds[i], &dhcp_msg, sizeof(dhcp_msg), MSG_TRUNC,
 						(struct sockaddr *)(&client_addr), &addr_size);
-				if (packlen <= 0)
+				if (!udhcp_relay_packet_length_valid(packlen, sizeof(dhcp_msg),
+						offsetof(struct dhcp_packet, options) + 4U) ||
+				    addr_size != sizeof(client_addr) ||
+				    client_addr.sin_family != AF_INET ||
+				    dhcp_msg.cookie != htonl(DHCP_MAGIC))
 					continue;
 
 				/* Get our IP on corresponding client_iface */

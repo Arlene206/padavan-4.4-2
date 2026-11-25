@@ -1,23 +1,21 @@
 ## Current repository state
 
-- Live `main` immediately before this engineering slice: `9a8679b69d45e5c28c0ff580f08c7fa455b62400` (`docs: checkpoint MiniUPnP callback hardening state`). Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable.
-- Exact `61e70580ea0e0c34a255a37b7e49684b14b5b84b` checks: UDPXY HTTP parser regression #45723868583 PASS; AI handoff contract #45723868689 PASS. The former runs the production GNU89 ASan/UBSan parser test plus source checker, including the high-byte case.
-- Exact `9a8679b69d45e5c28c0ff580f08c7fa455b62400` AI handoff contract #45723931110 PASS. On exact product-source SHA `f059d71423f6d3ad6fd2fbbc71edec075428648b`, MiniUPnP callback #45723760888, event subscribers #45723760751, config publication #45723760746, HTTP framing #45723760724, AI docs #45723760726 and process inventory #45723760712 PASS; XY-C1 #45723760825 and NVRAM #45723760719 were still pending at the last observation.
-- Prior XY-C1 L3 baseline `9ed539a04e4c4df96aef03f9d1a6f9637fd3e3b9` (#45719100341) does not cover later source changes. Current-source firmware L3 and physical-router L4 remain NOT VERIFIED.
+- Live `main` immediately before this slice: `b320dd266be3dea74820ada79aec68c26f6b7dc9` (`fix(udpxy): retry failed multicast membership refresh`). Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable.
+- Exact `b320dd2` Actions: UDPXY multicast retry #45724141340 PASS; UDPXY parser #45724141327 PASS; WAN route operation #45724141311 PASS; AI handoff contract #45724141358 PASS; Process inventory #45724141395 PASS; NVRAM audit #45724141355 PASS. XY-C1 firmware validation #45724141332 was still IN_PROGRESS at last observation; do not transfer the older image result.
+- XY-C1 last confirmed Build/TRX/artifact all PASS remains source SHA `9ed539a04e4c4df96aef03f9d1a6f9637fd3e3b9` (#45719100341); it predates later source changes. Current-source L3 and physical-router L4 remain NOT VERIFIED.
 
 ## Active task
 
-Repair UDPXY multicast membership renewal. The current `renew_multicast()` stops after a failed DROP, so it never tries ADD when the membership is already absent (including after a previous DROP-success/ADD-failure). `check_mcast_refresh()` also discarded the return status and advanced the full normal timer after a failed rejoin. This slice changes renewal to always attempt ADD, reports the ADD status, and schedules a one-second retry after failure instead of waiting the configured interval or retrying on every relay-loop iteration.
+Fix DHCP relay ingress handling in `networking/udhcp/dhcprelay.c`. Its client-facing `recvfrom()` previously passed flags 0, accepted any positive short datagram, reused a `struct dhcp_packet` whose tail could contain stale/uninitialized bytes, and immediately called `udhcp_get_option()` which scans the fixed options area. Oversized UDP datagrams were silently truncated. The current slice asks Linux for the original datagram length with `MSG_TRUNC`, zero-initializes the packet, and rejects too-short/too-long datagrams, malformed sockaddr lengths/families and invalid DHCP cookies before option parsing or forwarding.
 
 ## Verification boundary
 
-- The policy test compiles as GNU89 with `-Wall -Wextra -Werror -fsanitize=address,undefined` and exercises DROP-failure/ADD-success, DROP-success/ADD-failure, recovery on a second attempt, and retry deadline arithmetic. Exact-head CI result for this slice: pending at commit creation.
-- The checker verifies `netop.c`/`udpxy.c` integrate the tested policy and that both workflow path lists and the XY-C1 firmware trigger include the production source paths.
-- No live multicast, MIPS/uClibc, XY-C1 artifact on this new SHA, or physical-router result is claimed.
+- A standalone GNU89 ASan/UBSan policy regression covers negative receive status, minimum required DHCP header/options length, exact capacity and truncation boundary. A Python source contract verifies receive ordering, MSG_TRUNC, zero-fill, cookie/address checks and XY-C1 path coverage.
+- Exact-head DHCP relay policy workflow and XY-C1 Build/TRX/artifact checks are pending for the commit created from `b320dd2`. No live relay interoperability, MIPS/uClibc, firmware artifact or hardware result is claimed.
 
 ## Exact first action for the next GPT
 
-Fetch current `main` and exact-head `udpxy-multicast-refresh-stability.yml`, AI handoff and XY-C1 runs for this commit. Repair any first-causal failure. Only record XY-C1 L3 if Build, TRX verification and artifact upload all pass on the same exact product-source SHA; PENDING does not block an independent userland stability slice.
+Fetch current `main` and exact-head DHCP relay packet-bounds, AI documentation and XY-C1 workflows. Repair the first causal failure; only record L3 when XY-C1 Build, TRX verification and artifact upload pass on one identical source SHA. Then inspect the DHCP relay XID transaction list for bounded memory/duplicate-XID handling as a separate source slice.
 
 ## Mandatory handoff checkpoint
 

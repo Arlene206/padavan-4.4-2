@@ -1,3 +1,13 @@
+## 2026-11-25 — Validate DHCP relay client datagrams before option parsing
+
+- DHCP relay client ingress used `recvfrom(..., flags=0)` and accepted every positive datagram length. Its receive structure was not cleared before reuse, while `get_dhcp_packet_type()` calls the fixed-size DHCP option parser over the entire options field. Short packets could therefore expose stale/uninitialized tail bytes as options; oversized UDP datagrams were silently truncated to the packet structure and forwarded as if complete.
+- The receive path now zeroes the packet before each read, uses Linux `MSG_TRUNC` to learn the original datagram length, and rejects packets shorter than the BOOTP header + cookie + minimal option bytes or larger than the receive structure. It also checks the returned sockaddr size/family and DHCP magic cookie before filling relay metadata, parsing options, or forwarding.
+- Added a GNU89 ASan/UBSan regression for length boundaries, a source integration contract, a dedicated workflow, and XY-C1 firmware trigger paths for the production relay source and tests.
+- Parent SHA: b320dd266be3dea74820ada79aec68c26f6b7dc9. Exact-head relay, AI docs and XY-C1 Actions: pending. No live relay, MIPS/uClibc, firmware or hardware result is claimed.
+- Changed paths: trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcprelay.c, trunk/user/busybox/busybox-1.24.x/networking/udhcp/udhcp_relay_packet_bounds.h, trunk/user/busybox/busybox-1.24.x/networking/udhcp/tests/dhcprelay_packet_bounds.c, scripts/check_udhcp_relay_packet_bounds.py, .github/workflows/udhcp-relay-packet-bounds.yml, .github/workflows/xy-c1-firmware-validation.yml, SESSION_HANDOFF.md, dev_log.md.
+
+---
+
 ## 2026-11-25 — Recover UDPXY multicast membership after failed refresh
 
 - `renew_multicast()` returned immediately when DROP failed, skipping ADD even though a missing membership is exactly the state that ADD must repair. After DROP-success/ADD-failure, the next retry hit a second DROP failure and could never rejoin.
