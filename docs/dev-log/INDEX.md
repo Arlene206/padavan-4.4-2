@@ -40,6 +40,7 @@
 | `docs/dev-log/2026/11/part-031.md` | 102 | 2026-11-23 持续开发 → 2026-11-23 — Count checked-reader compatibility wrappers in WAN regression contract | 104705 | `b3cc8b26887ea1aac609c5c6b4a61d69217967e3` |
 | `docs/dev-log/2026/11/part-032.md` | 100 | 2026-11-23 — Propagate RStats history read descriptor-close failures → 2026-11-24 — Reject invalid HTTPD listener protocol selectors | 109288 | `88732d131b6a19445dd603235c8b491d27916589` |
 | `docs/dev-log/2026/11/part-033.md` | 100 | 2026-11-24 — Correct HTTPD selector contract and ensure XY-C1 build coverage → 2026-11-25 — Unify udhcpc cleanup retry delay and lock full state transitions | 93785 | `d3714d2d8b08624dadc843691fa3d947bdbb3f42` |
+| `docs/dev-log/2026/11/part-034.md` | 100 | 2026-11-25 — Correct shared retry-delay checker whitespace normalization → 2026-11-24 — Fix QMI source-contract test-file initialization order | 106599 | `b2cccb6b5b2073ff42820c25ecc6715646b45d09` |
 - **Rolling-window catch-up:** 102 oldest complete records evicted from root `dev_log.md` when it contained 122 entries at parent main `7cd1ffd3eecc05786846be684053428f20e8f535` are preserved verbatim, oldest first, in `part-031.md`; root retains the newest 20 pre-existing records plus this rotation checkpoint (21 total). No record was rewritten or discarded.
 
 
@@ -133,3 +134,6 @@
 
 
 - **Rolling-window continuation:** 100 oldest complete records evicted when root dev_log.md contained 119 entries at parent main c3d9f29fc94e81e1828c4c854f46658d2111ec3c are preserved verbatim, oldest first, in part-033; pre-rotation root blob: 0e8cc5fdf360966238fb5f632ce38fd305ffd71e. Root retains the new QMI security entry and the 19 newest prior records (20 total). No record was rewritten or discarded.
+
+
+- **Rolling-window continuation:** 100 oldest complete root records evicted when `dev_log.md` reached 120 entries at parent main `87a3eeaebef52f84f606c3d67b58087ed2d6fa89` are preserved verbatim, oldest first, in `part-034.md`; pre-rotation root blob: `7aa869373ac544fba1f653435c1623c8e00fd097`. The 20 newest complete records remain in root. No record was rewritten or discarded.
