@@ -874,7 +874,7 @@ int  get_modem_hotplug_notification_status(int is_ndis, int *should_notify);
 int  get_modem_ndis_ifname(char ndis_ifname[16], int *devnum_out);
 int  notify_modem_on_wan_ether_link_changed(int has_link);
 int  safe_remove_usb_modem(void);
-void unload_modem_modules(void);
+int unload_modem_modules(void);
 int  reload_modem_modules(int modem_type, int reload);
 int  launch_wan_modem_ras(int unit);
 int  launch_wan_usbnet(int unit);

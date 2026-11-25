@@ -27,7 +27,23 @@ def body(source: str, signature: str) -> str:
     raise AssertionError(f"unterminated function: {signature}")
 
 
+unload_callback = body(USB, "modem_module_unload_callback(")
+unload_group = body(USB, "unload_modem_module_group(")
+remove_qmi_marker = body(USB, "remove_qmi_client_id_marker(")
+unload_all = body(USB, "unload_modem_modules(void)")
 reload = body(USB, "reload_modem_modules(int modem_type, int reload)")
+assert "is_module_loaded_status(module_name)" in unload_callback
+assert "rc_modem_module_unload_attempt_status" in unload_callback
+assert "module_smart_unload(module_name, 1)" in unload_callback
+assert "if (loaded_status == 1)" in unload_callback
+assert "errno = status;" in unload_callback
+assert "rc_modem_module_unload_group_status" in unload_group
+assert "successful_count > 0" in unload_group and "sleep(1);" in unload_group
+assert "if (unlink(QMI_CLIENT_ID) == 0 || errno == ENOENT)" in remove_qmi_marker
+assert "unload_modem_module_group(\"all\"" in unload_all
+assert "if (status != 0)" in unload_all
+assert unload_all.index("if (status != 0)") < unload_all.index("remove_qmi_client_id_marker()")
+assert "return status;" in unload_all
 assert "static const char *const ndis_modules[]" in reload
 assert "static const char *const ndis_params[]" in reload
 for driver in ("cdc_ether", "rndis_host", "qmi_wwan", "cdc_ncm",
@@ -40,6 +56,11 @@ assert 'load_modem_module_group("NDIS"' in reload
 assert 'load_modem_module_group("RAS"' in reload
 assert "return status;" in reload
 assert "if (reload)" in reload and "sleep(1);" in reload
+assert "unload_modem_module_group(\"serial/control\"" in reload
+assert "if (status != 0)" in reload
+assert reload.index("unload_modem_module_group(\"serial/control\"") < reload.index("if (status != 0)") < reload.index("load_modem_module_group(\"NDIS\"")
+assert reload.index("unload_modem_module_group(\"NDIS\"") < reload.index("load_modem_module_group(\"RAS\"")
+assert reload.index("remove_qmi_client_id_marker()") < reload.index("load_modem_module_group(")
 
 loader = body(USB, "load_modem_module_group(")
 assert "module_smart_load" in loader and "is_module_loaded_status" in loader
@@ -47,6 +68,7 @@ assert "is_module_loaded(module_name)" not in loader
 assert "rc_modem_module_load_group_verified" in loader
 
 assert "int  reload_modem_modules(int modem_type, int reload);" in HEADER
+assert "int unload_modem_modules(void);" in HEADER
 boot = body(RC_SOURCE, "load_usb_modules(")
 assert "rc_first_service_start_status" in boot
 boot_reader = body(
@@ -76,6 +98,10 @@ for marker in (
     "test_modem_settings_absent_keys_keep_legacy_defaults",
     "test_modem_settings_reject_invalid_arguments",
     "test_module_reload_cache_published_only_after_success",
+    "test_absent_modules_are_successful_noop_unloads",
+    "test_unload_failures_are_aggregated_and_first_errno_preserved",
+    "test_unknown_or_invalid_module_presence_fails_closed",
+    "test_invalid_unload_group_fails_before_side_effects",
 ):
     assert marker in TEST
 
@@ -121,7 +147,7 @@ assert notify.count("if (!modem_wan_restart_allowed(modem_identity_status))") ==
 assert notify.count("modem_identity_status = get_usb_modem_wan_status(") == 1
 assert notify.index("if (!transition_failed && nvram_modem_rule != modem_rule)") > notify_config_error
 assert "stop_failed" not in notify
-assert notify.count("rc_modem_module_reload_cache_publish(") == 2
+assert notify.count("rc_modem_module_reload_cache_publish(") == 3
 assert notify.count("reload_modem_modules(modem_type, 1)") == 2
 
 rule_change = notify.index("if (!transition_failed && nvram_modem_rule != modem_rule)")
@@ -129,12 +155,16 @@ rule_publish = notify.index("rc_modem_module_reload_cache_publish(", rule_change
 rule_failure = notify.index("if (module_reload_status != 0)", rule_publish)
 rule_failed = notify.index("transition_failed = 1;", rule_failure)
 rule_ready = notify.index("modules_reloaded = 1;", rule_failed)
-rule_unload = notify.index("unload_modem_modules();", rule_change)
-rule_disabled_cache = notify.index("nvram_modem_rule = modem_rule;", rule_unload)
+rule_unload = notify.index("unload_modem_modules()", rule_change)
+rule_unload_publish = notify.rfind("rc_modem_module_reload_cache_publish(", rule_change, rule_unload)
+rule_unload_failure = notify.index("if (module_reload_status != 0)", rule_unload)
 assert rule_change < rule_publish < rule_failure < rule_failed < rule_ready
-assert rule_unload < rule_disabled_cache and rule_disabled_cache > rule_ready
+assert rule_unload_publish < rule_unload < rule_unload_failure
+assert "rc_modem_module_reload_cache_publish(" in notify[rule_unload_publish:rule_unload]
+assert "modem rule disable transition failed; retaining previous cache for retry" in notify
+assert "action_result = rc_notify_merge_action_result(" in notify[rule_unload_failure:]
+assert "nvram_modem_rule = modem_rule;" not in notify
 assert "reload_modem_modules(modem_type, 1)" in notify[rule_publish:rule_failure]
-assert "action_result = rc_notify_merge_action_result(" in notify[rule_failure:rule_ready]
 
 type_change = notify.index("if (!transition_failed && nvram_modem_type != modem_type)")
 type_publish = notify.index("rc_modem_module_reload_cache_publish(", type_change)
@@ -152,6 +182,17 @@ assert "return reload_status > 0 ? reload_status : EIO;" in cache_publish
 assert "*cached_value = requested_value;" in cache_publish
 assert notify.index("if (!transition_failed && need_restart_wan)") > type_failed
 
+attempt = body(POLICY, "rc_modem_module_unload_attempt_status(")
+unload_policy = body(POLICY, "rc_modem_module_unload_group_status(")
+assert "if (loaded_status == 0)" in attempt
+assert "return -loaded_status;" in attempt
+assert "return unload_errno;" in attempt
+assert "return EIO;" in attempt
+assert "Validate the entire module set before causing unload side effects." in POLICY
+assert "result = unload(module_names[i], context);" in unload_policy
+assert "if (result == 1)" in unload_policy
+assert "saved_errno > 0" in unload_policy
+assert "return first_error;" in unload_policy
 assert "if (probe_status == 1)" in POLICY
 assert "probe_status < 0" in POLICY
 assert "probe_status > 1" in POLICY

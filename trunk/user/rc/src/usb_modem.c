@@ -1283,24 +1283,76 @@ unlink_modem_ndis(void)
 }
 #endif
 
-void
+static int
+modem_module_unload_callback(const char *module_name, void *context)
+{
+	int loaded_status, unload_status = 0, saved_errno = 0, status;
+
+	(void)context;
+	loaded_status = is_module_loaded_status(module_name);
+	if (loaded_status == 1) {
+		errno = 0;
+		unload_status = module_smart_unload(module_name, 1);
+		saved_errno = errno;
+	}
+	status = rc_modem_module_unload_attempt_status(loaded_status,
+						      unload_status, saved_errno);
+	if (status != 0) {
+		errno = status;
+		return 0;
+	}
+	return 1;
+}
+
+static int
+unload_modem_module_group(const char *group_name,
+			  const char *const *module_names,
+			  size_t module_count)
+{
+	size_t successful_count = 0;
+	int status;
+
+	status = rc_modem_module_unload_group_status(module_names,
+						     module_count,
+						     modem_module_unload_callback,
+						     NULL, &successful_count);
+	if (successful_count > 0)
+		sleep(1);
+	if (status != 0)
+		logmessage(LOGNAME,
+			   "cannot unload USB modem %s driver group (status=%d)",
+			   group_name, status);
+	return status;
+}
+
+static int
+remove_qmi_client_id_marker(void)
+{
+	if (unlink(QMI_CLIENT_ID) == 0 || errno == ENOENT)
+		return 0;
+	return errno > 0 ? errno : EIO;
+}
+
+int
 unload_modem_modules(void)
 {
-	unlink(QMI_CLIENT_ID);
-	int ret = 0;
-	ret |= module_smart_unload("rndis_host", 1);
-	ret |= module_smart_unload("qmi_wwan", 1);
-	ret |= module_smart_unload("cdc_mbim", 1);
-	ret |= module_smart_unload("huawei_cdc_ncm", 1);
-	ret |= module_smart_unload("cdc_ncm", 1);
-	ret |= module_smart_unload("cdc_ether", 1);
-	ret |= module_smart_unload("cdc_acm", 1);
-	ret |= module_smart_unload("sierra_net", 1);
-	ret |= module_smart_unload("sierra", 1);
-	ret |= module_smart_unload("qcserial", 1);
-	ret |= module_smart_unload("option", 1);
-	if (ret)
-		sleep(1);
+	static const char *const modules[] = {
+		"rndis_host", "qmi_wwan", "cdc_mbim", "huawei_cdc_ncm",
+		"cdc_ncm", "cdc_ether", "cdc_acm", "sierra_net",
+		"sierra", "qcserial", "option"
+	};
+	int status;
+
+	status = unload_modem_module_group("all", modules,
+					  sizeof(modules) / sizeof(modules[0]));
+	if (status != 0)
+		return status;
+	status = remove_qmi_client_id_marker();
+	if (status != 0)
+		logmessage(LOGNAME,
+			   "cannot remove inactive QMI client-ID marker (status=%d)",
+			   status);
+	return status;
 }
 
 static int
@@ -1348,18 +1400,32 @@ reload_modem_modules(int modem_type, int reload)
 	static const char *const serial_aux_modules[] = {
 		"qcserial", "sierra", "option"
 	};
-	int ret = 0;
 	int status = 0;
 	size_t i;
 
-	unlink(QMI_CLIENT_ID);
-	ret |= module_smart_unload("option", 1);
-	ret |= module_smart_unload("sierra", 1);
-	ret |= module_smart_unload("qcserial", 1);
-	ret |= module_smart_unload("cdc_acm", 1);
+	/* Remove shared serial/control drivers first. Do not load the new family
+	 * or discard the QMI client marker if any required unload is uncertain. */
+	status = unload_modem_module_group("serial/control", ras_modules,
+					  sizeof(ras_modules) / sizeof(ras_modules[0]));
+	if (status != 0)
+		goto done;
+
+	if (modem_type != 3) {
+		status = unload_modem_module_group("NDIS", ndis_modules,
+					  sizeof(ndis_modules) / sizeof(ndis_modules[0]));
+		if (status != 0)
+			goto done;
+	}
+
+	status = remove_qmi_client_id_marker();
+	if (status != 0) {
+		logmessage(LOGNAME,
+			   "cannot remove QMI client-ID marker before driver reload (status=%d)",
+			   status);
+		goto done;
+	}
+
 	if (modem_type == 3) {
-		if (ret)
-			sleep(1);
 		status = load_modem_module_group("NDIS", ndis_modules,
 						 ndis_params,
 						 sizeof(ndis_modules) / sizeof(ndis_modules[0]));
@@ -1367,21 +1433,12 @@ reload_modem_modules(int modem_type, int reload)
 		for (i = 0; i < sizeof(serial_aux_modules) / sizeof(serial_aux_modules[0]); i++)
 			(void)module_smart_load(serial_aux_modules[i], NULL);
 	} else {
-		ret |= module_smart_unload("sierra_net", 1);
-		ret |= module_smart_unload("cdc_mbim", 1);
-		ret |= module_smart_unload("huawei_cdc_ncm", 1);
-		ret |= module_smart_unload("cdc_ncm", 1);
-		ret |= module_smart_unload("qmi_wwan", 1);
-		ret |= module_smart_unload("rndis_host", 1);
-		ret |= module_smart_unload("cdc_ether", 1);
-		if (ret)
-			sleep(1);
 		status = load_modem_module_group("RAS", ras_modules, NULL,
 						 sizeof(ras_modules) / sizeof(ras_modules[0]));
 	}
+done:
 	if (reload)
 		sleep(1);
-
 	return status;
 }
 

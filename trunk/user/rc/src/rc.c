@@ -2535,8 +2535,18 @@ handle_notifications(void)
 							modules_reloaded = 1;
 						}
 					} else {
-						unload_modem_modules();
-						nvram_modem_rule = modem_rule;
+						module_reload_status =
+							rc_modem_module_reload_cache_publish(
+								unload_modem_modules(),
+								&nvram_modem_rule, modem_rule);
+						if (module_reload_status != 0) {
+							logmessage("USB",
+								   "modem rule disable transition failed; retaining previous cache for retry (status=%d)",
+								   module_reload_status);
+							action_result = rc_notify_merge_action_result(
+								action_result, module_reload_status);
+							transition_failed = 1;
+						}
 					}
 				}
 			}

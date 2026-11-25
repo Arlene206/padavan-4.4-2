@@ -52,6 +52,66 @@ rc_modem_module_reload_cache_publish(int reload_status, int *cached_value,
 	return 0;
 }
 
+typedef int (*rc_modem_module_unload_fn)(const char *module_name,
+					 void *context);
+
+/* A confirmed-absent module needs no unload. UNKNOWN presence or a failed
+ * unload must block a driver-family transition; preserve errno when available. */
+static inline int
+rc_modem_module_unload_attempt_status(int loaded_status, int unload_status,
+				      int unload_errno)
+{
+	if (loaded_status == 0)
+		return 0;
+	if (loaded_status < 0)
+		return -loaded_status;
+	if (loaded_status != 1)
+		return EIO;
+	if (unload_status == 1)
+		return 0;
+	if (unload_status == 0 && unload_errno > 0)
+		return unload_errno;
+	return EIO;
+}
+
+/* Validate the entire module set before causing unload side effects. */
+static inline int
+rc_modem_module_unload_group_status(const char *const *module_names,
+				    size_t module_count,
+				    rc_modem_module_unload_fn unload,
+				    void *context,
+				    size_t *successful_count)
+{
+	size_t i, successful = 0;
+	int first_error = 0;
+
+	if (successful_count)
+		*successful_count = 0;
+	if (!module_names || module_count == 0 || !unload)
+		return EINVAL;
+	for (i = 0; i < module_count; i++) {
+		if (!module_names[i] || module_names[i][0] == '\0')
+			return EINVAL;
+	}
+
+	for (i = 0; i < module_count; i++) {
+		int result, saved_errno;
+
+		errno = 0;
+		result = unload(module_names[i], context);
+		saved_errno = errno;
+		if (result == 1)
+			++successful;
+		else if (first_error == 0)
+			first_error = result == 0 && saved_errno > 0 ?
+				saved_errno : EIO;
+	}
+
+	if (successful_count)
+		*successful_count = successful;
+	return first_error;
+}
+
 typedef struct {
 	int (*load)(const char *module_name, const char *module_param);
 	int (*is_loaded)(const char *module_name);

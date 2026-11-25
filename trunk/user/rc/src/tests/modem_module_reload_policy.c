@@ -16,6 +16,10 @@ static int become_loaded[TEST_MODULES];
 static int load_results[TEST_MODULES];
 static int load_calls[TEST_MODULES];
 static int probe_calls[TEST_MODULES];
+static int module_presence[TEST_MODULES];
+static int unload_results[TEST_MODULES];
+static int unload_errors[TEST_MODULES];
+static int unload_calls[TEST_MODULES];
 
 static int
 find_module_index(const char *name)
@@ -60,6 +64,34 @@ static const rc_modem_module_load_ops_t mock_ops = {
 	mock_is_loaded
 };
 
+static int
+mock_unload(const char *name, void *context)
+{
+	int index = find_module_index(name);
+	int status;
+
+	(void)context;
+	assert(index >= 0);
+	unload_calls[index]++;
+	status = rc_modem_module_unload_attempt_status(
+		module_presence[index], unload_results[index],
+		unload_errors[index]);
+	if (status != 0) {
+		errno = status;
+		return 0;
+	}
+	return 1;
+}
+
+static void
+assert_all_unload_attempted(void)
+{
+	int i;
+
+	for (i = 0; i < TEST_MODULES; i++)
+		assert(unload_calls[i] == 1);
+}
+
 static void
 reset_case(void)
 {
@@ -72,6 +104,10 @@ reset_case(void)
 		load_results[i] = 0;
 		load_calls[i] = 0;
 		probe_calls[i] = 0;
+		module_presence[i] = 0;
+		unload_results[i] = 0;
+		unload_errors[i] = 0;
+		unload_calls[i] = 0;
 	}
 }
 
@@ -341,6 +377,79 @@ test_module_reload_cache_published_only_after_success(void)
 	assert(rc_modem_module_reload_cache_publish(0, NULL, 4) == EINVAL);
 }
 
+static void
+test_absent_modules_are_successful_noop_unloads(void)
+{
+	size_t successful = 99;
+
+	reset_case();
+	assert(rc_modem_module_unload_group_status(module_names, TEST_MODULES,
+			mock_unload, NULL, &successful) == 0);
+	assert(successful == TEST_MODULES);
+	assert_all_unload_attempted();
+}
+
+static void
+test_unload_failures_are_aggregated_and_first_errno_preserved(void)
+{
+	size_t successful = 99;
+
+	reset_case();
+	module_presence[0] = 1;
+	module_presence[1] = 1;
+	module_presence[2] = 1;
+	unload_results[0] = 0;
+	unload_errors[0] = EACCES;
+	unload_results[1] = 1;
+	unload_results[2] = 0;
+	assert(rc_modem_module_unload_group_status(module_names, TEST_MODULES,
+			mock_unload, NULL, &successful) == EACCES);
+	assert(successful == 1);
+	assert_all_unload_attempted();
+
+	reset_case();
+	module_presence[0] = 1;
+	unload_results[0] = 0;
+	assert(rc_modem_module_unload_group_status(module_names, TEST_MODULES,
+			mock_unload, NULL, &successful) == EIO);
+	assert(successful == TEST_MODULES - 1);
+	assert_all_unload_attempted();
+}
+
+static void
+test_unknown_or_invalid_module_presence_fails_closed(void)
+{
+	assert(rc_modem_module_unload_attempt_status(-EACCES, 1, 0) == EACCES);
+	assert(rc_modem_module_unload_attempt_status(2, 1, 0) == EIO);
+	assert(rc_modem_module_unload_attempt_status(1, 0, 0) == EIO);
+	assert(rc_modem_module_unload_attempt_status(1, 0, EPERM) == EPERM);
+	assert(rc_modem_module_unload_attempt_status(1, 1, 0) == 0);
+	assert(rc_modem_module_unload_attempt_status(0, 0, 0) == 0);
+}
+
+static void
+test_invalid_unload_group_fails_before_side_effects(void)
+{
+	const char *const invalid_names[TEST_MODULES] = {
+		"cdc_ether", NULL, "cdc_ncm"
+	};
+	size_t successful = 99;
+	int i;
+
+	reset_case();
+	assert(rc_modem_module_unload_group_status(NULL, TEST_MODULES,
+			mock_unload, NULL, &successful) == EINVAL);
+	assert(successful == 0);
+	assert(rc_modem_module_unload_group_status(invalid_names, TEST_MODULES,
+			mock_unload, NULL, &successful) == EINVAL);
+	assert(rc_modem_module_unload_group_status(module_names, 0,
+			mock_unload, NULL, &successful) == EINVAL);
+	assert(rc_modem_module_unload_group_status(module_names, TEST_MODULES,
+			NULL, NULL, &successful) == EINVAL);
+	for (i = 0; i < TEST_MODULES; i++)
+		assert(unload_calls[i] == 0);
+}
+
 int
 main(void)
 {
@@ -357,6 +466,10 @@ main(void)
 	test_modem_settings_absent_keys_keep_legacy_defaults();
 	test_modem_settings_reject_invalid_arguments();
 	test_module_reload_cache_published_only_after_success();
+	test_absent_modules_are_successful_noop_unloads();
+	test_unload_failures_are_aggregated_and_first_errno_preserved();
+	test_unknown_or_invalid_module_presence_fails_closed();
+	test_invalid_unload_group_fails_before_side_effects();
 	puts("USB modem module alternative readiness policy: PASS");
 	return 0;
 }
