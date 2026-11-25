@@ -2078,7 +2078,7 @@ choose_suffix:
     ++suffix;
   }
   /* Do not spend unbounded filesystem probes on a crowded STOU namespace. */
-  errno = EEXIST;
+  errno = EAGAIN;
   return -1;
 }
 static void

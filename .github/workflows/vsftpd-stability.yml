@@ -986,7 +986,7 @@ jobs:
           assert "candidate_probes < FTP_STOU_CANDIDATE_MAX_PROBES" in stou_candidate_policy
           assert "while (ftp_stou_candidate_probe_allowed(candidate_probes))" in unique_filename
           assert "++candidate_probes;" in unique_filename
-          assert "errno = EEXIST;" in unique_filename
+          assert "errno = EAGAIN;" in unique_filename
           assert "FTP_STOU_COLLISION_MAX_RETRIES" in vsftpd_stou_policy
           assert "open_result < 0" in stou_collision_policy
           assert "saved_errno == EEXIST" in stou_collision_policy
