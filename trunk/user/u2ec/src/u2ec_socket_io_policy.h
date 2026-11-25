@@ -220,6 +220,20 @@ u2ec_read_fifo_event(int fd, char *event)
 }
 
 /*
+ * Normalize file_lock() failures. Some legacy failure paths, including the
+ * same-process re-entry guard, return -1 without assigning errno.
+ */
+static inline int
+u2ec_lock_acquisition_is_valid(int lock_fd, int lock_errno)
+{
+    if (lock_fd >= 0)
+        return 1;
+
+    errno = lock_errno != 0 ? lock_errno : EIO;
+    return 0;
+}
+
+/*
  * Release an owned lock descriptor at most once. Invalidate the caller's
  * handle before close so later control-flow paths cannot release a reused fd.
  */

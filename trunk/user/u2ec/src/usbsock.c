@@ -3006,6 +3006,23 @@ next:
  * @param	state	MFP_GET_STATE: get the flag from nvram, othere: set state to nvram.
  * @return	value of get from nvram or set to nvram.
  */
+static int
+u2ec_acquire_printer_lock(void)
+{
+    int lock_fd;
+    int lock_errno;
+
+    errno = 0;
+    lock_fd = file_lock("printer");
+    lock_errno = errno;
+    if (!u2ec_lock_acquisition_is_valid(lock_fd, lock_errno)) {
+        PERROR("acquire printer state lock");
+        return -1;
+    }
+
+    return lock_fd;
+}
+
 int MFP_state(int state)
 {
 	static int MFP_is_busy = MFP_IS_IDLE;
@@ -3585,7 +3602,9 @@ int usb_connection(int sockfd)
 
 		conn_curt->time = time((time_t*)NULL);
 		if (conn_busy != conn_curt) {
-			lock = file_lock("printer");
+			lock = u2ec_acquire_printer_lock();
+			if (lock < 0)
+				goto CLOSE_CONN;
 			if ((i = MFP_state(MFP_GET_STATE))) {
 				file_unlock(lock);
 				if (i == MFP_IN_LPRNG)
@@ -3607,7 +3626,9 @@ int usb_connection(int sockfd)
 					conn_busy->busy = CONN_IS_IDLE;
 			}
 		}
-		lock = file_lock("printer");
+		lock = u2ec_acquire_printer_lock();
+		if (lock < 0)
+			goto CLOSE_CONN;
 		if (!MFP_state(MFP_GET_STATE) && pirp_save->Irp > 0) {
 			if (!except_flag_1client)
 			{
@@ -4195,7 +4216,9 @@ static int handle_fifo(int *fd, fd_set *pfds, int *pfdm, int conn_fd)
 	if (fifo_status == 0)
 		goto REOPEN_FIFO;
 
-	lock = file_lock("printer");
+	lock = u2ec_acquire_printer_lock();
+	if (lock < 0)
+		return -1;
 	/* Handle hotplug usb. */
 	if (c == 'a') {		// add usb device.
 		if (time((time_t*)NULL) - time_add_device < 1)
@@ -4500,7 +4523,9 @@ int main(int argc, char *argv[])
 	printf("U2EC starting ...\n");
 
 #ifdef	SUPPORT_LPRng
-	lock = file_lock("printer");
+	lock = u2ec_acquire_printer_lock();
+	if (lock < 0)
+		return 1;
 	nvram_set_int_temp("MFP_busy", 0);
 	nvram_set_temp("u2ec_device", "");
 	nvram_set_temp("u2ec_busyip", "");

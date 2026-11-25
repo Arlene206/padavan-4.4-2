@@ -43,6 +43,7 @@ update_device = body(source, "static void update_device()")
 publish_snapshot = body(source, "u2ec_publish_discovery_snapshot(void)")
 read_snapshot = body(source, "u2ec_read_discovery_snapshot(")
 usb_connection = body(source, "int usb_connection(int sockfd)")
+lock_acquire = body(source, "static int u2ec_acquire_printer_lock(void)")
 handle_urb32 = body(source, "int handleURB(PIRP_SAVE")
 handle_urb64 = body(source, "int handleURB_64(PIRP_SAVE")
 exchange = body(source, "int exchangeIRP(")
@@ -196,6 +197,37 @@ cancel_at = fifo_reader.index("CANCEL:")
 reopen_at = fifo_reader.index("REOPEN_FIFO:", cancel_at)
 assert "u2ec_release_lock_once(&lock, file_unlock)" in fifo_reader[cancel_at:reopen_at]
 assert "u2ec_release_lock_once" in policy
+assert "file_lock(\\"printer\\")" in lock_acquire
+assert "errno = 0" in lock_acquire
+assert "lock_errno = errno" in lock_acquire
+assert "u2ec_lock_acquisition_is_valid" in lock_acquire
+assert "lock_errno != 0 ? lock_errno : EIO" in policy
+
+lock_sites = []
+search_from = 0
+while True:
+    site = usb_connection.find("lock = u2ec_acquire_printer_lock();", search_from)
+    if site < 0:
+        break
+    guard_end = usb_connection.find("if (lock < 0)", site)
+    state_read = usb_connection.find("MFP_state(MFP_GET_STATE)", site)
+    assert guard_end >= 0 and (state_read < 0 or guard_end < state_read)
+    assert "goto CLOSE_CONN;" in usb_connection[guard_end:guard_end + 100]
+    lock_sites.append(site)
+    search_from = site + 1
+assert len(lock_sites) == 2
+fifo_lock = handle_fifo.index("lock = u2ec_acquire_printer_lock();")
+fifo_guard = handle_fifo.index("if (lock < 0)", fifo_lock)
+fifo_mutation = handle_fifo.index("/* Handle hotplug usb. */", fifo_lock)
+assert fifo_lock < fifo_guard < fifo_mutation
+assert "return -1;" in handle_fifo[fifo_guard:fifo_guard + 100]
+startup_lock = daemon_main.index("lock = u2ec_acquire_printer_lock();")
+startup_guard = daemon_main.index("if (lock < 0)", startup_lock)
+startup_mutation = daemon_main.index('nvram_set_int_temp("MFP_busy", 0)', startup_lock)
+assert startup_lock < startup_guard < startup_mutation
+assert "return 1;" in daemon_main[startup_guard:startup_guard + 80]
+assert "u2ec_lock_acquisition_is_valid" in test
+assert "test_printer_lock_acquisition_failure_is_normalized" in test
 alarm_handler = body(source, "static void multi_client(int sig)")
 alarm_tick = body(source, "static void multi_client_tick(void)")
 assert "multi_client_alarm_pending = 1" in alarm_handler

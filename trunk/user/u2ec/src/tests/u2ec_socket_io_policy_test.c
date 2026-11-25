@@ -377,6 +377,22 @@ u2ec_test_unlock_record(int fd)
     u2ec_test_unlocked_fd = fd;
 }
 
+
+static void
+test_printer_lock_acquisition_failure_is_normalized(void)
+{
+    errno = 0;
+    assert(u2ec_lock_acquisition_is_valid(12, 0));
+
+    errno = 0;
+    assert(!u2ec_lock_acquisition_is_valid(-1, EACCES));
+    assert(errno == EACCES);
+
+    errno = 0;
+    assert(!u2ec_lock_acquisition_is_valid(-1, 0));
+    assert(errno == EIO);
+}
+
 static void
 test_lock_fd_is_released_exactly_once(void)
 {
@@ -488,6 +504,7 @@ test_socket_initialization_failure_closes_descriptor_and_preserves_errno(void)
 int
 main(void)
 {
+    test_printer_lock_acquisition_failure_is_normalized();
     test_lock_fd_is_released_exactly_once();
     test_discovery_product_snapshot_copy_is_bounded();
     test_fifo_idle_readiness_and_event_bytes_are_safe();
