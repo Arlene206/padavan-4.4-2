@@ -2,17 +2,17 @@
 
 This snapshot supersedes older task pointers below where they conflict with live Git state.
 
-- Main before this ZeroTier recovery slice: `9f0e65090db38dc2440bb2c8cfdc3e2e37a0bb2e`. Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, untouched. PR #1 remains closed/unmerged.
-- On exact main SHA `9f0e65090db38dc2440bb2c8cfdc3e2e37a0bb2e`: IAPPD lifecycle #45536392085 PASS; AI handoff docs #45536392165 PASS; Process inventory #45536392055 PASS; Process lifecycle umbrella #45536392222 PASS. XY-C1 Firmware Validation #45536392142 remains IN_PROGRESS; Build/TRX/artifact are not confirmed, so do not claim L3.
-- The IAPPD stat-fixture and process-governance follow-up described in the previous handoff is complete on that SHA: the zombie fixture now has the full stat-field shape while truncated metadata remains UNKNOWN; targeted executable/start-time signal checks are retained.
-- This commit's ZeroTier stop recovery is deliberately narrower than general checkpoint parsing: if strict load finds a trailing record, stop may recover only the first two complete LF-terminated fields after validating the interface and canonical IPv4/CIDR segment. It atomically rewrites that exact tuple before signalling. A malformed/short base tuple, an unterminated first extra record, unsafe path, or invalid address remains fail-closed. Startup replay and `del_rules()` remain strict.
-- The regression covers trailing-record recovery after the live route disappears, canonical checkpoint persistence across an injected firewall-delete failure and successful retry, plus refusal to recover a second field missing its final LF. The exact-head workflow is required; no local host test or firmware result is claimed.
+- Main before this fixture correction: `d6d2cb95b3e665fa4b6e94ff007bd9b238ced1ae`. Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, untouched. PR #1 remains closed/unmerged.
+- Exact-head ZeroTier lifecycle run #45537157310 on `d6d2cb95b3e665fa4b6e94ff007bd9b238ced1ae` failed in the new retry assertion because the fixture asserted `identity.secret` preservation but had never created that file. The run passed the preceding recovery/stop checks and reached the absent-file assertion; this follow-up seeds the identity fixture rather than weakening the preservation assertion. Production source is unchanged in this correction.
+- Exact-head WAN route run #45537157320 PASS. XY-C1 Firmware Validation #45537157364 remains IN_PROGRESS; Build/TRX/artifact are not confirmed. Check every other run by exact SHA before recording its state.
+- The recovery implementation itself is stop-only and narrowly accepts a trailing complete record after validating two complete LF-terminated fields, interface and canonical IPv4/CIDR. It atomically rewrites that exact tuple before signalling. A malformed/short base tuple, an unterminated first extra record, unsafe path, or invalid address remains fail-closed. Startup replay and `del_rules()` remain strict.
+- The updated regression injects the first firewall deletion failure and verifies exact daemon signalling, canonical tuple retention, deletion of the saved source-NAT rule and successful retry; it also verifies a missing LF on the second field is not recoverable. The exact-head run after this fixture-only correction must pass before closing the slice. No local shell test or firmware result is claimed.
 
 ## Exact first action for the next GPT
 
-1. Verify the exact-head ZeroTier lifecycle workflow and its shell regression + Python source contract. If it fails, inspect the failing job/log and correct the source/test/checker on `main` before treating the slice as complete.
-2. Verify the same-SHA Process inventory/umbrella, WAN route and AI handoff docs results; confirm XY-C1 Build, TRX and artifact completion on this production-source SHA before claiming L3.
-3. Continue with a separate high-risk unfinished userland reliability/security defect while any unrelated run remains pending. Frozen backup remains read-only.
+1. Verify ZeroTier lifecycle run and shell test on the new exact main SHA. If it fails, inspect the job log and fix the failing assertion/runtime path; do not infer success from the earlier prefix recovery.
+2. Verify same-SHA AI docs, Process inventory/umbrella, WAN route and XY-C1 Build/TRX/artifact. Do not claim L3 without the complete product-source result.
+3. Continue an independent stability/security fix while unrelated exact-head checks are pending. Frozen backup remains read-only.
 
 No force-push. The backup branch remains unchanged.
 

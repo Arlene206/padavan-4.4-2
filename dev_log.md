@@ -1,3 +1,8 @@
+## 2026-11-25 11:04 CST — Seed identity in recovered ZeroTier stop-retry fixture (THIS COMMIT)
+
+- Exact-head ZeroTier run #45537157310 on `d6d2cb95b3e665fa4b6e94ff007bd9b238ced1ae` reached the injected firewall-delete failure path, confirmed the daemon stopped and exact PID TERM assertion, then failed at `partial recovered-checkpoint cleanup removed persistent identity`. Root cause was a test-fixture omission: the new assertion checked `identity.secret` preservation, but this case had not created the file.
+- Seed the identity file before invoking stop and retain the preservation assertion. No production source or recovery behavior changes. Exact-head ZeroTier rerun is required; WAN route #45537157320 PASS; XY-C1 #45537157364 was IN_PROGRESS at last observation. No local shell or firmware result is claimed.
+
 ## 2026-11-25 10:59 CST — Recover validated ZeroTier firewall checkpoint prefix during stop (THIS COMMIT)
 
 - Strict checkpoint loading correctly rejects trailing records, but stop previously had no recovery path: one extra line could strand a running ZeroTier daemon and leave its exact source-NAT rule installed even though the first two newline-terminated fields still identified the published cleanup tuple.

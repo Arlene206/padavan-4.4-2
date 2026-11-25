@@ -1524,6 +1524,7 @@ TEST_IPTABLES_DELETE_FAIL_ON="filter INPUT -i ztunit -j ACCEPT"
 test_seed_firewall_rules
 : > "$TEST_IPTABLES_LOG"
 printf '%s\n' 'ztunit' '10.147.17.0/24' 'corrupt-extra-record' > "$TEST_CONFIG/.firewall-state"
+echo identity > "$TEST_CONFIG/identity.secret"
 TEST_STATIC_ROUTE_COUNT=0
 TEST_NAT_ENABLE=0
 TEST_IFCONFIG_MODE=running-only
