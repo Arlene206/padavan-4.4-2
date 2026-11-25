@@ -1,7 +1,7 @@
 ## 2026-11-25 — Fail IAPP startup when TCP listen() fails
 
 - IAPP_SocketOpen() checked socket creation and bind(), but ignored listen()'s return value. A listener setup failure could leave the daemon loop running and be reported healthy even though incoming TCP security-block connections could not be accepted.
-- The TCP listen result is now checked; on failure the function logs the error and follows its existing label_fail cleanup, closing all partially opened sockets and preventing the child from entering IAPP_Start().
+- The TCP listen result is now checked; on failure the function logs the error and follows its existing label_fail cleanup, closing all partially opened sockets and preventing the child from entering IAPP_Start(). The diagnostic uses the normal C newline escape.
 - Added an IAPP source-contract regression for the checked call, failure log and cleanup branch; the workflow now triggers when this production C source changes. Exact-head Actions pending; no firmware or hardware result claimed.
 
 ---

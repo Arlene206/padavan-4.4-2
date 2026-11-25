@@ -1599,7 +1599,7 @@ static BOOLEAN IAPP_SocketOpen(
 
 	if (listen(pCtrlBK->SocketTcpRcv, 128) < 0)
 	{
-		DBGPRINT(RT_DEBUG_ERROR, "iapp> Listen Rcv TCP failed!\\n");
+		DBGPRINT(RT_DEBUG_ERROR, "iapp> Listen Rcv TCP failed!\n");
 		goto label_fail;
 	} /* End of if */
 
