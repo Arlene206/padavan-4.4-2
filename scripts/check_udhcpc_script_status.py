@@ -74,7 +74,16 @@ fixed_routes_guard = fill_envp.index(
 static_routes_guard = fill_envp.index(
     "udhcpc_static_routes_option_is_well_formed(temp, route_option_length)"
 )
-static_routes_invalid = fill_envp.index('xasprintf("%s=!invalid!", opt_name)')
+fixed_routes_invalid = fill_envp.index(
+    'xasprintf("%s=!invalid!", opt_name)', fixed_routes_guard
+)
+fixed_routes_convert = fill_envp.index(
+    "xmalloc_optname_optval(temp, &dhcp_optflags[i], opt_name)",
+    fixed_routes_guard
+)
+static_routes_invalid = fill_envp.index(
+    'xasprintf("%s=!invalid!", opt_name)', static_routes_guard
+)
 static_routes_convert = fill_envp.index(
     "xmalloc_optname_optval(temp, &dhcp_optflags[i], opt_name)",
     static_routes_guard
@@ -82,11 +91,11 @@ static_routes_convert = fill_envp.index(
 assert "code == 0x03 || code == 0x21" in fill_envp
 assert "code == 0x03 ? 4U : 8U" in fill_envp
 assert "temp[-OPT_DATA + OPT_LEN]" in fill_envp
-assert fixed_routes_guard < static_routes_invalid < static_routes_convert
+assert fixed_routes_guard < fixed_routes_invalid < fixed_routes_convert
+assert static_routes_guard < static_routes_invalid < static_routes_convert
 assert "udhcpc_fixed_route_list_option_is_well_formed" in policy
 assert "test_fixed_route_options_reject_partial_tuples" in test
 assert "test_fixed_route_options_reject_partial_tuples() != 0" in test
-assert static_routes_guard < static_routes_invalid < static_routes_convert
 assert "test_static_routes_reject_malformed_trailing_tuples" in test
 assert "test_static_routes_reject_malformed_trailing_tuples() != 0" in test
 assert 'return 1U << (option_code % (sizeof(unsigned int) * 8U));' in policy
