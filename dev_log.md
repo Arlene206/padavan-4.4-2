@@ -1,3 +1,11 @@
+## 2026-11-25 — Restart WSDD2 after truncated netlink address notifications
+
+- `netlink_recv()` read kernel route/address multicast datagrams into a fixed 4096-byte buffer but did not inspect `msghdr.msg_flags`. Linux sets `MSG_TRUNC` when a datagram exceeds the receive buffer; the code then parsed only the copied prefix and returned success, potentially missing an address-change notification in the truncated tail and leaving WSDD advertisements stale.
+- The receive path now rejects a truncated notification with `EMSGSIZE`; the existing event loop treats this as a socket error and restarts the service, rebuilding its endpoint/interface state from the current address list.
+- Added GNU89 ASan/UBSan regression coverage for both truncated and non-truncated message flags, plus a source-order contract that requires rejection before netlink message iteration.
+
+---
+
 ## 2026-11-25 — Guard WSDD2 select registration against out-of-range descriptors
 
 - `wsdd2.c` registered every endpoint socket with `FD_SET(ep->sock, &fds)` and later used `FD_ISSET` without checking `FD_SETSIZE`. A descriptor at or above the libc fd_set limit makes these macros access memory beyond the fixed fd_set object; this can corrupt daemon stack/state instead of producing a controlled startup failure.

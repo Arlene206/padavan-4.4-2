@@ -22,6 +22,7 @@
 
 #include "wsdd.h"
 #include "wsd_select_fd_policy.h"
+#include "wsd_netlink_recv_policy.h"
 
 int debug_L, debug_W, debug_N;
 
@@ -498,7 +499,15 @@ static int netlink_recv(struct endpoint *ep)
 		ep->errstr = __FUNCTION__ ": netlink_recv: recv";
 		return -1;
 	}
-
+	/*
+	 * A truncated route-notification datagram may omit an address change at
+	 * its tail. Restart so the daemon re-enumerates the current interface set.
+	 */
+	if (wsd_netlink_datagram_truncated(msg.msg_flags)) {
+		ep->_errno = EMSGSIZE;
+		ep->errstr = __FUNCTION__ ": netlink_recv: truncated datagram";
+		return -1;
+	}
 
 	for (nh = (struct nlmsghdr *)buf;
 			NLMSG_OK(nh, msglen) && nh->nlmsg_type != NLMSG_DONE;

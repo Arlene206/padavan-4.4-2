@@ -1,0 +1,33 @@
+name: wsdd2 netlink receive truncation regression
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/wsdd2-netlink-recv-regression.yml"
+      - "trunk/user/wsdd2/src/wsdd2.c"
+      - "trunk/user/wsdd2/src/wsd_netlink_recv_policy.h"
+      - "trunk/user/wsdd2/src/tests/wsd_netlink_recv_policy_test.c"
+      - "scripts/test_wsdd2_netlink_recv.sh"
+      - "scripts/check_wsdd2_netlink_recv.py"
+  pull_request:
+    paths:
+      - ".github/workflows/wsdd2-netlink-recv-regression.yml"
+      - "trunk/user/wsdd2/src/wsdd2.c"
+      - "trunk/user/wsdd2/src/wsd_netlink_recv_policy.h"
+      - "trunk/user/wsdd2/src/tests/wsd_netlink_recv_policy_test.c"
+      - "scripts/test_wsdd2_netlink_recv.sh"
+      - "scripts/check_wsdd2_netlink_recv.py"
+
+permissions:
+  contents: read
+
+jobs:
+  netlink-recv:
+    name: WSDD2 netlink truncation handling
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and run GNU89 ASan/UBSan regression and source contract
+        run: sh scripts/test_wsdd2_netlink_recv.sh
