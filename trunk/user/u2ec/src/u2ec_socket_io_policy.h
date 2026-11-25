@@ -72,9 +72,12 @@ u2ec_recv_all(int fd, void *buffer, size_t length)
 
 /* SizeBuffer is a signed, peer-controlled byte count for a fixed buffer. */
 static inline int
-u2ec_frame_size_is_valid(long frame_size, size_t capacity)
+u2ec_frame_size_is_valid(long frame_size, size_t minimum,
+                           size_t capacity)
 {
-    return frame_size > 0 && (size_t)frame_size <= capacity;
+    return frame_size >= 0 && minimum <= capacity &&
+           (size_t)frame_size >= minimum &&
+           (size_t)frame_size <= capacity;
 }
 
 #endif /* U2EC_SOCKET_IO_POLICY_H */

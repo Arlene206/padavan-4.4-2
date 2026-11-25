@@ -64,12 +64,13 @@ test_frame_size_is_bounded_and_positive(void)
 {
     const size_t capacity = 262144U;
 
-    assert(u2ec_frame_size_is_valid(1L, capacity));
-    assert(u2ec_frame_size_is_valid((long)capacity, capacity));
-    assert(!u2ec_frame_size_is_valid(0L, capacity));
-    assert(!u2ec_frame_size_is_valid(-1L, capacity));
-    assert(!u2ec_frame_size_is_valid((long)capacity + 1L, capacity));
-    assert(!u2ec_frame_size_is_valid(1L, 0U));
+    assert(u2ec_frame_size_is_valid(104L, 104U, capacity));
+    assert(u2ec_frame_size_is_valid((long)capacity, 104U, capacity));
+    assert(!u2ec_frame_size_is_valid(103L, 104U, capacity));
+    assert(!u2ec_frame_size_is_valid(0L, 104U, capacity));
+    assert(!u2ec_frame_size_is_valid(-1L, 104U, capacity));
+    assert(!u2ec_frame_size_is_valid((long)capacity + 1L, 104U, capacity));
+    assert(!u2ec_frame_size_is_valid(1L, 104U, 0U));
 }
 
 static void

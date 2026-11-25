@@ -44,6 +44,10 @@ assert "u2ec_send_all_no_sigpipe" not in add_remote or add_remote.count("u2ec_se
 assert add_remote.count("u2ec_send_all_no_sigpipe") == 2
 assert "u2ec_recv_all(sockfd, (char *)&tcp_pack, sizeof(tcp_pack))" in usb_connection
 assert "u2ec_frame_size_is_valid((long)tcp_pack.SizeBuffer" in usb_connection
+assert "sizeof(IRP_SAVE), sizeof(data_buf)" in usb_connection
+assert "u2ec_frame_size_is_valid((long)pirp_saverw->NeedSize" in usb_connection
+assert "sizeof(IRP_SAVE), sizeof(data_bufrw)" in usb_connection
+assert usb_connection.index("u2ec_frame_size_is_valid((long)tcp_pack.SizeBuffer") < usb_connection.index("bzero(data_buf, sizeof(data_buf))") < usb_connection.index("u2ec_recv_all(sockfd, (char *)pirp_save")
 assert "sizeof(data_buf)" in usb_connection
 assert "u2ec_recv_all(sockfd, (char *)pirp_save" in usb_connection
 assert "for (i = 0, j = 0; i < tcp_pack.SizeBuffer; i += j)" not in usb_connection

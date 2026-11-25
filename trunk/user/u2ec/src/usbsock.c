@@ -2858,7 +2858,7 @@ int usb_connection(int sockfd)
 		break;
 	case IrpToTcp:
 		if (!u2ec_frame_size_is_valid((long)tcp_pack.SizeBuffer,
-		                              sizeof(data_buf))) {
+		                              sizeof(IRP_SAVE), sizeof(data_buf))) {
 			PDEBUG("usb_connection: invalid IRP frame size %d\n",
 			       tcp_pack.SizeBuffer);
 			goto CLOSE_CONN;
@@ -3261,6 +3261,14 @@ EXCHANGE_IRP:
 
 		if (except_flag == 3)
 			pirp_saverw->Status = 0xC00000AE;	// STATUS_PIPE_BUSY
+
+		/* The USB reply is also bounded by the staging buffer. */
+		if (!u2ec_frame_size_is_valid((long)pirp_saverw->NeedSize,
+		                              sizeof(IRP_SAVE), sizeof(data_bufrw))) {
+			PDEBUG("usb_connection: invalid IRP reply size %d\n",
+			       pirp_saverw->NeedSize);
+			goto CLOSE_CONN;
+		}
 
 		/* Send tcp_pack IrpAnswerTcp. */
 #if __BYTE_ORDER == __LITTLE_ENDIAN
