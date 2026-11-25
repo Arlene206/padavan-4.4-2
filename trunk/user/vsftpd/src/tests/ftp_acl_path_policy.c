@@ -356,6 +356,33 @@ main(void)
       mkdir(empty_dir, 0700)) {
     perror("create symlink/removal fixtures"); return 1;
   }
+  child_parent_fd = ftp_acl_path_open_verified_directory(a);
+  if (child_parent_fd < 0 ||
+      ftp_acl_path_resolve_listing_symlink(child_parent_fd, "directory-link",
+          resolved, sizeof(resolved)) != 0 ||
+      strcmp(resolved, dir_b) != 0) {
+    fprintf(stderr, "FTP listing symlink target was not canonicalized\n");
+    return 1;
+  }
+  errno = 0;
+  if (ftp_acl_path_resolve_listing_symlink(child_parent_fd, "metadata-alias",
+          resolved, sizeof(resolved)) == 0 || errno != EACCES) {
+    fprintf(stderr, "FTP listing exposed an internal-metadata symlink\n");
+    return 1;
+  }
+  if (ftp_acl_path_resolve_listing_symlink(child_parent_fd, "dangling-link",
+          resolved, sizeof(resolved)) == 0) {
+    fprintf(stderr, "FTP listing accepted a dangling symlink target\n");
+    return 1;
+  }
+  errno = 0;
+  if (ftp_acl_path_resolve_listing_symlink(child_parent_fd, "owned.txt",
+          resolved, sizeof(resolved)) == 0 || errno != EINVAL ||
+      close(child_parent_fd) != 0) {
+    fprintf(stderr, "FTP listing symlink resolver accepted a regular file\n");
+    return 1;
+  }
+
   checked_path(fifo_file, sizeof(fifo_file), a, "acl-config-fifo");
   if (mkfifo(fifo_file, 0600) != 0) {
     perror("create ACL config FIFO fixture"); return 1;

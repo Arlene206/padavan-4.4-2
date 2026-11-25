@@ -904,7 +904,7 @@ asus_check_file_visible(struct vsf_session* p_sess,
                         const struct mystr* p_filename_str)
 {
   int i_layer, i_user_right, i_result;
-  char fullpath[PATH_MAX];
+  char fullpath[PATH_MAX], resolved_entry[PATH_MAX];
   char *mount_path = NULL, *share_name = NULL;
   const char *p_filename;
   struct stat entry_stat;
@@ -921,9 +921,32 @@ asus_check_file_visible(struct vsf_session* p_sess,
   if (!strcmp(p_filename, ".") || !strcmp(p_filename, ".."))
     return 1;
 
-  if (ftp_acl_path_build_child_path(resolved_base, p_filename, fullpath,
-                                    sizeof(fullpath)) != 0)
+  if (ftp_acl_path_verify_directory_identity(resolved_base,
+                                                directory_fd) != 0 ||
+      ftp_acl_path_build_child_path(resolved_base, p_filename, fullpath,
+                                    sizeof(fullpath)) != 0 ||
+      fstatat(directory_fd, p_filename, &entry_stat,
+              AT_SYMLINK_NOFOLLOW) != 0)
     return 0;
+
+  /*
+   * A symlink can point to a different mount/share than its lexical entry.
+   * Authorize the canonical target before exposing the link name in LIST;
+   * otherwise a user with access to share A can enumerate an unreadable share
+   * B through a directory symlink placed under A.
+   */
+  if (S_ISLNK(entry_stat.st_mode)) {
+    size_t resolved_length;
+    if (ftp_acl_path_resolve_listing_symlink(directory_fd, p_filename,
+                                             resolved_entry,
+                                             sizeof(resolved_entry)) != 0 ||
+        !asus_check_permission_at(p_sess, PERM_READ, resolved_entry))
+      return 0;
+    resolved_length = strlen(resolved_entry);
+    if (resolved_length >= sizeof(fullpath))
+      return 0;
+    memcpy(fullpath, resolved_entry, resolved_length + 1);
+  }
 
   i_result = 1;
   i_layer = get_mount_layer(fullpath, &mount_path, &share_name);

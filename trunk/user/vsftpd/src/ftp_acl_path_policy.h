@@ -316,6 +316,54 @@ ftp_acl_path_split_entry(const char *path, char *parent, size_t parent_size,
 }
 
 /*
+ * Resolve a directory-listing symlink from the pinned parent descriptor.
+ * /proc/self/fd keeps lookup anchored to that directory even if its pathname
+ * is renamed while LIST is in progress. Recheck the symlink inode afterwards
+ * so a concurrent leaf replacement cannot authorize a different target.
+ */
+static int
+ftp_acl_path_resolve_listing_symlink(int dir_fd, const char *leaf,
+                                     char *resolved, size_t resolved_size)
+{
+  struct stat before, after;
+  char descriptor_path[PATH_MAX];
+  int length;
+
+  if (dir_fd < 0 || !leaf || !*leaf || strchr(leaf, '/') ||
+      strcmp(leaf, ".") == 0 || strcmp(leaf, "..") == 0 ||
+      !resolved || resolved_size < PATH_MAX) {
+    errno = EINVAL;
+    return -1;
+  }
+  if (fstatat(dir_fd, leaf, &before, AT_SYMLINK_NOFOLLOW) != 0)
+    return -1;
+  if (!S_ISLNK(before.st_mode)) {
+    errno = EINVAL;
+    return -1;
+  }
+  length = snprintf(descriptor_path, sizeof(descriptor_path),
+                    "/proc/self/fd/%d/%s", dir_fd, leaf);
+  if (length < 0 || (size_t) length >= sizeof(descriptor_path)) {
+    errno = ENAMETOOLONG;
+    return -1;
+  }
+  if (realpath(descriptor_path, resolved) == NULL)
+    return -1;
+  if (ftp_acl_path_is_internal_metadata(resolved)) {
+    errno = EACCES;
+    return -1;
+  }
+  if (fstatat(dir_fd, leaf, &after, AT_SYMLINK_NOFOLLOW) != 0)
+    return -1;
+  if (!S_ISLNK(after.st_mode) || before.st_dev != after.st_dev ||
+      before.st_ino != after.st_ino) {
+    errno = EAGAIN;
+    return -1;
+  }
+  return 0;
+}
+
+/*
  * Resolve an existing pathname through its final symlink and split the
  * canonical target into a directory and one leaf component. Later syscalls
  * use the returned parent descriptor and leaf, never the original pathname.

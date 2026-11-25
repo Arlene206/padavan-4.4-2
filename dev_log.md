@@ -1,3 +1,10 @@
+## 2026-11-25 — Enforce target-share ACLs for FTP LIST symlinks
+
+- The FTP listing filter classified an entry by its lexical path and used `fstatat(..., 0)`, which follows a directory symlink. A user allowed to read share A could therefore see symlink names targeting unreadable share B: the canonical target's share ACL was not checked until a later CWD or file-open command. Added a descriptor-anchored symlink resolver (`/proc/self/fd/<dirfd>/<leaf>`), rechecks the symlink inode after resolution, rejects dangling/internal-metadata targets, and applies the normal read ACL to the canonical target before listing the entry.
+- Added GNU89 regression coverage for a cross-share directory symlink, dangling link, internal metadata alias, and regular-file rejection, plus exact source-contract checks in `vsftpd-stability.yml`. This change still requires exact-head vsftpd CI; no local compile/runtime result is claimed.
+
+---
+
 ## 2026-11-25 — Fix MTD restore test wrapper parameter expansion
 
 - Source review of `0bfcc6eb`'s new MTD-index-100 regression found the `bzcat` fixture was inside a single-quoted heredoc but escaped its shell variables as `\\${...}`. Those backslashes suppress expansion, so the fixture ignores `BZCAT_EMPTY` and exits with a literal status token; the successful extraction case cannot actually pass. Removed the unnecessary escapes so the existing empty-output, nonzero-status, and valid-archive cases exercise the intended paths.
