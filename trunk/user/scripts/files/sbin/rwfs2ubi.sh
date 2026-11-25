@@ -82,6 +82,7 @@ printf '%s\n' "$mount_inventory" | awk -v idx="$rwfs_idx" '
 			invalid = 1
 			next
 		}
+		valid_records++
 		source = $1
 		ubi = "/dev/ubi" idx
 		if (source == ubi ||
@@ -92,7 +93,7 @@ printf '%s\n' "$mount_inventory" | awk -v idx="$rwfs_idx" '
 			found = 1
 	}
 	END {
-		if (NR == 0 || invalid)
+		if (valid_records == 0 || invalid)
 			exit 2
 		exit !found
 	}

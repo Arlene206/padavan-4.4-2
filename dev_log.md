@@ -1,3 +1,10 @@
+## 2026-11-25 — Reject blank mount output before RWFS erase
+
+- Exact storage-hotplug #45591520927 on `5b9938c5` passed the multi-line `ubi50` decoy / later `ubi5` mounted-volume regression but failed the empty-inventory case. The mocked `mount` emits a single newline for empty output; AWK increments `NR` for that blank line even though it is skipped. The parser now counts structurally valid mount records and rejects zero valid records. The existing empty-inventory fixture covers this case.
+- This fixes a second fail-closed gap in the same RWFS conversion preflight. The next exact-head storage-hotplug run must validate the blank inventory and all erase/format/attach failure paths. No local shell or firmware build is claimed.
+
+---
+
 ## 2026-11-25 — Repair RWFS mount-inventory parsing and regression fixture
 
 - Exact storage-hotplug run #45590500560 on `09e56c54` exposed a destructive-path blind spot: an over-escaped `printf` format emitted literal `\\n` separators, so the AWK mount parser could inspect only the first mount line and miss a later RWFS mount. Restored real newline separation and added a two-entry regression with an unrelated `ubi50` decoy before the owned `ubi5` mount.
