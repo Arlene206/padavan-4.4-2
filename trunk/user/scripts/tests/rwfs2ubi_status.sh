@@ -99,7 +99,7 @@ EOF_CAT
 		-e "s|^sbin_dir=.*|sbin_dir=\"$base/sbin\"|" \
 		-e "s|^proc_mtd=.*|proc_mtd=\"$base/proc/mtd\"|" \
 		-e "s|^dev_dir=.*|dev_dir=\"$base/dev\"|" \
-		-e "s|^operation_lock=.*|operation_lock=\"$base/private/rwfs2ubi.lock\"|" \
+		-e "s|^operation_lock_dir=.*|operation_lock_dir=\"$base/private\"|" \
 		"$repo_root/trunk/user/scripts/files/sbin/rwfs2ubi.sh" > "$base/rwfs2ubi.sh"
 
 	PATH="$base/bin:$PATH"
@@ -187,6 +187,25 @@ export FLOCK_STATUS
 expect_failure "conversion lock contention"
 grep -Fqx 'flock -n 9' "$CALL_LOG"
 assert_not_logged "mtd_write erase $base/dev/mtd5"
+
+# Predictable lock paths must not follow a symlink into an unrelated file.
+prepare_case symlink-lock-file
+printf '%s\n' 'preserve lock target' > "$base/private/target"
+ln -s "$base/private/target" "$base/private/.rwfs2ubi.lock"
+expect_failure "symlink lock file"
+assert_no_flash_commands
+[ "$(cat "$base/private/target")" = "preserve lock target" ] ||
+	fail "symlinked lock file target was modified"
+
+prepare_case symlink-lock-directory
+"$real_mkdir" -p "$base/private-target"
+printf '%s\n' 'preserve directory target' > "$base/private-target/marker"
+"$real_rm" -rf "$base/private"
+ln -s "$base/private-target" "$base/private"
+expect_failure "symlink lock directory"
+assert_no_flash_commands
+[ "$(cat "$base/private-target/marker")" = "preserve directory target" ] ||
+	fail "symlinked lock directory target was modified"
 
 # A real mounted RWFS volume is rejected before the first detach/erase.
 prepare_case mounted-ubi

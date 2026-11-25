@@ -25,16 +25,56 @@ if [ ! -r "$proc_mtd" ]; then
 fi
 
 # Serialize destructive conversion so concurrent invocations cannot race.
-operation_lock=/tmp/.rwfs2ubi.lock
+operation_lock_dir=/tmp/.rwfs2ubi
+operation_lock_file="$operation_lock_dir/.rwfs2ubi.lock"
+process_uid=$(id -u 2>/dev/null) || fail "Unable to determine RWFS conversion owner"
+
+# Keep the lock under a private, owner-checked directory. A predictable lock
+# path directly in /tmp could be pre-created as a symlink and truncated by
+# opening it with > before flock has a chance to protect anything.
+if [ -L "$operation_lock_dir" ] ||
+   { [ -e "$operation_lock_dir" ] && [ ! -d "$operation_lock_dir" ]; }; then
+	fail "Unsafe RWFS conversion lock directory: $operation_lock_dir"
+fi
+if [ ! -d "$operation_lock_dir" ] &&
+   ! mkdir -m 700 "$operation_lock_dir"; then
+	fail "Unable to create RWFS conversion lock directory: $operation_lock_dir"
+fi
+lock_dir_owner=$(stat -c %u "$operation_lock_dir" 2>/dev/null) ||
+	fail "Unable to inspect RWFS conversion lock directory: $operation_lock_dir"
+if [ "$lock_dir_owner" != "$process_uid" ]; then
+	fail "RWFS conversion lock directory has an unexpected owner: $operation_lock_dir"
+fi
+if ! chmod 700 "$operation_lock_dir"; then
+	fail "Unable to secure RWFS conversion lock directory: $operation_lock_dir"
+fi
+if [ -L "$operation_lock_file" ] ||
+   { [ -e "$operation_lock_file" ] && [ ! -f "$operation_lock_file" ]; }; then
+	fail "Unsafe RWFS conversion lock file: $operation_lock_file"
+fi
+if [ -e "$operation_lock_file" ]; then
+	lock_file_owner=$(stat -c %u "$operation_lock_file" 2>/dev/null) ||
+		fail "Unable to inspect RWFS conversion lock file: $operation_lock_file"
+	lock_file_links=$(stat -c %h "$operation_lock_file" 2>/dev/null) ||
+		fail "Unable to inspect RWFS conversion lock links: $operation_lock_file"
+	if [ "$lock_file_owner" != "$process_uid" ] || [ "$lock_file_links" != 1 ]; then
+		fail "RWFS conversion lock file has unsafe ownership or links: $operation_lock_file"
+	fi
+	if ! chmod 600 "$operation_lock_file"; then
+		fail "Unable to secure RWFS conversion lock file: $operation_lock_file"
+	fi
+fi
+umask 077
 if ! command -v flock >/dev/null 2>&1; then
 	fail "Unable to find executable: flock"
 fi
-if ! exec 9>"$operation_lock"; then
-	fail "Unable to open RWFS conversion lock: $operation_lock"
+if ! exec 9>>"$operation_lock_file"; then
+	fail "Unable to open RWFS conversion lock: $operation_lock_file"
 fi
 if ! flock -n 9; then
 	fail "Another RWFS conversion is already running"
 fi
+
 
 # Match one exact RWFS partition. A substring match could select RWFS_BACKUP,
 # and multiple matches make the target ambiguous; both cases must fail closed.
