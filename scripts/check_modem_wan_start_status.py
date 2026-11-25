@@ -824,7 +824,7 @@ for marker in (
     assert marker in sit_start, f"missing status-gated SIT argv command: {marker}"
 for marker in (
     'WAN6_NATIVE_CHECK(eval("ip", "-6", "route", "add", gate6_text, "dev", wan_ifname)',
-    'WAN6_NATIVE_CHECK(eval("ip", "-6", "route", "add", "default", "via", gate6_text, "metric", "1")',
+    'WAN6_NATIVE_CHECK(eval("ip", "-6", "route", "add", "default", "via", gate6_text, "dev", wan_ifname, "metric", "1")',
     'WAN6_NATIVE_CHECK(eval("ip", "-6", "route", "add", "default", "dev", wan_ifname, "metric", "2048")',
 ):
     assert marker in native_start, f"missing status-gated native argv command: {marker}"

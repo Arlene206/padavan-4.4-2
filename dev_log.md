@@ -1,3 +1,13 @@
+## 2026-11-25 — Align native IPv6 WAN route source contract with interface-scoped default route
+
+- Exact-SHA XY-C1 run #45717290218 and Process fail-closed run #45717290172 on `6cefc636e9d4df21db869d3c6e2497f20dd26161` both stopped in `scripts/check_modem_wan_start_status.py:830`: the checker still expected `ip -6 route add default via <gateway> metric 1`, while the already-committed native-static IPv6 route correctly includes `dev <wan_ifname>` to bind link-local next hops to the WAN link.
+- This was a stale validation contract, not a production-source failure. Updated the exact argv marker to require `"dev", wan_ifname`; this preserves the intended scoped route behavior and restores the WAN contract gate needed before XY-C1 Build/TRX/artifact steps.
+- The same SHA's p910nd SIGPIPE/I/O and PID publication contract #45717290212 PASS; Process inventory #45717290255 PASS; AI docs #45717290267 PASS; NVRAM audit #45717290265 PASS. XY-C1 and Process fail-closed were blocked by this common checker assertion, not by compile or firmware errors. Re-run the exact validation gates on the checker-fix SHA.
+- Parent baseline: `894147f71750b1345a6f3492e47255913aeb0364`. No MIPS firmware, TRX, artifact-upload, live WAN or physical-router result is inferred from the failed pre-build validation.
+- Changed paths: `scripts/check_modem_wan_start_status.py`, `dev_log.md`.
+
+---
+
 ## 2026-11-25 — Make DHCPv4 lease callback environment publication atomic
 
 - The DHCPv4 `fill_envp()` path in `udhcp/dhcpc.c` ignored all eight `putenv()` results and `udhcp_run_script()` invoked the event script regardless. Under memory pressure, a bound/renew callback could receive only part of the lease/options environment and mutate runtime configuration with incomplete data.
