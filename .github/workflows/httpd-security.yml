@@ -2052,8 +2052,12 @@ jobs:
           assert "is_dns_dhcpd_run()" not in start_locked
           assert stop_public.index("dnsmasq_lifecycle_lock_acquire()") < stop_public.index("stop_dns_dhcpd_locked()")
           assert "dnsmasq_lifecycle_lock_finish" in stop_public
-          assert "kill_services(svcs, 3, 1)" in stop_locked
-          assert "dnsmasq_stop_policy_should_clear_arp(status)" in stop_locked and "arpbind_clear()" in stop_locked
+          stop_cleanup = function_body(service, "stop_dns_dhcpd_locked_with_snapshot(")
+          assert "kill_services(svcs, 3, 1)" in stop_cleanup
+          assert "dnsmasq_stop_policy_should_clear_arp(status)" in stop_cleanup
+          assert "arpbind_clear(previous_ethers)" in stop_cleanup
+          assert "arpbind_ethers_snapshot_read(&previous_ethers)" in stop_locked
+          assert "snapshot_status == 0 ? &previous_ethers : NULL" in stop_locked
           assert restart_public.index("dnsmasq_lifecycle_lock_acquire()") < restart_public.index("restart_dhcpd_locked()")
           assert "dnsmasq_lifecycle_lock_finish" in restart_public
           assert "initial_presence = dnsmasq_process_presence(&scan_error);" in restart_locked
@@ -2298,11 +2302,13 @@ jobs:
           assert dnsmasq_start_body.index("dnsmasq_require_absent(\"after configuration preparation\")") < dnsmasq_start_body.index('eval("/usr/sbin/dnsmasq")')
           assert "dnsmasq_confirm_started(launch_status)" in dnsmasq_start_body
           assert "is_dns_dhcpd_run()" not in dnsmasq_start_body
-          assert "status = kill_services(svcs, 3, 1);" in dnsmasq_stop_body
-          assert "dnsmasq_stop_policy_should_clear_arp(status)" in dnsmasq_stop_body
-          assert dnsmasq_stop_body.index("dnsmasq_stop_policy_should_clear_arp") < dnsmasq_stop_body.index("arpbind_clear()")
-          assert "return status;" in dnsmasq_stop_body
-          assert "DNSMasq did not stop cleanly; retaining static ARP bindings" in dnsmasq_stop_body
+          dnsmasq_stop_cleanup = function_body(service, "stop_dns_dhcpd_locked_with_snapshot(")
+          assert "status = kill_services(svcs, 3, 1);" in dnsmasq_stop_cleanup
+          assert "dnsmasq_stop_policy_should_clear_arp(status)" in dnsmasq_stop_cleanup
+          assert dnsmasq_stop_cleanup.index("dnsmasq_stop_policy_should_clear_arp") < dnsmasq_stop_cleanup.index("arpbind_clear(previous_ethers)")
+          assert "return status;" in dnsmasq_stop_cleanup
+          assert "DNSMasq did not stop cleanly; retaining static ARP bindings" in dnsmasq_stop_cleanup
+          assert "arpbind_ethers_snapshot_read(&previous_ethers)" in dnsmasq_stop_body
           assert "dnsmasq_start_policy_preflight" in restart_policy
           assert "dnsmasq_stop_policy_should_clear_arp" in restart_policy
           assert "dnsmasq_reload_signal_snapshot" in reload_policy

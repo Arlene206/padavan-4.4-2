@@ -1,3 +1,9 @@
+## 2026-11-24 — Align HTTPD trust-boundary contract with owned DNSMasq ARP cleanup
+
+- Exact HTTPD security run #45544316918 on `5f333dc2f94e9be5954561b75941682e68cdd0d8` failed in its DNSMasq source-contract step because it still expected `kill_services()` and a zero-argument `arpbind_clear()` inside the public stop wrapper. The new wrapper only snapshots prior ownership and delegates to `stop_dns_dhcpd_locked_with_snapshot()`; the kill/policy/owned-clear sequence lives in that internal helper.
+- Updated both HTTPD workflow contracts to verify the public wrapper captures `/etc/ethers` before stopping and the internal helper orders the stop-policy gate before exact owned-entry cleanup. This is an integration-checker correction; no HTTPD production code changed.
+- Exact-head HTTPD Actions are required; no test result is inferred from the old failure.
+
 ## 2026-11-24 — Align DNSMasq startup rollback checker with ownership-aware stop
 
 - Exact DNSMasq lifecycle run #45544316571 on `5f333dc2f94e9be5954561b75941682e68cdd0d8` failed in `scripts/check_dnsmasq_start_rollback.py`, not in a compile or runtime regression: the checker still required restart to call `stop_dns_dhcpd_locked()` directly after that call was correctly replaced by `stop_dns_dhcpd_locked_with_snapshot(&previous_ethers, 0)`.
