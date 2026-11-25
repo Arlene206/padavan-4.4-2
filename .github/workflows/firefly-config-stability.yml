@@ -94,12 +94,12 @@ jobs:
               '"media-user\\nadmin_pw = injected"',
               '"media-pass\\r\\nrunas = root"',
               '"/mnt/firefly\\n[plugins]"',
-              '"web_root_alias = preserve-web-root-alias"',
-              '"port_forward = preserve-port-forward"',
-              '"runas_role = preserve-runas-role"',
-              '"db_type_backup = preserve-db-type"',
-              '"db_parms_extra = preserve-db-parms"',
-              '"plugin_directory = preserve-plugin-dir"',
+              "web_root_alias = preserve-web-root-alias",
+              "port_forward = preserve-port-forward",
+              "runas_role = preserve-runas-role",
+              "db_type_backup = preserve-db-type",
+              "db_parms_extra = preserve-db-parms",
+              "plugin_directory = preserve-plugin-dir",
           ):
               assert marker in test
           assert "last-good-configuration" in test
