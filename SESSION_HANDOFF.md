@@ -1,25 +1,24 @@
 ## Current repository state — 2026-11-26
 
-- Live main parent for this slice: `5e3c8312605861fda69ccae2bf94c0f0d168883c`; this atomic RStats fix stages and validates the complete `/proc/net/dev` snapshot before changing speed counters or aging ring entries.
+- Live main parent for this slice: `f8f87f19ab1bd145ceddf8c5b6ebab8f5a271dd0`; this RStats follow-up increases the staged `/proc/net/dev` row buffer to 512 bytes so a valid 16-counter record with 64-bit-width decimal fields is not mistaken for truncation.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Exact-head Actions for the previous WDM fix `b47d5ef9d44cdec6736414a4e4d52bb90b48b0ee`: USB modem WDM #45701307930 PASS; AI docs #45701307827 PASS; Process inventory #45701307914 PASS; HTTPD security #45701307732 PASS. NVRAM #45701307926 and XY-C1 #45701307950 remained IN_PROGRESS at the last poll.
-- The immediately preceding AdGuardHome daemon-argv fix `5e3c8312605861fda69ccae2bf94c0f0d168883c` passed its AdGuardHome security #45701455808, Process inventory #45701455295 and AI docs #45701455540 exact-head checks.
-- DHCPv6 NoBinding recovery and 32-bit T1/T2 overflow fixes passed their DHCPv6 IA regression on `e9545b1b2f7c059076b59ebb2cf4a5c07fc86967`. Earlier IAPP nonblocking/framed pipe work remains complete through `e110d1e248bc6ccd2a759275c81ff71cdf2cd99e`.
+- Exact-head results for RStats snapshot commit `f8f87f19ab1bd145ceddf8c5b6ebab8f5a271dd0`: RStats regression #45702409711 PASS; Process lifecycle inventory #45702409582 PASS; HTTPD security #45702409529 PASS; AI docs #45702409433 PASS. Process fail-closed #45702409483 and NVRAM #45702409511 remained IN_PROGRESS; XY-C1 #45702409540 remained IN_PROGRESS (firmware result not inferred).
+- The preceding WDM fix `b47d5ef9d44cdec6736414a4e4d52bb90b48b0ee`: USB modem WDM #45701307930, AI docs #45701307827, Process inventory #45701307914, NVRAM #45701307926 and HTTPD #45701307732 PASS; XY-C1 #45701307950 remained IN_PROGRESS.
+- AdGuardHome daemon-argv fix `5e3c8312605861fda69ccae2bf94c0f0d168883c`: AdGuardHome security #45701455808, Process #45701455295 and AI docs #45701455540 PASS. DHCPv6 NoBinding/32-bit timer and earlier IAPP framed-IPC slices remain closed on their respective exact SHAs.
 
 ## Active task
 
-`process_rstats()` used to call `iterate_netdev()` while reading `/proc/net/dev`, ignore missing/malformed rows and file read/close errors, then advance the global speed-ring tail and save history regardless. If a pseudo-file read failed partway through, already-seen interfaces had been updated while absent rows were treated as zero-speed gaps; if open/header read failed, every tracked interface was aged despite having no valid snapshot. The code now parses complete 16-counter rows into a bounded staging array, requires both headers, a complete newline-terminated snapshot, successful stream read and close, and only then applies samples and advances the ring. The shared policy helper rejects missing, extra, signed, overlong-name and overflowing fields; regression covers valid maximum counters, malformed/truncated data, and read/close error normalization.
+The complete-snapshot parser introduced by `f8f87f19ab1bd145ceddf8c5b6ebab8f5a271dd0` rejects any row missing a newline in the 256-byte `fgets()` buffer. A legitimate 16-counter `/proc/net/dev` row can exceed 255 bytes when counters are represented as 64-bit decimal values (16 × 20 digits plus separators and interface name), so this could suppress all RStats updates on a heavily used interface rather than parse the valid sample. The input buffer is now 512 bytes, with a fixture proving a complete max-width 16-counter row fits and parses.
 
 ## Verification boundary
 
-- RStats GNU89 `-Wall -Wextra -Werror -fsanitize=address,undefined` policy fixture and source-order contract are extended; local execution was unavailable in this session (no checkout).
-- Exact-head RStats workflow, Process inventory, AI docs and XY-C1 checks for THIS COMMIT must be fetched after commit. Previous b47 NVRAM #45701307926 and XY-C1 #45701307950 remained IN_PROGRESS; don't transfer those states to this SHA.
-- No MIPS firmware, live router or physical traffic result is claimed.
+- Parent f8 exact RStats #45702409711, Process #45702409582, HTTPD #45702409529 and AI docs #45702409433 PASS. Parent Process fail-closed #45702409483 / NVRAM #45702409511 / XY-C1 #45702409540 were still IN_PROGRESS at last poll.
+- The max-width regression is added to the existing GNU89 ASan/UBSan RStats fixture and source-contract workflow; exact-head checks for THIS COMMIT must be fetched after push. No local, MIPS or hardware result is claimed.
 
 ## Exact first actions for next GPT
 
-1. Fetch exact-SHA RStats, Process inventory, AI docs, NVRAM and XY-C1 Actions for THIS COMMIT. Repair any same-SHA failures; require same-SHA Build, TRX and artifact upload for L3.
-2. Continue an independent Padavan userland stability/security source fix; do not repeat WDM marker cleanup, AdGuardHome eval removal, IAPP IPC or DHCPv6 IA fixes.
+1. Fetch exact-SHA RStats, Process, AI docs, NVRAM and XY-C1 Actions for THIS COMMIT. Fix failures; require Build, TRX verification and artifact upload on the same product SHA for L3.
+2. Continue a different Padavan userland stability/security source fix; do not repeat RStats snapshot/line parsing, WDM marker cleanup, AdGuardHome eval removal, IAPP IPC or DHCPv6 IA fixes.
 
 # Cross-session execution mandate
 

@@ -5,6 +5,8 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <stdint.h>
+
+#define RSTATS_NETDEV_LINE_SIZE 512
 #include <string.h>
 
 /* Failed periodic flash saves stay due and are retried on the next rstats

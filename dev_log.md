@@ -1,3 +1,12 @@
+## 2026-11-26 — Size the RStats row buffer for full-width counters
+
+- The transactional `/proc/net/dev` parser rejects truncated line input. A valid row containing sixteen 20-digit 64-bit counters plus labels and separators can exceed the prior 256-byte `fgets()` buffer, falsely classifying a valid snapshot as corrupt.
+- Increased the bounded line buffer to 512 bytes and added a regression that builds and parses a full 16-counter row with every field at `UINT64_MAX`; the test asserts the encoded row exceeds 255 bytes but fits the configured buffer.
+- RStats parent #45702409711, Process #45702409582, HTTPD #45702409529 and AI docs #45702409433 PASS; Process fail-closed #45702409483, NVRAM #45702409511 and XY-C1 #45702409540 were IN_PROGRESS. Exact-head checks for this follow-up pending. No firmware result claimed.
+- Changed paths: `rstats.c`, `rstats_persistence_policy.h`, `tests/rstats_policy_test.c`, `rstats-stability.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`.
+
+---
+
 ## 2026-11-26 — Preserve RStats history when /proc/net/dev snapshot is incomplete
 
 - `process_rstats()` previously updated interfaces inline while reading `/proc/net/dev`, ignored malformed or missing rows and stream errors, then advanced the shared ring. A truncated read could partially update some interfaces, synthesize zero-speed gaps for others and age out their history; an open/header failure still advanced the baseline without any valid sample.

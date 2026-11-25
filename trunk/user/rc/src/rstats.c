@@ -713,7 +713,7 @@ static void process_rstats(void)
 		uint64_t counter[MAX_COUNTER];
 	} samples[MAX_SPEED_IF];
 	FILE *fp;
-	char buf[256], ifname[16];
+	char buf[RSTATS_NETDEV_LINE_SIZE], ifname[16];
 	speed_item_t *item, *next;
 	uint64_t counter[MAX_COUNTER];
 	long tick, ticks;

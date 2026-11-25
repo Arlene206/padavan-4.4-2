@@ -230,6 +230,9 @@ jobs:
           first_counter_mutation = process_stats.index("iterate_netdev(")
           assert process_stats.index("fclose(fp);") < read_close_gate < first_counter_mutation
           assert "samples[MAX_SPEED_IF]" in process_stats
+          assert "char buf[RSTATS_NETDEV_LINE_SIZE]" in process_stats
+          assert "RSTATS_NETDEV_LINE_SIZE 512" in persistence_policy
+          assert "test_max_width_netdev_record_fits_input_buffer();" in test
           assert "sample_count >= MAX_SPEED_IF" in process_stats
           assert "test_netdev_record_parser_is_strict_and_transactional" in test
           assert "test_netdev_record_parser_is_strict_and_transactional();" in test

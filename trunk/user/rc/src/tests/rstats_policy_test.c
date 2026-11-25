@@ -589,7 +589,31 @@ test_netdev_snapshot_requires_successful_read_and_close(void)
   assert(rstats_netdev_snapshot_status(0, 0, -1, 0) == EIO);
 }
 
+static void
+test_max_width_netdev_record_fits_input_buffer(void)
+{
+  char line[RSTATS_NETDEV_LINE_SIZE];
+  char ifname[16];
+  const char *max_value = "18446744073709551615";
+  uint64_t rx = 0, tx = 0;
+  int length;
+
+  length = snprintf(line, sizeof(line),
+      "eth0: %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s\n",
+      max_value, max_value, max_value, max_value,
+      max_value, max_value, max_value, max_value,
+      max_value, max_value, max_value, max_value,
+      max_value, max_value, max_value, max_value);
+  assert(length > 255);
+  assert((size_t)length < sizeof(line));
+  assert(rstats_netdev_parse_record(line, ifname, sizeof(ifname),
+      &rx, &tx) == 0);
+  assert(strcmp(ifname, "eth0") == 0);
+  assert(rx == ~(uint64_t)0 && tx == ~(uint64_t)0);
+}
+
 int main(void) {
+  test_max_width_netdev_record_fits_input_buffer();
   test_netdev_record_parser_is_strict_and_transactional();
   test_netdev_snapshot_requires_successful_read_and_close();
   test_null_safe_system_time_policy();
