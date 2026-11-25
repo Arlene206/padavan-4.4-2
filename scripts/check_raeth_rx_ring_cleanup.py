@@ -274,7 +274,8 @@ for mask in ("RAETH_IRQ_REQ_IRQ0", "RAETH_IRQ_REQ_IRQ1",
              "RAETH_IRQ_REQ_IRQ2", "RAETH_IRQ_REQ_IRQ3",
              "RAETH_IRQ_REQ_ESW", "RAETH_IRQ_REQ_GSW"):
     assert mask in irq_free
-assert "mii_mgr_write(31, 0x7008, 0);" in irq_free
+assert "ra_switch_mdio_legacy_bool_status(" in irq_free
+assert "mii_mgr_write(31, 0x7008, 0)" in irq_free
 assert irq_free.index("mii_mgr_write(31, 0x7008, 0);") < irq_free.index("free_irq(ei_local->gsw_irq, NULL);")
 assert "ei_local->irq_requested = 0;" in irq_free
 
