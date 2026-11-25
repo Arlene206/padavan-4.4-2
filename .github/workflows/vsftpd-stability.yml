@@ -831,6 +831,8 @@ jobs:
           ):
               assert token in vsftpd_auth_test
           assert "reserved FTP metadata classification failed" in acl_path_test
+          assert 'strcmp(base, ".hidden") == 0' in acl_path_policy
+          assert 'ftp_acl_path_is_internal_metadata("/mnt/.hidden")' in acl_path_test
           assert "ENAMETOOLONG" in child_path
           assert "length < 0" in child_path
           assert "(size_t) length >= child_size" in child_path

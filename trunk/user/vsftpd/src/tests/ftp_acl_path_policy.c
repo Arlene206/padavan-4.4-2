@@ -237,10 +237,14 @@ main(void)
 
   if (!ftp_acl_path_is_internal_metadata("/mnt/.__folder_list.txt") ||
       !ftp_acl_path_is_internal_metadata(".__alice_var.txt") ||
+      !ftp_acl_path_is_internal_metadata("/mnt/.hidden") ||
+      !ftp_acl_path_is_internal_metadata(".hidden") ||
+      !ftp_acl_path_is_internal_metadata("/mnt/share/.hidden") ||
       ftp_acl_path_is_internal_metadata("/mnt/share/.__notes.txt") ||
       !ftp_acl_path_is_internal_metadata("/mnt/share/.__vsftpd_cleanup_123") ||
       !ftp_acl_path_is_internal_metadata("/mnt/share/.__vsftpd_cleanup_123/partial.bin") ||
       ftp_acl_path_is_internal_metadata("/mnt/share/.visible-file") ||
+      ftp_acl_path_is_internal_metadata("/mnt/.hidden-copy") ||
       ftp_acl_path_is_internal_metadata("/mnt/.__alice_var.tx")) {
     fprintf(stderr, "reserved FTP metadata classification failed\n");
     return 1;

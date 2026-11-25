@@ -74,9 +74,10 @@ ftp_acl_path_resolve_parent(const char *path, char *parent,
 
 
 /*
- * These files hold the USB mount's account/share ACL database. They are
- * implementation metadata, not user content, and must never be exposed by
- * direct FTP file commands.
+ * These files hold the USB mount's account/share ACL database. The
+ * partition-level .hidden marker is also vsftpd control metadata: letting an
+ * FTP writer create, replace or remove it would hide the whole mount from
+ * every other session.
  */
 static int
 ftp_acl_path_is_internal_metadata(const char *path)
@@ -105,7 +106,8 @@ ftp_acl_path_is_internal_metadata(const char *path)
 
   base = strrchr(path, '/');
   base = base ? base + 1 : path;
-  if (strcmp(base, ".__folder_list.txt") == 0)
+  if (strcmp(base, ".hidden") == 0 ||
+      strcmp(base, ".__folder_list.txt") == 0)
     return 1;
   length = strlen(base);
   return length > 11 && strncmp(base, ".__", 3) == 0 &&
