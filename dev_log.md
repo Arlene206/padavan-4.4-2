@@ -1,3 +1,11 @@
+## 2026-11-25 — Free unqueued DHCPv6 IA event data after request preparation failure
+
+- `prepare_iaevent()` allocated an event-data node before `iapref_renew()`, but that helper can fail while copying IA prefix data before the node is linked into the event's data list. The shared `dhcp6_remove_event()` cleanup only destroys queued nodes, so each failed preparation leaked the unqueued allocation; repeated NoBinding re-establishment attempts could accumulate the leak under memory pressure.
+- The failure branch now frees the still-unowned node before removing the event. Once the node is queued, the existing event destructor remains its sole owner.
+- Extended the DHCPv6 IA source-contract regression to pin the pre-queue free and ordering. Exact-head DHCPv6 IA/XY-C1 validation will be checked on this commit; no MIPS firmware or physical-router result is claimed.
+
+---
+
 ## 2026-11-25 — Handoff checkpoint at 9ed539a04e4c4df96aef03f9d1a6f9637fd3e3b9
 
 - Main: `9ed539a04e4c4df96aef03f9d1a6f9637fd3e3b9`; frozen backup: `72f4f157a084f8184b9597ca5bf334b8080e5807`.

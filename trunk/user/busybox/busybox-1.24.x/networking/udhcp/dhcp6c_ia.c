@@ -380,6 +380,8 @@ static int prepare_iaevent(struct ia *ia, int dhcpstate)
 
 	if (ia->ctl && iapref_renew(ia->ctl, &iaparam, evd)) {
 		bb_error_msg("can't prepare IA data");
+			/* The node is not yet queued, so dhcp6_remove_event() won't own it. */
+			free(evd);
 			goto fail;
 	}
 	TAILQ_INSERT_TAIL(&ev->data_list, evd, link);

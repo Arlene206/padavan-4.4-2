@@ -179,6 +179,14 @@ assert "first_error = dhcp6c_ia_first_error(first_error, ia_error);" in update_i
 assert "test_operation_error_is_retryable" in test
 assert update_ia.index("update_status = reestablish_ia(ia);") < update_ia.index("goto nextia;", update_ia.index("update_status = reestablish_ia(ia);"))
 
+prepare_event = function_body(ia, "static int prepare_iaevent(struct ia *ia, int dhcpstate)")
+renew_prepare = prepare_event.index("if (ia->ctl && iapref_renew(")
+event_data_queue = prepare_event.index("TAILQ_INSERT_TAIL(&ev->data_list, evd, link)")
+renew_failure_cleanup = prepare_event[renew_prepare:event_data_queue]
+assert "free(evd);" in renew_failure_cleanup
+assert renew_failure_cleanup.index("free(evd);") < renew_failure_cleanup.index("goto fail;")
+assert event_data_queue > renew_prepare
+
 reply = function_body(client, "static int client6_recvreply(struct dhcp6_if *ifp, struct dhcp6_event *ev,")
 apply_begin = reply.index("ia_status = update_ia(")
 script_begin = reply.index("if (ifp->scriptpath != NULL")
