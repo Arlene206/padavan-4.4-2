@@ -150,12 +150,16 @@ assert "wan6_publish_6rd_snapshot(" in sixrd_store
 assert "status != 0" in sixrd_store
 assert '#include "wan6_sixrd_prefix_policy.h"' in source
 assert "wan6_sixrd_prefix_mapping_is_valid((int)ipv4_mask_len" in sixrd_store
-assert sixrd_store.index("wan6_sixrd_prefix_mapping_is_valid(") < sixrd_store.index("wan6_publish_6rd_snapshot(")
+assert "wan6_sixrd_prefix_clear_host_bits(prefix6.s6_addr" in sixrd_store
+assert sixrd_store.index("wan6_sixrd_prefix_mapping_is_valid(") < sixrd_store.index("wan6_sixrd_prefix_clear_host_bits(") < sixrd_store.index("wan6_publish_6rd_snapshot(")
+assert "wan6_sixrd_prefix_clear_host_bits(addr6.s6_addr, size6)" in sixrd_body
+assert sixrd_body.index("wan6_sixrd_prefix_clear_host_bits(addr6.s6_addr, size6)") < sixrd_body.index("ipv6_to_ipv4_map(&lan_addr6, size6")
 for marker in (
     "test_valid_mapping_boundaries",
     "test_rejects_oversized_derived_prefix",
     "test_rejects_out_of_range_lengths",
-    "WAN DHCPv4 6rd prefix bounds regression: PASS",
+    "test_prefix_host_bits_are_ignored",
+    "WAN DHCPv4 6rd prefix bounds/host-bit regression: PASS",
 ):
     assert marker in sixrd_test
 assert "32 - ipv4_mask_len" in sixrd_policy

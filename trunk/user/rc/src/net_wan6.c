@@ -864,6 +864,9 @@ store_ip6rd_from_dhcp_status(const char *env_value, const char *prefix)
 	if (inet_pton(AF_INET6, values[2], &prefix6) != 1 ||
 	    !is_valid_ipv4(values[3]))
 		return 0;
+	if (!wan6_sixrd_prefix_clear_host_bits(prefix6.s6_addr,
+					       (int)ipv6_prefix_len))
+		return 0;
 
 	status = wan6_read_nvram_match_status(
 		"ip6_6rd_dhcp", "0", &sixrd_dhcp_disabled);
@@ -877,10 +880,17 @@ store_ip6rd_from_dhcp_status(const char *env_value, const char *prefix)
 	if (sixrd_dhcp_disabled)
 		return 0;
 
-	written = snprintf(addr6, sizeof(addr6), "%s/%ld",
-			   values[2], ipv6_prefix_len);
-	if (written < 0 || (size_t)written >= sizeof(addr6))
-		return ENAMETOOLONG;
+	if (!inet_ntop(AF_INET6, &prefix6, addr6, sizeof(addr6)))
+		return errno ? errno : EINVAL;
+	{
+		size_t used = strlen(addr6);
+		size_t available = sizeof(addr6) - used;
+
+		written = snprintf(addr6 + used, available, "/%ld",
+				   ipv6_prefix_len);
+		if (written < 0 || (size_t)written >= available)
+			return ENAMETOOLONG;
+	}
 
 	status = wan6_publish_6rd_snapshot(
 		prefix, addr6, values[0], values[3], &rollback_status);
@@ -1191,6 +1201,11 @@ int start_sit_tunnel(int ipv6_type, char *wan_ifname, char *wan_addr4,
 		    size6 + 32 - size4 > 128 ||
 		    format_ipv4_literal(sit_relay_value, sit_relay_text,
 			       sizeof(sit_relay_text)) < 0) {
+			errno = EINVAL;
+			return -1;
+		}
+		/* Ignore any non-zero suffix bits in legacy or static NVRAM values. */
+		if (!wan6_sixrd_prefix_clear_host_bits(addr6.s6_addr, size6)) {
 			errno = EINVAL;
 			return -1;
 		}
