@@ -1,3 +1,9 @@
+## 2026-11-25 — Reset domain completion for every new label
+
+- Review of the first sanitizer slice found the per-name completion flag also must be cleared whenever a new label begins after a previously terminated name. Without that reset, a valid first search-domain entry could mask a truncated final entry in the same option. Reset the state on every label and add a two-entry regression (valid first name, unterminated second name); normalize diagnostic newlines in the embedded test harness.
+
+---
+
 ## 2026-11-25 — Reject truncated and forward RFC1035 domain compression
 
 - `dname_dec()` previously accepted a domain that reached the end of its option buffer without an encoded root terminator. In particular, a label followed by a compression pointer whose target was beyond the option length could be returned as a valid but truncated name. The decoder also followed forward/self-referential compression targets even though RFC1035 pointers are backward references; the existing jump-depth cap prevented unbounded loops but did not enforce the wire-format rule.

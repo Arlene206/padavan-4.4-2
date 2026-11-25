@@ -71,6 +71,7 @@ char* FAST_FUNC dname_dec(const uint8_t *cstr, int clen, const char *pre)
 				/* label */
 				if (crtpos + *c + 1 > clen) /* label too long? abort */
 					return NULL;
+				name_terminated = 0;
 				if (dst)
 					/* \3com ---> "com." */
 					((char*)mempcpy(dst + len, c + 1, *c))[0] = '.';
@@ -241,7 +242,7 @@ static int expect_decoded(const uint8_t *wire, int wire_len, const char *expecte
 	char *decoded = dname_dec(wire, wire_len, "");
 
 	if (decoded == NULL || strcmp(decoded, expected) != 0) {
-		fprintf(stderr, "unexpected decode result for %s: %s\\n",
+		fprintf(stderr, "unexpected decode result for %s: %s\n",
 			expected, decoded ? decoded : "(null)");
 		free(decoded);
 		return -1;
@@ -255,7 +256,7 @@ static int expect_rejected(const uint8_t *wire, int wire_len)
 	char *decoded = dname_dec(wire, wire_len, "");
 
 	if (decoded != NULL) {
-		fprintf(stderr, "accepted malformed compressed domain: %s\\n", decoded);
+		fprintf(stderr, "accepted malformed compressed domain: %s\n", decoded);
 		free(decoded);
 		return -1;
 	}
@@ -269,12 +270,16 @@ static int test_domain_decoder_bounds(void)
 		3, 'w', 'w', 'w', 0xc0, 0x04
 	};
 	static const uint8_t truncated_label[] = { 3, 'f', 'o', 'o' };
+	static const uint8_t truncated_after_complete_name[] = {
+		1, 'a', 0, 3, 'f', 'o', 'o'
+	};
 	static const uint8_t pointer_past_end[] = { 3, 'f', 'o', 'o', 0xc0, 0x20 };
 	static const uint8_t forward_pointer[] = { 0xc0, 0x02, 1, 'x', 0 };
 
 	if (expect_decoded(valid_compressed, sizeof(valid_compressed),
 			   "foo.bar www.bar") != 0 ||
 	    expect_rejected(truncated_label, sizeof(truncated_label)) != 0 ||
+	    expect_rejected(truncated_after_complete_name, sizeof(truncated_after_complete_name)) != 0 ||
 	    expect_rejected(pointer_past_end, sizeof(pointer_past_end)) != 0 ||
 	    expect_rejected(forward_pointer, sizeof(forward_pointer)) != 0)
 		return -1;
