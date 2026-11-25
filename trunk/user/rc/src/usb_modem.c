@@ -1305,7 +1305,7 @@ modem_module_unload_callback(const char *module_name, void *context)
 }
 
 static int
-unload_modem_module_group(const char *group_name,
+unload_modem_driver_group(const char *group_name,
 			  const char *const *module_names,
 			  size_t module_count)
 {
@@ -1343,7 +1343,7 @@ unload_modem_modules(void)
 	};
 	int status;
 
-	status = unload_modem_module_group("all", modules,
+	status = unload_modem_driver_group("all", modules,
 					  sizeof(modules) / sizeof(modules[0]));
 	if (status != 0)
 		return status;
@@ -1405,13 +1405,13 @@ reload_modem_modules(int modem_type, int reload)
 
 	/* Remove shared serial/control drivers first. Do not load the new family
 	 * or discard the QMI client marker if any required unload is uncertain. */
-	status = unload_modem_module_group("serial/control", ras_modules,
+	status = unload_modem_driver_group("serial/control", ras_modules,
 					  sizeof(ras_modules) / sizeof(ras_modules[0]));
 	if (status != 0)
 		goto done;
 
 	if (modem_type != 3) {
-		status = unload_modem_module_group("NDIS", ndis_modules,
+		status = unload_modem_driver_group("NDIS", ndis_modules,
 					  sizeof(ndis_modules) / sizeof(ndis_modules[0]));
 		if (status != 0)
 			goto done;

@@ -28,7 +28,7 @@ def body(source: str, signature: str) -> str:
 
 
 unload_callback = body(USB, "modem_module_unload_callback(")
-unload_group = body(USB, "unload_modem_module_group(")
+unload_group = body(USB, "unload_modem_driver_group(")
 remove_qmi_marker = body(USB, "remove_qmi_client_id_marker(")
 unload_all = body(USB, "unload_modem_modules(void)")
 reload = body(USB, "reload_modem_modules(int modem_type, int reload)")
@@ -40,7 +40,7 @@ assert "errno = status;" in unload_callback
 assert "rc_modem_module_unload_group_status" in unload_group
 assert "successful_count > 0" in unload_group and "sleep(1);" in unload_group
 assert "if (unlink(QMI_CLIENT_ID) == 0 || errno == ENOENT)" in remove_qmi_marker
-assert "unload_modem_module_group(\"all\"" in unload_all
+assert "unload_modem_driver_group(\"all\"" in unload_all
 assert "if (status != 0)" in unload_all
 assert unload_all.index("if (status != 0)") < unload_all.index("remove_qmi_client_id_marker()")
 assert "return status;" in unload_all
@@ -56,10 +56,10 @@ assert 'load_modem_module_group("NDIS"' in reload
 assert 'load_modem_module_group("RAS"' in reload
 assert "return status;" in reload
 assert "if (reload)" in reload and "sleep(1);" in reload
-assert "unload_modem_module_group(\"serial/control\"" in reload
+assert "unload_modem_driver_group(\"serial/control\"" in reload
 assert "if (status != 0)" in reload
-assert reload.index("unload_modem_module_group(\"serial/control\"") < reload.index("if (status != 0)") < reload.index("load_modem_module_group(\"NDIS\"")
-assert reload.index("unload_modem_module_group(\"NDIS\"") < reload.index("load_modem_module_group(\"RAS\"")
+assert reload.index("unload_modem_driver_group(\"serial/control\"") < reload.index("if (status != 0)") < reload.index("load_modem_module_group(\"NDIS\"")
+assert reload.index("unload_modem_driver_group(\"NDIS\"") < reload.index("load_modem_module_group(\"RAS\"")
 assert reload.index("remove_qmi_client_id_marker()") < reload.index("status = load_modem_module_group(")
 
 loader = body(USB, "load_modem_module_group(")
