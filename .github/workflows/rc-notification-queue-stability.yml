@@ -370,7 +370,7 @@ jobs:
           assert "int transition_failed = 0;" in modem
           assert "stop_failed" not in modem
           assert "if (!transition_failed && nvram_modem_rule != modem_rule)" in modem
-          assert modem.count("rc_modem_module_reload_cache_publish(") == 2
+          assert modem.count("rc_modem_module_reload_cache_publish(") == 3
           assert modem.count("reload_modem_modules(modem_type, 1)") == 2
 
           rule_change = modem.index("if (!transition_failed && nvram_modem_rule != modem_rule)")
@@ -379,10 +379,14 @@ jobs:
           rule_failure = modem.index("if (module_reload_status != 0)", rule_reload)
           rule_failed = modem.index("transition_failed = 1;", rule_failure)
           rule_ready = modem.index("modules_reloaded = 1;", rule_failed)
-          rule_unload = modem.index("unload_modem_modules();", rule_change)
-          rule_cache = modem.index("nvram_modem_rule = modem_rule;", rule_unload)
+          rule_unload = modem.index("unload_modem_modules()", rule_change)
+          rule_unload_publish = modem.rfind("rc_modem_module_reload_cache_publish(", rule_change, rule_unload)
+          rule_unload_failure = modem.index("if (module_reload_status != 0)", rule_unload)
+          rule_unload_failed = modem.index("transition_failed = 1;", rule_unload_failure)
           assert rule_change < rule_publish < rule_reload < rule_failure < rule_failed < rule_ready
-          assert rule_unload < rule_cache
+          assert rule_unload_publish < rule_unload < rule_unload_failure < rule_unload_failed
+          assert "modem rule disable transition failed; retaining previous cache for retry" in modem
+          assert "nvram_modem_rule = modem_rule;" not in modem
           assert "retaining previous cache for retry" in modem
 
           type_change = modem.index("if (!transition_failed && nvram_modem_type != modem_type)")
