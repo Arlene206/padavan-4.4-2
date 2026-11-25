@@ -1,3 +1,12 @@
+## 2026-11-25 — Align PPP shared-state checks and XY-C1 triggers
+
+- The PPP stable-state regression and Process/Lifecycle workflow passed on 4f969e4313a14fc4b185e9af4e1a7c6715e08e0c. HTTPD Security on that SHA failed only because its PPP contract still searched net_ppp.c for O_NOFOLLOW and same-inode locking; WAN DHCP callback run #45519973125 on parent e02d1e3 had the same stale assertions, including fsync inline in the wrapper.
+- Updated both static contracts to inspect ppp_callback_state_file.h for owner/regular-file/O_NOFOLLOW validation, stable F_WRLCK sidecar handling, fsync and atomic rename, while checking net_ppp.c for wrapper integration and separate-state publication.
+- XY-C1, HTTPD and WAN DHCP path filters now include both PPP callback policy headers and the state-file regression. This ensures that changes to the directly included implementation helpers cannot silently bypass firmware or lifecycle validation.
+- Exact-head HTTPD/WAN/XY reruns are pending on the next main SHA. No L3 Build/TRX/artifact or L4 hardware result is claimed.
+
+---
+
 ## 2026-11-24 — Preserve PPP callback generations on failed state writes
 
 - A concrete fault path existed in PPP WAN session fencing: ppp_wan_session_generation_change() used the same inode as its fcntl lock and executed lseek()+ftruncate(0) before writing the next decimal generation. A short write or I/O failure after truncation left the pre-existing state file empty/partial; ppp_callback_generation_initial_state_allowed() correctly refuses to reset a pre-existing empty file, so later callback entry and WAN teardown remained fail-closed but wedged.

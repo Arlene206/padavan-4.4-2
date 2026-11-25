@@ -252,6 +252,8 @@ on:
       - "trunk/user/rc/src/ppp_option_value_policy.h"
       - "trunk/user/rc/src/ppp_callback_identity_policy.h"
       - "trunk/user/rc/src/ppp_callback_generation_policy.h"
+      - "trunk/user/rc/src/ppp_callback_state_file.h"
+      - "trunk/user/rc/src/tests/ppp_callback_state_file.c"
       - "trunk/user/rc/src/tests/ppp_options_file.c"
       - "trunk/user/rc/src/tests/ppp_option_value_policy.c"
       - "trunk/user/rc/src/tests/ppp_callback_identity_policy.c"
@@ -567,6 +569,8 @@ on:
       - "trunk/user/rc/src/ppp_option_value_policy.h"
       - "trunk/user/rc/src/ppp_callback_identity_policy.h"
       - "trunk/user/rc/src/ppp_callback_generation_policy.h"
+      - "trunk/user/rc/src/ppp_callback_state_file.h"
+      - "trunk/user/rc/src/tests/ppp_callback_state_file.c"
       - "trunk/user/rc/src/tests/ppp_options_file.c"
       - "trunk/user/rc/src/tests/ppp_option_value_policy.c"
       - "trunk/user/rc/src/tests/ppp_callback_identity_policy.c"
@@ -2439,6 +2443,7 @@ jobs:
           identity_policy = Path("trunk/user/rc/src/ppp_callback_identity_policy.h").read_text()
           identity_test = Path("trunk/user/rc/src/tests/ppp_callback_identity_policy.c").read_text()
           generation_policy = Path("trunk/user/rc/src/ppp_callback_generation_policy.h").read_text()
+          state_file_policy = Path("trunk/user/rc/src/ppp_callback_state_file.h").read_text()
           generation_test = Path("trunk/user/rc/src/tests/ppp_callback_generation_policy.c").read_text()
           ipcp = Path("trunk/user/pppd/ppp-2.4.7/pppd/ipcp.c").read_text(encoding="latin-1")
           ipv6cp = Path("trunk/user/pppd/ppp-2.4.7/pppd/ipv6cp.c").read_text(encoding="latin-1")
@@ -2507,10 +2512,13 @@ jobs:
           assert "ppp_wan_callback_session_enter(argc, argv, &callback_fd)" in ppp
           assert "ppp_callback_generation_matches(argv[6], current)" in ppp
           assert "PPP_WAN_SESSION_LOCK_ATTEMPTS" in ppp
-          assert "O_NOFOLLOW | O_NONBLOCK" in ppp
-          assert "O_CREAT | O_EXCL | O_NOFOLLOW | O_NONBLOCK" in ppp
-          assert "ppp_callback_generation_initial_state_allowed(created, allow_empty)" in ppp
+          assert '#include "ppp_callback_state_file.h"' in ppp
+          assert "O_NOFOLLOW | O_NONBLOCK" in state_file_policy
+          assert "O_CREAT | O_EXCL | O_NOFOLLOW | O_NONBLOCK" in state_file_policy
+          assert "ppp_callback_generation_initial_state_allowed(1, allow_missing)" in state_file_policy
           assert "ppp_callback_generation_initial_state_allowed" in generation_policy
+          assert "fsync(fd)" in state_file_policy
+          assert "rename(staged_path, path)" in state_file_policy
           assert "ppp_option_text_reject_ipparam" in value_policy
           assert "ipparam attacker" in value_test
           assert "ppp_callback_generation_parse" in generation_policy

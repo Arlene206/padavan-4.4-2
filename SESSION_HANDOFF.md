@@ -6,7 +6,7 @@ Continue one autonomous engineering stream on main. For each logical slice, crea
 
 ## Branch and checkpoint
 
-- Current production source baseline: 8b93aa36b93b1e21eaafa69640d4b12b55bdaf9c; refresh live main before every future write.
+- Current production source baseline: 4f969e4313a14fc4b185e9af4e1a7c6715e08e0c; refresh live main before every future write.
 - Frozen backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807; verified unchanged and read-only.
 - main is the only development ref. PR #1 is closed/unmerged and is not a development target.
 - Bootstrap, protocol, handoff, roadmap, dev-log window/index and live refs were recovered once. The recorded RC whole-line parser gate has been superseded by subsequent main commits; do not repeat it.
@@ -15,14 +15,14 @@ Continue one autonomous engineering stream on main. For each logical slice, crea
 
 ### PPP WAN callback generation state: stable lock + atomic publication
 
-The PPP session token was stored in the same inode used as its fcntl lock. The generation-change path sought to offset zero and truncated this live lock file before writing the next generation. Any short write, I/O error or power loss after truncate permanently left an existing empty/corrupt state file; the lock reader deliberately rejects such a file rather than resetting the token, so subsequent callback entry and WAN teardown remain blocked. The new slice separates a stable wan-session.lock inode from wan-session.state, keeps all ## Current exact-head Actions on 0a92a8422ecbc9d38eb48f52992b967a4210fb5b
+The PPP session token was stored in the same inode used as its fcntl lock. The generation-change path sought to offset zero and truncated this live lock file before writing the next generation. Any short write, I/O error or power loss after truncate permanently left an existing empty/corrupt state file; the lock reader deliberately rejects such a file rather than resetting the token, so subsequent callback entry and WAN teardown remain blocked. The new slice separates a stable wan-session.lock inode from wan-session.state, keeps all ## Current exact-head Actions on 4f969e4313a14fc4b185e9af4e1a7c6715e08e0c
 
-- Process inventory/lifecycle #45519156108: PASS; the new IPTV/IGMP parser regression and empty-only fallback source contract both passed.
-- AI handoff #45519155900, HTTPD Security #45519155825, Firewall Startup #45519155838, DNSMasq lifecycle #45519155972, WAN route #45519156013 and WAN DHCP callback state #45519156194: PASS.
-- NVRAM boundary audit #45519155834 and USB hotplug #45519156121: PASS.
-- XY-C1 Firmware Validation #45519156024: Build XY-C1 was still IN_PROGRESS; TRX verification and artifact upload had not started at last poll. L3 is NOT VERIFIED. L4 hardware remains NOT VERIFIED.
-- Next active slice: PPP generation-state corruption after truncate/write failure. The new sidecar lock and staged generation publication must pass exact-head Process/Lifecycle regression before this slice is considered complete.
-- No local compile is claimed.
+- Process inventory/lifecycle #45520229274: PASS; PPP stable sidecar-lock and atomic-generation regression compiled and executed successfully.
+- Process lifecycle inventory #45520229341: PASS. AI handoff documentation #45520229286: PASS. NVRAM transaction boundary #45520229356 was IN_PROGRESS at last poll.
+- HTTPD Security #45520229267: FAIL only at its stale PPP source contract, which still searched net_ppp.c for O_NOFOLLOW and same-inode locking. The implementation now resides in ppp_callback_state_file.h; this correction updates the checker.
+- WAN DHCP callback state #45519973125 on parent e02d1e3 failed the same stale assumption at lines 937 and 946 (O_NOFOLLOW/fsync expected inline in net_ppp.c). This correction moves those assertions to the shared helper.
+- XY-C1 path filters omitted the PPP state/generation headers and new regression TU, preventing a current firmware workflow from validating the complete slice. This correction adds all three to firmware, HTTPD and WAN DHCP filter lists.
+- No exact-head XY-C1 Build/TRX/artifact result has yet been observed for the PPP state-file slice. L3 remains NOT VERIFIED; L4 remains NOT VERIFIED. No local compile is claimed.
 
 
 ## Completed source slices
