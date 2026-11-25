@@ -311,9 +311,7 @@ for item in ("dnsmasq directory symlink unexpectedly accepted",
 require(r's|chnroute_file=\"/etc_ro/chnroute.bz2\"|chnroute_file=\"$sandbox/chnroute.bz2\"|' in mtd_storage_fill_test,
         "MTD fill archive-failure fixture must redirect the indented production chnroute path")
 require('sh trunk/user/scripts/tests/mtd_storage_fill_safe_paths.sh' in workflow and
-        'BUSYBOX_BIN="$busybox_bin" sh trunk/user/scripts/tests/mtd_storage_fill_safe_paths.sh' in workflow and
-        '"trunk/user/scripts/tests/mtd_storage_fill_safe_paths.sh"' in push_filters and
-        '"trunk/user/scripts/tests/mtd_storage_fill_safe_paths.sh"' in pull_filters,
+        'BUSYBOX_BIN="$busybox_bin" sh trunk/user/scripts/tests/mtd_storage_fill_safe_paths.sh' in workflow,
         "MTD fill symlink fixture must run under host shell and BusyBox ash and be path-triggered")
 
 checked = body(libdisk, "read_disk_data_checked(disk_info_t **disk_info_out)")
@@ -1206,7 +1204,8 @@ for path in ("trunk/user/libdisk/src/disk_initial.c",
              "scripts/check_storage_safe_remove.py",
              "trunk/user/rc/src/optional_daemon_policy.h",
              "trunk/user/rc/src/service_daemon_wait_policy.h",
-             "trunk/user/shared/src/process_inventory.h"):
+             "trunk/user/shared/src/process_inventory.h",
+             "trunk/user/scripts/tests/mtd_storage_fill_safe_paths.sh"):
     require('"' + path + '"' in push_filters, "storage push filter missing " + path)
     require('"' + path + '"' in pull_filters, "storage pull_request filter missing " + path)
 for path in ("trunk/user/libdisk/src/disk_initial.c",

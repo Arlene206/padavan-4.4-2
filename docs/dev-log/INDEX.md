@@ -41,6 +41,7 @@
 | `docs/dev-log/2026/11/part-032.md` | 100 | 2026-11-23 — Propagate RStats history read descriptor-close failures → 2026-11-24 — Reject invalid HTTPD listener protocol selectors | 109288 | `88732d131b6a19445dd603235c8b491d27916589` |
 | `docs/dev-log/2026/11/part-033.md` | 100 | 2026-11-24 — Correct HTTPD selector contract and ensure XY-C1 build coverage → 2026-11-25 — Unify udhcpc cleanup retry delay and lock full state transitions | 93785 | `d3714d2d8b08624dadc843691fa3d947bdbb3f42` |
 | `docs/dev-log/2026/11/part-034.md` | 100 | 2026-11-25 — Correct shared retry-delay checker whitespace normalization → 2026-11-24 — Fix QMI source-contract test-file initialization order | 106599 | `b2cccb6b5b2073ff42820c25ecc6715646b45d09` |
+| `docs/dev-log/2026/11/part-035.md` | 101 | 2026-11-24 — Record IAPPD lifecycle test assertion diagnostics → 2026-11-25 19:35 CST — Block nested symlink traversal during MTD default fill | 77569 | `8f65b8f5e004a846d64426f192a51860c9df2d7c` |
 - **Rolling-window catch-up:** 102 oldest complete records evicted from root `dev_log.md` when it contained 122 entries at parent main `7cd1ffd3eecc05786846be684053428f20e8f535` are preserved verbatim, oldest first, in `part-031.md`; root retains the newest 20 pre-existing records plus this rotation checkpoint (21 total). No record was rewritten or discarded.
 
 
@@ -137,3 +138,6 @@
 
 
 - **Rolling-window continuation:** 100 oldest complete root records evicted when `dev_log.md` reached 120 entries at parent main `87a3eeaebef52f84f606c3d67b58087ed2d6fa89` are preserved verbatim, oldest first, in `part-034.md`; pre-rotation root blob: `7aa869373ac544fba1f653435c1623c8e00fd097`. The 20 newest complete records remain in root. No record was rewritten or discarded.
+
+
+- **Rolling-window catch-up:** 101 oldest complete records evicted from root `dev_log.md` when it contained 121 records at parent main `97126868007380ae59651db62ad710a876470043` are preserved verbatim, oldest first, in `part-035.md`; pre-rotation root blob: `912b85501cb285330725ccba569234b657f9e3ab`. Root retains the newest 20 previous records plus this correction entry (21 total). No record was rewritten or discarded.
