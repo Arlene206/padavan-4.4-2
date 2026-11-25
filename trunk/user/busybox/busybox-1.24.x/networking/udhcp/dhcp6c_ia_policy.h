@@ -23,12 +23,18 @@ dhcp6c_ia_retry_required(int status)
 
 /* A duplicate add or deletion of an absent address already has the target state. */
 static inline int
-dhcp6c_ia_ifaddr_change_complete(int is_add, int error)
+dhcp6c_ia_ifaddr_change_complete(int is_add, int error, int already_owned)
 {
 	if (error == 0)
 		return 1;
 	if (is_add)
-		return error == EEXIST;
+		return error == EEXIST && already_owned;
 	return error == ENOENT || error == EADDRNOTAVAIL;
+}
+
+static inline int
+dhcp6c_ia_na_address_needs_remove(int address_owned)
+{
+	return address_owned != 0;
 }
 #endif /* DHCP6C_IA_POLICY_H */

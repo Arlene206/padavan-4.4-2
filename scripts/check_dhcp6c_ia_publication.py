@@ -140,8 +140,16 @@ expiry = function_body(ia, "static struct dhcp6_timer *iapref_timo(void *arg)")
 assert "if (remove_iaprefix(sp, sp->ctl->type) != 0)" in expiry
 assert "ia->cleanup_pending || ia->ctl == NULL || !pref_isvalid(ia->ctl)" in expiry
 
+assert "int addr_owned;" in ia
+assert "sp->addr_owned = 1;" in update_prefix
+assert "dhcp6c_ia_na_address_needs_remove(sp->addr_owned)" in remove_prefix
+assert "DHCP6_DURATION_INFINITE, DHCP6_DURATION_INFINITE, 0)" in add_ifprefix
+assert "DHCP6_DURATION_INFINITE, DHCP6_DURATION_INFINITE, 1)" in remove_prefix
 socket_body = function_body(socket, "int ifaddrconf(ifaddrconf_cmd_t cmd, const char *ifname, struct in6_addr *addr,")
-assert "dhcp6c_ia_ifaddr_change_complete(cmd == IFADDRCONF_ADD, errno)" in socket_body
+assert "dhcp6c_ia_ifaddr_change_complete(cmd == IFADDRCONF_ADD, errno," in socket_body
+assert "already_owned" in socket_body
+assert "return error == EEXIST && already_owned;" in policy
+assert "test_unowned_ia_na_collision_is_never_claimed_or_removed" in test
 assert "if (errno == EEXIST)" not in socket_body
 
 assert "test_failed_address_removal_is_retained_and_retried" in test

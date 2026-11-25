@@ -89,7 +89,8 @@ struct in6_ifreq {
 #endif /* __linux__ */
 
 int ifaddrconf(ifaddrconf_cmd_t cmd, const char *ifname, struct in6_addr *addr,
-	   int plen, int pltime UNUSED_PARAM, int vltime UNUSED_PARAM)
+	   int plen, int pltime UNUSED_PARAM, int vltime UNUSED_PARAM,
+	   int already_owned)
 {
 /*
  * TODO: Should be rewritten to Netlink calls in order to support
@@ -134,7 +135,8 @@ int ifaddrconf(ifaddrconf_cmd_t cmd, const char *ifname, struct in6_addr *addr,
 	req.ifr6_ifindex = ifr.ifr_ifindex;
 
 	if (ioctl(sk, ioctl_cmd, &req)) {
-		if (dhcp6c_ia_ifaddr_change_complete(cmd == IFADDRCONF_ADD, errno))
+		if (dhcp6c_ia_ifaddr_change_complete(cmd == IFADDRCONF_ADD, errno,
+						      already_owned))
 			goto out;
 		bb_perror_msg("can't %s address on %s", cmdstr[cmd], ifname);
 		close(sk);

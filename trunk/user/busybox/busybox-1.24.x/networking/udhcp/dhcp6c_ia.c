@@ -45,6 +45,7 @@ struct iaprefix {
 	time_t updatetime;
 	struct dhcp6_timer *timer;
 	struct iactl *ctl;
+	int addr_owned; /* this IA successfully installed its NA address */
 
 	union {
 		TAILQ_HEAD(, dhcp6_ifprefix) ifprefix_list; /* interface prefixes */
@@ -675,9 +676,14 @@ static int update_prefix6(struct ia *ia, struct dhcp6_listval *lv,
 			}
 		}
 		else if (lv->lvtype == DHCP6_LISTVAL_STATEFULADDR6) {
+			/*
+			 * Reconcile an address that this IA already owns, but do not
+			 * adopt a pre-existing address after an unowned EEXIST.
+			 */
 			if (ifaddrconf(IFADDRCONF_ADD, sp->u.dhcpif->ifname, &sp->pa.addr,
-				 128, sp->pa.pltime, sp->pa.vltime) < 0)
+				 128, sp->pa.pltime, sp->pa.vltime, sp->addr_owned) < 0)
 				return -1;
+			sp->addr_owned = 1;
 		}
 	}
 
@@ -754,7 +760,7 @@ static int remove_iaprefix(struct iaprefix *sp, int type)
 			next = TAILQ_NEXT(ip, plink);
 			if (ifaddrconf(IFADDRCONF_REMOVE, ip->ifconf->ifname,
 				       &ip->ifaddr, ip->plen,
-				       DHCP6_DURATION_INFINITE, DHCP6_DURATION_INFINITE) != 0) {
+				       DHCP6_DURATION_INFINITE, DHCP6_DURATION_INFINITE, 1) != 0) {
 				ret = errno > 0 ? errno : EIO;
 				continue;
 			}
@@ -763,8 +769,9 @@ static int remove_iaprefix(struct iaprefix *sp, int type)
 		}
 		if (ret != 0)
 			goto retry;
-	} else if (ifaddrconf(IFADDRCONF_REMOVE, sp->u.dhcpif->ifname, &sp->pa.addr,
-			     128, sp->pa.pltime, sp->pa.vltime) != 0) {
+	} else if (dhcp6c_ia_na_address_needs_remove(sp->addr_owned) &&
+		   ifaddrconf(IFADDRCONF_REMOVE, sp->u.dhcpif->ifname, &sp->pa.addr,
+			      128, sp->pa.pltime, sp->pa.vltime, 1) != 0) {
 		ret = errno > 0 ? errno : EIO;
 		goto retry;
 	}
@@ -932,7 +939,7 @@ static int add_ifprefix(struct iaprefix *iaprefix,
 		ifpfx->ifaddr.s6_addr[i] = pconf->ifid[i];
 	}
 	if (ifaddrconf(IFADDRCONF_ADD, ifpfx->ifconf->ifname, &ifpfx->ifaddr,
-		 ifpfx->plen, DHCP6_DURATION_INFINITE, DHCP6_DURATION_INFINITE)) {
+		 ifpfx->plen, DHCP6_DURATION_INFINITE, DHCP6_DURATION_INFINITE, 0)) {
 		if (errno == 0)
 			errno = EIO;
 		goto bad;

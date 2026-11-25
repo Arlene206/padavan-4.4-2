@@ -125,14 +125,38 @@ static void
 test_address_change_absent_and_duplicate_errors(void)
 {
 	assert(DHCP6C_IA_CLEANUP_RETRY_DELAY_MS == 5000ULL);
-	assert(dhcp6c_ia_ifaddr_change_complete(1, 0));
-	assert(dhcp6c_ia_ifaddr_change_complete(1, EEXIST));
-	assert(!dhcp6c_ia_ifaddr_change_complete(1, ENOENT));
-	assert(dhcp6c_ia_ifaddr_change_complete(0, 0));
-	assert(dhcp6c_ia_ifaddr_change_complete(0, ENOENT));
-	assert(dhcp6c_ia_ifaddr_change_complete(0, EADDRNOTAVAIL));
-	assert(!dhcp6c_ia_ifaddr_change_complete(0, EEXIST));
-	assert(!dhcp6c_ia_ifaddr_change_complete(0, EIO));
+	assert(dhcp6c_ia_ifaddr_change_complete(1, 0, 0));
+	assert(!dhcp6c_ia_ifaddr_change_complete(1, EEXIST, 0));
+	assert(dhcp6c_ia_ifaddr_change_complete(1, EEXIST, 1));
+	assert(!dhcp6c_ia_ifaddr_change_complete(1, ENOENT, 1));
+	assert(dhcp6c_ia_ifaddr_change_complete(0, 0, 0));
+	assert(dhcp6c_ia_ifaddr_change_complete(0, ENOENT, 0));
+	assert(dhcp6c_ia_ifaddr_change_complete(0, EADDRNOTAVAIL, 0));
+	assert(!dhcp6c_ia_ifaddr_change_complete(0, EEXIST, 1));
+	assert(!dhcp6c_ia_ifaddr_change_complete(0, EIO, 1));
+}
+
+static void
+test_unowned_ia_na_collision_is_never_claimed_or_removed(void)
+{
+	int address_owned = 0;
+
+	if (dhcp6c_ia_ifaddr_change_complete(1, EEXIST, address_owned))
+		address_owned = 1;
+	assert(address_owned == 0);
+	assert(!dhcp6c_ia_na_address_needs_remove(address_owned));
+}
+
+static void
+test_owned_ia_na_address_can_be_reconciled_and_removed(void)
+{
+	int address_owned = 0;
+
+	if (dhcp6c_ia_ifaddr_change_complete(1, 0, address_owned))
+		address_owned = 1;
+	assert(address_owned == 1);
+	assert(dhcp6c_ia_ifaddr_change_complete(1, EEXIST, address_owned));
+	assert(dhcp6c_ia_na_address_needs_remove(address_owned));
 }
 
 int
@@ -142,6 +166,8 @@ main(void)
 	test_first_error_and_retry_gate();
 	test_failed_address_removal_is_retained_and_retried();
 	test_address_change_absent_and_duplicate_errors();
+	test_unowned_ia_na_collision_is_never_claimed_or_removed();
+	test_owned_ia_na_address_can_be_reconciled_and_removed();
 	puts("DHCPv6 IA delegated-prefix retry and removal policy: PASS");
 	return 0;
 }

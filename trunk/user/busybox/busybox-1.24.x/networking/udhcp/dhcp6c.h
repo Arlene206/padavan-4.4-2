@@ -160,7 +160,7 @@ typedef enum { IFADDRCONF_ADD, IFADDRCONF_REMOVE } ifaddrconf_cmd_t;
 int sock6_init(const char *boundaddr, const char *port);
 
 int ifaddrconf(ifaddrconf_cmd_t, const char *ifname, struct in6_addr *,
-			int plen, int pltime, int vltime);
+			int plen, int pltime, int vltime, int already_owned);
 
 /* dhcp6c_script.c */
 char **fill_envp_client6(struct dhcp6_optinfo *optinfo, const char *ifname);
