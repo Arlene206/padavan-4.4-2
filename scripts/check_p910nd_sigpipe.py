@@ -42,6 +42,7 @@ assert "printerToNetworkBuffer.outfd = -1;" in copy
 assert "printerToNetworkBuffer.err = 0;" in copy
 assert "p910nd_fd_is_selectable(fd, FD_SETSIZE)" in copy
 assert "p910nd_fd_is_selectable(lp, FD_SETSIZE)" in copy
+assert copy.index("int result;") < copy.index("Buffer_t networkToPrinterBuffer;") < copy.index("p910nd_fd_is_selectable(fd, FD_SETSIZE)")
 assert copy.index("p910nd_fd_is_selectable") < copy.index("prepBuffer(&networkToPrinterBuffer")
 
 assert '#include "p910nd_io_policy.h"' in SOURCE

@@ -413,6 +413,7 @@ ssize_t writeBuffer(Buffer_t * b)
 int copy_stream(int fd, int lp)
 {
 	int result;
+	Buffer_t networkToPrinterBuffer;
 
 	/*
 	 * FD_SET indexes a fixed-size fd_set. A descriptor at or above
@@ -423,11 +424,10 @@ int copy_stream(int fd, int lp)
 	    (!p910nd_fd_is_selectable(fd, FD_SETSIZE) ||
 	     !p910nd_fd_is_selectable(lp, FD_SETSIZE))) {
 		errno = EINVAL;
-		dolog(LOG_ERR, "copy_stream: descriptor exceeds FD_SETSIZE (%d)\\n",
+		dolog(LOG_ERR, "copy_stream: descriptor exceeds FD_SETSIZE (%d)\n",
 		      FD_SETSIZE);
 		return -1;
 	}
-	Buffer_t networkToPrinterBuffer;
 	initBuffer(&networkToPrinterBuffer, fd, lp, 1);
 
 	if (bidir) {
