@@ -80,6 +80,8 @@ on:
       - "trunk/user/rc/src/firefly_config_file.h"
       - "trunk/user/rc/src/hwnat_config_policy.h"
       - "trunk/user/rc/src/igmpproxy_config_file.h"
+      - "trunk/user/rc/src/iptv_proxy_altnet_policy.h"
+      - "trunk/user/rc/src/iptv_proxy_nvram_policy.h"
       - "trunk/user/rc/src/init.c"
       - "trunk/user/rc/src/pid1_console_policy.h"
       - "trunk/user/rc/src/tests/pid1_console_policy.c"
@@ -354,6 +356,8 @@ on:
       - "trunk/user/rc/src/firefly_config_file.h"
       - "trunk/user/rc/src/hwnat_config_policy.h"
       - "trunk/user/rc/src/igmpproxy_config_file.h"
+      - "trunk/user/rc/src/iptv_proxy_altnet_policy.h"
+      - "trunk/user/rc/src/iptv_proxy_nvram_policy.h"
       - "trunk/user/rc/src/init.c"
       - "trunk/user/rc/src/pid1_console_policy.h"
       - "trunk/user/rc/src/tests/pid1_console_policy.c"
@@ -1290,10 +1294,17 @@ jobs:
 
           net = Path("trunk/user/rc/src/net.c").read_text()
           policy = Path("trunk/user/rc/src/igmpproxy_config_file.h").read_text()
+          nvram_policy = Path("trunk/user/rc/src/iptv_proxy_nvram_policy.h").read_text()
+          altnet = Path("trunk/user/rc/src/iptv_proxy_altnet_policy.h").read_text()
           assert "igmpproxy_config_altnet_or_default(settings->altnet)" in net
           assert "if (strlen(settings->altnet) > 6)" not in net
           assert "igmpproxy_config_altnet_token(values->altnet)" in policy
-          assert "prefix > 3 || (prefix == 3 && digit > 2)" in policy
+          assert '#include "iptv_proxy_altnet_policy.h"' in policy
+          assert "iptv_proxy_altnet_is_valid(value)" in policy
+          assert "iptv_proxy_altnet_normalize(settings->altnet" in nvram_policy
+          assert "prefix > 3 || (prefix == 3 && digit > 2)" in altnet
+          assert "if (*cursor == '0' && cursor[1] >= '0' && cursor[1] <= '9')" in altnet
+          assert "&& !all_ones;" in altnet
           print("IPTV proxy IPv4/CIDR validation and empty-only default contract: PASS")
           PY
       - name: Compile and run XUPnPD unique temporary-file regression

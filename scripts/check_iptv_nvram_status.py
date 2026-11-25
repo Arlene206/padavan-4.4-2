@@ -101,9 +101,12 @@ require("settings->enabled" in start_internal and
 require('#include "igmpproxy_config_file.h"' in SOURCE and
         "igmpproxy_config_publish(igmpproxy_conf, &config_values)" in start_internal,
         "the validated IGMP config helper must be used by the production proxy launch path")
-require("if (*cursor == '0' && cursor[1] >= '0' && cursor[1] <= '9')" in IGMP_CONFIG_POLICY and
-        "if (all_ones)" in IGMP_CONFIG_POLICY,
-        "IGMP altnet validation must match bundled inet_addr octal and INADDR_NONE behavior")
+require('#include "iptv_proxy_altnet_policy.h"' in IGMP_CONFIG_POLICY and
+        "iptv_proxy_altnet_is_valid(value)" in IGMP_CONFIG_POLICY and
+        "if (*cursor == '0' && cursor[1] >= '0' && cursor[1] <= '9')" in IPTV_ALTNET_POLICY and
+        "if (octet != 255U)" in IPTV_ALTNET_POLICY and
+        "&& !all_ones;" in IPTV_ALTNET_POLICY,
+        "IGMP altnet validation must share the strict inet_addr-compatible octal and INADDR_NONE policy")
 require('"010.0.0.0/8"' in IGMP_CONFIG_TEST and
         '"192.168.001.1/24"' in IGMP_CONFIG_TEST and
         '"255.255.255.255/32"' in IGMP_CONFIG_TEST and
