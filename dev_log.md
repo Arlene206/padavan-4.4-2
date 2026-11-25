@@ -1,3 +1,13 @@
+## 2026-11-25 — Make DHCPv4 lease callback environment publication atomic
+
+- The DHCPv4 `fill_envp()` path in `udhcp/dhcpc.c` ignored all eight `putenv()` results and `udhcp_run_script()` invoked the event script regardless. Under memory pressure, a bound/renew callback could receive only part of the lease/options environment and mutate runtime configuration with incomplete data.
+- Extracted the reverse-order rollback publisher into shared `dhcp_script_env_policy.h`; DHCPv6 keeps a compatibility wrapper. DHCPv4 now stages the complete interface/lease/options environment, checks publication as a unit, rolls back on failure, frees the vector, and refuses to launch the script when construction fails. Existing bound/renew handling already treats nonzero callback status as a retry and does not commit the lease.
+- Extended GNU89 callback-policy tests and the Python source contract for shared rollback, NULL arguments, DHCPv4 staging/no-unchecked-putenv and no-spawn behavior. Both DHCP callback workflow filters now include the DHCPv4 source and shared policy.
+- Exact-head callback and XY-C1 Actions will validate this slice; no firmware or router runtime result is claimed.
+- Changed paths: `dhcpc.c`, `dhcp_script_env_policy.h`, `dhcp6c_script_retry_policy.h`, `tests/dhcp6c_script_retry_policy.c`, `scripts/check_dhcp6c_script_retry.py`, `dhcp6c-script-retry-stability.yml`, `wan-dhcp-callback-stability.yml`.
+
+---
+
 ## 2026-11-25 — Preserve the active p910nd PID across duplicate starts
 
 - The standalone server previously wrote `/var/run/p910%c.pid` before acquiring the printer singleton lock with blocking `F_SETLKW`. A duplicate start could therefore overwrite the active daemon's PID record, then block waiting for the lock; service stop/status could act on the waiting child instead of the active listener.

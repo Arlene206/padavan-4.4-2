@@ -24,6 +24,7 @@
 #include "common.h"
 #include "dhcpd.h"
 #include "dhcpc.h"
+#include "dhcp_script_env_policy.h"
 #include "udhcpc_script_policy.h"
 #include "process_pidfile_record.h"
 #include <fcntl.h>
@@ -431,6 +432,11 @@ static NOINLINE char *xmalloc_optname_optval(uint8_t *option, const struct dhcp_
 }
 
 /* put all the parameters into the environment */
+static void udhcpc_unsetenv(const char *entry)
+{
+	bb_unsetenv(entry);
+}
+
 static char **fill_envp(struct dhcp_packet *packet)
 {
 	int envc;
@@ -477,10 +483,10 @@ static char **fill_envp(struct dhcp_packet *packet)
 	curr = envp = xzalloc(sizeof(envp[0]) * envc);
 
 	*curr = xasprintf("interface=%s", client_config.interface);
-	putenv(*curr++);
+	curr++;
 
 	if (!packet)
-		return envp;
+		goto publish_env;
 
 	/* Export BOOTP fields. Fields we don't (yet?) export:
 	 * uint8_t op;      // always BOOTREPLY
@@ -499,22 +505,22 @@ static char **fill_envp(struct dhcp_packet *packet)
 	/* Most important one: yiaddr as $ip */
 	*curr = xmalloc(sizeof("ip=255.255.255.255"));
 	sprint_nip(*curr, "ip=", (uint8_t *) &packet->yiaddr);
-	putenv(*curr++);
+	curr++;
 	if (packet->siaddr_nip) {
 		/* IP address of next server to use in bootstrap */
 		*curr = xmalloc(sizeof("siaddr=255.255.255.255"));
 		sprint_nip(*curr, "siaddr=", (uint8_t *) &packet->siaddr_nip);
-		putenv(*curr++);
+		curr++;
 	}
 	if (!(overload & FILE_FIELD) && packet->file[0]) {
 		/* watch out for invalid packets */
 		*curr = xasprintf("boot_file=%."DHCP_PKT_FILE_LEN_STR"s", packet->file);
-		putenv(*curr++);
+		curr++;
 	}
 	if (!(overload & SNAME_FIELD) && packet->sname[0]) {
 		/* watch out for invalid packets */
 		*curr = xasprintf("sname=%."DHCP_PKT_SNAME_LEN_STR"s", packet->sname);
-		putenv(*curr++);
+		curr++;
 	}
 
 	/* Export known DHCP options */
@@ -588,11 +594,11 @@ static char **fill_envp(struct dhcp_packet *packet)
 		} else {
 			*curr = xmalloc_optname_optval(temp, &dhcp_optflags[i], opt_name);
 		}
-		putenv(*curr++);
+		curr++;
 		if (code == DHCP_SUBNET) {
 			/* Only publish a prefix for a validated contiguous mask. */
 			*curr = xasprintf("mask=%u", subnet_prefix_length);
-			putenv(*curr++);
+			curr++;
 		}
  next:
 		opt_name += strlen(opt_name) + 1;
@@ -616,11 +622,22 @@ static char **fill_envp(struct dhcp_packet *packet)
 			*curr = xmalloc(sizeof("optNNN=") + 1 + len*2);
 			ofs = sprintf(*curr, "opt%u=", i);
 			*bin2hex(*curr + ofs, (void*) temp, len) = '\0';
-			putenv(*curr++);
+			curr++;
 		}
 		i++;
 	}
 
+publish_env:
+	/* Never run a DHCP event with an incomplete lease/options environment. */
+	if (dhcp_script_env_publish(envp, putenv, udhcpc_unsetenv) != 0) {
+		int saved_errno = errno ? errno : ENOMEM;
+
+		for (curr = envp; *curr != NULL; ++curr)
+			free(*curr);
+		free(envp);
+		errno = saved_errno;
+		return NULL;
+	}
 	return envp;
 }
 
@@ -632,6 +649,13 @@ static int udhcp_run_script(struct dhcp_packet *packet, const char *name)
 	int status;
 
 	envp = fill_envp(packet);
+
+	/* A failed environment build must never launch a DHCP event script. */
+	if (envp == NULL) {
+		if (errno == 0)
+			errno = ENOMEM;
+		return -1;
+	}
 
 	/* call script */
 	log1("Executing %s %s", client_config.script, name);

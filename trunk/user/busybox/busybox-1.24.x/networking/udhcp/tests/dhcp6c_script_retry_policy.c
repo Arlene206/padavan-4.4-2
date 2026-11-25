@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "dhcp6c_script_retry_policy.h"
+#include "dhcp_script_env_policy.h"
 
 #define CHECK(condition) do { \
 	if (!(condition)) { \
@@ -92,6 +93,33 @@ static int test_environment_publish_null_callback_is_rejected(void)
 	return 0;
 }
 
+static int test_dhcpv4_uses_shared_atomic_environment_publisher(void)
+{
+	char *envp[] = { "interface=eth0", "ip=192.0.2.10", "lease=3600", NULL };
+
+	reset_env_publish_fixture(1);
+	errno = 0;
+	CHECK(dhcp_script_env_publish(envp, fake_env_publish, fake_env_unset) == -1);
+	CHECK(errno == E2BIG);
+	CHECK(publish_calls == 2);
+	CHECK(unset_calls == 1);
+	CHECK(strcmp(unset_entries[0], "interface=eth0") == 0);
+	return 0;
+}
+
+static int test_shared_publisher_rejects_null_environment_and_unsetter(void)
+{
+	char *envp[] = { "interface=eth0", NULL };
+
+	errno = 0;
+	CHECK(dhcp_script_env_publish(NULL, fake_env_publish, fake_env_unset) == -1);
+	CHECK(errno == EINVAL);
+	errno = 0;
+	CHECK(dhcp_script_env_publish(envp, fake_env_publish, NULL) == -1);
+	CHECK(errno == EINVAL);
+	return 0;
+}
+
 static int test_timer_remaining_clamps_expired_deadlines(void)
 {
 	CHECK(dhcp6_timer_remaining_ms(1500ULL, 1000ULL) == 500ULL);
@@ -130,7 +158,9 @@ static int test_retry_delay_is_bounded_and_nonzero(void)
 
 int main(void)
 {
-	if (test_environment_publish_rolls_back_partial_set() != 0 ||
+	if (test_dhcpv4_uses_shared_atomic_environment_publisher() != 0 ||
+	    test_shared_publisher_rejects_null_environment_and_unsetter() != 0 ||
+	    test_environment_publish_rolls_back_partial_set() != 0 ||
 	    test_environment_publish_failure_without_errno_uses_enomem() != 0 ||
 	    test_environment_publish_success_keeps_all_entries() != 0 ||
 	    test_environment_publish_null_callback_is_rejected() != 0 ||
@@ -141,6 +171,6 @@ int main(void)
 	    test_retry_delay_is_bounded_and_nonzero() != 0)
 		return 1;
 
-	puts("DHCPv6 configuration-script retry and timer policy: PASS");
+	puts("DHCPv4/v6 callback environment and retry policy: PASS");
 	return 0;
 }

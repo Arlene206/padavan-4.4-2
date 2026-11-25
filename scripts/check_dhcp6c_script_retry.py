@@ -46,6 +46,8 @@ def function_body(source, signature):
 base = "trunk/user/busybox/busybox-1.24.x/networking/udhcp/"
 dhcp6c = (ROOT / (base + "dhcp6c.c")).read_text()
 common = (ROOT / (base + "dhcp6c_common.c")).read_text()
+dhcp4c = (ROOT / (base + "dhcpc.c")).read_text()
+shared_policy = (ROOT / (base + "dhcp_script_env_policy.h")).read_text()
 script_runner = (ROOT / (base + "dhcp6c_script.c")).read_text()
 policy = (ROOT / (base + "dhcp6c_script_retry_policy.h")).read_text()
 test = (ROOT / (base + "tests/dhcp6c_script_retry_policy.c")).read_text()
@@ -79,12 +81,30 @@ assert "int saved_errno = errno ? errno : ENOMEM;" in publication
 assert "while (published > 0)" in publication
 assert "unset_value(envp[--published]);" in publication
 assert "errno = saved_errno;" in publication
+assert "dhcp_script_env_publish(envp, publish, unset_value)" in policy
+shared_publication = function_body(shared_policy, "dhcp_script_env_publish(")
+assert "if (!envp || !publish || !unset_value)" in shared_publication
+assert "while (published > 0)" in shared_publication
+assert "unset_value(envp[--published]);" in shared_publication
+assert "errno = saved_errno;" in shared_publication
 runner = function_body(script_runner, "int dhcp6_script(const char *scriptpath, char **envp)")
 assert "if (envp == NULL)" in runner
 assert runner.index("if (envp == NULL)") < runner.index("status = spawn_and_wait(argv);")
 assert "status = spawn_and_wait(argv);" in runner
 assert "return status;" in runner
 assert "free(envp);" in runner
+
+assert '#include "dhcp_script_env_policy.h"' in dhcp4c
+dhcp4_builder = function_body(dhcp4c, "static char **fill_envp(struct dhcp_packet *packet)")
+assert "putenv(*curr++)" not in dhcp4_builder
+assert "dhcp_script_env_publish(envp, putenv, udhcpc_unsetenv)" in dhcp4_builder
+assert "goto publish_env;" in dhcp4_builder and "publish_env:" in dhcp4_builder
+assert "for (curr = envp; *curr != NULL; ++curr)" in dhcp4_builder
+assert "free(envp);" in dhcp4_builder
+dhcp4_runner = function_body(dhcp4c, "static int udhcp_run_script(struct dhcp_packet *packet, const char *name)")
+assert "if (envp == NULL)" in dhcp4_runner
+assert dhcp4_runner.index("if (envp == NULL)") < dhcp4_runner.index("status = spawn_and_wait(argv);")
+assert "status = spawn_and_wait(argv);" in dhcp4_runner
 
 reply = function_body(dhcp6c, "static int client6_recvreply(struct dhcp6_if *ifp, struct dhcp6_event *ev,")
 assert "int state, script_status = 0;" in reply
@@ -107,7 +127,7 @@ assert "DHCP6C_SCRIPT_RETRY_DELAY_MS == 5000ULL" in test
 assert "dhcp6_timer_remaining_ms(1500ULL, 1000ULL) == 500ULL" in test
 assert "dhcp6_timer_remaining_ms(1000ULL, 1000ULL) == 0ULL" in test
 assert "dhcp6_timer_remaining_ms(999ULL, 1000ULL) == 0ULL" in test
-assert "DHCPv6 configuration-script retry and timer policy: PASS" in test
+assert "DHCPv4/v6 callback environment and retry policy: PASS" in test
 
 timer_rest = function_body(common, "unsigned long long dhcp6_timer_rest(struct dhcp6_timer *timer)")
 assert '#include "dhcp6c_script_retry_policy.h"' in common
@@ -124,7 +144,7 @@ for marker in (
     "test_positive_exit_status_retries",
     "test_spawn_failure_retries",
     "test_retry_delay_is_bounded_and_nonzero",
-    "DHCPv6 configuration-script retry and timer policy: PASS",
+    "DHCPv4/v6 callback environment and retry policy: PASS",
 ):
     assert marker in test, marker
 
