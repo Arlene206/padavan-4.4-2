@@ -138,6 +138,11 @@ ftp_test = read("trunk/user/rc/src/tests/ftp_daemon_policy.c")
 daemon_wait_policy = read("trunk/user/rc/src/service_daemon_wait_policy.h")
 workflow = read(".github/workflows/storage-hotplug-stability.yml")
 xy_workflow = read(".github/workflows/xy-c1-firmware-validation.yml")
+push_at = workflow.index("  push:\n    paths:\n")
+pr_at = workflow.index("  pull_request:\n    paths:\n")
+jobs_at = workflow.index("\n\njobs:")
+push_filters = workflow[push_at:pr_at]
+pull_filters = workflow[pr_at:jobs_at]
 mtd_storage = read("trunk/user/scripts/files/sbin/mtd_storage.sh")
 opt_umount = read("trunk/user/optware/opt-umount.sh")
 opt_lock = read("trunk/user/scripts/files/sbin/optware_lifecycle_lock.sh")
@@ -1192,11 +1197,6 @@ require(rwfs_call < persist_gate < shutdown.index("storage_save_time(") <
 require(shutdown.count("umount_rwfs_partition(") == 1,
         "shutdown must not unmount RWFS after MTD persistence")
 
-push_at = workflow.index("  push:\n    paths:\n")
-pr_at = workflow.index("  pull_request:\n    paths:\n")
-jobs_at = workflow.index("\n\njobs:")
-push_filters = workflow[push_at:pr_at]
-pull_filters = workflow[pr_at:jobs_at]
 for path in ("trunk/user/libdisk/src/disk_initial.c",
              "trunk/user/libdisk/src/disk_initial.h",
              "trunk/user/libdisk/src/disk_inventory_policy.h",
