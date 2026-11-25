@@ -211,13 +211,13 @@ test_upload_target_policy_and_secure_comparison(const char *dir,
 static void
 test_multipart_boundary_requires_a_complete_delimiter(void)
 {
-    char false_prefix[] = "archive\\r\\n--router-boundaryXpayload";
-    char bare_prefix[] = "archive\\r\\n--router-boundary";
-    char regular[] = "archive\\r\\n--router-boundary\\r\\nnext";
-    char closing[] = "archive\\n--router-boundary--\\r\\n";
-    char padded[] = "archive\\r\\n--router-boundary \\t\\r\\nnext";
-    char invalid_closing[] = "archive\\r\\n--router-boundary--Xpayload";
-    const char *marker = "\\r\\n--router-boundary";
+    char false_prefix[] = "archive\r\n--router-boundaryXpayload";
+    char bare_prefix[] = "archive\r\n--router-boundary";
+    char regular[] = "archive\r\n--router-boundary\r\nnext";
+    char closing[] = "archive\n--router-boundary--\r\n";
+    char padded[] = "archive\r\n--router-boundary \t\r\nnext";
+    char invalid_closing[] = "archive\r\n--router-boundary--Xpayload";
+    const char *marker = "\r\n--router-boundary";
     char *found;
 
     assert(httpd_upload_find_multipart_boundary(
@@ -232,7 +232,7 @@ test_multipart_boundary_requires_a_complete_delimiter(void)
     assert(found == regular + strlen("archive"));
 
     found = httpd_upload_find_multipart_boundary(
-        closing, strlen(closing), "\\n--router-boundary");
+        closing, strlen(closing), "\n--router-boundary");
     assert(found == closing + strlen("archive"));
 
     found = httpd_upload_find_multipart_boundary(
@@ -253,21 +253,21 @@ test_multipart_boundary_carry_covers_maximum_marker_and_padding(void)
     size_t previous_length, remaining;
     char *found;
 
-    memcpy(marker, "\\r\\n--", 4U);
+    memcpy(marker, "\r\n--", 4U);
     memset(marker + 4U, 'B', marker_length - 4U);
-    marker[marker_length] = '\\0';
+    marker[marker_length] = '\0';
 
     memcpy(padded, marker, marker_length);
     memset(padded + marker_length, ' ', HTTPD_UPLOAD_BOUNDARY_MAX_PADDING);
     memcpy(padded + marker_length + HTTPD_UPLOAD_BOUNDARY_MAX_PADDING,
-           "\\r\\n", 2U);
+           "\r\n", 2U);
     found = httpd_upload_find_multipart_boundary(
         padded, sizeof(padded) - 1U, marker);
     assert(found == padded);
 
     memset(body, 'x', sizeof(body));
     memcpy(body + body_marker_offset, marker, marker_length);
-    memcpy(body + body_marker_offset + marker_length, "\\r\\n", 2U);
+    memcpy(body + body_marker_offset + marker_length, "\r\n", 2U);
 
     previous_length = split;
     memset(carry, 0, sizeof(carry));

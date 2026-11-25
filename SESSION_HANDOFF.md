@@ -1,16 +1,16 @@
-## 2026-11-25 active handoff — HTTPD multipart delimiter validation
+## 2026-11-25 active handoff — HTTPD multipart fixture byte correction
 
-- Live main baseline before this slice: `bed104b17c44580b004e1f7dd4a857cc54fdb214`. The storage-restore parser in `upload.c` previously accepted a raw `\r\n--boundary` prefix without validating the delimiter-line suffix; payload bytes after the same prefix could truncate a BZ2 archive and still make it ready for atomic publication.
-- The rolling prefix was 64 bytes despite the accepted boundary buffer allowing a 127-byte marker. This slice adds bounded transport-padding and CRLF/LF suffix validation (including closing delimiters), plus a 257-byte rolling carry. Regression fixture covers false prefixes, malformed closing delimiters, regular/closing/LF forms, maximum padding and a marker split across reads. Focused local GNU89 ASan/UBSan harness PASS; exact repository Actions pending.
-- VSFTPD MDTM fixture adapter was corrected on `9dee075`; exact VSFTPD run #45645513224 on that SHA failed only at its prior source checker (line 586) due a comment-sensitive search. Subsequent main `bed104b` contains the corrected source contract; inspect newest exact-head run before changing it again.
-- WAN strict parser #45642479262 PASS on `8835ec2`; XY-C1 #45642479259 PASS on product SHA `8835ec2` with Build/TRX/artifact all PASS (L3 only for that SHA). DNSMasq #45645256714 and HTTPD #45645256648 PASS on `4b8aebab`; neither should be extrapolated to later source. Physical-router L4 NOT VERIFIED.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Main at start of this test-only follow-up: `7d3091f5892524cf6222d4f91404fa131dbd570c`. HTTPD multipart parser hardening is in `7d3091f5892524cf6222d4f91404fa131dbd570c`: it requires a valid delimiter-line ending and carries 257 bytes between reads.
+- Found the just-added fixture string literals were double-escaped, so they contained literal backslash-plus-letter sequences rather than CR/LF/tab bytes. Corrected those C literals; production source/header/workflow unchanged. Local focused GNU89 ASan/UBSan helper harness PASS. Exact repository HTTPD Actions still need confirmation.
+- VSFTPD MDTM fixture is token-length-correct on `9dee075`; the follow-up source checker fix landed on `bed104b`. Exact VSFTPD #45645904216 on `bed104b`: PASS. AI handoff #45645904067 on `bed104b`: PASS.
+- WAN strict parser #45642479262 PASS; XY-C1 #45642479259 on `8835ec2` passed Build/TRX/artifact (L3 applies only to that product SHA). DNSMasq #45645256714 and HTTPD #45645256648 PASS on `4b8aebab`. Newer HTTPD upload change has no exact workflow result yet. Physical-router L4 NOT VERIFIED.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only.
 
 ### First actions
 
-1. Inspect exact-SHA HTTPD security, AI handoff and XY-C1 runs for this multipart change; diagnose the first causal failure.
-2. Confirm the new GNU89 ASan/UBSan fixture and source-contract checks pass on the exact commit.
-3. Continue another independent stability/security implementation while firmware Actions are pending.
+1. Inspect exact-SHA HTTPD security and XY-C1 workflows after the corrected fixture commit; verify the source checker actually ran.
+2. If CI reveals a failure, diagnose the first causal error; do not weaken the delimiter contract.
+3. Continue another independent stability/security implementation while unrelated Actions are pending.
 
 ### Execution contract
 
@@ -22,15 +22,16 @@ This checkpoint supersedes older task pointers below. Historical completed work 
 
 ## Current repository state
 
-- Live main at this slice's start: `bed104b17c44580b004e1f7dd4a857cc54fdb214`; this atomic HTTPD source/test/workflow/documentation slice is its descendant. Resolve live main on every takeover.
+- Live main at test-follow-up start: `7d3091f5892524cf6222d4f91404fa131dbd570c`; the fixture-only follow-up is its non-forced descendant. Resolve live main on takeover.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only.
-- WAN strict IPv4 parser #45642479262 PASS on `8835ec2`; XY-C1 #45642479259 on the same product SHA passed Build, TRX and artifact upload. This is L3 only for `8835ec2`.
-- DNSMasq regression #45645256714 and HTTPD security #45645256648 PASS on `4b8aebab`; VSFTPD exact-source checker was corrected in later main `bed104b`, and its newest result must be inspected.
+- VSFTPD #45645904216 and AI handoff #45645904067 PASS on `bed104b`.
+- WAN strict IPv4 regression #45642479262 PASS on `8835ec2`; XY-C1 #45642479259 on product SHA `8835ec2` passed Build, TRX and artifact upload (L3 only for that SHA).
+- DNSMasq #45645256714 and HTTPD security #45645256648 PASS on `4b8aebab`. These precede the current multipart fix and do not validate it.
 - Physical-router L4 NOT VERIFIED.
 
 ## Active task
 
-Harden HTTPD multipart storage-restore scanning. A prefix-like byte sequence within a BZ2 payload must not be accepted as a MIME boundary unless a valid CRLF/LF delimiter ending follows; the scanner must also preserve enough bytes to detect the full accepted boundary across input chunks. Implementation and GNU89 regression fixture are part of the current slice; exact CI is pending.
+The HTTPD multipart storage-restore scanner now requires a valid CRLF/LF suffix after ordinary or closing boundary markers and retains 257 bytes between read chunks. The current test-only follow-up corrects C escapes so the regression exercises actual CR/LF/tab bytes instead of literal backslash text. Exact CI verification is pending.
 
 # Cross-session execution mandate
 
@@ -95,17 +96,16 @@ Commit `786c504c8247fe42d5d1d5f2dc3ad28757fafc80` strictly parses persisted RX/T
 
 ## Verification boundary
 
-- HTTPD multipart change: focused standalone GNU89 ASan/UBSan regression harness PASS. Repository `httpd-security` exact-source/test run and XY-C1 on the product SHA remain pending.
-- WAN strict IPv4 parser: exact regression #45642479262 PASS on `8835ec2`.
-- XY-C1 #45642479259 on product SHA `8835ec2`: Build, TRX and artifact upload PASS. This L3 result does not cover later commits.
-- DNSMasq #45645256714 and HTTPD #45645256648 pass on `4b8aebab`; VSFTPD checker changes now on `bed104b`, newest exact run pending.
+- HTTPD multipart helper: focused standalone GNU89 ASan/UBSan harness PASS. Repository fixture bytes were corrected in this test-only follow-up; exact `httpd-security` source/test workflow has not yet been observed for the new SHA.
+- VSFTPD exact run #45645904216 PASS on `bed104b`; AI handoff #45645904067 PASS on that SHA.
+- WAN regression #45642479262 PASS on `8835ec2`; XY-C1 #45642479259 on the same product SHA passed Build/TRX/artifact. No claim for later product SHAs.
 - Physical-router L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`, inspect exact-SHA HTTPD security, AI handoff and XY-C1 runs for this multipart fix; repair the first causal failure.
-2. Verify the new multipart GNU89 ASan/UBSan cases and source contract on the exact commit. Do not infer firmware L3 from an older product SHA.
-3. Continue an independent userland stability/security source fix while Actions are pending.
+1. Fetch live `main`; inspect HTTPD security, AI docs and XY-C1 exact-SHA runs triggered by the fixture byte correction.
+2. Confirm CR/LF/tab fixtures compile and run under the repository's GNU89 ASan/UBSan step, then validate the upload source contract.
+3. Continue another independent userland stability/security source fix; PENDING Actions do not block it.
 
 ## Mandatory handoff checkpoint
 

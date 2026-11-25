@@ -1,3 +1,10 @@
+## 2026-11-25 — Correct HTTPD multipart fixture escape sequences
+
+- Review of the newly added boundary regression found that the C string literals had two backslashes before `r`, `n`, `t` and `0`. They exercised literal backslash text rather than actual CR/LF/tab/NUL byte semantics.
+- Corrected the fixture literals to single C escape sequences. Production helper and parser logic are unchanged. The focused helper harness compiled and passed under GNU89 ASan/UBSan; the exact repository workflow is still pending.
+
+---
+
 ## 2026-11-25 — Validate complete HTTPD multipart delimiters
 
 - Storage-restore scanning previously accepted any `\r\n--boundary` prefix without checking the following delimiter-line syntax. A BZ2 payload containing the same prefix followed by an ordinary byte could be mistaken for end-of-part; the truncated upload could be atomically published and flagged ready, replacing the retained retry archive.
