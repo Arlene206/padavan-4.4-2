@@ -72,7 +72,7 @@ fixed_routes_guard = fill_envp.index(
     "udhcpc_fixed_route_list_option_is_well_formed("
 )
 static_routes_guard = fill_envp.index(
-    "udhcpc_static_routes_option_is_well_formed(temp, route_option_length)"
+    "udhcpc_static_routes_option_is_well_formed("
 )
 fixed_routes_invalid = fill_envp.index(
     'xasprintf("%s=!invalid!", opt_name)', fixed_routes_guard
