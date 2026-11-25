@@ -50,6 +50,7 @@ arIpAddress6 () {
 				print secondary_address
 			} else {
 				exit 1
+			}
 		}
 	') || return 1
 	aliddns_ipv6_public_valid "$wan6_address" || return 1

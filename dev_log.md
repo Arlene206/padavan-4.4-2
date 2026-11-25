@@ -1,3 +1,12 @@
+## 2026-11-25 — Close the AliDDNS IPv6-selection AWK block
+
+- Exact-head AliDDNS run #45713498685 on `31078270` passed the API and IPv4 regressions but the WAN IPv6 fixture exposed a syntax error in the new selector: the final `else` was closed, but the surrounding AWK `END` action was not.
+- Added the missing closing brace before the AWK program terminator. The defect was isolated to the IPv6 selection script; no public-address policy or fallback semantics changed.
+- Local shell syntax and AWK selector smoke checks PASS. Exact-head AliDDNS and XY-C1 checks for this follow-up are pending; no firmware or hardware result is claimed.
+- Changed paths: `trunk/user/aliddns/ddns_script.sh`, `dev_log.md`.
+
+---
+
 ## 2026-11-25 — Repair the complete DDNSTO TERM/KILL test assertion
 
 - DDNSTO exact-head run #45712559118 on `373b4a12` failed at the original unterminated ERE. The first test-only correction was incomplete: a replacement boundary left the following PASS message concatenated into the grep expression. Exact-head run #45713236953 on `a9dd0b06` therefore failed again with `grep: Unmatched (`.
