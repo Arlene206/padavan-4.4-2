@@ -116,10 +116,17 @@ if ! run_backup; then echo "valid backup unexpectedly failed" >&2; exit 1; fi
 size=$(stat -c %s "$sandbox/private/storage.tar.bz2")
 [ "$size" -ge 16 ] && [ "$size" -le 65536 ] || { echo "valid archive outside MTD size bounds: $size" >&2; exit 1; }
 archive_listing=$("$REAL_BZCAT" "$sandbox/private/storage.tar.bz2" | tar tf -)
-printf '%s\n' "$archive_listing" | grep -Fqx './config.conf'
-printf '%s\n' "$archive_listing" | grep -Fqx './.hidden.conf'
-printf '%s\n' "$archive_listing" | grep -Fqx './empty-dir/'
-bulk_entries=$(printf '%s\n' "$archive_listing" | awk 'index($0, "./bulk/") == 1 { count++ } END { print count + 0 }')
+bulk_entries=$(printf '%s\n' "$archive_listing" | awk '
+  $0 == "./config.conf" { have_config = 1 }
+  $0 == "./.hidden.conf" { have_hidden = 1 }
+  $0 == "./empty-dir/" { have_empty_dir = 1 }
+  index($0, "./bulk/") == 1 && $0 != "./bulk/" { count++ }
+  END {
+    if (!have_config || !have_hidden || !have_empty_dir)
+      exit 1
+    print count + 0
+  }
+')
 [ "$bulk_entries" -eq 1200 ] || {
 	echo "large backup archive lost entries: expected 1200, got $bulk_entries" >&2
 	exit 1

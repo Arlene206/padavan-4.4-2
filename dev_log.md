@@ -1,3 +1,10 @@
+## 2026-11-25 19:00 CST — Count MTD backup payload files without counting the parent directory
+
+- Exact USB-storage run #45599645522 on `ae45657d` passed the restore rollback, load/fill, and erase/reset regressions, then failed the large-backup test with 1,201 entries instead of 1,200. The archive correctly contains the `./bulk/` directory plus its 1,200 files; the assertion had counted the directory as a payload file. The three separate `grep -q` pipelines also let their producer receive early pipe closure. Replaced them with one full-stream AWK assertion that checks required entries and counts only children under `./bulk/`.
+- Test-only correction; production tar traversal remains unchanged. Exact-head storage-hotplug Actions required; no local BusyBox/firmware/hardware result is claimed.
+
+---
+
 ## 2026-11-25 18:55 CST — Match MTD restore retry rollback to the active tree
 
 - Exact USB-storage run #45598586819 on `32d56070` passed the preceding storage regressions, then `mtd_storage_restore_transaction.sh` failed because its second startup-failure scenario reused the tree installed by the first failed-start scenario but still asserted that the original source file existed. The first scenario correctly installs the restored tree and retains the former tree in rollback; after the test removes that backup, the next scenario must expect the currently active `new.conf` in its rollback snapshot. Corrected the fixture assertion; production restore logic is unchanged.
