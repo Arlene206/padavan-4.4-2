@@ -23,6 +23,14 @@ iapp_ioctl_ifname_arg_valid(int configured_count, size_t capacity,
 	       iapp_ifname_arg_valid(name_length, slot_size);
 }
 
+static inline int
+iapp_wifi_index_valid(int requested_index, size_t capacity,
+                      int configured_count)
+{
+	return requested_index >= 0 && configured_count > 0 &&
+	       requested_index < configured_count &&
+	       (size_t)requested_index < capacity;
+}
 /*
  * Return a validated configured name, or the safe fallback. The index and
  * configured-count checks deliberately precede pointer arithmetic and any
@@ -36,10 +44,8 @@ iapp_ioctl_ifname_select(const char *slots, size_t capacity, size_t slot_size,
 	const char *candidate;
 	const char *terminator;
 
-	if (!slots || !fallback || capacity == 0 || slot_size == 0 ||
-	    output_size == 0 || configured_count <= 0 || requested_index < 0 ||
-	    requested_index >= configured_count ||
-	    (size_t)requested_index >= capacity)
+	if (!slots || !fallback || slot_size == 0 || output_size == 0 ||
+	    !iapp_wifi_index_valid(requested_index, capacity, configured_count))
 		return fallback;
 
 	candidate = slots + (size_t)requested_index * slot_size;

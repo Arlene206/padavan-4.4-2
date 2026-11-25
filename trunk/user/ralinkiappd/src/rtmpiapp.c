@@ -1785,6 +1785,21 @@ static BOOLEAN IAPP_UDP_PacketSend(
 	UINT32 total_len;
 
 
+	/* The selected BSS index is used to read a fixed two-entry MAC array. */
+	if (!iapp_wifi_index_valid(if_idx, MAX_WIFI_COUNT, pCtrlBK->IfNameWlanCount))
+	{
+		DBGPRINT(RT_DEBUG_ERROR, "iapp> Invalid wireless BSS index for UDP packet (%d)!\\n", if_idx);
+		return FALSE;
+	}
+
+	struct sockaddr_in AddrMulticast;
+	RT_IAPP_HEADER *pIappHdr;
+	UINT16 Identifier;
+	UCHAR *pBufEncrypt;
+	BOOLEAN Status;
+	UINT32 total_len;
+
+
 	/* init */
 	pIappHdr = (RT_IAPP_HEADER *) pPkt;
 	Status = TRUE;

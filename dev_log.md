@@ -1,3 +1,10 @@
+## 2026-11-25 — Validate IAPP BSS index before UDP MAC lookup
+
+- A second fixed-array access remained after the initial ioctl-index fix: IAPP_UDP_PacketSend() copied `IfNameWlanMAC[if_idx]` into every outgoing broadcast frame without checking `if_idx`. The index comes from STA/interface lookup paths; an unexpected negative or out-of-range result could read outside the two-entry MAC array.
+- Added a shared `iapp_wifi_index_valid()` check and reject an invalid BSS index before packet-ID mutation or any MAC-array read. The ioctl interface selector now reuses the same policy, keeping the two-slot bounds consistent.
+- Extended the compiled C policy regression for indices -1, 0, 1, 2, 255 and configured counts 0/1/2; the shell source contract asserts the UDP guard precedes the MAC-array access. Exact-head IAPP and XY-C1 Actions pending.
+
+---
 ## 2026-11-25 — Bound all IAPP command-line interface names
 
 - The exact-head IAPP regression on `c89a47e69fbdec2edc43a36bd01de458f36ec122` FAILED in the newly added C fixture only: `char too_long[2][16]` was initialized with a 24-byte string under `-Werror`. The production index-bound source contract ran before the compiler stopped. The fixture now uses a 32-byte slot while still testing fallback against the 12-byte ioctl destination.

@@ -49,6 +49,20 @@ test_malformed_slots_and_names_fall_back(void)
 }
 
 static void
+test_wifi_index_bounds(void)
+{
+	assert(iapp_wifi_index_valid(0, 2, 1));
+	assert(iapp_wifi_index_valid(0, 2, 2));
+	assert(iapp_wifi_index_valid(1, 2, 2));
+	assert(!iapp_wifi_index_valid(1, 2, 1));
+	assert(!iapp_wifi_index_valid(2, 2, 2));
+	assert(!iapp_wifi_index_valid(255, 2, 2));
+	assert(!iapp_wifi_index_valid(-1, 2, 2));
+	assert(!iapp_wifi_index_valid(0, 2, 0));
+	assert(!iapp_wifi_index_valid(0, 2, -1));
+}
+
+static void
 test_parser_rejects_count_overflow_and_invalid_names(void)
 {
 	assert(iapp_ioctl_ifname_arg_valid(0, 2, 4, 16));
@@ -68,6 +82,7 @@ main(void)
 	test_valid_two_interface_slots();
 	test_out_of_range_and_unconfigured_indices_fall_back();
 	test_malformed_slots_and_names_fall_back();
+	test_wifi_index_bounds();
 	test_parser_rejects_count_overflow_and_invalid_names();
 	puts("IAPP ioctl interface index and parser bounds policy: PASS");
 	return 0;

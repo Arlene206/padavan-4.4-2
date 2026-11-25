@@ -1,28 +1,27 @@
 ## Current repository state — 2026-11-25
 
-- Live main parent before this IAPP parser hardening/test repair: c89a47e69fbdec2edc43a36bd01de458f36ec122; C source, shared policy helper update, C fixture repair, shell regression, dev log and handoff form one atomic descendant.
+- Live main parent before this UDP BSS-index guard: 50a7a3bec7fadb342587c01bd644a3507168b2f3; source, policy helper, C regression, shell contract, dev log and handoff are one atomic descendant.
 - Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains read-only at 72f4f157a084f8184b9597ca5bf334b8080e5807.
-- The previous commit `c89a47e69fbdec2edc43a36bd01de458f36ec122` introduced the IAPP two-slot ioctl index OOB fix and parser bounds test. Exact IAPP job #45688674702 FAILED because its new test declared a 16-byte array initialized from a 24-byte literal under `-Werror`; this is a test-fixture compile error, not a production regression. It is corrected in this slice.
-- The same audit found `-e` and `-w` parser strings were also copied to IFNAMSIZ arrays without length checks. They are now bounded alongside -wi. New source-order checks cover all three paths.
-- `c89a47e` XY-C1 run #45688674498 was in progress at last poll. IAPP fail log #45688674702 identified the C fixture initializer as the first causal failure. Do not claim its IAPP check passed.
-- Exact XY-C1 L3 remains achieved on `8b9b63401dd85232b257120111bb18475db6b5b6`: Build, TRX and artifact upload PASS on that identical SHA. Physical router L4 NOT VERIFIED.
-- SO_REUSEADDR commit `7d525c481a9cac2868b6ac58b3123cbf53278d05` exact IAPP/Process/NVRAM/AI/inventory/XY runs were still in progress at previous poll; current parser fix triggers both IAPP and XY because it changes production C under the existing `src/**` path filter.
-- Firewall exact-match and VSFTPD directory ACL commits retain their previously recorded PASS results. Closed PR #1 is fully inventoried, no cherry-pick. Backup untouched.
+- IAPP parser/index hardening commit `50a7a3bec7fadb342587c01bd644a3507168b2f3` exact IAPP lifecycle #45689047967 PASS, inventory #45689047731 PASS and handoff #45689047657 PASS. Process #45689047980, NVRAM #45689047687 and XY-C1 #45689047827 were still in progress; XY Build/TRX/artifact had not completed when last checked.
+- Its parent `c89a47e69fbdec2edc43a36bd01de458f36ec122` IAPP failure was only the 16-byte-vs-24-byte test fixture initializer under -Werror, corrected in 50a7. The same test compile issue caused c89's process lifecycle workflow failure; do not count either old failure as a production failure.
+- Commit 50a7 also protects `-e` and `-w` fixed interface strings against overlong arguments. The current change adds a further BSS index guard before `IfNameWlanMAC[if_idx]` in the UDP sender, sharing the same bounds policy as ioctl selection.
+- Earlier IAPP SO_REUSEADDR/TIME_WAIT commit `7d525c481a9cac2868b6ac58b3123cbf53278d05` exact checks were still in progress on XY at last poll; FTP ACL gates remain verified; exact XY-C1 L3 was achieved on `8b9b63401dd85232b257120111bb18475db6b5b6` (Build/TRX/artifact PASS).
+- PR #1 inventory complete, no code port required; backup untouched. Physical router L4 NOT VERIFIED.
 
 ## Active task
 
-Validate the parser hardening/test fixture repair at the exact new main SHA. Then continue targeted IAPP command-line and startup security review.
+Validate the current BSS index guard on exact IAPP and XY-C1 SHA. Continue bounded IAPP source audit for remaining untrusted index/length use.
 
 ## Exact first actions for next GPT
 
-1. Inspect exact-head IAPP workflow C helper regression and parser/selector source contract; fix any actual mismatch.
-2. Verify exact-head XY-C1 Build, TRX and artifact upload for this production C-source SHA.
-3. Poll the 7d525c, 1bc8702, 5ff68ed and defc1fe exact-SHA runs for completion; record each independently.
-4. Preserve frozen backup; do not port from closed PR #1.
+1. Inspect exact-head IAPP C policy and source-order regressions; repair any actual failure.
+2. Require XY-C1 Build, TRX and artifact upload all PASS on this exact source SHA before claiming L3.
+3. Poll the prior 50a7 and 7d525c exact-head XY-C1/other workflow runs; record each outcome separately.
+4. Preserve the frozen backup; do not re-open or cherry-pick closed PR #1.
 
 ## Execution contract
 
-Main-only; full Git tree, one commit per logical task, non-force update with exact expected SHA. No force-push, development branch, or new PR. PENDING checks do not block independent work.
+Main only; full Git tree, one commit per logical task, non-force update with exact expected SHA. No force-push, development branch or new PR. PENDING Actions do not block independent work.
 ## 2026-11-25 autonomous handoff checkpoint
 
 This checkpoint supersedes older active task pointers below; retain historical completed work without re-auditing completed areas.

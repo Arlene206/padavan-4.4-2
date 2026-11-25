@@ -110,6 +110,12 @@ parser_guard_line=$(grep -n -F "iapp_ioctl_ifname_arg_valid(" "$iapp_source" | h
 parser_store_line=$(grep -n -F "strcpy(pCtrlBK->IfNameWlanIoctl[pCtrlBK->IfNameWlanCount]," "$iapp_source" | head -1 | cut -d: -f1)
 [ -n "$parser_guard_line" ] && [ -n "$parser_store_line" ] && [ "$parser_guard_line" -lt "$parser_store_line" ] ||
   fail "IAPP -wi parser must validate before writing the fixed interface array"
+udp_guard_line=$(grep -n -F "iapp_wifi_index_valid(if_idx, MAX_WIFI_COUNT, pCtrlBK->IfNameWlanCount)" "$iapp_source" | cut -d: -f1)
+udp_mac_line=$(grep -n -F "pCtrlBK->IfNameWlanMAC[if_idx]" "$iapp_source" | cut -d: -f1)
+[ -n "$udp_guard_line" ] && [ -n "$udp_mac_line" ] && [ "$udp_guard_line" -lt "$udp_mac_line" ] ||
+  fail "IAPP UDP sender must validate the BSS index before reading its MAC array"
+grep -Fq "iapp_wifi_index_valid(" "$base/src/iapp_ioctl_ifname_policy.h" ||
+  fail "IAPP fixed-array index policy helper is missing"
 grep -Fq "iapp_ioctl_ifname_select(" "$iapp_source" ||
   fail "IAPP ioctl path must use the bounded interface selector"
 grep -Fq "ApIdx, sizeof(IfName), FT_KDP_DEFAULT_IF_WLAN_IOCTL" "$iapp_source" ||
