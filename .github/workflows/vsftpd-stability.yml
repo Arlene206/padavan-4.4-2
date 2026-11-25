@@ -1227,7 +1227,6 @@ jobs:
           function_name = "asus_check_upload_candidate_exists("
           assert source.count(function_name) == 1
           start = source.index(function_name)
-          start = source.index(signature)
           brace = source.index("{", start)
           depth = 0
           end = brace
