@@ -92,6 +92,7 @@ assert "TAILQ_FOREACH(ip, &sp->u.ifprefix_list, plink)" in installed
 assert "ip->ifconf == pif" in installed
 
 update_prefix = function_body(ia, "static int update_prefix6(struct ia *ia,")
+add_ifprefix = function_body(ia, "static int add_ifprefix(struct iaprefix *iaprefix,")
 assert "if (lv->lvtype == DHCP6_LISTVAL_PREFIX6)" in update_prefix
 assert "ifprefix_is_installed(sp, pif)" in update_prefix
 assert "dhcp6c_ia_pd_target_needs_apply(" in update_prefix
