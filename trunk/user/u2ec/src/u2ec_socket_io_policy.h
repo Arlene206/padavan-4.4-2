@@ -8,6 +8,7 @@
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#include <unistd.h>
 
 #define U2EC_CONFIG_COMMAND_UNKNOWN    0
 #define U2EC_CONFIG_COMMAND_GETNAME    1
@@ -137,6 +138,32 @@ u2ec_recv_all(int fd, void *buffer, size_t length)
     }
 
     return (ssize_t)received;
+}
+
+/*
+ * A FIFO with no writer reports readable EOF when opened read-only. U2EC
+ * keeps an RDWR descriptor to suppress that idle wakeup; still treat EOF and
+ * nonblocking races as "no event", never as an initialized control byte.
+ */
+static inline int
+u2ec_read_fifo_event(int fd, char *event)
+{
+    ssize_t result;
+
+    if (fd < 0 || !event) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    do {
+        result = read(fd, event, 1U);
+    } while (result < 0 && errno == EINTR);
+
+    if (result == 1)
+        return 1;
+    if (result == 0 || errno == EAGAIN || errno == EWOULDBLOCK)
+        return 0;
+    return -1;
 }
 
 /* SizeBuffer is a signed, peer-controlled byte count for a fixed buffer. */

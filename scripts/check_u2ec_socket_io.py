@@ -146,6 +146,21 @@ assert "u2ec_send_all_no_sigpipe(new_fd, \"\\0\\0\", 2U)" in establish
 assert "close(new_fd);" in establish
 assert "send(new_fd," not in source and "send(sockfd," not in source
 
+fifo_reader = body(source, "static int handle_fifo(")
+assert "u2ec_read_fifo_event(*fd, &c)" in fifo_reader
+assert fifo_reader.index("if (fifo_status < 0)") < fifo_reader.index("if (c == 'a')")
+assert fifo_reader.index("if (fifo_status == 0)") < fifo_reader.index('file_lock("printer")')
+assert "O_RDWR|O_NONBLOCK" in fifo_reader
+assert "O_RDWR|O_NONBLOCK" in daemon_main
+assert "u2ec_read_fifo_event" in policy
+for token in (
+    "test_fifo_idle_readiness_and_event_bytes_are_safe",
+    "The previous read-only open is immediately readable at EOF.",
+    "Holding the FIFO RDWR prevents idle EOF and select() busy looping.",
+    "u2ec_read_fifo_event(fd, &event) == 1",
+):
+    assert token in test, token
+
 for token in (
     "test_send_completes_a_tcp_stream_write",
     "test_disconnected_peer_returns_epipe_without_sigpipe",

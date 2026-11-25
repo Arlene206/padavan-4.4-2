@@ -4032,14 +4032,20 @@ static int handle_fifo(int *fd, fd_set *pfds, int *pfdm, int conn_fd)
 {
 	struct u2ec_list_head	*pos, *tmp;
 	char			c;
+	int			fifo_status;
 	int			rtvl = 0;
 	int			need_to_udpate_device = 0;
 	int 			lock;
 
-	/* Read & reset fifo. */
-	read(*fd, &c, 1);
+	/* A readable FIFO may be EOF when opened read-only without a writer. */
+	fifo_status = u2ec_read_fifo_event(*fd, &c);
 	close(*fd);
 	FD_CLR(*fd, pfds);
+	*fd = -1;
+	if (fifo_status < 0)
+		return -1;
+	if (fifo_status == 0)
+		goto REOPEN_FIFO;
 
 	lock = file_lock("printer");
 	/* Handle hotplug usb. */
@@ -4289,7 +4295,8 @@ static int handle_fifo(int *fd, fd_set *pfds, int *pfdm, int conn_fd)
 	}
 CANCEL:
 #endif
-	*fd = open(U2EC_FIFO, O_RDONLY|O_NONBLOCK);
+REOPEN_FIFO:
+	*fd = open(U2EC_FIFO, O_RDWR|O_NONBLOCK);
 	if (*fd < 0)
 		return -1;
 	if (!u2ec_fd_is_usable(*fd, sizeof(fd_in_use))) {
@@ -4365,7 +4372,7 @@ int main(int argc, char *argv[])
 	umask(0000);
 #endif
 	mkfifo(U2EC_FIFO, 0666);
-	fifo_fd = open(U2EC_FIFO, O_RDONLY|O_NONBLOCK);
+	fifo_fd = open(U2EC_FIFO, O_RDWR|O_NONBLOCK);
 	if (fifo_fd < 0) {
 		PERROR("open U2EC FIFO");
 		return 1;

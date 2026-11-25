@@ -271,9 +271,68 @@ test_invalid_buffers_are_rejected(void)
     close(sockets[1]);
 }
 
+
+static void
+test_fifo_idle_readiness_and_event_bytes_are_safe(void)
+{
+    char path[128];
+    char event = '?';
+    int fd, old_read_fd, writer, ready;
+    fd_set readfds;
+    struct timeval timeout;
+
+    assert(snprintf(path, sizeof(path), "/tmp/u2ec-fifo-test.%ld",
+                    (long)getpid()) > 0);
+    (void)unlink(path);
+    assert(mkfifo(path, 0600) == 0);
+
+    /* The previous read-only open is immediately readable at EOF. */
+    old_read_fd = open(path, O_RDONLY | O_NONBLOCK);
+    assert(old_read_fd >= 0);
+    FD_ZERO(&readfds);
+    FD_SET(old_read_fd, &readfds);
+    timeout.tv_sec = 0;
+    timeout.tv_usec = 100000;
+    ready = select(old_read_fd + 1, &readfds, NULL, NULL, &timeout);
+    assert(ready == 1 && FD_ISSET(old_read_fd, &readfds));
+    assert(read(old_read_fd, &event, 1U) == 0);
+    assert(close(old_read_fd) == 0);
+
+    /* Holding the FIFO RDWR prevents idle EOF and select() busy looping. */
+    fd = open(path, O_RDWR | O_NONBLOCK);
+    assert(fd >= 0);
+    FD_ZERO(&readfds);
+    FD_SET(fd, &readfds);
+    timeout.tv_sec = 0;
+    timeout.tv_usec = 100000;
+    ready = select(fd + 1, &readfds, NULL, NULL, &timeout);
+    assert(ready == 0);
+    assert(u2ec_read_fifo_event(fd, &event) == 0);
+    assert(event == '?');
+
+    writer = open(path, O_WRONLY | O_NONBLOCK);
+    assert(writer >= 0);
+    assert(write(writer, "r", 1U) == 1);
+    assert(close(writer) == 0);
+    FD_ZERO(&readfds);
+    FD_SET(fd, &readfds);
+    timeout.tv_sec = 0;
+    timeout.tv_usec = 100000;
+    ready = select(fd + 1, &readfds, NULL, NULL, &timeout);
+    assert(ready == 1 && FD_ISSET(fd, &readfds));
+    assert(u2ec_read_fifo_event(fd, &event) == 1);
+    assert(event == 'r');
+    assert(u2ec_read_fifo_event(fd, &event) == 0);
+    assert(event == 'r');
+
+    assert(close(fd) == 0);
+    assert(unlink(path) == 0);
+}
+
 int
 main(void)
 {
+    test_fifo_idle_readiness_and_event_bytes_are_safe();
     test_send_completes_a_tcp_stream_write();
     test_disconnected_peer_returns_epipe_without_sigpipe();
     test_mid_frame_eof_is_reported_as_reset();
