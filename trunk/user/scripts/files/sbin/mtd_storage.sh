@@ -716,7 +716,7 @@ func_fill_check_dir()
 	target=$1
 	case "$target" in
 		"$dir_storage") remaining= ;;
-		"$dir_storage"/*) remaining=\${target#"$dir_storage"/} ;;
+		"$dir_storage"/*) remaining=${target#"$dir_storage"/} ;;
 		*)
 			logger -t "Storage fill" "Refusing path outside storage tree: $target"
 			return 1
@@ -730,7 +730,7 @@ func_fill_check_dir()
 	fi
 	while [ -n "$remaining" ]; do
 		case "$remaining" in
-			*/*) component=\${remaining%%/*}; remaining=\${remaining#*/} ;;
+			*/*) component=${remaining%%/*}; remaining=${remaining#*/} ;;
 			*) component=$remaining; remaining= ;;
 		esac
 		current="$current/$component"
@@ -747,7 +747,7 @@ func_fill_check_file()
 	local target parent
 
 	target=$1
-	parent=\${target%/*}
+	parent=${target%/*}
 	if ! func_fill_check_dir "$parent"; then
 		return 1
 	fi

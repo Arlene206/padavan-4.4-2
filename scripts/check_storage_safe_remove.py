@@ -174,11 +174,15 @@ chnroute_end = fill_body.index("# create gfwlist", chnroute_start)
 chnroute_block = fill_body[chnroute_start:chnroute_end]
 require('case "$target" in' in fill_check_dir and
         '"$dir_storage"/*)' in fill_check_dir and
+        'remaining=${target#"$dir_storage"/}' in fill_check_dir and
+        'component=${remaining%%/*}' in fill_check_dir and
+        'remaining=${remaining#*/}' in fill_check_dir and
         '[ -L "$current" ]' in fill_check_dir and
         '[ ! -d "$current" ]' in fill_check_dir and
         'current="$current/$component"' in fill_check_dir,
         "MTD fill must reject symlink and non-directory components at every storage path level")
 require('func_fill_check_dir "$parent"' in fill_check_file and
+        'parent=${target%/*}' in fill_check_file and
         '[ -L "$target" ]' in fill_check_file and
         '[ ! -f "$target" ]' in fill_check_file,
         "MTD fill must reject symlink and non-regular leaf file targets")

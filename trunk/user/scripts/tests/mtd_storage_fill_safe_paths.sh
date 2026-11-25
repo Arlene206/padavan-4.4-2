@@ -3,7 +3,7 @@ set -eu
 
 script_dir=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
 repo_root=$(CDPATH= cd -- "$script_dir/../../../.." && pwd)
-sandbox=$(mktemp -d "\${TMPDIR:-/tmp}/mtd-storage-fill.XXXXXX")
+sandbox=$(mktemp -d "${TMPDIR:-/tmp}/mtd-storage-fill.XXXXXX")
 real_rm=$(command -v rm)
 cleanup()
 {
@@ -62,7 +62,7 @@ export LOGGER_LOG="$sandbox/logger.log" RESET_SS_LOG="$sandbox/reset-ss.log"
 
 run_fill()
 {
-	if [ -n "\${BUSYBOX_BIN:-}" ]; then
+	if [ -n "${BUSYBOX_BIN:-}" ]; then
 		"$BUSYBOX_BIN" ash "$sandbox/mtd_storage.sh" fill
 	else
 		sh "$sandbox/mtd_storage.sh" fill
