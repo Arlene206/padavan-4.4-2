@@ -171,7 +171,9 @@ test ! -s "$RESET_SS_LOG"
 grep -Fq 'Cannot extract chnroute archive:' "$LOGGER_LOG"
 
 # A clean storage tree must still complete normal default generation.
+# The preceding failure test deliberately leaves a corrupt archive payload.
 reset_case
+"$real_rm" -f "$sandbox/chnroute.bz2"
 if ! run_fill >/dev/null 2>&1; then
 	echo "normal MTD storage fill unexpectedly failed" >&2
 	exit 1
