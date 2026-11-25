@@ -1,18 +1,17 @@
-## 2026-11-25 autonomous handoff — guard malformed LAN IPv6 conversion
+## 2026-11-25 autonomous handoff — route teardown aggregate status contract
 
-- Current main parent: `40a77df4fbb3e41251d135994035ee9876c4d2a8`; includes the external SIT endpoint-route teardown ownership fix.
-- Defect: `reset_lan6_vars()` could publish empty `lan_addr6` on malformed non-empty static IPv6 text because `ipv6_from_string()` failure only skipped formatting; the next reload interprets empty as "flush br0 global IPv6". The fix returns `EINVAL` or conversion errno before any NVRAM write, and treats prefix-format failures as fatal.
-- Five GNU89 policy cases cover invalid parse, stale errno, `inet_ntop` failure/fallback, and valid /0. XY-C1 modem checker and WAN-route embedded source check now pin the validation and early return before `nvram_set_temp`. `net_lan6.c` is an existing XY-C1 product input, so this commit should trigger full build validation.
-- On parent `40a77df4`, exact runs XY-C1 #45631397674, WAN route #45631397687, WAN DHCP #45631397694, Process lifecycle and many other suites were queued/in progress at last poll. Require Build XY-C1 + TRX + artifact on a single identical SHA. No current-source L3 or physical L4 claim.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only.
+- Main base for this correction: `263050a5762527a9ebe20560f2d15cc87cf15378`. Recent source SHA `263050a5762527a9ebe20560f2d15cc87cf15378` adds a real SIT IPv4 endpoint route fix: normalize empty gateway strings to NULL for BusyBox route_add/route_del. It includes two GNU89 tests, and its XY-C1 firmware input detector is running.
+- Exact `578c864` outcomes: Firewall startup #45632938361 PASS, USB modem #45632938668 PASS, AI docs #45632938331 PASS, Process lifecycle #45632938233 PASS, XY-C1 #45632938514 host checks PASS but Build/TRX/artifact SKIPPED because no production input change. WAN route #45632938327 FAIL only on stale `return clear_status;` assertion: `wan6_down()` now aggregates the missing-interface SIT route cleanup and metadata errors into `status`. This correction checks that branch's aggregate and return value.
+- On current source SHA `263050a`, exact-head Actions are in progress: XY-C1 #45633281371, WAN route #45633280992, WAN DHCP #45633281034, NVRAM #45633281147, IPv6 service #45633280943, Process #45633280920/#45633281057, USB modem #45633281299, Firewall #45633281250 and HTTPD #45633281195. Verify Build XY-C1 + TRX + artifact all PASS on the same SHA before claiming L3.
+- Backup `backup/pre-plugin-overhaul-2026-11-14` remains frozen at `72f4f157a084f8184b9597ca5bf334b8080e5807`; no physical router L4 result.
 
 ### First actions
-1. Poll exact-head runs for `40a77df`; in particular, verify the latest XY-C1, WAN route, WAN DHCP, Process and NVRAM outcomes.
-2. Verify the new LAN IPv6 invalid-input fixture and source check, then require Build XY-C1 + TRX + artifact PASS on this exact product-source SHA.
-3. Continue independent concrete stability/security implementation while Actions are pending; don't repeat completed M2U/VLAN/SIT tasks.
+1. Check the exact-head WAN route run for this checker correction and the still-running 263050a workflow set. Fix only the first real failure.
+2. Verify that XY-C1's changed product inputs trigger Build, TRX and artifact upload on `263050a`.
+3. Continue a separate concrete stability/security bug while CI is pending; do not revisit completed M2U/VLAN/LAN6 audits without new evidence.
 
 ### Execution contract
-Source/test → complete Git tree/commit → non-force expected-SHA update → exact-SHA Actions. Main only; no branch/PR/force push or backup mutation.
+Source/test → one complete Git tree/commit → non-force expected-SHA update → exact-SHA Actions. Main only; backup immutable; no branches, PRs or force pushes.
 
 ## 2026-11-25 autonomous handoff checkpoint
 

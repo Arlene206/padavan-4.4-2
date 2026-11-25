@@ -1559,7 +1559,11 @@ jobs:
           assert select_at < flush_at < neigh_at < addr_at < sit_stop_at
           assert "if (!wan6_ifname)" in wan6_down
           assert "wan6_clear_runtime_metadata(" in wan6_down
-          assert "return clear_status;" in wan6_down
+          missing_ifname = wan6_down.index("if (!wan6_ifname)")
+          missing_ifname_end = wan6_down.index("\n\tstatus = 0;", missing_ifname)
+          missing_ifname_cleanup = wan6_down[missing_ifname:missing_ifname_end]
+          assert "status = route_status_accumulate(status, clear_status);" in missing_ifname_cleanup
+          assert "return status;" in missing_ifname_cleanup
           assert "wan6_publish_sit_identity" in wan6_identity_policy
           assert "test_sit_identity_failure_removes_tunnel_and_clears_partial_identity" in wan6_identity_test
           disabled_policy = body(wan6_policy, "wan6_teardown_select_ifname(")

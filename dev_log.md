@@ -1,3 +1,11 @@
+## 2026-11-25 22:24 CST (UTC+8) — Correct vanished-interface route teardown contract
+
+- - Exact SHA `578c8647eec5e0c39bb4910d7757a0de5752468e`: Firewall startup #45632938361 PASS, USB modem #45632938668 PASS, AI docs #45632938331 PASS, Process lifecycle inventory #45632938233 PASS, XY-C1 #45632938514 PASS host validation but Build XY-C1/TRX/artifact were SKIPPED because this SHA did not change product inputs. WAN route #45632938327 failed only at the stale assertion `return clear_status;`: `wan6_down()` now accumulates the earlier SIT-route cleanup and metadata-clear errors into `status` and correctly returns that aggregate. This correction narrows the check to the vanished-interface branch and asserts both aggregation and `return status;`.
+- The subsequent exact source SHA `263050a5762527a9ebe20560f2d15cc87cf15378` adds a real SIT route-gateway normalization fix: empty gateway values are now passed as NULL to route_add/route_del instead of a non-NULL empty string, which the BusyBox route API rejects. Two GNU89 tests cover empty and non-empty gateway arguments; source checks cover both add and delete paths.
+- On `263050a`, current exact-head suite is queued/in progress: XY-C1 #45633281371, WAN route #45633280992, WAN DHCP #45633281034, NVRAM #45633281147, IPv6 service #45633280943, Process inventory #45633280920/#45633281057, USB modem #45633281299, Firewall #45633281250, HTTPD security #45633281195. XY-C1 must reach Build XY-C1, TRX verification and artifact upload on this exact SHA. No L3 or physical L4 claim yet.
+
+---
+
 ## 2026-11-25 22:10 CST (UTC+8) — Fail closed on malformed LAN IPv6 address before NVRAM publication
 
 - Found a concrete state-corruption bug in `reset_lan6_vars()`: `ipv6_from_string()` returns `-1` on invalid input, but the old code skipped address formatting and still published the uninitialized-empty `addr6s` value to NVRAM. A subsequent `reload_lan_addr6()` interprets empty as a request to flush the live global IPv6 address on `br0`; malformed configuration could therefore erase the working address.
