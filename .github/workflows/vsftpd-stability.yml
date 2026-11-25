@@ -457,6 +457,23 @@ jobs:
           rmd = function_body(vsftpd_postlogin, "static void\nhandle_rmd")
           dele = function_body(vsftpd_postlogin, "static void\nhandle_dele")
           retr = function_body(vsftpd_postlogin, "static void\nhandle_retr")
+          http_handler = function_body(vsftpd_postlogin, "handle_http(")
+          http_error_response = function_body(
+              vsftpd_postlogin, "http_send_error_response(")
+          http_success_headers = function_body(
+              vsftpd_postlogin, "http_send_success_headers(")
+          assert "HTTP/1.1 200 OK" not in http_handler
+          assert "HTTP/1.1 200 OK" in http_success_headers
+          assert retr.index("asus_open_existing_path(") < retr.index("http_send_success_headers(")
+          assert retr.index("vsf_sysutil_statbuf_is_regfile(") < retr.index("http_send_success_headers(")
+          assert retr.index("tunable_anon_world_readable_only") < retr.index("http_send_success_headers(")
+          assert retr.index("http_send_success_headers(") < retr.index("vsf_ftpdataio_transfer_file(")
+          assert "Content-Length: 0" in http_error_response
+          assert "HTTP/1.1 403 Forbidden" in http_error_response
+          assert "HTTP/1.1 404 Not Found" in http_error_response
+          assert "http_send_error_response(p_sess, 403)" in retr
+          assert "http_send_error_response(p_sess, 404)" in retr
+          assert "permission_denied ? 403 : 404" in retr
           assert "ftp_rest_offset_mode_is_valid(p_sess->is_ascii, offset)" in retr
           assert "ftp_rest_offset_mode_is_valid(p_sess->is_ascii, offset)" in upload
           assert upload.index("ftp_rest_offset_mode_is_valid(") < upload.index("asus_open_upload_path(")

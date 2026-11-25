@@ -681,6 +681,35 @@ handle_pasv(struct vsf_session* p_sess, int is_epsv)
 }
 
 static void
+http_send_error_response(struct vsf_session* p_sess, int status_code)
+{
+  if (status_code == 400)
+    vsf_cmdio_write_raw(p_sess, "HTTP/1.1 400 Bad Request\r\n");
+  else if (status_code == 403)
+    vsf_cmdio_write_raw(p_sess, "HTTP/1.1 403 Forbidden\r\n");
+  else
+    vsf_cmdio_write_raw(p_sess, "HTTP/1.1 404 Not Found\r\n");
+  vsf_cmdio_write_raw(p_sess, "Server: vsftpd\r\n");
+  vsf_cmdio_write_raw(p_sess, "Connection: close\r\n");
+  vsf_cmdio_write_raw(p_sess, "X-Frame-Options: SAMEORIGIN\r\n");
+  vsf_cmdio_write_raw(p_sess, "X-Content-Type-Options: nosniff\r\n");
+  vsf_cmdio_write_raw(p_sess, "Content-Length: 0\r\n\r\n");
+}
+
+static void
+http_send_success_headers(struct vsf_session* p_sess, const char* content_type)
+{
+  vsf_cmdio_write_raw(p_sess, "HTTP/1.1 200 OK\r\n");
+  vsf_cmdio_write_raw(p_sess, "Server: vsftpd\r\n");
+  vsf_cmdio_write_raw(p_sess, "Connection: close\r\n");
+  vsf_cmdio_write_raw(p_sess, "X-Frame-Options: SAMEORIGIN\r\n");
+  vsf_cmdio_write_raw(p_sess, "X-Content-Type-Options: nosniff\r\n");
+  vsf_cmdio_write_raw(p_sess, "Content-Type: ");
+  vsf_cmdio_write_raw(p_sess, content_type);
+  vsf_cmdio_write_raw(p_sess, "\r\n\r\n");
+}
+
+static void
 handle_retr(struct vsf_session* p_sess, int is_http)
 {
   static struct mystr s_mark_str;
@@ -699,8 +728,11 @@ handle_retr(struct vsf_session* p_sess, int is_http)
   }
   if (!ftp_rest_offset_mode_is_valid(p_sess->is_ascii, offset))
   {
-    vsf_cmdio_write(p_sess, FTP_FILEFAIL,
-                    "No support for resume of ASCII transfer.");
+    if (is_http)
+      http_send_error_response(p_sess, 400);
+    else
+      vsf_cmdio_write(p_sess, FTP_FILEFAIL,
+                      "No support for resume of ASCII transfer.");
     return;
   }
   resolve_tilde(&p_sess->ftp_arg_str, p_sess);
@@ -709,7 +741,10 @@ handle_retr(struct vsf_session* p_sess, int is_http)
   prepend_path_to_filename(&p_sess->log_str);
   if (!vsf_access_check_file(&p_sess->ftp_arg_str))
   {
-    vsf_cmdio_write(p_sess, FTP_NOPERM, "Permission denied.");
+    if (is_http)
+      http_send_error_response(p_sess, 403);
+    else
+      vsf_cmdio_write(p_sess, FTP_NOPERM, "Permission denied.");
     return;
   }
   opened_file = asus_open_existing_path(p_sess, PERM_READ,
@@ -717,7 +752,9 @@ handle_retr(struct vsf_session* p_sess, int is_http)
                                           &permission_denied);
   if (vsf_sysutil_retval_is_error(opened_file))
   {
-    if (permission_denied)
+    if (is_http)
+      http_send_error_response(p_sess, permission_denied ? 403 : 404);
+    else if (permission_denied)
       vsf_cmdio_write(p_sess, FTP_NOPERM, "Permission denied.");
     else
       vsf_cmdio_write(p_sess, FTP_FILEFAIL, "Failed to open file.");
@@ -732,8 +769,11 @@ handle_retr(struct vsf_session* p_sess, int is_http)
   /* No games please */
   if (!vsf_sysutil_statbuf_is_regfile(s_p_statbuf))
   {
-    /* Note - pretend open failed */
-    vsf_cmdio_write(p_sess, FTP_FILEFAIL, "Failed to open file.");
+    /* A directory or special file is not an HTTP representation. */
+    if (is_http)
+      http_send_error_response(p_sess, 404);
+    else
+      vsf_cmdio_write(p_sess, FTP_FILEFAIL, "Failed to open file.");
     /* Irritating FireFox does RETR on directories, so avoid logging this
      * very common and noisy case.
      */
@@ -751,7 +791,10 @@ handle_retr(struct vsf_session* p_sess, int is_http)
   if (p_sess->is_anonymous && tunable_anon_world_readable_only &&
       !vsf_sysutil_statbuf_is_readable_other(s_p_statbuf))
   {
-    vsf_cmdio_write(p_sess, FTP_FILEFAIL, "Failed to open file.");
+    if (is_http)
+      http_send_error_response(p_sess, 403);
+    else
+      vsf_cmdio_write(p_sess, FTP_FILEFAIL, "Failed to open file.");
     goto file_close_out;
   }
   /* Set the download offset (from REST) if any */
@@ -777,6 +820,11 @@ handle_retr(struct vsf_session* p_sess, int is_http)
   str_append_text(&s_mark_str, " bytes).");
   if (is_http)
   {
+    const char* content_type =
+      (str_equal_text(&p_sess->ftp_cmd_str, "HTML") ||
+       str_equal_text(&p_sess->ftp_cmd_str, "HTM")) ?
+      "text/html" : "dunno";
+    http_send_success_headers(p_sess, content_type);
     remote_fd = VSFTP_COMMAND_FD;
   }
   else
@@ -2248,26 +2296,11 @@ handle_http(struct vsf_session* p_sess)
   }
   while (!str_isempty(&p_sess->ftp_cmd_str) ||
          !str_isempty(&p_sess->ftp_arg_str));
-  vsf_cmdio_write_raw(p_sess, "HTTP/1.1 200 OK\r\n");
-  vsf_cmdio_write_raw(p_sess, "Server: vsftpd\r\n");
-  vsf_cmdio_write_raw(p_sess, "Connection: close\r\n");
-  vsf_cmdio_write_raw(p_sess, "X-Frame-Options: SAMEORIGIN\r\n");
-  vsf_cmdio_write_raw(p_sess, "X-Content-Type-Options: nosniff\r\n");
   /* Split the path from the HTTP/1.x */
   str_split_char(&p_sess->http_get_arg, &p_sess->ftp_arg_str, ' ');
   str_copy(&p_sess->ftp_arg_str, &p_sess->http_get_arg);
   str_split_char(&p_sess->http_get_arg, &p_sess->ftp_cmd_str, '.');
   str_upper(&p_sess->ftp_cmd_str);
-  if (str_equal_text(&p_sess->ftp_cmd_str, "HTML") ||
-      str_equal_text(&p_sess->ftp_cmd_str, "HTM"))
-  {
-    vsf_cmdio_write_raw(p_sess, "Content-Type: text/html\r\n");
-  }
-  else
-  {
-    vsf_cmdio_write_raw(p_sess, "Content-Type: dunno\r\n");
-  }
-  vsf_cmdio_write_raw(p_sess, "\r\n");
   p_sess->is_ascii = 0;
   p_sess->restart_pos = 0;
   handle_retr(p_sess, 1);
