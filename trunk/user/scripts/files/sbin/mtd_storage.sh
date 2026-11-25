@@ -168,7 +168,28 @@ func_stop_apps()
 
 func_start_apps()
 {
-	/sbin/rstats 9>&-
+	local attempts presence
+
+	if ! /sbin/rstats 9>&-; then
+		logger -t "Storage" "Unable to launch rstats"
+		return 1
+	fi
+	# A successful launcher exit is not proof that its daemon survived.
+	# Require a complete procfs inventory to confirm the process is present;
+	# UNKNOWN must fail closed just like the bounded stop-side check.
+	for attempts in 1 2 3 4 5; do
+		func_rstats_presence
+		presence=$?
+		case "$presence" in
+			0) return 0 ;;
+			1) ;;
+			*) logger -t "Storage" "Cannot verify rstats startup; storage service state is unknown"; return 1 ;;
+		esac
+		[ "$attempts" -lt 5 ] && sleep 1 || :
+	done
+
+	logger -t "Storage" "rstats launcher exited successfully but daemon did not become visible"
+	return 1
 }
 
 func_load()

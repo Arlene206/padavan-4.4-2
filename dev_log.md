@@ -1,3 +1,10 @@
+## 2026-11-25 — Verify rstats readiness after a zero-exit launcher
+
+- Follow-up to the restore failure fix: `func_start_apps()` previously treated `/sbin/rstats` exit status 0 as proof the daemon was running. A daemon that forks then exits immediately (or whose startup wrapper returns success without leaving a process) could still cause restore/reset to be reported as successful.
+- Added a bounded five-poll procfs postcondition matching the existing fail-closed stop logic. UNKNOWN inventory and a daemon that never appears both fail startup. Extended restore regression with a launcher that exits zero but does not publish an rstats process; the archive, save marker and rollback tree must remain. Exact-head storage Actions required; no router test claimed.
+
+---
+
 ## 2026-11-25 — Retain the MTD reset save barrier when services fail to restart
 
 - Review of the reset dispatch found the same recovery-state bug recently fixed in restore: reset removed `.storage_locked` before calling `func_start_apps()` and only set a failure status if startup failed. This allowed subsequent MTD saves to run even though the default storage service set had not restarted.

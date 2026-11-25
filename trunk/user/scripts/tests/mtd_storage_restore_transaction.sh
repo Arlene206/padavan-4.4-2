@@ -99,6 +99,10 @@ EOF
 cat > "$sandbox/bin/rstats" <<'EOF'
 #!/bin/sh
 [ "${RSTAT_START_FAIL:-0}" != 1 ] || exit 1
+if [ "${RSTAT_START_WITHOUT_PROCESS:-0}" = 1 ]; then
+	printf '%s\n' launched-without-daemon >> "$RSTAT_LOG"
+	exit 0
+fi
 printf '%s\n' started >> "$RSTAT_LOG"
 mkdir -p "$RSTAT_PROC_ROOT/321"
 printf '%s\n' '321 (rstats) S 1 321 321' > "$RSTAT_PROC_ROOT/321/stat"
@@ -267,6 +271,27 @@ grep -Fqx 'old=preserve-after-symlink' "$1/original.conf"
 test -f "$sandbox/private/storage_locked"
 test -s "$sandbox/private/storage-restore.tar.bz2"
 test ! -s "$RSTAT_LOG"
+rm -rf "$sandbox"/storage.rollback.*
+
+# A launcher that exits zero but never leaves a visible daemon must also
+# fail the restore postcondition. Keep the rollback snapshot and save barrier.
+"$real_tar" -cjf "$sandbox/private/storage-restore.tar.bz2" -C "$sandbox/incoming" .
+mkdir -p "$RSTAT_PROC_ROOT/321"
+printf '%s\n' '321 (rstats) S 1 321 321' > "$RSTAT_PROC_ROOT/321/stat"
+: > "$RSTAT_LOG"
+: > "$RSTAT_KILL_LOG"
+: > "$MV_COUNT_FILE"
+if RSTAT_START_WITHOUT_PROCESS=1 run_restore; then
+	echo "rstats launcher without a live daemon unexpectedly reported success" >&2
+	exit 1
+fi
+grep -Fqx 'launched-without-daemon' "$RSTAT_LOG"
+grep -Fqx 'new=restored-value' "$sandbox/storage/new.conf"
+set -- "$sandbox"/storage.rollback.*
+test -d "$1"
+grep -Fqx 'old=preserve-after-symlink' "$1/original.conf"
+test -f "$sandbox/private/storage_locked"
+test -s "$sandbox/private/storage-restore.tar.bz2"
 rm -rf "$sandbox"/storage.rollback.*
 
 # Rebuild the ordinary archive before the existing successful restore case.
