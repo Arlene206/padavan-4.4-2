@@ -185,6 +185,10 @@ ip() {
 	fi
 	if [ "$1" = route ] && [ "${2:-}" = show ]; then
 		[ "$TEST_ROUTE_SHOW_STATUS" -eq 0 ] || return "$TEST_ROUTE_SHOW_STATUS"
+		if [ -n "${TEST_ROUTE_SHOW_OUTPUT:-}" ]; then
+			printf '%s\\n' "$TEST_ROUTE_SHOW_OUTPUT"
+			return 0
+		fi
 		if [ "$TEST_ROUTE_PRESENT" -eq 1 ] && [ "${3:-}" = "$TEST_STATIC_ROUTE_IP" ]; then
 			printf '%s\n' "$TEST_STATIC_ROUTE_IP via $TEST_STATIC_ROUTE_GATEWAY dev ztunit"
 		fi
@@ -196,6 +200,7 @@ ip() {
 		[ "$TEST_ROUTE_DEL_STATUS" -eq 0 ] || return "$TEST_ROUTE_DEL_STATUS"
 		if [ "$TEST_ROUTE_DELETE_PERSISTS" -eq 0 ]; then
 			TEST_ROUTE_PRESENT=0
+			TEST_ROUTE_SHOW_OUTPUT=""
 		fi
 		return 0
 	fi
@@ -1870,6 +1875,41 @@ fi
 if grep -Fqx -- "zero_route:del" "$TEST_ACTION_LOG"; then
 	fail "stop issued a redundant delete for an absent route"
 fi
+
+# A destination that still exists through a different nexthop is not absent.
+# Stop must preserve identity rather than silently orphaning the conflicting route.
+TEST_ROUTE_PRESENT=1
+TEST_ROUTE_SHOW_OUTPUT="$TEST_STATIC_ROUTE_IP via 192.0.2.99 dev ztunit"
+: > "$TEST_ACTION_LOG"
+mkdir -p "$TEST_CONFIG"
+echo identity > "$TEST_CONFIG/identity.secret"
+echo running > "$TEST_STATE"
+TEST_MODE=graceful
+if stop_zero; then
+	fail "stop accepted a conflicting route to the configured destination"
+fi
+[ -f "$TEST_CONFIG/identity.secret" ] || fail "conflicting static route removed the persistent identity"
+if grep -Fqx -- "zero_route:del" "$TEST_ACTION_LOG"; then
+	fail "stop deleted a destination route whose nexthop did not match configuration"
+fi
+if grep -Fqx -- "rm:-rf $TEST_CONFIG" "$TEST_ACTION_LOG"; then
+	fail "stop removed persistent configuration while a conflicting destination route remained"
+fi
+
+# The configured nexthop may be the first of several multipath pairs. Match
+# every via/dev pair, then delete and verify only the exact configured tuple.
+TEST_ROUTE_SHOW_OUTPUT="$TEST_STATIC_ROUTE_IP proto static nexthop via $TEST_STATIC_ROUTE_GATEWAY dev ztunit weight 1 nexthop via 192.0.2.2 dev br0 weight 1"
+: > "$TEST_ACTION_LOG"
+mkdir -p "$TEST_CONFIG"
+echo identity > "$TEST_CONFIG/identity.secret"
+echo running > "$TEST_STATE"
+TEST_MODE=graceful
+if ! stop_zero; then
+	fail "stop failed to match and remove the configured first multipath nexthop"
+fi
+grep -Fqx -- "zero_route:del" "$TEST_ACTION_LOG" || fail "multipath route cleanup skipped the configured nexthop"
+[ ! -e "$TEST_CONFIG" ] || fail "successful multipath cleanup retained persistent configuration"
+TEST_ROUTE_SHOW_OUTPUT=""
 
 # Route cleanup failure, an unreadable route inventory and a false-success
 # delete must all preserve the ZeroTier identity for a later recovery attempt.

@@ -1059,20 +1059,36 @@ del_rules() {
 
 
 zero_route_entry_matches() {
+	# Return 0 for the exact configured nexthop, 1 only when the
+	# destination is absent, and 2 when a conflicting/unknown route exists.
+	# A multipath route may contain several via/dev pairs on one line.
 	awk -v destination="$1" -v gateway="$2" -v interface="$3" '
 		$1 == destination {
-			via = ""
-			dev = ""
-			for (i = 2; i < NF; i++) {
-				if ($i == "via")
-					via = $(i + 1)
-				else if ($i == "dev")
-					dev = $(i + 1)
+			destination_found = 1
+			for (i = 2; i <= NF; i++) {
+				if ($i != "via")
+					continue
+				hop_gateway = $(i + 1)
+				hop_interface = ""
+				for (j = i + 2; j <= NF; j++) {
+					if ($j == "nexthop")
+						break
+					if ($j == "dev") {
+						hop_interface = $(j + 1)
+						break
+					}
+				}
+				if (hop_gateway == gateway && hop_interface == interface)
+					found = 1
 			}
-			if (via == gateway && dev == interface)
-				found = 1
 		}
-		END { exit found ? 0 : 1 }
+		END {
+			if (found)
+				exit 0
+			if (destination_found)
+				exit 2
+			exit 1
+		}
 	'
 }
 

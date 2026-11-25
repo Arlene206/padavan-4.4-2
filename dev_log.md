@@ -1,3 +1,10 @@
+## 2026-11-25 — Keep ZeroTier shutdown fail-closed for conflicting and multipath routes
+
+- Found a route-cleanup ambiguity in `zero_route_entry_matches()`: it returned the same status for “destination absent” and “destination exists but its gateway/interface differs.” `zero_route()` treats status 1 as an idempotent absence, so a route still installed for a configured destination could be left behind while `stop_zero()` removed ZeroTier persistent identity and retry state. The parser also retained only the last `via/dev` pair on a multipath line, potentially missing the configured ZeroTier nexthop when another nexthop followed it.
+- Give the matcher a three-state contract: exact nexthop found (0), destination truly absent (1), conflicting/unrecognized destination route (2); inspect each `via ... dev ...` pair in multipath output. Existing caller logic already treats any status other than 1 as an error, so conflict now preserves recovery state. Extend end-to-end stop tests for a changed gateway and for the configured first multipath hop, including verified deletion. Exact-head ZeroTier Actions required; no local shell result claimed.
+
+---
+
 ## 2026-11-25 — Complete the rstats procfs inventory before authorizing storage mutation
 
 - Confirmed a fail-open ordering defect in `func_rstats_presence()`: it returned “present” immediately when it encountered an `rstats` PID, without validating the remainder of `/proc`. A later unreadable or malformed numeric process entry was therefore never observed; restore/erase could proceed to signal the daemon even though the process inventory was UNKNOWN. The existing regression put the malformed PID before the daemon and missed this ordering.
