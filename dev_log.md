@@ -1,3 +1,12 @@
+## 2026-11-25 — Align WAN callback contract with atomic DHCPv6 environment publication
+
+- The exact DHCPv6 script-retry workflow for `898f67081429468f9e41f2603645b73112d71324` passed. The broader WAN DHCP callback workflow failed only because its independent inline source contract still required the removed unchecked `putenv(*curr++)` implementation.
+- Updated the cross-workflow contract to require the atomic `dhcp6c_script_env_publish()` gate, reject the old unchecked publication pattern, and ensure `dhcp6_script()` refuses to spawn with a NULL environment. Added the retry policy/test files to this workflow's push and pull-request path filters so future changes re-run the cross-contract check.
+- No WAN DHCP product behavior changed in this follow-up. Exact-head WAN callback and XY-C1 Actions pending; DHCPv6 retry L2 test already passed on the parent source commit.
+- Changed paths: `.github/workflows/wan-dhcp-callback-stability.yml`, `dev_log.md`.
+
+---
+
 ## 2026-11-25 — Make DHCPv6 callback environment publication fail atomically
 
 - `fill_envp_client6()` previously ignored every `putenv()` result. Under memory pressure, one option variable could fail to enter the parent environment while the function still launched the configuration script and treated its exit status as success. A partial DNS/SIP/NTP option set could therefore be committed without retry.
