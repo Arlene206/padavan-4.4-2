@@ -703,11 +703,15 @@ jobs:
 
           arp_cleanup = function_body(services, "arpbind_clear(")
           static_hosts_writer = function_body(services, "fill_static_ethers(")
-          dnsmasq_stop = function_body(services, "stop_dns_dhcpd_locked(")
-          assert "dnsmasq_stop_policy_cleanup_status(status, arp_status)" in dnsmasq_stop
-          assert "arp_status = arpbind_clear()" in dnsmasq_stop
+          dnsmasq_stop = function_body(services, "stop_dns_dhcpd_locked(void)")
+          dnsmasq_stop_cleanup = function_body(services, "stop_dns_dhcpd_locked_with_snapshot(")
+          assert "dnsmasq_stop_policy_cleanup_status(status, arp_status)" in dnsmasq_stop_cleanup
+          assert "arp_status = snapshot_status ?" in dnsmasq_stop_cleanup
+          assert "arpbind_clear(previous_ethers)" in dnsmasq_stop_cleanup
+          assert "arpbind_ethers_snapshot_read(&previous_ethers)" in dnsmasq_stop
+          assert "snapshot_status == 0 ? &previous_ethers : NULL" in dnsmasq_stop
           assert "dnsmasq_static_arp_apply_transaction(" not in static_hosts_writer
-          assert "cannot remove static ARP binding" in arp_cleanup
+          assert "cannot remove owned static ARP binding" in arp_cleanup
           assert 'fopen("/proc/net/arp", "r")' in arp_cleanup
           assert "dnsmasq_stop_policy_cleanup_status" in restart_test
           lan_restart = function_body(net_lan, "full_restart_lan(void)")
@@ -757,7 +761,8 @@ jobs:
           dnsmasq_safe_read_helper = Path("trunk/user/rc/src/dnsmasq_safe_read.h").read_text()
           assert '#include "dnsmasq_dhcp_range_policy.h"' in services
           assert '#include "dnsmasq_static_host_policy.h"' in services
-          arp_clear = function_body(services, "arpbind_clear(void)")
+          arp_clear = function_body(
+              services, "arpbind_clear(const struct dnsmasq_static_arp_snapshot *owned)")
           assert "dnsmasq_static_arp_header_is_valid(buffer)" in arp_clear
           assert "malformed /proc/net/arp header" in arp_clear
           assert "dnsmasq_static_arp_record_parse(" in arp_clear

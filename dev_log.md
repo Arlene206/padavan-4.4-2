@@ -1,3 +1,9 @@
+## 2026-11-24 — Update remaining DNSMasq static-ARP source contracts
+
+- The exact DNSMasq rerun #45544491236 passed the startup-rollback checker after its previous correction, but then failed later in the workflow's postcondition/RC integration source contract. That block still expected the old public stop function to contain direct kill/cleanup calls and still looked for the removed zero-argument `arpbind_clear()`; another inline block still named the old `arpbind_clear(void)` signature and old cleanup diagnostic.
+- Updated the remaining DNSMasq workflow assertions to inspect the ownership-aware internal stop helper, verify the public wrapper captured the old ethers snapshot, use the parameterized cleanup function signature, and expect the new owned-binding diagnostic. No production code changed in this follow-up.
+- Exact-head DNSMasq rerun required; no new PASS is claimed.
+
 ## 2026-11-24 — Align HTTPD trust-boundary contract with owned DNSMasq ARP cleanup
 
 - Exact HTTPD security run #45544316918 on `5f333dc2f94e9be5954561b75941682e68cdd0d8` failed in its DNSMasq source-contract step because it still expected `kill_services()` and a zero-argument `arpbind_clear()` inside the public stop wrapper. The new wrapper only snapshots prior ownership and delegates to `stop_dns_dhcpd_locked_with_snapshot()`; the kill/policy/owned-clear sequence lives in that internal helper.
