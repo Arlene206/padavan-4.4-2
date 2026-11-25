@@ -1,16 +1,16 @@
-## 2026-11-26 active handoff — make OpenVPN callback links fail closed
+## 2026-11-26 active handoff — repair the callback-link source contract
 
-- Live main parent: `98f74b97af0d83f6b5d6542c8d355815b30274e8`. OpenVPN credential staging #45655016393 PASS, including the new volatile-memory wipe regression and source contract. VPN server lifecycle #45655016612 PASS; AI handoff docs #45655016470 PASS; IPv6 service-type #45655016600 PASS. NVRAM audit #45655016419, Process lifecycle inventory #45655016579, process-lifecycle regression #45655016525, HTTPD security #45655016963 and XY-C1 #45655016829 are still running at the last poll.
-- Credential wipe implementation in `98f74b97af0d83f6b5d6542c8d355815b30274e8`: source snapshot pending copy is wiped on success/failure; caller's credentials are wiped on runtime-state cleanup failure and immediately after config generation. The exact-head dedicated OpenVPN secret workflow's in-memory wipe step and contract passed.
-- Production L3 for predecessor source SHA `311d6080fd7cb5d6e4cb5906f5923b45c350e108` was fully verified: XY-C1 build, TRX, artifact upload PASS. The credential wipe commit adds a production helper header and triggered XY-C1 #45655016829; its build/TRX/artifact result remains pending. L4 NOT VERIFIED.
-- New active issue: server/client startup previously ignored `symlink("/sbin/rc", ...)` failures and proceeded to launch OpenVPN without callback scripts, preventing state/DNS lifecycle hooks. This slice makes startup validate/create the exact expected symlink before interface creation, reuse a correct existing link, reject a mismatched symlink or regular file, and remove only links created by this attempt if interface setup fails.
+- Live main parent: `c4c12ce5cf7b4e0098d71723ddde30e87c1e5ad6`. The OpenVPN callback-link regression and OpenVPN credential suite #45655706781 PASS, including all compiled C tests and the OpenVPN source/workflow contract. The new link-policy header/test compiles and passes in the OpenVPN workflow.
+- VPN server lifecycle #45655706646 failed only at the final source checker: it still expected `symlink("/sbin/rc")` to occur after interface setup. Production code now correctly validates/creates the callback link before interface creation, reuses only an exact `/sbin/rc` target, and cleans up only a link created by this attempt when interface setup fails. All 13 earlier VPN C/source checks passed, including the VPN client NVRAM/DNS contract. The stale lifecycle checker assertion is being updated; this is not a C regression.
+- AI handoff docs #45655707053 PASS; HTTPD security #45655706750 PASS; IPv6 service type #45655706937 PASS; Process inventory #45655706888 PASS. NVRAM audit #45655706763, process lifecycle #45655706696, and XY-C1 #45655706852 remained in progress at last poll. XY-C1 #45655706852 must complete Build XY-C1, TRX verification and artifact upload for this production-source SHA before L3 can be claimed.
+- Credential wipe source fix from `98f74b97af0d83f6b5d6542c8d355815b30274e8` passed the exact OpenVPN wipe regression and source contract. Main's latest production slice still requires L3. Physical-router L4 NOT VERIFIED.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ### First actions
 
-1. Run the OpenVPN callback link host regression and full source/workflow contract on the resulting SHA; fix any failure without relaxing the exact-target/no-follow checks.
-2. Inspect exact-SHA XY-C1 Build, TRX, and artifact steps, plus NVRAM/process/HTTPD suites still pending.
-3. Continue examining OpenVPN daemon-launch failure rollback and callback teardown, keeping this fix isolated.
+1. Verify the updated VPN server lifecycle source contract on the next exact SHA and confirm the OpenVPN callback-link regression remains green.
+2. Finish inspecting XY-C1 exact SHA Build/TRX/artifact for `98f74b97...`, then inspect the new source commit's own XY-C1 run.
+3. Continue examining daemon launch failure rollback without disturbing the already fail-closed callback link behavior.
 
 ### Execution contract
 

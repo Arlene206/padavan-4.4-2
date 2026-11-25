@@ -1,3 +1,12 @@
+## 2026-11-26 01:02 CST (UTC+8) — Refresh OpenVPN callback link source contract
+
+- Base SHA: `c4c12ce5cf7b4e0098d71723ddde30e87c1e5ad6`; result SHA: THIS COMMIT (resolve on next recovery). Scope: `scripts/check_vpn_server_lifecycle.py`, `.github/workflows/vpn-server-stability.yml`, handoff/log.
+- Exact SHA `c4c12ce5cf7b4e0098d71723ddde30e87c1e5ad6`: OpenVPN credential staging run #45655706781 PASS, including callback-link policy C regression and OpenVPN source/workflow contract. VPN server lifecycle run #45655706646 fails only because the final checker still requires the legacy raw `symlink()` call after interface setup. All earlier 13 steps passed, including all VPN client and PPP regressions.
+- Checker now pins the intended safer order: exact callback link ensure before interface setup, interface failure abort before daemon launch, and cleanup restricted to a link created by this attempt; it rejects fallback to raw unchecked `symlink()`. The new helper header is also included in the server workflow push/PR path filters and XY-C1 dependency contract.
+- At the same SHA, AI handoff docs #45655707053, HTTPD security #45655706750, IPv6 service type #45655706937 and Process inventory #45655706888 PASS. NVRAM audit #45655706763, process lifecycle #45655706696, XY-C1 #45655706852 still in progress at last poll. The XY-C1 production build/TRX/artifact on the exact production source SHA remains pending. L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-26 00:48 CST (UTC+8) — Fail closed when OpenVPN callback symlink setup fails
 
 - Base SHA: `98f74b97af0d83f6b5d6542c8d355815b30274e8`; result SHA: THIS COMMIT (resolve on next recovery). Scope: `vpn_openvpn.c`, new `openvpn_script_link.h` and regression, OpenVPN workflow/source checker, XY-C1 workflow path filter, handoff/log.

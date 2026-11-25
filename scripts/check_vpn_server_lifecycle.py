@@ -1039,9 +1039,14 @@ for signature,interface in (("int\nstart_openvpn_server(void)","IFNAME_SERVER_TU
     require("interface_status = openvpn_tunif_start(" in start_fn and
             "interface_status = openvpn_tapif_start(" in start_fn and
             "if (interface_status != 0)" in start_fn and
-            start_fn.index("if (interface_status != 0)") < start_fn.index("symlink(\"/sbin/rc\"") <
+            start_fn.index("openvpn_script_link_ensure(") <
+            start_fn.index("openvpn_tunif_start(") <
+            start_fn.index("if (interface_status != 0)") <
             start_fn.index("_eval(openvpn_argv"),
-            f"OpenVPN start must abort before script link/daemon launch when interface setup fails ({interface})")
+            f"OpenVPN start must validate callbacks before interface and daemon launch ({interface})")
+    require("openvpn_script_link_remove_created(" in start_fn and
+            'symlink("/sbin/rc"' not in start_fn,
+            f"OpenVPN {interface} start must roll back only an owned callback link")
 for signature,label in (("int\nopenvpn_tapif_stop","TAP"),("int\nopenvpn_tunif_stop","TUN")):
     iface_stop=body(openvpn,signature)
     require("ifconfig(ifname, 0, NULL, NULL)" in iface_stop and
@@ -1070,6 +1075,7 @@ xy_workflow=read(".github/workflows/xy-c1-firmware-validation.yml")
 for path in ("trunk/user/rc/src/l2tp_config_file.h",
              "trunk/user/rc/src/tests/l2tp_config_file.c",
              "trunk/user/rc/src/vpn_openvpn.c",
+             "trunk/user/rc/src/openvpn_script_link.h",
              "trunk/user/openvpn/openvpn-cert.sh",
              "trunk/user/rc/src/openvpn_process_stop_policy.h"):
     require(xy_workflow.count('      - "{}"'.format(path)) == 1,
