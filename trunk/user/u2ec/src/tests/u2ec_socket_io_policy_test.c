@@ -320,6 +320,7 @@ test_fifo_idle_readiness_and_event_bytes_are_safe(void)
     timeout.tv_usec = 100000;
     ready = select(fd + 1, &readfds, NULL, NULL, &timeout);
     assert(ready == 0);
+    event = '?';
     assert(u2ec_read_fifo_event(fd, &event) == 0);
     assert(event == '?');
 
