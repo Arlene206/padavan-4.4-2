@@ -28,6 +28,49 @@ wan6_dns_validate_static_server(const char *address)
 	return inet_pton(AF_INET6, address, &parsed) == 1 ? 0 : EINVAL;
 }
 
+/*
+ * Validate the space/tab-delimited DNS_SERVERS value from a DHCPv6 lease.
+ * Reject malformed tokens and control characters rather than publishing
+ * attacker-controlled resolver configuration. An empty list is a valid
+ * withdrawal; the caller separately enforces the existing bounded buffer.
+ */
+static inline int
+wan6_dns_validate_server_list(const char *server_list)
+{
+	char address[INET6_ADDRSTRLEN];
+	struct in6_addr parsed;
+	size_t length = 0;
+	const char *cursor;
+
+	if (!server_list)
+		return EINVAL;
+
+	for (cursor = server_list; ; ++cursor) {
+		char ch = *cursor;
+
+		if (ch == ' ' || ch == '\t' || ch == '\0') {
+			if (length != 0) {
+				address[length] = '\0';
+				if (inet_pton(AF_INET6, address, &parsed) != 1)
+					return EINVAL;
+				length = 0;
+			}
+			if (ch == '\0')
+				break;
+			continue;
+		}
+
+		/* CR/LF, embedded NUL aside, and other controls are never separators. */
+		if ((unsigned char)ch < 0x20 || (unsigned char)ch == 0x7f)
+			return EINVAL;
+		if (length >= sizeof(address) - 1)
+			return EINVAL;
+		address[length++] = ch;
+	}
+
+	return 0;
+}
+
 /* Missing DNS options are represented as an empty automatic server list. */
 static inline int
 wan6_dns_update_required(const char *current, const char *incoming)

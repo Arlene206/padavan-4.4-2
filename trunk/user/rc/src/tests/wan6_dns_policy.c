@@ -329,11 +329,37 @@ test_static_dns_server_validation_rejects_non_literals_and_injection(void)
 	assert(wan6_dns_validate_static_server("2001:db8::xyz") == EINVAL);
 }
 
+static void
+test_dhcp_dns_server_list_accepts_valid_literals_and_withdrawal(void)
+{
+	assert(wan6_dns_validate_server_list("") == 0);
+	assert(wan6_dns_validate_server_list("2001:db8::53") == 0);
+	assert(wan6_dns_validate_server_list(
+		"2001:db8::53  2001:db8::54\tfd00::1") == 0);
+}
+
+static void
+test_dhcp_dns_server_list_rejects_malformed_tokens_and_controls(void)
+{
+	assert(wan6_dns_validate_server_list(NULL) == EINVAL);
+	assert(wan6_dns_validate_server_list("dns.example") == EINVAL);
+	assert(wan6_dns_validate_server_list("2001:db8::53 192.0.2.53") == EINVAL);
+	assert(wan6_dns_validate_server_list("2001:db8::53/64") == EINVAL);
+	assert(wan6_dns_validate_server_list(
+		"2001:db8::53\nnameserver 192.0.2.1") == EINVAL);
+	assert(wan6_dns_validate_server_list(
+		"2001:db8::53\r2001:db8::54") == EINVAL);
+	assert(wan6_dns_validate_server_list(
+		"2001:db8::53 2001:db8::xyz") == EINVAL);
+}
+
 int
 main(void)
 {
 	test_static_dns_server_validation_accepts_ipv6_and_empty_slots();
 	test_static_dns_server_validation_rejects_non_literals_and_injection();
+	test_dhcp_dns_server_list_accepts_valid_literals_and_withdrawal();
+	test_dhcp_dns_server_list_rejects_malformed_tokens_and_controls();
 	test_withdrawn_dns_option_clears_previous_lease();
 	test_absent_dns_option_is_noop_when_already_empty();
 	test_changed_dns_list_is_published();

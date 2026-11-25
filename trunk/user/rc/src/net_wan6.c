@@ -940,6 +940,13 @@ int store_wan_dns6(char *dns6_new)
 	}
 	if (dns6_len)
 		memcpy(dns6s, dns6_new, dns6_len);
+	status = wan6_dns_validate_server_list(dns6s);
+	if (status != 0) {
+		errno = status;
+		logmessage("WAN IPv6",
+			   "rejected malformed DHCPv6 DNS server list");
+		return -1;
+	}
 	trim_r(dns6s);
 
 	read_status = get_wan_unit_value_copy_status(

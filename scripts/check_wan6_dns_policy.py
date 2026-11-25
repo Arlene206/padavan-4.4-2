@@ -46,4 +46,33 @@ require("test_static_dns_server_validation_rejects_non_literals_and_injection" i
 require("2001:db8::53\\nnameserver 192.0.2.1" in TEST,
         "newline injection case must remain in the test")
 
-print("WAN IPv6 static DNS literal validation contract: PASS")
+store_start = SOURCE.index("int store_wan_dns6(")
+store_open = SOURCE.index("{", store_start)
+depth = 0
+store_end = store_open
+while store_end < len(SOURCE):
+    if SOURCE[store_end] == "{":
+        depth += 1
+    elif SOURCE[store_end] == "}":
+        depth -= 1
+        if depth == 0:
+            break
+    store_end += 1
+require(depth == 0, "store_wan_dns6 body must be complete")
+store = SOURCE[store_open + 1:store_end]
+server_list_validation = "status = wan6_dns_validate_server_list(dns6s);"
+read_current = "read_status = get_wan_unit_value_copy_status("
+require(server_list_validation in store,
+        "DHCPv6-provided DNS servers must be validated")
+require(store.index(server_list_validation) < store.index(read_current),
+        "invalid DHCPv6 DNS must be rejected before NVRAM access/publication")
+require("rejected malformed DHCPv6 DNS server list" in store,
+        "invalid DHCPv6 DNS rejection must remain observable")
+require("wan6_dns_validate_server_list" in POLICY and
+        "inet_pton(AF_INET6, address, &parsed) != 1" in POLICY,
+        "DHCPv6 DNS token parser must reject non-IPv6 literals")
+require("test_dhcp_dns_server_list_accepts_valid_literals_and_withdrawal" in TEST and
+        "test_dhcp_dns_server_list_rejects_malformed_tokens_and_controls" in TEST,
+        "DHCPv6 DNS list needs positive and fail-closed tests")
+
+print("WAN IPv6 static and DHCP DNS literal validation contract: PASS")
