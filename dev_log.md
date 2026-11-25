@@ -1,3 +1,9 @@
+## 2026-11-25 — Initialize domain decoder return pointer deterministically
+
+- Remove the legacy self-initialization `char *ret = ret`, which reads an indeterminate automatic pointer before the decoder assigns its successful result. Initialize it to `NULL` and add a null-buffer rejection case alongside zero/negative length checks.
+
+---
+
 ## 2026-11-25 — Make domain-codec sanitizer harness leak-clean
 
 - The domain-codec sanitizer progressed past compilation after the validated signed/unsigned input-length change, then LeakSanitizer exposed allocations intentionally printed but never freed by the legacy demonstration `main()`. Replace print-only demos with checked decode/encode round-trip helpers that release every buffer; retain valid no-compression, suffix-compression and whole-name-compression coverage.

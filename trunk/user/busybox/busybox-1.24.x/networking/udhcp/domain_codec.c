@@ -30,7 +30,7 @@
  */
 char* FAST_FUNC dname_dec(const uint8_t *cstr, int clen, const char *pre)
 {
-	char *ret = ret; /* for compiler */
+	char *ret = NULL;
 	char *dst = NULL;
 
 	if (clen <= 0 || cstr == NULL || pre == NULL)
@@ -319,8 +319,10 @@ static int test_domain_decoder_bounds(void)
 			   "foo.bar www.bar") != 0 ||
 	    expect_rejected(valid_compressed, 0) != 0 ||
 	    expect_rejected(valid_compressed, -1) != 0 ||
+	    expect_rejected(NULL, sizeof(valid_compressed)) != 0 ||
 	    expect_rejected(truncated_label, sizeof(truncated_label)) != 0 ||
-	    expect_rejected(truncated_after_complete_name, sizeof(truncated_after_complete_name)) != 0 ||
+	    expect_rejected(truncated_after_complete_name,
+			    sizeof(truncated_after_complete_name)) != 0 ||
 	    expect_rejected(pointer_past_end, sizeof(pointer_past_end)) != 0 ||
 	    expect_rejected(forward_pointer, sizeof(forward_pointer)) != 0)
 		return -1;
