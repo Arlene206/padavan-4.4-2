@@ -1,3 +1,10 @@
+## 2026-11-25 — Include Ralink IAPP C sources in XY-C1 build triggers
+
+- Exact-SHA review found a gap in xy-c1-firmware-validation.yml: push and pull_request path filters included the IAPP lifecycle test and shell wrapper but omitted trunk/user/ralinkiappd/src/**. The preceding IAPP C listener fix therefore did not itself trigger firmware validation; a host-test path in the same earlier commit happened to trigger a build.
+- Added the entire IAPP src subtree to both path filters and a unit regression that pins both entries and verifies the C sources/Makefile are production inputs to the build detector.
+- The source-input detector already treats unknown production paths as firmware inputs, so no detector logic change was needed. Changing this workflow itself intentionally forces an exact-head firmware validation run.
+
+---
 ## 2026-11-25 — Fail IAPP startup when TCP listen() fails
 
 - IAPP_SocketOpen() checked socket creation and bind(), but ignored listen()'s return value. A listener setup failure could leave the daemon loop running and be reported healthy even though incoming TCP security-block connections could not be accepted.

@@ -1,28 +1,27 @@
 ## Current repository state — 2026-11-25
 
-- Live main parent before this IAPP diagnostic-format correction: 5ff68edb06869f3f58d7f69f5db1a96f9788ef2e; source, development log and handoff are one atomic descendant.
+- Live main parent before this CI-trigger correction: e96eb3f4b4fd4ba3fed06e7c8cda13368b6f29d9; XY-C1 workflow, firmware-input regression, dev log and handoff are one atomic descendant.
 - Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains read-only at 72f4f157a084f8184b9597ca5bf334b8080e5807.
-- IAPP firewall identity fix `defc1fe850158dd8c2bb179ad39a650037c11f5a` exact IAPP workflow #45686985107 PASS; AI handoff #45686985129 PASS; inventory #45686985036 PASS; Process #45686985030 PASS. Its XY-C1 #45686985116 was still in Build at last poll.
-- IAPP TCP listen fail-closed fix `5ff68edb06869f3f58d7f69f5db1a96f9788ef2e` is committed. Its exact IAPP #45687310341, inventory #45687310391, NVRAM #45687310476, Process #45687310401, AI handoff #45687310376 and XY-C1 #45687310380 were queued/in progress at last inspection. No exact-head result inferred.
-- This correction normalizes the TCP listen diagnostic's C newline escape; no behavior change.
-- VSFTPD ACL gates remain verified on 8b9b63401dd85232b257120111bb18475db6b5b6 (VSFTPD, AI, Process, NVRAM PASS); its XY-C1 run #45685416720 remained in Build at last poll, so L3 remains unverified.
-- PR #1 inventory complete: valid HMAC/CA payload already integrated or superseded; no port required. Backup untouched.
-- Physical-router L4 NOT VERIFIED.
+- IAPP firewall exact-match commit defc1fe850158dd8c2bb179ad39a650037c11f5a: IAPP lifecycle #45686985107 PASS, AI handoff #45686985129 PASS, process lifecycle #45686985030 PASS, inventory #45686985036 PASS. XY-C1 #45686985116 was still in progress at last poll.
+- IAPP TCP listen failure commit 5ff68edb06869f3f58d7f69f5db1a96f9788ef2e: IAPP lifecycle #45687310341 PASS, inventory #45687310391 PASS, AI handoff #45687310376 PASS; XY-C1 #45687310380 was in progress at Build XY-C1. The later diagnostic-only source correction e96eb3f4b4fd4ba3fed06e7c8cda13368b6f29d9 did not trigger XY-C1 because its source path was omitted.
+- This commit adds trunk/user/ralinkiappd/src/** to both XY-C1 push and PR path filters and pins both entries in unit tests. The workflow-file change itself should trigger validation on the new SHA; Build/TRX/artifact are pending until observed.
+- FTP ACL gates e02fd3651bb5fa4030fe90876100b9cdec123cc3 + 8b9b63401dd85232b257120111bb18475db6b5b6: VSFTPD, AI, Process and NVRAM exact checks PASS; 8b XY-C1 #45685416720 remained in Build at last poll.
+- Closed PR #1 inventory complete; valid HMAC/CA changes are integrated or superseded, no cherry-pick. Physical-router L4 NOT VERIFIED.
 
 ## Active task
 
-Validate the IAPP TCP listen fix on exact SHA 5ff68edb06869f3f58d7f69f5db1a96f9788ef2e, including source contract, firmware build/TRX/artifact; then continue targeted audit for unchecked fatal startup resource calls.
+Validate the new XY-C1 source-path trigger and IAPP lifecycle regression on the exact current SHA. L3 only when Build, TRX and artifact upload all PASS on the same SHA. Continue targeted IAPP startup audit afterward.
 
 ## Exact first actions for next GPT
 
-1. Inspect `5ff68ed` exact-head IAPP and AI handoff workflow results; fix any source-contract/test failure.
-2. Poll defc1fe XY-C1 #45686985116 and 5ff68ed XY-C1 #45687310380. L3 requires Build + TRX + artifact upload PASS on the same production SHA.
-3. Continue IAPP socket/startup audit only for concrete fatal setup statuses; then select another module with a demonstrated defect.
-4. Main only; preserve the frozen backup and do not cherry-pick the closed PR.
+1. Inspect exact-head XY-C1 path-trigger and firmware-input test results; repair a real trigger or detector mismatch.
+2. Poll 5ff68ed XY-C1 #45687310380 and defc1fe XY-C1 #45686985116; record Build/TRX/artifact separately.
+3. Continue IAPP startup review only for demonstrated fatal-resource failure paths.
+4. Preserve the frozen backup and leave closed PR #1 untouched.
 
 ## Execution contract
 
-One complete Git tree and one commit per logical slice; non-force main update with exact expected parent SHA. No development branch, PR, or force push. PENDING Actions do not block independent work.
+Main only; full Git tree, one commit per logical task, non-force update with exact expected main SHA. No force-push, development branch or new PR. PENDING Actions do not block independent work.
 ## 2026-11-25 autonomous handoff checkpoint
 
 This checkpoint supersedes older active task pointers below; retain historical completed work without re-auditing completed areas.
