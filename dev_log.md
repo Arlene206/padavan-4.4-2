@@ -1,3 +1,10 @@
+## 2026-11-25 — Restore AI handoff validation after roadmap size overflow
+
+- Exact AI handoff run #45647751963 on `cb8f014893d99e8991c55cd792443e5c2c1f4a37` failed only because REFACTOR_ROADMAP.md reached 131682 bytes against its 131072-byte hard cap. DHCPv6 IA regression #45647751899, Process inventory #45647752064, WAN DHCP callback #45647751951 and USB storage #45647752298 all PASS on that exact source SHA; XY-C1 #45647751940 and NVRAM #45647752146 remained in progress at last poll.
+- Removed two obsolete 2026-11-14 run-snapshot sections from the roadmap; their historical outcomes are retained in the development log/archive and the active module dashboard/priority queue remain unchanged. The current DHCPv6 finite-expiry fix summary stays at the top. Exact AI rerun pending.
+
+---
+
 ## 2026-11-25 — Arm DHCPv6 IA finite expiry before address publication
 
 - update_prefix6() previously armed a finite valid-lifetime timer only after all downstream IA_PD/IA_NA kernel address operations succeeded. A failure adding a later delegated-prefix interface returned early after earlier interfaces may already have received addresses, leaving partial state without a refreshed expiry timer while the Reply was retried.

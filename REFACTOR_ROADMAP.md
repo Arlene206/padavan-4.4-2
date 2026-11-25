@@ -1,7 +1,7 @@
 ## 2026-11-25 — DHCPv6 IA lease expiry before kernel publication
 
 - Fixed a partial-publication timeout gap: update_prefix6() previously updated per-prefix expiry only after every downstream address add succeeded. A later failure could leave earlier installed addresses without their updated expiry timer while Reply retry continued.
-- Finite valid-lifetime expiry is now armed/reset before any fallible PD/NA add; infinite lifetime disarms an older finite timer; zero lifetime performs cleanup and returns before additions. GNU89 policy boundary fixture and source-order assertions added. Exact DHCPv6 IA/Process/AI and XY-C1 Build/TRX/artifact verification pending.
+- Finite valid-lifetime expiry is now armed/reset before any fallible PD/NA add; infinite lifetime disarms an older finite timer; zero lifetime performs cleanup and returns before additions. GNU89 policy boundary fixture and source-order assertions added. Exact DHCPv6 IA #45647751899 and Process inventory #45647752064 PASS on cb8f014; WAN DHCP callback #45647751951 and USB storage #45647752298 PASS. AI handoff #45647751963 failed only because roadmap exceeded its 131072-byte hard limit; XY-C1 #45647751940 and NVRAM #45647752146 remain in progress.
 
 ---
 
@@ -431,37 +431,6 @@ Older WSD, Samba, printer and RT3352 exact-SHA outcomes are retained in `dev_log
 | L2 host / Actions | FRP async watchdog, client/server boot selection, managed cron, disabled-both cleanup, private credential/config staging, bounded stop and launcher-level lifecycle serialization are L2 CLOSED on exact code SHA `7787210e670b74184d0326f1e8e68efa9063c65c` (FRP [43399797821 / job 131799522268], AI docs [43399798215 / job 131799523616] SUCCESS). The first dcc lock fixture failed due escaped newline output; 1802 passed host tests but failed the checker's close-order assertion; final 778 corrected both and rejects inherited FD 9. Five exact docs SHA `252f328f48b8e4ee6bf8b9bfdc18ab8bd574311f` workflows all SUCCESS: AI docs [43400944647], AliyunDrive [43400944593], AliDDNS [43400944683], AdGuardHome [43400944684], infosvr [43400945908], with every job checkout SHA matching. Static review after this bounded slice found broad `killall`, missing bounded startup readiness and lack of rollback across two sequential config renames; these remain OPEN. Adbyby download/lifecycle slices remain L2 closed as recorded above. | Host Actions/QEMU user-mode do not emulate current-main target firmware/hardware. FRP daemon identity/readiness and paired-config rollback are not yet verified. No MIPS/uClibc firmware/TRX or L4 router result is claimed. |
 | L3 MIPS/uClibc production objects / firmware/TRX | VERIFIED on `760ecfa9d1ff115e62b2df45afb9fda398229ba6`: XY-C1 run [43831778029] passed Build XY-C1, TRX verification and artifact upload. | This proves the early `init_router()` source slice at this SHA; THIS COMMIT changes `services.c` and requires fresh target build. No L4 router behavior is implied. |
 | L4 router/physical hardware | NOT VERIFIED. | Requires target-device boot and subsystem-specific runtime checks. |
-
-## 2026-11-14 implementation/verification addendum
-
-Source baseline: `b022942bf30e6899c18d4bf40aaa528fb17a011f` (handoff documentation commit is separate).
-
-- Storage eject fail-closed implementation is in place; storage-hotplug run `43652052169` reports `completed/success` on `9d85739a978d2f65d87bbe27f8d50f2bdbff3000`. Do not generalize that result to later source SHAs without checking whether relevant storage code changed.
-- GPIO button tri-state startup source: present on this baseline.
-- xl2tpd tri-state startup source: present on this baseline.
-- Current exact-head Actions:
-  - XY-C1 Firmware Validation: in_progress (run 43653875470)
-  - Process lifecycle inventory - b022942bf30e6899c18d4bf40aaa528fb17a011f: in_progress (run 43653875506)
-  - USB storage hotplug stability regression: in_progress (run 43653875448)
-  - HTTPD Authentication and Security Regression: in_progress (run 43653875605)
-  - AI handoff documentation contract: in_progress (run 43653875488)
-- Next audited source slice: HTTPD start duplicate-launch/readiness checks in `trunk/user/rc/src/services.c`; UNKNOWN must fail closed.
-- L3 must be revalidated on latest product-source SHA; L4 hardware validation is not complete.
-
-## 2026-11-14 autonomous implementation continuation
-
-Source baseline: `ff34f0bf97fa1eef9b2787e3aca292baecd726c3` (handoff documentation commit follows separately).
-
-- Storage checked-inventory and eject-all completion gates: not verified on this baseline.
-- GPIO process-presence migration: present.
-- xl2tpd tri-state launch preflight: present.
-- HTTPD tri-state startup and refreshed post-launch process scan: not verified.
-
-Exact-head Actions snapshot:
-- Process lifecycle inventory - ff34f0bf97fa1eef9b2787e3aca292baecd726c3: in_progress (#43654870945)
-
-Next isolated process-lifecycle candidate: HTTPD, Samba and MiniUPnP service-start slices have been addressed; continue with another independently testable service-start or userland stability defect in `trunk/user/rc/src/services_ex.c` or elsewhere. Do not globally alter `pids()`. L3 requires an XY-C1 build for the current product-source baseline; L4 physical hardware validation remains unverified.
-
 
 ## Current WAN teardown defect — exact-status propagation
 

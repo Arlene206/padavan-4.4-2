@@ -1,15 +1,15 @@
-## 2026-11-25 active handoff — DHCPv6 IA finite-expiry timer ordering
+## 2026-11-25 active handoff — restore roadmap byte-limit after DHCPv6 expiry fix
 
-- Live parent main: b65c574ac92edfc0ff67125a7aa790f6da581641. HTTPD multipart boundary test escaping was corrected in the parent. Exact HTTPD #45647312009 and Process inventory #45647311875 were still running at last inspection; AI handoff #45647311771 PASS on parent. Continue to inspect those exact-SHA results; parent XY-C1 was launched from earlier 7d3091f and cannot validate this DHCPv6 change.
-- Found a lease-expiry reliability defect in dhcp6c_ia.c:update_prefix6(): finite valid-lifetime timers were set only after all downstream address/prefix additions succeeded. A later-interface kernel failure returned early, so an address installed on an earlier interface (or a previous valid address) could remain without its updated expiry timer while the Reply was retried. The current source change arms/resets finite expiry before any fallible downstream publication; zero lifetime cleanup runs and returns before add attempts; infinite lifetime disarms the timer.
-- Added a GNU89 policy regression for zero/finite/infinite lifetime decisions and static source-order checks tying actual timer setup before PD and IA_NA kernel additions. Exact DHCPv6 IA workflow, Process inventory, AI handoff and XY-C1 Build/TRX/artifact for this source commit are pending. Local ASan/UBSan binary and checker results must be recorded from this exact patch before claiming L2.
-- Backup backup/pre-plugin-overhaul-2026-11-14 remains frozen at 72f4f157a084f8184b9597ca5bf334b8080e5807; physical-router L4 NOT VERIFIED.
+- Source/test commit `cb8f014893d99e8991c55cd792443e5c2c1f4a37` is live main. DHCPv6 IA run #45647751899 PASS; Process inventory #45647752064 PASS; WAN DHCP callback #45647751951 PASS; USB storage #45647752298 PASS. AI handoff #45647751963 failed only because REFACTOR_ROADMAP.md reached 131682 bytes, exceeding the 131072-byte hard limit. The validator reached no later failure; compact the roadmap by removing obsolete 2026-11-14 historical run snapshots already preserved by dev_log/archive, then rerun AI docs on the resulting SHA.
+- The product code fix in dhcp6c_ia.c arms/reset finite valid-lifetime expiry before any fallible downstream IA_PD/IA_NA kernel add. Zero-lifetime cleanup returns before add attempts; infinite lifetime cancels the previous finite timer. The exact DHCPv6 IA host regression and source-order checker PASS on #45647751899. XY-C1 #45647751940 (Build/TRX/artifact workflow) and NVRAM audit #45647752146 were still in progress at last poll; no L3 claim until all three XY-C1 stages pass on one SHA.
+- The HTTPD multipart fixture double-escape failure was corrected in parent b65c574; HTTPD #45647312009, AI #45647311771, Process #45647311875 and NVRAM #45647311708 PASS on that parent.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`; physical-router L4 NOT VERIFIED.
 
 ### First actions
 
-1. Inspect exact-head DHCPv6 IA, Process inventory, AI docs and XY-C1. Fix any test or source-contract failure without weakening coverage.
-2. Confirm XY-C1 Build, TRX verification and artifact upload all PASS on this same product-source SHA before L3.
-3. Continue the next independent userland stability/security defect while unrelated Actions are pending.
+1. Inspect exact-head AI docs, XY-C1 and NVRAM checks for the roadmap compaction commit.
+2. Record XY-C1 L3 only if Build XY-C1, TRX verification and artifact upload all PASS on the same exact product-source SHA.
+3. Continue another independent userland stability/security source fix while pending Actions run.
 
 ### Execution contract
 
