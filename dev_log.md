@@ -1,3 +1,8 @@
+## 2026-11-25 11:34 CST — Correct ZeroTier UNKNOWN-route fixture line endings
+
+- Exact 6e8648f ZeroTier run #45538871178 failed only at `unknown route inventory normalized the checkpoint`. The test fixture had a double-escaped `printf` format, so it wrote the supposed interface, segment and corruption record as one line rather than three LF-terminated records. The strict loader therefore saw a different state than intended.
+- Corrected the fixture to use one escaped newline delimiter, retaining the assertion that unreadable `ip route` inventory must leave daemon, firewall, checkpoint and identity untouched. Production source is unchanged; exact-head ZeroTier rerun required. No local shell test claimed.
+
 ## 2026-11-25 11:30 CST — Keep valid ZeroTier checkpoints strict; route-gate recovery only
 
 - Exact b940 ZeroTier run #45538507537 failed the baseline graceful-stop test. Inspection found the live-route guard had been inserted into `zerotier_firewall_state_load()` rather than `zerotier_firewall_state_recover_prefix()`. It therefore rejected valid two-line checkpoints when a route existed, then fell into a recovery helper that requires a third line.

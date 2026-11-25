@@ -1685,7 +1685,7 @@ TEST_EXPECT_SAVED_SEGMENT=0
 mkdir -p "$TEST_CONFIG"
 : > "$TEST_IPTABLES_STATE_FILE"
 : > "$TEST_IPTABLES_LOG"
-printf '%s\\n' 'ztunit' '10.147.17.0/24' 'corrupt-extra-record' > "$TEST_CONFIG/.firewall-state"
+printf '%s\n' 'ztunit' '10.147.17.0/24' 'corrupt-extra-record' > "$TEST_CONFIG/.firewall-state"
 echo identity > "$TEST_CONFIG/identity.secret"
 echo running > "$TEST_STATE"
 TEST_STATIC_ROUTE_COUNT=0

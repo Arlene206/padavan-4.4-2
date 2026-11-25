@@ -2,16 +2,19 @@
 
 This snapshot supersedes older task pointers below where they conflict with live Git state.
 
-- Main before this ZeroTier route-guard correction: `b940c2850b6ef9b45278f2c8aeb20cec81d7feef`. Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, untouched. PR #1 remains closed/unmerged.
-- Exact b940 Actions: Process inventory #45538507549 PASS; AI handoff docs #45538507644 PASS; WAN route #45538507655 PASS; ZeroTier lifecycle #45538507537 FAIL; XY-C1 #45538507557 IN_PROGRESS at last poll. ZeroTier failed the baseline graceful-stop case because the new live-route guard was mistakenly placed inside strict `zerotier_firewall_state_load()`, causing even valid two-line checkpoints with a current route to be rejected, then failing prefix recovery. This follow-up moves the route check into `zerotier_firewall_state_recover_prefix()` only. It also fixes the format string to emit actual newlines and adds an unreadable-route-inventory regression.
-- UDHCP test fix `a8f5f0a2a4d8aacfea275811dc79d444afeee78d`: UDHCP #45538273420 PASS (GNU89/ASan/UBSan plus source contract); Process inventory #45538273178 PASS; AI docs #45538273270 PASS; USB storage #45538273267 PASS; XY-C1 #45538273173 PASS (Build/TRX/artifact). NVRAM #45538273244 was still in progress at last poll.
-- No local shell/host tests claimed. Exact-head ZeroTier rerun and XY-C1 verification on the current source SHA remain required.
+- Main before this ZeroTier fixture correction: `6e8648fe35af5e883878b30ab60a17e36221493c`. Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, untouched. PR #1 remains closed/unmerged.
+- Exact b940 Actions: Process inventory #45538507549 PASS; AI handoff docs #45538507644 PASS; WAN route #45538507655 PASS; ZeroTier #45538507537 FAILED because route guard was in strict loader; XY-C1 #45538507557 was IN_PROGRESS at last poll.
+- Exact 6e Actions: Process inventory #45538871150 PASS; AI docs #45538871183 PASS; ZeroTier #45538871178 FAILED in the new unreadable-route fixture because its checkpoint setup used a double-escaped newline format, writing one literal line rather than three records. The fixture now writes actual LF-delimited fields; production route-guard placement is correct. WAN #45538871125 and XY-C1 #45538871147 were still in progress at last poll.
+- UDHCP fix at `a8f5f0a2a4d8aacfea275811dc79d444afeee78d`: #45538273420 PASS (GNU89/ASan/UBSan + source contract); AI docs #45538273270 PASS; Process inventory #45538273178 PASS; USB storage #45538273267 PASS; XY-C1 #45538273173 PASS (Build/TRX/artifact). NVRAM #45538273244 was pending at last poll.
+- New route-guard regression ensures UNKNOWN route inventory cannot authorize damaged-checkpoint normalization; this fixture correction needs exact-head rerun. No local host regression claimed.
 
 ## Exact first action for the next GPT
 
-1. Verify the corrected strict-loader/recovery split and unreadable-route fixture on exact-head ZeroTier; fix any runtime/test/checker failure.
-2. Verify XY-C1 Build/TRX/artifact and all relevant same-SHA checks.
-3. Continue another independent userland stability/security defect while unrelated Actions remain pending. Backup remains frozen/read-only; no force-push.
+1. Verify exact-head ZeroTier regression after correcting the fixture's LF delimiter; inspect and fix any remaining test/runtime issue.
+2. Verify XY-C1 Build/TRX/artifact and same-SHA WAN/Process/AI results.
+3. Continue another separate reliability/security fix while any unrelated Actions are pending; frozen backup remains read-only.
+
+No force-push.
 
 ## Current repository state
 
