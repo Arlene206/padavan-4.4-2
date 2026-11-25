@@ -82,8 +82,14 @@ jobs:
           assert "firefly_config_text_is_safe(username)" in publisher
           assert "firefly_config_text_is_safe(password)" in publisher
           assert "firefly_config_text_is_safe(link_path)" in publisher
-          assert publisher.index("firefly_config_text_is_safe(username)") < publisher.index('fopen(source_path, "r")')
+          source_open = publisher.index("open(source_path, O_RDONLY | O_NONBLOCK | O_NOCTTY)")
+          source_fstat = publisher.index("fstat(source_fd, &source_info)")
+          source_type_check = publisher.index("if (!S_ISREG(source_info.st_mode))")
+          source_stream = publisher.index('fdopen(source_fd, "r")')
+          assert publisher.index("firefly_config_text_is_safe(username)") < source_open
+          assert source_open < source_fstat < source_type_check < source_stream
           assert publisher.index("firefly_config_text_is_safe(username)") < publisher.index("mkstemp(")
+          assert "O_NONBLOCK | O_NOCTTY" in publisher
           for marker in (
               '"media-user\\nadmin_pw = injected"',
               '"media-pass\\r\\nrunas = root"',
