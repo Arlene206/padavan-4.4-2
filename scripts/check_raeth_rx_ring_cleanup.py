@@ -269,7 +269,7 @@ assert "ei_local->kreset_task = NULL;" in close_body
 assert "ei_local->kphy_poll_task = NULL;" in close_body
 print("RAETH open/close balances module refs and DMA on early setup failures, with optional thread guards: PASS")
 
-irq_free = function_body(RAETHER_SOURCE, "static void fe_int_free_requested_irqs(")
+irq_free = function_body(RAETHER_SOURCE, "static int fe_int_free_requested_irqs(")
 for mask in ("RAETH_IRQ_REQ_IRQ0", "RAETH_IRQ_REQ_IRQ1",
              "RAETH_IRQ_REQ_IRQ2", "RAETH_IRQ_REQ_IRQ3",
              "RAETH_IRQ_REQ_ESW", "RAETH_IRQ_REQ_GSW"):
