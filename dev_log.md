@@ -1,3 +1,12 @@
+## 2026-11-25 — Bind native static IPv6 default routes to the WAN interface
+
+- Confirmed a native-static IPv6 edge in `net_wan6.c`: the gateway host route is installed with `dev <wan>`, but the following default route used `via <gateway>` without an output device. For a link-local router next-hop (common on IPv6 WANs), the Padavan Linux 4.4 route path does not infer an output device for that gateway class; the route has no `fc_ifindex` and is rejected as `-ENODEV`. Global nexthops can be resolved through a prior route lookup, which is why this issue is specific to link-local gateways.
+- The default route now explicitly includes `dev wan_ifname`, preserving the selected WAN scope for link-local and global gateways. The WAN route-status workflow's source contract pins the exact scoped command and rejects the old unscoped form.
+- Static inspection confirms the route command and regression contract match; exact-head WAN route-status and XY-C1 Actions pending. No router runtime or firmware result is claimed.
+- Changed paths: `trunk/user/rc/src/net_wan6.c`, `.github/workflows/wan-route-status.yml`, `dev_log.md`.
+
+---
+
 ## 2026-11-25 — Mainline handoff checkpoint after DHCPv6 and VSFTPD fixes
 
 - Current main source checkpoint before this documentation-only commit: `7d57bb62d3659b3f2f63b7be82ecde78eb090e71`; frozen backup confirmed unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`.

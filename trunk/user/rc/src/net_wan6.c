@@ -1672,7 +1672,7 @@ int wan6_up(char *wan_ifname, int unit)
 			routes_touched = 1;
 			WAN6_NATIVE_CHECK(eval("ip", "-6", "route", "add", gate6_text, "dev", wan_ifname),
 					  "add native static on-link gateway route");
-			WAN6_NATIVE_CHECK(eval("ip", "-6", "route", "add", "default", "via", gate6_text, "metric", "1"),
+			WAN6_NATIVE_CHECK(eval("ip", "-6", "route", "add", "default", "via", gate6_text, "dev", wan_ifname, "metric", "1"),
 					  "add native static default route");
 		}
 	} else if (ipv6_type == IPV6_NATIVE_DHCP6) {

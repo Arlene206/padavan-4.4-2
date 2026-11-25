@@ -1631,6 +1631,8 @@ jobs:
           assert 'inet_ntop(AF_INET6, &addr6, addr6s, INET6_ADDRSTRLEN)' in wan6
           assert 'inet_ntop(AF_INET6, &lan_addr6, lan_addr6s, INET6_ADDRSTRLEN)' in wan6
           assert 'format_ipv6_literal(wan_addr6, addr6_text,' in wan6
+          assert 'eval("ip", "-6", "route", "add", "default", "via", gate6_text, "dev", wan_ifname, "metric", "1")' in wan6
+          assert 'eval("ip", "-6", "route", "add", "default", "via", gate6_text, "metric", "1")' not in wan6
           
           callback_create = body(wan, "create_cb_links(void)")
           callback_remove = body(wan, "remove_cb_links(void)")
