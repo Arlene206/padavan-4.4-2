@@ -149,16 +149,20 @@ static int sprint_nip(char *dest, const char *pre, const uint8_t *ip)
 	return sprintf(dest, "%s%u.%u.%u.%u", pre, ip[0], ip[1], ip[2], ip[3]);
 }
 
-/* really simple implementation, just count the bits */
-static int mton(uint32_t mask)
+/* Reject malformed or non-contiguous subnet masks before accepting a lease. */
+static int udhcpc_subnet_mask_option_valid(struct dhcp_packet *packet)
 {
-	int i = 0;
-	mask = ntohl(mask); /* 111110000-like bit pattern */
-	while (mask) {
-		i++;
-		mask <<= 1;
-	}
-	return i;
+	uint8_t *option = udhcp_get_option(packet, DHCP_SUBNET);
+	uint32_t subnet;
+	unsigned int prefix_length;
+
+	if (!option)
+		return 1;
+	if (option[-OPT_DATA + OPT_LEN] != sizeof(subnet))
+		return 0;
+	move_from_unaligned32(subnet, option);
+	return udhcpc_subnet_mask_prefix_length(ntohl(subnet),
+						&prefix_length) == 0;
 }
 
 #if ENABLE_FEATURE_UDHCPC_SANITIZEOPT
@@ -522,10 +526,21 @@ static char **fill_envp(struct dhcp_packet *packet)
 		uint8_t code = dhcp_optflags[i].code;
 		BITMAP *found_ptr = &FOUND_OPTS(code);
 		BITMAP found_mask = BMASK(code);
+		unsigned int subnet_prefix_length = 0;
 		if (!(*found_ptr & found_mask))
 			goto next;
 		*found_ptr &= ~found_mask; /* leave only unknown options */
 		temp = udhcp_get_option(packet, code);
+		if (code == DHCP_SUBNET) {
+			uint32_t subnet;
+
+			if (temp[-OPT_DATA + OPT_LEN] != sizeof(subnet))
+				goto next;
+			move_from_unaligned32(subnet, temp);
+			if (udhcpc_subnet_mask_prefix_length(ntohl(subnet),
+							       &subnet_prefix_length) != 0)
+				goto next;
+		}
 		if (code == DHCP_LEASE_TIME) {
 			uint8_t *lease_option = udhcp_get_option32(packet, code);
 			uint32_t lease_seconds = 0;
@@ -541,11 +556,9 @@ static char **fill_envp(struct dhcp_packet *packet)
 			*curr = xmalloc_optname_optval(temp, &dhcp_optflags[i], opt_name);
 		}
 		putenv(*curr++);
-		if (code == DHCP_SUBNET && temp[-OPT_DATA + OPT_LEN] == 4) {
-			/* Subnet option: make things like "$ip/$mask" possible */
-			uint32_t subnet;
-			move_from_unaligned32(subnet, temp);
-			*curr = xasprintf("mask=%u", mton(subnet));
+		if (code == DHCP_SUBNET) {
+			/* Only publish a prefix for a validated contiguous mask. */
+			*curr = xasprintf("mask=%u", subnet_prefix_length);
 			putenv(*curr++);
 		}
  next:
@@ -1969,6 +1982,13 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 		case RENEW_REQUESTED:
 		case REBINDING:
 			if (*message == DHCPACK) {
+				if (!udhcpc_subnet_mask_option_valid(&packet)) {
+					bb_error_msg("invalid DHCP subnet mask option; deferring ACK");
+					udhcpc_script_failure_prepare_retry(state == REQUESTING,
+						tryagain_timeout, 0, &timeout,
+						&already_waited_sec, &packet_num);
+					continue;
+				}
 				unsigned start;
 				unsigned script_elapsed;
 				uint32_t lease_seconds;

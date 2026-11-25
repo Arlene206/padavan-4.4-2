@@ -4,6 +4,29 @@
 
 #include <stdint.h>
 
+/* The IPv4 subnet mask must be contiguous, in host byte order. */
+static inline int
+udhcpc_subnet_mask_prefix_length(uint32_t mask, unsigned int *prefix_length)
+{
+	unsigned int prefix = 0;
+	int bit, saw_zero = 0;
+
+	if (!prefix_length)
+		return -1;
+	*prefix_length = 0;
+	for (bit = 31; bit >= 0; --bit) {
+		if (mask & (1U << bit)) {
+			if (saw_zero)
+				return -1;
+			++prefix;
+		} else {
+			saw_zero = 1;
+		}
+	}
+	*prefix_length = prefix;
+	return 0;
+}
+
 /* Use an unsigned left operand: option codes can select the top bitmap bit. */
 static inline unsigned int
 udhcpc_option_bitmap_mask(unsigned int option_code)

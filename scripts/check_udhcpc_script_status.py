@@ -62,6 +62,9 @@ libbb = read("trunk/user/busybox/busybox-1.24.x/include/libbb.h")
 workflow = read(".github/workflows/udhcpc-script-status-stability.yml")
 
 assert '#include "udhcpc_script_policy.h"' in dhcpc
+assert 'udhcpc_subnet_mask_prefix_length(uint32_t mask, unsigned int *prefix_length)' in policy
+assert 'test_subnet_mask_requires_contiguous_network_bits' in test
+assert 'test_subnet_mask_requires_contiguous_network_bits() != 0' in test
 assert '#define BMASK(i) (udhcpc_option_bitmap_mask((unsigned)(i)))' in dhcpc
 assert '#define BITMAP unsigned' in dhcpc
 assert 'return 1U << (option_code % (sizeof(unsigned int) * 8U));' in policy
@@ -84,6 +87,15 @@ assert "Returns sig + 0x180 if child is killed by signal." in libbb
 ack_start = dhcpc.index("if (*message == DHCPACK)")
 nak_start = dhcpc.index("if (*message == DHCPNAK)", ack_start)
 ack = dhcpc[ack_start:nak_start]
+subnet_validation = function_body(dhcpc, "static int udhcpc_subnet_mask_option_valid")
+assert "udhcp_get_option(packet, DHCP_SUBNET)" in subnet_validation
+assert "option[-OPT_DATA + OPT_LEN] != sizeof(subnet)" in subnet_validation
+assert "udhcpc_subnet_mask_prefix_length(ntohl(subnet)" in subnet_validation
+subnet_gate = ack.index("if (!udhcpc_subnet_mask_option_valid(&packet))")
+subnet_retry = ack.index("udhcpc_script_failure_prepare_retry", subnet_gate)
+subnet_continue = ack.index("continue;", subnet_retry)
+lease_time_read = ack.index("udhcp_get_option32(&packet, DHCP_LEASE_TIME)")
+assert subnet_gate < subnet_retry < subnet_continue < lease_time_read
 script_call = ack.index("script_status = udhcp_run_script")
 failure_gate = ack.index("if (script_status != 0)", script_call)
 retry = ack.index("udhcpc_script_failure_prepare_retry", failure_gate)
@@ -100,6 +112,10 @@ assert "DHCPACK for %s" in ack
 
 # The exported lease duration and internal timer must share one normalization.
 fill_envp = function_body(dhcpc, "static char **fill_envp")
+assert "if (code == DHCP_SUBNET)" in fill_envp
+assert "udhcpc_subnet_mask_prefix_length(ntohl(subnet)" in fill_envp
+assert 'xasprintf("mask=%u", subnet_prefix_length)' in fill_envp
+assert "mton(subnet)" not in fill_envp
 assert "if (code == DHCP_LEASE_TIME)" in fill_envp
 assert "udhcp_get_option32(packet, code)" in fill_envp
 assert "udhcpc_lease_time_effective(" in fill_envp

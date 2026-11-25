@@ -1,3 +1,9 @@
+## 2026-11-24 — Reject non-contiguous DHCPv4 subnet masks
+
+- `dhcpc.c:mton()` counted every set bit after shifting the mask, but never checked that the one-bits were contiguous from the most-significant bit. A malformed DHCP option 1 such as 255.0.255.0 was therefore exported as `mask=16`, silently changing the mask's meaning and allowing a server response to misconfigure the client's interface.
+- Added a strict prefix-length helper; invalid length or non-contiguous masks cause the DHCPACK to be deferred through the existing acquisition/renewal retry policy. `fill_envp()` exports the raw subnet and derived `mask` only when the option is exactly four bytes and contiguous. Tests cover /0, /1, /24, /32 and non-contiguous masks.
+- The source checker was extended to enforce validation before script invocation and before publishing the derived prefix. Parent SHA 3c7ba07 passed udhcpc callback regression #45522455255, Process/Lifecycle #45522455412, storage hotplug #45522455153 and AI docs #45522455290; NVRAM #45522455453 and XY-C1 #45522455192 were still in progress on last observation. L3 remains unverified; no local compile claim.
+
 ## 2026-11-24 — Fix undefined behavior in udhcpc DHCP-option bitmap masks
 
 - fill_envp() builds a bitmap for all 256 DHCP option codes. Its BMASK macro used the signed expression `1 << bit`; any option whose low 5 bits were 31 (for example valid option 31 or 255) invoked undefined behavior by shifting signed `int` into its sign bit. This can occur while handling a remote DHCP reply.

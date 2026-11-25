@@ -13,21 +13,21 @@ Continue one autonomous engineering stream on main. For each logical slice, crea
 
 ## Active task
 
-### udhcpc DHCP-option bitmap — eliminate signed-shift undefined behavior
+### udhcpc DHCP subnet-mask validation — reject non-contiguous prefixes
 
-dhcpc.c:fill_envp() tracks every DHCP option in a bitmap. The old `BMASK(i) (1 << ...)` shifts signed int into bit 31 for option codes 31, 63, 95, …, 255, which is undefined behavior on the target's 32-bit int and can be triggered by a valid DHCP packet. Replaced it with `udhcpc_option_bitmap_mask()` using an unsigned `1U` and the unsigned-int width; `BMASK` now delegates to that helper. GNU89 test boundaries exercise the high bit and bitmap word wrap, and the source checker prevents regression.
+`dhcpc.c:mton()` used to count all set bits rather than require contiguous leading ones. A malformed DHCP option 1 such as 255.0.255.0 was exported as `mask=16`, changing the meaning of the server-provided subnet mask and allowing a remote DHCP reply to install wrong interface configuration. Added `udhcpc_subnet_mask_prefix_length()` for host-order masks; option length and contiguity are checked before raw subnet and derived prefix are exposed to the event script. A malformed DHCPACK is deferred before script execution using the existing acquisition/renewal retry policy, preserving the prior lease.
 
-The immediately preceding PPP embedded-NUL fix is commit bccbe5355f4506b121740f47866b962468d0ea37; its Process/Lifecycle, Process inventory, HTTPD, WAN DHCP, NVRAM and AI documentation checks all passed. XY-C1 was still building. This DHCP source/test/checker slice is the next atomic commit; no local compile claim.
+Regression covers /0, /1, /24, /32, non-contiguous masks and null output; the static checker verifies the ACK gate runs before lease processing and script invocation. No local compile is claimed; exact SHA Actions after commit must confirm sanitizer and source-checker results.
 
-## Current exact-head Actions on bccbe5355f4506b121740f47866b962468d0ea37
+## Current exact-head Actions on 3c7ba07fdb8c02ec8242777a75356392daaf4bd6
 
-- Process inventory/lifecycle #45521301186: PASS; PPP stable-lock, atomic publication and embedded-NUL regression passed.
-- Process inventory #45521300961: PASS.
-- HTTPD Authentication/Security #45521301271: PASS.
-- WAN DHCP callback #45521300987: PASS.
-- NVRAM transaction boundary #45521301083: PASS (raw userland ioctl/kernel caller audit completed).
-- AI handoff documentation #45521301108: PASS.
-- XY-C1 Firmware Validation #45521301044: IN_PROGRESS at Build XY-C1; TRX check and artifact upload not yet confirmed. L3 remains NOT VERIFIED; L4 hardware remains NOT VERIFIED.
+- BusyBox udhcpc event script status #45522455255: PASS (GNU89 ASan/UBSan policy tests and source contract).
+- Process lifecycle inventory #45522455253: PASS.
+- Process inventory/lifecycle fail-closed #45522455412: PASS.
+- USB storage hotplug #45522455153: PASS.
+- AI handoff documentation #45522455290: PASS.
+- NVRAM transaction boundary #45522455453: IN_PROGRESS at raw userland ioctl/kernel caller audit.
+- XY-C1 Firmware Validation #45522455192: IN_PROGRESS at Build XY-C1; no exact-head TRX/artifact result. L3 NOT VERIFIED; L4 hardware NOT VERIFIED.
 - No local compile is claimed.
 
 ## Completed source slices
@@ -135,9 +135,9 @@ Commit `786c504c8247fe42d5d1d5f2dc3ad28757fafc80` strictly parses persisted RX/T
 
 ## Exact first action for the next GPT
 
-1. Fetch live main; inspect exact-head `udhcpc-script-status-stability`, Process/Lifecycle, WAN DHCP and XY-C1 Actions after the unsigned bitmap fix. Resolve any exact-SHA failure; do not reuse parent SHA results.
-2. Verify XY-C1 Build, TRX check and artifact upload on the exact final source SHA before claiming L3.
-3. Continue a separate userland stability/security defect outside the recent PPP/DHCP/HTTPD/IPTV/FRP focus; don't wait on a PENDING workflow when independent work exists.
+1. Fetch live main and check exact-head `udhcpc-script-status-stability`, Process/Lifecycle, NVRAM, storage and XY-C1 Actions after this subnet-mask validation. Fix any exact-SHA failure; don't rely on parent results.
+2. Confirm XY-C1 Build, TRX verification and artifact upload all PASS on the same final source SHA before claiming L3; L4 remains hardware-only.
+3. Continue a distinct userland stability/security defect outside the recent PPP/DHCP/HTTPD/IPTV/FRP focus. Do not wait on PENDING Actions when independent work is available.
 
 ## Mandatory handoff checkpoint
 

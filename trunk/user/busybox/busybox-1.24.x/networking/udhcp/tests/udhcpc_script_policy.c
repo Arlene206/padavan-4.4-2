@@ -10,6 +10,28 @@
 } while (0)
 
 
+static int test_subnet_mask_requires_contiguous_network_bits(void)
+{
+	unsigned int prefix = 99;
+
+	CHECK(udhcpc_subnet_mask_prefix_length(0x00000000U, &prefix) == 0);
+	CHECK(prefix == 0U);
+	CHECK(udhcpc_subnet_mask_prefix_length(0x80000000U, &prefix) == 0);
+	CHECK(prefix == 1U);
+	CHECK(udhcpc_subnet_mask_prefix_length(0xffffff00U, &prefix) == 0);
+	CHECK(prefix == 24U);
+	CHECK(udhcpc_subnet_mask_prefix_length(0xffffffffU, &prefix) == 0);
+	CHECK(prefix == 32U);
+
+	prefix = 99;
+	CHECK(udhcpc_subnet_mask_prefix_length(0xff00ff00U, &prefix) == -1);
+	CHECK(prefix == 0U);
+	CHECK(udhcpc_subnet_mask_prefix_length(0xffff0001U, &prefix) == -1);
+	CHECK(udhcpc_subnet_mask_prefix_length(0x7fffffffU, &prefix) == -1);
+	CHECK(udhcpc_subnet_mask_prefix_length(0xffffff00U, NULL) == -1);
+	return 0;
+}
+
 static int test_option_bitmap_mask_uses_unsigned_high_bit(void)
 {
 	CHECK(udhcpc_option_bitmap_mask(0U) == 1U);
@@ -234,7 +256,8 @@ static int test_already_expired_lease_is_not_resurrected(void)
 
 int main(void)
 {
-	if (test_option_bitmap_mask_uses_unsigned_high_bit() != 0 ||
+	if (test_subnet_mask_requires_contiguous_network_bits() != 0 ||
+	    test_option_bitmap_mask_uses_unsigned_high_bit() != 0 ||
 	    test_effective_lease_time_bounds_match_client_timer() != 0 ||
 	    test_nak_only_deconfigures_an_active_lease() != 0 ||
 	    test_nak_server_id_filter_respects_rebinding_broadcast() != 0 ||
