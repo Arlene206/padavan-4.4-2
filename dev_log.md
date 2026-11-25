@@ -1,3 +1,14 @@
+## 2026-11-25 — Mainline handoff checkpoint after DHCPv6 and VSFTPD fixes
+
+- Current main source checkpoint before this documentation-only commit: `7d57bb62d3659b3f2f63b7be82ecde78eb090e71`; frozen backup confirmed unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Exact current-head results: VSFTPD metadata-alias regression #45715924005 PASS; Process inventory #45715924023 PASS; AI docs #45715924015 PASS. XY-C1 #45715924026 remains IN_PROGRESS (Build step running; TRX and artifact upload pending); NVRAM transaction audit #45715924022 remains IN_PROGRESS.
+- DHCPv6 atomic callback environment source fix #45715277126 PASS on `898f67081429468f9e41f2603645b73112d71324`; its stricter source-contract regression #45715802810 and AI docs #45715802844 PASS on `c79100c73e784aaf8e6f826f53028d04372f0ed8`. WAN callback cross-contract rerun #45715551138 and AI docs #45715551148 PASS on `b839cd32fc594e3ac86a9c480232bda4746cda76`.
+- AliDDNS signed API transport #45714500332 PASS on `c18629bb7d1fcaff7c3b5b999df6373ae0efe8ed`; DDNSTO lifecycle #45714204122 PASS on `284bb616b5f56d513d65bc95a0cf80cd6eb9cdd0`. Neither component changed after its respective run.
+- Exact current main is not L3-verified: XY-C1 Build/TRX/artifact is not complete. Physical-router L4 is NOT VERIFIED.
+- This commit updates only `SESSION_HANDOFF.md` and `dev_log.md`; no product source changes.
+
+---
+
 ## 2026-11-25 — Reject VSFTPD upload aliases into reserved metadata directories
 
 - ftp_acl_path_resolve_write_entry rejected reserved metadata in the supplied path and in an existing resolved target, but the new-file branch only canonicalized the parent and never re-applied the reserved-component policy. A symlink alias to a canonical .hidden parent could therefore reach openat() for a new upload despite the metadata-path guard.

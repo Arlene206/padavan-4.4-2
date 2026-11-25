@@ -1,25 +1,24 @@
 ## Current repository state — 2026-11-25
 
-- Live main parent for this DDNSTO follow-up: `4abf56ad292f1220e786d94bd5198b378ea8aedf`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- DDNSTO exact-head run #45711617256 FAILED in the lifecycle test at the UNKNOWN-start fixture. The new process-identity, UID rejection and procfs ambiguity cases passed. Root cause: pre-launch stop calls pidof once, then the shared procfs absence helper calls it a second time; the mock incorrectly injected UNKNOWN on call two before the daemon launched. The fixture now injects UNKNOWN on call three, the first post-launch poll.
-- XY-C1 exact-head run #45711617341 FAILED at the shared-header path contract because the push path list contained two `trunk/user/shared/Makefile` entries. This fix removes the duplicate and keeps the existing canonical entry.
-- Exact-head Process inventory #45711617474 PASS; AI handoff docs #45711617453 PASS; Process fail-closed #45711617537 PASS on `4abf56ad`.
+- Live `main`: `7d57bb62d3659b3f2f63b7be82ecde78eb090e71` (`fix(vsftpd): block metadata alias uploads`; parent `c79100c73e784aaf8e6f826f53028d04372f0ed8`).
+- Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (confirmed unchanged; do not modify).
+- The latest commit adds a canonical-parent reserved-metadata check to VSFTPD new-upload path resolution. Exact-head VSFTPD regression #45715924005 PASS; Process inventory #45715924023 PASS; AI handoff docs #45715924015 PASS.
+- DHCPv6 client callback environment publication fix: `898f67081429468f9e41f2603645b73112d71324` checks every `putenv()`, rolls back earlier publications in reverse order on failure, frees the staged vector, and prevents the script from running with a partial environment. Its dedicated retry regression #45715277126 PASS; source-contract strengthening #45715802810 PASS on `c79100c7`.
+- The WAN cross-workflow contract was aligned with atomic DHCPv6 publication; WAN callback #45715551138 PASS and AI docs #45715551148 PASS on `b839cd32fc594e3ac86a9c480232bda4746cda76`.
+- AliDDNS stable/temporary WAN IPv6 selection and mixed ULA/GUA filtering passed signed API transport workflow #45714500332 on `c18629bb7d1fcaff7c3b5b999df6373ae0efe8ed`; DDNSTO lifecycle passed #45714204122 on `284bb616b5f56d513d65bc95a0cf80cd6eb9cdd0`. These paths have not changed since their respective PASS runs.
+- Exact-head current build gates on `7d57bb62`: XY-C1 #45715924026 is IN_PROGRESS (Build XY-C1 step in progress; TRX verification and artifact upload pending); NVRAM transaction audit #45715924022 is IN_PROGRESS. Do not call this L3 until Build, TRX and artifact upload all PASS on the same source SHA.
+- Older WAN callback run #45715277083 failed on `898f6708` only because its independent inline contract still expected unchecked `putenv(*curr++)`; fixed in `b839cd32`, and the exact rerun #45715551138 passed. Do not reopen this completed contract repair.
+- Physical router verification is NOT VERIFIED (L4). No live-router result is claimed.
 
 ## Active task
 
-Re-run DDNSTO lifecycle and XY-C1 on this test/workflow correction SHA. The DDNSTO implementation binds candidate PIDs to the installed executable device/inode and service UID, uses shared procfs to confirm absence, and takes fresh exact-PID TERM/KILL snapshots. This follow-up changes the regression's pidof call threshold and removes the duplicate XY-C1 path only.
-
-## Verification boundary
-
-- Previous DDNSTO source-contract check passed; its shell regression failed only at the UNKNOWN-start fixture due to the pre-launch lookup count documented above.
-- Previous XY-C1 failed before firmware compilation at the shared-header workflow-path check. No MIPS build, TRX, artifact or L3 result is claimed.
-- Exact-SHA DDNSTO, XY-C1, Process inventory, AI docs and Process fail-closed Actions must be fetched for the resulting main SHA. No live-router or L4 result is claimed.
+Finish verification of the current exact main SHA before claiming firmware status. Poll XY-C1 #45715924026 and NVRAM audit #45715924022. If XY-C1 fails, inspect the exact job log and fix the actual failing step. L3 requires successful Build XY-C1, TRX validation and artifact upload on the same SHA. PENDING jobs do not block independent source work.
 
 ## Exact first actions for next GPT
 
-1. Fetch exact-head DDNSTO lifecycle and XY-C1 runs for the resulting SHA. If either fails, inspect its job log and repair the actual regression; only record L3 complete when Build, TRX check and artifact upload pass on the same SHA.
-2. Continue an independent Padavan userland reliability/security fix outside the completed RStats snapshot, WAN ARP EINTR retry, DHCP 6rd relay cap, USB SCSI-generic NVRAM checked-read, ZeroTier host-route normalization and DDNSTO process-identity slice. PENDING Actions do not block independent work.
+1. Poll #45715924026 and #45715924022 against `7d57bb62d3659b3f2f63b7be82ecde78eb090e71`; inspect logs only if a check fails.
+2. Continue the next clearly evidenced stability/security defect in Padavan userland. Do not repeat the completed AliDDNS IPv6, DDNSTO lifecycle, DHCPv6 callback-environment or VSFTPD metadata-alias work unless new evidence demonstrates a regression.
+3. Commit each safe source/test slice atomically on main and check the corresponding exact-SHA Actions. Keep the backup immutable; do not force-push or create partial per-file commits.
 
 # Cross-session execution mandate
 
