@@ -1,0 +1,33 @@
+name: WAN IPv6 static DNS literal validation
+
+on:
+  push:
+    paths:
+      - ".github/workflows/wan6-dns-policy-stability.yml"
+      - "scripts/check_wan6_dns_policy.py"
+      - "trunk/user/rc/src/net_wan6.c"
+      - "trunk/user/rc/src/wan6_dns_policy.h"
+      - "trunk/user/rc/src/tests/wan6_dns_policy.c"
+  pull_request:
+    paths:
+      - ".github/workflows/wan6-dns-policy-stability.yml"
+      - "scripts/check_wan6_dns_policy.py"
+      - "trunk/user/rc/src/net_wan6.c"
+      - "trunk/user/rc/src/wan6_dns_policy.h"
+      - "trunk/user/rc/src/tests/wan6_dns_policy.c"
+
+jobs:
+  wan6-static-dns:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and run static DNS validation regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer \
+            trunk/user/rc/src/tests/wan6_dns_policy.c \
+            -o /tmp/wan6-dns-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/wan6-dns-policy
+      - name: Verify production DNS publication contract
+        run: python3 scripts/check_wan6_dns_policy.py

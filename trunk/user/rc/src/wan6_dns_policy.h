@@ -2,11 +2,31 @@
 #ifndef PADAVAN_WAN6_DNS_POLICY_H
 #define PADAVAN_WAN6_DNS_POLICY_H
 
+#include <arpa/inet.h>
 #include <errno.h>
 #include <string.h>
 #include <stddef.h>
 
 #include "wan_nvram_status_policy.h"
+
+/*
+ * Static DNS fields are individual IPv6 literals, not lists or hostnames.
+ * Reject whitespace/control characters, prefixes and malformed addresses
+ * before the values are joined into the resolver-facing dns6 setting.
+ * Empty fields are permitted so users can configure fewer than three
+ * recursive resolvers.
+ */
+static inline int
+wan6_dns_validate_static_server(const char *address)
+{
+	struct in6_addr parsed;
+
+	if (!address)
+		return EINVAL;
+	if (!address[0])
+		return 0;
+	return inet_pton(AF_INET6, address, &parsed) == 1 ? 0 : EINVAL;
+}
 
 /* Missing DNS options are represented as an empty automatic server list. */
 static inline int

@@ -330,6 +330,12 @@ build_dns6_value(char *dns6s, size_t dns6_size)
 	if (status != 0)
 		return status;
 
+	for (i = 0; i < WAN6_DNS_CONFIG_VALUE_COUNT; ++i) {
+		status = wan6_dns_validate_static_server(dnsnv[i]);
+		if (status != 0)
+			return status;
+	}
+
 	written = snprintf(dns6s, dns6_size, "%s %s %s",
 			   dnsnv[0], dnsnv[1], dnsnv[2]);
 	if (written < 0 || (size_t)written >= dns6_size) {

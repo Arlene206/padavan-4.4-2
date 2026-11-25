@@ -309,9 +309,31 @@ test_dns_config_snapshot_begin_failure_does_not_read_or_close(void)
 		assert(values[i][0] == '\0');
 }
 
+static void
+test_static_dns_server_validation_accepts_ipv6_and_empty_slots(void)
+{
+	assert(wan6_dns_validate_static_server("2001:db8::53") == 0);
+	assert(wan6_dns_validate_static_server("::1") == 0);
+	assert(wan6_dns_validate_static_server("fe80::1") == 0);
+	assert(wan6_dns_validate_static_server("") == 0);
+}
+
+static void
+test_static_dns_server_validation_rejects_non_literals_and_injection(void)
+{
+	assert(wan6_dns_validate_static_server(NULL) == EINVAL);
+	assert(wan6_dns_validate_static_server("dns.example") == EINVAL);
+	assert(wan6_dns_validate_static_server("192.0.2.53") == EINVAL);
+	assert(wan6_dns_validate_static_server("2001:db8::53/64") == EINVAL);
+	assert(wan6_dns_validate_static_server("2001:db8::53\nnameserver 192.0.2.1") == EINVAL);
+	assert(wan6_dns_validate_static_server("2001:db8::xyz") == EINVAL);
+}
+
 int
 main(void)
 {
+	test_static_dns_server_validation_accepts_ipv6_and_empty_slots();
+	test_static_dns_server_validation_rejects_non_literals_and_injection();
 	test_withdrawn_dns_option_clears_previous_lease();
 	test_absent_dns_option_is_noop_when_already_empty();
 	test_changed_dns_list_is_published();
