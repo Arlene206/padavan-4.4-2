@@ -9,6 +9,7 @@ test = (root / "trunk/user/smartdns/tests/smartdns_process_lifecycle.sh").read_t
 autostart_test = (root / "trunk/user/scripts/tests/autostart_optional_start_status.sh").read_text()
 makefile = (root / "trunk/user/smartdns/Makefile").read_text()
 process_workflow = (root / ".github/workflows/process-lifecycle-regression.yml").read_text()
+dnsmasq_workflow = (root / ".github/workflows/dnsmasq-lifecycle.yml").read_text()
 storage_workflow = (root / ".github/workflows/storage-hotplug-stability.yml").read_text()
 xy_workflow = (root / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
 
@@ -112,5 +113,30 @@ assert 'sh trunk/user/smartdns/tests/smartdns_process_lifecycle.sh' in process_w
 assert 'python3 scripts/check_smartdns_lifecycle.py' in process_workflow
 assert storage_workflow.count('trunk/user/smartdns/**') == 2
 assert '"$busybox_bin" ash trunk/user/smartdns/tests/smartdns_process_lifecycle.sh' in storage_workflow
+firewall_add = body(script, 'smartdns_firewall_add () {', '\\n}\\n\\nsmartdns_firewall_delete')
+firewall_delete = body(script, 'smartdns_firewall_delete () {', '\\n}\\n\\nChange_iptable')
+firewall = body(script, 'Change_iptable () {', '\\n}\\n\\nsmartdns_restore_previous_instance')
+assert '"$@" >/dev/null 2>&1' in firewall_add
+assert '"$firewall_tool" -t "$firewall_table" -C "$@"' in firewall_delete
+assert '"$firewall_tool" -t "$firewall_table" -D "$@"' in firewall_delete
+assert 'return "$check_status"' in firewall_delete
+assert 'smartdns_firewall_delete iptables nat PREROUTING' in firewall
+assert 'smartdns_firewall_delete ip6tables nat PREROUTING' in firewall
+assert 'smartdns_firewall_add iptables -t nat -A PREROUTING' in firewall
+assert 'smartdns_firewall_add ip6tables -t nat -A PREROUTING' in firewall
+assert 'iptables -t nat -D' not in firewall and 'ip6tables -t nat -D' not in firewall
+assert 'iptables -t nat -A' not in firewall and 'ip6tables -t nat -A' not in firewall
+assert 'return 2' in firewall
+assert 'if Change_iptable "$action"; then' in start
+assert 'smartdns_start_config_rollback "$smartdns_firewall_status"' in start
+assert start.index('if Change_iptable "$action"; then') < start.index('smartdns_start_config_rollback "$smartdns_firewall_status"')
+assert 'if Change_iptable stop; then' in stop
+assert 'preserving saved state for retry' in stop
+assert stop.index('if Change_iptable stop; then') < stop.index('rm -f "$smartdns_Ini"')
+assert 'smartdns_firewall_status.sh' in test
+assert 'smartdns_firewall_status.sh' in dnsmasq_workflow
+assert 'sh trunk/user/smartdns/tests/smartdns_firewall_status.sh' in dnsmasq_workflow
+assert 'python3 scripts/check_smartdns_lifecycle.py' in dnsmasq_workflow
+assert 'scripts/check_smartdns_lifecycle.py' in process_workflow
 assert xy_workflow.count('trunk/user/smartdns/**') == 1
-print("SmartDNS lifecycle wiring and fail-closed stop contract: PASS")
+print("SmartDNS lifecycle, firewall status and fail-closed cleanup contract: PASS")

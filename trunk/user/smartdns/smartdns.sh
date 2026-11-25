@@ -771,49 +771,95 @@ smartdns_write_ini_state () {
     fi
 }
 
+smartdns_firewall_add () {
+    "$@" >/dev/null 2>&1
+}
+
+smartdns_firewall_delete () {
+    local firewall_tool="$1"
+    local firewall_table="$2"
+    local check_status
+    shift 2
+    "$firewall_tool" -t "$firewall_table" -C "$@" >/dev/null 2>&1
+    check_status=$?
+    case "$check_status" in
+    0)
+        "$firewall_tool" -t "$firewall_table" -D "$@" >/dev/null 2>&1
+        return $?
+        ;;
+    1)
+        # An absent rule is already clean; cleanup is safe to retry.
+        return 0
+        ;;
+    *)
+        return "$check_status"
+        ;;
+    esac
+}
+
 Change_iptable () {
     # 【端口转发】
-    local statu=0
+    local add_redirect=0 firewall_status=0 command_status
     local firewall_action="${1:-$action}"
     case $firewall_action in
     stop)
         if [ "$sdns_redirected" = 2 ] ; then
-            iptables -t nat -D PREROUTING -p tcp -d "$IPS4" --dport 53 -j REDIRECT --to-ports "$sdns_ported" >/dev/null 2>&1
-            iptables -t nat -D PREROUTING -p udp -d "$IPS4" --dport 53 -j REDIRECT --to-ports "$sdns_ported" >/dev/null 2>&1
-            ip6tables -t nat -D PREROUTING -p tcp -d "$IPS6" --dport 53 -j REDIRECT --to-ports "$sdns_ported" >/dev/null 2>&1
-            ip6tables -t nat -D PREROUTING -p udp -d "$IPS6" --dport 53 -j REDIRECT --to-ports "$sdns_ported" >/dev/null 2>&1
+            if smartdns_firewall_delete iptables nat PREROUTING -p tcp -d "$IPS4" --dport 53 -j REDIRECT --to-ports "$sdns_ported"; then :; else
+                command_status=$?; [ "$firewall_status" -ne 0 ] || firewall_status=$command_status
+            fi
+            if smartdns_firewall_delete iptables nat PREROUTING -p udp -d "$IPS4" --dport 53 -j REDIRECT --to-ports "$sdns_ported"; then :; else
+                command_status=$?; [ "$firewall_status" -ne 0 ] || firewall_status=$command_status
+            fi
+            if smartdns_firewall_delete ip6tables nat PREROUTING -p tcp -d "$IPS6" --dport 53 -j REDIRECT --to-ports "$sdns_ported"; then :; else
+                command_status=$?; [ "$firewall_status" -ne 0 ] || firewall_status=$command_status
+            fi
+            if smartdns_firewall_delete ip6tables nat PREROUTING -p udp -d "$IPS6" --dport 53 -j REDIRECT --to-ports "$sdns_ported"; then :; else
+                command_status=$?; [ "$firewall_status" -ne 0 ] || firewall_status=$command_status
+            fi
             [ "$sdns_enable" = 0 ] && logger -t "SmartDNS" "恢复重定向 $IPS4:$sdns_ported 至 xxx.xxx.xxx:53"
         fi
         if [ "$sdns_redirected" = 1 ] ; then
-            iptables -t nat -D PREROUTING -p udp -d "$IPS4" --dport 53 -j REDIRECT --to-ports 53 >/dev/null 2>&1
+            if smartdns_firewall_delete iptables nat PREROUTING -p udp -d "$IPS4" --dport 53 -j REDIRECT --to-ports 53; then :; else
+                command_status=$?; [ "$firewall_status" -ne 0 ] || firewall_status=$command_status
+            fi
         fi
+        [ "$firewall_status" -eq 0 ] || {
+            logger -t "SmartDNS" "DNS redirect rule cleanup failed (status=$firewall_status)"
+            return "$firewall_status"
+        }
         ;;
     start|restart)
         if [ "$smartdns_previous_redirected" != 2 ] && [ "$sdns_redirect" = 2 ] ; then
-            statu=1
+            add_redirect=1
             logger -t "SmartDNS" "重定向 xxx.xxx.xxx:53 至 $IPS4:$sdns_port"
             if [ "$sdnse_enable" = 1 ] ; then
-                logger -t "SmartDNS" "重定向 xxx.xxx.xxx:53 至 $IPS4:$sdnse_port"
+                logger -t "SmartDNS" "重定向 xxx.xxx.xxx:53 至 $sdnse_port"
             fi
         fi
         ;;
     reset)
-        if [ "$sdns_redirect" = 2 ] ; then
-            statu=1
-        fi
+        [ "$sdns_redirect" = 2 ] && add_redirect=1
         if [ "$sdns_redirect" = 1 ] ; then
-            iptables -t nat -A PREROUTING -p udp -d "$IPS4" --dport 53 -j REDIRECT --to-ports 53 >/dev/null 2>&1
+            smartdns_firewall_add iptables -t nat -A PREROUTING -p udp -d "$IPS4" --dport 53 -j REDIRECT --to-ports 53 || return $?
         fi
         ;;
+    *)
+        return 2
+        ;;
     esac
-    if [ "$statu" = 1 ] ; then
-        [ "$sdns_tcp_server" = "1" ] && iptables -t nat -A PREROUTING -p tcp -d "$IPS4" --dport 53 -j REDIRECT --to-ports "$sdns_port" >/dev/null 2>&1
-        iptables -t nat -A PREROUTING -p udp -d "$IPS4" --dport 53 -j REDIRECT --to-ports "$sdns_port" >/dev/null 2>&1
+    if [ "$add_redirect" = 1 ] ; then
+        if [ "$sdns_tcp_server" = "1" ] ; then
+            smartdns_firewall_add iptables -t nat -A PREROUTING -p tcp -d "$IPS4" --dport 53 -j REDIRECT --to-ports "$sdns_port" || return $?
+        fi
+        smartdns_firewall_add iptables -t nat -A PREROUTING -p udp -d "$IPS4" --dport 53 -j REDIRECT --to-ports "$sdns_port" || return $?
         if [ "$sdns_ipv6_server" = "1" ] ; then
-            [ "$sdns_tcp_server" = "1" ] && ip6tables -t nat -A PREROUTING -p tcp -d "$IPS6" --dport 53 -j REDIRECT --to-ports "$sdns_port" >/dev/null 2>&1
-            ip6tables -t nat -A PREROUTING -p udp -d "$IPS6" --dport 53 -j REDIRECT --to-ports "$sdns_port" >/dev/null 2>&1
+            if [ "$sdns_tcp_server" = "1" ] ; then
+                smartdns_firewall_add ip6tables -t nat -A PREROUTING -p tcp -d "$IPS6" --dport 53 -j REDIRECT --to-ports "$sdns_port" || return $?
+            fi
+            smartdns_firewall_add ip6tables -t nat -A PREROUTING -p udp -d "$IPS6" --dport 53 -j REDIRECT --to-ports "$sdns_port" || return $?
         fi
     fi
+    return 0
 }
 
 smartdns_restore_previous_instance()
@@ -941,7 +987,14 @@ Start_smartdns () {
             logger -t "SmartDNS" "SmartDNS 使用 $sdnse_port 端口"
         fi
     fi
-    Change_iptable "$action"
+    if Change_iptable "$action"; then
+        :
+    else
+        smartdns_firewall_status=$?
+        logger -t "SmartDNS" "DNS redirect rule setup failed; rolling back startup (status=$smartdns_firewall_status)"
+        smartdns_start_config_rollback "$smartdns_firewall_status"
+        return $?
+    fi
     rm -f /tmp/sdnsipset.conf
     args=""
     logger -t "SmartDNS" "SmartDNS 创建配置文件..."
@@ -1105,7 +1158,13 @@ Stop_smartdns () {
         logger -t "SmartDNS" "Adbyby DNS target transition failed; preserving SmartDNS retry state (status=$smartdns_adbyby_status)"
         return "$smartdns_adbyby_status"
     fi
-    Change_iptable stop
+    if Change_iptable stop; then
+        :
+    else
+        smartdns_firewall_status=$?
+        logger -t "SmartDNS" "DNS redirect rule cleanup failed; preserving saved state for retry (status=$smartdns_firewall_status)"
+        return "$smartdns_firewall_status"
+    fi
     if [ "$sdns_enable" = 0 ] ; then
         rm -f "$smartdns_Ini"
         smartdns_state_saved=0

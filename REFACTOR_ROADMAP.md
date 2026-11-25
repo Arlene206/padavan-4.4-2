@@ -1,3 +1,9 @@
+## 2026-11-24 状态增量：SmartDNS NAT 状态传播
+
+- `Change_iptable()` 增加规则检查/删除 helper：缺失规则幂等，检查/删除错误保留首个状态；启动失败进入回滚，停止仅在 NAT 清理成功后删除持久状态。新增 IPv4/IPv6 回归与源码合同。
+
+---
+
 ## 2026-11-24 状态增量：PPPoE-MWAN 按实际 LAN mask 生成源匹配
 
 - `detect.sh` 不再假设 LAN 永远为 /24：读取 `ifconfig br0` 的当前 netmask，校验连续前缀后将 CIDR 用于 mangle 与 NAT；回归覆盖 /16 生效及非连续掩码在清理旧规则前拒绝。

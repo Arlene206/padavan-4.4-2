@@ -1,3 +1,9 @@
+## 2026-11-24 — SmartDNS NAT redirect status and retry-state integrity
+
+- `Change_iptable()` previously ignored all IPv4/IPv6 redirect add/delete results. Startup could continue without required DNS redirects; stop could report success and delete saved `smartdns_conf.ini` state while stale NAT redirects remained.
+- Added checked add and idempotent delete helpers. Deletion uses bundled iptables 1.8.7 `-C` to distinguish absent rules from check errors; present rules are deleted, absent rules are harmless, other errors propagate. Stop attempts all owned rules and preserves the first failure. Startup sends add failures through existing rollback; stop preserves saved state for retry until firewall cleanup succeeds.
+- Added shell regression for absent-rule idempotence, best-effort IPv4/IPv6 deletion, delete/check errors, partial and successful add, reset failure and unknown actions. DNSMasq lifecycle workflow runs the test and source contract. Exact-head Actions pending; no local shell run or firmware build is claimed.
+
 ## 2026-11-24 — Expand the PPPoE-MWAN LAN mask fixture variable
 
 - Exact WAN run #45551840669 on `f8d0b7a` ran the repaired /16 tests but stopped earlier in the NVRAM failure matrix: the br0 mock emitted `Mask:${LAN_MASK...}` literally because the echo string remained single-quoted. Changed the mock to double quotes so its configurable mask is expanded; the production parser and firewall rules are unchanged.
