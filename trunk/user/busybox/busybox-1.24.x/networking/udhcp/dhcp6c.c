@@ -41,6 +41,7 @@
 #include "dhcp6c.h"
 #include "dhcp6c_ia_policy.h"
 #include "dhcp6c_script_retry_policy.h"
+#include "dhcp6c_option_bounds_policy.h"
 #include "dhcp6c_auth.h"
 
 #define DHCP6C_CONF     "/etc/dhcp6c.conf"

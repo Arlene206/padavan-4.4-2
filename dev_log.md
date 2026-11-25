@@ -1,3 +1,10 @@
+## 2026-11-25 — Include DHCPv6 packet bounds policy in the client receive unit
+
+- Follow-up source inspection found the new datagram-size helper was defined as `static inline` in the shared bounds-policy header but the receive translation unit did not yet include that header. The source-contract checker now requires the include in both parser and client units, preventing an implicit-declaration/linkage mismatch from escaping.
+- Added the missing include and tightened the existing DHCPv6 contract. No behavior change beyond making the previous receive-size guard compile against its intended helper definition.
+
+---
+
 ## 2026-11-25 — Distinguish DHCPv6 socket receive errors from short packets
 
 - The DHCPv6 receive length is `ssize_t`; comparing a negative receive error directly with the unsigned `sizeof` result could bypass the short-packet branch. The subsequent oversize guard prevented parsing after the prior slice, but misreported the socket error as an enormous datagram.
