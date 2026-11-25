@@ -71,7 +71,7 @@ if [ -f "$cron_file" ]; then
 		# determines whether the record is a crontab comment.
 		cron_line_trimmed=${cron_line#"${cron_line%%[![:space:]]*}"}
 		case "$cron_line_trimmed" in
-			'|'#'*) continue ;;
+			''|'#'*) continue ;;
 		esac
 		set -f
 		set -- $cron_line_trimmed

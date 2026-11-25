@@ -1,3 +1,10 @@
+## 2026-11-25 — Preserve empty-line and comment matching after crontab trimming
+
+- Follow-up syntax review of the new leading-whitespace normalization found the case pattern did not retain the empty alternative for blank lines and normal comments. Corrected the pattern to skip both empty trimmed lines and lines whose first non-whitespace character is `#`, and pinned that exact case arm in the checker.
+- This is a corrective follow-up to the preceding crontab parser change; exact-head process-lifecycle regression is required before treating it as validated.
+
+---
+
 ## 2026-11-25 — Ignore indented comments when matching crontab commands
 
 - Review of the exact-sixth-field duplicate check found it skipped only lines whose first byte was `#`. A valid crontab comment with leading spaces could be split as fields and, if its sixth token matched the target executable, incorrectly suppress the job. Normalize leading whitespace before comment detection and field parsing.
