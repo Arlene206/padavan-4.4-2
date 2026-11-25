@@ -1,3 +1,11 @@
+## 2026-11-25 — Align chnroute source contract with checked directory helper
+
+- Exact USB-storage run #45607146427 on `72f9d8fa` passed shell syntax validation and both host-shell and BusyBox ash MTD fill regressions, including injected write/chmod/rename failures. The static checker then failed on a stale assertion that still expected raw `mkdir -p`; production code now correctly uses `func_fill_mkdir "$dir_chnroute" 755` to validate the path and propagate directory-creation errors.
+- Updated the source contract to require the checked helper while retaining assertions for archive extraction failure cleanup. No production source or test behavior changed.
+- Exact-head storage workflow rerun required.
+
+---
+
 ## 2026-11-25 — Correct MTD fill function source-contract delimiter
 
 - Exact USB-storage run #45606836538 on `da508394` passed the MTD shell syntax and host/BusyBox runtime regressions, then the static checker failed because its Python string searched for the literal characters `\\ncase` rather than the actual function boundary `\n}\n\ncase "$1" in`.

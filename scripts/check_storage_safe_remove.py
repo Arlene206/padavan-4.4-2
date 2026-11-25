@@ -276,7 +276,7 @@ require('if ! func_fill_validate_paths; then' in fill_body and
         '"$script_start"' in fill_validate and
         '"$dir_sswan_crt/private"' in fill_validate,
         "MTD fill must validate all nested dirs and generated files before the first write")
-require('if ! mkdir -p "$dir_chnroute"; then' in chnroute_block and
+require('if ! func_fill_mkdir "$dir_chnroute" 755; then' in chnroute_block and
         'if ! tar jxf "$chnroute_file" -C "$dir_chnroute"; then' in chnroute_block and
         'if ! rm -rf "$dir_chnroute"; then' in chnroute_block and
         'Cannot extract chnroute archive:' in chnroute_block and
