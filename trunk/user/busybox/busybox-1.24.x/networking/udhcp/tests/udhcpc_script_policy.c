@@ -350,8 +350,8 @@ static int test_already_expired_lease_is_not_resurrected(void)
 int main(void)
 {
 	if (test_fixed_route_options_reject_partial_tuples() != 0 ||
-	if (test_static_routes_reject_malformed_trailing_tuples() != 0 ||
-	if (test_subnet_mask_requires_contiguous_network_bits() != 0 ||
+	    test_static_routes_reject_malformed_trailing_tuples() != 0 ||
+	    test_subnet_mask_requires_contiguous_network_bits() != 0 ||
 	    test_option_bitmap_mask_uses_unsigned_high_bit() != 0 ||
 	    test_effective_lease_time_bounds_match_client_timer() != 0 ||
 	    test_nak_only_deconfigures_an_active_lease() != 0 ||
