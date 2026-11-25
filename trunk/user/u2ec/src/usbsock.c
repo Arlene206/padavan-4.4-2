@@ -4454,12 +4454,13 @@ int main(int argc, char *argv[])
 				if ((new_fd = establish_connection(conn_fd)) < 0)
 					continue;
 
-				fd_in_use[new_fd] = 1;
 				if (!u2ec_fd_is_usable(new_fd, sizeof(fd_in_use))) {
-					FD_CLR(index, &master_fds);
+					errno = EMFILE;
+					PERROR("accepted client exceeds fd_set capacity");
 					close(new_fd);
 					continue;
 				}
+				fd_in_use[new_fd] = 1;
 				FD_SET(new_fd, &master_fds);
 				fdmax = new_fd > fdmax ? new_fd : fdmax;
 			} else if (!fd_in_use[index] || usb_connection(index) < 0) {
