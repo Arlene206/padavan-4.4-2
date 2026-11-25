@@ -1,3 +1,17 @@
+## 2026-11-25 continuation checkpoint (supersedes older state summaries)
+
+- Live `main`: `61e70580ea0e0c34a255a37b7e49684b14b5b84b` — test(udpxy): ignore comments in banned-call contract.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify it.
+- Latest product work already present in history includes the VSFTPD reserved-metadata upload guard, p910nd PID-lock ordering, native IPv6 WAN route contract correction, LLMNR EDNS0 section rebuilding, ZeroTier on-link ECMP fail-closed cleanup, MiniUPnP SOAP UTF-8 sanitization, event-subscriber capacity limit/HTTP 503 handling, and MiniUPnP event callback hardening only where confirmed by the live tree.
+- Event-subscriber source/checker correction commit: `453c58202da8c435a1a029be2c12f7b98f0218de`. Exact-SHA workflow results: miniupnpd event subscription resource stability regression #45721956369: completed/success (453c58202da8); AI handoff documentation contract #45721956496: completed/success (453c58202da8).
+- XY-C1 results for firmware source SHA `4daa654ddc09c91ac023b388fa08dbe6b29fdd8d`: no Actions runs returned for this SHA; do not transfer firmware claims to later SHAs without a matching build.
+- MiniUPnP callback parser is present in the live tree. Current-head Actions: UDPXY HTTP request parser bounds regression #45723868583: in_progress (61e70580ea0e); AI handoff documentation contract #45723868689: in_progress (61e70580ea0e).
+- First task for the next session: poll the exact live-head MiniUPnP event-callback regression (GNU89 ASan/UBSan and source-contract job); repair the first actual failure and rerun on its new SHA. Then poll the event-subscriber exact-SHA workflow if still pending.
+- After that, continue independent stability/security work outside the already-fixed items; the DHCP client leasefail/renew/deconfig transition remains an investigation candidate. Never wait on PENDING firmware jobs when an independent safe slice is available.
+- No physical-router/L4 result is claimed by this checkpoint. The frozen backup remains read-only.
+
+---
+
 ## Current repository state
 
 - Live `main` before this slice: `4efe6e652e98579f7a852fe617d36fc1b0404e81` (`fix(modem): fail closed without matching QMI control node`). Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; never modify it.
