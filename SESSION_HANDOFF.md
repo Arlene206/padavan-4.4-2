@@ -1,17 +1,17 @@
-## 2026-11-26 active handoff — repair exact-head VPN regression failures
+## 2026-11-26 active handoff — correct VPN PPP source-order contract
 
-- Live main parent: `311d6080fd7cb5d6e4cb5906f5923b45c350e108`. Exact push Actions on this SHA exposed two test/contract failures: VPN server lifecycle #45652102199 / job #139339039678 fails in `vpn_client_nvram_policy.c` because the fixture expects copying `peer.example` into an 8-byte destination; OpenVPN client secret #45652102448 / job #139339040673 fails because `check_openvpn_client_secret.py` still requires direct `nvram_safe_get()` calls after the implementation correctly switched to snapshot-fed username/password arguments.
-- The corresponding C policy and Python source-contract corrections are staged in this commit; their exact-main reruns are pending. Earlier policy components in both jobs completed successfully.
-- Process lifecycle inventory #45652101913 ended as `startup_failure` before exposing any job steps; no source-test failure is evidenced. Main Process lifecycle regression #45652102139 PASS, NVRAM boundary #45652102079 PASS, and AI handoff docs #45652102145 PASS on the exact SHA above.
-- XY-C1 #45652102254 remains in progress on `311d6080fd7cb5d6e4cb5906f5923b45c350e108`: host preflight and firmware-input detector passed; Build XY-C1 was still running, with TRX and artifact verification pending. No L3 result is claimed.
-- The production VPN snapshot work in `311d6080fd7cb5d6e4cb5906f5923b45c350e108` remains: PPTP/L2TP settings use one checked transaction and abort before runtime DNS clearing/PPP file publication on backend errors, malformed values or oversized strings; OpenVPN selectors and credentials are read together and secret publication consumes copied credentials. Physical-router L4 remains NOT VERIFIED.
+- Live main parent: `d32243c4ab0eaf23cbdaf40e15ef73db4edcd9ff`. The exact-head rerun #45653449911 now passes the VPN client NVRAM C policy regression and all preceding VPN/PPP host binaries, but the final `check_vpn_client_nvram_state.py` fails at line 96: its old assertion demands `config.peer_line` appear before `ppp_options_file_open()`, while the implementation correctly writes the already-snapshotted field after opening the destination file. The production ordering is not the failure; the source contract is stale.
+- The exact-head OpenVPN client secret suite #45653449852 PASS, AI handoff docs #45653449768 PASS, and Process lifecycle inventory #45653449686 PASS on `d32243c4ab0eaf23cbdaf40e15ef73db4edcd9ff`. NVRAM boundary audit #45653449837 is in progress.
+- XY-C1 #45653449737 remains in progress on `d32243c4ab0eaf23cbdaf40e15ef73db4edcd9ff`; TRX verification and artifact upload have not completed. No L3 result is claimed.
+- The preceding correction on `d32243c4ab0eaf23cbdaf40e15ef73db4edcd9ff` fixed the undersized VPN NVRAM text-copy fixture and updated the OpenVPN credential checker to enforce copied snapshot credentials; both changes are validated by the passing relevant jobs above.
+- Production VPN startup snapshot in `d32243c4ab0eaf23cbdaf40e15ef73db4edcd9ff` remains as documented: checked transactional selector/credential reads, fail-closed on backend/malformed/oversized values, and secret publication from the copied snapshot. Physical-router L4 remains NOT VERIFIED.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ### First actions
 
-1. Verify this commit's VPN server policy fixture and OpenVPN credential checker on exact main SHA; fix any new causal failures without weakening tests.
-2. Inspect the corresponding VPN-server #45652102199 and OpenVPN-secret #45652102448 job reruns; confirm Process inventory workflow startup and exact XY-C1 Build/TRX/artifact status.
-3. Continue the independent reliability review of OpenVPN startup failure cleanup while the unrelated exact-SHA Actions are running.
+1. Correct the PPP source contract so it requires the checked configuration snapshot before opening the options file and confirms all snapshotted fields are consumed after the file is opened.
+2. Verify the VPN server workflow, VPN client/OpenVPN credential, NVRAM audit, process inventory, AI docs and exact XY-C1 runs on the resulting SHA; fix any further causal checker failures without weakening production requirements.
+3. Continue the independent OpenVPN startup failure-cleanup review while unrelated Actions are pending.
 
 ### Execution contract
 

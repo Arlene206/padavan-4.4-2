@@ -1,3 +1,12 @@
+## 2026-11-26 00:28 CST (UTC+8) — Correct VPN PPP source-order assertion
+
+- Base SHA: `d32243c4ab0eaf23cbdaf40e15ef73db4edcd9ff`; result SHA: THIS COMMIT (resolve on next recovery). Scope: `scripts/check_vpn_client_nvram_state.py`, `SESSION_HANDOFF.md`, `dev_log.md`.
+- Exact-head VPN server workflow #45653449911 confirmed the earlier fixture fix: `vpn_client_nvram_policy.c` and preceding VPN/PPP host regressions now pass. The remaining failure is a false source-contract expectation at checker line 96: `config.peer_line`, `config.user_line`, `config.pass_line` and `config.pppd_options` are intentionally consumed by `fprintf()` after `ppp_options_file_open()`; their values were already copied/validated in `vpn_client_read_start_config_snapshot()` before any file open. The checker now asserts that real sequencing instead of asserting writes before opening the file.
+- Exact-head OpenVPN client secret #45653449852 PASS, AI handoff docs #45653449768 PASS, Process inventory #45653449686 PASS. NVRAM boundary #45653449837 was still in progress; XY-C1 #45653449737 was still in progress with TRX/artifact pending. This commit's exact-SHA reruns are PENDING.
+- No firmware L3 or physical-router L4 result is claimed.
+
+---
+
 ## 2026-11-26 00:16 CST (UTC+8) — Repair exact-head VPN regression contracts
 
 - Base SHA: `311d6080fd7cb5d6e4cb5906f5923b45c350e108`; result SHA: THIS COMMIT (resolve on next recovery). Scope: `trunk/user/rc/src/tests/vpn_client_nvram_policy.c`, `scripts/check_openvpn_client_secret.py`, `SESSION_HANDOFF.md`, `dev_log.md`.

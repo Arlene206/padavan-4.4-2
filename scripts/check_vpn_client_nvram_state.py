@@ -86,14 +86,14 @@ assert "nvram_match(" not in start
 assert "nvram_invmatch(" not in start
 assert "safe_pppd_line(" not in start
 file_open = start.index("fp = ppp_options_file_open(vpnc_opt);")
+assert start.index("vpn_client_read_start_config_snapshot(&config)") < file_open
 for token in (
-    "vpn_client_read_start_config_snapshot(&config)",
     "config.peer_line",
     "config.user_line",
     "config.pass_line",
     "config.pppd_options",
 ):
-    assert start.index(token) < file_open, token
+    assert start.find(token, file_open) >= file_open, token
 assert "free(config.pppd_options);" in start
 assert "pptp_server" in start
 ordered(start, [
