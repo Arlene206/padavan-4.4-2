@@ -1033,20 +1033,36 @@ require('doSystem("%s %s --dev %s", OPENVPN_EXE, "--mktun", ifname)' in tun_star
         "if (status != 0)" in tun_start and
         "set_vpn_balancing(ifname, is_server)" in tun_start,
         "OpenVPN TUN creation failure must be returned before balancing")
-for signature,interface in (("int\nstart_openvpn_server(void)","IFNAME_SERVER_TUN"),
-                            ("int\nstart_openvpn_client(void)","IFNAME_CLIENT_TUN")):
+for signature,label in (("int\nstart_openvpn_server(void)","server"),
+                         ("int\nstart_openvpn_client(void)","client")):
     start_fn=body(openvpn,signature)
     require("interface_status = openvpn_tunif_start(" in start_fn and
             "interface_status = openvpn_tapif_start(" in start_fn and
+            "&interface_created" in start_fn and
             "if (interface_status != 0)" in start_fn and
             start_fn.index("openvpn_script_link_ensure(") <
             start_fn.index("openvpn_tunif_start(") <
             start_fn.index("if (interface_status != 0)") <
-            start_fn.index("_eval(openvpn_argv"),
-            f"OpenVPN start must validate callbacks before interface and daemon launch ({interface})")
-    require("openvpn_script_link_remove_created(" in start_fn and
-            'symlink("/sbin/rc"' not in start_fn,
-            f"OpenVPN {interface} start must roll back only an owned callback link")
+            start_fn.index("launch_status = _eval(openvpn_argv"),
+            f"OpenVPN {label} startup must validate callback and report interface ownership before launch")
+    ordered(start_fn, [
+        "launch_status = _eval(openvpn_argv, NULL, 0, NULL)",
+        "detached_daemon_start_postcondition_with_ops(",
+        "if (launch_status != 0)",
+        "openvpn_start_rollback_failed(",
+        "return 0;",
+    ], f"OpenVPN {label} detached daemon identity postcondition and rollback")
+
+rollback_fn=body(openvpn,"static int\nopenvpn_start_rollback_failed")
+ordered(rollback_fn, [
+    "openvpn_start_rollback_presence(NULL, &scan_error)",
+    "openvpn_start_rollback_cleanup_owned(process_state,",
+    "openvpn_tunif_stop(ifname)",
+    "openvpn_tapif_stop(ifname)",
+    "openvpn_script_link_remove_created(script_path,",
+    "if (process_state != PROCESS_PRESENCE_ABSENT)",
+    "retaining interface and callback link",
+], "OpenVPN failed-start cleanup is identity-safe and ownership-gated")
 for signature,label in (("int\nopenvpn_tapif_stop","TAP"),("int\nopenvpn_tunif_stop","TUN")):
     iface_stop=body(openvpn,signature)
     require("ifconfig(ifname, 0, NULL, NULL)" in iface_stop and
@@ -1077,6 +1093,7 @@ for path in ("trunk/user/rc/src/l2tp_config_file.h",
              "trunk/user/rc/src/vpn_openvpn.c",
              "trunk/user/rc/src/openvpn_client_secret_file.h",
              "trunk/user/rc/src/openvpn_script_link.h",
+             "trunk/user/rc/src/openvpn_start_rollback_policy.h",
              "trunk/user/openvpn/openvpn-cert.sh",
              "trunk/user/rc/src/openvpn_process_stop_policy.h"):
     require(xy_workflow.count('      - "{}"'.format(path)) == 1,

@@ -1,21 +1,20 @@
-## 2026-11-26 active handoff — OpenVPN detached startup identity and rollback
+## 2026-11-26 active handoff — verify identity-safe OpenVPN startup rollback
 
-- Main base: `273f4ea22773e2bbe2ce62d85936b2ff49ee3700`; this source/test/workflow slice is committed as one atomic non-forced descendant. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- OpenVPN server/client now require their own trusted writepid file to resolve to a live process identity before reporting detached-daemon startup success.
-- TUN/TAP start helpers report whether this invocation created the interface. Startup failure performs no process signal. Rollback uses two complete `process_inventory_scan("openvpn")` snapshots one second apart; a missing PID file is never proof of global absence. RUNNING, UNKNOWN, invalid state, or interrupted wait preserves the interface and callback link. Cleanup is allowed only for resources created by this attempt after confirmed ABSENT.
-- Added GNU89 ASan/UBSan tests for two-snapshot confirmation, ABSENT→RUNNING, UNKNOWN/error propagation, invalid states, interrupted wait, and ownership gating. VPN source checker pins exact PID identity and rollback ordering. XY-C1 path regression pins the production helper header.
-- CI repairs immediately before this slice: `f9f071b8da74ec52e2db35aea3784a7a1604c81b` adds the missing NVRAM policy-header include path; NVRAM run `#45659128163` was pending at last poll. `273f4ea22773e2bbe2ce62d85936b2ff49ee3700` updates the HTTPD embedded source check to the new NVRAM getter signature; HTTPD rerun `#45659190171` was pending at last poll. c4ed XY-C1 run `#45658659753` was still compiling; d91 exact-SHA XY-C1 job `#139356366796` passed. Verify exact steps before any L3 claim.
-- Physical-router L4 NOT VERIFIED.
+- Live main parent: dc6e17b4874cfb7a6d07d8b69fb2d195176efeb7. The current source now requires server/client detached-start PID identity verification and permits rollback only after two complete process-inventory snapshots confirm ABSENT; UNKNOWN/RUNNING/invalid/error/interrupted states preserve resources. TAP/TUN helpers report per-attempt ownership. The new C policy regression passed in the exact OpenVPN and VPN workflows.
+- Exact-SHA failures on dc6e17b4874cfb7a6d07d8b69fb2d195176efeb7 are stale source/documentation contracts, not the helper regression: OpenVPN client credential #45660655024 fails because its checker expects the old two-argument server TUN helper; VPN lifecycle #45660655211 fails because its checker expects callback removal inline instead of in openvpn_start_rollback_failed(); AI docs #45660655384 fails because dev_log.md had been truncated to one entry. The follow-up restores the complete prior log and updates both checkers.
+- Earlier validation remains: NVRAM transaction audit #45659128163 PASS on f9f071b8; HTTPD security #45659190171 and AI docs #45659190213 PASS on 273f4ea2; Process inventory #45658659607 and process lifecycle #45658659693 PASS on c4ed4689. Exact d91 production source SHA #45657032169 passed Build XY-C1, TRX verification and artifact upload. Check the dc6 exact-SHA XY-C1 run before making any L3 claim for this newer OpenVPN production code.
+- NVRAM cache on main uses a separate transaction-only cache erased at begin/end before releasing its lease; legacy getter storage remains separate. OpenVPN credential CR/LF rejection, in-memory zeroization, callback link exact-target checks remain in main.
+- Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains read-only at 72f4f157a084f8184b9597ca5bf334b8080e5807. Physical-router L4 NOT VERIFIED.
 
 ### First actions
 
-1. Check this commit's exact-SHA VPN lifecycle, OpenVPN credential, AI docs, Process inventory, and XY-C1 Actions. Confirm the new GNU89/ASan/UBSan regression/source contract and XY-C1 Build, TRX and artifact upload on this exact production SHA.
-2. Resolve `#45659128163`, `#45659190171`, and c4ed XY-C1 `#45658659753`; repair any remaining failure without weakening behavior.
-3. Continue OpenVPN startup/stop lifecycle review, then another independent userland stability/security issue. PENDING must not block work.
+1. Confirm this follow-up's OpenVPN secret and VPN lifecycle source contracts, plus AI handoff docs, all pass on its exact SHA.
+2. Inspect dc6 XY-C1 Build, TRX, and artifact steps; require all three before claiming L3 for dc6.
+3. Continue independent stability/security review across Padavan userland while unrelated checks are pending.
 
 ### Execution contract
 
-Source/test → one complete Git tree/commit → non-force expected-SHA update → exact-SHA Actions. Main only; backup immutable; no branches, PRs or force pushes.
+Source/test -> one complete Git tree/commit -> non-force expected-SHA update -> exact-SHA Actions. Main only; backup immutable; no branches, PRs or force pushes.
 
 ## 2026-11-25 autonomous handoff checkpoint
 

@@ -41,6 +41,8 @@ credentials_policy = read("trunk/user/rc/src/openvpn_client_credentials_policy.h
 credentials_policy_test = read("trunk/user/rc/src/tests/openvpn_client_credentials_policy.c")
 script_link_policy = read("trunk/user/rc/src/openvpn_script_link.h")
 script_link_test = read("trunk/user/rc/src/tests/openvpn_script_link.c")
+rollback_policy = read("trunk/user/rc/src/openvpn_start_rollback_policy.h")
+rollback_test = read("trunk/user/rc/src/tests/openvpn_start_rollback_policy.c")
 config_helper = read("trunk/user/rc/src/openvpn_config_file.h")
 config_test = read("trunk/user/rc/src/tests/openvpn_config_file.c")
 workflow = read(".github/workflows/openvpn-client-secret.yml")
@@ -89,9 +91,16 @@ server_start = body(source, "int\nstart_openvpn_server(void)")
 ordered(server_start, [
     "openvpn_create_server_conf(vpns_cfg, &network, &options)",
     'openvpn_script_link_ensure(vpns_scr, "/sbin/rc",',
-    "openvpn_tunif_start(IFNAME_SERVER_TUN, 1)",
+    "openvpn_tunif_start(IFNAME_SERVER_TUN, 1, &interface_created)",
 ], "OpenVPN server callback link gates interface startup")
-assert "openvpn_script_link_remove_created(vpns_scr" in server_start
+assert "openvpn_start_rollback_failed(" in server_start
+ordered(server_start, [
+    "launch_status = _eval(openvpn_argv, NULL, 0, NULL)",
+    "detached_daemon_start_postcondition_with_ops(",
+    "if (launch_status != 0)",
+    "openvpn_start_rollback_failed(",
+    "return 0;",
+], "OpenVPN server detached startup rollback")
 assert "symlink(\"/sbin/rc\", vpns_scr)" not in server_start
 
 client_start = body(source, "int\nstart_openvpn_client(void)")
@@ -107,10 +116,28 @@ ordered(client_start, [
 ordered(client_start, [
     "openvpn_create_client_conf(vpnc_cfg, &config)",
     'openvpn_script_link_ensure(vpnc_scr, "/sbin/rc",',
-    "openvpn_tunif_start(IFNAME_CLIENT_TUN, 0)",
+    "openvpn_tunif_start(IFNAME_CLIENT_TUN, 0, &interface_created)",
 ], "OpenVPN client callback link gates interface startup")
-assert "openvpn_script_link_remove_created(vpnc_scr" in client_start
+assert "openvpn_start_rollback_failed(" in client_start
+ordered(client_start, [
+    "launch_status = _eval(openvpn_argv, NULL, 0, NULL)",
+    "detached_daemon_start_postcondition_with_ops(",
+    "if (launch_status != 0)",
+    "openvpn_start_rollback_failed(",
+    "return 0;",
+], "OpenVPN client detached startup rollback")
 assert "symlink(\"/sbin/rc\", vpnc_scr)" not in client_start
+rollback_fn = body(source, "static int\nopenvpn_start_rollback_failed")
+ordered(rollback_fn, [
+    "openvpn_start_rollback_presence(NULL, &scan_error)",
+    "openvpn_start_rollback_cleanup_owned(process_state,",
+    "openvpn_script_link_remove_created(script_path,",
+    "if (process_state != PROCESS_PRESENCE_ABSENT)",
+], "OpenVPN callback cleanup requires confirmed process absence and resource ownership")
+assert "OPENVPN_START_ROLLBACK_CONFIRM_SCANS 2" in rollback_policy
+assert "test_two_absent_scans_are_required" in rollback_test
+assert "test_second_running_scan_revokes_absence_confirmation" in rollback_test
+
 
 
 client_conf = body(source, "static int\nopenvpn_create_client_conf")
