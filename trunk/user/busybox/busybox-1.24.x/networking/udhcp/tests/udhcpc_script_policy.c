@@ -43,6 +43,66 @@ static int test_option_bitmap_mask_uses_unsigned_high_bit(void)
 	return 0;
 }
 
+static int test_static_routes_reject_malformed_trailing_tuples(void)
+{
+	static const uint8_t default_route[] = {
+		0, 198, 51, 100, 1
+	};
+	static const uint8_t one_bit_route[] = {
+		1, 128, 198, 51, 100, 1
+	};
+	static const uint8_t twenty_four_bit_route[] = {
+		24, 192, 0, 2, 198, 51, 100, 1
+	};
+	static const uint8_t thirty_two_bit_route[] = {
+		32, 192, 0, 2, 1, 198, 51, 100, 1
+	};
+	static const uint8_t multiple_routes[] = {
+		0, 198, 51, 100, 1,
+		24, 192, 0, 2, 198, 51, 100, 2
+	};
+	static const uint8_t invalid_mask[] = {
+		33, 198, 51, 100, 1
+	};
+	static const uint8_t truncated_prefix[] = {
+		25, 192, 0, 2, 198, 51, 100, 1
+	};
+	static const uint8_t truncated_gateway[] = {
+		24, 192, 0, 2, 198, 51, 100
+	};
+	static const uint8_t valid_then_partial[] = {
+		0, 198, 51, 100, 1, 24
+	};
+	static const uint8_t valid_then_invalid[] = {
+		0, 198, 51, 100, 1, 33, 198, 51, 100, 2
+	};
+
+	CHECK(udhcpc_static_routes_option_is_well_formed(NULL, 0U));
+	CHECK(!udhcpc_static_routes_option_is_well_formed(NULL, 1U));
+	CHECK(udhcpc_static_routes_option_is_well_formed(default_route,
+							 sizeof(default_route)));
+	CHECK(udhcpc_static_routes_option_is_well_formed(one_bit_route,
+							 sizeof(one_bit_route)));
+	CHECK(udhcpc_static_routes_option_is_well_formed(twenty_four_bit_route,
+							 sizeof(twenty_four_bit_route)));
+	CHECK(udhcpc_static_routes_option_is_well_formed(thirty_two_bit_route,
+							 sizeof(thirty_two_bit_route)));
+	CHECK(udhcpc_static_routes_option_is_well_formed(multiple_routes,
+							 sizeof(multiple_routes)));
+	CHECK(!udhcpc_static_routes_option_is_well_formed(invalid_mask,
+						  sizeof(invalid_mask)));
+	CHECK(!udhcpc_static_routes_option_is_well_formed(truncated_prefix,
+						  sizeof(truncated_prefix)));
+	CHECK(!udhcpc_static_routes_option_is_well_formed(truncated_gateway,
+						  sizeof(truncated_gateway)));
+	CHECK(!udhcpc_static_routes_option_is_well_formed(valid_then_partial,
+						  sizeof(valid_then_partial)));
+	CHECK(!udhcpc_static_routes_option_is_well_formed(valid_then_invalid,
+						  sizeof(valid_then_invalid)));
+	return 0;
+}
+
+
 static int test_effective_lease_time_bounds_match_client_timer(void)
 {
 	CHECK(udhcpc_lease_time_effective(0U, 0) == 3600U);
@@ -256,6 +316,7 @@ static int test_already_expired_lease_is_not_resurrected(void)
 
 int main(void)
 {
+	if (test_static_routes_reject_malformed_trailing_tuples() != 0 ||
 	if (test_subnet_mask_requires_contiguous_network_bits() != 0 ||
 	    test_option_bitmap_mask_uses_unsigned_high_bit() != 0 ||
 	    test_effective_lease_time_bounds_match_client_timer() != 0 ||

@@ -67,6 +67,20 @@ assert 'test_subnet_mask_requires_contiguous_network_bits' in test
 assert 'test_subnet_mask_requires_contiguous_network_bits() != 0' in test
 assert '#define BMASK(i) (udhcpc_option_bitmap_mask((unsigned)(i)))' in dhcpc
 assert '#define BITMAP unsigned' in dhcpc
+fill_envp = function_body(dhcpc, "static char **fill_envp(struct dhcp_packet *packet)")
+static_routes_guard = fill_envp.index(
+    "udhcpc_static_routes_option_is_well_formed(temp, route_option_length)"
+)
+static_routes_invalid = fill_envp.index('xasprintf("%s=!invalid!", opt_name)')
+static_routes_convert = fill_envp.index(
+    "xmalloc_optname_optval(temp, &dhcp_optflags[i], opt_name)",
+    static_routes_guard
+)
+assert "dhcp_optflags[i].flags & OPTION_STATIC_ROUTES" in fill_envp
+assert "temp[-OPT_DATA + OPT_LEN]" in fill_envp
+assert static_routes_guard < static_routes_invalid < static_routes_convert
+assert "test_static_routes_reject_malformed_trailing_tuples" in test
+assert "test_static_routes_reject_malformed_trailing_tuples() != 0" in test
 assert 'return 1U << (option_code % (sizeof(unsigned int) * 8U));' in policy
 assert 'test_option_bitmap_mask_uses_unsigned_high_bit' in test
 assert 'test_option_bitmap_mask_uses_unsigned_high_bit() != 0' in test

@@ -27,6 +27,38 @@ udhcpc_subnet_mask_prefix_length(uint32_t mask, unsigned int *prefix_length)
 	return 0;
 }
 
+/* DHCP classless-route options are a sequence of prefix + router tuples.
+ * A truncated or invalid trailing tuple must not be silently discarded by
+ * xmalloc_optname_optval(), which otherwise returns the valid prefix. */
+static inline int
+udhcpc_static_routes_option_is_well_formed(const uint8_t *option,
+					   unsigned int length)
+{
+	unsigned int mask, address_bytes;
+
+	if (!option && length != 0U)
+		return 0;
+
+	while (length != 0U) {
+		if (length < 5U)
+			return 0;
+
+		mask = *option++;
+		if (mask > 32U)
+			return 0;
+		--length;
+
+		address_bytes = (mask + 7U) / 8U;
+		if (length < address_bytes + 4U)
+			return 0;
+
+		option += address_bytes + 4U;
+		length -= address_bytes + 4U;
+	}
+
+	return 1;
+}
+
 /* Use an unsigned left operand: option codes can select the top bitmap bit. */
 static inline unsigned int
 udhcpc_option_bitmap_mask(unsigned int option_code)

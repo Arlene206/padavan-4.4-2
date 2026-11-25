@@ -552,6 +552,18 @@ static char **fill_envp(struct dhcp_packet *packet)
 				lease_seconds, lease_option != NULL);
 			*curr = xasprintf("%s=%u", opt_name,
 				(unsigned int)lease_seconds);
+		} else if (dhcp_optflags[i].flags & OPTION_STATIC_ROUTES) {
+			unsigned int route_option_length = temp[-OPT_DATA + OPT_LEN];
+
+			/* xmalloc_optname_optval() stops at a malformed tuple and
+			 * returns the earlier valid routes. Mark the whole option
+			 * invalid so the lease callback rejects it before mutation. */
+			if (!udhcpc_static_routes_option_is_well_formed(
+				    temp, route_option_length))
+				*curr = xasprintf("%s=!invalid!", opt_name);
+			else
+				*curr = xmalloc_optname_optval(
+					temp, &dhcp_optflags[i], opt_name);
 		} else {
 			*curr = xmalloc_optname_optval(temp, &dhcp_optflags[i], opt_name);
 		}
