@@ -647,6 +647,8 @@ jobs:
           conntrack_test = (rc / "tests/conntrack_flush_policy.c").read_text()
           service_start_test = (rc / "tests/service_start_status.c").read_text()
           policy = (rc / "route_status_policy.h").read_text()
+          static_route_policy = (rc / "static_route_policy.h").read_text()
+          static_route_test = (rc / "tests/static_route_policy.c").read_text()
           route_status_test = (rc / "tests/route_status_policy.c").read_text()
           wan_teardown_policy = (rc / "wan_teardown_policy.h").read_text()
           wan_teardown_test = (rc / "tests/wan_teardown_policy.c").read_text()
@@ -925,8 +927,9 @@ jobs:
           assert "if (is_add &&" in static[:strict_ipv4_validation]
           assert "route_status = EINVAL;" in static[strict_gateway_validation:route_add_delete]
           assert strict_ipv4_validation < strict_netmask_validation < strict_gateway_validation < route_add_delete
-          assert "static_route_ipv4_address_is_valid" in policy
-          assert "test" not in static
+          assert "static_route_ipv4_address_is_valid" in static_route_policy
+          assert 'static_route_ipv4_address_is_valid("01.2.3.4")' in static_route_test
+          assert 'static_route_ipv4_address_is_valid("127.1")' not in static_route_test
           assert "if (!enabled)" in static
           assert 'nvram_invmatch("sr_enable_x", "1")' not in static
           assert 'nvram_safe_get("wanx_gateway")' not in static
