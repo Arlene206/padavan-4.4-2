@@ -303,7 +303,7 @@ for item in ("dnsmasq directory symlink unexpectedly accepted",
              "Cannot extract chnroute archive:"):
     require(item in mtd_storage_fill_test,
             "MTD fill symlink regression lacks case: " + item)
-require('s|chnroute_file="/etc_ro/chnroute.bz2"|chnroute_file="$sandbox/chnroute.bz2"|' in mtd_storage_fill_test,
+require(r's|chnroute_file=\\"/etc_ro/chnroute.bz2\\"|chnroute_file=\\"$sandbox/chnroute.bz2\\"|' in mtd_storage_fill_test,
         "MTD fill archive-failure fixture must redirect the indented production chnroute path")
 require('sh trunk/user/scripts/tests/mtd_storage_fill_safe_paths.sh' in workflow and
         'BUSYBOX_BIN="$busybox_bin" sh trunk/user/scripts/tests/mtd_storage_fill_safe_paths.sh' in workflow and

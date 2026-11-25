@@ -1,3 +1,11 @@
+## 2026-11-25 — Match quoted chnroute fixture rewrite literally
+
+- Exact storage run #45607584405 on `0cc1703c` passed shell syntax, host-shell and BusyBox ash MTD fill regressions, checked caller graph and preceding assertions. The final static checker failed because the sed substitution in the shell fixture escapes its inner double quotes, while the Python source contract expected the unescaped form.
+- Updated the contract to match the literal escaped shell text. No production source or runtime test behavior changed.
+- Exact-head storage workflow rerun required.
+
+---
+
 ## 2026-11-25 — Align chnroute source contract with checked directory helper
 
 - Exact USB-storage run #45607146427 on `72f9d8fa` passed shell syntax validation and both host-shell and BusyBox ash MTD fill regressions, including injected write/chmod/rename failures. The static checker then failed on a stale assertion that still expected raw `mkdir -p`; production code now correctly uses `func_fill_mkdir "$dir_chnroute" 755` to validate the path and propagate directory-creation errors.
