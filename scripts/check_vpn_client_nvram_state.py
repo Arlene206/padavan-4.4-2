@@ -130,24 +130,25 @@ l2tp_daemon = start.index("xl2tpd_status = safe_start_xl2tpd_locked()", l2tp_gat
 assert l2tp_start < l2tp_gate < l2tp_daemon
 stop = body(vpn, "static int\nstop_vpn_client_locked(void)")
 ordered(stop, [
+    "stop_status = stop_vpn_client_ppp(0)",
+    "route_status = restore_dns_from_vpnc();",
+    "cleanup_status = route_status_accumulate(cleanup_status, route_status);",
     'vpn_client_nvram_set_temp_status(\n\t\tNULL, "l2tp_cli_t", "0")',
     "cleanup_status = route_status_accumulate(cleanup_status, route_status);",
     'vpn_client_nvram_set_temp_status(\n\t\tNULL, "vpnc_state_t", "0")',
-    "cleanup_status = route_status_accumulate(cleanup_status, route_status);",
     "unlink(VPNC_PPP_UP_SCRIPT)",
     "return cleanup_status;"
-], "VPN stop NVRAM cleanup")
+], "VPN stop NVRAM/DNS cleanup after PPP teardown")
 assert "nvram_set_int_temp(" not in vpn
 
 restart = body(vpn, "static int\nrestart_vpn_client_locked(void)")
+assert "restore_dns_from_vpnc()" not in restart
 ordered(restart, [
-    "restore_status = restore_dns_from_vpnc();",
-    "if (restore_status != 0)",
-    "start_status = restore_status;",
-    "} else {",
+    "stop_status = stop_vpn_client_locked();",
+    "sleep(1);",
     "start_status = start_vpn_client_locked();",
     "firewall_status = restart_firewall();"
-], "VPN restart resolver cleanup gate")
+], "VPN restart reuses stop-owned resolver cleanup")
 
 ipup = body(vpn, "ipup_vpnc_main(int argc, char **argv)")
 ordered(ipup, [
