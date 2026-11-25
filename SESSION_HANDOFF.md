@@ -1,31 +1,46 @@
 ## Current repository state — 2026-11-25
 
-- Live `main` product/source checkpoint: `493c184b7a3e33e90a389a17560fc366e493a355`.
-- Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (do not modify).
-- ZeroTier multipath cleanup is fail-closed: Linux 4.4 deletes the entire FIB alias when gateway/device matches the first nexthop. The current matcher counts both explicit `nexthop` records and legacy repeated `via` tokens; the on-link ECMP fixture and source checker are present: **NOT CONFIRMED**.
-- Current exact-SHA Actions:
-- #45720140098 miniupnpd atomic configuration publication regression: in_progress (miniupnpd-config-regression:in_progress)
-- #45720140020 AI handoff documentation contract: success (validate-handoff-records:success)
-- #45720139952 NVRAM transaction boundary audit: in_progress (nvram-transaction-boundary:in_progress)
-- #45720139932 Process lifecycle inventory - 493c184b7a3e33e90a389a17560fc366e493a355: in_progress (inventory:in_progress)
-- XY-C1 L3 gate on this source SHA: Build=not PASS, TRX=not PASS, artifact=not PASS. L3=NOT VERIFIED.
-- Physical router verification remains NOT VERIFIED (L4).
+- Live `main` immediately before this handoff update: `453c58202da8c435a1a029be2c12f7b98f0218de` (`test(miniupnpd): simplify SUBSCRIBE handler boundary`). Latest DHCPv6 product-source checkpoint is `4daa654ba5f31cb6a74357f98c432a7eb1c85e1e`; later `cc401362` and `453c582` commits changed test/docs/checker material, not DHCPv6 product source.
+- Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (do not modify; unchanged).
+- DHCPv6 changes in the active development stream:
+  - `e7cf7e7`: release an IA event-data wrapper if `iapref_renew()` fails before it is linked to the event-owned queue. This addresses that recoverable preparation error path; it does not claim to change BusyBox's fatal `xzalloc()` allocation-failure behavior.
+  - `7b2c912`: pre-scan all IA suboptions for NoBinding during Renew/Rebind before applying any IA address/delegated prefix, so wire ordering cannot partially publish bindings before Request re-establishment.
+  - `7614f9a`: both top-level and nested option decoders validate header/payload remaining lengths using overflow-safe subtraction before forming an option-end pointer; reject truncated trailing headers and malformed unknown nested IA options.
+  - `6975c9b`: use Linux `MSG_TRUNC` to get the original UDP datagram size and reject oversized datagrams before packet parsing.
+  - `90b82d0`: distinguish negative socket receive errors before packet-size comparisons; `4daa654` adds the bounds-policy header to the receive translation unit.
+  - `cc401362`: fix the Python source contract for the explicit `(ssize_t)sizeof(struct dhcp6)` comparison.
+- Host GNU89 bounds-policy test with `-Wall -Wextra -Werror -fsanitize=address,undefined`: PASS. In the failed pre-correction run the five DHCPv6 policy executables all passed; only the stale Python source assertion failed. The exact-SHA DHCPv6 IA run on `cc401362` passed (#45721709809), as did handoff-contract validation (#45721710003).
+- Exact checks last observed:
+  - Product-source SHA `4daa654`: XY-C1 run #45721587647 remains `in_progress` (Build XY-C1 still running; TRX verification and artifact upload pending). Do not claim Build/TRX/artifact or L3 until all three pass on that same source SHA.
+  - `4daa654`: NVRAM transaction boundary #45721587345 PASS; storage hotplug, WAN DHCP callback, inventory, and DHCPv6 script retry PASS. Its DHCPv6 IA workflow failure was the stale source assertion, corrected and passing at `cc401362`.
+  - `453c582`: MiniUPnP event subscriber regression #45721956369 PASS and handoff contract #45721956496 PASS.
+- XY-C1 L3 remains **NOT VERIFIED**; physical-router L4 remains **NOT VERIFIED**.
 
 ## Active task
 
-Poll any exact-SHA PENDING jobs above. If XY-C1 fails, inspect its exact job log and fix the failing step; do not report a firmware build until Build, TRX and artifact all pass on the same source SHA. Continue a new source-level stability/security defect in Padavan userland while independent CI is pending.
+Resolve the exact-SHA XY-C1 run for product source `4daa654ba5f31cb6a74357f98c432a7eb1c85e1e`. If the build is still pending, proceed with a separate evidenced stability/security defect outside the DHCPv6 packet-input slice. If it fails, inspect that exact job log and repair the failing step. Do not infer a firmware result from a different SHA or a partial build.
 
 ## Exact first actions for next GPT
 
-1. Confirm live `main` still equals `493c184b7a3e33e90a389a17560fc366e493a355` and the frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-2. Check the exact-SHA runs listed above. Only claim L3 when all three XY-C1 milestones are PASS on one product SHA.
-3. Continue from a new evidenced defect. Do not repeat the completed AliDDNS IPv6 selection, DDNSTO lifecycle, DHCPv4/v6 atomic callback publication, native WAN IPv6 route scoping, VSFTPD metadata alias, or ZeroTier multipath cleanup work without new regression evidence.
+1. Confirm live `main` and the frozen backup ref; this handoff update itself will add one docs-only commit on top of `453c582`.
+2. Poll #45721587647 for `4daa654`; require Build, TRX output validation and artifact upload all PASS on that exact product source SHA. NVRAM run #45721587345 is already PASS.
+3. Continue a new, evidence-backed Padavan userland stability/security fix with regression coverage and an exact-SHA Actions check. Do not repeat the DHCPv6 NoBinding, option-bounds or UDP truncation fixes absent new regression evidence.
 
 # Cross-session execution mandate
 
 Continue one autonomous engineering stream on main. For each logical slice, create all changed blobs, one complete Git tree based on the live main root tree, and one atomic main commit; update main with a non-forced expected-SHA compare-and-swap. Never force-push, use feature branches or PRs, split one logical change into per-file commits, or modify the frozen backup. PENDING never blocks independent work. Before context exhaustion, finish the current safe slice and checkpoint the first concrete next action.
 
 ## Completed source slices
+
+### 2026-11-25 — DHCPv6 IA lifecycle and packet-input hardening
+
+- `e7cf7e7` releases an unqueued IA event-data wrapper when `iapref_renew()` returns a recoverable preparation error; ordinary fatal `xzalloc()` OOM behavior is unchanged.
+- `7b2c912` scans the complete IA option list for NoBinding before applying any address/prefix state during Renew/Rebind.
+- `7614f9a` validates option header and payload bounds in both top-level and nested DHCPv6 decoders before pointer formation; unknown nested options are not skipped until their lengths are proven in-bounds.
+- `6975c9b` rejects oversized UDP datagrams using Linux `MSG_TRUNC`; `90b82d0` separates socket errors from short datagrams; `4daa654` wires the helper into the receive translation unit.
+- `cc401362` corrects the checker to expect the explicit signed-size comparison. All five DHCPv6 host policy executables passed in the preceding run, and the post-correction DHCPv6 IA workflow passed on `cc401362`.
+- XY-C1 Build/TRX/artifact verification remains pending on product-source SHA `4daa654`; no L3/L4 success is claimed.
+
 
 ## 2026-11-25 — Additional FTP, DHCP, HTTPD, U2EC and PPP hardening
 
