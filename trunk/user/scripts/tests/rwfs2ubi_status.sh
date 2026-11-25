@@ -148,6 +148,13 @@ assert_not_logged()
 	fi
 }
 
+assert_no_flash_commands()
+{
+	if grep -Eq '^(mtd_write|ubiformat|ubiattach|ubimkvol|ubidetach|nvram) ' "$CALL_LOG"; then
+		fail "a flash or NVRAM command ran after a failed precondition"
+	fi
+}
+
 # Ignore a substring decoy, select the exact RWFS partition, and keep working
 # when the optional pre-format detach reports that no attachment exists.
 prepare_case success
@@ -186,37 +193,37 @@ prepare_case mounted-ubi
 MOUNT_OUTPUT="/dev/ubi5_0 on /media/mtd_rwfs type ubifs (rw)"
 export MOUNT_OUTPUT
 expect_failure "mounted UBI"
-[ ! -s "$CALL_LOG" ] || fail "mounted UBI caused a destructive command"
+assert_no_flash_commands
 
 prepare_case mounted-ubiblock
 MOUNT_OUTPUT="/dev/ubiblock5_0 on /media/mtd_rwfs type squashfs (ro)"
 export MOUNT_OUTPUT
 expect_failure "mounted ubiblock"
-[ ! -s "$CALL_LOG" ] || fail "mounted ubiblock caused a destructive command"
+assert_no_flash_commands
 
 prepare_case mounted-mtd
 MOUNT_OUTPUT="/dev/mtdblock5 on /media/mtd_rwfs type jffs2 (rw)"
 export MOUNT_OUTPUT
 expect_failure "mounted MTD block"
-[ ! -s "$CALL_LOG" ] || fail "mounted MTD caused a destructive command"
+assert_no_flash_commands
 
 prepare_case mount-inventory-failure
 MOUNT_STATUS=2
 export MOUNT_STATUS
 expect_failure "mount inventory"
-[ ! -s "$CALL_LOG" ] || fail "unknown mount inventory caused a destructive command"
+assert_no_flash_commands
 
 prepare_case malformed-mount-inventory
 MOUNT_OUTPUT="malformed mount record"
 export MOUNT_OUTPUT
 expect_failure "malformed mount inventory"
-[ ! -s "$CALL_LOG" ] || fail "malformed mount inventory caused a destructive command"
+assert_no_flash_commands
 
 prepare_case empty-mount-inventory
 MOUNT_OUTPUT=
 export MOUNT_OUTPUT
 expect_failure "empty mount inventory"
-[ ! -s "$CALL_LOG" ] || fail "empty mount inventory caused a destructive command"
+assert_no_flash_commands
 
 prepare_case missing-rwfs
 cat > "$base/proc/mtd" <<'EOF_MISSING'
@@ -224,14 +231,14 @@ dev:    size   erasesize  name
 mtd4: 00010000 00001000 "RWFS_BACKUP"
 EOF_MISSING
 expect_failure "missing exact RWFS partition"
-[ ! -s "$CALL_LOG" ] || fail "missing partition caused a destructive command"
+assert_no_flash_commands
 
 prepare_case duplicate-rwfs
 cat >> "$base/proc/mtd" <<'EOF_DUPLICATE'
 mtd6: 00010000 00001000 "RWFS"
 EOF_DUPLICATE
 expect_failure "ambiguous RWFS partition"
-[ ! -s "$CALL_LOG" ] || fail "ambiguous partition caused a destructive command"
+assert_no_flash_commands
 
 prepare_case erase-failure
 MTD_WRITE_STATUS=1
