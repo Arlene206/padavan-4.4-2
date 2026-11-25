@@ -80,9 +80,9 @@ assert "u2ec_fd_is_usable(*fd, sizeof(fd_in_use))" in handle_fifo
 assert handle_fifo.index("u2ec_fd_is_usable(*fd") < handle_fifo.index("FD_SET(*fd")
 assert "return -1;" in handle_fifo
 assert "if (rtvl < 0)" in daemon_main
-assert "MSG_NOSIGNAL" in send_policy
-assert "errno == EINTR" in send_policy
-assert "return (ssize_t)sent;" in send_policy
+assert "MSG_NOSIGNAL" in send_timeout_policy
+assert "errno == EINTR" in send_timeout_policy
+assert "return (ssize_t)sent;" in send_timeout_policy
 assert "U2EC_CLIENT_FRAME_TIMEOUT_SECONDS 10U" in policy
 assert "U2EC_CLIENT_SEND_TIMEOUT_SECONDS 10U" in policy
 assert "u2ec_timeval_remaining(&deadline, &remaining)" in send_timeout_policy

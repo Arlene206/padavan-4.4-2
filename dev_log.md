@@ -1,3 +1,10 @@
+## 2026-11-25 — Point U2EC send assertions at bounded implementation
+
+- Exact U2EC run #45610564863 on `e258dbf3` compiled and passed all GNU89 ASan/UBSan socketpair tests, including the new non-reading-peer timeout case. The production source checker then failed three legacy assertions because `send_policy` now correctly represents the compatibility wrapper, while `MSG_NOSIGNAL`, EINTR handling and the sent-byte return are in the new `send_timeout_policy` helper.
+- Moved those three assertions to the bounded helper. Runtime code and tests are unchanged.
+- Exact-head U2EC, storage, AI handoff and XY-C1 build/TRX/artifact checks required.
+
+---
 ## 2026-11-25 — Bound U2EC client TCP sends as well as reads
 
 - The main U2EC loop also used blocking `u2ec_send_all_no_sigpipe()` for client greetings and responses. A peer that stopped reading could fill the TCP send buffer and stall the same sole event loop, even after receive-side deadlines were added.
