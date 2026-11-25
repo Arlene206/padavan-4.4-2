@@ -58,6 +58,13 @@ main(void)
 	assert(static_route_ipv4_address_is_valid("192.168.1.1"));
 	assert(static_route_ipv4_address_is_valid("0.0.0.0"));
 	assert(static_route_ipv4_address_is_valid("255.255.255.255"));
+	assert(static_route_ipv4_netmask_is_valid("0.0.0.0"));
+	assert(static_route_ipv4_netmask_is_valid("128.0.0.0"));
+	assert(static_route_ipv4_netmask_is_valid("255.255.255.0"));
+	assert(static_route_ipv4_netmask_is_valid("255.255.255.255"));
+	assert(!static_route_ipv4_netmask_is_valid("255.0.255.0"));
+	assert(!static_route_ipv4_netmask_is_valid("255.255.0.255"));
+	assert(!static_route_ipv4_netmask_is_valid("255.255.255"));
 	assert(!static_route_ipv4_address_is_valid(""));
 	assert(!static_route_ipv4_address_is_valid(NULL));
 	assert(!static_route_ipv4_address_is_valid("256.1.1.1"));

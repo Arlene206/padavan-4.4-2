@@ -933,6 +933,8 @@ jobs:
           assert "status = route_status_accumulate(status, route_status);" in static[metric_validation:route_add_delete]
           assert "static_route_metric_parse" in static_route_policy
           assert "static_route_ipv4_address_is_valid" in static_route_policy
+          assert "static_route_ipv4_netmask_is_valid" in static_route_policy
+          assert 'static_route_ipv4_netmask_is_valid("255.0.255.0")' in static_route_test
           assert 'static_route_ipv4_address_is_valid("01.2.3.4")' in static_route_test
           assert 'static_route_ipv4_address_is_valid("127.1")' not in static_route_test
           assert "if (!enabled)" in static

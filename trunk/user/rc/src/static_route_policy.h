@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <limits.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <string.h>
 
 /*
@@ -121,6 +122,33 @@ static_route_ipv4_address_is_valid(const char *value)
 		}
 	}
 	return separators == 3 && digits > 0;
+}
+
+/*
+ * An IPv4 netmask is a contiguous run of leading one bits. The all-zero
+ * mask is retained for an explicit default route (0.0.0.0/0).
+ */
+static inline int
+static_route_ipv4_netmask_is_valid(const char *value)
+{
+	uint32_t mask = 0;
+	uint32_t inverse;
+	unsigned int octet = 0;
+	size_t i;
+
+	if (!static_route_ipv4_address_is_valid(value))
+		return 0;
+	for (i = 0; value[i]; ++i) {
+		if (value[i] >= '0' && value[i] <= '9') {
+			octet = octet * 10U + (unsigned int)(value[i] - '0');
+		} else {
+			mask = (mask << 8) | octet;
+			octet = 0;
+		}
+	}
+	mask = (mask << 8) | octet;
+	inverse = ~mask;
+	return (inverse & (inverse + UINT32_C(1))) == 0;
 }
 
 #endif /* PADAVAN_STATIC_ROUTE_POLICY_H */

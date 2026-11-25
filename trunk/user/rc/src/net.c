@@ -302,7 +302,7 @@ control_static_routes(char *ift, char *ifname, int is_add)
 		 * deleting a route: a malformed persisted value must not be able
 		 * to alias and remove a different kernel route. */
 		if (!static_route_ipv4_address_is_valid(ipaddr) ||
-		    !static_route_ipv4_address_is_valid(netmask) ||
+		    !static_route_ipv4_netmask_is_valid(netmask) ||
 		    !static_route_ipv4_address_is_valid(gateway)) {
 			route_status = EINVAL;
 			status = route_status_accumulate(status, route_status);
