@@ -387,6 +387,7 @@ test_absent_modules_are_successful_noop_unloads(void)
 	size_t successful = 99, unloaded = 99;
 
 	reset_case();
+	unloaded = 0;
 	assert(rc_modem_module_unload_group_status(module_names, TEST_MODULES,
 			mock_unload, &unloaded, &successful) == 0);
 	assert(successful == TEST_MODULES);
@@ -394,7 +395,7 @@ test_absent_modules_are_successful_noop_unloads(void)
 	assert_all_unload_attempted();
 
 	reset_case();
-	unloaded = 99;
+	unloaded = 0;
 	module_presence[0] = 1;
 	unload_results[0] = 1;
 	module_remaining_presence[0] = 0;
