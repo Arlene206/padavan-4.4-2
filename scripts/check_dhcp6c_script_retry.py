@@ -45,6 +45,7 @@ def function_body(source, signature):
 
 base = "trunk/user/busybox/busybox-1.24.x/networking/udhcp/"
 dhcp6c = (ROOT / (base + "dhcp6c.c")).read_text()
+common = (ROOT / (base + "dhcp6c_common.c")).read_text()
 script_runner = (ROOT / (base + "dhcp6c_script.c")).read_text()
 policy = (ROOT / (base + "dhcp6c_script_retry_policy.h")).read_text()
 test = (ROOT / (base + "tests/dhcp6c_script_retry_policy.c")).read_text()
@@ -74,6 +75,15 @@ assert "DHCPv6 configuration script exited with status %d; retrying event" in re
 assert "#define DHCP6C_SCRIPT_RETRY_DELAY_MS 5000ULL" in policy
 assert "return script_status != 0;" in policy
 assert "DHCP6C_SCRIPT_RETRY_DELAY_MS == 5000ULL" in test
+assert "dhcp6_timer_remaining_ms(1500ULL, 1000ULL) == 500ULL" in test
+assert "dhcp6_timer_remaining_ms(1000ULL, 1000ULL) == 0ULL" in test
+assert "dhcp6_timer_remaining_ms(999ULL, 1000ULL) == 0ULL" in test
+assert "DHCPv6 configuration-script retry and timer policy: PASS" in test
+
+timer_rest = function_body(common, "unsigned long long dhcp6_timer_rest(struct dhcp6_timer *timer)")
+assert '#include "dhcp6c_script_retry_policy.h"' in common
+assert "dhcp6_timer_remaining_ms(timer->t, now)" in timer_rest
+assert "timer->t - now <= 0" not in timer_rest
 
 for marker in (
     "test_success_does_not_retry",

@@ -1,3 +1,9 @@
+## 2026-11-24 — Correct expired DHCPv6 timer remaining arithmetic
+
+- `dhcp6_timer_rest()` compared `timer->t - now <= 0` even though both operands are unsigned. An expired deadline therefore wrapped to a huge remaining interval instead of returning zero; its current caller happens to saturate the derived retry delay later, so the present call path masks the value, but the helper's return contract is broken and unsafe for future consumers.
+- Added a shared `dhcp6_timer_remaining_ms(deadline, now)` helper, used it in production timer code, and added GNU89 sanitizer regression coverage for future/equal/expired/maximum deadlines. The DHCPv6 source checker now binds the helper to the production call site.
+- Parent SHA 3390da31fe8c37b5d4f5293282058679abd3360e: storage-hotplug #45523378897 PASS after correcting the stale DHCP retry-call count; AI docs #45523378953 PASS. Production source from b19ffd89 had udhcpc #45523015896, Process #45523015238/#45523015250, NVRAM #45523015241 and AI #45523015265 PASS. XY-C1 #45523015263 remained IN_PROGRESS at Build; L3 not verified. No local compile claim.
+
 ## 2026-11-24 — Align storage CI with the third DHCP retry call site
 
 - Exact SHA b19ffd89d64441c763be6ba218aa9b73787fe847: udhcpc regression #45523015896, Process inventory #45523015238, Process fail-closed #45523015250 and AI docs #45523015265 PASS; NVRAM boundary #45523015241 PASS. XY-C1 #45523015263 remained IN_PROGRESS at Build.

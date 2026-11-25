@@ -37,6 +37,7 @@
 
 #include "dhcp6c.h"
 #include "dhcp6c_duid_file_policy.h"
+#include "dhcp6c_script_retry_policy.h"
 
 
 static int copyin_option(int, struct dhcp6opt *, struct dhcp6opt *,
@@ -351,13 +352,13 @@ struct timeval *dhcp6_timer_check(void)
 unsigned long long dhcp6_timer_rest(struct dhcp6_timer *timer)
 {
 	unsigned long long now = monotonic_ms();
+	unsigned long long remaining = dhcp6_timer_remaining_ms(timer->t, now);
 
-	if (timer->t - now <= 0) {
-		log2("a timer must be expired, but not yet");
+	if (remaining == 0) {
+		log2("timer has expired");
 		return 0;
-	} else {
-		return (timer->t - now);
 	}
+	return remaining;
 }
 
 /* Domain names stored in RFC1035 format */

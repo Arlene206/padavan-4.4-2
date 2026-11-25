@@ -13,21 +13,18 @@ Continue one autonomous engineering stream on main. For each logical slice, crea
 
 ## Active task
 
-### Align storage-hotplug source contract with DHCP subnet-mask deferral
+### DHCPv6 timer remaining arithmetic — clamp expired deadlines
 
-The DHCPv4 netmask hardening in commit b19ffd89d64441c763be6ba218aa9b73787fe847 added a third call to the shared `udhcpc_script_failure_prepare_retry()` helper. Its own exact-head sanitizer/source workflow passed, but the broader storage-hotplug workflow still asserted exactly two call sites and failed only at that stale count (inline Python line 1347). All storage scripts/tests and the host BusyBox build passed before the static source contract failed. Updating the contract to require three calls and explicitly require the subnet-mask ACK gate before script invocation; no runtime test or workflow path gate is removed.
+`dhcp6_timer_rest()` compared `timer->t - now <= 0` with both operands unsigned. A deadline already in the past therefore wrapped to a huge remaining interval instead of returning zero. The only current consumer happens to saturate its derived retry delay afterwards, so the present call path masks the value; nevertheless the helper contract is wrong and unsafe for future direct consumers. Added shared `dhcp6_timer_remaining_ms(deadline, now)` and used it in production timer code. Regression checks future, exact-deadline, expired and maximum unsigned deadlines; the static source contract ensures production calls the helper and cannot regress to unsigned subtraction.
 
-After the checker alignment passes, continue a separate userland stability/security issue; no L3 claim without exact-SHA XY-C1 Build, TRX and artifact upload.
+Storage checker alignment is committed on 3390da31fe8c37b5d4f5293282058679abd3360e; exact-head storage-hotplug and AI-doc workflows both PASS. The DHCPv4 subnet-mask fix is on parent source SHA b19ffd89 and its own udhcpc/Process/NVRAM checks passed. No local compile claim.
 
-## Current exact-head Actions on b19ffd89d64441c763be6ba218aa9b73787fe847
+## Current exact-head Actions on 3390da31fe8c37b5d4f5293282058679abd3360e
 
-- BusyBox udhcpc event script status #45523015896: PASS (GNU89 ASan/UBSan policy tests and source checker, including invalid-mask ACK validation).
-- AI handoff documentation #45523015265: PASS.
-- Process lifecycle inventory #45523015238: PASS.
-- Process inventory/lifecycle fail-closed #45523015250: PASS.
-- NVRAM transaction boundary #45523015241: PASS (raw userland ioctl/kernel caller audit).
-- USB storage hotplug #45523015407: FAIL only at inline source-contract line 1347: expected two `udhcpc_script_failure_prepare_retry()` calls, but the new invalid-subnet-ACK deferral correctly adds a third. Host BusyBox build and all preceding storage shell regressions passed. The next atomic commit updates this stale count and strengthens the contract to require the ACK gate before script execution.
-- XY-C1 Firmware Validation #45523015263: IN_PROGRESS at Build XY-C1. No exact-head TRX/artifact result; L3 NOT VERIFIED; L4 hardware NOT VERIFIED.
+- USB storage hotplug #45523378897: PASS; stale inline retry-call count corrected from two to three, and the contract now requires the malformed-subnet ACK gate before script execution.
+- AI handoff documentation #45523378953: PASS.
+- Production source parent b19ffd89: udhcpc #45523015896, Process inventory #45523015238, Process fail-closed #45523015250, NVRAM boundary #45523015241 and AI docs #45523015265: PASS.
+- XY-C1 Firmware Validation #45523015263, for the unchanged production source SHA b19ffd89: still IN_PROGRESS at Build XY-C1; no TRX/artifact confirmation. L3 NOT VERIFIED; L4 hardware NOT VERIFIED.
 - No local compile is claimed.
 
 ## Completed source slices
@@ -135,9 +132,9 @@ Commit `786c504c8247fe42d5d1d5f2dc3ad28757fafc80` strictly parses persisted RX/T
 
 ## Exact first action for the next GPT
 
-1. Fetch live main after the storage checker alignment and inspect exact-head storage-hotplug, udhcpc, Process/Lifecycle, NVRAM, AI docs and XY-C1 Actions. Fix any failure against that SHA.
-2. Check the XY-C1 run through Build, TRX verification and artifact upload on one exact source SHA before claiming L3; L4 hardware remains unverified.
-3. Continue outside the recent PPP/DHCP/HTTPD/IPTV/FRP focus with a concrete userland stability/security issue; never wait on an unrelated PENDING run.
+1. Fetch live main and check exact-head DHCPv6 retry/timer, DHCPv4 udhcpc, storage-hotplug, Process/Lifecycle, NVRAM, AI docs and XY-C1 Actions after this timer change. Fix failures on the exact SHA.
+2. Verify XY-C1 Build, TRX and artifact upload on the same final production source SHA before claiming L3. L4 requires hardware testing.
+3. Continue another concrete userland stability/security defect outside the recent PPP/DHCP/HTTPD/IPTV/FRP focus; do not wait on unrelated PENDING jobs.
 
 ## Mandatory handoff checkpoint
 
