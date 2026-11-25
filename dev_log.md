@@ -1,3 +1,13 @@
+## 2026-11-26 05:30 CST (UTC+8) — Fail closed when WDM hotplug cannot clear the QMI client ID marker
+
+- \`mdev_wdm_main()\` previously ignored \`unlink(QMI_CLIENT_ID)\` and could publish a new WDM physical-identity record while a global WDS client-ID marker remained. If /tmp cleanup failed, that stale marker could be reused against a different physical modem.
+- WDM hotplug now passes unlink result/errno through \`modem_qmi_handle_file_unlink_status()\`: missing markers remain benign; EACCES/EROFS/other errors stop new identity publication and trigger best-effort removal of stale per-device metadata. Physical unplug still removes per-device metadata even if the global marker cleanup failed, while returning a failure status for either incomplete cleanup.
+- Extended the USB modem workflow's exact-source contract to pin marker unlink → status normalization → add-side publication gate and remove-side metadata cleanup. Reuses existing GNU89 ASan/UBSan policy cases for success, ENOENT, EACCES, EROFS and missing-errno normalization.
+- Parent exact-head DHCPv6 IA #45700615752, USB storage #45700615482, WAN callback #45700615454, Process inventory #45700615636 and AI docs #45700615554 PASS. Parent NVRAM #45700615438 and XY-C1 #45700615486 were IN_PROGRESS. New exact-head USB modem / Process / AI / NVRAM / XY-C1 Actions are pending at commit creation. No local run, firmware or physical-router result is claimed.
+- Changed paths: \`hotplug_usb.c\`, \`usb-modem-identity-stability.yml\`, \`SESSION_HANDOFF.md\`, \`REFACTOR_ROADMAP.md\`, \`dev_log.md\`.
+
+---
+
 ## 2026-11-26 05:24 CST (UTC+8) — Propagate DHCPv6 NoBinding recovery failures
 
 - During Renew/Rebind, a NoBinding Status Code triggers `reestablish_ia()`, which removes the old IA timer before preparing the replacement Request. Its error return was ignored; if IA option preparation or authentication parameter copying failed, the event was acknowledged even though the IA had no new timer/request to continue recovery.

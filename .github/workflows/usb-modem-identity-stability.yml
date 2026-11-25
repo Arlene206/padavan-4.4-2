@@ -395,6 +395,28 @@ jobs:
           net = body(hotplug, "int mdev_net_main(")
           assert '"pref=%d\\ndevnum=%d\\nportid=%s\\n"' in net
           assert wdm.count("modem_node_file_remove(MODEM_NODE_DIR, device_name)") >= 3
+          assert "unlink_status = unlink(QMI_CLIENT_ID);" in wdm
+          assert "unlink_errno = errno;" in wdm
+          assert "modem_qmi_handle_file_unlink_status(unlink_status," in wdm
+          marker_unlink = wdm.index("unlink_status = unlink(QMI_CLIENT_ID);")
+          marker_status = wdm.index("client_id_status = modem_qmi_handle_file_unlink_status(", marker_unlink)
+          remove_event = wdm.index("if (!get_hotplug_action(action))", marker_status)
+          assert marker_unlink < marker_status < remove_event
+          remove_branch_end = wdm.index("goto out_unlock;", remove_event)
+          remove_branch = wdm[remove_event:remove_branch_end]
+          assert "if (client_id_status != 0)" in remove_branch
+          assert "modem_node_file_remove(MODEL_NODE_DIR, device_name)" not in remove_branch
+          assert "modem_node_file_remove(MODEM_NODE_DIR, device_name)" in remove_branch
+          assert "metadata_status = 1;" in remove_branch
+          add_marker_gate = wdm.index("if (client_id_status != 0)", remove_branch_end)
+          identity_lookup = wdm.index("get_usb_port_by_device(device_name", add_marker_gate)
+          add_marker_failure = wdm[add_marker_gate:identity_lookup]
+          assert "modem_node_file_remove(MODEM_NODE_DIR, device_name)" in add_marker_failure
+          assert "metadata_status = 1;" in add_marker_failure
+          assert add_marker_gate < identity_lookup < wdm.index("modem_node_file_publish_identity(", identity_lookup)
+          assert "test_qmi_handle_cleanup_distinguishes_missing_from_other_errors();" in retry_test
+          assert "modem_qmi_handle_file_unlink_status(-1, ENOENT) == 0" in retry_test
+          assert "modem_qmi_handle_file_unlink_status(-1, EACCES) == EACCES" in retry_test
 
           legacy_finder = body(modem, "find_modem_node(")
           assert "modem_node_manual_index_matches(fetch_index, i)" in legacy_finder

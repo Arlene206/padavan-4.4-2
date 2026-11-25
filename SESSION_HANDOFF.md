@@ -1,25 +1,24 @@
 ## Current repository state — 2026-11-26
 
-- Parent main: `0766d65129017e2313a12ccae26d9af0b84c94ae`. This slice fixes a second DHCPv6 IA retry hole: failures while rebuilding a Request after NoBinding were ignored even though `reestablish_ia()` can return an error.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Parent exact-head Actions for `0766d65129017e2313a12ccae26d9af0b84c94ae`: DHCPv6 IA publication #45700172634 PASS; Process lifecycle inventory #45700172660 PASS; WAN DHCP callback #45700172574 PASS; AI docs #45700172637 PASS. USB storage #45700172576, NVRAM #45700172551, and XY-C1 #45700172597 were IN_PROGRESS at the last poll.
-- The preceding timer overflow fix is `0766d65129017e2313a12ccae26d9af0b84c94ae`: exact DHCPv6 IA regression PASS; local GNU89 ASan/UBSan ratios verified for large finite lifetimes. IAPP IPC remains complete through `e110d1e248bc6ccd2a759275c81ff71cdf2cd99e`.
+- Live main parent for this slice: \`e9545b1b2f7c059076b59ebb2cf4a5c07fc86967\`; this atomic follow-up makes WDM hotplug check the global QMI client-ID marker unlink before accepting a new physical modem identity.
+- Frozen backup \`backup/pre-plugin-overhaul-2026-11-14\` remains read-only at \`72f4f157a084f8184b9597ca5bf334b8080e5807\`.
+- Parent exact-head Actions for \`e9545b1b2f7c059076b59ebb2cf4a5c07fc86967\`: DHCPv6 IA publication #45700615752 PASS; USB storage hotplug #45700615482 PASS; WAN DHCP callback #45700615454 PASS; Process inventory #45700615636 PASS; AI docs #45700615554 PASS. NVRAM #45700615438 and XY-C1 #45700615486 were IN_PROGRESS at the last poll.
+- DHCPv6 NoBinding recovery correction \`e9545b1b2f7c059076b59ebb2cf4a5c07fc86967\` passed its exact-head DHCPv6 IA, Process, WAN callback and AI docs checks. The earlier 32-bit IA timer ratio fix on \`0766d65129017e2313a12ccae26d9af0b84c94ae\` also passed the exact DHCPv6 IA regression. Prior IAPP IPC work remains closed through \`e110d1e248bc6ccd2a759275c81ff71cdf2cd99e\`.
 
 ## Active task
 
-When a Renew/Rebind Reply contained NoBinding, `update_ia()` called `reestablish_ia(ia)` and discarded its return value. `reestablish_ia()` removes the old IA timer before creating the replacement Request and can fail while preparing IA data or copying auth parameters. Ignoring that failure let `client6_recvreply()` treat the Reply as successful, despite no replacement Request being queued and no IA timer remaining. The new code clears stale errno, captures the result, normalizes a missing errno to EIO, records the first IA error and returns it through the existing bounded Reply retry path.
+\`mdev_wdm_main()\` previously called \`unlink(QMI_CLIENT_ID)\` without checking its result and then continued to publish a new WDM physical-identity record. If the old global WDS client-ID marker could not be removed (for example, a read-only/failed /tmp filesystem), a later QMI start could mistake a marker belonging to a different physical modem for the current device. The hotplug path now normalizes unlink results through the existing \`modem_qmi_handle_file_unlink_status()\` policy (ENOENT remains an idempotent success; all other errors fail closed). On add, failure prevents new identity publication and attempts to remove stale per-device metadata. On unplug, metadata removal still runs even if global marker cleanup fails, and the handler returns failure if either cleanup leg is incomplete.
 
 ## Verification boundary
 
-- Focused GNU89 `-Wall -Wextra -Werror -fsanitize=address,undefined` policy test PASS for timer ratios and failed-operation error normalization.
-- Existing DHCPv6 IA publication workflow passed on parent `0766d65129017e2313a12ccae26d9af0b84c94ae`; source checker and regression are extended for NoBinding failure propagation. Exact-head Actions for THIS COMMIT must be checked after commit.
-- No MIPS firmware or live-router claim. Product L3/L4 remain unverified for this slice.
+- Existing \`modem_wan_start_policy.c\` GNU89 ASan/UBSan test covers successful unlink, ENOENT, EACCES, EROFS and missing-errno normalization. The USB modem workflow source contract now verifies WDM marker-unlink/status ordering, the add-side publication gate, and the remove-side best-effort metadata cleanup.
+- The source-only contract and sanitizer regression have not been run locally in this session (no checkout); the exact-head USB modem, Process, AI docs and XY-C1 Actions for THIS COMMIT must be fetched after push.
+- Parent exact-head NVRAM #45700615438 and XY-C1 #45700615486 remained IN_PROGRESS. Do not transfer their results to the new SHA. No physical multi-modem/hub L4 result is claimed.
 
 ## Exact first actions for next GPT
 
-1. Fetch exact-SHA Actions for THIS COMMIT: DHCPv6 IA publication, Process inventory/fail-closed, WAN DHCP callback, NVRAM, AI docs, USB storage, and XY-C1. Repair any same-SHA failure first.
-2. Confirm the NoBinding error branch reaches the existing bounded `client6_recvreply()` retry path in the target BusyBox build.
-3. Continue a separate userland stability/security fix after this DHCPv6 IA slice; do not repeat the earlier timer overflow or IAPP pipe tasks.
+1. Fetch exact-SHA results for THIS COMMIT: USB modem WDM/NDIS identity, Process inventory, AI docs, NVRAM and XY-C1. Inspect logs for any failure; XY-C1 must complete Build, TRX verification and artifact upload on the same SHA before claiming L3.
+2. Continue an independent Padavan userland stability/security fix after this QMI marker cleanup slice; do not repeat the closed IAPP IPC or DHCPv6 timer/NoBinding work.
 
 # Cross-session execution mandate
 

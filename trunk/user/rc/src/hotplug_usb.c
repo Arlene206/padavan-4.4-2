@@ -278,6 +278,7 @@ int
 mdev_wdm_main(int argc, char **argv)
 {
 	int isLock, devnum, data_len, publish_status, metadata_status = 0;
+	int unlink_status, unlink_errno, client_id_status;
 	char usb_port_id[64], node_data[128];
 	char *device_name, *action;
 
@@ -298,14 +299,34 @@ mdev_wdm_main(int argc, char **argv)
 	if ((isLock = file_lock(device_name)) == -1)
 		return 1;
 
-	unlink(QMI_CLIENT_ID);
+	errno = 0;
+	unlink_status = unlink(QMI_CLIENT_ID);
+	unlink_errno = errno;
+	client_id_status = modem_qmi_handle_file_unlink_status(unlink_status,
+								      unlink_errno);
+	if (client_id_status != 0)
+		usb_dbg("(%s): Failed to clear stale QMI client ID marker (status=%d).\n",
+			device_name, client_id_status);
 
-	// If remove the device?
+	// If remove the device, always remove per-device metadata even when the
+	// global QMI marker could not be cleared; report both cleanup outcomes.
 	if (!get_hotplug_action(action)){
+		if (client_id_status != 0)
+			metadata_status = 1;
 		if (modem_node_file_remove(MODEM_NODE_DIR, device_name) != 0) {
 			usb_dbg("(%s): Failed to remove WDM metadata.\n", device_name);
 			metadata_status = 1;
 		}
+		goto out_unlock;
+	}
+
+	// Do not publish a new WDM identity while an old global WDS client ID
+	// marker may still refer to a different physical modem.
+	if (client_id_status != 0) {
+		if (modem_node_file_remove(MODEM_NODE_DIR, device_name) != 0)
+			usb_dbg("(%s): Failed to remove stale WDM metadata after QMI marker cleanup failure.\n",
+				device_name);
+		metadata_status = 1;
 		goto out_unlock;
 	}
 
