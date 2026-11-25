@@ -76,6 +76,7 @@ main(void)
 	assert(lock_fd >= 0);
 	assert(generation == 0);
 	assert(fstat(lock_fd, &lock_fd_stat) == 0);
+	assert((fcntl(lock_fd, F_GETFD) & FD_CLOEXEC) != 0);
 	assert(stat(lock_path, &lock_path_stat) == 0);
 	assert(lock_fd_stat.st_dev == lock_path_stat.st_dev);
 	assert(lock_fd_stat.st_ino == lock_path_stat.st_ino);

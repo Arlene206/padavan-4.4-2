@@ -196,9 +196,11 @@ ppp_callback_state_file_lock(const char *lock_path, const char *state_path,
 		return -1;
 	}
 	fd = open(lock_path,
-		  O_RDWR | O_CREAT | O_EXCL | O_NOFOLLOW | O_NONBLOCK, 0600);
+		  O_RDWR | O_CREAT | O_EXCL | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC,
+		  0600);
 	if (fd < 0 && errno == EEXIST)
-		fd = open(lock_path, O_RDWR | O_NOFOLLOW | O_NONBLOCK);
+		fd = open(lock_path,
+			  O_RDWR | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC);
 	if (fd < 0)
 		return -1;
 	if (fstat(fd, &st) != 0)
