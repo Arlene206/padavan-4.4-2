@@ -1353,7 +1353,7 @@ iptables -A FORWARD -i ztunit -o ztunit -j ACCEPT
 iptables -A FORWARD -i ztunit -j ACCEPT
 iptables -t nat -A POSTROUTING -o ztunit -j MASQUERADE
 iptables -t nat -A POSTROUTING -s 10.148.18.0/24 -j MASQUERADE
-printf '%s\\n%s\\n' 'ztunit' '' > "$TEST_CONFIG/.firewall-state"
+printf '%s\n%s\n' 'ztunit' '' > "$TEST_CONFIG/.firewall-state"
 chmod 600 "$TEST_CONFIG/.firewall-state"
 echo identity > "$TEST_CONFIG/identity.secret"
 echo running > "$TEST_STATE"
