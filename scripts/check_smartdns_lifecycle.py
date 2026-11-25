@@ -105,6 +105,8 @@ assert 'curl -fsS' in adblock_start
 assert 'smartdns_prepare_adblock_filter "$_smartdns_adblock_download" "$_smartdns_adblock_output"' in adblock_start
 assert 'check =' not in adblock_start
 assert 'sdns_adblock_url' in adblock_start
+assert '--connect-timeout 10' in adblock_start and '--max-time 30' in adblock_start
+assert '--retry 1' in adblock_start
 for phrase in ('Adblock Plus rules convert to SmartDNS address directives',
                'native SmartDNS address rules remain unchanged',
                'native SmartDNS filter rejects unrelated directives and preserves the previous output',

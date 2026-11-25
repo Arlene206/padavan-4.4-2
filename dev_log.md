@@ -1,3 +1,10 @@
+## 2026-11-25 — Bound optional SmartDNS adblock downloads
+
+- `Start_AD` already limited connection establishment to 10 seconds but left transfer time unbounded; a user-configured or stalled adblock endpoint could therefore hold SmartDNS startup indefinitely. Add a 30-second per-attempt maximum and reduce retries from three to one, bounding worst-case transfer wait while keeping one transient retry.
+- Add an exact-source contract for connection timeout, transfer timeout and retry count. SmartDNS lifecycle and source contract rerun required; this is independent of the in-progress XY-C1 validation on the previous product-source SHA.
+
+---
+
 ## 2026-11-25 — Align Redsocks checker with split function braces
 
 - Exact Redsocks run on `dd12814` passed the full shell regression matrix, including invalid-address preservation, duplicate draining, check/delete error propagation and partial rollback. The source-contract step then crashed with `ValueError` because it searched for literal `func_clean(){`, while production uses `func_clean()` followed by a newline and `{`.

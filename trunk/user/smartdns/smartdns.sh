@@ -627,7 +627,7 @@ Start_AD () {
         return 1
     }
     if [ -z "$sdns_adblock_url" ] ||
-        ! curl -fsS -o "$_smartdns_adblock_download" --connect-timeout 10 --retry 3 "$sdns_adblock_url"; then
+        ! curl -fsS -o "$_smartdns_adblock_download" --connect-timeout 10 --max-time 30 --retry 1 "$sdns_adblock_url"; then
         logger -t "SmartDNS" "广告过滤文件下载失败，继续使用空过滤列表"
         rm -f "$_smartdns_adblock_download"
         return 1
