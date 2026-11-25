@@ -243,13 +243,15 @@ test_multipart_boundary_requires_a_complete_delimiter(void)
 static void
 test_multipart_boundary_carry_covers_maximum_marker_and_padding(void)
 {
-    char marker[128];
+    char marker[HTTPD_UPLOAD_BOUNDARY_MAX_MARKER_LENGTH + 1];
     char padded[HTTPD_UPLOAD_BOUNDARY_LOOKBEHIND + 1];
     char body[400], carry[HTTPD_UPLOAD_BOUNDARY_LOOKBEHIND];
-    char combined[HTTPD_UPLOAD_BOUNDARY_LOOKBEHIND + 200];
-    const size_t marker_length = 127U;
-    const size_t body_marker_offset = 100U;
-    const size_t split = body_marker_offset + 80U;
+    char combined[HTTPD_UPLOAD_BOUNDARY_LOOKBEHIND + 8];
+    const size_t marker_length = HTTPD_UPLOAD_BOUNDARY_MAX_MARKER_LENGTH;
+    const size_t body_marker_offset = 1U;
+    const size_t delimiter_length = marker_length + 2U +
+        HTTPD_UPLOAD_BOUNDARY_MAX_PADDING + 2U;
+    const size_t split = body_marker_offset + delimiter_length - 1U;
     size_t previous_length, remaining;
     char *found;
 
@@ -258,27 +260,33 @@ test_multipart_boundary_carry_covers_maximum_marker_and_padding(void)
     marker[marker_length] = '\0';
 
     memcpy(padded, marker, marker_length);
-    memset(padded + marker_length, ' ', HTTPD_UPLOAD_BOUNDARY_MAX_PADDING);
-    memcpy(padded + marker_length + HTTPD_UPLOAD_BOUNDARY_MAX_PADDING,
-           "\r\n", 2U);
+    memcpy(padded + marker_length, "--", 2U);
+    memset(padded + marker_length + 2U, ' ',
+           HTTPD_UPLOAD_BOUNDARY_MAX_PADDING);
+    memcpy(padded + marker_length + 2U +
+           HTTPD_UPLOAD_BOUNDARY_MAX_PADDING, "\r\n", 2U);
     found = httpd_upload_find_multipart_boundary(
-        padded, sizeof(padded) - 1U, marker);
+        padded, delimiter_length, marker);
     assert(found == padded);
 
     memset(body, 'x', sizeof(body));
     memcpy(body + body_marker_offset, marker, marker_length);
-    memcpy(body + body_marker_offset + marker_length, "\r\n", 2U);
+    memcpy(body + body_marker_offset + marker_length, "--", 2U);
+    memset(body + body_marker_offset + marker_length + 2U, ' ',
+           HTTPD_UPLOAD_BOUNDARY_MAX_PADDING);
+    memcpy(body + body_marker_offset + marker_length + 2U +
+           HTTPD_UPLOAD_BOUNDARY_MAX_PADDING, "\r\n", 2U);
 
+    /* Split before the final LF: the entire previous chunk must be retained. */
     previous_length = split;
-    memset(carry, 0, sizeof(carry));
-    memcpy(carry + sizeof(carry) - previous_length, body, previous_length);
+    assert(previous_length == sizeof(carry));
+    memcpy(carry, body, previous_length);
     memcpy(combined, carry, sizeof(carry));
-    remaining = body_marker_offset + marker_length + 2U - split;
+    remaining = body_marker_offset + delimiter_length - split;
     memcpy(combined + sizeof(carry), body + split, remaining);
     found = httpd_upload_find_multipart_boundary(
         combined, sizeof(carry) + remaining, marker);
-    assert(found == combined + sizeof(carry) -
-                    previous_length + body_marker_offset);
+    assert(found == combined + body_marker_offset);
 }
 
 

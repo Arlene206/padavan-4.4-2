@@ -18,8 +18,14 @@
  * and its line terminator across fread() boundaries. The upload handler's
  * 128-byte marker buffer permits a 127-byte marker.
  */
-#define HTTPD_UPLOAD_BOUNDARY_LOOKBEHIND 257
+#define HTTPD_UPLOAD_BOUNDARY_MAX_MARKER_LENGTH 127
 #define HTTPD_UPLOAD_BOUNDARY_MAX_PADDING 128
+/* Closing "--" plus the longest accepted line ending (CRLF). */
+#define HTTPD_UPLOAD_BOUNDARY_MAX_SUFFIX_LENGTH 4
+#define HTTPD_UPLOAD_BOUNDARY_LOOKBEHIND \
+    (HTTPD_UPLOAD_BOUNDARY_MAX_MARKER_LENGTH + \
+     HTTPD_UPLOAD_BOUNDARY_MAX_PADDING + \
+     HTTPD_UPLOAD_BOUNDARY_MAX_SUFFIX_LENGTH)
 
 static inline char *
 httpd_upload_find_multipart_boundary(char *buffer, size_t buffer_length,

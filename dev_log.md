@@ -1,3 +1,10 @@
+## 2026-11-25 — Retain the complete maximum HTTPD closing delimiter across reads
+
+- The parser accepts a 127-byte marker, optional closing `--`, up to 128 bytes of transport padding and a CRLF terminator. The former 257-byte carry window covered a regular delimiter but could truncate the leading marker byte when the maximum 259-byte closing delimiter was split immediately before its final LF; this could leave delimiter bytes in the uploaded file.
+- Sized the carry window from explicit marker, padding and suffix maxima (259 bytes). Extended the existing carry regression to split the maximal closing delimiter before its last byte and assert the whole previous chunk fits the carry. The existing workflow compiles and checks this same fixture name; exact HTTPD rerun pending. Earlier fixture-correction run #45647312009 passed.
+
+---
+
 ## 2026-11-25 — Restore AI handoff validation after roadmap size overflow
 
 - Exact AI handoff run #45647751963 on `cb8f014893d99e8991c55cd792443e5c2c1f4a37` failed only because REFACTOR_ROADMAP.md reached 131682 bytes against its 131072-byte hard cap. DHCPv6 IA regression #45647751899, Process inventory #45647752064, WAN DHCP callback #45647751951 and USB storage #45647752298 all PASS on that exact source SHA; XY-C1 #45647751940 and NVRAM #45647752146 remained in progress at last poll.

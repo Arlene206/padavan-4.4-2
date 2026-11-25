@@ -1,9 +1,9 @@
-## 2026-11-25 active handoff — restore roadmap byte-limit after DHCPv6 expiry fix
+## 2026-11-25 active handoff — HTTPD multipart maximum closing-delimiter carry
 
-- Source/test commit `cb8f014893d99e8991c55cd792443e5c2c1f4a37` is live main. DHCPv6 IA run #45647751899 PASS; Process inventory #45647752064 PASS; WAN DHCP callback #45647751951 PASS; USB storage #45647752298 PASS. AI handoff #45647751963 failed only because REFACTOR_ROADMAP.md reached 131682 bytes, exceeding the 131072-byte hard limit. The validator reached no later failure; compact the roadmap by removing obsolete 2026-11-14 historical run snapshots already preserved by dev_log/archive, then rerun AI docs on the resulting SHA.
-- The product code fix in dhcp6c_ia.c arms/reset finite valid-lifetime expiry before any fallible downstream IA_PD/IA_NA kernel add. Zero-lifetime cleanup returns before add attempts; infinite lifetime cancels the previous finite timer. The exact DHCPv6 IA host regression and source-order checker PASS on #45647751899. XY-C1 #45647751940 (Build/TRX/artifact workflow) and NVRAM audit #45647752146 were still in progress at last poll; no L3 claim until all three XY-C1 stages pass on one SHA.
-- The HTTPD multipart fixture double-escape failure was corrected in parent b65c574; HTTPD #45647312009, AI #45647311771, Process #45647311875 and NVRAM #45647311708 PASS on that parent.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`; physical-router L4 NOT VERIFIED.
+- Main source SHA: `84fadb0388691efcd052bfc1f923be4b36028fd5`. AI handoff byte-limit repair `84fadb0` removed obsolete 2026-11-14 roadmap snapshots; roadmap is below the 131072-byte hard limit and exact AI run #45648215022 PASS. On `cb8f014`, DHCPv6 IA #45647751899, Process inventory #45647752064, WAN DHCP callback #45647751951, USB storage #45647752298 and NVRAM #45647752146 PASS. Product XY-C1 #45647751940 was still in Build with TRX/artifact pending at last poll.
+- HTTPD multipart upload carries 257 bytes between reads. A maximal closing delimiter is 259 bytes (127-byte marker + closing `--` + 128 padding + CRLF); if split immediately before final LF, the old carry can lose the leading marker byte. This patch sizes the carry to 259 and tests that exact split, preventing delimiter bytes from remaining in the uploaded file.
+- Earlier HTTPD fixture correction passed exact run #45647312009 on `b65c574`; the maximum closing-delimiter expansion needs a new exact-SHA HTTPD run.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`. Physical-router L4 remains NOT VERIFIED.
 
 ### First actions
 
