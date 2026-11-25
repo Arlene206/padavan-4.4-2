@@ -4,19 +4,34 @@ This checkpoint supersedes older task pointers below. Historical completed work 
 
 ## Current repository state
 
-- Live main at checkpoint start: dbac68aff56555f92369f9d224f1e894fbe40322 (documentation-only descendant of source SHA e487703a3163f9bb7bf10fe09d4e389602ce34d3); development remains main-only. Frozen backup/pre-plugin-overhaul-2026-11-14 remains read-only; no force-push, branch creation or PR was used.
-- Latest p910nd descriptor-boundary fix: e487703a3163f9bb7bf10fe09d4e389602ce34d3. Exact-head p910nd regression #45569803535 PASS; Process inventory #45569803552 PASS.
-- On source SHA e487703a3163f9bb7bf10fe09d4e389602ce34d3, Process lifecycle fail-closed #45569803612 and NVRAM transaction-boundary audit #45569803507 both completed PASS. The handoff documentation contract #45570435066 also completed PASS on documentation-only main SHA dbac68aff56555f92369f9d224f1e894fbe40322. XY-C1 Firmware Validation #45569803520 remains IN_PROGRESS in Build XY-C1; TRX verification and artifact upload have not completed. Do not claim L3 until Build, TRX and artifact upload all pass on one product-source SHA.
-- Earlier exact-head regressions from this workstream: WAN gateway ARP #45565621317 PASS on 583576ac1b1a7bc9168b356a4f7f07bfdf090dc5; MiniUPnP HTTP framing #45566912855 PASS on 019f005cf9b3123ea93b04bf09b804f2b0e4c3bb; SmartDNS/DNSMasq #45568556249 PASS on 1817dd6fdd6c3eab0d8f0a19bb06b859b1aa06bd; U2EC bounded TCP framing #45569202180 PASS on e5d039b9d6725b3fb1dd47f735e96880d09c44aa; p910nd #45569803535 PASS on the latest e487703a.
-- These are host/GitHub regression results. They do not establish physical-router printer disconnect behavior or WAN/UPnP runtime L4. Older XY-C1 runs on earlier heads showed external ROMFS dependency failures (msd_lite download/404 and missing groff HTML DESC); inspect the current exact-head run before attributing any failure.
+- Live main source baseline at checkpoint start: `c78487d2b564b43f7a7f249618a8d5b4d340744b`. This is the latest code-bearing baseline; a documentation-only checkpoint commit may become its descendant. Development remains main-only. Frozen `backup/pre-plugin-overhaul-2026-11-14` remains read-only; no force-push, branch creation or PR was used.
+- Current exact-head results on `c78487d`: WAN DHCP callback state stability #45574283546 PASS; AI handoff documentation contract #45574283526 PASS.
+- PPP callback lock close-on-exec source fix is in `97871e6c42862b38cf152f31171ea0b631f14118`; follow-up workflow-contract corrections are in `28383a3cb38f2b85127c257fc3973eecac143879` and current `c78487d`. The final exact-head WAN regression passed on c78487d. Earlier failures on 978/283 were Python workflow-contract mistakes (undefined `state_test`, then invalid `lock_fd` expression), not C regression failures; both assertions are corrected.
+- XY-C1 run #45573521580 on exact product SHA `147a76bc637753a1f23b5aec74a59581512cd4d6` completed PASS, including Build XY-C1, TRX verification and artifact upload. This SHA includes the U2EC default-goal fix, but predates the PPP lock CLOEXEC source change; do not call it exact-head L3 for c78487d.
+- XY-C1 run #45574145443 for source SHA `97871e6c42862b38cf152f31171ea0b631f14118` was still IN_PROGRESS in Build XY-C1 at the last poll; TRX verification and artifact upload remained pending. Poll this run at the next useful checkpoint. Do not wait idly; work on independent tasks.
+- Exact regression results across this source series: VSFTPD ACL race #45571067464 PASS on a495951; udhcpc ACK server identity #45572615762 PASS on 88eaeb8; HTTPD firmware upload descriptor contract #45573299714 PASS on b59901a; U2EC framing/source contract #45573521621 and Process inventory #45573521659 PASS on 147a76b. On 97871e6, NVRAM audit #45574145573, Process inventory #45574145516, HTTPD security #45574145500, AI handoff #45574145491 and Process inventory #45574145427 all PASS.
+- No physical-router L4 validation is claimed. Exact-source build/TRX/artifact evidence must stay tied to the SHA that actually ran.
+
 ## Active task
 
-Continue independent userland stability/security work; do not idle on CI. The next takeover should first refresh live main and inspect XY-C1 #45569803520 for Build/TRX/artifact. Process fail-closed #45569803612 and NVRAM audit #45569803507 already PASS on e487703. If any remains PENDING, proceed with a separate source defect and revisit only at a useful checkpoint. No hardware validation is claimed.
+First, poll XY-C1 #45574145443 on SHA `97871e6c42862b38cf152f31171ea0b631f14118` for Build, TRX and artifact completion; the earlier `147a76b` run already passed all three, but does not include the later PPP lock source edit. Then continue independent userland stability/security fixes.
+
+A PPP umask review was started but not proven to be a defect: `net_ppp.c` contains four legacy `umask(0000)` calls in ip-up/ip-down/IPv6 callbacks; `ppp_options_file.c` explicitly reproduces that PID-1 umask and verifies credential files are tightened to 0600. Do not change the process umask blindly. Trace actual callback file-creation call paths and only patch if a concrete unsafe mode or race is demonstrated.
+
 # Cross-session execution mandate
 
 Continue one autonomous engineering stream on main. For each logical slice, create all changed blobs, one complete Git tree based on the live main root tree, and one atomic main commit; update main with a non-forced expected-SHA compare-and-swap. Never force-push, use feature branches or PRs, split one logical change into per-file commits, or modify the frozen backup. PENDING never blocks independent work. Before context exhaustion, finish the current safe slice and checkpoint the first concrete next action.
 
 ## Completed source slices
+
+## 2026-11-25 — Additional FTP, DHCP, HTTPD, U2EC and PPP hardening
+
+- VSFTPD ACL metadata entry race: `a4959513d54f9242dca864eaf5b2dae2d571ad7b` adds a post-read directory-entry identity check (dev/inode/size/link-count) so rename-and-replacement cannot make a pinned old inode masquerade as the current ACL file. A deterministic rename+replacement regression was added. VSFTPD #45571067464 PASS.
+- DHCP client ACK server identity: `88eaeb8bfe67bf38714c171f94bb0aaa6d86bc91` shares a selected-server/REBINDING policy between ACK and NAK validation. REQUESTING/RENEWING remain bound to the selected server; REBINDING accepts another server only with a server-ID option. Regression #45572615762 PASS.
+- HTTPD firmware CRC: `bf8eb40458b6accdb2e10c62f5889881cf099f38` pins firmware input as a no-follow, nonblocking, single-link regular-file descriptor before CRC reads; regression covers symlink/FIFO/hardlink rejection. `b59901afc7c02d809efa84bb76799225630ef87b` corrects the workflow's source-contract newline delimiter. HTTPD #45573299714 PASS on b59901a.
+- U2EC build integration: `147a76bc637753a1f23b5aec74a59581512cd4d6` sets `.DEFAULT_GOAL := all`, preventing package.mk's bare make from stopping at the first object dependency and omitting the daemon binary. U2EC #45573521621 and Process inventory #45573521659 PASS. XY-C1 #45573521580 on this exact SHA passed Build, TRX and artifact upload.
+- PPP callback lock descriptor: `97871e6c42862b38cf152f31171ea0b631f14118` adds `O_CLOEXEC` to both create and reopen paths for the WAN callback sidecar lock, preventing privileged child commands/daemons from inheriting the lock descriptor. Regression checks `FD_CLOEXEC`. Workflow variable/assertion corrections are `28383a3cb38f2b85127c257fc3973eecac143879` and `c78487d2b564b43f7a7f249618a8d5b4d340744b`; final WAN #45574283546 PASS on c78487d.
+
 
 ### 2026-11-25 — Cross-userland network, resolver and printer hardening
 

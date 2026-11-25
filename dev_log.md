@@ -1,3 +1,15 @@
+## 2026-11-25 — FTP ACL, DHCP ACK, HTTPD upload, U2EC build and PPP lock hardening
+
+- VSFTPD ACL metadata reader now revalidates that the pinned directory entry still names the inode whose bytes were read; rename+replacement regression and exact-source check passed (#45571067464 on `a4959513`).
+- BusyBox udhcpc now rejects DHCPACK server-ID mismatches in selected-server states while retaining any-identified-server semantics during REBINDING; exact regression passed (#45572615762 on `88eaeb8b`).
+- HTTPD firmware CRC opens only no-follow, nonblocking, single-link regular files; symlink/FIFO/hardlink cases are covered. A Python workflow delimiter assertion was corrected in a separate atomic test commit; exact HTTPD run #45573299714 passed on `b59901af`.
+- U2EC's package Makefile now chooses `all` as the default target; this fixes package.mk's bare-make invocation silently compiling only the first object and not linking the daemon. U2EC #45573521621 and Process inventory #45573521659 passed on `147a76bc`; XY-C1 #45573521580 on the same SHA passed Build, TRX verification and artifact upload.
+- PPP callback sidecar lock opens now use `O_CLOEXEC` for both creation and reopen. Two successive workflow-checker mistakes were corrected atomically; final WAN callback #45574283546 and AI handoff contract #45574283526 both passed on `c78487d2`. On parent source SHA `97871e6c`, NVRAM #45574145573, Process inventory #45574145516, HTTPD #45574145500, AI docs #45574145491 and process inventory #45574145427 passed.
+- Exact-source XY-C1 run #45574145443 for SHA `97871e6c42862b38cf152f31171ea0b631f14118` remained IN_PROGRESS at Build XY-C1; TRX/artifact pending. Do not infer this from the earlier `147a76b` pass. Current source HEAD before this documentation checkpoint: `c78487d2b564b43f7a7f249618a8d5b4d340744b`.
+- A review noticed four legacy `umask(0000)` sites in PPP callbacks. No change was made: existing PPP options regression intentionally reproduces PID-1's zero umask and asserts credentials are tightened to 0600. Next review must trace concrete callback file writers before considering any umask change; avoid a speculative process-wide permission regression.
+
+---
+
 ## 2026-11-25 — Exact-head status follow-up
 
 - On e487703a3163f9bb7bf10fe09d4e389602ce34d3, Process lifecycle fail-closed #45569803612 and NVRAM transaction boundary audit #45569803507 both completed PASS. XY-C1 #45569803520 remains IN_PROGRESS in Build XY-C1; TRX and artifact upload are not yet confirmed.
