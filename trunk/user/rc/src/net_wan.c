@@ -7831,7 +7831,7 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 	char lan_netmask_snapshot[INET_ADDRSTRLEN];
 	char *lease_ip, *lease_netmask, *lease_dns, *lease_wins, *lease_domain;
 	char lease_netmask_storage[INET_ADDRSTRLEN];
-	char *lease_routes, *lease_routes_ms, *lease_routes_rfc, *route_value;
+	char *lease_routes, *lease_routes_ms, *lease_routes_rfc;
 	char bound_names[WAN_DHCP_BOUND_SNAPSHOT_COUNT][WAN_DHCP_BOUND_SNAPSHOT_KEY_MAX];
 	char previous_text[WAN_DHCP_BOUND_SNAPSHOT_COUNT][WAN_DHCP_BOUND_SNAPSHOT_VALUE_MAX];
 	char routes_rfc_parse[WAN_DHCP_BOUND_SNAPSHOT_VALUE_MAX];
@@ -7943,6 +7943,31 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 			   "%s (%s) rejected invalid DHCP router list (status=%d)",
 			   udhcpc_state, wan_ifname, route_result);
 		return route_result;
+	}
+
+	/* Preflight every optional DHCP route list before changing the address or
+	 * deleting the previous lease's route inventory. A malformed replacement
+	 * must not be published as an empty list after the old routes are removed. */
+	value = getenv("routes");
+	lease_routes = value ? value : "";
+	if (!dhcp_lease_route_text_is_safe(lease_routes)) {
+		logmessage(log_prefix, "%s (%s) rejected invalid DHCP routes option",
+			   udhcpc_state, wan_ifname);
+		return EINVAL;
+	}
+	value = getenv("msstaticroutes");
+	lease_routes_ms = value ? value : "";
+	if (!dhcp_lease_route_text_is_safe(lease_routes_ms)) {
+		logmessage(log_prefix, "%s (%s) rejected invalid DHCP Microsoft routes option",
+			   udhcpc_state, wan_ifname);
+		return EINVAL;
+	}
+	value = getenv("staticroutes");
+	lease_routes_rfc = value ? value : "";
+	if (!dhcp_lease_route_text_is_safe(lease_routes_rfc)) {
+		logmessage(log_prefix, "%s (%s) rejected invalid DHCP classless routes option",
+			   udhcpc_state, wan_ifname);
+		return EINVAL;
 	}
 
 	/*
@@ -8153,12 +8178,6 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 	if (snapshot_status != 0)
 		goto snapshot_publication_failed;
 
-	route_value = safe_getenv("routes");
-	if (!dhcp_lease_route_text_is_safe(route_value)) {
-		logmessage(log_prefix, "ignoring invalid DHCP route option on %s", wan_ifname);
-		route_value = "";
-	}
-	lease_routes = route_value;
 	snapshot_status = wan_dhcp_bound_snapshot_add(
 		snapshot_values, &snapshot_count,
 		bound_names[WAN_DHCP_BOUND_ROUTES], lease_routes,
@@ -8166,12 +8185,6 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 	if (snapshot_status != 0)
 		goto snapshot_publication_failed;
 
-	route_value = safe_getenv("msstaticroutes");
-	if (!dhcp_lease_route_text_is_safe(route_value)) {
-		logmessage(log_prefix, "ignoring invalid DHCP Microsoft route option on %s", wan_ifname);
-		route_value = "";
-	}
-	lease_routes_ms = route_value;
 	snapshot_status = wan_dhcp_bound_snapshot_add(
 		snapshot_values, &snapshot_count,
 		bound_names[WAN_DHCP_BOUND_ROUTES_MS], lease_routes_ms,
@@ -8179,12 +8192,6 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 	if (snapshot_status != 0)
 		goto snapshot_publication_failed;
 
-	route_value = safe_getenv("staticroutes");
-	if (!dhcp_lease_route_text_is_safe(route_value)) {
-		logmessage(log_prefix, "ignoring invalid DHCP classless route option on %s", wan_ifname);
-		route_value = "";
-	}
-	lease_routes_rfc = route_value;
 	snapshot_status = wan_dhcp_bound_snapshot_add(
 		snapshot_values, &snapshot_count,
 		bound_names[WAN_DHCP_BOUND_ROUTES_RFC], lease_routes_rfc,

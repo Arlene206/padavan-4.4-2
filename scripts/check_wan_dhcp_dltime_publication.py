@@ -58,12 +58,25 @@ router_preflight = bound.index(
 )
 router_validation = bound.index("if (route_result != 0)", router_preflight)
 router_reject = bound.index("return route_result;", router_validation)
+route_options_preflight = bound.index('value = getenv("routes")')
+route_options_ms_preflight = bound.index('value = getenv("msstaticroutes")')
+route_options_rfc_preflight = bound.index('value = getenv("staticroutes")')
+route_options_reject = bound.index("rejected invalid DHCP routes option", route_options_preflight)
+route_options_ms_reject = bound.index("rejected invalid DHCP Microsoft routes option", route_options_ms_preflight)
+route_options_rfc_reject = bound.index("rejected invalid DHCP classless routes option", route_options_rfc_preflight)
 previous_snapshot_pos = bound.index("rc_wan_nvram_copy_snapshot(")
 interface_apply_pos = bound.index("dhcp_wan_interface_apply(")
 route_cleanup_pos = bound.index("dhcp_wan_route_transition_apply(")
 assert router_preflight < router_validation < router_reject
-assert router_reject < previous_snapshot_pos < interface_apply_pos < route_cleanup_pos
+assert route_options_preflight < route_options_reject < route_options_ms_preflight
+assert route_options_ms_preflight < route_options_ms_reject < route_options_rfc_preflight
+assert route_options_rfc_preflight < route_options_rfc_reject < previous_snapshot_pos
+assert router_reject < route_options_preflight < previous_snapshot_pos
+assert previous_snapshot_pos < interface_apply_pos < route_cleanup_pos
 assert "ignoring invalid DHCP router list" not in bound
+assert "ignoring invalid DHCP route option" not in bound
+assert "ignoring invalid DHCP Microsoft route option" not in bound
+assert "ignoring invalid DHCP classless route option" not in bound
 post_preflight = bound[router_reject:bound.index(
     "snapshot_status = wan_dhcp_nvram_state_publish("
 )]
