@@ -1,3 +1,9 @@
+## 2026-11-24 — Seed persistent identity in ZeroTier static-route refusal fixture
+
+- Exact af469 ZeroTier run #45540610026 failed at `live static route removed persistent identity`. The fixture asserted that the existing identity file survived a fail-closed stop, but had created only the config directory and checkpoint, not the identity file.
+- The earlier assertions in the same fixture had already passed: a `proto static` route on the saved interface caused stop to refuse, the daemon remained running, no signal was sent, no firewall edit occurred, and the corrupt checkpoint remained intact. Seeded `identity.secret` before testing; no production code changed.
+- Exact-head ZeroTier rerun required. AI docs, Process inventory and WAN route passed on af469; XY-C1 firmware run remained in progress. No local shell run claimed.
+
 ## 2026-11-24 — Treat every route on a saved ZeroTier interface as live during damaged-checkpoint recovery
 
 - The current fallback only detected `proto kernel` routes on the saved interface. That left a safety gap: a configured route marked `proto static` (or with no explicit protocol) could still use the interface, while a corrupted checkpoint might conceal an older source-NAT segment that cannot be reconstructed safely.

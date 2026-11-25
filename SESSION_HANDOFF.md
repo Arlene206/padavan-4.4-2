@@ -1,17 +1,18 @@
-## 2026-11-25 autonomous handoff snapshot
+## 2026-11-24 autonomous handoff snapshot
 
 This snapshot supersedes older task pointers below where they conflict with live Git state.
 
-- Main before this ZeroTier route-inventory hardening: `956a385a88d3aebeb8029ee704b101acf2ea67a2`. Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged. PR #1 remains closed/unmerged.
-- Exact 956a checks: UDHCP GNU89 compile + ASan/UBSan regression + Python source contract #45540259545 PASS; AI handoff docs #45540259712 PASS. The UDHCP run includes the new TLV bounds and option-overload value/uniqueness/location tests. Exact e43 parent checks: Process inventory #45540135599 PASS; NVRAM transaction #45540135593 PASS; USB storage #45540135666 PASS; AI docs #45540135576 PASS. XY-C1 firmware #45540135607 remains IN_PROGRESS at its last observed state (Build in progress; TRX/artifact pending). Do not claim firmware success for this SHA.
-- ZeroTier recovery and Python contract exact c921 #45539243439 PASS. This follow-up hardens the damaged-checkpoint fallback: any route using the saved interface now blocks prefix recovery, regardless of route protocol; unreadable inventory is also fail-closed. A new proto=static regression covers the case that the previous proto=kernel-only test missed.
-- No local host/shell compile claimed. Backup remains frozen/read-only.
+- Main before this ZeroTier test-fixture correction: `af46929e7a34ea1335dc25e66251398ca9152d23`. Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged. PR #1 remains closed/unmerged.
+- Exact af469 checks: AI handoff docs #45540610285 PASS; Process inventory #45540610042 PASS; WAN route #45540610035 PASS. ZeroTier #45540610026 FAILED only at the new static-route fixture's persistent-identity assertion: the fixture checked that `identity.secret` survived but did not create it. Earlier assertions in the same test had already confirmed the static route blocked recovery, left the daemon running, did not signal it, and did not edit the firewall or corrupt checkpoint. This fixture-only correction seeds the file before stop; production source is unchanged.
+- XY-C1 Firmware Validation #45540610201 remains IN_PROGRESS as last observed; Build/TRX/artifact are not confirmed. Do not claim L3 for af469 until the run completes.
+- UDHCP exact 956a run #45540259545 PASS (GNU89, ASan/UBSan and Python source contract); AI docs #45540259712 PASS. This includes TLV bounds and option-overload legal selector/uniqueness/location assertions.
+- ZeroTier now blocks damaged-prefix recovery if *any* route uses the saved interface, regardless of `proto`; unreadable route inventory remains fail-closed. The corrected static-route regression still needs an exact-head PASS. No local shell run claimed.
 
 ## Exact first action for the next GPT
 
-1. Verify the exact-head ZeroTier shell and Python contract after broadening the route guard to any route on the saved interface; fix any failure.
-2. Check exact-head UDHCP remains PASS where the parser/test/checker files are unchanged; verify XY-C1 Build/TRX/artifact status on its original e43 source SHA and never claim L3 unless complete.
-3. Continue a separate high-risk userland stability/security slice while independent Actions are pending. No force-push or backup mutation.
+1. Verify ZeroTier lifecycle regression and Python source contract on the corrected fixture commit. If another assertion fails, inspect that exact job log and fix only the demonstrated issue.
+2. Poll XY-C1 #45540610201; report firmware level only after Build, TRX and artifact upload all succeed on the same product-source SHA.
+3. Continue with an independent userland reliability/security defect. Frozen backup remains read-only; no force-push.
 
 No force-push.
 

@@ -1768,6 +1768,7 @@ grep -Fqx -- "corrupt-extra-record" "$TEST_CONFIG/.firewall-state" || fail "live
 # A non-kernel route (for example a configured static route) on the saved
 # interface is also enough to keep damaged-prefix recovery fail-closed.
 mkdir -p "$TEST_CONFIG"
+echo identity > "$TEST_CONFIG/identity.secret"
 test_seed_firewall_rules
 printf '%s\n' 'nat POSTROUTING -s 10.148.18.0/24 -j MASQUERADE' >> "$TEST_IPTABLES_STATE_FILE"
 : > "$TEST_IPTABLES_LOG"
