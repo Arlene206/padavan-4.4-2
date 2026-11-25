@@ -85,8 +85,10 @@ static void check_abor(struct vsf_session* p_sess);
 static void handle_sigurg(void* p_private);
 static void handle_upload_common(struct vsf_session* p_sess, int is_append,
                                  int is_unique);
-static void get_unique_filename(struct mystr* p_outstr,
-                                const struct mystr* p_base);
+static int get_unique_filename(struct vsf_session* p_sess,
+                               struct mystr* p_outstr,
+                               const struct mystr* p_base,
+                               int* p_permission_denied);
 static int data_transfer_checks_ok(struct vsf_session* p_sess);
 static void resolve_tilde(struct mystr* p_str, struct vsf_session* p_sess);
 
@@ -1086,6 +1088,7 @@ handle_upload_common(struct vsf_session* p_sess, int is_append, int is_unique)
   char upload_leaf[PATH_MAX];
   int success = 0;
   int created = 0;
+  int unique_permission_denied = 0;
   int do_truncate = 0;
   filesize_t offset = p_sess->restart_pos;
   int has_restart_pos = p_sess->restart_pos_set;
@@ -1107,7 +1110,15 @@ handle_upload_common(struct vsf_session* p_sess, int is_append, int is_unique)
   p_filename = &p_sess->ftp_arg_str;
   if (is_unique)
   {
-    get_unique_filename(&s_filename, p_filename);
+    if (get_unique_filename(p_sess, &s_filename, p_filename,
+                            &unique_permission_denied) != 0)
+    {
+      vsf_cmdio_write(p_sess,
+          unique_permission_denied ? FTP_NOPERM : FTP_UPLOADFAIL,
+          unique_permission_denied ? "Permission denied." :
+                                     "Could not select a unique filename.");
+      return;
+    }
     p_filename = &s_filename;
   }
   vsf_log_start_entry(p_sess, kVSFLogEntryUpload);
@@ -1970,46 +1981,63 @@ handle_stou(struct vsf_session* p_sess)
   handle_upload_common(p_sess, 0, 1);
 }
 
-static void
-get_unique_filename(struct mystr* p_outstr, const struct mystr* p_base_str)
+static int
+get_unique_filename(struct vsf_session* p_sess, struct mystr* p_outstr,
+                    const struct mystr* p_base_str,
+                    int* p_permission_denied)
 {
-  /* Use silly wu-ftpd algorithm for compatibility. It has races of course, if
-   * two sessions are using the same file prefix at the same time.
-   */
-  static struct vsf_sysutil_statbuf* s_p_statbuf;
   static struct mystr s_stou_str;
   unsigned int suffix = 1;
   const struct mystr* p_real_base_str = p_base_str;
-  int retval;
-  if (str_isempty(p_real_base_str))
-  {
+  int exists = 0;
+
+  if (!p_sess || !p_outstr || !p_base_str || !p_permission_denied) {
+    errno = EINVAL;
+    return -1;
+  }
+  *p_permission_denied = 0;
+  if (str_isempty(p_real_base_str)) {
     str_alloc_text(&s_stou_str, "STOU");
     p_real_base_str = &s_stou_str;
+    goto choose_suffix;
   }
-  else
-  {
-    /* Do not add any suffix at all if the name is not taken. */
-    retval = str_stat(p_real_base_str, &s_p_statbuf);
-    if (vsf_sysutil_retval_is_error(retval))
-    {
-       str_copy(p_outstr, p_real_base_str);
-       return;
-    }
+
+  /* Do not inspect occupancy until the deny-file filter and share ACL pass. */
+  if (!vsf_access_check_file(p_real_base_str)) {
+    errno = EACCES;
+    *p_permission_denied = 1;
+    return -1;
   }
-  while (1)
-  {
+  if (asus_check_upload_candidate_exists(p_sess, p_real_base_str, &exists,
+                                         p_permission_denied) != 0)
+    return -1;
+  if (!exists) {
+    str_copy(p_outstr, p_real_base_str);
+    return 0;
+  }
+
+choose_suffix:
+  while (1) {
     str_copy(p_outstr, p_real_base_str);
     str_append_char(p_outstr, '.');
     str_append_ulong(p_outstr, suffix);
-    retval = str_stat(p_outstr, &s_p_statbuf);
-    if (vsf_sysutil_retval_is_error(retval))
-    {
-      return;
+    if (!vsf_access_check_file(p_outstr)) {
+      errno = EACCES;
+      *p_permission_denied = 1;
+      return -1;
+    }
+    if (asus_check_upload_candidate_exists(p_sess, p_outstr, &exists,
+                                           p_permission_denied) != 0)
+      return -1;
+    if (!exists)
+      return 0;
+    if (suffix == UINT_MAX) {
+      errno = EOVERFLOW;
+      return -1;
     }
     ++suffix;
   }
 }
-
 static void
 handle_stat(struct vsf_session* p_sess)
 {

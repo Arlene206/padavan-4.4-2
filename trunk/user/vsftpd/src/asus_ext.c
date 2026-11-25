@@ -596,6 +596,76 @@ rename_source_out:
   return -1;
 }
 
+/*
+ * Check whether a STOU candidate name is occupied without following its
+ * final symlink. The parent is authorized and pinned before the entry probe;
+ * identity is revalidated afterwards so the pathname cannot be swapped to a
+ * different share while the probe is in progress.
+ */
+int
+asus_check_upload_candidate_exists(struct vsf_session* p_sess,
+                                   const struct mystr* p_path_str,
+                                   int* p_exists,
+                                   int* p_permission_denied)
+{
+  char resolved_parent[PATH_MAX], leaf[PATH_MAX];
+  struct stat entry_stat;
+  int parent_fd, retval, saved_errno;
+
+  if (!p_sess || !p_path_str || !p_exists || !p_permission_denied) {
+    errno = EINVAL;
+    return -1;
+  }
+  *p_exists = 0;
+  *p_permission_denied = 0;
+  if (ftp_acl_path_resolve_rename_entry(str_getbuf(p_path_str),
+                                        resolved_parent,
+                                        sizeof(resolved_parent),
+                                        leaf, sizeof(leaf)) != 0) {
+    *p_permission_denied = 1;
+    return -1;
+  }
+  parent_fd = ftp_acl_path_open_verified_directory(resolved_parent);
+  if (parent_fd < 0) {
+    *p_permission_denied = 1;
+    return -1;
+  }
+  if (!asus_check_permission_at(p_sess, PERM_WRITE, resolved_parent)) {
+    errno = EACCES;
+    *p_permission_denied = 1;
+    goto upload_candidate_out;
+  }
+  if (ftp_acl_path_verify_directory_identity(resolved_parent,
+                                              parent_fd) != 0) {
+    *p_permission_denied = 1;
+    goto upload_candidate_out;
+  }
+
+  retval = ftp_acl_path_stat_entry_at(parent_fd, leaf, &entry_stat);
+  saved_errno = errno;
+  if (ftp_acl_path_verify_directory_identity(resolved_parent,
+                                              parent_fd) != 0) {
+    *p_permission_denied = 1;
+    goto upload_candidate_out;
+  }
+  close(parent_fd);
+  errno = saved_errno;
+  if (retval == 0) {
+    *p_exists = 1;
+    return 0;
+  }
+  if (saved_errno == ENOENT)
+    return 0;
+  errno = saved_errno;
+  return -1;
+
+upload_candidate_out:
+  saved_errno = errno;
+  close(parent_fd);
+  errno = saved_errno;
+  return -1;
+}
+
 int
 asus_rename_path(struct vsf_session* p_sess,
                  const struct mystr* p_source_path_str,

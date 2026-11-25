@@ -318,9 +318,9 @@ ftp_acl_path_split_entry(const char *path, char *parent, size_t parent_size,
 }
 
 /*
- * Query a final directory entry without following a symbolic link. RNFR and
- * renameat() operate on the link itself; a dangling link is still an entry,
- * and its target must not be probed as part of the source existence check.
+ * Query a final directory entry without following a symbolic link. RNFR,
+ * renameat(), and STOU candidate selection need the entry itself: a dangling
+ * link still occupies its name, and its target must never be probed here.
  */
 static int
 ftp_acl_path_stat_entry_at(int dir_fd, const char *leaf, struct stat *p_stat)

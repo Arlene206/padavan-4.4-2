@@ -912,6 +912,9 @@ jobs:
           assert "FTP listing symlink target was not canonicalized" in acl_path_test
           assert "FTP listing exposed an internal-metadata symlink" in acl_path_test
 
+          unique_filename = function_body(vsftpd_postlogin, "static int\nget_unique_filename(")
+          unique_candidate = function_body(vsftpd_acl, "int\nasus_check_upload_candidate_exists(")
+          upload_handler = function_body(vsftpd_postlogin, "static void\nhandle_upload_common(")
           rnfr = function_body(vsftpd_postlogin, "static void\nhandle_rnfr(struct vsf_session* p_sess)\n{")
           rnto = function_body(vsftpd_postlogin, "static void\nhandle_rnto(struct vsf_session* p_sess)\n{")
           rename_source = function_body(vsftpd_acl, "int\nasus_check_rename_source_path(")
@@ -945,6 +948,16 @@ jobs:
           assert "RNFR source stat accepted a slash-containing leaf" in acl_path_test
           assert "RNFR source stat accepted a dot-dot leaf" in acl_path_test
           assert "str_copy(&p_sess->rnfr_filename_str, &p_sess->ftp_arg_str)" in rnfr
+          assert "asus_check_upload_candidate_exists" in vsftpd_acl_header
+          assert "ftp_acl_path_resolve_rename_entry" in unique_candidate
+          assert unique_candidate.index("asus_check_permission_at(p_sess, PERM_WRITE") < unique_candidate.index("ftp_acl_path_verify_directory_identity(") < unique_candidate.index("ftp_acl_path_stat_entry_at(")
+          assert unique_candidate.index("ftp_acl_path_stat_entry_at(") < unique_candidate.rindex("ftp_acl_path_verify_directory_identity(")
+          assert "saved_errno == ENOENT" in unique_candidate
+          assert unique_filename.index("vsf_access_check_file(") < unique_filename.index("asus_check_upload_candidate_exists(")
+          assert "str_stat(" not in unique_filename
+          assert "UINT_MAX" in unique_filename
+          assert "get_unique_filename(p_sess, &s_filename" in upload_handler
+          assert "Could not select a unique filename." in upload_handler
           assert rnto.index("vsf_access_check_file(") < rnto.index("prepend_path_to_filename(&p_sess->ftp_arg_str)")
           assert "asus_rename_path(p_sess, &p_sess->rnfr_filename_str" in rnto
           assert "str_rename(" not in rnto
