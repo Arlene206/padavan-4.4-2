@@ -1270,9 +1270,11 @@ require('find . ! -name . -print0' in tar_builder and
         "storage backup must include hidden files and empty directories in the complete tree")
 require('storage/.hidden.conf' in mtd_storage_backup_test and
         'storage/empty-dir' in mtd_storage_backup_test and
-        "'./.hidden.conf'" in mtd_storage_backup_test and
-        "'./empty-dir/'" in mtd_storage_backup_test,
-        "backup regression must verify hidden files and empty directories")
+        '$0 == "./.hidden.conf"' in mtd_storage_backup_test and
+        '$0 == "./empty-dir/"' in mtd_storage_backup_test and
+        'index($0, "./bulk/") == 1 && $0 != "./bulk/"' in mtd_storage_backup_test and
+        '"$bulk_entries" -eq 1200' in mtd_storage_backup_test,
+        "backup regression must verify hidden files, empty directories and every large-tree payload")
 backup_start = mtd_storage.index("func_backup()")
 backup_end = mtd_storage.index(chr(10) + "func_restore()", backup_start)
 backup = mtd_storage[backup_start:backup_end]

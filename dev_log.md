@@ -1,3 +1,10 @@
+## 2026-11-25 19:10 CST — Match backup fixture contract to its streaming AWK assertions
+
+- Exact USB-storage run #45600452827 on `b0a6b00d` passed the recursive archive builder contract and the 1,200-file host/BusyBox-ash regression, then failed another legacy fixture assertion: the checker still required single-quoted grep patterns, while the corrected test now validates archive entries within one AWK stream to avoid early pipe closure and counts only files, not the `./bulk/` directory.
+- Updated the fixture contract to pin the AWK hidden-file/empty-directory checks, exclude the bulk directory itself from the payload count, and retain the exact 1,200-file postcondition. Checker-only correction; exact-head storage Actions required. No local BusyBox/firmware/hardware result is claimed.
+
+---
+
 ## 2026-11-25 19:05 CST — Align the detailed MTD backup contract with recursive tar
 
 - Exact USB-storage run #45600031271 on `276b29f5` passed the corrected 1,200-file backup test and all earlier MTD restore/load/erase regressions, then failed a second, older source-contract assertion at line 1266. The checker still required `sort -z | xargs -0 tar`, even though the production fix now normalizes timestamps from the checked NUL inventory and performs one recursive `tar -cf "$tmp" .` to avoid BusyBox xargs command-size truncation.
