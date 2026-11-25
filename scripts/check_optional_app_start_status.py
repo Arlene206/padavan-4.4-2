@@ -148,13 +148,28 @@ def check_ralink_iappd_rc_shutdown_registration():
 
     makefile = IAPPD_MAKEFILE.read_text()
     assert "$(INSTALL_BIN) ./iappd.sh $(ROMFSDIR)/usr/bin/iappd.sh" in makefile
+    script_source = IAPPD_SCRIPT.read_text()
+    for token in (
+        "iappd_process_identity()",
+        "/sbin/ralinkiappd",
+        "start_time",
+        'kill "-$signal_name" "$pid"',
+        "iappd_signal_snapshot TERM",
+        "iappd_signal_snapshot KILL",
+    ):
+        assert token in script_source, f"Ralink IAPP process identity contract missing {token}"
+    assert "killall -q ralinkiappd" not in script_source
+
     script_test = IAPPD_TEST.read_text()
     for token in (
         "unavailable process inventory",
         "unreadable process stat",
         "zombie process",
+        "same-name non-daemon process",
+        "unreadable executable identity",
+        "signal TERM 123",
         "launcher failure",
-        "failed killall",
+        "failed targeted signal lost daemon marker",
         "stop postcondition false positive",
         "restart ran after failed stop",
     ):

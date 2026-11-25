@@ -135,7 +135,7 @@ rm -rf "$PROC_ROOT/234"
 # Zombies are not live service instances and must not suppress a fresh launch.
 reset
 mkdir -p "$PROC_ROOT/123"
-printf '%s\n' '123 (ralinkiappd) Z 1 2 3' > "$PROC_ROOT/123/stat"
+printf '%s\n' '123 (ralinkiappd) Z 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19' > "$PROC_ROOT/123/stat"
 rc=$(capture_status run start); status "$rc" 0
 [ -f "$STATE_DIR/daemon" ] || fail "zombie process suppressed service launch"
 grep -q "^ralinkiappd " "$COMMAND_LOG" || fail "zombie process was treated as running"

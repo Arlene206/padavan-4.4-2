@@ -11,12 +11,13 @@ This snapshot supersedes older task pointers below where they conflict with live
 - DNSMasq server-overlay production fix is on `6cabb42410a67007cb23a8bdace9ccc49caae693`: the first exact-head DNSMasq run #45534703563 failed only in the added checker because it named the callback `is_forbidden` instead of production `is_param_forbidden`; all earlier fixture steps passed. Checker-only correction is committed below and must rerun before calling the workflow green.
 - DNSMasq user-overlay source fix is on `6cabb42410a67007cb23a8bdace9ccc49caae693`; its later inline checker failure on b26aa/d462 is a stale assertion: expected four writer unlocks, but the new legitimate overlay-abort cleanup path makes five. All C fixtures and preceding postcondition checks pass. The current workflow correction pins five release paths.
 - Inadyn user-config overlay status is checked on `d462412f616dac2341955c61c011f93c24d5e52c`; its lifecycle and related AI/Process/HTTPD/WAN/Samba/miniupnpd checks passed. DNSMasq overlay writer regression is green on follow-up workflow commit `c7a7332bcbd071c84a684dee455a5e78566a2c7a`; earlier stale checker assertions are resolved.
+- IAPPD identity hardening exact SHA `ddcfce2bee04b977b29692660b3a633214ca1cdc`: AI #45536032506 and Process inventory #45536032516 PASS; IAPPD #45536032561 failed because the zombie test used a truncated stat record; Process umbrella #45536032616 failed on the removed `failed killall` expectation. XY-C1 #45536032504 stopped at that pre-build lifecycle test, so Build/TRX/artifact were skipped. Follow-up corrects both verification expectations without weakening fail-closed production behavior.
 
 ## Exact first action for the next GPT
 
-1. Verify exact-head IAPPD shell lifecycle and Process inventory/umbrella on this process-identity change; require matching `head_sha`. Recheck spoofed-comm, unreadable-exe, targeted TERM/KILL and firewall cleanup fixtures.
-2. Recheck XY-C1 #45534932313 on product-source SHA `d462412f616dac2341955c61c011f93c24d5e52c`; Build/TRX/artifact must all PASS on the same SHA before L3. NVRAM audit #45534931970 already PASSed.
-3. Continue with a distinct userland reliability/security issue while exact-head IAPPD Actions run; backup remains read-only and commits atomic.
+1. Verify exact-head IAPPD lifecycle and Process umbrella on the stat-fixture/governance correction. Parent `ddcfce2bee04b977b29692660b3a633214ca1cdc` returned UNKNOWN for a deliberately truncated zombie stat, and the umbrella expected obsolete `failed killall`. Confirm valid full zombie stat passes while malformed stat remains UNKNOWN.
+2. Verify the follow-up XY-C1 result; parent run #45536032504 stopped before Build at the failed IAPPD pre-build regression, so no current L3 claim exists. The earlier d462 SHA reached L3 but predates this IAPPD production change.
+3. Continue on another distinct userland reliability/security item while exact-head Actions run; frozen backup stays read-only and commits atomic.
 No force-push. The backup branch remains unchanged.
 
 ## Current repository state

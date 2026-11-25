@@ -1,3 +1,9 @@
+## 2026-11-24 — Correct IAPPD process-identity regressions and governance
+
+- Exact SHA `ddcfce2bee04b977b29692660b3a633214ca1cdc` exposed two verification-layer issues: the IAPPD lifecycle test's zombie `/proc/PID/stat` fixture was truncated (only three post-state fields), so the production parser correctly returned UNKNOWN (2); the Process umbrella checker still required the removed `failed killall` assertion.
+- Expanded the zombie fixture to the full Linux stat field shape. The production parser continues rejecting short or unreadable stat snapshots as UNKNOWN. The umbrella checker now pins executable-path + start_time identity, PID-scoped TERM/KILL, same-name impostor and inaccessible-executable fixtures, and explicitly forbids restoring broad killall.
+- Exact ddc IAPPD lifecycle #45536032561 failed at the truncated zombie fixture (expected 0, got 2); Process umbrella #45536032616 failed only at the obsolete checker token; Process inventory #45536032516 and AI docs #45536032506 passed. XY-C1 #45536032504 stopped before Build at the failed IAPPD regression, so Build/TRX/artifact were skipped. No current L3 claim. Exact-head reruns are required.
+
 ## 2026-11-24 — Bind Ralink IAPP lifecycle to executable identity
 
 - `iappd.sh` previously treated the mutable `/proc/PID/stat` comm field as the daemon identity and used `killall ralinkiappd` for stop. Any unrelated process able to set its comm name to `ralinkiappd` could suppress the real daemon's start or receive the privileged stop signal.
