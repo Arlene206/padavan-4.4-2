@@ -1,3 +1,9 @@
+## 2026-11-24 状态增量：AliyunDrive stop 改为逐 PID 身份复核后发信号
+
+- `ald_kill_unlocked()` 原先先验证 `pidof` 候选的 UID 和可执行文件 inode，却随后调用 `killall`；后者会重新按名称枚举，可能把验证后新出现的同名异用户进程也 TERM/KILL，令 caller-UID 检查失效。现在仅在完整 inventory 校验成功后发布 PID 集合；TERM/KILL 只对快照中的精确 PID 调用 `kill`，并在每次信号前重新扫描 UID/executable identity。UNKNOWN 阻止信号和 KILL 升级；新增 foreign-UID-after-TERM 回归。Linux 4.4 无 pidfd，最终 procfs 校验与 `kill(2)` 之间仍有极窄 PID 重用窗口；不再使用 name-wide `killall`。Exact-head Shell/QEMU/lifecycle/source-contract Actions 待验证。
+
+---
+
 ## 2026-11-25 — Initialize the udhcpc select-wait timestamp
 
 - The DHCP client event loop declared `timestamp_before_wait` by initializing it from itself (`unsigned timestamp_before_wait = timestamp_before_wait;`). That reads an indeterminate automatic object and invokes undefined behavior, despite the comment claiming it only suppresses an uninitialized warning. The variable is refreshed from `monotonic_sec()` immediately before every blocking `select()`; waits skipped because the timeout is already exhausted do not consume the value. Initialize it to zero, retain the pre-`select()` refresh, and add an exact-source regression assertion against reintroducing self-initialization. The udhcpc workflow compiles policy tests under GNU89/ASan/UBSan; the firmware-input detector must also select XY-C1 for this production DHCP source change. No local MIPS/uClibc or hardware result is claimed.

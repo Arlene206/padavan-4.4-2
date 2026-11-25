@@ -30,7 +30,8 @@ TEST_KILL_BEHAVIOR=exit
 TEST_SLEEP_COUNT=0
 TEST_TERM_COUNT=0
 TEST_KILL_COUNT=0
-TEST_NUMERIC_KILL=0
+TEST_TARGETED_SIGNAL_COUNT=0
+TEST_UNEXPECTED_SIGNAL_COUNT=0
 TEST_ARG_LOG="$TEST_DIR/argv.log"
 TEST_ENV_LOG="$TEST_DIR/env.log"
 export TEST_ARG_LOG TEST_ENV_LOG
@@ -73,17 +74,28 @@ test_mark_stopped() {
   TEST_RUNNING=0
   rm -f "$TEST_RUN_MARKER"
 }
-killall() {
-  if [ "$1" = "-9" ]; then
-    [ "$2" = "aliyundrive-webdav" ] || return 2
-    TEST_KILL_COUNT=$((TEST_KILL_COUNT + 1))
-    [ "$TEST_KILL_BEHAVIOR" = "exit" ] && test_mark_stopped
-  else
-    [ "$1" = "aliyundrive-webdav" ] || return 2
-    TEST_TERM_COUNT=$((TEST_TERM_COUNT + 1))
-    [ "$TEST_TERM_BEHAVIOR" = "immediate" ] && test_mark_stopped
-    [ "$TEST_TERM_BEHAVIOR" = "unknown-after-term" ] && TEST_PIDOF_MODE=error
-  fi
+kill() {
+  [ "$#" -eq 2 ] && [ "$2" = "12345" ] || {
+    TEST_UNEXPECTED_SIGNAL_COUNT=$((TEST_UNEXPECTED_SIGNAL_COUNT + 1))
+    return 1
+  }
+  TEST_TARGETED_SIGNAL_COUNT=$((TEST_TARGETED_SIGNAL_COUNT + 1))
+  case "$1" in
+    -TERM)
+      TEST_TERM_COUNT=$((TEST_TERM_COUNT + 1))
+      [ "$TEST_TERM_BEHAVIOR" = "immediate" ] && test_mark_stopped
+      [ "$TEST_TERM_BEHAVIOR" = "unknown-after-term" ] && TEST_PIDOF_MODE=error
+      [ "$TEST_TERM_BEHAVIOR" = "foreign-after-term" ] && TEST_PROCESS_UID_MODE=foreign
+      ;;
+    -KILL)
+      TEST_KILL_COUNT=$((TEST_KILL_COUNT + 1))
+      [ "$TEST_KILL_BEHAVIOR" = "exit" ] && test_mark_stopped
+      ;;
+    *)
+      TEST_UNEXPECTED_SIGNAL_COUNT=$((TEST_UNEXPECTED_SIGNAL_COUNT + 1))
+      return 1
+      ;;
+  esac
   return 0
 }
 sleep() {
@@ -97,11 +109,6 @@ sleep() {
   command sleep 0.1
   return 0
 }
-kill() {
-  TEST_NUMERIC_KILL=$((TEST_NUMERIC_KILL + 1))
-  return 1
-}
-
 nc() {
   [ "$1" = "-w" ] && [ "$2" = "1" ] || return 2
   [ "$3" = "$TEST_EXPECT_HOST" ] && [ "$4" = "$TEST_EXPECT_PORT" ] || return 2
@@ -446,9 +453,10 @@ TEST_RUNNING=0
 TEST_TERM_COUNT=0
 TEST_KILL_COUNT=0
 TEST_SLEEP_COUNT=0
-TEST_NUMERIC_KILL=0
+TEST_TARGETED_SIGNAL_COUNT=0
 kill_ald || { echo "FAIL: no-process stop returned failure" >&2; exit 1; }
-[ "$TEST_TERM_COUNT" -eq 0 ] && [ "$TEST_KILL_COUNT" -eq 0 ] || {
+[ "$TEST_TERM_COUNT" -eq 0 ] && [ "$TEST_KILL_COUNT" -eq 0 ] &&
+[ "$TEST_TARGETED_SIGNAL_COUNT" -eq 0 ] && [ "$TEST_UNEXPECTED_SIGNAL_COUNT" -eq 0 ] || {
   echo "FAIL: no-process stop sent a signal" >&2; exit 1;
 }
 
@@ -462,10 +470,31 @@ TEST_SLEEP_COUNT=0
 if kill_ald; then
   echo "FAIL: UNKNOWN after TERM was reported as stopped" >&2; exit 1
 fi
-[ "$TEST_TERM_COUNT" -eq 1 ] && [ "$TEST_KILL_COUNT" -eq 0 ] || {
-  echo "FAIL: UNKNOWN after TERM triggered KILL" >&2; exit 1;
+[ "$TEST_TERM_COUNT" -eq 1 ] && [ "$TEST_KILL_COUNT" -eq 0 ] &&
+[ "$TEST_TARGETED_SIGNAL_COUNT" -eq 1 ] && [ "$TEST_UNEXPECTED_SIGNAL_COUNT" -eq 0 ] || {
+  echo "FAIL: UNKNOWN after TERM escalated or signaled an unvalidated PID" >&2; exit 1;
 }
 TEST_PIDOF_MODE=normal
+TEST_TERM_BEHAVIOR=stuck
+
+# A same-name process that becomes foreign-owned after TERM is UNKNOWN;
+# the refreshed inventory must prevent escalation to KILL.
+TEST_RUNNING=1
+TEST_PROCESS_UID_MODE=owner
+TEST_TERM_BEHAVIOR=foreign-after-term
+TEST_TERM_COUNT=0
+TEST_KILL_COUNT=0
+TEST_SLEEP_COUNT=0
+TEST_TARGETED_SIGNAL_COUNT=0
+TEST_UNEXPECTED_SIGNAL_COUNT=0
+if kill_ald; then
+  echo "FAIL: foreign UID after TERM was reported as stopped" >&2; exit 1
+fi
+[ "$TEST_TERM_COUNT" -eq 1 ] && [ "$TEST_KILL_COUNT" -eq 0 ] &&
+[ "$TEST_TARGETED_SIGNAL_COUNT" -eq 1 ] && [ "$TEST_UNEXPECTED_SIGNAL_COUNT" -eq 0 ] || {
+  echo "FAIL: foreign UID after TERM received KILL or an unvalidated signal" >&2; exit 1;
+}
+TEST_PROCESS_UID_MODE=owner
 TEST_TERM_BEHAVIOR=stuck
 
 # A failed sleep primitive is UNKNOWN, not proof that the daemon exited.
@@ -476,8 +505,9 @@ TEST_KILL_COUNT=0
 if kill_ald; then
   echo "FAIL: sleep failure was reported as a successful stop" >&2; exit 1
 fi
-[ "$TEST_TERM_COUNT" -eq 1 ] && [ "$TEST_KILL_COUNT" -eq 0 ] || {
-  echo "FAIL: sleep failure allowed KILL escalation" >&2; exit 1;
+[ "$TEST_TERM_COUNT" -eq 1 ] && [ "$TEST_KILL_COUNT" -eq 0 ] &&
+[ "$TEST_TARGETED_SIGNAL_COUNT" -eq 1 ] && [ "$TEST_UNEXPECTED_SIGNAL_COUNT" -eq 0 ] || {
+  echo "FAIL: sleep failure escalated or signaled an unvalidated PID" >&2; exit 1;
 }
 TEST_SLEEP_FAIL=0
 TEST_RUNNING=0
@@ -489,26 +519,27 @@ TEST_KILL_BEHAVIOR=exit
 TEST_TERM_COUNT=0
 TEST_KILL_COUNT=0
 TEST_SLEEP_COUNT=0
-TEST_NUMERIC_KILL=0
+TEST_TARGETED_SIGNAL_COUNT=0
 kill_ald || { echo "FAIL: graceful stop returned failure" >&2; exit 1; }
 [ "$TEST_TERM_COUNT" -eq 1 ] && [ "$TEST_KILL_COUNT" -eq 0 ] &&
-[ "$TEST_SLEEP_COUNT" -eq 1 ] && [ "$TEST_NUMERIC_KILL" -eq 0 ] || {
-  echo "FAIL: graceful stop escalated or used a cached numeric PID" >&2; exit 1;
+[ "$TEST_SLEEP_COUNT" -eq 1 ] && [ "$TEST_TARGETED_SIGNAL_COUNT" -eq 1 ] &&
+[ "$TEST_UNEXPECTED_SIGNAL_COUNT" -eq 0 ] || {
+  echo "FAIL: graceful stop did not signal exactly the validated PID once" >&2; exit 1;
 }
 
-# A TERM-resistant daemon is re-enumerated by name for KILL, then verified absent.
+# A TERM-resistant daemon is freshly inventoried and exact-PID signaled for KILL.
 TEST_RUNNING=1
 TEST_TERM_BEHAVIOR=stuck
 TEST_KILL_BEHAVIOR=exit
 TEST_TERM_COUNT=0
 TEST_KILL_COUNT=0
 TEST_SLEEP_COUNT=0
-TEST_NUMERIC_KILL=0
+TEST_TARGETED_SIGNAL_COUNT=0
 kill_ald || { echo "FAIL: KILL escalation did not complete" >&2; exit 1; }
 [ "$TEST_TERM_COUNT" -eq 1 ] && [ "$TEST_KILL_COUNT" -eq 1 ] &&
 [ "$TEST_SLEEP_COUNT" -eq 5 ] && [ "$TEST_RUNNING" -eq 0 ] &&
-[ "$TEST_NUMERIC_KILL" -eq 0 ] || {
-  echo "FAIL: bounded TERM/KILL/absence sequence is incorrect" >&2; exit 1;
+[ "$TEST_TARGETED_SIGNAL_COUNT" -eq 2 ] && [ "$TEST_UNEXPECTED_SIGNAL_COUNT" -eq 0 ] || {
+  echo "FAIL: bounded TERM/KILL sequence did not target only the validated PID" >&2; exit 1;
 }
 
 # If the daemon survives KILL, stop fails and reports no false success.
@@ -518,14 +549,15 @@ TEST_KILL_BEHAVIOR=stuck
 TEST_TERM_COUNT=0
 TEST_KILL_COUNT=0
 TEST_SLEEP_COUNT=0
-TEST_NUMERIC_KILL=0
+TEST_TARGETED_SIGNAL_COUNT=0
 if kill_ald; then
   echo "FAIL: permanently running daemon was reported stopped" >&2
   exit 1
 fi
 [ "$TEST_TERM_COUNT" -eq 1 ] && [ "$TEST_KILL_COUNT" -eq 1 ] &&
-[ "$TEST_SLEEP_COUNT" -eq 10 ] && [ "$TEST_NUMERIC_KILL" -eq 0 ] || {
-  echo "FAIL: stuck-daemon timeout was not bounded or used a numeric PID" >&2; exit 1;
+[ "$TEST_SLEEP_COUNT" -eq 10 ] && [ "$TEST_TARGETED_SIGNAL_COUNT" -eq 2 ] &&
+[ "$TEST_UNEXPECTED_SIGNAL_COUNT" -eq 0 ] || {
+  echo "FAIL: stuck-daemon timeout was unbounded or signaled an unvalidated PID" >&2; exit 1;
 }
 
 # A duplicate start must be a no-op before it reads credentials or launches.
@@ -864,6 +896,6 @@ cmp -s "$TEST_DIR/expected-special-env" "$TEST_ENV_LOG" &&
 }
 
 echo "AliyunDrive WebDAV private token workdir and umask regression: PASS"
-echo "AliyunDrive WebDAV bounded stop and process-name signaling regression: PASS"
+echo "AliyunDrive WebDAV bounded stop and validated-PID signaling regression: PASS"
 echo "AliyunDrive WebDAV duplicate-start guard and argv integrity regression: PASS"
 echo "AliyunDrive WebDAV serialized lifecycle lock and startup readiness regression: PASS"

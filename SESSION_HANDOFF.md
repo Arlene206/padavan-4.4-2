@@ -4,16 +4,16 @@ This checkpoint supersedes older task pointers below. Historical completed work 
 
 ## Current repository state
 
-- Repository `Arlene206/padavan-4.4-2`; development only on `main`. Frozen `backup/pre-plugin-overhaul-2026-11-14` remains read-only; PR #1 closed/unmerged and inventory-only.
-- Parent before this DHCP production fix: `33a05a26882c763ac44777fc604b02501fee7c22` (`test(storage): align FTP reconciliation source contract`). USB storage hotplug source-check correction is exact-head PASS: #45561746653. On the same SHA, Process inventory #45561746502 PASS and XY-C1 workflow #45561746460 concluded SUCCESS, but its production-input detector skipped Build XY-C1, TRX verification and artifact upload because this docs/checker-only SHA introduced no new firmware source.
-- Previous FTP product-source change is `cdbd82f9d47603406aa23bf3919daa73f2acc01b`; VSFTPD #45561165032 PASS, storage hotplug #45561164857 initially failed only the now-corrected stale checker, Process inventory #45561164837 PASS. Its exact XY-C1 run #45561165245 remains IN_PROGRESS with Build XY-C1 active and TRX/artifact pending; do not assume or claim success from the later skipped host-only run.
-- Inadyn escaped-newline checker failure on predecessor `e72ef47` is corrected and passed on `aeea15d` via #45561534774. AI docs #45561534717 and DNSMasq #45561534711 PASS on `aeea15d`; Process umbrella/inventory and NVRAM #45561380452/#45561380463/#45561380377 PASS.
-- Current slice fixes DHCP client UB: `timestamp_before_wait` was self-initialized from its indeterminate value in the main event loop. It is reset before each blocking `select()`, so zero is a safe initializer for skipped waits. Exact-head udhcpc regression and XY-C1 build/TRX/artifact actions must be inspected after commit.
-- Switch CLI MT7628 page bound on `3eddff5` passed (#45560823101), including both MT7621/MT7628 sanitizer regressions. RFC1035, ZeroTier and AliyunDrive lifecycle fixes also passed their exact-head tests.
+- Repository `Arlene206/padavan-4.4-2`; development only on `main`. Frozen `backup/pre-plugin-overhaul-2026-11-14` remains read-only; PR #1 remains closed/unmerged and inventory-only.
+- Parent before this AliyunDrive exact-PID stop hardening: `63da84a3ae0b68e64ab1731f60a580dbc2495970`. This commit removes name-wide `killall` from the add-on stop path and revalidates the complete UID/executable-inode inventory before every exact-PID TERM/KILL.
+- Exact-head parent `aeea15d36401e5bcbd4427be0a0f08418cdf26dd`: Inadyn #45561534774, DNSMasq #45561534711, AI handoff #45561534717, Process inventory #45561380463, Process umbrella #45561380452 and NVRAM #45561380377 PASS.
+- USB checker parent `33a05a26882c763ac44777fc604b02501fee7c22`: AI handoff #45561746518 PASS; USB hotplug #45561746653 and XY-C1 #45561746460 were in progress at last inspection. USB host regressions, shell checks and early BusyBox ash/Optware steps passed; remaining storage persistence/eject tests were pending.
+- Prior AliyunDrive lifecycle #45559141117 verified caller-UID/executable-inode inventory, bundled QEMU CLI and earlier lifecycle contracts, but stop still used name-wide `killall` after validation. THIS COMMIT replaces name-based signaling with exact PID snapshots and per-signal identity revalidation. Exact-head AliyunDrive, Process and XY-C1 checks pending.
+- Linux 4.4 has no pidfd path here; a narrow PID-reuse race remains between procfs validation and `kill(2)`. Physical router behavior and authenticated remote storage readiness are not claimed.
 
 ## Active task
 
-The DHCP wait-timestamp initialization, exact-source checker contract, roadmap, log and handoff are included in one atomic commit. Inspect exact-head udhcpc and XY-C1 workflows; the production DHCP source change must trigger Build XY-C1, TRX validation and artifact upload, not only the host-only detector path. Fix any real failure. The still-running earlier FTP source SHA remains independent.
+Inspect exact-head AliyunDrive WebDAV lifecycle Actions for the exact-PID signaling change. Fix shell, host regression, QEMU CLI or source-contract failures. Then inspect Process and XY-C1 exact-SHA checks. Preserve the validate-to-kill PID-reuse limitation.
 
 # Cross-session execution mandate
 

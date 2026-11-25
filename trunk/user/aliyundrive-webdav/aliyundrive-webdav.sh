@@ -9,7 +9,9 @@ ALD_START_WAIT_SECONDS=10
 ALD_LOCK_FILE=${ALD_LOCK_FILE:-/tmp/aliyundrive-webdav.lock}
 
 ald_process_state() {
-  # pidof has three outcomes: RUNNING, confirmed ABSENT, or UNKNOWN.
+  # Publish the validated PID set only after the complete scan succeeds.
+  ald_process_pids=
+  ald_validated_pids=
   if ald_pid_output=$(pidof "$NAME" 2>/dev/null); then
     ald_pid_status=0
   else
@@ -19,7 +21,7 @@ ald_process_state() {
     0)
       [ -n "$ald_pid_output" ] || return 2
       case "$ald_pid_output" in
-        *[!0123456789\ ]*) return 2 ;;
+        *[!0123456789\\ ]*) return 2 ;;
       esac
       ald_expected_uid=$(id -u 2>/dev/null) || return 2
       case "$ald_expected_uid" in
@@ -33,8 +35,7 @@ ald_process_state() {
         [ "${#ald_pid}" -le 10 ] || return 2
         [ "$ald_pid" -gt 1 ] 2>/dev/null || return 2
 
-        # pidof matches comm/argv[0]. Require every candidate to belong to
-        # this lifecycle caller before checking its executable identity.
+        # Validate every same-name candidate against caller UID and binary inode.
         ald_actual_uid=$(stat -c %u "/proc/$ald_pid" 2>/dev/null) || return 2
         case "$ald_actual_uid" in
           ''|*[!0-9]*) return 2 ;;
@@ -52,9 +53,11 @@ ald_process_state() {
         ald_actual_exe=$(stat -L -c '%d:%i' "/proc/$ald_pid/exe" 2>/dev/null) || return 2
         [ "$ald_actual_exe" = "$ald_expected_exe" ] || return 2
 
+        ald_validated_pids="${ald_validated_pids}${ald_validated_pids:+ }$ald_pid"
         ald_pid_count=$((ald_pid_count + 1))
       done
       [ "$ald_pid_count" -gt 0 ] || return 2
+      ald_process_pids=$ald_validated_pids
       return 0
       ;;
     1)
@@ -64,6 +67,7 @@ ald_process_state() {
     *) return 2 ;;
   esac
 }
+
 
 ald_wait_stopped() {
   ald_wait=0
@@ -334,8 +338,13 @@ ald_secure_workdir() {
 }
 
 
-ald_kill_unlocked() {
-  NAME=aliyundrive-webdav
+ald_signal_validated_processes() {
+  case "$1" in
+    TERM|KILL) ald_signal=$1 ;;
+    *) return 1 ;;
+  esac
+
+  # Capture a complete validated inventory; avoid a second name-based lookup.
   if ald_process_state; then
     ald_state=0
   else
@@ -344,14 +353,49 @@ ald_kill_unlocked() {
   case "$ald_state" in
     1) return 0 ;;
     0) ;;
-    *)
-      logger -t "阿里云盘" "无法确认进程状态，拒绝发送信号"
-      return 1
-      ;;
+    *) return 1 ;;
   esac
+  ald_signal_targets=$ald_process_pids
+
+  for ald_signal_pid in $ald_signal_targets; do
+    # Revalidate the complete live inventory before each exact-PID signal.
+    if ald_process_state; then
+      ald_state=0
+    else
+      ald_state=$?
+    fi
+    case "$ald_state" in
+      1) return 0 ;;
+      0) ;;
+      *) return 1 ;;
+    esac
+    case " $ald_process_pids " in
+      *" $ald_signal_pid "*) ;;
+      *) continue ;;
+    esac
+
+    if ! kill "-$ald_signal" "$ald_signal_pid" >/dev/null 2>&1; then
+      if ald_process_state; then
+        ald_state=0
+      else
+        ald_state=$?
+      fi
+      [ "$ald_state" -eq 1 ] && return 0
+      return 1
+    fi
+  done
+
+  return 0
+}
+
+ald_kill_unlocked() {
+  NAME=aliyundrive-webdav
 
   logger -t "阿里云盘" "关闭进程..."
-  killall "$NAME" >/dev/null 2>&1 || :
+  if ! ald_signal_validated_processes TERM; then
+    logger -t "阿里云盘" "TERM前目标进程状态或身份校验失败，拒绝发送信号"
+    return 1
+  fi
   if ald_wait_stopped; then
     return 0
   else
@@ -365,23 +409,11 @@ ald_kill_unlocked() {
       ;;
   esac
 
-  # A fresh validated name lookup is required before KILL escalation.
-  if ald_process_state; then
-    ald_state=0
-  else
-    ald_state=$?
-  fi
-  case "$ald_state" in
-    1) return 0 ;;
-    0) ;;
-    *)
-      logger -t "阿里云盘" "强制停止前进程状态未知，拒绝发送信号"
-      return 1
-      ;;
-  esac
-
   logger -t "阿里云盘" "正常停止超时，尝试强制停止"
-  killall -9 "$NAME" >/dev/null 2>&1 || :
+  if ! ald_signal_validated_processes KILL; then
+    logger -t "阿里云盘" "强制停止前目标进程状态或身份校验失败，拒绝发送信号"
+    return 1
+  fi
   if ald_wait_stopped; then
     return 0
   fi
@@ -389,6 +421,7 @@ ald_kill_unlocked() {
   logger -t "阿里云盘" "进程仍在运行或状态未知，保留运行状态"
   return 1
 }
+
 
 ald_start_unlocked() {
   logger -t "阿里云盘" "正在启动..."

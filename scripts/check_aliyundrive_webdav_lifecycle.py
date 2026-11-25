@@ -274,19 +274,40 @@ require('while [ "$ald_wait" -lt "$ALD_STOP_WAIT_SECONDS" ]; do' in wait_stopped
         'return 1' in wait_stopped and 'return 2' in wait_stopped,
         "daemon stop polling must be bounded and propagate UNKNOWN/sleep failure")
 
-require('ald_process_state' in stop and 'killall "$NAME"' in stop and
-        'if ald_wait_stopped; then' in stop and 'killall -9 "$NAME"' in stop and
-        stop.index('killall "$NAME"') < stop.index('ald_wait_stopped') <
-        stop.index('killall -9 "$NAME"') < stop.rindex('ald_wait_stopped') and
-        'ald_process_state' in stop and 'TERM后进程状态未知' in stop and
+signal_processes = function_body(launcher, "ald_signal_validated_processes() {")
+
+require('ald_process_pids=' in process_state and
+        'ald_validated_pids=' in process_state and
+        'ald_process_pids=$ald_validated_pids' in process_state and
+        'ald_actual_uid' in process_state and 'ald_actual_exe' in process_state,
+        "process inventory must publish only a complete PID set after UID/executable validation")
+
+require('ald_process_state' in signal_processes and
+        signal_processes.count('ald_process_state') >= 2 and
+        'ald_signal_targets=$ald_process_pids' in signal_processes and
+        'case " $ald_process_pids " in' in signal_processes and
+        'kill "-$ald_signal" "$ald_signal_pid"' in signal_processes and
+        'TERM|KILL)' in signal_processes and
+        'killall' not in launcher,
+        "signals must target exact PIDs from a validated inventory and revalidate before every signal")
+
+require('ald_signal_validated_processes TERM' in stop and
+        'ald_signal_validated_processes KILL' in stop and
+        'if ald_wait_stopped; then' in stop and
+        stop.index('ald_signal_validated_processes TERM') < stop.index('ald_wait_stopped') <
+        stop.index('ald_signal_validated_processes KILL') < stop.rindex('ald_wait_stopped') and
+        'TERM后进程状态未知，拒绝升级信号' in stop and
         'return 1' in stop,
-        "stop must block KILL on UNKNOWN and require a fresh validated name lookup before escalation")
+        "stop must block KILL on UNKNOWN and use fresh validated exact-PID snapshots")
 
-require('aliyundrive_process=' not in stop and
-        'kill -9 "$aliyundrive_process"' not in launcher and
-        'killall -9 "$NAME"' in stop,
-        "stop must never signal a cached PID that may have been reused")
-
+require('TEST_TARGETED_SIGNAL_COUNT' in test and
+        'TEST_UNEXPECTED_SIGNAL_COUNT' in test and
+        'foreign-after-term' in test and
+        'FAIL: foreign UID after TERM received KILL or an unvalidated signal' in test and
+        'FAIL: graceful stop did not signal exactly the validated PID once' in test and
+        'FAIL: bounded TERM/KILL sequence did not target only the validated PID' in test and
+        'AliyunDrive WebDAV bounded stop and validated-PID signaling regression: PASS' in test,
+        "host lifecycle regression must assert validated-PID-only signals and foreign-UID recheck")
 require('ald_process_state' in cleanup_failed_start and
         'case "$ald_cleanup_state" in' in cleanup_failed_start and
         '0)' in cleanup_failed_start and 'ald_kill_unlocked' in cleanup_failed_start and
@@ -416,10 +437,10 @@ for marker in (
     "FAIL: NVRAM read failure allowed launch/workdir mutation",
     "FAIL: pidof error was accepted as process absence during start",
     "FAIL: pidof error was accepted as process absence during stop",
-    "FAIL: UNKNOWN after TERM triggered KILL",
-    "FAIL: sleep failure allowed KILL escalation",
-    "FAIL: graceful stop escalated or used a cached numeric PID",
-    "FAIL: bounded TERM/KILL/absence sequence is incorrect",
+    "FAIL: UNKNOWN after TERM escalated or signaled an unvalidated PID",
+    "FAIL: sleep failure escalated or signaled an unvalidated PID",
+    "FAIL: graceful stop did not signal exactly the validated PID once",
+    "FAIL: bounded TERM/KILL sequence did not target only the validated PID",
     "FAIL: permanently running daemon was reported stopped",
     "FAIL: duplicate start launched or stopped an existing daemon",
     "FAIL: non-secret NVRAM values were split, globbed or reordered in daemon argv",
@@ -442,7 +463,7 @@ for marker in (
     "FAIL: startup timeout was reported successful",
     "AliyunDrive WebDAV private token workdir and umask regression: PASS",
     "AliyunDrive WebDAV serialized lifecycle lock and startup readiness regression: PASS",
-    "AliyunDrive WebDAV bounded stop and process-name signaling regression: PASS",
+    "AliyunDrive WebDAV bounded stop and validated-PID signaling regression: PASS",
     "AliyunDrive WebDAV duplicate-start guard and argv integrity regression: PASS",
 ):
     require(marker in test, f"host regression missing case or result marker: {marker}")
