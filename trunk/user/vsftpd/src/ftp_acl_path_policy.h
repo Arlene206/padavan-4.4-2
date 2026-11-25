@@ -1112,6 +1112,14 @@ ftp_acl_path_open_bounded_regular_file_at(int directory_fd, const char *leaf,
     errno = EINVAL;
     goto open_error;
   }
+  /*
+   * ACL metadata is an authority source. Reject aliases whose other pathname
+   * may be writable through a different share or local service.
+   */
+  if (opened.st_nlink != 1) {
+    errno = EACCES;
+    goto open_error;
+  }
   *p_stat = opened;
   return fd;
 

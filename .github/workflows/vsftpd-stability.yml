@@ -616,6 +616,10 @@ jobs:
           assert "fstat(fd, &opened)" in bounded_file_open_at
           assert "!S_ISREG(opened.st_mode)" in bounded_file_open_at
           assert "opened.st_size > max_size" in bounded_file_open_at
+          assert "opened.st_nlink != 1" in bounded_file_open_at
+          assert "errno = EACCES;" in bounded_file_open_at
+          assert "hard-linked ACL metadata was accepted through pathname" in acl_path_test
+          assert "descriptor-relative ACL metadata read accepted a hard link" in acl_path_test
 
           assert "size_t *p_file_size" in vsftpd_acl
           assert "*p_file_size = 0;" in acl_file_reader

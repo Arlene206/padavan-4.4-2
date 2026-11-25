@@ -4,16 +4,16 @@ This checkpoint supersedes older task pointers below. Historical completed work 
 
 ## Current repository state
 
-- Repository `Arlene206/padavan-4.4-2`; development only on `main`. Frozen `backup/pre-plugin-overhaul-2026-11-14` remains read-only (last verified `72f4f157a084f8184b9597ca5bf334b8080e5807`); PR #1 remains closed/unmerged and inventory-only.
-- Parent before this XY-C1 trigger correction: `fdba8a4330c1bc867899dc52d4af0344899758bd` (`fdba8a4330c1bc867899dc52d4af0344899758bd`). Exact-head AliyunDrive lifecycle #45563131218 PASS: shell syntax, QEMU MIPSel daemon CLI, host lifecycle including foreign-UID-after-TERM behavior, early private-lock provisioning, and source/RC integration contract. AI handoff #45563131174 PASS.
-- XY-C1 workflow's push path allowlist omitted `trunk/user/aliyundrive-webdav/**`, so the exact-PID ROMFS launcher edit did not trigger a firmware build. THIS COMMIT adds that package plus the workflow file itself to push paths. Exact-head Build XY-C1, TRX verification and artifact upload remain pending.
-- Older XY-C1 run #45562193492 on parent `63da84a3ae0b68e64ab1731f60a580dbc2495970` completed success (Build XY-C1, TRX and artifact upload); it predates AliyunDrive exact-PID source changes and is not this firmware verification.
-- Process inventory #45562525082 on `a2715db` PASS; Process inventory #45562928835 on `5544b95` PASS. This workflow-only change does not alter process inventory.
+- Repository `Arlene206/padavan-4.4-2`; development only on `main`. Frozen `backup/pre-plugin-overhaul-2026-11-14` remains read-only; PR #1 remains closed/unmerged and inventory-only.
+- Parent before this VSFTPD ACL metadata hard-link fix: `7492a5291d357b9d38479a1d9e40ea368f24c61c`. Bounded ACL metadata reads enforced regular-file type, O_NOFOLLOW and a size limit but omitted the single-link invariant already used for normal share-file opens. THIS commit rejects `st_nlink != 1` with `EACCES`, with pathname and descriptor-relative regression coverage. Exact-head VSFTPD Actions pending.
+- AliyunDrive exact-head lifecycle #45563131218 and AI handoff #45563131174 on `fdba8a4` PASS: shell syntax, QEMU MIPSel CLI, host stop lifecycle (including foreign-UID-after-TERM), early private lock, and source/RC integration.
+- XY-C1 path allowlist update `7492a5291d357b9d38479a1d9e40ea368f24c61c` added `trunk/user/aliyundrive-webdav/**` and the workflow's own path. Exact-head XY-C1 #45563653212 was in progress at last poll; Build/TRX/artifact pending. Older run #45562193492 on `63da84a` passed build, TRX and artifact but predates the AliyunDrive exact-PID source.
+- Process inventory #45563653249 and AI handoff #45563653288 were also in progress on `7492a52`; prior Process checks #45562525082 and #45562928835 passed on the AliyunDrive source baselines.
 - Linux 4.4 has no pidfd path here; a narrow PID-reuse race remains between procfs validation and `kill(2)`. Physical router behavior and authenticated remote storage readiness are not claimed.
 
 ## Active task
 
-Confirm this XY-C1 trigger change starts an exact-head firmware run. Verify Build XY-C1, TRX and artifact upload for the AliyunDrive exact-PID ROMFS source; investigate any failure. Then continue the next independent stability/security defect.
+Inspect exact-head VSFTPD stability workflow for the ACL metadata single-link invariant; fix any compiler, host regression or source-contract failure. Also poll XY-C1 #45563653212 for Build, TRX and artifact results.
 
 # Cross-session execution mandate
 

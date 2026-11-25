@@ -185,6 +185,7 @@ main(void)
   char hardlink_file[PATH_MAX];
   char broken_link[PATH_MAX], dir_b[PATH_MAX], dir_alias[PATH_MAX];
   char metadata_file[PATH_MAX], metadata_alias[PATH_MAX];
+  char metadata_hardlink[PATH_MAX];
   char new_file[PATH_MAX], leaf[PATH_MAX];
   char held_a[PATH_MAX], race_link[PATH_MAX];
   char rollback_path[PATH_MAX], rollback_saved[PATH_MAX];
@@ -329,6 +330,7 @@ main(void)
   checked_path(dir_alias, sizeof(dir_alias), a, "directory-link");
   checked_path(metadata_file, sizeof(metadata_file), root, ".__alice_var.txt");
   checked_path(metadata_alias, sizeof(metadata_alias), a, "metadata-alias");
+  checked_path(metadata_hardlink, sizeof(metadata_hardlink), a, "metadata-hardlink");
   checked_path(remove_link, sizeof(remove_link), a, "remove-link");
   checked_path(remove_dir_link, sizeof(remove_dir_link), a, "remove-dir-link");
   checked_path(empty_dir, sizeof(empty_dir), a, "empty-dir");
@@ -365,6 +367,18 @@ main(void)
     fprintf(stderr, "regular ACL config file was not opened and verified\n");
     return 1;
   }
+  if (link(metadata_file, metadata_hardlink) != 0) {
+    perror("create hard-linked ACL metadata fixture");
+    return 1;
+  }
+  errno = 0;
+  metadata_fd = ftp_acl_path_open_bounded_regular_file(
+      metadata_file, 16 * 1024 * 1024, &st);
+  if (metadata_fd >= 0 || errno != EACCES) {
+    if (metadata_fd >= 0) close(metadata_fd);
+    fprintf(stderr, "hard-linked ACL metadata was accepted through pathname\\n");
+    return 1;
+  }
   if (ftp_acl_path_open_bounded_regular_file(
           fifo_file, 16 * 1024 * 1024, &st) >= 0) {
     fprintf(stderr, "ACL config FIFO was accepted (or blocked the reader)\n");
@@ -395,14 +409,20 @@ main(void)
   }
   metadata_dir_fd = ftp_acl_path_open_verified_directory(root);
   if (metadata_dir_fd < 0) {
-    perror("pin ACL metadata root");
+    perror("pin hard-linked ACL metadata root");
     return 1;
   }
+  errno = 0;
   metadata_fd = ftp_acl_path_open_bounded_regular_file_at(
       metadata_dir_fd, ".__alice_var.txt", 16 * 1024 * 1024, &st);
-  if (metadata_fd < 0 || !S_ISREG(st.st_mode) ||
-      close(metadata_fd) != 0 || close(metadata_dir_fd) != 0) {
-    fprintf(stderr, "descriptor-relative ACL metadata open failed\n");
+  if (metadata_fd >= 0 || errno != EACCES) {
+    if (metadata_fd >= 0) close(metadata_fd);
+    close(metadata_dir_fd);
+    fprintf(stderr, "descriptor-relative ACL metadata read accepted a hard link\\n");
+    return 1;
+  }
+  if (close(metadata_dir_fd) != 0 || unlink(metadata_hardlink) != 0) {
+    perror("close/unlink hard-linked ACL metadata fixture");
     return 1;
   }
 

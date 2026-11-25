@@ -1,3 +1,10 @@
+## 2026-11-25 — Reject multiply-linked FTP ACL metadata
+
+- Targeted VSFTPD review found that ordinary share-file opens reject hard-linked inodes (`st_nlink != 1`) to prevent cross-share aliases, while the bounded ACL metadata reader accepted any regular file regardless of link count. Since the ACL metadata file is an authorization source, a hard link can alias content writable through another path or local service. `ftp_acl_path_open_bounded_regular_file_at()` now rejects link counts other than one with `EACCES`; host regression covers both pathname and descriptor-relative readers, and the exact-head workflow source contract pins the rule.
+- Exact-head host regression pending. Normal single-link ACL config behavior is unchanged.
+
+---
+
 ## 2026-11-25 — Add missing XY-C1 trigger for AliyunDrive ROMFS package
 
 - AliyunDrive exact-head lifecycle #45563131218 and AI handoff #45563131174 on `fdba8a4` PASS, including shell syntax, QEMU MIPSel CLI, host stop regression, early private-lock provisioning and final source/RC integration contracts.
