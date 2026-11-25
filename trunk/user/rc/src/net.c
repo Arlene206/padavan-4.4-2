@@ -250,8 +250,8 @@ control_static_routes(char *ift, char *ifname, int is_add)
 {
 	char word[128], *next;
 	char *route_buf;
-	char *ipaddr, *netmask, *gateway, *metric, *metric_end;
-	long metric_value;
+	char *ipaddr, *netmask, *gateway, *metric;
+	int metric_value;
 	char *enable_value = NULL;
 	int status = 0, route_status, api_result, saved_errno, enabled;
 
@@ -311,11 +311,14 @@ control_static_routes(char *ift, char *ifname, int is_add)
 				   ipaddr, gateway, netmask);
 			continue;
 		}
-		errno = 0;
-		metric_value = strtol(metric, &metric_end, 10);
-		if (errno == ERANGE || metric_end == metric || *metric_end ||
-		    metric_value < 0 || metric_value >= INT_MAX)
+		route_status = static_route_metric_parse(metric, &metric_value);
+		if (route_status != 0) {
+			status = route_status_accumulate(status, route_status);
+			logmessage(LOGNAME,
+				   "refusing invalid static route metric '%s' (error=%d)",
+				   metric, route_status);
 			continue;
+		}
 		route_status = is_add ?
 			route_add(ifname, (int)metric_value, ipaddr, gateway, netmask) :
 			route_del(ifname, (int)metric_value, ipaddr, gateway, netmask);
