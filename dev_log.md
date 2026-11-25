@@ -1,3 +1,9 @@
+## 2026-11-25 — Keep the validated roadmap below the AI handoff byte cap
+
+- The AliyunDrive source and lifecycle checks passed on `ed40cf1` (#45559141117), but the AI documentation contract rejected `REFACTOR_ROADMAP.md` at 131,145 UTF-8 bytes, 73 bytes above its 131,072-byte hard limit. The prior preflight counted JavaScript characters rather than encoded bytes. Compress the AliyunDrive status row without dropping its process-owner boundary, regression coverage or remaining validation limits. Revalidate using UTF-8 byte length and exact-head documentation Actions.
+
+---
+
 ## 2026-11-25 — Align AliyunDrive UID fixture contract with the mode loop
 
 - Exact-head AliyunDrive workflow #45558898981 passed shell syntax, bundled MIPSel QEMU CLI compatibility, the lifecycle host regression (including foreign/unreadable/malformed UID cases), and early private-lock provisioning. Its final Python contract failed because it looked for three literal variable assignments, while the test correctly sets the mode through `for TEST_PROCESS_UID_MODE in foreign inaccessible malformed; do`. Replace the stale marker with the actual loop contract. Production launcher and regression behavior are unchanged; rerun the exact-head lifecycle workflow.

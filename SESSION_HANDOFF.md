@@ -1,28 +1,23 @@
 ## 2026-11-25 autonomous handoff checkpoint
 
-This checkpoint supersedes older active-task pointers below. Historical completed slices and verification notes are retained; do not repeat completed audits.
+This checkpoint supersedes older active-task pointers below. Historical completed source and verification records are retained; do not repeat completed audits.
 
 ## Current repository state
 
-- Repository `Arlene206/padavan-4.4-2`; `main` is the sole development ref. The frozen `backup/pre-plugin-overhaul-2026-11-14` remains read-only. PR #1 is closed/unmerged and inventory-only.
-- Parent before this checker correction: `87bc26bf08b3c617f45718b3935ffc2e9450c498` (`fix(aliyundrive): bind process ownership to caller`). The AliyunDrive caller-UID source guard and host test are present. This follow-up changes the exact-source checker and records the CI-discovered assertion mismatch.
-- Exact-head Process inventory #45558899583 PASS; AI handoff docs #45558899218 PASS. AliyunDrive lifecycle #45558898981 FAIL at the final source/RC integration contract only. Shell syntax, MIPSel QEMU CLI capability, full host lifecycle regression (including owner modes), and early private-lock provisioning all PASS. Root cause: checker expected literal UID-mode assignments while regression uses a for-loop. This correction pins the actual loop.
-- On predecessor `af929e3ee793f7e0af3bbba091f3a8bb1becb753`, ZeroTier lifecycle #45558740874, Process #45558740829, WAN route #45558740832, AI docs #45558740777 and XY-C1 #45558740920 PASS. The current Aliyun-only and checker-only commits do not change firmware product sources.
-- ZeroTier recovery and exact conflicting/multipath static-route cleanup are implemented and tested; the route fixture newline correction also passed its exact-head ZeroTier run. Do not reopen without a new failing regression.
-
-## Active source task: AliyunDrive process identity
-
-- `ald_process_state()` now requires every `pidof` candidate to match both the caller UID and the configured executable inode. Foreign, unreadable and malformed PID ownership is UNKNOWN (2), preventing start/stop side effects.
-- Regression loops over foreign, inaccessible and malformed UID status while retaining a matching executable inode; asserts no TERM/KILL and no duplicate launch. The functional host regression passed. Only a stale Python checker marker failed; this commit corrects it to assert the loop header.
-- Rerun exact-head AliyunDrive lifecycle workflow and require all steps PASS. Process and AI doc gates already passed on the source commit; AI docs will rerun on this docs correction. No target firmware or physical L4 result is claimed for this AliyunDrive change.
-
-# Cross-session execution mandate
-
-Continue one autonomous engineering stream on main. For each logical slice, create all changed blobs, one complete Git tree based on the live main root tree, and one atomic main commit; update main with a non-forced expected-SHA compare-and-swap. Never force-push, create/use feature branches, make PRs, split one logical change into per-file commits, or modify the frozen backup. A PENDING workflow never blocks independent work.
+- Repository `Arlene206/padavan-4.4-2`; work only on `main`. Frozen `backup/pre-plugin-overhaul-2026-11-14` remains read-only; PR #1 remains closed/unmerged and inventory-only.
+- Parent before this documentation-size correction: `ed40cf146909c3adfd898d69dee664b1d07dfd36` (`test(aliyundrive): align UID fixture contract`). AliyunDrive caller-UID source guard, foreign/unreadable/malformed UID tests, and corrected checker are committed.
+- Exact-head AliyunDrive lifecycle #45559141117 PASS on `ed40cf1`: shell syntax, bundled MIPSel binary CLI under QEMU, lifecycle regression, early private lock and source/RC contracts all pass. The prior #45558898981 checker-only failure is superseded by this successful run. Process inventory #45558899583 PASS.
+- Exact-head AI docs #45559141042 FAIL only because `REFACTOR_ROADMAP.md` was 131,145 UTF-8 bytes, 73 bytes above the 131,072-byte contract. This follow-up compresses the AliyunDrive roadmap row and checks true UTF-8 byte length; all functional code/tests remain unchanged. Earlier AI docs #45558899218 PASS was on the previous source head.
+- On `af929e3ee793f7e0af3bbba091f3a8bb1becb753`, ZeroTier lifecycle #45558740874, Process #45558740829, WAN route #45558740832, AI docs #45558740777 and XY-C1 #45558740920 PASS. Current docs-only correction does not change firmware product source.
+- ZeroTier damaged-checkpoint recovery and conflicting/multipath route cleanup are already implemented and covered; do not reopen absent a new failing regression.
 
 ## Active task
 
-The checker loop assertion fix is in this atomic follow-up commit. Verify the exact-head AliyunDrive rerun, then resume another distinct P1/P2 whole-userland stability or security defect.
+The AliyunDrive identity fix is functionally verified by its exact-head workflow. This commit solely trims the roadmap to satisfy the validator's UTF-8 byte cap. Next verify exact-head AI documentation Actions PASS; then select a distinct whole-userland P1/P2 stability/security issue.
+
+# Cross-session execution mandate
+
+Continue one autonomous engineering stream on main. For each logical slice, create all changed blobs, one complete Git tree based on the live main root tree, and one atomic main commit; update main with a non-forced expected-SHA compare-and-swap. Never force-push, use feature branches or PRs, split one logical change into per-file commits, or modify the frozen backup. PENDING never blocks independent work.
 
 ## Completed source slices
 
@@ -129,9 +124,9 @@ Commit `786c504c8247fe42d5d1d5f2dc3ad28757fafc80` strictly parses persisted RX/T
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect the exact-head AliyunDrive lifecycle and AI documentation runs after the checker-only correction. The AliyunDrive job must complete all source/RC contract steps successfully.
-2. Keep the committed caller-UID guard and its functional foreign/unreadable/malformed UID regression; do not undo it to satisfy an obsolete literal-marker assertion.
-3. After the rerun, continue an independent P1/P2 reliability/security task from the current roadmap; do not wait on unrelated PENDING actions.
+1. Fetch live `main`; verify the exact-head AI handoff documentation contract after this UTF-8-byte-cap correction.
+2. Confirm `REFACTOR_ROADMAP.md` is below 131,072 UTF-8 bytes and keep the actual encoded-byte preflight for future doc updates.
+3. Continue a distinct P1/P2 reliability/security defect from the live roadmap; AliyunDrive source and lifecycle are verified on `ed40cf1`.
 
 ## Mandatory handoff checkpoint
 
