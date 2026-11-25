@@ -883,6 +883,11 @@ ftp_acl_path_unlink_opened_entry(int dir_fd, const char *leaf, int file_fd)
     errno = EINVAL;
     return -1;
   }
+  /* Rollback must not unlink a pathname that has gained an outside alias. */
+  if (opened.st_nlink != 1) {
+    errno = EACCES;
+    return -1;
+  }
   if (ftp_acl_path_cleanup_directory_name(cleanup_dir,
                                          sizeof(cleanup_dir)) != 0)
     return -1;
@@ -923,11 +928,14 @@ ftp_acl_path_unlink_opened_entry(int dir_fd, const char *leaf, int file_fd)
   if (stat_status == 0 && S_ISREG(quarantined.st_mode) &&
       opened.st_dev == quarantined.st_dev &&
       opened.st_ino == quarantined.st_ino) {
-    if (unlinkat(cleanup_fd, quarantine_leaf, 0) == 0) {
+    if (quarantined.st_nlink != 1) {
+      saved_errno = EACCES;
+    } else if (unlinkat(cleanup_fd, quarantine_leaf, 0) == 0) {
       close(cleanup_fd);
       return 0;
+    } else {
+      saved_errno = errno;
     }
-    saved_errno = errno;
   } else if (stat_status == 0) {
     saved_errno = ESTALE;
   } else {

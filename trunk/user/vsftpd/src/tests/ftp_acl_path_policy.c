@@ -183,6 +183,7 @@ main(void)
   char alias[PATH_MAX], path[PATH_MAX], parent[PATH_MAX], resolved[PATH_MAX];
   char file_a[PATH_MAX], file_b[PATH_MAX], link_file[PATH_MAX];
   char hardlink_file[PATH_MAX];
+  char cleanup_hardlink_file[PATH_MAX];
   char broken_link[PATH_MAX], dir_b[PATH_MAX], dir_alias[PATH_MAX];
   char metadata_file[PATH_MAX], metadata_alias[PATH_MAX];
   char new_file[PATH_MAX], leaf[PATH_MAX];
@@ -324,6 +325,8 @@ main(void)
   checked_path(file_b, sizeof(file_b), b, "protected.txt");
   checked_path(link_file, sizeof(link_file), a, "cross-share-link");
   checked_path(hardlink_file, sizeof(hardlink_file), a, "cross-share-hardlink");
+  checked_path(cleanup_hardlink_file, sizeof(cleanup_hardlink_file), b,
+               "cleanup-upload-alias.txt");
   checked_path(broken_link, sizeof(broken_link), a, "dangling-link");
   checked_path(dir_b, sizeof(dir_b), b, "subdir");
   checked_path(dir_alias, sizeof(dir_alias), a, "directory-link");
@@ -979,6 +982,53 @@ main(void)
   checked_path(path, sizeof(path), a, "failed-new-upload.txt");
   if (lstat(path, &st) == 0 || errno != ENOENT) {
     fprintf(stderr, "failed new upload remained after rollback\n");
+    return 1;
+  }
+
+  /*
+   * A second name can appear after STOR opened a new file. Rollback must
+   * retain the public entry until the cross-share hard link is removed.
+   */
+  upload_fd = ftp_acl_path_open_upload_entry(
+      upload_dir_fd, "failed-linked-upload.txt", 0, 0, 0600,
+      &cleanup_allowed);
+  if (upload_fd < 0 || !cleanup_allowed ||
+      write(upload_fd, "partial", 7) != 7) {
+    fprintf(stderr, "could not prepare linked-upload rollback fixture\n");
+    return 1;
+  }
+  existing_dir_fd = ftp_acl_path_open_verified_directory(b);
+  if (existing_dir_fd < 0 ||
+      linkat(upload_dir_fd, "failed-linked-upload.txt",
+             existing_dir_fd, "cleanup-upload-alias.txt", 0) != 0) {
+    perror("create cross-share hard link to in-flight upload");
+    return 1;
+  }
+  errno = 0;
+  if (ftp_acl_path_unlink_opened_entry(
+          upload_dir_fd, "failed-linked-upload.txt", upload_fd) == 0 ||
+      errno != EACCES) {
+    fprintf(stderr, "failed-upload rollback removed a multiply-linked inode\n");
+    return 1;
+  }
+  if (fstatat(upload_dir_fd, "failed-linked-upload.txt", &st,
+              AT_SYMLINK_NOFOLLOW) != 0 || st.st_nlink != 2 ||
+      fstatat(existing_dir_fd, "cleanup-upload-alias.txt", &st,
+              AT_SYMLINK_NOFOLLOW) != 0 || st.st_nlink != 2) {
+    fprintf(stderr, "failed-upload rollback did not restore both hard-link names\n");
+    return 1;
+  }
+  if (unlinkat(existing_dir_fd, "cleanup-upload-alias.txt", 0) != 0 ||
+      ftp_acl_path_unlink_opened_entry(
+          upload_dir_fd, "failed-linked-upload.txt", upload_fd) != 0 ||
+      close(upload_fd) != 0 || close(existing_dir_fd) != 0) {
+    perror("remove cross-share alias and retry upload rollback");
+    return 1;
+  }
+  errno = 0;
+  if (fstatat(upload_dir_fd, "failed-linked-upload.txt", &st,
+              AT_SYMLINK_NOFOLLOW) == 0 || errno != ENOENT) {
+    fprintf(stderr, "linked upload remained after its final rollback\n");
     return 1;
   }
   if (fstatat(upload_dir_fd, cleanup_dir_leaf, &cleanup_st,

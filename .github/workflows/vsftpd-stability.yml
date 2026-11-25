@@ -669,6 +669,13 @@ jobs:
           assert "expected.st_ino != opened.st_ino" in acl_path_policy
           assert "expected.st_nlink != 1" in acl_path_policy
           assert "opened.st_nlink != 1" in acl_path_policy
+          cleanup_start = acl_path_policy.index("ftp_acl_path_unlink_opened_entry(")
+          cleanup_end = acl_path_policy.index("\n}", cleanup_start)
+          cleanup_policy = acl_path_policy[cleanup_start:cleanup_end]
+          assert "opened.st_nlink != 1" in cleanup_policy
+          assert "quarantined.st_nlink != 1" in cleanup_policy
+          assert "failed-upload rollback removed a multiply-linked inode" in acl_path_test
+          assert "failed-upload rollback did not restore both hard-link names" in acl_path_test
           assert "cross-share hard link was readable through its protected pathname" in acl_path_test
           assert "cross-share hard link was stat-able through its protected pathname" in acl_path_test
           assert "cross-share hard link was writable through its protected pathname" in acl_path_test
