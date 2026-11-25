@@ -121,4 +121,29 @@ u2ec_irp_frame_buffer_bounds_valid(long frame_size, long buffer_size,
            (size_t)buffer_size <= received_payload;
 }
 
+/* Validate an index before using it against an externally sized USB array. */
+static inline int
+u2ec_usb_index_is_valid(unsigned long index, unsigned long count)
+{
+    return count > 0UL && index < count;
+}
+
+/*
+ * Validate a variable-length USBD_INTERFACE_INFORMATION record before
+ * reading or writing its pipe array and before advancing to the next record.
+ */
+static inline int
+u2ec_urb_interface_record_bounds_valid(size_t record_length,
+                                       size_t remaining_length,
+                                       unsigned long pipe_count,
+                                       size_t pipe_offset,
+                                       size_t pipe_size)
+{
+    if (pipe_size == 0U || record_length < pipe_offset ||
+        record_length > remaining_length)
+        return 0;
+
+    return pipe_count <= (record_length - pipe_offset) / pipe_size;
+}
+
 #endif /* U2EC_SOCKET_IO_POLICY_H */

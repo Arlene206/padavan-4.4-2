@@ -55,6 +55,20 @@ assert handle_urb32.index("u2ec_urb32_buffer_bounds_valid") < handle_urb32.index
 assert handle_urb64.index("u2ec_urb64_buffer_bounds_valid") < handle_urb64.index("size = pirp_saverw->BufferSize -")
 assert "urb_status < 0" in exchange and "return -1;" in exchange
 
+assert "u2ec_usb_configuration_index_from_value" in source
+assert "u2ec_usb_index_is_valid" in policy
+assert "u2ec_urb_interface_record_bounds_valid" in policy
+assert "u2ec_usb_interface_target_valid" in source
+assert "dev->descriptor.bNumConfigurations" in source
+assert "USB_DT_CONFIG_SIZE" in handle_urb32 and "USB_DT_CONFIG_SIZE" in handle_urb64
+assert "u2ec_usb_interface_target_valid(tmp_config, tmp_int, tmp_alt)" in handle_urb32
+assert "u2ec_usb_interface_target_valid(tmp_config, tmp_int, tmp_alt)" in handle_urb64
+assert "offsetof(struct _URB_SELECT_CONFIGURATION, Interface)" in handle_urb32
+assert "offsetof(struct _URB_SELECT_CONFIGURATION_64, Interface)" in handle_urb64
+assert "interface_info->Length" in handle_urb32 and "interface_info->Length" in handle_urb64
+assert "tmp_len -= interface_info->Length" in handle_urb32
+assert "tmp_len -= interface_info->Length" in handle_urb64
+
 assert "u2ec_send_all_no_sigpipe" not in add_remote or add_remote.count("u2ec_send_all_no_sigpipe") == 2
 assert add_remote.count("u2ec_send_all_no_sigpipe") == 2
 assert "u2ec_recv_all(sockfd, (char *)&tcp_pack, sizeof(tcp_pack))" in usb_connection
@@ -86,6 +100,7 @@ for token in (
     "test_irp_buffer_size_must_fit_actual_received_frame",
     "test_frame_size_is_bounded_and_positive",
     "test_urb_buffer_bounds_reject_underflow_and_oversized_transfers",
+    "test_usb_selection_indices_and_variable_interface_records_are_bounded",
     "test_invalid_buffers_are_rejected",
 ):
     assert token in test, token

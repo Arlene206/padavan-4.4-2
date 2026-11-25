@@ -115,6 +115,22 @@ test_irp_buffer_size_must_fit_actual_received_frame(void)
 }
 
 static void
+test_usb_selection_indices_and_variable_interface_records_are_bounded(void)
+{
+    assert(u2ec_usb_index_is_valid(0UL, 1UL));
+    assert(u2ec_usb_index_is_valid(2UL, 3UL));
+    assert(!u2ec_usb_index_is_valid(0UL, 0UL));
+    assert(!u2ec_usb_index_is_valid(3UL, 3UL));
+
+    assert(u2ec_urb_interface_record_bounds_valid(40U, 40U, 2UL, 8U, 16U));
+    assert(u2ec_urb_interface_record_bounds_valid(8U, 40U, 0UL, 8U, 16U));
+    assert(!u2ec_urb_interface_record_bounds_valid(7U, 40U, 0UL, 8U, 16U));
+    assert(!u2ec_urb_interface_record_bounds_valid(41U, 40U, 1UL, 8U, 16U));
+    assert(!u2ec_urb_interface_record_bounds_valid(23U, 40U, 2UL, 8U, 16U));
+    assert(!u2ec_urb_interface_record_bounds_valid(40U, 40U, 1UL, 8U, 0U));
+}
+
+static void
 test_invalid_buffers_are_rejected(void)
 {
     int sockets[2];
@@ -141,6 +157,7 @@ main(void)
     test_frame_size_is_bounded_and_positive();
     test_irp_buffer_size_must_fit_actual_received_frame();
     test_urb_buffer_bounds_reject_underflow_and_oversized_transfers();
+    test_usb_selection_indices_and_variable_interface_records_are_bounded();
     test_invalid_buffers_are_rejected();
     puts("U2EC bounded TCP framing and SIGPIPE-safe I/O policy: PASS");
     return 0;
