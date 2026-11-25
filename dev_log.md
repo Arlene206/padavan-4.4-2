@@ -1,3 +1,11 @@
+## 2026-11-25 — Repair RWFS mount-inventory parsing and regression fixture
+
+- Exact storage-hotplug run #45590500560 on `09e56c54` exposed a destructive-path blind spot: an over-escaped `printf` format emitted literal `\\n` separators, so the AWK mount parser could inspect only the first mount line and miss a later RWFS mount. Restored real newline separation and added a two-entry regression with an unrelated `ubi50` decoy before the owned `ubi5` mount.
+- The empty-inventory fail-closed guard also revealed that later injected erase/format/attach cases inherited an empty test mount table. The fixture now defaults to a valid unrelated rootfs mount and explicitly overrides it for empty/malformed/error cases.
+- The failed run's preceding storage regressions and BusyBox ash build passed; its RWFS regression stopped at the erase-failure fixture before reaching the erase command. The correction needs new exact-head storage-hotplug and XY-C1 checks. No local test, firmware build, or hardware result is claimed.
+
+---
+
 ## 2026-11-25 — BusyBox procfs and U2EC lifecycle follow-up
 
 - BusyBox procfs scanner hardening: `d018a324` rejects empty/malformed stat records, `f097a5b5` retries bounded interrupted reads, `63d18699` validates every numeric stat field used by FAST_TOP/SMP, and `7b65f0d9` removes one-byte-past-length sentinel reads from the reusable validation helpers. Exact host ASan/UBSan/source-contract regressions passed (#45575979483, #45577415801, final exact helper-boundary run #45578684818 on `7b65f0d9`).

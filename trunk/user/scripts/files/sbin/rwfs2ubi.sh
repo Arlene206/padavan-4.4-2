@@ -75,7 +75,7 @@ fi
 if ! mount_inventory=$(mount 2>/dev/null); then
 	fail "Unable to inspect mounted filesystems before RWFS conversion"
 fi
-printf '%s\\n' "$mount_inventory" | awk -v idx="$rwfs_idx" '
+printf '%s\n' "$mount_inventory" | awk -v idx="$rwfs_idx" '
 	NF == 0 { next }
 	{
 		if (NF < 6 || $2 != "on" || $4 != "type") {

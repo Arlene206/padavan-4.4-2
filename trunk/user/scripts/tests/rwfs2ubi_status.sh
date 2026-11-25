@@ -104,7 +104,7 @@ EOF_CAT
 
 	PATH="$base/bin:$PATH"
 	export PATH
-	MOUNT_OUTPUT=
+	MOUNT_OUTPUT="/dev/root on / type rootfs (rw)"
 	MOUNT_STATUS=0
 	MTD_WRITE_STATUS=0
 	FLOCK_STATUS=0
@@ -193,6 +193,13 @@ prepare_case mounted-ubi
 MOUNT_OUTPUT="/dev/ubi5_0 on /media/mtd_rwfs type ubifs (rw)"
 export MOUNT_OUTPUT
 expect_failure "mounted UBI"
+assert_no_flash_commands
+prepare_case mounted-ubi-after-unrelated
+MOUNT_OUTPUT="$(printf '%s\n' \
+	'/dev/ubi50_0 on /media/other type ubifs (rw)' \
+	'/dev/ubi5_0 on /media/mtd_rwfs type ubifs (rw)')"
+export MOUNT_OUTPUT
+expect_failure "mounted UBI after unrelated mount"
 assert_no_flash_commands
 
 prepare_case mounted-ubiblock
