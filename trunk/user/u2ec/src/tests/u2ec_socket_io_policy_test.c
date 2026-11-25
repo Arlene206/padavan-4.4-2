@@ -77,6 +77,37 @@ test_disconnected_peer_returns_epipe_without_sigpipe(void)
 }
 
 static void
+test_timed_recv_completes_a_ready_field(void)
+{
+    int sockets[2];
+    char received[4];
+
+    assert(socketpair(AF_UNIX, SOCK_STREAM, 0, sockets) == 0);
+    assert(write(sockets[0], "u2ec", 4U) == 4);
+    assert(u2ec_recv_all_timeout(sockets[1], received, sizeof(received),
+                                 1U) == (ssize_t)sizeof(received));
+    assert(memcmp(received, "u2ec", sizeof(received)) == 0);
+    close(sockets[0]);
+    close(sockets[1]);
+}
+
+static void
+test_timed_recv_expires_after_a_partial_field(void)
+{
+    int sockets[2];
+    char received[2];
+
+    assert(socketpair(AF_UNIX, SOCK_STREAM, 0, sockets) == 0);
+    assert(write(sockets[0], "x", 1U) == 1);
+    errno = 0;
+    assert(u2ec_recv_all_timeout(sockets[1], received, sizeof(received),
+                                 1U) == -1);
+    assert(errno == ETIMEDOUT);
+    assert(received[0] == 'x');
+    close(sockets[0]);
+    close(sockets[1]);
+}
+static void
 test_mid_frame_eof_is_reported_as_reset(void)
 {
     int sockets[2];
@@ -511,6 +542,8 @@ main(void)
     test_socket_initialization_failure_closes_descriptor_and_preserves_errno();
     test_send_completes_a_tcp_stream_write();
     test_disconnected_peer_returns_epipe_without_sigpipe();
+    test_timed_recv_completes_a_ready_field();
+    test_timed_recv_expires_after_a_partial_field();
     test_mid_frame_eof_is_reported_as_reset();
     test_frame_size_is_bounded_and_positive();
     test_irp_buffer_size_must_fit_actual_received_frame();

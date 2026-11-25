@@ -3227,7 +3227,8 @@ int usb_connection(int sockfd)
 
 	/* Read the fixed TCP header exactly; stream recv() may be short. */
 	bzero(&tcp_pack, sizeof(tcp_pack));
-	if (u2ec_recv_all(sockfd, (char *)&tcp_pack, sizeof(tcp_pack)) < 0) {
+	if (u2ec_recv_all_timeout(sockfd, (char *)&tcp_pack, sizeof(tcp_pack),
+		                      U2EC_CLIENT_FRAME_TIMEOUT_SECONDS) < 0) {
 		if (errno == ECONNRESET)
 			PDEBUG("usb_connection: socket %d hung up or sent a truncated header\n", sockfd);
 		else
@@ -3253,8 +3254,9 @@ int usb_connection(int sockfd)
 		bzero(data_buf, sizeof(data_buf));
 		pirp_save = (PIRP_SAVE)data_buf;
 		pirp_save_swap = (PIRP_SAVE_SWAP)data_buf;
-		if (u2ec_recv_all(sockfd, (char *)pirp_save,
-		                  (size_t)tcp_pack.SizeBuffer) < 0) {
+		if (u2ec_recv_all_timeout(sockfd, (char *)pirp_save,
+		                          (size_t)tcp_pack.SizeBuffer,
+		                          U2EC_CLIENT_FRAME_TIMEOUT_SECONDS) < 0) {
 			if (errno == ECONNRESET)
 				PDEBUG("usb_connection: socket %d closed during IRP frame\n", sockfd);
 			else

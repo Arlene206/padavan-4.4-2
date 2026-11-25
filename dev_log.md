@@ -1,3 +1,10 @@
+## 2026-11-25 — Bound U2EC client TCP field reads
+
+- `usb_connection()` runs synchronously in the sole U2EC event loop. Its blocking `u2ec_recv_all()` calls could wait indefinitely after a peer sent only part of the fixed TCP header or advertised IRP body, preventing other printer clients, FIFO events and timeout processing from running.
+- Added a 10-second absolute deadline per incoming TCP field. Readiness waits use the remaining deadline and nonblocking recv, so partial progress does not reset the total budget; timeout returns `ETIMEDOUT` and the existing close path removes the stalled connection. Header and IRP-body reads use the bounded helper; discovery worker reads retain their separate one-second socket timeout.
+- Added successful complete-field and stalled-after-partial-field socketpair regressions plus source-contract checks for the main event-loop call sites. Exact U2EC host ASan/UBSan/source-contract and XY-C1 Build/TRX/artifact verification pending; no device result claimed.
+
+---
 ## 2026-11-25 — Match quoted chnroute fixture rewrite literally
 
 - Exact storage run #45607584405 on `0cc1703c` passed shell syntax, host-shell and BusyBox ash MTD fill regressions, checked caller graph and preceding assertions. The final static checker failed because the sed substitution in the shell fixture escapes its inner double quotes, while the Python source contract expected the unescaped form.

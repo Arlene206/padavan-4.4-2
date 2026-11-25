@@ -194,6 +194,95 @@ u2ec_recv_all(int fd, void *buffer, size_t length)
 }
 
 /*
+ * Bound a complete TCP field, not just each individual recv() call. A peer
+ * that trickles bytes must not keep the single U2EC event loop blocked forever.
+ */
+#define U2EC_CLIENT_FRAME_TIMEOUT_SECONDS 10U
+
+static inline int
+u2ec_timeval_remaining(const struct timeval *deadline,
+                       struct timeval *remaining)
+{
+    struct timeval now;
+
+    if (!deadline || !remaining) {
+        errno = EINVAL;
+        return -1;
+    }
+    if (gettimeofday(&now, NULL) < 0)
+        return -1;
+
+    remaining->tv_sec = deadline->tv_sec - now.tv_sec;
+    remaining->tv_usec = deadline->tv_usec - now.tv_usec;
+    if (remaining->tv_usec < 0) {
+        remaining->tv_sec--;
+        remaining->tv_usec += 1000000;
+    }
+    if (remaining->tv_sec < 0 ||
+        (remaining->tv_sec == 0 && remaining->tv_usec <= 0)) {
+        errno = ETIMEDOUT;
+        return 0;
+    }
+    return 1;
+}
+
+static inline ssize_t
+u2ec_recv_all_timeout(int fd, void *buffer, size_t length,
+                      unsigned int timeout_seconds)
+{
+    unsigned char *bytes = (unsigned char *)buffer;
+    size_t received = 0;
+    struct timeval deadline, remaining, wait_time;
+    fd_set readfds;
+    int remaining_status, ready;
+    ssize_t result;
+
+    if (length == 0U)
+        return 0;
+    if (fd < 0 || fd >= FD_SETSIZE || !buffer || timeout_seconds == 0U) {
+        errno = EINVAL;
+        return -1;
+    }
+    if (gettimeofday(&deadline, NULL) < 0)
+        return -1;
+    deadline.tv_sec += (time_t)timeout_seconds;
+
+    while (received < length) {
+        remaining_status = u2ec_timeval_remaining(&deadline, &remaining);
+        if (remaining_status <= 0)
+            return -1;
+
+        FD_ZERO(&readfds);
+        FD_SET(fd, &readfds);
+        wait_time = remaining;
+        ready = select(fd + 1, &readfds, NULL, NULL, &wait_time);
+        if (ready < 0) {
+            if (errno == EINTR)
+                continue;
+            return -1;
+        }
+        if (ready == 0) {
+            errno = ETIMEDOUT;
+            return -1;
+        }
+
+        result = recv(fd, bytes + received, length - received, MSG_DONTWAIT);
+        if (result > 0) {
+            received += (size_t)result;
+        } else if (result == 0) {
+            errno = ECONNRESET;
+            return -1;
+        } else if (errno == EINTR || errno == EAGAIN ||
+                   errno == EWOULDBLOCK) {
+            continue;
+        } else {
+            return -1;
+        }
+    }
+
+    return (ssize_t)received;
+}
+/*
  * A FIFO with no writer reports readable EOF when opened read-only. U2EC
  * keeps an RDWR descriptor to suppress that idle wakeup; still treat EOF and
  * nonblocking races as "no event", never as an initialized control byte.
