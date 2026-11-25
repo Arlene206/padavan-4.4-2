@@ -24,6 +24,7 @@
 
 #include "rt_config.h"
 #include <errno.h>
+#include <time.h>
 #include "rtmpiapp.h"
 #include "iappdefs.h"
 #include "iapp_ioctl_ifname_policy.h"
@@ -2067,13 +2068,59 @@ Note:
  * Reject data exceeding the bounded receive buffer rather than parse a
  * silently truncated frame.
  */
+#define IAPP_TCP_FRAME_TIMEOUT_SEC 5
+
+static INT32 IAPP_TCP_Wait(INT32 Socket, time_t Deadline, BOOLEAN WriteReady)
+{
+	fd_set ReadSet;
+	fd_set WriteSet;
+	struct timeval Timeout;
+	time_t Now;
+	INT32 SelectStatus;
+
+	for (;;) {
+		Now = time(NULL);
+		if (Now >= Deadline)
+			return 0;
+
+		Timeout.tv_sec = Deadline - Now;
+		Timeout.tv_usec = 0;
+		FD_ZERO(&ReadSet);
+		FD_ZERO(&WriteSet);
+		if (WriteReady)
+			FD_SET(Socket, &WriteSet);
+		else
+			FD_SET(Socket, &ReadSet);
+
+		SelectStatus = select(Socket + 1,
+				      WriteReady ? NULL : &ReadSet,
+				      WriteReady ? &WriteSet : NULL,
+				      NULL, &Timeout);
+		if (SelectStatus < 0 && errno == EINTR)
+			continue;
+		return SelectStatus;
+	}
+}
+
+/*
+ * Each TCP connection carries one encrypted IAPP frame; the sender closes
+ * after send(). read() can return a prefix, so collect bytes through EOF.
+ * A total deadline prevents a peer from holding the daemon with a slow drip.
+ * Reject data exceeding the bounded receive buffer rather than parse a
+ * silently truncated frame.
+ */
 static INT32 IAPP_TCP_ReadFrame(INT32 Socket, UCHAR *Buffer, UINT32 Capacity)
 {
 	UINT32 TotalRead = 0;
 	INT32 BytesRead;
+	INT32 WaitStatus;
 	UCHAR OverflowByte;
+	time_t Deadline = time(NULL) + IAPP_TCP_FRAME_TIMEOUT_SEC;
 
 	while (TotalRead < Capacity) {
+		WaitStatus = IAPP_TCP_Wait(Socket, Deadline, FALSE);
+		if (WaitStatus <= 0)
+			return -1;
 		BytesRead = read(Socket, Buffer + TotalRead, Capacity - TotalRead);
 		if (BytesRead < 0) {
 			if (errno == EINTR)
@@ -2089,6 +2136,9 @@ static INT32 IAPP_TCP_ReadFrame(INT32 Socket, UCHAR *Buffer, UINT32 Capacity)
 	}
 
 	/* The peer must close after this single frame; reject trailing bytes. */
+	WaitStatus = IAPP_TCP_Wait(Socket, Deadline, FALSE);
+	if (WaitStatus <= 0)
+		return -1;
 	do {
 		BytesRead = read(Socket, &OverflowByte, sizeof(OverflowByte));
 	} while (BytesRead < 0 && errno == EINTR);

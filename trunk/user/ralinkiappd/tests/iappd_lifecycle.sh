@@ -157,6 +157,10 @@ grep -Fq 'SizeRcvMsg != (INT32)sizeof(*SM_p)' "$iapp_source" ||
   fail "IAPP security-monitor event must match its fixed frame size"
 grep -Fq 'IAPP_TCP_ReadFrame(SockNew, pPktBuf, IAPP_MAX_RCV_PKT_SIZE)' "$iapp_source" ||
   fail "IAPP TCP receive must accumulate fragmented frames through EOF"
+grep -Fq '#define IAPP_TCP_FRAME_TIMEOUT_SEC 5' "$iapp_source" ||
+  fail "IAPP TCP frame receive must have a total peer timeout"
+grep -Fq 'IAPP_TCP_Wait(Socket, Deadline, FALSE)' "$iapp_source" ||
+  fail "IAPP TCP reader must enforce its absolute deadline before each read"
 grep -Fq 'if (BytesRead == 0)' "$iapp_source" ||
   fail "IAPP TCP frame reader must stop only at connection EOF"
 grep -Fq 'errno == EINTR' "$iapp_source" ||

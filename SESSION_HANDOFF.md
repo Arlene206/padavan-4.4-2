@@ -1,27 +1,27 @@
 ## Current repository state — 2026-11-25
 
-- Main base before exact IAPP header-length matching: a487a2ba43df7b6a69eac331fe848cf25b3fa837; TCP/UDP declared-length gates, optional event-log fixed-size guard, GNU89 policy tests, lifecycle contracts, dev log and handoff are one atomic descendant (THIS COMMIT).
+- Main base before TCP slow-peer timeout: 3eb701f676732a7b9a8dc21c43a7b6d24774b38b; absolute deadline helper, receive path, lifecycle assertions and handoff/devlog are one atomic descendant (THIS COMMIT).
 - Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains read-only at 72f4f157a084f8184b9597ca5bf334b8080e5807.
-- Parent a487a2ba43df7b6a69eac331fe848cf25b3fa837 added `IAPP_TCP_WriteFrame()` for all four TCP frame senders; its exact workflows were in progress at last poll. Parent 5e40e4e0b38ce4a6629ce89e4d8347299e597ac2 has IAPP #45692815127 PASS, Process lifecycle #45692815286 PASS, inventory #45692815185 PASS, AI #45692815200 PASS; XY-C1 #45692815165 and NVRAM #45692816804 in progress.
-- Exact XY-C1 L3 was verified on SHA `e1f16872b7e2792db9acf0184f2fe9c5d736c966`: Build, TRX and artifact upload PASS (workflow #45691498871, job #139477832244). Later source SHAs require their own exact completed build.
-- Parent 16eb actual-size ADD/MOVE notification checks; f483 raw driver signal/EventLen guards; 0952 RRB fixed-header/aligned encrypted-payload guard. All are already in main and their IAPP shell checks passed on recorded exact SHAs.
-- This slice ties declared IAPP frame Length to actual bytes for both TCP and UDP before dispatch, and bounds optional security-monitor struct access.
-- Physical router L4 NOT VERIFIED. Backup frozen; PR #1 inventoried.
+- Parent 3eb701f676732a7b9a8dc21c43a7b6d24774b38b introduced exact declared-vs-received IAPP Length matching for both TCP/UDP and optional security-monitor fixed struct size; exact Actions queued/in progress at last poll.
+- Parent a487a2ba43df7b6a69eac331fe848cf25b3fa837 converted all four TCP send paths to `IAPP_TCP_WriteFrame()`; IAPP #45693025629 PASS, process inventory #45693025909 PASS, lifecycle inventory #45693026809 PASS, AI #45693025904 PASS, XY-C1 #45693025964 in progress, NVRAM #45693025952 cancelled.
+- Parent 5e40e4e0b38ce4a6629ce89e4d8347299e597ac2: IAPP #45692815127 PASS, process inventory #45692815185 PASS, lifecycle #45692815286 PASS, AI #45692815200 PASS; XY #45692815165 still in progress, NVRAM #45692816804 pending.
+- Added five-second absolute read deadline to the TCP one-frame-per-connection receiver to prevent a slow peer from blocking the event loop while still handling partial reads and EOF framing.
+- Exact XY-C1 L3 Build/TRX/artifact PASS is verified only on SHA `e1f16872b7e2792db9acf0184f2fe9c5d736c966` (job #139477832244). Later SHAs need exact builds. Physical-router L4 NOT VERIFIED.
 
 ## Active task
 
-Validate exact frame Length change and current TCP read/write helpers on exact-head IAPP/XY Actions. Then finish remaining command-specific frame validation and TCP socket reliability review.
+Validate exact TCP framing and header-length commits with IAPP and XY CI. Then verify timeout path and inspect socket send/connection timeout behavior.
 
 ## Exact first actions for next GPT
 
-1. Poll this commit's IAPP, XY-C1 Build/TRX/artifact, Process lifecycle/inventory, NVRAM and AI Actions separately by exact SHA.
-2. Confirm both dispatchers have exact received-vs-declared frame length check and sanitizer tests for exact/short/long.
-3. Review socket timeout/backpressure and optional event-log branch compile coverage; continue auditing supported command structures for exact field requirements.
-4. Keep backup read-only and main-only complete atomic trees with non-force expected-SHA update.
+1. Poll current IAPP, XY-C1, Process, NVRAM and AI Actions by this commit SHA.
+2. Confirm IAPP GNU89 ASan/UBSan helper tests and shell source contracts pass; inspect XY C compiler outcome.
+3. Review TCP WriteFrame's blocking/backpressure behavior and connect timeout; add bounded write/connection deadline only if compatible with target toolchain.
+4. Continue source validation for optional event-log and any remaining packet-specific fixed fields. Backup remains frozen.
 
 ## Execution contract
 
-Main only; complete Git tree and atomic commit per task. No force-push, branches or PR. PENDING actions do not block.
+Main only; atomic complete Git trees and non-force expected-SHA main update. No force-push, branch or PR. PENDING does not block.
 
 ## 2026-11-25 autonomous handoff checkpoint
 
