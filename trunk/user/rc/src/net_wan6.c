@@ -1277,7 +1277,7 @@ int start_sit_tunnel(int ipv6_type, char *wan_ifname, char *wan_addr4,
 	/* Route the IPv4 tunnel endpoint through the physical WAN first. */
 	status = wan6_sit_endpoint_route_add_status(
 		route_add(wan_ifname, 0, sit_ep,
-			wan6_sit_route4_gateway_argument(wan_gate4),
+			(char *)wan6_sit_route4_gateway_argument(wan_gate4),
 			"255.255.255.255"),
 		&wan_route_added);
 	if (status != 0) {
