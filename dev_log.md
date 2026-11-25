@@ -1,3 +1,9 @@
+## 2026-11-25 — Reject reserved RFC1035 extended label types
+
+- `dname_dec()` recognized only the `11xxxxxx` compression-pointer class, then treated both reserved `01xxxxxx` and `10xxxxxx` label encodings as ordinary length octets. A buffer with 64 or 128 following bytes could therefore be accepted as a domain label even though those extended-label classes are unsupported. Reject nonzero top-bit classes other than compression pointers before label processing. Add sanitizer cases for both reserved encodings and retain acceptance of a maximum 63-byte ordinary label. Exact-head DHCP decoder, XY-C1 and AI checks are triggered by the atomic source/test/log/handoff commit; no local compile or target/hardware result is claimed.
+
+---
+
 ## 2026-11-25 — Include DHCP domain codec in XY-C1 firmware validation paths
 
 - The new decoder sanitizer workflow passed on `66efb19`, but review of the XY-C1 workflow exposed a production-validation blind spot: `networking/udhcp/domain_codec.c` was missing from the push path filter, so edits to this shipped BusyBox source did not trigger the MIPS firmware build/TRX/artifact job. Add the source to the path filter and pin the one-entry filter plus production classification in `test_xy_c1_firmware_inputs.py`. The workflow's own path is already included, so this commit re-triggers XY-C1 against the complete current tree.

@@ -70,6 +70,9 @@ char* FAST_FUNC dname_dec(const uint8_t *cstr, int clen, const char *pre)
 				depth++;
 				name_terminated = 0;
 				crtpos = target; /* jump */
+			} else if ((*c & NS_CMPRSFLGS) != 0) {
+				/* 01/10 extended label types are reserved and unsupported. */
+				return NULL;
 			} else if (*c) {
 				/* label */
 				if (crtpos + *c + 1 > (unsigned)clen) /* label too long? abort */
@@ -314,9 +317,29 @@ static int test_domain_decoder_bounds(void)
 	};
 	static const uint8_t pointer_past_end[] = { 3, 'f', 'o', 'o', 0xc0, 0x20 };
 	static const uint8_t forward_pointer[] = { 0xc0, 0x02, 1, 'x', 0 };
+	uint8_t max_label[NS_MAXLABEL + 2];
+	char max_label_expected[NS_MAXLABEL + 1];
+	uint8_t reserved_extended_01[66];
+	uint8_t reserved_extended_10[130];
+
+	memset(max_label, 'a', sizeof(max_label));
+	max_label[0] = NS_MAXLABEL;
+	max_label[sizeof(max_label) - 1] = 0;
+	memset(max_label_expected, 'a', sizeof(max_label_expected) - 1);
+	max_label_expected[sizeof(max_label_expected) - 1] = '\0';
+
+	memset(reserved_extended_01 + 1, 'a', sizeof(reserved_extended_01) - 2);
+	reserved_extended_01[0] = 0x40;
+	reserved_extended_01[sizeof(reserved_extended_01) - 1] = 0;
+	memset(reserved_extended_10 + 1, 'a', sizeof(reserved_extended_10) - 2);
+	reserved_extended_10[0] = 0x80;
+	reserved_extended_10[sizeof(reserved_extended_10) - 1] = 0;
 
 	if (expect_decoded(valid_compressed, sizeof(valid_compressed),
 			   "foo.bar www.bar") != 0 ||
+	    expect_decoded(max_label, sizeof(max_label), max_label_expected) != 0 ||
+	    expect_rejected(reserved_extended_01, sizeof(reserved_extended_01)) != 0 ||
+	    expect_rejected(reserved_extended_10, sizeof(reserved_extended_10)) != 0 ||
 	    expect_rejected(valid_compressed, 0) != 0 ||
 	    expect_rejected(valid_compressed, -1) != 0 ||
 	    expect_rejected(NULL, sizeof(valid_compressed)) != 0 ||
@@ -345,6 +368,7 @@ int main(void)
 			  "test.net", "test.net test.net") != 0)
 		return 1;
 
+	puts("RFC1035 reserved extended label types rejected: PASS");
 	puts("RFC1035 domain decoder malformed-input bounds: PASS");
 	return 0;
 }

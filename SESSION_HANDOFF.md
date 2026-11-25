@@ -1,49 +1,28 @@
-## 2026-11-24 autonomous handoff snapshot
+## 2026-11-25 autonomous handoff checkpoint
 
-This checkpoint supersedes earlier task pointers below where they conflict with live Git state. Historical records remain for traceability; do not repeat completed audits.
-
-- Source baseline before this handoff-only checkpoint: `279789f15dd9503e0102f1bfe4c819cd3ccabce2` (`fix(pppoe-mwan): reject octal IPv4 aliases`). Root tree: `e7618e35851527cad03ef6e27b3b87f70af59e66`.
-- Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged and read-only. `main` is the only development ref; no branches, PRs, force-pushes, or backup writes.
-- Closed/unmerged PR #1 remains inventory-only and is not a development target.
-- Previous checkpoint `a8e47e7c9a64ce3c888294c94ec2dbf3208206c6` had its corrected WAN DHCP callback workflow #45550864174 PASS. The current source slice fixes a verified mismatch: bundled iptables 1.8.7 parses IPv4 octets through `xtables_strtoui(..., base=0, ...)`, so a stored static source like `010.0.0.7` could be interpreted as octal. `detect.sh` now rejects any multi-digit leading-zero octet before existing rules are touched; `detect_status.sh` injects that value and requires fail-closed behavior, unchanged firewall/routes and lock cleanup. The WAN source contract pins the guard.
-- Exact SHA `279789f15dd9503e0102f1bfe4c819cd3ccabce2`: AI handoff docs #45551063204 PASS; WAN route operation #45551063250 IN_PROGRESS; XY-C1 Firmware Validation #45551063177 IN_PROGRESS; Process lifecycle inventory #45551063158 IN_PROGRESS. The shell regression is executed by the WAN route job. No local shell run, firmware build, TRX verification, or artifact upload is claimed until the corresponding Actions steps finish.
-- The previous source SHA `5d713067bd77e3d85ac0441e8ddd51b3da7a70d0` had its DNSMasq source checker repaired by `328fdffd8bb4ccf9f1fde9ca7ab674e95f8f6dc8`; exact-head DNSMasq #45550141637 and AI docs #45550141670 PASS. Do not repeat that completed checker fix.
-
-## Exact first action for the next GPT
-
-1. Refresh live `main` (this checkpoint itself is a documentation-only commit after source SHA `279789f...`) and inspect the exact-head WAN route, XY-C1, Process lifecycle and AI docs runs. For FAIL, diagnose and repair; for PENDING, continue independent work without waiting.
-2. Confirm the WAN route job ran `trunk/user/pppoe/tests/detect_status.sh` and `scripts/check_pppoe_mwan_status.py`. The regression must reject `010.0.0.7` before any firewall deletion/addition or route mutation.
-3. Confirm the XY-C1 run's Build, TRX validation and artifact-upload steps separately. Do not infer L3 from host-only checks or a queued/in-progress run.
-4. Continue a new independent P1/P2 stability/security defect outside the completed PPPoE-MWAN IPv4 slice; avoid repeating the already-verified DNSMasq static-ARP octal parsing or older handoff audits.
-
-No force-push. Backup stays read-only.
+This checkpoint supersedes older task pointers below. The historical completed-slice and verification sections are retained for evidence; do not repeat completed audits or stale task pointers.
 
 ## Current repository state
+
+- Repository: `Arlene206/padavan-4.4-2`; `main` is the sole development ref. The frozen `backup/pre-plugin-overhaul-2026-11-14` exists and remains read-only. Branch inventory contains only `main` plus that preserved backup.
+- Main parent before this atomic slice: `ea41f1ba2e1c44463d0c8c1dce31211d250ded61` (`ci(firmware): include DHCP domain codec input`). Fetch the live main SHA and tree again before every subsequent write. This commit carries decoder source/test, dev-log entry and this handoff correction together; its resulting SHA is the live source baseline and must be read from the ref.
+- PR #1 is closed/unmerged and remains inventory-only. Its 17-commit branch contains no unique file-level work still missing from main: all 13 changed paths (including CA bootstrap and the HMAC-SHA1 helper/tests/workflow) are present on main. Do not re-port or reactivate it.
+- Main includes the XY-C1 trigger-filter correction for `networking/udhcp/domain_codec.c`, so edits to this shipped BusyBox source trigger the target firmware workflow.
+
+## Branch and checkpoint
+
+- Latest source slice: harden RFC1035 decoding against reserved extended-label encodings. `dname_dec()` previously treated `01xxxxxx` and `10xxxxxx` bytes as ordinary label lengths; 64-byte and 128-byte payloads could pass despite those encodings being reserved/unsupported. The new guard rejects these classes while retaining `00xxxxxx` labels and `11xxxxxx` compression pointers.
+- Regression includes both reserved classes, the valid maximum 63-byte label, and all existing truncation, compression-pointer, API-boundary and encode/decode round-trip cases.
+- Parent exact-head Actions on `ea41f1ba2e1c44463d0c8c1dce31211d250ded61`: AI handoff documentation #45557374006 PASS; XY-C1 Firmware Validation #45557373931 IN_PROGRESS; Process inventory/lifecycle #45557373946 IN_PROGRESS. Earlier decoder sanitizer #45557023082 PASS on `66efb19`; the latest parent has the firmware path-filter fix. The new commit's decoder, XY-C1 and AI push runs must be checked by exact head SHA. A pending job never blocks independent work.
+- No local compile, MIPS build, TRX validation, artifact upload, or hardware test is claimed for the new slice until its exact-SHA steps finish.
 
 # Cross-session execution mandate
 
 Continue one autonomous engineering stream on main. For each logical slice, create all changed blobs, one complete Git tree based on the live main root tree, and one atomic main commit; update main with a non-forced expected-SHA compare-and-swap. Never force-push, create/use feature branches, make PRs, split one logical change into per-file commits, or modify the frozen backup. A PENDING workflow never blocks independent work. Before context exhaustion, finish the current safe slice and checkpoint the first concrete next action.
 
-## Branch and checkpoint
-
-- Last verified PPP source baseline before embedded-NUL hardening: 0af78992a772036818dc4fd71b48ff74b066abeb; refresh live main and tree before every future write.
-- Frozen backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807; verified unchanged and read-only.
-- main is the only development ref. PR #1 is closed/unmerged and is not a development target.
-- Bootstrap, protocol, handoff, roadmap, dev-log window/index and live refs were recovered once. The recorded RC whole-line parser gate has been superseded by subsequent main commits; do not repeat it.
-
 ## Active task
 
-### AI handoff documentation size — restore the roadmap hard limit
-
-The DHCPv6 timer source helper and regression are committed in `c009462148d00369007edaf3e5b87d31899b07c2`; the follow-up checker marker is fixed in `5b54971422023d9e1dd0d3e7f2f21f2d73816ffb`. The exact-main DHCPv6 GNU89 regression #45524153756 passes. AI handoff validation #45524153765 failed only because `REFACTOR_ROADMAP.md` measured 131,167 bytes, 95 bytes above the 131,072-byte hard limit. Condense redundant historical status text without dropping active findings, then confirm the exact-head docs workflow.
-
-## Current exact-head Actions on 5b54971422023d9e1dd0d3e7f2f21f2d73816ffb
-
-- DHCPv6 Reply script retry regression #45524153756: PASS; the new expired-timer boundary coverage and current output marker both pass.
-- AI handoff documentation #45524153765: FAIL solely on the roadmap 131,167-byte hard limit (limit 131,072); this slice trims the redundant top summary and must be rechecked on its own SHA.
-- Product-source baseline `c009462148d00369007edaf3e5b87d31899b07c2`: Process inventory #45523977446, HTTPD security #45523977367, USB storage #45523977447 and NVRAM boundary #45523977503: PASS.
-- XY-C1 #45523977414 is still IN_PROGRESS for that unchanged product-source baseline; Build/TRX/artifact are not confirmed. L3 NOT VERIFIED; L4 hardware NOT VERIFIED.
-- No local compile is claimed.
+The RFC1035 reserved-label guard and sanitizer regression are included in the current atomic main commit. Next, verify the exact-head decoder sanitizer, XY-C1 Build/TRX/artifact and AI documentation Actions; repair a real failure before closing the slice. Then resume the next distinct P1/P2 stability/security issue from the live main handoff/roadmap (the previous recorded candidate was ZeroTier stop-path firewall-checkpoint recovery, but revalidate its current state before editing).
 
 ## Completed source slices
 
@@ -153,6 +132,14 @@ Commit `786c504c8247fe42d5d1d5f2dc3ad28757fafc80` strictly parses persisted RX/T
 1. Confirm the AI handoff documentation workflow passes on the current main SHA after shrinking REFACTOR_ROADMAP.md below 131,072 bytes; repair any exact-SHA failure.
 2. Recheck XY-C1 Build/TRX/artifact on the unchanged product-source baseline `c009462148d00369007edaf3e5b87d31899b07c2`; do not claim L3 while its run remains pending.
 3. Resume the next distinct userland stability/security fix, starting with the ZeroTier stop path's corrupt firewall-checkpoint recovery gap; keep source/test/checker changes atomic and do not wait on unrelated PENDING runs.
+
+
+## Exact first action for the next GPT
+
+1. Fetch the live `main` SHA and inspect its exact-head DHCP domain decoder, XY-C1 Firmware Validation and AI documentation push runs. Diagnose any FAIL at its failing step; do not wait on PENDING.
+2. Confirm the decoder sanitizer executes the GNU89 ASan/UBSan regression, including rejection of both reserved label classes and acceptance of a 63-byte label.
+3. Inspect XY-C1 job steps separately: Build XY-C1, TRX verification and artifact upload must all complete successfully on the same product-source SHA before claiming L3. Hardware L4 remains unverified.
+4. Continue the next independent whole-userland P1/P2 item from the live roadmap/handoff. Recheck the ZeroTier firewall-checkpoint recovery candidate rather than assuming its historical status; keep all work on main.
 
 ## Mandatory handoff checkpoint
 
