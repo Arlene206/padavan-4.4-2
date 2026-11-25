@@ -28,7 +28,7 @@ def body(text, signature):
 
 add = body(events, "upnpevents_addSubscriber(")
 subscribe_start = http.index("ProcessHTTPSubscribe_upnphttp(struct upnphttp * h, const char * path)")
-subscribe_end = http.index("\\nstatic void\\nProcessHTTPUnSubscribe_upnphttp", subscribe_start)
+subscribe_end = http.index("ProcessHTTPUnSubscribe_upnphttp(", subscribe_start)
 subscribe = http[subscribe_start:subscribe_end]
 
 assert '#include "miniupnpd_event_subscription_policy.h"' in events

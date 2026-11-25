@@ -1,3 +1,12 @@
+## 2026-11-25 — Correct MiniUPnP SUBSCRIBE source boundary literal
+
+- The handler-boundary correction on `dc70484fd4a27d36c645500a754fcd7d9f82e5bb` removed the preprocessor-sensitive brace parser but the Python search expression was over-escaped, so it searched for literal backslash-`n` characters. Exact-SHA event workflow #45721625362 consequently failed at `subscribe_end`, after the GNU89 capacity test had passed.
+- Simplified the endpoint to the next handler's unique function-name token, `ProcessHTTPUnSubscribe_upnphttp(`, avoiding both brace counting and newline escaping.
+- Current parent before this correction: `cc4013628305b4312d1b905ad6cf0718884d46f3`. Exact-SHA regression is to be rechecked; no production or firmware result is inferred from the prior checker failure.
+- Changed paths: `scripts/check_miniupnpd_event_subscription.py`, `dev_log.md`.
+
+---
+
 ## 2026-11-25 — Correct DHCPv6 receive checker after signed-length guard
 
 - The exact-SHA DHCPv6 regression on `90b82d0737c58913b1af1cd21f88a128b892fc58` compiled and ran all five GNU89/ASan/UBSan policy tests successfully, then failed in the Python source checker because its expected short-packet expression did not include the new explicit `ssize_t` cast.
