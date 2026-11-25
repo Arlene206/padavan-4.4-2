@@ -145,10 +145,10 @@ mtd_storage_load_test = read("trunk/user/scripts/tests/mtd_storage_load_transact
 mtd_storage_backup_test = read("trunk/user/scripts/tests/mtd_storage_backup_failure.sh")
 mtd_storage_erase_reset_test = read("trunk/user/scripts/tests/mtd_storage_erase_reset.sh")
 mtd_mdir_start = mtd_storage.index("func_mdir()")
-mtd_mdir_end = mtd_storage.index("\\nfunc_rstats_presence()", mtd_mdir_start)
+mtd_mdir_end = mtd_storage.index("\nfunc_rstats_presence()", mtd_mdir_start)
 mtd_mdir = mtd_storage[mtd_mdir_start:mtd_mdir_end]
 mtd_tarb_start = mtd_storage.index("func_tarb()")
-mtd_tarb_end = mtd_storage.index("\\nfunc_save()", mtd_tarb_start)
+mtd_tarb_end = mtd_storage.index("\nfunc_save()", mtd_tarb_start)
 mtd_tarb = mtd_storage[mtd_tarb_start:mtd_tarb_end]
 require('find . ! -name . -print0 > "$find_list"' in mtd_tarb and
         'sort -z "$find_list" > "$sort_list"' in mtd_tarb and

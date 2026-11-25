@@ -1,3 +1,10 @@
+## 2026-11-25 — Correct escaped newline delimiters in storage checker
+
+- Source-contract review found the two new MTD function-boundary lookups in `check_storage_safe_remove.py` searched for the two literal characters `\\n` instead of an actual newline. This would raise `ValueError` when the storage workflow reaches the checker, despite the C/shell tests being independent.
+- Corrected both Python string literals to use a newline escape and left the production source/test changes unchanged. The storage workflow on the current exact SHA will validate this checker correction.
+
+---
+
 ## 2026-11-25 — Do not mask partial MTD backup inventory failures
 
 - `func_tarb()` piped `find` and `sort` directly into `xargs`. Padavan's BusyBox ash does not enable `pipefail`, so a partial `find`/sort result followed by successful `xargs` could be treated as a complete snapshot and written to flash. This risks persisting an incomplete /etc/storage tree after an inventory I/O error.
