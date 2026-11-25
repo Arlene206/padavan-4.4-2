@@ -192,6 +192,14 @@ test_snapshot_set_restore_and_commit(const char *directory)
 	assert(first_backup[0] == '\0' && second_backup[0] == '\0' &&
 	       third_backup[0] == '\0');
 
+	/* Restore the unique-name templates before taking the second snapshot. */
+	assert(snprintf(first_backup, sizeof(first_backup),
+			"%s/snapshot-first.rollback.XXXXXX", directory) > 0);
+	assert(snprintf(second_backup, sizeof(second_backup),
+			"%s/snapshot-second.rollback.XXXXXX", directory) > 0);
+	assert(snprintf(third_backup, sizeof(third_backup),
+			"%s/snapshot-third.rollback.XXXXXX", directory) > 0);
+
 	/* Commit discards rollback links but retains every replacement file. */
 	assert(dnsmasq_file_snapshot_set_create(destinations, backups, 3) == 0);
 	replace_file_contents(first, "committed-first\n");
