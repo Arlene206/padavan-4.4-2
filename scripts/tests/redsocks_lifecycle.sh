@@ -315,7 +315,14 @@ echo "Redsocks rejects ambiguous REMOTE_IP before cleanup: PASS"
 
 firewall_reset
 ARG2=192.0.2.77
-func_iptables || fail "initial Redsocks firewall setup failed"
+if func_iptables; then
+  :
+else
+  firewall_status=$?
+  echo "Redsocks firewall command trace after initial setup failure:" >&2
+  cat "$TEST_IPTABLES_LOG" >&2
+  fail "initial Redsocks firewall setup failed (status=$firewall_status)"
+fi
 [[ "$(firewall_rule_count 'PREROUTING -p tcp -j REDSOCKS')" == 1 ]] || fail "PREROUTING jump was not installed exactly once"
 [[ "$(firewall_rule_count 'OUTPUT -p tcp -j REDSOCKS')" == 1 ]] || fail "OUTPUT jump was not installed exactly once"
 [[ "$(firewall_rule_count 'REDSOCKS -p tcp -j REDIRECT --to-ports 12345')" == 1 ]] || fail "redirect rule was not installed exactly once"

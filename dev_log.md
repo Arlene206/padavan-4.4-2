@@ -1,3 +1,8 @@
+## 2026-11-25 — Diagnose Redsocks initial NAT apply regression
+
+- Exact Redsocks Actions run #45554360655 on `87a3eea` passed shell syntax and rejected the octal REMOTE_IP correctly, then failed the first valid firewall apply. Added the mock's command trace and exact return status to the regression failure path so the failed iptables operation can be identified without weakening assertions.
+- The 100-record log rotation is committed in `614c30609b212a0fa9ad6db23a9f8bf1573020d3`; root log now has 20 records and archive part-034 preserves 100 oldest records byte-for-byte.
+
 ## 2026-11-24 — Redsocks NAT policy idempotence and failure propagation
 
 - func_clean previously parsed human-readable iptables -L --line-numbers output by stripping every digit and deleting a guessed line number; cleanup statuses were ignored. func_iptables also ignored -N/-A failures and appended duplicate chain rules/jumps on reapply.
