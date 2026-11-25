@@ -7,6 +7,7 @@ MWAN_SYS_CLASS_NET="${MWAN_SYS_CLASS_NET:-/sys/class/net}"
 MWAN_STATUS=0
 MWAN_LOCK_OWNED=0
 MWAN_FLUSH_FAILED=0
+MWAN_RULE_TAG="Padavan-PPPoE-MWAN"
 
 mwan_log() { logger -t MWAN "$*" >/dev/null 2>&1 || :; }
 mwan_fail() {
@@ -97,13 +98,24 @@ mwan_parse_rule() {
 	[ "$started" -eq 0 ] || MWAN_RULE_ARGS+=("$token")
 	[ "${#MWAN_RULE_ARGS[@]}" -ge 2 ] && [ "${MWAN_RULE_ARGS[0]}" = -A ]
 }
+mwan_rule_is_owned() {
+	local i
+	for ((i=1; i+1<${#MWAN_RULE_ARGS[@]}; i++)); do
+		if [ "${MWAN_RULE_ARGS[i]}" = "--comment" ] &&
+		   [ "${MWAN_RULE_ARGS[i+1]}" = "$MWAN_RULE_TAG" ]; then
+			return 0
+		fi
+	done
+	return 1
+}
 mwan_flush_iptables() {
-	local table="$1" tag="$2" saved rule rc
+	local table="$1" saved rule rc
 	if saved=$(iptables-save -t "$table"); then :; else rc=$?; mwan_flush_fail "$rc" "iptables-save -t $table"; return 0; fi
 	while IFS= read -r rule || [ -n "$rule" ]; do
 		case "$rule" in -A\ *) ;; *) continue;; esac
-		case "$rule" in *"$tag"*) ;; *) continue;; esac
 		if ! mwan_parse_rule "$rule"; then mwan_flush_fail 2 "cannot safely parse $table iptables-save rule"; continue; fi
+		# Only a parsed exact owner-comment match belongs to this detector.
+		mwan_rule_is_owned || continue
 		iptables -t "$table" -D "${MWAN_RULE_ARGS[@]:1}"
 		rc=$?; mwan_flush_fail "$rc" "iptables -t $table rule deletion"
 	done <<< "$saved"
@@ -140,9 +152,8 @@ PPP_COUNT=$((10#$PPP_NUM))
 if bridge=$(ifconfig br0); then lanip=$(mwan_ipv4_from_ifconfig "$bridge"); else mwan_die "$?" "cannot inspect br0"; fi
 mwan_ipv4_valid "$lanip" || mwan_die 2 "invalid br0 IPv4 address: $lanip"
 
-mwan_flush_iptables mangle ctstate
-mwan_flush_iptables mangle br0
-mwan_flush_iptables nat ppp
+mwan_flush_iptables mangle
+mwan_flush_iptables nat
 
 # Do not construct a new policy on top of stale or partially removed rules.
 # All independent cleanup attempts have completed; refresh route cache and
@@ -159,7 +170,7 @@ for ((i=1; i<=PPP_COUNT; i++)); do
 	count=$((i-1))
 	if mwan_get_ppp_ipv4 "ppp$count"; then ppp_ip="$MWAN_PPP_IPV4"; else continue; fi
 	if mwan_ipv4_valid "$ppp_ip"; then
-		mwan_run iptables -t mangle -A PREROUTING -s "$lanip/24" -m conntrack --ctstate NEW -m statistic --mode nth --every "$PPP_COUNT" --packet "$count" -j CONNMARK --set-mark "2$i"
+		mwan_run iptables -t mangle -A PREROUTING -m comment --comment "$MWAN_RULE_TAG" -s "$lanip/24" -m conntrack --ctstate NEW -m statistic --mode nth --every "$PPP_COUNT" --packet "$count" -j CONNMARK --set-mark "2$i"
 		last=$i
 		route_replace+=(nexthop via "$ppp_ip" dev "ppp$count" weight 1)
 	fi
@@ -168,8 +179,8 @@ done
 if webrule=$(nvram get pppoemwan_443); then :; else mwan_die "$?" "cannot read pppoemwan_443"; fi
 mwan_uint_valid "$webrule" || mwan_die 2 "invalid pppoemwan_443 value: $webrule"
 if [ "$webrule" -ne 0 ]; then
-	mwan_run iptables -t mangle -A PREROUTING -p tcp --dport 443 -m conntrack --ctstate NEW -j CONNMARK --set-mark "2$last"
-	mwan_run iptables -t mangle -A PREROUTING -p udp --dport 443 -m conntrack --ctstate NEW -j CONNMARK --set-mark "2$last"
+	mwan_run iptables -t mangle -A PREROUTING -m comment --comment "$MWAN_RULE_TAG" -p tcp --dport 443 -m conntrack --ctstate NEW -j CONNMARK --set-mark "2$last"
+	mwan_run iptables -t mangle -A PREROUTING -m comment --comment "$MWAN_RULE_TAG" -p udp --dport 443 -m conntrack --ctstate NEW -j CONNMARK --set-mark "2$last"
 fi
 if rulesenable=$(nvram get pppoemwan_rules_x); then :; else mwan_die "$?" "cannot read pppoemwan_rules_x"; fi
 mwan_uint_valid "$rulesenable" || mwan_die 2 "invalid pppoemwan_rules_x value: $rulesenable"
@@ -183,7 +194,7 @@ if [ "$rulesenable" -ne 0 ]; then
 		if if_value=$(nvram get "$ifname"); then :; else mwan_die "$?" "cannot read $ifname"; fi
 		mwan_ipv4_valid "$ip_value" || mwan_die 2 "invalid $ipname value: $ip_value"
 		mwan_uint_max_valid "$if_value" 255 || mwan_die 2 "invalid $ifname value: $if_value"
-		mwan_run iptables -t mangle -A PREROUTING -s "$ip_value/32" -m conntrack --ctstate NEW -j CONNMARK --set-mark "2$if_value"
+		mwan_run iptables -t mangle -A PREROUTING -m comment --comment "$MWAN_RULE_TAG" -s "$ip_value/32" -m conntrack --ctstate NEW -j CONNMARK --set-mark "2$if_value"
 	done
 fi
 
@@ -191,9 +202,9 @@ for ((i=1; i<=PPP_COUNT; i++)); do
 	count=$((i-1))
 	if mwan_get_ppp_ipv4 "ppp$count"; then ppp_ip="$MWAN_PPP_IPV4"; else continue; fi
 	if mwan_ipv4_valid "$ppp_ip"; then
-		mwan_run iptables -t mangle -A PREROUTING -i br0 -m connmark --mark "2$i" -j MARK --set-mark "2$i"
-		mwan_run iptables -t nat -A POSTROUTING -o "ppp$count" -s "$lanip/24" -j FULLCONENAT
-		mwan_run iptables -t nat -A PREROUTING -i "ppp$count" -j FULLCONENAT
+		mwan_run iptables -t mangle -A PREROUTING -m comment --comment "$MWAN_RULE_TAG" -i br0 -m connmark --mark "2$i" -j MARK --set-mark "2$i"
+		mwan_run iptables -t nat -A POSTROUTING -m comment --comment "$MWAN_RULE_TAG" -o "ppp$count" -s "$lanip/24" -j FULLCONENAT
+		mwan_run iptables -t nat -A PREROUTING -m comment --comment "$MWAN_RULE_TAG" -i "ppp$count" -j FULLCONENAT
 		mwan_run ip rule add fwmark "2$i" table "2${i}0"
 		mwan_run ip route add default via "$ppp_ip" dev "ppp$count" table "2${i}0"
 	fi

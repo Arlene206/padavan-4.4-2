@@ -170,24 +170,36 @@ require(
     and "MWAN_FLUSH_FAILED=1" in DETECT[flush_helper_start:flush_helper_end]
     and 'mwan_flush_fail "$rc" "iptables-save -t $table"' in DETECT
     and 'mwan_flush_fail 2 "cannot safely parse $table iptables-save rule"' in DETECT
-    and 'mwan_flush_fail "$rc" "iptables -t $table rule deletion"' in DETECT,
+    and 'mwan_flush_fail "$rc" "iptables -t $table rule deletion"' in DETECT
+    and 'MWAN_RULE_TAG="Padavan-PPPoE-MWAN"' in DETECT
+    and 'mwan_rule_is_owned()' in DETECT
+    and '[ "${MWAN_RULE_ARGS[i+1]}" = "$MWAN_RULE_TAG" ]' in DETECT,
     "snapshot, parse and old-rule deletion failures must poison prior-policy cleanup",
 )
-flush_start = DETECT.index("mwan_flush_iptables mangle ctstate")
+flush_start = DETECT.index("mwan_flush_iptables mangle")
 flush_gate = DETECT.index('if [ "$MWAN_FLUSH_FAILED" -ne 0 ]; then', flush_start)
 new_policy_start = DETECT.index(chr(10) + "last=1", flush_start)
 require(
-    DETECT.index("mwan_flush_iptables mangle br0", flush_start) < flush_gate
-    and DETECT.index("mwan_flush_iptables nat ppp", flush_start) < flush_gate
+    DETECT.index("mwan_flush_iptables nat", flush_start) < flush_gate
     and flush_gate < DETECT.index('mwan_run ip route flush cache', flush_gate)
     and DETECT.index('exit "$MWAN_STATUS"', flush_gate) < new_policy_start,
-    "all independent cleanup must precede cache flush and abort before new policy",
+    "both owned-rule tables must be cleaned before cache flush and abort before new policy",
+)
+iptables_add_lines = [
+    line.strip() for line in DETECT.splitlines()
+    if line.strip().startswith("mwan_run iptables")
+]
+require(
+    len(iptables_add_lines) == 7
+    and all('--comment "$MWAN_RULE_TAG"' in line for line in iptables_add_lines),
+    "every newly generated multi-WAN iptables rule must carry the exact owner marker",
 )
 require(
     "PPPoE-MWAN mangle snapshot failure blocks new policy: PASS" in DETECT_TEST
     and "PPPoE-MWAN NAT snapshot failure blocks new policy: PASS" in DETECT_TEST
     and "PPPoE-MWAN old-rule deletion failure blocks new policy: PASS" in DETECT_TEST
-    and "PPPoE-MWAN malformed saved rule blocks new policy: PASS" in DETECT_TEST,
+    and "PPPoE-MWAN malformed saved rule blocks new policy: PASS" in DETECT_TEST
+    and "PPPoE-MWAN cleanup deletes only rules with the exact owner comment: PASS" in DETECT_TEST,
     "PPPoE-MWAN cleanup fail-closed regression matrix is incomplete",
 )
 
