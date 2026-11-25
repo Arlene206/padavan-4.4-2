@@ -1797,6 +1797,40 @@ Return Value:
 Note:
 ========================================================================
 */
+#ifdef FT_KDP_FUNC_PKT_ENCRYPT
+/* Keep the IOCTL's signed output length until it is checked against the
+ * extra security tail reserved by every IAPP transmit buffer. */
+static BOOLEAN IAPP_EncryptFrame(
+	RTMP_IAPP *pCtrlBK,
+	UCHAR *pFrame,
+	UINT32 *pFrameLen,
+	INT32 if_idx)
+{
+	UINT32 InputLen;
+	INT32 EncryptedLen;
+
+	InputLen = *pFrameLen;
+	if (InputLen > 0x7fffffffU - IAPP_SECURITY_EXTEND_LEN)
+		return FALSE;
+
+	EncryptedLen = (INT32)InputLen;
+	if (IAPP_IOCTL_TO_WLAN(pCtrlBK, RT_IOCTL_IAPP, pFrame,
+			       &EncryptedLen, if_idx, RT_FT_DATA_ENCRYPT) == FALSE)
+		return FALSE;
+
+	if (!iapp_rx_length_within_capacity(
+			(size_t)InputLen + IAPP_SECURITY_EXTEND_LEN, EncryptedLen)) {
+		DBGPRINT(RT_DEBUG_ERROR,
+			 "iapp> Invalid encrypted frame length (%d, input=%u)!\n",
+			 EncryptedLen, InputLen);
+		return FALSE;
+	}
+
+	*pFrameLen = (UINT32)EncryptedLen;
+	return TRUE;
+}
+#endif /* FT_KDP_FUNC_PKT_ENCRYPT */
+
 static BOOLEAN IAPP_UDP_PacketSend(
 	IAPP_IN		RTMP_IAPP	*pCtrlBK,
 	IAPP_IN		UCHAR		*pPkt,
@@ -1844,7 +1878,7 @@ static BOOLEAN IAPP_UDP_PacketSend(
 	
 #ifdef FT_KDP_FUNC_PKT_ENCRYPT
 	/* ioctl to encrypt */
-	if (IAPP_IOCTL_TO_WLAN(pCtrlBK, RT_IOCTL_IAPP, pBufEncrypt, &total_len, if_idx, RT_FT_DATA_ENCRYPT) == FALSE) {
+	if (IAPP_EncryptFrame(pCtrlBK, pBufEncrypt, &total_len, if_idx) == FALSE) {
 		DBGPRINT(RT_DEBUG_ERROR, "iapp> RRB Encrypt frame failed!\n");
 		return FALSE;
 	}
@@ -3656,8 +3690,10 @@ static BOOLEAN IAPP_TCP_PacketSend(
 	{
 #ifdef FT_KDP_FUNC_PKT_ENCRYPT
 		/* ioctl to encrypt */
-		IAPP_IOCTL_TO_WLAN(pCtrlBK, RT_IOCTL_IAPP,
-							pBufEncrypt, &PktLen, if_idx, RT_FT_DATA_ENCRYPT);
+		if (IAPP_EncryptFrame(pCtrlBK, pBufEncrypt, &PktLen, if_idx) == FALSE) {
+			DBGPRINT(RT_DEBUG_ERROR, "iapp> TCP encryption failed or returned invalid length!\n");
+			goto label_fail;
+		}
 #endif // FT_KDP_FUNC_PKT_ENCRYPT //
 
 		//IAPP_HEX_DUMP("Send Content: ", pPkt, PktLen); //snowpin test
@@ -3780,8 +3816,10 @@ static VOID FT_KDP_SecurityBlockSend(
 	{
 #ifdef FT_KDP_FUNC_PKT_ENCRYPT
 		/* ioctl to encrypt */
-		IAPP_IOCTL_TO_WLAN(pCtrlBK, RT_IOCTL_IAPP,
-							pBufFrame, &buf_len, if_idx, RT_FT_DATA_ENCRYPT);
+		if (IAPP_EncryptFrame(pCtrlBK, pBufFrame, &buf_len, if_idx) == FALSE) {
+			DBGPRINT(RT_DEBUG_ERROR, "iapp> Security-block encryption failed or returned invalid length!\n");
+			goto label_fail;
+		}
 #endif // FT_KDP_FUNC_PKT_ENCRYPT //
 
 		if (IAPP_TCP_WriteFrame(SocketPeer, pBufFrame, buf_len) != TRUE)
@@ -3886,8 +3924,10 @@ static VOID FT_KDP_SecurityBlockAck(
 
 #ifdef FT_KDP_FUNC_PKT_ENCRYPT
 	/* ioctl to encrypt */
-	IAPP_IOCTL_TO_WLAN(pCtrlBK, RT_IOCTL_IAPP,
-						pBufFrame, &PktLen, if_idx, RT_FT_DATA_ENCRYPT);
+	if (IAPP_EncryptFrame(pCtrlBK, pBufFrame, &PktLen, if_idx) == FALSE) {
+		DBGPRINT(RT_DEBUG_ERROR, "iapp> FT response encryption failed or returned invalid length!\n");
+		goto label_fail;
+	}
 #endif // FT_KDP_FUNC_PKT_ENCRYPT //
 
 	/* send out the frame */
@@ -4052,8 +4092,10 @@ static VOID FT_KDP_InformationResponseSend(
 
 #ifdef FT_KDP_FUNC_PKT_ENCRYPT
 	/* ioctl to encrypt */
-	IAPP_IOCTL_TO_WLAN(pCtrlBK, RT_IOCTL_IAPP,
-						pBufFrame, &PktLen, if_idx, RT_FT_DATA_ENCRYPT);
+	if (IAPP_EncryptFrame(pCtrlBK, pBufFrame, &PktLen, if_idx) == FALSE) {
+		DBGPRINT(RT_DEBUG_ERROR, "iapp> FT response encryption failed or returned invalid length!\n");
+		goto label_fail;
+	}
 #endif // FT_KDP_FUNC_PKT_ENCRYPT //
 
 	/* send out the frame */
@@ -4207,9 +4249,11 @@ static VOID FT_RRB_ActionForward(
 	/* the address of pEvtHdr->EventLen is not 4B align */
 	EvtLen = pEvtHdr->EventLen;
 
-	IAPP_IOCTL_TO_WLAN(pCtrlBK, RT_IOCTL_IAPP,
-						pFrameRRB->FTActionFrame, &EvtLen,
-						if_idx, RT_FT_DATA_ENCRYPT);
+	if (IAPP_EncryptFrame(pCtrlBK, pFrameRRB->FTActionFrame,
+			      &EvtLen, if_idx) == FALSE) {
+		DBGPRINT(RT_DEBUG_ERROR, "iapp> RRB encryption failed or returned invalid length!\n");
+		goto LabelFail;
+	}
 
 	/* reassign the packet length due to changed pEvtHdr->EventLen */
 	PktLen = sizeof(FT_RRB_FRAME) + EvtLen;

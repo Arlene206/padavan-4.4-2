@@ -24,4 +24,11 @@ iapp_rx_frame_length_matches(size_t received_size, size_t declared_size)
 	return received_size == declared_size;
 }
 
+static inline int
+iapp_rx_length_within_capacity(size_t capacity, int returned_length)
+{
+	return returned_length >= 0 &&
+	       (size_t)returned_length <= capacity;
+}
+
 #endif /* IAPP_RX_LENGTH_POLICY_H */

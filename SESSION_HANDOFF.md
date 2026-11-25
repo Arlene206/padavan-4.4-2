@@ -1,27 +1,27 @@
 ## Current repository state — 2026-11-25
 
-- Main base before driver-returned length validation: 88ba947616c1fd7e17654ec46c3da1a3f6eba600; TCP/UDP decrypt output bounds, signal-context ioctl validation, lifecycle assertions, dev log and handoff are one atomic descendant (THIS COMMIT).
+- Main base before transmit encryption-result validation: 825396976a0a22ad76d9c2088080444af4d00408; checked helper, six call-site conversions, signed-length policy tests, lifecycle assertions, dev log and handoff are one atomic descendant (THIS COMMIT).
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Parent 88ba947616c1fd7e17654ec46c3da1a3f6eba600 added FD_SETSIZE guard before FD_SET. Exact parent Actions were queued at last poll: XY #45694070174, AI #45694069551, IAPP #45694069482, Process #45694069373, inventory #45694069366; NVRAM #45694069370 pending.
-- Earlier exact SHA 38203101672429c5cd945c98fd28125e16f82b4b: IAPP #45693736848 PASS, process inventory #45693736636 PASS, process lifecycle #45693736725 PASS, AI #45693736612 PASS; XY #45693736641 was still building at last poll; NVRAM #45693736667 in progress.
-- This slice handles a critical IOCTL in/out length contract: keep actual TCP/UDP input length before decrypt and reject negative or larger driver-returned plaintext sizes before parser access; `IAPP_USR2Handle` rejects query-signal IOCTL failure/returned size beyond its allocated `RT_SIGNAL_STRUC` before pipe write.
-- Exact XY-C1 L3 Build/TRX/artifact PASS last verified on `e1f16872b7e2792db9acf0184f2fe9c5d736c966`; no later SHA inherits.
-- Prior security hardening still present: exact IAPP header length, TCP partial read/write and five-second read timeout, FD_SETSIZE guard, fixed notification structures, AP/SSB data bounds, raw RRB pre/post decrypt lengths, driver signal EventLen.
+- Parent 825396976a0a22ad76d9c2088080444af4d00408 exact Actions at last poll: Process lifecycle inventory #45694272727 and Process regression #45694272601 in progress; XY-C1 #45694272590 in progress; IAPP #45694272587 in progress; AI #45694272576 in progress; NVRAM #45694272568 pending.
+- Parent 88ba947616c1fd7e17654ec46c3da1a3f6eba600: IAPP #45694069482 PASS, process regression #45694069373 PASS, inventory #45694069366 PASS, AI #45694069551 PASS; XY #45694070174 still building; NVRAM #45694069370 in progress.
+- Driver-returned decrypt lengths are checked against original TCP/UDP input sizes; signal-context query status and reported size are bounded before forwarding.
+- New send-side finding: driver encryption ioctls can mutate output lengths and several callers ignored ioctl failure. A failed operation could still send plaintext; oversized lengths could read stale bytes. `IAPP_EncryptFrame()` now checks status plus signed output size against input + 32-byte reserved tail for all six transmit paths.
+- Exact XY-C1 L3 Build/TRX/artifact remains confirmed only on `e1f16872b7e2792db9acf0184f2fe9c5d736c966`; no later SHA inherits it.
 
 ## Active task
 
-Validate ioctl output-length protections on exact IAPP/XY Actions; inspect remaining encryption ioctl output capacity before TCP/UDP sends and raw RRB forwarding.
+Validate the encryption wrapper on exact IAPP/XY Actions. Next audit other driver IOCTL output-length consumers and raw RRB output/send capacity.
 
 ## Exact first actions for next GPT
 
-1. Poll exact 88ba Actions (IAPP/XY/Process/AI/NVRAM) and this descendant's workflows independently by SHA.
-2. Confirm GNU89 ASan/UBSan and shell assertions for decrypt returned sizes and query signal output bound.
-3. Inspect every encryption ioctl in send paths: compare returned output length to allocated buffer capacity before send; especially RRB `FT_RRB_ActionForward` and `IAPP_TCP_PacketSend`.
-4. Keep backup frozen; main-only complete-tree atomic commits and non-force expected-SHA update.
+1. Poll parent 825396 exact IAPP/XY/Process/AI/NVRAM results, then THIS COMMIT's exact-head checks independently.
+2. Confirm GNU89 ASan/UBSan signed-length tests and shell count for all six IAPP_EncryptFrame call paths.
+3. Inspect raw RRB frame output capacity and encrypt length after wrapper, then audit `RT_QUERY_SIGNAL_CONTEXT` and remaining IOCTL consumers.
+4. Keep backup frozen; main-only complete-tree atomic commits and non-force expected-SHA updates.
 
 ## Execution contract
 
-Main only; one complete tree/atomic task commit, non-force expected-SHA ref update. No force push, branch or PR. PENDING does not block.
+Main only; one complete tree per logical task, update with exact expected SHA and force=false. No force-push, branch or PR. PENDING does not block.
 
 ## 2026-11-25 autonomous handoff checkpoint
 

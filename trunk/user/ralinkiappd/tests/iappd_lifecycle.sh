@@ -163,6 +163,10 @@ grep -Fq 'iapp_rx_buffer_append_fits(sizeof(RT_SIGNAL_STRUC), 0' "$iapp_source" 
   fail "driver signal-context ioctl output must fit its allocated structure"
 grep -Fq 'Query signal context ioctl failed' "$iapp_source" ||
   fail "driver signal-context ioctl failure must not forward uninitialized bytes"
+grep -Fq 'iapp_rx_length_within_capacity(' "$iapp_source" ||
+  fail "IAPP encryption must validate signed driver-returned output lengths"
+[ "$(grep -F -c 'IAPP_EncryptFrame(' "$iapp_source")" -eq 7 ] ||
+  fail "all six transmit encryption paths must use the checked wrapper"
 grep -Fq 'IAPP_TCP_ReadFrame(SockNew, pPktBuf, IAPP_MAX_RCV_PKT_SIZE)' "$iapp_source" ||
   fail "IAPP TCP receive must accumulate fragmented frames through EOF"
 grep -Fq '#define IAPP_TCP_FRAME_TIMEOUT_SEC 5' "$iapp_source" ||
