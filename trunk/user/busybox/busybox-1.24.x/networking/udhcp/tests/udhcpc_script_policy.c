@@ -137,6 +137,51 @@ static int test_static_routes_reject_malformed_trailing_tuples(void)
 }
 
 
+static int test_6rd_option_rejects_invalid_prefixes_and_partial_br_addresses(void)
+{
+	static const uint8_t valid_one_relay[] = {
+		8, 32,
+		0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0,
+		192, 0, 2, 1
+	};
+	static const uint8_t valid_two_relays[] = {
+		8, 32,
+		0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0,
+		192, 0, 2, 1, 198, 51, 100, 1
+	};
+	static const uint8_t too_short[21] = { 8, 32 };
+	static const uint8_t partial_one[23] = { 8, 32 };
+	static const uint8_t partial_two[24] = { 8, 32 };
+	static const uint8_t partial_three[25] = { 8, 32 };
+	static const uint8_t invalid_ipv4_mask[22] = { 33, 32 };
+	static const uint8_t invalid_prefix_length[22] = { 32, 129 };
+	static const uint8_t invalid_combined_prefix[22] = { 0, 97 };
+
+	CHECK(udhcpc_6rd_option_is_well_formed(valid_one_relay,
+					      sizeof(valid_one_relay)));
+	CHECK(udhcpc_6rd_option_is_well_formed(valid_two_relays,
+					      sizeof(valid_two_relays)));
+	CHECK(!udhcpc_6rd_option_is_well_formed(NULL, 22U));
+	CHECK(!udhcpc_6rd_option_is_well_formed(too_short,
+					       sizeof(too_short)));
+	CHECK(!udhcpc_6rd_option_is_well_formed(partial_one,
+					       sizeof(partial_one)));
+	CHECK(!udhcpc_6rd_option_is_well_formed(partial_two,
+					       sizeof(partial_two)));
+	CHECK(!udhcpc_6rd_option_is_well_formed(partial_three,
+					       sizeof(partial_three)));
+	CHECK(!udhcpc_6rd_option_is_well_formed(invalid_ipv4_mask,
+					       sizeof(invalid_ipv4_mask)));
+	CHECK(!udhcpc_6rd_option_is_well_formed(invalid_prefix_length,
+					       sizeof(invalid_prefix_length)));
+	CHECK(!udhcpc_6rd_option_is_well_formed(invalid_combined_prefix,
+					       sizeof(invalid_combined_prefix)));
+	return 0;
+}
+
+
 static int test_effective_lease_time_bounds_match_client_timer(void)
 {
 	CHECK(udhcpc_lease_time_effective(0U, 0) == 3600U);
@@ -479,6 +524,7 @@ int main(void)
 	    test_dhcp_option_overload_is_unique_to_main_field() != 0 ||
 	    test_fixed_route_options_reject_partial_tuples() != 0 ||
 	    test_static_routes_reject_malformed_trailing_tuples() != 0 ||
+	    test_6rd_option_rejects_invalid_prefixes_and_partial_br_addresses() != 0 ||
 	    test_subnet_mask_requires_contiguous_network_bits() != 0 ||
 	    test_option_bitmap_mask_uses_unsigned_high_bit() != 0 ||
 	    test_effective_lease_time_bounds_match_client_timer() != 0 ||

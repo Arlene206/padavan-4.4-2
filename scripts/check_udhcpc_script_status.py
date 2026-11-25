@@ -136,6 +136,16 @@ assert "temp[-OPT_DATA + OPT_LEN]" in fill_envp
 assert fixed_routes_guard < fixed_routes_invalid < fixed_routes_convert
 assert static_routes_guard < static_routes_invalid < static_routes_convert
 assert "udhcpc_fixed_route_list_option_is_well_formed" in policy
+assert "udhcpc_6rd_option_is_well_formed" in policy
+assert "udhcpc_6rd_option_is_well_formed" in fill_envp
+assert "((dhcp_optflags[i].flags & OPTION_TYPE_MASK) == OPTION_STATIC_ROUTES)" in fill_envp
+assert "#if ENABLE_FEATURE_UDHCP_RFC5969" in fill_envp
+assert "((dhcp_optflags[i].flags & OPTION_TYPE_MASK) == OPTION_6RD)" in fill_envp
+assert "while (len >= 4)" in dhcpc
+assert "len -= 1 + 1 + 16;" in dhcpc
+assert "len -= 1 + 1 + 16 + 4;" not in dhcpc
+assert "test_6rd_option_rejects_invalid_prefixes_and_partial_br_addresses" in test
+assert "test_6rd_option_rejects_invalid_prefixes_and_partial_br_addresses() != 0" in test
 assert "test_fixed_route_options_reject_partial_tuples" in test
 assert "test_fixed_route_options_reject_partial_tuples() != 0" in test
 assert "test_static_routes_reject_malformed_trailing_tuples" in test

@@ -360,16 +360,14 @@ static NOINLINE char *xmalloc_optname_optval(uint8_t *option, const struct dhcp_
 				/* 6rdPrefix */
 				dest += sprint_nip6(dest, /* "", */ option);
 				option += 16;
-				len -= 1 + 1 + 16 + 4;
-				/* "+ 4" above corresponds to the length of IPv4 addr
-				 * we consume in the loop below */
-				while (1) {
+				len -= 1 + 1 + 16;
+				/* The validated remainder contains complete IPv4 relay
+				 * addresses only; never read beyond the option payload. */
+				while (len >= 4) {
 					/* 6rdBRIPv4Address(es) */
 					dest += sprint_nip(dest, " ", option);
 					option += 4;
-					len -= 4; /* do we have yet another 4+ bytes? */
-					if (len < 0)
-						break; /* no */
+					len -= 4;
 				}
 			}
 
@@ -565,7 +563,7 @@ static char **fill_envp(struct dhcp_packet *packet)
 			else
 				*curr = xmalloc_optname_optval(
 					temp, &dhcp_optflags[i], opt_name);
-		} else if (dhcp_optflags[i].flags & OPTION_STATIC_ROUTES) {
+		} else if ((dhcp_optflags[i].flags & OPTION_TYPE_MASK) == OPTION_STATIC_ROUTES) {
 			unsigned int route_option_length = temp[-OPT_DATA + OPT_LEN];
 
 			/* xmalloc_optname_optval() stops at a malformed tuple and
@@ -577,6 +575,16 @@ static char **fill_envp(struct dhcp_packet *packet)
 			else
 				*curr = xmalloc_optname_optval(
 					temp, &dhcp_optflags[i], opt_name);
+#if ENABLE_FEATURE_UDHCP_RFC5969
+		} else if ((dhcp_optflags[i].flags & OPTION_TYPE_MASK) == OPTION_6RD) {
+			unsigned int option_length = temp[-OPT_DATA + OPT_LEN];
+
+			if (!udhcpc_6rd_option_is_well_formed(temp, option_length))
+				*curr = xasprintf("%s=!invalid!", opt_name);
+			else
+				*curr = xmalloc_optname_optval(
+					temp, &dhcp_optflags[i], opt_name);
+#endif
 		} else {
 			*curr = xmalloc_optname_optval(temp, &dhcp_optflags[i], opt_name);
 		}

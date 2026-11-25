@@ -83,6 +83,26 @@ udhcpc_static_routes_option_is_well_formed(const uint8_t *option,
 	return 1;
 }
 
+/* RFC 5969 option 0x96/0xd4: two length bytes, a 16-byte prefix,
+ * and one or more four-byte border-relay IPv4 addresses. */
+static inline int
+udhcpc_6rd_option_is_well_formed(const uint8_t *option,
+				unsigned int length)
+{
+	unsigned int ipv4_mask_length, prefix_length;
+
+	if (!option || length < 22U)
+		return 0;
+
+	ipv4_mask_length = option[0];
+	prefix_length = option[1];
+	if (ipv4_mask_length > 32U || prefix_length > 128U ||
+	    prefix_length + (32U - ipv4_mask_length) > 128U)
+		return 0;
+
+	return ((length - 22U) % 4U) == 0U;
+}
+
 /* Use an unsigned left operand: option codes can select the top bitmap bit. */
 static inline unsigned int
 udhcpc_option_bitmap_mask(unsigned int option_code)
