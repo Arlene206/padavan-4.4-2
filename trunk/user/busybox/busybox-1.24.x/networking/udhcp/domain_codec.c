@@ -45,19 +45,28 @@ char* FAST_FUNC dname_dec(const uint8_t *cstr, int clen, const char *pre)
 		 * dst isn't yet allocated */
 		const uint8_t *c;
 		unsigned crtpos, retpos, depth, len;
+		int name_terminated;
 
 		crtpos = retpos = depth = len = 0;
+		name_terminated = 0;
 		while (crtpos < clen) {
 			c = cstr + crtpos;
 
 			if ((*c & NS_CMPRSFLGS) == NS_CMPRSFLGS) {
+				unsigned target;
+
 				/* pointer */
 				if (crtpos + 2 > clen) /* no offset to jump to? abort */
+					return NULL;
+				target = ((c[0] & 0x3f) << 8) | c[1];
+				/* RFC1035 pointers must reference a preceding name. */
+				if (target >= crtpos)
 					return NULL;
 				if (retpos == 0) /* toplevel? save return spot */
 					retpos = crtpos + 2;
 				depth++;
-				crtpos = ((c[0] & 0x3f) << 8) | c[1]; /* jump */
+				name_terminated = 0;
+				crtpos = target; /* jump */
 			} else if (*c) {
 				/* label */
 				if (crtpos + *c + 1 > clen) /* label too long? abort */
@@ -69,6 +78,7 @@ char* FAST_FUNC dname_dec(const uint8_t *cstr, int clen, const char *pre)
 				crtpos += *c + 1;
 			} else {
 				/* NUL: end of current domain name */
+				name_terminated = 1;
 				if (retpos == 0) {
 					/* toplevel? keep going */
 					crtpos++;
@@ -91,7 +101,8 @@ char* FAST_FUNC dname_dec(const uint8_t *cstr, int clen, const char *pre)
 			}
 		}
 
-		if (!len) /* expanded string has 0 length? abort */
+		/* A truncated label or pointer must not be accepted as a name. */
+		if (!name_terminated || !len)
 			return NULL;
 
 		if (!dst) { /* first pass? */
@@ -225,10 +236,62 @@ uint8_t* FAST_FUNC dname_enc(const uint8_t *cstr, int clen, const char *src, int
 
 #ifdef DNS_COMPR_TESTING
 /* gcc -Wall -DDNS_COMPR_TESTING domain_codec.c -o domain_codec && ./domain_codec */
+static int expect_decoded(const uint8_t *wire, int wire_len, const char *expected)
+{
+	char *decoded = dname_dec(wire, wire_len, "");
+
+	if (decoded == NULL || strcmp(decoded, expected) != 0) {
+		fprintf(stderr, "unexpected decode result for %s: %s\\n",
+			expected, decoded ? decoded : "(null)");
+		free(decoded);
+		return -1;
+	}
+	free(decoded);
+	return 0;
+}
+
+static int expect_rejected(const uint8_t *wire, int wire_len)
+{
+	char *decoded = dname_dec(wire, wire_len, "");
+
+	if (decoded != NULL) {
+		fprintf(stderr, "accepted malformed compressed domain: %s\\n", decoded);
+		free(decoded);
+		return -1;
+	}
+	return 0;
+}
+
+static int test_domain_decoder_bounds(void)
+{
+	static const uint8_t valid_compressed[] = {
+		3, 'f', 'o', 'o', 3, 'b', 'a', 'r', 0,
+		3, 'w', 'w', 'w', 0xc0, 0x04
+	};
+	static const uint8_t truncated_label[] = { 3, 'f', 'o', 'o' };
+	static const uint8_t pointer_past_end[] = { 3, 'f', 'o', 'o', 0xc0, 0x20 };
+	static const uint8_t forward_pointer[] = { 0xc0, 0x02, 1, 'x', 0 };
+
+	if (expect_decoded(valid_compressed, sizeof(valid_compressed),
+			   "foo.bar www.bar") != 0 ||
+	    expect_rejected(truncated_label, sizeof(truncated_label)) != 0 ||
+	    expect_rejected(pointer_past_end, sizeof(pointer_past_end)) != 0 ||
+	    expect_rejected(forward_pointer, sizeof(forward_pointer)) != 0)
+		return -1;
+
+	return 0;
+}
+
 int main(int argc, char **argv)
 {
 	int len;
 	uint8_t *encoded;
+
+	(void)argc;
+	(void)argv;
+	if (test_domain_decoder_bounds() != 0)
+		return 1;
+	puts("RFC1035 domain decoder malformed-input bounds: PASS");
 
 	uint8_t str[6] = { 0x00, 0x00, 0x02, 0x65, 0x65, 0x00 };
 	printf("NUL:'%s'\n",   dname_dec(str, 6, ""));

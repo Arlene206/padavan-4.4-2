@@ -1,3 +1,10 @@
+## 2026-11-25 — Reject truncated and forward RFC1035 domain compression
+
+- `dname_dec()` previously accepted a domain that reached the end of its option buffer without an encoded root terminator. In particular, a label followed by a compression pointer whose target was beyond the option length could be returned as a valid but truncated name. The decoder also followed forward/self-referential compression targets even though RFC1035 pointers are backward references; the existing jump-depth cap prevented unbounded loops but did not enforce the wire-format rule.
+- Track explicit completion of each expanded name and reject any path that reaches the buffer end without a root terminator. Require each compression target to precede the pointer. Added sanitizer-backed cases for valid backward compression, truncated labels, out-of-range targets and forward targets. Exact SHA workflow run pending; no local compiler result claimed.
+
+---
+
 ## 2026-11-25 — Anchor DHCPv6 interface contract at the function definition
 
 - On exact SHA `14e4051`, the GNU89 ASan/UBSan policy binary passed, but the DHCPv6 source checker failed before its new assertion: its generic function parser matched the `if6init()` forward declaration, then encountered the intervening enum brace instead of the function body.
