@@ -1,3 +1,13 @@
+## 2026-11-26 06:05 CST (UTC+8) — Validate static and DHCPv6 WAN DNS server literals
+
+- Static WAN DNS fields `ip6_dns1..3` were combined into the resolver-facing value without validating each slot. DHCPv6 `new_domain_name_servers` was copied into the `dns6` NVRAM value without validating its individual addresses. Malformed text or CR/LF could therefore enter resolver state.
+- Added `wan6_dns_validate_static_server()` and `wan6_dns_validate_server_list()`. Static slots accept valid IPv6 literals or empty optional slots; dynamic lists accept space/tab-separated IPv6 literals or an empty withdrawal. NULL, overlong, malformed, hostname, IPv4, prefix and control-character input is rejected before NVRAM read/publication, preserving the previous setting.
+- Regression additions cover valid IPv6, optional empty slots, dynamic withdrawal, multiple servers, malformed later tokens, IPv4, prefixes, hostname, malformed IPv6 and CR/LF injection. `WAN IPv6 static DNS literal validation` #45710242187 PASS on exact SHA `c0926c379f6f9774d4992ef550353a98a347a690`. The workflow compiles with GNU89, `-Wall -Wextra -Werror` and ASan/UBSan, then checks production call ordering.
+- Same-SHA WAN route #45710242121, WAN DHCP callback #45710242082, WAN 6rd #45710242043, IPv6 service-type #45710241898, HTTPD #45710242155, Process inventory #45710242116 and NVRAM #45710242112 PASS. XY-C1 #45710242062 remained IN_PROGRESS at Build XY-C1; TRX and artifact upload were pending. No current-source firmware L3 or physical L4 result is claimed.
+- Changed paths: `net_wan6.c`, `wan6_dns_policy.h`, `tests/wan6_dns_policy.c`, `scripts/check_wan6_dns_policy.py`, `.github/workflows/wan6-dns-policy-stability.yml`.
+
+---
+
 ## 2026-11-26 03:24 CST (UTC+8) — Normalize ZeroTier /32 route display during cleanup
 
 - `zero_route_entry_matches()` compared the configured NVRAM destination to the first `ip route show` token literally. iproute2 may render a host route without its explicit `/32`, so a configured `192.0.2.7/32` could be classified as already absent when the kernel inventory returned `192.0.2.7`. Stop could then remove persistent ZeroTier configuration while leaving that static route attached to the interface.

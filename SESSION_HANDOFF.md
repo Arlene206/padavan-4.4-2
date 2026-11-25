@@ -1,24 +1,25 @@
 ## Current repository state — 2026-11-26
 
-- Live main parent before this ZeroTier route fix: `64c4757e296144e5a2e81efeace34c5169128017`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Exact-head actions on `64c4757e`: USB modem identity/stability #45708933844 PASS; Process lifecycle inventory #45708933888 PASS; HTTPD auth/disclosure #45708933932 PASS; AI handoff docs #45708933958 PASS. NVRAM boundary #45708933862 and XY-C1 firmware #45708934022 were IN_PROGRESS at the last poll; do not infer their outcome.
-- Exact-head actions on prior `38fe0fad`: WAN 6rd #45708135345, NVRAM #45708135328, Process #45708135338, and AI handoff #45708135299 PASS.
+- Live `main` SHA: `c0926c379f6f9774d4992ef550353a98a347a690` (parent `3468cc2ba0af5c80f674aa7cb0f4fe585ab80e12`). Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Current source hardens both static and DHCPv6-provided WAN DNS values. Static `ip6_dns1..3` now require one valid IPv6 literal per non-empty slot. Dynamic `new_domain_name_servers` is parsed as whitespace-delimited IPv6 literals; malformed tokens and control characters abort before NVRAM publication, preserving the last-known-good resolver state. See `wan6_dns_policy.h`, `tests/wan6_dns_policy.c`, and `check_wan6_dns_policy.py`.
+- Exact-head Actions on `c0926c37`: WAN IPv6 static/DHCP DNS policy #45710242187 PASS; HTTPD auth/security #45710242155 PASS; WAN route operation status #45710242121 PASS; Process lifecycle inventory #45710242116 PASS; NVRAM transaction audit #45710242112 PASS; WAN DHCP callback state #45710242082 PASS; WAN 6rd multi-relay #45710242043 PASS; IPv6 service-type checked-read #45710241898 PASS. XY-C1 firmware #45710242062 remained IN_PROGRESS at last poll: Build XY-C1 running, TRX verification and artifact upload pending.
+- This main also contains the previous ZeroTier /32 route-display normalization, DHCPv4/v6 6rd hardening, CA bundle no-follow checks, VSFTPD STOU probe budget and HTTP response ordering, plus the cross-userland fixes recorded below.
+- No current-source firmware L3 success or physical-router L4 behavior is claimed until the exact-SHA XY-C1 Build, TRX and artifact steps all pass; host Actions do not verify hardware behavior.
 
 ## Active task
 
-ZeroTier static-route shutdown compared the NVRAM destination to iproute2's displayed route token literally. Linux/iproute2 may omit `/32` when displaying a host route; a configured `192.0.2.7/32` therefore appeared absent when the route inventory returned `192.0.2.7`. Shutdown could then skip deletion and remove persistent configuration, orphaning a route on the ZeroTier interface. The matcher now treats bare IPv4 addresses and the same explicit `/32` as one route key while keeping all other prefixes distinct. The host regression recreates that display form and requires exact route deletion before config removal.
+WAN IPv6 DNS publication consumes two untrusted sources: static NVRAM slots and the DHCPv6 `new_domain_name_servers` environment value. The static slots are individually checked with `inet_pton(AF_INET6)`; the dynamic list is bounded before copying, tokenized on spaces/tabs, and each token must be a valid IPv6 literal. CR/LF and other control characters, IPv4/hostname/prefix tokens, NULL input, and overlong values are rejected before reading or updating the existing `dns6` NVRAM value. This prevents resolver-facing configuration injection and avoids replacing a valid old setting with malformed DHCP input.
 
 ## Verification boundary
 
-- Parent USB modem policy regression, Process inventory, HTTPD auth/disclosure and AI docs Actions passed on exact SHA `64c4757e`; NVRAM and XY-C1 were still running at the last poll.
-- The ZeroTier shell regression and checker update are part of the current slice. Exact-head ZeroTier lifecycle, WAN route integration, Process, AI docs and XY-C1 Actions must be checked after publication.
-- No live-router route operation, MIPS firmware, or L3/L4 result is claimed for this follow-up.
+- Exact `c0926c379f6f9774d4992ef550353a98a347a690`: WAN IPv6 DNS #45710242187 PASS (includes GNU89 `-Wall -Wextra -Werror`, ASan/UBSan policy tests and source-order checker); NVRAM #45710242112 PASS; WAN DHCP callback #45710242082 PASS; WAN route #45710242121 PASS; 6rd #45710242043 PASS; IPv6 service type #45710241898 PASS; HTTPD #45710242155 PASS; Process inventory #45710242116 PASS.
+- XY-C1 #45710242062 was still building at checkpoint. Its TRX check and artifact upload had not started. The latest firmware L3 status is therefore PENDING, not PASS.
+- Earlier WAN 6rd slice `360ccb32e57ffa4689992b3c8efda20cde5d5262` validated the DHCPv6 relay list and selected the first relay for the existing one-relay NVRAM/route model. No physical WAN L4 validation is claimed.
 
-## Exact first actions for next GPT
+## Exact first actions for the next GPT
 
-1. Fetch exact-head ZeroTier lifecycle, WAN route integration, Process inventory, AI docs and XY-C1 Actions for the resulting main SHA; repair same-SHA failures.
-2. Continue an independent Padavan userland reliability/security fix outside the completed RStats snapshot, WAN ARP EINTR retry, DHCP 6rd relay cap, USB SCSI-generic NVRAM checked-read and this ZeroTier host-route normalization. PENDING actions do not block independent work.
+1. Poll exact-SHA XY-C1 run #45710242062 for `c0926c379f6f9774d4992ef550353a98a347a690`; if Build completes, require TRX verification and artifact upload to pass on that same SHA. Diagnose/fix a real failure, but do not block independent development while it is pending.
+2. Continue one new source-level WAN/BusyBox stability slice outside the completed DNS validation. Prioritize the roadmap's remaining IPv6 route edge cases or the live DHCP callback transition semantics; add a focused regression and atomic commit only when a concrete defect is confirmed.
 
 # Cross-session execution mandate
 
