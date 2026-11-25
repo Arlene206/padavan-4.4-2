@@ -1,3 +1,11 @@
+## 2026-11-25 — Reject a symlinked storage root in SCUT cron registration
+
+- The cron helper hardened `cron/` and `cron/crontabs/` but ran `cd /etc/storage` before checking the storage root itself. A symlinked `/etc/storage` would redirect privileged lock and crontab writes into another directory. Require the storage root to be a real directory and not a symlink before changing directory.
+- Added a fixture regression that swaps the test storage root for a symlink to an outside directory and verifies the helper returns failure without creating `cron/` in the target. The process-lifecycle source checker now requires this guard and regression.
+- Pending exact-head crond/process-lifecycle Actions. No local router result is claimed.
+
+---
+
 ## 2026-11-25 — Update remaining MTD fixtures for direct procfs parsing
 
 - The save-retry regression now passes on both host sh and firmware BusyBox ash after replacing the actual /proc/mtd pathname. The next restore-transaction step still used an older cat-wrapper fixture, but production func_get_mtd() now invokes awk directly; that wrapper cannot redirect the read. The backup, load and erase/reset fixtures retained the same stale assumption.

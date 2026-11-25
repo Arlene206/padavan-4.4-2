@@ -16,7 +16,9 @@ case "$6" in
 	[!A-Za-z0-9]*|*[!A-Za-z0-9_.-]*|*..*) exit 2 ;;
 esac
 
-cd /etc/storage || exit 2
+storage_dir=/etc/storage
+[ ! -L "$storage_dir" ] && [ -d "$storage_dir" ] || exit 2
+cd "$storage_dir" || exit 2
 exp=`printf '%s %s %s %s %s' "$1" "$2" "$3" "$4" "$5" | tr 'a' '*'` || exit 2
 cron_file="cron/crontabs/admin"
 script_path="/usr/bin/$6"

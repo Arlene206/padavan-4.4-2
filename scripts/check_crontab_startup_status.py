@@ -67,7 +67,9 @@ assert "boot_services_status = rc_first_service_start_status(" in error_branch
 assert "initial crontab update failed" in error_branch
 
 for required in (
-    "cd /etc/storage || exit 2",
+    "storage_dir=/etc/storage",
+    '[ ! -L "$storage_dir" ] && [ -d "$storage_dir" ] || exit 2',
+    'cd "$storage_dir" || exit 2',
     "[ ! -L cron ] || exit 2",
     "[ ! -L cron/crontabs ] || exit 2",
     '[ ! -L "$cron_file" ] || exit 2',
@@ -90,6 +92,8 @@ for required in (
 assert script.index("flock -x 9") < script.index("while IFS= read -r cron_line")
 assert script.index("while IFS= read -r cron_line") < script.index('>> "$cron_file"')
 assert "run_check 1" in shell_test and "run_check 0" in shell_test
+assert 'ln -s "$WORK/outside" "$TEST_STORAGE_ROOT"' in shell_test
+assert "check_crontab wrote through a symlinked storage root" in shell_test
 assert "TEST_GREP_STATUS" not in shell_test
 assert "Comments and similarly named commands must not suppress the exact job." in shell_test
 assert "Concurrent startups must append at most one identical job." in shell_test

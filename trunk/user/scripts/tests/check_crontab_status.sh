@@ -8,7 +8,7 @@ WORK=$(mktemp -d "${TMPDIR:-/tmp}/check-crontab-status.XXXXXX")
 trap 'rm -rf "$WORK"' EXIT HUP INT TERM
 
 # Exercise the production script with a disposable storage-root fixture.
-sed 's@^cd /etc/storage || exit 2$@cd "$TEST_STORAGE_ROOT" || exit 2@' "$SOURCE" > "$WORK/check_crontab.sh"
+sed 's@^storage_dir=/etc/storage$@storage_dir="$TEST_STORAGE_ROOT"@' "$SOURCE" > "$WORK/check_crontab.sh"
 chmod 755 "$WORK/check_crontab.sh"
 TEST_STORAGE_ROOT="$WORK/storage"
 export TEST_STORAGE_ROOT
@@ -107,5 +107,16 @@ printf '%s\n' '# outside' > "$WORK/outside/admin"
 ln -s "$WORK/outside/admin" "$ADMIN"
 run_check 2 a/1 a a a a scutclient_watchcat.sh
 [ "$(wc -l < "$WORK/outside/admin")" -eq 1 ]
+
+# Reject a symlink at the storage root before cd can redirect privileged writes.
+mv "$TEST_STORAGE_ROOT" "$WORK/storage-real"
+ln -s "$WORK/outside" "$TEST_STORAGE_ROOT"
+run_check 2 a/5 a a a a redirected_storage_root.sh
+[ ! -e "$WORK/outside/cron" ] || {
+	echo "check_crontab wrote through a symlinked storage root" >&2
+	exit 1
+}
+rm "$TEST_STORAGE_ROOT"
+mv "$WORK/storage-real" "$TEST_STORAGE_ROOT"
 
 echo "check_crontab exact identity, concurrency and symlink regression: PASS"
