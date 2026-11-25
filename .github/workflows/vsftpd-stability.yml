@@ -884,7 +884,7 @@ jobs:
           assert rename_path.index("PERM_DELETE") < rename_path.index("PERM_WRITE") < rename_path.index("ftp_acl_path_rename_entry(")
           assert rename_path.count("ftp_acl_path_verify_directory_identity(") == 2
           assert "ftp_acl_path_rename_entry(source_parent_fd, source_leaf" in rename_path
-          assert "return renameat(source_dir_fd, source_leaf" in acl_path_policy
+          assert "return renameat(source_dir_fd, source_leaf" not in rename_policy
           assert '"../shareB/file"' in acl_path_test
           assert "symlinked parent was not canonicalized" in acl_path_test
           policy_fn = function_body(service_wait_policy, "service_daemon_wait_for_stable_presence(")

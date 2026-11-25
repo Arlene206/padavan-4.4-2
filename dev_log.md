@@ -1,3 +1,9 @@
+## 2026-11-24 — Update VSFTPD rename source contract for quarantine implementation
+
+- Exact-head VSFTPD run #45531965044 on `e7f3891614bfbd5a59477ad392d191e05d8ba69c` progressed past the GNU89 C regression executables, including the ACL rename suite and final fixture cleanup, then failed in the inline Python source contract at its old assertion that `ftp_acl_path_rename_entry()` still contains `return renameat(source_dir_fd, source_leaf, ...)`. That direct implementation was intentionally removed by the quarantine fix.
+- Replaced the stale positive assertion with a negative assertion scoped to the extracted rename function; the earlier checks already require the no-replace move into quarantine, post-move `fstatat()`, validation, publication and safe restore. No production or C test source changes in this contract-only follow-up.
+- On `e7f389`, AI handoff #45531964964 and Process inventory #45531964990 PASS; NVRAM #45531964987 and XY-C1 #45531964978 were IN_PROGRESS at last observation. Exact-head VSFTPD and companion checks must be re-run on this new SHA. No local build, MIPS L3 or hardware L4 is claimed.
+
 ## 2026-11-24 — Clean up VSFTPD rename quarantine directories in regression fixture
 
 - Exact-head VSFTPD run #45531752808 on `0019166358a005af4e764fa0d7e2dbe3972599b7` compiled the GNU89 test binary and passed all preceding FTP policy binaries; the new ACL rename assertions (hard-link rejection, multi-link directory compatibility and failed-publication restore) all ran before the final fixture teardown. Teardown then failed with `remove fixture: Directory not empty`.
