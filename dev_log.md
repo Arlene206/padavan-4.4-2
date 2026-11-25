@@ -1,3 +1,12 @@
+## 2026-11-25 — Repair DDNSTO lifecycle regression's truncated grep expression
+
+- Exact DDNSTO workflow #45712559118 on `373b4a12` failed after the process-identity and procfs cases passed. The signal-record assertion at test line 559 had an unterminated single-quoted ERE; its quote captured a later AWK program and grep reported `Unmatched (`.
+- Restored the intended positive numeric PID validation as a bounded count of TERM/KILL signal records. This is test-only; no daemon behavior changed.
+- Local signal-log assertion smoke test PASS. Exact-head DDNSTO lifecycle run for the follow-up SHA is pending at commit creation; no firmware or hardware result is claimed.
+- Changed paths: `trunk/user/ddnsto/tests/ddnsto_lifecycle.sh`, `dev_log.md`.
+
+---
+
 ## 2026-11-25 — Align AliDDNS source contract with stable IPv6 address selection
 
 - The privacy-mode source and shell regression were committed as `5a855d59c5b1313cb4459609ee8444e3589a110d`. Reviewing the full CI path revealed the Python source-contract checker still required the retired `ifconfig` parser, so it would reject the intended implementation.

@@ -556,7 +556,173 @@ echo running > "$TEST_STATE"
 if run_action stuck stop; then fail "stop reported success while daemon remained alive after SIGKILL"; fi
 [ "$(cat "$TEST_LOG")" = "$(printf '%s\n' '-TERM 12345' '-KILL 12345')" ] || fail "stuck daemon did not receive exact-PID TERM then KILL"
 [ "$(wc -l < "$TEST_SLEEP_LOG" | tr -d ' ')" = 10 ] || fail "TERM/KILL waits were not bounded to five polls each"
-grep -Eq '^-TERM [1-9][0-9]*
+[ "$(grep -Ec '^-(TERM|KILL) [1-9][0-9]*echo "DDNSTO stop retains bounded TERM/KILL and fail-closed postconditions: PASS"
+
+# A stop and a concurrent start serialize: start cannot launch until stop has completed.
+: > "$TEST_LOG"
+: > "$TEST_SLEEP_LOG"
+: > "$TEST_OPS"
+echo stopped > "$TEST_STATE"
+run_action normal start || fail "initial start did not confirm daemon presence"
+# The start call now returns only after pidof confirms the detached daemon.
+start_attempt=0
+while { [ "$(cat "$TEST_STATE")" != running ] || [ ! -s "$TEST_DAEMON_PID" ]; } &&
+      [ "$start_attempt" -lt 100 ]; do
+	/bin/sleep 0.02
+	start_attempt=$((start_attempt + 1))
+done
+[ "$(cat "$TEST_STATE")" = running ] && [ -s "$TEST_DAEMON_PID" ] ||
+	fail "mock daemon did not start within the bounded observation window"
+# The detached child must not retain FD 9 and keep the launcher lock held.
+(
+	exec 8>>"$LOCK_FILE"
+	flock -n 8
+) || fail "background DDNSTO child retained the lifecycle lock descriptor"
+
+DDNSTO_LOCK_WAIT_SECONDS=30
+TEST_MODE=slow run_action slow stop &
+stop_pid=$!
+ready_attempt=0
+while ! grep -Fqx TERM-BEGIN "$TEST_OPS" 2>/dev/null && [ "$ready_attempt" -lt 100 ]; do
+	/bin/sleep 0.02
+	ready_attempt=$((ready_attempt + 1))
+done
+grep -Fqx TERM-BEGIN "$TEST_OPS" || fail "slow stop did not enter its critical section"
+run_action normal start || fail "start did not proceed after the serialized stop released the lock"
+wait "$stop_pid" || fail "serialized stop failed"
+DDNSTO_LOCK_WAIT_SECONDS=5
+# The launcher has already waited for validated process presence; observe the
+# detached child's START marker before asserting the serialized event ordering.
+start_after_stop_attempt=0
+while { [ "$(grep -Fxc START "$TEST_OPS" || :)" -lt 2 ] ||
+        [ "$(cat "$TEST_STATE")" != running ]; } &&
+      [ "$start_after_stop_attempt" -lt 100 ]; do
+	/bin/sleep 0.02
+	start_after_stop_attempt=$((start_after_stop_attempt + 1))
+done
+[ "$(grep -Fxc START "$TEST_OPS" || :)" -ge 2 ] &&
+[ "$(cat "$TEST_STATE")" = running ] || fail "serialized replacement start was not observed"
+awk '/TERM-END/ { stop_end = NR } /^START$/ && stop_end && NR > stop_end { started_after_stop = 1 } END { exit !started_after_stop }' "$TEST_OPS" ||
+	fail "concurrent start overlapped the in-progress stop"
+echo "DDNSTO start/stop operations serialize and detached daemons do not retain FD 9: PASS"
+
+# RC restart is one stop/start transaction; disabling DDNSTO still performs stop only.
+: > "$TEST_LOG"
+: > "$TEST_OPS"
+echo running > "$TEST_STATE"
+run_action graceful restart || fail "serialized restart failed"
+# The replacement daemon is detached; wait for its marker with a hard bound.
+restart_attempt=0
+while { [ "$(grep -Fxc START "$TEST_OPS" || :)" -ne 1 ] ||
+        [ "$(cat "$TEST_STATE")" != running ]; } &&
+      [ "$restart_attempt" -lt 100 ]; do
+	/bin/sleep 0.02
+	restart_attempt=$((restart_attempt + 1))
+done
+restart_starts=$(grep -Fxc START "$TEST_OPS" || :)
+if [ "$restart_starts" -ne 1 ]; then
+	echo "restart diagnostics: enable_file=$(cat "$TEST_ENABLE_FILE") state=$(cat "$TEST_STATE") nvram=$(cat "$TEST_NVRAM_LOG") kill=$(cat "$TEST_LOG") ops=$(cat "$TEST_OPS")" >&2
+	fail "restart did not launch exactly one replacement"
+fi
+[ "$(cat "$TEST_STATE")" = running ] || fail "restart replacement was not launched"
+echo 0 > "$TEST_ENABLE_FILE"
+: > "$TEST_OPS"
+run_action graceful restart || fail "disabled restart failed to stop existing daemon"
+[ ! -s "$TEST_OPS" ] || fail "disabled restart launched a replacement"
+[ "$(cat "$TEST_STATE")" = stopped ] || fail "disabled restart left the daemon running"
+
+: > "$TEST_OPS"
+echo stopped > "$TEST_STATE"
+run_action normal start || fail "disabled direct start failed"
+[ ! -s "$TEST_OPS" ] || fail "disabled direct start launched DDNSTO"
+[ "$(cat "$TEST_STATE")" = stopped ] || fail "disabled direct start changed process state"
+
+echo "DDNSTO restart is one serialized stop/start action and honors the disabled state: PASS"
+ "$TEST_LOG" || fail "stop did not signal a numeric PID"
+echo "DDNSTO stop retains bounded TERM/KILL and fail-closed postconditions: PASS"
+
+# A stop and a concurrent start serialize: start cannot launch until stop has completed.
+: > "$TEST_LOG"
+: > "$TEST_SLEEP_LOG"
+: > "$TEST_OPS"
+echo stopped > "$TEST_STATE"
+run_action normal start || fail "initial start did not confirm daemon presence"
+# The start call now returns only after pidof confirms the detached daemon.
+start_attempt=0
+while { [ "$(cat "$TEST_STATE")" != running ] || [ ! -s "$TEST_DAEMON_PID" ]; } &&
+      [ "$start_attempt" -lt 100 ]; do
+	/bin/sleep 0.02
+	start_attempt=$((start_attempt + 1))
+done
+[ "$(cat "$TEST_STATE")" = running ] && [ -s "$TEST_DAEMON_PID" ] ||
+	fail "mock daemon did not start within the bounded observation window"
+# The detached child must not retain FD 9 and keep the launcher lock held.
+(
+	exec 8>>"$LOCK_FILE"
+	flock -n 8
+) || fail "background DDNSTO child retained the lifecycle lock descriptor"
+
+DDNSTO_LOCK_WAIT_SECONDS=30
+TEST_MODE=slow run_action slow stop &
+stop_pid=$!
+ready_attempt=0
+while ! grep -Fqx TERM-BEGIN "$TEST_OPS" 2>/dev/null && [ "$ready_attempt" -lt 100 ]; do
+	/bin/sleep 0.02
+	ready_attempt=$((ready_attempt + 1))
+done
+grep -Fqx TERM-BEGIN "$TEST_OPS" || fail "slow stop did not enter its critical section"
+run_action normal start || fail "start did not proceed after the serialized stop released the lock"
+wait "$stop_pid" || fail "serialized stop failed"
+DDNSTO_LOCK_WAIT_SECONDS=5
+# The launcher has already waited for validated process presence; observe the
+# detached child's START marker before asserting the serialized event ordering.
+start_after_stop_attempt=0
+while { [ "$(grep -Fxc START "$TEST_OPS" || :)" -lt 2 ] ||
+        [ "$(cat "$TEST_STATE")" != running ]; } &&
+      [ "$start_after_stop_attempt" -lt 100 ]; do
+	/bin/sleep 0.02
+	start_after_stop_attempt=$((start_after_stop_attempt + 1))
+done
+[ "$(grep -Fxc START "$TEST_OPS" || :)" -ge 2 ] &&
+[ "$(cat "$TEST_STATE")" = running ] || fail "serialized replacement start was not observed"
+awk '/TERM-END/ { stop_end = NR } /^START$/ && stop_end && NR > stop_end { started_after_stop = 1 } END { exit !started_after_stop }' "$TEST_OPS" ||
+	fail "concurrent start overlapped the in-progress stop"
+echo "DDNSTO start/stop operations serialize and detached daemons do not retain FD 9: PASS"
+
+# RC restart is one stop/start transaction; disabling DDNSTO still performs stop only.
+: > "$TEST_LOG"
+: > "$TEST_OPS"
+echo running > "$TEST_STATE"
+run_action graceful restart || fail "serialized restart failed"
+# The replacement daemon is detached; wait for its marker with a hard bound.
+restart_attempt=0
+while { [ "$(grep -Fxc START "$TEST_OPS" || :)" -ne 1 ] ||
+        [ "$(cat "$TEST_STATE")" != running ]; } &&
+      [ "$restart_attempt" -lt 100 ]; do
+	/bin/sleep 0.02
+	restart_attempt=$((restart_attempt + 1))
+done
+restart_starts=$(grep -Fxc START "$TEST_OPS" || :)
+if [ "$restart_starts" -ne 1 ]; then
+	echo "restart diagnostics: enable_file=$(cat "$TEST_ENABLE_FILE") state=$(cat "$TEST_STATE") nvram=$(cat "$TEST_NVRAM_LOG") kill=$(cat "$TEST_LOG") ops=$(cat "$TEST_OPS")" >&2
+	fail "restart did not launch exactly one replacement"
+fi
+[ "$(cat "$TEST_STATE")" = running ] || fail "restart replacement was not launched"
+echo 0 > "$TEST_ENABLE_FILE"
+: > "$TEST_OPS"
+run_action graceful restart || fail "disabled restart failed to stop existing daemon"
+[ ! -s "$TEST_OPS" ] || fail "disabled restart launched a replacement"
+[ "$(cat "$TEST_STATE")" = stopped ] || fail "disabled restart left the daemon running"
+
+: > "$TEST_OPS"
+echo stopped > "$TEST_STATE"
+run_action normal start || fail "disabled direct start failed"
+[ ! -s "$TEST_OPS" ] || fail "disabled direct start launched DDNSTO"
+[ "$(cat "$TEST_STATE")" = stopped ] || fail "disabled direct start changed process state"
+
+echo "DDNSTO restart is one serialized stop/start action and honors the disabled state: PASS"
+ "$TEST_LOG" || :)" = 2 ] ||
+	fail "force-stop signal records did not carry positive numeric PIDs"
 echo "DDNSTO stop retains bounded TERM/KILL and fail-closed postconditions: PASS"
 
 # A stop and a concurrent start serialize: start cannot launch until stop has completed.
