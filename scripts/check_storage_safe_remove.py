@@ -28,6 +28,7 @@ def body(source, signature):
     require(brace >= 0, "missing function body: " + signature)
     depth = 0
     state = "code"
+    parameter_depth = 0
     index = brace
     while index < len(source):
         char = source[index]
@@ -38,6 +39,12 @@ def body(source, signature):
                 index += 1
             elif char == "/" and nxt == "/":
                 state = "line"
+                index += 1
+            elif char == "$" and nxt == "{":
+                # Shell parameter expansions can contain glob fragments such
+                # as ${target%/*}; do not misread their slash-star as C comments.
+                state = "parameter"
+                parameter_depth = 1
                 index += 1
             elif char == '"':
                 state = "string"
@@ -54,6 +61,14 @@ def body(source, signature):
                 index += 1
             elif (state == "string" and char == '"') or (state == "char" and char == "'"):
                 state = "code"
+        elif state == "parameter":
+            if char == "$" and nxt == "{":
+                parameter_depth += 1
+                index += 1
+            elif char == "}":
+                parameter_depth -= 1
+                if parameter_depth == 0:
+                    state = "code"
         elif state == "block" and char == "*" and nxt == "/":
             state = "code"
             index += 1
@@ -67,6 +82,9 @@ def body(source, signature):
 _probe = "static int probe(void);\nstatic int probe(void) { return 1; }\n"
 require("return 1;" in body(_probe, "probe(void)"),
         "function extractor must skip a forward declaration")
+_shell_probe = 'func probe() { parent=${target%/*}; if [ -n "$parent" ]; then return 1; fi; }\\n'
+require("return 1;" in body(_shell_probe, "func probe()"),
+        "function extractor must ignore slash-star sequences inside shell parameter expansion")
 
 
 libdisk = read("trunk/user/libdisk/src/disk_initial.c")
