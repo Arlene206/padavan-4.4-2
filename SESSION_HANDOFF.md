@@ -1,15 +1,15 @@
-## 2026-11-25 active handoff — strict MDTM parsing before filesystem access
+## 2026-11-25 active handoff — VSFTPD MDTM regression fixture correction
 
-- Main parent for this source slice: `a15e272653e7306738d86b38a5feec5a6ce7936e` (`docs: keep roadmap within validator size limit`). VSFTPD `handle_mdtm()` used `str_stat()` on the raw user argument before the access/ACL checks; path existence therefore selected timestamp-vs-filename parsing. The source now selects only by validated timestamp grammar and makes no filesystem probe until the existing access/ACL path.
-- The new pure policy validates calendar and clock fields, optional fractional digits, the separating space and non-empty pathname. The production handler retains fd-based ACL opens, `fstat`, and `setmodtime_fd`; only the preauthorization stat heuristic is removed.
-- Exact verification inherited from current ancestry: WAN strict parser #45642479262 PASS; NVRAM #45642479205 PASS; process inventory #45642479277 PASS; AI handoff #45642886489 PASS. XY-C1 #45642479259 on product-source SHA `8835ec27090b728f80de893b53afd1536f651dff` was still in Build at last poll (TRX/artifact pending). DHCPv6 IA exact test #45641451632 PASS; XY-C1 #45641159900 on `98b5503` PASS including Build/TRX/artifact.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Physical-router L4 remains unverified.
+- Live main baseline before this fixture-only correction: `4b8aebab367f2892ccb1134caf86d7eae308b54f`. The MDTM source change removes the pre-ACL `str_stat()` probe from `handle_mdtm()` and classifies the timestamp token syntactically.
+- Exact VSFTPD run #45644905866 failed in `ftp_mdtm_policy.c`: the test adapter passed `strlen(full_command)`, but `ftp_mdtm_timeval_is_valid()` expects only the date/time token length. Production correctly passes `loc.index`; this correction fixes the fixture helper to stop at the first space.
+- WAN strict parser regression #45642479262 PASS on `8835ec2`; XY-C1 #45642479259 PASS on product SHA `8835ec2` with Build, TRX and artifact all successful (L3 for that exact SHA). The current later XY-C1 run on newer source is separately tracked. DNSMasq lifecycle #45645256714 PASS on the current `4b8aebab` source SHA; HTTPD security #45645256648 PASS on the same SHA. Physical-router L4 remains NOT VERIFIED.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ### First actions
 
-1. Inspect exact-head `detect-wan-arp-stability`, AI handoff and XY-C1 runs for this strict-parser source SHA. Diagnose the first causal failure without relaxing assertions.
-2. Poll XY-C1 #45641159900 on its own SHA; only same-SHA Build XY-C1 + TRX verification + artifact upload PASS qualifies as L3 for `98b5503`.
-3. Continue another independent userland stability/security fix while unrelated Actions are pending.
+1. Inspect exact-SHA VSFTPD and XY-C1 runs for this fixture correction; fix the first causal failure.
+2. Continue an independent userland stability/security fix while the firmware run is pending.
+3. Keep L3 claims tied to the exact product-source SHA.
 
 ### Execution contract
 

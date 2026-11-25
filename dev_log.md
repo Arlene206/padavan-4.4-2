@@ -1,3 +1,10 @@
+## 2026-11-25 — Correct VSFTPD MDTM fixture token-length input
+
+- Exact VSFTPD run #45644905866 failed in the new GNU89 sanitizer fixture: `expect_valid()` passed the full command-string length, while the policy expects only the timestamp token length (the production caller correctly passes `loc.index`). The fixture therefore rejected valid timestamp cases.
+- Updated the fixture adapter to measure bytes before the first space, retaining the full-length negative case when no separator exists. No production behavior changed; exact-head rerun is pending.
+
+---
+
 ## 2026-11-25 — Remove pre-ACL filesystem probing from FTP MDTM
 
 - `handle_mdtm()` previously called `str_stat()` on the raw client argument before `vsf_access_check_file()` or the share ACL check. The result controlled whether a date-like token was treated as an MDTM write timestamp or as a filename, giving unauthorised path existence influence over command parsing.

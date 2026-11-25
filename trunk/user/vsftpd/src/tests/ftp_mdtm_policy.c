@@ -7,7 +7,11 @@
 static void
 expect_valid(const char *argument, int expected)
 {
-	assert(ftp_mdtm_timeval_is_valid(argument, strlen(argument)) == expected);
+	const char *separator = strchr(argument, ' ');
+	size_t token_length = separator ?
+		(size_t)(separator - argument) : strlen(argument);
+
+	assert(ftp_mdtm_timeval_is_valid(argument, token_length) == expected);
 }
 
 static void
