@@ -5,6 +5,8 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = (ROOT / "trunk/user/rc/src/net.c").read_text()
+IGMP_CONFIG_POLICY = (ROOT / "trunk/user/rc/src/igmpproxy_config_file.h").read_text()
+IGMP_CONFIG_TEST = (ROOT / "trunk/user/rc/src/tests/igmpproxy_config_file.c").read_text()
 
 
 def require(condition, message):
@@ -87,6 +89,17 @@ require("settings->enabled" in start_internal and
         "stop_igmpproxy_with_viptv(" in start_internal and
         "nvram_" not in start_internal,
         "proxy start side effects must not perform additional NVRAM reads")
+require('#include "igmpproxy_config_file.h"' in SOURCE and
+        "igmpproxy_config_publish(igmpproxy_conf, &config_values)" in start_internal,
+        "the validated IGMP config helper must be used by the production proxy launch path")
+require("if (*cursor == '0' && cursor[1] >= '0' && cursor[1] <= '9')" in IGMP_CONFIG_POLICY and
+        "if (all_ones)" in IGMP_CONFIG_POLICY,
+        "IGMP altnet validation must match bundled inet_addr octal and INADDR_NONE behavior")
+require('"010.0.0.0/8"' in IGMP_CONFIG_TEST and
+        '"192.168.001.1/24"' in IGMP_CONFIG_TEST and
+        '"255.255.255.255/32"' in IGMP_CONFIG_TEST and
+        'igmpproxy_config_altnet_token("255.255.255.254/32")' in IGMP_CONFIG_TEST,
+        "IGMP config regression must cover octal aliases and the inet_addr broadcast sentinel")
 require("kill_services(svcs, 3, 1)" in stop_internal,
         "snapshot-aware stop must retain the original service stop operation")
 

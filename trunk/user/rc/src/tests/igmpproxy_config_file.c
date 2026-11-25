@@ -71,7 +71,9 @@ main(void)
 	static const char *const invalid_altnets[] = {
 		"bad", "192.0.2.256/24", "256.0.2.1/24",
 		"192.0.2.1/33", "192.0.2/24", "192.0.2.1",
-		"192.0.2.1/24/8", "192.0.2.1/"
+		"192.0.2.1/24/8", "192.0.2.1/",
+		"010.0.0.0/8", "192.168.001.1/24",
+		"255.255.255.255/32"
 	};
 
 	directory = mkdtemp(directory_template);
@@ -121,7 +123,8 @@ main(void)
 		      "0.0.0.0/0") == 0);
 	assert(strcmp(igmpproxy_config_altnet_or_default("bad"), "bad") == 0);
 	assert(igmpproxy_config_altnet_token("0.0.0.0/0"));
-	assert(igmpproxy_config_altnet_token("255.255.255.255/32"));
+	assert(igmpproxy_config_altnet_token("255.255.255.254/32"));
+	assert(igmpproxy_config_altnet_token("192.168.1.1/24"));
 	write_file(config_path, "last-good-altnet-validation\n");
 	for (i = 0; i < sizeof(invalid_altnets) / sizeof(invalid_altnets[0]); ++i) {
 		values.altnet = (char *)invalid_altnets[i];

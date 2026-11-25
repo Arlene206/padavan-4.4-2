@@ -1,3 +1,9 @@
+## 2026-11-24 — Align IGMPProxy altnet validation with bundled daemon parser
+
+- Production `net.c` publishes the validated config before launching bundled igmpproxy 0.3, but its local CIDR validator accepted values the daemon interpreted differently or rejected. Upstream `parseSubnetAddress()` uses `inet_addr()`: multi-digit leading-zero octets are octal (for example, `010.0.0.0/8` means `8.0.0.0/8`), and `INADDR_NONE` causes literal `255.255.255.255` to be rejected.
+- The validator now rejects leading-zero octet aliases and the all-255 address while retaining canonical decimal IPv4/CIDR values. Regressions cover octal aliases, a zero-padded octet, the broadcast sentinel and valid adjacent `255.255.255.254/32`.
+- WAN workflow push/PR path filters now include the helper/test, compiles/runs the GNU89 `-Werror` ASan/UBSan fixture, and extends the existing IPTV source contract to verify production wiring and parser compatibility. No local compile or firmware result is claimed; exact-head Actions must validate this commit.
+
 ## 2026-11-24 — Update VSFTPD rename source contract for quarantine implementation
 
 - Exact-head VSFTPD run #45531965044 on `e7f3891614bfbd5a59477ad392d191e05d8ba69c` progressed past the GNU89 C regression executables, including the ACL rename suite and final fixture cleanup, then failed in the inline Python source contract at its old assertion that `ftp_acl_path_rename_entry()` still contains `return renameat(source_dir_fd, source_leaf, ...)`. That direct implementation was intentionally removed by the quarantine fix.

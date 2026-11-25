@@ -2,17 +2,18 @@
 
 This snapshot supersedes older task pointers below where they conflict with live Git state.
 
-- Main before this VSFTPD source-contract follow-up: `e7f3891614bfbd5a59477ad392d191e05d8ba69c`. Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. PR #1 remains closed/unmerged.
-- ZeroTier regression repair remains green on `ae8a252781ffbaae06e0c51842264293b24e2368`: ZeroTier #45531424627, AI docs #45531424568, WAN route #45531424512 and Process #45531424459 PASS. Do not repeat.
-- VSFTPD rename source TOCTOU fix is on `0019166358a005af4e764fa0d7e2dbe3972599b7`: the original regression executable first hit teardown failure because the source/destination quarantine directories were left empty; commit `e7f3891614bfbd5a59477ad392d191e05d8ba69c` removed both via pinned dirfds. On exact `e7f389`, the GNU89 ACL C executable completed successfully, including hard-link denial, directory rename, failed-publication restore and fixture cleanup; the overall VSFTPD workflow then failed at the Python contract's stale positive assertion requiring the removed direct `return renameat(source_dir_fd, source_leaf, ...)` implementation. This contract-only slice replaces it with a negative assertion scoped to `rename_policy`; the quarantine call sequence remains explicitly checked.
-- On `e7f389`, AI docs #45531964964 and Process #45531964990 PASS; NVRAM #45531964987 and XY-C1 #45531964978 were IN_PROGRESS at last observation. The VSFTPD #45531965044 FAIL is a stale checker assertion, not a source compiler or C regression failure. This new contract update requires exact-head reruns.
-- Do not infer L3 from a queued/in-progress XY workflow. Verify Build, TRX and artifact upload on one identical production-source SHA. No local compiler result or physical-router L4 result is claimed.
+- Main before the current IGMPProxy slice: `06c6767e7f0e141e542ac2a98ad8ef4b957633a3`. Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. PR #1 remains closed/unmerged.
+- Latest DNSMasq static-ARP hardening is on `06c6767`: the transaction validates every IPv4 and MAC input before issuing any ARP command. DNSMasq lifecycle #45532535516, Process inventory #45532535327 and AI docs #45532535438 PASS on this exact SHA; NVRAM audit #45532535286 and XY-C1 #45532535426 were IN_PROGRESS at the last poll.
+- ZeroTier empty-checkpoint fixture repair is verified on `ae8a252781ffbaae06e0c51842264293b24e2368`: ZeroTier #45531424627, AI docs #45531424568, WAN route #45531424512 and Process #45531424459 PASS. Do not repeat.
+- VSFTPD rename hard-link TOCTOU fix is on `0019166358a005af4e764fa0d7e2dbe3972599b7`; exact-head VSFTPD #45532149010 and AI docs #45532149130 PASS on descendant `3bbe4b33544d4f9990e4f129eb10f097ee773789`. Its GNU89 ACL regression passed after the two private quarantine directories were removed during fixture teardown. Rename quarantines the exact source with RENAME_NOREPLACE before link-count validation, permits ordinary directory link counts and restores failed publication without overwriting concurrent replacements.
+- XY-C1 run #45531752849 on product SHA `0019166358a005af4e764fa0d7e2dbe3972599b7` was still building at the last poll: Build IN_PROGRESS, TRX/artifact PENDING. Do not claim L3 until Build, TRX and artifact upload all pass on that identical production-source SHA; L4 remains unverified.
+- Active slice aligns production IGMPProxy config validation with bundled daemon 0.3 semantics. Upstream `parseSubnetAddress()` calls `inet_addr()`, so multi-digit leading-zero IPv4 octets are octal and `255.255.255.255` is rejected via `INADDR_NONE`; the local validator previously accepted both. This slice rejects those values, adds regression coverage, adds the helper/test to WAN workflow push/PR path filters, compiles the regression under GNU89/Werror/ASan/UBSan, and extends the IPTV source contract. Exact-head Actions are pending; no local or firmware result is claimed.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and inspect exact-head VSFTPD, AI docs, Process, NVRAM and XY-C1 push runs. Confirm each `head_sha` matches the live tip; fix any FAIL without waiting on unrelated PENDING jobs.
-2. Claim L3 only if Build, TRX verification and artifact upload all pass for the same production-source SHA. L4 remains NOT VERIFIED.
-3. After VSFTPD reaches exact-head PASS, continue with the next distinct userland stability/security defect in the roadmap. Do not repeat the completed ZeroTier fixture repair or rename-source audit.
+1. Fetch live main and inspect exact-head WAN route (including the IGMPProxy parser regression), AI docs, Process inventory, NVRAM audit and XY-C1 Actions. Require each result's `head_sha` to match the live tip. Fix any FAIL on that SHA; keep working on independent items while runs are PENDING.
+2. Recheck XY-C1 run #45531752849 on source SHA `0019166358a005af4e764fa0d7e2dbe3972599b7`; claim L3 only if Build, TRX and artifact upload all pass. Do not use a test/docs-only descendant with skipped Build steps as L3 evidence. Physical-router L4 remains NOT VERIFIED.
+3. Continue with the next distinct userland reliability/security defect in the roadmap. Do not repeat ZeroTier fixture or VSFTPD rename-source work.
 
 No force-push. The backup branch remains unchanged.
 
