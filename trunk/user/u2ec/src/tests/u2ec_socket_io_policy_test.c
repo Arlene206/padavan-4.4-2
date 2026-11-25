@@ -274,6 +274,38 @@ test_invalid_buffers_are_rejected(void)
 }
 
 
+
+static int u2ec_test_unlock_calls;
+static int u2ec_test_unlocked_fd;
+
+static void
+u2ec_test_unlock_record(int fd)
+{
+    u2ec_test_unlock_calls++;
+    u2ec_test_unlocked_fd = fd;
+}
+
+static void
+test_lock_fd_is_released_exactly_once(void)
+{
+    int lock_fd = 19;
+
+    u2ec_test_unlock_calls = 0;
+    u2ec_test_unlocked_fd = -1;
+    u2ec_release_lock_once(&lock_fd, u2ec_test_unlock_record);
+    assert(lock_fd == -1);
+    assert(u2ec_test_unlock_calls == 1);
+    assert(u2ec_test_unlocked_fd == 19);
+
+    u2ec_release_lock_once(&lock_fd, u2ec_test_unlock_record);
+    assert(u2ec_test_unlock_calls == 1);
+    lock_fd = -1;
+    u2ec_release_lock_once(&lock_fd, u2ec_test_unlock_record);
+    assert(u2ec_test_unlock_calls == 1);
+    u2ec_release_lock_once(&lock_fd, NULL);
+    assert(u2ec_test_unlock_calls == 1);
+}
+
 static void
 test_fifo_idle_readiness_and_event_bytes_are_safe(void)
 {
@@ -347,6 +379,7 @@ test_fifo_idle_readiness_and_event_bytes_are_safe(void)
 int
 main(void)
 {
+    test_lock_fd_is_released_exactly_once();
     test_fifo_idle_readiness_and_event_bytes_are_safe();
     test_send_completes_a_tcp_stream_write();
     test_disconnected_peer_returns_epipe_without_sigpipe();

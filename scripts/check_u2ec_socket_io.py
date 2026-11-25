@@ -153,6 +153,10 @@ assert fifo_reader.index("if (fifo_status == 0)") < fifo_reader.index('file_lock
 assert "O_RDWR|O_NONBLOCK" in fifo_reader
 assert "O_RDWR|O_NONBLOCK" in daemon_main
 assert "u2ec_read_fifo_event" in policy
+assert "u2ec_release_lock_once(&lock, file_unlock)" in fifo_reader
+assert "file_unlock(lock)" not in fifo_reader
+assert "u2ec_release_lock_once" in policy
+assert "test_lock_fd_is_released_exactly_once" in test
 for token in (
     "test_fifo_idle_readiness_and_event_bytes_are_safe",
     "A read-only FIFO becomes EOF-readable after a writer has connected,",

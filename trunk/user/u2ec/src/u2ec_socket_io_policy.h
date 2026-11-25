@@ -166,6 +166,25 @@ u2ec_read_fifo_event(int fd, char *event)
     return -1;
 }
 
+/*
+ * Release an owned lock descriptor at most once. Invalidate the caller's
+ * handle before close so later control-flow paths cannot release a reused fd.
+ */
+typedef void (*u2ec_lock_release_fn)(int);
+
+static inline void
+u2ec_release_lock_once(int *lock_fd, u2ec_lock_release_fn release)
+{
+    int owned_fd;
+
+    if (!lock_fd || *lock_fd < 0 || !release)
+        return;
+
+    owned_fd = *lock_fd;
+    *lock_fd = -1;
+    release(owned_fd);
+}
+
 /* SizeBuffer is a signed, peer-controlled byte count for a fixed buffer. */
 static inline int
 u2ec_frame_size_is_valid(long frame_size, size_t minimum,

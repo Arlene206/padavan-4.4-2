@@ -4062,7 +4062,7 @@ static int handle_fifo(int *fd, fd_set *pfds, int *pfdm, int conn_fd)
 		MFP_state(MFP_IS_IDLE);
 		nvram_set_temp("u2ec_busyip", "");
 		update_device();
-		file_unlock(lock);
+		u2ec_release_lock_once(&lock, file_unlock);
 		if (!u2ec_fd_is_usable(conn_fd, sizeof(fd_in_use))) {
 			errno = EMFILE;
 			return -1;
@@ -4085,7 +4085,7 @@ static int handle_fifo(int *fd, fd_set *pfds, int *pfdm, int conn_fd)
 		MFP_state(MFP_IS_IDLE);
 		nvram_set_temp("u2ec_busyip", "");
 		update_device();
-		file_unlock(lock);
+		u2ec_release_lock_once(&lock, file_unlock);
 
 		PDEBUG("\nReset connection for removing\n");
 		u2ec_list_for_each_safe(pos, tmp, &conn_info_list) {
@@ -4122,13 +4122,13 @@ static int handle_fifo(int *fd, fd_set *pfds, int *pfdm, int conn_fd)
 	else if (c == 'c') {	// connect reset.
 		switch(MFP_state(MFP_GET_STATE)) {
 		case MFP_IN_LPRNG:
-			file_unlock(lock);
+			u2ec_release_lock_once(&lock, file_unlock);
 			alarm(1);
 			break;
 		case MFP_IN_U2EC:
 			MFP_state(MFP_IS_IDLE);
 			nvram_set_temp("u2ec_busyip", "");
-			file_unlock(lock);
+			u2ec_release_lock_once(&lock, file_unlock);
 			u2ec_list_for_each(pos, &conn_info_list) {
 				if (((PCONNECTION_INFO)pos)->busy == CONN_IS_BUSY)
 					((PCONNECTION_INFO)pos)->busy = CONN_IS_IDLE;
@@ -4137,13 +4137,13 @@ static int handle_fifo(int *fd, fd_set *pfds, int *pfdm, int conn_fd)
 			u2ec_list_for_each_safe(pos, tmp, &conn_info_list) {
 				if (((PCONNECTION_INFO)pos)->busy == CONN_IS_RETRY) {
 					nvram_set_temp("u2ec_busyip", inet_ntoa(((PCONNECTION_INFO)pos)->ip));
-					file_unlock(lock);
+					u2ec_release_lock_once(&lock, file_unlock);
 					last_busy_conn = (PCONNECTION_INFO)pos;
 					((PCONNECTION_INFO)pos)->busy = CONN_IS_BUSY;
 					break;
 				}
 				else if (((PCONNECTION_INFO)pos)->busy == CONN_IS_WAITING) {
-					file_unlock(lock);
+					u2ec_release_lock_once(&lock, file_unlock);
 					PDEBUG("\nReset connection.\n");
 					count_bulk_read = 0;
 					count_bulk_write = 0;
@@ -4165,7 +4165,7 @@ static int handle_fifo(int *fd, fd_set *pfds, int *pfdm, int conn_fd)
 					break;
 				}
 			}
-			file_unlock(lock);
+			u2ec_release_lock_once(&lock, file_unlock);
 		}
 
 		u2ec_list_for_each_safe(pos, tmp, &conn_info_list) {
@@ -4267,7 +4267,7 @@ static int handle_fifo(int *fd, fd_set *pfds, int *pfdm, int conn_fd)
 			MFP_state(MFP_IS_IDLE);
 			nvram_set_temp("u2ec_busyip", "");
 		}
-		file_unlock(lock);
+		u2ec_release_lock_once(&lock, file_unlock);
 		alarm(0);
 
 		u2ec_list_for_each_safe(pos, tmp, &conn_info_list) 
