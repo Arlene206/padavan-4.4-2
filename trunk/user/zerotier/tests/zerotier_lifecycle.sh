@@ -1327,6 +1327,50 @@ TEST_EXPECT_SAVED_SEGMENT=0
 TEST_ROUTE_SEGMENT=""
 TEST_ROUTE_MODE=none
 
+# An empty saved source segment is authoritative: this ruleset installed no
+# per-source NAT. Preserve a matching rule belonging to the current live route.
+/bin/rm -rf "$TEST_CONFIG"
+mkdir -p "$TEST_CONFIG"
+: > "$TEST_IPTABLES_STATE_FILE"
+: > "$TEST_IPTABLES_LOG"
+: > "$TEST_ACTION_LOG"
+TEST_STATIC_ROUTE_COUNT=0
+TEST_STATIC_ROUTE_ENABLE=0
+TEST_ROUTE_PRESENT=1
+TEST_ROUTE_SHOW_STATUS=0
+TEST_ROUTE_DEL_STATUS=0
+TEST_ROUTE_DELETE_PERSISTS=0
+TEST_NAT_ENABLE=0
+TEST_IFCONFIG_MODE=running-only
+TEST_ROUTE_MODE=daemon-only
+TEST_ROUTE_SEGMENT=10.148.18.0/24
+TEST_EXPECT_SAVED_SEGMENT=0
+TEST_IPTABLES_FAIL_ON=""
+TEST_IPTABLES_CHECK_FAIL_ON=""
+TEST_IPTABLES_DELETE_FAIL_ON=""
+iptables -A INPUT -i ztunit -j ACCEPT
+iptables -A FORWARD -i ztunit -o ztunit -j ACCEPT
+iptables -A FORWARD -i ztunit -j ACCEPT
+iptables -t nat -A POSTROUTING -o ztunit -j MASQUERADE
+iptables -t nat -A POSTROUTING -s 10.148.18.0/24 -j MASQUERADE
+printf '%s\\n%s\\n' 'ztunit' '' > "$TEST_CONFIG/.firewall-state"
+chmod 600 "$TEST_CONFIG/.firewall-state"
+echo identity > "$TEST_CONFIG/identity.secret"
+echo running > "$TEST_STATE"
+TEST_MODE=graceful
+test_proc_reset
+test_proc_add 4331 "$PROG" "$PROG"
+if ! stop_zero; then
+	fail "stop failed while replaying a valid checkpoint with an empty source segment"
+fi
+[ "$(cat "$TEST_IPTABLES_STATE_FILE")" = "nat POSTROUTING -s 10.148.18.0/24 -j MASQUERADE" ] || fail "empty checkpoint cleanup removed an unrelated source-NAT rule"
+if grep -F -- "-s 10.148.18.0/24" "$TEST_IPTABLES_LOG" >/dev/null; then
+	fail "empty checkpoint cleanup consulted or deleted the source segment from the current route"
+fi
+[ ! -e "$TEST_CONFIG" ] || fail "empty checkpoint cleanup retained config after deleting only owned rules"
+TEST_ROUTE_SEGMENT=""
+TEST_ROUTE_MODE=none
+
 # A firewall deletion failure must retain identity plus the exact interface/
 # route checkpoint, and a later stop must finish cleanup after the daemon and
 # virtual interface have disappeared.

@@ -14,6 +14,7 @@ ZT_MAX_STATIC_ROUTES=64
 ZT_PROC_ROOT=${ZT_PROC_ROOT:-/proc}
 zt0=""
 ip_segment=""
+zt_firewall_state_checkpoint_loaded=0
 zerotier_prepare_config_directory() {
 	if [ -L "$config_path" ] ||
 	   { [ -e "$config_path" ] && [ ! -d "$config_path" ]; }; then
@@ -706,10 +707,12 @@ zerotier_firewall_state_save() {
 		rm -f "$zt_state_tmp"
 		return 1
 	fi
+	zt_firewall_state_checkpoint_loaded=1
 	return 0
 }
 
 zerotier_firewall_state_load() {
+	zt_firewall_state_checkpoint_loaded=0
 	[ -d "$config_path" ] && [ ! -L "$config_path" ] || return 1
 	zt_state_file="$config_path/.firewall-state"
 	[ -f "$zt_state_file" ] && [ ! -L "$zt_state_file" ] || return 1
@@ -730,6 +733,7 @@ zerotier_firewall_state_load() {
 	case "$zt_state_saved_segment" in
 		*[!0-9./]*) return 1 ;;
 	esac
+	zt_firewall_state_checkpoint_loaded=1
 	return 0
 }
 
@@ -741,6 +745,7 @@ zerotier_firewall_state_clear() {
 		[ -f "$zt_state_file" ] && [ ! -L "$zt_state_file" ] || return 1
 		rm -f "$zt_state_file" || return 1
 	fi
+	zt_firewall_state_checkpoint_loaded=0
 	return 0
 }
 
@@ -931,17 +936,22 @@ rules() {
 
 del_rules() {
 	del_rules_status=0
-	if [ -z "$zt0" ] || [ -z "$ip_segment" ]; then
-		if zerotier_firewall_state_load; then
-			[ -n "$zt0" ] || zt0="$zt_state_saved_interface"
-			[ -n "$ip_segment" ] || ip_segment="$zt_state_saved_segment"
+	zt_state_file="$config_path/.firewall-state"
+	if [ -e "$zt_state_file" ] || [ -L "$zt_state_file" ]; then
+		if ! zerotier_firewall_state_load; then
+			logger -t "zerotier" "ZeroTier防火墙清理检查点无效，拒绝猜测待删除规则"
+			return 1
 		fi
+		# The checkpoint describes the rules that were actually published.
+		# An empty source segment means no per-source NAT rule was installed.
+		zt0="$zt_state_saved_interface"
+		ip_segment="$zt_state_saved_segment"
 	fi
 	if [ -z "$zt0" ]; then
 		logger -t "zerotier" "无法确定ZeroTier接口，跳过无目标的防火墙删除"
 		return 0
 	fi
-	if [ -z "$ip_segment" ]; then
+	if [ -z "$ip_segment" ] && [ "$zt_firewall_state_checkpoint_loaded" != 1 ]; then
 		ip_segment="$(zerotier_kernel_route_segment "$zt0")"
 	fi
 
@@ -1325,9 +1335,7 @@ stop_zero() {
 		# ruleset was published. A live route may already describe a new
 		# network and must never overwrite the saved cleanup identity.
 		zt0="$zt_state_saved_interface"
-		if [ -n "$zt_state_saved_segment" ]; then
-			ip_segment="$zt_state_saved_segment"
-		fi
+		ip_segment="$zt_state_saved_segment"
 	fi
 	if ! zerotier_read_nat_enabled; then
 		logger -t "zerotier" "无法读取NAT策略，保留当前ZeroTier服务"
