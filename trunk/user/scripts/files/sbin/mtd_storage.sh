@@ -1386,7 +1386,9 @@ reset)
 	;;
 fill)
 	func_mdir || exit 1
-	func_fill
+	if ! func_fill; then
+		result=1
+	fi
 	;;
 *)
 	echo "Usage: $0 {load|save|backup|restore|erase|reset|fill}"
