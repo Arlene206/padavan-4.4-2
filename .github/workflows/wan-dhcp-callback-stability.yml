@@ -289,16 +289,6 @@ jobs:
           assert "return saved_errno;" in lan_source
           assert "!lan_hname || !is_valid_hostname(lan_hname)" not in lan_source
           assert "!is_valid_hostname(lan_hname)" in lan_source
-          lan_dhcp_start = body(lan_source, "start_udhcpc_lan(char *lan_ifname)")
-          lan_dhcp_start_compact = "".join(lan_dhcp_start.split())
-          assert "char*lan_hostname=get_our_hostname();" in lan_dhcp_start_compact
-          assert "lan_udhcpc_hostname_status(" in lan_dhcp_start
-          assert "lan_hostname?0:(errno>0?errno:EIO)" in lan_dhcp_start_compact
-          assert "lan_hostname&&is_valid_hostname(lan_hostname)" in lan_dhcp_start_compact
-          hostname_guard = lan_dhcp_start.index("if (hostname_status != 0)")
-          assert hostname_guard < lan_dhcp_start.index("udhcpc_start_and_verify(")
-          assert "errno = hostname_status;" in lan_dhcp_start
-          assert "return hostname_status;" in lan_dhcp_start
           hostname_policy = (rc / "lan_udhcpc_hostname_policy.h").read_text()
           hostname_test = (rc / "tests/lan_udhcpc_hostname_policy.c").read_text()
           assert "test_nvram_lookup_error_is_preserved" in hostname_test
@@ -393,6 +383,17 @@ jobs:
                       if depth == 0:
                           return text[brace + 1:pos]
               raise AssertionError(f"unterminated function: {signature}")
+
+          lan_dhcp_start = body(lan_source, "start_udhcpc_lan(char *lan_ifname)")
+          lan_dhcp_start_compact = "".join(lan_dhcp_start.split())
+          assert "char*lan_hostname=get_our_hostname();" in lan_dhcp_start_compact
+          assert "lan_udhcpc_hostname_status(" in lan_dhcp_start
+          assert "lan_hostname?0:(errno>0?errno:EIO)" in lan_dhcp_start_compact
+          assert "lan_hostname&&is_valid_hostname(lan_hostname)" in lan_dhcp_start_compact
+          hostname_guard = lan_dhcp_start.index("if (hostname_status != 0)")
+          assert hostname_guard < lan_dhcp_start.index("udhcpc_start_and_verify(")
+          assert "errno = hostname_status;" in lan_dhcp_start
+          assert "return hostname_status;" in lan_dhcp_start
 
           def body_at_column_zero_terminator(text, signature):
               """Extract a function with mutually exclusive preprocessor brace branches."""

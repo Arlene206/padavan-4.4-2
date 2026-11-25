@@ -1,3 +1,7 @@
+## 2026-11-24 — Fix WAN source-contract helper ordering
+
+- Exact WAN workflow #45550662855 failed with `NameError: body is not defined`: the new LAN udhcpc hostname source assertion called the function-body parser before its definition. Moved only that assertion below the helper definition; the production hostname guard and GNU89 regression remain unchanged. Exact-head WAN rerun required.
+
 ## 2026-11-24 — Fail closed before starting LAN udhcpc without a valid hostname
 
 - `start_udhcpc_lan()` passed `get_our_hostname()` directly into the `-H` argv slot. When the checked NVRAM lookup failed, the helper returned NULL; that NULL terminated argv immediately after `-H`, so udhcpc was still spawned with a missing argument and the later readiness timeout obscured the original NVRAM error.
