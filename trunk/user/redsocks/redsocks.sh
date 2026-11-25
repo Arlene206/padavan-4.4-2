@@ -200,54 +200,161 @@ else
 fi
 }
 
-func_clean(){
-iptables -t nat -D PREROUTING `iptables -t nat -L PREROUTING --line-numbers|grep $CHAIN_NAME|head -n 1|tr -cd "[0-9]"`
-iptables -t nat -D OUTPUT `iptables -t nat -L OUTPUT --line-numbers|grep $CHAIN_NAME|head -n 1|tr -cd "[0-9]"`
-iptables -t nat -F $CHAIN_NAME
-iptables -t nat -X $CHAIN_NAME
+redsocks_ipv4_valid()
+{
+	local address="$1" octet
+	local -a octets
+	[[ "$address" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]] || return 1
+	IFS=. read -r -a octets <<< "$address"
+	[ "${#octets[@]}" -eq 4 ] || return 1
+	for octet in "${octets[@]}"; do
+		# iptables/libxtables parses IPv4 components with base 0.
+		case "$octet" in 0) ;; 0*) return 1 ;; esac
+		[ "$octet" -le 255 ] 2>/dev/null || return 1
+	done
+	return 0
 }
 
-func_iptables(){
-if [ -n "$ARG2" ]
-then
-	REMOTE_IP=$ARG2
-else
-	logger -t $BINARY_NAME "REMOTE_IP NOT FOUND!"
+redsocks_iptables_delete_all()
+{
+	local table="$1" check_status attempt=0
+	shift
+	while [ "$attempt" -lt 64 ]; do
+		if iptables -t "$table" -C "$@" >/dev/null 2>&1; then
+			if iptables -t "$table" -D "$@" >/dev/null 2>&1; then
+				:
+			else
+				return $?
+			fi
+		else
+			check_status=$?
+			[ "$check_status" -eq 1 ] && return 0
+			return "$check_status"
+		fi
+		attempt=$((attempt + 1))
+	done
+	if iptables -t "$table" -C "$@" >/dev/null 2>&1; then
+		return 1
+	else
+		check_status=$?
+		[ "$check_status" -eq 1 ] && return 0
+		return "$check_status"
+	fi
+}
+
+func_clean()
+{
+	redsocks_iptables_delete_all nat PREROUTING -p tcp -j "$CHAIN_NAME" || return $?
+	redsocks_iptables_delete_all nat OUTPUT -p tcp -j "$CHAIN_NAME" || return $?
+	if iptables -t nat -S "$CHAIN_NAME" >/dev/null 2>&1; then
+		iptables -t nat -F "$CHAIN_NAME" >/dev/null 2>&1 || return $?
+		iptables -t nat -X "$CHAIN_NAME" >/dev/null 2>&1 || return $?
+	else
+		redsocks_chain_status=$?
+		[ "$redsocks_chain_status" -eq 1 ] && return 0
+		return "$redsocks_chain_status"
+	fi
 	return 0
-fi
+}
 
-func_clean
+redsocks_iptables_rollback()
+{
+	local original_status="$1" cleanup_status
+	if func_clean; then
+		:
+	else
+		cleanup_status=$?
+		logger -t "$BINARY_NAME" "firewall rollback failed (status=$cleanup_status; original=$original_status)"
+	fi
+	return "$original_status"
+}
 
-if [ ! -f $CNZONE_FILE ]
-then
-	wget -P $REDSOCKS_DIR http://www.ipdeny.com/ipblocks/data/countries/cn.zone
-	func_save
-	logger -t "SET FILE SAVED."
-fi
+redsocks_iptables_add_rule()
+{
+	local add_status
+	if iptables -t nat -A "$@" >/dev/null 2>&1; then
+		return 0
+	else
+		add_status=$?
+	fi
+	redsocks_iptables_rollback "$add_status"
+}
 
-if [ ! -f $LOCK ]
-then
-	ipset destroy $SET_NAME
-	ipset -N $SET_NAME hash:net
-	for i in $(cat ${REDSOCKS_DIR}/cn.zone ); do ipset -A china $i; done
-	touch $LOCK
-	logger -t $BINARY_NAME "SET LOCKED"
-fi
+redsocks_iptables_add_rule_once()
+{
+	local check_status
+	if iptables -t nat -C "$@" >/dev/null 2>&1; then
+		return 0
+	else
+		check_status=$?
+	fi
+	case "$check_status" in
+		1) redsocks_iptables_add_rule "$@" ;;
+		*) redsocks_iptables_rollback "$check_status" ;;
+	esac
+}
 
-iptables -t nat -N $CHAIN_NAME
-iptables -t nat -A $CHAIN_NAME -d $REMOTE_IP -j RETURN
-iptables -t nat -A $CHAIN_NAME -d 0.0.0.0/8 -j RETURN
-iptables -t nat -A $CHAIN_NAME -d 10.0.0.0/8 -j RETURN
-iptables -t nat -A $CHAIN_NAME -d 127.0.0.0/8 -j RETURN
-iptables -t nat -A $CHAIN_NAME -d 169.254.0.0/16 -j RETURN
-iptables -t nat -A $CHAIN_NAME -d 172.16.0.0/12 -j RETURN
-iptables -t nat -A $CHAIN_NAME -d 192.168.0.0/16 -j RETURN
-iptables -t nat -A $CHAIN_NAME -d 224.0.0.0/4 -j RETURN
-iptables -t nat -A $CHAIN_NAME -d 240.0.0.0/4 -j RETURN
-iptables -t nat -A $CHAIN_NAME -m set --match-set china dst -j RETURN
-iptables -t nat -A $CHAIN_NAME -p tcp -j REDIRECT --to-ports 12345 
-iptables -t nat -A PREROUTING -p tcp -j $CHAIN_NAME
-iptables -t nat -A OUTPUT -p tcp -j $CHAIN_NAME
+func_iptables()
+{
+	local ipset_entry ipset_status
+	if [ -n "$ARG2" ]; then
+		REMOTE_IP="$ARG2"
+	else
+		logger -t "$BINARY_NAME" "REMOTE_IP NOT FOUND!"
+		return 2
+	fi
+	if ! redsocks_ipv4_valid "$REMOTE_IP"; then
+		logger -t "$BINARY_NAME" "invalid REMOTE_IP: $REMOTE_IP"
+		return 2
+	fi
+	if [ ! -d "$REDSOCKS_DIR" ]; then
+		mkdir -p "$REDSOCKS_DIR" || return $?
+	fi
+	func_clean || return $?
+
+	if [ ! -s "$CNZONE_FILE" ]; then
+		wget -P "$REDSOCKS_DIR" http://www.ipdeny.com/ipblocks/data/countries/cn.zone || return $?
+		[ -s "$CNZONE_FILE" ] || return 1
+		func_save || return $?
+	fi
+	if [ ! -f "$LOCK" ]; then
+		ipset destroy "$SET_NAME" >/dev/null 2>&1 || :
+		ipset -N "$SET_NAME" hash:net || return $?
+		while IFS= read -r ipset_entry || [ -n "$ipset_entry" ]; do
+			[ -n "$ipset_entry" ] || continue
+			if ipset -A "$SET_NAME" "$ipset_entry"; then
+				:
+			else
+				ipset_status=$?
+				ipset destroy "$SET_NAME" >/dev/null 2>&1 || :
+				return "$ipset_status"
+			fi
+		done < "$CNZONE_FILE"
+		if touch "$LOCK"; then
+			:
+		else
+			ipset_status=$?
+			ipset destroy "$SET_NAME" >/dev/null 2>&1 || :
+			return "$ipset_status"
+		fi
+		logger -t "$BINARY_NAME" "SET LOCKED"
+	fi
+
+	iptables -t nat -N "$CHAIN_NAME" >/dev/null 2>&1 || return $?
+	redsocks_iptables_add_rule "$CHAIN_NAME" -d "$REMOTE_IP" -j RETURN || return $?
+	redsocks_iptables_add_rule "$CHAIN_NAME" -d 0.0.0.0/8 -j RETURN || return $?
+	redsocks_iptables_add_rule "$CHAIN_NAME" -d 10.0.0.0/8 -j RETURN || return $?
+	redsocks_iptables_add_rule "$CHAIN_NAME" -d 127.0.0.0/8 -j RETURN || return $?
+	redsocks_iptables_add_rule "$CHAIN_NAME" -d 169.254.0.0/16 -j RETURN || return $?
+	redsocks_iptables_add_rule "$CHAIN_NAME" -d 172.16.0.0/12 -j RETURN || return $?
+	redsocks_iptables_add_rule "$CHAIN_NAME" -d 192.168.0.0/16 -j RETURN || return $?
+	redsocks_iptables_add_rule "$CHAIN_NAME" -d 224.0.0.0/4 -j RETURN || return $?
+	redsocks_iptables_add_rule "$CHAIN_NAME" -d 240.0.0.0/4 -j RETURN || return $?
+	redsocks_iptables_add_rule "$CHAIN_NAME" -m set --match-set "$SET_NAME" dst -j RETURN || return $?
+	redsocks_iptables_add_rule "$CHAIN_NAME" -p tcp -j REDIRECT --to-ports 12345 || return $?
+	redsocks_iptables_add_rule_once PREROUTING -p tcp -j "$CHAIN_NAME" || return $?
+	redsocks_iptables_add_rule_once OUTPUT -p tcp -j "$CHAIN_NAME" || return $?
+	return 0
 }
 
 func_stop(){

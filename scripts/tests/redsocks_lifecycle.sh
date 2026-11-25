@@ -212,4 +212,140 @@ func_start || fail "generated-config detached startup failed"
 ARG2=nolog
 ARG3=test
 
+
+# Firewall programming must be idempotent and every command status is authoritative.
+TEST_IPTABLES_RULES="$TEST_TMP/iptables.rules"
+TEST_IPTABLES_CHAINS="$TEST_TMP/iptables.chains"
+TEST_IPTABLES_LOG="$TEST_TMP/iptables.log"
+: > "$TEST_IPTABLES_RULES"
+: > "$TEST_IPTABLES_CHAINS"
+: > "$TEST_IPTABLES_LOG"
+REDSOCKS_DIR="$TEST_TMP/firewall"
+mkdir -m 700 "$REDSOCKS_DIR"
+REDSOCKS_CONF="$REDSOCKS_DIR/redsocks.conf"
+CNZONE_FILE="$REDSOCKS_DIR/cn.zone"
+LOCK="$TEST_TMP/set_lock"
+CHAIN_NAME=REDSOCKS
+SET_NAME=china
+printf '203.0.113.0/24\n' > "$CNZONE_FILE"
+: > "$LOCK"
+ARG2=192.0.2.77
+REMOTE_IP=127.0.0.1
+func_save() { :; }
+ipset() { printf 'unexpected ipset call: %s\n' "$*" >&2; return 97; }
+wget() { printf 'unexpected wget call: %s\n' "$*" >&2; return 98; }
+
+iptables() {
+  local table=filter operation chain rule key tmp_file
+  [[ "$1" == -t && "$2" == nat ]] || return 2
+  table=$2
+  shift 2
+  operation=$1
+  shift
+  chain=$1
+  rule="$*"
+  printf '%s %s %s\n' "$table" "$operation" "$rule" >> "$TEST_IPTABLES_LOG"
+  case "$operation" in
+    -C)
+      [[ "\${TEST_IPTABLES_FAIL_CHECK:-0}" == 0 ]] || return 4
+      key="$table|$rule"
+      grep -Fqx -- "$key" "$TEST_IPTABLES_RULES" && return 0
+      return 1
+      ;;
+    -D)
+      [[ "\${TEST_IPTABLES_FAIL_DELETE:-0}" == 0 ]] || return 7
+      key="$table|$rule"
+      grep -Fqx -- "$key" "$TEST_IPTABLES_RULES" || return 1
+      tmp_file="$TEST_IPTABLES_RULES.tmp"
+      awk -v key="$key" 'BEGIN { removed=0 } !removed && $0==key { removed=1; next } { print }' "$TEST_IPTABLES_RULES" > "$tmp_file" || return 90
+      mv "$tmp_file" "$TEST_IPTABLES_RULES"
+      ;;
+    -S)
+      grep -Fqx -- "$chain" "$TEST_IPTABLES_CHAINS" && return 0
+      return 1
+      ;;
+    -N)
+      grep -Fqx -- "$chain" "$TEST_IPTABLES_CHAINS" && return 1
+      printf '%s\n' "$chain" >> "$TEST_IPTABLES_CHAINS"
+      ;;
+    -F)
+      tmp_file="$TEST_IPTABLES_RULES.tmp"
+      awk -F'|' -v chain="$chain" '$2 !~ ("^" chain "($| )") { print }' "$TEST_IPTABLES_RULES" > "$tmp_file" || return 90
+      mv "$tmp_file" "$TEST_IPTABLES_RULES"
+      ;;
+    -X)
+      grep -Fq -- "$table|$chain " "$TEST_IPTABLES_RULES" && return 1
+      grep -Fqx -- "$chain" "$TEST_IPTABLES_CHAINS" || return 1
+      grep -Fvx -- "$chain" "$TEST_IPTABLES_CHAINS" > "$TEST_IPTABLES_CHAINS.tmp" || :
+      mv "$TEST_IPTABLES_CHAINS.tmp" "$TEST_IPTABLES_CHAINS"
+      ;;
+    -A)
+      if [[ "\${TEST_IPTABLES_FAIL_APPEND:-}" == "$rule" ]]; then return 23; fi
+      printf '%s|%s\n' "$table" "$rule" >> "$TEST_IPTABLES_RULES"
+      ;;
+    *)
+      return 2
+      ;;
+  esac
+}
+
+firewall_reset() {
+  : > "$TEST_IPTABLES_RULES"
+  : > "$TEST_IPTABLES_CHAINS"
+  : > "$TEST_IPTABLES_LOG"
+  unset TEST_IPTABLES_FAIL_CHECK TEST_IPTABLES_FAIL_DELETE TEST_IPTABLES_FAIL_APPEND
+}
+firewall_rule_count() {
+  grep -Fxc -- "nat|$1" "$TEST_IPTABLES_RULES" || :
+}
+firewall_expect_clean() {
+  [[ ! -s "$TEST_IPTABLES_RULES" ]] || fail "firewall rollback left active NAT rules"
+  [[ ! -s "$TEST_IPTABLES_CHAINS" ]] || fail "firewall rollback left the REDSOCKS chain"
+}
+
+firewall_reset
+printf '%s\n' 'nat|PREROUTING -p tcp -j REDSOCKS' >> "$TEST_IPTABLES_RULES"
+ARG2=010.0.0.7
+before_log=$(wc -l < "$TEST_IPTABLES_LOG" | tr -d ' ')
+if func_iptables; then fail "octal-ambiguous Redsocks REMOTE_IP was accepted"; else firewall_status=$?; fi
+[[ "$firewall_status" == 2 ]] || fail "invalid Redsocks REMOTE_IP status was $firewall_status"
+[[ "$(wc -l < "$TEST_IPTABLES_LOG" | tr -d ' ')" == "$before_log" ]] || fail "invalid REMOTE_IP changed firewall rules"
+[[ "$(firewall_rule_count 'PREROUTING -p tcp -j REDSOCKS')" == 1 ]] || fail "invalid REMOTE_IP removed existing jump"
+echo "Redsocks rejects ambiguous REMOTE_IP before cleanup: PASS"
+
+firewall_reset
+ARG2=192.0.2.77
+func_iptables || fail "initial Redsocks firewall setup failed"
+[[ "$(firewall_rule_count 'PREROUTING -p tcp -j REDSOCKS')" == 1 ]] || fail "PREROUTING jump was not installed exactly once"
+[[ "$(firewall_rule_count 'OUTPUT -p tcp -j REDSOCKS')" == 1 ]] || fail "OUTPUT jump was not installed exactly once"
+[[ "$(firewall_rule_count 'REDSOCKS -p tcp -j REDIRECT --to-ports 12345')" == 1 ]] || fail "redirect rule was not installed exactly once"
+printf '%s\n' 'nat|PREROUTING -p tcp -j REDSOCKS' 'nat|PREROUTING -p tcp -j REDSOCKS' 'nat|OUTPUT -p tcp -j REDSOCKS' >> "$TEST_IPTABLES_RULES"
+func_iptables || fail "reapplying Redsocks firewall policy failed"
+[[ "$(firewall_rule_count 'PREROUTING -p tcp -j REDSOCKS')" == 1 ]] || fail "duplicate PREROUTING jumps survived cleanup"
+[[ "$(firewall_rule_count 'OUTPUT -p tcp -j REDSOCKS')" == 1 ]] || fail "duplicate OUTPUT jumps survived cleanup"
+[[ "$(firewall_rule_count 'REDSOCKS -p tcp -j REDIRECT --to-ports 12345')" == 1 ]] || fail "duplicate chain rules survived rebuild"
+echo "Redsocks firewall reapply drains legacy duplicates and remains idempotent: PASS"
+
+TEST_IPTABLES_FAIL_CHECK=1
+if func_iptables; then fail "iptables -C error was treated as an absent rule"; else firewall_status=$?; fi
+[[ "$firewall_status" == 4 ]] || fail "iptables -C error status was $firewall_status"
+[[ -s "$TEST_IPTABLES_RULES" ]] || fail "check error unexpectedly removed existing firewall state"
+unset TEST_IPTABLES_FAIL_CHECK
+echo "Redsocks firewall check errors fail closed: PASS"
+
+TEST_IPTABLES_FAIL_DELETE=1
+if func_iptables; then fail "iptables -D error was ignored"; else firewall_status=$?; fi
+[[ "$firewall_status" == 7 ]] || fail "iptables -D error status was $firewall_status"
+[[ -s "$TEST_IPTABLES_RULES" ]] || fail "delete failure removed prior rules"
+if grep -Fq 'nat -N REDSOCKS' "$TEST_IPTABLES_LOG"; then fail "chain was recreated after cleanup failure"; fi
+unset TEST_IPTABLES_FAIL_DELETE
+echo "Redsocks firewall delete failures block replacement policy: PASS"
+
+firewall_reset
+TEST_IPTABLES_FAIL_APPEND='OUTPUT -p tcp -j REDSOCKS'
+if func_iptables; then fail "partial jump installation was accepted"; else firewall_status=$?; fi
+[[ "$firewall_status" == 23 ]] || fail "iptables append failure status was $firewall_status"
+firewall_expect_clean
+echo "Redsocks partial firewall setup rolls back before returning failure: PASS"
+
 echo "Redsocks tri-state inventory, bounded stop and fail-closed restart regression: PASS"

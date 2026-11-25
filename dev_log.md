@@ -1,3 +1,9 @@
+## 2026-11-24 — Redsocks NAT policy idempotence and failure propagation
+
+- func_clean previously parsed human-readable iptables -L --line-numbers output by stripping every digit and deleting a guessed line number; cleanup statuses were ignored. func_iptables also ignored -N/-A failures and appended duplicate chain rules/jumps on reapply.
+- Replaced line-number parsing with exact iptables -C/-D draining (64-delete bound), checked -S/-F/-X, and checked append helpers with rollback for partial policy publication. REMOTE_IP is validated as canonical decimal IPv4 before the old firewall is touched; invalid/octal aliases fail closed. ipset population and zone downloads now propagate errors rather than publishing the completion sentinel after failed population.
+- Extended the existing Redsocks lifecycle regression and source contract with duplicate-jump cleanup, idempotent reapply, invalid IPv4 preservation, check/delete error propagation, and partial-append rollback. Exact-head Redsocks Actions pending; no local shell or target build is claimed.
+
 ## 2026-11-24 — Update SmartDNS startup rollback count contract
 
 - DNSMasq run #45553387354 passed the shell regressions and revised stop-order assertions, then found one stale source-contract count: checked firewall setup adds a new failure branch to the existing seven SmartDNS startup rollback sites. Updated the exact expected count to eight.

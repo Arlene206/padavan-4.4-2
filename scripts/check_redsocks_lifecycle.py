@@ -85,4 +85,39 @@ for block in (workflow.split("  push:",1)[1].split("  pull_request:",1)[0],
               workflow.split("  pull_request:",1)[1].split("permissions:",1)[0]):
     for path in paths:
         require(block.count(f'      - "{path}"') == 1, f"path filter missing or duplicated: {path}")
+ipv4 = body("redsocks_ipv4_valid()")
+delete_all = body("redsocks_iptables_delete_all()")
+clean = body("func_clean()")
+add_rule = body("redsocks_iptables_add_rule()")
+add_once = body("redsocks_iptables_add_rule_once()")
+firewall = body("func_iptables()")
+require('iptables -t "$table" -C "$@"' in delete_all and
+        'iptables -t "$table" -D "$@"' in delete_all and
+        '[ "$check_status" -eq 1 ] && return 0' in delete_all,
+        "firewall cleanup must distinguish absent rules from real iptables errors")
+require('attempt" -lt 64' in delete_all and 'return "$check_status"' in delete_all,
+        "duplicate jump cleanup must be bounded and propagate check failures")
+require('redsocks_iptables_delete_all nat PREROUTING -p tcp -j "$CHAIN_NAME"' in clean and
+        'redsocks_iptables_delete_all nat OUTPUT -p tcp -j "$CHAIN_NAME"' in clean and
+        'iptables -t nat -F "$CHAIN_NAME"' in clean and
+        'iptables -t nat -X "$CHAIN_NAME"' in clean and
+        'iptables -t nat -L' not in clean,
+        "chain cleanup must remove exact jumps and check flush/delete results")
+require('0*) return 1' in ipv4 and ' -le 255 ' in ipv4,
+        "REMOTE_IP must reject base-0 octal aliases and out-of-range IPv4 octets")
+require('redsocks_ipv4_valid "$REMOTE_IP"' in firewall and
+        firewall.index('redsocks_ipv4_valid "$REMOTE_IP"') < firewall.index("func_clean"),
+        "invalid REMOTE_IP must fail before the active NAT policy is touched")
+require('iptables -t nat -A "$@"' in add_rule and 'redsocks_iptables_rollback "$add_status"' in add_rule and
+        'iptables -t nat -C "$@"' in add_once,
+        "every firewall append must propagate failure and roll back partial policy")
+require('redsocks_iptables_add_rule_once PREROUTING' in firewall and
+        'redsocks_iptables_add_rule_once OUTPUT' in firewall and
+        'iptables -t nat -A PREROUTING' not in firewall and
+        'iptables -t nat -A OUTPUT' not in firewall,
+        "PREROUTING/OUTPUT publication must avoid duplicate jumps through checked wrappers")
+for marker in ("octal-ambiguous Redsocks REMOTE_IP", "drains legacy duplicates",
+               "check errors fail closed", "delete failures block replacement",
+               "partial firewall setup rolls back"):
+    require(marker in test, f"missing firewall regression marker: {marker}")
 print("Redsocks lifecycle source and restart contracts: PASS")
