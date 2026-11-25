@@ -768,27 +768,6 @@ zerotier_firewall_state_load() {
 		return 1
 	fi
 
-	# A damaged checkpoint is recoverable only after the live kernel route
-	# is positively confirmed absent. A different live route can identify a
-	# separate, older source-NAT rule that this prefix cannot account for.
-	zt_recovery_routes="$(ip route)" || return 1
-	zt_recovery_route_found="$(printf '%s\\n' "$zt_recovery_routes" | awk -v zt_if="$zt_state_saved_interface" '
-		{
-			dev = ""
-			proto = ""
-			for (i = 1; i < NF; i++) {
-				if ($i == "dev")
-					dev = $(i + 1)
-				else if ($i == "proto")
-					proto = $(i + 1)
-			}
-			if (dev == zt_if && proto == "kernel")
-				found = 1
-		}
-		END { print found ? 1 : 0 }
-	')" || return 1
-	[ "$zt_recovery_route_found" = "0" ] || return 1
-
 	zt_firewall_state_checkpoint_loaded=1
 	return 0
 }
@@ -822,6 +801,27 @@ zerotier_firewall_state_recover_prefix() {
 	   ! zerotier_ipv4_cidr_is_valid "$zt_state_saved_segment"; then
 		return 1
 	fi
+
+	# A damaged checkpoint is recoverable only after the live kernel route
+	# is positively confirmed absent. A different live route can identify a
+	# separate, older source-NAT rule that this prefix cannot account for.
+	zt_recovery_routes="$(ip route)" || return 1
+	zt_recovery_route_found="$(printf '%s\n' "$zt_recovery_routes" | awk -v zt_if="$zt_state_saved_interface" '
+		{
+			dev = ""
+			proto = ""
+			for (i = 1; i < NF; i++) {
+				if ($i == "dev")
+					dev = $(i + 1)
+				else if ($i == "proto")
+					proto = $(i + 1)
+			}
+			if (dev == zt_if && proto == "kernel")
+				found = 1
+		}
+		END { print found ? 1 : 0 }
+	')" || return 1
+	[ "$zt_recovery_route_found" = "0" ] || return 1
 	zt_firewall_state_checkpoint_loaded=1
 	return 0
 }

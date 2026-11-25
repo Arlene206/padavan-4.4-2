@@ -2,19 +2,16 @@
 
 This snapshot supersedes older task pointers below where they conflict with live Git state.
 
-- Main before this ZeroTier recovery safety correction: a8f5f0a2a4d8aacfea275811dc79d444afeee78d. Frozen backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807, untouched. PR #1 remains closed/unmerged.
-- ZeroTier run #45537781629 on 43d03d8b6fa88c4119b12cf869c3c663d5d44742 FAILED at the existing live-route/corrupt-checkpoint regression. Root cause: stop-only prefix recovery accepted the first two saved fields while a different live kernel route could imply an older unrecorded source-NAT rule. Recovery is now restricted to cases where ip route is readable and shows no kernel route on the saved interface. A present route or unreadable inventory remains fail-closed.
-- UDHCP run #45538153884 on c61222654e016254e190708ff4bdfb1526cfae53 FAILED compilation: its new test-call insertion accidentally introduced a second if condition, leaving existing test functions unused under -Werror. Test-only fix is a8f5f0a2a4d8aacfea275811dc79d444afeee78d; exact-head rerun still required.
-- On exact c612226: Process inventory #45538153952 PASS and AI docs #45538153905 PASS; XY-C1 #45538153841, USB storage #45538153909 and NVRAM transaction #45538154070 were in progress at last observation.
-- Frozen backup unchanged. No local shell/host or firmware result is claimed unless exact Actions for that SHA report it.
+- Main before this ZeroTier route-guard correction: `b940c2850b6ef9b45278f2c8aeb20cec81d7feef`. Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, untouched. PR #1 remains closed/unmerged.
+- Exact b940 Actions: Process inventory #45538507549 PASS; AI handoff docs #45538507644 PASS; WAN route #45538507655 PASS; ZeroTier lifecycle #45538507537 FAIL; XY-C1 #45538507557 IN_PROGRESS at last poll. ZeroTier failed the baseline graceful-stop case because the new live-route guard was mistakenly placed inside strict `zerotier_firewall_state_load()`, causing even valid two-line checkpoints with a current route to be rejected, then failing prefix recovery. This follow-up moves the route check into `zerotier_firewall_state_recover_prefix()` only. It also fixes the format string to emit actual newlines and adds an unreadable-route-inventory regression.
+- UDHCP test fix `a8f5f0a2a4d8aacfea275811dc79d444afeee78d`: UDHCP #45538273420 PASS (GNU89/ASan/UBSan plus source contract); Process inventory #45538273178 PASS; AI docs #45538273270 PASS; USB storage #45538273267 PASS; XY-C1 #45538273173 PASS (Build/TRX/artifact). NVRAM #45538273244 was still in progress at last poll.
+- No local shell/host tests claimed. Exact-head ZeroTier rerun and XY-C1 verification on the current source SHA remain required.
 
 ## Exact first action for the next GPT
 
-1. Verify exact-head ZeroTier lifecycle and checker after restricting recovery to absent routes.
-2. Verify UDHCP ASan/UBSan regression and Python source checker on a commit containing the test-call fix.
-3. Verify XY-C1 Build/TRX/artifact and umbrella checks for their exact source SHA, then continue another reliability/security slice. No force-push or backup mutation.
-
-No force-push. The backup branch remains unchanged.
+1. Verify the corrected strict-loader/recovery split and unreadable-route fixture on exact-head ZeroTier; fix any runtime/test/checker failure.
+2. Verify XY-C1 Build/TRX/artifact and all relevant same-SHA checks.
+3. Continue another independent userland stability/security defect while unrelated Actions remain pending. Backup remains frozen/read-only; no force-push.
 
 ## Current repository state
 

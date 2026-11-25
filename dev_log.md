@@ -1,3 +1,10 @@
+## 2026-11-25 11:30 CST — Keep valid ZeroTier checkpoints strict; route-gate recovery only
+
+- Exact b940 ZeroTier run #45538507537 failed the baseline graceful-stop test. Inspection found the live-route guard had been inserted into `zerotier_firewall_state_load()` rather than `zerotier_firewall_state_recover_prefix()`. It therefore rejected valid two-line checkpoints when a route existed, then fell into a recovery helper that requires a third line.
+- Moved route inventory check to the recovery helper after its three complete reads and tuple validation. Strict loading again depends only on checkpoint validity; valid saved tuples remain authoritative even with a current route. Damaged-prefix recovery is allowed only after a successful route inventory proves no kernel route uses the saved interface.
+- Corrected the shell `printf` format to use a real newline and added an injected unreadable-`ip route` regression proving UNKNOWN inventory does not stop the daemon, edit firewall state, normalize the checkpoint or remove identity. Updated source contract and handoff.
+- No local shell test claimed; exact-head ZeroTier rerun required.
+
 ## 2026-11-25 11:25 CST — Restrict ZeroTier damaged-checkpoint recovery to absent routes
 
 - ZeroTier exact-head run #45537781629 on 43d03d8b6fa88c4119b12cf869c3c663d5d44742 reached a pre-existing fail-closed case. It showed the stop-only recovery was too permissive: it accepted a damaged checkpoint prefix while a different live kernel route could imply an older unrecorded source-NAT rule.

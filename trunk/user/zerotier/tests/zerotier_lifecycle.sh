@@ -200,6 +200,7 @@ ip() {
 		return 0
 	fi
 	[ "$1" = route ] || return 0
+	[ "${TEST_ROUTE_DUMP_STATUS:-0}" -eq 0 ] || return "$TEST_ROUTE_DUMP_STATUS"
 	count=$(cat "$TEST_ROUTE_COUNT")
 	count=$((count + 1))
 	printf '%s\n' "$count" > "$TEST_ROUTE_COUNT"
@@ -1676,6 +1677,38 @@ fi
 [ -f "$TEST_CONFIG/identity.secret" ] || fail "unterminated trailing fragment removed persistent identity"
 [ "$(cat "$TEST_CONFIG/.firewall-state")" = "$(printf 'ztunit\n10.147.17.0/24\npartial-tail')" ] || fail "unterminated trailing fragment was rewritten"
 [ ! -s "$TEST_ACTION_LOG" ] || fail "unterminated trailing fragment changed persistent configuration"
+TEST_EXPECT_SAVED_SEGMENT=0
+
+# A damaged checkpoint must remain fail-closed when the live route inventory
+# is UNKNOWN; absence cannot be inferred from a failed ip route command.
+/bin/rm -rf "$TEST_CONFIG"
+mkdir -p "$TEST_CONFIG"
+: > "$TEST_IPTABLES_STATE_FILE"
+: > "$TEST_IPTABLES_LOG"
+printf '%s\\n' 'ztunit' '10.147.17.0/24' 'corrupt-extra-record' > "$TEST_CONFIG/.firewall-state"
+echo identity > "$TEST_CONFIG/identity.secret"
+echo running > "$TEST_STATE"
+TEST_STATIC_ROUTE_COUNT=0
+TEST_STATIC_ROUTE_ENABLE=0
+TEST_NAT_ENABLE=0
+TEST_IFCONFIG_MODE=running-only
+TEST_ROUTE_MODE=none
+TEST_ROUTE_DUMP_STATUS=1
+TEST_EXPECT_SAVED_SEGMENT=1
+: > "$TEST_KILL_LOG"
+: > "$TEST_ACTION_LOG"
+test_proc_reset
+test_proc_add 4336 "$PROG" "$PROG"
+TEST_MODE=graceful
+if stop_zero; then
+	fail "stop recovered a damaged checkpoint with an unreadable live route inventory"
+fi
+[ "$(cat "$TEST_STATE")" = running ] || fail "unknown route inventory stopped the ZeroTier daemon"
+[ ! -s "$TEST_KILL_LOG" ] || fail "unknown route inventory signalled the daemon"
+[ ! -s "$TEST_IPTABLES_LOG" ] || fail "unknown route inventory edited firewall state"
+[ -f "$TEST_CONFIG/identity.secret" ] || fail "unknown route inventory removed persistent identity"
+grep -Fqx -- "corrupt-extra-record" "$TEST_CONFIG/.firewall-state" || fail "unknown route inventory normalized the checkpoint"
+TEST_ROUTE_DUMP_STATUS=0
 TEST_EXPECT_SAVED_SEGMENT=0
 
 /bin/rm -rf "$TEST_CONFIG"
