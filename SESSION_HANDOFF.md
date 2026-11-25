@@ -1,13 +1,21 @@
-## 2026-11-25 autonomous handoff — VLAN rollback checker name fix
+## 2026-11-25 autonomous handoff — bridge M2U rollback
 
-- Main baseline for this checker-only correction: `134638e4b36959e35af220b137c23907061fdcc6`.
-- WAN route exact run #45622867970 passed every sanitizer fixture, including the updated four-entry VLAN rollback mock. It then failed in `check_wan_vlan_setup.py`: the earlier check code had reassigned `create_vlan` to an integer position, so the new appended source-order assertion raised `AttributeError`. The follow-up renames its body string to `vlan_create_body`.
-- Product fix in `64bd4201f03e4b7d60f5be8b701dee7dbdbcc268` restores reused VLAN IFF_UP, requested MTU and MAC on later configuration failure; QoS setter is last because the in-tree Linux 4.4 ioctl does not implement GET and publishes a new mapping only after allocation. Test array capacity fix is in `134638e4`.
-- AI docs #45622868245 was pending on 134638, and XY-C1 #45622569603 was still building on 64bd at last poll. Check exact current route/docs and firmware runs after this update. L3 must be established on the exact product-source SHA; physical L4 remains unverified.
-- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. Next code target: assess the bridge-port M2U multi-sysfs update for partial rollback.
+- Main baseline for this M2U change: `6f12415a3a8ff38d1cba5638e55a402b920a6e22`; one atomic commit updates shared bridge policy, regression, netutils sysfs reader/writer, source checker, roadmap and handoff.
+- Existing exact status: `4180e4d` WAN DHCP callback #45620475975 and AI docs #45620475988 PASS. The VLAN transaction/follow-up on `64bd4201`, `134638e4`, and `6f12415a` still needs its latest exact WAN route run to pass after the sanitizer array and checker-variable fixes. Last known WAN route failures were respectively the 3-slot ASan mock and the shadowed `create_vlan` checker variable; both have follow-up commits, but final route validation pending.
+- Reused VLAN rollback is in place: original UP, requested MTU/MAC are captured before mutation; restore down→MTU→MAC→original UP. Target kernel 4.4 lacks egress priority GET; QoS map setter is last after all other fallible configuration.
+- New M2U defect: `brport_set_m2u()` used to write `multicast_fast_leave` and `multicast_to_unicast` without snapshots. A failure on the second write could leave the first changed. This slice reads both sysfs values first, performs writes, and rolls attempted updates back in reverse order on failure; primary errno is preserved and incomplete rollback is syslogged. GNU89 fixture added in existing bridge membership test.
+- Exact-head WAN route and AI docs checks must be inspected after commit; XY-C1 #45622569603 remains in progress on earlier product SHA `64bd4201`. Need a fresh same-SHA XY-C1 Build→TRX→artifact before L3. L4 physical router NOT VERIFIED.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. No branches, PRs, or force pushes.
+
+### Next actions
+1. Inspect exact-head WAN route/AI docs and XY-C1 on the M2U commit; fix first causal failure.
+2. Confirm latest VLAN route checker/test has passed after its two diagnosed harness errors.
+3. Continue concrete WAN/IPv6 M2U route lifecycle or remaining userland stability issues.
 
 ### Execution contract
-Source/test → one atomic tree/commit → non-forced expected-SHA update → exact-SHA Actions. No branches, PRs or force update.
+Source/test → complete tree/commit → non-forced expected-SHA update → exact-SHA Actions. Preserve backup.
+
+
 
 ---
 

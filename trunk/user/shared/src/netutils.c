@@ -24,6 +24,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <string.h>
+#include <syslog.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
@@ -1260,19 +1261,77 @@ brport_set_param_int(const char *ifname, const char *param, int value)
 	return fput_int(brport_path, value);
 }
 
+
+static int
+brport_get_param_int(const char *ifname, const char *param, int *value)
+{
+	char path[80], buffer[32], *end;
+	int fd, status = 0;
+	ssize_t bytes;
+	long parsed;
+	int path_len;
+
+	if (!value || !is_safe_path_component(ifname) ||
+	    !is_safe_path_component(param)) {
+		errno = EINVAL;
+		return -1;
+	}
+	path_len = snprintf(path, sizeof(path),
+			    "/sys/class/net/%s/brport/%s", ifname, param);
+	if (path_len < 0 || path_len >= (int)sizeof(path)) {
+		errno = ENAMETOOLONG;
+		return -1;
+	}
+	fd = open(path, O_RDONLY);
+	if (fd < 0)
+		return -1;
+	bytes = read(fd, buffer, sizeof(buffer) - 1);
+	if (bytes < 0)
+		status = errno ? errno : EIO;
+	else if (bytes == 0 || bytes >= (ssize_t)(sizeof(buffer) - 1))
+		status = EIO;
+	if (close(fd) != 0 && status == 0)
+		status = errno ? errno : EIO;
+	if (status != 0) {
+		errno = status;
+		return -1;
+	}
+
+	buffer[bytes] = '\0';
+	errno = 0;
+	parsed = strtol(buffer, &end, 10);
+	if (errno != 0 || end == buffer || parsed < INT_MIN || parsed > INT_MAX) {
+		errno = EINVAL;
+		return -1;
+	}
+	while (*end == ' ' || *end == '\t' || *end == '\r' || *end == '\n')
+		++end;
+	if (*end != '\0') {
+		errno = EINVAL;
+		return -1;
+	}
+	*value = (int)parsed;
+	return 0;
+}
+
 int
 brport_set_m2u(const char *ifname, int m2u_on)
 {
-	int i_value = (m2u_on) ? 1 : 0;
-	int status = 0, ret;
+	static const bridge_port_m2u_ops_t ops = {
+		brport_get_param_int, brport_set_param_int
+	};
+	int rollback_status = 0, rollback_errno = 0;
+	int ret;
 
-	ret = brport_set_param_int(ifname, "multicast_fast_leave", i_value);
-	if (ret != 0)
-		status = ret;
-	ret = brport_set_param_int(ifname, "multicast_to_unicast", i_value);
-	if (status == 0)
-		status = ret;
-	return status;
+	ret = bridge_port_m2u_apply_with_ops(
+		ifname, m2u_on ? 1 : 0, &ops,
+		&rollback_status, &rollback_errno);
+	if (ret != 0 && rollback_status != 0)
+		syslog(LOG_ERR,
+		       "bridge M2U rollback incomplete on %s (status=%d errno=%d; primary errno=%d)",
+		       ifname ? ifname : "(null)", rollback_status,
+		       rollback_errno, errno);
+	return ret;
 }
 
 int get_ipv6_type_status(int *ipv6_type)

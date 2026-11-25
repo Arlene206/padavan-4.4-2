@@ -1,3 +1,11 @@
+## 2026-11-25 22:02 CST (UTC+8) — Make bridge M2U sysfs updates transactional
+
+- Found a partial-update bug in `brport_set_m2u()`: it writes `multicast_fast_leave` then `multicast_to_unicast`; the second sysfs write can fail after the first has changed, leaving a partially applied M2U setting while returning an error.
+- Added a checked sysfs reader for both bridge-port flags and a policy transaction that snapshots both values before any write. It tracks attempted writes, rolls them back in reverse order after a failure, preserves the primary errno, and separately reports the first rollback failure. Production logs an incomplete rollback through syslog.
+- Added GNU89 regression coverage for snapshot-before-mutation, second-write failure, rollback failure/primary errno preservation, snapshot failure with no writes and idempotent target state. Existing WAN route workflow already compiles/runs the bridge membership policy fixture and invokes the VLAN/bridge source checker.
+
+---
+
 ## 2026-11-25 21:51 CST (UTC+8) — Fix VLAN checker local-name collision
 
 - Exact WAN route run #45622867970 on `134638e4` passed all sanitizer test binaries, including the corrected VLAN rollback test. The Python source checker then failed because an older section reused the name `create_vlan` for an integer offset, shadowing the function-body string expected by the new assertion.

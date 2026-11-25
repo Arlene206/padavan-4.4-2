@@ -121,4 +121,81 @@ bridge_rollback_can_restore_interface(int existed_before, int state_is_known)
 	return existed_before && state_is_known;
 }
 
+
+typedef struct {
+	int (*get_param)(const char *, const char *, int *);
+	int (*set_param)(const char *, const char *, int);
+} bridge_port_m2u_ops_t;
+
+/*
+ * multicast_fast_leave and multicast_to_unicast form one logical setting.
+ * Snapshot both values before writing either; on a failed write, restore all
+ * attempted writes in reverse order while preserving the primary errno.
+ */
+static inline int
+bridge_port_m2u_apply_with_ops(const char *ifname, int enabled,
+			       const bridge_port_m2u_ops_t *ops,
+			       int *rollback_status, int *rollback_errno)
+{
+	int old_fast_leave, old_to_unicast;
+	int attempted = 0, ret, primary_errno;
+	int first_rollback_status = 0, first_rollback_errno = 0;
+
+	if (rollback_status)
+		*rollback_status = 0;
+	if (rollback_errno)
+		*rollback_errno = 0;
+	if (!ifname || !ifname[0] || (enabled != 0 && enabled != 1) ||
+	    !ops || !ops->get_param || !ops->set_param) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	ret = ops->get_param(ifname, "multicast_fast_leave", &old_fast_leave);
+	if (ret != 0)
+		return ret;
+	ret = ops->get_param(ifname, "multicast_to_unicast", &old_to_unicast);
+	if (ret != 0)
+		return ret;
+
+	if (old_fast_leave != enabled) {
+		attempted |= 1;
+		ret = ops->set_param(ifname, "multicast_fast_leave", enabled);
+		if (ret != 0)
+			goto rollback;
+	}
+	if (old_to_unicast != enabled) {
+		attempted |= 2;
+		ret = ops->set_param(ifname, "multicast_to_unicast", enabled);
+		if (ret != 0)
+			goto rollback;
+	}
+	return 0;
+
+rollback:
+	primary_errno = errno ? errno : EIO;
+	if (attempted & 2) {
+		int restore_status = ops->set_param(
+			ifname, "multicast_to_unicast", old_to_unicast);
+		if (restore_status != 0 && first_rollback_status == 0) {
+			first_rollback_status = restore_status;
+			first_rollback_errno = errno ? errno : EIO;
+		}
+	}
+	if (attempted & 1) {
+		int restore_status = ops->set_param(
+			ifname, "multicast_fast_leave", old_fast_leave);
+		if (restore_status != 0 && first_rollback_status == 0) {
+			first_rollback_status = restore_status;
+			first_rollback_errno = errno ? errno : EIO;
+		}
+	}
+	if (rollback_status)
+		*rollback_status = first_rollback_status;
+	if (rollback_errno)
+		*rollback_errno = first_rollback_errno;
+	errno = primary_errno;
+	return ret;
+}
+
 #endif

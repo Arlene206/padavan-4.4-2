@@ -123,8 +123,32 @@ require("bridge_membership_operation_changed" in bridge_policy and
         "expect_membership_change(" in bridge_test,
         "bridge membership ownership policy must have regression coverage")
 m2u = body(netutils, "brport_set_m2u(")
-require(m2u.count("brport_set_param_int(") == 2 and "return status;" in m2u,
-        "multicast bridge-port configuration must report either sysfs failure")
+m2u_reader = body(netutils, "brport_get_param_int(")
+m2u_policy = body(bridge_policy, "bridge_port_m2u_apply_with_ops(")
+require("bridge_port_m2u_apply_with_ops(" in m2u and
+        "brport_get_param_int" in m2u and "syslog(LOG_ERR" in m2u,
+        "M2U updates must snapshot before writes and report incomplete rollback")
+for marker in ('open(path, O_RDONLY)', 'read(fd, buffer, sizeof(buffer) - 1)',
+               'strtol(buffer, &end, 10)', '*value = (int)parsed'):
+    require(marker in m2u_reader,
+            "M2U snapshot reader must parse checked sysfs values: " + marker)
+m2u_first_get = m2u_policy.index('get_param(ifname, "multicast_fast_leave"')
+m2u_second_get = m2u_policy.index('get_param(ifname, "multicast_to_unicast"')
+m2u_first_set = m2u_policy.index('set_param(ifname, "multicast_fast_leave"')
+m2u_second_set = m2u_policy.index('set_param(ifname, "multicast_to_unicast"')
+m2u_restore_second = m2u_policy.index('ifname, "multicast_to_unicast", old_to_unicast')
+m2u_restore_first = m2u_policy.index('ifname, "multicast_fast_leave", old_fast_leave')
+assert m2u_first_get < m2u_second_get < m2u_first_set < m2u_second_set
+assert m2u_second_restore < m2u_restore_first
+for test_name in (
+    "test_m2u_update_snapshots_both_flags_before_mutation",
+    "test_m2u_second_write_failure_restores_first_flag",
+    "test_m2u_rollback_failures_are_reported_without_losing_primary_errno",
+    "test_m2u_snapshot_failure_does_not_mutate_either_flag",
+    "test_m2u_repeated_target_state_is_idempotent",
+):
+    require(test_name in bridge_test and test_name + "();" in bridge_test,
+            "M2U transactional regression missing " + test_name)
 fd = body(netutils, "br_set_fd(")
 require("INT_MAX / 100" in fd and "return br_set_param_int(" in fd,
         "bridge forward-delay conversion must reject integer overflow")
