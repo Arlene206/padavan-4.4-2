@@ -281,6 +281,8 @@ static int test_domain_decoder_bounds(void)
 
 	if (expect_decoded(valid_compressed, sizeof(valid_compressed),
 			   "foo.bar www.bar") != 0 ||
+	    expect_rejected(valid_compressed, 0) != 0 ||
+	    expect_rejected(valid_compressed, -1) != 0 ||
 	    expect_rejected(truncated_label, sizeof(truncated_label)) != 0 ||
 	    expect_rejected(truncated_after_complete_name, sizeof(truncated_after_complete_name)) != 0 ||
 	    expect_rejected(pointer_past_end, sizeof(pointer_past_end)) != 0 ||

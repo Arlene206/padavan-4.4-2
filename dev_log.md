@@ -1,3 +1,9 @@
+## 2026-11-25 — Cover zero and negative domain input lengths
+
+- Extend the domain-decoder regression to exercise the new API guard with zero and negative lengths as well as malformed wire payloads. The input pointer remains valid in these cases, isolating length validation.
+
+---
+
 ## 2026-11-25 — Validate decoder length and use unsigned-safe bounds
 
 - The first domain-codec workflow exposed three pre-existing signed/unsigned comparison warnings in the decoder's unsigned cursor versus signed length bounds checks (the regression workflow treats warnings as errors). Harden the API boundary: reject null inputs and non-positive lengths, then compare cursor offsets against the validated unsigned length. This removes the warnings without weakening compiler diagnostics and makes negative caller lengths fail closed.
