@@ -2,16 +2,17 @@
 
 This snapshot supersedes older task pointers below where they conflict with live Git state.
 
-- Main before this BusyBox UDHCP hardening slice: `43d03d8b6fa88c4119b12cf869c3c663d5d44742`. Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, untouched. PR #1 remains closed/unmerged.
-- ZeroTier checkpoint follow-up on `a4927aee49ef7f82657a67247c21874840c1f59d`: AI docs #45537336220 PASS, Process inventory #45537336336 PASS, WAN route #45537336271 PASS, XY-C1 #45537336218 PASS (Build/TRX/artifact). ZeroTier #45537336228 failed because the truncated-second-line test compared the full file to just its second field; production kept it intact. Current `43d03d8` tightens strict handling of unterminated trailing fragments and adds regressions; exact-head ZeroTier verification remains open.
-- New independent BusyBox UDHCP issue: `udhcp_get_option()` read a TLV length byte without ensuring two header bytes remained and consumed option-overload data before validating its required one-byte length. A malformed zero-length queried TLV also continued without advancing the cursor. This slice adds bounded TLV/overload validation in a pure GNU89 header, production wiring in `common.c`, ASan/UBSan fixtures and source-contract/path-filter coverage.
-- Local host compilation not run. Verify exact-head udhcpc script-status regression and checker, Process inventory/umbrella, WAN, and XY-C1 Build/TRX/artifact on the new production-source SHA. Backup remains read-only.
+- Main before this UDHCP regression-call correction: `c61222654e016254e190708ff4bdfb1526cfae53`. Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, untouched. PR #1 remains closed/unmerged.
+- UDHCP workflow #45538153884 on `c612226` FAILED at compilation: an accidental second `if (` was inserted in `main()` between the new and existing regression call lists, causing existing static test functions to become unused under `-Werror`. This correction joins the new calls into the existing condition. It does not alter production code or weaken coverage.
+- Process inventory #45538153952 PASS; AI docs #45538153905 PASS. XY-C1 #45538153841 and USB storage #45538153909, NVRAM transaction #45538154070 were IN_PROGRESS at last observation. Exact-head UDHCP rerun after this correction is required.
+- BusyBox parser change on `c612226` adds bounded TLV sizing, validates one-byte DHCP option-overload and reserved bits, and advances past empty TLVs safely; sanitizer fixtures cover header/payload boundaries and overload values. No local compile claimed.
+- ZeroTier exact-head check on `43d03d8` remains open (the preceding `a4927aee` run #45537336228 failed only its incorrect truncated-file expectation; new strict-tail fix must pass a dedicated run).
 
 ## Exact first action for the next GPT
 
-1. Verify UDHCP sanitizer regression and source contract on exact main; inspect and fix any compiler/test/checker issue.
-2. Verify ZeroTier checkpoint recovery suite on current SHA and close it only after exact-head PASS.
-3. Continue independent userland reliability/security hardening while other Actions are pending. No force-push or backup mutation.
+1. Verify exact-head UDHCP ASan/UBSan binary and Python source contract after the compile correction.
+2. Trigger/verify ZeroTier lifecycle after its strict-tail fix and check same-SHA firmware/umbrella Actions.
+3. Continue a separate userland security/stability fix while unrelated runs remain pending. Frozen backup stays read-only.
 
 No force-push. The backup branch remains unchanged.
 

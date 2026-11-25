@@ -1,3 +1,9 @@
+## 2026-11-25 11:19 CST — Fix UDHCP host-test main condition
+
+- Exact UDHCP run #45538153884 on `c61222654e016254e190708ff4bdfb1526cfae53` failed at GNU89 compilation. The new regression-call lines had introduced a second `if (` inside the original main condition, so the original static tests were parsed as unused functions under `-Werror`.
+- Fixed the call list so both new checks precede the original test list inside one condition. Production parser, policy header and test assertions are unchanged. Exact-head UDHCP rerun required.
+- Exact-SHA Process inventory #45538153952 and AI docs #45538153905 PASS. XY-C1 #45538153841, USB storage #45538153909 and NVRAM #45538154070 remained in progress at last poll.
+
 ## 2026-11-25 11:15 CST — Bound BusyBox UDHCP option TLV parsing
 
 - `udhcp_get_option()` read `optionptr[OPT_LEN]` before ensuring two header bytes remained. A packet ending with one non-PAD/non-END byte could cause a one-byte-header overread at an option-field boundary. Option-overload handling also read `OPT_DATA` before enforcing its required one-byte length; zero-length requested TLVs continued without advancing the cursor.

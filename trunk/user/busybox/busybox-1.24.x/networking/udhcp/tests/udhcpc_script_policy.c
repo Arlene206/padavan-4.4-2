@@ -415,7 +415,7 @@ int main(void)
 {
 	if (test_dhcp_option_tlv_bounds() != 0 ||
 	    test_dhcp_option_overload_is_a_validated_single_byte() != 0 ||
-	if (test_fixed_route_options_reject_partial_tuples() != 0 ||
+	    test_fixed_route_options_reject_partial_tuples() != 0 ||
 	    test_static_routes_reject_malformed_trailing_tuples() != 0 ||
 	    test_subnet_mask_requires_contiguous_network_bits() != 0 ||
 	    test_option_bitmap_mask_uses_unsigned_high_bit() != 0 ||
