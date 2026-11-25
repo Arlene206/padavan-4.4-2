@@ -1,3 +1,13 @@
+## 2026-11-25 — Bound and correlate DHCP relay XID transactions
+
+- DHCPrelay previously allocated one heap node for every accepted request and retained it until a server reply or a 120-second timeout. There was no outstanding-entry cap, so a request flood could exhaust embedded memory. Retransmissions created duplicate nodes; a failed upstream send left a stale mapping; reply lookup/deletion used only the 32-bit XID and could select the wrong client or delete multiple concurrent transactions after an XID collision.
+- Added a 1024-entry budget, reuses pending state for retransmissions from the same relay interface and client hardware identity, and correlates server replies using XID + giaddr + htype/hlen/chaddr. Reply completion now deletes only the matched node. Failed upstream sends release only newly created state; repeated sends do not destroy a previously pending transaction.
+- Added a GNU89 ASan/UBSan test for table saturation, release/reuse and underflow protection, plus a source lifecycle contract, a dedicated workflow and XY-C1 production-input triggers.
+- Parent SHA: 148dfb3501c8542ccef114377f0d32db106ab2fe. Exact-head XID regression, AI documentation and XY-C1 Actions: pending. No live relay, BusyBox cross-build, firmware or hardware result is claimed.
+- Changed paths: trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcprelay.c, trunk/user/busybox/busybox-1.24.x/networking/udhcp/udhcp_relay_xid_policy.h, trunk/user/busybox/busybox-1.24.x/networking/udhcp/tests/dhcprelay_xid_policy.c, scripts/check_udhcp_relay_xid_policy.py, .github/workflows/udhcp-relay-xid-policy.yml, .github/workflows/xy-c1-firmware-validation.yml, SESSION_HANDOFF.md, dev_log.md.
+
+---
+
 ## 2026-11-25 — Correct DHCP relay bounds checker call-site matching
 
 - Exact-head workflow #45724587163 compiled and ran the GNU89 ASan/UBSan DHCP relay bounds regression successfully. Its Python source contract then failed because `client_loop.index("recvfrom(")` matched the explanatory `recvfrom()` comment before the buffer-clearing call, not the actual call statement. The test-token contract also incorrectly looked for the production-only `MSG_TRUNC` token in the standalone helper test.

@@ -17,6 +17,7 @@
 
 #include "common.h"
 #include "udhcp_relay_packet_bounds.h"
+#include "udhcp_relay_xid_policy.h"
 
 #define SERVER_PORT    67
 
@@ -30,26 +31,52 @@ struct xid_item {
 	unsigned timestamp;
 	int client;
 	uint32_t xid;
+	uint32_t gateway_nip;
+	uint8_t htype;
+	uint8_t hlen;
+	uint8_t chaddr[16];
 	struct sockaddr_in ip;
 	struct xid_item *next;
 } FIX_ALIASING;
 
 #define dhcprelay_xid_list (*(struct xid_item*)&bb_common_bufsiz1)
 
-static struct xid_item *xid_add(uint32_t xid, struct sockaddr_in *ip, int client)
+static struct udhcp_relay_xid_budget xid_budget;
+
+static struct xid_item *xid_add(uint32_t xid, const struct dhcp_packet *p,
+				struct sockaddr_in *ip, int client, int *created)
 {
 	struct xid_item *item;
 
-	/* create new xid entry */
-	item = xmalloc(sizeof(struct xid_item));
+	/* DHCP clients retransmit with the same transaction ID and chaddr. */
+	for (item = dhcprelay_xid_list.next; item != NULL; item = item->next) {
+		if (item->xid == xid && item->client == client &&
+		    item->gateway_nip == p->gateway_nip &&
+		    item->htype == p->htype && item->hlen == p->hlen &&
+		    memcmp(item->chaddr, p->chaddr, sizeof(item->chaddr)) == 0) {
+			item->ip = *ip;
+			item->timestamp = monotonic_sec();
+			*created = 0;
+			return item;
+		}
+	}
 
-	/* add xid entry */
+	/* Bound memory use when a client floods unique DHCP transactions. */
+	if (!udhcp_relay_xid_reserve(&xid_budget))
+		return NULL;
+
+	item = xmalloc(sizeof(*item));
 	item->ip = *ip;
 	item->xid = xid;
 	item->client = client;
+	item->gateway_nip = p->gateway_nip;
+	item->htype = p->htype;
+	item->hlen = p->hlen;
+	memcpy(item->chaddr, p->chaddr, sizeof(item->chaddr));
 	item->timestamp = monotonic_sec();
 	item->next = dhcprelay_xid_list.next;
 	dhcprelay_xid_list.next = item;
+	*created = 1;
 
 	return item;
 }
@@ -63,6 +90,7 @@ static void xid_expire(void)
 	while (item != NULL) {
 		if ((current_time - item->timestamp) > MAX_LIFETIME) {
 			last->next = item->next;
+			udhcp_relay_xid_release(&xid_budget);
 			free(item);
 			item = last->next;
 		} else {
@@ -72,31 +100,36 @@ static void xid_expire(void)
 	}
 }
 
-static struct xid_item *xid_find(uint32_t xid)
+static struct xid_item *xid_find(const struct dhcp_packet *p)
 {
 	struct xid_item *item = dhcprelay_xid_list.next;
+
 	while (item != NULL) {
-		if (item->xid == xid) {
-			break;
-		}
+		if (item->xid == p->xid &&
+		    item->gateway_nip == p->gateway_nip &&
+		    item->htype == p->htype && item->hlen == p->hlen &&
+		    memcmp(item->chaddr, p->chaddr, sizeof(item->chaddr)) == 0)
+			return item;
 		item = item->next;
 	}
-	return item;
+	return NULL;
 }
 
-static void xid_del(uint32_t xid)
+/* Remove exactly one transaction; other clients may legitimately share xid. */
+static void xid_del_item(struct xid_item *target)
 {
 	struct xid_item *item = dhcprelay_xid_list.next;
 	struct xid_item *last = &dhcprelay_xid_list;
+
 	while (item != NULL) {
-		if (item->xid == xid) {
+		if (item == target) {
 			last->next = item->next;
+			udhcp_relay_xid_release(&xid_budget);
 			free(item);
-			item = last->next;
-		} else {
-			last = item;
-			item = item->next;
+			return;
 		}
+		last = item;
+		item = item->next;
 	}
 }
 
@@ -194,7 +227,8 @@ static int sendto_ip4(int sock, const void *msg, int msg_len, struct sockaddr_in
 static void pass_to_server(struct dhcp_packet *p, int packet_len, int client, int *fds,
 			struct sockaddr_in *client_addr, struct sockaddr_in *server_addr)
 {
-	int type;
+	struct xid_item *item;
+	int type, created;
 
 	/* check packet_type */
 	type = get_dhcp_packet_type(p);
@@ -205,15 +239,19 @@ static void pass_to_server(struct dhcp_packet *p, int packet_len, int client, in
 		return;
 	}
 
-	/* create new xid entry */
-	xid_add(p->xid, client_addr, client);
+	item = xid_add(p->xid, p, client_addr, client, &created);
+	if (NULL == item) {
+		log1("DHCP relay transaction table full; dropping request");
+		return;
+	}
 
 	/* forward request to server */
 	/* note that we send from fds[0] which is bound to SERVER_PORT (67).
 	 * IOW: we send _from_ SERVER_PORT! Although this may look strange,
 	 * RFC 1542 not only allows, but prescribes this for BOOTP relays.
 	 */
-	sendto_ip4(fds[0], p, packet_len, server_addr);
+	if (sendto_ip4(fds[0], p, packet_len, server_addr) != 0 && created)
+		xid_del_item(item);
 }
 
 /**
@@ -225,8 +263,8 @@ static void pass_to_client(struct dhcp_packet *p, int packet_len, int *fds)
 	int type;
 	struct xid_item *item;
 
-	/* check xid */
-	item = xid_find(p->xid);
+	/* Match the complete relay transaction, not just the random xid. */
+	item = xid_find(p);
 	if (!item) {
 		return;
 	}
@@ -245,8 +283,8 @@ static void pass_to_client(struct dhcp_packet *p, int packet_len, int *fds)
 		return; /* send error occurred */
 	}
 
-	/* remove xid entry */
-	xid_del(p->xid);
+	/* remove only the transaction that produced this reply */
+	xid_del_item(item);
 }
 
 int dhcprelay_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;

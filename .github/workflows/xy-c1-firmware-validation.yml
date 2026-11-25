@@ -104,6 +104,8 @@ on:
       - "trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcprelay.c"
       - "trunk/user/busybox/busybox-1.24.x/networking/udhcp/udhcp_relay_packet_bounds.h"
       - "trunk/user/busybox/busybox-1.24.x/networking/udhcp/tests/dhcprelay_packet_bounds.c"
+      - "trunk/user/busybox/busybox-1.24.x/networking/udhcp/udhcp_relay_xid_policy.h"
+      - "trunk/user/busybox/busybox-1.24.x/networking/udhcp/tests/dhcprelay_xid_policy.c"
       - "trunk/user/busybox/busybox-1.24.x/networking/udhcp/tests/udhcpc_script_policy.c"
       - "trunk/user/rc/src/lan_dhcp_callback_policy.h"
       - "trunk/user/rc/src/tests/lan_dhcp_callback_policy.c"
