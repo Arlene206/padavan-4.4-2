@@ -156,7 +156,7 @@ assert "u2ec_read_fifo_event" in policy
 for token in (
     "test_fifo_idle_readiness_and_event_bytes_are_safe",
     "A read-only FIFO becomes EOF-readable after a writer has connected,",
-    "An unopened writer does not necessarily produce POLLHUP, so exercise the real notification lifecycle.",
+    "writer = open(path, O_WRONLY | O_NONBLOCK)",
     "Holding the FIFO RDWR prevents idle EOF and select() busy looping.",
     "u2ec_read_fifo_event(fd, &event) == 1",
 ):
