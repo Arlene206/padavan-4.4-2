@@ -1482,6 +1482,26 @@ fi
 [ -f "$TEST_CONFIG/identity.secret" ] || fail "missing NAT route removed the persistent identity"
 TEST_NAT_ENABLE=0
 
+# iproute2 may print a host route as a bare IPv4 address; all other
+# saved source segments must be canonical four-octet IPv4 with an optional
+# decimal CIDR prefix in the range 0..32.
+for valid_segment in "0.0.0.0/0" "10.147.17.0/24" "10.147.17.1"; do
+	if ! zerotier_ipv4_cidr_is_valid "$valid_segment"; then
+		fail "valid kernel route segment was rejected: $valid_segment"
+	fi
+done
+for invalid_segment in \
+	"10.147.017.0/24" \
+	"999.147.17.0/24" \
+	"10.147.17/24" \
+	"10.147.17.0/33" \
+	"10.147.17.0/024" \
+	"10.147.17.0/24/1"; do
+	if zerotier_ipv4_cidr_is_valid "$invalid_segment"; then
+		fail "malformed kernel route segment was accepted: $invalid_segment"
+	fi
+done
+
 # A corrupt firewall checkpoint can contain the only record of an old
 # source-NAT segment after its kernel route has disappeared. Stop must not
 # replace that recovery record with an empty snapshot or leave stale rules.
@@ -1520,6 +1540,55 @@ grep -Fqx -- "corrupt-extra-record" "$TEST_CONFIG/.firewall-state" || fail "corr
 /bin/rm -rf "$TEST_CONFIG"
 : > "$TEST_IPTABLES_STATE_FILE"
 : > "$TEST_IPTABLES_LOG"
+test_proc_reset
+TEST_IFCONFIG_MODE=none
+TEST_ROUTE_MODE=none
+TEST_NAT_ENABLE=0
+
+# Numeric-looking but semantically invalid tuples must fail before stop can
+# signal the daemon, rewrite the checkpoint, or mutate firewall state.
+for malformed_segment in \
+	"10.147.017.0/24" \
+	"999.147.17.0/24" \
+	"10.147.17/24" \
+	"10.147.17.0/33"; do
+	/bin/rm -rf "$TEST_CONFIG"
+	mkdir -p "$TEST_CONFIG"
+	: > "$TEST_IPTABLES_STATE_FILE"
+	: > "$TEST_IPTABLES_LOG"
+	: > "$TEST_ACTION_LOG"
+	: > "$TEST_KILL_LOG"
+	TEST_EXPECT_SAVED_SEGMENT=1
+	test_seed_firewall_rules
+	: > "$TEST_IPTABLES_LOG"
+	printf '%s\n' 'ztunit' "$malformed_segment" > "$TEST_CONFIG/.firewall-state"
+	echo identity > "$TEST_CONFIG/identity.secret"
+	echo running > "$TEST_STATE"
+	TEST_STATIC_ROUTE_COUNT=0
+	TEST_STATIC_ROUTE_ENABLE=0
+	TEST_NAT_ENABLE=0
+	TEST_IFCONFIG_MODE=running-only
+	TEST_ROUTE_MODE=none
+	zt0=""
+	ip_segment=""
+	zt_firewall_state_checkpoint_loaded=0
+	test_proc_reset
+	test_proc_add 4333 "$PROG" "$PROG"
+	TEST_MODE=graceful
+	if stop_zero; then
+		fail "stop accepted malformed source-NAT checkpoint tuple: $malformed_segment"
+	fi
+	[ "$(cat "$TEST_STATE")" = running ] || fail "malformed checkpoint stopped the daemon: $malformed_segment"
+	[ ! -s "$TEST_KILL_LOG" ] || fail "malformed checkpoint signalled the daemon: $malformed_segment"
+	[ ! -s "$TEST_IPTABLES_LOG" ] || fail "malformed checkpoint changed firewall state: $malformed_segment"
+	[ -f "$TEST_CONFIG/identity.secret" ] || fail "malformed checkpoint removed the persistent identity: $malformed_segment"
+	[ "$(sed -n '2p' "$TEST_CONFIG/.firewall-state")" = "$malformed_segment" ] || fail "malformed checkpoint was rewritten: $malformed_segment"
+	[ ! -s "$TEST_ACTION_LOG" ] || fail "malformed checkpoint changed persistent configuration: $malformed_segment"
+done
+/bin/rm -rf "$TEST_CONFIG"
+: > "$TEST_IPTABLES_STATE_FILE"
+: > "$TEST_IPTABLES_LOG"
+: > "$TEST_ACTION_LOG"
 test_proc_reset
 TEST_IFCONFIG_MODE=none
 TEST_ROUTE_MODE=none

@@ -6,13 +6,14 @@ This snapshot supersedes older task pointers below where they conflict with live
 - On exact `bab40c4`, WAN route #45533107539, Process inventory #45533107609, Process lifecycle #45533107579, AI docs #45533107423 and NVRAM boundary #45533107546 PASS. The WAN job compiled and ran the IGMP parser regression and Process passed IGMP production wiring/altnet checks. XY-C1 #45533107475 Build was IN_PROGRESS; TRX and artifact pending. Do not claim L3 until all three pass on one product-source SHA.
 - The IGMPProxy altnet fix in `bab40c4` aligns its decimal CIDR validator with bundled igmpproxy 0.3 `inet_addr()` semantics: leading-zero multi-digit octets and `255.255.255.255` are rejected. GNU89/Werror/ASan/UBSan regression passed; no local compile claimed.
 - This follow-up closes the equivalent static-ARP mismatch: BusyBox 1.24 `arp` passes addresses through `INET_input` → `INET_resolve` → `inet_aton`, so `010.0.0.1` means octal `8.0.0.1`. Static-ARP IPv4 validation now rejects multi-digit leading-zero octets; GNU89 coverage tests every octet position and preserves canonical zero/all-ones addresses. DNSMasq source contract checks the exact BusyBox parser chain.
-- Exact-head DNSMasq, AI docs, Process inventory/lifecycle, NVRAM and XY-C1 Actions on this follow-up SHA must be inspected after publication. No local compile, Build/TRX/artifact or hardware L4 result is implied by parent CI.
+- DNSMasq static-ARP fix exact head `21ef708f191b395f04a0c37a4e2b4933b876c1e4`: DNSMasq lifecycle #45533740252, AI docs #45533740258 and Process inventory #45533740231 PASS; NVRAM audit #45533740255 and XY-C1 #45533740364 remain IN_PROGRESS. The IGMPProxy/WAN and prior handoff checks on parent `bab40c4f40d22a65b5d4d0bac0bb5b036507ab3e` passed. L3 is not claimed.
+- Active source slice validates ZeroTier saved firewall route tuples before checkpoint publication/replay; character-only filtering accepted malformed numeric-looking IP/CIDR values. The new shared validator plus lifecycle regression must pass on exact head.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and inspect exact-head DNSMasq lifecycle, AI docs, Process inventory, Process lifecycle, NVRAM boundary and XY-C1 Actions. Require matching `head_sha`; repair any FAIL on main and work on independent tasks while PENDING.
-2. Confirm XY-C1 Build, TRX and artifact upload all PASS on the same product-source SHA before claiming L3. Physical-router L4 remains NOT VERIFIED.
-3. Continue with the next distinct stability/security issue; do not repeat the IGMPProxy or static-ARP leading-zero parser fixes.
+1. Fetch live main and inspect exact-head ZeroTier lifecycle, AI docs, Process inventory/lifecycle, WAN route, NVRAM boundary and XY-C1 Actions for this checkpoint-validator change. Require matching `head_sha`; repair any FAIL on main while continuing independent work when runs are PENDING.
+2. Recheck XY-C1 #45533740364 on product-source SHA `21ef708f191b395f04a0c37a4e2b4933b876c1e4`; claim L3 only if Build, TRX and artifact upload all pass on that exact source SHA. Physical-router L4 remains NOT VERIFIED.
+3. Continue with another distinct userland stability/security issue; do not repeat the IGMPProxy or static-ARP leading-zero parser fixes or completed ZeroTier fixture repair.
 
 No force-push. The backup branch remains unchanged.
 

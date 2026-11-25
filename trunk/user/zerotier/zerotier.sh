@@ -681,6 +681,35 @@ zerotier_delete_firewall_rule() {
 	fi
 }
 
+# Validate the exact route tuple before persisting or replaying it.
+# iproute2 may print a host route without /32, which iptables treats as /32.
+zerotier_ipv4_cidr_is_valid() {
+	[ "$#" -eq 1 ] || return 1
+	printf '%s\n' "$1" | awk -F/ '
+		END {
+			if (NR != 1 || (NF != 1 && NF != 2) ||
+			    $1 == "" || $1 !~ /^[0-9.]+$/)
+				exit 1
+			octet_count = split($1, octets, "[.]")
+			if (octet_count != 4)
+				exit 1
+			for (i = 1; i <= 4; ++i) {
+				if (octets[i] !~ /^[0-9]+$/ ||
+				    length(octets[i]) > 3 ||
+				    (length(octets[i]) > 1 && substr(octets[i], 1, 1) == "0") ||
+				    octets[i] + 0 > 255)
+					exit 1
+			}
+			if (NF == 2 &&
+			    ($2 !~ /^[0-9]+$/ ||
+			     (length($2) > 1 && substr($2, 1, 1) == "0") ||
+			     $2 + 0 > 32))
+				exit 1
+			exit 0
+		}
+	'
+}
+
 zerotier_firewall_state_save() {
 	[ -n "$zt0" ] && [ -d "$config_path" ] && [ ! -L "$config_path" ] || return 1
 	case "$zt0" in
@@ -690,9 +719,9 @@ zerotier_firewall_state_save() {
 	case "$zt0" in
 		*[!A-Za-z0-9_.:-]*) return 1 ;;
 	esac
-	case "$ip_segment" in
-		*[!0-9./]*) return 1 ;;
-	esac
+	if [ -n "$ip_segment" ] && ! zerotier_ipv4_cidr_is_valid "$ip_segment"; then
+		return 1
+	fi
 
 	zt_state_file="$config_path/.firewall-state"
 	if [ -e "$zt_state_file" ] || [ -L "$zt_state_file" ]; then
@@ -730,9 +759,10 @@ zerotier_firewall_state_load() {
 	case "$zt_state_saved_interface" in
 		*[!A-Za-z0-9_.:-]*) return 1 ;;
 	esac
-	case "$zt_state_saved_segment" in
-		*[!0-9./]*) return 1 ;;
-	esac
+	if [ -n "$zt_state_saved_segment" ] &&
+	   ! zerotier_ipv4_cidr_is_valid "$zt_state_saved_segment"; then
+		return 1
+	fi
 	zt_firewall_state_checkpoint_loaded=1
 	return 0
 }

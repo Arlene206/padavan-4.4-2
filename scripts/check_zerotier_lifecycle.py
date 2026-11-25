@@ -102,6 +102,7 @@ cleanup_section = script.split("del_rules() {", 1)[1].split("\nzero_route() {", 
 del_rules_body = function_body(script, "del_rules()")
 delete_rule_body = function_body(script, "zerotier_delete_firewall_rule()")
 rule_action_body = function_body(script, "zerotier_firewall_rule_action()")
+segment_body = function_body(script, "zerotier_ipv4_cidr_is_valid()")
 state_save_body = function_body(script, "zerotier_firewall_state_save()")
 state_load_body = function_body(script, "zerotier_firewall_state_load()")
 state_clear_body = function_body(script, "zerotier_firewall_state_clear()")
@@ -512,6 +513,20 @@ require('[ -f "$zt_state_file" ] && [ ! -L "$zt_state_file" ]' in state_load_bod
         'zt_state_saved_interface' in state_load_body and
         'zt_state_saved_segment' in state_load_body,
         "firewall retry state must reject symlinks and restore the validated interface/network")
+
+require('zerotier_ipv4_cidr_is_valid "$ip_segment"' in state_save_body and
+        'zerotier_ipv4_cidr_is_valid "$zt_state_saved_segment"' in state_load_body and
+        'awk -F/' in segment_body and
+        'octet_count != 4' in segment_body and
+        'octets[i] + 0 > 255' in segment_body and
+        '$2 + 0 > 32' in segment_body and
+        'length($2) > 1' in segment_body,
+        "firewall checkpoint save/load must validate canonical IPv4 host/CIDR tuples before using iptables source matches")
+for marker in ("stop accepted malformed source-NAT checkpoint tuple",
+               "malformed checkpoint signalled the daemon",
+               "malformed checkpoint changed firewall state",
+               "malformed checkpoint was rewritten"):
+    require(marker in test, f"firewall checkpoint regression omits {marker}")
 require(del_rules_body.count('zerotier_delete_firewall_rule') == 5 and
         'del_rules_status=1' in del_rules_body and
         'return "$del_rules_status"' in del_rules_body,

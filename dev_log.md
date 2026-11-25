@@ -1,3 +1,9 @@
+## 2026-11-24 — Validate ZeroTier firewall checkpoint IPv4 tuples
+
+- The firewall recovery checkpoint previously restricted saved source-NAT segments to digits, dots and slashes, but did not validate octet or prefix semantics. Corrupt values such as `999.147.17.0/24`, octal-looking `10.147.017.0/24` and prefix `/33` passed the character gate and could be replayed as iptables source matches.
+- Added a shared canonical IPv4 validator to both checkpoint save and load. It supports bare host routes as well as CIDR 0–32, rejects invalid octets, leading-zero aliases, malformed dotted quads and out-of-range prefixes, and preserves the valid empty-segment checkpoint semantics.
+- Added direct and stop-path lifecycle regressions. Malformed saved tuples must leave the daemon, firewall, checkpoint and persistent identity untouched; the Python source contract pins both production callsites and the failure-preservation markers. No local shell test is claimed; exact-head ZeroTier, AI, Process, WAN and XY-C1 Actions must validate this commit.
+
 ## 2026-11-24 — Reject octal aliases in DNSMasq static-ARP IPv4 inputs
 
 - BusyBox 1.24 `arp -s` uses `INET_input()` → `INET_resolve()`, and `libbb/inet_common.c` passes numeric input to `inet_aton()`. Multi-digit leading-zero octets are therefore parsed as octal; `010.0.0.1` addresses `8.0.0.1`, not decimal `10.0.0.1`.
