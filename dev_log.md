@@ -1,3 +1,16 @@
+## 2026-11-25 — BusyBox procfs and U2EC lifecycle follow-up
+
+- BusyBox procfs scanner hardening: `d018a324` rejects empty/malformed stat records, `f097a5b5` retries bounded interrupted reads, `63d18699` validates every numeric stat field used by FAST_TOP/SMP, and `7b65f0d9` removes one-byte-past-length sentinel reads from the reusable validation helpers. Exact host ASan/UBSan/source-contract regressions passed (#45575979483, #45577415801, final exact helper-boundary run #45578684818 on `7b65f0d9`).
+- U2EC FIFO event path: `a9231a89` handles FIFO EOF/EAGAIN safely and retains an RDWR nonblocking descriptor to avoid read-side HUP wakeups. The regression now models a writer connecting, writing and closing before asserting EOF readiness; the previous initial test incorrectly assumed an unopened FIFO writer would already make `select()` readable. Final test/source-contract run #45580342749 passed on `66d40c75`.
+- U2EC resource cleanup: `6112d036` closes discovery datagram/stream sockets on setsockopt/bind/listen failures, and `b6fc588b` closes both listener sockets when the discovery select loop exits on a non-EINTR error. Exact U2EC run #45580771843 passed on `b6fc588b`.
+- Concurrent U2EC lock cleanup follow-ups: `0d20e25f` makes printer lock release idempotent; `640a9580` also releases the lock on cancelled/rate-limited FIFO events. Current exact-head U2EC run #45580921217 and process lifecycle inventory #45580921120 both PASS on `640a9580`.
+- Intermediate U2EC CI failures were isolated to test fixture declarations, the FIFO lifecycle test setup/sentinel, and checker text matching; each was corrected atomically. The final current-head host regression and source contract are green.
+- During a concurrent update, `95ea99d`/`85dfaea` temporarily replaced the repository root tree with a subtree-only tree. The complete root was restored without force by `9294af65`; subsequent main history includes the full restored tree. Backup branch remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- XY-C1 #45580921143 on `640a9580` and NVRAM audit #45580921210 were still IN_PROGRESS at the last poll. XY Build/TRX/artifact steps had not yet completed; no L3 claim. AI handoff contract #45579577795 passed on `9294af65` but must be rerun for the new docs commit. No L4 hardware test is claimed.
+- Unresolved candidate for the next source slice: U2EC `multi_client()` SIGALRM handler reads connection-list/last-busy state that may be concurrently changed; investigate a safe signal/list ownership strategy before modifying it. PPP process-wide umask changes remain deliberately untouched without tracing their actual credential/file writers.
+
+---
+
 ## 2026-11-25 — FTP ACL, DHCP ACK, HTTPD upload, U2EC build and PPP lock hardening
 
 - VSFTPD ACL metadata reader now revalidates that the pinned directory entry still names the inode whose bytes were read; rename+replacement regression and exact-source check passed (#45571067464 on `a4959513`).
