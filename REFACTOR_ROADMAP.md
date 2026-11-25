@@ -1,3 +1,12 @@
+## 2026-11-25 状态增量：跨模块网络与打印数据边界
+
+- WAN ARP：拒绝非空非法网关；#45565621317 PASS（583576a）。
+- MiniUPnP：单一严格 Content-Length、拒绝 TE/重复长度、限制 8KiB header / 64KiB body；#45566912855 PASS（019f005）。
+- SmartDNS：刷新失败保留 last-good adblock；#45568556249 PASS（1817dd6）。
+- U2EC：完整 TCP I/O、MSG_NOSIGNAL、校验实际收到的 IRP/URB 长度；#45569202180 PASS（e5d039b）。
+- p910nd：双向 FD_SET 前校验 FD_SETSIZE；Makefile 跟踪策略头文件；#45569803535 PASS（e487703）。XY-C1 #45569803520 仍在 Build，TRX/产物待证。
+
+---
 ## 2026-11-24 状态增量：Redsocks NAT 规则一致性
 
 - 移除旧文本行号解析；以精确 -C/-D 清理重复跳转，检查 -S/-F/-X/-A 状态并回滚部分安装。REMOTE_IP 在清理前按十进制 IPv4 校验；回归覆盖重复重建、检查/删除失败和部分发布回滚。

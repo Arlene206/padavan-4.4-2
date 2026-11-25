@@ -6,12 +6,12 @@ This checkpoint supersedes older task pointers below. Historical completed work 
 
 - Live main at checkpoint start: e487703a3163f9bb7bf10fe09d4e389602ce34d3; development remains main-only. Frozen backup/pre-plugin-overhaul-2026-11-14 remains read-only; no force-push, branch creation or PR was used.
 - Latest p910nd descriptor-boundary fix: e487703a3163f9bb7bf10fe09d4e389602ce34d3. Exact-head p910nd regression #45569803535 PASS; Process inventory #45569803552 PASS.
-- On this exact main SHA, XY-C1 Firmware Validation #45569803520 is IN_PROGRESS in Build XY-C1; TRX verification and artifact upload have not completed. Process lifecycle fail-closed #45569803612 and NVRAM transaction-boundary audit #45569803507 were IN_PROGRESS at last observation. Do not claim L3 until Build, TRX and artifact upload all pass on one product-source SHA.
+- On source SHA e487703a3163f9bb7bf10fe09d4e389602ce34d3, Process lifecycle fail-closed #45569803612 and NVRAM transaction-boundary audit #45569803507 both completed PASS. XY-C1 Firmware Validation #45569803520 remains IN_PROGRESS in Build XY-C1; TRX verification and artifact upload have not completed. Do not claim L3 until Build, TRX and artifact upload all pass on one product-source SHA.
 - Earlier exact-head regressions from this workstream: WAN gateway ARP #45565621317 PASS on 583576ac1b1a7bc9168b356a4f7f07bfdf090dc5; MiniUPnP HTTP framing #45566912855 PASS on 019f005cf9b3123ea93b04bf09b804f2b0e4c3bb; SmartDNS/DNSMasq #45568556249 PASS on 1817dd6fdd6c3eab0d8f0a19bb06b859b1aa06bd; U2EC bounded TCP framing #45569202180 PASS on e5d039b9d6725b3fb1dd47f735e96880d09c44aa; p910nd #45569803535 PASS on the latest e487703a.
 - These are host/GitHub regression results. They do not establish physical-router printer disconnect behavior or WAN/UPnP runtime L4. Older XY-C1 runs on earlier heads showed external ROMFS dependency failures (msd_lite download/404 and missing groff HTML DESC); inspect the current exact-head run before attributing any failure.
 ## Active task
 
-Continue independent userland stability/security work; do not idle on CI. The next takeover should first refresh live main and inspect the outstanding exact-head runs listed above, especially XY-C1 #45569803520 for Build/TRX/artifact, then Process fail-closed #45569803612 and NVRAM audit #45569803507. If any remains PENDING, proceed with a separate source defect and revisit only at a useful checkpoint. No hardware validation is claimed.
+Continue independent userland stability/security work; do not idle on CI. The next takeover should first refresh live main and inspect XY-C1 #45569803520 for Build/TRX/artifact. Process fail-closed #45569803612 and NVRAM audit #45569803507 already PASS on e487703. If any remains PENDING, proceed with a separate source defect and revisit only at a useful checkpoint. No hardware validation is claimed.
 # Cross-session execution mandate
 
 Continue one autonomous engineering stream on main. For each logical slice, create all changed blobs, one complete Git tree based on the live main root tree, and one atomic main commit; update main with a non-forced expected-SHA compare-and-swap. Never force-push, use feature branches or PRs, split one logical change into per-file commits, or modify the frozen backup. PENDING never blocks independent work. Before context exhaustion, finish the current safe slice and checkpoint the first concrete next action.
@@ -128,7 +128,7 @@ Commit `786c504c8247fe42d5d1d5f2dc3ad28757fafc80` strictly parses persisted RX/T
 
 ## Exact first action for the next GPT
 
-1. Fetch live main; if still e487703a3163f9bb7bf10fe09d4e389602ce34d3, inspect XY-C1 #45569803520 for Build, TRX and artifact; inspect Process fail-closed #45569803612 and NVRAM audit #45569803507. If main advanced, check those runs against their own recorded SHA and inspect new-head runs separately.
+1. Fetch live main; inspect XY-C1 #45569803520 on e487703a3163f9bb7bf10fe09d4e389602ce34d3 for Build, TRX and artifact completion. Process fail-closed #45569803612 and NVRAM audit #45569803507 already PASS on that SHA. If main advanced, check runs against their own recorded SHA and inspect new-head runs separately.
 2. If a run is PENDING, do not wait. Select the next independent stability/security defect from the live roadmap and continue small atomic main commits with GNU89/ASan/UBSan or target-appropriate tests.
 3. Keep WAN, MiniUPnP, SmartDNS, U2EC and p910nd results tied to their exact SHAs. Do not infer same-SHA product L3 from host-only regression PASS. L3 requires Build XY-C1 + TRX + artifact on one production-source SHA; physical-router L4 remains outstanding.
 ## Mandatory handoff checkpoint
