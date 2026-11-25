@@ -49,10 +49,10 @@ jobs:
       - name: Compile bounded interrupted-read regression (GNU89, ASan, UBSan)
         run: |
           set -eu
-          cc -std=gnu89 -Wall -Wextra -Werror \\
-            -fsanitize=address,undefined -fno-omit-frame-pointer \\
-            -Itrunk/user/busybox/busybox-1.24.x/libbb \\
-            trunk/user/busybox/busybox-1.24.x/libbb/tests/procps_io_policy.c \\
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -Itrunk/user/busybox/busybox-1.24.x/libbb \
+            trunk/user/busybox/busybox-1.24.x/libbb/tests/procps_io_policy.c \
             -o "$RUNNER_TEMP/busybox-procps-io-regression"
       - name: Exercise interrupted-read retry bound and error propagation
         env:
