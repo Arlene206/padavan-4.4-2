@@ -1,3 +1,11 @@
+## 2026-11-25 — Reject corrupt RStats history ring cursors before restore
+
+- `load_history_raw()` accepted a persisted `history_t` when only its byte count and magic ID matched, then copied `dailyp` / `monthlyp` directly into live state. `bump_history()` indexes the daily/monthly arrays using those cursors, so a corrupt or stale record could cause an out-of-bounds access during the next statistics update.
+- Added a capacity-aware cursor validator and discard/log invalid records before `memcpy`. Regression covers first/last valid positions, negative and capacity-equal cursors, and invalid capacities; the existing workflow locks validation-before-copy order.
+- Base main SHA: `195bc627d2d809da1877bc7c119a5a5e73342799`. Exact-head RStats Actions pending. No firmware-build or hardware-verification claim.
+
+---
+
 ## 2026-11-25 — Align optional-app source checker with Dropbear PID identity
 
 - The first exact Process lifecycle run #45649732824 on `880c339` failed before the new shell fixture because `scripts/check_optional_app_start_status.py::check_dropbear()` still asserted the retired `pidof` output-validation expression and its mock `killall` behavior. Those assertions no longer described the hardened procfs implementation.

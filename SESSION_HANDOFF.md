@@ -1,15 +1,15 @@
-## 2026-11-25 active handoff — Dropbear checker alignment
+## 2026-11-25 active handoff — Reject corrupt RStats history ring cursors
 
-- Live main before this checker correction: `3d133996a9fe1de17d57f8c25805efee362f6106`. Dropbear process identity source and exact shell parameter expansions were corrected in `3d133996a9fe1de17d57f8c25805efee362f6106`.
-- The earlier exact Process lifecycle run #45649732824 on `880c339` failed at the optional-app Python checker, which still asserted the removed `pidof` output pattern and mock `killall` contract. This slice updates the checker to the new procfs/executable identity invariant and validates the dedicated shell fixture's presence/syntax.
-- Exact Process lifecycle run #45649964742 on corrected source `3d13399` was IN_PROGRESS at last poll; its result predates the checker correction. A new exact-SHA run must execute both the checker and behavioral fixture.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. Physical-router L4 NOT VERIFIED.
+- Live main base for this slice: `195bc627d2d809da1877bc7c119a5a5e73342799`. Dropbear numeric-token source contract was corrected in the immediately preceding commit; Process inventory/fail-closed #45650274526 and AI handoff #45650274515 were in progress at last poll. Earlier #45649964742 failed at the superseded assertion and did not run the Dropbear fixture.
+- RStats raw history records were accepted based only on byte count and magic ID. Persisted `dailyp` / `monthlyp` are array indices used by `bump_history()`; corrupted values could address outside the daily/monthly arrays.
+- This slice validates both cursors before copying records to live state, discards/logs corrupt records, and adds GNU89 boundary tests plus exact-source order assertions. Exact-head RStats Actions pending; no L3/L4 claim.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. Physical-router L4 NOT VERIFIED.
 
 ### First actions
 
-1. Inspect exact Process lifecycle and AI handoff Actions for this checker-alignment commit; repair any first causal failure.
-2. Confirm the shell fixture runs against the corrected source and all spoof/UNKNOWN/TERM/KILL cases pass.
-3. Continue another independent userland stability/security source fix while XY-C1 and other Actions remain pending.
+1. Check exact-SHA RStats workflow and repair compiler, sanitizer, or source-contract failures.
+2. Check Dropbear exact-SHA runs #45650274526 and #45650274515; confirm the executable-identity test step runs and passes.
+3. Continue another independent userland stability/security slice while unrelated Actions are pending.
 
 ### Execution contract
 
@@ -21,30 +21,27 @@ This checkpoint supersedes older active task pointers below; retain historical c
 
 ## Current repository state
 
-- Live main before checker alignment: `3d133996a9fe1de17d57f8c25805efee362f6106`; this follow-up is its single non-forced descendant. Fetch live `main` on takeover.
+- Main base before RStats change: `195bc627d2d809da1877bc7c119a5a5e73342799`; this source fix is committed as one atomic non-forced descendant.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only.
-- Process lifecycle #45649732824 on `880c339` failed at the stale Python source checker; it did not reach the new process-state fixture.
-- Process lifecycle #45649964742 on `3d13399` was IN_PROGRESS at last poll; this preceded the checker alignment.
-- DHCPv6 finite-expiry IA #45647751899, Process inventory #45647752064, WAN DHCP #45647751951 and USB storage #45647752298 PASS on `cb8f014`; AI docs #45648215022 PASS on `84fadb0`.
-- XY-C1 #45647751940 on product SHA `cb8f014` remained in Build at last poll; TRX/artifact pending; no L3 claim.
+- Dropbear checker update exact runs #45650274526 and #45650274515 were in progress at last poll; earlier #45649964742 failed at a stale assertion and skipped its new fixture.
+- RStats persisted-history ring-cursor validation and GNU89 boundary regression are included in this checkpoint; exact RStats workflow pending.
 - Physical-router L4 NOT VERIFIED.
 
 ## Active task
 
-Replace the stale name-only Dropbear assertions in the optional-app source checker with procfs/executable identity invariants. The dedicated shell test executes spoof rejection, PID reuse, targeted signal, escalation and fail-closed incomplete-procfs cases.
+Reject raw RStats history records with negative or capacity-equal daily/monthly ring cursors before copying them to live state. Invalid persisted records are logged and discarded.
 
 ## Verification boundary
 
-- Dropbear source shell-expansion correction #3d13399: exact Process lifecycle and AI runs were still in progress at last poll.
-- Old Process lifecycle #45649732824 on `880c339`: FAIL at the retired `pidof` checker assertion; checker-only update is the current slice.
-- Local shell prototype passed before the committed-source shell correction; exact GitHub behavioral fixture must pass.
-- Physical-router L4 NOT VERIFIED.
+- RStats GNU89/ASan/UBSan regression and source-order contract: added; exact-head Actions pending.
+- Dropbear corrected checker run has not yet demonstrated the dedicated behavioral fixture passes.
+- No current same-SHA XY-C1 Build/TRX/artifact result is assumed. Physical-router L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`; inspect exact-SHA Process lifecycle and AI docs runs for checker alignment.
-2. Verify the optional-app checker source contract and Dropbear shell behavior fixture both pass on one SHA.
-3. Continue an independent userland stability/security implementation while other Actions remain pending; do not transfer old L3 claims.
+1. Inspect the exact-SHA RStats workflow and repair any compiler, sanitizer, or source-contract failure.
+2. Resolve Dropbear exact-SHA runs #45650274526 and #45650274515; verify its dedicated shell fixture ran and passed.
+3. Continue an independent stability/security source fix while pending Actions run.
 
 # Cross-session execution mandate
 

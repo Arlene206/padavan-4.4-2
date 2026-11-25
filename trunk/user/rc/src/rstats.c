@@ -247,6 +247,18 @@ static void load_history_raw(void)
 			snprintf(h_path, sizeof(h_path), "%s/%s.%s", "/etc/storage", "rstats-history", g_history_desc[i].ifdesc);
 		n_len = f_read(h_path, &hist, sizeof(history_t));
 		if (n_len == sizeof(history_t) && hist.id == CURRENT_ID) {
+			/*
+			 * Ring cursors are persisted with the raw record. Validate both
+			 * before copying them into live state: bump_history() indexes the
+			 * arrays through these values without another bounds check.
+			 */
+			if (!rstats_history_ring_indices_valid(hist.dailyp, MAX_NDAILY,
+						       hist.monthlyp, MAX_NMONTHLY)) {
+				logmessage("rstats",
+					   "discarding raw history with invalid ring indices: %s",
+					   h_path);
+				continue;
+			}
 			memcpy(&g_history[i], &hist, sizeof(history_t));
 			if (is_history_active(&hist))
 				g_history_desc[i].is_active = 1;

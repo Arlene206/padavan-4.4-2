@@ -428,6 +428,33 @@ test_nvram_history_load_status(void)
 }
 
 static void
+test_history_ring_indices(void)
+{
+  const int daily_capacity = 62;
+  const int monthly_capacity = 25;
+
+  assert(rstats_history_ring_indices_valid(0, daily_capacity,
+                                           0, monthly_capacity));
+  assert(rstats_history_ring_indices_valid(daily_capacity - 1,
+                                           daily_capacity,
+                                           monthly_capacity - 1,
+                                           monthly_capacity));
+  assert(!rstats_history_ring_indices_valid(-1, daily_capacity,
+                                            0, monthly_capacity));
+  assert(!rstats_history_ring_indices_valid(daily_capacity, daily_capacity,
+                                            0, monthly_capacity));
+  assert(!rstats_history_ring_indices_valid(0, daily_capacity,
+                                            -1, monthly_capacity));
+  assert(!rstats_history_ring_indices_valid(0, daily_capacity,
+                                            monthly_capacity,
+                                            monthly_capacity));
+  assert(!rstats_history_ring_indices_valid(0, 0, 0, monthly_capacity));
+  assert(!rstats_history_ring_indices_valid(0, daily_capacity, 0, 0));
+  assert(!rstats_history_ring_indices_valid(0, -1, 0, monthly_capacity));
+  assert(!rstats_history_ring_indices_valid(0, daily_capacity, 0, -1));
+}
+
+static void
 test_nvram_storage_mode_results(void)
 {
   int storage_mode = 99;
@@ -562,6 +589,7 @@ int main(void) {
   test_nvram_selector_status_results();
   test_history_selector_copy_results();
   test_nvram_history_load_status();
+  test_history_ring_indices();
   test_nvram_storage_mode_results();
   test_history_file_write_status_results();
   test_periodic_storage_save_retries_after_failure();

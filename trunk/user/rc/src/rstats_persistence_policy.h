@@ -10,6 +10,19 @@
  * tick. Saturation avoids unbounded counter growth while storage is down. */
 /* Checked NVRAM reads use 0=missing, 1=present and negative=backend error.
  * Writes use zero=success; preserve errno when the backend reports failure. */
+/*
+ * Raw history records persist ring cursors outside process memory. Validate
+ * both cursors before loading them; bump_history() uses them as array indices.
+ */
+static inline int
+rstats_history_ring_indices_valid(int daily_tail, int daily_capacity,
+                                  int monthly_tail, int monthly_capacity)
+{
+    return daily_capacity > 0 && monthly_capacity > 0 &&
+           daily_tail >= 0 && daily_tail < daily_capacity &&
+           monthly_tail >= 0 && monthly_tail < monthly_capacity;
+}
+
 static inline int
 rstats_nvram_read_status(int read_result, int saved_errno)
 {

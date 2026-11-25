@@ -181,11 +181,19 @@ jobs:
           assert "rstats_nvram_history_load_status(" in history_load
           assert "nvram_match(\"rstats_stored\", \"0\")" not in history_load
           assert "cannot trust history load setting" in history_load
+          assert "rstats_history_ring_indices_valid(hist.dailyp, MAX_NDAILY," in history_load
+          assert "hist.monthlyp, MAX_NMONTHLY)" in history_load
+          assert "discarding raw history with invalid ring indices" in history_load
+          assert history_load.index("rstats_history_ring_indices_valid(") < history_load.index(
+              "memcpy(&g_history[i]")
           assert history_load.index("nvram_get_checked(\"rstats_stored\", &rstats_stored_text)") < history_load.index(
               "rstats_nvram_history_load_status(") < history_load.index("if (!load_history)")
           assert "rstats_nvram_history_load_status(" in persistence_policy
           assert "test_nvram_history_load_status" in test
           assert "test_nvram_history_load_status();" in test
+          assert "rstats_history_ring_indices_valid(" in persistence_policy
+          assert "test_history_ring_indices" in test
+          assert "test_history_ring_indices();" in test
 
           raw_save = body(rstats, "save_history_raw(long ticks)")
           assert "nvram_get_checked(\"rstats_stored\", &rstats_stored_text)" in raw_save
