@@ -639,6 +639,29 @@ jobs:
               'logmessage(LOGNAME, "skipping unsafe static DHCP host snapshot (errno=%d)", errno); }'
           ) in static_hosts_gate
 
+          hosts_router = function_body(
+              net_wan, "update_hosts_router(const char *lan_ipaddr)"
+          )
+          router_static_hosts_gate = hosts_router[
+              hosts_router.index(
+                  "/* Never ingest a stale or attacker-planted shared-/tmp link as hosts data. */"
+              ):
+              hosts_router.index(
+                  "#if defined (USE_IPV6)",
+                  hosts_router.index(
+                      "/* Never ingest a stale or attacker-planted shared-/tmp link as hosts data. */"
+                  ),
+              )
+          ]
+          router_static_hosts_gate = " ".join(router_static_hosts_gate.split())
+          assert (
+              'if (dnsmasq_file_is_safe_regular("/tmp/hosts.static") == 0) { '
+              'saved_errno = load_user_config(hosts_fp, "/tmp", "hosts.static", NULL); '
+              'if (saved_errno != 0) goto failed; '
+              '} else if (errno != ENOENT) { '
+              'logmessage(LOGNAME, "skipping unsafe static DHCP host snapshot (errno=%d)", errno); }'
+          ) in router_static_hosts_gate
+
           lan_manual = function_body(net_lan, "lan_up_manual(char *lan_ifname, char *lan_dname)")
           lan_domain_check = lan_manual.index("dnsmasq_valid_server_domain(lan_dname)")
           lan_lock = lan_manual.index('lock = file_lock("resolv");')
