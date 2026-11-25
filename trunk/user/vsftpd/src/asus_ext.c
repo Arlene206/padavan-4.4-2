@@ -162,7 +162,7 @@ int get_mount_layer(const char *basedir, char **mount_path, char **share)
 }
 static char *
 read_file_to_buffer_at(int directory_fd, const char *directory_path,
-                       const char *leaf)
+                       const char *leaf, size_t *p_file_size)
 {
 	char *buffer;
 	struct stat stat_buf, final_stat;
@@ -170,6 +170,11 @@ read_file_to_buffer_at(int directory_fd, const char *directory_path,
 	ssize_t read_size;
 	int fd, saved_errno;
 
+	if (!p_file_size) {
+		errno = EINVAL;
+		return NULL;
+	}
+	*p_file_size = 0;
 	if (ftp_acl_path_verify_directory_identity(directory_path,
 	                                           directory_fd) != 0)
 		return NULL;
@@ -222,6 +227,7 @@ read_file_to_buffer_at(int directory_fd, const char *directory_path,
 	}
 
 	buffer[read_total] = '\0';
+	*p_file_size = read_total;
 	return buffer;
 
 read_buffer_error:
@@ -241,7 +247,7 @@ int get_permission_ftp(const char *account, const char *mount_path, const char *
 {
 	char var_file[PATH_MAX], *var_info;
 	const char *var_leaf;
-	size_t mount_len;
+	size_t mount_len, var_info_size = 0;
 	int result, mount_fd, saved_errno;
 
 	if (!account || !mount_path || !*mount_path || !folder || !*folder)
@@ -259,7 +265,8 @@ int get_permission_ftp(const char *account, const char *mount_path, const char *
 	mount_fd = ftp_acl_path_open_verified_directory(mount_path);
 	if (mount_fd < 0)
 		return 0;
-	var_info = read_file_to_buffer_at(mount_fd, mount_path, var_leaf);
+	var_info = read_file_to_buffer_at(mount_fd, mount_path, var_leaf,
+	                                  &var_info_size);
 	if (close(mount_fd) != 0) {
 		saved_errno = errno ? errno : EIO;
 		free(var_info);
@@ -269,7 +276,7 @@ int get_permission_ftp(const char *account, const char *mount_path, const char *
 	if (!var_info)
 		return 0;
 
-	result = ftp_acl_path_share_permission(var_info, strlen(var_info), folder);
+	result = ftp_acl_path_share_permission(var_info, var_info_size, folder);
 	free(var_info);
 	return result;
 }

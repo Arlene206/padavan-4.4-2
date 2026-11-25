@@ -393,7 +393,8 @@ jobs:
           assert "written >= path_size" in account_path_builder
           assert "account path separator" in acl_path_test
           assert "truncated account ACL path" in acl_path_test
-          assert "ftp_acl_path_share_permission(var_info, strlen(var_info), folder)" in folder_permission
+          assert "size_t var_info_size = 0;" in folder_permission
+          assert "ftp_acl_path_share_permission(var_info, var_info_size, folder)" in folder_permission
           assert "strstr(var_info, target)" not in folder_permission
           assert share_permission.count("strchr(folder, ") == 2
           assert "memchr(line, " in share_permission
@@ -402,6 +403,8 @@ jobs:
           assert "if (found || newline == NULL" in share_permission
           assert "line_size = newline != NULL ?" in share_permission
           assert "memcmp(line + 1, folder, folder_size)" in share_permission
+          assert "memchr(contents, '\\0', contents_size) != NULL" in share_permission
+          assert "embedded_nul_duplicate" in acl_path_test
           assert "line[folder_size + 3U] - '0'" in share_permission
           assert "record-boundary injection" in acl_path_test
           assert "duplicate" in acl_path_test
@@ -614,6 +617,9 @@ jobs:
           assert "!S_ISREG(opened.st_mode)" in bounded_file_open_at
           assert "opened.st_size > max_size" in bounded_file_open_at
 
+          assert "size_t *p_file_size" in acl_file_reader
+          assert "*p_file_size = 0;" in acl_file_reader
+          assert "*p_file_size = read_total;" in acl_file_reader
           assert "ftp_acl_path_open_bounded_regular_file_at(" in acl_file_reader
           assert acl_file_reader.count("ftp_acl_path_verify_directory_identity(directory_path,") >= 3
           assert "read(fd, buffer + read_total, file_size - read_total)" in acl_file_reader
@@ -622,7 +628,7 @@ jobs:
           assert "final_stat.st_ino != stat_buf.st_ino" in acl_file_reader
           assert "final_stat.st_size != stat_buf.st_size" in acl_file_reader
           assert "ftp_acl_path_open_verified_directory(mount_path)" in acl_permission_reader
-          assert "read_file_to_buffer_at(mount_fd, mount_path, var_leaf)" in " ".join(acl_permission_reader.split())
+          assert "read_file_to_buffer_at(mount_fd, mount_path, var_leaf, &var_info_size)" in " ".join(acl_permission_reader.split())
           assert "ACL config FIFO was accepted" in acl_path_test
           assert "ACL config symlink was followed" in acl_path_test
           assert "ACL config symlinked parent was followed" in acl_path_test

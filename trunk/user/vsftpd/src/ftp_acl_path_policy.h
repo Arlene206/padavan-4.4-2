@@ -167,7 +167,8 @@ ftp_acl_path_share_permission(const char *contents, size_t contents_size,
   int result = -1;
 
   if (!contents || !folder || !*folder ||
-      strchr(folder, '\n') != NULL || strchr(folder, '\r') != NULL)
+      strchr(folder, '\n') != NULL || strchr(folder, '\r') != NULL ||
+      memchr(contents, '\0', contents_size) != NULL)
     return -1;
 
   folder_size = strlen(folder);

@@ -61,6 +61,7 @@ test_share_permission_records(void)
   static const char malformed[] = "*secret=0x3\n";
   static const char unterminated[] = "*secret=033";
   static const char duplicate[] = "*secret=033\n*secret=000\n";
+  static const char embedded_nul_duplicate[] = "*secret=033\n\0*secret=000\n";
   static const char malformed_suffix[] = "*secret=033EXTRA\n";
   static const char malformed_then_valid[] = "*secret=000EXTRA\n*secret=033\n";
   static const char valid_then_malformed[] = "*secret=033\n*secret=000EXTRA\n";
@@ -90,6 +91,9 @@ test_share_permission_records(void)
                                     sizeof(unterminated) - 1U,
                                     "secret") != -1 ||
       ftp_acl_path_share_permission(duplicate, sizeof(duplicate) - 1U,
+                                    "secret") != -1 ||
+      ftp_acl_path_share_permission(embedded_nul_duplicate,
+                                    sizeof(embedded_nul_duplicate) - 1U,
                                     "secret") != -1 ||
       ftp_acl_path_share_permission(malformed_suffix,
                                     sizeof(malformed_suffix) - 1U,
