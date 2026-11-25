@@ -5685,11 +5685,11 @@ jobs:
           assert "HTTPD_FILE_TYPE_PRIVATE_SCRIPT" in write_helper
           assert "get_login_private_key_access() : get_login_safe()" in write_helper
           normalize_start = web.index("write_file_dos2unix_fp(const char* value")
-          normalize_end = web.index("\\nstatic int\\nwrite_file_dos2unix(", normalize_start)
+          normalize_end = web.index("\nstatic int\nwrite_file_dos2unix(", normalize_start)
           normalize = web[normalize_start:normalize_end]
           assert "httpd_upload_write_dos2unix(fp, value)" in normalize
           assert "fclose(fp)" in normalize
-          assert "static int\\nhttpd_upload_write_dos2unix(FILE *stream, const char *value)" in upload_policy
+          assert "static int\nhttpd_upload_write_dos2unix(FILE *stream, const char *value)" in upload_policy
           assert "fwrite(cursor, 1, line_size, stream) != line_size" in upload_policy
           assert "test_dos2unix_preserves_long_records" in upload_policy_test
           assert "expected_size == 8195U" in upload_policy_test
