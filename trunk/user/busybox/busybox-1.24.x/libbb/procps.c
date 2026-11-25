@@ -10,6 +10,7 @@
  */
 
 #include "libbb.h"
+#include "procps_io_policy.h"
 #include "procps_stat_policy.h"
 
 
@@ -87,7 +88,7 @@ static int read_to_buf(const char *filename, void *buf)
 	ssize_t ret = -1;
 	fd = open(filename, O_RDONLY);
 	if (fd >= 0) {
-		ret = read(fd, buf, PROCPS_BUFSIZE-1);
+		ret = procps_read_with_retry(fd, buf, PROCPS_BUFSIZE-1);
 		close(fd);
 	}
 	((char *)buf)[ret > 0 ? ret : 0] = '\0';

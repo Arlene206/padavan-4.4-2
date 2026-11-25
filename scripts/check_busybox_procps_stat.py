@@ -20,6 +20,23 @@ test = TEST.read_text()
 
 require('#include "procps_stat_policy.h"' in source,
         "production procps scanner must include the shared stat parser")
+require('#include "procps_io_policy.h"' in source,
+        "production procps scanner must include the bounded read retry policy")
+read_to_buf_start = source.index("static int read_to_buf(")
+read_to_buf_end = source.index("\\nstatic procps_status_t*", read_to_buf_start)
+read_to_buf = source[read_to_buf_start:read_to_buf_end]
+require("procps_read_with_retry(fd, buf, PROCPS_BUFSIZE-1)" in read_to_buf,
+        "procfs reads must retry transient EINTR instead of dropping the PID")
+io_header = (ROOT / "trunk/user/busybox/busybox-1.24.x/libbb/procps_io_policy.h").read_text()
+io_test = (ROOT / "trunk/user/busybox/busybox-1.24.x/libbb/tests/procps_io_policy.c").read_text()
+require("PROCPS_READ_MAX_INTERRUPTS 8U" in io_header and
+        "interruptions >= PROCPS_READ_MAX_INTERRUPTS" in io_header,
+        "procfs read retries must remain bounded under a signal storm")
+for token in ("test_retries_after_interrupted_reads",
+              "test_interrupt_retries_are_bounded",
+              "test_non_interrupted_errors_are_not_retried",
+              "test_eof_is_returned_without_retry"):
+    require(token in io_test, f"interrupted-read regression must retain {token}")
 scan_start = source.index("procps_status_t* FAST_FUNC procps_scan")
 read_start = source.index("n = read_to_buf(filename, buf);", scan_start)
 parse_end = source.index("#if !ENABLE_FEATURE_FAST_TOP", read_start)
