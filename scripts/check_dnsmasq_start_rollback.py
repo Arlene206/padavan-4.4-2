@@ -87,9 +87,12 @@ assert start.index("dnsmasq_confirm_started(launch_status)") < start.index(
 )
 
 restart = compact(body(SERVICES, "static int\nrestart_dhcpd_locked(void)"))
-assert restart.index("stop_dns_dhcpd_locked()") < restart.index(
-    'eval("/usr/sbin/dnsmasq")'
+assert restart.index("arpbind_ethers_snapshot_read(&previous_ethers)") < restart.index(
+    "prepare_dns_dhcpd(is_ap_mode, &service_enabled)"
 )
+assert restart.index(
+    "stop_dns_dhcpd_locked_with_snapshot(&previous_ethers, 0)"
+) < restart.index('eval("/usr/sbin/dnsmasq")')
 assert restart.index("errno = 0;") < restart.index('eval("/usr/sbin/dnsmasq")')
 assert "start_status = dnsmasq_confirm_started(launch_status)" in restart
 assert "start_status = dnsmasq_rollback_failed_start(start_status, \"restart\")" in restart

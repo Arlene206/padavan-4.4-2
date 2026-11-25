@@ -1,3 +1,9 @@
+## 2026-11-24 — Align DNSMasq startup rollback checker with ownership-aware stop
+
+- Exact DNSMasq lifecycle run #45544316571 on `5f333dc2f94e9be5954561b75941682e68cdd0d8` failed in `scripts/check_dnsmasq_start_rollback.py`, not in a compile or runtime regression: the checker still required restart to call `stop_dns_dhcpd_locked()` directly after that call was correctly replaced by `stop_dns_dhcpd_locked_with_snapshot(&previous_ethers, 0)`.
+- Updated the checker to require the old `/etc/ethers` ownership snapshot before config publication and require the snapshot-aware stop before DNSMasq launch. The earlier static-host policy compile and other completed steps had passed; this is a checker-only correction awaiting exact-head rerun.
+- No local test or firmware result is claimed.
+
 ## 2026-11-24 — Limit DNSMasq static-ARP cleanup to the previous generated set
 
 - `arpbind_clear()` previously deleted every permanent ARP row on `br0`, even when the address/MAC pair did not originate from DNSMasq's generated `/etc/ethers`. That could remove unrelated administrator- or service-owned permanent neighbours.
