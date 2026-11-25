@@ -13,19 +13,21 @@ Continue one autonomous engineering stream on main. For each logical slice, crea
 
 ## Active task
 
-### PPP WAN callback state parser — reject embedded-NUL corruption
+### udhcpc DHCP-option bitmap — eliminate signed-shift undefined behavior
 
-ppp_callback_state_file_read() previously read the full state file into a byte buffer but passed it directly to a C-string decimal parser. An existing file containing a valid prefix followed by an embedded NUL and trailing bytes (for example 42\0ignored\n) was silently accepted as generation 42. This violates the fail-closed requirement for a canonical on-disk token. The current slice checks all bytes actually read with memchr() before appending the parser terminator; embedded NUL returns EINVAL and leaves generation_out zero. A GNU89 regression now writes that exact binary shape and verifies rejection.
+dhcpc.c:fill_envp() tracks every DHCP option in a bitmap. The old `BMASK(i) (1 << ...)` shifts signed int into bit 31 for option codes 31, 63, 95, …, 255, which is undefined behavior on the target's 32-bit int and can be triggered by a valid DHCP packet. Replaced it with `udhcpc_option_bitmap_mask()` using an unsigned `1U` and the unsigned-int width; `BMASK` now delegates to that helper. GNU89 test boundaries exercise the high bit and bitmap word wrap, and the source checker prevents regression.
 
-On parent SHA 0af7899, Process/Lifecycle, HTTPD Security, WAN DHCP callback and AI handoff checks all passed; XY-C1 was still building. This source change is included in the same atomic commit as the regression and log/handoff updates. No local compile is claimed.
+The immediately preceding PPP embedded-NUL fix is commit bccbe5355f4506b121740f47866b962468d0ea37; its Process/Lifecycle, Process inventory, HTTPD, WAN DHCP, NVRAM and AI documentation checks all passed. XY-C1 was still building. This DHCP source/test/checker slice is the next atomic commit; no local compile claim.
 
-## Current exact-head Actions on 0af78992a772036818dc4fd71b48ff74b066abeb
+## Current exact-head Actions on bccbe5355f4506b121740f47866b962468d0ea37
 
-- Process inventory/lifecycle #45520798937: PASS, including PPP state-file host regression and stable-lock/atomic-publication source contract.
-- HTTPD Authentication/Security #45520798957: PASS; updated PPP static contract checks the shared state-file helper.
-- WAN DHCP callback #45520799105: PASS; updated wrapper/helper assertions now match the implementation.
-- AI handoff documentation #45520799045: PASS.
-- XY-C1 Firmware Validation #45520798962: IN_PROGRESS at Build XY-C1; current-head TRX verification and artifact upload are not yet confirmed. L3 remains NOT VERIFIED; L4 hardware remains NOT VERIFIED.
+- Process inventory/lifecycle #45521301186: PASS; PPP stable-lock, atomic publication and embedded-NUL regression passed.
+- Process inventory #45521300961: PASS.
+- HTTPD Authentication/Security #45521301271: PASS.
+- WAN DHCP callback #45521300987: PASS.
+- NVRAM transaction boundary #45521301083: PASS (raw userland ioctl/kernel caller audit completed).
+- AI handoff documentation #45521301108: PASS.
+- XY-C1 Firmware Validation #45521301044: IN_PROGRESS at Build XY-C1; TRX check and artifact upload not yet confirmed. L3 remains NOT VERIFIED; L4 hardware remains NOT VERIFIED.
 - No local compile is claimed.
 
 ## Completed source slices
@@ -133,9 +135,9 @@ Commit `786c504c8247fe42d5d1d5f2dc3ad28757fafc80` strictly parses persisted RX/T
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and inspect exact-head Process/Lifecycle, HTTPD Security, WAN DHCP, AI documentation and XY-C1 Actions after this embedded-NUL source change. Diagnose any first failure against that exact SHA; do not reuse parent-SHA results as current validation.
-2. Confirm XY-C1 Build, TRX verification and artifact upload all pass on the exact source SHA before claiming L3. L4 remains unverified without hardware.
-3. Continue the next independent userland stability/security defect outside the recent PPP/HTTPD/IPTV/FRP work; pending checks do not block independent work.
+1. Fetch live main; inspect exact-head `udhcpc-script-status-stability`, Process/Lifecycle, WAN DHCP and XY-C1 Actions after the unsigned bitmap fix. Resolve any exact-SHA failure; do not reuse parent SHA results.
+2. Verify XY-C1 Build, TRX check and artifact upload on the exact final source SHA before claiming L3.
+3. Continue a separate userland stability/security defect outside the recent PPP/DHCP/HTTPD/IPTV/FRP focus; don't wait on a PENDING workflow when independent work exists.
 
 ## Mandatory handoff checkpoint
 

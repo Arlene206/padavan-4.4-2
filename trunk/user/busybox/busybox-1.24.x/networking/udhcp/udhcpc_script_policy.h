@@ -4,6 +4,13 @@
 
 #include <stdint.h>
 
+/* Use an unsigned left operand: option codes can select the top bitmap bit. */
+static inline unsigned int
+udhcpc_option_bitmap_mask(unsigned int option_code)
+{
+	return 1U << (option_code % (sizeof(unsigned int) * 8U));
+}
+
 /* Keep the exported DHCP lease value identical to the client's lease timer. */
 #define UDHCP_LEASE_TIME_DEFAULT_SECONDS 3600U
 #define UDHCP_LEASE_TIME_MIN_SECONDS 0x10U

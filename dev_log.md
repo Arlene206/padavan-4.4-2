@@ -1,3 +1,9 @@
+## 2026-11-24 — Fix undefined behavior in udhcpc DHCP-option bitmap masks
+
+- fill_envp() builds a bitmap for all 256 DHCP option codes. Its BMASK macro used the signed expression `1 << bit`; any option whose low 5 bits were 31 (for example valid option 31 or 255) invoked undefined behavior by shifting signed `int` into its sign bit. This can occur while handling a remote DHCP reply.
+- Moved the mask calculation into a GNU89 policy helper using `1U` and the unsigned-int width, and changed BMASK to call that helper. Added regression boundaries for bits 30/31, word wrap at 32/63 and option 255; the host workflow compiles with UBSan/ASan, and the source checker enforces helper use. The workflow already path-gates the DHCP source, policy, test and checker.
+- Parent SHA bccbe5355f4506b121740f47866b962468d0ea37: Process/Lifecycle #45521301186 PASS; Process inventory #45521300961 PASS; HTTPD #45521301271 PASS; WAN DHCP #45521300987 PASS; NVRAM transaction audit #45521301083 PASS; AI handoff docs #45521301108 PASS. XY-C1 #45521301044 still IN_PROGRESS at Build XY-C1; no L3 build/TRX/artifact result yet. No local compile claimed.
+
 ## 2026-11-25 — Reject embedded-NUL PPP session state bytes
 
 - ppp_callback_state_file_read() passed a NUL-terminated buffer to the strict decimal parser without checking the original bytes read. A corrupt file such as 42\0ignored\n was therefore interpreted as generation 42 because parsing stopped at the embedded NUL, silently accepting a valid prefix.

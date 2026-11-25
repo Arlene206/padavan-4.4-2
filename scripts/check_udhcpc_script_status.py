@@ -62,6 +62,11 @@ libbb = read("trunk/user/busybox/busybox-1.24.x/include/libbb.h")
 workflow = read(".github/workflows/udhcpc-script-status-stability.yml")
 
 assert '#include "udhcpc_script_policy.h"' in dhcpc
+assert '#define BMASK(i) (udhcpc_option_bitmap_mask((unsigned)(i)))' in dhcpc
+assert '#define BITMAP unsigned' in dhcpc
+assert 'return 1U << (option_code % (sizeof(unsigned int) * 8U));' in policy
+assert 'test_option_bitmap_mask_uses_unsigned_high_bit' in test
+assert 'test_option_bitmap_mask_uses_unsigned_high_bit() != 0' in test
 runner = function_body(dhcpc, "static int udhcp_run_script")
 assert "int status;" in runner
 assert "status = spawn_and_wait(argv);" in runner

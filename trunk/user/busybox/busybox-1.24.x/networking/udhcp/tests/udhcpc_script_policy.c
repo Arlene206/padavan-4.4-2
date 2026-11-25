@@ -10,6 +10,17 @@
 } while (0)
 
 
+static int test_option_bitmap_mask_uses_unsigned_high_bit(void)
+{
+	CHECK(udhcpc_option_bitmap_mask(0U) == 1U);
+	CHECK(udhcpc_option_bitmap_mask(30U) == 0x40000000U);
+	CHECK(udhcpc_option_bitmap_mask(31U) == 0x80000000U);
+	CHECK(udhcpc_option_bitmap_mask(32U) == 1U);
+	CHECK(udhcpc_option_bitmap_mask(63U) == 0x80000000U);
+	CHECK(udhcpc_option_bitmap_mask(255U) == 0x80000000U);
+	return 0;
+}
+
 static int test_effective_lease_time_bounds_match_client_timer(void)
 {
 	CHECK(udhcpc_lease_time_effective(0U, 0) == 3600U);
@@ -223,7 +234,8 @@ static int test_already_expired_lease_is_not_resurrected(void)
 
 int main(void)
 {
-	if (test_effective_lease_time_bounds_match_client_timer() != 0 ||
+	if (test_option_bitmap_mask_uses_unsigned_high_bit() != 0 ||
+	    test_effective_lease_time_bounds_match_client_timer() != 0 ||
 	    test_nak_only_deconfigures_an_active_lease() != 0 ||
 	    test_nak_server_id_filter_respects_rebinding_broadcast() != 0 ||
 	    test_arp_probe_errors_do_not_publish_a_dhcp_lease() != 0 ||

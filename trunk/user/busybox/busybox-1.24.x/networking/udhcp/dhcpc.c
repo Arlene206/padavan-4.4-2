@@ -440,7 +440,7 @@ static char **fill_envp(struct dhcp_packet *packet)
 
 #define BITMAP unsigned
 #define BBITS (sizeof(BITMAP) * 8)
-#define BMASK(i) (1 << (i & (sizeof(BITMAP) * 8 - 1)))
+#define BMASK(i) (udhcpc_option_bitmap_mask((unsigned)(i)))
 #define FOUND_OPTS(i) (found_opts[(unsigned)i / BBITS])
 	BITMAP found_opts[256 / BBITS];
 
