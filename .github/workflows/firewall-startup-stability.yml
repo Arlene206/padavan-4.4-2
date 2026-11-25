@@ -721,7 +721,9 @@ jobs:
           assert "static_route_metric_parse(metric, &metric_value)" in route_emitter
           assert "int entry_count = 0, i = 0," in route_emitter
           route_emitter_compact = " ".join(route_emitter.split())
-          assert "if (!static_route_ipv4_address_is_valid(gateway))" in route_emitter
+          assert "static_route_gateway_is_valid_or_empty(gateway)" in route_emitter
+          assert "if (static_route_gateway_needs_fallback(gateway))" in route_emitter
+          assert "if (!static_route_ipv4_address_is_valid(gateway))" not in route_emitter
           assert "firewall_copy_static_route_global_setting(" in route_emitter_compact
           assert '"wanx_gateway", fallback_gateway, sizeof(fallback_gateway)' in route_emitter_compact
           assert "static_route_ipv4_address_is_valid(fallback_gateway)" in route_emitter

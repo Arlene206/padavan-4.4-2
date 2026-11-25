@@ -618,7 +618,7 @@ jobs:
           from pathlib import Path
           rc = Path("trunk/user/rc/src")
           net = (rc / "net.c").read_text()
-firewall_source = (rc / "firewall_ex.c").read_text()
+          firewall_source = (rc / "firewall_ex.c").read_text()
           net_lan = (rc / "net_lan.c").read_text()
           net_lan6 = (rc / "net_lan6.c").read_text()
           lan6_reload_policy = (rc / "lan_addr6_reload_policy.h").read_text()
@@ -918,7 +918,7 @@ firewall_source = (rc / "firewall_ex.c").read_text()
           assert '#include "route_status_policy.h"' in net
           assert '#include "route_status_policy.h"' in wan
           static = body(net, "control_static_routes(char *ift, char *ifname, int is_add)")
-firewall_static_routes = body(firewall_source, "fill_static_routes(char *buf, int len, const char *ift)")
+          firewall_static_routes = body(firewall_source, "fill_static_routes(char *buf, int len, const char *ift)")
           assert "int status = 0, route_status, api_result, saved_errno, enabled;" in static
           assert 'nvram_get_checked("sr_enable_x", &enable_value)' in static
           assert "static_route_nvram_enabled_status(api_result, saved_errno" in static
@@ -936,14 +936,14 @@ firewall_static_routes = body(firewall_source, "fill_static_routes(char *buf, in
           assert "static_route_metric_parse" in static_route_policy
           assert "static_route_ipv4_address_is_valid" in static_route_policy
           assert "static_route_ipv4_netmask_is_valid" in static_route_policy
-assert "static_route_gateway_needs_fallback" in static_route_policy
-assert "static_route_gateway_is_valid_or_empty" in static_route_policy
-assert "static_route_ipv4_netmask_is_valid(netmask)" in firewall_static_routes
-assert "static_route_gateway_is_valid_or_empty(gateway)" in firewall_static_routes
-assert "static_route_gateway_needs_fallback(gateway)" in firewall_static_routes
-assert firewall_static_routes.index("static_route_gateway_is_valid_or_empty(gateway)") < firewall_static_routes.index("static_route_gateway_needs_fallback(gateway)")
-assert "if (!static_route_ipv4_address_is_valid(gateway))" not in firewall_static_routes
-assert 'static_route_gateway_needs_fallback("127.1")' in static_route_test
+          assert "static_route_gateway_needs_fallback" in static_route_policy
+          assert "static_route_gateway_is_valid_or_empty" in static_route_policy
+          assert "static_route_ipv4_netmask_is_valid(netmask)" in firewall_static_routes
+          assert "static_route_gateway_is_valid_or_empty(gateway)" in firewall_static_routes
+          assert "static_route_gateway_needs_fallback(gateway)" in firewall_static_routes
+          assert firewall_static_routes.index("static_route_gateway_is_valid_or_empty(gateway)") < firewall_static_routes.index("static_route_gateway_needs_fallback(gateway)")
+          assert "if (!static_route_ipv4_address_is_valid(gateway))" not in firewall_static_routes
+          assert 'static_route_gateway_needs_fallback("127.1")' in static_route_test
           assert 'static_route_ipv4_netmask_is_valid("255.0.255.0")' in static_route_test
           assert 'static_route_ipv4_address_is_valid("01.2.3.4")' in static_route_test
           assert 'static_route_ipv4_address_is_valid("127.1")' not in static_route_test
