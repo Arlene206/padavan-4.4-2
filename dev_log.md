@@ -1,3 +1,10 @@
+## 2026-11-25 — Trigger MTD fill regressions for pull requests
+
+- Exact USB-storage run #45609688415 on `eed1e197` passed the host-shell and BusyBox ash fill regressions and surrounding source contracts, but the workflow checker correctly found that `mtd_storage_fill_safe_paths.sh` was listed under `push.paths` and omitted from `pull_request.paths`.
+- Added the regression script to the pull-request path filter beside the other MTD lifecycle tests. PRs changing the test or MTD fill contract will now trigger the same storage stability workflow.
+- Exact-head storage and AI handoff workflows must be green before this slice is complete.
+
+---
 ## 2026-11-25 — Fix storage checker filter scope and rotate log window
 
 - Exact USB-storage run #45608745837 on `fa7d05e5` passed shell syntax, host-shell and BusyBox ash MTD fill regressions, then the source checker raised `NameError` because its early MTD contract referenced `push_filters`/`pull_filters` before the workflow-filter variables were defined. Moved this path assertion into the existing later push/pull filter inventory.

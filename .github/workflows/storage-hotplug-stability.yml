@@ -126,6 +126,7 @@ on:
       - "trunk/user/scripts/tests/mtd_storage_restore_transaction.sh"
       - "trunk/user/scripts/tests/mtd_storage_load_transaction.sh"
       - "trunk/user/scripts/tests/mtd_storage_erase_reset.sh"
+      - "trunk/user/scripts/tests/mtd_storage_fill_safe_paths.sh"
       - "trunk/user/scripts/tests/mtd_storage_backup_failure.sh"
       - "trunk/user/scripts/tests/rwfs2ubi_status.sh"
       - "trunk/user/scripts/tests/reset_ss_template.sh"
