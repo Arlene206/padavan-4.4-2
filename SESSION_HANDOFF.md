@@ -2,16 +2,16 @@
 
 This snapshot supersedes older task pointers below where they conflict with live Git state.
 
-- Main before this UDHCP checker correction: `e43ee62f7c56a49f1744f08375990c3dde1864cd`. Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged. PR #1 remains closed/unmerged.
-- Exact e43 actions: AI handoff docs #45540135576 PASS; Process inventory #45540135599 PASS. UDHCP #45540135661: GNU89 compile and ASan/UBSan runtime PASSED, then Python source contract FAILED because its old assertion still expected the pre-hardening reserved-bit mask expression. The checker now expects the new valid selector range 1..3. NVRAM #45540135593, USB storage #45540135666 and XY-C1 Firmware Validation #45540135607 remained IN_PROGRESS at last poll.
-- The production parser now rejects option 52 value 0, duplicates, and selectors parsed in overloaded file/sname fields. Regression helper tests and source contract were added in e43; only the stale assertion caused the exact-head failure.
-- Exact-head UDHCP rerun required. No local compile or firmware result claimed. Backup remains read-only.
+- Main before this ZeroTier route-inventory hardening: `956a385a88d3aebeb8029ee704b101acf2ea67a2`. Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged. PR #1 remains closed/unmerged.
+- Exact 956a checks: UDHCP GNU89 compile + ASan/UBSan regression + Python source contract #45540259545 PASS; AI handoff docs #45540259712 PASS. The UDHCP run includes the new TLV bounds and option-overload value/uniqueness/location tests. Exact e43 parent checks: Process inventory #45540135599 PASS; NVRAM transaction #45540135593 PASS; USB storage #45540135666 PASS; AI docs #45540135576 PASS. XY-C1 firmware #45540135607 remains IN_PROGRESS at its last observed state (Build in progress; TRX/artifact pending). Do not claim firmware success for this SHA.
+- ZeroTier recovery and Python contract exact c921 #45539243439 PASS. This follow-up hardens the damaged-checkpoint fallback: any route using the saved interface now blocks prefix recovery, regardless of route protocol; unreadable inventory is also fail-closed. A new proto=static regression covers the case that the previous proto=kernel-only test missed.
+- No local host/shell compile claimed. Backup remains frozen/read-only.
 
 ## Exact first action for the next GPT
 
-1. Verify exact-head UDHCP GNU89/ASan/UBSan and Python source contract after this assertion update. Fix any subsequent checker or runtime failure.
-2. Check same-SHA XY-C1 Build/TRX/artifact and NVRAM/USB/Process/AI results.
-3. Continue a separate userland reliability/security slice while unrelated Actions are pending. No force-push or backup mutation.
+1. Verify the exact-head ZeroTier shell and Python contract after broadening the route guard to any route on the saved interface; fix any failure.
+2. Check exact-head UDHCP remains PASS where the parser/test/checker files are unchanged; verify XY-C1 Build/TRX/artifact status on its original e43 source SHA and never claim L3 unless complete.
+3. Continue a separate high-risk userland stability/security slice while independent Actions are pending. No force-push or backup mutation.
 
 No force-push.
 

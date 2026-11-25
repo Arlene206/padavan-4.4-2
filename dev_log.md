@@ -1,3 +1,10 @@
+## 2026-11-24 — Treat every route on a saved ZeroTier interface as live during damaged-checkpoint recovery
+
+- The current fallback only detected `proto kernel` routes on the saved interface. That left a safety gap: a configured route marked `proto static` (or with no explicit protocol) could still use the interface, while a corrupted checkpoint might conceal an older source-NAT segment that cannot be reconstructed safely.
+- Changed the recovery guard to reject any route whose `dev` equals the saved ZeroTier interface. It still requires a successful route inventory; UNKNOWN state remains fail-closed. Valid, strictly parsed two-line checkpoints are unaffected because the guard is only in the damaged-prefix fallback.
+- Added an injected `proto static` route fixture proving stop does not signal the daemon, edit firewall state, normalize the corrupted checkpoint, or remove identity. Extended the Python source contract.
+- No local shell regression claimed; exact-head ZeroTier workflow required. Exact 956a UDHCP sanitizer + source contract and AI handoff checks PASS.
+
 ## 2026-11-25 11:49 CST — Align UDHCP contract with legal option-overload values
 
 - Exact UDHCP run #45540135661 on e43ee62 passed GNU89 compilation and the ASan/UBSan runtime tests. The Python source contract then failed because its original assertion still required the old reserved-bit mask expression, while the new production policy expresses legal values as 1..3.

@@ -816,7 +816,7 @@ zerotier_firewall_state_recover_prefix() {
 				else if ($i == "proto")
 					proto = $(i + 1)
 			}
-			if (dev == zt_if && proto == "kernel")
+			if (dev == zt_if)
 				found = 1
 		}
 		END { print found ? 1 : 0 }

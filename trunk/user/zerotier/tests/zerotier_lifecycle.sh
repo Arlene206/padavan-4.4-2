@@ -222,6 +222,11 @@ ip() {
 				printf '%s\n' "${TEST_ROUTE_SEGMENT:-10.147.17.0/24} dev ztunit proto kernel scope link"
 			fi
 			;;
+		daemon-static)
+			if [ "$(cat "$TEST_STATE")" = running ]; then
+				printf '%s\n' "${TEST_ROUTE_SEGMENT:-10.147.17.0/24} dev ztunit proto static scope link"
+			fi
+			;;
 		*)
 			;;
 	esac
@@ -1757,6 +1762,45 @@ grep -Fqx -- "nat POSTROUTING -s 10.148.18.0/24 -j MASQUERADE" "$TEST_IPTABLES_S
 [ "$(wc -l < "$TEST_CONFIG/.firewall-state" | tr -d ' ')" = 3 ] || fail "live-route corrupt checkpoint was overwritten or removed"
 grep -Fqx -- "corrupt-extra-record" "$TEST_CONFIG/.firewall-state" || fail "live-route corrupt checkpoint marker was removed"
 /bin/rm -rf "$TEST_CONFIG"
+: > "$TEST_IPTABLES_LOG"
+: > "$TEST_IPTABLES_STATE_FILE"
+
+# A non-kernel route (for example a configured static route) on the saved
+# interface is also enough to keep damaged-prefix recovery fail-closed.
+mkdir -p "$TEST_CONFIG"
+test_seed_firewall_rules
+printf '%s\n' 'nat POSTROUTING -s 10.148.18.0/24 -j MASQUERADE' >> "$TEST_IPTABLES_STATE_FILE"
+: > "$TEST_IPTABLES_LOG"
+printf '%s\n' 'ztunit' '10.147.17.0/24' 'corrupt-extra-record' > "$TEST_CONFIG/.firewall-state"
+TEST_STATIC_ROUTE_COUNT=0
+TEST_STATIC_ROUTE_ENABLE=0
+TEST_NAT_ENABLE=0
+TEST_IFCONFIG_MODE=running-only
+TEST_ROUTE_MODE=daemon-static
+TEST_ROUTE_DUMP_STATUS=0
+echo 0 > "$TEST_ROUTE_COUNT"
+: > "$TEST_KILL_LOG"
+: > "$TEST_ACTION_LOG"
+test_proc_reset
+test_proc_add 4337 "$PROG" "$PROG"
+echo running > "$TEST_STATE"
+TEST_MODE=graceful
+if stop_zero; then
+	fail "stop recovered a damaged checkpoint despite a live static route on the saved interface"
+fi
+[ "$(cat "$TEST_STATE")" = running ] || fail "live static route on saved interface stopped the daemon"
+[ ! -s "$TEST_KILL_LOG" ] || fail "live static route on saved interface signalled the daemon"
+[ ! -s "$TEST_IPTABLES_LOG" ] || fail "live static route on saved interface edited firewall state"
+grep -Fqx -- "nat POSTROUTING -s 10.148.18.0/24 -j MASQUERADE" "$TEST_IPTABLES_STATE_FILE" || fail "live static route fixture lost the older source-NAT rule"
+grep -Fqx -- "corrupt-extra-record" "$TEST_CONFIG/.firewall-state" || fail "live static route normalized the corrupt checkpoint"
+[ -f "$TEST_CONFIG/identity.secret" ] || fail "live static route removed persistent identity"
+TEST_ROUTE_MODE=none
+/bin/rm -rf "$TEST_CONFIG"
+: > "$TEST_IPTABLES_LOG"
+: > "$TEST_IPTABLES_STATE_FILE"
+test_proc_reset
+TEST_IFCONFIG_MODE=none
+
 : > "$TEST_IPTABLES_STATE_FILE"
 : > "$TEST_IPTABLES_LOG"
 test_proc_reset
