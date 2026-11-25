@@ -50,7 +50,8 @@ enable_state_body = function_body(script, "ddnsto_read_enable_state()")
 lock_run_body = function_body(script, "ddnsto_lifecycle_lock_run()")
 
 require('pidof ddnsto' in state_body and 'ddnsto_pidof_status' in state_body and
-        'return 2' in state_body and 'return 1' in state_body and 'return 0' in state_body,
+        'return 2' in state_body and 'ddnsto_confirm_absent' in state_body and
+        'return $?' in state_body and 'return 0' in state_body,
         "DDNSTO process inventory must distinguish RUNNING, confirmed ABSENT and UNKNOWN")
 require('while [ "$ddnsto_wait" -lt 5 ]; do' in wait_body and
         'ddnsto_process_state' in wait_body and 'sleep 1' in wait_body and

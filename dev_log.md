@@ -1,3 +1,12 @@
+## 2026-11-25 — Align DDNSTO tri-state source contract with procfs absence helper
+
+- Exact DDNSTO run #45713996599 on `230cf171` passed all lifecycle shell regressions, including lock serialization, exact-PID TERM/KILL, process identity, and serialized restart. The final Python source checker then failed because it still required a literal `return 1` inside `ddnsto_process_state()`.
+- Production correctly delegates the ABSENT proof to `ddnsto_confirm_absent()` and returns its status unchanged; this preserves UNKNOWN (2) instead of collapsing all failures into ABSENT. Updated the source contract to require the helper call and `return $?`, while retaining explicit RUNNING (0) and UNKNOWN (2) checks.
+- Shell lifecycle tests passed on #45713996599; exact-head DDNSTO workflow for this checker-only correction is pending. No firmware or hardware result is claimed.
+- Changed paths: `scripts/check_ddnsto_lifecycle.py`, `dev_log.md`.
+
+---
+
 ## 2026-11-25 — Remove stale single-address-count requirement from AliDDNS checker
 
 - Exact AliDDNS run #45713773321 on `6a8d91b6` passed every shell regression, including the new WAN IPv6 selector (stable preference and sole-temporary fallback), but the Python source-contract checker still required the old `count != 1` test from the ifconfig implementation.
