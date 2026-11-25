@@ -94,6 +94,17 @@ usb_dev_handle			*udev;
 struct timeval			tv_ref, tv_now;
 PCONNECTION_INFO		last_busy_conn;
 
+/*
+ * Clear the timeout owner while its connection object is still alive. A
+ * pointer left behind after free() becomes indeterminate and must not be
+ * inspected by the later alarm tick.
+ */
+static void u2ec_forget_last_busy_connection(PCONNECTION_INFO connection)
+{
+	if (last_busy_conn == connection)
+		last_busy_conn = NULL;
+}
+
 U2EC_LIST_HEAD(conn_info_list);
 struct in_addr ip_monopoly;
 time_t time_monopoly;
@@ -3864,6 +3875,7 @@ CLOSE_CONN:
 	conn_curt->irp = 0;
 	conn_curt->sockfd = 0;
 
+	u2ec_forget_last_busy_connection(conn_curt);
 	u2ec_list_del((struct u2ec_list_head*)conn_curt);
 	free(conn_curt);
 	close(sockfd);	// bye!
@@ -4150,6 +4162,7 @@ static int handle_fifo(int *fd, fd_set *pfds, int *pfdm, int conn_fd)
 			fd_in_use[((PCONNECTION_INFO)pos)->sockfd] = 0;
 			((PCONNECTION_INFO)pos)->sockfd = 0;
 			((PCONNECTION_INFO)pos)->ip.s_addr = 0;
+			u2ec_forget_last_busy_connection((PCONNECTION_INFO)pos);
 			u2ec_list_del(pos);
 			free(pos);
 		}
@@ -4203,6 +4216,7 @@ static int handle_fifo(int *fd, fd_set *pfds, int *pfdm, int conn_fd)
 					close(((PCONNECTION_INFO)pos)->sockfd);
 					fd_in_use[((PCONNECTION_INFO)pos)->sockfd] = 0;
 					((PCONNECTION_INFO)pos)->sockfd = 0;
+					u2ec_forget_last_busy_connection((PCONNECTION_INFO)pos);
 					u2ec_list_del(pos);
 					free(pos);
 					break;
@@ -4232,6 +4246,7 @@ static int handle_fifo(int *fd, fd_set *pfds, int *pfdm, int conn_fd)
 				close(((PCONNECTION_INFO)pos)->sockfd);
 				fd_in_use[((PCONNECTION_INFO)pos)->sockfd] = 0;
 				((PCONNECTION_INFO)pos)->sockfd = 0;
+				u2ec_forget_last_busy_connection((PCONNECTION_INFO)pos);
 				u2ec_list_del(pos);
 				free(pos);
 			}
@@ -4332,6 +4347,7 @@ static int handle_fifo(int *fd, fd_set *pfds, int *pfdm, int conn_fd)
 				close(((PCONNECTION_INFO)pos)->sockfd);
 				fd_in_use[((PCONNECTION_INFO)pos)->sockfd] = 0;
 				((PCONNECTION_INFO)pos)->sockfd = 0;
+				u2ec_forget_last_busy_connection((PCONNECTION_INFO)pos);
 				u2ec_list_del(pos);
 				free(pos);
 			}

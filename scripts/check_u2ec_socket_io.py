@@ -182,6 +182,17 @@ for token in ("conn_info_list", "last_busy_conn", "PDEBUG", "inet_ntoa",
 assert "if ((PCONNECTION_INFO)pos == last_busy_conn)" in alarm_tick
 assert "if (!last_busy_live)" in alarm_tick
 assert "last_busy_conn = NULL" in alarm_tick
+assert "static void u2ec_forget_last_busy_connection(PCONNECTION_INFO connection)" in source
+assert "if (last_busy_conn == connection)" in source
+assert "u2ec_forget_last_busy_connection(conn_curt);" in usb_connection
+assert usb_connection.index("u2ec_forget_last_busy_connection(conn_curt);") < usb_connection.index("u2ec_list_del((struct u2ec_list_head*)conn_curt);")
+assert handle_fifo.count("free(pos);") == 4
+forget_pos = "u2ec_forget_last_busy_connection((PCONNECTION_INFO)pos);"
+assert handle_fifo.count(forget_pos) == handle_fifo.count("free(pos);")
+free_at = handle_fifo.find("free(pos);")
+while free_at >= 0:
+    assert handle_fifo.rfind(forget_pos, 0, free_at) > handle_fifo.rfind("free(pos);", 0, free_at)
+    free_at = handle_fifo.find("free(pos);", free_at + 1)
 assert "last_busy_live->time" in alarm_tick
 assert "u2ec_fifo = open(U2EC_FIFO, O_WRONLY|O_NONBLOCK)" in alarm_tick
 assert "if (u2ec_fifo < 0)" in alarm_tick
