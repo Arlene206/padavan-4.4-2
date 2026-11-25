@@ -116,7 +116,7 @@ assert accept_loop in server, (
     "and retry interrupted accept calls"
 )
 accept_loop_at = server.index(accept_loop)
-assert accept_loop_at < server.index("get_ip_str((struct sockaddr *)&client", accept_loop_at)
+assert accept_loop_at < server.index("get_ip_str((structsockaddr*)&client", accept_loop_at)
 assert accept_loop_at < server.index("hosts_ctl(", accept_loop_at) if "hosts_ctl(" in server else True
 
 print("p910nd bidirectional SIGPIPE and stream-I/O source contract: PASS")
