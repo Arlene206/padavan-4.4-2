@@ -103,6 +103,7 @@ del_rules_body = function_body(script, "del_rules()")
 delete_rule_body = function_body(script, "zerotier_delete_firewall_rule()")
 rule_action_body = function_body(script, "zerotier_firewall_rule_action()")
 segment_body = function_body(script, "zerotier_ipv4_cidr_is_valid()")
+route_tuple_body = function_body(script, "zerotier_static_route_tuple_is_valid()")
 state_save_body = function_body(script, "zerotier_firewall_state_save()")
 state_load_body = function_body(script, "zerotier_firewall_state_load()")
 state_recover_body = function_body(script, "zerotier_firewall_state_recover_prefix()")
@@ -381,6 +382,12 @@ require('1) ;;' in route_preflight_body and
         'if [ "$zt_preflight_enable" -eq 0 ]; then' not in route_preflight_body and
         'if [ "$route_enable" -eq 0 ]; then' not in static_route_body,
         "static route enable selectors must accept only the UI's 0/1 values")
+require('for invalid_ip in default blackhole' in test and
+        '192.0.2.0/33' in test and
+        'for invalid_gateway in default 192.0.2.256' in test and
+        '192.0.2.1/24' in test and
+        'valid 0.0.0.0/0 destination' in test,
+        "static-route tuple regressions must reject iproute2 keywords and malformed tuples while retaining explicit default CIDR support")
 require('nvram get_checked zero_staticnum_x' in route_preflight_body and
         'nvram get_checked zero_enable_x$zt_preflight_j' in route_preflight_body and
         'nvram get_checked zero_ip_x$zt_preflight_j' in route_preflight_body and
@@ -397,6 +404,13 @@ require('nvram get_checked zero_staticnum_x' in static_route_body and
         'nvram get zero_staticnum_x' not in static_route_body and
         'nvram get zero_enable_x$j' not in static_route_body,
         "static-route executor must propagate checked NVRAM errors during add/delete")
+require('zerotier_ipv4_cidr_is_valid "$1" || return 1' in route_tuple_body and
+        'case "$2" in' in route_tuple_body and
+        '*/*) return 1 ;;' in route_tuple_body and
+        'zerotier_ipv4_cidr_is_valid "$2"' in route_tuple_body and
+        'zerotier_static_route_tuple_is_valid "$zt_preflight_ip" "$zt_preflight_gateway"' in route_preflight_body and
+        'zerotier_static_route_tuple_is_valid "$zero_ip" "$zero_route"' in static_route_body,
+        "static routes must validate IPv4/CIDR destinations and bare IPv4 gateways before invoking iproute2")
 require('if ! zerotier_preflight_static_routes; then' in stop_body and
         stop_body.index('if ! zerotier_preflight_static_routes; then') <
         stop_body.index('if ! kill_z; then'),

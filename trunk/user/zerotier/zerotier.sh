@@ -710,6 +710,18 @@ zerotier_ipv4_cidr_is_valid() {
 	'
 }
 
+# ZeroTier static routes accept only an IPv4 destination (optionally with a
+# prefix) and a bare IPv4 next hop. Never pass iproute2 keywords or extra
+# tokens from persistent NVRAM directly to route add/show/delete.
+zerotier_static_route_tuple_is_valid() {
+	[ "$#" -eq 2 ] || return 1
+	zerotier_ipv4_cidr_is_valid "$1" || return 1
+	case "$2" in
+		*/*) return 1 ;;
+	esac
+	zerotier_ipv4_cidr_is_valid "$2"
+}
+
 zerotier_firewall_state_save() {
 	[ -n "$zt0" ] && [ -d "$config_path" ] && [ ! -L "$config_path" ] || return 1
 	case "$zt0" in
@@ -950,6 +962,10 @@ zerotier_preflight_static_routes() {
 			logger -t "zerotier" "静态路由配置不完整: $zt_preflight_j"
 			return 1
 		fi
+		if ! zerotier_static_route_tuple_is_valid "$zt_preflight_ip" "$zt_preflight_gateway"; then
+			logger -t "zerotier" "静态路由IP或网关不是有效的IPv4地址: $zt_preflight_j"
+			return 1
+		fi
 	done
 	return 0
 }
@@ -1148,6 +1164,14 @@ zero_route() {
 		fi
 		if [ -z "$zero_ip" ] || [ -z "$zero_route" ] || [ -z "$zt0" ]; then
 			logger -t "zerotier" "静态路由配置不完整: $j"
+			if [ "$1" = "add" ]; then
+				return 1
+			fi
+			route_status=1
+			continue
+		fi
+		if ! zerotier_static_route_tuple_is_valid "$zero_ip" "$zero_route"; then
+			logger -t "zerotier" "静态路由IP或网关不是有效的IPv4地址: $j"
 			if [ "$1" = "add" ]; then
 				return 1
 			fi

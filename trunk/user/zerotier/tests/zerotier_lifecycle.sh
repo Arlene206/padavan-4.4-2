@@ -2484,6 +2484,79 @@ fi
 [ ! -s "$TEST_KILL_LOG" ] || fail "invalid route enable selector signalled the daemon during stop"
 [ ! -s "$TEST_ACTION_LOG" ] || fail "invalid route enable selector changed network state during stop"
 
+# Reject iproute2 keywords, malformed CIDRs and non-literal gateways before
+# either the daemon lifecycle or any route command can be changed.
+TEST_STATIC_ROUTE_COUNT=1
+TEST_STATIC_ROUTE_ENABLE=1
+TEST_NAT_ENABLE=0
+TEST_NVRAM_READ_FAIL_KEY=""
+TEST_NVRAM_MOON_ENABLE_STATE=0
+TEST_IFCONFIG_MODE=running-only
+TEST_ROUTE_MODE=none
+zt0=ztunit
+ip_segment=10.147.17.0/24
+for invalid_ip in default blackhole 192.0.2.256/24 192.0.2.0/33 010.0.0.0/24 "192.0.2.0/24 dev br0"; do
+	TEST_STATIC_ROUTE_IP="$invalid_ip"
+	: > "$TEST_ACTION_LOG"
+	if zerotier_preflight_static_routes; then
+		fail "static-route preflight accepted invalid destination $invalid_ip"
+	fi
+	if zero_route add; then
+		fail "static-route executor accepted invalid destination $invalid_ip"
+	fi
+	[ ! -s "$TEST_ACTION_LOG" ] || fail "invalid destination $invalid_ip reached iproute2"
+	: > "$TEST_KILL_LOG"
+	echo running > "$TEST_STATE"
+	if start_zero; then
+		fail "start accepted invalid destination $invalid_ip"
+	fi
+	[ "$(cat "$TEST_STATE")" = "running" ] || fail "invalid destination $invalid_ip stopped the running daemon"
+	[ ! -s "$TEST_KILL_LOG" ] || fail "invalid destination $invalid_ip signalled the running daemon"
+	[ ! -s "$TEST_ACTION_LOG" ] || fail "invalid destination $invalid_ip changed network state"
+	: > "$TEST_KILL_LOG"
+	echo running > "$TEST_STATE"
+	if stop_zero; then
+		fail "stop accepted invalid destination $invalid_ip"
+	fi
+	[ "$(cat "$TEST_STATE")" = "running" ] || fail "invalid destination $invalid_ip stopped the running daemon"
+	[ ! -s "$TEST_KILL_LOG" ] || fail "invalid destination $invalid_ip signalled the running daemon"
+	[ ! -s "$TEST_ACTION_LOG" ] || fail "invalid destination $invalid_ip changed network state during stop"
+done
+TEST_STATIC_ROUTE_IP=192.0.2.0/24
+for invalid_gateway in default 192.0.2.256 192.0.2.1/24 010.0.0.1 "192.0.2.1 dev br0"; do
+	TEST_STATIC_ROUTE_GATEWAY="$invalid_gateway"
+	: > "$TEST_ACTION_LOG"
+	if zerotier_preflight_static_routes; then
+		fail "static-route preflight accepted invalid gateway $invalid_gateway"
+	fi
+	if zero_route add; then
+		fail "static-route executor accepted invalid gateway $invalid_gateway"
+	fi
+	[ ! -s "$TEST_ACTION_LOG" ] || fail "invalid gateway $invalid_gateway reached iproute2"
+	: > "$TEST_KILL_LOG"
+	echo running > "$TEST_STATE"
+	if start_zero; then
+		fail "start accepted invalid gateway $invalid_gateway"
+	fi
+	[ "$(cat "$TEST_STATE")" = "running" ] || fail "invalid gateway $invalid_gateway stopped the running daemon"
+	[ ! -s "$TEST_KILL_LOG" ] || fail "invalid gateway $invalid_gateway signalled the running daemon"
+	[ ! -s "$TEST_ACTION_LOG" ] || fail "invalid gateway $invalid_gateway changed network state"
+	: > "$TEST_KILL_LOG"
+	echo running > "$TEST_STATE"
+	if stop_zero; then
+		fail "stop accepted invalid gateway $invalid_gateway"
+	fi
+	[ "$(cat "$TEST_STATE")" = "running" ] || fail "invalid gateway $invalid_gateway stopped the running daemon"
+	[ ! -s "$TEST_KILL_LOG" ] || fail "invalid gateway $invalid_gateway signalled the running daemon during stop"
+	[ ! -s "$TEST_ACTION_LOG" ] || fail "invalid gateway $invalid_gateway changed network state during stop"
+done
+TEST_STATIC_ROUTE_GATEWAY=192.0.2.1
+# The explicit all-addresses default route remains syntactically valid.
+TEST_STATIC_ROUTE_IP=0.0.0.0/0
+if ! zerotier_preflight_static_routes || ! zero_route add; then
+	fail "valid 0.0.0.0/0 destination with a literal IPv4 gateway was rejected"
+fi
+TEST_STATIC_ROUTE_IP=192.0.2.0/24
 TEST_STATIC_ROUTE_COUNT=0
 TEST_STATIC_ROUTE_ENABLE=0
 TEST_NAT_ENABLE=0
