@@ -127,6 +127,70 @@ test_dos2unix_preserves_long_records(void)
 	assert(fclose(stream) == 0);
 }
 
+static void
+test_upload_target_policy_and_secure_comparison(const char *dir,
+						const char *target,
+						const char *victim)
+{
+	char stage[320], missing[320], alias[320], fifo[320];
+	FILE *stream;
+	struct stat stage_info;
+	int equal, n;
+
+	assert(httpd_upload_target_is_regular_or_missing(target));
+	n = snprintf(missing, sizeof(missing), "%s/not-created", dir);
+	assert(n > 0 && (size_t)n < sizeof(missing));
+	assert(httpd_upload_target_is_regular_or_missing(missing));
+	n = snprintf(alias, sizeof(alias), "%s/target-link", dir);
+	assert(n > 0 && (size_t)n < sizeof(alias));
+	assert(symlink(victim, alias) == 0);
+	assert(!httpd_upload_target_is_regular_or_missing(alias));
+	assert(unlink(alias) == 0);
+	n = snprintf(fifo, sizeof(fifo), "%s/target-fifo", dir);
+	assert(n > 0 && (size_t)n < sizeof(fifo));
+	assert(mkfifo(fifo, 0600) == 0);
+	assert(!httpd_upload_target_is_regular_or_missing(fifo));
+	assert(unlink(fifo) == 0);
+	assert(!httpd_upload_target_is_regular_or_missing(dir));
+
+	stream = httpd_upload_create_staging(target, stage, sizeof(stage));
+	assert(stream != NULL);
+	assert(strncmp(stage, target, strlen(target)) == 0);
+	assert(strstr(stage + strlen(target), ".upload.") == stage + strlen(target));
+	assert(lstat(stage, &stage_info) == 0);
+	assert((stage_info.st_mode & 0777) == 0600);
+	assert(httpd_upload_write_dos2unix(stream, "uploaded safely\r\n") == 0);
+	assert(fchmod(fileno(stream), 0600) == 0);
+	assert(fflush(stream) == 0);
+	assert(httpd_upload_files_equal(target, stage, &equal) == 0);
+	assert(equal == 1);
+	httpd_upload_discard_staged(&stream, stage, NULL);
+	assert(stream == NULL);
+	assert_stage_removed(stage);
+
+	stream = httpd_upload_create_staging(target, stage, sizeof(stage));
+	assert(stream != NULL);
+	assert(httpd_upload_write_dos2unix(stream, "different content\n") == 0);
+	assert(fflush(stream) == 0);
+	assert(httpd_upload_files_equal(target, stage, &equal) == 0);
+	assert(equal == 0);
+	httpd_upload_discard_staged(&stream, stage, NULL);
+	assert_stage_removed(stage);
+
+	stream = httpd_upload_create_staging(target, stage, sizeof(stage));
+	assert(stream != NULL);
+	assert(httpd_upload_files_equal(missing, stage, &equal) == 0);
+	assert(equal == 0);
+	httpd_upload_discard_staged(&stream, stage, NULL);
+	assert_stage_removed(stage);
+
+	assert(symlink(victim, alias) == 0);
+	errno = 0;
+	assert(httpd_upload_files_equal(alias, target, &equal) != 0);
+	assert(errno == ELOOP || errno == EINVAL);
+	assert(unlink(alias) == 0);
+}
+
 int
 main(void)
 {
@@ -162,6 +226,7 @@ main(void)
 	assert(S_ISREG(info.st_mode));
 	assert((info.st_mode & 0777) == 0600);
 	assert_text(target, "uploaded safely\n");
+	test_upload_target_policy_and_secure_comparison(dir, target, victim);
 	assert_text(victim, "do not overwrite\n");
 
 	/* An unavailable staging directory must never disturb the retained target. */

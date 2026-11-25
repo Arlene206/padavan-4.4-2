@@ -1,3 +1,12 @@
+## 2026-11-24 — Atomically publish HTTPD storage text files
+
+- Security review found that write_textarea_to_file() protected only FRP private scripts with same-directory staging; normal dnsmasq, crontab, OpenVPN, certificate and authorized_keys updates still opened the final pathname with fopen(..., "w"), followed a destination symlink and truncated the previous file before the full replacement had been written.
+- The replacement path now rejects symlink/non-regular destinations, stages on the destination filesystem, compares content using no-follow regular-file descriptors, applies the intended mode to the staged inode, and publishes only after checked flush/fsync/close through atomic rename. Existing empty credential deletion, private-script permission gating, unchanged-content restart behavior and authorized_keys side effects are retained.
+- Extended the GNU89 HTTPD upload regression for regular/missing versus symlink/FIFO/directory targets, secure no-follow comparison, missing-target detection and same-directory stage paths. Updated the HTTPD inline source contract to require the atomic writer and forbid the old direct final-path write.
+- Parent main SHA: 83f323b86625c210c67c84f1bcde1e3f1eda6f16. Exact-head HTTPD Security, AI handoff and XY-C1 Build/TRX/artifact checks must be verified on the new commit. No local compile, L3 firmware or L4 hardware validation is claimed.
+
+---
+
 ## 2026-11-24 — Remove duplicate Process path-filter entries
 
 - AI handoff documentation run #45510549832 on SHA cc6e707136447a5f14fff465e664f8c52cd81bc5 failed because rc.h, net_lan.c and net_wan.c had been appended even though each was already listed in both Process lifecycle push/pull_request path allowlists. Removed only the new duplicate lines; the added helper header, Ralink source and regression test remain in both lists.

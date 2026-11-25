@@ -5679,35 +5679,42 @@ jobs:
           script_write_gate = write_helper.index(
               "httpd_script_file_write_allowed(file_type,"
           )
-          temp_write = write_helper.index("unlink(temp_path);")
-          assert script_write_gate < temp_write
+          temp_create = write_helper.index("httpd_upload_create_staging(real_path, temp_path,")
+          assert script_write_gate < temp_create
           assert "file_type = httpd_script_file_type(file_name);" in write_helper
           assert "HTTPD_FILE_TYPE_PRIVATE_SCRIPT" in write_helper
           assert "get_login_private_key_access() : get_login_safe()" in write_helper
           assert '#include "httpd_upload_file.h"' in web
           normalize_start = web.index("write_file_dos2unix_fp(const char* value")
-          normalize_end = web.index("\nstatic int\nwrite_file_dos2unix(", normalize_start)
+          normalize_end = web.index("\nstatic int\nwrite_textarea_to_file(", normalize_start)
           normalize = web[normalize_start:normalize_end]
           assert "httpd_upload_write_dos2unix(fp, value)" in normalize
-          assert "fclose(fp)" in normalize
+          assert "fclose(fp)" not in normalize
+          assert '#error "O_NOFOLLOW required for safe HTTPD upload file handling"' in upload_policy
+          assert "static int\nhttpd_upload_target_is_regular_or_missing(const char *path)" in upload_policy
+          assert "lstat(path, &info)" in upload_policy
+          assert "S_ISREG(info.st_mode)" in upload_policy
+          assert "open(left_path, O_RDONLY | O_NOFOLLOW | O_NONBLOCK)" in upload_policy
+          assert "open(right_path, O_RDONLY | O_NOFOLLOW | O_NONBLOCK)" in upload_policy
+          assert "static int\nhttpd_upload_files_equal(const char *left_path" in upload_policy
           assert "static inline int\nhttpd_upload_write_dos2unix(FILE *stream, const char *value)" in upload_policy
           assert "fwrite(cursor, 1, line_size, stream) != line_size" in upload_policy
           assert "test_dos2unix_preserves_long_records" in upload_policy_test
+          assert "test_upload_target_policy_and_secure_comparison" in upload_policy_test
+          assert "httpd_upload_target_is_regular_or_missing(alias)" in upload_policy_test
+          assert "httpd_upload_files_equal(alias, target, &equal)" in upload_policy_test
           assert "size_t expected_size = 8195U, actual_size;" in upload_policy_test
-          # Ordinary script writes retain the existing private /tmp staging;
-          # the FRP credential script stages beside its destination so rename
-          # publishes a 0700 inode atomically on the storage filesystem.
-          assert 'char temp_path[192] = "/tmp/httpd-upload-XXXXXX";' in write_helper
-          temp_create = write_helper.index("temp_fd = mkstemp(temp_path);")
-          temp_open = write_helper.index('temp_fp = fdopen(temp_fd, "w");')
+          assert "httpd_upload_target_is_regular_or_missing(real_path)" in write_helper
+          assert 'char temp_path[320] = "";' in write_helper
           temp_write = write_helper.index("write_file_dos2unix_fp(value, temp_fp)")
-          assert script_write_gate < temp_create < temp_open < temp_write
-          assert "lstat(real_path, &target_stat)" in write_helper
-          assert "S_ISREG(target_stat.st_mode)" in write_helper
-          assert '/.frp_script.XXXXXX' in write_helper
-          assert "chmod(temp_path, httpd_script_file_mode(file_type))" in write_helper
-          assert "rename(temp_path, real_path)" in write_helper
-          assert 'snprintf(temp_path, sizeof(temp_path), "%s/.%s", "/tmp", file_name)' not in write_helper
+          temp_publish = write_helper.index("httpd_upload_publish_staged(&temp_fp, temp_path, real_path, NULL)")
+          assert temp_create < temp_write < temp_publish
+          assert "fchmod(fileno(temp_fp), target_mode)" in write_helper
+          assert "fflush(temp_fp)" in write_helper
+          assert "httpd_upload_files_equal(real_path, temp_path, &content_equal)" in write_helper
+          assert "httpd_upload_discard_staged(&temp_fp, temp_path, NULL)" in write_helper
+          assert "write_file_dos2unix(value, real_path)" not in write_helper
+          assert "compare_text_files(real_path, temp_path)" not in write_helper
           assert "HTTPD_FILE_TYPE_SCRIPT 1" in script_policy
           assert "HTTPD_FILE_TYPE_SCRIPT, 0" in script_policy_test
           assert "HTTPD_FILE_TYPE_SCRIPT, 1" in script_policy_test

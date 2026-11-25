@@ -2,20 +2,28 @@
 
 # Cross-session execution mandate
 
-Continue one autonomous engineering stream on `main`. For each logical slice, create all changed blobs, one complete Git tree based on the live main root tree, and one atomic main commit; update `main` with a non-forced expected-SHA compare-and-swap. Never force-push, create/use feature branches, make PRs, split one logical change into per-file commits, or modify the frozen backup. A PENDING workflow never blocks independent work. Before context exhaustion, finish the current safe slice and checkpoint the first concrete next action.
+Continue one autonomous engineering stream on main. For each logical slice, create all changed blobs, one complete Git tree based on the live main root tree, and one atomic main commit; update main with a non-forced expected-SHA compare-and-swap. Never force-push, create/use feature branches, make PRs, split one logical change into per-file commits, or modify the frozen backup. A PENDING workflow never blocks independent work. Before context exhaustion, finish the current safe slice and checkpoint the first concrete next action.
 
 ## Branch and checkpoint
 
-- Parent main SHA for this handoff update: `cc6e707136447a5f14fff465e664f8c52cd81bc5`; refresh live refs before future writes.
-- Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only.
-- `main` is the only development ref. PR #1 is closed/unmerged and must not be ported.
-- Bootstrap, protocol and handoff were recovered once; do not repeat startup audits without a new reason.
+- Parent main SHA for this engineering milestone: 83f323b86625c210c67c84f1bcde1e3f1eda6f16; refresh the live ref before every future write.
+- Frozen backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807; verified unchanged and read-only.
+- main is the only development ref. PR #1 is closed/unmerged and is not a development target.
+- Bootstrap, protocol, handoff, roadmap, dev-log window/index and live refs were recovered once. The recorded RC whole-line parser gate has been superseded by subsequent main commits; do not repeat it.
 
 ## Active task
 
-### Verify RC optional user-config whole-line parser hardening
+### HTTPD storage-file atomic publication and symlink safety
 
-Check exact-head Process regression, AI handoff and XY-C1 source build for the new load_user_config() contract. The source now drains entire overlong and embedded-NUL records, reports copy/read/close errors, and prevents LAN/WAN hosts and wireless config publication when an overlay copy fails. Fix only genuine CI/compiler failures, then continue with a separate userland stability/security defect.
+The existing write_textarea_to_file() path has an identified root-write defect: non-private config/key/authorized_keys updates used fopen(real_path, "w"), following a pre-existing symlink and truncating the old file before the replacement had been completely written. Only the FRP private-script path had same-directory atomic rename. The active slice generalizes regular-target validation, stages all updates beside the destination, compares via O_NOFOLLOW file descriptors, and publishes through checked flush/fsync/close plus atomic rename. Preserve existing file-type access checks, empty key/authorized_keys deletion, modes, change/no-op behavior, and authorized_keys copy side effects.
+
+Regression coverage must prove regular/missing target acceptance; symlink/FIFO/directory rejection; no-follow compare; exact text normalization; old-target retention after write/flush/fsync/close/rename failures; and successful same-filesystem publication. Fix only genuine CI/compiler failures, then continue with a separate userland stability/security defect.
+
+## Current exact-head Actions before this slice
+
+- Parent SHA 83f323b86625c210c67c84f1bcde1e3f1eda6f16: prior exact-SHA Actions do not validate this slice.
+- No Actions result for the new HTTPD slice exists until its atomic commit is pushed. Verify exact-head HTTPD Security, AI handoff and XY-C1 runs, including each run's head_sha, event and relevant steps. A pending build is not a stop condition.
+- No local repository checkout or local compile is available in this session. Do not claim local host compilation, MIPS firmware, TRX, artifact or physical-router validation. L3/L4 remain unverified for this slice.
 
 ## Completed source slices
 
@@ -122,10 +130,10 @@ Commit `786c504c8247fe42d5d1d5f2dc3ad28757fafc80` strictly parses persisted RX/T
 
 ## Exact first action for the next GPT
 
-1. Recheck exact-head Process and XY-C1 Actions for source SHA cc6e707136447a5f14fff465e664f8c52cd81bc5 after correcting the duplicate Process path-filter entries.
-2. AI handoff documentation #45510549832 failed because the newly added rc.h, net_lan.c and net_wan.c paths duplicated entries already present in both Process trigger allowlists. The workflow now retains one copy in push and pull_request; the validator must PASS before treating the handoff as sound.
-3. Process regression #45510550051 and XY-C1 firmware validation #45510550061 were still pending/in progress at the last poll. Verify the RC whole-line config regression, Build, TRX and artifact upload on the exact same source SHA.
-4. Continue a separate stability/security task after exact-head results. Keep main-only atomic expected-SHA commits and leave the frozen backup untouched.
+1. Fetch the live main ref; confirm the HTTPD source/test/workflow commit is still the current engineering baseline. Do not repeat the RC parser audit or completed startup recovery.
+2. Inspect exact-head push Actions for the HTTPD storage-file publication slice. HTTPD Security must compile/run httpd_upload_file.c and pass the inline source contract; AI handoff docs must pass; XY-C1 Build, TRX verification and artifact upload must all complete on the same SHA before claiming L3.
+3. Diagnose any failed run at its first causal step and fix only that cause in one atomic main commit. If checks are pending, continue with an independent stability/security task.
+4. After this slice closes, resume repository-wide userland coverage outside the recently active RAETH, VSFTPD and HTTPD paths. Hardware L4 remains NOT VERIFIED.
 
 ## Mandatory handoff checkpoint
 

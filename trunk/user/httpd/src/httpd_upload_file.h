@@ -10,7 +10,7 @@
 #include <unistd.h>
 
 #ifndef O_NOFOLLOW
-#define O_NOFOLLOW 0
+#error "O_NOFOLLOW required for safe HTTPD upload file handling"
 #endif
 
 static inline int
@@ -80,6 +80,93 @@ httpd_upload_open_exclusive(const char *path)
 	}
 
 	return stream;
+}
+
+static int
+httpd_upload_target_is_regular_or_missing(const char *path)
+{
+	struct stat info;
+
+	if (!path || !*path) {
+		errno = EINVAL;
+		return 0;
+	}
+	if (lstat(path, &info) == 0)
+		return S_ISREG(info.st_mode);
+	return errno == ENOENT;
+}
+
+static int
+httpd_upload_files_equal(const char *left_path, const char *right_path,
+			 int *equal)
+{
+	int left_fd = -1, right_fd = -1, result = -1, saved_errno = 0;
+	struct stat info;
+	unsigned char left_buffer[512], right_buffer[512];
+	ssize_t left_size, right_size;
+
+	if (!left_path || !*left_path || !right_path || !*right_path || !equal) {
+		errno = EINVAL;
+		return -1;
+	}
+	*equal = 0;
+	left_fd = open(left_path, O_RDONLY | O_NOFOLLOW | O_NONBLOCK);
+	if (left_fd < 0) {
+		if (errno == ENOENT)
+			return 0;
+		return -1;
+	}
+	if (fstat(left_fd, &info) != 0)
+		goto out;
+	if (!S_ISREG(info.st_mode)) {
+		errno = EINVAL;
+		goto out;
+	}
+	right_fd = open(right_path, O_RDONLY | O_NOFOLLOW | O_NONBLOCK);
+	if (right_fd < 0)
+		goto out;
+	if (fstat(right_fd, &info) != 0)
+		goto out;
+	if (!S_ISREG(info.st_mode)) {
+		errno = EINVAL;
+		goto out;
+	}
+	for (;;) {
+		do {
+			left_size = read(left_fd, left_buffer, sizeof(left_buffer));
+		} while (left_size < 0 && errno == EINTR);
+		if (left_size < 0)
+			goto out;
+		do {
+			right_size = read(right_fd, right_buffer, sizeof(right_buffer));
+		} while (right_size < 0 && errno == EINTR);
+		if (right_size < 0)
+			goto out;
+		if (left_size != right_size ||
+		    (left_size > 0 &&
+		     memcmp(left_buffer, right_buffer, (size_t)left_size) != 0)) {
+			result = 0;
+			goto out;
+		}
+		if (left_size == 0) {
+			*equal = 1;
+			result = 0;
+			goto out;
+		}
+	}
+out:
+	saved_errno = errno;
+	if (right_fd >= 0 && close(right_fd) != 0 && result == 0) {
+		result = -1;
+		saved_errno = errno;
+	}
+	if (left_fd >= 0 && close(left_fd) != 0 && result == 0) {
+		result = -1;
+		saved_errno = errno;
+	}
+	if (result != 0)
+		errno = (saved_errno != 0) ? saved_errno : EIO;
+	return result;
 }
 
 typedef struct httpd_upload_file_ops {

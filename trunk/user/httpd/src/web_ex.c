@@ -422,39 +422,23 @@ sys_script(char *name)
 static int
 write_file_dos2unix_fp(const char* value, FILE *fp)
 {
-	int result;
-
-	if (!value || !fp)
+	if (!value || !fp) {
+		errno = EINVAL;
 		return -1;
-
-	result = httpd_upload_write_dos2unix(fp, value);
-	if (fclose(fp) != 0)
-		result = -1;
-
-	return result;
-}
-
-static int
-write_file_dos2unix(const char* value, const char* file_path)
-{
-	FILE *fp;
-
-	fp = fopen(file_path, "w");
-	if (!fp)
-		return -1;
-
-	return write_file_dos2unix_fp(value, fp);
+	}
+	return httpd_upload_write_dos2unix(fp, value);
 }
 
 static int
 write_textarea_to_file(const char* value, const char* dir_name, const char* file_name)
 {
-	int file_type, ret, path_len, temp_fd;
+	int file_type, ret, path_len, content_changed, content_equal;
 	FILE *temp_fp;
 	const unsigned char *p;
 	char *extensions;
-	char temp_path[192] = "/tmp/httpd-upload-XXXXXX";
+	char temp_path[320] = "";
 	char real_path[128];
+	mode_t target_mode;
 
 	if (!value || !dir_name || !*dir_name || !file_name || !*file_name ||
 	    !strcmp(file_name, ".") || !strcmp(file_name, ".."))
@@ -470,17 +454,15 @@ write_textarea_to_file(const char* value, const char* dir_name, const char* file
 		if (strcmp(extensions, ".key") == 0 ||
 		    strcmp(extensions, ".crt") == 0 ||
 		    strcmp(extensions, ".pem") == 0)
-			file_type = 2; // this is key/cert
+			file_type = 2;
 		else if (strcmp(extensions, ".sh") == 0)
-			file_type = httpd_script_file_type(file_name); // executable script
-	} else {
-		if (strcmp(file_name, "authorized_keys") == 0)
-			file_type = 3; // this is ssh authorized_keys
+			file_type = httpd_script_file_type(file_name);
+	} else if (strcmp(file_name, "authorized_keys") == 0) {
+		file_type = 3;
 	}
 
-	/* Root-managed scripts are writable only from trusted management
-	 * sessions. The FRP script uses the stricter LAN/VPN secret-file policy,
-	 * including when the HTTP session itself is protected by HTTPS.
+	/* Root-managed scripts require the trusted management session policy.
+	 * The FRP credential script uses its stricter LAN/VPN access rule.
 	 */
 	if (!httpd_script_file_write_allowed(file_type,
 		file_type == HTTPD_FILE_TYPE_PRIVATE_SCRIPT ?
@@ -490,24 +472,6 @@ write_textarea_to_file(const char* value, const char* dir_name, const char* file
 	path_len = snprintf(real_path, sizeof(real_path), "%s/%s", dir_name, file_name);
 	if (path_len < 0 || path_len >= (int)sizeof(real_path))
 		return 0;
-
-	if (file_type == HTTPD_FILE_TYPE_PRIVATE_SCRIPT) {
-		struct stat target_stat;
-
-		/* Do not follow a pre-existing symlink or replace a non-regular file. */
-		if (lstat(real_path, &target_stat) == 0) {
-			if (!S_ISREG(target_stat.st_mode))
-				return 0;
-		} else if (errno != ENOENT) {
-			return 0;
-		}
-
-		/* Stage beside the destination so publication is an atomic rename. */
-		path_len = snprintf(temp_path, sizeof(temp_path),
-				    "%s/.frp_script.XXXXXX", dir_name);
-		if (path_len < 0 || path_len >= (int)sizeof(temp_path))
-			return 0;
-	}
 
 	if (file_type == 2) {
 		if (strlen(value) < 3) {
@@ -526,58 +490,63 @@ write_textarea_to_file(const char* value, const char* dir_name, const char* file
 			return 0;
 	}
 
-	/* mkstemp creates a unique 0600 file atomically; never reopen a shared
-	 * predictable /tmp pathname after unlink, where a symlink could race us.
+	/* Never follow an existing destination link or replace a special file.
+	 * The content comparison reopens the target with O_NOFOLLOW as a second
+	 * guard against a symlink/FIFO race after this check.
 	 */
-	temp_fd = mkstemp(temp_path);
-	if (temp_fd < 0)
+	if (!httpd_upload_target_is_regular_or_missing(real_path))
 		return 0;
-	temp_fp = fdopen(temp_fd, "w");
-	if (!temp_fp) {
-		close(temp_fd);
-		unlink(temp_path);
+
+	if (file_type == 2 || file_type == 3)
+		target_mode = S_IRUSR | S_IWUSR;
+	else if (file_type == HTTPD_FILE_TYPE_SCRIPT ||
+		 file_type == HTTPD_FILE_TYPE_PRIVATE_SCRIPT)
+		target_mode = httpd_script_file_mode(file_type);
+	else
+		target_mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
+
+	/* The stage is on the destination filesystem. The old file is never
+	 * opened for writing; a checked rename publishes the complete inode.
+	 */
+	temp_fp = httpd_upload_create_staging(real_path, temp_path,
+					       sizeof(temp_path));
+	if (!temp_fp)
+		return 0;
+
+	if (write_file_dos2unix_fp(value, temp_fp) != 0 ||
+	    fchmod(fileno(temp_fp), target_mode) != 0 ||
+	    fflush(temp_fp) != 0)
+		goto discard_stage;
+
+	if (httpd_upload_files_equal(real_path, temp_path, &content_equal) != 0)
+		goto discard_stage;
+	content_changed = !content_equal;
+
+	/* Always re-publish private FRP scripts to enforce mode 0700. Other
+	 * file classes retain their prior no-op behavior for equal contents.
+	 */
+	if (file_type != HTTPD_FILE_TYPE_PRIVATE_SCRIPT && !content_changed) {
+		httpd_upload_discard_staged(&temp_fp, temp_path, NULL);
+		temp_path[0] = '\0';
 		return 0;
 	}
-	if (write_file_dos2unix_fp(value, temp_fp) != 0) {
-		unlink(temp_path);
-		return 0;
+
+	if (httpd_upload_publish_staged(&temp_fp, temp_path, real_path, NULL) != 0)
+		goto discard_stage;
+	temp_path[0] = '\0';
+
+	if (file_type == 3) {
+		doSystem("[ -f /home/admin/.ssh ] && rm /home/admin/.ssh");
+		doSystem("[ -d /home/admin/.ssh ] || mkdir -p -m 700 /home/admin/.ssh");
+		doSystem("cp -f %s %s", real_path, "/home/admin/.ssh");
 	}
 
-	ret = 0;
-	if (file_type == HTTPD_FILE_TYPE_PRIVATE_SCRIPT) {
-		int content_changed = (compare_text_files(real_path, temp_path) != 0);
-
-		/* mkstemp created a private inode; retain mode 0700 and publish in one
-		 * same-filesystem rename. Re-publish unchanged content too, so legacy
-		 * 0755 copies are corrected without triggering an unnecessary restart.
-		 */
-		if (chmod(temp_path, httpd_script_file_mode(file_type)) == 0 &&
-		    rename(temp_path, real_path) == 0) {
-			ret = content_changed ? 1 : 0;
-			temp_path[0] = '\0';
-		}
-	} else if (compare_text_files(real_path, temp_path) != 0) {
-		if (write_file_dos2unix(value, real_path) == 0) {
-			if (file_type == 3) {
-				chmod(real_path, 0600);
-				doSystem ("[ -f /home/admin/.ssh ] && rm /home/admin/.ssh");
-				doSystem ("[ -d /home/admin/.ssh ] || mkdir -p -m 700 /home/admin/.ssh");
-				doSystem("cp -f %s %s", real_path, "/home/admin/.ssh");
-			}
-			else if (file_type == 2)
-				chmod(real_path, 0600);
-			else if (file_type == HTTPD_FILE_TYPE_SCRIPT)
-				chmod(real_path, httpd_script_file_mode(file_type));
-			else
-				chmod(real_path, 0644);
-			ret = 1;
-		}
-	}
-
-	if (temp_path[0] != '\0')
-		unlink(temp_path);
-
+	ret = content_changed ? 1 : 0;
 	return ret;
+
+discard_stage:
+	httpd_upload_discard_staged(&temp_fp, temp_path, NULL);
+	return 0;
 }
 
 static void
