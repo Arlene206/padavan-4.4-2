@@ -1,3 +1,10 @@
+## 2026-11-25 — Anchor WSDD2 netlink source checker at the definition, not prototype
+
+- Exact-SHA WSDD2 netlink workflow #45725275756 compiled and passed the GNU89 ASan/UBSan message-flag regression, but the source checker failed because `function_body()` matched the earlier forward declaration of `netlink_recv` and then scanned into the service table instead of the function body.
+- Updated the checker signature to include the function's opening brace, forcing it to inspect the actual definition. The fd_set boundary workflow #45725275770 passed on the same product source SHA; no production-source failure was implicated.
+
+---
+
 ## 2026-11-25 — Guard DHCP relay descriptors before FD_SET
 
 - DHCPrelay accepted every descriptor returned by udhcp_listen_socket() and later passed it directly to FD_SET. If the daemon inherits enough open descriptors that a newly-created socket is >= FD_SETSIZE, the macro indexes beyond the stack fd_set before select(), corrupting adjacent stack memory.
