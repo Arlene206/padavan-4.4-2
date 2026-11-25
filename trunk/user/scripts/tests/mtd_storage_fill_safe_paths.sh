@@ -28,7 +28,9 @@ EOF_LOGGER
 cat > "$sandbox/bin/reset_ss.sh" <<'EOF_RESET'
 #!/bin/sh
 printf '%s\n' "$*" >> "$RESET_SS_LOG"
-[ "${RESET_SS_FAIL:-0}" != 1 ]
+[ "${RESET_SS_FAIL:-0}" != 1 ] || exit 1
+printf '%s\n' '#!/bin/sh' > "$STORAGE_ROOT/start_script.sh"
+chmod 755 "$STORAGE_ROOT/start_script.sh"
 EOF_RESET
 cat > "$sandbox/bin/mkdir" <<'EOF_MKDIR'
 #!/bin/sh
@@ -68,6 +70,7 @@ chmod +x "$sandbox/mtd_storage.sh"
 export PATH="$sandbox/bin:$PATH"
 export REAL_MKDIR="$real_mkdir" FILL_MKDIR_FAIL_PATH= RESET_SS_FAIL=0
 export LOGGER_LOG="$sandbox/logger.log" RESET_SS_LOG="$sandbox/reset-ss.log"
+export STORAGE_ROOT="$sandbox/storage"
 
 run_fill()
 {
@@ -166,5 +169,18 @@ fi
 test ! -e "$sandbox/storage/chinadns"
 test ! -s "$RESET_SS_LOG"
 grep -Fq 'Cannot extract chnroute archive:' "$LOGGER_LOG"
+
+# A clean storage tree must still complete normal default generation.
+reset_case
+if ! run_fill >/dev/null 2>&1; then
+	echo "normal MTD storage fill unexpectedly failed" >&2
+	exit 1
+fi
+test -s "$sandbox/storage/start_script.sh"
+test -s "$sandbox/storage/started_script.sh"
+test -s "$sandbox/storage/dnsmasq/dnsmasq.conf"
+test -s "$sandbox/storage/inadyn/inadyn.conf"
+test -s "$sandbox/storage/wlan/AP.dat"
+grep -Fqx -- '-a' "$RESET_SS_LOG"
 
 echo "MTD storage fill symlink-path regression: PASS"
