@@ -2064,7 +2064,8 @@ jobs:
           assert "initial_presence == PROCESS_PRESENCE_UNKNOWN" in restart_locked
           assert restart_locked.index("initial_presence == PROCESS_PRESENCE_UNKNOWN") < restart_locked.index("prepare_dns_dhcpd")
           assert "dnsmasq_restart_policy_action(was_running, prepare_status, service_enabled)" in restart_locked
-          assert "stop_status = stop_dns_dhcpd_locked();" in restart_locked
+          assert restart_locked.index("arpbind_ethers_snapshot_read(&previous_ethers)") < restart_locked.index("prepare_dns_dhcpd")
+          assert "stop_status = stop_dns_dhcpd_locked_with_snapshot(&previous_ethers, 0);" in restart_locked
           assert "final_presence = dnsmasq_process_presence(&scan_error);" in restart_locked
           assert "dnsmasq_restart_policy_stop_status(stop_status, final_presence)" in restart_locked
           assert restart_locked.index("dnsmasq_restart_policy_stop_status(stop_status, final_presence)") < restart_locked.index('eval("/usr/sbin/dnsmasq")')
@@ -2360,7 +2361,8 @@ jobs:
           assert "initial_presence == PROCESS_PRESENCE_UNKNOWN" in dnsmasq_restart_body
           assert dnsmasq_restart_body.index("initial_presence == PROCESS_PRESENCE_UNKNOWN") < dnsmasq_restart_body.index("prepare_dns_dhcpd")
           assert "dnsmasq_restart_policy_action(was_running, prepare_status, service_enabled)" in dnsmasq_restart_body
-          stop_call = dnsmasq_restart_body.index("stop_status = stop_dns_dhcpd_locked();")
+          assert dnsmasq_restart_body.index("arpbind_ethers_snapshot_read(&previous_ethers)") < dnsmasq_restart_body.index("prepare_dns_dhcpd")
+          stop_call = dnsmasq_restart_body.index("stop_status = stop_dns_dhcpd_locked_with_snapshot(&previous_ethers, 0);")
           assert "final_presence = dnsmasq_process_presence(&scan_error);" in dnsmasq_restart_body
           assert "dnsmasq_restart_policy_stop_status(stop_status, final_presence)" in dnsmasq_restart_body
           assert stop_call < dnsmasq_restart_body.index("dnsmasq_restart_policy_stop_status(stop_status, final_presence)") < dnsmasq_restart_body.index('eval("/usr/sbin/dnsmasq")')

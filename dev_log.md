@@ -1,3 +1,9 @@
+## 2026-11-24 — Align HTTPD restart contracts with pre-publication ARP ownership
+
+- The HTTPD rerun #45544612868 reached another stale assertion in its DNSMasq integration step: it still expected restart to call the public `stop_dns_dhcpd_locked()` wrapper. Restart now intentionally captures `/etc/ethers` before `prepare_dns_dhcpd()` publishes new files, then passes that prior snapshot directly to `stop_dns_dhcpd_locked_with_snapshot()`.
+- Updated both HTTPD restart source-contract blocks to pin snapshot-before-publication and snapshot-aware stop-before-launch ordering. The public stop wrapper assertions remain unchanged where those call sites intentionally use it.
+- No production code changed; exact-head HTTPD validation required.
+
 ## 2026-11-24 — Update remaining DNSMasq static-ARP source contracts
 
 - The exact DNSMasq rerun #45544491236 passed the startup-rollback checker after its previous correction, but then failed later in the workflow's postcondition/RC integration source contract. That block still expected the old public stop function to contain direct kill/cleanup calls and still looked for the removed zero-argument `arpbind_clear()`; another inline block still named the old `arpbind_clear(void)` signature and old cleanup diagnostic.
