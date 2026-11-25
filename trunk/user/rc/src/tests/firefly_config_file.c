@@ -61,6 +61,41 @@ assert_no_temporary_files(const char *directory)
 	assert(closedir(dir) == 0);
 }
 
+static void
+test_overlong_key_line_cannot_inject_following_directive(
+	const char *directory, const char *path)
+{
+	char long_line[4200], actual[4200];
+	const char prefix[] = "port = ";
+	const char suffix[] = "admin_pw = injected\n";
+	const size_t filler_length = 4100U;
+	FILE *stream;
+	size_t length = 0, actual_length;
+	int status;
+
+	memcpy(long_line + length, prefix, sizeof(prefix) - 1U);
+	length += sizeof(prefix) - 1U;
+	memset(long_line + length, 'x', filler_length);
+	length += filler_length;
+	memcpy(long_line + length, suffix, sizeof(suffix));
+	length += sizeof(suffix) - 1U;
+
+	write_file(path, long_line);
+	status = firefly_config_publish(path, path, "/mnt/firefly",
+					"media-user", "media-pass");
+	assert(status == EOVERFLOW);
+
+	stream = fopen(path, "rb");
+	assert(stream != NULL);
+	actual_length = fread(actual, 1, sizeof(actual), stream);
+	assert(actual_length == length);
+	assert(memcmp(actual, long_line, length) == 0);
+	assert(!ferror(stream));
+	assert(fclose(stream) == 0);
+	assert_no_temporary_files(directory);
+}
+
+
 int
 main(void)
 {
@@ -81,6 +116,8 @@ main(void)
 	assert(snprintf(symlink_source, sizeof(symlink_source), "%s/source-link", directory) > 0);
 	assert(snprintf(symlink_output, sizeof(symlink_output), "%s/symlink-output.conf", directory) > 0);
 	assert(snprintf(fifo_path, sizeof(fifo_path), "%s/fifo.conf", directory) > 0);
+
+	test_overlong_key_line_cannot_inject_following_directive(directory, path);
 
 	write_file(path,
 		   "[general]\n"

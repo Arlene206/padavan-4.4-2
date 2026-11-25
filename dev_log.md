@@ -1,3 +1,12 @@
+## 2026-11-25 — Reject split Firefly INI records before publication
+
+- Reviewed the exact-head Firefly regression failure chain: the C sanitizer binary passed; earlier Python failures came from stale source-function and fixture-string assertions, corrected in two follow-up checker commits. The exact Firefly workflow then passed on 4e8a18f8f8cecc054a37267eea53b965b0cb3cbd.
+- Found a separate parser defect in firefly_config_write_existing(): a 512-byte fgets() buffer could split one long physical INI record. If its first chunk matched a rewritten key (for example port =), the continuation was written after the normalized newline and became a separate configuration directive.
+- Added a bounded physical-line reader with a 4095-byte maximum; oversized records return EOVERFLOW, embedded NUL returns EINVAL, and read errors abort staged publication. The regression asserts that the prior config remains byte-identical and no temporary file leaks.
+- Standalone GNU89 -Wall -Wextra -Werror ASan/UBSan parser regression passed. Full repository Firefly workflow, source contract and exact-SHA Actions are pending on this commit.
+
+---
+
 ## 2026-11-25 — Fail closed on modem driver unload postcondition
 
 - Source fix: `f561a44e1332101ea6e8f42f91b3399134b2d138` made the unload callback verify that a module disappeared from `/sys/module`; a legacy unload helper success with a held reference is not treated as proof of removal. `6d75c4f67f39fb95fbe5626ef97a50b2145f2a54` explicitly classifies the remaining-loaded state as `EBUSY` and preserves a concrete unload errno. This blocks NDIS/RAS family load, QMI client-marker deletion and cache publication after an incomplete unload.

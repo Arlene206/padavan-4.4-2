@@ -1,28 +1,25 @@
 ## Current repository state — 2026-11-25
 
-- Live `main`: `9a8b0de149ec90331207cb7913d41d70f1d55a25`. It includes the static-route explicit-gateway policy follow-up `191e864...`, the IPTV proxy boolean validation slice `c5f4cb4...`, and the route checker correction `9a8b0de...`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, untouched.
-- USB modem unload postcondition and actual-removal delay accounting are implemented; exact USB workflow #45677107277 PASS on `ed0c1d9`.
-- The stale route-source assertions in WAN-route #45678884920 and Firewall Startup #45678887655 on `191e864...` were fixed in `9a8b0de...`; exact reruns #45679742908 and #45679743071 are IN_PROGRESS.
-- AI Docs #45678887525 failed because the roadmap exceeded 131072 bytes; this commit shortens the new USB note and WAN-route ledger row. The exact docs rerun on this head is #45679742771.
-- On `191e864...`, Process inventory #45678887468, HTTPD #45678887488, FULLCONENAT #45678887485, WAN DHCP callback #45678887462, IPv6 service-type #45678887553 and NVRAM audit #45678887648 PASS. XY-C1 #45678887803 was still IN_PROGRESS at last poll. Current head `9a8b0de149ec...` has exact XY-C1 #45679742904 IN_PROGRESS. Do not claim L3 without Build/TRX/artifact on one SHA. Physical L4 NOT VERIFIED.
-- Current concurrent IPTV slice on `c5f4cb4...` adds strict IPTV proxy boolean parsing/regression; its Firewall, Process, AI Docs and NVRAM jobs are separate exact-head checks from the descendant. Wait for exact current-head checks rather than merging prior run claims.
+- Recovery baseline: main ffcd7ceb5f5092935203e078d4acb2ea6a2598ba; this Firefly slice is committed atomically on top of that baseline. Re-fetch live main before any further write.
+- Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains read-only at 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- Legacy PR #1 is CLOSED/unmerged. Its CA trust-store bootstrap and HMAC helper/test deliverables are present on main; no unique PR-only deliverable was identified that warrants resurrecting its branch.
+- Firefly INI key-boundary work: Firefly #45681131025 and AI Docs #45681131009 both PASS on exact SHA 4e8a18f8f8cecc054a37267eea53b965b0cb3cbd. On 315b022... the C regression passed, but the Python source contract failed on stale quoted fixture matching; commit 4e8a18f... corrected that contract. Parent ffcd7ceb5f5092935203e078d4acb2ea6a2598ba is the NFS selector test follow-up; NFS start/reload run #45681563836 FAILED in its Python contract step (line 217), and must not be treated as verified. Process inventory #45681563973 PASS; HTTPD #45681563860, NVRAM #45681563955 and USB storage #45681563815 were PENDING at takeover.
+- New Firefly defect found in firefly_config_write_existing(): 512-byte fgets() chunks could split one oversized physical INI record. When the first chunk began with a rewritten key such as "port =", its tail could be emitted as a new directive. This slice uses a bounded physical-line reader (4095-byte maximum), rejecting overlong and embedded-NUL records before atomic publication.
+- The bounded-reader algorithm passed a standalone GNU89 ASan/UBSan regression before commit. Full repository Firefly workflow and exact-head Actions are pending for this checkpoint. No same-SHA XY-C1 Build/TRX/artifact completion is claimed; physical-router L4 remains NOT VERIFIED.
 
 ## Active task
 
-Poll exact-head validation on the current commit. Once route/firewall checks pass, resume the P2 storage/configuration-boundary review in `services_stor.c`: NFS custom-export and Firefly config publication callers. Change source only for a demonstrated privilege-boundary or I/O defect with a deterministic GNU89-compatible regression.
+Reject overlong and embedded-NUL Firefly INI records as read errors, preserve the previous configuration byte-for-byte, and remove the temporary publication file. The workflow now locks the bounded reader and regression contract. Next, triage exact-head Actions and continue independent storage/network reliability work while checks are pending.
 
 ## Exact first actions for next GPT
 
-1. Poll XY-C1 #45679742904, WAN-route #45679742908, Firewall #45679743071 and AI Docs #45679742771 on this exact head.
-2. Inspect NFS custom-export and Firefly config callers and tests; establish the concrete defect before patching.
-3. Use one complete tree/atomic commit per logical task, CAS-update `main` with `force:false`, and keep backup read-only.
-4. L3 requires Build/TRX/artifact on the same source SHA; physical L4 remains NOT VERIFIED.
+1. Fetch live main; inspect exact-SHA Firefly, AI Docs, Process, NVRAM and XY-C1 Actions for this checkpoint. Fix any failed run; PENDING does not block other independent work.
+2. Diagnose NFS start/reload run #45681563836 on its own exact SHA; repair only the demonstrated source-contract mismatch, then rerun the NFS workflow on its new exact SHA.
+3. For L3, confirm Build, TRX validation and artifact upload all pass on one identical source SHA. Physical-router L4 is still unverified.
 
 ## Execution contract
 
-Main only; no force-push. Source/test → complete tree/atomic commit → expected-SHA non-force update → exact-SHA Actions. PENDING does not block independent work.
-
+Main only; never modify or delete the frozen backup; no force-push, feature branches or PRs. For each logical task: source and regression → one complete tree/atomic commit → non-forced expected-SHA update → exact-SHA Actions. Record real failures and keep working on independent slices.
 
 ## 2026-11-25 autonomous handoff checkpoint
 

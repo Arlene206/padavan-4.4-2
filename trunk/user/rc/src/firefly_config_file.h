@@ -53,13 +53,53 @@ firefly_config_line_has_key(const char *line, const char *key)
 
 
 static int
+firefly_config_read_line(FILE *source, char *line, size_t line_size)
+{
+	size_t length = 0;
+	int character;
+
+	if (!source || !line || line_size < 2) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	errno = 0;
+	while ((character = fgetc(source)) != EOF) {
+		if (character == '\0') {
+			errno = EINVAL;
+			return -1;
+		}
+		if (length + 1 >= line_size) {
+			errno = EOVERFLOW;
+			return -1;
+		}
+		line[length++] = (char)character;
+		if (character == '\n')
+			break;
+	}
+
+	if (character == EOF && ferror(source)) {
+		if (!errno)
+			errno = EIO;
+		return -1;
+	}
+	if (length == 0)
+		return 0;
+
+	line[length] = '\0';
+	return 1;
+}
+
+
+static int
 firefly_config_write_existing(FILE *output, FILE *source,
 			      const struct firefly_config_values *values)
 {
-	char line[512];
-	int status;
+	char line[4096];
+	int status, line_status;
 
-	while (fgets(line, sizeof(line), source) != NULL) {
+	while ((line_status = firefly_config_read_line(
+		       source, line, sizeof(line))) > 0) {
 		if (firefly_config_line_has_key(line, "web_root"))
 			status = firefly_config_printf(output, "web_root = %s\n",
 						       "/usr/share/mt-daapd");
@@ -83,7 +123,7 @@ firefly_config_write_existing(FILE *output, FILE *source,
 		if (status != 0)
 			return status;
 	}
-	if (ferror(source))
+	if (line_status < 0)
 		return errno ? errno : EIO;
 
 	return 0;

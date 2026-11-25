@@ -74,6 +74,13 @@ jobs:
           publisher = body(config, "firefly_config_publish(")
           key_matcher = body(config, "firefly_config_line_has_key(")
           writer = body(config, "firefly_config_write_existing(FILE *output, FILE *source,")
+          reader = body(config, "firefly_config_read_line(")
+          assert "fgetc(source)" in reader
+          assert "character == '\\0'" in reader
+          assert "EOVERFLOW" in reader
+          assert "firefly_config_read_line(" in writer
+          assert "line_status < 0" in writer
+          assert "test_overlong_key_line_cannot_inject_following_directive" in test
           assert "strncmp(line, key, key_length)" in key_matcher
           assert "return *line == '=';" in key_matcher
           assert writer.count("firefly_config_line_has_key(line,") == 6
