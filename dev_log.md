@@ -1,3 +1,9 @@
+## 2026-11-25 — Validate decoder length and use unsigned-safe bounds
+
+- The first domain-codec workflow exposed three pre-existing signed/unsigned comparison warnings in the decoder's unsigned cursor versus signed length bounds checks (the regression workflow treats warnings as errors). Harden the API boundary: reject null inputs and non-positive lengths, then compare cursor offsets against the validated unsigned length. This removes the warnings without weakening compiler diagnostics and makes negative caller lengths fail closed.
+
+---
+
 ## 2026-11-25 — Reset domain completion for every new label
 
 - Review of the first sanitizer slice found the per-name completion flag also must be cleared whenever a new label begins after a previously terminated name. Without that reset, a valid first search-domain entry could mask a truncated final entry in the same option. Reset the state on every label and add a two-entry regression (valid first name, unterminated second name); normalize diagnostic newlines in the embedded test harness.

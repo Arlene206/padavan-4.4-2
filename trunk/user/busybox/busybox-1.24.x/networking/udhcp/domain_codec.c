@@ -33,6 +33,9 @@ char* FAST_FUNC dname_dec(const uint8_t *cstr, int clen, const char *pre)
 	char *ret = ret; /* for compiler */
 	char *dst = NULL;
 
+	if (clen <= 0 || cstr == NULL || pre == NULL)
+		return NULL;
+
 	/* We make two passes over the cstr string. First, we compute
 	 * how long the resulting string would be. Then we allocate a
 	 * new buffer of the required length, and fill it in with the
@@ -49,14 +52,14 @@ char* FAST_FUNC dname_dec(const uint8_t *cstr, int clen, const char *pre)
 
 		crtpos = retpos = depth = len = 0;
 		name_terminated = 0;
-		while (crtpos < clen) {
+		while (crtpos < (unsigned)clen) {
 			c = cstr + crtpos;
 
 			if ((*c & NS_CMPRSFLGS) == NS_CMPRSFLGS) {
 				unsigned target;
 
 				/* pointer */
-				if (crtpos + 2 > clen) /* no offset to jump to? abort */
+				if (crtpos + 2 > (unsigned)clen) /* no offset to jump to? abort */
 					return NULL;
 				target = ((c[0] & 0x3f) << 8) | c[1];
 				/* RFC1035 pointers must reference a preceding name. */
@@ -69,7 +72,7 @@ char* FAST_FUNC dname_dec(const uint8_t *cstr, int clen, const char *pre)
 				crtpos = target; /* jump */
 			} else if (*c) {
 				/* label */
-				if (crtpos + *c + 1 > clen) /* label too long? abort */
+				if (crtpos + *c + 1 > (unsigned)clen) /* label too long? abort */
 					return NULL;
 				name_terminated = 0;
 				if (dst)
