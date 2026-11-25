@@ -817,9 +817,12 @@ static void client6_recv(void)
 
 	len = recv_from_to(csock, G.rbuf, sizeof(G.rbuf), MSG_TRUNC,
 			&from, (struct sockaddr *)&to, sizeof(struct sockaddr_in6));
-	if (len < sizeof(struct dhcp6)) {
-		if (len >= 0)
-			bb_info_msg("short packet (%d bytes)", (int )len);
+	if (len < 0) {
+		bb_perror_msg("cannot receive DHCP6 packet");
+		return;
+	}
+	if (len < (ssize_t)sizeof(struct dhcp6)) {
+		bb_info_msg("short packet (%d bytes)", (int)len);
 		return;
 	}
 	/* Linux MSG_TRUNC returns the original datagram size, not copied bytes. */

@@ -285,12 +285,13 @@ assert "test_first_error_and_retry_gate" in test
 # computing any packet-end pointer.
 receive = function_body(client, "static void client6_recv(void)")
 receive_call = receive.index("len = recv_from_to(")
+receive_error = receive.index("if (len < 0)")
 receive_call_end = receive.index(";", receive_call)
 short_check = receive.index("if (len < sizeof(struct dhcp6))")
 datagram_check = receive.index("dhcp6c_datagram_length_fits(")
 option_parse = receive.index("dhcp6_get_options(")
 assert "MSG_TRUNC" in receive[receive_call:receive_call_end]
-assert receive_call < short_check < datagram_check < option_parse
+assert receive_call < receive_error < short_check < datagram_check < option_parse
 assert "(size_t)len, sizeof(G.rbuf)" in receive[datagram_check:option_parse]
 assert "return;" in receive[datagram_check:option_parse]
 

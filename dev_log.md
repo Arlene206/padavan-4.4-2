@@ -1,3 +1,10 @@
+## 2026-11-25 — Distinguish DHCPv6 socket receive errors from short packets
+
+- The DHCPv6 receive length is `ssize_t`; comparing a negative receive error directly with the unsigned `sizeof` result could bypass the short-packet branch. The subsequent oversize guard prevented parsing after the prior slice, but misreported the socket error as an enormous datagram.
+- Added an explicit negative-length error path before the size comparison and pinned its order in the source contract. The receive path now separates socket errors, genuinely short packets, oversized datagrams, and parsable messages.
+
+---
+
 ## 2026-11-25 — Reject oversized DHCPv6 UDP datagrams instead of parsing a truncated prefix
 
 - `client6_recv()` used a fixed `BUFSIZ` receive buffer with flags 0. On Linux, `recvmsg` then reports only copied bytes for an oversized datagram; if that truncation happened to end on an option boundary, the partial prefix could be accepted as a complete Reply.
