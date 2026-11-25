@@ -33,6 +33,7 @@
 #include "usb.h"
 #include "urb64.h"
 #include "u2ec_socket_io_policy.h"
+#include "u2ec_discovery_snapshot_policy.h"
 
 void decode(char *file);
 int testusb();
@@ -93,6 +94,80 @@ extern struct usb_device	*dev;
 usb_dev_handle			*udev;
 struct timeval			tv_ref, tv_now;
 PCONNECTION_INFO		last_busy_conn;
+
+#define U2EC_DISCOVERY_PRODUCT_SIZE 128U
+
+/*
+ * add_remote_device() serves discovery requests on a worker thread while
+ * update_device()/testusb() refreshes libusb's global device pointers on the
+ * main thread. Publish a copy so the worker never dereferences dev or races
+ * on str_product during a hotplug scan.
+ */
+static pthread_mutex_t u2ec_discovery_snapshot_mutex = PTHREAD_MUTEX_INITIALIZER;
+static int u2ec_discovery_device_present;
+static char u2ec_discovery_product[U2EC_DISCOVERY_PRODUCT_SIZE];
+
+static void
+u2ec_publish_discovery_snapshot(void)
+{
+    int status;
+
+    status = pthread_mutex_lock(&u2ec_discovery_snapshot_mutex);
+    if (status != 0) {
+        errno = status;
+        PERROR("lock U2EC discovery snapshot");
+        return;
+    }
+
+    u2ec_discovery_device_present = (dev != NULL);
+    if (u2ec_copy_discovery_product(u2ec_discovery_device_present,
+                                    str_product,
+                                    u2ec_discovery_product,
+                                    sizeof(u2ec_discovery_product)) < 0)
+        PERROR("copy U2EC discovery product");
+
+    status = pthread_mutex_unlock(&u2ec_discovery_snapshot_mutex);
+    if (status != 0) {
+        errno = status;
+        PERROR("unlock U2EC discovery snapshot");
+    }
+}
+
+static int
+u2ec_read_discovery_snapshot(int *device_present, char *product,
+                             size_t product_size)
+{
+    int status;
+    int result;
+    int saved_errno;
+
+    if (!device_present) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    status = pthread_mutex_lock(&u2ec_discovery_snapshot_mutex);
+    if (status != 0) {
+        errno = status;
+        return -1;
+    }
+
+    *device_present = u2ec_discovery_device_present;
+    result = u2ec_copy_discovery_product(*device_present,
+                                         u2ec_discovery_product,
+                                         product, product_size);
+    saved_errno = errno;
+
+    status = pthread_mutex_unlock(&u2ec_discovery_snapshot_mutex);
+    if (status != 0) {
+        errno = status;
+        return -1;
+    }
+
+    if (result < 0)
+        errno = saved_errno;
+    return result;
+}
 
 /*
  * Clear the timeout owner while its connection object is still alive. A
@@ -2897,10 +2972,20 @@ void add_remote_device()
 				PSNDRECV("add_remote_device GETCONFIG sent: %s\n", message);
 			}
 			else if (command_type == U2EC_CONFIG_COMMAND_GETNAME) {
-				if (dev)
-					sprintf(message, "RootHub#1|Port1(%s)!", str_product);
+				int discovery_device_present = 0;
+				char discovery_product[U2EC_DISCOVERY_PRODUCT_SIZE];
+
+				if (u2ec_read_discovery_snapshot(&discovery_device_present,
+				                                 discovery_product,
+				                                 sizeof(discovery_product)) < 0) {
+					PERROR("read U2EC discovery snapshot");
+					discovery_device_present = 0;
+				}
+				if (discovery_device_present)
+					snprintf(message, sizeof(message),
+					         "RootHub#1|Port1(%s)!", discovery_product);
 				else
-					sprintf(message, "RootHub#1|Port1!");
+					snprintf(message, sizeof(message), "RootHub#1|Port1!");
 				if (u2ec_send_all_no_sigpipe(new_fd, message, strlen(message)) < 0) {
 					PERROR("send");
 					goto next;
@@ -3948,6 +4033,7 @@ static void update_device()
 	int single_interface = 1;
 
 	testusb();
+	u2ec_publish_discovery_snapshot();
 
 	if (dev) {
 		for (i = 0; i < dev->descriptor.bNumConfigurations; i++)

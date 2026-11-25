@@ -36,6 +36,9 @@ add_remote = body(source, "void add_remote_device()")
 daemon_main = body(source, "int main(int argc, char *argv[])")
 establish = body(source, "int establish_connection(int sockfd)")
 handle_fifo = body(source, "static int handle_fifo(")
+update_device = body(source, "static void update_device()")
+publish_snapshot = body(source, "u2ec_publish_discovery_snapshot(void)")
+read_snapshot = body(source, "u2ec_read_discovery_snapshot(")
 usb_connection = body(source, "int usb_connection(int sockfd)")
 handle_urb32 = body(source, "int handleURB(PIRP_SAVE")
 handle_urb64 = body(source, "int handleURB_64(PIRP_SAVE")
@@ -46,6 +49,7 @@ recv_policy = body(policy, "u2ec_recv_all(")
 select_policy = body(policy, "u2ec_select_readable_retry_with(")
 
 assert '#include "u2ec_socket_io_policy.h"' in source
+assert '#include "u2ec_discovery_snapshot_policy.h"' in source
 assert "fd >= 0 && fd < FD_SETSIZE" in policy
 assert "(size_t)fd < tracked_capacity" in policy
 assert "u2ec_fd_is_usable(find_fd, sizeof(fd_in_use))" in add_remote
@@ -117,6 +121,18 @@ assert "tmp_len -= interface_info->Length" in handle_urb32
 assert "tmp_len -= interface_info->Length" in handle_urb64
 
 assert add_remote.count("u2ec_send_all_no_sigpipe") == 2
+assert "testusb();" in update_device
+assert update_device.index("testusb();") < update_device.index("u2ec_publish_discovery_snapshot();")
+assert "pthread_mutex_lock(&u2ec_discovery_snapshot_mutex)" in publish_snapshot
+assert "u2ec_copy_discovery_product" in publish_snapshot
+assert "pthread_mutex_lock(&u2ec_discovery_snapshot_mutex)" in read_snapshot
+assert "u2ec_copy_discovery_product" in read_snapshot
+assert "u2ec_read_discovery_snapshot" in add_remote
+assert "if (dev)" not in add_remote
+assert "str_product" not in add_remote
+assert "u2ec_discovery_snapshot_policy.h" in makefile
+assert "u2ec_discovery_snapshot_policy.h" in workflow
+assert "test_discovery_product_snapshot_copy_is_bounded" in test
 assert "SO_RCVTIMEO" in add_remote and "command_timeout.tv_sec = 1" in add_remote
 assert "u2ec_recv_all(new_fd, message, 7U)" in add_remote
 assert "u2ec_recv_all(new_fd, message + 7, 2U)" in add_remote

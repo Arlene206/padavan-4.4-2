@@ -8,6 +8,39 @@
 #include <unistd.h>
 
 #include "u2ec_socket_io_policy.h"
+#include "u2ec_discovery_snapshot_policy.h"
+
+
+static void
+test_discovery_product_snapshot_copy_is_bounded(void)
+{
+    char product[8];
+
+    assert(u2ec_copy_discovery_product(1, "Printer", product,
+                                       sizeof(product)) == 0);
+    assert(strcmp(product, "Printer") == 0);
+
+    assert(u2ec_copy_discovery_product(1, "Long printer name", product,
+                                       sizeof(product)) == 0);
+    assert(strcmp(product, "Long pr") == 0);
+
+    assert(u2ec_copy_discovery_product(0, "stale", product,
+                                       sizeof(product)) == 0);
+    assert(product[0] == '\0');
+
+    errno = 0;
+    assert(u2ec_copy_discovery_product(1, NULL, product,
+                                       sizeof(product)) == -1);
+    assert(errno == EINVAL);
+
+    errno = 0;
+    assert(u2ec_copy_discovery_product(1, "Printer", product, 0U) == -1);
+    assert(errno == EINVAL);
+
+    errno = 0;
+    assert(u2ec_copy_discovery_product(1, "Printer", NULL, 1U) == -1);
+    assert(errno == EINVAL);
+}
 
 static void
 test_send_completes_a_tcp_stream_write(void)
@@ -456,6 +489,7 @@ int
 main(void)
 {
     test_lock_fd_is_released_exactly_once();
+    test_discovery_product_snapshot_copy_is_bounded();
     test_fifo_idle_readiness_and_event_bytes_are_safe();
     test_socket_initialization_failure_closes_descriptor_and_preserves_errno();
     test_send_completes_a_tcp_stream_write();
