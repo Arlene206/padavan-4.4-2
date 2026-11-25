@@ -19,6 +19,7 @@ static int probe_calls[TEST_MODULES];
 static int module_presence[TEST_MODULES];
 static int unload_results[TEST_MODULES];
 static int unload_errors[TEST_MODULES];
+static int module_remaining_presence[TEST_MODULES];
 static int unload_calls[TEST_MODULES];
 
 static int
@@ -75,7 +76,7 @@ mock_unload(const char *name, void *context)
 	unload_calls[index]++;
 	status = rc_modem_module_unload_attempt_status(
 		module_presence[index], unload_results[index],
-		unload_errors[index]);
+		unload_errors[index], module_remaining_presence[index]);
 	if (status != 0) {
 		errno = status;
 		return 0;
@@ -107,6 +108,7 @@ reset_case(void)
 		module_presence[i] = 0;
 		unload_results[i] = 0;
 		unload_errors[i] = 0;
+		module_remaining_presence[i] = 0;
 		unload_calls[i] = 0;
 	}
 }
@@ -400,18 +402,25 @@ test_unload_failures_are_aggregated_and_first_errno_preserved(void)
 	module_presence[2] = 1;
 	unload_results[0] = 0;
 	unload_errors[0] = EACCES;
+	module_remaining_presence[0] = 1;
 	unload_results[1] = 1;
+	module_remaining_presence[1] = 0;
 	unload_results[2] = 0;
+	module_remaining_presence[2] = 1;
 	assert(rc_modem_module_unload_group_status(module_names, TEST_MODULES,
 			mock_unload, NULL, &successful) == EACCES);
 	assert(successful == 1);
 	assert_all_unload_attempted();
 
+	/* A legacy "success" with a nonzero refcount leaves the module present.
+	 * The verified postcondition must reject the family transition.
+	 */
 	reset_case();
 	module_presence[0] = 1;
-	unload_results[0] = 0;
+	unload_results[0] = 1;
+	module_remaining_presence[0] = 1;
 	assert(rc_modem_module_unload_group_status(module_names, TEST_MODULES,
-			mock_unload, NULL, &successful) == EIO);
+			mock_unload, NULL, &successful) == EBUSY);
 	assert(successful == TEST_MODULES - 1);
 	assert_all_unload_attempted();
 }
@@ -419,12 +428,17 @@ test_unload_failures_are_aggregated_and_first_errno_preserved(void)
 static void
 test_unknown_or_invalid_module_presence_fails_closed(void)
 {
-	assert(rc_modem_module_unload_attempt_status(-EACCES, 1, 0) == EACCES);
-	assert(rc_modem_module_unload_attempt_status(2, 1, 0) == EIO);
-	assert(rc_modem_module_unload_attempt_status(1, 0, 0) == EIO);
-	assert(rc_modem_module_unload_attempt_status(1, 0, EPERM) == EPERM);
-	assert(rc_modem_module_unload_attempt_status(1, 1, 0) == 0);
-	assert(rc_modem_module_unload_attempt_status(0, 0, 0) == 0);
+	assert(rc_modem_module_unload_attempt_status(-EACCES, 1, 0, 0) == EACCES);
+	assert(rc_modem_module_unload_attempt_status(2, 1, 0, 0) == EIO);
+	assert(rc_modem_module_unload_attempt_status(1, 0, 0, 1) == EIO);
+	assert(rc_modem_module_unload_attempt_status(1, 0, EPERM, 1) == EPERM);
+	assert(rc_modem_module_unload_attempt_status(1, 1, 0, 0) == 0);
+	assert(rc_modem_module_unload_attempt_status(1, 1, 0, 1) == EBUSY);
+	assert(rc_modem_module_unload_attempt_status(1, 1, 0, -EACCES) == EACCES);
+	assert(rc_modem_module_unload_attempt_status(1, 1, 0, 2) == EIO);
+	/* A failed command that nevertheless removed the module is safe. */
+	assert(rc_modem_module_unload_attempt_status(1, 0, EPERM, 0) == 0);
+	assert(rc_modem_module_unload_attempt_status(0, 0, 0, 1) == 0);
 }
 
 static void

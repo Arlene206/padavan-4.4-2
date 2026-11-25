@@ -59,7 +59,7 @@ typedef int (*rc_modem_module_unload_fn)(const char *module_name,
  * unload must block a driver-family transition; preserve errno when available. */
 static inline int
 rc_modem_module_unload_attempt_status(int loaded_status, int unload_status,
-				      int unload_errno)
+				      int unload_errno, int remaining_status)
 {
 	if (loaded_status == 0)
 		return 0;
@@ -67,11 +67,20 @@ rc_modem_module_unload_attempt_status(int loaded_status, int unload_status,
 		return -loaded_status;
 	if (loaded_status != 1)
 		return EIO;
-	if (unload_status == 1)
+
+	/* The legacy unload helper returns success when refcount is nonzero,
+	 * even though it deliberately leaves the module loaded. Never use that
+	 * return value as proof that a family switch can safely proceed.
+	 */
+	if (remaining_status < 0)
+		return -remaining_status;
+	if (remaining_status > 1)
+		return EIO;
+	if (remaining_status == 0)
 		return 0;
 	if (unload_status == 0 && unload_errno > 0)
 		return unload_errno;
-	return EIO;
+	return EBUSY;
 }
 
 /* Validate the entire module set before causing unload side effects. */

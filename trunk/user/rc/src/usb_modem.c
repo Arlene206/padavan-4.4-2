@@ -1286,17 +1286,24 @@ unlink_modem_ndis(void)
 static int
 modem_module_unload_callback(const char *module_name, void *context)
 {
-	int loaded_status, unload_status = 0, saved_errno = 0, status;
+	int loaded_status, remaining_status, unload_status = 0;
+	int saved_errno = 0, status;
 
 	(void)context;
 	loaded_status = is_module_loaded_status(module_name);
+	remaining_status = loaded_status;
 	if (loaded_status == 1) {
 		errno = 0;
 		unload_status = module_smart_unload(module_name, 1);
 		saved_errno = errno;
+		/* module_smart_unload() returns 1 when refcount > 0 without
+		 * removing the module. Re-read sysfs and require confirmed absence.
+		 */
+		remaining_status = is_module_loaded_status(module_name);
 	}
 	status = rc_modem_module_unload_attempt_status(loaded_status,
-						      unload_status, saved_errno);
+						      unload_status, saved_errno,
+						      remaining_status);
 	if (status != 0) {
 		errno = status;
 		return 0;
