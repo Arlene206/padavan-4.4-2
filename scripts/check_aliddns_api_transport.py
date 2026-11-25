@@ -231,11 +231,11 @@ require('if _autostart_nvram_value=$(nvram get "$_autostart_nvram_key"); then' i
         'return "$_autostart_nvram_status"' in autostart_nvram_read and
         'autostart_nvram_read "$1" || return $?' in autostart_nvram_enabled and
         'if autostart_nvram_enabled aliddns_enable; then' in autostart and
-        'if [ -r /etc/ssl/certs/ca-certificates.crt ]; then' in autostart and
+        'if [ -f /etc/ssl/certs/ca-certificates.crt ] && [ -s /etc/ssl/certs/ca-certificates.crt ] && [ -r /etc/ssl/certs/ca-certificates.crt ]; then' in autostart and
         'run_optional_start "AliDDNS" /usr/bin/aliddns.sh start' in autostart and
-        'AliDDNS autostart skipped: CA trust bundle is not readable' in autostart and
+        'AliDDNS autostart skipped: CA trust bundle is missing, empty or unreadable' in autostart and
         autostart.index('if autostart_nvram_enabled aliddns_enable; then') <
-        autostart.index('if [ -r /etc/ssl/certs/ca-certificates.crt ]; then') <
+        autostart.index('if [ -f /etc/ssl/certs/ca-certificates.crt ] && [ -s /etc/ssl/certs/ca-certificates.crt ] && [ -r /etc/ssl/certs/ca-certificates.crt ]; then') <
         autostart.index('run_optional_start "AliDDNS" /usr/bin/aliddns.sh start') <
         autostart.index('if autostart_nvram_enabled ddnsto_enable; then'),
         "enabled AliDDNS must retain a status-checked, CA-gated optional startup path")
@@ -548,7 +548,7 @@ ca_install = function_body(copy_scripts, "install_ca_trust_store() {")
 rc_router = function_body(rc, "init_router(void)")
 rc_router_compact = "".join(rc_router.split())
 require('if ! tar -xzf "$copyscripts_cert_archive" -C "$copyscripts_cert_dir"; then' in ca_install and
-        'if [ ! -r "$copyscripts_ca_bundle" ]; then' in ca_install and
+        'if [ ! -f "$copyscripts_ca_bundle" ] || [ ! -s "$copyscripts_ca_bundle" ] || [ ! -r "$copyscripts_ca_bundle" ]; then' in ca_install and
         "copyscripts_ca_status=1" in copy_scripts and
         "copyscripts_seed_status=0" in copy_scripts and
         'if [ "$copyscripts_ca_status" -ne 0 ] || [ "$copyscripts_seed_status" -ne 0 ]; then' in copy_scripts and
@@ -624,6 +624,11 @@ for marker in (
     "CA trust-store bootstrap failure propagation regression: PASS",
 ):
     require(marker in ca_bootstrap_test, f"CA bootstrap regression missing result marker: {marker}")
+require("empty-output" in ca_bootstrap_test and
+        "directory-output" in ca_bootstrap_test and
+        "empty CA bundle was accepted" in ca_bootstrap_test and
+        "directory CA bundle was accepted" in ca_bootstrap_test,
+        "CA bootstrap regression must reject empty and non-regular trust bundles")
 
 fingerprint = source.split("aliddns_config_fingerprint () {", 1)[1].split("\n}", 1)[0]
 status_body = source.split("aliddns_get_status () {", 1)[1].split("\n}", 1)[0]

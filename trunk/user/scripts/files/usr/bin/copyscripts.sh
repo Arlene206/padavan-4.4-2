@@ -12,8 +12,8 @@ install_ca_trust_store() {
 		logger -t "启动脚本" "CA 证书归档解压失败：$copyscripts_cert_archive"
 		return 1
 	fi
-	if [ ! -r "$copyscripts_ca_bundle" ]; then
-		logger -t "启动脚本" "CA 证书包解压后不可读：$copyscripts_ca_bundle"
+	if [ ! -f "$copyscripts_ca_bundle" ] || [ ! -s "$copyscripts_ca_bundle" ] || [ ! -r "$copyscripts_ca_bundle" ]; then
+		logger -t "启动脚本" "CA 证书包解压后不是可读的非空普通文件：$copyscripts_ca_bundle"
 		return 1
 	fi
 	return 0

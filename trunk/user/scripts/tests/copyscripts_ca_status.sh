@@ -23,6 +23,8 @@ COPYSCRIPTS_CERT_ARCHIVE="$tmp/valid.tgz"
 COPYSCRIPTS_CERT_DIR="$tmp/valid-dest"
 export COPYSCRIPTS_CERT_ARCHIVE COPYSCRIPTS_CERT_DIR
 install_ca_trust_store
+[ -f "$tmp/valid-dest/certs/ca-certificates.crt" ]
+[ -s "$tmp/valid-dest/certs/ca-certificates.crt" ]
 [ -r "$tmp/valid-dest/certs/ca-certificates.crt" ]
 
 printf 'not a gzip archive\n' > "$tmp/invalid.tgz"
@@ -42,6 +44,29 @@ COPYSCRIPTS_CERT_DIR="$tmp/missing-dest"
 export COPYSCRIPTS_CERT_ARCHIVE COPYSCRIPTS_CERT_DIR
 if install_ca_trust_store; then
 	echo "archive without the CA bundle was accepted" >&2
+	exit 1
+fi
+
+# An archive may exit successfully while containing an empty CA bundle.
+mkdir -p "$tmp/empty-root/certs"
+: > "$tmp/empty-root/certs/ca-certificates.crt"
+tar -czf "$tmp/empty.tgz" -C "$tmp/empty-root" certs
+COPYSCRIPTS_CERT_ARCHIVE="$tmp/empty.tgz"
+COPYSCRIPTS_CERT_DIR="$tmp/empty-dest"
+export COPYSCRIPTS_CERT_ARCHIVE COPYSCRIPTS_CERT_DIR
+if install_ca_trust_store; then
+	echo "empty CA bundle was accepted" >&2
+	exit 1
+fi
+
+# A directory can be readable too, but it is not a certificate bundle.
+mkdir -p "$tmp/directory-root/certs/ca-certificates.crt"
+tar -czf "$tmp/directory.tgz" -C "$tmp/directory-root" certs
+COPYSCRIPTS_CERT_ARCHIVE="$tmp/directory.tgz"
+COPYSCRIPTS_CERT_DIR="$tmp/directory-dest"
+export COPYSCRIPTS_CERT_ARCHIVE COPYSCRIPTS_CERT_DIR
+if install_ca_trust_store; then
+	echo "directory at CA bundle path was accepted" >&2
 	exit 1
 fi
 

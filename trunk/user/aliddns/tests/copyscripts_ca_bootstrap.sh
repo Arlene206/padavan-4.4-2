@@ -45,6 +45,15 @@ tar() {
 		missing-output)
 			return 0
 			;;
+		empty-output)
+			command mkdir -p "$COPYSCRIPTS_CERT_DIR/certs"
+			: > "$COPYSCRIPTS_CERT_DIR/certs/ca-certificates.crt"
+			return 0
+			;;
+		directory-output)
+			command mkdir -p "$COPYSCRIPTS_CERT_DIR/certs/ca-certificates.crt"
+			return 0
+			;;
 		fail)
 			return 2
 			;;
@@ -70,8 +79,10 @@ reset_case() {
 # A successful extraction is accepted only after the expected bundle is readable.
 reset_case
 install_ca_trust_store || fail "valid CA extraction was rejected"
-[ -r "$COPYSCRIPTS_CERT_DIR/certs/ca-certificates.crt" ] ||
-	fail "successful extraction did not leave a readable bundle"
+[ -f "$COPYSCRIPTS_CERT_DIR/certs/ca-certificates.crt" ] &&
+	[ -s "$COPYSCRIPTS_CERT_DIR/certs/ca-certificates.crt" ] &&
+	[ -r "$COPYSCRIPTS_CERT_DIR/certs/ca-certificates.crt" ] ||
+	fail "successful extraction did not leave a readable, non-empty regular bundle"
 
 # A directory-creation failure must stop before invoking tar.
 reset_case
@@ -92,6 +103,21 @@ MOCK_TAR_MODE=missing-output
 if install_ca_trust_store; then fail "missing postcondition was accepted"; fi
 [ ! -r "$COPYSCRIPTS_CERT_DIR/certs/ca-certificates.crt" ] ||
 	fail "missing-output fixture unexpectedly created a bundle"
+
+# A readable empty file is not a usable trust store.
+reset_case
+MOCK_TAR_MODE=empty-output
+if install_ca_trust_store; then fail "empty CA bundle was accepted"; fi
+[ -f "$COPYSCRIPTS_CERT_DIR/certs/ca-certificates.crt" ] &&
+	[ ! -s "$COPYSCRIPTS_CERT_DIR/certs/ca-certificates.crt" ] ||
+	fail "empty-output fixture did not create an empty regular file"
+
+# A readable directory at the bundle path is not a CA bundle.
+reset_case
+MOCK_TAR_MODE=directory-output
+if install_ca_trust_store; then fail "directory CA bundle was accepted"; fi
+[ -d "$COPYSCRIPTS_CERT_DIR/certs/ca-certificates.crt" ] ||
+	fail "directory-output fixture did not create the expected directory"
 
 echo "CA trust-store bootstrap success regression: PASS"
 echo "CA trust-store bootstrap failure propagation regression: PASS"
