@@ -1,3 +1,10 @@
+## 2026-11-25 — Align reset_ss template regression with preserved indentation
+
+- Exact USB-storage run #45594844271 on `9e2f6dc4` passed the RWFS-to-UBI regression under host `sh` and BusyBox ash after removing shell `command -v` preflight gates. The next reset_ss test step failed because the generator correctly preserved the template's four/eight leading spaces, while the test expected unindented exact lines. Updated only the expected template lines; runtime variable and command-substitution checks remain intact.
+- No production source change was required for this failure. Fresh exact-head storage-hotplug validation is required; no local firmware build is claimed.
+
+---
+
 ## 2026-11-25 — Keep internal ACL symlinks hidden with share ACL enforcement disabled
 
 - Follow-up review of the LIST symlink ACL fix found the legacy fast path `if (!tunable_chroot_local_user) return 1` ran before symlink target inspection. That setting disables share ACL checks, but must not expose internal `.__*` ACL metadata through an alias. The no-chroot listing path now resolves symlinks relative to the pinned directory and hides unresolved/metadata targets before preserving ordinary visibility.

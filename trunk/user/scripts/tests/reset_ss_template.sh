@@ -41,11 +41,11 @@ generated="$sandbox/storage/start_script.sh"
 [ -f "$generated" ] || fail "start_script.sh was not published"
 [ ! -L "$generated" ] || fail "published start_script.sh is a symlink"
 [ "$(stat -c %a "$generated")" = 755 ] || fail "published start_script.sh mode is not 755"
-grep -Fqx 'for device in $(ls /sys/class/net); do' "$generated" ||
+grep -Fqx '    for device in $(ls /sys/class/net); do' "$generated" ||
 	fail "runtime interface enumeration was expanded during generation"
-grep -Fqx 'echo f >/sys/class/net/$device/queues/rx-0/rps_cpus' "$generated" ||
+grep -Fqx '        echo f >/sys/class/net/$device/queues/rx-0/rps_cpus' "$generated" ||
 	fail "runtime device variable was expanded during generation"
-grep -Fqx 'case $1 in' "$generated" ||
+grep -Fqx '    case $1 in' "$generated" ||
 	fail "runtime argument was expanded during generation"
 grep -Fq '$(cat /sys/class/net/$device/queues/rx-0/rps_cpus)' "$generated" ||
 	fail "runtime sysfs reads were expanded during generation"
