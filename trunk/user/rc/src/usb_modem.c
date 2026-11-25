@@ -1307,6 +1307,8 @@ modem_module_unload_callback(const char *module_name, void *context)
 		errno = status;
 		return 0;
 	}
+	if (loaded_status == 1 && remaining_status == 0 && context)
+		++*(size_t *)context;
 	return 1;
 }
 
