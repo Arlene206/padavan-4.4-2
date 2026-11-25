@@ -662,4 +662,18 @@ Change_iptable || fail "unchanged mode-2 restart failed"
 [ ! -s "$T/firewall.log" ] || fail "unchanged mode-2 restart duplicated redirect rules"
 pass "SmartDNS start and restart install DNS redirects from the saved prior mode"
 
+# Stop_smartdns is also used by start rollback. Its firewall cleanup must not
+# inherit the caller's global start/restart action.
+: > "$T/firewall.log"
+action=start
+smartdns_previous_redirected=0
+sdns_redirected=2
+sdns_redirect=2
+sdns_ported=6053
+sdns_enable=0
+Change_iptable stop || fail "explicit stop action failed during start rollback"
+[ "$(grep -c -- '-D PREROUTING' "$T/firewall.log" || :)" -eq 4 ] ||
+    fail "start rollback did not attempt all four mode-2 firewall deletions"
+pass "SmartDNS stop explicitly removes firewall redirects during start rollback"
+
 echo "SmartDNS DNSMasq configuration preservation regression: PASS"

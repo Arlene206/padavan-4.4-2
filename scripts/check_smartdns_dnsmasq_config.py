@@ -201,6 +201,12 @@ assert 'smartdns_previous_redirected="$sdns_redirected"' in start
 assert start.index('smartdns_previous_redirected="$sdns_redirected"') < start.index('sdns_redirected="$sdns_redirect"')
 firewall = body(smartdns, "Change_iptable")
 assert "start|restart)" in firewall and 'smartdns_previous_redirected' in firewall
+assert 'local firewall_action="${1:-$action}"' in firewall
+assert 'case $firewall_action in' in firewall
+assert 'Change_iptable "$action"' in start
+assert 'Change_iptable stop' in stop
+assert 'Change_iptable reset' in body(smartdns, "Main")
+assert "SmartDNS stop explicitly removes firewall redirects during start rollback" in test
 assert "SmartDNS start and restart install DNS redirects from the saved prior mode" in test
 assert "smartdns_state_version=managed-v1" in start
 stop = body(smartdns, "Stop_smartdns")

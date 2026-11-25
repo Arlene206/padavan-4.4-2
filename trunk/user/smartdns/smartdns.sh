@@ -774,7 +774,8 @@ smartdns_write_ini_state () {
 Change_iptable () {
     # 【端口转发】
     local statu=0
-    case $action in
+    local firewall_action="${1:-$action}"
+    case $firewall_action in
     stop)
         if [ "$sdns_redirected" = 2 ] ; then
             iptables -t nat -D PREROUTING -p tcp -d "$IPS4" --dport 53 -j REDIRECT --to-ports "$sdns_ported" >/dev/null 2>&1
@@ -940,7 +941,7 @@ Start_smartdns () {
             logger -t "SmartDNS" "SmartDNS 使用 $sdnse_port 端口"
         fi
     fi
-    Change_iptable
+    Change_iptable "$action"
     rm -f /tmp/sdnsipset.conf
     args=""
     logger -t "SmartDNS" "SmartDNS 创建配置文件..."
@@ -1104,7 +1105,7 @@ Stop_smartdns () {
         logger -t "SmartDNS" "Adbyby DNS target transition failed; preserving SmartDNS retry state (status=$smartdns_adbyby_status)"
         return "$smartdns_adbyby_status"
     fi
-    Change_iptable
+    Change_iptable stop
     if [ "$sdns_enable" = 0 ] ; then
         rm -f "$smartdns_Ini"
         smartdns_state_saved=0
@@ -1184,7 +1185,7 @@ Main () {
         echo 3 > /proc/sys/vm/drop_caches
         ;;
     reset)
-        [ "$sdns_enable" = "1" ] && Change_iptable
+        [ "$sdns_enable" = "1" ] && Change_iptable reset
         ;;
     *)
         echo "check"
