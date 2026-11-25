@@ -1,0 +1,33 @@
+name: wsdd2 select descriptor range regression
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/wsdd2-fdset-regression.yml"
+      - "trunk/user/wsdd2/src/wsdd2.c"
+      - "trunk/user/wsdd2/src/wsd_select_fd_policy.h"
+      - "trunk/user/wsdd2/src/tests/wsd_select_fd_policy_test.c"
+      - "scripts/test_wsdd2_fdset.sh"
+      - "scripts/check_wsdd2_fdset.py"
+  pull_request:
+    paths:
+      - ".github/workflows/wsdd2-fdset-regression.yml"
+      - "trunk/user/wsdd2/src/wsdd2.c"
+      - "trunk/user/wsdd2/src/wsd_select_fd_policy.h"
+      - "trunk/user/wsdd2/src/tests/wsd_select_fd_policy_test.c"
+      - "scripts/test_wsdd2_fdset.sh"
+      - "scripts/check_wsdd2_fdset.py"
+
+permissions:
+  contents: read
+
+jobs:
+  fdset-range:
+    name: WSDD2 fd_set descriptor bounds
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and run GNU89 ASan/UBSan descriptor boundary regression and source contract
+        run: sh scripts/test_wsdd2_fdset.sh

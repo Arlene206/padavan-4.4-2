@@ -21,6 +21,7 @@
  */
 
 #include "wsdd.h"
+#include "wsd_select_fd_policy.h"
 
 int debug_L, debug_W, debug_N;
 
@@ -703,11 +704,15 @@ again:
 				} else if (ep->sock < 0)
 					free(ep);
 				else {
+					if (wsd_select_fd_add(&fds, ep->sock, &nfds) != 0) {
+						ep->errstr = "socket descriptor exceeds select capacity";
+						ep->_errno = errno;
+						close_ep(ep);
+						badep = ep;
+						break;
+					}
 					ep->next = endpoints;
 					endpoints = ep;
-					FD_SET(ep->sock, &fds);
-					if (nfds < ep->sock)
-						nfds = ep->sock;
 				}
 			}
 			if (badep)
@@ -722,11 +727,15 @@ again:
 			} else if (ep->sock < 0)
 				free(ep);
 			else {
+				if (wsd_select_fd_add(&fds, ep->sock, &nfds) != 0) {
+					ep->errstr = "socket descriptor exceeds select capacity";
+					ep->_errno = errno;
+					close_ep(ep);
+					badep = ep;
+					break;
+				}
 				ep->next = endpoints;
 				endpoints = ep;
-				FD_SET(ep->sock, &fds);
-				if (nfds < ep->sock)
-					nfds = ep->sock;
 			}
 		}
 	}

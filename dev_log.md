@@ -1,3 +1,11 @@
+## 2026-11-25 — Guard WSDD2 select registration against out-of-range descriptors
+
+- `wsdd2.c` registered every endpoint socket with `FD_SET(ep->sock, &fds)` and later used `FD_ISSET` without checking `FD_SETSIZE`. A descriptor at or above the libc fd_set limit makes these macros access memory beyond the fixed fd_set object; this can corrupt daemon stack/state instead of producing a controlled startup failure.
+- Added a checked registration helper and routed both network endpoint and netlink endpoint registration through it. Unsupported descriptor values now return `EMFILE`, close the endpoint cleanly, and use the existing fatal startup reporting path; no invalid descriptor reaches `FD_SET`.
+- Added GNU89 ASan/UBSan tests at fd 0, `FD_SETSIZE - 1`, `FD_SETSIZE`, and `INT_MAX`, including guard bytes proving the rejected path does not write past fd_set. Added an exact-source integration checker and focused CI workflow. XY-C1 already tracks the complete `trunk/user/wsdd2/**` package path.
+
+---
+
 ## 2026-11-25 — Bound and correlate DHCP relay XID transactions
 
 - DHCPrelay previously allocated one heap node for every accepted request and retained it until a server reply or a 120-second timeout. There was no outstanding-entry cap, so a request flood could exhaust embedded memory. Retransmissions created duplicate nodes; a failed upstream send left a stale mapping; reply lookup/deletion used only the 32-bit XID and could select the wrong client or delete multiple concurrent transactions after an XID collision.
