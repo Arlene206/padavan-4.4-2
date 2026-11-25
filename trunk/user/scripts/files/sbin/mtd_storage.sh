@@ -104,7 +104,8 @@ func_mdir()
 func_rstats_presence()
 {
 	local proc_root="/proc"
-	local proc_entry proc_pid stat_line stat_comm found
+	local proc_entry proc_pid stat_line stat_comm stat_fields stat_state
+	local stat_ppid stat_pgrp stat_session stat_start_time stat_value found
 
 	[ -d "$proc_root" ] && [ -r "$proc_root" ] || return 2
 	found=0
@@ -128,7 +129,32 @@ func_rstats_presence()
 			*) return 2 ;;
 		esac
 		stat_comm=${stat_comm%)*}
-		[ "$stat_comm" = "rstats" ] && found=1
+		# The closing ") " is the only reliable boundary because comm may
+		# itself contain spaces or right parentheses. A complete Linux stat
+		# record has fields through starttime (20 tokens after the PID/comm).
+		stat_fields=${stat_line##*) }
+		set -- $stat_fields
+		[ "$#" -ge 20 ] || return 2
+		stat_state=$1
+		stat_ppid=$2
+		stat_pgrp=$3
+		stat_session=$4
+		stat_start_time=${20}
+		case "$stat_state" in
+			R|S|D|T|t|Z|X|I) ;;
+			*) return 2 ;;
+		esac
+		for stat_value in "$stat_ppid" "$stat_pgrp" "$stat_session" "$stat_start_time"; do
+			case "$stat_value" in
+				''|*[!0-9]*) return 2 ;;
+			esac
+		done
+		# A zombie/dead task still has a proc directory but is not a live
+		# rstats daemon and must not satisfy startup or block storage teardown.
+		if [ "$stat_comm" = "rstats" ] &&
+		   [ "$stat_state" != "Z" ] && [ "$stat_state" != "X" ]; then
+			found=1
+		fi
 	done
 	if [ "$found" -eq 1 ]; then
 		return 0

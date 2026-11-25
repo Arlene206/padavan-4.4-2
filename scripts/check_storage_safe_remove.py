@@ -1388,13 +1388,19 @@ stop_helper = mtd_storage[stop_start:stop_end]
 require('local proc_root="/proc"' in presence_helper and
         '"$proc_root"/[0-9]*' in presence_helper and
         "return 2" in presence_helper and
-        "stat_comm=${stat_line#" in presence_helper,
-        "rstats procfs inventory must distinguish malformed/unreadable scans from absence")
+        "stat_comm=${stat_line#" in presence_helper and
+        "stat_fields=${stat_line##*) }" in presence_helper and
+        "set -- $stat_fields" in presence_helper and
+        '[ "$#" -ge 20 ] || return 2' in presence_helper and
+        'stat_start_time=${20}' in presence_helper and
+        "R|S|D|T|t|Z|X|I" in presence_helper,
+        "rstats procfs inventory must validate a complete state-bearing stat record")
 presence_loop_start = presence_helper.index("for proc_entry")
 presence_loop_end = presence_helper.index("\n\tdone", presence_loop_start)
 presence_loop = presence_helper[presence_loop_start:presence_loop_end]
 require("found=0" in presence_helper and
-        '[ "$stat_comm" = "rstats" ] && found=1' in presence_loop and
+        'if [ "$stat_comm" = "rstats" ] &&' in presence_loop and
+        '[ "$stat_state" != "Z" ] && [ "$stat_state" != "X" ]' in presence_loop and
         "return 0" not in presence_loop and
         presence_helper.index("\n\tdone", presence_loop_start) <
         presence_helper.index('if [ "$found" -eq 1 ]; then') <

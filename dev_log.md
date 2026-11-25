@@ -1,3 +1,10 @@
+## 2026-11-25 19:20 CST — Reject truncated proc stat records and zombie rstats
+
+- The MTD restore/erase postcondition treated any numeric `/proc/<pid>/stat` line ending in `<comm>) ` as a complete live process. A truncated record such as `998 (rstats) ` passed the comm check and could authorize a destructive restore; a zombie `rstats` also counted as running and could trigger an unnecessary stop timeout. The scanner now requires the state and numeric PID/group/session/starttime fields through proc stat field 22, rejects malformed state records as UNKNOWN, and counts only non-zombie/non-dead rstats tasks as present.
+- Extended the production-linked restore regression for truncated matching records and zombie rstats, updated the source contract, and expanded valid proc fixtures. Exact storage/Process/XY-C1 Actions required. No local BusyBox/firmware/hardware result is claimed.
+
+---
+
 ## 2026-11-25 19:15 CST — Remove the obsolete second MTD backup temp file
 
 - After the recursive-tar repair, `func_tarb()` still allocated a `.sort.*` temp file that is no longer read or written. That dead allocation could cause a backup to fail on a second `mktemp` error despite the only required NUL inventory file being available. Removed the unused path and cleanup references; the source contract now requires exactly one temporary inventory allocation and no stale `sort_list` state.
