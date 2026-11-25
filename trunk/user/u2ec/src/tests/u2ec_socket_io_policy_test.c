@@ -74,6 +74,29 @@ test_frame_size_is_bounded_and_positive(void)
 }
 
 static void
+test_urb_buffer_bounds_reject_underflow_and_oversized_transfers(void)
+{
+    assert(u2ec_urb_buffer_bounds_are_valid(256L, 64UL, 64UL,
+                                             192UL, 256U));
+    assert(u2ec_urb_buffer_bounds_are_valid(256L, 64UL, 64UL,
+                                             0UL, 256U));
+    assert(!u2ec_urb_buffer_bounds_are_valid(-1L, 64UL, 64UL,
+                                              0UL, 256U));
+    assert(!u2ec_urb_buffer_bounds_are_valid(257L, 64UL, 64UL,
+                                              0UL, 256U));
+    assert(!u2ec_urb_buffer_bounds_are_valid(63L, 64UL, 64UL,
+                                              0UL, 256U));
+    assert(!u2ec_urb_buffer_bounds_are_valid(256L, 63UL, 64UL,
+                                              0UL, 256U));
+    assert(!u2ec_urb_buffer_bounds_are_valid(256L, 64UL, 64UL,
+                                            193UL, 256U));
+    assert(!u2ec_urb_buffer_bounds_are_valid(256L, 64UL, 0UL,
+                                              0UL, 256U));
+    assert(!u2ec_urb_buffer_bounds_are_valid(256L, 64UL, 257UL,
+                                              0UL, 256U));
+}
+
+static void
 test_invalid_buffers_are_rejected(void)
 {
     int sockets[2];
@@ -98,6 +121,7 @@ main(void)
     test_disconnected_peer_returns_epipe_without_sigpipe();
     test_mid_frame_eof_is_reported_as_reset();
     test_frame_size_is_bounded_and_positive();
+    test_urb_buffer_bounds_reject_underflow_and_oversized_transfers();
     test_invalid_buffers_are_rejected();
     puts("U2EC bounded TCP framing and SIGPIPE-safe I/O policy: PASS");
     return 0;

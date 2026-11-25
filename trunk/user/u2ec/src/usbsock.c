@@ -103,6 +103,99 @@ time_t time_remove_device;
 
 char	fd_in_use[32768];
 
+
+static int
+u2ec_urb32_buffer_bounds_valid(PIRP_SAVE irp)
+{
+    PURB urb;
+    unsigned long minimum = sizeof(struct _URB_HEADER);
+    unsigned long transfer_length = 0UL;
+
+    if (!irp)
+        return 0;
+
+    urb = (PURB)irp->Buffer;
+    switch (urb->UrbHeader.Function) {
+    case URB_FUNCTION_GET_DESCRIPTOR_FROM_INTERFACE:
+    case URB_FUNCTION_GET_DESCRIPTOR_FROM_DEVICE:
+        minimum = sizeof(struct _URB_CONTROL_DESCRIPTOR_REQUEST);
+        transfer_length = urb->UrbControlDescriptorRequest.TransferBufferLength;
+        break;
+    case URB_FUNCTION_SELECT_CONFIGURATION:
+        minimum = sizeof(struct _URB_SELECT_CONFIGURATION);
+        break;
+    case URB_FUNCTION_SELECT_INTERFACE:
+        minimum = sizeof(struct _URB_SELECT_INTERFACE);
+        break;
+    case URB_FUNCTION_CLASS_OTHER:
+    case URB_FUNCTION_CLASS_INTERFACE:
+        minimum = sizeof(struct _URB_CONTROL_VENDOR_OR_CLASS_REQUEST);
+        transfer_length = urb->UrbControlVendorClassRequest.TransferBufferLength;
+        break;
+    case URB_FUNCTION_BULK_OR_INTERRUPT_TRANSFER:
+        minimum = sizeof(struct _URB_BULK_OR_INTERRUPT_TRANSFER);
+        transfer_length = urb->UrbBulkOrInterruptTransfer.TransferBufferLength;
+        break;
+    case URB_FUNCTION_ABORT_PIPE:
+    case URB_FUNCTION_RESET_PIPE:
+        minimum = sizeof(struct _URB_PIPE_REQUEST);
+        break;
+    default:
+        break;
+    }
+
+    return u2ec_urb_buffer_bounds_are_valid(
+        irp->BufferSize, (unsigned long)urb->UrbHeader.Length,
+        minimum, transfer_length,
+        sizeof(data_bufrw) - sizeof(IRP_SAVE));
+}
+
+static int
+u2ec_urb64_buffer_bounds_valid(PIRP_SAVE irp)
+{
+    PURB_64 urb;
+    unsigned long minimum = sizeof(struct _URB_HEADER_64);
+    unsigned long transfer_length = 0UL;
+
+    if (!irp)
+        return 0;
+
+    urb = (PURB_64)irp->Buffer;
+    switch (urb->UrbHeader.Function) {
+    case URB_FUNCTION_GET_DESCRIPTOR_FROM_INTERFACE:
+    case URB_FUNCTION_GET_DESCRIPTOR_FROM_DEVICE:
+        minimum = sizeof(struct _URB_CONTROL_DESCRIPTOR_REQUEST_64);
+        transfer_length = urb->UrbControlDescriptorRequest.TransferBufferLength;
+        break;
+    case URB_FUNCTION_SELECT_CONFIGURATION:
+        minimum = sizeof(struct _URB_SELECT_CONFIGURATION_64);
+        break;
+    case URB_FUNCTION_SELECT_INTERFACE:
+        minimum = sizeof(struct _URB_SELECT_INTERFACE_64);
+        break;
+    case URB_FUNCTION_CLASS_OTHER:
+    case URB_FUNCTION_CLASS_INTERFACE:
+        minimum = sizeof(struct _URB_CONTROL_VENDOR_OR_CLASS_REQUEST_64);
+        transfer_length = urb->UrbControlVendorClassRequest.TransferBufferLength;
+        break;
+    case URB_FUNCTION_BULK_OR_INTERRUPT_TRANSFER:
+        minimum = sizeof(struct _URB_BULK_OR_INTERRUPT_TRANSFER_64);
+        transfer_length = urb->UrbBulkOrInterruptTransfer.TransferBufferLength;
+        break;
+    case URB_FUNCTION_ABORT_PIPE:
+    case URB_FUNCTION_RESET_PIPE:
+        minimum = sizeof(struct _URB_PIPE_REQUEST_64);
+        break;
+    default:
+        break;
+    }
+
+    return u2ec_urb_buffer_bounds_are_valid(
+        irp->BufferSize, (unsigned long)urb->UrbHeader.Length,
+        minimum, transfer_length,
+        sizeof(data_bufrw) - sizeof(IRP_SAVE));
+}
+
 /*
  * Handle urbs in irp_saverw.Buffer.
  */
@@ -129,8 +222,15 @@ int handleURB(PIRP_SAVE pirp_saverw, struct u2ec_list_head *curt_pos)
 //	unsigned char status;
 	int	err_canon;
 
+	if (!pirp_saverw)
+		return -1;
+
 	purb = (PURB)pirp_saverw->Buffer;
 	UrbLength = purb->UrbHeader.Length;
+	if (!u2ec_urb32_buffer_bounds_valid(pirp_saverw)) {
+		PDEBUG("invalid 32-bit URB buffer bounds\n");
+		return -1;
+	}
 
 	if (Is_HP && purb->UrbHeader.Function != URB_FUNCTION_CLASS_INTERFACE)
 		((PCONNECTION_INFO)curt_pos)->count_class_int_in = 0;
@@ -1066,8 +1166,15 @@ int handleURB_64(PIRP_SAVE pirp_saverw, struct u2ec_list_head *curt_pos)
 //	unsigned char status;
 	int	err_canon;
 
+	if (!pirp_saverw)
+		return -1;
+
 	purb = (PURB_64)pirp_saverw->Buffer;
 	UrbLength = purb->UrbHeader.Length;
+	if (!u2ec_urb64_buffer_bounds_valid(pirp_saverw)) {
+		PDEBUG("invalid 64-bit URB buffer bounds\n");
+		return -1;
+}
 
 	PDEBUG("\n into handleURB_64\n");
 
@@ -2032,7 +2139,7 @@ int exchangeIRP(PIRP_SAVE pirp_saver, PIRP_SAVE pirp_saverw, struct u2ec_list_he
 {
 	WCHAR		wcbuf[256];
 	char		pbuf[256];
-	int		i, n, ret;
+	int		i, n, ret, urb_status;
 
 	bzero(wcbuf, sizeof(wcbuf));
 	bzero(pbuf, 256);
@@ -2419,7 +2526,12 @@ int exchangeIRP(PIRP_SAVE pirp_saver, PIRP_SAVE pirp_saverw, struct u2ec_list_he
 				return 1;
 			}
 
-			if (handleURB(pirp_saverw, (struct u2ec_list_head *)curt_pos) != 1) {
+			urb_status = handleURB(pirp_saverw, (struct u2ec_list_head *)curt_pos);
+			if (urb_status < 0) {
+				PDEBUG("rejecting invalid 32-bit URB payload\n");
+				return -1;
+			}
+			if (urb_status != 1) {
 				PDEBUG("HandleURB not successed.\n");
 				return 0;
 			}
@@ -2430,7 +2542,12 @@ int exchangeIRP(PIRP_SAVE pirp_saver, PIRP_SAVE pirp_saverw, struct u2ec_list_he
 				return 1;
 			}
 
-			if (handleURB_64(pirp_saverw, (struct u2ec_list_head *)curt_pos) != 1) {
+			urb_status = handleURB_64(pirp_saverw, (struct u2ec_list_head *)curt_pos);
+			if (urb_status < 0) {
+				PDEBUG("rejecting invalid 64-bit URB payload\n");
+				return -1;
+			}
+			if (urb_status != 1) {
 				PDEBUG("HandleURB_64 not successed.\n");
 				return 0;
 			}

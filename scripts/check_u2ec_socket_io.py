@@ -27,6 +27,9 @@ def body(text, signature):
 
 add_remote = body(source, "void add_remote_device()")
 usb_connection = body(source, "int usb_connection(int sockfd)")
+handle_urb32 = body(source, "int handleURB(PIRP_SAVE")
+handle_urb64 = body(source, "int handleURB_64(PIRP_SAVE")
+exchange = body(source, "int exchangeIRP(")
 establish = body(source, "int establish_connection(int sockfd)")
 send_policy = body(policy, "u2ec_send_all_no_sigpipe(")
 recv_policy = body(policy, "u2ec_recv_all(")
@@ -41,6 +44,16 @@ assert "frame_size >= 0" in policy
 assert "minimum <= capacity" in policy
 assert "(size_t)frame_size >= minimum" in policy
 assert "(size_t)frame_size <= capacity" in policy
+assert "u2ec_urb_buffer_bounds_are_valid" in policy
+assert "buffer_size < 0" in policy
+assert "urb_length > (unsigned long)buffer_size" in policy
+assert "transfer_length <= (unsigned long)buffer_size - urb_length" in policy
+
+assert "u2ec_urb32_buffer_bounds_valid(pirp_saverw)" in handle_urb32
+assert "u2ec_urb64_buffer_bounds_valid(pirp_saverw)" in handle_urb64
+assert handle_urb32.index("u2ec_urb32_buffer_bounds_valid") < handle_urb32.index("size = pirp_saverw->BufferSize -")
+assert handle_urb64.index("u2ec_urb64_buffer_bounds_valid") < handle_urb64.index("size = pirp_saverw->BufferSize -")
+assert "urb_status < 0" in exchange and "return -1;" in exchange
 
 assert "u2ec_send_all_no_sigpipe" not in add_remote or add_remote.count("u2ec_send_all_no_sigpipe") == 2
 assert add_remote.count("u2ec_send_all_no_sigpipe") == 2
@@ -64,6 +77,7 @@ for token in (
     "test_disconnected_peer_returns_epipe_without_sigpipe",
     "test_mid_frame_eof_is_reported_as_reset",
     "test_frame_size_is_bounded_and_positive",
+    "test_urb_buffer_bounds_reject_underflow_and_oversized_transfers",
     "test_invalid_buffers_are_rejected",
 ):
     assert token in test, token

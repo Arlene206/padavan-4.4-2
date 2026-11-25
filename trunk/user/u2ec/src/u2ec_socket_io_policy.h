@@ -80,4 +80,24 @@ u2ec_frame_size_is_valid(long frame_size, size_t minimum,
            (size_t)frame_size <= capacity;
 }
 
+/*
+ * Validate a USB URB's advertised payload before deriving a pointer or
+ * passing a transfer length to libusb. All lengths are peer-controlled.
+ */
+static inline int
+u2ec_urb_buffer_bounds_are_valid(long buffer_size,
+                                 unsigned long urb_length,
+                                 unsigned long minimum_urb_length,
+                                 unsigned long transfer_length,
+                                 size_t capacity)
+{
+    if (buffer_size < 0 || minimum_urb_length == 0UL ||
+        (unsigned long)buffer_size > (unsigned long)capacity ||
+        urb_length < minimum_urb_length ||
+        urb_length > (unsigned long)buffer_size)
+        return 0;
+
+    return transfer_length <= (unsigned long)buffer_size - urb_length;
+}
+
 #endif /* U2EC_SOCKET_IO_POLICY_H */
