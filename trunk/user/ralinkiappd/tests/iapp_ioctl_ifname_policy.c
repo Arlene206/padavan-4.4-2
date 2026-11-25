@@ -59,6 +59,7 @@ test_wifi_index_bounds(void)
 	assert(!iapp_wifi_index_valid(255, 2, 2));
 	assert(!iapp_wifi_index_valid(-1, 2, 2));
 	assert(!iapp_wifi_index_valid(0, 2, 0));
+	assert(!iapp_wifi_index_valid(0, 2, 3));
 	assert(!iapp_wifi_index_valid(0, 2, -1));
 }
 

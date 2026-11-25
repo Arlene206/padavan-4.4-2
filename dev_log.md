@@ -1,3 +1,10 @@
+## 2026-11-25 — Keep the IAPP UDP BSS guard C89-buildable
+
+- Static review of 4cd7ec6a17fd5150ac103495e9a1ace73760e365 found the new BSS guard had repeated all local declarations after the guard statement. This is a same-scope redeclaration; the fix keeps the original declarations at function entry and removes the duplicate block. Corrected the new diagnostic's escaped newline.
+- Tightened iapp_wifi_index_valid() to reject a configured interface count larger than the fixed array capacity, not merely an invalid requested index. Added a regression for an over-capacity count.
+- Host GNU89/ASan/UBSan helper test is to be rerun on this revision. On 4cd7, IAPP workflow #45689557162 PASS, Process inventory #45689557189 PASS, AI handoff #45689557186 PASS; Process lifecycle #45689557170, XY-C1 #45689557176 and NVRAM #45689557329 were pending. The IAPP shell gate does not compile rtmpiapp.c; the exact-SHA XY-C1 cross-build remains the production compiler gate. No new firmware result is claimed.
+
+---
 ## 2026-11-25 — Validate IAPP BSS index before UDP MAC lookup
 
 - A second fixed-array access remained after the initial ioctl-index fix: IAPP_UDP_PacketSend() copied `IfNameWlanMAC[if_idx]` into every outgoing broadcast frame without checking `if_idx`. The index comes from STA/interface lookup paths; an unexpected negative or out-of-range result could read outside the two-entry MAC array.

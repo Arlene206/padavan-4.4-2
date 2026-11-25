@@ -28,6 +28,7 @@ iapp_wifi_index_valid(int requested_index, size_t capacity,
                       int configured_count)
 {
 	return requested_index >= 0 && configured_count > 0 &&
+	       (size_t)configured_count <= capacity &&
 	       requested_index < configured_count &&
 	       (size_t)requested_index < capacity;
 }
