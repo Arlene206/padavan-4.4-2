@@ -191,6 +191,18 @@ export MOUNT_STATUS
 expect_failure "mount inventory"
 [ ! -s "$CALL_LOG" ] || fail "unknown mount inventory caused a destructive command"
 
+prepare_case malformed-mount-inventory
+MOUNT_OUTPUT="malformed mount record"
+export MOUNT_OUTPUT
+expect_failure "malformed mount inventory"
+[ ! -s "$CALL_LOG" ] || fail "malformed mount inventory caused a destructive command"
+
+prepare_case empty-mount-inventory
+MOUNT_OUTPUT=
+export MOUNT_OUTPUT
+expect_failure "empty mount inventory"
+[ ! -s "$CALL_LOG" ] || fail "empty mount inventory caused a destructive command"
+
 prepare_case missing-rwfs
 cat > "$base/proc/mtd" <<'EOF_MISSING'
 dev:    size   erasesize  name

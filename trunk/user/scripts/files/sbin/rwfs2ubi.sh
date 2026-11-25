@@ -63,8 +63,13 @@ fi
 if ! mount_inventory=$(mount 2>/dev/null); then
 	fail "Unable to inspect mounted filesystems before RWFS conversion"
 fi
-printf '%s\n' "$mount_inventory" | awk -v idx="$rwfs_idx" '
+printf '%s\\n' "$mount_inventory" | awk -v idx="$rwfs_idx" '
+	NF == 0 { next }
 	{
+		if (NF < 6 || $2 != "on" || $4 != "type") {
+			invalid = 1
+			next
+		}
 		source = $1
 		ubi = "/dev/ubi" idx
 		if (source == ubi ||
@@ -74,8 +79,13 @@ printf '%s\n' "$mount_inventory" | awk -v idx="$rwfs_idx" '
 		    index(source, "ubi" idx ":") == 1)
 			found = 1
 	}
-	END { exit !found }
+	END {
+		if (NR == 0 || invalid)
+			exit 2
+		exit !found
+	}
 '
+
 mount_check_status=$?
 case "$mount_check_status" in
 	0) fail "RWFS UBI/MTD device is already mounted; refusing to erase $mtd_device" ;;
