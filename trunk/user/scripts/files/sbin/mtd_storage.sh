@@ -70,9 +70,10 @@ func_mdir()
 func_rstats_presence()
 {
 	local proc_root="/proc"
-	local proc_entry proc_pid stat_line stat_comm
+	local proc_entry proc_pid stat_line stat_comm found
 
 	[ -d "$proc_root" ] && [ -r "$proc_root" ] || return 2
+	found=0
 	for proc_entry in "$proc_root"/[0-9]*; do
 		[ -d "$proc_entry" ] || continue
 		proc_pid=${proc_entry##*/}
@@ -93,8 +94,11 @@ func_rstats_presence()
 			*) return 2 ;;
 		esac
 		stat_comm=${stat_comm%)*}
-		[ "$stat_comm" = "rstats" ] && return 0
+		[ "$stat_comm" = "rstats" ] && found=1
 	done
+	if [ "$found" -eq 1 ]; then
+		return 0
+	fi
 	return 1
 }
 

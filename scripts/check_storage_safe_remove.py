@@ -1359,6 +1359,16 @@ require('local proc_root="/proc"' in presence_helper and
         "return 2" in presence_helper and
         "stat_comm=${stat_line#" in presence_helper,
         "rstats procfs inventory must distinguish malformed/unreadable scans from absence")
+presence_loop_start = presence_helper.index("for proc_entry")
+presence_loop_end = presence_helper.index("\n\tdone", presence_loop_start)
+presence_loop = presence_helper[presence_loop_start:presence_loop_end]
+require("found=0" in presence_helper and
+        '[ "$stat_comm" = "rstats" ] && found=1' in presence_loop and
+        "return 0" not in presence_loop and
+        presence_helper.index("\n\tdone", presence_loop_start) <
+        presence_helper.index('if [ "$found" -eq 1 ]; then') <
+        presence_helper.index("return 0", presence_helper.index('if [ "$found" -eq 1 ]; then')),
+        "rstats presence must finish the entire procfs scan before treating a match as verified")
 require("func_rstats_presence" in stop_helper and
         "killall -q rstats" in stop_helper and
         "for attempts in 1 2 3 4 5" in stop_helper and
@@ -1394,6 +1404,7 @@ require("RESTORE_FAIL_CP=1" in mtd_storage_restore_test and
         "rollback" in mtd_storage_restore_test,
         "storage restore regression must inject copy and install-rename failures")
 require("malformed stat record" in mtd_storage_restore_test and
+        '"$RSTAT_PROC_ROOT/999"' in mtd_storage_restore_test and
         "incomplete procfs inventory unexpectedly authorized storage restore" in mtd_storage_restore_test and
         "RSTAT_STOP_FAIL=1 run_restore" in mtd_storage_restore_test,
         "storage restore regression must cover UNKNOWN procfs state and failed daemon stop")

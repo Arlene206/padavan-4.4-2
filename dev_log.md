@@ -1,3 +1,10 @@
+## 2026-11-25 — Complete the rstats procfs inventory before authorizing storage mutation
+
+- Confirmed a fail-open ordering defect in `func_rstats_presence()`: it returned “present” immediately when it encountered an `rstats` PID, without validating the remainder of `/proc`. A later unreadable or malformed numeric process entry was therefore never observed; restore/erase could proceed to signal the daemon even though the process inventory was UNKNOWN. The existing regression put the malformed PID before the daemon and missed this ordering.
+- Record an `rstats` match but continue the entire numeric procfs scan; return PRESENT only after every live entry has a valid stat record, and preserve UNKNOWN on any later read/parse failure. Move the malformed fixture to PID 999 so it sorts after the valid rstats PID 321, assert no kill/rename is performed, and pin the no-early-return scan ordering in the source contract. Exact-head Storage hotplug and XY-C1 validation required; no local shell or firmware result claimed.
+
+---
+
 ## 2026-11-25 — Reject reserved RFC1035 extended label types
 
 - `dname_dec()` recognized only the `11xxxxxx` compression-pointer class, then treated both reserved `01xxxxxx` and `10xxxxxx` label encodings as ordinary length octets. A buffer with 64 or 128 following bytes could therefore be accepted as a domain label even though those extended-label classes are unsupported. Reject nonzero top-bit classes other than compression pointers before label processing. Add sanitizer cases for both reserved encodings and retain acceptance of a maximum 63-byte ordinary label. Exact-head DHCP decoder, XY-C1 and AI checks are triggered by the atomic source/test/log/handoff commit; no local compile or target/hardware result is claimed.

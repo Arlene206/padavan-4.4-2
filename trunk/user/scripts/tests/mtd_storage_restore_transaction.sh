@@ -158,8 +158,10 @@ test ! -s "$MV_COUNT_FILE"
 
 # An incomplete procfs inventory is UNKNOWN, not ABSENT; do not signal or
 # replace the live storage directory when any numeric process entry is unreadable.
-mkdir -p "$RSTAT_PROC_ROOT/1"
-printf '%s\n' 'malformed stat record' > "$RSTAT_PROC_ROOT/1/stat"
+# PID 321 is a valid rstats entry and sorts before this malformed PID 999.
+# The scan must finish the full inventory instead of returning on the first match.
+mkdir -p "$RSTAT_PROC_ROOT/999"
+printf '%s\n' 'malformed stat record' > "$RSTAT_PROC_ROOT/999/stat"
 : > "$MV_COUNT_FILE"
 if run_restore; then
 	echo "incomplete procfs inventory unexpectedly authorized storage restore" >&2
@@ -171,7 +173,7 @@ test -s "$sandbox/private/storage-restore.tar.bz2"
 test -f "$sandbox/private/storage_locked"
 test ! -s "$RSTAT_KILL_LOG"
 test ! -s "$MV_COUNT_FILE"
-rm -rf "$RSTAT_PROC_ROOT/1"
+rm -rf "$RSTAT_PROC_ROOT/999"
 
 # A failed name-wide stop must not be treated as success or permit directory
 # replacement. The still-running daemon and the previous settings must remain.
