@@ -1,3 +1,9 @@
+## 2026-11-24 状态增量：修正 Inadyn restart contract 的换行字面量
+
+- Exact-head Inadyn workflow `#45561380431` 的 GNU89 + ASan/UBSan 三个既有回归和新接入的 DDNS restart selector 回归全部 PASS；最终源码合同因 Python 字符串把 C 函数声明换行误写成字面量反斜杠+n 而失败。THIS COMMIT 将声明检查拆成稳定 token 检查，不放宽 0/1 状态边界和回归要求；Inadyn exact-head rerun pending。同期 AI docs `#45561380495`、Process inventory `#45561380463`、DNSMasq `#45561380421` PASS；Process umbrella、NVRAM audit、XY-C1 当时仍在运行。
+
+---
+
 ## 2026-11-24 状态增量：Inadyn DDNS restart selector 边界测试接入
 
 - `rc_ddns_restart_run()` 对外接收 AP-mode 与 DDNS enabled 两个整数状态，却把任意非零值都当作 true；未知/损坏的 selector 会被错误地解释为 stop 或 start 请求。现在仅接受 0/1，非法输入返回 `EINVAL` 且不调用服务回调。补齐 -1/2 双字段回归，并将原先未执行的 `ddns_restart_policy.c` 纳入 Inadyn exact-head GNU89 + ASan/UBSan workflow 与源码合同，push/PR 路径过滤均覆盖策略头和测试文件。

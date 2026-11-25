@@ -100,7 +100,8 @@ assert "test_ddns_enabled_read_status" in test
 assert "inadyn_ddns_enabled_status" in enabled_policy
 assert '#include "ddns_enabled_policy.h"' in source
 
-assert "static inline int\\nrc_ddns_restart_run" in restart_policy
+assert "static inline int" in restart_policy
+assert "rc_ddns_restart_run(int ap_mode, int ddns_enabled," in restart_policy
 assert "(ap_mode != 0 && ap_mode != 1)" in restart_policy
 assert "(ddns_enabled != 0 && ddns_enabled != 1)" in restart_policy
 assert "if (ap_mode || !ddns_enabled)" in restart_policy
