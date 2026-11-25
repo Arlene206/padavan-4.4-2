@@ -4,7 +4,6 @@ script_dir=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
 repo_root=$(CDPATH= cd -- "$script_dir/../../../.." && pwd)
 sandbox=$(mktemp -d "${TMPDIR:-/tmp}/mtd-storage-load.XXXXXX")
 real_rm=$(command -v rm)
-real_mkdir=$(command -v mkdir)
 trap 'status=$?; "$real_rm" -rf "$sandbox"; exit "$status"' EXIT
 trap 'exit 129' HUP
 trap 'exit 130' INT
@@ -186,7 +185,7 @@ if grep -Fqx '/dev/mtdblock10' "$BZCAT_LOG"; then
 	exit 1
 fi
 # A symlinked /etc/storage path must not redirect privileged fill writes.
-"$real_mkdir" -p "$sandbox/outside-storage"
+mkdir -p "$sandbox/outside-storage"
 "$real_rm" -rf "$sandbox/etc/storage"
 ln -s "$sandbox/outside-storage" "$sandbox/etc/storage"
 if run_fill; then

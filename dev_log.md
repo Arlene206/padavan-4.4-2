@@ -1,3 +1,10 @@
+## 2026-11-25 — Remove the unnecessary unbound mkdir helper from the MTD load fixture
+
+- USB-storage exact-head run #45597345823 passed the MTD save-retry and restore transaction tests (including BusyBox ash), then failed in the load transaction fixture at its symlinked-storage check with `real_mkdir: parameter not set`.
+- The fixture had no wrapped mkdir command, so the saved `real_mkdir` indirection was unnecessary. Removed the variable and use the system `mkdir` directly for the outside-directory fixture. Exact-head storage Actions must rerun the full load/erase/backup sequence; no local result is claimed.
+
+---
+
 ## 2026-11-25 — Report and preserve MTD restore state when rstats restart fails
 
 - The restore transaction previously called func_start_apps() after deleting its save-lock marker, archive and rollback tree, then returned success without checking the start result. A failed rstats launch could therefore be reported as a successful restore with no service.
