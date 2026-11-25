@@ -133,6 +133,17 @@ modem_wan_start_migration_succeeded(int migration_status)
  * control command; others have no user-space control path. Do not treat an
  * optional no-op as a failure, but never discard a required command failure.
  */
+/*
+ * qmi_wwan cannot establish a data session without its matching WDM control
+ * node. Treat a missing per-device node as a hard startup error, not as an
+ * optional driver with no userspace control operation.
+ */
+static inline int
+modem_ndis_qmi_control_node_status(int node_found)
+{
+	return node_found ? 0 : ENODEV;
+}
+
 static inline int
 modem_ndis_control_failed(int control_required, int control_status)
 {

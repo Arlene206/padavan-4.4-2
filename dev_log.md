@@ -1,3 +1,11 @@
+## 2026-11-25 — Fail closed when qmi_wwan has no matching physical WDM control node
+
+- `ndis_control_network()` previously checked for `qmi_wwan` only inside the branch entered when a matching per-device `cdc-wdmN` node had already been found. If the WDM node was absent, stale, or not published yet, the function fell through with `control_required=0`; the NDIS caller ignored the returned failure and launched DHCP despite having no way to start the required QMI data session.
+- QMI driver detection now marks the control operation as required before checking the WDM node. A missing per-device node returns `ENODEV`, preventing DHCP from being launched on a modem whose control session could not be established. Existing optional driver paths are unchanged.
+- Added a GNU89 policy regression proving missing QMI WDM state is a required control failure and a workflow source-order contract pinning the gate before the optional fallback. Exact-SHA USB modem Actions and XY-C1 firmware validation are required.
+
+---
+
 ## 2026-11-26 — Bound UDPXY multicast relay request parsing
 
 - The HTTP control path passes the exact recv() byte count to get_request(), but get_request() used unbounded strstr()/strcspn() and calculated an end pointer by subtracting one from the supplied length. A full receive buffer has no terminating NUL, so malformed client traffic could drive reads beyond the 2048-byte stack buffer.

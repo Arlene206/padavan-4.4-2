@@ -401,6 +401,22 @@ test_ndis_optional_control_path_does_not_block_dhcp(void)
 }
 
 static void
+test_qmi_ndis_missing_control_node_blocks_dhcp(void)
+{
+	int control_required = 1;
+	int control_status;
+	int dhcp_calls = 0;
+
+	control_status = modem_ndis_qmi_control_node_status(0);
+	if (!modem_ndis_control_failed(control_required, control_status))
+		dhcp_calls++;
+
+	assert(control_status == ENODEV);
+	assert(dhcp_calls == 0);
+	assert(modem_ndis_qmi_control_node_status(1) == 0);
+}
+
+static void
 test_ndis_required_control_failure_blocks_dhcp(void)
 {
 	int control_required = 1;
@@ -911,6 +927,7 @@ main(void)
 	test_ndis_identity_rejects_invalid_arguments_before_writes();
 	test_ndis_firewall_failure_reaches_startup_result();
 	test_ndis_optional_control_path_does_not_block_dhcp();
+	test_qmi_ndis_missing_control_node_blocks_dhcp();
 	test_ndis_required_control_failure_blocks_dhcp();
 	test_ndis_required_control_success_allows_dhcp();
 	test_first_modem_error_survives_best_effort_followup();

@@ -459,6 +459,16 @@ jobs:
           assert "return manual_node_status;" in ndis
           assert "cannot read manual NDIS control-node selection" in ndis
           assert ndis.index('is_usbnet_has_module(ndis_ifname, "qmi_wwan")') < ndis.index("return manual_node_status;")
+          qmi_gate = ndis.index('if (is_usbnet_has_module(ndis_ifname, "qmi_wwan"))')
+          qmi_gate_end = ndis.index("if (strlen(control_node_wdm) > 0)", qmi_gate)
+          qmi_branch = ndis[qmi_gate:qmi_gate_end]
+          assert "*control_required = 1;" in qmi_branch
+          assert "modem_ndis_qmi_control_node_status(" in qmi_branch
+          assert "control_node_wdm[0]" in qmi_branch
+          assert qmi_branch.index("*control_required = 1;") < qmi_branch.index("modem_ndis_qmi_control_node_status(") < qmi_branch.index("return control_node_status;") < qmi_branch.index("return qmi_control_network(")
+          assert ndis.index("qmi_wwan") < ndis.index("if (strlen(control_node_wdm) > 0)")
+          assert "test_qmi_ndis_missing_control_node_blocks_dhcp" in retry_test
+          assert "test_qmi_ndis_missing_control_node_blocks_dhcp();" in retry_test
           assert "get_usb_port_by_device(ndis_ifname" in ndis
           assert 'find_modem_node_by_usb_identity("cdc-wdm"' in ndis
           tty_select = 'get_modem_node_by_usb_identity("ttyUSB", ndis_port_id, devnum)'

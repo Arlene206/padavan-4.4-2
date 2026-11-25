@@ -1197,12 +1197,27 @@ ndis_control_network(char *ndis_ifname, int devnum, int is_start,
 				 "ttyUSB%d", valid_node);
 	}
 
-	if (strlen(control_node_wdm) > 0) {
-		if (is_usbnet_has_module(ndis_ifname, "qmi_wwan")) {
-			*control_required = 1;
-			return qmi_control_network(control_node_wdm, is_start);
-		}
+	/*
+	 * qmi_wwan is never an optional no-control NDIS transport: without a
+	 * WDM node belonging to this exact USB device, the data session cannot be
+	 * started or stopped. Fail closed instead of starting DHCP on a dead link.
+	 */
+	if (is_usbnet_has_module(ndis_ifname, "qmi_wwan")) {
+		int control_node_status;
 
+		*control_required = 1;
+		control_node_status = modem_ndis_qmi_control_node_status(
+			control_node_wdm[0] != '\0');
+		if (control_node_status != 0) {
+			logmessage(LOGNAME,
+				   "cannot find matching QMI control node for NDIS interface %s",
+				   ndis_ifname);
+			return control_node_status;
+		}
+		return qmi_control_network(control_node_wdm, is_start);
+	}
+
+	if (strlen(control_node_wdm) > 0) {
 		if (is_usbnet_has_module(ndis_ifname, "cdc_mbim"))
 			return mbim_control_network(control_node_wdm, is_start);
 
