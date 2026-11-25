@@ -1,3 +1,10 @@
+## 2026-11-25 18:55 CST — Match MTD restore retry rollback to the active tree
+
+- Exact USB-storage run #45598586819 on `32d56070` passed the preceding storage regressions, then `mtd_storage_restore_transaction.sh` failed because its second startup-failure scenario reused the tree installed by the first failed-start scenario but still asserted that the original source file existed. The first scenario correctly installs the restored tree and retains the former tree in rollback; after the test removes that backup, the next scenario must expect the currently active `new.conf` in its rollback snapshot. Corrected the fixture assertion; production restore logic is unchanged.
+- Exact-head USB-storage Actions required. No local host test, MTD, firmware or hardware result is claimed.
+
+---
+
 ## 2026-11-25 — Prevent large MTD backups from being truncated by BusyBox xargs batching
 
 - Review of BusyBox 1.24.2 `findutils/xargs.c` confirmed it caps each command line at 32 KiB. `func_tarb()` passed every path to `xargs -0 tar -cf "$tmp"`; on a larger `/etc/storage`, xargs launches tar multiple times and every `-c` truncates the same archive. The command can return success even though only its final batch remains, so MTD backup silently drops most files.

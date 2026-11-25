@@ -289,7 +289,10 @@ grep -Fqx 'launched-without-daemon' "$RSTAT_LOG"
 grep -Fqx 'new=restored-value' "$sandbox/storage/new.conf"
 set -- "$sandbox"/storage.rollback.*
 test -d "$1"
-grep -Fqx 'old=preserve-after-symlink' "$1/original.conf"
+# The preceding failed-start case left the restored tree live after its
+# rollback snapshot was discarded; preserve that active tree on this retry.
+grep -Fqx 'new=restored-value' "$1/new.conf"
+test ! -e "$1/original.conf"
 test -f "$sandbox/private/storage_locked"
 test -s "$sandbox/private/storage-restore.tar.bz2"
 rm -rf "$sandbox"/storage.rollback.*
