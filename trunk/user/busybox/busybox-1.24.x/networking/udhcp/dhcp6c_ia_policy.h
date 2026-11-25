@@ -37,4 +37,12 @@ dhcp6c_ia_na_address_needs_remove(int address_owned)
 {
 	return address_owned != 0;
 }
+
+/* Only finite, nonzero valid lifetimes need an expiry timer. */
+static inline int
+dhcp6c_ia_prefix_expiry_timer_required(unsigned long valid_lifetime,
+				       unsigned long infinite_lifetime)
+{
+	return valid_lifetime != 0UL && valid_lifetime != infinite_lifetime;
+}
 #endif /* DHCP6C_IA_POLICY_H */

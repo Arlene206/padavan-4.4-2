@@ -1,16 +1,15 @@
-## 2026-11-25 active handoff — HTTPD multipart fixture byte correction
+## 2026-11-25 active handoff — DHCPv6 IA finite-expiry timer ordering
 
-- Main at start of this test-only follow-up: `7d3091f5892524cf6222d4f91404fa131dbd570c`. HTTPD multipart parser hardening is in `7d3091f5892524cf6222d4f91404fa131dbd570c`: it requires a valid delimiter-line ending and carries 257 bytes between reads.
-- Found the just-added fixture string literals were double-escaped, so they contained literal backslash-plus-letter sequences rather than CR/LF/tab bytes. Corrected those C literals; production source/header/workflow unchanged. Local focused GNU89 ASan/UBSan helper harness PASS. Exact repository HTTPD Actions still need confirmation.
-- VSFTPD MDTM fixture is token-length-correct on `9dee075`; the follow-up source checker fix landed on `bed104b`. Exact VSFTPD #45645904216 on `bed104b`: PASS. AI handoff #45645904067 on `bed104b`: PASS.
-- WAN strict parser #45642479262 PASS; XY-C1 #45642479259 on `8835ec2` passed Build/TRX/artifact (L3 applies only to that product SHA). DNSMasq #45645256714 and HTTPD #45645256648 PASS on `4b8aebab`. Newer HTTPD upload change has no exact workflow result yet. Physical-router L4 NOT VERIFIED.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only.
+- Live parent main: b65c574ac92edfc0ff67125a7aa790f6da581641. HTTPD multipart boundary test escaping was corrected in the parent. Exact HTTPD #45647312009 and Process inventory #45647311875 were still running at last inspection; AI handoff #45647311771 PASS on parent. Continue to inspect those exact-SHA results; parent XY-C1 was launched from earlier 7d3091f and cannot validate this DHCPv6 change.
+- Found a lease-expiry reliability defect in dhcp6c_ia.c:update_prefix6(): finite valid-lifetime timers were set only after all downstream address/prefix additions succeeded. A later-interface kernel failure returned early, so an address installed on an earlier interface (or a previous valid address) could remain without its updated expiry timer while the Reply was retried. The current source change arms/resets finite expiry before any fallible downstream publication; zero lifetime cleanup runs and returns before add attempts; infinite lifetime disarms the timer.
+- Added a GNU89 policy regression for zero/finite/infinite lifetime decisions and static source-order checks tying actual timer setup before PD and IA_NA kernel additions. Exact DHCPv6 IA workflow, Process inventory, AI handoff and XY-C1 Build/TRX/artifact for this source commit are pending. Local ASan/UBSan binary and checker results must be recorded from this exact patch before claiming L2.
+- Backup backup/pre-plugin-overhaul-2026-11-14 remains frozen at 72f4f157a084f8184b9597ca5bf334b8080e5807; physical-router L4 NOT VERIFIED.
 
 ### First actions
 
-1. Inspect exact-SHA HTTPD security and XY-C1 workflows after the corrected fixture commit; verify the source checker actually ran.
-2. If CI reveals a failure, diagnose the first causal error; do not weaken the delimiter contract.
-3. Continue another independent stability/security implementation while unrelated Actions are pending.
+1. Inspect exact-head DHCPv6 IA, Process inventory, AI docs and XY-C1. Fix any test or source-contract failure without weakening coverage.
+2. Confirm XY-C1 Build, TRX verification and artifact upload all PASS on this same product-source SHA before L3.
+3. Continue the next independent userland stability/security defect while unrelated Actions are pending.
 
 ### Execution contract
 

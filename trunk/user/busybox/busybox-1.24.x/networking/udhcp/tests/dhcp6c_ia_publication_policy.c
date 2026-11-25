@@ -137,6 +137,16 @@ test_address_change_absent_and_duplicate_errors(void)
 }
 
 static void
+test_prefix_expiry_is_required_for_finite_lifetimes(void)
+{
+	assert(!dhcp6c_ia_prefix_expiry_timer_required(0UL, 0xffffffffUL));
+	assert(dhcp6c_ia_prefix_expiry_timer_required(1UL, 0xffffffffUL));
+	assert(dhcp6c_ia_prefix_expiry_timer_required(3600UL, 0xffffffffUL));
+	assert(dhcp6c_ia_prefix_expiry_timer_required(0xfffffffeUL, 0xffffffffUL));
+	assert(!dhcp6c_ia_prefix_expiry_timer_required(0xffffffffUL, 0xffffffffUL));
+}
+
+static void
 test_unowned_ia_na_collision_is_never_claimed_or_removed(void)
 {
 	int address_owned = 0;
@@ -164,6 +174,7 @@ main(void)
 {
 	test_partial_pd_failure_is_retried_without_reapplying_successes();
 	test_first_error_and_retry_gate();
+	test_prefix_expiry_is_required_for_finite_lifetimes();
 	test_failed_address_removal_is_retained_and_retried();
 	test_address_change_absent_and_duplicate_errors();
 	test_unowned_ia_na_collision_is_never_claimed_or_removed();

@@ -1,3 +1,10 @@
+## 2026-11-25 — DHCPv6 IA lease expiry before kernel publication
+
+- Fixed a partial-publication timeout gap: update_prefix6() previously updated per-prefix expiry only after every downstream address add succeeded. A later failure could leave earlier installed addresses without their updated expiry timer while Reply retry continued.
+- Finite valid-lifetime expiry is now armed/reset before any fallible PD/NA add; infinite lifetime disarms an older finite timer; zero lifetime performs cleanup and returns before additions. GNU89 policy boundary fixture and source-order assertions added. Exact DHCPv6 IA/Process/AI and XY-C1 Build/TRX/artifact verification pending.
+
+---
+
 ## 2026-11-25 — WAN / DHCPv6 checkpoint
 
 - WAN gateway parser uses strict `inet_pton(AF_INET)`; GNU89 fixture rejects ambiguous legacy forms. Focused ASan/UBSan harness PASS; exact Actions pending.

@@ -1,3 +1,11 @@
+## 2026-11-25 — Arm DHCPv6 IA finite expiry before address publication
+
+- update_prefix6() previously armed a finite valid-lifetime timer only after all downstream IA_PD/IA_NA kernel address operations succeeded. A failure adding a later delegated-prefix interface returned early after earlier interfaces may already have received addresses, leaving partial state without a refreshed expiry timer while the Reply was retried.
+- Move zero-lifetime removal/return and finite/infinite timer handling before fallible address publication. Finite lifetimes now arm/reset expiry first; infinite lifetime cancels any old timer; zero lifetime follows the cleanup-retry path without trying additions.
+- Add a GNU89 policy fixture for zero, one-second, ordinary finite, maximum finite and infinite values. The Python source contract locks expiry timer setup before both delegated-prefix and IA_NA additions and confirms zero-lifetime removal returns before reconciliation. Exact-head CI pending.
+
+---
+
 ## 2026-11-25 — Correct HTTPD multipart fixture escape sequences
 
 - Review of the newly added boundary regression found that the C string literals had two backslashes before `r`, `n`, `t` and `0`. They exercised literal backslash text rather than actual CR/LF/tab/NUL byte semantics.

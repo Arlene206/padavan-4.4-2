@@ -651,6 +651,26 @@ static int update_prefix6(struct ia *ia, struct dhcp6_listval *lv,
 	    spcreate ? "create" : "update",
 	    p, pinfo.plen, pinfo.pltime, pinfo.vltime);
 
+	/*
+	 * Keep the lease expiry independent of downstream publication. If one
+	 * interface update fails, update_ia() retries the Reply but any address
+	 * already installed by this partial attempt must still expire on time.
+	 */
+	if (sp->pa.vltime == 0) {
+		if (remove_iaprefix(sp, (lv->lvtype == DHCP6_LISTVAL_PREFIX6) ?
+				    D6_OPT_IA_PD : D6_OPT_IA_NA) != 0)
+			return -1;
+		return 0;
+	}
+	if (dhcp6c_ia_prefix_expiry_timer_required(sp->pa.vltime,
+						 DHCP6_DURATION_INFINITE)) {
+		if (sp->timer == NULL)
+			sp->timer = dhcp6_timer_add(iapref_timo, sp);
+		dhcp6_timer_set(sp->pa.vltime * 1000ULL, sp->timer);
+	} else if (sp->timer) {
+		dhcp6_timer_remove(&sp->timer);
+	}
+
 	/* Reconcile all configured downstream interfaces on every Reply.
 	 * A prior add may have failed after another interface succeeded; retry
 	 * only targets without a successful interface-prefix entry. */
@@ -686,29 +706,6 @@ static int update_prefix6(struct ia *ia, struct dhcp6_listval *lv,
 				return -1;
 			sp->addr_owned = 1;
 		}
-	}
-
-	/*
-	 * If the new vltime is 0, this prefix immediately expires.
-	 * Otherwise, set up or update the associated timer.
-	 */
-	switch (sp->pa.vltime) {
-	case 0:
-		if (remove_iaprefix(sp, (lv->lvtype == DHCP6_LISTVAL_PREFIX6) ?
-				    D6_OPT_IA_PD : D6_OPT_IA_NA) != 0)
-			return -1;
-		break;
-	case DHCP6_DURATION_INFINITE:
-		if (sp->timer)
-			dhcp6_timer_remove(&sp->timer);
-		break;
-	default:
-		if (sp->timer == NULL) {
-			sp->timer = dhcp6_timer_add(iapref_timo, sp);
-		}
-		/* update the timer */
-		dhcp6_timer_set(sp->pa.vltime * 1000ULL, sp->timer);
-		break;
 	}
 
 	return 0;

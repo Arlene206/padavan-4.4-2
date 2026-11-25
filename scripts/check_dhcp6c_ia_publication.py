@@ -76,6 +76,8 @@ assert "dhcp6c_ia_pd_target_needs_apply" in policy
 assert "dhcp6c_ia_first_error" in policy
 assert "dhcp6c_ia_retry_required" in policy
 assert "dhcp6c_ia_ifaddr_change_complete" in policy
+assert "dhcp6c_ia_prefix_expiry_timer_required" in policy
+assert "test_prefix_expiry_is_required_for_finite_lifetimes" in test
 
 assert '#include "dhcp6c_iaid_policy.h"' in config
 assert "dhcp6c_iaid_parse" in iaid_policy
@@ -144,6 +146,17 @@ assert "dhcp6c_ia_pd_target_needs_apply(" in update_prefix
 assert "if (add_ifprefix(sp, &pinfo, pif) != 0)" in update_prefix
 assert "&& spcreate" not in update_prefix
 assert "errno = EINVAL;" in update_prefix
+expiry_policy = update_prefix.index("dhcp6c_ia_prefix_expiry_timer_required(")
+expiry_timer_add = update_prefix.index("dhcp6_timer_add(iapref_timo, sp)", expiry_policy)
+expiry_timer_set = update_prefix.index("dhcp6_timer_set(sp->pa.vltime * 1000ULL, sp->timer)", expiry_timer_add)
+assert expiry_policy < expiry_timer_add < expiry_timer_set
+assert expiry_timer_set < update_prefix.index("add_ifprefix(sp, &pinfo, pif)")
+assert expiry_timer_set < update_prefix.index("ifaddrconf(IFADDRCONF_ADD,")
+zero_lifetime = update_prefix.index("if (sp->pa.vltime == 0)")
+zero_cleanup = update_prefix.index("remove_iaprefix(sp,", zero_lifetime)
+zero_return = update_prefix.index("return 0;", zero_cleanup)
+reconcile_start = update_prefix.index("/* Reconcile all configured downstream interfaces", zero_return)
+assert zero_lifetime < zero_cleanup < zero_return < reconcile_start
 
 update_ia = function_body(ia, "int update_ia(struct dhcp6_list *iahead")
 assert "int ia_error = 0, update_status;" in update_ia
