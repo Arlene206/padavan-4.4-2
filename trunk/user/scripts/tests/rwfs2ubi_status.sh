@@ -75,6 +75,13 @@ EOF_UBI
 	ln "$base/sbin/ubiattach" "$base/sbin/ubidetach"
 	chmod +x "$base/bin/mount" "$base/bin/mtd_write" "$base/bin/nvram" "$base/sbin/ubiattach"
 
+	# BusyBox ash resolves applets through PATH symlinks in this isolated test.
+	if [ -n "${BUSYBOX_BIN:-}" ]; then
+		[ -x "$BUSYBOX_BIN" ] || fail "BUSYBOX_BIN is not executable"
+		ln -s "$BUSYBOX_BIN" "$base/bin/awk"
+		ln -s "$BUSYBOX_BIN" "$base/bin/cat"
+	fi
+
 	sed \
 		-e "s|^sbin_dir=.*|sbin_dir=\"$base/sbin\"|" \
 		-e "s|^proc_mtd=.*|proc_mtd=\"$base/proc/mtd\"|" \
