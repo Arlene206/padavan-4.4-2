@@ -79,7 +79,7 @@ for required in (
     "while IFS= read -r cron_line || [ -n \"$cron_line\" ]; do",
     'cron_line_trimmed=${cron_line#"${cron_line%%[![:space:]]*}"}',
     'case "$cron_line_trimmed" in',
-    "\"\"|'#'*) continue ;;",
+    "''|'#'*) continue ;;",
     "set -- $cron_line_trimmed",
     'if [ "$#" -ge 6 ] && [ "$6" = "$script_path" ]; then',
     'done < "$cron_file"',
