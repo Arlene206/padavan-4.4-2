@@ -265,8 +265,8 @@ jobs:
               "s=socket(PF_PACKET,SOCK_PACKET,htons(ETH_P_ARP));")
           assert "inet_addr_safe(gateway_storage)" not in arp_compact
           assert gateway_parse < gateway_error < no_probe < mac_parse < mac_error < device_name_prepare < socket_create
-          assert "detect_wan_arp_parse_gateway_address" in policy
-          assert "if (!*text)" in policy and "if (!inet_aton(text, &parsed))" in policy
+          assert "detect_wan_arp_parse_gateway_address" in probe_policy
+          assert "if (!*text)" in probe_policy and "if (!inet_aton(text, &parsed))" in probe_policy
           assert "test_empty_and_unspecified_gateway_keep_legacy_no_gateway_state" in gateway_test
           assert "test_valid_gateway_is_parsed_in_network_byte_order" in gateway_test
           assert "test_invalid_gateway_is_not_aliased_to_no_gateway" in gateway_test
