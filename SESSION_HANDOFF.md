@@ -1,30 +1,7 @@
-## 2026-11-25 autonomous handoff — reused VLAN rollback
+## 2026-11-25 CI correction — VLAN rollback test declaration
+- Exact-main WAN route run #45621857629 failed at compile of `vlan_interface_policy.c`: the new reused-VLAN rollback tests call `strcmp()` without including `<string.h>`; `-Werror=implicit-function-declaration` correctly stopped the job.
+- Added the missing standard header only; no production VLAN behavior changed. Re-run the WAN route workflow on the new exact SHA.
 
-Startup recovery is complete. Recent source slices cover DHCPv4 select-timeout saturation, DHCPv6 IA cleanup retry and DHCPv6 startup rollback. Current stability focus is cross-userland WAN/IPv6 lifecycle and M2U; do not repeat completed audits without new evidence.
-
-### Git / backup
-- Main baseline for this VLAN source slice: `4180e4da45dd8da3e9e06163a96281b58dabe797`; the atomic tree updates shared netutils, VLAN production path/policy/test/checker and handoff records.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. No branch/PR/force update.
-
-### Completed source slices
-- `c623f1e352db3f54dc6d10e2b7d2dd3e9cc2591d`: clamp signed/unsigned expired `udhcpc` select wait; exact event-script workflow PASS.
-- `6a1faf201e57eab3e9757cc845c15a779b8e8baa`: retain failed DHCPv6 address/PD deletion nodes for retry; IA checker output mismatch corrected in `94c75e4`; IA #45620275164 and AI docs #45620275432 PASS.
-- `28a6bb022c0c58b19cbfafb3eb1f06460b55a969`: stop newly launched dhcp6c if temporary callback environment cleanup fails; callback checker repaired by `4180e4d`.
-- `4180e4da45dd8da3e9e06163a96281b58dabe797`: WAN DHCP callback #45620475975 and AI handoff #45620475988 PASS. XY-C1 runs for c623, 6a and 28a were still in progress at last poll; no L3 claim.
-
-### Reused VLAN rollback
-- Previous behavior: if a VLAN already existed, `create_vlan_iface_internal()` brought it down and changed egress priority, MTU and optional MAC. Failure rollback only cleaned up newly created VLANs, so a reused VLAN could remain down or partially reconfigured.
-- Added checked snapshots for IFF_UP, requested MTU/MAC and skb-priority-0 egress QoS before the first mutation. Failed configuration on a reused VLAN now restores each captured attribute, then original admin-up state. Rollback attempts every operation and logs the first rollback failure while preserving primary setup errno. New VLAN ownership/delete behavior remains unchanged.
-- Added GNU89 regression for restore order, best-effort continuation after failure and skipping untouched attributes; extended `scripts/check_wan_vlan_setup.py`. WAN route workflow filters already cover changed source/policy/test/checker paths. This commit must pass its exact-host checks and XY-C1 build.
-- The egress snapshot uses `GET_VLAN_EGRESS_PRIORITY_CMD` through `SIOCGIFVLAN`; verify that ioctl compiles for the target and is supported by XY-C1. Physical router L4 remains NOT VERIFIED.
-
-### Next actions
-1. Inspect exact-head WAN route / VLAN sanitizer, AI docs and XY-C1 Actions; fix any actual failure.
-2. Confirm MIPS/uClibc Build → TRX → artifact on one identical source SHA before claiming L3.
-3. Continue remaining IPv6/M2U and WAN route lifecycle with concrete defects; do not re-audit finished work.
-
-### Execution contract
-Source/test → one complete tree/commit → non-forced expected-SHA update → exact-SHA Actions. Do not modify frozen backup or create branches/PRs.
 
 ---
 

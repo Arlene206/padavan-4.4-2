@@ -1,3 +1,8 @@
+## 2026-11-25 — Fix VLAN rollback test compile error
+- WAN route status #45621857629 failed at the VLAN policy test compile because it used strcmp() without declaring it. Added the missing <string.h> include; source logic unchanged.
+
+---
+
 ## 2026-11-25 21:34 CST (UTC+8) — Restore reused VLAN attributes after failed setup
 
 - Found a real rollback defect in `create_vlan_iface_internal()`: a pre-existing VLAN was taken down and reconfigured (egress priority, MTU, MAC), but the failure path only removed newly created VLANs. A reused VLAN could remain down or partially changed.
