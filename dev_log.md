@@ -1,3 +1,10 @@
+## 2026-11-25 — Run VSFTPD hidden-marker contract after function helper setup
+
+- The VSFTPD C regression compilation/execution step completed, then the Python source-contract step failed with NameError because the new hidden-marker assertions were placed above the workflow's function_body() helper definition.
+- Moved the five assertions below the helper fixtures; no production or test source behavior changed. Re-run the exact-head VSFTPD workflow before closing this change.
+
+---
+
 ## 2026-11-25 — Fail closed on malformed VSFTPD hidden-share markers
 
 - Found a fail-open in test_if_hidden_share(): pathname stat() treated the mount as hidden only when the followed target was a regular file. A FIFO, directory, dangling symlink, symlink loop or other lookup error made the protected marker look absent.

@@ -208,13 +208,6 @@ jobs:
           vsftpd_sysstr = Path("trunk/user/vsftpd/src/sysstr.c").read_text()
           vsftpd_sysstr_header = Path("trunk/user/vsftpd/src/sysstr.h").read_text()
           acl_path_policy = Path("trunk/user/vsftpd/src/ftp_acl_path_policy.h").read_text()
-          hidden_share = function_body(vsftpd_acl, "test_if_hidden_share(")
-          hidden_policy = function_body(acl_path_policy, "ftp_acl_path_share_is_hidden(")
-          assert "ftp_acl_path_share_is_hidden(share_path)" in hidden_share
-          assert 'fstatat(directory_fd, ".hidden", &marker_stat' in hidden_policy
-          assert "AT_SYMLINK_NOFOLLOW" in hidden_policy
-          assert "saved_errno != ENOENT" in hidden_policy
-          assert "test_hidden_share_marker_fails_closed" in acl_path_test
           acl_path_test = Path("trunk/user/vsftpd/src/tests/ftp_acl_path_policy.c").read_text()
           vsftpd_auth_policy = Path("trunk/user/vsftpd/src/ftp_account_auth_policy.h").read_text()
           vsftpd_auth_test = Path("trunk/user/vsftpd/src/tests/ftp_account_auth_policy.c").read_text()
@@ -252,6 +245,13 @@ jobs:
 
           opening_brace_fixture = "static void probe(void) { return; }\n"
           assert "return;" in function_body(opening_brace_fixture, "static void probe(void) {")
+          hidden_share = function_body(vsftpd_acl, "test_if_hidden_share(")
+          hidden_policy = function_body(acl_path_policy, "ftp_acl_path_share_is_hidden(")
+          assert "ftp_acl_path_share_is_hidden(share_path)" in hidden_share
+          assert 'fstatat(directory_fd, ".hidden", &marker_stat' in hidden_policy
+          assert "AT_SYMLINK_NOFOLLOW" in hidden_policy
+          assert "saved_errno != ENOENT" in hidden_policy
+          assert "test_hidden_share_marker_fails_closed" in acl_path_test
 
           config = function_body(source, "write_vsftpd_conf(")
           config_compact = "".join(config.split())

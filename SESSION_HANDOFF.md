@@ -1,25 +1,25 @@
 ## Current repository state — 2026-11-25
 
-- Main at the start of this VSFTPD slice: 213a16e9dccbfd84c3a6e032711de1e0fafc063f. Re-fetch the live ref before any further update.
-- Frozen backup branch backup/pre-plugin-overhaul-2026-11-14 remains read-only at 72f4f157a084f8184b9597ca5bf334b8080e5807.
-- Latest Firefly source fix is 284ececc912a496705db825f3643fa0121d5f1d7; embedded-NUL behavioral fixture follow-up is ae740fbff80c62f23c6f4b280ee96c5610bc28d6. On exact SHA ae740..., Firefly #45682623104, AI Docs #45682623337, Process lifecycle #45682623367, Process inventory #45682623222 and NVRAM #45682623246 all PASS.
-- NFS selector fix/checker resolution is complete: NFS start/reload #45681847110 and AI Docs #45681847147 PASS on ffcd7ceb5f5092935203e078d4acb2ea6a2598ba. The prior e521 NFS checker failure is historical, fixed on ffcd.
-- This source slice closes a real VSFTPD hidden-share fail-open: test_if_hidden_share() used stat() and hid only a regular-file target. A FIFO, directory, broken symlink, symlink loop, or stat error made the marker appear absent. The replacement checks the .hidden directory entry with fstatat(AT_SYMLINK_NOFOLLOW) relative to a pinned and revalidated share descriptor; any present entry or any error other than ENOENT hides the share. Tests cover absence, zero-byte regular marker, FIFO, directory, regular-target symlink and dangling symlink.
-- Firmware L3 is not claimed from the above checks: no single identical source SHA has yet been confirmed with Build, TRX and artifact upload all passing. Physical-router L4 remains NOT VERIFIED.
+- Main at this checker follow-up: dc4ad7579e9f4f0cd05b8cddaa40c234f126aaf0. Fetch the live ref before the next write.
+- Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains read-only at 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- Firefly bounded-line source fix 284ececc912a496705db825f3643fa0121d5f1d7 and embedded-NUL fixture ae740fbff80c62f23c6f4b280ee96c5610bc28d6 are verified: on ae740, Firefly #45682623104, AI Docs #45682623337, Process lifecycle #45682623367, Process inventory #45682623222 and NVRAM #45682623246 all PASS.
+- NFS selector hardening/checker fix verified on ffcd7ceb5f5092935203e078d4acb2ea6a2598ba: NFS start/reload #45681847110 and AI Docs #45681847147 PASS.
+- VSFTPD hidden-share fail-open fix is source commit 3bcf67e205a9be881d9d6a54b817c550156c797f. It replaced path-based stat() with fstatat(AT_SYMLINK_NOFOLLOW) against a pinned/revalidated share descriptor; every present entry hides the share, and only ENOENT means visible. Host C regression suite completed before the workflow's Python source-contract step. Exact VSFTPD run #45683462187 failed at that checker: the new assertions called function_body() before its Python definition (NameError), not a source compile or C-test failure. This commit moves the assertions below the helper definition.
+- On 3bcf67..., AI Docs #45683462177 PASS. Process inventory #45683462211, NVRAM #45683462252 and XY-C1 #45683462309 were still in progress when inspected. No same-SHA Build/TRX/artifact success is claimed. Physical L4 remains NOT VERIFIED.
 
 ## Active task
 
-Finish the descriptor-relative ACL call-site audit after the .hidden control-marker fix. Verify the exact-head VSFTPD regression and firmware workflow for the newest commit; PENDING does not block independent work. Add source fixes only for demonstrated access-control or I/O defects, with host regression fixtures.
+Re-run the VSFTPD stability workflow after the checker-order correction. Continue the descriptor-relative ACL call-site audit for independently demonstrated path-based authorization gaps. PENDING independent jobs do not block source work.
 
 ## Exact first actions for next GPT
 
-1. Fetch live main; inspect exact-SHA VSFTPD, AI Docs, Process, NVRAM and XY-C1 Actions for this commit. Fix any failed exact-head assertion or compile regression.
-2. Continue ACL call-site review in postlogin.c/asus_ext.c, prioritizing any remaining path-based filesystem lookup that occurs before authorization or can escape the pinned descriptor.
-3. For L3 require firmware Build, TRX validation and artifact upload on the same exact SHA. Physical-router L4 remains unverified.
+1. Fetch live main; inspect exact-SHA VSFTPD #Actions and firmware verification. Diagnose any actual C regression separately from source-contract failures.
+2. Continue postlogin.c/asus_ext.c filesystem call-site review, prioritizing path-based lookup before permission checks or path re-resolution after authorization.
+3. For L3 require Build, TRX validation and artifact upload on one identical exact SHA. Physical L4 remains unverified.
 
 ## Execution contract
 
-Main only; never modify or delete backup/pre-plugin-overhaul-2026-11-14; no force-push, feature branches or PRs. For each task create all blobs, one complete tree and one commit, then update main non-forced with expected SHA. Check exact-head Actions and record only verified results.
+Main only; never modify/delete backup/pre-plugin-overhaul-2026-11-14; no force-push, feature branches or PRs. Build complete blobs/tree/commit atomically, then non-forced expected-SHA update. Check Actions by exact commit SHA and record only confirmed states.
 
 ## 2026-11-25 autonomous handoff checkpoint
 
