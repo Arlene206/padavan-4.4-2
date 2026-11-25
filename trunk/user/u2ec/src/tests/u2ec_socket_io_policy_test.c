@@ -288,9 +288,20 @@ test_fifo_idle_readiness_and_event_bytes_are_safe(void)
     (void)unlink(path);
     assert(mkfifo(path, 0600) == 0);
 
-    /* The previous read-only open is immediately readable at EOF. */
+    /*
+     * A read-only FIFO becomes EOF-readable after a writer has connected,
+     * sent an event and closed. An unopened writer does not necessarily
+     * produce POLLHUP, so exercise the real notification lifecycle.
+     */
     old_read_fd = open(path, O_RDONLY | O_NONBLOCK);
     assert(old_read_fd >= 0);
+    writer = open(path, O_WRONLY | O_NONBLOCK);
+    assert(writer >= 0);
+    assert(write(writer, "r", 1U) == 1);
+    assert(close(writer) == 0);
+    assert(read(old_read_fd, &event, 1U) == 1);
+    assert(event == 'r');
+
     FD_ZERO(&readfds);
     FD_SET(old_read_fd, &readfds);
     timeout.tv_sec = 0;
@@ -314,7 +325,7 @@ test_fifo_idle_readiness_and_event_bytes_are_safe(void)
 
     writer = open(path, O_WRONLY | O_NONBLOCK);
     assert(writer >= 0);
-    assert(write(writer, "r", 1U) == 1);
+    assert(write(writer, "c", 1U) == 1);
     assert(close(writer) == 0);
     FD_ZERO(&readfds);
     FD_SET(fd, &readfds);
@@ -323,13 +334,14 @@ test_fifo_idle_readiness_and_event_bytes_are_safe(void)
     ready = select(fd + 1, &readfds, NULL, NULL, &timeout);
     assert(ready == 1 && FD_ISSET(fd, &readfds));
     assert(u2ec_read_fifo_event(fd, &event) == 1);
-    assert(event == 'r');
+    assert(event == 'c');
     assert(u2ec_read_fifo_event(fd, &event) == 0);
-    assert(event == 'r');
+    assert(event == 'c');
 
     assert(close(fd) == 0);
     assert(unlink(path) == 0);
 }
+
 
 int
 main(void)
