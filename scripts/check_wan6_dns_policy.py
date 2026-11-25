@@ -152,8 +152,8 @@ assert '#include "wan6_sixrd_prefix_policy.h"' in source
 assert "wan6_sixrd_prefix_mapping_is_valid((int)ipv4_mask_len" in sixrd_store
 assert "wan6_sixrd_prefix_clear_host_bits(prefix6.s6_addr" in sixrd_store
 assert sixrd_store.index("wan6_sixrd_prefix_mapping_is_valid(") < sixrd_store.index("wan6_sixrd_prefix_clear_host_bits(") < sixrd_store.index("wan6_publish_6rd_snapshot(")
-assert "wan6_sixrd_prefix_clear_host_bits(addr6.s6_addr, size6)" in sixrd_body
-assert sixrd_body.index("wan6_sixrd_prefix_clear_host_bits(addr6.s6_addr, size6)") < sixrd_body.index("ipv6_to_ipv4_map(&lan_addr6, size6")
+assert "wan6_sixrd_prefix_clear_host_bits(addr6.s6_addr, size6)" in source
+assert source.index("wan6_sixrd_prefix_clear_host_bits(addr6.s6_addr, size6)") < source.index("ipv6_to_ipv4_map(&lan_addr6, size6")
 for marker in (
     "test_valid_mapping_boundaries",
     "test_rejects_oversized_derived_prefix",
