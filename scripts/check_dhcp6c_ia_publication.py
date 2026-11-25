@@ -62,6 +62,9 @@ iaid_test = read(BASE + "tests/dhcp6c_iaid_policy.c")
 ia_source = read(BASE + "dhcp6c_ia.c")
 sla_policy = read(BASE + "dhcp6c_pd_sla_policy.h")
 sla_test = read(BASE + "tests/dhcp6c_pd_sla_policy.c")
+config_cleanup = read(BASE + "dhcp6c_config_cleanup_policy.h")
+config_cleanup_test = read(BASE + "tests/dhcp6c_config_cleanup_policy.c")
+xy_workflow = read(".github/workflows/xy-c1-firmware-validation.yml")
 workflow = read(".github/workflows/dhcp6c-ia-publication-stability.yml")
 
 assert '#include "dhcp6c_ia_policy.h"' in ia
@@ -103,6 +106,22 @@ assert "test_byte_aligned_and_full_width_sla_fields" in sla_test
 assert "test_invalid_sla_configurations_are_rejected_atomically" in sla_test
 assert "DHCPv6 delegated-prefix SLA bit placement policy: PASS" in sla_test
 assert "tests/dhcp6c_pd_sla_policy.c" in workflow
+
+assert '#include "dhcp6c_config_cleanup_policy.h"' in config
+assert "dhcp6c_config_cleanup_prefix_list" in config_cleanup
+assert "test_ia_na_prefix_list_is_released" in config_cleanup_test
+assert "test_ia_pd_prefix_list_is_released" in config_cleanup_test
+assert "test_unrelated_ia_type_does_not_release_unowned_list" in config_cleanup_test
+clear_pd_pif = function_body(config, "static void clear_pd_pif(")
+assert "dhcp6_clear_list(&iac->prefix_list)" not in clear_pd_pif
+clear_prefix_adapter = function_body(config, "clear_dhcp6_config_prefix_list(void *context)")
+assert "dhcp6_clear_list((struct dhcp6_list *)context);" in clear_prefix_adapter
+clear_iaconf = function_body(config, "static void clear_iaconf(")
+cleanup_call = clear_iaconf.index("dhcp6c_config_cleanup_prefix_list(iac->type")
+assert clear_iaconf.index("switch (iac->type)") < cleanup_call < clear_iaconf.index("free(iac);")
+assert "DHCPOPT_IA_NA, DHCPOPT_IA_PD" in clear_iaconf
+assert "tests/dhcp6c_config_cleanup_policy.c" in workflow
+assert "tests/dhcp6c_config_cleanup_policy.c" in xy_workflow
 assert "tests/dhcp6c_iaid_policy.c" in workflow
 assert "DHCP6C_IA_CLEANUP_RETRY_DELAY_MS == 5000ULL" in test
 
@@ -193,6 +212,8 @@ required_paths = (
     BASE + "tests/dhcp6c_iaid_policy.c",
     BASE + "dhcp6c_pd_sla_policy.h",
     BASE + "tests/dhcp6c_pd_sla_policy.c",
+    BASE + "dhcp6c_config_cleanup_policy.h",
+    BASE + "tests/dhcp6c_config_cleanup_policy.c",
 )
 filters = workflow.split("jobs:", 1)[0]
 push, pull = filters.split("  pull_request:", 1)
@@ -200,4 +221,10 @@ for path in required_paths:
     quoted = '"' + path + '"'
     assert push.count(quoted) == 1, "push filter missing/duplicate: " + path
     assert pull.count(quoted) == 1, "pull_request filter missing/duplicate: " + path
-print("DHCPv6 IA retry/publication source contracts: PASS")
+
+xy_push = xy_workflow.split("jobs:", 1)[0].split("  pull_request:", 1)[0]
+for path in (BASE + "dhcp6c_config_cleanup_policy.h",
+             BASE + "tests/dhcp6c_config_cleanup_policy.c"):
+    quoted = '"' + path + '"'
+    assert xy_push.count(quoted) == 1, "XY-C1 push filter missing/duplicate: " + path
+print("DHCPv6 IA retry/publication and config-cleanup source contracts: PASS")

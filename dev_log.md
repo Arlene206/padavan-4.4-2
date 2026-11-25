@@ -1,3 +1,11 @@
+## 2026-11-25 — Free IA_NA configuration prefix lists during DHCPv6 teardown
+
+- Confirmed a config-lifetime leak in BusyBox DHCPv6: `configure_ia()` stores IA_NA addresses in `iac->prefix_list`, but `clear_iaconf()` only reached `dhcp6_clear_list()` through the IA_PD-only `clear_pd_pif()` path. IA_NA list nodes and nested values were therefore abandoned on configuration cleanup.
+- Moved prefix-list ownership cleanup into a type-aware shared policy used by both IA_NA and IA_PD, retaining the existing IA_PD-specific interface cleanup and avoiding duplicate list release. Added four GNU89 ASan/UBSan cases (IA_NA, IA_PD, unrelated type and invalid callback inputs), plus source-order/adapter contracts.
+- Both push/PR filters for the DHCPv6 IA regression and XY-C1 firmware validation now track the new helper and fixture. Parent `e985875` has fresh Actions in progress; exact results on this new source commit are pending.
+
+---
+
 ## 2026-11-25 22:24 CST (UTC+8) — Correct vanished-interface route teardown contract
 
 - - Exact SHA `578c8647eec5e0c39bb4910d7757a0de5752468e`: Firewall startup #45632938361 PASS, USB modem #45632938668 PASS, AI docs #45632938331 PASS, Process lifecycle inventory #45632938233 PASS, XY-C1 #45632938514 PASS host validation but Build XY-C1/TRX/artifact were SKIPPED because this SHA did not change product inputs. WAN route #45632938327 failed only at the stale assertion `return clear_status;`: `wan6_down()` now accumulates the earlier SIT-route cleanup and metadata-clear errors into `status` and correctly returns that aggregate. This correction narrows the check to the vanished-interface branch and asserts both aggregation and `return status;`.

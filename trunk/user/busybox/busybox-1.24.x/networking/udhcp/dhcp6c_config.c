@@ -33,6 +33,7 @@
 #include "dhcp6c.h"
 #include "dhcp6c_auth.h"
 #include "dhcp6c_iaid_policy.h"
+#include "dhcp6c_config_cleanup_policy.h"
 #include "dhcp6c_pd_sla_policy.h"
 
 /* structures and definitions used in the config file parser */
@@ -619,8 +620,12 @@ static void clear_pd_pif(struct ia_conf *iac)
 		free(pif->ifname);
 		free(pif);
 	}
+}
 
-	dhcp6_clear_list(&iac->prefix_list);
+static void
+clear_dhcp6_config_prefix_list(void *context)
+{
+	dhcp6_clear_list((struct dhcp6_list *)context);
 }
 
 static void clear_iaconf(struct ia_conflist *ialist)
@@ -642,6 +647,9 @@ static void clear_iaconf(struct ia_conflist *ialist)
 		default:
 			break;
 		}
+		dhcp6c_config_cleanup_prefix_list(iac->type,
+			DHCPOPT_IA_NA, DHCPOPT_IA_PD,
+			&iac->prefix_list, clear_dhcp6_config_prefix_list);
 		free(iac);
 	}
 }

@@ -1,16 +1,18 @@
-## 2026-11-25 autonomous handoff — route teardown aggregate status contract
+## 2026-11-25 active handoff — release IA_NA config prefix ownership
 
-- Main base for this correction: `263050a5762527a9ebe20560f2d15cc87cf15378`. Recent source SHA `263050a5762527a9ebe20560f2d15cc87cf15378` adds a real SIT IPv4 endpoint route fix: normalize empty gateway strings to NULL for BusyBox route_add/route_del. It includes two GNU89 tests, and its XY-C1 firmware input detector is running.
-- Exact `578c864` outcomes: Firewall startup #45632938361 PASS, USB modem #45632938668 PASS, AI docs #45632938331 PASS, Process lifecycle #45632938233 PASS, XY-C1 #45632938514 host checks PASS but Build/TRX/artifact SKIPPED because no production input change. WAN route #45632938327 FAIL only on stale `return clear_status;` assertion: `wan6_down()` now aggregates the missing-interface SIT route cleanup and metadata errors into `status`. This correction checks that branch's aggregate and return value.
-- On current source SHA `263050a`, exact-head Actions are in progress: XY-C1 #45633281371, WAN route #45633280992, WAN DHCP #45633281034, NVRAM #45633281147, IPv6 service #45633280943, Process #45633280920/#45633281057, USB modem #45633281299, Firewall #45633281250 and HTTPD #45633281195. Verify Build XY-C1 + TRX + artifact all PASS on the same SHA before claiming L3.
-- Backup `backup/pre-plugin-overhaul-2026-11-14` remains frozen at `72f4f157a084f8184b9597ca5bf334b8080e5807`; no physical router L4 result.
+- Main parent for this slice: `e98587526348b508d55caf43a8048b14b9cf9cee` (`fix(dhcpv6): align SLA subnet bits and bound width`). A teardown audit found that `configure_ia()` adds IA_NA addresses to `iac->prefix_list`, while `clear_iaconf()` only freed that list via the IA_PD cleanup helper. IA_NA configuration teardown therefore leaked its prefix-list nodes and nested values.
+- This slice centralizes type-aware prefix-list cleanup for IA_NA and IA_PD, preserves IA_PD interface-record cleanup, and adds a GNU89 ASan/UBSan regression plus source-contract coverage. The exact post-commit SHA must be verified before claiming L2/L3.
+- At the last poll, parent `e985875` exact-head Actions were in progress: DHCPv6 IA publication #45638748175, XY-C1 #45638747785, NVRAM #45638747820, WAN DHCP #45638747783, USB storage #45638747877, Process umbrella #45638747879 and inventory #45638748232, AI docs #45638747818. The earlier product-source SHA `83c2809` completed XY-C1 Build/TRX/artifact (#45636636005); new source must run its own build.
+- Frozen `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`. No physical-router L4 result is claimed.
 
 ### First actions
-1. Check the exact-head WAN route run for this checker correction and the still-running 263050a workflow set. Fix only the first real failure.
-2. Verify that XY-C1's changed product inputs trigger Build, TRX and artifact upload on `263050a`.
-3. Continue a separate concrete stability/security bug while CI is pending; do not revisit completed M2U/VLAN/LAN6 audits without new evidence.
+
+1. Check exact-head DHCPv6 IA publication regression and the NVRAM/XY-C1 workflows; resolve any real failure without relaxing source coverage.
+2. Confirm Build XY-C1, TRX verification and artifact upload all execute and pass on one identical source SHA before claiming L3.
+3. Continue a separate cross-userland stability/security defect while independent CI is pending; do not repeat completed SIT gateway, LAN6 reset, M2U or reused-VLAN work.
 
 ### Execution contract
+
 Source/test → one complete Git tree/commit → non-force expected-SHA update → exact-SHA Actions. Main only; backup immutable; no branches, PRs or force pushes.
 
 ## 2026-11-25 autonomous handoff checkpoint
