@@ -1395,6 +1395,46 @@ fi
 [ -f "$TEST_CONFIG/identity.secret" ] || fail "missing NAT route removed the persistent identity"
 TEST_NAT_ENABLE=0
 
+# A corrupt firewall checkpoint can contain the only record of an old
+# source-NAT segment after its kernel route has disappeared. Stop must not
+# replace that recovery record with an empty snapshot or leave stale rules.
+/bin/rm -rf "$TEST_CONFIG"
+mkdir -p "$TEST_CONFIG"
+: > "$TEST_IPTABLES_LOG"
+: > "$TEST_IPTABLES_STATE_FILE"
+TEST_IPTABLES_FAIL_ON=""
+TEST_IPTABLES_CHECK_FAIL_ON=""
+TEST_IPTABLES_DELETE_FAIL_ON=""
+test_seed_firewall_rules
+: > "$TEST_IPTABLES_LOG"
+printf 'ztunit\\n10.147.17.0/24\\ncorrupt-extra-record\\n' > "$TEST_CONFIG/.firewall-state"
+TEST_STATIC_ROUTE_COUNT=0
+TEST_NAT_ENABLE=0
+TEST_IFCONFIG_MODE=running-only
+TEST_ROUTE_MODE=none
+: > "$TEST_KILL_LOG"
+: > "$TEST_ACTION_LOG"
+test_proc_reset
+test_proc_add 4321 "$PROG" "$PROG"
+echo running > "$TEST_STATE"
+TEST_MODE=graceful
+if stop_zero; then
+	fail "stop accepted a corrupt firewall checkpoint with an unknown saved source-NAT segment"
+fi
+[ "$(cat "$TEST_STATE")" = running ] || fail "corrupt firewall checkpoint stopped the daemon before cleanup could be guaranteed"
+[ ! -s "$TEST_KILL_LOG" ] || fail "corrupt firewall checkpoint still signalled the daemon"
+[ ! -s "$TEST_IPTABLES_LOG" ] || fail "corrupt firewall checkpoint attempted firewall edits"
+grep -Fqx -- "nat POSTROUTING -s 10.147.17.0/24 -j MASQUERADE" "$TEST_IPTABLES_STATE_FILE" || fail "corrupt checkpoint fixture lost its stale source-NAT rule"
+[ "$(cat "$TEST_CONFIG/.firewall-state")" = "$(printf 'ztunit\\n10.147.17.0/24\\ncorrupt-extra-record')" ] || fail "corrupt firewall checkpoint was overwritten or removed"
+[ ! -s "$TEST_ACTION_LOG" ] || fail "corrupt firewall checkpoint changed persistent configuration"
+/bin/rm -rf "$TEST_CONFIG"
+: > "$TEST_IPTABLES_STATE_FILE"
+: > "$TEST_IPTABLES_LOG"
+test_proc_reset
+TEST_IFCONFIG_MODE=none
+TEST_ROUTE_MODE=none
+TEST_NAT_ENABLE=0
+
 # An already-absent configured route is an idempotent success.
 TEST_STATIC_ROUTE_COUNT=1
 TEST_STATIC_ROUTE_ENABLE=1

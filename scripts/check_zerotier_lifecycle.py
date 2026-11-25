@@ -398,6 +398,16 @@ require('if ! zerotier_preflight_static_routes; then' in stop_body and
         stop_body.index('if ! zerotier_preflight_static_routes; then') <
         stop_body.index('if ! kill_z; then'),
         "stop must validate route configuration before signalling the daemon")
+
+require('zt_state_file="$config_path/.firewall-state"' in stop_body and
+        'if [ -e "$zt_state_file" ] || [ -L "$zt_state_file" ]; then' in stop_body and
+        'if ! zerotier_firewall_state_load; then' in stop_body and
+        'ZeroTier防火墙恢复检查点无效' in stop_body and
+        stop_body.index('if ! zerotier_firewall_state_load; then') <
+        stop_body.index('if ! zerotier_read_nat_enabled; then') and
+        'stop accepted a corrupt firewall checkpoint with an unknown saved source-NAT segment' in test and
+        'corrupt firewall checkpoint was overwritten or removed' in test,
+        "stop must fail closed before signalling when an existing firewall recovery checkpoint cannot be parsed")
 for marker in ("rules accepted an unreadable NAT selector as disabled",
                "NAT selector read failure stopped the daemon",
                "static-route add accepted a checked-read error",

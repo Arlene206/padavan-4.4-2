@@ -1314,7 +1314,15 @@ stop_zero() {
 	fi
 	ip_segment="$(zerotier_kernel_route_segment "$zt0")"
 	if [ -z "$zt0" ] || [ -z "$ip_segment" ]; then
-		if zerotier_firewall_state_load; then
+		zt_state_file="$config_path/.firewall-state"
+		if [ -e "$zt_state_file" ] || [ -L "$zt_state_file" ]; then
+			# A saved source-NAT segment may be the only remaining way to
+			# remove a rule after the kernel route has disappeared. Never
+			# overwrite an unreadable checkpoint with an empty live snapshot.
+			if ! zerotier_firewall_state_load; then
+				logger -t "zerotier" "ZeroTier防火墙恢复检查点无效，拒绝停止并保留现有网络状态"
+				return 1
+			fi
 			[ -n "$zt0" ] || zt0="$zt_state_saved_interface"
 			[ -n "$ip_segment" ] || ip_segment="$zt_state_saved_segment"
 		fi
