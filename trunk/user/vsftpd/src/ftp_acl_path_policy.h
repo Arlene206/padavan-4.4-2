@@ -405,6 +405,8 @@ ftp_acl_path_rename_entry(int source_dir_fd, const char *source_leaf,
                           int destination_dir_fd,
                           const char *destination_leaf)
 {
+  struct stat source_stat;
+
   if (source_dir_fd < 0 || destination_dir_fd < 0 ||
       !source_leaf || !*source_leaf || strchr(source_leaf, '/') ||
       strcmp(source_leaf, ".") == 0 || strcmp(source_leaf, "..") == 0 ||
@@ -417,6 +419,18 @@ ftp_acl_path_rename_entry(int source_dir_fd, const char *source_leaf,
   }
   if (ftp_acl_path_is_internal_metadata(source_leaf) ||
       ftp_acl_path_is_internal_metadata(destination_leaf)) {
+    errno = EACCES;
+    return -1;
+  }
+  /*
+   * Moving a multiply-linked non-directory entry can launder an alias from
+   * one authorized share into another. Reject hard-linked files and symlinks
+   * before rename, just as open/stat/upload paths reject them.
+   */
+  if (fstatat(source_dir_fd, source_leaf, &source_stat,
+              AT_SYMLINK_NOFOLLOW) != 0)
+    return -1;
+  if (!S_ISDIR(source_stat.st_mode) && source_stat.st_nlink != 1) {
     errno = EACCES;
     return -1;
   }

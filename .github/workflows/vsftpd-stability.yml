@@ -669,6 +669,12 @@ jobs:
           assert "expected.st_ino != opened.st_ino" in acl_path_policy
           assert "expected.st_nlink != 1" in acl_path_policy
           assert "opened.st_nlink != 1" in acl_path_policy
+          rename_start = acl_path_policy.index("ftp_acl_path_rename_entry(")
+          rename_end = acl_path_policy.index("\n}", rename_start)
+          rename_policy = acl_path_policy[rename_start:rename_end]
+          assert "fstatat(source_dir_fd, source_leaf, &source_stat" in rename_policy
+          assert "!S_ISDIR(source_stat.st_mode) && source_stat.st_nlink != 1" in rename_policy
+          assert "renameat moved a multiply-linked file across shares" in acl_path_test
           cleanup_start = acl_path_policy.index("ftp_acl_path_unlink_opened_entry(")
           cleanup_end = acl_path_policy.index("\n}", cleanup_start)
           cleanup_policy = acl_path_policy[cleanup_start:cleanup_end]

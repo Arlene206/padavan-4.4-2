@@ -600,6 +600,33 @@ main(void)
     fprintf(stderr, "renameat left its source entry behind\n");
     return 1;
   }
+
+  /*
+   * Do not move a multiply-linked file from one ACL share into another.
+   * Otherwise a remaining external name can be laundered across the share
+   * boundary when its link count later drops.
+   */
+  if (link(file_b, hardlink_file) != 0) {
+    perror("create hard-linked rename source");
+    return 1;
+  }
+  errno = 0;
+  if (ftp_acl_path_rename_entry(rename_source_fd, "cross-share-hardlink",
+          rename_destination_fd, "cross-share-hardlink-moved") == 0 ||
+      errno != EACCES) {
+    fprintf(stderr, "renameat moved a multiply-linked file across shares\n");
+    return 1;
+  }
+  if (lstat(hardlink_file, &st) != 0 || st.st_nlink != 2 ||
+      lstat(file_b, &st) != 0 || st.st_nlink != 2 ||
+      lstat(rename_destination, &st) != 0) {
+    fprintf(stderr, "hard-linked rename rejection changed source or destination\n");
+    return 1;
+  }
+  if (unlink(hardlink_file) != 0) {
+    perror("remove hard-linked rename source");
+    return 1;
+  }
   if (ftp_acl_path_rename_entry(rename_source_fd, "rename-link",
           rename_destination_fd, "rename-link-moved") != 0 ||
       lstat(rename_link_destination, &st) != 0 || !S_ISLNK(st.st_mode) ||
