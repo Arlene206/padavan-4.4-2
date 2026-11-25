@@ -99,6 +99,7 @@ assert 'mktemp ' in adblock and 'cat "$_smartdns_adblock_input"' in adblock
 assert 'grep -Eq' in adblock and 'awk ' in adblock
 assert 'index(rule, "||") != 1' in adblock
 assert 'converted == 0' in adblock
+assert '^[[:space:]]*address=' in adblock and 'invalid = 1' in adblock
 assert 'mv -f "$_smartdns_adblock_tmp" "$_smartdns_adblock_output"' in adblock
 assert 'curl -fsS' in adblock_start
 assert 'smartdns_prepare_adblock_filter "$_smartdns_adblock_download" "$_smartdns_adblock_output"' in adblock_start
@@ -106,6 +107,7 @@ assert 'check =' not in adblock_start
 assert 'sdns_adblock_url' in adblock_start
 for phrase in ('Adblock Plus rules convert to SmartDNS address directives',
                'native SmartDNS address rules remain unchanged',
+               'native SmartDNS filter rejects unrelated directives and preserves the previous output',
                'failed adblock conversion preserves the previous output'):
     assert phrase in test, phrase
 assert 'scripts/check_smartdns_lifecycle.py' in process_workflow

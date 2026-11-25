@@ -260,6 +260,19 @@ cmp "$tmpdir/adblock/native-smartdns.conf" "$tmpdir/adblock/native-output.conf" 
 pass "native SmartDNS address rules remain unchanged"
 
 printf 'preserve-on-error\n' > "$tmpdir/adblock/preserved.conf"
+cat > "$tmpdir/adblock/mixed-native.conf" <<'RULES'
+# Valid address rule mixed with unrelated daemon configuration.
+address=/ads.example/0.0.0.0
+server 1.1.1.1
+bind :53
+conf-file /etc/passwd
+RULES
+if smartdns_prepare_adblock_filter "$tmpdir/adblock/mixed-native.conf" "$tmpdir/adblock/preserved.conf"; then
+    fail "native SmartDNS filter accepted unrelated daemon directives"
+fi
+grep -Fxq 'preserve-on-error' "$tmpdir/adblock/preserved.conf" || fail "rejected native filter replaced the previous output"
+pass "native SmartDNS filter rejects unrelated directives and preserves the previous output"
+
 printf 'no supported filter rules\n' > "$tmpdir/adblock/invalid.txt"
 if smartdns_prepare_adblock_filter "$tmpdir/adblock/invalid.txt" "$tmpdir/adblock/preserved.conf"; then
     fail "unsupported adblock input was accepted"

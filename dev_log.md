@@ -1,3 +1,10 @@
+## 2026-11-25 — Restrict downloaded native SmartDNS filters to address rules
+
+- The native SmartDNS path previously copied the entire downloaded file whenever it found one `address=` line. A mixed or compromised list could therefore inject unrelated daemon settings such as `server`, `bind` or nested `conf-file` directives into the active SmartDNS config.
+- Whitelist native filter content to address directives, comments and blank lines; reject any other directive and preserve the previous output on failure. Add mixed-content regression and exact-source contract. Exact SmartDNS lifecycle, DNSMasq regression, AI docs and any source-triggered firmware checks are pending; no local test or firmware result is claimed.
+
+---
+
 ## 2026-11-25 — Correct Redsocks mock newline escaping
 
 - Exact review of the preceding fixture correction found its generated `printf` format strings contained two literal backslashes before `n`, rather than the shell's single escape. That would store the rule key with a literal backslash and letters `n`, not terminate the record, so the mock still could not validate its own rule table.

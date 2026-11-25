@@ -550,9 +550,22 @@ smartdns_prepare_adblock_filter()
     fi
 
     if grep -Eq '^[[:space:]]*address=' "$_smartdns_adblock_snapshot"; then
-        if ! cp "$_smartdns_adblock_snapshot" "$_smartdns_adblock_tmp"; then
+        # A downloaded native filter is data, not a general SmartDNS config.
+        # Keep only address rules, comments and blank lines so a compromised
+        # list cannot inject bind/server/conf-file or other daemon directives.
+        awk '
+            /^[[:space:]]*(#|$)/ { print; next }
+            /^[[:space:]]*address=/ { print; address_count++; next }
+            { invalid = 1 }
+            END {
+                if (address_count == 0 || invalid)
+                    exit 1
+            }
+        ' "$_smartdns_adblock_snapshot" > "$_smartdns_adblock_tmp"
+        _smartdns_adblock_status=$?
+        if [ "$_smartdns_adblock_status" -ne 0 ]; then
             rm -f "$_smartdns_adblock_snapshot" "$_smartdns_adblock_tmp"
-            return 1
+            return "$_smartdns_adblock_status"
         fi
     else
         _smartdns_adblock_grep_status=$?
