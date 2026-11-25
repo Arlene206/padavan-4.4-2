@@ -931,6 +931,7 @@ jobs:
           commands = Path("trunk/user/uqmi/commands.c").read_text()
           modem = Path("trunk/user/rc/src/usb_modem.c").read_text()
           retry_policy = Path("trunk/user/rc/src/modem_wan_start_policy.h").read_text()
+          qmi_policy_test = Path("trunk/user/rc/src/tests/modem_wan_start_policy.c").read_text()
           helper = Path("trunk/user/uqmi/uqmi-status-file.h").read_text()
           reader = Path("trunk/user/rc/src/modem_qmi_status_file.h").read_text()
           reader_test = Path("trunk/user/rc/src/tests/modem_qmi_status_file.c").read_text()
@@ -1015,7 +1016,6 @@ jobs:
           assert "pdh_handle, handle_read_status))" in qmi_start_function
           assert preserve_handle < partial_cleanup
           assert "cannot remove failed QMI packet-data handle" in qmi_start_function
-          qmi_policy_test = Path("trunk/user/rc/src/tests/modem_wan_start_policy.c").read_text()
           for policy_case in (
               "test_qmi_stop_status_requires_success_before_cleanup",
               "test_qmi_start_requires_command_success_and_valid_handle",

@@ -1,3 +1,8 @@
+## 2026-11-24 — Fix QMI source-contract test-file initialization order
+
+- The exact rerun #45545714961 on `6672e316f615818d19b29d56938c36b556bbfbca` again passed every compiled regression, including `modem_wan_start_policy.c`; the final inline source-contract step failed because `qmi_policy_test` was referenced before its later assignment in that same Python block.
+- Moved the policy-test file read into the block's initial input setup and removed the late duplicate assignment. No product source or test logic changed; exact-head USB rerun is pending.
+
 ## 2026-11-24 — Repair QMI network-mode checker input
 
 - Exact USB modem run #45545581433 on `748eb3c036ba7d64a8084c04d6acdd93a005fab1` compiled and ran the updated GNU89 modem WAN policy regression successfully, including the new 0..9 selector boundary cases. The subsequent inline source-contract step failed with a Python `NameError`: the new assertion referenced `retry_policy` without reading that header in this separate Python process.
