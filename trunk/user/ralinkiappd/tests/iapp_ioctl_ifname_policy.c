@@ -160,6 +160,13 @@ test_received_payload_bounds(void)
 	assert(iapp_rx_payload_fits(40, 36, 4));
 	assert(!iapp_rx_payload_fits(39, 36, 4));
 	assert(!iapp_rx_payload_fits(35, 36, 0));
+
+	/* TCP read() may return a partial prefix; append bounds stay safe. */
+	assert(iapp_rx_buffer_append_fits(8, 0, 3));
+	assert(iapp_rx_buffer_append_fits(8, 3, 5));
+	assert(!iapp_rx_buffer_append_fits(8, 3, 6));
+	assert(!iapp_rx_buffer_append_fits(8, 9, 0));
+	assert(!iapp_rx_buffer_append_fits(SIZE_MAX, SIZE_MAX, 1));
 }
 
 static void

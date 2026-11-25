@@ -23,6 +23,7 @@
 /* Include */
 
 #include "rt_config.h"
+#include <errno.h>
 #include "rtmpiapp.h"
 #include "iappdefs.h"
 #include "iapp_ioctl_ifname_policy.h"
@@ -2060,6 +2061,44 @@ Return Value:
 Note:
 ========================================================================
 */
+/*
+ * Each TCP connection carries one encrypted IAPP frame; the sender closes
+ * after send(). read() can return a prefix, so collect bytes through EOF.
+ * Reject data exceeding the bounded receive buffer rather than parse a
+ * silently truncated frame.
+ */
+static INT32 IAPP_TCP_ReadFrame(INT32 Socket, UCHAR *Buffer, UINT32 Capacity)
+{
+	UINT32 TotalRead = 0;
+	INT32 BytesRead;
+	UCHAR OverflowByte;
+
+	while (TotalRead < Capacity) {
+		BytesRead = read(Socket, Buffer + TotalRead, Capacity - TotalRead);
+		if (BytesRead < 0) {
+			if (errno == EINTR)
+				continue;
+			return -1;
+		}
+		if (BytesRead == 0)
+			return (INT32)TotalRead;
+		if (!iapp_rx_buffer_append_fits((size_t)Capacity,
+					       (size_t)TotalRead, (size_t)BytesRead))
+			return -1;
+		TotalRead += (UINT32)BytesRead;
+	}
+
+	/* The peer must close after this single frame; reject trailing bytes. */
+	do {
+		BytesRead = read(Socket, &OverflowByte, sizeof(OverflowByte));
+	} while (BytesRead < 0 && errno == EINTR);
+
+	if (BytesRead != 0)
+		return -1;
+
+	return (INT32)TotalRead;
+}
+
 static VOID IAPP_RcvHandlerTcp(
 	IAPP_IN		RTMP_IAPP			*pCtrlBK,
 	IAPP_IN		UCHAR				*pPktBuf,
@@ -2085,7 +2124,7 @@ static VOID IAPP_RcvHandlerTcp(
 	/* End of if */
 
 	/* handle the packet */
-	SizeRcvMsg = read(SockNew, pPktBuf, IAPP_MAX_RCV_PKT_SIZE);
+	SizeRcvMsg = IAPP_TCP_ReadFrame(SockNew, pPktBuf, IAPP_MAX_RCV_PKT_SIZE);
 	close(SockNew);
 
 	if (SizeRcvMsg > 0)

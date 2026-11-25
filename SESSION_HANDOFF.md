@@ -1,26 +1,28 @@
 ## Current repository state — 2026-11-25
 
-- Main base before this fixed IAPP ADD/MOVE frame bounds slice: f4835dbf275d93706d0c3bc4d257462f1cb87f83; receive-length propagation, handler guards, source-contract assertions, dev log and handoff are one atomic descendant (THIS COMMIT).
+- Main base before this TCP receive framing slice: 16ebc650e94661a5cef16d73e380128f50b6d739; TCP EOF reader, append-capacity helper/tests, lifecycle source contract, dev log and handoff are one atomic descendant (THIS COMMIT).
 - Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains read-only at 72f4f157a084f8184b9597ca5bf334b8080e5807.
-- Parent f4835dbf275d93706d0c3bc4d257462f1cb87f83 raw driver event guard: Ethernet+signal/event prefix required before MAC copy, pass signal bytes excluding Ethernet, bound EventLen by actual received bytes, debug event requires 4-byte payload. At latest check IAPP #45692154521 PASS and AI #45692155087 PASS; XY #45692154988, process inventory #45692154900/#45692154527, NVRAM #45692155088 were pending/in progress.
-- Parent 0952cb923e5a15fc2e4b5c566691640301d52f17 raw RRB frame guard exact IAPP #45691956076 PASS, process life #45691956024 PASS, inventory #45691956025 PASS, AI #45691956084 PASS; XY #45691956064 still in progress.
-- This slice closes a fixed-struct parser gap: both MOVE_NOTIFY transports now require exact received struct length and protocol consistency before field use; UDP ADD_NOTIFY gets the same received-size protection.
-- Parent e1f16872b7e2792db9acf0184f2fe9c5d736c966: IAPP/Process/Inventory/AI/NVRAM all PASS; XY-C1 #45691498871 was still in progress at last poll. Historic XY L3 proof remains only 8b9b63401dd85232b257120111bb18475db6b5 (Build/TRX/artifact PASS); later SHAs need own completed run. Physical router L4 NOT VERIFIED.
+- Parent 16ebc650e94661a5cef16d73e380128f50b6d739 fixed actual-size parsing of MOVE_NOTIFY (TCP/UDP) and ADD_NOTIFY (UDP). Exact Actions #45692512586 IAPP, #45692512533 process lifecycle regression, #45692512148 XY-C1, #45692512133 inventory, #45692512162 AI were still running at last poll; #45692512428 NVRAM pending.
+- Parent f4835dbf275d93706d0c3bc4d257462f1cb87f83 exact IAPP #45692154521 PASS, process inventory #45692154527 PASS, lifecycle inventory #45692154900 PASS, AI #45692155087 PASS; XY-C1 #45692154988 and NVRAM #45692155088 still running at last poll.
+- Parent 0952cb923e5a15fc2e4b5c566691640301d52f17 IAPP #45691956076 PASS, process/inventory #45691956024/#45691956025 PASS, AI #45691956084 PASS; XY #45691956064 still in progress at last check.
+- This slice resolves TCP partial-read fragility: receive accumulates bytes until EOF on the sender's one-connection-per-frame lifecycle, retries EINTR and rejects extra bytes beyond IAPP_MAX_RCV_PKT_SIZE. GNU89 ASan/UBSan covers append bounds.
+- Existing security bounds include FT security-block stack copy, ACK/AP-info payloads, short TCP/UDP IAPP headers, raw RRB aligned cipher span, raw driver signal EventLen, and ADD/MOVE fixed message lengths.
+- Historic XY-C1 L3 verified only at 8b9b63401dd85232b257120111bb18475db6b5 (Build/TRX/artifact PASS); no later SHA inherits it. Physical router L4 NOT VERIFIED. Backup frozen; PR #1 inventoried.
 
 ## Active task
 
-Validate this ADD/MOVE frame guard on exact-head Actions, then inspect TCP framing and remaining fixed-size commands; check whether XY-C1 builds on the prior receive-length slice.
+Validate TCP receive framing and sanitizer tests on exact-head Actions; then make TCP sends handle partial writes (including direct security-block sender) and continue fixed-command length checks.
 
 ## Exact first actions for next GPT
 
-1. Poll this commit's IAPP, XY-C1 Build/TRX/artifact, Process lifecycle/inventory, NVRAM and AI Actions by exact SHA.
-2. Confirm ADD/MOVE frame guards pass shell contracts, inspect any failed compiler/build log.
-3. Review TCP short reads and IAPP header Length vs actual bytes; then add fixed struct minimum guards for command branches that dereference packets.
-4. Backup remains frozen; main only, atomic tree + expected-SHA non-force ref update.
+1. Poll exact IAPP/XY-C1 Build/TRX/artifact/Process/NVRAM/AI workflows for THIS COMMIT.
+2. Inspect receive-frame source assertions, GNU89 ASan/UBSan tests and exact-SHA firmware build result.
+3. Replace all single-call TCP `send()` assumptions with bounded send-all behavior; repository senders close each one-frame connection.
+4. Continue command-specific IAPP fixed-size and protocol Length-vs-actual-byte validation.
 
 ## Execution contract
 
-Main only, one complete tree and atomic task commit; non-force expected-SHA update. No force-push, branch or new PR. PENDING actions do not block.
+Main only; complete Git tree, atomic task commits, main updated with non-force expected-SHA compare-and-swap. No force push, branches or PR. PENDING does not block.
 
 ## 2026-11-25 autonomous handoff checkpoint
 

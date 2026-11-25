@@ -11,4 +11,11 @@ iapp_rx_payload_fits(size_t received_size, size_t fixed_size, size_t payload_siz
 	       payload_size <= received_size - fixed_size;
 }
 
+static inline int
+iapp_rx_buffer_append_fits(size_t capacity, size_t current_size, size_t append_size)
+{
+	return current_size <= capacity &&
+	       append_size <= capacity - current_size;
+}
+
 #endif /* IAPP_RX_LENGTH_POLICY_H */

@@ -151,6 +151,14 @@ grep -Fq 'received_len != (INT32)sizeof(*pNotify)' "$iapp_source" ||
   fail "IAPP MOVE_NOTIFY must match its complete received frame size"
 grep -Fq 'SizeRcvMsg != (INT32)sizeof(*pNotify)' "$iapp_source" ||
   fail "IAPP ADD_NOTIFY must match its complete received frame size"
+grep -Fq 'IAPP_TCP_ReadFrame(SockNew, pPktBuf, IAPP_MAX_RCV_PKT_SIZE)' "$iapp_source" ||
+  fail "IAPP TCP receive must accumulate fragmented frames through EOF"
+grep -Fq 'if (BytesRead == 0)' "$iapp_source" ||
+  fail "IAPP TCP frame reader must stop only at connection EOF"
+grep -Fq 'errno == EINTR' "$iapp_source" ||
+  fail "IAPP TCP frame reader must retry interrupted reads"
+grep -Fq 'iapp_rx_buffer_append_fits(' "$iapp_source" ||
+  fail "IAPP TCP frame reader must enforce receive-buffer capacity"
 ap_info_guard_line=$(grep -n -F "pApIB->Length))" "$iapp_source" | cut -d: -f1)
 ap_info_copy_line=$(grep -n -F "IAPP_MEM_MOVE(OidReq->Buf+FT_IP_ADDRESS_SIZE, pApIB->IB, pApIB->Length)" "$iapp_source" | cut -d: -f1)
 [ -n "$ap_info_guard_line" ] && [ -n "$ap_info_copy_line" ] && [ "$ap_info_guard_line" -lt "$ap_info_copy_line" ] ||
