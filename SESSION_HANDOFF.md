@@ -5,15 +5,15 @@ This checkpoint supersedes older task pointers below. Historical completed work 
 ## Current repository state
 
 - Repository `Arlene206/padavan-4.4-2`; development only on `main`. Frozen `backup/pre-plugin-overhaul-2026-11-14` remains read-only; PR #1 remains closed/unmerged and inventory-only.
-- Parent before this AliyunDrive exact-PID stop hardening: `63da84a3ae0b68e64ab1731f60a580dbc2495970`. This commit removes name-wide `killall` from the add-on stop path and revalidates the complete UID/executable-inode inventory before every exact-PID TERM/KILL.
-- Exact-head parent `aeea15d36401e5bcbd4427be0a0f08418cdf26dd`: Inadyn #45561534774, DNSMasq #45561534711, AI handoff #45561534717, Process inventory #45561380463, Process umbrella #45561380452 and NVRAM #45561380377 PASS.
-- USB checker parent `33a05a26882c763ac44777fc604b02501fee7c22`: AI handoff #45561746518 PASS; USB hotplug #45561746653 and XY-C1 #45561746460 were in progress at last inspection. USB host regressions, shell checks and early BusyBox ash/Optware steps passed; remaining storage persistence/eject tests were pending.
-- Prior AliyunDrive lifecycle #45559141117 verified caller-UID/executable-inode inventory, bundled QEMU CLI and earlier lifecycle contracts, but stop still used name-wide `killall` after validation. THIS COMMIT replaces name-based signaling with exact PID snapshots and per-signal identity revalidation. Exact-head AliyunDrive, Process and XY-C1 checks pending.
+- Parent of this syntax correction: `a2715db348748bc7d3422f42fdccabbd6290b490` (`a2715db348748bc7d3422f42fdccabbd6290b490`). That commit replaced AliyunDrive name-wide `killall` with complete UID/executable-inode validation and exact-PID TERM/KILL revalidation, but its first lifecycle run #45562524959 failed immediately at `sh -n`: the PID whitespace class was double-escaped. THIS COMMIT corrects the single-character escape. QEMU/lifecycle/source checks did not run on a2715db.
+- Exact-head parent a2715db AI handoff #45562525000 PASS and Process inventory #45562525082 PASS.
+- Prior main `33a05a26882c763ac44777fc604b02501fee7c22`: USB hotplug #45561746653 PASS; AI handoff #45561746518 PASS. XY-C1 job #45561746460 PASS as a host-only validation; production input detector skipped Build XY-C1, TRX verification and artifact upload, so no firmware image was built on that SHA.
+- Exact-head AliyunDrive lifecycle rerun, Process inventory and any firmware-target check on THIS correction SHA remain pending. Previous lifecycle #45559141117 covered caller-UID/executable-inode validation and QEMU CLI, but did not cover the exact-PID signal change now being tested.
 - Linux 4.4 has no pidfd path here; a narrow PID-reuse race remains between procfs validation and `kill(2)`. Physical router behavior and authenticated remote storage readiness are not claimed.
 
 ## Active task
 
-Inspect exact-head AliyunDrive WebDAV lifecycle Actions for the exact-PID signaling change. Fix shell, host regression, QEMU CLI or source-contract failures. Then inspect Process and XY-C1 exact-SHA checks. Preserve the validate-to-kill PID-reuse limitation.
+Inspect the exact-head AliyunDrive lifecycle run for this one-character shell syntax correction. Continue through QEMU CLI, lifecycle regression, early-lock and Python source contracts; fix the first real failure. Then inspect Process inventory and firmware build detector outcome for this SHA.
 
 # Cross-session execution mandate
 

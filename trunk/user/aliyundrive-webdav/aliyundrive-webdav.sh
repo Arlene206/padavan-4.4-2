@@ -21,7 +21,7 @@ ald_process_state() {
     0)
       [ -n "$ald_pid_output" ] || return 2
       case "$ald_pid_output" in
-        *[!0123456789\\ ]*) return 2 ;;
+        *[!0123456789\ ]*) return 2 ;;
       esac
       ald_expected_uid=$(id -u 2>/dev/null) || return 2
       case "$ald_expected_uid" in
