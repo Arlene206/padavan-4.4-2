@@ -344,7 +344,7 @@ static void
 test_vpn_export_selectors_are_strict_enumerations(void)
 {
 	static const char *const invalid[] = {
-		"2", "3", "-1", "+1", "01", " 1", "1 ", "true", "1junk"
+		"3", "-1", "+1", "01", " 1", "1 ", "true", "1junk"
 	};
 	static const struct {
 		const char *text;
@@ -364,6 +364,10 @@ test_vpn_export_selectors_are_strict_enumerations(void)
 			valid[i].maximum, &value) == 0);
 		assert(value == valid[i].expected);
 	}
+
+	value = 99;
+	assert(storage_nfs_export_parse_selector("2", 1U, &value) == EINVAL);
+	assert(value == 0);
 
 	for (i = 0; i < sizeof(invalid) / sizeof(invalid[0]); ++i) {
 		value = 99;
