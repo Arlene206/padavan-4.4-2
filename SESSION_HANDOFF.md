@@ -13,19 +13,16 @@ Continue one autonomous engineering stream on main. For each logical slice, crea
 
 ## Active task
 
-### DHCPv6 timer arithmetic — fix stale source-checker output marker
+### AI handoff documentation size — restore the roadmap hard limit
 
-The production helper and regression for expired DHCPv6 timer deadlines are committed in `c009462148d00369007edaf3e5b87d31899b07c2`. The GNU89 test compiled and ran successfully with ASan/UBSan, printing the new `DHCPv6 configuration-script retry and timer policy: PASS` label. The exact-head workflow then failed only because `scripts/check_dhcp6c_script_retry.py` still required the old retry-only output label at marker assertion line 95. Aligning that one checker marker; retaining the production timer-source binding and all regression assertions.
+The DHCPv6 timer source helper and regression are committed in `c009462148d00369007edaf3e5b87d31899b07c2`; the follow-up checker marker is fixed in `5b54971422023d9e1dd0d3e7f2f21f2d73816ffb`. The exact-main DHCPv6 GNU89 regression #45524153756 passes. AI handoff validation #45524153765 failed only because `REFACTOR_ROADMAP.md` measured 131,167 bytes, 95 bytes above the 131,072-byte hard limit. Condense redundant historical status text without dropping active findings, then confirm the exact-head docs workflow.
 
-## Current exact-head Actions on c009462148d00369007edaf3e5b87d31899b07c2
+## Current exact-head Actions on 5b54971422023d9e1dd0d3e7f2f21f2d73816ffb
 
-- DHCPv6 Reply script retry regression #45523977371: FAIL only at stale output-marker assertion. Its GNU89 ASan/UBSan compile and runtime tests passed first, including future/equal/expired/max timer boundary cases.
-- Process lifecycle inventory #45523977446: PASS.
-- HTTPD Authentication/Security #45523977367: PASS.
-- AI handoff documentation #45523977673: PASS.
-- USB storage hotplug #45523977447: IN_PROGRESS.
-- NVRAM transaction boundary #45523977503: IN_PROGRESS.
-- XY-C1 Firmware Validation #45523977414: IN_PROGRESS; exact-head Build/TRX/artifact completion not confirmed. L3 NOT VERIFIED; L4 hardware NOT VERIFIED.
+- DHCPv6 Reply script retry regression #45524153756: PASS; the new expired-timer boundary coverage and current output marker both pass.
+- AI handoff documentation #45524153765: FAIL solely on the roadmap 131,167-byte hard limit (limit 131,072); this slice trims the redundant top summary and must be rechecked on its own SHA.
+- Product-source baseline `c009462148d00369007edaf3e5b87d31899b07c2`: Process inventory #45523977446, HTTPD security #45523977367, USB storage #45523977447 and NVRAM boundary #45523977503: PASS.
+- XY-C1 #45523977414 is still IN_PROGRESS for that unchanged product-source baseline; Build/TRX/artifact are not confirmed. L3 NOT VERIFIED; L4 hardware NOT VERIFIED.
 - No local compile is claimed.
 
 ## Completed source slices
@@ -133,9 +130,9 @@ Commit `786c504c8247fe42d5d1d5f2dc3ad28757fafc80` strictly parses persisted RX/T
 
 ## Exact first action for the next GPT
 
-1. Check exact-head DHCPv6, storage, NVRAM and XY-C1 Actions after the marker-only correction; repair any remaining failure against that SHA.
-2. Verify XY-C1 Build, TRX verification and artifact upload on the final production source SHA before any L3 claim. L4 requires hardware testing.
-3. Continue the next distinct userland stability/security issue beyond the recent PPP/DHCP/HTTPD/IPTV/FRP focus; PENDING Actions do not block independent work.
+1. Confirm the AI handoff documentation workflow passes on the current main SHA after shrinking REFACTOR_ROADMAP.md below 131,072 bytes; repair any exact-SHA failure.
+2. Recheck XY-C1 Build/TRX/artifact on the unchanged product-source baseline `c009462148d00369007edaf3e5b87d31899b07c2`; do not claim L3 while its run remains pending.
+3. Resume the next distinct userland stability/security fix, starting with the ZeroTier stop path's corrupt firewall-checkpoint recovery gap; keep source/test/checker changes atomic and do not wait on unrelated PENDING runs.
 
 ## Mandatory handoff checkpoint
 

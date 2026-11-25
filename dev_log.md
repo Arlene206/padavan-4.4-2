@@ -1,3 +1,7 @@
+## 2026-11-24 — Restore AI handoff roadmap size compliance
+
+- Exact main SHA 5b54971422023d9e1dd0d3e7f2f21f2d73816ffb: DHCPv6 retry/timer regression #45524153756 PASS; AI docs #45524153765 failed only because REFACTOR_ROADMAP.md was 131,167 bytes, exceeding the 131,072-byte hard limit. Condensed the duplicate top-level historical summary while retaining the current mask/timer implementation record; the docs workflow must pass on this new exact SHA. The product-source baseline c009462 remains the last XY-C1 candidate; its Build/TRX/artifact run was still pending, so L3 is not claimed.
+
 ## 2026-11-24 — Correct DHCPv6 timer checker output marker
 
 - Exact SHA c009462148d00369007edaf3e5b87d31899b07c2: DHCPv6 GNU89 ASan/UBSan runtime regression printed the updated retry-and-timer PASS line, but the source checker still required the previous retry-only label and failed at marker assertion line 95. This was a checker mismatch, not a runtime/test failure.
