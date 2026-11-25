@@ -5,6 +5,7 @@ script_dir=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
 repo_root=$(CDPATH= cd -- "$script_dir/../../../.." && pwd)
 sandbox=$(mktemp -d "${TMPDIR:-/tmp}/mtd-storage-fill.XXXXXX")
 real_rm=$(command -v rm)
+real_mkdir=$(command -v mkdir)
 cleanup()
 {
 	"$real_rm" -rf "$sandbox"
@@ -29,6 +30,13 @@ cat > "$sandbox/bin/reset_ss.sh" <<'EOF_RESET'
 printf '%s\n' "$*" >> "$RESET_SS_LOG"
 exit 0
 EOF_RESET
+cat > "$sandbox/bin/mkdir" <<'EOF_MKDIR'
+#!/bin/sh
+for arg do
+	[ "${FILL_MKDIR_FAIL_PATH:-}" != "$arg" ] || exit 1
+done
+exec "$REAL_MKDIR" "$@"
+EOF_MKDIR
 cat > "$sandbox/bin/tar" <<'EOF_TAR'
 #!/bin/sh
 target=
@@ -58,6 +66,7 @@ sed \
 chmod +x "$sandbox/mtd_storage.sh"
 
 export PATH="$sandbox/bin:$PATH"
+export REAL_MKDIR="$real_mkdir" FILL_MKDIR_FAIL_PATH=
 export LOGGER_LOG="$sandbox/logger.log" RESET_SS_LOG="$sandbox/reset-ss.log"
 
 run_fill()
@@ -75,6 +84,8 @@ reset_case()
 	: > "$RESET_SS_LOG"
 	: > "$LOGGER_LOG"
 	FILL_TAR_FAIL=0
+	FILL_MKDIR_FAIL_PATH=
+	export FILL_MKDIR_FAIL_PATH
 }
 
 # A nested directory symlink must not let dnsmasq defaults escape /etc/storage.
@@ -119,6 +130,18 @@ if run_fill >/dev/null 2>&1; then
 fi
 test "$(cat "$sandbox/outside/sentinel")" = outside-sentinel
 test ! -s "$RESET_SS_LOG"
+
+# A required default directory failure must stop fill and reach its caller.
+reset_case
+FILL_MKDIR_FAIL_PATH="$sandbox/storage/cron/crontabs"
+export FILL_MKDIR_FAIL_PATH
+if run_fill >/dev/null 2>&1; then
+	echo "storage directory creation failure unexpectedly succeeded" >&2
+	exit 1
+fi
+test ! -d "$sandbox/storage/cron/crontabs"
+test ! -s "$RESET_SS_LOG"
+grep -Fq 'Cannot create storage directory:' "$LOGGER_LOG"
 
 # Failed bundled archive extraction must not leave a partial directory that
 # causes later boot fills to mistake an incomplete tree for a completed one.

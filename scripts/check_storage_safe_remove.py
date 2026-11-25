@@ -168,6 +168,7 @@ require('[ -L "$dir_storage" ] || [ -f "$dir_storage" ]' in mtd_mdir,
 fill_check_dir = body(mtd_storage, "func_fill_check_dir()")
 fill_check_file = body(mtd_storage, "func_fill_check_file()")
 fill_validate = body(mtd_storage, "func_fill_validate_paths()")
+fill_mkdir = body(mtd_storage, "func_fill_mkdir()")
 fill_body = body(mtd_storage, "func_fill()")
 chnroute_start = fill_body.index("# create chnroute.txt")
 chnroute_end = fill_body.index("# create gfwlist", chnroute_start)
@@ -186,6 +187,19 @@ require('func_fill_check_dir "$parent"' in fill_check_file and
         '[ -L "$target" ]' in fill_check_file and
         '[ ! -f "$target" ]' in fill_check_file,
         "MTD fill must reject symlink and non-regular leaf file targets")
+require('func_fill_check_dir "$target"' in fill_mkdir and
+        'mkdir -p -m "$mode" "$target"' in fill_mkdir and
+        'Cannot create storage directory:' in fill_mkdir and
+        'return 1' in fill_mkdir,
+        "MTD fill must check and propagate each required default directory creation")
+require('func_fill_mkdir "$dir_crond" 730' in fill_body and
+        'func_fill_mkdir "$dir_httpssl" 700' in fill_body and
+        'func_fill_mkdir "$dir_dnsmasq" 755' in fill_body and
+        'func_fill_mkdir "$dir_inadyn" 755' in fill_body and
+        'func_fill_mkdir "$dir_wlan" 755' in fill_body and
+        'func_fill_mkdir "$dir_sswan_crt/private" 700' in fill_body and
+        'mkdir -p -m 730 "$dir_crond"' not in fill_body,
+        "MTD fill must not silently ignore default storage directory creation failures")
 require('if ! func_fill_validate_paths; then' in fill_body and
         fill_body.index('if ! func_fill_validate_paths; then') <
         fill_body.index('mkdir -p -m 730 "$dir_crond"') and
@@ -205,6 +219,8 @@ for item in ("dnsmasq directory symlink unexpectedly accepted",
              "start script symlink unexpectedly accepted",
              "Unsafe storage directory component:",
              "Unsafe storage file target:",
+             "storage directory creation failure unexpectedly succeeded",
+             "Cannot create storage directory:",
              "partial chnroute extraction unexpectedly succeeded",
              "Cannot extract chnroute archive:"):
     require(item in mtd_storage_fill_test,

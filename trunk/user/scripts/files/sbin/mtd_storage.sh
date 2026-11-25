@@ -803,6 +803,25 @@ func_fill_validate_paths()
 	return 0
 }
 
+func_fill_mkdir()
+{
+	local target mode
+
+	target=$1
+	mode=$2
+	if ! func_fill_check_dir "$target"; then
+		return 1
+	fi
+	if [ -d "$target" ]; then
+		return 0
+	fi
+	if ! mkdir -p -m "$mode" "$target"; then
+		logger -t "Storage fill" "Cannot create storage directory: $target"
+		return 1
+	fi
+	return 0
+}
+
 func_fill()
 {
 	dir_httpssl="$dir_storage/https"
@@ -848,16 +867,15 @@ func_fill()
 	fi
 
 	# create crond dir
-	[ ! -d "$dir_crond" ] && mkdir -p -m 730 "$dir_crond"
+	if ! func_fill_mkdir "$dir_crond" 730; then return 1; fi
 
 	# create https dir
-	[ ! -d "$dir_httpssl" ] && mkdir -p -m 700 "$dir_httpssl"
+	if ! func_fill_mkdir "$dir_httpssl" 700; then return 1; fi
 
 	# create chnroute.txt
 	if [ ! -d "$dir_chnroute" ] ; then
 		if [ -f "$chnroute_file" ]; then
-			if ! mkdir -p "$dir_chnroute"; then
-				logger -t "Storage fill" "Cannot create chnroute directory: $dir_chnroute"
+			if ! func_fill_mkdir "$dir_chnroute" 755; then
 				return 1
 			fi
 			if ! tar jxf "$chnroute_file" -C "$dir_chnroute"; then
@@ -1101,7 +1119,7 @@ EOF
 	fi
 
 	# create user dnsmasq.conf
-	[ ! -d "$dir_dnsmasq" ] && mkdir -p -m 755 "$dir_dnsmasq"
+	if ! func_fill_mkdir "$dir_dnsmasq" 755; then return 1; fi
 	for i in dnsmasq.conf hosts ; do
 		[ -f "$dir_storage/$i" ] && mv -n "$dir_storage/$i" "$dir_dnsmasq"
 	done
@@ -1193,7 +1211,7 @@ EOF
 	fi
 
 	# create user inadyn.conf"
-	[ ! -d "$dir_inadyn" ] && mkdir -p -m 755 "$dir_inadyn"
+	if ! func_fill_mkdir "$dir_inadyn" 755; then return 1; fi
 	if [ ! -f "$user_inadyn_conf" ] ; then
 		cat > "$user_inadyn_conf" <<EOF
 # Custom user conf file for inadyn DDNS client
@@ -1226,7 +1244,7 @@ EOF
 	fi
 
 	# create user AP confs
-	[ ! -d "$dir_wlan" ] && mkdir -p -m 755 "$dir_wlan"
+	if ! func_fill_mkdir "$dir_wlan" 755; then return 1; fi
 	if [ ! -f "$dir_wlan/AP.dat" ] ; then
 		cat > "$dir_wlan/AP.dat" <<EOF
 # Custom user AP conf file
@@ -1245,8 +1263,10 @@ EOF
 
 	# create openvpn files
 	if [ -x /usr/sbin/openvpn ] ; then
-		[ ! -d "$dir_ovpncli" ] && mkdir -p -m 700 "$dir_ovpncli"
-		[ ! -d "$dir_ovpnsvr" ] && mkdir -p -m 700 "$dir_ovpnsvr"
+		if ! func_fill_mkdir "$dir_ovpncli" 700 ||
+		   ! func_fill_mkdir "$dir_ovpnsvr" 700; then
+			return 1
+		fi
 		dir_ovpn="$dir_storage/openvpn"
 		for i in ca.crt dh1024.pem server.crt server.key server.conf ta.key ; do
 			[ -f "$dir_ovpn/$i" ] && mv -n "$dir_ovpn/$i" "$dir_ovpnsvr"
@@ -1305,11 +1325,13 @@ EOF
 
 	# create strongswan files
 	if [ -x /usr/sbin/ipsec ] ; then
-		[ ! -d "$dir_sswan" ] && mkdir -p -m 700 "$dir_sswan"
-		[ ! -d "$dir_sswan_crt" ] && mkdir -p -m 700 "$dir_sswan_crt"
-		[ ! -d "$dir_sswan_crt/cacerts" ] && mkdir -p -m 700 "$dir_sswan_crt/cacerts"
-		[ ! -d "$dir_sswan_crt/certs" ] && mkdir -p -m 700 "$dir_sswan_crt/certs"
-		[ ! -d "$dir_sswan_crt/private" ] && mkdir -p -m 700 "$dir_sswan_crt/private"
+		if ! func_fill_mkdir "$dir_sswan" 700 ||
+		   ! func_fill_mkdir "$dir_sswan_crt" 700 ||
+		   ! func_fill_mkdir "$dir_sswan_crt/cacerts" 700 ||
+		   ! func_fill_mkdir "$dir_sswan_crt/certs" 700 ||
+		   ! func_fill_mkdir "$dir_sswan_crt/private" 700; then
+			return 1
+		fi
 
 		if [ ! -f "$user_sswan_conf" ] ; then
 			cat > "$user_sswan_conf" <<EOF
