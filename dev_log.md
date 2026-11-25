@@ -1,3 +1,12 @@
+## 2026-11-25 — Authorize STOU candidate probes before filesystem lookup
+
+- Base SHA: `3ec6ac84a096d953b9ecda469c0c2e13f998ee5f`; source commit: `c683355e539de6e435cf8b25b749960bfcb10653`. Scope: vsftpd ACL helper/API, post-login STOU selection, shared entry-stat contract and VSFTPD workflow.
+- Review found `get_unique_filename()` called path-based `str_stat()` before the upload ACL check. Because `stat` follows the final symlink, STOU could reveal whether a dangling or external symlink target existed; errors were also treated as if a name were free. Added `asus_check_upload_candidate_exists()`: deny-file filtering precedes it; it resolves and pins the parent, checks `PERM_WRITE`, performs a nofollow descriptor-relative entry stat, and revalidates parent identity after the probe. Errors fail closed, while an existing symlink (including dangling) occupies the candidate name. A suffix counter overflow returns `EOVERFLOW`; final O_EXCL creation remains the race-safe arbiter.
+- Existing path-policy C regression compiles with GNU89/Werror and covers external symlink targets, dangling symlinks, real ENOENT, reserved metadata and malformed leaves. VSFTPD source checker requires ACL → pinned parent → nofollow stat → revalidation and bans `str_stat()` from the unique-name chooser.
+- Exact-SHA `c683355e539de6e435cf8b25b749960bfcb10653`: VSFTPD #45666057681 PASS; Process inventory #45666057417 PASS; AI docs #45666057477 PASS. XY-C1 #45666057475 had header self-containment PASS, Build IN_PROGRESS, TRX/artifact PENDING. NVRAM #45666057562 had host regressions PASS and raw-call audit IN_PROGRESS. No L3/L4 claim.
+
+---
+
 ## 2026-11-26 04:30 CST (UTC+8) — Close RNFR descriptor and source-contract checks
 
 - Base SHA: `6ba2336de958c44fc214f2d50a00af0fc68adc63`; atomic follow-up to the RNFR nofollow-entry implementation.

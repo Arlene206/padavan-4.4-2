@@ -1,3 +1,35 @@
+## Latest checkpoint — 2026-11-25
+
+### Repository state
+
+- Main source checkpoint: `c683355e539de6e435cf8b25b749960bfcb10653`. Main-only atomic commits; no force push.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains untouched at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- OpenVPN startup/rollback protections remain in place; no new OpenVPN changes in this slice.
+- Physical-router L4 remains NOT VERIFIED.
+
+### Completed VSFTPD source slices
+
+- `88e39a42dad0f3fa3a33f964e604563f47b5860d`: reserve the partition-level `.hidden` marker as internal metadata. Without this, an FTP writer at mount root could create the marker and make subsequent access treat the whole partition as hidden. Added classifier regression and workflow contract. Exact VSFTPD #45663863759, Process #45663864028, AI docs #45663863712 and NVRAM #45663863693 PASS. XY-C1 #45663863730 was still building at last poll.
+- `755db25f9241f69997261c55d5b6dd62341c810c` plus follow-up `3ec6ac84a096d953b9ecda469c0c2e13f998ee5f`: replace RNFR path-following `str_stat()` with parent-FD-relative `fstatat(AT_SYMLINK_NOFOLLOW)`, authorize and pin the parent first, preserve dangling-symlink rename semantics, and revalidate parent identity after the entry probe. Regression covers external-target symlink, dangling symlink, true ENOENT, reserved metadata and malformed leaves. The earlier 755/6ba workflows failed at stale source-contract assertions; exact VSFTPD #45665056338, Process #45665056354 and AI docs #45665056506 PASS on 3ec. XY-C1 #45665056355 and NVRAM #45665056396 were pending at last poll.
+- `c683355e539de6e435cf8b25b749960bfcb10653`: eliminate the remaining pre-authorization filesystem probes in STOU. The old `get_unique_filename()` used path-based `str_stat()` before the share ACL check, following final symlinks and probing whether external/dangling targets existed. Candidate selection now applies the deny-file filter, authorizes `PERM_WRITE`, pins and verifies the parent directory, uses `fstatat(AT_SYMLINK_NOFOLLOW)` to inspect only the final directory entry, and revalidates parent identity. Any lookup/ACL error fails closed; suffix overflow returns `EOVERFLOW`; the final upload still uses exclusive creation to resolve races. The path-policy GNU89/Werror regression covers external and dangling symlinks, missing entries, metadata and invalid leaves; workflow source contracts pin filter → ACL → descriptor-relative probe → parent revalidation and reject `str_stat()` in the unique-name chooser.
+
+### Exact-SHA verification boundary
+
+- On `c683355e539de6e435cf8b25b749960bfcb10653`: VSFTPD configuration/ACL regression #45666057681 PASS, including the C compile/run and embedded source contract; Process inventory #45666057417 PASS; AI handoff docs #45666057477 PASS.
+- XY-C1 #45666057475: VSFTPD header self-containment PASS; `Build XY-C1` IN_PROGRESS at last poll; TRX verification and artifact upload PENDING. No L3 claim until all three finish on this same SHA.
+- NVRAM transaction boundary #45666057562: host policy binaries PASS; raw userland/kernel caller audit IN_PROGRESS.
+- No physical-router L4 result is claimed. Earlier 88e/755/3ec XY-C1 runs remain pending and are superseded for current source proof by c683's exact-SHA run.
+
+### Exact first actions for the next GPT
+
+1. Poll only current production SHA `c683355e539de6e435cf8b25b749960bfcb10653`: require XY-C1 Build, TRX and artifact; finish the NVRAM audit and inspect any FAIL.
+2. Continue the remaining VSFTPD descriptor-relative ACL call-site review. The STOU candidate existence probe and RNFR source probe are now descriptor-relative; do not re-audit those completed fixes.
+3. Pick the next independent P1 reliability/security source defect across the userland while any Actions remain pending.
+
+Execution remains: source/test → one complete Git tree/commit → non-forced expected-SHA main update → exact-SHA Actions. PENDING does not block independent work. Preserve all historical dev-log entries and keep the frozen backup untouched.
+
+---
+
 ## Current repository state
 
 - Main parent for the RNFR source-contract repair: `6ba2336de958c44fc214f2d50a00af0fc68adc63`; this update is an atomic descendant on `main`.
