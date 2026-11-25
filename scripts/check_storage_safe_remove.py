@@ -144,6 +144,11 @@ mtd_storage_restore_test = read("trunk/user/scripts/tests/mtd_storage_restore_tr
 mtd_storage_load_test = read("trunk/user/scripts/tests/mtd_storage_load_transaction.sh")
 mtd_storage_backup_test = read("trunk/user/scripts/tests/mtd_storage_backup_failure.sh")
 mtd_storage_erase_reset_test = read("trunk/user/scripts/tests/mtd_storage_erase_reset.sh")
+mtd_mdir_start = mtd_storage.index("func_mdir()")
+mtd_mdir_end = mtd_storage.index("\\nfunc_rstats_presence()", mtd_mdir_start)
+mtd_mdir = mtd_storage[mtd_mdir_start:mtd_mdir_end]
+require('[ -L "$dir_storage" ] || [ -f "$dir_storage" ]' in mtd_mdir,
+        "MTD storage root guard must reject symlinks and regular files before fill")
 
 checked = body(libdisk, "read_disk_data_checked(disk_info_t **disk_info_out)")
 require("if (!disk_info_out)" in checked, "checked inventory must validate its output")

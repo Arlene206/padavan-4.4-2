@@ -87,7 +87,7 @@ EOF_MTD_INFO
 
 func_mdir()
 {
-	if [ -L "$dir_storage" ] ||
+	if [ -L "$dir_storage" ] || [ -f "$dir_storage" ] ||
 	   { [ -e "$dir_storage" ] && [ ! -d "$dir_storage" ]; }; then
 		logger -t "Storage" "Unsafe storage directory: $dir_storage"
 		return 1

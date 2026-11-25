@@ -1,3 +1,10 @@
+## 2026-11-25 — Make the MTD fill guard explicit for regular files in BusyBox ash
+
+- Exact storage-hotplug run #45597825821 on `429aa42a` passed the restore staging/rollback regression after the `/proc/mtd` fixture rewrite, then failed only in the BusyBox ash pass of `mtd_storage_load_transaction.sh`: `func_mdir()` allowed the regular-file `etc/storage` fixture to proceed far enough that `func_fill()` modified the test path. The host-sh pass had already completed. Add an explicit `-f` rejection alongside the symlink and generic existing-non-directory checks so the expected storage-root type is unambiguous across the firmware shell.
+- The source-contract checker now requires this fast-path guard. The existing fill regression verifies that both symlink and regular-file paths fail without modifying their targets. Re-run exact-head storage-hotplug and XY-C1 workflows; no local firmware shell run or router result is claimed.
+
+---
+
 ## 2026-11-25 — Verify rstats readiness after a zero-exit launcher
 
 - Follow-up to the restore failure fix: `func_start_apps()` previously treated `/sbin/rstats` exit status 0 as proof the daemon was running. A daemon that forks then exits immediately (or whose startup wrapper returns success without leaving a process) could still cause restore/reset to be reported as successful.
