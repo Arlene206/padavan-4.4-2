@@ -29,8 +29,9 @@ require("prefix, addr6, values[0], first_relay, &rollback_status" in SOURCE,
 
 require("length >= sizeof(candidate)" in POLICY and
         "!validate_ipv4(candidate)" in POLICY and
+        "relay_count >= WAN6_SIXRD_MAX_RELAY_COUNT" in POLICY and
         "relay_count != 0" in POLICY,
-        "relay parser must bound, validate and require at least one address")
+        "relay parser must cap, validate and require at least one address")
 require("at most 59 IPv4 relay addresses" in POLICY,
         "text buffer bound must document the DHCP option's maximum relay count")
 
@@ -38,7 +39,11 @@ require("test_multiple_relays_select_first_and_validate_all" in TEST,
         "multiple relay behavior must have a regression test")
 require("999.1.1.1" in TEST and "198.51.100.256" in TEST,
         "malformed trailing relay addresses must be rejected")
-require("test_accept_maximum_relay_text" in TEST and "59U" in TEST,
+require("test_accept_maximum_relay_text" in TEST and
+        "WAN6_SIXRD_MAX_RELAY_COUNT" in TEST,
         "maximum-size DHCP relay list must be covered")
+require("test_reject_relay_count_above_dhcp_limit" in TEST and
+        "WAN6_SIXRD_MAX_RELAY_COUNT + 1U" in TEST,
+        "the first over-limit relay count must be rejected")
 
 print("WAN 6rd multi-border-relay integration regression: PASS")

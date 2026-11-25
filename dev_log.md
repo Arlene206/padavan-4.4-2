@@ -1,3 +1,12 @@
+## 2026-11-26 02:52 CST (UTC+8) — Enforce the RFC 5969 6rd relay-count ceiling
+
+- The DHCP 6rd binary-option validator limits the payload to its one-byte length and requires the 18-byte fixed header plus complete four-byte relay addresses, so a valid option can contain at most 59 relays. The downstream text policy documented that limit but accepted arbitrarily more addresses when called with a synthetic or future non-wire input.
+- Added one shared 59-relay ceiling and fail-closed rejection before accepting relay 60. Regression keeps the exact 59-address maximum valid and confirms a 60-address list fails with the output buffer cleared. The Python source contract now pins the policy guard and over-limit case.
+- Local GNU89 `-Wall -Wextra -Werror -fsanitize=address,undefined` compile/run with leak detection — PASS. Parent WAN 6rd workflow #45706623877 passed on `360ccb32e57ffa4689992b3c8efda20cde5d5262`; exact-head validation for THIS COMMIT is pending. No MIPS firmware or physical-router result is claimed.
+- Base main SHA: `a2979282ae6bd462289bf55016fe7dca4b1c9149`. Changed paths: `wan6_sixrd_option_policy.h`, `tests/wan6_sixrd_option_policy.c`, `scripts/check_wan6_sixrd_relay.py`, `SESSION_HANDOFF.md`, `dev_log.md`.
+
+---
+
 ## 2026-11-25 — VSFTPD HTTP status correctness and cross-userland hardening
 
 - VSFTPD HTTP GET previously emitted `HTTP/1.1 200 OK` before the shared RETR handler checked ACL access, securely opened the requested path, confirmed a regular file and enforced anonymous-world-readable policy. Missing/denied paths could therefore produce an HTTP 200 response followed by an FTP 550 reply. Commit `6534ff95d5a6368bc7f6f438a3427ea6048fb6df` delays success headers until all pre-transfer checks pass and maps invalid REST, permission, missing-file and non-regular-file failures to HTTP 400/403/404 with an empty body. The VSFTPD workflow source contract and GNU89 policy suite #45707415023 PASS; Process inventory #45707415097 and AI docs #45707414961 PASS on the same SHA. NVRAM #45707414901 and XY-C1 #45707417102 were IN_PROGRESS at checkpoint; XY Build was running and TRX/artifact pending. No live HTTP socket test or firmware L3 result is claimed.

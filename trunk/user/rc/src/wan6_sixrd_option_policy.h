@@ -11,6 +11,7 @@
  * expands them to at most 993 bytes, including separators and prefix text.
  */
 #define WAN6_SIXRD_OPTION_VALUE_MAX 1024U
+#define WAN6_SIXRD_MAX_RELAY_COUNT 59U
 #define WAN6_SIXRD_IPV4_TEXT_SIZE 16U
 
 typedef int (*wan6_sixrd_ipv4_validator_fn)(const char *address);
@@ -56,7 +57,8 @@ wan6_sixrd_relay_list_first_valid(
 		while (*cursor && !wan6_sixrd_is_separator(*cursor))
 			++cursor;
 		length = (size_t)(cursor - start);
-		if (length == 0 || length >= sizeof(candidate))
+		if (length == 0 || length >= sizeof(candidate) ||
+		    relay_count >= WAN6_SIXRD_MAX_RELAY_COUNT)
 			goto invalid;
 
 		memcpy(candidate, start, length);

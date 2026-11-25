@@ -85,6 +85,31 @@ test_accept_maximum_relay_text(void)
 	assert(strcmp(first, "198.198.198.198") == 0);
 }
 
+
+static void
+test_reject_relay_count_above_dhcp_limit(void)
+{
+	char relay_list[WAN6_SIXRD_OPTION_VALUE_MAX];
+	char first[WAN6_SIXRD_IPV4_TEXT_SIZE];
+	size_t used = 0;
+	unsigned int i;
+
+	relay_list[0] = '\0';
+	for (i = 0; i < WAN6_SIXRD_MAX_RELAY_COUNT + 1U; ++i) {
+		int written = snprintf(relay_list + used,
+				       sizeof(relay_list) - used,
+				       "%s198.198.198.198", i ? " " : "");
+
+		assert(written > 0);
+		assert((size_t)written < sizeof(relay_list) - used);
+		used += (size_t)written;
+	}
+	strcpy(first, "stale");
+	assert(!wan6_sixrd_relay_list_first_valid(
+		relay_list, first, sizeof(first), is_ipv4_literal));
+	assert(first[0] == '\0');
+}
+
 int
 main(void)
 {
@@ -92,6 +117,7 @@ main(void)
 	test_multiple_relays_select_first_and_validate_all();
 	test_reject_empty_and_truncated_tokens();
 	test_accept_maximum_relay_text();
+	test_reject_relay_count_above_dhcp_limit();
 	puts("WAN 6rd multi-border-relay option regression: PASS");
 	return 0;
 }
