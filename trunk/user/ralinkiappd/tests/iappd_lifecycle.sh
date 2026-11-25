@@ -94,6 +94,21 @@ status() {
 }
 run() { /bin/sh "$base/iappd.sh" "$1"; }
 iapp_source="$base/src/rtmpiapp.c"
+iapp_util_source="$base/src/mt_iapp_util.c"
+grep -Fq '#include "ft_client_hash_policy.h"' "$iapp_util_source" ||
+  fail "IAPP FT client utility must use the bounded hash-chain policy"
+grep -Fq 'ft_client_hash_find_free_slot(pFtTable->ft_sta_info' "$iapp_util_source" ||
+  fail "IAPP FT client insertion must fail closed when no free slot exists"
+grep -Fq 'ft_client_hash_append(&pFtTable->hash[HashIdx]' "$iapp_util_source" ||
+  fail "IAPP FT client insertion must use bounded hash-chain append"
+grep -Fq 'ft_client_hash_unlink(&pFtTable->hash[HashIdx]' "$iapp_util_source" ||
+  fail "IAPP FT client deletion must unlink before slot release"
+delete_unlink_line=$(grep -n -F 'ft_client_hash_unlink(&pFtTable->hash[HashIdx]' "$iapp_util_source" | cut -d: -f1)
+delete_clear_line=$(grep -n -F 'ft_entry->used = 0;' "$iapp_util_source" | tail -1 | cut -d: -f1)
+[ -n "$delete_unlink_line" ] && [ -n "$delete_clear_line" ] &&
+  [ "$delete_unlink_line" -lt "$delete_clear_line" ] ||
+  fail "IAPP FT client deletion must detach a node before marking its slot free"
+
 eth_guard_line=$(grep -n -F "iapp_ifname_arg_valid(strlen(pArgv[0]), sizeof(pCtrlBK->IfNameEth))" "$iapp_source" | cut -d: -f1)
 eth_store_line=$(grep -n -F "strcpy(pCtrlBK->IfNameEth, pArgv[0]);" "$iapp_source" | cut -d: -f1)
 [ -n "$eth_guard_line" ] && [ -n "$eth_store_line" ] && [ "$eth_guard_line" -lt "$eth_store_line" ] ||

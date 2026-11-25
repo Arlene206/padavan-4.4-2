@@ -1,27 +1,31 @@
 ## Current repository state — 2026-11-25
 
-- Live main before this C89 compile correction: 4cd7ec6a17fd5150ac103495e9a1ace73760e365; the declaration/newline fix and over-capacity regression are one atomic descendant (THIS COMMIT).
-- Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains read-only at 72f4f157a084f8184b9597ca5bf334b8080e5807.
-- On exact SHA 50a7a3bec7fadb342587c01bd644a3507168b2f3: IAPP lifecycle #45689047967 PASS, Process lifecycle #45689047980 PASS, process inventory #45689047731 PASS, NVRAM #45689047687 PASS and AI handoff #45689047657 PASS. XY-C1 #45689047827 was still building when last checked.
-- On exact SHA 4cd7ec6a17fd5150ac103495e9a1ace73760e365: IAPP lifecycle #45689557162 PASS, process inventory #45689557189 PASS, AI handoff #45689557186 PASS. Process lifecycle #45689557170, XY-C1 #45689557176 and NVRAM #45689557329 were pending at last poll.
-- Static review caught duplicate same-scope declarations in the new IAPP_UDP_PacketSend() guard block; the IAPP shell test is source-contract-only and does not compile this production C function. This slice removes the duplicate declarations and adds the configured-count-over-capacity rejection. Do not mark 4cd's C build verified until its exact-SHA XY-C1 workflow completes.
-- Earlier exact XY-C1 L3 is verified on 8b9b63401dd85232b257120111bb18475db6b5b6 (Build, TRX, artifact upload PASS on that SHA); this does not transfer to newer source commits. Physical-router L4 NOT VERIFIED.
-- Closed PR #1 inventory is complete; no cherry-pick. Backup remains untouched.
+- Live main parent before this FT-client chain fix: `6997d011f9a13bcdd7ba99ebc87e266231b2b85b`; `mt_iapp_util.c`, policy header, compiled C regression, lifecycle source contract, IAPP workflow filters, dev log and handoff are one atomic descendant.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- FTP directory ACL fixes remain verified. XY-C1 L3 is fully verified on exact SHA `8b9b63401dd85232b257120111bb18475db6b5b6` (#45685416720: Build, TRX validation and artifact upload all PASS). Physical router L4 NOT VERIFIED.
+- IAPP exact SHA `50a7a3bec7fadb342587c01bd644a3507168b2f3`: IAPP lifecycle #45689047967, Process #45689047980, NVRAM #45689047687, AI handoff #45689047657 and inventory #45689047731 PASS. XY-C1 #45689047827 was still building at last poll.
+- IAPP exact SHA `4cd7ec6a17fd5150ac103495e9a1ace73760e365`: IAPP #45689557162, Process #45689557170, AI #45689557186, inventory #45689557189 and NVRAM PASS. XY-C1 was still in progress at last poll; do not claim L3 for this SHA.
+- Follow-up commit `6997d011f9a13bcdd7ba99ebc87e266231b2b85b` corrected the BSS-index guard for C89: duplicate declarations are removed and an over-capacity configured-count regression is added. Its exact inventory and handoff Actions PASS; IAPP and XY-C1 were in progress, NVRAM in progress. Do not infer a firmware build result.
+- IAPP source-bound fixes protect the two-entry ioctl interface array, `-e`/`-w` command-line buffers, and UDP sender's `IfNameWlanMAC[if_idx]` access. This slice addresses the separate FT-client hash-chain reuse defect: deletion retained a stale `next` pointer which could splice buckets after slot reuse; insert could also continue when no free slot existed despite the count.
+- Current slice includes detach-before-release helpers and compiled tests for stale-link reuse, unlink, full-table, duplicate and cyclic chains. Exact-head IAPP/Process/NVRAM/AI/XY checks must be inspected after publication.
+- Prior SO_REUSEADDR commit `7d525c481a9cac2868b6ac58b3123cbf53278d05` exact IAPP, Process, NVRAM, AI, inventory and XY-C1 checks PASS; this does not imply L4.
+- Closed PR #1 inventory is complete; no code port required. Backup untouched.
 
 ## Active task
 
-Validate the corrected IAPP BSS-index guard with GNU89 host test and exact-head IAPP/Process/XY-C1 Actions. Then continue the targeted packet-length and receive-buffer review in Ralink IAPP.
+Validate the FT-client chain regression and production source contract on the exact current main SHA. Then continue only with concrete IAPP or broader userland defects.
 
 ## Exact first actions for next GPT
 
-1. Fetch live main and poll exact-SHA IAPP lifecycle, Process lifecycle, XY-C1 Build/TRX/artifact and NVRAM results for THIS COMMIT; record each independently.
-2. Confirm the helper regression with -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined; confirm production C through exact-SHA XY-C1.
-3. Continue checking TCP/UDP/RRB minimum packet lengths and receive-buffer reuse before any parser dereference; add focused tests only for proven gaps.
-4. Keep the frozen backup read-only; do not revive closed PR #1.
+1. Fetch live main and exact-head check runs; inspect IAPP lifecycle C regression and source-contract output first. Repair the first causal failure if one exists.
+2. Check same-SHA XY-C1 Build, TRX and artifact upload separately. L3 requires all three PASS on one identical product-source SHA.
+3. Poll prior 4cd7 and 6997 XY-C1 workflows for final outcomes; do not infer pending runs as pass/fail.
+4. Preserve the frozen backup and do not cherry-pick closed PR #1.
 
 ## Execution contract
 
-Main only; one complete tree and atomic commit per logical slice, non-force expected-SHA update. No force-push, development branch or new PR. PENDING Actions do not block independent work.
+Main only; complete Git tree and one commit per logical slice; non-force main update using exact expected parent SHA. No force-push, development branch or new PR. PENDING Actions do not block independent work.
+
 ## 2026-11-25 autonomous handoff checkpoint
 
 This checkpoint supersedes older active task pointers below; retain historical completed work without re-auditing completed areas.

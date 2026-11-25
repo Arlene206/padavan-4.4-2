@@ -1,3 +1,11 @@
+## 2026-11-25 — Prevent stale FT-client hash links on slot reuse
+
+- Fixed a concrete IAPP FT-client table corruption path. Deletion unlinked an entry from its hash bucket but left its `next` pointer intact; when that fixed-array slot was reused in another MAC-hash bucket, the stale pointer could splice the old bucket's tail into the new chain. Insertion also assumed a free slot existed after checking only the table count, then incremented the count even if no unused slot was found.
+- Added a bounded hash-chain policy: free-slot selection clears stale links, append refuses duplicates/full/cyclic chains, and unlink detaches the released entry. Production insertion checks slot/append results before publishing the used flag and table count; deletion unlinks before clearing the slot and preserves state if unlink fails. Lookup, insert and delete reject null table/key pointers.
+- Added compiled regressions for middle/head/tail unlink, cross-bucket slot reuse, stale-link clearing, full table, duplicate append and cyclic-chain bounds. IAPP lifecycle source contracts enforce helper use and unlink-before-release order; the workflow now watches the utility C source and policy header. Exact-head IAPP and XY-C1 Actions pending.
+
+---
+
 ## 2026-11-25 — Keep the IAPP UDP BSS guard C89-buildable
 
 - Static review of 4cd7ec6a17fd5150ac103495e9a1ace73760e365 found the new BSS guard had repeated all local declarations after the guard statement. This is a same-scope redeclaration; the fix keeps the original declarations at function entry and removes the duplicate block. Corrected the new diagnostic's escaped newline.

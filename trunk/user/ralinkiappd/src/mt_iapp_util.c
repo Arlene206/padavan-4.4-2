@@ -25,6 +25,7 @@
 #include "rt_config.h"
 #include "rtmpiapp.h"
 #include "iappdefs.h"
+#include "ft_client_hash_policy.h"
 
 VOID os_alloc_mem(
 	UCHAR *pAd, 
@@ -126,6 +127,9 @@ FT_CLIENT_INFO *mt_iapp_ft_client_look_up(
 	ULONG HashIdx;
 	FT_CLIENT_INFO *ft_entry = NULL;
 
+	if (pFtTable == NULL || pAddr == NULL)
+		return NULL;
+
 	HashIdx = FT_MAC_ADDR_HASH_INDEX(pAddr);
 	ft_entry = pFtTable->hash[HashIdx];
 
@@ -154,9 +158,10 @@ FT_CLIENT_INFO *mt_iapp_ft_client_insert(
 	INT32			ApIfIdx)
 {
 	UCHAR HashIdx;
-	INT idx = 0;
 	FT_CLIENT_INFO *ft_entry = NULL;
-	FT_CLIENT_INFO *current_ft_entry = NULL;
+
+	if (pFtTable == NULL || pStaAddr == NULL)
+		return NULL;
 
 	ft_entry = mt_iapp_ft_client_look_up(pFtTable, pStaAddr);
 	if (ft_entry) {
@@ -168,46 +173,57 @@ FT_CLIENT_INFO *mt_iapp_ft_client_insert(
 		return ft_entry;
 	}
 
-	if (pFtTable->ft_sta_table_size >= FT_MAX_NUM_OF_CLIENT) {
-		DBGPRINT(RT_DEBUG_ERROR, "iapp> %s - FT client table is full. (FtStaTableSize=%d)\n", 
+	if (pFtTable->ft_sta_table_size < 0 ||
+	    pFtTable->ft_sta_table_size >= FT_MAX_NUM_OF_CLIENT) {
+		DBGPRINT(RT_DEBUG_ERROR, "iapp> %s - FT client table is full or inconsistent (FtStaTableSize=%d)\n",
 				__FUNCTION__, pFtTable->ft_sta_table_size);
 		return NULL;
 	}
 
-	for (idx = 0; idx < FT_MAX_NUM_OF_CLIENT; idx++) {
-		ft_entry = &pFtTable->ft_sta_info[idx];
-		if (ft_entry->used)
-			continue;
-		if (pStaAddr)
-			NdisCopyMemory(ft_entry->sta_mac, pStaAddr, ETH_ALEN);
-		if (pApAddr)
-			NdisCopyMemory(ft_entry->ap_mac, pApAddr, ETH_ALEN);
-		ft_entry->if_idx = ApIfIdx;
-		ft_entry->used = 1;
-		break;
+	/*
+	 * A deleted slot can retain a stale next pointer. Clear it before the
+	 * slot is reused, and do not proceed if the usage count and free slots
+	 * disagree.
+	 */
+	ft_entry = ft_client_hash_find_free_slot(pFtTable->ft_sta_info,
+						 FT_MAX_NUM_OF_CLIENT);
+	if (ft_entry == NULL) {
+		DBGPRINT(RT_DEBUG_ERROR, "iapp> %s - no free FT client slot found\n",
+				__FUNCTION__);
+		return NULL;
 	}
-	pFtTable->ft_sta_table_size++;
 
-	HashIdx = FT_MAC_ADDR_HASH_INDEX(pStaAddr);
-	ft_entry->hash_idx = HashIdx;
-	if (pFtTable->hash[HashIdx] == NULL)
-		pFtTable->hash[HashIdx] = ft_entry;
+	HashIdx = (UCHAR)FT_MAC_ADDR_HASH_INDEX(pStaAddr);
+	if ((size_t)HashIdx >=
+	    sizeof(pFtTable->hash) / sizeof(pFtTable->hash[0])) {
+		DBGPRINT(RT_DEBUG_ERROR, "iapp> %s - invalid FT hash index\n",
+				__FUNCTION__);
+		return NULL;
+	}
+
+	NdisCopyMemory(ft_entry->sta_mac, pStaAddr, ETH_ALEN);
+	if (pApAddr)
+		NdisCopyMemory(ft_entry->ap_mac, pApAddr, ETH_ALEN);
 	else
-	{
-		int clientnum = 0;
+		NdisZeroMemory(ft_entry->ap_mac, ETH_ALEN);
+	ft_entry->if_idx = ApIfIdx;
+	ft_entry->hash_idx = HashIdx;
 
-		current_ft_entry = pFtTable->hash[HashIdx];
-		while (current_ft_entry->next != NULL) {
-			current_ft_entry = current_ft_entry->next;
-			clientnum++;
-			if (clientnum > FT_MAX_NUM_OF_CLIENT) {
-				DBGPRINT(RT_DEBUG_TRACE, "iapp> %s - FT record for insert clients not found or FT client table full. (clientnum=%d)\n", __FUNCTION__, clientnum);
-				ft_entry = NULL;
-				break;
-			}
-		}
-		current_ft_entry->next = ft_entry;
+	if (!ft_client_hash_append(&pFtTable->hash[HashIdx], ft_entry,
+				   FT_MAX_NUM_OF_CLIENT)) {
+		DBGPRINT(RT_DEBUG_ERROR, "iapp> %s - cannot append FT client to hash chain\n",
+				__FUNCTION__);
+		NdisZeroMemory(ft_entry->sta_mac, ETH_ALEN);
+		NdisZeroMemory(ft_entry->ap_mac, ETH_ALEN);
+		ft_entry->if_idx = -1;
+		ft_entry->hash_idx = 0;
+		ft_entry->used = 0;
+		ft_entry->next = NULL;
+		return NULL;
 	}
+
+	ft_entry->used = 1;
+	pFtTable->ft_sta_table_size++;
 	return ft_entry;
 }
 
@@ -217,59 +233,41 @@ VOID mt_iapp_ft_client_delete(
 {
 	UCHAR HashIdx;
 	FT_CLIENT_INFO *ft_entry = NULL;
-	FT_CLIENT_INFO *hash_ft_entry = NULL;
-	FT_CLIENT_INFO *pre_hash_ft_entry = NULL;
+
+	if (pFtTable == NULL || pStaAddr == NULL)
+		return;
 
 	ft_entry = mt_iapp_ft_client_look_up(pFtTable, pStaAddr);
-
 	if (ft_entry == NULL) {
-		DBGPRINT(RT_DEBUG_TRACE, "iapp> %s - cannot find this entry (%02x:%02x:%02x:%02x:%02x:%02x)\n", 
+		DBGPRINT(RT_DEBUG_TRACE, "iapp> %s - cannot find this entry (%02x:%02x:%02x:%02x:%02x:%02x)\n",
 				__FUNCTION__,
-				pStaAddr[0],
-				pStaAddr[1],
-				pStaAddr[2],
-				pStaAddr[3],
-				pStaAddr[4],
-				pStaAddr[5]);
+				pStaAddr[0], pStaAddr[1], pStaAddr[2],
+				pStaAddr[3], pStaAddr[4], pStaAddr[5]);
 		return;
 	}
 
+	HashIdx = (UCHAR)FT_MAC_ADDR_HASH_INDEX(pStaAddr);
+	if ((size_t)HashIdx >=
+	    sizeof(pFtTable->hash) / sizeof(pFtTable->hash[0]) ||
+	    !ft_client_hash_unlink(&pFtTable->hash[HashIdx], ft_entry,
+				   FT_MAX_NUM_OF_CLIENT)) {
+		DBGPRINT(RT_DEBUG_ERROR, "iapp> %s - FT client hash unlink failed; preserving slot\n",
+				__FUNCTION__);
+		return;
+	}
+
+	/* Unlink first so the released slot cannot retain a cross-bucket link. */
 	ft_entry->used = 0;
 	NdisZeroMemory(ft_entry->ap_mac, ETH_ALEN);
 	NdisZeroMemory(ft_entry->sta_mac, ETH_ALEN);
 	ft_entry->if_idx = -1;
+	ft_entry->hash_idx = 0;
 
-	HashIdx = ft_entry->hash_idx;
-	hash_ft_entry = pFtTable->hash[HashIdx];
-	pre_hash_ft_entry = NULL;
-	if (hash_ft_entry != NULL)
-	{
-		int clientnum = 0;
-
-		/* update Hash list*/
-		do
-		{
-			clientnum++;
-			if (clientnum > FT_MAX_NUM_OF_CLIENT) {
-				DBGPRINT(RT_DEBUG_TRACE, "iapp> %s - FT client for delete not found. (clientnum=%d)\n", __FUNCTION__, clientnum);
-				hash_ft_entry = NULL;
-				break;
-			}
-
-			if (hash_ft_entry == ft_entry)
-			{
-				if (pre_hash_ft_entry == NULL)
-					pFtTable->hash[HashIdx] = ft_entry->next;
-				else
-					pre_hash_ft_entry->next = ft_entry->next;
-				break;
-			}
-
-			pre_hash_ft_entry = hash_ft_entry;
-			hash_ft_entry = hash_ft_entry->next;
-		} while (hash_ft_entry);
-	}
-	pFtTable->ft_sta_table_size--;
+	if (pFtTable->ft_sta_table_size > 0)
+		pFtTable->ft_sta_table_size--;
+	else
+		DBGPRINT(RT_DEBUG_ERROR, "iapp> %s - FT client count was already zero\n",
+				__FUNCTION__);
 }
 
 INT32 mt_iapp_find_ifidx_by_sta_mac(

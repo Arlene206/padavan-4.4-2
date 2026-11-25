@@ -4,6 +4,76 @@
 
 #include "../src/iapp_ioctl_ifname_policy.h"
 
+typedef struct _FT_CLIENT_INFO {
+	struct _FT_CLIENT_INFO *next;
+	int used;
+} FT_CLIENT_INFO;
+
+#include "../src/ft_client_hash_policy.h"
+
+static void
+test_ft_client_hash_slot_reuse_severs_stale_links(void)
+{
+	FT_CLIENT_INFO entries[4] = { { 0 } };
+	FT_CLIENT_INFO *first_bucket = NULL;
+	FT_CLIENT_INFO *second_bucket = NULL;
+	FT_CLIENT_INFO *slot;
+
+	entries[0].used = 1;
+	entries[1].used = 1;
+	entries[2].used = 1;
+	entries[0].next = &entries[1];
+	entries[1].next = &entries[2];
+	first_bucket = &entries[0];
+
+	/* Removing a middle node must preserve the old bucket and clear next. */
+	assert(ft_client_hash_unlink(&first_bucket, &entries[1], 4));
+	assert(first_bucket == &entries[0]);
+	assert(entries[0].next == &entries[2]);
+	assert(entries[1].next == NULL);
+
+	/* Reusing the slot in another bucket must not import the old tail. */
+	entries[1].used = 0;
+	entries[1].next = &entries[2];
+	slot = ft_client_hash_find_free_slot(entries, 4);
+	assert(slot == &entries[1]);
+	assert(slot->next == NULL);
+	assert(ft_client_hash_append(&second_bucket, slot, 4));
+	assert(second_bucket == &entries[1]);
+	assert(second_bucket->next == NULL);
+
+	/* Head and tail removal must leave detached nodes unlinked. */
+	assert(ft_client_hash_unlink(&second_bucket, &entries[1], 4));
+	assert(second_bucket == NULL);
+	assert(entries[1].next == NULL);
+	assert(ft_client_hash_unlink(&first_bucket, &entries[0], 4));
+	assert(first_bucket == &entries[2]);
+	assert(entries[0].next == NULL);
+	assert(ft_client_hash_unlink(&first_bucket, &entries[2], 4));
+	assert(first_bucket == NULL);
+	assert(entries[2].next == NULL);
+}
+
+static void
+test_ft_client_hash_full_and_corrupt_chains_fail_closed(void)
+{
+	FT_CLIENT_INFO entries[2] = { { 0 } };
+	FT_CLIENT_INFO *head;
+
+	entries[0].used = 1;
+	entries[1].used = 1;
+	head = &entries[0];
+	entries[0].next = &entries[1];
+	assert(ft_client_hash_find_free_slot(entries, 2) == NULL);
+	assert(!ft_client_hash_append(&head, &entries[0], 2));
+
+	/* A pre-existing loop must be bounded rather than traversed forever. */
+	entries[1].next = &entries[0];
+	assert(!ft_client_hash_append(&head, &entries[1], 2));
+	assert(!ft_client_hash_unlink(&head, NULL, 2));
+	assert(!ft_client_hash_unlink(&head, &entries[1], 0));
+}
+
 static void
 test_valid_two_interface_slots(void)
 {
@@ -80,6 +150,8 @@ test_parser_rejects_count_overflow_and_invalid_names(void)
 int
 main(void)
 {
+	test_ft_client_hash_slot_reuse_severs_stale_links();
+	test_ft_client_hash_full_and_corrupt_chains_fail_closed();
 	test_valid_two_interface_slots();
 	test_out_of_range_and_unconfigured_indices_fall_back();
 	test_malformed_slots_and_names_fall_back();
