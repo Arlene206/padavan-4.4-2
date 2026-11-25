@@ -54,6 +54,12 @@ tar() {
 			command mkdir -p "$COPYSCRIPTS_CERT_DIR/certs/ca-certificates.crt"
 			return 0
 			;;
+		symlink-output)
+			command mkdir -p "$COPYSCRIPTS_CERT_DIR/certs"
+			printf '%s\n' "test CA bundle" > "$COPYSCRIPTS_CERT_DIR/certs/target.crt"
+			command ln -s target.crt "$COPYSCRIPTS_CERT_DIR/certs/ca-certificates.crt"
+			return 0
+			;;
 		fail)
 			return 2
 			;;
@@ -118,6 +124,13 @@ MOCK_TAR_MODE=directory-output
 if install_ca_trust_store; then fail "directory CA bundle was accepted"; fi
 [ -d "$COPYSCRIPTS_CERT_DIR/certs/ca-certificates.crt" ] ||
 	fail "directory-output fixture did not create the expected directory"
+
+# -f and -r follow symlinks, so a non-empty target must not make a link valid.
+reset_case
+MOCK_TAR_MODE=symlink-output
+if install_ca_trust_store; then fail "symlink CA bundle was accepted"; fi
+[ -L "$COPYSCRIPTS_CERT_DIR/certs/ca-certificates.crt" ] ||
+	fail "symlink-output fixture did not create the expected symlink"
 
 echo "CA trust-store bootstrap success regression: PASS"
 echo "CA trust-store bootstrap failure propagation regression: PASS"

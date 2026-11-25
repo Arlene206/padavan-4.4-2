@@ -192,7 +192,7 @@ run_optional_start "SmartDNS" /usr/bin/smartdns.sh start
 fi
 
 if autostart_nvram_enabled aliddns_enable; then
-	if [ -f /etc/ssl/certs/ca-certificates.crt ] && [ -s /etc/ssl/certs/ca-certificates.crt ] && [ -r /etc/ssl/certs/ca-certificates.crt ]; then
+	if [ ! -L /etc/ssl/certs/ca-certificates.crt ] && [ -f /etc/ssl/certs/ca-certificates.crt ] && [ -s /etc/ssl/certs/ca-certificates.crt ] && [ -r /etc/ssl/certs/ca-certificates.crt ]; then
 		logger -t "自动启动" "正在启动阿里 ddns..."
 		run_optional_start "AliDDNS" /usr/bin/aliddns.sh start
 	else

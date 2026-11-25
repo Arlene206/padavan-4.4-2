@@ -70,6 +70,22 @@ if install_ca_trust_store; then
 	exit 1
 fi
 
+mkdir -p "$tmp/symlink-root/certs"
+printf 'symlink target CA bundle\n' > "$tmp/symlink-root/certs/target.crt"
+ln -s target.crt "$tmp/symlink-root/certs/ca-certificates.crt"
+tar -czf "$tmp/symlink.tgz" -C "$tmp/symlink-root" certs
+COPYSCRIPTS_CERT_ARCHIVE="$tmp/symlink.tgz"
+COPYSCRIPTS_CERT_DIR="$tmp/symlink-dest"
+export COPYSCRIPTS_CERT_ARCHIVE COPYSCRIPTS_CERT_DIR
+if install_ca_trust_store; then
+	echo "symlink at CA bundle path was accepted" >&2
+	exit 1
+fi
+[ -L "$tmp/symlink-dest/certs/ca-certificates.crt" ] || {
+	echo "symlink archive fixture did not preserve the link" >&2
+	exit 1
+}
+
 mkdir -p "$tmp/not-a-directory"
 : > "$tmp/not-a-directory/file"
 COPYSCRIPTS_CERT_ARCHIVE="$tmp/valid.tgz"

@@ -30,6 +30,7 @@ LIBCURL_MAKEFILE_PATH = ROOT / "trunk/libs/libcurl/Makefile"
 CERT_ARCHIVE_PATH = ROOT / "trunk/user/scripts/files/etc_ro/certs.tgz"
 COPY_SCRIPTS_PATH = ROOT / "trunk/user/scripts/files/usr/bin/copyscripts.sh"
 AUTOSTART_PATH = ROOT / "trunk/user/scripts/files/usr/bin/autostart.sh"
+CA_STATUS_TEST_PATH = ROOT / "trunk/user/scripts/tests/copyscripts_ca_status.sh"
 RC_PATH = ROOT / "trunk/user/rc/src/rc.c"
 SERVICES_PATH = ROOT / "trunk/user/rc/src/services.c"
 VARIABLES_PATH = ROOT / "trunk/user/httpd/src/variables.c"
@@ -44,6 +45,7 @@ lifecycle_test = LIFECYCLE_TEST_PATH.read_text()
 busybox_config = BUSYBOX_CONFIG_PATH.read_text()
 flock_source = FLOCK_SOURCE_PATH.read_text()
 ca_bootstrap_test = CA_BOOTSTRAP_TEST_PATH.read_text()
+ca_status_test = CA_STATUS_TEST_PATH.read_text()
 hmac_test = HMAC_TEST_PATH.read_text()
 hmac_source = HMAC_SOURCE_PATH.read_text()
 hmac_makefile = HMAC_MAKEFILE_PATH.read_text()
@@ -231,11 +233,11 @@ require('if _autostart_nvram_value=$(nvram get "$_autostart_nvram_key"); then' i
         'return "$_autostart_nvram_status"' in autostart_nvram_read and
         'autostart_nvram_read "$1" || return $?' in autostart_nvram_enabled and
         'if autostart_nvram_enabled aliddns_enable; then' in autostart and
-        'if [ -f /etc/ssl/certs/ca-certificates.crt ] && [ -s /etc/ssl/certs/ca-certificates.crt ] && [ -r /etc/ssl/certs/ca-certificates.crt ]; then' in autostart and
+        'if [ ! -L /etc/ssl/certs/ca-certificates.crt ] && [ -f /etc/ssl/certs/ca-certificates.crt ] && [ -s /etc/ssl/certs/ca-certificates.crt ] && [ -r /etc/ssl/certs/ca-certificates.crt ]; then' in autostart and
         'run_optional_start "AliDDNS" /usr/bin/aliddns.sh start' in autostart and
         'AliDDNS autostart skipped: CA trust bundle is not readable (missing, empty or not a regular file)' in autostart and
         autostart.index('if autostart_nvram_enabled aliddns_enable; then') <
-        autostart.index('if [ -f /etc/ssl/certs/ca-certificates.crt ] && [ -s /etc/ssl/certs/ca-certificates.crt ] && [ -r /etc/ssl/certs/ca-certificates.crt ]; then') <
+        autostart.index('if [ ! -L /etc/ssl/certs/ca-certificates.crt ] && [ -f /etc/ssl/certs/ca-certificates.crt ] && [ -s /etc/ssl/certs/ca-certificates.crt ] && [ -r /etc/ssl/certs/ca-certificates.crt ]; then') <
         autostart.index('run_optional_start "AliDDNS" /usr/bin/aliddns.sh start') <
         autostart.index('if autostart_nvram_enabled ddnsto_enable; then'),
         "enabled AliDDNS must retain a status-checked, CA-gated optional startup path")
@@ -548,7 +550,7 @@ ca_install = function_body(copy_scripts, "install_ca_trust_store() {")
 rc_router = function_body(rc, "init_router(void)")
 rc_router_compact = "".join(rc_router.split())
 require('if ! tar -xzf "$copyscripts_cert_archive" -C "$copyscripts_cert_dir"; then' in ca_install and
-        'if [ ! -f "$copyscripts_ca_bundle" ] || [ ! -s "$copyscripts_ca_bundle" ] || [ ! -r "$copyscripts_ca_bundle" ]; then' in ca_install and
+        'if [ -L "$copyscripts_ca_bundle" ] || [ ! -f "$copyscripts_ca_bundle" ] || [ ! -s "$copyscripts_ca_bundle" ] || [ ! -r "$copyscripts_ca_bundle" ]; then' in ca_install and
         "copyscripts_ca_status=1" in copy_scripts and
         "copyscripts_seed_status=0" in copy_scripts and
         'if [ "$copyscripts_ca_status" -ne 0 ] || [ "$copyscripts_seed_status" -ne 0 ]; then' in copy_scripts and
@@ -627,8 +629,11 @@ for marker in (
 require("empty-output" in ca_bootstrap_test and
         "directory-output" in ca_bootstrap_test and
         "empty CA bundle was accepted" in ca_bootstrap_test and
-        "directory CA bundle was accepted" in ca_bootstrap_test,
-        "CA bootstrap regression must reject empty and non-regular trust bundles")
+        "directory CA bundle was accepted" in ca_bootstrap_test and
+        "symlink-output" in ca_bootstrap_test and
+        "symlink CA bundle was accepted" in ca_bootstrap_test and
+        "symlink at CA bundle path was accepted" in ca_status_test,
+        "CA bootstrap regression must reject empty, non-regular and symlinked trust bundles")
 
 fingerprint = source.split("aliddns_config_fingerprint () {", 1)[1].split("\n}", 1)[0]
 status_body = source.split("aliddns_get_status () {", 1)[1].split("\n}", 1)[0]

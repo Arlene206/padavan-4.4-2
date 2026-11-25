@@ -250,6 +250,32 @@ grep -Fxq 'frp:start' "$AUTOSTART_CALLS" || {
 
 : > "$AUTOSTART_LOG"
 : > "$AUTOSTART_CALLS"
+printf 'symlink target CA bundle\n' > "$TMP_DIR/ca-bundle-target"
+ln -s "$TMP_DIR/ca-bundle-target" "$TMP_DIR/ssl/certs/ca-certificates.crt"
+sh "$TMP_DIR/autostart.sh" >/dev/null 2>&1 || {
+	echo "autostart failed while rejecting a symlinked AliDDNS CA bundle" >&2
+	exit 1
+}
+if grep -Fxq 'aliddns:start' "$AUTOSTART_CALLS"; then
+	echo "AliDDNS started with a symlinked CA trust bundle" >&2
+	exit 1
+fi
+grep -Fq 'AliDDNS autostart skipped: CA trust bundle is not readable' "$AUTOSTART_LOG" || {
+	echo "symlinked AliDDNS CA dependency was not logged" >&2
+	exit 1
+}
+grep -Fxq 'ddnsto:start' "$AUTOSTART_CALLS" || {
+	echo "symlinked AliDDNS CA bundle incorrectly blocked DDNSTO" >&2
+	exit 1
+}
+grep -Fxq 'frp:start' "$AUTOSTART_CALLS" || {
+	echo "symlinked AliDDNS CA bundle incorrectly blocked FRP" >&2
+	exit 1
+}
+rm -f "$TMP_DIR/ssl/certs/ca-certificates.crt"
+
+: > "$AUTOSTART_LOG"
+: > "$AUTOSTART_CALLS"
 printf 'test CA bundle\n' > "$TMP_DIR/ssl/certs/ca-certificates.crt"
 sh "$TMP_DIR/autostart.sh" >/dev/null 2>&1 || {
 	echo "autostart failed when AliDDNS CA bundle was present" >&2
