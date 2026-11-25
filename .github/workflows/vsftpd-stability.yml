@@ -870,10 +870,17 @@ jobs:
           assert "dangling final symlink accepted" in acl_path_test
           assert "ftp_acl_path_resolve_listing_symlink" in listing_visibility
           assert "asus_check_permission_at(p_sess, PERM_READ, resolved_entry)" in listing_visibility
+          listing_entry_visibility = function_body(acl_path_policy, "ftp_acl_path_listing_entry_is_visible(")
           assert "AT_SYMLINK_NOFOLLOW" in no_chroot_visibility
+          assert "if (directory_fd < 0)" in no_chroot_visibility
           assert "S_ISLNK(entry_stat.st_mode)" in no_chroot_visibility
           assert "ftp_acl_path_resolve_listing_symlink" in no_chroot_visibility
-          assert no_chroot_visibility.index("ftp_acl_path_resolve_listing_symlink") < no_chroot_visibility.index("return 1;")
+          assert "ftp_acl_path_listing_entry_is_visible" in no_chroot_visibility
+          assert no_chroot_visibility.index("listing_stat_status = fstatat") < no_chroot_visibility.index("ftp_acl_path_listing_entry_is_visible") < no_chroot_visibility.index("return 1;")
+          assert "return stat_status == 0 && (!is_symlink || resolve_status == 0);" in listing_entry_visibility
+          assert "test_listing_entry_visibility_policy" in acl_path_test
+          assert "ftp_acl_path_listing_entry_is_visible(-1, 0, 0) != 0" in acl_path_test
+          assert "ftp_acl_path_listing_entry_is_visible(0, 1, -1) != 0" in acl_path_test
           assert "AT_SYMLINK_NOFOLLOW" in listing_symlink
           assert '"/proc/self/fd/%d/%s"' in listing_symlink
           assert "before.st_ino != after.st_ino" in listing_symlink

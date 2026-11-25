@@ -316,6 +316,17 @@ ftp_acl_path_split_entry(const char *path, char *parent, size_t parent_size,
 }
 
 /*
+ * Listing visibility is permitted only after the entry was inspected and,
+ * for symlinks, its canonical target was resolved successfully.
+ */
+static int
+ftp_acl_path_listing_entry_is_visible(int stat_status, int is_symlink,
+                                      int resolve_status)
+{
+  return stat_status == 0 && (!is_symlink || resolve_status == 0);
+}
+
+/*
  * Resolve a directory-listing symlink from the pinned parent descriptor.
  * /proc/self/fd keeps lookup anchored to that directory even if its pathname
  * is renamed while LIST is in progress. Recheck the symlink inode afterwards

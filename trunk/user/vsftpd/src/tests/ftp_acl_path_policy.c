@@ -175,6 +175,19 @@ test_share_read_permission_policy(void)
   return 0;
 }
 
+static int
+test_listing_entry_visibility_policy(void)
+{
+  if (ftp_acl_path_listing_entry_is_visible(0, 0, 0) != 1 ||
+      ftp_acl_path_listing_entry_is_visible(-1, 0, 0) != 0 ||
+      ftp_acl_path_listing_entry_is_visible(0, 1, 0) != 1 ||
+      ftp_acl_path_listing_entry_is_visible(0, 1, -1) != 0) {
+    fprintf(stderr, "FTP LIST visibility did not fail closed on lookup errors\n");
+    return 1;
+  }
+  return 0;
+}
+
 int
 main(void)
 {
@@ -1512,6 +1525,9 @@ main(void)
       unlink(alias) || rmdir(a) || rmdir(b) || rmdir(root)) {
     perror("remove fixture"); return 1;
   }
+  if (test_listing_entry_visibility_policy() != 0)
+    return 1;
+
   puts("vsftpd ACL path, descriptor metadata and CWD policy: PASS");
   return 0;
 }

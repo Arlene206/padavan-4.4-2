@@ -1,3 +1,10 @@
+## 2026-11-25 — Fail closed on FTP LIST entry-stat errors
+
+- Review of the no-chroot LIST fast path found a visibility bypass: it treated an entry as visible when fstatat(..., AT_SYMLINK_NOFOLLOW) failed, because symlink resolution ran only after a successful stat. A dangling/replaced entry or transient lookup error could therefore skip the internal-metadata symlink gate.
+- The path now requires a valid listing directory descriptor and a successful no-follow stat; symlinks additionally require successful descriptor-anchored target resolution. Added direct policy regression cases for stat failure and symlink-resolution failure, plus an exact-source workflow contract. This requires exact-head VSFTPD Actions; no local firmware build is claimed.
+
+---
+
 ## 2026-11-25 — Point MTD save-retry fixture at the strict procfs parser
 
 - USB-storage exact-head run #45596308813 on `62254bda` passed the preceding storage checks, RWFS conversion under host sh/BusyBox ash, and reset_ss publication regression. It then failed before testing save retry because the fixture still rewrote `cat /proc/mtd`, while production `func_get_mtd()` had been hardened to parse `/proc/mtd` directly with awk. The test therefore read the host runner's absent `/proc/mtd` instead of its fixture.

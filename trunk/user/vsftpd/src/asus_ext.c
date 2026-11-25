@@ -904,6 +904,7 @@ asus_check_file_visible(struct vsf_session* p_sess,
                         const struct mystr* p_filename_str)
 {
   int i_layer, i_user_right, i_result;
+  int listing_stat_status, listing_symlink_status, listing_entry_is_symlink;
   char fullpath[PATH_MAX], resolved_entry[PATH_MAX];
   char *mount_path = NULL, *share_name = NULL;
   const char *p_filename;
@@ -917,18 +918,25 @@ asus_check_file_visible(struct vsf_session* p_sess,
   if (!tunable_chroot_local_user) {
     /*
      * Internal ACL files remain private even when share-level ACL enforcement
-     * is disabled. Resolve symlink targets from the pinned listing directory
-     * before accepting their names; a failed resolution is hidden fail-closed.
+     * is disabled. A failed entry probe or symlink resolution is not evidence
+     * that the name is safe to expose; keep the listing check fail-closed.
      */
-    if (directory_fd >= 0 && strcmp(p_filename, ".") != 0 &&
-        strcmp(p_filename, "..") != 0 &&
-        fstatat(directory_fd, p_filename, &entry_stat,
-                AT_SYMLINK_NOFOLLOW) == 0 &&
-        S_ISLNK(entry_stat.st_mode) &&
-        ftp_acl_path_resolve_listing_symlink(directory_fd, p_filename,
-                                             resolved_entry,
-                                             sizeof(resolved_entry)) != 0)
+    if (directory_fd < 0)
       return 0;
+    if (strcmp(p_filename, ".") != 0 && strcmp(p_filename, "..") != 0) {
+      listing_stat_status = fstatat(directory_fd, p_filename, &entry_stat,
+                                    AT_SYMLINK_NOFOLLOW);
+      listing_entry_is_symlink = listing_stat_status == 0 &&
+                                 S_ISLNK(entry_stat.st_mode);
+      listing_symlink_status = 0;
+      if (listing_entry_is_symlink)
+        listing_symlink_status = ftp_acl_path_resolve_listing_symlink(
+            directory_fd, p_filename, resolved_entry, sizeof(resolved_entry));
+      if (!ftp_acl_path_listing_entry_is_visible(
+              listing_stat_status, listing_entry_is_symlink,
+              listing_symlink_status))
+        return 0;
+    }
     return 1;
   }
   if (!p_sess || directory_fd < 0 || !resolved_base || resolved_base[0] != '/')
