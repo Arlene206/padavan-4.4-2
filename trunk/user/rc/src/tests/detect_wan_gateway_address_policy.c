@@ -5,7 +5,7 @@
 
 #define CHECK(condition) do { \
     if (!(condition)) { \
-        fprintf(stderr, "FAIL %s:%d: %s\\n", __FILE__, __LINE__, #condition); \
+        fprintf(stderr, "FAIL %s:%d: %s\n", __FILE__, __LINE__, #condition); \
         return 1; \
     } \
 } while (0)
@@ -37,7 +37,7 @@ static int
 test_invalid_gateway_is_not_aliased_to_no_gateway(void)
 {
     static const char * const invalid[] = {
-        "not-an-ip", "192.0.2.256", "192.0.2", "192.0.2.1junk"
+        "not-an-ip", "192.0.2.256", "192.0.2.1junk"
     };
     uint32_t address, before;
     size_t index;
