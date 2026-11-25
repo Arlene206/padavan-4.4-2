@@ -1,6 +1,12 @@
+## 2026-11-25 — Reject embedded-NUL PPP session state bytes
+
+- ppp_callback_state_file_read() passed a NUL-terminated buffer to the strict decimal parser without checking the original bytes read. A corrupt file such as 42\0ignored\n was therefore interpreted as generation 42 because parsing stopped at the embedded NUL, silently accepting a valid prefix.
+- Reject embedded NUL within the exact read length before adding the parser terminator; return EINVAL and leave generation_out zero. The regression creates a binary state file containing a valid decimal prefix, NUL and trailing bytes, then verifies fail-closed rejection.
+- Parent source SHA 0af78992a772036818dc4fd71b48ff74b066abeb had Process/Lifecycle #45520798937 PASS, HTTPD #45520798957 PASS, WAN DHCP #45520799105 PASS and AI docs #45520799045 PASS. XY-C1 #45520798962 was still IN_PROGRESS; no L3 result is claimed. The source/header/test path filters now include the modified state file and regression. No local compile is claimed.
+
 ## 2026-11-25 — Align PPP shared-state checks and XY-C1 triggers
 
-- The PPP stable-state regression and Process/Lifecycle workflow passed on 4f969e4313a14fc4b185e9af4e1a7c6715e08e0c. HTTPD Security on that SHA failed only because its PPP contract still searched net_ppp.c for O_NOFOLLOW and same-inode locking; WAN DHCP callback run #45519973125 on parent e02d1e3 had the same stale assertions, including fsync inline in the wrapper.
+- The PPP stable-state regression and Process/Lifecycle workflow passed on 4f969e4313a14fc4b185e9af4e1a7c6715e08e0c. HTTPD Security on that SHA failed only because its PPP contract still searched net_ppp.c for O_NOFOLLOW and same-inode locking; WAN DHCP callback run #45519973125 on parent edd52074de4ab7f630ce8c42ec9af7d0835bb51d had the same stale assertions, including fsync inline in the wrapper.
 - Updated both static contracts to inspect ppp_callback_state_file.h for owner/regular-file/O_NOFOLLOW validation, stable F_WRLCK sidecar handling, fsync and atomic rename, while checking net_ppp.c for wrapper integration and separate-state publication.
 - XY-C1, HTTPD and WAN DHCP path filters now include both PPP callback policy headers and the state-file regression. This ensures that changes to the directly included implementation helpers cannot silently bypass firmware or lifecycle validation.
 - Exact-head HTTPD/WAN/XY reruns are pending on the next main SHA. No L3 Build/TRX/artifact or L4 hardware result is claimed.

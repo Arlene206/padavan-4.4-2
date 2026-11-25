@@ -31,13 +31,14 @@ int
 main(void)
 {
 	char directory[] = "/tmp/ppp-callback-state.XXXXXX";
-	char lock_path[320], state_path[320], link_path[320];
+	char lock_path[320], state_path[320], binary_path[320], link_path[320];
 	char victim_path[320], empty_path[320], directory_path[320];
 	struct stat lock_fd_stat, lock_path_stat, state_stat;
 	struct rlimit saved_limit, limited;
 	void (*saved_sigxfsz)(int);
 	unsigned long generation, next_generation;
 	char formatted[sizeof(unsigned long) * CHAR_BIT + 2];
+	const char embedded_nul_state[] = "42\0ignored\n";
 	int lock_fd, status, fd;
 	pid_t child;
 	int child_status;
@@ -59,6 +60,8 @@ main(void)
 	assert(snprintf(victim_path, sizeof(victim_path), "%s/victim",
 			directory) > 0);
 	assert(snprintf(empty_path, sizeof(empty_path), "%s/empty",
+			directory) > 0);
+	assert(snprintf(binary_path, sizeof(binary_path), "%s/binary",
 			directory) > 0);
 	assert(snprintf(directory_path, sizeof(directory_path), "%s/target-dir",
 			directory) > 0);
@@ -132,6 +135,16 @@ main(void)
 	assert(generation == 42);
 	assert_no_staged_files(directory);
 
+	/* Embedded NUL must not let the parser accept only a valid prefix. */
+	fd = open(binary_path, O_WRONLY | O_CREAT | O_EXCL, 0600);
+	assert(fd >= 0);
+	assert(write(fd, embedded_nul_state, sizeof(embedded_nul_state) - 1) ==
+	       (ssize_t)(sizeof(embedded_nul_state) - 1));
+	assert(close(fd) == 0);
+	assert(ppp_callback_state_file_read(binary_path, 1, &generation) == -1);
+	assert(errno == EINVAL);
+	assert(generation == 0);
+
 	/* Empty, non-regular and linked state must never reset or follow. */
 	fd = open(empty_path, O_WRONLY | O_CREAT | O_EXCL, 0600);
 	assert(fd >= 0 && close(fd) == 0);
@@ -166,6 +179,7 @@ main(void)
 	assert(unlink(link_path) == 0);
 	assert(unlink(victim_path) == 0);
 	assert(unlink(empty_path) == 0);
+	assert(unlink(binary_path) == 0);
 	assert(rmdir(directory_path) == 0);
 	assert(rmdir(directory) == 0);
 	puts("PPP callback stable lock and atomic generation-state publication: PASS");

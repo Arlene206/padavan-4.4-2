@@ -62,6 +62,11 @@ ppp_callback_state_file_read(const char *path, int allow_missing,
 			goto out;
 		}
 	}
+	/* Do not let the decimal parser accept a valid prefix of a binary file. */
+	if (memchr(state_text, '\0', used) != NULL) {
+		errno = EINVAL;
+		goto out;
+	}
 	state_text[used] = '\0';
 	if (used > 0 && state_text[used - 1] == '\n')
 		state_text[--used] = '\0';

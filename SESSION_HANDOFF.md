@@ -6,24 +6,27 @@ Continue one autonomous engineering stream on main. For each logical slice, crea
 
 ## Branch and checkpoint
 
-- Current production source baseline: 4f969e4313a14fc4b185e9af4e1a7c6715e08e0c; refresh live main before every future write.
+- Last verified PPP source baseline before embedded-NUL hardening: 0af78992a772036818dc4fd71b48ff74b066abeb; refresh live main and tree before every future write.
 - Frozen backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807; verified unchanged and read-only.
 - main is the only development ref. PR #1 is closed/unmerged and is not a development target.
 - Bootstrap, protocol, handoff, roadmap, dev-log window/index and live refs were recovered once. The recorded RC whole-line parser gate has been superseded by subsequent main commits; do not repeat it.
 
 ## Active task
 
-### PPP WAN callback generation state: stable lock + atomic publication
+### PPP WAN callback state parser — reject embedded-NUL corruption
 
-The PPP session token was stored in the same inode used as its fcntl lock. The generation-change path sought to offset zero and truncated this live lock file before writing the next generation. Any short write, I/O error or power loss after truncate permanently left an existing empty/corrupt state file; the lock reader deliberately rejects such a file rather than resetting the token, so subsequent callback entry and WAN teardown remain blocked. The new slice separates a stable wan-session.lock inode from wan-session.state, keeps all ## Current exact-head Actions on 4f969e4313a14fc4b185e9af4e1a7c6715e08e0c
+ppp_callback_state_file_read() previously read the full state file into a byte buffer but passed it directly to a C-string decimal parser. An existing file containing a valid prefix followed by an embedded NUL and trailing bytes (for example 42\0ignored\n) was silently accepted as generation 42. This violates the fail-closed requirement for a canonical on-disk token. The current slice checks all bytes actually read with memchr() before appending the parser terminator; embedded NUL returns EINVAL and leaves generation_out zero. A GNU89 regression now writes that exact binary shape and verifies rejection.
 
-- Process inventory/lifecycle #45520229274: PASS; PPP stable sidecar-lock and atomic-generation regression compiled and executed successfully.
-- Process lifecycle inventory #45520229341: PASS. AI handoff documentation #45520229286: PASS. NVRAM transaction boundary #45520229356 was IN_PROGRESS at last poll.
-- HTTPD Security #45520229267: FAIL only at its stale PPP source contract, which still searched net_ppp.c for O_NOFOLLOW and same-inode locking. The implementation now resides in ppp_callback_state_file.h; this correction updates the checker.
-- WAN DHCP callback state #45519973125 on parent e02d1e3 failed the same stale assumption at lines 937 and 946 (O_NOFOLLOW/fsync expected inline in net_ppp.c). This correction moves those assertions to the shared helper.
-- XY-C1 path filters omitted the PPP state/generation headers and new regression TU, preventing a current firmware workflow from validating the complete slice. This correction adds all three to firmware, HTTPD and WAN DHCP filter lists.
-- No exact-head XY-C1 Build/TRX/artifact result has yet been observed for the PPP state-file slice. L3 remains NOT VERIFIED; L4 remains NOT VERIFIED. No local compile is claimed.
+On parent SHA 0af7899, Process/Lifecycle, HTTPD Security, WAN DHCP callback and AI handoff checks all passed; XY-C1 was still building. This source change is included in the same atomic commit as the regression and log/handoff updates. No local compile is claimed.
 
+## Current exact-head Actions on 0af78992a772036818dc4fd71b48ff74b066abeb
+
+- Process inventory/lifecycle #45520798937: PASS, including PPP state-file host regression and stable-lock/atomic-publication source contract.
+- HTTPD Authentication/Security #45520798957: PASS; updated PPP static contract checks the shared state-file helper.
+- WAN DHCP callback #45520799105: PASS; updated wrapper/helper assertions now match the implementation.
+- AI handoff documentation #45520799045: PASS.
+- XY-C1 Firmware Validation #45520798962: IN_PROGRESS at Build XY-C1; current-head TRX verification and artifact upload are not yet confirmed. L3 remains NOT VERIFIED; L4 hardware remains NOT VERIFIED.
+- No local compile is claimed.
 
 ## Completed source slices
 
@@ -130,9 +133,9 @@ Commit `786c504c8247fe42d5d1d5f2dc3ad28757fafc80` strictly parses persisted RX/T
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and inspect exact-head Process/Lifecycle regression for IPTV altnet parsing plus XY-C1 Build/TRX/artifact checks; do not repeat prior startup recovery.
-2. Diagnose the first causal CI failure in the strict IPv4/CIDR parser, test, or workflow contract and correct it in one atomic main commit. Pending workflows never block independent work.
-3. Continue to another userland stability/security defect outside the recently active RAETH, VSFTPD, HTTPD, FRP and IPTV paths. No L3 claim until exact-SHA XY-C1 build/TRX/artifact succeeds; no L4 claim without hardware validation.
+1. Fetch live main and inspect exact-head Process/Lifecycle, HTTPD Security, WAN DHCP, AI documentation and XY-C1 Actions after this embedded-NUL source change. Diagnose any first failure against that exact SHA; do not reuse parent-SHA results as current validation.
+2. Confirm XY-C1 Build, TRX verification and artifact upload all pass on the exact source SHA before claiming L3. L4 remains unverified without hardware.
+3. Continue the next independent userland stability/security defect outside the recent PPP/HTTPD/IPTV/FRP work; pending checks do not block independent work.
 
 ## Mandatory handoff checkpoint
 

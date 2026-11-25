@@ -324,7 +324,7 @@ Current implementation checkpoint (2026-11-21):
 - Run scripts/check_ai_handoff_docs.py when a local checkout is available, then inspect the documentation workflow on the exact pushed SHA. Do not create a follow-up docs-only commit solely to write completed CI results into the files.
 
 - P1 — IPTV proxy altnet: validate IPv4 octets and CIDR prefix; only empty NVRAM maps to 0/0. Reject malformed short values before publishing config; GNU89 regression added.
-- P1 — PPP callback generation state: separate the stable fcntl sidecar lock from the data inode; publish increments via checked same-dir stage + fsync/close/rename. Preserve last-good token on short writes; cross-process regression added.
+- P1 — PPP callback generation state: separate the stable fcntl sidecar lock from the data inode; publish increments via checked same-dir stage + fsync/close/rename; reject empty, malformed and embedded-NUL state. Regressions cover short-write preservation, cross-process exclusion and malformed state. Exact-current-HEAD XY-C1 L3 validation remains pending.
 ## Verification matrix
 
 | p910nd USB print server | PARTIAL / BIDIRECTIONAL SIGPIPE DAEMON-CRASH FIX IMPLEMENTED; GNU89 ASAN/UBSAN SOCKETPAIR L2 PASS; EXACT-SHA L3 PASS | In `-b` mode printer-return writes target the TCP client. Peer disconnect could raise default SIGPIPE and kill the daemon before EPIPE recovery. Ignore SIGPIPE only in bidirectional mode and fail startup if setup fails; existing write error handling remains authoritative. Exact p910nd, Process inventory, Process lifecycle and AI checks PASS on source `23248f7`. | Exact XY-C1 #44941685839 Build/TRX/artifact PASS on source `23248f7`; physical printer disconnect and hardware L4 NOT VERIFIED. |
