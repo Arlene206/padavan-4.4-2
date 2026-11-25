@@ -2836,10 +2836,7 @@ int ei_open(struct net_device *dev)
 		if (IS_ERR(ei_local->kreset_task)) {
 			err = PTR_ERR(ei_local->kreset_task);
 			ei_local->kreset_task = NULL;
-			fe_reset();
-			ei_deinit_dma(dev);
-			module_put(THIS_MODULE);
-			return err;
+			goto fail_open;
 		}
 		wake_up_process(ei_local->kreset_task);
 	}
@@ -2852,49 +2849,63 @@ int ei_open(struct net_device *dev)
 		mii_mgr_write_cl45(0, 0x1f, 0x24, 0x8007);
 		mii_mgr_write_cl45(0, 0x1f, 0x25, 0x3f);
 		if ((ei_local->architecture & GE2_RGMII_AN)) {
-			mii_mgr_write(0, 9, 0x200);
-			mii_mgr_write(0, 0, 0x1340);
+			/* Autonegotiation is required; a failed MDIO write must not
+			 * leave the interface running with an unconfigured PHY.
+			 */
+			err = ra_switch_mdio_legacy_bool_status(
+				mii_mgr_write(0, 9, 0x200));
+			if (err)
+				goto fail_open;
+			err = ra_switch_mdio_legacy_bool_status(
+				mii_mgr_write(0, 0, 0x1340));
+			if (err)
+				goto fail_open;
 			if (mac_to_gigaphy_mode_addr2 == 0) {
 				ei_local->kphy_poll_task =
 				    kthread_create(phy_polling_thread, NULL, "phy_polling_kthread");
 				if (IS_ERR(ei_local->kphy_poll_task)) {
 					err = PTR_ERR(ei_local->kphy_poll_task);
 					ei_local->kphy_poll_task = NULL;
-					fe_reset();
-					ei_deinit_dma(dev);
-					module_put(THIS_MODULE);
-					return err;
+					goto fail_open;
 				}
 				wake_up_process(ei_local->kphy_poll_task);
 			}
 		} else if (ei_local->architecture & LEOPARD_EPHY_GMII) {
-			mii_mgr_write(0, 9, 0x200);
-			mii_mgr_write(0, 0, 0x1340);
+			err = ra_switch_mdio_legacy_bool_status(
+				mii_mgr_write(0, 9, 0x200));
+			if (err)
+				goto fail_open;
+			err = ra_switch_mdio_legacy_bool_status(
+				mii_mgr_write(0, 0, 0x1340));
+			if (err)
+				goto fail_open;
 		}
 	}
 
 	netif_start_queue(dev);
 
 	err = fe_int_enable(dev);
-	if (err) {
-		netif_stop_queue(dev);
-		if (!IS_ERR_OR_NULL(ei_local->kphy_poll_task)) {
-			kthread_stop(ei_local->kphy_poll_task);
-			ei_local->kphy_poll_task = NULL;
-		}
-		if (!IS_ERR_OR_NULL(ei_local->kreset_task)) {
-			kthread_stop(ei_local->kreset_task);
-			ei_local->kreset_task = NULL;
-		}
-		fe_reset();
-		ei_deinit_dma(dev);
-		if (ei_local->chip_name == MT7622_FE)
-			fe_sw_deinit(ei_local);
-		module_put(THIS_MODULE);
-		return err;
-	}
+	if (err)
+		goto fail_open;
 
 	return 0;
+
+fail_open:
+	netif_stop_queue(dev);
+	if (!IS_ERR_OR_NULL(ei_local->kphy_poll_task)) {
+		kthread_stop(ei_local->kphy_poll_task);
+		ei_local->kphy_poll_task = NULL;
+	}
+	if (!IS_ERR_OR_NULL(ei_local->kreset_task)) {
+		kthread_stop(ei_local->kreset_task);
+		ei_local->kreset_task = NULL;
+	}
+	fe_reset();
+	ei_deinit_dma(dev);
+	if (ei_local->chip_name == MT7622_FE)
+		fe_sw_deinit(ei_local);
+	module_put(THIS_MODULE);
+	return err;
 }
 
 int ei_close(struct net_device *dev)

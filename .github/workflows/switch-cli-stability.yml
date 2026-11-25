@@ -1628,6 +1628,7 @@ jobs:
           enable = body("static int fe_int_enable(", "static int fe_int_disable(")
           disable = body("static int fe_int_disable(", "int forward_config(")
           close = body("int ei_close(struct net_device *dev)", "static int ei_start_xmit_fake(")
+          open_body = body("int ei_open(struct net_device *dev)", "int ei_close(struct net_device *dev)")
           assert "ra_switch_mdio_legacy_bool_status(unsigned int result)" in policy
           assert "return result == 1U ? 0 : -EIO;" in policy
           assert "test_legacy_mdio_boolean_status_fails_closed" in test
@@ -1646,6 +1647,19 @@ jobs:
           assert "irq_status = fe_int_disable(dev);" in close
           assert "return irq_status;" in close
           assert close.index("ra2880stop(ei_local);") < close.index("irq_status = fe_int_disable(dev);") < close.index("fe_reset();")
+          assert open_body.count("ra_switch_mdio_legacy_bool_status(") == 4
+          assert open_body.count("mii_mgr_write(0, 9, 0x200)") == 2
+          assert open_body.count("mii_mgr_write(0, 0, 0x1340)") == 2
+          assert open_body.count("goto fail_open;") >= 7
+          assert open_body.index("ra_switch_mdio_legacy_bool_status(") < open_body.index("netif_start_queue(dev);")
+          fail_open = open_body[open_body.index("fail_open:"):]
+          assert "kthread_stop(ei_local->kphy_poll_task);" in fail_open
+          assert "kthread_stop(ei_local->kreset_task);" in fail_open
+          assert "fe_reset();" in fail_open
+          assert "ei_deinit_dma(dev);" in fail_open
+          assert "module_put(THIS_MODULE);" in fail_open
+          assert "return err;" in fail_open
+          print("RAETH PHY autoneg MDIO failures fail the open path and unwind resources: PASS")
           print("RAETH GSW link IRQ enable/disable MDIO failures propagate through interface lifecycle: PASS")
           PY
 
