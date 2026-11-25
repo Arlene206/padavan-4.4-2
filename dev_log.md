@@ -1,3 +1,8 @@
+## 2026-11-25 — Correct Redsocks mock rule keys after chain parsing
+
+- Exact `7cfd647` regression still failed because the stateful mock stored `table|chain rule` using an explicit `$chain` prefix while `$rule="$*"` already contains the chain token. This left an invalid doubled key and the test observed zero PREROUTING jumps. Updated check/delete/append and append-fault matching to use the complete original argv once (`table|$rule`).
+- This correction is isolated to `scripts/tests/redsocks_lifecycle.sh`; production policy remains unchanged. Exact-head Redsocks CI must now validate the full test matrix.
+
 ## 2026-11-25 — Restrict downloaded native SmartDNS filters to address rules
 
 - The native SmartDNS path previously copied the entire downloaded file whenever it found one `address=` line. A mixed or compromised list could therefore inject unrelated daemon settings such as `server`, `bind` or nested `conf-file` directives into the active SmartDNS config.
