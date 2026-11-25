@@ -1,3 +1,8 @@
+## 2026-11-24 — Expand the PPPoE-MWAN LAN mask fixture variable
+
+- Exact WAN run #45551840669 on `f8d0b7a` ran the repaired /16 tests but stopped earlier in the NVRAM failure matrix: the br0 mock emitted `Mask:${LAN_MASK...}` literally because the echo string remained single-quoted. Changed the mock to double quotes so its configurable mask is expanded; the production parser and firewall rules are unchanged.
+- Exact-head WAN route / AI docs / XY-C1 checks must be observed on the corrected test SHA. No local shell run or firmware build is claimed.
+
 ## 2026-11-24 — Correct the PPPoE-MWAN LAN-prefix fixture splice
 
 - The preceding repair attempt remained malformed: the remote test file still had duplicated fragments of the normal-run section, so the exact-head WAN rerun could not parse it. Rebuilt the shell regression directly from the intact `0b85e2e` baseline and inserted the two prefix cases by line index, not substring replacement.

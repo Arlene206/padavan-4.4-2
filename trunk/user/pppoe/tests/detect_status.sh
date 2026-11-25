@@ -24,7 +24,7 @@ MOCK
 cat > "$BIN/ifconfig" <<'MOCK'
 #!/bin/sh
 case "$1" in
- br0) [ "${FAIL_BR0:-0}" != 1 ] || exit 32; echo 'br0 Link encap:Ethernet'; echo ' inet addr:192.168.50.1 Bcast:192.168.50.255 Mask:${LAN_MASK:-255.255.255.0}';;
+ br0) [ "${FAIL_BR0:-0}" != 1 ] || exit 32; echo 'br0 Link encap:Ethernet'; echo " inet addr:192.168.50.1 Bcast:192.168.50.255 Mask:${LAN_MASK:-255.255.255.0}";;
  ppp0) echo "ifconfig ppp0" >> "$LOG"; [ "${FAIL_PPP0:-0}" != 1 ] || exit 44; echo ' inet addr:198.51.100.2 P-t-P:198.51.100.1 Mask:255.255.255.255';;
  ppp1) echo "ifconfig ppp1" >> "$LOG"; [ "${PPP1_UP:-1}" = 1 ] || exit 1; echo ' inet addr:203.0.113.2 P-t-P:203.0.113.1 Mask:255.255.255.255';;
  *) exit 1;;
