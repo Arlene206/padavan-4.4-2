@@ -1,3 +1,10 @@
+## 2026-11-24 — Limit DNSMasq static-ARP cleanup to the previous generated set
+
+- `arpbind_clear()` previously deleted every permanent ARP row on `br0`, even when the address/MAC pair did not originate from DNSMasq's generated `/etc/ethers`. That could remove unrelated administrator- or service-owned permanent neighbours.
+- Capture the prior `/etc/ethers` snapshot before publishing a replacement. Cleanup now removes only permanent Ethernet rows on `br0` whose IPv4 and MAC both match that prior snapshot; ordinary stop and restart preserve the same ownership boundary. A missing file is treated as an empty first-boot snapshot, while unsafe, malformed or unreadable snapshots do not widen cleanup.
+- Added a bounded ownership snapshot policy and regression proving a same-bridge permanent row with a different IP or MAC is not considered owned. The DNSMasq workflow source contract now pins snapshot-before-publication and exact-match-before-delete ordering.
+- Based on main `e46b33e19cc6395d40486e14b170495298b80223`. Exact-head DNSMasq Actions are pending; no local compile or firmware result is claimed.
+
 ## 2026-11-24 — Detect ZeroTier multipath routes on every nexthop
 
 - Review of the damaged-checkpoint route guard found that its AWK parser retained only the last `dev` token on each `ip route` line. Multipath routes can contain multiple nexthops on one line; if the ZeroTier interface appeared before a later `br0` nexthop, the parser could miss the live ZeroTier path and incorrectly allow prefix recovery.

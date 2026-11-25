@@ -9,6 +9,18 @@
 #include <string.h>
 #include <sys/wait.h>
 
+#define DNSMASQ_STATIC_ARP_MAX 64
+
+struct dnsmasq_static_arp_binding {
+	char ip[16];
+	char mac[18];
+};
+
+struct dnsmasq_static_arp_snapshot {
+	size_t count;
+	struct dnsmasq_static_arp_binding entries[DNSMASQ_STATIC_ARP_MAX];
+};
+
 
 /* /proc/net/arp exposes six whitespace-delimited columns. Validate every
  * column rather than allowing a truncated row to disappear from cleanup. */
@@ -122,6 +134,103 @@ dnsmasq_static_ethers_record_parse(const char *line,
 	memcpy(ip, parsed_ip, ip_length + 1);
 	memcpy(mac, compact_mac, mac_length + 1);
 	return 0;
+}
+
+/* Compare validated colon-delimited Ethernet addresses without case bias. */
+static inline int
+dnsmasq_static_arp_mac_text_equal(const char *left, const char *right)
+{
+	size_t i;
+
+	if (!dnsmasq_static_arp_mac_is_valid(left) ||
+	    !dnsmasq_static_arp_mac_is_valid(right))
+		return 0;
+	for (i = 0; i < 17; i++) {
+		unsigned char a = (unsigned char)left[i];
+		unsigned char b = (unsigned char)right[i];
+
+		if (a >= 'A' && a <= 'F')
+			a = (unsigned char)(a - 'A' + 'a');
+		if (b >= 'A' && b <= 'F')
+			b = (unsigned char)(b - 'A' + 'a');
+		if (a != b)
+			return 0;
+	}
+	return 1;
+}
+
+/* Add one validated /etc/ethers entry to the immutable pre-reconfigure set. */
+static inline int
+dnsmasq_static_arp_snapshot_add_ethers_record(
+	struct dnsmasq_static_arp_snapshot *snapshot, const char *line)
+{
+	char ip[16], compact_mac[13];
+	char *mac;
+	size_t i, out = 0;
+	int status;
+
+	if (!snapshot)
+		return EINVAL;
+	if (snapshot->count > DNSMASQ_STATIC_ARP_MAX)
+		return EINVAL;
+	status = dnsmasq_static_ethers_record_parse(
+		line, ip, sizeof(ip), compact_mac, sizeof(compact_mac));
+	if (status != 0)
+		return status;
+
+	for (i = 0; i < snapshot->count; i++) {
+		if (strcmp(snapshot->entries[i].ip, ip) == 0)
+			return EEXIST;
+	}
+	if (snapshot->count >= DNSMASQ_STATIC_ARP_MAX)
+		return EOVERFLOW;
+
+	mac = snapshot->entries[snapshot->count].mac;
+	for (i = 0; i < 12; i++) {
+		if (i != 0 && i % 2 == 0)
+			mac[out++] = ':';
+		mac[out++] = compact_mac[i];
+	}
+	mac[out] = '\0';
+	memcpy(snapshot->entries[snapshot->count].ip, ip, strlen(ip) + 1);
+	snapshot->count++;
+	return 0;
+}
+
+/* A kernel row is owned only when both its address and Ethernet MAC match. */
+static inline int
+dnsmasq_static_arp_snapshot_contains(
+	const struct dnsmasq_static_arp_snapshot *snapshot,
+	const char *ip, const char *mac)
+{
+	size_t i;
+
+	if (!snapshot || !ip || !mac ||
+	    snapshot->count > DNSMASQ_STATIC_ARP_MAX ||
+	    !dnsmasq_static_arp_ipv4_is_valid(ip) ||
+	    !dnsmasq_static_arp_mac_is_valid(mac))
+		return 0;
+	for (i = 0; i < snapshot->count; i++) {
+		if (strcmp(snapshot->entries[i].ip, ip) == 0 &&
+		    dnsmasq_static_arp_mac_text_equal(
+			snapshot->entries[i].mac, mac))
+			return 1;
+	}
+	return 0;
+}
+
+/* Called after the complete /proc/net/arp row has passed strict parsing. */
+static inline int
+dnsmasq_static_arp_snapshot_contains_record(
+	const struct dnsmasq_static_arp_snapshot *snapshot, const char *line)
+{
+	char ip[16], hardware_type[8], flags[16], mac[18];
+
+	if (!snapshot || !line ||
+	    sscanf(line, "%15s %7s %15s %17s",
+		   ip, hardware_type, flags, mac) != 4)
+		return 0;
+	return dnsmasq_static_arp_snapshot_contains(snapshot, ip, mac);
 }
 
 static inline int

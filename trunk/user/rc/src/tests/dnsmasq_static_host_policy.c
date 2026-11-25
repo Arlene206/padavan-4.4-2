@@ -116,6 +116,40 @@ test_static_arp_record_parser(void)
 }
 
 static void
+test_static_arp_ownership_snapshot(void)
+{
+	struct dnsmasq_static_arp_snapshot snapshot;
+
+	memset(&snapshot, 0, sizeof(snapshot));
+	assert(dnsmasq_static_arp_snapshot_add_ethers_record(
+		&snapshot, "00:11:22:33:44:5a 192.0.2.10") == 0);
+	assert(snapshot.count == 1);
+	assert(dnsmasq_static_arp_snapshot_contains(
+		&snapshot, "192.0.2.10", "00:11:22:33:44:5A"));
+	assert(!dnsmasq_static_arp_snapshot_contains(
+		&snapshot, "192.0.2.10", "02:11:22:33:44:55"));
+	assert(!dnsmasq_static_arp_snapshot_contains(
+		&snapshot, "192.0.2.11", "00:11:22:33:44:5A"));
+
+	assert(dnsmasq_static_arp_snapshot_contains_record(
+		&snapshot,
+		"192.0.2.10 0x1 0x6 00:11:22:33:44:5A * br0"));
+	/* Same bridge and permanent flag are insufficient without the old MAC/IP pair. */
+	assert(!dnsmasq_static_arp_snapshot_contains_record(
+		&snapshot,
+		"192.0.2.10 0x1 0x6 02:11:22:33:44:55 * br0"));
+	assert(!dnsmasq_static_arp_snapshot_contains_record(
+		&snapshot,
+		"192.0.2.11 0x1 0x6 00:11:22:33:44:5A * br0"));
+
+	assert(dnsmasq_static_arp_snapshot_add_ethers_record(
+		&snapshot, "02:11:22:33:44:55 192.0.2.10") == EEXIST);
+	assert(dnsmasq_static_arp_snapshot_add_ethers_record(
+		&snapshot, "invalid ethers record") == EIO);
+	assert(snapshot.count == 1);
+}
+
+static void
 test_valid_unicast_mac_text(void)
 {
 	assert(dnsmasq_static_mac_is_valid("001122334455"));
@@ -356,6 +390,7 @@ main(void)
 	test_static_arp_header_parser();
 	test_static_arp_ipv4_text();
 	test_static_arp_record_parser();
+	test_static_arp_ownership_snapshot();
 	test_valid_unicast_mac_text();
 	test_rejects_non_unicast_addresses();
 	test_rejects_injection_characters();

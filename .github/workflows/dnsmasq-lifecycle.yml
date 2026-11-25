@@ -881,7 +881,7 @@ jobs:
           assert arp_set.index("xioctl(sockfd, SIOCSARP, &req);") < arp_set.index("return 0;")
           assert "dnsmasq_static_arp_command_errno" in static_mac_policy
           assert "test_static_arp_command_status" in static_mac_test
-          for token in ("test_valid_unicast_mac_text", "test_rejects_non_unicast_addresses", "test_rejects_injection_characters", "test_rejects_wrong_lengths", "test_static_arp_command_status", "test_static_arp_transaction_success", "test_static_arp_transaction_rolls_back_prior_additions", "test_static_arp_transaction_continues_after_delete_failure", "test_static_arp_transaction_prevalidates_all_entries"):
+          for token in ("test_static_arp_ownership_snapshot", "test_valid_unicast_mac_text", "test_rejects_non_unicast_addresses", "test_rejects_injection_characters", "test_rejects_wrong_lengths", "test_static_arp_command_status", "test_static_arp_transaction_success", "test_static_arp_transaction_rolls_back_prior_additions", "test_static_arp_transaction_continues_after_delete_failure", "test_static_arp_transaction_prevalidates_all_entries"):
               assert token in static_mac_test
           assert "dnsmasq_dhcp_range_default_pool" in simple_range
           assert "dnsmasq_dhcp_range_pool_is_valid" in pool_check
@@ -912,6 +912,25 @@ jobs:
           assert "dnsmasq_static_ethers_record_parse(" in arp_restore
           assert 'dnsmasq_file_open_safe_read("/etc/ethers")' in arp_restore
           assert "ferror(fp)" in arp_restore and "fclose(fp)" in arp_restore
+          arp_snapshot = function_body(
+              services, "arpbind_ethers_snapshot_read(struct dnsmasq_static_arp_snapshot *snapshot)")
+          assert "dnsmasq_static_arp_snapshot_add_ethers_record(snapshot, buffer)" in arp_snapshot
+          assert "saved_errno == ENOENT" in arp_snapshot
+          arp_clear = function_body(
+              services, "arpbind_clear(const struct dnsmasq_static_arp_snapshot *owned)")
+          assert "dnsmasq_static_arp_snapshot_contains_record(owned, buffer)" in arp_clear
+          assert "if (owned->count == 0)" in arp_clear
+          assert arp_clear.index("dnsmasq_static_arp_snapshot_contains_record") < arp_clear.index(
+              'doSystem("arp -i %s -d %s"')
+          stop_locked = function_body(services, "stop_dns_dhcpd_locked(void)")
+          assert stop_locked.index("arpbind_ethers_snapshot_read(&previous_ethers)") < stop_locked.index(
+              "stop_dns_dhcpd_locked_with_snapshot(")
+          assert "snapshot_status == 0 ? &previous_ethers : NULL" in stop_locked
+          assert "arpbind_clear(&previous_ethers)" in function_body(
+              services, "start_dns_dhcpd_locked(int is_ap_mode)")
+          assert "stop_dns_dhcpd_locked_with_snapshot(&previous_ethers, 0)" in function_body(
+              services, "restart_dhcpd_locked(void)")
+          assert "cannot snapshot previous DNSMasq static ARP ownership" in services
           safe_read = function_body(dnsmasq_safe_read_helper, "dnsmasq_file_open_safe_read(const char *path)")
           assert "O_NOFOLLOW" in safe_read and "O_NONBLOCK" in safe_read
           assert "fstat(fd, &st)" in safe_read and "S_ISREG(st.st_mode)" in safe_read
@@ -928,19 +947,23 @@ jobs:
           assert "dnsmasq_static_arp_apply_transaction(" in arp_restore
           assert "dnsmasq_static_arp_apply_transaction(" not in static_hosts_writer
           start_locked = function_body(services, "start_dns_dhcpd_locked(int is_ap_mode)")
+          start_snapshot = start_locked.index("arpbind_ethers_snapshot_read(&previous_ethers)")
+          start_prepare = start_locked.index("prepare_dns_dhcpd(is_ap_mode, &service_enabled)")
           start_preflight = start_locked.index('dnsmasq_require_absent("after configuration preparation")')
-          start_clear = start_locked.index("arpbind_clear()", start_preflight)
+          start_clear = start_locked.index("arpbind_clear(&previous_ethers)")
           start_apply = start_locked.index("arpbind_apply_current_ethers()", start_clear)
           start_launch = start_locked.index('eval("/usr/sbin/dnsmasq")')
-          assert start_preflight < start_clear < start_apply < start_launch
+          assert start_snapshot < start_prepare < start_preflight < start_clear < start_apply < start_launch
           restart_locked = function_body(services, "restart_dhcpd_locked(void)")
           assert "int arp_status;" in restart_locked
           assert "\\n\\tstatus = arpbind_apply_current_ethers()" not in restart_locked
-          restart_stop = restart_locked.index("stop_status = stop_dns_dhcpd_locked()")
+          restart_snapshot = restart_locked.index("arpbind_ethers_snapshot_read(&previous_ethers)")
+          restart_prepare = restart_locked.index("prepare_dns_dhcpd(is_ap_mode, &service_enabled)")
+          restart_stop = restart_locked.index("stop_dns_dhcpd_locked_with_snapshot(&previous_ethers, 0)")
           restart_absent = restart_locked.index("dnsmasq_restart_policy_stop_status(", restart_stop)
           restart_apply = restart_locked.index("arpbind_apply_current_ethers()", restart_absent)
           restart_launch = restart_locked.index('eval("/usr/sbin/dnsmasq")')
-          assert restart_stop < restart_absent < restart_apply < restart_launch
+          assert restart_snapshot < restart_prepare < restart_stop < restart_absent < restart_apply < restart_launch
           assert restart_locked.index("if (action == DNSMASQ_RESTART_STOP_ONLY)") < restart_apply
           assert "doSystem(" not in static_hosts_writer
           assert "dnsmasq_file_publish_set(set_files, set_stages, set_destinations," in static_hosts_test

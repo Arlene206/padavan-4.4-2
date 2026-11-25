@@ -129,13 +129,61 @@ chk_valid_subnet_pool(const char *ip, char *dip1, char *dip2, const char *mask)
 }
 
 static int
-arpbind_clear(void)
+arpbind_ethers_snapshot_read(struct dnsmasq_static_arp_snapshot *snapshot)
+{
+	FILE *fp;
+	char buffer[128];
+	size_t length;
+	int status = 0;
+	int saved_errno;
+
+	if (!snapshot)
+		return EINVAL;
+	memset(snapshot, 0, sizeof(*snapshot));
+	fp = dnsmasq_file_open_safe_read("/etc/ethers");
+	if (!fp) {
+		saved_errno = errno ? errno : EIO;
+		/* A first boot has no previous generated static-host bindings. */
+		if (saved_errno == ENOENT)
+			return 0;
+		return saved_errno;
+	}
+
+	errno = 0;
+	while (fgets(buffer, sizeof(buffer), fp)) {
+		length = strlen(buffer);
+		if (length == 0 || buffer[length - 1] != '\n') {
+			status = EIO;
+			break;
+		}
+		buffer[length - 1] = '\0';
+		status = dnsmasq_static_arp_snapshot_add_ethers_record(snapshot, buffer);
+		if (status != 0)
+			break;
+	}
+	if (ferror(fp) && status == 0)
+		status = errno ? errno : EIO;
+	if (fclose(fp) != 0 && status == 0)
+		status = errno ? errno : EIO;
+	if (status != 0)
+		memset(snapshot, 0, sizeof(*snapshot));
+	return status;
+}
+
+static int
+arpbind_clear(const struct dnsmasq_static_arp_snapshot *owned)
 {
 	FILE *fp;
 	char buffer[256], arp_ip[16], arp_if[32];
 	char *line_end;
 	unsigned int arp_flags;
 	int result = 0;
+
+	if (!owned)
+		return EINVAL;
+	/* No saved /etc/ethers records means there are no provably owned entries. */
+	if (owned->count == 0)
+		return 0;
 
 	fp = fopen("/proc/net/arp", "r");
 	if (!fp)
@@ -181,7 +229,8 @@ arpbind_clear(void)
 				   parse_status);
 			break;
 		}
-		if (!(arp_flags & 0x04) || strcmp(arp_if, IFNAME_BR) != 0)
+		if (!(arp_flags & 0x04) || strcmp(arp_if, IFNAME_BR) != 0 ||
+		    !dnsmasq_static_arp_snapshot_contains_record(owned, buffer))
 			continue;
 
 		errno = 0;
@@ -193,7 +242,7 @@ arpbind_clear(void)
 			if (!result)
 				result = arp_errno;
 			logmessage(LOGNAME,
-				   "cannot remove static ARP binding %s (status=%d errno=%d)",
+				   "cannot remove owned static ARP binding %s (status=%d errno=%d)",
 				   arp_ip, command_status, command_errno);
 		}
 	}
@@ -1504,9 +1553,18 @@ start_dns_dhcpd_locked(int is_ap_mode)
 	int status;
 	int arp_status;
 	int launch_status;
+	struct dnsmasq_static_arp_snapshot previous_ethers;
+
 	status = dnsmasq_require_absent("before configuration preparation");
 	if (status != 0)
 		return status;
+	arp_status = arpbind_ethers_snapshot_read(&previous_ethers);
+	if (arp_status != 0) {
+		logmessage(LOGNAME,
+			   "cannot snapshot previous DNSMasq static ARP ownership (errno=%d)",
+			   arp_status);
+		return arp_status;
+	}
 	status = prepare_dns_dhcpd(is_ap_mode, &service_enabled);
 	if (status != 0 || !service_enabled)
 		return status;
@@ -1514,9 +1572,9 @@ start_dns_dhcpd_locked(int is_ap_mode)
 	status = dnsmasq_require_absent("after configuration preparation");
 	if (status != 0)
 		return status;
-	/* No daemon is active: reconcile stale static entries before applying
-	 * the exact file snapshot prepared above. */
-	arp_status = arpbind_clear();
+	/* Remove only entries from the old /etc/ethers snapshot captured before
+	 * prepare_dns_dhcpd() atomically publishes the new desired host list. */
+	arp_status = arpbind_clear(&previous_ethers);
 	if (arp_status != 0) {
 		logmessage(LOGNAME, "cannot clear stale static ARP bindings before DNSMasq start (errno=%d)",
 			   arp_status);
@@ -1553,24 +1611,43 @@ start_dns_dhcpd(int is_ap_mode)
 	return dnsmasq_lifecycle_lock_finish(lock_fd, status, "start");
 }
 
-int
-stop_dns_dhcpd_locked(void)
+static int
+stop_dns_dhcpd_locked_with_snapshot(
+	const struct dnsmasq_static_arp_snapshot *previous_ethers,
+	int snapshot_status)
 {
 	char* svcs[] = { "dnsmasq", NULL };
 	int status, arp_status;
 
 	status = kill_services(svcs, 3, 1);
 	if (dnsmasq_stop_policy_should_clear_arp(status)) {
-		arp_status = arpbind_clear();
+		arp_status = snapshot_status ? snapshot_status :
+			arpbind_clear(previous_ethers);
 		if (arp_status != 0)
 			logmessage(LOGNAME,
-				   "DNSMasq stopped but static ARP cleanup was incomplete (errno=%d)",
+				   "DNSMasq stopped but owned static ARP cleanup was incomplete (errno=%d)",
 				   arp_status);
 		status = dnsmasq_stop_policy_cleanup_status(status, arp_status);
 	} else {
 		logmessage(LOGNAME, "DNSMasq did not stop cleanly; retaining static ARP bindings");
 	}
 	return status;
+}
+
+int
+stop_dns_dhcpd_locked(void)
+{
+	struct dnsmasq_static_arp_snapshot previous_ethers;
+	int snapshot_status;
+
+	/* Capture ownership before stopping; a failed read must never widen cleanup. */
+	snapshot_status = arpbind_ethers_snapshot_read(&previous_ethers);
+	if (snapshot_status != 0)
+		logmessage(LOGNAME,
+			   "cannot read DNSMasq-owned /etc/ethers snapshot; preserving permanent ARP entries (errno=%d)",
+			   snapshot_status);
+	return stop_dns_dhcpd_locked_with_snapshot(
+		snapshot_status == 0 ? &previous_ethers : NULL, snapshot_status);
 }
 
 static int
@@ -1627,6 +1704,7 @@ restart_dhcpd_locked(void)
 	int scan_error = 0;
 	int launch_status;
 	int start_status;
+	struct dnsmasq_static_arp_snapshot previous_ethers;
 	enum process_presence initial_presence;
 	enum process_presence final_presence;
 	enum dnsmasq_restart_action action;
@@ -1649,6 +1727,13 @@ restart_dhcpd_locked(void)
 			   ap_mode_status);
 		return ap_mode_status;
 	}
+	arp_status = arpbind_ethers_snapshot_read(&previous_ethers);
+	if (arp_status != 0) {
+		logmessage(LOGNAME,
+			   "DNSMasq restart cannot snapshot previous static ARP ownership (errno=%d)",
+			   arp_status);
+		return arp_status;
+	}
 	prepare_status = prepare_dns_dhcpd(is_ap_mode, &service_enabled);
 	action = dnsmasq_restart_policy_action(was_running, prepare_status, service_enabled);
 	if (action == DNSMASQ_RESTART_KEEP_RUNNING) {
@@ -1658,7 +1743,7 @@ restart_dhcpd_locked(void)
 	if (action == DNSMASQ_RESTART_ABORT)
 		return prepare_status;
 
-	stop_status = stop_dns_dhcpd_locked();
+	stop_status = stop_dns_dhcpd_locked_with_snapshot(&previous_ethers, 0);
 	final_presence = dnsmasq_process_presence(&scan_error);
 	stop_postcondition = dnsmasq_restart_policy_stop_status(stop_status, final_presence);
 	if (stop_postcondition != 0) {
@@ -1672,8 +1757,8 @@ restart_dhcpd_locked(void)
 	if (action == DNSMASQ_RESTART_STOP_ONLY)
 		return 0;
 
-	/* stop_dns_dhcpd_locked() has cleared the previous static bindings.
-	 * Restore the exact /etc/ethers snapshot before exposing the new daemon. */
+	/* The previous owned bindings were cleared using the pre-publication
+	 * snapshot; now restore the newly published /etc/ethers contents. */
 	arp_status = arpbind_apply_current_ethers();
 	if (arp_status != 0) {
 		logmessage(LOGNAME,
