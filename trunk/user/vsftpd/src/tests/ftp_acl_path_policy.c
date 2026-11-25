@@ -602,6 +602,65 @@ main(void)
   }
 
   /*
+   * Directory link counts naturally exceed one. The quarantine path must
+   * preserve ordinary cross-share directory rename semantics.
+   */
+  if (fstatat(rename_source_fd, "rename-directory", &st,
+              AT_SYMLINK_NOFOLLOW) != 0 ||
+      !S_ISDIR(st.st_mode) || st.st_nlink <= 1 ||
+      ftp_acl_path_rename_entry(rename_source_fd, "rename-directory",
+          rename_destination_fd, "rename-directory-moved") != 0 ||
+      fstatat(rename_destination_fd, "rename-directory-moved", &st,
+              AT_SYMLINK_NOFOLLOW) != 0 || !S_ISDIR(st.st_mode) ||
+      ftp_acl_path_rename_entry(rename_destination_fd,
+          "rename-directory-moved", rename_source_fd,
+          "rename-directory") != 0 ||
+      fstatat(rename_source_fd, "rename-directory", &st,
+              AT_SYMLINK_NOFOLLOW) != 0 || !S_ISDIR(st.st_mode) ||
+      lstat(rename_dir_link, &st) != 0 || !S_ISLNK(st.st_mode)) {
+    fprintf(stderr, "renameat rejected a directory with multiple links\n");
+    return 1;
+  }
+
+  /*
+   * A destination publication failure must restore the original source leaf
+   * rather than strand the entry in the private quarantine directory.
+   */
+  {
+    int restore_source_fd, blocked_destination_fd, rename_status, rename_errno;
+    restore_source_fd = openat(rename_source_fd, "rename-restore.txt",
+        O_CREAT | O_EXCL | O_WRONLY | O_NOFOLLOW | O_CLOEXEC, 0600);
+    if (restore_source_fd < 0 ||
+        write(restore_source_fd, "restore", 7) != 7 ||
+        close(restore_source_fd) != 0) {
+      perror("create failed-rename restoration fixture");
+      return 1;
+    }
+    blocked_destination_fd = open(file_b, O_RDONLY | O_CLOEXEC);
+    if (blocked_destination_fd < 0) {
+      perror("open non-directory rename destination");
+      return 1;
+    }
+    errno = 0;
+    rename_status = ftp_acl_path_rename_entry(rename_source_fd,
+        "rename-restore.txt", blocked_destination_fd, "not-a-directory");
+    rename_errno = errno;
+    if (rename_status == 0 || rename_errno != ENOTDIR ||
+        fstatat(rename_source_fd, "rename-restore.txt", &st,
+                AT_SYMLINK_NOFOLLOW) != 0 ||
+        !S_ISREG(st.st_mode) || st.st_nlink != 1) {
+      close(blocked_destination_fd);
+      fprintf(stderr, "failed rename publication did not restore its source entry\n");
+      return 1;
+    }
+    if (close(blocked_destination_fd) != 0 ||
+        unlinkat(rename_source_fd, "rename-restore.txt", 0) != 0) {
+      perror("remove failed-rename restoration fixture");
+      return 1;
+    }
+  }
+
+  /*
    * Do not move a multiply-linked file from one ACL share into another.
    * Otherwise a remaining external name can be laundered across the share
    * boundary when its link count later drops.

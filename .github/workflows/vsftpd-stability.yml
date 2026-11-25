@@ -672,8 +672,15 @@ jobs:
           rename_start = acl_path_policy.index("ftp_acl_path_rename_entry(")
           rename_end = acl_path_policy.index("\n}", rename_start)
           rename_policy = acl_path_policy[rename_start:rename_end]
-          assert "fstatat(source_dir_fd, source_leaf, &source_stat" in rename_policy
-          assert "!S_ISDIR(source_stat.st_mode) && source_stat.st_nlink != 1" in rename_policy
+          assert "ftp_acl_path_open_cleanup_directory(source_dir_fd" in rename_policy
+          assert "ftp_acl_path_rename_noreplace(source_dir_fd, source_leaf" in rename_policy
+          assert "fstatat(cleanup_fd, quarantine_leaf, &quarantined" in rename_policy
+          assert "!S_ISDIR(quarantined.st_mode) && quarantined.st_nlink != 1" in rename_policy
+          assert "renameat(cleanup_fd, quarantine_leaf, destination_dir_fd" in rename_policy
+          assert "ftp_acl_path_rename_noreplace(cleanup_fd, quarantine_leaf" in rename_policy
+          assert "fstatat(source_dir_fd, source_leaf" not in rename_policy
+          assert "renameat rejected a directory with multiple links" in acl_path_test
+          assert "failed rename publication did not restore its source entry" in acl_path_test
           assert "renameat moved a multiply-linked file across shares" in acl_path_test
           assert 'fstatat(rename_destination_fd, "cross-share-hardlink-moved"' in acl_path_test
           cleanup_start = acl_path_policy.index("ftp_acl_path_unlink_opened_entry(")

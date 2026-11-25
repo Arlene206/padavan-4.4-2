@@ -400,43 +400,6 @@ ftp_acl_path_resolve_rename_entry(const char *path, char *resolved_parent,
 }
 
 /* Operate on directory entries relative to the exact parent directories already authorized. */
-static int
-ftp_acl_path_rename_entry(int source_dir_fd, const char *source_leaf,
-                          int destination_dir_fd,
-                          const char *destination_leaf)
-{
-  struct stat source_stat;
-
-  if (source_dir_fd < 0 || destination_dir_fd < 0 ||
-      !source_leaf || !*source_leaf || strchr(source_leaf, '/') ||
-      strcmp(source_leaf, ".") == 0 || strcmp(source_leaf, "..") == 0 ||
-      !destination_leaf || !*destination_leaf ||
-      strchr(destination_leaf, '/') ||
-      strcmp(destination_leaf, ".") == 0 ||
-      strcmp(destination_leaf, "..") == 0) {
-    errno = EINVAL;
-    return -1;
-  }
-  if (ftp_acl_path_is_internal_metadata(source_leaf) ||
-      ftp_acl_path_is_internal_metadata(destination_leaf)) {
-    errno = EACCES;
-    return -1;
-  }
-  /*
-   * Moving a multiply-linked non-directory entry can launder an alias from
-   * one authorized share into another. Reject hard-linked files and symlinks
-   * before rename, just as open/stat/upload paths reject them.
-   */
-  if (fstatat(source_dir_fd, source_leaf, &source_stat,
-              AT_SYMLINK_NOFOLLOW) != 0)
-    return -1;
-  if (!S_ISDIR(source_stat.st_mode) && source_stat.st_nlink != 1) {
-    errno = EACCES;
-    return -1;
-  }
-  return renameat(source_dir_fd, source_leaf,
-                  destination_dir_fd, destination_leaf);
-}
 
 /*
  * Open an absolute canonical directory one component at a time. O_PATH keeps
@@ -874,6 +837,105 @@ ftp_acl_path_rename_noreplace(int old_dir_fd, const char *old_name,
   errno = ENOSYS;
   return -1;
 #endif
+}
+
+static int
+ftp_acl_path_rename_entry(int source_dir_fd, const char *source_leaf,
+                          int destination_dir_fd,
+                          const char *destination_leaf)
+{
+  static unsigned int sequence;
+  struct stat quarantined;
+  char cleanup_dir[96], quarantine_leaf[96];
+  unsigned int attempt;
+  int cleanup_fd, moved = 0, written, saved_errno, stat_status;
+
+  if (source_dir_fd < 0 || destination_dir_fd < 0 ||
+      !source_leaf || !*source_leaf || strchr(source_leaf, '/') ||
+      strcmp(source_leaf, ".") == 0 || strcmp(source_leaf, "..") == 0 ||
+      !destination_leaf || !*destination_leaf ||
+      strchr(destination_leaf, '/') ||
+      strcmp(destination_leaf, ".") == 0 ||
+      strcmp(destination_leaf, "..") == 0) {
+    errno = EINVAL;
+    return -1;
+  }
+  if (ftp_acl_path_is_internal_metadata(source_leaf) ||
+      ftp_acl_path_is_internal_metadata(destination_leaf)) {
+    errno = EACCES;
+    return -1;
+  }
+  if (ftp_acl_path_cleanup_directory_name(cleanup_dir,
+                                         sizeof(cleanup_dir)) != 0)
+    return -1;
+  cleanup_fd = ftp_acl_path_open_cleanup_directory(source_dir_fd,
+                                                    cleanup_dir);
+  if (cleanup_fd < 0)
+    return -1;
+
+  /*
+   * Checking the public leaf and then renaming it is racy: another writer
+   * could replace it with a hard link between fstatat() and renameat().
+   * Move the exact current entry into the private directory first, then
+   * validate the moved inode before publishing it to the destination.
+   */
+  for (attempt = 0; attempt < 32U; ++attempt) {
+    ++sequence;
+    written = snprintf(quarantine_leaf, sizeof(quarantine_leaf),
+                       "rename-%ld-%u", (long)getpid(), sequence);
+    if (written < 0 || (size_t)written >= sizeof(quarantine_leaf)) {
+      close(cleanup_fd);
+      errno = ENAMETOOLONG;
+      return -1;
+    }
+    if (ftp_acl_path_rename_noreplace(source_dir_fd, source_leaf,
+                                      cleanup_fd, quarantine_leaf) == 0) {
+      moved = 1;
+      break;
+    }
+    if (errno != EEXIST) {
+      saved_errno = errno;
+      close(cleanup_fd);
+      errno = saved_errno;
+      return -1;
+    }
+  }
+  if (!moved) {
+    close(cleanup_fd);
+    errno = EEXIST;
+    return -1;
+  }
+
+  stat_status = fstatat(cleanup_fd, quarantine_leaf, &quarantined,
+                        AT_SYMLINK_NOFOLLOW);
+  if (stat_status != 0) {
+    saved_errno = errno;
+  } else if (!S_ISDIR(quarantined.st_mode) && quarantined.st_nlink != 1) {
+    /* Directory link counts naturally exceed one; reject aliased leaves. */
+    saved_errno = EACCES;
+  } else if (renameat(cleanup_fd, quarantine_leaf, destination_dir_fd,
+                      destination_leaf) == 0) {
+    close(cleanup_fd);
+    return 0;
+  } else {
+    saved_errno = errno;
+  }
+
+  /*
+   * Validation or publication failed. Restore only if the original public
+   * name is still free; never overwrite a replacement created by another
+   * writer. If restoration loses that race, retain the item in quarantine.
+   */
+  if (ftp_acl_path_rename_noreplace(cleanup_fd, quarantine_leaf,
+                                    source_dir_fd, source_leaf) != 0) {
+    int restore_errno = errno;
+    close(cleanup_fd);
+    errno = restore_errno;
+    return -1;
+  }
+  close(cleanup_fd);
+  errno = saved_errno;
+  return -1;
 }
 
 static int

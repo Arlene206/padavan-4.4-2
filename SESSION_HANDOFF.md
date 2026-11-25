@@ -1,20 +1,18 @@
-## 2026-11-25 autonomous handoff snapshot
+## 2026-11-24 autonomous handoff snapshot
 
 This snapshot supersedes older task pointers below where they conflict with live Git state.
 
-- Main before this repair: `a51d1547c248b4ee8d58451913dd31e33a7ebd69`; source baseline `f2724cd666c7265759b23a72b7dd634041fa7975` includes empty NAT checkpoint authority in ZeroTier stop/cleanup. Live main must be fetched before every new write.
-- Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only and unchanged.
-- Parent ZeroTier run #45530983712 on SHA `904d7b489b96a99c72cedb022667c67d4e3b2eb3` FAIL: job #138925932343 passed the bounded stop/start and Moon-orbit groups, then failed at the empty-source-checkpoint fixture. Log shows grep treating words from the following comment as file operands and a shell fragment trying to execute the log path with permission denied. Inspection found the grep command truncated in line 1367 and its tail stranded near EOF; the test file grew to 3,170 lines from the clean 2,270-line fixture. This is test-source corruption, not a demonstrated product-source failure.
-- This atomic repair restores the clean fixture from `74946cc36589c72b0582fa5dc3132b246e805da7`, keeps its corrected two-line checkpoint encoding, and checks only NAT `-C/-D` operations so setup `-A` rules do not trigger a false positive. The Python checker now locks this assertion shape. Product `zerotier.sh` is unchanged.
-- On parent SHA 904d, Process inventory #45530983779 and WAN route #45530983759 PASS; ZeroTier #45530983712 FAIL as above; XY-C1 #45530983731 IN_PROGRESS. On VSFTPD test SHA `33d0f4c2edaa3f74b004abf2939bad9ca530763d`, VSFTPD #45530467033, Process #45530467005, AI docs #45530467034, NVRAM #45530466995 and XY-C1 #45530467001 PASS. Do not transfer results to a different SHA.
-- AI docs #45531042314 was IN_PROGRESS on doc-only SHA `a51d1547`; this repair's test/checker/docs commit needs its own exact-head Actions. No local shell/C build, current-head MIPS L3 or physical-router L4 is claimed.
-- Next engineering task after this ZeroTier test repair: close the VSFTPD rename source TOCTOU. `ftp_acl_path_rename_entry()` currently does public-leaf `fstatat()` followed by `renameat()`, permitting a concurrent source-name replacement between the link-count check and move. Atomically quarantine the exact source entry before checking link count; preserve directory rename and failed-publication restore semantics. Implement source/test/checker together.
+- Main before this VSFTPD source slice: `ae8a252781ffbaae06e0c51842264293b24e2368`. Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. PR #1 remains closed/unmerged.
+- The previous ZeroTier test corruption is fixed on exact main SHA `ae8a252781ffbaae06e0c51842264293b24e2368`: ZeroTier lifecycle #45531424627, AI handoff docs #45531424568, WAN route #45531424512 and Process inventory #45531424459 PASS. The shell test is back to 2,270 lines with the empty-source checkpoint grep scoped to NAT `-C/-D`; do not repeat this repair.
+- XY-C1 Firmware Validation #45531424536 was IN_PROGRESS at the last observation on that same SHA. Do not claim L3 unless Build, TRX verification and artifact upload all pass on one identical production-source SHA. Physical-router L4 remains NOT VERIFIED.
+- Active source slice closes the VSFTPD rename hard-link check/use race. Parent implementation checked the public leaf with `fstatat()` then separately used `renameat()`; a concurrent directory writer could substitute a multiply-linked inode between those operations. This slice moves the current entry atomically into the existing per-euid 0700 quarantine via `RENAME_NOREPLACE`, checks link count after the move, rejects multiply-linked non-directories, allows directories, then publishes to the pinned destination. Validation/publication failures restore with no-replace semantics to avoid overwriting a concurrent source replacement. GNU89 tests cover hard-link denial, directories with normal multi-link counts and failed-publication restoration; the inline workflow contract rejects the old check/use sequence.
+- Parent VSFTPD baseline `33d0f4c2edaa3f74b004abf2939bad9ca530763d`: VSFTPD #45530467033, Process #45530467005, AI docs #45530467034, NVRAM #45530466995 and XY-C1 #45530467001 PASS; those results predate this rename race fix. Exact-head reruns on the new commit are required. No local C compile, current-head MIPS L3 or physical L4 is claimed.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and inspect exact-head push runs for ZeroTier lifecycle and AI handoff documentation; require `head_sha` to equal the live main tip. Fix any FAIL on main. Also verify Process inventory and WAN route results for that SHA.
-2. Check XY-C1 Build, TRX verification and artifact upload on one identical product-source SHA before claiming L3. L4 remains hardware NOT VERIFIED.
-3. Resume the VSFTPD rename TOCTOU item above after confirming the repaired ZeroTier test is green; do not repeat completed audits or wait on unrelated PENDING runs.
+1. Fetch live main and inspect push-triggered exact-head VSFTPD, AI handoff docs, Process inventory, NVRAM boundary and XY-C1 Actions. Require every result's `head_sha` to match the live tip. Diagnose and fix any FAIL with a new atomic main commit; a PENDING run must not block independent work.
+2. Confirm XY-C1 Build, TRX and artifact upload on that same production-source SHA before claiming L3. Hardware L4 remains NOT VERIFIED.
+3. Continue with the next distinct userland stability/security defect in the roadmap. Do not repeat the ZeroTier fixture repair or VSFTPD rename audit.
 
 No force-push. The backup branch remains unchanged.
 
