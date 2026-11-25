@@ -17,9 +17,9 @@ check_probe(int ifflags, int probe_errno, int expected_status, int expected_exis
 }
 
 
-static const char *restore_calls[5];
-static int restore_values[5];
-static int restore_results[5];
+static const char *restore_calls[3];
+static int restore_values[4];
+static int restore_results[4];
 static int restore_call_count;
 
 static int
@@ -48,14 +48,8 @@ static int restore_hwaddr(const char *ifname, const char *mac)
 	assert(strcmp(mac, "00:11:22:33:44:55") == 0);
 	return record_restore("hwaddr", 1);
 }
-static int restore_egress(const char *ifname, int skb_prio, int qos_prio)
-{
-	assert(strcmp(ifname, "eth2.35") == 0);
-	assert(skb_prio == 0);
-	return record_restore("egress", qos_prio);
-}
 static const vlan_interface_restore_ops_t restore_ops = {
-	restore_admin_up, restore_mtu, restore_hwaddr, restore_egress
+	restore_admin_up, restore_mtu, restore_hwaddr
 };
 
 static void
@@ -63,7 +57,7 @@ reset_restore_mocks(void)
 {
 	int i;
 	restore_call_count = 0;
-	for (i = 0; i < 5; ++i) {
+	for (i = 0; i < 4; ++i) {
 		restore_calls[i] = NULL;
 		restore_values[i] = -1;
 		restore_results[i] = 0;
@@ -76,13 +70,12 @@ test_reused_vlan_restore_attempts_all_original_attributes_in_order(void)
 	int failures = -1;
 	reset_restore_mocks();
 	assert(vlan_interface_restore_existing(&restore_ops, "eth2.35", 1,
-		1, 1480, 1, "00:11:22:33:44:55", 1, 6, &failures) == 0);
-	assert(failures == 0 && restore_call_count == 5);
+		1, 1480, 1, "00:11:22:33:44:55", &failures) == 0);
+	assert(failures == 0 && restore_call_count == 4);
 	assert(strcmp(restore_calls[0], "down") == 0);
 	assert(strcmp(restore_calls[1], "mtu") == 0 && restore_values[1] == 1480);
 	assert(strcmp(restore_calls[2], "hwaddr") == 0);
-	assert(strcmp(restore_calls[3], "egress") == 0 && restore_values[3] == 6);
-	assert(strcmp(restore_calls[4], "up") == 0);
+	assert(strcmp(restore_calls[3], "up") == 0);
 }
 
 static void
@@ -92,10 +85,10 @@ test_reused_vlan_restore_attempts_all_operations_after_failure(void)
 	reset_restore_mocks();
 	restore_results[0] = EBUSY;
 	restore_results[2] = EIO;
-	restore_results[4] = ENODEV;
+	restore_results[3] = ENODEV;
 	assert(vlan_interface_restore_existing(&restore_ops, "eth2.35", 0,
-		1, 1500, 1, "00:11:22:33:44:55", 1, 0, &failures) == EBUSY);
-	assert(failures == 3 && restore_call_count == 5);
+		1, 1500, 1, "00:11:22:33:44:55", &failures) == EBUSY);
+	assert(failures == 3 && restore_call_count == 4);
 	assert(strcmp(restore_calls[4], "down") == 0);
 }
 
@@ -105,7 +98,7 @@ test_reused_vlan_restore_skips_attributes_not_changed(void)
 	int failures = -1;
 	reset_restore_mocks();
 	assert(vlan_interface_restore_existing(&restore_ops, "eth2.35", 0,
-		0, 0, 0, NULL, 0, 0, &failures) == 0);
+		0, 0, 0, NULL, &failures) == 0);
 	assert(failures == 0 && restore_call_count == 2);
 	assert(strcmp(restore_calls[0], "down") == 0);
 	assert(strcmp(restore_calls[1], "down") == 0);

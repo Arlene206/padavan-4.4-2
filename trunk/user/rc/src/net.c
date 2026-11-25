@@ -424,17 +424,10 @@ vlan_restore_hwaddr(const char *ifname, const char *hwaddr)
 	return set_interface_hwaddr(ifname, hwaddr);
 }
 
-static int
-vlan_restore_egress_map(const char *ifname, int skb_prio, int qos_prio)
-{
-	return vconfig_egress_map(ifname, skb_prio, qos_prio);
-}
-
 static const vlan_interface_restore_ops_t vlan_restore_ops = {
 	vlan_restore_admin_up,
 	vlan_restore_mtu,
-	vlan_restore_hwaddr,
-	vlan_restore_egress_map
+	vlan_restore_hwaddr
 };
 
 static int
@@ -445,8 +438,8 @@ create_vlan_iface_internal(const char *dev_ifname, int vid, int prio, int mtu,
 	unsigned char original_hwaddr[6];
 	int ret, saved_errno, created = 0, path_len;
 	int vlan_exists, probe_status, original_flags = 0;
-	int original_up = 0, original_mtu = 0, original_egress = 0;
-	int restore_mtu = 0, restore_hwaddr = 0, restore_egress = 0;
+	int original_up = 0, original_mtu = 0;
+	int restore_mtu = 0, restore_hwaddr = 0;
 	int rollback_status, rollback_failures;
 
 	if (created_out)
@@ -511,24 +504,11 @@ create_vlan_iface_internal(const char *dev_ifname, int vid, int prio, int mtu,
 			}
 			restore_hwaddr = 1;
 		}
-		if (prio >= 0 && prio <= 7) {
-			probe_status = vconfig_get_egress_map_status(vlan_ifname, 0, &original_egress);
-			if (probe_status != 0) {
-				errno = probe_status;
-				return probe_status;
-			}
-			restore_egress = 1;
-		}
 		ret = ifconfig(vlan_ifname, 0, NULL, NULL);
 		if (ret != 0)
 			goto fail;
 	}
 
-	if (prio >= 0 && prio <= 7) {
-		ret = vconfig_egress_map(vlan_ifname, 0, prio);
-		if (ret != 0)
-			goto fail;
-	}
 	if (mtu >= 1280) {
 		ret = set_interface_mtu(vlan_ifname, mtu);
 		if (ret != 0)
@@ -541,6 +521,17 @@ create_vlan_iface_internal(const char *dev_ifname, int vid, int prio, int mtu,
 	}
 	if (do_up) {
 		ret = ifconfig(vlan_ifname, IFUP, "0.0.0.0", NULL);
+		if (ret != 0)
+			goto fail;
+	}
+	/*
+	 * The target 4.4 VLAN ioctl does not implement GET_VLAN_EGRESS_PRIORITY.
+	 * Its setter changes the map only on success (allocation failure is
+	 * returned before publication), so keep it last: a failed ioctl leaves
+	 * the previous map intact and no later step can require its restoration.
+	 */
+	if (prio >= 0 && prio <= 7) {
+		ret = vconfig_egress_map(vlan_ifname, 0, prio);
 		if (ret != 0)
 			goto fail;
 	}
@@ -568,8 +559,7 @@ fail:
 		rollback_status = vlan_interface_restore_existing(
 			&vlan_restore_ops, vlan_ifname, original_up,
 			restore_mtu, original_mtu,
-			restore_hwaddr, original_hwaddr_text,
-			restore_egress, original_egress, &rollback_failures);
+			restore_hwaddr, original_hwaddr_text, &rollback_failures);
 		if (rollback_status != 0)
 			logmessage(LOGNAME,
 				   "VLAN rollback incomplete for reused interface %s (status=%d; failed_operations=%d)",

@@ -944,34 +944,6 @@ vconfig_egress_map(const char *vifname, int skb_prio, int qos_prio)
 }
 
 int
-vconfig_get_egress_map_status(const char *vifname, int skb_prio, int *qos_prio)
-{
-	int sockfd, status = 0;
-	struct vlan_ioctl_args ifr;
-
-	if (!vifname || !vifname[0] || skb_prio < 0 || !qos_prio)
-		return EINVAL;
-	*qos_prio = 0;
-	sockfd = socket(AF_INET, SOCK_STREAM, 0);
-	if (sockfd < 0)
-		return errno ? errno : EIO;
-	memset(&ifr, 0, sizeof(ifr));
-	if (copy_ifname(ifr.device1, sizeof(ifr.device1), vifname) < 0)
-		status = errno ? errno : EINVAL;
-	else {
-		ifr.cmd = GET_VLAN_EGRESS_PRIORITY_CMD;
-		ifr.u.skb_priority = (unsigned int)skb_prio;
-		if (ioctl(sockfd, SIOCGIFVLAN, &ifr) < 0)
-			status = errno ? errno : EIO;
-	}
-	if (close(sockfd) != 0 && status == 0)
-		status = errno ? errno : EIO;
-	if (status == 0)
-		*qos_prio = (int)ifr.vlan_qos;
-	return status;
-}
-
-int
 vconfig_del_if(const char *vifname)
 {
 	int sockfd, ret;

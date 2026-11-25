@@ -1,3 +1,11 @@
+## 2026-11-25 21:43 CST (UTC+8) — Make reused VLAN rollback compatible with target 4.4 VLAN ioctl
+
+- Kernel-source inspection found this repository's Linux 4.4 `vlan_ioctl_handler()` does not implement `GET_VLAN_EGRESS_PRIORITY_CMD` (it returns `-EOPNOTSUPP`). A snapshot design relying on that ioctl would make every existing VLAN with requested QoS fail closed.
+- Reworked the transaction to snapshot only supported MTU and hardware address status readers plus the original IFF_UP bit. The egress setter is now deliberately the final configuration step. In this kernel, `vlan_dev_set_egress_priority()` changes an existing mapping and returns success, or for a new mapping allocates first and returns `-ENOBUFS` before publishing on failure; thus a failed setter leaves the previous mapping unchanged and, being last, there is no subsequent failure that needs a GET/restore operation.
+- The policy rollback restores down state, requested MTU/MAC, then original admin-up state. Tests and semantic checker are adjusted to verify the target kernel's missing GET API and setter atomicity. Exact-head WAN route sanitizer workflow pending.
+
+---
+
 ## 2026-11-25 — Fix VLAN rollback test compile error
 - WAN route status #45621857629 failed at the VLAN policy test compile because it used strcmp() without declaring it. Added the missing <string.h> include; source logic unchanged.
 

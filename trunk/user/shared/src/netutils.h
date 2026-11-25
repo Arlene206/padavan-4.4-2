@@ -199,7 +199,6 @@ extern int       get_ipv6_type(void);
 extern int       vconfig_add_if(const char *ifname, unsigned int vid);
 extern int       vconfig_del_if(const char *vifname);
 extern int       vconfig_egress_map(const char *vifname, int skb_prio, int qos_prio);
-extern int       vconfig_get_egress_map_status(const char *vifname, int skb_prio, int *qos_prio);
 
 extern int       br_add_del_bridge(const char *brname, int is_add);
 extern int       br_bridge_is_empty(const char *brname);
