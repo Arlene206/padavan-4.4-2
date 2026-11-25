@@ -1,3 +1,10 @@
+## 2026-11-25 — Use initialized interface name in DHCPv6 startup failure
+
+- The DHCPv6 client already terminates when `if_nametoindex()` returns zero, but the fatal diagnostic formatted `ifp->ifname` before that pointer was initialized (the assignment occurs after the guard). This makes the error path depend on an uninitialized pointer and can emit a bogus interface name.
+- Keep the existing fail-fast behavior and report the original `ifname` argument instead. Extend the DHCPv6 source contract to pin the read → zero-index guard → fatal diagnostic → pointer assignment order. Exact-head DHCPv6 workflow required; no local test is claimed.
+
+---
+
 ## 2026-11-25 — Bound optional SmartDNS adblock downloads
 
 - `Start_AD` already limited connection establishment to 10 seconds but left transfer time unbounded; a user-configured or stalled adblock endpoint could therefore hold SmartDNS startup indefinitely. Add a 30-second per-attempt maximum and reduce retries from three to one, bounding worst-case transfer wait while keeping one transient retry.

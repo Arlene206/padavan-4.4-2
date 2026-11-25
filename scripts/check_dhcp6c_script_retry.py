@@ -52,6 +52,16 @@ test = (ROOT / (base + "tests/dhcp6c_script_retry_policy.c")).read_text()
 workflow = (ROOT / ".github/workflows/dhcp6c-script-retry-stability.yml").read_text()
 
 assert '#include "dhcp6c_script_retry_policy.h"' in dhcp6c
+
+# ifp->ifname is not initialized until after if_nametoindex() succeeds.
+# The fatal diagnostic must use the original argument, not the null field.
+if6init = function_body(dhcp6c, "static void if6init(struct dhcp6_if *ifp, const char *ifname)")
+ifindex_read = if6init.index("ifp->ifid = if_nametoindex(ifname);")
+ifindex_guard = if6init.index("if (ifp->ifid == 0)", ifindex_read)
+ifindex_die = if6init.index('bb_perror_msg_and_die("invalid interface(%s)", ifname);', ifindex_guard)
+ifname_publish = if6init.index("ifp->ifname = xstrdup(ifname);")
+assert ifindex_read < ifindex_guard < ifindex_die < ifname_publish
+assert 'bb_perror_msg_and_die("invalid interface(%s)", ifp->ifname);' not in if6init
 runner = function_body(script_runner, "int dhcp6_script(const char *scriptpath, char **envp)")
 assert "status = spawn_and_wait(argv);" in runner
 assert "return status;" in runner

@@ -191,7 +191,7 @@ static void if6init(struct dhcp6_if *ifp, const char *ifname)
 {
 	ifp->ifid = if_nametoindex(ifname);
 	if (ifp->ifid == 0) {
-		bb_perror_msg_and_die("invalid interface(%s)", ifp->ifname);
+		bb_perror_msg_and_die("invalid interface(%s)", ifname);
 	}
 
 	ifp->ifname = xstrdup(ifname);
