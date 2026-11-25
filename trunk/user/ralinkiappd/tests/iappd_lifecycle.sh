@@ -197,6 +197,16 @@ grep -Fq '#ifdef IAPP_OS_LINUX' "$iapp_source" ||
   fail "Linux IAPP daemon must explicitly protect pipe writes from SIGPIPE"
 grep -Fq 'signal(SIGPIPE, SIG_IGN)' "$iapp_source" ||
   fail "IAPP daemon must ignore SIGPIPE so driver-pipe EPIPE is handled"
+[ "$(grep -F -c 'IAPP_TCP_Connect(SocketPeer' "$iapp_source")" -eq 4 ] ||
+  fail "all four IAPP TCP send paths must use the bounded connect helper"
+grep -Fq 'OriginalFlags | O_NONBLOCK' "$iapp_source" ||
+  fail "Linux IAPP TCP connect must use non-blocking mode"
+grep -Fq 'IAPP_TCP_Wait(Socket, Deadline, TRUE)' "$iapp_source" ||
+  fail "Linux IAPP TCP connect must enforce its absolute timeout"
+grep -Fq 'getsockopt(Socket, SOL_SOCKET, SO_ERROR' "$iapp_source" ||
+  fail "Linux IAPP TCP connect must check asynchronous connection errors"
+grep -Fq 'fcntl(Socket, F_SETFL, OriginalFlags)' "$iapp_source" ||
+  fail "IAPP TCP connect must restore the original socket flags"
 ap_info_guard_line=$(grep -n -F "pApIB->Length))" "$iapp_source" | cut -d: -f1)
 ap_info_copy_line=$(grep -n -F "IAPP_MEM_MOVE(OidReq->Buf+FT_IP_ADDRESS_SIZE, pApIB->IB, pApIB->Length)" "$iapp_source" | cut -d: -f1)
 [ -n "$ap_info_guard_line" ] && [ -n "$ap_info_copy_line" ] && [ "$ap_info_guard_line" -lt "$ap_info_copy_line" ] ||

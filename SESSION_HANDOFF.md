@@ -1,26 +1,26 @@
 ## Current repository state — 2026-11-25
 
-- Main base before Linux pipe SIGPIPE handling: e1750f4278dbadd6fcd97d33fc8f8138267356db; the daemon now ignores SIGPIPE on Linux before enabling driver notifications, so a closed raw-driver pipe produces EPIPE instead of process termination (THIS COMMIT).
+- Main base before bounded outbound TCP connect: 76681c0675866a306d1c8eb2f60844a66ef9f4ef; all four outbound TCP callers now use Linux nonblocking connect with a five-second absolute timeout, SO_ERROR validation and original-flag restoration (THIS COMMIT).
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Parent `e1750f4278dbadd6fcd97d33fc8f8138267356db`: IAPP lifecycle #45695909160 PASS; process regression #45695909357 PASS; process inventory/lifecycle #45695909182 PASS; AI handoff #45695909142 PASS; NVRAM #45695909138 in progress; XY-C1 #45695909127 in progress. No same-SHA XY L3 result yet.
-- Parent e175 adds MSG_NOSIGNAL to TCP `send()` when supported; this slice covers the separate pipe-write path in `IAPP_USR2Handle()` with Linux-only SIGPIPE ignore. VxWorks remains unaffected.
-- Exact XY-C1 Build/TRX/artifact L3 remains confirmed only on `e1f16872b7e2792db9acf0184f2fe9c5d736c966`; later source SHAs require their own exact completed run.
-- Existing source bounds include all six checked TX encryptions, TCP/UDP decrypt output cap, query signal struct output cap, FT SB/AP info/RRB/raw driver packet length checks, TCP framed read/write with timeout and FD_SETSIZE guard.
+- Parent `e1750f4278dbadd6fcd97d33fc8f8138267356db`: IAPP lifecycle #45695909160 PASS; process regression #45695909357 PASS; process inventory/lifecycle #45695909182 PASS; AI handoff #45695909142 PASS; NVRAM #45695909138 and XY-C1 #45695909127 were in progress at last poll. No same-SHA XY L3 completion recorded.
+- Parent e175 uses MSG_NOSIGNAL for TCP sends where supported. Parent `76681c0675866a306d1c8eb2f60844a66ef9f4ef` adds Linux SIGPIPE ignore before driver SIGUSR2 registration, so pipe write errors become EPIPE rather than daemon termination.
+- This slice adds bounded outbound TCP connect for Linux; the VxWorks fallback retains the previous direct connect behavior.
+- Exact XY-C1 Build/TRX/artifact L3 remains confirmed only on `e1f16872b7e2792db9acf0184f2fe9c5d736c966`; later SHAs need their own exact completed firmware run.
 
 ## Active task
 
-Validate this pipe SIGPIPE change on exact-head IAPP and XY-C1. Then inspect outbound TCP connect/write blocking and the signal-context pipe's partial-write behavior.
+Validate this connect timeout on exact-head IAPP/XY Actions. Then review TCP write-side backpressure and signal-context pipe partial-write handling.
 
 ## Exact first actions for next GPT
 
-1. Poll parent e175 exact XY/NVRAM outcomes and THIS COMMIT's IAPP/XY/Process/NVRAM/AI workflows separately by SHA.
-2. Confirm the IAPP lifecycle host GNU89/ASan/UBSan and the new Linux SIGPIPE source assertion pass.
-3. Review TCP connect timeout (currently synchronous) and pipe write handling: decide whether nonblocking/poll deadlines can be added without breaking legacy target compatibility.
-4. Keep backup frozen; main-only full Git tree and atomic expected-SHA non-force updates.
+1. Poll parent e175 NVRAM/XY outcomes and THIS COMMIT's IAPP, XY-C1 Build/TRX/artifact, Process, NVRAM and AI Actions independently by exact SHA.
+2. Confirm GNU89 host test and source contracts for four bounded connect sites, nonblocking mode, deadline wait, SO_ERROR and flag restoration.
+3. Review `IAPP_TCP_WriteFrame()` for write deadline on a full send buffer and the notification pipe's partial-write behavior.
+4. Preserve frozen backup; main-only complete tree and atomic expected-SHA non-force update.
 
 ## Execution contract
 
-Main only; one full tree per logical task, update `main` with exact expected SHA and `force=false`. No force-push, development branch or PR. PENDING Actions do not block independent work.
+Main only; one complete tree per logical task and `force=false` update using exact expected SHA. No force-push, development branch or PR. PENDING Actions do not block independent work.
 
 ## 2026-11-25 autonomous handoff checkpoint
 

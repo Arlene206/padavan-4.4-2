@@ -24,6 +24,7 @@
 
 #include "rt_config.h"
 #include <errno.h>
+#include <fcntl.h>
 #include <time.h>
 #include "rtmpiapp.h"
 #include "iappdefs.h"
@@ -3637,6 +3638,59 @@ static BOOLEAN IAPP_TCP_WriteFrame(INT32 Socket, const UCHAR *Buffer, UINT32 Len
 	return TRUE;
 }
 
+/*
+ * Avoid blocking the IAPP event loop when a TCP peer does not complete its
+ * handshake. Restore the socket's original flags before sending the frame.
+ */
+static BOOLEAN IAPP_TCP_Connect(
+	INT32 Socket,
+	const struct sockaddr *Address,
+	socklen_t AddressLength)
+{
+#ifdef IAPP_OS_LINUX
+	INT32 OriginalFlags;
+	INT32 ConnectStatus;
+	INT32 SocketError;
+	socklen_t ErrorLength;
+	time_t Deadline;
+
+	OriginalFlags = fcntl(Socket, F_GETFL, 0);
+	if (OriginalFlags < 0)
+		return FALSE;
+	if (fcntl(Socket, F_SETFL, OriginalFlags | O_NONBLOCK) < 0)
+		return FALSE;
+
+	Deadline = time(NULL) + IAPP_TCP_FRAME_TIMEOUT_SEC;
+	ConnectStatus = connect(Socket, Address, AddressLength);
+	if (ConnectStatus < 0) {
+		if (errno != EINPROGRESS && errno != EALREADY && errno != EINTR)
+			goto connect_fail;
+		if (IAPP_TCP_Wait(Socket, Deadline, TRUE) <= 0)
+			goto connect_fail;
+
+		SocketError = 0;
+		ErrorLength = sizeof(SocketError);
+		if (getsockopt(Socket, SOL_SOCKET, SO_ERROR, &SocketError,
+			       &ErrorLength) < 0)
+			goto connect_fail;
+		if (SocketError != 0) {
+			errno = SocketError;
+			goto connect_fail;
+		}
+	}
+
+	if (fcntl(Socket, F_SETFL, OriginalFlags) < 0)
+		goto connect_fail;
+	return TRUE;
+
+connect_fail:
+	(void)fcntl(Socket, F_SETFL, OriginalFlags);
+	return FALSE;
+#else
+	return connect(Socket, Address, AddressLength) == 0 ? TRUE : FALSE;
+#endif /* IAPP_OS_LINUX */
+}
+
 static BOOLEAN IAPP_TCP_PacketSend(
 	IAPP_IN		RTMP_IAPP			*pCtrlBK,
 /*	IAPP_IN		UCHAR				*WifiMAC,*/
@@ -3677,9 +3731,7 @@ static BOOLEAN IAPP_TCP_PacketSend(
 		AddrSockConn.sin_addr.s_addr = PeerIP;
 		AddrSockConn.sin_port = htons(IAPP_TCP_PORT);
 
-		if (connect(SocketPeer,
-					(struct sockaddr *)&AddrSockConn,
-					sizeof(AddrSockConn)) < 0)
+		if (IAPP_TCP_Connect(SocketPeer, (struct sockaddr *)&AddrSockConn, sizeof(AddrSockConn)) != TRUE)
 		{
 			DBGPRINT(RT_DEBUG_ERROR, "iapp> Connect socket failed %d.%d.%d.%d!\n", IAPP_SHOW_IP(AddrSockConn.sin_addr.s_addr));
 			goto label_fail;
@@ -3789,9 +3841,7 @@ static VOID FT_KDP_SecurityBlockSend(
 #endif
 		AddrSockConn.sin_port = htons(IAPP_TCP_PORT);
 
-		if (connect(SocketPeer,
-					(struct sockaddr *)&AddrSockConn,
-					sizeof(AddrSockConn)) < 0)
+		if (IAPP_TCP_Connect(SocketPeer, (struct sockaddr *)&AddrSockConn, sizeof(AddrSockConn)) != TRUE)
 		{
 			DBGPRINT(RT_DEBUG_ERROR, "iapp> Connect socket failed %d.%d.%d.%d!\n", IAPP_SHOW_IP(AddrSockConn.sin_addr.s_addr));
 			goto label_fail;
@@ -3903,9 +3953,7 @@ static VOID FT_KDP_SecurityBlockAck(
 #endif
 	AddrSockConn.sin_port = htons(IAPP_TCP_PORT);
 
-	if (connect(SocketPeer,
-				(struct sockaddr *)&AddrSockConn,
-				sizeof(AddrSockConn)) < 0)
+	if (IAPP_TCP_Connect(SocketPeer, (struct sockaddr *)&AddrSockConn, sizeof(AddrSockConn)) != TRUE)
 	{
 		DBGPRINT(RT_DEBUG_ERROR, "iapp> Connect socket failed %d.%d.%d.%d!\n",
 				IAPP_SHOW_IP(AddrSockConn.sin_addr.s_addr));
@@ -4071,9 +4119,7 @@ static VOID FT_KDP_InformationResponseSend(
 #endif
 	AddrSockConn.sin_port = htons(IAPP_TCP_PORT);
 
-	if (connect(SocketPeer,
-				(struct sockaddr *)&AddrSockConn,
-				sizeof(AddrSockConn)) < 0)
+	if (IAPP_TCP_Connect(SocketPeer, (struct sockaddr *)&AddrSockConn, sizeof(AddrSockConn)) != TRUE)
 	{
 		DBGPRINT(RT_DEBUG_ERROR, "iapp> Connect socket failed %d.%d.%d.%d!\n",
 				IAPP_SHOW_IP(AddrSockConn.sin_addr.s_addr));

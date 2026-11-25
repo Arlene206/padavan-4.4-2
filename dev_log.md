@@ -1,3 +1,10 @@
+## 2026-11-25 — Bound outbound IAPP TCP connect latency
+
+- All four outbound TCP paths called blocking `connect()` directly. A peer that drops packets or never completes a handshake could stall the daemon's event loop even though receive already has an absolute deadline.
+- Added `IAPP_TCP_Connect()` for Linux: save file flags, set O_NONBLOCK, initiate connect, wait for writability using the existing five-second absolute-deadline helper, check SO_ERROR, then restore original socket flags before sending. Timeout/error restores flags and fails closed. Non-Linux/VxWorks retains legacy blocking connect for compatibility.
+- Routed all four outbound TCP paths through the helper. The lifecycle source contract pins nonblocking mode, deadline wait, SO_ERROR validation and flag restoration.
+
+---
 ## 2026-11-25 — Handle SIGPIPE for the raw-driver notification pipe
 
 - Follow-up to TCP `MSG_NOSIGNAL`: `IAPP_USR2Handle()` also writes driver signal contexts into `PipeRawDrv`. If the pipe reader has closed, `write()` can deliver process-wide SIGPIPE before the existing short-write/error check runs, terminating the daemon.
