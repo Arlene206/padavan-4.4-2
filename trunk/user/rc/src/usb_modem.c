@@ -1289,7 +1289,6 @@ modem_module_unload_callback(const char *module_name, void *context)
 	int loaded_status, remaining_status, unload_status = 0;
 	int saved_errno = 0, status;
 
-	(void)context;
 	loaded_status = is_module_loaded_status(module_name);
 	remaining_status = loaded_status;
 	if (loaded_status == 1) {
@@ -1316,14 +1315,14 @@ unload_modem_driver_group(const char *group_name,
 			  const char *const *module_names,
 			  size_t module_count)
 {
-	size_t successful_count = 0;
+	size_t successful_count = 0, unloaded_count = 0;
 	int status;
 
 	status = rc_modem_module_unload_group_status(module_names,
 						     module_count,
 						     modem_module_unload_callback,
-						     NULL, &successful_count);
-	if (successful_count > 0)
+						     &unloaded_count, &successful_count);
+	if (unloaded_count > 0)
 		sleep(1);
 	if (status != 0)
 		logmessage(LOGNAME,

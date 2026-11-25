@@ -39,9 +39,12 @@ assert "if (loaded_status == 1)" in unload_callback
 assert "remaining_status = is_module_loaded_status(module_name);" in unload_callback
 assert "require confirmed absence" in unload_callback
 assert "remaining_status" in unload_callback
+assert "if (loaded_status == 1 && remaining_status == 0 && context)" in unload_callback
+assert "++*(size_t *)context;" in unload_callback
 assert "errno = status;" in unload_callback
 assert "rc_modem_module_unload_group_status" in unload_group
-assert "successful_count > 0" in unload_group and "sleep(1);" in unload_group
+assert "&unloaded_count, &successful_count" in unload_group
+assert "if (unloaded_count > 0)" in unload_group and "sleep(1);" in unload_group
 assert "if (unlink(QMI_CLIENT_ID) == 0 || errno == ENOENT)" in remove_qmi_marker
 assert "unload_modem_driver_group(\"all\"" in unload_all
 assert "if (status != 0)" in unload_all
