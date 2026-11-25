@@ -77,7 +77,9 @@ for required in (
     'exec 9>>"$lock_file" || exit 2',
     "flock -x 9 || exit 2",
     "while IFS= read -r cron_line || [ -n \"$cron_line\" ]; do",
-    "set -- $cron_line",
+    'cron_line_trimmed=${cron_line#"${cron_line%%[![:space:]]*}"}',
+    'case "$cron_line_trimmed" in',
+    "set -- $cron_line_trimmed",
     'if [ "$#" -ge 6 ] && [ "$6" = "$script_path" ]; then',
     'done < "$cron_file"',
     '>> "$cron_file" || exit 2',
@@ -90,6 +92,7 @@ assert "run_check 1" in shell_test and "run_check 0" in shell_test
 assert "TEST_GREP_STATUS" not in shell_test
 assert "Comments and similarly named commands must not suppress the exact job." in shell_test
 assert "Concurrent startups must append at most one identical job." in shell_test
+assert "  # docs: for user script /usr/bin/duplicate_guard.sh" in shell_test
 assert 'ln -s "$WORK/outside" "$TEST_STORAGE_ROOT/cron"' in shell_test
 assert 'ln -s "$WORK/lock-target" "$TEST_STORAGE_ROOT/cron/.admin.lock"' in shell_test
 assert "SIGTERM" in regression and "WIFEXITED" in policy

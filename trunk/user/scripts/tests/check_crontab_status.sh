@@ -47,7 +47,7 @@ export TEST_STORAGE_ROOT
 
 printf '%s\n' '# existing content' > "$ADMIN"
 # Comments and similarly named commands must not suppress the exact job.
-printf '%s\n' '# docs: /usr/bin/duplicate_guard.sh' \
+printf '%s\n' '  # docs: for user script /usr/bin/duplicate_guard.sh' \
   '* * * * * /usr/bin/duplicate_guard.sh.extra > /dev/null 2>&1' > "$ADMIN"
 run_check 1 a/2 a a a a duplicate_guard.sh
 [ "$(wc -l < "$ADMIN")" -eq 3 ]

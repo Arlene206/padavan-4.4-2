@@ -1,3 +1,10 @@
+## 2026-11-25 — Ignore indented comments when matching crontab commands
+
+- Review of the exact-sixth-field duplicate check found it skipped only lines whose first byte was `#`. A valid crontab comment with leading spaces could be split as fields and, if its sixth token matched the target executable, incorrectly suppress the job. Normalize leading whitespace before comment detection and field parsing.
+- Expanded the shell regression with an indented comment whose sixth token is the target script; updated the source-contract checker to pin the whitespace normalization and test fixture. Exact-head process-lifecycle Actions validation is required; no local router test or firmware build is claimed.
+
+---
+
 ## 2026-11-25 — Align SCUT crontab source checker with exact-token lookup
 
 - Exact process-lifecycle run #45595370787 on `6554727e` passed the shell regression for exact command identity, concurrent writers, lock permissions and symlink rejection, then failed in the static checker because it still required the removed grep-substring implementation and obsolete injected grep failure fixture. Updated the contract to assert the production lock and parsed sixth-field identity check, and to require the newer exact-match/concurrency/symlink regression cases.

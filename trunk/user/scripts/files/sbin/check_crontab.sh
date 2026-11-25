@@ -67,11 +67,14 @@ fi
 if [ -f "$cron_file" ]; then
 	[ -r "$cron_file" ] || exit 2
 	while IFS= read -r cron_line || [ -n "$cron_line" ]; do
-		case "$cron_line" in
-			''|'#'*) continue ;;
+		# A comment may be indented; only the first non-whitespace character
+		# determines whether the record is a crontab comment.
+		cron_line_trimmed=${cron_line#"${cron_line%%[![:space:]]*}"}
+		case "$cron_line_trimmed" in
+			'|'#'*) continue ;;
 		esac
 		set -f
-		set -- $cron_line
+		set -- $cron_line_trimmed
 		set +f
 		if [ "$#" -ge 6 ] && [ "$6" = "$script_path" ]; then
 			exit 0
