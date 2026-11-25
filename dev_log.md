@@ -1,3 +1,11 @@
+## 2026-11-25 — Exercise embedded-NUL rejection in Firefly INI input
+
+- Added a binary-input regression for a physical INI record containing an embedded NUL followed by an apparent `admin_pw` directive. The publisher must return EINVAL, preserve every input byte in the active config and remove the staged temporary file.
+- The existing overlong physical-record regression continues to cover EOVERFLOW and identical last-good preservation. The CI source contract now requires both behavioral fixtures.
+- The parent commit's exact-head Firefly, AI Docs, Process inventory and Process lifecycle Actions passed; NVRAM audit and XY-C1 Build/TRX/artifact workflow were still in progress at the time of checkpoint. This test-only follow-up requires its own exact-SHA validation.
+
+---
+
 ## 2026-11-25 — Reject split Firefly INI records before publication
 
 - Reviewed the exact-head Firefly regression failure chain: the C sanitizer binary passed; earlier Python failures came from stale source-function and fixture-string assertions, corrected in two follow-up checker commits. The exact Firefly workflow then passed on 4e8a18f8f8cecc054a37267eea53b965b0cb3cbd.

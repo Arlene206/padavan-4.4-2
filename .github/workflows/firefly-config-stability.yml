@@ -81,6 +81,7 @@ jobs:
           assert "firefly_config_read_line(" in writer
           assert "line_status < 0" in writer
           assert "test_overlong_key_line_cannot_inject_following_directive" in test
+          assert "test_embedded_nul_cannot_inject_following_directive" in test
           assert "strncmp(line, key, key_length)" in key_matcher
           assert "return *line == '=';" in key_matcher
           assert writer.count("firefly_config_line_has_key(line,") == 6

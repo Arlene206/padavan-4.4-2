@@ -96,6 +96,38 @@ test_overlong_key_line_cannot_inject_following_directive(
 }
 
 
+static void
+test_embedded_nul_cannot_inject_following_directive(
+	const char *directory, const char *path)
+{
+	static const unsigned char input[] =
+		"port = 1234\0admin_pw = injected\n";
+	unsigned char actual[sizeof(input)];
+	FILE *stream;
+	size_t actual_length;
+	int status;
+
+	stream = fopen(path, "wb");
+	assert(stream != NULL);
+	assert(fwrite(input, 1, sizeof(input) - 1U, stream) ==
+	       sizeof(input) - 1U);
+	assert(fclose(stream) == 0);
+
+	status = firefly_config_publish(path, path, "/mnt/firefly",
+					"media-user", "media-pass");
+	assert(status == EINVAL);
+
+	stream = fopen(path, "rb");
+	assert(stream != NULL);
+	actual_length = fread(actual, 1, sizeof(actual), stream);
+	assert(actual_length == sizeof(input) - 1U);
+	assert(memcmp(actual, input, actual_length) == 0);
+	assert(!ferror(stream));
+	assert(fclose(stream) == 0);
+	assert_no_temporary_files(directory);
+}
+
+
 int
 main(void)
 {
@@ -117,6 +149,7 @@ main(void)
 	assert(snprintf(symlink_output, sizeof(symlink_output), "%s/symlink-output.conf", directory) > 0);
 	assert(snprintf(fifo_path, sizeof(fifo_path), "%s/fifo.conf", directory) > 0);
 
+	test_embedded_nul_cannot_inject_following_directive(directory, path);
 	test_overlong_key_line_cannot_inject_following_directive(directory, path);
 
 	write_file(path,

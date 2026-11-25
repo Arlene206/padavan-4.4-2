@@ -1,25 +1,25 @@
 ## Current repository state — 2026-11-25
 
-- Recovery baseline: main ffcd7ceb5f5092935203e078d4acb2ea6a2598ba; this Firefly slice is committed atomically on top of that baseline. Re-fetch live main before any further write.
-- Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains read-only at 72f4f157a084f8184b9597ca5bf334b8080e5807.
-- Legacy PR #1 is CLOSED/unmerged. Its CA trust-store bootstrap and HMAC helper/test deliverables are present on main; no unique PR-only deliverable was identified that warrants resurrecting its branch.
-- Firefly INI key-boundary work: Firefly #45681131025 and AI Docs #45681131009 both PASS on exact SHA 4e8a18f8f8cecc054a37267eea53b965b0cb3cbd. On 315b022... the C regression passed, but the Python source contract failed on stale quoted fixture matching; commit 4e8a18f... corrected that contract. Parent ffcd7ceb5f5092935203e078d4acb2ea6a2598ba is the NFS selector test follow-up; NFS start/reload run #45681563836 FAILED in its Python contract step (line 217), and must not be treated as verified. Process inventory #45681563973 PASS; HTTPD #45681563860, NVRAM #45681563955 and USB storage #45681563815 were PENDING at takeover.
-- New Firefly defect found in firefly_config_write_existing(): 512-byte fgets() chunks could split one oversized physical INI record. When the first chunk began with a rewritten key such as "port =", its tail could be emitted as a new directive. This slice uses a bounded physical-line reader (4095-byte maximum), rejecting overlong and embedded-NUL records before atomic publication.
-- The bounded-reader algorithm passed a standalone GNU89 ASan/UBSan regression before commit. Full repository Firefly workflow and exact-head Actions are pending for this checkpoint. No same-SHA XY-C1 Build/TRX/artifact completion is claimed; physical-router L4 remains NOT VERIFIED.
+- Live main at checkpoint: 284ececc912a496705db825f3643fa0121d5f1d7. Re-fetch main before any subsequent write.
+- Frozen backup branch backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807; read-only, must never be modified or deleted.
+- Legacy PR #1 is CLOSED/unmerged. Its AliDDNS CA trust-store bootstrap and HMAC helper/test deliverables are present on main; no unique PR-only deliverable was identified to resurrect.
+- Firefly bounded physical-line parsing is implemented in commit 284ececc912a496705db825f3643fa0121d5f1d7. It rejects physical lines exceeding 4095 bytes with EOVERFLOW and embedded NUL with EINVAL before publication. Overlong-line regression is included; this follow-up adds a binary embedded-NUL regression that checks EINVAL, byte-for-byte last-good file preservation and temporary-file cleanup.
+- Exact current-head Firefly regression #45682217110 PASS, AI Docs #45682217168 PASS, Process inventory #45682217515 PASS, Process lifecycle #45682217158 PASS. NVRAM audit #45682217149 and XY-C1 firmware workflow #45682217501 were IN_PROGRESS at this checkpoint. No same-SHA XY-C1 Build/TRX/artifact result is claimed yet; physical-router L4 remains NOT VERIFIED.
+- NFS VPN ACL selector hardening is verified: exact NFS start/reload #45681847110 and AI Docs #45681847147 PASS on ancestor SHA ffcd7ceb5f5092935203e078d4acb2ea6a2598ba. The earlier e521 NFS source-contract failure #45681563836 was repaired by that follow-up; do not reopen it.
 
 ## Active task
 
-Reject overlong and embedded-NUL Firefly INI records as read errors, preserve the previous configuration byte-for-byte, and remove the temporary publication file. The workflow now locks the bounded reader and regression contract. Next, triage exact-head Actions and continue independent storage/network reliability work while checks are pending.
+Finish behavioral coverage for both hostile Firefly INI physical-line cases: oversized records and embedded NUL bytes. Both must abort staged publication, preserve the existing config byte-for-byte, and leave no temporary file. Then inspect exact-SHA CI on the resulting main head and continue independent security/reliability source work.
 
 ## Exact first actions for next GPT
 
-1. Fetch live main; inspect exact-SHA Firefly, AI Docs, Process, NVRAM and XY-C1 Actions for this checkpoint. Fix any failed run; PENDING does not block other independent work.
-2. Diagnose NFS start/reload run #45681563836 on its own exact SHA; repair only the demonstrated source-contract mismatch, then rerun the NFS workflow on its new exact SHA.
-3. For L3, confirm Build, TRX validation and artifact upload all pass on one identical source SHA. Physical-router L4 is still unverified.
+1. Fetch live main and inspect exact-SHA Firefly, AI Docs, Process, NVRAM and XY-C1 checks for the newest commit. Fix failures; PENDING must not block independent work.
+2. Verify whether XY-C1 Build, TRX and artifact upload actually completed on one identical source SHA before making an L3 claim. Physical L4 remains unverified.
+3. Continue the next concrete userland stability/security task from the current source state; avoid repeating the completed Firefly key-boundary and NFS VPN selector work.
 
 ## Execution contract
 
-Main only; never modify or delete the frozen backup; no force-push, feature branches or PRs. For each logical task: source and regression → one complete tree/atomic commit → non-forced expected-SHA update → exact-SHA Actions. Record real failures and keep working on independent slices.
+Main only; never modify/delete the archival backup; no force push, feature branches or PRs. For each logical change: source/test → one complete tree and atomic commit → non-forced expected-SHA ref update → exact-SHA Actions. Keep handoff and dev log aligned with verified facts.
 
 ## 2026-11-25 autonomous handoff checkpoint
 
