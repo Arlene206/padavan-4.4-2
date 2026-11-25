@@ -45,7 +45,7 @@ grep -Fqx '    for device in $(ls /sys/class/net); do' "$generated" ||
 	fail "runtime interface enumeration was expanded during generation"
 grep -Fqx '        echo f >/sys/class/net/$device/queues/rx-0/rps_cpus' "$generated" ||
 	fail "runtime device variable was expanded during generation"
-grep -Fqx '    case $1 in' "$generated" ||
+grep -Fqx 'case $1 in' "$generated" ||
 	fail "runtime argument was expanded during generation"
 grep -Fq '$(cat /sys/class/net/$device/queues/rx-0/rps_cpus)' "$generated" ||
 	fail "runtime sysfs reads were expanded during generation"
