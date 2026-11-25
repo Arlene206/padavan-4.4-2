@@ -1,3 +1,11 @@
+## 2026-11-25 — Correct MTD fill function source-contract delimiter
+
+- Exact USB-storage run #45606836538 on `da508394` passed the MTD shell syntax and host/BusyBox runtime regressions, then the static checker failed because its Python string searched for the literal characters `\\ncase` rather than the actual function boundary `\n}\n\ncase "$1" in`.
+- Corrected the delimiter so the checker slices the complete `func_fill()` body through its closing brace. Production MTD behavior and test fixtures are unchanged.
+- Exact-head USB storage rerun is required; the earlier checker failure is a test-contract error, not a firmware/runtime failure.
+
+---
+
 ## 2026-11-25 20:40 CST — Include the string API used by SOAPAction tests
 
 - Exact miniupnpd HTTP request framing run #45606537043 on `1f5e34e7` failed before executing tests: the new quoted-value assertion used `memcmp()` without including `<string.h>`, and the workflow treats implicit declarations as errors under GNU89 `-Werror`.
