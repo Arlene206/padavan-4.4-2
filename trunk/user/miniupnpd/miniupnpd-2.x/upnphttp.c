@@ -896,6 +896,17 @@ ProcessHttpQuery_upnphttp(struct upnphttp * h)
 }
 
 
+static void
+SendRequestHeaderTooLarge(struct upnphttp * h)
+{
+	/* The request line may not have been parsed yet on this error path. */
+	if (h->HttpVer[0] == '\0')
+		memcpy(h->HttpVer, "HTTP/1.0", sizeof("HTTP/1.0"));
+	BuildResp2_upnphttp(h, 431,
+	                    "Request Header Fields Too Large", NULL, 0);
+	SendRespAndClose_upnphttp(h);
+}
+
 void
 Process_upnphttp(struct upnphttp * h)
 {
@@ -961,9 +972,7 @@ Process_upnphttp(struct upnphttp * h)
 			    !miniupnpd_http_request_append_fits(
 			        (size_t)h->req_buflen, (size_t)n,
 			        MINIUPNPD_HTTP_MAX_REQUEST_BYTES)) {
-				BuildResp2_upnphttp(h, 431,
-				                    "Request Header Fields Too Large", NULL, 0);
-				SendRespAndClose_upnphttp(h);
+				SendRequestHeaderTooLarge(h);
 				break;
 			}
 			current_length = (size_t)h->req_buflen;
@@ -988,18 +997,14 @@ Process_upnphttp(struct upnphttp * h)
 				h->req_contentoff = endheaders - h->req_buf + 4;
 				if ((size_t)h->req_contentoff >
 				    MINIUPNPD_HTTP_MAX_HEADER_BYTES) {
-					BuildResp2_upnphttp(h, 431,
-					                    "Request Header Fields Too Large", NULL, 0);
-					SendRespAndClose_upnphttp(h);
+					SendRequestHeaderTooLarge(h);
 				} else {
 					ProcessHttpQuery_upnphttp(h);
 				}
 			}
 			else if ((size_t)h->req_buflen >
 			         MINIUPNPD_HTTP_MAX_HEADER_BYTES) {
-				BuildResp2_upnphttp(h, 431,
-				                    "Request Header Fields Too Large", NULL, 0);
-				SendRespAndClose_upnphttp(h);
+				SendRequestHeaderTooLarge(h);
 			}
 		}
 		break;

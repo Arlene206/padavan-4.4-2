@@ -28,6 +28,7 @@ def body(text, signature):
 headers = body(source, "ParseHttpHeaders(struct upnphttp * h)")
 query = body(source, "ProcessHttpQuery_upnphttp(struct upnphttp * h)")
 process = body(source, "Process_upnphttp(struct upnphttp * h)")
+header_too_large = body(source, "SendRequestHeaderTooLarge(struct upnphttp * h)")
 
 assert '#include "miniupnpd_http_request_policy.h"' in source
 assert "int\nParseHttpHeaders(struct upnphttp * h)" in source
@@ -43,6 +44,9 @@ assert "BuildResp2_upnphttp(h, 400, \"Bad Request\", NULL, 0)" in query
 
 assert "MINIUPNPD_HTTP_MAX_HEADER_BYTES" in process
 assert "Request Header Fields Too Large" in process
+assert "h->HttpVer[0]" in header_too_large
+assert 'memcpy(h->HttpVer, "HTTP/1.0", sizeof("HTTP/1.0"))' in header_too_large
+assert "BuildResp2_upnphttp(h, 431," in header_too_large
 assert process.index("findendheaders(") < process.index("ProcessHttpQuery_upnphttp(h)")
 assert "MINIUPNPD_HTTP_MAX_REQUEST_BYTES" in process
 assert "miniupnpd_http_request_append_fits(" in process
