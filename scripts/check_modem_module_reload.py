@@ -60,7 +60,7 @@ assert "unload_modem_module_group(\"serial/control\"" in reload
 assert "if (status != 0)" in reload
 assert reload.index("unload_modem_module_group(\"serial/control\"") < reload.index("if (status != 0)") < reload.index("load_modem_module_group(\"NDIS\"")
 assert reload.index("unload_modem_module_group(\"NDIS\"") < reload.index("load_modem_module_group(\"RAS\"")
-assert reload.index("remove_qmi_client_id_marker()") < reload.index("load_modem_module_group(")
+assert reload.index("remove_qmi_client_id_marker()") < reload.index("status = load_modem_module_group(")
 
 loader = body(USB, "load_modem_module_group(")
 assert "module_smart_load" in loader and "is_module_loaded_status" in loader
