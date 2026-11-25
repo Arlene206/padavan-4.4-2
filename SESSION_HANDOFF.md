@@ -4,24 +4,27 @@ This checkpoint supersedes older task pointers below. Historical completed work 
 
 ## Current repository state
 
-- Repository `Arlene206/padavan-4.4-2`; develop only on `main`. Frozen `backup/pre-plugin-overhaul-2026-11-14` remains read-only; PR #1 remains closed/unmerged and inventory-only.
-- Parent before WAN ARP workflow filter correction: `b35e9587588f25f46a4c897ffad34cb82c0d2560` (`b35e9587588f25f46a4c897ffad34cb82c0d2560`). Exact-head WAN gateway ARP #45565097044 failed only in final path-filter audit: all five GNU89 tests and production source/RC assertions passed, but `detect_wan_gateway_address_policy.c` was missing from pull_request paths while present in push paths. THIS commit adds it to PR filter exactly once. Exact-head rerun pending.
-- AI handoff #45565097043 PASS.
-- On source baseline `570fc3ef160cd6e3fc09d4e47391a77a7ba34cf9`: VSFTPD #45564343508 PASS (ACL metadata open+post-read single-link checks and policy tests); NVRAM #45564343650 PASS; AI docs #45564343731 PASS; Process lifecycle inventory #45564343830 PASS. XY-C1 #45564343590 remained in progress at last poll (input detector passed; inspect Build/TRX/artifact).
-- Previous XY-C1 #45564192244 on `7eab55a` was in progress after input detector passed; it predates latest VSFTPD metadata recheck. Earlier XY #45563653212 failed before build due duplicate workflow self path; duplicate removed on `7eab55a`.
-- AliyunDrive exact-head lifecycle #45563131218 on `fdba8a4` PASS: shell syntax, QEMU MIPSel CLI, host lifecycle with foreign-UID-after-TERM regression, early private lock and source/RC integration.
-- Linux 4.4 has no pidfd path; narrow PID reuse race remains between procfs validation and `kill(2)`. Physical gateway-loss and router L4 not claimed.
-
+- Live main at checkpoint start: e487703a3163f9bb7bf10fe09d4e389602ce34d3; development remains main-only. Frozen backup/pre-plugin-overhaul-2026-11-14 remains read-only; no force-push, branch creation or PR was used.
+- Latest p910nd descriptor-boundary fix: e487703a3163f9bb7bf10fe09d4e389602ce34d3. Exact-head p910nd regression #45569803535 PASS; Process inventory #45569803552 PASS.
+- On this exact main SHA, XY-C1 Firmware Validation #45569803520 is IN_PROGRESS in Build XY-C1; TRX verification and artifact upload have not completed. Process lifecycle fail-closed #45569803612 and NVRAM transaction-boundary audit #45569803507 were IN_PROGRESS at last observation. Do not claim L3 until Build, TRX and artifact upload all pass on one product-source SHA.
+- Earlier exact-head regressions from this workstream: WAN gateway ARP #45565621317 PASS on 583576ac1b1a7bc9168b356a4f7f07bfdf090dc5; MiniUPnP HTTP framing #45566912855 PASS on 019f005cf9b3123ea93b04bf09b804f2b0e4c3bb; SmartDNS/DNSMasq #45568556249 PASS on 1817dd6fdd6c3eab0d8f0a19bb06b859b1aa06bd; U2EC bounded TCP framing #45569202180 PASS on e5d039b9d6725b3fb1dd47f735e96880d09c44aa; p910nd #45569803535 PASS on the latest e487703a.
+- These are host/GitHub regression results. They do not establish physical-router printer disconnect behavior or WAN/UPnP runtime L4. Older XY-C1 runs on earlier heads showed external ROMFS dependency failures (msd_lite download/404 and missing groff HTML DESC); inspect the current exact-head run before attributing any failure.
 ## Active task
 
-Verify exact-head WAN ARP workflow after adding the missing PR path. Then poll XY-C1 #45564343590 for actual Build XY-C1, TRX and artifact upload, and continue the next independent userland stability/security defect.
-
+Continue independent userland stability/security work; do not idle on CI. The next takeover should first refresh live main and inspect the outstanding exact-head runs listed above, especially XY-C1 #45569803520 for Build/TRX/artifact, then Process fail-closed #45569803612 and NVRAM audit #45569803507. If any remains PENDING, proceed with a separate source defect and revisit only at a useful checkpoint. No hardware validation is claimed.
 # Cross-session execution mandate
 
 Continue one autonomous engineering stream on main. For each logical slice, create all changed blobs, one complete Git tree based on the live main root tree, and one atomic main commit; update main with a non-forced expected-SHA compare-and-swap. Never force-push, use feature branches or PRs, split one logical change into per-file commits, or modify the frozen backup. PENDING never blocks independent work. Before context exhaustion, finish the current safe slice and checkpoint the first concrete next action.
 
 ## Completed source slices
 
+### 2026-11-25 — Cross-userland network, resolver and printer hardening
+
+- WAN gateway ARP: detect_wan_arp_parse_gateway_address() distinguishes intentionally absent/0.0.0.0 from malformed non-empty NVRAM. Invalid configured IPv4 fails closed before ARP socket creation; empty/zero preserve legacy no-gateway behavior. Regression #45565621317 PASS on 583576a.
+- MiniUPnP: strict bounded Content-Length parsing (including duplicate rejection), unsupported Transfer-Encoding rejection, 8 KiB header / 64 KiB body limits, bounded realloc growth and valid 431 fallback. GNU89 ASan/UBSan regression plus source contract #45566912855 PASS on 019f005.
+- SmartDNS: Start_AD no longer truncates the last known-good adblock file before download/validation; invalid/empty/network-failed refresh preserves it, fresh install gets an empty default, and symlink targets are rejected. Shell regression and DNSMasq lifecycle/source contract #45568556249 PASS on 1817dd6.
+- U2EC: bounded exact TCP receive/send, MSG_NOSIGNAL, strict inbound/reply lengths, IRP BufferSize backed by bytes actually received, and URB transfer-buffer bounds. GNU89 ASan/UBSan/source-contract #45569202180 PASS on e5d039b; no physical USB-device result claimed.
+- p910nd: bidirectional copy_stream rejects descriptors outside [0, FD_SETSIZE) before FD_SET; this prevents out-of-bounds writes into fd_set. Makefile rebuilds when either policy header changes. GNU89 ASan/UBSan socketpair/source-contract #45569803535 PASS on e487703.
 ### RC optional user-config long-line handling
 
 The generic load_user_config() reader previously discarded a full 255-byte fgets() chunk when it had no newline, then resumed at the remainder of the same physical line. A suffix such as injected=payload could therefore be interpreted as a fresh configuration directive in hosts or wireless driver overlays. The reader now drains and rejects the entire overlong physical record; an exactly 255-byte record is accepted, and a final unterminated short record is normalized with a newline. Embedded-NUL records are also rejected. The API returns read/write/flush/close errors (while a missing optional file remains success), and the LAN hosts, WAN hosts and Ralink config publishers abort their staged publication on copy failure. Host regression covers overlong suffix injection, binary suffix injection, exact-length records, comments, forbidden records and EOF without a newline. Exact-head CI pending.
@@ -125,11 +128,9 @@ Commit `786c504c8247fe42d5d1d5f2dc3ad28757fafc80` strictly parses persisted RX/T
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect exact-head `udhcpc` event-script stability plus XY-C1 Firmware Validation for the DHCP production-source commit.
-2. Confirm the Python source contract rejects the old self-initializer and requires `unsigned timestamp_before_wait = 0;`; GNU89/ASan/UBSan policy tests must also pass.
-3. On the DHCP source SHA, require Build XY-C1, TRX verification and artifact upload to run and pass on the same SHA. Do not confuse the docs-only skipped build at #45561746460 with a product build.
-4. Poll older FTP source XY run #45561165245 only if it concludes; then continue another distinct P1/P2 userland defect.
-
+1. Fetch live main; if still e487703a3163f9bb7bf10fe09d4e389602ce34d3, inspect XY-C1 #45569803520 for Build, TRX and artifact; inspect Process fail-closed #45569803612 and NVRAM audit #45569803507. If main advanced, check those runs against their own recorded SHA and inspect new-head runs separately.
+2. If a run is PENDING, do not wait. Select the next independent stability/security defect from the live roadmap and continue small atomic main commits with GNU89/ASan/UBSan or target-appropriate tests.
+3. Keep WAN, MiniUPnP, SmartDNS, U2EC and p910nd results tied to their exact SHAs. Do not infer same-SHA product L3 from host-only regression PASS. L3 requires Build XY-C1 + TRX + artifact on one production-source SHA; physical-router L4 remains outstanding.
 ## Mandatory handoff checkpoint
 
 The checkpoint is mandatory; a document edit is conditional.

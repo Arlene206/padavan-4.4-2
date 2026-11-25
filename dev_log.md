@@ -1,3 +1,13 @@
+## 2026-11-25 — Harden WAN gateway parsing, MiniUPnP framing, SmartDNS refresh and printer TCP I/O
+
+- WAN ARP now rejects malformed non-empty gateway NVRAM instead of collapsing it to INADDR_ANY; empty/0.0.0.0 retains no-gateway semantics. Exact gateway regression #45565621317 PASS on 583576a.
+- MiniUPnP strictly parses one bounded Content-Length, rejects unsupported Transfer-Encoding and duplicate lengths, caps headers/body and realloc growth, and sends a valid HTTP/1.0 431 before request-version parsing. Exact GNU89 sanitizer/source-contract #45566912855 PASS on 019f005.
+- SmartDNS Start_AD preserves last-known-good adblock output on failed download, empty/invalid config and refuses symlink targets; test covers successful replacement and fresh-install fallback. DNSMasq lifecycle #45568556249 PASS on 1817dd6.
+- U2EC uses full-read/full-send SIGPIPE-safe framing; validates outer frame, IRP BufferSize against actually received payload, URB transfer lengths and reply buffer bounds. Exact GNU89 ASan/UBSan/source-contract #45569202180 PASS on e5d039b.
+- p910nd bidirectional copy validates both descriptors against FD_SETSIZE before FD_SET; Makefile rebuild dependencies include both policy headers. Exact GNU89 ASan/UBSan socketpair/source-contract #45569803535 PASS on e487703.
+- Current main at this checkpoint: e487703a3163f9bb7bf10fe09d4e389602ce34d3. XY-C1 #45569803520 (Build active; TRX/artifact not yet confirmed), Process fail-closed #45569803612 and NVRAM audit #45569803507 were still in progress. Process inventory #45569803552 PASS. No product L3 or physical L4 claim.
+
+---
 ## 2026-11-25 — Repair WAN ARP workflow PR path filter
 
 - Exact-head WAN gateway ARP #45565097044 on `b35e958`: all five GNU89 regression binaries PASS (socket setup, probe error policy, gateway address parser, checked NVRAM copy, signal deferral). The production source/RC contract reached its final path-filter audit, where `trunk/user/rc/src/tests/detect_wan_gateway_address_policy.c` was present in push paths but omitted from pull_request paths. Added it once to PR paths; no source behavior changed. Exact-head rerun pending.
