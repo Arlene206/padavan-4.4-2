@@ -44,7 +44,7 @@ assert "BuildResp2_upnphttp(h, 413, \"Payload Too Large\", NULL, 0)" in query
 assert "BuildResp2_upnphttp(h, 400, \"Bad Request\", NULL, 0)" in query
 
 assert "MINIUPNPD_HTTP_MAX_HEADER_BYTES" in process
-assert "Request Header Fields Too Large" in process
+assert "Request Header Fields Too Large" in header_too_large
 assert "h->HttpVer[0]" in header_too_large
 assert 'memcpy(h->HttpVer, "HTTP/1.0", sizeof("HTTP/1.0"))' in header_too_large
 assert "BuildResp2_upnphttp(h, 431," in header_too_large
@@ -86,7 +86,8 @@ paths = (
 )
 push, pr = workflow.split("  pull_request:", 1)[0], workflow.split("  pull_request:", 1)[1].split("permissions:", 1)[0]
 for path in paths:
-    assert push.count(path) == 1, ("push path missing/duplicated", path)
-    assert pr.count(path) == 1, ("pull_request path missing/duplicated", path)
+    quoted_path = '"' + path + '"'
+    assert push.count(quoted_path) == 1, ("push path missing/duplicated", path)
+    assert pr.count(quoted_path) == 1, ("pull_request path missing/duplicated", path)
 
 print("MiniUPnP HTTP framing, duplicate Content-Length and bounded-buffer source contract: PASS")
