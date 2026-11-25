@@ -93,6 +93,15 @@ status() {
   [ "$1" -eq "$2" ] || fail "status assertion #$status_count expected $2, got $1"
 }
 run() { /bin/sh "$base/iappd.sh" "$1"; }
+iapp_source="$base/src/rtmpiapp.c"
+grep -Fq 'if (listen(pCtrlBK->SocketTcpRcv, 128) < 0)' "$iapp_source" ||
+  fail "IAPP TCP listener setup must fail closed when listen() fails"
+grep -A4 -F 'if (listen(pCtrlBK->SocketTcpRcv, 128) < 0)' "$iapp_source" |
+  grep -Fq 'goto label_fail;' ||
+  fail "IAPP listen failure must close all partially opened sockets"
+grep -A4 -F 'if (listen(pCtrlBK->SocketTcpRcv, 128) < 0)' "$iapp_source" |
+  grep -Fq 'Listen Rcv TCP failed' ||
+  fail "IAPP listen failure must be logged"
 capture_status() { "$@"; rc=$?; printf "%s" "$rc"; }
 mark_running() { mkdir -p "$PROC_ROOT/123"; printf '%s\n' '123 (ralinkiappd) S 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19' > "$PROC_ROOT/123/stat"; ln -sf /sbin/ralinkiappd "$PROC_ROOT/123/exe"; : > "$STATE_DIR/daemon"; }
 mark_stopped() { rm -f "$STATE_DIR/daemon"; rm -rf "$PROC_ROOT/123"; }

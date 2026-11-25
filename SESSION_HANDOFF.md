@@ -1,26 +1,28 @@
 ## Current repository state — 2026-11-25
 
-- Live main parent before this IAPP firewall slice: 8b9b63401dd85232b257120111bb18475db6b5b6; production script, host regression, dev log and handoff are one atomic descendant.
+- Live main parent before this IAPP socket-startup slice: defc1fe850158dd8c2bb179ad39a650037c11f5a; C source, source-contract regression, workflow path filter, dev log and handoff are one atomic descendant.
 - Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains read-only at 72f4f157a084f8184b9597ca5bf334b8080e5807.
-- VSFTPD directory-filter and fallback-parent READ-ACL gates are committed on main in e02fd3651bb5fa4030fe90876100b9cdec123cc3 and 8b9b63401dd85232b257120111bb18475db6b5b6. Exact 8b VSFTPD #45685416732, AI docs #45685416698, Process inventory #45685416728 and NVRAM audit #45685416782 PASS. XY-C1 #45685416720 was still executing Build XY-C1 at last poll; TRX and artifact steps pending, so do not claim L3.
-- PR #1 (closed/unmerged, head ba48e22609e0c81ad757b06756fe91d05f39cbf6) has been inventoried across all 13 changed paths. Main already contains the valid HMAC/CA source and regression functionality or newer implementations; its pull_request trigger is intentionally superseded by main's push-only CI contract. Old PR handoff/roadmap/dev-log copies are stale. No code port required; keep the PR branch untouched.
-- New IAPP fix: iapp_ensure_firewall_rule() previously accepted substring collisions (for example port 35170 and comment ralinkiappd-tcp-extra) and tolerated duplicate owned rules. It now verifies the full rule with iptables -C and checks unique tag inventory; three host regressions cover collision, duplicates and query errors. Exact-head IAPP CI is pending.
+- FTP directory-filter and fallback-parent READ-ACL gates are committed on main (`e02fd3651bb5fa4030fe90876100b9cdec123cc3`, `8b9b63401dd85232b257120111bb18475db6b5b6`); exact 8b VSFTPD, AI docs, Process inventory and NVRAM checks PASS. XY-C1 run #45685416720 remained in Build XY-C1 at last poll; TRX/artifact pending, no L3 claim.
+- IAPP commit defc1fe850158dd8c2bb179ad39a650037c11f5a passed IAPP lifecycle #45686985107 and AI handoff #45686985129; inventory #45686985036 PASS. Process #45686985030 and XY-C1 #45686985116 were in progress at last poll.
+- Defc1's firewall fix uses iptables -C for exact matching and fails closed on duplicated/conflicting owned tags; its lifecycle regression passed.
+- This follow-up closes another IAPP startup gap: ignored TCP listen() failure could leave the event-loop daemon alive despite a nonfunctional inbound TCP socket. Now failure is logged and routed through IAPP_SocketOpen's shared socket cleanup before the event loop.
+- Closed PR #1 path inventory remains complete: valid HMAC/CA changes are integrated or superseded on main; do not cherry-pick and keep its stale docs/PR workflow untouched.
 - Physical-router L4 remains NOT VERIFIED.
 
 ## Active task
 
-Check exact-head IAPP lifecycle Actions for the firewall-rule identity fix. Continue review only when a concrete process/firewall state transition defect can be demonstrated. Also poll the 8b9b63401dd85232b257120111bb18475db6b5b6 XY-C1 run #45685416720 for Build/TRX/artifact completion.
+Validate the IAPP TCP listen() source contract and lifecycle regression on its exact source SHA. Then inspect remaining IAPP startup/teardown calls for ignored fatal resource errors that can leave a falsely healthy daemon.
 
 ## Exact first actions for next GPT
 
-1. Fetch live main and inspect exact-head IAPP workflow logs; repair the first causal source/test failure without weakening the regressions.
-2. Check latest XY-C1 exact SHA. L3 requires Build, TRX verification and artifact upload all PASS on the same production-source SHA.
-3. Do not cherry-pick PR #1; valid changes are integrated or superseded on main. Preserve the frozen backup.
-4. Continue with another concrete userland reliability/security defect; do not repeat the completed VSFTPD, PR or already-verified module audits.
+1. Inspect exact-head IAPP workflow logs for this listen() slice; repair any actual source/test failure.
+2. Poll defc1fe850158dd8c2bb179ad39a650037c11f5a Process and XY-C1 runs, plus the 8b9b63401dd85232b257120111bb18475db6b5b6 XY-C1 run. L3 requires Build, TRX verification and artifact upload on one identical production-source SHA.
+3. Continue bounded IAPP socket startup audit, then move to another concrete userland reliability/security defect.
+4. Preserve backup and do not reopen or cherry-pick PR #1.
 
 ## Execution contract
 
-Main only; keep backup/pre-plugin-overhaul-2026-11-14 read-only; no force-push, development branches or PRs. Each multi-file slice uses all blobs, one complete tree, one commit and a non-forced expected-SHA main update. PENDING Actions do not block independent work.
+Main only; backup/pre-plugin-overhaul-2026-11-14 is read-only. No force-push, development branches or PRs. Use complete Git trees and one commit per logical task, then non-force update main with exact expected parent SHA. PENDING Actions do not block independent work.
 ## 2026-11-25 autonomous handoff checkpoint
 
 This checkpoint supersedes older active task pointers below; retain historical completed work without re-auditing completed areas.

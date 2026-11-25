@@ -1597,7 +1597,11 @@ static BOOLEAN IAPP_SocketOpen(
 		goto label_fail;
 	} /* End of if */
 
-	listen(pCtrlBK->SocketTcpRcv, 128); /* max 128 TCP connections simultaneously */
+	if (listen(pCtrlBK->SocketTcpRcv, 128) < 0)
+	{
+		DBGPRINT(RT_DEBUG_ERROR, "iapp> Listen Rcv TCP failed!\\n");
+		goto label_fail;
+	} /* End of if */
 
 #ifdef FT_KDP_FUNC_SOCK_COMM
 #ifdef IAPP_OS_LINUX

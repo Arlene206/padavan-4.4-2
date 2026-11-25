@@ -1,3 +1,10 @@
+## 2026-11-25 — Fail IAPP startup when TCP listen() fails
+
+- IAPP_SocketOpen() checked socket creation and bind(), but ignored listen()'s return value. A listener setup failure could leave the daemon loop running and be reported healthy even though incoming TCP security-block connections could not be accepted.
+- The TCP listen result is now checked; on failure the function logs the error and follows its existing label_fail cleanup, closing all partially opened sockets and preventing the child from entering IAPP_Start().
+- Added an IAPP source-contract regression for the checked call, failure log and cleanup branch; the workflow now triggers when this production C source changes. Exact-head Actions pending; no firmware or hardware result claimed.
+
+---
 ## 2026-11-25 — Match Ralink IAPP firewall rules by exact xtables identity
 
 - Found a firewall readiness false-positive in iapp_ensure_firewall_rule(): substring filters accepted a TCP rule for port 35170 with comment ralinkiappd-tcp-extra as the required TCP/3517 rule. The previous check also tolerated duplicate owned tags because one matching line was sufficient.
