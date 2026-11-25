@@ -1109,7 +1109,7 @@ jobs:
           assert "nvram_safe_get(\"regspec_code\")" not in sku_link_compact
           assert sku_link_compact.index("nvram_get_checked(") < sku_link_compact.index("ralink_config_nvram_read_status(") < sku_link_compact.index("check_regspec_code(regspec)")
           assert "ralink_config_publish_symlink_atomic(" not in sku_link_compact
-          assert "static int\\nsymlink_sku_file(" in ralink_source
+          assert "static int\nsymlink_sku_file(" in ralink_source
           sku_config = function_body(
               ralink_source,
               "gen_ralink_config(int is_soc_ap, int is_aband, int disable_autoscan)")
