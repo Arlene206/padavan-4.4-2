@@ -490,6 +490,8 @@ jobs:
           acl_path = function_body(vsftpd_acl, "asus_check_permission_path(")
           listing_visibility = function_body(vsftpd_acl, "asus_check_file_visible(")
           listing_symlink = function_body(acl_path_policy, "ftp_acl_path_resolve_listing_symlink(")
+          no_chroot_visibility = listing_visibility[listing_visibility.index("if (!tunable_chroot_local_user)"):
+              listing_visibility.index("if (!p_sess ||", listing_visibility.index("if (!tunable_chroot_local_user)"))]
           acl_existing = function_body(vsftpd_acl, "asus_check_permission_existing_path(")
           acl_upload = function_body(vsftpd_acl, "asus_check_permission_upload(")
           acl_directory = function_body(vsftpd_acl, "asus_check_permission_directory(")
@@ -868,6 +870,10 @@ jobs:
           assert "dangling final symlink accepted" in acl_path_test
           assert "ftp_acl_path_resolve_listing_symlink" in listing_visibility
           assert "asus_check_permission_at(p_sess, PERM_READ, resolved_entry)" in listing_visibility
+          assert "AT_SYMLINK_NOFOLLOW" in no_chroot_visibility
+          assert "S_ISLNK(entry_stat.st_mode)" in no_chroot_visibility
+          assert "ftp_acl_path_resolve_listing_symlink" in no_chroot_visibility
+          assert no_chroot_visibility.index("ftp_acl_path_resolve_listing_symlink") < no_chroot_visibility.index("return 1;")
           assert "AT_SYMLINK_NOFOLLOW" in listing_symlink
           assert '"/proc/self/fd/%d/%s"' in listing_symlink
           assert "before.st_ino != after.st_ino" in listing_symlink

@@ -1,3 +1,10 @@
+## 2026-11-25 — Keep internal ACL symlinks hidden with share ACL enforcement disabled
+
+- Follow-up review of the LIST symlink ACL fix found the legacy fast path `if (!tunable_chroot_local_user) return 1` ran before symlink target inspection. That setting disables share ACL checks, but must not expose internal `.__*` ACL metadata through an alias. The no-chroot listing path now resolves symlinks relative to the pinned directory and hides unresolved/metadata targets before preserving ordinary visibility.
+- Extended the vsftpd workflow source contract to assert this early-return ordering. Existing ACL policy regression covers a symlink alias to an internal metadata file. Exact-head vsftpd CI is required; no local build is claimed.
+
+---
+
 ## 2026-11-25 — Enforce target-share ACLs for FTP LIST symlinks
 
 - The FTP listing filter classified an entry by its lexical path and used `fstatat(..., 0)`, which follows a directory symlink. A user allowed to read share A could therefore see symlink names targeting unreadable share B: the canonical target's share ACL was not checked until a later CWD or file-open command. Added a descriptor-anchored symlink resolver (`/proc/self/fd/<dirfd>/<leaf>`), rechecks the symlink inode after resolution, rejects dangling/internal-metadata targets, and applies the normal read ACL to the canonical target before listing the entry.

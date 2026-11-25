@@ -914,8 +914,23 @@ asus_check_file_visible(struct vsf_session* p_sess,
   p_filename = str_getbuf(p_filename_str);
   if (ftp_acl_path_is_internal_metadata(p_filename))
     return 0;
-  if (!tunable_chroot_local_user)
+  if (!tunable_chroot_local_user) {
+    /*
+     * Internal ACL files remain private even when share-level ACL enforcement
+     * is disabled. Resolve symlink targets from the pinned listing directory
+     * before accepting their names; a failed resolution is hidden fail-closed.
+     */
+    if (directory_fd >= 0 && strcmp(p_filename, ".") != 0 &&
+        strcmp(p_filename, "..") != 0 &&
+        fstatat(directory_fd, p_filename, &entry_stat,
+                AT_SYMLINK_NOFOLLOW) == 0 &&
+        S_ISLNK(entry_stat.st_mode) &&
+        ftp_acl_path_resolve_listing_symlink(directory_fd, p_filename,
+                                             resolved_entry,
+                                             sizeof(resolved_entry)) != 0)
+      return 0;
     return 1;
+  }
   if (!p_sess || directory_fd < 0 || !resolved_base || resolved_base[0] != '/')
     return 0;
   if (!strcmp(p_filename, ".") || !strcmp(p_filename, ".."))
