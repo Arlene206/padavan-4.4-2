@@ -1,3 +1,13 @@
+## 2026-11-25 — Repair MiniUPnP config workflow path-filter contract
+
+- Exact-SHA MiniUPnP config run #45720140098 on `493c184b7a3e33e90a389a17560fc366e493a355` compiled and executed the SOAP UTF-8 policy test, then failed in the workflow's embedded Python path-filter contract (stdin line 617). The workflow's push/PR filters already listed `Makefile.linux_nft`, but the contract's expected-path tuple listed only `Makefile.linux`; the assertion was stale and blocked the otherwise-valid test job.
+- Added the nftables Makefile to the source-contract tuple. This is a CI contract correction; no product source behavior changed in this slice.
+- The preceding XML test-wiring mistake was fixed by `493c184b7a3e33e90a389a17560fc366e493a355`; current live main before this correction: `dd5faa3b67723f06507bacc8539e01c759befd72`.
+- Exact-SHA rerun is pending. No XY-C1 L3 or physical-router L4 result is inferred.
+- Changed paths: `.github/workflows/miniupnpd-config-stability.yml`, `dev_log.md`.
+
+---
+
 ## 2026-11-25 — Handoff checkpoint at 493c184b7a3e33e90a389a17560fc366e493a355
 
 - Main product/source checkpoint: `493c184b7a3e33e90a389a17560fc366e493a355`; frozen backup branch: `72f4f157a084f8184b9597ca5bf334b8080e5807`.

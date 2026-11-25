@@ -880,6 +880,7 @@ jobs:
               "scripts/check_miniupnpd_shutdown_status.py",
               "trunk/user/miniupnpd/miniupnpd-2.x/daemonize.c",
               "trunk/user/miniupnpd/miniupnpd-2.x/Makefile.linux",
+              "trunk/user/miniupnpd/miniupnpd-2.x/Makefile.linux_nft",
               "trunk/user/miniupnpd/miniupnpd-2.x/upnpredirect.c",
               "trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd_lease_file_policy.h",
               "trunk/user/miniupnpd/miniupnpd-2.x/tests/miniupnpd_lease_file_policy_test.c",
