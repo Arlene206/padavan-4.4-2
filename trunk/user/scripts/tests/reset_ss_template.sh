@@ -82,4 +82,31 @@ for scratch in "$sandbox/storage-mv-failure"/.start_script.sh.*; do
 	[ ! -e "$scratch" ] || fail "failed publication leaked staging file: $scratch"
 done
 
+# A directory target must not be treated as a destination container.
+prepare_script "$sandbox/storage-directory-target"
+"$real_mkdir" -p "$sandbox/storage-directory-target/start_script.sh"
+printf '%s\\n' 'preserve directory target' > "$sandbox/storage-directory-target/start_script.sh/marker"
+if run_generator; then
+	fail "directory start_script.sh target unexpectedly succeeded"
+fi
+[ -d "$sandbox/storage-directory-target/start_script.sh" ] ||
+	fail "directory start_script.sh target was replaced"
+[ "$(cat "$sandbox/storage-directory-target/start_script.sh/marker")" = "preserve directory target" ] ||
+	fail "directory target contents were modified"
+
+# A symlink to a directory must also be rejected, not followed by mv.
+prepare_script "$sandbox/storage-directory-symlink"
+"$real_mkdir" -p "$sandbox/directory-target"
+printf '%s\\n' 'preserve symlink directory target' > "$sandbox/directory-target/marker"
+ln -s "$sandbox/directory-target" "$sandbox/storage-directory-symlink/start_script.sh"
+if run_generator; then
+	fail "directory-symlink start_script.sh target unexpectedly succeeded"
+fi
+[ -L "$sandbox/storage-directory-symlink/start_script.sh" ] ||
+	fail "directory-symlink target was replaced"
+[ ! -e "$sandbox/directory-target/.start_script.sh."* ] ||
+	fail "generated start script was moved inside symlink target"
+[ "$(cat "$sandbox/directory-target/marker")" = "preserve symlink directory target" ] ||
+	fail "symlink directory target contents were modified"
+
 echo "reset_ss deferred expansion and atomic publication regression: PASS"

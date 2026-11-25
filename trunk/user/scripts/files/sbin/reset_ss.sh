@@ -8,6 +8,14 @@ if [ -L "$script_dir" ] || [ ! -d "$script_dir" ]; then
 	echo "reset_ss: unsafe storage script directory: $script_dir" >&2
 	exit 1
 fi
+# mv treats a destination directory (including a symlink to one) as a
+# container. Reject those targets so publication cannot land inside another
+# directory instead of atomically replacing start_script.sh.
+if { [ -L "$script_start" ] && [ -d "$script_start" ]; } ||
+   { [ -e "$script_start" ] && [ ! -f "$script_start" ] && [ ! -L "$script_start" ]; }; then
+	echo "reset_ss: unsafe existing start script target: $script_start" >&2
+	exit 1
+fi
 script_tmp=$(mktemp "$script_dir/.start_script.sh.XXXXXX") || {
 	echo "reset_ss: cannot stage start script in $script_dir" >&2
 	exit 1
