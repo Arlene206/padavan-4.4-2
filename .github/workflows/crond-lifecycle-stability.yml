@@ -17,6 +17,8 @@ on:
       - "trunk/user/shared/src/process_inventory.h"
       - "trunk/user/shared/src/pids.c"
       - "trunk/user/busybox/busybox-1.24.x/miscutils/crond.c"
+      - "trunk/user/scripts/files/sbin/check_crontab.sh"
+      - "trunk/user/scripts/tests/check_crontab_status.sh"
       - "trunk/user/busybox/busybox-1.24.x/libbb/vfork_daemon_rexec.c"
       - "scripts/check_crond_lifecycle.py"
   pull_request:
@@ -34,6 +36,8 @@ on:
       - "trunk/user/shared/src/process_inventory.h"
       - "trunk/user/shared/src/pids.c"
       - "trunk/user/busybox/busybox-1.24.x/miscutils/crond.c"
+      - "trunk/user/scripts/files/sbin/check_crontab.sh"
+      - "trunk/user/scripts/tests/check_crontab_status.sh"
       - "trunk/user/busybox/busybox-1.24.x/libbb/vfork_daemon_rexec.c"
       - "scripts/check_crond_lifecycle.py"
   workflow_dispatch:
@@ -55,5 +59,11 @@ jobs:
             trunk/user/rc/src/tests/crond_daemon_policy.c \
             -o /tmp/crond-daemon-policy
           ASAN_OPTIONS=detect_leaks=1 /tmp/crond-daemon-policy
+      - name: Verify crontab command identity and concurrent registration
+        run: |
+          set -eu
+          sh -n trunk/user/scripts/files/sbin/check_crontab.sh
+          sh -n trunk/user/scripts/tests/check_crontab_status.sh
+          sh trunk/user/scripts/tests/check_crontab_status.sh
       - name: Verify detached-daemon, stop-before-start and RC caller contracts
         run: python3 scripts/check_crond_lifecycle.py

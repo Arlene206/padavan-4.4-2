@@ -7,18 +7,6 @@ SOURCE="$ROOT/trunk/user/scripts/files/sbin/check_crontab.sh"
 WORK=$(mktemp -d "${TMPDIR:-/tmp}/check-crontab-status.XXXXXX")
 trap 'rm -rf "$WORK"' EXIT HUP INT TERM
 
-mkdir -p "$WORK/bin"
-cat > "$WORK/bin/grep" <<'MOCK'
-#!/bin/sh
-if [ "${TEST_GREP_STATUS:-0}" -gt 1 ]; then
-	exit "$TEST_GREP_STATUS"
-fi
-exec /bin/grep "$@"
-MOCK
-chmod 755 "$WORK/bin/grep"
-PATH="$WORK/bin:$PATH"
-export PATH
-
 # Exercise the production script with a disposable storage-root fixture.
 sed 's@^cd /etc/storage || exit 2$@cd "$TEST_STORAGE_ROOT" || exit 2@' "$SOURCE" > "$WORK/check_crontab.sh"
 chmod 755 "$WORK/check_crontab.sh"

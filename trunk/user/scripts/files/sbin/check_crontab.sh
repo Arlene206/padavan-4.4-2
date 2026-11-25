@@ -38,16 +38,45 @@ if [ -e "$cron_file" ] && [ ! -f "$cron_file" ]; then
 	exit 2
 fi
 
-if [ -f "$cron_file" ]; then
-	if grep -F -- "$script_path" "$cron_file" >/dev/null 2>&1; then
-		exit 0
-	else
-		grep_status=$?
-		case "$grep_status" in
-			1) ;;
-			*) exit 2 ;;
-		esac
+# Serialize the check-and-append operation so simultaneous service
+# startups cannot race and create duplicate crontab entries.
+lock_file=cron/.admin.lock
+command -v flock >/dev/null 2>&1 || exit 2
+[ ! -L "$lock_file" ] || exit 2
+if [ -e "$lock_file" ] && [ ! -f "$lock_file" ]; then
+	exit 2
+fi
+if [ ! -e "$lock_file" ]; then
+	if ! ( set -C; : > "$lock_file" ) 2>/dev/null; then
+		[ ! -L "$lock_file" ] && [ -f "$lock_file" ] || exit 2
 	fi
+fi
+[ ! -L "$lock_file" ] && [ -f "$lock_file" ] || exit 2
+exec 9>>"$lock_file" || exit 2
+flock -x 9 || exit 2
+
+# Recheck the target after taking the lock, then compare the actual command
+# token in field six. Substring matches in comments or similarly named
+# executables must not suppress a required job.
+[ ! -L cron ] && [ -d cron ] || exit 2
+[ ! -L cron/crontabs ] && [ -d cron/crontabs ] || exit 2
+[ ! -L "$cron_file" ] || exit 2
+if [ -e "$cron_file" ] && [ ! -f "$cron_file" ]; then
+	exit 2
+fi
+if [ -f "$cron_file" ]; then
+	[ -r "$cron_file" ] || exit 2
+	while IFS= read -r cron_line || [ -n "$cron_line" ]; do
+		case "$cron_line" in
+			''|'#'*) continue ;;
+		esac
+		set -f
+		set -- $cron_line
+		set +f
+		if [ "$#" -ge 6 ] && [ "$6" = "$script_path" ]; then
+			exit 0
+		fi
+	done < "$cron_file"
 fi
 
 printf '%s %s > /dev/null 2>&1\n' "$exp" "$script_path" >> "$cron_file" || exit 2
