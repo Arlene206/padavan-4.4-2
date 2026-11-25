@@ -1235,7 +1235,7 @@ jobs:
           assert "ppp_callback_state_file_lock(PPP_WAN_SESSION_LOCK_FILE" in session_lock
           assert "O_NOFOLLOW" in state_lock and "S_ISREG(st.st_mode)" in state_lock
           assert state_lock.count("O_CLOEXEC") == 2
-          assert (lock_fd, F_GETFD) in state_test
+          assert "fcntl(lock_fd, F_GETFD)" in state_test
           assert "FD_CLOEXEC" in state_test
           assert "lock.l_type = F_WRLCK" in state_lock
           assert "fcntl(fd, F_SETLK, &lock)" in state_lock
