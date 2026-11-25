@@ -40,8 +40,8 @@ EOF_RM
 cat > "$sandbox/bin/bzcat" <<'EOF'
 #!/bin/sh
 printf '%s\n' "$*" >> "$BZCAT_LOG"
-[ "\${BZCAT_EMPTY:-0}" = 1 ] || cat "$BZCAT_FIXTURE"
-exit "\${BZCAT_STATUS:-0}"
+[ "${BZCAT_EMPTY:-0}" = 1 ] || cat "$BZCAT_FIXTURE"
+exit "${BZCAT_STATUS:-0}"
 EOF
 cat > "$sandbox/bin/tar" <<'EOF'
 #!/bin/sh

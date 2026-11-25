@@ -1,3 +1,10 @@
+## 2026-11-25 — Fix MTD restore test wrapper parameter expansion
+
+- Source review of `0bfcc6eb`'s new MTD-index-100 regression found the `bzcat` fixture was inside a single-quoted heredoc but escaped its shell variables as `\\${...}`. Those backslashes suppress expansion, so the fixture ignores `BZCAT_EMPTY` and exits with a literal status token; the successful extraction case cannot actually pass. Removed the unnecessary escapes so the existing empty-output, nonzero-status, and valid-archive cases exercise the intended paths.
+- This is a test-fixture correction only. The current storage-hotplug workflow is still running on the RWFS fixture fix; this commit requires a fresh exact-head storage run to reach and verify the MTD transaction tests.
+
+---
+
 ## 2026-11-25 — Make the BusyBox ash RWFS fixture resolve applets deterministically
 
 - Exact storage-hotplug #45592026746 on `6eac6fbe` passed all host-sh tests, including the newline-separated multi-mount guard and blank-inventory rejection, but its second run under BusyBox ash failed before the first conversion: the source preflight could not resolve `awk` from the fixture PATH. The test now exposes the firmware BusyBox binary through `awk`/`cat` applet-name symlinks and resets PATH per fixture instead of accumulating prior sandbox paths.
