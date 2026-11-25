@@ -58,6 +58,8 @@
 #include "dpkt.h"
 #include "netop.h"
 
+#include "udpxy_multicast_refresh_policy.h"
+
 /* external globals */
 
 extern const char   CMD_UDP[];
@@ -352,16 +354,24 @@ check_mcast_refresh( int msockfd, time_t* last_tm,
                      const struct in_addr* s_in_addr)
 {
     time_t now = 0;
+    int refresh_rc;
 
     if( NULL != g_uopt.srcfile ) /* reading from file */
         return;
 
     assert( (msockfd > 0) && last_tm && mifaddr );
     now = time(NULL);
+    if( (time_t)-1 == now )
+        return;
 
-    if( now - *last_tm >= g_uopt.mcast_refresh ) {
-        (void) renew_multicast( msockfd, mifaddr, s_in_addr);
-        *last_tm = now;
+    if( now - *last_tm >= (time_t)g_uopt.mcast_refresh ) {
+        refresh_rc = renew_multicast( msockfd, mifaddr, s_in_addr);
+        if( 0 != refresh_rc ) {
+            TRACE( (void)tmfprintf( g_flog,
+                "Multicast refresh failed; retrying after one second\n" ) );
+        }
+        *last_tm = udpxy_mcast_refresh_anchor(
+            now, (time_t)g_uopt.mcast_refresh, refresh_rc );
     }
 
     return;

@@ -1,3 +1,13 @@
+## 2026-11-25 — Recover UDPXY multicast membership after failed refresh
+
+- `renew_multicast()` returned immediately when DROP failed, skipping ADD even though a missing membership is exactly the state that ADD must repair. After DROP-success/ADD-failure, the next retry hit a second DROP failure and could never rejoin.
+- `check_mcast_refresh()` discarded the renewal result and always advanced the full configured refresh interval, leaving a failed stream unsubscribed until that interval elapsed. The retry policy now always attempts ADD, returns the ADD result, and sets the last-refresh anchor so a failure is retried after one second without a hot loop; successful renewal retains the normal interval.
+- Added a GNU89 ASan/UBSan regression for command order, partial-failure recovery and timer scheduling, plus a source integration contract and focused workflow. The production package path is already included in the XY-C1 firmware input trigger.
+- Parent SHA: 9a8679b69d45e5c28c0ff580f08c7fa455b62400. Exact-head multicast regression, AI documentation and XY-C1 Build/TRX/artifact checks for this commit: pending. No live multicast or hardware result is claimed.
+- Changed paths: trunk/user/udpxy/src/netop.c, trunk/user/udpxy/src/netop.h, trunk/user/udpxy/src/udpxy.c, trunk/user/udpxy/src/udpxy_multicast_refresh_policy.h, trunk/user/udpxy/src/test/udpxy_multicast_refresh_policy.c, scripts/check_udpxy_multicast_refresh.py, .github/workflows/udpxy-multicast-refresh-stability.yml, SESSION_HANDOFF.md, dev_log.md.
+
+---
+
 ## 2026-11-25 — Fix UDPXY parser contract false positive on safety comment
 
 - Exact-head UDPXY run #45723689891 on `7bcef331344c956d3983e88ab82460af399035ab` passed the GNU89 ASan/UBSan parser executable, then failed because the Python checker searched the raw C function text for `strchr(`. The implementation had removed the call; its explanatory comment correctly named the unsafe function and triggered the naive substring assertion.

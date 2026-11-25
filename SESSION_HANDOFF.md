@@ -1,37 +1,23 @@
-## 2026-11-25 continuation checkpoint (supersedes older state summaries)
-
-- Live `main`: `61e70580ea0e0c34a255a37b7e49684b14b5b84b` — test(udpxy): ignore comments in banned-call contract.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify it.
-- Latest product work already present in history includes the VSFTPD reserved-metadata upload guard, p910nd PID-lock ordering, native IPv6 WAN route contract correction, LLMNR EDNS0 section rebuilding, ZeroTier on-link ECMP fail-closed cleanup, MiniUPnP SOAP UTF-8 sanitization, event-subscriber capacity limit/HTTP 503 handling, and MiniUPnP event callback hardening only where confirmed by the live tree.
-- Event-subscriber source/checker correction commit: `453c58202da8c435a1a029be2c12f7b98f0218de`. Exact-SHA workflow results: miniupnpd event subscription resource stability regression #45721956369: completed/success (453c58202da8); AI handoff documentation contract #45721956496: completed/success (453c58202da8).
-- XY-C1 results for firmware source SHA `4daa654ddc09c91ac023b388fa08dbe6b29fdd8d`: no Actions runs returned for this SHA; do not transfer firmware claims to later SHAs without a matching build.
-- MiniUPnP callback parser is present in the live tree. Current-head Actions: UDPXY HTTP request parser bounds regression #45723868583: in_progress (61e70580ea0e); AI handoff documentation contract #45723868689: in_progress (61e70580ea0e).
-- First task for the next session: poll the exact live-head MiniUPnP event-callback regression (GNU89 ASan/UBSan and source-contract job); repair the first actual failure and rerun on its new SHA. Then poll the event-subscriber exact-SHA workflow if still pending.
-- After that, continue independent stability/security work outside the already-fixed items; the DHCP client leasefail/renew/deconfig transition remains an investigation candidate. Never wait on PENDING firmware jobs when an independent safe slice is available.
-- No physical-router/L4 result is claimed by this checkpoint. The frozen backup remains read-only.
-
----
-
 ## Current repository state
 
-- Live `main` before this slice: `4efe6e652e98579f7a852fe617d36fc1b0404e81` (`fix(modem): fail closed without matching QMI control node`). Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; never modify it.
-- `947a1e78e3fdf3c77591a544abc03bfa6e795ace` UDPXY request-boundary workflow #45723286524 PASS; process lifecycle checks #45723286572 and #45723286480 PASS. Its AI docs run #45723286575 failed because this handoff omitted the required `## Active task` heading; the same exact validator failure repeated on `4efe6e6` as #45723458402. This commit restores the required four-section contract and preserves the execution archive.
-- On exact `4efe6e6`, USB modem identity #45723458320, WAN teardown #45723458355, detect_link #45723458450, WAN DHCP callback #45723458517, HTTPD security #45723458524 and Process inventory #45723458437 passed. Process fail-closed #45723458432, XY-C1 #45723458362 and NVRAM #45723458565 were pending at last inspection.
-- UDPXY parser source regression passed on `947a1e7`. XY-C1 on `947a1e7` (#45723286510) was still pending, while its NVRAM run #45723286578 was cancelled after the compile and initial regression steps passed. The latest previously confirmed XY-C1 L3 image remains `9ed539a04e4c4df96aef03f9d1a6f9637fd3e3b9` (#45719100341); later product-source changes are not covered. Current-source L3 and physical-router L4 remain NOT VERIFIED.
+- Live `main` immediately before this engineering slice: `9a8679b69d45e5c28c0ff580f08c7fa455b62400` (`docs: checkpoint MiniUPnP callback hardening state`). Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable.
+- Exact `61e70580ea0e0c34a255a37b7e49684b14b5b84b` checks: UDPXY HTTP parser regression #45723868583 PASS; AI handoff contract #45723868689 PASS. The former runs the production GNU89 ASan/UBSan parser test plus source checker, including the high-byte case.
+- Exact `9a8679b69d45e5c28c0ff580f08c7fa455b62400` AI handoff contract #45723931110 PASS. On exact product-source SHA `f059d71423f6d3ad6fd2fbbc71edec075428648b`, MiniUPnP callback #45723760888, event subscribers #45723760751, config publication #45723760746, HTTP framing #45723760724, AI docs #45723760726 and process inventory #45723760712 PASS; XY-C1 #45723760825 and NVRAM #45723760719 were still pending at the last observation.
+- Prior XY-C1 L3 baseline `9ed539a04e4c4df96aef03f9d1a6f9637fd3e3b9` (#45719100341) does not cover later source changes. Current-source firmware L3 and physical-router L4 remain NOT VERIFIED.
 
 ## Active task
 
-Continue UDPXY reliability hardening. The immediate parser follow-up replaces a `strchr()` scan whose second argument was an untrusted possibly-negative `char`; C requires the value to be EOF or representable as `unsigned char`. Direct byte comparisons plus a high-bit regression close that undefined-behavior edge. Next investigate `renew_multicast()`'s DROP-then-ADD early return and `check_mcast_refresh()`'s ignored error/normal timer advance: a successful DROP followed by failed ADD leaves the stream unsubscribed and the next DROP-first retry can never reach ADD.
+Repair UDPXY multicast membership renewal. The current `renew_multicast()` stops after a failed DROP, so it never tries ADD when the membership is already absent (including after a previous DROP-success/ADD-failure). `check_mcast_refresh()` also discarded the return status and advanced the full normal timer after a failed rejoin. This slice changes renewal to always attempt ADD, reports the ADD status, and schedules a one-second retry after failure instead of waiting the configured interval or retrying on every relay-loop iteration.
 
 ## Verification boundary
 
-- For `947a1e78e3fdf3c77591a544abc03bfa6e795ace`: UDPXY GNU89/ASan/UBSan production-linked regression and source contract PASS (#45723286524); Process checks PASS; AI documentation check FAIL only because the required active-task heading was absent; XY-C1 run #45723286510 was still in progress when last checked.
-- For `4efe6e652e98579f7a852fe617d36fc1b0404e81`: USB modem, WAN teardown, detect_link, WAN callback, HTTPD and Process inventory checks PASS; AI documentation check #45723458402 failed on the same required heading. Process fail-closed, XY-C1 and NVRAM were still pending.
-- This high-byte parsing follow-up and the documentation repair require their own exact-head UDPXY and AI handoff checks. No MIPS firmware, live multicast/HTTP or hardware validation is claimed.
+- The policy test compiles as GNU89 with `-Wall -Wextra -Werror -fsanitize=address,undefined` and exercises DROP-failure/ADD-success, DROP-success/ADD-failure, recovery on a second attempt, and retry deadline arithmetic. Exact-head CI result for this slice: pending at commit creation.
+- The checker verifies `netop.c`/`udpxy.c` integrate the tested policy and that both workflow path lists and the XY-C1 firmware trigger include the production source paths.
+- No live multicast, MIPS/uClibc, XY-C1 artifact on this new SHA, or physical-router result is claimed.
 
 ## Exact first action for the next GPT
 
-Fetch current `main`, then the exact-head UDPXY parser and AI documentation runs from this commit. Once those are green, implement the multicast renewal retry/return-status repair with a GNU89 sanitizer regression. Treat XY-C1 Build, TRX verification and artifact upload as L3 only when all pass on one identical product-source SHA.
+Fetch current `main` and exact-head `udpxy-multicast-refresh-stability.yml`, AI handoff and XY-C1 runs for this commit. Repair any first-causal failure. Only record XY-C1 L3 if Build, TRX verification and artifact upload all pass on the same exact product-source SHA; PENDING does not block an independent userland stability slice.
 
 ## Mandatory handoff checkpoint
 

@@ -58,7 +58,7 @@ close_mcast_listener( int msockfd, const struct in_addr* mifaddr, const struct i
  */
 int
 set_multicast( int msockfd, const struct in_addr* mifaddr,
-               const struct in_addr* s_in_addr, char* opname );
+               const struct in_addr* s_in_addr, const char* opname );
 
 
 /* drop from and add into a multicast group

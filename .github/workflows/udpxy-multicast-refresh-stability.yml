@@ -1,0 +1,43 @@
+name: UDPXY multicast renewal retry policy stability
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/udpxy-multicast-refresh-stability.yml"
+      - "trunk/user/udpxy/src/netop.c"
+      - "trunk/user/udpxy/src/netop.h"
+      - "trunk/user/udpxy/src/udpxy.c"
+      - "trunk/user/udpxy/src/udpxy_multicast_refresh_policy.h"
+      - "trunk/user/udpxy/src/test/udpxy_multicast_refresh_policy.c"
+      - "scripts/check_udpxy_multicast_refresh.py"
+  pull_request:
+    paths:
+      - ".github/workflows/udpxy-multicast-refresh-stability.yml"
+      - "trunk/user/udpxy/src/netop.c"
+      - "trunk/user/udpxy/src/netop.h"
+      - "trunk/user/udpxy/src/udpxy.c"
+      - "trunk/user/udpxy/src/udpxy_multicast_refresh_policy.h"
+      - "trunk/user/udpxy/src/test/udpxy_multicast_refresh_policy.c"
+      - "scripts/check_udpxy_multicast_refresh.py"
+
+permissions:
+  contents: read
+
+jobs:
+  udpxy-multicast-refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and run GNU89 ASan/UBSan multicast renewal policy regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer \
+            -Itrunk/user/udpxy/src \
+            trunk/user/udpxy/src/test/udpxy_multicast_refresh_policy.c \
+            -o /tmp/udpxy_multicast_refresh_policy_test
+          ASAN_OPTIONS=detect_leaks=1:abort_on_error=1 \
+            /tmp/udpxy_multicast_refresh_policy_test
+      - name: Verify production multicast refresh integration
+        run: python3 scripts/check_udpxy_multicast_refresh.py

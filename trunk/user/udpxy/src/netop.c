@@ -37,6 +37,8 @@
 #include "mtrace.h"
 #include "osdef.h"
 
+#include "udpxy_multicast_refresh_policy.h"
+
 
 extern FILE* g_flog;    /* application log */
 
@@ -130,7 +132,7 @@ setup_listener( const char* ipaddr, int port, int* sockfd, int bklog )
 
 /* add or drop membership depending on whether we're dealing with SSM or normal mcast*/
 int
-set_multicast( int msockfd, const struct in_addr* mifaddr, const struct in_addr* s_in_addr, char* opname )
+set_multicast( int msockfd, const struct in_addr* mifaddr, const struct in_addr* s_in_addr, const char* opname )
 {
     struct sockaddr_in addr;
     /* Structure used for Source-Specific Multicast (RFC 3678) */
@@ -306,16 +308,21 @@ close_mcast_listener( int msockfd, const struct in_addr* mifaddr, const struct i
 
 /* drop from and add into a multicast group
  */
+static int
+renew_multicast_operation( int msockfd, const struct in_addr* mifaddr,
+                           const struct in_addr* s_in_addr,
+                           const char* opname, void* context )
+{
+    (void)context;
+    return set_multicast( msockfd, mifaddr, s_in_addr, opname );
+}
+
+
 int
 renew_multicast( int msockfd, const struct in_addr* mifaddr, const struct in_addr* s_in_addr )
 {
-    int rc = 0;
-
-    rc = set_multicast( msockfd, mifaddr, s_in_addr, "DROP" );
-    if( 0 != rc ) return rc;
-
-    rc = set_multicast( msockfd, mifaddr, s_in_addr, "ADD" );
-    return rc;
+    return udpxy_renew_multicast_with( renew_multicast_operation, NULL,
+                                       msockfd, mifaddr, s_in_addr );
 }
 
 
