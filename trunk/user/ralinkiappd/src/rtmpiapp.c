@@ -2164,6 +2164,7 @@ static VOID IAPP_RcvHandlerTcp(
 	INT32 SockNew;
 	socklen_t Length;
 	INT32 SizeRcvMsg;
+	INT32 ReceivedLength;
 	INT32 if_idx = 0;
 
 	/* init */
@@ -2183,6 +2184,7 @@ static VOID IAPP_RcvHandlerTcp(
 
 	if (SizeRcvMsg > 0)
 	{
+		ReceivedLength = SizeRcvMsg;
 		DBGPRINT(RT_DEBUG_TRACE,
 				"iapp> Recv TCP successfully from %d.%d.%d.%d\n",
 				IAPP_SHOW_IP(AddrPeer.sin_addr.s_addr));
@@ -2191,6 +2193,14 @@ static VOID IAPP_RcvHandlerTcp(
 		/* ioctl to decrypt */
 		if (IAPP_IOCTL_TO_WLAN(pCtrlBK, RT_IOCTL_IAPP, pPktBuf, &SizeRcvMsg, 0, RT_FT_DATA_DECRYPT) == FALSE) {
 			DBGPRINT(RT_DEBUG_ERROR, "iapp> TCP Decrypt frame failed!\n");
+			return;
+		}
+		if (SizeRcvMsg < 0 ||
+		    !iapp_rx_buffer_append_fits((size_t)ReceivedLength, 0,
+						(size_t)SizeRcvMsg)) {
+			DBGPRINT(RT_DEBUG_ERROR,
+				 "iapp> Invalid TCP decrypt output length (%d, input=%d)!\n",
+				 SizeRcvMsg, ReceivedLength);
 			return;
 		}
 #endif // FT_KDP_FUNC_PKT_ENCRYPT //
@@ -2979,6 +2989,7 @@ static VOID IAPP_RcvHandlerUdp(
 	struct sockaddr_in AddrPeer;
 	RT_IAPP_HEADER *pIappHdr;
 	INT32 SizeRcvMsg;
+	INT32 ReceivedLength;
 	socklen_t Length;
 	INT32 if_idx = -1, idx;
 
@@ -2996,6 +3007,7 @@ static VOID IAPP_RcvHandlerUdp(
 	/* handle the packet */
 	if (SizeRcvMsg > 0)
 	{
+		ReceivedLength = SizeRcvMsg;
 		DBGPRINT(RT_DEBUG_TRACE,
 				"iapp> Recvfrom UDP (len%d) successfully from %d.%d.%d.%d\n",
 				SizeRcvMsg,
@@ -3013,6 +3025,14 @@ static VOID IAPP_RcvHandlerUdp(
 		/* ioctl to decrypt */
 		if (IAPP_IOCTL_TO_WLAN(pCtrlBK, RT_IOCTL_IAPP, pPktBuf, &SizeRcvMsg, 0, RT_FT_DATA_DECRYPT) == FALSE) {
 			DBGPRINT(RT_DEBUG_ERROR, "iapp> UDP Decrypt frame failed!\n");
+			return;
+		}
+		if (SizeRcvMsg < 0 ||
+		    !iapp_rx_buffer_append_fits((size_t)ReceivedLength, 0,
+						(size_t)SizeRcvMsg)) {
+			DBGPRINT(RT_DEBUG_ERROR,
+				 "iapp> Invalid UDP decrypt output length (%d, input=%d)!\n",
+				 SizeRcvMsg, ReceivedLength);
 			return;
 		}
 #endif // FT_KDP_FUNC_PKT_ENCRYPT //
@@ -3300,15 +3320,30 @@ static VOID IAPP_USR2Handle(
 		return;
 	} /* End of if */
 
-	IAPP_IOCTL_TO_WLAN(&IAPP_Ctrl_Block, RT_IOCTL_IAPP,
-						pSigBuf, &DataLen, if_idx, RT_QUERY_SIGNAL_CONTEXT);
+	if (IAPP_IOCTL_TO_WLAN(&IAPP_Ctrl_Block, RT_IOCTL_IAPP,
+			       pSigBuf, &DataLen, if_idx,
+			       RT_QUERY_SIGNAL_CONTEXT) == FALSE) {
+		DBGPRINT(RT_DEBUG_ERROR, "iapp> Query signal context ioctl failed!\n");
+		IAPP_MEM_FREE(pSigBuf);
+		return;
+	}
+
+	if (DataLen < 0 ||
+	    !iapp_rx_buffer_append_fits(sizeof(RT_SIGNAL_STRUC), 0,
+					(size_t)DataLen)) {
+		DBGPRINT(RT_DEBUG_ERROR,
+			 "iapp> Invalid signal context length (%d, capacity=%u)!\n",
+			 DataLen, (UINT32)sizeof(RT_SIGNAL_STRUC));
+		IAPP_MEM_FREE(pSigBuf);
+		return;
+	}
 
 	DBGPRINT(RT_DEBUG_TRACE, "iapp> Receive a signal (Len = %d)!\n", DataLen);
 
 	/* pass event to raw drv socket */
-	if (DataLen > 0)
-		write(pCtrlBK->PipeRawDrv[FT_KDP_PIPE_ID_WRITE], pSigBuf, DataLen);
-	/* End of if */
+	if (DataLen > 0 &&
+	    write(pCtrlBK->PipeRawDrv[FT_KDP_PIPE_ID_WRITE], pSigBuf, DataLen) != DataLen)
+		DBGPRINT(RT_DEBUG_ERROR, "iapp> Write signal context to pipe failed!\n");
 
 	IAPP_MEM_FREE(pSigBuf);
 #endif // FT_KDP_FUNC_SOCK_COMM //

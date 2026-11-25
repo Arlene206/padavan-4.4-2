@@ -1,26 +1,27 @@
 ## Current repository state — 2026-11-25
 
-- Main base before the FD_SET boundary guard: 38203101672429c5cd945c98fd28125e16f82b4b; source guard, IAPP lifecycle source assertion, dev log and handoff are one atomic descendant (THIS COMMIT).
+- Main base before driver-returned length validation: 88ba947616c1fd7e17654ec46c3da1a3f6eba600; TCP/UDP decrypt output bounds, signal-context ioctl validation, lifecycle assertions, dev log and handoff are one atomic descendant (THIS COMMIT).
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Parent 38203101672429c5cd945c98fd28125e16f82b4b: IAPP lifecycle #45693736848 PASS; process inventory #45693736636 PASS; process lifecycle inventory #45693736725 PASS; AI handoff #45693736612 PASS. XY-C1 #45693736641 still building (job #139485600108 at Build XY-C1); NVRAM #45693736667 still in progress.
-- This slice prevents FD_SET out-of-bounds writes by rejecting socket descriptors outside [0, FD_SETSIZE) in `IAPP_TCP_Wait()` before populating fd_set.
-- Exact XY-C1 L3 firmware build/TRX/artifact PASS remains proven on `e1f16872b7e2792db9acf0184f2fe9c5d736c966` only. New SHAs await their own build. Physical-router L4 NOT VERIFIED.
-- Prior receive hardening remains present: FT SB stack copy; ACK/AP-info declared payload; TCP/UDP headers and exact declared Length; ADD/MOVE fixed frames; raw RRB encrypted and decrypted lengths; raw driver event length; bounded TCP receive + absolute timeout; full TCP writes.
+- Parent 88ba947616c1fd7e17654ec46c3da1a3f6eba600 added FD_SETSIZE guard before FD_SET. Exact parent Actions were queued at last poll: XY #45694070174, AI #45694069551, IAPP #45694069482, Process #45694069373, inventory #45694069366; NVRAM #45694069370 pending.
+- Earlier exact SHA 38203101672429c5cd945c98fd28125e16f82b4b: IAPP #45693736848 PASS, process inventory #45693736636 PASS, process lifecycle #45693736725 PASS, AI #45693736612 PASS; XY #45693736641 was still building at last poll; NVRAM #45693736667 in progress.
+- This slice handles a critical IOCTL in/out length contract: keep actual TCP/UDP input length before decrypt and reject negative or larger driver-returned plaintext sizes before parser access; `IAPP_USR2Handle` rejects query-signal IOCTL failure/returned size beyond its allocated `RT_SIGNAL_STRUC` before pipe write.
+- Exact XY-C1 L3 Build/TRX/artifact PASS last verified on `e1f16872b7e2792db9acf0184f2fe9c5d736c966`; no later SHA inherits.
+- Prior security hardening still present: exact IAPP header length, TCP partial read/write and five-second read timeout, FD_SETSIZE guard, fixed notification structures, AP/SSB data bounds, raw RRB pre/post decrypt lengths, driver signal EventLen.
 
 ## Active task
 
-Validate current FD_SET guard on exact IAPP/XY actions, then continue auditing `IAPP_IOCTL_TO_WLAN` in/out length handling and command-specific minimum event sizes.
+Validate ioctl output-length protections on exact IAPP/XY Actions; inspect remaining encryption ioctl output capacity before TCP/UDP sends and raw RRB forwarding.
 
 ## Exact first actions for next GPT
 
-1. Poll current commit's IAPP, XY-C1 Build/TRX/artifact, Process lifecycle/inventory, NVRAM and AI runs independently by exact SHA.
-2. Inspect IAPP GNU89 ASan/UBSan regression and XY C compiler outcome.
-3. Audit each driver ioctl that mutates `*pDataLen`: reject impossible negative or over-capacity lengths before downstream copy, distinguishing caller's input length from driver output contract.
-4. Preserve the frozen backup and main-only full-tree atomic expected-SHA commits.
+1. Poll exact 88ba Actions (IAPP/XY/Process/AI/NVRAM) and this descendant's workflows independently by SHA.
+2. Confirm GNU89 ASan/UBSan and shell assertions for decrypt returned sizes and query signal output bound.
+3. Inspect every encryption ioctl in send paths: compare returned output length to allocated buffer capacity before send; especially RRB `FT_RRB_ActionForward` and `IAPP_TCP_PacketSend`.
+4. Keep backup frozen; main-only complete-tree atomic commits and non-force expected-SHA update.
 
 ## Execution contract
 
-Main only; one complete tree per logical commit, non-force expected-SHA update. No force push, feature branch or new PR. PENDING does not block independent work.
+Main only; one complete tree/atomic task commit, non-force expected-SHA ref update. No force push, branch or PR. PENDING does not block.
 
 ## 2026-11-25 autonomous handoff checkpoint
 
