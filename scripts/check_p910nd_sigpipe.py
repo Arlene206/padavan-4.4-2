@@ -79,12 +79,21 @@ assert "errno = EIO;" in write_body
 # automatic local array in the global device pointer across retries.
 open_printer_start = SOURCE.index("int open_printer(")
 open_printer_end = SOURCE.index("int get_lock(", open_printer_start)
-open_printer = compact(SOURCE[open_printer_start:open_printer_end])
-assert "const char *printer_device;" in open_printer
-assert "printer_device=device?device:lpname;" in open_printer
-assert "open(printer_device," in open_printer
-assert "dolog(LOGOPTS, \"%s: %m, will try opening later\\n\", printer_device)" in open_printer
-assert "device=lpname;" not in open_printer
+open_printer = re.sub(
+    r"/[*].*?[*]/", "", SOURCE[open_printer_start:open_printer_end], flags=re.S
+)
+assert re.search(r"const\s+char\s*\*\s*printer_device\s*;", open_printer)
+assert re.search(
+    r"printer_device\s*=\s*device\s*\?\s*device\s*:\s*lpname\s*;",
+    open_printer,
+)
+assert re.search(r"open\s*\(\s*printer_device\s*,", open_printer)
+assert re.search(
+    r'dolog\s*\(\s*LOGOPTS\s*,\s*"%s: %m, will try opening later\\n"'
+    r'\s*,\s*printer_device\s*\)',
+    open_printer,
+)
+assert not re.search(r"device\s*=\s*lpname\s*;", open_printer)
 
 # accept(2) overwrites addrlen with the actual peer-address length.
 # The server is dual-stack, so each iteration must reset the sockaddr storage
