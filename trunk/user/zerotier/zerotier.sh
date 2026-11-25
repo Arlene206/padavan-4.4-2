@@ -1098,9 +1098,18 @@ del_rules() {
 zero_route_entry_matches() {
 	# Return 0 for the exact configured nexthop, 1 only when the
 	# destination is absent, and 2 when a conflicting/unknown route exists.
+	# iproute2 may omit /32 when displaying a host route.
 	# A multipath route may contain several via/dev pairs on one line.
 	awk -v destination="$1" -v gateway="$2" -v interface="$3" '
-		$1 == destination {
+		function route_destination_key(value, slash) {
+			slash = index(value, "/")
+			if (slash == 0)
+				return value "/32"
+			if (substr(value, slash + 1) == "32")
+				return substr(value, 1, slash - 1) "/32"
+			return value
+		}
+		route_destination_key($1) == route_destination_key(destination) {
 			destination_found = 1
 			for (i = 2; i <= NF; i++) {
 				if ($i != "via")

@@ -1,25 +1,24 @@
 ## Current repository state — 2026-11-26
 
-- Live main source SHA before this USB hotplug slice: `38fe0fadc4eca4dd35431b72bad079725fe56887`. The 6rd relay-list upper bound is explicit: 59 accepted; 60 rejected; failure clears the output.
+- Live main parent before this ZeroTier route fix: `64c4757e296144e5a2e81efeace34c5169128017`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Exact-head CI on `38fe0fad`: WAN 6rd #45708135345 PASS; NVRAM transaction #45708135328 PASS; Process lifecycle inventory #45708135338 PASS; AI handoff docs #45708135299 PASS.
-- Earlier source baseline `6534ff95`: VSFTPD #45707415023, Process #45707415097, NVRAM #45707414901 and AI docs #45707414961 PASS; XY-C1 #45707417102 was still in progress at last recorded observation. No firmware L3 result is inferred.
-- 6rd parent source `360ccb32`: WAN 6rd #45706623877 and its related WAN/IPv6/HTTPD/NVRAM/Process/AI checks PASS; XY-C1 #45706623960 remained in progress at last recorded observation.
+- Exact-head actions on `64c4757e`: USB modem identity/stability #45708933844 PASS; Process lifecycle inventory #45708933888 PASS; HTTPD auth/disclosure #45708933932 PASS; AI handoff docs #45708933958 PASS. NVRAM boundary #45708933862 and XY-C1 firmware #45708934022 were IN_PROGRESS at the last poll; do not infer their outcome.
+- Exact-head actions on prior `38fe0fad`: WAN 6rd #45708135345, NVRAM #45708135328, Process #45708135338, and AI handoff #45708135299 PASS.
 
 ## Active task
 
-USB SCSI generic hotplug read `modem_zcd` using unchecked `nvram_get_int()`. If the NVRAM backend failed, the legacy integer getter could collapse the error to zero and run `/sbin/zerocd` instead of the configured `sr_mod` module branch (or vice versa for an inconsistent default). The handler now uses `nvram_get_checked()`, preserves the historical missing-key default of zero, validates a complete decimal value, and refuses either module-loading or ZeroCD side effects when the read fails or the stored value is malformed. Regression covers missing/default, 0/1/nonzero, backend failure, malformed/trailing input, overflow, missing value pointer and invalid API status.
+ZeroTier static-route shutdown compared the NVRAM destination to iproute2's displayed route token literally. Linux/iproute2 may omit `/32` when displaying a host route; a configured `192.0.2.7/32` therefore appeared absent when the route inventory returned `192.0.2.7`. Shutdown could then skip deletion and remove persistent configuration, orphaning a route on the ZeroTier interface. The matcher now treats bare IPv4 addresses and the same explicit `/32` as one route key while keeping all other prefixes distinct. The host regression recreates that display form and requires exact route deletion before config removal.
 
 ## Verification boundary
 
-- Exact parent WAN 6rd relay-count commit `38fe0fadc4eca4dd35431b72bad079725fe56887`: WAN6, NVRAM, Process inventory and AI documentation Actions all PASS.
-- The USB modem checked-read policy regression and source-order contract are in this commit; exact-head USB modem identity/stability, Process, NVRAM and AI Actions must be inspected after publication.
-- No MIPS firmware, XY-C1 build, live USB modem or physical-router result is claimed for this slice.
+- Parent USB modem policy regression, Process inventory, HTTPD auth/disclosure and AI docs Actions passed on exact SHA `64c4757e`; NVRAM and XY-C1 were still running at the last poll.
+- The ZeroTier shell regression and checker update are part of the current slice. Exact-head ZeroTier lifecycle, WAN route integration, Process, AI docs and XY-C1 Actions must be checked after publication.
+- No live-router route operation, MIPS firmware, or L3/L4 result is claimed for this follow-up.
 
 ## Exact first actions for next GPT
 
-1. Fetch exact-head USB modem identity/stability, Process inventory/fail-closed, NVRAM and AI docs Actions for the resulting main SHA. Repair any same-SHA failure.
-2. Continue another independent Padavan userland reliability/security fix outside the completed RStats snapshot, WAN ARP EINTR deadline, 6rd relay-count cap and USB SCSI-generic NVRAM read fix. PENDING Actions do not block independent work.
+1. Fetch exact-head ZeroTier lifecycle, WAN route integration, Process inventory, AI docs and XY-C1 Actions for the resulting main SHA; repair same-SHA failures.
+2. Continue an independent Padavan userland reliability/security fix outside the completed RStats snapshot, WAN ARP EINTR retry, DHCP 6rd relay cap, USB SCSI-generic NVRAM checked-read and this ZeroTier host-route normalization. PENDING actions do not block independent work.
 
 # Cross-session execution mandate
 

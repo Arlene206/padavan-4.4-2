@@ -735,16 +735,20 @@ require('ip route show "$zero_ip"' in static_route_body and
         '静态路由删除失败' in static_route_body and
         '静态路由删除后仍然存在' in static_route_body,
         "static-route cleanup must inspect the exact tuple, propagate delete failure and verify absence")
-require('$1 == destination' in route_match_body and
+require('function route_destination_key(value, slash)' in route_match_body and
+        'route_destination_key($1) == route_destination_key(destination)' in route_match_body and
+        'return value "/32"' in route_match_body and
+        'substr(value, slash + 1) == "32"' in route_match_body and
         'destination_found = 1' in route_match_body and
         'hop_gateway == gateway && hop_interface == interface' in route_match_body and
         'if (destination_found)' in route_match_body and
         'exit 2' in route_match_body,
-        "static-route cleanup must distinguish absent destinations from conflicting nexthops and match each multipath via/dev pair")
+        "static-route matching must normalize implicit/explicit host prefixes and distinguish conflicting nexthops")
 require('TEST_ROUTE_SHOW_OUTPUT' in test and
         'stop accepted a conflicting route to the configured destination' in test and
-        'stop failed to match and remove the configured first multipath nexthop' in test,
-        "static-route regression must cover conflicting destinations and an early matching multipath nexthop")
+        'stop failed to match and remove the configured first multipath nexthop' in test and
+        'stop failed to match a /32 route displayed without its prefix' in test,
+        "static-route regressions must cover conflicting nexthops, multipath and iproute2 host-route display normalization")
 
 require('zerotier_kernel_route_segment "$zt0"' in cleanup_section,
         "firewall cleanup must use the same token-based route parser")

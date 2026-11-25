@@ -1911,6 +1911,31 @@ grep -Fqx -- "zero_route:del" "$TEST_ACTION_LOG" || fail "multipath route cleanu
 [ ! -e "$TEST_CONFIG" ] || fail "successful multipath cleanup retained persistent configuration"
 TEST_ROUTE_SHOW_OUTPUT=""
 
+# iproute2 may display an explicitly configured /32 host route without /32.
+# Cleanup must still identify and delete the exact destination/nexthop.
+TEST_STATIC_ROUTE_IP="192.0.2.7/32"
+TEST_ROUTE_SHOW_OUTPUT="192.0.2.7 via $TEST_STATIC_ROUTE_GATEWAY dev ztunit"
+TEST_ROUTE_PRESENT=1
+TEST_ROUTE_SHOW_STATUS=0
+TEST_ROUTE_DEL_STATUS=0
+TEST_ROUTE_DELETE_PERSISTS=0
+TEST_IFCONFIG_MODE=running-only
+TEST_ROUTE_MODE=none
+TEST_NAT_ENABLE=0
+: > "$TEST_ACTION_LOG"
+mkdir -p "$TEST_CONFIG"
+echo identity > "$TEST_CONFIG/identity.secret"
+echo running > "$TEST_STATE"
+TEST_MODE=graceful
+if ! stop_zero; then
+	fail "stop failed to match a /32 route displayed without its prefix"
+fi
+grep -Fqx -- "zero_route:del" "$TEST_ACTION_LOG" || fail "host-route normalization skipped the /32 delete"
+[ "$TEST_ROUTE_PRESENT" -eq 0 ] || fail "host-route normalization left the /32 route present"
+[ ! -e "$TEST_CONFIG" ] || fail "successful /32 route cleanup retained persistent configuration"
+TEST_STATIC_ROUTE_IP="192.0.2.0/24"
+TEST_ROUTE_SHOW_OUTPUT=""
+
 # Route cleanup failure, an unreadable route inventory and a false-success
 # delete must all preserve the ZeroTier identity for a later recovery attempt.
 TEST_ROUTE_PRESENT=1

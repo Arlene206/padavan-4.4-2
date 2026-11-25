@@ -1,3 +1,13 @@
+## 2026-11-26 03:24 CST (UTC+8) — Normalize ZeroTier /32 route display during cleanup
+
+- `zero_route_entry_matches()` compared the configured NVRAM destination to the first `ip route show` token literally. iproute2 may render a host route without its explicit `/32`, so a configured `192.0.2.7/32` could be classified as already absent when the kernel inventory returned `192.0.2.7`. Stop could then remove persistent ZeroTier configuration while leaving that static route attached to the interface.
+- Added an AWK route-key normalizer that equates a bare IPv4 host destination with the same explicit `/32`, without collapsing any other prefix. Existing gateway/interface and multipath matching remain strict.
+- Added a lifecycle regression with a configured `/32` destination and route output lacking the suffix; it requires a delete and verifies the route disappears before persistent configuration is removed. The Python source contract pins the normalization and regression.
+- Parent exact-head USB modem #45708933844, Process #45708933888, HTTPD #45708933932 and AI #45708933958 PASS; NVRAM #45708933862 and XY-C1 #45708934022 were still IN_PROGRESS at last poll. Current ZeroTier/WAN/Process/AI/XY exact-head checks pending.
+- Changed paths: `zerotier.sh`, `tests/zerotier_lifecycle.sh`, `check_zerotier_lifecycle.py`, `SESSION_HANDOFF.md`, `dev_log.md`.
+
+---
+
 ## 2026-11-26 03:08 CST (UTC+8) — Fail closed on USB SCSI-generic modem_zcd reads
 
 - `mdev_sg_main()` selected between loading `sr_mod` and executing the privileged `/sbin/zerocd` helper using unchecked `nvram_get_int("modem_zcd")`. A backend read failure was therefore indistinguishable from the legacy missing-key/default value and could take the wrong device-mode transition.
