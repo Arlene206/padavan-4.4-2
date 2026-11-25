@@ -18,6 +18,7 @@
 #include "common.h"
 #include "udhcp_relay_packet_bounds.h"
 #include "udhcp_relay_xid_policy.h"
+#include "udhcp_relay_select_fd_policy.h"
 
 #define SERVER_PORT    67
 
@@ -196,11 +197,18 @@ static char **make_iface_list(char **client_and_server_ifaces, int *client_numbe
  */
 static int init_sockets(char **iface_list, int num_clients, int *fds)
 {
-	int i, n;
+	int i, j, n;
 
 	n = 0;
 	for (i = 0; i < num_clients; i++) {
 		fds[i] = udhcp_listen_socket(/*INADDR_ANY,*/ SERVER_PORT, iface_list[i]);
+		if (!udhcp_relay_fd_fits_select(fds[i], FD_SETSIZE)) {
+			for (j = 0; j <= i; j++)
+				close(fds[j]);
+			bb_error_msg_and_die(
+				"DHCP relay socket fd %d exceeds select fd_set capacity %d",
+				fds[i], FD_SETSIZE);
+		}
 		if (n < fds[i])
 			n = fds[i];
 	}

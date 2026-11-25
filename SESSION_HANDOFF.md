@@ -1,22 +1,23 @@
 ## Current repository state
 
-- Live `main` immediately before this slice: `148dfb3501c8542ccef114377f0d32db106ab2fe` (`test(udhcp): fix relay bounds checker call matching`). Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable.
-- `0f8ccd3` DHCP relay input bounds C regression passed; its Python checker failed only because it found `recvfrom()` in a comment, fixed in `148dfb3`. Exact `148dfb3` DHCP relay #45724784655 and AI handoff #45724784796 were still in progress at last observation. On `0f8ccd3`, AI #45724587171 and Process lifecycle #45724587198 passed; XY-C1 #45724587138, NVRAM #45724587130 and Process fail-closed #45724587135 were pending; USB hotplug #45724587166 later passed.
-- On `b320dd2`, UDPXY multicast retry #45724141340, parser #45724141327, WAN route #45724141311, AI #45724141358, Process #45724141395, and NVRAM #45724141355 all passed; XY-C1 #45724141332 remained in progress at last check.
-- Last confirmed XY-C1 Build/TRX/artifact baseline is `9ed539a04e4c4df96aef03f9d1a6f9637fd3e3b9` (#45719100341), preceding later changes; current-source L3 and physical-router L4 remain NOT VERIFIED.
+- Live `main` immediately before this slice: `6028a1387733f0f45d8b96f169dbc34061e9b8fc` (`fix(wsdd2): restart on truncated netlink notifications`). Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable.
+- Exact `6665f36` DHCP relay XID budget/correlation workflow #45724979306 PASS. DHCP relay packet bounds #45724979396, AI docs #45724979298, NVRAM #45724979296, Process fail-closed #45724979404, Process inventory #45724979344, USB hotplug #45724979366 and XY-C1 #45724979326 were in progress at last observation.
+- Exact `148dfb3` DHCP relay packet bounds #45724784655 PASS and AI handoff #45724784796 PASS after the checker correction.
+- Concurrent WSDD2 select-fd guard `258d673` had AI docs #45725105594 PASS while its select-fd #45725105654, Process #45725105625, NVRAM #45725105568 and XY-C1 #45725105556 remained pending. Concurrent WSDD2 netlink truncation guard `6028a13` had its netlink #45725275756, AI docs #45725275726, select-fd #45725275770, Process #45725275723, XY-C1 #45725275729 and NVRAM #45725275740 checks pending at the last observation.
+- Last confirmed XY-C1 Build/TRX/artifact baseline remains `9ed539a04e4c4df96aef03f9d1a6f9637fd3e3b9` (#45719100341), preceding later source changes; current-source L3 and physical-router L4 remain NOT VERIFIED.
 
 ## Active task
 
-Bound the DHCP relay's pending XID transaction table. Each accepted client packet previously allocated a heap node with no active-entry limit, retained for up to 120 seconds; a request flood could exhaust embedded memory. Retransmissions also created duplicate nodes, send failures left stale entries, and reply lookup/deletion keyed only on XID could route a collision to another client and remove all concurrent entries sharing the same XID. The current slice adds a hard 1024-entry budget, reuses same-client retransmission state, matches replies on XID + relay interface address + hardware type/length/address, removes only the matching transaction, and releases a newly created node if forwarding fails.
+Protect DHCP relay's `fd_set` from out-of-range socket descriptors. `init_sockets()` previously accepted every socket descriptor and the event loop later passed it directly to `FD_SET`; a process started with many inherited descriptors can receive an fd >= `FD_SETSIZE`, making FD_SET write outside its stack `fd_set` before select(). This slice validates each descriptor against `[0, FD_SETSIZE)`, closes all listener sockets opened up to that point and exits before the event loop if one is invalid. This is separate from the WSDD2 guard added in `258d673`.
 
 ## Verification boundary
 
-- A standalone GNU89 ASan/UBSan test exercises the transaction budget limit, full-table rejection, release/reuse and underflow guard. The source contract checks reservation/release on every free path, retransmit coalescing, exact reply correlation, failed-send cleanup, and XY-C1 triggers.
-- Exact-head DHCP relay XID workflow, AI docs, and XY-C1 Build/TRX/artifact checks for this commit are pending. No full BusyBox cross-build, live DHCP relay test, firmware artifact or router L4 result is claimed.
+- A standalone GNU89 ASan/UBSan regression covers -1, 0, `FD_SETSIZE-1`, `FD_SETSIZE` and values above the limit. The source contract ensures the validation/cleanup in `init_sockets()` precedes max-fd tracking and FD_SET use.
+- Exact-head DHCP relay select-fd, AI documentation and XY-C1 Build/TRX/artifact checks for this commit are pending. No live high-fd reproduction, MIPS/uClibc firmware artifact or router L4 result is claimed.
 
 ## Exact first action for the next GPT
 
-Fetch exact-head DHCP relay packet-bounds/XID, AI handoff and XY-C1 runs for this commit. Repair the first causal failure. Inspect the dhcprelay `FD_SET`/`select` descriptor boundary as the next independent hardening candidate; only claim L3 after Build, TRX verification and artifact upload pass on the same exact product-source SHA.
+Fetch exact-head DHCP relay select-fd, XID, packet-bounds, AI docs and XY-C1 runs for this commit; fix any first causal failure. Then continue DHCP relay reply validation/socket behavior only where a concrete defect is demonstrated. Claim L3 only after Build, TRX verification and artifact upload all pass on one source SHA.
 
 ## Mandatory handoff checkpoint
 

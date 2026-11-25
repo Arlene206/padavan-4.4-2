@@ -1,3 +1,13 @@
+## 2026-11-25 — Guard DHCP relay descriptors before FD_SET
+
+- DHCPrelay accepted every descriptor returned by udhcp_listen_socket() and later passed it directly to FD_SET. If the daemon inherits enough open descriptors that a newly-created socket is >= FD_SETSIZE, the macro indexes beyond the stack fd_set before select(), corrupting adjacent stack memory.
+- Added a [0, FD_SETSIZE) descriptor policy check inside init_sockets(). Any invalid descriptor causes all listener sockets opened up to that point to be closed and the daemon to fail before the main loop or any FD_SET call.
+- Added GNU89 ASan/UBSan boundary tests, a source ordering/cleanup contract, a dedicated workflow and XY-C1 firmware trigger paths.
+- Parent SHA: 6028a1387733f0f45d8b96f169dbc34061e9b8fc. Exact-head select-fd, AI documentation, and XY-C1 Actions: pending. No live high-fd reproduction, firmware or router result is claimed.
+- Changed paths: trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcprelay.c, trunk/user/busybox/busybox-1.24.x/networking/udhcp/udhcp_relay_select_fd_policy.h, trunk/user/busybox/busybox-1.24.x/networking/udhcp/tests/dhcprelay_select_fd_policy.c, scripts/check_udhcp_relay_select_fd_policy.py, .github/workflows/udhcp-relay-select-fd-policy.yml, .github/workflows/xy-c1-firmware-validation.yml, SESSION_HANDOFF.md, dev_log.md.
+
+---
+
 ## 2026-11-25 — Restart WSDD2 after truncated netlink address notifications
 
 - `netlink_recv()` read kernel route/address multicast datagrams into a fixed 4096-byte buffer but did not inspect `msghdr.msg_flags`. Linux sets `MSG_TRUNC` when a datagram exceeds the receive buffer; the code then parsed only the copied prefix and returned success, potentially missing an address-change notification in the truncated tail and leaving WSDD advertisements stale.
