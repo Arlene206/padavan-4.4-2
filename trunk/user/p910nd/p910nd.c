@@ -618,6 +618,17 @@ void server(int lpnumber)
 		fd = open("/dev/null", O_RDWR);	/* stdin */
 		(void)dup(fd);		/* stdout */
 		(void)dup(fd);		/* stderr */
+	}
+
+	/*
+	 * Acquire the singleton lock before publishing the PID file. F_SETLKW
+	 * deliberately waits for an existing server; publishing first lets a
+	 * duplicate start overwrite the live server's PID while it is waiting.
+	 */
+	if (get_lock(lpnumber) == 0)
+		exit(1);
+
+	if (!log_to_stdout) {
 		(void)snprintf(pidfilename, sizeof(pidfilename), PIDFILE, lpnumber);
 		if ((f = fopen(pidfilename, "w")) == NULL) {
 			dolog(LOGOPTS, "%s: %m\n", pidfilename);
@@ -626,8 +637,6 @@ void server(int lpnumber)
 		(void)fprintf(f, "%d\n", getpid());
 		(void)fclose(f);
 	}
-	if (get_lock(lpnumber) == 0)
-		exit(1);
 #endif
 	memset(&hints, 0, sizeof(hints));
 	hints.ai_family = PF_UNSPEC;

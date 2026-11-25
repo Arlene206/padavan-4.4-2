@@ -119,4 +119,19 @@ accept_loop_at = server.index(accept_loop)
 assert accept_loop_at < server.index("get_ip_str((structsockaddr*)&client", accept_loop_at)
 assert accept_loop_at < server.index("hosts_ctl(", accept_loop_at) if "hosts_ctl(" in server else True
 
-print("p910nd bidirectional SIGPIPE and stream-I/O source contract: PASS")
+# A duplicate standalone start blocks in F_SETLKW while the current server
+# owns the printer lock. It must not replace the live PID record until the
+# lock is actually acquired, otherwise stopproc can target the waiting child.
+server_start = SOURCE.index("void server(")
+server_end = SOURCE.index("int is_standalone(", server_start)
+server_lifecycle = compact(SOURCE[server_start:server_end])
+lock_acquire = "if (get_lock(lpnumber) == 0) exit(1);"
+pidfile_open = 'fopen(pidfilename, "w")'
+assert lock_acquire in server_lifecycle
+assert pidfile_open in server_lifecycle
+assert server_lifecycle.index("setsid()") < server_lifecycle.index(lock_acquire)
+assert server_lifecycle.index(lock_acquire) < server_lifecycle.index(pidfile_open), (
+    "p910nd must acquire its blocking singleton lock before publishing PID"
+)
+
+print("p910nd bidirectional SIGPIPE, stream-I/O and PID publication source contract: PASS")

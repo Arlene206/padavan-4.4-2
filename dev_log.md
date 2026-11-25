@@ -1,3 +1,13 @@
+## 2026-11-25 — Preserve the active p910nd PID across duplicate starts
+
+- The standalone server previously wrote `/var/run/p910%c.pid` before acquiring the printer singleton lock with blocking `F_SETLKW`. A duplicate start could therefore overwrite the active daemon's PID record, then block waiting for the lock; service stop/status could act on the waiting child instead of the active listener.
+- Reordered startup after daemonization: the child now obtains the singleton lock before opening/truncating the PID file. The foreground/log-to-stdout path still acquires the lock and still does not publish a PID file.
+- Extended `check_p910nd_sigpipe.py` with a regression source contract pinning daemonization → lock acquisition → PID publication order. The existing p910nd GNU89 ASan/UBSan workflow runs this contract and stream-I/O tests.
+- Parent baseline: `dae449f71a2f68ceceb29e9a9b5aa3115334066b`. Exact-SHA CI is pending; no runtime router or printer result is claimed.
+- Changed paths: `trunk/user/p910nd/p910nd.c`, `scripts/check_p910nd_sigpipe.py`, `dev_log.md`.
+
+---
+
 ## 2026-11-25 — Align WAN DHCP callback contract with scoped native IPv6 gateway route
 
 - Exact-head WAN route operation status regression #45716808610 passed on `6a6fd241bc90dcf3e68d0001a00f619a63fb0ebd`; the same SHA's WAN DHCP callback regression #45716808673 failed only because its inline source contract still demanded the former unscoped static IPv6 default-route command.
