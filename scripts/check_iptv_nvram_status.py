@@ -75,6 +75,14 @@ require('#include "iptv_proxy_nvram_policy.h"' in SOURCE,
 require('#include "iptv_proxy_altnet_policy.h"' in IPTV_NVRAM_POLICY and
         "iptv_proxy_altnet_normalize(settings->altnet" in IPTV_NVRAM_POLICY,
         "the checked snapshot must normalize empty altnet and reject invalid IPv4/CIDR before proxy transitions")
+require('match_value(context, name, "0", missing_value, &matches_zero)' in IPTV_NVRAM_POLICY and
+        'match_value(context, name, "1", missing_value, &matches_one)' in IPTV_NVRAM_POLICY and
+        '"mr_enable_x", "1", &enabled' in IPTV_NVRAM_POLICY and
+        '"mr_qleave_x", "0",' in IPTV_NVRAM_POLICY and
+        "settings->quickleave = quickleave;" in IPTV_NVRAM_POLICY and
+        'match_value(context, "mr_enable_x", "1"' not in IPTV_NVRAM_POLICY and
+        'match_value(context, "mr_qleave_x", "0"' not in IPTV_NVRAM_POLICY,
+        "IPTV selectors must accept exact 0/1 with legacy missing-key defaults")
 require('#include "iptv_proxy_altnet_policy.h"' in IGMP_CONFIG_POLICY and
         "iptv_proxy_altnet_is_valid(value)" in IGMP_CONFIG_POLICY and
         "IPTV_PROXY_ALTN_DEFAULT" in IPTV_ALTNET_POLICY,
@@ -136,6 +144,7 @@ for marker in ("test_missing_keys_preserve_legacy_defaults",
                "test_disabled_proxy_skips_dependent_reads",
                "test_any_required_read_failure_invalidates_snapshot",
                "test_invalid_altnet_values_fail_closed",
+               "test_invalid_boolean_selectors_fail_closed",
                "test_oversized_values_fail_closed"):
     require(marker in policy_test, "IPTV snapshot regression is missing: " + marker)
 

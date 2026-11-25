@@ -101,7 +101,7 @@ test_missing_keys_preserve_legacy_defaults(void)
 	assert(settings.enabled == 1);
 	assert(strcmp(settings.altnet, IPTV_PROXY_ALTN_DEFAULT) == 0);
 	assert(settings.quickleave == 0);
-	assert(fake.altnet_reads == 1 && fake.quickleave_reads == 1);
+	assert(fake.altnet_reads == 1 && fake.quickleave_reads == 2);
 
 	/* Explicitly empty values normalize to the same legacy default. */
 	fake.mr_enable = "1";
@@ -199,6 +199,46 @@ test_invalid_altnet_values_fail_closed(void)
 }
 
 static void
+test_invalid_boolean_selectors_fail_closed(void)
+{
+	static const char *const invalid[] = { "", "2", "true", "-1", "01" };
+	unsigned int i;
+	for (i = 0; i < sizeof(invalid) / sizeof(invalid[0]); ++i) {
+		struct fake_nvram fake;
+		struct iptv_proxy_nvram_settings settings;
+		memset(&fake, 0, sizeof(fake));
+		fake.mr_enable = invalid[i];
+		fake.mr_altnet = "239.0.0.0/8";
+		fake.mr_qleave = "1";
+		memset(&settings, 0x5a, sizeof(settings));
+		assert(take_snapshot(&fake, &settings) == EINVAL);
+		assert(settings.enabled == 0 && settings.quickleave == 0);
+		assert(settings.viptv_ifname[0] == '\0' && settings.altnet[0] == '\0');
+		assert(fake.altnet_reads == 0 && fake.quickleave_reads == 0);
+	}
+	for (i = 0; i < sizeof(invalid) / sizeof(invalid[0]); ++i) {
+		struct fake_nvram fake;
+		struct iptv_proxy_nvram_settings settings;
+		memset(&fake, 0, sizeof(fake));
+		fake.mr_enable = "1";
+		fake.mr_altnet = "239.0.0.0/8";
+		fake.mr_qleave = invalid[i];
+		memset(&settings, 0x5a, sizeof(settings));
+		assert(take_snapshot(&fake, &settings) == EINVAL);
+		assert(settings.enabled == 0 && settings.quickleave == 0);
+		assert(settings.viptv_ifname[0] == '\0' && settings.altnet[0] == '\0');
+	}
+	/* Missing selectors retain their documented legacy defaults. */
+	{
+		struct fake_nvram fake;
+		struct iptv_proxy_nvram_settings settings;
+		memset(&fake, 0, sizeof(fake));
+		assert(take_snapshot(&fake, &settings) == 0);
+		assert(settings.enabled == 1 && settings.quickleave == 0);
+	}
+}
+
+static void
 test_oversized_values_fail_closed(void)
 {
 	struct fake_nvram fake;
@@ -225,6 +265,7 @@ main(void)
 	test_disabled_proxy_skips_dependent_reads();
 	test_any_required_read_failure_invalidates_snapshot();
 	test_invalid_altnet_values_fail_closed();
+	test_invalid_boolean_selectors_fail_closed();
 	test_oversized_values_fail_closed();
 	return 0;
 }
