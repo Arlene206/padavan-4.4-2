@@ -1,21 +1,7 @@
-## 2026-11-25 — Strict dotted-decimal parsing for WAN gateway ARP
+## 2026-11-25 — WAN / DHCPv6 checkpoint
 
-- `detect_wan_arp_parse_gateway_address()` previously used `inet_aton()`, accepting octal, abbreviated, hexadecimal and integer IPv4 forms. For example, `0300.0.2.1` may be treated as `192.0.2.1`; strict parsing now uses `inet_pton(AF_INET, ...)` and preserves empty/`0.0.0.0` as the legacy no-gateway state.
-- The GNU89 gateway fixture rejects leading-zero, octal, abbreviated, hexadecimal, integer and trailing-space forms, while ensuring failed parsing does not publish partial output. Focused local ASan/UBSan harness PASS; exact WAN ARP and XY-C1 Actions pending.
-
----
-
-## 2026-11-25 — DHCPv6 delegated-prefix and cleanup verification
-
-- IA_NA/IA_PD prefix-list cleanup is type-aware; exact DHCPv6 IA regression #45639743488 PASS on `541c65d`.
-- Delegated-prefix host bits are now cleared before SLA insertion, with /53, /56, /128 and invalid-input regressions. Initial SHA `98b5503` IA run #45641159845 failed only because a source checker referenced `add_ifprefix` before assignment; its C sanitizer step passed. Checker-only correction `5de975b` exact IA workflow #45641451632 PASS.
-- XY-C1 #45641159900 on product SHA `98b5503` was still building at last poll; TRX/artifact not yet confirmed. No L3 claim.
-
----
-
-## 2026-11-25 — DHCPv6 callback startup rollback verification
-
-- A successful `dhcp6c` launch followed by callback-environment cleanup failure now advances the callback generation and stops the newly launched daemon under the held session lock. Exact WAN DHCP callback regression #45620475975 PASS on `4180e4d`.
+- WAN gateway parser uses strict `inet_pton(AF_INET)`; GNU89 fixture rejects ambiguous legacy forms. Focused ASan/UBSan harness PASS; exact Actions pending.
+- DHCPv6 IA #45639743488 and #45641451632 PASS (`541c65d`/`5de975b`); XY-C1 #45641159900 on `98b5503` still building at last poll (TRX/artifact pending). Callback rollback #45620475975 PASS (`4180e4d`).
 
 ---
 
