@@ -285,6 +285,37 @@ test_ipv6_prefix_format_is_bounded_and_non_overlapping(void)
 					  output, 0) == -1);
 }
 
+
+static void
+test_reset_rejects_invalid_ipv6_text_instead_of_publishing_empty(void)
+{
+	assert(rc_lan_addr6_reset_conversion_status(-1, 0, 0) == EINVAL);
+}
+
+static void
+test_reset_parse_error_is_not_overwritten_by_stale_errno(void)
+{
+	assert(rc_lan_addr6_reset_conversion_status(-1, 0, ENOMEM) == EINVAL);
+}
+
+static void
+test_reset_ntop_error_preserves_errno(void)
+{
+	assert(rc_lan_addr6_reset_conversion_status(64, 0, ENOSPC) == ENOSPC);
+}
+
+static void
+test_reset_ntop_error_without_errno_uses_eio(void)
+{
+	assert(rc_lan_addr6_reset_conversion_status(64, 0, 0) == EIO);
+}
+
+static void
+test_reset_accepts_valid_ipv6_prefix_zero(void)
+{
+	assert(rc_lan_addr6_reset_conversion_status(0, 1, EIO) == 0);
+}
+
 static void
 test_nvram_write_status_propagates_backend_errors(void)
 {
@@ -478,6 +509,11 @@ main(void)
 	test_empty_configuration_only_clears_existing_address();
 	test_clear_failure_is_reported_even_without_configured_address();
 	test_missing_callbacks_fail_closed();
+	test_reset_rejects_invalid_ipv6_text_instead_of_publishing_empty();
+	test_reset_parse_error_is_not_overwritten_by_stale_errno();
+	test_reset_ntop_error_preserves_errno();
+	test_reset_ntop_error_without_errno_uses_eio();
+	test_reset_accepts_valid_ipv6_prefix_zero();
 	test_nvram_write_status_propagates_backend_errors();
 	puts("LAN IPv6 address reload and NVRAM publication status regression: PASS");
 	return 0;

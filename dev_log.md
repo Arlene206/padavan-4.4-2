@@ -1,3 +1,12 @@
+## 2026-11-25 22:10 CST (UTC+8) — Fail closed on malformed LAN IPv6 address before NVRAM publication
+
+- Found a concrete state-corruption bug in `reset_lan6_vars()`: `ipv6_from_string()` returns `-1` on invalid input, but the old code skipped address formatting and still published the uninitialized-empty `addr6s` value to NVRAM. A subsequent `reload_lan_addr6()` interprets empty as a request to flush the live global IPv6 address on `br0`; malformed configuration could therefore erase the working address.
+- The function now checks the parser result and `inet_ntop()` status explicitly, propagates `EINVAL`/the conversion errno (or `EIO` fallback), and returns before NVRAM write. Prefix-format failures are also fatal and leave the prior configuration untouched.
+- Added five GNU89 policy regressions for invalid parse, stale errno, `inet_ntop` failure with/without errno and valid prefix length zero. Extended XY-C1 modem checker and WAN-route source contract to prove conversion guard and early return precede `nvram_set_temp("lan_addr6", ...)`.
+- Parent `40a77df4fbb3e41251d135994035ee9876c4d2a8` added SIT endpoint-route cleanup ownership assertions/tests. Exact Actions on that parent included XY-C1 #45631397674, WAN route #45631397687, WAN DHCP #45631397694, Process inventory #456313973? and other userland workflows; most were queued/in progress at last poll. This source-bearing commit should run current XY-C1 Build/TRX/artifact on one exact SHA. Physical router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-25 22:02 CST (UTC+8) — Align modem/XY-C1 checker with LAN6 recovery API
 
 - Exact d5 source SHA `d5adff9d7413b391d523d4b2c0d571d75de8b98a`: LAN IPv6 regression compiled and printed PASS; WAN route #45629160990, NVRAM #45629160447, IPv6 service type #45629160900, AI docs #45629161062, Process inventory #45629160410 and DNSMasq #45629160328 PASS. WAN teardown #45629160931 failed only on a stale snapshot API assertion, corrected in `3ea1835`; exact `3ea1835` WAN teardown #45629626346 PASS and AI docs #45629626161 PASS.

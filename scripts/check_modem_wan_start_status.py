@@ -722,6 +722,30 @@ restore_reload = compact(body(
     NET_LAN6_SOURCE, "restore_lan_addr6_for_reload(void *context)"))
 assert 'return eval("ip", "-6", "addr", "replace", lan_addr6, "dev", IFNAME_BR);' in restore_reload
 assert "doSystem(" not in add_reload and "doSystem(" not in restore_reload
+# A malformed configured IPv6 address must never become an empty value:
+# the next reload interprets empty as an instruction to flush the live br0 address.
+reset_lan = compact(body(NET_LAN6_SOURCE, "reset_lan6_vars(void)"))
+reset_conversion = compact(body(
+    LAN_ADDR6_RELOAD_POLICY_SOURCE, "rc_lan_addr6_reset_conversion_status("))
+reset_parse = reset_lan.index("ipv6_from_string(snapshot.address, &addr6)")
+reset_guard = reset_lan.index(
+    "rc_lan_addr6_reset_conversion_status(parse_status, address_text_ok, errno)")
+reset_error = reset_lan.index("if (status != 0)", reset_guard)
+reset_format = reset_lan.index("rc_lan_addr6_format_prefix(", reset_guard)
+reset_publish = reset_lan.index('nvram_set_temp("lan_addr6", addr6s)')
+reset_return = reset_lan.index("return status;", reset_error)
+assert "if (parse_status < 0) return EINVAL;" in reset_conversion
+assert "return saved_errno > 0 ? saved_errno : EIO;" in reset_conversion
+assert reset_parse < reset_guard < reset_error < reset_format < reset_publish
+assert reset_return < reset_publish
+for test_name in (
+    "test_reset_rejects_invalid_ipv6_text_instead_of_publishing_empty",
+    "test_reset_parse_error_is_not_overwritten_by_stale_errno",
+    "test_reset_ntop_error_preserves_errno",
+    "test_reset_ntop_error_without_errno_uses_eio",
+    "test_reset_accepts_valid_ipv6_prefix_zero",
+):
+    assert test_name in LAN_ADDR6_RELOAD_POLICY_TEST
 for test_name in (
     "test_reload_recovery_restores_address_after_clear_failure",
     "test_reload_recovery_restores_address_after_add_failure",

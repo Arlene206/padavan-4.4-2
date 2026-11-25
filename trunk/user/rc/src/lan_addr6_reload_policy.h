@@ -236,4 +236,22 @@ rc_lan_addr6_reload_from_snapshot_with_recovery(
 }
 
 
+
+/*
+ * ipv6_from_string() returns -1 for invalid input and 0..128 for a valid
+ * prefix. A conversion failure must not become an empty lan_addr6 value:
+ * reload interprets empty as a request to remove the live bridge address.
+ */
+static inline int
+rc_lan_addr6_reset_conversion_status(int parse_status,
+				    int address_text_ok, int saved_errno)
+{
+	if (parse_status < 0)
+		return EINVAL;
+	if (!address_text_ok)
+		return saved_errno > 0 ? saved_errno : EIO;
+	return 0;
+}
+
+
 #endif

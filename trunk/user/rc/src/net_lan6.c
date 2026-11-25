@@ -215,6 +215,7 @@ int reset_lan6_vars(void)
 {
 	int api_result, saved_errno, status;
 	int ipv6_type, service_status;
+	int parse_status, address_text_ok;
 	struct in6_addr addr6;
 	struct lan6_reset_snapshot snapshot;
 	char addr6_text[INET6_ADDRSTRLEN];
@@ -235,14 +236,28 @@ int reset_lan6_vars(void)
 
 	if (snapshot.is_static && snapshot.address[0]) {
 		memset(&addr6, 0, sizeof(addr6));
-		if (ipv6_from_string(snapshot.address, &addr6) >= 0 &&
-		    inet_ntop(AF_INET6, &addr6, addr6_text, sizeof(addr6_text))) {
-			if (rc_lan_addr6_format_prefix(
-				addr6_text, snapshot.prefix_size,
-				addr6s, sizeof(addr6s)) != 0)
-				logmessage("LAN IPv6",
-					   "cannot format configured LAN IPv6 prefix (errno=%d)",
-					   errno ? errno : EIO);
+		parse_status = ipv6_from_string(snapshot.address, &addr6);
+		address_text_ok = (parse_status >= 0 &&
+			inet_ntop(AF_INET6, &addr6, addr6_text, sizeof(addr6_text)) != NULL);
+		status = rc_lan_addr6_reset_conversion_status(
+			parse_status, address_text_ok, errno);
+		if (status != 0) {
+			errno = status;
+			logmessage("LAN IPv6",
+				   "cannot parse or convert configured LAN IPv6 address; preserving current NVRAM and bridge state (status=%d)",
+				   status);
+			return status;
+		}
+		errno = 0;
+		if (rc_lan_addr6_format_prefix(
+			addr6_text, snapshot.prefix_size,
+			addr6s, sizeof(addr6s)) != 0) {
+			status = errno > 0 ? errno : EIO;
+			errno = status;
+			logmessage("LAN IPv6",
+				   "cannot format configured LAN IPv6 prefix; preserving current NVRAM and bridge state (status=%d)",
+				   status);
+			return status;
 		}
 	}
 
