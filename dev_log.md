@@ -1,3 +1,10 @@
+## 2026-11-25 19:25 CST — Complete the proc stat host fixtures
+
+- Exact storage run #45601959884 exposed a test-fixture defect in the new full-record check: the synthetic `rstats` records stopped at field 21 and omitted `starttime` (field 22), so the production parser correctly returned UNKNOWN before the restore scenarios began.
+- Extended all five live-process fixture records and the zombie fixture through field 22. Production parser behavior is unchanged; rerun exact storage/Process and XY-C1 checks. No local BusyBox/firmware/hardware result is claimed.
+
+---
+
 ## 2026-11-25 19:20 CST — Reject truncated proc stat records and zombie rstats
 
 - The MTD restore/erase postcondition treated any numeric `/proc/<pid>/stat` line ending in `<comm>) ` as a complete live process. A truncated record such as `998 (rstats) ` passed the comm check and could authorize a destructive restore; a zombie `rstats` also counted as running and could trigger an unnecessary stop timeout. The scanner now requires the state and numeric PID/group/session/starttime fields through proc stat field 22, rejects malformed state records as UNKNOWN, and counts only non-zombie/non-dead rstats tasks as present.

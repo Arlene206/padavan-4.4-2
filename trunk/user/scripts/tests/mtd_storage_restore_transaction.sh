@@ -105,7 +105,7 @@ if [ "${RSTAT_START_WITHOUT_PROCESS:-0}" = 1 ]; then
 fi
 printf '%s\n' started >> "$RSTAT_LOG"
 mkdir -p "$RSTAT_PROC_ROOT/321"
-printf '%s\n' '321 (rstats) S 1 321 321 0 0 0 0 0 0 0 0 0 0 0 0 0 0 12345' > "$RSTAT_PROC_ROOT/321/stat"
+printf '%s\n' '321 (rstats) S 1 321 321 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 12345' > "$RSTAT_PROC_ROOT/321/stat"
 if [ "${RSTAT_DAEMON_TEST:-0}" = 1 ]; then
 	# Mimic the long-lived rstats daemon retaining inherited non-stdio FDs.
 	/bin/sleep 30 </dev/null >/dev/null 2>&1 &
@@ -122,7 +122,7 @@ export RSTAT_PROC_ROOT="$sandbox/proc"
 export RSTAT_KILL_LOG="$sandbox/rstats-kill.log"
 export RSTAT_DAEMON_PID="$rstats_daemon_pid_file"
 mkdir -p "$RSTAT_PROC_ROOT/321"
-printf '%s\n' '321 (rstats) S 1 321 321 0 0 0 0 0 0 0 0 0 0 0 0 0 0 12345' > "$RSTAT_PROC_ROOT/321/stat"
+printf '%s\n' '321 (rstats) S 1 321 321 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 12345' > "$RSTAT_PROC_ROOT/321/stat"
 : > "$MV_COUNT_FILE"
 : > "$RSTAT_LOG"
 : > "$RSTAT_KILL_LOG"
@@ -253,7 +253,7 @@ ln -s /bin/sh "$sandbox/symlink-incoming/start_script.sh"
 mkdir -p "$sandbox/storage"
 printf '%s\n' 'old=preserve-after-symlink' > "$sandbox/storage/original.conf"
 mkdir -p "$RSTAT_PROC_ROOT/321"
-printf '%s\n' '321 (rstats) S 1 321 321 0 0 0 0 0 0 0 0 0 0 0 0 0 0 12345' > "$RSTAT_PROC_ROOT/321/stat"
+printf '%s\n' '321 (rstats) S 1 321 321 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 12345' > "$RSTAT_PROC_ROOT/321/stat"
 : > "$RSTAT_KILL_LOG"
 : > "$MV_COUNT_FILE"
 if run_restore; then
@@ -273,7 +273,7 @@ test ! -e "$sandbox/restore"
 # be diagnosed/retried without losing the rollback snapshot.
 "$real_tar" -cjf "$sandbox/private/storage-restore.tar.bz2" -C "$sandbox/incoming" .
 mkdir -p "$RSTAT_PROC_ROOT/321"
-printf '%s\n' '321 (rstats) S 1 321 321 0 0 0 0 0 0 0 0 0 0 0 0 0 0 12345' > "$RSTAT_PROC_ROOT/321/stat"
+printf '%s\n' '321 (rstats) S 1 321 321 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 12345' > "$RSTAT_PROC_ROOT/321/stat"
 : > "$RSTAT_LOG"
 : > "$RSTAT_KILL_LOG"
 : > "$MV_COUNT_FILE"
@@ -294,7 +294,7 @@ rm -rf "$sandbox"/storage.rollback.*
 # fail the restore postcondition. Keep the rollback snapshot and save barrier.
 "$real_tar" -cjf "$sandbox/private/storage-restore.tar.bz2" -C "$sandbox/incoming" .
 mkdir -p "$RSTAT_PROC_ROOT/321"
-printf '%s\n' '321 (rstats) S 1 321 321 0 0 0 0 0 0 0 0 0 0 0 0 0 0 12345' > "$RSTAT_PROC_ROOT/321/stat"
+printf '%s\n' '321 (rstats) S 1 321 321 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 12345' > "$RSTAT_PROC_ROOT/321/stat"
 : > "$RSTAT_LOG"
 : > "$RSTAT_KILL_LOG"
 : > "$MV_COUNT_FILE"
@@ -318,7 +318,7 @@ rm -rf "$sandbox"/storage.rollback.*
 "$real_tar" -cjf "$sandbox/private/storage-restore.tar.bz2" -C "$sandbox/incoming" .
 # A zombie rstats entry must count as absent; do not call killall or delay
 # recovery while the kernel/init reaps an already-dead task.
-printf '%s\\n' '321 (rstats) Z 1 321 321 0 0 0 0 0 0 0 0 0 0 0 0 0 0 12345' > "$RSTAT_PROC_ROOT/321/stat"
+printf '%s\\n' '321 (rstats) Z 1 321 321 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 12345' > "$RSTAT_PROC_ROOT/321/stat"
 : > "$RSTAT_KILL_LOG"
 : > "$MV_COUNT_FILE"
 RSTAT_DAEMON_TEST=1
