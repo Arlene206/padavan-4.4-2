@@ -799,7 +799,7 @@ int
 ntpc_updated_main(int argc, char *argv[])
 {
 	char *offset;
-	int ntpc_counter, counter_status, ready_status;
+	int ntpc_counter, next_counter, counter_status, ready_status;
 
 	if (argc < 2)
 		return -1;
@@ -811,8 +811,23 @@ ntpc_updated_main(int argc, char *argv[])
 	if (!watchdog_ntp_step_has_offset(offset))
 		return 0;
 
-	ntpc_counter = nvram_get_int("ntpc_counter");
-	counter_status = nvram_set_int_temp("ntpc_counter", ntpc_counter + 1);
+	counter_status = watchdog_nvram_read_int_status(
+		"ntpc_counter", 0, &ntpc_counter);
+	if (counter_status != 0) {
+		logmessage("NTP Client",
+			   "cannot read NTP step counter; refusing to overwrite it with a guessed value (status=%d)",
+			   counter_status);
+		return counter_status;
+	}
+	counter_status = watchdog_ntp_counter_advance(
+		ntpc_counter, &next_counter);
+	if (counter_status != 0) {
+		logmessage("NTP Client",
+			   "refusing invalid NTP step counter value (status=%d)",
+			   counter_status);
+		return counter_status;
+	}
+	counter_status = nvram_set_int_temp("ntpc_counter", next_counter);
 	if (counter_status != 0)
 		logmessage("NTP Client",
 			   "cannot record NTP step counter (status=%d)",

@@ -192,6 +192,13 @@ assert 'nvram_get_int("ntp_period")' not in _ntpc_handler
 assert "watchdog_nvram_read_int_status(" in _ntpc_updated
 assert 'nvram_get_int("ntpc_counter")' not in _ntpc_updated
 assert "test_ntp_ready_decision_requires_both_checked_reads" in _ntp_test
+_ntpc_updated_callback = function_body(
+    _ntp_watchdog, "ntpc_updated_main(int argc, char *argv[])")
+assert 'watchdog_nvram_read_int_status(\n\t\t"ntpc_counter", 0, &ntpc_counter)' in _ntpc_updated_callback
+assert "watchdog_ntp_counter_advance(\n\t\tntpc_counter, &next_counter)" in _ntpc_updated_callback
+assert 'nvram_get_int("ntpc_counter")' not in _ntpc_updated_callback
+assert "test_ntp_counter_advance_rejects_corruption_and_saturates" in _ntp_test
+
 
 assert _ntp_watchdog.index("if (!watchdog_ntp_step_has_offset(offset))") < _ntp_watchdog.index('counter_status = nvram_set_int_temp("ntpc_counter"')
 assert _ntp_watchdog.index('counter_status = nvram_set_int_temp("ntpc_counter"') < _ntp_watchdog.index('ready_status = nvram_set_int("ntp_ready", 1)')

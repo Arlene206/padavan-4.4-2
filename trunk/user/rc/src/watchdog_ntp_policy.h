@@ -2,6 +2,7 @@
 #define WATCHDOG_NTP_POLICY_H
 
 #include <errno.h>
+#include <limits.h>
 #include <stddef.h>
 #include <string.h>
 
@@ -68,6 +69,20 @@ watchdog_ntp_ready_decision(int counter_status, int ntpc_counter,
 	return 0;
 }
 
+
+/*
+ * The step counter is a durable retry marker, not an unbounded arithmetic
+ * accumulator. Reject corrupt negative state and saturate instead of
+ * overflowing signed int after long uptimes or repeated clock corrections.
+ */
+static inline int
+watchdog_ntp_counter_advance(int current, int *next)
+{
+	if (!next || current < 0)
+		return EINVAL;
+	*next = (current == INT_MAX) ? INT_MAX : current + 1;
+	return 0;
+}
 
 #define WATCHDOG_NTP_SERVER_MAX 256
 

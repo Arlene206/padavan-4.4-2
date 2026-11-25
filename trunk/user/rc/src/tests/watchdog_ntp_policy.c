@@ -87,6 +87,21 @@ test_ntp_ready_publication_retries_only_after_a_real_step(void)
 	assert(watchdog_ntp_ready_retry_required(4, 2));
 }
 
+static void
+test_ntp_counter_advance_rejects_corruption_and_saturates(void)
+{
+	int next = -1;
+
+	assert(watchdog_ntp_counter_advance(0, &next) == 0);
+	assert(next == 1);
+	assert(watchdog_ntp_counter_advance(41, &next) == 0);
+	assert(next == 42);
+	assert(watchdog_ntp_counter_advance(INT_MAX, &next) == 0);
+	assert(next == INT_MAX);
+	assert(watchdog_ntp_counter_advance(-1, &next) == EINVAL);
+	assert(watchdog_ntp_counter_advance(1, NULL) == EINVAL);
+}
+
 struct fake_ntp_nvram {
     const char *server0;
     const char *server1;
@@ -230,6 +245,7 @@ main(void)
 {
 	test_ntp_step_requires_nonempty_offset();
 	test_ntp_ready_publication_retries_only_after_a_real_step();
+	test_ntp_counter_advance_rejects_corruption_and_saturates();
 	test_ntp_ready_decision_requires_both_checked_reads();
 	CHECK(test_ntp_server_pair_copies_cache_before_next_read() == 0);
 	CHECK(test_ntp_server_pair_failure_clears_partial_snapshot() == 0);
