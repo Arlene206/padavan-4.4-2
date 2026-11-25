@@ -2922,9 +2922,10 @@ int ei_close(struct net_device *dev)
 
 	netif_stop_queue(dev);
 	ra2880stop(ei_local);
-
-	fe_reset();
 	irq_status = fe_int_disable(dev);
+
+	/* No IRQ/NAPI worker may touch FE registers during the reset. */
+	fe_reset();
 
 	if ((ei_local->features & FE_GE2_SUPPORT) && ei_local->pseudo_dev)
 		virtualif_close(ei_local->pseudo_dev);

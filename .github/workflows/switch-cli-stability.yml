@@ -1645,6 +1645,7 @@ jobs:
           assert "return status;" in disable
           assert "irq_status = fe_int_disable(dev);" in close
           assert "return irq_status;" in close
+          assert close.index("ra2880stop(ei_local);") < close.index("irq_status = fe_int_disable(dev);") < close.index("fe_reset();")
           print("RAETH GSW link IRQ enable/disable MDIO failures propagate through interface lifecycle: PASS")
           PY
 
