@@ -405,8 +405,7 @@ require('nvram get_checked zero_staticnum_x' in static_route_body and
         'nvram get zero_enable_x$j' not in static_route_body,
         "static-route executor must propagate checked NVRAM errors during add/delete")
 require('zerotier_ipv4_cidr_is_valid "$1" || return 1' in route_tuple_body and
-        'case "$2" in' in route_tuple_body and
-        '*/*) return 1 ;;' in route_tuple_body and
+        '[ "${2#*/}" = "$2" ] || return 1' in route_tuple_body and
         'zerotier_ipv4_cidr_is_valid "$2"' in route_tuple_body and
         'zerotier_static_route_tuple_is_valid "$zt_preflight_ip" "$zt_preflight_gateway"' in route_preflight_body and
         'zerotier_static_route_tuple_is_valid "$zero_ip" "$zero_route"' in static_route_body,

@@ -716,9 +716,7 @@ zerotier_ipv4_cidr_is_valid() {
 zerotier_static_route_tuple_is_valid() {
 	[ "$#" -eq 2 ] || return 1
 	zerotier_ipv4_cidr_is_valid "$1" || return 1
-	case "$2" in
-		*/*) return 1 ;;
-	esac
+	[ "${2#*/}" = "$2" ] || return 1
 	zerotier_ipv4_cidr_is_valid "$2"
 }
 
