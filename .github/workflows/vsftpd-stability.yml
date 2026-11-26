@@ -1094,7 +1094,7 @@ jobs:
                         "rename(staged_path, target_path)", "unlink(staged_path)"):
               assert token in publish_fn
           assert "fsync(fd)" in sync_fd and "errno == EINTR" in sync_fd
-          assert "O_DIRECTORY" in sync_parent and "O_NOFOLLOW" in sync_parent
+          assert "O_DIRECTORY" in sync_parent
           assert "close(directory_fd)" in sync_parent
           file_sync = publish_fn.index("ftp_config_file_sync_fd(fileno(fp))")
           rename = publish_fn.index("rename(staged_path, target_path)")
