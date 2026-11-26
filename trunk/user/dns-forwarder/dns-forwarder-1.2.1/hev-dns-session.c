@@ -61,20 +61,35 @@ hev_dns_session_new (int fd, struct sockaddr_in *upstream,
 			HevDNSSessionCloseNotify notify, void *notify_data)
 {
 	HevDNSSession *self = HEV_MEMORY_ALLOCATOR_ALLOC (sizeof (HevDNSSession));
-	if (self) {
-		self->ref_count = 1;
-		self->cfd = fd;
-		self->rfd = -1;
-		self->revents = 0;
-		self->idle = false;
-		self->remote_fd = NULL;
-		self->forward_buffer = hev_ring_buffer_new (2000);
+
+	if (!self) {
+		if (!errno)
+			errno = ENOMEM;
+		return NULL;
+	}
+
+	self->ref_count = 1;
+	self->cfd = fd;
+	self->rfd = -1;
+	self->revents = 0;
+	self->idle = false;
+	self->remote_fd = NULL;
+	self->forward_buffer = NULL;
+	self->backward_buffer = NULL;
+	self->source = NULL;
+	self->step = STEP_NULL;
+	self->notify = notify;
+	self->upstream = upstream;
+	self->notify_data = notify_data;
+
+	self->forward_buffer = hev_ring_buffer_new (2000);
+	if (self->forward_buffer)
 		self->backward_buffer = hev_ring_buffer_new (2000);
-		self->source = NULL;
-		self->step = STEP_NULL;
-		self->notify = notify;
-		self->upstream = upstream;
-		self->notify_data = notify_data;
+	if (!self->forward_buffer || !self->backward_buffer) {
+		int saved_errno = errno ? errno : ENOMEM;
+		hev_dns_session_unref (self);
+		errno = saved_errno;
+		return NULL;
 	}
 
 	return self;

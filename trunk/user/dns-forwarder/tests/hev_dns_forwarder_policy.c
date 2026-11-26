@@ -4,10 +4,29 @@
 
 #include "../dns-forwarder-1.2.1/hev-dns-forwarder-policy.h"
 
+static void
+test_udp_readiness_drain_policy(void)
+{
+	assert(HEV_DNS_FORWARDER_UDP_DRAIN_PACKET ==
+	       hev_dns_forwarder_udp_drain_action(0, 0));
+	assert(HEV_DNS_FORWARDER_UDP_DRAIN_PACKET ==
+	       hev_dns_forwarder_udp_drain_action(512, 0));
+	assert(HEV_DNS_FORWARDER_UDP_DRAIN_RETRY ==
+	       hev_dns_forwarder_udp_drain_action(-1, EINTR));
+	assert(HEV_DNS_FORWARDER_UDP_DRAIN_STOP ==
+	       hev_dns_forwarder_udp_drain_action(-1, EAGAIN));
+	assert(HEV_DNS_FORWARDER_UDP_DRAIN_STOP ==
+	       hev_dns_forwarder_udp_drain_action(-1, EWOULDBLOCK));
+	assert(HEV_DNS_FORWARDER_UDP_DRAIN_ERROR ==
+	       hev_dns_forwarder_udp_drain_action(-1, EBADF));
+}
+
 int
 main (void)
 {
 	unsigned short port = 4321;
+
+	test_udp_readiness_drain_policy();
 
 	assert(0 == hev_dns_forwarder_parse_port("1", &port));
 	assert(1 == port);

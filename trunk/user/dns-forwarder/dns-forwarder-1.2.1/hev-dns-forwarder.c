@@ -77,6 +77,7 @@ static bool listener_source_handler (HevEventSourceFD *fd, void *data);
 static bool timeout_source_handler (void *data);
 static void session_close_handler (HevDNSSession *session, void *data);
 static void remove_all_sessions (HevDNSForwarder *self);
+static int discard_pending_datagram (int fd);
 
 HevDNSForwarder *
 hev_dns_forwarder_new (HevEventLoop *loop, const char *addr, const char *port,
@@ -224,24 +225,96 @@ hev_dns_forwarder_unref (HevDNSForwarder *self)
 	}
 }
 
+static int
+discard_pending_datagram (int fd)
+{
+	char discard_byte;
+	ssize_t size;
+
+	do {
+		/* A short receive still consumes one complete UDP datagram. */
+		size = recvfrom (fd, &discard_byte, sizeof (discard_byte),
+				 MSG_DONTWAIT, NULL, NULL);
+	} while (size < 0 && EINTR == errno);
+
+	return (size < 0) ? -1 : 0;
+}
+
 static bool
 listener_source_handler (HevEventSourceFD *fd, void *data)
 {
 	HevDNSForwarder *self = data;
-	HevDNSSession *session = NULL;
-	HevEventSource *source = NULL;
-	ssize_t size;
 
-	size = recvfrom (fd->fd, NULL, 0, MSG_PEEK, NULL, NULL);
-	if (0 > size) {
-		if (EAGAIN == errno)
-		  fd->revents &= ~EPOLLIN;
-	} else {
-		session = hev_dns_session_new (fd->fd, &self->upstream, session_close_handler, self);
+	for (;;) {
+		HevDNSSession *session = NULL;
+		HevEventSource *source = NULL;
+		HevSList *new_sessions = NULL;
+		ssize_t size;
+		int action;
+
+		/* EPOLLET requires draining every queued datagram to EAGAIN. */
+		size = recvfrom (fd->fd, NULL, 0, MSG_PEEK | MSG_DONTWAIT,
+				 NULL, NULL);
+		action = hev_dns_forwarder_udp_drain_action (
+				size, (size < 0) ? errno : 0);
+		if (HEV_DNS_FORWARDER_UDP_DRAIN_RETRY == action)
+			continue;
+		if (HEV_DNS_FORWARDER_UDP_DRAIN_STOP == action) {
+			fd->revents &= ~EPOLLIN;
+			break;
+		}
+		if (HEV_DNS_FORWARDER_UDP_DRAIN_ERROR == action) {
+			/* Avoid spinning on a persistent listener error. */
+			fd->revents &= ~EPOLLIN;
+			break;
+		}
+
+		session = hev_dns_session_new (
+			fd->fd, &self->upstream, session_close_handler, self);
+		if (!session) {
+			if (discard_pending_datagram (fd->fd) < 0) {
+				fd->revents &= ~EPOLLIN;
+				break;
+			}
+			continue;
+		}
+
 		source = hev_dns_session_get_source (session);
-		hev_event_loop_add_source (self->loop, source);
-		/* printf ("New session %p\n", session); */
-		self->session_list = hev_slist_append (self->session_list, session);
+		if (!source) {
+			hev_dns_session_unref (session);
+			if (discard_pending_datagram (fd->fd) < 0) {
+				fd->revents &= ~EPOLLIN;
+				break;
+			}
+			continue;
+		}
+
+		/*
+		 * Track before activation: start() may synchronously close the
+		 * session, and the close callback removes it from this list.
+		 */
+		new_sessions = hev_slist_append (self->session_list, session);
+		if (!new_sessions) {
+			hev_dns_session_unref (session);
+			if (discard_pending_datagram (fd->fd) < 0) {
+				fd->revents &= ~EPOLLIN;
+				break;
+			}
+			continue;
+		}
+		self->session_list = new_sessions;
+
+		if (!hev_event_loop_add_source (self->loop, source)) {
+			self->session_list = hev_slist_remove (
+				self->session_list, session);
+			hev_dns_session_unref (session);
+			if (discard_pending_datagram (fd->fd) < 0) {
+				fd->revents &= ~EPOLLIN;
+				break;
+			}
+			continue;
+		}
+
 		hev_dns_session_start (session);
 	}
 

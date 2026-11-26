@@ -70,6 +70,7 @@ launcher_script = read("trunk/user/dns-forwarder/dns-forwarder.sh")
 forwarder_core = read("trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-dns-forwarder.c")
 event_source_core = read("trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-event-source.c")
 event_loop_test = read("trunk/user/dns-forwarder/tests/hev_event_loop_lifecycle.c")
+session_core = read("trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-dns-session.c")
 main_core = read("trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-main.c")
 forwarder_policy = read("trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-dns-forwarder-policy.h")
 forwarder_policy_test = read("trunk/user/dns-forwarder/tests/hev_dns_forwarder_policy.c")
@@ -309,6 +310,29 @@ assert "HEV_MEMORY_ALLOCATOR_ALLOC (name_length)" in event_source_name_setter
 assert "memcpy (new_name, name, name_length)" in event_source_name_setter
 assert event_source_name_setter.index("memcpy (new_name") < event_source_name_setter.index("HEV_MEMORY_ALLOCATOR_FREE (old_name)")
 assert "test_event_source_name_storage_is_safe" in event_loop_test
+
+listener = function_body(
+    forwarder_core,
+    "listener_source_handler (HevEventSourceFD *fd, void *data)\n{"
+)
+session_new = function_body(
+    session_core, "hev_dns_session_new (int fd, struct sockaddr_in *upstream,"
+)
+assert "for (;;)" in listener
+assert "MSG_PEEK | MSG_DONTWAIT" in listener
+assert "hev_dns_forwarder_udp_drain_action" in listener
+assert "HEV_DNS_FORWARDER_UDP_DRAIN_RETRY" in listener
+assert "fd->revents &= ~EPOLLIN" in listener
+assert listener.index("hev_slist_append") < listener.index("hev_event_loop_add_source")
+assert "if (!session)" in listener
+assert "if (!source)" in listener
+assert "if (!new_sessions)" in listener
+assert "hev_slist_remove" in listener
+assert "hev_dns_session_start (session)" in listener
+assert "if (!self->forward_buffer || !self->backward_buffer)" in session_new
+assert "hev_dns_session_unref (self)" in session_new
+assert "hev_dns_forwarder_udp_drain_action(-1, EINTR)" in forwarder_policy_test
+assert "hev_dns_forwarder_udp_drain_action(0, 0)" in forwarder_policy_test
 
 assert "value > 65535" in forwarder_policy
 for port_case in ('"1"', '"53"', '"00053"', '"65535"', '"0"', '"65536"', '"-1"', '"+53"', '"53x"'):
