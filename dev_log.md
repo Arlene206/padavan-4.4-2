@@ -1,3 +1,7 @@
+## 2026-11-26 — Align detect_internet interrupted-probe source contract
+
+- Exact run #45840372153 compiled and passed the GNU89 ASan/UBSan signal, host-policy and NVRAM-policy binaries; its embedded checker then failed because a new order assertion matched the comment text "Linux select()" before the wait loop, rather than the actual call. Tightened the checker to order `FD_ZERO()` before `ret = select()`; production code and regression results were unchanged.
+
 ## 2026-11-26 — Do not count interrupted Internet probes as host failures
 
 - `di_connect_to_host()` treated every `select()` return `-1` as an unreachable endpoint. `SIGHUP` or periodic `SIGALRM` can legitimately interrupt the nonblocking-connect wait without pausing the monitor, so one control signal could incorrectly mark the current probe host down and feed a false offline state.

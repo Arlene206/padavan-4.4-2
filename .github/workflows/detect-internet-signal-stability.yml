@@ -126,7 +126,7 @@ jobs:
           retry = connect_compact.index(
               "detect_internet_select_should_retry(ret,errno,di_pause_received)")
           assert "for (;;)" in connect_body
-          assert connect_body.index("FD_ZERO(&rset)") < connect_body.index("select(")
+          assert connect_body.index("FD_ZERO(&rset)") < connect_body.index("ret = select(")
           assert retry < connect_compact.index("if(ret<=0)")
           assert fd_guard < fd_error < fd_close < fd_errno < fd_mask
           for marker in ("test_endpoint_address_survives_port_cache_reuse",
