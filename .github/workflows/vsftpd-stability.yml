@@ -1092,7 +1092,7 @@ jobs:
               assert token in open_fn
           for token in ("ferror(fp)", "fflush(fp)", "fclose(fp)",
                         "rename(staged_path, target_path)", "unlink(staged_path)"):
-              assert token in publish_fn
+              assert token in publish_fn, "missing FTP publication token: %s" % token
           assert "fsync(fd)" in sync_fd and "errno == EINTR" in sync_fd
           assert "O_DIRECTORY" in sync_parent
           assert "close(directory_fd)" in sync_parent
