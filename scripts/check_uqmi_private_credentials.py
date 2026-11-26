@@ -40,9 +40,15 @@ def main() -> None:
     pdh_cleanup = qmi_stop.index("cleanup_status = modem_qmi_handle_file_unlink_status(unlink_status, errno);")
     release_gate = qmi_stop.index("if (!modem_qmi_client_id_release_allowed(cleanup_status))", pdh_cleanup)
     release_return = qmi_stop.index("return 1;", release_gate)
-    cid_read = qmi_stop.index("qmi_client_id = get_qmi_handle(QMI_CLIENT_ID);", release_gate)
+    # The CID is needed before stop-network so uqmi uses the exact session
+    # identity created by start-network. Releasing it remains gated on verified
+    # PDH-marker cleanup to avoid orphaning a still-recoverable WDS client.
+    cid_read = qmi_stop.index("qmi_client_id = get_qmi_handle(QMI_CLIENT_ID);")
+    stop_command = qmi_stop.index('"--stop-network"')
+    release_client_option = qmi_stop.index('"--set-client-id"', release_gate)
     release_command = qmi_stop.index('"--release-client-id"', release_gate)
-    assert pdh_cleanup < release_gate < release_return < cid_read < release_command
+    assert cid_read < stop_command < pdh_cleanup < release_gate < release_return < release_client_option < release_command
+    assert qmi_stop.index("client_id_arg", release_client_option) < release_command
     assert "preserving WDS client ID for recovery" in qmi_stop[release_gate:release_return]
     assert "modem_qmi_client_id_release_allowed(int packet_data_handle_cleanup_status)" in start_policy
     assert "return packet_data_handle_cleanup_status == 0;" in start_policy
