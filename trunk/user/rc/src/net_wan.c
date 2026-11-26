@@ -6936,15 +6936,18 @@ dhcp_route_ownership_delete_kernel_route(
 }
 
 static int
-dhcp_route_add_owned(char *ifname, int metric, char *destination,
-		     char *gateway, char *netmask)
+dhcp_route_add_owned(char *owner, char *ifname, int metric,
+		     char *destination, char *gateway, char *netmask)
 {
 	struct dhcp_route_ownership_entry entry;
 	int length;
 
-	if (!ifname || !destination || !gateway || !netmask)
+	if (!owner || !ifname || !destination || !gateway || !netmask)
 		return EINVAL;
 	memset(&entry, 0, sizeof(entry));
+	length = snprintf(entry.owner, sizeof(entry.owner), "%s", owner);
+	if (length < 0 || (size_t)length >= sizeof(entry.owner))
+		return EINVAL;
 	length = snprintf(entry.ifname, sizeof(entry.ifname), "%s", ifname);
 	if (length < 0 || (size_t)length >= sizeof(entry.ifname))
 		return EINVAL;
@@ -6969,15 +6972,16 @@ dhcp_route_add_owned(char *ifname, int metric, char *destination,
 }
 
 static int
-dhcp_route_cleanup_owned(char *ifname, int metric)
+dhcp_route_cleanup_owned(char *owner, char *ifname, int metric)
 {
 	return dhcp_route_ownership_cleanup(
-		DHCP_ROUTE_OWNERSHIP_FILE, ifname, metric,
+		DHCP_ROUTE_OWNERSHIP_FILE, owner, ifname, metric,
 		dhcp_route_ownership_delete_kernel_route, NULL);
 }
 
 static int
-control_dhcp_routes(char *rt, char *rt_rfc, char *rt_ms,
+control_dhcp_routes(char *owner,
+                    char *rt, char *rt_rfc, char *rt_ms,
                     char *ifname, int metric, int is_add)
 {
 	int dr_enable_value = 0;
@@ -6992,13 +6996,14 @@ control_dhcp_routes(char *rt, char *rt_rfc, char *rt_ms,
 	int status = 0, route_status;
 	char netmask[] = "255.255.255.255";
 
-	if (!ifname || !*ifname || metric < 0 || metric == INT_MAX)
+	if (!dhcp_route_ownership_owner_is_valid(owner) ||
+	    !ifname || !*ifname || metric < 0 || metric == INT_MAX)
 		return EINVAL;
 
 	/* Cleanup is driven by the persistent ownership manifest rather than the
 	 * NVRAM route strings, which may already describe a replacement lease. */
 	if (!is_add)
-		return dhcp_route_cleanup_owned(ifname, metric);
+		return dhcp_route_cleanup_owned(owner, ifname, metric);
 
 	/* Keep cleanup working even after the dynamic-route option is disabled. */
 	if (is_add) {
@@ -7046,7 +7051,7 @@ control_dhcp_routes(char *rt, char *rt_rfc, char *rt_ms,
 				    dhcp_lease_ipv4_is_valid(ipaddr) &&
 				    dhcp_lease_ipv4_is_valid(gateway)) {
 					route_status = dhcp_route_add_owned(
-						ifname, metric, ipaddr, gateway, netmask);
+						owner, ifname, metric, ipaddr, gateway, netmask);
 					if ((is_add && !dhcp_lease_route_add_is_ok(route_status)) ||
 					    (!is_add && !dhcp_lease_route_delete_is_ok(route_status))) {
 						status = route_status_accumulate(status, route_status);
@@ -7088,7 +7093,7 @@ control_dhcp_routes(char *rt, char *rt_rfc, char *rt_ms,
 				mask.s_addr = (bits == 0) ? 0 : htonl(0xffffffffU << (32 - bits));
 				strcpy(netmask, inet_ntoa(mask));
 				route_status = dhcp_route_add_owned(
-					ifname, metric, ipaddr, gateway, netmask);
+					owner, ifname, metric, ipaddr, gateway, netmask);
 				if ((is_add && !dhcp_lease_route_add_is_ok(route_status)) ||
 				    (!is_add && !dhcp_lease_route_delete_is_ok(route_status))) {
 					status = route_status_accumulate(status, route_status);
@@ -7106,7 +7111,9 @@ control_dhcp_routes(char *rt, char *rt_rfc, char *rt_ms,
 int
 add_dhcp_routes(char *rt, char *rt_rfc, char *rt_ms, char *ifname, int metric)
 {
-	return control_dhcp_routes(rt, rt_rfc, rt_ms, ifname, metric, 1);
+	/* The direct wrapper is retained for the IPTV DHCP client. */
+	return control_dhcp_routes("manv_", rt, rt_rfc, rt_ms,
+				   ifname, metric, 1);
 }
 
 static int
@@ -7187,7 +7194,8 @@ add_dhcp_routes_by_prefix(char *prefix, char *ifname, int metric)
 		errno = read_status;
 		return read_status;
 	}
-	return add_dhcp_routes(rt, rt_rfc, rt_ms, ifname, metric);
+	return control_dhcp_routes(prefix, rt, rt_rfc, rt_ms,
+				   ifname, metric, 1);
 }
 
 int
@@ -7195,7 +7203,8 @@ del_dhcp_routes_by_prefix(char *prefix, char *ifname, int metric)
 {
 	if (!prefix || !prefix[0] || !ifname || !ifname[0])
 		return EINVAL;
-	return control_dhcp_routes(NULL, NULL, NULL, ifname, metric, 0);
+	return control_dhcp_routes(prefix, NULL, NULL, NULL,
+				   ifname, metric, 0);
 }
 
 int
@@ -9697,7 +9706,7 @@ manv_route_deconfig(char *man_ifname)
 	}
 
 	route_result = control_dhcp_routes(
-		route_storage[0], route_storage[1], route_storage[2],
+		"manv_", route_storage[0], route_storage[1], route_storage[2],
 		man_ifname, 0, 0);
 	route_status = route_status_accumulate(0, route_result);
 	if (route_result != 0)

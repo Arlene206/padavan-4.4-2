@@ -16,10 +16,11 @@
 #include <unistd.h>
 
 #define DHCP_ROUTE_OWNERSHIP_MAX_RECORDS 512U
-#define DHCP_ROUTE_OWNERSHIP_MAGIC "PADAVAN-DHCP-ROUTES 1"
+#define DHCP_ROUTE_OWNERSHIP_MAGIC "PADAVAN-DHCP-ROUTES 2"
 
 struct dhcp_route_ownership_entry {
 	char ifname[IFNAMSIZ];
+	char owner[16];
 	int metric;
 	char destination[INET_ADDRSTRLEN];
 	char gateway[INET_ADDRSTRLEN];
@@ -50,6 +51,25 @@ dhcp_route_ownership_ifname_is_valid(const char *ifname)
 }
 
 static inline int
+dhcp_route_ownership_owner_is_valid(const char *owner)
+{
+	const unsigned char *p = (const unsigned char *)owner;
+	size_t length = 0;
+
+	if (!p || !*p)
+		return 0;
+	for (; *p; ++p, ++length) {
+		if (length >= 15U)
+			return 0;
+		if (!((*p >= 'a' && *p <= 'z') ||
+		      (*p >= 'A' && *p <= 'Z') ||
+		      (*p >= '0' && *p <= '9') || *p == '_'))
+			return 0;
+	}
+	return owner[length - 1U] == '_';
+}
+
+static inline int
 dhcp_route_ownership_ipv4_is_canonical(const char *text)
 {
 	struct in_addr address;
@@ -68,6 +88,7 @@ dhcp_route_ownership_entry_is_valid(
 {
 	return entry != NULL &&
 	       dhcp_route_ownership_ifname_is_valid(entry->ifname) &&
+	       dhcp_route_ownership_owner_is_valid(entry->owner) &&
 	       entry->metric >= 0 && entry->metric < INT_MAX &&
 	       dhcp_route_ownership_ipv4_is_canonical(entry->destination) &&
 	       dhcp_route_ownership_ipv4_is_canonical(entry->gateway) &&
@@ -82,6 +103,7 @@ dhcp_route_ownership_entry_matches(
 	return left && right &&
 	       left->metric == right->metric &&
 	       strcmp(left->ifname, right->ifname) == 0 &&
+	       strcmp(left->owner, right->owner) == 0 &&
 	       strcmp(left->destination, right->destination) == 0 &&
 	       strcmp(left->gateway, right->gateway) == 0 &&
 	       strcmp(left->netmask, right->netmask) == 0;
@@ -201,16 +223,17 @@ dhcp_route_ownership_load(
 		*newline = '\0';
 		memset(&entry, 0, sizeof(entry));
 		extra = 0;
-		parsed = sscanf(line, "%15s %d %15s %15s %15s %c",
-				entry.ifname, &entry.metric, entry.destination,
-				entry.gateway, entry.netmask, &extra);
+		parsed = sscanf(line, "%15s %15s %d %15s %15s %15s %c",
+				entry.ifname, entry.owner, &entry.metric,
+				entry.destination, entry.gateway, entry.netmask,
+				&extra);
 		if (parsed != 5 || !dhcp_route_ownership_entry_is_valid(&entry)) {
 			status = EINVAL;
 			goto close_stream;
 		}
-		if (snprintf(canonical, sizeof(canonical), "%s %d %s %s %s",
-			     entry.ifname, entry.metric, entry.destination,
-			     entry.gateway, entry.netmask) < 0 ||
+		if (snprintf(canonical, sizeof(canonical), "%s %s %d %s %s %s",
+			     entry.ifname, entry.owner, entry.metric,
+			     entry.destination, entry.gateway, entry.netmask) < 0 ||
 		    strcmp(canonical, line) != 0) {
 			status = EINVAL;
 			goto close_stream;
@@ -308,8 +331,8 @@ dhcp_route_ownership_save(
 			status = EINVAL;
 			break;
 		}
-		if (fprintf(stream, "%s %d %s %s %s\n",
-			    entries[i].ifname, entries[i].metric,
+		if (fprintf(stream, "%s %s %d %s %s %s\n",
+			    entries[i].ifname, entries[i].owner, entries[i].metric,
 			    entries[i].destination, entries[i].gateway,
 			    entries[i].netmask) < 0)
 			status = errno ? errno : EIO;
@@ -420,6 +443,7 @@ out:
 static inline int
 dhcp_route_ownership_cleanup(
 	const char *path,
+	const char *owner,
 	const char *ifname,
 	int metric,
 	dhcp_route_ownership_operation delete_operation,
@@ -431,7 +455,9 @@ dhcp_route_ownership_cleanup(
 	size_t count = 0, kept = 0, i, path_length;
 	int lock_fd = -1, status, delete_status, saved_errno;
 
-	if (!path || !path[0] || !dhcp_route_ownership_ifname_is_valid(ifname) ||
+	if (!path || !path[0] ||
+	    !dhcp_route_ownership_owner_is_valid(owner) ||
+	    !dhcp_route_ownership_ifname_is_valid(ifname) ||
 	    metric < 0 || metric >= INT_MAX || !delete_operation)
 		return EINVAL;
 	path_length = strlen(path);
@@ -453,7 +479,8 @@ dhcp_route_ownership_cleanup(
 		goto out;
 	status = 0;
 	for (i = 0; i < count; ++i) {
-		if (strcmp(entries[i].ifname, ifname) != 0 ||
+		if (strcmp(entries[i].owner, owner) != 0 ||
+		    strcmp(entries[i].ifname, ifname) != 0 ||
 		    entries[i].metric != metric) {
 			remaining[kept++] = entries[i];
 			continue;

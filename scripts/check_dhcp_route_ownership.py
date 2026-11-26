@@ -11,7 +11,11 @@ workflow = (ROOT / ".github/workflows/wan-route-status.yml").read_text()
 body = src.split("static int\ncontrol_dhcp_routes(", 1)[1].split(
     "\nint\nadd_dhcp_routes(", 1
 )[0]
-assert "dhcp_route_cleanup_owned(ifname, metric)" in body
+assert "dhcp_route_cleanup_owned(owner, ifname, metric)" in body
+assert 'control_dhcp_routes("manv_", route_storage[0]' in src
+assert "strcmp(entries[i].owner, owner) != 0" in policy
+assert 'DHCP_ROUTE_OWNERSHIP_MAGIC "PADAVAN-DHCP-ROUTES 2"' in policy
+assert "Identical interface/metric contexts remain isolated by DHCP owner." in test
 assert "route_del(" not in body
 assert "dhcp_route_add_owned(" in body
 assert "dhcp_route_ownership_add(" in src

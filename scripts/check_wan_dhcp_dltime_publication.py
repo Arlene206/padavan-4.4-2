@@ -108,7 +108,7 @@ classless_validation = control_body.index(
     "dhcp_lease_classless_route_list_is_valid("
 )
 route_add = control_body.index("dhcp_route_add_owned(")
-route_cleanup = control_body.index("dhcp_route_cleanup_owned(")
+route_cleanup = control_body.index("dhcp_route_cleanup_owned(owner, ifname, metric)")
 assert legacy_validation < route_add
 assert classless_validation < route_add
 assert route_cleanup < route_add

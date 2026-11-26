@@ -36,11 +36,12 @@ fake_delete(void *opaque, const struct dhcp_route_ownership_entry *entry)
 
 static void
 make_entry(struct dhcp_route_ownership_entry *entry,
-	   const char *ifname, int metric, const char *destination,
+	   const char *owner, const char *ifname, int metric, const char *destination,
 	   const char *gateway, const char *netmask)
 {
 	memset(entry, 0, sizeof(*entry));
 	strncpy(entry->ifname, ifname, sizeof(entry->ifname) - 1);
+	strncpy(entry->owner, owner, sizeof(entry->owner) - 1);
 	entry->metric = metric;
 	strncpy(entry->destination, destination, sizeof(entry->destination) - 1);
 	strncpy(entry->gateway, gateway, sizeof(entry->gateway) - 1);
@@ -61,15 +62,15 @@ main(void)
 	assert(snprintf(path, sizeof(path), "%s/owned.routes", directory) > 0);
 	assert(snprintf(victim, sizeof(victim), "%s/victim", directory) > 0);
 	assert(snprintf(link_path, sizeof(link_path), "%s/routes-link", directory) > 0);
-	make_entry(&route, "eth2", 0, "198.51.100.0", "192.0.2.1", "255.255.255.0");
-	make_entry(&other, "eth3", 0, "203.0.113.0", "192.0.2.2", "255.255.255.0");
+	make_entry(&route, "wan0_", "eth2", 0, "198.51.100.0", "192.0.2.1", "255.255.255.0");
+	make_entry(&other, "manv_", "eth2", 0, "203.0.113.0", "192.0.2.2", "255.255.255.0");
 
 	/* A route that predated DHCP (EEXIST) is never entered in the manifest. */
 	memset(&fake, 0, sizeof(fake));
 	fake.add_status = EEXIST;
 	assert(dhcp_route_ownership_add(path, &route, fake_add, fake_delete, &fake) == 0);
 	assert(fake.add_count == 1 && fake.delete_count == 0);
-	assert(dhcp_route_ownership_cleanup(path, "eth2", 0,
+	assert(dhcp_route_ownership_cleanup(path, "wan0_", "eth2", 0,
 					    fake_delete, &fake) == 0);
 	assert(fake.delete_count == 0);
 
@@ -86,23 +87,23 @@ main(void)
 
 	/* A failed delete retains ownership for a later retry. */
 	fake.delete_status = EIO;
-	assert(dhcp_route_ownership_cleanup(path, "eth2", 0,
+	assert(dhcp_route_ownership_cleanup(path, "wan0_", "eth2", 0,
 					    fake_delete, &fake) == EIO);
 	assert(fake.delete_count == 1);
 	fake.delete_status = 0;
-	assert(dhcp_route_ownership_cleanup(path, "eth2", 0,
+	assert(dhcp_route_ownership_cleanup(path, "wan0_", "eth2", 0,
 					    fake_delete, &fake) == 0);
 	assert(fake.delete_count == 2);
-	assert(dhcp_route_ownership_cleanup(path, "eth2", 0,
+	assert(dhcp_route_ownership_cleanup(path, "wan0_", "eth2", 0,
 					    fake_delete, &fake) == 0);
 	assert(fake.delete_count == 2);
 
-	/* Cleanup is scoped by interface and metric in one shared manifest. */
+	/* Identical interface/metric contexts remain isolated by DHCP owner. */
 	assert(dhcp_route_ownership_add(path, &route, fake_add, fake_delete, &fake) == 0);
 	assert(dhcp_route_ownership_add(path, &other, fake_add, fake_delete, &fake) == 0);
-	assert(dhcp_route_ownership_cleanup(path, "eth2", 0,
+	assert(dhcp_route_ownership_cleanup(path, "wan0_", "eth2", 0,
 					    fake_delete, &fake) == 0);
-	assert(dhcp_route_ownership_cleanup(path, "eth3", 0,
+	assert(dhcp_route_ownership_cleanup(path, "manv_", "eth2", 0,
 					    fake_delete, &fake) == 0);
 
 	/* Malformed/symlink state fails closed without invoking route deletion. */
@@ -120,7 +121,7 @@ main(void)
 	assert(fd >= 0);
 	assert(write(fd, "corrupt\n", 8) == 8);
 	assert(close(fd) == 0);
-	assert(dhcp_route_ownership_cleanup(path, "eth2", 0,
+	assert(dhcp_route_ownership_cleanup(path, "wan0_", "eth2", 0,
 					    fake_delete, &fake) == EINVAL);
 	assert(fake.delete_count == 0);
 
