@@ -10,6 +10,7 @@
 
 #include "common.h"
 #include "dhcpd.h"
+#include "udhcp_lease_file_time_policy.h"
 
 /* on these functions, make sure your datatype matches */
 static int FAST_FUNC read_str(const char *line, void *arg)
@@ -182,10 +183,11 @@ void FAST_FUNC read_leases(const char *file)
 		goto ret;
 	written_at = SWAP_BE64(written_at);
 
-	time_passed = time(NULL) - written_at;
-	/* Strange written_at, or lease file from old version of udhcpd
-	 * which had no "written_at" field? */
-	if ((uint64_t)time_passed > 12 * 60 * 60)
+	/* A bounded future timestamp can result from NTP clock correction.
+	 * Treat it as zero elapsed time so valid leases are not discarded.
+	 * Reject old-format files and timestamps outside the existing 12h window.
+	 */
+	if (!udhcp_lease_file_time_delta_valid(time(NULL), written_at, &time_passed))
 		goto ret;
 
 	while (full_read(fd, &lease, sizeof(lease)) == sizeof(lease)) {

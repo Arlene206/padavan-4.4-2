@@ -1,3 +1,11 @@
+## 2026-11-25 — Preserve DHCP leases across bounded clock rollback
+
+- `read_leases()` computed `time(NULL) - written_at` then cast a negative result to `uint64_t` for the 12-hour age test. A small NTP/backward wall-clock correction therefore looked like an enormous age and discarded every saved lease; the same codebase's `dumpleases` already treats a future write stamp as zero elapsed time.
+- Added a bounded time-delta policy: accept nonnegative timestamps within the existing 12-hour window in either direction, clamp a future write stamp to zero elapsed seconds, and continue rejecting larger deltas/invalid negative values. Production lease parsing uses the helper before loading any records.
+- Added GNU89 ASan/UBSan boundary tests and an integration checker; XY-C1 path filters include the lease parser, policy header and test. Local policy regression PASS. Exact-head CI pending; no runtime router test claimed.
+
+---
+
 ## 2026-11-25 — Keep INIT-REBOOT silent for unknown DHCP clients
 
 - DHCPREQUEST's RFC 2131 text in `dhcpd.c` says an INIT-REBOOT client unknown to the server MUST receive no response. The prior fallback sent DHCPNAK whenever option 50 was present, including when `find_lease_by_mac()` found no local lease.
