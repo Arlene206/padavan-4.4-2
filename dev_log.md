@@ -1,3 +1,11 @@
+## 2026-11-25 — Validate DHCPDECLINE and DHCPRELEASE request fields
+
+- BusyBox `udhcpd` documented two unimplemented DHCP server checks in its handlers: DECLINE requires `ciaddr == 0`, and RELEASE must not contain option 50 (Requested IP). The server previously ignored these constraints and could mutate lease state for malformed messages.
+- Added small policy helpers and tests for zero/nonzero DECLINE `ciaddr` values and absent/present RELEASE requested-IP option. The handlers now include those predicates before their lease mutation. An integration checker verifies guard ordering and that workflow and XY-C1 path filters include the production source/header/test.
+- GNU89 ASan/UBSan regression prepared; exact-head CI pending. No full firmware result for this slice claimed.
+
+---
+
 ## 2026-11-25 — Correct BOOTREQUEST checker Python quoting
 
 - Exact `cfde353234ea855d259ab991a4dd310ff81e1d36` BOOTREQUEST workflow #45731440093 compiled and ran the GNU89 ASan/UBSan policy regression successfully, then failed the Python source-contract step with a SyntaxError in a double-escaped assertion matching the log call.

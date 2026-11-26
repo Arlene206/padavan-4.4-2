@@ -37,6 +37,7 @@
 #include "common.h"
 #include "dhcpc.h"
 #include "dhcpd.h"
+#include "udhcp_server_message_policy.h"
 
 
 /* Send a packet to a specific mac address and ip address by creating our own ip packet */
@@ -638,6 +639,7 @@ o DHCPREQUEST generated during REBINDING state:
 			log1("Received DECLINE");
 			if (server_id_opt
 			 && requested_ip_opt
+			 && udhcp_server_decline_ciaddr_valid(packet.ciaddr)
 			 && lease  /* chaddr matches this lease */
 			 && requested_nip == lease->lease_nip
 			) {
@@ -657,6 +659,7 @@ o DHCPREQUEST generated during REBINDING state:
 			 */
 			log1("Received RELEASE");
 			if (server_id_opt
+			 && udhcp_server_release_has_no_requested_ip(requested_ip_opt != NULL)
 			 && lease  /* chaddr matches this lease */
 			 && packet.ciaddr == lease->lease_nip
 			) {
