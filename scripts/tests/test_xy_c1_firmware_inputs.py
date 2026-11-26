@@ -32,6 +32,16 @@ class FirmwareInputPathTests(unittest.TestCase):
         self.assertFalse(is_non_firmware_input("trunk/user/dns-forwarder/dns-forwarder.sh"))
         self.assertIn('      - "trunk/user/shared/scripts/process_lifecycle.sh"', workflow)
 
+    def test_networkmap_production_sources_trigger_xy_c1_firmware_build(self):
+        workflow = (ROOT / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
+        source_path = '      - "trunk/user/networkmap/**"'
+        self.assertEqual(workflow.count(source_path), 1)
+        self.assertFalse(is_non_firmware_input("trunk/user/networkmap/src/networkmap.c"))
+        self.assertFalse(is_non_firmware_input("trunk/user/networkmap/src/networkmap_arp_policy.h"))
+        self.assertTrue(is_non_firmware_input(
+            "trunk/user/networkmap/src/tests/networkmap_arp_policy.c"
+        ))
+
     def test_ralink_iapp_c_sources_trigger_xy_c1_firmware_build(self):
         workflow = (ROOT / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
         source_path = '      - "trunk/user/ralinkiappd/src/**"'

@@ -1,3 +1,8 @@
+## 2026-11-26 — Include networkmap production in XY-C1 firmware validation
+
+- The XY-C1 workflow path filter covered core RC sources and multiple userland packages but omitted trunk/user/networkmap/**, so networkmap production changes did not trigger the firmware build even though the package is part of the firmware.
+- Added the networkmap subtree to push triggers. The existing changed-tree detector still skips tests-only changes while treating networkmap.c and production policy headers as build inputs; unit coverage now verifies both decisions.
+
 ## 2026-11-26 — Preserve networkmap ARP socket across daemon descriptor redirection
 
 - `networkmap` opened its packet socket before `daemon(0, 0)` but did not ensure the returned descriptor was above `stderr`. If any standard descriptor was closed, `socket()` could return 0, 1 or 2; daemonization redirects those descriptors to `/dev/null`, replacing the live ARP socket. Cleanup also used `arp_sockfd > 0` and leaked descriptor 0.

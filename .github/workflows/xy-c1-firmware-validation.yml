@@ -14,6 +14,7 @@ on:
       - "trunk/user/ralinkiappd/iappd.sh"
       - "trunk/user/ralinkiappd/src/**"
       - "trunk/user/udpxy/**"
+      - "trunk/user/networkmap/**"
       - "trunk/user/aliddns/Makefile"
       - "trunk/user/aliddns/aliddns.sh"
       - "trunk/user/aliddns/aliddns-ipv4.sh"
