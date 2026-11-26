@@ -1,3 +1,11 @@
+## 2026-11-26 — Align detect_internet checker with WAN-up core wrapper split
+
+- Exact run #45831162388 on `80db7072a08e98b80a7e8290040d8d2e910aff65` passed the GNU89 ASan/UBSan signal, endpoint and NVRAM policy regressions, then failed in the final inline source contract at `body(wan, "wan_up_internal(")`.
+- Verified the monitor wakeup and status accumulation are inside `wan_up_internal_with_route_status()`; the legacy `wan_up_internal()` wrapper delegates to that core with a NULL DHCP-status output. The `net_wan.c` blob at `80db707` is identical to current main, so the failure is a stale test selector rather than a production regression.
+- Updated the workflow contract to inspect the scoped core and separately assert the compatibility wrapper delegation. Its push/PR filters already include the workflow path exactly once. Production source unchanged.
+- Previous related exact checks: WAN route #45832732293 PASS and AI handoff #45832732309 PASS on `14a0ec858738597e43febc08c10f2c7679d920c4`; USB modem #45832891378 PASS on `4e9b81adb99cc6ba32428d6be5672a6c288b066a`. XY-C1 #45832262776 on `144b109` finished host checks but skipped Build/TRX/artifact, so no L3 claim.
+- Parent main: `4e9b81adb99cc6ba32428d6be5672a6c288b066a`; resulting commit: THIS COMMIT.
+
 ## 2026-11-26 — Align initial WAN MTU checker with DHCP retry-marker semantics
 
 - Exact WAN route run #45832262803 on main `144b109` passed DHCP route ownership and WAN VLAN/bridge checks, then failed because `scripts/check_wan_initial_mtu_status.py` still expected the old inline `route_err` / `manv_route_err` setters.

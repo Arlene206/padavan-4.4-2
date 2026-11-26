@@ -3,7 +3,7 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development branch: `main` only.
-- Current main parent before this initial-MTU checker alignment: `144b109054756c52822b03d76122842feb336cdb`. DHCP retry-marker production source remains `80db7072a08e98b80a7e8290040d8d2e910aff65`; this commit updates only its dependent MTU checker.
+- Current `main` parent before the detect_internet checker correction: `4e9b81adb99cc6ba32428d6be5672a6c288b066a`. DHCP retry-marker production source remains `80db7072a08e98b80a7e8290040d8d2e910aff65`; the WAN initial-MTU contract is repaired at `14a0ec858738597e43febc08c10f2c7679d920c4`, and the USB modem checker correction is at `4e9b81adb99cc6ba32428d6be5672a6c288b066a>.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; verified unchanged. PR #1 is closed and unmerged.
 - Bootstrap/protocol restoration was already completed. Do not repeat it. Do not reopen PR #1 or modify the frozen backup.
 - Use full multi-file Git trees and one atomic commit per logical task. Update `main` only with a non-forced expected-SHA compare-and-swap. Never force-push.
@@ -25,7 +25,10 @@
 
 ## Active task
 
-- Continue whole-userland stability/security work after the WAN/IPTV DHCP retry-marker fail-safe change. First inspect exact-SHA WAN DHCP/route and AI handoff Actions for this change; repair any checker/build failure before moving on. Do not repeat the already completed XY-C1 FTP build or BusyBox ACK-state review.
+- Resolve the remaining detect_internet source-contract failure from exact SHA `80db7072a08e98b80a7e8290040d8d2e910aff65`. Run #45831162388 passed all three GNU89 ASan/UBSan policy binaries, then failed at the inline workflow checker because it looked for `notify_run_detect_internet(2)` inside the legacy `wan_up_internal()` wrapper. That call is now correctly in `wan_up_internal_with_route_status()`; the legacy wrapper delegates to the core with a NULL status pointer. The `net_wan.c` blob is unchanged between `80db707` and current main, so this is a stale checker, not a demonstrated production defect.
+- WAN initial-MTU checker is fixed and WAN route #45832732293 plus AI handoff #45832732309 PASS on `14a0ec858738597e43febc08c10f2c7679d920c4`. USB modem checker correction at `4e9b81adb99cc6ba32428d6be5672a6c288b066a` is validated by USB workflow #45832891378 PASS.
+- XY-C1 run #45832262776 on `144b109` completed host checks successfully, but Build XY-C1, TRX verification and artifact upload were SKIPPED by the firmware-input detector. This is not an L3 firmware build result. Production source baseline remains the marker-latch slice `80db707`.
+- This commit updates only the detect_internet workflow assertion to check the scoped WAN-up implementation and the retained compatibility wrapper. No production C changed.
 
 ## Verification boundary
 
@@ -53,9 +56,9 @@
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-SHA WAN route rerun after the initial-MTU checker update; confirm the DHCP marker-latch and MTU source contracts, then poll XY-C1 Build/TRX/artifact steps on the current source descendant.
-2. Diagnose the unrelated USB modem and detect_internet static-contract failures from SHA `80db707` only after confirming whether their source conditions remain present.
-3. Continue independent userland stability/security work; retain exact-SHA evidence and L2/L3/L4 boundaries.
+1. Inspect exact-head push Actions for the detect_internet checker correction. Confirm the GNU89 sanitizer suites, WAN-up core/wrapper source contract, and AI handoff contract on that exact SHA.
+2. If detect_internet passes, continue the next independent high-priority stability/security defect across remaining Padavan userland; do not repeat the DHCP retry-marker, WAN MTU, USB modem, FTP, Inadyn, or BusyBox work.
+3. Keep the firmware boundary explicit: the latest XY-C1 run reported host-only validation with Build/TRX/artifact skipped; no current-source L3 or hardware/L4 claim. Pending unrelated Actions must not block independent work.
 
 ## Mandatory handoff checkpoint
 

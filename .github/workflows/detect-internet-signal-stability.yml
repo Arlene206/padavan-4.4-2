@@ -344,9 +344,17 @@ jobs:
           wan_start = body(wan, "start_wan(void)")
           assert "sysctl_status = notify_run_detect_internet(60);" in wan_start
           assert "rc_first_service_start_status(wan_start_status, sysctl_status)" in wan_start
-          wan_up = body(wan, "wan_up_internal(")
+          # The implementation moved into the scoped core; the legacy entry
+          # point remains a compatibility wrapper with no duplicate side effects.
+          wan_up = body(
+              wan, "wan_up_internal_with_route_status(char *wan_ifname, int unit,")
           assert "route_status = notify_run_detect_internet(2);" in wan_up
           assert "route_status_accumulate(status, route_status)" in wan_up
+          wan_up_compat = body(
+              wan, "wan_up_internal(char *wan_ifname, int unit, int is_static)")
+          wan_up_compat_compact = "".join(wan_up_compat.split())
+          assert "returnwan_up_internal_with_route_status(" in wan_up_compat_compact
+          assert "wan_ifname,unit,is_static,NULL" in wan_up_compat_compact
           notification_dispatch = body(dispatcher, "handle_notifications(void)")
           assert "action_result, notify_run_detect_internet(2)" in notification_dispatch
           assert "notify_pause_detect_internet(" in lan
