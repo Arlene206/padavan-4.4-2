@@ -10,11 +10,11 @@ on:
       - "trunk/user/miniupnpd/miniupnpd-2.x/Makefile.linux"
       - ".github/workflows/miniupnpd-http-request-stability.yml"
       - "trunk/user/miniupnpd/miniupnpd-2.x/upnphttp.c"
-      - "trunk/user/miniupnpd/miniupnpd-2.x/Makefile.linux"
       - "trunk/user/miniupnpd/miniupnpd-2.x/Makefile.linux_nft"
       - "trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd_http_request_policy.h"
       - "trunk/user/miniupnpd/miniupnpd-2.x/tests/miniupnpd_http_request_policy_test.c"
       - "scripts/check_miniupnpd_http_request.py"
+
   pull_request:
     paths:
       - "trunk/user/miniupnpd/miniupnpd-2.x/minixml.c"
@@ -23,11 +23,11 @@ on:
       - "trunk/user/miniupnpd/miniupnpd-2.x/Makefile.linux"
       - ".github/workflows/miniupnpd-http-request-stability.yml"
       - "trunk/user/miniupnpd/miniupnpd-2.x/upnphttp.c"
-      - "trunk/user/miniupnpd/miniupnpd-2.x/Makefile.linux"
       - "trunk/user/miniupnpd/miniupnpd-2.x/Makefile.linux_nft"
       - "trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd_http_request_policy.h"
       - "trunk/user/miniupnpd/miniupnpd-2.x/tests/miniupnpd_http_request_policy_test.c"
       - "scripts/check_miniupnpd_http_request.py"
+
 
 permissions:
   contents: read

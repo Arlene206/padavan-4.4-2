@@ -10,8 +10,10 @@
 
 ## Active task
 
-- Fix an out-of-bounds read in MiniUPnP's network-facing XML parser: truncated CDATA opening/closing sequences reached fixed-length `memcmp()` calls without proving the complete marker was inside the request buffer. The post-CDATA scan could also dereference the end pointer when the closing marker ended at the last byte.
-- Add bounds-checked byte-sequence comparisons for XML comments and CDATA, reject invalid parser buffers/sizes before pointer arithmetic, and run exact-size truncated-buffer regressions under GNU89/Werror/ASan/UBSan. Then inspect exact-SHA MiniUPnP and XY-C1 Build/TRX/artifact Actions.
+- Exact-head MiniUPnP HTTP request-framing workflow #45774933814 failed only in its source-contract checker: `Makefile.linux` is listed twice in both push and pull_request path filters, while the checker requires exactly one entry. Both GNU89 sanitizer regressions (HTTP framing and XML boundary) ran before the checker step.
+- The correction removes the duplicate trigger entry from each path filter. Fetch live main and inspect new exact-SHA MiniUPnP, Process inventory, AI handoff and XY-C1 Build/TRX/artifact runs.
+- Continue the prepared SmartDNS NVRAM-to-config input-validation fix after the MiniUPnP correction is verified. That slice also corrects the secondary SmartDNS TCP-bind variable mismatch: the NVRAM reader populates `sdnse_tcp`, while the writer previously tested unset `sdnse_tcp_server`.
+
 
 ## Completed source slice
 

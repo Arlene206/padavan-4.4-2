@@ -1,3 +1,11 @@
+## 2026-11-26 — Remove duplicate MiniUPnP CI path-filter entry
+
+- Exact-head MiniUPnP request-framing run #45774933814 on `af75c28bd1395194b9fdf088ad56caaab3d2adde` passed both GNU89 sanitizer regressions (bounded HTTP framing and XML parser boundaries) and failed only in `scripts/check_miniupnpd_http_request.py`: `Makefile.linux` appeared twice in both push and pull_request `paths` sections, contrary to the checker’s exact-one contract.
+- Removed the duplicate path from each filter; the existing single trigger remains so Linux Makefile dependency changes still launch the workflow. No production MiniUPnP code changed in this correction.
+- Parent main: `af75c28bd1395194b9fdf088ad56caaab3d2adde`; exact-SHA Actions for the correction are pending after publication.
+
+---
+
 ## 2026-11-26 — Bound MiniUPnP XML comment and CDATA marker parsing
 
 - The network-facing MiniUPnP SOAP XML parser compared fixed 9-byte CDATA openers and 3-byte terminators with `memcmp()` without proving the full marker remained inside the supplied request extent. Truncated requests could read beyond the buffer; a CDATA terminator at end-of-buffer could also be followed by a dereference of the end pointer.
