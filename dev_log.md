@@ -1,3 +1,26 @@
+## 2026-11-26 — Align the storage workflow rollback contract with MiniDLNA's executable name
+
+- Exact source SHA `15f6a0f3eca5c0a157e3bc95edbb09156bc503cd`: USB storage hotplug run #45760541309 passed its GNU89 sanitizer binaries and earlier shell regressions, then failed in the final whole-storage caller-graph Python contract. The inline checker still expected `minidlna` in the run_dms rollback tuple after the daemon executable, readiness check and rollback were corrected to `minidlnad`.
+- Follow-up #c8654e1c corrected the readiness selector, and #2707f582 strengthened the process integration contract for rollback identity. This commit updates the remaining rollback tuple in the storage workflow to `minidlnad`; the unrelated FTP generic daemon policy fixture intentionally retains its test identifier.
+- Exact storage-hotplug and AI handoff checks for THIS COMMIT are pending.
+
+---
+
+## 2026-11-26 — Match MiniDLNA lifecycle checks to the installed daemon name
+
+- `is_dms_run()`, readiness polling and failed-start rollback previously used process name `minidlna`, although the package starts `/usr/bin/minidlnad`. That mismatch could report a running server as absent and compromise readiness/rollback accounting.
+- Updated the storage service to use `minidlnad` consistently. The process-integration contract now checks presence, wait and rollback against the executable identity.
+- Source commit `15f6a0f3eca5c0a157e3bc95edbb09156bc503cd`; MiniDLNA #45760541463, Firefly #45760541292, libdisk #45760541349, NFS #45760541498, storage app #45760541446, Process inventory #45760541368 and related VSFTPD/HTTPD/firewall checks passed. USB storage #45760541309 exposed the remaining stale workflow assertion documented above. XY-C1 #45760541346 was still building at the last check; no L3 claim.
+
+---
+
+## 2026-11-26 — Accept semicolon-free POSIX shell returns in the ZeroTier status contract
+
+- Exact main SHA `1d709141849db219dc2bb237ad2d8a82d452c4e7`: WAN route #45760204592 and ZeroTier lifecycle #45760204650 failed only in the shared source checker, which required the optional semicolon in `return 1;`. The production preflight guards already returned nonzero before signalling the daemon and their shell regression passed.
+- Commit `6f6d0fdd2adb616ea90db9a04ec1eff6841eebb2` relaxed the checker to recognize the shell return token. Exact push runs WAN route #45760752161 and ZeroTier #45760752209 both completed SUCCESS on that exact SHA.
+
+---
+
 ## 2026-11-26 — Reject truncated procfs lifecycle records and run the shell regression in CI
 
 - The shared process lifecycle fallback previously accepted a newline-terminated but truncated `/proc/PID/stat` observation after checking only PID and task state. It now splits the fields with globbing disabled, restores the caller's IFS/glob mode, requires state through field 22 (20 tokens after the comm) and validates the start-time token as unsigned decimal. Invalid or short records remain UNKNOWN rather than being treated as confirmed RUNNING/ABSENT.

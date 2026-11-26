@@ -1,98 +1,29 @@
+## Current development checkpoint — 2026-11-26
 
-## Current development checkpoint — 2026-11-25
+- Live `main` source baseline before this checkpoint: `2707f58262120ba3b8f481e6df58e65ccb6c7606`.
+- Frozen archival ref `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; verified unchanged. Do not modify it.
+- PR #1 remains closed/unmerged; valid earlier work was ported to main. Do not reopen or use it.
+- Bootstrap/protocol/handoff recovery was completed once in this continuation. Do not repeat startup audits or previously completed IPv6/DHCPv6 work.
 
-- Live `main` at checkpoint creation: `cc5cde0fcbbb68e62e2a5ad225f9695c9195b3f2`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged; do not modify).
-- Startup protocol/handoff recovery was already completed earlier in this work stream. Do not repeat startup audits or re-review completed XY-C1/CI work from older SHAs.
-- Current work has concentrated on WAN IPv6 input validation, BusyBox DHCP client socket recovery, DHCPv6 IA timer correctness, and safe DHCP route ownership.
+### Active storage lifecycle correction
 
-### Source changes since the previous handoff checkpoint
+- Source commit `15f6a0f3eca5c0a157e3bc95edbb09156bc503cd` corrected the MiniDLNA daemon identity: the installed process is `minidlnad`, and service presence, readiness polling and failed-start rollback use that executable name.
+- The process integration contract was strengthened in `2707f58262120ba3b8f481e6df58e65ccb6c7606` to assert presence and rollback identities. The first storage-hotplug run #45760541309 on `15f6a0f3` passed all compiled sanitizer regressions and earlier shell checks, then failed in the final inline workflow contract because it still expected `minidlna` in the rollback tuple. Follow-up #c8654e1c corrected the readiness wait selector. THIS COMMIT updates the final stale rollback selector to `minidlnad`.
+- The FTP daemon policy fixture's `minidlna` string is a generic test identifier, not the production MiniDLNA executable identity; leave that fixture unchanged.
+- The ZeroTier preflight source-contract correction `6f6d0fdd2adb616ea90db9a04ec1eff6841eebb2` is validated: exact push WAN route #45760752161 and ZeroTier lifecycle #45760752209 both PASS, including the shell regressions and Python checker.
 
-1. `3fcd88e1f699f119eee2735346c6743a4b9f69d7` — reject IPv4-compatible and IPv4-mapped forms as WAN IPv6 interface endpoints; preserve NAT64 prefix as an allowed unicast address.
-2. `62c0f13155e63a27e36b1cfba0febd2906bf6b8e` — ensure XY-C1 firmware validation is triggered when the WAN6 address-policy header changes.
-3. `6b42794df888984ee29c41965100e726ec91da77` — add persistent DHCP-installed route ownership manifest; never claim an untracked `EEXIST` route; retain failed deletes for retry.
-4. `102fa728279593e3911782e910da79ed29f7ed33` and `5596a66d2d4bf5f798e4e27f7c20055b9ffb25f4` — align old DHCP/WAN route source contracts and repair the route-status workflow's duplicate `run:` block and missing checker path filter.
-5. `33e219bf1e741355e61da65c1d4212d02916629d` — scope route records by DHCP service prefix so WAN and IPTV owners cannot clean each other's entries.
-6. `4bce1db9ca92e5317e9a2b4359bd2b0079fddad7` — strengthen owner-isolation regression and update route/callback source contracts for the internal owner argument.
-7. `c91b7af2a654227c227571b265b3fc8401dd0f35` — fix v2 manifest parser field count (six parsed fields including owner).
-8. `8caddb355060d19e74ba1732cf8307b6c9033f3d` — clean routes by stable service owner rather than current interface/metric; this also cleans routes left on an old interface after PPP/WAN interface transitions.
-9. `cc5cde0fcbbb68e62e2a5ad225f9695c9195b3f2` — update the DHCP route checker to find the IPTV deconfig call in its enclosing function after formatting changed.
+### Exact-SHA validation and pending work
 
-### DHCP route ownership contract now implemented
-
-- Manifest format v2 records `owner-prefix + interface + metric + route tuple`.
-- Add success is persisted atomically. An untracked `EEXIST` is treated as an idempotent add but is not claimed by DHCP; a tracked route that returns `EEXIST` remains owned.
-- Teardown selects the stable service prefix only, not the current interface/metric. This handles WAN PPP/interface/metric transitions while keeping `wanN_`, `wanx_`, and `manv_` owners isolated.
-- Manifest and lock files are checked as regular, owner-owned, non-symlink files with restrictive permissions. Writes use a temporary file, fsync, and rename. Failed deletes stay in the manifest; already absent routes are complete.
-- GNU89/ASan/UBSan regression covers untracked `EEXIST`, manifest reload, owner isolation, different interface/metric under one owner, retry after delete error, malformed state, and symlink rejection.
-
-### Actions state observed during this checkpoint
-
-- WAN route operation status regression #45756989235 on `cc5cde0fcbbb`: **completed/failure** (2026-11-26T04:43:58Z).
-- XY-C1 Firmware Validation #45756858864 on `8caddb355060`: **in_progress** (2026-11-26T04:42:06Z).
-- WAN DHCP callback state stability regression #45756858682 on `8caddb355060`: **completed/success** (2026-11-26T04:42:32Z).
-- NVRAM transaction boundary audit #45756858789 on `8caddb355060`: **completed/success** (2026-11-26T04:44:31Z).
-- WAN interface teardown stability regression #45756858770 on `8caddb355060`: **completed/success** (2026-11-26T04:42:27Z).
-- AI handoff documentation contract #45756858736 on `8caddb355060`: **completed/success** (2026-11-26T04:42:24Z).
-
-Do not infer XY-C1 success from an older SHA. Verify that `Build XY-C1`, `Verify TRX output`, and artifact upload all pass on the same source SHA before recording firmware success. The route ownership test step may pass while a later Python source-contract checker fails; inspect exact failing step/logs before declaring a workflow PASS.
-
-## Next concrete task
-
-1. Poll the exact WAN route-status workflow for `cc5cde0fcbbb68e62e2a5ad225f9695c9195b3f2`; it was triggered by the checker-contract correction. Resolve any remaining checker or YAML failures and confirm the DHCP route ownership sanitizer regression is PASS.
-2. Verify the XY-C1 build for source SHA `8caddb355060d19e74ba1732cf8307b6c9033f3d` (this source tree matches the production code at `cc5cde0fcbbb68e62e2a5ad225f9695c9195b3f2`; `cc5cde0` only changes the checker script). Confirm Build, TRX validation, and artifact upload separately.
-3. Continue cross-userland stability work after these checks; do not repeat the already completed IPv6 and udhcpc regression audits.
-
-### Verification caveats
-
-- Physical-router runtime testing remains NOT VERIFIED.
-- No firmware/build pass should be claimed unless the three XY-C1 stages above are successful on one SHA.
-- Exact current-SHA CI state is represented by the run statuses above; anything still `in_progress` or `queued` remains pending.
-
-## Current repository state — 2026-11-26 UTC
-
-- Live `main` source head: `a20fec0cf840bcf8bb697e5a1f5c8673ed12439e`. This session's changes are on `main`; no feature branch or PR was used.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged. PR #1 remains closed/unmerged. Do not modify the backup or revive the PR.
-- Startup protocol, handoff, roadmap and development log were restored once at the start of this work stream. Do not repeat startup recovery or audit previously completed startup/build work.
-
-### Source commits in this work stream
-
-1. `89c92c97853afccb1b2f116df3552b66cd3684f9` — reject unusable IPv6 interface/gateway literals (unspecified, loopback, multicast); add GNU89 address-policy regression and CI step.
-2. `0622ba5e15f0bea349d25102f9311f3ca1ee6aac` — reject unspecified/multicast static and DHCPv6 DNS servers. The first exact run exposed an old source-checker expectation; the correction is in the next commit.
-3. `c64608d3d1178e581bceca032e43759d769517c5` — retain the documented positive `inet_pton()==1` source contract while enforcing unicast DNS; exact WAN IPv6 DNS regression #45752311446 PASS.
-4. `661e5d02e74dcd998628d1905f205430d9ad1683` — recover an active udhcpc receive mode when socket creation left `sockfd < 0`, retry every 3 seconds without extending the lease/renewal deadline, and add GNU89 regression coverage.
-5. `f47045abd9890ccb5c4cdc79333d5f3d9aa44228` — update the udhcpc timer checker after the timer helper changed; this checker revision still had a whitespace-sensitive assertion.
-6. `9b0b19e7bf3da2f0392f76adb8407d46a73a1a38` — make the udhcpc source assertion whitespace-insensitive. Exact BusyBox udhcpc run #45752972196 PASS on this SHA; the previous checker-only run #45752873093 failed and is superseded.
-7. `a20fec0cf840bcf8bb697e5a1f5c8673ed12439e` — age DHCPv6 IA preferred lifetimes from `monotonic_ms()` rather than wall-clock `time(NULL)`; preserve the infinite-lifetime sentinel and clamp expired finite values to zero. Add GNU89 regression cases for fractional seconds, exact/over expiry, largest finite lifetime and infinite lifetime.
-
-### Exact-SHA CI boundary for `a20fec0cf840bcf8bb697e5a1f5c8673ed12439e`
-
-- DHCPv6 IA publication / delegated-prefix retry #45753771175: PASS. Its GNU89 ASan/UBSan IA policy executable and source checker both completed successfully.
-- WAN DHCP callback #45753771143: PASS.
-- Process lifecycle inventory #45753771145: PASS.
-- USB storage hotplug #45753771153: PASS.
-- NVRAM transaction boundary #45753771126: PASS.
-- XY-C1 Firmware Validation #45753771146: IN_PROGRESS at the cross-build job. At the last observed step poll, `Build XY-C1` was IN_PROGRESS, while `Verify TRX output` and artifact upload were PENDING. Do not claim firmware/L3 verification until Build, TRX validation and artifact upload all pass on the same exact SHA.
-- The previous source SHA `c64608d3` had XY-C1 run #45752311476 and NVRAM run #45752311488 complete SUCCESS, including Build/TRX/artifact for that older SHA. That result is historical only and does not prove `a20fec0cf840bcf8bb697e5a1f5c8673ed12439e`.
-
-## Active task
-
-1. Continue polling exact XY-C1 run #45753771146. Record Build, TRX and artifact-upload outcomes separately; PENDING must not block independent source work.
-2. Next investigation: verify DHCP route ownership in `trunk/user/rc/src/net_wan.c`, especially `control_dhcp_routes()` around lines 6953–7048. It treats `EEXIST` as successful add through `dhcp_lease_route_add_is_ok()`, but its corresponding delete path iterates the saved route list without an obvious persisted ownership record. Determine whether an identical pre-existing/static route can be deleted on WAN teardown. Do not simply remove idempotent-add handling; establish callback/restart semantics and add a focused regression before changing production behavior.
-3. Keep work cross-userland. Each confirmed defect gets a source fix, focused regression, one atomic commit, CAS update to main, and exact-SHA Actions inspection.
-
-## Verification boundary
-
-- Exact DHCPv6 IA helper/test/source checker: PASS on `a20fec0cf840bcf8bb697e5a1f5c8673ed12439e`.
-- Exact BusyBox udhcpc regression: PASS on `9b0b19e7bf3da2f0392f76adb8407d46a73a1a38`; do not treat it as an XY-C1 build result for later SHA.
-- Exact current SHA `a20fec0cf840bcf8bb697e5a1f5c8673ed12439e`: five independent regression/audit workflows PASS; XY-C1 Build/TRX/artifact still unconfirmed at the last poll.
-- Physical-router runtime L4: NOT VERIFIED.
+- On source SHA `15f6a0f3eca5c0a157e3bc95edbb09156bc503cd`, MiniDLNA #45760541463, Firefly #45760541292, libdisk #45760541349, NFS #45760541498, storage app #45760541446, Process inventory #45760541368, Samba #45760541362, VSFTPD #45760541392, HTTPD security #45760541458, IPv6 service-type #45760541496, USB modem #45760541337 and Firewall #45760541418 PASS. USB storage #45760541309 failed only at the stale workflow contract described above.
+- XY-C1 run #45760541346 for `15f6a0f` remained IN_PROGRESS at `Build XY-C1`; TRX and artifact steps were pending. Do not claim L3 until all three pass on one exact SHA. The earlier host-only XY run at `1d709141` skipped Build/TRX/artifact and is not L3.
+- The current main SHA's Process inventory/lifecycle regression #45760895884 and the predecessor storage-hotplug run #45760842670 were still IN_PROGRESS at the last status query. The new storage-hotplug and AI handoff documentation runs for THIS COMMIT must be inspected by exact `head_sha`; do not reuse a parent-SHA pass.
+- Physical-router L4 remains NOT VERIFIED. This continuation used GitHub API operations only; no local working-tree checkout or local test execution was available.
 
 ## Exact first action for the next GPT
 
-Poll XY-C1 run #45753771146 for `a20fec0cf840bcf8bb697e5a1f5c8673ed12439e`; verify the Build, TRX and artifact-upload steps. Then start the DHCP route ownership investigation at `control_dhcp_routes()` as described above. Do not repeat startup recovery, IPv6 DNS/address tests, or the already-passing DHCPv6 IA and udhcpc regression work.
-
-Historical completed-source notes below are archival; their older first-action/checkpoint sections do not override this current state.
+1. Inspect exact-main-SHA push runs triggered by THIS COMMIT: storage hotplug stability regression and AI handoff documentation contract. The storage workflow must complete the full caller-graph source contract after both MiniDLNA selector updates; inspect any first failing assertion/log rather than changing production source speculatively.
+2. Reconcile the pending `15f6a0f` XY-C1 run #45760541346 for Build, TRX validation and artifact upload; record each step separately. Keep L3 unverified unless all three succeed on one SHA.
+3. Once the storage checker slice is green, select the next highest-priority unfinished stability issue from `REFACTOR_ROADMAP.md`, rotating away from WAN/ZeroTier and avoiding repeat audits of completed storage checks. Continue with a bounded source fix, focused regression, atomic main commit and exact-SHA Actions.
 
 # Cross-session execution mandate
 

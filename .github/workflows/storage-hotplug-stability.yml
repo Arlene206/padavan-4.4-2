@@ -1030,7 +1030,7 @@ jobs:
           assert "storage_service_failed_start_may_leave_daemon(presence)" in rollback
           assert "errno = start_errno > 0 ? start_errno : EIO;" in rollback
           for signature, daemon, stopper in (
-              ("run_dms(int force_rescan)", "minidlna", "stop_dms_locked"),
+              ("run_dms(int force_rescan)", "minidlnad", "stop_dms_locked"),
               ("run_itunes(void)", "mt-daapd", "stop_itunes_locked"),
               ("run_torrent(void)", "transmission-daemon", "stop_torrent_locked"),
               ("run_aria(void)", "aria2c", "stop_aria_locked"),
