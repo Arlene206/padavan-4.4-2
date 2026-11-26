@@ -265,6 +265,20 @@ Check_md5 () {
     echo "smartdns：" "Leave Check_md5"
 }
 
+# Persist the disable before aborting when Shadowsocks owns DNS. A failed
+# NVRAM write must propagate to the lifecycle caller instead of being hidden
+# by Check_ss's intentional successful exit.
+smartdns_disable_ss_conflict()
+{
+    if nvram set sdns_enable=0; then
+        return 0
+    else
+        smartdns_ss_disable_status=$?
+        logger -t "SmartDNS" "Failed to persist sdns_enable=0 after SS DNS conflict"
+        return "$smartdns_ss_disable_status"
+    fi
+}
+
 Check_ss()
 {
     if [ -s /etc_ro/ss_ip.sh ]; then
@@ -276,7 +290,7 @@ Check_ss()
         pdnsd_enable=$smartdns_nvram_value
         if [ "$ss_enable" = 1 ] && [ "$ss_run_mode" = "router" ] && [ "$pdnsd_enable" = 0 ]; then
             logger -t "SmartDNS" "系统检测到 SS 模式为绕过大陆模式，并且启用了 pdnsd 请先调整 SS 解析使用 SmartDNS +手动配置模式！程序将退出..."
-            nvram set sdns_enable=0
+            smartdns_disable_ss_conflict || return $?
             exit 0
         fi
     fi

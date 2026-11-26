@@ -11,6 +11,7 @@ enable_test = (root / "trunk/user/smartdns/tests/smartdns_enable_selector.sh").r
 autostart = (root / "trunk/user/scripts/files/usr/bin/autostart.sh").read_text()
 makefile = (root / "trunk/user/smartdns/Makefile").read_text()
 test = (root / "trunk/user/smartdns/tests/dnsmasq_config_preservation.sh").read_text()
+runtime_test = (root / "trunk/user/smartdns/tests/smartdns_runtime_nvram_snapshot.sh").read_text()
 workflow = (root / ".github/workflows/dnsmasq-lifecycle.yml").read_text()
 xy = (root / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
 
@@ -171,6 +172,15 @@ assert "Check_ss || return $?" in body(smartdns, "Main")
 check_ss = body(smartdns, "Check_ss")
 for key in ('ss_enable', 'ss_run_mode', 'pdnsd_enable'):
     assert 'smartdns_nvram_read_checked ' + key + ' || return $?' in check_ss
+ss_disable = body(smartdns, "smartdns_disable_ss_conflict")
+assert 'if nvram set sdns_enable=0; then' in ss_disable
+assert 'return "$smartdns_ss_disable_status"' in ss_disable
+assert 'smartdns_disable_ss_conflict || return $?' in check_ss
+assert check_ss.index('smartdns_disable_ss_conflict || return $?') < check_ss.index('exit 0')
+assert 'FAIL_SET=1' in runtime_test
+assert 'SS conflict disable hid a failed NVRAM write' in runtime_test
+assert 'SS conflict disable propagates NVRAM write failure: PASS' in runtime_test
+assert 'sh trunk/user/smartdns/tests/smartdns_runtime_nvram_snapshot.sh' in workflow
 main_body = body(smartdns, "Main")
 assert 'smartdns_nvram_read_checked adbyby_enable || return $?' in main_body
 assert 'smartdns_nvram_read_checked adbyby_add || return $?' in main_body

@@ -15,15 +15,32 @@ sed -n '/^smartdns_nvram_read_checked()/,/^}/p' "$SOURCE" >> "$FUNCTIONS"
 sed -n '/^smartdns_validate_enable_selector()/,/^}/p' "$SOURCE" >> "$FUNCTIONS"
 sed -n '/^smartdns_load_lifecycle_nvram_state()/,/^}/p' "$SOURCE" >> "$FUNCTIONS"
 sed -n '/^smartdns_load_runtime_nvram_state()/,/^}/p' "$SOURCE" >> "$FUNCTIONS"
+sed -n '/^smartdns_disable_ss_conflict()/,/^}/p' "$SOURCE" >> "$FUNCTIONS"
 [ -s "$FUNCTIONS" ] || fail "runtime NVRAM functions were not found"
 . "$FUNCTIONS"
 
-logger() { :; }
+LOG="$T/log"
+NVRAM_WRITES="$T/writes"
+: > "$LOG"
+: > "$NVRAM_WRITES"
+logger() { printf '%s\n' "$*" >> "$LOG"; }
 FAIL_KEY=
+FAIL_SET=0
 FAIL_STATUS=73
 nvram()
 {
-    [ "${1:-}" = get_checked ] && [ "$#" -eq 2 ] || return 2
+    case "${1:-}" in
+        set)
+            [ "$#" -eq 2 ] || return 2
+            printf '%s\n' "$2" >> "$NVRAM_WRITES"
+            [ "$FAIL_SET" -eq 0 ] || return "$FAIL_STATUS"
+            return 0
+            ;;
+        get_checked)
+            [ "$#" -eq 2 ] || return 2
+            ;;
+        *) return 2 ;;
+    esac
     key=$2
     printf '%s\n' "$key" >> "$READS"
     [ "$key" != "$FAIL_KEY" ] || return "$FAIL_STATUS"
@@ -121,3 +138,26 @@ smartdns_load_runtime_nvram_state || fail "explicit stop depended on live NVRAM"
 [ "$IPS4" = 192.0.2.1 ] && [ "$IPS6" = 2001:db8::1/64 ] ||
     fail "explicit stop skipped non-NVRAM cleanup context"
 echo "explicit stop remains independent of live configuration NVRAM: PASS"
+
+# SS DNS-conflict shutdown must preserve a failed NVRAM write status. The
+# lifecycle caller must not mistake an unsuccessful disable for a clean exit.
+FAIL_SET=0
+: > "$NVRAM_WRITES"
+smartdns_disable_ss_conflict || fail "SS conflict disable rejected a successful NVRAM write"
+[ "$(cat "$NVRAM_WRITES")" = "sdns_enable=0" ] ||
+    fail "SS conflict disable did not persist sdns_enable=0 exactly once"
+
+FAIL_SET=1
+: > "$NVRAM_WRITES"
+if smartdns_disable_ss_conflict; then
+    fail "SS conflict disable hid a failed NVRAM write"
+else
+    status=$?
+fi
+[ "$status" -eq "$FAIL_STATUS" ] ||
+    fail "SS conflict disable changed NVRAM failure status to $status"
+[ "$(cat "$NVRAM_WRITES")" = "sdns_enable=0" ] ||
+    fail "SS conflict disable retried or changed the failing NVRAM write"
+grep -Fq "Failed to persist sdns_enable=0 after SS DNS conflict" "$LOG" ||
+    fail "SS conflict NVRAM failure was not logged"
+echo "SS conflict disable propagates NVRAM write failure: PASS"
