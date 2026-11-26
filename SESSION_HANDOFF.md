@@ -1,24 +1,23 @@
-## Current repository state — 2026-11-26
+## Current repository state — 2026-11-25
 
-- Live `main` before this correction: `6bfef1256d5b2ed2c015b5344ce991d26998d577` (`fix(udhcp): route relay replies to client address`). Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged.
-- Exact `6bfef12`: client destination #45728717464 PASS; BOOTREPLY #45728716678 PASS; select-error #45728716428 PASS; select-fd #45728716499 PASS; packet bounds #45728716627 PASS; giaddr/hop #45728716640 PASS; AI docs #45728716550 PASS; Process inventory #45728716558 PASS. XID #45728716637 FAILED only at stale checker assertion expecting `sendto(..., &item->ip)`; standalone GNU89 ASan/UBSan test passed.
-- NVRAM #45728716634, USB hotplug #45728716487, and XY-C1 #45728716683 were IN_PROGRESS at last poll. The XY-C1 Build/TRX/artifact steps must be checked on this or later SHA; no L3 claim yet.
-- ZeroTier fixture correction `96f6057`: lifecycle #45728232626 PASS; AI docs #45728232680 PASS; Process #45728232671 PASS. AdGuardHome selector fix `f0cc53c`: config/security #45726581924 and Process #45726581809 PASS; AI correction `1f7f8b3` #45726801473 PASS.
-- Last confirmed XY-C1 Build/TRX/artifact baseline remains older `b320dd2` (#45724141332). Current-source L3 and physical-router L4 NOT VERIFIED.
+- Live `main` before this slice: `d4a965e66f817b45ad94eba974585bc21ecb44c6` (`test(udhcp): align XID check with client response path`). Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged.
+- Exact `d4a965e` Actions all passed: packet bounds #45729057460; XID #45729057470; BOOTREPLY #45729057339; giaddr/hop #45729057303; select error #45729057362; select fd #45729057321; client destination #45729057477; AI handoff #45729057313; Process inventory #45729057400; NVRAM #45729057360; USB hotplug #45729057468; XY-C1 #45729057425.
+- XY-C1 exact-SHA job #139606209947 passed production Build XY-C1, TRX verification and artifact upload. Artifact #15076506507, `XY-C1-firmware-d4a965e66f817b45ad94eba974585bc21ecb44c6`, 12,815,064 bytes; not expired. This is a same-SHA L3 pass; physical-router L4 remains NOT VERIFIED.
+- `udhcp_recv_kernel_packet()` in `networking/udhcp/packet.c` uses `safe_read()`. On a datagram socket an oversized datagram is silently truncated to the supplied buffer size; unlike `recvfrom(..., MSG_TRUNC)`, the original length is not exposed. The relay server-socket path previously accepted this result and could pass a truncated BOOTREPLY into its parser/forwarder.
 
 ## Active task
 
-Repair the stale DHCP relay XID integration checker to match the client-response destination sockaddr. The XID policy executable was green; only its Python contract still expected `item->ip`. The production reply path now derives `client_dest` from BOOTP/DHCP state, sends to it, and retains the captured source tuple for fallback/retry.
+Harden the DHCP relay server-side receive path against oversized UDP datagrams. Match the already-hardened client ingress: zero the packet buffer, call `recvfrom(..., MSG_TRUNC)`, reject any original datagram length beyond `sizeof(dhcp_msg)`, require the minimum option-field length and DHCP magic cookie before calling `pass_to_client()`. Extend the packet-bounds regression to prove Linux reports the original datagram length when `MSG_TRUNC` is set, and extend the source integration contract to cover both ingress paths.
 
 ## Verification boundary
 
-- Client destination helper/integration and BOOTREPLY workflows passed on `6bfef12`. XID source-contract correction and exact-head rerun pending.
-- `udhcp_listen_socket()` already enables `SO_BROADCAST` and treats failure as fatal before binding; no socket change is needed.
-- No same-SHA XY-C1 Build/TRX/artifact success or physical-router L4 result is claimed.
+- Local GNU89 ASan/UBSan run of the expanded packet-bounds executable passed, including an AF_UNIX datagram test where 64 bytes sent into a 16-byte receive buffer returned the original length 64 under `MSG_TRUNC`, and the shared policy rejected that length.
+- The next source SHA still needs exact-head packet-bounds and XY-C1 Actions. The previous `d4a965e` XY-C1 Build/TRX/artifact pass does not verify this newer receive-path change.
+- No live DHCP relay traffic test or physical-router L4 result is claimed.
 
 ## Exact first action for the next GPT
 
-Fetch exact-head XID and AI docs after this checker update, then poll XY-C1 Build/TRX/artifact and pending NVRAM/USB jobs. Ensure production translation-unit compile coverage is checked, not only policy-header tests. Continue other stability/security work while a long build is pending; preserve the frozen backup.
+Fetch exact-head packet-bounds and XY-C1 Actions for this receive-path fix; inspect the XY-C1 job's Build, TRX and artifact steps, not merely its workflow conclusion. On PASS, continue DHCP relay state-exhaustion analysis, starting with whether one-way DECLINE/RELEASE messages need retained XID entries; on FAIL, fix the causal failure. Preserve the frozen backup.
 
 # Cross-session execution mandate
 

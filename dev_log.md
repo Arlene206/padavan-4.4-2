@@ -1,3 +1,13 @@
+## 2026-11-25 — Reject oversized datagrams on DHCP relay server ingress
+
+- Parent `d4a965e66f817b45ad94eba974585bc21ecb44c6` had all 12 exact-SHA workflows PASS, including DHCP packet bounds #45729057460 and XY-C1 #45729057425. Its XY-C1 job passed Build, TRX verification and artifact upload (#15076506507); the physical-router L4 test remains unverified.
+- The relay's server-socket path used `udhcp_recv_kernel_packet()`, which calls `safe_read()`. On a datagram socket, `read()` reports only the buffer-sized truncated payload; it cannot tell the caller that the original UDP datagram was larger. The client ingress already used `MSG_TRUNC`, but the server ingress did not.
+- The server path now zeroes the packet, uses `recvfrom(..., MSG_TRUNC)`, and gates forwarding on the shared packet-length policy plus the DHCP magic cookie. Oversized, short and bad-cookie datagrams are dropped before BOOTP option parsing or XID lookup.
+- Expanded the GNU89 ASan/UBSan packet-bounds test with an AF_UNIX datagram regression proving a 64-byte datagram received into a 16-byte buffer reports length 64 under `MSG_TRUNC`; the shared helper rejects that size. Expanded the Python integration contract to require the same validated receive sequence on the server path and retain coverage for client ingress.
+- Local expanded C test PASS. Exact-SHA Actions for this source fix pending.
+
+---
+
 ## 2026-11-26 — Align DHCP relay XID source contract with client destination
 
 - Exact `6bfef12` XID workflow #45728716637 failed at `check_udhcp_relay_xid_policy.py`: its integration assertion still required `sendto(..., &item->ip)`, but `pass_to_client()` now constructs a protocol-derived `client_dest` and sends to `&client_dest`. The standalone GNU89 ASan/UBSan XID executable passed.
