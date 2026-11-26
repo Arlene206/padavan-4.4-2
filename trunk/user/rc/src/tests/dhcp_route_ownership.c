@@ -125,7 +125,6 @@ main(void)
 	assert(fake.delete_count == 0);
 
 	unlink(path);
-	unlink(path);
 	unlink(victim);
 	unlink(link_path);
 	{

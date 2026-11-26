@@ -148,7 +148,8 @@ dhcp_route_ownership_load(
 	size_t capacity,
 	size_t *count)
 {
-	int fd, status = 0, saved_errno = 0, parsed, extra;
+	int fd, status = 0, saved_errno = 0, parsed;
+	char extra;
 	struct stat st;
 	FILE *stream;
 	char line[128], canonical[128];
@@ -202,7 +203,7 @@ dhcp_route_ownership_load(
 		extra = 0;
 		parsed = sscanf(line, "%15s %d %15s %15s %15s %c",
 				entry.ifname, &entry.metric, entry.destination,
-				entry.gateway, entry.netmask, (char *)&extra);
+				entry.gateway, entry.netmask, &extra);
 		if (parsed != 5 || !dhcp_route_ownership_entry_is_valid(&entry)) {
 			status = EINVAL;
 			goto close_stream;
