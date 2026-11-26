@@ -409,6 +409,42 @@ static int test_failed_renewal_preserves_existing_lease_deadline(void)
 	return 0;
 }
 
+static int test_repeated_failed_rebinding_acks_preserve_server_and_deadline(void)
+{
+	enum { TEST_REBINDING = 1 };
+	static const unsigned script_elapsed[] = { 30U, 80U, 200U };
+	static const unsigned expected_waited[] = { 1530U, 1610U, 0U };
+	static const int expected_timeout[] = { 1800, 1800, 0 };
+	int timeout = 1800;
+	int packet_num = 2;
+	int state = TEST_REBINDING;
+	unsigned already_waited_sec = 1500U;
+	uint32_t server_addr = 0x01020304U;
+	uint32_t requested_ip = 0xc000020aU;
+	unsigned int i;
+
+	for (i = 0; i < sizeof(script_elapsed) / sizeof(script_elapsed[0]); ++i) {
+		unsigned int remaining = udhcpc_wait_remaining_seconds(
+			timeout, already_waited_sec);
+
+		CHECK(remaining > 0U);
+		udhcpc_script_failure_prepare_retry(0, 20, script_elapsed[i],
+						   &timeout, &already_waited_sec,
+						   &packet_num);
+		CHECK(timeout == expected_timeout[i]);
+		CHECK(already_waited_sec == expected_waited[i]);
+		CHECK(packet_num == 2);
+		/* A failed REBINDING callback cannot commit its alternate server,
+		 * requested address or BOUND state before a later successful ACK. */
+		CHECK(state == TEST_REBINDING);
+		CHECK(server_addr == 0x01020304U);
+		CHECK(requested_ip == 0xc000020aU);
+	}
+	CHECK(timeout == 0);
+	CHECK(already_waited_sec == 0U);
+	return 0;
+}
+
 static int test_script_runtime_cannot_extend_expired_lease(void)
 {
 	int timeout = 1800;
@@ -586,7 +622,8 @@ int main(void)
 	    test_failed_renewal_preserves_existing_lease_deadline() != 0 ||
 	    test_script_runtime_cannot_extend_expired_lease() != 0 ||
 	    test_exact_lease_deadline_is_expired() != 0 ||
-	    test_already_expired_lease_is_not_resurrected() != 0)
+	    test_already_expired_lease_is_not_resurrected() != 0 ||
+    test_repeated_failed_rebinding_acks_preserve_server_and_deadline() != 0)
 		return 1;
 
 	puts("udhcpc script failure and deconfig retry policy: PASS");

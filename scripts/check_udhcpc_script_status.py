@@ -208,10 +208,29 @@ assert "script_status != 0" in ack[failure_gate:retry_continue]
 assert "state == REQUESTING" in ack[retry:retry_continue]
 assert "tryagain_timeout" in ack[retry:retry_continue]
 assert "script_elapsed" in ack[retry:retry_continue]
-assert ack.index("requested_ip = packet.yiaddr;", retry_continue) > retry_continue
-server_address_commit = ack.index("server_addr = udhcpc_server_addr_after_ack(")
-bound_transition = ack.index("state = BOUND;", server_address_commit)
-assert retry_continue < server_address_commit < bound_transition
+for forbidden_commit in (
+    "server_addr = udhcpc_server_addr_after_ack(",
+    "already_waited_sec = script_elapsed;",
+    "timeout = lease_seconds / 2;",
+    "rebind_timeout = timeout / 8;",
+    "requested_ip = packet.yiaddr;",
+    "state = BOUND;",
+):
+    assert forbidden_commit not in ack[script_call:retry_continue], forbidden_commit
+server_address_commit = ack.index("server_addr = udhcpc_server_addr_after_ack(",
+                                  retry_continue)
+already_waited_commit = ack.index("already_waited_sec = script_elapsed;",
+                                   server_address_commit)
+lease_deadline_commit = ack.index("timeout = lease_seconds / 2;",
+                                  already_waited_commit)
+rebind_deadline_commit = ack.index("rebind_timeout = timeout / 8;",
+                                   lease_deadline_commit)
+requested_ip_commit = ack.index("requested_ip = packet.yiaddr;",
+                                rebind_deadline_commit)
+bound_transition = ack.index("state = BOUND;", requested_ip_commit)
+assert (retry_continue < server_address_commit < already_waited_commit <
+        lease_deadline_commit < rebind_deadline_commit <
+        requested_ip_commit < bound_transition)
 assert "state == REBINDING" in ack[server_address_commit:bound_transition]
 assert "server_id_option != NULL" in ack[server_address_commit:bound_transition]
 assert "udhcpc_server_addr_after_ack" in policy
@@ -520,6 +539,8 @@ for marker in (
     "test_script_runtime_cannot_extend_expired_lease",
     "test_exact_lease_deadline_is_expired",
     "test_already_expired_lease_is_not_resurrected",
+    "test_repeated_failed_rebinding_acks_preserve_server_and_deadline",
+    "test_repeated_failed_rebinding_acks_preserve_server_and_deadline() != 0",
     "udhcpc script failure and deconfig retry policy: PASS",
 ):
     assert marker in test, marker
