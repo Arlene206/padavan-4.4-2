@@ -51,12 +51,35 @@ static void test_flash_entry_size_fails_closed(void)
 	assert(!nvram_generate_entry_size(64, 1, 1, NULL));
 }
 
+
+static void test_flash_rehash_is_bounded_by_declared_image_length(void)
+{
+	size_t end_offset = 77;
+
+	/* The 20-byte header alone cannot contain the required double NUL. */
+	assert(!nvram_flash_data_end_offset(20, 20, 256, &end_offset));
+	assert(!nvram_flash_data_end_offset(21, 20, 256, &end_offset));
+
+	/* The end offset is relative to the validated image, not full flash. */
+	assert(nvram_flash_data_end_offset(22, 20, 256, &end_offset));
+	assert(end_offset == 20);
+	assert(nvram_flash_data_end_offset(24, 20, 256, &end_offset));
+	assert(end_offset == 22);
+	assert(nvram_flash_data_end_offset(256, 20, 256, &end_offset));
+	assert(end_offset == 254);
+
+	assert(!nvram_flash_data_end_offset(257, 20, 256, &end_offset));
+	assert(!nvram_flash_data_end_offset((size_t)-1, 20, 256, &end_offset));
+	assert(!nvram_flash_data_end_offset(24, 20, 256, NULL));
+}
+
 int main(void)
 {
 	test_compaction_value_spans_are_bounded();
 	test_missing_terminator_is_rejected();
 	test_compaction_destination_boundaries();
 	test_flash_entry_size_fails_closed();
+	test_flash_rehash_is_bounded_by_declared_image_length();
 	puts("NVRAM compaction and flash-capacity policy: PASS");
 	return 0;
 }

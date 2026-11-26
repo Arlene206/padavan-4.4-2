@@ -61,4 +61,22 @@ nvram_generate_entry_size(size_t available, size_t name_length,
 	return 1;
 }
 
+
+/*
+ * Return the offset of the final two NUL bytes inside the CRC-covered NVRAM
+ * image. Parsing must stop at header->len; bytes in flash padding beyond that
+ * length are outside the validated image and must never become settings.
+ */
+static inline int
+nvram_flash_data_end_offset(size_t image_length, size_t header_size,
+                            size_t image_capacity, size_t *end_offset)
+{
+	if (!end_offset || image_length > image_capacity ||
+	    header_size > image_length || image_length - header_size < 2)
+		return 0;
+
+	*end_offset = image_length - 2;
+	return 1;
+}
+
 #endif

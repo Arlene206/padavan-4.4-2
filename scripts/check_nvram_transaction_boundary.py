@@ -662,6 +662,24 @@ def run() -> int:
             if marker not in compaction_policy + compaction_test:
                 failures.append("NVRAM compaction regression is missing " + marker)
 
+        rehash_body = extract_function(kernel_common, "nvram_rehash")
+        init_body = extract_function(kernel_common, "_nvram_init")
+        if "end = (char *)header + data_end_offset;" not in rehash_body and "end = (char *) header + data_end_offset;" not in rehash_body:
+            failures.append("NVRAM rehash must stop at the validated declared image boundary")
+        if "NVRAM_SPACE - 2" in rehash_body:
+            failures.append("NVRAM rehash must not scan unvalidated flash padding")
+        validate_end = init_body.index("nvram_flash_data_end_offset(")
+        crc_check = init_body.index("nvram_calc_crc(header)")
+        rehash_call = init_body.index("nvram_rehash(header, data_end_offset)")
+        if not validate_end < crc_check < rehash_call:
+            failures.append("NVRAM image bounds must be validated before CRC and bounded rehash")
+        for marker in (
+            "nvram_flash_data_end_offset",
+            "test_flash_rehash_is_bounded_by_declared_image_length",
+        ):
+            if marker not in compaction_policy + compaction_test:
+                failures.append("NVRAM flash-image boundary regression is missing " + marker)
+
         exit_body = extract_function(kernel_driver, "dev_nvram_exit")
         unregister = exit_body.index("unregister_chrdev(nvram_major, MTD_NVRAM_NAME);")
         uninit = exit_body.index("_nvram_uninit();")

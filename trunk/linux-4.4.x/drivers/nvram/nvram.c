@@ -71,13 +71,13 @@ hash(const char *s)
 
 /* (Re)initialize the hash table. Should be locked. */
 static void
-nvram_rehash(struct nvram_header *header)
+nvram_rehash(struct nvram_header *header, size_t data_end_offset)
 {
 	char *name, *value, *end, *eq;
 
-	/* Parse and set "name=value\0 ... \0\0" */
+	/* Parse only the data span covered by the validated header length. */
 	name = (char *) &header[1];
-	end = (char *) header + NVRAM_SPACE - 2;
+	end = (char *) header + data_end_offset;
 	end[0] = end[1] = '\0';
 	for (; *name; name = value + strlen(value) + 1) {
 		if (!(eq = strchr(name, '=')))
@@ -275,6 +275,7 @@ int
 _nvram_init(struct nvram_header *header)
 {
 	uint8_t crc;
+	size_t data_end_offset;
 
 	if (header->magic == 0xFFFFFFFF || header->magic == 0)
 		return 1; // NVRAM MTD is clear
@@ -282,17 +283,19 @@ _nvram_init(struct nvram_header *header)
 	if (header->magic != NVRAM_MAGIC)
 		return -1; // NVRAM is garbage
 
-	if (header->len < sizeof(struct nvram_header))
-		return -2; // NVRAM size underflow
-
 	if (header->len > NVRAM_SPACE)
 		return -3; // NVRAM size overflow
+
+	if (!nvram_flash_data_end_offset(header->len,
+				sizeof(struct nvram_header), NVRAM_SPACE,
+				&data_end_offset))
+		return -2; // NVRAM data span is too short for its double-NUL terminator
 
 	crc = nvram_calc_crc(header);
 	if ((header->crc_ver_init & 0x000000FF) != (uint32_t)crc)
 		return -4; // NVRAM content is corrupted
 
-	nvram_rehash(header);
+	nvram_rehash(header, data_end_offset);
 
 	return 0;
 }

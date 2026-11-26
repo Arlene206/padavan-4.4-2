@@ -1,3 +1,11 @@
+## 2026-11-25 — Bound NVRAM rehash to the CRC-validated image length
+
+- `_nvram_init()` checked and CRC-validated only `header->len` bytes, while `nvram_rehash()` put its terminator at `NVRAM_SPACE - 2` and scanned to the physical partition end. Stale/non-FF bytes after the declared image could therefore become settings despite not being covered by the validated CRC.
+- Added an overflow-safe helper to compute the final double-NUL offset inside the declared image. Initialization now rejects lengths too short for that terminator, rejects over-capacity images, validates CRC, then passes the bounded offset to `nvram_rehash()`.
+- Added GNU89 ASan/UBSan regression cases for short header/data, valid minimum and padded images, exact capacity, over-capacity and `size_t` overflow. NVRAM source checker pins validation/CRC/rehash order; XY-C1 filters now include the kernel driver/helper/test paths. Exact-SHA workflows pending; no hardware flash test claimed.
+
+---
+
 ## 2026-11-25 — Repair the DHCP lease-clock integration checker after read-loop hardening
 
 - Exact-SHA DHCP clock workflow on `d5a89c6` compiled and passed its GNU89 ASan/UBSan regression but its source checker failed. The checker still searched for the old `while (full_read(...))` record loop, which had intentionally been replaced by a `for (;;)` loop with explicit COMPLETE/EOF/ERROR classification in the preceding read-framing fix.

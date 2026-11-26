@@ -1,25 +1,25 @@
 ## Current repository state — 2026-11-25
 
-- Parent `main`: `d5a89c68f139bcc97229a28e710b51e258bf0918` (`fix(udhcpd): report truncated lease database reads`). Frozen backup `backup/pre-plugin-overhaul-2026-11-14` is `72f4f157a084f8184b9597ca5bf334b8080e5807`; untouched.
-- Exact-parent push Actions: read framing #45734245351 PASS; atomic lease writer #45734245434 PASS; AI docs #45734245326 PASS; process regression #45734245383 PASS; USB storage #45734245256 PASS; process inventory #45734245284 PASS; NVRAM boundary #45734245332 PASS. Clock policy #45734245264 FAILS only in its stale source checker: the checker still required the pre-framing `while (full_read(...))` loop, but `read_leases()` now intentionally uses `for (;;)` with explicit EOF/error classification. Its GNU89 ASan/UBSan C test passed. XY-C1 #45734245228 was still building XY-C1; all preceding host validation steps passed, TRX/artifact pending.
-- DHCP server now validates message field combinations, RFC INIT-REBOOT unknown-client silence, and INFORM/DECLINE/RELEASE rules. Lease persistence handles bounded clock rollback, atomic replacement with complete writes and file+directory fsync, and explicit malformed header/record/read-error diagnostics.
-- This slice updates the clock-policy integration checker to recognize the new explicit-read loop and assert ordering from timestamp validation through record EOF handling. No production source change is needed for the CI failure.
-- Physical-router L4 and power-cut durability remain NOT VERIFIED. No current-SHA MIPS firmware artifact is claimed.
+- Parent `main`: `584e9e029cf63c43edb1e44c8eefa040170c1c08` (`test(udhcpd): align lease clock checker with framed reads`). Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; untouched.
+- Exact parent Actions: DHCP lease-clock checker #45734665697 PASS; AI docs #45734665766 PASS. Prior `d5a89c6` NVRAM, USB storage, process regression/inventory, DHCP framing/atomic-write all PASS; XY-C1 #45734245228 remained at Build XY-C1 with TRX/artifact pending.
+- NVRAM image parsing used `header->len` for CRC coverage but `nvram_rehash()` terminated at `NVRAM_SPACE - 2`. This slice fixes the trust-boundary mismatch: reject too-short/oversized image lengths and bound parser termination to the double-NUL at `header->len - 2`.
+- XY-C1 path filters now include the kernel NVRAM driver, helper and regression so firmware validation is triggered for this firmware-relevant fix.
+- DHCP server/lease persistence fixes remain in place. Physical-router L4 and storage power-cut durability remain NOT VERIFIED.
 
 ## Active task
 
-Verify the clock-policy checker repair on its exact SHA. Then leave the DHCP lease-file slice stable and continue with a concrete reliability/security defect in another userland subsystem; the NVRAM transaction workflow is now PASS on the parent SHA and can be selected for a focused kernel/userland boundary issue.
+Validate the NVRAM declared-length fix on its exact SHA via NVRAM transaction-boundary and XY-C1 workflows. Then continue a concrete reliability/security defect outside NVRAM and DHCP; do not remain in one subsystem.
 
 ## Verification boundary
 
-- Parent `d5a89c6`: read framing, atomic writer, AI docs, process regression, storage hotplug, process inventory and NVRAM all PASS. Clock C regression PASS but source checker FAIL due the obsolete loop-pattern assertion described above.
-- Parent XY-C1 host checks passed through firmware input detection; Build XY-C1 was IN_PROGRESS, TRX verification and artifact upload pending at last poll.
-- Read framing exact-SHA workflow confirms GNU89 ASan/UBSan test and integration checker PASS. This commit's updated clock checker is pending until exact-head Actions run.
-- No live DHCP client/server exchange, MIPS firmware artifact, hardware power-cut, or physical-router L4 result claimed.
+- Parent `584e9e0`: DHCP lease clock #45734665697 PASS; AI handoff docs #45734665766 PASS.
+- Parent `d5a89c6`: DHCP read framing/atomic writer, process regression/inventory, USB storage and NVRAM transaction-boundary workflows PASS. Clock source checker initially failed due an obsolete read-loop assertion and passed after repair on `584e9e0`.
+- New NVRAM tests cover minimum header/data length, declared end offsets, full-capacity bounds, over-capacity and `size_t` overflow. Exact-head NVRAM and XY-C1 Actions pending at commit creation.
+- No live router, current-SHA MIPS build, physical flash recovery, or router L4 result claimed.
 
 ## Exact first action for the next GPT
 
-Fetch live `main` and exact-head clock-policy/AI-docs/XY-C1 Actions for the clock-checker repair commit. Confirm the clock integration step passes; inspect Build/TRX/artifact and repair any exact-SHA failure. Then pick a concrete NVRAM kernel/userland or other cross-userland stability/security issue, add a focused regression, and keep the frozen backup untouched.
+Fetch live `main` and exact-head NVRAM transaction boundary, AI docs and XY-C1 push Actions for the NVRAM parser commit. Confirm source-contract and GNU89 ASan/UBSan tests pass; inspect Build XY-C1, TRX and artifact. Then pick another independent stability/security issue and preserve the frozen backup.
 
 # Cross-session execution mandate
 
