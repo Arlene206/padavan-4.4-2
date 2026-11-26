@@ -102,7 +102,7 @@ runtime_keys = (
     "sdns_dualstack_ip_allow_force_aaaa", "sdns_force_aaaa_soa",
     "sdns_force_qtype_soa", "sdns_prefetch_domain", "sdns_exp",
     "sdns_exp_ttl", "sdns_exp_ttl_max", "sdns_exp_prefetch_time",
-    "sdnse_tcp", "sdnse_speed", "sdnse_name", "sdnse_address",
+    "sdnse_tcp_server", "sdnse_speed", "sdnse_name", "sdnse_address",
     "sdnse_ns", "sdns_ns", "sdnse_ipset", "sdnse_as",
     "sdnse_ipv6_server", "sdnse_ipc", "sdnse_cache", "sdns_adblock",
     "sdns_white", "sdns_black", "sdns_coredump",
@@ -327,16 +327,18 @@ config_file_test = (root / "trunk/user/smartdns/tests/smartdns_config_file.sh").
 config_publish = body(config_file, "smartdns_config_publish_deduplicated")
 secondary_bind = body(smartdns, "Get_sdnse_conf")
 
-assert 'smartdns_nvram_read_checked sdnse_tcp || return $?' in body(smartdns, "smartdns_load_runtime_nvram_state")
-assert 'case "${sdnse_tcp:-}" in' in secondary_bind
-assert 'if [ "$sdnse_tcp" = "1" ]' in secondary_bind
-assert 'sdnse_tcp_server' not in secondary_bind
+smartdns_ui = (root / "trunk/user/www/n56u_ribbon_fixed/Advanced_smartdns.asp").read_text()
+assert 'smartdns_nvram_read_checked sdnse_tcp_server || return $?' in body(smartdns, "smartdns_load_runtime_nvram_state")
+assert 'case "${sdnse_tcp_server:-}" in' in secondary_bind
+assert 'if [ "$sdnse_tcp_server" = "1" ]' in secondary_bind
+assert not re.search(r"\bsdnse_tcp\b", secondary_bind)
+assert 'name="sdnse_tcp_server"' in smartdns_ui
 assert 'smartdns_dnsmasq_normalize_port "${sdnse_port:-}"' in secondary_bind
 assert 'smartdns_config_token_valid "$sdnse_name"' in secondary_bind
 assert 'smartdns_config_token_valid()' in config_file
-assert "sdnse_tcp=1" in config_file_test and "sdnse_tcp_server=0" in config_file_test
+assert "sdnse_tcp_server=1" in config_file_test and "sdnse_tcp=0" in config_file_test
 for token in (
-    "secondary listener uses checked sdnse_tcp NVRAM and normalized port",
+    "secondary listener uses the UI-backed sdnse_tcp_server NVRAM key",
     "invalid secondary selectors, ports and group tokens fail before config writes",
     "secondary UDP bind write failure propagates with TCP binding disabled",
     "secondary TCP bind failure propagates without a false directive",

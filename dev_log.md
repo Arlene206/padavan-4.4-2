@@ -1,3 +1,11 @@
+## 2026-11-26 — Align SmartDNS secondary TCP with the web UI NVRAM key
+
+- A source/UI cross-check showed the prior secondary TCP fix selected the wrong canonical setting: the web form's checkbox/radios persist `sdnse_tcp_server`, while the preceding commit had switched the reader/writer/test to the separate `sdnse_tcp` name. That would still ignore the user's actual UI setting.
+- Corrected the locked runtime NVRAM snapshot and config generator to use `sdnse_tcp_server` consistently. The regression deliberately sets `sdnse_tcp_server=1` and `sdnse_tcp=0`; the source checker asserts the web form, NVRAM reader and generator all agree.
+- Parent main: `20aa389e6459baa18f36c3748d5a78330638cd59`. Exact-head Actions pending; no router runtime claim.
+
+---
+
 ## 2026-11-26 — Validate SmartDNS secondary listener settings before generating config
 
 - The runtime NVRAM snapshot reads `sdnse_tcp`, but `Get_sdnse_conf()` tested `sdnse_tcp_server`, an unset/different variable. Enabling the secondary TCP listener in NVRAM therefore failed to emit its `bind-tcp` directive.

@@ -157,8 +157,8 @@ smartdns_load_runtime_nvram_state()
         sdns_exp_ttl_max=$smartdns_nvram_value
         smartdns_nvram_read_checked sdns_exp_prefetch_time || return $?
         sdns_exp_prefetch_time=$smartdns_nvram_value
-        smartdns_nvram_read_checked sdnse_tcp || return $?
-        sdnse_tcp=$smartdns_nvram_value
+        smartdns_nvram_read_checked sdnse_tcp_server || return $?
+        sdnse_tcp_server=$smartdns_nvram_value
         smartdns_nvram_read_checked sdnse_speed || return $?
         sdnse_speed=$smartdns_nvram_value
         smartdns_nvram_read_checked sdnse_name || return $?
@@ -494,7 +494,7 @@ Get_sdnse_conf () {
         *) return 1 ;;
     esac
 
-    case "${sdnse_tcp:-}" in
+    case "${sdnse_tcp_server:-}" in
         ''|0|1) ;;
         *) return 1 ;;
     esac
@@ -543,7 +543,7 @@ Get_sdnse_conf () {
         ADDR="[::]"
     fi
     printf '%s\n' "bind $ADDR:$sdnse_port $ARGS_2" >> "$smartdns_tmp_Conf" || return $?
-    if [ "$sdnse_tcp" = "1" ] ; then
+    if [ "$sdnse_tcp_server" = "1" ] ; then
         printf '%s\n' "bind-tcp $ADDR:$sdnse_port $ARGS_2" >> "$smartdns_tmp_Conf" || return $?
     fi
 }

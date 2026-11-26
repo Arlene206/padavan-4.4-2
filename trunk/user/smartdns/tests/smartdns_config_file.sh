@@ -75,7 +75,7 @@ if Get_sdns_conf; then fail "base config generator ignored /dev/full"; else stat
 [ "$status" -ne 0 ] || fail "base config /dev/full failure returned success"
 pass "base config generator rejects an unwritable staged file"
 
-# The runtime NVRAM key is sdnse_tcp. A leading-zero port is normalized
+# The SmartDNS web form persists sdnse_tcp_server. A leading-zero port is normalized
 # before either listener directive is emitted.
 sdnse_enable=1
 sdnse_speed=0
@@ -87,8 +87,8 @@ sdnse_as=0
 sdnse_ipc=0
 sdnse_cache=0
 sdnse_ipv6_server=0
-sdnse_tcp=1
-sdnse_tcp_server=0
+sdnse_tcp=0
+sdnse_tcp_server=1
 sdnse_port=05335
 smartdns_tmp_Conf="$T/secondary-valid.conf"
 : > "$smartdns_tmp_Conf"
@@ -96,8 +96,8 @@ Get_sdnse_conf || fail "valid secondary listener config was rejected"
 grep -Fqx 'bind :5335 -group secondary_group' "$smartdns_tmp_Conf" ||
     fail "secondary UDP bind did not normalize port and group"
 grep -Fqx 'bind-tcp :5335 -group secondary_group' "$smartdns_tmp_Conf" ||
-    fail "sdnse_tcp=1 did not generate the secondary TCP listener"
-pass "secondary listener uses checked sdnse_tcp NVRAM and normalized port"
+    fail "sdnse_tcp_server=1 did not generate the secondary TCP listener"
+pass "secondary listener uses the UI-backed sdnse_tcp_server NVRAM key"
 
 # Invalid values are rejected before the first directive reaches the staged file.
 expect_secondary_rejection()
@@ -121,10 +121,10 @@ sdnse_name='secondary
 bind-tcp :9999'
 expect_secondary_rejection "newline in group name"
 sdnse_name=secondary_group
-sdnse_tcp='1
+sdnse_tcp_server='1
 bind-tcp :9999'
 expect_secondary_rejection "newline in TCP selector"
-sdnse_tcp=1
+sdnse_tcp_server=1
 sdnse_speed=2
 expect_secondary_rejection "non-binary speed selector"
 sdnse_speed=0
@@ -133,7 +133,7 @@ expect_secondary_rejection "non-binary enable selector"
 sdnse_enable=1
 sdnse_port=5335
 sdnse_name=
-sdnse_tcp=0
+sdnse_tcp_server=0
 pass "invalid secondary selectors, ports and group tokens fail before config writes"
 
 # A secondary listener write error must still propagate from the first write.
@@ -146,7 +146,7 @@ pass "secondary UDP bind write failure propagates with TCP binding disabled"
 # Also inject a failure on the second (TCP) line after UDP was written.
 smartdns_tmp_Conf="$T/secondary-write-failure.conf"
 : > "$smartdns_tmp_Conf"
-sdnse_tcp=1
+sdnse_tcp_server=1
 printf() {
     case "${2:-}" in
         "bind-tcp "*) return 39 ;;

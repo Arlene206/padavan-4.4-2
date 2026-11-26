@@ -10,8 +10,8 @@
 
 ## Active task
 
-- Fix SmartDNS secondary-listener NVRAM-to-config handling. The runtime snapshot loads `sdnse_tcp`, but `Get_sdnse_conf()` used the unrelated unset `sdnse_tcp_server`, so the secondary TCP bind could never reliably be enabled.
-- Validate the secondary enabled/TCP/feature selectors, normalize its port (1–65535), and reject unsafe group tokens before writing any directive. Extend the existing shell regression and exact source-contract checker; verify DNSMasq lifecycle, Process inventory, AI handoff, NVRAM and XY-C1 Actions for the exact new SHA.
+- Align SmartDNS secondary TCP configuration with the actual web UI NVRAM key. The UI persists `sdnse_tcp_server`, but the previous slice incorrectly switched the runtime snapshot and generator to unrelated `sdnse_tcp`. Read and validate the UI-backed key in the runtime snapshot, keep the generator on that same value, and make the regression set `sdnse_tcp_server=1` while obsolete `sdnse_tcp=0`.
+- Recheck exact-SHA DNSMasq lifecycle/static contracts, Process inventory, AI handoff, NVRAM audit and XY-C1 Build/TRX/artifact Actions after this correction. Then continue an independent userland stability fix.
 
 ## Completed source slice
 
@@ -42,9 +42,9 @@ s inventory #45772642896 PASS and AI handoff #45772642788 PASS on 93ec42b2b3927a
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and inspect exact-SHA DNSMasq lifecycle (including the SmartDNS config regression/static checker), AI handoff, Process inventory, NVRAM transaction audit and XY-C1 Build/TRX/artifact Actions for the SmartDNS secondary-listener validation commit. Diagnose failed logs and fix.
-2. Close XY-C1 #45774933963 for MiniUPnP source SHA af75c28bd1395194b9fdf088ad56caaab3d2adde if still active; its Process, AI handoff, NVRAM and SmartDNS config regression checks passed. The newer main SHA 588beb5d574127fd4d0027559d9c8cb97e75af3d has MiniUPnP HTTP stability and AI handoff PASS.
-3. Continue an independent Padavan userland stability/security fix; do not repeat startup/bootstrap or completed Entware, legacy-ipkg and IAPP source audits.
+1. Fetch live main and inspect exact-SHA DNSMasq lifecycle (SmartDNS config regression + source checker), AI handoff, Process inventory, NVRAM audit and XY-C1 Build/TRX/artifact Actions for the UI-key correction. Diagnose failures from logs; verify that the test uses `sdnse_tcp_server=1` and obsolete `sdnse_tcp=0`.
+2. Record/close the earlier exact-SHA runs for 20aa389e6459baa18f36c3748d5a78330638cd59; do not claim that commit's DNSMasq or XY-C1 checks passed until they complete.
+3. Continue an independent stability/security fix outside SmartDNS after CI is inspected. Do not repeat startup recovery or completed Entware, legacy-ipkg, Samba and IAPP source audits.
 
 # Cross-session execution mandate
 
