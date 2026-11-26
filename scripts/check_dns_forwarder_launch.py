@@ -271,7 +271,7 @@ assert "close (self->listen_fd);" in forwarder_constructor
 assert "HEV_MEMORY_ALLOCATOR_FREE (self);" in forwarder_constructor
 
 assert '#include "hev-dns-forwarder-policy.h"' in forwarder_core
-assert "hev_dns_forwarder_parse_port (upstream_port, &parsed_upstream_port)" in forwarder_core
+assert re.search(r"hev_dns_forwarder_parse_port\s*\(\s*upstream_port\s*,\s*&parsed_upstream_port\s*\)", forwarder_core)
 assert "htons (parsed_upstream_port)" in forwarder_core
 assert "atoi (upstream_port)" not in forwarder_core
 assert "value > 65535" in forwarder_policy
