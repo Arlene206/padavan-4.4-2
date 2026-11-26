@@ -8,6 +8,20 @@
 #include "../dns-forwarder-1.2.1/hev-event-source-fds.h"
 
 static void
+test_default_event_source_functions_are_initialized(void)
+{
+	HevEventSource *source;
+
+	source = hev_event_source_new (NULL, sizeof (HevEventSource));
+	assert(source);
+	assert(source->funcs.prepare);
+	assert(source->funcs.check);
+	assert(source->funcs.dispatch);
+	assert(source->funcs.finalize);
+	hev_event_source_unref (source);
+}
+
+static void
 test_event_source_name_storage_is_safe(void)
 {
 	HevEventSource *source = hev_event_source_fds_new();
@@ -35,6 +49,7 @@ main (void)
 	HevEventSource *source = NULL;
 	int first_pipe[2], second_pipe[2];
 
+	test_default_event_source_functions_are_initialized();
 	test_event_source_name_storage_is_safe();
 
 	assert(0 == pipe(first_pipe));

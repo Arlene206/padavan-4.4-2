@@ -277,6 +277,11 @@ assert '#include "hev-dns-forwarder-policy.h"' in forwarder_core
 assert re.search(r"hev_dns_forwarder_parse_port\s*\(\s*upstream_port\s*,\s*&parsed_upstream_port\s*\)", forwarder_core)
 assert "htons (parsed_upstream_port)" in forwarder_core
 assert "atoi (upstream_port)" not in forwarder_core
+event_source_constructor = function_body(event_source_core, "hev_event_source_new (")
+assert "memset (&self->funcs, 0, sizeof (self->funcs));" in event_source_constructor
+assert event_source_constructor.index("memset (&self->funcs") < event_source_constructor.index("if (funcs)")
+assert "test_default_event_source_functions_are_initialized" in event_loop_test
+
 event_source_name_setter = function_body(event_source_core, "hev_event_source_set_name (")
 assert "strlen (name) + 1" in event_source_name_setter
 assert "HEV_MEMORY_ALLOCATOR_ALLOC (name_length)" in event_source_name_setter

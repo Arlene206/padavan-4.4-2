@@ -27,6 +27,10 @@ hev_event_source_new (HevEventSourceFuncs *funcs, size_t struct_size)
 			self->name = NULL;
 			self->priority = 0;
 			self->ref_count = 1;
+			/* The optional function table must have defined defaults even when
+			 * callers pass NULL; allocator memory is not zero-initialized.
+			 */
+			memset (&self->funcs, 0, sizeof (self->funcs));
 			if (funcs)
 			  memcpy (&self->funcs, funcs, sizeof (HevEventSourceFuncs));
 			if (!self->funcs.prepare)
