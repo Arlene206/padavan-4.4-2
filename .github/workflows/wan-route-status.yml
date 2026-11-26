@@ -51,6 +51,8 @@ on:
       - "trunk/user/rc/src/net_lan6.c"
       - "trunk/user/rc/src/conntrack_flush_policy.h"
       - "trunk/user/rc/src/tests/conntrack_flush_policy.c"
+      - "trunk/user/rc/src/dhcp_route_ownership.h"
+      - "trunk/user/rc/src/tests/dhcp_route_ownership.c"
       - "trunk/user/rc/src/net_wan.c"
       - "trunk/user/rc/src/dhcp_lease_policy.h"
       - "trunk/user/rc/src/tests/dhcp_lease_policy.c"
@@ -190,6 +192,8 @@ on:
       - "trunk/user/rc/src/net_lan6.c"
       - "trunk/user/rc/src/conntrack_flush_policy.h"
       - "trunk/user/rc/src/tests/conntrack_flush_policy.c"
+      - "trunk/user/rc/src/dhcp_route_ownership.h"
+      - "trunk/user/rc/src/tests/dhcp_route_ownership.c"
       - "trunk/user/rc/src/net_wan.c"
       - "trunk/user/rc/src/dhcp_lease_policy.h"
       - "trunk/user/rc/src/tests/dhcp_lease_policy.c"
@@ -453,6 +457,15 @@ jobs:
             trunk/user/rc/src/tests/wan_ipv6_service_policy.c \
             -o /tmp/wan-ipv6-service-policy
           ASAN_OPTIONS=detect_leaks=1 /tmp/wan-ipv6-service-policy
+      - name: Compile and run DHCP route ownership manifest regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/dhcp_route_ownership.c \
+            -o "$RUNNER_TEMP/dhcp-route-ownership"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/dhcp-route-ownership"
+
       - name: Compile and run WAN IPv6 usable-unicast endpoint regression
         run: |
           set -eu

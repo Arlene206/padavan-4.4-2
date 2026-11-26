@@ -145,6 +145,7 @@ on:
       - "trunk/user/httpd/src/httpd_watchdog_stop_policy.h"
       - "trunk/user/httpd/src/aidisk.c"
       - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/dhcp_route_ownership.h"
       - "trunk/user/rc/src/wan_src_phy_policy.h"
       - "trunk/user/rc/src/tests/wan_src_phy_policy.c"
       - "scripts/check_modem_wan_start_status.py"

@@ -59,6 +59,7 @@
 #include "wan_teardown_policy.h"
 #include "wan_deferred_reconnect_policy.h"
 #include "dhcp_lease_policy.h"
+#include "dhcp_route_ownership.h"
 #include "dhcp_wan_interface_policy.h"
 #include "wan_ifname_policy.h"
 #include "lan_kernel_name_policy.h"
