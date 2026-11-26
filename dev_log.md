@@ -1,3 +1,13 @@
+## 2026-11-25 — Preserve DHCP relay XID state across successful sendto results
+
+- The XID-budget commit used `sendto_ip4(...) != 0` to detect upstream send failure. That is incorrect for POSIX datagram send semantics: a successful send returns the number of bytes sent (positive), and only -1 represents failure. The condition therefore deleted newly-created XID entries after successful upstream forwarding, so server replies could no longer match.
+- The client reply path also removed the XID unconditionally after `sendto_ip4()`, even when forwarding to the client failed. It now retains the mapping after failed client delivery so a retransmitted server response or client request can retry.
+- Added `udhcp_relay_send_result_ok()` (non-negative means success), GNU89 ASan/UBSan result tests for 0/positive/negative values, and updated the production source contract. Existing XID workflow and XY-C1 DHCP relay path filters already cover these files.
+- Parent SHA: f586166ef44cdbcc2ffad8bd49546a613499bf46. Exact-head XID, AI docs and XY-C1 checks for this correction: pending. No live packet/firmware/hardware result is claimed.
+- Changed paths: trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcprelay.c, trunk/user/busybox/busybox-1.24.x/networking/udhcp/udhcp_relay_xid_policy.h, trunk/user/busybox/busybox-1.24.x/networking/udhcp/tests/dhcprelay_xid_policy.c, scripts/check_udhcp_relay_xid_policy.py, SESSION_HANDOFF.md, dev_log.md.
+
+---
+
 ## 2026-11-25 — Require BOOTREPLY opcode before DHCP relay response handling
 
 - `pass_to_client()` checked DHCP message-type options and correlated the XID, but did not check the fixed BOOTP `op` field. A packet carrying a client BOOTREQUEST opcode could be processed on the server-facing socket as a response if its transaction metadata matched.

@@ -261,7 +261,7 @@ static void pass_to_server(struct dhcp_packet *p, int packet_len, int client, in
 	 * IOW: we send _from_ SERVER_PORT! Although this may look strange,
 	 * RFC 1542 not only allows, but prescribes this for BOOTP relays.
 	 */
-	if (sendto_ip4(fds[0], p, packet_len, server_addr) != 0 && created)
+	if (!udhcp_relay_send_result_ok(sendto_ip4(fds[0], p, packet_len, server_addr)) && created)
 		xid_del_item(item);
 }
 
@@ -295,12 +295,11 @@ static void pass_to_client(struct dhcp_packet *p, int packet_len, int *fds)
 	if (item->ip.sin_addr.s_addr == htonl(INADDR_ANY))
 		item->ip.sin_addr.s_addr = htonl(INADDR_BROADCAST);
 
-	if (sendto_ip4(fds[item->client], p, packet_len, &item->ip) != 0) {
-		return; /* send error occurred */
+	if (if (udhcp_relay_send_result_ok(sendto_ip4(fds[item->client], p, packet_len, &item->ip))) {
+		xid_del_item(item);
+	} else {
+		log1("Unable to forward DHCP reply; retaining transaction for retry");
 	}
-
-	/* remove only the transaction that produced this reply */
-	xid_del_item(item);
 }
 
 int dhcprelay_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;

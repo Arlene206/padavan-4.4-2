@@ -39,11 +39,22 @@ test_release_allows_next_transaction(void)
     assert(budget.pending == 0U);
 }
 
+static void
+test_send_result_status(void)
+{
+    assert(udhcp_relay_send_result_ok(0));
+    assert(udhcp_relay_send_result_ok(1));
+    assert(udhcp_relay_send_result_ok(548));
+    assert(!udhcp_relay_send_result_ok(-1));
+    assert(!udhcp_relay_send_result_ok(-11));
+}
+
 int
 main(void)
 {
     test_reservation_limit();
     test_release_allows_next_transaction();
+    test_send_result_status();
     puts("DHCP relay bounded XID transaction regression: PASS");
     return 0;
 }

@@ -44,15 +44,18 @@ assert "gateway_nip == p->gateway_nip" in xid_find
 assert "memcmp(item->chaddr, p->chaddr" in xid_find
 assert "xid_add(p->xid, p, client_addr, client, &created)" in pass_to_server
 assert "if (NULL == item)" in pass_to_server
-assert "sendto_ip4(fds[0], p, packet_len, server_addr) != 0 && created" in pass_to_server
+assert "!udhcp_relay_send_result_ok(sendto_ip4(fds[0], p, packet_len, server_addr)) && created" in pass_to_server
 assert "xid_del_item(item)" in pass_to_server
 assert "xid_find(p)" in pass_to_client
+assert "udhcp_relay_send_result_ok(sendto_ip4(fds[item->client], p, packet_len, &item->ip))" in pass_to_client
 assert "xid_del_item(item)" in pass_to_client
+assert "Unable to forward DHCP reply; retaining transaction for retry" in pass_to_client
 assert "xid_del(p->xid)" not in relay
 
 for token in (
     "test_reservation_limit",
     "test_release_allows_next_transaction",
+    "test_send_result_status",
     "UDHCP_RELAY_MAX_PENDING_XIDS",
     "budget.pending == 0U",
 ):

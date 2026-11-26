@@ -24,4 +24,11 @@ udhcp_relay_xid_release(struct udhcp_relay_xid_budget *budget)
         --budget->pending;
 }
 
+static inline int
+udhcp_relay_send_result_ok(int send_result)
+{
+    /* sendto() returns the byte count on success and -1 on failure. */
+    return send_result >= 0;
+}
+
 #endif /* UDHCP_RELAY_XID_POLICY_H */
