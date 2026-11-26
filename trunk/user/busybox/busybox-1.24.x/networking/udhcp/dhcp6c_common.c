@@ -39,6 +39,10 @@
 #include "dhcp6c_duid_file_policy.h"
 #include "dhcp6c_script_retry_policy.h"
 #include "dhcp6c_option_bounds_policy.h"
+#include "dhcp6c_timer_policy.h"
+
+static unsigned int timer_check_generation;
+static unsigned long long timer_list_generation;
 
 #define D6_NTP_SUBOPT_SRV_ADDR		1
 #define D6_NTP_SUBOPT_SRV_MC_ADDR	2
@@ -294,8 +298,11 @@ struct dhcp6_timer *dhcp6_timer_add(struct dhcp6_timer *(*timeout)(void *),
 	newtimer->expire = timeout;
 	newtimer->expire_data = timeodata;
 	newtimer->t = ULLONG_MAX;
+	/* Timers created by a callback are first eligible on the next sweep. */
+	newtimer->check_generation = timer_check_generation;
 
 	LIST_INSERT_HEAD(&client6_config.timer_head, newtimer, link);
+	++timer_list_generation;
 
 	return newtimer;
 }
@@ -303,6 +310,7 @@ struct dhcp6_timer *dhcp6_timer_add(struct dhcp6_timer *(*timeout)(void *),
 void dhcp6_timer_remove(struct dhcp6_timer **timer)
 {
 	LIST_REMOVE(*timer, link);
+	++timer_list_generation;
 	free(*timer);
 	*timer = NULL;
 }
@@ -324,17 +332,55 @@ void dhcp6_timer_set(unsigned long long t, struct dhcp6_timer *timer)
 struct timeval *dhcp6_timer_check(void)
 {
 	unsigned long long now = monotonic_ms();
-	struct dhcp6_timer *tm, *tm_next;
+	unsigned long long generation_before;
+	struct dhcp6_timer *tm;
+	struct dhcp6_timer *(*expire)(void *);
+	struct dhcp6_timer *callback_result;
+	void *expire_data;
 
-	client6_config.tm_sentinel = ULLONG_MAX;
-	for (tm = LIST_FIRST(&client6_config.timer_head); tm; tm = tm_next) {
-		tm_next = LIST_NEXT(tm, link);
+	timer_check_generation =
+		dhcp6c_timer_next_check_generation(timer_check_generation);
+	if (timer_check_generation == 1U) {
+		/* A wrapped generation must not match a timer from an old sweep. */
+		for (tm = LIST_FIRST(&client6_config.timer_head); tm;
+		     tm = LIST_NEXT(tm, link))
+			tm->check_generation = 0U;
+	}
+
+	/*
+	 * A callback can remove any timer, including the node saved as the
+	 * iterator's next pointer. Stamp each visited node and restart from the
+	 * live head after any callback that frees a timer or mutates the list.
+	 */
+	tm = LIST_FIRST(&client6_config.timer_head);
+	while (tm != NULL) {
+		if (dhcp6c_timer_seen_in_check(tm->check_generation,
+					       timer_check_generation)) {
+			tm = LIST_NEXT(tm, link);
+			continue;
+		}
+		tm->check_generation = timer_check_generation;
 
 		if ((long long)(now - tm->t) >= 0) {
-			if ((*tm->expire)(tm->expire_data) == NULL)
-				continue; /* timer has been freed */
+			generation_before = timer_list_generation;
+			expire = tm->expire;
+			expire_data = tm->expire_data;
+			callback_result = expire(expire_data);
+			if (dhcp6c_timer_callback_requires_rescan(
+					callback_result == NULL, generation_before,
+					timer_list_generation)) {
+				tm = LIST_FIRST(&client6_config.timer_head);
+				continue;
+			}
 		}
 
+		tm = LIST_NEXT(tm, link);
+	}
+
+	/* Callbacks may also reschedule already-visited timers; recalculate last. */
+	client6_config.tm_sentinel = ULLONG_MAX;
+	for (tm = LIST_FIRST(&client6_config.timer_head); tm;
+	     tm = LIST_NEXT(tm, link)) {
 		if (tm->t < client6_config.tm_sentinel)
 			client6_config.tm_sentinel = tm->t;
 	}

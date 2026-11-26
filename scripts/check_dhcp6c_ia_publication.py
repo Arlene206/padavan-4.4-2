@@ -68,6 +68,8 @@ config_cleanup = read(BASE + "dhcp6c_config_cleanup_policy.h")
 config_cleanup_test = read(BASE + "tests/dhcp6c_config_cleanup_policy.c")
 common = read(BASE + "dhcp6c_common.c")
 bounds_policy = read(BASE + "dhcp6c_option_bounds_policy.h")
+timer_policy = read(BASE + "dhcp6c_timer_policy.h")
+timer_test = read(BASE + "tests/dhcp6c_timer_traversal_policy.c")
 bounds_test = read(BASE + "tests/dhcp6c_option_bounds_policy.c")
 xy_workflow = read(".github/workflows/xy-c1-firmware-validation.yml")
 workflow = read(".github/workflows/dhcp6c-ia-publication-stability.yml")
@@ -421,6 +423,38 @@ assert "run_stop_fencing_case(0, 0, 2)" in callback_test
 assert "dhcp6c_callback_primary_errno(saved_errno, unlock_errno)" in stop_dhcp6c
 assert "dhcp6c_callback_session_lock" in callback_policy
 
+# Timer callbacks may free the saved-next node (for example, IA prefix
+# cleanup removes sibling retry timers). The iterator must restart from the
+# live head after any callback-side list mutation and skip visited/new nodes.
+timer_add = function_body(common, "struct dhcp6_timer *dhcp6_timer_add(")
+timer_remove = function_body(common, "void dhcp6_timer_remove(")
+timer_check = function_body(common, "struct timeval *dhcp6_timer_check(void)")
+timer_check_compact = "".join(timer_check.split())
+assert '#include "dhcp6c_timer_policy.h"' in common
+assert "unsigned int check_generation;" in header
+assert "dhcp6c_timer_next_check_generation" in timer_policy
+assert "dhcp6c_timer_seen_in_check" in timer_policy
+assert "dhcp6c_timer_callback_requires_rescan" in timer_policy
+assert "newtimer->check_generation = timer_check_generation;" in timer_add
+assert timer_add.index("newtimer->check_generation = timer_check_generation;") < timer_add.index("LIST_INSERT_HEAD(")
+assert "++timer_list_generation;" in timer_add
+assert "++timer_list_generation;" in timer_remove
+assert "timer_check_generation=dhcp6c_timer_next_check_generation(timer_check_generation);" in timer_check_compact
+assert "tm->check_generation=0U;" in timer_check_compact
+assert "dhcp6c_timer_seen_in_check(tm->check_generation,timer_check_generation)" in timer_check_compact
+assert timer_check.index("tm->check_generation = timer_check_generation;") < timer_check.index("callback_result = expire(expire_data);")
+rescan = timer_check.index("dhcp6c_timer_callback_requires_rescan(")
+restart = timer_check.index("tm = LIST_FIRST(&client6_config.timer_head);", rescan)
+continue_after = timer_check.index("continue;", rescan)
+advance = timer_check.rindex("tm = LIST_NEXT(tm, link);")
+assert rescan < restart < continue_after < advance
+assert "tm_next" not in timer_check
+assert timer_check.rindex("client6_config.tm_sentinel = ULLONG_MAX;") > timer_check.index("while (tm != NULL)")
+assert "assert(dhcp6c_timer_next_check_generation(UINT_MAX) == 1U);" in timer_test
+assert "test_callback_removal_restarts_without_revisiting_or_running_new_timer" in timer_test
+assert "visited_second == 0" in timer_test and "visited_third == 1" in timer_test
+assert "DHCPv6 timer generation and callback invalidation policy: PASS" in timer_test
+
 required_paths = (
     ".github/workflows/dhcp6c-ia-publication-stability.yml",
     "scripts/check_dhcp6c_ia_publication.py",
@@ -439,6 +473,8 @@ required_paths = (
     BASE + "dhcp6c_config_cleanup_policy.h",
     BASE + "tests/dhcp6c_config_cleanup_policy.c",
     BASE + "dhcp6c_common.c",
+    BASE + "dhcp6c_timer_policy.h",
+    BASE + "tests/dhcp6c_timer_traversal_policy.c",
     BASE + "dhcp6c_option_bounds_policy.h",
     BASE + "tests/dhcp6c_option_bounds_policy.c",
     "trunk/user/rc/src/net_wan6.c",

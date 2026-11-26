@@ -1,3 +1,13 @@
+## 2026-11-26 — Make DHCPv6 timer traversal safe against callback-side deletion
+
+- Found a concrete iterator use-after-free: `dhcp6_timer_check()` saved `tm_next` before invoking a timer callback, but a delegated-prefix retry callback can complete cleanup and call `remove_ia()`, whose `pref_cleanup()` removes sibling prefix timers. The next loop iteration could dereference a timer node already freed by `dhcp6_timer_remove()`.
+- Added per-timer check generations and a timer-list mutation generation. A callback that frees its timer or changes the timer list causes traversal to restart at the live list head; already visited timers and timers newly added during the callback are skipped until the next sweep. Recompute the next-expiry sentinel after all callbacks so rescheduling of previously visited timers is reflected.
+- Added a GNU89 policy regression for saved-next removal, head insertion, generation wrap and callback invalidation; wired the source contract and sanitizer regression into the DHCPv6 IA workflow for both push and pull_request.
+- Local host compile/run: `cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined` regression PASS. Full-source and target checks await exact-SHA Actions; no L3/L4 claim.
+- Parent main: `5b03226e811dbba4cba5d9219c43086b7962d6e7`; resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-26 — Correct literal unlock counting in NVRAM source contract
 
 - Corrected a double-escaped regex in the new NVRAM commit-order source check. A literal-token scan now counts both unlock sites and enforces mutex-before-snapshot plus mutex-through-flash-I/O ordering.

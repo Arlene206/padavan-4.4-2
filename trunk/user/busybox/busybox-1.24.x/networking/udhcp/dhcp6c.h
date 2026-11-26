@@ -143,6 +143,7 @@ struct dhcp6_timer {
 	LIST_ENTRY(dhcp6_timer) link;
 
 	unsigned long long t;
+	unsigned int check_generation;
 
 	struct dhcp6_timer *(*expire)(void *);
 	void *expire_data;
