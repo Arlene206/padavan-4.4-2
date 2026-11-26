@@ -506,6 +506,8 @@ jobs:
           vpn_client = Path("trunk/user/rc/src/vpn_client.c").read_text()
           vpn_lock = Path("trunk/user/rc/src/vpn_server_lifecycle_lock.h").read_text()
           restart_test = Path("trunk/user/rc/src/tests/dnsmasq_restart_policy.c").read_text()
+          dnsmasq_file_helper = Path("trunk/user/rc/src/dnsmasq_file.h").read_text()
+          static_hosts_test = Path("trunk/user/rc/src/tests/dnsmasq_file.c").read_text()
           notify_policy = Path("trunk/user/rc/src/rc_notify_batch_policy.h").read_text()
           notify_test = Path("trunk/user/rc/src/tests/rc_notify_batch_policy.c").read_text()
           workflow = Path(".github/workflows/dnsmasq-lifecycle.yml").read_text()
