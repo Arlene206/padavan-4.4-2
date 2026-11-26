@@ -50,12 +50,24 @@ pl_process_state()
                 # A valid /proc/PID/stat record contains fields 3 through 22.
                 # Checking only PID/state accepted newline-terminated truncated
                 # records as a complete process observation.
-                pl_proc_saved_ifs=$IFS
+                # Preserve both the value and set/unset state of IFS. An
+                # unset IFS means the shell's default whitespace separators;
+                # restoring it as an explicitly empty value changes caller behavior.
+                if [ "${IFS+x}" = x ]; then
+                    pl_proc_ifs_was_set=1
+                    pl_proc_saved_ifs=$IFS
+                else
+                    pl_proc_ifs_was_set=0
+                fi
                 case "$-" in *f*) pl_proc_glob_disabled=1 ;; *) pl_proc_glob_disabled=0 ;; esac
                 set -f
                 IFS=' '
                 set -- $pl_proc_fields
-                IFS=$pl_proc_saved_ifs
+                if [ "$pl_proc_ifs_was_set" -eq 1 ]; then
+                    IFS=$pl_proc_saved_ifs
+                else
+                    unset IFS
+                fi
                 [ "$pl_proc_glob_disabled" -eq 1 ] || set +f
                 [ "$#" -ge 20 ] || return 2
                 pl_proc_state=$1

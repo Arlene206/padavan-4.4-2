@@ -121,6 +121,12 @@ IFS=:
 if pl_process_state test-daemon; then actual=0; else actual=$?; fi
 [ "$actual" -eq 1 ] || fail "custom-IFS procfs scan returned $actual"
 [ "$IFS" = ":" ] || fail "procfs scan changed the caller's IFS"
+unset IFS
+if pl_process_state test-daemon; then actual=0; else actual=$?; fi
+[ "$actual" -eq 1 ] || fail "unset-IFS procfs scan returned $actual"
+[ "${IFS+x}" != x ] || fail "procfs scan changed unset IFS into a set value"
+set -- one two
+[ "$#" -eq 2 ] || fail "procfs scan changed default field splitting after unset IFS"
 IFS=$pl_test_saved_ifs
 case "$-" in *f*) fail "test expected pathname expansion to be enabled" ;; esac
 set -f
