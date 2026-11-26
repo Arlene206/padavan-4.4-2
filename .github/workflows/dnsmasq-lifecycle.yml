@@ -1223,7 +1223,8 @@ jobs:
           assert "cannot remove router hostname rollback snapshot" in net_wan
           assert "cannot remove LAN hostname rollback snapshot" in net_lan
           assert "cannot remove LAN DHCP resolver stage" in net_lan
-          assert "cannot remove failed LAN DHCP resolver stage" in net_lan
+          assert "LAN DHCP resolver rollback incomplete" in net_lan
+          assert "LAN DHCP resolver committed but rollback snapshot cleanup failed" in net_lan
           assert "cannot remove failed LAN resolver stage" in net_lan
           assert "cannot remove LAN resolver stage" in net_lan
           assert static_hosts_writer.index("dnsmasq_file_publish_set(") < static_hosts_writer.index("dnsmasq_file_backup_discard(backup_paths[i])")
