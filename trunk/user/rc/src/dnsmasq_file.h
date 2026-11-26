@@ -299,6 +299,19 @@ dnsmasq_file_backup_create(const char *destination, char *backup_path)
 		errno = EAGAIN;
 		return -1;
 	}
+	/*
+	 * The rollback hard link must reach stable storage before publication can
+	 * replace its original name. Sync both parents for cross-directory links.
+	 */
+	saved_errno = 0;
+	if (dnsmasq_file_sync_parent(destination) != 0)
+		saved_errno = errno ? errno : EIO;
+	if (dnsmasq_file_sync_parent(backup_path) != 0 && !saved_errno)
+		saved_errno = errno ? errno : EIO;
+	if (saved_errno) {
+		errno = saved_errno;
+		return -1;
+	}
 	return 1;
 }
 
@@ -320,14 +333,25 @@ static inline int
 dnsmasq_file_backup_restore(const char *destination, char *backup_path)
 {
 	if (backup_path && backup_path[0]) {
+		int saved_errno = 0;
+
 		if (rename(backup_path, destination) != 0)
 			return -1;
+		/* Both strings still identify the affected parent directories. */
+		if (dnsmasq_file_sync_parent(destination) != 0)
+			saved_errno = errno ? errno : EIO;
+		if (dnsmasq_file_sync_parent(backup_path) != 0 && !saved_errno)
+			saved_errno = errno ? errno : EIO;
 		backup_path[0] = '\0';
+		if (saved_errno) {
+			errno = saved_errno;
+			return -1;
+		}
 		return 0;
 	}
 	if (unlink(destination) != 0 && errno != ENOENT)
 		return -1;
-	return 0;
+	return dnsmasq_file_sync_parent(destination);
 }
 
 

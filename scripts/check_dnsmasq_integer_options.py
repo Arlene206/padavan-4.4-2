@@ -241,3 +241,25 @@ assert "test_dnsmasq_file_directory_sync_helpers" in dnsmasq_file_test
 assert dnsmasq_file_test.index("test_dnsmasq_file_directory_sync_helpers(directory)") > dnsmasq_file_test.index(
     "assert(mkdtemp(directory) != NULL)")
 print("DNSMasq staged publication file and directory durability contract: PASS")
+
+# Rollback hard links must be stable before their destinations are replaced,
+# and restoring them must persist the rename/unlink before reporting success.
+backup_create = function_body(
+    dnsmasq_file_helper, "dnsmasq_file_backup_create(const char *destination")
+backup_restore = function_body(
+    dnsmasq_file_helper, "dnsmasq_file_backup_restore(const char *destination")
+assert backup_create.index("link(destination, backup_path)") < backup_create.index(
+    "dnsmasq_file_sync_parent(destination)")
+assert backup_create.index("dnsmasq_file_sync_parent(destination)") < backup_create.index(
+    "dnsmasq_file_sync_parent(backup_path)")
+assert backup_create.index("dnsmasq_file_sync_parent(backup_path)") < backup_create.index(
+    "return 1")
+assert backup_restore.index("rename(backup_path, destination)") < backup_restore.index(
+    "dnsmasq_file_sync_parent(destination)")
+assert backup_restore.index("dnsmasq_file_sync_parent(destination)") < backup_restore.index(
+    "dnsmasq_file_sync_parent(backup_path)")
+assert backup_restore.index("dnsmasq_file_sync_parent(backup_path)") < backup_restore.index(
+    "backup_path[0] = '\\0'")
+assert backup_restore.index("unlink(destination)") < backup_restore.rindex(
+    "dnsmasq_file_sync_parent(destination)")
+print("DNSMasq rollback snapshot and restore durability contract: PASS")
