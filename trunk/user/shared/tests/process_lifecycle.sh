@@ -118,7 +118,7 @@ if pl_process_state test-daemon; then actual=0; else actual=$?; fi
 # and must not leak temporary IFS or pathname-expansion changes.
 echo absent > "$state_file"
 mkdir -p "$PL_PROC_ROOT/324"
-printf '%s\\n' '324 (test-daemon) S 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19' > "$PL_PROC_ROOT/324/stat"
+printf '%s\n' '324 (test-daemon) S 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19' > "$PL_PROC_ROOT/324/stat"
 pl_test_saved_ifs=$IFS
 IFS=:
 if pl_process_state test-daemon; then actual=0; else actual=$?; fi
