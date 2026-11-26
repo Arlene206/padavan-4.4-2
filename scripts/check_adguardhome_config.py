@@ -317,9 +317,11 @@ require('( exec 9>&-; AdGuardHome -c "$adg_file" -w "$ADG_WORKDIR" -v ) &' in st
         'logger -t "AdGuardHome" "启动后无法确认AdGuardHome进程状态，保留DNS和防火墙配置"' in start and
         '/sbin/restart_dhcpd 9>&-' in script,
         "detached launch must verify RUNNING; roll back only confirmed ABSENT and preserve UNKNOWN state")
-require('[ "$(cat "$TEST_ADG_START_EFFECTS")" = "$(printf \'set_iptable\\\\nchange_dns\')" ]' in test and
-        '保留DNS防火墙拦截规则' in test,
-        "startup resolver failure regression must assert retained interception")
+require('TEST_ADG_START_LOGGER="$TEST_TMP/start-dns-failure.logger.log"' in test and
+        '[ "$(cat "$TEST_ADG_START_EFFECTS")" = "$(printf \'set_iptable\\nchange_dns\')" ]' in test and
+        'grep -q "保留DNS防火墙拦截规则" "$TEST_ADG_START_LOGGER"' in test,
+        "startup resolver failure regression must assert retained interception with separate diagnostics")
+
 require('TEST_ADG_DEL_DNS_FAIL=1' in test and
         '[ "$(cat "$TEST_ADG_CLEANUP_LOG")" = del_dns ]' in test and
         "set_iptable')" in test,
