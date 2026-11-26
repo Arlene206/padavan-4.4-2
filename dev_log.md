@@ -1,3 +1,10 @@
+## 2026-11-26 — Remove duplicate XY-C1 self-trigger path
+
+- XY-C1 run #45764744777 on `c39718070e34c3f0c1db9403c599cecf0ed16b63` failed before firmware-input detection: `check_samba_shared_header.py` requires exactly one workflow self-path in the push filter. The workflow already had a self-path at line 538; adding another near the WAN filter created a duplicate. The AdGuardHome package path is valid and retained; removed only the redundant self-path so the filter has exactly one trigger entry.
+- AdGuardHome exact-SHA shell/source validation and Process inventory on `190ec54ca9ca81725668fe8c8ccee59affe4f308` PASS. Workflow/Build/TRX/artifact verification for the new path-filter commit remains pending.
+
+---
+
 ## 2026-11-26 — Exercise AdGuardHome workdir owner-mismatch rejection
 
 - The persistent-workdir helper explicitly compares the storage directory owner with the launcher UID, but the first regression set covered symlink/type/chmod errors without forcing that branch. Added a deterministic owner mismatch fixture by overriding `id -u` and `stat -c %u` in a subshell; the source checker now requires the fixture.
