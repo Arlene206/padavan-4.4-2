@@ -34,6 +34,7 @@
 #ifdef IAPP_EVENT_LOG
 #include "iapp_event_log_poll_policy.h"
 #include "iapp_event_log_policy.h"
+#define EVENT_LOG_FILE "/etc/Wireless/RT61AP/RT61APEvt.dat"
 #endif /* IAPP_EVENT_LOG */
 #ifdef IAPP_OS_LINUX
 #include "iapp_select_fd_policy.h"
@@ -440,24 +441,39 @@ Note:
 static VOID IAPP_EventLog_Query(
     IAPP_IN		RTMP_IAPP	*pCtrlBK)
 {
-	CHAR *pEvtBuf;
-	POID_REQ pOidReq;
+	RT_802_11_EVENT_TABLE EventTab;
+	INT32 if_idx;
 
-
-	IAPP_MEM_ALLOC(pEvtBuf, sizeof(RT_802_11_EVENT_TABLE));
-	if (pEvtBuf == NULL)
+	if (pCtrlBK == NULL || pCtrlBK->IfNameWlanCount <= 0 ||
+	    pCtrlBK->IfNameWlanCount > MAX_WIFI_COUNT)
 	{
-		DBGPRINT(RT_DEBUG_ERROR, "iapp> Out of memory!\n");
+		DBGPRINT(RT_DEBUG_ERROR, "iapp> Invalid wireless interface count for event query!\n");
 		return;
-	} /* End of if */
+	}
 
-	pOidReq = (POID_REQ) pEvtBuf;
-	pOidReq->OID = RT_QUERY_EVENT_TABLE;
-	pOidReq->Len = sizeof(RT_802_11_EVENT_TABLE);
+	/* Query each configured radio directly; the legacy 802.1X SysV queue
+	 * is obsolete and does not own a valid MsgId in this daemon.
+	 */
+	for (if_idx = 0; if_idx < pCtrlBK->IfNameWlanCount; if_idx++)
+	{
+		INT32 EventTabLen = sizeof(EventTab);
 
-	IAPP_MsgProcess(pCtrlBK, IAPP_QUERY_OID_REQ,
-					pEvtBuf, sizeof(RT_802_11_EVENT_TABLE));
-	IAPP_MEM_FREE(pEvtBuf);
+		NdisZeroMemory(&EventTab, sizeof(EventTab));
+		if (!IAPP_IOCTL_TO_WLAN(pCtrlBK, RT_IOCTL_IAPP,
+					(CHAR *)&EventTab, &EventTabLen,
+					(UCHAR)if_idx, RT_QUERY_EVENT_TABLE))
+		{
+			DBGPRINT(RT_DEBUG_ERROR,
+				 "iapp> Query event table for interface %s failed!\n",
+				 pCtrlBK->IfNameWlanIoctl[if_idx]);
+			continue;
+		}
+
+		if (!IAPP_EventLogHandle(&EventTab))
+			DBGPRINT(RT_DEBUG_ERROR,
+				 "iapp> Persist event table for interface %s failed!\n",
+				 pCtrlBK->IfNameWlanIoctl[if_idx]);
+	}
 } /* End of IAPP_EventLog_Query */
 #endif // IAPP_EVENT_LOG //
 
@@ -1801,9 +1817,6 @@ static VOID IAPP_Start(
 {
 #ifdef IAPP_EVENT_LOG
 	struct timeval now, backuptime, res;
-	MsgSubType msg;
-	INT32 flag = IPC_NOWAIT;
-	INT32 msglen;
 #endif // IAPP_EVENT_LOG //
 
 
@@ -1821,13 +1834,6 @@ static VOID IAPP_Start(
 	while(!pCtrlBK->FlgIsTerminated)
 	{
 #ifdef IAPP_EVENT_LOG
-		/* check for message from 8021X daemon (no sleep) */
-		if ((msglen = msgrcv(rtmpiapp.MsgId, &msg, sizeof(MsgSubType),
-							RADIUSMSGQUEID, flag)) > 0)
-		{
-			IAPP_MsgProcess(&msg, msglen);
-		} /* End of if */
-
 		/* implement timer function */
 		gettimeofday(&now, NULL);
 		timersub(&now, &backuptime, &res);

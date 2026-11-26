@@ -141,13 +141,27 @@ def main() -> None:
     query_call = start_handler.find("IAPP_EventLog_Query(pCtrlBK)", poll_gate)
     require(poll_gate >= 0 and query_call > poll_gate,
             "event-log query must remain gated by the elapsed-time policy")
+    require("msgrcv(" not in start_handler and "rtmpiapp.MsgId" not in start_handler and
+            "MsgSubType msg" not in start_handler,
+            "event-log loop must not read the obsolete, never-initialized 802.1X message queue")
     require(re.search(
                 r"static\s+VOID\s+IAPP_EventLog_Query\s*\(\s*IAPP_IN\s+RTMP_IAPP\s*\*\s*pCtrlBK\s*\)\s*;",
                 source) is not None,
             "event-log query prototype must accept the IAPP control block")
     query_handler = extract_function(source, "IAPP_EventLog_Query")
-    require("IAPP_MsgProcess(pCtrlBK, IAPP_QUERY_OID_REQ" in query_handler,
-            "event-log query must dispatch through its supplied control block")
+    require('#define EVENT_LOG_FILE "/etc/Wireless/RT61AP/RT61APEvt.dat"' in source,
+            "event-log path must be defined when the optional logger is enabled")
+    require("RT_802_11_EVENT_TABLE EventTab;" in query_handler and
+            "EventTabLen = sizeof(EventTab)" in query_handler,
+            "event-log query must use a fully sized event-table output buffer")
+    require("IAPP_IOCTL_TO_WLAN(pCtrlBK, RT_IOCTL_IAPP" in query_handler and
+            "RT_QUERY_EVENT_TABLE" in query_handler,
+            "event-log query must issue the real driver ioctl, not the no-op legacy message subtype")
+    require("IAPP_EventLogHandle(&EventTab)" in query_handler and
+            "if_idx < pCtrlBK->IfNameWlanCount" in query_handler,
+            "event-log query must persist every configured radio's returned event table")
+    require("pCtrlBK->MsgId" not in query_handler and "IAPP_MsgProcess" not in query_handler,
+            "event-log query must not depend on the uninitialized legacy message queue")
     require("IAPP_EventLog_Query();" not in start_handler,
             "event-log query must not be called with a missing control block")
 
