@@ -644,7 +644,7 @@ adg_test_add_proc_pid()
 	ln -sfn "$adg_test_exe" "$ADG_PROC_ROOT/$adg_test_pid/exe"
 	printf '%s (AdGuardHome) S 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 %s\n' \
 		"$adg_test_pid" "$adg_test_start" > "$ADG_PROC_ROOT/$adg_test_pid/stat"
-	printf 'AdGuardHome\0-c\0%s\0-w\0%s\0-v\0' \\
+	printf 'AdGuardHome\0-c\0%s\0-w\0%s\0-v\0' \
 		"$adg_test_config" "$ADG_WORKDIR" > "$ADG_PROC_ROOT/$adg_test_pid/cmdline"
 }
 TEST_ADG_PROC_CASE=valid

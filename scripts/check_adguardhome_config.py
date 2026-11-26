@@ -289,6 +289,8 @@ require("AdGuardHome command argv quoting and metacharacter safety: PASS" in tes
 require("AdGuardHome persistent work directory symlink, type, ownership and mode policy: PASS" in test and
         "AdGuardHome restart preserves a healthy daemon on enable-read errors or invalid selectors: PASS" in test,
         "restart regression must verify NVRAM read failures and malformed selectors cause no stop/start side effects")
+require('-w "$ADG_WORKDIR" -v > "$TEST_ADG_ARGV_EXPECTED"' in test,
+        "process identity fixture must pass the persistent work directory as one quoted argv element")
 require('adg_lifecycle_lock_prepare "$adg_lock_file"' in lock_run and
         'adg_lifecycle_lock_execute "$adg_lock_file"' in lock_run and
         'start|stop|restart' in lock_run,

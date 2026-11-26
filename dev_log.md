@@ -1,3 +1,10 @@
+## 2026-11-26 — Repair AdGuardHome persistent-workdir regression fixture continuation
+
+- Exact AdGuardHome run #45764253186 on `c2129b8af9eb50ec9cf77902ab51f28803a0380b`: launcher `sh -n` and the new persistent-directory symlink/type/mode regression passed, followed by the pre-existing DNS/firewall/lifecycle cases. The shell fixture then failed at the duplicate-start test because the process cmdline `printf` line ended in two literal backslashes, so the command-line placeholders were not passed as the intended two argv arguments and the fake process was classified as absent.
+- Corrected the line continuation to one backslash and strengthened the source checker to require the expected `-w "$ADG_WORKDIR"` argument to be quoted as one word. This is a regression-harness fix, not a production runtime change; exact AdGuardHome rerun pending.
+
+---
+
 ## 2026-11-26 — Persist AdGuardHome runtime data across service stops and reboots
 
 - The package pins AdGuardHome v0.107.48. Its `-w` working directory stores filter data, query logs and other state, but the launcher passed `/tmp/AdGuardHome` even though it also created `/etc/storage/AdGuardHome`. The former is volatile and was recursively deleted on every successful stop, while the persistent directory was never used.
