@@ -89,7 +89,7 @@ assert "open(path,flags)" in passdb_sync
 assert "fstat(fd,&st)" in passdb_sync
 assert "S_ISREG(st.st_mode)" in passdb_sync
 assert "st.st_uid!=geteuid()" in passdb_sync
-assert "(st.st_mode&0777)!=0600" in passdb_sync
+assert "(st.st_mode&07777)!=0600" in passdb_sync
 assert passdb_sync.index("fsync(fd)") < passdb_sync.index("close(fd)")
 
 print("Samba paired-transaction directory durability contract: PASS")

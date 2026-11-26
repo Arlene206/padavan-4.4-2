@@ -75,6 +75,11 @@ test_private_file_sync_helpers(void)
 	errno = 0;
 	assert(samba_config_transaction_sync_file(public_file) == -1);
 	assert(errno == EACCES);
+	/* Special permission bits are not part of the private 0600 contract. */
+	assert(chmod(public_file, 04600) == 0);
+	errno = 0;
+	assert(samba_config_transaction_sync_file(public_file) == -1);
+	assert(errno == EACCES);
 	assert(symlink(passdb, link_path) == 0);
 	errno = 0;
 	assert(samba_config_transaction_sync_file(link_path) == -1);

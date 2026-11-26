@@ -109,7 +109,7 @@ samba_config_transaction_sync_file(const char *path)
 	if (fstat(fd, &st) != 0)
 		goto failed;
 	if (!S_ISREG(st.st_mode) || st.st_uid != geteuid() ||
-	    (st.st_mode & 0777) != 0600) {
+	    (st.st_mode & 07777) != 0600) {
 		errno = EACCES;
 		goto failed;
 	}
