@@ -8,7 +8,8 @@ RC = ROOT / "trunk/user/rc/src"
 WAN = (RC / "net_wan.c").read_text()
 POLICY = (RC / "wan_mtu_setup_policy.h").read_text()
 DHCP_POLICY = (RC / "dhcp_lease_policy.h").read_text()
-DHCP_POLICY = (RC / "dhcp_lease_policy.h").read_text()
+RETRY_POLICY = (RC / "dhcp_wan_route_transition_policy.h").read_text()
+RETRY_TEST = (RC / "tests/dhcp_wan_route_transition_policy.c").read_text()
 TEST = (RC / "tests/service_start_status.c").read_text()
 DHCP_TEST = (RC / "tests/dhcp_wan_interface_policy.c").read_text()
 WAN_WORKFLOW = (ROOT / ".github/workflows/wan-route-status.yml").read_text()
@@ -294,8 +295,9 @@ for token in (
     require(token in TEST, "MAN MTU failure-continuation coverage missing " + token)
 
 
-# DHCP-advertised MTU is optional: reapply changes on renewal, but keep
-# ioctl failure diagnostic-only. Only actual route errors drive route_err retry.
+# DHCP-advertised MTU is optional when absent. A failed application is
+# retained as a retry marker so an unchanged renewal cannot silently accept
+# an address/route tuple with an unapplied MTU.
 wan_bound = body(WAN, "udhcpc_bound(char *wan_ifname, int is_renew_mode)")
 require("mtu_status = 0;" in wan_bound,
         "WAN DHCP MTU status must be initialized when the option is absent")
@@ -307,26 +309,33 @@ wan_mtu_log = wan_bound.index("MTU setup incomplete (status=%d)", wan_mtu_set)
 wan_route_call = wan_bound.index(
     "(void)wan_up_internal_with_route_status(", wan_mtu_log
 )
-wan_route_err = wan_bound.index(
-    'wan_nvram_int_temp_status(\n\t\tstrcat_r(prefix, "route_err", tmp), route_setup_status);',
-    wan_route_call,
+wan_retry_publish = wan_bound.index(
+    "publish_status = dhcp_wan_bound_retry_markers_publish(", wan_route_call
 )
-wan_return = wan_bound.index("return callback_status;", wan_route_err)
+wan_return = wan_bound.index("return callback_status;", wan_retry_publish)
 require(
-    'wan_nvram_int_temp_status(\n\t\tstrcat_r(prefix, "err", tmp), i_err);' in wan_bound,
-    "WAN DHCP lease error marker must use checked NVRAM publication",
+    "i_err, route_setup_status, mtu_status," in wan_bound
+    and "wan_dhcp_retry_marker_write, prefix" in wan_bound,
+    "WAN DHCP must publish lease, route and MTU retry markers through the fail-safe writer",
 )
 require(
-    "callback_status = route_status_accumulate(callback_status, publish_status);" in wan_bound,
-    "WAN DHCP callback must preserve the first NVRAM publication failure",
+    "callback_status = dhcp_bound_callback_status(route_setup_status, mtu_status);" in wan_bound
+    and "callback_status = route_status_accumulate(callback_status, publish_status);" in wan_bound,
+    "WAN DHCP callback must retain route/MTU failure and retry-marker publication errors",
 )
 require(
     wan_mtu_condition < wan_mtu_set < wan_mtu_log < wan_route_call
-    < wan_route_err < wan_return,
-    "WAN DHCP MTU remains diagnostic-only before independent route status publication",
+    < wan_retry_publish < wan_return,
+    "WAN DHCP must attempt MTU and route setup before publishing the complete retry-marker tuple",
 )
-require("mtu_status, route_setup_status" not in wan_bound,
-        "optional WAN MTU failure must not be merged into route retry status")
+retry_marker_publish = body(RETRY_POLICY, "dhcp_wan_bound_retry_markers_publish(")
+require(
+    "if (first_status != 0)" in retry_marker_publish
+    and "(void)writer(context, marker, 1);" in retry_marker_publish
+    and "test_retry_marker_write_failure_keeps_followup_retry_latched" in RETRY_TEST
+    and "test_retry_marker_write_failure_keeps_followup_retry_latched();" in RETRY_TEST,
+    "failed DHCP retry-marker writes must latch a subsequent full reapply",
+)
 require(
     "!is_renew_mode" not in wan_bound[wan_mtu_condition - 80:wan_mtu_set],
     "changed DHCP MTU must also be applied during renew callbacks",
@@ -365,30 +374,25 @@ tv_mtu_set = viptv_bound.index(
 )
 tv_mtu_log = viptv_bound.index("MTU setup incomplete (status=%d)", tv_mtu_set)
 tv_routes = viptv_bound.index("route_result = add_dhcp_routes(", tv_mtu_log)
-tv_route_err = viptv_bound.index(
-    'wan_nvram_int_temp_status("manv_route_err", route_setup_status);',
-    tv_routes,
+tv_retry_publish = viptv_bound.index(
+    "publish_status = dhcp_wan_bound_retry_markers_publish(", tv_routes
 )
-tv_return = viptv_bound.index("return callback_status;", tv_route_err)
+tv_return = viptv_bound.index("return callback_status;", tv_retry_publish)
 require(
-    'wan_nvram_int_temp_status("manv_err", i_err);' in viptv_bound,
-    "IPTV DHCP lease error marker must use checked NVRAM publication",
+    "i_err, route_setup_status, mtu_status," in viptv_bound
+    and 'wan_dhcp_retry_marker_write, "manv_"' in viptv_bound,
+    "IPTV DHCP must publish lease, route and MTU retry markers through the fail-safe writer",
 )
 require(
     "callback_status = dhcp_bound_callback_status(route_setup_status, mtu_status);" in viptv_bound
-    and "callback_status = route_status_accumulate(route_setup_status, multicast_status);" not in viptv_bound,
-    "IPTV DHCP callback must keep multicast proxy startup separate from lease acceptance",
+    and "callback_status = route_status_accumulate(route_setup_status, multicast_status);" not in viptv_bound
+    and "callback_status = route_status_accumulate(callback_status, publish_status);" in viptv_bound,
+    "IPTV callback must retain route/MTU and marker errors while excluding multicast startup",
 )
 require(
-    "callback_status = route_status_accumulate(callback_status, publish_status);" in viptv_bound,
-    "IPTV DHCP callback must preserve the first NVRAM publication failure",
+    tv_mtu_condition < tv_mtu_set < tv_mtu_log < tv_routes < tv_retry_publish < tv_return,
+    "IPTV DHCP must attempt MTU and route setup before retry-marker publication",
 )
-require(
-    tv_mtu_condition < tv_mtu_set < tv_mtu_log < tv_routes < tv_route_err < tv_return,
-    "IPTV DHCP keeps route and MTU status in the callback while multicast is auxiliary",
-)
-require("route_status_accumulate(route_setup_status, mtu_status)" not in viptv_bound,
-        "optional IPTV MTU failure must not be merged into route retry status")
 require(
     "!is_renew_mode" not in viptv_bound[tv_mtu_condition - 80:tv_mtu_set],
     "changed IPTV DHCP MTU must also be applied during renew callbacks",

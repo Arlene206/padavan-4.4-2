@@ -3,7 +3,7 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development branch: `main` only.
-- Current main parent before this checker alignment: `43ba9c6d0f5fd86bb94ad45a6cb8bf6b6ce3dfe1`. The DHCP marker-latch source slice is `80db7072a08e98b80a7e8290040d8d2e910aff65`; this commit updates only its dependent contracts and path filters.
+- Current main parent before this initial-MTU checker alignment: `144b109054756c52822b03d76122842feb336cdb`. DHCP retry-marker production source remains `80db7072a08e98b80a7e8290040d8d2e910aff65`; this commit updates only its dependent MTU checker.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; verified unchanged. PR #1 is closed and unmerged.
 - Bootstrap/protocol restoration was already completed. Do not repeat it. Do not reopen PR #1 or modify the frozen backup.
 - Use full multi-file Git trees and one atomic commit per logical task. Update `main` only with a non-forced expected-SHA compare-and-swap. Never force-push.
@@ -53,9 +53,9 @@
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-SHA Actions for the DHCP marker-latch commit; confirm GNU89 sanitizer regression, WAN callback source contract, AI handoff check and XY-C1 build independently.
-2. Continue the next independent stability/security defect across the remaining userland rather than repeating the BusyBox ACK-state review or completed FTP/Inadyn work.
-3. Pending Actions must not block independent implementation. Keep expected-SHA atomic commits and precise L2/L3/L4 boundaries.
+1. Inspect exact-SHA WAN route rerun after the initial-MTU checker update; confirm the DHCP marker-latch and MTU source contracts, then poll XY-C1 Build/TRX/artifact steps on the current source descendant.
+2. Diagnose the unrelated USB modem and detect_internet static-contract failures from SHA `80db707` only after confirming whether their source conditions remain present.
+3. Continue independent userland stability/security work; retain exact-SHA evidence and L2/L3/L4 boundaries.
 
 ## Mandatory handoff checkpoint
 

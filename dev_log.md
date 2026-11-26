@@ -1,3 +1,8 @@
+## 2026-11-26 — Align initial WAN MTU checker with DHCP retry-marker semantics
+
+- Exact WAN route run #45832262803 on main `144b109` passed DHCP route ownership and WAN VLAN/bridge checks, then failed because `scripts/check_wan_initial_mtu_status.py` still expected the old inline `route_err` / `manv_route_err` setters.
+- Updated both normal WAN and IPTV MTU source contracts to check the shared fail-safe marker publisher, route/MTU error propagation and marker-latch regression. Missing MTU remains optional; a failed MTU application is retained as retry state rather than silently accepted on an unchanged renewal.
+
 ## 2026-11-26 — Align DHCP retry-marker source contracts across WAN route and HTTPD
 
 - Exact SHA `80db7072` exposed stale static contracts: the WAN VLAN checker and HTTPD DHCP reconciliation check still required direct inline writes to `route_err` / `manv_route_err` and `err` / `manv_err`. Those expectations were updated to validate the shared marker publisher, checked writer and persistent all-marker fallback.
