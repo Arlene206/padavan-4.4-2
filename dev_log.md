@@ -1,3 +1,11 @@
+## 2026-11-25 — Adbyby memory-helper process inventory fail-closed correction
+
+- The earlier stop-helper identity check required `/proc/PID/exe` before reading argv. Ordinary kernel threads and other empty-argv non-candidates may have no `exe` symlink; the old ordering classified unrelated entries as UNKNOWN and could block helper cleanup. The identity scan now classifies empty/nonmatching argv as ABSENT first and performs interpreter/cwd proof only for a matching helper argv. Unreadable candidate metadata remains fail-closed.
+- Added an empty-cmdline/no-exe regression, retained the exact argv/decoy/interpreter/PID start-time cases, and restored the test-file function boundary so `assert_no_cleanup()` is complete and the daemon stop suite runs exactly once.
+- Exact Adbyby run #45768481608 verifies this slice; all other exact-head workflow outcomes and XY-C1 L3 are listed in `SESSION_HANDOFF.md`. No local firmware build or hardware L4 claim.
+
+---
+
 ## 2026-11-26 — Distinguish empty proc entries from unverifiable helper candidates
 
 - Exact SHA 44217bb154c0ae26da5c866779702622fb320500 ran the complete Adbyby shell regression suite successfully, but the static contract checker rejected the fixture because it lacked an explicit empty-cmdline/no-exe case.

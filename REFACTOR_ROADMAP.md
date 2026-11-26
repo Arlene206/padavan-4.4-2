@@ -1,3 +1,10 @@
+## 2026-11-25 — Adbyby memory-helper process inventory
+
+- Process discovery reads command-line arguments before requiring an executable link, so empty/nonmatching proc entries are ABSENT non-candidates rather than UNKNOWN. Matching helper argv still requires a supported shell interpreter and, for relative invocation, verified cwd; unreadable candidate metadata remains fail-closed.
+- Added empty-cmdline/no-exe regression coverage and repaired the stop-postcondition fixture boundary. Exact-head Actions and XY-C1 status are recorded in `SESSION_HANDOFF.md`.
+
+---
+
 ## 2026-11-25 — AdGuardHome persistent working directory
 
 - AdGuardHome v0.107.48 documents `-w` as the directory for filter data, query logs and other state. The launcher previously selected volatile `/tmp/AdGuardHome`, then deleted it after every successful stop; the already-created `/etc/storage/AdGuardHome` directory was unused.

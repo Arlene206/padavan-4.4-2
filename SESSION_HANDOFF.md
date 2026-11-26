@@ -1,35 +1,39 @@
-# Session Handoff — 2026-11-26
+# Session Handoff — 2026-11-25
 
 ## Current repository state
 
-- Repository: Arlene206/padavan-4.4-2.
-- Parent main before this atomic correction: 44217bb154c0ae26da5c866779702622fb320500.
-- Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains at 72f4f157a084f8184b9597ca5bf334b8080e5807; it is read-only and must not be modified. Legacy PR #1 remains closed/unmerged.
-- Startup/bootstrap/protocol/handoff recovery has been completed once. Do not repeat startup audits or re-audit completed work.
-- Work lands directly on main as one complete Git tree and one atomic main commit per logical task, followed by non-forced expected-SHA compare-and-swap. Never force-push, create a feature branch/PR, split multi-file changes into partial commits, or mutate the backup.
+- Repository: `Arlene206/padavan-4.4-2`.
+- Live `main` HEAD: `a0fc95cce24a3e641e065d8093f60229ff136623` — latest commit repairs Adbyby memory-helper process inventory and stop-postcondition regressions.
+- Frozen backup branch `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only.
+- Bootstrap/protocol/handoff recovery was completed once. Do not repeat the initial audit or re-audit completed MiniDLNA, ZeroTier, VPN resolver, SmartDNS and HTTPD baseline tasks.
+- Publish one complete tree and one atomic commit per logical task, then a non-forced expected-SHA compare-and-swap. Never force-push or touch the backup branch.
 
 ## Active task
 
-- Adbyby optional memory-helper teardown uses exact argv, shell executable and procfs start_time identity. It revalidates PID/start_time before SIGKILL and verifies post-state; relative basename execution is accepted only when cwd equals PROG_PATH.
-- Exact SHA 44217bb154c0ae26da5c866779702622fb320500: shell syntax and all Adbyby lifecycle/download/firewall runtime fixtures passed, including exact argv/decoy checks, malformed stat, PID reuse and the prior daemon stop postcondition. The Adbyby source-contract checker then failed because the cleanly rebuilt fixture did not yet include its required empty-cmdline/non-helper case. AI handoff #45768263815 PASS; Process inventory #45768263875 PASS; HTTPD #45768263869 PASS; DNSMasq #45768263917 PASS. Process fail-closed #45768263803 and XY-C1 #45768263842 were IN_PROGRESS at last check.
-- The present correction explicitly distinguishes empty/nonmatching cmdline (non-candidate) from a matching helper argv with missing exe identity (UNKNOWN/fail-closed), and adds regression coverage for both.
+- Adbyby memory-helper identity now reads `/proc/PID/cmdline` before requiring `/proc/PID/exe`. Empty/nonmatching argv is a definite non-candidate (including kernel threads with no executable link); only exact `$PROG_PATH/admem.sh` or approved basename/relative argv proceeds to shell-interpreter and relative-cwd verification. Unreadable candidate data remains UNKNOWN and fails closed.
+- Added empty-cmdline/no-exe regression coverage and retained exact argv, decoy, wrong interpreter, PID start-time and memory-helper teardown tests. Repaired the prior malformed fixture insertion that split `assert_no_cleanup()`; the single complete daemon-stop postcondition suite now runs after the controlled helper fixture.
+- Earlier source slices remain on main: AdGuardHome persistent workdir/data retention; FTP before/after process inventory reconciliation contract; DNSMasq static-ARP file+kernel rollback; Adbyby firewall/ipset teardown postcondition verification (including bare jumps); and Ralink null-safe wireless country-code fallback. Details remain in `dev_log.md`.
 
 ## Verification boundary
 
-- Exact SHA 44217bb154c0ae26da5c866779702622fb320500: Adbyby #45768264087 FAIL at scripts/check_adbyby_hosts_config.py because the new empty-cmdline marker was missing; all preceding shell regression groups passed in that job. AI #45768263815 PASS; Process inventory #45768263875 PASS; HTTPD #45768263869 PASS; DNSMasq #45768263917 PASS; Process fail-closed #45768263803 IN_PROGRESS; XY-C1 #45768263842 IN_PROGRESS.
-- Prior SHA 937b1a96b87c82b1542794262574c6fc56733117 had Adbyby shell syntax FAIL and AI handoff FAIL; both were corrected in 44217.
-- Source predecessor 0699812f6d9cf1934c9206bd3d10dc73e2a206ac had Wireless #45767215573, Process inventory #45767215542, HTTPD #45767215454, AI docs #45767215521, Process fail-closed #45767215582 and NVRAM audit #45767215482 PASS. Its XY-C1 run #45767215486 was IN_PROGRESS at the time.
-- No local firmware build or physical-router check was run. L3 requires Build XY-C1, TRX verification and artifact upload all PASS on the same product-source SHA; physical-router L4 remains NOT VERIFIED.
+Exact-head Actions for `a0fc95cce24a3e641e065d8093f60229ff136623`:
+- XY-C1 Firmware Validation (#45768481615): PENDING; exact SHA a0fc95cce24a3e641e065d8093f60229ff136623.
+- Process inventory and lifecycle fail-closed regression (#45768481524): SUCCESS; exact SHA a0fc95cce24a3e641e065d8093f60229ff136623.
+- Adbyby download and dnsmasq configuration stability regression (#45768481608): SUCCESS; exact SHA a0fc95cce24a3e641e065d8093f60229ff136623.
+- DNSMasq lifecycle stability regression (#45768481540): SUCCESS; exact SHA a0fc95cce24a3e641e065d8093f60229ff136623.
+- HTTPD Authentication and Security Regression (#45768481520): SUCCESS; exact SHA a0fc95cce24a3e641e065d8093f60229ff136623.
+- Process lifecycle inventory - a0fc95cce24a3e641e065d8093f60229ff136623 (#45768481522): SUCCESS; exact SHA a0fc95cce24a3e641e065d8093f60229ff136623.
+- AI handoff documentation contract (#45768481504): SUCCESS; exact SHA a0fc95cce24a3e641e065d8093f60229ff136623.
+
+- Adbyby stop/postcondition run #45768481608 is the key regression run for the memory-helper and shell fixture correction.
+- XY-C1 L3 is not established until Build XY-C1, Verify TRX output and artifact upload all succeed on one exact SHA. The last previously verified full XY-C1 build was #45765008036 on SHA `7272e2bc0cf3518257aa72038af66a32b7f04923`, not this main SHA.
+- Local firmware build was NOT run. MIPS/uClibc runtime and physical-router L4 remain NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and inspect exact-SHA Adbyby, AI handoff, HTTPD, DNSMasq, Process inventory/fail-closed and XY-C1 runs for this correction. Diagnose any actual failing step and preserve fail-closed assertions.
-2. Verify Build XY-C1, TRX validation and artifact upload separately on the same product-source SHA.
-3. Continue another concrete userland stability/security fix; do not repeat completed Adbyby firewall postcondition, DNSMasq static-ARP rollback, or startup audits.
-
-# Cross-session execution mandate
-
-Continue one autonomous engineering stream on main. For every logical slice, create all blobs, one complete tree, one atomic main commit, and publish with a non-forced expected-SHA compare-and-swap. Before context exhaustion, finish the current safe slice and checkpoint its first concrete next action. Do not ask the user what to do next.
+1. Poll the exact-head XY-C1 run #45768481615 for `a0fc95cce24a3e641e065d8093f60229ff136623`; verify Build XY-C1, TRX validation and artifact upload independently. If it remains pending, work on an independent userland defect rather than waiting.
+2. Confirm exact-head Adbyby #45768481608 and the other listed checks; do not borrow pass results from parent SHAs.
+3. Continue a concrete security/stability source fix in another userland component, add regression coverage, and commit the complete logical slice atomically. Refresh this handoff after the next material result.
 
 ## Mandatory handoff checkpoint
 
