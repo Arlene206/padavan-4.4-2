@@ -1,3 +1,11 @@
+## 2026-11-26 — Enforce RFC 5908 NTP address suboption classes
+
+- Exact-SHA DHCPv6 IA run #45792959729 on `c713dbc59c566254f736d21ff1e8b06de6f2ab43` passed all six GNU89/`-Werror`/ASan/UBSan policy binaries and the complete Python source contract; AI handoff #45792959822 also PASSed.
+- Added a follow-up contract: RFC 5908 suboption 1 carries an IPv6 unicast server address, while suboption 2 carries an IPv6 multicast group address. The decoder now rejects an address whose multicast class does not match the suboption identifier. Tests cover both valid classes, both mismatches, and forward-compatible unknown suboption handling.
+- Python source checks pin the `IN6_IS_ADDR_MULTICAST()` classification at the actual parser path. Parent main: `c713dbc59c566254f736d21ff1e8b06de6f2ab43`; exact-SHA validation pending.
+
+---
+
 ## 2026-11-26 — Bound NTP parser source assertion by option case
 
 - Exact-SHA DHCPv6 IA run #45792727216 on `5ed671f2247989d48b9420f445130aae01280c94` compiled and passed all six GNU89/`-Werror`/ASan/UBSan C policy binaries. The Python source checker alone failed because its 240-character substring ended before the continuation line containing `&optinfo->ad_list`; the production decoder and C tests were not failing.

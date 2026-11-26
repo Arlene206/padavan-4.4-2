@@ -38,6 +38,11 @@ int main(void)
 	CHECK(dhcp6c_ntp_suboption_payload_length_valid(2U, 16U));
 	CHECK(!dhcp6c_ntp_suboption_payload_length_valid(1U, 15U));
 	CHECK(!dhcp6c_ntp_suboption_payload_length_valid(2U, 17U));
+	CHECK(dhcp6c_ntp_address_kind_valid(1U, 0));
+	CHECK(!dhcp6c_ntp_address_kind_valid(1U, 1));
+	CHECK(dhcp6c_ntp_address_kind_valid(2U, 1));
+	CHECK(!dhcp6c_ntp_address_kind_valid(2U, 0));
+	CHECK(dhcp6c_ntp_address_kind_valid(99U, 1));
 	CHECK(dhcp6c_ntp_suboption_payload_length_valid(3U, 1U));
 	CHECK(!dhcp6c_ntp_suboption_payload_length_valid(3U, 0U));
 	CHECK(dhcp6c_ntp_suboption_payload_length_valid(99U, 0U));

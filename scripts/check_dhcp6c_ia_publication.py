@@ -225,6 +225,7 @@ assert "D6_NTP_SUBOPT_SRV_MC_ADDR" in ntp_parser
 assert "D6_NTP_SUBOPT_SRV_FQDN" in ntp_parser
 assert "dhcp6c_ntp_suboption_wire_length_valid(remaining,sublen)" in ntp_parser_compact
 assert "dhcp6c_ntp_suboption_payload_length_valid(suboption,sublen)" in ntp_parser_compact
+assert "dhcp6c_ntp_address_kind_valid(suboption,IN6_IS_ADDR_MULTICAST(&address))" in ntp_parser_compact
 assert "dhcp6c_ntp_time_source_claim(suboption,&source_seen)" in ntp_parser_compact
 assert "dhcp6_get_domain((int)sublen,p,D6_OPT_NTP_SERVER,list)" in ntp_parser_compact
 assert "dhcp6_add_listval(list,D6_OPT_NTP_SERVER,DHCP6_LISTVAL_ADDR6,&address,NULL)" in ntp_parser_compact
@@ -237,6 +238,7 @@ assert "D6_OPT_NTP_SERVER" not in outer_options[outer_options.index("case D6_OPT
 assert "DHCPv6 option bounds and NTP suboption policy: PASS" in bounds_test
 assert "dhcp6c_ntp_suboption_wire_length_valid" in bounds_policy
 assert "dhcp6c_ntp_suboption_payload_length_valid" in bounds_policy
+assert "dhcp6c_ntp_address_kind_valid" in bounds_policy
 assert "dhcp6c_ntp_time_source_claim" in bounds_policy
 
 for option_parser in (outer_options, nested_options):

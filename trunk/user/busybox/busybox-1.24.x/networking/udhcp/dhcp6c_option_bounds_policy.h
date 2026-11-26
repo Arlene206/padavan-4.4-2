@@ -46,6 +46,20 @@ dhcp6c_ntp_suboption_wire_length_valid(size_t remaining, size_t payload_size)
 	return remaining >= 4U && payload_size <= remaining - 4U;
 }
 
+/* RFC 5908 distinguishes unicast and multicast address suboption types. */
+static inline int
+dhcp6c_ntp_address_kind_valid(unsigned int suboption, int is_multicast)
+{
+	switch (suboption) {
+	case 1U:
+		return !is_multicast;
+	case 2U:
+		return is_multicast;
+	default:
+		return 1;
+	}
+}
+
 /* Server address, multicast address and FQDN are the known time sources. */
 static inline int
 dhcp6c_ntp_suboption_payload_length_valid(unsigned int suboption,

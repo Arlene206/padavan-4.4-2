@@ -446,6 +446,9 @@ static int dhcp6_get_ntp_server(int optlen, void *cp,
 			struct in6_addr address;
 
 			memcpy(&address, p, sizeof(address));
+			if (!dhcp6c_ntp_address_kind_valid(suboption,
+						    IN6_IS_ADDR_MULTICAST(&address)))
+				return -1;
 			if (!dhcp6_find_listval(list, D6_OPT_NTP_SERVER,
 						&address, MATCHLIST_DH6OPTYPE) &&
 			    dhcp6_add_listval(list, D6_OPT_NTP_SERVER,
