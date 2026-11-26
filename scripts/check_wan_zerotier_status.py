@@ -189,8 +189,8 @@ require(
 require(
     'if ! zerotier_static_route_state_preflight_cleanup; then' in start_zero
     and 'if ! zerotier_static_route_state_preflight_cleanup; then' in stop_zero
-    and 'return 1;' in start_zero
-    and 'return 1;' in stop_zero,
+    and 'return 1' in start_zero
+    and 'return 1' in stop_zero,
     "start_zero and stop_zero must abort when static-route cleanup preflight is ambiguous",
 )
 require(
