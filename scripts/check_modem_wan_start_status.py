@@ -1630,7 +1630,8 @@ assert qmi_stop.count("get_qmi_handle(QMI_CLIENT_ID)") == 1
 assert "snprintf(client_id_arg,sizeof(client_id_arg),\"wds,%d\",qmi_client_id)" in qmi_stop
 assert qmi_stop.index("\"--set-client-id\",client_id_arg") < qmi_stop.index("\"--stop-network\"")
 assert qmi_stop.index("modem_qmi_stop_preflight(") < qmi_stop.index("\"--stop-network\"")
-assert "if(!stop_required)return0;" in qmi_stop
+stop_guard = qmi_stop.index("if(!stop_required){")
+assert stop_guard < qmi_stop.index("return0;", stop_guard) < qmi_stop.index("snprintf(client_id_arg,", stop_guard)
 assert "test_qmi_stop_preflight_uses_only_the_persisted_wds_client_id" in WAN_TEST
 assert "modem_qmi_stop_preflight" in POLICY_SOURCE
 print("QMI stop reuses the persisted WDS CID and fails closed without session ownership: PASS")
