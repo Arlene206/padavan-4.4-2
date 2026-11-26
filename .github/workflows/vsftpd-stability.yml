@@ -636,7 +636,8 @@ jobs:
           assert "ftp_acl_path_build_child_path(resolved_base, p_filename, fullpath" in acl_visible
           assert "listing_entry_stat = entry_stat;" in acl_visible
           assert "ftp_acl_path_listing_directory_entry_is_current" in acl_visible
-          assert "ftp_acl_path_listing_directory_entry_is_current(directory_fd, p_filename, &listing_entry_stat, fullpath)" in normalized_acl_visible
+          assert "ftp_acl_path_listing_directory_entry_is_current( directory_fd, p_filename, &listing_entry_stat, fullpath)" in normalized_acl_visible
+          assert listing_visibility.index("asus_check_permission_at(p_sess, PERM_READ, resolved_entry)") < listing_visibility.index("ftp_acl_path_listing_directory_entry_is_current(")
           assert "fstatat(dir_fd, leaf, &followed, 0)" in listing_directory_entry
           assert "fstatat(dir_fd, leaf, &current, AT_SYMLINK_NOFOLLOW)" in listing_directory_entry
           assert "expected_entry->st_dev != current.st_dev" in listing_directory_entry
