@@ -1136,6 +1136,8 @@ int dhcp6_get_options(struct dhcp6opt *p, struct dhcp6opt *ep,
 			break;
 
 		case D6_OPT_RECONF_ACCEPT:
+			if (!dhcp6c_option_zero_payload_length_valid((size_t)optlen))
+				goto malformed;
 			/* Silently ignore unsupported feature */
 			break;
 

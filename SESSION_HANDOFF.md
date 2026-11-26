@@ -3,7 +3,7 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development on `main` only.
-- Parent `main` for this DHCPv6 parser slice: `9ac2adf871a85e91a2a05518e47aba18c99df9be`.
+- Parent `main` for this DHCPv6 option-framing slice: `d739b7f409e57e9b7bbdfa85b7abfacbd8e5804d`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify/delete. PR #1 remains closed/unmerged.
 - Bootstrap/protocol recovery was completed earlier; do not repeat it.
 
@@ -11,6 +11,7 @@
 
 - P1 DHCPv6 parser allocation safety. CLIENTID, SERVERID, RELAY_MSG and INTERFACE_ID are stored in one vbuf slot per option type. Before this slice, duplicate options overwrote an existing allocated pointer and silently used the last value. The decoder now rejects a duplicate before allocating again; its malformed-option path calls `dhcp6_clear_options()` to free the first allocation.
 - Added a shared vbuf-unset predicate and four boundary cases (NULL/zero, non-NULL/zero, populated, NULL/nonzero). The Python source contract pins all four production guards and verifies parser-failure cleanup. The DHCPv6 IA workflow already includes these files in push/PR filters and compiles/runs the policy regression.
+- DHCPv6 Reconfigure Accept (option 20) is a zero-payload option. The decoder previously ignored this known option without checking its declared payload length; it now rejects non-empty payloads before silently ignoring the unsupported feature. Added zero/one/maximum-size policy tests and a source contract pinning the production branch.
 - Adjacent WAN6 fixes already on main: empty caller-interface teardown guard; SIT owner-record IFNAMSIZ bound; strict SIT gateway literal validation; strict DHCP 6rd relay literal validation; static and DHCPv6 DNS literal validation; first-error aggregation during delegated-prefix cleanup.
 
 ## 2026-11-26 implementation continuation — DHCPv6 cleanup shutdown
@@ -32,16 +33,17 @@
 
 ## Verification boundary
 
-- Parent `89b80f1505508bb8ae96466cfe5d0c7587a6be67`: all 11 exact-SHA Actions PASS. WAN DHCP #45785983731, WAN route #45785983765, DHCPv6 IA #45785983610, AI #45785983636, HTTPD #45785983585, NVRAM #45785983758, process #45785983770, 6rd #45785983604, service type #45785983716, WAN DNS #45785983910 and XY-C1 #45785983682. XY Build, TRX verification and artifact upload all PASS; artifact #15101485510 (12,823,157 bytes). This is the last confirmed product-source L3 baseline.
-- Parent `21d71c59e186de568492b0f31e4518396ed63b35`: WAN DHCP #45787666271, WAN route #45787666333, AI #45787666397, 6rd #45787666495, WAN DNS #45787666335, HTTPD #45787666332, process #45787666517, service type #45787666373 and DHCPv6 IA #45787666291 PASS. NVRAM #45787666341 and XY-C1 #45787666437 were in progress at the last check.
-- Parent `9ac2adf871a85e91a2a05518e47aba18c99df9be`: latest Process #45788196355, XY-C1 #45788196523, AI #45788196513, NVRAM #45788196283, DHCPv6 IA #45788196340, WAN DHCP #45788196312 and USB hotplug #45788196181 were queued/in progress at last inspection. Inspect exact conclusions before treating any as verified.
-- No local repository checkout is available (Git clone failed because github.com could not resolve); no local full repository suite or firmware build is claimed. Physical router L4 remains NOT VERIFIED.
+- Parent `78205c10fb71cfb962917e65261fa499c0548573`: DHCPv6 IA #45790398561 PASS, including the GNU89/`-Werror`/ASan/UBSan C policy binaries and complete Python source contract; AI handoff #45790398455 PASS.
+- Parent `48bec7b6ac28ea93394467d6814023884eadfa1c`: WAN DHCP callback #45790261953 PASS with the corrected 16-second non-forced stop source contract.
+- Handoff-only parent `d739b7f409e57e9b7bbdfa85b7abfacbd8e5804d`: AI handoff #45790741509 was in progress at the last poll. The Reconfigure Accept parser edge added in this commit requires exact-head DHCPv6 IA revalidation.
+- Latest fully verified product-source L3 baseline remains `89b80f1505508bb8ae96466cfe5d0c7587a6be67`: same-SHA Build XY-C1, TRX verification and artifact upload all PASS (artifact #15101485510, 12,823,157 bytes). Later production source changes are not yet shown to pass all three on one SHA. Physical router L4 NOT VERIFIED.
+- No local repository checkout/full firmware build is available because the shell environment cannot resolve GitHub. Do not claim local full-suite or hardware verification.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`; confirm exact-head DHCPv6 IA and AI workflow results for `78205c1`, and inspect WAN DHCP #45790261953 PASS from `48bec7b` (same product source; workflow contract tested there).
-2. Inspect XY-C1 #45789833788 on product-source SHA `a0fa423`: require `Build XY-C1`, `Verify TRX output` and artifact upload all PASS before L3. Persistent cleanup failure must not force-kill `dhcp6c`; normal stop must not advance callback generation on timeout.
-3. Continue the remaining DHCPv6 state-machine/callback live-transition audit after shutdown draining is validated. Hardware L4 remains NOT VERIFIED.
+1. Fetch live `main` and inspect exact-head DHCPv6 IA and AI Actions for the Reconfigure Accept parser change. Confirm the new zero-length policy regression and source contract pass.
+2. Recheck the latest product-source XY-C1 run; only same-SHA Build XY-C1, Verify TRX output and artifact upload all PASS advances L3. Pending/skipped is not PASS.
+3. Continue the DHCPv6 parser/state-machine audit for further confirmed malformed-option or cleanup defects. Implement with focused regressions and exact-SHA Actions.
 
 ## Mandatory handoff checkpoint
 

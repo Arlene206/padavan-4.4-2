@@ -211,6 +211,13 @@ for option_buffer in (
 assert outer_options.count("dhcp6c_option_vbuf_is_unset(") == 4
 assert "dhcp6_clear_options(optinfo);" in outer_options
 
+reconf_accept_start = outer_options.index("case D6_OPT_RECONF_ACCEPT:")
+reconf_accept_end = outer_options.index("default:", reconf_accept_start)
+reconf_accept = outer_options[reconf_accept_start:reconf_accept_end]
+assert ("dhcp6c_option_zero_payload_length_valid((size_t)optlen)" in
+        "".join(reconf_accept.split()))
+assert "Reconfigure Accept has a mandatory zero-length payload" in bounds_test
+
 for option_parser in (outer_options, nested_options):
     assert "for (; (char *)p < (char *)ep; p = np)" in option_parser
     assert "for (; p + 1 <= ep; p = np)" not in option_parser

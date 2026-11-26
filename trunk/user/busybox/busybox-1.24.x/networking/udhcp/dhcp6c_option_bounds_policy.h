@@ -27,6 +27,16 @@ dhcp6c_datagram_length_fits(size_t received_size, size_t buffer_size)
 }
 
 /*
+ * DHCP6 Reconfigure Accept carries no payload. Reject malformed non-empty
+ * instances even though this client does not otherwise implement the feature.
+ */
+static inline int
+dhcp6c_option_zero_payload_length_valid(size_t payload_size)
+{
+	return payload_size == 0;
+}
+
+/*
  * Client/server IDs, relay messages and interface IDs each have one vbuf slot
  * in dhcp6_optinfo. Reject duplicates instead of overwriting an owned buffer.
  */

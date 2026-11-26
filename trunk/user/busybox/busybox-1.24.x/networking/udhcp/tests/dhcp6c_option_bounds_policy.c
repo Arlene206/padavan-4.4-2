@@ -24,6 +24,10 @@ int main(void)
 	CHECK(dhcp6c_datagram_length_fits(8192U, 8192U));
 	CHECK(!dhcp6c_datagram_length_fits(8193U, 8192U));
 	CHECK(!dhcp6c_datagram_length_fits((size_t)-1, 8192U));
+	/* DHCP6 Reconfigure Accept has a mandatory zero-length payload. */
+	CHECK(dhcp6c_option_zero_payload_length_valid(0U));
+	CHECK(!dhcp6c_option_zero_payload_length_valid(1U));
+	CHECK(!dhcp6c_option_zero_payload_length_valid((size_t)-1));
 	/* Singleton option buffer policy: reject a second owned vbuf. */
 	{
 		char existing[1] = {0};

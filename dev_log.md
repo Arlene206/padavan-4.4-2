@@ -1,3 +1,12 @@
+## 2026-11-26 — Reject malformed DHCPv6 Reconfigure Accept payload
+
+- DHCPv6 Reconfigure Accept (option 20) is defined with no payload. The outer option parser previously silently ignored this known option after applying only the option table minimum length (zero), so it accepted malformed non-empty instances.
+- Added a production zero-payload check before ignoring the unsupported feature. The existing GNU89/ASan/UBSan option policy regression now covers zero, one and maximum-size payload lengths; the Python source contract pins the actual `D6_OPT_RECONF_ACCEPT` parser branch.
+- The existing DHCPv6 IA workflow path filters and test step already cover every changed source/policy/test/checker file. Exact-head validation pending after commit; no local repo checkout or full build is available.
+- Parent main: `d739b7f409e57e9b7bbdfa85b7abfacbd8e5804d`; resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-26 — Exact-SHA DHCPv6 shutdown policy and source contract PASS
 
 - DHCPv6 IA workflow #45790398561 on exact source/checker SHA `78205c10fb71cfb962917e65261fa499c0548573` PASSed: all GNU89/`-Werror`/ASan/UBSan C policy regressions and the complete Python source contract passed. AI handoff workflow #45790398455 also PASSed.
