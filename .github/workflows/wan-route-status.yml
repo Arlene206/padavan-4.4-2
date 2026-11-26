@@ -1050,22 +1050,24 @@ jobs:
           fib_create = body(fib_semantics, "fib_create_info(struct fib_config *cfg)")
           assert "ofi = fib_find_info(fi);" in fib_create and "return ofi;" in fib_create
           
-          dynamic = body(wan, "control_dhcp_routes(char *rt, char *rt_rfc, char *rt_ms,")
+          dynamic = body(wan, "control_dhcp_routes(char *owner,")
           assert "static int\ncontrol_dhcp_routes(" in wan
           assert dynamic.count("route_status_accumulate(status, route_status)") == 2
           assert dynamic.count("strdup(") == 2
           assert dynamic.count("status = route_status_accumulate(status, ENOMEM);") == 2
-          assert dynamic.count("route_status = is_add ?") == 2
+          assert dynamic.count("route_status = dhcp_route_add_owned(") == 2
+          assert "dhcp_route_cleanup_owned(owner, ifname, metric)" in dynamic
+          assert "route_del(" not in dynamic
           assert "return status;" in dynamic and "errno == ERANGE" in dynamic
           assert "return;" not in dynamic
           
           wrappers = (
               ("add_dhcp_routes(char *rt, char *rt_rfc, char *rt_ms, char *ifname, int metric)",
-               "return control_dhcp_routes(rt, rt_rfc, rt_ms, ifname, metric, 1);"),
+               'return control_dhcp_routes("manv_", rt, rt_rfc, rt_ms,'),
               ("add_dhcp_routes_by_prefix(char *prefix, char *ifname, int metric)",
-               "return add_dhcp_routes(rt, rt_rfc, rt_ms, ifname, metric);"),
+               "return control_dhcp_routes(prefix, rt, rt_rfc, rt_ms,"),
               ("del_dhcp_routes_by_prefix(char *prefix, char *ifname, int metric)",
-               "return control_dhcp_routes(rt, rt_rfc, rt_ms, ifname, metric, 0);"),
+               "return control_dhcp_routes(prefix, NULL, NULL, NULL,"),
           )
           for signature, expected in wrappers:
               assert "int\n" + signature in wan

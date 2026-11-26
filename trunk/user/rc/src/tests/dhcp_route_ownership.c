@@ -57,6 +57,7 @@ main(void)
 	struct fake_routes fake;
 	struct stat st;
 	int fd;
+	unsigned int delete_before;
 
 	assert(mkdtemp(directory) != NULL);
 	assert(snprintf(path, sizeof(path), "%s/owned.routes", directory) > 0);
@@ -99,12 +100,16 @@ main(void)
 	assert(fake.delete_count == 2);
 
 	/* Identical interface/metric contexts remain isolated by DHCP owner. */
+	fake.add_status = 0;
 	assert(dhcp_route_ownership_add(path, &route, fake_add, fake_delete, &fake) == 0);
 	assert(dhcp_route_ownership_add(path, &other, fake_add, fake_delete, &fake) == 0);
+	delete_before = fake.delete_count;
 	assert(dhcp_route_ownership_cleanup(path, "wan0_", "eth2", 0,
 					    fake_delete, &fake) == 0);
+	assert(fake.delete_count == delete_before + 1U);
 	assert(dhcp_route_ownership_cleanup(path, "manv_", "eth2", 0,
 					    fake_delete, &fake) == 0);
+	assert(fake.delete_count == delete_before + 2U);
 
 	/* Malformed/symlink state fails closed without invoking route deletion. */
 	fd = open(victim, O_WRONLY | O_CREAT | O_EXCL, 0600);
@@ -113,7 +118,7 @@ main(void)
 	assert(close(fd) == 0);
 	assert(symlink(victim, link_path) == 0);
 	fake.delete_count = 0;
-	assert(dhcp_route_ownership_cleanup(link_path, "eth2", 0,
+	assert(dhcp_route_ownership_cleanup(link_path, "wan0_", "eth2", 0,
 					    fake_delete, &fake) != 0);
 	assert(fake.delete_count == 0);
 

@@ -609,7 +609,7 @@ jobs:
           assert "add_dhcp_routes_by_prefix" in restore_routes
           assert "route_context.restore_host_route = remove_old_host_route;" in callback
           assert 'route_context.restore_host_route = 0;' in viptv_bound
-          control_routes = body(source, "control_dhcp_routes(char *rt")
+          control_routes = body(source, "control_dhcp_routes(char *owner")
           assert control_routes.count("dhcp_lease_route_add_is_ok(route_status)") == 2
           assert control_routes.count("dhcp_lease_route_delete_is_ok(route_status)") == 2
           gateway_state = callback.index("bound_names[WAN_DHCP_BOUND_GATEWAY], gateway_buf")
