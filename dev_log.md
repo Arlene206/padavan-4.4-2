@@ -1,3 +1,11 @@
+## 2026-11-26 — Distinguish empty proc entries from unverifiable helper candidates
+
+- Exact SHA 44217bb154c0ae26da5c866779702622fb320500 ran the complete Adbyby shell regression suite successfully, but the static contract checker rejected the fixture because it lacked an explicit empty-cmdline/no-exe case.
+- Preserve the fail-closed boundary: empty or nonmatching argv is definitely not the optional helper, while a matching helper argv without an executable symlink remains UNKNOWN and must not be signalled. Added dedicated regressions for both conditions and aligned the checker.
+- On 44217bb, AI handoff, HTTPD, DNSMasq and Process inventory passed; Adbyby static contract failed only on the missing marker. Process fail-closed and XY-C1 were still running at checkpoint.
+
+---
+
 ## 2026-11-26 — Correct Adbyby memory-helper procfs enumeration and CI fixture
 
 - Exact SHA 937b1a96b87c82b1542794262574c6fc56733117 exposed two CI issues: Adbyby #45767811658 stopped at a malformed generated stop-test function block, and AI docs #45767811515 required the exact mandatory handoff checkpoint sentence.

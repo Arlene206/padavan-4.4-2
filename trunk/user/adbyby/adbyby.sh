@@ -382,7 +382,7 @@ adbyby_mem_process_identity()
 		return 1
 	fi
 	# Only a matching argv candidate needs executable and cwd validation.
-	[ -L "$adbyby_mem_identity_dir/exe" ] || return 1
+	[ -L "$adbyby_mem_identity_dir/exe" ] || return 2
 	adbyby_mem_exe=$(readlink "$adbyby_mem_identity_dir/exe" 2>/dev/null) || return 2
 	case "$adbyby_mem_exe" in
 		*/sh|*/ash|*/bash|*/dash|*/busybox|*/sh\ \(deleted\)|*/ash\ \(deleted\)|*/bash\ \(deleted\)|*/dash\ \(deleted\)|*/busybox\ \(deleted\)) ;;

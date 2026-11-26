@@ -144,6 +144,13 @@ adbyby_test_add_mem_process()
 	fi
 }
 
+: > "$events_file"
+adbyby_stop_mem_helper || fail "empty non-helper cmdline blocked memory-helper stop"
+if grep -E '^mem_helper_kill:' "$events_file" >/dev/null; then
+	fail "empty non-helper cmdline was signalled"
+fi
+echo "Adbyby memory-helper ignores empty non-candidate cmdline without exe: PASS"
+
 adbyby_test_add_mem_process 321 /bin/busybox "$PROG_PATH/admem.sh" 4000
 adbyby_test_add_mem_process 322 /bin/busybox /tmp/unrelated/admem.sh 4001
 adbyby_test_add_mem_process 323 /bin/sleep "$PROG_PATH/admem.sh" 4002
@@ -157,6 +164,14 @@ adbyby_stop_mem_helper || fail "exact memory-helper cleanup failed"
 [ "$(event_count 'mem_helper_kill:322')" -eq 0 ] || fail "unrelated script path received SIGKILL"
 [ "$(event_count 'mem_helper_kill:323')" -eq 0 ] || fail "non-shell decoy received SIGKILL"
 echo "Adbyby memory-helper exact argv/executable identity and decoy rejection: PASS"
+adbyby_test_add_mem_process 327 /bin/busybox "$PROG_PATH/admem.sh" 4030
+rm -f "$ADBYBY_PROC_ROOT/327/exe"
+: > "$events_file"
+if adbyby_stop_mem_helper; then fail "matching helper argv without executable identity was accepted"; fi
+[ "$(event_count 'mem_helper_kill:327')" -eq 0 ] || fail "helper without executable identity was signalled"
+rm -rf "$ADBYBY_PROC_ROOT/327"
+echo "Adbyby memory-helper matching argv with missing exe metadata fails closed: PASS"
+
 
 # A matching argv with malformed proc metadata is UNKNOWN and blocks signal.
 adbyby_test_add_mem_process 325 /bin/busybox "$PROG_PATH/admem.sh" 4010
