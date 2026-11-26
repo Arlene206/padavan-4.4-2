@@ -31,6 +31,7 @@
 
 #include "rc.h"
 #include "ralink_config_file.h"
+#include "ralink_country_region_policy.h"
 #include "wireless_ioctl_policy.h"
 #include "wireless_radio_policy.h"
 
@@ -51,12 +52,7 @@ static const struct regspec_t {
 	{ "NCC2", 0,  3 }, // 7
 };
 
-static const struct cc_t {
-	const char *cc;
-	unsigned char cc_2g;
-	unsigned char cc_5g;
-	unsigned char regspec_idx;
-} ralink_cc_table[] = {
+static const ralink_country_region_entry_t ralink_cc_table[] = {
 	{ "AE",  1,  0,  0 },
 	{ "AL",  1,  0,  0 },
 	{ "AR",  1,  3,  0 },
@@ -500,19 +496,9 @@ get_country_regspec(const char *cc)
 static int
 get_country_region(const char *cc, int is_aband)
 {
-	int i, i_code = 1;
-
-	for (i = 0; i < ARRAY_SIZE(ralink_cc_table); i++) {
-		if (strcasecmp(ralink_cc_table[i].cc, cc) == 0) {
-			if (is_aband)
-				i_code = (int)ralink_cc_table[i].cc_5g;
-			else
-				i_code = (int)ralink_cc_table[i].cc_2g;
-			break;
-		}
-	}
-
-	return i_code;
+	return ralink_country_region_lookup(cc, is_aband,
+					    ralink_cc_table,
+					    ARRAY_SIZE(ralink_cc_table));
 }
 
 static int
@@ -733,7 +719,8 @@ gen_ralink_config(int is_soc_ap, int is_aband, int disable_autoscan)
 	fprintf(fp, "#The word of \"Default\" must not be removed\nDefault\n");
 
 	//CountryRegion
-	p_str = nvram_wlan_get(0, "country_code");
+	p_str = ralink_country_code_normalize(
+		nvram_wlan_get(0, "country_code"));
 	i_val = get_country_region(p_str, 0);
 	fprintf(fp, "CountryRegion=%d\n", i_val);
 
@@ -756,7 +743,8 @@ gen_ralink_config(int is_soc_ap, int is_aband, int disable_autoscan)
 	}
 
 	//CountryRegion for A band
-	p_str = nvram_wlan_get(1, "country_code");
+	p_str = ralink_country_code_normalize(
+		nvram_wlan_get(1, "country_code"));
 	i_val = get_country_region(p_str, 1);
 	fprintf(fp, "CountryRegionABand=%d\n", i_val);
 
@@ -769,9 +757,8 @@ gen_ralink_config(int is_soc_ap, int is_aband, int disable_autoscan)
 		sku_transaction_active = 1;
 
 	//CountryCode
-	p_str = nvram_wlan_get(is_aband, "country_code");
-	if (strlen(p_str) != 2)
-		p_str = "GB";
+	p_str = ralink_country_code_normalize(
+		nvram_wlan_get(is_aband, "country_code"));
 	fprintf(fp, "CountryCode=%s\n", p_str);
 
 	//ChannelGeography (Indoor+Outdoor)

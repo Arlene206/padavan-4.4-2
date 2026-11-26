@@ -8,6 +8,8 @@ on:
       - "trunk/user/rc/src/ralink.c"
       - "trunk/user/rc/src/tests/ralink_config_file.c"
       - "trunk/user/rc/src/ralink_config_file.h"
+      - "trunk/user/rc/src/ralink_country_region_policy.h"
+      - "trunk/user/rc/src/tests/ralink_country_region_policy.c"
       - "trunk/user/rc/src/net_wan.c"
       - "trunk/user/rc/src/net_lan.c"
       - "scripts/check_guest_lan_isolation_status.py"
@@ -30,6 +32,8 @@ on:
       - "trunk/user/rc/src/ralink.c"
       - "trunk/user/rc/src/tests/ralink_config_file.c"
       - "trunk/user/rc/src/ralink_config_file.h"
+      - "trunk/user/rc/src/ralink_country_region_policy.h"
+      - "trunk/user/rc/src/tests/ralink_country_region_policy.c"
       - "trunk/user/rc/src/net_wan.c"
       - "trunk/user/rc/src/net_lan.c"
       - "scripts/check_guest_lan_isolation_status.py"
@@ -64,6 +68,8 @@ jobs:
             trunk/user/rc/src/tests/ralink_config_file.c \
             -o /tmp/ralink-config-file
           ASAN_OPTIONS=detect_leaks=1 /tmp/ralink-config-file
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer -I trunk/user/rc/src trunk/user/rc/src/tests/ralink_country_region_policy.c -o /tmp/ralink-country-region-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/ralink-country-region-policy
           cc -std=gnu89 -Wall -Wextra -Werror \
             -I trunk/user/shared/src \
             trunk/user/shared/src/tests/bridge_membership_policy.c \
@@ -1081,6 +1087,8 @@ jobs:
               "trunk/user/rc/src/net_wifi.c",
               "trunk/user/rc/src/ralink.c",
               "trunk/user/rc/src/ralink_config_file.h",
+              "trunk/user/rc/src/ralink_country_region_policy.h",
+              "trunk/user/rc/src/tests/ralink_country_region_policy.c",
               "trunk/user/rc/src/tests/ralink_config_file.c",
               "trunk/user/rc/src/net_wan.c",
               "trunk/user/shared/src/netutils.c",
@@ -1097,6 +1105,27 @@ jobs:
               assert push_filters.count(path) == 1, f"push path filter missing or duplicated: {path}"
               assert pr_filters.count(path) == 1, f"pull_request path filter missing or duplicated: {path}"
 
+
+          country_policy = (rc / "ralink_country_region_policy.h").read_text()
+          country_test = (rc / "tests/ralink_country_region_policy.c").read_text()
+          country_lookup = function_body(
+              ralink_source,
+              "get_country_region(const char *cc, int is_aband)")
+          assert "ralink_country_region_lookup(cc, is_aband," in country_lookup
+          assert "if (!cc || !*cc || !table)" in country_policy
+          assert "if (!cc || strlen(cc) != 2)" in country_policy
+          assert "test_missing_and_unknown_country_codes_use_default" in country_test
+          assert "test_country_code_normalization_is_null_safe" in country_test
+          sku_config = function_body(
+              ralink_source,
+              "gen_ralink_config(int is_soc_ap, int is_aband, int disable_autoscan)")
+          sku_config_compact = "".join(sku_config.split())
+          for country_read in (
+              'ralink_country_code_normalize(nvram_wlan_get(0,"country_code"))',
+              'ralink_country_code_normalize(nvram_wlan_get(1,"country_code"))',
+              'ralink_country_code_normalize(nvram_wlan_get(is_aband,"country_code"))',
+          ):
+              assert sku_config_compact.count(country_read) == 1
 
           sku_link = function_body(ralink_source, "symlink_sku_file(")
           sku_link_compact = "".join(sku_link.split())

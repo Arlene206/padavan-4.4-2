@@ -1,3 +1,11 @@
+## 2026-11-26 — Make Ralink country-code fallback safe for missing NVRAM values
+
+- `gen_ralink_config()` passed `nvram_wlan_get(..., "country_code")` directly to `get_country_region()`, which called `strcasecmp()` without a NULL guard. The same NVRAM pointer was later passed directly to `strlen()`. An unset WLAN country-code value could therefore crash RC during wireless configuration generation instead of using the existing GB/region-1 fallback.
+- Added a shared policy that safely returns region 1 for NULL, empty or unknown country codes, preserves case-insensitive band-specific table lookup, and normalizes missing/non-two-character country strings to the legacy `GB` output. Both band lookups and emitted CountryCode now use the safe normalization path.
+- GNU89/Werror/ASan/UBSan regression covers NULL/empty/unknown codes, null tables, zero-length tables, case-insensitive known codes, distinct 2.4/5 GHz regions, and CountryCode fallback. The wireless workflow now triggers for the policy header/test and asserts source wiring. Exact-head Wireless/Process/XY-C1 validation pending.
+
+---
+
 ## 2026-11-26 — Detect bare Adbyby firewall jumps during teardown
 
 - Review of the newly added residual-rule matcher found a valid rulespec it could miss: `-A PREROUTING -j ADBYBY` has no options between the source chain and `-j`, while the original regex required an extra token (and therefore two spaces around the empty match). A leftover rule like this could escape the postcondition if its chain declaration is not present in the captured output.
