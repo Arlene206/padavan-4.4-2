@@ -1,0 +1,39 @@
+name: DHCP relay client response destination policy regression
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/udhcp-relay-client-dest-policy.yml"
+      - "trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcprelay.c"
+      - "trunk/user/busybox/busybox-1.24.x/networking/udhcp/udhcp_relay_client_dest_policy.h"
+      - "trunk/user/busybox/busybox-1.24.x/networking/udhcp/tests/dhcprelay_client_dest_policy.c"
+      - "scripts/check_udhcp_relay_client_dest_policy.py"
+  pull_request:
+    paths:
+      - ".github/workflows/udhcp-relay-client-dest-policy.yml"
+      - "trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcprelay.c"
+      - "trunk/user/busybox/busybox-1.24.x/networking/udhcp/udhcp_relay_client_dest_policy.h"
+      - "trunk/user/busybox/busybox-1.24.x/networking/udhcp/tests/dhcprelay_client_dest_policy.c"
+      - "scripts/check_udhcp_relay_client_dest_policy.py"
+
+permissions:
+  contents: read
+
+jobs:
+  dhcprelay-client-dest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and run GNU89 ASan/UBSan destination regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer \
+            -Itrunk/user/busybox/busybox-1.24.x/networking/udhcp \
+            trunk/user/busybox/busybox-1.24.x/networking/udhcp/tests/dhcprelay_client_dest_policy.c \
+            -o /tmp/dhcprelay_client_dest_policy_test
+          ASAN_OPTIONS=detect_leaks=1:abort_on_error=1 \
+            /tmp/dhcprelay_client_dest_policy_test
+      - name: Verify response destination integration
+        run: python3 scripts/check_udhcp_relay_client_dest_policy.py

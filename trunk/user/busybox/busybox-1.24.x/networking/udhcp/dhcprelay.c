@@ -21,6 +21,7 @@
 #include "udhcp_relay_select_fd_policy.h"
 #include "udhcp_relay_bootrequest_policy.h"
 #include "udhcp_relay_reply_policy.h"
+#include "udhcp_relay_client_dest_policy.h"
 #include "udhcp_relay_select_error_policy.h"
 
 #define SERVER_PORT    67
@@ -273,6 +274,7 @@ static void pass_to_client(struct dhcp_packet *p, int packet_len, int *fds)
 {
 	int type;
 	struct xid_item *item;
+	struct sockaddr_in client_dest;
 
 	/* Reject other opcodes before parsing options or looking up a transaction. */
 	if (!udhcp_relay_is_bootreply(p->op)) {
@@ -287,15 +289,21 @@ static void pass_to_client(struct dhcp_packet *p, int packet_len, int *fds)
 
 	/* Match the complete relay transaction, not just the random xid. */
 	item = xid_find(p);
-	if (!item) {
+	if (NULL == item)
 		return;
-	}
+
+	client_dest = item->ip;
+	client_dest.sin_port = htons(CLIENT_PORT);
+	client_dest.sin_addr.s_addr = udhcp_relay_client_destination(
+		item->ip.sin_addr.s_addr, p->ciaddr, p->yiaddr,
+		(0 != (ntohs(p->flags) & 0x8000)), (DHCPNAK == type));
+	
 
 //TODO: also do it if (p->flags & htons(BROADCAST_FLAG)) is set!
 	if (item->ip.sin_addr.s_addr == htonl(INADDR_ANY))
 		item->ip.sin_addr.s_addr = htonl(INADDR_BROADCAST);
 
-	if (udhcp_relay_send_result_ok(sendto_ip4(fds[item->client], p, packet_len, &item->ip))) {
+	if (udhcp_relay_send_result_ok(sendto_ip4(fds[item->client], p, packet_len, &client_dest))) {
 		xid_del_item(item);
 	} else {
 		log1("Unable to forward DHCP reply; retaining transaction for retry");

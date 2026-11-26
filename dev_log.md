@@ -1,3 +1,13 @@
+## 2026-11-25 — Route DHCP relay replies to a usable client destination
+
+- DHCPrelay stored the source sockaddr from the client's first request and reused that source IP for server replies. A DHCP client starting from 0.0.0.0 commonly sends DHCPDISCOVER with source IP 0.0.0.0, so a valid server OFFER/ACK could be sent back to 0.0.0.0:68 and never reach the client.
+- Reply delivery now sets destination port 68 and derives the destination address from protocol state: broadcast if the BOOTP broadcast flag is set or the reply is DHCPNAK; otherwise ciaddr, then yiaddr, then a non-zero captured source address, and broadcast as the final fallback.
+- Added a GNU89 ASan/UBSan policy regression for all destination-selection branches, a source integration contract, dedicated workflow and XY-C1 source-input triggers.
+- Parent SHA: 96f6057d496c1e0a48a100112311e0d5133e12b3. Exact-head destination, AI docs and XY-C1 Actions: pending. No live client/server exchange, firmware or hardware result is claimed.
+- Changed paths: trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcprelay.c, trunk/user/busybox/busybox-1.24.x/networking/udhcp/udhcp_relay_client_dest_policy.h, trunk/user/busybox/busybox-1.24.x/networking/udhcp/tests/dhcprelay_client_dest_policy.c, scripts/check_udhcp_relay_client_dest_policy.py, .github/workflows/udhcp-relay-client-dest-policy.yml, .github/workflows/xy-c1-firmware-validation.yml, SESSION_HANDOFF.md, dev_log.md.
+
+---
+
 ## 2026-11-26 — Isolate ZeroTier missing-cleanup-target test fixture
 
 - Exact ZeroTier lifecycle #45727748483 on `73b5075` reached the existing successful-stop test and failed because its expected `zero_route:del` action was missing. The new missing-interface fixture had set `TEST_STATIC_ROUTE_COUNT=0` and `TEST_STATIC_ROUTE_ENABLE=0` and leaked those values into the next test; the `base64: invalid input` line is emitted by the earlier intentional invalid-planet regression.

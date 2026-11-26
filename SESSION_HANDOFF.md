@@ -1,24 +1,25 @@
-## Current repository state — 2026-11-26
+## Current repository state — 2026-11-25
 
-- Live `main` before this slice: `9da18f43509cf162f5951503b1fbeb3714b0fc8a` (`fix(udhcp): reject non-replies before transaction lookup`). Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged.
-- Exact `9da18f4`: BOOTREPLY #45727889323 PASS; bounded XID #45727889268 PASS; AI docs #45727889334 PASS; Process #45727889343 PASS. XY-C1 #45727889298 was still IN_PROGRESS at last poll. Other concurrent exact-head packet-bounds/USB/NVRAM/select/giaddr/select-fd jobs also need final status collection.
-- ZeroTier lifecycle #45727748483 FAILED on parent `73b5075`: shell regression reached its existing successful-stop case and reported `successful cleanup did not run after daemon absence`. Root cause: the inserted no-interface fixture set `TEST_STATIC_ROUTE_COUNT/ENABLE=0` but did not restore the previous enabled route fixture, so the next independent successful-stop assertion lost its `zero_route:del` action. The emitted `base64: invalid input` is expected from the pre-existing negative planet decoder test, not this failure.
-- ZeroTier exact `73b5075` AI docs #45727748516 PASS. Current fix saves/restores both shared static-route selectors and asserts unknown-target stop made no route actions; lifecycle rerun pending.
-- AdGuardHome selector fix `f0cc53c`: config/security #45726581924 and Process #45726581809 PASS; AI correction `1f7f8b3` #45726801473 PASS. WSDD2 netlink/docs passed on `4de82b5`.
-- Latest verified XY-C1 Build/TRX/artifact remains older `b320dd2` (#45724141332); `9da18f4` firmware workflow remains pending. Current-source L3 and physical-router L4 NOT VERIFIED.
+- Live `main` before this slice: `96f6057d496c1e0a48a100112311e0d5133e12b3`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable.
+- DHCP relay commits now include bounded datagram ingress, BOOTP opcode/giaddr/hops rules, bounded XID correlation, send error handling and select hardening. Exact status of each most recent SHA must be read from its own Action run.
+- Last confirmed XY-C1 Build/TRX/artifact baseline is `b320dd266be3dea74820ada79aec68c26f6b7dc9`, prior to subsequent DHCP relay production changes. Current-source L3 and physical-router L4 remain NOT VERIFIED.
 
 ## Active task
 
-Repair ZeroTier lifecycle regression fixture isolation. Production now correctly rejects shutdown without a live interface or valid firewall checkpoint, and direct `del_rules()` fails closed. The regression fixture accidentally disabled static-route selectors for the existing following successful-stop test and failed to restore them.
+Fix DHCP relay response delivery to clients that start with source IP 0.0.0.0. The relay previously stored the client's UDP source address and used it as the reply destination; an initial DHCP client commonly has no assigned address, so the server's OFFER/ACK could be sent to 0.0.0.0 and never reach the client. The reply path now honors the BOOTP broadcast flag and DHCPNAK broadcast behavior, otherwise selecting ciaddr then yiaddr and finally the captured source address; it always sends to the DHCP client port.
 
 ## Verification boundary
 
-- Preserve the production fail-closed fix from `73b5075`. This slice only isolates test fixture state: snapshot/restore static route count + enable flag and assert the unknown-target case made no route changes.
-- Exact-head ZeroTier lifecycle, Process and AI docs required after commit. `9da18f4` BOOTREPLY, XID, AI and Process are PASS; XY-C1 pending. No same-SHA firmware or router result claimed.
+- GNU89 ASan/UBSan policy test covers broadcast flag, DHCPNAK, ciaddr, yiaddr, source-address fallback and all-zero fallback. The source integration contract verifies the target IP and port are selected before sendto and XY-C1 inputs include the production file/header/test.
+- Exact-head client destination workflow, AI docs and XY-C1 Build/TRX/artifact checks are pending. No live DHCP client/server exchange, BusyBox cross-build, current firmware artifact or router L4 result is claimed.
 
 ## Exact first action for the next GPT
 
-Fetch exact-head ZeroTier lifecycle and AI docs for this fixture correction; retrieve the final `9da18f4` XY-C1 and subsystem Actions. Fix the first causal failure, then continue one independent stability/security issue. Preserve frozen backup and do not claim L3 absent same-SHA Build/TRX/artifact.
+Fetch exact-head client-destination, BOOTP opcode, XID, packet-length and AI/XY-C1 Actions. Fix the first causal failure. Then verify that listener sockets have SO_BROADCAST enabled and perform a live DHCP relay simulation if a test environment exists.
+
+## Mandatory handoff checkpoint
+
+Inspect live main, frozen backup ref and exact-SHA Actions. If the checkpoint facts and first action remain accurate, record a no-op checkpoint without a docs-only commit.
 
 # Cross-session execution mandate
 
