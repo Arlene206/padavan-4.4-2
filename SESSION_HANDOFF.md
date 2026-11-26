@@ -1,31 +1,49 @@
-## Current repository state
+## Current repository state — 2026-11-25
 
-- Live `main` before this slice: `4de82b5c981b6b04903431ecafc42e0b873c8862` (`test(wsdd2): correct netlink function signature escape`). Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable.
-- Exact `4de82b5` WSDD2 netlink receive truncation regression #45725665949 PASS and AI handoff contract #45725666033 PASS. The preceding `bff8461` DHCP relay select-fd #45725395550, XID #45725395433, packet bounds #45725395376, AI docs #45725395506, Process inventory #45725395438 and Process fail-closed #45725395405 all PASS; USB hotplug #45725395381, NVRAM #45725395394 and XY-C1 #45725395451 were still in progress on the prior poll.
-- Frozen backup remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Last confirmed XY-C1 Build/TRX/artifact baseline is `9ed539a04e4c4df96aef03f9d1a6f9637fd3e3b9` (#45719100341); it predates later source changes, so current-source L3 and physical-router L4 remain NOT VERIFIED.
+- Live `main` before this handoff update: `ddb8f4f8b575c7b860c468c237d9aa2d74d661f6` (`fix(udhcp): preserve giaddr and enforce relay hop limit`). Latest source-bearing commit in the active chain: `ddb8f4f8b575c7b860c468c237d9aa2d74d661f6` (`fix(udhcp): preserve giaddr and enforce relay hop limit`).
+- Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged; do not modify).
+- WSDD2 `fd_set` boundary regression: #45725275770 completed/success on `6028a1387733f0f45d8b96f169dbc34061e9b8fc`.
+- WSDD2 netlink truncation regression: 45725665949 completed/success @ 4de82b5c98; two earlier checker-only failures were corrected by `5d983a2` and `4de82b5`. Confirm the latest result on the next turn before treating this slice as complete.
+- Prior XY-C1 build validation: #45724141332 completed/success on `b320dd266be3dea74820ada79aec68c26f6b7dc9`; Build/TRX/artifact step check: all PASS. This proves L3 only for that exact older SHA.
+- Latest XY-C1 run in Actions: 45725995015 in_progress @ ddb8f4f8b5; it matches the latest product-source SHA `ddb8f4f8b575c7b860c468c237d9aa2d74d661f6`.
+- Latest NVRAM transaction audit: not found. Latest handoff-contract check: not found.
+- The current source SHA must have its own XY-C1 Build, TRX validation and artifact upload all PASS before claiming L3. Physical-router L4 remains **NOT VERIFIED**.
+
+## Last engineering slice — WSDD2 descriptor and netlink receive hardening
+
+- Prevented out-of-range descriptors from reaching `FD_SET` at both endpoint registration sites; the helper rejects fd >= `FD_SETSIZE`, preserves a meaningful errno, and closes the endpoint before it can enter the monitored list.
+- Added a check for `MSG_TRUNC` on netlink notification receives; if route/address notifications exceed the fixed buffer, the daemon restarts and rebuilds endpoint/address state instead of silently losing a notification.
+- The first netlink CI attempts were blocked by the Python source checker: it matched a prototype rather than the function definition, then searched for a literal backslash+n due to an escaping error. These were corrected separately; verify the latest WSDD2 netlink workflow before marking PASS.
 
 ## Active task
 
-Correct DHCP relay BOOTREQUEST handling per RFC 1542 section 4.1.1. The existing code unconditionally overwrote a non-zero `giaddr`, even though the relay's adjacent RFC comment says it must not, and left the `hops` field unchanged (an explicit TODO). This slice preserves upstream non-zero `giaddr`, sets it from the receiving client interface only when zero (retaining the legacy server-interface fallback if interface lookup fails), rejects incoming `hops > 16`, and increments `hops` before forwarding.
+First resolve the latest WSDD2 netlink regression run above. Then verify XY-C1 on the latest source-bearing commit `ddb8f4f8b575c7b860c468c237d9aa2d74d661f6`, including Build, TRX output validation and artifact upload. While either workflow is pending, continue an independent, evidence-backed userland stability/security fix; do not wait idle and do not repeat already completed DHCPv6, rstats, QMI, UDPXY or WSDD2 slices without new evidence.
 
-## Verification boundary
+## Exact first actions for next GPT
 
-- GNU89 ASan/UBSan test covers existing/local/fallback giaddr selection; hops 0, 15, 16, 17 and 255; and null input. The source checker ensures hop policy and giaddr selection run before forwarding and verifies the dedicated workflow and XY-C1 source paths.
-- Exact-head BOOTREQUEST policy, AI documentation and XY-C1 Build/TRX/artifact checks for this commit are pending. No multi-relay interoperability, full BusyBox cross-build, current firmware artifact or router L4 result is claimed.
-
-## Exact first action for the next GPT
-
-Fetch exact-head DHCP relay BOOTREQUEST, select-fd, XID, packet-bounds, AI docs, and XY-C1 runs for this commit; repair the first causal failure. Then investigate DHCP server replies with mismatched giaddr/hardware identity only if a concrete interoperability defect is demonstrated. Record L3 only when Build, TRX verification and artifact upload pass on one identical source SHA.
-
-## Mandatory handoff checkpoint
-
-The checkpoint is mandatory; a document edit is conditional. Inspect exact live main, backup ref, and relevant exact-head Actions before ending. If all checkpoint facts and the first action are already accurate, explicitly conclude the check with no file change and no commit.
+1. Confirm current `main` and frozen backup ref; this handoff update itself adds one docs-only commit.
+2. Poll the latest `wsdd2 netlink receive truncation regression` and the exact-source XY-C1/NVRAM runs reported above.
+3. Continue with one independent source defect, regression, atomic commit and exact-SHA checks. Do not claim current XY-C1 L3 until Build + TRX + artifact upload pass on the same latest product-source SHA.
 
 # Cross-session execution mandate
 
 Continue one autonomous engineering stream on main. For each logical slice, create all changed blobs, one complete Git tree based on the live main root tree, and one atomic main commit; update main with a non-forced expected-SHA compare-and-swap. Never force-push, use feature branches or PRs, split one logical change into per-file commits, or modify the frozen backup. PENDING never blocks independent work. Before context exhaustion, finish the current safe slice and checkpoint the first concrete next action.
 
 ## Completed source slices
+
+### 2026-11-25 — Harden WSDD2 select descriptor registration and netlink notification handling
+
+- `258d673` adds a checked `wsd_select_fd_add()` gate at both endpoint registration sites. The previous raw `FD_SET(ep->sock, &fds)` would write past libc's fixed `fd_set` when an opened socket descriptor reached `FD_SETSIZE` or higher. Out-of-range descriptors now close the endpoint and follow the daemon's normal fatal startup path. GNU89 ASan/UBSan boundary workflow #45725275770 passed on this source SHA.
+- `6028a13` checks `msghdr.msg_flags` after netlink `recvmsg()`. A truncated address-notification datagram now returns `EMSGSIZE` so the existing event loop restarts and re-enumerates interfaces, rather than silently accepting only the first 4096 bytes and potentially missing a tail notification.
+- The netlink host test compiled and ran; its first two exact-SHA runs exposed checker-only bugs (a forward declaration match, then a double-escaped newline in the checker signature), not C test failures. `5d983a2` and `4de82b5` corrected the checker in two small test-only commits; latest netlink workflow status is recorded above.
+
+### 2026-11-25 — QMI, rstats and UDPXY regression follow-ups
+
+- `6631da6` hardens rstats raw-history open with `O_NONBLOCK | O_NOFOLLOW | O_CLOEXEC` and requires a single-link regular file via `fstat()`; exact rstats workflow #45722628854 passed. Tests cover regular files, symlinks, FIFOs, directories and hardlinks.
+- `4efe6e6` fails closed when `qmi_wwan` lacks its same-device `cdc-wdmN` control endpoint, preventing DHCP from starting on an unestablished QMI session; exact USB modem workflow #45723458320 passed.
+- `61e7058` corrects the UDPXY source checker to ignore comments when checking for banned calls; the implementation had removed `strchr()`, but the explanatory safety comment itself triggered the previous substring assertion. The updated exact UDPXY parser workflow #45723868583 passed.
+- UDPXY multicast membership retry work `b320dd2` passed exact request-parser and multicast-refresh workflows (#45724141327 and #45724141340).
+
 
 ### 2026-11-25 — DHCPv6 IA lifecycle and packet-input hardening
 
