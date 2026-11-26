@@ -654,9 +654,20 @@ jobs:
           assert control_routes.count("dhcp_lease_route_add_is_ok(route_status)") == 2
           assert control_routes.count("dhcp_lease_route_delete_is_ok(route_status)") == 2
           gateway_state = callback.index("bound_names[WAN_DHCP_BOUND_GATEWAY], gateway_buf")
-          wan_route_setup = callback.index("route_setup_status = wan_up_internal(wan_ifname, unit, 0)")
-          man_route_setup = callback.index("route_setup_status = man_up_internal(wan_ifname, unit, 0, NULL)")
+          wan_route_setup = callback.index("wan_up_internal_with_route_status(")
+          man_route_setup = callback.index("man_up_internal_with_route_status(")
           assert gateway_state < wan_route_setup
+          wan_up_status = body(source, "wan_up_internal_with_route_status(char *wan_ifname")
+          man_up_status = body(source, "man_up_internal_with_route_status(char *man_ifname")
+          assert wan_up_status.index("*dhcp_route_status = status;") < wan_up_status.index("refresh_resolvconf_nonfatal(")
+          assert wan_up_status.index("*dhcp_route_status = status;") < wan_up_status.index("queue_wan_firewall_restart(")
+          assert man_up_status.index("*dhcp_route_status = status;") < man_up_status.index("queue_wan_firewall_restart(")
+          assert man_up_status.index("*dhcp_route_status = status;") < man_up_status.index("start_igmpproxy(")
+          assert "return wan_up_internal_with_route_status(" in body(source, "wan_up_internal(char *wan_ifname, int unit, int is_static)")
+          assert "return man_up_internal_with_route_status(" in body(source, "man_up_internal(char *man_ifname, int unit,")
+          callback_compact = "".join(callback.split())
+          assert "(void)wan_up_internal_with_route_status(wan_ifname,unit,0,&route_setup_status);" in callback_compact
+          assert "(void)man_up_internal_with_route_status(wan_ifname,unit,0,NULL,&route_setup_status);" in callback_compact
           assert "accepted but route setup is incomplete" in callback
           ip6rd_start = callback.index('value = getenv("ip6rd");')
           ip6rd_end = callback.index("#endif", ip6rd_start)
@@ -681,9 +692,10 @@ jobs:
           assert "test_dhcp_lease_required_option_is_missing_or_changed();" in lease_policy_test
           assert "dhcp_lease_nvram_reverse_snapshot(" in lease_policy
           assert "preserving current interface/routes" in callback
-          callback_status_publish = callback.index("callback_status = route_status_accumulate(route_setup_status, mtu_status);")
+          callback_status_publish = callback.index("callback_status = dhcp_wan_bound_callback_status(route_setup_status, mtu_status);")
           assert "ip6rd_status" not in callback
-          assert "callback_status = route_status_accumulate(route_setup_status, mtu_status);" in callback
+          assert "callback_status = dhcp_wan_bound_callback_status(route_setup_status, mtu_status);" in callback
+          assert "test_bound_callback_status_ignores_ancillary_service_failures" in route_retry_test
           route_err_publish = callback.index("wan_nvram_int_temp_status(")
           assert route_err_publish > callback_status_publish
           assert 'strcat_r(prefix, "route_err", tmp)' in callback

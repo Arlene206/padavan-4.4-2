@@ -3,6 +3,18 @@
 
 #include "dhcp_wan_route_transition_policy.h"
 
+
+static void
+test_bound_callback_status_ignores_ancillary_service_failures(void)
+{
+	/* Zero means route and MTU application succeeded; ancillary statuses
+	 * are intentionally not arguments to this policy. */
+	assert(dhcp_wan_bound_callback_status(0, 0) == 0);
+	assert(dhcp_wan_bound_callback_status(EIO, 0) == EIO);
+	assert(dhcp_wan_bound_callback_status(0, EBUSY) == EBUSY);
+	assert(dhcp_wan_bound_callback_status(EIO, EBUSY) == EIO);
+}
+
 static void
 test_lease_error_forces_renew_rebind(void)
 {
@@ -58,6 +70,7 @@ test_retry_decision_requires_a_complete_checked_tuple(void)
 int
 main(void)
 {
+	test_bound_callback_status_ignores_ancillary_service_failures();
 	test_lease_error_forces_renew_rebind();
 	test_retry_decision_fails_closed_on_each_status_read_error();
 	test_retry_decision_requires_a_complete_checked_tuple();

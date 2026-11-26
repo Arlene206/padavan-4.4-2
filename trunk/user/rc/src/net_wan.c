@@ -4908,10 +4908,14 @@ queue_wan_firewall_restart(const char *context)
 }
 
 static int
-man_up_internal(char *man_ifname, int unit, int is_static, int *gateway_route_status)
+man_up_internal_with_route_status(char *man_ifname, int unit, int is_static,
+				  int *gateway_route_status,
+				  int *dhcp_route_status)
 {
 	int status = 0, route_status;
 
+	if (dhcp_route_status)
+		*dhcp_route_status = 0;
 	if (gateway_route_status)
 		*gateway_route_status = 0;
 
@@ -4937,6 +4941,10 @@ man_up_internal(char *man_ifname, int unit, int is_static, int *gateway_route_st
 	route_status = add_man_gateway_routes(man_ifname, unit, 2, gateway_route_status);
 	status = route_status_accumulate(status, route_status);
 
+	/* Only route application determines whether udhcpc accepts this lease. */
+	if (dhcp_route_status)
+		*dhcp_route_status = status;
+
 	if (!is_static) {
 		/* A resolver refresh error must not tear down this live link. */
 		refresh_resolvconf_nonfatal("MAN up", 0);
@@ -4954,6 +4962,14 @@ man_up_internal(char *man_ifname, int unit, int is_static, int *gateway_route_st
 			   man_ifname, route_status);
 
 	return status;
+}
+
+static int
+man_up_internal(char *man_ifname, int unit, int is_static,
+		int *gateway_route_status)
+{
+	return man_up_internal_with_route_status(
+		man_ifname, unit, is_static, gateway_route_status, NULL);
 }
 
 void
@@ -5130,7 +5146,8 @@ man_down(char *man_ifname, int unit)
 }
 
 static int
-wan_up_internal(char *wan_ifname, int unit, int is_static)
+wan_up_internal_with_route_status(char *wan_ifname, int unit,
+				  int is_static, int *dhcp_route_status)
 {
 	char wan_cnt[32], wan_addr[16], wan_mask[16], wan_gate[16];
 	const char *script_postw = SCRIPT_POST_WAN;
@@ -5143,6 +5160,9 @@ wan_up_internal(char *wan_ifname, int unit, int is_static)
 	int route_snapshot_status, wan_addr_status, wan_mask_status, wan_gate_status;
 	int ifstats_status;
 	uint64_t ifstats_rx_bytes, ifstats_tx_bytes;
+
+	if (dhcp_route_status)
+		*dhcp_route_status = 0;
 #if defined (USE_IPV6)
 	int ipv6_status, ipv6_type_status, ipv6_is_sit;
 #endif
@@ -5151,6 +5171,8 @@ wan_up_internal(char *wan_ifname, int unit, int is_static)
 
 	modem_status = is_ifunit_modem_status(wan_ifname, unit, &modem_unit_id);
 	if (modem_status != 0) {
+		if (dhcp_route_status)
+			*dhcp_route_status = modem_status;
 		logmessage(LOGNAME,
 			   "aborting WAN-up on %s because USB modem identity cannot be read (status=%d)",
 			   wan_ifname, modem_status);
@@ -5160,6 +5182,8 @@ wan_up_internal(char *wan_ifname, int unit, int is_static)
 	if (!modem_unit_id) {
 		proto_status = get_wan_unit_proto_checked_status(unit, &wan_proto);
 		if (proto_status != 0) {
+			if (dhcp_route_status)
+				*dhcp_route_status = proto_status;
 			logmessage(LOGNAME,
 				   "aborting WAN-up on %s because configured protocol cannot be read (status=%d)",
 				   wan_ifname, proto_status);
@@ -5314,6 +5338,10 @@ wan_up_internal(char *wan_ifname, int unit, int is_static)
 			logmessage(LOGNAME, "failed to add DHCP WAN routes on %s (error=%d)",
 				   wan_ifname, route_status);
 	}
+
+	/* DHCP lease acceptance depends on the address/IPv4 route phase only. */
+	if (dhcp_route_status)
+		*dhcp_route_status = status;
 
 #if defined (USE_IPV6)
 	ipv6_type_status = is_wan_ipv6_type_sit_status(&ipv6_is_sit);
@@ -5475,6 +5503,13 @@ wan_up_internal(char *wan_ifname, int unit, int is_static)
 				   route_status);
 	}
 	return status;
+}
+
+static int
+wan_up_internal(char *wan_ifname, int unit, int is_static)
+{
+	return wan_up_internal_with_route_status(
+		wan_ifname, unit, is_static, NULL);
 }
 
 int
@@ -8385,16 +8420,18 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 			udhcpc_state, wan_ifname, wan_ip, wan_gw, lease_dur);
 
 		if (is_man)
-			route_setup_status = man_up_internal(wan_ifname, unit, 0, NULL);
+			(void)man_up_internal_with_route_status(
+				wan_ifname, unit, 0, NULL, &route_setup_status);
 		else
-			route_setup_status = wan_up_internal(wan_ifname, unit, 0);
+			(void)wan_up_internal_with_route_status(
+				wan_ifname, unit, 0, &route_setup_status);
 		if (route_setup_status != 0)
 			logmessage(log_prefix,
 				   "%s (%s) accepted but route setup is incomplete (error=%d)",
 				   udhcpc_state, wan_ifname, route_setup_status);
 	}
 
-	callback_status = route_status_accumulate(route_setup_status, mtu_status);
+	callback_status = dhcp_wan_bound_callback_status(route_setup_status, mtu_status);
 	publish_status = wan_nvram_int_temp_status(
 		strcat_r(prefix, "mtu_err", tmp), mtu_status);
 	callback_status = route_status_accumulate(callback_status, publish_status);
