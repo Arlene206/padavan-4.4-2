@@ -1,3 +1,8 @@
+## 2026-11-26 — Separate SmartDNS managed markers from unterminated DNSMasq files
+
+- The managed-block publisher copied the active DNSMasq file and appended its begin marker without checking the final byte. A user-owned file with no terminating LF could absorb the marker into the last directive; subsequent stop cleanup rejected the malformed block and left SmartDNS directives behind.
+- Added a checked last-byte probe and a separator only when required. Probe or staging-write failure aborts before rename and removes the stage. Regression covers no-final-LF publish/cleanup and exact probe-error preservation.
+
 ## 2026-11-26 — Reject malformed and spoofable networkmap ARP frames
 
 - Confirmed `nmap_receive_arp()` accepted any payload at least `sizeof(ARP_HEADER)` before interpreting sender/target data. Unsupported ARP hardware/protocol types, address lengths or opcodes, plus zero/multicast/broadcast sender MACs, could influence client discovery and MAC updates.

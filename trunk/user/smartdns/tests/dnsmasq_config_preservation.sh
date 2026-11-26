@@ -159,6 +159,39 @@ smartdns_dnsmasq_remove_saved_directives "$F" 1 6053 managed-v1 || fail "publish
 cmp -s "$F" "$T/publish.before" || fail "managed block cleanup did not restore exact original file"
 pass "managed-block publication is atomic and preserves same-valued user directives"
 
+# Preserve a user-owned final line that has no terminating LF. The publisher
+# must separate the managed marker, and the normal stop path must still find it.
+printf '%s' 'user-setting=keep' > "$F"
+cp "$F" "$T/publish-no-final-lf.before"
+smartdns_dnsmasq_publish_managed_block "$F" no-resolv || fail "unterminated config publication failed"
+grep -Fxq 'user-setting=keep' "$F" || fail "unterminated user directive was joined to a marker"
+grep -Fxq '# smartdns-managed-dnsmasq-begin' "$F" || fail "unterminated config marker was not placed on its own line"
+smartdns_dnsmasq_remove_saved_directives "$F" 1 6053 managed-v1 || fail "unterminated config managed block was not removable"
+! grep -Fq 'smartdns-managed-dnsmasq-' "$F" || fail "unterminated config cleanup left managed markers"
+grep -Fxq 'user-setting=keep' "$F" || fail "unterminated user directive was lost during cleanup"
+pass "unterminated user config line is separated from managed markers and remains removable"
+
+# Failure while inspecting the source's final byte must abort before rename.
+mkdir "$T/failing-tail-bin"
+cat > "$T/failing-tail-bin/tail" <<'TAIL_FAIL'
+#!/bin/sh
+exit 47
+TAIL_FAIL
+chmod 0700 "$T/failing-tail-bin/tail"
+printf '%s' 'user-setting=keep' > "$F"
+cp "$F" "$T/publish-tail-failure.before"
+saved_path=$PATH
+PATH="$T/failing-tail-bin:$PATH"
+export PATH
+if smartdns_dnsmasq_publish_managed_block "$F" no-resolv; then fail "separator probe failure was ignored"; else status=$?; fi
+PATH=$saved_path
+export PATH
+[ "$status" -eq 47 ] || fail "separator probe failure status changed to $status"
+cmp -s "$F" "$T/publish-tail-failure.before" || fail "separator probe failure changed live config"
+for tmp in "$F".tmp.*; do [ ! -e "$tmp" ] || fail "separator probe failure leaked a stage"; done
+pass "separator inspection failure preserves original config and removes stage"
+
+
 write_managed_fixture "$F"
 cp "$F" "$T/publish-existing.before"
 if smartdns_dnsmasq_publish_managed_block "$F" no-resolv; then fail "publisher accepted an existing marker block"; fi

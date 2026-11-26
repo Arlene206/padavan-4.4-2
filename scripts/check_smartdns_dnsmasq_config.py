@@ -41,6 +41,7 @@ def body(source, name):
 normal = body(helper, "smartdns_dnsmasq_normalize_port")
 remove = body(helper, "smartdns_dnsmasq_remove_exact_directives")
 publish = body(helper, "smartdns_dnsmasq_publish_managed_block")
+ensure_separator = body(helper, "smartdns_dnsmasq_ensure_stage_separator")
 block = body(helper, "smartdns_dnsmasq_remove_managed_block")
 saved = body(helper, "smartdns_dnsmasq_remove_saved_directives")
 assert '[ "${#smartdns_port_value}" -le 5 ]' in normal
@@ -68,6 +69,12 @@ for token in ('mktemp "${smartdns_config_file}.tmp.XXXXXX"',
               'mv -f "$smartdns_tmp_file" "$smartdns_config_file"'):
     assert token in publish, "atomic publication missing: " + token
 assert "for smartdns_directive do" in publish
+assert "tail -c 1" in ensure_separator
+assert "smartdns_line_feed_sentinel" in ensure_separator
+assert 'printf `\n` >> "$smartdns_stage_file"' not in ensure_separator
+assert "printf '\\n' >> \"$smartdns_stage_file\"" in ensure_separator
+assert 'smartdns_dnsmasq_ensure_stage_separator "$smartdns_config_file" "$smartdns_tmp_file"' in publish
+assert publish.index("smartdns_dnsmasq_ensure_stage_separator") < publish.rindex("smartdns-managed-dnsmasq-begin")
 assert '# smartdns-managed-dnsmasq-begin' in block
 assert '# smartdns-managed-dnsmasq-end' in block
 assert 'if (bad || inside || (seen_begin != seen_end)) print "invalid"' in block
@@ -258,6 +265,8 @@ assert 'smartdns_dnsmasq_config.sh $(ROMFSDIR)/usr/bin/smartdns_dnsmasq_config.s
 for forbidden in ("dnsmasq_Conf", "smartdns_Ini", "sed -i '/no-resolv/d'", "sed -i '/port=0/d'"):
     assert forbidden not in autostart, forbidden
 for token in ("managed-block publication is atomic and preserves same-valued user directives",
+              "unterminated user config line is separated from managed markers and remains removable",
+              "separator inspection failure preserves original config and removes stage",
               "duplicate or interrupted managed blocks fail closed",
               "marked cleanup preserves user-owned exact directives",
               "port 53 marker cleanup leaves same-valued user directives intact",
