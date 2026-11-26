@@ -68,6 +68,8 @@ shutils_header = read("trunk/user/shared/src/shutils.h")
 package_makefile = read("trunk/user/dns-forwarder/Makefile")
 launcher_script = read("trunk/user/dns-forwarder/dns-forwarder.sh")
 forwarder_core = read("trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-dns-forwarder.c")
+session_io_policy = read("trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-dns-session-io-policy.h")
+session_io_test = read("trunk/user/dns-forwarder/tests/hev_dns_session_io_policy.c")
 event_source_core = read("trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-event-source.c")
 event_loop_test = read("trunk/user/dns-forwarder/tests/hev_event_loop_lifecycle.c")
 session_core = read("trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-dns-session.c")
@@ -341,6 +343,13 @@ assert "test_session_connect_setup_failures" in forwarder_init_test
 assert "SESSION_FAIL_IOCTL" in forwarder_init_test
 assert "SESSION_FAIL_ADD_FD" in forwarder_init_test
 assert "SESSION_FAIL_CONNECT" in forwarder_init_test
+assert "hev_dns_session_sendmsg_no_sigpipe" in session_io_policy
+assert "sendmsg(fd, message, MSG_NOSIGNAL)" in session_io_policy
+assert "hev_dns_session_recvmsg_retry_eintr" in session_io_policy
+assert "recvmsg(fd, message, 0)" in session_io_policy
+assert "while (result < 0 && errno == EINTR)" in session_io_policy
+assert "test_sendmsg_to_closed_peer_does_not_raise_sigpipe" in session_io_test
+assert "assert(errno == EPIPE)" in session_io_test
 assert "hev_dns_forwarder_udp_drain_action(-1, EINTR)" in forwarder_policy_test
 assert "hev_dns_forwarder_udp_drain_action(0, 0)" in forwarder_policy_test
 

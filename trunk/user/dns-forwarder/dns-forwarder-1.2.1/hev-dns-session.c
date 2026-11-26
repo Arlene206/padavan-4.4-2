@@ -16,6 +16,7 @@
 #include <sys/socket.h>
 
 #include "hev-dns-session.h"
+#include "hev-dns-session-io-policy.h"
 
 #ifdef HEV_DNS_FORWARDER_TESTING
 #include "../tests/hev_dns_forwarder_init_test_hooks.h"
@@ -202,7 +203,7 @@ read_data (int fd, HevRingBuffer *buffer, struct sockaddr_in *addr)
 		}
 		mh.msg_iov = iovec;
 		mh.msg_iovlen = iovec_len;
-		size = recvmsg (fd, &mh, 0);
+		size = hev_dns_session_recvmsg_retry_eintr (fd, &mh);
 		inc_len = (0 > size) ? 0 : size;
 		hev_ring_buffer_write_finish (buffer, inc_len);
 	}
@@ -228,7 +229,7 @@ write_data (int fd, HevRingBuffer *buffer, struct sockaddr_in *addr)
 		}
 		mh.msg_iov = iovec;
 		mh.msg_iovlen = iovec_len;
-		size = sendmsg (fd, &mh, 0);
+		size = hev_dns_session_sendmsg_no_sigpipe (fd, &mh);
 		inc_len = (0 > size) ? 0 : size;
 		hev_ring_buffer_read_finish (buffer, inc_len);
 	}
