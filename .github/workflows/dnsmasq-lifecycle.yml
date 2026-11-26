@@ -684,6 +684,17 @@ jobs:
           lan_auto = function_body(net_lan, "lan_publish_resolver_auto(")
           assert lan_auto.index('lock = file_lock("resolv");') < lan_auto.index("if (lock < 0)")
           assert lan_auto.index("if (lock < 0)") < lan_auto.index("dnsmasq_file_open(resolv_temp)")
+          assert 'char resolv_backup[] = "/etc/resolv.conf.rollback.XXXXXX";' in lan_auto
+          assert "dnsmasq_file_publish_with_rollback(" in lan_auto
+          assert "recovery_status" in lan_auto
+          publish_internal = function_body(dnsmasq_file_helper, "dnsmasq_file_publish_internal(")
+          assert "*rename_completed = 0;" in publish_internal
+          assert "*rename_completed = 1;" in publish_internal
+          rollback_publish = function_body(dnsmasq_file_helper, "dnsmasq_file_publish_with_rollback_ops(")
+          assert "dnsmasq_file_backup_restore(destination, backup_path)" in rollback_publish
+          assert "if (rename_completed)" in rollback_publish
+          assert "test_publish_failure_after_rename_restores_destination" in static_hosts_test
+          assert "mock_publish_after_rename_failure" in static_hosts_test
           assert "dnsmasq_confirm_started(launch_status)" in start
           assert "dnsmasq_confirm_started(launch_status)" in restart
           assert "eval(\"/usr/sbin/dnsmasq\")" in start

@@ -32,6 +32,10 @@ dnsmasq_lease_file_required(int dhcp_features)
 typedef int (*dnsmasq_file_unlink_fn)(const char *path);
 typedef FILE *(*dnsmasq_file_fdopen_fn)(int fd, const char *mode);
 typedef int (*dnsmasq_file_close_fn)(int fd);
+typedef int (*dnsmasq_file_publish_status_fn)(FILE *fp, char *path,
+					      const char *destination,
+					      mode_t mode,
+					      int *rename_completed);
 
 /* Keep the unique path when unlink fails, allowing a caller to retry/log it. */
 static inline int
@@ -178,10 +182,15 @@ dnsmasq_file_sync_parent(const char *path)
 
 /* rename() replaces a destination symlink itself; it never follows its target. */
 static int
-dnsmasq_file_publish(FILE *fp, char *path, const char *destination, mode_t mode)
+dnsmasq_file_publish_internal(FILE *fp, char *path,
+			       const char *destination, mode_t mode,
+			       int *rename_completed)
 {
 	int failed = 0;
 	int saved_errno = 0;
+
+	if (rename_completed)
+		*rename_completed = 0;
 
 	if (!fp || !path || !path[0] || !destination || !destination[0]) {
 		if (fp)
@@ -228,6 +237,8 @@ dnsmasq_file_publish(FILE *fp, char *path, const char *destination, mode_t mode)
 		errno = saved_errno;
 		return -1;
 	}
+	if (rename_completed)
+		*rename_completed = 1;
 
 	/*
 	 * The rename is already visible. A failed directory fsync means its
@@ -246,6 +257,12 @@ dnsmasq_file_publish(FILE *fp, char *path, const char *destination, mode_t mode)
 		return -1;
 	}
 	return 0;
+}
+
+static int
+dnsmasq_file_publish(FILE *fp, char *path, const char *destination, mode_t mode)
+{
+	return dnsmasq_file_publish_internal(fp, path, destination, mode, NULL);
 }
 
 
@@ -354,6 +371,78 @@ dnsmasq_file_backup_restore(const char *destination, char *backup_path)
 	return dnsmasq_file_sync_parent(destination);
 }
 
+
+
+/*
+ * Keep a resolver/lease transaction coherent when rename succeeds but the
+ * following directory fsync fails. The caller must know whether publication
+ * crossed the rename boundary so it can restore the previous destination
+ * before rolling back related network state.
+ */
+static inline int
+dnsmasq_file_publish_with_rollback_ops(
+	FILE *fp, char *path, const char *destination, char *backup_path,
+	mode_t mode, int *recovery_status,
+	dnsmasq_file_publish_status_fn publish_fn)
+{
+	int rename_completed = 0;
+	int saved_errno, cleanup_status = 0;
+
+	if (recovery_status)
+		*recovery_status = 0;
+	if (!fp || !path || !path[0] || !destination || !destination[0] ||
+	    !backup_path || !backup_path[0] || !publish_fn) {
+		if (fp)
+			(void)fclose(fp);
+		(void)dnsmasq_file_discard(path);
+		errno = EINVAL;
+		return -1;
+	}
+
+	if (dnsmasq_file_backup_create(destination, backup_path) < 0) {
+		saved_errno = errno ? errno : EIO;
+		(void)fclose(fp);
+		(void)dnsmasq_file_discard(path);
+		if (dnsmasq_file_backup_discard(backup_path) != 0)
+			cleanup_status = errno ? errno : EIO;
+		if (recovery_status)
+			*recovery_status = cleanup_status;
+		errno = saved_errno;
+		return -1;
+	}
+
+	if (publish_fn(fp, path, destination, mode, &rename_completed) == 0) {
+		/* Committed output stays committed even if obsolete-link cleanup fails. */
+		if (dnsmasq_file_backup_discard(backup_path) != 0)
+			cleanup_status = errno ? errno : EIO;
+		if (recovery_status)
+			*recovery_status = cleanup_status;
+		return 0;
+	}
+
+	saved_errno = errno ? errno : EIO;
+	if (rename_completed) {
+		if (dnsmasq_file_backup_restore(destination, backup_path) != 0)
+			cleanup_status = errno ? errno : EIO;
+	} else if (dnsmasq_file_backup_discard(backup_path) != 0) {
+		cleanup_status = errno ? errno : EIO;
+	}
+	if (recovery_status)
+		*recovery_status = cleanup_status;
+	errno = saved_errno;
+	return -1;
+}
+
+static inline int
+dnsmasq_file_publish_with_rollback(FILE *fp, char *path,
+				   const char *destination,
+				   char *backup_path, mode_t mode,
+				   int *recovery_status)
+{
+	return dnsmasq_file_publish_with_rollback_ops(
+		fp, path, destination, backup_path, mode, recovery_status,
+		dnsmasq_file_publish_internal);
+}
 
 #define DNSMASQ_FILE_SNAPSHOT_SET_MAX 3
 

@@ -2322,6 +2322,8 @@ lan_publish_resolver_auto(char *lan_gateway, char *lan_dname, char *lan_dns)
 	struct nvram_transaction resolver_transaction;
 	struct rc_wan_nvram_snapshot_field resolver_fields[3];
 	char resolv_temp[] = "/etc/resolv.conf.XXXXXX";
+	char resolv_backup[] = "/etc/resolv.conf.rollback.XXXXXX";
+	int recovery_status = 0;
 
 	/*
 	 * Snapshot the DNS selector and static addresses as one NVRAM generation.
@@ -2408,11 +2410,18 @@ lan_publish_resolver_auto(char *lan_gateway, char *lan_dname, char *lan_dns)
 	if (!dns_count && is_valid_ipv4(lan_gateway))
 		fprintf(fp, "nameserver %s\n", lan_gateway);
 
-	if (dnsmasq_file_publish(fp, resolv_temp, DNS_RESOLV_CONF, 0644) != 0) {
+	if (dnsmasq_file_publish_with_rollback(
+		    fp, resolv_temp, DNS_RESOLV_CONF, resolv_backup, 0644,
+		    &recovery_status) != 0) {
 		status = errno ? errno : EIO;
-		if (dnsmasq_file_discard(resolv_temp) != 0)
-			logmessage(LOGNAME, "cannot remove failed LAN DHCP resolver stage '%s' after publish failure (errno=%d)",
-				   resolv_temp, errno ? errno : EIO);
+		if (recovery_status != 0)
+			logmessage(LOGNAME,
+				   "LAN DHCP resolver rollback incomplete (status=%d); recovery snapshot '%s' retained",
+				   recovery_status, resolv_backup);
+	} else if (recovery_status != 0) {
+		logmessage(LOGNAME,
+			   "LAN DHCP resolver committed but rollback snapshot cleanup failed (status=%d); snapshot '%s' retained",
+			   recovery_status, resolv_backup);
 	}
 
 	file_unlock(lock);

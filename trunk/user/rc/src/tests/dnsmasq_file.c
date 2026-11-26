@@ -135,6 +135,98 @@ read_exact(const char *path, const char *expected)
 }
 
 
+
+static int
+mock_publish_after_rename_failure(FILE *fp, char *path,
+				  const char *destination, mode_t mode,
+				  int *rename_completed)
+{
+	int saved_errno;
+
+	if (rename_completed)
+		*rename_completed = 0;
+	if (!fp || !path || !destination) {
+		if (fp)
+			(void)fclose(fp);
+		errno = EINVAL;
+		return -1;
+	}
+	if (fflush(fp) != 0 || ferror(fp) ||
+	    (mode != DNSMASQ_FILE_PRESERVE_MODE &&
+	     fchmod(fileno(fp), mode) != 0)) {
+		saved_errno = errno ? errno : EIO;
+		(void)fclose(fp);
+		(void)dnsmasq_file_discard(path);
+		errno = saved_errno;
+		return -1;
+	}
+	if (fclose(fp) != 0) {
+		saved_errno = errno ? errno : EIO;
+		(void)dnsmasq_file_discard(path);
+		errno = saved_errno;
+		return -1;
+	}
+	if (rename(path, destination) != 0) {
+		saved_errno = errno ? errno : EIO;
+		(void)dnsmasq_file_discard(path);
+		errno = saved_errno;
+		return -1;
+	}
+	path[0] = '\0';
+	if (rename_completed)
+		*rename_completed = 1;
+	errno = EIO;
+	return -1;
+}
+
+static void
+test_publish_failure_after_rename_restores_destination(const char *directory)
+{
+	char destination[256], stage[320], backup[320];
+	char absent_destination[256], absent_stage[320], absent_backup[320];
+	FILE *fp;
+	int recovery_status = -1;
+
+	assert(snprintf(destination, sizeof(destination),
+			"%s/rollback-resolver", directory) > 0);
+	assert(snprintf(stage, sizeof(stage),
+			"%s/rollback-resolver.stage.XXXXXX", directory) > 0);
+	assert(snprintf(backup, sizeof(backup),
+			"%s/rollback-resolver.backup.XXXXXX", directory) > 0);
+	fp = fopen(destination, "w");
+	assert(fp != NULL && fputs("old-resolver\n", fp) >= 0);
+	assert(fclose(fp) == 0);
+	fp = dnsmasq_file_open(stage);
+	assert(fp != NULL && fputs("new-resolver\n", fp) >= 0);
+	errno = 0;
+	assert(dnsmasq_file_publish_with_rollback_ops(
+		fp, stage, destination, backup, 0644, &recovery_status,
+		mock_publish_after_rename_failure) == -1);
+	assert(errno == EIO);
+	assert(recovery_status == 0);
+	assert(stage[0] == '\0' && backup[0] == '\0');
+	read_exact(destination, "old-resolver\n");
+	assert(unlink(destination) == 0);
+
+	/* An originally absent destination must be removed after a late error. */
+	assert(snprintf(absent_destination, sizeof(absent_destination),
+			"%s/rollback-resolver-absent", directory) > 0);
+	assert(snprintf(absent_stage, sizeof(absent_stage),
+			"%s/rollback-resolver-absent.stage.XXXXXX", directory) > 0);
+	assert(snprintf(absent_backup, sizeof(absent_backup),
+			"%s/rollback-resolver-absent.backup.XXXXXX", directory) > 0);
+	fp = dnsmasq_file_open(absent_stage);
+	assert(fp != NULL && fputs("new-resolver\n", fp) >= 0);
+	recovery_status = -1;
+	assert(dnsmasq_file_publish_with_rollback_ops(
+		fp, absent_stage, absent_destination, absent_backup, 0644,
+		&recovery_status, mock_publish_after_rename_failure) == -1);
+	assert(errno == EIO);
+	assert(recovery_status == 0);
+	assert(absent_stage[0] == '\0' && absent_backup[0] == '\0');
+	assert(access(absent_destination, F_OK) != 0 && errno == ENOENT);
+}
+
 static void
 replace_file_contents(const char *destination, const char *contents)
 {
@@ -391,6 +483,7 @@ main(void)
 	assert(mkdtemp(directory) != NULL);
 	test_dnsmasq_file_directory_sync_helpers(directory);
 	test_snapshot_set_restore_and_commit(directory);
+	test_publish_failure_after_rename_restores_destination(directory);
 	test_open_failure_retains_path_for_retry(directory);
 	test_discard_retries_interrupted_unlink();
 	assert(snprintf(sentinel, sizeof(sentinel), "%s/sentinel", directory) > 0);
