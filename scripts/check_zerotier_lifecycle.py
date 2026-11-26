@@ -83,6 +83,8 @@ nat_settings_body = function_body(script, "zerotier_read_nat_enabled()")
 route_count_body = script.split("zerotier_validate_static_route_count() {", 1)[1].split("\n}\n", 1)[0]
 route_preflight_body = function_body(script, "zerotier_preflight_static_routes()")
 start_settings_body = function_body(script, "zerotier_load_start_settings()")
+moon_settings_body = function_body(script, "zerotier_preflight_moon_settings()")
+moon_id_body = function_body(script, "zerotier_moon_id_is_valid()")
 network_id_body = function_body(script, "zerotier_validate_network_id()")
 creat_moon_body = script.split("creat_moon() {", 1)[1].split("\n\nzerotier_rollback_moon_remove()", 1)[0]
 moon_ip_body = function_body(script, "zerotier_moon_ipv4_is_valid()")
@@ -444,7 +446,11 @@ require('zt_state_file="$config_path/.firewall-state"' in stop_body and
         'stop recovered a damaged checkpoint despite a live static route on the saved interface' in test and
         'stop recovered a damaged checkpoint with a multipath nexthop on the saved interface' in test,
         "stop may sanitize only a complete, validated checkpoint prefix; a truncated or semantically invalid tuple must still block shutdown")
-for marker in ("rules accepted an unreadable NAT selector as disabled",
+for marker in ("Moon selector zerotiermoon_ip read error stopped the existing daemon",
+               "Moon selector zerotiermoon_id read error stopped the existing daemon",
+               "invalid Moon IPv4 selector stopped the existing daemon",
+               "invalid Moon identity stopped the existing daemon",
+               "rules accepted an unreadable NAT selector as disabled",
                "NAT selector read failure stopped the daemon",
                "static-route add rejected an exact route which was already present",
                "pre-existing route was incorrectly claimed in the ZeroTier manifest",
@@ -456,14 +462,37 @@ for marker in ("rules accepted an unreadable NAT selector as disabled",
                "start stopped the daemon after"):
     require(marker in test, f"checked route/NAT regression omits {marker}")
 
-require('nvram get_checked zerotiermoon_ip' in creat_moon_body and
-        'nvram get zerotiermoon_ip' not in creat_moon_body and
-        'if ! moonip="$(nvram get_checked zerotiermoon_ip)"; then' in creat_moon_body,
-        "Moon creation must abort before WAN-IP fallback when its checked address read fails")
-require('NF != 4 { exit 1 }' in moon_ip_body and
-        '$i + 0 > 255' in moon_ip_body and
-        'if ! zerotier_moon_ipv4_is_valid "$ip_addr"; then' in creat_moon_body,
-        "Moon creation must reject malformed and out-of-range IPv4 endpoints")
+require('nvram get_checked zerotiermoon_ip' in moon_settings_body and
+        'nvram get_checked zerotiermoon_id' in moon_settings_body and
+        'ifconfig -a ppp0' in moon_settings_body and
+        'zerotier_moon_ipv4_is_valid "$zt_moon_create_ip_snapshot"' in moon_settings_body and
+        'zerotier_moon_id_is_valid "$zt_moon_remove_old_id_snapshot"' in moon_settings_body and
+        'nvram get_checked zerotiermoon_ip' not in creat_moon_body and
+        'nvram get_checked zerotiermoon_id' not in creat_moon_body and
+        'nvram get_checked zerotiermoon_id' not in remove_moon_body and
+        'zt_moon_create_ip_snapshot' in creat_moon_body and
+        'zt_moon_create_old_id_snapshot' in creat_moon_body and
+        'zt_moon_remove_old_id_snapshot' in remove_moon_body,
+        "Moon inputs must be checked and cached before service shutdown, then consumed without late NVRAM reads")
+require('return 0' in moon_id_body and
+        '*[!0123456789abcdefABCDEF]*' in moon_id_body and
+        '[ "${#1}" -eq 10 ]' in moon_id_body,
+        "Moon identity selector must be empty or exactly ten hexadecimal digits")
+require('if [ -n "$enablemoonserv" ] &&' in start_body and
+        'zerotier_preflight_moon_settings "$enablemoonserv"' in start_body and
+        start_body.index('zerotier_preflight_moon_settings "$enablemoonserv"') <
+        start_body.index('if ! kill_z; then') and
+        start_body.index('zt_moon_use_preflight=1') <
+        start_body.index("start_instance 'zerotier'") <
+        start_body.index('zt_moon_use_preflight=0'),
+        "start_zero must preflight Moon selectors before kill and scope their snapshot to the replacement start")
+require('if ! zerotier_moon_ipv4_is_valid "$ip_addr"; then' in creat_moon_body and
+        'zerotier_moon_id_is_valid' not in creat_moon_body,
+        "Moon creation must consume a validated IPv4 snapshot")
+require('if ! zerotier_moon_id_is_valid "$zt_moon_remove_old_id"; then' not in remove_moon_body and
+        'case "$zt_moon_remove_old_id" in' in remove_moon_body and
+        '"${#zt_moon_remove_old_id}" -ne 10' in remove_moon_body,
+        "Moon removal retains defensive validation of the cached identity")
 require('if ! "$PROGIDT" initmoon "$zt_moon_create_identity_public" > "$zt_moon_create_json_stage"; then' in creat_moon_body and
         'if ! sed -i ' in creat_moon_body and
         'if `sed -i ' not in creat_moon_body and

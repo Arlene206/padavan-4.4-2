@@ -1,3 +1,14 @@
+## 2026-11-26 — Preflight ZeroTier Moon inputs before stopping the current daemon
+
+- Found a lifecycle gap in `start_zero()`: it read the five general selectors and route/NAT settings before `kill_z()`, but the Moon branch read `zerotiermoon_ip` and `zerotiermoon_id` later inside `start_instance()`, after the old ZeroTier daemon was already terminated. A read failure, invalid configured/PPP fallback IPv4 endpoint, or malformed Moon ID could therefore abort replacement startup while unnecessarily leaving the service down.
+- Added a bounded Moon preflight for create mode and remove mode. It reads the relevant checked NVRAM values, resolves the PPP WAN fallback when the configured address is empty, validates IPv4 or the empty/10-hex Moon identity selector, and stores the values before any process/network side effect. `start_zero()` only exposes the snapshot to the one replacement `start_instance()` invocation; direct `creat_moon()` / `remove_moon()` calls still perform their own fresh preflight and do not consume stale cache values.
+- Extended lifecycle regressions for Moon address and ID read failures, invalid Moon IPv4 and removal ID, preservation of a running daemon/no signals/no network mutation, and a valid PPP WAN address fallback. Updated source contracts to require all Moon reads and validation before `kill_z()` and prohibit late NVRAM reads in the mutating Moon handlers.
+- The previous exact-head checks on `6fd35a9b57fc6aa85b95c52c62a1961a6c1ac373` are VPN lifecycle #45805581756 PASS and AI handoff #45805581869 PASS. Product L3 was verified only on earlier production SHA `f96dce30881937a686e6bc7e9407a41d47f27c2e` (#45805039346: Build + TRX + artifact PASS); this new ZeroTier source SHA requires its own tests and is not claimed L3-verified. Hardware L4 remains NOT VERIFIED.
+- Beijing time at preparation: 26/11/2026, 19:06:27 (UTC+8).
+- Parent main: `6fd35a9b57fc6aa85b95c52c62a1961a6c1ac373`; resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-26 — Fix the VPN marker checker by using one normalized source view
 
 - Exact SHA `6edf19ecd1a31332ebc3e23465861ab9399099e8`: AI handoff #45805256973 PASS; VPN lifecycle #45805256951 compiled and passed all C policy regressions, then failed at the marker parser source assertion. The prior checker-only correction used a raw regular expression with double-escaped metacharacters, so it searched for literal backslashes rather than accepting the C function's wrapped formatting.

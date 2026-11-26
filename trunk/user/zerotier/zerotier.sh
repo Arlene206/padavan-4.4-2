@@ -378,6 +378,59 @@ zerotier_validate_network_id() {
 }
 
 
+# Validate and snapshot Moon inputs before start_zero stops an existing daemon.
+zerotier_moon_id_is_valid() {
+	[ "$#" -eq 1 ] || return 1
+	[ -z "$1" ] && return 0
+	case "$1" in
+		*[!0123456789abcdefABCDEF]*) return 1 ;;
+	esac
+	[ "${#1}" -eq 10 ]
+}
+
+zerotier_preflight_moon_settings() {
+	[ "$#" -eq 1 ] || return 1
+	zt_moon_preflight_mode="$1"
+	zt_moon_create_ip_snapshot=""
+	zt_moon_create_old_id_snapshot=""
+	zt_moon_remove_old_id_snapshot=""
+
+	case "$zt_moon_preflight_mode" in
+		1)
+			if ! zt_moon_create_ip_snapshot="$(nvram get_checked zerotiermoon_ip)"; then
+				logger -t "zerotier" "无法读取ZeroTier Moon地址配置"
+				return 1
+			fi
+			if ! zt_moon_create_old_id_snapshot="$(nvram get_checked zerotiermoon_id)"; then
+				logger -t "zerotier" "无法读取原有ZeroTier Moon身份配置"
+				return 1
+			fi
+			if [ -z "$zt_moon_create_ip_snapshot" ]; then
+				zt_moon_create_ip_snapshot="$(ifconfig -a ppp0 | grep 'inet addr:' | cut -d: -f2 | awk '{ print $1}')"
+			fi
+			if ! zerotier_moon_ipv4_is_valid "$zt_moon_create_ip_snapshot"; then
+				logger -t "zerotier" "ZeroTier Moon地址不是有效IPv4地址"
+				return 1
+			fi
+			;;
+		0)
+			if ! zt_moon_remove_old_id_snapshot="$(nvram get_checked zerotiermoon_id)"; then
+				logger -t "zerotier" "无法读取ZeroTier Moon身份配置"
+				return 1
+			fi
+			if ! zerotier_moon_id_is_valid "$zt_moon_remove_old_id_snapshot"; then
+				logger -t "zerotier" "ZeroTier Moon身份地址无效"
+				return 1
+			fi
+			;;
+		*)
+			return 1
+			;;
+	esac
+	return 0
+}
+
+
 zerotier_load_start_settings() {
 	if ! zt_start_moonid="$(nvram get_checked zerotier_moonid)"; then
 		logger -t "zerotier" "无法读取启动配置 zerotier_moonid"
@@ -1582,6 +1635,11 @@ start_zero() {
 		logger -t "zerotier" "无法读取ZeroTier启动配置，取消本次启动"
 		return 1
 	fi
+	if [ -n "$enablemoonserv" ] &&
+	   ! zerotier_preflight_moon_settings "$enablemoonserv"; then
+		logger -t "zerotier" "无法安全预检ZeroTier Moon设置，保留当前服务"
+		return 1
+	fi
 	if ! zerotier_read_nat_enabled; then
 		logger -t "zerotier" "无法读取NAT策略，保留当前ZeroTier服务"
 		return 1
@@ -1602,7 +1660,15 @@ start_zero() {
 		logger -t "zerotier" "旧网络状态尚未清理，取消新守护进程启动"
 		return 1
 	fi
-	start_instance 'zerotier'
+	# Make the preflight snapshot visible only to this start_instance call.
+	zt_moon_use_preflight=1
+	if start_instance 'zerotier'; then
+		zt_start_instance_status=0
+	else
+		zt_start_instance_status=$?
+	fi
+	zt_moon_use_preflight=0
+	return "$zt_start_instance_status"
 }
 # Match only the daemon executable started by this launcher. pidof/killall
 # operate on the mutable comm name and can signal unrelated same-name processes.
@@ -1924,20 +1990,17 @@ zerotier_rollback_moon_create() {
 }
 
 creat_moon() {
-	if ! moonip="$(nvram get_checked zerotiermoon_ip)"; then
-		logger -t "zerotier" "无法读取ZeroTier Moon地址配置"
-		return 1
-	fi
-	if ! zt_moon_create_old_id="$(nvram get_checked zerotiermoon_id)"; then
-		logger -t "zerotier" "无法读取原有ZeroTier Moon身份配置"
-		return 1
-	fi
-
-	if [ -z "$moonip" ]; then
-		ip_addr="$(ifconfig -a ppp0 | grep 'inet addr:' | cut -d: -f2 | awk '{ print $1}')"
+	if [ "${zt_moon_use_preflight:-0}" = 1 ]; then
+		moonip="$zt_moon_create_ip_snapshot"
+		zt_moon_create_old_id="$zt_moon_create_old_id_snapshot"
 	else
-		ip_addr="$moonip"
+		if ! zerotier_preflight_moon_settings 1; then
+			return 1
+		fi
+		moonip="$zt_moon_create_ip_snapshot"
+		zt_moon_create_old_id="$zt_moon_create_old_id_snapshot"
 	fi
+	ip_addr="$moonip"
 	if ! zerotier_moon_ipv4_is_valid "$ip_addr"; then
 		logger -t "zerotier" "ZeroTier Moon地址不是有效IPv4地址"
 		return 1
@@ -2103,9 +2166,13 @@ zerotier_rollback_moon_remove() {
 }
 
 remove_moon() {
-	if ! zt_moon_remove_old_id="$(nvram get_checked zerotiermoon_id)"; then
-		logger -t "zerotier" "无法读取ZeroTier Moon身份配置"
-		return 1
+	if [ "${zt_moon_use_preflight:-0}" = 1 ]; then
+		zt_moon_remove_old_id="$zt_moon_remove_old_id_snapshot"
+	else
+		if ! zerotier_preflight_moon_settings 0; then
+			return 1
+		fi
+		zt_moon_remove_old_id="$zt_moon_remove_old_id_snapshot"
 	fi
 	[ -n "$zt_moon_remove_old_id" ] || return 0
 	case "$zt_moon_remove_old_id" in

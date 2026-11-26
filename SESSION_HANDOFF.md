@@ -3,9 +3,10 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development on `main` only.
-- Live main before this checker-only correction: `f96dce30881937a686e6bc7e9407a41d47f27c2e` (shared marker ownership source fix).
+- Live main before this ZeroTier Moon preflight source fix: `6fd35a9b57fc6aa85b95c52c62a1961a6c1ac373`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify/delete. PR #1 remains closed/unmerged.
 - Bootstrap/protocol recovery was completed earlier; do not repeat it.
+- Exact SHA `6fd35a9b57fc6aa85b95c52c62a1961a6c1ac373`: VPN lifecycle #45805581756 PASS and AI handoff #45805581869 PASS after normalizing VPN marker ownership source-order checks. Product build #45805039346 on production source SHA `f96dce30881937a686e6bc7e9407a41d47f27c2e` completed successfully, including Build XY-C1, TRX verification and artifact upload; L3 is verified at f96's source, not for subsequent production changes. Hardware L4 remains NOT VERIFIED.
 
 ## Active task
 
@@ -115,9 +116,9 @@
 
 ## Exact first action for the next GPT
 
-1. Current main `6edf19ecd1a31332ebc3e23465861ab9399099e8` contains the VPN-client marker ownership source fix and a checker regex correction. Exact VPN lifecycle #45805256951 failed only in the final Python source contract: the regex was double-escaped and matched literal backslashes; all preceding C policy regressions passed. This commit replaces it with one whitespace-normalized source view; rerun exact-head VPN and AI Actions.
-2. Exact product source SHA `1d33cb41aca31eab3d58621a243272dc9cbd0000`: XY-C1 #45803175068 PASS, including Build, TRX verification and artifact upload. This validates the shared atomic xl2tpd config publisher but not the later marker ownership change. f96dce XY-C1 #45805039346 was IN PROGRESS at Build XY-C1 with TRX and artifact pending; poll that result. Current later HEAD still requires its own production-source validation before L3. Hardware L4 remains NOT VERIFIED.
-3. After exact-head VPN and AI validation, poll all remaining f96dce Actions and close failures before rotating to another high-risk userland stability/security defect outside VPN. Do not repeat completed bootstrap or DHCPv6 work.
+1. Live main before this source slice: `6fd35a9b57fc6aa85b95c52c62a1961a6c1ac373`. Exact-head VPN lifecycle #45805581756 and AI handoff #45805581869 PASS. The current ZeroTier change moves Moon address/identity reads and validation ahead of `kill_z()`, caches the validated values for the replacement launch, and preserves direct create/remove helper behavior outside `start_zero()`. Immediately inspect ZeroTier lifecycle and AI exact-head Actions for the resulting SHA and repair any failure.
+2. L3 product validation was successful on production source SHA `f96dce30881937a686e6bc7e9407a41d47f27c2e` (#45805039346: Build XY-C1, TRX verification and artifact upload all PASS). This is prior to the new ZeroTier production-source change and must not be represented as an L3 pass for the new HEAD. Hardware L4 remains NOT VERIFIED.
+3. After exact-head ZeroTier checks pass, inspect remaining current-head Actions and then continue with another confirmed stability/security defect outside VPN/ZeroTier. Do not repeat bootstrap, DHCPv6, or already completed source-contract corrections.
 
 ## Mandatory handoff checkpoint
 

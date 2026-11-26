@@ -16,7 +16,7 @@ TEST_NVRAM_GET_FAIL=0
 TEST_NVRAM_READ_FAIL_KEY=""
 TEST_NVRAM_MOONID_STATE=""
 TEST_NVRAM_MOON_ENABLE_STATE=""
-TEST_NVRAM_MOON_IP_STATE=""
+TEST_NVRAM_MOON_IP_STATE="192.0.2.10"
 TEST_NVRAM_MOON_ID_STATE=""
 TEST_NVRAM_ID_STATE=""
 TEST_NVRAM_SET_FAIL=0
@@ -153,6 +153,9 @@ ifconfig() {
 		printf '%s\n' "$*" >> "$TEST_IFCONFIG_CALL_LOG"
 	fi
 	case "$TEST_IFCONFIG_MODE" in
+		moon-ip)
+			printf '%s\n' "ppp0 Link encap:Point-to-Point Protocol" "          inet addr:198.51.100.7  P-t-P:198.51.100.1  Mask:255.255.255.255"
+			;;
 		running-only)
 			case "$(cat "$TEST_STATE")" in
 				running) printf '%s\n' "ztunit: Link encap:Ethernet" ;;
@@ -412,6 +415,60 @@ for setting in zerotier_moonid zerotier_secret zerotiermoon_enable zerotier_plan
 	[ "$zt_network_id" = "sentinel-network-id" ] || fail "startup settings partially published network ID after $setting read failure"
 done
 TEST_NVRAM_READ_FAIL_KEY=""
+
+# Moon selectors are consumed after startup settings, so they must be
+# snapshotted and validated before an existing daemon is signalled.
+TEST_NVRAM_MOON_ENABLE_STATE=1
+TEST_NVRAM_MOON_IP_STATE="192.0.2.10"
+TEST_NVRAM_MOON_ID_STATE="abcdef0123"
+for setting in zerotiermoon_ip zerotiermoon_id; do
+	TEST_NVRAM_READ_FAIL_KEY="$setting"
+	: > "$TEST_KILL_LOG"
+	: > "$TEST_ACTION_LOG"
+	echo running > "$TEST_STATE"
+	if start_zero; then
+		fail "start accepted unreadable Moon selector $setting"
+	fi
+	[ "$(cat "$TEST_STATE")" = "running" ] || fail "Moon selector $setting read error stopped the existing daemon"
+	[ ! -s "$TEST_KILL_LOG" ] || fail "Moon selector $setting read error signalled the existing daemon"
+	[ ! -s "$TEST_ACTION_LOG" ] || fail "Moon selector $setting read error changed network state"
+done
+TEST_NVRAM_READ_FAIL_KEY=""
+TEST_NVRAM_MOON_IP_STATE="192.0.2.999"
+: > "$TEST_KILL_LOG"
+: > "$TEST_ACTION_LOG"
+echo running > "$TEST_STATE"
+if start_zero; then
+	fail "start accepted an invalid Moon IPv4 selector"
+fi
+[ "$(cat "$TEST_STATE")" = "running" ] || fail "invalid Moon IPv4 selector stopped the existing daemon"
+[ ! -s "$TEST_KILL_LOG" ] || fail "invalid Moon IPv4 selector signalled the existing daemon"
+[ ! -s "$TEST_ACTION_LOG" ] || fail "invalid Moon IPv4 selector changed network state"
+
+TEST_NVRAM_MOON_ENABLE_STATE=0
+TEST_NVRAM_MOON_ID_STATE="invalid"
+: > "$TEST_KILL_LOG"
+: > "$TEST_ACTION_LOG"
+echo running > "$TEST_STATE"
+if start_zero; then
+	fail "start accepted an invalid Moon identity in removal mode"
+fi
+[ "$(cat "$TEST_STATE")" = "running" ] || fail "invalid Moon identity stopped the existing daemon"
+[ ! -s "$TEST_KILL_LOG" ] || fail "invalid Moon identity signalled the existing daemon"
+[ ! -s "$TEST_ACTION_LOG" ] || fail "invalid Moon identity changed network state"
+
+TEST_NVRAM_MOON_ENABLE_STATE=1
+TEST_NVRAM_MOON_ID_STATE="abcdef0123"
+TEST_NVRAM_MOON_IP_STATE="192.0.2.10"
+# An empty configured endpoint is resolved from ppp0 before shutdown too.
+TEST_NVRAM_MOON_IP_STATE=""
+TEST_IFCONFIG_MODE=moon-ip
+if ! zerotier_preflight_moon_settings 1; then
+	fail "valid PPP WAN fallback address was rejected by Moon preflight"
+fi
+[ "$zt_moon_create_ip_snapshot" = "198.51.100.7" ] || fail "Moon preflight did not cache the PPP WAN fallback address"
+TEST_IFCONFIG_MODE=none
+TEST_NVRAM_MOON_IP_STATE="192.0.2.10"
 
 # A checked startup read failure must not stop an already-running daemon.
 : > "$TEST_KILL_LOG"
