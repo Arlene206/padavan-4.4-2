@@ -18,10 +18,6 @@ on:
       - "trunk/user/ralinkiappd/tests/iapp_select_fd_policy.c"
       - "trunk/user/ralinkiappd/tests/iapp_select_fd_policy.sh"
       - "scripts/check_iappd_select_fd.py"
-      - "trunk/user/ralinkiappd/src/iapp_select_fd_policy.h"
-      - "trunk/user/ralinkiappd/tests/iapp_select_fd_policy.c"
-      - "trunk/user/ralinkiappd/tests/iapp_select_fd_policy.sh"
-      - "scripts/check_iappd_select_fd.py"
   pull_request:
     paths:
       - ".github/workflows/iappd-lifecycle.yml"

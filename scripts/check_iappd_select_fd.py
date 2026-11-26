@@ -10,7 +10,7 @@ POLICY = ROOT / "trunk/user/ralinkiappd/src/iapp_select_fd_policy.h"
 
 
 def extract_function(source: str, name: str) -> str:
-    matches = list(re.finditer(r"\bstatic\s+VOID\s+" + re.escape(name) + r"\s*\(", source))
+    matches = list(re.finditer(r"\b(?:static\s+)?VOID\s+" + re.escape(name) + r"\s*\(", source))
     if not matches:
         raise SystemExit("FAIL: missing " + name + " definition")
     start = matches[-1].start()
