@@ -1107,7 +1107,7 @@ jobs:
           assert "goto session_failed;" in start_dhcp6
           stop_dhcp6 = body(wan6_source, "int stop_dhcp6c(void)")
           stop_lock = stop_dhcp6.index("dhcp6c_callback_session_lock(")
-          stop_kill = stop_dhcp6.index("kill_services(svcs, 3, 1)")
+          stop_kill = stop_dhcp6.index("kill_services(svcs, 16, 0)")
           stop_guard = stop_dhcp6.index("if (stop_status == 0 &&", stop_kill)
           stop_advance = stop_dhcp6.index("dhcp6c_callback_session_advance(", stop_guard)
           stop_unlock = stop_dhcp6.rindex("dhcp6c_callback_session_unlock(session_fd)")
@@ -1271,7 +1271,7 @@ jobs:
           # A failed daemon stop must leave the active callback token valid.
           # Only a successful stop fences waiting children before unlock.
           stop_client = body(wan6_source, "stop_dhcp6c(void)")
-          stop_kill = stop_client.index("stop_status = kill_services(svcs, 3, 1);")
+          stop_kill = stop_client.index("stop_status = kill_services(svcs, 16, 0);")
           generation_advance = stop_client.index("dhcp6c_callback_session_advance(session_fd, &generation)")
           generation_guard = stop_client.rindex("if (stop_status == 0 &&", stop_kill, generation_advance)
           invalidate_unlock = stop_client.index("unlock_status = dhcp6c_callback_session_unlock(session_fd);", generation_advance)

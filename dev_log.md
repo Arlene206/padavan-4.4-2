@@ -1,3 +1,11 @@
+## 2026-11-26 — Align WAN DHCP source contract with graceful DHCPv6 stop
+
+- Exact-SHA WAN DHCP callback run #45789833759 for `a0fa423d528aee7d36bf06f79b0a28dc1c736fa5` passed all compiled policy tests but failed its final inline Python source contract with `ValueError: substring not found`. Two assertions still searched for `kill_services(svcs, 3, 1)` after the DHCPv6 stop was deliberately changed to `kill_services(svcs, 16, 0)`.
+- Updated both the lock-order and stop-generation inline assertions to recognize the 16-second non-forced stop. This tests the new fail-closed contract while retaining the assertion that callback generation advances only after successful process exit.
+- Parent main: `8d2bf194cdbc065eae75318ba01cbe36c04e2356`; resulting commit: THIS COMMIT. Exact-SHA WAN DHCP callback run pending.
+
+---
+
 ## 2026-11-26 — Fix DHCPv6 shutdown source-check ordering
 
 - Exact-SHA DHCPv6 IA workflow #45789833785 for `a0fa423d528aee7d36bf06f79b0a28dc1c736fa5` compiled and passed all six GNU89/`-Werror`/ASan/UBSan policy binaries, including the new shutdown-state regression. The Python source checker then failed because the newly added stop assertion referenced `wan6` before the existing `wan6 = read(...)` assignment later in the script.
