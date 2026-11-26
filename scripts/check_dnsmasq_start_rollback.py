@@ -109,7 +109,8 @@ assert restart.index("dnsmasq_confirm_started(launch_status)") < restart.index(
     "dnsmasq_rollback_failed_start("
 )
 restart_success_commit = restart.index(
-    "dnsmasq_static_host_files_snapshot_commit(&static_hosts_snapshot)"
+    "dnsmasq_static_host_files_snapshot_commit(&static_hosts_snapshot)",
+    restart.index("arpbind_apply_ethers_snapshot(&current_ethers)")
 )
 assert restart.index("dnsmasq_rollback_failed_start(") < restart_success_commit
 assert restart.index("dnsmasq_confirm_started(launch_status)") < restart_success_commit
