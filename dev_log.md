@@ -1,3 +1,10 @@
+## 2026-11-25 — Restore the exact cross-session execution mandate in handoff
+
+- AI handoff run #45769035962 on documentation commit `80ebd5e1826ead8fe8442edb9c07aba7ea176226` failed because the mandatory checkpoint section was present but the literal `# Cross-session execution mandate` section was absent.
+- Restored the required exact heading and explicit atomic-main-commit / before-context-exhaustion rules. The source-SHA verification table remains unchanged; this docs-only correction must pass the AI handoff workflow on its exact SHA.
+
+---
+
 ## 2026-11-25 — Adbyby memory-helper process inventory fail-closed correction
 
 - The earlier stop-helper identity check required `/proc/PID/exe` before reading argv. Ordinary kernel threads and other empty-argv non-candidates may have no `exe` symlink; the old ordering classified unrelated entries as UNKNOWN and could block helper cleanup. The identity scan now classifies empty/nonmatching argv as ABSENT first and performs interpreter/cwd proof only for a matching helper argv. Unreadable candidate metadata remains fail-closed.

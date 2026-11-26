@@ -3,7 +3,7 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`.
-- Live `main` HEAD: `a0fc95cce24a3e641e065d8093f60229ff136623` — latest commit repairs Adbyby memory-helper process inventory and stop-postcondition regressions.
+- Source HEAD verified before this documentation-only checkpoint: `a0fc95cce24a3e641e065d8093f60229ff136623` — Adbyby memory-helper process inventory and stop-postcondition regressions. This handoff is committed after that source SHA; fetch live `main` to identify the current documentation commit SHA.
 - Frozen backup branch `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only.
 - Bootstrap/protocol/handoff recovery was completed once. Do not repeat the initial audit or re-audit completed MiniDLNA, ZeroTier, VPN resolver, SmartDNS and HTTPD baseline tasks.
 - Publish one complete tree and one atomic commit per logical task, then a non-forced expected-SHA compare-and-swap. Never force-push or touch the backup branch.
@@ -34,6 +34,12 @@ Exact-head Actions for `a0fc95cce24a3e641e065d8093f60229ff136623`:
 1. Poll the exact-head XY-C1 run #45768481615 for `a0fc95cce24a3e641e065d8093f60229ff136623`; verify Build XY-C1, TRX validation and artifact upload independently. If it remains pending, work on an independent userland defect rather than waiting.
 2. Confirm exact-head Adbyby #45768481608 and the other listed checks; do not borrow pass results from parent SHAs.
 3. Continue a concrete security/stability source fix in another userland component, add regression coverage, and commit the complete logical slice atomically. Refresh this handoff after the next material result.
+
+# Cross-session execution mandate
+
+Continue the same autonomous engineering stream across ChatGPT sessions. Publish each logical task as one atomic main commit after creating the complete Git tree; update main only with a non-forced expected-SHA compare-and-swap. Do not split multi-file changes into partial commits, force-push, or mutate the frozen backup branch.
+
+Before context exhaustion, finish the current safe slice, commit and record exact-SHA tests/Actions, then update this handoff with the next concrete task. Do not ask the user what to do next. PENDING Actions do not block independent work; FAIL must be diagnosed from its exact run logs and repaired.
 
 ## Mandatory handoff checkpoint
 
