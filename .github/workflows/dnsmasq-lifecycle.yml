@@ -1033,7 +1033,11 @@ jobs:
           start_launch = start_locked.index('eval("/usr/sbin/dnsmasq")')
           assert start_snapshot < start_files_snapshot < start_prepare < start_prepare_restore
           assert start_prepare_restore < start_disabled < start_disabled_clear < start_disabled_commit < start_preflight
-          assert start_preflight < start_current < start_clear < start_apply < start_rollback < start_commit < start_launch
+          start_confirm = start_locked.index("dnsmasq_confirm_started(launch_status)", start_launch)
+          start_failed_rollback = start_locked.index("dnsmasq_rollback_failed_start(", start_confirm)
+          assert start_preflight < start_current < start_clear < start_apply < start_rollback < start_launch
+          assert start_launch < start_confirm < start_failed_rollback < start_commit
+          assert start_locked.index("return status;", start_failed_rollback) < start_commit
           assert start_locked.count("dnsmasq_static_host_restore_previous(") >= 3
           restart_locked = function_body(services, "restart_dhcpd_locked(void)")
           assert "stop_status, stop_postcondition, arp_status;" in restart_locked
@@ -1053,7 +1057,11 @@ jobs:
           restart_launch = restart_locked.index('eval("/usr/sbin/dnsmasq")')
           assert restart_snapshot < restart_files_snapshot < restart_prepare
           assert restart_prepare < restart_keep < restart_abort < restart_current < restart_stop < restart_absent
-          assert restart_stop_rollback < restart_apply < restart_apply_rollback < restart_commit < restart_launch
+          restart_confirm = restart_locked.index("dnsmasq_confirm_started(launch_status)", restart_launch)
+          restart_failed_rollback = restart_locked.index("dnsmasq_rollback_failed_start(", restart_confirm)
+          assert restart_stop_rollback < restart_apply < restart_apply_rollback < restart_launch
+          assert restart_launch < restart_confirm < restart_failed_rollback < restart_commit
+          assert restart_locked.index("return start_status;", restart_failed_rollback) < restart_commit
           assert restart_locked.count("dnsmasq_static_host_restore_previous(") >= 2
           assert "dnsmasq_restore_previous_daemon_if_stopped(" in restart_locked
           assert restart_locked.index("if (action == DNSMASQ_RESTART_STOP_ONLY)") < restart_apply
