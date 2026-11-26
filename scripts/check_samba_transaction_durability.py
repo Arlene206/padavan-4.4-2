@@ -108,7 +108,7 @@ state_read = run_samba.index("samba_config_transaction_read_state(")
 abort_call = run_samba.index("samba_config_transaction_abort(")
 assert state_read < abort_call
 assert "state_result==1&&is_committed" in run_samba
-assert "else if(state_result==1)" in run_samba
+assert "elseif(state_result==1)" in run_samba
 assert "prior transaction outcome is unavailable" in SERVICES
 assert "publication remains committed; recovery journal cleanup completed" in SERVICES
 assert "publication rolled back" in SERVICES
