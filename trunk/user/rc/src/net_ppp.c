@@ -48,9 +48,7 @@
 #include "wan_nvram_status_policy.h"
 #include <process_inventory.h>
 #include "xl2tpd_start_policy.h"
-#if defined (APP_RPL2TP)
 #include "l2tp_config_file.h"
-#endif
 
 #define PPP_WAN_SESSION_STATE_FILE "/tmp/ppp/wan-session.state"
 #define PPP_WAN_SESSION_LOCK_FILE "/tmp/ppp/wan-session.lock"
@@ -336,10 +334,135 @@ ppp_l2tp_runtime_marker_set_status(const char *name, int enabled)
 	return status;
 }
 
+struct xl2tpd_config_writer_context {
+	int unit;
+	int use_vpn_server;
+	int use_wan_lac;
+	int use_vpnc;
+	int vpnc_default_route;
+	unsigned int vpn_server_address;
+	unsigned int vpn_server_mask;
+	unsigned int vpn_pool_start;
+	unsigned int vpn_pool_end;
+	const char *hostname;
+	const char *wan_peer;
+	const char *wan_user;
+	const char *vpnc_peer;
+	const char *vpnc_user;
+};
+
+static int
+xl2tpd_config_write(FILE *fp, void *opaque)
+{
+	const struct xl2tpd_config_writer_context *config = opaque;
+	char sa_v[INET_ADDRSTRLEN], sp_b[INET_ADDRSTRLEN], sp_e[INET_ADDRSTRLEN];
+	char options[64], lac_name[8];
+	struct in_addr pool_in;
+	int length;
+
+	if (!fp || !config) {
+		errno = EINVAL;
+		return -1;
+	}
+	if (fprintf(fp,
+		    "[global]\n"
+		    "port = 1701\n"
+		    "access control = no\n"
+		    "rand source = dev\n\n") < 0)
+		return -1;
+
+	if (config->use_vpn_server) {
+		pool_in.s_addr = htonl(config->vpn_server_address);
+		strcpy(sa_v, inet_ntoa(pool_in));
+		pool_in.s_addr = htonl((config->vpn_server_address &
+					config->vpn_server_mask) |
+				       config->vpn_pool_start);
+		strcpy(sp_b, inet_ntoa(pool_in));
+		pool_in.s_addr = htonl((config->vpn_server_address &
+					config->vpn_server_mask) |
+				       config->vpn_pool_end);
+		strcpy(sp_e, inet_ntoa(pool_in));
+
+		if (fprintf(fp,
+			    "[lns default]\n"
+			    "hostname = %s\n"
+			    "local ip = %s\n"
+			    "ip range = %s-%s\n"
+			    "pppoptfile = %s\n"
+			    "require authentication = no\n"
+			    "tunnel rws = %d\n"
+			    "pass peer = yes\n"
+			    "exclusive = yes\n"
+			    "hidden bit = no\n"
+			    "length bit = yes\n"
+			    "require chap = yes\n"
+			    "refuse pap = yes\n\n",
+			    config->hostname, sa_v, sp_b, sp_e,
+			    VPN_SERVER_PPPD_OPTIONS, 8) < 0)
+			return -1;
+	}
+
+	if (config->use_wan_lac) {
+		length = snprintf(lac_name, sizeof(lac_name), "ISP%d", config->unit);
+		if (length < 0 || (size_t)length >= sizeof(lac_name)) {
+			errno = ENAMETOOLONG;
+			return -1;
+		}
+		length = snprintf(options, sizeof(options),
+				  "/tmp/ppp/options.wan%d", config->unit);
+		if (length < 0 || (size_t)length >= sizeof(options)) {
+			errno = ENAMETOOLONG;
+			return -1;
+		}
+		if (fprintf(fp,
+			    "[lac %s]\n"
+			    "pppoptfile = %s\n"
+			    "lns = %s\n"
+			    "name = %s\n"
+			    "require authentication = no\n"
+			    "tunnel rws = %d\n"
+			    "route_rdgw = %d\n"
+			    "autodial = yes\n"
+			    "redial = yes\n"
+			    "redial timeout = 15\n"
+			    "tx bps = 100000000\n"
+			    "rx bps = 100000000\n\n",
+			    lac_name, options, config->wan_peer, config->wan_user,
+			    8, 1) < 0)
+			return -1;
+	}
+
+	if (config->use_vpnc) {
+		if (fprintf(fp,
+			    "[lac VPNC]\n"
+			    "pppoptfile = %s\n"
+			    "lns = %s\n"
+			    "name = %s\n"
+			    "require authentication = no\n"
+			    "tunnel rws = %d\n"
+			    "route_rdgw = %d\n"
+			    "autodial = yes\n"
+			    "redial = yes\n"
+			    "redial timeout = 15\n"
+			    "tx bps = 100000000\n"
+			    "rx bps = 100000000\n\n",
+			    VPN_CLIENT_PPPD_OPTIONS, config->vpnc_peer,
+			    config->vpnc_user, 8, config->vpnc_default_route) < 0)
+			return -1;
+	}
+
+	if (ferror(fp)) {
+		if (!errno)
+			errno = EIO;
+		return -1;
+	}
+	return 0;
+}
+
 int
 safe_start_xl2tpd_locked(void)
 {
-	FILE *fp;
+	struct xl2tpd_config_writer_context writer_context;
 	int unit, wan_proto;
 	int use_vpn_server, use_wan_lac, use_vpnc;
 	int saved_errno, scan_error, presence_status, launch_status;
@@ -473,106 +596,27 @@ safe_start_xl2tpd_locked(void)
 		return -1;
 	}
 
-	if (!(fp = fopen(l2tp_conf, "w"))) {
-		perror(l2tp_conf);
-		return -1;
-	}
-
-
-	fprintf(fp,
-		"[global]\n"
-		"port = 1701\n"
-		"access control = no\n"
-		"rand source = dev\n\n");
-
-	if (use_vpn_server) {
-		char sa_v[INET_ADDRSTRLEN], sp_b[INET_ADDRSTRLEN], sp_e[INET_ADDRSTRLEN];
-		struct in_addr pool_in;
-
-		pool_in.s_addr = htonl(vpn_server_address);
-		strcpy(sa_v, inet_ntoa(pool_in));
-
-		pool_in.s_addr = htonl((vpn_server_address & vpn_server_mask) | vpn_pool_start);
-		strcpy(sp_b, inet_ntoa(pool_in));
-
-		pool_in.s_addr = htonl((vpn_server_address & vpn_server_mask) | vpn_pool_end);
-		strcpy(sp_e, inet_ntoa(pool_in));
-
-		fprintf(fp, "[lns default]\n");
-		fprintf(fp, "hostname = %s\n", hostname);
-		fprintf(fp, "local ip = %s\n", sa_v);
-		fprintf(fp, "ip range = %s-%s\n", sp_b, sp_e);
-		fprintf(fp, "pppoptfile = %s\n", VPN_SERVER_PPPD_OPTIONS);
-		fprintf(fp, "require authentication = no\n");
-		fprintf(fp, "tunnel rws = %d\n", 8);
-		fprintf(fp,
-			"pass peer = yes\n"
-			"exclusive = yes\n"
-			"hidden bit = no\n"
-			"length bit = yes\n"
-			"require chap = yes\n"
-			"refuse pap = yes\n\n");
-
-	}
-
-	if (use_wan_lac) {
-		char options[64], lac_name[8];
-
-		snprintf(lac_name, sizeof(lac_name), "ISP%d", unit);
-		snprintf(options, sizeof(options), "/tmp/ppp/options.wan%d", unit);
-
-		fprintf(fp, "[lac %s]\n", lac_name);
-		fprintf(fp, "pppoptfile = %s\n", options);
-		fprintf(fp, "lns = %s\n", wan_peer);
-		fprintf(fp, "name = %s\n", wan_user);
-		fprintf(fp, "require authentication = no\n");
-		fprintf(fp, "tunnel rws = %d\n", 8);
-		fprintf(fp, "route_rdgw = %d\n", 1);
-		fprintf(fp,
-			"autodial = yes\n"
-			"redial = yes\n"
-			"redial timeout = 15\n"
-			"tx bps = 100000000\n"
-			"rx bps = 100000000\n\n");
-
-	}
-
-	if (use_vpnc) {
-		fprintf(fp, "[lac %s]\n", "VPNC");
-		fprintf(fp, "pppoptfile = %s\n", VPN_CLIENT_PPPD_OPTIONS);
-		fprintf(fp, "lns = %s\n", vpnc_peer);
-		fprintf(fp, "name = %s\n", vpnc_user);
-		fprintf(fp, "require authentication = no\n");
-		fprintf(fp, "tunnel rws = %d\n", 8);
-		fprintf(fp, "route_rdgw = %d\n", vpnc_default_route);
-		fprintf(fp,
-			"autodial = yes\n"
-			"redial = yes\n"
-			"redial timeout = 15\n"
-			"tx bps = 100000000\n"
-			"rx bps = 100000000\n\n");
-
-	}
-
-	if (fflush(fp) != 0 || ferror(fp)) {
+	memset(&writer_context, 0, sizeof(writer_context));
+	writer_context.unit = unit;
+	writer_context.use_vpn_server = use_vpn_server;
+	writer_context.use_wan_lac = use_wan_lac;
+	writer_context.use_vpnc = use_vpnc;
+	writer_context.vpnc_default_route = vpnc_default_route;
+	writer_context.vpn_server_address = vpn_server_address;
+	writer_context.vpn_server_mask = vpn_server_mask;
+	writer_context.vpn_pool_start = vpn_pool_start;
+	writer_context.vpn_pool_end = vpn_pool_end;
+	writer_context.hostname = hostname;
+	writer_context.wan_peer = wan_peer;
+	writer_context.wan_user = wan_user;
+	writer_context.vpnc_peer = vpnc_peer;
+	writer_context.vpnc_user = vpnc_user;
+	if (l2tp_config_file_publish("/etc", "xl2tpd.conf",
+				     xl2tpd_config_write, &writer_context) != 0) {
 		saved_errno = errno ? errno : EIO;
-		(void)fclose(fp);
-		(void)unlink(l2tp_conf);
-		logmessage(LOGNAME, "cannot write L2TP configuration (errno=%d)", saved_errno);
-		errno = saved_errno;
-		return -1;
-	}
-	if (fclose(fp) != 0) {
-		saved_errno = errno ? errno : EIO;
-		(void)unlink(l2tp_conf);
-		logmessage(LOGNAME, "cannot close L2TP configuration (errno=%d)", saved_errno);
-		errno = saved_errno;
-		return -1;
-	}
-	if (chmod(l2tp_conf, 0644) != 0) {
-		saved_errno = errno ? errno : EIO;
-		(void)unlink(l2tp_conf);
-		logmessage(LOGNAME, "cannot set L2TP configuration permissions (errno=%d)", saved_errno);
+		logmessage(LOGNAME,
+			   "cannot atomically publish xl2tpd configuration (errno=%d)",
+			   saved_errno);
 		errno = saved_errno;
 		return -1;
 	}

@@ -1,3 +1,12 @@
+## 2026-11-26 — Publish the shared xl2tpd configuration atomically
+
+- Found that the shared xl2tpd writer still used `fopen("/etc/xl2tpd.conf", "w")`, unchecked individual `fprintf` calls, and then unlinked the live config if flush, close, or chmod failed. A full filesystem or interrupted write could therefore destroy the last-known-good config after truncating it; an existing symlink would also be followed.
+- Reused the existing no-follow, same-directory `l2tp_config_file_publish()` helper for the shared daemon config as well as rp-L2TP. A dedicated writer callback now propagates formatting/write errors; the helper stages a private regular file, flushes/fsyncs it, applies the established 0644 mode, and atomically renames it over the target only after success. Failed staging leaves the previous live config intact and removes the temporary file. Checked NVRAM/process/pool preflights remain before publication.
+- Extended the VPN lifecycle source contract to require all three existing config sections and inputs in the callback, reject the old truncating writer/unlink path, and enforce checked-snapshot/process/pool order before atomic publication. The existing GNU89 ASan/UBSan atomic-config regression already covers symlink-target protection and ENOSPC rollback. Exact-head VPN and AI workflows are required; no local firmware build or hardware result is claimed.
+- Parent main: `cce2c18a0ba3a90570a733c526d900b47e5eec3e`; resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-26 — Fix the VPN-client marker regression helper return type
 
 - Exact-head VPN lifecycle run #45801858401 on `3c36c0a0f780657b42e7b9d804064fadd9658c3c` exposed a test-only compile failure before the source checker: the new named regression helper used the suite's `CHECK` macro (which returns `1` on failure) but was declared `void`, triggering `-Werror=return-mismatch`. The production marker rollback patch was not reached by this run.

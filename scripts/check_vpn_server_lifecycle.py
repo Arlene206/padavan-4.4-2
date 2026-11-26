@@ -621,11 +621,26 @@ for adapter, token in (
 ):
     require(token in body(net_ppp, adapter),
             "xl2tpd transaction adapter is missing " + token)
+xl2tpd_writer = body(net_ppp, "xl2tpd_config_write(FILE *fp, void *opaque)")
+require('#include "l2tp_config_file.h"' in net_ppp and
+        'l2tp_config_file_publish("/etc", "xl2tpd.conf"' in safe_start_locked and
+        "xl2tpd_config_write" in safe_start_locked and
+        'fopen(l2tp_conf, "w")' not in safe_start_locked and
+        "unlink(l2tp_conf)" not in safe_start_locked,
+        "shared xl2tpd config must use same-directory atomic publication")
+for token in ('"[global]\\n"', '"[lns default]\\n"', '"[lac %s]\\n"',
+              '"[lac VPNC]\\n"', "VPN_SERVER_PPPD_OPTIONS",
+              "VPN_CLIENT_PPPD_OPTIONS", "config->wan_peer",
+              "config->vpnc_peer", "config->vpnc_default_route"):
+    require(token in xl2tpd_writer,
+            "xl2tpd atomic writer missing existing config section/value: " + token)
+require("return -1;" in xl2tpd_writer and "fprintf(fp," in xl2tpd_writer,
+        "xl2tpd writer must propagate formatting/write failures")
 require("xl2tpd_read_config_snapshot(&config_snapshot)" in safe_start_locked and
         safe_start_locked.index("xl2tpd_read_config_snapshot(&config_snapshot)") <
         safe_start_locked.index('process_inventory_scan("xl2tpd", &process_snapshot)') <
-        safe_start_locked.index('fopen(l2tp_conf, "w")'),
-        "xl2tpd snapshot failures must stop before scan and live config truncation")
+        safe_start_locked.index('l2tp_config_file_publish("/etc", "xl2tpd.conf"'),
+        "xl2tpd snapshot failures must stop before process scan and atomic config publication")
 require("xl2tpd_start_policy_config_flags(" in safe_start_locked and
         "config_snapshot.vpns_enable" in safe_start_locked and
         "config_snapshot.vpnc_enable" in safe_start_locked and
@@ -650,17 +665,17 @@ require('process_inventory_scan("xl2tpd", &process_snapshot)' in safe_start_lock
         "process_snapshot_release(&process_snapshot)" in safe_start_locked,
         "xl2tpd must obtain and release a complete process snapshot")
 require(safe_start_locked.index('process_inventory_scan("xl2tpd", &process_snapshot)') <
-        safe_start_locked.index('fopen(l2tp_conf, "w")'),
-        "unknown process state must be rejected before live config truncation")
+        safe_start_locked.index('l2tp_config_file_publish("/etc", "xl2tpd.conf"'),
+        "unknown process state must be rejected before atomic config publication")
 pool_compact = re.sub(r"\s+", " ", safe_start_locked)
 require("get_vpns_pool(&vpn_server_address, &vpn_server_mask, &vpn_pool_start, &vpn_pool_end) != 0" in pool_compact,
         "xl2tpd must consume the checked four-output VPN pool API")
 pool_gate = safe_start_locked.index("if (use_vpn_server &&")
 pool_call = safe_start_locked.index("get_vpns_pool(", pool_gate)
-config_open = safe_start_locked.index('fopen(l2tp_conf, "w")')
-require(pool_gate < pool_call < config_open,
-        "VPN address-pool snapshot must complete before live xl2tpd config truncation")
-pool_failure = safe_start_locked[pool_call:config_open]
+config_publish = safe_start_locked.index('l2tp_config_file_publish("/etc", "xl2tpd.conf"')
+require(pool_gate < pool_call < config_publish,
+        "VPN address-pool snapshot must complete before xl2tpd config publication")
+pool_failure = safe_start_locked[pool_call:config_publish]
 require("saved_errno = errno ? errno : EIO;" in pool_failure and
         "errno = saved_errno;" in pool_failure and "return -1;" in pool_failure,
         "VPN address-pool read errors must fail closed before xl2tpd config publication")
