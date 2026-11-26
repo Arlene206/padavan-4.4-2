@@ -832,7 +832,7 @@ print("WAN VLAN/bridge and IGMP proxy result-propagation contracts: PASS")
 
 
 # DHCP dynamic-route selector reads must preserve backend errors in both producers and route consumer.
-route_add = body(wan, "control_dhcp_routes(char *rt, char *rt_rfc, char *rt_ms")
+route_add = body(wan, "control_dhcp_routes(char *owner,")
 wan_dhcp = body(wan, "start_udhcpc_wan(char *wan_ifname, int unit, int wait_lease)")
 iptv_dhcp = body(wan, "start_udhcpc_viptv(char *man_ifname)")
 route_add_code = " ".join(route_add.split())
@@ -847,10 +847,12 @@ for name, code in (("route-add", route_add_code),
             "return dr_enable_status;" in code and
             'nvram_match("dr_enable_x", "1")' not in code,
             f"{name} must preserve dynamic-route NVRAM read errors")
-require(route_add_code.index("if (is_add)") < route_add_code.index(checked_dr_read) <
-        route_add_code.index("if (!dr_enable_value)") and
-        "if (!is_add)" not in route_add_code[:route_add_code.index(checked_dr_read)],
-        "DHCP route cleanup must remain independent of the dynamic-route add selector")
+cleanup_dispatch = route_add_code.index("if (!is_add)")
+cleanup_call = route_add_code.index("return dhcp_route_cleanup_owned(owner);")
+add_dispatch = route_add_code.index("if (is_add)")
+require(cleanup_dispatch < cleanup_call < checked_dr_read < add_dispatch <
+        route_add_code.index("if (!dr_enable_value)"),
+        "DHCP route teardown must use the owner manifest before reading add-only options")
 for code in (wan_dhcp_code, iptv_dhcp_code):
     require(code.index(checked_dr_read) < code.index("if (dr_enable_value)"),
             "DHCP clients must check the dynamic-route selector before adding option requests")
