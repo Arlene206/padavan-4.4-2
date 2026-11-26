@@ -1,24 +1,24 @@
 ## Current repository state — 2026-11-25
 
-- Parent `main` source baseline for this slice: `fec7eeaaa7d54d979de2536a41bffc7dc9d24aeb` (`fix(udhcpd): silence unknown INIT-REBOOT clients`). Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged.
-- Exact parent Actions: DHCP message policy #45732901166 PASS; AI docs #45732901184 PASS; Process lifecycle inventory #45732901015 PASS. USB hotplug #45732901022, NVRAM #45732901052 and XY-C1 #45732901066 were IN_PROGRESS at the last exact-SHA query; XY-C1 Build/TRX/artifact had not completed.
-- DHCPREQUEST now rejects inconsistent server-id/requested-IP/ciaddr combinations and remains silent for an unknown INIT-REBOOT client. DECLINE, RELEASE and INFORM field guards remain covered by the same DHCP server policy workflow.
-- This slice preserves DHCP leases across bounded backward wall-clock corrections (up to the existing 12-hour sanity window) instead of treating a negative timestamp delta as a huge unsigned age and discarding the lease database. Larger deltas and invalid timestamps are still rejected.
-- Physical-router L4 remains NOT VERIFIED. Do not transfer older firmware Build/TRX/artifact results to a newer source SHA.
+- Parent `main` source baseline for this slice: `cc2b64d056baae201432ae0d682a39aad19375f3` (`fix(udhcpd): preserve leases on small clock rollback`). Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged.
+- Exact parent push Actions at this checkpoint: #45733290988 XY-C1 Firmware Validation: in_progress; #45733291052 NVRAM transaction boundary audit: in_progress; #45733291033 AI handoff documentation contract: completed/success; #45733291015 Process lifecycle inventory - cc2b64d056baae201432ae0d682a39aad19375f3: completed/success; #45733291250 DHCP lease-file clock correction validation: completed/success; #45733291021 USB storage hotplug stability regression: completed/success; #45733290923 Process inventory and lifecycle fail-closed regression: completed/success. All listed runs use the exact parent SHA.
+- DHCP lease-file clock loading now tolerates bounded backward timestamp correction while retaining the existing 12-hour sanity limit.
+- This slice replaces direct `O_TRUNC`/unchecked lease-file writes with a same-directory temporary file, complete write loop, file `fsync`, checked close and atomic rename. Any pre-rename error removes the temporary file and leaves the previous lease database untouched. Notification runs only after successful replacement.
+- Physical-router L4 remains NOT VERIFIED. No older firmware Build/TRX/artifact result is transferable to a newer source SHA.
 
 ## Active task
 
-After validating the DHCP lease-file clock-correction workflow, address the explicitly documented write durability weakness in `write_leases()`: it truncates the live lease file before unchecked writes, so interruption or storage errors can destroy the last valid lease database. Design a same-directory temporary-file write, complete-write checks, fsync/close and atomic rename; preserve the old file on every pre-rename failure and add fault-injection regression coverage.
+After exact-head atomic lease-file validation, review the new writer's durability boundary and lease-file reload behavior, particularly directory metadata sync and malformed/truncated file handling. Keep any follow-up bounded and regression-tested; then move to another userland stability/security issue rather than broad repeated audits.
 
 ## Verification boundary
 
-- Parent `fec7eea` DHCP server message-policy #45732901166 and AI docs #45732901184 PASS; Process #45732901015 PASS. USB, NVRAM and XY-C1 were still running at the last check.
-- This slice's GNU89 ASan/UBSan test verifies normal elapsed time, equality, bounded backward clock correction, >12-hour rejection and invalid negative timestamps. Exact-head CI pending at commit creation.
-- No live DHCP client/server exchange, current-SHA firmware artifact, or physical-router result is claimed.
+- Parent `cc2b64d` clock policy test, DHCP message policy and AI docs were pending/running at the last exact-head query; XY-C1 and other independent workflows were also pending.
+- Atomic writer tests inject temporary creation, partial-write, fsync, close and rename failures and assert the old file remains intact. The standalone GNU89 ASan/UBSan test passed locally before publication; exact-head Actions pending at commit creation.
+- No live DHCP client/server exchange, current-SHA MIPS firmware artifact, or physical-router result is claimed.
 
 ## Exact first action for the next GPT
 
-Fetch live `main` and the exact-head DHCP lease-file clock policy, AI docs and XY-C1 Actions. Confirm the new focused workflow passes, inspect Build/TRX/artifact, and fix any exact-SHA failures. Then implement atomic lease-file replacement in `write_leases()` as specified above; do not merely document the unchecked `O_TRUNC`/write failure.
+Fetch live `main` and exact-head DHCP lease-file atomic, lease clock, AI docs and XY-C1 push Actions. Verify fault-injection and source-contract jobs, inspect firmware Build/TRX/artifact, and repair any exact-SHA failure. Then verify the directory-sync/truncated-file boundary in the atomic writer and continue with another concrete Padavan userland issue. Preserve the frozen backup.
 
 # Cross-session execution mandate
 

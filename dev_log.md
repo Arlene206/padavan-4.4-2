@@ -1,3 +1,11 @@
+## 2026-11-25 — Make DHCP lease-file replacement atomic
+
+- `write_leases()` opened the live lease database with `O_TRUNC` and ignored the results of its header/record `full_write()` calls. An interrupted write or storage-full condition could destroy the last valid lease snapshot and cause lease loss after restart.
+- It now serializes the current lease snapshot without mutating in-memory entries, writes through a same-directory `mkstemp()` file, loops over partial writes/EINTR, checks `fsync()` and close, then atomically renames only after all preconditions succeed. Failure cleanup closes/unlinks the temp file and preserves the old destination. `notify_file` runs only after replacement succeeds.
+- Fault-injection regression covers temp creation, partial write, fsync, close and rename failures and checks the old file remains intact. Local GNU89 `-Wall -Wextra -Werror -fsanitize=address,undefined` test PASS; exact-head CI pending. No device/storage power-cut test claimed.
+
+---
+
 ## 2026-11-25 — Preserve DHCP leases across bounded clock rollback
 
 - `read_leases()` computed `time(NULL) - written_at` then cast a negative result to `uint64_t` for the 12-hour age test. A small NTP/backward wall-clock correction therefore looked like an enormous age and discarded every saved lease; the same codebase's `dumpleases` already treats a future write stamp as zero elapsed time.

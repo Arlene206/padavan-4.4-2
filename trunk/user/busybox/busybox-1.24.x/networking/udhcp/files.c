@@ -10,6 +10,7 @@
 
 #include "common.h"
 #include "dhcpd.h"
+#include "udhcp_lease_file_atomic.h"
 #include "udhcp_lease_file_time_policy.h"
 
 /* on these functions, make sure your datatype matches */
@@ -120,42 +121,61 @@ void FAST_FUNC read_config(const char *file)
 
 void FAST_FUNC write_leases(void)
 {
-	int fd;
+	static const struct udhcp_lease_file_io_ops file_io = {
+		mkstemp, write, fsync, close, rename, unlink
+	};
 	unsigned i;
+	size_t lease_count = 0;
+	size_t total_size;
 	leasetime_t curr;
 	int64_t written_at;
-
-	fd = open_or_warn(server_config.lease_file, O_WRONLY|O_CREAT|O_TRUNC);
-	if (fd < 0)
-		return;
-
-	curr = written_at = time(NULL);
-
-	written_at = SWAP_BE64(written_at);
-	full_write(fd, &written_at, sizeof(written_at));
+	struct dyn_lease lease;
+	unsigned char *buffer;
+	unsigned char *cursor;
 
 	for (i = 0; i < server_config.max_leases; i++) {
-		leasetime_t tmp_time;
+		if (g_leases[i].lease_nip != 0)
+			lease_count++;
+	}
 
+	if (lease_count > ((size_t)-1 - sizeof(written_at)) / sizeof(lease)) {
+		bb_error_msg("too many leases to serialize");
+		return;
+	}
+	total_size = sizeof(written_at) + lease_count * sizeof(lease);
+	buffer = malloc(total_size);
+	if (!buffer) {
+		bb_error_msg("cannot allocate lease-file buffer");
+		return;
+	}
+
+	written_at = time(NULL);
+	curr = written_at;
+	written_at = SWAP_BE64(written_at);
+	memcpy(buffer, &written_at, sizeof(written_at));
+	cursor = buffer + sizeof(written_at);
+
+	for (i = 0; i < server_config.max_leases; i++) {
 		if (g_leases[i].lease_nip == 0)
 			continue;
 
-		/* Screw with the time in the struct, for easier writing */
-		tmp_time = g_leases[i].expires;
-
-		g_leases[i].expires -= curr;
-		if ((signed_leasetime_t) g_leases[i].expires < 0)
-			g_leases[i].expires = 0;
-		g_leases[i].expires = htonl(g_leases[i].expires);
-
-		/* No error check. If the file gets truncated,
-		 * we lose some leases on restart. Oh well. */
-		full_write(fd, &g_leases[i], sizeof(g_leases[i]));
-
-		/* Then restore it when done */
-		g_leases[i].expires = tmp_time;
+		memcpy(&lease, &g_leases[i], sizeof(lease));
+		lease.expires -= curr;
+		if ((signed_leasetime_t)lease.expires < 0)
+			lease.expires = 0;
+		lease.expires = htonl(lease.expires);
+		memcpy(cursor, &lease, sizeof(lease));
+		cursor += sizeof(lease);
 	}
-	close(fd);
+
+	if (udhcp_lease_file_write_atomic(server_config.lease_file,
+			buffer, total_size, &file_io) != 0) {
+		bb_perror_msg("cannot atomically write leases to %s",
+				server_config.lease_file);
+		free(buffer);
+		return;
+	}
+	free(buffer);
 
 	if (server_config.notify_file) {
 		char *argv[3];

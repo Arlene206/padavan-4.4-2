@@ -105,6 +105,8 @@ on:
       - "trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcpd.c"
       - "trunk/user/busybox/busybox-1.24.x/networking/udhcp/files.c"
       - "trunk/user/busybox/busybox-1.24.x/networking/udhcp/udhcp_lease_file_time_policy.h"
+      - "trunk/user/busybox/busybox-1.24.x/networking/udhcp/udhcp_lease_file_atomic.h"
+      - "trunk/user/busybox/busybox-1.24.x/networking/udhcp/tests/udhcp_lease_file_atomic.c"
       - "trunk/user/busybox/busybox-1.24.x/networking/udhcp/tests/udhcp_lease_file_time_policy.c"
       - "trunk/user/busybox/busybox-1.24.x/networking/udhcp/udhcp_server_message_policy.h"
       - "trunk/user/busybox/busybox-1.24.x/networking/udhcp/tests/udhcp_server_message_policy.c"
