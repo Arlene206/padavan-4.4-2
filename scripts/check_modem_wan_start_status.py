@@ -799,7 +799,7 @@ assert "if (is_valid_ipv4(ppp_gate))" in ppp_wait
 assert 'eval("ping", "-c1", ppp_gate);' in ppp_wait
 assert 'doSystem("ping -c1 %s", ppp_gate)' not in ppp_wait
 
-wan_up_internal = body(WAN_SOURCE, "wan_up_internal(char *wan_ifname, int unit, int is_static)")
+wan_up_internal = body(WAN_SOURCE, "wan_up_internal_with_route_status(char *wan_ifname, int unit,")
 assert 'eval(script_postw, "up", wan_ifname, wan_addr);' in wan_up_internal
 assert 'doSystem("%s %s %s %s", script_postw, "up"' not in wan_up_internal
 wan_down_internal = body(WAN_SOURCE, "wan_down_internal(char *wan_ifname, int unit, int is_static)")
