@@ -393,13 +393,13 @@ main(void)
 	read_exact(victim, "keep-victim\n");
 	read_exact(link_path, "private-link-replacement\n");
 
-	/* Aborting a partial build leaves the previous config untouched. */
+	/* Aborting a partial build leaves the committed config untouched. */
 	fp = inadyn_config_file_open(config, staged_path, sizeof(staged_path));
 	assert(fp != NULL);
 	assert(fputs("partial-secret\n", fp) >= 0);
 	assert(inadyn_config_file_discard(fp, staged_path) == 0);
 	assert(staged_path[0] == '\0');
-	read_exact(config, "new-user\nnew-password\n");
+	read_exact(config, "committed-generation\n");
 	assert(count_staged_files(directory, "inadyn.conf.tmp.") == 0);
 
 	/* A rename failure cleans the stage and preserves the existing directory. */
