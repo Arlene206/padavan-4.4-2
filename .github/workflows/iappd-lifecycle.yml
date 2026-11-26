@@ -47,5 +47,5 @@ jobs:
         run: sh trunk/user/ralinkiappd/tests/iappd_lifecycle.sh
       - name: Run select descriptor boundary regression
         run: sh trunk/user/ralinkiappd/tests/iapp_select_fd_policy.sh
-      - name: Verify Linux event-loop descriptor guards
+      - name: Verify Linux event-loop select and receive guards
         run: python3 scripts/check_iappd_select_fd.py

@@ -2771,7 +2771,7 @@ static VOID IAPP_RcvHandlerRawDrv(
 	SizeRcvMsg = recvfrom(pCtrlBK->SocketRawDrv,
 							pPktBuf,
 							IAPP_MAX_RCV_PKT_SIZE,
-							0,
+							MSG_TRUNC,
 							(struct sockaddr *)&AddrPeer,
 							&Length);
 #endif // IAPP_OS_LINUX //
@@ -2787,6 +2787,12 @@ static VOID IAPP_RcvHandlerRawDrv(
 	{
 		UCHAR WifiMAC[ETH_ALEN];
 
+		if (!iapp_rx_length_within_capacity((size_t)IAPP_MAX_RCV_PKT_SIZE, SizeRcvMsg)) {
+			DBGPRINT(RT_DEBUG_ERROR,
+				 "iapp> Oversized raw-driver datagram (%d > %d bytes)!\n",
+				 SizeRcvMsg, IAPP_MAX_RCV_PKT_SIZE);
+			return;
+		}
 		if (SizeRcvMsg < (INT32)(sizeof(FT_ETH_HEADER) +
 					 RT_SIGNAL_STRUC_HDR_SIZE +
 					 FT_KDP_EVT_HEADER_SIZE)) {
@@ -2853,7 +2859,7 @@ static VOID IAPP_RcvHandlerRawRRB(
 	SizeRcvMsg = recvfrom(pCtrlBK->SocketRawRRB,
 							pPktBuf,
 							IAPP_MAX_RCV_PKT_SIZE,
-							0,
+							MSG_TRUNC,
 							(struct sockaddr *)&AddrPeer,
 							&Length);
 #endif // IAPP_OS_LINUX //
@@ -2871,6 +2877,13 @@ static VOID IAPP_RcvHandlerRawRRB(
 #ifdef FT_KDP_FUNC_PKT_ENCRYPT
 		UCHAR WifiMAC[ETH_ALEN];
 #endif // FT_KDP_FUNC_PKT_ENCRYPT //
+
+		if (!iapp_rx_length_within_capacity((size_t)IAPP_MAX_RCV_PKT_SIZE, SizeRcvMsg)) {
+			DBGPRINT(RT_DEBUG_ERROR,
+				 "iapp> Oversized raw RRB datagram (%d > %d bytes)!\n",
+				 SizeRcvMsg, IAPP_MAX_RCV_PKT_SIZE);
+			return;
+		}
 
 		DBGPRINT(RT_DEBUG_TRACE,
 				"iapp> Recvfrom RRB RAW successfully! (len = %d)\n",
@@ -3084,13 +3097,20 @@ static VOID IAPP_RcvHandlerUdp(
 	SizeRcvMsg = recvfrom(pCtrlBK->SocketUdpSend,
 							pPktBuf,
 							IAPP_MAX_RCV_PKT_SIZE,
-							0,
+							MSG_TRUNC,
 							(struct sockaddr *)&AddrPeer,
 							&Length);
 
 	/* handle the packet */
 	if (SizeRcvMsg > 0)
 	{
+		if (!iapp_rx_length_within_capacity((size_t)IAPP_MAX_RCV_PKT_SIZE, SizeRcvMsg)) {
+			DBGPRINT(RT_DEBUG_ERROR,
+				 "iapp> Oversized UDP datagram (%d > %d bytes)!\n",
+				 SizeRcvMsg, IAPP_MAX_RCV_PKT_SIZE);
+			return;
+		}
+
 		ReceivedLength = SizeRcvMsg;
 		DBGPRINT(RT_DEBUG_TRACE,
 				"iapp> Recvfrom UDP (len%d) successfully from %d.%d.%d.%d\n",

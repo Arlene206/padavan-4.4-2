@@ -2,6 +2,8 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/socket.h>
+#include <unistd.h>
 
 #include "../src/iapp_ioctl_ifname_policy.h"
 #include "../src/iapp_rx_length_policy.h"
@@ -180,6 +182,47 @@ test_received_payload_bounds(void)
 }
 
 static void
+test_linux_msg_trunc_reports_original_datagram_length(void)
+{
+	int sockets[2];
+	unsigned char payload[128];
+	struct {
+		unsigned char before;
+		unsigned char data[64];
+		unsigned char after;
+	} received;
+	ssize_t length;
+	size_t i;
+
+	for (i = 0; i < sizeof(payload); ++i)
+		payload[i] = (unsigned char)i;
+
+	assert(socketpair(AF_UNIX, SOCK_DGRAM, 0, sockets) == 0);
+	memset(&received, 0xa5, sizeof(received));
+
+	/* Exact-capacity datagrams remain valid. */
+	assert(send(sockets[0], payload, sizeof(received.data), 0) ==
+	       (ssize_t)sizeof(received.data));
+	length = recvfrom(sockets[1], received.data, sizeof(received.data),
+			  MSG_TRUNC, NULL, NULL);
+	assert(length == (ssize_t)sizeof(received.data));
+	assert(iapp_rx_length_within_capacity(sizeof(received.data), (int)length));
+
+	/* MSG_TRUNC reports the original size without overrunning the buffer. */
+	assert(send(sockets[0], payload, sizeof(payload), 0) ==
+	       (ssize_t)sizeof(payload));
+	length = recvfrom(sockets[1], received.data, sizeof(received.data),
+			  MSG_TRUNC, NULL, NULL);
+	assert(length == (ssize_t)sizeof(payload));
+	assert(!iapp_rx_length_within_capacity(sizeof(received.data), (int)length));
+	assert(received.before == 0xa5);
+	assert(received.after == 0xa5);
+
+	assert(close(sockets[0]) == 0);
+	assert(close(sockets[1]) == 0);
+}
+
+static void
 test_parser_rejects_count_overflow_and_invalid_names(void)
 {
 	assert(iapp_ioctl_ifname_arg_valid(0, 2, 4, 16));
@@ -203,7 +246,9 @@ main(void)
 	test_malformed_slots_and_names_fall_back();
 	test_wifi_index_bounds();
 	test_received_payload_bounds();
+	test_linux_msg_trunc_reports_original_datagram_length();
 	test_parser_rejects_count_overflow_and_invalid_names();
 	puts("IAPP ioctl interface index and parser bounds policy: PASS");
+	puts("IAPP Linux MSG_TRUNC datagram boundary: PASS");
 	return 0;
 }

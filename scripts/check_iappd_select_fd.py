@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify every Linux IAPP event-loop fd is range-checked before FD_SET."""
+"""Verify IAPP select descriptors and Linux datagram receive boundaries."""
 
 from pathlib import Path
 import re
@@ -108,6 +108,25 @@ def main() -> None:
             "select must run only after the Linux descriptor validation branch")
     require(body.find("FD_ISSET(pCtrlBK->SocketUdpSend") > body.find("select(SockMax+1"),
             "event dispatch must remain after select")
+
+    datagram_handlers = (
+        ("IAPP_RcvHandlerUdp", "SocketUdpSend", "pIappHdr = (RT_IAPP_HEADER *)(pPktBuf);"),
+        ("IAPP_RcvHandlerRawDrv", "SocketRawDrv", "NdisCopyMemory(WifiMAC, pPktBuf, ETH_ALEN);"),
+        ("IAPP_RcvHandlerRawRRB", "SocketRawRRB", "pFrameRRB = (FT_RRB_FRAME *)pPktBuf;"),
+    )
+    for name, socket_name, parse_marker in datagram_handlers:
+        handler = extract_function(source, name)
+        receive = handler.find("recvfrom(pCtrlBK->" + socket_name)
+        trunc_flag = handler.find("MSG_TRUNC", receive)
+        length_guard = handler.find("iapp_rx_length_within_capacity", trunc_flag)
+        parse = handler.find(parse_marker, length_guard)
+        require(receive >= 0 and trunc_flag > receive,
+                name + " must request the original datagram length with MSG_TRUNC")
+        require(length_guard > trunc_flag and
+                "IAPP_MAX_RCV_PKT_SIZE" in handler[length_guard:length_guard + 140],
+                name + " must reject datagrams larger than the receive buffer")
+        require(parse > length_guard,
+                name + " must reject oversized datagrams before reading the frame")
 
     print("Ralink IAPP select descriptor source contract: PASS")
 
