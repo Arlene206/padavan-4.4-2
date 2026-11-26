@@ -1,3 +1,13 @@
+## 2026-11-26 — Reject ambiguous SIT IPv4 gateway aliases before route mutation
+
+- `wan6_up()` used the shared `is_valid_ipv4()`, which delegates to `inet_aton()`; abbreviated/hex/octal aliases such as `127.1` passed preflight. The route syscall also uses `inet_aton()`, but owned-route persistence intentionally requires strict `inet_pton()` dotted-quad input. An alias could therefore add a route before record publication failed, leaving cleanup dependent on best-effort rollback and potentially untracked if rollback failed.
+- Added `wan6_sit_route4_gateway_normalize()` and call it during WAN IPv6 configuration preflight, before stopping/reconfiguring services. Empty and canonical `0.0.0.0` retain the legacy no-gateway behavior; other nonempty gateways must be unambiguous dotted-decimal literals. The canonical value is then used by route setup and ownership-record publication.
+- Added policy cases for absent/default gateway, a valid gateway, abbreviated `127.1`, hexadecimal `0xC00002FE`, and an out-of-range octet. The WAN DHCP callback workflow already compiles this identity policy binary under GNU89/`-Werror`/ASan/UBSan.
+- On source parent `032e71f1eee03ed2f3d4d6683c2485872bea16e1`, WAN DHCP callback #45784673035 and WAN route status #45784673105 PASS; AI handoff #45784866508 PASS after restoring the full cross-session checkpoint contract. XY-C1 #45784672998 was still in `Build XY-C1` at last check; TRX/artifact pending. Product L3 baseline remains `dd2885fc9941d3a57fd9c81cf01ed86488b0183d` until Build/TRX/artifact all pass on one product-source SHA.
+- Parent main: `293cd7559b28375a90e3f6c290825bb6e51d66fa`; resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-26 — Bound persisted SIT endpoint-route interface identity
 
 - `wan6_sit_route4_record_format()` previously accepted interface names longer than the parser's fixed `WAN6_SIT_ROUTE4_IFNAME_SIZE` buffer. Such a value could be serialized and persisted but later failed `wan6_sit_route4_record_parse()`, preventing reliable exact-route ownership cleanup. The format helper now rejects `strlen(ifname) >= 16` with `ENAMETOOLONG`.

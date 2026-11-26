@@ -614,6 +614,38 @@ test_sit_route4_nonempty_gateway_is_preserved(void)
 }
 
 static void
+test_sit_route4_gateway_normalization_is_strict_and_preserves_optional_default(void)
+{
+	char normalized[WAN6_SIT_ROUTE4_IPV4_SIZE];
+	int has_gateway = -1;
+
+	assert(wan6_sit_route4_gateway_normalize(
+		NULL, normalized, sizeof(normalized), &has_gateway) == 0);
+	assert(!has_gateway && normalized[0] == '\0');
+	assert(wan6_sit_route4_gateway_normalize(
+		"", normalized, sizeof(normalized), &has_gateway) == 0);
+	assert(!has_gateway && normalized[0] == '\0');
+	assert(wan6_sit_route4_gateway_normalize(
+		"0.0.0.0", normalized, sizeof(normalized), &has_gateway) == 0);
+	assert(!has_gateway && normalized[0] == '\0');
+
+	assert(wan6_sit_route4_gateway_normalize(
+		"192.0.2.254", normalized, sizeof(normalized), &has_gateway) == 0);
+	assert(has_gateway);
+	assert(strcmp(normalized, "192.0.2.254") == 0);
+
+	assert(wan6_sit_route4_gateway_normalize(
+		"127.1", normalized, sizeof(normalized), &has_gateway) == EINVAL);
+	assert(!has_gateway && normalized[0] == '\0');
+	assert(wan6_sit_route4_gateway_normalize(
+		"0xC00002FE", normalized, sizeof(normalized), &has_gateway) == EINVAL);
+	assert(!has_gateway && normalized[0] == '\0');
+	assert(wan6_sit_route4_gateway_normalize(
+		"192.0.2.256", normalized, sizeof(normalized), &has_gateway) == EINVAL);
+	assert(!has_gateway && normalized[0] == '\0');
+}
+
+static void
 test_sit_route4_record_format_and_parse_round_trip(void)
 {
 	char record[WAN6_SIT_ROUTE4_RECORD_SIZE];
@@ -827,6 +859,7 @@ main(void)
 	test_sit_endpoint_route_requires_ownership_output();
 	test_sit_route4_empty_gateway_maps_to_null_kernel_argument();
 	test_sit_route4_nonempty_gateway_is_preserved();
+	test_sit_route4_gateway_normalization_is_strict_and_preserves_optional_default();
 	test_sit_route4_record_format_and_parse_round_trip();
 	test_sit_route4_record_format_enforces_parser_interface_name_bound();
 	test_sit_route4_record_format_rejects_nonliteral_ipv4_fields();

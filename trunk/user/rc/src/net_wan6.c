@@ -1497,6 +1497,8 @@ int wan6_up(char *wan_ifname, int unit)
 	char wan_addr6_value[INET6_ADDRSTRLEN + 5] = {0};
 	char wan_gate6_value[INET6_ADDRSTRLEN + 5] = {0};
 	char wan_addr4_text[INET_ADDRSTRLEN];
+	char wan_gate4_text[INET_ADDRSTRLEN];
+	int wan_gate4_has_value;
 	struct in6_addr preflight_addr6;
 	char *wan_addr6 = wan_addr6_value, *wan_gate6 = wan_gate6_value;
 	char *wan_addr4 = wan_addr4_value, *wan_gate4 = wan_gate4_value;
@@ -1566,8 +1568,17 @@ int wan6_up(char *wan_ifname, int unit)
 			logmessage("WAN IPv6", "invalid WAN IPv4 address for unit %d", unit);
 			return EINVAL;
 		}
-		if (!is_valid_ipv4(wan_gate4))
-			wan_gate4 = NULL;
+		status = wan6_sit_route4_gateway_normalize(
+			wan_gate4, wan_gate4_text, sizeof(wan_gate4_text),
+			&wan_gate4_has_value);
+		if (status != 0) {
+			errno = status;
+			logmessage("WAN IPv6",
+				   "invalid or ambiguous SIT IPv4 gateway for unit %d (status=%d)",
+				   unit, status);
+			return status;
+		}
+		wan_gate4 = wan_gate4_has_value ? wan_gate4_text : NULL;
 		if ((ipv6_type == IPV6_6IN4 || ipv6_type == IPV6_6RD) &&
 		    (!wan_addr6[0] || ipv6_from_string(wan_addr6, &preflight_addr6) < 0)) {
 			errno = EINVAL;

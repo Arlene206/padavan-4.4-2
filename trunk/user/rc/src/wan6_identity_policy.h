@@ -230,6 +230,33 @@ wan6_sit_route4_gateway_argument(const char *gateway)
 	return (gateway && gateway[0]) ? gateway : NULL;
 }
 
+/*
+ * Normalize the optional WAN endpoint gateway before route_add() can pass it
+ * to inet_aton(). Empty and canonical 0.0.0.0 retain the legacy direct-route
+ * meaning; other values must be unambiguous dotted-decimal IPv4 literals.
+ */
+static inline int
+wan6_sit_route4_gateway_normalize(const char *gateway, char *normalized,
+				  size_t normalized_size, int *has_gateway)
+{
+	struct in_addr address;
+
+	if (!normalized || normalized_size == 0 || !has_gateway)
+		return EINVAL;
+	normalized[0] = '\0';
+	*has_gateway = 0;
+	if (normalized_size < INET_ADDRSTRLEN)
+		return ENAMETOOLONG;
+	if (!gateway || !gateway[0] || strcmp(gateway, "0.0.0.0") == 0)
+		return 0;
+	if (inet_pton(AF_INET, gateway, &address) != 1)
+		return EINVAL;
+	if (!inet_ntop(AF_INET, &address, normalized, normalized_size))
+		return errno ? errno : EIO;
+	*has_gateway = 1;
+	return 0;
+}
+
 #define WAN6_SIT_ROUTE4_RECORD_SIZE 64
 #define WAN6_SIT_ROUTE4_IFNAME_SIZE 16
 #define WAN6_SIT_ROUTE4_IPV4_SIZE 16
