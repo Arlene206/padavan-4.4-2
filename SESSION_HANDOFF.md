@@ -1,23 +1,22 @@
 ## Current repository state — 2026-11-26
 
-- Live `main` before this slice: `164044ffee80800078c280c746a66cadcfa7afd3` (`fix(udhcp): retain XID state on send errors only`). Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged.
-- Exact XID helper regression #45727290119 PASS on `164044f`, but review found its Python source contract accepted malformed `if (if (` in production `dhcprelay.c`; the workflow compiles the policy header test, not the BusyBox translation unit. This slice fixes the syntax and tightens the source contract.
-- `164044f` DHCP select-error #45727289936, USB hotplug #45727290059, packet bounds #45727289854, Process inventory #45727289798, AI docs #45727289805, BOOTREPLY #45727289791, select-fd #45727289867, giaddr/hop #45727289789 and NVRAM #45727289872 were in progress at last poll. XY-C1 #45727289832 was also in progress; its Build/TRX/artifact steps must be checked against exact source SHA.
-- AdGuardHome selector fix `f0cc53c`: config/security #45726581924 and Process #45726581809 PASS; AI docs correction `1f7f8b3` #45726801473 PASS. Latest f586 AI handoff #45726989705 PASS.
-- Last confirmed XY-C1 Build/TRX/artifact baseline is older `b320dd2` (#45724141332). Current-source L3 and physical-router L4 are NOT VERIFIED.
+- Live `main` before this slice: `27fa893d4feb9e639f6490ca528f851493b141ec` (`fix(udhcp): correct XID reply send condition`). Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged.
+- `27fa893` fixes malformed DHCP relay `pass_to_client()` syntax; exact-head XID, packet-bounds, select-error, BOOTREPLY, select-fd, giaddr/hop, Process, NVRAM, AI and XY-C1 runs were pending at last poll. The previous XID helper workflow #45727290119 on `164044f` did not compile the production translation unit.
+- AdGuardHome selector fix `f0cc53c`: config/security #45726581924 and Process #45726581809 PASS; AI correction `1f7f8b3` #45726801473 PASS; latest f586 AI docs #45726989705 PASS. WSDD2 netlink/docs passed on `4de82b5`.
+- Latest confirmed XY-C1 Build/TRX/artifact baseline is `b320dd2` (#45724141332), older than current source. Current-source L3 and physical-router L4 remain NOT VERIFIED.
 
 ## Active task
 
-Corrected a syntax error in `pass_to_client()` introduced by the XID retry change: the condition was accidentally written `if (if (...))`, which is invalid C. The previous XID workflow missed it because it compiles only the policy helper and its source checker searched for a fragment rather than the complete condition. The source contract now requires the full valid guard and rejects nested `if`.
+ZeroTier shutdown previously allowed `del_rules()` to return success when `zt0` was empty. On a legacy installation without `.firewall-state`, a vanished interface left no reliable way to identify old filter/NAT rules; `stop_zero()` could stop the daemon and delete persistent identity while stale rules remained. Shutdown now requires a live interface or validated checkpoint before signalling, and direct `del_rules()` fails closed.
 
 ## Verification boundary
 
-- The previous XID policy helper workflow #45727290119 PASS proves helper boundary cases only; it did not compile the modified production translation unit. Exact-head XID workflow and XY-C1 Build/TRX/artifact results are pending after this syntax correction.
-- No full firmware artifact or physical-router result is claimed.
+- Added a shell regression with a legacy no-checkpoint install, missing interface and active filter/NAT rules. It asserts no daemon signal, no iptables mutation and no identity deletion. Python contract checks guard order and direct cleanup failure.
+- Exact-head ZeroTier lifecycle, Process and AI documentation workflows are pending after commit. No firmware artifact or physical-router result is claimed.
 
 ## Exact first action for the next GPT
 
-Check exact-head XID source-contract and XY-C1 per-job results for this fix. If Build fails for another reason, inspect the exact log and repair it; verify all concurrent `164044f` subsystem workflows too. After the urgent compile defect is closed, continue the ZeroTier missing-firewall-cleanup-target regression described in the preceding investigation.
+Fetch exact-head ZeroTier lifecycle, Process, AI docs, and XY-C1 job steps for this commit. Fix the first causal failure. Continue a separate stability/security slice while builds are pending; preserve the frozen backup.
 
 # Cross-session execution mandate
 

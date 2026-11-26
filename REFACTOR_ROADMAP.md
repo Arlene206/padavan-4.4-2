@@ -1,6 +1,6 @@
-## 2026-11-26 — DHCP relay XID syntax correction
+## 2026-11-26 — ZeroTier stop cleanup identity
 
-- Fixed malformed reply-send condition missed by helper-only CI; strengthened source contract. Exact-head XID/XY-C1 checks pending.
+- Shutdown aborts if neither interface nor checkpoint identifies old firewall rules; regression added.
 
 ---
 ## 2026-11-26 — Validate static and DHCPv6 WAN DNS server literals

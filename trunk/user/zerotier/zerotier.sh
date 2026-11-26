@@ -1067,8 +1067,8 @@ del_rules() {
 		ip_segment="$zt_state_saved_segment"
 	fi
 	if [ -z "$zt0" ]; then
-		logger -t "zerotier" "无法确定ZeroTier接口，跳过无目标的防火墙删除"
-		return 0
+		logger -t "zerotier" "无法确定ZeroTier接口或清理检查点，拒绝确认防火墙清理成功"
+		return 1
 	fi
 	if [ -z "$ip_segment" ] && [ "$zt_firewall_state_checkpoint_loaded" != 1 ]; then
 		ip_segment="$(zerotier_kernel_route_segment "$zt0")"
@@ -1525,6 +1525,10 @@ stop_zero() {
 		# network and must never overwrite the saved cleanup identity.
 		zt0="$zt_state_saved_interface"
 		ip_segment="$zt_state_saved_segment"
+	fi
+	if [ -z "$zt0" ]; then
+		logger -t "zerotier" "无法确认ZeroTier接口或防火墙清理检查点，保留当前服务与持久配置"
+		return 1
 	fi
 	if ! zerotier_read_nat_enabled; then
 		logger -t "zerotier" "无法读取NAT策略，保留当前ZeroTier服务"

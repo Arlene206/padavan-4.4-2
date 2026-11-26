@@ -1258,6 +1258,45 @@ fi
 [ ! -s "$TEST_ACTION_LOG" ] || fail "unknown process state changed routes, firewall rules or persistent config"
 TEST_PIDOF_MODE=""
 
+# Legacy installs may have firewall rules but no cleanup checkpoint. When the
+# virtual interface has disappeared, never assume an unknown ruleset is clean.
+/bin/rm -rf "$TEST_CONFIG"
+mkdir -p "$TEST_CONFIG"
+echo identity > "$TEST_CONFIG/identity.secret"
+test_proc_reset
+test_proc_add 4340 "$PROG" "$PROG"
+echo running > "$TEST_STATE"
+TEST_MODE=graceful
+TEST_IFCONFIG_MODE=none
+TEST_ROUTE_MODE=none
+TEST_ROUTE_PRESENT=0
+TEST_ROUTE_SHOW_OUTPUT=""
+TEST_NAT_ENABLE=0
+TEST_STATIC_ROUTE_COUNT=0
+TEST_STATIC_ROUTE_ENABLE=0
+TEST_NVRAM_READ_FAIL_KEY=""
+zt0=""
+ip_segment=""
+zt_firewall_state_checkpoint_loaded=0
+: > "$TEST_KILL_LOG"
+: > "$TEST_ACTION_LOG"
+: > "$TEST_IPTABLES_LOG"
+: > "$TEST_IPTABLES_STATE_FILE"
+test_seed_firewall_rules
+: > "$TEST_IPTABLES_LOG"
+if stop_zero; then
+	fail "stop accepted an unknown firewall cleanup target"
+fi
+[ "$(cat "$TEST_STATE")" = "running" ] || fail "unknown firewall target stopped the daemon"
+[ ! -s "$TEST_KILL_LOG" ] || fail "unknown firewall target still signalled the daemon"
+[ ! -s "$TEST_IPTABLES_LOG" ] || fail "unknown firewall target changed firewall rules"
+[ -f "$TEST_CONFIG/identity.secret" ] || fail "unknown firewall target removed persistent identity"
+[ -s "$TEST_IPTABLES_STATE_FILE" ] || fail "unknown firewall target discarded still-published rules"
+[ ! -e "$TEST_CONFIG/.firewall-state" ] || fail "unknown firewall target fabricated a cleanup checkpoint"
+if del_rules; then
+	fail "del_rules accepted an unknown firewall cleanup target"
+fi
+[ ! -s "$TEST_IPTABLES_LOG" ] || fail "del_rules issued firewall commands without a cleanup target"
 
 : > "$TEST_KILL_LOG"
 : > "$TEST_SLEEP_LOG"

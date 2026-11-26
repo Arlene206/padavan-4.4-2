@@ -591,6 +591,21 @@ require('if [ -z "$zt0" ]; then' in stop_body and
         stop_body.index('ip_segment="$(zerotier_kernel_route_segment "$zt0")"') <
         stop_body.index('if ! kill_z; then'),
         "stop must capture both the ZeroTier interface and NAT source segment before daemon shutdown")
+require('ZeroTier接口或防火墙清理检查点' in stop_body and
+        stop_body.index('zt0="$zt_state_saved_interface"') <
+        stop_body.index('ZeroTier接口或防火墙清理检查点') <
+        stop_body.index('if ! zerotier_read_nat_enabled; then') <
+        stop_body.index('if ! kill_z; then'),
+        "stop must abort before teardown when no live interface or saved firewall tuple identifies legacy rules")
+require('无法确定ZeroTier接口或清理检查点' in del_rules_body and
+        'return 1' in del_rules_body.split('无法确定ZeroTier接口或清理检查点',1)[1].split('fi',1)[0],
+        "direct firewall cleanup must not report success when its target is unknown")
+require('stop accepted an unknown firewall cleanup target' in test and
+        'unknown firewall target still signalled the daemon' in test and
+        'unknown firewall target changed firewall rules' in test and
+        'unknown firewall target removed persistent identity' in test and
+        'del_rules accepted an unknown firewall cleanup target' in test,
+        "legacy missing-interface regression must preserve daemon, active rules and identity")
 checkpoint_load = stop_body.index("if ! zerotier_firewall_state_load; then")
 checkpoint_recovery = stop_body.index("if ! zerotier_firewall_state_recover_prefix; then", checkpoint_load)
 saved_interface = stop_body.index('zt0="$zt_state_saved_interface"', checkpoint_recovery)

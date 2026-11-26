@@ -1,3 +1,11 @@
+## 2026-11-26 — Fail closed on ZeroTier shutdown with unknown firewall identity
+
+- `del_rules()` treated an empty `zt0` as successful cleanup. A legacy install without `.firewall-state` could lose its interface before shutdown, leaving interface-specific filter/NAT rules impossible to identify while `stop_zero()` proceeded to stop the daemon and remove persistent identity/config.
+- `stop_zero()` now rejects teardown before signalling unless the live interface or a validated checkpoint provides the cleanup identity. Direct `del_rules()` also reports failure for an unknown target.
+- Added lifecycle coverage with stale active rules, no checkpoint and no interface; it checks process, firewall and persistent identity preservation. Exact-head lifecycle/Process/AI/XY-C1 checks pending; no firmware result claimed.
+
+---
+
 ## 2026-11-26 — Correct DHCP relay XID reply-path C syntax
 
 - Review of `164044f` found `pass_to_client()` used a malformed nested `if (if (...))` condition. The XID policy helper workflow passed because it compiled only the standalone policy header regression and the Python checker accepted a fragment of the malformed expression; it did not compile `dhcprelay.c`.
