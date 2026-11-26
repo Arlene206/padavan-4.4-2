@@ -1432,7 +1432,7 @@ jobs:
           start_wan = body_at_column_zero_terminator(source, "start_wan(void)")
           assert "int ipv6_status = wan6_up(wan_ifname, unit);" in start_wan
           assert "WAN IPv6 setup incomplete" in start_wan
-          wan_up_internal = body(source, "wan_up_internal(char *wan_ifname, int unit, int is_static)")
+          wan_up_internal = body(source, "wan_up_internal_with_route_status(char *wan_ifname, int unit,")
           assert "ipv6_status = wan6_up(wan_ifname, unit);" in wan_up_internal
           assert "status = route_status_accumulate(status, ipv6_status);" in wan_up_internal
 
