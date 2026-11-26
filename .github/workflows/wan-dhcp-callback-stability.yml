@@ -272,6 +272,14 @@ jobs:
             trunk/user/rc/src/tests/file_write_status.c \
             -o /tmp/file-write-status
           /tmp/file-write-status
+      - name: Compile and run PPP callback state-file locking and atomic publication regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/ppp_callback_state_file.c \
+            -o /tmp/ppp-callback-state-file
+          ASAN_OPTIONS=detect_leaks=1 /tmp/ppp-callback-state-file
       - name: Compile and run PPP IPv4 callback publication regression
         run: |
           set -eu
@@ -1279,6 +1287,11 @@ jobs:
           assert "ftruncate(" not in generation_change
           assert "fsync(fd)" in ppp_state_policy
           assert "rename(staged_path, path)" in ppp_state_policy
+          # The state-file fixture must execute, not merely be read by the
+          # static contract, so locking/rollback/parser regressions stay live.
+          assert "Compile and run PPP callback state-file locking and atomic publication regression" in workflow
+          assert "trunk/user/rc/src/tests/ppp_callback_state_file.c \\\n            -o /tmp/ppp-callback-state-file" in workflow
+          assert "ASAN_OPTIONS=detect_leaks=1 /tmp/ppp-callback-state-file" in workflow
 
           # Check buffered writes, proc/sys controls and every IPv6 teardown
           # command through the status returned to wan6_down().

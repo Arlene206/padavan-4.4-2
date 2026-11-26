@@ -1,3 +1,11 @@
+## 2026-11-26 15:57 Beijing — Execute PPP callback state-file regression in CI
+
+- `wan-dhcp-callback-stability.yml` already watched `ppp_callback_state_file.h`, `ppp_callback_generation_policy.h` and `tests/ppp_callback_state_file.c`, and the inline checker read the fixture only to assert `FD_CLOEXEC`; no Actions step compiled or ran the fixture. Consequently the sidecar-lock contention, atomic replacement, failed-short-write preservation, embedded-NUL and symlink-state cases were not runtime-verified by CI.
+- Added a GNU89 `-Wall -Wextra -Werror` ASan/UBSan compile/run step and source-contract assertions that pin the executable test step. Existing push and pull_request path filters already include the policy headers and test source.
+- Parent `15349a22f71f3b32ae1d375a4854374feef6c3ad`; exact-SHA WAN DHCP callback and AI handoff Actions pending after publication. No local checkout was available, so the host test was not run locally. XY-C1 production Build/TRX/artifact PASS on unchanged production-source baseline `a18496e1b8e5ca06a705f7268d19fdab278873dc`; current test/workflow/docs-only SHA does not itself imply a new L3 build.
+
+---
+
 ## 2026-11-26 — Align WAN route workflow contract with checked VPN callback selectors
 
 - Exact-SHA VPN server stability #45777843194, AI handoff #45777843207 and DNSMasq #45777843397 PASS on `a18496e1b8e5ca06a705f7268d19fdab278873dc`.
