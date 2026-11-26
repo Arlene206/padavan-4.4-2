@@ -1,6 +1,6 @@
-## 2026-11-26 — AdGuardHome redirect mode
+## 2026-11-26 — DHCP relay XID syntax correction
 
-- Checked NVRAM read now fails closed; missing remains mode 0. Exact `f0cc53c` AdGuard/Process PASS; AI rerun pending; L3 unverified.
+- Fixed malformed reply-send condition missed by helper-only CI; strengthened source contract. Exact-head XID/XY-C1 checks pending.
 
 ---
 ## 2026-11-26 — Validate static and DHCPv6 WAN DNS server literals

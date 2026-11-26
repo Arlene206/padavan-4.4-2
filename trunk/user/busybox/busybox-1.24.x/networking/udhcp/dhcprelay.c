@@ -295,7 +295,7 @@ static void pass_to_client(struct dhcp_packet *p, int packet_len, int *fds)
 	if (item->ip.sin_addr.s_addr == htonl(INADDR_ANY))
 		item->ip.sin_addr.s_addr = htonl(INADDR_BROADCAST);
 
-	if (if (udhcp_relay_send_result_ok(sendto_ip4(fds[item->client], p, packet_len, &item->ip))) {
+	if (udhcp_relay_send_result_ok(sendto_ip4(fds[item->client], p, packet_len, &item->ip))) {
 		xid_del_item(item);
 	} else {
 		log1("Unable to forward DHCP reply; retaining transaction for retry");

@@ -1,3 +1,10 @@
+## 2026-11-26 — Correct DHCP relay XID reply-path C syntax
+
+- Review of `164044f` found `pass_to_client()` used a malformed nested `if (if (...))` condition. The XID policy helper workflow passed because it compiled only the standalone policy header regression and the Python checker accepted a fragment of the malformed expression; it did not compile `dhcprelay.c`.
+- Removed the extra `if (` and strengthened the integration checker to require the complete `if (udhcp_relay_send_result_ok(...))` condition and reject nested `if` syntax. Exact-head XID and XY-C1 verification pending; no firmware result claimed.
+
+---
+
 ## 2026-11-25 — Preserve DHCP relay XID state across successful sendto results
 
 - The XID-budget commit used `sendto_ip4(...) != 0` to detect upstream send failure. That is incorrect for POSIX datagram send semantics: a successful send returns the number of bytes sent (positive), and only -1 represents failure. The condition therefore deleted newly-created XID entries after successful upstream forwarding, so server replies could no longer match.

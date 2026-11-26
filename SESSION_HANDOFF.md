@@ -1,26 +1,23 @@
-## Current repository state — 2026-11-25
+## Current repository state — 2026-11-26
 
-- Live `main` before this slice: `f586166ef44cdbcc2ffad8bd49546a613499bf46`. Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable.
-- DHCP relay hardening on the recent `ddb8f4f` / `684f66b` line includes bounded receive length, 1024-entry XID budget/correlation, select descriptor bounds, EINTR/permanent select error handling, and RFC 1542 giaddr/hop processing. Exact `684f66b` XID, BOOTREQUEST, select-fd, packet-bounds, select-error, AI and Process-inventory regressions were PASS.
-- The shared `packet.c` MSG_TRUNC guard and BOOTREPLY opcode gate were committed after `684f66b`; their exact-head workflow outcomes were not independently reconfirmed in this handoff checkpoint. Do not infer a PASS from the earlier helper tests.
-- The last previously confirmed XY-C1 Build/TRX/artifact baseline is `b320dd266be3dea74820ada79aec68c26f6b7dc9`; it predates the later DHCP relay/packet changes. Current-source L3 and physical-router L4 remain NOT VERIFIED.
+- Live `main` before this slice: `164044ffee80800078c280c746a66cadcfa7afd3` (`fix(udhcp): retain XID state on send errors only`). Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged.
+- Exact XID helper regression #45727290119 PASS on `164044f`, but review found its Python source contract accepted malformed `if (if (` in production `dhcprelay.c`; the workflow compiles the policy header test, not the BusyBox translation unit. This slice fixes the syntax and tightens the source contract.
+- `164044f` DHCP select-error #45727289936, USB hotplug #45727290059, packet bounds #45727289854, Process inventory #45727289798, AI docs #45727289805, BOOTREPLY #45727289791, select-fd #45727289867, giaddr/hop #45727289789 and NVRAM #45727289872 were in progress at last poll. XY-C1 #45727289832 was also in progress; its Build/TRX/artifact steps must be checked against exact source SHA.
+- AdGuardHome selector fix `f0cc53c`: config/security #45726581924 and Process #45726581809 PASS; AI docs correction `1f7f8b3` #45726801473 PASS. Latest f586 AI handoff #45726989705 PASS.
+- Last confirmed XY-C1 Build/TRX/artifact baseline is older `b320dd2` (#45724141332). Current-source L3 and physical-router L4 are NOT VERIFIED.
 
 ## Active task
 
-Correct the DHCP relay XID lifecycle's send-result handling. The helper `sendto_ip4()` is a wrapper around the POSIX datagram send operation, whose success value is the number of bytes sent (a positive value), while failure is `-1`. The original XID-budget patch treated every non-zero result as failure, so it removed newly-created XID entries after successful upstream sends. The reply path also deleted a transaction even when sending the response to the client failed. The current slice treats every non-negative result as success, removes new state only on a negative upstream send, and retains the reply mapping after a client-send failure so a retransmitted response can be forwarded.
+Corrected a syntax error in `pass_to_client()` introduced by the XID retry change: the condition was accidentally written `if (if (...))`, which is invalid C. The previous XID workflow missed it because it compiles only the policy helper and its source checker searched for a fragment rather than the complete condition. The source contract now requires the full valid guard and rejects nested `if`.
 
 ## Verification boundary
 
-- The XID GNU89 ASan/UBSan regression now checks send results `0`, positive byte counts and negative errors; the source integration checker verifies both production paths use that policy and that failed client replies retain their XID.
-- Exact-head XID lifecycle workflow, AI documentation and XY-C1 Build/TRX/artifact checks for this commit are pending. No live DHCP transaction simulation, full BusyBox cross-build, firmware artifact or router L4 result is claimed.
+- The previous XID policy helper workflow #45727290119 PASS proves helper boundary cases only; it did not compile the modified production translation unit. Exact-head XID workflow and XY-C1 Build/TRX/artifact results are pending after this syntax correction.
+- No full firmware artifact or physical-router result is claimed.
 
 ## Exact first action for the next GPT
 
-Fetch exact-head XID lifecycle, DHCP packet-length/BOOTREPLY, AI, XY-C1, NVRAM and Process runs for this commit. Fix any first causal failure. Then verify `sendto_ip4()` return semantics from its implementation and keep the XID policy aligned with it; do not revert to a `!= 0` success test. Current-source L3 still requires Build, TRX verification and artifact upload on one identical product-source SHA.
-
-## Mandatory handoff checkpoint
-
-The checkpoint is mandatory; a document edit is conditional. Inspect live main, frozen backup ref and exact-SHA Actions. If the checkpoint facts and first action are already accurate, record a no-op checkpoint without a docs-only commit.
+Check exact-head XID source-contract and XY-C1 per-job results for this fix. If Build fails for another reason, inspect the exact log and repair it; verify all concurrent `164044f` subsystem workflows too. After the urgent compile defect is closed, continue the ZeroTier missing-firewall-cleanup-target regression described in the preceding investigation.
 
 # Cross-session execution mandate
 
