@@ -4319,13 +4319,6 @@ stop_wan_ppp_locked(void)
 			   pause_status);
 		return pause_status;
 	}
-	stop_status = invalidate_wan_ppp_callback_session();
-	if (stop_status != 0) {
-		logmessage(LOGNAME,
-			   "refusing to stop WAN PPP because callback-session fencing failed (status=%d)",
-			   stop_status);
-		goto abort_resume_detect;
-	}
 	stop_status = clear_deferred_wan_reconnect_status();
 	if (stop_status != 0) {
 		logmessage(LOGNAME,
@@ -4344,6 +4337,14 @@ stop_wan_ppp_locked(void)
 	if (stop_status != 0) {
 		logmessage(LOGNAME,
 			   "refusing to clear WAN PPP state while PPP services remain active (status=%d)",
+			   stop_status);
+		goto abort_resume_detect;
+	}
+	/* Do not stale a live PPP session when any earlier stop gate failed. */
+	stop_status = invalidate_wan_ppp_callback_session();
+	if (stop_status != 0) {
+		logmessage(LOGNAME,
+			   "refusing to clear WAN PPP state because callback-session fencing failed (status=%d)",
 			   stop_status);
 		goto abort_resume_detect;
 	}
@@ -4489,13 +4490,6 @@ stop_wan_locked(void)
 			   pause_status);
 		return pause_status;
 	}
-	stop_status = invalidate_wan_ppp_callback_session();
-	if (stop_status != 0) {
-		logmessage(LOGNAME,
-			   "refusing WAN teardown because PPP callback-session fencing failed (status=%d)",
-			   stop_status);
-		goto abort_resume_detect;
-	}
 	stop_status = clear_deferred_wan_reconnect_status();
 	if (stop_status != 0) {
 		logmessage(LOGNAME,
@@ -4521,6 +4515,14 @@ stop_wan_locked(void)
 	if (stop_status != 0) {
 		logmessage(LOGNAME,
 			   "refusing WAN interface teardown while PPP services remain active (status=%d)",
+			   stop_status);
+		goto abort_resume_detect;
+	}
+	/* Fence old ipparam tokens only after every PPP callback/daemon stopped. */
+	stop_status = invalidate_wan_ppp_callback_session();
+	if (stop_status != 0) {
+		logmessage(LOGNAME,
+			   "refusing WAN interface teardown because PPP callback-session fencing failed (status=%d)",
 			   stop_status);
 		goto abort_resume_detect;
 	}

@@ -1,3 +1,11 @@
+## 2026-11-25 — Keep PPP callback generations valid across aborted stop attempts
+
+- Both WAN PPP stop paths advanced the callback generation before deferred-reconnect cancellation, VPN-client shutdown and PPP process termination. If any later gate failed, the old daemon could remain running while its existing ipparam token had already become stale; future ip-up/ip-down callbacks then silently skipped state and route updates.
+- Moved callback invalidation after successful PPP callback/daemon shutdown in both teardown paths. The L2TP and multi-WAN launcher paths likewise advance the generation only after the previous transport/pppd stop succeeds, still before shared option-file publication. A failed stop therefore leaves a surviving session's callback identity valid.
+- Added source-order regressions for all three paths; PPP option and WAN teardown workflows verify generation advancement follows successful process-stop gates. Exact-SHA Actions pending; no target firmware or live-router result is claimed.
+
+---
+
 ## 2026-11-25 — Correct ZeroTier pre-existing-route regression marker
 
 - Exact run #45738322534 passed the complete shell lifecycle regression, including the new pre-existing-route preservation and conflict cases. The Python checker then failed because its required marker said “accepted” while the regression correctly reports “rejected an exact route which was already present.”

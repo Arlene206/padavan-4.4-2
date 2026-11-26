@@ -119,11 +119,17 @@ preflight = launch.index("ppp_wan_option_values_read(")
 text_preflight = launch.index("ppp_wan_option_text_values_read(")
 generation = launch.index("ppp_wan_session_generation_change(&callback_generation)")
 options_open = launch.index("ppp_options_file_open(options)")
-stop = launch.find("kill_services(svcs, 5, 1)")
-require(preflight < generation and text_preflight < generation < options_open,
-        "PPP integer and string options must be checked before session changes and file open")
-require(stop < 0 or (preflight < stop and text_preflight < stop),
-        "L2TP daemon stop must follow checked option reads")
+l2tp_stop = launch.index("kill_services(svcs, 5, 1)")
+l2tp_stop_gate = launch.index("if (kill_services(svcs, 5, 1) != 0)")
+l2tp_stop_return = launch.index("return -1;", l2tp_stop_gate)
+multiwan_stop = launch.index("kill_services(svcs_pppd, 5, 1)")
+multiwan_stop_gate = launch.index("if (kill_services(svcs_pppd, 5, 1) != 0)")
+multiwan_stop_return = launch.index("return -1;", multiwan_stop_gate)
+require(preflight < l2tp_stop < l2tp_stop_gate < l2tp_stop_return < generation and
+        text_preflight < l2tp_stop and
+        preflight < multiwan_stop < multiwan_stop_gate < multiwan_stop_return < generation and
+        text_preflight < multiwan_stop and generation < options_open,
+        "PPP callback generation must advance only after checked config and successful old-session stop")
 require("get_wan_unit_value_int(" not in launch and "get_wan_unit_value(" not in launch,
         "PPP builder still consumes unchecked NVRAM options")
 for field in ("username", "password", "peer", "access_concentrator", "service", "user_options"):

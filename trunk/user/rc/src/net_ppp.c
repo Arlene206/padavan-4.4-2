@@ -877,16 +877,6 @@ launch_wan_pppd_locked(int unit, int wan_proto,
 		}
 	}
 
-	/* Fence callbacks from the prior session before reusing shared options. */
-	if (ppp_wan_session_generation_change(&callback_generation) != 0 ||
-	    ppp_callback_generation_format(callback_generation, callback_generation_text,
-					   sizeof(callback_generation_text)) != 0) {
-		saved_errno = errno ? errno : EIO;
-		logmessage(LOGNAME, "cannot establish WAN PPP callback generation (errno=%d)", saved_errno);
-		errno = saved_errno;
-		return -1;
-	}
-
 	/*
 	 * Stop the previous L2TP transport before opening/truncating the shared
 	 * PPP options file. A surviving daemon may still read this file when it
@@ -921,6 +911,20 @@ launch_wan_pppd_locked(int unit, int wan_proto,
 			errno = saved_errno;
 			return -1;
 		}
+	}
+
+	/*
+	 * Fence callbacks only after the previous L2TP/multi-WAN processes have
+	 * stopped successfully. A failed stop must leave a surviving session's
+	 * ipparam token valid. Keep this before publishing shared PPP options.
+	 */
+	if (ppp_wan_session_generation_change(&callback_generation) != 0 ||
+	    ppp_callback_generation_format(callback_generation, callback_generation_text,
+					   sizeof(callback_generation_text)) != 0) {
+		saved_errno = errno ? errno : EIO;
+		logmessage(LOGNAME, "cannot establish WAN PPP callback generation (errno=%d)", saved_errno);
+		errno = saved_errno;
+		return -1;
 	}
 
 	snprintf(options, sizeof(options), "/tmp/ppp/options.wan%d", unit);
