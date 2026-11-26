@@ -58,7 +58,10 @@ restore = compact(body("samba_config_transaction_restore_file("))
 assert restore.index("unlink(target_path)") < restore.index(
     "samba_config_transaction_sync_parent(target_path)"
 )
-assert restore.index("rename(restore_path,target_path)") < restore.index(
+assert restore.index("unlink(target_path)") < restore.index(
+    "samba_config_transaction_sync_parent(target_path)"
+)
+assert restore.index("rename(restore_path,target_path)") < restore.rindex(
     "samba_config_transaction_sync_parent(target_path)"
 )
 
