@@ -3,14 +3,15 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development on `main` only.
-- Parent `main` for the NoBinding initial-Request setup retry correction: `cfa384c7fe1ba6fdd87ca478a920012880d835c6`.
+- Parent `main` for the WAN xl2tpd dependency-marker rollback fix: `cd3d1a6ec469937f3488d073bf11c445c0aa4414`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify/delete. PR #1 remains closed/unmerged.
 - Bootstrap/protocol recovery was completed earlier; do not repeat it.
 
 ## Active task
 
 - Completed parser-safety slices: the DHCPv6 outer parser rejects duplicate CLIENTID, SERVERID, RELAY_MSG and INTERFACE_ID vbuf options before allocation; malformed-option cleanup frees the first owned buffers. Reconfigure Accept (option 20) is rejected when its payload is nonzero. Policy tests and source contracts cover both changes.
-- The graceful DHCPv6 shutdown now waits for both IA cleanup retries and outstanding `DHCP6S_RELEASE` transactions. Exact-SHA DHCPv6 IA run #45791657631 on `fb01f7a` PASSed all six GNU89/ASan/UBSan policy binaries and the full source checker after normalizing the wrapped two-argument exit gate. This prevents shutdown from discarding Release exchanges deliberately preserved by `free_resources(0)`.
+- The graceful DHCPv6 shutdown now waits for both IA cleanup retries and outstanding `DHCP6S_RELEASE` transactions.
+- Exact SHA `cfa384c7fe1ba6fdd87ca478a920012880d835c6`: DHCPv6 IA #45799187926 PASS and AI handoff #45799187883 PASS for the bounded NoBinding watchdog. Follow-up parent `cd3d1a6ec469937f3488d073bf11c445c0aa4414` (initial Request construction-failure retry) passed DHCPv6 IA #45799579046, AI handoff #45799579038, WAN DHCP callback #45799579064, process inventory #45799579239, NVRAM #45799579136 and USB #45799579137. XY-C1 #45799579141 remained in progress; no L3/L4 claim. Exact-SHA DHCPv6 IA run #45791657631 on `fb01f7a` PASSed all six GNU89/ASan/UBSan policy binaries and the full source checker after normalizing the wrapped two-argument exit gate. This prevents shutdown from discarding Release exchanges deliberately preserved by `free_resources(0)`.
 - Current P1 parser slice: `D6_OPT_NTP_SERVER` (option 56) was incorrectly grouped with flat arrays of IPv6 addresses, although RFC 5908 defines it as a container of 4-byte suboption headers. The parser now validates each nested header/payload, handles address/FQDN forms, requires exactly one suboption, counts unknown future registry values as that source while skipping their data, and keeps RFC 4075 `D6_OPT_SNTP_SERVERS` as the separate flat-address option. Tests cover truncated headers, length overruns, payload lengths, duplicate source suboptions, and the RFC 5908 requirement that address suboption 1 be unicast while suboption 2 be multicast. Production/test change is commit `74a0dbcc`; the six C policy binaries passed. Checker fixes: stale test-output banner corrected in `5ed671f`; bounded option-case assertion corrected in `c713dbc`. The exact-SHA C regression and complete Python source contract passed in DHCPv6 IA run #45792959729 on `c713dbc`.
 - Confirmed P1 SIGHUP reload lifetime hazard: `free_resources(0)` may leave an IA and retry timer alive after downstream-prefix deletion fails, but the old signal path immediately called `client6_startall(1)` → `read_config6()` → `clear_ifconf(0)` → `clear_iaconf()`, freeing objects still referenced by the retry callback. Reload is now deferred until IA queues and RELEASE events drain; new client starts are blocked, SIGTERM cancels pending restart without duplicate Release events, and `read_config6()` rejects unsafe reload with `EBUSY` before destructive cleanup.
 - Added GNU89 regression cases and Python source-contract assertions for IA/event drain, config lifetime guard, signal order and the missing config-header PR filter.
@@ -18,6 +19,7 @@
 - Added a deterministic pthread regression showing the stale-snapshot interleaving and the corrected serialized result.
 - Fixed the NoBinding retry-watchdog gap: Request has finite MRC=10, so IAS_REQUEST now carries a four-minute watchdog beyond its retransmission window; duplicate NoBinding is ignored while that Request is active, and the watchdog is deferred while a replayed multi-IA Reply is still being locally applied. Follow-up review found that initial Request construction failure could still return before the watchdog was armed. The correction now switches to IAS_REQUEST before preparation, reuses/creates the IA timer, and schedules a 5-second setup retry on failure or the four-minute watchdog on success.
 - Found a DHCPv6 IA recovery hole: `ia_timo()` deleted the IA timer at T2 before allocating the Rebind event payload/auth state. A recoverable allocation failure discarded the event and left no retry owner. The fix retains the T2 timer until Renew setup succeeds, retries failed Rebind setup after 5 seconds, removes the timer only after a Rebind event is ready, and cancels any timer on invalid IA state.
+- Rotated to the VPN shared-transport lifecycle and found a marker ownership hole: `launch_wan_pppd_locked()` sets `l2tp_wan_t=1` before calling `safe_start_xl2tpd_locked()`, but its common launch-failure path invalidates callback generation and returns without clearing the pre-published marker. Later VPN server stop/restart may therefore treat an unstarted WAN transport as active and make incorrect shared-daemon stop/restore decisions. The fix tracks successful marker publication and clears it on launch failure while preserving the original launch error.
 - Adjacent WAN6 fixes already on main: empty caller-interface teardown guard; SIT owner-record IFNAMSIZ bound; strict SIT gateway literal validation; strict DHCP 6rd relay literal validation; static and DHCPv6 DNS literal validation; first-error aggregation during delegated-prefix cleanup.
 
 ## 2026-11-26 implementation continuation — DHCPv6 cleanup shutdown
@@ -108,8 +110,9 @@
 
 ## Exact first action for the next GPT
 
-1. Check exact-head DHCPv6 IA, AI handoff, and XY-C1 Actions for THIS COMMIT. Parent SHA `cfa384c7fe1ba6fdd87ca478a920012880d835c6`: DHCPv6 IA #45799187926 PASS and AI handoff #45799187883 PASS; XY-C1 #45799187789 was still running. This follow-up changes production DHCPv6 IA code, so the parent firmware result cannot validate it. Require Build XY-C1, Verify TRX output and artifact upload all PASS on one exact current product-source SHA before L3; hardware L4 remains NOT VERIFIED.
-2. Continue the DHCPv6 IA request/reply and timer ownership audit after this setup-failure correction, then rotate to another userland stability/security issue without waiting on pending Actions.
+1. Check exact-head VPN server stability and AI handoff Actions for the WAN xl2tpd marker rollback fix. Parent `cd3d1a6ec469937f3488d073bf11c445c0aa4414` DHCPv6 IA #45799579046 and AI handoff #45799579038 PASSed; WAN DHCP callback #45799579064, process inventory #45799579239, NVRAM #45799579136 and USB #45799579137 also PASSed. XY-C1 #45799579141 was still running on the parent and cannot validate this later code change.
+2. Confirm same-SHA XY-C1 Build, Verify TRX output and artifact upload for THIS COMMIT; all three must pass on one product-source SHA before L3. Hardware L4 remains NOT VERIFIED.
+3. Continue the VPN shared L2TP/PPP lifecycle audit for stale ownership markers and rollback gaps, then rotate to a different userland stability/security issue.
 
 ## Mandatory handoff checkpoint
 

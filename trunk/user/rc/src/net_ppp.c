@@ -818,6 +818,7 @@ launch_wan_pppd_locked(int unit, int wan_proto,
 	struct ppp_wan_option_text_values text_values;
 	int auth_type, mtu, mru, mtu_max, mtu_def, mru_def, mru_max;
 	int option_status, text_status, saved_errno, launch_status, cleanup_status;
+	int wan_marker_published = 0, marker_rollback_status;
 	unsigned long callback_generation;
 	char callback_generation_text[sizeof(unsigned long) * CHAR_BIT + 1];
 	char pppoe_ifname[16];
@@ -1154,6 +1155,9 @@ launch_wan_pppd_locked(int unit, int wan_proto,
 				errno = saved_errno;
 				launch_status = -1;
 			} else {
+				/* Publish before daemon start so shared-stop decisions see
+				 * this dependency; undo it if this launch does not succeed. */
+				wan_marker_published = 1;
 				launch_status = xl2tpd_start_policy_wan_launch_result(
 					safe_start_xl2tpd_locked());
 			}
@@ -1183,6 +1187,20 @@ launch_wan_pppd_locked(int unit, int wan_proto,
 				logmessage(LOGNAME,
 					   "failed to stop partial multi-WAN PPP sessions after launch failure (status=%d)",
 					   cleanup_status);
+		}
+		/*
+		 * The WAN marker is published before xl2tpd start so concurrent
+		 * lifecycle decisions preserve this dependency. Do not leave a
+		 * phantom dependency if config publication or daemon launch fails.
+		 */
+		if (xl2tpd_start_policy_wan_marker_rollback_required(
+			    wan_marker_published, launch_status)) {
+			marker_rollback_status = ppp_l2tp_runtime_marker_set_status(
+				"l2tp_wan_t", 0);
+			if (marker_rollback_status != 0)
+				logmessage(LOGNAME,
+					   "cannot roll back WAN xl2tpd ownership marker after launch failure (status=%d)",
+					   marker_rollback_status);
 		}
 		errno = saved_errno;
 		return -1;

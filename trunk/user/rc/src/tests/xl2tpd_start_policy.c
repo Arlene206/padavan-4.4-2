@@ -91,6 +91,12 @@ main(void)
 	CHECK(xl2tpd_start_policy_wan_launch_result(1) == 0);
 	CHECK(xl2tpd_start_policy_wan_launch_result(-1) == -1);
 	CHECK(xl2tpd_start_policy_wan_launch_result(2) == -1);
+
+	CHECK(!xl2tpd_start_policy_wan_marker_rollback_required(0, -1));
+	CHECK(!xl2tpd_start_policy_wan_marker_rollback_required(0, 0));
+	CHECK(!xl2tpd_start_policy_wan_marker_rollback_required(1, 0));
+	CHECK(xl2tpd_start_policy_wan_marker_rollback_required(1, -1));
+	CHECK(xl2tpd_start_policy_wan_marker_rollback_required(1, 1));
 	CHECK(!xl2tpd_start_policy_rpl2tp_failure_requires_cleanup(0));
 	CHECK(xl2tpd_start_policy_rpl2tp_failure_requires_cleanup(-1));
 	CHECK(xl2tpd_start_policy_rpl2tp_failure_requires_cleanup(1));

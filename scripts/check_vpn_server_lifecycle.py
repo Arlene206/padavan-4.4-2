@@ -535,6 +535,25 @@ require(wan_marker < wan_launch and
         "refusing xl2tpd WAN launch: cannot publish WAN ownership marker" in wan_start,
         "WAN xl2tpd must not launch before publishing its dependency marker")
 
+wan_published = wan_start.index("wan_marker_published = 1;")
+wan_rollback_gate = wan_start.index("xl2tpd_start_policy_wan_marker_rollback_required(")
+wan_rollback_call = wan_start.index(
+    'ppp_l2tp_runtime_marker_set_status("l2tp_wan_t", 0)', wan_rollback_gate
+)
+wan_launch_failure = wan_start.index("if (launch_status != 0)")
+wan_failure_return = wan_start.index("return -1;", wan_launch_failure)
+require(wan_marker < wan_published < wan_launch < wan_launch_failure <
+        wan_rollback_gate < wan_rollback_call < wan_failure_return,
+        "published WAN xl2tpd dependency must be rolled back only after a failed launch")
+require("marker_rollback_status = ppp_l2tp_runtime_marker_set_status(" in wan_start and
+        "errno = saved_errno;" in wan_start[wan_rollback_gate:wan_failure_return],
+        "WAN marker cleanup must preserve the original launch errno")
+for marker in ("xl2tpd_start_policy_wan_marker_rollback_required(0, -1)",
+               "xl2tpd_start_policy_wan_marker_rollback_required(1, 0)",
+               "xl2tpd_start_policy_wan_marker_rollback_required(1, -1)"):
+    require(marker in xl2tpd_test,
+            "WAN marker rollback policy regression missing: " + marker)
+
 ordered(safe_start,["vpn_server_lifecycle_lock_acquire()",
                     "safe_start_xl2tpd_locked()",
                     "vpn_server_lifecycle_lock_release(lock_fd)"],"public xl2tpd start")

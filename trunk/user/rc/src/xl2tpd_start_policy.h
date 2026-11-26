@@ -103,4 +103,12 @@ xl2tpd_start_policy_wan_launch_result(int start_status)
 		return 0;
 	return -1;
 }
+/* Undo a pre-published WAN dependency marker when its launch fails. */
+static inline int
+xl2tpd_start_policy_wan_marker_rollback_required(int marker_published,
+					 int launch_status)
+{
+	return marker_published && launch_status != 0;
+}
+
 #endif /* XL2TPD_START_POLICY_H */

@@ -1,3 +1,12 @@
+## 2026-11-26 — Roll back the WAN xl2tpd dependency marker after failed launch
+
+- Found that `launch_wan_pppd_locked()` publishes `l2tp_wan_t=1` before calling `safe_start_xl2tpd_locked()` so concurrent shared-transport lifecycle decisions preserve the intended WAN dependency. If checked configuration, process inventory, live config publication, or the daemon launch then fails, the common launch-error path invalidates the PPP callback generation and returns without clearing the marker. Later VPN server stop/restart can incorrectly conclude that a WAN L2TP dependency still owns the shared xl2tpd daemon and may stop or restore it based on a phantom client.
+- Track only a successfully published WAN marker and roll it back on failed L2TP/xl2tpd launch. Preserve the original launch errno if marker cleanup also fails, and log the cleanup error. RPL2TP and already-running xl2tpd paths remain unchanged.
+- Added a pure policy helper and GNU89 policy regression for published/unpublished markers across success and failure statuses; extended the VPN source contract to pin publication → launch → failure rollback ordering. The existing VPN workflow compiles this policy test with `-Werror`, ASan and UBSan. Exact-SHA CI pending; no firmware/hardware claim.
+- Parent main: `cd3d1a6ec469937f3488d073bf11c445c0aa4414`; resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-26 — Preserve the NoBinding watchdog when initial Request setup fails
 
 - Follow-up review found an uncovered branch in the new NoBinding watchdog: `reestablish_ia()` still removed the existing T2 timer before constructing the first Request and returned immediately on preparation failure. The later `IAS_REQUEST` watchdog only existed after successful event creation, so a non-fatal allocation/authentication failure could still leave the old Renew/Rebind event as the sole owner; if that event exhausted retransmissions, the IA was orphaned.
@@ -11,7 +20,7 @@
 
 - Found that `reestablish_ia()` removed the IA timer and launched a DHCP6S_REQUEST event. Request has MRC=10 and MRT=30 seconds; if the server stayed silent, `client6_timo()` removed the finite Request event with no remaining IA timer to start another exchange. The IA stayed in Renew/Rebind recovery until prefix expiry, and infinite valid lifetimes could leave it stuck indefinitely.
 - Added `IAS_REQUEST` plus a four-minute IA watchdog. This exceeds the worst-case ten jittered Request retransmission intervals; when it fires, it starts a fresh Request and is rearmed. Transient local event-construction failures retry after 5 seconds. A failed multi-IA Reply can be replayed while another IA retries: duplicate NoBinding for an IA already in Request state is ignored, and its watchdog is deferred after each local application failure to avoid duplicate active Requests.
-- Added policy tests for the four-minute/5-second watchdog and duplicate-NoBinding gate, plus Python source contracts for state transition, watchdog ownership and ordering. Exact-SHA Actions pending; no L3/L4 claim.
+- Added policy tests for the four-minute/5-second watchdog and duplicate-NoBinding gate, plus Python source contracts for state transition, watchdog ownership and ordering. Exact SHA `cfa384c7fe1ba6fdd87ca478a920012880d835c6`: DHCPv6 IA #45799187926 and AI handoff #45799187883 PASS. Initial-Request setup retry on `cd3d1a6ec469937f3488d073bf11c445c0aa4414`: DHCPv6 IA #45799579046 and AI handoff #45799579038 PASS; XY-C1 #45799579141 remained in progress, no L3/L4 claim.
 - Parent main: `fa6281866dfedd5de66302770e6ca133c8190d90`; resulting commit: THIS COMMIT.
 
 ---
