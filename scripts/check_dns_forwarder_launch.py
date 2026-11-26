@@ -380,7 +380,7 @@ assert "test_tcp_dns_frame_length_handles_ring_wrap" in session_io_test
 assert "HEV_DNS_SESSION_MIN_MESSAGE_SIZE 12U" in session_io_policy
 assert "hev_dns_session_message_size_valid" in session_io_policy
 assert "!hev_dns_session_message_size_valid ((size_t)size)" in session_core
-assert "!hev_dns_session_message_size_valid ((size_t)len)" in session_core
+assert "!hev_dns_session_message_size_valid (frame_length)" in session_core
 assert "test_dns_message_size_policy" in session_io_test
 assert "hev_dns_forwarder_udp_drain_action(-1, EINTR)" in forwarder_policy_test
 assert "hev_dns_forwarder_udp_drain_action(0, 0)" in forwarder_policy_test
