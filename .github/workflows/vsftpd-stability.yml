@@ -1086,8 +1086,8 @@ jobs:
 
           open_fn = function_body(helper, "ftp_config_file_open(")
           publish_fn = function_body(helper, "ftp_config_file_publish(")
-          sync_fd = function_body(helper, "ftp_config_file_sync_fd(")
-          sync_parent = function_body(helper, "ftp_config_file_sync_parent(")
+          sync_fd = function_body(helper, "ftp_config_file_sync_fd(int fd)\n{")
+          sync_parent = function_body(helper, "ftp_config_file_sync_parent(const char *target_path)\n{")
           for token in ("mkstemp(", "fchmod(", "fdopen("):
               assert token in open_fn
           for token in ("ferror(fp)", "fflush(fp)", "fclose(fp)",
