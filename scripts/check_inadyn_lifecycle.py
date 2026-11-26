@@ -120,12 +120,10 @@ snapshot_begin = notify.index("inadyn_config_file_snapshot_begin(")
 config_write = notify.index("write_inadyn_conf(DDNS_CONF_FILE)", snapshot_begin)
 write_failure = notify.index("if (!write_inadyn_conf(DDNS_CONF_FILE))", snapshot_begin)
 write_restore = notify.index(
-    "inadyn_config_file_snapshot_restore(DDNS_CONF_FILE, &config_snapshot)",
-    write_failure)
+    "inadyn_config_file_snapshot_restore(", write_failure)
 signal_reload = notify.index("inadyn_signal_snapshot(", config_write)
 signal_commit = notify.index(
-    "inadyn_config_file_snapshot_commit(DDNS_CONF_FILE, &config_snapshot)",
-    signal_reload)
+    "inadyn_config_file_snapshot_commit(", signal_reload)
 assert snapshot_begin < write_failure < write_restore < signal_reload < signal_commit
 assert "recovery snapshot retained" in notify[signal_reload:signal_commit]
 assert notify.index("inadyn_validate_snapshot(") < snapshot_begin
