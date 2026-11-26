@@ -271,6 +271,7 @@ for selector in 0 ''; do
 done
 NVRAM_SET_STATUS=0
 sdns_enable=0
+sdns_redirected=0
 PROCESS_STATE_CALLS=0
 if Start_smartdns; then
     fail "unknown daemon state should abort the post-persistence probe"

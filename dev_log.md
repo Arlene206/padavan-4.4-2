@@ -1,3 +1,11 @@
+## 2026-11-26 — Keep SmartDNS saved resolver-state reads behind enable persistence
+
+- The first exact test for `f5a381bac14579aabc9ad196d5bcb82f1171880e` failed immediately in `dnsmasq_config_preservation.sh`: with `set -u`, the extracted `Start_smartdns()` evaluated `sdns_redirected` before reaching the new NVRAM preflight. Production normally initializes it via `Read_ini`, but the preflight contract should run before even this saved-state read.
+- Moved the `smartdns_previous_redirected` snapshot below the checked enable write, and gave the successful test path an explicit saved redirect value. The source checker now asserts NVRAM persist → saved-state snapshot → daemon probe ordering.
+- This is a narrow order correction to the previous commit; the prior exact failure was a real regression-test failure, not a firmware/compiler failure. Exact DNSMasq and XY-C1 checks for THIS commit pending.
+
+---
+
 ## 2026-11-26 — Persist SmartDNS enable state before touching the running daemon
 
 - `Start_smartdns()` previously stopped the existing instance and removed its managed DNSMasq directives before attempting the `nvram set sdns_enable=1` write; the write was unchecked and silently skipped in the face of NVRAM errors. Startup could then proceed with a running daemon while persistent enable state remained disabled. An empty selector also missed the numeric `-eq 0` branch.

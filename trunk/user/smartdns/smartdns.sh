@@ -945,8 +945,6 @@ smartdns_start_config_rollback()
 }
 
 Start_smartdns () {
-    # Read_ini loaded the last committed redirect mode before this start changes it.
-    smartdns_previous_redirected="$sdns_redirected"
     # Persist the enable transition before any daemon or resolver side effects.
     case "$sdns_enable" in
         ''|0)
@@ -964,6 +962,8 @@ Start_smartdns () {
             return 22
             ;;
     esac
+    # Read_ini loaded the last committed redirect mode before this start changes it.
+    smartdns_previous_redirected="$sdns_redirected"
     smartdns_previous_running=0
     # Do not modify DNS, firewall or persisted state until the old daemon is
     # positively classified and, when running, confirmed stopped.

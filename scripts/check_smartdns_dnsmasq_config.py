@@ -202,8 +202,9 @@ start = body(smartdns, "Start_smartdns")
 stop = body(smartdns, "Stop_smartdns")
 enable_preflight = start.index('case "$sdns_enable" in')
 enable_persist = start.index('if nvram set sdns_enable=1; then')
+saved_state_read = start.index('smartdns_previous_redirected="$sdns_redirected"')
 daemon_probe = start.index("smartdns_process_state")
-assert enable_preflight < enable_persist < daemon_probe
+assert enable_preflight < enable_persist < saved_state_read < daemon_probe
 assert 'return "$smartdns_nvram_status"' in start
 assert "NVRAM_SET_STATUS=37" in test
 assert "daemon state was inspected before enable persistence" in test
