@@ -703,7 +703,7 @@ jobs:
           assert "get_usb_modem_wan_status(unit, &is_modem)" in classifier
           assert "get_wan_unit_value_copy_status(" in classifier
           for signature, stop_before in (
-              ("wan_up_internal(char *wan_ifname, int unit, int is_static)", "snprintf(wan_cnt"),
+              ("wan_up_internal_with_route_status(char *wan_ifname, int unit,", "snprintf(wan_cnt"),
               ("udhcpc_bound(char *wan_ifname, int is_renew_mode)", "snprintf(prefix"),
           ):
               lifecycle = body(wan_network, signature)
