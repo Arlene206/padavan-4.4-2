@@ -475,6 +475,49 @@ test_partial_match_then_readdir_error_is_unknown(void)
 
 
 static void
+test_argv1_argument_does_not_spoof_truncated_comm(void)
+{
+	const char *entries[] = { "123" };
+	const char cmdline[] = "/usr/bin/worker\0dnsmasq";
+	struct fake_context context;
+	struct process_snapshot snapshot;
+
+	fake_init(&context, entries, 1);
+	fake_add(&context, 123, "unrelated-worker-process-name",
+		 "/usr/bin/worker");
+	memcpy(context.processes[0].cmdline, cmdline, sizeof(cmdline));
+	context.processes[0].cmdline_length = sizeof(cmdline);
+	assert(run_scan(&context, &snapshot) == PROCESS_PRESENCE_ABSENT);
+	assert(snapshot.count == 0 && snapshot.items == NULL);
+}
+
+static void
+test_long_truncated_comm_requires_matching_argv1(void)
+{
+	const char *entries[] = { "123" };
+	const char process_name[] = "long-service-process-name";
+	const char argv0[] = "/usr/bin/worker";
+	char cmdline[128];
+	struct fake_context context;
+	struct process_snapshot snapshot;
+	size_t length;
+
+	fake_init(&context, entries, 1);
+	fake_add(&context, 123, process_name, argv0);
+	memcpy(cmdline, argv0, sizeof(argv0));
+	length = sizeof(argv0);
+	memcpy(cmdline + length, process_name, sizeof(process_name));
+	length += sizeof(process_name);
+	memcpy(context.processes[0].cmdline, cmdline, length);
+	context.processes[0].cmdline_length = length;
+	assert(process_inventory_scan_with_ops(process_name, &snapshot,
+						&fake_ops, &context) ==
+	       PROCESS_PRESENCE_RUNNING);
+	assert(snapshot.count == 1 && snapshot.items[0].pid == 123);
+	process_snapshot_release(&snapshot);
+}
+
+static void
 test_exact_max_length_comm_is_not_truncated(void)
 {
 	const char *entries[] = { "123" };
@@ -515,6 +558,8 @@ test_procfs_read_eintr_retries_are_bounded(void)
 int
 main(void)
 {
+	test_argv1_argument_does_not_spoof_truncated_comm();
+	test_long_truncated_comm_requires_matching_argv1();
 	test_exact_max_length_comm_is_not_truncated();
 	test_procfs_read_eintr_retries_are_bounded();
 	test_context_allocation_failure();

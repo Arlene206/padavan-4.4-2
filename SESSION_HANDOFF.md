@@ -3,11 +3,12 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development on `main` only.
-- Live main before the ZeroTier Moon preflight source fix: `6fd35a9b57fc6aa85b95c52c62a1961a6c1ac373`; current main before checker correction: `15bced4fa9c4b24b461ee663f062a49207f036ba`.
+- Current main before this process-inventory source slice: `4f688607c0ef60f829be7454c9c6ca891c9bf77f`. It includes ZeroTier Moon preflight/checker correction (`15bced4...`, `08c299c...`), the Samba transaction durability/recovery series through `bc8dbc2...`, and an optional IAPP event-log compile check.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify/delete. PR #1 remains closed/unmerged.
 - Bootstrap/protocol recovery was completed earlier; do not repeat it.
+- Samba paired-transaction durability/recovery currently passes its exact-head checker run #45808876845 and the log-assertion follow-up #45808876845 on SHA `bc8dbc2...`; current main has since advanced with an optional IAPP compile-check change.
 - Exact SHA `6fd35a9b57fc6aa85b95c52c62a1961a6c1ac373`: VPN lifecycle #45805581756 PASS and AI handoff #45805581869 PASS after normalizing VPN marker ownership source-order checks.
-- Exact SHA `15bced4fa9c4b24b461ee663f062a49207f036ba`: ZeroTier shell lifecycle regression PASS, including the new preflight/read-failure tests, but its Python source checker failed on two stale assertions: the marker list expected statically expanded loop messages, and the remove handler was still required to perform its own NVRAM read after that read moved to the preflight helper. This checker-only commit updates both contracts; all other triggered checks were pending at the first poll. Product build #45805039346 on production source SHA `f96dce30881937a686e6bc7e9407a41d47f27c2e` completed successfully, including Build XY-C1, TRX verification and artifact upload; L3 is verified at f96's source, not for subsequent production changes. Hardware L4 remains NOT VERIFIED.
+- Exact SHA `08c299c26d9b6b072da39ba5b0118b45a84f2cea`: ZeroTier lifecycle #45807757448 PASS and AI handoff #45807757260 PASS. XY-C1 #45807553943 passed on earlier production source SHA `15bced4fa9c4b24b461ee663f062a49207f036ba`; the earlier VPN production SHA `f96dce30881937a686e6bc7e9407a41d47f27c2e` also passed Build/TRX/artifact #45805039346. Neither product run validates later Samba/Process production changes.
 
 ## Active task
 
@@ -117,9 +118,9 @@
 
 ## Exact first action for the next GPT
 
-1. Current main before this checker correction: `15bced4fa9c4b24b461ee663f062a49207f036ba`. ZeroTier shell lifecycle run #45807554002 passed all bounded lifecycle tests, including Moon preflight regressions, and failed only in Python source-contract checks: the test marker list expected expanded values from a shell loop, while the remove handler was still required to issue a late NVRAM read. This commit corrects both contract expectations. Check ZeroTier lifecycle and AI handoff on the resulting exact SHA, then inspect all other triggered exact-head checks.
-2. Prior VPN/checker SHA `6fd35a9b57fc6aa85b95c52c62a1961a6c1ac373`: VPN lifecycle #45805581756 PASS and AI handoff #45805581869 PASS. Product L3 validation succeeded on prior production SHA `f96dce30881937a686e6bc7e9407a41d47f27c2e` (#45805039346: Build XY-C1, TRX verification and artifact upload all PASS), but not for the later ZeroTier production source. Hardware L4 NOT VERIFIED.
-3. After exact-head ZeroTier checks pass, continue with another confirmed stability/security defect outside VPN/ZeroTier. Do not repeat bootstrap, DHCPv6, or completed VPN marker work.
+1. Current main before this source slice: `4f688607c0ef60f829be7454c9c6ca891c9bf77f`. Source review found a process-inventory false positive: for any truncated `/proc/PID/stat` comm, an unrelated process whose `argv1` happened to equal the requested service name was counted as RUNNING even when the truncated comm prefix did not correspond to that long name. This slice requires prefix agreement before accepting the argv1 fallback and adds regressions for both spoofed unrelated argv1 and a valid long-name fallback. Inspect exact-head Process inventory/lifecycle Actions after the commit.
+2. ZeroTier lifecycle #45807757448 and AI handoff #45807757260 PASS on SHA `08c299c26d9b6b072da39ba5b0118b45a84f2cea`. Samba durability checker/log follow-ups passed on the parent line through `bc8dbc2...`. Product L3 is verified only on older production SHA `f96dce30881937a686e6bc7e9407a41d47f27c2e`; later source changes still require same-SHA Build + TRX + artifact. Hardware L4 remains NOT VERIFIED.
+3. After Process regressions pass, continue with another independent stability/security defect outside completed VPN, ZeroTier and Samba work. Do not repeat bootstrap or the completed process lifecycle census.
 
 ## Mandatory handoff checkpoint
 

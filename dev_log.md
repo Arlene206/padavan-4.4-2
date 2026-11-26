@@ -1,3 +1,13 @@
+## 2026-11-26 — Require truncated process comm prefix to agree with argv1 fallback
+
+- Found a false positive in `proc_read_identity()`: for any process with a truncated `/proc/PID/stat` comm, an unrelated executable could be counted as a target service solely because its second argument (`argv1`) matched the requested process name. For example, a long-named worker invoked as `worker dnsmasq` could make a dnsmasq absence check report RUNNING.
+- Tighten the fallback: `argv1` may disambiguate only when the first 15 bytes of the truncated comm match the requested process-name prefix, in addition to exact basename equality of `argv1`. Normal `argv0` and untruncated comm matching remain unchanged.
+- Add GNU89 regressions for an unrelated long worker with `argv1=dnsmasq` (must be ABSENT) and for a matching long process name whose truncated comm prefix plus exact `argv1` identify it (must be RUNNING). The existing Process workflow compiles the scanner/test with GNU89, Werror, ASan and UBSan.
+- Parent main: `4f688607c0ef60f829be7454c9c6ca891c9bf77f`; resulting commit: THIS COMMIT. No local compiler run or MIPS/firmware result is claimed; exact-head Process Actions and XY-C1/L3 remain pending.
+- Beijing time at preparation: 26/11/2026, 19:17:48 (UTC+8).
+
+---
+
 ## 2026-11-26 — Align ZeroTier source contracts with cached Moon preflight
 
 - Exact-head ZeroTier lifecycle #45807554002 on `15bced4fa9c4b24b461ee663f062a49207f036ba`: the shell regression completed successfully, including the new Moon address/identity read-failure, invalid-selector, old-daemon-preservation and PPP fallback cases. The Python source checker failed on two obsolete expectations only: the marker list expected expanded shell loop text, and the removal function was required to perform a direct NVRAM read despite the read being intentionally moved into the shared preflight.

@@ -379,8 +379,11 @@ proc_read_identity(const char *process_name, pid_t pid,
 			argv1_length = (size_t)(second_end - second);
 			identity->argv1_hash = proc_hash(second, argv1_length);
 		}
+		/* argv1 is only a fallback for a genuinely matching long comm prefix. */
 		matched = !strcmp(proc_basename(argv0), process_name) ||
 			  (identity->comm_truncated && argv1_length > 0 &&
+			   !strncmp(identity->comm, process_name,
+				    sizeof(identity->comm) - 1) &&
 			   !strcmp(proc_basename(second), process_name)) ||
 			  (!identity->comm_truncated &&
 			   !strcmp(identity->comm, process_name));
