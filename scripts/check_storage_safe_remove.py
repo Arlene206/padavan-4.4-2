@@ -902,8 +902,14 @@ for function, label in ((storage_stop, "stop"), (storage_start, "start")):
             "firewall_status = restart_firewall();" in function,
             "storage " + label + " must rebuild firewall from checked configuration")
 require("is_ftp_run() != PROCESS_PRESENCE_ABSENT" in storage_stop and
-        "is_ftp_run() != PROCESS_PRESENCE_ABSENT" in storage_start,
-        "unknown FTP process presence must conservatively request firewall reconciliation")
+        "ftp_run_before = is_ftp_run();" in storage_start and
+        "ftp_run_after = is_ftp_run();" in storage_start and
+        "ftp_firewall_reconcile_needed(ftp_run_before, ftp_run_after)" in storage_start and
+        storage_start.index("ftp_run_before = is_ftp_run();") <
+        storage_start.index("service_status = run_ftp();") <
+        storage_start.index("ftp_run_after = is_ftp_run();") <
+        storage_start.index("ftp_firewall_reconcile_needed(ftp_run_before, ftp_run_after)"),
+        "storage FTP startup must reconcile the checked before/after process inventory")
 require("is_torrent_run() != PROCESS_PRESENCE_ABSENT" in storage_start and
         "is_aria_run() != PROCESS_PRESENCE_ABSENT" in storage_start,
         "unknown download-daemon presence must conservatively request firewall reconciliation")
