@@ -1,3 +1,11 @@
+## 2026-11-26 — Match VPN replace-mode checker to the IPv6 resolver guard
+
+- WAN DNS replace-mode implementation in `42eb80db8aea0cdfa1c1b258f59d107d74c07e11` correctly gates the IPv6 WAN-server block with `if (!vpn_dns_replaces_current)`, but the Python source contract still searched for the old comment `/* DNSv6 servers */`. Exact WAN runs #45762008586 and #45762094181 stopped at that obsolete marker; GNU89 tests preceding the checker passed.
+- Updated the contract to locate the actual `wan_dns6_snapshot` consumer and require the enclosing replace-mode guard before iterating WAN DNSv6 values. The change is checker-only; no product behavior changed. Exact WAN rerun for THIS SHA pending.
+- Same-SHA XY-C1 for the preceding source baseline `19bce65397fbf6eae32f637493221ce9371b2094` was still building at the last poll; TRX/artifact pending.
+
+---
+
 ## 2026-11-26 — Reject unsupported VPN DNS modes before resolver publication
 
 - `update_resolvconf()` transactionally reads `vpnc_pdns` with `vpnc_dns_t`, but previously parsed only a decimal integer and then interpreted any positive value as add/replace; values outside the documented 0/1/2 domain could publish an unintended resolver file even though the VPN callbacks rejected them.

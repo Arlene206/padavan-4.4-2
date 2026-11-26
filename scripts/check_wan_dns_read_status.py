@@ -290,9 +290,10 @@ require(
 ipv4_wan_start = resolver.index("/* DNS servers for WAN/MAN */")
 ipv4_wan_end = resolver.index("if (i_total_dns < 1)", ipv4_wan_start)
 ipv4_wan_block = resolver[ipv4_wan_start:ipv4_wan_end]
-dns6_start = resolver.index("/* DNSv6 servers */")
-dns6_end = resolver.index("#endif", dns6_start)
-dns6_block = resolver[dns6_start:dns6_end]
+dns6_source = resolver.index("wan_dns = wan_dns6_snapshot;")
+dns6_guard = resolver.rfind("if (!vpn_dns_replaces_current)", 0, dns6_source)
+dns6_end = resolver.index("#endif", dns6_source)
+dns6_block = resolver[dns6_guard:dns6_end] if dns6_guard >= 0 else ""
 require(
     "if (!vpn_dns_replaces_current)" in ipv4_wan_block
     and "if (!vpn_dns_replaces_current)" in dns6_block
