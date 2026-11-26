@@ -331,7 +331,7 @@ assert "hev_slist_remove" in listener
 assert "hev_dns_session_start (session)" in listener
 assert "if (!self->forward_buffer || !self->backward_buffer)" in session_new
 assert "hev_dns_session_unref (self)" in session_new
-session_connect = function_body(session_core, "dns_do_connect (")
+session_connect = function_body(session_core, "static void\ndns_do_connect (")
 assert "DNS_SESSION_IOCTL" in session_connect
 assert "if (!self->source)" in session_connect
 assert "DNS_SESSION_EVENT_SOURCE_ADD_FD" in session_connect
