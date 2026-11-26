@@ -334,11 +334,14 @@ assert "test_failed_address_removal_is_retained_and_retried" in test
 assert "test_address_change_absent_and_duplicate_errors" in test
 assert "DHCPv6 IA delegated-prefix retry and removal policy: PASS" in test
 assert "dhcp6c_ia_shutdown_ready" in policy
+assert "dhcp6c_ia_restart_ready" in policy
 assert "dhcp6c_ia_client_start_allowed" in policy
 assert "test_shutdown_waits_for_ia_cleanup_and_release_events" in test
+assert "test_config_reload_waits_for_pending_ia_and_release_cleanup" in test
 assert "int shutting_down;" in config_header
+assert "int restart_pending;" in config_header
 client_start = function_body(client, "int client6_start(struct dhcp6_if *ifp)")
-assert "dhcp6c_ia_client_start_allowed(ifp->shutting_down)" in client_start
+assert "dhcp6c_ia_client_start_allowed(ifp->shutting_down, ifp->restart_pending)" in client_start
 assert client_start.index("dhcp6_timer_remove(&ifp->timer)") < client_start.index("dhcp6c_ia_client_start_allowed(") < client_start.index("dhcp6_create_event(ifp, DHCP6S_INIT)")
 pending_cleanup = function_body(client, "static int client6_has_pending_ia_cleanup(void)")
 assert "TAILQ_FOREACH(iac, &ifp->iaconf_list, link)" in pending_cleanup
@@ -350,11 +353,30 @@ release_setup = function_body(ia, "void release_all_ia(struct dhcp6_if *ifp)")
 assert "prepare_iaevent(ia, DHCP6S_RELEASE);" in release_setup
 free_resources = function_body(client, "static void free_resources(int force)")
 assert "if (!force && ev->state == DHCP6S_RELEASE)" in free_resources
+restart_check = function_body(client, "static void client6_check_restart(void)")
+assert "dhcp6c_ia_restart_ready(client6_has_pending_ia_cleanup(),!TAILQ_EMPTY(&client6_config.event_list))" in "".join(restart_check.split())
+assert restart_check.index("ifp->restart_pending = 0;") < restart_check.index("client6_startall(1);")
+read_config_reload = function_body(config, "int FAST_FUNC read_config6(const char *file)")
+assert "struct ia_conf *iac;" in read_config_reload
+assert "TAILQ_FOREACH(iac, &client6_config.dhcp6c_if.iaconf_list, link)" in read_config_reload
+assert "errno = EBUSY;" in read_config_reload
+assert read_config_reload.index("if (!TAILQ_EMPTY(&iac->iadata))") < read_config_reload.index("cleanup_cflist(") < read_config_reload.index("clear_ifconf(0);")
+clear_ifconf_body = function_body(config, "void clear_ifconf(int destroy)")
+assert "clear_iaconf(&ifp->iaconf_list);" in clear_ifconf_body
 mainloop = function_body(client, "static void client6_mainloop(void)")
 assert "case SIGTERM:" in mainloop and "case SIGQUIT:" in mainloop
-assert "ifp->shutting_down = 1;" in mainloop and "free_resources(0);" in mainloop
-assert mainloop.index("ifp->shutting_down = 1;") < mainloop.index("free_resources(0);")
-assert mainloop.index("w = dhcp6_timer_check();") < mainloop.index("client6_check_shutdown();", mainloop.index("w = dhcp6_timer_check();"))
+assert "restart_cleanup_started = ifp->restart_pending;" in mainloop
+assert "ifp->shutting_down = 1;" in mainloop and "ifp->restart_pending = 0;" in mainloop
+assert "if (!restart_cleanup_started)" in mainloop
+sighup_start = mainloop.index("case SIGHUP:")
+reload_flag = mainloop.index("ifp->restart_pending = 1;", sighup_start)
+reload_free = mainloop.index("free_resources(0);", reload_flag)
+assert reload_flag < reload_free
+assert "client6_startall(1);" not in mainloop
+assert mainloop.count("client6_check_restart();") == 3
+timer_check = mainloop.index("w = dhcp6_timer_check();")
+assert timer_check < mainloop.index("client6_check_shutdown();", timer_check)
+assert timer_check < mainloop.index("client6_check_restart();", timer_check)
 
 assert "test_partial_pd_failure_is_retried_without_reapplying_successes" in test
 assert "test_first_error_and_retry_gate" in test
@@ -406,6 +428,7 @@ required_paths = (
     BASE + "dhcp6c.c",
     BASE + "dhcp6c_socket.c",
     BASE + "dhcp6c.h",
+    BASE + "dhcp6c_config.h",
     BASE + "dhcp6c_ia_policy.h",
     BASE + "tests/dhcp6c_ia_publication_policy.c",
     BASE + "dhcp6c_config.c",

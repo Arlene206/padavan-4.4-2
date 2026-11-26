@@ -28,6 +28,7 @@
  * SUCH DAMAGE.
  */
 
+#include <errno.h>
 #include <net/if.h>
 
 #include "dhcp6c.h"
@@ -1324,11 +1325,24 @@ int FAST_FUNC read_config6(const char *file)
 	parser_t *parser;
 	struct keyword6_list kwq_head;
 	struct keywords6 *kl;
+	struct ia_conf *iac;
 	unsigned i = 0, j, m, n;
 #define MAX_TOKENS	15
 	char *token[MAX_TOKENS];
 	const struct config_keyword *req_next_level = NULL;
 	int ret = 0;
+
+	/*
+	 * Cleanup retry timers retain IA/config pointers. Refuse a reload before
+	 * clear_ifconf() can free those nodes; the client drains them asynchronously.
+	 */
+	TAILQ_FOREACH(iac, &client6_config.dhcp6c_if.iaconf_list, link) {
+		if (!TAILQ_EMPTY(&iac->iadata)) {
+			bb_error_msg("cannot reload DHCPv6 config with pending IA cleanup");
+			errno = EBUSY;
+			return -1;
+		}
+	}
 
 	/* cleanup config int. structures */
 	cleanup_cflist(client6_config.config_list);

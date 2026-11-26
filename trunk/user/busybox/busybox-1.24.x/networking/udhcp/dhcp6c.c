@@ -274,7 +274,7 @@ int client6_start(struct dhcp6_if *ifp)
 	if (ifp->timer)
 		dhcp6_timer_remove(&ifp->timer);
 
-	if (!dhcp6c_ia_client_start_allowed(ifp->shutting_down))
+	if (!dhcp6c_ia_client_start_allowed(ifp->shutting_down, ifp->restart_pending))
 		return 0;
 
 	/* create an event for the initial delay */
@@ -381,11 +381,27 @@ static void client6_check_shutdown(void)
 		check_exit(1);
 }
 
+static void client6_check_restart(void)
+{
+	struct dhcp6_if *ifp = &client6_config.dhcp6c_if;
+
+	/* Do not reuse the previous IAID until old IA cleanup and Release events drain. */
+	if (!ifp->restart_pending ||
+	    !dhcp6c_ia_restart_ready(client6_has_pending_ia_cleanup(),
+		!TAILQ_EMPTY(&client6_config.event_list)))
+		return;
+
+	/* read_config6() frees IA configuration nodes still referenced by cleanup timers. */
+	ifp->restart_pending = 0;
+	bb_info_msg("delegated-prefix cleanup and RELEASE complete; reloading configuration");
+	client6_startall(1);
+}
+
 static void client6_mainloop(void)
 {
 	struct dhcp6_if *ifp = &client6_config.dhcp6c_if;
 	struct timeval *w;
-	int ret, maxsock;
+	int ret, maxsock, restart_cleanup_started;
 	fd_set r;
 
 	while (1) {
@@ -394,30 +410,36 @@ static void client6_mainloop(void)
 			case SIGQUIT:
 			case SIGTERM:
 				if (!ifp->shutting_down) {
+					restart_cleanup_started = ifp->restart_pending;
 					bb_info_msg("shutdown requested; draining delegated-prefix cleanup");
 					ifp->shutting_down = 1;
+					ifp->restart_pending = 0;
 					bb_got_signal = 0;
-					free_resources(0);
+					/* SIGHUP already released IAs; do not queue duplicate Release events. */
+					if (!restart_cleanup_started)
+						free_resources(0);
 				} else {
 					bb_got_signal = 0;
 				}
 				break;
 			case SIGHUP:
-				if (ifp->shutting_down) {
+				if (ifp->shutting_down || ifp->restart_pending) {
 					bb_got_signal = 0;
 					break;
 				}
-				bb_info_msg("restarting");
+				bb_info_msg("restarting after delegated-prefix cleanup and Release");
+				ifp->restart_pending = 1;
 				bb_got_signal = 0;
 				free_resources(0);
-				client6_startall(1);
 				break;
 			}
 		}
 
 		client6_check_shutdown();
+		client6_check_restart();
 		w = dhcp6_timer_check();
 		client6_check_shutdown();
+		client6_check_restart();
 
 		FD_ZERO(&r);
 		FD_SET(csock, &r);
@@ -439,6 +461,7 @@ static void client6_mainloop(void)
 		if (FD_ISSET(csock, &r)) {
 			client6_recv();
 			client6_check_shutdown();
+			client6_check_restart();
 		}
 	}
 }

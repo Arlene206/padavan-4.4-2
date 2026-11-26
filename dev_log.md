@@ -1,3 +1,12 @@
+## 2026-11-26 — Fence DHCPv6 SIGHUP reload against pending IA cleanup
+
+- Confirmed P1 lifetime defect: SIGHUP called `free_resources(0)` and immediately reloaded configuration. If `pref_cleanup()` failed, `remove_ia()` retained an IA and retry timer in `iac->iadata`, while `read_config6()` previously called `clear_ifconf(0)`/`clear_iaconf()` and freed objects still referenced by the timer callback.
+- Added `restart_pending` fencing, blocked new client exchanges, deferred reload until both IA cleanup and outstanding RELEASE transactions drain, and handled SIGTERM during a pending restart without queuing duplicate Release events. Added a defense-in-depth `read_config6()` `EBUSY` guard before `cleanup_cflist()` and `clear_ifconf()`.
+- Extended GNU89 policy regressions and the Python source contract. Corrected the DHCPv6 IA workflow pull-request filter to include modified `dhcp6c_config.h`; push filtering already covered it. No local C/Python test performed without checkout; exact-SHA Actions are the validation gate.
+- Parent main: `6dbcf822bed1213baabef7639aa3f1ae68288f3f`; resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-26 — Enforce exactly one DHCPv6 NTP time-source suboption
 
 - RFC 5908 requires one and only one time-source suboption within each OPTION_NTP_SERVER. The parser previously set its `source_seen` flag only for suboption codes 1–3. Because unknown future registry values were skipped without claiming the source slot, an empty container or a container with multiple unknown/known suboptions could pass framing checks without satisfying the one-source rule.

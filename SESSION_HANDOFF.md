@@ -3,7 +3,7 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development on `main` only.
-- Parent `main` for the RFC 5908 DHCPv6 NTP parser and source-checker correction: `5ed671f2247989d48b9420f445130aae01280c94`.
+- Parent `main` for this DHCPv6 SIGHUP reload-lifetime slice: `6dbcf822bed1213baabef7639aa3f1ae68288f3f`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify/delete. PR #1 remains closed/unmerged.
 - Bootstrap/protocol recovery was completed earlier; do not repeat it.
 
@@ -12,6 +12,8 @@
 - Completed parser-safety slices: the DHCPv6 outer parser rejects duplicate CLIENTID, SERVERID, RELAY_MSG and INTERFACE_ID vbuf options before allocation; malformed-option cleanup frees the first owned buffers. Reconfigure Accept (option 20) is rejected when its payload is nonzero. Policy tests and source contracts cover both changes.
 - The graceful DHCPv6 shutdown now waits for both IA cleanup retries and outstanding `DHCP6S_RELEASE` transactions. Exact-SHA DHCPv6 IA run #45791657631 on `fb01f7a` PASSed all six GNU89/ASan/UBSan policy binaries and the full source checker after normalizing the wrapped two-argument exit gate. This prevents shutdown from discarding Release exchanges deliberately preserved by `free_resources(0)`.
 - Current P1 parser slice: `D6_OPT_NTP_SERVER` (option 56) was incorrectly grouped with flat arrays of IPv6 addresses, although RFC 5908 defines it as a container of 4-byte suboption headers. The parser now validates each nested header/payload, handles address/FQDN forms, requires exactly one suboption, counts unknown future registry values as that source while skipping their data, and keeps RFC 4075 `D6_OPT_SNTP_SERVERS` as the separate flat-address option. Tests cover truncated headers, length overruns, payload lengths, duplicate source suboptions, and the RFC 5908 requirement that address suboption 1 be unicast while suboption 2 be multicast. Production/test change is commit `74a0dbcc`; the six C policy binaries passed. Checker fixes: stale test-output banner corrected in `5ed671f`; bounded option-case assertion corrected in `c713dbc`. The exact-SHA C regression and complete Python source contract passed in DHCPv6 IA run #45792959729 on `c713dbc`.
+- Confirmed P1 SIGHUP reload lifetime hazard: `free_resources(0)` may leave an IA and retry timer alive after downstream-prefix deletion fails, but the old signal path immediately called `client6_startall(1)` → `read_config6()` → `clear_ifconf(0)` → `clear_iaconf()`, freeing objects still referenced by the retry callback. Reload is now deferred until IA queues and RELEASE events drain; new client starts are blocked, SIGTERM cancels pending restart without duplicate Release events, and `read_config6()` rejects unsafe reload with `EBUSY` before destructive cleanup.
+- Added GNU89 regression cases and Python source-contract assertions for IA/event drain, config lifetime guard, signal order and the missing config-header PR filter.
 - Adjacent WAN6 fixes already on main: empty caller-interface teardown guard; SIT owner-record IFNAMSIZ bound; strict SIT gateway literal validation; strict DHCP 6rd relay literal validation; static and DHCPv6 DNS literal validation; first-error aggregation during delegated-prefix cleanup.
 
 ## 2026-11-26 implementation continuation — DHCPv6 cleanup shutdown
@@ -48,7 +50,17 @@
 - Exact SHA `734e9a86960d5f9158904a3e73280fbbae3b3842`: DHCPv6 IA #45793204920 PASS (all six GNU89/`-Werror`/ASan/UBSan policy binaries and full source checker), DHCPv6 script retry #45793204973 PASS, AI #45793204728 PASS, HTTPD #45793204829 PASS, Process #45793204808 PASS, USB #45793204756 PASS, NVRAM #45793204909 PASS.
 - XY-C1 #45793204934 remained in progress at the last poll; same-SHA Build/TRX/artifact result not yet available. L3 not verified; hardware L4 NOT VERIFIED.
 
+## 2026-11-26 — DHCPv6 SIGHUP reload lifetime fencing
+
+- Confirmed P1 lifetime defect: SIGHUP previously called `free_resources(0)` and immediately reloaded configuration. If delegated-prefix cleanup failed, `remove_ia()` retained the IA and retry timer in `iac->iadata`, but `read_config6()` then called `clear_ifconf(0)`/`clear_iaconf()` and freed IA/config/PIF objects still referenced by the timer callback.
+- SIGHUP now records `restart_pending`, suppresses new client exchanges, and waits for both old IA cleanup and outstanding `DHCP6S_RELEASE` transactions to drain before reloading. SIGTERM cancels a pending restart without queuing duplicate Release events. `read_config6()` independently rejects unsafe reload with `EBUSY` before cleanup if any IA remains.
+- Added GNU89 policy coverage and Python source-contract checks; corrected the DHCPv6 IA pull-request path filter to include the changed `dhcp6c_config.h`. Local compile/test not run without checkout; exact-SHA Actions are the validation gate.
+- Parent main: `6dbcf822bed1213baabef7639aa3f1ae68288f3f`; resulting commit: THIS COMMIT.
+
 ## Verification boundary
+
+- Parent exact SHA `6dbcf822bed1213baabef7639aa3f1ae68288f3f`: all DHCPv6/CI runs were in progress at handoff refresh; no result carried over from prior SHA.
+
 
 - Parent `78205c10fb71cfb962917e65261fa499c0548573`: DHCPv6 IA #45790398561 PASS, including the GNU89/`-Werror`/ASan/UBSan C policy binaries and complete Python source contract; AI handoff #45790398455 PASS.
 - Parent `48bec7b6ac28ea93394467d6814023884eadfa1c`: WAN DHCP callback #45790261953 PASS with the corrected 16-second non-forced stop source contract.
@@ -58,9 +70,9 @@
 
 ## Exact first action for the next GPT
 
-1. Check the exact-SHA DHCPv6 IA run for this single-source-suboption update and ensure the six C tests plus complete Python source checker PASS.
-2. Inspect XY-C1 #45793204934 on product SHA `734e9a8`; require Build XY-C1, Verify TRX output and artifact upload all PASS together before L3. Hardware L4 remains NOT VERIFIED.
-3. Continue the DHCPv6 parser audit for FQDN suboption cardinality/encoding and NTP option consumption; implement only confirmed standards defects with regression coverage.
+1. Inspect exact-head DHCPv6 IA and AI Actions for the SIGHUP reload-lifetime commit; the parent SHA's runs above do not validate this source change.
+2. Check same-SHA XY-C1 Build, Verify TRX output and artifact upload. All three must PASS on one exact product-source SHA before L3. Hardware L4 remains NOT VERIFIED.
+3. Continue DHCPv6 event, callback and timer ownership audit after SIGHUP/TERM fencing; then rotate to another userland stability/security defect.
 
 ## Mandatory handoff checkpoint
 

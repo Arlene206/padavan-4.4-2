@@ -180,8 +180,19 @@ test_shutdown_waits_for_ia_cleanup_and_release_events(void)
 	assert(!dhcp6c_ia_shutdown_ready(0, 1));
 	assert(!dhcp6c_ia_shutdown_ready(1, 1));
 	assert(dhcp6c_ia_shutdown_ready(0, 0));
-	assert(dhcp6c_ia_client_start_allowed(0));
-	assert(!dhcp6c_ia_client_start_allowed(1));
+	assert(dhcp6c_ia_client_start_allowed(0, 0));
+	assert(!dhcp6c_ia_client_start_allowed(1, 0));
+	assert(!dhcp6c_ia_client_start_allowed(0, 1));
+	assert(!dhcp6c_ia_client_start_allowed(1, 1));
+}
+
+static void
+test_config_reload_waits_for_pending_ia_and_release_cleanup(void)
+{
+	assert(!dhcp6c_ia_restart_ready(1, 0));
+	assert(!dhcp6c_ia_restart_ready(0, 1));
+	assert(!dhcp6c_ia_restart_ready(1, 1));
+	assert(dhcp6c_ia_restart_ready(0, 0));
 }
 
 static void
@@ -272,6 +283,7 @@ main(void)
 	test_failed_address_removal_is_retained_and_retried();
 	test_multiple_pd_cleanup_failures_preserve_first_error();
 	test_shutdown_waits_for_ia_cleanup_and_release_events();
+	test_config_reload_waits_for_pending_ia_and_release_cleanup();
 	test_address_change_absent_and_duplicate_errors();
 	test_unowned_ia_na_collision_is_never_claimed_or_removed();
 	test_owned_ia_na_address_can_be_reconciled_and_removed();

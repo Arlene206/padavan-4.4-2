@@ -102,10 +102,17 @@ static inline int dhcp6c_ia_shutdown_ready(int pending_ias, int pending_events)
 	return pending_ias == 0 && pending_events == 0;
 }
 
-/* Do not create a new Solicit/Information Request after shutdown begins. */
-static inline int dhcp6c_ia_client_start_allowed(int shutting_down)
+/* Do not start a new exchange while shutting down or draining for reload. */
+static inline int dhcp6c_ia_client_start_allowed(int shutting_down,
+						 int restart_pending)
 {
-	return !shutting_down;
+	return !shutting_down && !restart_pending;
+}
+
+/* Do not reuse the old IAID until old IA and Release events drain. */
+static inline int dhcp6c_ia_restart_ready(int pending_ias, int pending_events)
+{
+	return pending_ias == 0 && pending_events == 0;
 }
 
 #endif /* DHCP6C_IA_POLICY_H */
