@@ -572,6 +572,15 @@ nmap_receive_arp(void)
 			continue;
 		
 		arp_ptr = (ARP_HEADER*)buffer;
+
+		/* Reject malformed or unrelated ARP payloads before using addresses. */
+		if (!networkmap_arp_frame_is_supported(
+				arp_ptr->hardware_type, arp_ptr->protocol_type,
+				arp_ptr->hwaddr_len, arp_ptr->ipaddr_len,
+				arp_ptr->message_type))
+			continue;
+		if (!networkmap_arp_sender_mac_is_valid(arp_ptr->source_hwaddr))
+			continue;
 		
 		NMP_DEBUG("Receive ARP (%d)! Type: %X, HLEN: %d, PLEN: %d, SPA: %d.%d.%d.%d, SHA: %02X:%02X:%02X:%02X:%02X:%02X, TPA: %d.%d.%d.%d, THA: %02X:%02X:%02X:%02X:%02X:%02X\n",
 			recvsize,

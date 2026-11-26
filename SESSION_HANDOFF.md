@@ -2,11 +2,17 @@
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; development branch: `main` only.
-- Current `main` parent before this WAN DHCP contract correction: `bbcfd8532dec133ff8c60b690f8aba9017af7acc`. DHCPv6 config-token validation source is `3cb9d6b909da6ef09656567d244aee26d4a3c4ff`; dedicated IA/source-contract run #45835968592 PASS. Concurrent AdGuardHome rollback hardening is `00dd6ef26b8f0e76d49fcd63d24b4ad61eebeccf` plus `bbcfd8532dec133ff8c60b690f8aba9017af7acc`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; verified unchanged. PR #1 is closed and unmerged.
-- Bootstrap/protocol restoration was already completed. Do not repeat it. Do not reopen PR #1 or modify the frozen backup.
-- Use full multi-file Git trees and one atomic commit per logical task. Update `main` only with a non-forced expected-SHA compare-and-swap. Never force-push.
+- Repository: `Arlene206/padavan-4.4-2`; active branch: `main`; parent for the networkmap ARP frame-validation slice: `b4758abe4d81752f604013d6819ce4ba9d29e9c6`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged; do not modify). PR #1 remains closed and unmerged.
+- Bootstrap/protocol recovery was completed earlier in this continuous project; do not repeat it. Work on `main` only with full-tree atomic commits and non-forced expected-SHA updates.
+- Latest exact-parent Actions on `b4758abe4d81752f604013d6819ce4ba9d29e9c6`: AdGuardHome config security #45837257425 PASS; Process inventory #45837257092 PASS; XY-C1 #45837257027 host checks PASS but Build XY-C1, TRX verification and artifact upload were SKIPPED by the firmware-input detector. This is NOT an L3 firmware build.
+- Last full L3 evidence remains older source baseline `43ba9c6d0f5fd86bb94ad45a6cb8bf6b6ce3dfe1`, XY-C1 run #45831671503 (artifact ID `15123331261`, SHA-256 `19dfd06a2ad7c6427a55e26505552a8a3bfbc6f6e1bff2259304426261f2bc9c`). No physical-router/L4 validation is claimed.
+- Completed the AdGuardHome startup-failure behavior and checker alignment; exact AdGuardHome regression #45837257425 and Process inventory #45837257092 PASS on `b4758abe`.
+
+## Active task
+
+- Harden `networkmap` ARP ingestion. The current receiver accepted any payload at least `sizeof(ARP_HEADER)`, then interpreted sender/target fields and could replace a client's MAC without first validating ARP hardware type, protocol type, address lengths, operation, or sender MAC class. This slice adds a strict Ethernet/IPv4 ARP validator and deterministic GNU89 adversarial tests; invalid packets are discarded before IP/MAC processing. Preserve legitimate ARP request/reply processing and existing receive-error behavior.
+
 
 ## Completed production work — LAN DHCP resolver transaction
 
@@ -53,9 +59,10 @@
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-SHA WAN DHCP callback rerun after replacing the obsolete DHCPv6 length-only assertion; confirm token-policy ordering and adversarial fixtures. DHCPv6 IA #45835968592 already PASSed on `3cb9d6b`.
-2. Poll XY-C1 #45835969247 and inspect Build XY-C1, TRX verification and artifact upload individually. Last completed L3 build is #45831671503 on source baseline `43ba9c6` (artifact ID `15123331261`, SHA-256 `19dfd06a2ad7c6427a55e26505552a8a3bfbc6f6e1bff2259304426261f2bc9c`).
-3. Continue the next independent stability/security issue and check outstanding NVRAM audit. Hardware/L4 remains NOT VERIFIED; PENDING Actions must not block independent work.
+1. Inspect exact-SHA `networkmap signal lifecycle stability regression` for the ARP frame-validation commit. Require all three GNU89 ASan/UBSan policy binaries and the source contract to pass. Repair any stale assertion at its causal point.
+2. Check exact-SHA Process inventory and XY-C1 Actions independently. A host-only detector PASS is not a firmware build; Build XY-C1, TRX verification and artifact upload must all succeed before calling it L3.
+3. Continue the next independent high-priority stability/security defect across Padavan userland. Pending Actions must not block independent work; hardware/L4 stays NOT VERIFIED until physical validation.
+
 
 ## Mandatory handoff checkpoint
 

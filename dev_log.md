@@ -1,3 +1,10 @@
+## 2026-11-26 — Reject malformed and spoofable networkmap ARP frames
+
+- Confirmed `nmap_receive_arp()` accepted any payload at least `sizeof(ARP_HEADER)` before interpreting sender/target data. Unsupported ARP hardware/protocol types, address lengths or opcodes, plus zero/multicast/broadcast sender MACs, could influence client discovery and MAC updates.
+- Added a strict on-wire Ethernet/IPv4 ARP predicate: hardware type Ethernet, protocol IPv4, lengths 6/4, and operation REQUEST or REPLY. Added sender-MAC validation requiring nonzero unicast addresses. Invalid frames are discarded before debug output, source-IP processing, or client-table mutation.
+- Extended the existing GNU89 ARP policy binary with valid request/reply and adversarial wrong hardware type, IPv6 protocol, address lengths, operation, zero/multicast/broadcast MAC cases. Updated source-contract ordering to require rejection before interpreting sender/target data. Existing workflow path filters already cover the modified source, policy header, test and checker.
+- Parent `main`: `b4758abe4d81752f604013d6819ce4ba9d29e9c6`. Exact validation is pending for this commit; no production build or hardware claim follows from this host-policy change.
+
 ## 2026-11-26 — Align WAN DHCP contract with DHCPv6 config-token validation
 
 - WAN DHCP callback run #45835965906 on exact SHA `3cb9d6b` failed because its inline source contract still required the former length-only `strlen(wan_ifname) >= IFNAMSIZ` guard. The DHCPv6 writer now calls the shared `wan_ifname_copy()` policy and binds the validated local name before emitting `interface %s {`.

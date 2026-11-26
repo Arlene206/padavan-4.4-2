@@ -144,11 +144,24 @@ arp_policy_function = function_body(arp_policy, "networkmap_arp_receive_error_is
 assert "error == EINTR" in arp_policy_function
 assert "error == EAGAIN" in arp_policy_function
 assert "error == EWOULDBLOCK" in arp_policy_function
+arp_frame = function_body(arp_policy, "networkmap_arp_frame_is_supported(")
+assert "ntohs(hardware_type) == ARPHRD_ETHER" in arp_frame
+assert "ntohs(protocol_type) == ETH_P_IP" in arp_frame
+assert "hardware_address_length == 6U" in arp_frame
+assert "protocol_address_length == 4U" in arp_frame
+assert "host_operation == ARPOP_REQUEST" in arp_frame
+assert "host_operation == ARPOP_REPLY" in arp_frame
+arp_mac = function_body(arp_policy, "networkmap_arp_sender_mac_is_valid(")
+assert "if (!sender_mac || (sender_mac[0] & 0x01U))" in arp_mac
+assert "return nonzero != 0;" in arp_mac
+for required in ("ARPHRD_IEEE802", "ETH_P_IPV6", "htons(3)",
+                 "zero_mac", "multicast_mac", "broadcast_mac"):
+    assert required in arp_test
+assert "networkmap ARP frame validation and receive error policy: PASS" in arp_test
 for retryable in ("EINTR", "EAGAIN", "EWOULDBLOCK"):
     assert "networkmap_arp_receive_error_is_retryable(" + retryable + ")" in arp_test
 for fatal in ("EIO", "EBADF", "ENODEV", "ENETDOWN"):
     assert "!networkmap_arp_receive_error_is_retryable(" + fatal + ")" in arp_test
-assert "networkmap ARP receive error policy: PASS" in arp_test
 
 receive = function_body(source, "nmap_receive_arp(void)")
 assert "int receive_error = 0;" in receive
@@ -161,7 +174,19 @@ storm_count = receive.index("arp_count++;", error_break)
 short_frame = receive.index("if (recvsize < (int)sizeof(ARP_HEADER))", storm_count)
 short_continue = receive.index("continue;", short_frame)
 packet_access = receive.index("arp_ptr = (ARP_HEADER*)buffer;", short_continue)
-assert recv_call < recv_error < retry_gate < save_fatal < error_break < storm_count < short_frame < short_continue < packet_access
+header_check = receive.index("networkmap_arp_frame_is_supported(", packet_access)
+header_reject = receive.index("continue;", header_check)
+mac_check = receive.index("networkmap_arp_sender_mac_is_valid(", header_reject)
+mac_reject = receive.index("continue;", mac_check)
+debug_packet = receive.index('NMP_DEBUG("Receive ARP', mac_reject)
+source_address = receive.index("memcpy(&src_addr, arp_ptr->source_ipaddr, 4);", debug_packet)
+assert recv_call < recv_error < retry_gate < save_fatal < error_break < storm_count < short_frame < short_continue < packet_access < header_check < header_reject < mac_check < mac_reject < debug_packet < source_address
+assert "arp_ptr->hardware_type" in receive[header_check:header_reject]
+assert "arp_ptr->protocol_type" in receive[header_check:header_reject]
+assert "arp_ptr->hwaddr_len" in receive[header_check:header_reject]
+assert "arp_ptr->ipaddr_len" in receive[header_check:header_reject]
+assert "arp_ptr->message_type" in receive[header_check:header_reject]
+assert "arp_ptr->source_hwaddr" in receive[mac_check:mac_reject]
 assert "errno = receive_error;" in receive
 assert "return -1;" in receive
 assert "return 0;" in receive
