@@ -1,32 +1,29 @@
 ## Current repository state
 
-- Repository: `https://github.com/Arlene206/padavan-4.4-2`.
-- Live `main` parent before this FTP fix: `466918a70e66b1ae7af108d657b9b9065ef16347`.
+- Live `main` baseline before the static-ARP rollback change: `7272e2bc0cf3518257aa72038af66a32b7f04923`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only and unchanged. PR #1 remains closed/unmerged.
-- Bootstrap/protocol/handoff recovery was completed once in this continuation. Do not repeat startup audits or completed MiniDLNA, ZeroTier and VPN resolver tasks.
-- Every multi-file change is one complete Git tree + one parent-linked commit, published by expected-SHA non-force compare-and-swap. Never modify the backup.
+- Startup/bootstrap/protocol/handoff recovery was completed once. Do not repeat earlier startup audits or completed MiniDLNA, ZeroTier, VPN resolver and SmartDNS tasks.
+- Multi-file changes are created as one complete Git tree and parent-linked commit, then published only by expected-SHA non-force compare-and-swap.
 
 ## Active task
 
-- SmartDNS lifecycle commits `8874b60e37b52ae4a33ed609b92e4c2d1be3a660` and `5df7d87f58f00457bc17b4b7b704d0ef1611476f` propagate SS-conflict and failed-start NVRAM/cleanup failures. Exact DNSMasq, Process inventory, Process fail-closed and USB storage Actions on `5df7d87f` all PASS.
-- This slice closes a separate FTP integration gap: `start_stor_apps()` used only post-start daemon presence to decide firewall/UPnP refresh. It skipped refresh when vsftpd was confirmed absent both before and after (e.g. disabled FTP or launch rollback), despite the shared `ftp_firewall_reconcile_needed()` policy explicitly requiring absent→absent stale-rule cleanup. The code now snapshots before/after `run_ftp()` and uses the policy.
-- Do not modify backup or reopen PR #1.
+- Current source slice fixes DNSMasq static-host transaction rollback. Previously old file backups and old kernel ARP ownership were discarded before new `/etc/ethers` bindings were fully installed. The new replay helper restores validated old bindings; start/restart retain file snapshots until ARP success and restore files/ARP after stop/clear/apply failures. On restart, an old daemon that was stopped is relaunched only after successful rollback.
+- A GNU89 test validates saved MAC conversion, replay success, reverse cleanup after injected second-add failure, malformed state and over-limit snapshots.
+- FTP absent→absent firewall reconciliation remains in `87cfc6c7983710d5a85af2a8cd5fb68948f22c5d`; its exact VSFTPD and Process inventory runs passed. The follow-up FTP inventory contract is in `7795c41a84ec94aaaae9f09cb03295507eaa4fcc`.
 
 ## Verification boundary
 
-- Historical L3: XY-C1 run #45762757069 on exact source SHA `0ef304ddeef0a9e66fb90758e793eaa180138248` completed SUCCESS; Build XY-C1, Verify TRX output and artifact upload were all SUCCESS. This validates only that older SHA.
-- XY-C1 #45763067333 for newer source `5df7d87f58f00457bc17b4b7b704d0ef1611476f` was still IN_PROGRESS at Build XY-C1 on the last query; TRX and artifact pending. Do not transfer historical 0ef L3 to 5df7 or later sources.
-- Exact source `5df7d87f`: DNSMasq #45763067219 PASS; Process inventory #45763067329 PASS; Process fail-closed #45763067289 PASS; USB storage #45763067225 PASS. Its XY-C1 build pending as above.
-- Current parent `466918a70e66b1ae7af108d657b9b9065ef16347` only has AI handoff #45763684410 PASS (docs-only commit on top of 5df7).
-- VSFTPD source integration fix and XY-C1 + dependent checks for THIS commit pending. Physical-router L4 remains NOT VERIFIED.
-- No local checkout or local test execution was available; Actions are the verification boundary.
-- Preserve required headings: `## Current repository state`, `## Active task`, `## Verification boundary`, `## Exact first action for the next GPT`.
+- Parent SHA: `7272e2bc0cf3518257aa72038af66a32b7f04923`. DNSMasq lifecycle, AI docs and XY-C1 Actions for this new source commit must be checked by exact SHA.
+- XY-C1 #45764899502 for the parent `2186826f0a8b25d2855f55cf2aa7ee3048900dc5` was still in progress; it does not validate new static-ARP code. The older XY-C1 #45764339064 on `7795c41a` is host-only (Build/TRX/artifact steps skipped), not L3.
+- Parent exact AI handoff #45765008062 PASS, Process inventory #45765008199 PASS; parent XY #45765008036 in progress.
+- Physical-router L4 remains NOT VERIFIED. GitHub API operations only; local compile/test execution NOT RUN.
+- Preserve headings: `## Current repository state`, `## Active task`, `## Verification boundary`, `## Exact first action for the next GPT`.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-main-SHA VSFTPD stability run triggered by this commit. Confirm GNU89/ASan policy binaries and the inline caller-graph assertion on `start_stor_apps()` pass; if it fails, inspect the first failure/log.
-2. Check exact-SHA XY-C1 Build, TRX verification and artifact upload for this new source commit. Current-source L3 is established only if all three succeed on that SHA.
-3. Reconcile the older `5df7d87f` XY-C1 #45763067333 independently; it predates this FTP source fix. Continue with another distinct stability defect after these checks, avoiding repeat SmartDNS/VPN/MiniDLNA/ZeroTier work.
+1. Inspect exact-main-SHA DNSMasq lifecycle and XY-C1 runs for this commit. Confirm GNU89 snapshot replay tests and start/restart source-order contracts; inspect the first failing step/log if red.
+2. Check Build XY-C1, TRX validation and artifact upload separately on the exact resulting source SHA; no L3 claim unless all three pass.
+3. Continue another concrete userland stability defect after this transaction gate, avoiding repeat MiniDLNA/ZeroTier/VPN/SmartDNS audits. Keep source → test → atomic commit → exact-SHA Actions; PENDING does not block independent work.
 
 # Cross-session execution mandate
 

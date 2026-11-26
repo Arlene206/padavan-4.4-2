@@ -257,6 +257,7 @@ test_static_arp_command_status(void)
 
 struct arp_transaction_test_context {
 	const char *ips[ARP_TRANSACTION_TEST_MAX];
+	char macs[ARP_TRANSACTION_TEST_MAX][13];
 	int adds[ARP_TRANSACTION_TEST_MAX];
 	size_t calls;
 	size_t fail_add_call;
@@ -275,6 +276,8 @@ mock_static_arp_command(const char *ip, const char *mac, int add, void *opaque)
 	assert(call < ARP_TRANSACTION_TEST_MAX);
 	assert(mac != NULL && mac[0] != '\0');
 	context->ips[call] = ip;
+	strncpy(context->macs[call], mac, sizeof(context->macs[call]) - 1);
+	context->macs[call][sizeof(context->macs[call]) - 1] = '\0';
 	context->adds[call] = add;
 	if (add && context->fail_add_call == call + 1)
 		return context->add_error;
@@ -354,6 +357,51 @@ test_static_arp_transaction_prevalidates_all_entries(void)
 }
 
 static void
+test_static_arp_snapshot_apply_replays_saved_ethers_state(void)
+{
+	struct dnsmasq_static_arp_snapshot snapshot;
+	struct arp_transaction_test_context context;
+
+	memset(&snapshot, 0, sizeof(snapshot));
+	assert(dnsmasq_static_arp_snapshot_add_ethers_record(
+		&snapshot, "00:11:22:33:44:10 192.0.2.10") == 0);
+	assert(dnsmasq_static_arp_snapshot_add_ethers_record(
+		&snapshot, "00:11:22:33:44:11 192.0.2.11") == 0);
+
+	memset(&context, 0, sizeof(context));
+	assert(dnsmasq_static_arp_snapshot_apply(
+		&snapshot, mock_static_arp_command, &context) == 0);
+	assert(context.calls == 2);
+	assert(context.adds[0] == 1 && strcmp(context.ips[0], "192.0.2.10") == 0);
+	assert(strcmp(context.macs[0], "001122334410") == 0);
+	assert(context.adds[1] == 1 && strcmp(context.ips[1], "192.0.2.11") == 0);
+	assert(strcmp(context.macs[1], "001122334411") == 0);
+
+	memset(&context, 0, sizeof(context));
+	context.fail_add_call = 2;
+	context.add_error = EIO;
+	assert(dnsmasq_static_arp_snapshot_apply(
+		&snapshot, mock_static_arp_command, &context) == EIO);
+	assert(context.calls == 3);
+	assert(context.adds[0] == 1 && strcmp(context.ips[0], "192.0.2.10") == 0);
+	assert(context.adds[1] == 1 && strcmp(context.ips[1], "192.0.2.11") == 0);
+	assert(context.adds[2] == 0 && strcmp(context.ips[2], "192.0.2.10") == 0);
+
+	memset(&context, 0, sizeof(context));
+	snapshot.entries[1].mac[0] = 'z';
+	assert(dnsmasq_static_arp_snapshot_apply(
+		&snapshot, mock_static_arp_command, &context) == EINVAL);
+	assert(context.calls == 0);
+	snapshot.entries[1].mac[0] = '0';
+	memset(&context, 0, sizeof(context));
+	snapshot.count = DNSMASQ_STATIC_ARP_MAX + 1;
+	assert(dnsmasq_static_arp_snapshot_apply(
+		&snapshot, mock_static_arp_command, &context) == EINVAL);
+	assert(context.calls == 0);
+}
+
+
+static void
 test_static_arp_transaction_rejects_invalid_values_before_commands(void)
 {
 	const char *valid_ips[] = { "192.0.2.10", "192.0.2.11" };
@@ -401,6 +449,7 @@ main(void)
 	test_static_arp_transaction_rolls_back_prior_additions();
 	test_static_arp_transaction_continues_after_delete_failure();
 	test_static_arp_transaction_prevalidates_all_entries();
+	test_static_arp_snapshot_apply_replays_saved_ethers_state();
 	test_static_arp_transaction_rejects_invalid_values_before_commands();
 	puts("DNSMasq static-host MAC and ARP transaction policies: PASS");
 	return 0;

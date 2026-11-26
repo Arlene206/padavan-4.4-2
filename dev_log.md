@@ -1,3 +1,12 @@
+## 2026-11-25 — Restore previous DNSMasq files and static ARP ownership on failed replacement
+
+- `start_dns_dhcpd_locked()` and `restart_dhcpd_locked()` previously discarded the three-file rollback snapshot immediately after clearing old kernel ARP entries, before applying the newly generated `/etc/ethers` set. If an `arp -s` failed, partial new additions were rolled back, but previous static ARP ownership and last-known-good `dhcp-hosts.rc`, `/etc/ethers`, and `hosts.static` files had already been lost; restart could also leave a previously running daemon stopped.
+- Added validated replay of immutable saved ARP snapshots, including colon-to-compact MAC conversion and GNU89 regression coverage for success, failed-add reverse cleanup, malformed snapshots and count overflow.
+- Start/restart now retain previous file backups until new ARP application succeeds. Clear/apply/stop-postcondition failures restore previous files, remove partial new ownership, replay previous ARP, and relaunch the old daemon only after successful rollback when restart had stopped it.
+- Updated the DNSMasq workflow source contract to enforce snapshot → clear → apply → rollback-on-error → commit ordering. Exact DNSMasq, XY-C1 and dependent Actions for this SHA pending. No local checkout/test execution was available.
+
+---
+
 ## 2026-11-26 — Remove duplicate XY-C1 self-trigger path
 
 - XY-C1 run #45764744777 on `c39718070e34c3f0c1db9403c599cecf0ed16b63` failed before firmware-input detection: `check_samba_shared_header.py` requires exactly one workflow self-path in the push filter. The workflow already had a self-path at line 538; adding another near the WAN filter created a duplicate. The AdGuardHome package path is valid and retained; removed only the redundant self-path so the filter has exactly one trigger entry.

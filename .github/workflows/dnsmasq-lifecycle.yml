@@ -966,10 +966,13 @@ jobs:
           assert "dnsmasq_file_publish(staged_fp, staged_paths[i]," not in static_hosts_writer
           assert 'fopen(dh_fn, "w+")' not in static_hosts_writer
           assert 'fopen("/etc/ethers", "w+")' not in static_hosts_writer
-          arp_restore = function_body(services, "arpbind_apply_current_ethers(void)")
-          assert "dnsmasq_static_ethers_record_parse(" in arp_restore
-          assert 'dnsmasq_file_open_safe_read("/etc/ethers")' in arp_restore
-          assert "ferror(fp)" in arp_restore and "fclose(fp)" in arp_restore
+          arp_restore = function_body(services, "arpbind_apply_ethers_snapshot(")
+          assert "dnsmasq_static_arp_snapshot_apply(" in arp_restore
+          snapshot_apply = function_body(static_mac_policy, "dnsmasq_static_arp_snapshot_apply(")
+          assert "dnsmasq_static_arp_mac_is_valid(saved_mac)" in snapshot_apply
+          assert "dnsmasq_static_mac_is_valid(compact_macs[i])" in snapshot_apply
+          assert "dnsmasq_static_arp_apply_transaction(" in snapshot_apply
+          assert "test_static_arp_snapshot_apply_replays_saved_ethers_state" in static_mac_test
           arp_snapshot = function_body(
               services, "arpbind_ethers_snapshot_read(struct dnsmasq_static_arp_snapshot *snapshot)")
           assert "dnsmasq_static_arp_snapshot_add_ethers_record(snapshot, buffer)" in arp_snapshot
@@ -1002,7 +1005,7 @@ jobs:
           assert "dnsmasq_file_open_safe_read(symlink_lease)" in static_hosts_test
           assert "dnsmasq_file_open_safe_read(hardlink_lease)" in static_hosts_test
           assert "dnsmasq_file_open_safe_read(fifo_lease)" in static_hosts_test
-          assert "dnsmasq_static_arp_apply_transaction(" in arp_restore
+          assert "dnsmasq_static_arp_snapshot_apply(" in arp_restore
           assert "dnsmasq_static_arp_apply_transaction(" not in static_hosts_writer
           start_locked = function_body(services, "start_dns_dhcpd_locked(int is_ap_mode)")
           assert "dnsmasq_file_snapshot_set_create" in dnsmasq_file_helper
@@ -1022,14 +1025,16 @@ jobs:
           start_disabled_clear = start_locked.index("arpbind_clear(&previous_ethers)", start_disabled)
           start_disabled_commit = start_locked.index("dnsmasq_static_host_files_snapshot_commit(&static_hosts_snapshot)", start_disabled_clear)
           start_preflight = start_locked.index('dnsmasq_require_absent("after configuration preparation")')
-          start_clear = start_locked.index("arpbind_clear(&previous_ethers)", start_preflight)
-          start_commit = start_locked.index("dnsmasq_static_host_files_snapshot_commit(&static_hosts_snapshot)", start_clear)
-          start_apply = start_locked.index("arpbind_apply_current_ethers()", start_commit)
+          start_current = start_locked.index("arpbind_ethers_snapshot_read(&current_ethers)")
+          start_clear = start_locked.index("arpbind_clear(&previous_ethers)", start_current)
+          start_apply = start_locked.index("arpbind_apply_ethers_snapshot(&current_ethers)", start_clear)
+          start_rollback = start_locked.index("dnsmasq_static_host_restore_previous(", start_apply)
+          start_commit = start_locked.index("dnsmasq_static_host_files_snapshot_commit(&static_hosts_snapshot)", start_apply)
           start_launch = start_locked.index('eval("/usr/sbin/dnsmasq")')
           assert start_snapshot < start_files_snapshot < start_prepare < start_prepare_restore
           assert start_prepare_restore < start_disabled < start_disabled_clear < start_disabled_commit < start_preflight
-          assert start_preflight < start_clear < start_commit < start_apply < start_launch
-          assert start_locked.count("dnsmasq_static_host_files_snapshot_restore(&static_hosts_snapshot)") >= 4
+          assert start_preflight < start_current < start_clear < start_apply < start_rollback < start_commit < start_launch
+          assert start_locked.count("dnsmasq_static_host_restore_previous(") >= 3
           restart_locked = function_body(services, "restart_dhcpd_locked(void)")
           assert "int arp_status;" in restart_locked
           assert "\\n\\tstatus = arpbind_apply_current_ethers()" not in restart_locked
@@ -1038,16 +1043,19 @@ jobs:
           restart_prepare = restart_locked.index("prepare_dns_dhcpd(is_ap_mode, &service_enabled)")
           restart_keep = restart_locked.index("if (action == DNSMASQ_RESTART_KEEP_RUNNING)")
           restart_abort = restart_locked.index("if (action == DNSMASQ_RESTART_ABORT)")
+          restart_current = restart_locked.index("arpbind_ethers_snapshot_read(&current_ethers)")
           restart_stop = restart_locked.index("stop_dns_dhcpd_locked_with_snapshot(&previous_ethers, 0)")
           restart_absent = restart_locked.index("dnsmasq_restart_policy_stop_status(", restart_stop)
-          restart_restore = restart_locked.index("dnsmasq_static_host_files_snapshot_restore(&static_hosts_snapshot)", restart_absent)
-          restart_commit = restart_locked.index("dnsmasq_static_host_files_snapshot_commit(&static_hosts_snapshot)", restart_absent)
-          restart_apply = restart_locked.index("arpbind_apply_current_ethers()", restart_commit)
+          restart_stop_rollback = restart_locked.index("dnsmasq_static_host_restore_previous(", restart_absent)
+          restart_apply = restart_locked.index("arpbind_apply_ethers_snapshot(&current_ethers)", restart_stop_rollback)
+          restart_apply_rollback = restart_locked.index("dnsmasq_static_host_restore_previous(", restart_apply)
+          restart_commit = restart_locked.index("dnsmasq_static_host_files_snapshot_commit(&static_hosts_snapshot)", restart_apply)
           restart_launch = restart_locked.index('eval("/usr/sbin/dnsmasq")')
           assert restart_snapshot < restart_files_snapshot < restart_prepare
-          assert restart_prepare < restart_keep < restart_abort < restart_stop < restart_absent
-          assert restart_restore < restart_commit < restart_apply < restart_launch
-          assert restart_locked.count("dnsmasq_static_host_files_snapshot_restore(&static_hosts_snapshot)") >= 3
+          assert restart_prepare < restart_keep < restart_abort < restart_current < restart_stop < restart_absent
+          assert restart_stop_rollback < restart_apply < restart_apply_rollback < restart_commit < restart_launch
+          assert restart_locked.count("dnsmasq_static_host_restore_previous(") >= 2
+          assert "dnsmasq_restore_previous_daemon_if_stopped(" in restart_locked
           assert restart_locked.index("if (action == DNSMASQ_RESTART_STOP_ONLY)") < restart_apply
           assert "doSystem(" not in static_hosts_writer
           assert "dnsmasq_file_publish_set(set_files, set_stages, set_destinations," in static_hosts_test

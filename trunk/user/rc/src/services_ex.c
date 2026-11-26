@@ -277,76 +277,16 @@ dnsmasq_static_arp_command(const char *ip, const char *mac, int add, void *conte
 }
 
 /*
- * Reinstall the exact static ARP snapshot published to /etc/ethers. This is
- * called only after the old DNSMasq instance has stopped and its old bindings
- * have been cleared, so a failed multi-entry apply can safely delete entries
- * added earlier in this same transaction without destroying last-good state.
+ * Reapply a validated /etc/ethers ownership snapshot. Keep this immutable
+ * copy until ARP application and generated-file publication both commit.
  */
 static int
-arpbind_apply_current_ethers(void)
+arpbind_apply_ethers_snapshot(
+	const struct dnsmasq_static_arp_snapshot *snapshot)
 {
-	FILE *fp;
-	char buffer[128];
-	char ip_text[DHCPD_STATIC_MAX][16];
-	char mac_text[DHCPD_STATIC_MAX][13];
-	const char *ips[DHCPD_STATIC_MAX];
-	const char *macs[DHCPD_STATIC_MAX];
-	int count = 0, result = 0, saved_errno;
-	int i;
-
-	fp = dnsmasq_file_open_safe_read("/etc/ethers");
-	if (!fp) {
-		saved_errno = errno ? errno : EIO;
-		logmessage(LOGNAME, "refusing unsafe or unreadable static ARP input '/etc/ethers' (errno=%d)",
-			   saved_errno);
-		return saved_errno;
-	}
-
-	errno = 0;
-	while (fgets(buffer, sizeof(buffer), fp)) {
-		size_t length = strlen(buffer);
-
-		/* The generated file always ends every complete record with LF. */
-		if (length == 0 || buffer[length - 1] != '\n') {
-			result = EIO;
-			break;
-		}
-		buffer[length - 1] = '\0';
-		if (count >= DHCPD_STATIC_MAX) {
-			result = EOVERFLOW;
-			break;
-		}
-		result = dnsmasq_static_ethers_record_parse(
-			buffer, ip_text[count], sizeof(ip_text[count]),
-			mac_text[count], sizeof(mac_text[count]));
-		if (result != 0)
-			break;
-		count++;
-	}
-	if (ferror(fp) && result == 0)
-		result = errno ? errno : EIO;
-	if (fclose(fp) != 0 && result == 0)
-		result = errno ? errno : EIO;
-	if (result != 0) {
-		logmessage(LOGNAME,
-			   "cannot parse complete static ARP snapshot from '/etc/ethers' (errno=%d)",
-			   result);
-		return result;
-	}
-
-	for (i = 0; i < count; i++) {
-		ips[i] = ip_text[i];
-		macs[i] = mac_text[i];
-	}
-	result = dnsmasq_static_arp_apply_transaction(
-		ips, macs, (size_t)count, dnsmasq_static_arp_command, NULL);
-	if (result != 0)
-		logmessage(LOGNAME,
-			   "cannot restore static ARP snapshot from '/etc/ethers' (errno=%d)",
-			   result);
-	return result;
+	return dnsmasq_static_arp_snapshot_apply(
+		snapshot, dnsmasq_static_arp_command, NULL);
 }
-
 
 struct ip4_items_t {
 	in_addr_t ip4;
@@ -1684,16 +1624,69 @@ dnsmasq_static_host_files_snapshot_commit(
 	snapshot->active = 0;
 }
 
+/*
+ * Restore previous generated files and kernel ownership after a failed
+ * static-host replacement. Try all recovery steps and report the first error.
+ */
+static int
+dnsmasq_static_host_restore_previous(
+	struct dnsmasq_static_host_files_snapshot *files,
+	const struct dnsmasq_static_arp_snapshot *previous,
+	const struct dnsmasq_static_arp_snapshot *current)
+{
+	int result = 0;
+	int file_status, clear_status = 0, arp_status;
+
+	file_status = dnsmasq_static_host_files_snapshot_restore(files);
+	if (file_status != 0) {
+		result = file_status;
+		logmessage(LOGNAME, "cannot restore previous DNSMasq static-host files (status=%d)", file_status);
+	}
+	if (current) {
+		clear_status = arpbind_clear(current);
+		if (clear_status != 0) {
+			if (!result)
+				result = clear_status;
+			logmessage(LOGNAME, "cannot remove partially applied new static ARP ownership (status=%d)", clear_status);
+		}
+	}
+	arp_status = arpbind_apply_ethers_snapshot(previous);
+	if (arp_status != 0) {
+		if (!result)
+			result = arp_status;
+		logmessage(LOGNAME, "cannot fully restore previous static ARP ownership (status=%d)", arp_status);
+	}
+	if (result != 0)
+		errno = result;
+	return result;
+}
+
+static int
+dnsmasq_restore_previous_daemon_if_stopped(
+	int was_running, enum process_presence final_presence)
+{
+	int launch_status, start_status;
+
+	if (!was_running || final_presence != PROCESS_PRESENCE_ABSENT)
+		return 0;
+	errno = 0;
+	launch_status = eval("/usr/sbin/dnsmasq");
+	start_status = dnsmasq_confirm_started(launch_status);
+	if (start_status != 0)
+		logmessage(LOGNAME,
+			   "could not restore previous DNSMasq daemon after static-host rollback (launch=%d status=%d)",
+			   launch_status, start_status);
+	return start_status;
+}
+
 static int dnsmasq_rollback_failed_start(int start_status, const char *operation);
 
 int
 start_dns_dhcpd_locked(int is_ap_mode)
 {
 	int service_enabled = 0;
-	int status;
-	int arp_status;
-	int launch_status;
-	struct dnsmasq_static_arp_snapshot previous_ethers;
+	int status, arp_status, rollback_status, launch_status;
+	struct dnsmasq_static_arp_snapshot previous_ethers, current_ethers;
 	struct dnsmasq_static_host_files_snapshot static_hosts_snapshot;
 
 	status = dnsmasq_require_absent("before configuration preparation");
@@ -1701,9 +1694,7 @@ start_dns_dhcpd_locked(int is_ap_mode)
 		return status;
 	arp_status = arpbind_ethers_snapshot_read(&previous_ethers);
 	if (arp_status != 0) {
-		logmessage(LOGNAME,
-			   "cannot snapshot previous DNSMasq static ARP ownership (errno=%d)",
-			   arp_status);
+		logmessage(LOGNAME, "cannot snapshot previous DNSMasq static ARP ownership (status=%d)", arp_status);
 		return arp_status;
 	}
 	status = dnsmasq_static_host_files_snapshot_begin(&static_hosts_snapshot);
@@ -1717,30 +1708,45 @@ start_dns_dhcpd_locked(int is_ap_mode)
 	if (!service_enabled) {
 		arp_status = arpbind_clear(&previous_ethers);
 		if (arp_status != 0) {
-			dnsmasq_static_host_files_snapshot_restore(&static_hosts_snapshot);
+			rollback_status = dnsmasq_static_host_restore_previous(&static_hosts_snapshot, &previous_ethers, NULL);
+			if (rollback_status != 0)
+				logmessage(LOGNAME, "disabled DNSMasq start rollback incomplete (primary=%d rollback=%d)", arp_status, rollback_status);
+			errno = arp_status;
 			return arp_status;
 		}
 		dnsmasq_static_host_files_snapshot_commit(&static_hosts_snapshot);
 		return 0;
 	}
-	/* Retain a second complete scan against launchers outside this lock. */
+
 	status = dnsmasq_require_absent("after configuration preparation");
 	if (status != 0) {
 		dnsmasq_static_host_files_snapshot_restore(&static_hosts_snapshot);
 		return status;
 	}
-	/* The previous owner list remains recoverable until its ARP cleanup is done. */
-	arp_status = arpbind_clear(&previous_ethers);
+	arp_status = arpbind_ethers_snapshot_read(&current_ethers);
 	if (arp_status != 0) {
-		logmessage(LOGNAME, "cannot clear stale static ARP bindings before DNSMasq start (errno=%d)",
-			   arp_status);
 		dnsmasq_static_host_files_snapshot_restore(&static_hosts_snapshot);
 		return arp_status;
 	}
-	dnsmasq_static_host_files_snapshot_commit(&static_hosts_snapshot);
-	arp_status = arpbind_apply_current_ethers();
-	if (arp_status != 0)
+	arp_status = arpbind_clear(&previous_ethers);
+	if (arp_status != 0) {
+		logmessage(LOGNAME, "cannot clear stale static ARP bindings before DNSMasq start (status=%d)", arp_status);
+		rollback_status = dnsmasq_static_host_restore_previous(&static_hosts_snapshot, &previous_ethers, NULL);
+		if (rollback_status != 0)
+			logmessage(LOGNAME, "DNSMasq start ARP-clear rollback incomplete (primary=%d rollback=%d)", arp_status, rollback_status);
+		errno = arp_status;
 		return arp_status;
+	}
+	arp_status = arpbind_apply_ethers_snapshot(&current_ethers);
+	if (arp_status != 0) {
+		logmessage(LOGNAME, "DNSMasq start static ARP application failed (status=%d)", arp_status);
+		rollback_status = dnsmasq_static_host_restore_previous(&static_hosts_snapshot, &previous_ethers, &current_ethers);
+		if (rollback_status != 0)
+			logmessage(LOGNAME, "DNSMasq start static ARP rollback incomplete (primary=%d rollback=%d)", arp_status, rollback_status);
+		errno = arp_status;
+		return arp_status;
+	}
+	dnsmasq_static_host_files_snapshot_commit(&static_hosts_snapshot);
 	errno = 0;
 	launch_status = eval("/usr/sbin/dnsmasq");
 	status = dnsmasq_confirm_started(launch_status);
@@ -1852,45 +1858,31 @@ stop_dns_dhcpd(void)
 static int
 restart_dhcpd_locked(void)
 {
-	int was_running;
-	int service_enabled = 0;
-	int is_ap_mode, ap_mode_status;
-	int prepare_status;
-	int stop_status;
-	int stop_postcondition;
-	int arp_status;
-	int scan_error = 0;
-	int launch_status;
-	int start_status;
-	struct dnsmasq_static_arp_snapshot previous_ethers;
+	int was_running, service_enabled = 0;
+	int is_ap_mode, ap_mode_status, prepare_status;
+	int stop_status, stop_postcondition, arp_status;
+	int rollback_status, restore_daemon_status;
+	int scan_error = 0, launch_status, start_status;
+	struct dnsmasq_static_arp_snapshot previous_ethers, current_ethers;
 	struct dnsmasq_static_host_files_snapshot static_hosts_snapshot;
-	enum process_presence initial_presence;
-	enum process_presence final_presence;
+	enum process_presence initial_presence, final_presence;
 	enum dnsmasq_restart_action action;
 
-	/* Do not publish files or normalize NVRAM from an unknown process state. */
 	initial_presence = dnsmasq_process_presence(&scan_error);
 	if (initial_presence == PROCESS_PRESENCE_UNKNOWN) {
 		int saved_error = scan_error ? scan_error : EIO;
-		logmessage(LOGNAME,
-			   "cannot verify DNSMasq state before restart preparation; refusing mutation (scan_error=%d)",
-			   saved_error);
+		logmessage(LOGNAME, "cannot verify DNSMasq state before restart preparation (scan_error=%d)", saved_error);
 		return saved_error;
 	}
 	was_running = (initial_presence == PROCESS_PRESENCE_RUNNING);
-
 	ap_mode_status = get_ap_mode_status(&is_ap_mode);
 	if (ap_mode_status != 0) {
-		logmessage(LOGNAME,
-			   "DNSMasq restart aborted because AP/router mode cannot be verified (status=%d)",
-			   ap_mode_status);
+		logmessage(LOGNAME, "DNSMasq restart aborted because AP/router mode cannot be verified (status=%d)", ap_mode_status);
 		return ap_mode_status;
 	}
 	arp_status = arpbind_ethers_snapshot_read(&previous_ethers);
 	if (arp_status != 0) {
-		logmessage(LOGNAME,
-			   "DNSMasq restart cannot snapshot previous static ARP ownership (errno=%d)",
-			   arp_status);
+		logmessage(LOGNAME, "DNSMasq restart cannot snapshot previous static ARP ownership (status=%d)", arp_status);
 		return arp_status;
 	}
 	arp_status = dnsmasq_static_host_files_snapshot_begin(&static_hosts_snapshot);
@@ -1907,6 +1899,13 @@ restart_dhcpd_locked(void)
 		dnsmasq_static_host_files_snapshot_restore(&static_hosts_snapshot);
 		return prepare_status;
 	}
+	if (action != DNSMASQ_RESTART_STOP_ONLY) {
+		arp_status = arpbind_ethers_snapshot_read(&current_ethers);
+		if (arp_status != 0) {
+			dnsmasq_static_host_files_snapshot_restore(&static_hosts_snapshot);
+			return arp_status;
+		}
+	}
 
 	stop_status = stop_dns_dhcpd_locked_with_snapshot(&previous_ethers, 0);
 	final_presence = dnsmasq_process_presence(&scan_error);
@@ -1917,23 +1916,39 @@ restart_dhcpd_locked(void)
 		logmessage(LOGNAME,
 			   "DNSMasq stop incomplete (stop_status=%d, presence=%d, scan_error=%d); refusing duplicate launch",
 			   stop_status, final_presence, scan_error);
-		dnsmasq_static_host_files_snapshot_restore(&static_hosts_snapshot);
+		rollback_status = dnsmasq_static_host_restore_previous(
+			&static_hosts_snapshot, &previous_ethers,
+			action == DNSMASQ_RESTART_STOP_ONLY ? NULL : &current_ethers);
+		if (rollback_status == 0 && was_running && final_presence == PROCESS_PRESENCE_ABSENT) {
+			restore_daemon_status = dnsmasq_restore_previous_daemon_if_stopped(was_running, final_presence);
+			if (restore_daemon_status != 0)
+				logmessage(LOGNAME, "DNSMasq stop rollback restored files/ARP but relaunch failed (status=%d)", restore_daemon_status);
+		} else if (rollback_status != 0) {
+			logmessage(LOGNAME, "DNSMasq stop rollback incomplete (primary=%d rollback=%d)", stop_postcondition, rollback_status);
+		}
+		errno = stop_postcondition;
 		return stop_postcondition;
 	}
-	/* Stop and old-ARP cleanup are confirmed; the new owner files may commit. */
-	dnsmasq_static_host_files_snapshot_commit(&static_hosts_snapshot);
-	if (action == DNSMASQ_RESTART_STOP_ONLY)
+	if (action == DNSMASQ_RESTART_STOP_ONLY) {
+		dnsmasq_static_host_files_snapshot_commit(&static_hosts_snapshot);
 		return 0;
+	}
 
-	/* The previous owned bindings were cleared using the pre-publication
-	 * snapshot; now restore the newly published /etc/ethers contents. */
-	arp_status = arpbind_apply_current_ethers();
+	arp_status = arpbind_apply_ethers_snapshot(&current_ethers);
 	if (arp_status != 0) {
-		logmessage(LOGNAME,
-			   "DNSMasq restart aborted because static ARP restoration failed (errno=%d)",
-			   arp_status);
+		logmessage(LOGNAME, "DNSMasq restart static ARP application failed (status=%d)", arp_status);
+		rollback_status = dnsmasq_static_host_restore_previous(&static_hosts_snapshot, &previous_ethers, &current_ethers);
+		if (rollback_status == 0 && was_running) {
+			restore_daemon_status = dnsmasq_restore_previous_daemon_if_stopped(was_running, final_presence);
+			if (restore_daemon_status != 0)
+				logmessage(LOGNAME, "DNSMasq ARP rollback restored files/ownership but relaunch failed (status=%d)", restore_daemon_status);
+		} else if (rollback_status != 0) {
+			logmessage(LOGNAME, "DNSMasq ARP restart rollback incomplete (primary=%d rollback=%d)", arp_status, rollback_status);
+		}
+		errno = arp_status;
 		return arp_status;
 	}
+	dnsmasq_static_host_files_snapshot_commit(&static_hosts_snapshot);
 	errno = 0;
 	launch_status = eval("/usr/sbin/dnsmasq");
 	start_status = dnsmasq_confirm_started(launch_status);

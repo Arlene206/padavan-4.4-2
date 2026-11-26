@@ -442,4 +442,48 @@ dnsmasq_static_arp_apply_transaction(const char *const *ips,
 	return rollback_failure ? rollback_failure : failure;
 }
 
+/*
+ * Replay a validated /etc/ethers snapshot after a failed DNSMasq replacement.
+ * Saved MACs use colon notation; the arp applet requires twelve hex digits.
+ */
+static inline int
+dnsmasq_static_arp_snapshot_apply(
+	const struct dnsmasq_static_arp_snapshot *snapshot,
+	dnsmasq_static_arp_command_fn command, void *context)
+{
+	char compact_macs[DNSMASQ_STATIC_ARP_MAX][13];
+	const char *ips[DNSMASQ_STATIC_ARP_MAX];
+	const char *macs[DNSMASQ_STATIC_ARP_MAX];
+	size_t i, j, out;
+
+	if (!snapshot || snapshot->count > DNSMASQ_STATIC_ARP_MAX)
+		return EINVAL;
+	if (snapshot->count == 0)
+		return 0;
+
+	for (i = 0; i < snapshot->count; i++) {
+		const char *saved_mac = snapshot->entries[i].mac;
+
+		if (!dnsmasq_static_arp_ipv4_is_valid(snapshot->entries[i].ip) ||
+		    !dnsmasq_static_arp_mac_is_valid(saved_mac))
+			return EINVAL;
+		out = 0;
+		for (j = 0; j < 17; j++) {
+			if (saved_mac[j] == ':')
+				continue;
+			if (out >= sizeof(compact_macs[i]) - 1)
+				return EINVAL;
+			compact_macs[i][out++] = saved_mac[j];
+		}
+		compact_macs[i][out] = '\0';
+		if (!dnsmasq_static_mac_is_valid(compact_macs[i]))
+			return EINVAL;
+		ips[i] = snapshot->entries[i].ip;
+		macs[i] = compact_macs[i];
+	}
+	return dnsmasq_static_arp_apply_transaction(
+		ips, macs, snapshot->count, command, context);
+}
+
+
 #endif /* PADAVAN_DNSMASQ_STATIC_HOST_POLICY_H */
