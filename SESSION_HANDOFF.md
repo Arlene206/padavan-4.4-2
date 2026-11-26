@@ -1,26 +1,32 @@
-## Current repository state — 2026-11-25
+## Current repository state — 2026-11-26
 
-- Live `main` immediately before this slice: `9ae6163ac7ae60f6430e01651963d9f38b565032` (`docs(ai): hand off WSDD2 descriptor hardening`). Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable.
-- Exact `ddb8f4f8` DHCP relay checks: BOOTREQUEST giaddr/hop #45725994945 PASS; select descriptor #45725994948 PASS; packet bounds #45725994955 PASS; XID budget/correlation #45725994998 PASS; AI handoff contract #45725994972 PASS; Process lifecycle inventory #45725995030 PASS. XY-C1 #45725995015, NVRAM #45725995041, Process inventory/fail-closed #45725995029 and USB hotplug #45725995060 were still in progress at last observation.
-- Exact `4de82b5` WSDD2 netlink receive truncation #45725665949 PASS and AI handoff #45725666033 PASS. The handoff-only checkpoint commit `9ae6163` has its AI contract run #45726079137 in progress at the last poll.
-- Last confirmed XY-C1 Build/TRX/artifact baseline remains `b320dd266be3dea74820ada79aec68c26f6b7dc9` (#45724141332), which predates the latest DHCP relay/WSDD2 source changes. Current-source L3 and physical-router L4 remain NOT VERIFIED.
+- Live `main` before this slice: `684f66bd0c563bf7e98229af7051625ce35a106f` (`fix(udhcp): fail on permanent select errors`). Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable.
+- Exact `684f66b` DHCP relay select-error #45726255660, BOOTREQUEST giaddr/hop #45726255596, select-fd #45726255635, packet bounds #45726255721, XID policy #45726255680, AI docs #45726255592 and Process inventory #45726255636 PASS. NVRAM #45726255566, USB storage #45726255858 and XY-C1 #45726255627 were IN_PROGRESS at the last poll.
+- WSDD2 netlink truncation #45725665949 and AI docs #45725666033 PASS on `4de82b5`. AdGuardHome shell-command injection #45701455808, Process #45701455295 and AI docs #45701455540 PASS on `5e3c831`.
+- Last confirmed XY-C1 Build/TRX/artifact success #45724141332 is on older `b320dd2`; it does not establish current-source L3. Current-source L3 and physical-router L4 remain NOT VERIFIED.
+
+## Last engineering slice — DHCP relay select error handling
+
+- DHCP relay now retries `select()` only for EINTR, saves/restores errno, and exits the applet on permanent errors instead of entering an unbounded CPU-burning retry loop. GNU89 ASan/UBSan and source-contract workflow #45726255660 passed on exact SHA `684f66b`.
+- The preceding DHCP relay packet, XID, select-fd and BOOTREQUEST guards also pass on this SHA. NVRAM, USB and XY-C1 checks are pending; the current source has no L3 claim.
 
 ## Active task
 
-Fix DHCP relay event-loop behavior when `select()` fails. The old loop tested only `select(...) > 0`; any non-EINTR error (for example EBADF after an unexpected socket state) caused an unbounded tight loop with no diagnostic. The new flow retries EINTR, preserves the failing errno for diagnostics, and terminates the applet on permanent errors rather than consuming CPU indefinitely.
+Make AdGuardHome redirect-mode configuration fail closed. `change_dns()` and `set_iptable()` used unchecked `nvram get adg_redirect`, which turns backend failures into empty output and silently behaves as redirect-disabled. Read with `nvram get_checked`, allow only legacy empty/0 and explicit 1/2, reject malformed values, and pin one successful selector snapshot across startup firewall + resolver operations.
 
 ## Verification boundary
 
-- GNU89 ASan/UBSan tests classify EINTR as retryable and EBADF/EINVAL/ENOMEM/zero as non-interruption; the source checker verifies the loop captures errno immediately, retries only EINTR, restores errno and fails closed through `bb_perror_msg_and_die("select")`.
-- Exact-head DHCP relay select-error workflow, AI docs and XY-C1 Build/TRX/artifact checks are pending. No live invalid-descriptor reproduction, full BusyBox cross-build, current firmware artifact or hardware result is claimed.
+- NVRAM CLI semantics: missing keys are successful empty reads; backend failures return nonzero. Preserve empty/missing as legacy mode 0, but never interpret a failed read or unsupported non-empty selector as disable.
+- GNU shell regressions cover checked-read failure before firewall deletion, invalid selector values, resolver byte preservation and startup no-side-effects. Python checker pins source order and prohibits unchecked reads. Exact-head AdGuardHome, Process, NVRAM, AI docs and XY-C1 workflows are required after commit.
+- No MIPS/uClibc firmware artifact or physical-router L4 result is claimed.
 
 ## Exact first action for the next GPT
 
-Fetch exact-head DHCP relay select-error, AI documentation, XY-C1/NVRAM/USB/Process runs for this commit. Repair any first causal failure. Continue with DHCP relay behavior only for independently demonstrated faults; L3 requires Build, TRX validation and artifact upload to pass on one identical product-source SHA.
+Fetch exact-head AdGuardHome config/security, Process inventory, NVRAM transaction audit, AI handoff and XY-C1 runs for the new commit. Repair any first causal failure. Continue a separate userland stability/security issue while XY-C1 is pending; claim L3 only when Build, TRX validation and artifact upload pass on the same product-source SHA.
 
 ## Mandatory handoff checkpoint
 
-The checkpoint is mandatory; a document edit is conditional. Inspect live main, frozen backup ref and relevant exact-SHA Actions. If the checkpoint facts and first action are current, record a no-op checkpoint without a docs-only commit.
+Before ending, inspect live `main`, the frozen backup ref and exact-head Actions. Update this section only when the first action or material evidence changes; do not create a documentation-only commit to repeat known statuses.
 
 # Cross-session execution mandate
 

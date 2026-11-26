@@ -128,9 +128,11 @@ echo "AdGuardHome secret config mode, symlink rejection and atomic publication: 
     esac
   }
   logger() { return 0; }
+  TEST_DNS_REDIRECT_READ_STATUS=0
   nvram() {
-    [ "$1" = get ] && [ "$2" = adg_redirect ] || return 1
-    echo 1
+    [ "$1" = get_checked ] && [ "$2" = adg_redirect ] || return 1
+    [ "$TEST_DNS_REDIRECT_READ_STATUS" -eq 0 ] || return "$TEST_DNS_REDIRECT_READ_STATUS"
+    printf '%s\n' 1
   }
 
   printf '%s\n' 'domain-needed' 'server=9.9.9.9' 'no-resolv' 'server=127.0.0.1#5353' > "$TEST_ADG_DNS_CONFIG"
@@ -139,6 +141,14 @@ echo "AdGuardHome secret config mode, symlink rejection and atomic publication: 
   [ "$(grep -Fxc 'server=127.0.0.1#5335' "$TEST_ADG_DNS_CONFIG")" = 1 ] || exit 1
   ! grep -Fqx 'server=127.0.0.1#5353' "$TEST_ADG_DNS_CONFIG" || exit 1
   [ "$TEST_DNS_RESTART_CALLS" = 1 ] || exit 1
+
+  # A checked selector backend error must not be mistaken for mode 0.
+  cp "$TEST_ADG_DNS_CONFIG" "$TEST_TMP/dns-before-selector-error"
+  TEST_DNS_REDIRECT_READ_STATUS=71
+  if change_dns; then exit 1; fi
+  cmp "$TEST_TMP/dns-before-selector-error" "$TEST_ADG_DNS_CONFIG" || exit 1
+  [ "$TEST_DNS_RESTART_CALLS" = 1 ] || exit 1
+  TEST_DNS_REDIRECT_READ_STATUS=0
 
   TEST_DNS_RESTART_CALLS=0
   TEST_DNS_RESTART_MODE=success
@@ -315,9 +325,11 @@ TEST_ADG_V6_UDP_RULE='PREROUTING -p udp -m addrtype --dst-type LOCAL ! -d ::1/12
 : > "$TEST_ADG_IPV6_RULES"
 : > "$TEST_ADG_RULE_LOG"
 
+TEST_ADG_REDIRECT_READ_STATUS=0
 nvram() {
-	[ "$1" = get ] && [ "$2" = adg_redirect ] || return 1
-	echo "$TEST_ADG_REDIRECT_MODE"
+	[ "$1" = get_checked ] && [ "$2" = adg_redirect ] || return 1
+	[ "$TEST_ADG_REDIRECT_READ_STATUS" -eq 0 ] || return "$TEST_ADG_REDIRECT_READ_STATUS"
+	printf '%s\n' "$TEST_ADG_REDIRECT_MODE"
 }
 
 ifconfig() {
@@ -400,6 +412,32 @@ ip6tables() {
 	fi
 	adg_test_iptables ipv6 "$@"
 }
+
+# Selector read failures and unsupported values must be rejected before cleanup.
+: > "$TEST_ADG_IPV4_RULES"
+: > "$TEST_ADG_IPV6_RULES"
+: > "$TEST_ADG_RULE_LOG"
+printf '%s\n' keep-v4 > "$TEST_ADG_IPV4_RULES"
+printf '%s\n' keep-v6 > "$TEST_ADG_IPV6_RULES"
+TEST_ADG_REDIRECT_READ_STATUS=71
+if set_iptable; then
+	fail "firewall setup accepted a failed checked redirect selector read"
+fi
+[ "$(cat "$TEST_ADG_IPV4_RULES")" = keep-v4 ] || fail "selector read error deleted IPv4 rules before failing"
+[ "$(cat "$TEST_ADG_IPV6_RULES")" = keep-v6 ] || fail "selector read error deleted IPv6 rules before failing"
+[ ! -s "$TEST_ADG_RULE_LOG" ] || fail "selector read error touched firewall state"
+TEST_ADG_REDIRECT_READ_STATUS=0
+for TEST_ADG_REDIRECT_MODE in 3 -1 '1;reboot'; do
+	: > "$TEST_ADG_RULE_LOG"
+	if set_iptable; then fail "unsupported redirect selector was accepted: $TEST_ADG_REDIRECT_MODE"; fi
+	[ "$(cat "$TEST_ADG_IPV4_RULES")" = keep-v4 ] || fail "invalid selector deleted IPv4 state"
+	[ "$(cat "$TEST_ADG_IPV6_RULES")" = keep-v6 ] || fail "invalid selector deleted IPv6 state"
+	[ ! -s "$TEST_ADG_RULE_LOG" ] || fail "invalid selector touched firewall state"
+done
+TEST_ADG_REDIRECT_MODE=2
+: > "$TEST_ADG_IPV4_RULES"
+: > "$TEST_ADG_IPV6_RULES"
+: > "$TEST_ADG_RULE_LOG"
 
 if ! set_iptable; then
 	fail "initial address-independent IPv4/IPv6 redirect setup failed"
@@ -492,6 +530,33 @@ fi
 [ ! -s "$TEST_ADG_IPV4_RULES" ] && [ ! -s "$TEST_ADG_IPV6_RULES" ] || fail "failed IPv6 publication did not roll back IPv4/IPv6 rules"
 TEST_ADG_FAIL_ADD=
 echo "AdGuardHome address-independent IPv4/IPv6 DNS redirects, duplicate cleanup and rollback: PASS"
+
+# A failed or invalid redirect-mode read must abort before mkdir/firewall/DNS/daemon effects.
+(
+	TEST_ADG_START_EFFECTS="$TEST_TMP/start-selector-failure.log"
+	: > "$TEST_ADG_START_EFFECTS"
+	pidof() { return 1; }
+	getconfig() { echo getconfig >> "$TEST_ADG_START_EFFECTS"; adg_file="$TEST_CONFIG"; return 0; }
+	mkdir() { echo mkdir >> "$TEST_ADG_START_EFFECTS"; return 0; }
+	set_iptable() { echo set_iptable >> "$TEST_ADG_START_EFFECTS"; return 0; }
+	change_dns() { echo change_dns >> "$TEST_ADG_START_EFFECTS"; return 0; }
+	AdGuardHome() { echo launch >> "$TEST_ADG_START_EFFECTS"; }
+	logger() { return 0; }
+	for TEST_ADG_SELECTOR_CASE in backend invalid; do
+		if [ "$TEST_ADG_SELECTOR_CASE" = backend ]; then
+			TEST_ADG_REDIRECT_READ_STATUS=71
+		else
+			TEST_ADG_REDIRECT_READ_STATUS=0
+			TEST_ADG_REDIRECT_MODE=3
+		fi
+		: > "$TEST_ADG_START_EFFECTS"
+		if start_adg; then exit 1; fi
+		[ "$(cat "$TEST_ADG_START_EFFECTS")" = getconfig ] || exit 1
+	done
+	TEST_ADG_REDIRECT_READ_STATUS=0
+	TEST_ADG_REDIRECT_MODE=2
+) || fail "redirect-mode preflight did not block startup side effects"
+echo "AdGuardHome redirect selector checked-read and fail-closed validation: PASS"
 
 # A firewall setup error must block resolver mutation and daemon launch.
 (

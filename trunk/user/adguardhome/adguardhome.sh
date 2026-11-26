@@ -128,6 +128,36 @@ adg_read_enable_state() {
   return "$adg_enable_status"
 }
 
+# A missing legacy selector remains mode 0; backend errors and unsupported
+# non-empty values must never be interpreted as an explicit disable.
+adg_read_redirect_mode() {
+  if adg_redirect_raw=$(nvram get_checked adg_redirect); then
+    case "$adg_redirect_raw" in
+      ''|0) adg_redirect_mode=0 ;;
+      1|2) adg_redirect_mode="$adg_redirect_raw" ;;
+      *)
+        logger -t "AdGuardHome" "AdGuardHome redirect selector is invalid"
+        return 22
+        ;;
+    esac
+    return 0
+  else
+    adg_redirect_status=$?
+  fi
+  logger -t "AdGuardHome" "无法读取AdGuardHome DNS重定向模式(status=$adg_redirect_status)"
+  [ "$adg_redirect_status" -ne 0 ] || adg_redirect_status=1
+  return "$adg_redirect_status"
+}
+
+# start_adg pins one checked selector for its firewall + resolver transaction.
+# Direct helper invocations still perform their own checked read.
+adg_effective_redirect_mode() {
+  if [ "${adg_start_redirect_snapshot:-0}" = 1 ]; then
+    return 0
+  fi
+  adg_read_redirect_mode
+}
+
 adg_lifecycle_locked_action() {
   case "$1" in
     start)
@@ -260,7 +290,8 @@ adg_update_dns_config() {
 }
 
 change_dns() {
-  [ "$(nvram get adg_redirect)" = 1 ] || return 0
+  adg_effective_redirect_mode || return $?
+  [ "$adg_redirect_mode" = 1 ] || return 0
   if ! adg_update_dns_config enable; then
     logger -t "AdGuardHome" "添加DNS转发到5335端口失败"
     return 1
@@ -320,6 +351,8 @@ adg_remove_redirect_rule()
 
 set_iptable()
 {
+	# Resolve the selector before deleting or publishing any traffic rules.
+	adg_effective_redirect_mode || return $?
 	# Route-derived LOCAL matching follows DHCP/PPPoE and IPv6 address changes;
 	# it does not pin rules to a snapshot of interface addresses.
 	if ! clear_iptable; then
@@ -327,7 +360,7 @@ set_iptable()
 		return 1
 	fi
 
-	if [ "$(nvram get adg_redirect)" = 2 ]; then
+	if [ "$adg_redirect_mode" = 2 ]; then
 		if ! iptables -t nat -A PREROUTING -p tcp -m addrtype --dst-type LOCAL ! -d 127.0.0.0/8 --dport 53 -j REDIRECT --to-ports 5335 >/dev/null 2>&1; then
 			logger -t "AdGuardHome" "添加IPv4 TCP DNS重定向失败"
 			return 1
@@ -497,6 +530,7 @@ EEE
 }
 
 start_adg(){
+  adg_start_redirect_snapshot=0
   # Avoid duplicate daemon instances and repeated DNS/firewall mutations.
   if adg_process_state; then
     logger -t "AdGuardHome" "AdGuardHome 已在运行，跳过重复启动"
@@ -515,13 +549,21 @@ start_adg(){
     logger -t "AdGuardHome" "配置准备失败，取消启动"
     return 1
   fi
+  adg_read_redirect_mode || {
+    adg_redirect_status=$?
+    logger -t "AdGuardHome" "DNS重定向配置预检失败，取消启动"
+    return "$adg_redirect_status"
+  }
+  adg_start_redirect_snapshot=1
   mkdir -p /tmp/AdGuardHome
 	mkdir -p /etc/storage/AdGuardHome
 	if ! set_iptable; then
+		adg_start_redirect_snapshot=0
 		logger -t "AdGuardHome" "DNS 防火墙规则准备失败，取消启动"
 		return 1
 	fi
 	if ! change_dns; then
+		adg_start_redirect_snapshot=0
 		logger -t "AdGuardHome" "DNSMasq配置或重载失败，取消启动"
 		if ! clear_iptable; then
 			logger -t "AdGuardHome" "DNS失败后的防火墙回滚也失败"
@@ -532,10 +574,12 @@ start_adg(){
 	# The background daemon must not inherit the launcher lock descriptor.
 	( exec 9>&-; AdGuardHome -c "$adg_file" -w /tmp/AdGuardHome -v ) &
   if adg_wait_started; then
+    adg_start_redirect_snapshot=0
     return 0
   else
     adg_start_wait_status=$?
   fi
+  adg_start_redirect_snapshot=0
   case "$adg_start_wait_status" in
     1)
       logger -t "AdGuardHome" "启动后在限定时间内未检测到AdGuardHome进程，回滚DNS配置和防火墙规则"

@@ -58,6 +58,8 @@ config = function_body(script, "getconfig(){")
 dns_update = function_body(script, "adg_update_dns_config() {")
 change_dns = function_body(script, "change_dns() {")
 del_dns = function_body(script, "del_dns() {")
+redirect_mode_reader = function_body(script, "adg_read_redirect_mode() {")
+redirect_mode_effective = function_body(script, "adg_effective_redirect_mode() {")
 start = function_body(script, "start_adg(){")
 remove_redirect = function_body(script, "adg_remove_redirect_rule()" + chr(10) + "{")
 set_redirect = function_body(script, "set_iptable()" + chr(10) + "{")
@@ -79,9 +81,19 @@ require('while [ "$adg_remove_count" -lt 64 ]; do' in remove_redirect and
         '"$adg_iptables" -t nat -D PREROUTING "$@"' in remove_redirect and
         'return "$adg_check_status"' in remove_redirect,
         "redirect cleanup must bound duplicate deletion and distinguish absent rules from xtables errors")
-require("if ! clear_iptable; then" in set_redirect and
-        "if [ \"$(nvram get adg_redirect)\" = 2 ]; then" in set_redirect,
-        "redirect setup must first clear stale rules and respect the configured redirect mode")
+require("adg_effective_redirect_mode || return $?" in set_redirect and
+        "if ! clear_iptable; then" in set_redirect and
+        'if [ "$adg_redirect_mode" = 2 ]; then' in set_redirect,
+        "redirect setup must validate the selector before cleanup and honor the configured mode")
+require("nvram get_checked adg_redirect" in redirect_mode_reader and
+        'case "$adg_redirect_raw" in' in redirect_mode_reader and
+        "''|0)" in redirect_mode_reader and '1|2)' in redirect_mode_reader and
+        "return 22" in redirect_mode_reader and
+        'return "$adg_redirect_status"' in redirect_mode_reader,
+        "redirect selector reads must distinguish a missing legacy default, valid modes and backend/invalid-value errors")
+require('if [ "${adg_start_redirect_snapshot:-0}" = 1 ]; then' in redirect_mode_effective and
+        "adg_read_redirect_mode" in redirect_mode_effective,
+        "direct redirect helpers must read checked NVRAM while startup uses one pinned mode snapshot")
 require("-m addrtype --dst-type LOCAL" in set_redirect and
         "! -d 127.0.0.0/8" in set_redirect and
         "! -d ::1/128" in set_redirect and "! -d fe80::/10" in set_redirect,
@@ -143,10 +155,14 @@ require('rm -f "$adg_tmp"' in config and 'return 1' in config,
         "failed staging, chmod or rename must clean up and fail closed")
 require('auth_pass: adguardhome' in config and 'private_key: ""' in config,
         "source contract must recognize secret-bearing config fields")
-require('if ! getconfig; then' in start and 'if ! set_iptable; then' in start and
-        start.index('if ! getconfig; then') < start.index('if ! set_iptable; then') <
+require('if ! getconfig; then' in start and 'adg_read_redirect_mode || {' in start and
+        'adg_start_redirect_snapshot=1' in start and 'if ! set_iptable; then' in start and
+        start.index('if ! getconfig; then') < start.index('adg_read_redirect_mode || {') <
+        start.index('mkdir -p /tmp/AdGuardHome') < start.index('if ! set_iptable; then') <
         start.index('if ! change_dns; then') < start.index('AdGuardHome -c "$adg_file"'),
-        "config, firewall and resolver failures must stop before daemon launch")
+        "startup must pin a checked selector before filesystem, firewall, resolver and daemon effects")
+require('nvram get adg_redirect' not in script,
+        "legacy unchecked redirect-selector reads must not remain in the launcher")
 require('mktemp "${adg_dns_conf}.adg-new.XXXXXX"' in dns_update and
         'mktemp "${adg_dns_conf}.adg-old.XXXXXX"' in dns_update and
         'cp -p "$adg_dns_conf" "$adg_dns_tmp"' in dns_update and
@@ -158,9 +174,11 @@ require('mktemp "${adg_dns_conf}.adg-new.XXXXXX"' in dns_update and
         dns_update.index('if adg_restart_dhcpd; then') <
         dns_update.index('mv -f "$adg_dns_backup" "$adg_dns_conf"'),
         "resolver updates must stage beside the live file, verify reload and restore the previous file on failure")
-require('adg_update_dns_config enable' in change_dns and 'return 1' in change_dns and
+require('adg_effective_redirect_mode || return $?' in change_dns and
+        '[ "$adg_redirect_mode" = 1 ] || return 0' in change_dns and
+        'adg_update_dns_config enable' in change_dns and 'return 1' in change_dns and
         'adg_update_dns_config disable' in del_dns,
-        "change_dns/del_dns must propagate resolver transaction failures")
+        "change_dns must fail closed on selector errors and preserve resolver transaction status")
 require('if ! change_dns; then' in start and 'if ! clear_iptable; then' in start and
         start.index('if ! change_dns; then') < start.index('if ! clear_iptable; then'),
         "failed resolver setup must roll back firewall rules before daemon launch")
@@ -331,6 +349,7 @@ for marker in (
     "clear_iptable ignored an IPv6 NAT table probe failure",
     "stop reported success after firewall cleanup failed",
     "start_adg ignored a firewall setup failure",
+    "AdGuardHome redirect selector checked-read and fail-closed validation: PASS",
     "dnsmasq resolver publication, status and rollback: PASS",
     "dnsmasq resolver update did not preserve the previous config on failure",
     "start continued after resolver reload failure",

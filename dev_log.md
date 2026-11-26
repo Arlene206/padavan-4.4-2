@@ -1,3 +1,11 @@
+## 2026-11-26 — Fail closed on AdGuardHome redirect-mode NVRAM errors
+
+- `change_dns()` and `set_iptable()` previously used unchecked `nvram get adg_redirect`; a backend failure becomes empty command output and was treated as mode 0, allowing startup to continue without the configured resolver and/or firewall redirect.
+- Added a checked selector reader: absent/empty legacy values map to mode 0, only modes 0/1/2 are accepted, malformed values return EINVAL, and backend failures preserve their status. `start_adg()` pins one successful selector snapshot before filesystem/firewall/resolver side effects, so both redirect mechanisms consume the same value.
+- Extended the AdGuardHome shell regression for selector backend errors, invalid values, resolver byte preservation and startup no-side-effects; the Python source checker forbids unchecked selector reads and pins snapshot order. Exact-head Actions pending; no firmware/router result claimed.
+
+---
+
 ## 2026-11-25 — Fail closed on permanent DHCP relay select errors
 
 - The DHCP relay event loop previously evaluated only `select(...) > 0`. When `select()` returned -1 for a permanent error (for example EBADF), the loop silently rebuilt its fd_set and immediately retried forever, creating a CPU-burning hot loop with no diagnostic.
