@@ -186,12 +186,21 @@ require(
     and "if stop_zero; then" in ZEROTIER_TEST,
     "static-route EEXIST race regression must exercise stop_zero and preserve the running daemon",
 )
+start_preflight_at = start_zero.index("if ! zerotier_static_route_state_preflight_cleanup; then")
+start_abort_at = start_zero.index("return 1", start_preflight_at)
+start_guard_end_at = start_zero.index("\\n\\tfi", start_abort_at)
+start_kill_at = start_zero.index("kill_z")
+stop_preflight_at = stop_zero.index("if ! zerotier_static_route_state_preflight_cleanup; then")
+stop_abort_at = stop_zero.index("return 1", stop_preflight_at)
+stop_guard_end_at = stop_zero.index("\\n\\tfi", stop_abort_at)
+stop_kill_at = stop_zero.index("kill_z")
 require(
-    'if ! zerotier_static_route_state_preflight_cleanup; then' in start_zero
-    and 'if ! zerotier_static_route_state_preflight_cleanup; then' in stop_zero
-    and 'return 1' in start_zero
-    and 'return 1' in stop_zero,
-    "start_zero and stop_zero must abort when static-route cleanup preflight is ambiguous",
+    start_preflight_at < start_abort_at < start_guard_end_at < start_kill_at
+    and stop_preflight_at < stop_abort_at < stop_guard_end_at < stop_kill_at
+    and "pending route start restarted the daemon" in ZEROTIER_TEST
+    and "pending route start signalled the managed daemon" in ZEROTIER_TEST
+    and "pending route cleanup stopped the managed daemon" in ZEROTIER_TEST,
+    "start/stop must preserve the managed daemon until pending route ownership is unambiguous",
 )
 require(
     "elif ! zerotier_firewall_state_clear" in append,

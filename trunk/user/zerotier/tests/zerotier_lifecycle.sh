@@ -2326,6 +2326,19 @@ fi
 [ -d "$ZT_PROC_ROOT/4321" ] || fail "pending route cleanup lost the managed process"
 [ ! -s "$TEST_KILL_LOG" ] || fail "pending route cleanup signalled the managed daemon"
 
+# Exercise the real start path against the same unconfirmed exact route. A
+# replacement must not signal the healthy daemon or launch over ambiguous state.
+TEST_NVRAM_READ_FAIL_KEY=""
+TEST_NVRAM_MOONID_STATE=""
+TEST_NVRAM_MOON_ENABLE_STATE=1
+TEST_NVRAM_ID_STATE=""
+if start_zero; then
+	fail "start accepted an exact route whose add ownership was unconfirmed"
+fi
+[ "$(cat "$TEST_STATE")" = running ] || fail "pending route start restarted the daemon"
+[ -d "$ZT_PROC_ROOT/4321" ] || fail "pending route start lost the managed process"
+[ ! -s "$TEST_KILL_LOG" ] || fail "pending route start signalled the managed daemon"
+
 # A pending exact match is unowned: replay must preserve it and retain recovery state.
 : > "$TEST_ACTION_LOG"
 if zerotier_replay_firewall_state; then
@@ -2625,6 +2638,19 @@ fi
 [ "$(cat "$TEST_STATE")" = running ] || fail "pending route cleanup stopped the managed daemon"
 [ -d "$ZT_PROC_ROOT/4321" ] || fail "pending route cleanup lost the managed process"
 [ ! -s "$TEST_KILL_LOG" ] || fail "pending route cleanup signalled the managed daemon"
+
+# Exercise the real start path against the same unconfirmed exact route. A
+# replacement must not signal the healthy daemon or launch over ambiguous state.
+TEST_NVRAM_READ_FAIL_KEY=""
+TEST_NVRAM_MOONID_STATE=""
+TEST_NVRAM_MOON_ENABLE_STATE=1
+TEST_NVRAM_ID_STATE=""
+if start_zero; then
+	fail "start accepted an exact route whose add ownership was unconfirmed"
+fi
+[ "$(cat "$TEST_STATE")" = running ] || fail "pending route start restarted the daemon"
+[ -d "$ZT_PROC_ROOT/4321" ] || fail "pending route start lost the managed process"
+[ ! -s "$TEST_KILL_LOG" ] || fail "pending route start signalled the managed daemon"
 
 # A pending exact match is unowned: replay must preserve it and retain recovery state.
 : > "$TEST_ACTION_LOG"
