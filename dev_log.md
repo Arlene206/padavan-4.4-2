@@ -1,3 +1,10 @@
+## 2026-11-26 — Restore the shared AdGuardHome process fixture after unsafe-workdir startup
+
+- Exact AdGuardHome run #45764496985 on `09f9ed1cab2cec5ed80659045e4ca8fb1b333471` passed shell syntax, persistent-workdir security, DNS/firewall, lock and redirect regressions, then still failed at duplicate-start. The cause was the new unsafe-workdir startup test: although wrapped in a subshell, it writes the shared state *file* to `stopped`; subshell variable isolation does not roll back file contents. The following duplicate-start test therefore observed ABSENT and attempted the real daemon executable, which is not present in the host fixture.
+- Restore the shared process-state file to RUNNING and clear the effect log after the negative-path subtest, then have the source contract enforce that reset. Production launcher behavior is unchanged; exact rerun pending.
+
+---
+
 ## 2026-11-26 — Repair AdGuardHome persistent-workdir regression fixture continuation
 
 - Exact AdGuardHome run #45764253186 on `c2129b8af9eb50ec9cf77902ab51f28803a0380b`: launcher `sh -n` and the new persistent-directory symlink/type/mode regression passed, followed by the pre-existing DNS/firewall/lifecycle cases. The shell fixture then failed at the duplicate-start test because the process cmdline `printf` line ended in two literal backslashes, so the command-line placeholders were not passed as the intended two argv arguments and the fake process was classified as absent.

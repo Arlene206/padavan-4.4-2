@@ -755,6 +755,10 @@ set_iptable() { echo set_iptable >> "$TEST_ADG_EFFECTS_LOG"; }
   if start_adg; then exit 1; fi
   [ "$(cat "$TEST_ADG_EFFECTS_LOG")" = getconfig ] || exit 1
 ) || fail "unsafe persistent work directory changed DNS/firewall state"
+# The state is stored in a shared fixture file, so restore RUNNING after the
+# subshell before the duplicate-start regression below.
+echo running > "$TEST_ADG_STATE"
+: > "$TEST_ADG_EFFECTS_LOG"
 
 TEST_ADG_MODE=unused
 if ! start_adg; then
