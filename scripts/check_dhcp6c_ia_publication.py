@@ -226,6 +226,9 @@ assert "D6_NTP_SUBOPT_SRV_ADDR" in ntp_parser
 assert "D6_NTP_SUBOPT_SRV_MC_ADDR" in ntp_parser
 assert "D6_NTP_SUBOPT_SRV_FQDN" in ntp_parser
 assert "dhcp6c_ntp_suboption_wire_length_valid(remaining,sublen)" in ntp_parser_compact
+assert "dhcp6c_ntp_fqdn_wire_valid((constunsignedchar*)p,sublen)" in ntp_parser_compact
+assert "dhcp6c_ntp_fqdn_wire_valid" in bounds_policy
+assert "multiple_names" in bounds_test and "idna_alabel" in bounds_test
 assert "dhcp6c_ntp_suboption_payload_length_valid(suboption,sublen)" in ntp_parser_compact
 assert "dhcp6c_ntp_address_kind_valid(suboption,IN6_IS_ADDR_MULTICAST(&address))" in ntp_parser_compact
 assert "dhcp6c_ntp_time_source_claim(suboption,&source_seen)" in ntp_parser_compact

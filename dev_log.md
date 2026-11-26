@@ -1,3 +1,12 @@
+## 2026-11-26 — Validate one RFC 5908 NTP FQDN suboption
+
+- The generic DHCPv6 domain-list decoder can expand multiple concatenated domain names. The RFC 5908 NTP FQDN suboption is a single FQDN, so its payload is now checked before being passed to that generic decoder.
+- The wire validator requires one terminal root label, no compression or extended labels, ASCII LDH labels, no IDNA A-labels, label length <=63 octets and total wire length <=255 octets.
+- Regression covers valid FQDNs and malformed/multiple/compressed/IDN/oversized inputs; the Python source contract pins the NTP parser guard.
+- Parent main: `26842e306af329188b8aefd999cbbd9d94024ecd`; exact-SHA Actions pending.
+
+---
+
 ## 2026-11-26 — Make DHCPv6 timer traversal safe against callback-side deletion
 
 - Found a concrete iterator use-after-free: `dhcp6_timer_check()` saved `tm_next` before invoking a timer callback, but a delegated-prefix retry callback can complete cleanup and call `remove_ia()`, whose `pref_cleanup()` removes sibling prefix timers. The next loop iteration could dereference a timer node already freed by `dhcp6_timer_remove()`.

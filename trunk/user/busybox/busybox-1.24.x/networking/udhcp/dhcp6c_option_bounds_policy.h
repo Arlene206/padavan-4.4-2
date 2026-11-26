@@ -46,6 +46,50 @@ dhcp6c_ntp_suboption_wire_length_valid(size_t remaining, size_t payload_size)
 	return remaining >= 4U && payload_size <= remaining - 4U;
 }
 
+/*
+ * Validate the single FQDN carried by RFC 5908's NTP server FQDN suboption.
+ * DHCPv6 domain-name encoding is uncompressed; IDNs are not permitted here.
+ */
+static inline int
+dhcp6c_ntp_fqdn_wire_valid(const unsigned char *wire, size_t wire_len)
+{
+	size_t offset = 0;
+
+	if (wire == NULL || wire_len < 3U || wire_len > 255U)
+		return 0;
+
+	while (offset < wire_len) {
+		size_t label_len = (size_t)wire[offset++];
+		size_t i;
+
+		if (label_len == 0U)
+			return offset == wire_len;
+
+		if (label_len > 63U || label_len > wire_len - offset)
+			return 0;
+		if (wire[offset] == '-' || wire[offset + label_len - 1U] == '-')
+			return 0;
+		if (label_len >= 4U &&
+		    (wire[offset] == 'x' || wire[offset] == 'X') &&
+		    (wire[offset + 1U] == 'n' || wire[offset + 1U] == 'N') &&
+		    wire[offset + 2U] == '-' && wire[offset + 3U] == '-')
+			return 0;
+
+		for (i = 0; i < label_len; i++) {
+			unsigned char ch = wire[offset + i];
+
+			if (!((ch >= 'a' && ch <= 'z') ||
+			      (ch >= 'A' && ch <= 'Z') ||
+			      (ch >= '0' && ch <= '9') || ch == '-'))
+				return 0;
+		}
+
+		offset += label_len;
+	}
+
+	return 0;
+}
+
 /* RFC 5908 distinguishes unicast and multicast address suboption types. */
 static inline int
 dhcp6c_ntp_address_kind_valid(unsigned int suboption, int is_multicast)

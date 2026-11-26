@@ -503,6 +503,9 @@ static int dhcp6_get_ntp_server(int optlen, void *cp,
 			break;
 		}
 		case D6_NTP_SUBOPT_SRV_FQDN:
+			if (!dhcp6c_ntp_fqdn_wire_valid(
+					(const unsigned char *)p, sublen))
+				return -1;
 #if ENABLE_FEATURE_UDHCP_RFC3397
 			if (dhcp6_get_domain((int)sublen, p, D6_OPT_NTP_SERVER,
 					     list) != 0)

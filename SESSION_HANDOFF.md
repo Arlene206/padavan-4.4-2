@@ -83,6 +83,13 @@
 
 ---
 
+## 2026-11-26 — RFC 5908 FQDN suboption validation
+
+- Parent `main`: `26842e306af329188b8aefd999cbbd9d94024ecd`.
+- The NTP FQDN suboption carries exactly one FQDN, but the existing generic `dhcp6_get_domain()` decoder accepts a domain-name list. Validate the wire data before decoding: exactly one terminal root label, no compression/extended labels, ASCII LDH labels only, no IDNA A-labels, and RFC label/name length bounds.
+- Added policy regression for valid single/multi-label names, concatenated names, compression, missing terminator, non-ASCII and IDNA labels, hyphen placement, label/name overflow and NULL input. Python source checker pins the production call.
+- Exact-SHA Actions pending; hardware L4 remains NOT VERIFIED.
+
 ## Verification boundary
 
 - Exact SHA `d5ef589529bf19971f996265cffb92b9906c5635`: DHCPv6 IA #45794325763 PASS; AI handoff #45794325767 PASS; NVRAM transaction boundary #45794325755 PASS; USB/storage hotplug #45794325967 PASS; Process inventory #45794325764 PASS; DHCPv6 Reply-script retry #45794326034 and WAN DHCP callback #45794325993 PASS. XY-C1 #45794325773 had passed all pre-build checks; Build XY-C1, Verify TRX output and artifact upload remained pending at last poll.
