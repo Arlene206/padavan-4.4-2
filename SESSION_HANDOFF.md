@@ -3,46 +3,55 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development branch: `main` only.
-- Source checkpoint at this handoff: `72225a52c467a09dcdd5a4e252451d8d9df7eaf1` (`fix(lan): report resolver rollback uncertainty accurately`). The documentation checkpoint commit that appends this handoff will be its child; do not mistake the documentation-only delta for a new production-source build.
+- Current documentation parent: `21822988b5b299e4f931d6659c175515952bdc57`. Latest production-source behavior is in `15274181953dc258d6cec4e47d9038d2e3187b47`; the intervening `e49e86262257c592ad1e0be1b68cccd49c476517` preserves the MAN wrapper signature. The documentation commit that follows this checkpoint does not change production code.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; verified unchanged. PR #1 is closed and unmerged.
-- Bootstrap/protocol restoration was completed in the earlier session; do not repeat it. Continue from the exact next task below.
-- Use complete multi-file Git trees and one commit per logical task. Update `main` only with non-forced expected-SHA compare-and-swap. Never modify the frozen backup or force-push.
+- Bootstrap/protocol restoration was already completed. Do not repeat it. Do not reopen PR #1 or modify the frozen backup.
+- Use full multi-file Git trees and one atomic commit per logical task. Update `main` only with a non-forced expected-SHA compare-and-swap. Never force-push.
 
-## This session — LAN DHCP resolver transaction consistency
+## Completed production work — LAN DHCP resolver transaction
 
-- Confirmed a concrete transaction-boundary defect: `lan_publish_resolver_auto()` participates in the recoverable LAN DHCP address/route transition, but the old single-file publisher could return an error after `rename()` had already made the new `/etc/resolv.conf` visible (a parent-directory fsync failure). The caller then rolled kernel address/routes back while leaving the candidate resolver published.
-- Production fix `0c897b7ee4fd80bddad936b7d5bc3d8433917676`: expose the rename-completed boundary from the internal staged-file publisher while retaining the original API for other callers; add a rollback-aware publisher using the existing hard-link snapshot/restore primitives; switch the automatic DHCP resolver writer to the rollback-aware path. A deterministic C regression injects an error after successful rename and verifies restoration when the prior resolver existed and removal when it did not.
-- Follow-up checker/workflow commits corrected stale source contracts and fixture initialization: `57bd20e60f73f20d41fed7f08fee5fc5bdde7448`, `24ec9ce37430eaadcdfd3edc3f325ed4737f25b4`, `e428e722c2fbabde120a832bf93316bcf513d7ea`, `8f96eb6ecee967d448667072393aa99758079e7e`, `8477a7777fbd49717ae89a93011671500ce1a9c4`, and `b25835d921e2f3d9b3ae8fec39cb93549aa26e5e`.
-- Final diagnostic hardening `72225a52c467a09dcdd5a4e252451d8d9df7eaf1`: corrected the post-restore diagnostic so it does not claim a backup link is retained when the restore rename already consumed that link but the subsequent durability fsync failed. The message now reports rollback/durability-confirmation uncertainty and the observed recovery-link pathname accurately.
-- The initial exact-SHA checker failures were stale assertions/fixture setup, not evidence that the injected C behavior failed. They were fixed in subsequent atomic commits; do not reopen those old assertions without new evidence.
+- Confirmed that the automatic LAN DHCP resolver publisher could return failure after `rename()` had already exposed the candidate `/etc/resolv.conf` (for example, a parent-directory fsync failure). The outer LAN DHCP transition could then restore the prior kernel address/routes while leaving the candidate resolver visible.
+- Production fix `0c897b7ee4fd80bddad936b7d5bc3d8433917676`: expose the rename-completed boundary from the internal staged-file publisher while preserving the original API; add rollback-aware publication using the existing hard-link snapshot/restore primitives; route the automatic LAN DHCP resolver update through the rollback-aware helper.
+- Deterministic GNU89 C regression injects a failure after successful rename and verifies restoring an existing resolver and removing a newly created resolver when no previous file existed. Follow-up diagnostics in `72225a52c467a09dcdd5a4e252451d8d9df7eaf1` distinguish rollback failure/durability uncertainty without falsely claiming a recovery link still exists.
+- Checker/fixture follow-ups: `57bd20e60f73f20d41fed7f08fee5fc5bdde7448`, `24ec9ce37430eaadcdfd3edc3f325ed4737f25b4`, `e428e722c2fbabde120a832bf93316bcf513d7ea`, `8f96eb6ecee967d448667072393aa99758079e7e`, `8477a7777fbd49717ae89a93011671500ce1a9c4`, and `b25835d921e2f3d9b3ae8fec39cb93549aa26e5e`.
 
-## Exact-SHA verification boundary
+## Completed production work — WAN / IPTV DHCP BOUND callback status
 
-- Latest production-source SHA: `72225a52c467a09dcdd5a4e252451d8d9df7eaf1`.
-- Exact-head Actions on that SHA: DNSMasq lifecycle #45819215235 PASS (includes the resolver helper host regression and source contracts); WAN DHCP callback #45819215341 PASS; HTTPD security #45819215135 PASS; NVRAM transaction audit #45819215141 PASS; WAN route #45819215171 PASS; AI handoff docs #45819215253 PASS. The other non-product exact-head checks in the batch also completed PASS.
-- XY-C1 Firmware Validation #45819215001 is still IN_PROGRESS on this exact SHA. At last poll, all host/pre-build checks passed; `Build XY-C1` was still running and `Verify TRX output` plus artifact upload were pending. Recheck this exact run. Do not claim product L3 until Build, TRX verification and artifact upload all PASS on the same production-source SHA.
-- No local full firmware build or physical-router test is claimed. Hardware/L4, live modem, live WAN and live DHCP/DNS behavior remain NOT VERIFIED.
-- Earlier exact-head DNSMasq failures were resolved with the follow-up changes above; the latest DNSMasq run #45819215235 is the authoritative result for the current source checkpoint.
+- Confirmed that DHCP BOUND callbacks consumed the aggregate return from `wan_up_internal()` / `man_up_internal()`. Those aggregates include ancillary service startup failures after address/route setup (firewall, multicast/IGMP, DDNS, watchdog, monitoring and other follow-up services). A nonzero ancillary status could therefore make BusyBox treat an otherwise applied lease ACK as a failed script callback and unnecessarily retry/rebind.
+- Production fix `c36ab9c49ebd68fde9b07454da65e19212c182fd`: introduce `wan_up_internal_with_route_status()` and `man_up_internal_with_route_status()`, which report the DHCP-critical address/IPv4-route result before ancillary services, while retaining old aggregate wrappers for existing non-DHCP callers. `udhcpc_bound()` consumes the scoped status.
+- Production fix `15274181953dc258d6cec4e47d9038d2e3187b47`: generalize the lease callback selector to `dhcp_bound_callback_status(route_setup_status, mtu_status)` and use it for both normal WAN and IPTV DHCP. IPTV multicast startup remains separately logged/managed and no longer rejects a lease ACK; route, MTU and required NVRAM/retry-state publication errors remain visible to BusyBox. The MAN wrapper source-signature compatibility adjustment is `e49e86262257c592ad1e0be1b68cccd49c476517`.
+- Added/extended GNU89 policy regression `test_bound_callback_status_ignores_auxiliary_service_failures()` and source contracts for the route-only boundary. Checker follow-ups: `45cb6f12843035d47ce61dd2d4fa6dd58cd39e79`, `3f54cf2ba737835e9ea1a028fbe0fd229fe113e9`, `cbb470d0054854b3d8469a699ce78601f537c881`, `2377c6094e9acc5358a8abc6873f039eb057438f`, `f14f2b4d4d450f8dec403ed17ca74533ba31d204`, `e41af1199ab8279421fbed098557181767b92f01`, `405bb48aad75b5ea89aaec668a1b1f79fb140f97`, and `21822988b5b299e4f931d6659c175515952bdc57`.
+- WAN callback follow-up on exact SHA `405bb48aad75b5ea89aaec668a1b1f79fb140f97`: WAN DHCP callback #45824870841 PASS. The route-status workflow failed on stale assertions against the old callback source shape; those assertions were aligned in `21822988b5b299e4f931d6659c175515952bdc57`; exact rerun #45825386107 was QUEUED at the last poll.
 
-## DHCP event-flow review
+## Exact-SHA validation boundary
 
-- Rechecked BusyBox `udhcpc` INIT/REQUESTING/BOUND/RENEWING/REBINDING transitions, NAK handling, `DECONFIG_PENDING` retry, SIGUSR2/release handling and WAN/LAN RC event handlers.
-- The current `leasefail` handlers are intentionally non-destructive: before an ACK there is no committed lease to deconfigure. NAK handling invokes the separate noack notification and BusyBox itself runs `deconfig` for an active lease; failures remain pending and are retried. LAN/WAN stop paths request release and wait without force-killing a client whose deconfig is pending.
-- No new defect was established in that bounded review, so no speculative source change was made. Existing callback tests/contracts intentionally require WAN route/MTU failures to remain visible to BusyBox and persist retry state.
+- Current source-checker parent before this documentation commit: `21822988b5b299e4f931d6659c175515952bdc57`. Exact-head Actions observed: AI handoff docs #45825386055 QUEUED; WAN route status #45825386107 QUEUED; XY-C1 validation #45825386117 QUEUED.
+- On prior checker/source descendant `405bb48aad75b5ea89aaec668a1b1f79fb140f97`, WAN DHCP callback #45824870841 PASS. WAN route #45824870995 FAIL was caused by stale workflow assertions and is superseded by the source-contract update in `21822988`; the exact rerun is pending as above.
+- XY-C1 run #45824870811 reported overall SUCCESS, but its `Build XY-C1`, `Verify TRX output`, and artifact-upload steps were all SKIPPED. This is not a firmware build pass and does not establish L3. The exact current run #45825386117 was queued at checkpoint; recheck its build, TRX and artifact steps independently.
+- No local full firmware build or physical-router verification is claimed. Hardware/L4, real WAN/modem operation and live DHCP/DNS behavior remain NOT VERIFIED. Do not infer L3 from a green workflow whose product build steps were skipped or from a different source SHA.
+
+## DHCP callback / BusyBox follow-up
+
+- The callback now returns nonzero for route/MTU errors and required NVRAM lease/retry-state publication errors, while not treating ancillary service startup as DHCP ACK failure. Candidate lease tuple publication occurs before the WAN-up route operation; the callback records `route_err`, `mtu_err`, and general error state after that operation.
+- Prior bounded event-flow review found `leasefail` non-destructive before ACK, NAK separate from active-lease `deconfig`, `DECONFIG_PENDING` retries, and stop/release paths wait rather than force-kill while deconfig is pending. No independent state-machine defect was established in that review.
+- The next investigation is deliberately narrower: trace what BusyBox does after a nonzero `bound`/`renew` script result when the new NVRAM lease tuple has already been published but route or MTU application failed. Verify REQUESTING/BOUND/RENEWING/REBINDING transitions, T1/T2/lease-deadline handling and repeated ACK behavior. Build a focused GNU89 state-machine regression before making any further production change; preserve fail-closed retry semantics unless a concrete inconsistent state is demonstrated.
 
 ## Exact first action for the next GPT
 
-1. Read this handoff and verify live `main`, frozen backup and exact-SHA Actions only; do not repeat bootstrap or the completed LAN resolver work.
-2. Continue with the WAN DHCP BOUND/RENEW failure contract: trace what happens when the callback has published the candidate NVRAM lease but `wan_up_internal()` reports route/MTU failure and the callback returns nonzero to BusyBox. Build a focused GNU89 state-machine regression around repeated ACK/rebind/lease-deadline behavior before modifying production logic. Preserve the current fail-closed retry contract unless a concrete inconsistent state is demonstrated.
-3. Recheck XY-C1 #45819215001 on source SHA `72225a52c467a09dcdd5a4e252451d8d9df7eaf1`; do not wait on it before doing independent work.
+1. Recheck live `main`, frozen backup, and exact-head Actions only; do not rerun bootstrap or re-audit the completed LAN resolver work.
+2. Inspect BusyBox `udhcpc` handling of a nonzero `bound`/`renew` script status in `trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcpc.c`, alongside the WAN/IPTV callbacks. Add a focused GNU89 regression for failure/retry/rebind/lease-deadline behavior before changing source.
+3. Do not wait on pending CI; pursue independent source work and validate each atomic commit against its exact SHA.
 
-## Mandatory checkpoint and cross-session rules
+## Mandatory handoff checkpoint
 
-- Before each session ends, verify the live source baseline, exact-head tests, pending blockers, current active task and precise next action. Update this handoff and `dev_log.md` when engineering progress or validation state materially changes.
-- Continue the loop: source change → focused regression → atomic commit → exact-SHA Actions. PASS proceeds; FAIL is diagnosed and repaired; PENDING never blocks independent work.
-- Keep every logical milestone atomic: create all blobs, one complete Git tree, one commit, then expected-SHA non-forced update of `main`. No partial-file commits or force-push.
-- PENDING runs and earlier-SHA results do not validate a later SHA. Product L3 requires Build XY-C1, TRX verification and artifact upload all PASS on one production-source SHA. Physical L4 requires actual hardware testing.
-- Preserve the frozen backup and do not reopen PR #1. Routine snapshot archives are prohibited; update the roadmap only for material module/status changes.
+Every session MUST perform an end-of-session accuracy checkpoint. Check the live `main` SHA, frozen backup SHA, exact-head Actions, completed/failed/pending tests, unresolved blockers, and the precise first action for the next session. Earlier-SHA PASS results do not validate a later SHA. **The checkpoint is mandatory; a document edit is conditional.** When all checkpoint facts and the first action are already accurate, conclude the check without a no-op file change or commit.
+
+## Mandatory development loop
+
+- Modify source → focused regression → atomic commit → check GitHub Actions for the corresponding exact SHA. PASS proceeds; FAIL is diagnosed and fixed; PENDING never blocks independent work.
+- For multi-file work, create all blobs and one complete Git tree before one commit. Update `main` by expected-SHA non-forced compare-and-swap only. Never leave partial-file commits, force-push, or modify the backup branch.
+- At each handoff, record the production-source SHA separately from documentation/checker-only descendants and accurately state which exact-SHA product build steps ran or were skipped.
+- Preserve hardware/L4 NOT VERIFIED unless actual hardware validation has been performed.
 
 ## 2026-11-26 GPT-6 continuation
 

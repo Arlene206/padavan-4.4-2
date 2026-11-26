@@ -1,3 +1,15 @@
+## 2026-11-26 — Scope DHCP BOUND callback failures to lease-critical work
+
+- Confirmed that normal WAN and IPTV DHCP BOUND callbacks consumed aggregate WAN/MAN up status. Failures from post-route auxiliary work such as firewall and IGMP/multicast startup could therefore be returned to BusyBox as DHCP script failure after an otherwise successful lease address/route application.
+- Added route-status-scoped implementations `wan_up_internal_with_route_status()` and `man_up_internal_with_route_status()`; route-critical status is captured before ancillary service startup while existing aggregate wrappers remain for other callers. Normal WAN and IPTV callback status now uses `dhcp_bound_callback_status(route_setup_status, mtu_status)`. IPTV multicast startup remains separately managed and no longer rejects the lease ACK; route, MTU and required NVRAM retry-state publication failures still fail closed.
+- Added/extended GNU89 policy and source-contract coverage for the route-only status boundary and ancillary-service exclusion.
+- Production source commits: `c36ab9c49ebd68fde9b07454da65e19212c182fd`, `e49e86262257c592ad1e0be1b68cccd49c476517`, `15274181953dc258d6cec4e47d9038d2e3187b47`. Checker/workflow follow-ups: `45cb6f12843035d47ce61dd2d4fa6dd58cd39e79`, `3f54cf2ba737835e9ea1a028fbe0fd229fe113e9`, `cbb470d0054854b3d8469a699ce78601f537c881`, `2377c6094e9acc5358a8abc6873f039eb057438f`, `f14f2b4d4d450f8dec403ed17ca74533ba31d204`, `e41af1199ab8279421fbed098557181767b92f01`, `405bb48aad75b5ea89aaec668a1b1f79fb140f97`, and `21822988b5b299e4f931d6659c175515952bdc57`.
+- WAN DHCP callback exact run #45824870841 PASS on SHA `405bb48`. WAN route #45824870995 FAIL on that older checker because assertions still expected the previous callback shape; source-contract assertions were corrected at `21822988` and exact rerun #45825386107 was QUEUED. AI handoff docs #45825386055 and XY-C1 #45825386117 were also QUEUED on `21822988`.
+- XY-C1 #45824870811 was overall SUCCESS but Build XY-C1, TRX verification and artifact upload were SKIPPED; this is not L3. No current-source L3 or hardware/L4 claim.
+- Next: trace BusyBox handling of nonzero BOUND/RENEW script results after candidate NVRAM lease publication, including T1/T2/lease-deadline and repeated ACK/rebind behavior. Add host GNU89 regression before any further production edit.
+
+---
+
 ## 2026-11-26 — Make automatic LAN DHCP resolver publication part of the rollback transaction
 
 - Confirmed a concrete transaction-boundary defect: the automatic LAN DHCP resolver writer used a single-file publisher that could return failure after rename had already exposed the candidate `/etc/resolv.conf`. The outer DHCP transaction would then restore the previous kernel address/routes but leave the new resolver file in place.
