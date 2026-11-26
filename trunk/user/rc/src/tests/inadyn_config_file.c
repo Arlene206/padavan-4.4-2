@@ -153,7 +153,8 @@ test_rejected_value_discards_partial_config(const char *config,
 	assert(errno == EINVAL);
 	assert(inadyn_config_file_discard(fp, staged_path) == 0);
 	assert(staged_path[0] == '\0');
-	read_exact(config, "new-user\nnew-password\n");
+	/* The preceding snapshot test deliberately committed this generation. */
+	read_exact(config, "committed-generation\n");
 	assert(count_staged_files(directory, "inadyn.conf.tmp.") == 0);
 }
 
