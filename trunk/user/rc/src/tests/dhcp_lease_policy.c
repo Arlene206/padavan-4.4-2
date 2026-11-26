@@ -978,6 +978,33 @@ test_dhcp_lease_mtu_option_withdrawal_restores_default(void)
 	assert(dhcp_lease_mtu_should_reapply(1500, 1, 1500, NULL) == EINVAL);
 }
 
+static void
+test_invalid_lan_router_option_is_not_treated_as_withdrawal(void)
+{
+	char gateway[INET_ADDRSTRLEN];
+	int has_gateway = 1;
+
+	assert(dhcp_lease_router_option_parse("192.0.2.1 999.1.1.1",
+		gateway, sizeof(gateway), &has_gateway) == EINVAL);
+	assert(gateway[0] == '\0');
+	assert(has_gateway == 0);
+
+	has_gateway = 1;
+	assert(dhcp_lease_router_option_parse("192.0.2.1;reboot",
+		gateway, sizeof(gateway), &has_gateway) == EINVAL);
+	assert(gateway[0] == '\0');
+	assert(has_gateway == 0);
+
+	/* Absent and empty Router options are valid route withdrawals. */
+	assert(dhcp_lease_router_option_parse(NULL, gateway,
+		sizeof(gateway), &has_gateway) == 0);
+	assert(gateway[0] == '\0' && has_gateway == 0);
+	assert(dhcp_lease_router_option_parse(" \t ", gateway,
+		sizeof(gateway), &has_gateway) == 0);
+	assert(gateway[0] == '\0' && has_gateway == 0);
+}
+
+
 int
 main(void)
 {
@@ -989,6 +1016,7 @@ main(void)
 	int rollback_status, transaction_status;
 
 	test_dhcp_lease_required_option_is_missing_or_changed();
+	test_invalid_lan_router_option_is_not_treated_as_withdrawal();
 	assert(dhcp_lease_ipv4_is_valid("192.0.2.1"));
 	assert(!dhcp_lease_ipv4_is_valid("0.0.0.0"));
 	assert(!dhcp_lease_ipv4_list_is_valid("0.0.0.0 192.0.2.1", 255, 16, 1));

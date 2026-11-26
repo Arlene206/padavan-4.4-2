@@ -3213,7 +3213,7 @@ udhcpc_lan_bound(char *lan_ifname, int is_renew)
 	int address_changed, apply_address, clear_address, apply_gateway;
 	int lease_dur = 0;
 	int status, rollback_status = 0, hosts_status = 0;
-	int watchdog_status, monitor_status;
+	int watchdog_status, monitor_status, has_gateway;
 	int nvram_rollback_status = 0, network_rollback_status = 0;
 	int network_rollback_cleanup_status = 0, network_transaction_applied = 0;
 	int refresh_hosts, networkmap_retry_pending;
@@ -3258,15 +3258,18 @@ udhcpc_lan_bound(char *lan_ifname, int is_renew)
 
 	/* Normalize optional options on every event. An option withdrawn by the
 	 * server must not leave the previous lease's values live in NVRAM. */
-	gateway_buf[0] = '\0';
 	value = getenv("router");
-	status = dhcp_lease_ipv4_list_first(
-		value ? trim_r(value) : NULL, gateway_buf, sizeof(gateway_buf));
-	if (status < 0) {
+	status = dhcp_lease_router_option_parse(
+		value ? trim_r(value) : NULL, gateway_buf, sizeof(gateway_buf),
+		&has_gateway);
+	if (status != 0) {
 		logmessage("DHCP LAN Client",
-			"ignoring invalid DHCP router list on %s", lan_ifname);
-		gateway_buf[0] = '\0';
+			"rejecting bound/renew with malformed DHCP router option on %s (status=%d)",
+			lan_ifname, status);
+		return status;
 	}
+	if (!has_gateway)
+		gateway_buf[0] = '\0';
 
 	value = getenv("dns");
 	lease_dns = value ? trim_r(value) : "";

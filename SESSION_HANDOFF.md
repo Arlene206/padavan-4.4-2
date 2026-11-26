@@ -2,7 +2,7 @@
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; active branch: `main`; parent for the networkmap ARP frame-validation slice: `b4758abe4d81752f604013d6819ce4ba9d29e9c6`.
+- Repository: `Arlene206/padavan-4.4-2`; active branch: `main`; current parent before LAN DHCP Router hardening: `f2d7d6907939b93745eb67fdb51f89d75ba2ffc0` (SmartDNS unterminated-config separator fix; prior networkmap ARP hardening at `e4b2bd1cbb2c4121a082530418a99ba73574f99b`).
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged; do not modify). PR #1 remains closed and unmerged.
 - Bootstrap/protocol recovery was completed earlier in this continuous project; do not repeat it. Work on `main` only with full-tree atomic commits and non-forced expected-SHA updates.
 - Latest exact-parent Actions on `b4758abe4d81752f604013d6819ce4ba9d29e9c6`: AdGuardHome config security #45837257425 PASS; Process inventory #45837257092 PASS; XY-C1 #45837257027 host checks PASS but Build XY-C1, TRX verification and artifact upload were SKIPPED by the firmware-input detector. This is NOT an L3 firmware build.
@@ -11,7 +11,7 @@
 
 ## Active task
 
-- Harden `networkmap` ARP ingestion. The current receiver accepted any payload at least `sizeof(ARP_HEADER)`, then interpreted sender/target fields and could replace a client's MAC without first validating ARP hardware type, protocol type, address lengths, operation, or sender MAC class. This slice adds a strict Ethernet/IPv4 ARP validator and deterministic GNU89 adversarial tests; invalid packets are discarded before IP/MAC processing. Preserve legitimate ARP request/reply processing and existing receive-error behavior.
+- LAN DHCP Router option handling now rejects malformed/oversized `router` values before kernel or lease-NVRAM mutation; only genuinely absent/empty options mean route withdrawal. Regression covers malformed tails and config/meta-character injection; workflow contract enforces early return before route apply and NVRAM publication. Inspect exact-SHA WAN DHCP/lease Actions after this commit.
 
 
 ## Completed production work — LAN DHCP resolver transaction
@@ -29,18 +29,17 @@
 - Added/extended GNU89 policy regression `test_bound_callback_status_ignores_auxiliary_service_failures()` and source contracts for the route-only boundary. Checker follow-ups: `45cb6f12843035d47ce61dd2d4fa6dd58cd39e79`, `3f54cf2ba737835e9ea1a028fbe0fd229fe113e9`, `cbb470d0054854b3d8469a699ce78601f537c881`, `2377c6094e9acc5358a8abc6873f039eb057438f`, `f14f2b4d4d450f8dec403ed17ca74533ba31d204`, `e41af1199ab8279421fbed098557181767b92f01`, `405bb48aad75b5ea89aaec668a1b1f79fb140f97`, and `21822988b5b299e4f931d6659c175515952bdc57`.
 - WAN callback follow-up on exact SHA `405bb48aad75b5ea89aaec668a1b1f79fb140f97`: WAN DHCP callback #45824870841 PASS. The route-status workflow failed on stale assertions against the old callback source shape; those assertions were aligned in `21822988b5b299e4f931d6659c175515952bdc57`; exact rerun #45825386107 was QUEUED at the last poll.
 
-## Active task
+## Completed production work — DHCPv6 config-writer token validation
 
-- DHCPv6 `start_dhcp6c()` config-token hardening is committed at `3cb9d6b909da6ef09656567d244aee26d4a3c4ff`; dedicated DHCPv6 IA workflow #45835968592 PASSed including the GNU89 ASan/UBSan token regression. Dependent WAN DHCP callback #45835965906 failed only because its old source assertion still required the length-only guard. This commit updates that checker to validate safe-token copy/bind/config ordering; poll its exact-SHA rerun and XY-C1.
+- `start_dhcp6c()` now validates the interface token with `wan_ifname_copy()` before generating `dhcp6c.conf`. DHCPv6 IA #45835968592 PASSed with the GNU89 ASan/UBSan adversarial-token test; dependent WAN DHCP contract correction #45836670352 PASSed.
 
 ## Verification boundary
 
-- Documentation parent before this update: `fab825ac680bca65603b99f6c2dc0b16c7b3a102`. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged.
-- BusyBox repeated-REBINDING callback regression `7be435059c1f8ffbd757ea95ba41fe466557960f`: exact run #45825922148 PASS. It proves failed callbacks do not commit a new server/requested-IP/BOUND state or extend the existing lease deadline. No production `dhcpc.c` defect was demonstrated.
-- Inadyn transaction fix `4c0b2a02b021c813845e3a5356cdfd0cf987c4ab`, fixture correction `916fbec0fcc6739548870888fdbb24216683955c`, checker descendants `2b2b6ec122e5b4e9c7f94c3599ffd0c4da60c526` and `ece28b515b546cd8539089975322cb79ecbe6395`: Inadyn #45826971290 PASS and DNSMasq #45826971254 PASS on exact `ece28b5`.
-- VSFTPD config commits: `63972673ad970fb439a175b21499078d6433c09f` (staged-file + parent-directory fsync), `65d6e0030edcebdf568dd4dba3ba281a143654aa` (GNU89 prototypes), `7f9a288dd74d7cbfdecf03f3b7ea4709bccfd740` (/etc symlink compatibility), `0eaada3d45cc8c627a902a962927ad40a3ec5330` (checker definition matching), and `f0fbe839174fb6b569c036f21c34a55903ed5965` (XY-C1 path trigger).
-- VSFTPD host regression #45828730341 PASS on exact `0eaada3`; Process inventory #45829100150 PASS on exact `f0fbe839`. XY-C1 #45829100040 PASS on exact `f0fbe839`: Build XY-C1, TRX verification and artifact upload all completed successfully. Artifact ID `15121837299`, SHA-256 `dfcbc1cd76623eacf6cf33c6f95267983af6ad236a3732927ae955d58366ad7e` (13 MB TRX). This verifies the FTP durability source baseline at L3; it does not verify the later DHCP marker change.
-- The previous complete XY-C1 #45826697813 PASS was on `916fbec0`, before the VSFTPD helper change; it does not verify this newer source. No current FTP L3 claim until #45829100040 Build/TRX/artifact all PASS. No physical-router result is claimed; hardware/L4 remains NOT VERIFIED.
+- Latest main parent before this source slice: `f2d7d6907939b93745eb67fdb51f89d75ba2ffc0`. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged.
+- DHCPv6 config-token validation source `3cb9d6b909da6ef09656567d244aee26d4a3c4ff`: dedicated DHCPv6 IA/source-contract #45835968592 PASS; dependent WAN DHCP contract correction #45836670352 PASS.
+- AdGuardHome resolver-failure source `bbcfd8532dec133ff8c60b690f8aba9017af7acc`; test/checker descendant `b4758abe4d81752f604013d6819ce4ba9d29e9c6`: exact config-security #45837257425 PASS.
+- XY-C1 #45837257027 on `b4758abe` PASSed host checks but skipped Build XY-C1, TRX verification and artifact upload because that commit changed only tests/checkers. Last confirmed full L3 build remains #45831671503 on production source baseline `43ba9c6`, artifact ID `15123331261`, SHA-256 `19dfd06a2ad7c6427a55e26505552a8a3bfbc6f6e1bff2259304426261f2bc9c`; it does not validate subsequent DHCPv6, AdGuardHome, networkmap, SmartDNS or LAN DHCP source changes.
+- Physical-router/hardware L4 remains NOT VERIFIED. Never treat a green run that skipped Build/TRX/artifact steps as a firmware build.
 
 ## BusyBox udhcpc repeated-REBINDING failure regression
 
@@ -59,10 +58,9 @@
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-SHA `networkmap signal lifecycle stability regression` for the ARP frame-validation commit. Require all three GNU89 ASan/UBSan policy binaries and the source contract to pass. Repair any stale assertion at its causal point.
-2. Check exact-SHA Process inventory and XY-C1 Actions independently. A host-only detector PASS is not a firmware build; Build XY-C1, TRX verification and artifact upload must all succeed before calling it L3.
-3. Continue the next independent high-priority stability/security defect across Padavan userland. Pending Actions must not block independent work; hardware/L4 stays NOT VERIFIED until physical validation.
-
+1. Inspect exact-SHA WAN DHCP callback Actions for the LAN Router fail-closed fix; confirm the GNU89 ASan/UBSan DHCP lease-policy regression and source-order checker.
+2. Inspect networkmap ARP and SmartDNS unterminated-config Actions on their exact production SHAs, then Process and XY-C1. Distinguish Build XY-C1, TRX verification and artifact upload from host-only/skipped checks.
+3. Continue the next independent P1 stability/security defect. Keep expected-SHA atomic commits and explicit L2/L3/L4 boundaries. Hardware/L4 remains NOT VERIFIED.
 
 ## Mandatory handoff checkpoint
 

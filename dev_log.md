@@ -1,3 +1,9 @@
+## 2026-11-26 — Reject malformed LAN DHCP Router options before changing the live lease
+
+- Found a fail-open classification bug in `udhcpc_lan_bound()`: `dhcp_lease_ipv4_list_first()` returned `-1` for malformed Router input, but the callback treated it as an empty option. The BOUND/RENEW transaction then interpreted malformed input as an intentional withdrawal, deleted the last-known-good default route and published an empty gateway.
+- The shared `dhcp_lease_router_option_parse()` distinguishes a valid absent/empty option from malformed/oversized input (fatal `EINVAL`) and clears partial output on failure. LAN now returns the parser error before address/route transaction or NVRAM publication. A genuinely absent/empty Router option still withdraws the route as before.
+- Added GNU89 parser regressions for invalid trailing addresses and shell/meta-character injection, and an exact source-order contract proving the callback returns before route/address apply and lease-state publication. The existing WAN DHCP callback workflow runs the policy test under ASan/UBSan; exact-SHA Actions are pending.
+
 ## 2026-11-26 — Separate SmartDNS managed markers from unterminated DNSMasq files
 
 - The managed-block publisher copied the active DNSMasq file and appended its begin marker without checking the final byte. A user-owned file with no terminating LF could absorb the marker into the last directive; subsequent stop cleanup rejected the malformed block and left SmartDNS directives behind.

@@ -1960,6 +1960,18 @@ jobs:
           assert "aborting WAN PPP startup for unit %d: physical WAN setup failed" in ppp_failure
 
           lan_bound = body(lan_source, "udhcpc_lan_bound(char *lan_ifname, int is_renew)")
+          router_parse = lan_bound.index("status = dhcp_lease_router_option_parse(")
+          router_reject = lan_bound.index("if (status != 0)", router_parse)
+          router_return = lan_bound.index("return status;", router_reject)
+          network_apply = lan_bound.index("status = dhcp_lease_bound_apply(")
+          nvram_publish = lan_bound.index("status = lan_dhcp_nvram_state_publish(")
+          assert "dhcp_lease_ipv4_list_first(" not in lan_bound
+          assert "rejecting bound/renew with malformed DHCP router option" in lan_bound
+          assert router_parse < router_reject < router_return < network_apply < nvram_publish
+          assert "test_invalid_lan_router_option_is_not_treated_as_withdrawal" in lease_policy_test
+          assert "test_invalid_lan_router_option_is_not_treated_as_withdrawal();" in lease_policy_test
+          assert "192.0.2.1 999.1.1.1" in lease_policy_test
+          assert "192.0.2.1;reboot" in lease_policy_test
           assert "status = dhcp_lease_bound_apply(" in lan_bound
           assert "status = lan_dhcp_nvram_state_publish(" in lan_bound
           assert lan_bound.index("status = dhcp_lease_bound_apply(") < lan_bound.index("status = lan_dhcp_nvram_state_publish(")
