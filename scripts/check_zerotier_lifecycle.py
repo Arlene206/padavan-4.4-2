@@ -372,7 +372,8 @@ require('ZT_MAX_STATIC_ROUTES=64' in script and
         '[ "${#zt_route_count}" -le 2 ] || return 1' in route_count_body and
         '[ "$zt_route_count" -le "$ZT_MAX_STATIC_ROUTES" ]' in route_count_body and
         'zerotier_validate_static_route_count "$zt_preflight_route_count"' in route_preflight_body and
-        'zerotier_validate_static_route_count "$rulesnum"' in static_route_body and
+        'zerotier_static_route_state_save' in static_route_body and
+        'zerotier_validate_static_route_count "$zt_preflight_route_count"' in route_state_save_body and
         'markGroupRULES(this, 64' in zerotier_page,
         "static route iteration must enforce the same 64-entry ceiling as the UI before seq")
 require('static-route preflight accepted unsupported count' in test and

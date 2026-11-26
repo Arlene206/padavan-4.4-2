@@ -1,3 +1,9 @@
+## 2026-11-25 — Match ZeroTier route-count checker to the persisted executor
+
+- Exact ZeroTier run #45737539198 completed the shell lifecycle regression successfully, then the Python source contract failed because it still required the pre-manifest NVRAM loop and its local rulesnum variable inside zero_route(). The current executor consumes a persisted manifest; the shared save helper validates and bounds the checked NVRAM count before its seq loop, while manifest loading caps records at 64.
+- Updated the source contract to follow the current executor-to-save-helper call chain and assert that shared bound. No production behavior changed.
+
+---
 ## 2026-11-25 — Reset ZeroTier route-count manifests between compatibility cases
 
 - Exact ZeroTier run on d9bb597 completed the bounded lifecycle tests and stopped in the later route-count table: the empty-string case correctly wrote a header-only route manifest, but the next zero-count case reused that same file and the production add path correctly refused to overwrite an unreplayed checkpoint.
