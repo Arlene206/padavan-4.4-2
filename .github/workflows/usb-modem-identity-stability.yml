@@ -1096,7 +1096,7 @@ jobs:
           assert qmi_stop_function.count("get_qmi_handle(QMI_CLIENT_ID)") == 1
           assert qmi_stop_function.count("get_qmi_handle(QMI_HANDLE_PDH)") == 1
           assert qmi_stop_function.index('"--set-client-id"') < qmi_stop_function.index('"--stop-network"')
-          assert "modem_qmi_stop_preflight" in qmi_policy
+          assert "modem_qmi_stop_preflight(" in qmi_policy_test
           assert "test_qmi_stop_preflight_uses_only_the_persisted_wds_client_id" in qmi_policy_test
           pdh_cleanup = qmi_stop_function.index("unlink(QMI_HANDLE_PDH)")
           release_gate = qmi_stop_function.index("if (!modem_qmi_client_id_release_allowed(cleanup_status))", pdh_cleanup)
