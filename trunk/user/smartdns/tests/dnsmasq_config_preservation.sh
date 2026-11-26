@@ -423,6 +423,8 @@ anti_ad() {
 
 NVRAM_ADDBYBY_VALUE=1
 NVRAM_SET_STATUS=0
+NVRAM_REDIRECT_VALUE=1
+NVRAM_REDIRECT_SET_STATUS=0
 pidof() { [ "${1:-}" = adbyby ] || return 1; printf '123\n'; }
 nvram() {
     case "${1:-} ${2:-}" in
@@ -432,6 +434,10 @@ nvram() {
         "get block_ios") printf '1\n' ;;
         "get block_douyin") printf '1\n' ;;
         "get_checked sdns_staticnum_x"|"get sdns_staticnum_x") printf '0\n' ;;
+        "set sdns_redirect=0")
+            [ "$NVRAM_REDIRECT_SET_STATUS" -eq 0 ] || return "$NVRAM_REDIRECT_SET_STATUS"
+            NVRAM_REDIRECT_VALUE=0
+            ;;
         "set adbyby_add=0")
             [ "$NVRAM_SET_STATUS" -eq 0 ] || return "$NVRAM_SET_STATUS"
             NVRAM_ADDBYBY_VALUE=0
@@ -479,6 +485,37 @@ grep -Fxq "addn-hosts=$PROG_PATH/hosts" "$dnsmasq_Conf" ||
     fail "Adbyby generated addn-hosts reference missing"
 grep -Fxq '192.0.2.44 ads.example.test' "$PROG_PATH/hosts" ||
     fail "Adbyby generated hosts file was not materialized"
+
+# Port-53 mode must persist redirect normalization before touching DNSMasq.
+# A failed NVRAM write cannot be treated as a successful local-only update.
+dnsmasq_Conf="$T/redirect-normalization.conf"
+cp "$T/runtime-dnsmasq.conf" "$dnsmasq_Conf"
+cp "$dnsmasq_Conf" "$T/redirect-normalization.before"
+sdns_port=53
+sdns_redirect=1
+NVRAM_REDIRECT_VALUE=1
+NVRAM_REDIRECT_SET_STATUS=37
+if Change_dnsmasq start; then
+    fail "failed sdns_redirect normalization write was accepted"
+else
+    redirect_status=$?
+fi
+[ "$redirect_status" -eq 37 ] || fail "sdns_redirect write status changed to $redirect_status"
+[ "$sdns_redirect" = 1 ] || fail "failed NVRAM write changed the in-memory redirect selector"
+[ "$NVRAM_REDIRECT_VALUE" = 1 ] || fail "failed NVRAM write changed persisted redirect state"
+cmp -s "$dnsmasq_Conf" "$T/redirect-normalization.before" ||
+    fail "failed sdns_redirect write changed live DNSMasq configuration"
+for tmp in "$dnsmasq_Conf".tmp.*; do
+    [ ! -e "$tmp" ] || fail "failed redirect normalization leaked a staged DNSMasq file"
+done
+NVRAM_REDIRECT_SET_STATUS=0
+Change_dnsmasq start || fail "successful port-53 redirect normalization failed"
+[ "$sdns_redirect" = 0 ] || fail "successful redirect normalization did not update local state"
+[ "$NVRAM_REDIRECT_VALUE" = 0 ] || fail "successful redirect normalization was not persisted"
+grep -Fxq 'port=0' "$dnsmasq_Conf" ||
+    fail "successful port-53 normalization did not publish the DNSMasq listener marker"
+dnsmasq_Conf="$T/runtime-dnsmasq.conf"
+pass "port-53 DNS redirect normalization fails closed on NVRAM write errors"
 
 # SmartDNS as a non-53 upstream leaves DNSMasq as the request front end.
 # Therefore DNSMasq must continue consuming the real Adbyby conf-dir and hosts file.

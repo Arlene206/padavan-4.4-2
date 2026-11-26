@@ -740,7 +740,13 @@ Change_dnsmasq () {
         set -- "$dnsmasq_Conf"
         if [ "$sdns_port" = "53" ] ; then
             if [ "$sdns_redirect" = "1" ] ; then
-                nvram set sdns_redirect=0
+                if nvram set sdns_redirect=0; then
+                    :
+                else
+                    smartdns_nvram_status=$?
+                    logger -t "SmartDNS" "Failed to normalize sdns_redirect for port 53 (status=$smartdns_nvram_status)"
+                    return "$smartdns_nvram_status"
+                fi
                 sdns_redirect=0
                 logger -t "SmartDNS" "因此，自动修改重定向为：无"
             fi

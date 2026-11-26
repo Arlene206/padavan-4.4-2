@@ -148,6 +148,15 @@ assert '"$smartdns_state_version"' in smartdns
 
 change = body(smartdns, "Change_dnsmasq")
 assert "smartdns_dnsmasq_remove_saved_directives" in change
+assert 'if nvram set sdns_redirect=0; then' in change
+assert 'return "$smartdns_nvram_status"' in change
+normalize_write = change.index('if nvram set sdns_redirect=0; then')
+normalize_state = change.index('\n                sdns_redirect=0', normalize_write)
+normalize_publish = change.index('set -- "$@" port=0', normalize_state)
+assert normalize_write < normalize_state < normalize_publish
+assert "NVRAM_REDIRECT_SET_STATUS=37" in test
+assert "failed sdns_redirect normalization write was accepted" in test
+assert 'cmp -s "$dnsmasq_Conf" "$T/redirect-normalization.before"' in test
 assert "sed -i" not in change
 assert "server=127.0.0.1#$sdns_port" in change
 assert 'smartdns_dnsmasq_publish_managed_block "$@"' in change

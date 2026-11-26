@@ -1,3 +1,13 @@
+## 2026-11-26 — Propagate SmartDNS port-53 redirect normalization write failures
+
+- `Change_dnsmasq start` previously ignored `nvram set sdns_redirect=0` when SmartDNS used port 53. It then changed only the shell-local selector and published DNSMasq's `port=0` ownership marker, even if persistent NVRAM still requested redirection. A write failure could report a successful but split-brain resolver transition.
+- The normalization now checks and logs the NVRAM status, returns before changing the in-memory selector or staging DNSMasq directives, and lets the existing startup failure path handle the error.
+- Added a shell regression with injected status 37 proving NVRAM/local selector and the live DNSMasq file remain unchanged, then verifies the successful normalization path. The Python source contract pins write → local-state update → config-publication order.
+- The immediately preceding VPN DNS resolver work established strict 0/1/2 selector validation and correct mode-2 replacement of both IPv4 and IPv6 WAN upstreams. Exact WAN source-checker correction is a separate parent commit; L3 still depends on same-SHA Build/TRX/artifact.
+- Exact SmartDNS/DNSMasq Actions for THIS commit pending. No local checkout was available, so local shell/Python execution NOT RUN.
+
+---
+
 ## 2026-11-26 — Match VPN replace-mode checker to the IPv6 resolver guard
 
 - WAN DNS replace-mode implementation in `42eb80db8aea0cdfa1c1b258f59d107d74c07e11` correctly gates the IPv6 WAN-server block with `if (!vpn_dns_replaces_current)`, but the Python source contract still searched for the old comment `/* DNSv6 servers */`. Exact WAN runs #45762008586 and #45762094181 stopped at that obsolete marker; GNU89 tests preceding the checker passed.
