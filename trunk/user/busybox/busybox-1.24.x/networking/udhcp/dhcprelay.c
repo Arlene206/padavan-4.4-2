@@ -251,6 +251,12 @@ static void pass_to_server(struct dhcp_packet *p, int packet_len, int client, in
 		return;
 	}
 
+	/* DECLINE and RELEASE have no server reply to route to a client. */
+	if (!udhcp_relay_xid_response_expected(type, DHCPDECLINE, DHCPRELEASE)) {
+		(void)sendto_ip4(fds[0], p, packet_len, server_addr);
+		return;
+	}
+
 	item = xid_add(p->xid, p, client_addr, client, &created);
 	if (NULL == item) {
 		log1("DHCP relay transaction table full; dropping request");

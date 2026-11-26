@@ -40,6 +40,19 @@ test_release_allows_next_transaction(void)
 }
 
 static void
+test_one_way_messages_do_not_require_xid_entries(void)
+{
+    const int decline_type = 4;
+    const int release_type = 7;
+
+    assert(!udhcp_relay_xid_response_expected(decline_type, decline_type, release_type));
+    assert(!udhcp_relay_xid_response_expected(release_type, decline_type, release_type));
+    assert(udhcp_relay_xid_response_expected(1, decline_type, release_type));
+    assert(udhcp_relay_xid_response_expected(3, decline_type, release_type));
+    assert(udhcp_relay_xid_response_expected(8, decline_type, release_type));
+}
+
+static void
 test_send_result_status(void)
 {
     assert(udhcp_relay_send_result_ok(0));
@@ -54,6 +67,7 @@ main(void)
 {
     test_reservation_limit();
     test_release_allows_next_transaction();
+    test_one_way_messages_do_not_require_xid_entries();
     test_send_result_status();
     puts("DHCP relay bounded XID transaction regression: PASS");
     return 0;

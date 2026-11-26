@@ -24,6 +24,13 @@ udhcp_relay_xid_release(struct udhcp_relay_xid_budget *budget)
         --budget->pending;
 }
 
+/* DHCPDECLINE and DHCPRELEASE are one-way operations without a reply. */
+static inline int
+udhcp_relay_xid_response_expected(int type, int decline_type, int release_type)
+{
+    return type != decline_type && type != release_type;
+}
+
 static inline int
 udhcp_relay_send_result_ok(int send_result)
 {

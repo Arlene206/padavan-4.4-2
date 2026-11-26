@@ -42,6 +42,18 @@ assert "gateway_nip" in xid_add and "chaddr" in xid_add
 assert "memcmp(item->chaddr, p->chaddr" in xid_add
 assert "gateway_nip == p->gateway_nip" in xid_find
 assert "memcmp(item->chaddr, p->chaddr" in xid_find
+one_way_gate = pass_to_server.index(
+    "if (!udhcp_relay_xid_response_expected(type, DHCPDECLINE, DHCPRELEASE))"
+)
+one_way_send = pass_to_server.index(
+    "(void)sendto_ip4(fds[0], p, packet_len, server_addr);"
+)
+one_way_return = pass_to_server.index("return;", one_way_send)
+xid_reservation = pass_to_server.index("xid_add(p->xid, p, client_addr, client, &created)")
+assert one_way_gate < one_way_send < one_way_return < xid_reservation
+assert "udhcp_relay_xid_response_expected" in policy
+assert "test_one_way_messages_do_not_require_xid_entries" in test
+
 assert "xid_add(p->xid, p, client_addr, client, &created)" in pass_to_server
 assert "if (NULL == item)" in pass_to_server
 assert "!udhcp_relay_send_result_ok(sendto_ip4(fds[0], p, packet_len, server_addr)) && created" in pass_to_server

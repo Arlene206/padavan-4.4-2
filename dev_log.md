@@ -1,3 +1,11 @@
+## 2026-11-25 — Avoid XID reservations for one-way DHCP messages
+
+- `pass_to_server()` retained an XID slot for every forwarded message type. However, the DHCP server implementation handles DECLINE and RELEASE without transmitting a reply; relay reply forwarding accepts only OFFER/ACK/NAK. Reserving these transactions therefore consumed one of the relay's 1,024 bounded slots for up to 120 seconds without a possible completion event.
+- DECLINE and RELEASE are still forwarded to the server, but bypass XID allocation. DISCOVER, REQUEST and INFORM continue through the existing transaction map because the server replies with OFFER/ACK/NAK/ACK respectively.
+- Added a GNU89 policy regression for message types 1/3/8 versus one-way types 4/7, and expanded the Python source contract to require forwarding and early return before `xid_add()`. Exact-SHA XID and XY-C1 checks pending.
+
+---
+
 ## 2026-11-25 — Reject oversized datagrams on DHCP relay server ingress; preserve concurrent VPN fix
 
 - The DHCP fix commit `6899af46e9907efc0c40d6f8badc204aba0cf8d9` was created from `d4a965e`. Before its expected-SHA ref update completed, `main` advanced independently to `18cc546ac0eece109a230eb4e81fc019cd52bb59` for the VPN DNS replace-mode fix. The compare-and-swap did not move the ref; after rereading it, the DHCP tree was rebuilt on top of current `main`. The integration commit uses `18cc546` as first parent and `6899af4` as second parent; no force push or concurrent change was overwritten.

@@ -1,25 +1,24 @@
 ## Current repository state — 2026-11-25
 
-- Live `main` before this integration: `18cc546ac0eece109a230eb4e81fc019cd52bb59` (`fix(vpn): honor DNS replace policy in client callbacks`). DHCP server-ingress fix was prepared on the previous parent as `6899af46e9907efc0c40d6f8badc204aba0cf8d9`; the non-forced expected-SHA update did not advance `main`, and rereading the ref confirmed a concurrent `18cc546` tip. No force push was attempted. This integration keeps `18cc546` as first parent and `6899af4` as second parent, with the tree based on the current `main` tree.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged.
-- Exact `d4a965e` Actions all passed: packet bounds #45729057460; XID #45729057470; BOOTREPLY #45729057339; giaddr/hop #45729057303; select error #45729057362; select fd #45729057321; client destination #45729057477; AI handoff #45729057313; Process inventory #45729057400; NVRAM #45729057360; USB hotplug #45729057468; XY-C1 #45729057425.
-- XY-C1 exact-SHA job #139606209947 passed Build, TRX verification and artifact upload. Artifact #15076506507 (`XY-C1-firmware-d4a965e66f817b45ad94eba974585bc21ecb44c6`, 12,815,064 bytes) is not expired. This is a same-SHA L3 pass; physical-router L4 remains NOT VERIFIED.
-- Concurrent `18cc546` VPN DNS mode-2 update has nine completed PASS workflows: Firewall Startup #45730462009; VPN server lifecycle #45730461784; AI handoff #45730461850; WAN route #45730461807; DNSMasq lifecycle #45730461851; IPv6 service-type #45730461698; OpenVPN client credential #45730461754; Process inventory #45730461806; HTTPD security #45730461821. Process lifecycle regression #45730461987, NVRAM transaction #45730461818 and XY-C1 #45730461930 were IN_PROGRESS at last poll.
-- `udhcp_recv_kernel_packet()` in `networking/udhcp/packet.c` uses `safe_read()`; for UDP datagrams, oversized payloads are truncated to the receive buffer without exposing the original datagram length. The relay server path previously accepted this truncated result.
+- Live `main` before this slice: `a3e68b665d91bbf6ffed365c0dd57984ae842e03` (`fix(udhcp): reject truncated relay server datagrams`), first parent `18cc546ac0eece109a230eb4e81fc019cd52bb59`, second parent `6899af46e9907efc0c40d6f8badc204aba0cf8d9`. The frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged.
+- Exact `d4a965e` parent: all 12 workflows PASS, including XY-C1 Build, TRX and artifact upload; artifact #15076506507 is `XY-C1-firmware-d4a965e66f817b45ad94eba974585bc21ecb44c6` (12,815,064 bytes), not expired.
+- Concurrent VPN parent `18cc546`: 11 workflows PASS; only XY-C1 #45730461930 remained IN_PROGRESS at last poll.
+- Integrated `a3e68b6`: packet-bounds #45730656817 PASS; XID #45730656813 PASS; BOOTREPLY #45730656866 PASS; select-fd #45730656932 PASS; select-error #45730656943 PASS; giaddr/hop #45730656924 PASS; client-destination #45730656942 PASS; AI docs #45730656893 PASS; Process inventory #45730656887 PASS; USB hotplug #45730656852 PASS. NVRAM #45730656960 and XY-C1 #45730656815 remained IN_PROGRESS at last poll. No same-SHA firmware L3 claim for a3 yet.
+- Physical-router L4 remains NOT VERIFIED.
 
 ## Active task
 
-Harden DHCP relay server ingress against oversized UDP datagrams. The server socket now mirrors the client ingress: zero the packet buffer, use `recvfrom(..., MSG_TRUNC)`, reject original datagram lengths beyond `sizeof(dhcp_msg)`, require at least `offsetof(struct dhcp_packet, options) + 4U` and the DHCP magic cookie before `pass_to_client()`. The GNU89 ASan/UBSan packet-bounds regression now tests kernel-reported datagram length and the Python contract checks both server and client ingress.
+Prevent bounded DHCP relay XID slots from being consumed by one-way DHCPDECLINE and DHCPRELEASE messages. These packets must still be forwarded to the server, but there is no server response to deliver to a client, so they should bypass XID allocation. Keep DISCOVER, REQUEST and INFORM under the existing bounded XID map because those messages receive OFFER/ACK/NAK/ACK responses.
 
 ## Verification boundary
 
-- The expanded packet-bounds executable passed locally under GNU89 with `-Wall -Wextra -Werror -fsanitize=address,undefined`; the AF_UNIX datagram case sent 64 bytes into a 16-byte buffer, observed return length 64 with `MSG_TRUNC`, and verified the shared helper rejects it.
-- The DHCP source/test/checker changes are integrated with the concurrent VPN DNS commit. Exact Actions for the resulting integration SHA are not yet checked; do not transfer the parent `d4a965e` firmware pass to this newer SHA.
-- No live DHCP relay traffic test or physical-router L4 result is claimed.
+- DHCP server ingress fix on `a3e68b6`: client and server datagram paths enforce `MSG_TRUNC`, packet-length and cookie checks; packet-bounds GNU89 ASan/UBSan workflow #45730656817 PASS exact a3.
+- Local GNU89 ASan/UBSan XID-policy test passes with regression cases for one-way DECLINE/RELEASE (types 4/7) versus response-bearing DISCOVER/REQUEST/INFORM (types 1/3/8). Exact-SHA XID and XY-C1 Actions for this new slice are pending.
+- Do not carry parent a3's pending XY-C1 result to the new SHA. No live relay exchange or physical-router L4 result is claimed.
 
 ## Exact first action for the next GPT
 
-Fetch the exact integration-SHA packet-bounds and XY-C1 Actions; inspect Build, TRX and artifact steps. Separately poll the three still-running `18cc546` Actions (#45730461987, #45730461818 and #45730461930) and determine whether the VPN client DNS policy change has a dedicated exact-SHA regression run. On PASS continue DHCP relay state-exhaustion analysis (DECLINE/RELEASE XID retention); on FAIL repair the causal regression. Preserve the frozen backup.
+Fetch exact-SHA XID, packet-bounds, AI docs and XY-C1 Actions for the new one-way transaction policy commit. Inspect the XY-C1 Build, TRX and artifact steps. Also poll a3 NVRAM #45730656960 and XY-C1 #45730656815, and the remaining VPN parent XY-C1 #45730461930. On PASS, continue DHCP relay stability analysis; on FAIL, fix the causal issue. Preserve the frozen backup.
 
 # Cross-session execution mandate
 
