@@ -1750,11 +1750,13 @@ jobs:
           assert required_accumulate in gateway_host
           assert required_accumulate in gateway_default
           assert "*gateway_route_status" not in gateway_dns
-          man_internal = body(source, "static int" + chr(10) + "man_up_internal(char *man_ifname, int unit, int is_static, int *gateway_route_status)")
+          man_internal = body(source, "static int" + chr(10) + "man_up_internal_with_route_status(char *man_ifname, int unit, is_static,")
           assert "add_man_gateway_routes(man_ifname, unit, 2, gateway_route_status)" in man_internal
           man_wrapper = body(source, "void" + chr(10) + "man_up(char *man_ifname, int unit, int is_static)")
           assert "man_up_internal(man_ifname, unit, is_static, NULL)" in man_wrapper
-          assert "route_setup_status = man_up_internal(wan_ifname, unit, 0, NULL);" in source
+          bound_callback = body(source, "udhcpc_bound(char *wan_ifname, int is_renew_mode)")
+          assert "(void)man_up_internal_with_route_status(" in bound_callback
+          assert "wan_ifname, unit, 0, NULL, &route_setup_status" in bound_callback
           assert "route_setup_status = man_up_internal(man_ifname, unit, 0, NULL);" in source
           wanx = body(source, "launch_wanx(char *man_ifname, int unit, int wait_dhcpc, int use_zcip)")
           wanx_static = wanx[wanx.index("if (is_same_subnet2("):]

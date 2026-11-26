@@ -305,7 +305,7 @@ wan_mtu_set = wan_bound.index(
 )
 wan_mtu_log = wan_bound.index("MTU setup incomplete (status=%d)", wan_mtu_set)
 wan_route_call = wan_bound.index(
-    "route_setup_status = wan_up_internal(wan_ifname, unit, 0);", wan_mtu_log
+    "(void)wan_up_internal_with_route_status(", wan_mtu_log
 )
 wan_route_err = wan_bound.index(
     'wan_nvram_int_temp_status(\n\t\tstrcat_r(prefix, "route_err", tmp), route_setup_status);',
@@ -375,8 +375,9 @@ require(
     "IPTV DHCP lease error marker must use checked NVRAM publication",
 )
 require(
-    "callback_status = route_status_accumulate(route_setup_status, multicast_status);" in viptv_bound,
-    "IPTV DHCP callback must preserve multicast status separately from route retry state",
+    "callback_status = dhcp_bound_callback_status(route_setup_status, mtu_status);" in viptv_bound
+    and "callback_status = route_status_accumulate(route_setup_status, multicast_status);" not in viptv_bound,
+    "IPTV DHCP callback must keep multicast proxy startup separate from lease acceptance",
 )
 require(
     "callback_status = route_status_accumulate(callback_status, publish_status);" in viptv_bound,
@@ -384,7 +385,7 @@ require(
 )
 require(
     tv_mtu_condition < tv_mtu_set < tv_mtu_log < tv_routes < tv_route_err < tv_return,
-    "IPTV DHCP MTU remains diagnostic-only while route and multicast status are returned",
+    "IPTV DHCP keeps route and MTU status in the callback while multicast is auxiliary",
 )
 require("route_status_accumulate(route_setup_status, mtu_status)" not in viptv_bound,
         "optional IPTV MTU failure must not be merged into route retry status")
