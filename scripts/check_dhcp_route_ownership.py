@@ -25,6 +25,11 @@ assert r"*metric_end != '\0'" in policy
 assert "metric_value < 0" in policy
 assert "metric_value >= INT_MAX" in policy
 assert "entry.metric = (int)metric_value;" in policy
+for field in ("ifname", "owner", "destination", "gateway", "netmask"):
+    assert "memchr(entry->" + field + ", '\\0'," in policy
+assert "length < IFNAMSIZ" in policy
+assert "length < sizeof(((struct dhcp_route_ownership_entry *)0)->owner)" in policy
+assert "unterminated_ifname" in test and "unterminated_owner" in test
 assert "&entry.metric" not in policy
 assert "Service ownership survives changes to interface and metric." in test
 assert "route_del(" not in body

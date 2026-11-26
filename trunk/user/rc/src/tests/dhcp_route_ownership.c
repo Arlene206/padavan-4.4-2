@@ -65,7 +65,8 @@ main(void)
 	char directory[] = "/tmp/dhcp-route-ownership.XXXXXX";
 	char path[320], victim[320], link_path[320];
 	char lock_state[320], lock_state_lock[340];
-	struct dhcp_route_ownership_entry route, other, stale_route;
+	struct dhcp_route_ownership_entry route, other, stale_route, malformed;
+	char unterminated_ifname[IFNAMSIZ], unterminated_owner[16];
 	struct fake_routes fake;
 	struct stat st;
 	int fd;
@@ -79,6 +80,27 @@ main(void)
 	make_entry(&route, "wan0_", "eth2", 0, "198.51.100.0", "192.0.2.1", "255.255.255.0");
 	make_entry(&other, "manv_", "eth2", 0, "203.0.113.0", "192.0.2.2", "255.255.255.0");
 	make_entry(&stale_route, "wan0_", "ppp0", 7, "198.51.100.0", "192.0.2.3", "255.255.255.0");
+
+	/* Fixed-size fields without a terminator must fail validation without over-read. */
+	memset(unterminated_ifname, 'e', sizeof(unterminated_ifname));
+	memset(unterminated_owner, 'x', sizeof(unterminated_owner));
+	assert(!dhcp_route_ownership_ifname_is_valid(unterminated_ifname));
+	assert(!dhcp_route_ownership_owner_is_valid(unterminated_owner));
+	malformed = route;
+	memset(malformed.ifname, 'e', sizeof(malformed.ifname));
+	assert(!dhcp_route_ownership_entry_is_valid(&malformed));
+	malformed = route;
+	memset(malformed.owner, 'x', sizeof(malformed.owner));
+	assert(!dhcp_route_ownership_entry_is_valid(&malformed));
+	malformed = route;
+	memset(malformed.destination, '1', sizeof(malformed.destination));
+	assert(!dhcp_route_ownership_entry_is_valid(&malformed));
+	malformed = route;
+	memset(malformed.gateway, '1', sizeof(malformed.gateway));
+	assert(!dhcp_route_ownership_entry_is_valid(&malformed));
+	malformed = route;
+	memset(malformed.netmask, '1', sizeof(malformed.netmask));
+	assert(!dhcp_route_ownership_entry_is_valid(&malformed));
 
 	/* A route that predated DHCP (EEXIST) is never entered in the manifest. */
 	memset(&fake, 0, sizeof(fake));

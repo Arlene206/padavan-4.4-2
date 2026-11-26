@@ -38,16 +38,19 @@ dhcp_route_ownership_ifname_is_valid(const char *ifname)
 
 	if (!p || !*p)
 		return 0;
-	for (; *p; ++p, ++length) {
+	for (length = 0; length < IFNAMSIZ; ++length) {
+		if (p[length] == '\0')
+			return length > 0;
 		if (length >= IFNAMSIZ - 1)
 			return 0;
-		if (!((*p >= 'a' && *p <= 'z') ||
-		      (*p >= 'A' && *p <= 'Z') ||
-		      (*p >= '0' && *p <= '9') ||
-		      *p == '_' || *p == '.' || *p == ':' || *p == '-'))
+		if (!((p[length] >= 'a' && p[length] <= 'z') ||
+		      (p[length] >= 'A' && p[length] <= 'Z') ||
+		      (p[length] >= '0' && p[length] <= '9') ||
+		      p[length] == '_' || p[length] == '.' ||
+		      p[length] == ':' || p[length] == '-'))
 			return 0;
 	}
-	return 1;
+	return 0;
 }
 
 static inline int
@@ -58,15 +61,20 @@ dhcp_route_ownership_owner_is_valid(const char *owner)
 
 	if (!p || !*p)
 		return 0;
-	for (; *p; ++p, ++length) {
+	for (length = 0;
+	     length < sizeof(((struct dhcp_route_ownership_entry *)0)->owner);
+	     ++length) {
+		if (p[length] == '\0')
+			return length > 0 && p[length - 1U] == '_';
 		if (length >= 15U)
 			return 0;
-		if (!((*p >= 'a' && *p <= 'z') ||
-		      (*p >= 'A' && *p <= 'Z') ||
-		      (*p >= '0' && *p <= '9') || *p == '_'))
+		if (!((p[length] >= 'a' && p[length] <= 'z') ||
+		      (p[length] >= 'A' && p[length] <= 'Z') ||
+		      (p[length] >= '0' && p[length] <= '9') ||
+		      p[length] == '_'))
 			return 0;
 	}
-	return owner[length - 1U] == '_';
+	return 0;
 }
 
 static inline int
@@ -87,6 +95,11 @@ dhcp_route_ownership_entry_is_valid(
 	const struct dhcp_route_ownership_entry *entry)
 {
 	return entry != NULL &&
+	       memchr(entry->ifname, '\0', sizeof(entry->ifname)) != NULL &&
+	       memchr(entry->owner, '\0', sizeof(entry->owner)) != NULL &&
+	       memchr(entry->destination, '\0', sizeof(entry->destination)) != NULL &&
+	       memchr(entry->gateway, '\0', sizeof(entry->gateway)) != NULL &&
+	       memchr(entry->netmask, '\0', sizeof(entry->netmask)) != NULL &&
 	       dhcp_route_ownership_ifname_is_valid(entry->ifname) &&
 	       dhcp_route_ownership_owner_is_valid(entry->owner) &&
 	       entry->metric >= 0 && entry->metric < INT_MAX &&
