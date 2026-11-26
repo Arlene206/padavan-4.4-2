@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <signal.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -6,6 +7,7 @@
 
 #include "../dns-forwarder-1.2.1/hev-event-loop.h"
 #include "../dns-forwarder-1.2.1/hev-event-source-fds.h"
+#include "../dns-forwarder-1.2.1/hev-event-source-signal.h"
 
 static void
 test_default_event_source_functions_are_initialized(void)
@@ -107,6 +109,38 @@ test_source_removed_when_post_dispatch_prepare_fails (void)
 	close (fds[1]);
 }
 
+static unsigned int signal_callback_count;
+
+static bool
+quit_on_signal (void *data)
+{
+	HevEventLoop *loop = data;
+	signal_callback_count++;
+	hev_event_loop_quit (loop);
+	return false;
+}
+
+static void
+test_sigterm_is_consumed_by_event_source (void)
+{
+	HevEventLoop *loop = hev_event_loop_new ();
+	HevEventSource *source;
+
+	assert (loop);
+	signal_callback_count = 0;
+	source = hev_event_source_signal_new (SIGTERM);
+	assert (source);
+	hev_event_source_set_callback (source, quit_on_signal, loop, NULL);
+	assert (hev_event_loop_add_source (loop, source));
+	hev_event_source_unref (source);
+
+	/* SIGTERM is blocked and delivered through signalfd, not default-killed. */
+	assert (0 == kill (getpid (), SIGTERM));
+	hev_event_loop_run (loop);
+	assert (signal_callback_count == 1);
+	hev_event_loop_unref (loop);
+}
+
 int
 main (void)
 {
@@ -117,6 +151,7 @@ main (void)
 	test_default_event_source_functions_are_initialized();
 	test_event_source_name_storage_is_safe();
 	test_source_removed_when_post_dispatch_prepare_fails();
+	test_sigterm_is_consumed_by_event_source();
 
 	assert(0 == pipe(first_pipe));
 	assert(0 == pipe(second_pipe));

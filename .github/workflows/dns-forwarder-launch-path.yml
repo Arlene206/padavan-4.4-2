@@ -24,6 +24,7 @@ on:
       - "trunk/user/dns-forwarder/tests/hev_event_loop_lifecycle.c"
       - "trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-dns-forwarder-policy.h"
       - "trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-dns-forwarder.c"
+      - "trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-main.c"
       - "trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-dns-session.c"
       - "trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-dns-session-io-policy.h"
       - "trunk/user/dns-forwarder/tests/hev_dns_session_io_policy.c"
@@ -54,6 +55,7 @@ on:
       - "trunk/user/dns-forwarder/tests/hev_event_loop_lifecycle.c"
       - "trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-dns-forwarder-policy.h"
       - "trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-dns-forwarder.c"
+      - "trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-main.c"
       - "trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-dns-session.c"
       - "trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-dns-session-io-policy.h"
       - "trunk/user/dns-forwarder/tests/hev_dns_session_io_policy.c"
@@ -101,7 +103,7 @@ jobs:
         run: |
           core=trunk/user/dns-forwarder/dns-forwarder-1.2.1
           tests=trunk/user/dns-forwarder/tests
-          cc -std=gnu89 -Wall -Wextra -Werror -Wno-unused-parameter -Wno-cast-function-type -fsanitize=address,undefined -I "$core" "$tests/hev_event_loop_lifecycle.c" "$core/hev-event-loop.c" "$core/hev-event-source.c" "$core/hev-event-source-fds.c" "$core/hev-slist.c" "$core/hev-memory-allocator.c" -o /tmp/dns-forwarder-event-loop
+          cc -std=gnu89 -Wall -Wextra -Werror -Wno-unused-parameter -Wno-cast-function-type -fsanitize=address,undefined -I "$core" "$tests/hev_event_loop_lifecycle.c" "$core/hev-event-loop.c" "$core/hev-event-source.c" "$core/hev-event-source-fds.c" "$core/hev-event-source-signal.c" "$core/hev-slist.c" "$core/hev-memory-allocator.c" -o /tmp/dns-forwarder-event-loop
           /tmp/dns-forwarder-event-loop
       - name: Exercise DNS Forwarder lifecycle failure and lock gates
         run: sh trunk/user/dns-forwarder/tests/dns_forwarder_lifecycle.sh

@@ -42,12 +42,32 @@ signal_handler (void *data)
 	return false;
 }
 
+static bool
+add_signal_source (HevEventLoop *loop, int signal_number)
+{
+	HevEventSource *source;
+
+	source = hev_event_source_signal_new (signal_number);
+	if (!source) {
+		perror ("cannot create DNS Forwarder signal source");
+		return false;
+	}
+	hev_event_source_set_priority (source, 3);
+	hev_event_source_set_callback (source, signal_handler, loop, NULL);
+	if (!hev_event_loop_add_source (loop, source)) {
+		fprintf (stderr, "cannot register DNS Forwarder signal source\n");
+		hev_event_source_unref (source);
+		return false;
+	}
+	hev_event_source_unref (source);
+	return true;
+}
+
 #include <stdlib.h>
 int
 main (int argc, char **argv)
 {
 	HevEventLoop *loop = NULL;
-	HevEventSource *source = NULL;
 	HevDNSForwarder *forwarder = NULL;
 	char *listen_addr = NULL;
 	char *listen_port = NULL;
@@ -122,21 +142,12 @@ main (int argc, char **argv)
 	}
 
 	signal (SIGPIPE, SIG_IGN);
-	source = hev_event_source_signal_new (SIGINT);
-	if (!source) {
+	/* Service managers send SIGTERM; interactive users commonly send SIGINT. */
+	if (!add_signal_source (loop, SIGINT) ||
+	    !add_signal_source (loop, SIGTERM)) {
 		exit_status = 1;
-		perror ("cannot create DNS Forwarder signal source");
 		goto cleanup;
 	}
-	hev_event_source_set_priority (source, 3);
-	hev_event_source_set_callback (source, signal_handler, loop, NULL);
-	if (!hev_event_loop_add_source (loop, source)) {
-		exit_status = 1;
-		fprintf (stderr, "cannot register DNS Forwarder signal source\n");
-		goto cleanup;
-	}
-	hev_event_source_unref (source);
-	source = NULL;
 
 	forwarder = hev_dns_forwarder_new (
 		loop, listen_addr, listen_port, dns_servers, dns_port);
@@ -158,8 +169,6 @@ allocation_failed:
 	exit_status = 1;
 
 cleanup:
-	if (source)
-		hev_event_source_unref (source);
 	if (forwarder)
 		hev_dns_forwarder_unref (forwarder);
 	if (loop)

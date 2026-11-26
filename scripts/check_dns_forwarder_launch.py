@@ -74,6 +74,7 @@ event_source_core = read("trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-event
 event_loop_test = read("trunk/user/dns-forwarder/tests/hev_event_loop_lifecycle.c")
 session_core = read("trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-dns-session.c")
 main_core = read("trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-main.c")
+event_loop_test = read("trunk/user/dns-forwarder/tests/hev_event_loop_lifecycle.c")
 forwarder_policy = read("trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-dns-forwarder-policy.h")
 forwarder_policy_test = read("trunk/user/dns-forwarder/tests/hev_dns_forwarder_policy.c")
 forwarder_init_test = read("trunk/user/dns-forwarder/tests/hev_dns_forwarder_init_failure.c")
@@ -315,6 +316,12 @@ assert "HEV_MEMORY_ALLOCATOR_ALLOC (name_length)" in event_source_name_setter
 assert "memcpy (new_name, name, name_length)" in event_source_name_setter
 assert event_source_name_setter.index("memcpy (new_name") < event_source_name_setter.index("HEV_MEMORY_ALLOCATOR_FREE (old_name)")
 assert "test_event_source_name_storage_is_safe" in event_loop_test
+assert "add_signal_source (loop, SIGINT)" in main_core
+assert "add_signal_source (loop, SIGTERM)" in main_core
+signal_setup = function_body(main_core, "add_signal_source (HevEventLoop *loop, int signal_number)")
+assert "hev_event_source_signal_new (signal_number)" in signal_setup
+assert "if (!hev_event_loop_add_source (loop, source))" in signal_setup
+assert "test_sigterm_is_consumed_by_event_source" in event_loop_test
 
 listener = function_body(
     forwarder_core,
