@@ -13,6 +13,7 @@ on:
       - "trunk/user/ralinkiappd/tests/iapp_tcp_restart_reuseaddr.c"
       - "trunk/user/ralinkiappd/tests/iapp_ioctl_ifname_policy.c"
       - "trunk/user/ralinkiappd/tests/iappd_lifecycle.sh"
+      - "trunk/user/ralinkiappd/tests/iappd_make_dependencies.sh"
       - "trunk/user/ralinkiappd/tests/iapp_signal_pipe_policy.c"
       - "trunk/user/ralinkiappd/src/iapp_select_fd_policy.h"
       - "trunk/user/ralinkiappd/src/iapp_event_log_policy.h"
@@ -32,6 +33,7 @@ on:
       - "trunk/user/ralinkiappd/tests/iapp_tcp_restart_reuseaddr.c"
       - "trunk/user/ralinkiappd/tests/iapp_ioctl_ifname_policy.c"
       - "trunk/user/ralinkiappd/tests/iappd_lifecycle.sh"
+      - "trunk/user/ralinkiappd/tests/iappd_make_dependencies.sh"
       - "trunk/user/ralinkiappd/tests/iapp_signal_pipe_policy.c"
       - "trunk/user/ralinkiappd/src/iapp_select_fd_policy.h"
       - "trunk/user/ralinkiappd/src/iapp_event_log_policy.h"
@@ -49,6 +51,8 @@ jobs:
         run: sh -n trunk/user/ralinkiappd/iappd.sh
       - name: Run Ralink IAPP daemon lifecycle regression
         run: sh trunk/user/ralinkiappd/tests/iappd_lifecycle.sh
+      - name: Test Ralink IAPP header dependency rebuilds
+        run: sh trunk/user/ralinkiappd/tests/iappd_make_dependencies.sh
       - name: Run select descriptor boundary regression
         run: sh trunk/user/ralinkiappd/tests/iapp_select_fd_policy.sh
       - name: Verify Linux event-loop, datagram receive, and event-log persistence guards
