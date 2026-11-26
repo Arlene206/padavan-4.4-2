@@ -66,6 +66,22 @@ test_current_native_without_saved_state_uses_wan_device(void)
 		"", 0, 0, 0, 0, "eth2", "sit0"), "eth2");
 }
 
+static void
+test_empty_native_request_name_has_no_fallback_interface(void)
+{
+	assert_ifname(wan6_teardown_select_ifname(
+		"", 0, 0, 0, 0, "", "sit0"), NULL);
+	assert_ifname(wan6_teardown_select_ifname(
+		"", 0, 0, 0, 0, NULL, "sit0"), NULL);
+}
+
+static void
+test_empty_request_still_cleans_previous_live_interface(void)
+{
+	assert_ifname(wan6_teardown_select_ifname(
+		"eth2.2", 1, 0, 0, 0, "", "sit0"), "eth2.2");
+}
+
 int
 main(void)
 {
@@ -76,6 +92,8 @@ main(void)
 	test_reconfiguration_prefers_previous_live_interface();
 	test_current_sit_without_saved_state_uses_sit_device();
 	test_current_native_without_saved_state_uses_wan_device();
+	test_empty_native_request_name_has_no_fallback_interface();
+	test_empty_request_still_cleans_previous_live_interface();
 	puts("WAN IPv6 teardown selection policy: PASS");
 	return 0;
 }

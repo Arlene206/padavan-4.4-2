@@ -9,24 +9,25 @@
 
 ## Active task
 
-- P1 WAN IPv6 strict-input and route-ownership hardening is advancing in three connected slices:
+- P1 WAN IPv6 strict-input, teardown and route-ownership hardening is advancing in four connected slices:
   1. SIT route ownership records reject interface names of 16+ bytes; a 15-byte name round-trips.
   2. `wan6_up()` rejects ambiguous `inet_aton()` gateway aliases during preflight, before service/route mutation; empty and canonical `0.0.0.0` preserve no-gateway semantics.
-  3. Current slice: DHCP 6rd relay-list parsing was wired to `is_valid_ipv4()` (which delegates to `inet_aton()`) even though the actual 6rd/SIT setup later requires strict `inet_pton()` literals. Production now uses a strict validator backed by `format_ipv4_literal()`; regression and Python source contract pin abbreviated/hex alias rejection.
-- Focused tests: `trunk/user/rc/src/tests/wan6_identity_policy.c` and `trunk/user/rc/src/tests/wan6_sixrd_option_policy.c`. The WAN DHCP, WAN route and dedicated 6rd workflows compile/run the corresponding binaries; exact current commit results must be checked below.
-- No local repository checkout is available; only the standalone strict-gateway helper smoke was run locally under GNU89/`-Werror`/ASan/UBSan. Do not represent that as the complete repository suite.
+  3. DHCP 6rd relay-list parsing previously used `is_valid_ipv4()` (based on `inet_aton()`) although later SIT setup requires strict `inet_pton()` literals. Production now validates with `format_ipv4_literal()`; abbreviated/hex aliases are rejected while valid multi-relay lists remain accepted.
+  4. Current slice: `stop_wan_locked()` intentionally permits an empty optional `man_ifname` but still calls `wan6_down()`. The empty name had reached per-device sysctl writes and returned `EINVAL` before the selected, saved live IPv6 interface was cleaned. Those writes are now skipped for empty caller names; native selection returns no fallback for empty/NULL input when no saved live owner exists. Regression covers both the empty-input and saved-owner cases.
+- Focused tests: `trunk/user/rc/src/tests/wan6_identity_policy.c`, `wan6_sixrd_option_policy.c` and `wan6_teardown_policy.c`. The WAN DHCP callback workflow now compiles/runs the teardown policy test and pins the guarded sysctl-write source contract.
+- Local focused validation: the nine-case `wan6_teardown_policy.c` binary compiled and passed under GNU89/`-Werror`/ASan/UBSan with leak detection. No local full firmware tree/build or hardware environment is available.
 
 ## Verification boundary
 
-- Parent `763015839432f2fb6e4e3673c9c4745c2186bf46`: WAN DHCP #45785628388 PASS, WAN route #45785628745 PASS, 6rd #45785628795 PASS with the previous 6rd relay binding, AI #45785628449 PASS, DHCPv6 IA #45785628774 PASS, WAN DNS #45785628609 PASS, IPv6 service-type #45785628562 PASS, HTTPD #45785628558 PASS and Process lifecycle #45785628920 PASS. NVRAM #45785628450 and XY-C1 #45785628415 were in progress at last check; the exact XY Build/TRX/artifact result must be verified.
+- Exact source SHA `89b80f1505508bb8ae96466cfe5d0c7587a6be67`: 10 of 11 push-triggered workflows concluded PASS, including 6rd #45785983604, AI #45785983636, DHCPv6 IA #45785983610, WAN DHCP #45785983731, IPv6 service type #45785983716, WAN DNS #45785983910, Process #45785983770, HTTPD #45785983585, WAN route #45785983765 and NVRAM #45785983758. XY-C1 #45785983682 was still in progress at the last poll; same-SHA Build/TRX/artifact conclusions were not yet verified.
 - On the preceding source SHA `032e71f1eee03ed2f3d4d6683c2485872bea16e1`, WAN DHCP, WAN route and AI handoff all passed; XY-C1 Build was still running at its last poll.
 - Product L3 baseline remains `dd2885fc9941d3a57fd9c81cf01ed86488b0183d` with same-SHA Build XY-C1, TRX verification and artifact upload PASS (artifact #15098382009). No newer L3 claim until all three pass on one product-source SHA. Physical router L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`; inspect exact-head 6rd, WAN DHCP, WAN route, AI, NVRAM and XY-C1 runs for this commit. Ensure the 6rd source contract and policy binary reject `127.1` and `0xC0000201`, while valid IPv4 multi-relay inputs still pass.
-2. Inspect exact XY-C1 Build, TRX and artifact-upload step conclusions. Do not count skipped or pending steps as firmware validation.
-3. Continue the remaining P1 WAN/IPv6 teardown ownership/first-error and BusyBox DHCPv6 callback live-transition audit in `trunk/user/rc/src/net_wan6.c` and the relevant BusyBox `udhcp` callbacks. Make only evidence-backed changes with focused regressions.
+1. Fetch the new live `main` SHA, then inspect exact-head WAN DHCP callback and WAN route runs for this teardown fix; confirm the new empty-interface regression and inline source contract passed.
+2. Poll XY-C1 #45785983682 and inspect same-SHA Build XY-C1, TRX verification and artifact-upload steps. Do not count skipped or pending steps as firmware verification.
+3. Continue the remaining BusyBox DHCPv6 IA/callback live-transition audit in `trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcp6c.c` and `dhcp6c_ia.c`; only change behavior on a confirmed defect with a focused regression.
 
 ## Verification boundary details
 

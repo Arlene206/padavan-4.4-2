@@ -26,7 +26,11 @@ wan6_teardown_select_ifname(char *previous_ifname,
 	if (ipv6_sit)
 		return sit_ifname;
 
-	return wan_ifname;
+	/* stop_wan_locked() may pass an empty optional MAN interface name. */
+	if (wan_ifname && wan_ifname[0])
+		return wan_ifname;
+
+	return (char *)0;
 }
 
 #endif /* WAN6_TEARDOWN_POLICY_H */

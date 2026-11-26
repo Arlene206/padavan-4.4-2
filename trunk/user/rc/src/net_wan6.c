@@ -1862,18 +1862,20 @@ int wan6_down(char *wan_ifname, int unit)
 
 	status = 0;
 
-	operation_status = control_if_ipv6_radv(wan_ifname, 0);
+	if (wan_ifname && wan_ifname[0]) {
+		operation_status = control_if_ipv6_radv(wan_ifname, 0);
 
-	status = route_status_accumulate(status, operation_status);
-	if (operation_status != 0)
-		logmessage("WAN IPv6", "failed to disable router advertisements on %s (status=%d)",
-			   wan_ifname, operation_status);
+		status = route_status_accumulate(status, operation_status);
+		if (operation_status != 0)
+			logmessage("WAN IPv6", "failed to disable router advertisements on %s (status=%d)",
+				   wan_ifname, operation_status);
 
-	operation_status = control_if_ipv6_autoconf(wan_ifname, 0);
-	status = route_status_accumulate(status, operation_status);
-	if (operation_status != 0)
-		logmessage("WAN IPv6", "failed to disable address autoconfiguration on %s (status=%d)",
-			   wan_ifname, operation_status);
+		operation_status = control_if_ipv6_autoconf(wan_ifname, 0);
+		status = route_status_accumulate(status, operation_status);
+		if (operation_status != 0)
+			logmessage("WAN IPv6", "failed to disable address autoconfiguration on %s (status=%d)",
+				   wan_ifname, operation_status);
+	}
 
 	if (strcmp(wan6_ifname, wan_ifname) != 0 &&
 	    strcmp(wan6_ifname, IFNAME_SIT) != 0) {

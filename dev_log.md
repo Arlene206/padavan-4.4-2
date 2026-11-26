@@ -1,3 +1,12 @@
+## 2026-11-26 — Skip empty requested interfaces during WAN IPv6 teardown
+
+- `stop_wan_locked()` deliberately accepts an empty optional `ifname` (manual interface) and still calls `wan6_down(man_ifname, unit)`. When the saved runtime `ifname6` is live, teardown selection correctly chooses it, but `wan6_down()` also unconditionally called `control_if_ipv6_radv("")` and `control_if_ipv6_autoconf("")`. Those helpers reach `set_interface_conf_int()`, whose safe-path-component validation rejects an empty interface name with `EINVAL`; that spurious first error then retained IPv6 metadata and aborted WAN teardown even though the actual saved interface could be cleaned.
+- Guarded the optional caller-interface sysctl writes, preserved cleanup of the saved live interface, and made native fallback selection return NULL for empty/NULL requested names when no saved owner exists. Added regressions for empty, NULL and saved-live-owner cases. Added a GNU89/ASan/UBSan compile/run step and source-order assertions to the WAN DHCP callback workflow.
+- Local focused validation: `wan6_teardown_policy.c` compiled with `-std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined` and passed with leak detection enabled. This is a focused L2 policy test, not a full firmware build or hardware validation.
+- Parent main: `89b80f1505508bb8ae96466cfe5d0c7587a6be67`; resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-26 — Enforce strict IPv4 literals for DHCP 6rd relay lists
 
 - `store_ip6rd_from_dhcp_status()` passed `is_valid_ipv4()` to the RFC 5969 relay-list parser. That shared validator uses `inet_aton()`, so abbreviated/hex aliases such as `127.1` or `0xC0000201` were accepted into the staged/persisted 6rd option even though the later SIT endpoint setup uses strict `inet_pton()` parsing. This let a non-canonical DHCP relay token poison the NVRAM snapshot and defer failure until tunnel startup.
