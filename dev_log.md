@@ -1,3 +1,8 @@
+## 2026-11-26 — Align WAN DHCP contract with DHCPv6 config-token validation
+
+- WAN DHCP callback run #45835965906 on exact SHA `3cb9d6b` failed because its inline source contract still required the former length-only `strlen(wan_ifname) >= IFNAMSIZ` guard. The DHCPv6 writer now calls the shared `wan_ifname_copy()` policy and binds the validated local name before emitting `interface %s {`.
+- Replaced the stale assertion with include and copy → bind → config-emission ordering checks plus adversarial line-break/comment token fixtures. This follow-up changes no production code. Dedicated DHCPv6 IA workflow #45835968592 already passed the GNU89 ASan/UBSan token regression and source contract on exact SHA `3cb9d6b`.
+
 ## 2026-11-26 — Validate DHCPv6 interface tokens at config publication boundary
 
 - `start_dhcp6c()` wrote the supplied interface name directly into a DHCPv6 configuration-language statement (`interface %s {`). Its local precondition checked only nonempty/length, leaving the privileged config writer dependent on every caller having already enforced the safe token alphabet.

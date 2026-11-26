@@ -1123,7 +1123,20 @@ jobs:
           start_unset = start_dhcp6.index("dhcp6c_callback_environment_clear(", start_eval)
           assert "DHCP6C_CALLBACK_IFNAME_ENV, DHCP6C_CALLBACK_GENERATION_ENV, unsetenv" in start_dhcp6
           assert start_lock < start_advance < start_config < start_env < start_eval < start_unset
-          assert "strlen(wan_ifname) >= IFNAMSIZ" in start_dhcp6
+          ifname_validate = start_dhcp6.index(
+              "ifname_status = wan_ifname_copy(validated_ifname,"
+          )
+          ifname_bind = start_dhcp6.index("wan_ifname = validated_ifname;", ifname_validate)
+          config_emit = start_dhcp6.index(
+              'fprintf(fp, "interface %s {\\n", wan_ifname);', ifname_bind
+          )
+          assert '#include "wan_ifname_policy.h"' in wan6_source
+          assert ifname_validate < ifname_bind < config_emit
+          ifname_policy = Path("trunk/user/rc/src/wan_ifname_policy.h").read_text()
+          ifname_test = Path("trunk/user/rc/src/tests/wan_ifname_policy.c").read_text()
+          assert "token alphabet used by config files" in ifname_policy
+          assert "test_empty_and_invalid_tokens_are_rejected" in ifname_test
+          assert '"eth0\\nrule"' in ifname_test and '"eth#0"' in ifname_test
           assert "goto session_failed;" in start_dhcp6
           stop_dhcp6 = body(wan6_source, "int stop_dhcp6c(void)")
           stop_lock = stop_dhcp6.index("dhcp6c_callback_session_lock(")

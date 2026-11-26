@@ -3,7 +3,7 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development branch: `main` only.
-- Current `main` parent before the DHCPv6 config-writer hardening: `00dd6ef26b8f0e76d49fcd63d24b4ad61eebeccf`. The latest confirmed production firmware baseline is `43ba9c6d0f5fd86bb94ad45a6cb8bf6b6ce3dfe1` (NVRAM rehash fix); the WAN/IPTV retry-marker fix is `80db7072a08e98b80a7e8290040d8d2e910aff65`. Checker/workflow descendants include WAN MTU `14a0ec8`, USB modem `4e9b81a`, detect_internet `c21826e`, and the later AdGuardHome rollback fix `00dd6ef`.
+- Current `main` parent before this WAN DHCP contract correction: `bbcfd8532dec133ff8c60b690f8aba9017af7acc`. DHCPv6 config-token validation source is `3cb9d6b909da6ef09656567d244aee26d4a3c4ff`; dedicated IA/source-contract run #45835968592 PASS. Concurrent AdGuardHome rollback hardening is `00dd6ef26b8f0e76d49fcd63d24b4ad61eebeccf` plus `bbcfd8532dec133ff8c60b690f8aba9017af7acc`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; verified unchanged. PR #1 is closed and unmerged.
 - Bootstrap/protocol restoration was already completed. Do not repeat it. Do not reopen PR #1 or modify the frozen backup.
 - Use full multi-file Git trees and one atomic commit per logical task. Update `main` only with a non-forced expected-SHA compare-and-swap. Never force-push.
@@ -25,7 +25,7 @@
 
 ## Active task
 
-- Harden the DHCPv6 config writer: `start_dhcp6c()` interpolates a bare interface-name token into `/etc/dhcp6c.conf`; it now validates that token with the shared safe-name policy before reading settings, locking the callback session or emitting config. Source, checker, workflow filters and GNU89 adversarial-token test are committed atomically; inspect exact-SHA DHCPv6 IA and XY-C1 Actions before further changes.
+- DHCPv6 `start_dhcp6c()` config-token hardening is committed at `3cb9d6b909da6ef09656567d244aee26d4a3c4ff`; dedicated DHCPv6 IA workflow #45835968592 PASSed including the GNU89 ASan/UBSan token regression. Dependent WAN DHCP callback #45835965906 failed only because its old source assertion still required the length-only guard. This commit updates that checker to validate safe-token copy/bind/config ordering; poll its exact-SHA rerun and XY-C1.
 
 ## Verification boundary
 
@@ -53,9 +53,9 @@
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-SHA DHCPv6 IA publication workflow for the config-writer token validation and adversarial GNU89 test; repair any regression/source-contract failure.
-2. Inspect XY-C1 Build XY-C1, TRX verification and artifact upload independently. The last confirmed full L3 build was run #45831671503 on production source baseline `43ba9c6` (artifact ID `15123331261`, SHA-256 `19dfd06a2ad7c6427a55e26505552a8a3bfbc6f6e1bff2259304426261f2bc9c`); checker-only descendants do not change that production source baseline.
-3. Continue the next independent stability/security issue across the remaining userland. Hardware/L4 remains NOT VERIFIED; PENDING Actions must not block independent work.
+1. Inspect exact-SHA WAN DHCP callback rerun after replacing the obsolete DHCPv6 length-only assertion; confirm token-policy ordering and adversarial fixtures. DHCPv6 IA #45835968592 already PASSed on `3cb9d6b`.
+2. Poll XY-C1 #45835969247 and inspect Build XY-C1, TRX verification and artifact upload individually. Last completed L3 build is #45831671503 on source baseline `43ba9c6` (artifact ID `15123331261`, SHA-256 `19dfd06a2ad7c6427a55e26505552a8a3bfbc6f6e1bff2259304426261f2bc9c`).
+3. Continue the next independent stability/security issue and check outstanding NVRAM audit. Hardware/L4 remains NOT VERIFIED; PENDING Actions must not block independent work.
 
 ## Mandatory handoff checkpoint
 
