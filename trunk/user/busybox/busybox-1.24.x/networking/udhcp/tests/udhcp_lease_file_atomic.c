@@ -136,12 +136,23 @@ test_pre_rename_failures_preserve_old_file(const char *path)
     enum failure_mode mode;
 
     for (mode = FAIL_MKSTEMP; mode <= FAIL_RENAME; mode++) {
+        char template_path[300];
+
         active_failure = mode;
         write_calls = 0;
         write_original(path);
+        if (mode == FAIL_MKSTEMP) {
+            assert(snprintf(template_path, sizeof(template_path),
+                            "%s.tmp.XXXXXX", path) > 0);
+            write_original(template_path);
+        }
         assert(udhcp_lease_file_write_atomic(path, "replacement", 11,
                                              &test_ops) == -1);
         assert_file_contents(path, "old-valid");
+        if (mode == FAIL_MKSTEMP) {
+            assert_file_contents(template_path, "old-valid");
+            assert(unlink(template_path) == 0);
+        }
     }
     active_failure = FAIL_NONE;
 }

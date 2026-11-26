@@ -56,6 +56,7 @@ udhcp_lease_file_write_atomic(const char *path, const void *buffer,
     size_t path_length;
     char *temporary_path;
     int fd = -1;
+    int temporary_created = 0;
     int saved_errno;
 
     if (!path || path[0] == '\0' || (!buffer && length != 0) || !ops ||
@@ -81,6 +82,7 @@ udhcp_lease_file_write_atomic(const char *path, const void *buffer,
     fd = ops->mkstemp_fn(temporary_path);
     if (fd < 0)
         goto fail;
+    temporary_created = 1;
     if (udhcp_lease_file_write_all(fd, buffer, length, ops) != 0)
         goto fail;
     if (ops->fsync_fn(fd) != 0)
@@ -100,7 +102,8 @@ fail:
     saved_errno = errno;
     if (fd >= 0)
         ops->close_fn(fd);
-    ops->unlink_fn(temporary_path);
+    if (temporary_created)
+        ops->unlink_fn(temporary_path);
     free(temporary_path);
     errno = saved_errno;
     return -1;

@@ -1,24 +1,23 @@
 ## Current repository state — 2026-11-25
 
-- Parent `main` source baseline for this slice: `cc2b64d056baae201432ae0d682a39aad19375f3` (`fix(udhcpd): preserve leases on small clock rollback`). Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged.
-- Exact parent push Actions at this checkpoint: #45733290988 XY-C1 Firmware Validation: in_progress; #45733291052 NVRAM transaction boundary audit: in_progress; #45733291033 AI handoff documentation contract: completed/success; #45733291015 Process lifecycle inventory - cc2b64d056baae201432ae0d682a39aad19375f3: completed/success; #45733291250 DHCP lease-file clock correction validation: completed/success; #45733291021 USB storage hotplug stability regression: completed/success; #45733290923 Process inventory and lifecycle fail-closed regression: completed/success. All listed runs use the exact parent SHA.
-- DHCP lease-file clock loading now tolerates bounded backward timestamp correction while retaining the existing 12-hour sanity limit.
-- This slice replaces direct `O_TRUNC`/unchecked lease-file writes with a same-directory temporary file, complete write loop, file `fsync`, checked close and atomic rename. Any pre-rename error removes the temporary file and leaves the previous lease database untouched. Notification runs only after successful replacement.
-- Physical-router L4 remains NOT VERIFIED. No older firmware Build/TRX/artifact result is transferable to a newer source SHA.
+- Parent `main` source baseline for this slice: `3ef46495877f7e6dbc621fbc9ae4fe18f36463c2` (`fix(udhcpd): atomically replace lease database`). Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged.
+- Exact parent push Actions at this checkpoint: #45733651026 NVRAM transaction boundary audit: in_progress; #45733651094 XY-C1 Firmware Validation: in_progress; #45733651022 USB storage hotplug stability regression: in_progress; #45733650978 Process inventory and lifecycle fail-closed regression: in_progress; #45733651060 AI handoff documentation contract: completed/success; #45733651077 DHCP lease-file clock correction validation: completed/success; #45733651111 DHCP lease-file atomic-write validation: completed/success; #45733651102 Process lifecycle inventory - 3ef46495877f7e6dbc621fbc9ae4fe18f36463c2: completed/success. All listed runs use the exact parent SHA.
+- DHCP lease persistence uses a same-directory temporary file, complete writes, file fsync, checked close and atomic rename. A follow-up review tightened cleanup so a failed `mkstemp()` cannot unlink a pre-existing literal `.tmp.XXXXXX` path; regression now protects such a sentinel.
+- Physical-router L4 remains NOT VERIFIED. Do not transfer older firmware Build/TRX/artifact results to a newer source SHA.
 
 ## Active task
 
-After exact-head atomic lease-file validation, review the new writer's durability boundary and lease-file reload behavior, particularly directory metadata sync and malformed/truncated file handling. Keep any follow-up bounded and regression-tested; then move to another userland stability/security issue rather than broad repeated audits.
+Validate the atomic lease-file writer on the exact current main SHA. After the focused fault-injection workflow passes, review whether parent-directory fsync and corrupted/truncated-file handling need additional safeguards before moving to another subsystem.
 
 ## Verification boundary
 
-- Parent `cc2b64d` clock policy test, DHCP message policy and AI docs were pending/running at the last exact-head query; XY-C1 and other independent workflows were also pending.
-- Atomic writer tests inject temporary creation, partial-write, fsync, close and rename failures and assert the old file remains intact. The standalone GNU89 ASan/UBSan test passed locally before publication; exact-head Actions pending at commit creation.
+- Parent `3ef4649` DHCP lease-file atomic-write, lease clock correction, AI docs, XY-C1, Process, NVRAM and USB workflows were IN_PROGRESS at the last exact-SHA query.
+- The standalone GNU89 ASan/UBSan fault-injection regression passes locally for successful replacement and temporary-create, partial-write, fsync, close and rename failures. It additionally verifies that a failed `mkstemp()` does not remove a literal template-name file. Exact-head workflow pending.
 - No live DHCP client/server exchange, current-SHA MIPS firmware artifact, or physical-router result is claimed.
 
 ## Exact first action for the next GPT
 
-Fetch live `main` and exact-head DHCP lease-file atomic, lease clock, AI docs and XY-C1 push Actions. Verify fault-injection and source-contract jobs, inspect firmware Build/TRX/artifact, and repair any exact-SHA failure. Then verify the directory-sync/truncated-file boundary in the atomic writer and continue with another concrete Padavan userland issue. Preserve the frozen backup.
+Fetch live `main` and exact-head `udhcp-lease-file-atomic`, lease-clock, AI-docs and XY-C1 push Actions. Confirm the fault-injection/source-contract jobs pass and inspect Build/TRX/artifact. Then review directory-sync and corrupt-file recovery boundaries. Preserve the frozen backup.
 
 # Cross-session execution mandate
 

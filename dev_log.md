@@ -1,3 +1,11 @@
+## 2026-11-25 — Guard atomic lease cleanup after temporary-file creation failure
+
+- Review found that the atomic writer's failure label attempted to unlink the unexpanded `.tmp.XXXXXX` template even when `mkstemp()` itself failed. A pre-existing file with that literal name could be removed.
+- Cleanup now unlinks only after `mkstemp()` returned a valid descriptor. Fault-injection regression creates a sentinel at the literal template path and verifies it survives the injected create failure; old destination preservation remains asserted for all pre-rename failures.
+- Local GNU89 ASan/UBSan fault-injection test PASS. Exact-head CI pending; no device/storage power-cut result claimed.
+
+---
+
 ## 2026-11-25 — Make DHCP lease-file replacement atomic
 
 - `write_leases()` opened the live lease database with `O_TRUNC` and ignored the results of its header/record `full_write()` calls. An interrupted write or storage-full condition could destroy the last valid lease snapshot and cause lease loss after restart.

@@ -25,6 +25,9 @@ close = io_header.index("ops->close_fn(fd)")
 rename = io_header.index("ops->rename_fn(temporary_path, path)")
 assert create < write < sync < close < rename
 assert "if (written == 0 || (size_t)written > length)" in io_header
+assert "if (temporary_created)" in io_header
+assert "temporary_created = 1;" in io_header
+assert "if (temporary_created)\n        ops->unlink_fn(temporary_path)" in io_header
 assert "ops->unlink_fn(temporary_path)" in io_header
 
 for token in (
@@ -36,6 +39,7 @@ for token in (
     "test_success_replaces_file_atomically",
     "test_pre_rename_failures_preserve_old_file",
     'assert_file_contents(path, "old-valid")',
+    'assert_file_contents(template_path, "old-valid")',
 ):
     assert token in test
 
