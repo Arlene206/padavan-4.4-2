@@ -127,7 +127,7 @@ passdb_sync_call = run_samba.index("samba_config_transaction_sync_file(staged_pa
 credential_failure = run_samba.index("if(credential_failed)")
 transaction_begin = run_samba.index("samba_config_transaction_begin(")
 assert credential_failure < passdb_sync_call < transaction_begin
-assert "staged passdb could not be durably synchronized" in run_samba
+assert "stagedpassdbcouldnotbedurablysynchronized" in run_samba
 
 
 print("Samba committed-versus-rolled-back recovery reporting: PASS")
