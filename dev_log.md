@@ -1,3 +1,10 @@
+## 2026-11-26 — Include AdGuardHome in XY-C1 firmware-validation triggers
+
+- The launcher change affects the firmware-installed `trunk/user/adguardhome/adguardhome.sh` and the package's ROMFS payload, but the XY-C1 workflow push path filter omitted `trunk/user/adguardhome/**`; exact source commits therefore ran AdGuardHome/process tests without dispatching a firmware validation workflow.
+- Added the AdGuardHome package tree to the trigger list and added the workflow file itself so future trigger-policy edits can run the workflow. The XY-C1 input detector treats the workflow file as a fail-safe full-build input; the next exact-main SHA should therefore run cross-build, Build XY-C1, TRX verification and artifact upload. This is validation coverage, not an L3 claim until each step succeeds on that SHA.
+
+---
+
 ## 2026-11-26 — Restore the shared AdGuardHome process fixture after unsafe-workdir startup
 
 - Exact AdGuardHome run #45764496985 on `09f9ed1cab2cec5ed80659045e4ca8fb1b333471` passed shell syntax, persistent-workdir security, DNS/firewall, lock and redirect regressions, then still failed at duplicate-start. The cause was the new unsafe-workdir startup test: although wrapped in a subshell, it writes the shared state *file* to `stopped`; subshell variable isolation does not roll back file contents. The following duplicate-start test therefore observed ABSENT and attempted the real daemon executable, which is not present in the host fixture.
