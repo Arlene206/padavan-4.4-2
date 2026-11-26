@@ -1,3 +1,12 @@
+## 2026-11-26 — Enforce strict IPv4 literals for DHCP 6rd relay lists
+
+- `store_ip6rd_from_dhcp_status()` passed `is_valid_ipv4()` to the RFC 5969 relay-list parser. That shared validator uses `inet_aton()`, so abbreviated/hex aliases such as `127.1` or `0xC0000201` were accepted into the staged/persisted 6rd option even though the later SIT endpoint setup uses strict `inet_pton()` parsing. This let a non-canonical DHCP relay token poison the NVRAM snapshot and defer failure until tunnel startup.
+- Added `wan6_sixrd_ipv4_literal_is_valid()`, backed by the existing strict `format_ipv4_literal()`, and bound the production relay parser to it. The Python source contract now asserts that exact callback binding, and regression cases reject abbreviated, hexadecimal and mixed-valid/alias lists while keeping valid multiple-relay handling.
+- The existing 6rd workflow compiles `wan6_sixrd_option_policy.c` under GNU89/`-Werror`/ASan/UBSan and runs the source contract. On parent `763015839432f2fb6e4e3673c9c4745c2186bf46`, 6rd #45785628795 PASS with its old source contract; WAN DHCP #45785628388 and WAN route #45785628745 PASS (including strict SIT gateway and IFNAMSIZ tests); AI #45785628449 PASS; DHCPv6 IA #45785628774 PASS; WAN DNS #45785628609, service-type #45785628562, HTTPD #45785628558 and Process #45785628920 PASS. NVRAM #45785628450 and XY-C1 #45785628415 were in progress; XY Build/TRX/artifact had not all completed at last check.
+- Parent main: `763015839432f2fb6e4e3673c9c4745c2186bf46`; resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-26 — Reject ambiguous SIT IPv4 gateway aliases before route mutation
 
 - `wan6_up()` used the shared `is_valid_ipv4()`, which delegates to `inet_aton()`; abbreviated/hex/octal aliases such as `127.1` passed preflight. The route syscall also uses `inet_aton()`, but owned-route persistence intentionally requires strict `inet_pton()` dotted-quad input. An alias could therefore add a route before record publication failed, leaving cleanup dependent on best-effort rollback and potentially untracked if rollback failed.

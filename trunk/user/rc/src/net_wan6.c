@@ -270,6 +270,14 @@ format_ipv4_literal(const char *input, char *output, size_t output_size)
 }
 
 static int
+wan6_sixrd_ipv4_literal_is_valid(const char *candidate)
+{
+	char normalized[INET_ADDRSTRLEN];
+
+	return format_ipv4_literal(candidate, normalized, sizeof(normalized)) == 0;
+}
+
+static int
 format_ipv6_literal(const char *input, char *output, size_t output_size,
 		    int allow_prefix)
 {
@@ -850,7 +858,7 @@ store_ip6rd_from_dhcp_status(const char *env_value, const char *prefix)
 	 * relay in NVRAM, so validate the full DHCP list and use its first entry.
 	 */
 	if (!wan6_sixrd_relay_list_first_valid(
-		    value, first_relay, sizeof(first_relay), is_valid_ipv4))
+		    value, first_relay, sizeof(first_relay), wan6_sixrd_ipv4_literal_is_valid))
 		return 0;
 
 	for (end = values[0]; *end; end++)

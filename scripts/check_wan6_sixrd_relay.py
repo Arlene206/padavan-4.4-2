@@ -22,8 +22,10 @@ require("char ip6rd[WAN6_SIXRD_OPTION_VALUE_MAX];" in SOURCE,
 require("char *value, *values[3], *end;" in SOURCE,
         "the fixed fields must be parsed separately from the relay list")
 require("wan6_sixrd_relay_list_first_valid(" in SOURCE and
-        "value, first_relay, sizeof(first_relay), is_valid_ipv4" in SOURCE,
-        "all relays must be validated and the first selected")
+        "value, first_relay, sizeof(first_relay), wan6_sixrd_ipv4_literal_is_valid" in SOURCE,
+        "all relays must use strict IPv4 literal validation and the first selected")
+require("format_ipv4_literal(candidate, normalized, sizeof(normalized)) == 0" in SOURCE,
+        "production relay validation must reject inet_aton-only aliases")
 require("prefix, addr6, values[0], first_relay, &rollback_status" in SOURCE,
         "only the validated first relay may be published")
 
@@ -37,6 +39,9 @@ require("at most 59 IPv4 relay addresses" in POLICY,
 
 require("test_multiple_relays_select_first_and_validate_all" in TEST,
         "multiple relay behavior must have a regression test")
+require("test_reject_legacy_ipv4_aliases" in TEST and
+        '"127.1"' in TEST and '"0xC0000201"' in TEST,
+        "inet_aton-only IPv4 aliases must be rejected")
 require("999.1.1.1" in TEST and "198.51.100.256" in TEST,
         "malformed trailing relay addresses must be rejected")
 require("test_accept_maximum_relay_text" in TEST and
