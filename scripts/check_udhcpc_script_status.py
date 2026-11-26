@@ -90,7 +90,8 @@ assert reopen_at < fd_set_at
 assert "change_listen_mode(listen_mode);" in dhcpc[reopen_at:fd_set_at]
 assert "tv.tv_sec = (long)udhcpc_listen_socket_wait_seconds(" in dhcpc
 assert "already_waited_sec +=\n\t\t\t\t\t\t(unsigned)monotonic_sec() - timestamp_before_wait;" in dhcpc
-assert "udhcpc_wait_remaining_seconds(\n\t\t\t\t\t\t    timeout, already_waited_sec) > 0" in dhcpc
+assert "if (udhcpc_wait_remaining_seconds(" in dhcpc
+assert "timeout, already_waited_sec) > 0" in dhcpc
 assert "test_select_wait_clamps_elapsed_timeout_before_unsigned_subtraction" in test
 assert "test_select_wait_clamps_elapsed_timeout_before_unsigned_subtraction() != 0" in test
 
