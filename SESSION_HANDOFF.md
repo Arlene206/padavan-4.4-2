@@ -46,11 +46,12 @@
 
 Every session MUST perform an end-of-session accuracy checkpoint. Check the live `main` SHA, frozen backup SHA, exact-head Actions, completed/failed/pending tests, unresolved blockers, and the precise first action for the next session. Earlier-SHA PASS results do not validate a later SHA. **The checkpoint is mandatory; a document edit is conditional.** When all checkpoint facts and the first action are already accurate, conclude the check without a no-op file change or commit.
 
-## Mandatory development loop
+# Cross-session execution mandate
 
-- Modify source → focused regression → atomic commit → check GitHub Actions for the corresponding exact SHA. PASS proceeds; FAIL is diagnosed and fixed; PENDING never blocks independent work.
-- For multi-file work, create all blobs and one complete Git tree before one commit. Update `main` by expected-SHA non-forced compare-and-swap only. Never leave partial-file commits, force-push, or modify the backup branch.
-- At each handoff, record the production-source SHA separately from documentation/checker-only descendants and accurately state which exact-SHA product build steps ran or were skipped.
+- Treat the repository as one continuous engineering effort across GPT conversations. Recover once, resume the exact unfinished task, and do not ask the user what to do next.
+- Complete each logical source/test/workflow slice with one atomic main commit: create every required blob, one complete tree, and one commit; update `main` only through a non-forced expected-SHA compare-and-swap. Never create partial-file commits or alter the frozen backup.
+- After every commit, inspect Actions for that exact SHA. PASS permits the next slice; FAIL requires diagnosis and repair; PENDING is not a stop condition while independent work remains.
+- Before context exhaustion, finish and commit a safe bounded slice, verify its exact-SHA tests/build boundary, and update this handoff with the committed baseline and precise first action. Keep production-source and documentation-only SHAs distinct.
 - Preserve hardware/L4 NOT VERIFIED unless actual hardware validation has been performed.
 
 ## 2026-11-26 GPT-6 continuation
