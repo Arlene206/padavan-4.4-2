@@ -1,3 +1,9 @@
+## 2026-11-26 — Align WSD HTTP framing checker with bounded XML tag scanner
+
+- The WSD XML scanner/reflection workflow #45847368757 passed on `c4a627632235f2e240797a41294e5dc062848f06`, including GNU99 ASan/UBSan compile and execution. The independent HTTP framing workflow #45847368988 failed only at an obsolete assertion expecting `const char *nested = strchr(p, '<');` inside the prior tag finder.
+- Updated `check_wsdd2_http_framing.py` to require the new length-carrying wrapper, bounded helper delegation and no legacy `strstr()` tag scan, preserving the HTTP framing assertions. Rerun is pending on the correction SHA.
+- XY-C1 run #45847369057 had passed input detection and host checks and was compiling Build XY-C1 at last poll; TRX and artifact status remained pending.
+
 ## 2026-11-26 — Parse WSD SOAP action fields as bounded XML text elements
 
 - `wsd_tag_find()` searched raw network XML with `strstr()`, so tag-like bytes inside comments/CDATA/processing instructions or quoted attributes could be treated as actual `wsa:Action` / `wsa:MessageID` elements. It ignored the supplied body length and silently selected the first duplicate.

@@ -2,7 +2,7 @@
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; active branch: `main`; parent before the WSD SOAP action parser hardening slice: `a039b68d37cb3eb5f2acdd4ae7d448c6851d5223`.
+- Repository: `Arlene206/padavan-4.4-2`; active branch: `main`; current base for the WSD HTTP-contract checker correction: `c4a627632235f2e240797a41294e5dc062848f06`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged; do not modify). PR #1 remains closed and unmerged.
 - Bootstrap/protocol recovery was completed earlier in this continuous project; do not repeat it. Work on `main` only with full-tree atomic commits and non-forced expected-SHA updates.
 - Exact-SHA evidence: MiniUPnP event-timeout subscriber regression #45845370609 and AI handoff #45845370434 PASS on `a271fcc0f818b834b21fe9681717a18dd07f3c50`; U2EC bounded TCP framing #45846984410 PASS on `4d146475b0a34f4971a364dd5ece2775dc433f8a`. DNS Forwarder source checks on `a039b68d` and its XY-C1 run were in progress at last poll.
@@ -11,9 +11,9 @@
 
 ## Active task
 
-- WSD source review found that `wsd_tag_find()` used raw `strstr()` over network-supplied SOAP bytes. A tag-shaped sequence such as `<wsa:Action>...` inside an XML comment or CDATA section could be mistaken for the real action and dispatch Probe/Resolve/Get behavior; parsing also ignored the supplied body length and accepted duplicate target elements.
-- The current slice replaces raw searching with a length-bounded XML token scanner: comments, CDATA and processing instructions are skipped; quoted attribute values cannot inject pseudo-tags; DTD/declarations, embedded NUL, duplicate target elements, nested target markup and malformed/truncated markup are rejected. HTTP processing rejects embedded NUL and passes the exact declared body length to request parsing.
-- Added GNU99 ASan/UBSan regressions and extended the source-contract/CI path filters. Exact-SHA regression and XY-C1 checks for this WSD production source are pending. No MIPS/uClibc or hardware/L4 claim.
+- WSD SOAP Action/MessageID parsing is hardened at `c4a627632235f2e240797a41294e5dc062848f06`: raw `strstr()` tag hunting has been replaced with a bounded XML token scanner, and the GNU99 ASan/UBSan parser/reflection regression passed (#45847368757).
+- The same source commit exposed a stale independent HTTP-framing checker: it still expected the old internal `strchr()` nested-tag implementation, rather than the new delegating bounded scanner. That exact-SHA workflow failed only at this obsolete source assertion (#45847368988). Updated the checker to assert the bounded wrapper and helper contract; this regression rerun is pending on the next commit.
+- XY-C1 build for `c4a6276` had passed production-input detection and host checks and was compiling Build XY-C1 at last poll (#45847369057); TRX/artifact remain unverified until the run completes. No physical L4 validation.
 
 ## Completed production work — LAN DHCP resolver transaction
 
@@ -59,9 +59,9 @@
 
 ## Exact first action for the next GPT
 
-1. Inspect the exact-SHA WSD XML parser ASan/UBSan regression, existing XML text reflection regression and AI handoff contract; diagnose/fix any source checker or test failure before moving on.
-2. Inspect XY-C1 on this WSD production-source SHA and require its detector, Build XY-C1, TRX verification and artifact upload all to PASS. If still pending, continue another independent source task.
-3. Continue another concrete P1 stability/security defect without repeating completed work. Use one complete Git tree and non-forced expected-SHA main update; frozen backup remains untouched. Hardware/L4 is NOT VERIFIED.
+1. Inspect the exact-SHA WSD HTTP framing contract rerun; verify the updated checker no longer requires the removed `strchr()` implementation and that parser and XML token scanner invariants remain asserted.
+2. Check the XY-C1 run for `c4a6276`; require Build XY-C1, TRX verification and artifact upload to PASS before marking this source SHA L3-verified.
+3. Continue the next concrete P1 stability/security repair in another userland component. Do not repeat the WSD scanner review; frozen backup remains untouched and hardware/L4 remains NOT VERIFIED.
 
 ## Mandatory handoff checkpoint
 

@@ -7,6 +7,7 @@ import re
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = (ROOT / "trunk/user/wsdd2/src/wsd.c").read_text()
 POLICY = (ROOT / "trunk/user/wsdd2/src/wsd_http_header_policy.h").read_text()
+REQUEST_POLICY = (ROOT / "trunk/user/wsdd2/src/wsd_xml_request_policy.h").read_text()
 WORKFLOW = (ROOT / ".github/workflows/wsdd2-http-framing-regression.yml").read_text()
 TEST = (ROOT / "trunk/user/wsdd2/src/tests/wsd_http_header_policy_test.c").read_text()
 XY_WORKFLOW = (ROOT / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
@@ -40,12 +41,19 @@ assert re.search(r"memmove\(buf, p, len\); p = buf;", parser), parser
 assert "errno == EMSGSIZE" in parser
 assert re.search(r'case\s+408:\s*status_str = "408 Request Timeout";', SOURCE)
 assert re.search(r'case\s+413:\s*status_str = "413 Payload Too Large";', SOURCE)
-tag_finder = SOURCE[SOURCE.index("static const char *wsd_tag_find("):
-                     SOURCE.index("static struct wsd_req_info *wsd_req_parse(")]
-assert "const char *nested = strchr(p, '<');" in tag_finder
-assert "nested && nested < q" in tag_finder
-assert "isspace((unsigned char)*p)" in tag_finder
-assert "isspace((unsigned char)q[-1])" in tag_finder
+tag_finder = compact(SOURCE[
+    SOURCE.index("static const char *wsd_tag_find("):
+    SOURCE.index("static struct wsd_req_info *wsd_req_parse(")
+])
+assert "const char *xml, size_t length" in tag_finder
+assert "while (tag[tag_count][0]) ++tag_count;" in tag_finder
+assert "wsd_xml_find_simple_text(xml, length, tag, tag_count, len)" in tag_finder
+assert "strstr(" not in tag_finder
+assert "wsd_xml_find_sequence" in REQUEST_POLICY
+assert '"<!--"' in REQUEST_POLICY
+assert '"<![CDATA["' in REQUEST_POLICY
+assert '"?>"' in REQUEST_POLICY
+assert "memchr(xml, '\\0', length)" in REQUEST_POLICY
 
 request_parser = SOURCE[SOURCE.index("static struct wsd_req_info *wsd_req_parse("):
                          SOURCE.index("static void wsd_req_destruct(")]
