@@ -608,7 +608,7 @@ xl2tpd_snapshot = body(
     net_ppp, "xl2tpd_read_config_snapshot(struct xl2tpd_config_snapshot *snapshot)"
 )
 for key in ('"vpns_enable"', '"vpns_type"', '"vpnc_enable"', '"vpnc_type"',
-            '"vpnc_dgw"', '"wan_l2tpd"', '"vpnc_peer"', '"vpnc_user"'):
+            '"vpnc_dgw"', '"wan_l2tpd"', '"vpnc_peer"', '"vpnc_user"', '"l2tp_cli_t'):
     require(key in xl2tpd_snapshot,
             "xl2tpd selector/credential snapshot is missing " + key)
 for token in ("rc_wan_nvram_copy_snapshot(",):
@@ -646,6 +646,9 @@ require("xl2tpd_start_policy_config_flags(" in safe_start_locked and
         "config_snapshot.vpnc_enable" in safe_start_locked and
         "config_snapshot.wan_l2tpd" in safe_start_locked,
         "xl2tpd mode flags must derive only from the checked snapshot")
+require("names[9]" in xl2tpd_snapshot and "fields[9]" in xl2tpd_snapshot and
+        "destinations[9]" in xl2tpd_snapshot and "fields, 9," in xl2tpd_snapshot,
+        "xl2tpd must snapshot the existing VPN-client marker with the selectors")
 for forbidden in ('nvram_match("vpns_enable"',
                   'nvram_match("vpns_type"',
                   'nvram_match("vpnc_enable"',
@@ -686,6 +689,20 @@ writer_compact = "".join(xl2tpd_writer.split())
 require("(config->vpn_server_address&config->vpn_server_mask)|config->vpn_pool_start" in writer_compact and
         "(config->vpn_server_address&config->vpn_server_mask)|config->vpn_pool_end" in writer_compact,
         "xl2tpd address ranges must use the validated snapshot outputs")
+marker_parse = safe_start_locked.index(
+    "rc_wan_nvram_parse_int_value(config_snapshot.vpnc_marker, &vpnc_marker_active)")
+marker_validation = safe_start_locked.index(
+    "(vpnc_marker_active != 0 && vpnc_marker_active != 1)", marker_parse)
+marker_policy = safe_start_locked.index(
+    "xl2tpd_start_policy_vpnc_marker_publish_required(")
+marker_write = safe_start_locked.index(
+    'ppp_l2tp_runtime_marker_set_status("l2tp_cli_t", 1)')
+marker_owned = safe_start_locked.index("vpnc_marker_published = 1;", marker_write)
+require(marker_parse < marker_validation < marker_policy < marker_write < marker_owned,
+        "xl2tpd must validate the snapshot marker before acquiring rollback ownership")
+require("return use_vpnc && marker_active == 0;" in xl2tpd_policy and
+        "vpnc_marker_publish_required(1, 1)" in xl2tpd_test,
+        "existing VPNC marker must suppress redundant publication")
 require("presence_status < 0" in safe_start_locked and
         "scan_error ? scan_error : EIO" in safe_start_locked,
         "unknown xl2tpd presence must not look like already-running success")
@@ -697,6 +714,8 @@ require("xl2tpd_start_policy_completion_result(presence_status" in safe_start_lo
         "xl2tpd child exit status must not be confused with already-running state")
 for marker in ("PROCESS_PRESENCE_RUNNING", "PROCESS_PRESENCE_ABSENT",
                "PROCESS_PRESENCE_UNKNOWN",
+               "xl2tpd_start_policy_vpnc_marker_publish_required",
+               "test_vpnc_marker_is_published_only_when_unowned",
                "xl2tpd_start_policy_completion_result(0, 1)",
                "xl2tpd_start_policy_completion_result(0, 127)",
                "xl2tpd_start_policy_wan_launch_result(1)",

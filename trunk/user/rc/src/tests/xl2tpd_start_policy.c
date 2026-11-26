@@ -72,6 +72,16 @@ test_config_flags(void)
 }
 
 static int
+test_vpnc_marker_is_published_only_when_unowned(void)
+{
+	CHECK(!xl2tpd_start_policy_vpnc_marker_publish_required(0, 0));
+	CHECK(xl2tpd_start_policy_vpnc_marker_publish_required(1, 0));
+	CHECK(!xl2tpd_start_policy_vpnc_marker_publish_required(1, 1));
+	CHECK(!xl2tpd_start_policy_vpnc_marker_publish_required(0, 1));
+	return 0;
+}
+
+static int
 test_vpnc_marker_rolls_back_only_after_failed_start(void)
 {
 	CHECK(!xl2tpd_start_policy_vpnc_marker_rollback_required(0, -1));
@@ -107,6 +117,7 @@ main(void)
 	CHECK(!xl2tpd_start_policy_wan_marker_rollback_required(1, 0));
 	CHECK(xl2tpd_start_policy_wan_marker_rollback_required(1, -1));
 	CHECK(xl2tpd_start_policy_wan_marker_rollback_required(1, 1));
+	CHECK(test_vpnc_marker_is_published_only_when_unowned() == 0);
 	CHECK(test_vpnc_marker_rolls_back_only_after_failed_start() == 0);
 	CHECK(!xl2tpd_start_policy_rpl2tp_failure_requires_cleanup(0));
 	CHECK(xl2tpd_start_policy_rpl2tp_failure_requires_cleanup(-1));

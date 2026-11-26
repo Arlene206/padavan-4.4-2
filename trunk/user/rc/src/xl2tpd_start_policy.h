@@ -111,6 +111,14 @@ xl2tpd_start_policy_wan_marker_rollback_required(int marker_published,
 	return marker_published && launch_status != 0;
 }
 
+/* Acquire the VPN-client marker only when no caller already owns it. */
+static inline int
+xl2tpd_start_policy_vpnc_marker_publish_required(int use_vpnc,
+					  int marker_active)
+{
+	return use_vpnc && marker_active == 0;
+}
+
 /* Undo a VPN-client reference only when this attempt published it and
  * the shared daemon failed to reach a confirmed running state. */
 static inline int

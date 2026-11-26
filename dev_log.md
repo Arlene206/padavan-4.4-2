@@ -1,3 +1,13 @@
+## 2026-11-26 — Preserve pre-existing VPN-client ownership across shared xl2tpd start failures
+
+- Audited every caller of `safe_start_xl2tpd_locked()` after the previous rollback fix. The helper unconditionally wrote `l2tp_cli_t=1` whenever the configured VPN client used L2TP, then marked the value as newly published. If an active VPN-client dependency had already published that marker, a later WAN PPP or VPN-server start failure would clear the existing marker as if this call owned it. Subsequent shared-daemon stop/restore logic could then miss a live client dependency.
+- Extend the checked xl2tpd NVRAM transaction snapshot with `l2tp_cli_t`; parse and validate the prior state before process/config side effects. A pure policy gate now publishes only for `use_vpnc && marker_active == 0`; rollback ownership is recorded only after that transition succeeds. A pre-existing marker remains untouched on daemon failure. A newly acquired marker still rolls back, and the direct VPN-client caller retains cleanup for its pre-published marker.
+- Add GNU89 policy cases for inactive/new/existing marker ownership and strengthen the VPN source contract to require the ninth snapshot field, strict marker validation, and snapshot → policy gate → write → owned-state ordering. Exact-head VPN lifecycle and AI handoff results are pending for this production source SHA; no full firmware build or hardware result is claimed.
+- Beijing time at preparation: 26/11/2026, 18:50:09 (UTC+8).
+- Parent main: `ce917d69b0436033f4c8c83384dcd0a9b61deb5c`; resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-26 — Rebind WAN PPP and HTTPD contracts to atomic xl2tpd publication
 
 - Exact SHA `1d33cb41aca31eab3d58621a243272dc9cbd0000` exposed two more stale contracts after shared `/etc/xl2tpd.conf` publication moved to `l2tp_config_file_publish()`: WAN route run #45803174983 still compared protocol-read failure against the removed `fopen(l2tp_conf, "w")` position; HTTPD run #45803174928 raised `ValueError: substring not found` for the same obsolete anchor and still expected direct `fprintf` calls inside the launcher. The C policy regressions and the preceding independent HTTPD checks passed; these are checker-location failures, not evidence of a production regression.
@@ -12,7 +22,7 @@
 
 - Exact-head VPN lifecycle run #45803175004 on `1d33cb41aca31eab3d58621a243272dc9cbd0000` passed every preceding GNU89/`-Werror`/ASan/UBSan policy binary, including the xl2tpd process-presence and rp-L2TP atomic config regressions, then failed in the final Python source contract. The old checker still searched `safe_start_xl2tpd_locked()` for the VPN pool address arithmetic after that arithmetic had intentionally moved into the new `xl2tpd_config_write()` callback. This was a stale source-contract location, not a test or production failure.
 - Normalize the callback's whitespace and verify that both start/end addresses are derived from its validated `config->vpn_server_address`, `config->vpn_server_mask`, and pool offsets. No production source or policy semantics changed.
-- Exact-head AI handoff #45803174976 PASS on the failed-checker SHA. VPN lifecycle must be rerun on this checker correction; other SHA 1d33 runs (WAN route #45803174983, Process inventory #45803174833, Process lifecycle #45803174834, NVRAM #45803174921, HTTPD #45803174928 and WAN DHCP #45803174892) were in progress at last poll. XY-C1 #45803175068 was in progress before Build XY-C1, with TRX and artifact upload pending. The prior 3c36 firmware run #45801858571 was still in progress at Build at last poll; no L3 conclusion yet.
+- Exact-head AI handoff #45803174976 PASS on the failed-checker SHA. The checker-only follow-up `aa1bd8367768ab66f62a22834861d05df41af0e6` then passed VPN lifecycle #45803534463 and AI handoff #45803534499. On the atomic publisher follow-up `ce917d69b0436033f4c8c83384dcd0a9b61deb5c`, WAN route #45804117385, HTTPD security #45804117258 and AI handoff #45804117195 all PASS. XY-C1 #45803175068 was still in progress before Build XY-C1 on product source 1d33, with TRX and artifact upload pending. Older product SHA 3c36 subsequently passed Build, TRX and artifact upload in #45801858571; this does not validate the later source SHA.
 - Parent main: `1d33cb41aca31eab3d58621a243272dc9cbd0000`; resulting commit: THIS COMMIT.
 
 ---

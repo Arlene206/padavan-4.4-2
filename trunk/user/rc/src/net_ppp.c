@@ -168,6 +168,7 @@ struct xl2tpd_config_snapshot {
 	char wan_l2tpd[XL2TPD_CONFIG_VALUE_SIZE];
 	char vpnc_peer[XL2TPD_CONFIG_VALUE_SIZE];
 	char vpnc_user[XL2TPD_CONFIG_VALUE_SIZE];
+	char vpnc_marker[XL2TPD_CONFIG_VALUE_SIZE];
 };
 
 static int
@@ -197,13 +198,14 @@ xl2tpd_snapshot_transaction_end(void *context)
 static int
 xl2tpd_read_config_snapshot(struct xl2tpd_config_snapshot *snapshot)
 {
-	static const char *const names[8] = {
+	static const char *const names[9] = {
 		"vpns_enable", "vpns_type", "vpnc_enable", "vpnc_type",
-		"vpnc_dgw", "wan_l2tpd", "vpnc_peer", "vpnc_user"
+		"vpnc_dgw", "wan_l2tpd", "vpnc_peer", "vpnc_user",
+		"l2tp_cli_t"
 	};
-	struct rc_wan_nvram_snapshot_field fields[8];
+	struct rc_wan_nvram_snapshot_field fields[9];
 	struct nvram_transaction transaction;
-	char *destinations[8];
+	char *destinations[9];
 	unsigned int i;
 
 	if (!snapshot)
@@ -217,14 +219,15 @@ xl2tpd_read_config_snapshot(struct xl2tpd_config_snapshot *snapshot)
 	destinations[5] = snapshot->wan_l2tpd;
 	destinations[6] = snapshot->vpnc_peer;
 	destinations[7] = snapshot->vpnc_user;
-	for (i = 0; i < 8; ++i) {
+	destinations[8] = snapshot->vpnc_marker;
+	for (i = 0; i < 9; ++i) {
 		fields[i].param_name = names[i];
 		fields[i].destination = destinations[i];
 		fields[i].destination_size = XL2TPD_CONFIG_VALUE_SIZE;
 		}
 
 	return rc_wan_nvram_copy_snapshot(
-		fields, 8, xl2tpd_snapshot_transaction_begin,
+		fields, 9, xl2tpd_snapshot_transaction_begin,
 		xl2tpd_snapshot_transaction_get,
 		xl2tpd_snapshot_transaction_end, &transaction);
 }
@@ -467,6 +470,7 @@ safe_start_xl2tpd_locked(void)
 	int use_vpn_server, use_wan_lac, use_vpnc;
 	int saved_errno, scan_error, presence_status, launch_status;
 	int wan_value_status, config_status, marker_status;
+	int vpnc_marker_active = 0;
 	int vpnc_marker_published = 0, vpnc_marker_rollback_status;
 	int vpnc_default_route;
 	struct xl2tpd_config_snapshot config_snapshot;
@@ -525,6 +529,25 @@ safe_start_xl2tpd_locked(void)
 	use_wan_lac = config_flags.use_wan_lac;
 	use_vpnc = config_flags.use_vpnc;
 	vpnc_default_route = config_flags.vpnc_default_route;
+
+	/*
+	 * The client marker is part of the same transaction snapshot as its
+	 * selectors. Only a clean zero means this invocation may acquire it;
+	 * an existing one belongs to a caller/dependency that must be preserved.
+	 */
+	if (use_vpnc) {
+		config_status = rc_wan_nvram_parse_int_value(
+			config_snapshot.vpnc_marker, &vpnc_marker_active);
+		if (config_status != 0 ||
+		    (vpnc_marker_active != 0 && vpnc_marker_active != 1)) {
+			saved_errno = config_status != 0 ? config_status : EINVAL;
+			logmessage(LOGNAME,
+				   "cannot validate existing VPN-client ownership marker; refusing xl2tpd start (status=%d)",
+				   saved_errno);
+			errno = saved_errno;
+			return -1;
+		}
+	}
 
 	/* UNKNOWN is not proof of a running daemon; reject before config I/O. */
 	daemon_presence = process_inventory_scan("xl2tpd", &process_snapshot);
@@ -620,7 +643,8 @@ safe_start_xl2tpd_locked(void)
 		errno = saved_errno;
 		return -1;
 	}
-	if (use_vpnc) {
+	if (xl2tpd_start_policy_vpnc_marker_publish_required(
+		    use_vpnc, vpnc_marker_active)) {
 		marker_status = ppp_l2tp_runtime_marker_set_status("l2tp_cli_t", 1);
 		if (marker_status != 0) {
 			saved_errno = marker_status;
@@ -648,9 +672,8 @@ safe_start_xl2tpd_locked(void)
 		logmessage(LOGNAME, "cannot start xl2tpd after confirmed absence (status=%d, errno=%d)",
 			   launch_status, saved_errno);
 		/*
-		 * This helper is shared by WAN PPP and VPN-server startup too.
-		 * Roll back the client dependency here rather than relying on the
-		 * direct VPN-client caller to repair state after this function fails.
+		 * Roll back only a client marker newly acquired by this invocation;
+		 * a pre-existing marker belongs to an active shared dependency.
 		 */
 		if (xl2tpd_start_policy_vpnc_marker_rollback_required(
 			    vpnc_marker_published, presence_status)) {
