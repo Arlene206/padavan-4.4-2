@@ -1,3 +1,12 @@
+## 2026-11-26 — Make Samba config-file publication durable across power interruption
+
+- `samba_config_file_publish()` previously checked buffered flush and close before the atomic rename, but neither synced the staged file contents nor the containing directory. A power interruption could persist the rename without the new config bytes, or lose the directory-entry update even though the helper reported success.
+- Added an explicit `fsync(fileno(fp))` after successful `fflush()`, followed by an `O_DIRECTORY | O_NOFOLLOW` open and `fsync()` of the target's parent after rename. The parent helper validates empty paths, resolves a relative target to `.`, preserves errno and refuses a symlink in the final parent component.
+- Extended the existing GNU89 config-file regression to exercise parent-directory sync success, invalid input and symlink-parent refusal. The existing `/dev/full` buffered-write failure test continues to ensure failed candidates never replace the last-good file. Exact-head Samba Actions are pending publication.
+- Parent main: `93ec42b2b3927ab0093c26b543e820cf86f51f40`. This is a host-side durability contract; no hardware power-cut/router validation is claimed.
+
+---
+
 ## 2026-11-26 — Close legacy ipkg workflow and handoff validation gaps
 
 - Exact-head Process run #45772374075 on b63ce11dea3ee18b00a32ad79a1786c6eb482160 reached the Optware test step; the new static checker then found that opt-ipkg-upd.sh was missing from both Process path-filter allowlists. The transport source/tests themselves passed to that point.

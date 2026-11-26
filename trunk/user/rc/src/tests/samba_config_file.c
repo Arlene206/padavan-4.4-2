@@ -30,6 +30,7 @@ main(void)
 {
 	char dir[] = "/tmp/samba-config-file.XXXXXX";
 	char target[512], missing_target[512], directory_target[512];
+	char link_parent[512], linked_target[512];
 	char staged[512], short_staged[4], contents[128];
 	FILE *fp;
 	struct stat st;
@@ -38,6 +39,19 @@ main(void)
 	assert(mkdtemp(dir) != NULL);
 	path_len = snprintf(target, sizeof(target), "%s/smb.conf", dir);
 	assert(path_len > 0 && (size_t)path_len < sizeof(target));
+	assert(samba_config_file_sync_parent(target) == 0);
+	errno = 0;
+	assert(samba_config_file_sync_parent(NULL) == -1);
+	assert(errno == EINVAL);
+
+	/* Final parent components are pinned as directories, not followed links. */
+	path_len = snprintf(link_parent, sizeof(link_parent), "%s/directory-link", dir);
+	assert(path_len > 0 && (size_t)path_len < sizeof(link_parent));
+	assert(symlink(dir, link_parent) == 0);
+	path_len = snprintf(linked_target, sizeof(linked_target), "%s/smb.conf", link_parent);
+	assert(path_len > 0 && (size_t)path_len < sizeof(linked_target));
+	assert(samba_config_file_sync_parent(linked_target) == -1);
+	assert(unlink(link_parent) == 0);
 
 	fp = fopen(target, "w");
 	assert(fp != NULL);
