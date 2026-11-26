@@ -1,3 +1,8 @@
+## 2026-11-26 — Preserve networkmap ARP socket across daemon descriptor redirection
+
+- `networkmap` opened its packet socket before `daemon(0, 0)` but did not ensure the returned descriptor was above `stderr`. If any standard descriptor was closed, `socket()` could return 0, 1 or 2; daemonization redirects those descriptors to `/dev/null`, replacing the live ARP socket. Cleanup also used `arp_sockfd > 0` and leaked descriptor 0.
+- Duplicate low descriptors with `F_DUPFD` starting at 3 before daemonization, preserve the duplication error on failure, and treat every nonnegative descriptor as open during cleanup. GNU89 policy tests cover descriptors -1 through 3; the source contract enforces duplication before return and the cleanup guard.
+
 ## 2026-11-26 — Correct networkmap timeout checker signature literal
 
 - Exact run #45841079284 passed all three GNU89 ASan/UBSan policy binaries, including the new timeout error cases, then failed only because the embedded checker encoded the expected source newline as a literal backslash sequence. Corrected the checker to interpret the newline; production timeout propagation remains unchanged.

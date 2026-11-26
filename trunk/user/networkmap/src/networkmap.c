@@ -124,9 +124,31 @@ create_socket(const char *device)
 
 	device_id = iface_get_id(sock_fd, device);
 	if (iface_bind(sock_fd, device_id) < 0) {
+		int saved_errno = errno ? errno : EIO;
+
 		close(sock_fd);
-		sock_fd = -1;
-		printf("iface_bind ERROR\n");
+		errno = saved_errno;
+		return -1;
+	}
+
+	/*
+	 * main() daemonizes after opening this socket. Keep it above the three
+	 * standard descriptors because daemon(0, 0) redirects stdin/stdout/stderr
+	 * to /dev/null and would otherwise replace a valid socket returned as 0-2.
+	 */
+	if (networkmap_arp_socket_fd_needs_duplication(sock_fd)) {
+		int duplicate_fd = fcntl(sock_fd, F_DUPFD, 3);
+		int saved_errno = errno;
+
+		if (duplicate_fd < 0) {
+			if (saved_errno <= 0)
+				saved_errno = EIO;
+			close(sock_fd);
+			errno = saved_errno;
+			return -1;
+		}
+		close(sock_fd);
+		sock_fd = duplicate_fd;
 	}
 
 	return sock_fd;
@@ -185,7 +207,7 @@ net_clients_release(void)
 static void
 clear_resources(void)
 {
-	if (arp_sockfd > 0) {
+	if (networkmap_arp_socket_fd_is_valid(arp_sockfd)) {
 		close(arp_sockfd);
 		arp_sockfd = -1;
 	}

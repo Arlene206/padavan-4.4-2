@@ -64,4 +64,17 @@ networkmap_arp_receive_timeout_error(int option_status, int saved_errno)
 	return saved_errno > 0 ? saved_errno : EIO;
 }
 
+/* Descriptors 0-2 are redirected by daemon(0, 0); keep the socket above them. */
+static inline int
+networkmap_arp_socket_fd_is_valid(int fd)
+{
+	return fd >= 0;
+}
+
+static inline int
+networkmap_arp_socket_fd_needs_duplication(int fd)
+{
+	return fd >= 0 && fd <= 2;
+}
+
 #endif

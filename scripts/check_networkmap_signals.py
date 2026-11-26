@@ -140,6 +140,24 @@ for signature in ("sig_refresh(int sig)", "sig_exit(int sig)"):
     handler = function_body(source, signature)
     assert "clear_resources();" not in handler and "exit(" not in handler
 
+socket_valid = function_body(arp_policy, "networkmap_arp_socket_fd_is_valid(int fd)")
+socket_duplicate = function_body(arp_policy, "networkmap_arp_socket_fd_needs_duplication(int fd)")
+assert "return fd >= 0;" in socket_valid
+assert "fd >= 0 && fd <= 2" in socket_duplicate
+for fd_case in ("networkmap_arp_socket_fd_is_valid(-1)",
+                "networkmap_arp_socket_fd_is_valid(0)",
+                "networkmap_arp_socket_fd_needs_duplication(2)",
+                "networkmap_arp_socket_fd_needs_duplication(3)"):
+    assert fd_case in arp_test
+create_socket = function_body(source, "create_socket(const char *device)")
+assert "F_DUPFD, 3" in create_socket
+assert create_socket.index("iface_bind(sock_fd, device_id)") < create_socket.index("F_DUPFD, 3")
+assert "networkmap_arp_socket_fd_needs_duplication(sock_fd)" in create_socket
+assert "errno = saved_errno;" in create_socket
+cleanup_resources = function_body(source, "clear_resources(void)")
+assert "networkmap_arp_socket_fd_is_valid(arp_sockfd)" in cleanup_resources
+assert "arp_sockfd > 0" not in cleanup_resources
+
 arp_policy_function = function_body(arp_policy, "networkmap_arp_receive_error_is_retryable(int error)")
 assert "error == EINTR" in arp_policy_function
 assert "error == EAGAIN" in arp_policy_function

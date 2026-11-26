@@ -62,6 +62,17 @@ main(void)
 	assert(networkmap_arp_receive_timeout_error(-1, 0) == EIO);
 	assert(networkmap_arp_receive_timeout_error(-1, -1) == EIO);
 
+	assert(!networkmap_arp_socket_fd_is_valid(-1));
+	assert(networkmap_arp_socket_fd_is_valid(0));
+	assert(networkmap_arp_socket_fd_is_valid(1));
+	assert(networkmap_arp_socket_fd_is_valid(2));
+	assert(networkmap_arp_socket_fd_is_valid(3));
+	assert(!networkmap_arp_socket_fd_needs_duplication(-1));
+	assert(networkmap_arp_socket_fd_needs_duplication(0));
+	assert(networkmap_arp_socket_fd_needs_duplication(1));
+	assert(networkmap_arp_socket_fd_needs_duplication(2));
+	assert(!networkmap_arp_socket_fd_needs_duplication(3));
+
 	puts("networkmap ARP frame validation and receive error policy: PASS");
 	return 0;
 }
