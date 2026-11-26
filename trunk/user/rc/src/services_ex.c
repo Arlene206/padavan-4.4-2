@@ -1679,7 +1679,11 @@ dnsmasq_restore_previous_daemon_if_stopped(
 	return start_status;
 }
 
-static int dnsmasq_rollback_failed_start(int start_status, const char *operation);
+static int dnsmasq_rollback_failed_start(
+	int start_status, const char *operation,
+	struct dnsmasq_static_host_files_snapshot *files,
+	const struct dnsmasq_static_arp_snapshot *previous,
+	const struct dnsmasq_static_arp_snapshot *current);
 
 int
 start_dns_dhcpd_locked(int is_ap_mode)
@@ -1746,7 +1750,6 @@ start_dns_dhcpd_locked(int is_ap_mode)
 		errno = arp_status;
 		return arp_status;
 	}
-	dnsmasq_static_host_files_snapshot_commit(&static_hosts_snapshot);
 	errno = 0;
 	launch_status = eval("/usr/sbin/dnsmasq");
 	status = dnsmasq_confirm_started(launch_status);
@@ -1756,9 +1759,13 @@ start_dns_dhcpd_locked(int is_ap_mode)
 		else
 			logmessage(LOGNAME, "DNSMasq launch returned success but no running process appeared within %d seconds",
 				   DNSMASQ_START_WAIT_ATTEMPTS - 1);
-		status = dnsmasq_rollback_failed_start(status, "start");
+		status = dnsmasq_rollback_failed_start(
+			status, "start", &static_hosts_snapshot,
+			&previous_ethers, &current_ethers);
+		return status;
 	}
-	return status;
+	dnsmasq_static_host_files_snapshot_commit(&static_hosts_snapshot);
+	return 0;
 }
 
 int
@@ -1815,10 +1822,14 @@ stop_dns_dhcpd_locked(void)
 }
 
 static int
-dnsmasq_rollback_failed_start(int start_status, const char *operation)
+dnsmasq_rollback_failed_start(
+	int start_status, const char *operation,
+	struct dnsmasq_static_host_files_snapshot *files,
+	const struct dnsmasq_static_arp_snapshot *previous,
+	const struct dnsmasq_static_arp_snapshot *current)
 {
 	int start_errno;
-	int rollback_status;
+	int rollback_status, snapshot_status;
 	int scan_error = 0;
 	enum process_presence presence;
 
@@ -1827,16 +1838,38 @@ dnsmasq_rollback_failed_start(int start_status, const char *operation)
 	rollback_status = stop_dns_dhcpd_locked();
 	presence = dnsmasq_process_presence(&scan_error);
 	if (dnsmasq_failed_start_may_leave_daemon(presence)) {
+		/*
+		 * Do not replace config or ARP state while a daemon may still be
+		 * using the failed generation. Keep private rollback links so a
+		 * later, verified stop can recover the previous generation.
+		 */
 		logmessage(LOGNAME,
-			   "DNSMasq may remain active after failed %s (start_status=%d, rollback_status=%d, state=%d, scan_error=%d)",
+			   "DNSMasq may remain active after failed %s (start_status=%d, rollback_status=%d, state=%d, scan_error=%d); preserving current config and ARP state",
 			   operation, start_status, rollback_status, presence,
 			   scan_error);
-	} else if (rollback_status != 0) {
-		logmessage(LOGNAME,
-			   "DNSMasq is absent after failed %s rollback but stop reported status=%d",
-			   operation, rollback_status);
+		if (files && files->active)
+			logmessage(LOGNAME,
+				   "DNSMasq failed-start rollback links retained: '%s', '%s', '%s'",
+				   files->backups[0], files->backups[1],
+				   files->backups[2]);
+	} else {
+		/*
+		 * Only a complete ABSENT snapshot proves the new daemon is gone.
+		 * Restore generated files and the exact pre-start kernel ARP set
+		 * only after that postcondition, for both start and restart.
+		 */
+		snapshot_status = dnsmasq_static_host_restore_previous(
+			files, previous, current);
+		if (snapshot_status != 0)
+			logmessage(LOGNAME,
+				   "DNSMasq failed-start rollback could not fully restore previous config/ARP state (status=%d)",
+				   snapshot_status);
+		else if (rollback_status != 0)
+			logmessage(LOGNAME,
+				   "DNSMasq is absent and previous config/ARP state restored after failed %s; stop reported status=%d",
+				   operation, rollback_status);
 	}
-	/* Keep stop/ARP cleanup diagnostics from replacing the startup failure. */
+	/* Keep stop/rollback diagnostics from replacing the startup failure. */
 	errno = start_errno;
 	return start_status;
 }
@@ -1948,7 +1981,6 @@ restart_dhcpd_locked(void)
 		errno = arp_status;
 		return arp_status;
 	}
-	dnsmasq_static_host_files_snapshot_commit(&static_hosts_snapshot);
 	errno = 0;
 	launch_status = eval("/usr/sbin/dnsmasq");
 	start_status = dnsmasq_confirm_started(launch_status);
@@ -1958,9 +1990,13 @@ restart_dhcpd_locked(void)
 		else
 			logmessage(LOGNAME, "DNSMasq restart returned success but no running process appeared within %d seconds",
 				   DNSMASQ_START_WAIT_ATTEMPTS - 1);
-		start_status = dnsmasq_rollback_failed_start(start_status, "restart");
+		start_status = dnsmasq_rollback_failed_start(
+			start_status, "restart", &static_hosts_snapshot,
+			&previous_ethers, &current_ethers);
+		return start_status;
 	}
-	return start_status;
+	dnsmasq_static_host_files_snapshot_commit(&static_hosts_snapshot);
+	return 0;
 }
 
 int

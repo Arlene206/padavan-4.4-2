@@ -64,7 +64,7 @@ def compact(source: str) -> str:
 
 rollback = compact(body(
     SERVICES,
-    "static int\ndnsmasq_rollback_failed_start(int start_status, const char *operation)",
+    "static int\ndnsmasq_rollback_failed_start(",
 ))
 assert "start_errno = start_status > 0 ? start_status :" in rollback
 assert "rollback_status = stop_dns_dhcpd_locked()" in rollback
@@ -75,16 +75,25 @@ assert rollback.index("stop_dns_dhcpd_locked()") < rollback.index(
     "dnsmasq_process_presence(&scan_error)"
 ) < rollback.index("dnsmasq_failed_start_may_leave_daemon")
 assert rollback.index("dnsmasq_failed_start_may_leave_daemon") < rollback.index(
-    "errno = start_errno;"
-)
+    "dnsmasq_static_host_restore_previous(files, previous, current)"
+) < rollback.index("errno = start_errno;")
+assert "if (files && files->active)" in rollback
+assert "preserving current config and ARP state" in rollback
+assert "failed-start rollback links retained" in rollback
 
 start = compact(body(SERVICES, "int\nstart_dns_dhcpd_locked(int is_ap_mode)"))
 assert start.index("errno = 0;") < start.index('eval("/usr/sbin/dnsmasq")')
 assert "status = dnsmasq_confirm_started(launch_status)" in start
 assert "status = dnsmasq_rollback_failed_start(status, \"start\")" in start
 assert start.index("dnsmasq_confirm_started(launch_status)") < start.index(
-    "dnsmasq_rollback_failed_start(status, \"start\")"
+    "dnsmasq_rollback_failed_start("
 )
+start_success_commit = start.index(
+    "dnsmasq_static_host_files_snapshot_commit(&static_hosts_snapshot)",
+    start.index("arpbind_apply_ethers_snapshot(&current_ethers)")
+)
+assert start.index("dnsmasq_rollback_failed_start(") < start_success_commit
+assert start.index("dnsmasq_confirm_started(launch_status)") < start_success_commit
 
 restart = compact(body(SERVICES, "static int\nrestart_dhcpd_locked(void)"))
 assert restart.index("arpbind_ethers_snapshot_read(&previous_ethers)") < restart.index(
@@ -97,8 +106,13 @@ assert restart.index("errno = 0;") < restart.index('eval("/usr/sbin/dnsmasq")')
 assert "start_status = dnsmasq_confirm_started(launch_status)" in restart
 assert "start_status = dnsmasq_rollback_failed_start(start_status, \"restart\")" in restart
 assert restart.index("dnsmasq_confirm_started(launch_status)") < restart.index(
-    "dnsmasq_rollback_failed_start(start_status, \"restart\")"
+    "dnsmasq_rollback_failed_start("
 )
+restart_success_commit = restart.index(
+    "dnsmasq_static_host_files_snapshot_commit(&static_hosts_snapshot)"
+)
+assert restart.index("dnsmasq_rollback_failed_start(") < restart_success_commit
+assert restart.index("dnsmasq_confirm_started(launch_status)") < restart_success_commit
 
 # A missing user overlay is optional, but a read/copy/flush/close failure must
 # not publish a partial DNS server file over the last-known-good snapshot.
