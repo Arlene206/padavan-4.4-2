@@ -345,3 +345,10 @@
 
 ---
 
+### 2026-11-26 — autonomous stability continuation
+
+Handoff HEAD: `1e3154270732eef0314244dec117dd325971638a`. Frozen backup ref remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+
+Implemented source/test slices in Samba paired-transaction durability, Ralink IAPP event-table/TCP deadline safety, DNSMasq staged publication and failed-start rollback, and Inadyn last-known-good config retention through startup confirmation. Inadyn follow-up covers same-inode hard-link cleanup on rollback before publication. See the corresponding commit history and exact-SHA Actions in `SESSION_HANDOFF.md`; this log does not treat a pending check as a pass.
+
+Current first follow-up: verify the exact-SHA Inadyn workflow status for the latest snapshot rollback changes; fix any test or build regression before moving on.
