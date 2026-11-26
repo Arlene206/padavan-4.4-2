@@ -78,6 +78,46 @@ test_qmi_start_preflight_reuses_cid_and_blocks_duplicate_pdh(void)
 }
 
 static void
+test_qmi_stop_preflight_uses_only_the_persisted_wds_client_id(void)
+{
+	int stop_required = -1;
+
+	/* A persisted, valid CID authorizes a stop for that exact WDS client. */
+	assert(modem_qmi_stop_preflight(0, 0, 17, 0, &stop_required) == 0);
+	assert(stop_required == 1);
+	assert(modem_qmi_stop_preflight(UCHAR_MAX, 0, -1, ENOENT,
+					&stop_required) == 0);
+	assert(stop_required == 1);
+
+	/* No CID and no PDH is an already-complete, idempotent stop. */
+	assert(modem_qmi_stop_preflight(-1, ENOENT, -1, ENOENT,
+					&stop_required) == 0);
+	assert(stop_required == 0);
+
+	/* A session marker without its owning CID must never allocate a fresh CID. */
+	assert(modem_qmi_stop_preflight(-1, ENOENT, 17, 0,
+					&stop_required) == EIO);
+	assert(stop_required == 0);
+	assert(modem_qmi_stop_preflight(-1, ENOENT, -1, EACCES,
+					&stop_required) == EACCES);
+	assert(stop_required == 0);
+
+	/* Corrupt or unreadable CID state fails closed and is not discarded. */
+	assert(modem_qmi_stop_preflight(-1, EINVAL, -1, ENOENT,
+					&stop_required) == EINVAL);
+	assert(modem_qmi_stop_preflight(-1, EACCES, -1, ENOENT,
+					&stop_required) == EACCES);
+	assert(modem_qmi_stop_preflight(256, 0, 17, 0,
+					&stop_required) == EINVAL);
+	assert(modem_qmi_stop_preflight(-1, 0, -1, ENOENT,
+					&stop_required) == EINVAL);
+	assert(modem_qmi_stop_preflight(-1, ENOENT, -1, 0,
+					&stop_required) == EIO);
+	assert(modem_qmi_stop_preflight(-1, ENOENT, -1, ENOENT,
+					NULL) == EINVAL);
+}
+
+static void
 test_qmi_network_mode_selection_rejects_out_of_range_values(void)
 {
 	/* These are the exact option values exposed by Advanced_Modem_others.asp. */
@@ -896,6 +936,7 @@ main(void)
 	test_qmi_start_retry_is_blocked_when_session_may_exist();
 	test_qmi_ambiguous_start_preserves_published_handle();
 	test_qmi_start_preflight_reuses_cid_and_blocks_duplicate_pdh();
+	test_qmi_stop_preflight_uses_only_the_persisted_wds_client_id();
 	test_qmi_network_mode_selection_rejects_out_of_range_values();
 	test_qmi_handle_cleanup_distinguishes_missing_from_other_errors();
 	test_qmi_client_id_release_waits_for_pdh_cleanup();

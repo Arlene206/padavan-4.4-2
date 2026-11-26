@@ -73,6 +73,39 @@ modem_qmi_client_id_should_allocate(int client_id, int read_status)
 	return client_id < 0 && read_status == ENOENT;
 }
 
+/*
+ * A stop command must target the persisted WDS CID that owns the session.
+ * Do not let uqmi silently allocate a fresh CID when its recovery marker is
+ * missing: that CID cannot address an older packet-data handle.
+ */
+static inline int
+modem_qmi_stop_preflight(int client_id, int client_id_status,
+			 int packet_data_handle, int packet_data_status,
+			 int *stop_required)
+{
+	if (!stop_required)
+		return EINVAL;
+	*stop_required = 0;
+
+	if (client_id_status == 0) {
+		if (!modem_qmi_client_id_is_valid(client_id))
+			return EINVAL;
+		*stop_required = 1;
+		return 0;
+	}
+	if (client_id_status != ENOENT)
+		return client_id_status > 0 ? client_id_status : EIO;
+	if (client_id != -1)
+		return EINVAL;
+
+	/* A missing CID is harmless only when no PDH says a session may exist. */
+	if (packet_data_handle >= 0)
+		return EIO;
+	if (packet_data_status == ENOENT)
+		return 0;
+	return packet_data_status > 0 ? packet_data_status : EIO;
+}
+
 /* A valid PDH from an ambiguous start may be the only recovery handle. */
 /* Preserve non-missing PDH state while a start result is ambiguous. */
 static inline int

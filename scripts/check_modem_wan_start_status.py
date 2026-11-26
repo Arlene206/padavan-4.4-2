@@ -1620,4 +1620,19 @@ for marker in ("test_failed_notifications_schedule_bounded_retries",
                "test_success_and_not_needed_state_clear_pending_retry",
                "test_invalid_outputs_fail_closed_without_partial_mutation"):
     assert marker in MODEM_RECONNECT_POLICY_TEST
+
+# QMI stop must reconnect to the exact persisted WDS CID used by start-network.
+qmi_stop = tight(body(USB_SOURCE, "qmi_control_network(const char *control_node, int is_start)"))
+assert "get_qmi_handle(QMI_CLIENT_ID)" in qmi_stop
+assert "get_qmi_handle(QMI_HANDLE_PDH)" in qmi_stop
+assert "modem_qmi_stop_preflight(qmi_client_id,client_id_read_status,pdh_handle,pdh_read_status,&stop_required)" in qmi_stop
+assert qmi_stop.count("get_qmi_handle(QMI_CLIENT_ID)") == 1
+assert "snprintf(client_id_arg,sizeof(client_id_arg),\"wds,%d\",qmi_client_id)" in qmi_stop
+assert qmi_stop.index("\"--set-client-id\",client_id_arg") < qmi_stop.index("\"--stop-network\"")
+assert qmi_stop.index("modem_qmi_stop_preflight(") < qmi_stop.index("\"--stop-network\"")
+assert "if(!stop_required)return0;" in qmi_stop
+assert "test_qmi_stop_preflight_uses_only_the_persisted_wds_client_id" in WAN_TEST
+assert "modem_qmi_stop_preflight" in POLICY_SOURCE
+print("QMI stop reuses the persisted WDS CID and fails closed without session ownership: PASS")
+
 print("detect_link bounded modem reconnect retry and status propagation: PASS")

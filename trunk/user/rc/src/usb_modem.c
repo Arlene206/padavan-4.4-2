@@ -1021,11 +1021,12 @@ done:
 static int
 qmi_control_network(const char *control_node, int is_start)
 {
-	int qmi_client_id = -1;
-	int path_len;
+	int qmi_client_id = -1, client_id_read_status, pdh_handle = -1;
+	int pdh_read_status, stop_required = 0, status, path_len;
 	int command_status, release_status;
 	int unlink_status, cleanup_status, result = 0;
 	char device_path[64];
+	char client_id_arg[32];
 
 	if (!control_node || !*control_node)
 		return 1;
@@ -1036,11 +1037,37 @@ qmi_control_network(const char *control_node, int is_start)
 	if (is_start)
 		return qmi_control_network_start(device_path);
 
-	/* A failed stop leaves the session and its state files intact for retry. */
+	/*
+	 * uqmi allocates a new WDS CID by default. A stop issued with that fresh
+	 * CID cannot stop the session started under our persisted CID; worse, it
+	 * can return success and make the caller discard the only recovery state.
+	 */
+	errno = 0;
+	qmi_client_id = get_qmi_handle(QMI_CLIENT_ID);
+	client_id_read_status = errno;
+	errno = 0;
+	pdh_handle = get_qmi_handle(QMI_HANDLE_PDH);
+	pdh_read_status = errno;
+	status = modem_qmi_stop_preflight(qmi_client_id, client_id_read_status,
+					  pdh_handle, pdh_read_status,
+					  &stop_required);
+	if (status != 0) {
+		logmessage(LOGNAME,
+			   "cannot identify persisted QMI WDS session for stop (status=%d); preserving session markers",
+			   status);
+		return 1;
+	}
+	if (!stop_required) {
+		/* Both markers are absent: there is no owned QMI session to stop. */
+		return 0;
+	}
+
+	snprintf(client_id_arg, sizeof(client_id_arg), "wds,%d", qmi_client_id);
 	{
 		char *stop_argv[] = {
-			"/bin/uqmi", "-d", device_path, "--stop-network",
-			"0xffffffff", "--autoconnect", NULL
+			"/bin/uqmi", "-d", device_path,
+			"--set-client-id", client_id_arg,
+			"--stop-network", "0xffffffff", "--autoconnect", NULL
 		};
 		command_status = modem_qmi_command_status(
 			_eval(stop_argv, NULL, 0, NULL));
@@ -1062,21 +1089,12 @@ qmi_control_network(const char *control_node, int is_start)
 		return 1;
 	}
 
-	/* Release the client ID only after stop-network and PDH cleanup succeed. */
-	errno = 0;
-	qmi_client_id = get_qmi_handle(QMI_CLIENT_ID);
-	if (qmi_client_id >= 0) {
-		char client_id_arg[32];
-
-		if (!modem_qmi_client_id_is_valid(qmi_client_id)) {
-			logmessage(LOGNAME, "invalid persisted WDS client ID %d; preserving it for recovery", qmi_client_id);
-			return 1;
-		}
+	/* Release the same WDS CID used by stop-network, only after PDH cleanup. */
+	{
 		char *release_argv[] = {
 			"/bin/uqmi", "-d", device_path, "--set-client-id",
 			client_id_arg, "--release-client-id", "wds", NULL
 		};
-		snprintf(client_id_arg, sizeof(client_id_arg), "wds,%d", qmi_client_id);
 		release_status = modem_qmi_command_status(
 			_eval(release_argv, NULL, 0, NULL));
 		if (release_status != 0) {
@@ -1085,12 +1103,9 @@ qmi_control_network(const char *control_node, int is_start)
 				   release_status);
 			return 1;
 		}
-	} else if (errno != ENOENT) {
-		logmessage(LOGNAME, "cannot read persisted WDS client ID (status=%d); preserving it for recovery", errno > 0 ? errno : EIO);
-		return 1;
 	}
 
-	/* A missing ID needs no release, but stale-file cleanup is checked. */
+	/* The exact persisted CID was released; its marker can now be removed. */
 	unlink_status = unlink(QMI_CLIENT_ID);
 	cleanup_status = modem_qmi_handle_file_unlink_status(unlink_status, errno);
 	if (cleanup_status != 0) {
@@ -1101,6 +1116,7 @@ qmi_control_network(const char *control_node, int is_start)
 	}
 	return result;
 }
+
 static int
 mbim_control_network(const char* control_node, int is_start)
 {
