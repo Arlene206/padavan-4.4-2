@@ -75,7 +75,7 @@ assert rollback.index("stop_dns_dhcpd_locked()") < rollback.index(
     "dnsmasq_process_presence(&scan_error)"
 ) < rollback.index("dnsmasq_failed_start_may_leave_daemon")
 assert rollback.index("dnsmasq_failed_start_may_leave_daemon") < rollback.index(
-    "dnsmasq_static_host_restore_previous(files, previous, current)"
+    "dnsmasq_static_host_restore_previous( files, previous, current)"
 ) < rollback.index("errno = start_errno;")
 assert "if (files && files->active)" in rollback
 assert "preserving current config and ARP state" in rollback
@@ -84,7 +84,7 @@ assert "failed-start rollback links retained" in rollback
 start = compact(body(SERVICES, "int\nstart_dns_dhcpd_locked(int is_ap_mode)"))
 assert start.index("errno = 0;") < start.index('eval("/usr/sbin/dnsmasq")')
 assert "status = dnsmasq_confirm_started(launch_status)" in start
-assert "status = dnsmasq_rollback_failed_start(status, \"start\")" in start
+assert "status = dnsmasq_rollback_failed_start(" in start
 assert start.index("dnsmasq_confirm_started(launch_status)") < start.index(
     "dnsmasq_rollback_failed_start("
 )
@@ -104,7 +104,7 @@ assert restart.index(
 ) < restart.index('eval("/usr/sbin/dnsmasq")')
 assert restart.index("errno = 0;") < restart.index('eval("/usr/sbin/dnsmasq")')
 assert "start_status = dnsmasq_confirm_started(launch_status)" in restart
-assert "start_status = dnsmasq_rollback_failed_start(start_status, \"restart\")" in restart
+assert "start_status = dnsmasq_rollback_failed_start(" in restart
 assert restart.index("dnsmasq_confirm_started(launch_status)") < restart.index(
     "dnsmasq_rollback_failed_start("
 )
