@@ -1,7 +1,7 @@
 ## 2026-11-25 — Fail closed on malformed VSFTPD share-mode snapshots
 
 - Per-session authorization loaded `st_ftp_mode` with `nvram_get_int()` (`atoi`), collapsing missing/backend errors to zero and accepting numeric prefixes such as `1junk` as mode 1. In the anonymous share path, mode 1 bypasses per-share ACL lookup; the configuration publisher already uses checked reads and normalizes unsupported/missing values to mode 2.
-- Read the selector with `nvram_get_checked`, strictly parse the whole decimal string, normalize unsupported valid numerics to mode 2, and refuse the new session on NVRAM or malformed-value errors. Added GNU89 ASan/UBSan coverage for supported/default/error boundaries and exact-source/path-filter contracts. Local host test PASS; exact-head VSFTPD/AI/XY-C1 Actions pending. Router L3/L4 not yet verified for this SHA.
+- Read the selector with `nvram_get_checked`, strictly parse the whole decimal string, normalize unsupported valid numerics to mode 2, and refuse the new session on NVRAM or malformed-value errors. Added GNU89 ASan/UBSan coverage for supported/default/error boundaries and exact-source/path-filter contracts. Local GNU89 ASan/UBSan test PASS. Exact-SHA VSFTPD #45742067432, AI docs #45742067378 and Process inventory #45742067392 PASS; NVRAM #45742067411 and XY-C1 #45742067435 were IN_PROGRESS at checkpoint. No current-SHA L3/L4 claim.
 
 ---
 
