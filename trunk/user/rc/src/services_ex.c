@@ -1840,8 +1840,8 @@ dnsmasq_rollback_failed_start(
 	if (dnsmasq_failed_start_may_leave_daemon(presence)) {
 		/*
 		 * Do not replace config or ARP state while a daemon may still be
-		 * using the failed generation. Keep private rollback links so a
-		 * later, verified stop can recover the previous generation.
+		 * using the failed generation. Retain private rollback links and
+		 * log their paths for manual recovery instead of discarding them.
 		 */
 		logmessage(LOGNAME,
 			   "DNSMasq may remain active after failed %s (start_status=%d, rollback_status=%d, state=%d, scan_error=%d); preserving current config and ARP state",
