@@ -242,6 +242,46 @@ fi
 [ "$status" -eq 55 ] || fail "secondary-resolver port read status changed to $status"
 pass "critical SmartDNS resolver NVRAM reads fail closed before lifecycle changes"
 
+# Starting from disabled/empty must persist sdns_enable before touching a
+# running daemon. A failed write leaves all runtime state untouched.
+sed -n '/^Start_smartdns () {$/,/^}/p' "$SMARTDNS_SOURCE" > "$T/start-enable-preflight.sh"
+[ -s "$T/start-enable-preflight.sh" ] || fail "Start_smartdns function missing"
+. "$T/start-enable-preflight.sh"
+NVRAM_SET_STATUS=37
+PROCESS_STATE_CALLS=0
+smartdns_process_state() {
+    PROCESS_STATE_CALLS=$((PROCESS_STATE_CALLS + 1))
+    return 2
+}
+nvram() {
+    [ "${1:-} ${2:-}" = "set sdns_enable=1" ] || return 2
+    return "$NVRAM_SET_STATUS"
+}
+for selector in 0 ''; do
+    sdns_enable=$selector
+    PROCESS_STATE_CALLS=0
+    if Start_smartdns; then
+        fail "failed sdns_enable write was accepted for selector '$selector'"
+    else
+        status=$?
+    fi
+    [ "$status" -eq 37 ] || fail "sdns_enable write status changed to $status"
+    [ "$sdns_enable" = "$selector" ] || fail "failed sdns_enable write changed in-memory selector"
+    [ "$PROCESS_STATE_CALLS" -eq 0 ] || fail "daemon state was inspected before enable persistence"
+done
+NVRAM_SET_STATUS=0
+sdns_enable=0
+PROCESS_STATE_CALLS=0
+if Start_smartdns; then
+    fail "unknown daemon state should abort the post-persistence probe"
+else
+    status=$?
+fi
+[ "$status" -eq 2 ] || fail "unknown daemon state returned $status instead of 2"
+[ "$sdns_enable" = 1 ] || fail "successful enable write did not update in-memory selector"
+[ "$PROCESS_STATE_CALLS" -eq 1 ] || fail "daemon state was not checked after successful persistence"
+pass "SmartDNS enable selector is persisted before daemon lifecycle changes"
+
 if grep -Fq '/usr/bin/adbyby.sh switch' "$SMARTDNS_SOURCE"; then
     fail "SmartDNS dispatched an unsupported Adbyby switch action"
 fi

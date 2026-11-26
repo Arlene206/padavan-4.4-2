@@ -1,10 +1,19 @@
+## 2026-11-26 — Persist SmartDNS enable state before touching the running daemon
+
+- `Start_smartdns()` previously stopped the existing instance and removed its managed DNSMasq directives before attempting the `nvram set sdns_enable=1` write; the write was unchecked and silently skipped in the face of NVRAM errors. Startup could then proceed with a running daemon while persistent enable state remained disabled. An empty selector also missed the numeric `-eq 0` branch.
+- The enable transition now treats empty/0 as disabled, checks and propagates the NVRAM write before any daemon-state probe or resolver mutation, and accepts only 1 as already enabled. Failed writes return the original status with the daemon and resolver untouched.
+- Shell regression injects status 37 for both empty and 0 selectors, asserts no daemon probe is made and memory state is unchanged, then verifies successful persistence precedes the fail-closed daemon-state probe. The source contract checks this order.
+- Exact SmartDNS/DNSMasq validation for THIS commit pending; no local execution. Preceding commit `416960b79b0453e206bb585ced2671da996860d4` DNSMasq #45762323209 PASS and AI docs #45762323124 PASS.
+
+---
+
 ## 2026-11-26 — Propagate SmartDNS port-53 redirect normalization write failures
 
 - `Change_dnsmasq start` previously ignored `nvram set sdns_redirect=0` when SmartDNS used port 53. It then changed only the shell-local selector and published DNSMasq's `port=0` ownership marker, even if persistent NVRAM still requested redirection. A write failure could report a successful but split-brain resolver transition.
 - The normalization now checks and logs the NVRAM status, returns before changing the in-memory selector or staging DNSMasq directives, and lets the existing startup failure path handle the error.
 - Added a shell regression with injected status 37 proving NVRAM/local selector and the live DNSMasq file remain unchanged, then verifies the successful normalization path. The Python source contract pins write → local-state update → config-publication order.
 - The immediately preceding VPN DNS resolver work established strict 0/1/2 selector validation and correct mode-2 replacement of both IPv4 and IPv6 WAN upstreams. Exact WAN source-checker correction is a separate parent commit; L3 still depends on same-SHA Build/TRX/artifact.
-- Exact SmartDNS/DNSMasq Actions for THIS commit pending. No local checkout was available, so local shell/Python execution NOT RUN.
+- Exact DNSMasq lifecycle #45762323209 PASS on `416960b79b0453e206bb585ced2671da996860d4`, including the shell run that injects NVRAM status 37; AI handoff #45762323124 PASS and Process inventory #45762323165 PASS. XY-C1 #45762323087 remained in progress before Build at last query; no L3 claim. Local shell/Python execution was NOT RUN.
 
 ---
 

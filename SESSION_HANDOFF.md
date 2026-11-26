@@ -1,30 +1,30 @@
 ## Current repository state
 
-- Live `main` baseline before this SmartDNS slice: `2ad18b19ccb069746ee07f5a3a0efeef13cf2444`.
+- Live `main` baseline before this SmartDNS enable-state slice: `416960b79b0453e206bb585ced2671da996860d4`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable and unchanged. PR #1 remains closed/unmerged.
-- Bootstrap/protocol/handoff recovery was completed once in this continuation. Do not repeat startup audits or already-completed MiniDLNA, ZeroTier and IPv6/DHCPv6 work.
-- Source commits are complete-tree Git commits published to main only by expected-SHA compare-and-swap. Never force-push or modify the frozen backup.
+- Startup/bootstrap/handoff recovery was completed once. Do not repeat prior recovery or completed MiniDLNA, ZeroTier and VPN selector audits.
+- Every multi-file edit is created as a complete Git tree + one parent-linked commit and published by expected-SHA compare-and-swap. No force pushes.
 
 ## Active task
 
-- VPN resolver: `8d19ad0` enforces strict `vpnc_pdns` values 0/1/2 before staging; `42eb80d` corrected mode 2 to exclude both WAN IPv4 and IPv6 upstreams only when at least one valid VPN DNS value exists; `19bce65` is a comment-only change; `9cf650e` relaxed formatting-sensitive checker matching.
-- The checker at `9cf650e` still used the obsolete `/* DNSv6 servers */` marker. Exact WAN #45762094181 failed at this source assertion; all preceding compiled GNU89/sanitizer checks passed. This was fixed in checker-only commit `2ad18b19ccb069746ee07f5a3a0efeef13cf2444` by locating the guarded `wan_dns6_snapshot` consumer. Exact WAN rerun for `2ad18b1` pending.
-- THIS SmartDNS source slice hardens the unchecked `nvram set sdns_redirect=0` used when port 53 is selected. Failure now preserves persistent/local selector and live DNSMasq config; the shell test injects a nonzero NVRAM write result and then validates the successful path.
+- SmartDNS port-53 normalization in `416960b79b0453e206bb585ced2671da996860d4` now checks `nvram set sdns_redirect=0` before local selector mutation or DNSMasq publication. Injected status 37 proves persistent state and live config remain unchanged; exact DNSMasq #45762323209 PASS.
+- This next slice addresses `Start_smartdns()`'s unchecked `nvram set sdns_enable=1`. Previously the old daemon could be stopped and resolver state changed before this write, and a failure did not prevent further startup. The guard now persists empty/0→1 before daemon checks and resolver mutations, propagating the original NVRAM error. Tests inject failure for both empty and 0.
+- Do not alter frozen backup or reopen PR #1.
 
 ## Verification boundary
 
-- WAN route #45761724079 PASS on VPN selector commit `8d19ad0`; its DNS-mode error propagation source check passed.
-- The follow-up mode-2 implementation commit `42eb80d` caused a new stale checker failure; exact WAN #45762008586 and #45762094181 failed only on locating the old IPv6 comment marker. All GNU89/ASan/UBSan steps before that checker passed. Checker fix is `2ad18b1`; exact run needs recheck.
-- On `8d19ad0`, AI handoff #45761724234 PASS, ZeroTier #45761724083 PASS, Process inventory #45761724209 PASS, WAN DHCP callback #45761724217 PASS, Firewall #45761724163 PASS, DNSMasq #45761724316 PASS, USB modem #45761724259 PASS, IPv6 service-type #45761724142 PASS, WAN teardown #45761724250 PASS, Samba #45761724229 PASS and HTTPD #45761724104 PASS.
-- XY-C1 on `8d19ad0` #45761724207 was IN_PROGRESS at Build; TRX/artifact pending. On predecessor `19bce653`, XY-C1 #45762008543 was also IN_PROGRESS at Build; these do NOT verify subsequent production source commit `42eb80d`. Latest-source L3 is NOT VERIFIED.
-- Physical-router L4 remains NOT VERIFIED. This continuation used GitHub API operations only; local shell/Python execution was NOT RUN.
-- Keep required handoff headings: `## Current repository state`, `## Active task`, `## Verification boundary`, `## Exact first action for the next GPT`.
+- Exact `416960b79b0453e206bb585ced2671da996860d4`: DNSMasq lifecycle #45762323209 PASS (including DNSMasq config and all compiled policy steps), AI handoff docs #45762323124 PASS, Process lifecycle inventory #45762323165 PASS. USB storage #45762323098 and Process fail-closed #45762323208 remained in progress at last poll.
+- XY-C1 #45762323087 for `416960b` remained in progress before Build at last poll; Build/TRX/artifact outcomes not yet established. No L3 claim.
+- WAN resolver checker correction commit `2ad18b19ccb069746ee07f5a3a0efeef13cf2444`: exact WAN route #45762219367 PASS and AI handoff #45762219291 PASS.
+- The prior VPN resolver production slice `42eb80d` applies valid replace-current mode to both IPv4 and IPv6 WAN upstreams only when a usable VPN DNS list exists. Exact source checker was repaired in `2ad18b1`.
+- Physical-router L4 remains NOT VERIFIED. This continuation used GitHub API only; local shell/Python execution was NOT RUN.
+- Preserve required headings: `## Current repository state`, `## Active task`, `## Verification boundary`, `## Exact first action for the next GPT`.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-main-SHA Actions from this commit. SmartDNS/DNSMasq workflow must pass its shell regression (including NVRAM status 37), shell syntax and `check_smartdns_dnsmasq_config.py`. Inspect first failing step/log rather than weakening the contract.
-2. Check exact WAN route result from checker-only parent `2ad18b1`. Confirm the IPv6 replace-mode check is green. Reconcile latest-source XY-C1 Build/TRX/artifact; no L3 claim unless all three pass on the same production SHA.
-3. Continue the next distinct stability defect across Padavan userland. Avoid repeat audits of VPN selector semantics, WAN replace mode, MiniDLNA and ZeroTier. Use source → test → atomic commit → exact-SHA Actions; PENDING does not block independent work.
+1. Inspect exact-main-SHA SmartDNS/DNSMasq Actions from this commit. Confirm injected enable-write failure for selectors empty and 0, shell syntax and the source-order checker pass.
+2. Reconcile the exact `416960b` USB storage / process fail-closed runs and XY-C1 Build, TRX validation and artifact upload; no L3 unless all three pass on the same production SHA.
+3. Continue a distinct userland stability defect across Padavan. Avoid repeating SmartDNS selector fixes, VPN DNS, MiniDLNA and ZeroTier. Keep using source → test → atomic commit → exact-SHA Actions; PENDING does not block independent work.
 
 # Cross-session execution mandate
 

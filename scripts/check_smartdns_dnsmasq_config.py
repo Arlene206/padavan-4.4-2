@@ -200,6 +200,13 @@ assert adbyby_change.index("nvram set adbyby_add=1") < adbyby_change.index('host
 
 start = body(smartdns, "Start_smartdns")
 stop = body(smartdns, "Stop_smartdns")
+enable_preflight = start.index('case "$sdns_enable" in')
+enable_persist = start.index('if nvram set sdns_enable=1; then')
+daemon_probe = start.index("smartdns_process_state")
+assert enable_preflight < enable_persist < daemon_probe
+assert 'return "$smartdns_nvram_status"' in start
+assert "NVRAM_SET_STATUS=37" in test
+assert "daemon state was inspected before enable persistence" in test
 assert 'if Change_adbyby; then' in start
 assert 'smartdns_restore_previous_instance || :' in start[start.index('if Change_adbyby; then'):start.index('sdns_redirected=')]
 clean_at = start.find("smartdns_dnsmasq_remove_saved_directives")

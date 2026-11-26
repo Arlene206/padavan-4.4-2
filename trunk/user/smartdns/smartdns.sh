@@ -945,9 +945,26 @@ smartdns_start_config_rollback()
 }
 
 Start_smartdns () {
-    smartdns_previous_running=0
     # Read_ini loaded the last committed redirect mode before this start changes it.
     smartdns_previous_redirected="$sdns_redirected"
+    # Persist the enable transition before any daemon or resolver side effects.
+    case "$sdns_enable" in
+        ''|0)
+            if nvram set sdns_enable=1; then
+                sdns_enable=1
+            else
+                smartdns_nvram_status=$?
+                logger -t "SmartDNS" "Failed to persist the enable selector before startup (status=$smartdns_nvram_status)"
+                return "$smartdns_nvram_status"
+            fi
+            ;;
+        1) ;;
+        *)
+            logger -t "SmartDNS" "Invalid enable selector; refusing startup"
+            return 22
+            ;;
+    esac
+    smartdns_previous_running=0
     # Do not modify DNS, firewall or persisted state until the old daemon is
     # positively classified and, when running, confirmed stopped.
     smartdns_process_state
@@ -979,7 +996,24 @@ Start_smartdns () {
             return "$smartdns_cleanup_status"
         fi
     fi
-    [ "$sdns_enable" -eq 0 ] && nvram set sdns_enable=1 && sdns_enable=1
+    # Persist the enable transition before stopping an old daemon or
+    # changing resolver ownership. Never run with an uncommitted selector.
+    case "$sdns_enable" in
+        ''|0)
+            if nvram set sdns_enable=1; then
+                sdns_enable=1
+            else
+                smartdns_nvram_status=$?
+                logger -t "SmartDNS" "Failed to persist the enable selector before startup (status=$smartdns_nvram_status)"
+                return "$smartdns_nvram_status"
+            fi
+            ;;
+        1) ;;
+        *)
+            logger -t "SmartDNS" "Invalid enable selector; refusing startup"
+            return 22
+            ;;
+    esac
     if Change_adbyby; then
         :
     else
