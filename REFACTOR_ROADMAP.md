@@ -1,4 +1,4 @@
-## 2026-11-26 — AdGuardHome persistent working directory
+## 2026-11-25 — AdGuardHome persistent working directory
 
 - AdGuardHome v0.107.48 documents `-w` as the directory for filter data, query logs and other state. The launcher previously selected volatile `/tmp/AdGuardHome`, then deleted it after every successful stop; the already-created `/etc/storage/AdGuardHome` directory was unused.
 - Startup now creates/validates the persistent directory, enforces owner-only mode 0700 before DNS/firewall mutation and binds process identity to the exact persistent `-w` argument. Stop retains all data across ordinary restarts.
@@ -15,12 +15,12 @@
 - Firmware status must be verified on an exact source SHA; no physical-router runtime result is claimed.
 
 
-## 2026-11-26 — VPN DNS replace mode
+## 2026-11-25 — VPN DNS replace mode
 
 - Accept documented `vpnc_pdns=2` in PPTP/L2TP and OpenVPN callbacks; keep strict 0/1/2 validation.
 
 ---
-## 2026-11-26 — Validate static and DHCPv6 WAN DNS server literals
+## 2026-11-25 — Validate static and DHCPv6 WAN DNS server literals
 
 - Static `ip6_dns1..3` slots now accept only individual IPv6 literals (empty optional slots remain valid). DHCPv6 `new_domain_name_servers` is bounded and every whitespace-delimited token is validated as an IPv6 literal; control characters and malformed tokens fail before NVRAM access/publication, preserving the last-known-good value.
 - GNU89 ASan/UBSan positive and negative cases cover valid/empty lists, withdrawals, hostname/IPv4/prefix/malformed tokens, CR/LF injection and overlong values. `WAN IPv6 static DNS literal validation` #45710242187 PASS on exact source SHA `c0926c379f6f9774d4992ef550353a98a347a690`.
@@ -37,7 +37,7 @@
 
 ---
 
-## 2026-11-26 — Prevent shell injection in AdGuardHome daemon config argument
+## 2026-11-25 — Prevent shell injection in AdGuardHome daemon config argument
 
 - The background launch interpolated `ADG_CONFIG_FILE` into an `eval` string, causing the path to be reparsed as shell syntax. A path containing shell metacharacters could append commands to the root-launched service operation.
 - Replaced eval with a direct command invocation and separately quoted config argument. The adversarial regression passes a path containing spaces, semicolon, marker command and comment delimiter; it asserts exact argv preservation and no marker creation.
@@ -45,7 +45,7 @@
 
 ---
 
-## 2026-11-26 — Propagate DHCPv6 NoBinding re-establishment failures
+## 2026-11-25 — Propagate DHCPv6 NoBinding re-establishment failures
 
 - On a NoBinding Status Code during Renew/Rebind, `update_ia()` previously discarded `reestablish_ia()`'s result. That helper removes the current IA timer before preparing the replacement Request and may fail while building IA options or copying authentication data. A dropped error could leave the IA without a timer or queued Request while the client acknowledges the Reply.
 - The NoBinding path now captures the status, clears stale errno before the operation, maps errno-less failure to EIO, and returns the first IA error through the existing delayed Reply retry path. Added a GNU89 policy regression and Python source-order contract.
@@ -53,7 +53,7 @@
 
 ---
 
-## 2026-11-26 — Avoid 32-bit overflow in DHCPv6 IA default timer ratios
+## 2026-11-25 — Avoid 32-bit overflow in DHCPv6 IA default timer ratios
 
 - DHCP lifetimes are unsigned 32-bit values; `0xffffffff` is reserved for infinity, leaving very large finite lifetimes valid. `update_ia()` previously computed default T2 as `duration * 4 / 5` and adjusted T1 as `t2 * 5 / 8`. Multiplication overflowed before division and could schedule premature Renew/Rebind exchanges.
 - Added exact quotient/remainder helpers for 4/5 and 5/8, applied to default T2 and both T1 correction sites. No 64-bit division or rounded-up result is introduced.
@@ -370,7 +370,7 @@ Current implementation checkpoint (2026-11-23):
 
 - P2 — Wireless MLME runtime-state publication: `6deab04...` couples classic 5GHz/non-MII 2.4GHz power and NVRAM publication; follow-up `2d5f218...` adds a checked snapshot of `mlme_radio_wl/rt` and restores the exact prior state on failure, including an already-ON same-state request. The initial source-contract run `45129983626` failed only because assertions referenced undefined `policy` instead of loaded `notification_policy`; checker fix `c79bb0c...` made exact-head Wireless run `45130357263` PASS. XY-C1 `45130357194` skipped Build/TRX/artifact because it was a checker-only descendant; no L3 claim.
 
-- P2 — Ralink regulatory SKU: `regspec_code` now uses checked NVRAM status; missing preserves fallback, backend errors abort. GNU89 status regression/source-order contract added; exact-head CI pending.
+- P2 — Ralink regulatory SKU and country selectors: `regspec_code` uses checked NVRAM status; missing preserves fallback and backend errors abort. `gen_ralink_config()` now normalizes a missing/non-two-character WLAN `country_code` to the legacy `GB` default before region lookup and output, preventing NULL `strcasecmp()`/`strlen()` faults. GNU89/Werror/ASan/UBSan country-region regression and source contracts PASS in Wireless #45767215573 on exact SHA `0699812f6d9cf1934c9206bd3d10dc73e2a206ac`; same-SHA Process, inventory, HTTPD and AI handoff checks also PASS. XY-C1 Build/TRX/artifact and NVRAM transaction audit remain pending.
 
 - P2 — PID 1 kernel console loglevel: a failed `console_loglevel` NVRAM read previously collapsed to zero and silenced kernel console output before the remaining boot checks. The boot path now skips `klogctl` on backend errors, preserves the kernel default, and keeps the legacy missing-key and integer parsing behavior. GNU89 sanitizer regression and source contract added; exact-head validation pending.
 

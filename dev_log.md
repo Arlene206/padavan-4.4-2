@@ -1,12 +1,12 @@
-## 2026-11-26 — Make Ralink country-code fallback safe for missing NVRAM values
+## 2026-11-25 — Make Ralink country-code fallback safe for missing NVRAM values
 
 - `gen_ralink_config()` passed `nvram_wlan_get(..., "country_code")` directly to `get_country_region()`, which called `strcasecmp()` without a NULL guard. The same NVRAM pointer was later passed directly to `strlen()`. An unset WLAN country-code value could therefore crash RC during wireless configuration generation instead of using the existing GB/region-1 fallback.
 - Added a shared policy that safely returns region 1 for NULL, empty or unknown country codes, preserves case-insensitive band-specific table lookup, and normalizes missing/non-two-character country strings to the legacy `GB` output. Both band lookups and emitted CountryCode now use the safe normalization path.
-- GNU89/Werror/ASan/UBSan regression covers NULL/empty/unknown codes, null tables, zero-length tables, case-insensitive known codes, distinct 2.4/5 GHz regions, and CountryCode fallback. The wireless workflow now triggers for the policy header/test and asserts source wiring. Exact-head Wireless/Process/XY-C1 validation pending.
+- GNU89/Werror/ASan/UBSan regression covers NULL/empty/unknown codes, null tables, zero-length tables, case-insensitive known codes, distinct 2.4/5 GHz regions, and CountryCode fallback. Exact-SHA Wireless #45767215573 PASS (5/5), Process fail-closed #45767215582 PASS (96/96), Process inventory #45767215542 PASS (5/5), HTTPD #45767215454 PASS (53/53), and AI handoff #45767215521 PASS (7/7) on `0699812f6d9cf1934c9206bd3d10dc73e2a206ac`. XY-C1 #45767215486 and NVRAM audit #45767215482 remain IN_PROGRESS; Build/TRX/artifact not yet verified.
 
 ---
 
-## 2026-11-26 — Detect bare Adbyby firewall jumps during teardown
+## 2026-11-25 — Detect bare Adbyby firewall jumps during teardown
 
 - Review of the newly added residual-rule matcher found a valid rulespec it could miss: `-A PREROUTING -j ADBYBY` has no options between the source chain and `-j`, while the original regex required an extra token (and therefore two spaces around the empty match). A leftover rule like this could escape the postcondition if its chain declaration is not present in the captured output.
 - Added a dedicated zero-option jump alternative and a regression fixture that emits only the bare jump, independently of the chain declaration and ipset checks. The source checker requires this case. Also removed a duplicated, harmless fixture export line from the prior test-only commit.
@@ -14,21 +14,21 @@
 
 ---
 
-## 2026-11-26 — Export Adbyby post-state fixture controls
+## 2026-11-25 — Export Adbyby post-state fixture controls
 
 - Exact Adbyby run #45765982057 on `bd439e46fab885c84a4629088ae8e3efe27a1c49` passed shell syntax and all earlier host/download/lifecycle suites, then failed the new confirmed-absent teardown case. The executable `iptables-save` and `ipset` test wrappers did not receive the state-mode shell variables because they were not exported, so they returned their default stale fixture.
 - Exported the two fixture variables before the first call. Subsequent state-mode assignments remain exported and select absent/stale/error cases as intended. Exact rerun pending; no production-source change.
 
 ---
 
-## 2026-11-26 — Export Adbyby post-state fixture controls to executable wrappers
+## 2026-11-25 — Export Adbyby post-state fixture controls to executable wrappers
 
 - Exact Adbyby run #45765982057 on `bd439e46fab885c84a4629088ae8e3efe27a1c49` passed shell syntax and the prior download/lifecycle suites, then the first idempotent teardown case reported failure. The new state controls were assigned as shell variables but were not exported to the PATH-injected `iptables-save` and `ipset` child scripts, so they fell back to the initial stale-state fixture instead of emitting the intended confirmed-absent state.
 - Exported both fixture controls once; subsequent assignments inherit the export attribute and select the requested absent/stale/error output modes. No production code changed in this harness correction. Exact Adbyby rerun pending.
 
 ---
 
-## 2026-11-26 — Fix Adbyby firewall teardown regression harness POSIX syntax
+## 2026-11-25 — Fix Adbyby firewall teardown regression harness POSIX syntax
 
 - The first exact Adbyby run #45765657822 on `d9d2b515bbb59285130c2d1a1431a80148ea1676` passed the preceding shell syntax, host, lifecycle, process-stop and download regressions, then `firewall_snapshot.sh` stopped at line 190 with `Syntax error: Bad function name`. The fixture attempted to define an `iptables-save()` shell function, but the hyphen is not permitted in a POSIX function name.
 - Replaced command-name mocks with the existing PATH-injected `iptables-save` executable fixture and added controlled `list -name` behavior to the `ipset` executable fixture. Tests reset both fixture modes before continuing to the existing firewall setup regressions; output uses portable printf escaping. Production source is unchanged.
@@ -36,7 +36,7 @@
 
 ---
 
-## 2026-11-26 — Verify Adbyby kernel firewall/ipset teardown postconditions
+## 2026-11-25 — Verify Adbyby kernel firewall/ipset teardown postconditions
 
 - `del_rule()` previously propagated only private restore-snapshot deletion errors. It ignored every iptables/ipset mutation status and then reported success, even if the PREROUTING redirect, ADBYBY chain, filter references or managed sets remained. The daemon could be stopped while stale redirect/drop state remained active.
 - Added a postcondition reader that requires successful `iptables-save` and `ipset list -name`, rejects any remaining ADBYBY chain/jump or references to `adbyby_esc`, `adbyby_wan` or `blockip`, and preserves an earlier snapshot-cleanup failure. Individual deletes remain idempotent/best-effort; verified absence, not an expected delete exit code, determines success.
@@ -44,7 +44,7 @@
 
 ---
 
-## 2026-11-26 — Align DNSMasq ARP restart source contract with consolidated locals
+## 2026-11-25 — Align DNSMasq ARP restart source contract with consolidated locals
 
 - DNSMasq lifecycle #45765299013 on exact source `22562343c3ac2ec40b0c5a535ffa211ba9c605e9` passed the static-host snapshot replay executable, rollback/ordering checks, all preceding DHCP/resolver/lock/identity tests, then failed only in the final source-contract assertion `int arp_status;` for `restart_dhcpd_locked()`.
 - The new C function correctly declares the local in a grouped declaration `int stop_status, stop_postcondition, arp_status;`; the checker was still pinned to its earlier standalone declaration form. Updated that exact contract and left production code unchanged. Exact rerun pending.
@@ -60,42 +60,42 @@
 
 ---
 
-## 2026-11-26 — Remove duplicate XY-C1 self-trigger path
+## 2026-11-25 — Remove duplicate XY-C1 self-trigger path
 
 - XY-C1 run #45764744777 on `c39718070e34c3f0c1db9403c599cecf0ed16b63` failed before firmware-input detection: `check_samba_shared_header.py` requires exactly one workflow self-path in the push filter. The workflow already had a self-path at line 538; adding another near the WAN filter created a duplicate. The AdGuardHome package path is valid and retained; removed only the redundant self-path so the filter has exactly one trigger entry.
 - AdGuardHome exact-SHA shell/source validation and Process inventory on `190ec54ca9ca81725668fe8c8ccee59affe4f308` PASS. Workflow/Build/TRX/artifact verification for the new path-filter commit remains pending.
 
 ---
 
-## 2026-11-26 — Exercise AdGuardHome workdir owner-mismatch rejection
+## 2026-11-25 — Exercise AdGuardHome workdir owner-mismatch rejection
 
 - The persistent-workdir helper explicitly compares the storage directory owner with the launcher UID, but the first regression set covered symlink/type/chmod errors without forcing that branch. Added a deterministic owner mismatch fixture by overriding `id -u` and `stat -c %u` in a subshell; the source checker now requires the fixture.
 - This is test coverage only. Exact AdGuardHome/Process workflow rerun pending; XY-C1 firmware source verification is tracked on the workflow-trigger follow-up.
 
 ---
 
-## 2026-11-26 — Include AdGuardHome in XY-C1 firmware-validation triggers
+## 2026-11-25 — Include AdGuardHome in XY-C1 firmware-validation triggers
 
 - The launcher change affects the firmware-installed `trunk/user/adguardhome/adguardhome.sh` and the package's ROMFS payload, but the XY-C1 workflow push path filter omitted `trunk/user/adguardhome/**`; exact source commits therefore ran AdGuardHome/process tests without dispatching a firmware validation workflow.
 - Added the AdGuardHome package tree to the trigger list and added the workflow file itself so future trigger-policy edits can run the workflow. The XY-C1 input detector treats the workflow file as a fail-safe full-build input; the next exact-main SHA should therefore run cross-build, Build XY-C1, TRX verification and artifact upload. This is validation coverage, not an L3 claim until each step succeeds on that SHA.
 
 ---
 
-## 2026-11-26 — Restore the shared AdGuardHome process fixture after unsafe-workdir startup
+## 2026-11-25 — Restore the shared AdGuardHome process fixture after unsafe-workdir startup
 
 - Exact AdGuardHome run #45764496985 on `09f9ed1cab2cec5ed80659045e4ca8fb1b333471` passed shell syntax, persistent-workdir security, DNS/firewall, lock and redirect regressions, then still failed at duplicate-start. The cause was the new unsafe-workdir startup test: although wrapped in a subshell, it writes the shared state *file* to `stopped`; subshell variable isolation does not roll back file contents. The following duplicate-start test therefore observed ABSENT and attempted the real daemon executable, which is not present in the host fixture.
 - Restore the shared process-state file to RUNNING and clear the effect log after the negative-path subtest, then have the source contract enforce that reset. Production launcher behavior is unchanged; exact rerun pending.
 
 ---
 
-## 2026-11-26 — Repair AdGuardHome persistent-workdir regression fixture continuation
+## 2026-11-25 — Repair AdGuardHome persistent-workdir regression fixture continuation
 
 - Exact AdGuardHome run #45764253186 on `c2129b8af9eb50ec9cf77902ab51f28803a0380b`: launcher `sh -n` and the new persistent-directory symlink/type/mode regression passed, followed by the pre-existing DNS/firewall/lifecycle cases. The shell fixture then failed at the duplicate-start test because the process cmdline `printf` line ended in two literal backslashes, so the command-line placeholders were not passed as the intended two argv arguments and the fake process was classified as absent.
 - Corrected the line continuation to one backslash and strengthened the source checker to require the expected `-w "$ADG_WORKDIR"` argument to be quoted as one word. This is a regression-harness fix, not a production runtime change; exact AdGuardHome rerun pending.
 
 ---
 
-## 2026-11-26 — Persist AdGuardHome runtime data across service stops and reboots
+## 2026-11-25 — Persist AdGuardHome runtime data across service stops and reboots
 
 - The package pins AdGuardHome v0.107.48. Its `-w` working directory stores filter data, query logs and other state, but the launcher passed `/tmp/AdGuardHome` even though it also created `/etc/storage/AdGuardHome`. The former is volatile and was recursively deleted on every successful stop, while the persistent directory was never used.
 - The launcher now uses `/etc/storage/AdGuardHome` as its working directory, refuses symlink/non-directory targets, creates missing storage under umask 077, verifies launcher ownership and enforces mode 0700 before firewall/resolver changes. Process identity binds the exact persistent `-w` argument. Stop no longer deletes the work directory or its filter/query/session state.
@@ -104,7 +104,7 @@
 
 ---
 
-## 2026-11-26 — Reconcile FTP firewall state after storage startup even when daemon is absent
+## 2026-11-25 — Reconcile FTP firewall state after storage startup even when daemon is absent
 
 - `start_stor_apps()` previously refreshed firewall/UPnP only when a post-start probe found vsftpd running or unknown. When FTP was disabled, or startup failed and rollback left the daemon absent, the function skipped reconciliation even for absent→absent. That contradicted the existing `ftp_firewall_reconcile_needed()` policy and its tests: stale FTP NAT/UPnP rules can outlive a crashed or disabled daemon.
 - The FTP storage-start path now snapshots process presence before and after `run_ftp()` and uses the shared tri-state policy. Confirmed absence triggers stale-rule cleanup; any unknown/changed observation is conservative; running→running avoids an unnecessary firewall restart.
@@ -114,7 +114,7 @@
 
 ---
 
-## 2026-11-26 — Keep SmartDNS saved resolver-state reads behind enable persistence
+## 2026-11-25 — Keep SmartDNS saved resolver-state reads behind enable persistence
 
 - The first exact test for `f5a381bac14579aabc9ad196d5bcb82f1171880e` failed immediately in `dnsmasq_config_preservation.sh`: with `set -u`, the extracted `Start_smartdns()` evaluated `sdns_redirected` before reaching the new NVRAM preflight. Production normally initializes it via `Read_ini`, but the preflight contract should run before even this saved-state read.
 - Moved the `smartdns_previous_redirected` snapshot below the checked enable write, and gave the successful test path an explicit saved redirect value. The source checker now asserts NVRAM persist → saved-state snapshot → daemon probe ordering.
@@ -122,7 +122,7 @@
 
 ---
 
-## 2026-11-26 — Persist SmartDNS enable state before touching the running daemon
+## 2026-11-25 — Persist SmartDNS enable state before touching the running daemon
 
 - `Start_smartdns()` previously stopped the existing instance and removed its managed DNSMasq directives before attempting the `nvram set sdns_enable=1` write; the write was unchecked and silently skipped in the face of NVRAM errors. Startup could then proceed with a running daemon while persistent enable state remained disabled. An empty selector also missed the numeric `-eq 0` branch.
 - The enable transition now treats empty/0 as disabled, checks and propagates the NVRAM write before any daemon-state probe or resolver mutation, and accepts only 1 as already enabled. Failed writes return the original status with the daemon and resolver untouched.
@@ -131,7 +131,7 @@
 
 ---
 
-## 2026-11-26 — Propagate SmartDNS port-53 redirect normalization write failures
+## 2026-11-25 — Propagate SmartDNS port-53 redirect normalization write failures
 
 - `Change_dnsmasq start` previously ignored `nvram set sdns_redirect=0` when SmartDNS used port 53. It then changed only the shell-local selector and published DNSMasq's `port=0` ownership marker, even if persistent NVRAM still requested redirection. A write failure could report a successful but split-brain resolver transition.
 - The normalization now checks and logs the NVRAM status, returns before changing the in-memory selector or staging DNSMasq directives, and lets the existing startup failure path handle the error.
@@ -141,7 +141,7 @@
 
 ---
 
-## 2026-11-26 — Match VPN replace-mode checker to the IPv6 resolver guard
+## 2026-11-25 — Match VPN replace-mode checker to the IPv6 resolver guard
 
 - WAN DNS replace-mode implementation in `42eb80db8aea0cdfa1c1b258f59d107d74c07e11` correctly gates the IPv6 WAN-server block with `if (!vpn_dns_replaces_current)`, but the Python source contract still searched for the old comment `/* DNSv6 servers */`. Exact WAN runs #45762008586 and #45762094181 stopped at that obsolete marker; GNU89 tests preceding the checker passed.
 - Updated the contract to locate the actual `wan_dns6_snapshot` consumer and require the enclosing replace-mode guard before iterating WAN DNSv6 values. The change is checker-only; no product behavior changed. Exact WAN rerun for THIS SHA pending.
@@ -149,7 +149,7 @@
 
 ---
 
-## 2026-11-26 — Reject unsupported VPN DNS modes before resolver publication
+## 2026-11-25 — Reject unsupported VPN DNS modes before resolver publication
 
 - `update_resolvconf()` transactionally reads `vpnc_pdns` with `vpnc_dns_t`, but previously parsed only a decimal integer and then interpreted any positive value as add/replace; values outside the documented 0/1/2 domain could publish an unintended resolver file even though the VPN callbacks rejected them.
 - Added a strict WAN resolver selector check immediately after the transaction and before `dnsmasq_file_open()`. Negative or greater-than-2 modes now return `EINVAL`, unlock the resolver mutex, and preserve the last-known-good resolver. Missing/empty keys retain the legacy disabled mode 0.
@@ -158,7 +158,7 @@
 
 ---
 
-## 2026-11-26 — Complete MiniDLNA daemon identity source contracts and restore live handoff headings
+## 2026-11-25 — Complete MiniDLNA daemon identity source contracts and restore live handoff headings
 
 - MiniDLNA source SHA `15f6a0f3eca5c0a157e3bc95edbb09156bc503cd` uses the actual `minidlnad` executable identity for process presence, readiness and rollback. The first storage CI run exposed stale assertions in the workflow caller graph; subsequent contracts were aligned across `.github/workflows/storage-hotplug-stability.yml`, `scripts/check_process_lifecycle_integration.py` and `scripts/check_storage_safe_remove.py`.
 - Contract commits: `c8654e1c` readiness selector, `2707f582` process integration rollback identity, `87019bfe` workflow rollback tuple, and `0093302e` safe-remove checker tuples. Exact USB storage hotplug #45761156152 on `0093302e` PASS. The companion XY-C1 #45761156133 was host-only: Build/TRX/artifact skipped, so not L3.
@@ -167,7 +167,7 @@
 
 ---
 
-## 2026-11-26 — Align the storage workflow rollback contract with MiniDLNA's executable name
+## 2026-11-25 — Align the storage workflow rollback contract with MiniDLNA's executable name
 
 - Exact source SHA `15f6a0f3eca5c0a157e3bc95edbb09156bc503cd`: USB storage hotplug run #45760541309 passed its GNU89 sanitizer binaries and earlier shell regressions, then failed in the final whole-storage caller-graph Python contract. The inline checker still expected `minidlna` in the run_dms rollback tuple after the daemon executable, readiness check and rollback were corrected to `minidlnad`.
 - Follow-up #c8654e1c corrected the readiness selector, and #2707f582 strengthened the process integration contract for rollback identity. This commit updates the remaining rollback tuple in the storage workflow to `minidlnad`; the unrelated FTP generic daemon policy fixture intentionally retains its test identifier.
@@ -175,7 +175,7 @@
 
 ---
 
-## 2026-11-26 — Match MiniDLNA lifecycle checks to the installed daemon name
+## 2026-11-25 — Match MiniDLNA lifecycle checks to the installed daemon name
 
 - `is_dms_run()`, readiness polling and failed-start rollback previously used process name `minidlna`, although the package starts `/usr/bin/minidlnad`. That mismatch could report a running server as absent and compromise readiness/rollback accounting.
 - Updated the storage service to use `minidlnad` consistently. The process-integration contract now checks presence, wait and rollback against the executable identity.
@@ -183,14 +183,14 @@
 
 ---
 
-## 2026-11-26 — Accept semicolon-free POSIX shell returns in the ZeroTier status contract
+## 2026-11-25 — Accept semicolon-free POSIX shell returns in the ZeroTier status contract
 
 - Exact main SHA `1d709141849db219dc2bb237ad2d8a82d452c4e7`: WAN route #45760204592 and ZeroTier lifecycle #45760204650 failed only in the shared source checker, which required the optional semicolon in `return 1;`. The production preflight guards already returned nonzero before signalling the daemon and their shell regression passed.
 - Commit `6f6d0fdd2adb616ea90db9a04ec1eff6841eebb2` relaxed the checker to recognize the shell return token. Exact push runs WAN route #45760752161 and ZeroTier #45760752209 both completed SUCCESS on that exact SHA.
 
 ---
 
-## 2026-11-26 — Reject truncated procfs lifecycle records and run the shell regression in CI
+## 2026-11-25 — Reject truncated procfs lifecycle records and run the shell regression in CI
 
 - The shared process lifecycle fallback previously accepted a newline-terminated but truncated `/proc/PID/stat` observation after checking only PID and task state. It now splits the fields with globbing disabled, restores the caller's IFS/glob mode, requires state through field 22 (20 tokens after the comm) and validates the start-time token as unsigned decimal. Invalid or short records remain UNKNOWN rather than being treated as confirmed RUNNING/ABSENT.
 - Added regressions for a short stat record and a non-decimal start time; valid, stale-PID, invalid-state and zombie fixtures now carry the complete stat field set. Source/test commit: `b6ee8a43cec0af29084206b5d65719ab4527f776`.
@@ -266,7 +266,7 @@
 
 ---
 
-## 2026-11-26 — Align remaining PPP lifecycle source contracts with post-stop fencing
+## 2026-11-25 — Align remaining PPP lifecycle source contracts with post-stop fencing
 
 - Exact source SHA `6c0ea137` passed the WAN DHCP callback and other independent lifecycle checks, but VPN server, Process inventory and HTTPD umbrella checks still encoded the former rule that invalidation preceded `kill_services()`. The VPN checker also required generation advancement before the multi-WAN PPP stop.
 - Updated those contracts to require: VPN stop → PPP daemon stop → checked failure/abort branch → callback-generation invalidation; launch generation now follows the successful multi-WAN stop and remains before helper/config publication. The same order is enforced in the VPN, Process, HTTPD and WAN-focused checkers.
@@ -274,7 +274,7 @@
 
 ---
 
-## 2026-11-26 — Correct post-stop PPP callback fencing source contracts
+## 2026-11-25 — Correct post-stop PPP callback fencing source contracts
 
 - Exact SHA `6c0ea137a5e94ab7bbd09c542498c5de52a43bf0`: WAN teardown workflow completed its GNU89 regression binaries but the inline Python contract raised `NameError` because deferred-reconnect marker variables were defined below their first use; its older full-WAN assertion also still demanded the previous pre-kill invalidation order.
 - WAN route workflow passed its PPP option policy binaries and failed only because the checker compared the interior `kill_services(...)` token offset against the enclosing `if (...)` offset, which necessarily precedes it. The contract now compares the stop gate and failure return directly.
@@ -485,7 +485,7 @@
 
 ---
 
-## 2026-11-26 — Accept the documented VPN DNS replace policy
+## 2026-11-25 — Accept the documented VPN DNS replace policy
 
 - The VPN UI exposes `vpnc_pdns=0/1/2` (disabled / add VPN DNS to current list / replace current list). `update_resolvconf()` already preserves this distinction: mode 2 omits WAN DNS fallbacks.
 - Both PPTP/L2TP `ipup_vpnc_main()` and OpenVPN `on_client_ifup()` incorrectly used `vpn_client_nvram_read_bool_status()`. Valid mode 2 was rejected as `EINVAL`, preventing the VPN DNS snapshot from being published and leaving stale resolver state.
@@ -493,7 +493,7 @@
 
 ---
 
-## 2026-11-26 — Align DHCP relay XID source contract with client destination
+## 2026-11-25 — Align DHCP relay XID source contract with client destination
 
 - Exact `6bfef12` XID workflow #45728716637 failed at `check_udhcp_relay_xid_policy.py`: its integration assertion still required `sendto(..., &item->ip)`, but `pass_to_client()` now constructs a protocol-derived `client_dest` and sends to `&client_dest`. The standalone GNU89 ASan/UBSan XID executable passed.
 - Updated the checker to require `client_dest` initialization, client port 68, policy-based address selection and `sendto(..., &client_dest)`. Removed the obsolete BOOTP broadcast TODO and in-place mutation of the saved source sockaddr, preserving the captured source tuple for fallback/retry. Exact-head rerun pending.
@@ -501,7 +501,7 @@
 ---
 
 
-## 2026-11-26 — WAN IPv6 validation, udhcpc listener recovery and monotonic DHCPv6 IA timers
+## 2026-11-25 — WAN IPv6 validation, udhcpc listener recovery and monotonic DHCPv6 IA timers
 
 - `89c92c9` rejects unspecified, loopback and multicast IPv6 interface/next-hop literals and adds a GNU89 address-policy regression. `0622ba5` rejects unspecified and multicast static/DHCPv6 DNS server addresses; `c64608d` aligns the Python source contract with the retained positive `inet_pton()==1` guard. WAN IPv6 DNS exact run #45752311446 PASS on `c64608d`.
 - `661e5d0` repairs udhcpc after transient active-listener socket creation failure: the event loop retries the selected raw/UDP listener, limits retry waits to three seconds, and accounts elapsed monotonic time against the existing lease deadline. `f47045a` and `9b0b19e` correct two source-checker assertions without changing production behavior. Exact BusyBox udhcpc workflow #45752972196 PASS on `9b0b19e`; its earlier checker-only failures are superseded.
@@ -517,12 +517,12 @@
 - Repaired the route-status workflow and its source checker after the internal callback signature changed.
 - Main source tree checkpoint: `cc5cde0fcbbb68e62e2a5ad225f9695c9195b3f2`; backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 - Actions state at checkpoint:
-- WAN route operation status regression #45756989235 on `cc5cde0fcbbb`: **completed/failure** (2026-11-26T04:43:58Z).
-- XY-C1 Firmware Validation #45756858864 on `8caddb355060`: **in_progress** (2026-11-26T04:42:06Z).
-- WAN DHCP callback state stability regression #45756858682 on `8caddb355060`: **completed/success** (2026-11-26T04:42:32Z).
-- NVRAM transaction boundary audit #45756858789 on `8caddb355060`: **completed/success** (2026-11-26T04:44:31Z).
-- WAN interface teardown stability regression #45756858770 on `8caddb355060`: **completed/success** (2026-11-26T04:42:27Z).
-- AI handoff documentation contract #45756858736 on `8caddb355060`: **completed/success** (2026-11-26T04:42:24Z).
+- WAN route operation status regression #45756989235 on `cc5cde0fcbbb`: **completed/failure** (2026-11-25T04:43:58Z).
+- XY-C1 Firmware Validation #45756858864 on `8caddb355060`: **in_progress** (2026-11-25T04:42:06Z).
+- WAN DHCP callback state stability regression #45756858682 on `8caddb355060`: **completed/success** (2026-11-25T04:42:32Z).
+- NVRAM transaction boundary audit #45756858789 on `8caddb355060`: **completed/success** (2026-11-25T04:44:31Z).
+- WAN interface teardown stability regression #45756858770 on `8caddb355060`: **completed/success** (2026-11-25T04:42:27Z).
+- AI handoff documentation contract #45756858736 on `8caddb355060`: **completed/success** (2026-11-25T04:42:24Z).
 - Firmware success is unconfirmed until Build XY-C1, TRX validation and artifact upload all pass for one exact SHA. Physical router runtime remains unverified.
 
 ## 2026-11-25 — SmartDNS rollback status propagation
