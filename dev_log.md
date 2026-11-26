@@ -1,3 +1,20 @@
+## 2026-11-26 — Keep DNSMasq rollback generation until daemon readiness is confirmed
+
+- Confirmed a transaction-boundary defect in `start_dns_dhcpd_locked()` and `restart_dhcpd_locked()`: static-host output rollback snapshots were committed before the detached dnsmasq daemon passed its RUNNING postcondition. Successful staging/ARP apply did not prove the child remained alive; early commit could discard the only recovery state for an unready generation.
+- Production fix `f7b61ba09b9750b3e85c3884b6101a511a12c6e1` keeps the static-host file and ARP snapshots through launch and `dnsmasq_confirm_started()`. Failure invokes a shared rollback helper: it stops/rechecks the candidate; prior files/ARP are restored only on a complete ABSENT process snapshot. RUNNING/UNKNOWN preserves the matched generation and private rollback links. The original launch/postcondition error remains authoritative.
+- Checker repairs: `f6de10e6...` updated compacted helper-call matching; `9166a3d4...` corrected helper and success-commit ordering; `3147c02...` corrected inline workflow assertions to require rollback before success commit. DNSMasq #45814219448 PASS and AI handoff #45814219362 PASS on `3147c02f2bddba93a6034e529c5d8935b2768a05`. Current main later received comment-only manual-recovery logging clarification `992bdf6...`; its exact DNSMasq #45814745710 and XY-C1 #45814745724 were pending at this checkpoint.
+- Same product-source SHA `f7b61ba...`: NVRAM #45813611887, WAN DHCP #45813611721, Process inventory #45813611693, miniupnpd #45813611534, WAN route #45813611530, Process #45813611502, HTTPD #45813611375, Samba #45813611309 and Inadyn #45813611245 PASS. No L3 claim; hardware L4 NOT VERIFIED.
+
+---
+
+## 2026-11-26 — Stop QMI WDS using the persisted session client ID
+
+- QMI teardown without an explicit client ID may allocate/use a fresh WDS CID, which does not identify the persistent packet-data session established under the saved CID. Treating that command as success could discard the only marker for the still-active session.
+- Production fix `4bfccc2e7c46df3495544ae0bb46f473775352f0` reads the persisted WDS CID and PDH marker, rejects unreadable/corrupt/inconsistent state before side effects, and supplies `--set-client-id wds,<saved-CID>` before `--stop-network`. After stop it checks PDH marker removal, releases that exact CID, then removes the CID marker. Each failure preserves recoverable state.
+- Follow-up checker/workflow fixes culminated in `bdc8992f6e9a7a6884422c9af3c88177abc700c5`; exact USB modem #45813115174 PASS and AI handoff #45813115104 PASS. Host/CI L2 only; live modem hardware and WAN tests remain unverified.
+
+---
+
 ## 2026-11-26 — Require truncated process comm prefix to agree with argv1 fallback
 
 - Found a false positive in `proc_read_identity()`: for any process with a truncated `/proc/PID/stat` comm, an unrelated executable could be counted as a target service solely because its second argument (`argv1`) matched the requested process name. For example, a long-named worker invoked as `worker dnsmasq` could make a dnsmasq absence check report RUNNING.

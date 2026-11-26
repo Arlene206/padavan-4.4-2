@@ -2,134 +2,55 @@
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; development on `main` only.
-- Current main before this process-inventory source slice: `4f688607c0ef60f829be7454c9c6ca891c9bf77f`. It includes ZeroTier Moon preflight/checker correction (`15bced4...`, `08c299c...`), the Samba transaction durability/recovery series through `bc8dbc2...`, and an optional IAPP event-log compile check.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify/delete. PR #1 remains closed/unmerged.
-- Bootstrap/protocol recovery was completed earlier; do not repeat it.
-- Samba paired-transaction durability/recovery currently passes its exact-head checker run #45808876845 and the log-assertion follow-up #45808876845 on SHA `bc8dbc2...`; current main has since advanced with an optional IAPP compile-check change.
-- Exact SHA `6fd35a9b57fc6aa85b95c52c62a1961a6c1ac373`: VPN lifecycle #45805581756 PASS and AI handoff #45805581869 PASS after normalizing VPN marker ownership source-order checks.
-- Exact SHA `08c299c26d9b6b072da39ba5b0118b45a84f2cea`: ZeroTier lifecycle #45807757448 PASS and AI handoff #45807757260 PASS. XY-C1 #45807553943 passed on earlier production source SHA `15bced4fa9c4b24b461ee663f062a49207f036ba`; the earlier VPN production SHA `f96dce30881937a686e6bc7e9407a41d47f27c2e` also passed Build/TRX/artifact #45805039346. Neither product run validates later Samba/Process production changes.
+- Repository: `Arlene206/padavan-4.4-2`; develop on `main` only.
+- Parent `main` at this checkpoint: `992bdf6da9ba45f217c88bdf42afea69932b45e7`. This parent is a one-line comment-only follow-up clarifying that retained DNSMasq rollback links are logged for manual recovery.
+- Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify or delete. PR #1 remains closed/unmerged.
+- Bootstrap/protocol recovery has already been completed; do not repeat. Read this handoff and continue from the exact first action below.
+- Parent exact-head DNSMasq lifecycle #45814219448 PASS and AI handoff docs #45814219362 PASS on `3147c02f2bddba93a6034e529c5d8935b2768a05`. Parent `992bdf6` triggered a new exact-head batch; at handoff #45814745710 DNSMasq and #45814745724 XY-C1 were both IN PROGRESS.
 
 ## Active task
 
-- Completed parser-safety slices: the DHCPv6 outer parser rejects duplicate CLIENTID, SERVERID, RELAY_MSG and INTERFACE_ID vbuf options before allocation; malformed-option cleanup frees the first owned buffers. Reconfigure Accept (option 20) is rejected when its payload is nonzero. Policy tests and source contracts cover both changes.
-- The graceful DHCPv6 shutdown now waits for both IA cleanup retries and outstanding `DHCP6S_RELEASE` transactions.
-- Exact SHA `cfa384c7fe1ba6fdd87ca478a920012880d835c6`: DHCPv6 IA #45799187926 PASS and AI handoff #45799187883 PASS for the bounded NoBinding watchdog. Follow-up parent `cd3d1a6ec469937f3488d073bf11c445c0aa4414` (initial Request construction-failure retry) passed DHCPv6 IA #45799579046, AI handoff #45799579038, WAN DHCP callback #45799579064, process inventory #45799579239, NVRAM #45799579136 and USB #45799579137. XY-C1 #45799579141 remained in progress; no L3/L4 claim. Exact-SHA DHCPv6 IA run #45791657631 on `fb01f7a` PASSed all six GNU89/ASan/UBSan policy binaries and the full source checker after normalizing the wrapped two-argument exit gate. This prevents shutdown from discarding Release exchanges deliberately preserved by `free_resources(0)`.
-- Current P1 parser slice: `D6_OPT_NTP_SERVER` (option 56) was incorrectly grouped with flat arrays of IPv6 addresses, although RFC 5908 defines it as a container of 4-byte suboption headers. The parser now validates each nested header/payload, handles address/FQDN forms, requires exactly one suboption, counts unknown future registry values as that source while skipping their data, and keeps RFC 4075 `D6_OPT_SNTP_SERVERS` as the separate flat-address option. Tests cover truncated headers, length overruns, payload lengths, duplicate source suboptions, and the RFC 5908 requirement that address suboption 1 be unicast while suboption 2 be multicast. Production/test change is commit `74a0dbcc`; the six C policy binaries passed. Checker fixes: stale test-output banner corrected in `5ed671f`; bounded option-case assertion corrected in `c713dbc`. The exact-SHA C regression and complete Python source contract passed in DHCPv6 IA run #45792959729 on `c713dbc`.
-- Confirmed P1 SIGHUP reload lifetime hazard: `free_resources(0)` may leave an IA and retry timer alive after downstream-prefix deletion fails, but the old signal path immediately called `client6_startall(1)` → `read_config6()` → `clear_ifconf(0)` → `clear_iaconf()`, freeing objects still referenced by the retry callback. Reload is now deferred until IA queues and RELEASE events drain; new client starts are blocked, SIGTERM cancels pending restart without duplicate Release events, and `read_config6()` rejects unsafe reload with `EBUSY` before destructive cleanup.
-- Added GNU89 regression cases and Python source-contract assertions for IA/event drain, config lifetime guard, signal order and the missing config-header PR filter.
-- Confirmed P1 NVRAM flash lost-update race: `nvram_commit()` captured a complete image under `nvram_lock` before acquiring `nvram_sem`; an older commit could wait behind a newer one and then overwrite flash with its stale snapshot. This slice moves `nvram_sem` ahead of snapshot generation and pins lock/snapshot/read/write order in the source checker.
-- Added a deterministic pthread regression showing the stale-snapshot interleaving and the corrected serialized result.
-- Fixed the NoBinding retry-watchdog gap: Request has finite MRC=10, so IAS_REQUEST now carries a four-minute watchdog beyond its retransmission window; duplicate NoBinding is ignored while that Request is active, and the watchdog is deferred while a replayed multi-IA Reply is still being locally applied. Follow-up review found that initial Request construction failure could still return before the watchdog was armed. The correction now switches to IAS_REQUEST before preparation, reuses/creates the IA timer, and schedules a 5-second setup retry on failure or the four-minute watchdog on success.
-- Found a DHCPv6 IA recovery hole: `ia_timo()` deleted the IA timer at T2 before allocating the Rebind event payload/auth state. A recoverable allocation failure discarded the event and left no retry owner. The fix retains the T2 timer until Renew setup succeeds, retries failed Rebind setup after 5 seconds, removes the timer only after a Rebind event is ready, and cancels any timer on invalid IA state.
-- Rotated to the VPN shared-transport lifecycle and found a marker ownership hole: `launch_wan_pppd_locked()` sets `l2tp_wan_t=1` before calling `safe_start_xl2tpd_locked()`, but its common launch-failure path invalidates callback generation and returns without clearing the pre-published marker. Later VPN server stop/restart may therefore treat an unstarted WAN transport as active and make incorrect shared-daemon stop/restore decisions. The fix tracks successful marker publication and clears it on launch failure while preserving the original launch error.
-- Follow-on shared-transport review found the symmetric VPN-client marker leak: `safe_start_xl2tpd_locked()` could publish `l2tp_cli_t=1`, fail to launch the daemon, and return without rollback. The direct VPN-client caller repaired its own path, but WAN PPP and VPN-server callers did not. The current fix tracks local marker publication and clears it on a failed daemon completion while preserving the primary errno. Exact-head run #45801858401 then exposed a test harness compile issue: its new helper used the `CHECK` macro's integer return inside a `void` function. This test-only correction makes the helper return `int` and checks the result from `main`; rerun exact-head VPN and AI workflows.
-- Shared xl2tpd config publication was still a remaining privileged-writer exception: `safe_start_xl2tpd_locked()` opened `/etc/xl2tpd.conf` with truncating `fopen("w")`, ignored each `fprintf` result, then unlinked the live configuration after flush/close/chmod errors. The current slice moves the writer to the repository's existing no-follow atomic publisher, keeps all checked NVRAM/process/pool preflights before publication, and binds all three LNS/LAC sections to the callback in the VPN checker. Exact-head VPN/AI Actions pending.
-- Exact SHA `1d33cb41aca31eab3d58621a243272dc9cbd0000`: VPN lifecycle #45803175004 passed all preceding C policy/atomic-config binaries and failed only on stale pool-address source assertions; WAN route #45803174983 passed preceding regressions and failed because `check_ppp_wan_options.py` still required the removed truncating `fopen` anchor; HTTPD #45803174928 passed preceding security checks and failed with `ValueError: substring not found` on the same removed `fopen` anchor in its inline PPP contract. AI #45803174976, NVRAM #45803174921, WAN DHCP #45803174892, Process inventory #45803174833 and Process lifecycle #45803174834 PASS. The VPN checker correction is now on main as `aa1bd8367768ab66f62a22834861d05df41af0e6`.
-- Exact SHA `aa1bd8367768ab66f62a22834861d05df41af0e6`: VPN lifecycle #45803534463 PASS and AI handoff #45803534499 PASS after binding VPN pool-address assertions to the atomic writer. Exact SHA `ce917d69b0436033f4c8c83384dcd0a9b61deb5c`: WAN route #45804117385 PASS, HTTPD security #45804117258 PASS and AI handoff #45804117195 PASS after rebinding their stale `fopen`/direct-writer expectations to atomic publication. The current production fix preserves an already-active `l2tp_cli_t` dependency marker instead of claiming rollback ownership of a marker it did not create.
-- Exact SHA `f96dce30881937a686e6bc7e9407a41d47f27c2e`: all compiled VPN policy regressions passed, including the new marker-ownership cases, but VPN lifecycle #45805039088 failed in the final Python source contract because the parse call is split across lines while the checker expected a single contiguous expression. This is a checker-only failure; the next commit makes the parse matcher whitespace-tolerant. HTTPD #45805038950, WAN route #45805039104, AI handoff #45805039195, WAN DHCP #45805039154 and Process inventory #45805038990 PASS. Process fail-closed #45805039322, NVRAM #45805039114 and XY-C1 #45805039346 were still in progress at last poll.
-- Adjacent WAN6 fixes already on main: empty caller-interface teardown guard; SIT owner-record IFNAMSIZ bound; strict SIT gateway literal validation; strict DHCP 6rd relay literal validation; static and DHCPv6 DNS literal validation; first-error aggregation during delegated-prefix cleanup.
+### DNSMasq failed-start rollback — source fixed; latest exact-head rerun pending
 
-## 2026-11-26 implementation continuation — DHCPv6 cleanup shutdown
+- Production source `f7b61ba09b9750b3e85c3884b6101a511a12c6e1`: start/restart no longer discard static-host file rollback snapshots before the detached dnsmasq daemon passes its RUNNING postcondition. Snapshot commit occurs only after `dnsmasq_confirm_started()` succeeds.
+- On launch failure, the helper stops/rechecks the candidate daemon. Prior generated files and ARP are restored only after process inventory confirms ABSENT; RUNNING or UNKNOWN retains the current matched config/ARP generation and private rollback links. The original startup/postcondition error remains authoritative; rollback errors are logged separately.
+- `992bdf6da9ba45f217c88bdf42afea69932b45e7` only clarifies the retained-link manual-recovery log comment; it does not change rollback behavior.
+- Checker/workflow assertion follow-ups: `f6de10e6...` updated the failed-start helper call signature; `9166a3d4...` corrected compacted argument matching and stop-vs-launch ordering; `3147c02...` changed inline workflow assertions to require failed-start rollback before success commit.
+- Exact DNSMasq run #45814219448 PASS on `3147c02...`. Current-head #45814745710 was IN PROGRESS at handoff; recheck exact SHA `992bdf6...` before concluding.
 
-- New confirmed P1 defect fixed in the next commit (parent `f55521e7bc74691d18d4a6f62a6f9e326730b970`): on SIGTERM/SIGQUIT, `dhcp6c` previously called forced `check_exit(1)`; `free_resources(1)` discarded the 5-second retry timers that `remove_iaprefix()` schedules after a delegated downstream-address deletion fails. The WAN caller also used a 3-second stop with SIGKILL escalation, so a transient kernel delete error could strand a delegated prefix without a retry owner.
-- The client now enters a shutdown-drain state, runs `free_resources(0)`, keeps the event loop alive until every configured IA queue is empty, checks readiness after timer callbacks and received packets, and suppresses new Solicit/Information-Request events (including the `client6_start()` triggered after successful cleanup). SIGHUP cannot restart a client already shutting down.
-- Normal and failed-start stop paths use a 16-second non-forced wait. Persistent cleanup errors therefore cause a fail-closed timeout instead of SIGKILL; normal stop does not advance callback generation on timeout.
-- Added policy cases and Python source assertions for queue drain, shutdown/restart ordering and non-forced stop; DHCPv6 IA workflow filters include `dhcp6c_config.h`. Exact-SHA run #45789833785 compiled and passed all six GNU89/ASan/UBSan C regressions; its Python checker first exposed a checker-only variable-order issue, corrected in #8d2bf19. The same `a0fa423` WAN DHCP workflow then exposed two inline source-contract assertions still expecting the former 3-second forced stop. This commit aligns those assertions with the intentional 16-second non-forced behavior; rerun exact-SHA WAN/IA checks before claiming PASS. The #8d2bf19 rerun then caught one remaining legacy `3, 1` expectation in the IA checker’s existing callback-generation fencing assertion; this commit updates that final assertion to `16, 0`.
-- Exact parent `9ac2adf871a85e91a2a05518e47aba18c99df9be`: DHCPv6 IA #45788196340 PASS; WAN DHCP #45788196312 PASS; AI #45788196513 PASS; process inventory #45788196355 PASS; XY-C1 #45788196523 was still building; NVRAM #45788196283 and USB storage #45788196181 were cancelled.
-- Intermediate parent `f55521e7bc74691d18d4a6f62a6f9e326730b970`: DHCPv6 IA #45788409998 PASS; DHCPv6 script retry #45788410243 PASS; HTTPD #45788410121 PASS; AI #45788410109 PASS; Process #45788410216 PASS; NVRAM #45788410050 PASS; USB storage #45788410075 PASS. XY-C1 #45788410074 is still in progress with Build XY-C1 running; TRX and artifact steps are pending.
-- These results are parent-SHA facts only. Hardware remains untested; exact-SHA CI must validate the shutdown commit.
+### QMI WDS client/session identity — source fixed, exact USB regression PASS
 
-## 2026-11-26 validation update — shutdown drain source contract PASS
+- Production change `4bfccc2e7c46df3495544ae0bb46f473775352f0`: stop reads the persisted WDS CID and PDH marker, fails closed on invalid/unreadable/inconsistent markers, and passes `--set-client-id wds,<saved-CID>` before `--stop-network`. It never lets uqmi silently allocate a fresh CID for stop.
+- After confirmed stop, PDH marker removal is checked; only then is the same CID released; only after release is the CID marker removed. Failure preserves the relevant marker for retry.
+- Follow-up checker/workflow repairs culminated in `bdc8992f6e9a7a6884422c9af3c88177abc700c5`; exact USB modem #45813115174 PASS and AI handoff #45813115104 PASS. These are host/CI L2 results, not live modem hardware verification.
 
-- Exact SHA `78205c10fb71cfb962917e65261fa499c0548573`: DHCPv6 IA workflow #45790398561 PASS. The GNU89/`-Werror`/ASan/UBSan compile-and-run step and the complete `scripts/check_dhcp6c_ia_publication.py` source contract both passed. AI handoff workflow #45790398455 PASS.
-- Exact SHA `48bec7b6ac28ea93394467d6814023884eadfa1c`: WAN DHCP callback workflow #45790261953 PASS after inline stop-order checks were updated for the 16-second non-forced shutdown contract.
-- Product firmware source SHA `a0fa423d528aee7d36bf06f79b0a28dc1c736fa5`: XY-C1 run #45789833788 remains in progress at `Build XY-C1`; TRX verification and artifact upload are pending. Later commits adjusted only checker/workflow/handoff material, not product firmware source. L3 is not yet verified.
-- Hardware L4 remains NOT VERIFIED.
+### Other exact results for DNSMasq production source SHA `f7b61ba...`
 
-## 2026-11-26 validation update — RFC 5908 NTP parser checker correction
-
-- Exact SHA `74a0dbccda2028b87f4fe7cd57dd0513608f8f39`: DHCPv6 IA run #45792454948 FAILED only in the Python source checker. All six GNU89/`-Werror`/ASan/UBSan C policy binaries passed, including the new NTP bounds/suboption policy test. The checker expected the previous output string `DHCPv6 option and UDP datagram bounds policy: PASS`; the test correctly prints `DHCPv6 option bounds and NTP suboption policy: PASS`. The expected string is updated in this commit.
-- Same SHA AI handoff #45792454964 PASS, DHCPv6 script retry #45792455152 PASS, Process inventory #45792454913 PASS. HTTPD #45792454943, NVRAM #45792454938 and USB #45792455009 were still running at last poll.
-- XY-C1 #45792454987 on exact product-source SHA `74a0dbcc` was still in progress; Build/TRX/artifact conclusions were not yet available. L3 is not verified; hardware L4 NOT VERIFIED.
-
-## 2026-11-26 validation update — NTP parser source checker PASS
-
-- Exact SHA `c713dbc59c566254f736d21ff1e8b06de6f2ab43`: DHCPv6 IA #45792959729 PASS. All six GNU89/`-Werror`/ASan/UBSan policy binaries and the complete Python parser/source checker passed after the checker was scoped to the full NTP option case and normalized whitespace. AI handoff #45792959822 PASS.
-- The NTP decoder from `74a0dbcc` is therefore regression-verified on that source baseline. This follow-up adds RFC 5908 unicast/multicast address-class checks and must receive its own exact-SHA Actions result.
-- XY-C1 #45792454987 on product-source SHA `74a0dbcc` was still in progress at the last poll; Build/TRX/artifact result not verified. Hardware L4 NOT VERIFIED.
-
-## 2026-11-26 validation update — NTP address-class hardening PASS
-
-- Exact SHA `734e9a86960d5f9158904a3e73280fbbae3b3842`: DHCPv6 IA #45793204920 PASS (all six GNU89/`-Werror`/ASan/UBSan policy binaries and full source checker), DHCPv6 script retry #45793204973 PASS, AI #45793204728 PASS, HTTPD #45793204829 PASS, Process #45793204808 PASS, USB #45793204756 PASS, NVRAM #45793204909 PASS.
-- XY-C1 #45793204934 remained in progress at the last poll; same-SHA Build/TRX/artifact result not yet available. L3 not verified; hardware L4 NOT VERIFIED.
-
-## 2026-11-26 — DHCPv6 SIGHUP reload lifetime fencing
-
-- Confirmed P1 lifetime defect: SIGHUP previously called `free_resources(0)` and immediately reloaded configuration. If delegated-prefix cleanup failed, `remove_ia()` retained the IA and retry timer in `iac->iadata`, but `read_config6()` then called `clear_ifconf(0)`/`clear_iaconf()` and freed IA/config/PIF objects still referenced by the timer callback.
-- SIGHUP now records `restart_pending`, suppresses new client exchanges, and waits for both old IA cleanup and outstanding `DHCP6S_RELEASE` transactions to drain before reloading. SIGTERM cancels a pending restart without queuing duplicate Release events. `read_config6()` independently rejects unsafe reload with `EBUSY` before cleanup if any IA remains.
-- Added GNU89 policy coverage and Python source-contract checks; corrected the DHCPv6 IA pull-request path filter to include the changed `dhcp6c_config.h`. Local compile/test not run without checkout; exact-SHA Actions are the validation gate.
-- Parent main: `6dbcf822bed1213baabef7639aa3f1ae68288f3f`; resulting commit: THIS COMMIT.
-
-## 2026-11-26 — Serialize NVRAM snapshot generation with flash commits
-
-- Found a persistence lost-update race in `nvram_commit()`: it generated `bufw` under `nvram_lock` before taking `nvram_sem`. Concurrent commits could snapshot revisions A and B, write B first, and then let older A overwrite the newer flash image.
-- Move `mutex_lock(&nvram_sem)` before snapshot generation and retain it through MTD compare/write. Generation failure now releases the mutex before buffer cleanup.
-- Added a deterministic pthread regression modeling both the broken lock-after-snapshot interleaving and the fixed lock-before-snapshot ordering, plus source-contract assertions for mutex/snapshot/read/write/unlock order.
-- Parent main: `d5ef589529bf19971f996265cffb92b9906c5635`; resulting commit: THIS COMMIT.
-
-## 2026-11-26 — Tighten NVRAM commit-order checker
-
-- Follow-up static review of the new commit-order assertion found its regex was double-escaped and would not match the actual mutex-unlock tokens. Replaced the regex with a literal-token scan so the checker counts both error-path and normal-path unlocks exactly.
-- This is a checker-only correction; the production lock-order fix and pthread interleaving regression remain unchanged.
-- Parent main: `02c27d988c9c3cdb7be180bb468da6a465633990`; resulting commit: THIS COMMIT.
-
-## 2026-11-26 implementation continuation — DHCPv6 timer callback iterator safety
-
-- Confirmed P1 use-after-free: `dhcp6_timer_check()` captured `tm_next` before running an expiry callback. A successful delegated-prefix retry can call `remove_ia()` → `pref_cleanup()` and delete timers belonging to sibling prefixes, invalidating that saved pointer.
-- Timer traversal now stamps visited timers with a per-pass generation and records timer-list mutations. It restarts from the current list head after any callback that frees a timer or changes the list, defers newly inserted timers until the next sweep, handles generation wrap, and recomputes the expiry sentinel after callbacks.
-- Added a standalone GNU89/ASan/UBSan regression that actually frees the saved-next node during callback, plus a semantic source checker and both push/pull_request workflow path filters. Local host regression compile/run PASS; exact-SHA GitHub Actions pending at commit creation. No L3/L4 claim.
-- Exact SHA `a856ba60a4695276b5c484f7e8388fdaeaf1ced0`: DHCPv6 IA run #45795811813 FAILED only when launching the new regression compile command; the six existing C policy binaries had passed. The YAML used doubled line-ending backslashes, so the linker received a literal backslash argument. This follow-up uses one shell command line and requires exact-SHA rerun. On the same SHA, AI #45795811557, DHCPv6 script retry #45795811708, HTTPD #45795811471 and process inventory #45795811538 PASS; NVRAM #45795811645, USB #45795811700 and XY-C1 #45795811655 were still running at last poll.
-- Exact SHA `c241c6a150f2c0bf8b6f2a89177780cb9766ad9f`: DHCPv6 IA run #45796127157 PASS, including the new timer traversal ASan/UBSan regression and complete Python source contract; AI handoff #45796127128 PASS. The workflow-only fix does not change product-source inputs. On source SHA `a856ba60a4695276b5c484f7e8388fdaeaf1ced0`, USB #45795811700 PASS; HTTPD #45795811471, DHCPv6 script retry #45795811708 and process inventory #45795811538 PASS. NVRAM #45795811645 is still running. XY-C1 #45795811655 is still at `Build XY-C1`; Verify TRX and artifact upload remain pending, so L3 is not verified.
-- Parent main: `5b03226e811dbba4cba5d9219c43086b7962d6e7`; resulting commit: THIS COMMIT.
-
----
-
-## 2026-11-26 — RFC 5908 FQDN suboption validation
-
-- Parent `main`: `26842e306af329188b8aefd999cbbd9d94024ecd`.
-- The NTP FQDN suboption carries exactly one FQDN, but the existing generic `dhcp6_get_domain()` decoder accepts a domain-name list. Validate the wire data before decoding: exactly one terminal root label, no compression/extended labels, ASCII LDH labels only, no IDNA A-labels, and RFC label/name length bounds.
-- Added policy regression for valid single/multi-label names, concatenated names, compression, missing terminator, non-ASCII and IDNA labels, hyphen placement, label/name overflow and NULL input. Python source checker pins the production call.
-- Exact SHA `8a484891c96894a5452710101a05145fab0fc7e6`: DHCPv6 IA #45796494343, NVRAM #45796494293 and XY-C1 #45796494552 PASS; XY-C1 completed Build, Verify TRX output and artifact upload on that SHA only. DHCPv6 script retry #45796494093, HTTPD #45796494090, USB #45796494100 and Process inventory #45796494041 also PASS. AI handoff #45796494225 failed because root `dev_log.md` reached 120 records; lossless rotation is recorded in the next log item. These earlier results do not validate later DHCPv6 source changes. Hardware L4 remains NOT VERIFIED.
+- PASS: NVRAM transaction boundary #45813611887; WAN DHCP callback #45813611721; Process inventory #45813611693; miniupnpd atomic config #45813611534; WAN route #45813611530; Process lifecycle #45813611502; HTTPD #45813611375; Samba #45813611309; Inadyn #45813611245.
+- XY-C1 run #45813611427 on `f7b61ba...` was still building at last poll. The current source head `992bdf6...` has its own XY-C1 run #45814745724, last observed in progress. Do not claim L3 unless Build XY-C1, Verify TRX output and artifact upload all PASS on one exact product source SHA.
 
 ## Verification boundary
 
-- Exact SHA `d5ef589529bf19971f996265cffb92b9906c5635`: DHCPv6 IA #45794325763 PASS; AI handoff #45794325767 PASS; NVRAM transaction boundary #45794325755 PASS; USB/storage hotplug #45794325967 PASS; Process inventory #45794325764 PASS; DHCPv6 Reply-script retry #45794326034 and WAN DHCP callback #45794325993 PASS. XY-C1 #45794325773 had passed all pre-build checks; Build XY-C1, Verify TRX output and artifact upload remained pending at last poll.
-
-
-- Parent exact SHA `6dbcf822bed1213baabef7639aa3f1ae68288f3f`: all DHCPv6/CI runs were in progress at handoff refresh; no result carried over from prior SHA.
-
-
-- Parent `78205c10fb71cfb962917e65261fa499c0548573`: DHCPv6 IA #45790398561 PASS, including the GNU89/`-Werror`/ASan/UBSan C policy binaries and complete Python source contract; AI handoff #45790398455 PASS.
-- Parent `48bec7b6ac28ea93394467d6814023884eadfa1c`: WAN DHCP callback #45790261953 PASS with the corrected 16-second non-forced stop source contract.
-- Handoff-only parent `d739b7f409e57e9b7bbdfa85b7abfacbd8e5804d`: AI handoff #45790741509 was in progress at the last poll. The Reconfigure Accept parser edge added in this commit requires exact-head DHCPv6 IA revalidation.
-- Latest fully verified product-source L3 baseline remains `89b80f1505508bb8ae96466cfe5d0c7587a6be67`: same-SHA Build XY-C1, TRX verification and artifact upload all PASS (artifact #15101485510, 12,823,157 bytes). Later production source changes are not yet shown to pass all three on one SHA. Physical router L4 NOT VERIFIED.
-- No local repository checkout/full firmware build is available because the shell environment cannot resolve GitHub. Do not claim local full-suite or hardware verification.
+- Main before this documentation refresh: `992bdf6da9ba45f217c88bdf42afea69932b45e7`; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- L1/L2 host regressions and exact-head contracts are verified only where exact run IDs and SHAs are listed. No local full firmware build is claimed.
+- Product L3 is NOT VERIFIED for the latest production source. Hardware L4, physical modem tests, live WAN and live DHCP/DNS behavior remain NOT VERIFIED.
+- PENDING runs do not block independent source work. A result on an earlier SHA does not validate a later SHA, even when the later diff is comment-only.
 
 ## Exact first action for the next GPT
 
-1. Current main before this source slice: `4f688607c0ef60f829be7454c9c6ca891c9bf77f`. Source review found a process-inventory false positive: for any truncated `/proc/PID/stat` comm, an unrelated process whose `argv1` happened to equal the requested service name was counted as RUNNING even when the truncated comm prefix did not correspond to that long name. This slice requires prefix agreement before accepting the argv1 fallback and adds regressions for both spoofed unrelated argv1 and a valid long-name fallback. Inspect exact-head Process inventory/lifecycle Actions after the commit.
-2. ZeroTier lifecycle #45807757448 and AI handoff #45807757260 PASS on SHA `08c299c26d9b6b072da39ba5b0118b45a84f2cea`. Samba durability checker/log follow-ups passed on the parent line through `bc8dbc2...`. Product L3 is verified only on older production SHA `f96dce30881937a686e6bc7e9407a41d47f27c2e`; later source changes still require same-SHA Build + TRX + artifact. Hardware L4 remains NOT VERIFIED.
-3. After Process regressions pass, continue with another independent stability/security defect outside completed VPN, ZeroTier and Samba work. Do not repeat bootstrap or the completed process lifecycle census.
+1. Read live `main` and this handoff only; do not repeat bootstrap or completed audits. Confirm the backup ref remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, then inspect exact-head Actions for the resulting documentation commit.
+2. Recheck DNSMasq #45814745710 and XY-C1 #45814745724 on `992bdf6da9ba45f217c88bdf42afea69932b45e7`. At last poll both were in progress. If either remains pending, continue independent work rather than waiting. L3 requires same-SHA Build XY-C1, TRX verification and artifact upload all PASS.
+3. Continue the roadmap's open LAN DHCP client/AP-mode lease slice, starting with `leasefail` and the full live-transition path. Inspect actual event-script side effects and the existing BOUND/RENEW, failed-deconfig retry, NAK, packet-send and deadline contracts before changing behavior. Add focused GNU89 regression/source assertions only after confirming the state-machine semantics.
 
 ## Mandatory handoff checkpoint
 
-**Mandatory handoff checkpoint:** Every session MUST compare the live repository and exact-head Actions with this file before ending. Verify source baseline, active task/progress, test/CI boundary, blockers and exact next action. Do not repeat completed recovery or audits. The checkpoint is mandatory; a document edit is conditional. If facts remain accurate, do not create a no-op commit.
+Every session MUST inspect the live repository state and exact-head Actions before ending. Verify source baseline, active task/progress, test/CI boundary, blockers and exact next action. A relevant exact-head Action changing from PENDING to PASS/FAIL is checkpoint information. The checkpoint is mandatory; a document edit is conditional. If all checkpoint facts and the first action are already accurate, explicitly conclude the check with no file change and no commit.
 
 # Cross-session execution mandate
 
-Continue as the same maintainer across conversations. Every reviewable source/test milestone must be one atomic main commit: create all changed blobs, a complete Git tree and one commit, then update `main` non-forced with the expected parent SHA. Never publish partial-file commits or force-push.
-Before context exhaustion, complete a safe bounded slice, inspect exact-SHA Actions and leave this handoff with the precise next task and validation boundary.
+Continue as the same maintainer across conversations. Every reviewable source/test milestone must be one atomic main commit: create all changed blobs, one complete Git tree and one commit, then update `main` with a non-forced compare-and-swap against the expected parent SHA. Never publish partial-file commits or force-push.
+
+Before context exhaustion, complete a safe bounded slice, inspect exact-SHA Actions and update this handoff with the precise next task and validation boundary. Do not ask the user what to do next.
 
 ## Execution invariants
 
@@ -137,4 +58,4 @@ Before context exhaustion, complete a safe bounded slice, inspect exact-SHA Acti
 - Preserve the frozen backup and do not reopen PR #1.
 - PENDING never blocks independent safe work.
 - Product L3 requires same-product-source-SHA Build XY-C1, TRX verification and artifact upload all PASS. Physical L4 requires actual device testing.
-- Update dev_log for completed engineering milestones, handoff for material progress/validation changes, and roadmap only for material module/status changes.
+- Update `dev_log.md` for completed engineering milestones, handoff for material progress/validation changes, and roadmap only for material module/status changes. Routine snapshot archives are prohibited.
