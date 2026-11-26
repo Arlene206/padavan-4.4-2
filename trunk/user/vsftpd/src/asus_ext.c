@@ -1028,6 +1028,7 @@ asus_check_file_visible(struct vsf_session* p_sess,
   int listing_stat_status, listing_symlink_status, listing_entry_is_symlink;
   char fullpath[PATH_MAX], resolved_entry[PATH_MAX];
   char *mount_path = NULL, *share_name = NULL;
+  struct stat listing_entry_stat;
   const char *p_filename;
   struct stat entry_stat;
 
@@ -1072,6 +1073,7 @@ asus_check_file_visible(struct vsf_session* p_sess,
       fstatat(directory_fd, p_filename, &entry_stat,
               AT_SYMLINK_NOFOLLOW) != 0)
     return 0;
+  listing_entry_stat = entry_stat;
 
   /*
    * A symlink can point to a different mount/share than its lexical entry.
@@ -1104,8 +1106,8 @@ asus_check_file_visible(struct vsf_session* p_sess,
   }
 
   if (i_layer == MOUNT_LAYER) {
-    if (fstatat(directory_fd, p_filename, &entry_stat, 0) != 0 ||
-        !S_ISDIR(entry_stat.st_mode)) {
+    if (!ftp_acl_path_listing_directory_entry_is_current(
+            directory_fd, p_filename, &listing_entry_stat, fullpath)) {
       i_result = 0;
       goto free_and_exit;
     }
@@ -1115,8 +1117,8 @@ asus_check_file_visible(struct vsf_session* p_sess,
       i_result = 0;
       goto free_and_exit;
     }
-    if (fstatat(directory_fd, p_filename, &entry_stat, 0) != 0 ||
-        !S_ISDIR(entry_stat.st_mode)) {
+    if (!ftp_acl_path_listing_directory_entry_is_current(
+            directory_fd, p_filename, &listing_entry_stat, fullpath)) {
       i_result = 0;
       goto free_and_exit;
     }

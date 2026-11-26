@@ -347,6 +347,81 @@ test_listing_entry_visibility_policy(void)
 }
 
 static int
+test_listing_directory_entry_replacement_is_rejected(void)
+{
+  char template[] = "/tmp/ftp-listing-race-XXXXXX";
+  char share[PATH_MAX], target_a[PATH_MAX], target_b[PATH_MAX];
+  char alias[PATH_MAX], replacement[PATH_MAX];
+  char resolved_a[PATH_MAX], resolved_b[PATH_MAX];
+  char *root;
+  int dir_fd = -1, result = 1;
+  struct stat original_entry, replacement_entry;
+
+  root = mkdtemp(template);
+  if (!root) {
+    perror("create FTP listing replacement fixture");
+    return 1;
+  }
+  checked_path(share, sizeof(share), root, "share");
+  checked_path(target_a, sizeof(target_a), root, "target-a");
+  checked_path(target_b, sizeof(target_b), root, "target-b");
+  checked_path(alias, sizeof(alias), share, "directory-link");
+  checked_path(replacement, sizeof(replacement), share, "replacement-link");
+
+  if (mkdir(share, 0700) != 0 || mkdir(target_a, 0700) != 0 ||
+      mkdir(target_b, 0700) != 0 ||
+      symlink(target_a, alias) != 0 ||
+      symlink(target_b, replacement) != 0) {
+    perror("create FTP listing replacement entries");
+    goto out;
+  }
+  dir_fd = open(share, O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+  if (dir_fd < 0 ||
+      fstatat(dir_fd, "directory-link", &original_entry,
+              AT_SYMLINK_NOFOLLOW) != 0 ||
+      realpath(alias, resolved_a) == NULL) {
+    perror("inspect original FTP listing symlink");
+    goto out;
+  }
+  if (!ftp_acl_path_listing_directory_entry_is_current(
+          dir_fd, "directory-link", &original_entry, resolved_a)) {
+    fprintf(stderr, "stable FTP listing symlink was rejected\n");
+    goto out;
+  }
+
+  /* Both links coexist before rename, so their inode identities differ. */
+  if (rename(replacement, alias) != 0) {
+    perror("replace FTP listing symlink");
+    goto out;
+  }
+  if (ftp_acl_path_listing_directory_entry_is_current(
+          dir_fd, "directory-link", &original_entry, resolved_a)) {
+    fprintf(stderr, "listing symlink replacement was accepted after target authorization\n");
+    goto out;
+  }
+  if (fstatat(dir_fd, "directory-link", &replacement_entry,
+              AT_SYMLINK_NOFOLLOW) != 0 ||
+      realpath(alias, resolved_b) == NULL ||
+      !ftp_acl_path_listing_directory_entry_is_current(
+          dir_fd, "directory-link", &replacement_entry, resolved_b)) {
+    fprintf(stderr, "current FTP listing symlink failed revalidation\n");
+    goto out;
+  }
+
+  result = 0;
+out:
+  if (dir_fd >= 0)
+    close(dir_fd);
+  unlink(alias);
+  unlink(replacement);
+  rmdir(share);
+  rmdir(target_a);
+  rmdir(target_b);
+  rmdir(root);
+  return result;
+}
+
+static int
 test_hidden_share_marker_fails_closed(void)
 {
   char template[] = "/tmp/ftp-hidden-share-XXXXXX";
@@ -1814,7 +1889,8 @@ main(void)
       unlink(alias) || rmdir(a) || rmdir(b) || rmdir(root)) {
     perror("remove fixture"); return 1;
   }
-  if (test_listing_entry_visibility_policy() != 0)
+  if (test_listing_entry_visibility_policy() != 0 ||
+      test_listing_directory_entry_replacement_is_rejected() != 0)
     return 1;
 
   puts("vsftpd ACL path, descriptor metadata and CWD policy: PASS");

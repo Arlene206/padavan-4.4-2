@@ -1,3 +1,11 @@
+## 2026-11-25 — Revalidate VSFTPD LIST symlinks after directory classification
+
+- The listing path authorized a symlink's resolved target, then performed a later followed fstatat() to decide whether the entry was a directory. A link replaced between those operations could inherit the prior target's read ACL and expose an unauthorized share name.
+- Preserve the original no-follow entry identity. The directory probe now rechecks that identity and re-resolves symlinks to require the same canonical target before making the entry visible. A deterministic atomic-rename regression proves stale authorization is rejected and a freshly inspected replacement remains valid.
+- The exact-head VSFTPD workflow compiles/runs the regression and enforces the source contract; XY-C1 already watches the affected production/header/test paths. Exact-head runs will be recorded after the commit; router runtime remains unverified.
+
+---
+
 ## 2026-11-25 — Bound NVRAM rehash to the CRC-validated image length
 
 - `_nvram_init()` checked and CRC-validated only `header->len` bytes, while `nvram_rehash()` put its terminator at `NVRAM_SPACE - 2` and scanned to the physical partition end. Stale/non-FF bytes after the declared image could therefore become settings despite not being covered by the validated CRC.

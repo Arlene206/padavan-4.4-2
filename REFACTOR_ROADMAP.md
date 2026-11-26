@@ -1,3 +1,10 @@
+## 2026-11-25 — Close VSFTPD LIST symlink replacement window
+
+- Directory classification now follows the symlink only after read-ACL authorization, then verifies the original no-follow entry identity and re-resolves the same canonical target. A deterministic replacement regression and exact source-contract checks are wired into VSFTPD CI.
+- Exact-head VSFTPD and XY-C1 verification pending; the broader FTP ACL call-site audit remains open.
+
+---
+
 ## 2026-11-26 — VPN DNS replace mode
 
 - Accept documented `vpnc_pdns=2` in PPTP/L2TP and OpenVPN callbacks; keep strict 0/1/2 validation.

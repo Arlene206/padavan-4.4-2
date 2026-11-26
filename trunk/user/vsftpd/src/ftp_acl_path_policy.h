@@ -393,6 +393,49 @@ ftp_acl_path_resolve_listing_symlink(int dir_fd, const char *leaf,
 }
 
 /*
+ * A LIST permission check resolves a symlink and authorizes its canonical
+ * target before deciding whether the entry is a directory. The subsequent
+ * followed stat must not classify a replacement link as that authorized
+ * entry. Compare the pinned no-follow identity after the probe and resolve
+ * the link again so a changed target cannot inherit the old target's ACL.
+ */
+static int
+ftp_acl_path_listing_directory_entry_is_current(
+    int dir_fd, const char *leaf, const struct stat *expected_entry,
+    const char *expected_target)
+{
+  struct stat followed, current;
+  char resolved[PATH_MAX];
+
+  if (dir_fd < 0 || !leaf || !*leaf || strchr(leaf, '/') ||
+      strcmp(leaf, ".") == 0 || strcmp(leaf, "..") == 0 ||
+      !expected_entry ||
+      (S_ISLNK(expected_entry->st_mode) &&
+       (!expected_target || !*expected_target))) {
+    errno = EINVAL;
+    return 0;
+  }
+
+  if (fstatat(dir_fd, leaf, &followed, 0) != 0 ||
+      !S_ISDIR(followed.st_mode))
+    return 0;
+
+  if (fstatat(dir_fd, leaf, &current, AT_SYMLINK_NOFOLLOW) != 0 ||
+      expected_entry->st_dev != current.st_dev ||
+      expected_entry->st_ino != current.st_ino ||
+      (expected_entry->st_mode & S_IFMT) != (current.st_mode & S_IFMT))
+    return 0;
+
+  if (S_ISLNK(expected_entry->st_mode) &&
+      (ftp_acl_path_resolve_listing_symlink(dir_fd, leaf, resolved,
+                                            sizeof(resolved)) != 0 ||
+       strcmp(resolved, expected_target) != 0))
+    return 0;
+
+  return 1;
+}
+
+/*
  * Resolve an existing pathname through its final symlink and split the
  * canonical target into a directory and one leaf component. Later syscalls
  * use the returned parent descriptor and leaf, never the original pathname.
