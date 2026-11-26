@@ -371,6 +371,12 @@ assert "HEV_DNS_SESSION_RESPONSE_TOO_LARGE" in session_core
 assert "self->step = STEP_CLOSE_SESSION" in session_core
 assert "hev_ring_buffer_new (HEV_DNS_SESSION_BUFFER_SIZE)" in session_core
 assert "test_dns_response_frame_capacity_policy" in session_io_test
+assert "hev_dns_session_read_frame_length" in session_io_policy
+assert "memcpy(prefix + copied" in session_io_policy
+response_reader = function_body(session_core, "dns_read_response (HevDNSSession *self)")
+assert "hev_dns_session_read_frame_length" in response_reader
+assert "plen = iovec[0].iov_base" not in response_reader
+assert "test_tcp_dns_frame_length_handles_ring_wrap" in session_io_test
 assert "HEV_DNS_SESSION_MIN_MESSAGE_SIZE 12U" in session_io_policy
 assert "hev_dns_session_message_size_valid" in session_io_policy
 assert "!hev_dns_session_message_size_valid ((size_t)size)" in session_core

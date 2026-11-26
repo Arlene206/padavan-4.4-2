@@ -377,22 +377,26 @@ dns_read_response (HevDNSSession *self)
 {
 	struct iovec iovec[2];
 	size_t iovec_len = 0, size = 0;
-	unsigned short *plen, len;
+	size_t frame_length;
 	int response_action;
 
 	iovec_len = hev_ring_buffer_reading (self->backward_buffer, iovec);
 	size = iovec_size (iovec, iovec_len);
 	if (2 > size)
 	  return true;
-	plen = iovec[0].iov_base;
-	len = ntohs (*plen);
-	if (!hev_dns_session_message_size_valid ((size_t)len)) {
+	if (1 != hev_dns_session_read_frame_length (
+			iovec, iovec_len, &frame_length)) {
+		/* A complete ring-buffer prefix must decode from its iovecs. */
+		self->step = STEP_CLOSE_SESSION;
+		return false;
+	}
+	if (!hev_dns_session_message_size_valid (frame_length)) {
 		errno = EPROTO;
 		self->step = STEP_CLOSE_SESSION;
 		return false;
 	}
 	response_action = hev_dns_session_response_action (
-		(size_t)len + 2U, size, HEV_DNS_SESSION_BUFFER_SIZE);
+		frame_length + 2U, size, HEV_DNS_SESSION_BUFFER_SIZE);
 	if (HEV_DNS_SESSION_RESPONSE_WAIT == response_action)
 		return true;
 	if (HEV_DNS_SESSION_RESPONSE_TOO_LARGE == response_action) {

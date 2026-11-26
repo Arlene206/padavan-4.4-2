@@ -3,7 +3,9 @@
 
 #include <errno.h>
 #include <stddef.h>
+#include <string.h>
 #include <sys/socket.h>
+#include <sys/uio.h>
 
 /* DNS messages have a 12-byte header; support EDNS(0) payloads up to 4096. */
 #define HEV_DNS_SESSION_MIN_MESSAGE_SIZE 12U
@@ -14,6 +16,52 @@ hev_dns_session_message_size_valid(size_t message_size)
 {
     return message_size >= HEV_DNS_SESSION_MIN_MESSAGE_SIZE &&
            message_size <= HEV_DNS_SESSION_MAX_MESSAGE_SIZE;
+}
+
+
+/*
+ * Read the network-order TCP DNS frame length without assuming the two-byte
+ * prefix is contiguous. A ring-buffer read can expose the prefix in two
+ * separate iovecs when its read pointer is at the final byte.
+ */
+static inline int
+hev_dns_session_read_frame_length(const struct iovec *vectors,
+                                  size_t vector_count,
+                                  size_t *frame_length)
+{
+    unsigned char prefix[2];
+    size_t copied = 0;
+    size_t index;
+
+    if (!vectors || !frame_length) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    for (index = 0; index < vector_count && copied < sizeof(prefix); index++) {
+        size_t amount;
+
+        if (vectors[index].iov_len == 0)
+            continue;
+        if (!vectors[index].iov_base) {
+            errno = EINVAL;
+            return -1;
+        }
+
+        amount = sizeof(prefix) - copied;
+        if (amount > vectors[index].iov_len)
+            amount = vectors[index].iov_len;
+        memcpy(prefix + copied, vectors[index].iov_base, amount);
+        copied += amount;
+    }
+
+    if (copied != sizeof(prefix)) {
+        errno = EAGAIN;
+        return 0;
+    }
+
+    *frame_length = ((size_t)prefix[0] << 8) | (size_t)prefix[1];
+    return 1;
 }
 
 /* Two-byte TCP length prefix plus one full EDNS(0) DNS message. */

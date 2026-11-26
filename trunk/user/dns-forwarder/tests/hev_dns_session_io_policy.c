@@ -90,6 +90,54 @@ test_dns_message_size_policy(void)
 }
 
 static void
+test_tcp_dns_frame_length_handles_ring_wrap(void)
+{
+    struct iovec vectors[2];
+    unsigned char first = 0x00;
+    unsigned char second = 0x0c;
+    unsigned char contiguous[] = { 0x10, 0x00 };
+    size_t frame_length = 0;
+
+    vectors[0].iov_base = &first;
+    vectors[0].iov_len = 1;
+    vectors[1].iov_base = &second;
+    vectors[1].iov_len = 1;
+    assert(hev_dns_session_read_frame_length(vectors, 2, &frame_length) == 1);
+    assert(frame_length == 12U);
+
+    vectors[0].iov_base = contiguous;
+    vectors[0].iov_len = sizeof(contiguous);
+    vectors[1].iov_base = NULL;
+    vectors[1].iov_len = 0;
+    assert(hev_dns_session_read_frame_length(vectors, 2, &frame_length) == 1);
+    assert(frame_length == 4096U);
+
+    vectors[0].iov_base = NULL;
+    vectors[0].iov_len = 0;
+    vectors[1].iov_base = contiguous;
+    vectors[1].iov_len = sizeof(contiguous);
+    assert(hev_dns_session_read_frame_length(vectors, 2, &frame_length) == 1);
+    assert(frame_length == 4096U);
+
+    vectors[0].iov_base = &first;
+    vectors[0].iov_len = 1;
+    vectors[1].iov_base = NULL;
+    vectors[1].iov_len = 0;
+    errno = 0;
+    assert(hev_dns_session_read_frame_length(vectors, 2, &frame_length) == 0);
+    assert(errno == EAGAIN);
+
+    vectors[1].iov_base = NULL;
+    vectors[1].iov_len = 1;
+    errno = 0;
+    assert(hev_dns_session_read_frame_length(vectors, 2, &frame_length) == -1);
+    assert(errno == EINVAL);
+    errno = 0;
+    assert(hev_dns_session_read_frame_length(NULL, 0, &frame_length) == -1);
+    assert(errno == EINVAL);
+}
+
+static void
 test_dns_response_frame_capacity_policy(void)
 {
     assert(HEV_DNS_SESSION_BUFFER_SIZE == 4098U);
@@ -137,6 +185,7 @@ main(void)
     test_sendmsg_to_closed_peer_does_not_raise_sigpipe();
     test_truncated_udp_datagrams_are_detected();
     test_dns_response_frame_capacity_policy();
+    test_tcp_dns_frame_length_handles_ring_wrap();
     test_dns_message_size_policy();
     test_recvmsg_reports_eof_after_peer_shutdown();
     return 0;
