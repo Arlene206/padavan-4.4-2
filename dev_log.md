@@ -1,3 +1,22 @@
+## 2026-11-26 — Make VSFTPD configuration publication crash-durable
+
+- `ftp_config_file_publish()` flushes and fsyncs staged data, renames it, then fsyncs the parent directory with EINTR retry. A post-rename parent-sync error propagates so `run_ftp()` refuses startup; parent lookup follows configured `/etc` resolution.
+- GNU89/Werror regression covers publication, /dev/full failure, missing-parent errors and directory-sync behavior; the source contract checks file-sync → rename → parent-sync order.
+- Commits: `63972673ad970fb439a175b21499078d6433c09f`, `65d6e0030edcebdf568dd4dba3ba281a143654aa`, `7f9a288dd74d7cbfdecf03f3b7ea4709bccfd740`, checker fix `0eaada3d45cc8c627a902a962927ad40a3ec5330`, XY trigger filter `f0fbe839174fb6b569c036f21c34a55903ed5965`.
+- VSFTPD #45828730341 PASS on `0eaada3`; XY-C1 #45829100040 was building on `f0fbe839`.
+
+## 2026-11-26 — Retain Inadyn last-known-good config through SIGHUP
+
+- DDNS update snapshots the prior config before replacement, restores on write failure, retains recovery state after uncertain SIGHUP delivery, and commits the snapshot only after successful signal delivery and directory sync.
+- GNU89 rollback regression added. Commits `4c0b2a02b021c813845e3a5356cdfd0cf987c4ab`, fixture correction `916fbec0fcc6739548870888fdbb24216683955c`, checker fixes `2b2b6ec122e5b4e9c7f94c3599ffd0c4da60c526` and `ece28b515b546cd8539089975322cb79ecbe6395`. Inadyn #45826971290 and DNSMasq #45826971254 PASS.
+
+## 2026-11-26 — Cover repeated failed udhcpc REBINDING callbacks
+
+- Added a GNU89 regression proving repeated failed callbacks cannot commit a new server/requested IP/BOUND state or extend the previous lease deadline; source checker locks down failure/success commit order.
+- Exact BusyBox test #45825922148 PASS on `7be435059c1f8ffbd757ea95ba41fe466557960f`. No production `dhcpc.c` change was justified.
+
+---
+
 ## 2026-11-26 — Scope DHCP BOUND callback failures to lease-critical work
 
 - Confirmed that normal WAN and IPTV DHCP BOUND callbacks consumed aggregate WAN/MAN up status. Failures from post-route auxiliary work such as firewall and IGMP/multicast startup could therefore be returned to BusyBox as DHCP script failure after an otherwise successful lease address/route application.

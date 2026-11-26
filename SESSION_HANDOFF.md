@@ -3,7 +3,7 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development branch: `main` only.
-- Current documentation parent: `21822988b5b299e4f931d6659c175515952bdc57`. Latest production-source behavior is in `15274181953dc258d6cec4e47d9038d2e3187b47`; the intervening `e49e86262257c592ad1e0be1b68cccd49c476517` preserves the MAN wrapper signature. The documentation commit that follows this checkpoint does not change production code.
+- Current main parent before this documentation update: `fab825ac680bca65603b99f6c2dc0b16c7b3a102`. Source changes and exact-SHA validation are recorded below; this commit updates handoff records only.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; verified unchanged. PR #1 is closed and unmerged.
 - Bootstrap/protocol restoration was already completed. Do not repeat it. Do not reopen PR #1 or modify the frozen backup.
 - Use full multi-file Git trees and one atomic commit per logical task. Update `main` only with a non-forced expected-SHA compare-and-swap. Never force-push.
@@ -23,24 +23,39 @@
 - Added/extended GNU89 policy regression `test_bound_callback_status_ignores_auxiliary_service_failures()` and source contracts for the route-only boundary. Checker follow-ups: `45cb6f12843035d47ce61dd2d4fa6dd58cd39e79`, `3f54cf2ba737835e9ea1a028fbe0fd229fe113e9`, `cbb470d0054854b3d8469a699ce78601f537c881`, `2377c6094e9acc5358a8abc6873f039eb057438f`, `f14f2b4d4d450f8dec403ed17ca74533ba31d204`, `e41af1199ab8279421fbed098557181767b92f01`, `405bb48aad75b5ea89aaec668a1b1f79fb140f97`, and `21822988b5b299e4f931d6659c175515952bdc57`.
 - WAN callback follow-up on exact SHA `405bb48aad75b5ea89aaec668a1b1f79fb140f97`: WAN DHCP callback #45824870841 PASS. The route-status workflow failed on stale assertions against the old callback source shape; those assertions were aligned in `21822988b5b299e4f931d6659c175515952bdc57`; exact rerun #45825386107 was QUEUED at the last poll.
 
-## Exact-SHA validation boundary
+## Active task
 
-- Current source-checker parent before this documentation commit: `21822988b5b299e4f931d6659c175515952bdc57`. Exact-head Actions observed: AI handoff docs #45825386055 QUEUED; WAN route status #45825386107 QUEUED; XY-C1 validation #45825386117 QUEUED.
-- On prior checker/source descendant `405bb48aad75b5ea89aaec668a1b1f79fb140f97`, WAN DHCP callback #45824870841 PASS. WAN route #45824870995 FAIL was caused by stale workflow assertions and is superseded by the source-contract update in `21822988`; the exact rerun is pending as above.
-- XY-C1 run #45824870811 reported overall SUCCESS, but its `Build XY-C1`, `Verify TRX output`, and artifact-upload steps were all SKIPPED. This is not a firmware build pass and does not establish L3. The exact current run #45825386117 was queued at checkpoint; recheck its build, TRX and artifact steps independently.
-- No local full firmware build or physical-router verification is claimed. Hardware/L4, real WAN/modem operation and live DHCP/DNS behavior remain NOT VERIFIED. Do not infer L3 from a green workflow whose product build steps were skipped or from a different source SHA.
+- Complete exact-SHA XY-C1 Build/TRX/artifact validation for the VSFTPD config-durability change. The dedicated host regression and source contract are green.
 
-## DHCP callback / BusyBox follow-up
+## Verification boundary
 
-- The callback now returns nonzero for route/MTU errors and required NVRAM lease/retry-state publication errors, while not treating ancillary service startup as DHCP ACK failure. Candidate lease tuple publication occurs before the WAN-up route operation; the callback records `route_err`, `mtu_err`, and general error state after that operation.
-- Prior bounded event-flow review found `leasefail` non-destructive before ACK, NAK separate from active-lease `deconfig`, `DECONFIG_PENDING` retries, and stop/release paths wait rather than force-kill while deconfig is pending. No independent state-machine defect was established in that review.
-- The next investigation is deliberately narrower: trace what BusyBox does after a nonzero `bound`/`renew` script result when the new NVRAM lease tuple has already been published but route or MTU application failed. Verify REQUESTING/BOUND/RENEWING/REBINDING transitions, T1/T2/lease-deadline handling and repeated ACK behavior. Build a focused GNU89 state-machine regression before making any further production change; preserve fail-closed retry semantics unless a concrete inconsistent state is demonstrated.
+- Documentation parent before this update: `fab825ac680bca65603b99f6c2dc0b16c7b3a102`. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged.
+- BusyBox repeated-REBINDING callback regression `7be435059c1f8ffbd757ea95ba41fe466557960f`: exact run #45825922148 PASS. It proves failed callbacks do not commit a new server/requested-IP/BOUND state or extend the existing lease deadline. No production `dhcpc.c` defect was demonstrated.
+- Inadyn transaction fix `4c0b2a02b021c813845e3a5356cdfd0cf987c4ab`, fixture correction `916fbec0fcc6739548870888fdbb24216683955c`, checker descendants `2b2b6ec122e5b4e9c7f94c3599ffd0c4da60c526` and `ece28b515b546cd8539089975322cb79ecbe6395`: Inadyn #45826971290 PASS and DNSMasq #45826971254 PASS on exact `ece28b5`.
+- VSFTPD config commits: `63972673ad970fb439a175b21499078d6433c09f` (staged-file + parent-directory fsync), `65d6e0030edcebdf568dd4dba3ba281a143654aa` (GNU89 prototypes), `7f9a288dd74d7cbfdecf03f3b7ea4709bccfd740` (/etc symlink compatibility), `0eaada3d45cc8c627a902a962927ad40a3ec5330` (checker definition matching), and `f0fbe839174fb6b569c036f21c34a55903ed5965` (XY-C1 path trigger).
+- VSFTPD host regression #45828730341 PASS on exact `0eaada3`; Process inventory #45829100150 PASS on exact `f0fbe839`. XY-C1 #45829100040 is IN_PROGRESS on exact `f0fbe839`: Build XY-C1 is running; TRX and artifact upload have not yet started.
+- The previous complete XY-C1 #45826697813 PASS was on `916fbec0`, before the VSFTPD helper change; it does not verify this newer source. No current FTP L3 claim until #45829100040 Build/TRX/artifact all PASS. No physical-router result is claimed; hardware/L4 remains NOT VERIFIED.
+
+## BusyBox udhcpc repeated-REBINDING failure regression
+
+- Added `test_repeated_failed_rebinding_acks_preserve_server_and_deadline()` and source checks ensuring repeated callback failures cannot commit the alternate server, requested IP or BOUND state, or extend the old lease deadline.
+- Exact test #45825922148 PASS on `7be435059c1f8ffbd757ea95ba41fe466557960f`. Production source remained unchanged because the tested review did not establish a state-machine defect.
+
+## Inadyn SIGHUP configuration transaction
+
+- `notify_ddns_update_locked()` snapshots the last-known-good config before replacement, restores it on write failure, retains the recovery link when SIGHUP delivery is uncertain, and commits the snapshot only after successful signal delivery and parent-directory sync.
+- GNU89 rollback regression added. Production commit `4c0b2a02b021c813845e3a5356cdfd0cf987c4ab`; fixture correction `916fbec0fcc6739548870888fdbb24216683955c`; checker fixes `2b2b6ec122e5b4e9c7f94c3599ffd0c4da60c526` and `ece28b515b546cd8539089975322cb79ecbe6395`. Inadyn #45826971290 and DNSMasq #45826971254 PASS.
+
+## VSFTPD configuration durability
+
+- `ftp_config_file_publish()` flushes and fsyncs staged data, renames it, then fsyncs the parent directory with EINTR retry. If parent sync fails after rename, the error reaches `run_ftp()`, which refuses daemon launch. Parent lookup follows configured `/etc` resolution.
+- GNU89/Werror regression and source-order contract passed VSFTPD #45828730341 on `0eaada3`. Exact XY-C1 #45829100040 on `f0fbe839` remains the required product build check.
 
 ## Exact first action for the next GPT
 
-1. Recheck live `main`, frozen backup, and exact-head Actions only; do not rerun bootstrap or re-audit the completed LAN resolver work.
-2. Inspect BusyBox `udhcpc` handling of a nonzero `bound`/`renew` script status in `trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcpc.c`, alongside the WAN/IPTV callbacks. Add a focused GNU89 regression for failure/retry/rebind/lease-deadline behavior before changing source.
-3. Do not wait on pending CI; pursue independent source work and validate each atomic commit against its exact SHA.
+1. Poll exact-SHA XY-C1 #45829100040 and inspect Build XY-C1, TRX verification and artifact upload individually.
+2. Confirm the current AI handoff Actions pass after this update; then proceed to the next independent whole-userland stability/security defect. Do not repeat bootstrap, BusyBox state review, or Inadyn rollback work.
+3. Pending Actions must not block independent implementation. Keep expected-SHA atomic commits and precise L2/L3/L4 boundaries.
 
 ## Mandatory handoff checkpoint
 
