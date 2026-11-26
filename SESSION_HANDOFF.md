@@ -1,26 +1,26 @@
-## Current repository state — 2026-11-26
+## Current repository state — 2026-11-25
 
-- Live `main` before this checkpoint: `f0cc53caf043cba611270af937623d2960639e81` (`fix(adguardhome): fail closed on redirect mode read errors`). Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged).
-- Exact `f0cc53c`: AdGuardHome config security #45726581924 PASS; Process inventory #45726581809 PASS. AI docs #45726581953 failed only because roadmap measured 131458 UTF-8 bytes (>131072); compaction is ready in this checkpoint, exact AI rerun pending.
-- DHCP relay `684f66b`: select error #45726255660, BOOTREQUEST #45726255596, select-FD #45726255635, packet bounds #45726255721, XID #45726255680, AI #45726255592 and Process #45726255636 PASS; NVRAM #45726255566, USB #45726255858 and XY-C1 #45726255627 were IN_PROGRESS at last poll.
-- WSDD2 netlink #45725665949 and AI docs #45725666033 PASS on `4de82b5`. Last same-SHA XY-C1 Build/TRX/artifact success is older `b320dd2` (#45724141332); current L3 and physical L4 remain NOT VERIFIED.
-
-## Last engineering slice — AdGuardHome redirect selector fail-closed
-
-- Replaced unchecked `nvram get adg_redirect` with `get_checked`; missing/empty remains mode 0, only 0/1/2 are accepted, and read errors/invalid values abort before firewall or resolver mutation.
-- Startup pins one validated selector across firewall and DNS setup. Exact `f0cc53c` AdGuardHome + Process PASS; AI docs failed only on roadmap byte cap and is pending retry after this compaction.
+- Live `main` immediately before this slice: `acd3eb07c4ba30c84c7fcb254b1f1408ca03e7c5` (`fix(udhcp): detect oversized kernel DHCP datagrams`). Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable.
+- Exact `684f66b` DHCP relay select-error #45726255660 PASS, XID #45726255680 PASS, BOOTREQUEST #45726255596 PASS, select descriptor #45726255635 PASS, packet bounds #45726255721 PASS, AI docs #45726255592 PASS and Process inventory #45726255636 PASS. USB hotplug #45726255858, Process fail-closed #45726255572, XY-C1 #45726255627 and NVRAM #45726255566 were pending at last inspection.
+- Exact `ddb8f4f` DHCP relay BOOTREQUEST #45725994945, select descriptor #45725994948, packet bounds #45725994955, XID #45725994998, AI docs #45725994972 and Process inventory #45725995030 passed. XY-C1 #45725995015 was pending; NVRAM #45725995041 was cancelled.
+- Exact `4de82b5` WSDD2 netlink receive truncation #45725665949 and AI handoff #45725666033 PASS. Last confirmed XY-C1 Build/TRX/artifact baseline remains `b320dd266be3dea74820ada79aec68c26f6b7dc9` (#45724141332); it predates later source changes, so current-source L3 and physical-router L4 remain NOT VERIFIED.
 
 ## Active task
 
-Verify the AI documentation compaction, then proceed to the next independent P1 userland stability/security issue. Do not repeat passed AdGuardHome source tests without new evidence.
+Validate DHCP relay server-side responses before processing them. `pass_to_client()` parsed DHCP message-type options and looked up the pending XID, but did not verify the BOOTP `op` field. A packet with a client BOOTREQUEST opcode arriving on the server-facing socket could therefore be treated as a server response if it carried matching XID/giaddr/hardware fields. The new early gate accepts only BOOTREPLY (`op == 2`) before option parsing or transaction lookup.
 
 ## Verification boundary
 
-- AdGuardHome source/shell regression and Process inventory PASS on exact SHA `f0cc53c`; no same-SHA XY-C1 Build/TRX/artifact success or physical-router L4 result is claimed.
+- GNU89 ASan/UBSan tests cover BOOTREPLY opcode acceptance and reject 0, BOOTREQUEST, unknown and 255 values. The source contract verifies the opcode gate precedes option parsing and XID matching.
+- Exact-head DHCP relay BOOTREPLY workflow, AI docs and XY-C1 Build/TRX/artifact checks for this commit are pending. No live rogue-server simulation, full BusyBox cross-build, current firmware artifact or router L4 result is claimed.
 
 ## Exact first action for the next GPT
 
-Poll exact-head AI docs for the compaction checkpoint, then inspect and implement one evidence-backed independent P1 source defect while product builds are pending. Preserve the backup ref.
+Fetch exact-head DHCP relay BOOTREPLY, packet-length, select-error, AI docs, and XY-C1/NVRAM/Process/USB runs for this commit. Repair the first causal failure. Continue to review DHCP relay reply source-address validation and server/client interface direction only with concrete evidence. L3 requires Build, TRX verification and artifact upload on one identical product-source SHA.
+
+## Mandatory handoff checkpoint
+
+The checkpoint is mandatory; a document edit is conditional. Inspect live main, frozen backup ref and exact-SHA Actions. If the checkpoint facts and first action are already accurate, record a no-op checkpoint without a docs-only commit.
 
 # Cross-session execution mandate
 

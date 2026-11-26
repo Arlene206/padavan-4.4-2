@@ -20,6 +20,7 @@
 #include "udhcp_relay_xid_policy.h"
 #include "udhcp_relay_select_fd_policy.h"
 #include "udhcp_relay_bootrequest_policy.h"
+#include "udhcp_relay_reply_policy.h"
 #include "udhcp_relay_select_error_policy.h"
 
 #define SERVER_PORT    67
@@ -280,6 +281,11 @@ static void pass_to_client(struct dhcp_packet *p, int packet_len, int *fds)
 	}
 
 	/* check packet type */
+	if (!udhcp_relay_is_bootreply(p->op)) {
+		log1("Ignoring non-BOOTREPLY packet on relay server socket");
+		return;
+	}
+
 	type = get_dhcp_packet_type(p);
 	if (type != DHCPOFFER && type != DHCPACK && type != DHCPNAK) {
 		return;

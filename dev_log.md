@@ -1,3 +1,13 @@
+## 2026-11-25 — Require BOOTREPLY opcode before DHCP relay response handling
+
+- `pass_to_client()` checked DHCP message-type options and correlated the XID, but did not check the fixed BOOTP `op` field. A packet carrying a client BOOTREQUEST opcode could be processed on the server-facing socket as a response if its transaction metadata matched.
+- Added an early opcode gate that accepts only BOOTREPLY (op 2) before DHCP option parsing or XID lookup. BOOTREQUEST, zero, unknown and invalid opcode values are dropped without touching transaction state.
+- Added GNU89 ASan/UBSan opcode regression, production ordering contract, focused workflow and XY-C1 source trigger paths.
+- Parent SHA: 1f7f8b3eb6baa1ff1a849ff04d5927627913dbf1. Exact-head reply-policy, AI documentation and XY-C1 Actions: pending. No rogue-server simulation, full BusyBox cross-build, firmware or hardware result is claimed.
+- Changed paths: trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcprelay.c, trunk/user/busybox/busybox-1.24.x/networking/udhcp/udhcp_relay_reply_policy.h, trunk/user/busybox/busybox-1.24.x/networking/udhcp/tests/udhcp_relay_reply_policy.c, scripts/check_udhcp_relay_reply_policy.py, .github/workflows/udhcp-relay-reply-policy.yml, .github/workflows/xy-c1-firmware-validation.yml, SESSION_HANDOFF.md, dev_log.md.
+
+---
+
 ## 2026-11-26 — Correct AdGuardHome handoff byte-cap regression
 
 - Exact `f0cc53c` AdGuardHome config/security #45726581924 and Process inventory #45726581809 passed. AI docs #45726581953 failed before semantic validation because the roadmap was 131458 UTF-8 bytes against the 131072-byte cap; condensed only the latest summary entry, retaining the detailed `dev_log.md` history. Exact AI rerun pending.
