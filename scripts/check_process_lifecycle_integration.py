@@ -315,6 +315,7 @@ dms_presence = c_function_body(storage_services, "int is_dms_run(void)")
 assert 'storage_daemon_presence("minidlnad", NULL)' in dms_presence
 assert 'storage_daemon_presence("minidlna", NULL)' not in dms_presence
 assert 'storage_wait_for_daemon("minidlnad")' in normalized_minidlna_post_launch
+assert 'apps_name, "minidlnad", start_status, start_errno,' in dms_start
 assert '"minidlnad"' in dms_start
 assert "process_error == ETIMEDOUT" in normalized_minidlna_post_launch
 assert normalized_minidlna_post_launch.index("process_state = is_dms_run();") < normalized_minidlna_post_launch.index(minidlna_logger)
