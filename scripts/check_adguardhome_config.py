@@ -287,6 +287,7 @@ require("AdGuardHome command argv quoting and metacharacter safety: PASS" in tes
         'cmp "$TEST_ADG_ARGV_EXPECTED" "$TEST_ADG_ARGV_LOG"' in test,
         "AdGuardHome launch must preserve one literal config argv argument and never evaluate its contents")
 require("AdGuardHome persistent work directory symlink, type, ownership and mode policy: PASS" in test and
+        "workdir-owner-mismatch" in test and
         "AdGuardHome restart preserves a healthy daemon on enable-read errors or invalid selectors: PASS" in test,
         "restart regression must verify NVRAM read failures and malformed selectors cause no stop/start side effects")
 require('echo running > "$TEST_ADG_STATE"\n: > "$TEST_ADG_EFFECTS_LOG"' in test,

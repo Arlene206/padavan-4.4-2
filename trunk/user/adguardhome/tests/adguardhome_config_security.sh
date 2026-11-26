@@ -131,7 +131,14 @@ echo "AdGuardHome secret config mode, symlink rejection and atomic publication: 
   mkdir -p "$ADG_WORKDIR"
   chmod() { return 1; }
   if adg_prepare_workdir; then exit 1; fi
-) || fail "persistent work directory accepted an unsafe path or ignored permission failure"
+  ADG_WORKDIR="$TEST_TMP/workdir-owner-mismatch"
+  mkdir -p "$ADG_WORKDIR"
+  (
+    id() { printf '0\\n'; }
+    stat() { printf '1\\n'; }
+    if adg_prepare_workdir; then exit 1; fi
+  ) || exit 1
+) || fail "persistent work directory accepted an unsafe path, owner mismatch or permission failure"
 
 echo "AdGuardHome persistent work directory symlink, type, ownership and mode policy: PASS"
 

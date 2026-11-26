@@ -1,3 +1,10 @@
+## 2026-11-26 — Exercise AdGuardHome workdir owner-mismatch rejection
+
+- The persistent-workdir helper explicitly compares the storage directory owner with the launcher UID, but the first regression set covered symlink/type/chmod errors without forcing that branch. Added a deterministic owner mismatch fixture by overriding `id -u` and `stat -c %u` in a subshell; the source checker now requires the fixture.
+- This is test coverage only. Exact AdGuardHome/Process workflow rerun pending; XY-C1 firmware source verification is tracked on the workflow-trigger follow-up.
+
+---
+
 ## 2026-11-26 — Include AdGuardHome in XY-C1 firmware-validation triggers
 
 - The launcher change affects the firmware-installed `trunk/user/adguardhome/adguardhome.sh` and the package's ROMFS payload, but the XY-C1 workflow push path filter omitted `trunk/user/adguardhome/**`; exact source commits therefore ran AdGuardHome/process tests without dispatching a firmware validation workflow.
