@@ -16,6 +16,31 @@ udhcpc_wait_remaining_seconds(int timeout, unsigned int already_waited_sec)
 	return (unsigned int)timeout - already_waited_sec;
 }
 
+/* A missing active receive socket must be retried without expiring the lease. */
+#define UDHCP_LISTEN_SOCKET_RETRY_INTERVAL_SECONDS 3U
+
+static inline int
+udhcpc_listen_socket_reopen_required(int listen_mode, int listen_none,
+				     int socket_fd)
+{
+	return listen_mode != listen_none && socket_fd < 0;
+}
+
+static inline unsigned int
+udhcpc_listen_socket_wait_seconds(int timeout, unsigned int already_waited_sec,
+				  int listen_mode, int listen_none,
+				  int socket_fd)
+{
+	unsigned int remaining = udhcpc_wait_remaining_seconds(
+		timeout, already_waited_sec);
+
+	if (udhcpc_listen_socket_reopen_required(
+		    listen_mode, listen_none, socket_fd) &&
+	    remaining > UDHCP_LISTEN_SOCKET_RETRY_INTERVAL_SECONDS)
+		return UDHCP_LISTEN_SOCKET_RETRY_INTERVAL_SECONDS;
+	return remaining;
+}
+
 /* The IPv4 subnet mask must be contiguous, in host byte order. */
 static inline int
 udhcpc_subnet_mask_prefix_length(uint32_t mask, unsigned int *prefix_length)

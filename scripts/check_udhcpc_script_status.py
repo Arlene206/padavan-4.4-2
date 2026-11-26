@@ -73,6 +73,24 @@ wait_remaining = function_body(policy, "udhcpc_wait_remaining_seconds(")
 assert "timeout <= 0" in wait_remaining
 assert "already_waited_sec >= (unsigned int)timeout" in wait_remaining
 assert "return (unsigned int)timeout - already_waited_sec;" in wait_remaining
+
+listen_reopen = function_body(policy, "udhcpc_listen_socket_reopen_required(")
+assert "listen_mode != listen_none" in listen_reopen
+assert "socket_fd < 0" in listen_reopen
+listen_wait = function_body(policy, "udhcpc_listen_socket_wait_seconds(")
+assert "UDHCP_LISTEN_SOCKET_RETRY_INTERVAL_SECONDS" in listen_wait
+assert "udhcpc_listen_socket_reopen_required(" in listen_wait
+assert "test_listener_socket_recovery_preserves_lease_deadline" in test
+
+reopen_call = "udhcpc_listen_socket_reopen_required(listen_mode,"
+assert reopen_call in dhcpc
+reopen_at = dhcpc.index(reopen_call)
+fd_set_at = dhcpc.index("max_fd = udhcp_sp_fd_set(&rfds, sockfd);")
+assert reopen_at < fd_set_at
+assert "change_listen_mode(listen_mode);" in dhcpc[reopen_at:fd_set_at]
+assert "tv.tv_sec = (long)udhcpc_listen_socket_wait_seconds(" in dhcpc
+assert "already_waited_sec +=\n\t\t\t\t\t\t(unsigned)monotonic_sec() - timestamp_before_wait;" in dhcpc
+assert "udhcpc_wait_remaining_seconds(\n\t\t\t\t\t\t    timeout, already_waited_sec) > 0" in dhcpc
 assert "test_select_wait_clamps_elapsed_timeout_before_unsigned_subtraction" in test
 assert "test_select_wait_clamps_elapsed_timeout_before_unsigned_subtraction() != 0" in test
 

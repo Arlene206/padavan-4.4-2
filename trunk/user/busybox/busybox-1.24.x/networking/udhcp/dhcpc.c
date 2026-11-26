@@ -1660,6 +1660,16 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 
 		//bb_error_msg("sockfd:%d, listen_mode:%d", sockfd, listen_mode);
 
+		/* Mode changes normally open the listener before sending. Retry only
+		 * when a transient socket-creation failure left an active mode closed.
+		 */
+		if (udhcpc_listen_socket_reopen_required(listen_mode,
+							LISTEN_NONE, sockfd)) {
+			change_listen_mode(listen_mode);
+			if (sockfd < 0)
+				bb_perror_msg("Cannot reopen DHCP listening socket; retrying");
+		}
+
 		/* Was opening raw or udp socket here
 		 * if (listen_mode != LISTEN_NONE && sockfd < 0),
 		 * but on fast network renew responses return faster
@@ -1670,7 +1680,8 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 		max_fd = udhcp_sp_fd_set(&rfds, sockfd);
 
 		/* Clamp elapsed select time before subtracting the unsigned wait budget. */
-		tv.tv_sec = (long)udhcpc_wait_remaining_seconds(timeout, already_waited_sec);
+		tv.tv_sec = (long)udhcpc_listen_socket_wait_seconds(
+			timeout, already_waited_sec, listen_mode, LISTEN_NONE, sockfd);
 		tv.tv_usec = 0;
 		retval = 0;
 		/* If we already timed out, fall through with retval = 0, else... */
@@ -1693,6 +1704,19 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 		 * resend discover/renew/whatever
 		 */
 		if (retval == 0) {
+			/* Retry a missing listener every few seconds without consuming
+			 * the remaining lease/renewal deadline.
+			 */
+			if (udhcpc_listen_socket_reopen_required(listen_mode,
+								LISTEN_NONE, sockfd)) {
+				if (timestamp_before_wait != 0)
+					already_waited_sec +=
+						(unsigned)monotonic_sec() - timestamp_before_wait;
+				if (udhcpc_wait_remaining_seconds(
+					    timeout, already_waited_sec) > 0)
+					continue;
+			}
+
 			/* When running on a bridge, the ifindex may have changed
 			 * (e.g. if member interfaces were added/removed
 			 * or if the status of the bridge changed).

@@ -526,6 +526,23 @@ static int test_dhcp_option_overload_is_unique_to_main_field(void)
 }
 
 static int
+test_listener_socket_recovery_preserves_lease_deadline(void)
+{
+	CHECK(udhcpc_listen_socket_reopen_required(1, 0, -1));
+	CHECK(udhcpc_listen_socket_reopen_required(2, 0, -1));
+	CHECK(!udhcpc_listen_socket_reopen_required(0, 0, -1));
+	CHECK(!udhcpc_listen_socket_reopen_required(1, 0, 0));
+	CHECK(!udhcpc_listen_socket_reopen_required(2, 0, 7));
+
+	CHECK(udhcpc_listen_socket_wait_seconds(60, 10, 1, 0, -1) == 3U);
+	CHECK(udhcpc_listen_socket_wait_seconds(12, 10, 1, 0, -1) == 2U);
+	CHECK(udhcpc_listen_socket_wait_seconds(60, 10, 1, 0, 4) == 50U);
+	CHECK(udhcpc_listen_socket_wait_seconds(60, 10, 0, 0, -1) == 50U);
+	CHECK(udhcpc_listen_socket_wait_seconds(60, 60, 1, 0, -1) == 0U);
+	return 0;
+}
+
+static int
 test_select_wait_clamps_elapsed_timeout_before_unsigned_subtraction(void)
 {
 	CHECK(udhcpc_wait_remaining_seconds(30, 0U) == 30U);
@@ -542,7 +559,8 @@ test_select_wait_clamps_elapsed_timeout_before_unsigned_subtraction(void)
 
 int main(void)
 {
-	if (test_select_wait_clamps_elapsed_timeout_before_unsigned_subtraction() != 0 ||
+	if (test_listener_socket_recovery_preserves_lease_deadline() != 0 ||
+	    test_select_wait_clamps_elapsed_timeout_before_unsigned_subtraction() != 0 ||
 	    test_dhcp_option_tlv_bounds() != 0 ||
 	    test_dhcp_option_overload_is_a_validated_single_byte() != 0 ||
 	    test_dhcp_option_overload_is_unique_to_main_field() != 0 ||
