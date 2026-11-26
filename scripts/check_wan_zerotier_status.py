@@ -181,8 +181,17 @@ require(
     "failed add attempted to delete an unconfirmed route" in ZEROTIER_TEST
     and "unconfirmed route did not retain a pending ownership marker" in ZEROTIER_TEST
     and "pending exact match is unowned" in ZEROTIER_TEST
-    and "route cleanup preflight signalled a running daemon" in ZEROTIER_TEST,
-    "static-route EEXIST race regression must preserve unconfirmed routes and the running daemon",
+    and "pending route cleanup stopped the managed daemon" in ZEROTIER_TEST
+    and "pending route cleanup signalled the managed daemon" in ZEROTIER_TEST
+    and "if stop_zero; then" in ZEROTIER_TEST,
+    "static-route EEXIST race regression must exercise stop_zero and preserve the running daemon",
+)
+require(
+    'if ! zerotier_static_route_state_preflight_cleanup; then' in start_zero
+    and 'if ! zerotier_static_route_state_preflight_cleanup; then' in stop_zero
+    and 'return 1;' in start_zero
+    and 'return 1;' in stop_zero,
+    "start_zero and stop_zero must abort when static-route cleanup preflight is ambiguous",
 )
 require(
     "elif ! zerotier_firewall_state_clear" in append,

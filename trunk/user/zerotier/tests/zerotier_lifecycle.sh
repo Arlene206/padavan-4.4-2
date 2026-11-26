@@ -2308,12 +2308,23 @@ grep -Fqx -- "zero_route:add" "$TEST_ACTION_LOG" || fail "static route failure f
 [ -f "$TEST_CONFIG/.firewall-state" ] || fail "incomplete route rollback discarded its firewall cleanup checkpoint"
 [ "$(grep -cE '(^| )-A ' "$TEST_IPTABLES_LOG" || true)" -eq 5 ] || fail "static route failure fixture did not publish all firewall rules before route failure"
 
-# Do not stop a healthy daemon while pending route ownership is ambiguous.
+# Exercise the real stop path: an ambiguous pending route must not stop
+# or signal the already-running daemon whose network state must be preserved.
 : > "$TEST_KILL_LOG"
-if zerotier_static_route_state_preflight_cleanup; then
-	fail "cleanup preflight accepted an exact route whose add ownership was unconfirmed"
+test_proc_reset
+test_proc_add 4321 "$PROG" "$PROG"
+echo running > "$TEST_STATE"
+TEST_MODE=graceful
+TEST_IFCONFIG_MODE=ready
+TEST_ROUTE_MODE=ready
+zt0=""
+ip_segment=""
+if stop_zero; then
+	fail "stop accepted an exact route whose add ownership was unconfirmed"
 fi
-[ ! -s "$TEST_KILL_LOG" ] || fail "route cleanup preflight signalled a running daemon"
+[ "$(cat "$TEST_STATE")" = running ] || fail "pending route cleanup stopped the managed daemon"
+[ -d "$ZT_PROC_ROOT/4321" ] || fail "pending route cleanup lost the managed process"
+[ ! -s "$TEST_KILL_LOG" ] || fail "pending route cleanup signalled the managed daemon"
 
 # A pending exact match is unowned: replay must preserve it and retain recovery state.
 : > "$TEST_ACTION_LOG"
@@ -2597,12 +2608,23 @@ grep -Fqx -- "zero_route:add" "$TEST_ACTION_LOG" || fail "static route failure f
 [ -f "$TEST_CONFIG/.firewall-state" ] || fail "incomplete route rollback discarded its firewall cleanup checkpoint"
 [ "$(grep -cE '(^| )-A ' "$TEST_IPTABLES_LOG" || true)" -eq 5 ] || fail "static route failure fixture did not publish all firewall rules before route failure"
 
-# Do not stop a healthy daemon while pending route ownership is ambiguous.
+# Exercise the real stop path: an ambiguous pending route must not stop
+# or signal the already-running daemon whose network state must be preserved.
 : > "$TEST_KILL_LOG"
-if zerotier_static_route_state_preflight_cleanup; then
-	fail "cleanup preflight accepted an exact route whose add ownership was unconfirmed"
+test_proc_reset
+test_proc_add 4321 "$PROG" "$PROG"
+echo running > "$TEST_STATE"
+TEST_MODE=graceful
+TEST_IFCONFIG_MODE=ready
+TEST_ROUTE_MODE=ready
+zt0=""
+ip_segment=""
+if stop_zero; then
+	fail "stop accepted an exact route whose add ownership was unconfirmed"
 fi
-[ ! -s "$TEST_KILL_LOG" ] || fail "route cleanup preflight signalled a running daemon"
+[ "$(cat "$TEST_STATE")" = running ] || fail "pending route cleanup stopped the managed daemon"
+[ -d "$ZT_PROC_ROOT/4321" ] || fail "pending route cleanup lost the managed process"
+[ ! -s "$TEST_KILL_LOG" ] || fail "pending route cleanup signalled the managed daemon"
 
 # A pending exact match is unowned: replay must preserve it and retain recovery state.
 : > "$TEST_ACTION_LOG"
