@@ -1,3 +1,10 @@
+## 2026-11-25 — Isolate ZeroTier rule-publication tests from preserved stop checkpoints
+
+- Exact ZeroTier run on e37ac5d passed the corrected legacy /32 setup but then failed when the later direct rules() fixture reused .static-routes-state and .firewall-state deliberately preserved by preceding stop-failure cases.
+- Both copies of the direct rules() fixture now reset the private test configuration directory before their independent checks. This preserves production fail-closed checkpoint assertions and prevents expected leftovers from contaminating NAT readiness coverage; no production source changed.
+
+---
+
 ## 2026-11-25 — Restore static-route selectors in the legacy /32 cleanup fixture
 
 - Exact ZeroTier run #45736394732 at SHA ffba20a stopped at the older host-route normalization test after the new manifest cases intentionally reset TEST_STATIC_ROUTE_COUNT and TEST_STATIC_ROUTE_ENABLE to zero. The /32 fixture changed only the destination string, so it no longer configured a route for cleanup and never exercised the intended parser.

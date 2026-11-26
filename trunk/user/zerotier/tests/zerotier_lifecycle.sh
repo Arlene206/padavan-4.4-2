@@ -2150,6 +2150,9 @@ TEST_ROUTE_DELETE_PERSISTS=0
 
 
 # Direct rules() coverage models start_instance() after its config directory exists.
+# Earlier stop-failure cases intentionally preserve recovery checkpoints; isolate
+# this independent publication fixture from those expected leftovers.
+/bin/rm -rf "$TEST_CONFIG"
 mkdir -p "$TEST_CONFIG"
 
 # interface readiness ignores unrelated interfaces and succeeds after bounded polling.
@@ -2399,6 +2402,9 @@ TEST_ROUTE_DELETE_PERSISTS=0
 
 
 # Direct rules() coverage models start_instance() after its config directory exists.
+# Earlier stop-failure cases intentionally preserve recovery checkpoints; isolate
+# this independent publication fixture from those expected leftovers.
+/bin/rm -rf "$TEST_CONFIG"
 mkdir -p "$TEST_CONFIG"
 
 # interface readiness ignores unrelated interfaces and succeeds after bounded polling.
