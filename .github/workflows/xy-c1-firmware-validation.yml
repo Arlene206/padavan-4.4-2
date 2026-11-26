@@ -429,6 +429,7 @@ on:
       - "trunk/user/rc/src/rc_notify_batch_policy.h"
       - "scripts/check_firmware_update_notification.py"
       - "trunk/user/rc/src/net_wan6.c"
+      - "trunk/user/rc/src/wan6_address_policy.h"
       - "trunk/user/rc/src/dhcp6c_callback_generation_policy.h"
       - "trunk/user/rc/src/tests/dhcp6c_callback_generation.c"
       - "trunk/user/rc/src/wan6_identity_policy.h"
