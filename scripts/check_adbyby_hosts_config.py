@@ -262,8 +262,11 @@ require('if adbyby_stop_mem_helper; then' in close and
         "Adbyby close must aggregate the identity-bound memory-helper cleanup result")
 require('grep -Fqx "$PROG_PATH/admem.sh"' in mem_identity and
         "'admem.sh'" in mem_identity and
+        mem_identity.index('adbyby_mem_arguments=$(tr') <
+        mem_identity.index('[ -L "$adbyby_mem_identity_dir/exe" ]') and
         'readlink "$adbyby_mem_identity_dir/exe"' in mem_identity and
-        "$20" in mem_identity and "*/busybox" in mem_identity,
+        "$20" in mem_identity and "*/busybox" in mem_identity and
+        "adbyby_mem_relative=1" in mem_identity,
         "memory-helper identity must pin exact argv, shell executable and procfs start_time")
 require("adbyby_mem_process_identity" in mem_snapshot and
         "ADBYBY_PROC_ROOT" in mem_snapshot and
@@ -274,7 +277,8 @@ require("adbyby_mem_process_snapshot" in mem_stop and
         'kill -KILL "$adbyby_mem_pid"' in mem_stop and
         'adbyby_mem_current_start" = "$adbyby_mem_expected_start' in mem_stop,
         "memory-helper stop must revalidate PID/start_time before signalling and verify post-state")
-require("Adbyby memory-helper exact argv/executable identity and decoy rejection: PASS" in stop_test and
+require("Adbyby memory-helper ignores empty non-candidate cmdline without exe: PASS" in stop_test and
+        "Adbyby memory-helper exact argv/executable identity and decoy rejection: PASS" in stop_test and
         "Adbyby memory-helper malformed proc metadata fails closed: PASS" in stop_test and
         "Adbyby memory-helper PID reuse blocks stale signalling: PASS" in stop_test,
         "memory-helper stop must test exact identity, malformed metadata and PID reuse")

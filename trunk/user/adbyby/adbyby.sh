@@ -368,24 +368,30 @@ adbyby_mem_process_identity()
 	esac
 	adbyby_mem_identity_dir="$ADBYBY_PROC_ROOT/$adbyby_mem_pid"
 	[ -d "$adbyby_mem_identity_dir" ] || return 1
+	# Inspect argv before exe/cwd: ordinary kernel threads have an empty
+	# cmdline and no exe symlink, and are not candidates for this helper.
+	[ -f "$adbyby_mem_identity_dir/cmdline" ] &&
+		[ -r "$adbyby_mem_identity_dir/cmdline" ] || return 2
+	adbyby_mem_arguments=$(tr '\000' '\n' < "$adbyby_mem_identity_dir/cmdline" 2>/dev/null) || return 2
+	if printf '%s\n' "$adbyby_mem_arguments" | grep -Fqx "$PROG_PATH/admem.sh"; then
+		adbyby_mem_relative=0
+	elif printf '%s\n' "$adbyby_mem_arguments" | grep -Fqx './admem.sh' ||
+	     printf '%s\n' "$adbyby_mem_arguments" | grep -Fqx 'admem.sh'; then
+		adbyby_mem_relative=1
+	else
+		return 1
+	fi
+	# Only a matching argv candidate needs executable and cwd validation.
 	[ -L "$adbyby_mem_identity_dir/exe" ] || return 2
 	adbyby_mem_exe=$(readlink "$adbyby_mem_identity_dir/exe" 2>/dev/null) || return 2
 	case "$adbyby_mem_exe" in
 		*/sh|*/ash|*/bash|*/dash|*/busybox|*/sh\ \(deleted\)|*/ash\ \(deleted\)|*/bash\ \(deleted\)|*/dash\ \(deleted\)|*/busybox\ \(deleted\)) ;;
 		*) return 1 ;;
 	esac
-	[ -f "$adbyby_mem_identity_dir/cmdline" ] &&
-		[ -r "$adbyby_mem_identity_dir/cmdline" ] || return 2
-	adbyby_mem_arguments=$(tr '\000' '\n' < "$adbyby_mem_identity_dir/cmdline" 2>/dev/null) || return 2
-	if printf '%s\n' "$adbyby_mem_arguments" | grep -Fqx "$PROG_PATH/admem.sh"; then
-		:
-	elif printf '%s\n' "$adbyby_mem_arguments" | grep -Fqx './admem.sh' ||
-	     printf '%s\n' "$adbyby_mem_arguments" | grep -Fqx 'admem.sh'; then
+	if [ "$adbyby_mem_relative" -eq 1 ]; then
 		[ -L "$adbyby_mem_identity_dir/cwd" ] || return 2
 		adbyby_mem_cwd=$(readlink "$adbyby_mem_identity_dir/cwd" 2>/dev/null) || return 2
 		[ "$adbyby_mem_cwd" = "$PROG_PATH" ] || return 1
-	else
-		return 1
 	fi
 	[ -f "$adbyby_mem_identity_dir/stat" ] &&
 		[ -r "$adbyby_mem_identity_dir/stat" ] || return 2

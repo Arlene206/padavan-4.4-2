@@ -1,3 +1,12 @@
+## 2026-11-25 — Make Adbyby memory-helper inventory ignore empty non-candidate proc entries
+
+- The memory-helper scan iterated every numeric proc directory but checked `/proc/PID/exe` before reading argv. Ordinary kernel threads have an empty `cmdline` and may have no `exe` symlink; the old ordering classified every such unrelated process as UNKNOWN and prevented safe helper cleanup.
+- Reordered identity evaluation to read argv first. Empty or nonmatching argv is a definite non-candidate; only an exact `$PROG_PATH/admem.sh` token or basename/relative token proceeds to shell-executable and (for relative invocation) cwd verification. Unreadable candidate inventory remains UNKNOWN/fail-closed.
+- Added a regression for an empty non-helper cmdline with no exe symlink, while retaining exact argv, wrong interpreter/path, malformed stat and PID-reuse tests. Also repaired the concurrent Adbyby test-file insertion that had placed the daemon-test block inside `assert_no_cleanup()`; the single complete daemon postcondition suite remains after the memory-helper fixtures.
+- Exact-head Adbyby/Process/AI docs/XY-C1 validation pending; no local firmware build or hardware test claimed.
+
+---
+
 ## 2026-11-26 — Bind Adbyby memory-helper teardown to exact process identity
 
 - The old adbyby_close() used ps|grep admem.sh and sent SIGKILL to every matching PID without checking that it was the add-on helper or protecting against PID reuse.
