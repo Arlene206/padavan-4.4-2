@@ -1,33 +1,47 @@
-## Current repository state — 2026-11-26 (latest CI observed 2026-11-26 UTC)
+## Current repository state — 2026-11-26 UTC
 
-- Live `main` before this documentation checkpoint: `dc6da082d956c38a35de1518fc3ccac7937403fc`. The latest production-source change is `b6ee8a43cec0af29084206b5d65719ab4527f776`; its only descendant so far changes the Process regression workflow to execute the shared shell lifecycle test. This checkpoint also updates only handoff/log records.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged and immutable. PR #1 remains closed/unmerged; do not revive its divergent branch.
-- Startup protocol and handoff were restored once for this work stream. Do not repeat startup recovery or re-audit completed startup/build work.
-- Source fix `b6ee8a43` hardens the procfs fallback in `trunk/user/shared/scripts/process_lifecycle.sh`: it now requires all state-through-start_time fields from `/proc/PID/stat`, validates unsigned start time, and classifies truncated/malformed observations as UNKNOWN. The companion shell regression contains truncated-record and invalid-start-time cases.
-- CI step added in `dc6da082` executes `sh -n` on the shared process lifecycle helper and test, then runs the full `trunk/user/shared/tests/process_lifecycle.sh` suite. Exact Process run #45748293107 completed SUCCESS; its new shell regression step completed SUCCESS.
-- Exact Process regression #45747609955, process inventory #45747609939, DNS Forwarder #45747610021 and DDNSTO #45747610055 completed SUCCESS on source SHA `b6ee8a43`.
-- AI handoff documentation contract #45748293133 completed SUCCESS on workflow SHA `dc6da082`.
-- Exact-source XY-C1 run #45747610163 for `b6ee8a43` remains IN_PROGRESS at the cross-build job; TRX verification and artifact upload are not yet confirmed. Do not claim L3 until Build, TRX and artifact upload all pass. PENDING does not block independent work.
-- Prior IAPP and NVRAM checks #45746217559/#45746217544 completed SUCCESS on older SHA `27568b72`; they are historical evidence, not current-source proof for later unrelated changes.
+- Live `main` source head: `a20fec0cf840bcf8bb697e5a1f5c8673ed12439e`. This session's changes are on `main`; no feature branch or PR was used.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged. PR #1 remains closed/unmerged. Do not modify the backup or revive the PR.
+- Startup protocol, handoff, roadmap and development log were restored once at the start of this work stream. Do not repeat startup recovery or audit previously completed startup/build work.
+
+### Source commits in this work stream
+
+1. `89c92c97853afccb1b2f116df3552b66cd3684f9` — reject unusable IPv6 interface/gateway literals (unspecified, loopback, multicast); add GNU89 address-policy regression and CI step.
+2. `0622ba5e15f0bea349d25102f9311f3ca1ee6aac` — reject unspecified/multicast static and DHCPv6 DNS servers. The first exact run exposed an old source-checker expectation; the correction is in the next commit.
+3. `c64608d3d1178e581bceca032e43759d769517c5` — retain the documented positive `inet_pton()==1` source contract while enforcing unicast DNS; exact WAN IPv6 DNS regression #45752311446 PASS.
+4. `661e5d02e74dcd998628d1905f205430d9ad1683` — recover an active udhcpc receive mode when socket creation left `sockfd < 0`, retry every 3 seconds without extending the lease/renewal deadline, and add GNU89 regression coverage.
+5. `f47045abd9890ccb5c4cdc79333d5f3d9aa44228` — update the udhcpc timer checker after the timer helper changed; this checker revision still had a whitespace-sensitive assertion.
+6. `9b0b19e7bf3da2f0392f76adb8407d46a73a1a38` — make the udhcpc source assertion whitespace-insensitive. Exact BusyBox udhcpc run #45752972196 PASS on this SHA; the previous checker-only run #45752873093 failed and is superseded.
+7. `a20fec0cf840bcf8bb697e5a1f5c8673ed12439e` — age DHCPv6 IA preferred lifetimes from `monotonic_ms()` rather than wall-clock `time(NULL)`; preserve the infinite-lifetime sentinel and clamp expired finite values to zero. Add GNU89 regression cases for fractional seconds, exact/over expiry, largest finite lifetime and infinite lifetime.
+
+### Exact-SHA CI boundary for `a20fec0cf840bcf8bb697e5a1f5c8673ed12439e`
+
+- DHCPv6 IA publication / delegated-prefix retry #45753771175: PASS. Its GNU89 ASan/UBSan IA policy executable and source checker both completed successfully.
+- WAN DHCP callback #45753771143: PASS.
+- Process lifecycle inventory #45753771145: PASS.
+- USB storage hotplug #45753771153: PASS.
+- NVRAM transaction boundary #45753771126: PASS.
+- XY-C1 Firmware Validation #45753771146: IN_PROGRESS at the cross-build job. At the last observed step poll, `Build XY-C1` was IN_PROGRESS, while `Verify TRX output` and artifact upload were PENDING. Do not claim firmware/L3 verification until Build, TRX validation and artifact upload all pass on the same exact SHA.
+- The previous source SHA `c64608d3` had XY-C1 run #45752311476 and NVRAM run #45752311488 complete SUCCESS, including Build/TRX/artifact for that older SHA. That result is historical only and does not prove `a20fec0cf840bcf8bb697e5a1f5c8673ed12439e`.
 
 ## Active task
 
-Continue autonomous implementation on `main`; do not wait on pending XY-C1.
-1. Poll exact XY-C1 run #45747610163 and inspect Build, TRX and artifact-upload results independently. Keep L3 pending unless all three pass.
-2. Continue a separate P1 stability slice outside the completed IAPP work. The WAN/DHCP ledger still marks IPv6 route edge cases and BusyBox callback live-transition semantics open; inspect a concrete transition and its regression before changing production behavior.
-3. Each source change must have a focused regression and exact-SHA Process/module checks. Use a complete Git tree and one atomic commit per logical slice.
+1. Continue polling exact XY-C1 run #45753771146. Record Build, TRX and artifact-upload outcomes separately; PENDING must not block independent source work.
+2. Next investigation: verify DHCP route ownership in `trunk/user/rc/src/net_wan.c`, especially `control_dhcp_routes()` around lines 6953–7048. It treats `EEXIST` as successful add through `dhcp_lease_route_add_is_ok()`, but its corresponding delete path iterates the saved route list without an obvious persisted ownership record. Determine whether an identical pre-existing/static route can be deleted on WAN teardown. Do not simply remove idempotent-add handling; establish callback/restart semantics and add a focused regression before changing production behavior.
+3. Keep work cross-userland. Each confirmed defect gets a source fix, focused regression, one atomic commit, CAS update to main, and exact-SHA Actions inspection.
 
 ## Verification boundary
 
-- Procfs shell fallback and full shared shell lifecycle suite: exact Process run #45748293107 PASS on workflow SHA `dc6da082`; the run uses the source implementation introduced in `b6ee8a43`.
-- Process inventory/fail-closed regression #45747609955 PASS; process lifecycle inventory #45747609939 PASS; DNS Forwarder #45747610021 PASS; DDNSTO #45747610055 PASS, all on source SHA `b6ee8a43`.
-- AI handoff docs #45748293133 PASS on `dc6da082`.
-- XY-C1 #45747610163: IN_PROGRESS on `b6ee8a43`; Build/TRX/artifact outcome not yet established. No L3 claim.
-- Frozen backup: unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Physical-router L4: NOT VERIFIED.
+- Exact DHCPv6 IA helper/test/source checker: PASS on `a20fec0cf840bcf8bb697e5a1f5c8673ed12439e`.
+- Exact BusyBox udhcpc regression: PASS on `9b0b19e7bf3da2f0392f76adb8407d46a73a1a38`; do not treat it as an XY-C1 build result for later SHA.
+- Exact current SHA `a20fec0cf840bcf8bb697e5a1f5c8673ed12439e`: five independent regression/audit workflows PASS; XY-C1 Build/TRX/artifact still unconfirmed at the last poll.
+- Physical-router runtime L4: NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-Fetch live `main`, then inspect exact XY-C1 run #45747610163 and Process run #45748293107. If the firmware run is still pending, continue the open WAN IPv6/DHCP reliability work without waiting. Do not repeat startup recovery or the completed process/IAPP regressions.
+Poll XY-C1 run #45753771146 for `a20fec0cf840bcf8bb697e5a1f5c8673ed12439e`; verify the Build, TRX and artifact-upload steps. Then start the DHCP route ownership investigation at `control_dhcp_routes()` as described above. Do not repeat startup recovery, IPv6 DNS/address tests, or the already-passing DHCPv6 IA and udhcpc regression work.
+
+Historical completed-source notes below are archival; their older first-action/checkpoint sections do not override this current state.
 
 # Cross-session execution mandate
 

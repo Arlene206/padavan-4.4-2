@@ -308,3 +308,11 @@
 
 ---
 
+
+## 2026-11-26 — WAN IPv6 validation, udhcpc listener recovery and monotonic DHCPv6 IA timers
+
+- `89c92c9` rejects unspecified, loopback and multicast IPv6 interface/next-hop literals and adds a GNU89 address-policy regression. `0622ba5` rejects unspecified and multicast static/DHCPv6 DNS server addresses; `c64608d` aligns the Python source contract with the retained positive `inet_pton()==1` guard. WAN IPv6 DNS exact run #45752311446 PASS on `c64608d`.
+- `661e5d0` repairs udhcpc after transient active-listener socket creation failure: the event loop retries the selected raw/UDP listener, limits retry waits to three seconds, and accounts elapsed monotonic time against the existing lease deadline. `f47045a` and `9b0b19e` correct two source-checker assertions without changing production behavior. Exact BusyBox udhcpc workflow #45752972196 PASS on `9b0b19e`; its earlier checker-only failures are superseded.
+- `a20fec0cf840bcf8bb697e5a1f5c8673ed12439e` replaces wall-clock preferred-lifetime ageing in DHCPv6 IA `pref_duration()` with monotonic milliseconds. Infinite lifetime remains infinite; finite lifetime saturates at zero and uses whole-second rounding. GNU89 ASan/UBSan regression covers fractional elapsed seconds, expiry boundaries, largest finite value and infinite value.
+- Exact `a20fec0cf840bcf8bb697e5a1f5c8673ed12439e` checks: DHCPv6 IA publication #45753771175 PASS; WAN DHCP callback #45753771143 PASS; Process inventory #45753771145 PASS; storage hotplug #45753771153 PASS; NVRAM transaction audit #45753771126 PASS. XY-C1 #45753771146 remained IN_PROGRESS at Build XY-C1; TRX validation and artifact upload had not yet started. No current-SHA L3 claim.
+- Main is `a20fec0cf840bcf8bb697e5a1f5c8673ed12439e`; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`. Next source investigation is the possible DHCP route add/delete ownership mismatch around `control_dhcp_routes()`; validate route restart semantics before patching.
