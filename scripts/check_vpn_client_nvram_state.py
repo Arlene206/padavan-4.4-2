@@ -180,7 +180,7 @@ ordered(ipup, [
     "errno = 0;",
     'api_result = nvram_get_checked("vpnc_pdns", &pdns_value);',
     "read_errno = errno;",
-    "pdns_status = vpn_client_nvram_read_bool_status(",
+    "pdns_status = vpn_client_nvram_read_dns_policy_status(",
     "if (pdns_status != 0)",
     "status = route_status_accumulate(status, pdns_status);",
     "if (pdns_status == 0) {",
@@ -263,12 +263,12 @@ ordered(openvpn_start, [
 openvpn_entry = body(openvpn, "int\novpn_client_script_main(int argc, char **argv)")
 openvpn_up_compact = " ".join(openvpn_up.split())
 assert 'api_result = nvram_get_checked("vpnc_pdns", &pdns_value);' in openvpn_up
-assert "pdns_status = vpn_client_nvram_read_bool_status(" in openvpn_up
+assert "pdns_status = vpn_client_nvram_read_dns_policy_status(" in openvpn_up
 assert 'nvram_get_int("vpnc_pdns")' not in openvpn_up
 ordered(openvpn_up, [
     'api_result = nvram_get_checked("vpnc_pdns", &pdns_value);',
     "read_errno = errno;",
-    "pdns_status = vpn_client_nvram_read_bool_status(",
+    "pdns_status = vpn_client_nvram_read_dns_policy_status(",
     "if (pdns_status != 0)",
     "status = route_status_accumulate(status, pdns_status);",
     "for (i = 0; i < ENV_SCAN_MAX; i++)",
@@ -284,7 +284,18 @@ ordered(openvpn_up, [
 assert "preserving existing resolver state" in openvpn_up
 assert "vpn_server_config_int_status" not in openvpn_up
 assert "pdns_value, 0, 0, 1," not in openvpn_up
-assert openvpn_up.count("vpn_client_nvram_read_bool_status(") == 1
+assert openvpn_up.count("vpn_client_nvram_read_dns_policy_status(") == 1
+assert "vpn_client_nvram_read_bool_status(" not in openvpn_up
+assert "vpn_client_nvram_read_dns_policy_status(" in ipup
+assert "vpn_client_nvram_read_bool_status(" not in ipup
+for token in (
+    "VPN_CLIENT_DNS_POLICY_DISABLED = 0",
+    "VPN_CLIENT_DNS_POLICY_ADD_TO_CURRENT = 1",
+    "VPN_CLIENT_DNS_POLICY_REPLACE_CURRENT = 2",
+    "vpn_client_nvram_read_dns_policy_status(",
+):
+    assert token in header
+assert "test_dns_policy_read_status_accepts_all_ui_modes" in test
 assert "if (pdns_status == 0 && vpnc_pdns > 0)" in openvpn_up
 ordered(openvpn_down, [
     'vpn_client_nvram_set_temp_status(NULL, "vpnc_state_t", "0")',

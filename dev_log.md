@@ -1,3 +1,11 @@
+## 2026-11-26 — Accept the documented VPN DNS replace policy
+
+- The VPN UI exposes `vpnc_pdns=0/1/2` (disabled / add VPN DNS to current list / replace current list). `update_resolvconf()` already preserves this distinction: mode 2 omits WAN DNS fallbacks.
+- Both PPTP/L2TP `ipup_vpnc_main()` and OpenVPN `on_client_ifup()` incorrectly used `vpn_client_nvram_read_bool_status()`. Valid mode 2 was rejected as `EINVAL`, preventing the VPN DNS snapshot from being published and leaving stale resolver state.
+- Added a strict tri-state policy helper and GNU89 regression for values 0/1/2, missing-key default, malformed/out-of-range values, and backend-error preservation. Both callbacks now use it; source contract requires that integration. Exact-head CI pending.
+
+---
+
 ## 2026-11-26 — Align DHCP relay XID source contract with client destination
 
 - Exact `6bfef12` XID workflow #45728716637 failed at `check_udhcp_relay_xid_policy.py`: its integration assertion still required `sendto(..., &item->ip)`, but `pass_to_client()` now constructs a protocol-derived `client_dest` and sends to `&client_dest`. The standalone GNU89 ASan/UBSan XID executable passed.

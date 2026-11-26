@@ -82,6 +82,35 @@ test_integer_read_status_preserves_defaults_and_checks_bounds(void)
 }
 
 static void
+test_dns_policy_read_status_accepts_all_ui_modes(void)
+{
+    int result = 77;
+
+    assert(vpn_client_nvram_read_dns_policy_status(0, 0, NULL, &result) == 0);
+    assert(result == VPN_CLIENT_DNS_POLICY_DISABLED);
+    result = 77;
+    assert(vpn_client_nvram_read_dns_policy_status(1, 0, "0", &result) == 0);
+    assert(result == VPN_CLIENT_DNS_POLICY_DISABLED);
+    result = 77;
+    assert(vpn_client_nvram_read_dns_policy_status(1, 0, "1", &result) == 0);
+    assert(result == VPN_CLIENT_DNS_POLICY_ADD_TO_CURRENT);
+    result = 77;
+    assert(vpn_client_nvram_read_dns_policy_status(1, 0, "2", &result) == 0);
+    assert(result == VPN_CLIENT_DNS_POLICY_REPLACE_CURRENT);
+
+    result = 77;
+    assert(vpn_client_nvram_read_dns_policy_status(-1, EACCES, "2", &result) == EACCES);
+    assert(result == 77);
+    assert(vpn_client_nvram_read_dns_policy_status(-1, 0, "2", &result) == EIO);
+    assert(vpn_client_nvram_read_dns_policy_status(2, 0, "2", &result) == EIO);
+    assert(vpn_client_nvram_read_dns_policy_status(1, 0, NULL, &result) == EIO);
+    assert(vpn_client_nvram_read_dns_policy_status(1, 0, "3", &result) == EINVAL);
+    assert(result == 77);
+    assert(vpn_client_nvram_read_dns_policy_status(1, 0, "-1", &result) == EINVAL);
+    assert(vpn_client_nvram_read_dns_policy_status(1, 0, "2x", &result) == EINVAL);
+}
+
+static void
 test_boolean_read_status_preserves_legacy_defaults_and_rejects_invalid_values(void)
 {
     int result;
@@ -293,6 +322,7 @@ main(void)
 {
     test_cache_backed_text_is_copied_without_truncation();
     test_integer_read_status_preserves_defaults_and_checks_bounds();
+    test_dns_policy_read_status_accepts_all_ui_modes();
     test_independent_runtime_writes_attempt_all_and_keep_first_error();
     test_write_status_preserves_errno();
     test_read_status_distinguishes_absence_from_failure();

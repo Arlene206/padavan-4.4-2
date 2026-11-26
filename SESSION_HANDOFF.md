@@ -1,24 +1,23 @@
 ## Current repository state — 2026-11-26
 
-- Live `main` before this correction: `6bfef1256d5b2ed2c015b5344ce991d26998d577` (`fix(udhcp): route relay replies to client address`). Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged.
-- Exact `6bfef12`: client destination #45728717464 PASS; BOOTREPLY #45728716678 PASS; select-error #45728716428 PASS; select-fd #45728716499 PASS; packet bounds #45728716627 PASS; giaddr/hop #45728716640 PASS; AI docs #45728716550 PASS; Process inventory #45728716558 PASS. XID #45728716637 FAILED only at stale checker assertion expecting `sendto(..., &item->ip)`; standalone GNU89 ASan/UBSan test passed.
-- NVRAM #45728716634, USB hotplug #45728716487, and XY-C1 #45728716683 were IN_PROGRESS at last poll. The XY-C1 Build/TRX/artifact steps must be checked on this or later SHA; no L3 claim yet.
-- ZeroTier fixture correction `96f6057`: lifecycle #45728232626 PASS; AI docs #45728232680 PASS; Process #45728232671 PASS. AdGuardHome selector fix `f0cc53c`: config/security #45726581924 and Process #45726581809 PASS; AI correction `1f7f8b3` #45726801473 PASS.
-- Last confirmed XY-C1 Build/TRX/artifact baseline remains older `b320dd2` (#45724141332). Current-source L3 and physical-router L4 NOT VERIFIED.
+- Live `main` before this slice: `d4a965e66f817b45ad94eba974585bc21ecb44c6` (`test(udhcp): align XID check with client response path`). Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged.
+- Exact `d4a965e`: DHCP relay XID #45729057470 PASS; NVRAM #45729057360 PASS; USB hotplug #45729057468 PASS. XY-C1 #45729057425 was IN_PROGRESS at last poll: Build running; TRX verification and artifact upload pending. No current-source L3 claim.
+- VPN UI `vpncli.asp` exposes `vpnc_pdns=0/1/2` (disabled / add VPN DNS to current list / replace current list). `update_resolvconf()` distinguishes mode 2 by omitting WAN DNS fallback, but both PPTP/L2TP and OpenVPN up callbacks incorrectly used a strict boolean parser, rejecting valid mode 2 and preserving stale resolver state.
+- Prior verified fixes: ZeroTier lifecycle #45728232626 PASS on `96f6057`; AdGuardHome config/security #45726581924 and Process #45726581809 PASS on `f0cc53c`; AI byte-cap correction #45726801473 PASS on `1f7f8b3`; WSDD2 netlink/docs #45725665949/#45725666033 PASS on `4de82b5`.
+- Last confirmed XY-C1 Build/TRX/artifact baseline is older `b320dd2` (#45724141332). Current-source L3 and physical-router L4 remain NOT VERIFIED.
 
 ## Active task
 
-Repair the stale DHCP relay XID integration checker to match the client-response destination sockaddr. The XID policy executable was green; only its Python contract still expected `item->ip`. The production reply path now derives `client_dest` from BOOTP/DHCP state, sends to it, and retains the captured source tuple for fallback/retry.
+Accept VPN DNS policy mode 2. Read `vpnc_pdns` as a strict tri-state selector (0=disabled, 1=append, 2=replace), not a boolean. Preserve missing-key default 0 and reject malformed/out-of-range values. Both PPTP/L2TP and OpenVPN callbacks must publish the VPN DNS snapshot for modes 1 and 2 so `update_resolvconf()` applies append vs replace correctly.
 
 ## Verification boundary
 
-- Client destination helper/integration and BOOTREPLY workflows passed on `6bfef12`. XID source-contract correction and exact-head rerun pending.
-- `udhcp_listen_socket()` already enables `SO_BROADCAST` and treats failure as fatal before binding; no socket change is needed.
-- No same-SHA XY-C1 Build/TRX/artifact success or physical-router L4 result is claimed.
+- Added a GNU89 regression for UI values 0/1/2, missing-key default, malformed/out-of-range values, and backend errors preserving the previous output. Updated source contracts to require the tri-state parser in both client callbacks.
+- Exact-head VPN client NVRAM policy, Process inventory, AI docs, and XY-C1 Build/TRX/artifact checks are pending after commit. No firmware artifact or physical-router result is claimed.
 
 ## Exact first action for the next GPT
 
-Fetch exact-head XID and AI docs after this checker update, then poll XY-C1 Build/TRX/artifact and pending NVRAM/USB jobs. Ensure production translation-unit compile coverage is checked, not only policy-header tests. Continue other stability/security work while a long build is pending; preserve the frozen backup.
+Fetch exact-head VPN client policy, Process and AI-doc Actions; check XY-C1 Build, TRX verification and artifact upload on the same product-source SHA. Fix the first causal failure, then continue the next independent userland stability/security issue. Preserve the frozen backup.
 
 # Cross-session execution mandate
 

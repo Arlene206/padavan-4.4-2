@@ -1,6 +1,6 @@
-## 2026-11-26 — DHCP relay XID destination checker
+## 2026-11-26 — VPN DNS replace mode
 
-- Update stale contract to require protocol-derived `client_dest`; preserve captured source sockaddr for fallback/retry.
+- Accept documented `vpnc_pdns=2` in PPTP/L2TP and OpenVPN callbacks; keep strict 0/1/2 validation.
 
 ---
 ## 2026-11-26 — Validate static and DHCPv6 WAN DNS server literals

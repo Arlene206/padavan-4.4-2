@@ -1140,8 +1140,8 @@ ipup_vpnc_main(int argc, char **argv)
 	errno = 0;
 	api_result = nvram_get_checked("vpnc_pdns", &pdns_value);
 	read_errno = errno;
-	pdns_status = vpn_client_nvram_read_bool_status(
-		api_result, read_errno, pdns_value, 0, &vpnc_pdns);
+	pdns_status = vpn_client_nvram_read_dns_policy_status(
+		api_result, read_errno, pdns_value, &vpnc_pdns);
 	if (pdns_status != 0) {
 		status = route_status_accumulate(status, pdns_status);
 		logmessage(VPNC_LOG_NAME,

@@ -75,6 +75,23 @@ vpn_client_nvram_read_int_status(int api_result, int saved_errno,
     return 0;
 }
 
+enum vpn_client_dns_policy {
+    VPN_CLIENT_DNS_POLICY_DISABLED = 0,
+    VPN_CLIENT_DNS_POLICY_ADD_TO_CURRENT = 1,
+    VPN_CLIENT_DNS_POLICY_REPLACE_CURRENT = 2
+};
+
+static inline int
+vpn_client_nvram_read_dns_policy_status(int api_result, int saved_errno,
+                                        const char *value, int *result)
+{
+    return vpn_client_nvram_read_int_status(
+        api_result, saved_errno, value,
+        VPN_CLIENT_DNS_POLICY_DISABLED,
+        VPN_CLIENT_DNS_POLICY_DISABLED,
+        VPN_CLIENT_DNS_POLICY_REPLACE_CURRENT, result);
+}
+
 static inline int
 vpn_client_nvram_read_bool_status(int api_result, int saved_errno,
                                   const char *value, int default_value,
