@@ -1,12 +1,13 @@
 ## 2026-11-26 — Padavan stability handoff
 
-- Current `main` parent for this event-loop prepare-failure slice: `a05bb8e170058c41ff88b671b99b11451f1f0a3c`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged; never modify).
-- Startup/protocol recovery was completed earlier in this stream. Do not repeat it or re-audit closed work. Continue on `main` with complete-tree atomic commits and non-forced expected-SHA ref updates.
-- Parent exact-SHA CI: DNS Forwarder #45854126331 PASS. Process inventory #45854126325, XY-C1 Firmware Validation #45854126393 and NVRAM audit #45854126370 were running at the last poll.
-- The DNS Forwarder stability series now covers strict upstream validation, transactional listener/CLI startup, UDP EPOLLET drain and allocation rollback, constructor/session fault injection, nonblocking connect setup, SIGPIPE suppression, EINTR retry, truncated UDP query rejection, and bounded EDNS(0) TCP response frames. The `a05bb8e` commit expanded session buffers to 4098 bytes and closes a session when a TCP response frame can never fit.
-- Current slice handles a separate event-loop reliability defect: a source whose post-dispatch `prepare()` fails is now detached rather than silently left armed. The epoll/pipe regression is included but must not be marked PASS until this commit's exact-SHA workflow reports success.
-- Next: inspect exact-SHA DNS and firmware CI; then continue with asynchronous connect `SO_ERROR`, UDP response send/backpressure and SIGTERM shutdown review. No physical-router/L4 validation is claimed.
+- Current `main` parent for this workflow-filter repair: `5fc01c7737e50decd1e8c42a0292953679119e05`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged; do not modify).
+- Startup/protocol recovery has already been completed. Do not repeat. Continue on `main` using full-tree atomic commits and non-forced expected-SHA updates.
+- Exact-SHA DNS CI: #45854983436 on `84ad78818575cf94a7aa8a27823b82bd651f0d98` and #45855217820 on `5fc01c7737e50decd1e8c42a0292953679119e05` both FAILED in the Python path-filter contract: `hev-main.c` appeared twice in push/pull_request filters. All C tests were skipped. This commit removes those duplicates.
+- `84ad788`: AI handoff #45854983388 PASS and Process inventory #45854983397 PASS; XY-C1 #45854983214 and NVRAM #45854983349 were running at last poll.
+- `84ad788` adds SIGTERM signalfd handling next to SIGINT and an epoll test that sends SIGTERM to itself. This code has not yet been validated because of the source-filter failure.
+- `6276721d43ee853deb8fca303bd771296289cb4b`: event-loop post-dispatch prepare-failure cleanup and regression passed in DNS Forwarder #45854341118.
+- Next: inspect this repair's exact-SHA DNS run, including SIGTERM test; then fix the queued ring-buffer defect where a TCP response length prefix may span `iovec[0]` and `iovec[1]` but the current parser dereferences only the first segment. No physical-router/L4 result is claimed.
 
 
 ## 2026-11-26 — Autonomous development checkpoint

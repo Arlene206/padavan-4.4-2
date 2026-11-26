@@ -1,3 +1,9 @@
+## 2026-11-26 — Remove duplicate SIGTERM source path entries
+
+- DNS Forwarder #45854983436 (`84ad788...`) and #45855217820 (`5fc01c7...`) failed in the Python workflow path-filter contract before any C test ran. The `hev-main.c` path had been inserted twice in each push/pull_request filter; the checker path inventory also listed it twice and loaded the event-loop lifecycle fixture three times.
+- Removed the duplicate `hev-main.c` entries from both trigger filters and the checker inventory, and normalized the event-loop fixture to one read. No production signal-handling code was changed.
+- On `84ad788`: AI handoff #45854983388 PASS and Process inventory #45854983397 PASS; XY-C1 #45854983214 and NVRAM #45854983349 were in progress at last poll. SIGTERM and remaining C regressions await a clean exact-SHA rerun.
+
 ## 2026-11-26 — Detach event sources when post-dispatch preparation fails
 
 - The event loop checked a source's `prepare()` result during initial registration, but ignored it after dispatch. A timeout or other source that failed to re-arm remained attached with an invalid readiness state and could silently stop servicing work.

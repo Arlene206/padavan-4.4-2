@@ -71,20 +71,18 @@ forwarder_core = read("trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-dns-forw
 session_io_policy = read("trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-dns-session-io-policy.h")
 session_io_test = read("trunk/user/dns-forwarder/tests/hev_dns_session_io_policy.c")
 event_source_core = read("trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-event-source.c")
-event_loop_test = read("trunk/user/dns-forwarder/tests/hev_event_loop_lifecycle.c")
 session_core = read("trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-dns-session.c")
 main_core = read("trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-main.c")
-event_loop_test = read("trunk/user/dns-forwarder/tests/hev_event_loop_lifecycle.c")
 forwarder_policy = read("trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-dns-forwarder-policy.h")
 forwarder_policy_test = read("trunk/user/dns-forwarder/tests/hev_dns_forwarder_policy.c")
 forwarder_init_test = read("trunk/user/dns-forwarder/tests/hev_dns_forwarder_init_failure.c")
 forwarder_init_hooks = read("trunk/user/dns-forwarder/tests/hev_dns_forwarder_init_test_hooks.h")
 core_dir = "trunk/user/dns-forwarder/dns-forwarder-1.2.1/"
 event_loop = read(core_dir + "hev-event-loop.c")
+event_loop_test = read("trunk/user/dns-forwarder/tests/hev_event_loop_lifecycle.c")
 event_source = read(core_dir + "hev-event-source.c")
 timeout_source = read(core_dir + "hev-event-source-timeout.c")
 signal_source = read(core_dir + "hev-event-source-signal.c")
-event_loop_test = read("trunk/user/dns-forwarder/tests/hev_event_loop_lifecycle.c")
 lifecycle_test = read("trunk/user/dns-forwarder/tests/dns_forwarder_lifecycle.sh")
 shared_process_helper = read("trunk/user/shared/scripts/process_lifecycle.sh")
 shared_makefile = read("trunk/user/shared/Makefile")
@@ -227,7 +225,6 @@ paths = (
     "trunk/user/dns-forwarder/tests/hev_event_loop_lifecycle.c",
     "trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-dns-forwarder-policy.h",
     "trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-dns-forwarder.c",
-    "trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-main.c",
     "trunk/user/dns-forwarder/tests/hev_dns_forwarder_policy.c",
     "trunk/user/dns-forwarder/tests/hev_dns_forwarder_init_failure.c",
     "trunk/user/dns-forwarder/tests/hev_dns_forwarder_init_test_hooks.h",
