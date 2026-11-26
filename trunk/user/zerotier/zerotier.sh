@@ -868,24 +868,49 @@ zerotier_firewall_state_clear() {
 # any new network state. Failed cleanup leaves the checkpoint for the next try.
 zerotier_replay_firewall_state() {
 	zt_state_file="$config_path/.firewall-state"
-	if [ ! -e "$zt_state_file" ] && [ ! -L "$zt_state_file" ]; then
+	zt_route_state_file="$config_path/.static-routes-state"
+	zt_firewall_state_present=0
+	zt_route_state_present=0
+	if [ -e "$zt_state_file" ] || [ -L "$zt_state_file" ]; then
+		zt_firewall_state_present=1
+	fi
+	if [ -e "$zt_route_state_file" ] || [ -L "$zt_route_state_file" ]; then
+		zt_route_state_present=1
+		if ! zerotier_static_route_state_load; then
+			logger -t "zerotier" "ZeroTier静态路由恢复清单无效，拒绝启动替代守护进程"
+			return 1
+		fi
+	fi
+	if [ "$zt_firewall_state_present" = 0 ] && [ "$zt_route_state_present" = 0 ]; then
 		return 0
 	fi
-	if ! zerotier_firewall_state_load; then
-		logger -t "zerotier" "防火墙清理状态无效，拒绝启动替代守护进程"
-		return 1
+	if [ "$zt_firewall_state_present" = 1 ]; then
+		if ! zerotier_firewall_state_load; then
+			logger -t "zerotier" "防火墙清理状态无效，拒绝启动替代守护进程"
+			return 1
+		fi
+		zt0="$zt_state_saved_interface"
+		ip_segment="$zt_state_saved_segment"
+		if [ "$zt_route_state_present" = 1 ] &&
+		   [ "$zt_route_saved_interface" != "$zt0" ]; then
+			logger -t "zerotier" "防火墙与静态路由恢复清单接口不一致"
+			return 1
+		fi
+		if ! del_rules; then
+			logger -t "zerotier" "旧ZeroTier防火墙规则清理失败，保留恢复状态"
+			return 1
+		fi
+	elif [ "$zt_route_state_present" = 1 ]; then
+		zt0="$zt_route_saved_interface"
 	fi
-	zt0="$zt_state_saved_interface"
-	ip_segment="$zt_state_saved_segment"
-	if ! del_rules; then
-		logger -t "zerotier" "旧ZeroTier防火墙规则清理失败，保留恢复状态"
-		return 1
-	fi
+	# A route manifest captures exactly what was installed. Legacy installs
+	# without one retain the previous checked-NVRAM fallback.
 	if ! zero_route "del"; then
 		logger -t "zerotier" "旧ZeroTier静态路由清理失败，保留恢复状态"
 		return 1
 	fi
-	if ! zerotier_firewall_state_clear; then
+	if [ "$zt_firewall_state_present" = 1 ] &&
+	   ! zerotier_firewall_state_clear; then
 		logger -t "zerotier" "旧ZeroTier清理状态无法移除，拒绝启动替代守护进程"
 		return 1
 	fi
@@ -990,6 +1015,130 @@ zerotier_preflight_static_routes() {
 	done
 	return 0
 }
+
+
+# Persist the exact static-route tuples before installing any of them. The
+# snapshot is independent of mutable NVRAM settings and survives daemon exit.
+zerotier_static_route_state_load() {
+	[ -d "$config_path" ] && [ ! -L "$config_path" ] || return 1
+	zt_route_state_file="$config_path/.static-routes-state"
+	[ -f "$zt_route_state_file" ] && [ ! -L "$zt_route_state_file" ] || return 1
+	{
+		IFS= read -r zt_route_saved_interface || return 1
+		case "$zt_route_saved_interface" in
+			zt*) ;;
+			*) return 1 ;;
+		esac
+		case "$zt_route_saved_interface" in
+			*[!A-Za-z0-9_.:-]*) return 1 ;;
+		esac
+		if [ -n "$zt0" ] && [ "$zt0" != "$zt_route_saved_interface" ]; then
+			return 1
+		fi
+		zt_route_saved_count=0
+		while :; do
+			zt_route_line=""
+			if IFS= read -r zt_route_line; then
+				:
+			else
+				# A non-empty final fragment is an incomplete manifest record.
+				[ -z "$zt_route_line" ] || return 1
+				break
+			fi
+			case "$zt_route_line" in
+				*" "*) ;;
+				*) return 1 ;;
+			esac
+			zt_route_saved_ip="${zt_route_line%% *}"
+			zt_route_saved_gateway="${zt_route_line#* }"
+			case "$zt_route_saved_gateway" in
+				""|*" "*) return 1 ;;
+			esac
+			[ "$zt_route_line" = "$zt_route_saved_ip $zt_route_saved_gateway" ] || return 1
+			zerotier_static_route_tuple_is_valid "$zt_route_saved_ip" "$zt_route_saved_gateway" || return 1
+			zt_route_saved_count=$((zt_route_saved_count + 1))
+			[ "$zt_route_saved_count" -le "$ZT_MAX_STATIC_ROUTES" ] || return 1
+		done
+	} < "$zt_route_state_file"
+	zt_route_state_loaded=1
+	return 0
+}
+
+zerotier_static_route_state_save() {
+	[ -d "$config_path" ] && [ ! -L "$config_path" ] || return 1
+	case "$zt0" in
+		zt*) ;;
+		*) return 1 ;;
+	esac
+	case "$zt0" in
+		*[!A-Za-z0-9_.:-]*) return 1 ;;
+	esac
+	zt_route_state_file="$config_path/.static-routes-state"
+	if [ -e "$zt_route_state_file" ] || [ -L "$zt_route_state_file" ]; then
+		# A previous snapshot must be replayed, never silently overwritten.
+		return 1
+	fi
+	zt_route_state_tmp="$(mktemp "$config_path/.static-routes-state.XXXXXX")" || return 1
+	if ! printf '%s\n' "$zt0" > "$zt_route_state_tmp"; then
+		rm -f "$zt_route_state_tmp"
+		return 1
+	fi
+	if ! zt_preflight_route_count="$(nvram get_checked zero_staticnum_x)" ||
+	   ! zerotier_validate_static_route_count "$zt_preflight_route_count"; then
+		rm -f "$zt_route_state_tmp"
+		return 1
+	fi
+	if [ "$zt_route_count" -gt 0 ]; then
+		for zt_route_i in $(seq 1 "$zt_route_count"); do
+			zt_route_j=$((zt_route_i - 1))
+			if ! zt_route_enable="$(nvram get_checked zero_enable_x$zt_route_j)"; then
+				rm -f "$zt_route_state_tmp"
+				return 1
+			fi
+			case "$zt_route_enable" in
+				""|0) continue ;;
+				1) ;;
+				*)
+					rm -f "$zt_route_state_tmp"
+					return 1
+					;;
+			esac
+			if ! zt_route_ip="$(nvram get_checked zero_ip_x$zt_route_j)" ||
+			   ! zt_route_gateway="$(nvram get_checked zero_route_x$zt_route_j)" ||
+			   [ -z "$zt_route_ip" ] || [ -z "$zt_route_gateway" ] ||
+			   ! zerotier_static_route_tuple_is_valid "$zt_route_ip" "$zt_route_gateway"; then
+				rm -f "$zt_route_state_tmp"
+				return 1
+			fi
+			if ! printf '%s %s\n' "$zt_route_ip" "$zt_route_gateway" >> "$zt_route_state_tmp"; then
+				rm -f "$zt_route_state_tmp"
+				return 1
+			fi
+		done
+	fi
+	if ! chmod 600 "$zt_route_state_tmp" ||
+	   ! mv -f "$zt_route_state_tmp" "$zt_route_state_file"; then
+		rm -f "$zt_route_state_tmp"
+		return 1
+	fi
+	if ! zerotier_static_route_state_load; then
+		logger -t "zerotier" "新建的静态路由恢复清单校验失败"
+		return 1
+	fi
+	return 0
+}
+
+zerotier_static_route_state_clear() {
+	[ -d "$config_path" ] && [ ! -L "$config_path" ] || return 1
+	zt_route_state_file="$config_path/.static-routes-state"
+	if [ -e "$zt_route_state_file" ] || [ -L "$zt_route_state_file" ]; then
+		[ -f "$zt_route_state_file" ] && [ ! -L "$zt_route_state_file" ] || return 1
+		rm -f "$zt_route_state_file" || return 1
+	fi
+	zt_route_state_loaded=0
+	return 0
+}
+
 
 rules() {
 	zt0="$(zerotier_wait_interface)" || {
@@ -1173,75 +1322,35 @@ zero_route_entry_matches() {
 }
 
 zero_route() {
-	if ! rulesnum="$(nvram get_checked zero_staticnum_x)"; then
-		logger -t "zerotier" "无法读取静态路由数量配置"
-		return 1
-	fi
 	case "$1" in
 		add|del) ;;
 		*) return 2 ;;
 	esac
-	if ! zerotier_validate_static_route_count "$rulesnum"; then
-		logger -t "zerotier" "静态路由数量配置超出允许范围 (0-$ZT_MAX_STATIC_ROUTES)"
+	zt_route_state_file="$config_path/.static-routes-state"
+	if [ "$1" = "add" ]; then
+		if ! zerotier_static_route_state_save; then
+			logger -t "zerotier" "无法安全保存静态路由恢复清单"
+			return 1
+		fi
+	elif [ ! -e "$zt_route_state_file" ] && [ ! -L "$zt_route_state_file" ]; then
+		# Backward compatibility for older installs which predate route snapshots.
+		if ! zerotier_static_route_state_save; then
+			logger -t "zerotier" "无法读取旧版静态路由配置以执行清理"
+			return 1
+		fi
+	fi
+	if ! zerotier_static_route_state_load; then
+		logger -t "zerotier" "静态路由恢复清单无效，拒绝猜测待处理路由"
 		return 1
 	fi
-	[ "$zt_route_count" -gt 0 ] || return 0
+	zt0="$zt_route_saved_interface"
 	route_status=0
-	for i in $(seq 1 "$zt_route_count")
-	do
-		j=$((i - 1))
-		if ! route_enable="$(nvram get_checked zero_enable_x$j)"; then
-			logger -t "zerotier" "无法读取静态路由启用标志: $j"
-			if [ "$1" = "add" ]; then
-				return 1
-			fi
-			route_status=1
-			continue
-		fi
-		case "$route_enable" in
-			""|0) continue ;;
-			1) ;;
-			*)
-				logger -t "zerotier" "静态路由启用标志无效: $j"
-				if [ "$1" = "add" ]; then
-					return 1
-				fi
-				route_status=1
-				continue
-				;;
-		esac
-		if ! zero_ip="$(nvram get_checked zero_ip_x$j)"; then
-			logger -t "zerotier" "无法读取静态路由目标: $j"
-			if [ "$1" = "add" ]; then
-				return 1
-			fi
-			route_status=1
-			continue
-		fi
-		if ! zero_route="$(nvram get_checked zero_route_x$j)"; then
-			logger -t "zerotier" "无法读取静态路由网关: $j"
-			if [ "$1" = "add" ]; then
-				return 1
-			fi
-			route_status=1
-			continue
-		fi
-		if [ -z "$zero_ip" ] || [ -z "$zero_route" ] || [ -z "$zt0" ]; then
-			logger -t "zerotier" "静态路由配置不完整: $j"
-			if [ "$1" = "add" ]; then
-				return 1
-			fi
-			route_status=1
-			continue
-		fi
-		if ! zerotier_static_route_tuple_is_valid "$zero_ip" "$zero_route"; then
-			logger -t "zerotier" "静态路由IP或网关不是有效的IPv4地址: $j"
-			if [ "$1" = "add" ]; then
-				return 1
-			fi
-			route_status=1
-			continue
-		fi
+	zt_route_record_index=0
+	while IFS= read -r zt_route_line; do
+		zt_route_record_index=$((zt_route_record_index + 1))
+		[ "$zt_route_record_index" -eq 1 ] && continue
+		zero_ip="${zt_route_line%% *}"
+		zero_route="${zt_route_line#* }"
 		if [ "$1" = "add" ]; then
 			if ! ip route add "$zero_ip" via "$zero_route" dev "$zt0"; then
 				logger -t "zerotier" "静态路由安装失败: $zero_ip via $zero_route"
@@ -1252,8 +1361,7 @@ zero_route() {
 		fi
 
 		# Treat an already-absent route as an idempotent success, but do not
-		# discard inspection or deletion failures: stop must retain identity
-		# until every configured route is confirmed absent.
+		# discard inspection or deletion failures.
 		if ! route_output="$(ip route show "$zero_ip" 2>/dev/null)"; then
 			logger -t "zerotier" "无法检查静态路由: $zero_ip"
 			route_status=1
@@ -1287,10 +1395,15 @@ zero_route() {
 				route_status=1
 			fi
 		fi
-	done
+	done < "$zt_route_state_file"
+	if [ "$1" = "del" ] && [ "$route_status" -eq 0 ]; then
+		if ! zerotier_static_route_state_clear; then
+			logger -t "zerotier" "静态路由已处理，但无法清除恢复清单"
+			return 1
+		fi
+	fi
 	return "$route_status"
 }
-
 start_zero() {
 	logger -t "zerotier" "正在启动zerotier"
 	if ! zerotier_load_start_settings; then
@@ -1526,6 +1639,23 @@ stop_zero() {
 		zt0="$zt_state_saved_interface"
 		ip_segment="$zt_state_saved_segment"
 	fi
+	zt_route_state_file="$config_path/.static-routes-state"
+	zt_route_state_present=0
+	if [ -e "$zt_route_state_file" ] || [ -L "$zt_route_state_file" ]; then
+		if ! zerotier_static_route_state_load; then
+			logger -t "zerotier" "ZeroTier静态路由恢复清单无效，保留守护进程与持久配置"
+			return 1
+		fi
+		if [ -n "$zt0" ] && [ "$zt0" != "$zt_route_saved_interface" ]; then
+			logger -t "zerotier" "防火墙与静态路由恢复清单接口不一致"
+			return 1
+		fi
+		zt0="$zt_route_saved_interface"
+		zt_route_state_present=1
+		if [ -z "$ip_segment" ]; then
+			ip_segment="$(zerotier_kernel_route_segment "$zt0")"
+		fi
+	fi
 	if [ -z "$zt0" ]; then
 		logger -t "zerotier" "无法确认ZeroTier接口或防火墙清理检查点，保留当前服务与持久配置"
 		return 1
@@ -1534,8 +1664,9 @@ stop_zero() {
 		logger -t "zerotier" "无法读取NAT策略，保留当前ZeroTier服务"
 		return 1
 	fi
-	if ! zerotier_preflight_static_routes; then
-		logger -t "zerotier" "无法确认静态路由配置，保留当前ZeroTier服务"
+	if [ "$zt_route_state_present" != 1 ] &&
+	   ! zerotier_preflight_static_routes; then
+		logger -t "zerotier" "无法确认旧版静态路由配置，保留当前ZeroTier服务"
 		return 1
 	fi
 	if [ "$nat_enable" = "1" ] && [ -z "$ip_segment" ]; then

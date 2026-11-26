@@ -1,3 +1,11 @@
+## 2026-11-25 — Persist the exact ZeroTier static routes for later cleanup
+
+- `zero_route add` installed routes from current NVRAM, but `zero_route del` reread current values at stop/restart time. If a user edited or removed a static route while ZeroTier was running, the old destination/gateway was no longer enumerated and could remain in the kernel after firewall cleanup and configuration removal.
+- Added a private, same-directory atomically published `.static-routes-state` manifest. It records the interface plus every validated route tuple before any `ip route add`. Stop/restart cleanup loads and validates the exact manifest, not mutable NVRAM; the snapshot is cleared only after all routes are confirmed absent. A malformed or unterminated manifest fails closed. Legacy installs without a manifest retain the checked-NVRAM fallback.
+- Extended lifecycle tests for NVRAM route drift, exact old-tuple deletion, truncated manifest preservation and replacement-daemon ordering; source checker enforces snapshot creation/load/clear and stop/replay integration. Exact-head CI pending; no live router route test claimed.
+
+---
+
 ## 2026-11-25 — Revalidate VSFTPD LIST symlinks after directory classification
 
 - The listing path authorized a symlink's resolved target, then performed a later followed fstatat() to decide whether the entry was a directory. A link replaced between those operations could inherit the prior target's read ACL and expose an unauthorized share name.

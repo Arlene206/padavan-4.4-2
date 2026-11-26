@@ -47,6 +47,7 @@ TEST_ROUTE_PRESENT=0
 TEST_ROUTE_SHOW_STATUS=0
 TEST_ROUTE_DEL_STATUS=0
 TEST_ROUTE_DELETE_PERSISTS=0
+TEST_ROUTE_DEL_DETAILS_LOG="$TEST_TMP/route-delete-details.log"
 TEST_ROUTE_ADD_PARTIAL=0
 TEST_EXPECT_SAVED_SEGMENT=0
 TEST_IPTABLES_FAIL_ON=""
@@ -125,6 +126,7 @@ logger() {
 start_instance() {
 	if [ "${TEST_ASSERT_CLEAN_BEFORE_START:-0}" = 1 ]; then
 		[ ! -e "$config_path/.firewall-state" ] || fail "replacement daemon started before stale firewall checkpoint was cleared"
+		[ ! -e "$config_path/.static-routes-state" ] || fail "replacement daemon started before stale static-route checkpoint was cleared"
 		[ ! -s "$TEST_IPTABLES_STATE_FILE" ] || fail "replacement daemon started with stale firewall rules"
 		[ "$TEST_ROUTE_PRESENT" -eq 0 ] || fail "replacement daemon started with a stale configured route"
 	fi
@@ -197,6 +199,7 @@ ip() {
 	if [ "$1" = route ] && [ "${2:-}" = del ]; then
 		[ "$7" = ztunit ] || fail "static route cleanup lost the saved interface after daemon exit"
 		echo "zero_route:del" >> "$TEST_ACTION_LOG"
+		printf '%s via %s dev %s\n' "$3" "$5" "$7" > "$TEST_ROUTE_DEL_DETAILS_LOG"
 		[ "$TEST_ROUTE_DEL_STATUS" -eq 0 ] || return "$TEST_ROUTE_DEL_STATUS"
 		if [ "$TEST_ROUTE_DELETE_PERSISTS" -eq 0 ]; then
 			TEST_ROUTE_PRESENT=0
@@ -2008,6 +2011,54 @@ if grep -Fqx -- "zero_route:del" "$TEST_ACTION_LOG"; then
 	fail "cleanup issued a delete for an ambiguous multipath route"
 fi
 TEST_ROUTE_SHOW_OUTPUT=""
+
+
+# Static-route cleanup must use the exact tuples installed earlier, not the
+# user's subsequently edited NVRAM settings.
+/bin/rm -f "$TEST_CONFIG/.static-routes-state"
+mkdir -p "$TEST_CONFIG"
+TEST_STATIC_ROUTE_COUNT=1
+TEST_STATIC_ROUTE_ENABLE=1
+TEST_STATIC_ROUTE_IP="192.0.2.0/24"
+TEST_STATIC_ROUTE_GATEWAY="192.0.2.1"
+TEST_ROUTE_PRESENT=0
+TEST_ROUTE_SHOW_OUTPUT=""
+TEST_ROUTE_ADD_STATUS=0
+TEST_ROUTE_DEL_STATUS=0
+TEST_ROUTE_DELETE_PERSISTS=0
+zt0=ztunit
+: > "$TEST_ACTION_LOG"
+if ! zero_route add; then
+	fail "static-route add did not persist its applied-route manifest"
+fi
+[ "$(cat "$TEST_CONFIG/.static-routes-state")" = "$(printf 'ztunit\n192.0.2.0/24 192.0.2.1')" ] ||
+	fail "static-route manifest did not record the exact interface/destination/gateway"
+TEST_ROUTE_SHOW_OUTPUT="192.0.2.0/24 via 192.0.2.1 dev ztunit"
+TEST_STATIC_ROUTE_COUNT=0
+TEST_STATIC_ROUTE_ENABLE=0
+TEST_STATIC_ROUTE_IP="198.51.100.0/24"
+TEST_STATIC_ROUTE_GATEWAY="198.51.100.1"
+: > "$TEST_ROUTE_DEL_DETAILS_LOG"
+if ! zero_route del; then
+	fail "static-route cleanup failed after its NVRAM entry was removed"
+fi
+[ "$(cat "$TEST_ROUTE_DEL_DETAILS_LOG")" = "192.0.2.0/24 via 192.0.2.1 dev ztunit" ] ||
+	fail "static-route cleanup used changed NVRAM instead of the applied tuple snapshot"
+[ ! -e "$TEST_CONFIG/.static-routes-state" ] ||
+	fail "successful static-route cleanup retained its snapshot"
+
+# A truncated route manifest must fail closed without issuing route commands.
+printf 'ztunit\n192.0.2.0/24 192.0.2.1' > "$TEST_CONFIG/.static-routes-state"
+: > "$TEST_ACTION_LOG"
+if zero_route del; then
+	fail "static-route cleanup accepted an unterminated manifest record"
+fi
+[ ! -s "$TEST_ACTION_LOG" ] || fail "corrupt static-route manifest issued route commands"
+[ -f "$TEST_CONFIG/.static-routes-state" ] || fail "corrupt static-route manifest was discarded"
+/bin/rm -f "$TEST_CONFIG/.static-routes-state"
+TEST_STATIC_ROUTE_COUNT=0
+TEST_STATIC_ROUTE_ENABLE=0
+zt0=""
 
 # iproute2 may display an explicitly configured /32 host route without /32.
 # Cleanup must still identify and delete the exact destination/nexthop.

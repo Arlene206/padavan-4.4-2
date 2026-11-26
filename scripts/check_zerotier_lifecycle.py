@@ -110,6 +110,10 @@ state_recover_body = function_body(script, "zerotier_firewall_state_recover_pref
 state_clear_body = function_body(script, "zerotier_firewall_state_clear()")
 static_route_body = function_body(script, "zero_route()")
 route_match_body = function_body(script, "zero_route_entry_matches()")
+route_state_load_body = function_body(script, "zerotier_static_route_state_load()")
+route_state_save_body = function_body(script, "zerotier_static_route_state_save()")
+route_state_clear_body = function_body(script, "zerotier_static_route_state_clear()")
+route_replay_body = function_body(script, "zerotier_replay_firewall_state()")
 
 process_matches_body = function_body(script, "zerotier_process_matches()")
 process_pids_body = function_body(script, "zerotier_process_pids()")
@@ -748,6 +752,39 @@ require('if ! ip route add "$zero_ip" via "$zero_route" dev "$zt0"; then' in sta
         'return 1' in static_route_body and
         '静态路由安装失败' in static_route_body,
         "static-route add errors must propagate instead of being discarded")
+
+require('zerotier_static_route_state_save' in static_route_body and
+        'zerotier_static_route_state_load' in static_route_body and
+        'zerotier_static_route_state_clear' in static_route_body and
+        'ip route add "$zero_ip" via "$zero_route" dev "$zt0"' in static_route_body and
+        'ip route show "$zero_ip"' in static_route_body and
+        'ip route del "$zero_ip" via "$zero_route" dev "$zt0"' in static_route_body,
+        "static-route add/delete must share a persisted exact-tuple manifest")
+require('nvram get_checked zero_staticnum_x' in route_state_save_body and
+        'nvram get_checked zero_enable_x$zt_route_j' in route_state_save_body and
+        'nvram get_checked zero_ip_x$zt_route_j' in route_state_save_body and
+        'nvram get_checked zero_route_x$zt_route_j' in route_state_save_body and
+        'chmod 600 "$zt_route_state_tmp"' in route_state_save_body and
+        'mv -f "$zt_route_state_tmp" "$zt_route_state_file"' in route_state_save_body,
+        "route manifest must be checked, private and atomically published before route additions")
+require('zerotier_static_route_tuple_is_valid "$zt_route_saved_ip" "$zt_route_saved_gateway"' in route_state_load_body and
+        'zt_route_saved_interface' in route_state_load_body and
+        'zt_route_saved_count' in route_state_load_body and
+        'A non-empty final fragment is an incomplete manifest record' in route_state_load_body,
+        "route manifest loading must validate interface, tuples, size and complete records")
+require('zerotier_static_route_state_load' in stop_body and
+        'if [ "$zt_route_state_present" != 1 ]' in stop_body and
+        'zerotier_preflight_static_routes' in stop_body,
+        "stop must use the applied route snapshot instead of mutable NVRAM when available")
+require('zerotier_static_route_state_load' in route_replay_body and
+        'if [ "$zt_route_state_present" = 1 ]' in route_replay_body and
+        'zero_route "del"' in route_replay_body,
+        "startup replay must clean a saved route manifest, including route-only recovery state")
+require('static-route cleanup used changed NVRAM instead of the applied tuple snapshot' in test and
+        'static-route cleanup accepted an unterminated manifest record' in test and
+        'replacement daemon started before stale static-route checkpoint was cleared' in test,
+        "route snapshot regression must cover configuration drift, corruption and restart ordering")
+
 require('ip route show "$zero_ip"' in static_route_body and
         'ip route del "$zero_ip" via "$zero_route" dev "$zt0"' in static_route_body and
         'route_match_status' in static_route_body and

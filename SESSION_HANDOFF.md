@@ -1,25 +1,25 @@
 ## Current repository state — 2026-11-25
 
-- Parent `main`: `584e9e029cf63c43edb1e44c8eefa040170c1c08` (`test(udhcpd): align lease clock checker with framed reads`). Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; untouched.
-- Exact parent Actions: DHCP lease-clock checker #45734665697 PASS; AI docs #45734665766 PASS. Prior `d5a89c6` NVRAM, USB storage, process regression/inventory, DHCP framing/atomic-write all PASS; XY-C1 #45734245228 remained at Build XY-C1 with TRX/artifact pending.
-- NVRAM image parsing used `header->len` for CRC coverage but `nvram_rehash()` terminated at `NVRAM_SPACE - 2`. This slice fixes the trust-boundary mismatch: reject too-short/oversized image lengths and bound parser termination to the double-NUL at `header->len - 2`.
-- XY-C1 path filters now include the kernel NVRAM driver, helper and regression so firmware validation is triggered for this firmware-relevant fix.
-- DHCP server/lease persistence fixes remain in place. Physical-router L4 and storage power-cut durability remain NOT VERIFIED.
+- Live parent `main`: `9b534df894d3e1e53fc4593a92e97f595c60ac18` (`test(vsftpd): align ACL listing contract`). Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged.
+- Exact parent Actions: #45736190713 AI handoff documentation contract: completed/success; #45736190778 vsftpd configuration publication stability regression: completed/success. NVRAM transaction boundary, HTTPD security, Process lifecycle and AI docs passed on `7812389`; XY-C1 #45735291458 remained at Build XY-C1, with TRX/artifact pending.
+- A ZeroTier lifecycle defect was found: static routes were deleted by rereading mutable NVRAM at stop/restart time. If a route was changed or removed while the daemon ran, the originally installed route was no longer enumerated and could remain in the kernel after cleanup removed the firewall checkpoint/config directory.
+- This slice adds a private atomic `.static-routes-state` manifest containing the exact interface/destination/gateway tuples before adding routes. Stop and restart replay prefer the saved manifest over changed NVRAM; legacy installations without a manifest retain checked-NVRAM fallback. Invalid/truncated manifest blocks destructive cleanup.
+- Physical-router L4 and current-SHA MIPS artifact are NOT VERIFIED.
 
 ## Active task
 
-Validate the NVRAM declared-length fix on its exact SHA via NVRAM transaction-boundary and XY-C1 workflows. Then continue a concrete reliability/security defect outside NVRAM and DHCP; do not remain in one subsystem.
+Run the exact-head ZeroTier lifecycle regression and source checker; fix any failures immediately. Then poll the VSFTPD and XY-C1 exact-SHA workflows and continue another concrete cross-userland reliability/security issue.
 
 ## Verification boundary
 
-- Parent `584e9e0`: DHCP lease clock #45734665697 PASS; AI handoff docs #45734665766 PASS.
-- Parent `d5a89c6`: DHCP read framing/atomic writer, process regression/inventory, USB storage and NVRAM transaction-boundary workflows PASS. Clock source checker initially failed due an obsolete read-loop assertion and passed after repair on `584e9e0`.
-- New NVRAM tests cover minimum header/data length, declared end offsets, full-capacity bounds, over-capacity and `size_t` overflow. Exact-head NVRAM and XY-C1 Actions pending at commit creation.
-- No live router, current-SHA MIPS build, physical flash recovery, or router L4 result claimed.
+- Exact `7812389`: NVRAM transaction boundary #45735291301 PASS; HTTPD security #45735291619 PASS; Process lifecycle #45735291501 PASS; AI docs #45735291372 PASS. XY-C1 #45735291458 remained IN_PROGRESS at Build XY-C1, with TRX/artifact pending.
+- VSFTPD symlink-target and LIST ACL checker commits `566bea1` and `9b534df` have exact-head workflow #45736190778 in progress; AI docs #45736190713 in progress.
+- The new ZeroTier route-manifest regression covers NVRAM route drift, exact old-tuple deletion, truncated manifest fail-closed behavior and startup cleanup ordering. Exact-head tests are pending at commit creation.
+- No live ZeroTier overlay, route hardware test, router L4, or current-SHA MIPS artifact is claimed.
 
 ## Exact first action for the next GPT
 
-Fetch live `main` and exact-head NVRAM transaction boundary, AI docs and XY-C1 push Actions for the NVRAM parser commit. Confirm source-contract and GNU89 ASan/UBSan tests pass; inspect Build XY-C1, TRX and artifact. Then pick another independent stability/security issue and preserve the frozen backup.
+Fetch live `main` and exact-head ZeroTier lifecycle, AI docs and XY-C1 Actions for this route-manifest commit. Require the ZeroTier shell regression and Python source contract to pass, inspect the firmware Build/TRX/artifact state, then continue another independent stability/security task. Preserve the frozen backup.
 
 # Cross-session execution mandate
 
