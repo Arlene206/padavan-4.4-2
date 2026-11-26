@@ -276,9 +276,10 @@ vpn_replace_policy = body(
     resolver_policy_header,
     "wan_resolver_refresh_policy_replaces_wan_dns(int vpn_dns_mode,",
 )
+resolver_vpn_compact = "".join(resolver.split())
 require(
-    "vpn_dns_replaces_current = wan_resolver_refresh_policy_replaces_wan_dns(i_pdns, i_total_dns);" in resolver
-    and "if (!vpn_dns_replaces_current)" in resolver,
+    "vpn_dns_replaces_current=wan_resolver_refresh_policy_replaces_wan_dns(i_pdns,i_total_dns);" in resolver_vpn_compact
+    and "if(!vpn_dns_replaces_current)" in resolver_vpn_compact,
     "resolver must share one replace-current decision across WAN DNS families",
 )
 require(
