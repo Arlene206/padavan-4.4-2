@@ -17,15 +17,20 @@ enum failure_mode {
     FAIL_PARTIAL_WRITE,
     FAIL_FSYNC,
     FAIL_CLOSE,
-    FAIL_RENAME
+    FAIL_RENAME,
+    FAIL_OPEN_DIR,
+    FAIL_DIR_FSYNC
 };
 
 static enum failure_mode active_failure;
 static int write_calls;
+static int mkstemp_calls;
+static int directory_fsync_calls;
 
 static int
 test_mkstemp(char *path_template)
 {
+    mkstemp_calls++;
     if (active_failure == FAIL_MKSTEMP) {
         errno = EACCES;
         return -1;
@@ -85,13 +90,43 @@ test_unlink(const char *path)
     return unlink(path);
 }
 
+static int
+test_open_dir(const char *path)
+{
+    if (active_failure == FAIL_OPEN_DIR) {
+        errno = EACCES;
+        return -1;
+    }
+    return open(path, O_RDONLY | O_DIRECTORY);
+}
+
+static int
+test_dir_fsync(int fd)
+{
+    directory_fsync_calls++;
+    if (active_failure == FAIL_DIR_FSYNC) {
+        errno = EIO;
+        return -1;
+    }
+    return fsync(fd);
+}
+
+static int
+test_close_dir(int fd)
+{
+    return close(fd);
+}
+
 static const struct udhcp_lease_file_io_ops test_ops = {
     test_mkstemp,
     test_write,
     test_fsync,
     test_close,
     test_rename,
-    test_unlink
+    test_unlink,
+    test_open_dir,
+    test_dir_fsync,
+    test_close_dir
 };
 
 static void
@@ -124,10 +159,12 @@ test_success_replaces_file_atomically(const char *path)
 {
     active_failure = FAIL_NONE;
     write_calls = 0;
+    directory_fsync_calls = 0;
     write_original(path);
     assert(udhcp_lease_file_write_atomic(path, "new-valid-data", 14,
                                          &test_ops) == 0);
     assert_file_contents(path, "new-valid-data");
+    assert(directory_fsync_calls == 1);
 }
 
 static void
@@ -157,6 +194,31 @@ test_pre_rename_failures_preserve_old_file(const char *path)
     active_failure = FAIL_NONE;
 }
 
+
+static void
+test_directory_open_failure_preserves_old_file(const char *path)
+{
+    active_failure = FAIL_OPEN_DIR;
+    mkstemp_calls = 0;
+    write_original(path);
+    assert(udhcp_lease_file_write_atomic(path, "replacement", 11,
+                                         &test_ops) == -1);
+    assert(mkstemp_calls == 0);
+    assert_file_contents(path, "old-valid");
+}
+
+static void
+test_directory_fsync_failure_reports_published_file(const char *path)
+{
+    active_failure = FAIL_DIR_FSYNC;
+    directory_fsync_calls = 0;
+    write_original(path);
+    assert(udhcp_lease_file_write_atomic(path, "published", 9,
+                 &test_ops) == UDHCP_LEASE_FILE_ATOMIC_RENAMED_UNSYNCED);
+    assert(directory_fsync_calls == 1);
+    assert_file_contents(path, "published");
+}
+
 int
 main(void)
 {
@@ -167,6 +229,9 @@ main(void)
     assert(snprintf(path, sizeof(path), "%s/leases", directory) > 0);
     test_success_replaces_file_atomically(path);
     test_pre_rename_failures_preserve_old_file(path);
+    test_directory_open_failure_preserves_old_file(path);
+    test_directory_fsync_failure_reports_published_file(path);
+    active_failure = FAIL_NONE;
     assert(unlink(path) == 0);
     assert(rmdir(directory) == 0);
     puts("DHCP lease file atomic replacement regression: PASS");

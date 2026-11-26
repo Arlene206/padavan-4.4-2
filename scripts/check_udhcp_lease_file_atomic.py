@@ -23,7 +23,13 @@ write = io_header.index("udhcp_lease_file_write_all(fd, buffer, length, ops)")
 sync = io_header.index("ops->fsync_fn(fd)")
 close = io_header.index("ops->close_fn(fd)")
 rename = io_header.index("ops->rename_fn(temporary_path, path)")
-assert create < write < sync < close < rename
+dir_open = io_header.index("directory_fd = ops->open_dir_fn(parent_path)")
+dir_sync = io_header.index("ops->fsync_dir_fn(directory_fd)")
+assert dir_open < create < write < sync < close < rename < dir_sync
+assert "UDHCP_LEASE_FILE_ATOMIC_RENAMED_UNSYNCED" in io_header
+assert "write_status < 0" in files_c
+assert "write_status == UDHCP_LEASE_FILE_ATOMIC_RENAMED_UNSYNCED" in files_c
+
 assert "if (written == 0 || (size_t)written > length)" in io_header
 assert "if (temporary_created)" in io_header
 assert "temporary_created = 1;" in io_header
@@ -36,7 +42,12 @@ for token in (
     "FAIL_FSYNC",
     "FAIL_CLOSE",
     "FAIL_RENAME",
+    "FAIL_OPEN_DIR",
+    "FAIL_DIR_FSYNC",
     "test_success_replaces_file_atomically",
+    "test_directory_open_failure_preserves_old_file",
+    "test_directory_fsync_failure_reports_published_file",
+    "UDHCP_LEASE_FILE_ATOMIC_RENAMED_UNSYNCED",
     "test_pre_rename_failures_preserve_old_file",
     'assert_file_contents(path, "old-valid")',
     'assert_file_contents(template_path, "old-valid")',

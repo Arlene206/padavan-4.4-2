@@ -1,3 +1,11 @@
+## 2026-11-25 — Sync DHCP lease directory after atomic replacement
+
+- File fsync plus rename made the new lease data visible atomically but did not guarantee that the directory entry update itself was durable across power loss.
+- The atomic writer now opens the destination's parent directory before creating the temp file and fsyncs that directory after successful rename. Parent-directory open failure aborts before changing the live file. A post-rename directory-fsync failure returns a distinct positive status because the new file is already published; `write_leases()` logs the durability warning while still running the post-commit notification.
+- Fault-injection coverage adds directory-open failure (old snapshot preserved) and directory-fsync failure (new snapshot visible, durability warning state reported). Local GNU89 test and exact-SHA Actions pending at commit creation; no power-cut hardware test claimed.
+
+---
+
 ## 2026-11-25 — Guard atomic lease cleanup after temporary-file creation failure
 
 - Review found that the atomic writer's failure label attempted to unlink the unexpanded `.tmp.XXXXXX` template even when `mkstemp()` itself failed. A pre-existing file with that literal name could be removed.

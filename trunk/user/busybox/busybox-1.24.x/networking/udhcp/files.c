@@ -11,6 +11,11 @@
 #include "common.h"
 #include "dhcpd.h"
 #include "udhcp_lease_file_atomic.h"
+
+static int udhcp_open_lease_directory(const char *path)
+{
+	return open(path, O_RDONLY | O_DIRECTORY);
+}
 #include "udhcp_lease_file_time_policy.h"
 
 /* on these functions, make sure your datatype matches */
@@ -122,8 +127,10 @@ void FAST_FUNC read_config(const char *file)
 void FAST_FUNC write_leases(void)
 {
 	static const struct udhcp_lease_file_io_ops file_io = {
-		mkstemp, write, fsync, close, rename, unlink
+		mkstemp, write, fsync, close, rename, unlink,
+		udhcp_open_lease_directory, fsync, close
 	};
+	int write_status;
 	unsigned i;
 	size_t lease_count = 0;
 	size_t total_size;
@@ -168,12 +175,17 @@ void FAST_FUNC write_leases(void)
 		cursor += sizeof(lease);
 	}
 
-	if (udhcp_lease_file_write_atomic(server_config.lease_file,
-			buffer, total_size, &file_io) != 0) {
+	write_status = udhcp_lease_file_write_atomic(server_config.lease_file,
+			buffer, total_size, &file_io);
+	if (write_status < 0) {
 		bb_perror_msg("cannot atomically write leases to %s",
 				server_config.lease_file);
 		free(buffer);
 		return;
+	}
+	if (write_status == UDHCP_LEASE_FILE_ATOMIC_RENAMED_UNSYNCED) {
+		bb_perror_msg("lease file renamed but directory sync failed for %s",
+				server_config.lease_file);
 	}
 	free(buffer);
 

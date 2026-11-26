@@ -1,23 +1,24 @@
 ## Current repository state — 2026-11-25
 
-- Parent `main` source baseline for this slice: `3ef46495877f7e6dbc621fbc9ae4fe18f36463c2` (`fix(udhcpd): atomically replace lease database`). Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged.
-- Exact parent push Actions at this checkpoint: #45733651026 NVRAM transaction boundary audit: in_progress; #45733651094 XY-C1 Firmware Validation: in_progress; #45733651022 USB storage hotplug stability regression: in_progress; #45733650978 Process inventory and lifecycle fail-closed regression: in_progress; #45733651060 AI handoff documentation contract: completed/success; #45733651077 DHCP lease-file clock correction validation: completed/success; #45733651111 DHCP lease-file atomic-write validation: completed/success; #45733651102 Process lifecycle inventory - 3ef46495877f7e6dbc621fbc9ae4fe18f36463c2: completed/success. All listed runs use the exact parent SHA.
-- DHCP lease persistence uses a same-directory temporary file, complete writes, file fsync, checked close and atomic rename. A follow-up review tightened cleanup so a failed `mkstemp()` cannot unlink a pre-existing literal `.tmp.XXXXXX` path; regression now protects such a sentinel.
-- Physical-router L4 remains NOT VERIFIED. Do not transfer older firmware Build/TRX/artifact results to a newer source SHA.
+- Live `main` before this slice: `1f8b4a80e0bf035f423c11abd0be128bcbf05ab6` (`fix(udhcpd): guard lease temp cleanup`). Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; untouched.
+- Exact `1f8b4a8` DHCP lease-file atomic workflow #45733756015 PASS and AI handoff docs #45733756180 PASS. NVRAM #45733755968, USB #45733755980, Process inventory #45733755920 and XY-C1 #45733755992 were IN_PROGRESS at last poll; XY-C1 Build/TRX/artifact had not completed.
+- DHCP lease-file replacement is atomic at the namespace level. The latest slice adds parent-directory open/fsync after the temp file is synced and renamed. A directory-open failure is rejected before the destination can change; a directory-fsync failure after rename is reported distinctly because the new file is already visible but crash durability is uncertain.
+- Fault injection now covers temp create, write, file fsync, close, rename, parent-directory open and post-rename parent-directory fsync. The test distinguishes pre-rename preservation from post-rename published-but-not-confirmed-durable state.
+- Physical-router L4 remains NOT VERIFIED. No older firmware result is transferred to a new SHA.
 
 ## Active task
 
-Validate the atomic lease-file writer on the exact current main SHA. After the focused fault-injection workflow passes, review whether parent-directory fsync and corrupted/truncated-file handling need additional safeguards before moving to another subsystem.
+Validate directory-sync behavior on the exact head. Then review `read_leases()` handling of malformed/truncated records and file-read errors, adding a clear fail-closed or partial-recovery policy only where evidence shows a concrete defect. Continue to another userland subsystem once this bounded DHCP slice is stable.
 
 ## Verification boundary
 
-- Parent `3ef4649` DHCP lease-file atomic-write, lease clock correction, AI docs, XY-C1, Process, NVRAM and USB workflows were IN_PROGRESS at the last exact-SHA query.
-- The standalone GNU89 ASan/UBSan fault-injection regression passes locally for successful replacement and temporary-create, partial-write, fsync, close and rename failures. It additionally verifies that a failed `mkstemp()` does not remove a literal template-name file. Exact-head workflow pending.
-- No live DHCP client/server exchange, current-SHA MIPS firmware artifact, or physical-router result is claimed.
+- Exact `1f8b4a8` focused atomic lease workflow #45733756015 PASS; AI docs #45733756180 PASS. NVRAM, USB, Process inventory and XY-C1 were still in progress at last exact-SHA query.
+- Previous standalone GNU89 ASan/UBSan atomic writer regression PASS for successful replacement, temp creation, short write, file fsync, close and rename failure. This slice adds parent-directory open/fsync scenarios; its exact-SHA workflow is pending at commit creation.
+- No live DHCP exchange, device storage power-cut test, current-SHA MIPS firmware artifact, or router L4 result is claimed.
 
 ## Exact first action for the next GPT
 
-Fetch live `main` and exact-head `udhcp-lease-file-atomic`, lease-clock, AI-docs and XY-C1 push Actions. Confirm the fault-injection/source-contract jobs pass and inspect Build/TRX/artifact. Then review directory-sync and corrupt-file recovery boundaries. Preserve the frozen backup.
+Fetch live `main` and exact-head DHCP lease-file atomic, AI docs and XY-C1 Actions. Verify directory-open and directory-fsync tests and inspect Build/TRX/artifact. If they pass, inspect `read_leases()` partial record/read error handling. Preserve the frozen backup.
 
 # Cross-session execution mandate
 
