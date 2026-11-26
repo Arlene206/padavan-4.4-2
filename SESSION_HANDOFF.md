@@ -2,7 +2,7 @@
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; active branch: `main`; current parent before the MiniUPnP timeout checker/docs correction: `b81ac7815d7fbe3b4573f742b00cbdba19c2e0d7`.
+- Repository: `Arlene206/padavan-4.4-2`; active branch: `main`; current parent before the MiniUPnP timeout workflow path-filter correction: `037a94bad94cfbdaaeb8a21b50af4462ed2d45e6`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged; do not modify). PR #1 remains closed and unmerged.
 - Bootstrap/protocol recovery was completed earlier in this continuous project; do not repeat it. Work on `main` only with full-tree atomic commits and non-forced expected-SHA updates.
 - Recent exact-SHA evidence: detect_internet #45840625872 and AI handoff #45840625916 PASS on `863d77c9e28fc3caff4c53bf9a81607d4bf9871b`; HTTPD DHCP Router checker #45839469363 and AI handoff #45839469460 PASS on `68edd489cb4123769327c3b35aa5971a10ab4af2`.
@@ -12,8 +12,8 @@
 ## Active task
 
 - Production timeout hardening is committed at `b81ac7815d7fbe3b4573f742b00cbdba19c2e0d7`: strict bounded `Second-nnnn` / `Second-infinite` parsing, duplicate-header rejection, and saturating subscriber expiry for 32-bit `time_t`.
-- Exact-SHA GNU89 ASan/UBSan policy compile and execution PASSed (#45844543377, compile step); the embedded source checker then failed only because its expected mixed-case fixture token did not match the test literal. AI handoff validation also found `REFACTOR_ROADMAP.md` 81 bytes above its 128-KiB hard limit; both checker/docs-only corrections are in this descendant and require exact-SHA reruns.
-- HTTP request framing and event callback workflows PASSed on `b81ac781`; XY-C1 run #45844543988 is PENDING at build-dependency setup. Require the firmware-input detector, Build XY-C1, TRX and artifact upload to PASS before claiming this source has L3 validation.
+- Exact-SHA GNU89 ASan/UBSan policy compile/execution PASSed (#45845054950); the embedded source checker then failed because the new timeout helper path was inserted into the push filter but not the matching pull_request filter. The fixture token was corrected in this descendant. AI handoff validation PASSed #45845054818 on this descendant.
+- XY-C1 run #45844543988 on source SHA `b81ac781` passed the production-input detector and all host checks and is compiling Build XY-C1; TRX verification and artifact upload are still pending. The MiniUPnP workflow path-filter correction is pending exact-SHA CI.
 
 ## Completed production work — LAN DHCP resolver transaction
 
@@ -59,9 +59,9 @@
 
 ## Exact first action for the next GPT
 
-1. Check the exact-SHA MiniUPnP subscriber regression and AI handoff documentation contract for the correction commit.
-2. Inspect XY-C1 run #45844543988 on production source SHA `b81ac781`; require the detector, Build XY-C1, TRX verification and artifact upload to PASS. If still pending, proceed with an independent source slice.
-3. Continue another concrete P1 stability/security repair without repeating completed work. Use one full-tree atomic commit and expected-SHA update; leave the frozen backup untouched. Hardware/L4 remains NOT VERIFIED.
+1. Inspect the exact-SHA MiniUPnP event-subscriber regression and AI handoff documentation contract on the latest correction commit; require the embedded checker to pass as well as the GNU89 sanitizer binary.
+2. Inspect XY-C1 run #45844543988 on production source SHA `b81ac781`; require Build XY-C1, TRX verification and artifact upload to PASS. If still pending, continue an independent source task.
+3. Continue another concrete P1 stability/security repair without repeating completed work. Use one complete tree and expected-SHA atomic main update; keep frozen backup untouched and hardware/L4 NOT VERIFIED.
 
 ## Mandatory handoff checkpoint
 

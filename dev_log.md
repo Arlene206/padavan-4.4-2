@@ -1,3 +1,8 @@
+## 2026-11-26 — Add the timeout policy to MiniUPnP PR path filters
+
+- On correction SHA `037a94b`, the GNU89 ASan/UBSan policy binary PASSed and the AI handoff documentation workflow PASSed (#45845054818). The embedded source checker then found that the newly added timeout helper was present in the MiniUPnP workflow's push path list but absent from its separate pull_request list.
+- Added the header to the PR filter as well; this is workflow wiring only, not a production-code change. XY-C1 on the production source SHA `b81ac781` had passed detector and host-policy steps and was still compiling Build XY-C1; TRX/artifact remained pending.
+
 ## 2026-11-26 — Correct MiniUPnP timeout checker fixture and roadmap size
 
 - The exact-SHA event-subscriber workflow #45844543377 compiled and passed the GNU89 ASan/UBSan capacity/timeout binary, then failed only because the source checker expected `Second-InFiNiTe` while the test used the valid mixed-case `sEcOnD-InFiNiTe`; align the literal, not production behavior.

@@ -19,6 +19,7 @@ on:
       - "trunk/user/miniupnpd/miniupnpd-2.x/upnpevents.c"
       - "trunk/user/miniupnpd/miniupnpd-2.x/upnphttp.c"
       - "trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd_event_subscription_policy.h"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd_event_timeout_policy.h"
       - "trunk/user/miniupnpd/miniupnpd-2.x/tests/miniupnpd_event_subscription_policy_test.c"
       - "trunk/user/miniupnpd/miniupnpd-2.x/Makefile.linux"
       - "trunk/user/miniupnpd/miniupnpd-2.x/Makefile.linux_nft"
