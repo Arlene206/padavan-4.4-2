@@ -1223,7 +1223,7 @@ jobs:
           assert "cannot remove router hostname rollback snapshot" in net_wan
           assert "cannot remove LAN hostname rollback snapshot" in net_lan
           assert "cannot remove LAN DHCP resolver stage" in net_lan
-          assert "LAN DHCP resolver rollback incomplete" in net_lan
+          assert "LAN DHCP resolver rollback/durability confirmation incomplete" in net_lan
           assert "LAN DHCP resolver committed but rollback snapshot cleanup failed" in net_lan
           assert "cannot remove failed LAN resolver stage" in net_lan
           assert "cannot remove LAN resolver stage" in net_lan

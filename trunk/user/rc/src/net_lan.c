@@ -2416,7 +2416,7 @@ lan_publish_resolver_auto(char *lan_gateway, char *lan_dname, char *lan_dns)
 		status = errno ? errno : EIO;
 		if (recovery_status != 0)
 			logmessage(LOGNAME,
-				   "LAN DHCP resolver rollback incomplete (status=%d); recovery snapshot '%s' retained",
+				   "LAN DHCP resolver rollback/durability confirmation incomplete (status=%d; recovery link path='%s')",
 				   recovery_status, resolv_backup);
 	} else if (recovery_status != 0) {
 		logmessage(LOGNAME,
