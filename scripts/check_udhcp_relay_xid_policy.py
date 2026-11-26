@@ -47,7 +47,11 @@ assert "if (NULL == item)" in pass_to_server
 assert "!udhcp_relay_send_result_ok(sendto_ip4(fds[0], p, packet_len, server_addr)) && created" in pass_to_server
 assert "xid_del_item(item)" in pass_to_server
 assert "xid_find(p)" in pass_to_client
-assert "if (udhcp_relay_send_result_ok(sendto_ip4(fds[item->client], p, packet_len, &item->ip)))" in pass_to_client
+assert "client_dest = item->ip" in pass_to_client
+assert "client_dest.sin_port = htons(CLIENT_PORT)" in pass_to_client
+assert "udhcp_relay_client_destination(" in pass_to_client
+assert "if (udhcp_relay_send_result_ok(sendto_ip4(fds[item->client], p, packet_len, &client_dest)))" in pass_to_client
+assert "item->ip.sin_addr.s_addr = htonl(INADDR_BROADCAST)" not in pass_to_client
 assert "if (if (" not in pass_to_client
 assert "xid_del_item(item)" in pass_to_client
 assert "Unable to forward DHCP reply; retaining transaction for retry" in pass_to_client

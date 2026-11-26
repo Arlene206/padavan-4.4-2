@@ -1,6 +1,6 @@
-## 2026-11-26 — ZeroTier regression fixture isolation
+## 2026-11-26 — DHCP relay XID destination checker
 
-- Restore shared static-route test selectors after the missing-interface case; lifecycle rerun pending.
+- Update stale contract to require protocol-derived `client_dest`; preserve captured source sockaddr for fallback/retry.
 
 ---
 ## 2026-11-26 — Validate static and DHCPv6 WAN DNS server literals

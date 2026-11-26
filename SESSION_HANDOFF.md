@@ -1,25 +1,24 @@
-## Current repository state — 2026-11-25
+## Current repository state — 2026-11-26
 
-- Live `main` before this slice: `96f6057d496c1e0a48a100112311e0d5133e12b3`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable.
-- DHCP relay commits now include bounded datagram ingress, BOOTP opcode/giaddr/hops rules, bounded XID correlation, send error handling and select hardening. Exact status of each most recent SHA must be read from its own Action run.
-- Last confirmed XY-C1 Build/TRX/artifact baseline is `b320dd266be3dea74820ada79aec68c26f6b7dc9`, prior to subsequent DHCP relay production changes. Current-source L3 and physical-router L4 remain NOT VERIFIED.
+- Live `main` before this correction: `6bfef1256d5b2ed2c015b5344ce991d26998d577` (`fix(udhcp): route relay replies to client address`). Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged.
+- Exact `6bfef12`: client destination #45728717464 PASS; BOOTREPLY #45728716678 PASS; select-error #45728716428 PASS; select-fd #45728716499 PASS; packet bounds #45728716627 PASS; giaddr/hop #45728716640 PASS; AI docs #45728716550 PASS; Process inventory #45728716558 PASS. XID #45728716637 FAILED only at stale checker assertion expecting `sendto(..., &item->ip)`; standalone GNU89 ASan/UBSan test passed.
+- NVRAM #45728716634, USB hotplug #45728716487, and XY-C1 #45728716683 were IN_PROGRESS at last poll. The XY-C1 Build/TRX/artifact steps must be checked on this or later SHA; no L3 claim yet.
+- ZeroTier fixture correction `96f6057`: lifecycle #45728232626 PASS; AI docs #45728232680 PASS; Process #45728232671 PASS. AdGuardHome selector fix `f0cc53c`: config/security #45726581924 and Process #45726581809 PASS; AI correction `1f7f8b3` #45726801473 PASS.
+- Last confirmed XY-C1 Build/TRX/artifact baseline remains older `b320dd2` (#45724141332). Current-source L3 and physical-router L4 NOT VERIFIED.
 
 ## Active task
 
-Fix DHCP relay response delivery to clients that start with source IP 0.0.0.0. The relay previously stored the client's UDP source address and used it as the reply destination; an initial DHCP client commonly has no assigned address, so the server's OFFER/ACK could be sent to 0.0.0.0 and never reach the client. The reply path now honors the BOOTP broadcast flag and DHCPNAK broadcast behavior, otherwise selecting ciaddr then yiaddr and finally the captured source address; it always sends to the DHCP client port.
+Repair the stale DHCP relay XID integration checker to match the client-response destination sockaddr. The XID policy executable was green; only its Python contract still expected `item->ip`. The production reply path now derives `client_dest` from BOOTP/DHCP state, sends to it, and retains the captured source tuple for fallback/retry.
 
 ## Verification boundary
 
-- GNU89 ASan/UBSan policy test covers broadcast flag, DHCPNAK, ciaddr, yiaddr, source-address fallback and all-zero fallback. The source integration contract verifies the target IP and port are selected before sendto and XY-C1 inputs include the production file/header/test.
-- Exact-head client destination workflow, AI docs and XY-C1 Build/TRX/artifact checks are pending. No live DHCP client/server exchange, BusyBox cross-build, current firmware artifact or router L4 result is claimed.
+- Client destination helper/integration and BOOTREPLY workflows passed on `6bfef12`. XID source-contract correction and exact-head rerun pending.
+- `udhcp_listen_socket()` already enables `SO_BROADCAST` and treats failure as fatal before binding; no socket change is needed.
+- No same-SHA XY-C1 Build/TRX/artifact success or physical-router L4 result is claimed.
 
 ## Exact first action for the next GPT
 
-Fetch exact-head client-destination, BOOTP opcode, XID, packet-length and AI/XY-C1 Actions. Fix the first causal failure. Then verify that listener sockets have SO_BROADCAST enabled and perform a live DHCP relay simulation if a test environment exists.
-
-## Mandatory handoff checkpoint
-
-Inspect live main, frozen backup ref and exact-SHA Actions. If the checkpoint facts and first action remain accurate, record a no-op checkpoint without a docs-only commit.
+Fetch exact-head XID and AI docs after this checker update, then poll XY-C1 Build/TRX/artifact and pending NVRAM/USB jobs. Ensure production translation-unit compile coverage is checked, not only policy-header tests. Continue other stability/security work while a long build is pending; preserve the frozen backup.
 
 # Cross-session execution mandate
 

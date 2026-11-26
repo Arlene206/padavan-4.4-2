@@ -299,11 +299,7 @@ static void pass_to_client(struct dhcp_packet *p, int packet_len, int *fds)
 		(0 != (ntohs(p->flags) & 0x8000)), (DHCPNAK == type));
 	
 
-//TODO: also do it if (p->flags & htons(BROADCAST_FLAG)) is set!
-	if (item->ip.sin_addr.s_addr == htonl(INADDR_ANY))
-		item->ip.sin_addr.s_addr = htonl(INADDR_BROADCAST);
-
-	if (udhcp_relay_send_result_ok(sendto_ip4(fds[item->client], p, packet_len, &client_dest))) {
+if (udhcp_relay_send_result_ok(sendto_ip4(fds[item->client], p, packet_len, &client_dest))) {
 		xid_del_item(item);
 	} else {
 		log1("Unable to forward DHCP reply; retaining transaction for retry");

@@ -1,3 +1,10 @@
+## 2026-11-26 — Align DHCP relay XID source contract with client destination
+
+- Exact `6bfef12` XID workflow #45728716637 failed at `check_udhcp_relay_xid_policy.py`: its integration assertion still required `sendto(..., &item->ip)`, but `pass_to_client()` now constructs a protocol-derived `client_dest` and sends to `&client_dest`. The standalone GNU89 ASan/UBSan XID executable passed.
+- Updated the checker to require `client_dest` initialization, client port 68, policy-based address selection and `sendto(..., &client_dest)`. Removed the obsolete BOOTP broadcast TODO and in-place mutation of the saved source sockaddr, preserving the captured source tuple for fallback/retry. Exact-head rerun pending.
+
+---
+
 ## 2026-11-25 — Route DHCP relay replies to a usable client destination
 
 - DHCPrelay stored the source sockaddr from the client's first request and reused that source IP for server replies. A DHCP client starting from 0.0.0.0 commonly sends DHCPDISCOVER with source IP 0.0.0.0, so a valid server OFFER/ACK could be sent back to 0.0.0.0:68 and never reach the client.
