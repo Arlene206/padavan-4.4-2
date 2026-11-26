@@ -4539,12 +4539,14 @@ static int
 notify_ddns_update_locked(void)
 {
 	struct process_snapshot snapshot;
+	struct inadyn_config_file_snapshot config_snapshot;
 	enum process_presence state;
 	enum inadyn_daemon_action action;
 	int scan_error;
 	int result;
 	int saved_errno;
-	int is_ap_mode, ap_mode_status;
+	int snapshot_status, restore_status, restore_errno;
+	int ap_mode_status, is_ap_mode;
 	int enabled_api_result, enabled_status, ddns_enabled;
 	char *enabled_value = NULL;
 
@@ -4595,8 +4597,40 @@ notify_ddns_update_locked(void)
 			   errno);
 		return -1;
 	}
+
+	/*
+	 * Keep the last-known-good config until the reload signal is accepted and
+	 * the replacement directory entry is durable. A failed write is rolled
+	 * back immediately; an uncertain/partial signal keeps the private snapshot
+	 * for manual recovery instead of discarding the only known-good generation.
+	 */
+	snapshot_status = inadyn_config_file_snapshot_begin(
+		DDNS_CONF_FILE, &config_snapshot);
+	if (snapshot_status != 0) {
+		saved_errno = errno ? errno : EIO;
+		process_snapshot_release(&snapshot);
+		errno = saved_errno;
+		logmessage(LOGNAME,
+			   "DDNS update aborted: cannot snapshot last-known-good Inadyn config (errno=%d)",
+			   saved_errno);
+		return -1;
+	}
+
 	if (!write_inadyn_conf(DDNS_CONF_FILE)) {
 		saved_errno = errno ? errno : EIO;
+		restore_status = inadyn_config_file_snapshot_restore(
+			DDNS_CONF_FILE, &config_snapshot);
+		if (restore_status != 0) {
+			restore_errno = errno ? errno : EIO;
+			if (config_snapshot.backup_path[0])
+				logmessage(LOGNAME,
+					   "Inadyn config rollback failed (errno=%d); recovery snapshot retained: %s",
+					   restore_errno, config_snapshot.backup_path);
+			else
+				logmessage(LOGNAME,
+					   "Inadyn config rollback failed without a prior file snapshot (errno=%d)",
+					   restore_errno);
+		}
 		process_snapshot_release(&snapshot);
 		errno = saved_errno;
 		return -1;
@@ -4608,14 +4642,34 @@ notify_ddns_update_locked(void)
 	process_snapshot_release(&snapshot);
 	if (result != 0) {
 		errno = saved_errno ? saved_errno : EIO;
-		logmessage(LOGNAME, "inadyn configuration reload signal failed (errno %d)",
-			   errno);
+		if (config_snapshot.backup_path[0])
+			logmessage(LOGNAME,
+				   "Inadyn reload signal failed (errno=%d); last-known-good config snapshot retained: %s",
+				   errno, config_snapshot.backup_path);
+		else
+			logmessage(LOGNAME,
+				   "Inadyn reload signal failed (errno=%d); no previous config file was available for rollback",
+				   errno);
+		return -1;
+	}
+
+	if (inadyn_config_file_snapshot_commit(DDNS_CONF_FILE,
+					       &config_snapshot) != 0) {
+		saved_errno = errno ? errno : EIO;
+		if (config_snapshot.backup_path[0])
+			logmessage(LOGNAME,
+				   "Inadyn reload was signalled but config durability commit failed (errno=%d); recovery snapshot retained: %s",
+				   saved_errno, config_snapshot.backup_path);
+		else
+			logmessage(LOGNAME,
+				   "Inadyn reload was signalled but config directory durability is unconfirmed (errno=%d)",
+				   saved_errno);
+		errno = saved_errno;
 		return -1;
 	}
 
 	return 0;
 }
-
 int
 notify_ddns_update(void)
 {

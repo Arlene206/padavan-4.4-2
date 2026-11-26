@@ -307,6 +307,36 @@ test_config_snapshot_restore_and_commit(const char *config,
 }
 
 static void
+test_reload_failure_keeps_last_known_good_snapshot(
+	const char *config, const char *directory)
+{
+	struct inadyn_config_file_snapshot snapshot;
+	struct stat st;
+	char staged[512];
+	FILE *fp;
+
+	assert(inadyn_config_file_snapshot_begin(config, &snapshot) == 0);
+	assert(snapshot.active && snapshot.had_original);
+	assert(snapshot.backup_path[0] != '\\0');
+	assert(count_staged_files(directory, "inadyn.conf.rollback.") == 1);
+	fp = inadyn_config_file_open(config, staged, sizeof(staged));
+	assert(fp != NULL && fputs("reload-candidate\\n", fp) >= 0);
+	assert(inadyn_config_file_publish(fp, staged, config) == 0);
+
+	/* A failed/uncertain SIGHUP must not discard the previous generation. */
+	assert(snapshot.active && snapshot.backup_path[0] != '\\0');
+	read_exact(config, "reload-candidate\\n");
+	read_exact(snapshot.backup_path, "committed-generation\\n");
+	assert(count_staged_files(directory, "inadyn.conf.rollback.") == 1);
+
+	/* The retained snapshot remains usable by an explicit recovery action. */
+	assert(inadyn_config_file_snapshot_restore(config, &snapshot) == 0);
+	read_exact(config, "committed-generation\\n");
+	assert(stat(config, &st) == 0 && st.st_nlink == 1);
+	assert(count_staged_files(directory, "inadyn.conf.rollback.") == 0);
+}
+
+static void
 test_config_snapshot_rejects_symlink(const char *link_path)
 {
 	struct inadyn_config_file_snapshot snapshot;
@@ -376,6 +406,7 @@ main(void)
 	read_exact(config, "new-user\nnew-password\n");
 	test_config_directory_sync_rejects_symlink(directory);
 	test_config_snapshot_restore_and_commit(config, directory, new_config);
+	test_reload_failure_keeps_last_known_good_snapshot(config, directory);
 
 	/* Atomic publication replaces a destination symlink, not its target. */
 	fp = fopen(victim, "w");

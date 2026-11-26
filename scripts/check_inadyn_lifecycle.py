@@ -116,11 +116,23 @@ notify = body("notify_ddns_update_locked(void)")
 assert "inadyn_process_inventory_scan(&snapshot)" in notify
 assert "inadyn_action_for_presence(state)" in notify
 assert "INADYN_DAEMON_ABORT" in notify and "INADYN_DAEMON_START" in notify
-assert notify.index("inadyn_validate_snapshot(") < notify.index("write_inadyn_conf(DDNS_CONF_FILE)")
-assert notify.index("write_inadyn_conf(DDNS_CONF_FILE)") < notify.index("inadyn_signal_snapshot(")
+snapshot_begin = notify.index("inadyn_config_file_snapshot_begin(")
+config_write = notify.index("write_inadyn_conf(DDNS_CONF_FILE)", snapshot_begin)
+write_failure = notify.index("if (!write_inadyn_conf(DDNS_CONF_FILE))", snapshot_begin)
+write_restore = notify.index(
+    "inadyn_config_file_snapshot_restore(DDNS_CONF_FILE, &config_snapshot)",
+    write_failure)
+signal_reload = notify.index("inadyn_signal_snapshot(", config_write)
+signal_commit = notify.index(
+    "inadyn_config_file_snapshot_commit(DDNS_CONF_FILE, &config_snapshot)",
+    signal_reload)
+assert snapshot_begin < write_failure < write_restore < signal_reload < signal_commit
+assert "recovery snapshot retained" in notify[signal_reload:signal_commit]
+assert notify.index("inadyn_validate_snapshot(") < snapshot_begin
 assert "process_snapshot_release(&snapshot)" in notify
 assert 'doSystem("killall %s %s", "-SIGHUP", "inadyn")' not in notify
 assert "pids(\"inadyn\")" not in notify
+assert "test_reload_failure_keeps_last_known_good_snapshot" in config_file_test
 enabled_read = notify.index('enabled_api_result = nvram_get_checked("ddns_enable_x", &enabled_value)')
 enabled_status = notify.index("enabled_status = inadyn_ddns_enabled_status(", enabled_read)
 enabled_gate = notify.index("inadyn_update_should_run(ddns_enabled, is_ap_mode)", enabled_status)
