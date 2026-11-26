@@ -1,3 +1,12 @@
+## 2026-11-26 — Align ZeroTier source contracts with cached Moon preflight
+
+- Exact-head ZeroTier lifecycle #45807554002 on `15bced4fa9c4b24b461ee663f062a49207f036ba`: the shell regression completed successfully, including the new Moon address/identity read-failure, invalid-selector, old-daemon-preservation and PPP fallback cases. The Python source checker failed on two obsolete expectations only: the marker list expected expanded shell loop text, and the removal function was required to perform a direct NVRAM read despite the read being intentionally moved into the shared preflight.
+- Update the checker to assert the shell loop covers both `zerotiermoon_ip` and `zerotiermoon_id`, retain the running-daemon preservation assertions, and require `remove_moon()` to consume its preflight snapshot without a late read.
+- Parent main: `15bced4fa9c4b24b461ee663f062a49207f036ba`; resulting checker-only follow-up commit: THIS COMMIT. Recheck ZeroTier lifecycle and AI handoff on the exact resulting SHA.
+- Beijing time at preparation: 26/11/2026, 19:07:46 (UTC+8).
+
+---
+
 ## 2026-11-26 — Preflight ZeroTier Moon inputs before stopping the current daemon
 
 - Found a lifecycle gap in `start_zero()`: it read the five general selectors and route/NAT settings before `kill_z()`, but the Moon branch read `zerotiermoon_ip` and `zerotiermoon_id` later inside `start_instance()`, after the old ZeroTier daemon was already terminated. A read failure, invalid configured/PPP fallback IPv4 endpoint, or malformed Moon ID could therefore abort replacement startup while unnecessarily leaving the service down.

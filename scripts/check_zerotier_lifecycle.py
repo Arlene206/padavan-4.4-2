@@ -446,8 +446,11 @@ require('zt_state_file="$config_path/.firewall-state"' in stop_body and
         'stop recovered a damaged checkpoint despite a live static route on the saved interface' in test and
         'stop recovered a damaged checkpoint with a multipath nexthop on the saved interface' in test,
         "stop may sanitize only a complete, validated checkpoint prefix; a truncated or semantically invalid tuple must still block shutdown")
-for marker in ("Moon selector zerotiermoon_ip read error stopped the existing daemon",
-               "Moon selector zerotiermoon_id read error stopped the existing daemon",
+require('for setting in zerotiermoon_ip zerotiermoon_id;' in test and
+        'TEST_NVRAM_READ_FAIL_KEY="$setting"' in test and
+        'Moon selector $setting read error stopped the existing daemon' in test,
+        "Moon address and identity read failures must both preserve an existing daemon")
+for marker in ("Moon selectors are consumed after startup settings",
                "invalid Moon IPv4 selector stopped the existing daemon",
                "invalid Moon identity stopped the existing daemon",
                "rules accepted an unreadable NAT selector as disabled",
@@ -510,8 +513,9 @@ require('ln -f "$zt_moon_create_moon_backup" "$zt_moon_create_moon_file"' in moo
         'ln -f "$zt_moon_create_json_backup" "$zt_moon_create_json_file"' in moon_create_rollback_body and
         'nvram set zerotiermoon_id="$zt_moon_create_old_id"' in moon_create_rollback_body,
         "Moon creation rollback must restore both file snapshots and the prior identity")
-require('nvram get_checked zerotiermoon_id' in remove_moon_body and
+require('nvram get_checked zerotiermoon_id' not in remove_moon_body and
         'nvram get zerotiermoon_id' not in remove_moon_body and
+        'zt_moon_remove_old_id_snapshot' in remove_moon_body and
         '*[!0123456789abcdefABCDEF]*' in remove_moon_body and
         '"${#zt_moon_remove_old_id}" -ne 10' in remove_moon_body and
         'ln "$zt_moon_remove_file" "$zt_moon_remove_file_backup"' in remove_moon_body and

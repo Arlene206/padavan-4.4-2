@@ -3,10 +3,11 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development on `main` only.
-- Live main before this ZeroTier Moon preflight source fix: `6fd35a9b57fc6aa85b95c52c62a1961a6c1ac373`.
+- Live main before the ZeroTier Moon preflight source fix: `6fd35a9b57fc6aa85b95c52c62a1961a6c1ac373`; current main before checker correction: `15bced4fa9c4b24b461ee663f062a49207f036ba`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify/delete. PR #1 remains closed/unmerged.
 - Bootstrap/protocol recovery was completed earlier; do not repeat it.
-- Exact SHA `6fd35a9b57fc6aa85b95c52c62a1961a6c1ac373`: VPN lifecycle #45805581756 PASS and AI handoff #45805581869 PASS after normalizing VPN marker ownership source-order checks. Product build #45805039346 on production source SHA `f96dce30881937a686e6bc7e9407a41d47f27c2e` completed successfully, including Build XY-C1, TRX verification and artifact upload; L3 is verified at f96's source, not for subsequent production changes. Hardware L4 remains NOT VERIFIED.
+- Exact SHA `6fd35a9b57fc6aa85b95c52c62a1961a6c1ac373`: VPN lifecycle #45805581756 PASS and AI handoff #45805581869 PASS after normalizing VPN marker ownership source-order checks.
+- Exact SHA `15bced4fa9c4b24b461ee663f062a49207f036ba`: ZeroTier shell lifecycle regression PASS, including the new preflight/read-failure tests, but its Python source checker failed on two stale assertions: the marker list expected statically expanded loop messages, and the remove handler was still required to perform its own NVRAM read after that read moved to the preflight helper. This checker-only commit updates both contracts; all other triggered checks were pending at the first poll. Product build #45805039346 on production source SHA `f96dce30881937a686e6bc7e9407a41d47f27c2e` completed successfully, including Build XY-C1, TRX verification and artifact upload; L3 is verified at f96's source, not for subsequent production changes. Hardware L4 remains NOT VERIFIED.
 
 ## Active task
 
@@ -116,9 +117,9 @@
 
 ## Exact first action for the next GPT
 
-1. Live main before this source slice: `6fd35a9b57fc6aa85b95c52c62a1961a6c1ac373`. Exact-head VPN lifecycle #45805581756 and AI handoff #45805581869 PASS. The current ZeroTier change moves Moon address/identity reads and validation ahead of `kill_z()`, caches the validated values for the replacement launch, and preserves direct create/remove helper behavior outside `start_zero()`. Immediately inspect ZeroTier lifecycle and AI exact-head Actions for the resulting SHA and repair any failure.
-2. L3 product validation was successful on production source SHA `f96dce30881937a686e6bc7e9407a41d47f27c2e` (#45805039346: Build XY-C1, TRX verification and artifact upload all PASS). This is prior to the new ZeroTier production-source change and must not be represented as an L3 pass for the new HEAD. Hardware L4 remains NOT VERIFIED.
-3. After exact-head ZeroTier checks pass, inspect remaining current-head Actions and then continue with another confirmed stability/security defect outside VPN/ZeroTier. Do not repeat bootstrap, DHCPv6, or already completed source-contract corrections.
+1. Current main before this checker correction: `15bced4fa9c4b24b461ee663f062a49207f036ba`. ZeroTier shell lifecycle run #45807554002 passed all bounded lifecycle tests, including Moon preflight regressions, and failed only in Python source-contract checks: the test marker list expected expanded values from a shell loop, while the remove handler was still required to issue a late NVRAM read. This commit corrects both contract expectations. Check ZeroTier lifecycle and AI handoff on the resulting exact SHA, then inspect all other triggered exact-head checks.
+2. Prior VPN/checker SHA `6fd35a9b57fc6aa85b95c52c62a1961a6c1ac373`: VPN lifecycle #45805581756 PASS and AI handoff #45805581869 PASS. Product L3 validation succeeded on prior production SHA `f96dce30881937a686e6bc7e9407a41d47f27c2e` (#45805039346: Build XY-C1, TRX verification and artifact upload all PASS), but not for the later ZeroTier production source. Hardware L4 NOT VERIFIED.
+3. After exact-head ZeroTier checks pass, continue with another confirmed stability/security defect outside VPN/ZeroTier. Do not repeat bootstrap, DHCPv6, or completed VPN marker work.
 
 ## Mandatory handoff checkpoint
 
