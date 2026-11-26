@@ -223,6 +223,7 @@ paths = (
     "trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-event-source.c",
     "trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-event-source-timeout.c",
     "trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-event-source-signal.c",
+    "trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-main.c",
     "trunk/user/dns-forwarder/tests/hev_event_loop_lifecycle.c",
     "trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-dns-forwarder-policy.h",
     "trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-dns-forwarder.c",
