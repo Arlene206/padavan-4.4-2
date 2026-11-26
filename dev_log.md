@@ -1,3 +1,11 @@
+## 2026-11-26 — Correct the SmartDNS runtime NVRAM regression for the UI key
+
+- Exact-SHA DNSMasq lifecycle #45776487229 for the preceding SmartDNS fix failed at the runtime snapshot test after the config-generation regression passed. The snapshot's failure-key list still used legacy `sdnse_tcp`, so it did not exercise the new canonical `sdnse_tcp_server` read.
+- Replaced the stale key in the failure matrix and added a positive assertion that `sdnse_tcp_server` is copied from NVRAM. The web form, runtime reader, generated bind directive, config regression and snapshot regression now use the same key.
+- Parent main: `bfba964cf61ec016eab7e4c4fd90c6bec1b368e8`. Exact-head Actions pending; no target runtime claim.
+
+---
+
 ## 2026-11-26 — Align SmartDNS secondary TCP with the web UI NVRAM key
 
 - A source/UI cross-check showed the prior secondary TCP fix selected the wrong canonical setting: the web form's checkbox/radios persist `sdnse_tcp_server`, while the preceding commit had switched the reader/writer/test to the separate `sdnse_tcp` name. That would still ignore the user's actual UI setting.

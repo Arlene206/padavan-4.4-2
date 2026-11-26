@@ -88,7 +88,7 @@ sdns_rr_ttl_reply_max sdns_max_reply_ip_num sdns_speed sdns_speed_mode
 sdns_address sdns_ipset sdns_ipset_timeout sdns_as sdns_ip_change
 sdns_ip_change_time sdns_dualstack_ip_allow_force_aaaa sdns_force_aaaa_soa
 sdns_force_qtype_soa sdns_prefetch_domain sdns_exp sdns_exp_ttl
-sdns_exp_ttl_max sdns_exp_prefetch_time sdnse_tcp sdnse_speed sdnse_name
+sdns_exp_ttl_max sdns_exp_prefetch_time sdnse_tcp_server sdnse_speed sdnse_name
 sdnse_address sdnse_ns sdns_ns sdnse_ipset sdnse_as sdnse_ipv6_server
 sdnse_ipc sdnse_cache sdns_adblock sdns_white sdns_black sdns_coredump'
 
@@ -125,6 +125,8 @@ FAIL_KEY=
 : > "$READS"
 action=start
 smartdns_load_runtime_nvram_state || fail "valid runtime snapshot was rejected"
+[ "$sdnse_tcp_server" = 1 ] ||
+    fail "the UI-backed sdnse_tcp_server value was not copied from NVRAM"
 [ "$sdns_name" = 1 ] && [ "$sdns_port" = 5353 ] &&
     [ "$sdns_redirect" = 1 ] && [ "$sdnse_port" = 5335 ] ||
     fail "valid runtime NVRAM values were not copied"

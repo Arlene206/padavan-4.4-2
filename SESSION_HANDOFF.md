@@ -10,8 +10,8 @@
 
 ## Active task
 
-- Align SmartDNS secondary TCP configuration with the actual web UI NVRAM key. The UI persists `sdnse_tcp_server`, but the previous slice incorrectly switched the runtime snapshot and generator to unrelated `sdnse_tcp`. Read and validate the UI-backed key in the runtime snapshot, keep the generator on that same value, and make the regression set `sdnse_tcp_server=1` while obsolete `sdnse_tcp=0`.
-- Recheck exact-SHA DNSMasq lifecycle/static contracts, Process inventory, AI handoff, NVRAM audit and XY-C1 Build/TRX/artifact Actions after this correction. Then continue an independent userland stability fix.
+- Close the SmartDNS secondary TCP NVRAM key alignment. The UI-backed `sdnse_tcp_server` now drives both runtime snapshot and generated config; the config regression deliberately sets obsolete `sdnse_tcp=0` so it cannot mask a mismatch.
+- Exact-SHA DNSMasq run for `bfba964cf61ec016eab7e4c4fd90c6bec1b368e8` failed because `smartdns_runtime_nvram_snapshot.sh` still listed obsolete `sdnse_tcp` and never asserted capture of `sdnse_tcp_server`. Update that test to fail on the correct key and assert its snapshot value, then check exact-SHA DNSMasq/AI/Process/NVRAM/XY-C1 Actions.
 
 ## Completed source slice
 
@@ -21,6 +21,8 @@
 - Samba legacy config file publishing now syncs the staged file before rename and syncs the containing directory after rename so a successful publish means both contents and directory entry were handed to the filesystem for durability.
 - Ralink IAPP Linux TCP frame reception now uses a single absolute `CLOCK_MONOTONIC` deadline across partial reads, EINTR retries and the final overflow check. The timeval conversion rounds positive sub-microsecond time upward; the non-Linux wall-clock fallback is retained.
 
+
+- SmartDNS secondary TCP config now uses the same UI-backed NVRAM key, port normalizer and safe group token policy.
 
 ## Verification boundary
 
@@ -40,11 +42,13 @@
 s inventory #45772642896 PASS and AI handoff #45772642788 PASS on 93ec42b2b3927ab0093c26b543e820cf86f51f40. Its XY-C1 Build run #45772642912 was IN_PROGRESS at the last poll.
 - IAPP monotonic-deadline host C policy regression PASS under GNU89/Werror/ASan/UBSan. The new IAPP production slice has not yet been published or checked by Actions. No local XY-C1 build, target runtime or physical-router L4 is claimed.
 
+- Exact SHA `bfba964cf61ec016eab7e4c4fd90c6bec1b368e8`: AI handoff #45776487308 PASS; DNSMasq lifecycle #45776487229 FAIL at the runtime NVRAM snapshot test only (it still required obsolete `sdnse_tcp`, while the web UI key is `sdnse_tcp_server`). Earlier in the job, SmartDNS config generation, invalid-setting rejection, UDP/TCP write-error propagation and the DNSMasq preservation tests passed. Process #45776487186, Process inventory #45776487165, USB hotplug #45776487217 and XY-C1 #45776487281 were IN_PROGRESS at last poll; no firmware Build/TRX/artifact claim.
+
 ## Exact first action for the next GPT
 
-1. Fetch live main and inspect exact-SHA DNSMasq lifecycle (SmartDNS config regression + source checker), AI handoff, Process inventory, NVRAM audit and XY-C1 Build/TRX/artifact Actions for the UI-key correction. Diagnose failures from logs; verify that the test uses `sdnse_tcp_server=1` and obsolete `sdnse_tcp=0`.
-2. Record/close the earlier exact-SHA runs for 20aa389e6459baa18f36c3748d5a78330638cd59; do not claim that commit's DNSMasq or XY-C1 checks passed until they complete.
-3. Continue an independent stability/security fix outside SmartDNS after CI is inspected. Do not repeat startup recovery or completed Entware, legacy-ipkg, Samba and IAPP source audits.
+1. Fetch live main and inspect exact-SHA DNSMasq lifecycle, Process inventory, AI handoff and XY-C1 for the runtime snapshot key-test correction. Confirm the snapshot checks `sdnse_tcp_server` and all SmartDNS source/test/checker contracts pass.
+2. Close any still-pending Process/USB/XY-C1 runs for `bfba964cf61ec016eab7e4c4fd90c6bec1b368e8`; inspect Build XY-C1, TRX verification and artifact upload separately.
+3. Continue a concrete stability/security fix outside SmartDNS after the UI-backed key regression is green. Do not repeat startup recovery or completed Entware, legacy-ipkg, Samba and IAPP source audits.
 
 # Cross-session execution mandate
 
