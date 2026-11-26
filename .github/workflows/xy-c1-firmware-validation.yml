@@ -636,7 +636,8 @@ jobs:
           header = Path("trunk/user/rc/src/samba_config_transaction.h").read_text()
 
           def function_body(text, signature):
-              start = text.index(signature)
+              # Skip forward declarations and extract the actual function definition.
+              start = text.rindex(signature)
               brace = text.index("{", start)
               depth = 0
               for pos in range(brace, len(text)):
