@@ -279,7 +279,7 @@ main(void)
     expect_failure(loop, FAIL_SETSOCKOPT, 0, ENOPROTOOPT, 1, 1, 0, 0, 0, 0);
     expect_failure(loop, FAIL_BIND, 0, EADDRINUSE, 1, 1, 0, 0, 0, 0);
     expect_failure(loop, FAIL_LISTENER_SOURCE_NEW, 0, ENOMEM, 1, 1, 0, 0, 0, 0);
-    expect_failure(loop, FAIL_LISTENER_SOURCE_ADD_FD, 0, ENOMEM, 1, 1, 0, 0, 1, 0, 0);
+    expect_failure(loop, FAIL_LISTENER_SOURCE_ADD_FD, 0, ENOMEM, 1, 1, 0, 0, 1, 0);
     expect_failure(loop, FAIL_LISTENER_SOURCE_REGISTER, 1, EIO, 1, 1, 1, 0, 1, 0);
     expect_failure(loop, FAIL_TIMEOUT_SOURCE_NEW, 0, ENOMEM, 1, 1, 1, 1, 1, 1);
     expect_failure(loop, FAIL_TIMEOUT_SOURCE_REGISTER, 2, EIO, 1, 1, 2, 1, 2, 1);

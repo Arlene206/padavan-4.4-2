@@ -342,7 +342,7 @@ dns_read_response (HevDNSSession *self)
 	  return true;
 	plen = iovec[0].iov_base;
 	len = ntohs (*plen);
-	if ((len + 2) > size)
+	if (((size_t)len + 2U) > size)
 	  return true;
 
 	self->step = STEP_WRITE_RESPONSE;
@@ -375,6 +375,7 @@ handle_forward (HevDNSSession *self)
 	switch (self->step) {
 	case STEP_NULL:
 		self->step = STEP_WAIT_CONNECT;
+		/* fall through */
 	case STEP_WAIT_CONNECT:
 		wait = dns_wait_connect (self);
 		break;
