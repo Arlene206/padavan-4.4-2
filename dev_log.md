@@ -1,3 +1,14 @@
+## 2026-11-26 — Make automatic LAN DHCP resolver publication part of the rollback transaction
+
+- Confirmed a concrete transaction-boundary defect: the automatic LAN DHCP resolver writer used a single-file publisher that could return failure after rename had already exposed the candidate `/etc/resolv.conf`. The outer DHCP transaction would then restore the previous kernel address/routes but leave the new resolver file in place.
+- Added a rename-boundary-aware internal publisher and a rollback-aware wrapper using the existing hard-link snapshot/restore primitives. The public single-file helper remains compatible for unrelated callers. The automatic LAN DHCP resolver publisher now restores the prior resolver on a post-rename failure, or removes the new target when no prior target existed.
+- Added deterministic GNU89 C regression coverage for an injected post-rename error with both previously existing and absent resolver destinations. Updated the DNSMasq/WAN DHCP/HTTPD static source contracts and the rollback diagnostics.
+- Production commit `0c897b7ee4fd80bddad936b7d5bc3d8433917676`; diagnostic correction `72225a52c467a09dcdd5a4e252451d8d9df7eaf1`. Checker/workflow follow-ups: `57bd20e60f73f20d41fed7f08fee5fc5bdde7448`, `24ec9ce37430eaadcdfd3edc3f325ed4737f25b4`, `e428e722c2fbabde120a832bf93316bcf513d7ea`, `8f96eb6ecee967d448667072393aa99758079e7e`, `8477a7777fbd49717ae89a93011671500ce1a9c4`, and `b25835d921e2f3d9b3ae8fec39cb93549aa26e5e`.
+- Exact source SHA `72225a52c467a09dcdd5a4e252451d8d9df7eaf1`: DNSMasq #45819215235, WAN DHCP #45819215341, HTTPD #45819215135, NVRAM #45819215141, WAN route #45819215171 and AI handoff docs #45819215253 PASS. Other non-product checks in the same exact-head batch also PASS. XY-C1 #45819215001 remains IN_PROGRESS: all pre-build host checks passed; Build XY-C1 was running and TRX/artifact steps were pending at last poll. No L3 or hardware/L4 claim.
+- Re-reviewed `leasefail`, NAK, failed-deconfig retry, SIGUSR2/release and stop/wait semantics; no new correctness defect established, so no speculative change. Next investigation is the WAN DHCP BOUND/RENEW route/MTU-failure return contract and BusyBox retry/deadline interaction, with a focused host regression before any source change.
+
+---
+
 ## 2026-11-26 — Keep DNSMasq rollback generation until daemon readiness is confirmed
 
 - Confirmed a transaction-boundary defect in `start_dns_dhcpd_locked()` and `restart_dhcpd_locked()`: static-host output rollback snapshots were committed before the detached dnsmasq daemon passed its RUNNING postcondition. Successful staging/ARP apply did not prove the child remained alive; early commit could discard the only recovery state for an unready generation.

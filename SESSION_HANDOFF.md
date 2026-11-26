@@ -2,63 +2,47 @@
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; develop on `main` only.
-- Parent `main` at this checkpoint: `992bdf6da9ba45f217c88bdf42afea69932b45e7`. This parent is a one-line comment-only follow-up clarifying that retained DNSMasq rollback links are logged for manual recovery.
-- Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify or delete. PR #1 remains closed/unmerged.
-- Bootstrap/protocol recovery has already been completed; do not repeat. Read this handoff and continue from the exact first action below.
-- Parent exact-head DNSMasq lifecycle #45814219448 PASS and AI handoff docs #45814219362 PASS on `3147c02f2bddba93a6034e529c5d8935b2768a05`. Parent `992bdf6` triggered a new exact-head batch; at handoff #45814745710 DNSMasq and #45814745724 XY-C1 were both IN PROGRESS.
+- Repository: `Arlene206/padavan-4.4-2`; development branch: `main` only.
+- Source checkpoint at this handoff: `72225a52c467a09dcdd5a4e252451d8d9df7eaf1` (`fix(lan): report resolver rollback uncertainty accurately`). The documentation checkpoint commit that appends this handoff will be its child; do not mistake the documentation-only delta for a new production-source build.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; verified unchanged. PR #1 is closed and unmerged.
+- Bootstrap/protocol restoration was completed in the earlier session; do not repeat it. Continue from the exact next task below.
+- Use complete multi-file Git trees and one commit per logical task. Update `main` only with non-forced expected-SHA compare-and-swap. Never modify the frozen backup or force-push.
 
-## Active task
+## This session — LAN DHCP resolver transaction consistency
 
-### DNSMasq failed-start rollback — source fixed; latest exact-head rerun pending
+- Confirmed a concrete transaction-boundary defect: `lan_publish_resolver_auto()` participates in the recoverable LAN DHCP address/route transition, but the old single-file publisher could return an error after `rename()` had already made the new `/etc/resolv.conf` visible (a parent-directory fsync failure). The caller then rolled kernel address/routes back while leaving the candidate resolver published.
+- Production fix `0c897b7ee4fd80bddad936b7d5bc3d8433917676`: expose the rename-completed boundary from the internal staged-file publisher while retaining the original API for other callers; add a rollback-aware publisher using the existing hard-link snapshot/restore primitives; switch the automatic DHCP resolver writer to the rollback-aware path. A deterministic C regression injects an error after successful rename and verifies restoration when the prior resolver existed and removal when it did not.
+- Follow-up checker/workflow commits corrected stale source contracts and fixture initialization: `57bd20e60f73f20d41fed7f08fee5fc5bdde7448`, `24ec9ce37430eaadcdfd3edc3f325ed4737f25b4`, `e428e722c2fbabde120a832bf93316bcf513d7ea`, `8f96eb6ecee967d448667072393aa99758079e7e`, `8477a7777fbd49717ae89a93011671500ce1a9c4`, and `b25835d921e2f3d9b3ae8fec39cb93549aa26e5e`.
+- Final diagnostic hardening `72225a52c467a09dcdd5a4e252451d8d9df7eaf1`: corrected the post-restore diagnostic so it does not claim a backup link is retained when the restore rename already consumed that link but the subsequent durability fsync failed. The message now reports rollback/durability-confirmation uncertainty and the observed recovery-link pathname accurately.
+- The initial exact-SHA checker failures were stale assertions/fixture setup, not evidence that the injected C behavior failed. They were fixed in subsequent atomic commits; do not reopen those old assertions without new evidence.
 
-- Production source `f7b61ba09b9750b3e85c3884b6101a511a12c6e1`: start/restart no longer discard static-host file rollback snapshots before the detached dnsmasq daemon passes its RUNNING postcondition. Snapshot commit occurs only after `dnsmasq_confirm_started()` succeeds.
-- On launch failure, the helper stops/rechecks the candidate daemon. Prior generated files and ARP are restored only after process inventory confirms ABSENT; RUNNING or UNKNOWN retains the current matched config/ARP generation and private rollback links. The original startup/postcondition error remains authoritative; rollback errors are logged separately.
-- `992bdf6da9ba45f217c88bdf42afea69932b45e7` only clarifies the retained-link manual-recovery log comment; it does not change rollback behavior.
-- Checker/workflow assertion follow-ups: `f6de10e6...` updated the failed-start helper call signature; `9166a3d4...` corrected compacted argument matching and stop-vs-launch ordering; `3147c02...` changed inline workflow assertions to require failed-start rollback before success commit.
-- Exact DNSMasq run #45814219448 PASS on `3147c02...`. Current-head #45814745710 was IN PROGRESS at handoff; recheck exact SHA `992bdf6...` before concluding.
+## Exact-SHA verification boundary
 
-### QMI WDS client/session identity — source fixed, exact USB regression PASS
+- Latest production-source SHA: `72225a52c467a09dcdd5a4e252451d8d9df7eaf1`.
+- Exact-head Actions on that SHA: DNSMasq lifecycle #45819215235 PASS (includes the resolver helper host regression and source contracts); WAN DHCP callback #45819215341 PASS; HTTPD security #45819215135 PASS; NVRAM transaction audit #45819215141 PASS; WAN route #45819215171 PASS; AI handoff docs #45819215253 PASS. The other non-product exact-head checks in the batch also completed PASS.
+- XY-C1 Firmware Validation #45819215001 is still IN_PROGRESS on this exact SHA. At last poll, all host/pre-build checks passed; `Build XY-C1` was still running and `Verify TRX output` plus artifact upload were pending. Recheck this exact run. Do not claim product L3 until Build, TRX verification and artifact upload all PASS on the same production-source SHA.
+- No local full firmware build or physical-router test is claimed. Hardware/L4, live modem, live WAN and live DHCP/DNS behavior remain NOT VERIFIED.
+- Earlier exact-head DNSMasq failures were resolved with the follow-up changes above; the latest DNSMasq run #45819215235 is the authoritative result for the current source checkpoint.
 
-- Production change `4bfccc2e7c46df3495544ae0bb46f473775352f0`: stop reads the persisted WDS CID and PDH marker, fails closed on invalid/unreadable/inconsistent markers, and passes `--set-client-id wds,<saved-CID>` before `--stop-network`. It never lets uqmi silently allocate a fresh CID for stop.
-- After confirmed stop, PDH marker removal is checked; only then is the same CID released; only after release is the CID marker removed. Failure preserves the relevant marker for retry.
-- Follow-up checker/workflow repairs culminated in `bdc8992f6e9a7a6884422c9af3c88177abc700c5`; exact USB modem #45813115174 PASS and AI handoff #45813115104 PASS. These are host/CI L2 results, not live modem hardware verification.
+## DHCP event-flow review
 
-### Other exact results for DNSMasq production source SHA `f7b61ba...`
-
-- PASS: NVRAM transaction boundary #45813611887; WAN DHCP callback #45813611721; Process inventory #45813611693; miniupnpd atomic config #45813611534; WAN route #45813611530; Process lifecycle #45813611502; HTTPD #45813611375; Samba #45813611309; Inadyn #45813611245.
-- XY-C1 run #45813611427 on `f7b61ba...` was still building at last poll. The current source head `992bdf6...` has its own XY-C1 run #45814745724, last observed in progress. Do not claim L3 unless Build XY-C1, Verify TRX output and artifact upload all PASS on one exact product source SHA.
-
-## Verification boundary
-
-- Main before this documentation refresh: `992bdf6da9ba45f217c88bdf42afea69932b45e7`; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- L1/L2 host regressions and exact-head contracts are verified only where exact run IDs and SHAs are listed. No local full firmware build is claimed.
-- Product L3 is NOT VERIFIED for the latest production source. Hardware L4, physical modem tests, live WAN and live DHCP/DNS behavior remain NOT VERIFIED.
-- PENDING runs do not block independent source work. A result on an earlier SHA does not validate a later SHA, even when the later diff is comment-only.
+- Rechecked BusyBox `udhcpc` INIT/REQUESTING/BOUND/RENEWING/REBINDING transitions, NAK handling, `DECONFIG_PENDING` retry, SIGUSR2/release handling and WAN/LAN RC event handlers.
+- The current `leasefail` handlers are intentionally non-destructive: before an ACK there is no committed lease to deconfigure. NAK handling invokes the separate noack notification and BusyBox itself runs `deconfig` for an active lease; failures remain pending and are retried. LAN/WAN stop paths request release and wait without force-killing a client whose deconfig is pending.
+- No new defect was established in that bounded review, so no speculative source change was made. Existing callback tests/contracts intentionally require WAN route/MTU failures to remain visible to BusyBox and persist retry state.
 
 ## Exact first action for the next GPT
 
-1. Read live `main` and this handoff only; do not repeat bootstrap or completed audits. Confirm the backup ref remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, then inspect exact-head Actions for the resulting documentation commit.
-2. Recheck DNSMasq #45814745710 and XY-C1 #45814745724 on `992bdf6da9ba45f217c88bdf42afea69932b45e7`. At last poll both were in progress. If either remains pending, continue independent work rather than waiting. L3 requires same-SHA Build XY-C1, TRX verification and artifact upload all PASS.
-3. Continue the roadmap's open LAN DHCP client/AP-mode lease slice, starting with `leasefail` and the full live-transition path. Inspect actual event-script side effects and the existing BOUND/RENEW, failed-deconfig retry, NAK, packet-send and deadline contracts before changing behavior. Add focused GNU89 regression/source assertions only after confirming the state-machine semantics.
+1. Read this handoff and verify live `main`, frozen backup and exact-SHA Actions only; do not repeat bootstrap or the completed LAN resolver work.
+2. Continue with the WAN DHCP BOUND/RENEW failure contract: trace what happens when the callback has published the candidate NVRAM lease but `wan_up_internal()` reports route/MTU failure and the callback returns nonzero to BusyBox. Build a focused GNU89 state-machine regression around repeated ACK/rebind/lease-deadline behavior before modifying production logic. Preserve the current fail-closed retry contract unless a concrete inconsistent state is demonstrated.
+3. Recheck XY-C1 #45819215001 on source SHA `72225a52c467a09dcdd5a4e252451d8d9df7eaf1`; do not wait on it before doing independent work.
 
-## Mandatory handoff checkpoint
+## Mandatory checkpoint and cross-session rules
 
-Every session MUST inspect the live repository state and exact-head Actions before ending. Verify source baseline, active task/progress, test/CI boundary, blockers and exact next action. A relevant exact-head Action changing from PENDING to PASS/FAIL is checkpoint information. The checkpoint is mandatory; a document edit is conditional. If all checkpoint facts and the first action are already accurate, explicitly conclude the check with no file change and no commit.
-
-# Cross-session execution mandate
-
-Continue as the same maintainer across conversations. Every reviewable source/test milestone must be one atomic main commit: create all changed blobs, one complete Git tree and one commit, then update `main` with a non-forced compare-and-swap against the expected parent SHA. Never publish partial-file commits or force-push.
-
-Before context exhaustion, complete a safe bounded slice, inspect exact-SHA Actions and update this handoff with the precise next task and validation boundary. Do not ask the user what to do next.
-
-## Execution invariants
-
-- Main only; full tree/atomic commit; expected-SHA non-forced update; never force-push.
-- Preserve the frozen backup and do not reopen PR #1.
-- PENDING never blocks independent safe work.
-- Product L3 requires same-product-source-SHA Build XY-C1, TRX verification and artifact upload all PASS. Physical L4 requires actual device testing.
-- Update `dev_log.md` for completed engineering milestones, handoff for material progress/validation changes, and roadmap only for material module/status changes. Routine snapshot archives are prohibited.
+- Before each session ends, verify the live source baseline, exact-head tests, pending blockers, current active task and precise next action. Update this handoff and `dev_log.md` when engineering progress or validation state materially changes.
+- Continue the loop: source change → focused regression → atomic commit → exact-SHA Actions. PASS proceeds; FAIL is diagnosed and repaired; PENDING never blocks independent work.
+- Keep every logical milestone atomic: create all blobs, one complete Git tree, one commit, then expected-SHA non-forced update of `main`. No partial-file commits or force-push.
+- PENDING runs and earlier-SHA results do not validate a later SHA. Product L3 requires Build XY-C1, TRX verification and artifact upload all PASS on one production-source SHA. Physical L4 requires actual hardware testing.
+- Preserve the frozen backup and do not reopen PR #1. Routine snapshot archives are prohibited; update the roadmap only for material module/status changes.
 
 ## 2026-11-26 GPT-6 continuation
 
