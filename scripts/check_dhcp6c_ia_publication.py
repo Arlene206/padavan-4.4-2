@@ -494,11 +494,15 @@ assert "dhcp6c_ia_request_retry_delay" in policy
 assert "dhcp6c_ia_request_nobinding_is_duplicate" in policy
 assert "prepare_iaevent(ia, DHCP6S_REQUEST)" in ia_timeout
 assert "dhcp6_timer_set(request_delay, ia->timer);" in ia_timeout
+request_state = reestablish.index("ia->state = IAS_REQUEST;")
 request_prepared = reestablish.index("ret = prepare_iaevent(ia, DHCP6S_REQUEST);")
-request_state = reestablish.index("ia->state = IAS_REQUEST;", request_prepared)
-watchdog_start = reestablish.index("dhcp6_timer_add(ia_timo, ia);", request_state)
-watchdog_set = reestablish.index("dhcp6_timer_set(", watchdog_start)
-assert request_prepared < request_state < watchdog_start < watchdog_set
+watchdog_start = reestablish.index("if (ia->timer == NULL)", request_prepared)
+delay_select = reestablish.index(
+    "request_delay = dhcp6c_ia_request_retry_delay(ret == 0,", watchdog_start)
+watchdog_set = reestablish.index("dhcp6_timer_set(request_delay, ia->timer);", delay_select)
+assert request_state < request_prepared < watchdog_start < delay_select < watchdog_set
+assert "dhcp6_timer_remove(&ia->timer);" not in reestablish
+assert "return ret;" in reestablish[watchdog_set:]
 assert "dhcp6c_ia_request_nobinding_is_duplicate(" in update_ia_body
 assert update_ia_body.index("dhcp6c_ia_request_nobinding_is_duplicate(") < update_ia_body.index("dhcp6c_ia_nobinding_requires_request(")
 assert "dhcp6_timer_set(dhcp6c_ia_request_retry_delay(1, 1)," in update_ia_body

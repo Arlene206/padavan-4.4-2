@@ -1,3 +1,12 @@
+## 2026-11-26 — Preserve the NoBinding watchdog when initial Request setup fails
+
+- Follow-up review found an uncovered branch in the new NoBinding watchdog: `reestablish_ia()` still removed the existing T2 timer before constructing the first Request and returned immediately on preparation failure. The later `IAS_REQUEST` watchdog only existed after successful event creation, so a non-fatal allocation/authentication failure could still leave the old Renew/Rebind event as the sole owner; if that event exhausted retransmissions, the IA was orphaned.
+- Enter `IAS_REQUEST` before preparing the event, reuse the existing IA timer or create one when absent, then arm the same watchdog for 5 seconds on setup failure or 4 minutes after successful Request creation. The 4-minute deadline still waits beyond the finite Request retransmission window; successful reply handling and duplicate-NoBinding gates remain unchanged.
+- Extended the Python source contract to pin state-before-prepare and watchdog-before-return ordering. Existing GNU89 policy tests already cover the 5-second setup retry and 4-minute exchange watchdog. Exact-SHA Actions are the validation gate; no local checkout/build or hardware test is claimed.
+- Parent main: `cfa384c7fe1ba6fdd87ca478a920012880d835c6`; resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-26 — Keep DHCPv6 IA recovery alive after a NoBinding Request exhausts
 
 - Found that `reestablish_ia()` removed the IA timer and launched a DHCP6S_REQUEST event. Request has MRC=10 and MRT=30 seconds; if the server stayed silent, `client6_timo()` removed the finite Request event with no remaining IA timer to start another exchange. The IA stayed in Renew/Rebind recovery until prefix expiry, and infinite valid lifetimes could leave it stuck indefinitely.

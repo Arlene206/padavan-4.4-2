@@ -439,6 +439,7 @@ fail:
 static int reestablish_ia(struct ia *ia)
 {
 	int ret;
+	unsigned long long request_delay;
 
 	log1("re-establishing %s-%u",
 	     dhcp6optstr(ia->conf->type), ia->conf->iaid);
@@ -447,19 +448,26 @@ static int reestablish_ia(struct ia *ia)
 		bb_error_msg_and_die("invalid IA state (%d)", ia->state);
 	}
 
-	/* Replace the T2/Rebind timer with a bounded Request watchdog. */
-	if (ia->timer)
-		dhcp6_timer_remove(&ia->timer);
-
-	ret = prepare_iaevent(ia, DHCP6S_REQUEST);
-	if (ret != 0)
-		return ret;
-
+	/*
+	 * Enter Request recovery before constructing the event. If local
+	 * allocation/authentication setup fails, keep (or create) an IA timer
+	 * to retry preparation instead of orphaning the IA.
+	 */
 	ia->state = IAS_REQUEST;
-	ia->timer = dhcp6_timer_add(ia_timo, ia);
-	dhcp6_timer_set(dhcp6c_ia_request_retry_delay(1, ia->timer != NULL),
-			ia->timer);
-	return 0;
+	ret = prepare_iaevent(ia, DHCP6S_REQUEST);
+
+	if (ia->timer == NULL)
+		ia->timer = dhcp6_timer_add(ia_timo, ia);
+	if (ia->timer == NULL) {
+		errno = ENOMEM;
+		return ret != 0 ? ret : -1;
+	}
+
+	request_delay = dhcp6c_ia_request_retry_delay(ret == 0,
+						     ia->timer != NULL);
+	if (request_delay != 0)
+		dhcp6_timer_set(request_delay, ia->timer);
+	return ret;
 }
 
 void release_all_ia(struct dhcp6_if *ifp)
