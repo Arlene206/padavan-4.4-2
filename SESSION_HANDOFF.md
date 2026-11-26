@@ -1,39 +1,42 @@
-## Current repository state — 2026-11-25 (latest CI observed 2026-11-26 UTC)
+## Current repository state — 2026-11-26 (latest CI observed 2026-11-26 UTC)
 
-- Latest verified production-source checkpoint: `27568b72fbce4acc4dd17f9db2da8a781a8c1ea9`. This is the current source state on `main`; this checkpoint updates only handoff/roadmap/log documents after it. Fetch the live main ref before any future write. Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged and immutable.
-- This session added four Ralink IAPP reliability fixes:
-  - `fe7b84c2de3ce1976266a30b889ae93a1cbb0eb7` checks every Linux select descriptor before `FD_SET`; `dfc6a98d092e7d56a9cef5e7fbd04bcf1ae3eedc` corrected the source-contract extractor. Exact IAPP workflow #45745181480 PASS.
-  - `fa8947c2de13fa2999c6152c4e22408b22b92cfd` uses Linux `MSG_TRUNC` on UDP/raw-driver/raw-RRB receive sockets and rejects datagrams larger than `IAPP_MAX_RCV_PKT_SIZE` before frame parsing.
-  - `163e053989c0543baec33c58b3ca4a2f8f218016` restores the documented one-second event-log polling interval; the old comparison waited 1000 seconds.
-  - `27568b72fbce4acc4dd17f9db2da8a781a8c1ea9` rejects invalid/oversized event-log append batches, handles negative `ftell()`, stops on `fwrite()` failure, and propagates `fflush()`/`fclose()` errors.
-- Exact current-source IAPP regression #45746217559 PASS. Its log shows the GNU89 ASan/UBSan lifecycle binary (including MSG_TRUNC and event-log policy tests), FD_SETSIZE boundary binary, and Python source contracts all PASS. Process inventory #45746217368 PASS; AI handoff validation #45746217386 PASS.
-- Current-source NVRAM transaction audit #45746217544 is IN_PROGRESS at its raw userland ioctl/kernel NVRAM caller audit; all preceding transaction policy binaries passed. Current-source XY-C1 run #45746217350 is IN_PROGRESS in Build XY-C1; TRX verification and artifact upload are pending. Do not claim L3 until Build, TRX and artifact upload all pass.
-- `IAPP_EVENT_LOG` is not enabled in `trunk/user/ralinkiappd/src/Makefile` by default. Event-log policy helpers and source-order contracts pass host validation, but the optional macro-enabled production compile is not established by the current firmware build. No hardware, live radio/bridge or physical-router L4 result is claimed.
-- PR #1 remains closed and unmerged; do not revive its divergent branch. The frozen backup is untouched. Startup protocol and handoff were restored once at session start; do not repeat the startup audit.
+- Live `main` before this documentation checkpoint: `dc6da082d956c38a35de1518fc3ccac7937403fc`. The latest production-source change is `b6ee8a43cec0af29084206b5d65719ab4527f776`; its only descendant so far changes the Process regression workflow to execute the shared shell lifecycle test. This checkpoint also updates only handoff/log records.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged and immutable. PR #1 remains closed/unmerged; do not revive its divergent branch.
+- Startup protocol and handoff were restored once for this work stream. Do not repeat startup recovery or re-audit completed startup/build work.
+- Source fix `b6ee8a43` hardens the procfs fallback in `trunk/user/shared/scripts/process_lifecycle.sh`: it now requires all state-through-start_time fields from `/proc/PID/stat`, validates unsigned start time, and classifies truncated/malformed observations as UNKNOWN. The companion shell regression contains truncated-record and invalid-start-time cases.
+- CI step added in `dc6da082` executes `sh -n` on the shared process lifecycle helper and test, then runs the full `trunk/user/shared/tests/process_lifecycle.sh` suite. Exact Process run #45748293107 completed SUCCESS; its new shell regression step completed SUCCESS.
+- Exact Process regression #45747609955, process inventory #45747609939, DNS Forwarder #45747610021 and DDNSTO #45747610055 completed SUCCESS on source SHA `b6ee8a43`.
+- AI handoff documentation contract #45748293133 completed SUCCESS on workflow SHA `dc6da082`.
+- Exact-source XY-C1 run #45747610163 for `b6ee8a43` remains IN_PROGRESS at the cross-build job; TRX verification and artifact upload are not yet confirmed. Do not claim L3 until Build, TRX and artifact upload all pass. PENDING does not block independent work.
+- Prior IAPP and NVRAM checks #45746217559/#45746217544 completed SUCCESS on older SHA `27568b72`; they are historical evidence, not current-source proof for later unrelated changes.
 
 ## Active task
 
-Continue autonomous source work on `main`; pending Actions do not block independent fixes.
-1. Check exact-source XY-C1 #45746217350. If it finishes, inspect Build, TRX and artifact-upload conclusions independently; if it fails, diagnose the exact failed job log.
-2. Check NVRAM transaction audit #45746217544 and record its final conclusion.
-3. Continue another concrete stability/security defect outside the already-worked IAPP slice; implement source + focused regression + exact-source workflow. Prefer a P1/P2 from the whole-repository ledger; do not re-audit closed tasks.
+Continue autonomous implementation on `main`; do not wait on pending XY-C1.
+1. Poll exact XY-C1 run #45747610163 and inspect Build, TRX and artifact-upload results independently. Keep L3 pending unless all three pass.
+2. Continue a separate P1 stability slice outside the completed IAPP work. The WAN/DHCP ledger still marks IPv6 route edge cases and BusyBox callback live-transition semantics open; inspect a concrete transition and its regression before changing production behavior.
+3. Each source change must have a focused regression and exact-SHA Process/module checks. Use a complete Git tree and one atomic commit per logical slice.
 
 ## Verification boundary
 
-- IAPP select descriptor boundary, Linux datagram truncation, event-log timer and event-log append policies: exact IAPP workflow #45746217559 PASS on production source SHA `27568b72fbce4acc4dd17f9db2da8a781a8c1ea9`.
-- Process inventory #45746217368: PASS on the same SHA.
-- AI handoff validation #45746217386: PASS on the same SHA before this documentation-only checkpoint.
-- NVRAM transaction boundary #45746217544: IN_PROGRESS; audit step running.
-- XY-C1 #45746217350: Build IN_PROGRESS; TRX and artifact upload pending.
-- Frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807`: unchanged. Physical-router L4: NOT VERIFIED.
+- Procfs shell fallback and full shared shell lifecycle suite: exact Process run #45748293107 PASS on workflow SHA `dc6da082`; the run uses the source implementation introduced in `b6ee8a43`.
+- Process inventory/fail-closed regression #45747609955 PASS; process lifecycle inventory #45747609939 PASS; DNS Forwarder #45747610021 PASS; DDNSTO #45747610055 PASS, all on source SHA `b6ee8a43`.
+- AI handoff docs #45748293133 PASS on `dc6da082`.
+- XY-C1 #45747610163: IN_PROGRESS on `b6ee8a43`; Build/TRX/artifact outcome not yet established. No L3 claim.
+- Frozen backup: unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Physical-router L4: NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-Fetch the live `main` ref, then check #45746217350 (XY-C1 Build/TRX/artifact) and #45746217544 (NVRAM audit). Do not repeat startup recovery or the completed IAPP/Process host regressions; if either check remains pending, continue an independent source fix.
+Fetch live `main`, then inspect exact XY-C1 run #45747610163 and Process run #45748293107. If the firmware run is still pending, continue the open WAN IPv6/DHCP reliability work without waiting. Do not repeat startup recovery or the completed process/IAPP regressions.
 
 # Cross-session execution mandate
 
 Continue one autonomous engineering stream on main. For each logical slice, create all changed blobs, one complete Git tree based on the live main root tree, and one atomic main commit; update main with a non-forced expected-SHA compare-and-swap. Never force-push, use feature branches or PRs, split one logical change into per-file commits, or modify the frozen backup. PENDING never blocks independent work. Before context exhaustion, finish the current safe slice and checkpoint the first concrete next action.
+
+## Mandatory handoff checkpoint
+
+The checkpoint is mandatory; a document edit is conditional. Re-check exact refs and relevant exact-SHA Actions before ending. Record material PASS/FAIL/PENDING changes and the next concrete action. If the current handoff remains accurate, leave it untouched; do not create a no-op commit.
+
 
 ## Completed source slices
 

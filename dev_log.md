@@ -1,3 +1,13 @@
+## 2026-11-26 — Reject truncated procfs lifecycle records and run the shell regression in CI
+
+- The shared process lifecycle fallback previously accepted a newline-terminated but truncated `/proc/PID/stat` observation after checking only PID and task state. It now splits the fields with globbing disabled, restores the caller's IFS/glob mode, requires state through field 22 (20 tokens after the comm) and validates the start-time token as unsigned decimal. Invalid or short records remain UNKNOWN rather than being treated as confirmed RUNNING/ABSENT.
+- Added regressions for a short stat record and a non-decimal start time; valid, stale-PID, invalid-state and zombie fixtures now carry the complete stat field set. Source/test commit: `b6ee8a43cec0af29084206b5d65719ab4527f776`.
+- The Process workflow previously listed the shell test in path filters but did not execute it. Commit `dc6da082d956c38a35de1518fc3ccac7937403fc` adds explicit `sh -n` checks and runs `trunk/user/shared/tests/process_lifecycle.sh`. Exact Process #45748293107 completed SUCCESS; the added shell regression step completed SUCCESS. Process inventory #45747609939, the process lifecycle regression #45747609955, DNS Forwarder #45747610021 and DDNSTO #45747610055 also PASS on source SHA `b6ee8a43`.
+- AI handoff documentation contract #45748293133 PASS on `dc6da082`. Exact XY-C1 #45747610163 on `b6ee8a43` remained IN_PROGRESS at Build XY-C1 at checkpoint; TRX/artifact pending. No L3 claim. Focused local parser checks passed; the complete shell regression was executed by the exact-SHA Actions run.
+- This session also reconciled older IAPP/NVRAM gates: #45746217559 (IAPP) and #45746217544 (NVRAM transaction audit) completed SUCCESS on older SHA `27568b72`; this does not establish later-source L3.
+
+---
+
 ## 2026-11-25 — Check IAPP event-log append limits and persistence errors
 
 - `IAPP_EventLogHandle()` now rejects a NULL table, invalid event count, negative `ftell()`, and append batches that would exceed the 1024-byte log cap. The size helper divides remaining capacity by record size instead of multiplying an untrusted count. Failed `fwrite()` stops the loop; `fflush()` and `fclose()` errors propagate. Event-log truncation also reports `fclose()` errors.
