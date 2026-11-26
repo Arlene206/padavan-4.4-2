@@ -79,6 +79,27 @@ test_truncated_udp_datagrams_are_detected(void)
 }
 
 static void
+test_dns_response_frame_capacity_policy(void)
+{
+    assert(HEV_DNS_SESSION_BUFFER_SIZE == 4098U);
+    assert(hev_dns_session_response_action(14U, 13U,
+               HEV_DNS_SESSION_BUFFER_SIZE) ==
+           HEV_DNS_SESSION_RESPONSE_WAIT);
+    assert(hev_dns_session_response_action(14U, 14U,
+               HEV_DNS_SESSION_BUFFER_SIZE) ==
+           HEV_DNS_SESSION_RESPONSE_READY);
+    assert(hev_dns_session_response_action(4098U, 4098U,
+               HEV_DNS_SESSION_BUFFER_SIZE) ==
+           HEV_DNS_SESSION_RESPONSE_READY);
+    assert(hev_dns_session_response_action(4099U, 4098U,
+               HEV_DNS_SESSION_BUFFER_SIZE) ==
+           HEV_DNS_SESSION_RESPONSE_TOO_LARGE);
+    assert(hev_dns_session_response_action(65537U, 4098U,
+               HEV_DNS_SESSION_BUFFER_SIZE) ==
+           HEV_DNS_SESSION_RESPONSE_TOO_LARGE);
+}
+
+static void
 test_recvmsg_reports_eof_after_peer_shutdown(void)
 {
     int sockets[2];
@@ -104,6 +125,7 @@ main(void)
 {
     test_sendmsg_to_closed_peer_does_not_raise_sigpipe();
     test_truncated_udp_datagrams_are_detected();
+    test_dns_response_frame_capacity_policy();
     test_recvmsg_reports_eof_after_peer_shutdown();
     return 0;
 }

@@ -96,9 +96,9 @@ hev_dns_session_new (int fd, struct sockaddr_in *upstream,
 	self->upstream = upstream;
 	self->notify_data = notify_data;
 
-	self->forward_buffer = hev_ring_buffer_new (2000);
+	self->forward_buffer = hev_ring_buffer_new (HEV_DNS_SESSION_BUFFER_SIZE);
 	if (self->forward_buffer)
-		self->backward_buffer = hev_ring_buffer_new (2000);
+		self->backward_buffer = hev_ring_buffer_new (HEV_DNS_SESSION_BUFFER_SIZE);
 	if (!self->forward_buffer || !self->backward_buffer) {
 		int saved_errno = errno ? errno : ENOMEM;
 		hev_dns_session_unref (self);
@@ -375,6 +375,7 @@ dns_read_response (HevDNSSession *self)
 	struct iovec iovec[2];
 	size_t iovec_len = 0, size = 0;
 	unsigned short *plen, len;
+	int response_action;
 
 	iovec_len = hev_ring_buffer_reading (self->backward_buffer, iovec);
 	size = iovec_size (iovec, iovec_len);
@@ -382,8 +383,16 @@ dns_read_response (HevDNSSession *self)
 	  return true;
 	plen = iovec[0].iov_base;
 	len = ntohs (*plen);
-	if (((size_t)len + 2U) > size)
-	  return true;
+	response_action = hev_dns_session_response_action (
+		(size_t)len + 2U, size, HEV_DNS_SESSION_BUFFER_SIZE);
+	if (HEV_DNS_SESSION_RESPONSE_WAIT == response_action)
+		return true;
+	if (HEV_DNS_SESSION_RESPONSE_TOO_LARGE == response_action) {
+		/* Never leave an unfinishable TCP frame waiting on EPOLLET. */
+		errno = EMSGSIZE;
+		self->step = STEP_CLOSE_SESSION;
+		return false;
+	}
 
 	self->step = STEP_WRITE_RESPONSE;
 	hev_ring_buffer_read_finish (self->backward_buffer, 2);

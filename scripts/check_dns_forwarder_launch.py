@@ -357,6 +357,12 @@ assert "addr &&" in read_data
 assert "hev_dns_session_datagram_truncated (&mh)" in read_data
 assert "errno = EMSGSIZE" in read_data
 assert "test_truncated_udp_datagrams_are_detected" in session_io_test
+assert "HEV_DNS_SESSION_BUFFER_SIZE (4096U + 2U)" in session_io_policy
+assert "hev_dns_session_response_action" in session_core
+assert "HEV_DNS_SESSION_RESPONSE_TOO_LARGE" in session_core
+assert "self->step = STEP_CLOSE_SESSION" in session_core
+assert "hev_ring_buffer_new (HEV_DNS_SESSION_BUFFER_SIZE)" in session_core
+assert "test_dns_response_frame_capacity_policy" in session_io_test
 assert "hev_dns_forwarder_udp_drain_action(-1, EINTR)" in forwarder_policy_test
 assert "hev_dns_forwarder_udp_drain_action(0, 0)" in forwarder_policy_test
 
