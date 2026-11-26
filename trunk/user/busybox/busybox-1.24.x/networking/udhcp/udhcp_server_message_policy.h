@@ -18,4 +18,11 @@ udhcp_server_release_has_no_requested_ip(int requested_ip_present)
     return requested_ip_present == 0;
 }
 
+/* RFC 2131: DHCPINFORM requires the client's already configured address. */
+static inline int
+udhcp_server_inform_ciaddr_valid(uint32_t ciaddr)
+{
+    return ciaddr != 0U;
+}
+
 #endif /* UDHCP_SERVER_MESSAGE_POLICY_H */

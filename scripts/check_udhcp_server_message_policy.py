@@ -28,6 +28,15 @@ assert release_guard < release_mutation
 assert "packet.ciaddr == lease->lease_nip" in release
 assert "server_id_opt" in release
 
+inform_start = dhcpd.index("case DHCPINFORM:", release_start)
+inform_case = dhcpd[inform_start:]
+inform_guard = inform_case.index(
+    "if (!udhcp_server_inform_ciaddr_valid(packet.ciaddr))"
+)
+inform_send = inform_case.index("send_inform(&packet)")
+assert inform_guard < inform_send
+assert "Ignoring DHCPINFORM with zero ciaddr" in inform_case[inform_guard:inform_send]
+
 assert "return ciaddr == 0U" in policy
 assert "return requested_ip_present == 0" in policy
 for token in (

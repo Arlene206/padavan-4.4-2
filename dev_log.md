@@ -1,3 +1,11 @@
+## 2026-11-25 — Reject DHCPINFORM without a client address
+
+- `send_inform()` constructs an ACK using `packet.ciaddr`. When an INFORM has zero `ciaddr`, the shared sender broadcasts because its destination-selection rule falls back to broadcast when `ciaddr == 0`, exposing configured DHCP options to every client on the segment.
+- Added a nonzero-`ciaddr` predicate before `send_inform()`. Tests cover zero, 1 and all-ones values; the integration contract checks that the guard precedes the ACK path. This does not compare `ciaddr` to the IP source address; the existing receive helper discards source-address metadata, and relayed INFORM packets have a relay source distinct from the client's `ciaddr`.
+- GNU89 ASan/UBSan test and exact-SHA workflow pending.
+
+---
+
 ## 2026-11-25 — Validate DHCPDECLINE and DHCPRELEASE request fields
 
 - BusyBox `udhcpd` documented two unimplemented DHCP server checks in its handlers: DECLINE requires `ciaddr == 0`, and RELEASE must not contain option 50 (Requested IP). The server previously ignored these constraints and could mutate lease state for malformed messages.

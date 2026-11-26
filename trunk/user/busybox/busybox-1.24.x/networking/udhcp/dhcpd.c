@@ -669,6 +669,10 @@ o DHCPREQUEST generated during REBINDING state:
 
 		case DHCPINFORM:
 			log1("Received INFORM");
+			if (!udhcp_server_inform_ciaddr_valid(packet.ciaddr)) {
+				log1("Ignoring DHCPINFORM with zero ciaddr");
+				break;
+			}
 			send_inform(&packet);
 			break;
 		}
