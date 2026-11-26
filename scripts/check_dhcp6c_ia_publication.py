@@ -310,7 +310,7 @@ assert "test_address_change_absent_and_duplicate_errors" in test
 assert "DHCPv6 IA delegated-prefix retry and removal policy: PASS" in test
 assert "dhcp6c_ia_shutdown_ready" in policy
 assert "dhcp6c_ia_client_start_allowed" in policy
-assert "test_shutdown_waits_for_pending_delegated_prefix_cleanup" in test
+assert "test_shutdown_waits_for_ia_cleanup_and_release_events" in test
 assert "int shutting_down;" in config_header
 client_start = function_body(client, "int client6_start(struct dhcp6_if *ifp)")
 assert "dhcp6c_ia_client_start_allowed(ifp->shutting_down)" in client_start
@@ -319,8 +319,12 @@ pending_cleanup = function_body(client, "static int client6_has_pending_ia_clean
 assert "TAILQ_FOREACH(iac, &ifp->iaconf_list, link)" in pending_cleanup
 assert "if (!TAILQ_EMPTY(&iac->iadata))" in pending_cleanup
 shutdown_check = function_body(client, "static void client6_check_shutdown(void)")
-assert "dhcp6c_ia_shutdown_ready(client6_has_pending_ia_cleanup())" in shutdown_check
+assert "dhcp6c_ia_shutdown_ready(client6_has_pending_ia_cleanup(), !TAILQ_EMPTY(&client6_config.event_list))" in shutdown_check
 assert "check_exit(1);" in shutdown_check
+release_setup = function_body(ia, "void release_all_ia(struct dhcp6_if *ifp)")
+assert "prepare_iaevent(ia, DHCP6S_RELEASE);" in release_setup
+free_resources = function_body(client, "static void free_resources(int force)")
+assert "if (!force && ev->state == DHCP6S_RELEASE)" in free_resources
 mainloop = function_body(client, "static void client6_mainloop(void)")
 assert "case SIGTERM:" in mainloop and "case SIGQUIT:" in mainloop
 assert "ifp->shutting_down = 1;" in mainloop and "free_resources(0);" in mainloop

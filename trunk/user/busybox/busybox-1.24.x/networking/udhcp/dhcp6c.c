@@ -374,8 +374,10 @@ static void client6_check_shutdown(void)
 {
 	struct dhcp6_if *ifp = &client6_config.dhcp6c_if;
 
+	/* free_resources(0) retains RELEASE exchanges until Reply or timeout. */
 	if (ifp->shutting_down &&
-	    dhcp6c_ia_shutdown_ready(client6_has_pending_ia_cleanup()))
+	    dhcp6c_ia_shutdown_ready(client6_has_pending_ia_cleanup(),
+		!TAILQ_EMPTY(&client6_config.event_list)))
 		check_exit(1);
 }
 

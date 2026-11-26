@@ -3,15 +3,14 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development on `main` only.
-- Parent `main` for this DHCPv6 option-framing slice: `d739b7f409e57e9b7bbdfa85b7abfacbd8e5804d`.
+- Parent `main` for this DHCPv6 shutdown/RELEASE-drain slice: `b3cfaab82ee2dfbe1b5982f9cc127b778ddb3c4e`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify/delete. PR #1 remains closed/unmerged.
 - Bootstrap/protocol recovery was completed earlier; do not repeat it.
 
 ## Active task
 
-- P1 DHCPv6 parser allocation safety. CLIENTID, SERVERID, RELAY_MSG and INTERFACE_ID are stored in one vbuf slot per option type. Before this slice, duplicate options overwrote an existing allocated pointer and silently used the last value. The decoder now rejects a duplicate before allocating again; its malformed-option path calls `dhcp6_clear_options()` to free the first allocation.
-- Added a shared vbuf-unset predicate and four boundary cases (NULL/zero, non-NULL/zero, populated, NULL/nonzero). The Python source contract pins all four production guards and verifies parser-failure cleanup. The DHCPv6 IA workflow already includes these files in push/PR filters and compiles/runs the policy regression.
-- DHCPv6 Reconfigure Accept (option 20) is a zero-payload option. The decoder previously ignored this known option without checking its declared payload length; it now rejects non-empty payloads before silently ignoring the unsupported feature. Added zero/one/maximum-size policy tests and a source contract pinning the production branch.
+- Completed parser-safety slices: the DHCPv6 outer parser rejects duplicate CLIENTID, SERVERID, RELAY_MSG and INTERFACE_ID vbuf options before allocation; malformed-option cleanup frees the first owned buffers. Reconfigure Accept (option 20) is rejected when its payload is nonzero. Policy tests and source contracts cover both changes.
+- Current P1 slice: graceful DHCPv6 shutdown must drain both kernel IA cleanup retries and outstanding RELEASE transactions. `release_all_ia()` creates a `DHCP6S_RELEASE` event before removing each IA; `free_resources(0)` deliberately preserves these events to let Release exchanges complete. The previous shutdown-ready check only examined IA queues and could call `check_exit(1)` as soon as local IAs were removed, discarding pending Release messages before Reply/timeout. This slice gates exit on both empty IA queues and an empty event list; regression covers IA-only, event-only, combined pending work and fully drained state.
 - Adjacent WAN6 fixes already on main: empty caller-interface teardown guard; SIT owner-record IFNAMSIZ bound; strict SIT gateway literal validation; strict DHCP 6rd relay literal validation; static and DHCPv6 DNS literal validation; first-error aggregation during delegated-prefix cleanup.
 
 ## 2026-11-26 implementation continuation — DHCPv6 cleanup shutdown
@@ -41,9 +40,9 @@
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect exact-head DHCPv6 IA and AI Actions for the Reconfigure Accept parser change. Confirm the new zero-length policy regression and source contract pass.
-2. Recheck the latest product-source XY-C1 run; only same-SHA Build XY-C1, Verify TRX output and artifact upload all PASS advances L3. Pending/skipped is not PASS.
-3. Continue the DHCPv6 parser/state-machine audit for further confirmed malformed-option or cleanup defects. Implement with focused regressions and exact-SHA Actions.
+1. Fetch live `main` and inspect exact-head DHCPv6 IA, AI, HTTPD, Process, NVRAM and USB runs for the Reconfigure Accept edge and this shutdown Release-drain fix; confirm the new C regression and Python source contract PASS.
+2. Recheck product-source XY-C1 run #45790965887 on `b3cfaab`; require same-SHA Build XY-C1, Verify TRX output and artifact upload all PASS before L3. The older `a0fa423` run is a separate baseline only.
+3. Continue DHCPv6 event/IA lifecycle audit for confirmed Release, timeout or cleanup ownership faults; implement focused tests and exact-SHA checks. Hardware L4 stays NOT VERIFIED.
 
 ## Mandatory handoff checkpoint
 

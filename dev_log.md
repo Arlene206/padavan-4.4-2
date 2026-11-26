@@ -1,3 +1,12 @@
+## 2026-11-26 — Preserve DHCPv6 RELEASE exchanges during graceful shutdown
+
+- Confirmed follow-on bug in the SIGTERM drain: `release_all_ia()` calls `prepare_iaevent(ia, DHCP6S_RELEASE)` before removing each IA. `free_resources(0)` intentionally keeps Release events so the client can transmit and wait for Reply/timeout. The shutdown readiness check only examined `iac->iadata`; after successful local cleanup that queue became empty while Release events were still outstanding, causing `check_exit(1)` to discard the Release exchanges.
+- Shutdown readiness now requires both all configured IA data queues and the global event list to be empty. This waits for each preserved Release transaction to complete by Reply or retransmission timeout, while still keeping failed delegated-prefix cleanup IAs pending through retry timers.
+- Expanded the GNU89 policy test for IA-only, event-only, combined pending work and fully drained state. Python source contract pins Release event creation, `free_resources(0)` preservation, and the two-part exit gate.
+- Parent main: `b3cfaab82ee2dfbe1b5982f9cc127b778ddb3c4e`; exact-SHA Actions pending after commit. Hardware L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-26 — Reject malformed DHCPv6 Reconfigure Accept payload
 
 - DHCPv6 Reconfigure Accept (option 20) is defined with no payload. The outer option parser previously silently ignored this known option after applying only the option table minimum length (zero), so it accepted malformed non-empty instances.
