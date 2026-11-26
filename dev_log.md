@@ -1,3 +1,11 @@
+## 2026-11-26 — Fix DHCPv6 shutdown source-check ordering
+
+- Exact-SHA DHCPv6 IA workflow #45789833785 for `a0fa423d528aee7d36bf06f79b0a28dc1c736fa5` compiled and passed all six GNU89/`-Werror`/ASan/UBSan policy binaries, including the new shutdown-state regression. The Python source checker then failed because the newly added stop assertion referenced `wan6` before the existing `wan6 = read(...)` assignment later in the script.
+- Moved the two stop-timeout assertions below that existing assignment. No firmware/runtime source changed in this corrective slice. Exact-SHA checker result is pending; do not claim this source contract has passed until the next workflow run succeeds.
+- Parent main: `a0fa423d528aee7d36bf06f79b0a28dc1c736fa5`; resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-26 — Drain delegated-prefix cleanup before DHCPv6 client exit
 
 - Confirmed shutdown defect: `remove_iaprefix()` retains failed downstream prefix removals and schedules a 5-second retry, but SIGTERM entered `check_exit(1)`; `free_resources(1)` removed those timers and exited. The WAN stop caller used `kill_services(svcs, 3, 1)`, which could SIGKILL the process before the first cleanup retry. A transient kernel deletion failure could strand a delegated prefix without a retry owner.

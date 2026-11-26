@@ -319,9 +319,6 @@ assert "case SIGTERM:" in mainloop and "case SIGQUIT:" in mainloop
 assert "ifp->shutting_down = 1;" in mainloop and "free_resources(0);" in mainloop
 assert mainloop.index("ifp->shutting_down = 1;") < mainloop.index("free_resources(0);")
 assert mainloop.index("w = dhcp6_timer_check();") < mainloop.index("client6_check_shutdown();", mainloop.index("w = dhcp6_timer_check();"))
-stop_dhcp6c = function_body(wan6, "int stop_dhcp6c(void)")
-assert "stop_status = kill_services(svcs, 16, 0);" in stop_dhcp6c
-assert "stop_status = kill_services(svcs, 3, 1);" not in stop_dhcp6c
 
 assert "test_partial_pd_failure_is_retried_without_reapplying_successes" in test
 assert "test_first_error_and_retry_gate" in test
@@ -349,6 +346,8 @@ wan6 = read("trunk/user/rc/src/net_wan6.c")
 callback_test = read("trunk/user/rc/src/tests/dhcp6c_callback_generation.c")
 callback_policy = read("trunk/user/rc/src/dhcp6c_callback_generation_policy.h")
 stop_dhcp6c = function_body(wan6, "int stop_dhcp6c(void)")
+assert "stop_status = kill_services(svcs, 16, 0);" in stop_dhcp6c
+assert "stop_status = kill_services(svcs, 3, 1);" not in stop_dhcp6c
 stop_call = stop_dhcp6c.index("stop_status = kill_services(svcs, 3, 1);")
 generation_advance = stop_dhcp6c.index(
     "dhcp6c_callback_session_advance(session_fd, &generation)")
