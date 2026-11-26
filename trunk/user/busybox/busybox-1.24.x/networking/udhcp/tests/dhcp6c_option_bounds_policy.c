@@ -49,10 +49,16 @@ int main(void)
 	{
 		int source_seen = 0;
 
+		CHECK(!dhcp6c_ntp_time_source_present(source_seen));
 		CHECK(dhcp6c_ntp_time_source_claim(99U, &source_seen));
-		CHECK(!source_seen);
+		CHECK(dhcp6c_ntp_time_source_present(source_seen));
+		CHECK(!dhcp6c_ntp_time_source_claim(1U, &source_seen));
+	}
+	{
+		int source_seen = 0;
+
 		CHECK(dhcp6c_ntp_time_source_claim(1U, &source_seen));
-		CHECK(source_seen);
+		CHECK(dhcp6c_ntp_time_source_present(source_seen));
 		CHECK(!dhcp6c_ntp_time_source_claim(3U, &source_seen));
 	}
 	/* Singleton option buffer policy: reject a second owned vbuf. */

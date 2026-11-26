@@ -1,3 +1,12 @@
+## 2026-11-26 — Enforce exactly one DHCPv6 NTP time-source suboption
+
+- RFC 5908 requires one and only one time-source suboption within each OPTION_NTP_SERVER. The parser previously set its `source_seen` flag only for suboption codes 1–3. Because unknown future registry values were skipped without claiming the source slot, an empty container or a container with multiple unknown/known suboptions could pass framing checks without satisfying the one-source rule.
+- The parser now counts every suboption code in the NTP Time Source Suboption namespace as the single source slot. Unknown future codes remain forward-compatible and their payload is skipped, but they cannot be combined with another source suboption. The decoder rejects an empty container and rejects a second known or unknown source.
+- Added policy regressions for no source, one unknown future source, unknown+known, one known source and two known sources. Python source contract pins the final mandatory-source gate.
+- Parent main: `734e9a86960d5f9158904a3e73280fbbae3b3842`; exact-SHA validation pending.
+
+---
+
 ## 2026-11-26 — Enforce RFC 5908 NTP address suboption classes
 
 - Exact-SHA DHCPv6 IA run #45792959729 on `c713dbc59c566254f736d21ff1e8b06de6f2ab43` passed all six GNU89/`-Werror`/ASan/UBSan policy binaries and the complete Python source contract; AI handoff #45792959822 also PASSed.

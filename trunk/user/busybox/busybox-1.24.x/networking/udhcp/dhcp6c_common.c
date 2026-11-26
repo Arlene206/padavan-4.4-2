@@ -472,7 +472,8 @@ static int dhcp6_get_ntp_server(int optlen, void *cp,
 		remaining -= sublen;
 	}
 
-	return 0;
+	/* RFC 5908 requires one and only one time-source suboption. */
+	return dhcp6c_ntp_time_source_present(source_seen) ? 0 : -1;
 }
 
 #if ENABLE_FEATURE_DHCP6_AUTH

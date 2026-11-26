@@ -76,16 +76,24 @@ dhcp6c_ntp_suboption_payload_length_valid(unsigned int suboption,
 	}
 }
 
-/* Unknown future suboptions are skipped; only one known time source is valid. */
+/*
+ * The NTP Time Source Suboption registry assigns each code a single source.
+ * Count unknown future codes too, while letting older clients skip their data.
+ */
 static inline int
 dhcp6c_ntp_time_source_claim(unsigned int suboption, int *source_seen)
 {
-	if (suboption < 1U || suboption > 3U)
-		return 1;
+	(void)suboption;
 	if (*source_seen)
 		return 0;
 	*source_seen = 1;
 	return 1;
+}
+
+static inline int
+dhcp6c_ntp_time_source_present(int source_seen)
+{
+	return source_seen;
 }
 
 /*
