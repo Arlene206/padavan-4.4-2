@@ -1,3 +1,9 @@
+## 2026-11-25 — Align ZeroTier stop preflight contract with route manifests
+
+- Exact run #45738207061 passed the shell lifecycle regression but the Python source contract still required unconditional NVRAM route preflight before stop. The implementation correctly validates a persisted static-route manifest when one exists and uses checked NVRAM preflight only for legacy no-manifest installations.
+- Updated the contract to require the legacy-only guard and preserve its ordering before daemon signalling. No production behavior changed.
+
+---
 ## 2026-11-25 — Align ZeroTier route ownership source contracts
 
 - The route-ownership fix moved checked selector enumeration and tuple validation into zerotier_static_route_state_save(); the older checker still expected these operations inside zero_route() and expected that rules() rollback used the legacy delete mode.

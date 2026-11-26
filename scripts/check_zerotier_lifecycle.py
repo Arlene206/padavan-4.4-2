@@ -422,8 +422,9 @@ require('zerotier_ipv4_cidr_is_valid "$1" || return 1' in route_tuple_body and
         'zerotier_static_route_tuple_is_valid "$zt_route_ip" "$zt_route_gateway"' in route_state_save_body and
         'zerotier_static_route_tuple_is_valid "$zt_route_saved_ip" "$zt_route_saved_gateway"' in route_state_load_body,
         "static routes must validate IPv4/CIDR destinations and bare IPv4 gateways before invoking iproute2")
-require('if ! zerotier_preflight_static_routes; then' in stop_body and
-        stop_body.index('if ! zerotier_preflight_static_routes; then') <
+require('if [ "$zt_route_state_present" != 1 ] &&' in stop_body and
+        '! zerotier_preflight_static_routes; then' in stop_body and
+        stop_body.index('if [ "$zt_route_state_present" != 1 ] &&') <
         stop_body.index('if ! kill_z; then'),
         "stop must validate route configuration before signalling the daemon")
 
