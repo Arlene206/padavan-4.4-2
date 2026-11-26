@@ -296,6 +296,27 @@ assert receive_call < receive_error < short_check < datagram_check < option_pars
 assert "(size_t)len, sizeof(G.rbuf)" in receive[datagram_check:option_parse]
 assert "return;" in receive[datagram_check:option_parse]
 
+# stop_dhcp6c holds the session lock across the daemon stop. A failed
+# kill must not stale callback tokens belonging to a still-live client.
+wan6 = read("trunk/user/rc/src/net_wan6.c")
+callback_test = read("trunk/user/rc/src/tests/dhcp6c_callback_generation.c")
+callback_policy = read("trunk/user/rc/src/dhcp6c_callback_generation_policy.h")
+stop_dhcp6c = function_body(wan6, "int stop_dhcp6c(void)")
+stop_call = stop_dhcp6c.index("stop_status = kill_services(svcs, 3, 1);")
+generation_advance = stop_dhcp6c.index(
+    "dhcp6c_callback_session_advance(session_fd, &generation)")
+generation_guard = stop_dhcp6c.rindex("if (stop_status == 0 &&",
+                                     stop_call, generation_advance)
+final_unlock = stop_dhcp6c.rindex(
+    "unlock_status = dhcp6c_callback_session_unlock(session_fd);")
+assert stop_call < generation_guard < generation_advance < final_unlock
+assert "test_failed_stop_preserves_waiting_old_callback_generation" in callback_test
+assert "test_successful_stop_invalidates_waiting_old_callback_generation" in callback_test
+assert "run_stop_fencing_case(EBUSY, 1, 1)" in callback_test
+assert "run_stop_fencing_case(0, 0, 2)" in callback_test
+assert "dhcp6c_callback_primary_errno(saved_errno, unlock_errno)" in stop_dhcp6c
+assert "dhcp6c_callback_session_lock" in callback_policy
+
 required_paths = (
     ".github/workflows/dhcp6c-ia-publication-stability.yml",
     "scripts/check_dhcp6c_ia_publication.py",
@@ -315,6 +336,9 @@ required_paths = (
     BASE + "dhcp6c_common.c",
     BASE + "dhcp6c_option_bounds_policy.h",
     BASE + "tests/dhcp6c_option_bounds_policy.c",
+    "trunk/user/rc/src/net_wan6.c",
+    "trunk/user/rc/src/dhcp6c_callback_generation_policy.h",
+    "trunk/user/rc/src/tests/dhcp6c_callback_generation.c",
 )
 filters = workflow.split("jobs:", 1)[0]
 push, pull = filters.split("  pull_request:", 1)

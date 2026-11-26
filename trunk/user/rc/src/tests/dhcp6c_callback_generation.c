@@ -160,12 +160,20 @@ test_symlink_state_file_is_rejected(void)
 	assert(unlink(target) == 0);
 }
 
+struct callback_observation {
+	unsigned long generation;
+	int accepted;
+	int status;
+};
+
 static void
-test_stop_invalidation_rejects_waiting_old_callback(void)
+run_stop_fencing_case(int stop_status, int expected_accept,
+		      unsigned long expected_generation)
 {
 	char path[] = "/tmp/dhcp6c-callback-policy-XXXXXX";
 	unsigned long generation, next;
-	int fd, pipefd[2], child_result, child_status;
+	int fd, ready_pipe[2], result_pipe[2], started, child_status;
+	struct callback_observation observed;
 	pid_t child;
 	ssize_t count;
 
@@ -180,46 +188,85 @@ test_stop_invalidation_rejects_waiting_old_callback(void)
 	assert(dhcp6c_callback_session_write(fd, next) == 0);
 	assert(dhcp6c_callback_session_unlock(fd) == 0);
 
-	/* Simulate stop_dhcp6c holding the lock while an old script child waits. */
+	/* Hold the same lock stop_dhcp6c() keeps across kill_services(). */
 	fd = dhcp6c_callback_session_lock(path, &generation, 0);
 	assert(fd >= 0 && generation == 1);
-	assert(pipe(pipefd) == 0);
+	assert(pipe(ready_pipe) == 0);
+	assert(pipe(result_pipe) == 0);
 	child = fork();
 	assert(child >= 0);
 	if (child == 0) {
-		int child_fd, accepted;
+		int child_fd;
 		unsigned long child_generation;
-		close(pipefd[0]);
+
+		close(ready_pipe[0]);
+		close(result_pipe[0]);
+		close(fd);
+		started = 1;
+		if (write(ready_pipe[1], &started, sizeof(started)) !=
+		    (ssize_t)sizeof(started))
+			_exit(2);
+		close(ready_pipe[1]);
+		observed.generation = 0;
+		observed.accepted = 0;
+		observed.status = 0;
 		child_fd = dhcp6c_callback_session_lock(path, &child_generation, 0);
 		if (child_fd < 0) {
-			child_result = 2;
+			observed.status = 1;
 		} else {
-			accepted = dhcp6c_callback_generation_matches("1", child_generation,
-							     "eth0", "eth0");
-			child_result = accepted ? 1 : 0;
+			observed.generation = child_generation;
+			observed.accepted = dhcp6c_callback_generation_matches(
+				"1", child_generation, "eth0", "eth0");
 			if (dhcp6c_callback_session_unlock(child_fd) != 0)
-				child_result = 3;
+				observed.status = 2;
 		}
-		(void)write(pipefd[1], &child_result, sizeof(child_result));
-		close(pipefd[1]);
-		_exit(child_result == 0 ? 0 : 1);
+		if (write(result_pipe[1], &observed, sizeof(observed)) !=
+		    (ssize_t)sizeof(observed))
+			_exit(3);
+		close(result_pipe[1]);
+		_exit(observed.status == 0 ? 0 : 4);
 	}
 
-	close(pipefd[1]);
-	assert(dhcp6c_callback_generation_next(generation, &next) == 0);
-	assert(dhcp6c_callback_session_write(fd, next) == 0);
+	close(ready_pipe[1]);
+	close(result_pipe[1]);
+	assert(read(ready_pipe[0], &started, sizeof(started)) ==
+	       (ssize_t)sizeof(started));
+	close(ready_pipe[0]);
+	/* Let the child reach its fcntl() attempt while the parent owns the lock. */
+	usleep(20000);
+
+	/* A failed kill leaves the prior generation intact; success fences it. */
+	if (stop_status == 0) {
+		assert(dhcp6c_callback_generation_next(generation, &next) == 0);
+		assert(dhcp6c_callback_session_write(fd, next) == 0);
+	}
 	assert(dhcp6c_callback_session_unlock(fd) == 0);
-	count = read(pipefd[0], &child_result, sizeof(child_result));
-	close(pipefd[0]);
-	assert(count == (ssize_t)sizeof(child_result));
+
+	count = read(result_pipe[0], &observed, sizeof(observed));
+	close(result_pipe[0]);
+	assert(count == (ssize_t)sizeof(observed));
 	assert(waitpid(child, &child_status, 0) == child);
 	assert(WIFEXITED(child_status) && WEXITSTATUS(child_status) == 0);
-	assert(child_result == 0);
+	assert(observed.status == 0);
+	assert(observed.accepted == expected_accept);
+	assert(observed.generation == expected_generation);
 
 	fd = dhcp6c_callback_session_lock(path, &generation, 0);
-	assert(fd >= 0 && generation == 2);
+	assert(fd >= 0 && generation == expected_generation);
 	assert(dhcp6c_callback_session_unlock(fd) == 0);
 	assert(unlink(path) == 0);
+}
+
+static void
+test_failed_stop_preserves_waiting_old_callback_generation(void)
+{
+	run_stop_fencing_case(EBUSY, 1, 1);
+}
+
+static void
+test_successful_stop_invalidates_waiting_old_callback_generation(void)
+{
+	run_stop_fencing_case(0, 0, 2);
 }
 
 int main(void)
@@ -233,7 +280,8 @@ int main(void)
 	test_start_errno_uses_cleanup_error_after_successful_launch();
 	test_callback_does_not_create_missing_generation_file();
 	test_symlink_state_file_is_rejected();
-	test_stop_invalidation_rejects_waiting_old_callback();
+	test_failed_stop_preserves_waiting_old_callback_generation();
+	test_successful_stop_invalidates_waiting_old_callback_generation();
 	puts("DHCPv6 callback generation/stop fencing regression: PASS");
 	return 0;
 }

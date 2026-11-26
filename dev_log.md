@@ -1,3 +1,11 @@
+## 2026-11-25 — Preserve DHCPv6 callback tokens when client stop fails
+
+- `stop_dhcp6c()` advanced the shared callback generation before calling `kill_services("dhcp6c")`. If the daemon stop failed, the still-running client retained its old environment token while queued ip-up/ip-down children were released from the lock with a newer generation; those callbacks rejected themselves and silently skipped lease, address, prefix and resolver updates even though WAN6 teardown correctly aborted.
+- The stop path now calls the daemon stop while holding the callback lock and advances the generation only after a successful stop. A failed stop leaves the active generation unchanged, so queued callbacks remain valid; successful stop still fences them before unlocking. Generation-write and lock-release failures retain first-error handling.
+- Replaced the old one-sided race fixture with forked failed-stop and successful-stop cases; the DHCPv6 IA workflow compiles the GNU89 ASan/UBSan regression and checks exact production ordering. XY-C1 path filters include the RC implementation, callback policy header and regression. Exact-SHA Actions pending; no MIPS firmware or live-router result is claimed.
+
+---
+
 ## 2026-11-26 — Align remaining PPP lifecycle source contracts with post-stop fencing
 
 - Exact source SHA `6c0ea137` passed the WAN DHCP callback and other independent lifecycle checks, but VPN server, Process inventory and HTTPD umbrella checks still encoded the former rule that invalidation preceded `kill_services()`. The VPN checker also required generation advancement before the multi-WAN PPP stop.

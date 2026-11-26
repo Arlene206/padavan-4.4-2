@@ -2340,28 +2340,41 @@ int stop_dhcp6c(void)
 			   errno ? errno : EIO);
 		return -1;
 	}
-	if (dhcp6c_callback_session_advance(session_fd, &generation) != 0) {
+
+	/*
+	 * Keep the old callback token valid if dhcp6c could not be stopped.
+	 * Children waiting on this lock must still be able to finish the active
+	 * lease transition when the stop operation fails.
+	 */
+	stop_status = kill_services(svcs, 3, 1);
+	if (stop_status == 0 &&
+	    dhcp6c_callback_session_advance(session_fd, &generation) != 0) {
 		saved_errno = errno ? errno : EIO;
 		unlock_errno = 0;
 		unlock_status = dhcp6c_callback_session_unlock(session_fd);
 		if (unlock_status != 0) {
 			unlock_errno = errno ? errno : EIO;
 			logmessage("DHCPv6 WAN Client",
-				   "cannot release callback session lock after generation invalidation failure (errno=%d)",
+				   "cannot release callback session lock after successful client stop (errno=%d)",
 				   unlock_errno);
 		}
 		logmessage("DHCPv6 WAN Client",
-			   "cannot invalidate callback session before stop (errno=%d)", saved_errno);
+			   "client stopped but callback generation invalidation failed (errno=%d)",
+			   saved_errno);
 		errno = dhcp6c_callback_primary_errno(saved_errno, unlock_errno);
 		return -1;
 	}
 
-	/* Waiting callback children now see the new generation after this lock
-	 * is released; killall only targets dhcp6c, not its synchronous rc child. */
-	stop_status = kill_services(svcs, 3, 1);
+	/* Fence waiting callbacks only after the old client stopped successfully. */
 	unlock_status = dhcp6c_callback_session_unlock(session_fd);
-	if (stop_status == 0 && unlock_status != 0)
-		stop_status = unlock_status;
+	if (unlock_status != 0) {
+		unlock_errno = errno ? errno : EIO;
+		logmessage("DHCPv6 WAN Client",
+			   "cannot release callback session lock after client stop (errno=%d)",
+			   unlock_errno);
+		if (stop_status == 0)
+			stop_status = unlock_errno;
+	}
 	if (stop_status != 0)
 		logmessage("DHCPv6 WAN Client",
 			   "client stop or callback-lock release incomplete (status=%d)",
