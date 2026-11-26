@@ -190,9 +190,11 @@ require('adg_effective_redirect_mode || return $?' in change_dns and
         'adg_update_dns_config enable' in change_dns and 'return 1' in change_dns and
         'adg_update_dns_config disable' in del_dns,
         "change_dns must fail closed on selector errors and preserve resolver transaction status")
-require('if ! change_dns; then' in start and 'if ! clear_iptable; then' in start and
-        start.index('if ! change_dns; then') < start.index('if ! clear_iptable; then'),
-        "failed resolver setup must roll back firewall rules before daemon launch")
+dns_failure = start.index('if ! change_dns; then')
+require('if ! change_dns; then' in start and
+        '保留DNS防火墙拦截规则' in start[dns_failure:] and
+        'clear_iptable' not in start[dns_failure:start.index('fi', dns_failure)],
+        "failed resolver setup must retain DNS interception when the resolver runtime may still use the candidate upstream")
 
 require('if adg_process_state; then' in start and
         'adg_start_state=$?' in start and 'if [ "$adg_start_state" -ne 1 ]; then' in start and
@@ -315,6 +317,9 @@ require('( exec 9>&-; AdGuardHome -c "$adg_file" -w "$ADG_WORKDIR" -v ) &' in st
         'logger -t "AdGuardHome" "启动后无法确认AdGuardHome进程状态，保留DNS和防火墙配置"' in start and
         '/sbin/restart_dhcpd 9>&-' in script,
         "detached launch must verify RUNNING; roll back only confirmed ABSENT and preserve UNKNOWN state")
+require('[ "$(cat "$TEST_ADG_START_EFFECTS")" = "$(printf \'set_iptable\\\\nchange_dns\')" ]' in test and
+        '保留DNS防火墙拦截规则' in test,
+        "startup resolver failure regression must assert retained interception")
 require('TEST_ADG_DEL_DNS_FAIL=1' in test and
         '[ "$(cat "$TEST_ADG_CLEANUP_LOG")" = del_dns ]' in test and
         "set_iptable')" in test,

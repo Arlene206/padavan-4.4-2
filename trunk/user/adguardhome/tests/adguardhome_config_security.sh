@@ -618,10 +618,11 @@ echo "AdGuardHome redirect selector checked-read and fail-closed validation: PAS
   change_dns() { echo change_dns >> "$TEST_ADG_START_EFFECTS"; return 1; }
   clear_iptable() { echo clear_iptable >> "$TEST_ADG_START_EFFECTS"; return 0; }
   AdGuardHome() { echo launch >> "$TEST_ADG_START_EFFECTS"; }
-  logger() { return 0; }
+  logger() { echo "$*" >> "$TEST_ADG_START_EFFECTS"; }
   if start_adg; then exit 1; fi
-  [ "$(cat "$TEST_ADG_START_EFFECTS")" = "$(printf 'set_iptable\nchange_dns\nclear_iptable')" ] || exit 1
-) || fail "start continued after resolver reload failure"
+  [ "$(cat "$TEST_ADG_START_EFFECTS")" = "$(printf 'set_iptable\nchange_dns')" ] || exit 1
+  grep -q "保留DNS防火墙拦截规则" "$TEST_ADG_START_EFFECTS" || exit 1
+) || fail "start did not preserve DNS interception after resolver transaction failure"
 
 # Exercise daemon stop/start gates with a process-name-only mock.
 TEST_ADG_STATE="$TEST_TMP/adguardhome.state"

@@ -607,10 +607,10 @@ start_adg(){
 	fi
 	if ! change_dns; then
 		adg_start_redirect_snapshot=0
-		logger -t "AdGuardHome" "DNSMasq配置或重载失败，取消启动"
-		if ! clear_iptable; then
-			logger -t "AdGuardHome" "DNS失败后的防火墙回滚也失败"
-		fi
+		# Resolver rollback/reload status is uncertain. Retain interception:
+		# deleting these rules could let clients bypass filtering if dnsmasq
+		# still has the candidate 127.0.0.1:5335 upstream in memory.
+		logger -t "AdGuardHome" "DNSMasq配置或重载失败，保留DNS防火墙拦截规则"
 		return 1
 	fi
 	logger -t "AdGuardHome" "启动 AdGuardHome"
