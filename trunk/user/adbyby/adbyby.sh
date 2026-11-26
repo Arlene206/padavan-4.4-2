@@ -1174,7 +1174,7 @@ adbyby_verify_rule_cleanup()
 		return "$adbyby_cleanup_status"
 	fi
 	if printf '%s\n' "$adbyby_cleanup_fw_after" |
-	   grep -E '(^:ADBYBY([[:space:]]|$)|^-A [^ ]+ .* -j ADBYBY([[:space:]]|$)|^-A [^ ]+ .*--match-set (adbyby_esc|adbyby_wan|blockip)([[:space:]]|$))' >/dev/null; then
+	   grep -E '(^:ADBYBY([[:space:]]|$)|^-A [^ ]+ -j ADBYBY([[:space:]]|$)|^-A [^ ]+ .* -j ADBYBY([[:space:]]|$)|^-A [^ ]+ .*--match-set (adbyby_esc|adbyby_wan|blockip)([[:space:]]|$))' >/dev/null; then
 		logger -t "adbyby" "iptables中仍残留Adbyby链、跳转或ipset引用。"
 		return 1
 	else

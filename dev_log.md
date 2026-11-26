@@ -1,3 +1,11 @@
+## 2026-11-26 — Detect bare Adbyby firewall jumps during teardown
+
+- Review of the newly added residual-rule matcher found a valid rulespec it could miss: `-A PREROUTING -j ADBYBY` has no options between the source chain and `-j`, while the original regex required an extra token (and therefore two spaces around the empty match). A leftover rule like this could escape the postcondition if its chain declaration is not present in the captured output.
+- Added a dedicated zero-option jump alternative and a regression fixture that emits only the bare jump, independently of the chain declaration and ipset checks. The source checker requires this case. Also removed a duplicated, harmless fixture export line from the prior test-only commit.
+- Exact Adbyby and Process reruns pending.
+
+---
+
 ## 2026-11-26 — Export Adbyby post-state fixture controls
 
 - Exact Adbyby run #45765982057 on `bd439e46fab885c84a4629088ae8e3efe27a1c49` passed shell syntax and all earlier host/download/lifecycle suites, then failed the new confirmed-absent teardown case. The executable `iptables-save` and `ipset` test wrappers did not receive the state-mode shell variables because they were not exported, so they returned their default stale fixture.

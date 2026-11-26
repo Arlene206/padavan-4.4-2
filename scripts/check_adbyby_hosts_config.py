@@ -431,6 +431,8 @@ require("iptables-save" in verify_cleanup and
         "adbyby_esc adbyby_wan blockip" in verify_cleanup and
         "adbyby_verify_rule_cleanup" in del_rule and
         'return "$adbyby_del_rule_status"' in del_rule and
+        '^-A [^ ]+ -j ADBYBY' in verify_cleanup and
+        'bare Adbyby jump was reported clean' in firewall_test and
         '^-A [^ ]+ .* -j ADBYBY' in verify_cleanup,
         "Adbyby teardown must verify iptables/ipset absence and propagate UNKNOWN or residual kernel state")
 for marker in ("confirmed absent firewall/ipset state was not idempotent",

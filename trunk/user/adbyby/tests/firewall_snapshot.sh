@@ -36,6 +36,10 @@ case "${ADBYBY_TEST_FW_POST:-initial}" in
         printf '%s\n' '*nat' ':ADBYBY - [0:0]' '-A PREROUTING -p tcp --dport 80 -j ADBYBY'
         exit 0
         ;;
+    stale_bare_jump)
+        printf '%s\n' '*nat' '-A PREROUTING -j ADBYBY'
+        exit 0
+        ;;
     error) exit 53 ;;
     initial) ;;
     *) exit 2 ;;
@@ -213,7 +217,6 @@ adbyby_remove_rule_snapshot() { return 0; }
 ADBYBY_TEST_FW_POST=absent
 ADBYBY_TEST_IPSET_POST=absent
 export ADBYBY_TEST_FW_POST ADBYBY_TEST_IPSET_POST
-export ADBYBY_TEST_FW_POST ADBYBY_TEST_IPSET_POST
 
 : > "$TEST_COMMAND_LOG"
 : > "$TEST_IPSET_LOG"
@@ -227,6 +230,12 @@ export FAIL_IPTABLES_MATCH
 if del_rule; then fail "surviving Adbyby iptables chain was reported clean"; fi
 grep -F -- '-t nat -X ADBYBY' "$TEST_COMMAND_LOG" >/dev/null || fail "chain delete was not attempted"
 unset FAIL_IPTABLES_MATCH
+
+# The parser must also catch a valid jump with no options between
+# the source chain and target, independently of chain-declaration detection.
+ADBYBY_TEST_FW_POST=stale_bare_jump
+ADBYBY_TEST_IPSET_POST=absent
+if del_rule; then fail "bare Adbyby jump was reported clean"; fi
 
 # A remaining managed ipset or an unavailable post-state query is UNKNOWN.
 ADBYBY_TEST_FW_POST=absent
