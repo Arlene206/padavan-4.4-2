@@ -1162,6 +1162,45 @@ add_rule()
 	return 0
 }
 
+# Kernel command exit codes alone cannot distinguish an already-absent
+# rule/set from a failed delete. Verify the authoritative post-state instead.
+adbyby_verify_rule_cleanup()
+{
+	if adbyby_cleanup_fw_after=$(iptables-save); then
+		:
+	else
+		adbyby_cleanup_status=$?
+		logger -t "adbyby" "无法读取清理后的iptables状态 (status=$adbyby_cleanup_status)。"
+		return "$adbyby_cleanup_status"
+	fi
+	if printf '%s\n' "$adbyby_cleanup_fw_after" |
+	   grep -E '(^:ADBYBY([[:space:]]|$)|^-A [^ ]+ .* -j ADBYBY([[:space:]]|$)|^-A [^ ]+ .*--match-set (adbyby_esc|adbyby_wan|blockip)([[:space:]]|$))' >/dev/null; then
+		logger -t "adbyby" "iptables中仍残留Adbyby链、跳转或ipset引用。"
+		return 1
+	else
+		adbyby_cleanup_match_status=$?
+		[ "$adbyby_cleanup_match_status" -eq 1 ] || return "$adbyby_cleanup_match_status"
+	fi
+
+	if adbyby_cleanup_ipsets_after=$(ipset list -name); then
+		:
+	else
+		adbyby_cleanup_status=$?
+		logger -t "adbyby" "无法读取清理后的ipset状态 (status=$adbyby_cleanup_status)。"
+		return "$adbyby_cleanup_status"
+	fi
+	for adbyby_cleanup_set in adbyby_esc adbyby_wan blockip; do
+		if printf '%s\n' "$adbyby_cleanup_ipsets_after" | grep -Fqx "$adbyby_cleanup_set"; then
+			logger -t "adbyby" "ipset中仍残留Adbyby集合：$adbyby_cleanup_set"
+			return 1
+		else
+			adbyby_cleanup_match_status=$?
+			[ "$adbyby_cleanup_match_status" -eq 1 ] || return "$adbyby_cleanup_match_status"
+		fi
+	done
+	return 0
+}
+
 del_rule()
 {
 	adbyby_del_rule_status=0
@@ -1171,17 +1210,26 @@ del_rule()
 		adbyby_del_rule_status=$?
 		logger -t "adbyby" "清理防火墙规则快照失败；后续防火墙重建可能仍尝试恢复旧规则。"
 	fi
-	$ipt_n -D PREROUTING -p tcp --dport 80 -j ADBYBY 2>/dev/null
-	$ipt_n -F ADBYBY 2>/dev/null
-	$ipt_n -X ADBYBY 2>/dev/null
-	iptables -D FORWARD -m set --match-set blockip dst -j DROP 2>/dev/null
-	iptables -D OUTPUT -m set --match-set blockip dst -j DROP 2>/dev/null
-	ipset -F adbyby_esc 2>/dev/null
-	ipset -X adbyby_esc 2>/dev/null
-	ipset -F adbyby_wan 2>/dev/null
-	ipset -X adbyby_wan 2>/dev/null
-	ipset -F blockip 2>/dev/null
-	ipset -X blockip 2>/dev/null
+	# Deletions remain idempotent. Verified absence, not an expected delete
+	# exit code, determines success when an object was already missing.
+	$ipt_n -D PREROUTING -p tcp --dport 80 -j ADBYBY 2>/dev/null || :
+	$ipt_n -F ADBYBY 2>/dev/null || :
+	$ipt_n -X ADBYBY 2>/dev/null || :
+	iptables -D FORWARD -m set --match-set blockip dst -j DROP 2>/dev/null || :
+	iptables -D OUTPUT -m set --match-set blockip dst -j DROP 2>/dev/null || :
+	ipset -F adbyby_esc 2>/dev/null || :
+	ipset -X adbyby_esc 2>/dev/null || :
+	ipset -F adbyby_wan 2>/dev/null || :
+	ipset -X adbyby_wan 2>/dev/null || :
+	ipset -F blockip 2>/dev/null || :
+	ipset -X blockip 2>/dev/null || :
+	if adbyby_verify_rule_cleanup; then
+		:
+	else
+		adbyby_del_cleanup_status=$?
+		[ "$adbyby_del_rule_status" -ne 0 ] || adbyby_del_rule_status=$adbyby_del_cleanup_status
+		logger -t "adbyby" "内核防火墙/ipset清理后置条件未满足 (status=$adbyby_del_cleanup_status)。"
+	fi
 	if [ "$adbyby_del_rule_status" -ne 0 ]; then
 		logger -t "adbyby" "防火墙规则清理不完整，拒绝报告关闭成功 (status=$adbyby_del_rule_status)。"
 		return "$adbyby_del_rule_status"

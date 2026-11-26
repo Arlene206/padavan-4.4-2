@@ -1,3 +1,11 @@
+## 2026-11-26 — Verify Adbyby kernel firewall/ipset teardown postconditions
+
+- `del_rule()` previously propagated only private restore-snapshot deletion errors. It ignored every iptables/ipset mutation status and then reported success, even if the PREROUTING redirect, ADBYBY chain, filter references or managed sets remained. The daemon could be stopped while stale redirect/drop state remained active.
+- Added a postcondition reader that requires successful `iptables-save` and `ipset list -name`, rejects any remaining ADBYBY chain/jump or references to `adbyby_esc`, `adbyby_wan` or `blockip`, and preserves an earlier snapshot-cleanup failure. Individual deletes remain idempotent/best-effort; verified absence, not an expected delete exit code, determines success.
+- Firewall regression covers already-absent idempotency, a surviving chain after an injected failed delete, a surviving ipset, and UNKNOWN post-state read failures. Exact Adbyby workflow and Process inventory validation pending; XY-C1 L3 pending.
+
+---
+
 ## 2026-11-26 — Align DNSMasq ARP restart source contract with consolidated locals
 
 - DNSMasq lifecycle #45765299013 on exact source `22562343c3ac2ec40b0c5a535ffa211ba9c605e9` passed the static-host snapshot replay executable, rollback/ordering checks, all preceding DHCP/resolver/lock/identity tests, then failed only in the final source-contract assertion `int arp_status;` for `restart_dhcpd_locked()`.

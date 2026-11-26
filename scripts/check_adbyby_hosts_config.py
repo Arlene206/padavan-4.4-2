@@ -424,6 +424,21 @@ for marker in ("TLS outage", "redirect", "HTTP failure", "partial/corrupt body",
                "Adbyby private HTTPS staging, digest validation, cache fallback and publication rollback"):
     require(marker in rules_test, f"rule download regression misses: {marker}")
 
+verify_cleanup = function_body(source, "adbyby_verify_rule_cleanup")
+del_rule = function_body(source, "del_rule")
+require("iptables-save" in verify_cleanup and
+        "ipset list -name" in verify_cleanup and
+        "adbyby_esc adbyby_wan blockip" in verify_cleanup and
+        "adbyby_verify_rule_cleanup" in del_rule and
+        'return "$adbyby_del_rule_status"' in del_rule and
+        '^-A [^ ]+ .* -j ADBYBY' in verify_cleanup,
+        "Adbyby teardown must verify iptables/ipset absence and propagate UNKNOWN or residual kernel state")
+for marker in ("confirmed absent firewall/ipset state was not idempotent",
+               "surviving Adbyby iptables chain was reported clean",
+               "surviving Adbyby ipset was reported clean",
+               "iptables post-state read failure was reported clean"):
+    require(marker in firewall_test, f"firewall teardown regression misses: {marker}")
+
 reset_nvram = function_body(source, "adbyby_reset_transient_nvram_state")
 require(all(entry in reset_nvram for entry in (
             "adbyby_adb=0", "adbybyip_mac_x_0=", "adbybyip_ip_x_0=",

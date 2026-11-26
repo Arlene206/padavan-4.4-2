@@ -1,5 +1,11 @@
 #!/bin/sh
 set -e
+
+fail()
+{
+    echo "$*" >&2
+    exit 1
+}
 repo_root=$(CDPATH= cd -- "$(dirname "$0")/../../../.." && pwd)
 test_root=$(mktemp -d /tmp/adbyby-firewall-snapshot.XXXXXX)
 trap 'rm -rf "$test_root"' EXIT HUP INT TERM
@@ -175,6 +181,56 @@ fi
 # Absence of the volatile private directory is normal during early boot.
 adbyby_remove_rule_snapshot "$test_root/missing-private"
 echo "Adbyby private firewall snapshot staging and stale-state cleanup regression: OK"
+
+# del_rule treats already-absent state as success, but cannot hide a
+# failed delete when the post-state still contains the chain/rule or set.
+adbyby_remove_rule_snapshot() { return 0; }
+ADBYBY_TEST_FW_POST=absent
+ADBYBY_TEST_IPSET_POST=absent
+iptables-save()
+{
+	case "$ADBYBY_TEST_FW_POST" in
+		absent) return 0 ;;
+		stale) printf '%s\n' '*nat' ':ADBYBY - [0:0]' '-A PREROUTING -p tcp --dport 80 -j ADBYBY'; return 0 ;;
+		error) return 53 ;;
+		*) return 2 ;;
+	esac
+}
+ipset()
+{
+	if [ "$1" = list ] && [ "$2" = -name ]; then
+		case "$ADBYBY_TEST_IPSET_POST" in
+			absent) return 0 ;;
+			stale) printf '%s\n' adbyby_esc; return 0 ;;
+			error) return 54 ;;
+			*) return 2 ;;
+		esac
+	fi
+	command ipset "$@"
+}
+: > "$TEST_COMMAND_LOG"
+: > "$TEST_IPSET_LOG"
+if ! del_rule; then fail "confirmed absent firewall/ipset state was not idempotent"; fi
+
+# Even if a delete command itself fails, a surviving chain is detected.
+ADBYBY_TEST_FW_POST=stale
+FAIL_IPTABLES_MATCH='-t nat -X ADBYBY'
+export FAIL_IPTABLES_MATCH
+: > "$TEST_COMMAND_LOG"
+if del_rule; then fail "surviving Adbyby iptables chain was reported clean"; fi
+grep -F -- '-t nat -X ADBYBY' "$TEST_COMMAND_LOG" >/dev/null || fail "chain delete was not attempted"
+unset FAIL_IPTABLES_MATCH
+
+# A remaining managed ipset or an unavailable post-state query is UNKNOWN.
+ADBYBY_TEST_FW_POST=absent
+ADBYBY_TEST_IPSET_POST=stale
+if del_rule; then fail "surviving Adbyby ipset was reported clean"; fi
+ADBYBY_TEST_IPSET_POST=error
+if del_rule; then fail "ipset post-state read failure was reported clean"; fi
+ADBYBY_TEST_IPSET_POST=absent
+ADBYBY_TEST_FW_POST=error
+if del_rule; then fail "iptables post-state read failure was reported clean"; fi
+echo "Adbyby firewall and ipset deletion postcondition / UNKNOWN handling: PASS"
 
 # Use an isolated configuration directory and avoid exercising the live snapshot path here.
 PROG_PATH="$test_root/private"
