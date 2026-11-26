@@ -3,6 +3,7 @@ name: WAN route operation status regression
 on:
   push:
     paths:
+      - "scripts/check_dhcp_route_ownership.py"
       - "trunk/user/rp-l2tp/rp-l2tp-0.5-rtn/utils.c"
       - "trunk/user/rp-l2tp/rp-l2tp-0.5-rtn/tests/l2tp_error_message_va_list.c"
 
@@ -143,6 +144,7 @@ on:
       - "trunk/user/pppoe/tests/mwan_lifecycle.sh"
   pull_request:
     paths:
+      - "scripts/check_dhcp_route_ownership.py"
       - "trunk/user/rp-l2tp/rp-l2tp-0.5-rtn/utils.c"
       - "trunk/user/rp-l2tp/rp-l2tp-0.5-rtn/tests/l2tp_error_message_va_list.c"
 
@@ -466,14 +468,6 @@ jobs:
             -o "$RUNNER_TEMP/dhcp-route-ownership"
           ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/dhcp-route-ownership"
           python3 scripts/check_dhcp_route_ownership.py
-
-        run: |
-          set -eu
-          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
-            -fno-omit-frame-pointer -I trunk/user/rc/src \
-            trunk/user/rc/src/tests/dhcp_route_ownership.c \
-            -o "$RUNNER_TEMP/dhcp-route-ownership"
-          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/dhcp-route-ownership"
 
       - name: Compile and run WAN IPv6 usable-unicast endpoint regression
         run: |
