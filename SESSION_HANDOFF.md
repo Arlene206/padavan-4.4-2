@@ -1,30 +1,30 @@
 ## Current repository state
-
-- Live `main` baseline before this order correction: `f5a381bac14579aabc9ad196d5bcb82f1171880e`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged and immutable. PR #1 remains closed/unmerged.
-- Startup/bootstrap/handoff restoration was completed once. Do not repeat those audits or completed MiniDLNA, ZeroTier and VPN DNS tasks.
-- Multi-file work is committed as one complete Git tree and parent-linked commit; main is updated only by expected-SHA compare-and-swap. No force-push.
-
+- Repository: `https://github.com/Arlene206/padavan-4.4-2`.
+- `main` parent checkpoint before this handoff update: `5df7d87f58f00457bc17b4b7b704d0ef1611476f`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only; do not update).
+- No force-push; future writes must use one complete Git tree/commit and compare-and-swap update of `main`.
+- Recent source work now includes: DHCP route manifest metric and bounded-string validation; ZeroTier pending/owned route ownership and preflight protection; MiniDLNA executable identity; VPN DNS replace-mode consistency across IPv4/IPv6; SmartDNS NVRAM error propagation in SS-conflict shutdown and failed-start rollback.
+- Latest source checkpoint being verified: `5df7d87f58f00457bc17b4b7b704d0ef1611476f` (`fix(smartdns): propagate failed-start rollback errors`), unless the parent above includes a newer independent commit.
 ## Active task
-
-- SmartDNS port-53 redirect normalization write was hardened in `416960b79b0453e206bb585ced2671da996860d4`; exact DNSMasq #45762323209, AI docs #45762323124 and Process inventory #45762323165 PASS.
-- Enable selector persistence in `Start_smartdns()` is now checked before daemon stop or resolver mutation in `f5a381bac14579aabc9ad196d5bcb82f1171880e`. Its first exact DNSMasq run #45762610604 failed at the new isolated shell fixture because the function read `sdns_redirected` before the preflight under `set -u`. The code is adjusted in THIS commit so the saved-state snapshot also occurs after successful NVRAM persistence; the test initializes that value only for its positive-success branch.
-- WAN VPN resolver mode 2 excludes both IPv4 and IPv6 WAN upstreams when at least one VPN DNS is valid. Checker repaired in `2ad18b19ccb069746ee07f5a3a0efeef13cf2444`; exact WAN #45762219367 PASS.
-
+- Continue stability/security implementation across Padavan userland; do not repeat completed audits or revisit already-fixed items without new evidence.
+- Immediate priority: inspect exact-SHA Actions listed below and complete/diagnose the XY-C1 image build if it is still pending. Do not treat host-only validation as a firmware build; require image build, TRX validation, and artifact upload for an L3 PASS.
+- Next independent area after the build: choose the next concrete P1 stability defect from the existing governance ledger, implement source + regression test, then atomic commit and exact-SHA Actions verification.
+- Current active checks:
+- XY-C1 Firmware Validation (run 45763067333): in_progress/none; Cross-build XY-C1 firmware=in_progress/null; Build XY-C1:in_progress/null, Verify TRX output:pending/null, Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9:pending/null, Report host-only validation:pending/null
+- Process lifecycle inventory - 5df7d87f58f00457bc17b4b7b704d0ef1611476f (run 45763067329): completed/success
+- DNSMasq lifecycle stability regression (run 45763067219): completed/success
+- Process inventory and lifecycle fail-closed regression (run 45763067289): completed/success
+- USB storage hotplug stability regression (run 45763067225): completed/success
 ## Verification boundary
-
-- Exact `416960b79b0453e206bb585ced2671da996860d4`: DNSMasq #45762323209 PASS; AI handoff #45762323124 PASS; Process inventory #45762323165 PASS; Process fail-closed #45762323208 PASS; USB storage #45762323098 PASS. XY-C1 #45762323087 remained IN_PROGRESS before Build at last query; no L3 claim.
-- Exact `f5a381bac14579aabc9ad196d5bcb82f1171880e`: AI docs #45762610531 PASS. DNSMasq #45762610604 FAILED only in shell fixture with `sdns_redirected: parameter not set` before the daemon-state assertions; fix is in this commit. Process inventory #45762610581, Process fail-closed #45762610562, USB storage #45762610527 and XY-C1 #45762610502 were pending/in progress at last check.
-- No XY-C1 Build/TRX/artifact success is established on current production source. L3 NOT VERIFIED. Physical-router L4 NOT VERIFIED.
-- This continuation used GitHub API only; local shell/Python execution was NOT RUN.
-- Preserve required headings `## Current repository state`, `## Active task`, `## Verification boundary`, `## Exact first action for the next GPT`.
-
+- SmartDNS change `8874b60e37b52ae4a33ed609b92e4c2d1be3a660`: SS DNS-conflict disable now propagates the original NVRAM write failure; the runtime snapshot test injects status 73.
+- SmartDNS change `5df7d87f58f00457bc17b4b7b704d0ef1611476f`: failed-start rollback attempts exactly one Stop_smartdns cleanup, propagates NVRAM/cleanup failures with cleanup precedence, and avoids a duplicate best-effort DNSMasq restart; four injected failure/success combinations were added to the runtime test.
+- The local environment did not execute the router build. Only GitHub Actions exact-SHA runs listed in this handoff establish CI results.
+- Record pending/running checks as PENDING, and keep build/TRX/artifact status separate from host-only checks.
 ## Exact first action for the next GPT
-
-1. Query exact-main-SHA DNSMasq, AI docs, Process, USB storage and XY-C1 actions for THIS order-correction commit. Confirm the shell fixture passes for failed writes of selectors empty/0 and for the success path; inspect first failing log if not.
-2. Reconcile XY-C1 Build, TRX and artifact on one exact source SHA. Do not claim L3 from a host-only success or pending run.
-3. If SmartDNS gate passes, continue with a separate stability issue from `REFACTOR_ROADMAP.md`; avoid repeating the completed VPN DNS, MiniDLNA and ZeroTier fixes. Continue source → test → atomic commit → exact-SHA Actions. Pending work does not block independent work.
-
+1. Read the current `main` SHA and exact-SHA Actions for that SHA; do not assume the pre-handoff parent remains HEAD.
+2. Resolve any failed/pending XY-C1 workflow. If the image build is not completed, continue independent P1 work rather than waiting; the first result to record must distinguish image build, TRX validation, and artifact upload.
+3. Then select the next concrete stability defect from `REFACTOR_ROADMAP.md`, implement a small source+regression-test slice, run the relevant checks, commit one complete tree, and query Actions for that exact SHA.
+4. Update this file and `dev_log.md` again only when the next handoff boundary is reached; do not redo already completed ZeroTier, route-manifest, MiniDLNA, or SmartDNS investigations absent new evidence.
 # Cross-session execution mandate
 
 Continue one autonomous engineering stream on main. For each logical slice, create all changed blobs, one complete Git tree based on the live main root tree, and one atomic main commit; update main with a non-forced expected-SHA compare-and-swap. Never force-push, use feature branches or PRs, split one logical change into per-file commits, or modify the frozen backup. PENDING never blocks independent work. Before context exhaustion, finish the current safe slice and checkpoint the first concrete next action.

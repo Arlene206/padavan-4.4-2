@@ -408,3 +408,16 @@
 - WAN interface teardown stability regression #45756858770 on `8caddb355060`: **completed/success** (2026-11-26T04:42:27Z).
 - AI handoff documentation contract #45756858736 on `8caddb355060`: **completed/success** (2026-11-26T04:42:24Z).
 - Firmware success is unconfirmed until Build XY-C1, TRX validation and artifact upload all pass for one exact SHA. Physical router runtime remains unverified.
+
+## 2026-11-25 — SmartDNS rollback status propagation
+
+- Parent source checkpoint: `5df7d87f58f00457bc17b4b7b704d0ef1611476f`.
+- `8874b60e37b52ae4a33ed609b92e4c2d1be3a660`: fixed `Check_ss()` so a failed `nvram set sdns_enable=0` is returned instead of being masked by `exit 0`; runtime test injects NVRAM status 73.
+- `5df7d87f58f00457bc17b4b7b704d0ef1611476f`: consolidated failed-start disable/cleanup; Stop_smartdns is invoked once, cleanup errors outrank NVRAM errors, and the extra unverified DNSMasq restart was removed. Added success, NVRAM failure, cleanup failure, and combined failure regression cases.
+- Exact-SHA Actions at handoff checkpoint:
+- XY-C1 Firmware Validation: run 45763067333 in_progress/none
+- Process lifecycle inventory - 5df7d87f58f00457bc17b4b7b704d0ef1611476f: run 45763067329 completed/success
+- DNSMasq lifecycle stability regression: run 45763067219 completed/success
+- Process inventory and lifecycle fail-closed regression: run 45763067289 completed/success
+- USB storage hotplug stability regression: run 45763067225 completed/success
+- Backup branch remains frozen at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
