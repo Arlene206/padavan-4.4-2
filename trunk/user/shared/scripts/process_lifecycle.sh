@@ -261,7 +261,7 @@ pl_process_pattern_state()
         if pl_pattern_pids=$(pgrep -f "$pl_pattern" 2>/dev/null); then
             [ -n "$pl_pattern_pids" ] || return 2
             printf '%s\n' "$pl_pattern_pids" |
-                awk -v self_pid="$" '
+                awk -v self_pid="$$" '
                     {
                         for (i = 1; i <= NF; i++) {
                             if ($i !~ /^[1-9][0-9]*$/ || $i == 1 || $i == self_pid)

@@ -39,6 +39,13 @@ case "$(cat "$PL_PATTERN_STATE_FILE")" in
         if [ -e "$PL_PATTERN_LATE_FILE" ]; then printf '%s\n' 459; exit 0; fi
         : > "$PL_PATTERN_LATE_FILE"
         exit 1 ;;
+    self)
+        if [ -e "$PL_PATTERN_SELF_FILE" ]; then
+            printf '%s\n' "$PL_TEST_CALLER_PID"
+            exit 0
+        fi
+        : > "$PL_PATTERN_SELF_FILE"
+        exit 1 ;;
     unknown) exit 2 ;;
     empty-success) exit 0 ;;
     malformed) printf '%s\n' '456 nope'; exit 0 ;;
@@ -65,9 +72,11 @@ PATH="$tmp/bin:$PATH"
 PL_TEST_STATE="$state_file"; PL_TEST_EVENTS="$events_file"
 PL_PATTERN_STATE_FILE="$tmp/pattern-state"
 PL_PATTERN_LATE_FILE="$tmp/pattern-late-once"
+PL_PATTERN_SELF_FILE="$tmp/pattern-self-once"
+PL_TEST_CALLER_PID=$$
 PL_TEST_PATTERN='(^|[[:space:]])/usr/bin/ipkg[.]sh([[:space:]]|$)'
 echo absent > "$PL_PATTERN_STATE_FILE"
-export PL_PATTERN_STATE_FILE PL_PATTERN_LATE_FILE PL_TEST_PATTERN
+export PL_PATTERN_STATE_FILE PL_PATTERN_LATE_FILE PL_PATTERN_SELF_FILE PL_TEST_CALLER_PID PL_TEST_PATTERN
 PL_TEST_SLEEP_COUNT="$tmp/sleep-count"; PL_TEST_SLEEP_AFTER=0; PL_TEST_SLEEP_STATE=running
 PL_TERM_STATE=absent; PL_KILL_STATE=absent
 PL_TERM_STATUS=0; PL_KILL_STATUS=0; PL_SLEEP_STATUS=0
@@ -262,19 +271,14 @@ expect_pattern_state "$PL_TEST_PATTERN" 2
 echo pid1 > "$PL_PATTERN_STATE_FILE"
 expect_pattern_state "$PL_TEST_PATTERN" 2
 expect_pattern_state "" 2
+# Force the final pgrep recheck: its first call reports ABSENT, then a
+# complete procfs scan also finds no package client. The second pgrep call
+# returns this shell's PID, which must be rejected as a self-match.
+rm -f "$PL_PATTERN_SELF_FILE"
+echo self > "$PL_PATTERN_STATE_FILE"
+if pl_process_pattern_state "$PL_TEST_PATTERN"; then pattern_actual=0; else pattern_actual=$?; fi
+[ "$pattern_actual" -eq 2 ] ||
+    fail "final pgrep recheck accepted caller PID as RUNNING (status=$pattern_actual)"
+echo "process lifecycle final pgrep recheck rejects caller PID: PASS"
 echo "shared process lifecycle regression: PASS"
-
-# The pgrep recheck must ignore this process itself. A literal "$" does not
-# identify the caller and can turn a stale pgrep result into a false RUNNING.
-pl_test_self_pid=$$
-if printf '%s\n' "$pl_test_self_pid" |
-   awk -v self_pid="$pl_test_self_pid" '$1 ~ /^[0-9]+$/ && $1 != self_pid { found=1 } END { exit !found }' >/dev/null; then
-    echo "process lifecycle self-PID exclusion regression: FAIL" >&2
-    exit 1
-fi
-grep -F 'awk -v self_pid="$$"' "$(dirname "$0")/../scripts/process_lifecycle.sh" >/dev/null || {
-    echo "process lifecycle procfs recheck does not exclude the caller PID" >&2
-    exit 1
-}
-echo "process lifecycle procfs recheck excludes caller PID: PASS"
 

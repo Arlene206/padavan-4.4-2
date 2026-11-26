@@ -134,6 +134,8 @@ for token in (
     'grep -E -q -- "$pl_pattern_scan_pattern"',
 ):
     require(token in process_lib, "missing full-command-line inventory primitive: " + token)
+require(process_lib.count('awk -v self_pid="$$"') == 2,
+        "both pgrep result paths must exclude the caller PID")
 for token in (
     "/usr/bin/ipkg[.]sh",
     "/usr/bin/opkg[.]sh",
@@ -164,6 +166,8 @@ for token in (
     'incomplete procfs command-line inventory remains UNKNOWN: PASS',
     'echo malformed > "$PL_PATTERN_STATE_FILE"',
     'echo pid1 > "$PL_PATTERN_STATE_FILE"',
+    'echo self > "$PL_PATTERN_STATE_FILE"',
+    'process lifecycle final pgrep recheck rejects caller PID: PASS',
 ):
     require(token in process_test, "missing pgrep inventory regression: " + token)
 for path in (

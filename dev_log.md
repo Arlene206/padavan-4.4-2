@@ -1,3 +1,12 @@
+## 2026-11-26 — Exercise caller-PID exclusion in the final pgrep recheck
+
+- `pl_process_pattern_state()` still passed a literal `$` to awk in its second `pgrep -f` race recheck. If the final pgrep result contained only the caller, that branch did not recognize the self PID and could return RUNNING instead of rejecting the self-match.
+- Changed that branch to pass shell PID `$$`. Replaced the prior standalone awk/static-grep check with a deterministic stub: first pgrep reports ABSENT, a complete procfs scan confirms no match, then the second pgrep returns the test shell's actual PID. The production function must return UNKNOWN (2), not RUNNING (0).
+- The Optware source contract now requires both production pgrep awk invocations to use `self_pid="$$"` and requires the branch-specific regression marker. Existing Process workflow already watches the helper, test and checker.
+- Parent main: `7f94feaabb326b9cdc2fa0294d045d6a7de07560`. Exact Process inventory/Optware Actions pending after publication. No local checkout, shell execution, firmware build or router runtime result is claimed.
+
+---
+
 ## 2026-11-26 15:57 Beijing — Execute PPP callback state-file regression in CI
 
 - `wan-dhcp-callback-stability.yml` already watched `ppp_callback_state_file.h`, `ppp_callback_generation_policy.h` and `tests/ppp_callback_state_file.c`, and the inline checker read the fixture only to assert `FD_CLOEXEC`; no Actions step compiled or ran the fixture. Consequently the sidecar-lock contention, atomic replacement, failed-short-write preservation, embedded-NUL and symlink-state cases were not runtime-verified by CI.
@@ -135,11 +144,10 @@
 
 ---
 
-## 2026-11-26 — Fix Optware procfs recheck caller-PID exclusion
+## 2026-11-26 — Identify an incomplete caller-PID recheck regression
 
-- Review of concurrent commit `cfc4e7b28ab49228d29268b29127f76bb3ea1ef2` found a typo in the final `pgrep` race recheck: `awk -v self_pid="$"` passed a literal dollar sign instead of the caller PID. Consequently the guard never excluded the helper's own process and could report a false RUNNING result if the caller command line matched the target pattern.
-- Corrected it to pass shell PID `$$`. Added a shell regression that verifies the current PID is excluded and pins the production source to the exact `awk -v self_pid="$$"` expansion. The complete procfs scan and its fail-closed handling remain unchanged.
-- Exact Optware/shared Process workflow validation pending; no local firmware build or router runtime validation performed.
+- Review found that the earlier follow-up did not update the second `pgrep` recheck in the live process helper: it still passed a literal `$` instead of the caller PID. The standalone awk fixture and a broad grep for `awk -v self_pid="$$"` were insufficient because they matched only the first pgrep branch.
+- The production correction and a deterministic regression that forces the procfs-absence/final-pgrep path are recorded in the newer entry. It verifies that a self-only pgrep result is rejected rather than classified as a running package client.
 
 ---
 
