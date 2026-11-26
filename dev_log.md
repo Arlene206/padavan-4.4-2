@@ -1,3 +1,12 @@
+## 2026-11-26 — Reject unsupported VPN DNS modes before resolver publication
+
+- `update_resolvconf()` transactionally reads `vpnc_pdns` with `vpnc_dns_t`, but previously parsed only a decimal integer and then interpreted any positive value as add/replace; values outside the documented 0/1/2 domain could publish an unintended resolver file even though the VPN callbacks rejected them.
+- Added a strict WAN resolver selector check immediately after the transaction and before `dnsmasq_file_open()`. Negative or greater-than-2 modes now return `EINVAL`, unlock the resolver mutex, and preserve the last-known-good resolver. Missing/empty keys retain the legacy disabled mode 0.
+- GNU89 regression covers modes 0/1/2, -1, 3, backend read errors and invalid output pointers. The WAN source checker asserts the invalid-mode abort occurs before resolver staging. Exact WAN-route and XY-C1 validation for the resulting source SHA pending; no L3 claim.
+- This continuation is GitHub-API-only; no local repository checkout/test execution was available.
+
+---
+
 ## 2026-11-26 — Complete MiniDLNA daemon identity source contracts and restore live handoff headings
 
 - MiniDLNA source SHA `15f6a0f3eca5c0a157e3bc95edbb09156bc503cd` uses the actual `minidlnad` executable identity for process presence, readiness and rollback. The first storage CI run exposed stale assertions in the workflow caller graph; subsequent contracts were aligned across `.github/workflows/storage-hotplug-stability.yml`, `scripts/check_process_lifecycle_integration.py` and `scripts/check_storage_safe_remove.py`.

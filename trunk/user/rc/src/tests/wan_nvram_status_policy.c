@@ -2560,6 +2560,29 @@ test_internet_loss_action_propagates_nvram_read_errors(void)
 	assert(rc_wan_internet_loss_action_status(0, 1, NULL) == EINVAL);
 }
 static void
+test_vpn_dns_policy_accepts_only_documented_modes(void)
+{
+	int mode = 77;
+
+	assert(rc_wan_nvram_vpn_dns_mode_status(0, 0, &mode) == 0);
+	assert(mode == 0);
+	assert(rc_wan_nvram_vpn_dns_mode_status(0, 1, &mode) == 0);
+	assert(mode == 1);
+	assert(rc_wan_nvram_vpn_dns_mode_status(0, 2, &mode) == 0);
+	assert(mode == 2);
+
+	mode = 77;
+	assert(rc_wan_nvram_vpn_dns_mode_status(0, -1, &mode) == EINVAL);
+	assert(mode == 77);
+	assert(rc_wan_nvram_vpn_dns_mode_status(0, 3, &mode) == EINVAL);
+	assert(mode == 77);
+	assert(rc_wan_nvram_vpn_dns_mode_status(EACCES, 2, &mode) == EACCES);
+	assert(mode == 77);
+	assert(rc_wan_nvram_vpn_dns_mode_status(0, 1, NULL) == EINVAL);
+}
+
+
+static void
 test_vpnc_dns_policy_and_servers_share_one_transaction(void)
 {
 	static const char *const names[2] = { "vpnc_pdns", "vpnc_dns_t" };
@@ -2654,6 +2677,7 @@ test_checked_integer_parser_rejects_malformed_and_overflow(void)
 int
 main(void)
 {
+	test_vpn_dns_policy_accepts_only_documented_modes();
 	test_vpnc_dns_policy_and_servers_share_one_transaction();
 	test_vpnc_dns_snapshot_backend_errors_clear_policy_and_servers();
 	test_vpnc_dns_missing_server_keeps_legacy_empty_fallback_signal();

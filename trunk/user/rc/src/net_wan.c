@@ -6422,7 +6422,7 @@ update_resolvconf(int is_first_run, int do_not_notify)
 	const char *google_dns = "8.8.8.8";
 	char resolv_temp[] = "/etc/resolv.conf.XXXXXX";
 	int i, i_pdns, i_total_dns = 0;
-	int vpnc_snapshot_status;
+	int vpnc_snapshot_status, vpn_dns_mode_status;
 	int lock, dns_static, dns_static_status, resolv_changed = 0;
 	int dns_restart_status;
 	int dns_servers_ready = 1, dns_servers_error = 0, saved_errno, validation_errno;
@@ -6464,6 +6464,18 @@ update_resolvconf(int is_first_run, int do_not_notify)
 		file_unlock(lock);
 		errno = vpnc_snapshot_status;
 		return vpnc_snapshot_status;
+	}
+
+	/* Accept only the documented VPN DNS modes: disabled, add, or replace. */
+	vpn_dns_mode_status = rc_wan_nvram_vpn_dns_mode_status(
+		0, i_pdns, &i_pdns);
+	if (vpn_dns_mode_status != 0) {
+		logmessage(LOGNAME,
+			   "invalid VPN DNS policy mode; preserving the existing resolver file (status=%d)",
+			   vpn_dns_mode_status);
+		file_unlock(lock);
+		errno = vpn_dns_mode_status;
+		return vpn_dns_mode_status;
 	}
 
 	dns_static_status = get_wan_dns_static_status(&dns_static);

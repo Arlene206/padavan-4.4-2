@@ -1,38 +1,29 @@
 ## Current repository state
 
-- Live `main` HEAD at checkpoint preparation: `cbc867720ed3dcc528e161e16e6006964409cbb3`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (verified unchanged; never modify).
-- PR #1 remains closed/unmerged. Valid older work is on `main`; do not reopen it.
-- Startup protocol and handoff recovery were completed once during this continuation. Do not repeat startup recovery or re-audit prior completed IPv6/DHCPv6 work.
-- Current conversation changes are direct commits to `main`, created as a complete Git tree + commit and published with expected-SHA compare-and-swap. No force push, branch or PR was used.
+- Live `main` HEAD at checkpoint preparation: `2983396340370e7defd73d0f5d68824cb38ae9c5`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged and immutable. PR #1 remains closed/unmerged.
+- Bootstrap/protocol/handoff recovery was completed once; do not repeat startup audits or already-completed IPv6/DHCPv6 slices.
+- Last AI handoff documentation validation #45761455811 passed on exact SHA `2983396340370e7defd73d0f5d68824cb38ae9c5`. The required live sections below must be retained in all future edits.
 
 ## Active task
 
-- MiniDLNA lifecycle identity is now consistent: the firmware launches `/usr/bin/minidlnad`; service presence, startup wait, failed-start rollback and all four workflow/source contracts use `minidlnad` rather than the obsolete process name `minidlna`.
-- Source commit: `15f6a0f3eca5c0a157e3bc95edbb09156bc503cd`.
-- Follow-up contract-only commits:
-  - `c8654e1c55bf0e3acd326fa9840c750b9518e8be` — storage readiness selector.
-  - `2707f58262120ba3b8f481e6df58e65ccb6c7606` — process checker includes rollback identity.
-  - `87019bfeceecb417bb1565ffbda4098f401a15c7` — workflow whole-caller-graph rollback tuple.
-  - `0093302e3ca0402a422d0c1b83436ae025eb9cf8` — safe-remove checker selectors (this commit fixed the remaining tri-state daemon name assertions across the storage source checker).
-- Storage workflow exact run `#45761156152` on `0093302e3ca0402a422d0c1b83436ae025eb9cf8`: PASS. The earlier `#45761038361` on `87019bfe` failed because `scripts/check_storage_safe_remove.py` still required `minidlna`; the failure was in the source contract, not the C sanitizer or shell regressions. All four stale source-checker identities are now aligned.
-- MiniDLNA and related storage checks on source SHA `15f6a0f3eca5c0a157e3bc95edbb09156bc503cd`: MiniDLNA #45760541463, Firefly #45760541292, libdisk #45760541349, NFS #45760541498, storage app #45760541446, Process inventory #45760541368, Samba #45760541362, VSFTPD #45760541392, HTTPD security #45760541458, IPv6 service-type #45760541496, USB modem #45760541337 and Firewall #45760541418 passed.
+- MiniDLNA process identity is fixed in source commit `15f6a0f3eca5c0a157e3bc95edbb09156bc503cd`: the daemon is `minidlnad`. Follow-up source-contract commits `c8654e1c`, `2707f582`, `87019bfe` and `0093302e` align readiness, process rollback, the storage workflow caller graph and the safe-remove checker. Exact USB storage #45761156152 on `0093302e` PASS.
+- Current code slice adds strict validation of the transactionally read `vpnc_pdns` selector before resolver staging. The callbacks already accept 0/1/2; this closes the remaining resolver-side gap where any positive integer could previously be interpreted as a valid mode. This atomic commit adds a helper, GNU89 tests and a source-order checker.
+- Do not modify the frozen backup or reopen PR #1.
 
 ## Verification boundary
 
-- Current main exact SHA `cbc867720ed3dcc528e161e16e6006964409cbb3`: ZeroTier lifecycle #45761309540 PASS after the previous checker fix corrected literal backslash-n matching to actual shell line boundaries. WAN route #45761312258 was IN_PROGRESS at the last poll.
-- Predecessor SHA `3d2d8403b91af4e1de432a5ab3da4c07c85a1c8c`: ZeroTier run #45761273419 and WAN run #45761273434 failed in the checker after adding stronger pending-route restart ordering assertions. Commit `cbc86772` fixed the escaped newline marker; its ZeroTier exact run passed. Query WAN exact result before closing the WAN gate.
-- Storage exact run #45761156152 on `0093302e` is PASS. XY-C1 run #45761156133 on the same checker-only SHA reports workflow success but Build XY-C1, TRX validation and artifact upload were SKIPPED; this is host-only and NOT L3.
-- XY-C1 run #45760541346 for production source SHA `15f6a0f3` was still IN_PROGRESS at Build XY-C1 in the last query; TRX/artifact pending. Do not claim L3 until all three stages pass on the same production source SHA.
-- Docs workflow #45761038471 on `87019bfe` failed because this handoff replacement omitted required headings `## Current repository state`, `## Active task` and `## Verification boundary`. This commit restores the required heading contract; exact docs workflow on THIS commit must be inspected.
-- Physical router L4 remains NOT VERIFIED. GitHub API was used for repository operations; no local checkout or local test run was available in this continuation.
+- Last source-checking SHA before the VPN slice: `cbc867720ed3dcc528e161e16e6006964409cbb3`. WAN route #45761312258 PASS and ZeroTier lifecycle #45761309540 PASS on that exact SHA.
+- AI handoff documentation #45761455811 PASS on `2983396340370e7defd73d0f5d68824cb38ae9c5`.
+- USB storage #45761156152 PASS on `0093302e3ca0402a422d0c1b83436ae025eb9cf8`. XY-C1 companion #45761156133 completed SUCCESS but Build XY-C1, TRX validation and artifact upload were skipped (host-only); this is NOT L3.
+- Older XY-C1 source run #45760541346 on `15f6a0f3` was still in progress at Build XY-C1 at last verified check; TRX/artifact pending. Reconcile if it has since completed, but do not transfer its result to a different SHA.
+- Physical-router L4 is NOT VERIFIED. No local checkout was available; local test execution was NOT RUN. This commit's exact-SHA Actions must establish L1/L2 and XY-C1 must separately establish L3.
 
 ## Exact first action for the next GPT
 
-1. Check the exact push-SHA WAN route run #45761312258 on `cbc86772`. If it fails, inspect the first failing assertion/log and correct the narrow checker/source defect; ZeroTier #45761309540 is already PASS on that exact SHA.
-2. Inspect the AI handoff documentation action triggered by THIS docs checkpoint commit and confirm all four required headings plus the rolling development-log integrity check pass.
-3. Continue with a separate userland stability issue, preferably inspect VPN resolver policy `vpnc_pdns=2` end-to-end in `vpn_client.c`, `vpn_openvpn.c`, and `net_wan.c`. The strict 0/1/2 parser and callback capture exist already; determine whether mode 2 actually replaces current DNS or is merely treated identically to mode 1 before making any change. If no defect, move on rather than forcing a patch.
-4. Keep exact-SHA XY-C1 Build/TRX/artifact distinct from host-only green runs. Record L3 only when all three pass on one exact production SHA; physical L4 remains separate.
+1. Query exact-main-SHA Actions for the VPN resolver validation commit in this checkpoint. Confirm WAN-route GNU89/ASan/UBSan regression and the source-order checker both pass; diagnose any first failing assertion rather than weakening the test.
+2. Inspect exact-SHA XY-C1 Build, TRX and artifact upload. The production changes touch `net_wan.c` and a header and should trigger firmware validation; no L3 claim unless all three succeed on this one SHA.
+3. After the VPN selector gate, continue with a different unfinished stability issue across Padavan userland. Avoid repeating the MiniDLNA, ZeroTier and startup recovery audits. Use small source/test/atomic commit slices and exact SHA actions; PENDING does not block independent work.
 
 # Cross-session execution mandate
 

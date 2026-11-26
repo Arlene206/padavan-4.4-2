@@ -103,6 +103,28 @@ rc_wan_nvram_parse_int_value(const char *text, int *value)
  * Parse a transactionally copied integer tuple. Do not expose a partially
  * decoded configuration when one member is malformed or overflows.
  */
+/*
+ * VPN DNS policy is a strict three-state selector: 0 disables pushed DNS,
+ * 1 adds it to WAN DNS, and 2 replaces WAN DNS when at least one VPN server
+ * is usable. Unlike legacy selectors, out-of-range values must not silently
+ * fall back to another mode.
+ */
+static inline int
+rc_wan_nvram_vpn_dns_mode_status(int read_status, int configured_mode,
+				 int *effective_mode)
+{
+	if (!effective_mode)
+		return EINVAL;
+	if (read_status != 0)
+		return read_status;
+	if (configured_mode < 0 || configured_mode > 2)
+		return EINVAL;
+
+	*effective_mode = configured_mode;
+	return 0;
+}
+
+
 static inline int
 rc_wan_nvram_parse_int_snapshot(const char *const *texts,
 				unsigned int count, int *values)

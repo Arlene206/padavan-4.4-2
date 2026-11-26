@@ -251,7 +251,24 @@ require('nvram_get_int("vpnc_pdns"' not in resolver and
         'nvram_safe_get("vpnc_dns_t"' not in resolver and
         "wan_dns = vpnc_dns_snapshot;" in resolver,
         "resolver generation must not use lossy independent VPN DNS reads")
-for case in ("test_vpnc_dns_policy_and_servers_share_one_transaction",
+vpn_mode_parse = resolver.index(
+    "vpn_dns_mode_status = rc_wan_nvram_vpn_dns_mode_status("
+)
+vpn_mode_abort = resolver.index(
+    "if (vpn_dns_mode_status != 0)", vpn_mode_parse
+)
+vpn_mode_stage = resolver.index("dnsmasq_file_open(resolv_temp)")
+vpn_mode_abort_body = resolver[vpn_mode_abort:vpn_mode_stage]
+require(resolver_vpn_abort < vpn_mode_parse < vpn_mode_abort < vpn_mode_stage and
+        "file_unlock(lock);" in vpn_mode_abort_body and
+        "errno = vpn_dns_mode_status;" in vpn_mode_abort_body and
+        "return vpn_dns_mode_status;" in vpn_mode_abort_body,
+        "invalid VPN DNS mode must preserve the active resolver before staging")
+require("rc_wan_nvram_vpn_dns_mode_status" in policy and
+        "configured_mode < 0 || configured_mode > 2" in policy,
+        "VPN DNS mode parser must enforce the documented 0/1/2 domain")
+for case in ("test_vpn_dns_policy_accepts_only_documented_modes",
+             "test_vpnc_dns_policy_and_servers_share_one_transaction",
              "test_vpnc_dns_snapshot_backend_errors_clear_policy_and_servers",
              "test_vpnc_dns_missing_server_keeps_legacy_empty_fallback_signal"):
     require(case in test, "VPN DNS snapshot regression missing " + case)
