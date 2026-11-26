@@ -1,3 +1,12 @@
+## 2026-11-26 — Bind VPN pool address source assertions to the extracted atomic writer
+
+- Exact-head VPN lifecycle run #45803175004 on `1d33cb41aca31eab3d58621a243272dc9cbd0000` passed every preceding GNU89/`-Werror`/ASan/UBSan policy binary, including the xl2tpd process-presence and rp-L2TP atomic config regressions, then failed in the final Python source contract. The old checker still searched `safe_start_xl2tpd_locked()` for the VPN pool address arithmetic after that arithmetic had intentionally moved into the new `xl2tpd_config_write()` callback. This was a stale source-contract location, not a test or production failure.
+- Normalize the callback's whitespace and verify that both start/end addresses are derived from its validated `config->vpn_server_address`, `config->vpn_server_mask`, and pool offsets. No production source or policy semantics changed.
+- Exact-head AI handoff #45803174976 PASS on the failed-checker SHA. VPN lifecycle must be rerun on this checker correction; other SHA 1d33 runs (WAN route #45803174983, Process inventory #45803174833, Process lifecycle #45803174834, NVRAM #45803174921, HTTPD #45803174928 and WAN DHCP #45803174892) were in progress at last poll. XY-C1 #45803175068 was in progress before Build XY-C1, with TRX and artifact upload pending. The prior 3c36 firmware run #45801858571 was still in progress at Build at last poll; no L3 conclusion yet.
+- Parent main: `1d33cb41aca31eab3d58621a243272dc9cbd0000`; resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-26 — Publish the shared xl2tpd configuration atomically
 
 - Found that the shared xl2tpd writer still used `fopen("/etc/xl2tpd.conf", "w")`, unchecked individual `fprintf` calls, and then unlinked the live config if flush, close, or chmod failed. A full filesystem or interrupted write could therefore destroy the last-known-good config after truncating it; an existing symlink would also be followed.

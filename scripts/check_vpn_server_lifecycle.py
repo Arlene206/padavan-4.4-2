@@ -682,8 +682,9 @@ require("saved_errno = errno ? errno : EIO;" in pool_failure and
 require('nvram_get_int("vpns_vuse")' not in safe_start_locked and
         "get_vpns_pool(nvram_get_int" not in safe_start_locked,
         "xl2tpd must not bypass the checked VPN address-pool snapshot")
-require("(vpn_server_address & vpn_server_mask) | vpn_pool_start" in safe_start_locked and
-        "(vpn_server_address & vpn_server_mask) | vpn_pool_end" in safe_start_locked,
+writer_compact = "".join(xl2tpd_writer.split())
+require("(config->vpn_server_address&config->vpn_server_mask)|config->vpn_pool_start" in writer_compact and
+        "(config->vpn_server_address&config->vpn_server_mask)|config->vpn_pool_end" in writer_compact,
         "xl2tpd address ranges must use the validated snapshot outputs")
 require("presence_status < 0" in safe_start_locked and
         "scan_error ? scan_error : EIO" in safe_start_locked,
