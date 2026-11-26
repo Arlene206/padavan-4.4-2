@@ -1,3 +1,11 @@
+## 2026-11-26 — Align WAN route workflow contract with checked VPN callback selectors
+
+- Exact-SHA VPN server stability #45777843194, AI handoff #45777843207 and DNSMasq #45777843397 PASS on `a18496e1b8e5ca06a705f7268d19fdab278873dc`.
+- WAN route #45777843318 failed only in its inline source assertion: the checker still demanded the old unchecked `nvram_match("vpnc_dgw","1")` after `vpn_client.c` switched to checked NVRAM reads. This workflow-only correction now requires the checked match/error gate before route side effects and all four ordered checked/copy inputs for the remote-LAN route. The failure was a stale checker expectation, not a C compile or route-policy unit-test failure.
+- Firewall startup #45777843212, Process #45777843265/#45777843579, NVRAM #45777843380, HTTPD #45777843239 and XY-C1 #45777843184 were IN_PROGRESS at last poll. Updated WAN route and downstream Actions remain pending after publication. No local checkout tests or physical-router claim.
+
+---
+
 ## 2026-11-26 — Preserve checked VPN client route NVRAM values in callback rules
 
 - `vpnc_route_to_remote_lan()` retained four `nvram_safe_get()` pointers and dereferenced them only after all four reads. The VPN NVRAM policy documents that a later getter can reuse the shared cache buffer, so network/mask and LAN comparison values could be overwritten before route comparison. Backend/close failures were also collapsed to empty strings and silently skipped the configured route. `vpnc_route_dgw()` used unchecked `nvram_match()`, potentially omitting the default VPN route on a read error.

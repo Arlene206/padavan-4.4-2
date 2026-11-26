@@ -15,16 +15,16 @@
 
 ## Verification boundary
 
-- Firewall 6in4 endpoint fix SHA `fe68776c6f7421a6442b770fea4b8f449bb38651`: Firewall startup #45777134071, WAN route #45777134084, IPv6 service-type #45777134082, FULLCONENAT #45777134262, WAN DHCP callback #45777134115, Process inventory #45777134074 and HTTPD security #45777134070 PASS. NVRAM audit #45777134104 was IN_PROGRESS at last check; XY-C1 #45777134107 was at Build with TRX/artifact pending. AI handoff #45777134054 failed because the compact handoff lacked `Mandatory handoff checkpoint` and the exact conditional-edit sentence; this version restores both plus the cross-session execution mandate.
+- Firewall 6in4 endpoint fix SHA `fe68776c6f7421a6442b770fea4b8f449bb38651`: Firewall startup #45777134071, WAN route #45777134084, IPv6 service-type #45777134082, FULLCONENAT #45777134262, WAN DHCP callback #45777134115, Process inventory #45777134074, HTTPD security #45777134070 and NVRAM audit #45777134104 PASS. XY-C1 #45777134107 was still in Build at last poll, with TRX/artifact pending. AI handoff #45777134054 failed because the compact handoff omitted `Mandatory handoff checkpoint`; the current handoff correction passed exact-SHA AI run #45777843207.
 - SmartDNS UI-key correction SHA `8431202d8ce320b6df72b87d183749c44bea7f50`: DNSMasq #45776763963, Process inventory #45776764005, Process fail-closed #45776764177, USB #45776764153 and AI docs #45776764152 PASS. XY-C1 #45776764204 completed successfully, but firmware Build, TRX verification and artifact upload were SKIPPED (test-only change); no L3 claim.
 - MiniUPnP SHA `588beb5d574127fd4d0027559d9c8cb97e75af3d`: HTTP framing #45775186800 and AI docs #45775186907 PASS.
 - IAPP SHA `3bb7d977b30525c202009630892ea0afa94a0d9a`: IAPP #45773717841, Process inventory #45773717856, NVRAM #45773717775, AI docs #45773717816 and XY-C1 #45773717864 PASS including Build/TRX/artifact.
-- VPN route slice exact-SHA Actions start after publication. This environment has no usable local checkout; no local/router test or physical L4 claim.
+- Exact-SHA VPN server stability #45777843194, AI handoff #45777843207 and DNSMasq #45777843397 PASS on `a18496e1b8e5ca06a705f7268d19fdab278873dc`. WAN route #45777843318 failed because the inline workflow source contract still required the old unchecked VPN selector; this commit updates the contract. Firewall #45777843212, Process #45777843265/#45777843579, NVRAM #45777843380, HTTPD #45777843239 and XY-C1 #45777843184 were still running at last poll. No local checkout or physical-router L4 claim.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`, identify the VPN route SHA, and inspect exact-SHA VPN server stability (policy test and `check_vpn_client_nvram_state.py`), Firewall startup, Process inventory/fail-closed, WAN route/DHCP, NVRAM audit, AI handoff and XY-C1 runs. Diagnose failures from the first causal job log.
-2. Close outstanding firewall SHA `fe68776c6f7421a6442b770fea4b8f449bb38651` NVRAM audit #45777134104 and XY-C1 #45777134107, checking TRX and artifact separately. Keep them distinct from the newer VPN SHA.
+1. Fetch live `main`, identify this WAN workflow-contract correction SHA, and confirm exact-SHA WAN route passes with checked VPN selector/copy assertions.
+2. Inspect exact-SHA Process inventory/fail-closed, Firewall startup, WAN DHCP, NVRAM audit, AI handoff and XY-C1 Actions, diagnosing failures from the first causal job log. Close outstanding firewall SHA `fe68776c6f7421a6442b770fea4b8f449bb38651` XY-C1 #45777134107 separately; confirm Build, TRX and artifact results.
 3. Continue the next concrete high-risk userland reliability/security fix from `REFACTOR_ROADMAP.md`; do not repeat completed SmartDNS, MiniUPnP, IAPP or firewall endpoint audits.
 
 ## Mandatory handoff checkpoint

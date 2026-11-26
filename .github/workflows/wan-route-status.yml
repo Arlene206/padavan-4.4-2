@@ -1371,12 +1371,32 @@ jobs:
           assert '#include "route_status_policy.h"' in vpn_client
           vpnc_default = body(vpn_client, "vpnc_route_dgw(")
           assert "static int" + chr(10) + "vpnc_route_dgw(" in vpn_client
-          assert 'if (!nvram_match("vpnc_dgw", "1"))' in vpnc_default
+          default_selector = (
+              'vpn_client_read_match_setting_checked(\n'
+              '\t\t"vpnc_dgw", "1", 0, &use_default_gateway)'
+          )
+          default_read_at = vpnc_default.index(default_selector)
+          default_error_at = vpnc_default.index("if (status != 0)", default_read_at)
+          default_route_at = vpnc_default.index("route_status = add ?", default_error_at)
+          assert default_read_at < default_error_at < default_route_at
+          assert "if (!use_default_gateway)" in vpnc_default
+          assert "nvram_match(" not in vpnc_default
           assert "route_status_idempotent_add(route_status)" in vpnc_default
           assert "route_status_idempotent_delete(route_status)" in vpnc_default
           assert vpnc_default.count("route_status_accumulate(status, route_status)") == 2
           assert "return status;" in vpnc_default
           vpnc_remote = body(vpn_client, "vpnc_route_to_remote_lan(")
+          remote_read_tokens = (
+              'vpn_client_read_string_setting_checked(\n\t\t"vpnc_rnet"',
+              'vpn_client_read_string_setting_checked(\n\t\t"vpnc_rmsk"',
+              'vpn_client_read_string_setting_checked(\n\t\t"lan_ipaddr"',
+              'vpn_client_read_string_setting_checked(\n\t\t"lan_netmask"',
+          )
+          remote_read_positions = [vpnc_remote.index(token) for token in remote_read_tokens]
+          assert remote_read_positions == sorted(remote_read_positions)
+          assert vpnc_remote.count("vpn_client_read_string_setting_checked(") == 4
+          assert "char rnet[16], rmsk[16], lnet[16], lmsk[16];" in vpnc_remote
+          assert "nvram_safe_get(" not in vpnc_remote
           assert "route_status_idempotent_add(route_status)" in vpnc_remote
           assert "route_status_idempotent_delete(route_status)" in vpnc_remote
           assert "return route_status;" in vpnc_remote
