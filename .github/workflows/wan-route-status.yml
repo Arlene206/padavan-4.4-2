@@ -1056,7 +1056,7 @@ jobs:
           assert dynamic.count("strdup(") == 2
           assert dynamic.count("status = route_status_accumulate(status, ENOMEM);") == 2
           assert dynamic.count("route_status = dhcp_route_add_owned(") == 2
-          assert "dhcp_route_cleanup_owned(owner, ifname, metric)" in dynamic
+          assert "dhcp_route_cleanup_owned(owner)" in dynamic
           assert "route_del(" not in dynamic
           assert "return status;" in dynamic and "errno == ERANGE" in dynamic
           assert "return;" not in dynamic

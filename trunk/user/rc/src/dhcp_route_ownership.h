@@ -436,16 +436,14 @@ out:
 }
 
 /*
- * Teardown is driven by the persisted ownership manifest, not the current
- * DHCP option strings: a renewed lease may already have replaced those values.
- * Failed deletes remain recorded for a later retry; absent routes are complete.
+ * Teardown selects the DHCP service owner, not its current interface or metric:
+ * either may have changed since the previous lease. Failed deletes remain
+ * recorded for a later retry; absent routes are complete.
  */
 static inline int
 dhcp_route_ownership_cleanup(
 	const char *path,
 	const char *owner,
-	const char *ifname,
-	int metric,
 	dhcp_route_ownership_operation delete_operation,
 	void *context)
 {
@@ -456,9 +454,7 @@ dhcp_route_ownership_cleanup(
 	int lock_fd = -1, status, delete_status, saved_errno;
 
 	if (!path || !path[0] ||
-	    !dhcp_route_ownership_owner_is_valid(owner) ||
-	    !dhcp_route_ownership_ifname_is_valid(ifname) ||
-	    metric < 0 || metric >= INT_MAX || !delete_operation)
+	    !dhcp_route_ownership_owner_is_valid(owner) || !delete_operation)
 		return EINVAL;
 	path_length = strlen(path);
 	if (path_length > (size_t)-1 - sizeof(".lock"))
@@ -479,9 +475,7 @@ dhcp_route_ownership_cleanup(
 		goto out;
 	status = 0;
 	for (i = 0; i < count; ++i) {
-		if (strcmp(entries[i].owner, owner) != 0 ||
-		    strcmp(entries[i].ifname, ifname) != 0 ||
-		    entries[i].metric != metric) {
+		if (strcmp(entries[i].owner, owner) != 0) {
 			remaining[kept++] = entries[i];
 			continue;
 		}

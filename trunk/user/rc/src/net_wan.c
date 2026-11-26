@@ -6972,10 +6972,10 @@ dhcp_route_add_owned(char *owner, char *ifname, int metric,
 }
 
 static int
-dhcp_route_cleanup_owned(char *owner, char *ifname, int metric)
+dhcp_route_cleanup_owned(char *owner)
 {
 	return dhcp_route_ownership_cleanup(
-		DHCP_ROUTE_OWNERSHIP_FILE, owner, ifname, metric,
+		DHCP_ROUTE_OWNERSHIP_FILE, owner,
 		dhcp_route_ownership_delete_kernel_route, NULL);
 }
 
@@ -7003,7 +7003,7 @@ control_dhcp_routes(char *owner,
 	/* Cleanup is driven by the persistent ownership manifest rather than the
 	 * NVRAM route strings, which may already describe a replacement lease. */
 	if (!is_add)
-		return dhcp_route_cleanup_owned(owner, ifname, metric);
+		return dhcp_route_cleanup_owned(owner);
 
 	/* Keep cleanup working even after the dynamic-route option is disabled. */
 	if (is_add) {
