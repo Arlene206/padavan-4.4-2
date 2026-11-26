@@ -480,8 +480,8 @@ remove_case = ia_timeout.index("case DHCP6C_IA_EVENT_TIMER_REMOVE_REBIND:")
 assert retry_case < remove_case
 assert "dhcp6_timer_set(DHCP6C_IA_EVENT_RETRY_DELAY_MS, ia->timer);" in ia_timeout[retry_case:remove_case]
 assert "if (ia->timer)" in ia_timeout[default_case:]
-assert "test_ia_event_timer_is_retained_until_rebind_is_ready" in policy_test
-assert "DHCP6C_IA_EVENT_TIMER_RETRY_REBIND" in policy_test
+assert "test_ia_event_timer_is_retained_until_rebind_is_ready" in test
+assert "DHCP6C_IA_EVENT_TIMER_RETRY_REBIND" in test
 
 required_paths = (
     ".github/workflows/dhcp6c-ia-publication-stability.yml",

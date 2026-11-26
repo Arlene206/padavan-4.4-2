@@ -3,7 +3,7 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development on `main` only.
-- Parent `main` for the Renew/Rebind IA timer recovery fix and lossless log rotation: `8a484891c96894a5452710101a05145fab0fc7e6`.
+- Parent `main` for the Renew/Rebind source-checker binding correction: `1e34fd20be38043504f9c8afba5df2c6d79e10db`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify/delete. PR #1 remains closed/unmerged.
 - Bootstrap/protocol recovery was completed earlier; do not repeat it.
 
@@ -107,9 +107,9 @@
 
 ## Exact first action for the next GPT
 
-1. Check exact-head DHCPv6 IA and AI handoff Actions for this Renew/Rebind IA-timer fix and lossless log rotation. Parent `8a484891c96894a5452710101a05145fab0fc7e6` had DHCPv6 IA #45796494343 PASS but AI #45796494225 FAIL solely because root `dev_log.md` reached 120 records; the required oldest-100 rotation is included here.
-2. Check same-product-source-SHA XY-C1 Build, Verify TRX output and artifact upload. Parent SHA `8a484891c96894a5452710101a05145fab0fc7e6` had run #45796494552 in progress; do not carry those results to this later source change. All three must PASS together before L3; hardware L4 remains NOT VERIFIED.
-3. Continue the DHCPv6 IA/event timer ownership audit for additional setup/recovery hazards, then rotate to another userland stability/security defect.
+1. Exact source SHA `1e34fd20be38043504f9c8afba5df2c6d79e10db`: AI handoff #45797533572 PASS; DHCPv6 IA #45797533696 FAILed only in the Python checker because the policy test input is named `test`, not `policy_test`. All seven GNU89/ASan/UBSan C regression binaries passed, including the new timer policy regression. This commit repairs the checker binding.
+2. Check exact-head DHCPv6 IA and AI runs for THIS COMMIT. Parent XY-C1 run #45797533586 was still in progress, and its result cannot validate this changed product-source SHA. Require Build XY-C1, Verify TRX output and artifact upload all PASS on one exact source SHA before L3; hardware L4 remains NOT VERIFIED.
+3. Continue the DHCPv6 IA/event timer ownership audit after the new checker and firmware results; then rotate to another userland stability/security defect.
 
 ## Mandatory handoff checkpoint
 
