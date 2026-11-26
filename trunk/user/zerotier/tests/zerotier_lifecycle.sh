@@ -2235,7 +2235,9 @@ fi
 grep -Fqx -- "-t nat -A POSTROUTING -s 10.147.17.0/24 -j MASQUERADE" "$TEST_IPTABLES_LOG" || fail "kernel route parser selected an unrelated or missing network"
 
 # A failed configured static route must fail readiness publication and
-# remove the firewall rules which were already installed.
+# remove the firewall rules which were already installed. The preceding NAT-
+# readiness case intentionally published an empty route manifest; clear that
+# known-empty checkpoint before modelling a fresh configuration/start attempt.
 : > "$TEST_SLEEP_LOG"
 : > "$TEST_IPTABLES_LOG"
 : > "$TEST_ACTION_LOG"
@@ -2243,6 +2245,7 @@ echo 0 > "$TEST_ROUTE_COUNT"
 TEST_ROUTE_MODE=ready
 TEST_IFCONFIG_MODE=ready
 TEST_NAT_ENABLE=1
+/bin/rm -f "$TEST_CONFIG/.static-routes-state"
 TEST_STATIC_ROUTE_COUNT=1
 TEST_STATIC_ROUTE_ENABLE=1
 TEST_ROUTE_ADD_STATUS=1
@@ -2487,7 +2490,9 @@ fi
 grep -Fqx -- "-t nat -A POSTROUTING -s 10.147.17.0/24 -j MASQUERADE" "$TEST_IPTABLES_LOG" || fail "kernel route parser selected an unrelated or missing network"
 
 # A failed configured static route must fail readiness publication and
-# remove the firewall rules which were already installed.
+# remove the firewall rules which were already installed. The preceding NAT-
+# readiness case intentionally published an empty route manifest; clear that
+# known-empty checkpoint before modelling a fresh configuration/start attempt.
 : > "$TEST_SLEEP_LOG"
 : > "$TEST_IPTABLES_LOG"
 : > "$TEST_ACTION_LOG"
@@ -2495,6 +2500,7 @@ echo 0 > "$TEST_ROUTE_COUNT"
 TEST_ROUTE_MODE=ready
 TEST_IFCONFIG_MODE=ready
 TEST_NAT_ENABLE=1
+/bin/rm -f "$TEST_CONFIG/.static-routes-state"
 TEST_STATIC_ROUTE_COUNT=1
 TEST_STATIC_ROUTE_ENABLE=1
 TEST_ROUTE_ADD_STATUS=1

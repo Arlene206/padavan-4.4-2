@@ -1,3 +1,10 @@
+## 2026-11-25 — Clear the empty ZeroTier route manifest between independent rules fixtures
+
+- Exact ZeroTier run on 3d586 passed the /32 and NAT-readiness cases but the later partial-route-add case could not reach the route-add stub: the preceding successful NAT-only rules() fixture correctly left a header-only .static-routes-state checkpoint (zero configured static routes), and the next independent fixture reused it.
+- Both duplicated test blocks now remove this known-empty manifest before modeling a fresh service start with an enabled static route. Production checkpoint behavior remains unchanged; this is fixture lifecycle isolation.
+
+---
+
 ## 2026-11-25 — Isolate ZeroTier rule-publication tests from preserved stop checkpoints
 
 - Exact ZeroTier run on e37ac5d passed the corrected legacy /32 setup but then failed when the later direct rules() fixture reused .static-routes-state and .firewall-state deliberately preserved by preceding stop-failure cases.
