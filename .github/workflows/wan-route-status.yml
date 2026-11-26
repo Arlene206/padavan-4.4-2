@@ -1084,16 +1084,23 @@ jobs:
           assert 'snprintf(key_routes_ms,sizeof(key_routes_ms),"%sroutes_ms",prefix)' in route_snapshot_compact
           assert "rc_wan_nvram_copy_snapshot(fields,3,wan_nvram_transaction_begin_callback,wan_nvram_transaction_get_callback,wan_nvram_transaction_end_callback,&transaction)" in route_snapshot_compact
           assert "test_transactional_dhcp_route_options_snapshot" in wan_nvram_test
-          for signature in (
-              "add_dhcp_routes_by_prefix(char *prefix, char *ifname, int metric)",
-              "del_dhcp_routes_by_prefix(char *prefix, char *ifname, int metric)",
-          ):
-              route_wrapper = body(wan, signature)
-              route_compact = "".join(route_wrapper.split())
-              assert "snapshot_dhcp_route_options(prefix,rt,sizeof(rt),rt_rfc,sizeof(rt_rfc),rt_ms,sizeof(rt_ms))" in route_compact
-              assert "nvram_safe_get(" not in route_wrapper
-              assert "if(read_status!=0)" in route_compact
-              assert "returnread_status;" in route_compact
+          add_route_wrapper = body(
+              wan, "add_dhcp_routes_by_prefix(char *prefix, char *ifname, int metric)"
+          )
+          add_route_compact = "".join(add_route_wrapper.split())
+          assert "snapshot_dhcp_route_options(prefix,rt,sizeof(rt),rt_rfc,sizeof(rt_rfc),rt_ms,sizeof(rt_ms))" in add_route_compact
+          assert "nvram_safe_get(" not in add_route_wrapper
+          assert "if(read_status!=0)" in add_route_compact
+          assert "returnread_status;" in add_route_compact
+
+          # Teardown must not read the current NVRAM lease: the owner manifest is authoritative.
+          delete_route_wrapper = body(
+              wan, "del_dhcp_routes_by_prefix(char *prefix, char *ifname, int metric)"
+          )
+          delete_route_compact = "".join(delete_route_wrapper.split())
+          assert "snapshot_dhcp_route_options(" not in delete_route_compact
+          assert "nvram_safe_get(" not in delete_route_wrapper
+          assert "control_dhcp_routes(prefix,NULL,NULL,NULL,ifname,metric,0)" in delete_route_compact
           
           man_down = body(wan, "man_down_internal(char *man_ifname, int unit, int clear_dhcp_address)")
           dns_loop_start = man_down.index("foreach(word, man_dns, next)")
