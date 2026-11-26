@@ -1,3 +1,12 @@
+## 2026-11-26 — Fail closed on legacy ipkg HTTP package feeds
+
+- Reviewed the legacy Optware path after securing Entware. The built-in Oleg feed still points to http://ipkg.nslu2-linux.org/feeds/optware/oleg/cross/stable; the legacy ipkg shell client previously fetched repository indexes and package payloads over HTTP/FTP and returned success for unknown URL schemes after only printing a debug line.
+- Added a common transport policy: allow HTTPS and trusted local-file sources only, refuse HTTP/FTP/unknown schemes, and require every configured package source to be HTTPS/local-file and structurally valid before privileged package operations. The firmware updater now uses the hardened shell client, refuses the still-HTTP-only default feed rather than rewriting it to an unverified HTTPS host, and propagates failures. Optware startup now releases its lifecycle lock and returns an error when package bootstrap fails.
+- Added transport-policy shell regression coverage and Process CI/ROMFS integration. Host tests and exact-head Process/AI results are pending after publication; no legacy repository install or target runtime is claimed.
+- Parent main: 48d442a96a3f2455703e3e73042f7c882505110c.
+
+---
+
 ## 2026-11-26 — Align Entware checker with the required-command loop
 
 - The updater deliberately verifies required utilities in a POSIX loop (including OpenSSL) rather than maintaining one command per utility. The static checker incorrectly expected the literal source text `command -v openssl`; changed it to pin both the full required-command list and the checked command expansion.

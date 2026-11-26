@@ -94,4 +94,55 @@ for path in ("trunk/user/optware/**", "trunk/configs/boards/busybox.config"):
 require("sh trunk/user/optware/tests/optware_bootstrap_policy.sh" in process_workflow and
         "python3 scripts/check_optware_installer_security.py" in process_workflow,
         "Process workflow must execute the Entware bootstrap regression and contract")
-print("Entware root-bootstrap TLS, staging and fail-closed source contract: PASS")
+ipkg_source = read("trunk/user/optware/ipkg.sh")
+ipkg_updater = read("trunk/user/optware/opt-ipkg-upd.sh")
+ipkg_start = read("trunk/user/optware/opt-start.sh")
+ipkg_transport = read("trunk/user/optware/ipkg_transport_policy.sh")
+ipkg_transport_test = read("trunk/user/optware/tests/ipkg_transport_policy.sh")
+
+require('. "$ipkg_transport_policy" || exit 1' in ipkg_source,
+        "the privileged ipkg client must load its transport policy")
+require("https://*)" in ipkg_source and "wget -T 60" in ipkg_source,
+        "ipkg must bound HTTPS downloads")
+require("http://* | ftp://*" in ipkg_source and
+        "ipkg_transport_require_url" in ipkg_source,
+        "ipkg must reject plaintext downloads and direct-install URLs")
+require("ipkg_transport_require_url" in ipkg_transport and
+        "ipkg_transport_config_is_secure" in ipkg_transport,
+        "missing centralized ipkg transport policy")
+require('mountpoint -q /opt' in ipkg_updater and
+        'ipkg_transport_config_is_secure "$IPKG_CONF_DIR/ipkg.conf"' in ipkg_updater,
+        "legacy package updater must require the exact mount and secure feed config")
+require("http://ipkg.nslu2-linux.org/" not in ipkg_updater and
+        "/usr/bin/ipkg.sh update" in ipkg_updater and
+        "ipkg update" not in ipkg_updater,
+        "legacy updater must not invoke the unaudited old ipkg binary")
+require("legacy Optware package bootstrap/update failed" in ipkg_start and
+        "optware_lifecycle_lock_release" in ipkg_start,
+        "Optware startup must propagate updater failure and release its lifecycle lock")
+require("$(ROMFSINST) -p +x /usr/lib/ipkg_transport_policy.sh" in makefile,
+        "ROMFS must install the ipkg transport policy")
+for token in (
+    "permits HTTPS/local files and rejects HTTP/FTP/unknown schemes: PASS",
+    "accepts HTTPS and local-file source configuration: PASS",
+    "rejects HTTP/FTP/malformed/empty source configuration: PASS",
+    "refuses symlink package configuration: PASS",
+):
+    require(token in ipkg_transport_test, "missing ipkg transport regression: " + token)
+require("src optware http://ipkg.nslu2-linux.org/" in read("trunk/user/optware/ipkg.conf"),
+        "do not silently rewrite the known HTTP-only legacy feed to an unverified HTTPS URL")
+
+for path in (
+    "trunk/user/optware/ipkg.sh",
+    "trunk/user/optware/opt-ipkg-upd.sh",
+    "trunk/user/optware/opt-start.sh",
+    "trunk/user/optware/Makefile",
+    "trunk/user/optware/ipkg_transport_policy.sh",
+    "trunk/user/optware/tests/ipkg_transport_policy.sh",
+):
+    require(process_workflow.count('      - "' + path + '"') == 2,
+            "both Process workflow path filters must include " + path)
+require("sh trunk/user/optware/tests/ipkg_transport_policy.sh" in process_workflow,
+        "Process workflow must execute ipkg transport regression")
+
+print("Entware root-bootstrap and legacy ipkg verified-transport source contracts: PASS")

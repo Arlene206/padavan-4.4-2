@@ -3,29 +3,30 @@
 ## Current repository state
 
 - Repository: Arlene206/padavan-4.4-2.
-- Parent main before the current Entware HTTPS-bootstrap security slice: e98c22d68b3c7f0cfd776bae1e30b63c25345e2a.
+- Parent main before the legacy ipkg verified-transport slice: 48d442a96a3f2455703e3e73042f7c882505110c.
 - Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains at 72f4f157a084f8184b9597ca5bf334b8080e5807; it is read-only and must not be modified. Legacy PR #1 remains closed/unmerged.
 - Startup/bootstrap/protocol/handoff recovery was completed once. Do not repeat audits for already-completed work.
 - Publish each logical task as one complete Git tree and one atomic main commit; update main only with a non-forced expected-SHA compare-and-swap. Never force-push or modify the backup.
 
-## Active task
+## Completed source slice
 
-- The root Entware updater previously fetched generic.sh over plaintext HTTP to a predictable /tmp file and ran it as root. The installer then downloaded the opkg executable and package configuration over HTTP, and the updater ignored the installer exit status.
-- This slice requires an exact /opt mountpoint, a non-symlink CA trust bundle and OpenSSL-backed BusyBox wget; downloads into a private temporary directory over verified HTTPS; patches and syntax-checks the upstream script before execution; injects set -e; changes the Entware origin and package feeds to HTTPS; applies bounded download timeouts; rejects residual HTTP feeds; and validates the resulting opkg binary/config.
-- A POSIX shell fixture covers valid rewrite, feed conversion, unknown origin, missing/duplicate upstream anchors, symlink source and existing destination. A Python checker pins firmware TLS features, ROMFS installation and Process/XY-C1 workflow integration.
+- Entware generic.sh root bootstrap now downloads through verified HTTPS into private staging, patches the upstream HTTP origin and feed config to HTTPS, uses bounded timeouts and set -e, validates patched shell before execution and verifies final opkg/config postconditions.
+- The legacy Oleg feed still points to http://ipkg.nslu2-linux.org/feeds/optware/oleg/cross/stable; no verified HTTPS mirror was established. The hardened ipkg shell client refuses HTTP/FTP/unknown schemes for both index/file downloads and direct package installs, allows HTTPS and local files, and returns failure for unsupported input instead of reporting false success.
+- Legacy package bootstrap validates every configured source before privileged package operations and refuses the shipped HTTP-only feed rather than guessing an HTTPS endpoint. It uses the firmware shell package client for index updates, not the unaudited legacy binary. Optware startup releases its lifecycle lock and returns failure if package bootstrap/update fails.
+- Added POSIX shell regressions for secure URL schemes, HTTPS/local-file config, HTTP/FTP/malformed/empty config and symlink-config refusal; wired Process CI and ROMFS installation.
 
 ## Verification boundary
 
-- Parent before the source security slice: e98c22d68b3c7f0cfd776bae1e30b63c25345e2a; source commit 967737f91d830c373e8400afe3ff16d0a7d5e080 added the updater/helper/tests/workflows. Two static-checker-only corrections followed: the intentional residual-HTTP grep literal is allowed, and the required OpenSSL command is checked through the updater's command loop.
-- On parent e98c22d68b3c7f0cfd776bae1e30b63c25345e2a, Process inventory #45770130487, Process lifecycle inventory #45770130493 and AI handoff #45770130483 all PASS. The earlier cfc4e7 documentation/source checkpoint's Process and AI checks also passed; its XY-C1 run #45769454642 was still IN_PROGRESS at the last poll.
-- Process workflow #45771143408 and XY-C1 #45771143399 were queued/in progress on source SHA 967737f91d830c373e8400afe3ff16d0a7d5e080; the source-checker step was found to have one remaining token mismatch (it expected a literal command rather than the checked command loop). AI handoff #45771143364 and lifecycle inventory #45771143543 were also queued/in progress. The Python source checker initially rejected its own deliberate HTTP-literal grep guard; this follow-up narrows that assertion and removes a brittle escape-sensitive regex check. Check the exact-head run after this correction; the local pure-shell policy fixture passed on the current helper/test source. No local firmware build, target MIPS runtime or physical-router L4 is claimed.
-- The current source commit cannot include its own resulting SHA; the next session must fetch live main before recording exact-head results.
+- Entware source commit: 967737f91d830c373e8400afe3ff16d0a7d5e080; checker correction 5b8939f35e2d318f1d5fb964dc393366eb7e6e23; OpenSSL command-loop correction 48d442a96a3f2455703e3e73042f7c882505110c.
+- Exact-head AI handoff #45771459535 PASS and Process regression #45771459520 PASS on parent SHA 48d442a96a3f2455703e3e73042f7c882505110c. The earlier Process run #45771308852 failed because an earlier static checker expected a literal OpenSSL command; that checker defect was superseded by the passing exact-head run.
+- Host-only Entware shell fixture: five PASS groups; static source checker: PASS. No local XY-C1 firmware build, target runtime or physical-router L4 is claimed. Exact-source XY-C1 Build/TRX/artifact validation for the Entware changes must be checked on its source SHA.
+- The current legacy ipkg source/test/workflow slice has not yet been checked by Actions. The exact-head Process regression and AI handoff must be fetched after publication. No legacy package-feed download or target runtime is claimed.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and inspect the corrected Entware security checker plus exact-SHA Process regression, AI handoff and XY-C1 Build/TRX/artifact Actions.
-2. Diagnose any real failure from its exact job log without weakening verified TLS, feed validation or fail-closed behavior; PENDING does not block independent work.
-3. Continue another concrete security/stability source fix across the userland.
+1. Fetch live main and inspect exact-head Process and AI handoff Actions for legacy ipkg URL/config transport; diagnose any failure from its exact job log.
+2. Check XY-C1 Build, TRX verification and artifact upload on the Entware source SHA 967737f91d830c373e8400afe3ff16d0a7d5e080.
+3. Continue a concrete stability/security source fix in another Padavan userland service; do not repeat completed startup recovery or Entware/ipkg transport audits.
 
 # Cross-session execution mandate
 

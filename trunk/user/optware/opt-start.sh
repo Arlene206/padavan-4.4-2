@@ -42,7 +42,11 @@ if [ "$optw_enable" == "1" ] ; then
 			optware_lifecycle_lock_release
 			exit 0
 		fi
-		/usr/bin/opt-ipkg-upd.sh 9>&-
+		if ! /usr/bin/opt-ipkg-upd.sh 9>&-; then
+			logger -t "opt-start.sh" "legacy Optware package bootstrap/update failed"
+			optware_lifecycle_lock_release
+			exit 1
+		fi
 	fi
 elif [ "$optw_enable" == "2" ] ; then
 	if [ ! -f /opt/bin/opkg ] ; then

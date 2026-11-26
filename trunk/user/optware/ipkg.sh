@@ -16,6 +16,13 @@
 
 set -e
 
+ipkg_transport_policy="/usr/lib/ipkg_transport_policy.sh"
+[ -f "$ipkg_transport_policy" ] && [ ! -L "$ipkg_transport_policy" ] && [ -r "$ipkg_transport_policy" ] || {
+	echo "ipkg: secure transport policy is unavailable" >&2
+	exit 1
+}
+. "$ipkg_transport_policy" || exit 1
+
 if [ -f /opt/bin/opkg ] ; then
 	echo "WARNING! Entware detected. Please remove Entware first!"
 	exit 1
@@ -211,46 +218,53 @@ ipkg_download() {
 	local src="$1"
 	local dest="$2"
 
-	local src_file="`ipkg_file_part $src`"
-	local dest_dir="`ipkg_dir_part $dest`"
+	ipkg_transport_require_url "$src" || return 1
+
+	local src_file=$(ipkg_file_part "$src")
+	local dest_dir=$(ipkg_dir_part "$dest")
 	if [ -z "$dest_dir" ]; then
 		dest_dir="$IPKG_TMP"
 	fi
-
-	local dest_file="`ipkg_file_part $dest`"
+	local dest_file=$(ipkg_file_part "$dest")
 	if [ -z "$dest_file" ]; then
 		dest_file="$src_file"
 	fi
 
-	# Proxy support
+	# Proxy support is preserved for HTTPS downloads.
 	local proxyuser=""
 	local proxypassword=""
 	local proxyoption=""
-		
 	if [ -n "$IPKG_PROXY_USERNAME" ]; then
 		proxyuser="--proxy-user=\"$IPKG_PROXY_USERNAME\""
 		proxypassword="--proxy-passwd=\"$IPKG_PROXY_PASSWORD\""
 	fi
-
-	if [ -n "$IPKG_PROXY_HTTP" -o -n "$IPKG_PROXY_FTP" ]; then
+	if [ -n "$IPKG_PROXY_HTTP" ]; then
 		proxyoption="--proxy=on"
 	fi
 
 	echo "Downloading $src ..."
-	rm -f $IPKG_TMP/$src_file
+	rm -f "$IPKG_TMP/$src_file"
 	case "$src" in
-	http://* | ftp://*)
-		if ! wget --passive-ftp $proxyoption $proxyuser $proxypassword -P $IPKG_TMP $src; then
-			echo "ipkg_download: ERROR: Failed to retrieve $src, returning $err"
+	https://*)
+		if ! wget -T 60 $proxyoption $proxyuser $proxypassword -P "$IPKG_TMP" "$src"; then
+			echo "ipkg_download: ERROR: Failed to retrieve HTTPS source $src" >&2
 			return 1
 		fi
-		mv $IPKG_TMP/$src_file $dest_dir/$dest_file 2>/dev/null
+		if ! mv "$IPKG_TMP/$src_file" "$dest_dir/$dest_file" 2>/dev/null; then
+			echo "ipkg_download: ERROR: Cannot publish downloaded file $dest_dir/$dest_file" >&2
+			return 1
+		fi
 		;;
-	file:/* )
-		ln -s `echo $src | sed 's/^file://'` $dest_dir/$dest_file 2>/dev/null
+	file:/*)
+		local src_path=$(echo "$src" | sed 's/^file://')
+		if [ ! -f "$src_path" ] || ! ln -s "$src_path" "$dest_dir/$dest_file" 2>/dev/null; then
+			echo "ipkg_download: ERROR: Cannot link local package source $src" >&2
+			return 1
+		fi
 		;;
 	*)
-	echo "DEBUG: $src"
+		echo "ipkg_download: ERROR: refusing unsupported source $src" >&2
+		return 1
 		;;
 	esac
 
@@ -914,28 +928,36 @@ ipkg_install() {
 	while [ $# -gt 0 ]; do
 		local pkg="$1"
 		shift
-	
+
 		case "$pkg" in
-		http://* | ftp://*)
-			local tmp_pkg_file="$IPKG_TMP/"`ipkg_file_part $pkg`
-			if ipkg_download $pkg $tmp_pkg_file; then
-				ipkg_install_file $tmp_pkg_file
-				rm $tmp_pkg_file
+		https://*)
+			local tmp_pkg_file="$IPKG_TMP/$(ipkg_file_part "$pkg")"
+			if ! ipkg_download "$pkg" "$tmp_pkg_file"; then
+				return 1
 			fi
+			if ! ipkg_install_file "$tmp_pkg_file"; then
+				rm -f "$tmp_pkg_file"
+				return 1
+			fi
+			rm -f "$tmp_pkg_file" || return 1
+			;;
+		http://* | ftp://*)
+			ipkg_transport_require_url "$pkg" || return 1
 			;;
 		file:/*.ipk  | file://*.deb)
-				local ipkg_filename="`echo $pkg|sed 's/^file://'`"
-				ipkg_install_file $ipkg_filename
+			local ipkg_filename="$(echo "$pkg" | sed 's/^file://')"
+			ipkg_install_file "$ipkg_filename"
 			;;
 		*.ipk  | *.deb)
 			if [ -f "$pkg" ]; then
-				ipkg_install_file $pkg
+				ipkg_install_file "$pkg"
 			else
 				echo "File not found $pkg" >&2
+				return 1
 			fi
 			;;
 		*)
-			ipkg_get_install $pkg || true
+			ipkg_get_install "$pkg" || return 1
 			;;
 		esac
 	done

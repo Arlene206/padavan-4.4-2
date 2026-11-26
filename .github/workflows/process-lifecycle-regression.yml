@@ -12,6 +12,11 @@ on:
       - "trunk/user/optware/optware_bootstrap_policy.sh"
       - "trunk/user/optware/tests/optware_bootstrap_policy.sh"
       - "scripts/check_optware_installer_security.py"
+      - "trunk/user/optware/ipkg.sh"
+      - "trunk/user/optware/opt-start.sh"
+      - "trunk/user/optware/Makefile"
+      - "trunk/user/optware/ipkg_transport_policy.sh"
+      - "trunk/user/optware/tests/ipkg_transport_policy.sh"
       - "trunk/configs/boards/busybox.config"
       - "trunk/user/optware/opt-umount.sh"
       - "trunk/user/scripts/files/sbin/optware_lifecycle_lock.sh"
@@ -294,6 +299,11 @@ on:
       - "trunk/user/optware/optware_bootstrap_policy.sh"
       - "trunk/user/optware/tests/optware_bootstrap_policy.sh"
       - "scripts/check_optware_installer_security.py"
+      - "trunk/user/optware/ipkg.sh"
+      - "trunk/user/optware/opt-start.sh"
+      - "trunk/user/optware/Makefile"
+      - "trunk/user/optware/ipkg_transport_policy.sh"
+      - "trunk/user/optware/tests/ipkg_transport_policy.sh"
       - "trunk/configs/boards/busybox.config"
       - "trunk/user/optware/opt-umount.sh"
       - "trunk/user/scripts/files/sbin/optware_lifecycle_lock.sh"
@@ -919,6 +929,12 @@ jobs:
           sh -n trunk/user/optware/tests/optware_bootstrap_policy.sh
           sh trunk/user/optware/tests/optware_bootstrap_policy.sh
           python3 scripts/check_optware_installer_security.py
+          sh -n trunk/user/optware/ipkg.sh
+          sh -n trunk/user/optware/opt-ipkg-upd.sh
+          sh -n trunk/user/optware/opt-start.sh
+          sh -n trunk/user/optware/ipkg_transport_policy.sh
+          sh -n trunk/user/optware/tests/ipkg_transport_policy.sh
+          sh trunk/user/optware/tests/ipkg_transport_policy.sh
       - name: Verify PID 1 TCP sysctl failure propagation
         run: |
           set -eu
