@@ -487,9 +487,9 @@ Current implementation checkpoint (2026-11-23):
 | L3 MIPS/uClibc production objects / firmware/TRX | VERIFIED on `760ecfa9d1ff115e62b2df45afb9fda398229ba6`: XY-C1 run [43831778029] passed Build XY-C1, TRX verification and artifact upload. | This proves the early `init_router()` source slice at this SHA; THIS COMMIT changes `services.c` and requires fresh target build. No L4 router behavior is implied. |
 | L4 router/physical hardware | NOT VERIFIED. | Requires target-device boot and subsystem-specific runtime checks. |
 
-## Current WAN teardown defect — exact-status propagation
+## WAN teardown status — exact-status propagation
 
-- The implementation commit `bc90e3b44af85fe5ad18a58f8f39bf36e5de680d` triggered WAN teardown run `44390606879`, VPN server `44390606952`, HTTPD security `44390607054`, Process lifecycle `44390606840`, and XY-C1 `44390607038`. C compile/unit-test portions of WAN, VPN and HTTPD completed before static-contract failures. Failures identified stale checks: WAN expected the removed stop-status ternary; VPN/HTTPD/Process expected the old inline `stop_vpn_client_under_lifecycle_lock() != 0` predicate after PPP teardown began capturing its return. This follow-up updates those assertions to verify exact status capture and error gates; XY-C1 build remained in progress at first poll.
+- Caller contracts were aligned to the checked stop-status return after PPP teardown began retaining exact results. Historical run detail remains in `dev_log.md`; this checkpoint has no outstanding source action.
 
 ## 2026-11-22 implementation checkpoint
 
