@@ -283,16 +283,16 @@ assert "open_fd_count()" in forwarder_init_test
 assert "dns_forwarder_test_event_loop_del_source" in forwarder_init_hooks
 assert "inet_aton (upstream, &upstream_addr)" in forwarder_constructor
 assert forwarder_constructor.index("DNS_FORWARDER_GETADDRINFO (") < forwarder_constructor.index("DNS_FORWARDER_SOCKET (")
-assert "if (0 > ioctl (self->listen_fd, FIONBIO" in forwarder_constructor
-assert "if (0 > setsockopt (self->listen_fd, SOL_SOCKET, SO_REUSEADDR" in forwarder_constructor
-assert "if (0 != bind (self->listen_fd" in forwarder_constructor
-assert "if (!hev_event_source_add_fd (" in forwarder_constructor
-assert forwarder_constructor.count("if (!hev_event_loop_add_source (") == 2
-assert forwarder_constructor.count("hev_event_source_get_loop (") == 2
-assert "hev_event_loop_del_source (loop, self->timeout_source)" in forwarder_constructor
-assert "hev_event_loop_del_source (loop, self->listener_source)" in forwarder_constructor
-assert "freeaddrinfo (addr_ip);" in forwarder_constructor
-assert "close (self->listen_fd);" in forwarder_constructor
+assert "if (0 > DNS_FORWARDER_IOCTL (self->listen_fd, FIONBIO" in forwarder_constructor
+assert "if (0 > DNS_FORWARDER_SETSOCKOPT (self->listen_fd, SOL_SOCKET, SO_REUSEADDR" in forwarder_constructor
+assert "if (0 != DNS_FORWARDER_BIND (self->listen_fd" in forwarder_constructor
+assert "if (!DNS_FORWARDER_EVENT_SOURCE_ADD_FD (" in forwarder_constructor
+assert forwarder_constructor.count("if (!DNS_FORWARDER_EVENT_LOOP_ADD_SOURCE (") == 2
+assert forwarder_constructor.count("DNS_FORWARDER_EVENT_SOURCE_GET_LOOP (") == 2
+assert "DNS_FORWARDER_EVENT_LOOP_DEL_SOURCE (loop, self->timeout_source)" in forwarder_constructor
+assert "DNS_FORWARDER_EVENT_LOOP_DEL_SOURCE (loop, self->listener_source)" in forwarder_constructor
+assert "DNS_FORWARDER_FREEADDRINFO (addr_ip);" in forwarder_constructor
+assert "DNS_FORWARDER_CLOSE (self->listen_fd);" in forwarder_constructor
 assert "HEV_MEMORY_ALLOCATOR_FREE (self);" in forwarder_constructor
 
 assert '#include "hev-dns-forwarder-policy.h"' in forwarder_core
