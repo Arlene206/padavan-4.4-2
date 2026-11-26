@@ -958,6 +958,33 @@ smartdns_start_config_rollback()
     return "$_smartdns_failure_status"
 }
 
+# Disable a failed SmartDNS launch and restore DNSMasq exactly once.
+# Stop_smartdns owns resolver reload/error reporting; do not issue a second
+# best-effort restart here. Cleanup errors take precedence over NVRAM errors.
+smartdns_disable_after_start_failure()
+{
+    if nvram set sdns_enable=0; then
+        smartdns_nvram_status=0
+    else
+        smartdns_nvram_status=$?
+        logger -t "SmartDNS" "Failed to persist sdns_enable=0 after startup failure (status=$smartdns_nvram_status)"
+    fi
+    sdns_enable=0
+
+    if Stop_smartdns; then
+        smartdns_stop_status=0
+    else
+        smartdns_stop_status=$?
+        logger -t "SmartDNS" "SmartDNS startup rollback could not complete cleanup (status=$smartdns_stop_status)"
+        return "$smartdns_stop_status"
+    fi
+
+    if [ "$smartdns_nvram_status" -ne 0 ]; then
+        return "$smartdns_nvram_status"
+    fi
+    return 0
+}
+
 Start_smartdns () {
     # Persist the enable transition before any daemon or resolver side effects.
     case "$sdns_enable" in
@@ -1172,18 +1199,12 @@ Start_smartdns () {
             logger -t "SmartDNS" "SmartDNS 启动失败..."
             logger -t "SmartDNS" "停用 SmartDNS！请检查其端口配置及自定义配置是否匹配？"
             logger -t "SmartDNS" "恢复 DNSmasq 提供 DNS 解析..."
-            nvram set sdns_enable=0
-            sdns_enable=0
-            Stop_smartdns
-            stop_status=$?
-            if [ "$stop_status" -ne 0 ]; then
-                logger -t "SmartDNS" "SmartDNS cleanup could not confirm daemon absence (status=$stop_status)"
+            if smartdns_disable_after_start_failure; then
+                :
+            else
+                stop_status=$?
+                logger -t "SmartDNS" "SmartDNS startup rollback was not fully committed (status=$stop_status)"
                 return "$stop_status"
-            fi
-            if [ "$dnsmasq_md5" != $(md5sum "$dnsmasq_Conf" | awk '{ print $1 }') ] ; then
-                logger -t "SmartDNS" "正在重启 DNSmasq 进程..."
-                /sbin/restart_dhcpd >/dev/null 2>&1
-                logger -t "SmartDNS" "DNSmasq 进程已重启..."
             fi
             return 1
             ;;

@@ -173,6 +173,7 @@ check_ss = body(smartdns, "Check_ss")
 for key in ('ss_enable', 'ss_run_mode', 'pdnsd_enable'):
     assert 'smartdns_nvram_read_checked ' + key + ' || return $?' in check_ss
 ss_disable = body(smartdns, "smartdns_disable_ss_conflict")
+failed_start_rollback = body(smartdns, "smartdns_disable_after_start_failure")
 assert 'if nvram set sdns_enable=0; then' in ss_disable
 assert 'return "$smartdns_ss_disable_status"' in ss_disable
 assert 'smartdns_disable_ss_conflict || return $?' in check_ss
@@ -180,6 +181,16 @@ assert check_ss.index('smartdns_disable_ss_conflict || return $?') < check_ss.in
 assert 'FAIL_SET=1' in runtime_test
 assert 'SS conflict disable hid a failed NVRAM write' in runtime_test
 assert 'SS conflict disable propagates NVRAM write failure: PASS' in runtime_test
+assert 'if nvram set sdns_enable=0; then' in failed_start_rollback
+assert 'smartdns_nvram_status=$?' in failed_start_rollback
+assert 'if Stop_smartdns; then' in failed_start_rollback
+assert 'return "$smartdns_stop_status"' in failed_start_rollback
+assert 'return "$smartdns_nvram_status"' in failed_start_rollback
+start_failed_branch = body(smartdns, "Start_smartdns").split('            logger -t "SmartDNS" "停用 SmartDNS！', 1)[1]
+assert 'smartdns_disable_after_start_failure' in start_failed_branch
+assert '/sbin/restart_dhcpd' not in start_failed_branch
+assert 'failed-start rollback persists disable, cleans once, and propagates errors: PASS' in runtime_test
+assert 'Stop_smartdns' in failed_start_rollback
 assert 'sh trunk/user/smartdns/tests/smartdns_runtime_nvram_snapshot.sh' in workflow
 main_body = body(smartdns, "Main")
 assert 'smartdns_nvram_read_checked adbyby_enable || return $?' in main_body

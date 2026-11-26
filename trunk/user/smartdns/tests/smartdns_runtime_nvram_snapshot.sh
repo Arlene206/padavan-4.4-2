@@ -16,14 +16,23 @@ sed -n '/^smartdns_validate_enable_selector()/,/^}/p' "$SOURCE" >> "$FUNCTIONS"
 sed -n '/^smartdns_load_lifecycle_nvram_state()/,/^}/p' "$SOURCE" >> "$FUNCTIONS"
 sed -n '/^smartdns_load_runtime_nvram_state()/,/^}/p' "$SOURCE" >> "$FUNCTIONS"
 sed -n '/^smartdns_disable_ss_conflict()/,/^}/p' "$SOURCE" >> "$FUNCTIONS"
+sed -n '/^smartdns_disable_after_start_failure()/,/^}/p' "$SOURCE" >> "$FUNCTIONS"
 [ -s "$FUNCTIONS" ] || fail "runtime NVRAM functions were not found"
 . "$FUNCTIONS"
 
 LOG="$T/log"
 NVRAM_WRITES="$T/writes"
+STOP_CALLS="$T/stop-calls"
 : > "$LOG"
 : > "$NVRAM_WRITES"
+: > "$STOP_CALLS"
 logger() { printf '%s\n' "$*" >> "$LOG"; }
+STOP_STATUS=0
+Stop_smartdns()
+{
+    printf 'stop\n' >> "$STOP_CALLS"
+    return "$STOP_STATUS"
+}
 FAIL_KEY=
 FAIL_SET=0
 FAIL_STATUS=73
@@ -161,3 +170,61 @@ fi
 grep -Fq "Failed to persist sdns_enable=0 after SS DNS conflict" "$LOG" ||
     fail "SS conflict NVRAM failure was not logged"
 echo "SS conflict disable propagates NVRAM write failure: PASS"
+
+# Failed daemon startup uses the same fail-closed persistence rule, but always
+# completes resolver/daemon cleanup. Stop errors outrank the NVRAM write error.
+FAIL_SET=0
+STOP_STATUS=0
+: > "$NVRAM_WRITES"
+: > "$STOP_CALLS"
+sdns_enable=1
+smartdns_disable_after_start_failure ||
+    fail "startup rollback rejected successful persistence and cleanup"
+[ "$sdns_enable" = 0 ] || fail "startup rollback did not switch its local selector off"
+[ "$(cat "$NVRAM_WRITES")" = "sdns_enable=0" ] ||
+    fail "startup rollback did not persist exactly one disable write"
+[ "$(cat "$STOP_CALLS")" = stop ] ||
+    fail "startup rollback did not delegate cleanup exactly once"
+
+FAIL_SET=1
+STOP_STATUS=0
+: > "$NVRAM_WRITES"
+: > "$STOP_CALLS"
+if smartdns_disable_after_start_failure; then
+    fail "startup rollback hid a failed NVRAM disable"
+else
+    status=$?
+fi
+[ "$status" -eq "$FAIL_STATUS" ] ||
+    fail "startup rollback returned $status instead of NVRAM failure $FAIL_STATUS"
+[ "$(cat "$STOP_CALLS")" = stop ] ||
+    fail "startup rollback skipped cleanup after NVRAM failure"
+grep -Fq "Failed to persist sdns_enable=0 after startup failure" "$LOG" ||
+    fail "startup rollback did not log NVRAM persistence failure"
+
+FAIL_SET=0
+STOP_STATUS=51
+: > "$NVRAM_WRITES"
+: > "$STOP_CALLS"
+if smartdns_disable_after_start_failure; then
+    fail "startup rollback hid a failed Stop_smartdns operation"
+else
+    status=$?
+fi
+[ "$status" -eq 51 ] || fail "startup rollback did not preserve cleanup failure status"
+[ "$(cat "$STOP_CALLS")" = stop ] ||
+    fail "startup rollback did not attempt cleanup once on stop failure"
+
+FAIL_SET=1
+STOP_STATUS=51
+: > "$NVRAM_WRITES"
+: > "$STOP_CALLS"
+if smartdns_disable_after_start_failure; then
+    fail "startup rollback hid simultaneous persistence and cleanup failures"
+else
+    status=$?
+fi
+[ "$status" -eq 51 ] || fail "cleanup error did not take precedence over NVRAM error"
+[ "$(cat "$STOP_CALLS")" = stop ] ||
+    fail "startup rollback did not attempt cleanup after both failures"
+echo "failed-start rollback persists disable, cleans once, and propagates errors: PASS"
