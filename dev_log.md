@@ -1,3 +1,12 @@
+## 2026-11-26 — Fix the VPN marker checker by using one normalized source view
+
+- Exact SHA `6edf19ecd1a31332ebc3e23465861ab9399099e8`: AI handoff #45805256973 PASS; VPN lifecycle #45805256951 compiled and passed all C policy regressions, then failed at the marker parser source assertion. The prior checker-only correction used a raw regular expression with double-escaped metacharacters, so it searched for literal backslashes rather than accepting the C function's wrapped formatting.
+- Replace the regex with a whitespace-free view of the extracted launcher and compare the parser, strict 0/1 validation, process scan, atomic config publication, ownership policy, marker write and ownership assignment in that single coordinate space. This also makes the checked side-effect order explicit.
+- No production C or policy semantics changed. Rerun exact-head VPN lifecycle and AI handoff; inspect the remaining f96dce workflow results and the current product-build boundary before further source work.
+- Parent main: `6edf19ecd1a31332ebc3e23465861ab9399099e8`; resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-26 — Make the VPN marker source contract accept wrapped parser calls
 
 - Exact-head VPN lifecycle #45805039088 on `f96dce30881937a686e6bc7e9407a41d47f27c2e` compiled and passed all C policy regressions, including the newly added existing-owner/no-owner marker cases. The final Python contract alone failed because the checked `rc_wan_nvram_parse_int_value()` call was intentionally formatted across two C lines while the checker matched a single-line substring.

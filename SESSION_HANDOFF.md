@@ -115,9 +115,9 @@
 
 ## Exact first action for the next GPT
 
-1. Live main before this checker correction: `f96dce30881937a686e6bc7e9407a41d47f27c2e`. VPN lifecycle #45805039088 passed all compiled C policy regressions, including the new ownership cases, but failed only because its Python checker required the multi-line `rc_wan_nvram_parse_int_value()` call to be contiguous. This commit makes that contract whitespace-tolerant. Immediately rerun VPN lifecycle and AI handoff on the resulting exact SHA; also recheck any still-running f96d checks.
-2. Same-SHA product build XY-C1 #45805039346 was IN PROGRESS at Build XY-C1 at last poll; TRX and artifact upload pending. Same SHA's HTTPD #45805038950, WAN route #45805039104, AI handoff #45805039195, WAN DHCP #45805039154 and Process inventory #45805038990 PASS. Process fail-closed #45805039322 and NVRAM #45805039114 were still running. No L3 claim until this exact product SHA completes Build + TRX + artifact upload; hardware L4 NOT VERIFIED.
-3. After the checker correction passes, rotate out of VPN and continue with an independent high-risk userland stability/security issue. Preserve the existing marker ownership behavior in future shared-daemon changes.
+1. Current main `6edf19ecd1a31332ebc3e23465861ab9399099e8` contains the VPN-client marker ownership source fix and a checker regex correction. Exact VPN lifecycle #45805256951 failed only in the final Python source contract: the regex was double-escaped and matched literal backslashes; all preceding C policy regressions passed. This commit replaces it with one whitespace-normalized source view; rerun exact-head VPN and AI Actions.
+2. Exact product source SHA `1d33cb41aca31eab3d58621a243272dc9cbd0000`: XY-C1 #45803175068 PASS, including Build, TRX verification and artifact upload. This validates the shared atomic xl2tpd config publisher but not the later marker ownership change. f96dce XY-C1 #45805039346 was IN PROGRESS at Build XY-C1 with TRX and artifact pending; poll that result. Current later HEAD still requires its own production-source validation before L3. Hardware L4 remains NOT VERIFIED.
+3. After exact-head VPN and AI validation, poll all remaining f96dce Actions and close failures before rotating to another high-risk userland stability/security defect outside VPN. Do not repeat completed bootstrap or DHCPv6 work.
 
 ## Mandatory handoff checkpoint
 

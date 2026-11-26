@@ -689,21 +689,23 @@ writer_compact = "".join(xl2tpd_writer.split())
 require("(config->vpn_server_address&config->vpn_server_mask)|config->vpn_pool_start" in writer_compact and
         "(config->vpn_server_address&config->vpn_server_mask)|config->vpn_pool_end" in writer_compact,
         "xl2tpd address ranges must use the validated snapshot outputs")
-marker_parse_match = re.search(
-    r"rc_wan_nvram_parse_int_value\\s*\\(\\s*config_snapshot\\.vpnc_marker\\s*,\\s*&vpnc_marker_active\\s*\\)",
-    safe_start_locked)
-require(marker_parse_match is not None,
-        "xl2tpd must parse the checked VPN-client ownership marker")
-marker_parse = marker_parse_match.start()
-marker_validation = safe_start_locked.index(
-    "(vpnc_marker_active != 0 && vpnc_marker_active != 1)", marker_parse)
-marker_policy = safe_start_locked.index(
+safe_start_compact = "".join(safe_start_locked.split())
+marker_parse = safe_start_compact.index(
+    "rc_wan_nvram_parse_int_value(config_snapshot.vpnc_marker,&vpnc_marker_active)")
+marker_validation = safe_start_compact.index(
+    "(vpnc_marker_active!=0&&vpnc_marker_active!=1)", marker_parse)
+marker_process_scan = safe_start_compact.index(
+    'process_inventory_scan("xl2tpd",&process_snapshot)')
+marker_config_publish = safe_start_compact.index(
+    'l2tp_config_file_publish("/etc","xl2tpd.conf"')
+marker_policy = safe_start_compact.index(
     "xl2tpd_start_policy_vpnc_marker_publish_required(")
-marker_write = safe_start_locked.index(
-    'ppp_l2tp_runtime_marker_set_status("l2tp_cli_t", 1)')
-marker_owned = safe_start_locked.index("vpnc_marker_published = 1;", marker_write)
-require(marker_parse < marker_validation < marker_policy < marker_write < marker_owned,
-        "xl2tpd must validate the snapshot marker before acquiring rollback ownership")
+marker_write = safe_start_compact.index(
+    'ppp_l2tp_runtime_marker_set_status("l2tp_cli_t",1)')
+marker_owned = safe_start_compact.index("vpnc_marker_published=1;", marker_write)
+require(marker_parse < marker_validation < marker_process_scan <
+        marker_config_publish < marker_policy < marker_write < marker_owned,
+        "xl2tpd must validate the snapshotted marker before side effects and acquire rollback ownership only after publishing")
 require("return use_vpnc && marker_active == 0;" in xl2tpd_policy and
         "vpnc_marker_publish_required(1, 1)" in xl2tpd_test,
         "existing VPNC marker must suppress redundant publication")
