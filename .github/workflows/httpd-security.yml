@@ -2801,7 +2801,9 @@ jobs:
           resolver = lan[resolver_start:resolver_end]
           assert 'file_lock("resolv")' in resolver
           assert "dnsmasq_file_open(resolv_temp)" in resolver
-          assert "dnsmasq_file_publish(fp, resolv_temp, DNS_RESOLV_CONF, 0644)" in resolver
+          assert "dnsmasq_file_publish_with_rollback(" in resolver
+          assert 'char resolv_backup[] = "/etc/resolv.conf.rollback.XXXXXX";' in resolver
+          assert "recovery_status" in resolver
           assert 'fopen(DNS_RESOLV_CONF' not in resolver
           assert "return route_status_idempotent_delete(" in lan
           assert "route_del(context->lan_ifname" in lan
