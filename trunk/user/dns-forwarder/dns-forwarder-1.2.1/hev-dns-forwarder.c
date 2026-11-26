@@ -20,6 +20,7 @@
 
 #include "hev-dns-forwarder.h"
 #include "hev-dns-session.h"
+#include "hev-dns-forwarder-policy.h"
 
 #define TIMEOUT		(10 * 1000)
 
@@ -44,11 +45,39 @@ HevDNSForwarder *
 hev_dns_forwarder_new (HevEventLoop *loop, const char *addr, const char *port,
 			const char *upstream, const char *upstream_port)
 {
-	HevDNSForwarder *self = HEV_MEMORY_ALLOCATOR_ALLOC (sizeof (HevDNSForwarder));
+	HevDNSForwarder *self = NULL;
+	struct in_addr upstream_addr;
+	unsigned short parsed_upstream_port = 0;
+	int port_status = 0;
+
+	if (!loop || !upstream) {
+		errno = EINVAL;
+		return NULL;
+	}
+	port_status = hev_dns_forwarder_parse_port (upstream_port, &parsed_upstream_port);
+	if (0 != port_status) {
+		errno = port_status;
+		fprintf (stderr, "invalid upstream port %s\\n",
+			 upstream_port ? upstream_port : "(null)");
+		return NULL;
+	}
+	if (0 == inet_aton (upstream, &upstream_addr)) {
+		errno = EINVAL;
+		fprintf (stderr, "invalid upstream %s\\n", upstream);
+		return NULL;
+	}
+
+	self = HEV_MEMORY_ALLOCATOR_ALLOC (sizeof (HevDNSForwarder));
 	if (self) {
 		int r, nonblock = 1, reuseaddr = 1;
 		struct addrinfo hints;
 		struct addrinfo *addr_ip;
+
+		/* Validate upstream before acquiring listener/socket resources. */
+		memset (&self->upstream, 0, sizeof (self->upstream));
+		self->upstream.sin_family = AF_INET;
+		self->upstream.sin_addr = upstream_addr;
+		self->upstream.sin_port = htons (parsed_upstream_port);
 
 		/* listen socket */
 		self->listen_fd = socket (AF_INET, SOCK_DGRAM, 0);
@@ -94,14 +123,6 @@ hev_dns_forwarder_new (HevEventLoop *loop, const char *addr, const char *port,
 		self->session_list = NULL;
 		self->loop = loop;
 
-		/* upstream address */
-		memset (&self->upstream, 0, sizeof (self->upstream));
-		self->upstream.sin_family = AF_INET;
-		if (0 == inet_aton (upstream, &self->upstream.sin_addr)) {
-			fprintf (stderr, "invalid upstream %s\n", upstream);
-			return NULL;
-		}
-		self->upstream.sin_port = htons (atoi (upstream_port));
 	}
 
 	return self;

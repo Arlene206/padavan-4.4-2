@@ -1,3 +1,8 @@
+## 2026-11-26 — Reject malformed DNS Forwarder upstream ports before resource acquisition
+
+- The DNS Forwarder converted its configured upstream port with `atoi()`, silently accepting `0`, negative input, trailing junk, and overflow/truncation. Its upstream address was validated only after opening the listener and event resources, so invalid addresses returned early with resources still live.
+- Added a strict ASCII-decimal parser for ports 1–65535 and validate upstream IP/port before allocating the forwarder or acquiring sockets. The validated address and port are then copied into the upstream sockaddr. GNU89 ASan/UBSan regression covers bounds, signs, whitespace, trailing data, overflow, and unchanged output on failure.
+
 ## 2026-11-26 — Correct DNS Forwarder event-loop test source list
 
 - Exact run `#45846000054` passed the Python source/path contract, then the new host-test compile failed because the workflow referenced a nonexistent `hev-event-source-fd.c`; this repository implements the fd helpers in `hev-event-source.c`. Removed the stale compilation unit from the test command; no production code change.

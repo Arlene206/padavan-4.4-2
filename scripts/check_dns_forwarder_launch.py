@@ -66,6 +66,9 @@ shutils = read("trunk/user/shared/src/shutils.c")
 shutils_header = read("trunk/user/shared/src/shutils.h")
 package_makefile = read("trunk/user/dns-forwarder/Makefile")
 launcher_script = read("trunk/user/dns-forwarder/dns-forwarder.sh")
+forwarder_core = read("trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-dns-forwarder.c")
+forwarder_policy = read("trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-dns-forwarder-policy.h")
+forwarder_policy_test = read("trunk/user/dns-forwarder/tests/hev_dns_forwarder_policy.c")
 core_dir = "trunk/user/dns-forwarder/dns-forwarder-1.2.1/"
 event_loop = read(core_dir + "hev-event-loop.c")
 event_source = read(core_dir + "hev-event-source.c")
@@ -211,6 +214,8 @@ paths = (
     "trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-event-source-timeout.c",
     "trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-event-source-signal.c",
     "trunk/user/dns-forwarder/tests/hev_event_loop_lifecycle.c",
+    "trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-dns-forwarder-policy.h",
+    "trunk/user/dns-forwarder/tests/hev_dns_forwarder_policy.c",
 )
 filters = workflow.split("jobs:", 1)[0]
 push_filters, pr_filters = filters.split("  pull_request:", 1)
@@ -242,5 +247,13 @@ assert "hev_event_loop_add_source (first, source)" in event_loop_test
 assert "hev_event_loop_add_source (second, source)" in event_loop_test
 assert "hev_event_source_add_fd (source, -1, EPOLLIN)" in event_loop_test
 assert "hev_event_source_get_loop (source)" in event_loop_test
+
+assert '#include "hev-dns-forwarder-policy.h"' in forwarder_core
+assert "hev_dns_forwarder_parse_port (upstream_port, &parsed_upstream_port)" in forwarder_core
+assert "htons (parsed_upstream_port)" in forwarder_core
+assert "atoi (upstream_port)" not in forwarder_core
+assert "value > 65535" in forwarder_policy
+for port_case in ('"1"', '"53"', '"00053"', '"65535"', '"0"', '"65536"', '"-1"', '"+53"', '"53x"'):
+    assert port_case in forwarder_policy_test
 
 print("DNS Forwarder push/pull_request path filters: PASS")

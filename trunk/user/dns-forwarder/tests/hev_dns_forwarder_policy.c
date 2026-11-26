@@ -1,0 +1,39 @@
+#include <assert.h>
+#include <errno.h>
+#include <stdio.h>
+
+#include "../dns-forwarder-1.2.1/hev-dns-forwarder-policy.h"
+
+int
+main (void)
+{
+	unsigned short port = 4321;
+
+	assert(0 == hev_dns_forwarder_parse_port("1", &port));
+	assert(1 == port);
+	assert(0 == hev_dns_forwarder_parse_port("53", &port));
+	assert(53 == port);
+	assert(0 == hev_dns_forwarder_parse_port("00053", &port));
+	assert(53 == port);
+	assert(0 == hev_dns_forwarder_parse_port("65535", &port));
+	assert(65535 == port);
+
+	port = 4321;
+	assert(EINVAL == hev_dns_forwarder_parse_port(NULL, &port));
+	assert(4321 == port);
+	assert(EINVAL == hev_dns_forwarder_parse_port("", &port));
+	assert(EINVAL == hev_dns_forwarder_parse_port("0", &port));
+	assert(EINVAL == hev_dns_forwarder_parse_port("65536", &port));
+	assert(EINVAL == hev_dns_forwarder_parse_port("-1", &port));
+	assert(EINVAL == hev_dns_forwarder_parse_port("+53", &port));
+	assert(EINVAL == hev_dns_forwarder_parse_port("53 ", &port));
+	assert(EINVAL == hev_dns_forwarder_parse_port("53x", &port));
+	assert(EINVAL == hev_dns_forwarder_parse_port(" 53", &port));
+	assert(ERANGE == hev_dns_forwarder_parse_port(
+		"999999999999999999999999999999999999999999999999999999999999",
+		&port));
+	assert(4321 == port);
+
+	puts("DNS Forwarder upstream port parser: PASS");
+	return 0;
+}
