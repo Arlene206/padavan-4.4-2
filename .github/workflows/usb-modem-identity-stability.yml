@@ -1088,8 +1088,20 @@ jobs:
           assert "modem_qmi_handle_file_unlink_status" in qmi_stop_function
           assert "uqmi release-client-id failed" in qmi_stop_function
           assert "preserving client ID for retry" in qmi_stop_function
-          assert "modem_qmi_client_id_is_valid(qmi_client_id)" in qmi_stop_function
-          assert "errno != ENOENT" in qmi_stop_function
+          assert "modem_qmi_stop_preflight(" in qmi_stop_function
+          assert "qmi_client_id = get_qmi_handle(QMI_CLIENT_ID);" in qmi_stop_function
+          assert "client_id_read_status = errno;" in qmi_stop_function
+          assert "pdh_handle = get_qmi_handle(QMI_HANDLE_PDH);" in qmi_stop_function
+          assert "pdh_read_status = errno;" in qmi_stop_function
+          assert qmi_stop_function.count("get_qmi_handle(QMI_CLIENT_ID)") == 1
+          assert qmi_stop_function.count("get_qmi_handle(QMI_HANDLE_PDH)") == 1
+          assert qmi_stop_function.index('"--set-client-id"') < qmi_stop_function.index('"--stop-network"')
+          assert "modem_qmi_stop_preflight" in qmi_policy
+          assert "test_qmi_stop_preflight_uses_only_the_persisted_wds_client_id" in qmi_policy_test
+          pdh_cleanup = qmi_stop_function.index("unlink(QMI_HANDLE_PDH)")
+          release_gate = qmi_stop_function.index("if (!modem_qmi_client_id_release_allowed(cleanup_status))", pdh_cleanup)
+          release_command = qmi_stop_function.index('"--release-client-id"', release_gate)
+          assert pdh_cleanup < release_gate < release_command
           assert qmi_stop_function.count("_eval(") == 2
           print("QMI client ID and packet-data handle fail-closed contract: PASS")
           PY
