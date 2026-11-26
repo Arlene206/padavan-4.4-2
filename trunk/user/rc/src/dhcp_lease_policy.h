@@ -817,9 +817,11 @@ dhcp_lease_classless_route_list_is_valid(const char *value,
 			if (*prefix < '0' || *prefix > '9')
 				return 0;
 			digit = *prefix++ - '0';
-			bits = bits * 10U + (unsigned int)digit;
-			if (bits > 32U)
+			/* Check before multiplying: unsigned overflow could otherwise
+			 * wrap a huge server-supplied prefix into the valid 0..32 range. */
+			if (bits > (32U - (unsigned int)digit) / 10U)
 				return 0;
+			bits = bits * 10U + (unsigned int)digit;
 		}
 		status = dhcp_lease_route_token_next(
 			&cursor, gateway, sizeof(gateway));

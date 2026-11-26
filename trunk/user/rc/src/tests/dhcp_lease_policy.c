@@ -1145,6 +1145,12 @@ main(void)
 		"192.0.2.0/24 198.51.100.1 broken", 64, 1));
 	assert(!dhcp_lease_classless_route_list_is_valid(
 		"192.0.2.0/33 198.51.100.1", 64, 1));
+	/* 32-bit unsigned prefix accumulation must not wrap invalid values back
+	 * into /0 or /1 when a DHCP server supplies more than 32. */
+	assert(!dhcp_lease_classless_route_list_is_valid(
+		"0.0.0.0/4294967296 198.51.100.1", 64, 1));
+	assert(!dhcp_lease_classless_route_list_is_valid(
+		"1.0.0.0/4294967297 198.51.100.1", 64, 1));
 	assert(!dhcp_lease_classless_route_list_is_valid(
 		"192.0.2.0/24 999.1.1.1", 64, 1));
 	assert(!dhcp_lease_classless_route_list_is_valid(
