@@ -1046,15 +1046,20 @@ zerotier_static_route_state_load() {
 				break
 			fi
 			case "$zt_route_line" in
+				"P "*) zt_route_record_state=P; zt_route_tuple="${zt_route_line#P }" ;;
+				"A "*) zt_route_record_state=A; zt_route_tuple="${zt_route_line#A }" ;;
+				*) zt_route_record_state=A; zt_route_tuple="$zt_route_line" ;;
+			esac
+			case "$zt_route_tuple" in
 				*" "*) ;;
 				*) return 1 ;;
 			esac
-			zt_route_saved_ip="${zt_route_line%% *}"
-			zt_route_saved_gateway="${zt_route_line#* }"
+			zt_route_saved_ip="${zt_route_tuple%% *}"
+			zt_route_saved_gateway="${zt_route_tuple#* }"
 			case "$zt_route_saved_gateway" in
 				""|*" "*) return 1 ;;
 			esac
-			[ "$zt_route_line" = "$zt_route_saved_ip $zt_route_saved_gateway" ] || return 1
+			[ "$zt_route_tuple" = "$zt_route_saved_ip $zt_route_saved_gateway" ] || return 1
 			zerotier_static_route_tuple_is_valid "$zt_route_saved_ip" "$zt_route_saved_gateway" || return 1
 			zt_route_saved_count=$((zt_route_saved_count + 1))
 			[ "$zt_route_saved_count" -le "$ZT_MAX_STATIC_ROUTES" ] || return 1
@@ -1115,6 +1120,7 @@ zerotier_static_route_state_save() {
 				rm -f "$zt_route_state_tmp"
 				return 1
 			fi
+			zt_route_record_state=A
 			if [ "$zt_route_snapshot_mode" = "add" ]; then
 				if ! zt_route_existing="$(ip route show "$zt_route_ip" 2>/dev/null)"; then
 					rm -f "$zt_route_state_tmp"
@@ -1132,8 +1138,15 @@ zerotier_static_route_state_save() {
 						return 1
 					fi
 				fi
+				zt_route_record_state=P
+				# Reject duplicate selectors before any kernel mutation.
+				if grep -Fqx "P $zt_route_ip $zt_route_gateway" "$zt_route_state_tmp"; then
+					rm -f "$zt_route_state_tmp"
+					logger -t "zerotier" "静态路由配置包含重复条目: $zt_route_ip"
+					return 1
+				fi
 			fi
-			if ! printf '%s %s\n' "$zt_route_ip" "$zt_route_gateway" >> "$zt_route_state_tmp"; then
+			if ! printf '%s %s %s\n' "$zt_route_record_state" "$zt_route_ip" "$zt_route_gateway" >> "$zt_route_state_tmp"; then
 				rm -f "$zt_route_state_tmp"
 				return 1
 			fi
@@ -1149,6 +1162,60 @@ zerotier_static_route_state_save() {
 		return 1
 	fi
 	return 0
+}
+
+# Promote a pending tuple only after "ip route add" succeeds.
+# A failed promotion remains pending and cannot authorize route deletion.
+zerotier_static_route_state_mark_owned() {
+	[ "$#" -eq 2 ] || return 1
+	zerotier_static_route_tuple_is_valid "$1" "$2" || return 1
+	[ -d "$config_path" ] && [ ! -L "$config_path" ] || return 1
+	zt_route_state_file="$config_path/.static-routes-state"
+	[ -f "$zt_route_state_file" ] && [ ! -L "$zt_route_state_file" ] || return 1
+	zt_route_state_tmp="$(mktemp "$config_path/.static-routes-state.XXXXXX")" || return 1
+	if ! awk -v route_ip="$1" -v route_gateway="$2" '
+		NR == 1 { print; next }
+		$1 == "P" && $2 == route_ip && $3 == route_gateway {
+			$1 = "A"
+			found++
+		}
+		{ print }
+		END { if (found != 1) exit 1 }
+	' "$zt_route_state_file" > "$zt_route_state_tmp"; then
+		rm -f "$zt_route_state_tmp"
+		return 1
+	fi
+	if ! chmod 600 "$zt_route_state_tmp" ||
+	   ! mv -f "$zt_route_state_tmp" "$zt_route_state_file"; then
+		rm -f "$zt_route_state_tmp"
+		return 1
+	fi
+	zerotier_static_route_state_load
+}
+
+# Forget a pending tuple only after the kernel confirms it is absent.
+zerotier_static_route_state_remove_pending() {
+	[ "$#" -eq 2 ] || return 1
+	zerotier_static_route_tuple_is_valid "$1" "$2" || return 1
+	[ -d "$config_path" ] && [ ! -L "$config_path" ] || return 1
+	zt_route_state_file="$config_path/.static-routes-state"
+	[ -f "$zt_route_state_file" ] && [ ! -L "$zt_route_state_file" ] || return 1
+	zt_route_state_tmp="$(mktemp "$config_path/.static-routes-state.XXXXXX")" || return 1
+	if ! awk -v route_ip="$1" -v route_gateway="$2" '
+		NR == 1 { print; next }
+		$1 == "P" && $2 == route_ip && $3 == route_gateway { removed++; next }
+		{ print }
+		END { if (removed != 1) exit 1 }
+	' "$zt_route_state_file" > "$zt_route_state_tmp"; then
+		rm -f "$zt_route_state_tmp"
+		return 1
+	fi
+	if ! chmod 600 "$zt_route_state_tmp" ||
+	   ! mv -f "$zt_route_state_tmp" "$zt_route_state_file"; then
+		rm -f "$zt_route_state_tmp"
+		return 1
+	fi
+	zerotier_static_route_state_load
 }
 
 zerotier_static_route_state_clear() {
@@ -1378,24 +1445,57 @@ zero_route() {
 	while IFS= read -r zt_route_line; do
 		zt_route_record_index=$((zt_route_record_index + 1))
 		[ "$zt_route_record_index" -eq 1 ] && continue
-		zero_ip="${zt_route_line%% *}"
-		zero_route="${zt_route_line#* }"
+		case "$zt_route_line" in
+			"P "*) zt_route_record_state=P; zt_route_tuple="${zt_route_line#P }" ;;
+			"A "*) zt_route_record_state=A; zt_route_tuple="${zt_route_line#A }" ;;
+			*) zt_route_record_state=A; zt_route_tuple="$zt_route_line" ;;
+		esac
+		zero_ip="${zt_route_tuple%% *}"
+		zero_route="${zt_route_tuple#* }"
 		if [ "$1" = "add" ]; then
+			[ "$zt_route_record_state" = P ] || {
+				logger -t "zerotier" "静态路由清单包含非待安装条目，拒绝重复添加"
+				return 1
+			}
 			if ! ip route add "$zero_ip" via "$zero_route" dev "$zt0"; then
 				logger -t "zerotier" "静态路由安装失败: $zero_ip via $zero_route"
+				return 1
+			fi
+			if ! zerotier_static_route_state_mark_owned "$zero_ip" "$zero_route"; then
+				logger -t "zerotier" "静态路由已添加，但无法确认所有权，保留待核实清单"
 				return 1
 			fi
 			echo "$zt0"
 			continue
 		fi
 
-		# Treat an already-absent route as an idempotent success, but do not
-		# discard inspection or deletion failures.
+		# A pending route was never confirmed by a successful add. An exact live
+		# match can therefore belong to a concurrent process; never delete it.
 		if ! route_output="$(ip route show "$zero_ip" 2>/dev/null)"; then
 			logger -t "zerotier" "无法检查静态路由: $zero_ip"
 			route_status=1
 			continue
 		fi
+		if [ "$zt_route_record_state" = P ]; then
+			if printf '%s\n' "$route_output" | zero_route_entry_matches "$zero_ip" "$zero_route" "$zt0"; then
+				logger -t "zerotier" "待确认静态路由仍然存在，拒绝删除未确认所有权路由: $zero_ip"
+				route_status=1
+			else
+				route_match_status=$?
+				if [ "$route_match_status" -eq 1 ]; then
+					if ! zerotier_static_route_state_remove_pending "$zero_ip" "$zero_route"; then
+						logger -t "zerotier" "无法移除已确认不存在的待安装静态路由记录: $zero_ip"
+						route_status=1
+					fi
+				else
+					logger -t "zerotier" "待确认静态路由状态冲突或未知，保留恢复清单: $zero_ip"
+					route_status=1
+				fi
+			fi
+			continue
+		fi
+
+		# Only owned routes may be deleted. An absent route is idempotently done.
 		if printf '%s\n' "$route_output" | zero_route_entry_matches "$zero_ip" "$zero_route" "$zt0"; then
 			if ! ip route del "$zero_ip" via "$zero_route" dev "$zt0" >/dev/null 2>&1; then
 				logger -t "zerotier" "静态路由删除失败: $zero_ip via $zero_route"

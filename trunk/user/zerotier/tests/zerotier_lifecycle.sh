@@ -2031,7 +2031,7 @@ zt0=ztunit
 if ! zero_route add; then
 	fail "static-route add did not persist its applied-route manifest"
 fi
-[ "$(cat "$TEST_CONFIG/.static-routes-state")" = "$(printf 'ztunit\n192.0.2.0/24 192.0.2.1')" ] ||
+[ "$(cat "$TEST_CONFIG/.static-routes-state")" = "$(printf 'ztunit\nA 192.0.2.0/24 192.0.2.1')" ] ||
 	fail "static-route manifest did not record the exact interface/destination/gateway"
 TEST_ROUTE_SHOW_OUTPUT="192.0.2.0/24 via 192.0.2.1 dev ztunit"
 TEST_STATIC_ROUTE_COUNT=0
@@ -2294,14 +2294,41 @@ TEST_STATIC_ROUTE_ENABLE=1
 TEST_ROUTE_ADD_STATUS=1
 TEST_ROUTE_ADD_PARTIAL=1
 TEST_ROUTE_PRESENT=0
+TEST_STATIC_ROUTE_IP="192.0.2.0/24"
+TEST_STATIC_ROUTE_GATEWAY="192.0.2.1"
+TEST_ROUTE_SHOW_OUTPUT=""
 if rules; then
 	fail "rules reported success after a configured static route add failed"
 fi
 grep -Fqx -- "zero_route:add" "$TEST_ACTION_LOG" || fail "static route failure fixture did not attempt route installation"
-[ "$(cat "$TEST_ACTION_LOG")" = "$(printf 'zero_route:add\nzero_route:del')" ] || fail "static route failure did not roll back firewall and partial route state"
+[ "$(cat "$TEST_ACTION_LOG")" = "zero_route:add" ] || fail "failed add attempted to delete an unconfirmed route"
+[ "$TEST_ROUTE_PRESENT" -eq 1 ] || fail "race fixture did not leave the competing exact route present"
+[ "$(cat "$TEST_CONFIG/.static-routes-state")" = "$(printf 'ztunit\nP 192.0.2.0/24 192.0.2.1')" ] || fail "unconfirmed route did not retain a pending ownership marker"
 [ ! -s "$TEST_IPTABLES_STATE_FILE" ] || fail "static route failure left firewall rules behind"
-[ ! -e "$TEST_CONFIG/.firewall-state" ] || fail "complete static-route rollback retained a stale recovery checkpoint"
+[ -f "$TEST_CONFIG/.firewall-state" ] || fail "incomplete route rollback discarded its firewall cleanup checkpoint"
 [ "$(grep -cE '(^| )-A ' "$TEST_IPTABLES_LOG" || true)" -eq 5 ] || fail "static route failure fixture did not publish all firewall rules before route failure"
+
+# A pending exact match is unowned: replay must preserve it and retain recovery state.
+: > "$TEST_ACTION_LOG"
+if zerotier_replay_firewall_state; then
+	fail "replay deleted or accepted a pending route still present in the kernel"
+fi
+[ "$TEST_ROUTE_PRESENT" -eq 1 ] || fail "replay removed a route whose add ownership was unconfirmed"
+[ -f "$TEST_CONFIG/.static-routes-state" ] || fail "pending route replay discarded its ownership marker"
+[ -f "$TEST_CONFIG/.firewall-state" ] || fail "pending route replay discarded the firewall checkpoint"
+if grep -Fqx -- "zero_route:del" "$TEST_ACTION_LOG"; then
+	fail "replay issued a delete for an unconfirmed route"
+fi
+
+# Once an administrator removes the ambiguous route, a later replay safely
+# removes the pending record and retires the already-clean firewall checkpoint.
+TEST_ROUTE_PRESENT=0
+if ! zerotier_replay_firewall_state; then
+	fail "replay could not finish cleanup after the pending route became absent"
+fi
+[ ! -e "$TEST_CONFIG/.static-routes-state" ] || fail "confirmed-absent pending route kept its manifest"
+[ ! -e "$TEST_CONFIG/.firewall-state" ] || fail "confirmed-absent pending route kept its firewall checkpoint"
+[ "$TEST_ROUTE_PRESENT" -eq 0 ] || fail "pending route retry changed the absent route fixture"
 TEST_STATIC_ROUTE_COUNT=0
 TEST_STATIC_ROUTE_ENABLE=0
 TEST_ROUTE_ADD_STATUS=0
@@ -2549,14 +2576,41 @@ TEST_STATIC_ROUTE_ENABLE=1
 TEST_ROUTE_ADD_STATUS=1
 TEST_ROUTE_ADD_PARTIAL=1
 TEST_ROUTE_PRESENT=0
+TEST_STATIC_ROUTE_IP="192.0.2.0/24"
+TEST_STATIC_ROUTE_GATEWAY="192.0.2.1"
+TEST_ROUTE_SHOW_OUTPUT=""
 if rules; then
 	fail "rules reported success after a configured static route add failed"
 fi
 grep -Fqx -- "zero_route:add" "$TEST_ACTION_LOG" || fail "static route failure fixture did not attempt route installation"
-[ "$(cat "$TEST_ACTION_LOG")" = "$(printf 'zero_route:add\nzero_route:del')" ] || fail "static route failure did not roll back firewall and partial route state"
+[ "$(cat "$TEST_ACTION_LOG")" = "zero_route:add" ] || fail "failed add attempted to delete an unconfirmed route"
+[ "$TEST_ROUTE_PRESENT" -eq 1 ] || fail "race fixture did not leave the competing exact route present"
+[ "$(cat "$TEST_CONFIG/.static-routes-state")" = "$(printf 'ztunit\nP 192.0.2.0/24 192.0.2.1')" ] || fail "unconfirmed route did not retain a pending ownership marker"
 [ ! -s "$TEST_IPTABLES_STATE_FILE" ] || fail "static route failure left firewall rules behind"
-[ ! -e "$TEST_CONFIG/.firewall-state" ] || fail "complete static-route rollback retained a stale recovery checkpoint"
+[ -f "$TEST_CONFIG/.firewall-state" ] || fail "incomplete route rollback discarded its firewall cleanup checkpoint"
 [ "$(grep -cE '(^| )-A ' "$TEST_IPTABLES_LOG" || true)" -eq 5 ] || fail "static route failure fixture did not publish all firewall rules before route failure"
+
+# A pending exact match is unowned: replay must preserve it and retain recovery state.
+: > "$TEST_ACTION_LOG"
+if zerotier_replay_firewall_state; then
+	fail "replay deleted or accepted a pending route still present in the kernel"
+fi
+[ "$TEST_ROUTE_PRESENT" -eq 1 ] || fail "replay removed a route whose add ownership was unconfirmed"
+[ -f "$TEST_CONFIG/.static-routes-state" ] || fail "pending route replay discarded its ownership marker"
+[ -f "$TEST_CONFIG/.firewall-state" ] || fail "pending route replay discarded the firewall checkpoint"
+if grep -Fqx -- "zero_route:del" "$TEST_ACTION_LOG"; then
+	fail "replay issued a delete for an unconfirmed route"
+fi
+
+# Once an administrator removes the ambiguous route, a later replay safely
+# removes the pending record and retires the already-clean firewall checkpoint.
+TEST_ROUTE_PRESENT=0
+if ! zerotier_replay_firewall_state; then
+	fail "replay could not finish cleanup after the pending route became absent"
+fi
+[ ! -e "$TEST_CONFIG/.static-routes-state" ] || fail "confirmed-absent pending route kept its manifest"
+[ ! -e "$TEST_CONFIG/.firewall-state" ] || fail "confirmed-absent pending route kept its firewall checkpoint"
+[ "$TEST_ROUTE_PRESENT" -eq 0 ] || fail "pending route retry changed the absent route fixture"
 TEST_STATIC_ROUTE_COUNT=0
 TEST_STATIC_ROUTE_ENABLE=0
 TEST_ROUTE_ADD_STATUS=0

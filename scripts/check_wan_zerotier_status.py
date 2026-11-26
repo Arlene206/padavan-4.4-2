@@ -130,6 +130,11 @@ for workflow, label in ((WORKFLOW, "ZeroTier"), (WAN_WORKFLOW, "WAN route")):
 start_zero = body(ZEROTIER_SCRIPT, "start_zero()")
 replay = body(ZEROTIER_SCRIPT, "zerotier_replay_firewall_state()")
 rules = body(ZEROTIER_SCRIPT, "rules()")
+route_state_load = body(ZEROTIER_SCRIPT, "zerotier_static_route_state_load()")
+route_state_save = body(ZEROTIER_SCRIPT, "zerotier_static_route_state_save()")
+route_state_mark = body(ZEROTIER_SCRIPT, "zerotier_static_route_state_mark_owned()")
+route_state_remove = body(ZEROTIER_SCRIPT, "zerotier_static_route_state_remove_pending()")
+zero_route_body = body(ZEROTIER_SCRIPT, "zero_route()")
 append = body(ZEROTIER_SCRIPT, "zerotier_add_firewall_rule()")
 require(
     start_zero.index("kill_z") < start_zero.index("zerotier_replay_firewall_state")
@@ -148,6 +153,24 @@ require(
 require(
     rules.index("zerotier_firewall_state_save") < rules.index("zerotier_add_firewall_rule"),
     "successful ZeroTier rule publication must persist a cleanup checkpoint before appending rules",
+)
+require(
+    'zt_route_record_state=P' in route_state_load
+    and 'zt_route_record_state=A' in route_state_load
+    and 'zt_route_record_state=P' in route_state_save
+    and 'grep -Fqx "P $zt_route_ip $zt_route_gateway"' in route_state_save
+    and 'found != 1' in route_state_mark
+    and 'removed != 1' in route_state_remove
+    and 'zerotier_static_route_state_mark_owned "$zero_ip" "$zero_route"' in zero_route_body
+    and 'if [ "$zt_route_record_state" = P ]; then' in zero_route_body
+    and 'zerotier_static_route_state_remove_pending "$zero_ip" "$zero_route"' in zero_route_body,
+    "only a successful route add may promote a pending ZeroTier tuple to owned state",
+)
+require(
+    "failed add attempted to delete an unconfirmed route" in ZEROTIER_TEST
+    and "unconfirmed route did not retain a pending ownership marker" in ZEROTIER_TEST
+    and "pending exact match is unowned" in ZEROTIER_TEST,
+    "static-route EEXIST race regression must preserve unconfirmed routes",
 )
 require(
     "elif ! zerotier_firewall_state_clear" in append,
