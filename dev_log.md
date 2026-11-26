@@ -1,3 +1,9 @@
+## 2026-11-26 — Correct MiniUPnP timeout checker fixture and roadmap size
+
+- The exact-SHA event-subscriber workflow #45844543377 compiled and passed the GNU89 ASan/UBSan capacity/timeout binary, then failed only because the source checker expected `Second-InFiNiTe` while the test used the valid mixed-case `sEcOnD-InFiNiTe`; align the literal, not production behavior.
+- AI handoff workflow #45844543967 found the roadmap at 131153 bytes, 81 bytes above its 131072-byte cap. Condensed the MiniUPnP dashboard row while preserving relevant lifecycle/security status and new timeout work.
+- HTTP framing #45844543368 and event callback #45844543183 PASSed on `b81ac781`; XY-C1 #45844543988 remained in progress. Parent main: `b81ac7815d7fbe3b4573f742b00cbdba19c2e0d7`; rerun both failed host contracts on the corrected exact SHA.
+
 ## 2026-11-26 — Parse MiniUPnP event timeouts without integer or time_t overflow
 
 - The network-facing MiniUPnP `Timeout:` parser used `atoi()`, accepting malformed signed/trailing-junk values and invoking undefined behavior for out-of-range input; event subscribe/renew then added the untrusted duration directly to signed `time_t`.

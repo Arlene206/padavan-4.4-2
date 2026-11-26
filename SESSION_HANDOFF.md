@@ -2,7 +2,7 @@
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; active branch: `main`; current parent before the MiniUPnP event-timeout hardening slice: `349a3ad2ba842a7eeb2f38b2e4dd307bfa1a715a`.
+- Repository: `Arlene206/padavan-4.4-2`; active branch: `main`; current parent before the MiniUPnP timeout checker/docs correction: `b81ac7815d7fbe3b4573f742b00cbdba19c2e0d7`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged; do not modify). PR #1 remains closed and unmerged.
 - Bootstrap/protocol recovery was completed earlier in this continuous project; do not repeat it. Work on `main` only with full-tree atomic commits and non-forced expected-SHA updates.
 - Recent exact-SHA evidence: detect_internet #45840625872 and AI handoff #45840625916 PASS on `863d77c9e28fc3caff4c53bf9a81607d4bf9871b`; HTTPD DHCP Router checker #45839469363 and AI handoff #45839469460 PASS on `68edd489cb4123769327c3b35aa5971a10ab4af2`.
@@ -11,9 +11,9 @@
 
 ## Active task
 
-- Harden the MiniUPnP event-subscription `Timeout:` request boundary. The prior HTTP header parser used `atoi(p+7)`, which accepted signed/trailing-junk values and invoked undefined behavior on overflow; subscriber creation and renewal then computed `time(NULL) + timeout` without protecting signed 32-bit `time_t` overflow.
-- This source slice adds exact bounded `Second-nnnn` / `Second-infinite` parsing, duplicate-header rejection and HTTP 400 for malformed values; add/renew use a shared overflow-safe saturating deadline helper. GNU89 ASan/UBSan regression covers grammar, INT_MAX overflow, invalid input and simulated 32-bit deadline saturation; the subscriber workflow's embedded source contract covers production integration.
-- The changed `trunk/user/miniupnpd/**` production input is explicitly in the XY-C1 push path filter. Exact-SHA subscriber, AI handoff and XY-C1 Build/TRX/artifact checks are pending until this source commit is checked. No hardware/L4 claim.
+- Production timeout hardening is committed at `b81ac7815d7fbe3b4573f742b00cbdba19c2e0d7`: strict bounded `Second-nnnn` / `Second-infinite` parsing, duplicate-header rejection, and saturating subscriber expiry for 32-bit `time_t`.
+- Exact-SHA GNU89 ASan/UBSan policy compile and execution PASSed (#45844543377, compile step); the embedded source checker then failed only because its expected mixed-case fixture token did not match the test literal. AI handoff validation also found `REFACTOR_ROADMAP.md` 81 bytes above its 128-KiB hard limit; both checker/docs-only corrections are in this descendant and require exact-SHA reruns.
+- HTTP request framing and event callback workflows PASSed on `b81ac781`; XY-C1 run #45844543988 is PENDING at build-dependency setup. Require the firmware-input detector, Build XY-C1, TRX and artifact upload to PASS before claiming this source has L3 validation.
 
 ## Completed production work — LAN DHCP resolver transaction
 
@@ -59,9 +59,9 @@
 
 ## Exact first action for the next GPT
 
-1. Read the current `main` HEAD once and inspect the exact-SHA MiniUPnP event-subscriber regression plus AI handoff documentation check for this timeout-parser/deadline commit.
-2. Inspect the matching XY-C1 run and require the firmware-input detector, Build XY-C1, TRX verification and artifact upload all to PASS on that same source SHA. If Build is still PENDING, continue an independent source task rather than waiting.
-3. Continue another concrete P1 stability/security defect without repeating completed work. Keep full-tree atomic commits with expected-SHA updates; frozen backup stays untouched and hardware/L4 remains NOT VERIFIED.
+1. Check the exact-SHA MiniUPnP subscriber regression and AI handoff documentation contract for the correction commit.
+2. Inspect XY-C1 run #45844543988 on production source SHA `b81ac781`; require the detector, Build XY-C1, TRX verification and artifact upload to PASS. If still pending, proceed with an independent source slice.
+3. Continue another concrete P1 stability/security repair without repeating completed work. Use one full-tree atomic commit and expected-SHA update; leave the frozen backup untouched. Hardware/L4 remains NOT VERIFIED.
 
 ## Mandatory handoff checkpoint
 

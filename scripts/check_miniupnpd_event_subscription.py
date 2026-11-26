@@ -85,7 +85,7 @@ for makefile in (linux_makefile, nft_makefile):
 for token in (
     "test_timeout_parse",
     "Second-2147483648",
-    "Second-InFiNiTe",
+    "sEcOnD-InFiNiTe",
     "test_timeout_deadline",
     "maximum - (time_t)1",
     "MINIUPNPD_EVENT_MAX_SUBSCRIBERS + 1U",
