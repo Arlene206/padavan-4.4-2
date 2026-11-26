@@ -1,24 +1,25 @@
 ## Current repository state — 2026-11-25
 
-- Live `main` before this slice: `1f8b4a80e0bf035f423c11abd0be128bcbf05ab6` (`fix(udhcpd): guard lease temp cleanup`). Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; untouched.
-- Exact `1f8b4a8` DHCP lease-file atomic workflow #45733756015 PASS and AI handoff docs #45733756180 PASS. NVRAM #45733755968, USB #45733755980, Process inventory #45733755920 and XY-C1 #45733755992 were IN_PROGRESS at last poll; XY-C1 Build/TRX/artifact had not completed.
-- DHCP lease-file replacement is atomic at the namespace level. The latest slice adds parent-directory open/fsync after the temp file is synced and renamed. A directory-open failure is rejected before the destination can change; a directory-fsync failure after rename is reported distinctly because the new file is already visible but crash durability is uncertain.
-- Fault injection now covers temp create, write, file fsync, close, rename, parent-directory open and post-rename parent-directory fsync. The test distinguishes pre-rename preservation from post-rename published-but-not-confirmed-durable state.
+- Parent `main` for this slice: `6ae42c6f9e61d8c7f7d6dfbb9b98c4a24d9934f1` (`fix(udhcpd): sync lease directory after rename`). Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged.
+- Exact `6ae42c6` DHCP lease-file atomic-write #45733998087 PASS; lease clock correction #45733997981 PASS; AI handoff docs #45733998032 PASS. NVRAM #45733998041, USB #45733998096, Process inventory #45733997998 and XY-C1 #45733998006 were IN_PROGRESS at last poll. XY-C1 Build/TRX/artifact remained pending.
+- Atomic lease writer now fsyncs the temp file and parent directory after rename. Parent-dir open failure aborts before replacement; post-rename directory-fsync failure is reported as published-but-not-confirmed-durable.
+- This slice adds explicit diagnostics for lease-file framing faults: empty/short header, read error, short trailing record, and invalid/stale timestamp. Complete records read before a truncated tail remain loaded; the incomplete tail is ignored with a warning. Clean EOF remains distinct from truncated data.
 - Physical-router L4 remains NOT VERIFIED. No older firmware result is transferred to a new SHA.
 
 ## Active task
 
-Validate directory-sync behavior on the exact head. Then review `read_leases()` handling of malformed/truncated records and file-read errors, adding a clear fail-closed or partial-recovery policy only where evidence shows a concrete defect. Continue to another userland subsystem once this bounded DHCP slice is stable.
+Validate the lease-file read framing policy on its exact head. Then inspect a different userland subsystem for concrete stability/security issues; DHCP file persistence now has timestamp handling, atomic replace, directory sync, and explicit malformed-tail diagnostics.
 
 ## Verification boundary
 
-- Exact `1f8b4a8` focused atomic lease workflow #45733756015 PASS; AI docs #45733756180 PASS. NVRAM, USB, Process inventory and XY-C1 were still in progress at last exact-SHA query.
-- Previous standalone GNU89 ASan/UBSan atomic writer regression PASS for successful replacement, temp creation, short write, file fsync, close and rename failure. This slice adds parent-directory open/fsync scenarios; its exact-SHA workflow is pending at commit creation.
-- No live DHCP exchange, device storage power-cut test, current-SHA MIPS firmware artifact, or router L4 result is claimed.
+- Parent `6ae42c6` atomic lease-write #45733998087, lease clock correction #45733997981 and AI docs #45733998032 PASS.
+- Parent NVRAM, USB, Process inventory and XY-C1 were still running at last poll; XY-C1 Build/TRX/artifact are not verified here.
+- Parent-dir fsync test and atomic regression passed exact-head GitHub Actions. New read framing tests are GNU89 ASan/UBSan and exact-head Actions pending at commit creation.
+- No live DHCP exchange, device storage power-cut test, current-SHA MIPS artifact, or router L4 result is claimed.
 
 ## Exact first action for the next GPT
 
-Fetch live `main` and exact-head DHCP lease-file atomic, AI docs and XY-C1 Actions. Verify directory-open and directory-fsync tests and inspect Build/TRX/artifact. If they pass, inspect `read_leases()` partial record/read error handling. Preserve the frozen backup.
+Fetch live `main` and exact-head DHCP lease-read policy, AI docs, and XY-C1 push Actions. Require the framing test/source contract and docs workflow to pass; inspect Build/TRX/artifact without waiting on PENDING jobs. Then continue a concrete stability/security fix outside DHCP lease persistence. Preserve the frozen backup.
 
 # Cross-session execution mandate
 

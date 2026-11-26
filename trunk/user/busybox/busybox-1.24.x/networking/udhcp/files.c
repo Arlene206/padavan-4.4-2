@@ -10,6 +10,7 @@
 
 #include "common.h"
 #include "dhcpd.h"
+#include "udhcp_lease_file_read_policy.h"
 #include "udhcp_lease_file_atomic.h"
 
 static int udhcp_open_lease_directory(const char *path)
@@ -211,19 +212,46 @@ void FAST_FUNC read_leases(const char *file)
 	if (fd < 0)
 		return;
 
-	if (full_read(fd, &written_at, sizeof(written_at)) != sizeof(written_at))
-		goto ret;
+	{
+		ssize_t read_count = full_read(fd, &written_at, sizeof(written_at));
+		int read_status = udhcp_lease_file_read_status(read_count,
+				sizeof(written_at));
+
+		if (read_status != UDHCP_LEASE_FILE_READ_COMPLETE) {
+			if (read_count < 0)
+				bb_perror_msg("error reading lease file header from %s", file);
+			else
+				bb_error_msg("empty or truncated lease file header in %s", file);
+			goto ret;
+		}
+	}
 	written_at = SWAP_BE64(written_at);
 
 	/* A bounded future timestamp can result from NTP clock correction.
 	 * Treat it as zero elapsed time so valid leases are not discarded.
 	 * Reject old-format files and timestamps outside the existing 12h window.
 	 */
-	if (!udhcp_lease_file_time_delta_valid(time(NULL), written_at, &time_passed))
+	if (!udhcp_lease_file_time_delta_valid(time(NULL), written_at, &time_passed)) {
+		bb_error_msg("lease file has invalid or stale timestamp: %s", file);
 		goto ret;
+	}
 
-	while (full_read(fd, &lease, sizeof(lease)) == sizeof(lease)) {
-		uint32_t y = ntohl(lease.lease_nip);
+	for (;;) {
+		ssize_t read_count = full_read(fd, &lease, sizeof(lease));
+		int read_status = udhcp_lease_file_read_status(read_count,
+				sizeof(lease));
+		uint32_t y;
+
+		if (read_status == UDHCP_LEASE_FILE_READ_EOF)
+			break;
+		if (read_status != UDHCP_LEASE_FILE_READ_COMPLETE) {
+			if (read_count < 0)
+				bb_perror_msg("error reading lease record from %s", file);
+			else
+				bb_error_msg("truncated lease record in %s", file);
+			break;
+		}
+		y = ntohl(lease.lease_nip);
 		if (y >= server_config.start_ip && y <= server_config.end_ip) {
 			signed_leasetime_t expires = ntohl(lease.expires) - (signed_leasetime_t)time_passed;
 			uint32_t static_nip;

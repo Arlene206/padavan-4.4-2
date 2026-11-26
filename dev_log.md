@@ -1,3 +1,11 @@
+## 2026-11-25 — Report malformed and truncated DHCP lease-file reads
+
+- `read_leases()` previously treated every non-full `full_read()` result as ordinary loop termination. An empty/partial header, I/O error, or truncated final lease record was silently ignored, making persistent lease corruption indistinguishable from normal EOF.
+- Added an explicit read-status classifier and diagnostics. Header EOF/short reads now abort loading with a warning; record EOF ends normally; negative read errors and positive partial/oversized records are reported. Previously completed records remain available when only the trailing record is incomplete.
+- Added GNU89 boundary tests for complete records, EOF, short/oversized records and read errors; added a source-order checker and XY-C1 path filters. Exact-head workflow pending at commit creation; no live router test claimed.
+
+---
+
 ## 2026-11-25 — Sync DHCP lease directory after atomic replacement
 
 - File fsync plus rename made the new lease data visible atomically but did not guarantee that the directory entry update itself was durable across power loss.
