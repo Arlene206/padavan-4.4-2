@@ -206,7 +206,7 @@ assert fatal_receive < receive_log < receive_break < cleanup
 assert "exit_status = errno ? errno : EIO;" in main[fatal_receive:receive_log]
 
 init = function_body(source, "nmap_init(void)")
-assert "static int\\nnmap_init(void)" in source
+assert "static int\nnmap_init(void)" in source
 assert "struct timeval arp_timeout = {2, 0};" in init
 assert "return networkmap_set_receive_timeout(&arp_timeout);" in init
 timeout_helper = function_body(source, "networkmap_set_receive_timeout(const struct timeval *timeout)")

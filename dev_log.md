@@ -1,3 +1,7 @@
+## 2026-11-26 — Correct networkmap timeout checker signature literal
+
+- Exact run #45841079284 passed all three GNU89 ASan/UBSan policy binaries, including the new timeout error cases, then failed only because the embedded checker encoded the expected source newline as a literal backslash sequence. Corrected the checker to interpret the newline; production timeout propagation remains unchanged.
+
 ## 2026-11-26 — Fail closed when networkmap cannot bound ARP receive waits
 
 - `nmap_init()` and the full-scan completion path ignored `setsockopt(SO_RCVTIMEO)` results. If the initial timeout could not be installed, `recvfrom()` could block indefinitely, preventing periodic discovery and delaying signal-driven shutdown; failure to restore the normal timeout after a full scan could also leave a stale 60 ms cadence.
