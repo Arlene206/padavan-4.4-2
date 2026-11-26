@@ -1,3 +1,24 @@
+## 2026-11-26 — DNS Forwarder stability handoff
+
+- 当前 `main`: `ab2d915ae84e97e18dc3165afcc263f73d465b5f`。
+- 冻结备份分支 `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`；本轮未修改备份分支。
+- 最近相关原子提交与精确 SHA / CI 状态（以此处 API 快照为准）：
+- `ab2d915ae84e97e18dc3165afcc263f73d465b5f` test(dns-forwarder): tolerate wrapped checked-port call — DNS Forwarder launch path stability regression #45849458954: in_progress/pending
+- `93f2b137ea212a5fbc857fae09faec384bcb519b` fix(dns-forwarder): report CLI startup failures — XY-C1 Firmware Validation #45848922656: in_progress/pending; DNS Forwarder launch path stability regression #45848922574: completed/failure; AI handoff documentation contract #45848922565: completed/success
+- `9a6d645f10ea2032819ac63467c0cdb2a10ca29f` fix(dns-forwarder): unwind listener startup failures — AI handoff documentation contract #45848220397: completed/success; XY-C1 Firmware Validation #45848220389: in_progress/pending; DNS Forwarder launch path stability regression #45848220378: completed/failure
+- `a039b68d37cb3eb5f2acdd4ae7d448c6851d5223` fix(dns-forwarder): validate upstream address and port before setup — AI handoff documentation contract #45847194027: completed/success; XY-C1 Firmware Validation #45847193944: completed/success; DNS Forwarder launch path stability regression #45847193941: completed/success
+- `050365be1040bd88b2c06d0942f0d43f3f92dab6` test(dns-forwarder): correct event-loop compile inputs — AI handoff documentation contract #45846263346: completed/success; DNS Forwarder launch path stability regression #45846263342: completed/success
+- `3ccc3c94fe83bc0acdcf5c4a86aa70e302040bb6` fix(dns-forwarder): roll back failed event source registration — AI handoff documentation contract #45846000394: completed/success; DNS Forwarder launch path stability regression #45846000054: completed/failure; XY-C1 Firmware Validation #45846000051: completed/success
+- `349a3ad2ba842a7eeb2f38b2e4dd307bfa1a715a` ci(networkmap): include package sources in XY-C1 validation — Process inventory and lifecycle fail-closed regression #45842392278: completed/success; XY-C1 Firmware Validation #45842392277: completed/success; AI handoff documentation contract #45842392274: completed/success
+- `b134eee2c444eca33b05d789f8a866387930b48d` fix(networkmap): keep ARP socket clear of daemon stdio — AI handoff documentation contract #45841729543: completed/success
+- `7db855095b5bd482f55bb063eed8cf1728edf839` fix(networkmap): propagate ARP receive timeout setup failures — AI handoff documentation contract #45841079249: completed/success
+- `17718ed4ad9873c6030415a13f2f0680831570fa` fix(detect-internet): retry signal-interrupted host probes — Process inventory and lifecycle fail-closed regression #45840372235: completed/success; AI handoff documentation contract #45840372227: completed/success; XY-C1 Firmware Validation #45840372210: completed/success
+- `bad1f2e9004b26d79d3d21f41e43c7afc8e1c7a6` fix(smartdns): inspect staged resolver config before marker append — XY-C1 Firmware Validation #45839580305: completed/success; AI handoff documentation contract #45839580192: completed/success; Process inventory and lifecycle fail-closed regression #45839580122: completed/success
+- `f2d7d6907939b93745eb67fdb51f89d75ba2ffc0` fix(smartdns): separate managed block after unterminated config — 该 SHA 未见匹配 Actions 运行记录（可能待触发或超出最近记录窗口）
+- 本轮已处理 DNS Forwarder 的关键路径：上游端口严格校验与资源获取前的输入验证；listener 初始化对 `FIONBIO`、`SO_REUSEADDR`、bind、event-source 分配/注册进行失败检查并统一回滚；CLI 启动错误以非零状态返回，清理 option 字符串并区分 DNS port 内部指针与独立分配对象；event-loop registration rollback 与 detached-source reattach 回归已纳入专用 workflow。
+- 已配置的 host regressions：GNU89 上游端口边界/非法输入检查、ASan/UBSan event-loop partial-registration rollback 与 source detach/reattach。以各 SHA 的 Actions 结果为准；本环境未执行真实路由器运行测试，勿将其标为已验证。
+- 下一个明确任务：为 DNS Forwarder 构造路径加入可注入的系统调用失败测试（getaddrinfo/socket/ioctl/setsockopt/bind/source registration），验证每个失败分支释放 FD、addrinfo 和 source 引用；随后检查 event-loop dispatch/prepare 错误传播及 SIGTERM 生命周期。不要重复已完成的启动恢复审计。
+
 ## 2026-11-26 — Autonomous development checkpoint
 
 - Current `main`: `3cc85ff726be701162e820a6fed0f282f5eba355`.
