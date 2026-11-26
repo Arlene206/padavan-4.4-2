@@ -950,12 +950,71 @@ restore_dns_from_vpnc(void)
 	return status;
 }
 
+/* NVRAM getter pointers may share a cache buffer; copy before the next read.
+ * Missing string keys keep the legacy empty-value behavior. */
+static int
+vpn_client_read_string_setting_checked(const char *name,
+                                        char *destination,
+                                        size_t destination_size)
+{
+    char *value = NULL;
+    int api_result, saved_errno, status;
+
+    if (!name || !destination || destination_size == 0) {
+        errno = EINVAL;
+        return EINVAL;
+    }
+    errno = 0;
+    api_result = nvram_get_checked(name, &value);
+    saved_errno = errno;
+    status = vpn_client_nvram_copy_status(
+        api_result, saved_errno, value, destination, destination_size);
+    if (status != 0) {
+        errno = status;
+        logmessage(VPNC_LOG_NAME,
+                   "cannot read VPN route setting %s (status=%d)",
+                   name, status);
+    }
+    return status;
+}
+
+static int
+vpn_client_read_match_setting_checked(const char *name,
+                                      const char *expected,
+                                      int default_match, int *matches)
+{
+    char *value = NULL;
+    int api_result, saved_errno, status;
+
+    if (!name || !expected || !matches ||
+        (default_match != 0 && default_match != 1)) {
+        errno = EINVAL;
+        return EINVAL;
+    }
+    errno = 0;
+    api_result = nvram_get_checked(name, &value);
+    saved_errno = errno;
+    status = vpn_client_nvram_match_status(
+        api_result, saved_errno, value, expected, default_match, matches);
+    if (status != 0) {
+        errno = status;
+        logmessage(VPNC_LOG_NAME,
+                   "cannot read VPN route selector %s (status=%d)",
+                   name, status);
+    }
+    return status;
+}
+
 static int
 vpnc_route_dgw(char *ifname, char *gw, int add)
 {
-	int status = 0, route_status;
+	int status = 0, route_status, use_default_gateway = 0;
 
-	if (!nvram_match("vpnc_dgw", "1"))
+	status = vpn_client_read_match_setting_checked(
+		"vpnc_dgw", "1", 0, &use_default_gateway);
+	if (status != 0)
+		return status;
+	if (!use_default_gateway)
 		return 0;
 	if (!ifname || !ifname[0] || !gw || !gw[0])
 		return EINVAL;
@@ -990,11 +1049,25 @@ vpnc_route_dgw(char *ifname, char *gw, int add)
 static int
 vpnc_route_to_remote_lan(char *ifname, char *gw, int add)
 {
-	char *rnet = nvram_safe_get("vpnc_rnet");
-	char *rmsk = nvram_safe_get("vpnc_rmsk");
-	char *lnet = nvram_safe_get("lan_ipaddr");
-	char *lmsk = nvram_safe_get("lan_netmask");
-	int route_status;
+	char rnet[16], rmsk[16], lnet[16], lmsk[16];
+	int status, route_status;
+
+	status = vpn_client_read_string_setting_checked(
+		"vpnc_rnet", rnet, sizeof(rnet));
+	if (status != 0)
+		return status;
+	status = vpn_client_read_string_setting_checked(
+		"vpnc_rmsk", rmsk, sizeof(rmsk));
+	if (status != 0)
+		return status;
+	status = vpn_client_read_string_setting_checked(
+		"lan_ipaddr", lnet, sizeof(lnet));
+	if (status != 0)
+		return status;
+	status = vpn_client_read_string_setting_checked(
+		"lan_netmask", lmsk, sizeof(lmsk));
+	if (status != 0)
+		return status;
 
 	if (!is_valid_ipv4(rnet) || !is_valid_ipv4(rmsk) ||
 	    is_same_subnet2(rnet, lnet, rmsk, lmsk))

@@ -1,9 +1,18 @@
+## 2026-11-26 — Preserve checked VPN client route NVRAM values in callback rules
+
+- `vpnc_route_to_remote_lan()` retained four `nvram_safe_get()` pointers and dereferenced them only after all four reads. The VPN NVRAM policy documents that a later getter can reuse the shared cache buffer, so network/mask and LAN comparison values could be overwritten before route comparison. Backend/close failures were also collapsed to empty strings and silently skipped the configured route. `vpnc_route_dgw()` used unchecked `nvram_match()`, potentially omitting the default VPN route on a read error.
+- Added status-bearing checked readers that copy each route string immediately, preserve absent-key empty defaults, enforce the 16-byte IPv4 bound, and propagate NVRAM read/close/API errors. Default-gateway selection uses a checked exact-match policy preserving absent=false and the original exact-string semantics.
+- Added GNU89 policy regression coverage for exact match, missing defaults, malformed getter results and errno preservation; existing cache-copy tests cover string copy/overflow. Extended the VPN source contract to pin copied values and error gates before route operations.
+- Parent main: `fe68776c6f7421a6442b770fea4b8f449bb38651`. VPN/Firewall/Process/NVRAM/AI and XY-C1 exact-SHA Actions pending after publication; no local/router runtime claim.
+
+---
+
 ## 2026-11-26 — Fail closed on 6in4 endpoint NVRAM read errors before IPv4 filter staging
 
 - The IPv4 filter's special ICMP echo exception for a 6in4 peer fetched `ip6_6in4_remote` through `nvram_safe_get()` while emitting rules. An NVRAM read/close failure looked like an absent optional key and silently omitted the configured exception.
 - Snapshot the optional endpoint via `firewall_read_optional_ipv4_setting()` before opening the IPv4 filter ruleset file. Missing or oversized values preserve legacy no-exception behavior; backend/close/invalid-result failures propagate and abort the enclosing firewall restore. The emitter consumes only the local 16-byte snapshot.
 - Extended `check_firewall_ip_nvram_status.py` to require the checked read/error gate before staging, reject the raw getter, and pin the existing optional-IPv4 missing/backend/oversized-value regression cases.
-- Parent main: `8431202d8ce320b6df72b87d183749c44bea7f50`. Firewall exact-SHA Actions pending after publication; no local/target hardware test claimed.
+- Exact-SHA Firewall startup #45777134071, WAN route #45777134084, IPv6 service-type #45777134082, FULLCONENAT #45777134262, WAN DHCP callback #45777134115, Process inventory #45777134074 and HTTPD security #45777134070 PASS on `fe68776c6f7421a6442b770fea4b8f449bb38651`. NVRAM audit #45777134104 remained IN_PROGRESS; XY-C1 #45777134107 was compiling with TRX/artifact pending. AI handoff #45777134054 failed because the compact handoff omitted its required accuracy-checkpoint section; this commit restores the mandated wording and execution mandate.
 
 ---
 
@@ -11,7 +20,7 @@
 
 - Exact-SHA DNSMasq lifecycle #45776487229 for the preceding SmartDNS fix failed at the runtime snapshot test after the config-generation regression passed. The snapshot's failure-key list still used legacy `sdnse_tcp`, so it did not exercise the new canonical `sdnse_tcp_server` read.
 - Replaced the stale key in the failure matrix and added a positive assertion that `sdnse_tcp_server` is copied from NVRAM. The web form, runtime reader, generated bind directive, config regression and snapshot regression now use the same key.
-- Parent main: `bfba964cf61ec016eab7e4c4fd90c6bec1b368e8`. Corrected exact-SHA actions on `8431202d8ce320b6df72b87d183749c44bea7f50` (DNSMasq #45776763963, Process inventory #45776764005, Process fail-closed #45776764177, AI #45776764152, USB storage #45776764153 and XY-C1 #45776764204) were IN_PROGRESS at last poll. The preceding DNSMasq failure was the stale runtime snapshot test key.
+- Parent main: `bfba964cf61ec016eab7e4c4fd90c6bec1b368e8`. Corrected SHA `8431202d8ce320b6df72b87d183749c44bea7f50` closed DNSMasq #45776763963, Process inventory #45776764005, Process fail-closed #45776764177, AI #45776764152 and USB storage #45776764153 as PASS. XY-C1 #45776764204 succeeded, but Build XY-C1, TRX verification and artifact upload were SKIPPED because this was a test-only checkpoint; no firmware L3 claim.
 
 ---
 

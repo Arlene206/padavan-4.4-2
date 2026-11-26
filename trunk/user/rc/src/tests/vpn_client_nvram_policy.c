@@ -111,6 +111,44 @@ test_dns_policy_read_status_accepts_all_ui_modes(void)
 }
 
 static void
+test_match_status_preserves_exact_match_and_missing_defaults(void)
+{
+    int matches = 77;
+
+    assert(vpn_client_nvram_match_status(1, 0, "1", "1", 0, &matches) == 0);
+    assert(matches == 1);
+    assert(vpn_client_nvram_match_status(1, 0, "01", "1", 0, &matches) == 0);
+    assert(matches == 0);
+    assert(vpn_client_nvram_match_status(1, 0, "", "1", 0, &matches) == 0);
+    assert(matches == 0);
+    assert(vpn_client_nvram_match_status(0, 0, NULL, "1", 0, &matches) == 0);
+    assert(matches == 0);
+    assert(vpn_client_nvram_match_status(0, 0, NULL, "1", 1, &matches) == 0);
+    assert(matches == 1);
+
+    matches = 77;
+    assert(vpn_client_nvram_match_status(-1, EACCES, NULL, "1", 0,
+                                         &matches) == EACCES);
+    assert(matches == 77);
+    assert(vpn_client_nvram_match_status(-1, 0, NULL, "1", 0,
+                                         &matches) == EIO);
+    assert(matches == 77);
+    assert(vpn_client_nvram_match_status(2, 0, "1", "1", 0,
+                                         &matches) == EIO);
+    assert(matches == 77);
+    assert(vpn_client_nvram_match_status(1, 0, NULL, "1", 0,
+                                         &matches) == EIO);
+    assert(matches == 77);
+    assert(vpn_client_nvram_match_status(0, 0, NULL, NULL, 0,
+                                         &matches) == EINVAL);
+    assert(vpn_client_nvram_match_status(0, 0, NULL, "1", 0, NULL) ==
+           EINVAL);
+    assert(vpn_client_nvram_match_status(0, 0, NULL, "1", 2,
+                                         &matches) == EINVAL);
+    assert(matches == 77);
+}
+
+static void
 test_boolean_read_status_preserves_legacy_defaults_and_rejects_invalid_values(void)
 {
     int result;
@@ -326,6 +364,7 @@ main(void)
     test_independent_runtime_writes_attempt_all_and_keep_first_error();
     test_write_status_preserves_errno();
     test_read_status_distinguishes_absence_from_failure();
+    test_match_status_preserves_exact_match_and_missing_defaults();
     test_boolean_read_status_preserves_legacy_defaults_and_rejects_invalid_values();
     test_runtime_clear_publishes_dns_domain_and_state_in_order();
     test_domain_snapshot_clear_publishes_empty_value_and_reports_failure();

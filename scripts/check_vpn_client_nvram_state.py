@@ -202,6 +202,41 @@ ordered(restore, [
 ], "VPN DNS/domain snapshot cleanup")
 assert "vpn_client_nvram_clear_domain_snapshot" in header
 
+match_reader = body(vpn, "static int\nvpn_client_read_match_setting_checked(")
+ordered(match_reader, [
+    "api_result = nvram_get_checked(name, &value);",
+    "saved_errno = errno;",
+    "vpn_client_nvram_match_status(",
+    "if (status != 0)",
+    "return status;"
+], "VPN checked exact-match NVRAM reader")
+string_reader = body(vpn, "static int\nvpn_client_read_string_setting_checked(")
+ordered(string_reader, [
+    "api_result = nvram_get_checked(name, &value);",
+    "saved_errno = errno;",
+    "vpn_client_nvram_copy_status(",
+    "if (status != 0)",
+    "return status;"
+], "VPN checked cache-copy NVRAM reader")
+default_route = body(vpn, "static int\nvpnc_route_dgw(char *ifname, char *gw, int add)")
+ordered(default_route, [
+    'vpn_client_read_match_setting_checked(\n\t\t"vpnc_dgw", "1", 0, &use_default_gateway)',
+    "if (status != 0)",
+    "if (!use_default_gateway)",
+    'route_add(ifname, 0, "0.0.0.0", gw, "128.0.0.0")'
+], "VPN default route checked selector")
+assert "nvram_match(" not in default_route
+remote_route = body(vpn, "static int\nvpnc_route_to_remote_lan(char *ifname, char *gw, int add)")
+ordered(remote_route, [
+    'vpn_client_read_string_setting_checked(\n\t\t"vpnc_rnet"',
+    'vpn_client_read_string_setting_checked(\n\t\t"vpnc_rmsk"',
+    'vpn_client_read_string_setting_checked(\n\t\t"lan_ipaddr"',
+    'vpn_client_read_string_setting_checked(\n\t\t"lan_netmask"',
+    "is_valid_ipv4(rnet)",
+    "route_add(ifname, 0, rnet, gw, rmsk)"
+], "VPN remote-LAN route checked copied tuple")
+assert "nvram_safe_get(" not in remote_route
+assert "char rnet[16], rmsk[16], lnet[16], lmsk[16];" in remote_route
 ipdown = body(vpn, "ipdown_vpnc_main(int argc, char **argv)")
 ordered(ipdown, [
     'vpn_client_nvram_set_temp_status(\n\t\tNULL, "vpnc_state_t", "0")',
@@ -215,6 +250,7 @@ for token in (
     "test_cache_backed_text_is_copied_without_truncation",
     "test_write_status_preserves_errno",
     "test_read_status_distinguishes_absence_from_failure",
+    "test_match_status_preserves_exact_match_and_missing_defaults",
     "test_boolean_read_status_preserves_legacy_defaults_and_rejects_invalid_values",
     "test_runtime_clear_publishes_dns_domain_and_state_in_order",
     "test_runtime_clear_stops_at_first_failed_write",
@@ -227,6 +263,7 @@ assert "ppp_option_text_escape_alloc" in ppp_policy and "ppp_option_text_escape_
 for token in (
     "vpn_client_nvram_write_status",
     "vpn_client_nvram_read_status",
+    "vpn_client_nvram_match_status",
     "vpn_client_nvram_read_bool_status",
     "vpn_client_nvram_clear_runtime_state",
     "vpn_client_nvram_copy_text",

@@ -28,6 +28,25 @@ vpn_client_nvram_read_status(int api_result, int saved_errno,
 }
 
 static inline int
+vpn_client_nvram_match_status(int api_result, int saved_errno,
+                              const char *value, const char *expected,
+                              int default_match, int *matches)
+{
+    int status;
+
+    if (!expected || !matches ||
+        (default_match != 0 && default_match != 1))
+        return EINVAL;
+    status = vpn_client_nvram_read_status(
+        api_result, saved_errno, api_result == 1 && value != NULL);
+    if (status != 0)
+        return status;
+    *matches = api_result == 1 ? strcmp(value, expected) == 0 :
+               default_match;
+    return 0;
+}
+
+static inline int
 vpn_client_nvram_read_int_status(int api_result, int saved_errno,
                                  const char *value, int default_value,
                                  int minimum, int maximum, int *result)
