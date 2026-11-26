@@ -295,7 +295,10 @@ dns_read_request (HevDNSSession *self)
 	hev_ring_buffer_writing (self->forward_buffer, iovec);
 	hev_ring_buffer_write_finish (self->forward_buffer, 2);
 	size = read_data (self->cfd, self->forward_buffer, &self->client_addr);
-	if (0 > size) {
+	if (0 > size || !hev_dns_session_message_size_valid ((size_t)size)) {
+		/* Empty and short UDP datagrams are not valid DNS messages. */
+		if (0 <= size)
+			errno = EPROTO;
 		dns_close_session (self);
 		return -1;
 	}
@@ -383,6 +386,11 @@ dns_read_response (HevDNSSession *self)
 	  return true;
 	plen = iovec[0].iov_base;
 	len = ntohs (*plen);
+	if (!hev_dns_session_message_size_valid ((size_t)len)) {
+		errno = EPROTO;
+		self->step = STEP_CLOSE_SESSION;
+		return false;
+	}
 	response_action = hev_dns_session_response_action (
 		(size_t)len + 2U, size, HEV_DNS_SESSION_BUFFER_SIZE);
 	if (HEV_DNS_SESSION_RESPONSE_WAIT == response_action)

@@ -1,7 +1,22 @@
 #ifndef __HEV_DNS_SESSION_IO_POLICY_H__
 #define __HEV_DNS_SESSION_IO_POLICY_H__
 
-/* Two-byte TCP length prefix plus one full EDNS(0) 4096-byte DNS message. */
+#include <errno.h>
+#include <stddef.h>
+#include <sys/socket.h>
+
+/* DNS messages have a 12-byte header; support EDNS(0) payloads up to 4096. */
+#define HEV_DNS_SESSION_MIN_MESSAGE_SIZE 12U
+#define HEV_DNS_SESSION_MAX_MESSAGE_SIZE 4096U
+
+static inline int
+hev_dns_session_message_size_valid(size_t message_size)
+{
+    return message_size >= HEV_DNS_SESSION_MIN_MESSAGE_SIZE &&
+           message_size <= HEV_DNS_SESSION_MAX_MESSAGE_SIZE;
+}
+
+/* Two-byte TCP length prefix plus one full EDNS(0) DNS message. */
 #define HEV_DNS_SESSION_BUFFER_SIZE (4096U + 2U)
 
 enum {
@@ -21,10 +36,6 @@ hev_dns_session_response_action(size_t frame_size, size_t received_size,
         return HEV_DNS_SESSION_RESPONSE_TOO_LARGE;
     return HEV_DNS_SESSION_RESPONSE_WAIT;
 }
-
-#include <errno.h>
-#include <stddef.h>
-#include <sys/socket.h>
 
 /* Reject truncated UDP query datagrams instead of forwarding malformed DNS. */
 static inline int

@@ -366,6 +366,11 @@ assert "HEV_DNS_SESSION_RESPONSE_TOO_LARGE" in session_core
 assert "self->step = STEP_CLOSE_SESSION" in session_core
 assert "hev_ring_buffer_new (HEV_DNS_SESSION_BUFFER_SIZE)" in session_core
 assert "test_dns_response_frame_capacity_policy" in session_io_test
+assert "HEV_DNS_SESSION_MIN_MESSAGE_SIZE 12U" in session_io_policy
+assert "hev_dns_session_message_size_valid" in session_io_policy
+assert "!hev_dns_session_message_size_valid ((size_t)size)" in session_core
+assert "!hev_dns_session_message_size_valid ((size_t)len)" in session_core
+assert "test_dns_message_size_policy" in session_io_test
 assert "hev_dns_forwarder_udp_drain_action(-1, EINTR)" in forwarder_policy_test
 assert "hev_dns_forwarder_udp_drain_action(0, 0)" in forwarder_policy_test
 

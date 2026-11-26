@@ -79,6 +79,17 @@ test_truncated_udp_datagrams_are_detected(void)
 }
 
 static void
+test_dns_message_size_policy(void)
+{
+    assert(!hev_dns_session_message_size_valid(0U));
+    assert(!hev_dns_session_message_size_valid(11U));
+    assert(hev_dns_session_message_size_valid(12U));
+    assert(hev_dns_session_message_size_valid(512U));
+    assert(hev_dns_session_message_size_valid(4096U));
+    assert(!hev_dns_session_message_size_valid(4097U));
+}
+
+static void
 test_dns_response_frame_capacity_policy(void)
 {
     assert(HEV_DNS_SESSION_BUFFER_SIZE == 4098U);
@@ -126,6 +137,7 @@ main(void)
     test_sendmsg_to_closed_peer_does_not_raise_sigpipe();
     test_truncated_udp_datagrams_are_detected();
     test_dns_response_frame_capacity_policy();
+    test_dns_message_size_policy();
     test_recvmsg_reports_eof_after_peer_shutdown();
     return 0;
 }
