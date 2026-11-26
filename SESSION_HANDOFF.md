@@ -1,32 +1,32 @@
 ## Current repository state — 2026-11-25
 
-- Live `main` immediately before this slice: `acd3eb07c4ba30c84c7fcb254b1f1408ca03e7c5` (`fix(udhcp): detect oversized kernel DHCP datagrams`). Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable.
-- Exact `684f66b` DHCP relay select-error #45726255660 PASS, XID #45726255680 PASS, BOOTREQUEST #45726255596 PASS, select descriptor #45726255635 PASS, packet bounds #45726255721 PASS, AI docs #45726255592 PASS and Process inventory #45726255636 PASS. USB hotplug #45726255858, Process fail-closed #45726255572, XY-C1 #45726255627 and NVRAM #45726255566 were pending at last inspection.
-- Exact `ddb8f4f` DHCP relay BOOTREQUEST #45725994945, select descriptor #45725994948, packet bounds #45725994955, XID #45725994998, AI docs #45725994972 and Process inventory #45725995030 passed. XY-C1 #45725995015 was pending; NVRAM #45725995041 was cancelled.
-- Exact `4de82b5` WSDD2 netlink receive truncation #45725665949 and AI handoff #45725666033 PASS. Last confirmed XY-C1 Build/TRX/artifact baseline remains `b320dd266be3dea74820ada79aec68c26f6b7dc9` (#45724141332); it predates later source changes, so current-source L3 and physical-router L4 remain NOT VERIFIED.
+- Live `main` before this handoff checkpoint: `1308772aa3eb94b636b7c713bfacc3404f916328` (`fix(udhcp): require BOOTREPLY on server response path`). Latest source-bearing commit: `1308772aa3eb94b636b7c713bfacc3404f916328` (`fix(udhcp): require BOOTREPLY on server response path`).
+- Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (do not modify).
+- DHCPv4 receive truncation regression: 未触发/未找到. WSDD2 netlink truncation regression: #45725665949 completed/success @ 4de82b5c981b6b04903431ecafc42e0b873c8862. WSDD2 fd_set bounds regression: #45725275770 completed/success @ 6028a1387733f0f45d8b96f169dbc34061e9b8fc.
+- XY-C1 exact latest source SHA `1308772aa3eb94b636b7c713bfacc3404f916328`: no exact-source run found; evidence: 未验证. NVRAM audit for the same source: 未触发/未找到.
+- L3 is **NOT VERIFIED** unless the XY-C1 Build, TRX validation and artifact upload all pass on that identical product-source SHA. Physical-router L4 remains **NOT VERIFIED**.
 
 ## Active task
 
-Validate DHCP relay server-side responses before processing them. `pass_to_client()` parsed DHCP message-type options and looked up the pending XID, but did not verify the BOOTP `op` field. A packet with a client BOOTREQUEST opcode arriving on the server-facing socket could therefore be treated as a server response if it carried matching XID/giaddr/hardware fields. The new early gate accepts only BOOTREPLY (`op == 2`) before option parsing or transaction lookup.
+Resolve the exact-SHA DHCPv4 receive regression and XY-C1 build for the latest product source `1308772aa3eb94b636b7c713bfacc3404f916328`. If either is pending, continue an independent source-level stability/security fix; if it fails, inspect that exact job log and repair the failing step. Do not wait idle or claim firmware success from a different SHA.
 
-## Verification boundary
+## Exact first actions for next GPT
 
-- GNU89 ASan/UBSan tests cover BOOTREPLY opcode acceptance and reject 0, BOOTREQUEST, unknown and 255 values. The source contract verifies the opcode gate precedes option parsing and XID matching.
-- Exact-head DHCP relay BOOTREPLY workflow, AI docs and XY-C1 Build/TRX/artifact checks for this commit are pending. No live rogue-server simulation, full BusyBox cross-build, current firmware artifact or router L4 result is claimed.
-
-## Exact first action for the next GPT
-
-Fetch exact-head DHCP relay BOOTREPLY, packet-length, select-error, AI docs, and XY-C1/NVRAM/Process/USB runs for this commit. Repair the first causal failure. Continue to review DHCP relay reply source-address validation and server/client interface direction only with concrete evidence. L3 requires Build, TRX verification and artifact upload on one identical product-source SHA.
-
-## Mandatory handoff checkpoint
-
-The checkpoint is mandatory; a document edit is conditional. Inspect live main, frozen backup ref and exact-SHA Actions. If the checkpoint facts and first action are already accurate, record a no-op checkpoint without a docs-only commit.
+1. Confirm live `main` and the frozen backup ref; this handoff update is docs-only.
+2. Check the DHCPv4 receive workflow and the exact-source XY-C1 run; use per-job steps/logs, not just the aggregate status.
+3. Continue one independent userland defect with regression, atomic commit and exact-SHA Actions verification. Avoid repeating completed DHCPv6, DHCPv4 relay, rstats, QMI, UDPXY or WSDD2 work without new evidence.
 
 # Cross-session execution mandate
 
 Continue one autonomous engineering stream on main. For each logical slice, create all changed blobs, one complete Git tree based on the live main root tree, and one atomic main commit; update main with a non-forced expected-SHA compare-and-swap. Never force-push, use feature branches or PRs, split one logical change into per-file commits, or modify the frozen backup. PENDING never blocks independent work. Before context exhaustion, finish the current safe slice and checkpoint the first concrete next action.
 
 ## Completed source slices
+
+### 2026-11-25 — Guard WSDD2 select registration against out-of-range descriptors
+
+- `wsdd2.c` routes both endpoint registrations through `wsd_select_fd_add()`; fd >= `FD_SETSIZE` is rejected with `EMFILE` before `FD_SET`, preventing an out-of-bounds write into libc's fixed `fd_set`.
+- GNU89 ASan/UBSan boundary regression covers fd 0, `FD_SETSIZE - 1`, `FD_SETSIZE`, `INT_MAX`, and canary preservation. Exact workflow: #45725275770 completed/success @ 6028a1387733f0f45d8b96f169dbc34061e9b8fc.
+
 
 ### 2026-11-25 — Harden WSDD2 select descriptor registration and netlink notification handling
 
