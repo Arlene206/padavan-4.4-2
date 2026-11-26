@@ -618,10 +618,15 @@ def run() -> int:
         snapshot_lock = commit_body.index("spin_lock_irqsave(&nvram_lock, flags);")
         snapshot_generate = commit_body.index("_nvram_generate((struct nvram_header *)bufw)")
         snapshot_unlock = commit_body.index("spin_unlock_irqrestore(&nvram_lock, flags);")
-        release_points = [
-            match.start()
-            for match in re.finditer(r"mutex_unlock\\(&nvram_sem\\);", commit_body)
-        ]
+        unlock_token = "mutex_unlock(&nvram_sem);"
+        release_points = []
+        unlock_cursor = 0
+        while True:
+            unlock_at = commit_body.find(unlock_token, unlock_cursor)
+            if unlock_at < 0:
+                break
+            release_points.append(unlock_at)
+            unlock_cursor = unlock_at + len(unlock_token)
         read_flash = commit_body.index("ra_mtd_read_nm(")
         write_flash = commit_body.index("ra_mtd_write_nm(")
         if (len(release_points) != 2 or

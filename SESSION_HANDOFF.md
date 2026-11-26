@@ -66,6 +66,12 @@
 - Added a deterministic pthread regression modeling both the broken lock-after-snapshot interleaving and the fixed lock-before-snapshot ordering, plus source-contract assertions for mutex/snapshot/read/write/unlock order.
 - Parent main: `d5ef589529bf19971f996265cffb92b9906c5635`; resulting commit: THIS COMMIT.
 
+## 2026-11-26 — Tighten NVRAM commit-order checker
+
+- Follow-up static review of the new commit-order assertion found its regex was double-escaped and would not match the actual mutex-unlock tokens. Replaced the regex with a literal-token scan so the checker counts both error-path and normal-path unlocks exactly.
+- This is a checker-only correction; the production lock-order fix and pthread interleaving regression remain unchanged.
+- Parent main: `02c27d988c9c3cdb7be180bb468da6a465633990`; resulting commit: THIS COMMIT.
+
 ## Verification boundary
 
 - Exact SHA `d5ef589529bf19971f996265cffb92b9906c5635`: DHCPv6 IA #45794325763 PASS; AI handoff #45794325767 PASS; NVRAM transaction boundary #45794325755 PASS; USB/storage hotplug #45794325967 PASS; Process inventory #45794325764 PASS; DHCPv6 Reply-script retry #45794326034 and WAN DHCP callback #45794325993 PASS. XY-C1 #45794325773 had passed all pre-build checks; Build XY-C1, Verify TRX output and artifact upload remained pending at last poll.
@@ -82,9 +88,9 @@
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-SHA NVRAM transaction-boundary and AI handoff Actions for this concurrent commit serialization fix; the parent `d5ef589` NVRAM PASS does not validate this change.
-2. Check same-SHA XY-C1 Build, Verify TRX output and artifact upload. Parent run #45794325773 had passed all pre-build checks but the three final artifact steps were pending; all must PASS on one SHA before L3.
-3. Continue whole-userland stability/security work after validating this commit. Hardware L4 remains NOT VERIFIED.
+1. Inspect exact-SHA NVRAM transaction-boundary and AI handoff Actions for commit `02c27d9` and this checker correction; parent d5ef Actions do not validate the new concurrency test.
+2. Check same-SHA XY-C1 Build, Verify TRX output and artifact upload. All three must PASS on one exact product-source SHA before L3.
+3. Continue whole-userland stability/security work after exact-SHA validation. Hardware L4 remains NOT VERIFIED.
 
 ## Mandatory handoff checkpoint
 

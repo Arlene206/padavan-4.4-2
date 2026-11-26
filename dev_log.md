@@ -1,3 +1,11 @@
+## 2026-11-26 — Correct literal unlock counting in NVRAM source contract
+
+- Corrected a double-escaped regex in the new NVRAM commit-order source check. A literal-token scan now counts both unlock sites and enforces mutex-before-snapshot plus mutex-through-flash-I/O ordering.
+- No production source or regression behavior changed in this follow-up.
+- Parent main: `02c27d988c9c3cdb7be180bb468da6a465633990`; resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-26 — Serialize NVRAM snapshot generation with flash commits
 
 - Found a persistence lost-update race: `nvram_commit()` built its in-memory image before acquiring `nvram_sem`, so concurrent commits could write the newer snapshot first and then overwrite it with an older snapshot.
