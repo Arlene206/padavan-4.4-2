@@ -1,3 +1,13 @@
+## 2026-11-25 — Preserve DHCP relay giaddr and enforce RFC 1542 hop handling
+
+- The DHCP relay client path unconditionally passed `&dhcp_msg.gateway_nip` to `udhcp_read_interface()`, overwriting a non-zero address supplied by an upstream relay despite the nearby RFC 1542 comment stating that it MUST NOT be modified. The same path left `hops` unchanged (an explicit TODO), allowing relay loops to circulate.
+- The relay now resolves giaddr from the receiving client interface only when the incoming field is zero, keeps the legacy server-interface fallback if the interface lookup fails, preserves upstream giaddr otherwise, rejects received hop values above 16, and increments the hop field before forwarding. The 16 boundary follows RFC 1542 exactly: received 16 is incremented to 17; a subsequent relay drops a received value above 16.
+- Added a GNU89 ASan/UBSan policy regression, a production source contract, a dedicated workflow and XY-C1 production-input triggers.
+- Parent SHA: 4de82b5c981b6b04903431ecafc42e0b873c8862. Exact-head BOOTREQUEST, AI documentation and XY-C1 Actions: pending. No multi-relay interoperability, full BusyBox cross-build, firmware artifact or hardware result is claimed.
+- Changed paths: trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcprelay.c, trunk/user/busybox/busybox-1.24.x/networking/udhcp/udhcp_relay_bootrequest_policy.h, trunk/user/busybox/busybox-1.24.x/networking/udhcp/tests/dhcprelay_bootrequest_policy.c, scripts/check_udhcp_relay_bootrequest_policy.py, .github/workflows/udhcp-relay-bootrequest-policy.yml, .github/workflows/xy-c1-firmware-validation.yml, SESSION_HANDOFF.md, dev_log.md.
+
+---
+
 ## 2026-11-25 — Correct escaped newline in WSDD2 netlink source signature
 
 - The follow-up run #45725462798 still failed in the Python source checker: its signature literal contained a double-escaped `\\n`, so Python searched for the two characters backslash+n instead of the actual newline before the function brace.

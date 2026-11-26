@@ -1,23 +1,21 @@
 ## Current repository state
 
-- Live `main` immediately before this slice: `6028a1387733f0f45d8b96f169dbc34061e9b8fc` (`fix(wsdd2): restart on truncated netlink notifications`). Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable.
-- Exact `6665f36` DHCP relay XID budget/correlation workflow #45724979306 PASS. DHCP relay packet bounds #45724979396, AI docs #45724979298, NVRAM #45724979296, Process fail-closed #45724979404, Process inventory #45724979344, USB hotplug #45724979366 and XY-C1 #45724979326 were in progress at last observation.
-- Exact `148dfb3` DHCP relay packet bounds #45724784655 PASS and AI handoff #45724784796 PASS after the checker correction.
-- Concurrent WSDD2 select-fd guard `258d673` had AI docs #45725105594 PASS while its select-fd #45725105654, Process #45725105625, NVRAM #45725105568 and XY-C1 #45725105556 remained pending. Concurrent WSDD2 netlink truncation guard `6028a13` had its netlink #45725275756, AI docs #45725275726, select-fd #45725275770, Process #45725275723, XY-C1 #45725275729 and NVRAM #45725275740 checks pending at the last observation.
-- Last confirmed XY-C1 Build/TRX/artifact baseline remains `9ed539a04e4c4df96aef03f9d1a6f9637fd3e3b9` (#45719100341), preceding later source changes; current-source L3 and physical-router L4 remain NOT VERIFIED.
+- Live `main` before this slice: `4de82b5c981b6b04903431ecafc42e0b873c8862` (`test(wsdd2): correct netlink function signature escape`). Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable.
+- Exact `4de82b5` WSDD2 netlink receive truncation regression #45725665949 PASS and AI handoff contract #45725666033 PASS. The preceding `bff8461` DHCP relay select-fd #45725395550, XID #45725395433, packet bounds #45725395376, AI docs #45725395506, Process inventory #45725395438 and Process fail-closed #45725395405 all PASS; USB hotplug #45725395381, NVRAM #45725395394 and XY-C1 #45725395451 were still in progress on the prior poll.
+- Frozen backup remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Last confirmed XY-C1 Build/TRX/artifact baseline is `9ed539a04e4c4df96aef03f9d1a6f9637fd3e3b9` (#45719100341); it predates later source changes, so current-source L3 and physical-router L4 remain NOT VERIFIED.
 
 ## Active task
 
-Protect DHCP relay's `fd_set` from out-of-range socket descriptors. `init_sockets()` previously accepted every socket descriptor and the event loop later passed it directly to `FD_SET`; a process started with many inherited descriptors can receive an fd >= `FD_SETSIZE`, making FD_SET write outside its stack `fd_set` before select(). This slice validates each descriptor against `[0, FD_SETSIZE)`, closes all listener sockets opened up to that point and exits before the event loop if one is invalid. This is separate from the WSDD2 guard added in `258d673`.
+Correct DHCP relay BOOTREQUEST handling per RFC 1542 section 4.1.1. The existing code unconditionally overwrote a non-zero `giaddr`, even though the relay's adjacent RFC comment says it must not, and left the `hops` field unchanged (an explicit TODO). This slice preserves upstream non-zero `giaddr`, sets it from the receiving client interface only when zero (retaining the legacy server-interface fallback if interface lookup fails), rejects incoming `hops > 16`, and increments `hops` before forwarding.
 
 ## Verification boundary
 
-- A standalone GNU89 ASan/UBSan regression covers -1, 0, `FD_SETSIZE-1`, `FD_SETSIZE` and values above the limit. The source contract ensures the validation/cleanup in `init_sockets()` precedes max-fd tracking and FD_SET use.
-- Exact-head DHCP relay select-fd, AI documentation and XY-C1 Build/TRX/artifact checks for this commit are pending. No live high-fd reproduction, MIPS/uClibc firmware artifact or router L4 result is claimed.
+- GNU89 ASan/UBSan test covers existing/local/fallback giaddr selection; hops 0, 15, 16, 17 and 255; and null input. The source checker ensures hop policy and giaddr selection run before forwarding and verifies the dedicated workflow and XY-C1 source paths.
+- Exact-head BOOTREQUEST policy, AI documentation and XY-C1 Build/TRX/artifact checks for this commit are pending. No multi-relay interoperability, full BusyBox cross-build, current firmware artifact or router L4 result is claimed.
 
 ## Exact first action for the next GPT
 
-Fetch exact-head DHCP relay select-fd, XID, packet-bounds, AI docs and XY-C1 runs for this commit; fix any first causal failure. Then continue DHCP relay reply validation/socket behavior only where a concrete defect is demonstrated. Claim L3 only after Build, TRX verification and artifact upload all pass on one source SHA.
+Fetch exact-head DHCP relay BOOTREQUEST, select-fd, XID, packet-bounds, AI docs, and XY-C1 runs for this commit; repair the first causal failure. Then investigate DHCP server replies with mismatched giaddr/hardware identity only if a concrete interoperability defect is demonstrated. Record L3 only when Build, TRX verification and artifact upload pass on one identical source SHA.
 
 ## Mandatory handoff checkpoint
 

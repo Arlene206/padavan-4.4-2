@@ -19,6 +19,7 @@
 #include "udhcp_relay_packet_bounds.h"
 #include "udhcp_relay_xid_policy.h"
 #include "udhcp_relay_select_fd_policy.h"
+#include "udhcp_relay_bootrequest_policy.h"
 
 #define SERVER_PORT    67
 
@@ -411,13 +412,21 @@ int dhcprelay_main(int argc, char **argv)
 //   of the 'giaddr' field does not match one of the relay agent's
 //   directly-connected logical interfaces, the BOOTREPLY messsage MUST be
 //   silently discarded.
-				if (udhcp_read_interface(iface_list[i], NULL, &dhcp_msg.gateway_nip, NULL, NULL)) {
-					/* Fall back to our IP on server iface */
-// this makes more sense!
-					dhcp_msg.gateway_nip = our_nip;
+				/* RFC 1542: discard received hops > 16 and increment otherwise. */
+				if (!udhcp_relay_increment_hops(&dhcp_msg.hops)) {
+					log1("DHCP relay hop count exceeded; dropping request");
+					continue;
 				}
-// maybe dhcp_msg.hops++? drop packets with too many hops (RFC 1542 says 4 or 16)?
-				pass_to_server(&dhcp_msg, packlen, i, fds, &client_addr, &server_addr);
+
+				/* RFC 1542: a non-zero giaddr belongs to an upstream relay. */
+				if (dhcp_msg.gateway_nip == 0) {
+					uint32_t client_nip = 0;
+					if (udhcp_read_interface(iface_list[i], NULL, &client_nip, NULL, NULL))
+						client_nip = our_nip;
+					dhcp_msg.gateway_nip = udhcp_relay_select_giaddr(
+						dhcp_msg.gateway_nip, client_nip, our_nip);
+				}
+								pass_to_server(&dhcp_msg, packlen, i, fds, &client_addr, &server_addr);
 			}
 		}
 		xid_expire();
