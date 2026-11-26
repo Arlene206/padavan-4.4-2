@@ -59,3 +59,9 @@ jobs:
         run: sh trunk/user/ralinkiappd/tests/iapp_select_fd_policy.sh
       - name: Verify Linux event-loop, datagram receive, and event-log persistence guards
         run: python3 scripts/check_iappd_select_fd.py
+
+      - name: Compile optional IAPP event-log branch
+        run: |
+          cc -std=gnu89 -fsyntax-only -DIAPP_EVENT_LOG \
+            -I trunk/user/ralinkiappd/src \
+            trunk/user/ralinkiappd/src/rtmpiapp.c
