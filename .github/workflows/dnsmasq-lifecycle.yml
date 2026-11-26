@@ -431,7 +431,7 @@ jobs:
               'read_exact(victim, "keep-victim\\n")',
               "inadyn_config_file_discard(fp, staged_path)",
               "inadyn_config_file_publish(fp, staged_path, blocked) == -1",
-              "Inadyn private atomic configuration publication and quoted-value escaping: PASS",
+              "Inadyn config snapshot rollback/commit and private atomic publication: PASS",
           ):
               assert token in regression, token
 

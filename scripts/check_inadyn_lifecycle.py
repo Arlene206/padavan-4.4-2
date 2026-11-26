@@ -280,7 +280,7 @@ assert "inadyn_confirm_started(launch_status)" in restore
 assert "restored previous Inadyn daemon" in restore
 assert "inadyn_process_presence(&scan_error)" in start
 assert start.index("inadyn_process_presence(&scan_error)") < start.index("stop_status = stop_ddns_locked()")
-assert start.count("inadyn_restore_previous_instance(previous_running)") == 2
+assert start.count("inadyn_restore_previous_instance(previous_running)") == 3
 assert "test_restore_previous_instance_action" in test
 assert "INADYN_RESTORE_LAUNCH" in policy and "INADYN_RESTORE_ABORT" in policy
 
