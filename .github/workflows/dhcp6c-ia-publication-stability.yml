@@ -92,10 +92,7 @@ jobs:
             trunk/user/rc/src/tests/dhcp6c_callback_generation.c \
             -o /tmp/dhcp6c-callback-generation
           ASAN_OPTIONS=detect_leaks=1 /tmp/dhcp6c-callback-generation
-          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \\
-            -fno-omit-frame-pointer -I trunk/user/busybox/busybox-1.24.x/networking/udhcp/ \\
-            trunk/user/busybox/busybox-1.24.x/networking/udhcp/tests/dhcp6c_timer_traversal_policy.c \\
-            -o /tmp/dhcp6c-timer-traversal-policy
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer -I trunk/user/busybox/busybox-1.24.x/networking/udhcp/ trunk/user/busybox/busybox-1.24.x/networking/udhcp/tests/dhcp6c_timer_traversal_policy.c -o /tmp/dhcp6c-timer-traversal-policy
           ASAN_OPTIONS=detect_leaks=1 /tmp/dhcp6c-timer-traversal-policy
       - name: Verify DHCPv6 IA kernel configuration retry and source workflow
         run: python3 scripts/check_dhcp6c_ia_publication.py

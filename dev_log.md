@@ -4,7 +4,9 @@
 - Added per-timer check generations and a timer-list mutation generation. A callback that frees its timer or changes the timer list causes traversal to restart at the live list head; already visited timers and timers newly added during the callback are skipped until the next sweep. Recompute the next-expiry sentinel after all callbacks so rescheduling of previously visited timers is reflected.
 - Added a GNU89 policy regression for saved-next removal, head insertion, generation wrap and callback invalidation; wired the source contract and sanitizer regression into the DHCPv6 IA workflow for both push and pull_request.
 - Local host compile/run: `cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined` regression PASS. Full-source and target checks await exact-SHA Actions; no L3/L4 claim.
-- Parent main: `5b03226e811dbba4cba5d9219c43086b7962d6e7`; resulting commit: THIS COMMIT.
+- Exact SHA `a856ba60a4695276b5c484f7e8388fdaeaf1ced0`: DHCPv6 IA run #45795811813 FAILED only at the newly added compile invocation; all six pre-existing policy binaries passed. The workflow command contained doubled trailing backslashes, causing the linker to treat a literal backslash as an input file. This follow-up changes the compile invocation to one shell command line and needs exact-SHA rerun.
+- Workflow correction parent main: `a856ba60a4695276b5c484f7e8388fdaeaf1ced0`; resulting commit: THIS COMMIT.
+- Parent main for the source/test implementation: `5b03226e811dbba4cba5d9219c43086b7962d6e7`.
 
 ---
 

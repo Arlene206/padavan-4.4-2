@@ -3,7 +3,7 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development on `main` only.
-- Parent `main` for this DHCPv6 timer-callback iterator safety slice: `5b03226e811dbba4cba5d9219c43086b7962d6e7`.
+- Parent `main` for the DHCPv6 workflow-command correction: `a856ba60a4695276b5c484f7e8388fdaeaf1ced0`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify/delete. PR #1 remains closed/unmerged.
 - Bootstrap/protocol recovery was completed earlier; do not repeat it.
 
@@ -77,6 +77,7 @@
 - Confirmed P1 use-after-free: `dhcp6_timer_check()` captured `tm_next` before running an expiry callback. A successful delegated-prefix retry can call `remove_ia()` → `pref_cleanup()` and delete timers belonging to sibling prefixes, invalidating that saved pointer.
 - Timer traversal now stamps visited timers with a per-pass generation and records timer-list mutations. It restarts from the current list head after any callback that frees a timer or changes the list, defers newly inserted timers until the next sweep, handles generation wrap, and recomputes the expiry sentinel after callbacks.
 - Added a standalone GNU89/ASan/UBSan regression that actually frees the saved-next node during callback, plus a semantic source checker and both push/pull_request workflow path filters. Local host regression compile/run PASS; exact-SHA GitHub Actions pending at commit creation. No L3/L4 claim.
+- Exact SHA `a856ba60a4695276b5c484f7e8388fdaeaf1ced0`: DHCPv6 IA run #45795811813 FAILED only when launching the new regression compile command; the six existing C policy binaries had passed. The YAML used doubled line-ending backslashes, so the linker received a literal backslash argument. This follow-up uses one shell command line and requires exact-SHA rerun. On the same SHA, AI #45795811557, DHCPv6 script retry #45795811708, HTTPD #45795811471 and process inventory #45795811538 PASS; NVRAM #45795811645, USB #45795811700 and XY-C1 #45795811655 were still running at last poll.
 - Parent main: `5b03226e811dbba4cba5d9219c43086b7962d6e7`; resulting commit: THIS COMMIT.
 
 ---
@@ -97,9 +98,9 @@
 
 ## Exact first action for the next GPT
 
-1. The NVRAM transaction-boundary run #45795310293 and AI handoff #45795310244 PASSed on exact SHA `5b03226e811dbba4cba5d9219c43086b7962d6e7`; the prior XY-C1 Build run #45795174930 on `02c27d9` was still pending at last check and does not validate this later DHCPv6 source change.
-2. Inspect exact-head DHCPv6 IA and AI handoff Actions for THIS COMMIT, then require Build XY-C1, Verify TRX output and artifact upload all PASS on that same product-source SHA before L3.
-3. Continue the DHCPv6 timer/event/callback ownership audit for any remaining callback-side object lifetime hazards, then rotate to another userland stability/security defect. Hardware L4 remains NOT VERIFIED.
+1. Check the DHCPv6 IA rerun after this workflow-command correction. Exact SHA `a856ba60a4695276b5c484f7e8388fdaeaf1ced0` failed only because the added compile command had doubled trailing backslashes; the source regression still needs the rerun result.
+2. Inspect same-SHA XY-C1 Build, Verify TRX output and artifact upload on the product-source SHA of the latest fix. All three must PASS together before L3; hardware L4 remains NOT VERIFIED.
+3. Continue the DHCPv6 timer/event/callback ownership audit for any remaining callback-side object lifetime hazards, then rotate to another userland stability/security defect.
 
 ## Mandatory handoff checkpoint
 
