@@ -3,9 +3,11 @@
 
 #include <ctype.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -138,6 +140,164 @@ inadyn_config_file_write_quoted_setting(FILE *fp, const char *prefix,
 		return -1;
 
 	return 0;
+}
+
+/*
+ * Keep the last-known-good config reachable until the new daemon is proven
+ * RUNNING. A same-directory hard link makes restoration an atomic rename.
+ */
+struct inadyn_config_file_snapshot {
+	char backup_path[PATH_MAX];
+	dev_t device;
+	ino_t inode;
+	int had_original;
+	int active;
+};
+
+static inline int
+inadyn_config_file_sync_directory(const char *directory)
+{
+	int fd, flags = O_RDONLY, result, saved_errno;
+	if (!directory || !directory[0]) { errno = EINVAL; return -1; }
+#if !defined(O_DIRECTORY) || !defined(O_NOFOLLOW)
+	errno = ENOTSUP;
+	return -1;
+#else
+	flags |= O_DIRECTORY | O_NOFOLLOW;
+#endif
+	fd = open(directory, flags);
+	if (fd < 0) return -1;
+	do { result = fsync(fd); } while (result != 0 && errno == EINTR);
+	if (result != 0) {
+		saved_errno = errno ? errno : EIO;
+		(void)close(fd); errno = saved_errno; return -1;
+	}
+	if (close(fd) != 0) return -1;
+	errno = 0;
+	return 0;
+}
+
+static inline int
+inadyn_config_file_sync_parent(const char *path)
+{
+	char parent[PATH_MAX];
+	char *slash;
+	size_t length;
+	if (!path || !path[0]) { errno = EINVAL; return -1; }
+	length = strlen(path);
+	if (length >= sizeof(parent)) { errno = ENAMETOOLONG; return -1; }
+	memcpy(parent, path, length + 1);
+	slash = strrchr(parent, '/');
+	if (!slash) { parent[0] = '.'; parent[1] = '\0'; }
+	else if (slash == parent) slash[1] = '\0';
+	else *slash = '\0';
+	return inadyn_config_file_sync_directory(parent);
+}
+
+static inline int
+inadyn_config_file_snapshot_matches(
+	const struct inadyn_config_file_snapshot *snapshot)
+{
+	struct stat backup;
+	if (!snapshot || !snapshot->active || !snapshot->had_original ||
+	    !snapshot->backup_path[0]) { errno = EINVAL; return -1; }
+	if (lstat(snapshot->backup_path, &backup) != 0) return -1;
+	if (!S_ISREG(backup.st_mode) || backup.st_uid != geteuid() ||
+	    (backup.st_mode & 077) != 0 ||
+	    (backup.st_nlink != 1 && backup.st_nlink != 2) ||
+	    backup.st_dev != snapshot->device ||
+	    backup.st_ino != snapshot->inode) { errno = EAGAIN; return -1; }
+	return 0;
+}
+
+static inline int
+inadyn_config_file_snapshot_begin(
+	const char *destination, struct inadyn_config_file_snapshot *snapshot)
+{
+	struct stat original, backup, current;
+	unsigned int attempt;
+	int length, linked = 0, saved_errno;
+	if (!destination || !destination[0] || !snapshot) {
+		errno = EINVAL; return -1;
+	}
+	memset(snapshot, 0, sizeof(*snapshot));
+	if (lstat(destination, &original) != 0) {
+		if (errno != ENOENT) return -1;
+		if (inadyn_config_file_sync_parent(destination) != 0) return -1;
+		snapshot->active = 1;
+		return 0;
+	}
+	if (!S_ISREG(original.st_mode) || original.st_uid != geteuid() ||
+	    original.st_nlink != 1 || (original.st_mode & 077) != 0) {
+		errno = EPERM; return -1;
+	}
+	for (attempt = 0; attempt < 32; ++attempt) {
+		length = snprintf(snapshot->backup_path, sizeof(snapshot->backup_path),
+				 "%s.rollback.%ld.%u", destination, (long)getpid(), attempt);
+		if (length < 0 || (size_t)length >= sizeof(snapshot->backup_path)) {
+			snapshot->backup_path[0] = '\0'; errno = ENAMETOOLONG; return -1;
+		}
+		if (link(destination, snapshot->backup_path) == 0) { linked = 1; break; }
+		if (errno != EEXIST) { snapshot->backup_path[0] = '\0'; return -1; }
+	}
+	if (!linked) { snapshot->backup_path[0] = '\0'; errno = EEXIST; return -1; }
+	if (lstat(snapshot->backup_path, &backup) != 0 ||
+	    lstat(destination, &current) != 0 ||
+	    !S_ISREG(backup.st_mode) || backup.st_dev != original.st_dev ||
+	    backup.st_ino != original.st_ino || backup.st_nlink != 2 ||
+	    current.st_dev != original.st_dev || current.st_ino != original.st_ino) {
+		saved_errno = errno ? errno : EAGAIN; goto failed;
+	}
+	if (inadyn_config_file_sync_parent(snapshot->backup_path) != 0) {
+		saved_errno = errno ? errno : EIO; goto failed;
+	}
+	snapshot->device = original.st_dev;
+	snapshot->inode = original.st_ino;
+	snapshot->had_original = 1;
+	snapshot->active = 1;
+	return 0;
+failed:
+	if (unlink(snapshot->backup_path) == 0 || errno == ENOENT) {
+		(void)inadyn_config_file_sync_parent(snapshot->backup_path);
+		snapshot->backup_path[0] = '\0';
+	}
+	errno = saved_errno ? saved_errno : EIO;
+	return -1;
+}
+
+static inline int
+inadyn_config_file_snapshot_restore(
+	const char *destination, struct inadyn_config_file_snapshot *snapshot)
+{
+	if (!destination || !destination[0] || !snapshot || !snapshot->active) {
+		errno = EINVAL; return -1;
+	}
+	if (snapshot->had_original) {
+		if (inadyn_config_file_snapshot_matches(snapshot) != 0) return -1;
+		if (rename(snapshot->backup_path, destination) != 0) return -1;
+		snapshot->backup_path[0] = '\0';
+	} else if (unlink(destination) != 0 && errno != ENOENT) return -1;
+	snapshot->active = 0;
+	snapshot->had_original = 0;
+	return inadyn_config_file_sync_parent(destination);
+}
+
+static inline int
+inadyn_config_file_snapshot_commit(
+	const char *destination, struct inadyn_config_file_snapshot *snapshot)
+{
+	if (!destination || !destination[0] || !snapshot || !snapshot->active) {
+		errno = EINVAL; return -1;
+	}
+	if (inadyn_config_file_sync_parent(destination) != 0) return -1;
+	if (snapshot->had_original) {
+		if (inadyn_config_file_snapshot_matches(snapshot) != 0) return -1;
+		if (unlink(snapshot->backup_path) != 0) return -1;
+		snapshot->backup_path[0] = '\0';
+	}
+	snapshot->active = 0;
+	snapshot->had_original = 0;
+	return inadyn_config_file_sync_parent(destination);
 }
 
 /* Stage DDNS settings beside the destination. mkstemp creates an owner-only

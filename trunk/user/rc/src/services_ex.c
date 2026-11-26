@@ -4198,23 +4198,49 @@ inadyn_restore_previous_instance(int previous_running)
  */
 static int
 inadyn_rollback_failed_start(int start_status, int start_errno,
-			     const char *operation)
+			     const char *operation, int previous_running,
+			     struct inadyn_config_file_snapshot *config_snapshot)
 {
 	int stop_status;
 	int scan_error = 0;
+	int restore_status;
 	enum process_presence presence;
 
 	stop_status = stop_ddns_locked();
 	presence = inadyn_process_presence(&scan_error);
 	if (inadyn_failed_start_may_leave_daemon(presence)) {
 		logmessage(LOGNAME,
-			   "Inadyn may remain active after failed %s (start_status=%d, rollback_status=%d, state=%d, scan_error=%d)",
+			   "Inadyn may remain active after failed %s (start_status=%d, rollback_status=%d, state=%d, scan_error=%d); preserving current config",
 			   operation, start_status, stop_status, presence,
 			   scan_error);
-	} else if (stop_status != 0) {
-		logmessage(LOGNAME,
-			   "Inadyn is absent after failed %s rollback but stop reported status=%d",
-			   operation, stop_status);
+		if (config_snapshot && config_snapshot->active) {
+			if (config_snapshot->backup_path[0])
+				logmessage(LOGNAME,
+					   "Inadyn previous config snapshot retained for manual recovery: %s",
+					   config_snapshot->backup_path);
+			else
+				logmessage(LOGNAME,
+					   "Inadyn had no previous config file; new config retained while daemon state is uncertain");
+		}
+	} else {
+		restore_status = inadyn_config_file_snapshot_restore(
+			DDNS_CONF_FILE, config_snapshot);
+		if (restore_status != 0)
+			logmessage(LOGNAME,
+				   "Inadyn failed-start config rollback failed (status=%d, snapshot=%s)",
+				   restore_status,
+				   config_snapshot ? config_snapshot->backup_path : "");
+		else if (previous_running) {
+			restore_status = inadyn_restore_previous_instance(previous_running);
+			if (restore_status != 0)
+				logmessage(LOGNAME,
+					   "Inadyn remains stopped after failed %s; previous instance restore failed (status=%d)",
+					   operation, restore_status);
+		}
+		if (stop_status != 0)
+			logmessage(LOGNAME,
+				   "Inadyn is absent after failed %s and previous config restore was attempted, but stop reported status=%d",
+				   operation, stop_status);
 	}
 	errno = start_errno > 0 ? start_errno : EIO;
 	return start_status;
@@ -4235,7 +4261,9 @@ start_ddns_locked(int clear_cache)
 	int previous_running = 0;
 	int scan_error = 0;
 	int restore_status;
+	int snapshot_status;
 	int saved_status;
+	struct inadyn_config_file_snapshot config_snapshot;
 	int is_ap_mode, ap_mode_status;
 	int enabled_api_result, enabled_status, ddns_enabled;
 	int saved_errno;
@@ -4320,9 +4348,29 @@ start_ddns_locked(int clear_cache)
 		return cache_status;
 	}
 
-	if (!write_inadyn_conf(DDNS_CONF_FILE)) {
+	snapshot_status = inadyn_config_file_snapshot_begin(
+		DDNS_CONF_FILE, &config_snapshot);
+	if (snapshot_status != 0) {
 		saved_status = errno ? errno : EIO;
 		if (previous_running) {
+			restore_status = inadyn_restore_previous_instance(previous_running);
+			if (restore_status != 0)
+				logmessage(LOGNAME,
+					   "Inadyn remains stopped after config snapshot failure (restore status=%d)",
+					   restore_status);
+		}
+		errno = saved_status;
+		return -1;
+	}
+	if (!write_inadyn_conf(DDNS_CONF_FILE)) {
+		saved_status = errno ? errno : EIO;
+		restore_status = inadyn_config_file_snapshot_restore(
+			DDNS_CONF_FILE, &config_snapshot);
+		if (restore_status != 0)
+			logmessage(LOGNAME,
+				   "Inadyn config write failed and previous file restore failed (status=%d, snapshot=%s)",
+				   restore_status, config_snapshot.backup_path);
+		else if (previous_running) {
 			restore_status = inadyn_restore_previous_instance(previous_running);
 			if (restore_status != 0)
 				logmessage(LOGNAME,
@@ -4350,7 +4398,8 @@ start_ddns_locked(int clear_cache)
 			(launch_status > 0 ? launch_status : EIO);
 		logmessage(LOGNAME, "Inadyn launcher failed (status=%d)", launch_status);
 		return inadyn_rollback_failed_start(
-			launch_status, start_errno, "launcher");
+			launch_status, start_errno, "launcher",
+			previous_running, &config_snapshot);
 	}
 
 	start_status = inadyn_confirm_started(launch_status);
@@ -4358,8 +4407,15 @@ start_ddns_locked(int clear_cache)
 		start_errno = errno > 0 ? errno :
 			(start_status > 0 ? start_status : EIO);
 		return inadyn_rollback_failed_start(
-			start_status, start_errno, "startup confirmation");
+			start_status, start_errno, "startup confirmation",
+			previous_running, &config_snapshot);
 	}
+	snapshot_status = inadyn_config_file_snapshot_commit(
+		DDNS_CONF_FILE, &config_snapshot);
+	if (snapshot_status != 0)
+		logmessage(LOGNAME,
+			   "Inadyn started but previous config snapshot could not be fully retired (status=%d, path=%s)",
+			   snapshot_status, config_snapshot.backup_path);
 	return 0;
 }
 

@@ -81,6 +81,33 @@ def body(signature):
 
     raise AssertionError("unterminated function: " + signature)
 
+config_snapshot_header = (root / "trunk/user/rc/src/inadyn_config_file.h").read_text()
+config_snapshot_test = (root / "trunk/user/rc/src/tests/inadyn_config_file.c").read_text()
+
+rollback = body("inadyn_rollback_failed_start(int start_status, int start_errno,")
+assert "inadyn_failed_start_may_leave_daemon(presence)" in rollback
+assert rollback.index("inadyn_failed_start_may_leave_daemon(presence)") < rollback.index(
+    "inadyn_config_file_snapshot_restore(")
+assert "inadyn_restore_previous_instance(previous_running)" in rollback
+assert "previous config snapshot retained for manual recovery" in rollback
+
+start = body("start_ddns_locked(int clear_cache)")
+assert start.index("inadyn_config_file_snapshot_begin(") < start.index(
+    "write_inadyn_conf(DDNS_CONF_FILE)")
+assert start.index("inadyn_confirm_started(launch_status)") < start.index(
+    "inadyn_config_file_snapshot_commit(")
+assert start.index("inadyn_rollback_failed_start(") < start.index(
+    "inadyn_config_file_snapshot_commit(")
+assert "previous_running, &config_snapshot" in start
+
+assert "link(destination, snapshot->backup_path)" in config_snapshot_header
+assert "backup.st_dev != original.st_dev" in config_snapshot_header
+assert "backup.st_ino != original.st_ino" in config_snapshot_header
+assert "O_DIRECTORY | O_NOFOLLOW" in config_snapshot_header
+assert "inadyn_config_file_snapshot_restore" in config_snapshot_test
+assert "inadyn_config_file_snapshot_commit" in config_snapshot_test
+assert "test_config_snapshot_rejects_symlink" in config_snapshot_test
+
 notify = body("notify_ddns_update_locked(void)")
 assert "inadyn_process_inventory_scan(&snapshot)" in notify
 assert "inadyn_action_for_presence(state)" in notify
@@ -354,4 +381,4 @@ assert "strcmp(entry->d_name, RCN_MANUAL_DDNS_UPDATE)" in rc_source
 assert "notify_ddns_manual_update()" in rc_source
 assert "int notify_ddns_manual_update(void);" in header
 
-print("Inadyn lifecycle tri-state and PID identity integration: PASS")
+print("Inadyn last-known-good config rollback and PID identity integration: PASS")

@@ -255,11 +255,81 @@ test_nvram_snapshot_copies_rotating_cache_and_invalidates_failed_tuple(void)
 	       values[2][0] == '\0');
 }
 
+static void
+test_config_snapshot_restore_and_commit(const char *config,
+                                        const char *directory,
+                                        const char *new_config)
+{
+	struct inadyn_config_file_snapshot snapshot;
+	struct stat st;
+	char staged[512];
+	FILE *fp;
+	assert(inadyn_config_file_snapshot_begin(config, &snapshot) == 0);
+	assert(snapshot.active && snapshot.had_original);
+	assert(lstat(config, &st) == 0 && st.st_nlink == 2);
+	assert(count_staged_files(directory, "inadyn.conf.rollback.") == 1);
+	fp = inadyn_config_file_open(config, staged, sizeof(staged));
+	assert(fp != NULL && fputs("failed-generation\n", fp) >= 0);
+	assert(inadyn_config_file_publish(fp, staged, config) == 0);
+	read_exact(config, "failed-generation\n");
+	assert(inadyn_config_file_snapshot_restore(config, &snapshot) == 0);
+	assert(!snapshot.active && !snapshot.backup_path[0]);
+	read_exact(config, "new-user\nnew-password\n");
+	assert(stat(config, &st) == 0 && st.st_nlink == 1);
+	assert(count_staged_files(directory, "inadyn.conf.rollback.") == 0);
+
+	assert(inadyn_config_file_snapshot_begin(new_config, &snapshot) == 0);
+	assert(snapshot.active && !snapshot.had_original);
+	fp = inadyn_config_file_open(new_config, staged, sizeof(staged));
+	assert(fp != NULL && fputs("first-generation\n", fp) >= 0);
+	assert(inadyn_config_file_publish(fp, staged, new_config) == 0);
+	assert(inadyn_config_file_snapshot_restore(new_config, &snapshot) == 0);
+	errno = 0;
+	assert(lstat(new_config, &st) == -1 && errno == ENOENT);
+
+	assert(inadyn_config_file_snapshot_begin(config, &snapshot) == 0);
+	fp = inadyn_config_file_open(config, staged, sizeof(staged));
+	assert(fp != NULL && fputs("committed-generation\n", fp) >= 0);
+	assert(inadyn_config_file_publish(fp, staged, config) == 0);
+	assert(inadyn_config_file_snapshot_commit(config, &snapshot) == 0);
+	assert(!snapshot.active && !snapshot.backup_path[0]);
+	read_exact(config, "committed-generation\n");
+	assert(stat(config, &st) == 0 && st.st_nlink == 1);
+	assert(count_staged_files(directory, "inadyn.conf.rollback.") == 0);
+}
+
+static void
+test_config_snapshot_rejects_symlink(const char *link_path)
+{
+	struct inadyn_config_file_snapshot snapshot;
+	errno = 0;
+	assert(inadyn_config_file_snapshot_begin(link_path, &snapshot) == -1);
+	assert(errno == EPERM && !snapshot.active && !snapshot.backup_path[0]);
+}
+
+static void
+test_config_directory_sync_rejects_symlink(const char *directory)
+{
+	char link_path[256], child[320];
+	assert(inadyn_config_file_sync_directory(directory) == 0);
+	assert(inadyn_config_file_sync_parent(directory) == 0);
+	assert(snprintf(link_path, sizeof(link_path), "%s/dir-link", directory) > 0);
+	assert(symlink(directory, link_path) == 0);
+	errno = 0;
+	assert(inadyn_config_file_sync_directory(link_path) == -1);
+	assert(errno == ELOOP || errno == ENOTDIR);
+	assert(snprintf(child, sizeof(child), "%s/child", link_path) > 0);
+	errno = 0;
+	assert(inadyn_config_file_sync_parent(child) == -1);
+	assert(errno == ELOOP || errno == ENOTDIR);
+	assert(unlink(link_path) == 0);
+}
+
 int
 main(void)
 {
 	char directory[] = "/tmp/inadyn-config-test.XXXXXX";
-	char config[256], victim[256], link_path[256], blocked[256], sentinel[256];
+	char config[256], new_config[256], victim[256], link_path[256], blocked[256], sentinel[256];
 	char staged_path[512];
 	struct stat before, after;
 	mode_t old_umask;
@@ -267,6 +337,7 @@ main(void)
 
 	assert(mkdtemp(directory) != NULL);
 	assert(snprintf(config, sizeof(config), "%s/inadyn.conf", directory) > 0);
+	assert(snprintf(new_config, sizeof(new_config), "%s/new-inadyn.conf", directory) > 0);
 	assert(snprintf(victim, sizeof(victim), "%s/victim", directory) > 0);
 	assert(snprintf(link_path, sizeof(link_path), "%s/config-link", directory) > 0);
 	assert(snprintf(blocked, sizeof(blocked), "%s/blocked", directory) > 0);
@@ -295,6 +366,8 @@ main(void)
 	assert(after.st_nlink == 1);
 	assert(before.st_ino != after.st_ino);
 	read_exact(config, "new-user\nnew-password\n");
+	test_config_directory_sync_rejects_symlink(directory);
+	test_config_snapshot_restore_and_commit(config, directory, new_config);
 
 	/* Atomic publication replaces a destination symlink, not its target. */
 	fp = fopen(victim, "w");
@@ -302,6 +375,7 @@ main(void)
 	assert(fputs("keep-victim\n", fp) >= 0);
 	assert(fclose(fp) == 0);
 	assert(symlink(victim, link_path) == 0);
+	test_config_snapshot_rejects_symlink(link_path);
 	fp = inadyn_config_file_open(link_path, staged_path, sizeof(staged_path));
 	assert(fp != NULL);
 	assert(fputs("private-link-replacement\n", fp) >= 0);
@@ -356,6 +430,6 @@ main(void)
 	test_sensitive_snapshot_clear_wipes_every_byte();
 	test_quoted_setting_escapes_configuration_delimiters();
 	test_quoted_setting_rejects_control_bytes();
-	puts("Inadyn private atomic configuration publication and quoted-value escaping: PASS");
+	puts("Inadyn config snapshot rollback/commit and private atomic publication: PASS");
 	return 0;
 }
