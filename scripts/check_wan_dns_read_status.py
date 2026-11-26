@@ -7,6 +7,8 @@ ROOT = Path(__file__).resolve().parents[1]
 source = (ROOT / "trunk/user/rc/src/net_wan.c").read_text()
 policy = (ROOT / "trunk/user/rc/src/wan_nvram_status_policy.h").read_text()
 test = (ROOT / "trunk/user/rc/src/tests/wan_nvram_status_policy.c").read_text()
+resolver_policy_header = (ROOT / "trunk/user/rc/src/wan_resolver_refresh_policy.h").read_text()
+resolver_policy_test = (ROOT / "trunk/user/rc/src/tests/wan_resolver_refresh_policy.c").read_text()
 route_policy = (ROOT / "trunk/user/rc/src/wan_route_flush_policy.h").read_text()
 route_test = (ROOT / "trunk/user/rc/src/tests/wan_route_flush_policy.c").read_text()
 
@@ -267,6 +269,46 @@ require(resolver_vpn_abort < vpn_mode_parse < vpn_mode_abort < vpn_mode_stage an
 require("rc_wan_nvram_vpn_dns_mode_status" in policy and
         "configured_mode < 0 || configured_mode > 2" in policy,
         "VPN DNS mode parser must enforce the documented 0/1/2 domain")
+
+# Replace-current means excluding WAN DNS from both address families once
+# at least one valid VPN upstream exists. An empty VPN list keeps WAN fallback.
+vpn_replace_policy = body(
+    resolver_policy_header,
+    "wan_resolver_refresh_policy_replaces_wan_dns(int vpn_dns_mode,",
+)
+require(
+    "vpn_dns_replaces_current = wan_resolver_refresh_policy_replaces_wan_dns(i_pdns, i_total_dns);" in resolver
+    and "if (!vpn_dns_replaces_current)" in resolver,
+    "resolver must share one replace-current decision across WAN DNS families",
+)
+require(
+    "if (i_pdns != 2 || i_total_dns < 1)" not in resolver
+    and "return vpn_dns_mode == 2 && valid_vpn_dns_count > 0;" in vpn_replace_policy,
+    "replace-current policy must be selected only with at least one usable VPN DNS",
+)
+ipv4_wan_start = resolver.index("/* DNS servers for WAN/MAN */")
+ipv4_wan_end = resolver.index("if (i_total_dns < 1)", ipv4_wan_start)
+ipv4_wan_block = resolver[ipv4_wan_start:ipv4_wan_end]
+dns6_start = resolver.index("/* DNSv6 servers */")
+dns6_end = resolver.index("#endif", dns6_start)
+dns6_block = resolver[dns6_start:dns6_end]
+require(
+    "if (!vpn_dns_replaces_current)" in ipv4_wan_block
+    and "if (!vpn_dns_replaces_current)" in dns6_block
+    and dns6_block.index("if (!vpn_dns_replaces_current)") < dns6_block.index("foreach(word, wan_dns, next)"),
+    "replace-current mode must suppress both WAN IPv4 and WAN IPv6 upstreams",
+)
+for case in (
+    "wan_resolver_refresh_policy_replaces_wan_dns(0, 1)",
+    "wan_resolver_refresh_policy_replaces_wan_dns(1, 1)",
+    "wan_resolver_refresh_policy_replaces_wan_dns(2, 0)",
+    "wan_resolver_refresh_policy_replaces_wan_dns(2, -1)",
+    "wan_resolver_refresh_policy_replaces_wan_dns(2, 1)",
+    "wan_resolver_refresh_policy_replaces_wan_dns(2, 2)",
+):
+    require(case in resolver_policy_test,
+            "VPN replace-current resolver regression missing " + case)
+
 for case in ("test_vpn_dns_policy_accepts_only_documented_modes",
              "test_vpnc_dns_policy_and_servers_share_one_transaction",
              "test_vpnc_dns_snapshot_backend_errors_clear_policy_and_servers",

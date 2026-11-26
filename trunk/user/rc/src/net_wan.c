@@ -6421,7 +6421,7 @@ update_resolvconf(int is_first_run, int do_not_notify)
 	struct rc_wan_nvram_snapshot_field static_dns_fields[3];
 	const char *google_dns = "8.8.8.8";
 	char resolv_temp[] = "/etc/resolv.conf.XXXXXX";
-	int i, i_pdns, i_total_dns = 0;
+	int i, i_pdns, i_total_dns = 0, vpn_dns_replaces_current = 0;
 	int vpnc_snapshot_status, vpn_dns_mode_status;
 	int lock, dns_static, dns_static_status, resolv_changed = 0;
 	int dns_restart_status;
@@ -6561,8 +6561,12 @@ update_resolvconf(int is_first_run, int do_not_notify)
 		}
 	}
 
+	/* Only a usable VPN DNS list can replace the current upstream list. */
+	vpn_dns_replaces_current =
+		wan_resolver_refresh_policy_replaces_wan_dns(i_pdns, i_total_dns);
+
 	/* DNS servers for WAN/MAN */
-	if (i_pdns != 2 || i_total_dns < 1) {
+	if (!vpn_dns_replaces_current) {
 		if (dns_static) {
 			if (is_first_run)
 				resolv_changed = 1;
@@ -6592,15 +6596,17 @@ update_resolvconf(int is_first_run, int do_not_notify)
 		fprintf(fp, "nameserver %s\n", google_dns);
 
 #if defined (USE_IPV6)
-	/* DNSv6 servers */
-	wan_dns = wan_dns6_snapshot;
-	foreach(word, wan_dns, next) {
-		if (strlen(word) > 0) {
-			char dns6s[INET6_ADDRSTRLEN] = {0};
-			if (ipv6_compact(word, dns6s, 0) == 0) {
-				fprintf(fp, "nameserver %s\n", dns6s);
-				if (is_first_run)
-					resolv_changed = 1;
+	/* Replace mode must exclude WAN DNSv6 as well as WAN DNSv4. */
+	if (!vpn_dns_replaces_current) {
+		wan_dns = wan_dns6_snapshot;
+		foreach(word, wan_dns, next) {
+			if (strlen(word) > 0) {
+				char dns6s[INET6_ADDRSTRLEN] = {0};
+				if (ipv6_compact(word, dns6s, 0) == 0) {
+					fprintf(fp, "nameserver %s\n", dns6s);
+					if (is_first_run)
+						resolv_changed = 1;
+				}
 			}
 		}
 	}

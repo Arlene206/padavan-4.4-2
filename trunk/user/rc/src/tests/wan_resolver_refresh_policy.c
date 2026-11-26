@@ -19,6 +19,16 @@ main(void)
 	assert(wan_resolver_refresh_policy_action(256) ==
 	       WAN_RESOLVER_REFRESH_KEEP_WAN);
 
+	/* Replace-current mode excludes both WAN DNS families only when the VPN
+	 * provided a usable upstream; otherwise keep the legacy WAN fallback. */
+	assert(!wan_resolver_refresh_policy_replaces_wan_dns(0, 1));
+	assert(!wan_resolver_refresh_policy_replaces_wan_dns(1, 1));
+	assert(!wan_resolver_refresh_policy_replaces_wan_dns(2, 0));
+	assert(!wan_resolver_refresh_policy_replaces_wan_dns(2, -1));
+	assert(wan_resolver_refresh_policy_replaces_wan_dns(2, 1));
+	assert(wan_resolver_refresh_policy_replaces_wan_dns(2, 2));
+	assert(!wan_resolver_refresh_policy_replaces_wan_dns(3, 1));
+
 	/* Unsafe/missing upstream input must never report a successful refresh. */
 	assert(wan_resolver_refresh_policy_blocked_status(1, 0) == 0);
 	assert(wan_resolver_refresh_policy_blocked_status(1, EPERM) == 0);
