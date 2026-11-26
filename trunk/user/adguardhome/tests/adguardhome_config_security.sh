@@ -21,6 +21,11 @@ mode_of() {
 # Source the real production function without executing a service action.
 set -- __test__
 . "$SCRIPT" >/dev/null 2>&1
+ADG_WORKDIR="$TEST_TMP/AdGuardHome persistent data"
+export ADG_WORKDIR
+adg_prepare_workdir || fail "persistent work directory creation failed"
+[ "$(stat -c '%a' "$ADG_WORKDIR")" = 700 ] || fail "persistent work directory is not mode 0700"
+printf '%s\n' "keep-filter-state" > "$ADG_WORKDIR/filter-state"
 
 # New default config must be private even under a permissive caller umask.
 OLD_UMASK=$(umask)
@@ -108,6 +113,27 @@ fi
 ) || fail "startup changed DNS/firewall before config validation"
 
 echo "AdGuardHome secret config mode, symlink rejection and atomic publication: PASS"
+
+# Unsafe working-directory destinations must fail closed without following links.
+(
+  TEST_ADG_WORKDIR_TARGET="$TEST_TMP/workdir-target"
+  TEST_ADG_WORKDIR_LINK="$TEST_TMP/workdir-link"
+  TEST_ADG_WORKDIR_FIFO="$TEST_TMP/workdir-fifo"
+  mkdir -p "$TEST_ADG_WORKDIR_TARGET"
+  ln -s "$TEST_ADG_WORKDIR_TARGET" "$TEST_ADG_WORKDIR_LINK"
+  ADG_WORKDIR="$TEST_ADG_WORKDIR_LINK"
+  if adg_prepare_workdir; then exit 1; fi
+  [ -d "$TEST_ADG_WORKDIR_TARGET" ] || exit 1
+  mkfifo "$TEST_ADG_WORKDIR_FIFO"
+  ADG_WORKDIR="$TEST_ADG_WORKDIR_FIFO"
+  if adg_prepare_workdir; then exit 1; fi
+  ADG_WORKDIR="$TEST_TMP/workdir-chmod-failure"
+  mkdir -p "$ADG_WORKDIR"
+  chmod() { return 1; }
+  if adg_prepare_workdir; then exit 1; fi
+) || fail "persistent work directory accepted an unsafe path or ignored permission failure"
+
+echo "AdGuardHome persistent work directory symlink, type, ownership and mode policy: PASS"
 
 # Verify resolver edits are staged, checked and rolled back byte-for-byte when
 # dnsmasq rejects the new configuration.
@@ -581,7 +607,6 @@ echo "AdGuardHome redirect selector checked-read and fail-closed validation: PAS
   : > "$TEST_ADG_START_EFFECTS"
   pidof() { return 1; }
   getconfig() { return 0; }
-  mkdir() { return 0; }
   set_iptable() { echo set_iptable >> "$TEST_ADG_START_EFFECTS"; return 0; }
   change_dns() { echo change_dns >> "$TEST_ADG_START_EFFECTS"; return 1; }
   clear_iptable() { echo clear_iptable >> "$TEST_ADG_START_EFFECTS"; return 0; }
@@ -619,8 +644,8 @@ adg_test_add_proc_pid()
 	ln -sfn "$adg_test_exe" "$ADG_PROC_ROOT/$adg_test_pid/exe"
 	printf '%s (AdGuardHome) S 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 %s\n' \
 		"$adg_test_pid" "$adg_test_start" > "$ADG_PROC_ROOT/$adg_test_pid/stat"
-	printf 'AdGuardHome\0-c\0%s\0-w\0/tmp/AdGuardHome\0-v\0' \
-		"$adg_test_config" > "$ADG_PROC_ROOT/$adg_test_pid/cmdline"
+	printf 'AdGuardHome\0-c\0%s\0-w\0%s\0-v\0' \\
+		"$adg_test_config" "$ADG_WORKDIR" > "$ADG_PROC_ROOT/$adg_test_pid/cmdline"
 }
 TEST_ADG_PROC_CASE=valid
 
@@ -697,17 +722,6 @@ sleep() {
 	[ "${TEST_ADG_SLEEP_FAIL:-0}" = 0 ]
 }
 
-rm() {
-	case "$*" in
-		"-rf /tmp/AdGuardHome")
-			printf 'rm:%s\n' "$*" >> "$TEST_ADG_CLEANUP_LOG"
-			return 0
-			;;
-		*)
-			/bin/rm "$@"
-			;;
-	esac
-}
 
 del_dns() {
 	echo del_dns >> "$TEST_ADG_CLEANUP_LOG"
@@ -730,6 +744,18 @@ echo running > "$TEST_ADG_STATE"
 getconfig() { echo getconfig >> "$TEST_ADG_EFFECTS_LOG"; return 0; }
 change_dns() { echo change_dns >> "$TEST_ADG_EFFECTS_LOG"; }
 set_iptable() { echo set_iptable >> "$TEST_ADG_EFFECTS_LOG"; }
+
+# A symlinked persistent data directory must stop startup before traffic changes.
+(
+  ADG_WORKDIR="$TEST_TMP/unsafe-start-workdir"
+  mkdir -p "$TEST_TMP/unsafe-start-target"
+  ln -s "$TEST_TMP/unsafe-start-target" "$ADG_WORKDIR"
+  echo stopped > "$TEST_ADG_STATE"
+  : > "$TEST_ADG_EFFECTS_LOG"
+  if start_adg; then exit 1; fi
+  [ "$(cat "$TEST_ADG_EFFECTS_LOG")" = getconfig ] || exit 1
+) || fail "unsafe persistent work directory changed DNS/firewall state"
+
 TEST_ADG_MODE=unused
 if ! start_adg; then
 	fail "duplicate start was not treated as an already-running service"
@@ -745,7 +771,7 @@ fi
 [ ! -s "$TEST_ADG_EFFECTS_LOG" ] || fail "UNKNOWN start changed config/DNS/firewall state or launched a duplicate"
 echo running > "$TEST_ADG_STATE"
 
-# No-process stop should clean stale DNS/firewall/workdir state without signalling.
+# No-process stop should clean stale traffic state while retaining persistent filter/query data.
 : > "$TEST_ADG_KILL_LOG"
 : > "$TEST_ADG_PID_LOG"
 : > "$TEST_ADG_SLEEP_LOG"
@@ -757,7 +783,8 @@ if ! stop_adg; then
 fi
 [ ! -s "$TEST_ADG_KILL_LOG" ] || fail "no-process stop sent a signal"
 [ ! -s "$TEST_ADG_SLEEP_LOG" ] || fail "no-process stop waited"
-[ "$(cat "$TEST_ADG_CLEANUP_LOG")" = "$(printf 'clear_iptable\ndel_dns\nrm:-rf /tmp/AdGuardHome')" ] || fail "no-process cleanup ordering changed"
+[ "$(cat "$TEST_ADG_CLEANUP_LOG")" = "$(printf 'clear_iptable\ndel_dns\n')" ] || fail "no-process cleanup ordering changed"
+grep -Fqx "keep-filter-state" "$ADG_WORKDIR/filter-state" || fail "no-process stop deleted persistent filter/query state"
 
 # A same-name PID with another executable or a different config argv is not
 # this managed service and must never receive TERM or SIGKILL.
@@ -876,7 +903,8 @@ if ! stop_adg; then
 fi
 [ "$(cat "$TEST_ADG_KILL_LOG")" = AdGuardHome ] || fail "graceful stop sent force kill or used unexpected process identity"
 [ ! -s "$TEST_ADG_SLEEP_LOG" ] || fail "graceful daemon exit was not observed immediately"
-[ "$(tail -n 3 "$TEST_ADG_CLEANUP_LOG")" = "$(printf 'clear_iptable\ndel_dns\nrm:-rf /tmp/AdGuardHome')" ] || fail "cleanup did not follow confirmed daemon exit"
+[ "$(tail -n 3 "$TEST_ADG_CLEANUP_LOG")" = "$(printf 'clear_iptable\ndel_dns\n')" ] || fail "cleanup did not follow confirmed daemon exit"
+grep -Fqx "keep-filter-state" "$ADG_WORKDIR/filter-state" || fail "graceful stop deleted persistent service data"
 
 # A TERM-resistant daemon is escalated only after five bounded polls.
 : > "$TEST_ADG_KILL_LOG"
@@ -892,7 +920,8 @@ fi
 [ "$(cat "$TEST_ADG_KILL_LOG")" = "$(printf 'AdGuardHome\n-9 AdGuardHome')" ] || fail "stop did not perform TERM then fresh name-based SIGKILL"
 [ "$(cat "$TEST_ADG_PID_LOG")" = "$(printf '%s\n' '-TERM 24680' '-9 13579')" ] || fail "SIGKILL did not use the freshly validated replacement PID"
 [ "$(wc -l < "$TEST_ADG_SLEEP_LOG" | tr -d ' ')" = 5 ] || fail "TERM grace period was not bounded to five polls"
-[ "$(tail -n 3 "$TEST_ADG_CLEANUP_LOG")" = "$(printf 'clear_iptable\ndel_dns\nrm:-rf /tmp/AdGuardHome')" ] || fail "cleanup did not follow confirmed SIGKILL exit"
+[ "$(tail -n 3 "$TEST_ADG_CLEANUP_LOG")" = "$(printf 'clear_iptable\ndel_dns\n')" ] || fail "cleanup did not follow confirmed SIGKILL exit"
+grep -Fqx "keep-filter-state" "$ADG_WORKDIR/filter-state" || fail "SIGKILL stop deleted persistent service data"
 # The next stuck-daemon case begins a fresh process fixture; do not leak the
 # replacement PID from this scenario into its initial TERM snapshot.
 TEST_ADG_PID_OUTPUT=24680
@@ -946,7 +975,6 @@ fi
   TEST_ADG_ARGV_EXPECTED="$TEST_TMP/adguardhome.argv.expected"
   ADG_CONFIG_FILE="$TEST_TMP/config with spaces; touch $TEST_TMP/adguardhome-command-injected #"
   export TEST_ADG_COMMAND_MARKER TEST_ADG_ARGV_LOG ADG_CONFIG_FILE
-  mkdir() { return 0; }
   getconfig() { adg_file="$ADG_CONFIG_FILE"; echo getconfig >> "$TEST_ADG_EFFECTS_LOG"; return 0; }
   set_iptable() { echo set_iptable >> "$TEST_ADG_EFFECTS_LOG"; return 0; }
   change_dns() { echo change_dns >> "$TEST_ADG_EFFECTS_LOG"; return 0; }
@@ -968,7 +996,7 @@ fi
   [ "$(wc -l < "$TEST_ADG_SLEEP_LOG" | tr -d ' ')" = 1 ] || exit 1
   /bin/sleep 0.05
   grep -Fqx launch "$TEST_ADG_EFFECTS_LOG" || exit 1
-  printf '<%s>\n' -c "$ADG_CONFIG_FILE" -w /tmp/AdGuardHome -v > "$TEST_ADG_ARGV_EXPECTED"
+  printf '<%s>\n' -c "$ADG_CONFIG_FILE" -w "$ADG_WORKDIR" -v > "$TEST_ADG_ARGV_EXPECTED"
   cmp "$TEST_ADG_ARGV_EXPECTED" "$TEST_ADG_ARGV_LOG" || exit 1
   [ ! -e "$TEST_ADG_COMMAND_MARKER" ] || exit 1
   [ ! -s "$TEST_ADG_CLEANUP_LOG" ] || exit 1

@@ -55,6 +55,7 @@ def function_body(source: str, signature: str) -> str:
 
 
 config = function_body(script, "getconfig(){")
+workdir_prepare = function_body(script, "adg_prepare_workdir() {")
 dns_update = function_body(script, "adg_update_dns_config() {")
 change_dns = function_body(script, "change_dns() {")
 del_dns = function_body(script, "del_dns() {")
@@ -155,12 +156,22 @@ require('rm -f "$adg_tmp"' in config and 'return 1' in config,
         "failed staging, chmod or rename must clean up and fail closed")
 require('auth_pass: adguardhome' in config and 'private_key: ""' in config,
         "source contract must recognize secret-bearing config fields")
+require("ADG_WORKDIR='/etc/storage/AdGuardHome'" in script and
+        'adg_work_dir="$ADG_WORKDIR"' in workdir_prepare and
+        '[ -L "$adg_work_dir" ]' in workdir_prepare and
+        '[ ! -d "$adg_work_dir" ]' in workdir_prepare and
+        'umask 077' in workdir_prepare and
+        "stat -c '%u' \"$adg_work_dir\"" in workdir_prepare and
+        'chmod 700 "$adg_work_dir"' in workdir_prepare and
+        'return 1' in workdir_prepare,
+        "AdGuardHome working directory must be persistent, launcher-owned, non-symlink and mode 0700")
 require('if ! getconfig; then' in start and 'adg_read_redirect_mode || {' in start and
-        'adg_start_redirect_snapshot=1' in start and 'if ! set_iptable; then' in start and
+        'adg_start_redirect_snapshot=1' in start and 'if ! adg_prepare_workdir; then' in start and
+        'if ! set_iptable; then' in start and
         start.index('if ! getconfig; then') < start.index('adg_read_redirect_mode || {') <
-        start.index('mkdir -p /tmp/AdGuardHome') < start.index('if ! set_iptable; then') <
+        start.index('if ! adg_prepare_workdir; then') < start.index('if ! set_iptable; then') <
         start.index('if ! change_dns; then') < start.index('AdGuardHome -c "$adg_file"'),
-        "startup must pin a checked selector before filesystem, firewall, resolver and daemon effects")
+        "startup must validate persistent data storage before firewall, resolver and daemon effects")
 require('nvram get adg_redirect' not in script,
         "legacy unchecked redirect-selector reads must not remain in the launcher")
 require('mktemp "${adg_dns_conf}.adg-new.XXXXXX"' in dns_update and
@@ -202,7 +213,7 @@ require('readlink "$adg_identity_dir/exe"' in process_identity and
         'start_time = $20' in process_identity and
         '"$adg_identity_dir/cmdline"' in process_identity and
         'config="$adg_identity_config"' in process_identity and
-        'workdir="/tmp/AdGuardHome"' in process_identity and
+        'workdir="$ADG_WORKDIR"' in process_identity and
         'NR == 6' in process_identity,
         "AdGuardHome identity must bind executable, config/workdir argv and procfs start_time")
 require('while [ "$adg_wait" -lt 5 ]; do' in wait_stopped and
@@ -229,7 +240,8 @@ require('adg_process_state' in stop_daemon and 'adg_wait_status' in stop_daemon 
 require('if ! clear_iptable; then' in stop and
         'if ! del_dns; then' in stop and 'if ! adg_stop_daemon; then' in stop and
         stop.index('if ! clear_iptable; then') < stop.index('if ! del_dns; then') <
-        stop.index('if ! adg_stop_daemon; then') < stop.index('rm -rf /tmp/AdGuardHome'),
+        stop.index('if ! adg_stop_daemon; then') < stop.index('return 0') and
+        'rm -rf' not in stop and 'ADG_WORKDIR' not in stop,
         "stop must verify firewall cleanup and resolver reload before stopping daemon and removing its workdir")
 require('pidof AdGuardHome' in process_state and
         'adg_process_state' in stop_daemon and 'adg_process_state' in wait_stopped and
@@ -274,7 +286,8 @@ require("AdGuardHome command argv quoting and metacharacter safety: PASS" in tes
         'printf \'<%s>\\n\' "$@"' in test and
         'cmp "$TEST_ADG_ARGV_EXPECTED" "$TEST_ADG_ARGV_LOG"' in test,
         "AdGuardHome launch must preserve one literal config argv argument and never evaluate its contents")
-require("AdGuardHome restart preserves a healthy daemon on enable-read errors or invalid selectors: PASS" in test,
+require("AdGuardHome persistent work directory symlink, type, ownership and mode policy: PASS" in test and
+        "AdGuardHome restart preserves a healthy daemon on enable-read errors or invalid selectors: PASS" in test,
         "restart regression must verify NVRAM read failures and malformed selectors cause no stop/start side effects")
 require('adg_lifecycle_lock_prepare "$adg_lock_file"' in lock_run and
         'adg_lifecycle_lock_execute "$adg_lock_file"' in lock_run and
@@ -282,7 +295,7 @@ require('adg_lifecycle_lock_prepare "$adg_lock_file"' in lock_run and
         "all launcher service actions must pass through the same checked lock")
 post_launch_del_dns = start.index("if ! del_dns; then", start.index("if adg_wait_started; then"))
 post_launch_clear_iptable = start.index("if ! clear_iptable; then", post_launch_del_dns)
-require('( exec 9>&-; AdGuardHome -c "$adg_file" -w /tmp/AdGuardHome -v ) &' in start and
+require('( exec 9>&-; AdGuardHome -c "$adg_file" -w "$ADG_WORKDIR" -v ) &' in start and
         'eval "AdGuardHome -c $adg_file' not in start and
         "ADG_START_WAIT_ATTEMPTS=5" in script and
         "if adg_wait_started; then" in start and

@@ -1,3 +1,12 @@
+## 2026-11-26 — Persist AdGuardHome runtime data across service stops and reboots
+
+- The package pins AdGuardHome v0.107.48. Its `-w` working directory stores filter data, query logs and other state, but the launcher passed `/tmp/AdGuardHome` even though it also created `/etc/storage/AdGuardHome`. The former is volatile and was recursively deleted on every successful stop, while the persistent directory was never used.
+- The launcher now uses `/etc/storage/AdGuardHome` as its working directory, refuses symlink/non-directory targets, creates missing storage under umask 077, verifies launcher ownership and enforces mode 0700 before firewall/resolver changes. Process identity binds the exact persistent `-w` argument. Stop no longer deletes the work directory or its filter/query/session state.
+- GNU shell regressions cover persistent sentinel preservation, exact argv with a path containing spaces, symlink/FIFO rejection, permission failure and fail-before-network-side-effects. The source contract pins persistent workdir preparation and removes the old volatile-directory cleanup.
+- The AdGuardHome security workflow, Process inventory and XY-C1 checks for this source SHA are pending; local shell/Python/firmware execution was not available in this GitHub-API-only session. MIPS runtime and hardware L4 remain unverified.
+
+---
+
 ## 2026-11-26 — Reconcile FTP firewall state after storage startup even when daemon is absent
 
 - `start_stor_apps()` previously refreshed firewall/UPnP only when a post-start probe found vsftpd running or unknown. When FTP was disabled, or startup failed and rollback left the daemon absent, the function skipped reconciliation even for absent→absent. That contradicted the existing `ftp_firewall_reconcile_needed()` policy and its tests: stale FTP NAT/UPnP rules can outlive a crashed or disabled daemon.

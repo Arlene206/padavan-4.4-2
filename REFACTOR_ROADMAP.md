@@ -1,3 +1,11 @@
+## 2026-11-26 — AdGuardHome persistent working directory
+
+- AdGuardHome v0.107.48 documents `-w` as the directory for filter data, query logs and other state. The launcher previously selected volatile `/tmp/AdGuardHome`, then deleted it after every successful stop; the already-created `/etc/storage/AdGuardHome` directory was unused.
+- Startup now creates/validates the persistent directory, enforces owner-only mode 0700 before DNS/firewall mutation and binds process identity to the exact persistent `-w` argument. Stop retains all data across ordinary restarts.
+- Regression covers mode, symlink/FIFO/type and permission failures, exact argv, and persistent sentinel retention after no-process/graceful/forced stop. Exact-head AdGuardHome/Process/XY-C1 validation pending; hardware L4 NOT VERIFIED.
+
+---
+
 
 ## Current checkpoint — 2026-11-25
 

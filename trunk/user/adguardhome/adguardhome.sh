@@ -3,6 +3,7 @@
 ADG_START_WAIT_ATTEMPTS=5
 ADG_PROC_ROOT='/proc'
 ADG_EXECUTABLE='/usr/bin/AdGuardHome'
+ADG_WORKDIR='/etc/storage/AdGuardHome'
 
 adg_lifecycle_lock_path() {
   echo /tmp/.adguardhome.lifecycle.lock
@@ -529,6 +530,45 @@ EEE
   return 0
 }
 
+# AdGuard Home stores filter data, query history and other mutable state in
+# its working directory.  Keep this directory on persistent storage, private,
+# and stable across service stops and router reboots.
+adg_prepare_workdir() {
+  adg_work_dir="$ADG_WORKDIR"
+
+  if [ -L "$adg_work_dir" ]; then
+    logger -t "AdGuardHome" "工作目录不能是符号链接，拒绝启动"
+    return 1
+  fi
+  if [ -e "$adg_work_dir" ] && [ ! -d "$adg_work_dir" ]; then
+    logger -t "AdGuardHome" "工作目录不是目录，拒绝启动"
+    return 1
+  fi
+  if [ ! -d "$adg_work_dir" ]; then
+    if ! (umask 077; mkdir -p "$adg_work_dir"); then
+      logger -t "AdGuardHome" "无法创建持久工作目录，拒绝启动"
+      return 1
+    fi
+  fi
+
+  if [ -L "$adg_work_dir" ] || [ ! -d "$adg_work_dir" ]; then
+    logger -t "AdGuardHome" "工作目录类型在创建后发生变化，拒绝启动"
+    return 1
+  fi
+
+  adg_work_uid="$(id -u)" || return 1
+  adg_work_info="$(stat -c '%u' "$adg_work_dir")" || return 1
+  if [ "$adg_work_info" != "$adg_work_uid" ]; then
+    logger -t "AdGuardHome" "持久工作目录所有者不安全，拒绝启动"
+    return 1
+  fi
+  if ! chmod 700 "$adg_work_dir"; then
+    logger -t "AdGuardHome" "无法保护持久工作目录权限，拒绝启动"
+    return 1
+  fi
+  return 0
+}
+
 start_adg(){
   adg_start_redirect_snapshot=0
   # Avoid duplicate daemon instances and repeated DNS/firewall mutations.
@@ -555,8 +595,11 @@ start_adg(){
     return "$adg_redirect_status"
   }
   adg_start_redirect_snapshot=1
-  mkdir -p /tmp/AdGuardHome
-	mkdir -p /etc/storage/AdGuardHome
+  if ! adg_prepare_workdir; then
+    adg_start_redirect_snapshot=0
+    logger -t "AdGuardHome" "持久工作目录准备失败，取消启动"
+    return 1
+  fi
 	if ! set_iptable; then
 		adg_start_redirect_snapshot=0
 		logger -t "AdGuardHome" "DNS 防火墙规则准备失败，取消启动"
@@ -572,7 +615,7 @@ start_adg(){
 	fi
 	logger -t "AdGuardHome" "启动 AdGuardHome"
 	# The background daemon must not inherit the launcher lock descriptor.
-	( exec 9>&-; AdGuardHome -c "$adg_file" -w /tmp/AdGuardHome -v ) &
+	( exec 9>&-; AdGuardHome -c "$adg_file" -w "$ADG_WORKDIR" -v ) &
   if adg_wait_started; then
     adg_start_redirect_snapshot=0
     return 0
@@ -642,7 +685,7 @@ adg_process_identity() {
     [ -s "$adg_identity_dir/cmdline" ] || return 2
   adg_identity_config="${ADG_CONFIG_FILE:-/etc/storage/adg.sh}"
   if ! tr '\000' '\n' < "$adg_identity_dir/cmdline" 2>/dev/null |
-    awk -v config="$adg_identity_config" -v workdir="/tmp/AdGuardHome" '
+    awk -v config="$adg_identity_config" -v workdir="$ADG_WORKDIR" '
       NR == 1 {
         executable = $0
         sub(/^.*\//, "", executable)
@@ -897,7 +940,8 @@ stop_adg(){
     logger -t "AdGuardHome" "进程仍在运行，保留工作目录"
     return 1
   fi
-  rm -rf /tmp/AdGuardHome
+  # Keep the work directory: filters, query history and other service data are persistent.
+  return 0
 }
 
 case "${1:-}" in
