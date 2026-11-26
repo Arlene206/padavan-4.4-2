@@ -850,7 +850,7 @@ for name, code in (("route-add", route_add_code),
 cleanup_dispatch = route_add_code.index("if (!is_add)")
 cleanup_call = route_add_code.index("return dhcp_route_cleanup_owned(owner);")
 add_dispatch = route_add_code.index("if (is_add)")
-require(cleanup_dispatch < cleanup_call < checked_dr_read < add_dispatch <
+require(cleanup_dispatch < cleanup_call < add_dispatch < checked_dr_read <
         route_add_code.index("if (!dr_enable_value)"),
         "DHCP route teardown must use the owner manifest before reading add-only options")
 for code in (wan_dhcp_code, iptv_dhcp_code):
