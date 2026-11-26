@@ -24,6 +24,7 @@ on:
       - "trunk/user/dns-forwarder/tests/hev_event_loop_lifecycle.c"
       - "trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-dns-forwarder-policy.h"
       - "trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-dns-forwarder.c"
+      - "trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-main.c"
       - "trunk/user/dns-forwarder/tests/hev_dns_forwarder_policy.c"
   pull_request:
     paths:
@@ -48,6 +49,7 @@ on:
       - "trunk/user/dns-forwarder/tests/hev_event_loop_lifecycle.c"
       - "trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-dns-forwarder-policy.h"
       - "trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-dns-forwarder.c"
+      - "trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-main.c"
       - "trunk/user/dns-forwarder/tests/hev_dns_forwarder_policy.c"
 
 permissions:

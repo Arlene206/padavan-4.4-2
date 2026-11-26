@@ -67,6 +67,7 @@ shutils_header = read("trunk/user/shared/src/shutils.h")
 package_makefile = read("trunk/user/dns-forwarder/Makefile")
 launcher_script = read("trunk/user/dns-forwarder/dns-forwarder.sh")
 forwarder_core = read("trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-dns-forwarder.c")
+main_core = read("trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-main.c")
 forwarder_policy = read("trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-dns-forwarder-policy.h")
 forwarder_policy_test = read("trunk/user/dns-forwarder/tests/hev_dns_forwarder_policy.c")
 core_dir = "trunk/user/dns-forwarder/dns-forwarder-1.2.1/"
@@ -216,6 +217,7 @@ paths = (
     "trunk/user/dns-forwarder/tests/hev_event_loop_lifecycle.c",
     "trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-dns-forwarder-policy.h",
     "trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-dns-forwarder.c",
+    "trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-main.c",
     "trunk/user/dns-forwarder/tests/hev_dns_forwarder_policy.c",
 )
 filters = workflow.split("jobs:", 1)[0]
@@ -275,5 +277,19 @@ assert "atoi (upstream_port)" not in forwarder_core
 assert "value > 65535" in forwarder_policy
 for port_case in ('"1"', '"53"', '"00053"', '"65535"', '"0"', '"65536"', '"-1"', '"+53"', '"53x"'):
     assert port_case in forwarder_policy_test
+
+# CLI startup failures must be visible to init/supervisor and release all owned args.
+assert "if (!loop)" in main_core
+assert "if (!source)" in main_core
+assert "if (!hev_event_loop_add_source (loop, source))" in main_core
+assert "if (!forwarder)" in main_core
+assert "exit_status = 1;" in main_core
+assert "dns_port_allocated = 1;" in main_core
+assert "dns_port = dns_delimiter + 1;" in main_core
+assert "if (dns_port_allocated)" in main_core
+assert "free (dns_port);" in main_core
+assert "hev_event_source_unref (source);" in main_core
+assert "hev_event_loop_unref (loop);" in main_core
+assert "hev_dns_forwarder_unref (forwarder);" in main_core
 
 print("DNS Forwarder push/pull_request path filters: PASS")

@@ -42,70 +42,132 @@ signal_handler (void *data)
 	return false;
 }
 
+#include <stdlib.h>
 int
 main (int argc, char **argv)
 {
 	HevEventLoop *loop = NULL;
 	HevEventSource *source = NULL;
 	HevDNSForwarder *forwarder = NULL;
-
-	int ch;
 	char *listen_addr = NULL;
 	char *listen_port = NULL;
 	char *dns_servers = NULL;
 	char *dns_port = NULL;
+	char *dns_delimiter = NULL;
+	int dns_port_allocated = 0;
+	int ch = 0, exit_status = 0;
 
-	while ((ch = getopt(argc, argv, "hb:p:s:")) != -1) {
+	while ((ch = getopt (argc, argv, "hb:p:s:")) != -1) {
 		switch (ch) {
 			case 'h':
-				usage(argv[0]);
-				exit(0);
-			case 'b':
-				listen_addr = strdup(optarg);
+				usage (argv[0]);
+				goto cleanup;
+			case 'b': {
+				char *replacement = strdup (optarg);
+				if (!replacement)
+					goto allocation_failed;
+				free (listen_addr);
+				listen_addr = replacement;
 				break;
-			case 'p':
-				listen_port = strdup(optarg);
+			}
+			case 'p': {
+				char *replacement = strdup (optarg);
+				if (!replacement)
+					goto allocation_failed;
+				free (listen_port);
+				listen_port = replacement;
 				break;
-			case 's':
-				dns_servers = strdup(optarg);
+			}
+			case 's': {
+				char *replacement = strdup (optarg);
+				if (!replacement)
+					goto allocation_failed;
+				free (dns_servers);
+				dns_servers = replacement;
 				break;
+			}
+			default:
+				exit_status = 2;
+				goto cleanup;
 		}
 	}
 
-	if (dns_servers == NULL) {
-		dns_servers = strdup(default_dns_servers);
-	}
-	dns_port = strpbrk(dns_servers, ":#");
-	if (dns_port == NULL) {
-		dns_port = strdup(default_dns_port);
+	if (!dns_servers)
+		dns_servers = strdup (default_dns_servers);
+	if (!dns_servers)
+		goto allocation_failed;
+
+	dns_delimiter = strpbrk (dns_servers, ":#");
+	if (dns_delimiter) {
+		*dns_delimiter = '\0';
+		dns_port = dns_delimiter + 1;
 	} else {
-		*dns_port++ = '\0';
+		dns_port = strdup (default_dns_port);
+		if (!dns_port)
+			goto allocation_failed;
+		dns_port_allocated = 1;
 	}
-	if (listen_addr == NULL) {
-		listen_addr = strdup(default_listen_addr);
-	}
-	if (listen_port == NULL) {
-		listen_port = strdup(default_listen_port);
-	}
+	if (!listen_addr)
+		listen_addr = strdup (default_listen_addr);
+	if (!listen_port)
+		listen_port = strdup (default_listen_port);
+	if (!listen_addr || !listen_port)
+		goto allocation_failed;
 
 	loop = hev_event_loop_new ();
-
-	signal (SIGPIPE, SIG_IGN);
-
-	source = hev_event_source_signal_new (SIGINT);
-	hev_event_source_set_priority (source, 3);
-	hev_event_source_set_callback (source, signal_handler, loop, NULL);
-	hev_event_loop_add_source (loop, source);
-	hev_event_source_unref (source);
-
-	forwarder = hev_dns_forwarder_new (loop, listen_addr, listen_port, dns_servers, dns_port);
-	if (forwarder) {
-		hev_event_loop_run (loop);
-		hev_dns_forwarder_unref (forwarder);
+	if (!loop) {
+		exit_status = 1;
+		perror ("cannot create DNS Forwarder event loop");
+		goto cleanup;
 	}
 
-	hev_event_loop_unref (loop);
+	signal (SIGPIPE, SIG_IGN);
+	source = hev_event_source_signal_new (SIGINT);
+	if (!source) {
+		exit_status = 1;
+		perror ("cannot create DNS Forwarder signal source");
+		goto cleanup;
+	}
+	hev_event_source_set_priority (source, 3);
+	hev_event_source_set_callback (source, signal_handler, loop, NULL);
+	if (!hev_event_loop_add_source (loop, source)) {
+		exit_status = 1;
+		fprintf (stderr, "cannot register DNS Forwarder signal source\n");
+		goto cleanup;
+	}
+	hev_event_source_unref (source);
+	source = NULL;
 
-	return 0;
+	forwarder = hev_dns_forwarder_new (
+		loop, listen_addr, listen_port, dns_servers, dns_port);
+	if (!forwarder) {
+		exit_status = 1;
+		perror ("cannot initialize DNS Forwarder");
+		goto cleanup;
+	}
+
+	hev_event_loop_run (loop);
+	hev_dns_forwarder_unref (forwarder);
+	forwarder = NULL;
+	goto cleanup;
+
+allocation_failed:
+	if (!errno)
+		errno = ENOMEM;
+	perror ("DNS Forwarder argument allocation failed");
+	exit_status = 1;
+
+cleanup:
+	if (source)
+		hev_event_source_unref (source);
+	if (forwarder)
+		hev_dns_forwarder_unref (forwarder);
+	if (loop)
+		hev_event_loop_unref (loop);
+	if (dns_port_allocated)
+		free (dns_port);
+	free (dns_servers);
+	free (listen_addr);
+	free (listen_port);
+	return exit_status;
 }
-

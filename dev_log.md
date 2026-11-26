@@ -1,3 +1,9 @@
+## 2026-11-26 — Propagate DNS Forwarder CLI startup failures
+
+- The DNS Forwarder CLI ignored the return from `hev_event_loop_add_source()`, continued after failed signal-source construction, and returned success when the forwarder could not initialize. It also dereferenced `dns_servers` after an unchecked `strdup()`, leaked replaced option values, and mixed an interior pointer to the DNS server string with independently allocated port ownership.
+- CLI startup now checks every required allocation/constructor/registration, exits nonzero on initialization failure, and unwinds the source, forwarder, loop and owned strings through one cleanup path. The upstream port substring remains owned by `dns_servers`; only a separately duplicated default port is freed.
+- The DNS Forwarder source checker and push/PR filters now include `hev-main.c`. Firmware/hardware runtime verification remains outstanding.
+
 ## 2026-11-26 — Make DNS Forwarder listener initialization transactional
 
 - The constructor validated the upstream endpoint but still ignored `ioctl(FIONBIO)`, `setsockopt(SO_REUSEADDR)`, event-source allocation, fd attachment and event-loop registration failures. It also acquired the socket before resolving the bind endpoint and leaked the listener, addrinfo or source references on several failure branches. An unchecked nonblocking setup could leave an edge-triggered event loop blocked in `recvfrom()`.
