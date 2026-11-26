@@ -980,7 +980,7 @@ print("WAN/LAN udhcpc PID-bound no-force stop and AP teardown-abort integration:
 wan_start = net_wan.split("int\nstart_wan(void)", 1)[1].split(
     "\nstatic int\nstop_wan_ppp_locked", 1
 )[0]
-wan_up = net_wan.split("wan_up_internal(char *wan_ifname, int unit, int is_static)", 1)[1].split(
+wan_up = net_wan.split("wan_up_internal_with_route_status(char *wan_ifname, int unit,", 1)[1].split(
     "\nint\nwan_up(", 1
 )[0]
 wan_down = net_wan.split("wan_down_internal(char *wan_ifname, int unit, int is_static)", 1)[1].split(

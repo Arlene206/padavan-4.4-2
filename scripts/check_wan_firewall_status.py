@@ -923,7 +923,7 @@ require("cleanup_status = man_down_internal(wan_ifname, unit, reset_man_address)
 
 
 
-wan_up = body(wan, "wan_up_internal(char *wan_ifname, int unit, int is_static)")
+wan_up = body(wan, "wan_up_internal_with_route_status(char *wan_ifname, int unit,")
 require("char wan_cnt[32], wan_addr[16], wan_mask[16], wan_gate[16];" in wan_up,
         "WAN-up must retain IPv4 NVRAM metadata in local bounded buffers")
 require("int route_snapshot_status," in wan_up,

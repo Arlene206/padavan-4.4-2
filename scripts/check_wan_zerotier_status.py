@@ -65,7 +65,7 @@ def require(condition, message):
         raise SystemExit("WAN ZeroTier status contract: FAIL: " + message)
 
 
-wan_up = body(WAN, "wan_up_internal(char *wan_ifname, int unit, int is_static)")
+wan_up = body(WAN, "wan_up_internal_with_route_status(char *wan_ifname, int unit,")
 start = wan_up.index("route_status = start_zerotier();")
 merge = wan_up.index(
     "status = route_status_accumulate(status, route_status);", start

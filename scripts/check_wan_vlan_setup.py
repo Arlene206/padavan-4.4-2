@@ -764,9 +764,9 @@ for test_name in ("test_snapshot_failure_clears_address_and_skips_routes_and_mul
     require(test_name in viptv_test and test_name + "();" in viptv_test,
             f"static IPTV regression missing {test_name}")
 for signature, operation, description in (
-    ("man_up_internal(char *man_ifname, int unit, int is_static, int *gateway_route_status)", "start_igmpproxy(man_ifname)", "MAN startup"),
+    ("man_up_internal_with_route_status(char *man_ifname, int unit,", "start_igmpproxy(man_ifname)", "MAN startup"),
     ("man_down_internal(char *man_ifname, int unit, int clear_dhcp_address)", "stop_igmpproxy(man_ifname)", "MAN teardown"),
-    ("wan_up_internal(char *wan_ifname, int unit, int is_static)", "start_igmpproxy(wan_ifname)", "WAN startup"),
+    ("wan_up_internal_with_route_status(char *wan_ifname, int unit,", "start_igmpproxy(wan_ifname)", "WAN startup"),
     ("wan_down_internal(char *wan_ifname, int unit, int is_static)", "stop_igmpproxy(wan_ifname)", "WAN teardown"),
 ):
     function = body(wan, signature)

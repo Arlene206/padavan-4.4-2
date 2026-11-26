@@ -395,7 +395,7 @@ require('get_wan_unit_value_int_status(unit,"auth_mode",&wan_auth_mode)' in wan_
         "EAPOL mode must use checked NVRAM reads")
 require("auth_status = nvram_status" in wan_start and "if (auth_status != 0)" in wan_start,
         "EAPOL read failures must use the existing startup cleanup path")
-wan_up = " ".join(body(source, "wan_up_internal(char *wan_ifname, int unit, int is_static)").split())
+wan_up = " ".join(body(source, "wan_up_internal_with_route_status(char *wan_ifname, int unit,").split())
 require('get_wan_unit_value_int_status(unit, "auth_mode", &auth_mode)' in wan_up,
         "Kabinet startup must use checked auth-mode reads")
 require("if (auth_status != 0)" in wan_up and "start_auth_kabinet()" in wan_up,
@@ -406,7 +406,7 @@ require('get_wan_unit_value_int_status(unit, "auth_mode", &auth_mode)' in wan_do
 require("if (auth_status != 0 || auth_mode == 1)" in wan_down and "stop_auth_kabinet()" in wan_down,
         "Kabinet teardown must attempt defensive stop when auth mode is unknown")
 assert 'get_wan_unit_value_int(unit, "auth_mode")' not in source
-wan_up_protocol = "".join(body(source, "wan_up_internal(char *wan_ifname, int unit, int is_static)").split())
+wan_up_protocol = "".join(body(source, "wan_up_internal_with_route_status(char *wan_ifname, int unit,").split())
 modem_helper = "".join(body(source, "is_ifunit_modem_status(char *wan_ifname, int unit, int *modem_unit_id)").split())
 identity_read = re.search(r"([A-Za-z_]\w*)=is_ifunit_modem_status\(wan_ifname,unit,&modem_unit_id\)", wan_up_protocol)
 require(identity_read is not None, "WAN-up must use status-returning modem identity")
@@ -855,7 +855,7 @@ for token in (
 ):
     require(token in match_reader, "checked exact-match reader missing " + token)
 for signature, phase in (
-    ("wan_up_internal(char *wan_ifname, int unit, int is_static)", "WAN-up"),
+    ("wan_up_internal_with_route_status(char *wan_ifname, int unit,", "WAN-up"),
     ("wan_down_internal(char *wan_ifname, int unit, int is_static)", "WAN-down"),
 ):
     event = "".join(body(source, signature).split())
@@ -1056,7 +1056,7 @@ wan_ipv6_callers = (
     ("launch_wanx(char *man_ifname, int unit, int wait_dhcpc, int use_zcip)", "route_status_accumulate"),
     ("start_wan(void)", "rc_first_service_start_status"),
     ("stop_wan_locked(void)", "goto abort_resume_detect"),
-    ("wan_up_internal(char *wan_ifname, int unit, int is_static)", "route_status_accumulate"),
+    ("wan_up_internal_with_route_status(char *wan_ifname, int unit,", "route_status_accumulate"),
     ("wan_down_internal(char *wan_ifname, int unit, int is_static)", "wan6_down"),
 )
 for signature, required_effect in wan_ipv6_callers:
