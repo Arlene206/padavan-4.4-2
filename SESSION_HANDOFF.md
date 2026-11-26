@@ -1,3 +1,17 @@
+## 2026-11-26 — Autonomous development checkpoint
+
+- Current `main`: `3cc85ff726be701162e820a6fed0f282f5eba355`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (not modified).
+- This session's DNS Forwarder work:
+- `fix(dns-forwarder): report CLI startup failures`: `93f2b137ea212a5fbc857fae09faec384bcb519b` — XY-C1 Firmware Validation #45848922656: in_progress/—; Process lifecycle inventory - 93f2b137ea212a5fbc857fae09faec384bcb519b #45848922607: completed/success; NVRAM transaction boundary audit #45848922583: completed/cancelled; DNS Forwarder launch path stability regression #45848922574: completed/failure; AI handoff documentation contract #45848922565: completed/success
+- `fix(dns-forwarder): unwind listener startup failures`: `9a6d645f10ea2032819ac63467c0cdb2a10ca29f` — NVRAM transaction boundary audit #45848220502: completed/cancelled; Process lifecycle inventory - 9a6d645f10ea2032819ac63467c0cdb2a10ca29f #45848220500: completed/success; AI handoff documentation contract #45848220397: completed/success; XY-C1 Firmware Validation #45848220389: in_progress/—; DNS Forwarder launch path stability regression #45848220378: completed/failure
+- `fix(dns-forwarder): validate upstream address and port before setup`: `a039b68d37cb3eb5f2acdd4ae7d448c6851d5223` — NVRAM transaction boundary audit #45847194072: completed/cancelled; AI handoff documentation contract #45847194027: completed/success; XY-C1 Firmware Validation #45847193944: completed/success; DNS Forwarder launch path stability regression #45847193941: completed/success; Process lifecycle inventory - a039b68d37cb3eb5f2acdd4ae7d448c6851d5223 #45847193923: completed/success
+- `test(dns-forwarder): correct event-loop compile inputs`: `050365be1040bd88b2c06d0942f0d43f3f92dab6` — AI handoff documentation contract #45846263346: completed/success; DNS Forwarder launch path stability regression #45846263342: completed/success
+- `fix(dns-forwarder): roll back failed event source registration`: `3ccc3c94fe83bc0acdcf5c4a86aa70e302040bb6` — AI handoff documentation contract #45846000394: completed/success; Process lifecycle inventory - 3ccc3c94fe83bc0acdcf5c4a86aa70e302040bb6 #45846000350: completed/success; NVRAM transaction boundary audit #45846000085: completed/success; DNS Forwarder launch path stability regression #45846000054: completed/failure; XY-C1 Firmware Validation #45846000051: completed/success
+- Implemented: strict ASCII-decimal upstream port parsing (1–65535) and pre-resource upstream validation; transactional listener initialization that checks `FIONBIO`, `SO_REUSEADDR`, bind, source allocation/registration and unwinds all partial resources; CLI startup now propagates failures and correctly tracks ownership of the DNS-port string.
+- Host regressions: parser boundary/error behavior and event-loop registration rollback/re-attach tests are wired into `.github/workflows/dns-forwarder-launch-path.yml`. Hardware/router runtime testing has not been performed here.
+- First next task: add deterministic failure-injection coverage for DNS Forwarder constructor setup (`getaddrinfo`, `socket`, `ioctl(FIONBIO)`, `setsockopt`, bind and event-source registration), then fix any remaining event-loop/daemon shutdown defects. Continue checking the Actions attached to each exact commit SHA; do not repeat completed startup/handoff audits.
+
 # Session Handoff — 2026-11-26
 
 ## Current repository state
