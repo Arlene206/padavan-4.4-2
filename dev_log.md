@@ -1,3 +1,12 @@
+## 2026-11-26 — Require verified HTTPS and fail-fast execution for the root Entware bootstrap
+
+- The Optware/Entware updater downloaded a remote installer over plaintext HTTP to the predictable /tmp/entware_installer.sh, then executed it as root. That installer in turn downloaded the opkg executable and package-feed configuration over HTTP; the feed metadata could direct later root package installs to plaintext origins. The wrapper also ignored the installer exit status, so an incomplete initialization could be reported as success.
+- Replaced the root launcher with a fail-closed HTTPS bootstrap: require the exact /opt mountpoint, a non-symlink firmware CA bundle and OpenSSL-backed BusyBox wget; download into a private temporary directory with timeouts; reject unsafe destination types; transform and syntax-check the upstream script before execution; inject set -e; convert the Entware origin and package feeds to HTTPS; apply bounded download timeouts; reject residual HTTP feeds; and validate the resulting opkg binary/config.
+- Added a POSIX-shell policy regression and Python integration contract, installed the helper into ROMFS, and wired Process CI plus exact-source XY-C1 firmware triggers. Exact-SHA Actions are pending after publication; no local firmware build, MIPS runtime or physical-router L4 is claimed.
+- Parent main before this atomic source/test/workflow slice: e98c22d68b3c7f0cfd776bae1e30b63c25345e2a.
+
+---
+
 ## 2026-11-26 — Fix Optware procfs recheck caller-PID exclusion
 
 - Review of concurrent commit `cfc4e7b28ab49228d29268b29127f76bb3ea1ef2` found a typo in the final `pgrep` race recheck: `awk -v self_pid="$"` passed a literal dollar sign instead of the caller PID. Consequently the guard never excluded the helper's own process and could report a false RUNNING result if the caller command line matched the target pattern.

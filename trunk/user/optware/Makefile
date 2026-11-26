@@ -10,7 +10,7 @@ romfs:
 	$(ROMFSINST) -p +x /usr/bin/opt-umount.sh
 	$(ROMFSINST) -p +x /usr/bin/opt-ipkg-upd.sh
 	$(ROMFSINST) -p +x /usr/bin/opt-opkg-upd.sh
+	$(ROMFSINST) -p +x /usr/lib/optware_bootstrap_policy.sh
 	$(ROMFSINST) -p +x /usr/bin/opt-mkswap
 
 clean:
-

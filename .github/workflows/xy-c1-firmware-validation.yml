@@ -485,6 +485,8 @@ on:
       - "trunk/user/rc/src/minidlna_config_file.h"
       - "trunk/user/rc/src/storage_service_stop_policy.h"
       - "trunk/user/rc/src/storage_optware_start_policy.h"
+      - "trunk/user/optware/**"
+      - "trunk/configs/boards/busybox.config"
       - "trunk/user/libdisk/src/disk_initial.h"
       - "trunk/user/libdisk/src/disk_inventory_policy.h"
       - "trunk/user/libdisk/src/disk_initial.c"

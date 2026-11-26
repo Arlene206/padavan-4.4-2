@@ -8,6 +8,11 @@ on:
       - "scripts/audit_process_lifecycle.py"
       - "scripts/check_dev_init_boot.py"
       - "scripts/check_optware_lifecycle_lock.py"
+      - "trunk/user/optware/opt-opkg-upd.sh"
+      - "trunk/user/optware/optware_bootstrap_policy.sh"
+      - "trunk/user/optware/tests/optware_bootstrap_policy.sh"
+      - "scripts/check_optware_installer_security.py"
+      - "trunk/configs/boards/busybox.config"
       - "trunk/user/optware/opt-umount.sh"
       - "trunk/user/scripts/files/sbin/optware_lifecycle_lock.sh"
       - "trunk/user/scripts/tests/optware_lifecycle_lock.sh"
@@ -285,6 +290,11 @@ on:
       - "scripts/audit_process_lifecycle.py"
       - "scripts/check_dev_init_boot.py"
       - "scripts/check_optware_lifecycle_lock.py"
+      - "trunk/user/optware/opt-opkg-upd.sh"
+      - "trunk/user/optware/optware_bootstrap_policy.sh"
+      - "trunk/user/optware/tests/optware_bootstrap_policy.sh"
+      - "scripts/check_optware_installer_security.py"
+      - "trunk/configs/boards/busybox.config"
       - "trunk/user/optware/opt-umount.sh"
       - "trunk/user/scripts/files/sbin/optware_lifecycle_lock.sh"
       - "trunk/user/scripts/tests/optware_lifecycle_lock.sh"
@@ -904,6 +914,11 @@ jobs:
           sh trunk/user/scripts/tests/optware_lifecycle_startup.sh
           sh trunk/user/scripts/tests/optware_lifecycle_teardown.sh
           python3 scripts/check_optware_lifecycle_lock.py
+          sh -n trunk/user/optware/opt-opkg-upd.sh
+          sh -n trunk/user/optware/optware_bootstrap_policy.sh
+          sh -n trunk/user/optware/tests/optware_bootstrap_policy.sh
+          sh trunk/user/optware/tests/optware_bootstrap_policy.sh
+          python3 scripts/check_optware_installer_security.py
       - name: Verify PID 1 TCP sysctl failure propagation
         run: |
           set -eu
