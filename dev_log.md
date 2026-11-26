@@ -1,3 +1,12 @@
+## 2026-11-26 — Normalize all VPN WAN marker rollback source-order offsets
+
+- The exact-head VPN lifecycle run #45800802057 on `1a0ff27d90b1d6cb396fcc45d979bbde0ebeab50` reran all 14 preceding GNU89 policy regressions successfully, then failed in the Python source contract. The previous whitespace correction compared offsets from the whitespace-stripped source for the rollback gate/call against offsets from the original source for the marker, launch and failure branch. Those index spaces are not comparable, so a correctly ordered implementation was falsely rejected.
+- Normalize every WAN marker/launch/failure/rollback anchor and the related errno-preservation checks against the same compact source string. This is a checker-only correction; the C rollback implementation and policy cases are unchanged.
+- AI handoff #45800802088 PASS on the failed-checker SHA. Exact-head VPN lifecycle and AI handoff reruns are required for this correction; no firmware L3 or hardware L4 claim.
+- Parent main: `1a0ff27d90b1d6cb396fcc45d979bbde0ebeab50`; resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-26 — Roll back the WAN xl2tpd dependency marker after failed launch
 
 - Found that `launch_wan_pppd_locked()` publishes `l2tp_wan_t=1` before calling `safe_start_xl2tpd_locked()` so concurrent shared-transport lifecycle decisions preserve the intended WAN dependency. If checked configuration, process inventory, live config publication, or the daemon launch then fails, the common launch-error path invalidates the PPP callback generation and returns without clearing the marker. Later VPN server stop/restart can incorrectly conclude that a WAN L2TP dependency still owns the shared xl2tpd daemon and may stop or restore it based on a phantom client.

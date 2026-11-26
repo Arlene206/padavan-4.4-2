@@ -3,7 +3,7 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development on `main` only.
-- Parent `main` for the VPN source-checker whitespace correction: `3c53eb5a5fd339d77bc650fc2fefc7d8b60e81b4`.
+- Parent `main` for the VPN WAN rollback source-order checker coordinate fix: `1a0ff27d90b1d6cb396fcc45d979bbde0ebeab50`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify/delete. PR #1 remains closed/unmerged.
 - Bootstrap/protocol recovery was completed earlier; do not repeat it.
 
@@ -110,9 +110,9 @@
 
 ## Exact first action for the next GPT
 
-1. Exact source SHA `3c53eb5a5fd339d77bc650fc2fefc7d8b60e81b4`: AI handoff #45800460259 PASS; VPN server lifecycle run #45800460199 FAILed only in the Python source contract because it searched a multiline marker-set call with a single-line literal. All twelve preceding GNU89/Werror (including ASan/UBSan) policy regressions passed. This commit makes the source check whitespace-insensitive; rerun VPN lifecycle and AI checks on its exact SHA.
-2. On `3c53eb5a5fd339d77bc650fc2fefc7d8b60e81b4`, process lifecycle #45800460310, WAN route #45800460260, WAN DHCP callback #45800460321 and HTTPD #45800460223 PASS. NVRAM #45800460212 and XY-C1 #45800460210 were still in progress at last poll; do not treat those as PASS. Require Build XY-C1, Verify TRX and artifact upload all PASS on one exact current product-source SHA before L3. Hardware L4 remains NOT VERIFIED.
-3. Continue the VPN shared L2TP/PPP lifecycle audit for other rollback gaps after checker validation, then rotate to a different userland stability/security issue.
+1. Exact SHA `1a0ff27d90b1d6cb396fcc45d979bbde0ebeab50`: AI handoff #45800802088 PASS; VPN lifecycle #45800802057 FAILed only in the Python source contract after all 14 GNU89 policy regressions passed. Root cause: checker offset comparisons mixed raw and whitespace-compacted source indices. THIS commit normalizes every compared position and errno slice; run exact-head VPN lifecycle and AI handoff Actions.
+2. The older source SHA `3c53eb5a5fd339d77bc650fc2fefc7d8b60e81b4` has Process #45800460310, WAN route #45800460260, WAN DHCP callback #45800460321, HTTPD #45800460223, process inventory #45800460215 and NVRAM #45800460212 PASS. XY-C1 #45800460210 was still in progress at last poll; it is an older product-source SHA and cannot validate later source changes. Require Build XY-C1, Verify TRX and artifact upload all PASS on one exact current product-source SHA before L3. Hardware L4 remains NOT VERIFIED.
+3. After the corrected exact-head VPN contract passes, continue auditing shared L2TP/PPP rollback/error paths, then rotate to another userland stability/security issue.
 
 ## Mandatory handoff checkpoint
 

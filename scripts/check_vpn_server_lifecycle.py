@@ -529,25 +529,32 @@ require(vpnc_marker < vpnc_launch and
         "refusing xl2tpd launch: cannot publish VPN-client ownership marker" in safe_start_locked,
         "xl2tpd must not launch without publishing VPN-client ownership")
 wan_start = body(net_ppp, "launch_wan_pppd_locked(int unit, int wan_proto,")
-wan_marker = wan_start.index('ppp_l2tp_runtime_marker_set_status("l2tp_wan_t", 1)')
-wan_launch = wan_start.index("safe_start_xl2tpd_locked()")
-require(wan_marker < wan_launch and
-        "refusing xl2tpd WAN launch: cannot publish WAN ownership marker" in wan_start,
-        "WAN xl2tpd must not launch before publishing its dependency marker")
-
-wan_published = wan_start.index("wan_marker_published = 1;")
+# Compare every source-order offset in the same whitespace-normalized view.
+# Mixing raw and compact offsets can invert a correct source order when tabs,
+# indentation and line breaks are removed from only part of the expression.
 wan_start_compact = "".join(wan_start.split())
-wan_rollback_gate = wan_start_compact.index("xl2tpd_start_policy_wan_marker_rollback_required(")
+wan_marker = wan_start_compact.index(
+    'ppp_l2tp_runtime_marker_set_status("l2tp_wan_t",1)'
+)
+wan_published = wan_start_compact.index("wan_marker_published=1;")
+wan_launch = wan_start_compact.index("safe_start_xl2tpd_locked()")
+wan_launch_failure = wan_start_compact.index("if(launch_status!=0)")
+wan_rollback_gate = wan_start_compact.index(
+    "xl2tpd_start_policy_wan_marker_rollback_required("
+)
 wan_rollback_call = wan_start_compact.index(
     'ppp_l2tp_runtime_marker_set_status("l2tp_wan_t",0)', wan_rollback_gate
 )
-wan_launch_failure = wan_start.index("if (launch_status != 0)")
-wan_failure_return = wan_start.index("return -1;", wan_launch_failure)
+wan_failure_return = wan_start_compact.index("return-1;", wan_launch_failure)
 require(wan_marker < wan_published < wan_launch < wan_launch_failure <
         wan_rollback_gate < wan_rollback_call < wan_failure_return,
         "published WAN xl2tpd dependency must be rolled back only after a failed launch")
-require("marker_rollback_status = ppp_l2tp_runtime_marker_set_status(" in wan_start and
-        "errno = saved_errno;" in wan_start[wan_rollback_gate:wan_failure_return],
+require("refusingxl2tpdWANlaunch:cannotpublishWANownershipmarker" in
+        wan_start_compact and
+        "marker_rollback_status=ppp_l2tp_runtime_marker_set_status(" in
+        wan_start_compact[wan_rollback_gate:wan_failure_return] and
+        "errno=saved_errno;" in
+        wan_start_compact[wan_rollback_gate:wan_failure_return],
         "WAN marker cleanup must preserve the original launch errno")
 for marker in ("xl2tpd_start_policy_wan_marker_rollback_required(0, -1)",
                "xl2tpd_start_policy_wan_marker_rollback_required(1, 0)",
