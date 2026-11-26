@@ -215,6 +215,7 @@ paths = (
     "trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-event-source-signal.c",
     "trunk/user/dns-forwarder/tests/hev_event_loop_lifecycle.c",
     "trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-dns-forwarder-policy.h",
+    "trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-dns-forwarder.c",
     "trunk/user/dns-forwarder/tests/hev_dns_forwarder_policy.c",
 )
 filters = workflow.split("jobs:", 1)[0]
@@ -247,6 +248,25 @@ assert "hev_event_loop_add_source (first, source)" in event_loop_test
 assert "hev_event_loop_add_source (second, source)" in event_loop_test
 assert "hev_event_source_add_fd (source, -1, EPOLLIN)" in event_loop_test
 assert "hev_event_source_get_loop (source)" in event_loop_test
+
+forwarder_constructor = function_body(
+    forwarder_core, "hev_dns_forwarder_new (HevEventLoop *loop"
+)
+assert "if (!loop || !addr || !*addr || !port || !*port || !upstream)" in forwarder_constructor
+assert "hev_dns_forwarder_parse_port (" in forwarder_constructor
+assert "inet_aton (upstream, &upstream_addr)" in forwarder_constructor
+assert forwarder_constructor.index("getaddrinfo (") < forwarder_constructor.index("socket (")
+assert "if (0 > ioctl (self->listen_fd, FIONBIO" in forwarder_constructor
+assert "if (0 > setsockopt (self->listen_fd, SOL_SOCKET, SO_REUSEADDR" in forwarder_constructor
+assert "if (0 != bind (self->listen_fd" in forwarder_constructor
+assert "if (!hev_event_source_add_fd (" in forwarder_constructor
+assert forwarder_constructor.count("if (!hev_event_loop_add_source (") == 2
+assert forwarder_constructor.count("hev_event_source_get_loop (") == 2
+assert "hev_event_loop_del_source (loop, self->timeout_source)" in forwarder_constructor
+assert "hev_event_loop_del_source (loop, self->listener_source)" in forwarder_constructor
+assert "freeaddrinfo (addr_ip);" in forwarder_constructor
+assert "close (self->listen_fd);" in forwarder_constructor
+assert "HEV_MEMORY_ALLOCATOR_FREE (self);" in forwarder_constructor
 
 assert '#include "hev-dns-forwarder-policy.h"' in forwarder_core
 assert "hev_dns_forwarder_parse_port (upstream_port, &parsed_upstream_port)" in forwarder_core

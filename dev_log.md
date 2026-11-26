@@ -1,3 +1,9 @@
+## 2026-11-26 — Make DNS Forwarder listener initialization transactional
+
+- The constructor validated the upstream endpoint but still ignored `ioctl(FIONBIO)`, `setsockopt(SO_REUSEADDR)`, event-source allocation, fd attachment and event-loop registration failures. It also acquired the socket before resolving the bind endpoint and leaked the listener, addrinfo or source references on several failure branches. An unchecked nonblocking setup could leave an edge-triggered event loop blocked in `recvfrom()`.
+- Reworked construction to validate inputs and resolve the bind endpoint before opening the socket, require nonblocking/reuse-address setup and each event-source registration to succeed, and use one cleanup path that detaches registered sources, unreferences unregistered sources, frees addrinfo, closes the listener and preserves the original error.
+- Extended the DNS Forwarder source-contract checker and push/PR path filters to cover the production constructor. Host parser and event-loop regressions remain the executable CI checks; router runtime verification is still outstanding.
+
 ## 2026-11-26 — Align WSD HTTP framing checker with bounded XML tag scanner
 
 - The WSD XML scanner/reflection workflow #45847368757 passed on `c4a627632235f2e240797a41294e5dc062848f06`, including GNU99 ASan/UBSan compile and execution. The independent HTTP framing workflow #45847368988 failed only at an obsolete assertion expecting `const char *nested = strchr(p, '<');` inside the prior tag finder.
