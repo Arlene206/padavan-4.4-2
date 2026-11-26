@@ -2042,6 +2042,16 @@ account_snapshot_done:
 	}
 
 #if defined (APP_SMBD36)
+	/* smbpasswd has exited; persist its complete private output before rename. */
+	if (samba_config_transaction_sync_file(staged_passdb) != 0) {
+		saved_errno = errno ? errno : EIO;
+		unlink(staged_passdb);
+		logmessage("Samba Server",
+			   "staged passdb could not be durably synchronized; preserving existing files (errno %d)",
+			   saved_errno);
+		errno = saved_errno;
+		goto out;
+	}
 	/*
 	 * Keep rollback snapshots for both files until the new passdb and matching
 	 * smb.conf are published. PREPARED is recoverable after an abrupt exit;

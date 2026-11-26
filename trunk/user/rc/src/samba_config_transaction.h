@@ -82,6 +82,52 @@ samba_config_transaction_sync_parent(const char *path)
 }
 
 /*
+ * Flush the newly generated passdb before its pathname is atomically
+ * published. The file is private credential state: no symlinks, non-regular
+ * files, foreign owners or group/other permissions are accepted.
+ */
+static inline int
+samba_config_transaction_sync_file(const char *path)
+{
+	struct stat st;
+	int fd, saved_errno;
+	int flags = O_RDWR;
+
+	if (!path || !*path) {
+		errno = EINVAL;
+		return -1;
+	}
+#if !defined(O_NOFOLLOW)
+	errno = ENOTSUP;
+	return -1;
+#else
+	flags |= O_NOFOLLOW;
+#endif
+	fd = open(path, flags);
+	if (fd < 0)
+		return -1;
+	if (fstat(fd, &st) != 0)
+		goto failed;
+	if (!S_ISREG(st.st_mode) || st.st_uid != geteuid() ||
+	    (st.st_mode & 0777) != 0600) {
+		errno = EACCES;
+		goto failed;
+	}
+	if (fsync(fd) != 0)
+		goto failed;
+	if (close(fd) != 0)
+		return -1;
+	errno = 0;
+	return 0;
+
+failed:
+	saved_errno = errno ? errno : EIO;
+	close(fd);
+	errno = saved_errno;
+	return -1;
+}
+
+/*
  * The parent also contains the Samba passdb and the crash-recovery journal.
  * It must be owned by this effective user and have exact private mode 0700.
  * Open the directory itself (not a symlink) and harden it through the fd.

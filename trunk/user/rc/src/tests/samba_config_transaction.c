@@ -50,6 +50,48 @@ make_path(char *path, size_t size, const char *directory, const char *leaf)
 }
 
 static void
+test_private_file_sync_helpers(void)
+{
+	char root[] = "/tmp/samba-config-file-sync.XXXXXX";
+	char passdb[256], directory[256], public_file[256], link_path[256];
+	char missing_path[256];
+
+	assert(mkdtemp(root) != NULL);
+	make_path(passdb, sizeof(passdb), root, "smbpasswd");
+	make_path(directory, sizeof(directory), root, "directory");
+	make_path(public_file, sizeof(public_file), root, "public-file");
+	make_path(link_path, sizeof(link_path), root, "passdb-link");
+	make_path(missing_path, sizeof(missing_path), root, "missing");
+	assert(mkdir(directory, 0700) == 0);
+
+	write_text(passdb, "private credential hashes\n", 0600);
+	assert(samba_config_transaction_sync_file(passdb) == 0);
+
+	/* Only a private regular file may be synchronized as passdb state. */
+	errno = 0;
+	assert(samba_config_transaction_sync_file(directory) == -1);
+	assert(errno == EISDIR || errno == EACCES);
+	write_text(public_file, "not private\n", 0644);
+	errno = 0;
+	assert(samba_config_transaction_sync_file(public_file) == -1);
+	assert(errno == EACCES);
+	assert(symlink(passdb, link_path) == 0);
+	errno = 0;
+	assert(samba_config_transaction_sync_file(link_path) == -1);
+	assert(errno == ELOOP || errno == ENOTSUP);
+	errno = 0;
+	assert(samba_config_transaction_sync_file(missing_path) == -1);
+	assert(errno == ENOENT);
+
+	assert(unlink(link_path) == 0);
+	assert(unlink(public_file) == 0);
+	assert(unlink(passdb) == 0);
+	assert(rmdir(directory) == 0);
+	assert(rmdir(root) == 0);
+}
+
+
+static void
 test_directory_sync_helpers(void)
 {
 	char root[] = "/tmp/samba-config-sync.XXXXXX";
@@ -140,6 +182,7 @@ test_parent_directory_permissions(void)
 int
 main(void)
 {
+	test_private_file_sync_helpers();
 	test_directory_sync_helpers();
 	test_parent_directory_permissions();
 

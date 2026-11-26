@@ -82,6 +82,14 @@ assert marker_unlink < marker_sync < snapshot_loop < rmdir
 assert cleanup.rindex("samba_config_transaction_sync_directory(directory)") < rmdir
 assert rmdir < cleanup.index("samba_config_transaction_sync_parent(directory)")
 
+passdb_sync = compact(body("samba_config_transaction_sync_file("))
+assert "open(path,O_RDWR|O_NOFOLLOW)" in passdb_sync
+assert "fstat(fd,&st)" in passdb_sync
+assert "S_ISREG(st.st_mode)" in passdb_sync
+assert "st.st_uid!=geteuid()" in passdb_sync
+assert "(st.st_mode&0777)!=0600" in passdb_sync
+assert passdb_sync.index("fsync(fd)") < passdb_sync.index("close(fd)")
+
 print("Samba paired-transaction directory durability contract: PASS")
 
 from pathlib import Path
@@ -113,5 +121,11 @@ assert "prior transaction outcome is unavailable" in SERVICES
 assert "publication remains committed; recovery journal cleanup completed" in SERVICES
 assert "publication rolled back" in SERVICES
 assert "paired publication rollback failed" not in SERVICES
+passdb_sync_call = run_samba.index("samba_config_transaction_sync_file(staged_passdb)")
+credential_failure = run_samba.index("if(credential_failed)")
+transaction_begin = run_samba.index("samba_config_transaction_begin(")
+assert credential_failure < passdb_sync_call < transaction_begin
+assert "staged passdb could not be durably synchronized" in run_samba
+
 
 print("Samba committed-versus-rolled-back recovery reporting: PASS")
