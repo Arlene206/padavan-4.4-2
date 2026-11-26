@@ -1,3 +1,11 @@
+## 2026-11-26 — Correct post-stop PPP callback fencing source contracts
+
+- Exact SHA `6c0ea137a5e94ab7bbd09c542498c5de52a43bf0`: WAN teardown workflow completed its GNU89 regression binaries but the inline Python contract raised `NameError` because deferred-reconnect marker variables were defined below their first use; its older full-WAN assertion also still demanded the previous pre-kill invalidation order.
+- WAN route workflow passed its PPP option policy binaries and failed only because the checker compared the interior `kill_services(...)` token offset against the enclosing `if (...)` offset, which necessarily precedes it. The contract now compares the stop gate and failure return directly.
+- Test-contract-only correction; production ordering from `6c0ea13` is unchanged. Exact-SHA reruns pending.
+
+---
+
 ## 2026-11-25 — Keep PPP callback generations valid across aborted stop attempts
 
 - Both WAN PPP stop paths advanced the callback generation before deferred-reconnect cancellation, VPN-client shutdown and PPP process termination. If any later gate failed, the old daemon could remain running while its existing ipparam token had already become stale; future ip-up/ip-down callbacks then silently skipped state and route updates.

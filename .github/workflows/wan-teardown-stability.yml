@@ -192,6 +192,8 @@ jobs:
                   lan_bridge_call < lan_bridge_gate < lan_bridge_log < lan_bridge_return < wan_start_pos)
           ppp_stop = function_body(source, "stop_wan_ppp_locked(void)")
           assert "int pause_status, stop_status = 0, resume_status;" in ppp_stop
+          clear_call = "stop_status = clear_deferred_wan_reconnect_status();"
+          clear_log = "deferred reconnect cancellation failed (status=%d)"
           fence_call = "stop_status = invalidate_wan_ppp_callback_session();"
           vpn_stop_call = "stop_status = stop_vpn_client_under_lifecycle_lock();"
           ppp_kill_call = "stop_status = kill_services(svcs_ppp, 6, 1);"
@@ -282,7 +284,11 @@ jobs:
           assert "stop_status = stop_vpn_client_under_lifecycle_lock();" in stop
           assert "stop_status = kill_services(svcs_ppp, 6, 1);" in stop
           assert "if (stop_status != 0)" in stop
-          assert stop.index("stop_status = invalidate_wan_ppp_callback_session();") < stop.index("stop_status = stop_vpn_client_under_lifecycle_lock();") < stop.index("stop_status = kill_services(svcs_ppp, 6, 1);")
+          full_kill = stop.index(ppp_kill_call)
+          full_kill_gate = stop.index("if (stop_status != 0)", full_kill)
+          full_kill_abort = stop.index("goto abort_resume_detect;", full_kill_gate)
+          full_fence = stop.index(fence_call)
+          assert full_kill < full_kill_gate < full_kill_abort < full_fence
 
           abort_policy = (rc / "wan_teardown_policy.h").read_text()
           abort_status = function_body(abort_policy, "wan_teardown_abort_status(")
