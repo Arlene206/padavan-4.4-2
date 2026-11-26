@@ -668,11 +668,11 @@ require("kill_services(svcs, 5, 1)" in wan_launch_locked and
 require("xl2tpd_start_policy_wan_launch_result(" in wan_launch_locked and
         "safe_start_xl2tpd_locked()" in wan_launch_locked,
         "WAN L2TP launch must accept already-running xl2tpd as success")
-ordered(wan_launch_locked,["ppp_wan_session_generation_change(&callback_generation)",
-                           "launch_mode->multiwan_enabled",
+ordered(wan_launch_locked,["launch_mode->multiwan_enabled",
                            "kill_services(svcs_pppd, 5, 1)",
+                           "ppp_wan_session_generation_change(&callback_generation)",
                            'eval("/usr/bin/mwan.sh", "--rc-lifecycle-locked")'],
-        "multi-WAN PPP stop before helper launch")
+        "multi-WAN PPP stop before generation advance and helper launch")
 require("launch_mode->use_rpl2tp" in wan_launch_locked and
         'nvram_match("pppoemwan_enable"' not in wan_launch_locked and
         'nvram_match("wan_l2tpd"' not in wan_launch_locked,
@@ -806,17 +806,29 @@ ordered(wan_stop_lock,["vpn_server_lifecycle_lock_acquire()",
 wan_ppp_stop=body(net_wan,"stop_wan_ppp_locked(void)")
 wan_full_stop=body(net_wan,"stop_wan_locked(void)")
 client_stop_under_lock=body(vpn_client,"stop_vpn_client_under_lifecycle_lock(void)")
-require("stop_status = stop_vpn_client_under_lifecycle_lock();" in wan_ppp_stop and
-        "stop_status = kill_services(svcs_ppp, 6, 1);" in wan_ppp_stop and
-        wan_ppp_stop.index("stop_status = stop_vpn_client_under_lifecycle_lock();") <
-        wan_ppp_stop.index("stop_status = kill_services(svcs_ppp, 6, 1);"),
-        "WAN PPP stop must preserve the under-lock VPN stop result before stopping PPP services")
-require("stop_status = invalidate_wan_ppp_callback_session();" in wan_full_stop and
-        "stop_status = stop_vpn_client_under_lifecycle_lock();" in wan_full_stop and
-        "stop_status = kill_services(svcs_ppp, 6, 1);" in wan_full_stop and
-        "if (stop_status != 0)" in wan_full_stop and
+fence_call = "stop_status = invalidate_wan_ppp_callback_session();"
+vpn_stop_call = "stop_status = stop_vpn_client_under_lifecycle_lock();"
+ppp_kill_call = "stop_status = kill_services(svcs_ppp, 6, 1);"
+require(vpn_stop_call in wan_ppp_stop and ppp_kill_call in wan_ppp_stop and
+        fence_call in wan_ppp_stop and "stop_vpn_client() != 0" not in wan_ppp_stop,
+        "WAN PPP stop must preserve VPN/PPP/fence statuses inside the lifecycle lock")
+ppp_kill = wan_ppp_stop.index(ppp_kill_call)
+ppp_gate = wan_ppp_stop.index("if (stop_status != 0)", ppp_kill)
+ppp_abort = wan_ppp_stop.index("goto abort_resume_detect;", ppp_gate)
+ppp_fence = wan_ppp_stop.index(fence_call)
+ppp_clear_state = wan_ppp_stop.index("stop_status = clear_wan_state_status();")
+require(wan_ppp_stop.index(vpn_stop_call) < ppp_kill < ppp_gate < ppp_abort < ppp_fence < ppp_clear_state,
+        "WAN PPP stop must fence old callbacks only after the previous daemon stop succeeds")
+require(fence_call in wan_full_stop and vpn_stop_call in wan_full_stop and
+        ppp_kill_call in wan_full_stop and "if (stop_status != 0)" in wan_full_stop and
         "stop_vpn_client() != 0" not in wan_full_stop,
         "WAN full stop must preserve callback, VPN and PPP stop statuses inside the lock-owning wrapper")
+full_kill = wan_full_stop.index(ppp_kill_call)
+full_gate = wan_full_stop.index("if (stop_status != 0)", full_kill)
+full_abort = wan_full_stop.index("goto abort_resume_detect;", full_gate)
+full_fence = wan_full_stop.index(fence_call)
+require(wan_full_stop.index(vpn_stop_call) < full_kill < full_gate < full_abort < full_fence,
+        "WAN full stop must fence old callbacks only after the previous daemon stop succeeds")
 require("return stop_vpn_client_locked();" in client_stop_under_lock and
         "vpn_server_lifecycle_lock_acquire" not in client_stop_under_lock and
         "vpn_server_lifecycle_lock_release" not in client_stop_under_lock,

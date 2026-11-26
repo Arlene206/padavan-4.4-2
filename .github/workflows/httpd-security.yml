@@ -2548,11 +2548,15 @@ jobs:
           stop_ppp_start = wan.index("stop_wan_ppp_locked(void)")
           stop_ppp_end = wan.index("\nstatic int\nwan_teardown_ifdown_interface", stop_ppp_start)
           stop_ppp_body = wan[stop_ppp_start:stop_ppp_end]
-          assert stop_ppp_body.index("invalidate_wan_ppp_callback_session()") < stop_ppp_body.index("kill_services(svcs_ppp")
           stop_wan_start = wan.index("stop_wan_locked(void)")
           stop_wan_end = wan.index("\nstatic int\nrun_wan_stop_under_vpn_lifecycle_lock", stop_wan_start)
           stop_wan_body = wan[stop_wan_start:stop_wan_end]
-          assert stop_wan_body.index("invalidate_wan_ppp_callback_session()") < stop_wan_body.index("kill_services(svcs_ppp")
+          for stop_body in (stop_ppp_body, stop_wan_body):
+              ppp_kill = stop_body.index("kill_services(svcs_ppp")
+              ppp_gate = stop_body.index("if (stop_status != 0)", ppp_kill)
+              ppp_abort = stop_body.index("goto abort_resume_detect;", ppp_gate)
+              callback_fence = stop_body.index("invalidate_wan_ppp_callback_session()")
+              assert ppp_kill < ppp_gate < ppp_abort < callback_fence
 
           assert "ppp_config_line_value_copy" in value_policy
           assert "ppp_config_line_value_copy" in value_test
@@ -6076,6 +6080,7 @@ jobs:
           ppp_kill_failure = stop_ppp[stop_ppp.index("stop_status = kill_services(svcs_ppp, 6, 1);"):clear_state_call]
           assert "if (stop_status != 0)" in ppp_kill_failure
           assert "goto abort_resume_detect;" in ppp_kill_failure
+          assert ppp_kill_failure.index("goto abort_resume_detect;") < ppp_kill_failure.index("invalidate_wan_ppp_callback_session();")
           assert "return wan_teardown_abort_status(stop_status, resume_status);" in stop_ppp
           assert "stop_status = kill_services(svcs_ppp, 6, 1);" in stop_wan
           assert "if (kill_services(svcs_wan, 3, 1) != 0)" in stop_wan
@@ -6111,13 +6116,17 @@ jobs:
           clear_failure = stop_wan.index("if (stop_status != 0)", clear_state)
           assert clear_state < clear_failure < stop_wan.index("control_wan_led_isp_state(0, 0);")
           assert "goto abort_resume_detect;" in stop_wan[clear_failure:]
-          assert stop_wan.index("invalidate_wan_ppp_callback_session()") < stop_wan.index("kill_services(svcs_ppp, 6, 1)")
+          wan_ppp_kill = stop_wan.index("stop_status = kill_services(svcs_ppp, 6, 1);")
+          wan_ppp_gate = stop_wan.index("if (stop_status != 0)", wan_ppp_kill)
+          wan_ppp_abort = stop_wan.index("goto abort_resume_detect;", wan_ppp_gate)
+          wan_ppp_fence = stop_wan.index("stop_status = invalidate_wan_ppp_callback_session();")
+          assert wan_ppp_kill < wan_ppp_gate < wan_ppp_abort < wan_ppp_fence
           assert "stop_status = stop_vpn_client_under_lifecycle_lock();" in stop_ppp
           assert "stop_status = invalidate_wan_ppp_callback_session();" in stop_wan
           assert "stop_status = stop_vpn_client_under_lifecycle_lock();" in stop_wan
           assert "stop_vpn_client() != 0" not in stop_ppp and "stop_vpn_client() != 0" not in stop_wan
           assert stop_ppp.index("stop_status = stop_vpn_client_under_lifecycle_lock();") < stop_ppp.index("stop_status = kill_services(svcs_ppp, 6, 1);")
-          assert stop_wan.index("stop_status = invalidate_wan_ppp_callback_session();") < stop_wan.index("stop_status = stop_vpn_client_under_lifecycle_lock();") < stop_wan.index("stop_status = kill_services(svcs_ppp, 6, 1);")
+          assert stop_wan.index("stop_status = stop_vpn_client_under_lifecycle_lock();") < wan_ppp_kill < wan_ppp_gate < wan_ppp_abort < wan_ppp_fence
           wan_stop_lock = body(wan, "run_wan_stop_under_vpn_lifecycle_lock(int (*operation)(void), const char *name)")
           assert wan_stop_lock.index("vpn_server_lifecycle_lock_acquire()") < wan_stop_lock.index("result = operation()") < wan_stop_lock.index("vpn_server_lifecycle_lock_release(lock_fd)")
           stop_wan_call = full_restart.index("status = stop_wan();")

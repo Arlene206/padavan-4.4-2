@@ -1,3 +1,11 @@
+## 2026-11-26 — Align remaining PPP lifecycle source contracts with post-stop fencing
+
+- Exact source SHA `6c0ea137` passed the WAN DHCP callback and other independent lifecycle checks, but VPN server, Process inventory and HTTPD umbrella checks still encoded the former rule that invalidation preceded `kill_services()`. The VPN checker also required generation advancement before the multi-WAN PPP stop.
+- Updated those contracts to require: VPN stop → PPP daemon stop → checked failure/abort branch → callback-generation invalidation; launch generation now follows the successful multi-WAN stop and remains before helper/config publication. The same order is enforced in the VPN, Process, HTTPD and WAN-focused checkers.
+- Checker-only follow-up. The production change is unchanged; exact-SHA reruns pending.
+
+---
+
 ## 2026-11-26 — Correct post-stop PPP callback fencing source contracts
 
 - Exact SHA `6c0ea137a5e94ab7bbd09c542498c5de52a43bf0`: WAN teardown workflow completed its GNU89 regression binaries but the inline Python contract raised `NameError` because deferred-reconnect marker variables were defined below their first use; its older full-WAN assertion also still demanded the previous pre-kill invalidation order.

@@ -763,14 +763,23 @@ for stop_body in (wan_ppp_stop, wan_full_stop):
     assert pause_call < pause_gate < pause_return < callback_fence
     assert "stop_vpn_client() != 0" not in stop_body
     assert "kill_services(svcs_ppp, 6, 1)" in stop_body
-assert "stop_status = stop_vpn_client_under_lifecycle_lock();" in wan_ppp_stop
-assert "stop_status = kill_services(svcs_ppp, 6, 1);" in wan_ppp_stop
-assert wan_ppp_stop.index("stop_status = stop_vpn_client_under_lifecycle_lock();") < wan_ppp_stop.index("stop_status = kill_services(svcs_ppp, 6, 1);")
-assert "stop_status = invalidate_wan_ppp_callback_session();" in wan_full_stop
-assert "stop_status = stop_vpn_client_under_lifecycle_lock();" in wan_full_stop
-assert "stop_status = kill_services(svcs_ppp, 6, 1);" in wan_full_stop
-assert "if (stop_status != 0)" in wan_full_stop
-assert wan_full_stop.index("stop_status = invalidate_wan_ppp_callback_session();") < wan_full_stop.index("stop_status = stop_vpn_client_under_lifecycle_lock();") < wan_full_stop.index("stop_status = kill_services(svcs_ppp, 6, 1);")
+fence_call = "stop_status = invalidate_wan_ppp_callback_session();"
+vpn_stop_call = "stop_status = stop_vpn_client_under_lifecycle_lock();"
+ppp_kill_call = "stop_status = kill_services(svcs_ppp, 6, 1);"
+assert vpn_stop_call in wan_ppp_stop and ppp_kill_call in wan_ppp_stop and fence_call in wan_ppp_stop
+ppp_kill = wan_ppp_stop.index(ppp_kill_call)
+ppp_gate = wan_ppp_stop.index("if (stop_status != 0)", ppp_kill)
+ppp_abort = wan_ppp_stop.index("goto abort_resume_detect;", ppp_gate)
+ppp_fence = wan_ppp_stop.index(fence_call)
+assert wan_ppp_stop.index(vpn_stop_call) < ppp_kill < ppp_gate < ppp_abort < ppp_fence
+assert "stop_status = clear_wan_state_status();" in wan_ppp_stop
+assert ppp_fence < wan_ppp_stop.index("stop_status = clear_wan_state_status();")
+assert fence_call in wan_full_stop and vpn_stop_call in wan_full_stop and ppp_kill_call in wan_full_stop
+full_kill = wan_full_stop.index(ppp_kill_call)
+full_gate = wan_full_stop.index("if (stop_status != 0)", full_kill)
+full_abort = wan_full_stop.index("goto abort_resume_detect;", full_gate)
+full_fence = wan_full_stop.index(fence_call)
+assert wan_full_stop.index(vpn_stop_call) < full_kill < full_gate < full_abort < full_fence
 assert wan_lock_runner.index("vpn_server_lifecycle_lock_acquire()") < wan_lock_runner.index("result = operation()")
 assert wan_lock_runner.index("result = operation()") < wan_lock_runner.index("vpn_server_lifecycle_lock_release(lock_fd)")
 assert "run_wan_stop_under_vpn_lifecycle_lock(stop_wan_ppp_locked" in net_wan
