@@ -1221,22 +1221,23 @@ jobs:
           callback_return = ipv6_up.index("return ipv6_status;", unlock_status)
           assert callback_start < unlock_status < callback_return
 
-          # Invalidate the callback generation while holding the session lock,
-          # stop the daemon, then release the lock and report either failure.
+          # A failed daemon stop must leave the active callback token valid.
+          # Only a successful stop fences waiting children before unlock.
           stop_client = body(wan6_source, "stop_dhcp6c(void)")
-          invalidate_failure = stop_client.index("if (dhcp6c_callback_session_advance(session_fd, &generation) != 0)")
-          invalidate_unlock = stop_client.index("unlock_status = dhcp6c_callback_session_unlock(session_fd);", invalidate_failure)
-          invalidate_unlock_log = stop_client.index("cannot release callback session lock after generation invalidation failure", invalidate_unlock)
+          stop_kill = stop_client.index("stop_status = kill_services(svcs, 3, 1);")
+          generation_advance = stop_client.index("dhcp6c_callback_session_advance(session_fd, &generation)")
+          generation_guard = stop_client.rindex("if (stop_status == 0 &&", stop_kill, generation_advance)
+          invalidate_unlock = stop_client.index("unlock_status = dhcp6c_callback_session_unlock(session_fd);", generation_advance)
+          invalidate_unlock_log = stop_client.index("cannot release callback session lock after successful client stop", invalidate_unlock)
           invalidate_errno = stop_client.index("errno = dhcp6c_callback_primary_errno(saved_errno, unlock_errno);", invalidate_unlock_log)
-          assert invalidate_failure < invalidate_unlock < invalidate_unlock_log < invalidate_errno
+          assert stop_kill < generation_guard < generation_advance < invalidate_unlock < invalidate_unlock_log < invalidate_errno
           assert "(void)dhcp6c_callback_session_unlock(session_fd)" not in stop_client
           assert "dhcp6c_callback_primary_errno" in dhcp6_callback_policy
           assert "test_primary_operation_errno_survives_cleanup_failure" in dhcp6_callback_test
-          stop_kill = stop_client.index("stop_status = kill_services(svcs, 3, 1);")
-          stop_unlock = stop_client.index("unlock_status = dhcp6c_callback_session_unlock(session_fd);", stop_kill)
+          stop_unlock = stop_client.rindex("unlock_status = dhcp6c_callback_session_unlock(session_fd);")
           stop_return = stop_client.index("return stop_status;", stop_unlock)
-          assert stop_client.index("dhcp6c_callback_session_advance(") < stop_kill < stop_unlock < stop_return
-          assert "if (stop_status == 0 && unlock_status != 0)" in stop_client
+          assert stop_kill < generation_advance < stop_unlock < stop_return
+          assert "if (stop_status == 0)\n\t\t\tstop_status = unlock_errno;" in stop_client
           assert "int stop_dhcp6c(void)" in wan6_source
           assert "int stop_dhcp6c(void);" in rc_header
 

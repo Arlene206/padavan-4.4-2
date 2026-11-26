@@ -1,3 +1,11 @@
+## 2026-11-25 — Update WAN DHCP callback contract for fail-safe DHCPv6 stop ordering
+
+- Exact SHA `d32af6f`: the DHCPv6 IA workflow passed, including the new GNU89 callback-generation race regression. The broader WAN DHCP callback workflow failed only in its inline source contract, which still required generation invalidation before `kill_services()` and expected the former cleanup log wording.
+- Replaced that obsolete assertion with the required order: daemon stop → success guard → generation advance → generation-failure unlock/error aggregation; normal return unlock follows. It also verifies an unsuccessful stop preserves its original status while unlocking without invalidating the token.
+- Test/source-contract synchronization only; no production changes in this repair. Exact-SHA rerun pending.
+
+---
+
 ## 2026-11-25 — Preserve DHCPv6 callback tokens when client stop fails
 
 - `stop_dhcp6c()` advanced the shared callback generation before calling `kill_services("dhcp6c")`. If the daemon stop failed, the still-running client retained its old environment token while queued ip-up/ip-down children were released from the lock with a newer generation; those callbacks rejected themselves and silently skipped lease, address, prefix and resolver updates even though WAN6 teardown correctly aborted.
