@@ -331,6 +331,16 @@ assert "hev_slist_remove" in listener
 assert "hev_dns_session_start (session)" in listener
 assert "if (!self->forward_buffer || !self->backward_buffer)" in session_new
 assert "hev_dns_session_unref (self)" in session_new
+session_connect = function_body(session_core, "dns_do_connect (")
+assert "DNS_SESSION_IOCTL" in session_connect
+assert "if (!self->source)" in session_connect
+assert "DNS_SESSION_EVENT_SOURCE_ADD_FD" in session_connect
+assert "if (!self->remote_fd)" in session_connect
+assert session_connect.index("if (!self->remote_fd)") < session_connect.index("DNS_SESSION_CONNECT")
+assert "test_session_connect_setup_failures" in forwarder_init_test
+assert "SESSION_FAIL_IOCTL" in forwarder_init_test
+assert "SESSION_FAIL_ADD_FD" in forwarder_init_test
+assert "SESSION_FAIL_CONNECT" in forwarder_init_test
 assert "hev_dns_forwarder_udp_drain_action(-1, EINTR)" in forwarder_policy_test
 assert "hev_dns_forwarder_udp_drain_action(0, 0)" in forwarder_policy_test
 

@@ -8,6 +8,8 @@
 #include <unistd.h>
 
 #include "../dns-forwarder-1.2.1/hev-dns-forwarder.h"
+#include "../dns-forwarder-1.2.1/hev-dns-session.h"
+#include <arpa/inet.h>
 #include "../dns-forwarder-1.2.1/hev-event-loop.h"
 #include "../dns-forwarder-1.2.1/hev-event-source-fds.h"
 #include "../dns-forwarder-1.2.1/hev-event-source-timeout.h"
@@ -40,6 +42,21 @@ static unsigned int loop_add_calls;
 static unsigned int loop_del_calls;
 static unsigned int source_unref_calls;
 static int listener_fd = -1;
+
+enum session_failure_point {
+    SESSION_FAIL_NONE = 0,
+    SESSION_FAIL_IOCTL,
+    SESSION_FAIL_ADD_FD,
+    SESSION_FAIL_CONNECT
+};
+
+static enum session_failure_point session_failure;
+static unsigned int session_socket_calls;
+static unsigned int session_ioctl_calls;
+static unsigned int session_add_fd_calls;
+static unsigned int session_connect_calls;
+static unsigned int session_close_notifications;
+static int session_remote_fd = -1;
 
 static void
 reset_case(enum failure_point selected, unsigned int fail_add_call)
@@ -232,6 +249,155 @@ dns_forwarder_test_event_source_unref(HevEventSource *source)
     hev_event_source_unref(source);
 }
 
+int
+dns_forwarder_test_session_socket(int domain, int type, int protocol)
+{
+    int fd;
+
+    session_socket_calls++;
+    fd = socket(domain, type, protocol);
+    if (fd >= 0 && type == SOCK_STREAM)
+        session_remote_fd = fd;
+    return fd;
+}
+
+int
+dns_forwarder_test_session_ioctl(int fd, unsigned long request, void *argument)
+{
+    session_ioctl_calls++;
+    if (session_failure == SESSION_FAIL_IOCTL) {
+        errno = ENOTTY;
+        return -1;
+    }
+    return ioctl(fd, request, argument);
+}
+
+HevEventSourceFD *
+dns_forwarder_test_session_event_source_add_fd(HevEventSource *source,
+                                                int fd, uint32_t events)
+{
+    session_add_fd_calls++;
+    if (session_failure == SESSION_FAIL_ADD_FD) {
+        errno = ENOMEM;
+        return NULL;
+    }
+    return hev_event_source_add_fd(source, fd, events);
+}
+
+int
+dns_forwarder_test_session_connect(int fd, const struct sockaddr *address,
+                                   socklen_t length)
+{
+    (void) fd;
+    (void) address;
+    (void) length;
+    session_connect_calls++;
+    if (session_failure == SESSION_FAIL_CONNECT) {
+        errno = ECONNREFUSED;
+        return -1;
+    }
+    errno = EINPROGRESS;
+    return -1;
+}
+
+static void
+session_test_close_notify(HevDNSSession *session, void *data)
+{
+    (void) data;
+    session_close_notifications++;
+    hev_dns_session_unref(session);
+}
+
+static int
+create_udp_listener_with_query(void)
+{
+    int listener = -1, sender = -1;
+    struct sockaddr_in address;
+    socklen_t address_length = sizeof (address);
+    unsigned char query[12] = { 0 };
+
+    listener = socket(AF_INET, SOCK_DGRAM, 0);
+    if (listener < 0)
+        return -1;
+    memset(&address, 0, sizeof (address));
+    address.sin_family = AF_INET;
+    address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    address.sin_port = 0;
+    if (bind(listener, (struct sockaddr *) &address, sizeof (address)) < 0)
+        goto error;
+    if (getsockname(listener, (struct sockaddr *) &address, &address_length) < 0)
+        goto error;
+    sender = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sender < 0)
+        goto error;
+    if (sendto(sender, query, sizeof (query), 0,
+               (struct sockaddr *) &address, sizeof (address)) !=
+        (ssize_t) sizeof (query))
+        goto error;
+    close(sender);
+    return listener;
+
+error:
+    if (sender >= 0)
+        close(sender);
+    close(listener);
+    return -1;
+}
+
+static void
+run_session_connect_failure(enum session_failure_point selected,
+                            unsigned int expected_ioctl,
+                            unsigned int expected_add_fd,
+                            unsigned int expected_connect)
+{
+    unsigned int before = (unsigned int) open_fd_count();
+    struct sockaddr_in upstream;
+    HevDNSSession *session = NULL;
+    int listener = create_udp_listener_with_query();
+
+    assert(listener >= 0);
+    memset(&upstream, 0, sizeof (upstream));
+    upstream.sin_family = AF_INET;
+    upstream.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    upstream.sin_port = htons(53);
+
+    session_failure = selected;
+    session_socket_calls = 0;
+    session_ioctl_calls = 0;
+    session_add_fd_calls = 0;
+    session_connect_calls = 0;
+    session_close_notifications = 0;
+    session_remote_fd = -1;
+
+    session = hev_dns_session_new(listener, &upstream,
+                                  session_test_close_notify, NULL);
+    assert(session != NULL);
+    assert(hev_dns_session_get_source(session) != NULL);
+    hev_dns_session_start(session);
+
+    assert(session_close_notifications == 1);
+    assert(session_socket_calls == 1);
+    assert(session_ioctl_calls == expected_ioctl);
+    assert(session_add_fd_calls == expected_add_fd);
+    assert(session_connect_calls == expected_connect);
+    assert(session_remote_fd >= 0);
+    errno = 0;
+    assert(fcntl(session_remote_fd, F_GETFD) == -1);
+    assert(errno == EBADF);
+
+    close(listener);
+    session_failure = SESSION_FAIL_NONE;
+    assert((unsigned int) open_fd_count() == before);
+}
+
+static void
+test_session_connect_setup_failures(void)
+{
+    run_session_connect_failure(SESSION_FAIL_IOCTL, 1, 0, 0);
+    run_session_connect_failure(SESSION_FAIL_ADD_FD, 1, 1, 0);
+    run_session_connect_failure(SESSION_FAIL_CONNECT, 1, 1, 1);
+}
+
 static void
 expect_failure(HevEventLoop *loop, enum failure_point selected,
                unsigned int fail_add_call, int expected_errno,
@@ -305,6 +471,8 @@ main(void)
     assert(close_calls == 1);
     assert(loop_del_calls == 2);
     assert((unsigned int) open_fd_count() == before);
+
+    test_session_connect_setup_failures();
 
     hev_event_loop_unref(loop);
     puts("DNS Forwarder constructor syscall/source rollback regression: PASS");

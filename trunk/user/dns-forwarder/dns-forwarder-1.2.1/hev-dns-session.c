@@ -17,6 +17,19 @@
 
 #include "hev-dns-session.h"
 
+#ifdef HEV_DNS_FORWARDER_TESTING
+#include "../tests/hev_dns_forwarder_init_test_hooks.h"
+#define DNS_SESSION_SOCKET dns_forwarder_test_session_socket
+#define DNS_SESSION_IOCTL dns_forwarder_test_session_ioctl
+#define DNS_SESSION_EVENT_SOURCE_ADD_FD dns_forwarder_test_session_event_source_add_fd
+#define DNS_SESSION_CONNECT dns_forwarder_test_session_connect
+#else
+#define DNS_SESSION_SOCKET socket
+#define DNS_SESSION_IOCTL ioctl
+#define DNS_SESSION_EVENT_SOURCE_ADD_FD hev_event_source_add_fd
+#define DNS_SESSION_CONNECT connect
+#endif
+
 enum
 {
 	REMOTE_IN = (1 << 1),
@@ -291,18 +304,38 @@ dns_do_connect (HevDNSSession *self)
 {
 	int nonblock = 1;
 
-	self->rfd = socket (AF_INET, SOCK_STREAM, 0);
+	self->rfd = DNS_SESSION_SOCKET (AF_INET, SOCK_STREAM, 0);
 	if (-1 == self->rfd) {
 		dns_close_session (self);
 		return;
 	}
-	ioctl (self->rfd, FIONBIO, (char *) &nonblock);
-	/* add fd to source */
-	if (self->source)
-	  self->remote_fd = hev_event_source_add_fd (self->source,
-				  self->rfd, EPOLLIN | EPOLLOUT | EPOLLET);
+
+	/* Never permit a failed nonblocking setup to block the event loop. */
+	if (0 > DNS_SESSION_IOCTL (self->rfd, FIONBIO, (char *) &nonblock)) {
+		dns_close_session (self);
+		return;
+	}
+	if (!self->source) {
+		errno = EINVAL;
+		dns_close_session (self);
+		return;
+	}
+
+	/* Register before connect so readiness is observed by the loop. */
+	errno = 0;
+	self->remote_fd = DNS_SESSION_EVENT_SOURCE_ADD_FD (
+		self->source, self->rfd, EPOLLIN | EPOLLOUT | EPOLLET);
+	if (!self->remote_fd) {
+		if (!errno)
+			errno = ENOMEM;
+		dns_close_session (self);
+		return;
+	}
+
 	/* connect to remote host */
-	if (0 > connect (self->rfd, (struct sockaddr *) self->upstream, sizeof (struct sockaddr_in))) {
+	if (0 > DNS_SESSION_CONNECT (self->rfd,
+			     (struct sockaddr *) self->upstream,
+			     sizeof (struct sockaddr_in))) {
 		if (EINPROGRESS != errno) {
 			dns_close_session (self);
 			return;

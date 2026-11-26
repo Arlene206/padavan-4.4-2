@@ -29,4 +29,11 @@ bool dns_forwarder_test_event_loop_del_source(HevEventLoop *loop,
 HevEventLoop *dns_forwarder_test_event_source_get_loop(HevEventSource *source);
 void dns_forwarder_test_event_source_unref(HevEventSource *source);
 
+int dns_forwarder_test_session_socket(int domain, int type, int protocol);
+int dns_forwarder_test_session_ioctl(int fd, unsigned long request, void *argument);
+HevEventSourceFD *dns_forwarder_test_session_event_source_add_fd(
+    HevEventSource *source, int fd, uint32_t events);
+int dns_forwarder_test_session_connect(int fd, const struct sockaddr *address,
+                                       socklen_t length);
+
 #endif
