@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import errno
 import os
+import re
 import subprocess
 import tempfile
 from pathlib import Path
