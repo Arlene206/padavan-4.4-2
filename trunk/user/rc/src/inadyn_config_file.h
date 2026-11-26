@@ -269,12 +269,32 @@ static inline int
 inadyn_config_file_snapshot_restore(
 	const char *destination, struct inadyn_config_file_snapshot *snapshot)
 {
+	struct stat current;
+
 	if (!destination || !destination[0] || !snapshot || !snapshot->active) {
 		errno = EINVAL; return -1;
 	}
 	if (snapshot->had_original) {
 		if (inadyn_config_file_snapshot_matches(snapshot) != 0) return -1;
-		if (rename(snapshot->backup_path, destination) != 0) return -1;
+		/*
+		 * POSIX rename is a no-op when source and destination are hard links
+		 * to the same inode. Remove our extra link explicitly in that case,
+		 * otherwise old-config write failures leave st_nlink=2 and prevent
+		 * the previous daemon from passing its private-config checks.
+		 */
+		if (lstat(destination, &current) == 0) {
+			if (S_ISREG(current.st_mode) &&
+			    current.st_dev == snapshot->device &&
+			    current.st_ino == snapshot->inode) {
+				if (unlink(snapshot->backup_path) != 0) return -1;
+			} else if (rename(snapshot->backup_path, destination) != 0) {
+				return -1;
+			}
+		} else if (errno == ENOENT) {
+			if (rename(snapshot->backup_path, destination) != 0) return -1;
+		} else {
+			return -1;
+		}
 		snapshot->backup_path[0] = '\0';
 	} else if (unlink(destination) != 0 && errno != ENOENT) return -1;
 	snapshot->active = 0;

@@ -105,6 +105,10 @@ assert "backup.st_dev != original.st_dev" in config_snapshot_header
 assert "backup.st_ino != original.st_ino" in config_snapshot_header
 assert "O_DIRECTORY | O_NOFOLLOW" in config_snapshot_header
 assert "inadyn_config_file_snapshot_restore" in config_snapshot_test
+assert "lstat(destination, &current)" in config_snapshot_header
+assert "current.st_ino == snapshot->inode" in config_snapshot_header
+assert "unlink(snapshot->backup_path)" in config_snapshot_header
+
 assert "inadyn_config_file_snapshot_commit" in config_snapshot_test
 assert "test_config_snapshot_rejects_symlink" in config_snapshot_test
 

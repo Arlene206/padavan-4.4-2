@@ -269,6 +269,13 @@ test_config_snapshot_restore_and_commit(const char *config,
 	assert(snapshot.active && snapshot.had_original);
 	assert(lstat(config, &st) == 0 && st.st_nlink == 2);
 	assert(count_staged_files(directory, "inadyn.conf.rollback.") == 1);
+	/* Restore without publishing: rename(backup, config) would be a no-op. */
+	assert(inadyn_config_file_snapshot_restore(config, &snapshot) == 0);
+	assert(stat(config, &st) == 0 && st.st_nlink == 1);
+	assert(count_staged_files(directory, "inadyn.conf.rollback.") == 0);
+
+	assert(inadyn_config_file_snapshot_begin(config, &snapshot) == 0);
+	assert(snapshot.active && snapshot.had_original);
 	fp = inadyn_config_file_open(config, staged, sizeof(staged));
 	assert(fp != NULL && fputs("failed-generation\n", fp) >= 0);
 	assert(inadyn_config_file_publish(fp, staged, config) == 0);
