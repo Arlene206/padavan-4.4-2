@@ -83,7 +83,9 @@ assert cleanup.rindex("samba_config_transaction_sync_directory(directory)") < rm
 assert rmdir < cleanup.index("samba_config_transaction_sync_parent(directory)")
 
 passdb_sync = compact(body("samba_config_transaction_sync_file("))
-assert "open(path,O_RDWR|O_NOFOLLOW)" in passdb_sync
+assert "flags=O_RDWR" in passdb_sync
+assert "flags|=O_NOFOLLOW" in passdb_sync
+assert "open(path,flags)" in passdb_sync
 assert "fstat(fd,&st)" in passdb_sync
 assert "S_ISREG(st.st_mode)" in passdb_sync
 assert "st.st_uid!=geteuid()" in passdb_sync
