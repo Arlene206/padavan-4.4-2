@@ -32,6 +32,12 @@ hev_event_loop_new (void)
 
 	if (self) {
 		self->epoll_fd = epoll_create (1024);
+		if (self->epoll_fd < 0) {
+			int saved_errno = errno ? errno : EIO;
+			HEV_MEMORY_ALLOCATOR_FREE (self);
+			errno = saved_errno;
+			return NULL;
+		}
 		self->ref_count = 1;
 		self->run = true;
 		self->sources = NULL;
@@ -158,22 +164,51 @@ hev_event_loop_quit (HevEventLoop *self)
 bool
 hev_event_loop_add_source (HevEventLoop *self, HevEventSource *source)
 {
-	if (self && source) {
-		HevSList *list = NULL;
-		for (list=self->sources; list; list=hev_slist_next (list)) {
-			if (source == hev_slist_data (list))
-			  return false;
-		}
-		_hev_event_source_set_loop (source, self);
-		self->sources = hev_slist_append (self->sources, hev_event_source_ref (source));
-		for (list=source->fds; list; list=hev_slist_next (list)) {
-			HevEventSourceFD *fd = hev_slist_data (list);
-			_hev_event_loop_add_fd (self, fd);
-		}
-		source->funcs.prepare (source);
-		return true;
+	HevSList *list = NULL, *rollback = NULL, *new_sources = NULL;
+
+	if (!self || !source || source->loop)
+		return false;
+
+	for (list=self->sources; list; list=hev_slist_next (list)) {
+		if (source == hev_slist_data (list))
+			return false;
 	}
 
+	new_sources = hev_slist_append (self->sources,
+					hev_event_source_ref (source));
+	if (!new_sources) {
+		hev_event_source_unref (source);
+		return false;
+	}
+	self->sources = new_sources;
+	_hev_event_source_set_loop (source, self);
+
+	for (list=source->fds; list; list=hev_slist_next (list)) {
+		HevEventSourceFD *fd = hev_slist_data (list);
+		if (!_hev_event_loop_add_fd (self, fd)) {
+			for (rollback=source->fds; rollback != list;
+			     rollback=hev_slist_next (rollback)) {
+				fd = hev_slist_data (rollback);
+				_hev_event_loop_del_fd (self, fd);
+			}
+			goto failed;
+		}
+	}
+
+	if (!source->funcs.prepare (source)) {
+		for (list=source->fds; list; list=hev_slist_next (list)) {
+			HevEventSourceFD *fd = hev_slist_data (list);
+			_hev_event_loop_del_fd (self, fd);
+		}
+		goto failed;
+	}
+
+	return true;
+
+failed:
+	self->sources = hev_slist_remove (self->sources, source);
+	_hev_event_source_set_loop (source, NULL);
+	hev_event_source_unref (source);
 	return false;
 }
 

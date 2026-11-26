@@ -66,6 +66,12 @@ shutils = read("trunk/user/shared/src/shutils.c")
 shutils_header = read("trunk/user/shared/src/shutils.h")
 package_makefile = read("trunk/user/dns-forwarder/Makefile")
 launcher_script = read("trunk/user/dns-forwarder/dns-forwarder.sh")
+core_dir = "trunk/user/dns-forwarder/dns-forwarder-1.2.1/"
+event_loop = read(core_dir + "hev-event-loop.c")
+event_source = read(core_dir + "hev-event-source.c")
+timeout_source = read(core_dir + "hev-event-source-timeout.c")
+signal_source = read(core_dir + "hev-event-source-signal.c")
+event_loop_test = read("trunk/user/dns-forwarder/tests/hev_event_loop_lifecycle.c")
 lifecycle_test = read("trunk/user/dns-forwarder/tests/dns_forwarder_lifecycle.sh")
 shared_process_helper = read("trunk/user/shared/scripts/process_lifecycle.sh")
 shared_makefile = read("trunk/user/shared/Makefile")
@@ -200,6 +206,11 @@ paths = (
     "trunk/user/dns-forwarder/tests/dns_forwarder_lifecycle.sh",
     "trunk/configs/boards/busybox.config",
     "scripts/check_dns_forwarder_launch.py",
+    "trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-event-loop.c",
+    "trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-event-source.c",
+    "trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-event-source-timeout.c",
+    "trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-event-source-signal.c",
+    "trunk/user/dns-forwarder/tests/hev_event_loop_lifecycle.c",
 )
 filters = workflow.split("jobs:", 1)[0]
 push_filters, pr_filters = filters.split("  pull_request:", 1)
@@ -207,5 +218,29 @@ for path in paths:
     quoted = '"' + path + '"'
     assert push_filters.count(quoted) == 1, "push path count: " + path
     assert pr_filters.count(quoted) == 1, "pull_request path count: " + path
+
+# Event-loop/source lifetime and registration errors must be fail-closed.
+loop_ctor = function_body(event_loop, "hev_event_loop_new (void)")
+assert "self->epoll_fd < 0" in loop_ctor
+assert "return NULL;" in loop_ctor
+add_source = function_body(event_loop, "hev_event_loop_add_source (HevEventLoop *self, HevEventSource *source)")
+assert "source->loop" in add_source
+assert "!_hev_event_loop_add_fd (self, fd)" in add_source
+assert "if (!source->funcs.prepare (source))" in add_source
+assert "_hev_event_source_set_loop (source, NULL)" in add_source
+assert "hev_event_source_unref (source);" in add_source
+source_setter = function_body(event_source, "_hev_event_source_set_loop (HevEventSource *self, HevEventLoop *loop)")
+assert "self->loop = loop;" in source_setter
+source_add_fd = function_body(event_source, "hev_event_source_add_fd (HevEventSource *self, int fd, uint32_t events)")
+assert "new_fds = hev_slist_append (self->fds, efd);" in source_add_fd
+assert "hev_slist_remove (self->fds, efd)" in source_add_fd
+assert "_hev_event_loop_add_fd (self->loop, efd)" in source_add_fd
+assert "!hev_event_source_add_fd (source, self->timer_fd" in timeout_source
+assert "return (0 == timerfd_settime" in timeout_source
+assert "!hev_event_source_add_fd (source, self->signal_fd" in signal_source
+assert "hev_event_loop_add_source (first, source)" in event_loop_test
+assert "hev_event_loop_add_source (second, source)" in event_loop_test
+assert "hev_event_source_add_fd (source, -1, EPOLLIN)" in event_loop_test
+assert "hev_event_source_get_loop (source)" in event_loop_test
 
 print("DNS Forwarder push/pull_request path filters: PASS")

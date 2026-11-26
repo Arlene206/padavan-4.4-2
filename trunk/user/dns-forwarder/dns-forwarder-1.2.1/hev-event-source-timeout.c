@@ -82,7 +82,10 @@ hev_event_source_timeout_new (unsigned int interval)
 	self = (HevEventSourceTimeout *) source;
 	self->timer_fd = fd;
 	self->interval = interval;
-	hev_event_source_add_fd (source, self->timer_fd, EPOLLIN | EPOLLET);
+	if (!hev_event_source_add_fd (source, self->timer_fd, EPOLLIN | EPOLLET)) {
+		hev_event_source_unref (source);
+		return NULL;
+	}
 
 	return source;
 }
@@ -97,9 +100,7 @@ hev_event_source_timeout_prepare (HevEventSource *source)
 	spec.it_interval.tv_nsec = 0;
 	spec.it_value.tv_sec = self->interval / 1000;
 	spec.it_value.tv_nsec = (self->interval % 1000) * 1000 * 1000;
-	timerfd_settime (self->timer_fd, 0, &spec, NULL);
-
-	return true;
+	return (0 == timerfd_settime (self->timer_fd, 0, &spec, NULL));
 }
 
 static bool

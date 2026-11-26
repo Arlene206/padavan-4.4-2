@@ -17,6 +17,11 @@ on:
       - "trunk/user/dns-forwarder/tests/dns_forwarder_lifecycle.sh"
       - "trunk/configs/boards/busybox.config"
       - "scripts/check_dns_forwarder_launch.py"
+      - "trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-event-loop.c"
+      - "trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-event-source.c"
+      - "trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-event-source-timeout.c"
+      - "trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-event-source-signal.c"
+      - "trunk/user/dns-forwarder/tests/hev_event_loop_lifecycle.c"
   pull_request:
     paths:
       - ".github/workflows/dns-forwarder-launch-path.yml"
@@ -33,6 +38,11 @@ on:
       - "trunk/user/dns-forwarder/tests/dns_forwarder_lifecycle.sh"
       - "trunk/configs/boards/busybox.config"
       - "scripts/check_dns_forwarder_launch.py"
+      - "trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-event-loop.c"
+      - "trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-event-source.c"
+      - "trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-event-source-timeout.c"
+      - "trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-event-source-signal.c"
+      - "trunk/user/dns-forwarder/tests/hev_event_loop_lifecycle.c"
 
 permissions:
   contents: read
@@ -44,5 +54,11 @@ jobs:
       - uses: actions/checkout@v4
       - name: Verify DNS Forwarder launch path and service contracts
         run: python3 scripts/check_dns_forwarder_launch.py
+      - name: Compile and run DNS Forwarder event-loop regression
+        run: |
+          core=trunk/user/dns-forwarder/dns-forwarder-1.2.1
+          tests=trunk/user/dns-forwarder/tests
+          cc -std=gnu89 -Wall -Wextra -Werror -Wno-unused-parameter -Wno-cast-function-type -fsanitize=address,undefined -I "$core" "$tests/hev_event_loop_lifecycle.c" "$core/hev-event-loop.c" "$core/hev-event-source.c" "$core/hev-event-source-fd.c" "$core/hev-event-source-fds.c" "$core/hev-slist.c" "$core/hev-memory-allocator.c" -o /tmp/dns-forwarder-event-loop
+          /tmp/dns-forwarder-event-loop
       - name: Exercise DNS Forwarder lifecycle failure and lock gates
         run: sh trunk/user/dns-forwarder/tests/dns_forwarder_lifecycle.sh

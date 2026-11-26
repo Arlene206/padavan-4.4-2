@@ -127,21 +127,32 @@ HevEventSourceFD *
 hev_event_source_add_fd (HevEventSource *self, int fd, uint32_t events)
 {
 	if (self) {
-		HevSList *list = NULL;
+		HevSList *list = NULL, *new_fds = NULL;
+		HevEventSourceFD *efd = NULL;
+
 		for (list=self->fds; list; list=hev_slist_next (list)) {
-			HevEventSourceFD *efd = hev_slist_data (list);
-			if (efd->fd == fd)
+			HevEventSourceFD *existing = hev_slist_data (list);
+			if (existing->fd == fd)
 			  return NULL;
 		}
-		HevEventSourceFD *efd = _hev_event_source_fd_new (self, fd, events);
-		if (efd) {
-			self->fds = hev_slist_append (self->fds, efd);
-			if (self->loop && !_hev_event_loop_add_fd (self->loop, efd)) {
-				_hev_event_source_fd_unref (efd);
-				efd = NULL;
-			}
-			return efd;
+
+		efd = _hev_event_source_fd_new (self, fd, events);
+		if (!efd)
+			return NULL;
+
+		new_fds = hev_slist_append (self->fds, efd);
+		if (!new_fds) {
+			_hev_event_source_fd_unref (efd);
+			return NULL;
 		}
+		self->fds = new_fds;
+
+		if (self->loop && !_hev_event_loop_add_fd (self->loop, efd)) {
+			self->fds = hev_slist_remove (self->fds, efd);
+			_hev_event_source_fd_unref (efd);
+			return NULL;
+		}
+		return efd;
 	}
 
 	return NULL;
@@ -183,7 +194,7 @@ hev_event_source_get_loop (HevEventSource *self)
 void
 _hev_event_source_set_loop (HevEventSource *self, HevEventLoop *loop)
 {
-	if (self && (!self->loop) && loop)
+	if (self)
 	  self->loop = loop;
 }
 

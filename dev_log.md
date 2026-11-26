@@ -1,3 +1,9 @@
+## 2026-11-26 — Make DNS Forwarder event-source registration transactional
+
+- Found several interacting lifetime defects in the DNS Forwarder event core: `epoll_create()` failure was accepted as a valid loop; `hev_event_loop_add_source()` ignored fd registration and `prepare()` errors, leaving partially registered sources while returning success; detach did not clear `source->loop`; and a failed attached `hev_event_source_add_fd()` freed its node without unlinking it from the source list.
+- Event-loop source registration now fails closed and rolls back prior `epoll_ctl(ADD)` operations, source detach clears its owner loop, and fd-add allocation/registration failures leave no dangling list entry. Timer/signalfd constructors now unwind if fd attachment fails, and timer activation errors are reported to the loop.
+- Added a GNU89 ASan/UBSan regression that forces partial epoll registration failure, retries after rollback, exercises failed fd attachment on a live loop, and reattaches a detached source to another loop. The existing DNS Forwarder checker and workflow now cover the new C sources/tests on both push and pull_request. Router runtime/L4 verification remains outstanding.
+
 ## 2026-11-26 — Add the timeout policy to MiniUPnP PR path filters
 
 - On correction SHA `037a94b`, the GNU89 ASan/UBSan policy binary PASSed and the AI handoff documentation workflow PASSed (#45845054818). The embedded source checker then found that the newly added timeout helper was present in the MiniUPnP workflow's push path list but absent from its separate pull_request list.

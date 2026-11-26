@@ -95,7 +95,10 @@ hev_event_source_signal_new (int signal)
 
 	self = (HevEventSourceSignal *) source;
 	self->signal_fd = fd;
-	hev_event_source_add_fd (source, self->signal_fd, EPOLLIN | EPOLLET);
+	if (!hev_event_source_add_fd (source, self->signal_fd, EPOLLIN | EPOLLET)) {
+		hev_event_source_unref (source);
+		return NULL;
+	}
 
 	return source;
 }
