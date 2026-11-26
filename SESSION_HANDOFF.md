@@ -1,33 +1,31 @@
 ## Current repository state — 2026-11-25 (latest CI observed 2026-11-26 UTC)
 
-- Live parent `main`: `7f82a3fd30ea1bdce084715401e7f31279c6a920` (`fix(vsftpd): validate per-session share mode before authorization`). Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged, do not modify.
-- This source slice fixes a fail-open selector in VSFTPD. Per-session `st_ftp_mode` used `nvram_get_int()`, which applies `atoi()`, turns missing/backend errors into zero and accepts numeric-prefix junk such as `1junk` as mode 1. Anonymous mode 1 skips per-share ACL lookup. The new reader uses `nvram_get_checked()`, strict full-string decimal parsing, mode-2 normalization for absent/unsupported numeric values, and refuses session startup on read/malformed-value errors.
-- Commit `7f82a3fd30ea1bdce084715401e7f31279c6a920` adds `ftp_share_mode_policy.h` and its regression, updates `asus_ext.c/.h` and `main.c`, and extends the exact-source workflow, roadmap and development log. One atomic commit; all eight files were included in one complete Git tree.
-- Exact-SHA validation for `7f82a3fd30ea1bdce084715401e7f31279c6a920`: VSFTPD stability #45742067432 PASS (includes GNU89 ASan/UBSan checked-share-mode regression, ACL/config tests and source contracts); AI handoff docs #45742067378 PASS; Process inventory #45742067392 PASS.
-- Exact-SHA NVRAM transaction audit #45742067411 was IN_PROGRESS at checkpoint. XY-C1 run #45742067435 was IN_PROGRESS at checkpoint, Build job `139649214830`; TRX and artifact stages are not yet verified. Do not claim L3 for `7f82a3fd30ea1bdce084715401e7f31279c6a920` until Build, TRX and artifact upload all pass.
-- Previous product-source XY-C1 results remain tied to their own SHAs: ZeroTier route ownership source `abcda13a2f2d1638f79fff262ccca35e5afb07a3`, run #45738090392 PASS; DHCPv6 callback source `d32af6fdb0692cd2cdf5e6e6fd0654a59877e82a`, run #45740456597 PASS. These do not establish L3 for the new VSFTPD SHA.
-- PR #1 is closed and unmerged; no PR-branch work is in flight. The immutable backup remains untouched. No physical-router L4 test, live overlay/network test or hardware validation is claimed.
-- Startup recovery/protocol and the prior handoff were already read in this session; do not repeat the audit. Main is authoritative.
+- Live `main` checkpoint parent: `dcc1026895083e1f01ea52e0cb1a1a43941923f2` (`docs(handoff): checkpoint VSFTPD share-mode fix and exact CI state`). This is a documentation-only descendant; the latest firmware-source SHA remains `7f82a3fd30ea1bdce084715401e7f31279c6a920`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged.
+- Firmware source commit `7f82a3fd30ea1bdce084715401e7f31279c6a920` fixes the per-session VSFTPD `st_ftp_mode` fail-open: the old `nvram_get_int()` applied `atoi()`, collapsed missing/backend errors to zero and accepted `1junk` as mode 1, which bypasses anonymous per-share ACL lookup. New code uses `nvram_get_checked()`, strict full-string parsing, mode-2 normalization for absent/unsupported numeric values, and refuses session startup on read/malformed-value errors.
+- Exact source SHA `7f82a3fd`: VSFTPD stability #45742067432 PASS (GNU89 ASan/UBSan regression + full source contracts); AI docs #45742067378 PASS; Process inventory #45742067392 PASS; NVRAM transaction boundary #45742067411 PASS.
+- XY-C1 run #45742067435 is still IN_PROGRESS on source SHA `7f82a3fd30ea1bdce084715401e7f31279c6a920`, Build job `139649214830`. TRX and artifact upload are not yet confirmed. Do not claim current-source L3 until Build, TRX and artifact upload all pass.
+- AI handoff docs #45742403104 is IN_PROGRESS for the preceding documentation checkpoint `dcc1026895083e1f01ea52e0cb1a1a43941923f2`. This checkpoint commit updates the handoff once more; check its new exact-head AI docs run opportunistically.
+- Earlier product-source XY-C1 runs remain tied to their own SHAs: ZeroTier route ownership `abcda13a2f2d1638f79fff262ccca35e5afb07a3`, #45738090392 PASS; DHCPv6 callback `d32af6fdb0692cd2cdf5e6e6fd0654a59877e82a`, #45740456597 PASS. They do not establish L3 for the newer source SHA.
+- PR #1 remains closed and unmerged; do not revive the divergent PR branch. Backup is immutable. No physical-router L4, live overlay/network or hardware result is claimed. Startup protocol and handoff were already restored once in this session; do not repeat the startup audit.
 
 ## Active task
 
-Continue independent source fixes on `main` while exact-SHA runs #45742067411 and #45742067435 are pending. Do not wait for them:
-1. Check the NVRAM transaction audit and XY-C1 run opportunistically. For XY-C1 inspect Build, TRX verification and artifact upload separately, and inspect the exact job log if anything fails.
-2. Choose the next clearly unresolved P1/P2 defect from the whole-repository ledger, not an already-fixed VSFTPD ACL or stop/restart item. Keep each logical fix atomic and add a focused regression plus exact-source workflow contract.
-3. Before another chat, refresh this checkpoint with the current main SHA and exact CI job states. Do not claim current-source L3 until all three XY-C1 stages pass.
+Continue source work on `main`; pending Actions do not block independent fixes.
+1. Check #45742067435 opportunistically. If completed, inspect Build, TRX verification and artifact upload separately; if failed, inspect the exact Build/job log and fix the concrete fault.
+2. Check the latest AI docs run for this handoff update and #45742403104. NVRAM, VSFTPD and Process checks already passed for source SHA `7f82a3f`.
+3. Pick the next clearly unresolved P1/P2 defect from the whole-repository ledger, not a completed VSFTPD ACL or stop/restart item. Implement source + focused regression + exact-source workflow; use one complete Git tree and one expected-SHA main update per logical task.
 
 ## Verification boundary
 
-- VSFTPD code + source-contract L2: PASS on `7f82a3fd30ea1bdce084715401e7f31279c6a920`, run #45742067432.
-- AI handoff docs + Process inventory: PASS on source SHA `7f82a3fd30ea1bdce084715401e7f31279c6a920`, runs #45742067378 and #45742067392.
-- NVRAM transaction audit: #45742067411 IN_PROGRESS at checkpoint.
-- Current-source XY-C1: #45742067435 IN_PROGRESS at checkpoint; Build job #139649214830; TRX/artifact not yet confirmed.
-- Frozen backup: `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged.
-- Router physical L4: NOT VERIFIED.
+- VSFTPD production/source-contract L2: PASS on `7f82a3fd30ea1bdce084715401e7f31279c6a920`, run #45742067432.
+- AI docs #45742067378, Process inventory #45742067392, NVRAM transaction boundary #45742067411: PASS on source SHA `7f82a3f`.
+- XY-C1 current source #45742067435: IN_PROGRESS; Build job #139649214830; TRX/artifact unverified.
+- AI docs #45742403104: IN_PROGRESS on documentation parent `dcc1026895083e1f01ea52e0cb1a1a43941923f2`; a newer docs-only checkpoint triggers the next docs run.
+- Frozen backup: `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged. Router physical L4: NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-Fetch current `main` and the exact run objects for #45742067411 and #45742067435. If the latter is still running, continue a new independent source fix; if completed, inspect Build/TRX/artifact status and any failed job log. Then select the next unclosed repository-ledger defect. Do not restart repository audits or revisit the already-passing VSFTPD regression.
+Fetch live `main`; check #45742067435 Build/TRX/artifact and the latest AI handoff docs run for this checkpoint. If XY-C1 remains pending, continue a new independent P1/P2 implementation rather than waiting. If it fails, diagnose its exact job log. Do not redo repository startup recovery or repeat passed VSFTPD checks.
 
 # Cross-session execution mandate
 
