@@ -1750,7 +1750,7 @@ jobs:
           assert required_accumulate in gateway_host
           assert required_accumulate in gateway_default
           assert "*gateway_route_status" not in gateway_dns
-          man_internal = body(source, "static int" + chr(10) + "man_up_internal_with_route_status(char *man_ifname, int unit, is_static,")
+          man_internal = body(source, "static int" + chr(10) + "man_up_internal_with_route_status(char *man_ifname, int unit, int is_static,")
           assert "add_man_gateway_routes(man_ifname, unit, 2, gateway_route_status)" in man_internal
           man_wrapper = body(source, "void" + chr(10) + "man_up(char *man_ifname, int unit, int is_static)")
           assert "man_up_internal(man_ifname, unit, is_static, NULL)" in man_wrapper
