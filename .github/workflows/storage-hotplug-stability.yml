@@ -1055,7 +1055,7 @@ jobs:
           assert "PROCESS_PRESENCE_UNKNOWN" in daemon_wait_policy
           assert "PROCESS_PRESENCE_ABSENT" in daemon_wait_policy
           for signature, daemon in (
-              ("run_dms(int force_rescan)", "minidlna"),
+              ("run_dms(int force_rescan)", "minidlnad"),
               ("run_itunes(void)", "mt-daapd"),
           ):
               daemon_start = function_body(storage, signature)
