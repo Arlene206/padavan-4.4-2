@@ -1,3 +1,9 @@
+## 2026-11-25 — Correct ZeroTier pre-existing-route regression marker
+
+- Exact run #45738322534 passed the complete shell lifecycle regression, including the new pre-existing-route preservation and conflict cases. The Python checker then failed because its required marker said “accepted” while the regression correctly reports “rejected an exact route which was already present.”
+- Corrected the expected diagnostic wording only; production and regression logic are unchanged.
+
+---
 ## 2026-11-25 — Align ZeroTier stop preflight contract with route manifests
 
 - Exact run #45738207061 passed the shell lifecycle regression but the Python source contract still required unconditional NVRAM route preflight before stop. The implementation correctly validates a persisted static-route manifest when one exists and uses checked NVRAM preflight only for legacy no-manifest installations.

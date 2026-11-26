@@ -446,7 +446,7 @@ require('zt_state_file="$config_path/.firewall-state"' in stop_body and
         "stop may sanitize only a complete, validated checkpoint prefix; a truncated or semantically invalid tuple must still block shutdown")
 for marker in ("rules accepted an unreadable NAT selector as disabled",
                "NAT selector read failure stopped the daemon",
-               "static-route add accepted an exact route which was already present",
+               "static-route add rejected an exact route which was already present",
                "pre-existing route was incorrectly claimed in the ZeroTier manifest",
                "ZeroTier deleted a route which predated service startup",
                "static-route add accepted an existing conflicting nexthop",
