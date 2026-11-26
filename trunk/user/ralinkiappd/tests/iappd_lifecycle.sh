@@ -220,11 +220,11 @@ grep -Fq 'signal(SIGPIPE, SIG_IGN)' "$iapp_source" ||
   fail "all four IAPP TCP send paths must use the bounded connect helper"
 grep -Fq 'OriginalFlags | O_NONBLOCK' "$iapp_source" ||
   fail "Linux IAPP TCP connect must use non-blocking mode"
-grep -Fq 'IAPP_TCP_Wait(Socket, Deadline, TRUE)' "$iapp_source" ||
+grep -Fq 'IAPP_TCP_Wait(Socket, &Deadline, TRUE)' "$iapp_source" ||
   fail "Linux IAPP TCP connect must enforce its absolute timeout"
 grep -Fq 'getsockopt(Socket, SOL_SOCKET, SO_ERROR' "$iapp_source" ||
   fail "Linux IAPP TCP connect must check asynchronous connection errors"
-grep -Fq 'WaitStatus = IAPP_TCP_Wait(Socket, Deadline, TRUE)' "$iapp_source" ||
+grep -Fq 'WaitStatus = IAPP_TCP_Wait(Socket, &Deadline, TRUE)' "$iapp_source" ||
   fail "Linux TCP frame writes must enforce the absolute send deadline"
 grep -Fq 'errno == EAGAIN || errno == EWOULDBLOCK' "$iapp_source" ||
   fail "Linux TCP nonblocking frame writes must retry when the socket would block"
