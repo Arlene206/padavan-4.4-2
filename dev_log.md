@@ -1,3 +1,9 @@
+## 2026-11-25 — Align ZeroTier route ownership source contracts
+
+- The route-ownership fix moved checked selector enumeration and tuple validation into zerotier_static_route_state_save(); the older checker still expected these operations inside zero_route() and expected that rules() rollback used the legacy delete mode.
+- Updated the contract to validate the new-start snapshot path, legacy cleanup compatibility, exact-route ownership checks and dedicated rollback operation; added required markers for the pre-existing/conflicting route regressions.
+
+---
 ## 2026-11-25 — Preserve pre-existing routes during ZeroTier ownership cleanup
 
 - New-start route manifests previously copied every enabled NVRAM tuple before ip route add. If an identical route already existed, a later stop could mistake the user's pre-existing route for a ZeroTier-owned route and delete it.

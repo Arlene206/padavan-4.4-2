@@ -383,9 +383,9 @@ require('static-route preflight accepted unsupported count' in test and
         "static route count regression must cover oversized, overflow-length and compatible normalized values")
 
 require('1) ;;' in route_preflight_body and
-        '1) ;;' in static_route_body and
+        '1) ;;' in route_state_save_body and
         'if [ "$zt_preflight_enable" -eq 0 ]; then' not in route_preflight_body and
-        'if [ "$route_enable" -eq 0 ]; then' not in static_route_body,
+        'if [ "$zt_route_enable" -eq 0 ]; then' not in route_state_save_body,
         "static route enable selectors must accept only the UI's 0/1 values")
 require('for invalid_ip in default blackhole' in test and
         '192.0.2.0/33' in test and
@@ -403,12 +403,12 @@ require('nvram get_checked zero_staticnum_x' in route_preflight_body and
         route_preflight_body.index('nvram get_checked zero_ip_x$zt_preflight_j') <
         route_preflight_body.index('nvram get_checked zero_route_x$zt_preflight_j'),
         "static route settings must be fully checked before restarting or stopping the daemon")
-require('nvram get_checked zero_staticnum_x' in static_route_body and
-        'nvram get_checked zero_enable_x$j' in static_route_body and
-        'nvram get_checked zero_ip_x$j' in static_route_body and
-        'nvram get_checked zero_route_x$j' in static_route_body and
-        'nvram get zero_staticnum_x' not in static_route_body and
-        'nvram get zero_enable_x$j' not in static_route_body,
+require('nvram get_checked zero_staticnum_x' in route_state_save_body and
+        'nvram get_checked zero_enable_x$zt_route_j' in route_state_save_body and
+        'nvram get_checked zero_ip_x$zt_route_j' in route_state_save_body and
+        'nvram get_checked zero_route_x$zt_route_j' in route_state_save_body and
+        'nvram get zero_staticnum_x' not in route_state_save_body and
+        'nvram get zero_enable_x$zt_route_j' not in route_state_save_body,
         "static-route executor must propagate checked NVRAM errors during add/delete")
 require('prefix = 32' in segment_body and
         'if (octets[i] + 0 != 0)' in segment_body and
@@ -419,7 +419,8 @@ require('zerotier_ipv4_cidr_is_valid "$1" || return 1' in route_tuple_body and
         '[ "${2#*/}" = "$2" ] || return 1' in route_tuple_body and
         'zerotier_ipv4_cidr_is_valid "$2"' in route_tuple_body and
         'zerotier_static_route_tuple_is_valid "$zt_preflight_ip" "$zt_preflight_gateway"' in route_preflight_body and
-        'zerotier_static_route_tuple_is_valid "$zero_ip" "$zero_route"' in static_route_body,
+        'zerotier_static_route_tuple_is_valid "$zt_route_ip" "$zt_route_gateway"' in route_state_save_body and
+        'zerotier_static_route_tuple_is_valid "$zt_route_saved_ip" "$zt_route_saved_gateway"' in route_state_load_body,
         "static routes must validate IPv4/CIDR destinations and bare IPv4 gateways before invoking iproute2")
 require('if ! zerotier_preflight_static_routes; then' in stop_body and
         stop_body.index('if ! zerotier_preflight_static_routes; then') <
@@ -444,6 +445,11 @@ require('zt_state_file="$config_path/.firewall-state"' in stop_body and
         "stop may sanitize only a complete, validated checkpoint prefix; a truncated or semantically invalid tuple must still block shutdown")
 for marker in ("rules accepted an unreadable NAT selector as disabled",
                "NAT selector read failure stopped the daemon",
+               "static-route add accepted an exact route which was already present",
+               "pre-existing route was incorrectly claimed in the ZeroTier manifest",
+               "ZeroTier deleted a route which predated service startup",
+               "static-route add accepted an existing conflicting nexthop",
+               "rollback without a published route manifest was not idempotent",
                "static-route add accepted a checked-read error",
                "stop accepted a static-route preflight error",
                "start stopped the daemon after"):
@@ -730,7 +736,7 @@ require('if ! rules; then' in start_instance_body and
         "daemon startup must fail and attempt cleanup when interface/route readiness times out")
 require('if ! zero_route "add"; then' in rules_section and
         'del_rules' in rules_section and
-        'zero_route "del"' in rules_section,
+        'zero_route "rollback"' in rules_section,
         "a failed static-route add must roll back the published firewall/route state")
 require("grep -cE '(^-D |^-t nat -D )'" in test,
         "firewall regression must count both filter and table-qualified NAT deletes")
@@ -765,6 +771,10 @@ require('nvram get_checked zero_staticnum_x' in route_state_save_body and
         'nvram get_checked zero_enable_x$zt_route_j' in route_state_save_body and
         'nvram get_checked zero_ip_x$zt_route_j' in route_state_save_body and
         'nvram get_checked zero_route_x$zt_route_j' in route_state_save_body and
+        'zt_route_snapshot_mode="$1"' in route_state_save_body and
+        'ip route show "$zt_route_ip"' in route_state_save_body and
+        'zero_route_entry_matches "$zt_route_ip" "$zt_route_gateway" "$zt0"' in route_state_save_body and
+        'continue' in route_state_save_body and
         'chmod 600 "$zt_route_state_tmp"' in route_state_save_body and
         'mv -f "$zt_route_state_tmp" "$zt_route_state_file"' in route_state_save_body,
         "route manifest must be checked, private and atomically published before route additions")
