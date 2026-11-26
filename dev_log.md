@@ -1,3 +1,11 @@
+## 2026-11-25 — Reject non-BOOTREQUEST opcodes on DHCP relay client ingress
+
+- The client-facing relay loop validated UDP datagram length and DHCP magic but did not validate BOOTP opcode. It proceeded to increment hops, set giaddr and call `pass_to_server()`, whose DHCP option parser accepts both BOOTREQUEST and BOOTREPLY. The downstream BusyBox DHCP server drops non-BOOTREQUEST packets, so bogus client-side BOOTREPLY packets could still reach the relay's XID reservation/forwarding path and consume scarce transaction state without a possible reply.
+- Added a strict RFC 1542 BOOTREQUEST opcode check immediately after datagram/cookie validation and before hop mutation, interface IP lookup, option parsing or XID reservation. BOOTREPLY remains valid only on the relay's server-facing reply path.
+- Added opcode policy regression cases for 0, 1, 2 and 255; expanded the source contract to require the guard before hop and giaddr logic. Exact-SHA Actions pending.
+
+---
+
 ## 2026-11-25 — Avoid XID reservations for one-way DHCP messages
 
 - `pass_to_server()` retained an XID slot for every forwarded message type. However, the DHCP server implementation handles DECLINE and RELEASE without transmitting a reply; relay reply forwarding accepts only OFFER/ACK/NAK. Reserving these transactions therefore consumed one of the relay's 1,024 bounded slots for up to 120 seconds without a possible completion event.

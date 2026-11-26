@@ -4,6 +4,15 @@
 
 #include <stdint.h>
 
+/* RFC 1542 section 4.1.1: only BOOTREQUEST packets arrive from clients. */
+#define UDHCP_RELAY_BOOTREQUEST_OPCODE 1U
+
+static inline int
+udhcp_relay_is_bootrequest(unsigned int opcode)
+{
+    return opcode == UDHCP_RELAY_BOOTREQUEST_OPCODE;
+}
+
 /* RFC 1542 section 4.1.1: discard incoming hops > 16. */
 #define UDHCP_RELAY_MAX_HOPS 16U
 

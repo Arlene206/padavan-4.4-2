@@ -18,6 +18,15 @@ test_giaddr_selection(void)
 }
 
 static void
+test_bootrequest_opcode(void)
+{
+    assert(udhcp_relay_is_bootrequest(1U));
+    assert(!udhcp_relay_is_bootrequest(0U));
+    assert(!udhcp_relay_is_bootrequest(2U));
+    assert(!udhcp_relay_is_bootrequest(255U));
+}
+
+static void
 test_hop_limit(void)
 {
     uint8_t hops = 0U;
@@ -48,6 +57,7 @@ int
 main(void)
 {
     test_giaddr_selection();
+    test_bootrequest_opcode();
     test_hop_limit();
     puts("DHCP relay giaddr/hop policy regression: PASS");
     return 0;

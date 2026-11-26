@@ -1,24 +1,26 @@
 ## Current repository state — 2026-11-25
 
-- Live `main` before this slice: `a3e68b665d91bbf6ffed365c0dd57984ae842e03` (`fix(udhcp): reject truncated relay server datagrams`), first parent `18cc546ac0eece109a230eb4e81fc019cd52bb59`, second parent `6899af46e9907efc0c40d6f8badc204aba0cf8d9`. The frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged.
-- Exact `d4a965e` parent: all 12 workflows PASS, including XY-C1 Build, TRX and artifact upload; artifact #15076506507 is `XY-C1-firmware-d4a965e66f817b45ad94eba974585bc21ecb44c6` (12,815,064 bytes), not expired.
-- Concurrent VPN parent `18cc546`: 11 workflows PASS; only XY-C1 #45730461930 remained IN_PROGRESS at last poll.
-- Integrated `a3e68b6`: packet-bounds #45730656817 PASS; XID #45730656813 PASS; BOOTREPLY #45730656866 PASS; select-fd #45730656932 PASS; select-error #45730656943 PASS; giaddr/hop #45730656924 PASS; client-destination #45730656942 PASS; AI docs #45730656893 PASS; Process inventory #45730656887 PASS; USB hotplug #45730656852 PASS. NVRAM #45730656960 and XY-C1 #45730656815 remained IN_PROGRESS at last poll. No same-SHA firmware L3 claim for a3 yet.
+- Live `main` before this slice: `550646ddc0b74a382008ee66ace60d5c7e51be42` (`fix(udhcp): skip XID slots for one-way messages`), parent `a3e68b665d91bbf6ffed365c0dd57984ae842e03`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged.
+- Exact `550646d` Actions: DHCP XID #45731155066 PASS; packet bounds #45731154943 PASS; BOOTREPLY #45731155167 PASS; giaddr/hop #45731154952 PASS; select error #45731155040 PASS; select-fd #45731155196 PASS; client destination #45731155056 PASS; AI docs #45731154989 PASS; Process inventory #45731155146 PASS. NVRAM #45731155006, USB hotplug #45731154986 and XY-C1 #45731155114 were IN_PROGRESS at last poll.
+- Exact parent `a3e68b6`: packet bounds, XID, BOOTREPLY, select-fd/error, giaddr/hop, client destination, AI docs, Process inventory, USB hotplug and NVRAM all PASS; XY-C1 #45730656815 still IN_PROGRESS at last poll.
+- Parent `18cc546` VPN DNS mode-2 update: 11 workflows PASS; only XY-C1 #45730461930 remained IN_PROGRESS at last poll.
+- Earlier `d4a965e` exact XY-C1 job passed Build, TRX verification and artifact upload; artifact #15076506507 (`XY-C1-firmware-d4a965e66f817b45ad94eba974585bc21ecb44c6`, 12,815,064 bytes). This does not transfer L3 success to newer SHAs.
 - Physical-router L4 remains NOT VERIFIED.
 
 ## Active task
 
-Prevent bounded DHCP relay XID slots from being consumed by one-way DHCPDECLINE and DHCPRELEASE messages. These packets must still be forwarded to the server, but there is no server response to deliver to a client, so they should bypass XID allocation. Keep DISCOVER, REQUEST and INFORM under the existing bounded XID map because those messages receive OFFER/ACK/NAK/ACK responses.
+Reject invalid BOOTP opcodes on the DHCP relay client-facing socket before hop mutation, interface lookup or DHCP option parsing. RFC 1542 client-to-relay messages must be BOOTREQUEST (opcode 1). The relay currently validates packet length/cookie but does not gate opcode before forwarding; the DHCP server later drops non-BOOTREQUEST packets. This allows a client-side peer to send bogus BOOTREPLY messages with accepted DHCP message types and consume bounded XID entries even though the server will never reply. Add a strict BOOTREQUEST helper, integration gate and regression cases for opcodes 0/1/2/255.
 
 ## Verification boundary
 
-- DHCP server ingress fix on `a3e68b6`: client and server datagram paths enforce `MSG_TRUNC`, packet-length and cookie checks; packet-bounds GNU89 ASan/UBSan workflow #45730656817 PASS exact a3.
-- Local GNU89 ASan/UBSan XID-policy test passes with regression cases for one-way DECLINE/RELEASE (types 4/7) versus response-bearing DISCOVER/REQUEST/INFORM (types 1/3/8). Exact-SHA XID and XY-C1 Actions for this new slice are pending.
-- Do not carry parent a3's pending XY-C1 result to the new SHA. No live relay exchange or physical-router L4 result is claimed.
+- One-way DECLINE/RELEASE XID bypass on `550646d`: XID regression #45731155066 PASS exact SHA; DECLINE/RELEASE still forward but no longer allocate 120-second transaction slots.
+- Server/client packet-bounds regression #45731154943 PASS exact `550646d`, including `MSG_TRUNC` length detection.
+- New opcode policy/helper and source contract prepared with a GNU89 ASan/UBSan host regression; exact SHA XID/BOOTREQUEST and XY-C1 Actions will be checked after commit.
+- No live DHCP relay exchange or physical-router L4 result is claimed.
 
 ## Exact first action for the next GPT
 
-Fetch exact-SHA XID, packet-bounds, AI docs and XY-C1 Actions for the new one-way transaction policy commit. Inspect the XY-C1 Build, TRX and artifact steps. Also poll a3 NVRAM #45730656960 and XY-C1 #45730656815, and the remaining VPN parent XY-C1 #45730461930. On PASS, continue DHCP relay stability analysis; on FAIL, fix the causal issue. Preserve the frozen backup.
+Fetch exact-SHA BOOTREQUEST, XID, packet-bounds and XY-C1 Actions after this opcode gate; inspect Build, TRX and artifact steps. Poll `550646d` NVRAM/USB/XY pending runs and parent `a3e68b6` and `18cc546` XY runs. On PASS, continue the next source-level DHCP relay issue; on FAIL, fix the causal failure. Preserve the frozen backup.
 
 # Cross-session execution mandate
 

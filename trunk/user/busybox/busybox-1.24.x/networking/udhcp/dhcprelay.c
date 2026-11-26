@@ -444,6 +444,11 @@ int dhcprelay_main(int argc, char **argv)
 //   of the 'giaddr' field does not match one of the relay agent's
 //   directly-connected logical interfaces, the BOOTREPLY messsage MUST be
 //   silently discarded.
+				if (!udhcp_relay_is_bootrequest(dhcp_msg.op)) {
+					log1("Ignoring non-BOOTREQUEST packet on relay client socket");
+					continue;
+				}
+
 				/* RFC 1542: discard received hops > 16 and increment otherwise. */
 				if (!udhcp_relay_increment_hops(&dhcp_msg.hops)) {
 					log1("DHCP relay hop count exceeded; dropping request");

@@ -10,6 +10,7 @@ workflow = (ROOT / ".github/workflows/udhcp-relay-bootrequest-policy.yml").read_
 xy_workflow = (ROOT / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
 
 client_start = relay.index("/* clients */")
+opcode = relay.index("if (!udhcp_relay_is_bootrequest(dhcp_msg.op))", client_start)
 hop = relay.index("udhcp_relay_increment_hops(&dhcp_msg.hops)", client_start)
 giaddr = relay.index("if (dhcp_msg.gateway_nip == 0)", hop)
 forward = relay.index("pass_to_server(&dhcp_msg", giaddr)
@@ -18,7 +19,12 @@ legacy_unconditional = relay.find(
 )
 
 assert '"udhcp_relay_bootrequest_policy.h"' in relay
-assert hop < giaddr < forward
+assert opcode < hop < giaddr < forward
+assert "if (!udhcp_relay_is_bootrequest(dhcp_msg.op))" in relay[client_start:hop]
+assert "log1(\\"Ignoring non-BOOTREQUEST packet on relay client socket\\")" in relay[opcode:hop]
+assert "#define UDHCP_RELAY_BOOTREQUEST_OPCODE 1U" in policy
+assert "return opcode == UDHCP_RELAY_BOOTREQUEST_OPCODE" in policy
+assert "test_bootrequest_opcode" in test
 assert legacy_unconditional == -1
 assert "if (!udhcp_relay_increment_hops(&dhcp_msg.hops))" in relay[hop - 100:hop + 180]
 assert "log1(" in relay[hop:giaddr]
