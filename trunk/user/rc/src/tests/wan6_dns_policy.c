@@ -327,6 +327,8 @@ test_static_dns_server_validation_rejects_non_literals_and_injection(void)
 	assert(wan6_dns_validate_static_server("2001:db8::53/64") == EINVAL);
 	assert(wan6_dns_validate_static_server("2001:db8::53\nnameserver 192.0.2.1") == EINVAL);
 	assert(wan6_dns_validate_static_server("2001:db8::xyz") == EINVAL);
+	assert(wan6_dns_validate_static_server("::") == EINVAL);
+	assert(wan6_dns_validate_static_server("ff02::fb") == EINVAL);
 }
 
 static void
@@ -351,6 +353,10 @@ test_dhcp_dns_server_list_rejects_malformed_tokens_and_controls(void)
 		"2001:db8::53\r2001:db8::54") == EINVAL);
 	assert(wan6_dns_validate_server_list(
 		"2001:db8::53 2001:db8::xyz") == EINVAL);
+	assert(wan6_dns_validate_server_list("::") == EINVAL);
+	assert(wan6_dns_validate_server_list("ff02::fb") == EINVAL);
+	assert(wan6_dns_validate_server_list(
+		"2001:db8::53 ff02::1") == EINVAL);
 }
 
 int

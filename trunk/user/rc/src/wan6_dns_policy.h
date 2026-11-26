@@ -16,6 +16,16 @@
  * Empty fields are permitted so users can configure fewer than three
  * recursive resolvers.
  */
+/* DNS recursive-server endpoints must be unicast. Loopback remains
+ * accepted for deployments that deliberately use a local DNS proxy. */
+static inline int
+wan6_dns_address_is_usable(const struct in6_addr *address)
+{
+	return address != NULL &&
+	       !IN6_IS_ADDR_UNSPECIFIED(address) &&
+	       !IN6_IS_ADDR_MULTICAST(address);
+}
+
 static inline int
 wan6_dns_validate_static_server(const char *address)
 {
@@ -25,7 +35,10 @@ wan6_dns_validate_static_server(const char *address)
 		return EINVAL;
 	if (!address[0])
 		return 0;
-	return inet_pton(AF_INET6, address, &parsed) == 1 ? 0 : EINVAL;
+	if (inet_pton(AF_INET6, address, &parsed) != 1 ||
+	    !wan6_dns_address_is_usable(&parsed))
+		return EINVAL;
+	return 0;
 }
 
 /*
@@ -51,7 +64,8 @@ wan6_dns_validate_server_list(const char *server_list)
 		if (ch == ' ' || ch == '\t' || ch == '\0') {
 			if (length != 0) {
 				address[length] = '\0';
-				if (inet_pton(AF_INET6, address, &parsed) != 1)
+				if (inet_pton(AF_INET6, address, &parsed) != 1 ||
+				    !wan6_dns_address_is_usable(&parsed))
 					return EINVAL;
 				length = 0;
 			}
