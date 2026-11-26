@@ -160,6 +160,21 @@ for signature in (
     assert "return 0;" in emitter
     assert "refusing incomplete" in emitter[null_gate:invalid_gate]
 filter_builder = body(SOURCE, "ipt_filter_rules(char *man_if")
+remote_read = ('firewall_read_optional_ipv4_setting(\n'
+               '\t\t\t"ip6_6in4_remote", tun_remote, sizeof(tun_remote))')
+remote_read_at = filter_builder.index(remote_read)
+remote_error_at = filter_builder.index("if (ret != 0)", remote_read_at)
+remote_return_at = filter_builder.index("return ret;", remote_error_at)
+filter_open_at = filter_builder.index('firewall_open_rule_file(ipt_file, "IPv4 filter")')
+assert 'char tun_remote[16] = "";' in filter_builder
+assert 'if (!is_ping_enabled && ipv6_type == IPV6_6IN4)' in filter_builder
+assert remote_read_at < remote_error_at < remote_return_at < filter_open_at
+assert 'nvram_safe_get("ip6_6in4_remote")' not in filter_builder
+assert "firewall_ipv4_address_is_safe(tun_remote)" in filter_builder
+for marker in ("test_optional_ipv4_copy_preserves_present_and_missing_values",
+               "test_optional_ipv4_copy_fails_closed_on_backend_and_invalid_results",
+               "test_optional_ipv4_copy_disables_oversized_values"):
+    assert marker in TEST and marker + "();" in TEST
 assert filter_builder.count("vts_status = include_vts_filter(") == 2
 assert filter_builder.count("if (vts_status != 0)") == 2
 for gate in (position for position in range(len(filter_builder))

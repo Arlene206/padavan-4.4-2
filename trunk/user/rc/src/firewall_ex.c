@@ -2228,6 +2228,7 @@ FILE *fp;
 #endif
 #if defined (USE_IPV6)
 	int ipv6_type, ipv6_type_status;
+	char tun_remote[16] = "";
 #endif
 
 	ret = 0;
@@ -2510,6 +2511,17 @@ FILE *fp;
 		}
 #endif
 	}
+#if defined (USE_IPV6)
+	/* Preserve the optional-key default, but don't collapse an NVRAM read
+	 * or close error into a missing 6in4 filter exception. */
+	if (!is_ping_enabled && ipv6_type == IPV6_6IN4) {
+		ret = firewall_read_optional_ipv4_setting(
+			"ip6_6in4_remote", tun_remote, sizeof(tun_remote));
+		if (ret != 0)
+			return ret;
+	}
+#endif
+
 	vpnc_if = NULL;
 	if (i_vpnc_enable) {
 #if defined (APP_OPENVPN)
@@ -2742,8 +2754,7 @@ FILE *fp;
 			fprintf(fp, "-A %s -p icmp ! --icmp-type %s -j %s\n", dtype, "echo-request", logaccept);
 #if defined (USE_IPV6)
 			if (ipv6_type == IPV6_6IN4) {
-				/* pass ICMP ping from 6in4 remote endpoint */
-				char *tun_remote = nvram_safe_get("ip6_6in4_remote");
+				/* pass ICMP ping from the checked 6in4 remote endpoint */
 				if (firewall_ipv4_address_is_safe(tun_remote))
 					fprintf(fp, "-A %s -p icmp --icmp-type %s -s %s -j %s\n", dtype, "echo-request", tun_remote, logaccept);
 			}

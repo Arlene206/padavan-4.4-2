@@ -1,8 +1,17 @@
+## 2026-11-26 — Fail closed on 6in4 endpoint NVRAM read errors before IPv4 filter staging
+
+- The IPv4 filter's special ICMP echo exception for a 6in4 peer fetched `ip6_6in4_remote` through `nvram_safe_get()` while emitting rules. An NVRAM read/close failure looked like an absent optional key and silently omitted the configured exception.
+- Snapshot the optional endpoint via `firewall_read_optional_ipv4_setting()` before opening the IPv4 filter ruleset file. Missing or oversized values preserve legacy no-exception behavior; backend/close/invalid-result failures propagate and abort the enclosing firewall restore. The emitter consumes only the local 16-byte snapshot.
+- Extended `check_firewall_ip_nvram_status.py` to require the checked read/error gate before staging, reject the raw getter, and pin the existing optional-IPv4 missing/backend/oversized-value regression cases.
+- Parent main: `8431202d8ce320b6df72b87d183749c44bea7f50`. Firewall exact-SHA Actions pending after publication; no local/target hardware test claimed.
+
+---
+
 ## 2026-11-26 — Correct the SmartDNS runtime NVRAM regression for the UI key
 
 - Exact-SHA DNSMasq lifecycle #45776487229 for the preceding SmartDNS fix failed at the runtime snapshot test after the config-generation regression passed. The snapshot's failure-key list still used legacy `sdnse_tcp`, so it did not exercise the new canonical `sdnse_tcp_server` read.
 - Replaced the stale key in the failure matrix and added a positive assertion that `sdnse_tcp_server` is copied from NVRAM. The web form, runtime reader, generated bind directive, config regression and snapshot regression now use the same key.
-- Parent main: `bfba964cf61ec016eab7e4c4fd90c6bec1b368e8`. Exact-head Actions pending; no target runtime claim.
+- Parent main: `bfba964cf61ec016eab7e4c4fd90c6bec1b368e8`. Corrected exact-SHA actions on `8431202d8ce320b6df72b87d183749c44bea7f50` (DNSMasq #45776763963, Process inventory #45776764005, Process fail-closed #45776764177, AI #45776764152, USB storage #45776764153 and XY-C1 #45776764204) were IN_PROGRESS at last poll. The preceding DNSMasq failure was the stale runtime snapshot test key.
 
 ---
 
