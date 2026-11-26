@@ -188,11 +188,11 @@ require(
 )
 start_preflight_at = start_zero.index("if ! zerotier_static_route_state_preflight_cleanup; then")
 start_abort_at = start_zero.index("return 1", start_preflight_at)
-start_guard_end_at = start_zero.index("\\n\\tfi", start_abort_at)
+start_guard_end_at = start_zero.index("\n\tfi", start_abort_at)
 start_kill_at = start_zero.index("kill_z")
 stop_preflight_at = stop_zero.index("if ! zerotier_static_route_state_preflight_cleanup; then")
 stop_abort_at = stop_zero.index("return 1", stop_preflight_at)
-stop_guard_end_at = stop_zero.index("\\n\\tfi", stop_abort_at)
+stop_guard_end_at = stop_zero.index("\n\tfi", stop_abort_at)
 stop_kill_at = stop_zero.index("kill_z")
 require(
     start_preflight_at < start_abort_at < start_guard_end_at < start_kill_at
