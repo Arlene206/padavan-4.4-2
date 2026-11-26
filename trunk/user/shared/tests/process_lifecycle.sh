@@ -112,6 +112,22 @@ if pl_process_state test-daemon; then actual=0; else actual=$?; fi
 printf '%s\n' '323 (test-daemon) Z 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19' > "$PL_PROC_ROOT/323/stat"
 if pl_process_state test-daemon; then actual=0; else actual=$?; fi
 [ "$actual" -eq 1 ] || fail "zombie daemon was classified as $actual"
+
+# The library is sourced by long-lived router shell scripts: procfs field
+# parsing must not leak temporary IFS or pathname-expansion changes.
+echo absent > "$state_file"
+pl_test_saved_ifs=$IFS
+IFS=:
+if pl_process_state test-daemon; then actual=0; else actual=$?; fi
+[ "$actual" -eq 1 ] || fail "custom-IFS procfs scan returned $actual"
+[ "$IFS" = ":" ] || fail "procfs scan changed the caller's IFS"
+IFS=$pl_test_saved_ifs
+case "$-" in *f*) fail "test expected pathname expansion to be enabled" ;; esac
+set -f
+if pl_process_state test-daemon; then actual=0; else actual=$?; fi
+[ "$actual" -eq 1 ] || fail "glob-disabled procfs scan returned $actual"
+case "$-" in *f*) ;; *) fail "procfs scan enabled pathname expansion for caller" ;; esac
+set +f
 rm -rf "$PL_PROC_ROOT/323"
 
 # An unavailable procfs root cannot be treated as a complete empty snapshot.
