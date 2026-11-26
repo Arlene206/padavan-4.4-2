@@ -2,6 +2,7 @@
 #define U2EC_SOCKET_IO_POLICY_H
 
 #include <errno.h>
+#include <limits.h>
 #include <signal.h>
 #include <stddef.h>
 #include <string.h>
@@ -132,6 +133,78 @@ u2ec_pselect_readable_retry(int nfds, const fd_set *master, fd_set *readfds,
                                             interrupt_pending, pselect);
 }
 
+
+/* Use monotonic absolute deadlines for all bounded U2EC TCP transactions. */
+static inline int
+u2ec_timespec_is_valid(const struct timespec *value)
+{
+    return value != NULL && value->tv_sec >= 0 &&
+           value->tv_nsec >= 0 && value->tv_nsec < 1000000000L;
+}
+
+static inline int
+u2ec_timespec_deadline_after_seconds(const struct timespec *started,
+                                     unsigned long seconds,
+                                     struct timespec *deadline)
+{
+    if (!u2ec_timespec_is_valid(started) || !deadline) {
+        errno = EINVAL;
+        return -1;
+    }
+    if (seconds > (unsigned long)LONG_MAX ||
+        (unsigned long)started->tv_sec >
+            (unsigned long)LONG_MAX - seconds) {
+        errno = EOVERFLOW;
+        return -1;
+    }
+
+    deadline->tv_sec = started->tv_sec + (time_t)seconds;
+    deadline->tv_nsec = started->tv_nsec;
+    return 0;
+}
+
+/*
+ * Convert a monotonic deadline delta to select()'s timeval, rounding up to
+ * avoid expiring a transaction early due to timeval's microsecond precision.
+ */
+static inline int
+u2ec_timespec_remaining(const struct timespec *deadline,
+                        const struct timespec *now,
+                        struct timeval *remaining)
+{
+    time_t seconds;
+    long nanoseconds;
+    unsigned long microseconds;
+
+    if (!u2ec_timespec_is_valid(deadline) ||
+        !u2ec_timespec_is_valid(now) || !remaining) {
+        errno = EINVAL;
+        return -1;
+    }
+    if (now->tv_sec > deadline->tv_sec ||
+        (now->tv_sec == deadline->tv_sec &&
+         now->tv_nsec >= deadline->tv_nsec)) {
+        errno = ETIMEDOUT;
+        return 0;
+    }
+
+    seconds = deadline->tv_sec - now->tv_sec;
+    nanoseconds = deadline->tv_nsec - now->tv_nsec;
+    if (nanoseconds < 0) {
+        seconds--;
+        nanoseconds += 1000000000L;
+    }
+
+    microseconds = (unsigned long)(nanoseconds + 999L) / 1000UL;
+    if (microseconds >= 1000000UL) {
+        seconds++;
+        microseconds = 0UL;
+    }
+    remaining->tv_sec = seconds;
+    remaining->tv_usec = (suseconds_t)microseconds;
+    return 1;
+}
+
 /*
  * Complete a TCP write without allowing a disconnected client to deliver
  * SIGPIPE to the whole printer daemon. The U2EC TCP sockets are blocking;
@@ -139,16 +212,14 @@ u2ec_pselect_readable_retry(int nfds, const fd_set *master, fd_set *readfds,
  */
 #define U2EC_CLIENT_SEND_TIMEOUT_SECONDS 10U
 
-static inline int u2ec_timeval_remaining(const struct timeval *deadline,
-                                         struct timeval *remaining);
-
 static inline ssize_t
 u2ec_send_all_no_sigpipe_timeout(int fd, const void *buffer, size_t length,
                                  unsigned int timeout_seconds)
 {
     const unsigned char *bytes = (const unsigned char *)buffer;
     size_t sent = 0;
-    struct timeval deadline, remaining, wait_time;
+    struct timespec deadline, now;
+    struct timeval remaining, wait_time;
     fd_set writefds;
     int remaining_status, ready;
     ssize_t result;
@@ -159,12 +230,17 @@ u2ec_send_all_no_sigpipe_timeout(int fd, const void *buffer, size_t length,
         errno = EINVAL;
         return -1;
     }
-    if (gettimeofday(&deadline, NULL) < 0)
+    if (clock_gettime(CLOCK_MONOTONIC, &now) < 0)
         return -1;
-    deadline.tv_sec += (time_t)timeout_seconds;
+    if (u2ec_timespec_deadline_after_seconds(
+            &now, (unsigned long)timeout_seconds, &deadline) < 0)
+        return -1;
 
     while (sent < length) {
-        remaining_status = u2ec_timeval_remaining(&deadline, &remaining);
+        if (clock_gettime(CLOCK_MONOTONIC, &now) < 0)
+            return -1;
+        remaining_status = u2ec_timespec_remaining(
+            &deadline, &now, &remaining);
         if (remaining_status <= 0)
             return -1;
 
@@ -244,40 +320,14 @@ u2ec_recv_all(int fd, void *buffer, size_t length)
  */
 #define U2EC_CLIENT_FRAME_TIMEOUT_SECONDS 10U
 
-static inline int
-u2ec_timeval_remaining(const struct timeval *deadline,
-                       struct timeval *remaining)
-{
-    struct timeval now;
-
-    if (!deadline || !remaining) {
-        errno = EINVAL;
-        return -1;
-    }
-    if (gettimeofday(&now, NULL) < 0)
-        return -1;
-
-    remaining->tv_sec = deadline->tv_sec - now.tv_sec;
-    remaining->tv_usec = deadline->tv_usec - now.tv_usec;
-    if (remaining->tv_usec < 0) {
-        remaining->tv_sec--;
-        remaining->tv_usec += 1000000;
-    }
-    if (remaining->tv_sec < 0 ||
-        (remaining->tv_sec == 0 && remaining->tv_usec <= 0)) {
-        errno = ETIMEDOUT;
-        return 0;
-    }
-    return 1;
-}
-
 static inline ssize_t
 u2ec_recv_all_timeout(int fd, void *buffer, size_t length,
                       unsigned int timeout_seconds)
 {
     unsigned char *bytes = (unsigned char *)buffer;
     size_t received = 0;
-    struct timeval deadline, remaining, wait_time;
+    struct timespec deadline, now;
+    struct timeval remaining, wait_time;
     fd_set readfds;
     int remaining_status, ready;
     ssize_t result;
@@ -288,12 +338,17 @@ u2ec_recv_all_timeout(int fd, void *buffer, size_t length,
         errno = EINVAL;
         return -1;
     }
-    if (gettimeofday(&deadline, NULL) < 0)
+    if (clock_gettime(CLOCK_MONOTONIC, &now) < 0)
         return -1;
-    deadline.tv_sec += (time_t)timeout_seconds;
+    if (u2ec_timespec_deadline_after_seconds(
+            &now, (unsigned long)timeout_seconds, &deadline) < 0)
+        return -1;
 
     while (received < length) {
-        remaining_status = u2ec_timeval_remaining(&deadline, &remaining);
+        if (clock_gettime(CLOCK_MONOTONIC, &now) < 0)
+            return -1;
+        remaining_status = u2ec_timespec_remaining(
+            &deadline, &now, &remaining);
         if (remaining_status <= 0)
             return -1;
 

@@ -85,7 +85,9 @@ assert "errno == EINTR" in send_timeout_policy
 assert "return (ssize_t)sent;" in send_timeout_policy
 assert "U2EC_CLIENT_FRAME_TIMEOUT_SECONDS 10U" in policy
 assert "U2EC_CLIENT_SEND_TIMEOUT_SECONDS 10U" in policy
-assert "u2ec_timeval_remaining(&deadline, &remaining)" in send_timeout_policy
+assert "clock_gettime(CLOCK_MONOTONIC, &now)" in send_timeout_policy
+assert "u2ec_timespec_remaining(" in send_timeout_policy
+assert "gettimeofday(" not in send_timeout_policy
 assert "select(fd + 1, NULL, &writefds, NULL, &wait_time)" in send_timeout_policy
 assert "MSG_NOSIGNAL | MSG_DONTWAIT" in send_timeout_policy
 assert "errno = ETIMEDOUT" in send_timeout_policy
@@ -94,8 +96,11 @@ assert "U2EC_CLIENT_SEND_TIMEOUT_SECONDS" in send_policy
 assert "test_timed_send_completes_a_ready_field" in test
 assert "test_timed_send_expires_when_peer_does_not_read" in test
 
-assert "gettimeofday(&deadline, NULL)" in recv_timeout_policy
-assert "u2ec_timeval_remaining(&deadline, &remaining)" in recv_timeout_policy
+assert "clock_gettime(CLOCK_MONOTONIC, &now)" in recv_timeout_policy
+assert "u2ec_timespec_remaining(" in recv_timeout_policy
+assert "gettimeofday(" not in recv_timeout_policy
+assert "u2ec_timespec_deadline_after_seconds" in policy
+assert "test_monotonic_timeout_arithmetic" in test
 assert "select(fd + 1, &readfds, NULL, NULL, &wait_time)" in recv_timeout_policy
 assert "MSG_DONTWAIT" in recv_timeout_policy
 assert "errno = ETIMEDOUT" in recv_timeout_policy

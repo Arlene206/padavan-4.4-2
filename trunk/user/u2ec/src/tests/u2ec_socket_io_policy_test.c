@@ -78,6 +78,53 @@ test_disconnected_peer_returns_epipe_without_sigpipe(void)
 }
 
 static void
+test_monotonic_timeout_arithmetic(void)
+{
+    struct timespec started, deadline, now;
+    struct timeval remaining;
+
+    started.tv_sec = 100;
+    started.tv_nsec = 900000000L;
+    assert(u2ec_timespec_deadline_after_seconds(&started, 1UL,
+                                                &deadline) == 0);
+    assert(deadline.tv_sec == 101 && deadline.tv_nsec == 900000000L);
+
+    now.tv_sec = 101;
+    now.tv_nsec = 400000000L;
+    assert(u2ec_timespec_remaining(&deadline, &now, &remaining) == 1);
+    assert(remaining.tv_sec == 0 && remaining.tv_usec == 500000);
+
+    now.tv_nsec = 899999999L;
+    assert(u2ec_timespec_remaining(&deadline, &now, &remaining) == 1);
+    assert(remaining.tv_sec == 0 && remaining.tv_usec == 1);
+    now.tv_nsec = 900000000L;
+    errno = 0;
+    assert(u2ec_timespec_remaining(&deadline, &now, &remaining) == 0);
+    assert(errno == ETIMEDOUT);
+
+    now.tv_sec = 99;
+    now.tv_nsec = 900000000L;
+    assert(u2ec_timespec_remaining(&deadline, &now, &remaining) == 1);
+    assert(remaining.tv_sec == 2 && remaining.tv_usec == 0);
+
+    now.tv_nsec = 1000000000L;
+    errno = 0;
+    assert(u2ec_timespec_remaining(&deadline, &now, &remaining) == -1);
+    assert(errno == EINVAL);
+    errno = 0;
+    assert(u2ec_timespec_deadline_after_seconds(NULL, 1UL,
+                                                &deadline) == -1);
+    assert(errno == EINVAL);
+
+    started.tv_sec = (time_t)LONG_MAX;
+    started.tv_nsec = 0;
+    errno = 0;
+    assert(u2ec_timespec_deadline_after_seconds(&started, 1UL,
+                                                &deadline) == -1);
+    assert(errno == EOVERFLOW);
+}
+
+static void
 test_timed_send_completes_a_ready_field(void)
 {
     int sockets[2];
@@ -589,6 +636,7 @@ main(void)
     test_socket_initialization_failure_closes_descriptor_and_preserves_errno();
     test_send_completes_a_tcp_stream_write();
     test_disconnected_peer_returns_epipe_without_sigpipe();
+    test_monotonic_timeout_arithmetic();
     test_timed_send_completes_a_ready_field();
     test_timed_send_expires_when_peer_does_not_read();
     test_timed_recv_completes_a_ready_field();
