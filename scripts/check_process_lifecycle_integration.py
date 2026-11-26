@@ -311,7 +311,11 @@ normalized_minidlna_post_launch = " ".join(minidlna_post_launch.split())
 minidlna_logger = "storage_log_daemon_start_result( apps_name, launch_status,"
 assert minidlna_logger in normalized_minidlna_post_launch
 assert "(enum process_presence)process_state, process_error);" in normalized_minidlna_post_launch
-assert 'storage_wait_for_daemon("minidlna")' in normalized_minidlna_post_launch
+dms_presence = c_function_body(storage_services, "int is_dms_run(void)")
+assert 'storage_daemon_presence("minidlnad", NULL)' in dms_presence
+assert 'storage_daemon_presence("minidlna", NULL)' not in dms_presence
+assert 'storage_wait_for_daemon("minidlnad")' in normalized_minidlna_post_launch
+assert '"minidlnad"' in dms_start
 assert "process_error == ETIMEDOUT" in normalized_minidlna_post_launch
 assert normalized_minidlna_post_launch.index("process_state = is_dms_run();") < normalized_minidlna_post_launch.index(minidlna_logger)
 assert dms_start.index("if (config_status != 0)") < dms_start.index("_eval(minidlna_argv, NULL, 0, NULL);")

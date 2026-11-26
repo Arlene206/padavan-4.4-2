@@ -2947,7 +2947,7 @@ int is_dms_run(void)
 	if (!is_dms_support())
 		return 0;
 
-	return storage_daemon_presence("minidlna", NULL);
+	return storage_daemon_presence("minidlnad", NULL);
 }
 
 static int
@@ -3234,7 +3234,7 @@ int run_dms(int force_rescan)
 	launch_errno = errno;
 	process_error = 0;
 	if (launch_status == 0) {
-		if (storage_wait_for_daemon("minidlna") == 0)
+		if (storage_wait_for_daemon("minidlnad") == 0)
 			process_state = PROCESS_PRESENCE_RUNNING;
 		else {
 			process_error = errno ? errno : EIO;
@@ -3255,7 +3255,7 @@ int run_dms(int force_rescan)
 			(launch_errno ? launch_errno : EIO) :
 			(process_error ? process_error : (errno ? errno : start_status));
 		return storage_rollback_failed_start(
-			apps_name, "minidlna", start_status, start_errno,
+			apps_name, "minidlnad", start_status, start_errno,
 			stop_dms_locked);
 	}
 	return 0;
