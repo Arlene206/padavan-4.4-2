@@ -165,6 +165,32 @@ def main() -> None:
     require("IAPP_EventLog_Query();" not in start_handler,
             "event-log query must not be called with a missing control block")
 
+    require("iapp_event_log_table_fits" in query_handler and
+            "EventTabLen < (INT32)offsetof(RT_802_11_EVENT_TABLE, Log)" in query_handler and
+            "EventTabLen > (INT32)sizeof(EventTab)" in query_handler,
+            "driver event-table results must be bounded by returned length and output capacity")
+    event_dispatch_start = source.index("case IAPP_CMD_SECURITY_MONITOR:")
+    event_dispatch_end = source.index("case IAPP_CMD_MOVE_NOTIFY:", event_dispatch_start)
+    event_dispatch = source[event_dispatch_start:event_dispatch_end]
+    require("memcpy(&EventTab" in event_dispatch and
+            "offsetof(RT_IAPP_SECURITY_MONITOR, EvtTab)" in event_dispatch and
+            "IAPP_EventLogHandle(&SM_p->EvtTab)" not in event_dispatch,
+            "packed security-monitor event tables must be copied to aligned storage before access")
+
+    write_start = source.index("static BOOLEAN IAPP_TCP_WriteFrame(")
+    write_end = source.index("\n}\n", write_start) + 3
+    write_handler = source[write_start:write_end]
+    connect_start = source.index("static BOOLEAN IAPP_TCP_Connect(")
+    connect_end = source.index("\n}\n", connect_start) + 3
+    connect_handler = source[connect_start:connect_end]
+    for name, handler in (("write", write_handler), ("connect", connect_handler)):
+        require("struct timespec Deadline;" in handler and
+                "clock_gettime(CLOCK_MONOTONIC, &Deadline)" in handler and
+                "Deadline.tv_sec += IAPP_TCP_FRAME_TIMEOUT_SEC;" in handler and
+                "IAPP_TCP_Wait(Socket, &Deadline, TRUE)" in handler and
+                "time_t Deadline" not in handler,
+                "Linux TCP " + name + " must pass one absolute monotonic timespec deadline by address")
+
     require('#include "iapp_event_log_policy.h"' in source,
             "IAPP event log must include the append-size policy")
     event_start = source.rfind("static BOOLEAN IAPP_EventLogHandle(")

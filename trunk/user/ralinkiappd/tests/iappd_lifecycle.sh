@@ -256,6 +256,11 @@ iapp_pipe_test="$tmp/iapp_signal_pipe_policy"
 cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer -I "$base/src" "$base/tests/iapp_signal_pipe_policy.c" -o "$iapp_pipe_test" ||
   fail "could not compile IAPP signal-pipe write regression"
 ASAN_OPTIONS=detect_leaks=1 "$iapp_pipe_test" || fail "IAPP signal-pipe write regression failed"
+
+iapp_event_log_test="$tmp/iapp_event_log_policy"
+cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer -I "$base/src" "$base/tests/iapp_event_log_policy.c" -o "$iapp_event_log_test" ||
+  fail "could not compile IAPP event-table returned-length regression"
+ASAN_OPTIONS=detect_leaks=1 "$iapp_event_log_test" || fail "IAPP event-table returned-length regression failed"
 grep -Fq 'if (listen(pCtrlBK->SocketTcpRcv, 128) < 0)' "$iapp_source" ||
   fail "IAPP TCP listener setup must fail closed when listen() fails"
 grep -A4 -F 'if (listen(pCtrlBK->SocketTcpRcv, 128) < 0)' "$iapp_source" |

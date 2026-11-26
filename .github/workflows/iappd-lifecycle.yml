@@ -15,6 +15,7 @@ on:
       - "trunk/user/ralinkiappd/tests/iappd_lifecycle.sh"
       - "trunk/user/ralinkiappd/tests/iappd_make_dependencies.sh"
       - "trunk/user/ralinkiappd/tests/iapp_signal_pipe_policy.c"
+      - "trunk/user/ralinkiappd/tests/iapp_event_log_policy.c"
       - "trunk/user/ralinkiappd/src/iapp_select_fd_policy.h"
       - "trunk/user/ralinkiappd/src/iapp_tcp_deadline_policy.h"
       - "trunk/user/ralinkiappd/src/iapp_event_log_policy.h"
@@ -36,6 +37,7 @@ on:
       - "trunk/user/ralinkiappd/tests/iappd_lifecycle.sh"
       - "trunk/user/ralinkiappd/tests/iappd_make_dependencies.sh"
       - "trunk/user/ralinkiappd/tests/iapp_signal_pipe_policy.c"
+      - "trunk/user/ralinkiappd/tests/iapp_event_log_policy.c"
       - "trunk/user/ralinkiappd/src/iapp_select_fd_policy.h"
       - "trunk/user/ralinkiappd/src/iapp_tcp_deadline_policy.h"
       - "trunk/user/ralinkiappd/src/iapp_event_log_policy.h"
@@ -62,6 +64,7 @@ jobs:
 
       - name: Compile optional IAPP event-log branch
         run: |
-          cc -std=gnu89 -fsyntax-only -DIAPP_EVENT_LOG \
+          cc -std=gnu89 -Werror=int-conversion -Werror=incompatible-pointer-types \
+            -Werror=address-of-packed-member -fsyntax-only -DIAPP_EVENT_LOG \
             -I trunk/user/ralinkiappd/src \
             trunk/user/ralinkiappd/src/rtmpiapp.c

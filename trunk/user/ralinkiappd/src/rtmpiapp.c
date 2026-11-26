@@ -25,6 +25,7 @@
 #include "rt_config.h"
 #include <errno.h>
 #include <fcntl.h>
+#include <stddef.h>
 #include <time.h>
 #include <unistd.h>
 #include "rtmpiapp.h"
@@ -466,6 +467,24 @@ static VOID IAPP_EventLog_Query(
 			DBGPRINT(RT_DEBUG_ERROR,
 				 "iapp> Query event table for interface %s failed!\n",
 				 pCtrlBK->IfNameWlanIoctl[if_idx]);
+			continue;
+		}
+
+		/*
+		 * The driver controls the returned length and record count. Validate
+		 * both before treating the zeroed output buffer as a complete table.
+		 */
+		if (EventTabLen < (INT32)offsetof(RT_802_11_EVENT_TABLE, Log) ||
+		    EventTabLen > (INT32)sizeof(EventTab) ||
+		    !iapp_event_log_table_fits(
+			(size_t)EventTabLen, (size_t)EventTab.Num,
+			(size_t)MAX_NUM_OF_EVENT,
+			offsetof(RT_802_11_EVENT_TABLE, Log),
+			sizeof(RT_802_11_EVENT_LOG), sizeof(EventTab))) {
+			DBGPRINT(RT_DEBUG_ERROR,
+				 "iapp> Invalid event table returned for interface %s (length=%d, count=%u)!\n",
+				 pCtrlBK->IfNameWlanIoctl[if_idx], EventTabLen,
+				 (unsigned int)EventTab.Num);
 			continue;
 		}
 
@@ -3387,7 +3406,18 @@ static VOID IAPP_RcvHandlerUdp(
 
 				DBGPRINT(RT_DEBUG_TRACE, "iapp> pkt = IAPP_CMD_SECURITY_MONITOR\n");
 
-				IAPP_EventLogHandle(&SM_p->EvtTab);
+				{
+					RT_802_11_EVENT_TABLE EventTab;
+
+					/* The enclosing IAPP frame is packed and may be unaligned. */
+					memcpy(&EventTab,
+					       (const UCHAR *)SM_p +
+					       offsetof(RT_IAPP_SECURITY_MONITOR, EvtTab),
+					       sizeof(EventTab));
+					if (!IAPP_EventLogHandle(&EventTab))
+						DBGPRINT(RT_DEBUG_ERROR,
+							 "iapp> Persist received security-monitor event table failed!\n");
+				}
 			} /* IAPP_CMD_SECURITY_MONITOR */
 			break;
 #endif // IAPP_EVENT_LOG //
@@ -3771,19 +3801,21 @@ static BOOLEAN IAPP_TCP_WriteFrame(INT32 Socket, const UCHAR *Buffer, UINT32 Len
 #ifdef IAPP_OS_LINUX
 	INT32 OriginalFlags;
 	INT32 WaitStatus;
-	time_t Deadline;
+	struct timespec Deadline;
 
 	OriginalFlags = fcntl(Socket, F_GETFL, 0);
 	if (OriginalFlags < 0)
 		return FALSE;
 	if (fcntl(Socket, F_SETFL, OriginalFlags | O_NONBLOCK) < 0)
 		return FALSE;
-	Deadline = time(NULL) + IAPP_TCP_FRAME_TIMEOUT_SEC;
+	if (clock_gettime(CLOCK_MONOTONIC, &Deadline) != 0)
+		goto write_fail;
+	Deadline.tv_sec += IAPP_TCP_FRAME_TIMEOUT_SEC;
 #endif /* IAPP_OS_LINUX */
 
 	while (TotalSent < Length) {
 #ifdef IAPP_OS_LINUX
-		WaitStatus = IAPP_TCP_Wait(Socket, Deadline, TRUE);
+		WaitStatus = IAPP_TCP_Wait(Socket, &Deadline, TRUE);
 		if (WaitStatus <= 0)
 			goto write_fail;
 #endif /* IAPP_OS_LINUX */
@@ -3836,7 +3868,7 @@ static BOOLEAN IAPP_TCP_Connect(
 	INT32 ConnectStatus;
 	INT32 SocketError;
 	socklen_t ErrorLength;
-	time_t Deadline;
+	struct timespec Deadline;
 
 	OriginalFlags = fcntl(Socket, F_GETFL, 0);
 	if (OriginalFlags < 0)
@@ -3844,12 +3876,14 @@ static BOOLEAN IAPP_TCP_Connect(
 	if (fcntl(Socket, F_SETFL, OriginalFlags | O_NONBLOCK) < 0)
 		return FALSE;
 
-	Deadline = time(NULL) + IAPP_TCP_FRAME_TIMEOUT_SEC;
+	if (clock_gettime(CLOCK_MONOTONIC, &Deadline) != 0)
+		goto connect_fail;
+	Deadline.tv_sec += IAPP_TCP_FRAME_TIMEOUT_SEC;
 	ConnectStatus = connect(Socket, Address, AddressLength);
 	if (ConnectStatus < 0) {
 		if (errno != EINPROGRESS && errno != EALREADY && errno != EINTR)
 			goto connect_fail;
-		if (IAPP_TCP_Wait(Socket, Deadline, TRUE) <= 0)
+		if (IAPP_TCP_Wait(Socket, &Deadline, TRUE) <= 0)
 			goto connect_fail;
 
 		SocketError = 0;
