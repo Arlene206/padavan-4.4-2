@@ -152,6 +152,7 @@ def run() -> int:
     kernel_common_path = ROOT / "trunk/linux-4.4.x/drivers/nvram/nvram.c"
     compaction_policy_path = ROOT / "trunk/linux-4.4.x/drivers/nvram/nvram_compaction_policy.h"
     compaction_test_path = ROOT / "trunk/linux-4.4.x/drivers/nvram/tests/nvram_compaction_policy.c"
+    commit_serialization_test_path = ROOT / "trunk/linux-4.4.x/drivers/nvram/tests/nvram_commit_serialization.c"
     cli_source_path = ROOT / "trunk/user/nvram/src/nvram.c"
     cli_policy_path = ROOT / "trunk/user/nvram/src/nvram_cli_policy.h"
     cli_test_path = ROOT / "trunk/user/nvram/src/tests/nvram_cli_policy.c"
@@ -161,6 +162,7 @@ def run() -> int:
         adapter_path, lock_path, driver_path, driver_makefile,
         drivers_makefile, bcm_header, snapshot_policy_path, snapshot_test_path,
         kernel_common_path, compaction_policy_path, compaction_test_path,
+        commit_serialization_test_path,
         cli_source_path, cli_policy_path, cli_test_path, cli_workflow_path
     ):
         if not required_path.is_file():
@@ -176,6 +178,7 @@ def run() -> int:
     kernel_common = kernel_common_path.read_text(encoding="utf-8", errors="replace")
     compaction_policy = compaction_policy_path.read_text(encoding="utf-8", errors="replace")
     compaction_test = compaction_test_path.read_text(encoding="utf-8", errors="replace")
+    commit_serialization_test = commit_serialization_test_path.read_text(encoding="utf-8", errors="replace")
     cli_source = cli_source_path.read_text(encoding="utf-8", errors="replace")
     cli_policy = cli_policy_path.read_text(encoding="utf-8", errors="replace")
     cli_test = cli_test_path.read_text(encoding="utf-8", errors="replace")
@@ -607,6 +610,33 @@ def run() -> int:
         if "#include <linux/uaccess.h>" not in kernel_driver:
             failures.append("NVRAM ioctl must include the explicit uaccess API")
 
+
+        # Serialize snapshot generation together with flash I/O: taking the
+        # mutex after the snapshot permits an older concurrent commit to win.
+        commit_body = extract_function(kernel_driver, "nvram_commit")
+        commit_lock = commit_body.index("mutex_lock(&nvram_sem);")
+        snapshot_lock = commit_body.index("spin_lock_irqsave(&nvram_lock, flags);")
+        snapshot_generate = commit_body.index("_nvram_generate((struct nvram_header *)bufw)")
+        snapshot_unlock = commit_body.index("spin_unlock_irqrestore(&nvram_lock, flags);")
+        release_points = [
+            match.start()
+            for match in re.finditer(r"mutex_unlock\\(&nvram_sem\\);", commit_body)
+        ]
+        read_flash = commit_body.index("ra_mtd_read_nm(")
+        write_flash = commit_body.index("ra_mtd_write_nm(")
+        if (len(release_points) != 2 or
+            not commit_lock < snapshot_lock < snapshot_generate < snapshot_unlock <
+                release_points[0] < read_flash < write_flash < release_points[1]):
+            failures.append(
+                "NVRAM commit must take nvram_sem before snapshot generation and hold it through flash I/O"
+            )
+        for marker in (
+            "test_snapshot_before_mutex_can_regress_flash",
+            "test_mutex_before_snapshot_preserves_latest_flash",
+            "NVRAM concurrent commit snapshot ordering: PASS",
+        ):
+            if marker not in commit_serialization_test:
+                failures.append("NVRAM concurrent commit-order regression is missing " + marker)
 
         # Compaction must retain tuple volatility state and flash generation
         # must never silently omit persistent tuples when the image is full.

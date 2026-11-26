@@ -1,3 +1,12 @@
+## 2026-11-26 — Serialize NVRAM snapshot generation with flash commits
+
+- Found a persistence lost-update race: `nvram_commit()` built its in-memory image before acquiring `nvram_sem`, so concurrent commits could write the newer snapshot first and then overwrite it with an older snapshot.
+- Acquire `nvram_sem` before the snapshot spinlock/generation and hold it through flash compare/write. On image-generation failure, release the semaphore before freeing buffers.
+- Added a deterministic pthread regression for the stale-snapshot and corrected orderings, plus Python source-contract assertions. The NVRAM workflow compiles/runs the regression under GNU89 with warnings as errors.
+- Parent main: `d5ef589529bf19971f996265cffb92b9906c5635`; resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-26 — Fence DHCPv6 SIGHUP reload against pending IA cleanup
 
 - Confirmed P1 lifetime defect: SIGHUP called `free_resources(0)` and immediately reloaded configuration. If `pref_cleanup()` failed, `remove_ia()` retained an IA and retry timer in `iac->iadata`, while `read_config6()` previously called `clear_ifconf(0)`/`clear_iaconf()` and freed objects still referenced by the timer callback.

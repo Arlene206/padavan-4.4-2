@@ -503,14 +503,20 @@ nvram_commit(void)
 
 	bufr = kzalloc(NVRAM_SPACE, GFP_KERNEL);
 
-	/* Regenerate NVRAM */
+	/*
+	 * Serialize snapshot creation as well as flash writes. Locking only after
+	 * _nvram_generate() lets an older concurrent snapshot overwrite a newer one.
+	 */
+	mutex_lock(&nvram_sem);
+
+	/* Regenerate NVRAM while owning the flash-commit serialization lock. */
 	spin_lock_irqsave(&nvram_lock, flags);
 	ret = _nvram_generate((struct nvram_header *)bufw);
 	spin_unlock_irqrestore(&nvram_lock, flags);
-	if (ret)
+	if (ret) {
+		mutex_unlock(&nvram_sem);
 		goto done;
-
-	mutex_lock(&nvram_sem);
+	}
 
 	/* Check partition unchanged */
 	if (bufr) {

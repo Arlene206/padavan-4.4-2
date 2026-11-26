@@ -14,6 +14,8 @@
 - Current P1 parser slice: `D6_OPT_NTP_SERVER` (option 56) was incorrectly grouped with flat arrays of IPv6 addresses, although RFC 5908 defines it as a container of 4-byte suboption headers. The parser now validates each nested header/payload, handles address/FQDN forms, requires exactly one suboption, counts unknown future registry values as that source while skipping their data, and keeps RFC 4075 `D6_OPT_SNTP_SERVERS` as the separate flat-address option. Tests cover truncated headers, length overruns, payload lengths, duplicate source suboptions, and the RFC 5908 requirement that address suboption 1 be unicast while suboption 2 be multicast. Production/test change is commit `74a0dbcc`; the six C policy binaries passed. Checker fixes: stale test-output banner corrected in `5ed671f`; bounded option-case assertion corrected in `c713dbc`. The exact-SHA C regression and complete Python source contract passed in DHCPv6 IA run #45792959729 on `c713dbc`.
 - Confirmed P1 SIGHUP reload lifetime hazard: `free_resources(0)` may leave an IA and retry timer alive after downstream-prefix deletion fails, but the old signal path immediately called `client6_startall(1)` → `read_config6()` → `clear_ifconf(0)` → `clear_iaconf()`, freeing objects still referenced by the retry callback. Reload is now deferred until IA queues and RELEASE events drain; new client starts are blocked, SIGTERM cancels pending restart without duplicate Release events, and `read_config6()` rejects unsafe reload with `EBUSY` before destructive cleanup.
 - Added GNU89 regression cases and Python source-contract assertions for IA/event drain, config lifetime guard, signal order and the missing config-header PR filter.
+- Confirmed P1 NVRAM flash lost-update race: `nvram_commit()` captured a complete image under `nvram_lock` before acquiring `nvram_sem`; an older commit could wait behind a newer one and then overwrite flash with its stale snapshot. This slice moves `nvram_sem` ahead of snapshot generation and pins lock/snapshot/read/write order in the source checker.
+- Added a deterministic pthread regression showing the stale-snapshot interleaving and the corrected serialized result.
 - Adjacent WAN6 fixes already on main: empty caller-interface teardown guard; SIT owner-record IFNAMSIZ bound; strict SIT gateway literal validation; strict DHCP 6rd relay literal validation; static and DHCPv6 DNS literal validation; first-error aggregation during delegated-prefix cleanup.
 
 ## 2026-11-26 implementation continuation — DHCPv6 cleanup shutdown
@@ -57,7 +59,17 @@
 - Added GNU89 policy coverage and Python source-contract checks; corrected the DHCPv6 IA pull-request path filter to include the changed `dhcp6c_config.h`. Local compile/test not run without checkout; exact-SHA Actions are the validation gate.
 - Parent main: `6dbcf822bed1213baabef7639aa3f1ae68288f3f`; resulting commit: THIS COMMIT.
 
+## 2026-11-26 — Serialize NVRAM snapshot generation with flash commits
+
+- Found a persistence lost-update race in `nvram_commit()`: it generated `bufw` under `nvram_lock` before taking `nvram_sem`. Concurrent commits could snapshot revisions A and B, write B first, and then let older A overwrite the newer flash image.
+- Move `mutex_lock(&nvram_sem)` before snapshot generation and retain it through MTD compare/write. Generation failure now releases the mutex before buffer cleanup.
+- Added a deterministic pthread regression modeling both the broken lock-after-snapshot interleaving and the fixed lock-before-snapshot ordering, plus source-contract assertions for mutex/snapshot/read/write/unlock order.
+- Parent main: `d5ef589529bf19971f996265cffb92b9906c5635`; resulting commit: THIS COMMIT.
+
 ## Verification boundary
+
+- Exact SHA `d5ef589529bf19971f996265cffb92b9906c5635`: DHCPv6 IA #45794325763 PASS; AI handoff #45794325767 PASS; NVRAM transaction boundary #45794325755 PASS; USB/storage hotplug #45794325967 PASS; Process inventory #45794325764 PASS; DHCPv6 Reply-script retry #45794326034 and WAN DHCP callback #45794325993 PASS. XY-C1 #45794325773 had passed all pre-build checks; Build XY-C1, Verify TRX output and artifact upload remained pending at last poll.
+
 
 - Parent exact SHA `6dbcf822bed1213baabef7639aa3f1ae68288f3f`: all DHCPv6/CI runs were in progress at handoff refresh; no result carried over from prior SHA.
 
@@ -70,9 +82,9 @@
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head DHCPv6 IA and AI Actions for the SIGHUP reload-lifetime commit; the parent SHA's runs above do not validate this source change.
-2. Check same-SHA XY-C1 Build, Verify TRX output and artifact upload. All three must PASS on one exact product-source SHA before L3. Hardware L4 remains NOT VERIFIED.
-3. Continue DHCPv6 event, callback and timer ownership audit after SIGHUP/TERM fencing; then rotate to another userland stability/security defect.
+1. Inspect exact-SHA NVRAM transaction-boundary and AI handoff Actions for this concurrent commit serialization fix; the parent `d5ef589` NVRAM PASS does not validate this change.
+2. Check same-SHA XY-C1 Build, Verify TRX output and artifact upload. Parent run #45794325773 had passed all pre-build checks but the three final artifact steps were pending; all must PASS on one SHA before L3.
+3. Continue whole-userland stability/security work after validating this commit. Hardware L4 remains NOT VERIFIED.
 
 ## Mandatory handoff checkpoint
 
