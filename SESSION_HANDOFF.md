@@ -1,25 +1,28 @@
 ## Current repository state — 2026-11-25
 
-- Live parent `main`: `9b534df894d3e1e53fc4593a92e97f595c60ac18` (`test(vsftpd): align ACL listing contract`). Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged.
-- Exact parent Actions: #45736190713 AI handoff documentation contract: completed/success; #45736190778 vsftpd configuration publication stability regression: completed/success. NVRAM transaction boundary, HTTPD security, Process lifecycle and AI docs passed on `7812389`; XY-C1 #45735291458 remained at Build XY-C1, with TRX/artifact pending.
-- A ZeroTier lifecycle defect was found: static routes were deleted by rereading mutable NVRAM at stop/restart time. If a route was changed or removed while the daemon ran, the originally installed route was no longer enumerated and could remain in the kernel after cleanup removed the firewall checkpoint/config directory.
-- This slice adds a private atomic `.static-routes-state` manifest containing the exact interface/destination/gateway tuples before adding routes. Stop and restart replay prefer the saved manifest over changed NVRAM; legacy installations without a manifest retain checked-NVRAM fallback. Invalid/truncated manifest blocks destructive cleanup.
-- Physical-router L4 and current-SHA MIPS artifact are NOT VERIFIED.
+- Live parent `main`: `8700dab8b954e236c78f2f96ee71987fe0161c02` (`test(zerotier): correct route ownership assertion text`). Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged.
+- The active ZeroTier lifecycle production fix is in source commit `abcda13a2f2d1638f79fff262ccca35e5afb07a3`. New-start route snapshots query each enabled destination before ownership publication: an exact route already present is left external and omitted from the manifest; absent routes are pinned; conflicting, multipath or unreadable route state fails closed. Rollback no longer invokes legacy NVRAM cleanup when add preflight failed before a manifest was published. Legacy no-manifest stop retains checked-NVRAM fallback.
+- Exact descendant `8700dab8`: ZeroTier lifecycle run `#45738425243` PASS (shell lifecycle, source/RC contract and WAN-up status); AI handoff docs `#45738425246` PASS. Tests cover manifest replay after NVRAM drift, truncated/corrupt state, exact pre-existing route preservation, conflicting route rejection, no-manifest rollback, selector/count bounds and stop/restart cleanup.
+- Source SHA `abcda13` XY-C1 run `#45738090392` remains **IN_PROGRESS** at Build XY-C1 (job `139636103991`); TRX verification and artifact upload are PENDING. WAN-route regression `#45738090449`, Process inventory `#45738090589`, and AI docs `#45738090603` passed. Do not claim current-source L3 until Build, TRX and artifact upload all pass. Its initial ZeroTier contract check failed against stale source assertions; the corrected source contract now passes at `8700dab8`.
+- VSFTPD LIST symlink replacement fix is in `566bea1`; contract workflow passed on descendant `9b534df` (`#45736190778`). XY-C1 on `566bea1` (`#45735967178`) completed Build, TRX verification and artifact upload successfully.
+- Development-log rolling window retains 28 root records. Archive `docs/dev-log/2026/11/part-037.md` preserves the 100 entries rotated at parent `e37ac5d`; retain archive/index provenance.
+- No live ZeroTier overlay test, physical-router L4 test, or current-source XY-C1 artifact result is claimed.
 
 ## Active task
 
-Run the exact-head ZeroTier lifecycle regression and source checker; fix any failures immediately. Then poll the VSFTPD and XY-C1 exact-SHA workflows and continue another concrete cross-userland reliability/security issue.
+Continue independent P1 implementation while XY-C1 run `#45738090392` is pending. Poll that exact run opportunistically. Once Build, TRX verification and artifact upload all pass, record L3 for source SHA `abcda13`; if the build fails, inspect its exact job log and repair the concrete failure. Then choose another unresolved P1 in the whole userland rather than repeating completed ZeroTier/VSFTPD audits.
 
 ## Verification boundary
 
-- Exact `7812389`: NVRAM transaction boundary #45735291301 PASS; HTTPD security #45735291619 PASS; Process lifecycle #45735291501 PASS; AI docs #45735291372 PASS. XY-C1 #45735291458 remained IN_PROGRESS at Build XY-C1, with TRX/artifact pending.
-- VSFTPD symlink-target and LIST ACL checker commits `566bea1` and `9b534df` have exact-head workflow #45736190778 in progress; AI docs #45736190713 in progress.
-- The new ZeroTier route-manifest regression covers NVRAM route drift, exact old-tuple deletion, truncated manifest fail-closed behavior and startup cleanup ordering. Exact-head tests are pending at commit creation.
-- No live ZeroTier overlay, route hardware test, router L4, or current-SHA MIPS artifact is claimed.
+- Current exact-head ZeroTier and AI handoff validation: PASS on `8700dab8`.
+- Latest ZeroTier production source changed at `abcda13`; its host/contract regression passes on descendant `8700dab8`.
+- Current-source XY-C1: run `#45738090392`, Build IN_PROGRESS; TRX/artifact PENDING.
+- VSFTPD source Build/TRX/artifact: PASS on production source `566bea1`; VSFTPD contract PASS on `9b534df`.
+- Frozen backup branch remains `72f4f157`; do not modify it. No live overlay or physical router test is verified.
 
 ## Exact first action for the next GPT
 
-Fetch live `main` and exact-head ZeroTier lifecycle, AI docs and XY-C1 Actions for this route-manifest commit. Require the ZeroTier shell regression and Python source contract to pass, inspect the firmware Build/TRX/artifact state, then continue another independent stability/security task. Preserve the frozen backup.
+Poll XY-C1 run `#45738090392` (source SHA `abcda13a2f2d1638f79fff262ccca35e5afb07a3`) and confirm Build, TRX verification and artifact upload individually. If it remains pending, implement an independent unresolved P1 from `REFACTOR_ROADMAP.md`; if it fails, diagnose the exact build log before continuing. Preserve the atomic commit / exact-SHA workflow.
 
 # Cross-session execution mandate
 
