@@ -1,3 +1,12 @@
+## 2026-11-26 — Bound MiniUPnP XML comment and CDATA marker parsing
+
+- The network-facing MiniUPnP SOAP XML parser compared fixed 9-byte CDATA openers and 3-byte terminators with `memcmp()` without proving the full marker remained inside the supplied request extent. Truncated requests could read beyond the buffer; a CDATA terminator at end-of-buffer could also be followed by a dereference of the end pointer.
+- Added a bounds-checked sequence helper for comments and CDATA, made marker scans stop at the parser end, bounded the post-CDATA scan, and rejected null/empty/negative-sized parser inputs before pointer arithmetic.
+- Added exact-size truncated opener/closer/comment, valid CDATA, end-terminated CDATA and invalid parser-input regressions; wired the sanitizer test, Linux Makefile dependency and existing MiniUPnP HTTP workflow. Exact-head Actions and test result pending. No router runtime claim.
+- Parent main: `3bb7d977b30525c202009630892ea0afa94a0d9a`.
+
+---
+
 ## 2026-11-26 — Bound Ralink IAPP TCP peers with a monotonic frame deadline
 
 - The Linux IAPP TCP reader claimed a five-second total timeout but derived and recomputed it with `time(NULL)`. NTP/manual wall-clock changes could therefore keep a slow peer in the synchronous receive path longer than intended or prematurely terminate a valid frame, delaying all other IAPP events.

@@ -10,8 +10,8 @@
 
 ## Active task
 
-- Fix the Ralink IAPP Linux TCP receive path: its nominal five-second total frame deadline used `time(NULL)`, so wall-clock/NTP changes could extend or prematurely expire a peer session and block the daemon's event loop. Use one absolute `CLOCK_MONOTONIC` deadline for all frame reads and the overflow-byte check; keep the legacy non-Linux fallback.
-- Verify the new deadline conversion policy under GNU89/Werror/ASan/UBSan, then inspect exact-SHA IAPP and XY-C1 Build/TRX/artifact Actions. Pending checks remain non-blocking for independent work.
+- Fix an out-of-bounds read in MiniUPnP's network-facing XML parser: truncated CDATA opening/closing sequences reached fixed-length `memcmp()` calls without proving the complete marker was inside the request buffer. The post-CDATA scan could also dereference the end pointer when the closing marker ended at the last byte.
+- Add bounds-checked byte-sequence comparisons for XML comments and CDATA, reject invalid parser buffers/sizes before pointer arithmetic, and run exact-size truncated-buffer regressions under GNU89/Werror/ASan/UBSan. Then inspect exact-SHA MiniUPnP and XY-C1 Build/TRX/artifact Actions.
 
 ## Completed source slice
 
@@ -31,13 +31,20 @@
 - Exact-head Samba share configuration stability #45773307948 PASS, AI handoff #45773307934 PASS and Process lifecycle inventory #45773307939 PASS on 1ddc1f33e12789cc218f6ccfa8dd96d00c93fd93. NVRAM audit #45773308089 was IN_PROGRESS at last poll; no router power-cut test is claimed.
 
 - Exact-head legacy-ipkg Process #45772642959 PASS, Process inventory #45772642896 PASS and AI handoff #45772642788 PASS on 93ec42b2b3927ab0093c26b543e820cf86f51f40. Its XY-C1 Build run #45772642912 was IN_PROGRESS at the last poll.
+- Exact-head IAPP deadline commit 3bb7d977b30525c202009630892ea0afa94a0d9a: Ralink IAPP lifecycle #45773717841 PASS, AI handoff #45773717816 PASS, Process inventory #45773717856 PASS and NVRAM audit #45773717775 PASS. XY-C1 Firmware Validation #45773717864 remained IN_PROGRESS at the last poll: Build XY-C1 in progress; TRX verification and artifact upload pending. No L3 claim yet.
+- Legacy ipkg exact source SHA 93ec42b2b3927ab0093c26b543e820cf86f51f40: Process #45772642959, Process inventory #45772642896 and AI handoff #45772642788 PASS; XY-C1 #45772642912 PASS including Build, TRX verification and artifact upload.
+- Samba SHA 1ddc1f33e12789cc218f6ccfa8dd96d00c93fd93: Samba share configuration #45773307948 PASS, AI handoff #45773307934 PASS, Process inventory #45773307939 PASS and NVRAM audit #45773308089 PASS. Hardware power-cut validation remains unclaimed.
+- IAPP monotonic-deadline policy C regression passed locally under GNU89/Werror/ASan/UBSan. No local XY-C1 build, MIPS runtime or physical-router L4 is claimed.
+- MiniUPnP exact-size XML parser regression has been added to the sanitizer workflow in the next source commit; its local and exact-SHA Actions results remain pending. No router runtime claim.
+
+s inventory #45772642896 PASS and AI handoff #45772642788 PASS on 93ec42b2b3927ab0093c26b543e820cf86f51f40. Its XY-C1 Build run #45772642912 was IN_PROGRESS at the last poll.
 - IAPP monotonic-deadline host C policy regression PASS under GNU89/Werror/ASan/UBSan. The new IAPP production slice has not yet been published or checked by Actions. No local XY-C1 build, target runtime or physical-router L4 is claimed.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main, then inspect the exact-SHA IAPP lifecycle and XY-C1 Actions for the monotonic TCP deadline slice. Read failed job logs and fix source/checker/workflow regressions; confirm Build XY-C1, TRX validation and artifact upload separately.
-2. Resolve any still-pending exact-head legacy-ipkg XY-C1 run from SHA 93ec42b2b3927ab0093c26b543e820cf86f51f40 without repeating its source audit; likewise close the NVRAM audit for the Samba SHA if still pending.
-3. Continue a concrete stability/security source fix in another Padavan userland service; do not repeat completed startup recovery or the Entware/legacy-ipkg transport audits.
+1. Fetch live main and inspect the exact-SHA MiniUPnP HTTP/XML parser regression, AI handoff, Process inventory and XY-C1 Build/TRX/artifact Actions for the parser-boundary commit. Diagnose any failure from the job log; do not weaken exact-size boundary tests.
+2. Close XY-C1 #45773717864 on IAPP SHA 3bb7d977b30525c202009630892ea0afa94a0d9a; its IAPP lifecycle, NVRAM, Process and AI handoff runs already pass. Do not repeat those source audits.
+3. Continue an independent Padavan userland stability/security source fix after CI is inspected; do not repeat bootstrap, Entware or legacy-ipkg audits.
 
 # Cross-session execution mandate
 

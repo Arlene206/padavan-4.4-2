@@ -180,7 +180,7 @@ upnpsoap.o: miniupnpdtypes.h upnphttp.h upnpsoap.h upnpreplyparse.h
 upnpsoap.o: upnpredirect.h upnppinhole.h getifaddr.h getifstats.h
 upnpsoap.o: getconnstatus.h upnpurns.h upnpsoap_input_policy.h upnpsoap_xml_policy.h
 upnpreplyparse.o: upnpreplyparse.h minixml.h
-minixml.o: minixml.h
+minixml.o: minixml.h minixml_bounds_policy.h
 portinuse.o: macros.h config.h upnpglobalvars.h upnppermissions.h
 portinuse.o: miniupnpdtypes.h getifaddr.h portinuse.h netfilter/iptcrdr.h
 portinuse.o: commonrdr.h

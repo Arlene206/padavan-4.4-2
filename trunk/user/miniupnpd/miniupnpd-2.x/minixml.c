@@ -32,6 +32,7 @@ POSSIBILITY OF SUCH DAMAGE.
 */
 #include <string.h>
 #include "minixml.h"
+#include "minixml_bounds_policy.h"
 
 /* parseatt : used to parse the argument list
  * return 0 (false) in case of success and -1 (true) if the end
@@ -113,17 +114,15 @@ static void parseelt(struct xmlparser * p)
 	const char * elementname;
 	while(p->xml < (p->xmlend - 1))
 	{
-		if((p->xml + 4) <= p->xmlend && (0 == memcmp(p->xml, "<!--", 4)))
+		if(miniupnpd_xml_sequence_equal(p->xml, p->xmlend, "<!--", 4U))
 		{
-			p->xml += 3;
-			/* ignore comments */
-			do
-			{
+			p->xml += 4;
+			/* Ignore comments while checking the complete terminator. */
+			while(p->xml < p->xmlend &&
+			      !miniupnpd_xml_sequence_equal(p->xml, p->xmlend, "-->", 3U))
 				p->xml++;
-				if ((p->xml + 3) >= p->xmlend)
-					return;
-			}
-			while(memcmp(p->xml, "-->", 3) != 0);
+			if(p->xml >= p->xmlend)
+				return;
 			p->xml += 3;
 		}
 		else if((p->xml)[0]=='<' && (p->xml)[1]!='?')
@@ -161,26 +160,25 @@ static void parseelt(struct xmlparser * p)
 						if (p->xml >= p->xmlend)
 							return;
 					}
-					if(memcmp(p->xml, "<![CDATA[", 9) == 0)
+					if(miniupnpd_xml_sequence_equal(p->xml, p->xmlend, "<![CDATA[", 9U))
 					{
 						/* CDATA handling */
 						p->xml += 9;
 						data = p->xml;
 						i = 0;
-						while(memcmp(p->xml, "]]>", 3) != 0)
+						while(!miniupnpd_xml_sequence_equal(p->xml, p->xmlend, "]]>", 3U))
 						{
-							i++; p->xml++;
-							if ((p->xml + 3) >= p->xmlend)
+							if ((size_t)(p->xmlend - p->xml) < 3U)
 								return;
+							i++;
+							p->xml++;
 						}
 						if(i>0 && p->datafunc)
 							p->datafunc(p->data, data, i);
-						while(*p->xml!='<')
-						{
+						while(p->xml < p->xmlend && *p->xml != '<')
 							p->xml++;
-							if (p->xml >= p->xmlend)
-								return;
-						}
+						if(p->xml >= p->xmlend)
+							return;
 					}
 					else
 					{
@@ -221,6 +219,8 @@ static void parseelt(struct xmlparser * p)
 /* the parser must be initialized before calling this function */
 void parsexml(struct xmlparser * parser)
 {
+	if(parser == NULL || parser->xmlstart == NULL || parser->xmlsize <= 0)
+		return;
 	parser->xml = parser->xmlstart;
 	parser->xmlend = parser->xmlstart + parser->xmlsize;
 	parseelt(parser);

@@ -4,6 +4,10 @@ on:
   push:
     branches: [main]
     paths:
+      - "trunk/user/miniupnpd/miniupnpd-2.x/minixml.c"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/minixml_bounds_policy.h"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/tests/minixml_bounds_policy_test.c"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/Makefile.linux"
       - ".github/workflows/miniupnpd-http-request-stability.yml"
       - "trunk/user/miniupnpd/miniupnpd-2.x/upnphttp.c"
       - "trunk/user/miniupnpd/miniupnpd-2.x/Makefile.linux"
@@ -13,6 +17,10 @@ on:
       - "scripts/check_miniupnpd_http_request.py"
   pull_request:
     paths:
+      - "trunk/user/miniupnpd/miniupnpd-2.x/minixml.c"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/minixml_bounds_policy.h"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/tests/minixml_bounds_policy_test.c"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/Makefile.linux"
       - ".github/workflows/miniupnpd-http-request-stability.yml"
       - "trunk/user/miniupnpd/miniupnpd-2.x/upnphttp.c"
       - "trunk/user/miniupnpd/miniupnpd-2.x/Makefile.linux"
@@ -37,5 +45,14 @@ jobs:
             trunk/user/miniupnpd/miniupnpd-2.x/tests/miniupnpd_http_request_policy_test.c \
             -o /tmp/miniupnpd_http_request_policy_test
           ASAN_OPTIONS=detect_leaks=1 /tmp/miniupnpd_http_request_policy_test
+      - name: Compile and run GNU89 bounded MiniUPnP XML parser regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -Itrunk/user/miniupnpd/miniupnpd-2.x \
+            trunk/user/miniupnpd/miniupnpd-2.x/tests/minixml_bounds_policy_test.c \
+            trunk/user/miniupnpd/miniupnpd-2.x/minixml.c \
+            -o /tmp/minixml_bounds_policy_test
+          ASAN_OPTIONS=detect_leaks=1 /tmp/minixml_bounds_policy_test
       - name: Verify production HTTP parser uses strict framing and bounded growth
         run: python3 scripts/check_miniupnpd_http_request.py
