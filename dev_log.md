@@ -1,3 +1,11 @@
+## 2026-11-26 — Fix Adbyby firewall teardown regression harness POSIX syntax
+
+- The first exact Adbyby run #45765657822 on `d9d2b515bbb59285130c2d1a1431a80148ea1676` passed the preceding shell syntax, host, lifecycle, process-stop and download regressions, then `firewall_snapshot.sh` stopped at line 190 with `Syntax error: Bad function name`. The fixture attempted to define an `iptables-save()` shell function, but the hyphen is not permitted in a POSIX function name.
+- Replaced command-name mocks with the existing PATH-injected `iptables-save` executable fixture and added controlled `list -name` behavior to the `ipset` executable fixture. Tests reset both fixture modes before continuing to the existing firewall setup regressions; output uses portable printf escaping. Production source is unchanged.
+- Exact Adbyby/Process/XY-C1 rerun for the new test-only SHA pending. XY-C1 #45765657802 on the previous source SHA was in cross-build; L3 status must be checked per exact SHA.
+
+---
+
 ## 2026-11-26 — Verify Adbyby kernel firewall/ipset teardown postconditions
 
 - `del_rule()` previously propagated only private restore-snapshot deletion errors. It ignored every iptables/ipset mutation status and then reported success, even if the PREROUTING redirect, ADBYBY chain, filter references or managed sets remained. The daemon could be stopped while stale redirect/drop state remained active.

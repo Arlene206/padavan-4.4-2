@@ -30,6 +30,16 @@ EOF
 cat > "$test_root/bin/iptables-save" <<'EOF'
 #!/bin/sh
 if [ "${FAIL_IPTABLES_SAVE:-0}" = "1" ]; then exit 1; fi
+case "${ADBYBY_TEST_FW_POST:-initial}" in
+    absent) exit 0 ;;
+    stale)
+        printf '%s\n' '*nat' ':ADBYBY - [0:0]' '-A PREROUTING -p tcp --dport 80 -j ADBYBY'
+        exit 0
+        ;;
+    error) exit 53 ;;
+    initial) ;;
+    *) exit 2 ;;
+esac
 cat <<'RULES'
 *filter
 :FORWARD ACCEPT [0:0]
@@ -88,6 +98,21 @@ case "$command" in
         : > "$state/$name"
         ;;
     list)
+        if [ "$1" = "-name" ]; then
+            case "${ADBYBY_TEST_IPSET_POST:-initial}" in
+                absent) exit 0 ;;
+                stale) printf '%s\n' adbyby_esc; exit 0 ;;
+                error) exit 54 ;;
+                initial)
+                    for set_file in "$state"/*; do
+                        [ -f "$set_file" ] || continue
+                        printf '%s\n' "${set_file##*/}"
+                    done
+                    exit 0
+                    ;;
+                *) exit 2 ;;
+            esac
+        fi
         [ -f "$state/$1" ] && exit 0
         exit 1
         ;;
@@ -187,27 +212,7 @@ echo "Adbyby private firewall snapshot staging and stale-state cleanup regressio
 adbyby_remove_rule_snapshot() { return 0; }
 ADBYBY_TEST_FW_POST=absent
 ADBYBY_TEST_IPSET_POST=absent
-iptables-save()
-{
-	case "$ADBYBY_TEST_FW_POST" in
-		absent) return 0 ;;
-		stale) printf '%s\n' '*nat' ':ADBYBY - [0:0]' '-A PREROUTING -p tcp --dport 80 -j ADBYBY'; return 0 ;;
-		error) return 53 ;;
-		*) return 2 ;;
-	esac
-}
-ipset()
-{
-	if [ "$1" = list ] && [ "$2" = -name ]; then
-		case "$ADBYBY_TEST_IPSET_POST" in
-			absent) return 0 ;;
-			stale) printf '%s\n' adbyby_esc; return 0 ;;
-			error) return 54 ;;
-			*) return 2 ;;
-		esac
-	fi
-	command ipset "$@"
-}
+
 : > "$TEST_COMMAND_LOG"
 : > "$TEST_IPSET_LOG"
 if ! del_rule; then fail "confirmed absent firewall/ipset state was not idempotent"; fi
@@ -231,6 +236,8 @@ ADBYBY_TEST_IPSET_POST=absent
 ADBYBY_TEST_FW_POST=error
 if del_rule; then fail "iptables post-state read failure was reported clean"; fi
 echo "Adbyby firewall and ipset deletion postcondition / UNKNOWN handling: PASS"
+ADBYBY_TEST_FW_POST=initial
+ADBYBY_TEST_IPSET_POST=initial
 
 # Use an isolated configuration directory and avoid exercising the live snapshot path here.
 PROG_PATH="$test_root/private"
