@@ -47,7 +47,19 @@ pl_process_state()
                 pl_proc_name=${pl_proc_stat#*(}
                 pl_proc_name=${pl_proc_name%)*}
                 pl_proc_fields=${pl_proc_stat##*) }
-                pl_proc_state=${pl_proc_fields%% *}
+                # A valid /proc/PID/stat record contains fields 3 through 22.
+                # Checking only PID/state accepted newline-terminated truncated
+                # records as a complete process observation.
+                pl_proc_saved_ifs=$IFS
+                case "$-" in *f*) pl_proc_glob_disabled=1 ;; *) pl_proc_glob_disabled=0 ;; esac
+                set -f
+                IFS=' '
+                set -- $pl_proc_fields
+                IFS=$pl_proc_saved_ifs
+                [ "$pl_proc_glob_disabled" -eq 1 ] || set +f
+                [ "$#" -ge 20 ] || return 2
+                pl_proc_state=$1
+                case "${20}" in ''|*[!0-9]*) return 2 ;; esac
                 case "$pl_proc_state" in
                     R|S|D|Z|T|t|X|x|K|W|P|I) ;;
                     *) return 2 ;;

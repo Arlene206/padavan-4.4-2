@@ -81,7 +81,7 @@ done
 # discover a matching task directly from the complete procfs inventory.
 echo absent > "$state_file"
 mkdir -p "$PL_PROC_ROOT/321"
-printf '%s\n' '321 (test-daemon) S 1 2 3' > "$PL_PROC_ROOT/321/stat"
+printf '%s\n' '321 (test-daemon) S 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19' > "$PL_PROC_ROOT/321/stat"
 if pl_process_state test-daemon; then actual=0; else actual=$?; fi
 [ "$actual" -eq 0 ] || fail "procfs fallback missed a live daemon"
 rm -rf "$PL_PROC_ROOT/321"
@@ -97,13 +97,19 @@ mkdir -p "$PL_PROC_ROOT/323"
 printf '%s\n' 'not a proc stat record' > "$PL_PROC_ROOT/323/stat"
 if pl_process_state test-daemon; then actual=0; else actual=$?; fi
 [ "$actual" -eq 2 ] || fail "malformed proc stat was classified as $actual"
-printf '%s\n' '323 (test-daemon) BROKEN 1 2 3' > "$PL_PROC_ROOT/323/stat"
+printf '%s\n' '323 (test-daemon) BROKEN 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19' > "$PL_PROC_ROOT/323/stat"
 if pl_process_state test-daemon; then actual=0; else actual=$?; fi
 [ "$actual" -eq 2 ] || fail "invalid proc task state was classified as $actual"
-printf '%s\n' '999 (test-daemon) S 1 2 3' > "$PL_PROC_ROOT/323/stat"
+printf '%s\n' '323 (test-daemon) S 1 2 3' > "$PL_PROC_ROOT/323/stat"
+if pl_process_state test-daemon; then actual=0; else actual=$?; fi
+[ "$actual" -eq 2 ] || fail "truncated proc stat was classified as $actual"
+printf '%s\n' '323 (test-daemon) S 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 bad' > "$PL_PROC_ROOT/323/stat"
+if pl_process_state test-daemon; then actual=0; else actual=$?; fi
+[ "$actual" -eq 2 ] || fail "invalid proc start time was classified as $actual"
+printf '%s\n' '999 (test-daemon) S 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19' > "$PL_PROC_ROOT/323/stat"
 if pl_process_state test-daemon; then actual=0; else actual=$?; fi
 [ "$actual" -eq 2 ] || fail "mismatched proc PID was classified as $actual"
-printf '%s\n' '323 (test-daemon) Z 1 2 3' > "$PL_PROC_ROOT/323/stat"
+printf '%s\n' '323 (test-daemon) Z 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19' > "$PL_PROC_ROOT/323/stat"
 if pl_process_state test-daemon; then actual=0; else actual=$?; fi
 [ "$actual" -eq 1 ] || fail "zombie daemon was classified as $actual"
 rm -rf "$PL_PROC_ROOT/323"
