@@ -6,10 +6,31 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = (ROOT / "trunk/user/wsdd2/src/wsd.c").read_text()
 POLICY = (ROOT / "trunk/user/wsdd2/src/wsd_xml_text_policy.h").read_text()
+REQUEST_POLICY = (ROOT / "trunk/user/wsdd2/src/wsd_xml_request_policy.h").read_text()
+REQUEST_TEST = (ROOT / "trunk/user/wsdd2/src/tests/wsd_xml_request_policy_test.c").read_text()
 WORKFLOW = (ROOT / ".github/workflows/wsdd2-xml-reflection-regression.yml").read_text()
 XY_WORKFLOW = (ROOT / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
 
 assert '#include "wsd_xml_text_policy.h"' in SOURCE
+assert '#include "wsd_xml_request_policy.h"' in SOURCE
+assert "wsd_tag_find(xml, length, action_tag, &action_len)" in SOURCE
+assert "wsd_tag_find(xml, length, msgid_tag, &msgid_len)" in SOURCE
+assert "strstr(xml, tag[i][0])" not in SOURCE
+assert "wsd_xml_find_simple_text(xml, length, tag, tag_count, len)" in SOURCE
+assert "Embedded NUL in XML body" in SOURCE
+assert "len = (ssize_t)strlen(buf);" in SOURCE
+assert "wsd_xml_find_sequence" in REQUEST_POLICY
+assert '"<!--"' in REQUEST_POLICY
+assert '"<![CDATA["' in REQUEST_POLICY
+assert '"?>"' in REQUEST_POLICY
+assert "memchr(xml," in REQUEST_POLICY
+for token in (
+    "test_ignores_tag_lookalikes_in_comments_and_cdata",
+    "test_ignores_tag_lookalikes_in_quoted_attributes_and_processing_instructions",
+    "test_rejects_duplicate_empty_and_nested_elements",
+    "test_bounded_input_and_malformed_markup",
+):
+    assert token in REQUEST_TEST
 start = SOURCE.index("static int wsd_send_soap_msg(")
 end = SOURCE.index("static int wsd_send_hello(", start)
 sender = SOURCE[start:end]
@@ -43,6 +64,8 @@ for marker in (
 ):
     assert marker in POLICY, marker
 assert "wsd_xml_text_policy_test.c" in WORKFLOW
+assert "wsd_xml_request_policy.h" in WORKFLOW
+assert "wsd_xml_request_policy_test.c" in WORKFLOW
 assert 'trunk/user/wsdd2/**' in XY_WORKFLOW
 
 get_start = SOURCE.index("static int wsd_send_get_response(")

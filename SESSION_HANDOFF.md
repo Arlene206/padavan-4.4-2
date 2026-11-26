@@ -2,18 +2,18 @@
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; active branch: `main`; current parent before the MiniUPnP timeout workflow path-filter correction: `037a94bad94cfbdaaeb8a21b50af4462ed2d45e6`.
+- Repository: `Arlene206/padavan-4.4-2`; active branch: `main`; parent before the WSD SOAP action parser hardening slice: `a039b68d37cb3eb5f2acdd4ae7d448c6851d5223`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged; do not modify). PR #1 remains closed and unmerged.
 - Bootstrap/protocol recovery was completed earlier in this continuous project; do not repeat it. Work on `main` only with full-tree atomic commits and non-forced expected-SHA updates.
-- Recent exact-SHA evidence: detect_internet #45840625872 and AI handoff #45840625916 PASS on `863d77c9e28fc3caff4c53bf9a81607d4bf9871b`; HTTPD DHCP Router checker #45839469363 and AI handoff #45839469460 PASS on `68edd489cb4123769327c3b35aa5971a10ab4af2`.
-- Latest confirmed full L3 evidence is source SHA `825282da1530323e591acc5dc0124a1bb3343413`, XY-C1 run #45839116241 with Build XY-C1, TRX verification and artifact upload all PASS. Later production descendants require their own source-triggered build. No physical-router/L4 validation is claimed.
-- Recent source work includes the signal-interrupted Internet probe retry plus networkmap ARP receive-timeout failure propagation and preservation of its packet socket across daemon stdio redirection. The latest networkmap workflow path-filter correction is committed at `349a3ad`.
+- Exact-SHA evidence: MiniUPnP event-timeout subscriber regression #45845370609 and AI handoff #45845370434 PASS on `a271fcc0f818b834b21fe9681717a18dd07f3c50`; U2EC bounded TCP framing #45846984410 PASS on `4d146475b0a34f4971a364dd5ece2775dc433f8a`. DNS Forwarder source checks on `a039b68d` and its XY-C1 run were in progress at last poll.
+- Latest confirmed full L3 evidence is production source SHA `b81ac7815d7fbe3b4573f742b00cbdba19c2e0d7`, XY-C1 run #45844543988 with Build XY-C1, TRX verification and artifact upload all PASS. Later production descendants require their own source-triggered build. No physical-router/L4 validation is claimed.
+- Recent source work includes MiniUPnP event timeout parsing/deadline hardening, networkmap ARP socket lifecycle fixes, DNS Forwarder event-source rollback/upstream input validation (`3ccc3c94` and `a039b68d`), and U2EC TCP receive timeout hardening (`2b6d5db9`).
 
 ## Active task
 
-- Production timeout hardening is committed at `b81ac7815d7fbe3b4573f742b00cbdba19c2e0d7`: strict bounded `Second-nnnn` / `Second-infinite` parsing, duplicate-header rejection, and saturating subscriber expiry for 32-bit `time_t`.
-- Exact-SHA GNU89 ASan/UBSan policy compile/execution PASSed (#45845054950); the embedded source checker then failed because the new timeout helper path was inserted into the push filter but not the matching pull_request filter. The fixture token was corrected in this descendant. AI handoff validation PASSed #45845054818 on this descendant.
-- XY-C1 run #45844543988 on source SHA `b81ac781` passed the production-input detector and all host checks and is compiling Build XY-C1; TRX verification and artifact upload are still pending. The MiniUPnP workflow path-filter correction is pending exact-SHA CI.
+- WSD source review found that `wsd_tag_find()` used raw `strstr()` over network-supplied SOAP bytes. A tag-shaped sequence such as `<wsa:Action>...` inside an XML comment or CDATA section could be mistaken for the real action and dispatch Probe/Resolve/Get behavior; parsing also ignored the supplied body length and accepted duplicate target elements.
+- The current slice replaces raw searching with a length-bounded XML token scanner: comments, CDATA and processing instructions are skipped; quoted attribute values cannot inject pseudo-tags; DTD/declarations, embedded NUL, duplicate target elements, nested target markup and malformed/truncated markup are rejected. HTTP processing rejects embedded NUL and passes the exact declared body length to request parsing.
+- Added GNU99 ASan/UBSan regressions and extended the source-contract/CI path filters. Exact-SHA regression and XY-C1 checks for this WSD production source are pending. No MIPS/uClibc or hardware/L4 claim.
 
 ## Completed production work — LAN DHCP resolver transaction
 
@@ -59,9 +59,9 @@
 
 ## Exact first action for the next GPT
 
-1. Inspect the exact-SHA MiniUPnP event-subscriber regression and AI handoff documentation contract on the latest correction commit; require the embedded checker to pass as well as the GNU89 sanitizer binary.
-2. Inspect XY-C1 run #45844543988 on production source SHA `b81ac781`; require Build XY-C1, TRX verification and artifact upload to PASS. If still pending, continue an independent source task.
-3. Continue another concrete P1 stability/security repair without repeating completed work. Use one complete tree and expected-SHA atomic main update; keep frozen backup untouched and hardware/L4 NOT VERIFIED.
+1. Inspect the exact-SHA WSD XML parser ASan/UBSan regression, existing XML text reflection regression and AI handoff contract; diagnose/fix any source checker or test failure before moving on.
+2. Inspect XY-C1 on this WSD production-source SHA and require its detector, Build XY-C1, TRX verification and artifact upload all to PASS. If still pending, continue another independent source task.
+3. Continue another concrete P1 stability/security defect without repeating completed work. Use one complete Git tree and non-forced expected-SHA main update; frozen backup remains untouched. Hardware/L4 is NOT VERIFIED.
 
 ## Mandatory handoff checkpoint
 

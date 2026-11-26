@@ -52,6 +52,7 @@
 #include "wsdd.h"
 #include "wsd.h"
 #include "wsd_xml_text_policy.h"
+#include "wsd_xml_request_policy.h"
 #include "wsd_http_header_policy.h"
 #include "wsd_stream_send_policy.h"
 #include <nvram_linux.h>
@@ -291,31 +292,14 @@ static void init_getresp(void)
 /*
  * Simplified flat XML tag finder - practical enough for our purposes.
  */
-static const char *wsd_tag_find(const char *xml,
+static const char *wsd_tag_find(const char *xml, size_t length,
 				const char *tag[][2], size_t *len)
 {
-	int i;
+	size_t tag_count = 0;
 
-	for (i = 0; tag[i][0]; i++) {
-		const char *p = strstr(xml, tag[i][0]);
-
-		if (!p)
-			continue;
-		p += strlen(tag[i][0]);
-		while (*p && isspace((unsigned char)*p))
-			p++;
-
-		const char *q = strstr(p, tag[i][1]);
-		const char *nested = strchr(p, '<');
-		if (!q || (nested && nested < q))
-			continue;
-
-		while (p < q && isspace((unsigned char)q[-1]))
-			q--;
-		*len = q - p;
-		return p;
-	}
-	return NULL;
+	while (tag[tag_count][0])
+		++tag_count;
+	return wsd_xml_find_simple_text(xml, length, tag, tag_count, len);
 }
 
 /*
@@ -337,12 +321,12 @@ static struct wsd_req_info *wsd_req_parse(const char *xml, size_t length)
 	};
 
 	size_t action_len;
-	const char *action = wsd_tag_find(xml, action_tag, &action_len);
+	const char *action = wsd_tag_find(xml, length, action_tag, &action_len);
 	if (!action)
 		return NULL;
 
 	size_t msgid_len;
-	const char *msgid = wsd_tag_find(xml, msgid_tag, &msgid_len);
+	const char *msgid = wsd_tag_find(xml, length, msgid_tag, &msgid_len);
 	if (!msgid)
 		return NULL;
 
@@ -1022,6 +1006,10 @@ again:
 			__FUNCTION__ ": Data receiving error";
 		return (errno == ETIMEDOUT) ? 408 : 500;
 	}
+	if (memchr(buf, '\0', contentlength)) {
+		ep->errstr = __FUNCTION__ ": Embedded NUL in XML body";
+		return 400;
+	}
 	buf[contentlength] = '\0';
 	return 200;
 #undef	__FUNCTION__
@@ -1176,6 +1164,7 @@ int wsd_recv(struct endpoint *ep)
 				close(fd);
 				return 0;
 			}
+			len = (ssize_t)strlen(buf);
 		}
 	}
 

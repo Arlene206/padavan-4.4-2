@@ -1,3 +1,9 @@
+## 2026-11-26 — Parse WSD SOAP action fields as bounded XML text elements
+
+- `wsd_tag_find()` searched raw network XML with `strstr()`, so tag-like bytes inside comments/CDATA/processing instructions or quoted attributes could be treated as actual `wsa:Action` / `wsa:MessageID` elements. It ignored the supplied body length and silently selected the first duplicate.
+- Added a bounded lexical scanner that recognizes only supported start/end tag tokens, skips comments/CDATA/PIs, respects quoted attributes, rejects DTD/declarations, embedded NUL, duplicate targets and nested target markup, and never reads beyond the supplied body span. HTTP rejects embedded-NUL SOAP bodies and passes the exact declared body length.
+- Added GNU99 ASan/UBSan tests for comment/CDATA/PI/attribute spoofing, duplicate elements, malformed markup, exact body bounds and normal extraction; expanded the existing WSD regression workflow's source paths and checker. Parent main: `a039b68d37cb3eb5f2acdd4ae7d448c6851d5223`; exact-SHA CI and XY-C1 firmware build pending.
+
 ## 2026-11-26 — Reject malformed DNS Forwarder upstream ports before resource acquisition
 
 - The DNS Forwarder converted its configured upstream port with `atoi()`, silently accepting `0`, negative input, trailing junk, and overflow/truncation. Its upstream address was validated only after opening the listener and event resources, so invalid addresses returned early with resources still live.
