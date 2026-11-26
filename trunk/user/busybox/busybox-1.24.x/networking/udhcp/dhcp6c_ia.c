@@ -35,7 +35,7 @@
 #include "dhcp6c_ia_policy.h"
 #include "dhcp6c_pd_sla_policy.h"
 
-typedef enum {IAS_ACTIVE, IAS_RENEW, IAS_REBIND} iastate_t;
+typedef enum {IAS_ACTIVE, IAS_RENEW, IAS_REBIND, IAS_REQUEST} iastate_t;
 
 TAILQ_HEAD(iaprefix_list, iaprefix);
 
@@ -181,7 +181,7 @@ int update_ia(struct dhcp6_list *iahead, struct dhcp6_if *ifp,
 
 	TAILQ_FOREACH(iav, iahead, link) {
 		int ia_error = 0, update_status;
-		int is_renew_or_rebind, no_binding_found = 0;
+		int is_renew_or_rebind, is_request, no_binding_found = 0;
 
 		/* if we're not interested in this IA, ignore it. */
 		iac = find_iaconf(&ifp->iaconf_list, iav->dh6optype, iav->val_ia.iaid);
@@ -225,7 +225,8 @@ int update_ia(struct dhcp6_list *iahead, struct dhcp6_if *ifp,
 		 */
 		is_renew_or_rebind =
 			ia->state == IAS_RENEW || ia->state == IAS_REBIND;
-		if (is_renew_or_rebind) {
+		is_request = (ia->state == IAS_REQUEST);
+		if (is_renew_or_rebind || is_request) {
 			TAILQ_FOREACH(siav, &iav->sublist, link) {
 				if (siav->lvtype == DHCP6_LISTVAL_NUM16 &&
 				    siav->val_num16 == D6_OPT_STCODE_NOBINDING) {
@@ -233,6 +234,17 @@ int update_ia(struct dhcp6_list *iahead, struct dhcp6_if *ifp,
 					break;
 				}
 			}
+		}
+		/*
+		 * A failed multi-IA Reply can be replayed while a separate Request
+		 * exchange is already recovering this IA. Do not let the replayed
+		 * NoBinding retire that Request watchdog or mark the IA active.
+		 */
+		if (dhcp6c_ia_request_nobinding_is_duplicate(
+			is_request, no_binding_found)) {
+			bb_info_msg("ignoring duplicate NoBinding while Request is active for %s-%u",
+			    dhcp6optstr(ia->conf->type), ia->conf->iaid);
+			goto nextia;
 		}
 		if (dhcp6c_ia_nobinding_requires_request(
 			is_renew_or_rebind, no_binding_found)) {
@@ -291,8 +303,15 @@ int update_ia(struct dhcp6_list *iahead, struct dhcp6_if *ifp,
 
 		/* Do not publish an IA as active or advance its renewal timers until
 		 * every address/prefix operation for it has succeeded. */
-		if (ia_error != 0)
+		if (ia_error != 0) {
+			/* The active Request event may be replaying a Reply whose
+			 * local application failed. Defer the watchdog so it cannot
+			 * spawn a duplicate exchange while that Reply retries. */
+			if (ia->state == IAS_REQUEST && ia->timer)
+				dhcp6_timer_set(dhcp6c_ia_request_retry_delay(1, 1),
+						ia->timer);
 			goto nextia;
+		}
 
 		/* see if this IA is still valid.  if not, remove it. */
 		if (ia->ctl == NULL || !pref_isvalid(ia->ctl)) {
@@ -419,19 +438,28 @@ fail:
 
 static int reestablish_ia(struct ia *ia)
 {
+	int ret;
 
 	log1("re-establishing %s-%u",
-			dhcp6optstr(ia->conf->type), ia->conf->iaid);
+	     dhcp6optstr(ia->conf->type), ia->conf->iaid);
 
 	if (ia->state != IAS_RENEW && ia->state != IAS_REBIND) {
 		bb_error_msg_and_die("invalid IA state (%d)", ia->state);
 	}
 
-	/* we don't need a timer for the IA (see comments in ia_timo()) */
+	/* Replace the T2/Rebind timer with a bounded Request watchdog. */
 	if (ia->timer)
 		dhcp6_timer_remove(&ia->timer);
 
-	return prepare_iaevent(ia, DHCP6S_REQUEST);
+	ret = prepare_iaevent(ia, DHCP6S_REQUEST);
+	if (ret != 0)
+		return ret;
+
+	ia->state = IAS_REQUEST;
+	ia->timer = dhcp6_timer_add(ia_timo, ia);
+	dhcp6_timer_set(dhcp6c_ia_request_retry_delay(1, ia->timer != NULL),
+			ia->timer);
+	return 0;
 }
 
 void release_all_ia(struct dhcp6_if *ifp)
@@ -488,10 +516,27 @@ static struct dhcp6_timer *ia_timo(void *arg)
 	struct ia *ia = (struct ia *)arg;
 	int dhcpstate;
 	int event_prepared;
+	unsigned long long request_delay;
 	enum dhcp6c_ia_event_timer_action action;
 
 	log1("timeout for %s-%u, state=%s",
 	    dhcp6optstr(ia->conf->type), ia->conf->iaid, iastatestr(ia->state));
+
+	/*
+	 * A NoBinding recovery Request has a finite MRC and MRT. This watchdog
+	 * starts a fresh Request only after that bounded exchange can expire.
+	 */
+	if (ia->state == IAS_REQUEST) {
+		event_prepared = (prepare_iaevent(ia, DHCP6S_REQUEST) == 0);
+		request_delay = dhcp6c_ia_request_retry_delay(
+			event_prepared, ia->timer != NULL);
+		if (request_delay != 0)
+			dhcp6_timer_set(request_delay, ia->timer);
+		if (!event_prepared)
+			bb_error_msg("can't prepare IA Request; retrying in %llu ms",
+				     request_delay);
+		return ia->timer;
+	}
 
 	switch (ia->state) {
 	case IAS_ACTIVE:
@@ -601,6 +646,8 @@ static const char *iastatestr(iastate_t state)
 		return "RENEW";
 	case IAS_REBIND:
 		return "REBIND";
+	case IAS_REQUEST:
+		return "REQUEST";
 	default:
 		return "???";	/* should be a bug */
 	}

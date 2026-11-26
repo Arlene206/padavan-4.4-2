@@ -483,6 +483,30 @@ assert "if (ia->timer)" in ia_timeout[default_case:]
 assert "test_ia_event_timer_is_retained_until_rebind_is_ready" in test
 assert "DHCP6C_IA_EVENT_TIMER_RETRY_REBIND" in test
 
+# NoBinding starts a bounded REQUEST exchange. Keep an IA watchdog beyond
+# all MRC=10 retransmission intervals so server silence cannot orphan the IA.
+ia_timeout = function_body(ia, "static struct dhcp6_timer *ia_timo(void *arg)")
+reestablish = function_body(ia, "static int reestablish_ia(struct ia *ia)")
+update_ia_body = function_body(ia, "int update_ia(struct dhcp6_list *iahead")
+assert "typedef enum {IAS_ACTIVE, IAS_RENEW, IAS_REBIND, IAS_REQUEST}" in ia
+assert "DHCP6C_IA_REQUEST_RETRY_DELAY_MS 240000ULL" in policy
+assert "dhcp6c_ia_request_retry_delay" in policy
+assert "dhcp6c_ia_request_nobinding_is_duplicate" in policy
+assert "prepare_iaevent(ia, DHCP6S_REQUEST)" in ia_timeout
+assert "dhcp6_timer_set(request_delay, ia->timer);" in ia_timeout
+request_prepared = reestablish.index("ret = prepare_iaevent(ia, DHCP6S_REQUEST);")
+request_state = reestablish.index("ia->state = IAS_REQUEST;", request_prepared)
+watchdog_start = reestablish.index("dhcp6_timer_add(ia_timo, ia);", request_state)
+watchdog_set = reestablish.index("dhcp6_timer_set(", watchdog_start)
+assert request_prepared < request_state < watchdog_start < watchdog_set
+assert "dhcp6c_ia_request_nobinding_is_duplicate(" in update_ia_body
+assert update_ia_body.index("dhcp6c_ia_request_nobinding_is_duplicate(") < update_ia_body.index("dhcp6c_ia_nobinding_requires_request(")
+assert "dhcp6_timer_set(dhcp6c_ia_request_retry_delay(1, 1)," in update_ia_body
+assert "case IAS_REQUEST:" in ia
+assert 'return "REQUEST";' in ia
+assert "test_nobinding_request_has_a_bounded_retry_watchdog" in test
+assert "dhcp6c_ia_request_retry_delay(1, 1) == 240000ULL" in test
+
 required_paths = (
     ".github/workflows/dhcp6c-ia-publication-stability.yml",
     "scripts/check_dhcp6c_ia_publication.py",

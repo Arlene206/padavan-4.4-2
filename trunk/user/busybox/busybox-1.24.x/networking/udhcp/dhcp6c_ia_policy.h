@@ -9,6 +9,28 @@
 
 #define DHCP6C_IA_EVENT_RETRY_DELAY_MS 5000ULL
 
+/*
+ * A REQUEST exchange has MRC=10 and MRT=30 seconds. Its ten jittered
+ * retransmission intervals can span about 196 seconds; leave four minutes
+ * before starting a replacement exchange so the original event has expired.
+ */
+#define DHCP6C_IA_REQUEST_RETRY_DELAY_MS 240000ULL
+
+static inline unsigned long long
+dhcp6c_ia_request_retry_delay(int request_event_active, int timer_present)
+{
+	if (!timer_present)
+		return 0ULL;
+	return request_event_active ? DHCP6C_IA_REQUEST_RETRY_DELAY_MS :
+		DHCP6C_IA_EVENT_RETRY_DELAY_MS;
+}
+
+static inline int
+dhcp6c_ia_request_nobinding_is_duplicate(int is_request, int contains_nobinding)
+{
+	return is_request && contains_nobinding;
+}
+
 enum dhcp6c_ia_event_timer_action {
 	DHCP6C_IA_EVENT_TIMER_NONE,
 	DHCP6C_IA_EVENT_TIMER_KEEP_T2,

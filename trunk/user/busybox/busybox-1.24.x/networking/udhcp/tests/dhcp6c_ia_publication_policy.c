@@ -271,6 +271,18 @@ test_owned_ia_na_address_can_be_reconciled_and_removed(void)
 }
 
 static void
+test_nobinding_request_has_a_bounded_retry_watchdog(void)
+{
+	assert(DHCP6C_IA_REQUEST_RETRY_DELAY_MS == 240000ULL);
+	assert(dhcp6c_ia_request_retry_delay(1, 1) == 240000ULL);
+	assert(dhcp6c_ia_request_retry_delay(0, 1) == 5000ULL);
+	assert(dhcp6c_ia_request_retry_delay(1, 0) == 0ULL);
+	assert(dhcp6c_ia_request_nobinding_is_duplicate(1, 1));
+	assert(!dhcp6c_ia_request_nobinding_is_duplicate(1, 0));
+	assert(!dhcp6c_ia_request_nobinding_is_duplicate(0, 1));
+}
+
+static void
 test_ia_event_timer_is_retained_until_rebind_is_ready(void)
 {
 	assert(DHCP6C_IA_EVENT_RETRY_DELAY_MS == 5000ULL);
@@ -300,6 +312,7 @@ main(void)
 	test_unowned_ia_na_collision_is_never_claimed_or_removed();
 	test_owned_ia_na_address_can_be_reconciled_and_removed();
 	test_ia_event_timer_is_retained_until_rebind_is_ready();
+	test_nobinding_request_has_a_bounded_retry_watchdog();
 	puts("DHCPv6 IA delegated-prefix retry and removal policy: PASS");
 	return 0;
 }
