@@ -114,16 +114,19 @@ if pl_process_state test-daemon; then actual=0; else actual=$?; fi
 [ "$actual" -eq 1 ] || fail "zombie daemon was classified as $actual"
 
 # The library is sourced by long-lived router shell scripts: procfs field
-# parsing must not leak temporary IFS or pathname-expansion changes.
+# parsing must split newline-delimited PID entries independently of caller IFS,
+# and must not leak temporary IFS or pathname-expansion changes.
 echo absent > "$state_file"
+mkdir -p "$PL_PROC_ROOT/324"
+printf '%s\\n' '324 (test-daemon) S 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19' > "$PL_PROC_ROOT/324/stat"
 pl_test_saved_ifs=$IFS
 IFS=:
 if pl_process_state test-daemon; then actual=0; else actual=$?; fi
-[ "$actual" -eq 1 ] || fail "custom-IFS procfs scan returned $actual"
+[ "$actual" -eq 0 ] || fail "custom-IFS multi-PID procfs scan returned $actual"
 [ "$IFS" = ":" ] || fail "procfs scan changed the caller's IFS"
 unset IFS
 if pl_process_state test-daemon; then actual=0; else actual=$?; fi
-[ "$actual" -eq 1 ] || fail "unset-IFS procfs scan returned $actual"
+[ "$actual" -eq 0 ] || fail "unset-IFS multi-PID procfs scan returned $actual"
 [ "${IFS+x}" != x ] || fail "procfs scan changed unset IFS into a set value"
 set -- one two
 [ "$#" -eq 2 ] || fail "procfs scan changed default field splitting after unset IFS"
@@ -131,10 +134,10 @@ IFS=$pl_test_saved_ifs
 case "$-" in *f*) fail "test expected pathname expansion to be enabled" ;; esac
 set -f
 if pl_process_state test-daemon; then actual=0; else actual=$?; fi
-[ "$actual" -eq 1 ] || fail "glob-disabled procfs scan returned $actual"
+[ "$actual" -eq 0 ] || fail "glob-disabled multi-PID procfs scan returned $actual"
 case "$-" in *f*) ;; *) fail "procfs scan enabled pathname expansion for caller" ;; esac
 set +f
-rm -rf "$PL_PROC_ROOT/323"
+rm -rf "$PL_PROC_ROOT/323" "$PL_PROC_ROOT/324"
 
 # An unavailable procfs root cannot be treated as a complete empty snapshot.
 PL_PROC_ROOT="$tmp/missing-proc"

@@ -25,7 +25,9 @@ pl_process_state()
             fi
             command -v ls >/dev/null 2>&1 || return 2
             pl_proc_listing=$(ls -1 "$pl_proc_root" 2>/dev/null) || return 2
-            for pl_proc_pid in $pl_proc_listing; do
+            # procfs names are newline-delimited. Do not use the caller's
+            # IFS for this inventory: callers may deliberately set IFS=:.
+            while IFS= read -r pl_proc_pid; do
                 case "$pl_proc_pid" in ''|*[!0-9]*) continue ;; esac
                 pl_proc_dir="$pl_proc_root/$pl_proc_pid"
                 [ -d "$pl_proc_dir" ] || continue
@@ -78,7 +80,9 @@ pl_process_state()
                 esac
                 case "$pl_proc_state" in Z|X|x) continue ;; esac
                 [ "$pl_proc_name" = "$pl_name" ] && return 0
-            done
+            done <<EOF
+$pl_proc_listing
+EOF
             return 1 ;;
         *) return 2 ;;
     esac
