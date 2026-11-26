@@ -1,4 +1,12 @@
 
+## Current checkpoint — 2026-11-25
+
+- DHCP route teardown is now based on a persisted owner-prefix manifest rather than the current DHCP option strings or current WAN interface. Manifest v2 records the service owner, and cleanup removes only that owner's routes across interface/metric transitions.
+- Untracked `EEXIST` routes are not claimed; route deletes that fail remain recorded for retry. The dedicated sanitizer regression exercises service isolation, interface changes, manifest reload, malformed state, symlink rejection and delete retry.
+- Recent implementation commits: `33e219b` (service owner scoping), `c91b7af` (manifest parser field count), `8caddb3` (cleanup by stable owner), `cc5cde0` (checker correction).
+- Firmware status must be verified on an exact source SHA; no physical-router runtime result is claimed.
+
+
 ## 2026-11-26 — VPN DNS replace mode
 
 - Accept documented `vpnc_pdns=2` in PPTP/L2TP and OpenVPN callbacks; keep strict 0/1/2 validation.

@@ -316,3 +316,19 @@
 - `a20fec0cf840bcf8bb697e5a1f5c8673ed12439e` replaces wall-clock preferred-lifetime ageing in DHCPv6 IA `pref_duration()` with monotonic milliseconds. Infinite lifetime remains infinite; finite lifetime saturates at zero and uses whole-second rounding. GNU89 ASan/UBSan regression covers fractional elapsed seconds, expiry boundaries, largest finite value and infinite value.
 - Exact `a20fec0cf840bcf8bb697e5a1f5c8673ed12439e` checks: DHCPv6 IA publication #45753771175 PASS; WAN DHCP callback #45753771143 PASS; Process inventory #45753771145 PASS; storage hotplug #45753771153 PASS; NVRAM transaction audit #45753771126 PASS. XY-C1 #45753771146 remained IN_PROGRESS at Build XY-C1; TRX validation and artifact upload had not yet started. No current-SHA L3 claim.
 - Main is `a20fec0cf840bcf8bb697e5a1f5c8673ed12439e`; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`. Next source investigation is the possible DHCP route add/delete ownership mismatch around `control_dhcp_routes()`; validate route restart semantics before patching.
+
+## 2026-11-25 — DHCP route ownership hardening
+
+- Added DHCP route ownership manifest v2 with stable owner prefixes (`wanN_`, `wanx_`, `manv_`). Untracked `EEXIST` routes remain unclaimed, tracked duplicates remain idempotent, and cleanup is scoped to the service owner rather than the current interface or metric.
+- Cleanup-by-owner prevents stale DHCP routes surviving PPP/interface/metric changes and prevents WAN teardown from deleting IPTV routes on a shared interface/metric.
+- Fixed a manifest parser count bug after adding the owner field (six fields expected), strengthened regression coverage for v2 reload and owner isolation, and aligned WAN route/DHCP callback/HTTPD source contracts.
+- Repaired the route-status workflow and its source checker after the internal callback signature changed.
+- Main source tree checkpoint: `cc5cde0fcbbb68e62e2a5ad225f9695c9195b3f2`; backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Actions state at checkpoint:
+- WAN route operation status regression #45756989235 on `cc5cde0fcbbb`: **completed/failure** (2026-11-26T04:43:58Z).
+- XY-C1 Firmware Validation #45756858864 on `8caddb355060`: **in_progress** (2026-11-26T04:42:06Z).
+- WAN DHCP callback state stability regression #45756858682 on `8caddb355060`: **completed/success** (2026-11-26T04:42:32Z).
+- NVRAM transaction boundary audit #45756858789 on `8caddb355060`: **completed/success** (2026-11-26T04:44:31Z).
+- WAN interface teardown stability regression #45756858770 on `8caddb355060`: **completed/success** (2026-11-26T04:42:27Z).
+- AI handoff documentation contract #45756858736 on `8caddb355060`: **completed/success** (2026-11-26T04:42:24Z).
+- Firmware success is unconfirmed until Build XY-C1, TRX validation and artifact upload all pass for one exact SHA. Physical router runtime remains unverified.
