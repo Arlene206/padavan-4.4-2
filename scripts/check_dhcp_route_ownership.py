@@ -12,7 +12,9 @@ body = src.split("static int\ncontrol_dhcp_routes(", 1)[1].split(
     "\nint\nadd_dhcp_routes(", 1
 )[0]
 assert "dhcp_route_cleanup_owned(owner)" in body
-assert 'control_dhcp_routes("manv_", route_storage[0]' in src
+iptv_deconfig = src.split("manv_route_deconfig(", 1)[1].split("\\n}", 1)[0]
+assert "route_result = control_dhcp_routes(" in iptv_deconfig
+assert '"manv_", route_storage[0]' in iptv_deconfig
 assert "strcmp(entries[i].owner, owner) != 0" in policy
 assert "entries[i].ifname, ifname" not in policy
 assert 'DHCP_ROUTE_OWNERSHIP_MAGIC "PADAVAN-DHCP-ROUTES 2"' in policy
