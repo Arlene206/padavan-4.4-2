@@ -1,3 +1,10 @@
+## 2026-11-26 — Export Adbyby post-state fixture controls
+
+- Exact Adbyby run #45765982057 on `bd439e46fab885c84a4629088ae8e3efe27a1c49` passed shell syntax and all earlier host/download/lifecycle suites, then failed the new confirmed-absent teardown case. The executable `iptables-save` and `ipset` test wrappers did not receive the state-mode shell variables because they were not exported, so they returned their default stale fixture.
+- Exported the two fixture variables before the first call. Subsequent state-mode assignments remain exported and select absent/stale/error cases as intended. Exact rerun pending; no production-source change.
+
+---
+
 ## 2026-11-26 — Export Adbyby post-state fixture controls to executable wrappers
 
 - Exact Adbyby run #45765982057 on `bd439e46fab885c84a4629088ae8e3efe27a1c49` passed shell syntax and the prior download/lifecycle suites, then the first idempotent teardown case reported failure. The new state controls were assigned as shell variables but were not exported to the PATH-injected `iptables-save` and `ipset` child scripts, so they fell back to the initial stale-state fixture instead of emitting the intended confirmed-absent state.
