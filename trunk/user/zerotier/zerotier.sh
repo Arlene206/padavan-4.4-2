@@ -1065,6 +1065,11 @@ zerotier_static_route_state_load() {
 }
 
 zerotier_static_route_state_save() {
+	zt_route_snapshot_mode="$1"
+	case "$zt_route_snapshot_mode" in
+		add|cleanup) ;;
+		*) return 1 ;;
+	esac
 	[ -d "$config_path" ] && [ ! -L "$config_path" ] || return 1
 	case "$zt0" in
 		zt*) ;;
@@ -1109,6 +1114,24 @@ zerotier_static_route_state_save() {
 			   ! zerotier_static_route_tuple_is_valid "$zt_route_ip" "$zt_route_gateway"; then
 				rm -f "$zt_route_state_tmp"
 				return 1
+			fi
+			if [ "$zt_route_snapshot_mode" = "add" ]; then
+				if ! zt_route_existing="$(ip route show "$zt_route_ip" 2>/dev/null)"; then
+					rm -f "$zt_route_state_tmp"
+					logger -t "zerotier" "无法检查待安装静态路由: $zt_route_ip"
+					return 1
+				fi
+				if printf '%s\n' "$zt_route_existing" | zero_route_entry_matches "$zt_route_ip" "$zt_route_gateway" "$zt0"; then
+					# An exact route predating this start must remain externally owned.
+					continue
+				else
+					zt_route_existing_status=$?
+					if [ "$zt_route_existing_status" -ne 1 ]; then
+						rm -f "$zt_route_state_tmp"
+						logger -t "zerotier" "待安装静态路由与现有路由冲突: $zt_route_ip"
+						return 1
+					fi
+				fi
 			fi
 			if ! printf '%s %s\n' "$zt_route_ip" "$zt_route_gateway" >> "$zt_route_state_tmp"; then
 				rm -f "$zt_route_state_tmp"
@@ -1187,7 +1210,7 @@ rules() {
 				logger -t "zerotier" "静态路由安装失败后防火墙回滚不完整"
 				zerotier_rollback_status=1
 			fi
-			if ! zero_route "del"; then
+			if ! zero_route "rollback"; then
 				logger -t "zerotier" "静态路由回滚未完全确认"
 				zerotier_rollback_status=1
 			fi
@@ -1323,21 +1346,27 @@ zero_route_entry_matches() {
 
 zero_route() {
 	case "$1" in
-		add|del) ;;
+		add|del|rollback) ;;
 		*) return 2 ;;
 	esac
 	zt_route_state_file="$config_path/.static-routes-state"
 	if [ "$1" = "add" ]; then
-		if ! zerotier_static_route_state_save; then
+		zt_route_add_manifest_saved=0
+		if ! zerotier_static_route_state_save add; then
 			logger -t "zerotier" "无法安全保存静态路由恢复清单"
 			return 1
 		fi
-	elif [ ! -e "$zt_route_state_file" ] && [ ! -L "$zt_route_state_file" ]; then
+		zt_route_add_manifest_saved=1
+	elif [ "$1" = "del" ] && [ ! -e "$zt_route_state_file" ] && [ ! -L "$zt_route_state_file" ]; then
 		# Backward compatibility for older installs which predate route snapshots.
-		if ! zerotier_static_route_state_save; then
+		if ! zerotier_static_route_state_save cleanup; then
 			logger -t "zerotier" "无法读取旧版静态路由配置以执行清理"
 			return 1
 		fi
+	elif [ "$1" = "rollback" ] && [ ! -e "$zt_route_state_file" ] && [ ! -L "$zt_route_state_file" ]; then
+		# A failed add preflight publishes no manifest and has issued no route command.
+		[ "${zt_route_add_manifest_saved:-0}" -eq 0 ] && return 0
+		return 1
 	fi
 	if ! zerotier_static_route_state_load; then
 		logger -t "zerotier" "静态路由恢复清单无效，拒绝猜测待处理路由"
@@ -1396,11 +1425,12 @@ zero_route() {
 			fi
 		fi
 	done < "$zt_route_state_file"
-	if [ "$1" = "del" ] && [ "$route_status" -eq 0 ]; then
+	if [ "$1" != "add" ] && [ "$route_status" -eq 0 ]; then
 		if ! zerotier_static_route_state_clear; then
 			logger -t "zerotier" "静态路由已处理，但无法清除恢复清单"
 			return 1
 		fi
+		zt_route_add_manifest_saved=0
 	fi
 	return "$route_status"
 }

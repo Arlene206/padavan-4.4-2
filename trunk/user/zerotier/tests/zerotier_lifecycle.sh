@@ -2047,6 +2047,49 @@ fi
 [ ! -e "$TEST_CONFIG/.static-routes-state" ] ||
 	fail "successful static-route cleanup retained its snapshot"
 
+# Exact routes which predate ZeroTier are not claimed or deleted on stop.
+TEST_STATIC_ROUTE_COUNT=1
+TEST_STATIC_ROUTE_ENABLE=1
+TEST_STATIC_ROUTE_IP="192.0.2.0/24"
+TEST_STATIC_ROUTE_GATEWAY="192.0.2.1"
+TEST_ROUTE_PRESENT=1
+TEST_ROUTE_SHOW_OUTPUT="192.0.2.0/24 via 192.0.2.1 dev ztunit"
+: > "$TEST_ACTION_LOG"
+if ! zero_route add; then
+	fail "static-route add rejected an exact route which was already present"
+fi
+[ "$(cat "$TEST_CONFIG/.static-routes-state")" = "ztunit" ] ||
+	fail "pre-existing route was incorrectly claimed in the ZeroTier manifest"
+if grep -Fqx -- "zero_route:add" "$TEST_ACTION_LOG"; then
+	fail "ZeroTier attempted to add a pre-existing exact route"
+fi
+if ! zero_route del; then
+	fail "cleanup failed for a header-only static-route manifest"
+fi
+if grep -Fqx -- "zero_route:del" "$TEST_ACTION_LOG"; then
+	fail "ZeroTier deleted a route which predated service startup"
+fi
+[ "$TEST_ROUTE_PRESENT" -eq 1 ] || fail "cleanup removed the pre-existing route"
+
+# A conflicting route for the same destination is ambiguous and must fail
+# before publishing a snapshot; rollback with no manifest is a safe no-op.
+TEST_ROUTE_SHOW_OUTPUT="192.0.2.0/24 via 192.0.2.99 dev ztunit"
+: > "$TEST_ACTION_LOG"
+if zero_route add; then
+	fail "static-route add accepted an existing conflicting nexthop"
+fi
+[ ! -e "$TEST_CONFIG/.static-routes-state" ] ||
+	fail "conflicting route preflight published an ownership manifest"
+[ ! -s "$TEST_ACTION_LOG" ] || fail "conflicting route preflight issued a route mutation"
+if ! zero_route rollback; then
+	fail "rollback without a published route manifest was not idempotent"
+fi
+[ "$TEST_ROUTE_PRESENT" -eq 1 ] || fail "failed route preflight altered the conflicting route"
+TEST_ROUTE_PRESENT=0
+TEST_ROUTE_SHOW_OUTPUT=""
+TEST_STATIC_ROUTE_COUNT=0
+TEST_STATIC_ROUTE_ENABLE=0
+
 # A truncated route manifest must fail closed without issuing route commands.
 printf 'ztunit\n192.0.2.0/24 192.0.2.1' > "$TEST_CONFIG/.static-routes-state"
 : > "$TEST_ACTION_LOG"

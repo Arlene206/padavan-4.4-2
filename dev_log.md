@@ -1,3 +1,10 @@
+## 2026-11-25 — Preserve pre-existing routes during ZeroTier ownership cleanup
+
+- New-start route manifests previously copied every enabled NVRAM tuple before ip route add. If an identical route already existed, a later stop could mistake the user's pre-existing route for a ZeroTier-owned route and delete it.
+- The add snapshot now inspects each destination first: exact pre-existing routes are omitted from the owned manifest, absent destinations are recorded, and conflicting/ECMP/unknown route state fails closed before publication. Legacy no-manifest cleanup keeps its compatibility snapshot behavior.
+- The rules() rollback path no longer invokes legacy NVRAM cleanup when add preflight failed before a manifest was published. Regression cases cover preservation of exact pre-existing routes, conflict rejection and idempotent no-manifest rollback. Exact-head CI pending; live router runtime remains unverified.
+
+---
 ## 2026-11-25 — Match ZeroTier route-count checker to the persisted executor
 
 - Exact ZeroTier run #45737539198 completed the shell lifecycle regression successfully, then the Python source contract failed because it still required the pre-manifest NVRAM loop and its local rulesnum variable inside zero_route(). The current executor consumes a persisted manifest; the shared save helper validates and bounds the checked NVRAM count before its seq loop, while manifest loading caps records at 64.
