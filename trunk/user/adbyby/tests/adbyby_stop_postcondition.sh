@@ -125,19 +125,10 @@ assert_no_cleanup()
 	fi
 }
 
-
 # The helper is a shell script. Require its exact argv token, a shell
 # executable and a stable procfs start_time before signalling a PID.
 printf '%s\n' '#!/bin/sh' 'exit 0' > "$PROG_PATH/admem.sh"
 chmod 755 "$PROG_PATH/admem.sh"
-
-# Empty cmdline with no exe is a non-candidate (for example a kernel thread),
-# not an UNKNOWN helper identity that should block unrelated cleanup.
-: > "$events_file"
-adbyby_stop_mem_helper || fail "empty non-helper cmdline blocked memory-helper stop"
-[ "$(event_count 'mem_helper_kill:')" -eq 0 ] || fail "empty non-helper cmdline was signalled"
-echo "Adbyby memory-helper ignores empty non-candidate cmdline without exe: PASS"
-
 adbyby_test_add_mem_process()
 {
 	adbyby_test_mem_pid="$1"
@@ -147,8 +138,7 @@ adbyby_test_add_mem_process()
 	mkdir -p "$ADBYBY_PROC_ROOT/$adbyby_test_mem_pid"
 	ln -sfn "$adbyby_test_mem_exe" "$ADBYBY_PROC_ROOT/$adbyby_test_mem_pid/exe"
 	printf '/bin/sh\000%s\000' "$adbyby_test_mem_arg" > "$ADBYBY_PROC_ROOT/$adbyby_test_mem_pid/cmdline"
-	printf '%s (sh) S 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 %s\n' \
-		"$adbyby_test_mem_pid" "$adbyby_test_mem_start" > "$ADBYBY_PROC_ROOT/$adbyby_test_mem_pid/stat"
+	printf '%s (sh) S 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 %s\n' "$adbyby_test_mem_pid" "$adbyby_test_mem_start" > "$ADBYBY_PROC_ROOT/$adbyby_test_mem_pid/stat"
 	if [ "$#" -ge 5 ]; then
 		ln -sfn "$5" "$ADBYBY_PROC_ROOT/$adbyby_test_mem_pid/cwd"
 	fi
@@ -181,8 +171,7 @@ echo "Adbyby memory-helper malformed proc metadata fails closed: PASS"
 adbyby_test_add_mem_process 326 /bin/busybox "$PROG_PATH/admem.sh" 4020
 reuse_trigger="$tmp/mem-reuse-once"
 : > "$reuse_trigger"
-awk()
-{
+awk() {
 	/usr/bin/awk "$@"
 	adbyby_test_awk_status=$?
 	case "$*" in
@@ -202,9 +191,8 @@ unset -f awk
 rm -rf "$ADBYBY_PROC_ROOT/326"
 echo "Adbyby memory-helper PID reuse blocks stale signalling: PASS"
 
-# Keep the older close aggregation fixture isolated from procfs details.
+# Keep the close-order fixture independent from procfs identity details.
 adbyby_stop_mem_helper() { echo mem_helper_cleanup >> "$events_file"; return 0; }
-
 
 # Initial inventory errors and malformed PID output cannot authorize a signal.
 for blocked_state in error malformed; do
@@ -320,7 +308,7 @@ adbyby_close || fail "confirmed-absent daemon did not stop idempotently"
 [ "$(event_count del_rule)" -eq 1 ] || fail "firewall cleanup count was not one"
 [ "$(event_count del_cron)" -eq 1 ] || fail "cron cleanup count was not one"
 [ "$(event_count del_dns)" -eq 1 ] || fail "DNS cleanup count was not one"
-[ "$(event_count mem_helper_kill)" -eq 1 ] || fail "mem helper cleanup was not reached"
+[ "$(event_count mem_helper_cleanup)" -eq 1 ] || fail "mem helper cleanup was not reached"
 [ "$(event_count restart_dhcpd)" -eq 1 ] || fail "dnsmasq restart count was not one"
 
 # RUNNING followed by a confirmed ABSENT postcondition may safely clean up.

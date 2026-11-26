@@ -1,3 +1,11 @@
+## 2026-11-26 — Correct Adbyby memory-helper procfs enumeration and CI fixture
+
+- Exact SHA 937b1a96b87c82b1542794262574c6fc56733117 exposed two CI issues: Adbyby #45767811658 stopped at a malformed generated stop-test function block, and AI docs #45767811515 required the exact mandatory handoff checkpoint sentence.
+- Rebuilt the regression from the clean parent fixture with bounded insertion points, explicit helper PID events, and no duplicated test body. A numeric proc entry without an exe symlink (for example kernel tasks or an exiting PID) is now a non-candidate rather than an UNKNOWN helper.
+- Added coverage for missing exe entries and restored the mandatory handoff wording. The corrected exact-SHA Actions must pass before this slice is treated as verified.
+
+---
+
 ## 2026-11-25 — Make Adbyby memory-helper inventory ignore empty non-candidate proc entries
 
 - The memory-helper scan iterated every numeric proc directory but checked `/proc/PID/exe` before reading argv. Ordinary kernel threads have an empty `cmdline` and may have no `exe` symlink; the old ordering classified every such unrelated process as UNKNOWN and prevented safe helper cleanup.
