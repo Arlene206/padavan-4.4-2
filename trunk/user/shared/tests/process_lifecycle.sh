@@ -263,3 +263,18 @@ echo pid1 > "$PL_PATTERN_STATE_FILE"
 expect_pattern_state "$PL_TEST_PATTERN" 2
 expect_pattern_state "" 2
 echo "shared process lifecycle regression: PASS"
+
+# The pgrep recheck must ignore this process itself. A literal "$" does not
+# identify the caller and can turn a stale pgrep result into a false RUNNING.
+pl_test_self_pid=$$
+if printf '%s\n' "$pl_test_self_pid" |
+   awk -v self_pid="$pl_test_self_pid" '$1 ~ /^[0-9]+$/ && $1 != self_pid { found=1 } END { exit !found }' >/dev/null; then
+    echo "process lifecycle self-PID exclusion regression: FAIL" >&2
+    exit 1
+fi
+grep -F 'awk -v self_pid="$$"' "$(dirname "$0")/../scripts/process_lifecycle.sh" >/dev/null || {
+    echo "process lifecycle procfs recheck does not exclude the caller PID" >&2
+    exit 1
+}
+echo "process lifecycle procfs recheck excludes caller PID: PASS"
+

@@ -1,3 +1,11 @@
+## 2026-11-26 — Fix Optware procfs recheck caller-PID exclusion
+
+- Review of concurrent commit `cfc4e7b28ab49228d29268b29127f76bb3ea1ef2` found a typo in the final `pgrep` race recheck: `awk -v self_pid="$"` passed a literal dollar sign instead of the caller PID. Consequently the guard never excluded the helper's own process and could report a false RUNNING result if the caller command line matched the target pattern.
+- Corrected it to pass shell PID `$$`. Added a shell regression that verifies the current PID is excluded and pins the production source to the exact `awk -v self_pid="$$"` expansion. The complete procfs scan and its fail-closed handling remain unchanged.
+- Exact Optware/shared Process workflow validation pending; no local firmware build or router runtime validation performed.
+
+---
+
 ## 2026-11-26 — Cross-check pgrep absence against complete procfs inventory before Optware unmount
 
 - Optware teardown's package-script protection uses pl_process_pattern_state(). A clean pgrep -f status 1 with empty output had been returned as ABSENT immediately, without the procfs cross-check already required by the shared pidof state path.
