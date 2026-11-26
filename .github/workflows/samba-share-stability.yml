@@ -25,6 +25,7 @@ on:
       - "trunk/user/rc/src/tests/samba_passdb_policy.c"
       - "trunk/user/rc/src/samba_config_transaction.h"
       - "trunk/user/rc/src/tests/samba_config_transaction.c"
+      - "scripts/check_samba_transaction_durability.py"
       - "trunk/user/rc/src/samba_daemon_policy.h"
       - "trunk/user/rc/src/tests/samba_daemon_policy.c"
       - "trunk/user/rc/src/samba_process_policy.h"
@@ -54,6 +55,7 @@ on:
       - "trunk/user/rc/src/tests/samba_passdb_policy.c"
       - "trunk/user/rc/src/samba_config_transaction.h"
       - "trunk/user/rc/src/tests/samba_config_transaction.c"
+      - "scripts/check_samba_transaction_durability.py"
       - "trunk/user/rc/src/samba_daemon_policy.h"
       - "trunk/user/rc/src/tests/samba_daemon_policy.c"
       - "trunk/user/rc/src/samba_process_policy.h"
@@ -747,3 +749,6 @@ jobs:
           print("Samba passdb/ACL account generation parity: PASS")
           print("Unix account database rebuild failure gate: PASS")
           PY
+
+      - name: Verify Samba paired-transaction durability ordering
+        run: python3 scripts/check_samba_transaction_durability.py

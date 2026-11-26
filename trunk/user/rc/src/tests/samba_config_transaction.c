@@ -50,6 +50,49 @@ make_path(char *path, size_t size, const char *directory, const char *leaf)
 }
 
 static void
+test_directory_sync_helpers(void)
+{
+	char root[] = "/tmp/samba-config-sync.XXXXXX";
+	char directory[256], regular_file[256], directory_link[256];
+	char linked_child[256], missing_child[256];
+	FILE *fp;
+
+	assert(mkdtemp(root) != NULL);
+	make_path(directory, sizeof(directory), root, "private");
+	make_path(regular_file, sizeof(regular_file), root, "state-file");
+	make_path(directory_link, sizeof(directory_link), root, "directory-link");
+	assert(mkdir(directory, 0700) == 0);
+	assert(samba_config_transaction_sync_directory(root) == 0);
+	assert(samba_config_transaction_sync_directory(directory) == 0);
+	assert(samba_config_transaction_sync_parent(directory) == 0);
+
+	fp = fopen(regular_file, "w");
+	assert(fp != NULL);
+	assert(fputs("durable parent\n", fp) >= 0);
+	assert(fclose(fp) == 0);
+	assert(samba_config_transaction_sync_parent(regular_file) == 0);
+	errno = 0;
+	assert(samba_config_transaction_sync_directory(regular_file) == -1);
+	assert(errno == ENOTDIR || errno == EINVAL);
+
+	assert(symlink(directory, directory_link) == 0);
+	errno = 0;
+	assert(samba_config_transaction_sync_directory(directory_link) == -1);
+	make_path(linked_child, sizeof(linked_child), directory_link, "state");
+	make_path(missing_child, sizeof(missing_child), root, "missing/state");
+	errno = 0;
+	assert(samba_config_transaction_sync_parent(linked_child) == -1);
+	assert(errno == ELOOP || errno == ENOTDIR);
+	assert(samba_config_transaction_sync_parent(missing_child) == -1);
+	assert(errno == ENOENT);
+
+	assert(unlink(directory_link) == 0);
+	assert(unlink(regular_file) == 0);
+	assert(rmdir(directory) == 0);
+	assert(rmdir(root) == 0);
+}
+
+static void
 test_parent_directory_permissions(void)
 {
 	char root[] = "/tmp/samba-config-parent.XXXXXX";
@@ -97,6 +140,7 @@ test_parent_directory_permissions(void)
 int
 main(void)
 {
+	test_directory_sync_helpers();
 	test_parent_directory_permissions();
 
 	char root[] = "/tmp/samba-config-transaction.XXXXXX";

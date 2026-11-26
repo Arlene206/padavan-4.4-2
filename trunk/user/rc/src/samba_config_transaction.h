@@ -17,16 +17,14 @@
 #define SAMBA_CONFIG_TRANSACTION_PATH_MAX 512
 
 /*
- * The parent also contains the Samba passdb and the crash-recovery journal.
- * It must be owned by this effective user and have exact private mode 0700.
- * Open the directory itself (not a symlink) and harden it through the fd.
+ * The journal is useful only when its contents and directory entries are
+ * durable. Keep these primitives local to the transaction helper so the
+ * standalone host regression exercises the firmware ordering.
  */
 static inline int
-samba_config_transaction_prepare_parent_directory(const char *directory)
+samba_config_transaction_sync_directory(const char *directory)
 {
-	struct stat st;
-	int fd, flags = O_RDONLY;
-	int saved_errno;
+	int fd, flags = O_RDONLY, saved_errno;
 
 	if (!directory || !*directory) {
 		errno = EINVAL;
@@ -38,7 +36,76 @@ samba_config_transaction_prepare_parent_directory(const char *directory)
 #else
 	flags |= O_DIRECTORY | O_NOFOLLOW;
 #endif
-	if (mkdir(directory, 0700) != 0 && errno != EEXIST)
+	fd = open(directory, flags);
+	if (fd < 0)
+		return -1;
+	if (fsync(fd) != 0) {
+		saved_errno = errno ? errno : EIO;
+		close(fd);
+		errno = saved_errno;
+		return -1;
+	}
+	if (close(fd) != 0)
+		return -1;
+	errno = 0;
+	return 0;
+}
+
+/* Sync the directory entry that contains a file or directory path. */
+static inline int
+samba_config_transaction_sync_parent(const char *path)
+{
+	char parent[SAMBA_CONFIG_TRANSACTION_PATH_MAX];
+	char *slash;
+	size_t path_length;
+
+	if (!path || !*path) {
+		errno = EINVAL;
+		return -1;
+	}
+	path_length = strlen(path);
+	if (path_length >= sizeof(parent)) {
+		errno = ENAMETOOLONG;
+		return -1;
+	}
+	memcpy(parent, path, path_length + 1);
+	slash = strrchr(parent, '/');
+	if (!slash) {
+		parent[0] = '.';
+		parent[1] = '\0';
+	} else if (slash == parent) {
+		slash[1] = '\0';
+	} else {
+		*slash = '\0';
+	}
+	return samba_config_transaction_sync_directory(parent);
+}
+
+/*
+ * The parent also contains the Samba passdb and the crash-recovery journal.
+ * It must be owned by this effective user and have exact private mode 0700.
+ * Open the directory itself (not a symlink) and harden it through the fd.
+ */
+static inline int
+samba_config_transaction_prepare_parent_directory(const char *directory)
+{
+	struct stat st;
+	int fd, flags = O_RDONLY;
+	int saved_errno, created = 0;
+
+	if (!directory || !*directory) {
+		errno = EINVAL;
+		return -1;
+	}
+#if !defined(O_DIRECTORY) || !defined(O_NOFOLLOW)
+	errno = ENOTSUP;
+	return -1;
+#else
+	flags |= O_DIRECTORY | O_NOFOLLOW;
+#endif
+	if (mkdir(directory, 0700) == 0)
+		created = 1;
+	else if (errno != EEXIST)
 		return -1;
 
 	fd = open(directory, flags);
@@ -63,7 +130,11 @@ samba_config_transaction_prepare_parent_directory(const char *directory)
 			goto failed;
 		}
 	}
+	if (fsync(fd) != 0)
+		goto failed;
 	if (close(fd) != 0)
+		return -1;
+	if (created && samba_config_transaction_sync_parent(directory) != 0)
 		return -1;
 	errno = 0;
 	return 0;
@@ -254,6 +325,12 @@ samba_config_transaction_write_state(const char *directory,
 		errno = saved_errno;
 		return -1;
 	}
+	/*
+	 * PREPARED follows both snapshot links; COMMITTED follows the durable
+	 * publication of both live files.
+	 */
+	if (samba_config_transaction_sync_directory(directory) != 0)
+		return -1;
 	return 0;
 }
 
@@ -357,9 +434,9 @@ samba_config_transaction_restore_file(const char *target_path,
 		return -1;
 	}
 	if (!had_original) {
-		if (unlink(target_path) == 0 || errno == ENOENT)
-			return 0;
-		return -1;
+		if (unlink(target_path) != 0 && errno != ENOENT)
+			return -1;
+		return samba_config_transaction_sync_parent(target_path);
 	}
 	if (lstat(snapshot_path, &st) != 0)
 		return -1;
@@ -377,7 +454,7 @@ samba_config_transaction_restore_file(const char *target_path,
 		errno = saved_errno;
 		return -1;
 	}
-	return 0;
+	return samba_config_transaction_sync_parent(target_path);
 }
 
 static inline int
@@ -403,6 +480,10 @@ samba_config_transaction_cleanup(const char *directory)
 		if (unlink(path) != 0 && errno != ENOENT)
 			return -1;
 	}
+	/* Never retire rollback snapshots until marker removal is durable. */
+	if (samba_config_transaction_sync_directory(directory) != 0)
+		return -1;
+
 	for (i = 0; snapshots[i] != NULL; ++i) {
 		if (samba_config_transaction_make_path(path, sizeof(path),
 						       directory, snapshots[i]) != 0)
@@ -412,9 +493,11 @@ samba_config_transaction_cleanup(const char *directory)
 	}
 	if (result != 0)
 		return -1;
+	if (samba_config_transaction_sync_directory(directory) != 0)
+		return -1;
 	if (rmdir(directory) != 0 && errno != ENOENT)
 		return -1;
-	return 0;
+	return samba_config_transaction_sync_parent(directory);
 }
 
 /*
@@ -493,6 +576,12 @@ samba_config_transaction_begin(const char *directory,
 		return -1;
 	if (mkdir(directory, 0700) != 0)
 		return -1;
+	if (samba_config_transaction_sync_parent(directory) != 0) {
+		saved_errno = errno ? errno : EIO;
+		rmdir(directory);
+		errno = saved_errno;
+		return -1;
+	}
 	if (samba_config_transaction_make_path(passdb_snapshot,
 			sizeof(passdb_snapshot), directory, "passdb.old") != 0 ||
 	    samba_config_transaction_make_path(config_snapshot,
@@ -520,8 +609,9 @@ samba_config_transaction_commit(const char *directory,
 	int passdb_had_original, config_had_original, is_committed;
 	int state_result;
 
-	(void)passdb_path;
-	(void)config_path;
+	if (samba_config_transaction_sync_parent(passdb_path) != 0 ||
+	    samba_config_transaction_sync_parent(config_path) != 0)
+		return -1;
 	state_result = samba_config_transaction_read_state(directory,
 			&passdb_had_original, &config_had_original, &is_committed);
 	if (state_result != 1 || is_committed) {
