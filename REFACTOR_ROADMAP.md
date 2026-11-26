@@ -1,3 +1,11 @@
+## 2026-11-26 — Verify package-client absence with complete procfs inventory
+
+- Optware teardown gates swapoff and /opt unmount on four full-command-line package-client patterns. The prior pgrep status-1/empty-output branch returned ABSENT without confirming that the procfs scan was complete.
+- Shared process lifecycle now cross-checks a complete numeric procfs inventory, validates each live PID's stat and cmdline, matches NUL-separated argv, fails UNKNOWN on incomplete metadata, and re-runs pgrep for late arrivals. Exact shell regression covers false-negative pgrep, late start and incomplete cmdline.
+- Exact-head Process lifecycle and XY-C1 Build/TRX/artifact checks remain required; no hardware L4 claim.
+
+---
+
 ## 2026-11-25 — Adbyby memory-helper process inventory
 
 - Process discovery reads command-line arguments before requiring an executable link, so empty/nonmatching proc entries are ABSENT non-candidates rather than UNKNOWN. Matching helper argv still requires a supported shell interpreter and, for relative invocation, verified cwd; unreadable candidate metadata remains fail-closed.

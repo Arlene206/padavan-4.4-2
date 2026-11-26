@@ -149,6 +149,80 @@ pl_stop_named()
 
 # pl_process_pattern_state ERE: 0=RUNNING, 1=confirmed ABSENT, 2=UNKNOWN.
 # Use pgrep -f for shell-script clients whose process comm is only "sh".
+# Verify a pgrep status-1 result against a complete /proc inventory.
+# Return 0 when a matching live command line exists, 1 only after a complete
+# scan proves absence, and 2 when any part of the inventory is uncertain.
+pl_process_pattern_procfs_state()
+{
+    pl_pattern_scan_pattern="$1"
+    [ -n "$pl_pattern_scan_pattern" ] || return 2
+    pl_pattern_scan_root=${PL_PROC_ROOT:-/proc}
+    [ -d "$pl_pattern_scan_root" ] && [ -r "$pl_pattern_scan_root" ] || return 2
+    command -v ls >/dev/null 2>&1 || return 2
+    command -v awk >/dev/null 2>&1 || return 2
+    command -v tr >/dev/null 2>&1 || return 2
+    command -v grep >/dev/null 2>&1 || return 2
+
+    pl_pattern_scan_entries=$(ls -1 "$pl_pattern_scan_root" 2>/dev/null) || return 2
+    [ -n "$pl_pattern_scan_entries" ] || return 2
+
+    while IFS= read -r pl_pattern_scan_pid; do
+        case "$pl_pattern_scan_pid" in
+            ''|*[!0-9]*) continue ;;
+            0*) return 2 ;;
+        esac
+        pl_pattern_scan_dir="$pl_pattern_scan_root/$pl_pattern_scan_pid"
+        [ -d "$pl_pattern_scan_dir" ] || continue
+
+        pl_pattern_scan_task_state=$(awk -v expected_pid="$pl_pattern_scan_pid" '
+            NR != 1 { invalid = 1 }
+            NR == 1 {
+                if (index($0, expected_pid " (") != 1)
+                    invalid = 1
+                sub(/^.*\) /, "")
+                if (NF < 20 || $1 !~ /^[RSDZTtXxKWI]$/ ||
+                    $20 !~ /^[0-9]+$/)
+                    invalid = 1
+                else
+                    task_state = $1
+            }
+            END {
+                if (invalid || NR != 1)
+                    exit 1
+                print task_state
+            }
+        ' "$pl_pattern_scan_dir/stat" 2>/dev/null) || {
+            [ -d "$pl_pattern_scan_dir" ] || continue
+            return 2
+        }
+        case "$pl_pattern_scan_task_state" in
+            Z|X|x) continue ;;
+        esac
+
+        pl_pattern_scan_cmdline="$pl_pattern_scan_dir/cmdline"
+        [ -f "$pl_pattern_scan_cmdline" ] &&
+            [ -r "$pl_pattern_scan_cmdline" ] || {
+                [ -d "$pl_pattern_scan_dir" ] || continue
+                return 2
+            }
+        pl_pattern_scan_arguments=$(tr '\000\n' '  ' < "$pl_pattern_scan_cmdline" 2>/dev/null) || {
+            [ -d "$pl_pattern_scan_dir" ] || continue
+            return 2
+        }
+        if printf '%s\n' "$pl_pattern_scan_arguments" |
+            grep -E -q -- "$pl_pattern_scan_pattern"; then
+            return 0
+        else
+            pl_pattern_scan_grep_status=$?
+            [ "$pl_pattern_scan_grep_status" -eq 1 ] || return 2
+        fi
+    done <<EOF
+$pl_pattern_scan_entries
+EOF
+
+    return 1
+}
+
 pl_process_pattern_state()
 {
     pl_pattern="$1"
@@ -176,6 +250,36 @@ pl_process_pattern_state()
     else
         pl_pattern_status=$?
         [ "$pl_pattern_status" -eq 1 ] && [ -z "$pl_pattern_pids" ] || return 2
-        return 1
+        if pl_process_pattern_procfs_state "$pl_pattern"; then
+            return 0
+        else
+            pl_pattern_scan_status=$?
+            [ "$pl_pattern_scan_status" -eq 1 ] || return 2
+        fi
+        # Close the start race: a package client may appear after the procfs
+        # directory snapshot was taken but before the complete scan finished.
+        if pl_pattern_pids=$(pgrep -f "$pl_pattern" 2>/dev/null); then
+            [ -n "$pl_pattern_pids" ] || return 2
+            printf '%s\n' "$pl_pattern_pids" |
+                awk -v self_pid="$" '
+                    {
+                        for (i = 1; i <= NF; i++) {
+                            if ($i !~ /^[1-9][0-9]*$/ || $i == 1 || $i == self_pid)
+                                invalid = 1
+                            count++
+                        }
+                    }
+                    END {
+                        if (invalid || count == 0)
+                            exit 1
+                        exit 0
+                    }
+                ' >/dev/null 2>&1 || return 2
+            return 0
+        else
+            pl_pattern_status=$?
+            [ "$pl_pattern_status" -eq 1 ] && [ -z "$pl_pattern_pids" ] || return 2
+            return 1
+        fi
     fi
 }

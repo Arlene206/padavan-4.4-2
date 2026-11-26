@@ -127,8 +127,11 @@ require('. /usr/lib/process_lifecycle.sh || {' in stop_caller,
         "Optware teardown must load the shared process inventory")
 for token in (
     "pl_process_pattern_state()",
+    "pl_process_pattern_procfs_state()",
     'pgrep -f "$pl_pattern"',
     "pl_pattern_status",
+    "PL_PROC_ROOT",
+    'grep -E -q -- "$pl_pattern_scan_pattern"',
 ):
     require(token in process_lib, "missing full-command-line inventory primitive: " + token)
 for token in (
@@ -156,6 +159,9 @@ for token in (
     'expect_pattern_state "$PL_TEST_PATTERN" 0',
     'expect_pattern_state "$PL_TEST_PATTERN" 1',
     'expect_pattern_state "$PL_TEST_PATTERN" 2',
+    'pgrep false-negative is caught by complete procfs command-line scan: PASS',
+    'package client appearing during absence scan is caught by recheck: PASS',
+    'incomplete procfs command-line inventory remains UNKNOWN: PASS',
     'echo malformed > "$PL_PATTERN_STATE_FILE"',
     'echo pid1 > "$PL_PATTERN_STATE_FILE"',
 ):

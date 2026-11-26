@@ -35,6 +35,10 @@ case "$(cat "$PL_PATTERN_STATE_FILE")" in
     running) printf '%s\n' 456; exit 0 ;;
     multiple) printf '%s\n' 456 457; exit 0 ;;
     absent) exit 1 ;;
+    late)
+        if [ -e "$PL_PATTERN_LATE_FILE" ]; then printf '%s\n' 459; exit 0; fi
+        : > "$PL_PATTERN_LATE_FILE"
+        exit 1 ;;
     unknown) exit 2 ;;
     empty-success) exit 0 ;;
     malformed) printf '%s\n' '456 nope'; exit 0 ;;
@@ -60,9 +64,10 @@ chmod 755 "$tmp/bin/"*
 PATH="$tmp/bin:$PATH"
 PL_TEST_STATE="$state_file"; PL_TEST_EVENTS="$events_file"
 PL_PATTERN_STATE_FILE="$tmp/pattern-state"
+PL_PATTERN_LATE_FILE="$tmp/pattern-late-once"
 PL_TEST_PATTERN='(^|[[:space:]])/usr/bin/ipkg[.]sh([[:space:]]|$)'
 echo absent > "$PL_PATTERN_STATE_FILE"
-export PL_PATTERN_STATE_FILE PL_TEST_PATTERN
+export PL_PATTERN_STATE_FILE PL_PATTERN_LATE_FILE PL_TEST_PATTERN
 PL_TEST_SLEEP_COUNT="$tmp/sleep-count"; PL_TEST_SLEEP_AFTER=0; PL_TEST_SLEEP_STATE=running
 PL_TERM_STATE=absent; PL_KILL_STATE=absent
 PL_TERM_STATUS=0; PL_KILL_STATUS=0; PL_SLEEP_STATUS=0
@@ -212,6 +217,35 @@ expect_pattern_state()
     [ "$pattern_actual" -eq "$pattern_expected" ] ||
         fail "pgrep pattern state returned $pattern_actual, expected $pattern_expected"
 }
+
+# Model a complete /proc root, including init with an empty cmdline.
+mkdir -p "$PL_PROC_ROOT/1"
+: > "$PL_PROC_ROOT/1/cmdline"
+printf '%s\n' '1 (init) S 0 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 100' > "$PL_PROC_ROOT/1/stat"
+
+# pgrep status 1 alone can be a false negative. The procfs fallback must find
+# the package-manager shell and prevent Optware from detaching its filesystem.
+mkdir -p "$PL_PROC_ROOT/457"
+printf '%s\n' '457 (sh) S 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 4001' > "$PL_PROC_ROOT/457/stat"
+printf '/bin/sh\000/usr/bin/ipkg.sh\000install\000' > "$PL_PROC_ROOT/457/cmdline"
+echo absent > "$PL_PATTERN_STATE_FILE"
+expect_pattern_state "$PL_TEST_PATTERN" 0
+rm -rf "$PL_PROC_ROOT/457"
+echo "pgrep false-negative is caught by complete procfs command-line scan: PASS"
+
+# A package client appearing after the procfs snapshot is caught by fresh pgrep.
+rm -f "$PL_PATTERN_LATE_FILE"
+echo late > "$PL_PATTERN_STATE_FILE"
+expect_pattern_state "$PL_TEST_PATTERN" 0
+echo "package client appearing during absence scan is caught by recheck: PASS"
+
+# An active PID with missing or unreadable cmdline cannot authorize ABSENT.
+mkdir -p "$PL_PROC_ROOT/458" "$PL_PROC_ROOT/458/cmdline"
+printf '%s\n' '458 (sh) S 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 4002' > "$PL_PROC_ROOT/458/stat"
+echo absent > "$PL_PATTERN_STATE_FILE"
+expect_pattern_state "$PL_TEST_PATTERN" 2
+rm -rf "$PL_PROC_ROOT/458"
+echo "incomplete procfs command-line inventory remains UNKNOWN: PASS"
 
 echo running > "$PL_PATTERN_STATE_FILE"
 expect_pattern_state "$PL_TEST_PATTERN" 0

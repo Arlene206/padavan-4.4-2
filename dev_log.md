@@ -1,3 +1,11 @@
+## 2026-11-26 — Cross-check pgrep absence against complete procfs inventory before Optware unmount
+
+- Optware teardown's package-script protection uses pl_process_pattern_state(). A clean pgrep -f status 1 with empty output had been returned as ABSENT immediately, without the procfs cross-check already required by the shared pidof state path.
+- A pgrep false-negative or incomplete proc scan could therefore let opt-umount proceed with swapoff and detach /opt while a package-manager shell remained active. The new fallback scans a complete numeric proc inventory, validates stat and cmdline availability, matches NUL-delimited argv using the requested ERE, fails UNKNOWN on incomplete metadata, and repeats pgrep to catch a late-starting client.
+- Added deterministic shell regressions for a pgrep false-negative with a live ipkg.sh command line, a late-starting client, and an incomplete cmdline inventory. Exact-SHA Process workflow validation is pending after atomic publication.
+
+---
+
 ## 2026-11-25 — Restore the exact cross-session execution mandate in handoff
 
 - AI handoff run #45769035962 on documentation commit `80ebd5e1826ead8fe8442edb9c07aba7ea176226` failed because the mandatory checkpoint section was present but the literal `# Cross-session execution mandate` section was absent.
