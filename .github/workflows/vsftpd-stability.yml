@@ -1155,9 +1155,19 @@ jobs:
           assert "ftp_storage_stop_needs_firewall_refresh(0," in daemon_test
           assert "An absent-before / unknown-after observation must fail closed." in daemon_test
           start_stor = function_body(source, "start_stor_apps(void)")
+          assert "ftp_run_before = is_ftp_run();" in start_stor
           assert "service_status = run_ftp();" in start_stor
+          assert "ftp_run_after = is_ftp_run();" in start_stor
+          assert "ftp_firewall_reconcile_needed(ftp_run_before, ftp_run_after)" in start_stor
+          assert "need_restart_fw = 1;" in start_stor
           assert "if (service_status != 0)" in start_stor
           assert "start_status = rc_first_service_start_status(start_status, service_status);" in start_stor
+          assert start_stor.index("ftp_run_before = is_ftp_run();") < start_stor.index("service_status = run_ftp();")
+          assert start_stor.index("service_status = run_ftp();") < start_stor.index("ftp_run_after = is_ftp_run();")
+          assert start_stor.index("ftp_run_after = is_ftp_run();") < start_stor.index("ftp_firewall_reconcile_needed(ftp_run_before, ftp_run_after)")
+          assert "ftp_firewall_reconcile_needed(PROCESS_PRESENCE_ABSENT" in daemon_test
+          assert "ftp_firewall_reconcile_needed(PROCESS_PRESENCE_UNKNOWN" in daemon_test
+
 
           ftp_proto = header[header.index("#if defined (APP_FTPD)"):header.index("#endif", header.index("#if defined (APP_FTPD)"))]
           assert "int stop_ftp(void);" in ftp_proto

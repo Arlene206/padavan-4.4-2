@@ -1,3 +1,13 @@
+## 2026-11-26 — Reconcile FTP firewall state after storage startup even when daemon is absent
+
+- `start_stor_apps()` previously refreshed firewall/UPnP only when a post-start probe found vsftpd running or unknown. When FTP was disabled, or startup failed and rollback left the daemon absent, the function skipped reconciliation even for absent→absent. That contradicted the existing `ftp_firewall_reconcile_needed()` policy and its tests: stale FTP NAT/UPnP rules can outlive a crashed or disabled daemon.
+- The FTP storage-start path now snapshots process presence before and after `run_ftp()` and uses the shared tri-state policy. Confirmed absence triggers stale-rule cleanup; any unknown/changed observation is conservative; running→running avoids an unnecessary firewall restart.
+- Extended the exact VSFTPD workflow's caller-graph contract to enforce the before/run/after/policy ordering and require the existing absent→absent and unknown-state policy fixtures.
+- Historic L3 boundary: XY-C1 run #45762757069 on source SHA `0ef304ddeef0a9e66fb90758e793eaa180138248` completed SUCCESS with Build XY-C1, TRX verification and artifact upload all SUCCESS. Later source commits `8874b60e` and `5df7d87f` are newer than that verified firmware SHA; current-source L3 is not established. Exact VSFTPD, XY-C1 and dependent Actions for THIS commit pending.
+- Repository operations use the GitHub API; no local working-tree checkout/test execution was available.
+
+---
+
 ## 2026-11-26 — Keep SmartDNS saved resolver-state reads behind enable persistence
 
 - The first exact test for `f5a381bac14579aabc9ad196d5bcb82f1171880e` failed immediately in `dnsmasq_config_preservation.sh`: with `set -u`, the extracted `Start_smartdns()` evaluated `sdns_redirected` before reaching the new NVRAM preflight. Production normally initializes it via `Read_ini`, but the preflight contract should run before even this saved-state read.

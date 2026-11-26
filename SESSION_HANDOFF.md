@@ -1,30 +1,33 @@
 ## Current repository state
+
 - Repository: `https://github.com/Arlene206/padavan-4.4-2`.
-- `main` parent checkpoint before this handoff update: `5df7d87f58f00457bc17b4b7b704d0ef1611476f`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only; do not update).
-- No force-push; future writes must use one complete Git tree/commit and compare-and-swap update of `main`.
-- Recent source work now includes: DHCP route manifest metric and bounded-string validation; ZeroTier pending/owned route ownership and preflight protection; MiniDLNA executable identity; VPN DNS replace-mode consistency across IPv4/IPv6; SmartDNS NVRAM error propagation in SS-conflict shutdown and failed-start rollback.
-- Latest source checkpoint being verified: `5df7d87f58f00457bc17b4b7b704d0ef1611476f` (`fix(smartdns): propagate failed-start rollback errors`), unless the parent above includes a newer independent commit.
+- Live `main` parent before this FTP fix: `466918a70e66b1ae7af108d657b9b9065ef16347`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only and unchanged. PR #1 remains closed/unmerged.
+- Bootstrap/protocol/handoff recovery was completed once in this continuation. Do not repeat startup audits or completed MiniDLNA, ZeroTier and VPN resolver tasks.
+- Every multi-file change is one complete Git tree + one parent-linked commit, published by expected-SHA non-force compare-and-swap. Never modify the backup.
+
 ## Active task
-- Continue stability/security implementation across Padavan userland; do not repeat completed audits or revisit already-fixed items without new evidence.
-- Immediate priority: inspect exact-SHA Actions listed below and complete/diagnose the XY-C1 image build if it is still pending. Do not treat host-only validation as a firmware build; require image build, TRX validation, and artifact upload for an L3 PASS.
-- Next independent area after the build: choose the next concrete P1 stability defect from the existing governance ledger, implement source + regression test, then atomic commit and exact-SHA Actions verification.
-- Current active checks:
-- XY-C1 Firmware Validation (run 45763067333): in_progress/none; Cross-build XY-C1 firmware=in_progress/null; Build XY-C1:in_progress/null, Verify TRX output:pending/null, Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9:pending/null, Report host-only validation:pending/null
-- Process lifecycle inventory - 5df7d87f58f00457bc17b4b7b704d0ef1611476f (run 45763067329): completed/success
-- DNSMasq lifecycle stability regression (run 45763067219): completed/success
-- Process inventory and lifecycle fail-closed regression (run 45763067289): completed/success
-- USB storage hotplug stability regression (run 45763067225): completed/success
+
+- SmartDNS lifecycle commits `8874b60e37b52ae4a33ed609b92e4c2d1be3a660` and `5df7d87f58f00457bc17b4b7b704d0ef1611476f` propagate SS-conflict and failed-start NVRAM/cleanup failures. Exact DNSMasq, Process inventory, Process fail-closed and USB storage Actions on `5df7d87f` all PASS.
+- This slice closes a separate FTP integration gap: `start_stor_apps()` used only post-start daemon presence to decide firewall/UPnP refresh. It skipped refresh when vsftpd was confirmed absent both before and after (e.g. disabled FTP or launch rollback), despite the shared `ftp_firewall_reconcile_needed()` policy explicitly requiring absent→absent stale-rule cleanup. The code now snapshots before/after `run_ftp()` and uses the policy.
+- Do not modify backup or reopen PR #1.
+
 ## Verification boundary
-- SmartDNS change `8874b60e37b52ae4a33ed609b92e4c2d1be3a660`: SS DNS-conflict disable now propagates the original NVRAM write failure; the runtime snapshot test injects status 73.
-- SmartDNS change `5df7d87f58f00457bc17b4b7b704d0ef1611476f`: failed-start rollback attempts exactly one Stop_smartdns cleanup, propagates NVRAM/cleanup failures with cleanup precedence, and avoids a duplicate best-effort DNSMasq restart; four injected failure/success combinations were added to the runtime test.
-- The local environment did not execute the router build. Only GitHub Actions exact-SHA runs listed in this handoff establish CI results.
-- Record pending/running checks as PENDING, and keep build/TRX/artifact status separate from host-only checks.
+
+- Historical L3: XY-C1 run #45762757069 on exact source SHA `0ef304ddeef0a9e66fb90758e793eaa180138248` completed SUCCESS; Build XY-C1, Verify TRX output and artifact upload were all SUCCESS. This validates only that older SHA.
+- XY-C1 #45763067333 for newer source `5df7d87f58f00457bc17b4b7b704d0ef1611476f` was still IN_PROGRESS at Build XY-C1 on the last query; TRX and artifact pending. Do not transfer historical 0ef L3 to 5df7 or later sources.
+- Exact source `5df7d87f`: DNSMasq #45763067219 PASS; Process inventory #45763067329 PASS; Process fail-closed #45763067289 PASS; USB storage #45763067225 PASS. Its XY-C1 build pending as above.
+- Current parent `466918a70e66b1ae7af108d657b9b9065ef16347` only has AI handoff #45763684410 PASS (docs-only commit on top of 5df7).
+- VSFTPD source integration fix and XY-C1 + dependent checks for THIS commit pending. Physical-router L4 remains NOT VERIFIED.
+- No local checkout or local test execution was available; Actions are the verification boundary.
+- Preserve required headings: `## Current repository state`, `## Active task`, `## Verification boundary`, `## Exact first action for the next GPT`.
+
 ## Exact first action for the next GPT
-1. Read the current `main` SHA and exact-SHA Actions for that SHA; do not assume the pre-handoff parent remains HEAD.
-2. Resolve any failed/pending XY-C1 workflow. If the image build is not completed, continue independent P1 work rather than waiting; the first result to record must distinguish image build, TRX validation, and artifact upload.
-3. Then select the next concrete stability defect from `REFACTOR_ROADMAP.md`, implement a small source+regression-test slice, run the relevant checks, commit one complete tree, and query Actions for that exact SHA.
-4. Update this file and `dev_log.md` again only when the next handoff boundary is reached; do not redo already completed ZeroTier, route-manifest, MiniDLNA, or SmartDNS investigations absent new evidence.
+
+1. Inspect exact-main-SHA VSFTPD stability run triggered by this commit. Confirm GNU89/ASan policy binaries and the inline caller-graph assertion on `start_stor_apps()` pass; if it fails, inspect the first failure/log.
+2. Check exact-SHA XY-C1 Build, TRX verification and artifact upload for this new source commit. Current-source L3 is established only if all three succeed on that SHA.
+3. Reconcile the older `5df7d87f` XY-C1 #45763067333 independently; it predates this FTP source fix. Continue with another distinct stability defect after these checks, avoiding repeat SmartDNS/VPN/MiniDLNA/ZeroTier work.
+
 # Cross-session execution mandate
 
 Continue one autonomous engineering stream on main. For each logical slice, create all changed blobs, one complete Git tree based on the live main root tree, and one atomic main commit; update main with a non-forced expected-SHA compare-and-swap. Never force-push, use feature branches or PRs, split one logical change into per-file commits, or modify the frozen backup. PENDING never blocks independent work. Before context exhaustion, finish the current safe slice and checkpoint the first concrete next action.

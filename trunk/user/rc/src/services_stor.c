@@ -4790,11 +4790,24 @@ start_stor_apps(void)
 #endif
 
 #if defined (APP_FTPD)
-	service_status = run_ftp();
-	if (service_status != 0)
-		logmessage("Storage", "FTP startup did not reach its daemon postconditions");
-	start_status = rc_first_service_start_status(start_status, service_status);
-	need_restart_fw |= (is_ftp_run() != PROCESS_PRESENCE_ABSENT);
+	{
+		int ftp_run_before, ftp_run_after;
+
+		ftp_run_before = is_ftp_run();
+		service_status = run_ftp();
+		if (service_status != 0)
+			logmessage("Storage", "FTP startup did not reach its daemon postconditions");
+		start_status = rc_first_service_start_status(start_status, service_status);
+		ftp_run_after = is_ftp_run();
+
+		/*
+		 * A confirmed absent daemon still needs reconciliation: stale FTP
+		 * NAT/UPnP rules may survive a crash or an already-disabled service.
+		 * Unknown inventory is conservative and also triggers a refresh.
+		 */
+		if (ftp_firewall_reconcile_needed(ftp_run_before, ftp_run_after))
+			need_restart_fw = 1;
+	}
 #endif
 #if defined (APP_SMBD)
 	service_status = run_samba();
