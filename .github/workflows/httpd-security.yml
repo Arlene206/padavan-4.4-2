@@ -3068,7 +3068,9 @@ jobs:
           route_start = wan.index("control_dhcp_routes(")
           route_end = wan.index("int\nadd_static_wan_routes(", route_start)
           route_body = wan[route_start:route_end]
-          assert "route_status = is_add ?" in route_body and "route_del(ifname, metric" in route_body
+          assert "dhcp_route_add_owned(" in route_body
+          assert "dhcp_route_cleanup_owned(ifname, metric)" in route_body
+          assert "route_del(" not in route_body
           route_body_code = " ".join(route_body.split())
           checked_route_selector = 'get_nvram_match_checked_status( "dr_enable_x", "1", &dr_enable_value)'
           assert "if (is_add) {" in route_body_code

@@ -107,10 +107,13 @@ legacy_validation = control_body.index(
 classless_validation = control_body.index(
     "dhcp_lease_classless_route_list_is_valid("
 )
-route_add = control_body.index("route_add(")
-route_delete = control_body.index("route_del(")
-assert legacy_validation < route_add < route_delete
-assert classless_validation < route_add < route_delete
+route_add = control_body.index("dhcp_route_add_owned(")
+route_cleanup = control_body.index("dhcp_route_cleanup_owned(")
+assert legacy_validation < route_add
+assert classless_validation < route_add
+assert route_cleanup < route_add
+assert "route_del(" not in control_body
+assert "dhcp_route_cleanup_owned(ifname, metric)" in control_body
 
 # IPTV must reject malformed route and Router options before the previous
 # interface/route inventory can be modified or its replacement published.
