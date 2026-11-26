@@ -1,6 +1,6 @@
-## 2026-11-26 — DHCP relay BOOTREPLY gate ordering
+## 2026-11-26 — ZeroTier regression fixture isolation
 
-- Moved opcode rejection ahead of option parsing and XID lookup after the exact-head integration check failed.
+- Restore shared static-route test selectors after the missing-interface case; lifecycle rerun pending.
 
 ---
 ## 2026-11-26 — Validate static and DHCPv6 WAN DNS server literals

@@ -1,24 +1,24 @@
 ## Current repository state — 2026-11-26
 
-- Live `main` before this slice: `73b50756114becaab0454a617d643eb8b427a623` (`fix(zerotier): fail closed without firewall cleanup identity`). Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged.
-- ZeroTier unknown-cleanup-target guard/regression `73b5075`: lifecycle #45727748483 and AI docs #45727748516 were IN_PROGRESS at last poll.
-- DHCP relay BOOTREPLY workflow #45727439120 FAILED on ancestor `27fa893` at its source-order contract: `pass_to_client()` looked up the XID before checking `op` and parsing the message type. The C opcode helper test passed, but the production integration order violated the intended pre-parse gate. This slice moves the opcode gate first.
-- DHCP relay XID syntax correction `27fa893` fixed the malformed `if (if (...))` production C condition and tightened the checker; its helper workflow on ancestor `164044f` did not compile the complete translation unit. Exact current-source XID/BOOTREPLY and XY-C1 must be checked.
+- Live `main` before this slice: `9da18f43509cf162f5951503b1fbeb3714b0fc8a` (`fix(udhcp): reject non-replies before transaction lookup`). Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged.
+- Exact `9da18f4`: BOOTREPLY #45727889323 PASS; bounded XID #45727889268 PASS; AI docs #45727889334 PASS; Process #45727889343 PASS. XY-C1 #45727889298 was still IN_PROGRESS at last poll. Other concurrent exact-head packet-bounds/USB/NVRAM/select/giaddr/select-fd jobs also need final status collection.
+- ZeroTier lifecycle #45727748483 FAILED on parent `73b5075`: shell regression reached its existing successful-stop case and reported `successful cleanup did not run after daemon absence`. Root cause: the inserted no-interface fixture set `TEST_STATIC_ROUTE_COUNT/ENABLE=0` but did not restore the previous enabled route fixture, so the next independent successful-stop assertion lost its `zero_route:del` action. The emitted `base64: invalid input` is expected from the pre-existing negative planet decoder test, not this failure.
+- ZeroTier exact `73b5075` AI docs #45727748516 PASS. Current fix saves/restores both shared static-route selectors and asserts unknown-target stop made no route actions; lifecycle rerun pending.
 - AdGuardHome selector fix `f0cc53c`: config/security #45726581924 and Process #45726581809 PASS; AI correction `1f7f8b3` #45726801473 PASS. WSDD2 netlink/docs passed on `4de82b5`.
-- Latest confirmed XY-C1 Build/TRX/artifact baseline is older `b320dd2` (#45724141332). Current-source L3 and physical-router L4 are NOT VERIFIED.
+- Latest verified XY-C1 Build/TRX/artifact remains older `b320dd2` (#45724141332); `9da18f4` firmware workflow remains pending. Current-source L3 and physical-router L4 NOT VERIFIED.
 
 ## Active task
 
-Ensure DHCP relay server-socket packets are rejected by BOOTREPLY opcode before DHCP option parsing and XID lookup. The exact workflow failed because `pass_to_client()` did the transaction lookup first; move the cheap opcode gate ahead of all packet-type parsing and transaction matching.
+Repair ZeroTier lifecycle regression fixture isolation. Production now correctly rejects shutdown without a live interface or valid firewall checkpoint, and direct `del_rules()` fails closed. The regression fixture accidentally disabled static-route selectors for the existing following successful-stop test and failed to restore them.
 
 ## Verification boundary
 
-- The standalone GNU89 ASan/UBSan opcode-policy executable passed on `27fa893`, but the integration assertion correctly failed because the production operation order was wrong. This commit changes production order; exact-head BOOTREPLY/XID/XY-C1 runs pending.
-- ZeroTier lifecycle and AI handoff actions for `73b5075` were in progress; collect exact outcomes too. No same-SHA firmware or router result claimed.
+- Preserve the production fail-closed fix from `73b5075`. This slice only isolates test fixture state: snapshot/restore static route count + enable flag and assert the unknown-target case made no route changes.
+- Exact-head ZeroTier lifecycle, Process and AI docs required after commit. `9da18f4` BOOTREPLY, XID, AI and Process are PASS; XY-C1 pending. No same-SHA firmware or router result claimed.
 
 ## Exact first action for the next GPT
 
-Fetch exact-head BOOTREPLY, XID, ZeroTier lifecycle, Process, AI and XY-C1 job results. Fix the first real failure. Preserve the frozen backup; do not infer current-source L3 without same-SHA Build, TRX verification and uploaded artifact.
+Fetch exact-head ZeroTier lifecycle and AI docs for this fixture correction; retrieve the final `9da18f4` XY-C1 and subsystem Actions. Fix the first causal failure, then continue one independent stability/security issue. Preserve frozen backup and do not claim L3 absent same-SHA Build/TRX/artifact.
 
 # Cross-session execution mandate
 

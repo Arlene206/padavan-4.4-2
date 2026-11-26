@@ -604,8 +604,12 @@ require('stop accepted an unknown firewall cleanup target' in test and
         'unknown firewall target still signalled the daemon' in test and
         'unknown firewall target changed firewall rules' in test and
         'unknown firewall target removed persistent identity' in test and
-        'del_rules accepted an unknown firewall cleanup target' in test,
-        "legacy missing-interface regression must preserve daemon, active rules and identity")
+        'del_rules accepted an unknown firewall cleanup target' in test and
+        'unknown firewall target changed route state' in test and
+        'TEST_SAVED_STATIC_ROUTE_COUNT="$TEST_STATIC_ROUTE_COUNT"' in test and
+        'TEST_STATIC_ROUTE_COUNT="$TEST_SAVED_STATIC_ROUTE_COUNT"' in test and
+        'TEST_STATIC_ROUTE_ENABLE="$TEST_SAVED_STATIC_ROUTE_ENABLE"' in test,
+        "legacy missing-interface regression must preserve daemon, active rules, routes and identity without leaking fixture state")
 checkpoint_load = stop_body.index("if ! zerotier_firewall_state_load; then")
 checkpoint_recovery = stop_body.index("if ! zerotier_firewall_state_recover_prefix; then", checkpoint_load)
 saved_interface = stop_body.index('zt0="$zt_state_saved_interface"', checkpoint_recovery)

@@ -1272,6 +1272,8 @@ TEST_ROUTE_MODE=none
 TEST_ROUTE_PRESENT=0
 TEST_ROUTE_SHOW_OUTPUT=""
 TEST_NAT_ENABLE=0
+TEST_SAVED_STATIC_ROUTE_COUNT="$TEST_STATIC_ROUTE_COUNT"
+TEST_SAVED_STATIC_ROUTE_ENABLE="$TEST_STATIC_ROUTE_ENABLE"
 TEST_STATIC_ROUTE_COUNT=0
 TEST_STATIC_ROUTE_ENABLE=0
 TEST_NVRAM_READ_FAIL_KEY=""
@@ -1297,6 +1299,11 @@ if del_rules; then
 	fail "del_rules accepted an unknown firewall cleanup target"
 fi
 [ ! -s "$TEST_IPTABLES_LOG" ] || fail "del_rules issued firewall commands without a cleanup target"
+[ ! -s "$TEST_ACTION_LOG" ] || fail "unknown firewall target changed route state"
+
+# Restore the shared route fixture for the following successful-stop case.
+TEST_STATIC_ROUTE_COUNT="$TEST_SAVED_STATIC_ROUTE_COUNT"
+TEST_STATIC_ROUTE_ENABLE="$TEST_SAVED_STATIC_ROUTE_ENABLE"
 
 : > "$TEST_KILL_LOG"
 : > "$TEST_SLEEP_LOG"

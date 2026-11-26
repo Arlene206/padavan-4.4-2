@@ -1,3 +1,10 @@
+## 2026-11-26 — Isolate ZeroTier missing-cleanup-target test fixture
+
+- Exact ZeroTier lifecycle #45727748483 on `73b5075` reached the existing successful-stop test and failed because its expected `zero_route:del` action was missing. The new missing-interface fixture had set `TEST_STATIC_ROUTE_COUNT=0` and `TEST_STATIC_ROUTE_ENABLE=0` and leaked those values into the next test; the `base64: invalid input` line is emitted by the earlier intentional invalid-planet regression.
+- The fixture now snapshots and restores both shared static-route selectors, and asserts the fail-closed path leaves the route action log untouched. Python source contract enforces restoration. Production guard is unchanged; exact-head rerun pending.
+
+---
+
 ## 2026-11-26 — Check DHCP relay BOOTREPLY opcode before parsing or XID lookup
 
 - Exact BOOTREPLY workflow #45727439120 failed its integration assertion because `pass_to_client()` called `xid_find(p)` before checking the server packet opcode and parsing the DHCP message type.
