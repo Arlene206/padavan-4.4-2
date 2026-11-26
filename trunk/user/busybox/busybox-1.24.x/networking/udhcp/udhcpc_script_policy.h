@@ -273,5 +273,19 @@ udhcpc_nak_server_id_rejected(int rebinding,
 					 server_id_present, received_server_id);
 }
 
+/*
+ * A REBINDING ACK may be issued by any server. Once the event callback has
+ * committed that lease, use its server identifier for future unicast renewals
+ * and releases. Also learn an identifier when an address-less offer had none.
+ */
+static inline uint32_t
+udhcpc_server_addr_after_ack(uint32_t current_server_addr, int rebinding,
+			     int server_id_present, uint32_t received_server_id)
+{
+	if (server_id_present && (rebinding || current_server_addr == 0U))
+		return received_server_id;
+	return current_server_addr;
+}
+
 #endif /* UDHCP_SCRIPT_POLICY_H */
 

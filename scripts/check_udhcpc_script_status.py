@@ -190,6 +190,14 @@ assert "state == REQUESTING" in ack[retry:retry_continue]
 assert "tryagain_timeout" in ack[retry:retry_continue]
 assert "script_elapsed" in ack[retry:retry_continue]
 assert ack.index("requested_ip = packet.yiaddr;", retry_continue) > retry_continue
+server_address_commit = ack.index("server_addr = udhcpc_server_addr_after_ack(")
+bound_transition = ack.index("state = BOUND;", server_address_commit)
+assert retry_continue < server_address_commit < bound_transition
+assert "state == REBINDING" in ack[server_address_commit:bound_transition]
+assert "server_id_option != NULL" in ack[server_address_commit:bound_transition]
+assert "udhcpc_server_addr_after_ack" in policy
+assert "test_ack_updates_server_address_after_rebinding" in test
+assert "test_ack_updates_server_address_after_rebinding() != 0" in test
 assert "already_waited_sec = script_elapsed;" in ack
 assert "DHCPACK for %s" in ack
 

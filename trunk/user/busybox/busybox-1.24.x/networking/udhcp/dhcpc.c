@@ -2173,6 +2173,10 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 					continue;
 				}
 
+				/* A REBINDING ACK may come from another server. Remember the
+				 * replying server for the next unicast renew/release. */
+				server_addr = udhcpc_server_addr_after_ack(server_addr,
+					state == REBINDING, server_id_option != NULL, svid);
 				already_waited_sec = script_elapsed;
 				timeout = lease_seconds / 2;
 				rebind_timeout = timeout / 8;
