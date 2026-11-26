@@ -4965,8 +4965,7 @@ man_up_internal_with_route_status(char *man_ifname, int unit, int is_static,
 }
 
 static int
-man_up_internal(char *man_ifname, int unit, int is_static,
-		int *gateway_route_status)
+man_up_internal(char *man_ifname, int unit, int is_static, int *gateway_route_status)
 {
 	return man_up_internal_with_route_status(
 		man_ifname, unit, is_static, gateway_route_status, NULL);
