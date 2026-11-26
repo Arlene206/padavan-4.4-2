@@ -55,4 +55,13 @@ networkmap_arp_receive_error_is_retryable(int error)
 	return error == EINTR || error == EAGAIN || error == EWOULDBLOCK;
 }
 
+/* SO_RCVTIMEO is required to keep the ARP receive loop bounded. */
+static inline int
+networkmap_arp_receive_timeout_error(int option_status, int saved_errno)
+{
+	if (option_status == 0)
+		return 0;
+	return saved_errno > 0 ? saved_errno : EIO;
+}
+
 #endif

@@ -56,6 +56,12 @@ main(void)
 	assert(!networkmap_arp_receive_error_is_retryable(ENODEV));
 	assert(!networkmap_arp_receive_error_is_retryable(ENETDOWN));
 
+	assert(networkmap_arp_receive_timeout_error(0, 0) == 0);
+	assert(networkmap_arp_receive_timeout_error(0, EINTR) == 0);
+	assert(networkmap_arp_receive_timeout_error(-1, EACCES) == EACCES);
+	assert(networkmap_arp_receive_timeout_error(-1, 0) == EIO);
+	assert(networkmap_arp_receive_timeout_error(-1, -1) == EIO);
+
 	puts("networkmap ARP frame validation and receive error policy: PASS");
 	return 0;
 }

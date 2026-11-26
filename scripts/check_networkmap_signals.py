@@ -206,11 +206,19 @@ assert fatal_receive < receive_log < receive_break < cleanup
 assert "exit_status = errno ? errno : EIO;" in main[fatal_receive:receive_log]
 
 init = function_body(source, "nmap_init(void)")
+assert "static int\\nnmap_init(void)" in source
 assert "struct timeval arp_timeout = {2, 0};" in init
-assert "SO_RCVTIMEO" in init
-init = function_body(source, "nmap_init(void)")
-assert "struct timeval arp_timeout = {2, 0};" in init
-assert "SO_RCVTIMEO" in init
+assert "return networkmap_set_receive_timeout(&arp_timeout);" in init
+timeout_helper = function_body(source, "networkmap_set_receive_timeout(const struct timeval *timeout)")
+assert "SO_RCVTIMEO" in timeout_helper
+assert "networkmap_arp_receive_timeout_error(" in timeout_helper
+assert "errno = status;" in timeout_helper
+assert "if (nmap_init() < 0)" in main
+assert 'perror("networkmap receive timeout");' in main
+iterate_body = function_body(source, "nmap_iterate(void)")
+assert "if (networkmap_set_receive_timeout(&arp_timeout) < 0)" in iterate_body
+assert "return -1;" in iterate_body
+assert "networkmap_arp_receive_timeout_error(-1, EACCES)" in arp_test
 assert "struct timeval arp_timeout = {2, 0};" in source[source.index("nmap_iterate(void)"):]
 
 assert "extern unsigned int scan_now;" in shared

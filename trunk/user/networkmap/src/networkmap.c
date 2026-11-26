@@ -459,7 +459,30 @@ arp_proc_fetch(void)
 	}
 }
 
-static void
+static int
+networkmap_set_receive_timeout(const struct timeval *timeout)
+{
+	int option_status, saved_errno, status;
+
+	if (!timeout) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	errno = 0;
+	option_status = setsockopt(
+		arp_sockfd, SOL_SOCKET, SO_RCVTIMEO, timeout, sizeof(*timeout));
+	saved_errno = errno;
+	status = networkmap_arp_receive_timeout_error(
+		option_status, saved_errno);
+	if (status != 0) {
+		errno = status;
+		return -1;
+	}
+	return 0;
+}
+
+static int
 nmap_init(void)
 {
 	unsigned int lan_pool;
@@ -490,7 +513,7 @@ nmap_init(void)
 
 error_exit:
 
-	setsockopt(arp_sockfd, SOL_SOCKET, SO_RCVTIMEO, &arp_timeout, sizeof(arp_timeout));
+	return networkmap_set_receive_timeout(&arp_timeout);
 }
 
 static int
@@ -721,7 +744,8 @@ nmap_iterate(void)
 			sent_arppacket(arp_sockfd, &in);
 		} else {
 			struct timeval arp_timeout = {2, 0};
-			setsockopt(arp_sockfd, SOL_SOCKET, SO_RCVTIMEO, &arp_timeout, sizeof(arp_timeout));
+			if (networkmap_set_receive_timeout(&arp_timeout) < 0)
+				return -1;
 			
 			networkmap_fullscan = 0;
 			
@@ -794,7 +818,12 @@ int main(int argc, char *argv[])
 	if (do_wait)
 		sleep(5);
 
-	nmap_init();
+	if (nmap_init() < 0) {
+		exit_status = errno ? errno : EIO;
+		perror("networkmap receive timeout");
+		clear_resources();
+		return exit_status;
+	}
 
 	while (!daemon_exit) {
 		int refresh = networkmap_signal_take_refresh(&networkmap_refresh_requested);

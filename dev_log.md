@@ -1,3 +1,8 @@
+## 2026-11-26 — Fail closed when networkmap cannot bound ARP receive waits
+
+- `nmap_init()` and the full-scan completion path ignored `setsockopt(SO_RCVTIMEO)` results. If the initial timeout could not be installed, `recvfrom()` could block indefinitely, preventing periodic discovery and delaying signal-driven shutdown; failure to restore the normal timeout after a full scan could also leave a stale 60 ms cadence.
+- Added one checked timeout publisher, propagate initial setup errors before entering the daemon loop, and abort the current iteration if timeout restoration fails. GNU89 regression covers successful option setup, preserved errno, and `EIO` fallback; the source contract enforces both call-site error paths.
+
 ## 2026-11-26 — Align detect_internet interrupted-probe source contract
 
 - Exact run #45840372153 compiled and passed the GNU89 ASan/UBSan signal, host-policy and NVRAM-policy binaries; its embedded checker then failed because a new order assertion matched the comment text "Linux select()" before the wait loop, rather than the actual call. Tightened the checker to order `FD_ZERO()` before `ret = select()`; production code and regression results were unchanged.
