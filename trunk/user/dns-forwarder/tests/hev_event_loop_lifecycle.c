@@ -1,10 +1,32 @@
 #include <assert.h>
 #include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 #include <sys/epoll.h>
 
 #include "../dns-forwarder-1.2.1/hev-event-loop.h"
 #include "../dns-forwarder-1.2.1/hev-event-source-fds.h"
+
+static void
+test_event_source_name_storage_is_safe(void)
+{
+	HevEventSource *source = hev_event_source_fds_new();
+	const char *name;
+
+	assert(source);
+	hev_event_source_set_name(source, "dns-forwarder");
+	assert(0 == strcmp(hev_event_source_get_name(source), "dns-forwarder"));
+
+	/* The getter's borrowed pointer may be passed back without a use-after-free. */
+	name = hev_event_source_get_name(source);
+	hev_event_source_set_name(source, name);
+	assert(0 == strcmp(hev_event_source_get_name(source), "dns-forwarder"));
+
+	/* Empty names still require one byte for the terminating NUL. */
+	hev_event_source_set_name(source, "");
+	assert(0 == strcmp(hev_event_source_get_name(source), ""));
+	hev_event_source_unref(source);
+}
 
 int
 main (void)
@@ -12,6 +34,8 @@ main (void)
 	HevEventLoop *first = NULL, *second = NULL;
 	HevEventSource *source = NULL;
 	int first_pipe[2], second_pipe[2];
+
+	test_event_source_name_storage_is_safe();
 
 	assert(0 == pipe(first_pipe));
 	assert(0 == pipe(second_pipe));

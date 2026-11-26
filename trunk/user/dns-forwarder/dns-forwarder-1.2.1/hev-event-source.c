@@ -85,12 +85,24 @@ hev_event_source_unref (HevEventSource *self)
 void
 hev_event_source_set_name (HevEventSource *self, const char *name)
 {
-	if (self && name) {
-		if (self->name)
-		  HEV_MEMORY_ALLOCATOR_FREE (self->name);
-		self->name = HEV_MEMORY_ALLOCATOR_ALLOC (strlen (name));
-		strcpy (self->name, name);
-	}
+	char *new_name, *old_name;
+	size_t name_length;
+
+	if (!self || !name)
+		return;
+
+	/* Include the terminating NUL; preserve the old value on allocation failure. */
+	name_length = strlen (name) + 1;
+	new_name = HEV_MEMORY_ALLOCATOR_ALLOC (name_length);
+	if (!new_name)
+		return;
+	memcpy (new_name, name, name_length);
+
+	/* Copy before freeing so callers may safely pass get_name() back here. */
+	old_name = self->name;
+	self->name = new_name;
+	if (old_name)
+		HEV_MEMORY_ALLOCATOR_FREE (old_name);
 }
 
 const char *

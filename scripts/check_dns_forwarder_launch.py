@@ -67,6 +67,8 @@ shutils_header = read("trunk/user/shared/src/shutils.h")
 package_makefile = read("trunk/user/dns-forwarder/Makefile")
 launcher_script = read("trunk/user/dns-forwarder/dns-forwarder.sh")
 forwarder_core = read("trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-dns-forwarder.c")
+event_source_core = read("trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-event-source.c")
+event_loop_test = read("trunk/user/dns-forwarder/tests/hev_event_loop_lifecycle.c")
 main_core = read("trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-main.c")
 forwarder_policy = read("trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-dns-forwarder-policy.h")
 forwarder_policy_test = read("trunk/user/dns-forwarder/tests/hev_dns_forwarder_policy.c")
@@ -274,6 +276,13 @@ assert '#include "hev-dns-forwarder-policy.h"' in forwarder_core
 assert re.search(r"hev_dns_forwarder_parse_port\s*\(\s*upstream_port\s*,\s*&parsed_upstream_port\s*\)", forwarder_core)
 assert "htons (parsed_upstream_port)" in forwarder_core
 assert "atoi (upstream_port)" not in forwarder_core
+event_source_name_setter = function_body(event_source_core, "hev_event_source_set_name (")
+assert "strlen (name) + 1" in event_source_name_setter
+assert "HEV_MEMORY_ALLOCATOR_ALLOC (name_length)" in event_source_name_setter
+assert "memcpy (new_name, name, name_length)" in event_source_name_setter
+assert event_source_name_setter.index("memcpy (new_name") < event_source_name_setter.index("HEV_MEMORY_ALLOCATOR_FREE (old_name)")
+assert "test_event_source_name_storage_is_safe" in event_loop_test
+
 assert "value > 65535" in forwarder_policy
 for port_case in ('"1"', '"53"', '"00053"', '"65535"', '"0"', '"65536"', '"-1"', '"+53"', '"53x"'):
     assert port_case in forwarder_policy_test
