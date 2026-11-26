@@ -166,9 +166,12 @@ assert '#include "u2ec_discovery_snapshot_policy.h"' in usb_test_source
 assert "sizeof(string) - 1" in usb_test_source
 assert "u2ec_copy_discovery_product(1, string, str_product" in usb_test_source
 assert "strcpy(str_product, string)" not in usb_test_source
-assert "SO_RCVTIMEO" in add_remote and "command_timeout.tv_sec = 1" in add_remote
-assert "u2ec_recv_all(new_fd, message, 7U)" in add_remote
-assert "u2ec_recv_all(new_fd, message + 7, 2U)" in add_remote
+assert "U2EC_DISCOVERY_COMMAND_TIMEOUT_SECONDS 1U" in policy
+assert "u2ec_recv_all_timeout(" in add_remote
+assert "U2EC_DISCOVERY_COMMAND_TIMEOUT_SECONDS" in add_remote
+assert "u2ec_recv_all(new_fd" not in add_remote
+assert "setsockopt(new_fd, SOL_SOCKET, SO_RCVTIMEO" not in add_remote
+assert "test_timed_recv_expires_after_a_partial_field" in test
 assert "recv(new_fd, message, 9, 0)" not in add_remote
 assert "u2ec_config_command_kind(message, 7U)" in add_remote
 assert "u2ec_config_command_kind(message, 9U)" in add_remote

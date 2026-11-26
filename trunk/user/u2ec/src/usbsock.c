@@ -2875,7 +2875,6 @@ void add_remote_device()
 	int			fdmax, ret, command_type;
 	struct sockaddr_in	cli_addr;
 	int			addr_len = sizeof(cli_addr);
-	struct timeval		command_timeout;
 	char			message[192];
 
 	FD_ZERO(&master_fds);
@@ -2905,9 +2904,6 @@ void add_remote_device()
 	FD_SET(find_fd, &master_fds);
 	FD_SET(conf_fd, &master_fds);
 	fdmax = find_fd > conf_fd ? find_fd : conf_fd;
-	command_timeout.tv_sec = 1;
-	command_timeout.tv_usec = 0;
-
 	for (;;) {
 		ret = u2ec_select_readable_retry(fdmax + 1, &master_fds,
 		                                  &read_fds);
@@ -2937,17 +2933,12 @@ void add_remote_device()
 
 			bzero(message, 192);
 			/*
-			 * GETNAME is 7 bytes; GETCONFIG is 9. recv() may return a
-			 * short prefix even when the peer sends a complete command.
-			 * SO_RCVTIMEO keeps a partial-command peer from holding this
-			 * discovery worker indefinitely.
+			 * A per-recv timeout can restart after every byte. Bound the
+			 * complete fixed-size command field with one absolute deadline.
 			 */
-			if (setsockopt(new_fd, SOL_SOCKET, SO_RCVTIMEO,
-			               &command_timeout, sizeof(command_timeout)) != 0) {
-				PERROR("setsockopt SO_RCVTIMEO");
-				goto next;
-			}
-			if (u2ec_recv_all(new_fd, message, 7U) < 0) {
+			if (u2ec_recv_all_timeout(
+				    new_fd, message, 7U,
+				    U2EC_DISCOVERY_COMMAND_TIMEOUT_SECONDS) < 0) {
 				PERROR("recv discovery command prefix");
 				goto next;
 			}
@@ -2956,7 +2947,9 @@ void add_remote_device()
 			command_type = u2ec_config_command_kind(message, 7U);
 			if (command_type == U2EC_CONFIG_COMMAND_UNKNOWN &&
 			    memcmp(message, "GETCONF", 7U) == 0) {
-				if (u2ec_recv_all(new_fd, message + 7, 2U) < 0) {
+				if (u2ec_recv_all_timeout(
+					    new_fd, message + 7, 2U,
+					    U2EC_DISCOVERY_COMMAND_TIMEOUT_SECONDS) < 0) {
 					PERROR("recv GETCONFIG suffix");
 					goto next;
 				}

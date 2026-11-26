@@ -135,14 +135,16 @@ test_timed_recv_completes_a_ready_field(void)
 static void
 test_timed_recv_expires_after_a_partial_field(void)
 {
+    assert(U2EC_DISCOVERY_COMMAND_TIMEOUT_SECONDS == 1U);
     int sockets[2];
     char received[2];
 
     assert(socketpair(AF_UNIX, SOCK_STREAM, 0, sockets) == 0);
     assert(write(sockets[0], "x", 1U) == 1);
     errno = 0;
-    assert(u2ec_recv_all_timeout(sockets[1], received, sizeof(received),
-                                 1U) == -1);
+    assert(u2ec_recv_all_timeout(
+               sockets[1], received, sizeof(received),
+               U2EC_DISCOVERY_COMMAND_TIMEOUT_SECONDS) == -1);
     assert(errno == ETIMEDOUT);
     assert(received[0] == 'x');
     close(sockets[0]);
@@ -398,11 +400,13 @@ test_discovery_commands_are_read_as_complete_stream_tokens(void)
     /* Two writes model a command split across TCP segments. */
     assert(write(sockets[0], "GETCON", 6U) == 6);
     assert(write(sockets[0], "FIG", 3U) == 3);
-    assert(u2ec_recv_all(sockets[1], command, 7U) == 7);
+    assert(u2ec_recv_all_timeout(sockets[1], command, 7U,
+                                 U2EC_DISCOVERY_COMMAND_TIMEOUT_SECONDS) == 7);
     assert(memcmp(command, "GETCONF", 7U) == 0);
     assert(u2ec_config_command_kind(command, 7U) ==
            U2EC_CONFIG_COMMAND_UNKNOWN);
-    assert(u2ec_recv_all(sockets[1], command + 7, 2U) == 2);
+    assert(u2ec_recv_all_timeout(sockets[1], command + 7, 2U,
+                                 U2EC_DISCOVERY_COMMAND_TIMEOUT_SECONDS) == 2);
     assert(u2ec_config_command_kind(command, 9U) ==
            U2EC_CONFIG_COMMAND_GETCONFIG);
     close(sockets[0]);
@@ -412,7 +416,8 @@ test_discovery_commands_are_read_as_complete_stream_tokens(void)
     assert(write(sockets[0], "GET", 3U) == 3);
     assert(write(sockets[0], "NAME", 4U) == 4);
     memset(command, 0, sizeof(command));
-    assert(u2ec_recv_all(sockets[1], command, 7U) == 7);
+    assert(u2ec_recv_all_timeout(sockets[1], command, 7U,
+                                 U2EC_DISCOVERY_COMMAND_TIMEOUT_SECONDS) == 7);
     assert(u2ec_config_command_kind(command, 7U) ==
            U2EC_CONFIG_COMMAND_GETNAME);
     close(sockets[0]);

@@ -16,6 +16,9 @@
 #define U2EC_CONFIG_COMMAND_GETNAME    1
 #define U2EC_CONFIG_COMMAND_GETCONFIG  2
 
+/* Bound each fixed-size discovery command field against slow byte trickles. */
+#define U2EC_DISCOVERY_COMMAND_TIMEOUT_SECONDS 1U
+
 /* Close a socket whose initialization failed without losing the cause. */
 static inline int
 u2ec_close_failed_socket(int fd)
