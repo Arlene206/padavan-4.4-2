@@ -249,8 +249,8 @@ assert "int start_errno;" in start
 assert start.index("errno = 0;") < start.index('launch_status = eval("/bin/inadyn"')
 assert "launch_errno = errno;" in start
 assert start.count("inadyn_rollback_failed_start(") == 2
-assert 'inadyn_rollback_failed_start(\n\t\t\tlaunch_status, start_errno, "launcher")' in start
-assert 'inadyn_rollback_failed_start(\n\t\t\tstart_status, start_errno, "startup confirmation")' in start
+assert 'inadyn_rollback_failed_start(\n\t\t\tlaunch_status, start_errno, "launcher",\n\t\t\tprevious_running, &config_snapshot)' in start
+assert 'inadyn_rollback_failed_start(\n\t\t\tstart_status, start_errno, "startup confirmation",\n\t\t\tprevious_running, &config_snapshot)' in start
 assert start.index("inadyn_confirm_started(launch_status)") < start.index("inadyn_rollback_failed_start(\n\t\t\tstart_status")
 rollback = body("inadyn_rollback_failed_start(int start_status, int start_errno,")
 assert "stop_status = stop_ddns_locked();" in rollback

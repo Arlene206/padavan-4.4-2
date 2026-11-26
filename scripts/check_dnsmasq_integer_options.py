@@ -224,7 +224,7 @@ sync_directory = function_body(
 sync_parent = function_body(
     dnsmasq_file_helper, "dnsmasq_file_sync_parent(const char *path)")
 publish = function_body(
-    dnsmasq_file_helper, "dnsmasq_file_publish(FILE *fp, char *path")
+    dnsmasq_file_helper, "dnsmasq_file_publish_internal(FILE *fp, char *path")
 assert "O_DIRECTORY | O_NOFOLLOW" in sync_directory
 assert sync_directory.index("fsync(fd)") < sync_directory.index("close(fd)")
 assert "strrchr(parent, '/')" in sync_parent
