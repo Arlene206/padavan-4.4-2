@@ -257,6 +257,34 @@ wan_nvram_int_temp_status(const char *param_name, int value)
 }
 
 static int
+wan_dhcp_retry_marker_write(void *opaque, unsigned int marker, int value)
+{
+	static const char *const suffixes[DHCP_WAN_RETRY_MARKER_COUNT] = {
+		"err", "route_err", "mtu_err"
+	};
+	const char *prefix = (const char *)opaque;
+	char param_name[32];
+	int length, status;
+
+	if (!prefix || !prefix[0] || marker >= DHCP_WAN_RETRY_MARKER_COUNT)
+		return EINVAL;
+	length = snprintf(param_name, sizeof(param_name), "%s%s",
+			  prefix, suffixes[marker]);
+	if (length < 0)
+		return errno ? errno : EIO;
+	if ((size_t)length >= sizeof(param_name))
+		return ENAMETOOLONG;
+
+	status = wan_nvram_int_temp_status(param_name, value);
+	if (status != 0)
+		logmessage(LOGNAME,
+			   "cannot publish DHCP retry marker %s (status=%d)",
+			   param_name, status);
+	return status;
+}
+
+
+static int
 wan_nvram_int_status(const char *param_name, int value)
 {
 	int api_result, saved_errno;
@@ -8431,28 +8459,13 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 	}
 
 	callback_status = dhcp_bound_callback_status(route_setup_status, mtu_status);
-	publish_status = wan_nvram_int_temp_status(
-		strcat_r(prefix, "mtu_err", tmp), mtu_status);
+	publish_status = dhcp_wan_bound_retry_markers_publish(
+		i_err, route_setup_status, mtu_status,
+		wan_dhcp_retry_marker_write, prefix);
 	callback_status = route_status_accumulate(callback_status, publish_status);
 	if (publish_status != 0)
 		logmessage(log_prefix,
-			   "cannot publish DHCP MTU retry state on %s (status=%d)",
-			   wan_ifname, publish_status);
-
-	publish_status = wan_nvram_int_temp_status(
-		strcat_r(prefix, "route_err", tmp), route_setup_status);
-	callback_status = route_status_accumulate(callback_status, publish_status);
-	if (publish_status != 0)
-		logmessage(log_prefix,
-			   "cannot publish DHCP route retry state on %s (status=%d)",
-			   wan_ifname, publish_status);
-
-	publish_status = wan_nvram_int_temp_status(
-		strcat_r(prefix, "err", tmp), i_err);
-	callback_status = route_status_accumulate(callback_status, publish_status);
-	if (publish_status != 0)
-		logmessage(log_prefix,
-			   "cannot publish DHCP lease error state on %s (status=%d)",
+			   "cannot publish complete DHCP retry-marker tuple on %s (status=%d)",
 			   wan_ifname, publish_status);
 
 	return callback_status;
@@ -8827,25 +8840,13 @@ udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)
 
 	/* Keep route retry state independent from the IPTV proxy lifecycle. */
 	callback_status = dhcp_bound_callback_status(route_setup_status, mtu_status);
-	publish_status = wan_nvram_int_temp_status("manv_mtu_err", mtu_status);
+	publish_status = dhcp_wan_bound_retry_markers_publish(
+		i_err, route_setup_status, mtu_status,
+		wan_dhcp_retry_marker_write, "manv_");
 	callback_status = route_status_accumulate(callback_status, publish_status);
 	if (publish_status != 0)
 		logmessage(log_prefix,
-			   "cannot publish IPTV MTU retry state (status=%d)",
-			   publish_status);
-
-	publish_status = wan_nvram_int_temp_status("manv_route_err", route_setup_status);
-	callback_status = route_status_accumulate(callback_status, publish_status);
-	if (publish_status != 0)
-		logmessage(log_prefix,
-			   "cannot publish IPTV route retry state (status=%d)",
-			   publish_status);
-
-	publish_status = wan_nvram_int_temp_status("manv_err", i_err);
-	callback_status = route_status_accumulate(callback_status, publish_status);
-	if (publish_status != 0)
-		logmessage(log_prefix,
-			   "cannot publish IPTV lease error state (status=%d)",
+			   "cannot publish complete IPTV DHCP retry-marker tuple (status=%d)",
 			   publish_status);
 
 	return callback_status;

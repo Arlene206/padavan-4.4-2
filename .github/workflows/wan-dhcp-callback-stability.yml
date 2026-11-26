@@ -699,14 +699,19 @@ jobs:
           assert "ip6rd_status" not in callback
           assert "callback_status = dhcp_bound_callback_status(route_setup_status, mtu_status);" in callback
           assert "test_bound_callback_status_ignores_auxiliary_service_failures" in route_retry_test
-          route_err_publish = callback.index("wan_nvram_int_temp_status(")
-          assert route_err_publish > callback_status_publish
-          assert 'strcat_r(prefix, "route_err", tmp)' in callback
-          assert 'strcat_r(prefix, "err", tmp)' in callback
-          assert 'strcat_r(prefix, "mtu_err", tmp)' in callback
+          assert "dhcp_wan_bound_retry_markers_publish(" in callback
+          assert "wan_dhcp_retry_marker_write" in callback
           assert "callback_status = route_status_accumulate(callback_status, publish_status);" in callback
           assert "return callback_status;" in callback
           assert "nvram_set_int_temp(" not in callback
+          marker_writer = body(source, "wan_dhcp_retry_marker_write(void *opaque, unsigned int marker, int value)")
+          assert "wan_nvram_int_temp_status(param_name, value)" in marker_writer
+          assert '"err", "route_err", "mtu_err"' in marker_writer
+          retry_marker_publish = body(route_policy, "dhcp_wan_bound_retry_markers_publish(")
+          assert "if (first_status != 0)" in retry_marker_publish
+          assert "(void)writer(context, marker, 1);" in retry_marker_publish
+          assert "test_retry_marker_write_failure_keeps_followup_retry_latched" in route_retry_test
+          assert "test_retry_marker_write_failure_keeps_followup_retry_latched();" in route_retry_test
           wan_dhcp_renew = body(source, "udhcpc_renew(char *wan_ifname)")
           wan_dhcp_renew_compact = "".join(wan_dhcp_renew.split())
           assert "wan_dhcp_renew_state_snapshot(prefix,1,&previous_state);" in wan_dhcp_renew_compact
@@ -872,9 +877,8 @@ jobs:
           assert "accepted but route setup is incomplete" in viptv_bound
           assert "callback_status = dhcp_bound_callback_status(route_setup_status, mtu_status);" in viptv_bound
           assert "callback_status = route_status_accumulate(route_setup_status, multicast_status);" not in viptv_bound
-          assert 'wan_nvram_int_temp_status("manv_route_err", route_setup_status)' in viptv_bound
-          assert 'wan_nvram_int_temp_status("manv_err", i_err)' in viptv_bound
-          assert 'wan_nvram_int_temp_status("manv_mtu_err", mtu_status)' in viptv_bound
+          assert "dhcp_wan_bound_retry_markers_publish(" in viptv_bound
+          assert 'wan_dhcp_retry_marker_write, "manv_"' in viptv_bound
           assert "return callback_status;" in viptv_bound
           assert "nvram_set_int_temp(" not in viptv_bound
           viptv_renew = body(source, "udhcpc_viptv_renew(char *man_ifname)")

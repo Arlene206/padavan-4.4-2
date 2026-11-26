@@ -3,7 +3,7 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development branch: `main` only.
-- Current main parent before this documentation update: `fab825ac680bca65603b99f6c2dc0b16c7b3a102`. Source changes and exact-SHA validation are recorded below; this commit updates handoff records only.
+- Current main parent before this atomic DHCP retry-marker change: `a7221f11436cbe3d2d06e4e0948bc4ef90b019bc`. Source, policy regression and workflow contract are committed together; exact-SHA Actions results are recorded below.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; verified unchanged. PR #1 is closed and unmerged.
 - Bootstrap/protocol restoration was already completed. Do not repeat it. Do not reopen PR #1 or modify the frozen backup.
 - Use full multi-file Git trees and one atomic commit per logical task. Update `main` only with a non-forced expected-SHA compare-and-swap. Never force-push.
@@ -25,7 +25,7 @@
 
 ## Active task
 
-- Complete exact-SHA XY-C1 Build/TRX/artifact validation for the VSFTPD config-durability change. The dedicated host regression and source contract are green.
+- Continue whole-userland stability/security work after the WAN/IPTV DHCP retry-marker fail-safe change. First inspect exact-SHA WAN DHCP/route and AI handoff Actions for this change; repair any checker/build failure before moving on. Do not repeat the already completed XY-C1 FTP build or BusyBox ACK-state review.
 
 ## Verification boundary
 
@@ -33,7 +33,7 @@
 - BusyBox repeated-REBINDING callback regression `7be435059c1f8ffbd757ea95ba41fe466557960f`: exact run #45825922148 PASS. It proves failed callbacks do not commit a new server/requested-IP/BOUND state or extend the existing lease deadline. No production `dhcpc.c` defect was demonstrated.
 - Inadyn transaction fix `4c0b2a02b021c813845e3a5356cdfd0cf987c4ab`, fixture correction `916fbec0fcc6739548870888fdbb24216683955c`, checker descendants `2b2b6ec122e5b4e9c7f94c3599ffd0c4da60c526` and `ece28b515b546cd8539089975322cb79ecbe6395`: Inadyn #45826971290 PASS and DNSMasq #45826971254 PASS on exact `ece28b5`.
 - VSFTPD config commits: `63972673ad970fb439a175b21499078d6433c09f` (staged-file + parent-directory fsync), `65d6e0030edcebdf568dd4dba3ba281a143654aa` (GNU89 prototypes), `7f9a288dd74d7cbfdecf03f3b7ea4709bccfd740` (/etc symlink compatibility), `0eaada3d45cc8c627a902a962927ad40a3ec5330` (checker definition matching), and `f0fbe839174fb6b569c036f21c34a55903ed5965` (XY-C1 path trigger).
-- VSFTPD host regression #45828730341 PASS on exact `0eaada3`; Process inventory #45829100150 PASS on exact `f0fbe839`. XY-C1 #45829100040 is IN_PROGRESS on exact `f0fbe839`: Build XY-C1 is running; TRX and artifact upload have not yet started.
+- VSFTPD host regression #45828730341 PASS on exact `0eaada3`; Process inventory #45829100150 PASS on exact `f0fbe839`. XY-C1 #45829100040 PASS on exact `f0fbe839`: Build XY-C1, TRX verification and artifact upload all completed successfully. Artifact ID `15121837299`, SHA-256 `dfcbc1cd76623eacf6cf33c6f95267983af6ad236a3732927ae955d58366ad7e` (13 MB TRX). This verifies the FTP durability source baseline at L3; it does not verify the later DHCP marker change.
 - The previous complete XY-C1 #45826697813 PASS was on `916fbec0`, before the VSFTPD helper change; it does not verify this newer source. No current FTP L3 claim until #45829100040 Build/TRX/artifact all PASS. No physical-router result is claimed; hardware/L4 remains NOT VERIFIED.
 
 ## BusyBox udhcpc repeated-REBINDING failure regression
@@ -53,8 +53,8 @@
 
 ## Exact first action for the next GPT
 
-1. Poll exact-SHA XY-C1 #45829100040 and inspect Build XY-C1, TRX verification and artifact upload individually.
-2. Confirm the current AI handoff Actions pass after this update; then proceed to the next independent whole-userland stability/security defect. Do not repeat bootstrap, BusyBox state review, or Inadyn rollback work.
+1. Inspect exact-SHA Actions for the DHCP marker-latch commit; confirm GNU89 sanitizer regression, WAN callback source contract, AI handoff check and XY-C1 build independently.
+2. Continue the next independent stability/security defect across the remaining userland rather than repeating the BusyBox ACK-state review or completed FTP/Inadyn work.
 3. Pending Actions must not block independent implementation. Keep expected-SHA atomic commits and precise L2/L3/L4 boundaries.
 
 ## Mandatory handoff checkpoint

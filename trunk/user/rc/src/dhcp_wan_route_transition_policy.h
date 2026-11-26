@@ -162,4 +162,49 @@ dhcp_wan_bound_retry_decide(int lease_read_status, int route_read_status,
 	return 0;
 }
 
+
+enum {
+	DHCP_WAN_RETRY_MARKER_LEASE = 0,
+	DHCP_WAN_RETRY_MARKER_ROUTE,
+	DHCP_WAN_RETRY_MARKER_MTU,
+	DHCP_WAN_RETRY_MARKER_COUNT
+};
+
+typedef int (*dhcp_wan_retry_marker_writer)(void *context,
+					   unsigned int marker, int value);
+
+/*
+ * Publish all three retry indicators. If any write fails, best-effort latch
+ * every indicator nonzero so a later unchanged DHCP ACK cannot mistake a
+ * partially published retry tuple for a healthy lease. The caller still
+ * returns the original publication error to udhcpc.
+ */
+static inline int
+dhcp_wan_bound_retry_markers_publish(
+	int lease_error, int route_error, int mtu_error,
+	dhcp_wan_retry_marker_writer writer, void *context)
+{
+	const int values[DHCP_WAN_RETRY_MARKER_COUNT] = {
+		lease_error, route_error, mtu_error
+	};
+	unsigned int marker;
+	int status, first_status = 0;
+
+	if (!writer)
+		return EINVAL;
+
+	for (marker = 0; marker < DHCP_WAN_RETRY_MARKER_COUNT; ++marker) {
+		status = writer(context, marker, values[marker]);
+		if (status != 0 && first_status == 0)
+			first_status = status;
+	}
+
+	if (first_status != 0) {
+		for (marker = 0; marker < DHCP_WAN_RETRY_MARKER_COUNT; ++marker)
+			(void)writer(context, marker, 1);
+	}
+
+	return first_status;
+}
+
 #endif /* DHCP_WAN_ROUTE_TRANSITION_POLICY_H */

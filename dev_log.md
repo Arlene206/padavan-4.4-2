@@ -1,3 +1,9 @@
+## 2026-11-26 — Keep WAN/IPTV DHCP retry state latched when an NVRAM marker write fails
+
+- Found a fail-open retry gap after candidate DHCP lease publication: if a single `err`, `route_err` or `mtu_err` marker write failed while the other two writes succeeded with zero, the callback correctly returned an error to udhcpc, but the next unchanged renewal could read an all-zero marker tuple and skip the required full address/route/MTU re-application.
+- Added a shared marker publisher for normal WAN and IPTV. It attempts all diagnostic marker writes; on any write failure it best-effort writes a nonzero retry latch to all three markers, while preserving and returning the original publication error. Added GNU89 regression coverage that injects a persistent failure at each marker position and verifies that the successfully stored portion always still requests a retry.
+- Updated the WAN DHCP source contract to require the shared fail-safe publisher in both callback paths. The host test and exact-SHA Actions result are pending until this commit is checked.
+
 ## 2026-11-26 — Make VSFTPD configuration publication crash-durable
 
 - `ftp_config_file_publish()` flushes and fsyncs staged data, renames it, then fsyncs the parent directory with EINTR retry. A post-rename parent-sync error propagates so `run_ftp()` refuses startup; parent lookup follows configured `/etc` resolution.
