@@ -193,7 +193,7 @@ assert "return first_error;" in update_ia
 assert '#include "dhcp6c_option_bounds_policy.h"' in common
 assert '#include "dhcp6c_option_bounds_policy.h"' in client
 assert "dhcp6c_option_wire_length_valid" in bounds_policy
-assert "DHCPv6 option and UDP datagram bounds policy: PASS" in bounds_test
+assert "DHCPv6 option bounds and NTP suboption policy: PASS" in bounds_test
 assert "dhcp6c_datagram_length_fits" in bounds_policy
 assert "dhcp6c_option_vbuf_is_unset" in bounds_policy
 assert "Singleton option buffer policy" in bounds_test

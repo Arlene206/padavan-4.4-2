@@ -1,3 +1,12 @@
+## 2026-11-26 — Correct DHCPv6 option-bounds test output assertion
+
+- Exact-SHA IA run #45792454948 for `74a0dbccda2028b87f4fe7cd57dd0513608f8f39` compiled and passed all six GNU89/`-Werror`/ASan/UBSan policy binaries, including the newly added NTP suboption length/source tests.
+- The Python checker alone failed because it still expected the pre-NTP test banner. Updated the assertion to the actual intentional output, `DHCPv6 option bounds and NTP suboption policy: PASS`. No production C or test behavior changed in this corrective slice.
+- Same SHA: AI handoff #45792454964 PASS, DHCPv6 script retry #45792455152 PASS, Process inventory #45792454913 PASS. HTTPD/NVRAM/USB and XY-C1 #45792454987 were still running at last poll.
+- Parent main: `74a0dbccda2028b87f4fe7cd57dd0513608f8f39`; rerun Actions required.
+
+---
+
 ## 2026-11-26 — Parse RFC 5908 DHCPv6 NTP Server suboptions
 
 - Confirmed standards mismatch: `D6_OPT_NTP_SERVER` (option 56) was parsed in the same branch as flat IPv6-address arrays, requiring its payload length to be a multiple of 16 and treating each 16-byte chunk as an address. RFC 5908 defines option 56 as a container of 4-byte (code/length) suboption headers, with time-source forms for a unicast address, multicast address, or FQDN; each option instance carries exactly one time source. Consequently, a normal address suboption uses a 20-byte payload (4-byte header + 16-byte address) and was incorrectly rejected, while FQDN and multicast suboptions were not decoded.
