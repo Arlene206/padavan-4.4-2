@@ -870,7 +870,8 @@ jobs:
           assert "route_result = route_add(man_ifname, 10" in viptv_bound
           assert viptv_bound.count("route_setup_status = route_status_accumulate(route_setup_status, route_result);") == 2
           assert "accepted but route setup is incomplete" in viptv_bound
-          assert "callback_status = route_status_accumulate(route_setup_status, multicast_status);" in viptv_bound
+          assert "callback_status = dhcp_bound_callback_status(route_setup_status, mtu_status);" in viptv_bound
+          assert "callback_status = route_status_accumulate(route_setup_status, multicast_status);" not in viptv_bound
           assert 'wan_nvram_int_temp_status("manv_route_err", route_setup_status)' in viptv_bound
           assert 'wan_nvram_int_temp_status("manv_err", i_err)' in viptv_bound
           assert 'wan_nvram_int_temp_status("manv_mtu_err", mtu_status)' in viptv_bound
