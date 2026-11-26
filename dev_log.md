@@ -1,3 +1,13 @@
+## 2026-11-25 — Fail closed on permanent DHCP relay select errors
+
+- The DHCP relay event loop previously evaluated only `select(...) > 0`. When `select()` returned -1 for a permanent error (for example EBADF), the loop silently rebuilt its fd_set and immediately retried forever, creating a CPU-burning hot loop with no diagnostic.
+- The loop now retries only EINTR, captures and restores the original errno, and terminates the applet through `bb_perror_msg_and_die("select")` on any other error. Timeout (zero) continues naturally into the next loop iteration.
+- Added a GNU89 ASan/UBSan policy regression for EINTR vs EBADF/EINVAL/ENOMEM/zero, a production integration contract, a dedicated workflow and XY-C1 source trigger paths.
+- Parent SHA: 9ae6163ac7ae60f6430e01651963d9f38b565032. Exact-head select-error, AI documentation and XY-C1 Actions: pending. No live invalid-fd test, firmware or hardware result is claimed.
+- Changed paths: trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcprelay.c, trunk/user/busybox/busybox-1.24.x/networking/udhcp/udhcp_relay_select_error_policy.h, trunk/user/busybox/busybox-1.24.x/networking/udhcp/tests/dhcprelay_select_error_policy.c, scripts/check_udhcp_relay_select_error_policy.py, .github/workflows/udhcp-relay-select-error-policy.yml, .github/workflows/xy-c1-firmware-validation.yml, SESSION_HANDOFF.md, dev_log.md.
+
+---
+
 ## 2026-11-25 — Preserve DHCP relay giaddr and enforce RFC 1542 hop handling
 
 - The DHCP relay client path unconditionally passed `&dhcp_msg.gateway_nip` to `udhcp_read_interface()`, overwriting a non-zero address supplied by an upstream relay despite the nearby RFC 1542 comment stating that it MUST NOT be modified. The same path left `hops` unchanged (an explicit TODO), allowing relay loops to circulate.

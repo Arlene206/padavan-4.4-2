@@ -20,6 +20,7 @@
 #include "udhcp_relay_xid_policy.h"
 #include "udhcp_relay_select_fd_policy.h"
 #include "udhcp_relay_bootrequest_policy.h"
+#include "udhcp_relay_select_error_policy.h"
 
 #define SERVER_PORT    67
 
@@ -334,14 +335,23 @@ int dhcprelay_main(int argc, char **argv)
 // every N minutes?
 		fd_set rfds;
 		struct timeval tv;
-		int i;
+		int i, select_result;
 
 		FD_ZERO(&rfds);
 		for (i = 0; i < num_sockets; i++)
 			FD_SET(fds[i], &rfds);
 		tv.tv_sec = SELECT_TIMEOUT;
 		tv.tv_usec = 0;
-		if (select(max_socket + 1, &rfds, NULL, NULL, &tv) > 0) {
+		select_result = select(max_socket + 1, &rfds, NULL, NULL, &tv);
+		if (select_result < 0) {
+			int select_errno = errno;
+
+			if (udhcp_relay_select_was_interrupted(select_errno))
+				continue;
+			errno = select_errno;
+			bb_perror_msg_and_die("select");
+		}
+		if (select_result > 0) {
 			int packlen;
 			struct dhcp_packet dhcp_msg;
 

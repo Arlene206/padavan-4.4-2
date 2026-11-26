@@ -1,29 +1,26 @@
 ## Current repository state — 2026-11-25
 
-- Live `main` before this handoff update: `ddb8f4f8b575c7b860c468c237d9aa2d74d661f6` (`fix(udhcp): preserve giaddr and enforce relay hop limit`). Latest source-bearing commit in the active chain: `ddb8f4f8b575c7b860c468c237d9aa2d74d661f6` (`fix(udhcp): preserve giaddr and enforce relay hop limit`).
-- Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged; do not modify).
-- WSDD2 `fd_set` boundary regression: #45725275770 completed/success on `6028a1387733f0f45d8b96f169dbc34061e9b8fc`.
-- WSDD2 netlink truncation regression: 45725665949 completed/success @ 4de82b5c98; two earlier checker-only failures were corrected by `5d983a2` and `4de82b5`. Confirm the latest result on the next turn before treating this slice as complete.
-- Prior XY-C1 build validation: #45724141332 completed/success on `b320dd266be3dea74820ada79aec68c26f6b7dc9`; Build/TRX/artifact step check: all PASS. This proves L3 only for that exact older SHA.
-- Latest XY-C1 run in Actions: 45725995015 in_progress @ ddb8f4f8b5; it matches the latest product-source SHA `ddb8f4f8b575c7b860c468c237d9aa2d74d661f6`.
-- Latest NVRAM transaction audit: not found. Latest handoff-contract check: not found.
-- The current source SHA must have its own XY-C1 Build, TRX validation and artifact upload all PASS before claiming L3. Physical-router L4 remains **NOT VERIFIED**.
-
-## Last engineering slice — WSDD2 descriptor and netlink receive hardening
-
-- Prevented out-of-range descriptors from reaching `FD_SET` at both endpoint registration sites; the helper rejects fd >= `FD_SETSIZE`, preserves a meaningful errno, and closes the endpoint before it can enter the monitored list.
-- Added a check for `MSG_TRUNC` on netlink notification receives; if route/address notifications exceed the fixed buffer, the daemon restarts and rebuilds endpoint/address state instead of silently losing a notification.
-- The first netlink CI attempts were blocked by the Python source checker: it matched a prototype rather than the function definition, then searched for a literal backslash+n due to an escaping error. These were corrected separately; verify the latest WSDD2 netlink workflow before marking PASS.
+- Live `main` immediately before this slice: `9ae6163ac7ae60f6430e01651963d9f38b565032` (`docs(ai): hand off WSDD2 descriptor hardening`). Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable.
+- Exact `ddb8f4f8` DHCP relay checks: BOOTREQUEST giaddr/hop #45725994945 PASS; select descriptor #45725994948 PASS; packet bounds #45725994955 PASS; XID budget/correlation #45725994998 PASS; AI handoff contract #45725994972 PASS; Process lifecycle inventory #45725995030 PASS. XY-C1 #45725995015, NVRAM #45725995041, Process inventory/fail-closed #45725995029 and USB hotplug #45725995060 were still in progress at last observation.
+- Exact `4de82b5` WSDD2 netlink receive truncation #45725665949 PASS and AI handoff #45725666033 PASS. The handoff-only checkpoint commit `9ae6163` has its AI contract run #45726079137 in progress at the last poll.
+- Last confirmed XY-C1 Build/TRX/artifact baseline remains `b320dd266be3dea74820ada79aec68c26f6b7dc9` (#45724141332), which predates the latest DHCP relay/WSDD2 source changes. Current-source L3 and physical-router L4 remain NOT VERIFIED.
 
 ## Active task
 
-First resolve the latest WSDD2 netlink regression run above. Then verify XY-C1 on the latest source-bearing commit `ddb8f4f8b575c7b860c468c237d9aa2d74d661f6`, including Build, TRX output validation and artifact upload. While either workflow is pending, continue an independent, evidence-backed userland stability/security fix; do not wait idle and do not repeat already completed DHCPv6, rstats, QMI, UDPXY or WSDD2 slices without new evidence.
+Fix DHCP relay event-loop behavior when `select()` fails. The old loop tested only `select(...) > 0`; any non-EINTR error (for example EBADF after an unexpected socket state) caused an unbounded tight loop with no diagnostic. The new flow retries EINTR, preserves the failing errno for diagnostics, and terminates the applet on permanent errors rather than consuming CPU indefinitely.
 
-## Exact first actions for next GPT
+## Verification boundary
 
-1. Confirm current `main` and frozen backup ref; this handoff update itself adds one docs-only commit.
-2. Poll the latest `wsdd2 netlink receive truncation regression` and the exact-source XY-C1/NVRAM runs reported above.
-3. Continue with one independent source defect, regression, atomic commit and exact-SHA checks. Do not claim current XY-C1 L3 until Build + TRX + artifact upload pass on the same latest product-source SHA.
+- GNU89 ASan/UBSan tests classify EINTR as retryable and EBADF/EINVAL/ENOMEM/zero as non-interruption; the source checker verifies the loop captures errno immediately, retries only EINTR, restores errno and fails closed through `bb_perror_msg_and_die("select")`.
+- Exact-head DHCP relay select-error workflow, AI docs and XY-C1 Build/TRX/artifact checks are pending. No live invalid-descriptor reproduction, full BusyBox cross-build, current firmware artifact or hardware result is claimed.
+
+## Exact first action for the next GPT
+
+Fetch exact-head DHCP relay select-error, AI documentation, XY-C1/NVRAM/USB/Process runs for this commit. Repair any first causal failure. Continue with DHCP relay behavior only for independently demonstrated faults; L3 requires Build, TRX validation and artifact upload to pass on one identical product-source SHA.
+
+## Mandatory handoff checkpoint
+
+The checkpoint is mandatory; a document edit is conditional. Inspect live main, frozen backup ref and relevant exact-SHA Actions. If the checkpoint facts and first action are current, record a no-op checkpoint without a docs-only commit.
 
 # Cross-session execution mandate
 
