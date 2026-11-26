@@ -1,25 +1,25 @@
 ## Current repository state — 2026-11-25
 
-- Parent `main` for this slice: `6ae42c6f9e61d8c7f7d6dfbb9b98c4a24d9934f1` (`fix(udhcpd): sync lease directory after rename`). Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged.
-- Exact `6ae42c6` DHCP lease-file atomic-write #45733998087 PASS; lease clock correction #45733997981 PASS; AI handoff docs #45733998032 PASS. NVRAM #45733998041, USB #45733998096, Process inventory #45733997998 and XY-C1 #45733998006 were IN_PROGRESS at last poll. XY-C1 Build/TRX/artifact remained pending.
-- Atomic lease writer now fsyncs the temp file and parent directory after rename. Parent-dir open failure aborts before replacement; post-rename directory-fsync failure is reported as published-but-not-confirmed-durable.
-- This slice adds explicit diagnostics for lease-file framing faults: empty/short header, read error, short trailing record, and invalid/stale timestamp. Complete records read before a truncated tail remain loaded; the incomplete tail is ignored with a warning. Clean EOF remains distinct from truncated data.
-- Physical-router L4 remains NOT VERIFIED. No older firmware result is transferred to a new SHA.
+- Parent `main`: `d5a89c68f139bcc97229a28e710b51e258bf0918` (`fix(udhcpd): report truncated lease database reads`). Frozen backup `backup/pre-plugin-overhaul-2026-11-14` is `72f4f157a084f8184b9597ca5bf334b8080e5807`; untouched.
+- Exact-parent push Actions: read framing #45734245351 PASS; atomic lease writer #45734245434 PASS; AI docs #45734245326 PASS; process regression #45734245383 PASS; USB storage #45734245256 PASS; process inventory #45734245284 PASS; NVRAM boundary #45734245332 PASS. Clock policy #45734245264 FAILS only in its stale source checker: the checker still required the pre-framing `while (full_read(...))` loop, but `read_leases()` now intentionally uses `for (;;)` with explicit EOF/error classification. Its GNU89 ASan/UBSan C test passed. XY-C1 #45734245228 was still building XY-C1; all preceding host validation steps passed, TRX/artifact pending.
+- DHCP server now validates message field combinations, RFC INIT-REBOOT unknown-client silence, and INFORM/DECLINE/RELEASE rules. Lease persistence handles bounded clock rollback, atomic replacement with complete writes and file+directory fsync, and explicit malformed header/record/read-error diagnostics.
+- This slice updates the clock-policy integration checker to recognize the new explicit-read loop and assert ordering from timestamp validation through record EOF handling. No production source change is needed for the CI failure.
+- Physical-router L4 and power-cut durability remain NOT VERIFIED. No current-SHA MIPS firmware artifact is claimed.
 
 ## Active task
 
-Validate the lease-file read framing policy on its exact head. Then inspect a different userland subsystem for concrete stability/security issues; DHCP file persistence now has timestamp handling, atomic replace, directory sync, and explicit malformed-tail diagnostics.
+Verify the clock-policy checker repair on its exact SHA. Then leave the DHCP lease-file slice stable and continue with a concrete reliability/security defect in another userland subsystem; the NVRAM transaction workflow is now PASS on the parent SHA and can be selected for a focused kernel/userland boundary issue.
 
 ## Verification boundary
 
-- Parent `6ae42c6` atomic lease-write #45733998087, lease clock correction #45733997981 and AI docs #45733998032 PASS.
-- Parent NVRAM, USB, Process inventory and XY-C1 were still running at last poll; XY-C1 Build/TRX/artifact are not verified here.
-- Parent-dir fsync test and atomic regression passed exact-head GitHub Actions. New read framing tests are GNU89 ASan/UBSan and exact-head Actions pending at commit creation.
-- No live DHCP exchange, device storage power-cut test, current-SHA MIPS artifact, or router L4 result is claimed.
+- Parent `d5a89c6`: read framing, atomic writer, AI docs, process regression, storage hotplug, process inventory and NVRAM all PASS. Clock C regression PASS but source checker FAIL due the obsolete loop-pattern assertion described above.
+- Parent XY-C1 host checks passed through firmware input detection; Build XY-C1 was IN_PROGRESS, TRX verification and artifact upload pending at last poll.
+- Read framing exact-SHA workflow confirms GNU89 ASan/UBSan test and integration checker PASS. This commit's updated clock checker is pending until exact-head Actions run.
+- No live DHCP client/server exchange, MIPS firmware artifact, hardware power-cut, or physical-router L4 result claimed.
 
 ## Exact first action for the next GPT
 
-Fetch live `main` and exact-head DHCP lease-read policy, AI docs, and XY-C1 push Actions. Require the framing test/source contract and docs workflow to pass; inspect Build/TRX/artifact without waiting on PENDING jobs. Then continue a concrete stability/security fix outside DHCP lease persistence. Preserve the frozen backup.
+Fetch live `main` and exact-head clock-policy/AI-docs/XY-C1 Actions for the clock-checker repair commit. Confirm the clock integration step passes; inspect Build/TRX/artifact and repair any exact-SHA failure. Then pick a concrete NVRAM kernel/userland or other cross-userland stability/security issue, add a focused regression, and keep the frozen backup untouched.
 
 # Cross-session execution mandate
 

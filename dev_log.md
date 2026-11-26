@@ -1,3 +1,11 @@
+## 2026-11-25 — Repair the DHCP lease-clock integration checker after read-loop hardening
+
+- Exact-SHA DHCP clock workflow on `d5a89c6` compiled and passed its GNU89 ASan/UBSan regression but its source checker failed. The checker still searched for the old `while (full_read(...))` record loop, which had intentionally been replaced by a `for (;;)` loop with explicit COMPLETE/EOF/ERROR classification in the preceding read-framing fix.
+- Updated the source checker to assert the new order: timestamp validation, explicit record loop, full-record read, status classification, then clean EOF handling. No production source behavior changed.
+- Parent `d5a89c6` read framing, atomic lease writer, AI docs, process regression, USB storage, process inventory and NVRAM workflows PASS. Parent clock C regression PASS/source checker FAIL; XY-C1 firmware build still running at last query. Exact-head result for the repaired checker pending.
+
+---
+
 ## 2026-11-25 — Report malformed and truncated DHCP lease-file reads
 
 - `read_leases()` previously treated every non-full `full_read()` result as ordinary loop termination. An empty/partial header, I/O error, or truncated final lease record was silently ignored, making persistent lease corruption indistinguishable from normal EOF.

@@ -15,8 +15,16 @@ time_gate = read_body.index(
     "udhcp_lease_file_time_delta_valid(time(NULL), written_at, &time_passed)"
 )
 lease_age_gate = read_body.index("goto ret;", time_gate)
-record_loop = read_body.index("while (full_read(fd, &lease, sizeof(lease))", time_gate)
-assert time_gate < lease_age_gate < record_loop
+record_loop = read_body.index("for (;;) {", time_gate)
+record_read = read_body.index(
+    "ssize_t read_count = full_read(fd, &lease, sizeof(lease));", record_loop
+)
+record_status = read_body.index(
+    "udhcp_lease_file_read_status(read_count", record_read
+)
+record_eof = read_body.index("UDHCP_LEASE_FILE_READ_EOF", record_status)
+assert time_gate < lease_age_gate < record_loop < record_read < record_status < record_eof
+assert "while (full_read(fd, &lease, sizeof(lease))" not in read_body
 assert "(uint64_t)time_passed" not in read_body
 
 assert "if (now < 0 || written_at < 0)" in policy
