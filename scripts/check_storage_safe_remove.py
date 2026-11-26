@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Source integration checks for fail-closed storage eject before persistence."""
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -903,7 +904,10 @@ for function, label in ((storage_stop, "stop"), (storage_start, "start")):
             "storage " + label + " must rebuild firewall from checked configuration")
 ftp_stop_reconcile = body(ftp_policy, "ftp_storage_stop_needs_firewall_refresh(")
 require("ftp_was_present = is_ftp_run() != PROCESS_PRESENCE_ABSENT;" in storage_stop and
-        "ftp_storage_stop_needs_firewall_refresh(ftp_was_present, ftp_final_presence)" in storage_stop and
+        re.search(
+            r"ftp_storage_stop_needs_firewall_refresh\s*\(\s*ftp_was_present\s*,\s*ftp_final_presence\s*\)",
+            storage_stop,
+        ) is not None and
         "return was_present != 0 ||" in ftp_stop_reconcile and
         "ftp_stop_should_reconcile_firewall(final_presence)" in ftp_stop_reconcile and
         "ftp_storage_stop_needs_firewall_refresh(1," in ftp_test and

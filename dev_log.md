@@ -1,3 +1,12 @@
+## 2026-11-26 — Make FTP storage source contract accept the wrapped helper call
+
+- The exact-SHA USB storage run on `376dfdc5b08f167ac2b6d0a889dca70da2c64aa9` failed at the final FTP source-contract assertion in `scripts/check_storage_safe_remove.py`. The production call is correct but formatted over two lines; the checker required the entire argument list on one line.
+- Confirmed the other policy/source/test predicates independently: pre-stop tri-state capture, policy behavior for prior presence and final absence, both prior-state unit cases, and UNKNOWN coverage are present. Corrected only the formatting-sensitive assertion to accept whitespace/newlines while keeping the exact helper name, argument order and values.
+- On the parent SHA, AI handoff #45780263617 PASS. XY-C1 #45780263646 succeeded as a workflow but Build XY-C1, TRX verification and artifact upload were SKIPPED (checker/documentation-only parent change); no new firmware L3 claim. Storage #45780263503 is the checker failure being corrected.
+- Parent main: `376dfdc5b08f167ac2b6d0a889dca70da2c64aa9`. Exact-SHA storage and AI reruns are pending after this checker correction. No local checkout or local test execution is claimed.
+
+---
+
 ## 2026-11-26 — Align USB storage checker with FTP firewall policy helpers
 
 - Exact-SHA USB storage hotplug run #45764010116 on production commit `87cfc6c7983710d5a85af2a8cd5fb68948f22c5d` passed the compiled regressions and earlier storage contracts, then failed only because `scripts/check_storage_safe_remove.py` still required the old raw FTP-presence predicate in both `stop_stor_apps()` and `start_stor_apps()`. Production startup now correctly compares tri-state before/after inventory, while storage-stop captures pre-stop uncertainty and delegates final-state handling to `ftp_storage_stop_needs_firewall_refresh()`; the exact policy and cases are already covered in `ftp_daemon_policy.c`.
