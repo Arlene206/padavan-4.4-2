@@ -1,3 +1,10 @@
+## 2026-11-26 — Align DNSMasq ARP restart source contract with consolidated locals
+
+- DNSMasq lifecycle #45765299013 on exact source `22562343c3ac2ec40b0c5a535ffa211ba9c605e9` passed the static-host snapshot replay executable, rollback/ordering checks, all preceding DHCP/resolver/lock/identity tests, then failed only in the final source-contract assertion `int arp_status;` for `restart_dhcpd_locked()`.
+- The new C function correctly declares the local in a grouped declaration `int stop_status, stop_postcondition, arp_status;`; the checker was still pinned to its earlier standalone declaration form. Updated that exact contract and left production code unchanged. Exact rerun pending.
+
+---
+
 ## 2026-11-25 — Restore previous DNSMasq files and static ARP ownership on failed replacement
 
 - `start_dns_dhcpd_locked()` and `restart_dhcpd_locked()` previously discarded the three-file rollback snapshot immediately after clearing old kernel ARP entries, before applying the newly generated `/etc/ethers` set. If an `arp -s` failed, partial new additions were rolled back, but previous static ARP ownership and last-known-good `dhcp-hosts.rc`, `/etc/ethers`, and `hosts.static` files had already been lost; restart could also leave a previously running daemon stopped.

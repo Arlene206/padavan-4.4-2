@@ -1036,7 +1036,7 @@ jobs:
           assert start_preflight < start_current < start_clear < start_apply < start_rollback < start_commit < start_launch
           assert start_locked.count("dnsmasq_static_host_restore_previous(") >= 3
           restart_locked = function_body(services, "restart_dhcpd_locked(void)")
-          assert "int arp_status;" in restart_locked
+          assert "stop_status, stop_postcondition, arp_status;" in restart_locked
           assert "\\n\\tstatus = arpbind_apply_current_ethers()" not in restart_locked
           restart_snapshot = restart_locked.index("arpbind_ethers_snapshot_read(&previous_ethers)")
           restart_files_snapshot = restart_locked.index("dnsmasq_static_host_files_snapshot_begin(&static_hosts_snapshot)")
