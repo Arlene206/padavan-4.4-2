@@ -218,6 +218,16 @@ test_select_fdset_bounds_before_fd_set(void)
 }
 
 static void
+test_select_retries_only_non_pause_interruptions(void)
+{
+	assert(detect_internet_select_should_retry(-1, EINTR, 0));
+	assert(!detect_internet_select_should_retry(-1, EINTR, 1));
+	assert(!detect_internet_select_should_retry(-1, EIO, 0));
+	assert(!detect_internet_select_should_retry(0, EINTR, 0));
+	assert(!detect_internet_select_should_retry(1, 0, 0));
+}
+
+static void
 test_invalid_policy_arguments_fail_closed(void)
 {
 	struct fake_nvram fake;
@@ -249,6 +259,7 @@ main(void)
 	test_runtime_integer_backend_error_is_not_replaced_by_default();
 	test_poll_mode_uses_legacy_range_fallback();
 	test_select_fdset_bounds_before_fd_set();
+	test_select_retries_only_non_pause_interruptions();
 	test_invalid_policy_arguments_fail_closed();
 	puts("detect_internet checked endpoint settings policy: PASS");
 	return 0;

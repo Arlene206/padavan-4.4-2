@@ -95,4 +95,12 @@ detect_internet_select_fd_status(int fd, int fd_set_size)
 	return 0;
 }
 
+/* Retry Linux select() after unrelated signals; pause/terminate must unwind. */
+static inline int
+detect_internet_select_should_retry(int select_status, int select_error,
+				    int pause_received)
+{
+	return select_status < 0 && select_error == EINTR && !pause_received;
+}
+
 #endif /* DETECT_INTERNET_HOST_POLICY_H */

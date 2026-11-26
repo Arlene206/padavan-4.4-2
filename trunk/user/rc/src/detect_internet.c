@@ -120,14 +120,22 @@ di_connect_to_host(const struct sockaddr_in *p_sa_dst, int timeout)
 	if (ret == 0)
 		goto done_exit;
 
-	/* now wait connection established */
-	FD_ZERO(&rset);
-	FD_SET(fd, &rset);
-
+	/*
+	 * Linux select() updates the timeval with the remaining wait when a
+	 * signal interrupts it. Rebuild fd_set and retry non-pause EINTR events
+	 * so SIGHUP/SIGALRM cannot be mistaken for a failed Internet probe.
+	 * SIGUSR2/SIGTERM still fence the probe and return to normal dispatch.
+	 */
 	to.tv_sec = timeout;
 	to.tv_usec = 0;
-
-	ret = select(fd + 1, NULL, &rset, NULL, &to);
+	for (;;) {
+		FD_ZERO(&rset);
+		FD_SET(fd, &rset);
+		ret = select(fd + 1, NULL, &rset, NULL, &to);
+		if (!detect_internet_select_should_retry(
+			    ret, errno, di_pause_received))
+			break;
+	}
 	if (ret <= 0) {
 		if (ret == 0)
 			errno = ETIMEDOUT;

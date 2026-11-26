@@ -1,3 +1,8 @@
+## 2026-11-26 — Do not count interrupted Internet probes as host failures
+
+- `di_connect_to_host()` treated every `select()` return `-1` as an unreachable endpoint. `SIGHUP` or periodic `SIGALRM` can legitimately interrupt the nonblocking-connect wait without pausing the monitor, so one control signal could incorrectly mark the current probe host down and feed a false offline state.
+- Retry only `EINTR` when the monitor is not paused/terminating, rebuilding `fd_set` each time and using Linux `select()`’s remaining `timeval` to retain the original bounded wait. Pause/terminate still unwind immediately. GNU89 regression covers retry/stop decisions; workflow source contract requires the retry fence inside the wait loop.
+
 ## 2026-11-26 — Align HTTPD security DHCP lease contract with fail-closed Router parser
 
 - Exact HTTPD security run #45839116268 on `825282da1530323e591acc5dc0124a1bb3343413` passed the DHCP lease GNU89 policy binary (`DHCP lease input policy regression: OK`) then failed in the embedded checker at obsolete assertion line 62: it expected `dhcp_lease_ipv4_list_first()` in `udhcpc_lan_bound()`.
