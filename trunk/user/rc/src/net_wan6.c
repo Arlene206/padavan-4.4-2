@@ -2304,7 +2304,7 @@ int start_dhcp6c(char *wan_ifname)
 			logmessage("DHCPv6 WAN Client",
 				   "cannot invalidate failed client start (errno=%d)", errno ? errno : EIO);
 		if (client_stop_required) {
-			client_stop_status = kill_services(svcs, 3, 1);
+			client_stop_status = kill_services(svcs, 16, 0);
 			if (client_stop_status != 0)
 				logmessage("DHCPv6 WAN Client",
 					   "failed to stop client after callback environment cleanup failure (status=%d)",
@@ -2369,7 +2369,7 @@ int stop_dhcp6c(void)
 	 * Children waiting on this lock must still be able to finish the active
 	 * lease transition when the stop operation fails.
 	 */
-	stop_status = kill_services(svcs, 3, 1);
+	stop_status = kill_services(svcs, 16, 0);
 	if (stop_status == 0 &&
 	    dhcp6c_callback_session_advance(session_fd, &generation) != 0) {
 		saved_errno = errno ? errno : EIO;

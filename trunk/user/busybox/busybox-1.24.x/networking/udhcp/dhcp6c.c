@@ -274,6 +274,9 @@ int client6_start(struct dhcp6_if *ifp)
 	if (ifp->timer)
 		dhcp6_timer_remove(&ifp->timer);
 
+	if (!dhcp6c_ia_client_start_allowed(ifp->shutting_down))
+		return 0;
+
 	/* create an event for the initial delay */
 	ev = dhcp6_create_event(ifp, DHCP6S_INIT);
 
@@ -354,8 +357,31 @@ static void check_exit(int force)
 	exit(0);
 }
 
+static int client6_has_pending_ia_cleanup(void)
+{
+	struct dhcp6_if *ifp = &client6_config.dhcp6c_if;
+	struct ia_conf *iac;
+
+	TAILQ_FOREACH(iac, &ifp->iaconf_list, link) {
+		if (!TAILQ_EMPTY(&iac->iadata))
+			return 1;
+	}
+
+	return 0;
+}
+
+static void client6_check_shutdown(void)
+{
+	struct dhcp6_if *ifp = &client6_config.dhcp6c_if;
+
+	if (ifp->shutting_down &&
+	    dhcp6c_ia_shutdown_ready(client6_has_pending_ia_cleanup()))
+		check_exit(1);
+}
+
 static void client6_mainloop(void)
 {
+	struct dhcp6_if *ifp = &client6_config.dhcp6c_if;
 	struct timeval *w;
 	int ret, maxsock;
 	fd_set r;
@@ -365,9 +391,20 @@ static void client6_mainloop(void)
 			switch (bb_got_signal) {
 			case SIGQUIT:
 			case SIGTERM:
-				check_exit(1);
+				if (!ifp->shutting_down) {
+					bb_info_msg("shutdown requested; draining delegated-prefix cleanup");
+					ifp->shutting_down = 1;
+					bb_got_signal = 0;
+					free_resources(0);
+				} else {
+					bb_got_signal = 0;
+				}
 				break;
 			case SIGHUP:
+				if (ifp->shutting_down) {
+					bb_got_signal = 0;
+					break;
+				}
 				bb_info_msg("restarting");
 				bb_got_signal = 0;
 				free_resources(0);
@@ -376,7 +413,9 @@ static void client6_mainloop(void)
 			}
 		}
 
+		client6_check_shutdown();
 		w = dhcp6_timer_check();
+		client6_check_shutdown();
 
 		FD_ZERO(&r);
 		FD_SET(csock, &r);
@@ -395,8 +434,10 @@ static void client6_mainloop(void)
 		default:
 			break;
 		}
-		if (FD_ISSET(csock, &r))
+		if (FD_ISSET(csock, &r)) {
 			client6_recv();
+			client6_check_shutdown();
+		}
 	}
 }
 

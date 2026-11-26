@@ -56,6 +56,7 @@ client = read(BASE + "dhcp6c.c")
 socket = read(BASE + "dhcp6c_socket.c")
 header = read(BASE + "dhcp6c.h")
 policy = read(BASE + "dhcp6c_ia_policy.h")
+config_header = read(BASE + "dhcp6c_config.h")
 test = read(BASE + "tests/dhcp6c_ia_publication_policy.c")
 config = read(BASE + "dhcp6c_config.c")
 iaid_policy = read(BASE + "dhcp6c_iaid_policy.h")
@@ -300,6 +301,27 @@ assert "if (errno == EEXIST)" not in socket_body
 assert "test_failed_address_removal_is_retained_and_retried" in test
 assert "test_address_change_absent_and_duplicate_errors" in test
 assert "DHCPv6 IA delegated-prefix retry and removal policy: PASS" in test
+assert "dhcp6c_ia_shutdown_ready" in policy
+assert "dhcp6c_ia_client_start_allowed" in policy
+assert "test_shutdown_waits_for_pending_delegated_prefix_cleanup" in test
+assert "int shutting_down;" in config_header
+client_start = function_body(client, "int client6_start(struct dhcp6_if *ifp)")
+assert "dhcp6c_ia_client_start_allowed(ifp->shutting_down)" in client_start
+assert client_start.index("dhcp6_timer_remove(&ifp->timer)") < client_start.index("dhcp6c_ia_client_start_allowed(") < client_start.index("dhcp6_create_event(ifp, DHCP6S_INIT)")
+pending_cleanup = function_body(client, "static int client6_has_pending_ia_cleanup(void)")
+assert "TAILQ_FOREACH(iac, &ifp->iaconf_list, link)" in pending_cleanup
+assert "if (!TAILQ_EMPTY(&iac->iadata))" in pending_cleanup
+shutdown_check = function_body(client, "static void client6_check_shutdown(void)")
+assert "dhcp6c_ia_shutdown_ready(client6_has_pending_ia_cleanup())" in shutdown_check
+assert "check_exit(1);" in shutdown_check
+mainloop = function_body(client, "static void client6_mainloop(void)")
+assert "case SIGTERM:" in mainloop and "case SIGQUIT:" in mainloop
+assert "ifp->shutting_down = 1;" in mainloop and "free_resources(0);" in mainloop
+assert mainloop.index("ifp->shutting_down = 1;") < mainloop.index("free_resources(0);")
+assert mainloop.index("w = dhcp6_timer_check();") < mainloop.index("client6_check_shutdown();", mainloop.index("w = dhcp6_timer_check();"))
+stop_dhcp6c = function_body(wan6, "int stop_dhcp6c(void)")
+assert "stop_status = kill_services(svcs, 16, 0);" in stop_dhcp6c
+assert "stop_status = kill_services(svcs, 3, 1);" not in stop_dhcp6c
 
 assert "test_partial_pd_failure_is_retried_without_reapplying_successes" in test
 assert "test_first_error_and_retry_gate" in test

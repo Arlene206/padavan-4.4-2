@@ -96,4 +96,16 @@ dhcp6c_ia_prefix_expiry_timer_required(unsigned long valid_lifetime,
 {
 	return valid_lifetime != 0UL && valid_lifetime != infinite_lifetime;
 }
+/* Drain kernel cleanup retries before a SIGTERM shutdown may exit. */
+static inline int dhcp6c_ia_shutdown_ready(int pending_ias)
+{
+	return pending_ias == 0;
+}
+
+/* Do not create a new Solicit/Information Request after shutdown begins. */
+static inline int dhcp6c_ia_client_start_allowed(int shutting_down)
+{
+	return !shutting_down;
+}
+
 #endif /* DHCP6C_IA_POLICY_H */

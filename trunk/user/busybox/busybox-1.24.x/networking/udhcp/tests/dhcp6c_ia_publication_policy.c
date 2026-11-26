@@ -174,6 +174,15 @@ test_address_change_absent_and_duplicate_errors(void)
 }
 
 static void
+test_shutdown_waits_for_pending_delegated_prefix_cleanup(void)
+{
+	assert(!dhcp6c_ia_shutdown_ready(1));
+	assert(dhcp6c_ia_shutdown_ready(0));
+	assert(dhcp6c_ia_client_start_allowed(0));
+	assert(!dhcp6c_ia_client_start_allowed(1));
+}
+
+static void
 test_default_ia_timer_ratios_do_not_overflow(void)
 {
 	assert(dhcp6c_ia_t2_from_duration(0U) == 0U);
@@ -260,6 +269,7 @@ main(void)
 	test_prefix_expiry_is_required_for_finite_lifetimes();
 	test_failed_address_removal_is_retained_and_retried();
 	test_multiple_pd_cleanup_failures_preserve_first_error();
+	test_shutdown_waits_for_pending_delegated_prefix_cleanup();
 	test_address_change_absent_and_duplicate_errors();
 	test_unowned_ia_na_collision_is_never_claimed_or_removed();
 	test_owned_ia_na_address_can_be_reconciled_and_removed();

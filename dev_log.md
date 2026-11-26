@@ -1,3 +1,13 @@
+## 2026-11-26 — Drain delegated-prefix cleanup before DHCPv6 client exit
+
+- Confirmed shutdown defect: `remove_iaprefix()` retains failed downstream prefix removals and schedules a 5-second retry, but SIGTERM entered `check_exit(1)`; `free_resources(1)` removed those timers and exited. The WAN stop caller used `kill_services(svcs, 3, 1)`, which could SIGKILL the process before the first cleanup retry. A transient kernel deletion failure could strand a delegated prefix without a retry owner.
+- SIGTERM/SIGQUIT now set a shutdown flag and call `free_resources(0)`. The main loop services pending IA timers and exits only when every configured IA data queue is empty. `client6_start()` suppresses new Solicit/Information-Request events after shutdown, and SIGHUP no longer restarts the client once shutdown begins.
+- Normal stop and failed-start cleanup now use a 16-second non-forced wait. Persistent cleanup errors time out instead of escalating to SIGKILL; normal stop therefore leaves callback generation unchanged and WAN teardown fail-closed. The timeout covers multiple 5-second retry intervals.
+- Added policy unit cases and source contracts for IA-drain readiness, restart suppression, timer-drain ordering and the non-forced stop contract. Exact-SHA CI is required; hardware behavior is not verified.
+- Parent main: `f55521e7bc74691d18d4a6f62a6f9e326730b970`; resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-26 — Reject duplicate DHCPv6 singleton vbuf options
 
 - The outer DHCPv6 option decoder stores CLIENTID, SERVERID, RELAY_MSG and INTERFACE_ID in one owned `dhcp6_vbuf` field per option type. Repeated instances previously overwrote the prior allocation and silently kept the last value, leaking memory until the packet cleanup path.

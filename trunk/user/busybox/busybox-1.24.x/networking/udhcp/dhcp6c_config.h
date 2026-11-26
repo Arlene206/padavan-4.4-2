@@ -90,6 +90,7 @@ struct dhcp6_if {
 
 	/* timer for the interface */
 	struct dhcp6_timer *timer;
+	int shutting_down;		/* drain delegated-prefix cleanup before exit */
 
 	/* static parameters of the interface */
 	char *ifname;
