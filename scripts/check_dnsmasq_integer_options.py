@@ -231,7 +231,7 @@ assert "strrchr(parent, '/')" in sync_parent
 assert "dnsmasq_file_sync_directory(parent)" in sync_parent
 assert publish.index("fflush(fp)") < publish.index("fchmod(fileno(fp), mode)")
 assert publish.index("fchmod(fileno(fp), mode)") < publish.index("fsync(fileno(fp))")
-assert publish.index("fsync(fileno(fp))") < publish.index("fclose(fp)")
+assert publish.index("fsync(fileno(fp))") < publish.rindex("if (fclose(fp) != 0)")
 assert publish.index("fclose(fp)") < publish.index("rename(path, destination)")
 assert publish.index("rename(path, destination)") < publish.index(
     "dnsmasq_file_sync_parent(destination)")
