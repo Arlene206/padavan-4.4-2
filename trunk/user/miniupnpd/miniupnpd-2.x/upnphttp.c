@@ -31,6 +31,7 @@
 #include "upnpsoap.h"
 #include "upnpevents.h"
 #include "miniupnpd_event_callback_policy.h"
+#include "miniupnpd_event_timeout_policy.h"
 #include "upnputils.h"
 
 #ifdef ENABLE_HTTPS
@@ -208,6 +209,7 @@ ParseHttpHeaders(struct upnphttp * h)
 	char * p;
 	int n;
 	int content_length_seen = 0;
+	int timeout_seen = 0;
 	if((h->req_buf == NULL) || (h->req_contentoff <= 0))
 		return EINVAL;
 	line = h->req_buf;
@@ -354,12 +356,24 @@ by a UPnP Forum working committee. Defined by UPnP vendor.
 intervening space) by either an integer or the keyword "infinite". */
 			else if(strncasecmp(line, "Timeout:", 8)==0)
 			{
-				p = colon + 1;
-				while((*p == ' ') || (*p == '\t'))
-					p++;
-				if(strncasecmp(p, "Second-", 7)==0) {
-					h->req_Timeout = atoi(p+7);
-				}
+				const char * value_start;
+				const char * value_end;
+				int parsed_timeout;
+
+				if (colon != line + 7 || timeout_seen)
+					return EINVAL;
+				value_start = colon + 1;
+				value_end = value_start;
+				while (value_end < h->req_buf + h->req_contentoff &&
+				       *value_end != '\r' && *value_end != '\n')
+					++value_end;
+				if (value_end >= h->req_buf + h->req_contentoff ||
+				    miniupnpd_event_timeout_parse(
+				        value_start, (size_t)(value_end - value_start),
+				        &parsed_timeout) != 0)
+					return EINVAL;
+				h->req_Timeout = parsed_timeout;
+				timeout_seen = 1;
 			}
 #ifdef UPNP_STRICT
 			else if(strncasecmp(line, "nt:", 3)==0)

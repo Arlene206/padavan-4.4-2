@@ -1,3 +1,9 @@
+## 2026-11-26 — Parse MiniUPnP event timeouts without integer or time_t overflow
+
+- The network-facing MiniUPnP `Timeout:` parser used `atoi()`, accepting malformed signed/trailing-junk values and invoking undefined behavior for out-of-range input; event subscribe/renew then added the untrusted duration directly to signed `time_t`.
+- Added bounded exact parsing for `Second-nnnn` and `Second-infinite`, rejects duplicate/malformed header values before dispatch, and uses an overflow-safe saturating deadline for both subscriber creation and renewal. Existing zero/infinite and strict-build default semantics are preserved.
+- Added GNU89 ASan/UBSan boundary tests for grammar, integer overflow, invalid inputs and simulated 32-bit deadline saturation; updated subscriber source contract, dependencies and XY-C1 production path filters. Parent main: `349a3ad2ba842a7eeb2f38b2e4dd307bfa1a715a`; exact-SHA Actions pending.
+
 ## 2026-11-26 — Include networkmap production in XY-C1 firmware validation
 
 - The XY-C1 workflow path filter covered core RC sources and multiple userland packages but omitted trunk/user/networkmap/**, so networkmap production changes did not trigger the firmware build even though the package is part of the firmware.

@@ -2,19 +2,18 @@
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; active branch: `main`; current parent before the HTTPD LAN-DHCP contract correction: `825282da1530323e591acc5dc0124a1bb3343413` (LAN malformed-Router fail-closed fix).
+- Repository: `Arlene206/padavan-4.4-2`; active branch: `main`; current parent before the MiniUPnP event-timeout hardening slice: `349a3ad2ba842a7eeb2f38b2e4dd307bfa1a715a`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged; do not modify). PR #1 remains closed and unmerged.
 - Bootstrap/protocol recovery was completed earlier in this continuous project; do not repeat it. Work on `main` only with full-tree atomic commits and non-forced expected-SHA updates.
-- Latest exact-parent Actions on `b4758abe4d81752f604013d6819ce4ba9d29e9c6`: AdGuardHome config security #45837257425 PASS; Process inventory #45837257092 PASS; XY-C1 #45837257027 host checks PASS but Build XY-C1, TRX verification and artifact upload were SKIPPED by the firmware-input detector. This is NOT an L3 firmware build.
-- Last full L3 evidence remains older source baseline `43ba9c6d0f5fd86bb94ad45a6cb8bf6b6ce3dfe1`, XY-C1 run #45831671503 (artifact ID `15123331261`, SHA-256 `19dfd06a2ad7c6427a55e26505552a8a3bfbc6f6e1bff2259304426261f2bc9c`). No physical-router/L4 validation is claimed.
-- Completed the AdGuardHome startup-failure behavior and checker alignment; exact AdGuardHome regression #45837257425 and Process inventory #45837257092 PASS on `b4758abe`.
+- Recent exact-SHA evidence: detect_internet #45840625872 and AI handoff #45840625916 PASS on `863d77c9e28fc3caff4c53bf9a81607d4bf9871b`; HTTPD DHCP Router checker #45839469363 and AI handoff #45839469460 PASS on `68edd489cb4123769327c3b35aa5971a10ab4af2`.
+- Latest confirmed full L3 evidence is source SHA `825282da1530323e591acc5dc0124a1bb3343413`, XY-C1 run #45839116241 with Build XY-C1, TRX verification and artifact upload all PASS. Later production descendants require their own source-triggered build. No physical-router/L4 validation is claimed.
+- Recent source work includes the signal-interrupted Internet probe retry plus networkmap ARP receive-timeout failure propagation and preservation of its packet socket across daemon stdio redirection. The latest networkmap workflow path-filter correction is committed at `349a3ad`.
 
 ## Active task
 
-- Align the HTTPD security workflow's embedded LAN DHCP lease contract with the new fail-closed Router parser. On exact SHA `825282da1530323e591acc5dc0124a1bb3343413`, the DHCP lease C regression passed, but HTTPD run #45839116268 failed at its stale `assert "dhcp_lease_ipv4_list_first(" in lan_bound`: the callback now correctly uses `dhcp_lease_router_option_parse()`, rejects errors, and returns before the kernel lease transaction or NVRAM publish. This is a checker-only failure; update its assertion to require the new early-rejection path and adversarial regression.
-- Same-SHA WAN DHCP callback #45839116459, watchdog signal #45839116450, IPv6 service-type #45839116290, detect_internet #45839116334, wireless radio #45839116279, detect_link #45839116257, firewall startup #45839116413, and AI handoff #45839116416 PASS. Process inventory #45839116212, WAN route #45839116267, DNSMasq lifecycle #45839116300, NVRAM audit #45839116359, and firmware run #45839116241 were still running at last poll. XY-C1 Build/TRX/artifact must complete before L3 claim.
-- No production code changes in this workflow contract correction.
-
+- Harden the MiniUPnP event-subscription `Timeout:` request boundary. The prior HTTP header parser used `atoi(p+7)`, which accepted signed/trailing-junk values and invoked undefined behavior on overflow; subscriber creation and renewal then computed `time(NULL) + timeout` without protecting signed 32-bit `time_t` overflow.
+- This source slice adds exact bounded `Second-nnnn` / `Second-infinite` parsing, duplicate-header rejection and HTTP 400 for malformed values; add/renew use a shared overflow-safe saturating deadline helper. GNU89 ASan/UBSan regression covers grammar, INT_MAX overflow, invalid input and simulated 32-bit deadline saturation; the subscriber workflow's embedded source contract covers production integration.
+- The changed `trunk/user/miniupnpd/**` production input is explicitly in the XY-C1 push path filter. Exact-SHA subscriber, AI handoff and XY-C1 Build/TRX/artifact checks are pending until this source commit is checked. No hardware/L4 claim.
 
 ## Completed production work — LAN DHCP resolver transaction
 
@@ -60,10 +59,9 @@
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-SHA HTTPD security workflow for this LAN DHCP Router contract correction; require the embedded source checks and DHCP lease GNU89 regression to pass.
-2. Inspect XY-C1 run #45839116241 on production SHA `825282d`: detector, Build XY-C1, TRX verification and artifact upload. Also inspect pending Process, WAN-route, DNSMasq and NVRAM workflows on their exact SHA.
-3. Continue another independent P1 stability/security defect. Keep full-tree atomic commits with expected-SHA updates; hardware/L4 remains NOT VERIFIED.
-
+1. Read the current `main` HEAD once and inspect the exact-SHA MiniUPnP event-subscriber regression plus AI handoff documentation check for this timeout-parser/deadline commit.
+2. Inspect the matching XY-C1 run and require the firmware-input detector, Build XY-C1, TRX verification and artifact upload all to PASS on that same source SHA. If Build is still PENDING, continue an independent source task rather than waiting.
+3. Continue another concrete P1 stability/security defect without repeating completed work. Keep full-tree atomic commits with expected-SHA updates; frozen backup stays untouched and hardware/L4 remains NOT VERIFIED.
 
 ## Mandatory handoff checkpoint
 

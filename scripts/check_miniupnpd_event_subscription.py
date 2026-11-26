@@ -6,6 +6,7 @@ BASE = ROOT / "trunk/user/miniupnpd/miniupnpd-2.x"
 events = (BASE / "upnpevents.c").read_text()
 http = (BASE / "upnphttp.c").read_text()
 policy = (BASE / "miniupnpd_event_subscription_policy.h").read_text()
+timeout_policy = (BASE / "miniupnpd_event_timeout_policy.h").read_text()
 test = (BASE / "tests/miniupnpd_event_subscription_policy_test.c").read_text()
 workflow = (ROOT / ".github/workflows/miniupnpd-event-subscriber-stability.yml").read_text()
 linux_makefile = (BASE / "Makefile.linux").read_text()
@@ -55,11 +56,48 @@ for token in (
 ):
     assert token in test
 
+
+timeout_parser = body(http, "ParseHttpHeaders(struct upnphttp * h)")
+add_body = body(events, "upnpevents_addSubscriber(")
+renew_body = body(events, "upnpevents_renewSubscription(")
+assert '#include "miniupnpd_event_timeout_policy.h"' in http
+assert '#include "miniupnpd_event_timeout_policy.h"' in events
+assert "int timeout_seen = 0;" in timeout_parser
+assert "if (colon != line + 7 || timeout_seen)" in timeout_parser
+assert "value_end < h->req_buf + h->req_contentoff" in timeout_parser
+assert "miniupnpd_event_timeout_parse(" in timeout_parser
+assert "h->req_Timeout = parsed_timeout;" in timeout_parser
+assert "atoi(p+7)" not in timeout_parser
+assert 'BuildResp2_upnphttp(h, 400, "Bad Request", NULL, 0);' in http
+assert "miniupnpd_event_timeout_parse(" in timeout_policy
+assert 'strncasecmp(value + first, "infinite", 8U)' in timeout_policy
+assert "parsed > ((unsigned long)INT_MAX - (unsigned long)digit) / 10UL" in timeout_policy
+assert "miniupnpd_event_timeout_deadline_for_limit(" in timeout_policy
+assert "miniupnpd_event_time_t_max()" in timeout_policy
+assert "miniupnpd_event_timeout_deadline(" in add_body
+assert "tmp->timeout = timeout_deadline;" in add_body
+assert "miniupnpd_event_timeout_deadline(" in renew_body
+assert "sub->timeout = timeout_deadline;" in renew_body
+assert "time(NULL) + timeout" not in add_body
+assert "time(NULL) + timeout" not in renew_body
+for makefile in (linux_makefile, nft_makefile):
+    assert "miniupnpd_event_timeout_policy.h" in makefile
+for token in (
+    "test_timeout_parse",
+    "Second-2147483648",
+    "Second-InFiNiTe",
+    "test_timeout_deadline",
+    "maximum - (time_t)1",
+    "MINIUPNPD_EVENT_MAX_SUBSCRIBERS + 1U",
+):
+    assert token in test
+
 paths = (
     ".github/workflows/miniupnpd-event-subscriber-stability.yml",
     "trunk/user/miniupnpd/miniupnpd-2.x/upnpevents.c",
     "trunk/user/miniupnpd/miniupnpd-2.x/upnphttp.c",
     "trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd_event_subscription_policy.h",
+    "trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd_event_timeout_policy.h",
     "trunk/user/miniupnpd/miniupnpd-2.x/tests/miniupnpd_event_subscription_policy_test.c",
     "trunk/user/miniupnpd/miniupnpd-2.x/Makefile.linux",
     "trunk/user/miniupnpd/miniupnpd-2.x/Makefile.linux_nft",

@@ -26,6 +26,7 @@
 #endif /* LIB_UUID / BSD_UUID */
 #include "upnpevents.h"
 #include "miniupnpd_event_subscription_policy.h"
+#include "miniupnpd_event_timeout_policy.h"
 #include "miniupnpd_event_callback_policy.h"
 #include "miniupnpdpath.h"
 #include "upnpglobalvars.h"
@@ -175,10 +176,20 @@ upnpevents_addSubscriber(const char * eventurl,
 	struct subscriber * tmp;
 	struct subscriber * current;
 	size_t subscriber_count = 0;
+	time_t timeout_now;
+	time_t timeout_deadline;
 	/*static char uuid[42];*/
 	/* "uuid:00000000-0000-0000-0000-000000000000"; 5+36+1=42bytes */
 	syslog(LOG_DEBUG, "addSubscriber(%s, %.*s, %d)",
 	       eventurl, callbacklen, callback, timeout);
+
+	/* Reject invalid durations before allocating or publishing subscriber state. */
+	timeout_now = timeout > 0 ? time(NULL) : (time_t)0;
+	if (miniupnpd_event_timeout_deadline(timeout_now, timeout,
+	                                     &timeout_deadline) != 0) {
+		syslog(LOG_WARNING, "invalid event subscription timeout");
+		return NULL;
+	}
 
 	/*
 	 * Event subscriptions allocate a subscriber and a notification socket.
@@ -201,8 +212,7 @@ upnpevents_addSubscriber(const char * eventurl,
 	tmp = newSubscriber(eventurl, callback, callbacklen);
 	if(!tmp)
 		return NULL;
-	if(timeout)
-		tmp->timeout = time(NULL) + timeout;
+	tmp->timeout = timeout_deadline;
 	LIST_INSERT_HEAD(&subscriberlist, tmp, entries);
 	upnp_event_create_notify(tmp);
 	return tmp->uuid;
@@ -213,14 +223,20 @@ const char *
 upnpevents_renewSubscription(const char * sid, int sidlen, int timeout)
 {
 	struct subscriber * sub;
+	time_t timeout_now;
+	time_t timeout_deadline;
 	for(sub = subscriberlist.lh_first; sub != NULL; sub = sub->entries.le_next) {
 		if((sidlen == 41) && (memcmp(sid, sub->uuid, 41) == 0)) {
+			timeout_now = timeout > 0 ? time(NULL) : (time_t)0;
+			if (miniupnpd_event_timeout_deadline(timeout_now, timeout,
+			                                     &timeout_deadline) != 0)
+				return NULL;
 #ifdef UPNP_STRICT
 			/* check if the subscription already timeouted */
 			if(sub->timeout && time(NULL) > sub->timeout)
 				continue;
 #endif
-			sub->timeout = (timeout ? time(NULL) + timeout : 0);
+			sub->timeout = timeout_deadline;
 			return sub->uuid;
 		}
 	}
