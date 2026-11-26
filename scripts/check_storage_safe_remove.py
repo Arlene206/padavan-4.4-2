@@ -725,7 +725,7 @@ require("process_inventory_scan(daemon, &snapshot)" in presence and
         "storage daemon query must preserve process-inventory UNKNOWN")
 for daemon, signature in (
     ("vsftpd", "is_ftp_run(void)"),
-    ("minidlna", "int is_dms_run(void)"),
+    ("minidlnad", "int is_dms_run(void)"),
     ("mt-daapd", "int is_itunes_run(void)"),
     ("transmission-daemon", "int is_torrent_run(void)"),
     ("aria2c", "int is_aria_run(void)"),
@@ -775,7 +775,7 @@ require("process_state != PROCESS_PRESENCE_ABSENT" in ftp_start and
         "PROCESS_PRESENCE_RUNNING" in ftp_start,
         "FTP start must refuse unknown daemon presence")
 for signature, daemon, stop_callback in (
-        ("int run_dms(int force_rescan)", "minidlna", "stop_dms_locked"),
+        ("int run_dms(int force_rescan)", "minidlnad", "stop_dms_locked"),
         ("int run_itunes(void)", "mt-daapd", "stop_itunes_locked"),
         ("int run_torrent(void)", "transmission-daemon", "stop_torrent_locked"),
         ("int run_aria(void)", "aria2c", "stop_aria_locked"),
@@ -815,7 +815,7 @@ require("process_inventory_scan(daemon, &snapshot)" in presence and
         "storage daemon query must preserve process-inventory UNKNOWN")
 for daemon, signature in (
     ("vsftpd", "is_ftp_run(void)"),
-    ("minidlna", "int is_dms_run(void)"),
+    ("minidlnad", "int is_dms_run(void)"),
     ("mt-daapd", "int is_itunes_run(void)"),
     ("transmission-daemon", "int is_torrent_run(void)"),
     ("aria2c", "int is_aria_run(void)"),
@@ -842,7 +842,7 @@ for signature in ("int run_dms(int force_rescan)", "int run_itunes(void)",
 # Media/download helpers preserve launch/readiness failures and attempt a
 # process-identity-checked rollback before returning a failed start.
 for signature, daemon, stopper in (
-    ("int run_dms(int force_rescan)", "minidlna", "stop_dms_locked"),
+    ("int run_dms(int force_rescan)", "minidlnad", "stop_dms_locked"),
     ("int run_itunes(void)", "mt-daapd", "stop_itunes_locked"),
     ("int run_torrent(void)", "transmission-daemon", "stop_torrent_locked"),
     ("int run_aria(void)", "aria2c", "stop_aria_locked"),
