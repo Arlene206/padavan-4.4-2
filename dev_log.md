@@ -1,3 +1,10 @@
+## 2026-11-25 — Reset ZeroTier route-count manifests between compatibility cases
+
+- Exact ZeroTier run on d9bb597 completed the bounded lifecycle tests and stopped in the later route-count table: the empty-string case correctly wrote a header-only route manifest, but the next zero-count case reused that same file and the production add path correctly refused to overwrite an unreplayed checkpoint.
+- The count table now removes the known-empty manifest after each successful add, modeling an independent add/stop cycle for every accepted selector. Production checkpoint refusal remains unchanged.
+
+---
+
 ## 2026-11-25 — Clear the empty ZeroTier route manifest between independent rules fixtures
 
 - Exact ZeroTier run on 3d586 passed the /32 and NAT-readiness cases but the later partial-route-add case could not reach the route-add stub: the preceding successful NAT-only rules() fixture correctly left a header-only .static-routes-state checkpoint (zero configured static routes), and the next independent fixture reused it.

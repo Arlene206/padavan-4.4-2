@@ -2631,6 +2631,9 @@ for valid_count in "" 0 00064; do
 	if ! zero_route add; then
 		fail "static-route executor rejected compatible count '$valid_count'"
 	fi
+	# Each iteration models a fresh add/stop cycle. The header-only manifest
+	# written for a zero enabled-route count must not poison the next count.
+	/bin/rm -f "$TEST_CONFIG/.static-routes-state"
 done
 
 # The route UI exposes exactly 0/1. Reject any other readable value in
