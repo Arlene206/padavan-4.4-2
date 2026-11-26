@@ -100,7 +100,7 @@ static BOOLEAN IAPP_EventLogClean(
 static BOOLEAN IAPP_EventLogHandle(
 	IAPP_IN		PRT_802_11_EVENT_TABLE	pEvtTab);
 static VOID IAPP_EventLog_Query(
-	VOID);
+	IAPP_IN		RTMP_IAPP	*pCtrlBK);
 #endif // IAPP_EVENT_LOG //
 
 static BOOLEAN IAPP_ArgumentParse(
@@ -1835,7 +1835,7 @@ static VOID IAPP_Start(
 		if (iapp_event_log_poll_due(res.tv_sec))
 		{
 			backuptime = now;
-			IAPP_EventLog_Query();
+			IAPP_EventLog_Query(pCtrlBK);
 		} /* End of if */
 #endif // IAPP_EVENT_LOG //
 

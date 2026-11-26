@@ -136,9 +136,18 @@ def main() -> None:
             "event-log poll interval must not regress to 1000 seconds")
     start_handler = extract_function(source, "IAPP_Start")
     poll_gate = start_handler.find("iapp_event_log_poll_due(res.tv_sec)")
-    query_call = start_handler.find("IAPP_EventLog_Query()", poll_gate)
+    query_call = start_handler.find("IAPP_EventLog_Query(pCtrlBK)", poll_gate)
     require(poll_gate >= 0 and query_call > poll_gate,
             "event-log query must remain gated by the elapsed-time policy")
+    require(re.search(
+                r"static\s+VOID\s+IAPP_EventLog_Query\s*\(\s*IAPP_IN\s+RTMP_IAPP\s*\*\s*pCtrlBK\s*\)\s*;",
+                source) is not None,
+            "event-log query prototype must accept the IAPP control block")
+    query_handler = extract_function(source, "IAPP_EventLog_Query")
+    require("IAPP_MsgProcess(pCtrlBK, IAPP_QUERY_OID_REQ" in query_handler,
+            "event-log query must dispatch through its supplied control block")
+    require("IAPP_EventLog_Query();" not in start_handler,
+            "event-log query must not be called with a missing control block")
 
     require('#include "iapp_event_log_policy.h"' in source,
             "IAPP event log must include the append-size policy")
