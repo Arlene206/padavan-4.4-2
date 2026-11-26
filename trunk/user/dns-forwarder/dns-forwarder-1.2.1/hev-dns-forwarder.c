@@ -22,6 +22,43 @@
 #include "hev-dns-session.h"
 #include "hev-dns-forwarder-policy.h"
 
+#ifdef HEV_DNS_FORWARDER_TESTING
+#include "../tests/hev_dns_forwarder_init_test_hooks.h"
+#define DNS_FORWARDER_GETADDRINFO dns_forwarder_test_getaddrinfo
+#define DNS_FORWARDER_FREEADDRINFO dns_forwarder_test_freeaddrinfo
+#define DNS_FORWARDER_SOCKET dns_forwarder_test_socket
+#define DNS_FORWARDER_IOCTL dns_forwarder_test_ioctl
+#define DNS_FORWARDER_SETSOCKOPT dns_forwarder_test_setsockopt
+#define DNS_FORWARDER_BIND dns_forwarder_test_bind
+#define DNS_FORWARDER_CLOSE dns_forwarder_test_close
+#define DNS_FORWARDER_EVENT_SOURCE_FDS_NEW dns_forwarder_test_event_source_fds_new
+#define DNS_FORWARDER_EVENT_SOURCE_TIMEOUT_NEW dns_forwarder_test_event_source_timeout_new
+#define DNS_FORWARDER_EVENT_SOURCE_SET_PRIORITY dns_forwarder_test_event_source_set_priority
+#define DNS_FORWARDER_EVENT_SOURCE_ADD_FD dns_forwarder_test_event_source_add_fd
+#define DNS_FORWARDER_EVENT_SOURCE_SET_CALLBACK dns_forwarder_test_event_source_set_callback
+#define DNS_FORWARDER_EVENT_LOOP_ADD_SOURCE dns_forwarder_test_event_loop_add_source
+#define DNS_FORWARDER_EVENT_LOOP_DEL_SOURCE dns_forwarder_test_event_loop_del_source
+#define DNS_FORWARDER_EVENT_SOURCE_GET_LOOP dns_forwarder_test_event_source_get_loop
+#define DNS_FORWARDER_EVENT_SOURCE_UNREF dns_forwarder_test_event_source_unref
+#else
+#define DNS_FORWARDER_GETADDRINFO getaddrinfo
+#define DNS_FORWARDER_FREEADDRINFO freeaddrinfo
+#define DNS_FORWARDER_SOCKET socket
+#define DNS_FORWARDER_IOCTL ioctl
+#define DNS_FORWARDER_SETSOCKOPT setsockopt
+#define DNS_FORWARDER_BIND bind
+#define DNS_FORWARDER_CLOSE close
+#define DNS_FORWARDER_EVENT_SOURCE_FDS_NEW hev_event_source_fds_new
+#define DNS_FORWARDER_EVENT_SOURCE_TIMEOUT_NEW hev_event_source_timeout_new
+#define DNS_FORWARDER_EVENT_SOURCE_SET_PRIORITY hev_event_source_set_priority
+#define DNS_FORWARDER_EVENT_SOURCE_ADD_FD hev_event_source_add_fd
+#define DNS_FORWARDER_EVENT_SOURCE_SET_CALLBACK hev_event_source_set_callback
+#define DNS_FORWARDER_EVENT_LOOP_ADD_SOURCE hev_event_loop_add_source
+#define DNS_FORWARDER_EVENT_LOOP_DEL_SOURCE hev_event_loop_del_source
+#define DNS_FORWARDER_EVENT_SOURCE_GET_LOOP hev_event_source_get_loop
+#define DNS_FORWARDER_EVENT_SOURCE_UNREF hev_event_source_unref
+#endif
+
 #define TIMEOUT		(10 * 1000)
 
 struct _HevDNSForwarder
@@ -91,69 +128,69 @@ hev_dns_forwarder_new (HevEventLoop *loop, const char *addr, const char *port,
 	memset (&hints, 0, sizeof (hints));
 	hints.ai_family = AF_INET;
 	hints.ai_socktype = SOCK_DGRAM;
-	r = getaddrinfo (addr, port, &hints, &addr_ip);
+	r = DNS_FORWARDER_GETADDRINFO (addr, port, &hints, &addr_ip);
 	if (0 != r) {
 		errno = EINVAL;
 		goto error_exit;
 	}
 
-	self->listen_fd = socket (AF_INET, SOCK_DGRAM, 0);
+	self->listen_fd = DNS_FORWARDER_SOCKET (AF_INET, SOCK_DGRAM, 0);
 	if (self->listen_fd < 0)
 		goto error_exit;
-	if (0 > ioctl (self->listen_fd, FIONBIO, (char *) &nonblock))
+	if (0 > DNS_FORWARDER_IOCTL (self->listen_fd, FIONBIO, (char *) &nonblock))
 		goto error_exit;
-	if (0 > setsockopt (self->listen_fd, SOL_SOCKET, SO_REUSEADDR,
+	if (0 > DNS_FORWARDER_SETSOCKOPT (self->listen_fd, SOL_SOCKET, SO_REUSEADDR,
 			    &reuseaddr, sizeof (reuseaddr)))
 		goto error_exit;
-	if (0 != bind (self->listen_fd, addr_ip->ai_addr, addr_ip->ai_addrlen))
+	if (0 != DNS_FORWARDER_BIND (self->listen_fd, addr_ip->ai_addr, addr_ip->ai_addrlen))
 		goto error_exit;
-	freeaddrinfo (addr_ip);
+	DNS_FORWARDER_FREEADDRINFO (addr_ip);
 	addr_ip = NULL;
 
 	/* Every event-source allocation and registration is checked. */
-	self->listener_source = hev_event_source_fds_new ();
+	self->listener_source = DNS_FORWARDER_EVENT_SOURCE_FDS_NEW ();
 	if (!self->listener_source)
 		goto error_exit;
-	hev_event_source_set_priority (self->listener_source, 1);
-	if (!hev_event_source_add_fd (
+	DNS_FORWARDER_EVENT_SOURCE_SET_PRIORITY (self->listener_source, 1);
+	if (!DNS_FORWARDER_EVENT_SOURCE_ADD_FD (
 		self->listener_source, self->listen_fd, EPOLLIN | EPOLLET))
 		goto error_exit;
-	hev_event_source_set_callback (self->listener_source,
+	DNS_FORWARDER_EVENT_SOURCE_SET_CALLBACK (self->listener_source,
 			(HevEventSourceFunc) listener_source_handler, self, NULL);
-	if (!hev_event_loop_add_source (loop, self->listener_source))
+	if (!DNS_FORWARDER_EVENT_LOOP_ADD_SOURCE (loop, self->listener_source))
 		goto error_exit;
-	hev_event_source_unref (self->listener_source);
+	DNS_FORWARDER_EVENT_SOURCE_UNREF (self->listener_source);
 
-	self->timeout_source = hev_event_source_timeout_new (TIMEOUT);
+	self->timeout_source = DNS_FORWARDER_EVENT_SOURCE_TIMEOUT_NEW (TIMEOUT);
 	if (!self->timeout_source)
 		goto error_exit;
-	hev_event_source_set_priority (self->timeout_source, -1);
-	hev_event_source_set_callback (self->timeout_source,
+	DNS_FORWARDER_EVENT_SOURCE_SET_PRIORITY (self->timeout_source, -1);
+	DNS_FORWARDER_EVENT_SOURCE_SET_CALLBACK (self->timeout_source,
 				 timeout_source_handler, self, NULL);
-	if (!hev_event_loop_add_source (loop, self->timeout_source))
+	if (!DNS_FORWARDER_EVENT_LOOP_ADD_SOURCE (loop, self->timeout_source))
 		goto error_exit;
-	hev_event_source_unref (self->timeout_source);
+	DNS_FORWARDER_EVENT_SOURCE_UNREF (self->timeout_source);
 
 	return self;
 
 error_exit:
 	saved_errno = errno ? errno : EIO;
 	if (self->timeout_source) {
-		if (hev_event_source_get_loop (self->timeout_source) == loop)
-			hev_event_loop_del_source (loop, self->timeout_source);
+		if (DNS_FORWARDER_EVENT_SOURCE_GET_LOOP (self->timeout_source) == loop)
+			DNS_FORWARDER_EVENT_LOOP_DEL_SOURCE (loop, self->timeout_source);
 		else
-			hev_event_source_unref (self->timeout_source);
+			DNS_FORWARDER_EVENT_SOURCE_UNREF (self->timeout_source);
 	}
 	if (self->listener_source) {
-		if (hev_event_source_get_loop (self->listener_source) == loop)
-			hev_event_loop_del_source (loop, self->listener_source);
+		if (DNS_FORWARDER_EVENT_SOURCE_GET_LOOP (self->listener_source) == loop)
+			DNS_FORWARDER_EVENT_LOOP_DEL_SOURCE (loop, self->listener_source);
 		else
-			hev_event_source_unref (self->listener_source);
+			DNS_FORWARDER_EVENT_SOURCE_UNREF (self->listener_source);
 	}
 	if (addr_ip)
-		freeaddrinfo (addr_ip);
+		DNS_FORWARDER_FREEADDRINFO (addr_ip);
 	if (self->listen_fd >= 0)
-		close (self->listen_fd);
+		DNS_FORWARDER_CLOSE (self->listen_fd);
 	HEV_MEMORY_ALLOCATOR_FREE (self);
 	errno = saved_errno;
 	fprintf (stderr, "DNS Forwarder initialization failed: %s\n",
@@ -178,9 +215,9 @@ hev_dns_forwarder_unref (HevDNSForwarder *self)
 	if (self) {
 		self->ref_count --;
 		if (0 == self->ref_count) {
-			hev_event_loop_del_source (self->loop, self->listener_source);
-			hev_event_loop_del_source (self->loop, self->timeout_source);
-			close (self->listen_fd);
+			DNS_FORWARDER_EVENT_LOOP_DEL_SOURCE (self->loop, self->listener_source);
+			DNS_FORWARDER_EVENT_LOOP_DEL_SOURCE (self->loop, self->timeout_source);
+			DNS_FORWARDER_CLOSE (self->listen_fd);
 			remove_all_sessions (self);
 			HEV_MEMORY_ALLOCATOR_FREE (self);
 		}

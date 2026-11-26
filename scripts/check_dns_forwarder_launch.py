@@ -73,6 +73,8 @@ event_loop_test = read("trunk/user/dns-forwarder/tests/hev_event_loop_lifecycle.
 main_core = read("trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-main.c")
 forwarder_policy = read("trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-dns-forwarder-policy.h")
 forwarder_policy_test = read("trunk/user/dns-forwarder/tests/hev_dns_forwarder_policy.c")
+forwarder_init_test = read("trunk/user/dns-forwarder/tests/hev_dns_forwarder_init_failure.c")
+forwarder_init_hooks = read("trunk/user/dns-forwarder/tests/hev_dns_forwarder_init_test_hooks.h")
 core_dir = "trunk/user/dns-forwarder/dns-forwarder-1.2.1/"
 event_loop = read(core_dir + "hev-event-loop.c")
 event_source = read(core_dir + "hev-event-source.c")
@@ -222,6 +224,8 @@ paths = (
     "trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-dns-forwarder.c",
     "trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-main.c",
     "trunk/user/dns-forwarder/tests/hev_dns_forwarder_policy.c",
+    "trunk/user/dns-forwarder/tests/hev_dns_forwarder_init_failure.c",
+    "trunk/user/dns-forwarder/tests/hev_dns_forwarder_init_test_hooks.h",
 )
 filters = workflow.split("jobs:", 1)[0]
 push_filters, pr_filters = filters.split("  pull_request:", 1)
@@ -259,6 +263,23 @@ forwarder_constructor = function_body(
 )
 assert "if (!loop || !addr || !*addr || !port || !*port || !upstream)" in forwarder_constructor
 assert "hev_dns_forwarder_parse_port (" in forwarder_constructor
+
+# Constructor dependency hooks must exercise the real production constructor.
+assert "#ifdef HEV_DNS_FORWARDER_TESTING" in forwarder_core
+for operation in ("GETADDRINFO", "SOCKET", "IOCTL", "SETSOCKOPT", "BIND",
+                  "FREEADDRINFO", "CLOSE", "EVENT_SOURCE_FDS_NEW",
+                  "EVENT_SOURCE_TIMEOUT_NEW", "EVENT_SOURCE_ADD_FD",
+                  "EVENT_LOOP_ADD_SOURCE", "EVENT_LOOP_DEL_SOURCE",
+                  "EVENT_SOURCE_UNREF"):
+    assert "DNS_FORWARDER_" + operation in forwarder_core
+for failure_case in ("FAIL_GETADDRINFO", "FAIL_SOCKET", "FAIL_IOCTL",
+                     "FAIL_SETSOCKOPT", "FAIL_BIND", "FAIL_LISTENER_SOURCE_NEW",
+                     "FAIL_LISTENER_SOURCE_ADD_FD",
+                     "FAIL_LISTENER_SOURCE_REGISTER", "FAIL_TIMEOUT_SOURCE_NEW",
+                     "FAIL_TIMEOUT_SOURCE_REGISTER"):
+    assert failure_case in forwarder_init_test
+assert "open_fd_count()" in forwarder_init_test
+assert "dns_forwarder_test_event_loop_del_source" in forwarder_init_hooks
 assert "inet_aton (upstream, &upstream_addr)" in forwarder_constructor
 assert forwarder_constructor.index("getaddrinfo (") < forwarder_constructor.index("socket (")
 assert "if (0 > ioctl (self->listen_fd, FIONBIO" in forwarder_constructor

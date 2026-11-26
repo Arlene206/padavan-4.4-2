@@ -1,3 +1,9 @@
+## 2026-11-26 20:26 CST (UTC+8) — Inject DNS Forwarder constructor setup failures
+
+- Added a test-only dependency seam around the production constructor's resolver, socket setup, event-source creation/attachment and event-loop registration calls. Production builds retain the normal libc and event-loop implementations.
+- Added a GNU99 ASan/UBSan regression that injects failures at getaddrinfo, socket, FIONBIO, SO_REUSEADDR, bind, listener-source allocation/fd attachment/registration, timeout-source allocation and timeout registration. It checks errno preservation, resolver release, listener close, source detach/unref counts and open-FD balance; it also exercises successful initialization and teardown.
+- Extended the DNS Forwarder checker and identical push/pull_request source filters. Local compilation is unavailable in this connector-only environment; exact-head Actions provide executable validation. No target-build or hardware result is claimed.
+
 ## 2026-11-26 — Propagate DNS Forwarder CLI startup failures
 
 - The DNS Forwarder CLI ignored the return from `hev_event_loop_add_source()`, continued after failed signal-source construction, and returned success when the forwarder could not initialize. It also dereferenced `dns_servers` after an unchecked `strdup()`, leaked replaced option values, and mixed an interior pointer to the DNS server string with independently allocated port ownership.

@@ -26,6 +26,8 @@ on:
       - "trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-dns-forwarder.c"
       - "trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-main.c"
       - "trunk/user/dns-forwarder/tests/hev_dns_forwarder_policy.c"
+      - "trunk/user/dns-forwarder/tests/hev_dns_forwarder_init_failure.c"
+      - "trunk/user/dns-forwarder/tests/hev_dns_forwarder_init_test_hooks.h"
   pull_request:
     paths:
       - ".github/workflows/dns-forwarder-launch-path.yml"
@@ -51,6 +53,8 @@ on:
       - "trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-dns-forwarder.c"
       - "trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-main.c"
       - "trunk/user/dns-forwarder/tests/hev_dns_forwarder_policy.c"
+      - "trunk/user/dns-forwarder/tests/hev_dns_forwarder_init_failure.c"
+      - "trunk/user/dns-forwarder/tests/hev_dns_forwarder_init_test_hooks.h"
 
 permissions:
   contents: read
@@ -68,6 +72,19 @@ jobs:
           tests=trunk/user/dns-forwarder/tests
           cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -I "$core" "$tests/hev_dns_forwarder_policy.c" -o /tmp/dns-forwarder-policy
           /tmp/dns-forwarder-policy
+      - name: Compile and run DNS Forwarder constructor rollback regression
+        run: |
+          core=trunk/user/dns-forwarder/dns-forwarder-1.2.1
+          tests=trunk/user/dns-forwarder/tests
+          cc -std=gnu99 -Wall -Wextra -Werror -Wno-unused-parameter -Wno-cast-function-type -fsanitize=address,undefined -fno-omit-frame-pointer -DHEV_DNS_FORWARDER_TESTING -I "$core" \
+            "$tests/hev_dns_forwarder_init_failure.c" \
+            "$core/hev-dns-forwarder.c" "$core/hev-event-source.c" \
+            "$core/hev-event-source-timeout.c" "$core/hev-ring-buffer.c" \
+            "$core/hev-dns-session.c" "$core/hev-event-source-fds.c" \
+            "$core/hev-slist.c" "$core/hev-event-loop.c" \
+            "$core/hev-event-source-signal.c" "$core/hev-memory-allocator.c" \
+            -o /tmp/dns-forwarder-init-failure
+          ASAN_OPTIONS=detect_leaks=1 /tmp/dns-forwarder-init-failure
       - name: Compile and run DNS Forwarder event-loop regression
         run: |
           core=trunk/user/dns-forwarder/dns-forwarder-1.2.1
