@@ -7,6 +7,7 @@
 
 #include "../src/iapp_ioctl_ifname_policy.h"
 #include "../src/iapp_rx_length_policy.h"
+#include "../src/iapp_event_log_poll_policy.h"
 
 typedef struct _FT_CLIENT_INFO {
 	struct _FT_CLIENT_INFO *next;
@@ -223,6 +224,17 @@ test_linux_msg_trunc_reports_original_datagram_length(void)
 }
 
 static void
+test_event_log_poll_interval(void)
+{
+	assert(!iapp_event_log_poll_due(-1));
+	assert(!iapp_event_log_poll_due(0));
+	assert(iapp_event_log_poll_due(1));
+	assert(iapp_event_log_poll_due(2));
+	assert(iapp_event_log_poll_due(999));
+	assert(iapp_event_log_poll_due(1000));
+}
+
+static void
 test_parser_rejects_count_overflow_and_invalid_names(void)
 {
 	assert(iapp_ioctl_ifname_arg_valid(0, 2, 4, 16));
@@ -247,8 +259,10 @@ main(void)
 	test_wifi_index_bounds();
 	test_received_payload_bounds();
 	test_linux_msg_trunc_reports_original_datagram_length();
+	test_event_log_poll_interval();
 	test_parser_rejects_count_overflow_and_invalid_names();
 	puts("IAPP ioctl interface index and parser bounds policy: PASS");
 	puts("IAPP Linux MSG_TRUNC datagram boundary: PASS");
+	puts("IAPP event-log poll interval policy: PASS");
 	return 0;
 }

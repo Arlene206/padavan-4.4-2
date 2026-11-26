@@ -15,6 +15,8 @@ on:
       - "trunk/user/ralinkiappd/tests/iappd_lifecycle.sh"
       - "trunk/user/ralinkiappd/tests/iapp_signal_pipe_policy.c"
       - "trunk/user/ralinkiappd/src/iapp_select_fd_policy.h"
+      - "trunk/user/ralinkiappd/src/iapp_event_log_poll_policy.h"
+      - "trunk/user/ralinkiappd/src/iapp_event_log_poll_policy.h"
       - "trunk/user/ralinkiappd/tests/iapp_select_fd_policy.c"
       - "trunk/user/ralinkiappd/tests/iapp_select_fd_policy.sh"
       - "scripts/check_iappd_select_fd.py"
@@ -32,6 +34,7 @@ on:
       - "trunk/user/ralinkiappd/tests/iappd_lifecycle.sh"
       - "trunk/user/ralinkiappd/tests/iapp_signal_pipe_policy.c"
       - "trunk/user/ralinkiappd/src/iapp_select_fd_policy.h"
+      - "trunk/user/ralinkiappd/src/iapp_event_log_poll_policy.h"
       - "trunk/user/ralinkiappd/tests/iapp_select_fd_policy.c"
       - "trunk/user/ralinkiappd/tests/iapp_select_fd_policy.sh"
       - "scripts/check_iappd_select_fd.py"
@@ -47,5 +50,5 @@ jobs:
         run: sh trunk/user/ralinkiappd/tests/iappd_lifecycle.sh
       - name: Run select descriptor boundary regression
         run: sh trunk/user/ralinkiappd/tests/iapp_select_fd_policy.sh
-      - name: Verify Linux event-loop select and receive guards
+      - name: Verify Linux event-loop, datagram receive, and event-log timer guards
         run: python3 scripts/check_iappd_select_fd.py

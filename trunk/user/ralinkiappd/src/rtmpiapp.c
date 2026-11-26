@@ -31,6 +31,7 @@
 #include "iappdefs.h"
 #include "iapp_ioctl_ifname_policy.h"
 #include "iapp_rx_length_policy.h"
+#include "iapp_event_log_poll_policy.h"
 #ifdef IAPP_OS_LINUX
 #include "iapp_select_fd_policy.h"
 #endif /* IAPP_OS_LINUX */
@@ -1800,7 +1801,7 @@ static VOID IAPP_Start(
 		timersub(&now, &backuptime, &res);
 
 		/* 1s periodic timer to write events */
-		if ((res.tv_sec >= 1000)/* || (res.tv_usec >= 100000)*/)
+		if (iapp_event_log_poll_due(res.tv_sec))
 		{
 			backuptime = now;
 			IAPP_EventLog_Query();

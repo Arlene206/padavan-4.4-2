@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify IAPP select descriptors and Linux datagram receive boundaries."""
+"""Verify IAPP select, datagram receive, and event-log timer safety."""
 
 from pathlib import Path
 import re
@@ -127,6 +127,18 @@ def main() -> None:
                 name + " must reject datagrams larger than the receive buffer")
         require(parse > length_guard,
                 name + " must reject oversized datagrams before reading the frame")
+
+    require('#include "iapp_event_log_poll_policy.h"' in source,
+            "IAPP event loop must include the event-log poll policy")
+    require("if (iapp_event_log_poll_due(res.tv_sec))" in source,
+            "event snapshots must use the one-second polling policy")
+    require("res.tv_sec >= 1000" not in source,
+            "event-log poll interval must not regress to 1000 seconds")
+    start_handler = extract_function(source, "IAPP_Start")
+    poll_gate = start_handler.find("iapp_event_log_poll_due(res.tv_sec)")
+    query_call = start_handler.find("IAPP_EventLog_Query()", poll_gate)
+    require(poll_gate >= 0 and query_call > poll_gate,
+            "event-log query must remain gated by the elapsed-time policy")
 
     print("Ralink IAPP select descriptor source contract: PASS")
 
