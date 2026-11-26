@@ -1,3 +1,11 @@
+## 2026-11-25 — Fix second stale DHCPv6 stop-order assertion in WAN callback workflow
+
+- The first WAN callback contract repair was still incomplete: the same inline Python step contained an earlier, independent assertion at its line 771 that also required generation advance before daemon stop. The corrected later assertion was reached only after this one passed.
+- Updated the early check to require session lock → daemon stop → success guard → generation advance → final unlock. The new DHCPv6 IA regression already passed on `d32af6f`; this reruns the broader WAN callback contract after removing the duplicate stale ordering.
+- Workflow contract only; exact-SHA Actions pending.
+
+---
+
 ## 2026-11-25 — Update WAN DHCP callback contract for fail-safe DHCPv6 stop ordering
 
 - Exact SHA `d32af6f`: the DHCPv6 IA workflow passed, including the new GNU89 callback-generation race regression. The broader WAN DHCP callback workflow failed only in its inline source contract, which still required generation invalidation before `kill_services()` and expected the former cleanup log wording.
