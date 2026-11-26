@@ -1,31 +1,35 @@
 ## Current repository state — 2026-11-25 (latest CI observed 2026-11-26 UTC)
 
-- Live `main` checkpoint parent: `dcc1026895083e1f01ea52e0cb1a1a43941923f2` (`docs(handoff): checkpoint VSFTPD share-mode fix and exact CI state`). This is a documentation-only descendant; the latest firmware-source SHA remains `7f82a3fd30ea1bdce084715401e7f31279c6a920`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged.
-- Firmware source commit `7f82a3fd30ea1bdce084715401e7f31279c6a920` fixes the per-session VSFTPD `st_ftp_mode` fail-open: the old `nvram_get_int()` applied `atoi()`, collapsed missing/backend errors to zero and accepted `1junk` as mode 1, which bypasses anonymous per-share ACL lookup. New code uses `nvram_get_checked()`, strict full-string parsing, mode-2 normalization for absent/unsupported numeric values, and refuses session startup on read/malformed-value errors.
-- Exact source SHA `7f82a3fd`: VSFTPD stability #45742067432 PASS (GNU89 ASan/UBSan regression + full source contracts); AI docs #45742067378 PASS; Process inventory #45742067392 PASS; NVRAM transaction boundary #45742067411 PASS.
-- XY-C1 run #45742067435 is still IN_PROGRESS on source SHA `7f82a3fd30ea1bdce084715401e7f31279c6a920`, Build job `139649214830`. TRX and artifact upload are not yet confirmed. Do not claim current-source L3 until Build, TRX and artifact upload all pass.
-- AI handoff docs #45742403104 is IN_PROGRESS for the preceding documentation checkpoint `dcc1026895083e1f01ea52e0cb1a1a43941923f2`. This checkpoint commit updates the handoff once more; check its new exact-head AI docs run opportunistically.
-- Earlier product-source XY-C1 runs remain tied to their own SHAs: ZeroTier route ownership `abcda13a2f2d1638f79fff262ccca35e5afb07a3`, #45738090392 PASS; DHCPv6 callback `d32af6fdb0692cd2cdf5e6e6fd0654a59877e82a`, #45740456597 PASS. They do not establish L3 for the newer source SHA.
-- PR #1 remains closed and unmerged; do not revive the divergent PR branch. Backup is immutable. No physical-router L4, live overlay/network or hardware result is claimed. Startup protocol and handoff were already restored once in this session; do not repeat the startup audit.
+- Latest verified production-source checkpoint: `27568b72fbce4acc4dd17f9db2da8a781a8c1ea9`. This is the current source state on `main`; this checkpoint updates only handoff/roadmap/log documents after it. Fetch the live main ref before any future write. Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged and immutable.
+- This session added four Ralink IAPP reliability fixes:
+  - `fe7b84c2de3ce1976266a30b889ae93a1cbb0eb7` checks every Linux select descriptor before `FD_SET`; `dfc6a98d092e7d56a9cef5e7fbd04bcf1ae3eedc` corrected the source-contract extractor. Exact IAPP workflow #45745181480 PASS.
+  - `fa8947c2de13fa2999c6152c4e22408b22b92cfd` uses Linux `MSG_TRUNC` on UDP/raw-driver/raw-RRB receive sockets and rejects datagrams larger than `IAPP_MAX_RCV_PKT_SIZE` before frame parsing.
+  - `163e053989c0543baec33c58b3ca4a2f8f218016` restores the documented one-second event-log polling interval; the old comparison waited 1000 seconds.
+  - `27568b72fbce4acc4dd17f9db2da8a781a8c1ea9` rejects invalid/oversized event-log append batches, handles negative `ftell()`, stops on `fwrite()` failure, and propagates `fflush()`/`fclose()` errors.
+- Exact current-source IAPP regression #45746217559 PASS. Its log shows the GNU89 ASan/UBSan lifecycle binary (including MSG_TRUNC and event-log policy tests), FD_SETSIZE boundary binary, and Python source contracts all PASS. Process inventory #45746217368 PASS; AI handoff validation #45746217386 PASS.
+- Current-source NVRAM transaction audit #45746217544 is IN_PROGRESS at its raw userland ioctl/kernel NVRAM caller audit; all preceding transaction policy binaries passed. Current-source XY-C1 run #45746217350 is IN_PROGRESS in Build XY-C1; TRX verification and artifact upload are pending. Do not claim L3 until Build, TRX and artifact upload all pass.
+- `IAPP_EVENT_LOG` is not enabled in `trunk/user/ralinkiappd/src/Makefile` by default. Event-log policy helpers and source-order contracts pass host validation, but the optional macro-enabled production compile is not established by the current firmware build. No hardware, live radio/bridge or physical-router L4 result is claimed.
+- PR #1 remains closed and unmerged; do not revive its divergent branch. The frozen backup is untouched. Startup protocol and handoff were restored once at session start; do not repeat the startup audit.
 
 ## Active task
 
-Continue source work on `main`; pending Actions do not block independent fixes.
-1. Check #45742067435 opportunistically. If completed, inspect Build, TRX verification and artifact upload separately; if failed, inspect the exact Build/job log and fix the concrete fault.
-2. Check the latest AI docs run for this handoff update and #45742403104. NVRAM, VSFTPD and Process checks already passed for source SHA `7f82a3f`.
-3. Pick the next clearly unresolved P1/P2 defect from the whole-repository ledger, not a completed VSFTPD ACL or stop/restart item. Implement source + focused regression + exact-source workflow; use one complete Git tree and one expected-SHA main update per logical task.
+Continue autonomous source work on `main`; pending Actions do not block independent fixes.
+1. Check exact-source XY-C1 #45746217350. If it finishes, inspect Build, TRX and artifact-upload conclusions independently; if it fails, diagnose the exact failed job log.
+2. Check NVRAM transaction audit #45746217544 and record its final conclusion.
+3. Continue another concrete stability/security defect outside the already-worked IAPP slice; implement source + focused regression + exact-source workflow. Prefer a P1/P2 from the whole-repository ledger; do not re-audit closed tasks.
 
 ## Verification boundary
 
-- VSFTPD production/source-contract L2: PASS on `7f82a3fd30ea1bdce084715401e7f31279c6a920`, run #45742067432.
-- AI docs #45742067378, Process inventory #45742067392, NVRAM transaction boundary #45742067411: PASS on source SHA `7f82a3f`.
-- XY-C1 current source #45742067435: IN_PROGRESS; Build job #139649214830; TRX/artifact unverified.
-- AI docs #45742403104: IN_PROGRESS on documentation parent `dcc1026895083e1f01ea52e0cb1a1a43941923f2`; a newer docs-only checkpoint triggers the next docs run.
-- Frozen backup: `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged. Router physical L4: NOT VERIFIED.
+- IAPP select descriptor boundary, Linux datagram truncation, event-log timer and event-log append policies: exact IAPP workflow #45746217559 PASS on production source SHA `27568b72fbce4acc4dd17f9db2da8a781a8c1ea9`.
+- Process inventory #45746217368: PASS on the same SHA.
+- AI handoff validation #45746217386: PASS on the same SHA before this documentation-only checkpoint.
+- NVRAM transaction boundary #45746217544: IN_PROGRESS; audit step running.
+- XY-C1 #45746217350: Build IN_PROGRESS; TRX and artifact upload pending.
+- Frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807`: unchanged. Physical-router L4: NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-Fetch live `main`; check #45742067435 Build/TRX/artifact and the latest AI handoff docs run for this checkpoint. If XY-C1 remains pending, continue a new independent P1/P2 implementation rather than waiting. If it fails, diagnose its exact job log. Do not redo repository startup recovery or repeat passed VSFTPD checks.
+Fetch the live `main` ref, then check #45746217350 (XY-C1 Build/TRX/artifact) and #45746217544 (NVRAM audit). Do not repeat startup recovery or the completed IAPP/Process host regressions; if either check remains pending, continue an independent source fix.
 
 # Cross-session execution mandate
 

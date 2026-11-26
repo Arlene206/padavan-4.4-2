@@ -1,3 +1,31 @@
+## 2026-11-25 — Check IAPP event-log append limits and persistence errors
+
+- `IAPP_EventLogHandle()` now rejects a NULL table, invalid event count, negative `ftell()`, and append batches that would exceed the 1024-byte log cap. The size helper divides remaining capacity by record size instead of multiplying an untrusted count. Failed `fwrite()` stops the loop; `fflush()` and `fclose()` errors propagate. Event-log truncation also reports `fclose()` errors.
+- Added GNU89 ASan/UBSan coverage for exact-capacity, one-byte-over, already-oversized, zero-record-size and SIZE_MAX arithmetic boundaries; extended the source contract for file-operation ordering/status. Local policy harness PASS. Exact IAPP #45746217559, Process #45746217368 and AI docs #45746217386 PASS on source SHA `27568b72`. XY-C1 #45746217350 Build is IN_PROGRESS; TRX/artifact pending. NVRAM audit #45746217544 is IN_PROGRESS. The optional `IAPP_EVENT_LOG` macro is not enabled in the package Makefile by default, so its production target compile remains unverified.
+
+---
+
+## 2026-11-25 — Restore the IAPP event-log one-second polling interval
+
+- `IAPP_Start()` documented a one-second event snapshot timer but compared elapsed `tv_sec` against 1000, delaying snapshots for roughly 16 minutes 40 seconds. The code now uses an explicit one-second poll policy; tests cover negative/zero and 1/2/999/1000-second boundaries, and the source contract prevents the 1000-second regression.
+- Exact IAPP #45745920000, Process #45745919828 and AI docs #45745919824 PASS on source SHA `163e053989c0543baec33c58b3ca4a2f8f218016`. XY-C1 #45745919910 was IN_PROGRESS at last poll; the NVRAM run #45745919901 was cancelled after the next source commit superseded it. Current-source checks are recorded in the entry above.
+
+---
+
+## 2026-11-25 — Reject truncated Linux IAPP datagrams before frame parsing
+
+- The UDP, raw-driver and raw-RRB receive handlers now pass `MSG_TRUNC` to Linux `recvfrom()`, allowing the kernel to report the original datagram size even when the buffer is smaller. Each path checks the returned length against `IAPP_MAX_RCV_PKT_SIZE` before interpreting frame fields. A socketpair regression covers an exact-capacity datagram and a larger datagram while checking surrounding canaries.
+- Exact IAPP #45745696836, Process #45745696780 and AI docs #45745696708 PASS on source SHA `fa8947c2de13fa2999c6152c4e22408b22b92cfd`. XY-C1 #45745696794 was still building; NVRAM #45745696727 was cancelled after the next commit superseded it. Current-source XY/NVRAM checks are recorded in the latest entry above.
+
+---
+
+## 2026-11-25 — Bound Linux IAPP event-loop select descriptors
+
+- `IAPP_RcvHandler()` no longer calls `FD_SET` on runtime socket/pipe descriptors before validating them. The Linux event loop rejects negative and `>= FD_SETSIZE` descriptors, updates `SockMax` only from checked registrations, and exits before `select()` on invalid input. The GNU89 ASan/UBSan regression covers fd 0, the last valid fd, negative, `FD_SETSIZE`, INT_MAX, invalid arguments and canary preservation.
+- The first source-contract run on `fe7b84c2` exposed an extractor that matched only the forward declaration; `dfc6a98d` corrected it to select the actual function definition and narrowed the Linux branch marker. Exact IAPP #45745181480 and AI docs #45745181481 PASS on `dfc6a98d092e7d56a9cef5e7fbd04bcf1ae3eedc`. Process inventory on the parent source SHA #45745045208 PASS. XY-C1 #45745045235 was still building at last poll; no L3/L4 claim.
+
+---
+
 ## 2026-11-25 — Fail closed on malformed VSFTPD share-mode snapshots
 
 - Per-session authorization loaded `st_ftp_mode` with `nvram_get_int()` (`atoi`), collapsing missing/backend errors to zero and accepting numeric prefixes such as `1junk` as mode 1. In the anonymous share path, mode 1 bypasses per-share ACL lookup; the configuration publisher already uses checked reads and normalizes unsupported/missing values to mode 2.
