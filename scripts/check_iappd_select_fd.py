@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify IAPP select, datagram receive, and event-log timer safety."""
+"""Verify IAPP descriptor, receive, and event-log persistence safety."""
 
 from pathlib import Path
 import re
@@ -140,7 +140,31 @@ def main() -> None:
     require(poll_gate >= 0 and query_call > poll_gate,
             "event-log query must remain gated by the elapsed-time policy")
 
-    print("Ralink IAPP select descriptor source contract: PASS")
+    require('#include "iapp_event_log_policy.h"' in source,
+            "IAPP event log must include the append-size policy")
+    event_start = source.rfind("static BOOLEAN IAPP_EventLogHandle(")
+    event_end = source.find("} /* End of IAPP_EventLogHandle */", event_start)
+    require(event_start >= 0 and event_end > event_start,
+            "IAPP event-log append function is missing")
+    event_body = source[event_start:event_end]
+    require("FileLen = ftell(pFile);" in event_body and "FileLen < 0" in event_body,
+            "IAPP event-log append must reject ftell errors")
+    require("iapp_event_log_append_fits(" in event_body and
+            event_body.find("iapp_event_log_append_fits(") < event_body.find("fwrite("),
+            "IAPP event-log append must preflight the full batch size")
+    require("if (fwrite(" in event_body and "Status = FALSE;" in event_body and
+            "break;" in event_body,
+            "IAPP event-log write failures must stop and propagate")
+    require("if (fflush(pFile) != 0)" in event_body and
+            "if (fclose(pFile) != 0)" in event_body,
+            "IAPP event-log flush and close errors must propagate")
+    clean_start = source.rfind("static BOOLEAN IAPP_EventLogClean(")
+    clean_end = source.find("} /* End of IAPP_EventLogClean */", clean_start)
+    require(clean_start >= 0 and clean_end > clean_start and
+            "if (fclose(pFile) != 0)" in source[clean_start:clean_end],
+            "IAPP event-log cleanup must propagate close errors")
+
+    print("Ralink IAPP descriptor, receive, and event-log source contracts: PASS")
 
 
 if __name__ == "__main__":

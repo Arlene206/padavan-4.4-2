@@ -8,6 +8,7 @@
 #include "../src/iapp_ioctl_ifname_policy.h"
 #include "../src/iapp_rx_length_policy.h"
 #include "../src/iapp_event_log_poll_policy.h"
+#include "../src/iapp_event_log_policy.h"
 
 typedef struct _FT_CLIENT_INFO {
 	struct _FT_CLIENT_INFO *next;
@@ -235,6 +236,20 @@ test_event_log_poll_interval(void)
 }
 
 static void
+test_event_log_append_capacity(void)
+{
+	assert(iapp_event_log_append_fits(0, 0, 16, 100));
+	assert(iapp_event_log_append_fits(0, 1, 16, 100));
+	assert(iapp_event_log_append_fits(84, 1, 16, 100));
+	assert(iapp_event_log_append_fits(100, 0, 16, 100));
+	assert(!iapp_event_log_append_fits(85, 1, 16, 100));
+	assert(!iapp_event_log_append_fits(101, 0, 16, 100));
+	assert(!iapp_event_log_append_fits(0, 1, 0, 100));
+	assert(!iapp_event_log_append_fits(SIZE_MAX, 1, 1, SIZE_MAX - 1));
+	assert(iapp_event_log_append_fits(SIZE_MAX, 0, 1, SIZE_MAX));
+}
+
+static void
 test_parser_rejects_count_overflow_and_invalid_names(void)
 {
 	assert(iapp_ioctl_ifname_arg_valid(0, 2, 4, 16));
@@ -260,9 +275,11 @@ main(void)
 	test_received_payload_bounds();
 	test_linux_msg_trunc_reports_original_datagram_length();
 	test_event_log_poll_interval();
+	test_event_log_append_capacity();
 	test_parser_rejects_count_overflow_and_invalid_names();
 	puts("IAPP ioctl interface index and parser bounds policy: PASS");
 	puts("IAPP Linux MSG_TRUNC datagram boundary: PASS");
 	puts("IAPP event-log poll interval policy: PASS");
+	puts("IAPP event-log append capacity policy: PASS");
 	return 0;
 }

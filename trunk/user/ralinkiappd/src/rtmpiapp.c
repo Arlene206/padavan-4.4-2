@@ -31,7 +31,10 @@
 #include "iappdefs.h"
 #include "iapp_ioctl_ifname_policy.h"
 #include "iapp_rx_length_policy.h"
+#ifdef IAPP_EVENT_LOG
 #include "iapp_event_log_poll_policy.h"
+#include "iapp_event_log_policy.h"
+#endif /* IAPP_EVENT_LOG */
 #ifdef IAPP_OS_LINUX
 #include "iapp_select_fd_policy.h"
 #endif /* IAPP_OS_LINUX */
@@ -305,7 +308,6 @@ static BOOLEAN IAPP_EventLogClean(
 {
 	FILE  *pFile;
 
-
 	/* re-open and truncate file to zero length by using "wb" */
 	pFile = fopen(EVENT_LOG_FILE, "wb");
 
@@ -315,7 +317,12 @@ static BOOLEAN IAPP_EventLogClean(
 		return FALSE;
 	} /* End of if */
 
-	fclose(pFile);
+	if (fclose(pFile) != 0)
+	{
+		DBGPRINT(RT_DEBUG_ERROR, "iapp> Close eventlog file %s failed!\n", EVENT_LOG_FILE);
+		return FALSE;
+	}
+
 	return TRUE;
 } /* End of IAPP_EventLogClean */
 
@@ -339,9 +346,22 @@ static BOOLEAN IAPP_EventLogHandle(
     IAPP_IN		PRT_802_11_EVENT_TABLE		pEvtTab)
 {
 	FILE   *pFile;
-	INT32  FileLen;
+	long   FileLen;
 	INT32  IdEvt;
+	BOOLEAN Status = TRUE;
 
+	if (pEvtTab == NULL)
+	{
+		DBGPRINT(RT_DEBUG_ERROR, "iapp> Event table is NULL!\n");
+		return FALSE;
+	}
+
+	if (pEvtTab->Num > MAX_NUM_OF_EVENT)
+	{
+		DBGPRINT(RT_DEBUG_ERROR, "iapp> eventlog Num exceeds limitation(pEventTab->Num=%d)!\n",
+			 pEvtTab->Num);
+		return FALSE;
+	}
 
 	/* for append binary file format */
 	pFile = fopen(EVENT_LOG_FILE, "ab");
@@ -352,27 +372,27 @@ static BOOLEAN IAPP_EventLogHandle(
 	} /* End of if */
 
 	FileLen = ftell(pFile);
-
-	if (FileLen > IAPP_MAX_SIZE_OF_EVENT_LOG)
+	if (FileLen < 0 ||
+	    !iapp_event_log_append_fits((size_t)FileLen,
+					(size_t)pEvtTab->Num,
+					sizeof(RT_802_11_EVENT_LOG),
+					(size_t)IAPP_MAX_SIZE_OF_EVENT_LOG))
 	{
-		DBGPRINT(RT_DEBUG_ERROR, "iapp> eventlog file size exceeds limitation(FileLen=%d)!\n", FileLen);
+		DBGPRINT(RT_DEBUG_ERROR,
+			 "iapp> eventlog current/append size is invalid (FileLen=%ld, count=%d)!\n",
+			 FileLen, pEvtTab->Num);
 		fclose(pFile);
 		return FALSE;
 	} /* End of if */
 
-	if (pEvtTab->Num > MAX_NUM_OF_EVENT)
-	{
-		DBGPRINT(RT_DEBUG_ERROR, "iapp> eventlog Num exceeds limitation(pEventTab->Num=%d)!\n",	pEvtTab->Num);
-		fclose(pFile);
-		return FALSE;
-	} /* End of if */
-
-	for(IdEvt=0; IdEvt<pEvtTab->Num; IdEvt++)
+	for (IdEvt = 0; IdEvt < pEvtTab->Num; IdEvt++)
 	{
 		if (fwrite(&pEvtTab->Log[IdEvt], sizeof(RT_802_11_EVENT_LOG),
-					1, pFile) != 1)
+			   1, pFile) != 1)
 		{
 			DBGPRINT(RT_DEBUG_ERROR, "iapp> File write error!\n");
+			Status = FALSE;
+			break;
 		} /* End of if */
 
 		DBGPRINT(RT_DEBUG_TRACE,
@@ -386,8 +406,19 @@ static BOOLEAN IAPP_EventLogHandle(
 				pEvtTab->Log[IdEvt].TriggerAddr[5]);
 	} /* End of for */
 
-	fclose(pFile);
-	return TRUE;
+	if (fflush(pFile) != 0)
+	{
+		DBGPRINT(RT_DEBUG_ERROR, "iapp> Eventlog flush failed!\n");
+		Status = FALSE;
+	}
+
+	if (fclose(pFile) != 0)
+	{
+		DBGPRINT(RT_DEBUG_ERROR, "iapp> Eventlog close failed!\n");
+		Status = FALSE;
+	}
+
+	return Status;
 } /* End of IAPP_EventLogHandle */
 
 
