@@ -2062,6 +2062,10 @@ zt0=""
 
 # iproute2 may display an explicitly configured /32 host route without /32.
 # Cleanup must still identify and delete the exact destination/nexthop.
+# Re-enable this route in the fixture: the preceding manifest-specific cases
+# deliberately clear the NVRAM selectors before exercising legacy /32 parsing.
+TEST_STATIC_ROUTE_COUNT=1
+TEST_STATIC_ROUTE_ENABLE=1
 TEST_STATIC_ROUTE_IP="192.0.2.7/32"
 TEST_ROUTE_SHOW_OUTPUT="192.0.2.7 via $TEST_STATIC_ROUTE_GATEWAY dev ztunit"
 TEST_ROUTE_PRESENT=1

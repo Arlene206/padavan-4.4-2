@@ -1,3 +1,10 @@
+## 2026-11-25 — Restore static-route selectors in the legacy /32 cleanup fixture
+
+- Exact ZeroTier run #45736394732 at SHA ffba20a stopped at the older host-route normalization test after the new manifest cases intentionally reset TEST_STATIC_ROUTE_COUNT and TEST_STATIC_ROUTE_ENABLE to zero. The /32 fixture changed only the destination string, so it no longer configured a route for cleanup and never exercised the intended parser.
+- Restored the enabled/count selectors specifically for that /32 case. This is a test-fixture correction; production route-manifest logic is unchanged. Exact-head ZeroTier rerun required.
+
+---
+
 ## 2026-11-25 — Persist the exact ZeroTier static routes for later cleanup
 
 - `zero_route add` installed routes from current NVRAM, but `zero_route del` reread current values at stop/restart time. If a user edited or removed a static route while ZeroTier was running, the old destination/gateway was no longer enumerated and could remain in the kernel after firewall cleanup and configuration removal.
