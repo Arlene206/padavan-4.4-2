@@ -15,6 +15,9 @@
  * Build generated FTP configuration beside its destination. Keeping the
  * temporary file in the same directory makes the final rename atomic.
  */
+static int ftp_config_file_sync_fd(int fd);
+static int ftp_config_file_sync_parent(const char *target_path);
+
 static int
 ftp_config_file_open(const char *target_path, char *staged_path,
                      size_t staged_path_size, FILE **stream)
