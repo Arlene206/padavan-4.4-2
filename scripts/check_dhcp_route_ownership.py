@@ -41,6 +41,10 @@ assert "remaining[kept++] = entries[i];" in policy
 assert "A route that predated DHCP (EEXIST) is never entered in the manifest." in test
 assert "A failed delete retains ownership for a later retry." in test
 assert "Malformed/symlink state fails closed" in test
+assert 'dhcp_route_ownership_owner_is_valid("wan0_")' in test
+assert 'dhcp_route_ownership_owner_is_valid("wan0-x_")' in test
+assert "symlinked lock file must fail closed" in test
+assert "fake.add_count == add_before" in test
 for metric in ("2147483648", "2147483647", "999999999999999", "-1", "7junk"):
     assert 'write_metric_manifest(path, "' + metric + '")' in test
 assert "Compile and run DHCP route ownership manifest regression" in workflow

@@ -64,10 +64,12 @@ main(void)
 {
 	char directory[] = "/tmp/dhcp-route-ownership.XXXXXX";
 	char path[320], victim[320], link_path[320];
+	char lock_state[320], lock_state_lock[340];
 	struct dhcp_route_ownership_entry route, other, stale_route;
 	struct fake_routes fake;
 	struct stat st;
 	int fd;
+	unsigned int add_before;
 	unsigned int delete_before;
 
 	assert(mkdtemp(directory) != NULL);
@@ -126,6 +128,26 @@ main(void)
 	assert(dhcp_route_ownership_cleanup(path, "manv_",
 					    fake_delete, &fake) == 0);
 	assert(fake.delete_count == delete_before + 3U);
+
+	/* Owner prefixes are strict service identifiers. */
+	assert(dhcp_route_ownership_owner_is_valid("wan0_"));
+	assert(dhcp_route_ownership_owner_is_valid("manv_"));
+	assert(!dhcp_route_ownership_owner_is_valid(""));
+	assert(!dhcp_route_ownership_owner_is_valid("wan0"));
+	assert(!dhcp_route_ownership_owner_is_valid("wan0-x_"));
+	assert(!dhcp_route_ownership_owner_is_valid("abcdefghijklmnop_"));
+	assert(dhcp_route_ownership_cleanup(path, "invalid",
+					    fake_delete, &fake) == EINVAL);
+
+	/* A symlinked lock file must fail closed before any route add operation. */
+	assert(snprintf(lock_state, sizeof(lock_state), "%s/locked.routes", directory) > 0);
+	assert(snprintf(lock_state_lock, sizeof(lock_state_lock), "%s.lock", lock_state) > 0);
+	assert(symlink(victim, lock_state_lock) == 0);
+	add_before = fake.add_count;
+	assert(dhcp_route_ownership_add(lock_state, &route,
+					fake_add, fake_delete, &fake) != 0);
+	assert(fake.add_count == add_before);
+	unlink(lock_state_lock);
 
 	/* Malformed/symlink state fails closed without invoking route deletion. */
 	fd = open(victim, O_WRONLY | O_CREAT | O_EXCL, 0600);
