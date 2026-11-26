@@ -1,3 +1,7 @@
+## 2026-11-26 — Correct DNS Forwarder event-loop test source list
+
+- Exact run `#45846000054` passed the Python source/path contract, then the new host-test compile failed because the workflow referenced a nonexistent `hev-event-source-fd.c`; this repository implements the fd helpers in `hev-event-source.c`. Removed the stale compilation unit from the test command; no production code change.
+
 ## 2026-11-26 — Make DNS Forwarder event-source registration transactional
 
 - Found several interacting lifetime defects in the DNS Forwarder event core: `epoll_create()` failure was accepted as a valid loop; `hev_event_loop_add_source()` ignored fd registration and `prepare()` errors, leaving partially registered sources while returning success; detach did not clear `source->loop`; and a failed attached `hev_event_source_add_fd()` freed its node without unlinking it from the source list.
