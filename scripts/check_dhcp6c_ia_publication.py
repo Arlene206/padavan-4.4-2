@@ -229,7 +229,10 @@ assert "dhcp6c_ntp_time_source_claim(suboption,&source_seen)" in ntp_parser_comp
 assert "dhcp6_get_domain((int)sublen,p,D6_OPT_NTP_SERVER,list)" in ntp_parser_compact
 assert "dhcp6_add_listval(list,D6_OPT_NTP_SERVER,DHCP6_LISTVAL_ADDR6,&address,NULL)" in ntp_parser_compact
 ntp_case = outer_options.index("case D6_OPT_NTP_SERVER:")
-assert "dhcp6_get_ntp_server(optlen, cp, &optinfo->ad_list)" in outer_options[ntp_case:ntp_case + 240]
+ntp_case_end = outer_options.index("case D6_OPT_SIP_SERVER_A:", ntp_case)
+ntp_option_case = "".join(outer_options[ntp_case:ntp_case_end].split())
+assert "dhcp6_get_ntp_server(optlen,cp,&optinfo->ad_list)" in ntp_option_case
+assert ntp_option_case.index("dhcp6_get_ntp_server(") < ntp_option_case.index("gotomalformed")
 assert "D6_OPT_NTP_SERVER" not in outer_options[outer_options.index("case D6_OPT_SIP_SERVER_A:"):outer_options.index("case D6_OPT_IA_PD:")]
 assert "DHCPv6 option bounds and NTP suboption policy: PASS" in bounds_test
 assert "dhcp6c_ntp_suboption_wire_length_valid" in bounds_policy

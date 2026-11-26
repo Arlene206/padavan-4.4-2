@@ -1,3 +1,11 @@
+## 2026-11-26 — Bound NTP parser source assertion by option case
+
+- Exact-SHA DHCPv6 IA run #45792727216 on `5ed671f2247989d48b9420f445130aae01280c94` compiled and passed all six GNU89/`-Werror`/ASan/UBSan C policy binaries. The Python source checker alone failed because its 240-character substring ended before the continuation line containing `&optinfo->ad_list`; the production decoder and C tests were not failing.
+- Replaced the brittle fixed-length window with the complete `D6_OPT_NTP_SERVER` case (up to the next option case), normalized whitespace, and pinned the parser call before the malformed-option branch.
+- Parent main: `5ed671f2247989d48b9420f445130aae01280c94`; exact-SHA DHCPv6 IA rerun pending.
+
+---
+
 ## 2026-11-26 — Correct DHCPv6 option-bounds test output assertion
 
 - Exact-SHA IA run #45792454948 for `74a0dbccda2028b87f4fe7cd57dd0513608f8f39` compiled and passed all six GNU89/`-Werror`/ASan/UBSan policy binaries, including the newly added NTP suboption length/source tests.

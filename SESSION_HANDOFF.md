@@ -3,7 +3,7 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development on `main` only.
-- Parent `main` for the RFC 5908 DHCPv6 NTP parser and current source-checker correction: `74a0dbccda2028b87f4fe7cd57dd0513608f8f39`.
+- Parent `main` for the RFC 5908 DHCPv6 NTP parser and source-checker correction: `5ed671f2247989d48b9420f445130aae01280c94`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify/delete. PR #1 remains closed/unmerged.
 - Bootstrap/protocol recovery was completed earlier; do not repeat it.
 
@@ -11,7 +11,7 @@
 
 - Completed parser-safety slices: the DHCPv6 outer parser rejects duplicate CLIENTID, SERVERID, RELAY_MSG and INTERFACE_ID vbuf options before allocation; malformed-option cleanup frees the first owned buffers. Reconfigure Accept (option 20) is rejected when its payload is nonzero. Policy tests and source contracts cover both changes.
 - The graceful DHCPv6 shutdown now waits for both IA cleanup retries and outstanding `DHCP6S_RELEASE` transactions. Exact-SHA DHCPv6 IA run #45791657631 on `fb01f7a` PASSed all six GNU89/ASan/UBSan policy binaries and the full source checker after normalizing the wrapped two-argument exit gate. This prevents shutdown from discarding Release exchanges deliberately preserved by `free_resources(0)`.
-- Current P1 parser slice: `D6_OPT_NTP_SERVER` (option 56) was incorrectly grouped with flat arrays of IPv6 addresses, although RFC 5908 defines it as a container of 4-byte suboption headers. The parser now validates each nested header/payload, handles address/FQDN forms, rejects multiple recognized time sources in one option instance, skips unknown future suboptions, and keeps RFC 4075 `D6_OPT_SNTP_SERVERS` as the separate flat-address option. Tests cover truncated headers, length overruns, payload lengths and duplicate source suboptions. Production/test change is commit `74a0dbcc`; its exact-SHA IA workflow passed all six C policy binaries but failed the Python source checker on one stale expected PASS string. That checker-only correction is the current slice.
+- Current P1 parser slice: `D6_OPT_NTP_SERVER` (option 56) was incorrectly grouped with flat arrays of IPv6 addresses, although RFC 5908 defines it as a container of 4-byte suboption headers. The parser now validates each nested header/payload, handles address/FQDN forms, rejects multiple recognized time sources in one option instance, skips unknown future suboptions, and keeps RFC 4075 `D6_OPT_SNTP_SERVERS` as the separate flat-address option. Tests cover truncated headers, length overruns, payload lengths and duplicate source suboptions. Production/test change is commit `74a0dbcc`; the six C policy binaries passed on both subsequent exact-SHA runs. The first checker failure was a stale test-output banner, corrected in `5ed671f`. Its rerun #45792727216 then exposed one remaining checker-only false negative: it searched a fixed 240-character window that ended before the wrapped `dhcp6_get_ntp_server()` arguments. The current correction scopes the assertion to the NTP case up to the next option case and normalizes whitespace.
 - Adjacent WAN6 fixes already on main: empty caller-interface teardown guard; SIT owner-record IFNAMSIZ bound; strict SIT gateway literal validation; strict DHCP 6rd relay literal validation; static and DHCPv6 DNS literal validation; first-error aggregation during delegated-prefix cleanup.
 
 ## 2026-11-26 implementation continuation — DHCPv6 cleanup shutdown
@@ -47,7 +47,7 @@
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect the exact-SHA DHCPv6 IA rerun for the PASS-string correction; verify all six C policy binaries and the complete Python source checker both PASS.
+1. Verify the exact-SHA DHCPv6 IA rerun after correcting the bounded NTP option-case source assertion. Parent `5ed671f` run #45792727216 passed all six GNU89/ASan/UBSan C policy binaries; only the Python case-window assertion failed.
 2. Inspect HTTPD/NVRAM/USB results from SHA `74a0dbcc` and exact product-source XY-C1 run #45792454987. Require Build XY-C1, Verify TRX output and artifact upload all PASS on the same SHA before L3; hardware L4 remains NOT VERIFIED.
 3. Continue the DHCPv6 nested-option parser audit after this contract passes, targeting confirmed malformed or standards-mismatch cases with regression coverage.
 
