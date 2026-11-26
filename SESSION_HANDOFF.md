@@ -1,23 +1,25 @@
-## Current repository state — 2026-11-26
+## Current repository state — 2026-11-25
 
-- Live `main` before this slice: `d4a965e66f817b45ad94eba974585bc21ecb44c6` (`test(udhcp): align XID check with client response path`). Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged.
-- Exact `d4a965e`: DHCP relay XID #45729057470 PASS; NVRAM #45729057360 PASS; USB hotplug #45729057468 PASS. XY-C1 #45729057425 was IN_PROGRESS at last poll: Build running; TRX verification and artifact upload pending. No current-source L3 claim.
-- VPN UI `vpncli.asp` exposes `vpnc_pdns=0/1/2` (disabled / add VPN DNS to current list / replace current list). `update_resolvconf()` distinguishes mode 2 by omitting WAN DNS fallback, but both PPTP/L2TP and OpenVPN up callbacks incorrectly used a strict boolean parser, rejecting valid mode 2 and preserving stale resolver state.
-- Prior verified fixes: ZeroTier lifecycle #45728232626 PASS on `96f6057`; AdGuardHome config/security #45726581924 and Process #45726581809 PASS on `f0cc53c`; AI byte-cap correction #45726801473 PASS on `1f7f8b3`; WSDD2 netlink/docs #45725665949/#45725666033 PASS on `4de82b5`.
-- Last confirmed XY-C1 Build/TRX/artifact baseline is older `b320dd2` (#45724141332). Current-source L3 and physical-router L4 remain NOT VERIFIED.
+- Live `main` before this integration: `18cc546ac0eece109a230eb4e81fc019cd52bb59` (`fix(vpn): honor DNS replace policy in client callbacks`). DHCP server-ingress fix was prepared on the previous parent as `6899af46e9907efc0c40d6f8badc204aba0cf8d9`; the non-forced expected-SHA update did not advance `main`, and rereading the ref confirmed a concurrent `18cc546` tip. No force push was attempted. This integration keeps `18cc546` as first parent and `6899af4` as second parent, with the tree based on the current `main` tree.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged.
+- Exact `d4a965e` Actions all passed: packet bounds #45729057460; XID #45729057470; BOOTREPLY #45729057339; giaddr/hop #45729057303; select error #45729057362; select fd #45729057321; client destination #45729057477; AI handoff #45729057313; Process inventory #45729057400; NVRAM #45729057360; USB hotplug #45729057468; XY-C1 #45729057425.
+- XY-C1 exact-SHA job #139606209947 passed Build, TRX verification and artifact upload. Artifact #15076506507 (`XY-C1-firmware-d4a965e66f817b45ad94eba974585bc21ecb44c6`, 12,815,064 bytes) is not expired. This is a same-SHA L3 pass; physical-router L4 remains NOT VERIFIED.
+- Concurrent `18cc546` VPN DNS mode-2 update has nine completed PASS workflows: Firewall Startup #45730462009; VPN server lifecycle #45730461784; AI handoff #45730461850; WAN route #45730461807; DNSMasq lifecycle #45730461851; IPv6 service-type #45730461698; OpenVPN client credential #45730461754; Process inventory #45730461806; HTTPD security #45730461821. Process lifecycle regression #45730461987, NVRAM transaction #45730461818 and XY-C1 #45730461930 were IN_PROGRESS at last poll.
+- `udhcp_recv_kernel_packet()` in `networking/udhcp/packet.c` uses `safe_read()`; for UDP datagrams, oversized payloads are truncated to the receive buffer without exposing the original datagram length. The relay server path previously accepted this truncated result.
 
 ## Active task
 
-Accept VPN DNS policy mode 2. Read `vpnc_pdns` as a strict tri-state selector (0=disabled, 1=append, 2=replace), not a boolean. Preserve missing-key default 0 and reject malformed/out-of-range values. Both PPTP/L2TP and OpenVPN callbacks must publish the VPN DNS snapshot for modes 1 and 2 so `update_resolvconf()` applies append vs replace correctly.
+Harden DHCP relay server ingress against oversized UDP datagrams. The server socket now mirrors the client ingress: zero the packet buffer, use `recvfrom(..., MSG_TRUNC)`, reject original datagram lengths beyond `sizeof(dhcp_msg)`, require at least `offsetof(struct dhcp_packet, options) + 4U` and the DHCP magic cookie before `pass_to_client()`. The GNU89 ASan/UBSan packet-bounds regression now tests kernel-reported datagram length and the Python contract checks both server and client ingress.
 
 ## Verification boundary
 
-- Added a GNU89 regression for UI values 0/1/2, missing-key default, malformed/out-of-range values, and backend errors preserving the previous output. Updated source contracts to require the tri-state parser in both client callbacks.
-- Exact-head VPN client NVRAM policy, Process inventory, AI docs, and XY-C1 Build/TRX/artifact checks are pending after commit. No firmware artifact or physical-router result is claimed.
+- The expanded packet-bounds executable passed locally under GNU89 with `-Wall -Wextra -Werror -fsanitize=address,undefined`; the AF_UNIX datagram case sent 64 bytes into a 16-byte buffer, observed return length 64 with `MSG_TRUNC`, and verified the shared helper rejects it.
+- The DHCP source/test/checker changes are integrated with the concurrent VPN DNS commit. Exact Actions for the resulting integration SHA are not yet checked; do not transfer the parent `d4a965e` firmware pass to this newer SHA.
+- No live DHCP relay traffic test or physical-router L4 result is claimed.
 
 ## Exact first action for the next GPT
 
-Fetch exact-head VPN client policy, Process and AI-doc Actions; check XY-C1 Build, TRX verification and artifact upload on the same product-source SHA. Fix the first causal failure, then continue the next independent userland stability/security issue. Preserve the frozen backup.
+Fetch the exact integration-SHA packet-bounds and XY-C1 Actions; inspect Build, TRX and artifact steps. Separately poll the three still-running `18cc546` Actions (#45730461987, #45730461818 and #45730461930) and determine whether the VPN client DNS policy change has a dedicated exact-SHA regression run. On PASS continue DHCP relay state-exhaustion analysis (DECLINE/RELEASE XID retention); on FAIL repair the causal regression. Preserve the frozen backup.
 
 # Cross-session execution mandate
 

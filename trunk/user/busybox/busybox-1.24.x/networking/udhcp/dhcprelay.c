@@ -366,9 +366,16 @@ int dhcprelay_main(int argc, char **argv)
 
 			/* server */
 			if (FD_ISSET(fds[0], &rfds)) {
-				packlen = udhcp_recv_kernel_packet(&dhcp_msg, fds[0]);
-				if (packlen > 0) {
+				/* read() cannot report that a datagram exceeded the buffer. */
+				memset(&dhcp_msg, 0, sizeof(dhcp_msg));
+				packlen = recvfrom(fds[0], &dhcp_msg, sizeof(dhcp_msg), MSG_TRUNC,
+						NULL, NULL);
+				if (udhcp_relay_packet_length_valid(packlen, sizeof(dhcp_msg),
+						offsetof(struct dhcp_packet, options) + 4U) &&
+				    dhcp_msg.cookie == htonl(DHCP_MAGIC)) {
 					pass_to_client(&dhcp_msg, packlen, fds);
+				} else if (packlen >= 0) {
+					log1("Ignoring malformed or oversized DHCP server packet");
 				}
 			}
 

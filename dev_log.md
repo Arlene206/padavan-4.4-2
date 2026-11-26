@@ -1,3 +1,12 @@
+## 2026-11-25 — Reject oversized datagrams on DHCP relay server ingress; preserve concurrent VPN fix
+
+- The DHCP fix commit `6899af46e9907efc0c40d6f8badc204aba0cf8d9` was created from `d4a965e`. Before its expected-SHA ref update completed, `main` advanced independently to `18cc546ac0eece109a230eb4e81fc019cd52bb59` for the VPN DNS replace-mode fix. The compare-and-swap did not move the ref; after rereading it, the DHCP tree was rebuilt on top of current `main`. The integration commit uses `18cc546` as first parent and `6899af4` as second parent; no force push or concurrent change was overwritten.
+- The DHCP server-socket path had used `udhcp_recv_kernel_packet()`/ `safe_read()`, which cannot distinguish a datagram larger than the supplied buffer from one exactly equal to the buffer. It now uses `recvfrom(..., MSG_TRUNC)`, zeroes the packet, checks the full reported length, minimum DHCP option bytes and cookie, and drops invalid datagrams before option parsing.
+- Added a GNU89 ASan/UBSan AF_UNIX datagram regression for original-length reporting under `MSG_TRUNC`; expanded the Python receive-path contract to require the server ingress checks while preserving client-ingress assertions. Local test PASS.
+- Parent `d4a965e` had all 12 Actions PASS, including XY-C1 Build/TRX/artifact. The concurrent `18cc546` update had 9 PASS workflows and three still IN_PROGRESS at last poll: Process lifecycle #45730461987, NVRAM #45730461818, XY-C1 #45730461930. The new integrated SHA's exact Actions remain to be checked.
+
+---
+
 ## 2026-11-26 — Accept the documented VPN DNS replace policy
 
 - The VPN UI exposes `vpnc_pdns=0/1/2` (disabled / add VPN DNS to current list / replace current list). `update_resolvconf()` already preserves this distinction: mode 2 omits WAN DNS fallbacks.

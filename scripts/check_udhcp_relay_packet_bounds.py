@@ -9,6 +9,20 @@ test = (BASE / "tests/dhcprelay_packet_bounds.c").read_text()
 workflow = (ROOT / ".github/workflows/udhcp-relay-packet-bounds.yml").read_text()
 xy_workflow = (ROOT / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
 
+server_start = relay.index("/* server */")
+client_start = relay.index("/* clients */", server_start)
+server_loop = relay[server_start:client_start]
+server_memset = server_loop.index("memset(&dhcp_msg, 0, sizeof(dhcp_msg))")
+server_receive = server_loop.index("packlen = recvfrom(")
+server_length_check = server_loop.index("udhcp_relay_packet_length_valid(")
+server_cookie_check = server_loop.index("dhcp_msg.cookie == htonl(DHCP_MAGIC)")
+server_pass_reply = server_loop.index("pass_to_client(&dhcp_msg")
+
+assert server_memset < server_receive < server_length_check < server_cookie_check < server_pass_reply
+assert "sizeof(dhcp_msg), MSG_TRUNC" in server_loop
+assert "offsetof(struct dhcp_packet, options) + 4U" in server_loop
+assert "udhcp_recv_kernel_packet" not in server_loop
+
 start = relay.index("/* clients */")
 end = relay.index("\n\t\t\t}", start)
 client_loop = relay[start:end]
