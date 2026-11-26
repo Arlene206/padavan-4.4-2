@@ -708,9 +708,11 @@ auto_range_guard = auto_compact.index("if (!dhcp_lease_binary_selector_is_valid(
 auto_range_return = auto_compact.index("return EINVAL;", auto_range_guard)
 auto_lock = auto_compact.index('lock = file_lock("resolv")')
 auto_static_dns = auto_compact.index("if (dns_mode == 0)")
-auto_publish = auto_compact.index("dnsmasq_file_publish(")
+auto_publish = auto_compact.index("dnsmasq_file_publish_with_rollback(")
 assert auto_snapshot < auto_snapshot_failure < auto_parse < auto_parse_failure < auto_range_guard < auto_range_return < auto_lock
 assert auto_lock < auto_static_dns < auto_publish
+assert 'char resolv_backup[] = "/etc/resolv.conf.rollback.XXXXXX";' in auto_resolver
+assert "recovery_status" in auto_resolver
 assert "invalid LAN DHCP resolver mode" in auto_resolver
 for index, key, destination in (
     (0, "lan_dns_x", "dns_mode_text"),

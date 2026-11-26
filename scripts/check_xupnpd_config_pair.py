@@ -75,7 +75,7 @@ assert "dnsmasq_file_discard(runtime_stage)" in body
 assert '#include "dnsmasq_file.h"' in net
 
 assert "#define DNSMASQ_FILE_PRESERVE_MODE ((mode_t)-1)" in helper
-publisher = function_body(helper, "dnsmasq_file_publish(FILE *fp,")
+publisher = function_body(helper, "dnsmasq_file_publish_internal(FILE *fp,")
 assert "mode != DNSMASQ_FILE_PRESERVE_MODE" in publisher
 pair_publisher = function_body(helper, "dnsmasq_file_publish_pair(FILE *first_fp,")
 assert "dnsmasq_file_backup_create(first_destination, first_backup_path)" in pair_publisher
