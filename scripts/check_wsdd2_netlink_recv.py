@@ -31,7 +31,7 @@ def function_body(source, signature):
 
 
 assert '#include "wsd_netlink_recv_policy.h"' in SOURCE
-receiver = function_body(SOURCE, "static int netlink_recv(struct endpoint *ep)\\n{")
+receiver = function_body(SOURCE, "static int netlink_recv(struct endpoint *ep)\n{")
 assert "recvmsg(ep->sock, &msg, 0)" in receiver
 assert "wsd_netlink_datagram_truncated(msg.msg_flags)" in receiver
 assert receiver.index("wsd_netlink_datagram_truncated(msg.msg_flags)") < receiver.index("for (nh = (struct nlmsghdr *)buf")

@@ -1,3 +1,10 @@
+## 2026-11-25 — Correct escaped newline in WSDD2 netlink source signature
+
+- The follow-up run #45725462798 still failed in the Python source checker: its signature literal contained a double-escaped `\\n`, so Python searched for the two characters backslash+n instead of the actual newline before the function brace.
+- Corrected the literal to a single Python newline escape. The GNU89 sanitizer test itself passed; this is a source-checker-only correction.
+
+---
+
 ## 2026-11-25 — Anchor WSDD2 netlink source checker at the definition, not prototype
 
 - Exact-SHA WSDD2 netlink workflow #45725275756 compiled and passed the GNU89 ASan/UBSan message-flag regression, but the source checker failed because `function_body()` matched the earlier forward declaration of `netlink_recv` and then scanned into the service table instead of the function body.
