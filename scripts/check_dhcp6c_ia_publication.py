@@ -348,7 +348,7 @@ callback_policy = read("trunk/user/rc/src/dhcp6c_callback_generation_policy.h")
 stop_dhcp6c = function_body(wan6, "int stop_dhcp6c(void)")
 assert "stop_status = kill_services(svcs, 16, 0);" in stop_dhcp6c
 assert "stop_status = kill_services(svcs, 3, 1);" not in stop_dhcp6c
-stop_call = stop_dhcp6c.index("stop_status = kill_services(svcs, 3, 1);")
+stop_call = stop_dhcp6c.index("stop_status = kill_services(svcs, 16, 0);")
 generation_advance = stop_dhcp6c.index(
     "dhcp6c_callback_session_advance(session_fd, &generation)")
 generation_guard = stop_dhcp6c.rindex("if (stop_status == 0 &&",

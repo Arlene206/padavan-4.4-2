@@ -1,3 +1,11 @@
+## 2026-11-26 — Update remaining DHCPv6 stop-fencing source assertion
+
+- The #8d2bf19 DHCPv6 IA rerun passed all C policy binaries but the Python checker still contained an older callback-stop assertion searching for `stop_status = kill_services(svcs, 3, 1);`. The new non-forced 16-second stop made that substring stale; it failed with `ValueError: substring not found` before subsequent source checks.
+- Updated the existing callback-generation fencing assertion to the new stop contract. The WAN callback inline checks were separately updated in #48bec7b to expect 16 seconds without SIGKILL escalation. Re-run the exact-SHA IA checker before claiming the contract passes.
+- Parent main: `48bec7b6ac28ea93394467d6814023884eadfa1c`; resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-26 — Align WAN DHCP source contract with graceful DHCPv6 stop
 
 - Exact-SHA WAN DHCP callback run #45789833759 for `a0fa423d528aee7d36bf06f79b0a28dc1c736fa5` passed all compiled policy tests but failed its final inline Python source contract with `ValueError: substring not found`. Two assertions still searched for `kill_services(svcs, 3, 1)` after the DHCPv6 stop was deliberately changed to `kill_services(svcs, 16, 0)`.
