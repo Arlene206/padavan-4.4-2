@@ -1,3 +1,11 @@
+## 2026-11-26 — Normalize shutdown source contract whitespace
+
+- Exact-SHA DHCPv6 IA run #45791468143 on `aa7181cdfdf98d283e0126db0726d0daa51fdc9d` compiled and passed all six GNU89/`-Werror`/ASan/UBSan policy tests, including IA-only, event-only, combined pending-work and drained shutdown cases.
+- The Python source contract failed only because it compared a wrapped two-line C call against a single-line string. Changed the check to strip whitespace from the extracted function before matching the call. No production source or C test changed in this correction.
+- Parent main: `aa7181cdfdf98d283e0126db0726d0daa51fdc9d`; exact-SHA rerun pending.
+
+---
+
 ## 2026-11-26 — Preserve DHCPv6 RELEASE exchanges during graceful shutdown
 
 - Confirmed follow-on bug in the SIGTERM drain: `release_all_ia()` calls `prepare_iaevent(ia, DHCP6S_RELEASE)` before removing each IA. `free_resources(0)` intentionally keeps Release events so the client can transmit and wait for Reply/timeout. The shutdown readiness check only examined `iac->iadata`; after successful local cleanup that queue became empty while Release events were still outstanding, causing `check_exit(1)` to discard the Release exchanges.

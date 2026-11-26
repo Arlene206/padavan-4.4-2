@@ -319,7 +319,7 @@ pending_cleanup = function_body(client, "static int client6_has_pending_ia_clean
 assert "TAILQ_FOREACH(iac, &ifp->iaconf_list, link)" in pending_cleanup
 assert "if (!TAILQ_EMPTY(&iac->iadata))" in pending_cleanup
 shutdown_check = function_body(client, "static void client6_check_shutdown(void)")
-assert "dhcp6c_ia_shutdown_ready(client6_has_pending_ia_cleanup(), !TAILQ_EMPTY(&client6_config.event_list))" in shutdown_check
+assert "dhcp6c_ia_shutdown_ready(client6_has_pending_ia_cleanup(),!TAILQ_EMPTY(&client6_config.event_list))" in "".join(shutdown_check.split())
 assert "check_exit(1);" in shutdown_check
 release_setup = function_body(ia, "void release_all_ia(struct dhcp6_if *ifp)")
 assert "prepare_iaevent(ia, DHCP6S_RELEASE);" in release_setup
