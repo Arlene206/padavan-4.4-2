@@ -39,6 +39,7 @@
 #include <dhcp6c_duid_file_policy.h>
 #include "dhcp6c_config_file.h"
 #include "wan6_dns_policy.h"
+#include "wan6_address_policy.h"
 #include "wan6_sixrd_prefix_policy.h"
 #include "wan6_sixrd_option_policy.h"
 #include "dhcp6c_callback_generation_policy.h"
@@ -286,6 +287,7 @@ format_ipv6_literal(const char *input, char *output, size_t output_size,
 
 	prefix_len = ipv6_from_string(input, &addr);
 	if (prefix_len < 0 ||
+	    !wan6_address_is_usable_unicast(&addr) ||
 	    !inet_ntop(AF_INET6, &addr, addr_text, sizeof(addr_text)))
 		return -1;
 
