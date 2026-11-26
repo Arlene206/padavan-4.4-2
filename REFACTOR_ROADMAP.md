@@ -473,7 +473,7 @@ Current implementation checkpoint (2026-11-23):
 - Preserve existing handoff/roadmap archive snapshots and indexes byte-for-byte as legacy history. Continue validating their inventory and hashes; do not add new snapshots for ordinary edits.
 - Run scripts/check_ai_handoff_docs.py when a local checkout is available, then inspect the documentation workflow on the exact pushed SHA. Do not create a follow-up docs-only commit solely to write completed CI results into the files.
 
-- P1 — IPTV proxy altnet: validate IPv4 octets and CIDR prefix; only empty NVRAM maps to 0/0. Reject malformed short values before publishing config; GNU89 regression added.
+- Completed P1 validation integration — IPTV proxy altnet: strict IPv4 octets, CIDR range 0–32, rejection of octal/broadcast aliases, and empty-only legacy 0/0 default are source-checked. Existing NVRAM snapshot and atomic IGMP config regressions plus the source contract now run in `wan-dhcp-callback-stability.yml`; exact-head Actions pending. Hardware L4 NOT VERIFIED.
 - Completed P1 — PPP callback generation state: stable fcntl sidecar lock, callback-generation fencing and same-directory staged/fsync/close/rename publication are implemented. Added a GNU89/Werror/ASan/UBSan runtime step for the existing state-file fixture; WAN DHCP callback #45779441563 executed it and printed `PPP callback stable lock and atomic generation-state publication: PASS`, while AI handoff #45779441622 also PASS on exact SHA `7f94feaabb326b9cdc2fa0294d045d6a7de07560`. Production source baseline `a18496e1b8e5ca06a705f7268d19fdab278873dc` has XY-C1 Build/TRX/artifact PASS; physical L4 remains NOT VERIFIED.
 ## Verification matrix
 

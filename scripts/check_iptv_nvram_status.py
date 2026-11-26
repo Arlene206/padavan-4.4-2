@@ -85,7 +85,9 @@ require('match_value(context, name, "0", missing_value, &matches_zero)' in IPTV_
         "IPTV selectors must accept exact 0/1 with legacy missing-key defaults")
 require('#include "iptv_proxy_altnet_policy.h"' in IGMP_CONFIG_POLICY and
         "iptv_proxy_altnet_is_valid(value)" in IGMP_CONFIG_POLICY and
-        "IPTV_PROXY_ALTN_DEFAULT" in IPTV_ALTNET_POLICY,
+        "IPTV_PROXY_ALTN_DEFAULT" in IPTV_ALTNET_POLICY and
+        "if (prefix > 3 || (prefix == 3 && digit > 2))" in IPTV_ALTNET_POLICY and
+        "prefix = prefix * 10 + digit;" in IPTV_ALTNET_POLICY,
         "IGMP writer and NVRAM preflight must share strict inet_addr-compatible IPv4/CIDR validation")
 require("iptv_proxy_nvram_settings_read(" in settings_reader and
         "net_nvram_transaction_begin(&transaction)" in settings_reader and
@@ -147,5 +149,8 @@ for marker in ("test_missing_keys_preserve_legacy_defaults",
                "test_invalid_boolean_selectors_fail_closed",
                "test_oversized_values_fail_closed"):
     require(marker in policy_test, "IPTV snapshot regression is missing: " + marker)
+require('"239.0.0.0/9"' in policy_test and
+        'assert(igmpproxy_config_altnet_token("192.0.2.1/9"));' in IGMP_CONFIG_TEST,
+        "single-digit CIDR prefixes within the valid range must remain accepted")
 
 print("IPTV NVRAM status contract: PASS")

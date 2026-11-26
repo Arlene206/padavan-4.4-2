@@ -1,3 +1,12 @@
+## 2026-11-26 — Wire IPTV proxy altnet regressions into WAN Actions
+
+- The IPTV altnet NVRAM snapshot and IGMP config publisher already enforce dotted-decimal IPv4, CIDR 0–32, rejection of octal aliases and the `inet_addr()` broadcast sentinel, while only an empty optional NVRAM value maps to `0.0.0.0/0`. The dedicated C regressions and `scripts/check_iptv_nvram_status.py` were not invoked by the WAN callback workflow, and its path filters omitted their direct inputs.
+- Added explicit acceptance coverage for the valid one-digit prefix `/9`; wired the NVRAM snapshot regression, atomic IGMP config regression and source contract into `wan-dhcp-callback-stability.yml`, with matching push/pull_request path filters for every direct input.
+- Test/workflow integration only; no production behavior changed. A standalone GNU89 `-Werror` ASan/UBSan harness built from the current altnet policy logic passed. Exact-head WAN/AI Actions pending; firmware L3 baseline remains `dd2885fc9941d3a57fd9c81cf01ed86488b0183d` (same-SHA Build/TRX/artifact PASS); hardware L4 NOT VERIFIED.
+- Parent main: `7a64510bff3db5b1d223b0be70ad04898ce784fb`; resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-26 — Make FTP storage source contract accept the wrapped helper call
 
 - The exact-SHA USB storage run on `376dfdc5b08f167ac2b6d0a889dca70da2c64aa9` failed at the final FTP source-contract assertion in `scripts/check_storage_safe_remove.py`. The production call is correct but formatted over two lines; the checker required the entire argument list on one line.

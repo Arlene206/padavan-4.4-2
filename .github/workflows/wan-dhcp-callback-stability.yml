@@ -59,6 +59,12 @@ on:
       - "trunk/user/rc/src/ppp_callback_generation_policy.h"
       - "trunk/user/rc/src/tests/ppp_callback_state_file.c"
       - "trunk/user/rc/src/net.c"
+      - "scripts/check_iptv_nvram_status.py"
+      - "trunk/user/rc/src/iptv_proxy_altnet_policy.h"
+      - "trunk/user/rc/src/iptv_proxy_nvram_policy.h"
+      - "trunk/user/rc/src/igmpproxy_config_file.h"
+      - "trunk/user/rc/src/tests/iptv_proxy_nvram_policy.c"
+      - "trunk/user/rc/src/tests/igmpproxy_config_file.c"
       - "trunk/user/rc/src/ppp_wan_ipup_policy.h"
       - "trunk/user/rc/src/tests/ppp_wan_ipup_policy.c"
       - "trunk/user/rc/src/rc.h"
@@ -139,6 +145,12 @@ on:
       - "trunk/user/rc/src/ppp_callback_generation_policy.h"
       - "trunk/user/rc/src/tests/ppp_callback_state_file.c"
       - "trunk/user/rc/src/net.c"
+      - "scripts/check_iptv_nvram_status.py"
+      - "trunk/user/rc/src/iptv_proxy_altnet_policy.h"
+      - "trunk/user/rc/src/iptv_proxy_nvram_policy.h"
+      - "trunk/user/rc/src/igmpproxy_config_file.h"
+      - "trunk/user/rc/src/tests/iptv_proxy_nvram_policy.c"
+      - "trunk/user/rc/src/tests/igmpproxy_config_file.c"
       - "trunk/user/rc/src/ppp_wan_ipup_policy.h"
       - "trunk/user/rc/src/tests/ppp_wan_ipup_policy.c"
       - "trunk/user/rc/src/rc.h"
@@ -256,6 +268,19 @@ jobs:
             trunk/user/rc/src/tests/wan_viptv_static_policy.c \
             -o /tmp/wan-viptv-static-policy
           /tmp/wan-viptv-static-policy
+      - name: Compile and run IPTV proxy altnet and config publication regressions
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/iptv_proxy_nvram_policy.c \
+            -o /tmp/iptv-proxy-nvram-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/iptv-proxy-nvram-policy
+          cc -std=gnu89 -Wall -Wextra -Werror -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/igmpproxy_config_file.c \
+            -o /tmp/igmpproxy-config-file
+          /tmp/igmpproxy-config-file
+          python3 scripts/check_iptv_nvram_status.py
       - name: Compile and run DHCPv6 config publication regression
         run: |
           set -eu

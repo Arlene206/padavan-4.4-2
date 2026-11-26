@@ -126,6 +126,11 @@ test_configured_values_are_copied_to_one_snapshot(void)
 	assert(settings.enabled == 1);
 	assert(strcmp(settings.altnet, "239.0.0.0/8") == 0);
 	assert(settings.quickleave == 1);
+
+	/* One-digit prefixes from /4 through /9 are valid CIDR lengths. */
+	fake.mr_altnet = "239.0.0.0/9";
+	assert(take_snapshot(&fake, &settings) == 0);
+	assert(strcmp(settings.altnet, "239.0.0.0/9") == 0);
 }
 
 static void

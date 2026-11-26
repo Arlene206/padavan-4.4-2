@@ -125,6 +125,7 @@ main(void)
 	assert(igmpproxy_config_altnet_token("0.0.0.0/0"));
 	assert(igmpproxy_config_altnet_token("255.255.255.254/32"));
 	assert(igmpproxy_config_altnet_token("192.168.1.1/24"));
+	assert(igmpproxy_config_altnet_token("192.0.2.1/9"));
 	write_file(config_path, "last-good-altnet-validation\n");
 	for (i = 0; i < sizeof(invalid_altnets) / sizeof(invalid_altnets[0]); ++i) {
 		values.altnet = (char *)invalid_altnets[i];
