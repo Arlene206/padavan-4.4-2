@@ -227,7 +227,7 @@ dhcp_route_ownership_load(
 				entry.ifname, entry.owner, &entry.metric,
 				entry.destination, entry.gateway, entry.netmask,
 				&extra);
-		if (parsed != 5 || !dhcp_route_ownership_entry_is_valid(&entry)) {
+		if (parsed != 6 || !dhcp_route_ownership_entry_is_valid(&entry)) {
 			status = EINVAL;
 			goto close_stream;
 		}
