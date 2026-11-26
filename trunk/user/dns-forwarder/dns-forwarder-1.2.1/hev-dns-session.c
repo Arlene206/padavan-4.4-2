@@ -204,6 +204,12 @@ read_data (int fd, HevRingBuffer *buffer, struct sockaddr_in *addr)
 		mh.msg_iov = iovec;
 		mh.msg_iovlen = iovec_len;
 		size = hev_dns_session_recvmsg_retry_eintr (fd, &mh);
+		if ((0 <= size) && addr &&
+		    hev_dns_session_datagram_truncated (&mh)) {
+			/* Do not forward a UDP query whose tail recvmsg discarded. */
+			errno = EMSGSIZE;
+			size = -1;
+		}
 		inc_len = (0 > size) ? 0 : size;
 		hev_ring_buffer_write_finish (buffer, inc_len);
 	}

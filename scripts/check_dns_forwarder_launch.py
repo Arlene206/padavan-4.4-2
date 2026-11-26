@@ -350,6 +350,13 @@ assert "recvmsg(fd, message, 0)" in session_io_policy
 assert "while (result < 0 && errno == EINTR)" in session_io_policy
 assert "test_sendmsg_to_closed_peer_does_not_raise_sigpipe" in session_io_test
 assert "assert(errno == EPIPE)" in session_io_test
+assert "hev_dns_session_datagram_truncated" in session_io_policy
+assert "MSG_TRUNC" in session_io_policy
+read_data = function_body(session_core, "read_data (int fd, HevRingBuffer *buffer, struct sockaddr_in *addr)")
+assert "addr &&" in read_data
+assert "hev_dns_session_datagram_truncated (&mh)" in read_data
+assert "errno = EMSGSIZE" in read_data
+assert "test_truncated_udp_datagrams_are_detected" in session_io_test
 assert "hev_dns_forwarder_udp_drain_action(-1, EINTR)" in forwarder_policy_test
 assert "hev_dns_forwarder_udp_drain_action(0, 0)" in forwarder_policy_test
 
