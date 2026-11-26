@@ -237,6 +237,9 @@ require("adbyby_del_dns_step_status=$?" in del_dns and
         "Adbyby DNS cleanup preserves first error and attempts all stages: PASS" in lifecycle_test,
         "del_dns failure propagation must be regression-tested at each cleanup stage")
 
+mem_identity = function_body(source, "adbyby_mem_process_identity")
+mem_snapshot = function_body(source, "adbyby_mem_process_snapshot")
+mem_stop = function_body(source, "adbyby_stop_mem_helper")
 close = function_body(source, "adbyby_close")
 require("adbyby_close_status=0" in close and
         'return "$adbyby_close_status"' in close,
@@ -252,6 +255,34 @@ require('if [ "$adbyby_close_dns_status" -eq 0 ]; then' in close and
         "dnsmasq restart must be gated on successful DNS cleanup")
 require("Adbyby close attempts independent cleanup and preserves first error: PASS" in lifecycle_test,
         "Adbyby close cleanup aggregation must be failure-injection tested")
+
+
+require('if adbyby_stop_mem_helper; then' in close and
+        "Adbyby内存辅助脚本清理失败" in close,
+        "Adbyby close must aggregate the identity-bound memory-helper cleanup result")
+require('grep -Fqx "$PROG_PATH/admem.sh"' in mem_identity and
+        "'admem.sh'" in mem_identity and
+        'readlink "$adbyby_mem_identity_dir/exe"' in mem_identity and
+        "$20" in mem_identity and "*/busybox" in mem_identity,
+        "memory-helper identity must pin exact argv, shell executable and procfs start_time")
+require("adbyby_mem_process_identity" in mem_snapshot and
+        "ADBYBY_PROC_ROOT" in mem_snapshot and
+        "adbyby_mem_process_ids" in mem_snapshot,
+        "memory-helper inventory must be bounded to validated procfs identities")
+require("adbyby_mem_process_snapshot" in mem_stop and
+        'adbyby_mem_process_identity "$adbyby_mem_pid"' in mem_stop and
+        'kill -KILL "$adbyby_mem_pid"' in mem_stop and
+        'adbyby_mem_current_start" = "$adbyby_mem_expected_start' in mem_stop,
+        "memory-helper stop must revalidate PID/start_time before signalling and verify post-state")
+require("Adbyby memory-helper exact argv/executable identity and decoy rejection: PASS" in stop_test and
+        "Adbyby memory-helper malformed proc metadata fails closed: PASS" in stop_test and
+        "Adbyby memory-helper PID reuse blocks stale signalling: PASS" in stop_test,
+        "memory-helper stop must test exact identity, malformed metadata and PID reuse")
+require("stop_mem_helper" in lifecycle_test and
+        "Adbyby close attempts independent cleanup and preserves first error: PASS" in lifecycle_test,
+        "close regression must inject memory-helper cleanup failure while retaining first-error order")
+require("ps | grep admem.sh" not in source and "kill -9 $(ps" not in source,
+        "Adbyby close must not signal processes by a spoofable command-name substring")
 
 require("adbyby_refresh_nvram_state" in firewall_test,
         "firewall host fixture must initialize the launcher state before direct helper calls")

@@ -357,6 +357,132 @@ adbyby_stop_daemon()
 	logger -t "adbyby" "Adbyby在有界等待后仍运行，拒绝清理服务状态。"
 	return 1
 }
+# Identify only the optional Adbyby memory script, not arbitrary processes whose
+# ps command line happens to contain the same basename. Pin argv, shell exe and
+# procfs start_time, then revalidate the identity immediately before SIGKILL.
+adbyby_mem_process_identity()
+{
+	adbyby_mem_pid="$1"
+	case "$adbyby_mem_pid" in
+		''|0|1|0*|*[!0-9]*) return 1 ;;
+	esac
+	adbyby_mem_identity_dir="$ADBYBY_PROC_ROOT/$adbyby_mem_pid"
+	[ -d "$adbyby_mem_identity_dir" ] || return 1
+	[ -L "$adbyby_mem_identity_dir/exe" ] || return 2
+	adbyby_mem_exe=$(readlink "$adbyby_mem_identity_dir/exe" 2>/dev/null) || return 2
+	case "$adbyby_mem_exe" in
+		*/sh|*/ash|*/bash|*/dash|*/busybox|*/sh\ \(deleted\)|*/ash\ \(deleted\)|*/bash\ \(deleted\)|*/dash\ \(deleted\)|*/busybox\ \(deleted\)) ;;
+		*) return 1 ;;
+	esac
+	[ -f "$adbyby_mem_identity_dir/cmdline" ] &&
+		[ -r "$adbyby_mem_identity_dir/cmdline" ] || return 2
+	adbyby_mem_arguments=$(tr '\000' '\n' < "$adbyby_mem_identity_dir/cmdline" 2>/dev/null) || return 2
+	if printf '%s\n' "$adbyby_mem_arguments" | grep -Fqx "$PROG_PATH/admem.sh"; then
+		:
+	elif printf '%s\n' "$adbyby_mem_arguments" | grep -Fqx './admem.sh' ||
+	     printf '%s\n' "$adbyby_mem_arguments" | grep -Fqx 'admem.sh'; then
+		[ -L "$adbyby_mem_identity_dir/cwd" ] || return 2
+		adbyby_mem_cwd=$(readlink "$adbyby_mem_identity_dir/cwd" 2>/dev/null) || return 2
+		[ "$adbyby_mem_cwd" = "$PROG_PATH" ] || return 1
+	else
+		return 1
+	fi
+	[ -f "$adbyby_mem_identity_dir/stat" ] &&
+		[ -r "$adbyby_mem_identity_dir/stat" ] || return 2
+	adbyby_mem_stat_record=$(awk '
+		NR != 1 { invalid = 1 }
+		NR == 1 {
+			sub(/^.*\) /, "")
+			if (NF < 20 || $1 !~ /^[A-Za-z]$/ ||
+			    $20 !~ /^[0-9]+$/)
+				invalid = 1
+			else
+				printf "%s %s\n", $1, $20
+		}
+		END { if (invalid || NR != 1) exit 1 }
+	' "$adbyby_mem_identity_dir/stat" 2>/dev/null) || return 2
+	set -- $adbyby_mem_stat_record
+	[ "$#" -eq 2 ] || return 2
+	case "$1" in Z|X|x) return 1 ;; esac
+	printf '%s\n' "$2"
+}
+
+adbyby_mem_process_snapshot()
+{
+	adbyby_mem_process_ids=
+	[ -d "$ADBYBY_PROC_ROOT" ] && [ -r "$ADBYBY_PROC_ROOT" ] || return 2
+	for adbyby_mem_dir in "$ADBYBY_PROC_ROOT"/[0-9]*; do
+		[ -d "$adbyby_mem_dir" ] || continue
+		adbyby_mem_candidate_pid=$(basename "$adbyby_mem_dir") || return 2
+		if adbyby_mem_candidate_start=$(adbyby_mem_process_identity "$adbyby_mem_candidate_pid"); then
+			if [ -n "$adbyby_mem_process_ids" ]; then
+				adbyby_mem_process_ids="$adbyby_mem_process_ids $adbyby_mem_candidate_pid:$adbyby_mem_candidate_start"
+			else
+				adbyby_mem_process_ids="$adbyby_mem_candidate_pid:$adbyby_mem_candidate_start"
+			fi
+		else
+			adbyby_mem_identity_status=$?
+			case "$adbyby_mem_identity_status" in
+				1) ;;
+				*) return 2 ;;
+			esac
+		fi
+	done
+	[ -n "$adbyby_mem_process_ids" ] && return 0
+	return 1
+}
+
+adbyby_stop_mem_helper()
+{
+	if adbyby_mem_process_snapshot; then
+		adbyby_mem_stop_ids="$adbyby_mem_process_ids"
+	else
+		adbyby_mem_stop_status=$?
+		case "$adbyby_mem_stop_status" in
+			1) return 0 ;;
+			*)
+				logger -t "adbyby" "无法确认Adbyby内存辅助脚本状态，拒绝按进程名发送信号。"
+				return 1
+				;;
+		esac
+	fi
+
+	for adbyby_mem_identity in $adbyby_mem_stop_ids; do
+		case "$adbyby_mem_identity" in *:*) ;; *) return 1 ;; esac
+		adbyby_mem_pid=$(printf '%s\n' "$adbyby_mem_identity" | cut -d: -f1) || return 1
+		adbyby_mem_expected_start=$(printf '%s\n' "$adbyby_mem_identity" | cut -d: -f2) || return 1
+		if adbyby_mem_current_start=$(adbyby_mem_process_identity "$adbyby_mem_pid"); then
+			[ "$adbyby_mem_current_start" = "$adbyby_mem_expected_start" ] || continue
+		else
+			adbyby_mem_identity_status=$?
+			case "$adbyby_mem_identity_status" in
+				1) continue ;;
+				*)
+					logger -t "adbyby" "无法重新验证Adbyby内存辅助脚本身份，拒绝发送信号。"
+					return 1
+					;;
+			esac
+		fi
+		if ! kill -KILL "$adbyby_mem_pid" >/dev/null 2>&1; then
+			logger -t "adbyby" "Adbyby内存辅助脚本SIGKILL返回失败，继续检查进程后置状态。"
+		fi
+	done
+
+	if adbyby_mem_process_snapshot; then
+		logger -t "adbyby" "Adbyby内存辅助脚本SIGKILL后仍在运行。"
+		return 1
+	else
+		adbyby_mem_stop_status=$?
+		case "$adbyby_mem_stop_status" in
+			1) return 0 ;;
+			*)
+				logger -t "adbyby" "无法确认Adbyby内存辅助脚本清理后的进程状态。"
+				return 1
+				;;
+		esac
+	fi
+}
+
 adbyby_close()
 {
 	# Keep firewall/DNS state intact unless daemon absence is confirmed.
@@ -394,7 +520,13 @@ adbyby_close()
 	if [ "${mem_mode:-0}" -eq 1 ]; then
 		echo "stop mem mode"
 	fi
-	kill -9 $(ps | grep admem.sh | grep -v grep | awk '{print $1}') >/dev/null 2>&1
+	if adbyby_stop_mem_helper; then
+		:
+	else
+		adbyby_close_step_status=$?
+		[ "$adbyby_close_status" -ne 0 ] || adbyby_close_status=$adbyby_close_step_status
+		logger -t "adbyby" "Adbyby内存辅助脚本清理失败 (status=$adbyby_close_step_status)。"
+	fi
 	if [ "$adbyby_close_dns_status" -eq 0 ]; then
 		if adbyby_restart_dhcpd; then
 			:

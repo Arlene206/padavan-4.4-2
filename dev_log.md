@@ -1,3 +1,11 @@
+## 2026-11-26 — Bind Adbyby memory-helper teardown to exact process identity
+
+- The old adbyby_close() used ps|grep admem.sh and sent SIGKILL to every matching PID without checking that it was the add-on helper or protecting against PID reuse.
+- Teardown now accepts only a shell whose argv contains the exact $PROG_PATH/admem.sh token (or basename relative to the exact program working directory), validates interpreter executable and procfs start_time, revalidates immediately before SIGKILL, and confirms no matching helper remains. UNKNOWN metadata fails closed.
+- GNU shell regressions cover absolute/relative helper identity, wrong-path and wrong-executable decoys, malformed proc metadata, PID reuse, and close ordering/first-error handling. Exact-head Actions are pending for this atomic slice.
+
+---
+
 ## 2026-11-25 — Make Ralink country-code fallback safe for missing NVRAM values
 
 - `gen_ralink_config()` passed `nvram_wlan_get(..., "country_code")` directly to `get_country_region()`, which called `strcasecmp()` without a NULL guard. The same NVRAM pointer was later passed directly to `strlen()`. An unset WLAN country-code value could therefore crash RC during wireless configuration generation instead of using the existing GB/region-1 fallback.

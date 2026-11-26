@@ -1,39 +1,36 @@
-# Session Handoff — 2026-11-25
+# Session Handoff — 2026-11-26
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`.
-- Live `main` HEAD: `0699812f6d9cf1934c9206bd3d10dc73e2a206ac` — `fix(ralink): handle missing wireless country codes`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged and must remain read-only.
-- Startup/bootstrap/protocol/handoff recovery was completed once. Do not repeat the earlier startup audit or re-audit completed MiniDLNA, ZeroTier, VPN resolver and SmartDNS work.
-- All work lands directly on `main` as one complete Git tree and one parent-linked atomic commit, followed by a non-forced expected-SHA compare-and-swap. Never force-push, create feature branches/PRs, or touch the frozen backup.
+- Repository: Arlene206/padavan-4.4-2.
+- Parent main before this atomic Adbyby slice: f913c6c0d7047f70a7f563c7f55d4b8dafc7bd3b.
+- Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains at 72f4f157a084f8184b9597ca5bf334b8080e5807; it is read-only and must not be modified. Legacy PR #1 remains closed/unmerged and must not be merged wholesale.
+- Startup/bootstrap/protocol/handoff recovery has been completed once. Do not repeat startup audits or re-audit completed work.
+- Development continues directly on main with one complete Git tree and one atomic parent-linked commit per logical task, followed by non-forced expected-SHA compare-and-swap. Never force-push, create a feature branch/PR, split one multi-file change into partial commits, or mutate the backup.
 
 ## Active task
 
-- Latest source fix: Ralink wireless country-code reads could pass a missing `nvram_wlan_get(..., "country_code")` pointer to `strcasecmp()` in `get_country_region()` and later to `strlen()` in `gen_ralink_config()`. A first-boot/unset country value could crash RC rather than take the existing fallback.
-- Commit `0699812f6d9cf1934c9206bd3d10dc73e2a206ac` adds the null/empty-safe regional lookup policy and normalizes absent or malformed-length values to the established `GB` default before 2.4 GHz, 5 GHz, SKU selection and CountryCode emission. The wireless workflow now compiles a GNU89/Werror/ASan/UBSan regression for NULL, empty, unknown, known, case-insensitive and band-specific values.
-- Earlier committed source slices still present on main include AdGuardHome persistent workdir/data retention, FTP route inventory checker alignment, DNSMasq static-ARP file+kernel rollback, Adbyby firewall/ipset teardown postcondition verification, and the XY-C1 workflow trigger for the AdGuardHome package. See `dev_log.md` for each change and its original exact-SHA run evidence.
+- Replace Adbyby optional memory-helper teardown based on ps|grep with exact process identity. The old implementation could SIGKILL unrelated processes whose command line merely contained admem.sh.
+- New helper discovery requires the exact helper argv token, an approved shell interpreter, and procfs start_time. Relative basename execution is accepted only when process cwd equals PROG_PATH. PID/start_time is rechecked immediately before SIGKILL, and post-state inventory must prove absence. Unknown procfs state fails closed.
+- GNU shell regressions cover absolute and relative helper invocation, unrelated path and non-shell decoys, malformed proc metadata, PID reuse, and close cleanup first-error ordering.
+- Continue source fix → regression → atomic commit → exact-SHA Actions. PENDING does not block independent work.
 
 ## Verification boundary
 
-- Exact HEAD `0699812f6d9cf1934c9206bd3d10dc73e2a206ac`:
-  - Wireless radio state #45767215573: PASS (5/5).
-  - Process lifecycle fail-closed #45767215582: PASS (96/96).
-  - Process lifecycle inventory #45767215542: PASS (5/5).
-  - HTTPD authentication/security #45767215454: PASS (53/53).
-  - AI handoff documentation #45767215521: PASS (7/7).
-  - NVRAM transaction boundary audit #45767215482: IN_PROGRESS at raw ioctl/kernel caller audit.
-  - XY-C1 firmware validation #45767215486: IN_PROGRESS during dependency setup; Build XY-C1, TRX verification and artifact upload have not yet completed. Do not claim L3 until all three pass on this exact SHA.
-- The earlier XY-C1 run #45765008036 passed Build, TRX verification and artifact upload on SHA `7272e2bc0cf3518257aa72038af66a32b7f04923`; that evidence does not establish L3 for current main. Adbyby #45766331551, DNSMasq #45765465148 and related source-specific L2 evidence are recorded in `dev_log.md`; they were run on their respective earlier exact SHAs.
-- This session used GitHub API/Actions for repository operations and CI evidence; a local firmware build was NOT RUN. MIPS/uClibc hardware behavior and physical-router L4 remain NOT VERIFIED.
-- Preserve these headings exactly: `## Current repository state`, `## Active task`, `## Verification boundary`, `## Exact first action for the next GPT`.
+- Exact parent SHA 0699812f6d9cf1934c9206bd3d10dc73e2a206ac: Wireless radio state #45767215573 PASS; Process inventory #45767215542 PASS; HTTPD security #45767215454 PASS; AI docs #45767215521 PASS; Process fail-closed #45767215582 PASS; NVRAM transaction audit #45767215482 PASS.
+- Parent XY-C1 #45767215486 was IN_PROGRESS at last inspection. It is not evidence for the new memory-helper source.
+- Exact-head Adbyby/HTTPD/Process/AI and XY-C1 checks are required for this slice. No local firmware build or physical-router check has been run through the GitHub-only repository connection. L3 requires Build XY-C1, TRX validation and artifact upload all PASS on the same product-source SHA; physical-router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Poll XY-C1 run #45767215486 for exact SHA `0699812f6d9cf1934c9206bd3d10dc73e2a206ac`. Inspect Build XY-C1, Verify TRX output and artifact upload separately. If a step fails, inspect its log and repair the actual cause; if it remains pending, continue an independent source defect instead of waiting.
-2. Poll NVRAM audit #45767215482 and record its exact outcome. Treat no conclusion as PENDING, not PASS.
-3. Continue a concrete stability/security source fix across the userland, with a regression and atomic commit; avoid repeating completed startup audits. Update this handoff after the next material slice and before context exhaustion.
+1. Resolve live main and inspect exact-SHA Adbyby, HTTPD security, Process inventory/fail-closed, AI docs and XY-C1 Actions for this memory-helper identity slice. Read any failing job log and repair the actual defect rather than weakening the contract.
+2. Verify Build XY-C1, TRX validation and artifact upload separately on that same SHA. Do not infer L3 from older-SHA or host-only runs.
+3. Continue another concrete userland stability/security defect after this gate. Do not repeat the already-passed Adbyby firewall postcondition, DNSMasq static-ARP rollback, or startup audits.
 
 # Cross-session execution mandate
 
-Continue the same autonomous engineering stream on `main`. For each logical slice: modify source, add regression coverage, run the relevant tests, create all changed blobs, create one complete tree based on the current `main`, create one atomic commit, re-check the branch SHA, and publish only with a non-forced expected-SHA compare-and-swap. Resolve FAIL at its exact SHA; PENDING never blocks independent tasks. Before ending a session, finish the current safe slice and leave this handoff with exact SHA, test/CI state and a concrete first task. Never claim tests, commits, builds or hardware validation that did not occur.
+Continue one autonomous engineering stream on main. For each logical slice, create all changed blobs, one complete Git tree based on the live main root tree, and one atomic parent-linked commit; update main only with non-forced expected-SHA compare-and-swap. PENDING never blocks independent work. Before context exhaustion, finish the current safe slice and checkpoint its first concrete next action.
+
+## Mandatory handoff checkpoint
+
+Re-check live refs and relevant exact-SHA Actions before ending. Record material PASS/FAIL/PENDING and the next concrete task. A commit cannot contain its own resulting SHA; the next GPT must fetch live main before checking its Actions.

@@ -290,8 +290,11 @@ awk '
         case ",$fail_stages," in *,restart_dhcpd,*) return 44 ;; esac
         return 0
     }
-    ps() { :; }
-    kill() { printf '%s\n' kill_admem >> "$events"; return 0; }
+    adbyby_stop_mem_helper() {
+        printf '%s\n' stop_mem_helper >> "$events"
+        case ",$fail_stages," in *,stop_mem_helper,*) return 46 ;; esac
+        return 0
+    }
     logger() { printf '%s\n' "$*" >> "$logs"; }
     run_close_case() {
         fail_stages=$1
@@ -305,7 +308,7 @@ awk '
         if [ "$fail_stages" = "stop" ]; then
             expected_events=$(printf 'stop')
         else
-            expected_events=$(printf 'stop\ndel_rule\ndel_cron\ndel_dns\nkill_admem')
+            expected_events=$(printf 'stop\ndel_rule\ndel_cron\ndel_dns\nstop_mem_helper')
             if [ "$expect_restart" = "1" ]; then
                 expected_events=$(printf '%s\nrestart_dhcpd' "$expected_events")
             fi
@@ -325,6 +328,8 @@ awk '
     run_close_case "restart_dhcpd" 44 1
     run_close_case "del_rule,del_cron" 41 1
     run_close_case "del_rule,del_dns" 41 0
+    run_close_case "stop_mem_helper" 46 1
+    run_close_case "del_rule,stop_mem_helper" 41 1
     run_close_case "stop" 1 0
     echo "Adbyby close attempts independent cleanup and preserves first error: PASS"
 ) || fail "Adbyby close cleanup regression failed"
