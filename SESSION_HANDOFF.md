@@ -3,7 +3,7 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development on `main` only.
-- Parent `main` for the VPN WAN rollback source-order checker coordinate fix: `1a0ff27d90b1d6cb396fcc45d979bbde0ebeab50`.
+- Parent `main` for the shared-xl2tpd VPN-client marker rollback fix: `7be0f3b1bdc3d5c4fdc07dcd52990cc86e356d9a`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify/delete. PR #1 remains closed/unmerged.
 - Bootstrap/protocol recovery was completed earlier; do not repeat it.
 
@@ -20,6 +20,7 @@
 - Fixed the NoBinding retry-watchdog gap: Request has finite MRC=10, so IAS_REQUEST now carries a four-minute watchdog beyond its retransmission window; duplicate NoBinding is ignored while that Request is active, and the watchdog is deferred while a replayed multi-IA Reply is still being locally applied. Follow-up review found that initial Request construction failure could still return before the watchdog was armed. The correction now switches to IAS_REQUEST before preparation, reuses/creates the IA timer, and schedules a 5-second setup retry on failure or the four-minute watchdog on success.
 - Found a DHCPv6 IA recovery hole: `ia_timo()` deleted the IA timer at T2 before allocating the Rebind event payload/auth state. A recoverable allocation failure discarded the event and left no retry owner. The fix retains the T2 timer until Renew setup succeeds, retries failed Rebind setup after 5 seconds, removes the timer only after a Rebind event is ready, and cancels any timer on invalid IA state.
 - Rotated to the VPN shared-transport lifecycle and found a marker ownership hole: `launch_wan_pppd_locked()` sets `l2tp_wan_t=1` before calling `safe_start_xl2tpd_locked()`, but its common launch-failure path invalidates callback generation and returns without clearing the pre-published marker. Later VPN server stop/restart may therefore treat an unstarted WAN transport as active and make incorrect shared-daemon stop/restore decisions. The fix tracks successful marker publication and clears it on launch failure while preserving the original launch error.
+- Follow-on shared-transport review found the symmetric VPN-client marker leak: `safe_start_xl2tpd_locked()` could publish `l2tp_cli_t=1`, fail to launch the daemon, and return without rollback. The direct VPN-client caller repaired its own path, but WAN PPP and VPN-server callers did not. The current fix tracks local marker publication and clears it on a failed daemon completion while preserving the primary errno; exact-head VPN lifecycle Actions are pending.
 - Adjacent WAN6 fixes already on main: empty caller-interface teardown guard; SIT owner-record IFNAMSIZ bound; strict SIT gateway literal validation; strict DHCP 6rd relay literal validation; static and DHCPv6 DNS literal validation; first-error aggregation during delegated-prefix cleanup.
 
 ## 2026-11-26 implementation continuation — DHCPv6 cleanup shutdown
@@ -110,9 +111,9 @@
 
 ## Exact first action for the next GPT
 
-1. Exact SHA `1a0ff27d90b1d6cb396fcc45d979bbde0ebeab50`: AI handoff #45800802088 PASS; VPN lifecycle #45800802057 FAILed only in the Python source contract after all 14 GNU89 policy regressions passed. Root cause: checker offset comparisons mixed raw and whitespace-compacted source indices. THIS commit normalizes every compared position and errno slice; run exact-head VPN lifecycle and AI handoff Actions.
-2. The older source SHA `3c53eb5a5fd339d77bc650fc2fefc7d8b60e81b4` has Process #45800460310, WAN route #45800460260, WAN DHCP callback #45800460321, HTTPD #45800460223, process inventory #45800460215 and NVRAM #45800460212 PASS. XY-C1 #45800460210 was still in progress at last poll; it is an older product-source SHA and cannot validate later source changes. Require Build XY-C1, Verify TRX and artifact upload all PASS on one exact current product-source SHA before L3. Hardware L4 remains NOT VERIFIED.
-3. After the corrected exact-head VPN contract passes, continue auditing shared L2TP/PPP rollback/error paths, then rotate to another userland stability/security issue.
+1. Current HEAD adds a production fix for `l2tp_cli_t` ownership rollback when `safe_start_xl2tpd_locked()` fails after publishing the marker; the policy test and source checker now pin the rollback. Run exact-head VPN lifecycle and AI handoff workflows; do not carry forward results from parents.
+2. Parent checker-only SHA `7be0f3b1bdc3d5c4fdc07dcd52990cc86e356d9a`: VPN lifecycle #45801196538 was queued/in progress at last poll. SHA `1a0ff27d90b1d6cb396fcc45d979bbde0ebeab50`: AI handoff #45800802088 PASS and VPN lifecycle #45800802057 FAILed only after all 14 GNU89 policy regressions passed; the source-order checker mixed raw and whitespace-compacted offsets. The subsequent checker fix normalizes all WAN positions. Neither result validates current source. Product firmware L3 requires Build XY-C1, Verify TRX and artifact upload all PASS on one exact current product-source SHA; hardware L4 remains NOT VERIFIED.
+3. After current exact-head VPN validation, continue shared L2TP/PPP rollback/error-path review, then rotate to another userland stability/security issue.
 
 ## Mandatory handoff checkpoint
 

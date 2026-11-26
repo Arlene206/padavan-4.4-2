@@ -528,6 +528,37 @@ vpnc_launch = safe_start_locked.index('eval("/usr/sbin/xl2tpd"')
 require(vpnc_marker < vpnc_launch and
         "refusing xl2tpd launch: cannot publish VPN-client ownership marker" in safe_start_locked,
         "xl2tpd must not launch without publishing VPN-client ownership")
+
+# If the common daemon start fails, roll back a client marker published by
+# this invocation even when a WAN/server caller owns the outer start request.
+vpnc_start_compact = "".join(safe_start_locked.split())
+vpnc_published = vpnc_start_compact.index("vpnc_marker_published=1;")
+vpnc_completion = vpnc_start_compact.index(
+    "presence_status=xl2tpd_start_policy_completion_result("
+)
+vpnc_start_failure = vpnc_start_compact.index(
+    "if(presence_status<0)", vpnc_completion
+)
+vpnc_rollback_gate = vpnc_start_compact.index(
+    "xl2tpd_start_policy_vpnc_marker_rollback_required(", vpnc_start_failure
+)
+vpnc_rollback_call = vpnc_start_compact.index(
+    'ppp_l2tp_runtime_marker_set_status("l2tp_cli_t",0)',
+    vpnc_rollback_gate
+)
+vpnc_failure_return = vpnc_start_compact.index(
+    "return-1;", vpnc_rollback_call
+)
+require(vpnc_marker < vpnc_launch and
+        vpnc_published < vpnc_completion < vpnc_start_failure <
+        vpnc_rollback_gate < vpnc_rollback_call < vpnc_failure_return and
+        "errno=saved_errno;" in
+        vpnc_start_compact[vpnc_rollback_gate:vpnc_failure_return],
+        "failed shared-daemon start must clear the published VPN-client marker and preserve its error")
+require("test_vpnc_marker_rolls_back_only_after_failed_start" in xl2tpd_test and
+        "xl2tpd_start_policy_vpnc_marker_rollback_required(1, -1)" in xl2tpd_test,
+        "VPN-client marker rollback policy regressions missing")
+
 wan_start = body(net_ppp, "launch_wan_pppd_locked(int unit, int wan_proto,")
 # Compare every source-order offset in the same whitespace-normalized view.
 # Mixing raw and compact offsets can invert a correct source order when tabs,

@@ -71,6 +71,15 @@ test_config_flags(void)
 	return 0;
 }
 
+static void
+test_vpnc_marker_rolls_back_only_after_failed_start(void)
+{
+	CHECK(!xl2tpd_start_policy_vpnc_marker_rollback_required(0, -1));
+	CHECK(!xl2tpd_start_policy_vpnc_marker_rollback_required(1, 0));
+	CHECK(!xl2tpd_start_policy_vpnc_marker_rollback_required(1, 1));
+	CHECK(xl2tpd_start_policy_vpnc_marker_rollback_required(1, -1));
+}
+
 int
 main(void)
 {
@@ -97,6 +106,7 @@ main(void)
 	CHECK(!xl2tpd_start_policy_wan_marker_rollback_required(1, 0));
 	CHECK(xl2tpd_start_policy_wan_marker_rollback_required(1, -1));
 	CHECK(xl2tpd_start_policy_wan_marker_rollback_required(1, 1));
+	test_vpnc_marker_rolls_back_only_after_failed_start();
 	CHECK(!xl2tpd_start_policy_rpl2tp_failure_requires_cleanup(0));
 	CHECK(xl2tpd_start_policy_rpl2tp_failure_requires_cleanup(-1));
 	CHECK(xl2tpd_start_policy_rpl2tp_failure_requires_cleanup(1));

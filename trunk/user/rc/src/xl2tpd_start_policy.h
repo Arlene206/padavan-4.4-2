@@ -111,4 +111,13 @@ xl2tpd_start_policy_wan_marker_rollback_required(int marker_published,
 	return marker_published && launch_status != 0;
 }
 
+/* Undo a VPN-client reference only when this attempt published it and
+ * the shared daemon failed to reach a confirmed running state. */
+static inline int
+xl2tpd_start_policy_vpnc_marker_rollback_required(int marker_published,
+					   int completion_status)
+{
+	return marker_published && completion_status < 0;
+}
+
 #endif /* XL2TPD_START_POLICY_H */

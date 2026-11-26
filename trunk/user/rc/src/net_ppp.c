@@ -344,6 +344,7 @@ safe_start_xl2tpd_locked(void)
 	int use_vpn_server, use_wan_lac, use_vpnc;
 	int saved_errno, scan_error, presence_status, launch_status;
 	int wan_value_status, config_status, marker_status;
+	int vpnc_marker_published = 0, vpnc_marker_rollback_status;
 	int vpnc_default_route;
 	struct xl2tpd_config_snapshot config_snapshot;
 	struct xl2tpd_config_flags config_flags;
@@ -585,6 +586,7 @@ safe_start_xl2tpd_locked(void)
 			errno = saved_errno;
 			return -1;
 		}
+		vpnc_marker_published = 1;
 	}
 
 	/*
@@ -601,6 +603,20 @@ safe_start_xl2tpd_locked(void)
 		saved_errno = errno ? errno : EIO;
 		logmessage(LOGNAME, "cannot start xl2tpd after confirmed absence (status=%d, errno=%d)",
 			   launch_status, saved_errno);
+		/*
+		 * This helper is shared by WAN PPP and VPN-server startup too.
+		 * Roll back the client dependency here rather than relying on the
+		 * direct VPN-client caller to repair state after this function fails.
+		 */
+		if (xl2tpd_start_policy_vpnc_marker_rollback_required(
+			    vpnc_marker_published, presence_status)) {
+			vpnc_marker_rollback_status =
+				ppp_l2tp_runtime_marker_set_status("l2tp_cli_t", 0);
+			if (vpnc_marker_rollback_status != 0)
+				logmessage(LOGNAME,
+					   "cannot roll back VPN-client xl2tpd ownership marker after daemon-start failure (status=%d)",
+					   vpnc_marker_rollback_status);
+		}
 		errno = saved_errno;
 		return -1;
 	}

@@ -1,3 +1,12 @@
+## 2026-11-26 — Roll back the VPN-client marker when shared xl2tpd launch fails
+
+- Continued the shared L2TP lifecycle audit and found an ownership leak in `safe_start_xl2tpd_locked()`: when the coherent config says the VPN client should use xl2tpd, it publishes `l2tp_cli_t=1` before launching the daemon. If process inventory confirmed absence but `eval("/usr/sbin/xl2tpd", ...)` then failed, the helper returned without clearing the marker. The direct VPN-client caller had its own rollback, but WAN PPP and VPN-server callers of the same helper did not; they could leave a phantom VPN-client dependency that affected later shared-daemon stop/restore decisions.
+- Track whether this invocation successfully published the VPN-client marker. On unsuccessful completion, clear only that marker, log rollback failure, and restore the original daemon-start errno. An already-running daemon remains a successful outcome and retains the marker. Added a pure policy helper, GNU89 regression cases, and source-order assertions for publication → completion failure → rollback → errno restoration.
+- Exact-head VPN lifecycle run #45801196538 on prior checker-fix SHA `7be0f3b1bdc3d5c4fdc07dcd52990cc86e356d9a` was queued/in progress at last poll; this new production source slice requires its own exact-SHA Actions. No local build or hardware result is claimed.
+- Parent main: `7be0f3b1bdc3d5c4fdc07dcd52990cc86e356d9a`; resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-26 — Normalize all VPN WAN marker rollback source-order offsets
 
 - The exact-head VPN lifecycle run #45800802057 on `1a0ff27d90b1d6cb396fcc45d979bbde0ebeab50` reran all 14 preceding GNU89 policy regressions successfully, then failed in the Python source contract. The previous whitespace correction compared offsets from the whitespace-stripped source for the rollback gate/call against offsets from the original source for the marker, launch and failure branch. Those index spaces are not comparable, so a correctly ordered implementation was falsely rejected.
