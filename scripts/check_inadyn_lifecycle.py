@@ -125,7 +125,7 @@ signal_reload = notify.index("inadyn_signal_snapshot(", config_write)
 signal_commit = notify.index(
     "inadyn_config_file_snapshot_commit(", signal_reload)
 assert snapshot_begin < write_failure < write_restore < signal_reload < signal_commit
-assert "recovery snapshot retained" in notify[signal_reload:signal_commit]
+assert "last-known-good config snapshot retained" in notify[signal_reload:signal_commit]
 assert notify.index("inadyn_validate_snapshot(") < snapshot_begin
 assert "process_snapshot_release(&snapshot)" in notify
 assert 'doSystem("killall %s %s", "-SIGHUP", "inadyn")' not in notify
