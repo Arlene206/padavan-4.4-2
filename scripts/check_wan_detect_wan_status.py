@@ -80,7 +80,7 @@ require(
     "interface-address ioctl errors must survive descriptor close and remain visible to WAN health checks",
 )
 
-wan_up = body(WAN, "wan_up_internal(char *wan_ifname, int unit, int is_static)")
+wan_up = body(WAN, "wan_up_internal_with_route_status(char *wan_ifname, int unit,")
 gateway_scope = wan_up.rindex(
     "if (!modem_unit_id && wan_proto == IPV4_WAN_PROTO_IPOE_DHCP)"
 )

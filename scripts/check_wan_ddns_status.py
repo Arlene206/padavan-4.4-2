@@ -88,7 +88,7 @@ require(mode_read < mode_error < enable_read < enable_check < gate < inventory a
         "DDNS updater must check enable-state reads and preserve disabled/AP no-op behavior")
 
 wan_up = function_body(
-    WAN_SOURCE, "wan_up_internal(char *wan_ifname, int unit, int is_static)"
+    WAN_SOURCE, "wan_up_internal_with_route_status(char *wan_ifname, int unit,"
 )
 notify_at = wan_up.index("route_status = notify_ddns_update();")
 merge_at = wan_up.index(

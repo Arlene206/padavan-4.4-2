@@ -101,7 +101,7 @@ def check_caller(signature, direction, diagnostic):
 
 
 check_caller(
-    "wan_up_internal(char *wan_ifname, int unit, int is_static)",
+    "wan_up_internal_with_route_status(char *wan_ifname, int unit,",
     "WAN-up",
     "WAN PPPoE-MWAN detection incomplete",
 )
