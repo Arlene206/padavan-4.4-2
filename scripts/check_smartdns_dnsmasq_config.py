@@ -69,11 +69,11 @@ for token in ('mktemp "${smartdns_config_file}.tmp.XXXXXX"',
               'mv -f "$smartdns_tmp_file" "$smartdns_config_file"'):
     assert token in publish, "atomic publication missing: " + token
 assert "for smartdns_directive do" in publish
-assert "tail -c 1" in ensure_separator
+assert '[ "$#" -eq 1 ] || return 2' in ensure_separator
+assert 'tail -c 1 "$smartdns_stage_file"' in ensure_separator
 assert "smartdns_line_feed_sentinel" in ensure_separator
-assert 'printf `\n` >> "$smartdns_stage_file"' not in ensure_separator
 assert "printf '\\n' >> \"$smartdns_stage_file\"" in ensure_separator
-assert 'smartdns_dnsmasq_ensure_stage_separator "$smartdns_config_file" "$smartdns_tmp_file"' in publish
+assert 'smartdns_dnsmasq_ensure_stage_separator "$smartdns_tmp_file"' in publish
 assert publish.index("smartdns_dnsmasq_ensure_stage_separator") < publish.rindex("smartdns-managed-dnsmasq-begin")
 assert '# smartdns-managed-dnsmasq-begin' in block
 assert '# smartdns-managed-dnsmasq-end' in block

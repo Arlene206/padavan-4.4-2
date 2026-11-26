@@ -17,14 +17,13 @@ smartdns_dnsmasq_normalize_port()
 
 smartdns_dnsmasq_ensure_stage_separator()
 {
-	[ "$#" -eq 2 ] || return 2
-	smartdns_source_file="$1"
-	smartdns_stage_file="$2"
-	[ -s "$smartdns_source_file" ] || return 0
+	[ "$#" -eq 1 ] || return 2
+	smartdns_stage_file="$1"
+	[ -s "$smartdns_stage_file" ] || return 0
 
-	# A user-owned config may not end in LF. Keep the managed begin marker
-	# on its own line so stop cleanup can identify and remove our block.
-	if smartdns_last_byte=$(tail -c 1 "$smartdns_source_file" && printf x); then
+	# Inspect the staged copy itself: checking the live source after cp -p
+	# could race with another writer and make the marker decision stale.
+	if smartdns_last_byte=$(tail -c 1 "$smartdns_stage_file" && printf x); then
 		:
 	else
 		smartdns_status=$?
@@ -65,7 +64,7 @@ smartdns_dnsmasq_publish_managed_block()
 		rm -f "$smartdns_tmp_file"
 		return "$smartdns_status"
 	fi
-	if smartdns_dnsmasq_ensure_stage_separator "$smartdns_config_file" "$smartdns_tmp_file"; then
+	if smartdns_dnsmasq_ensure_stage_separator "$smartdns_tmp_file"; then
 		:
 	else
 		smartdns_status=$?
