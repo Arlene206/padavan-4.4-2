@@ -3,7 +3,7 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development on `main` only.
-- Parent `main` for this exact-head validation/handoff refresh: `c241c6a150f2c0bf8b6f2a89177780cb9766ad9f`.
+- Parent `main` for the Renew/Rebind IA timer recovery fix and lossless log rotation: `8a484891c96894a5452710101a05145fab0fc7e6`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify/delete. PR #1 remains closed/unmerged.
 - Bootstrap/protocol recovery was completed earlier; do not repeat it.
 
@@ -16,6 +16,7 @@
 - Added GNU89 regression cases and Python source-contract assertions for IA/event drain, config lifetime guard, signal order and the missing config-header PR filter.
 - Confirmed P1 NVRAM flash lost-update race: `nvram_commit()` captured a complete image under `nvram_lock` before acquiring `nvram_sem`; an older commit could wait behind a newer one and then overwrite flash with its stale snapshot. This slice moves `nvram_sem` ahead of snapshot generation and pins lock/snapshot/read/write order in the source checker.
 - Added a deterministic pthread regression showing the stale-snapshot interleaving and the corrected serialized result.
+- Found a DHCPv6 IA recovery hole: `ia_timo()` deleted the IA timer at T2 before allocating the Rebind event payload/auth state. A recoverable allocation failure discarded the event and left no retry owner. The fix retains the T2 timer until Renew setup succeeds, retries failed Rebind setup after 5 seconds, removes the timer only after a Rebind event is ready, and cancels any timer on invalid IA state.
 - Adjacent WAN6 fixes already on main: empty caller-interface teardown guard; SIT owner-record IFNAMSIZ bound; strict SIT gateway literal validation; strict DHCP 6rd relay literal validation; static and DHCPv6 DNS literal validation; first-error aggregation during delegated-prefix cleanup.
 
 ## 2026-11-26 implementation continuation — DHCPv6 cleanup shutdown
@@ -88,7 +89,7 @@
 - Parent `main`: `26842e306af329188b8aefd999cbbd9d94024ecd`.
 - The NTP FQDN suboption carries exactly one FQDN, but the existing generic `dhcp6_get_domain()` decoder accepts a domain-name list. Validate the wire data before decoding: exactly one terminal root label, no compression/extended labels, ASCII LDH labels only, no IDNA A-labels, and RFC label/name length bounds.
 - Added policy regression for valid single/multi-label names, concatenated names, compression, missing terminator, non-ASCII and IDNA labels, hyphen placement, label/name overflow and NULL input. Python source checker pins the production call.
-- Exact-SHA Actions pending; hardware L4 remains NOT VERIFIED.
+- Exact SHA `8a484891c96894a5452710101a05145fab0fc7e6`: DHCPv6 IA #45796494343 PASS; DHCPv6 script retry #45796494093, HTTPD #45796494090, USB #45796494100 and Process inventory #45796494041 PASS. AI handoff #45796494225 failed because root `dev_log.md` reached 120 records; this commit performs the required batch rotation. NVRAM #45796494293 and XY-C1 #45796494552 were still running at last poll. Hardware L4 remains NOT VERIFIED.
 
 ## Verification boundary
 
@@ -106,9 +107,9 @@
 
 ## Exact first action for the next GPT
 
-1. Exact source-fix SHA `a856ba60a4695276b5c484f7e8388fdaeaf1ced0` has DHCPv6 IA #45795811813 FAIL only because the new regression compile command contained doubled trailing backslashes. The fix commit `c241c6a150f2c0bf8b6f2a89177780cb9766ad9f` reran DHCPv6 IA #45796127157 PASS and AI handoff #45796127128 PASS, including the ASan/UBSan timer regression and full source checker.
-2. Check the same product-source SHA `a856ba60a4695276b5c484f7e8388fdaeaf1ced0` XY-C1 run #45795811655: Build XY-C1 is in progress, while Verify TRX and artifact upload are pending. All three must PASS on this SHA before L3. NVRAM #45795811645 remains in progress; hardware L4 remains NOT VERIFIED.
-3. Continue the DHCPv6 timer/event/callback ownership audit for other object-lifetime hazards, then rotate to another userland stability/security defect.
+1. Check exact-head DHCPv6 IA and AI handoff Actions for this Renew/Rebind IA-timer fix and lossless log rotation. Parent `8a484891c96894a5452710101a05145fab0fc7e6` had DHCPv6 IA #45796494343 PASS but AI #45796494225 FAIL solely because root `dev_log.md` reached 120 records; the required oldest-100 rotation is included here.
+2. Check same-product-source-SHA XY-C1 Build, Verify TRX output and artifact upload. Parent SHA `8a484891c96894a5452710101a05145fab0fc7e6` had run #45796494552 in progress; do not carry those results to this later source change. All three must PASS together before L3; hardware L4 remains NOT VERIFIED.
+3. Continue the DHCPv6 IA/event timer ownership audit for additional setup/recovery hazards, then rotate to another userland stability/security defect.
 
 ## Mandatory handoff checkpoint
 

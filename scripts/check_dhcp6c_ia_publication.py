@@ -458,6 +458,31 @@ assert "test_callback_removal_restarts_without_revisiting_or_running_new_timer" 
 assert "visited_second == 0" in timer_test and "visited_third == 1" in timer_test
 assert "DHCPv6 timer generation and callback invalidation policy: PASS" in timer_test
 
+# Keep the IA timer as the owner of T2/Rebind until the exchange is ready.
+ia_timeout = function_body(ia, "static struct dhcp6_timer *ia_timo(void *arg)")
+assert "DHCP6C_IA_EVENT_RETRY_DELAY_MS 5000ULL" in policy
+assert "dhcp6c_ia_event_timer_action" in policy
+assert "case IAS_REBIND:" in ia_timeout
+assert "case DHCP6C_IA_EVENT_TIMER_KEEP_T2:" in ia_timeout
+assert "case DHCP6C_IA_EVENT_TIMER_RETRY_REBIND:" in ia_timeout
+assert "dhcp6_timer_set(DHCP6C_IA_EVENT_RETRY_DELAY_MS, ia->timer);" in ia_timeout
+prepared = ia_timeout.index("event_prepared = (prepare_iaevent(ia, dhcpstate) == 0);")
+selected = ia_timeout.index("dhcp6c_ia_event_timer_action(", prepared)
+removed = ia_timeout.index("dhcp6_timer_remove(&ia->timer);", selected)
+assert prepared < selected < removed
+renew_case = ia_timeout.index("case IAS_RENEW:")
+rebind_case = ia_timeout.index("case IAS_REBIND:")
+default_case = ia_timeout.index("default:", rebind_case)
+assert renew_case < rebind_case < default_case
+assert "dhcp6_timer_remove(&ia->timer);" not in ia_timeout[renew_case:rebind_case]
+retry_case = ia_timeout.index("case DHCP6C_IA_EVENT_TIMER_RETRY_REBIND:")
+remove_case = ia_timeout.index("case DHCP6C_IA_EVENT_TIMER_REMOVE_REBIND:")
+assert retry_case < remove_case
+assert "dhcp6_timer_set(DHCP6C_IA_EVENT_RETRY_DELAY_MS, ia->timer);" in ia_timeout[retry_case:remove_case]
+assert "if (ia->timer)" in ia_timeout[default_case:]
+assert "test_ia_event_timer_is_retained_until_rebind_is_ready" in policy_test
+assert "DHCP6C_IA_EVENT_TIMER_RETRY_REBIND" in policy_test
+
 required_paths = (
     ".github/workflows/dhcp6c-ia-publication-stability.yml",
     "scripts/check_dhcp6c_ia_publication.py",

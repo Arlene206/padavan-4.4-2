@@ -44,6 +44,7 @@
 | `docs/dev-log/2026/11/part-035.md` | 101 | 2026-11-24 — Record IAPPD lifecycle test assertion diagnostics → 2026-11-25 19:35 CST — Block nested symlink traversal during MTD default fill | 77569 | `8f65b8f5e004a846d64426f192a51860c9df2d7c` |
 | `docs/dev-log/2026/11/part-036.md` | 100 | 2026-11-25 19:40 CST — Make bundled chnroute extraction fail closed → 2026-11-25 — Bound IAPP FT security-block copies by received bytes | 100329 | `3e22817d7210256c8aa0c75b4f9fb0ac9c3d4981` |
 | `docs/dev-log/2026/11/part-037.md` | 100 | 2026-11-25 — Repair GNU89 receive-length test dependency → 2026-11-25 — Route DHCP relay replies to a usable client destination | 106872 | `1a954ef6fdd5346236e0f3bff1e8e153c145d56e` |
+| `docs/dev-log/2026/11/part-038.md` | 100 | 2026-11-25 — SmartDNS rollback status propagation → 2026-11-26 — Skip empty requested interfaces during WAN IPv6 teardown | 99102 | `d8871cc4701057cc8661604a4b1ae3001878ceaf` |
 - **Rolling-window catch-up:** 102 oldest complete records evicted from root `dev_log.md` when it contained 122 entries at parent main `7cd1ffd3eecc05786846be684053428f20e8f535` are preserved verbatim, oldest first, in `part-031.md`; root retains the newest 20 pre-existing records plus this rotation checkpoint (21 total). No record was rewritten or discarded.
 
 
@@ -149,3 +150,5 @@
 
 
 - **Rolling-window continuation:** 100 oldest complete records evicted when root dev_log.md reached 120 entries at parent main e37ac5dfb68231c35638b21c7c065e14903452a7 are preserved verbatim, oldest first, in part-037; pre-rotation root blob: a11535712360ffc5e74f9d23049e84371120b8c6. Root retains the newest 20 complete records.
+
+- **Rolling-window continuation:** 100 oldest complete records evicted from root `dev_log.md` at parent main `8a484891c96894a5452710101a05145fab0fc7e6` are preserved verbatim, oldest first, in `part-038.md`; pre-rotation root blob: `efa5948793d79550a59636aabf397516bbb00ea3`. Root retains its newest 20 previous complete records plus the new IA timer milestone (21 total). No record was rewritten or discarded.

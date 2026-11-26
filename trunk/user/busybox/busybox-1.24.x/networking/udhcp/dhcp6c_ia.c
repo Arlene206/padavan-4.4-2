@@ -487,6 +487,8 @@ static struct dhcp6_timer *ia_timo(void *arg)
 {
 	struct ia *ia = (struct ia *)arg;
 	int dhcpstate;
+	int event_prepared;
+	enum dhcp6c_ia_event_timer_action action;
 
 	log1("timeout for %s-%u, state=%s",
 	    dhcp6optstr(ia->conf->type), ia->conf->iaid, iastatestr(ia->state));
@@ -495,30 +497,46 @@ static struct dhcp6_timer *ia_timo(void *arg)
 	case IAS_ACTIVE:
 		ia->state = IAS_RENEW;
 		dhcpstate = DHCP6S_RENEW;
+		/* Preserve the T2 deadline while preparing the Renew exchange. */
 		dhcp6_timer_set((ia->t1 < ia->t2) ? (ia->t2 - ia->t1) * 1000ULL : 0,
-						ia->timer);
+				ia->timer);
 		break;
 	case IAS_RENEW:
 		ia->state = IAS_REBIND;
 		dhcpstate = DHCP6S_REBIND;
-
-		/*
-		 * We need keep DUID for sending Release in this state.
-		 * But we don't need a timer for the IA.  We'll just wait for a
-		 * reply for the REBIND until all associated configuration
-		 * parameters for this IA expire.
-		 */
-		dhcp6_timer_remove(&ia->timer);
+		break;
+	case IAS_REBIND:
+		/* A failed Rebind setup is retried without losing this IA timer. */
+		dhcpstate = DHCP6S_REBIND;
 		break;
 	default:
 		bb_error_msg("invalid IA state (%d)", ia->state);
-		return NULL;	/* XXX */
+		if (ia->timer)
+			dhcp6_timer_remove(&ia->timer);
+		return NULL;
 	}
 
-	if (prepare_iaevent(ia, dhcpstate) == 0)
+	event_prepared = (prepare_iaevent(ia, dhcpstate) == 0);
+	action = dhcp6c_ia_event_timer_action(
+		dhcpstate == DHCP6S_REBIND, event_prepared, ia->timer != NULL);
+
+	switch (action) {
+	case DHCP6C_IA_EVENT_TIMER_KEEP_T2:
+		if (!event_prepared)
+			bb_error_msg("can't prepare IA Renew; retaining T2 timer");
 		return ia->timer;
-	else
+	case DHCP6C_IA_EVENT_TIMER_RETRY_REBIND:
+		bb_error_msg("can't prepare IA Rebind; retrying in %llu ms",
+			     DHCP6C_IA_EVENT_RETRY_DELAY_MS);
+		dhcp6_timer_set(DHCP6C_IA_EVENT_RETRY_DELAY_MS, ia->timer);
+		return ia->timer;
+	case DHCP6C_IA_EVENT_TIMER_REMOVE_REBIND:
+		dhcp6_timer_remove(&ia->timer);
 		return NULL;
+	case DHCP6C_IA_EVENT_TIMER_NONE:
+	default:
+		return NULL;
+	}
 }
 
 static struct ia *get_ia(struct dhcp6_if *ifp,

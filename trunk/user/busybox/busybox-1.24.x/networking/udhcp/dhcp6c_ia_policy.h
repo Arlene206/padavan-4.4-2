@@ -7,6 +7,27 @@
 
 #define DHCP6C_IA_CLEANUP_RETRY_DELAY_MS 5000ULL
 
+#define DHCP6C_IA_EVENT_RETRY_DELAY_MS 5000ULL
+
+enum dhcp6c_ia_event_timer_action {
+	DHCP6C_IA_EVENT_TIMER_NONE,
+	DHCP6C_IA_EVENT_TIMER_KEEP_T2,
+	DHCP6C_IA_EVENT_TIMER_RETRY_REBIND,
+	DHCP6C_IA_EVENT_TIMER_REMOVE_REBIND
+};
+
+static inline enum dhcp6c_ia_event_timer_action
+dhcp6c_ia_event_timer_action(int is_rebind, int event_prepared,
+			     int timer_present)
+{
+	if (!timer_present)
+		return DHCP6C_IA_EVENT_TIMER_NONE;
+	if (!is_rebind)
+		return DHCP6C_IA_EVENT_TIMER_KEEP_T2;
+	return event_prepared ? DHCP6C_IA_EVENT_TIMER_REMOVE_REBIND
+			      : DHCP6C_IA_EVENT_TIMER_RETRY_REBIND;
+}
+
 /*
  * Calculate the 4/5 and 5/8 timer ratios without overflowing 32-bit DHCP
  * lifetime fields before division. Quotient/remainder arithmetic is exact.

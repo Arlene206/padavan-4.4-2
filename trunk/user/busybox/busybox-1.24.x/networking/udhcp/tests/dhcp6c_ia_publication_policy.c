@@ -270,6 +270,18 @@ test_owned_ia_na_address_can_be_reconciled_and_removed(void)
 	assert(dhcp6c_ia_na_address_needs_remove(address_owned));
 }
 
+static void
+test_ia_event_timer_is_retained_until_rebind_is_ready(void)
+{
+	assert(DHCP6C_IA_EVENT_RETRY_DELAY_MS == 5000ULL);
+	assert(dhcp6c_ia_event_timer_action(0, 1, 1) == DHCP6C_IA_EVENT_TIMER_KEEP_T2);
+	assert(dhcp6c_ia_event_timer_action(0, 0, 1) == DHCP6C_IA_EVENT_TIMER_KEEP_T2);
+	assert(dhcp6c_ia_event_timer_action(1, 0, 1) == DHCP6C_IA_EVENT_TIMER_RETRY_REBIND);
+	assert(dhcp6c_ia_event_timer_action(1, 1, 1) == DHCP6C_IA_EVENT_TIMER_REMOVE_REBIND);
+	assert(dhcp6c_ia_event_timer_action(1, 0, 0) == DHCP6C_IA_EVENT_TIMER_NONE);
+	assert(dhcp6c_ia_event_timer_action(0, 0, 0) == DHCP6C_IA_EVENT_TIMER_NONE);
+}
+
 int
 main(void)
 {
@@ -287,6 +299,7 @@ main(void)
 	test_address_change_absent_and_duplicate_errors();
 	test_unowned_ia_na_collision_is_never_claimed_or_removed();
 	test_owned_ia_na_address_can_be_reconciled_and_removed();
+	test_ia_event_timer_is_retained_until_rebind_is_ready();
 	puts("DHCPv6 IA delegated-prefix retry and removal policy: PASS");
 	return 0;
 }
