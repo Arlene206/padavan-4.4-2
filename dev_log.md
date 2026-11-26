@@ -1,3 +1,12 @@
+## 2026-11-26 — Complete MiniDLNA daemon identity source contracts and restore live handoff headings
+
+- MiniDLNA source SHA `15f6a0f3eca5c0a157e3bc95edbb09156bc503cd` uses the actual `minidlnad` executable identity for process presence, readiness and rollback. The first storage CI run exposed stale assertions in the workflow caller graph; subsequent contracts were aligned across `.github/workflows/storage-hotplug-stability.yml`, `scripts/check_process_lifecycle_integration.py` and `scripts/check_storage_safe_remove.py`.
+- Contract commits: `c8654e1c` readiness selector, `2707f582` process integration rollback identity, `87019bfe` workflow rollback tuple, and `0093302e` safe-remove checker tuples. Exact USB storage hotplug #45761156152 on `0093302e` PASS. The companion XY-C1 #45761156133 was host-only: Build/TRX/artifact skipped, so not L3.
+- `87019bfe` AI docs #45761038471 failed because the rewritten handoff omitted the required section headings `## Current repository state`, `## Active task` and `## Verification boundary`. This checkpoint restores the required structure and preserves the archival execution mandate below; exact AI docs validation for this commit remains pending.
+- Current main at this record: `cbc867720ed3dcc528e161e16e6006964409cbb3`. Exact ZeroTier #45761309540 PASS after `cbc86772` corrected escaped line-boundary expectations. WAN route #45761312258 was still in progress at last query. Physical router L4 is not verified.
+
+---
+
 ## 2026-11-26 — Align the storage workflow rollback contract with MiniDLNA's executable name
 
 - Exact source SHA `15f6a0f3eca5c0a157e3bc95edbb09156bc503cd`: USB storage hotplug run #45760541309 passed its GNU89 sanitizer binaries and earlier shell regressions, then failed in the final whole-storage caller-graph Python contract. The inline checker still expected `minidlna` in the run_dms rollback tuple after the daemon executable, readiness check and rollback were corrected to `minidlnad`.
