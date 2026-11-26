@@ -175,6 +175,32 @@ test_default_ia_timer_ratios_do_not_overflow(void)
 }
 
 static void
+test_preferred_lifetime_uses_monotonic_elapsed_time(void)
+{
+	/* Fractional seconds retain the existing whole-second rounding. */
+	assert(dhcp6c_ia_preferred_lifetime_remaining(
+		7200U, 0ULL, 0xffffffffU) == 7200U);
+	assert(dhcp6c_ia_preferred_lifetime_remaining(
+		7200U, 999ULL, 0xffffffffU) == 7200U);
+	assert(dhcp6c_ia_preferred_lifetime_remaining(
+		7200U, 1000ULL, 0xffffffffU) == 7199U);
+	assert(dhcp6c_ia_preferred_lifetime_remaining(
+		7200U, 2500ULL, 0xffffffffU) == 7198U);
+	assert(dhcp6c_ia_preferred_lifetime_remaining(
+		7200U, 7200000ULL, 0xffffffffU) == 0U);
+	assert(dhcp6c_ia_preferred_lifetime_remaining(
+		7200U, 7200001ULL, 0xffffffffU) == 0U);
+	assert(dhcp6c_ia_preferred_lifetime_remaining(
+		0xfffffffeU, 0ULL, 0xffffffffU) == 0xfffffffeU);
+	assert(dhcp6c_ia_preferred_lifetime_remaining(
+		0xffffffffU, 0ULL, 0xffffffffU) == 0xffffffffU);
+	assert(dhcp6c_ia_preferred_lifetime_remaining(
+		0xffffffffU, 1000ULL, 0xffffffffU) == 0xffffffffU);
+	assert(dhcp6c_ia_preferred_lifetime_remaining(
+		0xffffffffU, ~0ULL, 0xffffffffU) == 0xffffffffU);
+}
+
+static void
 test_prefix_expiry_is_required_for_finite_lifetimes(void)
 {
 	assert(!dhcp6c_ia_prefix_expiry_timer_required(0UL, 0xffffffffUL));
@@ -215,6 +241,7 @@ main(void)
 	test_nobinding_is_detected_before_ia_suboption_application();
 	test_first_error_and_retry_gate();
 	test_default_ia_timer_ratios_do_not_overflow();
+	test_preferred_lifetime_uses_monotonic_elapsed_time();
 	test_prefix_expiry_is_required_for_finite_lifetimes();
 	test_failed_address_removal_is_retained_and_retried();
 	test_address_change_absent_and_duplicate_errors();

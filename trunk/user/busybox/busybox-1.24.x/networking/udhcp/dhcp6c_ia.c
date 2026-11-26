@@ -43,7 +43,7 @@ struct iaprefix {
 	TAILQ_ENTRY(iaprefix) link;
 
 	struct dhcp6_prefix pa;
-	time_t updatetime;
+	unsigned long long updatetime_ms;
 	struct dhcp6_timer *timer;
 	struct iactl *ctl;
 	int addr_owned; /* this IA successfully installed its NA address */
@@ -658,7 +658,7 @@ static int update_prefix6(struct ia *ia, struct dhcp6_listval *lv,
 	}
 
 	/* update the timestamp of update */
-	sp->updatetime = time(NULL);
+	sp->updatetime_ms = monotonic_ms();
 
 	/* update the prefix according to pinfo */
 	sp->pa.pltime = pinfo.pltime;
@@ -817,14 +817,16 @@ static ALWAYS_INLINE int pref_isvalid(struct iactl *iac)
 static uint32_t pref_duration(struct iactl *iac)
 {
 	struct iaprefix *sp;
-	uint32_t base = DHCP6_DURATION_INFINITE, pltime, passed;
-	time_t now;
+	uint32_t base = DHCP6_DURATION_INFINITE, pltime;
+	unsigned long long now_ms, elapsed_ms;
 
 	/* Determine the smallest period until pltime expires. */
-	now = time(NULL);
+	now_ms = monotonic_ms();
 	TAILQ_FOREACH(sp, &iac->iaprefix_head, link) {
-		passed = now > sp->updatetime ? (uint32_t)(now - sp->updatetime) : 0;
-		pltime = sp->pa.pltime > passed ? sp->pa.pltime - passed : 0;
+		elapsed_ms = now_ms > sp->updatetime_ms ?
+			now_ms - sp->updatetime_ms : 0ULL;
+		pltime = dhcp6c_ia_preferred_lifetime_remaining(
+			sp->pa.pltime, elapsed_ms, DHCP6_DURATION_INFINITE);
 
 		if (base == DHCP6_DURATION_INFINITE || pltime < base)
 			base = pltime;

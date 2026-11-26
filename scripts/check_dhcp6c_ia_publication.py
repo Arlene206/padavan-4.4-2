@@ -80,7 +80,16 @@ assert "dhcp6c_ia_first_error" in policy
 assert "dhcp6c_ia_retry_required" in policy
 assert "dhcp6c_ia_ifaddr_change_complete" in policy
 assert "dhcp6c_ia_prefix_expiry_timer_required" in policy
-assert "test_prefix_expiry_is_required_for_finite_lifetimes" in test
+assert "dhcp6c_ia_preferred_lifetime_remaining" in policy
+assert "test_preferred_lifetime_uses_monotonic_elapsed_time" in test
+assert "unsigned long long updatetime_ms;" in ia
+assert "time_t updatetime;" not in ia
+pref_duration = function_body(ia, "static uint32_t pref_duration(struct iactl *iac)")
+assert "monotonic_ms()" in pref_duration
+assert "sp->updatetime_ms" in pref_duration
+assert "dhcp6c_ia_preferred_lifetime_remaining(" in pref_duration
+assert "time(NULL)" not in pref_duration
+assert "sp->updatetime_ms = monotonic_ms();" in ia
 
 assert '#include "dhcp6c_iaid_policy.h"' in config
 assert "dhcp6c_iaid_parse" in iaid_policy

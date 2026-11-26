@@ -20,6 +20,27 @@ static inline uint32_t dhcp6c_ia_t1_from_t2(uint32_t t2)
 {
 	return (t2 / 8U) * 5U + ((t2 % 8U) * 5U) / 8U;
 }
+
+/*
+ * Derive a remaining preferred lifetime from elapsed monotonic milliseconds.
+ * Infinite lifetimes never decay; finite lifetimes saturate at zero. Wall-clock
+ * adjustments therefore cannot extend or prematurely expire an IA's T1/T2.
+ */
+static inline uint32_t
+dhcp6c_ia_preferred_lifetime_remaining(uint32_t lifetime,
+				      unsigned long long elapsed_ms,
+				      uint32_t infinite_lifetime)
+{
+	unsigned long long elapsed_seconds;
+
+	if (lifetime == infinite_lifetime)
+		return infinite_lifetime;
+
+	elapsed_seconds = elapsed_ms / 1000ULL;
+	if (elapsed_seconds >= (unsigned long long)lifetime)
+		return 0U;
+	return lifetime - (uint32_t)elapsed_seconds;
+}
 static inline int
 dhcp6c_ia_pd_target_needs_apply(int is_dhcp_interface, int already_installed)
 {
