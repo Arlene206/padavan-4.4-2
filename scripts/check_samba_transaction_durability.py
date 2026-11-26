@@ -83,3 +83,35 @@ assert cleanup.rindex("samba_config_transaction_sync_directory(directory)") < rm
 assert rmdir < cleanup.index("samba_config_transaction_sync_parent(directory)")
 
 print("Samba paired-transaction directory durability contract: PASS")
+
+from pathlib import Path
+
+SERVICES = Path("trunk/user/rc/src/services_stor.c").read_text()
+
+
+def function_body(source: str, signature: str) -> str:
+    start = source.index(signature)
+    opening = source.index("{", start)
+    depth = 0
+    for offset in range(opening, len(source)):
+        if source[offset] == "{":
+            depth += 1
+        elif source[offset] == "}":
+            depth -= 1
+            if depth == 0:
+                return source[opening + 1 : offset]
+    raise AssertionError(f"unterminated function: {signature}")
+
+
+run_samba = compact(function_body(SERVICES, "int run_samba(void)"))
+state_read = run_samba.index("samba_config_transaction_read_state(")
+abort_call = run_samba.index("samba_config_transaction_abort(")
+assert state_read < abort_call
+assert "state_result==1&&is_committed" in run_samba
+assert "else if(state_result==1)" in run_samba
+assert "prior transaction outcome is unavailable" in SERVICES
+assert "publication remains committed; recovery journal cleanup completed" in SERVICES
+assert "publication rolled back" in SERVICES
+assert "paired publication rollback failed" not in SERVICES
+
+print("Samba committed-versus-rolled-back recovery reporting: PASS")

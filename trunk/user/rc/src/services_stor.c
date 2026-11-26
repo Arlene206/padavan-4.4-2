@@ -2138,15 +2138,29 @@ out:
 #if defined (APP_SMBD36)
 	process_snapshot_release(&wsdd2_snapshot);
 	if (transaction_active) {
+		int state_result, passdb_had_original, config_had_original;
+		int is_committed;
+
 		saved_errno = errno ? errno : EIO;
+		/* A COMMITTED marker can already be visible when its directory fsync
+		 * fails. Recovery then keeps the new pair; do not call that a rollback.
+		 */
+		state_result = samba_config_transaction_read_state(
+			SAMBA_CONFIG_TRANSACTION_DIRECTORY,
+			&passdb_had_original, &config_had_original, &is_committed);
 		if (samba_config_transaction_abort(
 			SAMBA_CONFIG_TRANSACTION_DIRECTORY,
 			SAMBA_CONFIG_TRANSACTION_PASSDB,
 			SAMBA_CONFIG_TRANSACTION_CONFIG) != 0)
-			logmessage("Samba Server", "CRITICAL: paired publication rollback failed; recovery journal and snapshots remain at %s (errno %d)",
+			logmessage("Samba Server", "CRITICAL: paired publication recovery failed; recovery journal and snapshots remain at %s (errno %d)",
 				   SAMBA_CONFIG_TRANSACTION_DIRECTORY, errno ? errno : EIO);
-		else
+		else if (state_result == 1 && is_committed)
+			logmessage("Samba Server", "paired passdb/config publication remains committed; recovery journal cleanup completed");
+		else if (state_result == 1)
 			logmessage("Samba Server", "paired passdb/config publication rolled back");
+		else
+			logmessage("Samba Server", "paired passdb/config recovery completed; prior transaction outcome is unavailable (state=%d)",
+				   state_result);
 		errno = saved_errno;
 	}
 #endif
