@@ -878,6 +878,9 @@ int dhcp6_get_options(struct dhcp6opt *p, struct dhcp6opt *ep,
 		switch (opt) {
 
 		case D6_OPT_CLIENTID:
+			if (!dhcp6c_option_vbuf_is_unset(
+				optinfo->clientID.dv_buf, optinfo->clientID.dv_len))
+				goto malformed;
 			u1.duid0.dv_len = optlen;
 			u1.duid0.dv_buf = cp;
 			log2("  DUID: %s", duidstr(&u1.duid0));
@@ -885,6 +888,9 @@ int dhcp6_get_options(struct dhcp6opt *p, struct dhcp6opt *ep,
 			break;
 
 		case D6_OPT_SERVERID:
+			if (!dhcp6c_option_vbuf_is_unset(
+				optinfo->serverID.dv_buf, optinfo->serverID.dv_len))
+				goto malformed;
 			u1.duid0.dv_len = optlen;
 			u1.duid0.dv_buf = cp;
 			log2("  DUID: %s", duidstr(&u1.duid0));
@@ -946,6 +952,9 @@ int dhcp6_get_options(struct dhcp6opt *p, struct dhcp6opt *ep,
 			break;
 
 		case D6_OPT_RELAY_MSG:
+			if (!dhcp6c_option_vbuf_is_unset(
+				optinfo->relaymsg_msg, optinfo->relaymsg_len))
+				goto malformed;
 			optinfo->relaymsg_msg = xmemdup(cp, optlen);
 			optinfo->relaymsg_len = optlen;
 			break;
@@ -1023,6 +1032,9 @@ int dhcp6_get_options(struct dhcp6opt *p, struct dhcp6opt *ep,
 			break;
 
 		case D6_OPT_INTERFACE_ID:
+			if (!dhcp6c_option_vbuf_is_unset(
+				optinfo->ifidopt_id, optinfo->ifidopt_len))
+				goto malformed;
 			optinfo->ifidopt_id = xmemdup(cp, optlen);
 			optinfo->ifidopt_len = optlen;
 			break;

@@ -1,3 +1,13 @@
+## 2026-11-26 — Reject duplicate DHCPv6 singleton vbuf options
+
+- The outer DHCPv6 option decoder stores CLIENTID, SERVERID, RELAY_MSG and INTERFACE_ID in one owned `dhcp6_vbuf` field per option type. Repeated instances previously overwrote the prior allocation and silently kept the last value, leaking memory until the packet cleanup path.
+- Added a shared unset-vbuf predicate and reject each duplicate before calling `dhcp6_vbuf_copy()` or `xmemdup()`. The existing malformed-option failure path clears the partially populated `dhcp6_optinfo`, releasing the first allocation. Added four policy boundary cases; the Python source contract pins all four production guards and the cleanup path.
+- `dhcp6c-ia-publication-stability.yml` already compiles the policy test and runs the checker, with push/PR path filters for every changed source/test/checker file. Exact-head validation pending after commit.
+- No local checkout/full original test suite is available because the container cannot resolve github.com; no local build or device test is claimed.
+- Parent main: `9ac2adf871a85e91a2a05518e47aba18c99df9be`; resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-26 — Preserve first error across DHCPv6 delegated-prefix cleanup
 
 - `remove_iaprefix()` iterates every delegated downstream interface and correctly attempts all removals, retaining failed entries for retry. However, each failed `ifaddrconf(IFADDRCONF_REMOVE)` overwrote `ret`; multiple failures therefore returned the last errno, contrary to the existing first-error aggregation policy used elsewhere in DHCPv6 IA.

@@ -194,8 +194,22 @@ assert '#include "dhcp6c_option_bounds_policy.h"' in client
 assert "dhcp6c_option_wire_length_valid" in bounds_policy
 assert "DHCPv6 option and UDP datagram bounds policy: PASS" in bounds_test
 assert "dhcp6c_datagram_length_fits" in bounds_policy
+assert "dhcp6c_option_vbuf_is_unset" in bounds_policy
+assert "Singleton option buffer policy" in bounds_test
 outer_options = function_body(common, "int dhcp6_get_options(")
 nested_options = function_body(common, "static int copyin_option(int type, struct dhcp6opt *p,")
+outer_options_compact = "".join(outer_options.split())
+for option_buffer in (
+        "optinfo->clientID.dv_buf,optinfo->clientID.dv_len",
+        "optinfo->serverID.dv_buf,optinfo->serverID.dv_len",
+        "optinfo->relaymsg_msg,optinfo->relaymsg_len",
+        "optinfo->ifidopt_id,optinfo->ifidopt_len"):
+    assert ("dhcp6c_option_vbuf_is_unset(" + option_buffer + ")") in outer_options_compact, (
+        "duplicate DHCPv6 singleton vbuf must be rejected before reallocation: " +
+        option_buffer)
+assert outer_options.count("dhcp6c_option_vbuf_is_unset(") == 4
+assert "dhcp6_clear_options(optinfo);" in outer_options
+
 for option_parser in (outer_options, nested_options):
     assert "for (; (char *)p < (char *)ep; p = np)" in option_parser
     assert "for (; p + 1 <= ep; p = np)" not in option_parser

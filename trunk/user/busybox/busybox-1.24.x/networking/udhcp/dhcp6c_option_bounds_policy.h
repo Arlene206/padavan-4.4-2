@@ -26,4 +26,14 @@ dhcp6c_datagram_length_fits(size_t received_size, size_t buffer_size)
 	return received_size <= buffer_size;
 }
 
+/*
+ * Client/server IDs, relay messages and interface IDs each have one vbuf slot
+ * in dhcp6_optinfo. Reject duplicates instead of overwriting an owned buffer.
+ */
+static inline int
+dhcp6c_option_vbuf_is_unset(const void *buffer, size_t length)
+{
+	return buffer == NULL && length == 0;
+}
+
 #endif /* DHCP6C_OPTION_BOUNDS_POLICY_H */
