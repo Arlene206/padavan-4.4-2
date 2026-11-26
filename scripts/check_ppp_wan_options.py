@@ -96,14 +96,18 @@ l2tp_daemon = body(net_ppp, "safe_start_xl2tpd_locked(void)")
 l2tp_proto_read = "get_wan_unit_proto_checked_status(unit, &wan_proto)"
 l2tp_error_gate = l2tp_daemon.find("if (wan_value_status != 0)")
 l2tp_error_return = l2tp_daemon.find("return -1;", l2tp_error_gate)
-l2tp_config_open = l2tp_daemon.find('fopen(l2tp_conf, "w")')
+l2tp_config_publish = l2tp_daemon.find('l2tp_config_file_publish("/etc", "xl2tpd.conf"')
 require(l2tp_proto_read in l2tp_daemon and
         "int unit, wan_proto;" in l2tp_daemon and
         l2tp_error_gate > l2tp_daemon.index(l2tp_proto_read) and
-        l2tp_error_gate < l2tp_error_return < l2tp_config_open and
+        l2tp_error_gate < l2tp_error_return < l2tp_config_publish and
+        l2tp_config_publish >= 0 and
         "errno = saved_errno;" in l2tp_daemon[l2tp_error_gate:l2tp_error_return] and
-        "get_wan_proto(unit)" not in l2tp_daemon,
-        "xl2tpd must preserve protocol read errors before replacing its configuration")
+        "get_wan_proto(unit)" not in l2tp_daemon and
+        '#include "l2tp_config_file.h"' in net_ppp and
+        'fopen(l2tp_conf, "w")' not in l2tp_daemon and
+        "unlink(l2tp_conf)" not in l2tp_daemon,
+        "xl2tpd must preserve protocol read errors before atomic config publication")
 require("int get_wan_unit_proto_checked_status(int unit, int *wan_proto);" in rc_header,
         "checked WAN protocol reader must be exported for PPP consumers")
 peer_copy = body(net_ppp,

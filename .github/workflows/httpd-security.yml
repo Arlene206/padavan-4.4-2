@@ -2572,23 +2572,33 @@ jobs:
           peer_check = ppp[ppp.index("get_wan_ppp_peer_copy(int unit, char *peer, size_t peer_size)"):xl_start]
           assert 'get_wan_unit_value_copy_status(unit, "ppp_peer", peer, peer_size)' in peer_check
           assert 'get_wan_unit_value_copy_status(unit, "man_gateway", peer, peer_size)' in peer_check
-          assert xl2tp.index("get_wan_ppp_peer_copy(unit, wan_peer") < xl2tp.index('fopen(l2tp_conf, "w")')
-          assert xl2tp.index('get_wan_unit_value_copy_status(') < xl2tp.index('fopen(l2tp_conf, "w")')
+          xl_writer_start = ppp.index("xl2tpd_config_write(FILE *fp, void *opaque)")
+          xl_writer_end = ppp.index("\nint\nsafe_start_xl2tpd_locked(void)", xl_writer_start)
+          xl_writer = ppp[xl_writer_start:xl_writer_end]
+          xl_publish = 'l2tp_config_file_publish("/etc", "xl2tpd.conf",'
+          assert '#include "l2tp_config_file.h"' in ppp
+          assert xl_publish in xl2tp
+          assert 'fopen(l2tp_conf, "w")' not in xl2tp
+          assert 'unlink(l2tp_conf)' not in xl2tp
+          assert xl2tp.index("get_wan_ppp_peer_copy(unit, wan_peer") < xl2tp.index(xl_publish)
+          assert xl2tp.index('get_wan_unit_value_copy_status(') < xl2tp.index(xl_publish)
           # VPN client peer/user selectors are consumed from one checked
-          # transaction snapshot before the shared xl2tpd config is opened.
+          # transaction snapshot before the shared xl2tpd config is atomically published.
           assert "xl2tpd_read_config_snapshot(&config_snapshot)" in xl2tp
           assert "config_snapshot.vpnc_peer" in xl2tp
           assert "config_snapshot.vpnc_user" in xl2tp
-          assert xl2tp.index("xl2tpd_read_config_snapshot(&config_snapshot)") < xl2tp.index('fopen(l2tp_conf, "w")')
+          assert xl2tp.index("xl2tpd_read_config_snapshot(&config_snapshot)") < xl2tp.index(xl_publish)
           assert 'nvram_safe_get("vpnc_peer")' not in xl2tp
           assert 'nvram_safe_get("vpnc_user")' not in xl2tp
-          assert 'fprintf(fp, "hostname = %s\\n", hostname);' in xl2tp
-          assert 'fprintf(fp, "lns = %s\\n", wan_peer);' in xl2tp
-          assert 'fprintf(fp, "name = %s\\n", wan_user);' in xl2tp
-          assert 'fprintf(fp, "lns = %s\\n", vpnc_peer);' in xl2tp
-          assert 'fprintf(fp, "name = %s\\n", vpnc_user);' in xl2tp
-          assert "cannot write L2TP configuration" in xl2tp
-          assert "cannot close L2TP configuration" in xl2tp
+          for section in ('"[global]\\n"', '"[lns default]\\n"', '"[lac %s]\\n"', '"[lac VPNC]\\n"'):
+              assert section in xl_writer
+          for value in ('"hostname = %s\\n"', '"lns = %s\\n"', '"name = %s\\n"'):
+              assert value in xl_writer
+          for field in ("config->hostname", "config->wan_peer", "config->wan_user",
+                        "config->vpnc_peer", "config->vpnc_user"):
+              assert field in xl_writer
+          assert "return -1;" in xl_writer and "fprintf(fp," in xl_writer
+          assert "cannot atomically publish xl2tpd configuration" in xl2tp
 
           rp_start = ppp.index("start_rpl2tp(int unit)")
           rp_end = ppp.index("\n#endif", rp_start)

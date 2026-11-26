@@ -1,3 +1,13 @@
+## 2026-11-26 — Rebind WAN PPP and HTTPD contracts to atomic xl2tpd publication
+
+- Exact SHA `1d33cb41aca31eab3d58621a243272dc9cbd0000` exposed two more stale contracts after shared `/etc/xl2tpd.conf` publication moved to `l2tp_config_file_publish()`: WAN route run #45803174983 still compared protocol-read failure against the removed `fopen(l2tp_conf, "w")` position; HTTPD run #45803174928 raised `ValueError: substring not found` for the same obsolete anchor and still expected direct `fprintf` calls inside the launcher. The C policy regressions and the preceding independent HTTPD checks passed; these are checker-location failures, not evidence of a production regression.
+- Update `scripts/check_ppp_wan_options.py` to require protocol read failure to return before the atomic publisher, reject the old truncate/unlink writer, and require the publisher helper. Update the HTTPD inline PPP confidentiality contract to inspect `xl2tpd_config_write()` for the preserved LNS/LAC sections and credentials, while checking launcher preflight order and atomic publication. Preserve all existing behavior assertions.
+- The pool arithmetic contract has already been corrected in `aa1bd8367768ab66f62a22834861d05df41af0e6`; exact-head VPN lifecycle #45803534463 and AI handoff #45803534499 PASS on that SHA. This commit's WAN route, HTTPD and AI exact-head results must be checked after push. XY-C1 #45803175068 on product source SHA `1d33cb41aca31eab3d58621a243272dc9cbd0000` remains IN PROGRESS at Build; TRX and artifact upload pending. Older product SHA `3c36c0a0f780657b42e7b9d804064fadd9658c3c` has a successful same-SHA Build/TRX/artifact run #45801858571, but does not verify the later source SHA. Hardware L4 NOT VERIFIED.
+- Beijing time at preparation: 26/11/2026, 18:44:11 (UTC+8).
+- Parent main: `aa1bd8367768ab66f62a22834861d05df41af0e6`; resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-26 — Bind VPN pool address source assertions to the extracted atomic writer
 
 - Exact-head VPN lifecycle run #45803175004 on `1d33cb41aca31eab3d58621a243272dc9cbd0000` passed every preceding GNU89/`-Werror`/ASan/UBSan policy binary, including the xl2tpd process-presence and rp-L2TP atomic config regressions, then failed in the final Python source contract. The old checker still searched `safe_start_xl2tpd_locked()` for the VPN pool address arithmetic after that arithmetic had intentionally moved into the new `xl2tpd_config_write()` callback. This was a stale source-contract location, not a test or production failure.
