@@ -1,3 +1,11 @@
+## 2026-11-25 — Validate DHCPREQUEST state and field combinations
+
+- `udhcpd` selected DHCPREQUEST lease lookup input from option 50 when present and `ciaddr` otherwise, but did not enforce the RFC 2131 option/`ciaddr` combinations. A malformed mixture could match a lease and receive DHCPACK, extending the lease despite an invalid client state encoding.
+- Added a fail-closed check before lease selection and ACK: SELECTING requires server-id plus requested IP and zero `ciaddr`; INIT-REBOOT requires requested IP only and zero `ciaddr`; RENEWING/REBINDING require nonzero `ciaddr` and neither option. The GNU89 regression exercises accepted and rejected combinations, and the source checker pins the guard before lease lookup/ACK.
+- Local GNU89 `-Wall -Wextra -Werror -fsanitize=address,undefined` policy regression PASS. Exact-head DHCP policy, AI docs, Process, NVRAM, USB and XY-C1 checks pending at commit creation; no live client/server or L3/L4 result claimed.
+
+---
+
 ## 2026-11-25 — Reject DHCPINFORM without a client address
 
 - `send_inform()` constructs an ACK using `packet.ciaddr`. When an INFORM has zero `ciaddr`, the shared sender broadcasts because its destination-selection rule falls back to broadcast when `ciaddr == 0`, exposing configured DHCP options to every client on the segment.

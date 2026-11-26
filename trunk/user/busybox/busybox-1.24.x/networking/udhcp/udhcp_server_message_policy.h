@@ -25,4 +25,20 @@ udhcp_server_inform_ciaddr_valid(uint32_t ciaddr)
     return ciaddr != 0U;
 }
 
+/*
+ * DHCPREQUEST field combinations from RFC 2131:
+ * SELECTING: server-id + requested IP, ciaddr zero.
+ * INIT-REBOOT: requested IP only, ciaddr zero.
+ * RENEWING/REBINDING: ciaddr nonzero, neither option present.
+ */
+static inline int
+udhcp_server_request_fields_valid(int server_id_present,
+                                  int requested_ip_present,
+                                  uint32_t ciaddr)
+{
+    if (ciaddr == 0U)
+        return requested_ip_present != 0;
+    return server_id_present == 0 && requested_ip_present == 0;
+}
+
 #endif /* UDHCP_SERVER_MESSAGE_POLICY_H */

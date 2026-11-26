@@ -28,12 +28,32 @@ test_inform_requires_nonzero_ciaddr(void)
     assert(udhcp_server_inform_ciaddr_valid(0xffffffffU));
 }
 
+static void
+test_request_requires_valid_state_field_combinations(void)
+{
+    /* SELECTING: server-id and requested IP, with ciaddr zero. */
+    assert(udhcp_server_request_fields_valid(1, 1, 0U));
+    /* INIT-REBOOT: requested IP only, with ciaddr zero. */
+    assert(udhcp_server_request_fields_valid(0, 1, 0U));
+    /* RENEWING/REBINDING: ciaddr only. */
+    assert(udhcp_server_request_fields_valid(0, 0, 1U));
+    assert(udhcp_server_request_fields_valid(0, 0, 0xffffffffU));
+
+    /* Reject malformed combinations before the server can renew a lease. */
+    assert(!udhcp_server_request_fields_valid(1, 0, 0U));
+    assert(!udhcp_server_request_fields_valid(1, 1, 1U));
+    assert(!udhcp_server_request_fields_valid(1, 0, 1U));
+    assert(!udhcp_server_request_fields_valid(0, 1, 1U));
+    assert(!udhcp_server_request_fields_valid(0, 0, 0U));
+}
+
 int
 main(void)
 {
     test_decline_requires_zero_ciaddr();
     test_release_rejects_requested_ip_option();
     test_inform_requires_nonzero_ciaddr();
-    puts("DHCP server DECLINE/RELEASE field policy regression: PASS");
+    test_request_requires_valid_state_field_combinations();
+    puts("DHCP server message field policy regression: PASS");
     return 0;
 }

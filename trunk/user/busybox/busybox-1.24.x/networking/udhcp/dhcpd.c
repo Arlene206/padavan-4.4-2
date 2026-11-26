@@ -512,6 +512,11 @@ int udhcpd_main(int argc UNUSED_PARAM, char **argv)
 
 		case DHCPREQUEST:
 			log1("Received REQUEST");
+			if (!udhcp_server_request_fields_valid(server_id_opt != NULL,
+					requested_ip_opt != NULL, packet.ciaddr)) {
+				log1("Ignoring DHCPREQUEST with inconsistent ciaddr and options");
+				break;
+			}
 /* RFC 2131:
 
 o DHCPREQUEST generated during SELECTING state:

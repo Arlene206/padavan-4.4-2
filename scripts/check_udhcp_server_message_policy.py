@@ -39,6 +39,26 @@ assert "Ignoring DHCPINFORM with zero ciaddr" in inform_case[inform_guard:inform
 
 assert "return ciaddr == 0U" in policy
 assert "return requested_ip_present == 0" in policy
+
+request_start = dhcpd.index("case DHCPREQUEST:")
+decline_start = dhcpd.index("case DHCPDECLINE:", request_start)
+request_case = dhcpd[request_start:decline_start]
+request_guard = request_case.index("udhcp_server_request_fields_valid(")
+request_lease_selection = request_case.index("if (!requested_ip_opt)")
+request_ack = request_case.index("send_ACK(&packet, lease->lease_nip)")
+assert request_guard < request_lease_selection < request_ack
+assert "Ignoring DHCPREQUEST with inconsistent ciaddr and options" in request_case
+assert "if (ciaddr == 0U)" in policy
+assert "return requested_ip_present != 0;" in policy
+assert "return server_id_present == 0 && requested_ip_present == 0;" in policy
+for token in (
+    "test_request_requires_valid_state_field_combinations",
+    "udhcp_server_request_fields_valid(1, 1, 0U)",
+    "udhcp_server_request_fields_valid(0, 1, 0U)",
+    "udhcp_server_request_fields_valid(0, 0, 1U)",
+    "udhcp_server_request_fields_valid(1, 1, 1U)",
+):
+    assert token in test
 for token in (
     "test_decline_requires_zero_ciaddr",
     "test_release_rejects_requested_ip_option",
@@ -62,4 +82,4 @@ for path in expected:
 for path in expected[1:4]:
     assert xy_workflow.count('"' + path + '"') == 1, ("XY-C1 missing/duplicate source path", path)
 
-print("DHCP server DECLINE/RELEASE integration contract: PASS")
+print("DHCP server message-field integration contract: PASS")

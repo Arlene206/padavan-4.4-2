@@ -1,25 +1,23 @@
 ## Current repository state — 2026-11-25
 
-- Live `main` before this slice: `0007c94eaa5ad123580deae6b60da9b2cfd08aa3` (`fix(udhcpd): validate DECLINE and RELEASE fields`). Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged.
-- Exact `0007c94` DHCP server DECLINE/RELEASE #45732058311 PASS; AI docs #45732058482 PASS; Process inventory #45732058520 PASS. NVRAM #45732058409, USB hotplug #45732058518, Process lifecycle #45732058350 and XY-C1 #45732058585 were IN_PROGRESS at last poll.
-- Exact `7258754` BOOTREQUEST #45731638054 and AI docs #45731638186 PASS; this fixed the Python source-contract syntax failure on parent `cfde353`. Parent `cfde353` product-source XY-C1 #45731440249 remained in progress.
-- Exact `550646d` XID #45731155066, packet bounds #45731154943, BOOTREPLY #45731155167, giaddr/hop #45731154952, select-error #45731155040, select-fd #45731155196, client-dest #45731155056, AI docs #45731154989, Process #45731155146, USB #45731154986 and NVRAM #45731155006 PASS; XY-C1 #45731155114 remained in progress at last poll.
-- Exact `a3e68b6` all 12 workflows PASS including XY-C1 #45730656815 Build/TRX/artifact; VPN parent `18cc546` all 12 PASS including XY-C1 #45730461930.
-- Earlier `d4a965e` XY-C1 artifact #15076506507 passed Build/TRX/upload (12,815,064 bytes). No current SHA inherits old L3 results. Physical-router L4 remains NOT VERIFIED.
+- Parent `main` source baseline for this slice: `b3a768466c404543e9d0c01ce166ec1d661ec4da` (`fix(udhcpd): reject DHCPINFORM without ciaddr`). Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged.
+- Exact `b3a7684`: DHCP server message-policy #45732441402 PASS; AI docs #45732441639 PASS; Process inventory #45732441414 PASS. USB hotplug #45732441427, NVRAM #45732441715 and XY-C1 #45732441531 were IN_PROGRESS at the last exact-SHA check. XY-C1 had passed its host validation steps and was compiling firmware; TRX/artifact remained pending.
+- DHCP server source now validates DECLINE (`ciaddr == 0`), RELEASE (no option 50), INFORM (nonzero `ciaddr`) and, in this slice, the state-specific DHCPREQUEST option/`ciaddr` combinations before lease lookup/ACK. The request regression covers all valid state tuples and malformed combinations.
+- Physical-router L4 remains NOT VERIFIED. Do not transfer older firmware Build/TRX/artifact results to this source SHA.
 
 ## Active task
 
-Require a nonzero `ciaddr` before answering DHCPINFORM. The existing `send_inform()` sends a DHCPACK using `ciaddr`; when it is zero, `send_packet_to_client()` broadcasts the server's local DHCP configuration options. RFC 2131 requires INFORM from a client that already has an address; add a nonzero guard before the ACK path.
+After validating the DHCPREQUEST guard on the exact current main SHA, continue DHCP server lease-lifecycle conformance. Inspect INIT-REBOOT handling: RFC 2131 says the server MUST remain silent when it has no record for the client, while the current fallback may send NAK whenever option 50 is present. Confirm the `lease == NULL` path and add a focused regression/source-order contract if the behavior is still incorrect.
 
 ## Verification boundary
 
-- DECLINE now requires `ciaddr == 0`; RELEASE rejects option 50. Their GNU89 ASan/UBSan regression and integration contract pass on exact `0007c94` (#45732058311).
-- DHCPINFORM's missing nonzero-`ciaddr` check is being added with helper tests and a source-order contract. Exact-SHA server-policy/AI/XY-C1 checks pending.
-- No live DHCP client/server test or physical-router L4 result is claimed.
+- DECLINE/RELEASE and INFORM guards are present in the parent source baseline; their DHCP message-policy and AI handoff workflows passed on exact SHA `b3a7684` (#45732441402 and #45732441639).
+- This DHCPREQUEST field-combination slice is locally validated with GNU89 `-Wall -Wextra -Werror -fsanitize=address,undefined`; exact-SHA DHCP policy, AI docs, Process, NVRAM, USB and XY-C1 Actions are pending at commit creation.
+- No live DHCP client/server exchange, full current-SHA firmware artifact, or physical-router result is claimed.
 
 ## Exact first action for the next GPT
 
-Check the new exact-SHA DHCP server-message-policy, AI docs, NVRAM/USB/Process and XY-C1 Actions; inspect Build, TRX and artifact. On PASS, continue DHCP server lease lifecycle validation; on FAIL, repair the first causal test. Also finish parent `cfde353` and `550646d` XY-C1 runs if still pending. Preserve the frozen backup.
+Fetch `main` and the exact-head push Actions for the new DHCPREQUEST commit. Require the DHCP message-policy and AI docs jobs to pass; inspect XY-C1 Build/TRX/artifact and any failing exact-head job. PENDING firmware work does not block independent DHCP server lease-lifecycle work. Then verify INIT-REBOOT unknown-client silence as described above. Preserve the frozen backup.
 
 # Cross-session execution mandate
 
