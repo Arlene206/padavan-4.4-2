@@ -1,3 +1,10 @@
+## 2026-11-26 — Align HTTPD security DHCP lease contract with fail-closed Router parser
+
+- Exact HTTPD security run #45839116268 on `825282da1530323e591acc5dc0124a1bb3343413` passed the DHCP lease GNU89 policy binary (`DHCP lease input policy regression: OK`) then failed in the embedded checker at obsolete assertion line 62: it expected `dhcp_lease_ipv4_list_first()` in `udhcpc_lan_bound()`.
+- LAN callback now uses `dhcp_lease_router_option_parse()`; malformed/oversized Router values are rejected before `dhcp_lease_bound_apply()` and `lan_dhcp_nvram_state_publish()`. Updated the cross-workflow contract to require parser error return ordering, reject the old permissive list helper, and assert invalid trailing-address / meta-character regressions. Production C unchanged.
+- Other exact-SHA results on `825282d`: WAN DHCP callback #45839116459 PASS; watchdog #45839116450 PASS; IPv6 service-type #45839116290 PASS; detect_internet #45839116334 PASS; wireless radio #45839116279 PASS; detect_link #45839116257 PASS; firewall startup #45839116413 PASS; AI handoff #45839116416 PASS. Process inventory #45839116212, WAN route #45839116267, DNSMasq lifecycle #45839116300, NVRAM audit #45839116359, and XY-C1 #45839116241 were in progress at last poll.
+- Parent `main`: `825282da1530323e591acc5dc0124a1bb3343413`; this is a checker-only correction.
+
 ## 2026-11-26 — Reject malformed LAN DHCP Router options before changing the live lease
 
 - Found a fail-open classification bug in `udhcpc_lan_bound()`: `dhcp_lease_ipv4_list_first()` returned `-1` for malformed Router input, but the callback treated it as an empty option. The BOUND/RENEW transaction then interpreted malformed input as an intentional withdrawal, deleted the last-known-good default route and published an empty gateway.

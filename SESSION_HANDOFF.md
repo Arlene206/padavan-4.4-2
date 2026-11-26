@@ -2,7 +2,7 @@
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; active branch: `main`; current parent before LAN DHCP Router hardening: `f2d7d6907939b93745eb67fdb51f89d75ba2ffc0` (SmartDNS unterminated-config separator fix; prior networkmap ARP hardening at `e4b2bd1cbb2c4121a082530418a99ba73574f99b`).
+- Repository: `Arlene206/padavan-4.4-2`; active branch: `main`; current parent before the HTTPD LAN-DHCP contract correction: `825282da1530323e591acc5dc0124a1bb3343413` (LAN malformed-Router fail-closed fix).
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged; do not modify). PR #1 remains closed and unmerged.
 - Bootstrap/protocol recovery was completed earlier in this continuous project; do not repeat it. Work on `main` only with full-tree atomic commits and non-forced expected-SHA updates.
 - Latest exact-parent Actions on `b4758abe4d81752f604013d6819ce4ba9d29e9c6`: AdGuardHome config security #45837257425 PASS; Process inventory #45837257092 PASS; XY-C1 #45837257027 host checks PASS but Build XY-C1, TRX verification and artifact upload were SKIPPED by the firmware-input detector. This is NOT an L3 firmware build.
@@ -11,7 +11,9 @@
 
 ## Active task
 
-- LAN DHCP Router option handling now rejects malformed/oversized `router` values before kernel or lease-NVRAM mutation; only genuinely absent/empty options mean route withdrawal. Regression covers malformed tails and config/meta-character injection; workflow contract enforces early return before route apply and NVRAM publication. Inspect exact-SHA WAN DHCP/lease Actions after this commit.
+- Align the HTTPD security workflow's embedded LAN DHCP lease contract with the new fail-closed Router parser. On exact SHA `825282da1530323e591acc5dc0124a1bb3343413`, the DHCP lease C regression passed, but HTTPD run #45839116268 failed at its stale `assert "dhcp_lease_ipv4_list_first(" in lan_bound`: the callback now correctly uses `dhcp_lease_router_option_parse()`, rejects errors, and returns before the kernel lease transaction or NVRAM publish. This is a checker-only failure; update its assertion to require the new early-rejection path and adversarial regression.
+- Same-SHA WAN DHCP callback #45839116459, watchdog signal #45839116450, IPv6 service-type #45839116290, detect_internet #45839116334, wireless radio #45839116279, detect_link #45839116257, firewall startup #45839116413, and AI handoff #45839116416 PASS. Process inventory #45839116212, WAN route #45839116267, DNSMasq lifecycle #45839116300, NVRAM audit #45839116359, and firmware run #45839116241 were still running at last poll. XY-C1 Build/TRX/artifact must complete before L3 claim.
+- No production code changes in this workflow contract correction.
 
 
 ## Completed production work — LAN DHCP resolver transaction
@@ -58,9 +60,10 @@
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-SHA WAN DHCP callback Actions for the LAN Router fail-closed fix; confirm the GNU89 ASan/UBSan DHCP lease-policy regression and source-order checker.
-2. Inspect networkmap ARP and SmartDNS unterminated-config Actions on their exact production SHAs, then Process and XY-C1. Distinguish Build XY-C1, TRX verification and artifact upload from host-only/skipped checks.
-3. Continue the next independent P1 stability/security defect. Keep expected-SHA atomic commits and explicit L2/L3/L4 boundaries. Hardware/L4 remains NOT VERIFIED.
+1. Inspect exact-SHA HTTPD security workflow for this LAN DHCP Router contract correction; require the embedded source checks and DHCP lease GNU89 regression to pass.
+2. Inspect XY-C1 run #45839116241 on production SHA `825282d`: detector, Build XY-C1, TRX verification and artifact upload. Also inspect pending Process, WAN-route, DNSMasq and NVRAM workflows on their exact SHA.
+3. Continue another independent P1 stability/security defect. Keep full-tree atomic commits with expected-SHA updates; hardware/L4 remains NOT VERIFIED.
+
 
 ## Mandatory handoff checkpoint
 

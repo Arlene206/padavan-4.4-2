@@ -2755,7 +2755,19 @@ jobs:
           assert '#include "dnsmasq_domain_policy.h"' in lan
           assert lan_bound.index("dhcp_lease_ipv4_is_valid(lease_ip)") < lan_bound.index("dhcp_lease_bound_apply(")
           assert lan_bound.index("dhcp_lease_netmask_is_valid(lease_netmask)") < lan_bound.index("dhcp_lease_bound_apply(")
-          assert "dhcp_lease_ipv4_list_first(" in lan_bound
+          router_parse = lan_bound.index("status = dhcp_lease_router_option_parse(")
+          router_reject = lan_bound.index("if (status != 0)", router_parse)
+          router_return = lan_bound.index("return status;", router_reject)
+          network_apply = lan_bound.index("status = dhcp_lease_bound_apply(")
+          lease_publish_router = lan_bound.index("status = lan_dhcp_nvram_state_publish(")
+          assert "dhcp_lease_ipv4_list_first(" not in lan_bound
+          assert "rejecting bound/renew with malformed DHCP router option" in lan_bound
+          assert router_parse < router_reject < router_return < network_apply < lease_publish_router
+          assert "dhcp_lease_router_option_parse" in policy
+          assert "test_invalid_lan_router_option_is_not_treated_as_withdrawal" in test
+          assert "192.0.2.1 999.1.1.1" in test
+          assert "192.0.2.1;reboot" in test
+          assert "has_gateway" in lan_bound
           assert "dhcp_lease_ipv4_list_is_valid(lease_dns, 255, 16, 1)" in lan_bound
           assert "dhcp_lease_ipv4_list_is_valid(lease_wins, 255, 16, 1)" in lan_bound
           assert "dnsmasq_valid_server_domain(lease_domain)" in lan_bound
