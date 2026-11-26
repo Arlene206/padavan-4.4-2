@@ -4,7 +4,6 @@ on:
   push:
     paths:
       - "scripts/check_dhcp_route_ownership.py"
-      - "scripts/check_wan_vlan_setup.py"
       - "trunk/user/rp-l2tp/rp-l2tp-0.5-rtn/utils.c"
       - "trunk/user/rp-l2tp/rp-l2tp-0.5-rtn/tests/l2tp_error_message_va_list.c"
 
@@ -146,7 +145,6 @@ on:
   pull_request:
     paths:
       - "scripts/check_dhcp_route_ownership.py"
-      - "scripts/check_wan_vlan_setup.py"
       - "trunk/user/rp-l2tp/rp-l2tp-0.5-rtn/utils.c"
       - "trunk/user/rp-l2tp/rp-l2tp-0.5-rtn/tests/l2tp_error_message_va_list.c"
 
