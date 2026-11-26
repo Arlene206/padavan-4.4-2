@@ -274,13 +274,7 @@ static void pass_to_client(struct dhcp_packet *p, int packet_len, int *fds)
 	int type;
 	struct xid_item *item;
 
-	/* Match the complete relay transaction, not just the random xid. */
-	item = xid_find(p);
-	if (!item) {
-		return;
-	}
-
-	/* check packet type */
+	/* Reject other opcodes before parsing options or looking up a transaction. */
 	if (!udhcp_relay_is_bootreply(p->op)) {
 		log1("Ignoring non-BOOTREPLY packet on relay server socket");
 		return;
@@ -288,6 +282,12 @@ static void pass_to_client(struct dhcp_packet *p, int packet_len, int *fds)
 
 	type = get_dhcp_packet_type(p);
 	if (type != DHCPOFFER && type != DHCPACK && type != DHCPNAK) {
+		return;
+	}
+
+	/* Match the complete relay transaction, not just the random xid. */
+	item = xid_find(p);
+	if (!item) {
 		return;
 	}
 

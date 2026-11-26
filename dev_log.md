@@ -1,3 +1,10 @@
+## 2026-11-26 — Check DHCP relay BOOTREPLY opcode before parsing or XID lookup
+
+- Exact BOOTREPLY workflow #45727439120 failed its integration assertion because `pass_to_client()` called `xid_find(p)` before checking the server packet opcode and parsing the DHCP message type.
+- Moved the BOOTREPLY gate to the first operation in the receive path, then validates OFFER/ACK/NAK type, and only then looks up the complete transaction. The existing policy helper ASan/UBSan test passed; exact-head integration and firmware checks pending.
+
+---
+
 ## 2026-11-26 — Fail closed on ZeroTier shutdown with unknown firewall identity
 
 - `del_rules()` treated an empty `zt0` as successful cleanup. A legacy install without `.firewall-state` could lose its interface before shutdown, leaving interface-specific filter/NAT rules impossible to identify while `stop_zero()` proceeded to stop the daemon and remove persistent identity/config.

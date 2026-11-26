@@ -1,22 +1,24 @@
 ## Current repository state — 2026-11-26
 
-- Live `main` before this slice: `27fa893d4feb9e639f6490ca528f851493b141ec` (`fix(udhcp): correct XID reply send condition`). Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged.
-- `27fa893` fixes malformed DHCP relay `pass_to_client()` syntax; exact-head XID, packet-bounds, select-error, BOOTREPLY, select-fd, giaddr/hop, Process, NVRAM, AI and XY-C1 runs were pending at last poll. The previous XID helper workflow #45727290119 on `164044f` did not compile the production translation unit.
-- AdGuardHome selector fix `f0cc53c`: config/security #45726581924 and Process #45726581809 PASS; AI correction `1f7f8b3` #45726801473 PASS; latest f586 AI docs #45726989705 PASS. WSDD2 netlink/docs passed on `4de82b5`.
-- Latest confirmed XY-C1 Build/TRX/artifact baseline is `b320dd2` (#45724141332), older than current source. Current-source L3 and physical-router L4 remain NOT VERIFIED.
+- Live `main` before this slice: `73b50756114becaab0454a617d643eb8b427a623` (`fix(zerotier): fail closed without firewall cleanup identity`). Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged.
+- ZeroTier unknown-cleanup-target guard/regression `73b5075`: lifecycle #45727748483 and AI docs #45727748516 were IN_PROGRESS at last poll.
+- DHCP relay BOOTREPLY workflow #45727439120 FAILED on ancestor `27fa893` at its source-order contract: `pass_to_client()` looked up the XID before checking `op` and parsing the message type. The C opcode helper test passed, but the production integration order violated the intended pre-parse gate. This slice moves the opcode gate first.
+- DHCP relay XID syntax correction `27fa893` fixed the malformed `if (if (...))` production C condition and tightened the checker; its helper workflow on ancestor `164044f` did not compile the complete translation unit. Exact current-source XID/BOOTREPLY and XY-C1 must be checked.
+- AdGuardHome selector fix `f0cc53c`: config/security #45726581924 and Process #45726581809 PASS; AI correction `1f7f8b3` #45726801473 PASS. WSDD2 netlink/docs passed on `4de82b5`.
+- Latest confirmed XY-C1 Build/TRX/artifact baseline is older `b320dd2` (#45724141332). Current-source L3 and physical-router L4 are NOT VERIFIED.
 
 ## Active task
 
-ZeroTier shutdown previously allowed `del_rules()` to return success when `zt0` was empty. On a legacy installation without `.firewall-state`, a vanished interface left no reliable way to identify old filter/NAT rules; `stop_zero()` could stop the daemon and delete persistent identity while stale rules remained. Shutdown now requires a live interface or validated checkpoint before signalling, and direct `del_rules()` fails closed.
+Ensure DHCP relay server-socket packets are rejected by BOOTREPLY opcode before DHCP option parsing and XID lookup. The exact workflow failed because `pass_to_client()` did the transaction lookup first; move the cheap opcode gate ahead of all packet-type parsing and transaction matching.
 
 ## Verification boundary
 
-- Added a shell regression with a legacy no-checkpoint install, missing interface and active filter/NAT rules. It asserts no daemon signal, no iptables mutation and no identity deletion. Python contract checks guard order and direct cleanup failure.
-- Exact-head ZeroTier lifecycle, Process and AI documentation workflows are pending after commit. No firmware artifact or physical-router result is claimed.
+- The standalone GNU89 ASan/UBSan opcode-policy executable passed on `27fa893`, but the integration assertion correctly failed because the production operation order was wrong. This commit changes production order; exact-head BOOTREPLY/XID/XY-C1 runs pending.
+- ZeroTier lifecycle and AI handoff actions for `73b5075` were in progress; collect exact outcomes too. No same-SHA firmware or router result claimed.
 
 ## Exact first action for the next GPT
 
-Fetch exact-head ZeroTier lifecycle, Process, AI docs, and XY-C1 job steps for this commit. Fix the first causal failure. Continue a separate stability/security slice while builds are pending; preserve the frozen backup.
+Fetch exact-head BOOTREPLY, XID, ZeroTier lifecycle, Process, AI and XY-C1 job results. Fix the first real failure. Preserve the frozen backup; do not infer current-source L3 without same-SHA Build, TRX verification and uploaded artifact.
 
 # Cross-session execution mandate
 

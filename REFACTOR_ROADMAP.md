@@ -1,6 +1,6 @@
-## 2026-11-26 — ZeroTier stop cleanup identity
+## 2026-11-26 — DHCP relay BOOTREPLY gate ordering
 
-- Shutdown aborts if neither interface nor checkpoint identifies old firewall rules; regression added.
+- Moved opcode rejection ahead of option parsing and XID lookup after the exact-head integration check failed.
 
 ---
 ## 2026-11-26 — Validate static and DHCPv6 WAN DNS server literals
