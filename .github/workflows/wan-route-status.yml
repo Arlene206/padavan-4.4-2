@@ -1495,10 +1495,12 @@ jobs:
           assert "i_err =" not in mtu_failure
           assert "route_setup_status =" not in mtu_failure
           assert "return " not in mtu_failure
-          assert "route_setup_status = man_up_internal(wan_ifname, unit, 0, NULL);" in bound
-          assert "route_setup_status = wan_up_internal(wan_ifname, unit, 0);" in bound
+          assert "(void)man_up_internal_with_route_status(" in bound
+          assert "(void)wan_up_internal_with_route_status(" in bound
+          assert "wan_ifname, unit, 0, NULL, &route_setup_status" in bound
+          assert "wan_ifname, unit, 0, &route_setup_status" in bound
           assert "accepted but route setup is incomplete" in bound
-          assert "callback_status = route_status_accumulate(route_setup_status, mtu_status);" in bound
+          assert "callback_status = dhcp_bound_callback_status(route_setup_status, mtu_status);" in bound
           assert "callback_status = route_status_accumulate(callback_status, publish_status);" in bound
           assert "return callback_status;" in bound
           
