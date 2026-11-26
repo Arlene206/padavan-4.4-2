@@ -35,10 +35,10 @@ wan6_dns_validate_static_server(const char *address)
 		return EINVAL;
 	if (!address[0])
 		return 0;
-	if (inet_pton(AF_INET6, address, &parsed) != 1 ||
-	    !wan6_dns_address_is_usable(&parsed))
-		return EINVAL;
-	return 0;
+	if (inet_pton(AF_INET6, address, &parsed) == 1 &&
+	    wan6_dns_address_is_usable(&parsed))
+		return 0;
+	return EINVAL;
 }
 
 /*
