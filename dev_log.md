@@ -1,3 +1,9 @@
+## 2026-11-26 — Align DHCP retry-marker source contracts across WAN route and HTTPD
+
+- Exact SHA `80db7072` exposed stale static contracts: the WAN VLAN checker and HTTPD DHCP reconciliation check still required direct inline writes to `route_err` / `manv_route_err` and `err` / `manv_err`. Those expectations were updated to validate the shared marker publisher, checked writer and persistent all-marker fallback.
+- Added `scripts/check_wan_vlan_setup.py` to both WAN-route workflow path filters so future standalone contract edits always receive an exact push/PR validation.
+- WAN route #45831162683 and HTTPD #45831162519 failed at those obsolete source assertions; their remaining assertions had passed up to the marker checks. The new source-contract commit requires fresh exact-SHA tests.
+
 ## 2026-11-26 — Keep WAN/IPTV DHCP retry state latched when an NVRAM marker write fails
 
 - Found a fail-open retry gap after candidate DHCP lease publication: if a single `err`, `route_err` or `mtu_err` marker write failed while the other two writes succeeded with zero, the callback correctly returned an error to udhcpc, but the next unchanged renewal could read an all-zero marker tuple and skip the required full address/route/MTU re-application.

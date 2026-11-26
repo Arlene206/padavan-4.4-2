@@ -40,6 +40,8 @@ netutils_header = (shared / "netutils.h").read_text()
 vlan_policy = (rc / "vlan_interface_policy.h").read_text()
 vlan_test = (rc / "tests/vlan_interface_policy.c").read_text()
 wan_nvram_policy = (rc / "wan_nvram_status_policy.h").read_text()
+dhcp_retry_policy = (rc / "dhcp_wan_route_transition_policy.h").read_text()
+dhcp_retry_test = (rc / "tests/dhcp_wan_route_transition_policy.c").read_text()
 wan_nvram_test = (rc / "tests/wan_nvram_status_policy.c").read_text()
 viptv_policy = (rc / "wan_viptv_static_policy.h").read_text()
 workflow = (ROOT / ".github/workflows/wan-route-status.yml").read_text()
@@ -811,12 +813,21 @@ iptv_dhcp = body(wan, "udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)")
 require("multicast_status = start_igmpproxy(man_ifname);" in iptv_dhcp and
         "callback_status = dhcp_bound_callback_status(route_setup_status, mtu_status);" in iptv_dhcp and
         "callback_status = route_status_accumulate(route_setup_status, multicast_status);" not in iptv_dhcp and
-        'wan_nvram_int_temp_status("manv_route_err", route_setup_status)' in iptv_dhcp and
-        'wan_nvram_int_temp_status("manv_err", i_err)' in iptv_dhcp and
+        "dhcp_wan_bound_retry_markers_publish(" in iptv_dhcp and
+        'wan_dhcp_retry_marker_write, "manv_"' in iptv_dhcp and
         "callback_status = route_status_accumulate(callback_status, publish_status);" in iptv_dhcp and
         "return callback_status;" in iptv_dhcp and
         "nvram_set_int_temp(" not in iptv_dhcp,
-        "IPTV DHCP must preserve route/MTU and NVRAM status while keeping multicast proxy lifecycle independent")
+        "IPTV DHCP must preserve fail-safe route/MTU retry markers while keeping multicast proxy lifecycle independent")
+marker_writer = body(wan, "wan_dhcp_retry_marker_write(void *opaque, unsigned int marker, int value)")
+require("wan_nvram_int_temp_status(param_name, value)" in marker_writer and
+        '"err", "route_err", "mtu_err"' in marker_writer,
+        "WAN DHCP retry marker writer must use checked NVRAM writes for all markers")
+marker_publish = body(dhcp_retry_policy, "dhcp_wan_bound_retry_markers_publish(")
+require("if (first_status != 0)" in marker_publish and
+        "(void)writer(context, marker, 1);" in marker_publish and
+        "test_retry_marker_write_failure_keeps_followup_retry_latched" in dhcp_retry_test,
+        "DHCP marker publication failure must latch a durable follow-up retry")
 iptv_zcip = body(wan, "zcip_viptv_bound(char *man_ifname)")
 require("return start_igmpproxy(man_ifname);" in iptv_zcip,
         "ZeroConf IPTV bound must return proxy startup status")

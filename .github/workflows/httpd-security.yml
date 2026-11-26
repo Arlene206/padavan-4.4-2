@@ -2989,11 +2989,11 @@ jobs:
           assert 'nvram_get_int(strcat_r(prefix,"route_err",tmp))' not in renew_compact
           assert 'nvram_get_int(strcat_r(prefix,"mtu_err",tmp))' not in renew_compact
           bound_compact = " ".join(bound.split())
-          assert 'wan_nvram_int_temp_status( strcat_r(prefix, "route_err", tmp), route_setup_status)' in bound_compact
-          assert 'wan_nvram_int_temp_status( strcat_r(prefix, "err", tmp), i_err)' in bound_compact
+          assert "dhcp_wan_bound_retry_markers_publish(" in bound_compact
+          assert "wan_dhcp_retry_marker_write, prefix" in bound_compact
           assert "callback_status = route_status_accumulate(callback_status, publish_status);" in bound_compact
           assert "return callback_status;" in bound
-          assert 'nvram_set_int_temp(strcat_r(prefix, "route_err", tmp), route_setup_status)' not in bound
+          assert "wan_dhcp_retry_marker_write(void *opaque, unsigned int marker, int value)" in wan
           route_text_checks = renew.count("dhcp_lease_route_text_is_safe(value)")
           assert route_text_checks == 3
           for route_option,stored_option in (("routes","routes"),("msstaticroutes","routes_ms"),("staticroutes","routes_rfc")):
@@ -3030,8 +3030,8 @@ jobs:
           assert 'nvram_get_int(strcat_r(prefix,"route_err",tmp))' not in tv_renew_compact
           assert 'nvram_get_int(strcat_r(prefix,"mtu_err",tmp))' not in tv_renew_compact
           tv_bound_compact = " ".join(tv_bound.split())
-          assert 'wan_nvram_int_temp_status("manv_route_err", route_setup_status)' in tv_bound_compact
-          assert 'wan_nvram_int_temp_status("manv_err", i_err)' in tv_bound_compact
+          assert "dhcp_wan_bound_retry_markers_publish(" in tv_bound_compact
+          assert 'wan_dhcp_retry_marker_write, "manv_"' in tv_bound_compact
           assert "callback_status = route_status_accumulate(callback_status, publish_status);" in tv_bound_compact
           assert "return callback_status;" in tv_bound
           tv_router_start = tv_renew.index('value = getenv("router");')
@@ -3041,8 +3041,8 @@ jobs:
           assert "previous_state.gateway" in tv_router
           assert "value ? trim_r(value) : NULL" in tv_router
           tv_bound_compact = " ".join(tv_bound.split())
-          assert 'wan_nvram_int_temp_status("manv_route_err", route_setup_status)' in tv_bound_compact
-          assert 'wan_nvram_int_temp_status("manv_err", i_err)' in tv_bound_compact
+          assert "dhcp_wan_bound_retry_markers_publish(" in tv_bound_compact
+          assert 'wan_dhcp_retry_marker_write, "manv_"' in tv_bound_compact
           assert "callback_status = route_status_accumulate(callback_status, publish_status);" in tv_bound_compact
           assert "return callback_status;" in tv_bound
           tv_router_start = tv_renew.index('value = getenv("router");')
