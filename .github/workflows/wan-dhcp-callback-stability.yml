@@ -1127,7 +1127,8 @@ jobs:
               "test_generation_overflow_and_format",
               "test_callback_does_not_create_missing_generation_file",
               "test_symlink_state_file_is_rejected",
-              "test_stop_invalidation_rejects_waiting_old_callback",
+              "test_failed_stop_preserves_waiting_old_callback_generation",
+              "test_successful_stop_invalidates_waiting_old_callback_generation",
           ):
               assert case in dhcp6_callback_test
 

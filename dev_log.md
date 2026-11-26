@@ -1,3 +1,10 @@
+## 2026-11-25 — Update WAN DHCP callback test-name contract after stop-race split
+
+- Exact SHA `50d2df7`: the stop-order checks passed; the WAN callback workflow then failed because an adjacent test inventory still expected the removed one-sided case `test_stop_invalidation_rejects_waiting_old_callback`. The C suite now has distinct failed-stop-preserves-token and successful-stop-invalidates-token cases.
+- Replaced the stale inventory entry with both current regression names. No production-code changes; exact-SHA rerun pending.
+
+---
+
 ## 2026-11-25 — Fix second stale DHCPv6 stop-order assertion in WAN callback workflow
 
 - The first WAN callback contract repair was still incomplete: the same inline Python step contained an earlier, independent assertion at its line 771 that also required generation advance before daemon stop. The corrected later assertion was reached only after this one passed.
