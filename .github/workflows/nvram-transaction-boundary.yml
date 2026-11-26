@@ -74,6 +74,17 @@ jobs:
         env:
           ASAN_OPTIONS: detect_leaks=1
         run: "$RUNNER_TEMP/nvram-compaction-policy"
+      - name: Compile NVRAM flash rehash validation regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -I trunk/linux-4.4.x/drivers/nvram \
+            trunk/linux-4.4.x/drivers/nvram/tests/nvram_rehash_policy.c \
+            -o "$RUNNER_TEMP/nvram-rehash-policy"
+      - name: Exercise malformed-image and allocation-failure rollback
+        env:
+          ASAN_OPTIONS: detect_leaks=1
+        run: "$RUNNER_TEMP/nvram-rehash-policy"
       - name: Compile and run NVRAM concurrent commit snapshot-order regression
         run: |
           cc -std=gnu89 -Wall -Wextra -Werror -pthread \

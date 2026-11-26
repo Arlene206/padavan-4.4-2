@@ -17,6 +17,7 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/string.h>
+#include <linux/errno.h>
 #include <linux/spinlock.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
@@ -848,14 +849,29 @@ dev_nvram_init(void)
 	if (!nvram_values)
 		return -ENOMEM;
 
-	/* Initialize hash table */
+	/* Never expose an empty/partial device when the flash image could not be read. */
 	header = kzalloc(NVRAM_SPACE, GFP_KERNEL);
-	if (header) {
-		ret = ra_mtd_read_nm(MTD_NVRAM_NAME, NVRAM_MTD_OFFSET, NVRAM_SPACE, (unsigned char*)header);
-		if (ret == 0)
-			check_res = _nvram_init(header);
-		
+	if (!header) {
+		ret = -ENOMEM;
+		goto err;
+	}
+	ret = ra_mtd_read_nm(MTD_NVRAM_NAME, NVRAM_MTD_OFFSET,
+			     NVRAM_SPACE, (unsigned char *)header);
+	if (ret != 0) {
+		if (ret > 0)
+			ret = -EIO;
 		kfree(header);
+		goto err;
+	}
+	check_res = _nvram_init(header);
+	kfree(header);
+	if (check_res == NVRAM_REHASH_INIT_NOMEM) {
+		ret = -ENOMEM;
+		goto err;
+	}
+	if (check_res == NVRAM_REHASH_INIT_INVALID) {
+		ret = -EINVAL;
+		goto err;
 	}
 
 	/* Register char device */

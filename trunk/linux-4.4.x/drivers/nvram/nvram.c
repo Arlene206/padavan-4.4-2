@@ -15,6 +15,7 @@
 #include <linux/string.h>
 #include <linux/errno.h>
 #include <nvram/bcmnvram.h>
+#include "nvram_rehash_policy.h"
 
 extern uint8_t _hndcrc8(uint8_t *p, uint nbytes, uint8_t crc);
 extern struct nvram_tuple * _nvram_realloc(struct nvram_tuple *t, const char *name,
@@ -70,23 +71,31 @@ hash(const char *s)
 }
 
 /* (Re)initialize the hash table. Should be locked. */
+static int
+nvram_rehash_insert(void *context, const char *name, const char *value)
+{
+	(void)context;
+	return _nvram_set(name, value, 0) == 0 ? 0 : -ENOMEM;
+}
+
 static void
+nvram_rehash_rollback(void *context)
+{
+	(void)context;
+	nvram_free();
+}
+
+static int
 nvram_rehash(struct nvram_header *header, size_t data_end_offset)
 {
-	char *name, *value, *end, *eq;
+	size_t data_length;
 
-	/* Parse only the data span covered by the validated header length. */
-	name = (char *) &header[1];
-	end = (char *) header + data_end_offset;
-	end[0] = end[1] = '\0';
-	for (; *name; name = value + strlen(value) + 1) {
-		if (!(eq = strchr(name, '=')))
-			break;
-		*eq = '\0';
-		value = eq + 1;
-		_nvram_set(name, value, 0);
-		*eq = '=';
-	}
+	if (data_end_offset + 2 < sizeof(*header))
+		return NVRAM_REHASH_INVALID;
+	data_length = data_end_offset + 2 - sizeof(*header);
+	return nvram_rehash_records((char *)&header[1], data_length,
+				    nvram_rehash_insert,
+				    nvram_rehash_rollback, NULL);
 }
 
 static uint8_t
@@ -295,7 +304,14 @@ _nvram_init(struct nvram_header *header)
 	if ((header->crc_ver_init & 0x000000FF) != (uint32_t)crc)
 		return -4; // NVRAM content is corrupted
 
-	nvram_rehash(header, data_end_offset);
+	{
+		int rehash_status = nvram_rehash(header, data_end_offset);
+
+		if (rehash_status == NVRAM_REHASH_INVALID)
+			return NVRAM_REHASH_INIT_INVALID;
+		if (rehash_status != 0)
+			return NVRAM_REHASH_INIT_NOMEM;
+	}
 
 	return 0;
 }

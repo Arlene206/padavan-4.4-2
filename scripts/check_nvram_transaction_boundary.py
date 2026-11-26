@@ -152,6 +152,8 @@ def run() -> int:
     kernel_common_path = ROOT / "trunk/linux-4.4.x/drivers/nvram/nvram.c"
     compaction_policy_path = ROOT / "trunk/linux-4.4.x/drivers/nvram/nvram_compaction_policy.h"
     compaction_test_path = ROOT / "trunk/linux-4.4.x/drivers/nvram/tests/nvram_compaction_policy.c"
+    rehash_policy_path = ROOT / "trunk/linux-4.4.x/drivers/nvram/nvram_rehash_policy.h"
+    rehash_test_path = ROOT / "trunk/linux-4.4.x/drivers/nvram/tests/nvram_rehash_policy.c"
     commit_serialization_test_path = ROOT / "trunk/linux-4.4.x/drivers/nvram/tests/nvram_commit_serialization.c"
     cli_source_path = ROOT / "trunk/user/nvram/src/nvram.c"
     cli_policy_path = ROOT / "trunk/user/nvram/src/nvram_cli_policy.h"
@@ -162,7 +164,7 @@ def run() -> int:
         adapter_path, lock_path, driver_path, driver_makefile,
         drivers_makefile, bcm_header, snapshot_policy_path, snapshot_test_path,
         kernel_common_path, compaction_policy_path, compaction_test_path,
-        commit_serialization_test_path,
+        rehash_policy_path, rehash_test_path, commit_serialization_test_path,
         cli_source_path, cli_policy_path, cli_test_path, cli_workflow_path
     ):
         if not required_path.is_file():
@@ -178,6 +180,8 @@ def run() -> int:
     kernel_common = kernel_common_path.read_text(encoding="utf-8", errors="replace")
     compaction_policy = compaction_policy_path.read_text(encoding="utf-8", errors="replace")
     compaction_test = compaction_test_path.read_text(encoding="utf-8", errors="replace")
+    rehash_policy = rehash_policy_path.read_text(encoding="utf-8", errors="replace")
+    rehash_test = rehash_test_path.read_text(encoding="utf-8", errors="replace")
     commit_serialization_test = commit_serialization_test_path.read_text(encoding="utf-8", errors="replace")
     cli_source = cli_source_path.read_text(encoding="utf-8", errors="replace")
     cli_policy = cli_policy_path.read_text(encoding="utf-8", errors="replace")
@@ -699,15 +703,33 @@ def run() -> int:
 
         rehash_body = extract_function(kernel_common, "nvram_rehash")
         init_body = extract_function(kernel_common, "_nvram_init")
-        if "end = (char *)header + data_end_offset;" not in rehash_body and "end = (char *) header + data_end_offset;" not in rehash_body:
-            failures.append("NVRAM rehash must stop at the validated declared image boundary")
-        if "NVRAM_SPACE - 2" in rehash_body:
-            failures.append("NVRAM rehash must not scan unvalidated flash padding")
+        if "nvram_rehash_records(" not in rehash_body or "data_end_offset + 2" not in rehash_body:
+            failures.append("NVRAM rehash must parse only the validated declared image span")
+        if "nvram_rehash_rollback" not in rehash_body or "nvram_free();" not in kernel_common:
+            failures.append("NVRAM rehash failure must clear every partially inserted tuple")
         validate_end = init_body.index("nvram_flash_data_end_offset(")
         crc_check = init_body.index("nvram_calc_crc(header)")
         rehash_call = init_body.index("nvram_rehash(header, data_end_offset)")
         if not validate_end < crc_check < rehash_call:
             failures.append("NVRAM image bounds must be validated before CRC and bounded rehash")
+        if "rehash_status == NVRAM_REHASH_INVALID" not in init_body or "rehash_status != 0" not in init_body:
+            failures.append("NVRAM initialization must reject malformed records and allocation failures")
+        for marker in (
+            "test_malformed_record_rolls_back_prior_entries",
+            "test_allocation_failure_rolls_back",
+            "test_missing_double_nul_is_rejected",
+            "NVRAM flash rehash validation and rollback policy: PASS",
+        ):
+            if marker not in rehash_policy + rehash_test:
+                failures.append("NVRAM flash rehash regression is missing " + marker)
+        driver_init_body = extract_function(kernel_driver, "dev_nvram_init")
+        header_alloc = driver_init_body.index("header = kzalloc(NVRAM_SPACE")
+        header_failure = driver_init_body.index("if (!header)", header_alloc)
+        flash_read = driver_init_body.index("ra_mtd_read_nm(", header_failure)
+        image_failure = driver_init_body.index("if (ret != 0)", flash_read)
+        rehash_failure = driver_init_body.index("if (check_res == NVRAM_REHASH_INIT_NOMEM)", image_failure)
+        if not (header_alloc < header_failure < flash_read < image_failure < rehash_failure):
+            failures.append("NVRAM device must fail initialization instead of exposing an empty device after RAM/flash read/rehash failure")
         for marker in (
             "nvram_flash_data_end_offset",
             "test_flash_rehash_is_bounded_by_declared_image_length",
