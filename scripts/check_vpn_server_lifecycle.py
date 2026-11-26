@@ -536,9 +536,10 @@ require(wan_marker < wan_launch and
         "WAN xl2tpd must not launch before publishing its dependency marker")
 
 wan_published = wan_start.index("wan_marker_published = 1;")
-wan_rollback_gate = wan_start.index("xl2tpd_start_policy_wan_marker_rollback_required(")
-wan_rollback_call = wan_start.index(
-    'ppp_l2tp_runtime_marker_set_status("l2tp_wan_t", 0)', wan_rollback_gate
+wan_start_compact = "".join(wan_start.split())
+wan_rollback_gate = wan_start_compact.index("xl2tpd_start_policy_wan_marker_rollback_required(")
+wan_rollback_call = wan_start_compact.index(
+    'ppp_l2tp_runtime_marker_set_status("l2tp_wan_t",0)', wan_rollback_gate
 )
 wan_launch_failure = wan_start.index("if (launch_status != 0)")
 wan_failure_return = wan_start.index("return -1;", wan_launch_failure)

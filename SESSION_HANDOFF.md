@@ -3,7 +3,7 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development on `main` only.
-- Parent `main` for the WAN xl2tpd dependency-marker rollback fix: `cd3d1a6ec469937f3488d073bf11c445c0aa4414`.
+- Parent `main` for the VPN source-checker whitespace correction: `3c53eb5a5fd339d77bc650fc2fefc7d8b60e81b4`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify/delete. PR #1 remains closed/unmerged.
 - Bootstrap/protocol recovery was completed earlier; do not repeat it.
 
@@ -110,9 +110,9 @@
 
 ## Exact first action for the next GPT
 
-1. Check exact-head VPN server stability and AI handoff Actions for the WAN xl2tpd marker rollback fix. Parent `cd3d1a6ec469937f3488d073bf11c445c0aa4414` DHCPv6 IA #45799579046 and AI handoff #45799579038 PASSed; WAN DHCP callback #45799579064, process inventory #45799579239, NVRAM #45799579136 and USB #45799579137 also PASSed. XY-C1 #45799579141 was still running on the parent and cannot validate this later code change.
-2. Confirm same-SHA XY-C1 Build, Verify TRX output and artifact upload for THIS COMMIT; all three must pass on one product-source SHA before L3. Hardware L4 remains NOT VERIFIED.
-3. Continue the VPN shared L2TP/PPP lifecycle audit for stale ownership markers and rollback gaps, then rotate to a different userland stability/security issue.
+1. Exact source SHA `3c53eb5a5fd339d77bc650fc2fefc7d8b60e81b4`: AI handoff #45800460259 PASS; VPN server lifecycle run #45800460199 FAILed only in the Python source contract because it searched a multiline marker-set call with a single-line literal. All twelve preceding GNU89/Werror (including ASan/UBSan) policy regressions passed. This commit makes the source check whitespace-insensitive; rerun VPN lifecycle and AI checks on its exact SHA.
+2. On `3c53eb5a5fd339d77bc650fc2fefc7d8b60e81b4`, process lifecycle #45800460310, WAN route #45800460260, WAN DHCP callback #45800460321 and HTTPD #45800460223 PASS. NVRAM #45800460212 and XY-C1 #45800460210 were still in progress at last poll; do not treat those as PASS. Require Build XY-C1, Verify TRX and artifact upload all PASS on one exact current product-source SHA before L3. Hardware L4 remains NOT VERIFIED.
+3. Continue the VPN shared L2TP/PPP lifecycle audit for other rollback gaps after checker validation, then rotate to a different userland stability/security issue.
 
 ## Mandatory handoff checkpoint
 
