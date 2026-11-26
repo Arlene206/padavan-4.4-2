@@ -1069,6 +1069,48 @@ zerotier_static_route_state_load() {
 	return 0
 }
 
+# Check cleanup feasibility before stopping an otherwise healthy daemon.
+# Pending entries are not owned; an exact match or any ambiguous route state
+# must leave the running service untouched until the route is independently gone.
+zerotier_static_route_state_preflight_cleanup() {
+	zt_route_state_file="$config_path/.static-routes-state"
+	if [ ! -e "$zt_route_state_file" ] && [ ! -L "$zt_route_state_file" ]; then
+		return 0
+	fi
+	[ -f "$zt_route_state_file" ] && [ ! -L "$zt_route_state_file" ] || return 1
+	zerotier_static_route_state_load || return 1
+	zt_route_preflight_index=0
+	while IFS= read -r zt_route_line; do
+		zt_route_preflight_index=$((zt_route_preflight_index + 1))
+		[ "$zt_route_preflight_index" -eq 1 ] && continue
+		case "$zt_route_line" in
+			"P "*) zt_route_record_state=P; zt_route_tuple="${zt_route_line#P }" ;;
+			"A "*) zt_route_record_state=A; zt_route_tuple="${zt_route_line#A }" ;;
+			*) zt_route_record_state=A; zt_route_tuple="$zt_route_line" ;;
+		esac
+		zt_route_preflight_ip="${zt_route_tuple%% *}"
+		zt_route_preflight_gateway="${zt_route_tuple#* }"
+		if ! zt_route_preflight_output="$(ip route show "$zt_route_preflight_ip" 2>/dev/null)"; then
+			logger -t "zerotier" "无法在停止服务前检查静态路由: $zt_route_preflight_ip"
+			return 1
+		fi
+		if printf '%s\n' "$zt_route_preflight_output" | zero_route_entry_matches \
+		   "$zt_route_preflight_ip" "$zt_route_preflight_gateway" "$zt_route_saved_interface"; then
+			if [ "$zt_route_record_state" = P ]; then
+				logger -t "zerotier" "待确认静态路由仍然存在，保留当前ZeroTier服务: $zt_route_preflight_ip"
+				return 1
+			fi
+		else
+			zt_route_preflight_status=$?
+			if [ "$zt_route_preflight_status" -ne 1 ]; then
+				logger -t "zerotier" "静态路由状态冲突或未知，保留当前ZeroTier服务: $zt_route_preflight_ip"
+				return 1
+			fi
+		fi
+	done < "$zt_route_state_file"
+	return 0
+}
+
 zerotier_static_route_state_save() {
 	zt_route_snapshot_mode="$1"
 	case "$zt_route_snapshot_mode" in
@@ -1548,6 +1590,10 @@ start_zero() {
 		logger -t "zerotier" "无法确认静态路由配置，保留当前ZeroTier服务"
 		return 1
 	fi
+	if ! zerotier_static_route_state_preflight_cleanup; then
+		logger -t "zerotier" "旧静态路由状态尚不安全，保留当前ZeroTier服务"
+		return 1
+	fi
 	if ! kill_z; then
 		logger -t "zerotier" "旧进程未能确认退出，取消启动"
 		return 1
@@ -1801,6 +1847,10 @@ stop_zero() {
 	fi
 	if [ "$nat_enable" = "1" ] && [ -z "$ip_segment" ]; then
 		logger -t "zerotier" "无法在停止前读取ZeroTier内核路由，保留守护进程与网络配置"
+		return 1
+	fi
+	if ! zerotier_static_route_state_preflight_cleanup; then
+		logger -t "zerotier" "旧静态路由状态不明确，保留当前ZeroTier服务与持久配置"
 		return 1
 	fi
 	if [ -n "$zt0" ] && ! zerotier_firewall_state_save; then

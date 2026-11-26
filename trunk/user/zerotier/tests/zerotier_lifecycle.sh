@@ -2308,6 +2308,13 @@ grep -Fqx -- "zero_route:add" "$TEST_ACTION_LOG" || fail "static route failure f
 [ -f "$TEST_CONFIG/.firewall-state" ] || fail "incomplete route rollback discarded its firewall cleanup checkpoint"
 [ "$(grep -cE '(^| )-A ' "$TEST_IPTABLES_LOG" || true)" -eq 5 ] || fail "static route failure fixture did not publish all firewall rules before route failure"
 
+# Do not stop a healthy daemon while pending route ownership is ambiguous.
+: > "$TEST_KILL_LOG"
+if zerotier_static_route_state_preflight_cleanup; then
+	fail "cleanup preflight accepted an exact route whose add ownership was unconfirmed"
+fi
+[ ! -s "$TEST_KILL_LOG" ] || fail "route cleanup preflight signalled a running daemon"
+
 # A pending exact match is unowned: replay must preserve it and retain recovery state.
 : > "$TEST_ACTION_LOG"
 if zerotier_replay_firewall_state; then
@@ -2589,6 +2596,13 @@ grep -Fqx -- "zero_route:add" "$TEST_ACTION_LOG" || fail "static route failure f
 [ ! -s "$TEST_IPTABLES_STATE_FILE" ] || fail "static route failure left firewall rules behind"
 [ -f "$TEST_CONFIG/.firewall-state" ] || fail "incomplete route rollback discarded its firewall cleanup checkpoint"
 [ "$(grep -cE '(^| )-A ' "$TEST_IPTABLES_LOG" || true)" -eq 5 ] || fail "static route failure fixture did not publish all firewall rules before route failure"
+
+# Do not stop a healthy daemon while pending route ownership is ambiguous.
+: > "$TEST_KILL_LOG"
+if zerotier_static_route_state_preflight_cleanup; then
+	fail "cleanup preflight accepted an exact route whose add ownership was unconfirmed"
+fi
+[ ! -s "$TEST_KILL_LOG" ] || fail "route cleanup preflight signalled a running daemon"
 
 # A pending exact match is unowned: replay must preserve it and retain recovery state.
 : > "$TEST_ACTION_LOG"

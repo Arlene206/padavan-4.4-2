@@ -128,6 +128,8 @@ for workflow, label in ((WORKFLOW, "ZeroTier"), (WAN_WORKFLOW, "WAN route")):
             label + " workflow does not run the caller contract")
 
 start_zero = body(ZEROTIER_SCRIPT, "start_zero()")
+stop_zero = body(ZEROTIER_SCRIPT, "stop_zero()")
+route_preflight = body(ZEROTIER_SCRIPT, "zerotier_static_route_state_preflight_cleanup()")
 replay = body(ZEROTIER_SCRIPT, "zerotier_replay_firewall_state()")
 rules = body(ZEROTIER_SCRIPT, "rules()")
 route_state_load = body(ZEROTIER_SCRIPT, "zerotier_static_route_state_load()")
@@ -136,6 +138,15 @@ route_state_mark = body(ZEROTIER_SCRIPT, "zerotier_static_route_state_mark_owned
 route_state_remove = body(ZEROTIER_SCRIPT, "zerotier_static_route_state_remove_pending()")
 zero_route_body = body(ZEROTIER_SCRIPT, "zero_route()")
 append = body(ZEROTIER_SCRIPT, "zerotier_add_firewall_rule()")
+require(
+    start_zero.index("zerotier_static_route_state_preflight_cleanup")
+    < start_zero.index("kill_z")
+    and stop_zero.index("zerotier_static_route_state_preflight_cleanup")
+    < stop_zero.index("kill_z")
+    and "zero_route_entry_matches" in route_preflight
+    and 'zt_route_record_state=P' in route_preflight,
+    "ambiguous pending routes must block start/stop before the managed daemon is signalled",
+)
 require(
     start_zero.index("kill_z") < start_zero.index("zerotier_replay_firewall_state")
     < start_zero.index("start_instance"),
@@ -169,8 +180,9 @@ require(
 require(
     "failed add attempted to delete an unconfirmed route" in ZEROTIER_TEST
     and "unconfirmed route did not retain a pending ownership marker" in ZEROTIER_TEST
-    and "pending exact match is unowned" in ZEROTIER_TEST,
-    "static-route EEXIST race regression must preserve unconfirmed routes",
+    and "pending exact match is unowned" in ZEROTIER_TEST
+    and "route cleanup preflight signalled a running daemon" in ZEROTIER_TEST,
+    "static-route EEXIST race regression must preserve unconfirmed routes and the running daemon",
 )
 require(
     "elif ! zerotier_firewall_state_clear" in append,
