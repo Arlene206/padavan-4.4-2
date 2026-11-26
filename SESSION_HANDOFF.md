@@ -1,26 +1,25 @@
 ## Current repository state — 2026-11-25
 
-- Live `main` before this slice: `550646ddc0b74a382008ee66ace60d5c7e51be42` (`fix(udhcp): skip XID slots for one-way messages`), parent `a3e68b665d91bbf6ffed365c0dd57984ae842e03`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged.
-- Exact `550646d` Actions: DHCP XID #45731155066 PASS; packet bounds #45731154943 PASS; BOOTREPLY #45731155167 PASS; giaddr/hop #45731154952 PASS; select error #45731155040 PASS; select-fd #45731155196 PASS; client destination #45731155056 PASS; AI docs #45731154989 PASS; Process inventory #45731155146 PASS. NVRAM #45731155006, USB hotplug #45731154986 and XY-C1 #45731155114 were IN_PROGRESS at last poll.
-- Exact parent `a3e68b6`: packet bounds, XID, BOOTREPLY, select-fd/error, giaddr/hop, client destination, AI docs, Process inventory, USB hotplug and NVRAM all PASS; XY-C1 #45730656815 still IN_PROGRESS at last poll.
-- Parent `18cc546` VPN DNS mode-2 update: 11 workflows PASS; only XY-C1 #45730461930 remained IN_PROGRESS at last poll.
-- Earlier `d4a965e` exact XY-C1 job passed Build, TRX verification and artifact upload; artifact #15076506507 (`XY-C1-firmware-d4a965e66f817b45ad94eba974585bc21ecb44c6`, 12,815,064 bytes). This does not transfer L3 success to newer SHAs.
-- Physical-router L4 remains NOT VERIFIED.
+- Live `main`: `cfde353234ea855d259ab991a4dd310ff81e1d36` (`fix(udhcp): reject non-BOOTREQUEST client traffic`), parent `550646ddc0b74a382008ee66ace60d5c7e51be42`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged.
+- Exact `cfde353` BOOTREQUEST workflow #45731440093: C regression compiled and passed; source-contract step FAILED due a Python SyntaxError in a double-escaped string assertion at checker line 24. The production opcode gate itself was not the failure. A checker-only correction now checks the log text without embedded quote escapes; exact rerun pending.
+- Exact parent `550646d`: XID #45731155066 PASS; packet bounds #45731154943 PASS; BOOTREPLY #45731155167 PASS; giaddr/hop #45731154952 PASS; select error #45731155040 PASS; select-fd #45731155196 PASS; client destination #45731155056 PASS; AI docs #45731154989 PASS; Process inventory #45731155146 PASS; USB hotplug #45731154986 PASS; NVRAM #45731155006 PASS. XY-C1 #45731155114 still IN_PROGRESS at last poll.
+- Earlier integrated `a3e68b6`: packet-bounds, XID, BOOTREPLY, select-fd/error, giaddr/hop, client destination, AI docs, Process inventory, USB hotplug and NVRAM PASS; XY-C1 #45730656815 still IN_PROGRESS.
+- VPN DNS parent `18cc546`: 11 workflows PASS; XY-C1 #45730461930 still IN_PROGRESS at last poll.
+- Earlier `d4a965e` exact XY-C1 Build/TRX/artifact passed; artifact #15076506507 (`XY-C1-firmware-d4a965e66f817b45ad94eba974585bc21ecb44c6`, 12,815,064 bytes). No newer SHA inherits that L3 claim. Physical-router L4 remains NOT VERIFIED.
 
 ## Active task
 
-Reject invalid BOOTP opcodes on the DHCP relay client-facing socket before hop mutation, interface lookup or DHCP option parsing. RFC 1542 client-to-relay messages must be BOOTREQUEST (opcode 1). The relay currently validates packet length/cookie but does not gate opcode before forwarding; the DHCP server later drops non-BOOTREQUEST packets. This allows a client-side peer to send bogus BOOTREPLY messages with accepted DHCP message types and consume bounded XID entries even though the server will never reply. Add a strict BOOTREQUEST helper, integration gate and regression cases for opcodes 0/1/2/255.
+Correct the BOOTREQUEST source-contract checker assertion: avoid embedded-quote escaping and check the distinctive log text alone. Do not change production code for this test-only failure. After correction, verify the BOOTREQUEST regression, docs contract and XY-C1 on the exact new SHA.
 
 ## Verification boundary
 
-- One-way DECLINE/RELEASE XID bypass on `550646d`: XID regression #45731155066 PASS exact SHA; DECLINE/RELEASE still forward but no longer allocate 120-second transaction slots.
-- Server/client packet-bounds regression #45731154943 PASS exact `550646d`, including `MSG_TRUNC` length detection.
-- New opcode policy/helper and source contract prepared with a GNU89 ASan/UBSan host regression; exact SHA XID/BOOTREQUEST and XY-C1 Actions will be checked after commit.
-- No live DHCP relay exchange or physical-router L4 result is claimed.
+- The new client-side BOOTP opcode guard is placed after UDP length/cookie validation and before hop mutation, interface IP lookup, DHCP option parsing and XID allocation. It accepts only BOOTREQUEST (1), keeping BOOTREPLY restricted to the relay's server-facing path.
+- GNU89 ASan/UBSan BOOTREQUEST policy executable passed on `cfde353`. Only the Python integration checker failed; the Actions log records the SyntaxError exactly.
+- Checker correction is test-only. Exact-SHA Actions for the correction pending. No live relay traffic or physical-router L4 result is claimed.
 
 ## Exact first action for the next GPT
 
-Fetch exact-SHA BOOTREQUEST, XID, packet-bounds and XY-C1 Actions after this opcode gate; inspect Build, TRX and artifact steps. Poll `550646d` NVRAM/USB/XY pending runs and parent `a3e68b6` and `18cc546` XY runs. On PASS, continue the next source-level DHCP relay issue; on FAIL, fix the causal failure. Preserve the frozen backup.
+Fetch exact-SHA BOOTREQUEST and AI-doc Actions for the checker correction; verify the source-contract step passes. Poll `cfde353` XY-C1 #45731440249 and NVRAM #45731440118, plus parent XY-C1 runs #45731155114, #45730656815 and #45730461930. Inspect Build, TRX and artifact steps on the latest product-source SHA. Then continue the next DHCP relay or BusyBox userland stability issue. Preserve the frozen backup.
 
 # Cross-session execution mandate
 

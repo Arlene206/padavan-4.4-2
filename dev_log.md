@@ -1,3 +1,10 @@
+## 2026-11-25 — Correct BOOTREQUEST checker Python quoting
+
+- Exact `cfde353234ea855d259ab991a4dd310ff81e1d36` BOOTREQUEST workflow #45731440093 compiled and ran the GNU89 ASan/UBSan policy regression successfully, then failed the Python source-contract step with a SyntaxError in a double-escaped assertion matching the log call.
+- Replaced the brittle embedded-quote assertion with a check for the distinctive message text `Ignoring non-BOOTREQUEST packet on relay client socket`. Production source, helper and C regression are unchanged. Exact-head rerun pending.
+
+---
+
 ## 2026-11-25 — Reject non-BOOTREQUEST opcodes on DHCP relay client ingress
 
 - The client-facing relay loop validated UDP datagram length and DHCP magic but did not validate BOOTP opcode. It proceeded to increment hops, set giaddr and call `pass_to_server()`, whose DHCP option parser accepts both BOOTREQUEST and BOOTREPLY. The downstream BusyBox DHCP server drops non-BOOTREQUEST packets, so bogus client-side BOOTREPLY packets could still reach the relay's XID reservation/forwarding path and consume scarce transaction state without a possible reply.

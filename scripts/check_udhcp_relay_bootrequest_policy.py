@@ -21,7 +21,7 @@ legacy_unconditional = relay.find(
 assert '"udhcp_relay_bootrequest_policy.h"' in relay
 assert opcode < hop < giaddr < forward
 assert "if (!udhcp_relay_is_bootrequest(dhcp_msg.op))" in relay[client_start:hop]
-assert "log1(\\"Ignoring non-BOOTREQUEST packet on relay client socket\\")" in relay[opcode:hop]
+assert "Ignoring non-BOOTREQUEST packet on relay client socket" in relay[opcode:hop]
 assert "#define UDHCP_RELAY_BOOTREQUEST_OPCODE 1U" in policy
 assert "return opcode == UDHCP_RELAY_BOOTREQUEST_OPCODE" in policy
 assert "test_bootrequest_opcode" in test
