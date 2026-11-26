@@ -43,6 +43,7 @@
 | `docs/dev-log/2026/11/part-034.md` | 100 | 2026-11-25 — Correct shared retry-delay checker whitespace normalization → 2026-11-24 — Fix QMI source-contract test-file initialization order | 106599 | `b2cccb6b5b2073ff42820c25ecc6715646b45d09` |
 | `docs/dev-log/2026/11/part-035.md` | 101 | 2026-11-24 — Record IAPPD lifecycle test assertion diagnostics → 2026-11-25 19:35 CST — Block nested symlink traversal during MTD default fill | 77569 | `8f65b8f5e004a846d64426f192a51860c9df2d7c` |
 | `docs/dev-log/2026/11/part-036.md` | 100 | 2026-11-25 19:40 CST — Make bundled chnroute extraction fail closed → 2026-11-25 — Bound IAPP FT security-block copies by received bytes | 100329 | `3e22817d7210256c8aa0c75b4f9fb0ac9c3d4981` |
+| `docs/dev-log/2026/11/part-037.md` | 100 | 2026-11-25 — Repair GNU89 receive-length test dependency → 2026-11-25 — Route DHCP relay replies to a usable client destination | 106872 | `1a954ef6fdd5346236e0f3bff1e8e153c145d56e` |
 - **Rolling-window catch-up:** 102 oldest complete records evicted from root `dev_log.md` when it contained 122 entries at parent main `7cd1ffd3eecc05786846be684053428f20e8f535` are preserved verbatim, oldest first, in `part-031.md`; root retains the newest 20 pre-existing records plus this rotation checkpoint (21 total). No record was rewritten or discarded.
 
 
@@ -145,3 +146,6 @@
 
 
 - **Rolling-window continuation:** 100 oldest complete records evicted from root `dev_log.md` at parent main `fd0c5cd2a69fca87e685854804614ea63104763e` are preserved verbatim, oldest first, in `part-036.md`; pre-rotation root blob: `3436dc80d0e721649513a76287af5f9991bcab35`. Root retains the 19 newest previous records plus this IAPP signal-pipe milestone (20 total). No archived record was rewritten or discarded.
+
+
+- **Rolling-window continuation:** 100 oldest complete records evicted when root dev_log.md reached 120 entries at parent main e37ac5dfb68231c35638b21c7c065e14903452a7 are preserved verbatim, oldest first, in part-037; pre-rotation root blob: a11535712360ffc5e74f9d23049e84371120b8c6. Root retains the newest 20 complete records.
