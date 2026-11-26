@@ -120,6 +120,7 @@
 #include	<stdarg.h>
 #include	<sys/types.h>
 #include	<sys/time.h>
+#include	<time.h>
 #include	<sys/resource.h>
 #include	<sys/stat.h>
 #include	<sys/socket.h>
@@ -436,18 +437,20 @@ int copy_stream(int fd, int lp)
 	initBuffer(&networkToPrinterBuffer, fd, lp, 1);
 
 	if (bidir) {
-		struct timeval now;
-		struct timeval then;
+		struct timespec now;
+		struct timespec then;
 		struct timeval timeout;
-		struct timeval lastnetactivity;
+		struct timespec lastnetactivity;
 		int timer = 0;
+		int time_status;
 		Buffer_t printerToNetworkBuffer;
 		initBuffer(&printerToNetworkBuffer, lp, fd, 0);
 		fd_set readfds;
 		fd_set writefds;
 
-		if (timeoutparam > 0)
-			gettimeofday(&lastnetactivity, 0);
+		if (timeoutparam > 0 &&
+		    clock_gettime(CLOCK_MONOTONIC, &lastnetactivity) < 0)
+			return -1;
 		/* Finish when network sent EOF. */
 		/* Although the printer to network stream may not be finished (does this matter?) */
 		while (!networkToPrinterBuffer.eof_sent && !networkToPrinterBuffer.err) {
@@ -461,8 +464,13 @@ int copy_stream(int fd, int lp)
 				/* Delay after reading from the printer, so the */
 				/* return stream cannot dominate. */
 				/* Don't read from the printer until the timer expires. */
-				gettimeofday(&now, 0);
-				if ((now.tv_sec > then.tv_sec) || (now.tv_sec == then.tv_sec && now.tv_usec > then.tv_usec))
+				if (clock_gettime(CLOCK_MONOTONIC, &now) < 0)
+					return -1;
+				time_status = p910nd_timespec_deadline_reached(
+					&now, &then);
+				if (time_status < 0)
+					return -1;
+				if (time_status)
 					timer = 0;
 				else
 					FD_CLR(lp, &readfds);
@@ -480,21 +488,23 @@ int copy_stream(int fd, int lp)
 				result = readBuffer(&networkToPrinterBuffer);
 				if (result > 0)
 					dolog(LOG_DEBUG,"read %d bytes from network\n",result);
-				if (timeoutparam > 0)
-					gettimeofday(&lastnetactivity, 0);
+				if (timeoutparam > 0 &&
+				    clock_gettime(CLOCK_MONOTONIC,
+						  &lastnetactivity) < 0)
+					return -1;
 			}
 			if (FD_ISSET(lp, &readfds)) {
 				/* Read printer data, but pace it more slowly. */
 				result = readBuffer(&printerToNetworkBuffer);
 				if (result > 0) {
 					dolog(LOG_DEBUG,"read %d bytes from printer\n",result);
-					gettimeofday(&then, 0);
-					// wait 100 msec before reading again.
-					then.tv_usec += 100000;
-					if (then.tv_usec > 1000000) {
-						then.tv_usec -= 1000000;
-						then.tv_sec++;
-					}
+					if (clock_gettime(CLOCK_MONOTONIC,
+							  &then) < 0)
+						return -1;
+					/* Pace printer replies by 100 monotonic ms. */
+					if (p910nd_timespec_add_milliseconds(
+						    &then, 100UL, &then) < 0)
+						return -1;
 					timer = 1;
 				}
 			}
@@ -513,8 +523,10 @@ int copy_stream(int fd, int lp)
 					printerToNetworkBuffer.err = 0;
 					result = 0;
 					dolog(LOG_DEBUG,"network write error, discarding further printer data\n",result);
-					if (timeoutparam > 0)
-						gettimeofday(&lastnetactivity, 0);
+					if (timeoutparam > 0 &&
+					    clock_gettime(CLOCK_MONOTONIC,
+							  &lastnetactivity) < 0)
+						return -1;
 				}
 				else if (result > 0) {
 					if (printerToNetworkBuffer.outfd == -1)
@@ -524,8 +536,14 @@ int copy_stream(int fd, int lp)
 				}
 			}
 			if (timeoutparam > 0) {
-				gettimeofday(&now, 0);
-				if ((now.tv_sec - lastnetactivity.tv_sec) >= timeoutparam) {
+				if (clock_gettime(CLOCK_MONOTONIC, &now) < 0)
+					return -1;
+				time_status = p910nd_timespec_elapsed(
+					&now, &lastnetactivity,
+					(unsigned long)timeoutparam);
+				if (time_status < 0)
+					return -1;
+				if (time_status) {
 					networkToPrinterBuffer.eof_sent = 1;
 					printerToNetworkBuffer.err = 1;
 				}

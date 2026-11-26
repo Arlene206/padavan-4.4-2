@@ -57,6 +57,10 @@ assert "while (result < 0 && errno == EINTR)" in io_policy
 assert "return error == EAGAIN || error == EWOULDBLOCK;" in io_policy
 assert "return requested > 0 && result == 0;" in io_policy
 assert "return fd >= 0 && fd_setsize > 0 && fd < fd_setsize;" in io_policy
+assert "p910nd_timespec_deadline_reached" in io_policy
+assert "p910nd_timespec_elapsed" in io_policy
+assert "p910nd_timespec_add_milliseconds" in io_policy
+assert "test_monotonic_timespec_policy" in (ROOT / "scripts/test_p910nd_sigpipe.c").read_text()
 assert "$(PROG): p910nd.c p910nd_io_policy.h p910nd_sigpipe_policy.h" in MAKEFILE
 assert "$(CC) -o $@ p910nd.c $(CFLAGS) $(DEFINES) $(LIBS)" in MAKEFILE
 
@@ -70,6 +74,11 @@ copy_start = SOURCE.index("int copy_stream(")
 copy_end = SOURCE.index("void one_job(", copy_start)
 copy = compact(SOURCE[copy_start:copy_end])
 assert "if (errno == EINTR) continue;" in copy
+assert "clock_gettime(CLOCK_MONOTONIC" in copy
+assert "gettimeofday(" not in copy
+assert "p910nd_timespec_deadline_reached" in copy
+assert "p910nd_timespec_elapsed" in copy
+assert "p910nd_timespec_add_milliseconds" in copy
 
 write_body = compact(SOURCE[write_start:copy_start])
 assert "p910nd_write_retry_eintr(b->outfd, b->buffer + b->startidx, avail, write)" in write_body

@@ -107,6 +107,46 @@ test_select_fd_bounds_are_checked_before_fd_set(void)
 }
 
 static void
+test_monotonic_timespec_policy(void)
+{
+	struct timespec started, now, deadline;
+
+	started.tv_sec = 100;
+	started.tv_nsec = 900000000L;
+	now.tv_sec = 101;
+	now.tv_nsec = 899999999L;
+	assert(p910nd_timespec_elapsed(&now, &started, 1UL) == 0);
+	now.tv_nsec = 900000000L;
+	assert(p910nd_timespec_elapsed(&now, &started, 1UL) == 1);
+	now.tv_sec = 99;
+	assert(p910nd_timespec_elapsed(&now, &started, 1UL) == 0);
+
+	started.tv_sec = 200;
+	started.tv_nsec = 950000000L;
+	assert(p910nd_timespec_add_milliseconds(&started, 100UL,
+						&deadline) == 0);
+	assert(deadline.tv_sec == 201 && deadline.tv_nsec == 50000000L);
+	now.tv_sec = 201;
+	now.tv_nsec = 49999999L;
+	assert(p910nd_timespec_deadline_reached(&now, &deadline) == 0);
+	now.tv_nsec = 50000000L;
+	assert(p910nd_timespec_deadline_reached(&now, &deadline) == 1);
+	assert(p910nd_timespec_deadline_reached(&deadline, &deadline) == 1);
+
+	errno = 0;
+	assert(p910nd_timespec_elapsed(NULL, &started, 1UL) == -1);
+	assert(errno == EINVAL);
+	now.tv_sec = 1;
+	now.tv_nsec = 1000000000L;
+	errno = 0;
+	assert(p910nd_timespec_deadline_reached(&now, &deadline) == -1);
+	assert(errno == EINVAL);
+	errno = 0;
+	assert(p910nd_timespec_add_milliseconds(&started, 1UL, NULL) == -1);
+	assert(errno == EINVAL);
+}
+
+static void
 test_zero_length_write_progress_contract(void)
 {
 	assert(p910nd_write_no_progress(0, 1));
@@ -128,6 +168,7 @@ main(void)
 	test_io_retries_interrupted_calls();
 	test_io_would_block_is_transient();
 	test_zero_length_write_progress_contract();
+	test_monotonic_timespec_policy();
 	test_select_fd_bounds_are_checked_before_fd_set();
 
 	assert(signal(SIGPIPE, SIG_DFL) != SIG_ERR);
