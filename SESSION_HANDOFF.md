@@ -1,32 +1,26 @@
 ## Current repository state — 2026-11-26
 
-- Live `main` before this slice: `684f66bd0c563bf7e98229af7051625ce35a106f` (`fix(udhcp): fail on permanent select errors`). Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable.
-- Exact `684f66b` DHCP relay select-error #45726255660, BOOTREQUEST giaddr/hop #45726255596, select-fd #45726255635, packet bounds #45726255721, XID policy #45726255680, AI docs #45726255592 and Process inventory #45726255636 PASS. NVRAM #45726255566, USB storage #45726255858 and XY-C1 #45726255627 were IN_PROGRESS at the last poll.
-- WSDD2 netlink truncation #45725665949 and AI docs #45725666033 PASS on `4de82b5`. AdGuardHome shell-command injection #45701455808, Process #45701455295 and AI docs #45701455540 PASS on `5e3c831`.
-- Last confirmed XY-C1 Build/TRX/artifact success #45724141332 is on older `b320dd2`; it does not establish current-source L3. Current-source L3 and physical-router L4 remain NOT VERIFIED.
+- Live `main` before this checkpoint: `f0cc53caf043cba611270af937623d2960639e81` (`fix(adguardhome): fail closed on redirect mode read errors`). Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged).
+- Exact `f0cc53c`: AdGuardHome config security #45726581924 PASS; Process inventory #45726581809 PASS. AI docs #45726581953 failed only because roadmap measured 131458 UTF-8 bytes (>131072); compaction is ready in this checkpoint, exact AI rerun pending.
+- DHCP relay `684f66b`: select error #45726255660, BOOTREQUEST #45726255596, select-FD #45726255635, packet bounds #45726255721, XID #45726255680, AI #45726255592 and Process #45726255636 PASS; NVRAM #45726255566, USB #45726255858 and XY-C1 #45726255627 were IN_PROGRESS at last poll.
+- WSDD2 netlink #45725665949 and AI docs #45725666033 PASS on `4de82b5`. Last same-SHA XY-C1 Build/TRX/artifact success is older `b320dd2` (#45724141332); current L3 and physical L4 remain NOT VERIFIED.
 
-## Last engineering slice — DHCP relay select error handling
+## Last engineering slice — AdGuardHome redirect selector fail-closed
 
-- DHCP relay now retries `select()` only for EINTR, saves/restores errno, and exits the applet on permanent errors instead of entering an unbounded CPU-burning retry loop. GNU89 ASan/UBSan and source-contract workflow #45726255660 passed on exact SHA `684f66b`.
-- The preceding DHCP relay packet, XID, select-fd and BOOTREQUEST guards also pass on this SHA. NVRAM, USB and XY-C1 checks are pending; the current source has no L3 claim.
+- Replaced unchecked `nvram get adg_redirect` with `get_checked`; missing/empty remains mode 0, only 0/1/2 are accepted, and read errors/invalid values abort before firewall or resolver mutation.
+- Startup pins one validated selector across firewall and DNS setup. Exact `f0cc53c` AdGuardHome + Process PASS; AI docs failed only on roadmap byte cap and is pending retry after this compaction.
 
 ## Active task
 
-Make AdGuardHome redirect-mode configuration fail closed. `change_dns()` and `set_iptable()` used unchecked `nvram get adg_redirect`, which turns backend failures into empty output and silently behaves as redirect-disabled. Read with `nvram get_checked`, allow only legacy empty/0 and explicit 1/2, reject malformed values, and pin one successful selector snapshot across startup firewall + resolver operations.
+Verify the AI documentation compaction, then proceed to the next independent P1 userland stability/security issue. Do not repeat passed AdGuardHome source tests without new evidence.
 
 ## Verification boundary
 
-- NVRAM CLI semantics: missing keys are successful empty reads; backend failures return nonzero. Preserve empty/missing as legacy mode 0, but never interpret a failed read or unsupported non-empty selector as disable.
-- GNU shell regressions cover checked-read failure before firewall deletion, invalid selector values, resolver byte preservation and startup no-side-effects. Python checker pins source order and prohibits unchecked reads. Exact-head AdGuardHome, Process, NVRAM, AI docs and XY-C1 workflows are required after commit.
-- No MIPS/uClibc firmware artifact or physical-router L4 result is claimed.
+- AdGuardHome source/shell regression and Process inventory PASS on exact SHA `f0cc53c`; no same-SHA XY-C1 Build/TRX/artifact success or physical-router L4 result is claimed.
 
 ## Exact first action for the next GPT
 
-Fetch exact-head AdGuardHome config/security, Process inventory, NVRAM transaction audit, AI handoff and XY-C1 runs for the new commit. Repair any first causal failure. Continue a separate userland stability/security issue while XY-C1 is pending; claim L3 only when Build, TRX validation and artifact upload pass on the same product-source SHA.
-
-## Mandatory handoff checkpoint
-
-Before ending, inspect live `main`, the frozen backup ref and exact-head Actions. Update this section only when the first action or material evidence changes; do not create a documentation-only commit to repeat known statuses.
+Poll exact-head AI docs for the compaction checkpoint, then inspect and implement one evidence-backed independent P1 source defect while product builds are pending. Preserve the backup ref.
 
 # Cross-session execution mandate
 

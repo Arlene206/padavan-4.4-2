@@ -1,3 +1,9 @@
+## 2026-11-26 — Correct AdGuardHome handoff byte-cap regression
+
+- Exact `f0cc53c` AdGuardHome config/security #45726581924 and Process inventory #45726581809 passed. AI docs #45726581953 failed before semantic validation because the roadmap was 131458 UTF-8 bytes against the 131072-byte cap; condensed only the latest summary entry, retaining the detailed `dev_log.md` history. Exact AI rerun pending.
+
+---
+
 ## 2026-11-26 — Fail closed on AdGuardHome redirect-mode NVRAM errors
 
 - `change_dns()` and `set_iptable()` previously used unchecked `nvram get adg_redirect`; a backend failure becomes empty command output and was treated as mode 0, allowing startup to continue without the configured resolver and/or firewall redirect.

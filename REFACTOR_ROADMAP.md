@@ -1,7 +1,6 @@
-## 2026-11-26 — Fail closed on AdGuardHome redirect-mode NVRAM errors
+## 2026-11-26 — AdGuardHome redirect mode
 
-- Replaced unchecked `nvram get adg_redirect` with `get_checked`; backend faults now abort before redirect cleanup/publication or DNS resolver edits. Empty/missing values preserve the legacy no-redirect default, while only 0/1/2 are accepted.
-- Startup pins one checked selector snapshot across firewall and resolver configuration. Shell regressions cover backend errors, malformed selectors, no-side-effects and last-good resolver preservation; exact-head Actions pending. MIPS/physical-router L3/L4 NOT VERIFIED.
+- Checked NVRAM read now fails closed; missing remains mode 0. Exact `f0cc53c` AdGuard/Process PASS; AI rerun pending; L3 unverified.
 
 ---
 ## 2026-11-26 — Validate static and DHCPv6 WAN DNS server literals
