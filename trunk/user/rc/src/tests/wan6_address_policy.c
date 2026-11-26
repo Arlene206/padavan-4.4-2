@@ -22,8 +22,11 @@ main(void)
 	assert(is_usable("2001:db8::1"));
 	assert(is_usable("fd12:3456::1"));
 	assert(is_usable("fe80::1"));
+	assert(is_usable("64:ff9b::c000:201"));
 	assert(!is_usable("::"));
 	assert(!is_usable("::1"));
+	assert(!is_usable("::192.0.2.1"));
+	assert(!is_usable("::ffff:192.0.2.1"));
 	assert(!is_usable("ff02::1"));
 	assert(!is_usable("not-an-ipv6-address"));
 	return 0;
