@@ -1,27 +1,13 @@
-## 2026-11-26 — DNS Forwarder stability handoff
+## 2026-11-26 — Padavan stability handoff
 
-- Live `main` parent for this constructor-regression slice: `bdb128ac7c841b1d6abda19bd4c197ebe030606f`; source/test changes are included in THIS COMMIT.
+- Current `main` parent for this event-loop prepare-failure slice: `a05bb8e170058c41ff88b671b99b11451f1f0a3c`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged; never modify).
-- 冻结备份分支 `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`；本轮未修改备份分支。
-- 最近相关原子提交与精确 SHA / CI 状态（以此处 API 快照为准）：
-- `ab2d915ae84e97e18dc3165afcc263f73d465b5f` checker regex correction — exact DNS Forwarder run #45849458954 failed with `NameError: name re is not defined`; fixed by `cfeecbdcd61d8453bc5691b0aca5733fa2a6b21a` (`import re`).
-- `cfeecbdcd61d8453bc5691b0aca5733fa2a6b21a` — DNS Forwarder regression #45849895306 was pending when this constructor failure-injection slice began; this commit adds the expanded constructor rollback regression and must be validated on its exact SHA.
-- `ff4fb33073f9ce688f2ef899827b5ac1dcbcf637` handoff-only checkpoint — AI handoff documentation contract #45849513712 PASS.
-- `93f2b137ea212a5fbc857fae09faec384bcb519b` fix(dns-forwarder): report CLI startup failures — XY-C1 Firmware Validation #45848922656: in_progress/pending; DNS Forwarder launch path stability regression #45848922574: completed/failure; AI handoff documentation contract #45848922565: completed/success
-- `9a6d645f10ea2032819ac63467c0cdb2a10ca29f` fix(dns-forwarder): unwind listener startup failures — AI handoff documentation contract #45848220397: completed/success; XY-C1 Firmware Validation #45848220389: in_progress/pending; DNS Forwarder launch path stability regression #45848220378: completed/failure
-- `a039b68d37cb3eb5f2acdd4ae7d448c6851d5223` fix(dns-forwarder): validate upstream address and port before setup — AI handoff documentation contract #45847194027: completed/success; XY-C1 Firmware Validation #45847193944: completed/success; DNS Forwarder launch path stability regression #45847193941: completed/success
-- `050365be1040bd88b2c06d0942f0d43f3f92dab6` test(dns-forwarder): correct event-loop compile inputs — AI handoff documentation contract #45846263346: completed/success; DNS Forwarder launch path stability regression #45846263342: completed/success
-- `3ccc3c94fe83bc0acdcf5c4a86aa70e302040bb6` fix(dns-forwarder): roll back failed event source registration — AI handoff documentation contract #45846000394: completed/success; DNS Forwarder launch path stability regression #45846000054: completed/failure; XY-C1 Firmware Validation #45846000051: completed/success
-- `349a3ad2ba842a7eeb2f38b2e4dd307bfa1a715a` ci(networkmap): include package sources in XY-C1 validation — Process inventory and lifecycle fail-closed regression #45842392278: completed/success; XY-C1 Firmware Validation #45842392277: completed/success; AI handoff documentation contract #45842392274: completed/success
-- `b134eee2c444eca33b05d789f8a866387930b48d` fix(networkmap): keep ARP socket clear of daemon stdio — AI handoff documentation contract #45841729543: completed/success
-- `7db855095b5bd482f55bb063eed8cf1728edf839` fix(networkmap): propagate ARP receive timeout setup failures — AI handoff documentation contract #45841079249: completed/success
-- `17718ed4ad9873c6030415a13f2f0680831570fa` fix(detect-internet): retry signal-interrupted host probes — Process inventory and lifecycle fail-closed regression #45840372235: completed/success; AI handoff documentation contract #45840372227: completed/success; XY-C1 Firmware Validation #45840372210: completed/success
-- `bad1f2e9004b26d79d3d21f41e43c7afc8e1c7a6` fix(smartdns): inspect staged resolver config before marker append — XY-C1 Firmware Validation #45839580305: completed/success; AI handoff documentation contract #45839580192: completed/success; Process inventory and lifecycle fail-closed regression #45839580122: completed/success
-- `f2d7d6907939b93745eb67fdb51f89d75ba2ffc0` fix(smartdns): separate managed block after unterminated config — 该 SHA 未见匹配 Actions 运行记录（可能待触发或超出最近记录窗口）
-- 本轮已处理 DNS Forwarder 的关键路径：上游端口严格校验与资源获取前的输入验证；listener 初始化对 `FIONBIO`、`SO_REUSEADDR`、bind、event-source 分配/注册进行失败检查并统一回滚；CLI 启动错误以非零状态返回，清理 option 字符串并区分 DNS port 内部指针与独立分配对象；event-loop registration rollback 与 detached-source reattach 回归已纳入专用 workflow。
-- 已配置的 host regressions：GNU89 上游端口边界/非法输入检查、ASan/UBSan event-loop partial-registration rollback 与 source detach/reattach。以各 SHA 的 Actions 结果为准；本环境未执行真实路由器运行测试，勿将其标为已验证。
-- 本提交已为真实 `hev_dns_forwarder_new()` 增加确定性失败注入回归；它尚未在 Actions 上执行。没有本地构建结果，不得将 host/L3/L4 标为 PASS。
-- 下一个明确任务：检查本提交的 DNS Forwarder exact-SHA workflow，确认 GNU99 ASan/UBSan 编译和所有初始化失败/成功路径通过；若失败，修复首个真实问题。随后审查 event-loop dispatch/prepare 错误传播及 SIGTERM 生命周期。
+- Startup/protocol recovery was completed earlier in this stream. Do not repeat it or re-audit closed work. Continue on `main` with complete-tree atomic commits and non-forced expected-SHA ref updates.
+- Parent exact-SHA CI: DNS Forwarder #45854126331 PASS. Process inventory #45854126325, XY-C1 Firmware Validation #45854126393 and NVRAM audit #45854126370 were running at the last poll.
+- The DNS Forwarder stability series now covers strict upstream validation, transactional listener/CLI startup, UDP EPOLLET drain and allocation rollback, constructor/session fault injection, nonblocking connect setup, SIGPIPE suppression, EINTR retry, truncated UDP query rejection, and bounded EDNS(0) TCP response frames. The `a05bb8e` commit expanded session buffers to 4098 bytes and closes a session when a TCP response frame can never fit.
+- Current slice handles a separate event-loop reliability defect: a source whose post-dispatch `prepare()` fails is now detached rather than silently left armed. The epoll/pipe regression is included but must not be marked PASS until this commit's exact-SHA workflow reports success.
+- Next: inspect exact-SHA DNS and firmware CI; then continue with asynchronous connect `SO_ERROR`, UDP response send/backpressure and SIGTERM shutdown review. No physical-router/L4 validation is claimed.
+
 
 ## 2026-11-26 — Autonomous development checkpoint
 

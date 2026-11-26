@@ -1,3 +1,10 @@
+## 2026-11-26 — Detach event sources when post-dispatch preparation fails
+
+- The event loop checked a source's `prepare()` result during initial registration, but ignored it after dispatch. A timeout or other source that failed to re-arm remained attached with an invalid readiness state and could silently stop servicing work.
+- The post-dispatch path now routes a false `prepare()` result through the existing invalid-source cleanup: clear the current fd's stale event bits and detach/unref the source. A source removed by its own dispatch is still not prepared again.
+- Added a real epoll/pipe regression: initial prepare succeeds, dispatch fires, the next prepare fails, and the test asserts that the source has been detached. The DNS Forwarder checker now protects both implementation and regression presence.
+- Parent `a05bb8e170058c41ff88b671b99b11451f1f0a3c`: DNS Forwarder #45854126331 PASS; Process inventory #45854126325, XY-C1 #45854126393 and NVRAM #45854126370 were in progress at last poll. The parent also added a 4098-byte EDNS-capable TCP buffer and an explicit oversized-response-frame close policy; this new event-loop regression is untested until its exact-SHA workflow runs.
+
 ## 2026-11-26 20:26 CST (UTC+8) — Inject DNS Forwarder constructor setup failures
 
 - Added a test-only dependency seam around the production constructor's resolver, socket setup, event-source creation/attachment and event-loop registration calls. Production builds retain the normal libc and event-loop implementations.

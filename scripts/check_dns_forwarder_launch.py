@@ -258,6 +258,9 @@ assert "return (0 == timerfd_settime" in timeout_source
 assert "!hev_event_source_add_fd (source, self->signal_fd" in signal_source
 assert "hev_event_loop_add_source (first, source)" in event_loop_test
 assert "hev_event_loop_add_source (second, source)" in event_loop_test
+loop_run = function_body(event_loop, "hev_event_loop_run (HevEventLoop *self)")
+assert "!source->funcs.prepare (source)" in loop_run
+assert "test_source_removed_when_post_dispatch_prepare_fails" in event_loop_test
 assert "hev_event_source_add_fd (source, -1, EPOLLIN)" in event_loop_test
 assert "hev_event_source_get_loop (source)" in event_loop_test
 

@@ -126,8 +126,11 @@ hev_event_loop_run (HevEventLoop *self)
 				/* recheck, in user's dispatch, source and fd may be remove. */
 				if (fd->source) {
 					if (res) {
-						if (hev_event_source_get_loop (source) == self)
-						  source->funcs.prepare (source);
+						if ((hev_event_source_get_loop (source) == self) &&
+						    !source->funcs.prepare (source)) {
+							fd->revents = 0;
+							invalid_sources = hev_slist_append (invalid_sources, source);
+						}
 					} else {
 						fd->revents = 0;
 						invalid_sources = hev_slist_append (invalid_sources, source);

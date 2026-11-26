@@ -42,6 +42,71 @@ test_event_source_name_storage_is_safe(void)
 	hev_event_source_unref(source);
 }
 
+
+struct prepare_failure_source
+{
+	HevEventSource parent;
+	unsigned int prepare_calls;
+};
+
+static bool
+prepare_succeeds_once_then_fails (HevEventSource *source)
+{
+	struct prepare_failure_source *self =
+		(struct prepare_failure_source *) source;
+
+	self->prepare_calls++;
+	return self->prepare_calls == 1;
+}
+
+static HevEventSourceFuncs prepare_failure_funcs =
+{
+	.prepare = prepare_succeeds_once_then_fails,
+};
+
+static bool
+quit_loop_callback (void *data)
+{
+	hev_event_loop_quit ((HevEventLoop *) data);
+	return true;
+}
+
+static void
+test_source_removed_when_post_dispatch_prepare_fails (void)
+{
+	HevEventLoop *loop;
+	struct prepare_failure_source *source;
+	int fds[2];
+
+	assert (0 == pipe (fds));
+	loop = hev_event_loop_new ();
+	assert (loop);
+
+	source = (struct prepare_failure_source *)
+		hev_event_source_new (&prepare_failure_funcs, sizeof (*source));
+	assert (source);
+	source->prepare_calls = 0;
+
+	assert (hev_event_source_add_fd ((HevEventSource *) source,
+					fds[0], EPOLLIN));
+	hev_event_source_set_callback ((HevEventSource *) source,
+					quit_loop_callback, loop, NULL);
+	assert (hev_event_loop_add_source (loop, (HevEventSource *) source));
+	assert (source->prepare_calls == 1);
+
+	assert (1 == write (fds[1], "x", 1));
+	hev_event_loop_run (loop);
+
+	/* The second prepare occurs after dispatch and deliberately fails. */
+	assert (source->prepare_calls == 2);
+	assert (NULL == hev_event_source_get_loop ((HevEventSource *) source));
+
+	hev_event_source_unref ((HevEventSource *) source);
+	hev_event_loop_unref (loop);
+	close (fds[0]);
+	close (fds[1]);
+}
+
 int
 main (void)
 {
@@ -51,6 +116,7 @@ main (void)
 
 	test_default_event_source_functions_are_initialized();
 	test_event_source_name_storage_is_safe();
+	test_source_removed_when_post_dispatch_prepare_fails();
 
 	assert(0 == pipe(first_pipe));
 	assert(0 == pipe(second_pipe));
