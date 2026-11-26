@@ -31,6 +31,9 @@
 #include "iappdefs.h"
 #include "iapp_ioctl_ifname_policy.h"
 #include "iapp_rx_length_policy.h"
+#ifdef IAPP_OS_LINUX
+#include "iapp_select_fd_policy.h"
+#endif /* IAPP_OS_LINUX */
 #ifndef FT_KDP_FUNC_SOCK_COMM
 #ifdef IAPP_OS_LINUX
 #include "iapp_signal_pipe_policy.h"
@@ -2003,6 +2006,7 @@ VOID IAPP_RcvHandler(
 
 	/* init */
 	pCtrlBK->FlgIsRcvRunning = TRUE;
+#ifndef IAPP_OS_LINUX
 	SockMax = pCtrlBK->SocketUdpSend;
 
 	if (pCtrlBK->SocketTcpRcv > pCtrlBK->SocketUdpSend)
@@ -2018,14 +2022,7 @@ VOID IAPP_RcvHandler(
 	if (pCtrlBK->SocketRawRRB > SockMax)
 		SockMax = pCtrlBK->SocketRawRRB;
 	/* End of if */
-
-#ifndef FT_KDP_FUNC_SOCK_COMM
-#ifdef IAPP_OS_LINUX
-	if (pCtrlBK->PipeRawDrv[FT_KDP_PIPE_ID_READ] > SockMax)
-		SockMax = pCtrlBK->PipeRawDrv[FT_KDP_PIPE_ID_READ];
-	/* End of if */
-#endif // IAPP_OS_LINUX //
-#endif // FT_KDP_FUNC_SOCK_COMM //
+#endif /* !IAPP_OS_LINUX */
 
 	/* waiting for any UDP packet */
 	while(1)
@@ -2033,6 +2030,23 @@ VOID IAPP_RcvHandler(
 		/* must re- FD_SET before each select() */
 		FD_ZERO(&FdSet);
 
+#ifdef IAPP_OS_LINUX
+		/* FD_SET is undefined for descriptors outside the fixed fd_set. */
+		SockMax = -1;
+		if (iapp_select_fd_add(&FdSet, pCtrlBK->SocketUdpSend, &SockMax) != 0 ||
+		    iapp_select_fd_add(&FdSet, pCtrlBK->SocketTcpRcv, &SockMax) != 0 ||
+		    iapp_select_fd_add(&FdSet, pCtrlBK->SocketRawRRB, &SockMax) != 0
+#ifdef FT_KDP_FUNC_SOCK_COMM
+		    || iapp_select_fd_add(&FdSet, pCtrlBK->SocketRawDrv, &SockMax) != 0
+#else
+		    || iapp_select_fd_add(&FdSet, pCtrlBK->PipeRawDrv[FT_KDP_PIPE_ID_READ], &SockMax) != 0
+#endif
+		   ) {
+			DBGPRINT(RT_DEBUG_ERROR,
+				 "iapp> select descriptor is outside FD_SETSIZE (errno=%d)!\n", errno);
+			break;
+		}
+#else
 		FD_SET(pCtrlBK->SocketUdpSend, &FdSet);
 		FD_SET(pCtrlBK->SocketTcpRcv, &FdSet);
 		FD_SET(pCtrlBK->SocketRawRRB, &FdSet);
@@ -2040,12 +2054,7 @@ VOID IAPP_RcvHandler(
 #ifdef FT_KDP_FUNC_SOCK_COMM
 		FD_SET(pCtrlBK->SocketRawDrv, &FdSet);
 #endif // FT_KDP_FUNC_SOCK_COMM //
-
-#ifndef FT_KDP_FUNC_SOCK_COMM
-#ifdef IAPP_OS_LINUX
-		FD_SET(pCtrlBK->PipeRawDrv[FT_KDP_PIPE_ID_READ], &FdSet);
-#endif // IAPP_OS_LINUX //
-#endif // FT_KDP_FUNC_SOCK_COMM //
+#endif /* IAPP_OS_LINUX */
 
 #ifdef FT_KDP_SELECT_TIMEOUT
 		IAPP_MEM_ZERO(&Timeout, sizeof(Timeout));
