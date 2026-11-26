@@ -233,37 +233,6 @@ Current implementation checkpoint (2026-11-23):
 - USB printer `start_u2ec()` now propagates failure to write `apps_u2ec_ex` after successful exec instead of masking it as success. The retryable hotplug action can re-run the printer start/stop transaction. Added errno-preserving policy tests and a source-order contract; exact USB policy + XY-C1 Build/TRX/artifact checks pending.
 Current implementation checkpoint (2026-11-23):
 - `start_udpxy()`'s APP_MSD_LITE path now checks the `msd_lite_enable=1` NVRAM state write and blocks daemon launch if publication fails. The Process integration checker pins the status gate before `eval`; existing WAN NVRAM policy tests cover errno and errno-less write failures. Exact-head Process and XY-C1 Build/TRX/artifact checks pending.
-Current implementation checkpoint (2026-11-21):
-- WAN reset/start protocol/MAC identity reads use checked NVRAM helpers; manual endpoint fields form one transaction.
-- The boolean manual-PPP classifier explicitly maps a failed checked protocol read to `true` (preserve unknown underlay), rather than treating an arbitrary enum as a valid protocol. Exact-head WAN/XY-C1 checks pending.
-
-Current implementation checkpoint (2026-11-21):
-- WAN reset manual endpoint, protocol and MAC identity reads use checked APIs; the endpoint is one NVRAM transaction and MAC formatter preserves the legacy behavior.
-- WAN startup and boolean manual-PPP classification now consume the checked protocol reader. Startup latches errors and does not configure an interface on failed read; manual classification treats read errors conservatively as PPP to protect an unknown underlay. Exact-head WAN/XY-C1 Build/TRX/artifact pending.
-
-Current implementation checkpoint (2026-11-21):
-- WAN reset manual endpoint, protocol and hardware identity reads are status-bearing; manual endpoint values are one checked NVRAM transaction, and MAC override/fallback preserves legacy formatting.
-- THIS source slice hardens start_wan() with checked per-unit protocol reads, first-error retention and no interface setup after failed protocol retrieval. Exact-head Actions and XY-C1 Build/TRX/artifact pending.
-
-## Current checkpoint — 2026-11-21
-
-- LAN source chain: checked VLAN selector/VID/priority; checked soft-bridge/core-bridge multicast and router settings; checked switch VLAN snapshot before first rule apply; checked storm-control rates and switch jumbo/green/EEE before PHY writes. Latest switch source corrected a missing local `status` declaration and checker token whitespace; exact WAN route #44961918900 PASS.
-- WAN dynamic-route source checks on parent `c4a3bb279d23ca331572a91ab8ca85acfff8edc7` exposed two stale contracts (short function locators and an old unchecked `nvram_match()` assertion). Checker-only correction `88054b9f272d9f673dabf45df60d497de441b2d2` fixes both; exact-head WAN/HTTPD reruns were not yet visible.
-- VLAN QoS compatibility fix: the checked-read migration had omitted the original `& 0x07` mask for `vlan_pri_lan3`; commit `9373ac1e3907be3e11d8538485bb38748ab0654e` restores it. Exact-head WAN route, HTTPD, NVRAM, Process and other host workflows PASS; XY-C1 #44962557368 was still building at last check.
-- WAN reset manual underlay: commit `b75f4cc2c92bf241ea7d5ba43906cd94ec792d01` checks `x_DHCPClient` / `wan_pppoe_man` and snapshots the four manual endpoint values transactionally. Exact-head WAN/HTTPD and supporting host checks PASS; Process/NVRAM/XY-C1 were still in progress.
-- WAN reset protocol selector: `b2d084d7ffb7d756b60e159a38b93f6f31d4f1b0` replaces unchecked `get_wan_proto()` with a checked `wanN_proto` copy and fail-closed mapping. Its WAN route job failed only on a stale firewall checker assertion expecting the old helper; XY-C1 build/TRX/artifact steps were dependency-skipped.
-- Firewall reset source checker correction `4ed340591107245f946b6b49d065320722210098` passes WAN route #44963513805 and AI docs #44963513826. XY-C1 #44963513768 host checks PASS; firmware Build/TRX/artifact were skipped by the input detector because only checker/docs changed.
-- WAN reset hardware identity: `49bed878c17bf3d5c87a9da9303956de33f9b84e` replaces lossy MAC override/fallback reads with checked reads and adds compatibility tests. Its exact WAN route run failed only on an obsolete firewall checker assertion that searched for the old assignment; XY-C1 firmware steps were skipped due to this dependency.
-- THIS checker-only follow-up updates the firewall contract to the checked MAC snapshot/error-gate path. Exact-head WAN/XY-C1 reruns pending.
-- The `set_wan_unit_value_int()` / `set_wan_unit_param()` void-wrapper audit found no C callsites across `trunk/user/rc/src`; the only `set_wan_unit_value()` calls are optional uptime/RX/TX telemetry. Mandatory protocol and identity publication already uses result-returning helpers.
-- Same-source L3 still requires XY-C1 Build, TRX and artifact upload all PASS. Frozen backup remains read-only.
-
-## Historical checkpoint — 2026-11-21
-
-Older WSD, Samba, printer and RT3352 exact-SHA outcomes are retained in `dev_log.md` and the canonical archive index. The active module dashboard and priority queue below supersede these historical work pointers. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; hardware L4 is not implied by host/CI success.
-
----
-
 ## Whole-repository module status
 
 - WAN route startup/teardown status aggregation includes optional post-WAN hooks, DDNS result, VPN-client start enqueue (`816146a`) and VPN-client stop enqueue (`21b5da97`); the exact `21b5da97` WAN route regression `44205041253` PASSes, and XY-C1 build for this new source change is pending.
