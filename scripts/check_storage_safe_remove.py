@@ -901,8 +901,16 @@ for function, label in ((storage_stop, "stop"), (storage_start, "start")):
             "if (need_restart_fw)" in function and
             "firewall_status = restart_firewall();" in function,
             "storage " + label + " must rebuild firewall from checked configuration")
-require("is_ftp_run() != PROCESS_PRESENCE_ABSENT" in storage_stop and
-        "ftp_run_before = is_ftp_run();" in storage_start and
+ftp_stop_reconcile = body(ftp_policy, "ftp_storage_stop_needs_firewall_refresh(")
+require("ftp_was_present = is_ftp_run() != PROCESS_PRESENCE_ABSENT;" in storage_stop and
+        "ftp_storage_stop_needs_firewall_refresh(ftp_was_present, ftp_final_presence)" in storage_stop and
+        "return was_present != 0 ||" in ftp_stop_reconcile and
+        "ftp_stop_should_reconcile_firewall(final_presence)" in ftp_stop_reconcile and
+        "ftp_storage_stop_needs_firewall_refresh(1," in ftp_test and
+        "ftp_storage_stop_needs_firewall_refresh(0," in ftp_test and
+        "PROCESS_PRESENCE_UNKNOWN" in ftp_test,
+        "storage FTP stop must preserve pre-stop uncertainty and delegate final-state reconciliation to its tested policy")
+require("ftp_run_before = is_ftp_run();" in storage_start and
         "ftp_run_after = is_ftp_run();" in storage_start and
         "ftp_firewall_reconcile_needed(ftp_run_before, ftp_run_after)" in storage_start and
         storage_start.index("ftp_run_before = is_ftp_run();") <

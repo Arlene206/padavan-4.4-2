@@ -1,3 +1,11 @@
+## 2026-11-26 — Align USB storage checker with FTP firewall policy helpers
+
+- Exact-SHA USB storage hotplug run #45764010116 on production commit `87cfc6c7983710d5a85af2a8cd5fb68948f22c5d` passed the compiled regressions and earlier storage contracts, then failed only because `scripts/check_storage_safe_remove.py` still required the old raw FTP-presence predicate in both `stop_stor_apps()` and `start_stor_apps()`. Production startup now correctly compares tri-state before/after inventory, while storage-stop captures pre-stop uncertainty and delegates final-state handling to `ftp_storage_stop_needs_firewall_refresh()`; the exact policy and cases are already covered in `ftp_daemon_policy.c`.
+- Updated the source contract to assert the helper call, helper semantics and both pre-present/absent test cases instead of requiring the obsolete expression in the start path. The workflow already watches this checker in both push and pull_request filters.
+- On the same production SHA, VSFTPD regression #45764010135 and XY-C1 #45764010242 passed; XY-C1 Build, TRX verification and artifact upload all passed. No product-source defect is identified by this checker failure. This follow-up is checker/docs only; exact-SHA USB/AI reruns pending. No local checkout or hardware L4 result is claimed.
+
+---
+
 ## 2026-11-26 — Exercise caller-PID exclusion in the final pgrep recheck
 
 - `pl_process_pattern_state()` still passed a literal `$` to awk in its second `pgrep -f` race recheck. If the final pgrep result contained only the caller, that branch did not recognize the self PID and could return RUNNING instead of rejecting the self-match.
