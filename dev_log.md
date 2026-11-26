@@ -6,6 +6,7 @@
 - Local host compile/run: `cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined` regression PASS. Full-source and target checks await exact-SHA Actions; no L3/L4 claim.
 - Exact SHA `a856ba60a4695276b5c484f7e8388fdaeaf1ced0`: DHCPv6 IA run #45795811813 FAILED only at the newly added compile invocation; all six pre-existing policy binaries passed. The workflow command contained doubled trailing backslashes, causing the linker to treat a literal backslash as an input file. This follow-up changes the compile invocation to one shell command line and needs exact-SHA rerun.
 - Workflow correction parent main: `a856ba60a4695276b5c484f7e8388fdaeaf1ced0`; resulting commit: THIS COMMIT.
+- Exact-SHA follow-up: DHCPv6 IA workflow #45796127157 on `c241c6a150f2c0bf8b6f2a89177780cb9766ad9f` PASSed the new ASan/UBSan timer traversal regression, all existing C policy binaries and the full Python source contract; AI handoff #45796127128 PASSed. The prior failure was limited to YAML shell escaping, not production C or regression logic.
 - Parent main for the source/test implementation: `5b03226e811dbba4cba5d9219c43086b7962d6e7`.
 
 ---

@@ -3,7 +3,7 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development on `main` only.
-- Parent `main` for the DHCPv6 workflow-command correction: `a856ba60a4695276b5c484f7e8388fdaeaf1ced0`.
+- Parent `main` for this exact-head validation/handoff refresh: `c241c6a150f2c0bf8b6f2a89177780cb9766ad9f`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify/delete. PR #1 remains closed/unmerged.
 - Bootstrap/protocol recovery was completed earlier; do not repeat it.
 
@@ -78,6 +78,7 @@
 - Timer traversal now stamps visited timers with a per-pass generation and records timer-list mutations. It restarts from the current list head after any callback that frees a timer or changes the list, defers newly inserted timers until the next sweep, handles generation wrap, and recomputes the expiry sentinel after callbacks.
 - Added a standalone GNU89/ASan/UBSan regression that actually frees the saved-next node during callback, plus a semantic source checker and both push/pull_request workflow path filters. Local host regression compile/run PASS; exact-SHA GitHub Actions pending at commit creation. No L3/L4 claim.
 - Exact SHA `a856ba60a4695276b5c484f7e8388fdaeaf1ced0`: DHCPv6 IA run #45795811813 FAILED only when launching the new regression compile command; the six existing C policy binaries had passed. The YAML used doubled line-ending backslashes, so the linker received a literal backslash argument. This follow-up uses one shell command line and requires exact-SHA rerun. On the same SHA, AI #45795811557, DHCPv6 script retry #45795811708, HTTPD #45795811471 and process inventory #45795811538 PASS; NVRAM #45795811645, USB #45795811700 and XY-C1 #45795811655 were still running at last poll.
+- Exact SHA `c241c6a150f2c0bf8b6f2a89177780cb9766ad9f`: DHCPv6 IA run #45796127157 PASS, including the new timer traversal ASan/UBSan regression and complete Python source contract; AI handoff #45796127128 PASS. The workflow-only fix does not change product-source inputs. On source SHA `a856ba60a4695276b5c484f7e8388fdaeaf1ced0`, USB #45795811700 PASS; HTTPD #45795811471, DHCPv6 script retry #45795811708 and process inventory #45795811538 PASS. NVRAM #45795811645 is still running. XY-C1 #45795811655 is still at `Build XY-C1`; Verify TRX and artifact upload remain pending, so L3 is not verified.
 - Parent main: `5b03226e811dbba4cba5d9219c43086b7962d6e7`; resulting commit: THIS COMMIT.
 
 ---
@@ -98,9 +99,9 @@
 
 ## Exact first action for the next GPT
 
-1. Check the DHCPv6 IA rerun after this workflow-command correction. Exact SHA `a856ba60a4695276b5c484f7e8388fdaeaf1ced0` failed only because the added compile command had doubled trailing backslashes; the source regression still needs the rerun result.
-2. Inspect same-SHA XY-C1 Build, Verify TRX output and artifact upload on the product-source SHA of the latest fix. All three must PASS together before L3; hardware L4 remains NOT VERIFIED.
-3. Continue the DHCPv6 timer/event/callback ownership audit for any remaining callback-side object lifetime hazards, then rotate to another userland stability/security defect.
+1. Exact source-fix SHA `a856ba60a4695276b5c484f7e8388fdaeaf1ced0` has DHCPv6 IA #45795811813 FAIL only because the new regression compile command contained doubled trailing backslashes. The fix commit `c241c6a150f2c0bf8b6f2a89177780cb9766ad9f` reran DHCPv6 IA #45796127157 PASS and AI handoff #45796127128 PASS, including the ASan/UBSan timer regression and full source checker.
+2. Check the same product-source SHA `a856ba60a4695276b5c484f7e8388fdaeaf1ced0` XY-C1 run #45795811655: Build XY-C1 is in progress, while Verify TRX and artifact upload are pending. All three must PASS on this SHA before L3. NVRAM #45795811645 remains in progress; hardware L4 remains NOT VERIFIED.
+3. Continue the DHCPv6 timer/event/callback ownership audit for other object-lifetime hazards, then rotate to another userland stability/security defect.
 
 ## Mandatory handoff checkpoint
 
