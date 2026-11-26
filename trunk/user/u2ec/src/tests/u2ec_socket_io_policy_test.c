@@ -135,9 +135,10 @@ test_timed_recv_completes_a_ready_field(void)
 static void
 test_timed_recv_expires_after_a_partial_field(void)
 {
-    assert(U2EC_DISCOVERY_COMMAND_TIMEOUT_SECONDS == 1U);
     int sockets[2];
     char received[2];
+
+    assert(U2EC_DISCOVERY_COMMAND_TIMEOUT_SECONDS == 1U);
 
     assert(socketpair(AF_UNIX, SOCK_STREAM, 0, sockets) == 0);
     assert(write(sockets[0], "x", 1U) == 1);
