@@ -263,6 +263,9 @@ wan6_sit_route4_record_format(const char *ifname, const char *endpoint,
 	    (gateway_value[0] &&
 	     !wan6_sit_route4_ipv4_literal_is_valid(gateway_value)))
 		return EINVAL;
+	/* Keep the persisted identity parseable by WAN6_SIT_ROUTE4_IFNAME_SIZE. */
+	if (strlen(ifname) >= WAN6_SIT_ROUTE4_IFNAME_SIZE)
+		return ENAMETOOLONG;
 
 	record[0] = '\0';
 	written = snprintf(record, record_size, "%s|%s|%s",

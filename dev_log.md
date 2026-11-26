@@ -1,3 +1,13 @@
+## 2026-11-26 — Bound persisted SIT endpoint-route interface identity
+
+- `wan6_sit_route4_record_format()` previously accepted interface names longer than the parser's fixed `WAN6_SIT_ROUTE4_IFNAME_SIZE` buffer. Such a value could be serialized and persisted but later failed `wan6_sit_route4_record_parse()`, preventing reliable exact-route ownership cleanup. The format helper now rejects `strlen(ifname) >= 16` with `ENAMETOOLONG`.
+- Added boundary regression coverage: a 15-character interface name formats and parses successfully; a 16-character name is rejected. The existing WAN DHCP callback workflow already compiles this policy test under GNU89/`-Werror`/ASan/UBSan.
+- On parent `5bec4f752ac0961c823a2750da03d34a3da0789a`: WAN DHCP callback #45783956641 PASS, including all IPTV tests wired in the prior commit; Firewall Startup #45783956578, Process inventory #45783956580, Process fail-closed #45783956551, WAN route #45783956522 and NVRAM boundary #45783956493 PASS. AI handoff #45783956616 failed because the handoff omitted its mandatory checkpoint section; this commit restores that required contract. Exact rerun pending.
+- XY-C1 #45783956548 was host-only SUCCESS; Build XY-C1, TRX verification and artifact upload were SKIPPED. Product L3 baseline remains `dd2885fc9941d3a57fd9c81cf01ed86488b0183d` (same-SHA Build/TRX/artifact PASS); no physical L4 claim. No local checkout/full original C test run is claimed.
+- Parent main: `5bec4f752ac0961c823a2750da03d34a3da0789a`; resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-26 — Wire IPTV proxy altnet regressions into WAN Actions
 
 - The IPTV altnet NVRAM snapshot and IGMP config publisher already enforce dotted-decimal IPv4, CIDR 0–32, rejection of octal aliases and the `inet_addr()` broadcast sentinel, while only an empty optional NVRAM value maps to `0.0.0.0/0`. The dedicated C regressions and `scripts/check_iptv_nvram_status.py` were not invoked by the WAN callback workflow, and its path filters omitted their direct inputs.

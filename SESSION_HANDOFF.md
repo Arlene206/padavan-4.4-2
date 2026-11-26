@@ -2,32 +2,39 @@
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; all development remains on `main`.
-- Parent `main` for this validation-integration slice: `7a64510bff3db5b1d223b0be70ad04898ce784fb`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not update/delete. PR #1 remains closed and unmerged.
-- Startup/protocol recovery was completed once; do not repeat it or re-audit completed slices.
+- Repository: `Arlene206/padavan-4.4-2`; development continues on `main` only.
+- Parent `main` for the current source slice: `5bec4f752ac0961c823a2750da03d34a3da0789a`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify/delete. PR #1 remains closed and unmerged.
+- Startup/protocol recovery was already completed once. Do not repeat it or re-audit completed work.
 
-## Completed work
+## Latest exact-SHA validation
 
-- The previous FTP checker correction is complete on `7a64510bff3db5b1d223b0be70ad04898ce784fb`: USB storage hotplug #45780898833 PASS and AI handoff #45780898695 PASS on that exact push SHA.
-- Process lifecycle inventory/fail-closed, DDNSTO, DNS Forwarder and AI checks on `dd2885fc9941d3a57fd9c81cf01ed86488b0183d` passed. Its XY-C1 run #45779633237 also passed Build XY-C1, TRX verification and artifact upload; artifact #15098382009 exists (12,823,167 bytes). This is the current verified product-source L3 baseline; later `7a64510b` changed checker/docs only. Physical router L4 remains NOT VERIFIED.
-- Current slice closes the P1 IPTV proxy altnet validation-integration gap. The source already parses strict dotted-decimal IPv4 and bounds CIDR values to 0–32; one-digit `/9` is valid (not malformed). Added an explicit positive case, wired both existing C regressions and `scripts/check_iptv_nvram_status.py` into the WAN DHCP callback workflow, and added all direct file dependencies to matching push/pull_request filters. No production source changed.
+- On parent `5bec4f752ac0961c823a2750da03d34a3da0789a`, WAN DHCP callback run #45783956641 PASS. Its new IPTV proxy NVRAM/IGMP config regressions and source contract all executed and passed; the existing WAN/IPv6 policy regressions also passed.
+- Firewall Startup #45783956578, Process inventory #45783956580, Process fail-closed #45783956551, WAN route status #45783956522 and NVRAM boundary #45783956493 PASS on that exact SHA.
+- AI handoff #45783956616 FAILED only because this checkpoint lacked the mandatory `Mandatory handoff checkpoint` section and its exact policy sentence. This commit adds that missing required checkpoint language; exact-head AI rerun is pending.
+- XY-C1 run #45783956548 completed SUCCESS as a host-only validation. Build XY-C1, TRX verification and artifact upload were all SKIPPED because the parent contained only tests/workflow/docs changes. It is not new firmware L3 evidence; retain product-source L3 baseline `dd2885fc9941d3a57fd9c81cf01ed86488b0183d`, whose same-SHA Build/TRX/artifact all passed (artifact #15098382009). No physical router L4 is claimed.
 
-## Verification boundary
+## Current engineering slice
 
-- A standalone GNU89 `-Wall -Wextra -Werror` ASan/UBSan harness built from the current altnet policy logic passed valid /0, /8, /9, /24 and /32 values, malformed/out-of-range inputs, octal aliases, the broadcast sentinel, and empty-value default normalization. This is not the full repository C suite.
-- No repository checkout is available in this environment, so the original C tests and Python source contract have not been run locally. The new exact-head WAN DHCP workflow, AI handoff workflow and resulting XY-C1 behavior are pending after this commit.
-- Test/workflow-only changes do not create a new product-source L3 baseline. Do not treat skipped Build/TRX/artifact steps as firmware verification.
+- Confirmed an internal WAN IPv6 SIT endpoint-route identity invariant defect: `wan6_sit_route4_record_format()` could serialize interface names of 16+ bytes, while `wan6_sit_route4_record_parse()` uses a 16-byte buffer and rejects those records. A record could therefore be persisted successfully but never parsed later for exact owned-route cleanup.
+- The format helper now rejects names with length `>= WAN6_SIT_ROUTE4_IFNAME_SIZE` using `ENAMETOOLONG`. Regression coverage verifies a 15-character name round-trips and a 16-character name is rejected. This matches Linux's 15-byte interface-name payload bound and does not alter valid device behavior.
+- The existing WAN DHCP callback workflow compiles `tests/wan6_identity_policy.c` with GNU89, `-Werror`, ASan and UBSan. Exact-head WAN/AI/XY validation after this source change is pending.
+- No local repository checkout is available here; do not claim the original C suite or Python governance checker was run locally. This is a focused source/test change; build and CI status must be established on its exact commit SHA.
 
 ## Exact first action for the next GPT
 
-1. Fetch the live `main` SHA and inspect exact-head WAN DHCP callback and AI handoff Actions. Confirm the new GNU89/ASan/UBSan NVRAM test, IGMP atomic-config test and `check_iptv_nvram_status.py` all execute and pass; diagnose the first causal failure if not.
-2. Inspect exact-head XY-C1 behavior. If Build/TRX/artifact are skipped because this commit changes only tests/workflow/docs, retain `dd2885fc9941d3a57fd9c81cf01ed86488b0183d` as the product-source L3 baseline; do not claim a new L3 result.
-3. Then continue the P1 WAN/IPv6 stability backlog: trace route install/withdrawal and first-error cleanup in `trunk/user/rc/src/net_wan6.c` against `wan6_teardown_policy.h` and its regression; implement only a confirmed defect, with a focused regression and exact-head Actions.
+1. Fetch live `main` and inspect exact-head WAN DHCP callback, AI handoff and XY-C1 Actions for this commit. Confirm the SIT interface-name boundary regression executes/passes, and confirm the governance checkpoint contract is green.
+2. For XY-C1, inspect the actual `Build XY-C1`, `Verify TRX output` and artifact-upload step conclusions. A skipped step is not a pass; only same-SHA Build + TRX + artifact PASS establishes product L3.
+3. Continue the remaining P1 WAN/IPv6 route-edge backlog in `trunk/user/rc/src/net_wan6.c`; trace install/withdrawal, persisted ownership and first-error cleanup. Change production behavior only for a confirmed defect and add a focused regression.
+
+## Mandatory handoff checkpoint
+
+**Mandatory handoff checkpoint:** Every session MUST compare the live repository and relevant exact-head Actions with this file before ending. Verify the engineering/source baseline, active task and progress, validation boundary, blockers, and one exact first action for the next GPT. Do not repeat completed recovery or audits. The checkpoint is mandatory; a document edit is conditional. If all checkpoint facts are accurate, leave this file untouched and do not create a no-op commit. Update this handoff only when a material fact or next action changes, batching the correction with the engineering milestone whenever possible.
 
 ## Execution invariants
 
-- Main only. Each logical slice creates every blob, one complete tree and one atomic commit, then updates `main` non-forced against the expected parent SHA. Re-fetch `main` immediately before every write; on CAS conflict, rebuild against the new parent. Never force-push.
-- Preserve the frozen backup; do not reopen PR #1 or create other branches/PRs.
-- L3 requires same-product-source-SHA Build XY-C1, TRX verification and artifact upload all PASS. Physical-router L4 requires actual device testing.
-- Update this handoff only when the active task, baseline, validation boundary or first next action materially changes; no poll-only/docs-only commits.
+- Develop only on `main`; create complete blobs and one complete Git tree/commit per logical task. Update `main` non-forced with the expected parent SHA; never force-push.
+- Preserve the frozen backup and do not reopen PR #1.
+- Exact-SHA Actions are authoritative. PENDING is not a reason to wait idly; proceed with independent safe work.
+- Firmware L3 requires same-product-source-SHA Build XY-C1, TRX verification and artifact upload all PASS. Physical router L4 requires actual target-device testing.
+- Update the dev log for a completed engineering milestone. Update the roadmap only for a material module/status/priority change; never create routine handoff/roadmap archives.

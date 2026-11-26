@@ -634,6 +634,27 @@ test_sit_route4_record_format_and_parse_round_trip(void)
 }
 
 static void
+test_sit_route4_record_format_enforces_parser_interface_name_bound(void)
+{
+	char record[WAN6_SIT_ROUTE4_RECORD_SIZE];
+	char ifname[WAN6_SIT_ROUTE4_IFNAME_SIZE];
+	char endpoint[WAN6_SIT_ROUTE4_IPV4_SIZE];
+	char gateway[WAN6_SIT_ROUTE4_IPV4_SIZE];
+
+	assert(wan6_sit_route4_record_format(
+		"123456789012345", "192.0.2.1", "192.0.2.254",
+		record, sizeof(record)) == 0);
+	assert(wan6_sit_route4_record_parse(
+		record, ifname, sizeof(ifname), endpoint, sizeof(endpoint),
+		gateway, sizeof(gateway)) == 0);
+	assert(strcmp(ifname, "123456789012345") == 0);
+
+	assert(wan6_sit_route4_record_format(
+		"1234567890123456", "192.0.2.1", "192.0.2.254",
+		record, sizeof(record)) == ENAMETOOLONG);
+}
+
+static void
 test_sit_route4_record_format_rejects_nonliteral_ipv4_fields(void)
 {
 	char record[WAN6_SIT_ROUTE4_RECORD_SIZE];
@@ -807,6 +828,7 @@ main(void)
 	test_sit_route4_empty_gateway_maps_to_null_kernel_argument();
 	test_sit_route4_nonempty_gateway_is_preserved();
 	test_sit_route4_record_format_and_parse_round_trip();
+	test_sit_route4_record_format_enforces_parser_interface_name_bound();
 	test_sit_route4_record_format_rejects_nonliteral_ipv4_fields();
 	test_sit_route4_record_parse_rejects_nonliteral_ipv4_fields();
 	test_sit_route4_record_allows_direct_endpoint_route();
