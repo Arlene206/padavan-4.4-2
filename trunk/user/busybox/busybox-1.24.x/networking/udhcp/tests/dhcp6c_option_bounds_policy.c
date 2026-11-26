@@ -28,6 +28,28 @@ int main(void)
 	CHECK(dhcp6c_option_zero_payload_length_valid(0U));
 	CHECK(!dhcp6c_option_zero_payload_length_valid(1U));
 	CHECK(!dhcp6c_option_zero_payload_length_valid((size_t)-1));
+	/* RFC 5908 NTP Server option suboption framing and time-source uniqueness. */
+	CHECK(dhcp6c_ntp_suboption_wire_length_valid(20U, 16U));
+	CHECK(dhcp6c_ntp_suboption_wire_length_valid(5U, 1U));
+	CHECK(!dhcp6c_ntp_suboption_wire_length_valid(3U, 0U));
+	CHECK(!dhcp6c_ntp_suboption_wire_length_valid(19U, 16U));
+	CHECK(!dhcp6c_ntp_suboption_wire_length_valid(4U, 1U));
+	CHECK(dhcp6c_ntp_suboption_payload_length_valid(1U, 16U));
+	CHECK(dhcp6c_ntp_suboption_payload_length_valid(2U, 16U));
+	CHECK(!dhcp6c_ntp_suboption_payload_length_valid(1U, 15U));
+	CHECK(!dhcp6c_ntp_suboption_payload_length_valid(2U, 17U));
+	CHECK(dhcp6c_ntp_suboption_payload_length_valid(3U, 1U));
+	CHECK(!dhcp6c_ntp_suboption_payload_length_valid(3U, 0U));
+	CHECK(dhcp6c_ntp_suboption_payload_length_valid(99U, 0U));
+	{
+		int source_seen = 0;
+
+		CHECK(dhcp6c_ntp_time_source_claim(99U, &source_seen));
+		CHECK(!source_seen);
+		CHECK(dhcp6c_ntp_time_source_claim(1U, &source_seen));
+		CHECK(source_seen);
+		CHECK(!dhcp6c_ntp_time_source_claim(3U, &source_seen));
+	}
 	/* Singleton option buffer policy: reject a second owned vbuf. */
 	{
 		char existing[1] = {0};
@@ -37,6 +59,6 @@ int main(void)
 		CHECK(!dhcp6c_option_vbuf_is_unset(existing, sizeof(existing)));
 		CHECK(!dhcp6c_option_vbuf_is_unset(NULL, sizeof(existing)));
 	}
-	puts("DHCPv6 option and UDP datagram bounds policy: PASS");
+	puts("DHCPv6 option bounds and NTP suboption policy: PASS");
 	return 0;
 }

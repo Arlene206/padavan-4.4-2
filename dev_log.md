@@ -1,3 +1,12 @@
+## 2026-11-26 — Parse RFC 5908 DHCPv6 NTP Server suboptions
+
+- Confirmed standards mismatch: `D6_OPT_NTP_SERVER` (option 56) was parsed in the same branch as flat IPv6-address arrays, requiring its payload length to be a multiple of 16 and treating each 16-byte chunk as an address. RFC 5908 defines option 56 as a container of 4-byte (code/length) suboption headers, with time-source forms for a unicast address, multicast address, or FQDN; each option instance carries exactly one time source. Consequently, a normal address suboption uses a 20-byte payload (4-byte header + 16-byte address) and was incorrectly rejected, while FQDN and multicast suboptions were not decoded.
+- Added a bounds-safe suboption decoder. Address and multicast-address suboptions require exactly 16 payload bytes; FQDN requires nonzero payload and uses the existing RFC 3397 domain decoder when enabled. Duplicate known time-source suboptions are rejected; unknown future suboptions are skipped. The old RFC 4075 `D6_OPT_SNTP_SERVERS` remains on its flat IPv6-list path. The option typelen entry is now variable-length and dispatches to this dedicated parser.
+- Added unit coverage for truncated headers, length overruns, valid and invalid address/FQDN lengths, unknown suboptions and duplicate source rejection; extended Python source contracts to pin the production decoder and legacy SNTP separation. The existing DHCPv6 IA workflow already compiles the extended policy test and checks `dhcp6c_common.c`.
+- Parent main: `fb01f7aa71477bc1dfc895bb81d368e6c69031e7`; Actions validation pending. Hardware L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-26 — Normalize shutdown source contract whitespace
 
 - Exact-SHA DHCPv6 IA run #45791468143 on `aa7181cdfdf98d283e0126db0726d0daa51fdc9d` compiled and passed all six GNU89/`-Werror`/ASan/UBSan policy tests, including IA-only, event-only, combined pending-work and drained shutdown cases.

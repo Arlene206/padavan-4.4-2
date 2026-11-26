@@ -37,6 +37,44 @@ dhcp6c_option_zero_payload_length_valid(size_t payload_size)
 }
 
 /*
+ * RFC 5908 OPTION_NTP_SERVER contains 4-byte suboption headers. Check the
+ * complete header and payload before advancing over an untrusted suboption.
+ */
+static inline int
+dhcp6c_ntp_suboption_wire_length_valid(size_t remaining, size_t payload_size)
+{
+	return remaining >= 4U && payload_size <= remaining - 4U;
+}
+
+/* Server address, multicast address and FQDN are the known time sources. */
+static inline int
+dhcp6c_ntp_suboption_payload_length_valid(unsigned int suboption,
+					   size_t payload_size)
+{
+	switch (suboption) {
+	case 1U:
+	case 2U:
+		return payload_size == 16U;
+	case 3U:
+		return payload_size > 0U;
+	default:
+		return 1;
+	}
+}
+
+/* Unknown future suboptions are skipped; only one known time source is valid. */
+static inline int
+dhcp6c_ntp_time_source_claim(unsigned int suboption, int *source_seen)
+{
+	if (suboption < 1U || suboption > 3U)
+		return 1;
+	if (*source_seen)
+		return 0;
+	*source_seen = 1;
+	return 1;
+}
+
+/*
  * Client/server IDs, relay messages and interface IDs each have one vbuf slot
  * in dhcp6_optinfo. Reject duplicates instead of overwriting an owned buffer.
  */

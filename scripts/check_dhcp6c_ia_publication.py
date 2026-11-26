@@ -217,6 +217,24 @@ reconf_accept = outer_options[reconf_accept_start:reconf_accept_end]
 assert ("dhcp6c_option_zero_payload_length_valid((size_t)optlen)" in
         "".join(reconf_accept.split()))
 assert "Reconfigure Accept has a mandatory zero-length payload" in bounds_test
+ntp_parser = function_body(common, "static int dhcp6_get_ntp_server(")
+ntp_parser_compact = "".join(ntp_parser.split())
+assert "[D6_OPT_NTP_SERVER]     = { 0, 0 }" in common
+assert "D6_NTP_SUBOPT_SRV_ADDR" in ntp_parser
+assert "D6_NTP_SUBOPT_SRV_MC_ADDR" in ntp_parser
+assert "D6_NTP_SUBOPT_SRV_FQDN" in ntp_parser
+assert "dhcp6c_ntp_suboption_wire_length_valid(remaining,sublen)" in ntp_parser_compact
+assert "dhcp6c_ntp_suboption_payload_length_valid(suboption,sublen)" in ntp_parser_compact
+assert "dhcp6c_ntp_time_source_claim(suboption,&source_seen)" in ntp_parser_compact
+assert "dhcp6_get_domain((int)sublen,p,D6_OPT_NTP_SERVER,list)" in ntp_parser_compact
+assert "dhcp6_add_listval(list,D6_OPT_NTP_SERVER,DHCP6_LISTVAL_ADDR6,&address,NULL)" in ntp_parser_compact
+ntp_case = outer_options.index("case D6_OPT_NTP_SERVER:")
+assert "dhcp6_get_ntp_server(optlen, cp, &optinfo->ad_list)" in outer_options[ntp_case:ntp_case + 240]
+assert "D6_OPT_NTP_SERVER" not in outer_options[outer_options.index("case D6_OPT_SIP_SERVER_A:"):outer_options.index("case D6_OPT_IA_PD:")]
+assert "DHCPv6 option bounds and NTP suboption policy: PASS" in bounds_test
+assert "dhcp6c_ntp_suboption_wire_length_valid" in bounds_policy
+assert "dhcp6c_ntp_suboption_payload_length_valid" in bounds_policy
+assert "dhcp6c_ntp_time_source_claim" in bounds_policy
 
 for option_parser in (outer_options, nested_options):
     assert "for (; (char *)p < (char *)ep; p = np)" in option_parser

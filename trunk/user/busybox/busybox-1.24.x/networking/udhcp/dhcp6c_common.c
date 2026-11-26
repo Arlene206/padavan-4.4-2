@@ -40,6 +40,10 @@
 #include "dhcp6c_script_retry_policy.h"
 #include "dhcp6c_option_bounds_policy.h"
 
+#define D6_NTP_SUBOPT_SRV_ADDR		1
+#define D6_NTP_SUBOPT_SRV_MC_ADDR	2
+#define D6_NTP_SUBOPT_SRV_FQDN		3
+
 
 static int copyin_option(int, struct dhcp6opt *, struct dhcp6opt *,
     struct dhcp6_list *);
@@ -92,7 +96,7 @@ const struct dhcp6_option_typelen_t dhcp6_option_typelens[D6_OPT__MAX+1] = {
 //	[D6_OPT_REMOTE_ID]      = { 0, 0 },
 //	[D6_OPT_SUBSCRIBER_ID]  = { 0, 0 },
 //	[D6_OPT_CLIENT_FQDN]    = { 0, 0 },
-	[D6_OPT_NTP_SERVER]     = { DHCP6_LISTVAL_ADDR6, sizeof(struct in6_addr)   },
+	[D6_OPT_NTP_SERVER]     = { 0, 0 },	/* RFC 5908 nested suboptions */
 };
 
 int dhcp6_copy_list(struct dhcp6_list *dst, const struct dhcp6_list *src)
@@ -399,6 +403,74 @@ static int dhcp6_get_domain(int optlen, void *cp, int dh6optype,
 	return 0;
 }
 #endif /* FEATURE_UDHCP_RFC3397 */
+
+/*
+ * OPTION_NTP_SERVER (RFC 5908) is a container of 4-byte suboption headers,
+ * not a flat array of IPv6 addresses. Each option instance has one time
+ * source suboption: unicast address, multicast address, or FQDN. Unknown
+ * future suboptions are skipped for forward compatibility.
+ */
+static int dhcp6_get_ntp_server(int optlen, void *cp,
+				struct dhcp6_list *list)
+{
+	char *p = cp;
+	size_t remaining = (size_t)optlen;
+	int source_seen = 0;
+
+	while (remaining > 0) {
+		uint16_t wire_suboption, wire_sublen;
+		unsigned int suboption;
+		size_t sublen;
+
+		if (remaining < sizeof(struct dhcp6opt))
+			return -1;
+
+		memcpy(&wire_suboption, p, sizeof(wire_suboption));
+		memcpy(&wire_sublen, p + sizeof(wire_suboption),
+		       sizeof(wire_sublen));
+		suboption = ntohs(wire_suboption);
+		sublen = (size_t)ntohs(wire_sublen);
+
+		if (!dhcp6c_ntp_suboption_wire_length_valid(remaining, sublen) ||
+		    !dhcp6c_ntp_suboption_payload_length_valid(suboption, sublen) ||
+		    !dhcp6c_ntp_time_source_claim(suboption, &source_seen))
+			return -1;
+
+		p += sizeof(struct dhcp6opt);
+		remaining -= sizeof(struct dhcp6opt);
+
+		switch (suboption) {
+		case D6_NTP_SUBOPT_SRV_ADDR:
+		case D6_NTP_SUBOPT_SRV_MC_ADDR:
+		{
+			struct in6_addr address;
+
+			memcpy(&address, p, sizeof(address));
+			if (!dhcp6_find_listval(list, D6_OPT_NTP_SERVER,
+						&address, MATCHLIST_DH6OPTYPE) &&
+			    dhcp6_add_listval(list, D6_OPT_NTP_SERVER,
+					      DHCP6_LISTVAL_ADDR6, &address, NULL) == NULL)
+				return -1;
+			break;
+		}
+		case D6_NTP_SUBOPT_SRV_FQDN:
+#if ENABLE_FEATURE_UDHCP_RFC3397
+			if (dhcp6_get_domain((int)sublen, p, D6_OPT_NTP_SERVER,
+					     list) != 0)
+				return -1;
+#endif
+			break;
+		default:
+			/* Assigned or experimental suboption not understood here. */
+			break;
+		}
+
+		p += sublen;
+		remaining -= sublen;
+	}
+
+	return 0;
+}
 
 #if ENABLE_FEATURE_DHCP6_AUTH
 struct authparam *new_authparam(int proto, int alg, int rdm)
@@ -1050,13 +1122,18 @@ int dhcp6_get_options(struct dhcp6opt *p, struct dhcp6opt *ep,
 #endif
 			break;
 
+		case D6_OPT_NTP_SERVER:
+			if (dhcp6_get_ntp_server(optlen, cp,
+						 &optinfo->ad_list) != 0)
+				goto malformed;
+			break;
+
 		case D6_OPT_SIP_SERVER_A:
 		case D6_OPT_DNS:
 		case D6_OPT_NIS_SERVERS:
 		case D6_OPT_NISP_SERVERS:
 		case D6_OPT_BCMCS_SERVER_A:
 		case D6_OPT_SNTP_SERVERS:
-		case D6_OPT_NTP_SERVER:
 			if ((optlen % sizeof(struct in6_addr)) != 0)
 				goto malformed;
 			for (val = cp; val < (char *)np; val += sizeof(struct in6_addr)) {

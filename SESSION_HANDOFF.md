@@ -10,7 +10,8 @@
 ## Active task
 
 - Completed parser-safety slices: the DHCPv6 outer parser rejects duplicate CLIENTID, SERVERID, RELAY_MSG and INTERFACE_ID vbuf options before allocation; malformed-option cleanup frees the first owned buffers. Reconfigure Accept (option 20) is rejected when its payload is nonzero. Policy tests and source contracts cover both changes.
-- Current P1 slice: graceful DHCPv6 shutdown must drain both kernel IA cleanup retries and outstanding RELEASE transactions. `release_all_ia()` creates a `DHCP6S_RELEASE` event before removing each IA; `free_resources(0)` deliberately preserves these events to let Release exchanges complete. The previous shutdown-ready check only examined IA queues and could call `check_exit(1)` as soon as local IAs were removed, discarding pending Release messages before Reply/timeout. The implementation now gates exit on both empty IA queues and an empty event list; the C regression covers IA-only, event-only, combined pending work and fully drained state. Exact-SHA run #45791468143 compiled and passed all six policy binaries, then the source checker failed because its string assertion did not normalize a line break in the production call; this checker-only fix normalizes whitespace before comparison.
+- The graceful DHCPv6 shutdown now waits for both IA cleanup retries and outstanding `DHCP6S_RELEASE` transactions. Exact-SHA DHCPv6 IA run #45791657631 on `fb01f7a` PASSed all six GNU89/ASan/UBSan policy binaries and the full source checker after normalizing the wrapped two-argument exit gate. This prevents shutdown from discarding Release exchanges deliberately preserved by `free_resources(0)`.
+- Current P1 parser slice: `D6_OPT_NTP_SERVER` (option 56) was incorrectly grouped with flat arrays of IPv6 addresses, although RFC 5908 defines it as a container of 4-byte suboption headers. A normal 16-byte server-address suboption is therefore seen as a malformed 20-byte option (not divisible by 16); FQDN and multicast forms are also not decoded. The parser now validates each nested header/payload, accepts exactly one recognized time-source suboption per option instance, supports address and FQDN forms, skips unknown future suboptions, and keeps legacy `D6_OPT_SNTP_SERVERS` (RFC 4075) as the separate flat-address option. The bounds policy/test suite covers truncated headers, overruns, fixed/variable payload lengths and duplicate time-source suboptions.
 - Adjacent WAN6 fixes already on main: empty caller-interface teardown guard; SIT owner-record IFNAMSIZ bound; strict SIT gateway literal validation; strict DHCP 6rd relay literal validation; static and DHCPv6 DNS literal validation; first-error aggregation during delegated-prefix cleanup.
 
 ## 2026-11-26 implementation continuation — DHCPv6 cleanup shutdown
@@ -40,9 +41,9 @@
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect exact-head DHCPv6 IA, AI, HTTPD, Process, NVRAM and USB runs for the Reconfigure Accept edge and this shutdown Release-drain fix; confirm the new C regression and Python source contract PASS.
-2. Recheck product-source XY-C1 run #45790965887 on `b3cfaab`; require same-SHA Build XY-C1, Verify TRX output and artifact upload all PASS before L3. The older `a0fa423` run is a separate baseline only.
-3. Continue DHCPv6 event/IA lifecycle audit for confirmed Release, timeout or cleanup ownership faults; implement focused tests and exact-SHA checks. Hardware L4 stays NOT VERIFIED.
+1. Fetch the new exact-SHA DHCPv6 IA workflow and verify both the C NTP suboption policy tests and full Python source contract pass. Also check the matching DHCPv6 script retry, AI and process workflows.
+2. Recheck XY-C1 run #45791468174 on product-source SHA `aa7181c`; require same-SHA Build XY-C1, Verify TRX output and artifact upload all PASS before L3. Pending/skipped is not PASS; hardware L4 remains NOT VERIFIED.
+3. Continue DHCPv6 parser interoperability audit after NTP parsing passes, focusing on known nested options and state-specific option validity. Only implement confirmed defects with regression coverage.
 
 ## Mandatory handoff checkpoint
 
