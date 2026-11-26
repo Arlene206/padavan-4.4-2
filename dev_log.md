@@ -1,3 +1,12 @@
+## 2026-11-26 — Bound Ralink IAPP TCP peers with a monotonic frame deadline
+
+- The Linux IAPP TCP reader claimed a five-second total timeout but derived and recomputed it with `time(NULL)`. NTP/manual wall-clock changes could therefore keep a slow peer in the synchronous receive path longer than intended or prematurely terminate a valid frame, delaying all other IAPP events.
+- Replaced the Linux deadline with one absolute `CLOCK_MONOTONIC` timestamp shared across partial reads, EINTR retries and the final overflow check; a small policy helper converts the remaining duration to `select()`'s timeval and rounds sub-microsecond positive time upward. The non-Linux wall-clock fallback remains intact.
+- Added GNU89/Werror/ASan/UBSan coverage for fractional remaining time, second-boundary borrow, expiry, sub-microsecond rounding and invalid inputs. Local standalone policy regression PASS; exact-head IAPP/XY-C1 Actions pending after publication. No target firmware, MIPS runtime or physical-router test claimed.
+- Parent main: `1ddc1f33e12789cc218f6ccfa8dd96d00c93fd93`.
+
+---
+
 ## 2026-11-26 — Make Samba config-file publication durable across power interruption
 
 - `samba_config_file_publish()` previously checked buffered flush and close before the atomic rename, but neither synced the staged file contents nor the containing directory. A power interruption could persist the rename without the new config bytes, or lose the directory-entry update even though the helper reported success.

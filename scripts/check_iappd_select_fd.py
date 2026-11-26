@@ -7,6 +7,8 @@ import re
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "trunk/user/ralinkiappd/src/rtmpiapp.c"
 POLICY = ROOT / "trunk/user/ralinkiappd/src/iapp_select_fd_policy.h"
+DEADLINE_POLICY = ROOT / "trunk/user/ralinkiappd/src/iapp_tcp_deadline_policy.h"
+DEADLINE_TEST = ROOT / "trunk/user/ralinkiappd/tests/iapp_select_fd_policy.c"
 
 
 def extract_function(source: str, name: str) -> str:
@@ -172,6 +174,56 @@ def main() -> None:
     require(clean_start >= 0 and clean_end > clean_start and
             "if (fclose(pFile) != 0)" in source[clean_start:clean_end],
             "IAPP event-log cleanup must propagate close errors")
+
+    deadline_policy = DEADLINE_POLICY.read_text(encoding="utf-8")
+    deadline_test = DEADLINE_TEST.read_text(encoding="utf-8")
+    require('#include "iapp_tcp_deadline_policy.h"' in source,
+            "Linux TCP receive path must include the monotonic deadline policy")
+    wait_start = source.find("static INT32 IAPP_TCP_Wait(")
+    wait_end = source.find("\n}\n\n/*\n * Each TCP connection", wait_start)
+    require(wait_start >= 0 and wait_end > wait_start,
+            "IAPP TCP wait helper is missing")
+    wait_body = source[wait_start:wait_end]
+    require("clock_gettime(CLOCK_MONOTONIC, &Now)" in wait_body and
+            "iapp_tcp_deadline_remaining(&Now, Deadline, &Timeout)" in wait_body,
+            "Linux TCP select waits must recompute the same absolute monotonic deadline")
+    require("time(NULL)" in wait_body and "#else" in wait_body,
+            "non-Linux TCP wait fallback must remain available")
+    read_start = source.find("static INT32 IAPP_TCP_ReadFrame(")
+    read_end = source.find("\n}\n\nstatic VOID IAPP_RcvHandlerTcp", read_start)
+    require(read_start >= 0 and read_end > read_start,
+            "IAPP TCP frame reader is missing")
+    read_body = source[read_start:read_end]
+    require("clock_gettime(CLOCK_MONOTONIC, &Deadline)" in read_body and
+            "Deadline.tv_sec += IAPP_TCP_FRAME_TIMEOUT_SEC" in read_body,
+            "Linux TCP frame reader must establish one absolute monotonic deadline")
+    require(read_body.count("IAPP_TCP_Wait(Socket, &Deadline, FALSE)") == 2,
+            "all TCP frame reads and overflow checks must share the same deadline")
+    require("time_t Deadline = time(NULL) + IAPP_TCP_FRAME_TIMEOUT_SEC" in read_body and
+            "#else" in read_body,
+            "non-Linux TCP frame reader fallback must remain available")
+    for token in (
+        "iapp_tcp_deadline_remaining",
+        "now->tv_nsec >= 1000000000L",
+        "deadline->tv_nsec >= 1000000000L",
+        "(nanoseconds + 999L) / 1000L",
+        "remaining->tv_usec = 0",
+    ):
+        require(token in deadline_policy,
+                "monotonic deadline conversion lost required boundary handling: " + token)
+    for token in (
+        "test_tcp_deadline_fractional_remaining_time",
+        "test_tcp_deadline_rounds_sub_microsecond_up",
+        "test_tcp_deadline_expiry_and_second_borrow",
+        "test_tcp_deadline_invalid_inputs",
+        "Ralink IAPP monotonic TCP deadline policy: PASS",
+    ):
+        require(token in deadline_test,
+                "missing IAPP monotonic deadline regression: " + token)
+    workflow_text = (ROOT / ".github/workflows/iappd-lifecycle.yml").read_text(encoding="utf-8")
+    deadline_path = "trunk/user/ralinkiappd/src/iapp_tcp_deadline_policy.h"
+    require(workflow_text.count('      - "' + deadline_path + '"') == 2,
+            "both IAPP workflow path filters must include the deadline policy")
 
     print("Ralink IAPP descriptor, receive, and event-log source contracts: PASS")
 

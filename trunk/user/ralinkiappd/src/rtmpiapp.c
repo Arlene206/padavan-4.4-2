@@ -37,6 +37,7 @@
 #endif /* IAPP_EVENT_LOG */
 #ifdef IAPP_OS_LINUX
 #include "iapp_select_fd_policy.h"
+#include "iapp_tcp_deadline_policy.h"
 #endif /* IAPP_OS_LINUX */
 #ifndef FT_KDP_FUNC_SOCK_COMM
 #ifdef IAPP_OS_LINUX
@@ -2185,12 +2186,24 @@ Note:
  */
 #define IAPP_TCP_FRAME_TIMEOUT_SEC 5
 
-static INT32 IAPP_TCP_Wait(INT32 Socket, time_t Deadline, BOOLEAN WriteReady)
+static INT32 IAPP_TCP_Wait(
+	INT32 Socket,
+#ifdef IAPP_OS_LINUX
+	const struct timespec *Deadline,
+#else
+	time_t Deadline,
+#endif
+	BOOLEAN WriteReady)
 {
 	fd_set ReadSet;
 	fd_set WriteSet;
 	struct timeval Timeout;
+#ifdef IAPP_OS_LINUX
+	struct timespec Now;
+	INT32 DeadlineStatus;
+#else
 	time_t Now;
+#endif
 	INT32 SelectStatus;
 
 	/* FD_SET writes into a fixed fd_set; reject descriptors outside it. */
@@ -2198,12 +2211,20 @@ static INT32 IAPP_TCP_Wait(INT32 Socket, time_t Deadline, BOOLEAN WriteReady)
 		return -1;
 
 	for (;;) {
+#ifdef IAPP_OS_LINUX
+		if (clock_gettime(CLOCK_MONOTONIC, &Now) != 0)
+			return -1;
+		DeadlineStatus = iapp_tcp_deadline_remaining(&Now, Deadline, &Timeout);
+		if (DeadlineStatus <= 0)
+			return DeadlineStatus;
+#else
 		Now = time(NULL);
 		if (Now >= Deadline)
 			return 0;
 
 		Timeout.tv_sec = Deadline - Now;
 		Timeout.tv_usec = 0;
+#endif
 		FD_ZERO(&ReadSet);
 		FD_ZERO(&WriteSet);
 		if (WriteReady)
@@ -2234,10 +2255,22 @@ static INT32 IAPP_TCP_ReadFrame(INT32 Socket, UCHAR *Buffer, UINT32 Capacity)
 	INT32 BytesRead;
 	INT32 WaitStatus;
 	UCHAR OverflowByte;
+#ifdef IAPP_OS_LINUX
+	struct timespec Deadline;
+
+	if (clock_gettime(CLOCK_MONOTONIC, &Deadline) != 0)
+		return -1;
+	Deadline.tv_sec += IAPP_TCP_FRAME_TIMEOUT_SEC;
+#else
 	time_t Deadline = time(NULL) + IAPP_TCP_FRAME_TIMEOUT_SEC;
+#endif
 
 	while (TotalRead < Capacity) {
+#ifdef IAPP_OS_LINUX
+		WaitStatus = IAPP_TCP_Wait(Socket, &Deadline, FALSE);
+#else
 		WaitStatus = IAPP_TCP_Wait(Socket, Deadline, FALSE);
+#endif
 		if (WaitStatus <= 0)
 			return -1;
 		BytesRead = read(Socket, Buffer + TotalRead, Capacity - TotalRead);
@@ -2255,7 +2288,11 @@ static INT32 IAPP_TCP_ReadFrame(INT32 Socket, UCHAR *Buffer, UINT32 Capacity)
 	}
 
 	/* The peer must close after this single frame; reject trailing bytes. */
+#ifdef IAPP_OS_LINUX
+	WaitStatus = IAPP_TCP_Wait(Socket, &Deadline, FALSE);
+#else
 	WaitStatus = IAPP_TCP_Wait(Socket, Deadline, FALSE);
+#endif
 	if (WaitStatus <= 0)
 		return -1;
 	do {
