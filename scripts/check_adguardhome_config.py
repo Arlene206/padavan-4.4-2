@@ -237,12 +237,15 @@ require('adg_process_state' in stop_daemon and 'adg_wait_status' in stop_daemon 
         'killall AdGuardHome' not in stop_daemon and
         'killall -9 AdGuardHome' not in stop_daemon,
         "daemon stop must revalidate PID/start_time before per-PID TERM/KILL and block escalation on UNKNOWN")
+stop_resolver_failure = stop.index('if ! del_dns; then')
+stop_firewall_restore = stop.index('if ! set_iptable; then', stop_resolver_failure)
+stop_daemon_gate = stop.index('if ! adg_stop_daemon; then')
 require('if ! clear_iptable; then' in stop and
-        'if ! del_dns; then' in stop and 'if ! adg_stop_daemon; then' in stop and
-        stop.index('if ! clear_iptable; then') < stop.index('if ! del_dns; then') <
-        stop.index('if ! adg_stop_daemon; then') < stop.index('return 0') and
+        'if ! del_dns; then' in stop and 'if ! set_iptable; then' in stop and
+        stop.index('if ! clear_iptable; then') < stop_resolver_failure <
+        stop_firewall_restore < stop_daemon_gate < stop.index('return 0') and
         'rm -rf' not in stop and 'ADG_WORKDIR' not in stop,
-        "stop must verify firewall cleanup and resolver reload before stopping daemon and removing its workdir")
+        "stop must restore DNS interception after resolver rollback failure and never stop the daemon before both checks pass")
 require('pidof AdGuardHome' in process_state and
         'adg_process_state' in stop_daemon and 'adg_process_state' in wait_stopped and
         'kill -TERM "$adg_stop_pid"' in stop_daemon and
@@ -299,7 +302,8 @@ require('adg_lifecycle_lock_prepare "$adg_lock_file"' in lock_run and
         'start|stop|restart' in lock_run,
         "all launcher service actions must pass through the same checked lock")
 post_launch_del_dns = start.index("if ! del_dns; then", start.index("if adg_wait_started; then"))
-post_launch_clear_iptable = start.index("if ! clear_iptable; then", post_launch_del_dns)
+post_launch_del_dns_else = start.index("else", post_launch_del_dns)
+post_launch_clear_iptable = start.index("if ! clear_iptable; then", post_launch_del_dns_else)
 require('( exec 9>&-; AdGuardHome -c "$adg_file" -w "$ADG_WORKDIR" -v ) &' in start and
         'eval "AdGuardHome -c $adg_file' not in start and
         "ADG_START_WAIT_ATTEMPTS=5" in script and
@@ -307,10 +311,14 @@ require('( exec 9>&-; AdGuardHome -c "$adg_file" -w "$ADG_WORKDIR" -v ) &' in st
         start.index(' ) &') < start.index("if adg_wait_started; then") and
         'logger -t "AdGuardHome" "启动后在限定时间内未检测到AdGuardHome进程' in start and
         start.index("if adg_wait_started; then") < post_launch_del_dns <
-        post_launch_clear_iptable and
+        post_launch_del_dns_else < post_launch_clear_iptable and
         'logger -t "AdGuardHome" "启动后无法确认AdGuardHome进程状态，保留DNS和防火墙配置"' in start and
         '/sbin/restart_dhcpd 9>&-' in script,
         "detached launch must verify RUNNING; roll back only confirmed ABSENT and preserve UNKNOWN state")
+require('TEST_ADG_DEL_DNS_FAIL=1' in test and
+        '[ "$(cat "$TEST_ADG_CLEANUP_LOG")" = del_dns ]' in test and
+        "set_iptable')" in test,
+        "rollback failures must preserve the DNS redirect rules and restore them after stop failure")
 require('case "$ADG_START_WAIT_ATTEMPTS" in' in wait_started and
         'while [ "$adg_start_wait" -lt "$ADG_START_WAIT_ATTEMPTS" ]; do' in wait_started and
         "adg_process_state" in wait_started and

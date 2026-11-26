@@ -627,10 +627,13 @@ start_adg(){
     1)
       logger -t "AdGuardHome" "启动后在限定时间内未检测到AdGuardHome进程，回滚DNS配置和防火墙规则"
       if ! del_dns; then
-        logger -t "AdGuardHome" "启动超时后的DNS配置回滚失败"
-      fi
-      if ! clear_iptable; then
-        logger -t "AdGuardHome" "启动超时后的防火墙回滚失败"
+        # Keep DNS interception in place when resolver rollback is unconfirmed.
+        # Removing it here would turn a failed startup into a DNS-policy bypass.
+        logger -t "AdGuardHome" "启动超时后的DNS配置回滚失败，保留防火墙拦截规则"
+      else
+        if ! clear_iptable; then
+          logger -t "AdGuardHome" "启动超时后的防火墙回滚失败"
+        fi
       fi
       ;;
     *)
@@ -934,6 +937,12 @@ stop_adg(){
   fi
   if ! del_dns; then
     logger -t "AdGuardHome" "DNSMasq配置或重载失败，保留AdGuardHome进程和工作目录"
+    # clear_iptable() already ran. Rebuild the policy before returning so a
+    # failed resolver transaction cannot leave the still-running service
+    # without its DNS interception rules.
+    if ! set_iptable; then
+      logger -t "AdGuardHome" "DNSMasq回滚失败后恢复DNS防火墙规则也失败"
+    fi
     return 1
   fi
   if ! adg_stop_daemon; then

@@ -750,7 +750,10 @@ clear_iptable() {
 echo running > "$TEST_ADG_STATE"
 getconfig() { echo getconfig >> "$TEST_ADG_EFFECTS_LOG"; return 0; }
 change_dns() { echo change_dns >> "$TEST_ADG_EFFECTS_LOG"; }
-set_iptable() { echo set_iptable >> "$TEST_ADG_EFFECTS_LOG"; }
+set_iptable() {
+	echo set_iptable >> "$TEST_ADG_CLEANUP_LOG"
+	[ "${TEST_ADG_SET_IPTABLE_FAIL:-0}" = 0 ]
+}
 
 # A symlinked persistent data directory must stop startup before traffic changes.
 (
@@ -959,7 +962,7 @@ TEST_ADG_DEL_DNS_FAIL=1
 if stop_adg; then
   fail "stop reported success after resolver removal failed"
 fi
-[ "$(cat "$TEST_ADG_CLEANUP_LOG")" = "$(printf 'clear_iptable\ndel_dns')" ] || fail "stop removed workdir or stopped the daemon after resolver failure"
+[ "$(cat "$TEST_ADG_CLEANUP_LOG")" = "$(printf 'clear_iptable\ndel_dns\nset_iptable')" ] || fail "resolver failure did not restore DNS interception before returning"
 [ ! -s "$TEST_ADG_KILL_LOG" ] || fail "stop signalled AdGuardHome before resolver removal was confirmed"
 [ "$(cat "$TEST_ADG_STATE")" = running ] || fail "resolver failure did not leave the daemon available"
 TEST_ADG_DEL_DNS_FAIL=0
@@ -1023,6 +1026,18 @@ fi
   grep -Fqx launch "$TEST_ADG_EFFECTS_LOG" || exit 1
   [ "$(cat "$TEST_ADG_CLEANUP_LOG")" = "$(printf 'del_dns\nclear_iptable')" ] || exit 1
   [ "$(wc -l < "$TEST_ADG_SLEEP_LOG" | tr -d ' ')" = "$((ADG_START_WAIT_ATTEMPTS - 1))" ] || exit 1
+
+  # If resolver rollback fails after a confirmed startup timeout, retain the
+  # redirect rules rather than allowing direct DNS to bypass AdGuard policy.
+  : > "$TEST_ADG_EFFECTS_LOG"
+  : > "$TEST_ADG_CLEANUP_LOG"
+  : > "$TEST_ADG_SLEEP_LOG"
+  echo stopped > "$TEST_ADG_STATE"
+  TEST_ADG_START_TRANSITION=
+  TEST_ADG_DEL_DNS_FAIL=1
+  if start_adg; then exit 1; fi
+  [ "$(cat "$TEST_ADG_CLEANUP_LOG")" = del_dns ] || exit 1
+  TEST_ADG_DEL_DNS_FAIL=0
 
   # UNKNOWN immediately after launch must fail closed without tearing down
   # DNS/firewall state that a possibly-running daemon may still need.
