@@ -408,6 +408,21 @@ assert "return;" in receive[datagram_check:option_parse]
 wan6 = read("trunk/user/rc/src/net_wan6.c")
 callback_test = read("trunk/user/rc/src/tests/dhcp6c_callback_generation.c")
 callback_policy = read("trunk/user/rc/src/dhcp6c_callback_generation_policy.h")
+wan_ifname_policy = read("trunk/user/rc/src/wan_ifname_policy.h")
+wan_ifname_test = read("trunk/user/rc/src/tests/wan_ifname_policy.c")
+start_dhcp6c = function_body(wan6, "int start_dhcp6c(char *wan_ifname)")
+assert '#include "wan_ifname_policy.h"' in wan6
+ifname_validate = start_dhcp6c.index(
+    "ifname_status = wan_ifname_copy(validated_ifname,"
+)
+ifname_bind = start_dhcp6c.index("wan_ifname = validated_ifname;", ifname_validate)
+config_emit = start_dhcp6c.index(
+    'fprintf(fp, "interface %s {\\n", wan_ifname);', ifname_bind
+)
+assert ifname_validate < ifname_bind < config_emit
+assert "test_empty_and_invalid_tokens_are_rejected" in wan_ifname_test
+assert '"eth0\\nrule"' in wan_ifname_test and '"eth#0"' in wan_ifname_test
+assert "token alphabet used by config files" in wan_ifname_policy
 stop_dhcp6c = function_body(wan6, "int stop_dhcp6c(void)")
 assert "stop_status = kill_services(svcs, 16, 0);" in stop_dhcp6c
 assert "stop_status = kill_services(svcs, 3, 1);" not in stop_dhcp6c
@@ -536,6 +551,8 @@ required_paths = (
     "trunk/user/rc/src/net_wan6.c",
     "trunk/user/rc/src/dhcp6c_callback_generation_policy.h",
     "trunk/user/rc/src/tests/dhcp6c_callback_generation.c",
+    "trunk/user/rc/src/wan_ifname_policy.h",
+    "trunk/user/rc/src/tests/wan_ifname_policy.c",
 )
 filters = workflow.split("jobs:", 1)[0]
 push, pull = filters.split("  pull_request:", 1)

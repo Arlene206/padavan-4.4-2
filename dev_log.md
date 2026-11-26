@@ -1,3 +1,9 @@
+## 2026-11-26 — Validate DHCPv6 interface tokens at config publication boundary
+
+- `start_dhcp6c()` wrote the supplied interface name directly into a DHCPv6 configuration-language statement (`interface %s {`). Its local precondition checked only nonempty/length, leaving the privileged config writer dependent on every caller having already enforced the safe token alphabet.
+- Reused `wan_ifname_copy()` at the writer boundary. The validated bounded copy replaces the incoming pointer before configuration flags are read, a session lock is acquired, or the staged config is written. Invalid whitespace, quotes, comment/directive punctuation and line breaks are rejected without touching the daemon/session.
+- Added source-order assertions and wired the existing GNU89 `wan_ifname_policy.c` adversarial token regression into the DHCPv6 IA workflow under ASan/UBSan. Exact-SHA workflow and XY-C1 Build/TRX/artifact checks are pending; no hardware validation is claimed.
+
 ## 2026-11-26 — Align detect_internet checker with WAN-up core wrapper split
 
 - Exact run #45831162388 on `80db7072a08e98b80a7e8290040d8d2e910aff65` passed the GNU89 ASan/UBSan signal, endpoint and NVRAM policy regressions, then failed in the final inline source contract at `body(wan, "wan_up_internal(")`.

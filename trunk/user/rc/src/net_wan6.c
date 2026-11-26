@@ -40,6 +40,7 @@
 #include "dhcp6c_config_file.h"
 #include "wan6_dns_policy.h"
 #include "wan6_address_policy.h"
+#include "wan_ifname_policy.h"
 #include "wan6_sixrd_prefix_policy.h"
 #include "wan6_sixrd_option_policy.h"
 #include "dhcp6c_callback_generation_policy.h"
@@ -2108,15 +2109,32 @@ int start_dhcp6c(char *wan_ifname)
 	unsigned int ia_id;
 	unsigned long generation;
 	unsigned char ea[ETHER_ADDR_LEN];
+	char validated_ifname[IFNAMSIZ];
+	int ifname_status;
 	const char *conf_file = "/etc/dhcp6c.conf";
 	const char *duid_file = "/tmp/dhcp6c_duid";
 	char staged_path[] = "/etc/.dhcp6c.conf.XXXXXX";
 	char generation_text[sizeof(unsigned long) * CHAR_BIT + 2];
 
-	if (!wan_ifname || !wan_ifname[0] || strlen(wan_ifname) >= IFNAMSIZ) {
+	if (!wan_ifname || !wan_ifname[0]) {
 		errno = EINVAL;
 		return -1;
 	}
+
+	/*
+	 * The interface name is emitted as a bare token in dhcp6c.conf. Validate
+	 * it at this writer boundary instead of relying solely on upstream callers.
+	 */
+	ifname_status = wan_ifname_copy(validated_ifname,
+					 sizeof(validated_ifname), wan_ifname);
+	if (ifname_status != 0) {
+		errno = ifname_status;
+		logmessage("DHCPv6 WAN Client",
+			   "refusing client startup for invalid interface token (status=%d)",
+			   ifname_status);
+		return -1;
+	}
+	wan_ifname = validated_ifname;
 
 	settings_status = wan6_read_dhcp_integer_snapshot(
 		setting_names, 3, setting_values);

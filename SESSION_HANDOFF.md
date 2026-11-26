@@ -3,7 +3,7 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development branch: `main` only.
-- Current `main` parent before the detect_internet checker correction: `4e9b81adb99cc6ba32428d6be5672a6c288b066a`. DHCP retry-marker production source remains `80db7072a08e98b80a7e8290040d8d2e910aff65`; the WAN initial-MTU contract is repaired at `14a0ec858738597e43febc08c10f2c7679d920c4`, and the USB modem checker correction is at `4e9b81adb99cc6ba32428d6be5672a6c288b066a>.
+- Current `main` parent before the DHCPv6 config-writer hardening: `00dd6ef26b8f0e76d49fcd63d24b4ad61eebeccf`. The latest confirmed production firmware baseline is `43ba9c6d0f5fd86bb94ad45a6cb8bf6b6ce3dfe1` (NVRAM rehash fix); the WAN/IPTV retry-marker fix is `80db7072a08e98b80a7e8290040d8d2e910aff65`. Checker/workflow descendants include WAN MTU `14a0ec8`, USB modem `4e9b81a`, detect_internet `c21826e`, and the later AdGuardHome rollback fix `00dd6ef`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; verified unchanged. PR #1 is closed and unmerged.
 - Bootstrap/protocol restoration was already completed. Do not repeat it. Do not reopen PR #1 or modify the frozen backup.
 - Use full multi-file Git trees and one atomic commit per logical task. Update `main` only with a non-forced expected-SHA compare-and-swap. Never force-push.
@@ -25,10 +25,7 @@
 
 ## Active task
 
-- Resolve the remaining detect_internet source-contract failure from exact SHA `80db7072a08e98b80a7e8290040d8d2e910aff65`. Run #45831162388 passed all three GNU89 ASan/UBSan policy binaries, then failed at the inline workflow checker because it looked for `notify_run_detect_internet(2)` inside the legacy `wan_up_internal()` wrapper. That call is now correctly in `wan_up_internal_with_route_status()`; the legacy wrapper delegates to the core with a NULL status pointer. The `net_wan.c` blob is unchanged between `80db707` and current main, so this is a stale checker, not a demonstrated production defect.
-- WAN initial-MTU checker is fixed and WAN route #45832732293 plus AI handoff #45832732309 PASS on `14a0ec858738597e43febc08c10f2c7679d920c4`. USB modem checker correction at `4e9b81adb99cc6ba32428d6be5672a6c288b066a` is validated by USB workflow #45832891378 PASS.
-- XY-C1 run #45832262776 on `144b109` completed host checks successfully, but Build XY-C1, TRX verification and artifact upload were SKIPPED by the firmware-input detector. This is not an L3 firmware build result. Production source baseline remains the marker-latch slice `80db707`.
-- This commit updates only the detect_internet workflow assertion to check the scoped WAN-up implementation and the retained compatibility wrapper. No production C changed.
+- Harden the DHCPv6 config writer: `start_dhcp6c()` interpolates a bare interface-name token into `/etc/dhcp6c.conf`; it now validates that token with the shared safe-name policy before reading settings, locking the callback session or emitting config. Source, checker, workflow filters and GNU89 adversarial-token test are committed atomically; inspect exact-SHA DHCPv6 IA and XY-C1 Actions before further changes.
 
 ## Verification boundary
 
@@ -56,9 +53,9 @@
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head push Actions for the detect_internet checker correction. Confirm the GNU89 sanitizer suites, WAN-up core/wrapper source contract, and AI handoff contract on that exact SHA.
-2. If detect_internet passes, continue the next independent high-priority stability/security defect across remaining Padavan userland; do not repeat the DHCP retry-marker, WAN MTU, USB modem, FTP, Inadyn, or BusyBox work.
-3. Keep the firmware boundary explicit: the latest XY-C1 run reported host-only validation with Build/TRX/artifact skipped; no current-source L3 or hardware/L4 claim. Pending unrelated Actions must not block independent work.
+1. Inspect exact-SHA DHCPv6 IA publication workflow for the config-writer token validation and adversarial GNU89 test; repair any regression/source-contract failure.
+2. Inspect XY-C1 Build XY-C1, TRX verification and artifact upload independently. The last confirmed full L3 build was run #45831671503 on production source baseline `43ba9c6` (artifact ID `15123331261`, SHA-256 `19dfd06a2ad7c6427a55e26505552a8a3bfbc6f6e1bff2259304426261f2bc9c`); checker-only descendants do not change that production source baseline.
+3. Continue the next independent stability/security issue across the remaining userland. Hardware/L4 remains NOT VERIFIED; PENDING Actions must not block independent work.
 
 ## Mandatory handoff checkpoint
 
