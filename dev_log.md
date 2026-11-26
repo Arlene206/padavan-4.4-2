@@ -4,6 +4,7 @@
 - Added boundary regression coverage: a 15-character interface name formats and parses successfully; a 16-character name is rejected. The existing WAN DHCP callback workflow already compiles this policy test under GNU89/`-Werror`/ASan/UBSan.
 - On parent `5bec4f752ac0961c823a2750da03d34a3da0789a`: WAN DHCP callback #45783956641 PASS, including all IPTV tests wired in the prior commit; Firewall Startup #45783956578, Process inventory #45783956580, Process fail-closed #45783956551, WAN route #45783956522 and NVRAM boundary #45783956493 PASS. AI handoff #45783956616 failed because the handoff omitted its mandatory checkpoint section; this commit restores that required contract. Exact rerun pending.
 - XY-C1 #45783956548 was host-only SUCCESS; Build XY-C1, TRX verification and artifact upload were SKIPPED. Product L3 baseline remains `dd2885fc9941d3a57fd9c81cf01ed86488b0183d` (same-SHA Build/TRX/artifact PASS); no physical L4 claim. No local checkout/full original C test run is claimed.
+- Governance follow-up: AI handoff run #45784673011 confirmed the first checkpoint wording was incomplete: the validator also requires the `# Cross-session execution mandate`, `one atomic main commit`, `Before context exhaustion` and `## Active task` markers. This corrective checkpoint adds them; the exact-head rerun is pending.
 - Parent main: `5bec4f752ac0961c823a2750da03d34a3da0789a`; resulting commit: THIS COMMIT.
 
 ---
