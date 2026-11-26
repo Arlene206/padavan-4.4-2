@@ -245,7 +245,10 @@ main(int argc, const char* argv[])
       tunable_chown_uploads = 0;
     }
   }
-  the_session.st_ftp_mode = asus_share_mode_read();
+  if (asus_share_mode_read(&the_session.st_ftp_mode) != 0)
+  {
+    die2("cannot read FTP share mode:", "st_ftp_mode");
+  }
   if (tunable_one_process_model)
   {
     vsf_one_process_start(&the_session);

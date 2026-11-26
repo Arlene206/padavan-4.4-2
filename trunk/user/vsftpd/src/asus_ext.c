@@ -5,6 +5,7 @@
 
 #include "asus_ext.h"
 #include "ftp_acl_path_policy.h"
+#include "ftp_share_mode_policy.h"
 #include "ftp_account_auth_policy.h"
 #include "session.h"
 #include "ls.h"
@@ -56,9 +57,26 @@ asus_account_auth_nvram_ops = {
 	asus_account_auth_nvram_end
 };
 
-int asus_share_mode_read(void)
+int
+asus_share_mode_read(int *mode)
 {
-	return nvram_get_int("st_ftp_mode");
+	char *value = NULL;
+	int read_status, saved_errno, status;
+
+	if (!mode) {
+		errno = EINVAL;
+		return -1;
+	}
+	errno = 0;
+	read_status = nvram_get_checked("st_ftp_mode", &value);
+	saved_errno = errno;
+	status = ftp_share_mode_read_status(read_status, saved_errno,
+					    value, mode);
+	if (status != 0) {
+		errno = status;
+		return -1;
+	}
+	return 0;
 }
 
 int test_if_dir_stat(const char *path)

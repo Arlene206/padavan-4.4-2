@@ -15,7 +15,7 @@ struct vsf_session;
 #define PERM_WRITE 2
 #define PERM_DELETE 3
 
-int asus_share_mode_read(void);
+int asus_share_mode_read(int *mode);
 int asus_check_permission(struct vsf_session* p_sess, int perm);
 int asus_check_permission_path(struct vsf_session* p_sess, int perm,
                                const struct mystr* p_path_str);

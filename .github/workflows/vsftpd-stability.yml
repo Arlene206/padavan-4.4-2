@@ -22,6 +22,8 @@ on:
       - "trunk/user/vsftpd/src/ftp_stou_collision_policy.h"
       - "trunk/user/vsftpd/src/ftp_account_auth_policy.h"
       - "trunk/user/vsftpd/src/tests/ftp_account_auth_policy.c"
+      - "trunk/user/vsftpd/src/ftp_share_mode_policy.h"
+      - "trunk/user/vsftpd/src/tests/ftp_share_mode_policy.c"
       - "trunk/user/vsftpd/src/tests/ftp_acl_path_policy.c"
       - "trunk/user/vsftpd/src/ftp_mdtm_policy.h"
       - "trunk/user/vsftpd/src/tests/ftp_mdtm_policy.c"
@@ -69,6 +71,8 @@ on:
       - "trunk/user/vsftpd/src/ftp_stou_collision_policy.h"
       - "trunk/user/vsftpd/src/ftp_account_auth_policy.h"
       - "trunk/user/vsftpd/src/tests/ftp_account_auth_policy.c"
+      - "trunk/user/vsftpd/src/ftp_share_mode_policy.h"
+      - "trunk/user/vsftpd/src/tests/ftp_share_mode_policy.c"
       - "trunk/user/vsftpd/src/tests/ftp_acl_path_policy.c"
       - "trunk/user/vsftpd/src/ftp_mdtm_policy.h"
       - "trunk/user/vsftpd/src/tests/ftp_mdtm_policy.c"
@@ -139,6 +143,11 @@ jobs:
             trunk/user/vsftpd/src/tests/ftp_account_auth_policy.c \
             -o /tmp/vsftpd-account-auth-policy
           ASAN_OPTIONS=detect_leaks=1 /tmp/vsftpd-account-auth-policy
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -iquote trunk/user/vsftpd/src \
+            trunk/user/vsftpd/src/tests/ftp_share_mode_policy.c \
+            -o /tmp/vsftpd-share-mode-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/vsftpd-share-mode-policy
           cc -std=gnu89 -Wall -Wextra -Werror -ffunction-sections -fdata-sections \
             -Wl,--gc-sections -iquote trunk/user/vsftpd/src \
             trunk/user/vsftpd/src/ipaddrparse.c \
@@ -211,6 +220,8 @@ jobs:
           acl_path_test = Path("trunk/user/vsftpd/src/tests/ftp_acl_path_policy.c").read_text()
           vsftpd_auth_policy = Path("trunk/user/vsftpd/src/ftp_account_auth_policy.h").read_text()
           vsftpd_auth_test = Path("trunk/user/vsftpd/src/tests/ftp_account_auth_policy.c").read_text()
+          vsftpd_share_mode_policy = Path("trunk/user/vsftpd/src/ftp_share_mode_policy.h").read_text()
+          vsftpd_share_mode_test = Path("trunk/user/vsftpd/src/tests/ftp_share_mode_policy.c").read_text()
 
           def function_body(text, signature):
               signature_has_open_brace = signature.rstrip().endswith("{")
@@ -239,6 +250,18 @@ jobs:
                       if depth == 0:
                           return text[brace + 1:pos]
               raise AssertionError(f"unterminated function: {signature}")
+
+          mode_reader = function_body(vsftpd_acl, "asus_share_mode_read(")
+          assert 'nvram_get_checked("st_ftp_mode", &value)' in mode_reader
+          assert "ftp_share_mode_read_status(read_status, saved_errno" in mode_reader
+          assert 'nvram_get_int("st_ftp_mode")' not in mode_reader
+          assert "ftp_share_mode_read_status" in vsftpd_share_mode_policy
+          assert '"1junk"' in vsftpd_share_mode_test
+          assert "EACCES" in vsftpd_share_mode_test and "ERANGE" in vsftpd_share_mode_test
+          assert "int asus_share_mode_read(int *mode);" in vsftpd_acl_header
+          assert "asus_share_mode_read(&the_session.st_ftp_mode)" in vsftpd_main
+          assert 'die2("cannot read FTP share mode:", "st_ftp_mode")' in vsftpd_main
+          assert vsftpd_main.index("asus_share_mode_read(&the_session.st_ftp_mode)") < vsftpd_main.index("vsf_one_process_start")
 
           prototype_fixture = "static int probe(void);\nstatic int probe(void) { return 1; }\n"
           assert "return 1;" in function_body(prototype_fixture, "probe(void)")
@@ -1284,6 +1307,8 @@ jobs:
               "trunk/user/vsftpd/src/tests/ftp_mdtm_policy.c",
               "trunk/user/vsftpd/src/ftp_account_auth_policy.h",
               "trunk/user/vsftpd/src/tests/ftp_account_auth_policy.c",
+              "trunk/user/vsftpd/src/ftp_share_mode_policy.h",
+              "trunk/user/vsftpd/src/tests/ftp_share_mode_policy.c",
           )
           filters = workflow.split("jobs:", 1)[0]
           push_filters, pr_filters = filters.split("  pull_request:", 1)
