@@ -1,3 +1,10 @@
+## 2026-11-26 — Export Adbyby post-state fixture controls to executable wrappers
+
+- Exact Adbyby run #45765982057 on `bd439e46fab885c84a4629088ae8e3efe27a1c49` passed shell syntax and the prior download/lifecycle suites, then the first idempotent teardown case reported failure. The new state controls were assigned as shell variables but were not exported to the PATH-injected `iptables-save` and `ipset` child scripts, so they fell back to the initial stale-state fixture instead of emitting the intended confirmed-absent state.
+- Exported both fixture controls once; subsequent assignments inherit the export attribute and select the requested absent/stale/error output modes. No production code changed in this harness correction. Exact Adbyby rerun pending.
+
+---
+
 ## 2026-11-26 — Fix Adbyby firewall teardown regression harness POSIX syntax
 
 - The first exact Adbyby run #45765657822 on `d9d2b515bbb59285130c2d1a1431a80148ea1676` passed the preceding shell syntax, host, lifecycle, process-stop and download regressions, then `firewall_snapshot.sh` stopped at line 190 with `Syntax error: Bad function name`. The fixture attempted to define an `iptables-save()` shell function, but the hyphen is not permitted in a POSIX function name.

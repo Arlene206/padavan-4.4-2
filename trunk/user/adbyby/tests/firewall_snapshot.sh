@@ -212,6 +212,7 @@ echo "Adbyby private firewall snapshot staging and stale-state cleanup regressio
 adbyby_remove_rule_snapshot() { return 0; }
 ADBYBY_TEST_FW_POST=absent
 ADBYBY_TEST_IPSET_POST=absent
+export ADBYBY_TEST_FW_POST ADBYBY_TEST_IPSET_POST
 
 : > "$TEST_COMMAND_LOG"
 : > "$TEST_IPSET_LOG"
