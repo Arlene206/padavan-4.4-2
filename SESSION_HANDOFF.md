@@ -23,6 +23,13 @@
 - Intermediate parent `f55521e7bc74691d18d4a6f62a6f9e326730b970`: DHCPv6 IA #45788409998 PASS; DHCPv6 script retry #45788410243 PASS; HTTPD #45788410121 PASS; AI #45788410109 PASS; Process #45788410216 PASS; NVRAM #45788410050 PASS; USB storage #45788410075 PASS. XY-C1 #45788410074 is still in progress with Build XY-C1 running; TRX and artifact steps are pending.
 - These results are parent-SHA facts only. Hardware remains untested; exact-SHA CI must validate the shutdown commit.
 
+## 2026-11-26 validation update — shutdown drain source contract PASS
+
+- Exact SHA `78205c10fb71cfb962917e65261fa499c0548573`: DHCPv6 IA workflow #45790398561 PASS. The GNU89/`-Werror`/ASan/UBSan compile-and-run step and the complete `scripts/check_dhcp6c_ia_publication.py` source contract both passed. AI handoff workflow #45790398455 PASS.
+- Exact SHA `48bec7b6ac28ea93394467d6814023884eadfa1c`: WAN DHCP callback workflow #45790261953 PASS after inline stop-order checks were updated for the 16-second non-forced shutdown contract.
+- Product firmware source SHA `a0fa423d528aee7d36bf06f79b0a28dc1c736fa5`: XY-C1 run #45789833788 remains in progress at `Build XY-C1`; TRX verification and artifact upload are pending. Later commits adjusted only checker/workflow/handoff material, not product firmware source. L3 is not yet verified.
+- Hardware L4 remains NOT VERIFIED.
+
 ## Verification boundary
 
 - Parent `89b80f1505508bb8ae96466cfe5d0c7587a6be67`: all 11 exact-SHA Actions PASS. WAN DHCP #45785983731, WAN route #45785983765, DHCPv6 IA #45785983610, AI #45785983636, HTTPD #45785983585, NVRAM #45785983758, process #45785983770, 6rd #45785983604, service type #45785983716, WAN DNS #45785983910 and XY-C1 #45785983682. XY Build, TRX verification and artifact upload all PASS; artifact #15101485510 (12,823,157 bytes). This is the last confirmed product-source L3 baseline.
@@ -32,9 +39,9 @@
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect exact-head DHCPv6 IA, WAN DHCP callback, Process, AI and XY-C1 workflows for the shutdown-drain commit. Confirm the C policy test and Python source checker pass.
-2. For the same product-source SHA, require `Build XY-C1`, `Verify TRX output` and artifact upload all PASS before advancing L3. A cleanup timeout must leave the daemon alive and normal stop must not advance callback generation; do not force-kill it.
-3. Continue the remaining DHCPv6 state-machine/callback live-transition audit after the shutdown drain is validated. Hardware L4 remains NOT VERIFIED.
+1. Fetch live `main`; confirm exact-head DHCPv6 IA and AI workflow results for `78205c1`, and inspect WAN DHCP #45790261953 PASS from `48bec7b` (same product source; workflow contract tested there).
+2. Inspect XY-C1 #45789833788 on product-source SHA `a0fa423`: require `Build XY-C1`, `Verify TRX output` and artifact upload all PASS before L3. Persistent cleanup failure must not force-kill `dhcp6c`; normal stop must not advance callback generation on timeout.
+3. Continue the remaining DHCPv6 state-machine/callback live-transition audit after shutdown draining is validated. Hardware L4 remains NOT VERIFIED.
 
 ## Mandatory handoff checkpoint
 

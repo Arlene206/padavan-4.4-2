@@ -1,3 +1,12 @@
+## 2026-11-26 — Exact-SHA DHCPv6 shutdown policy and source contract PASS
+
+- DHCPv6 IA workflow #45790398561 on exact source/checker SHA `78205c10fb71cfb962917e65261fa499c0548573` PASSed: all GNU89/`-Werror`/ASan/UBSan C policy regressions and the complete Python source contract passed. AI handoff workflow #45790398455 also PASSed.
+- WAN DHCP callback workflow #45790261953 on exact workflow/source SHA `48bec7b6ac28ea93394467d6814023884eadfa1c` PASSed after inline lock-order assertions were updated for the intentional 16-second non-forced client stop.
+- XY-C1 firmware run #45789833788 remains in progress on product-source SHA `a0fa423d528aee7d36bf06f79b0a28dc1c736fa5`: Build is running; TRX verification and artifact upload are pending. Hardware L4 is not tested.
+- Main parent for this handoff-only update: `78205c10fb71cfb962917e65261fa499c0548573`.
+
+---
+
 ## 2026-11-26 — Update remaining DHCPv6 stop-fencing source assertion
 
 - The #8d2bf19 DHCPv6 IA rerun passed all C policy binaries but the Python checker still contained an older callback-stop assertion searching for `stop_status = kill_services(svcs, 3, 1);`. The new non-forced 16-second stop made that substring stale; it failed with `ValueError: substring not found` before subsequent source checks.
