@@ -108,8 +108,75 @@ dnsmasq_file_open(char *path)
 	return dnsmasq_file_open_with_ops(path, fdopen, close, unlink);
 }
 
-/* Flush/close the staged file before atomically replacing the published path.
- * rename() replaces a destination symlink itself; it never follows its target. */
+/* Flush, fsync and close the staged file before atomically replacing it. */
+/*
+ * Keep the complete replacement durable across a sudden power loss. Directory
+ * opens are deliberately no-follow: a planted final-component symlink must
+ * not redirect the durability barrier to an unrelated directory.
+ */
+#define DNSMASQ_FILE_PATH_MAX 512
+
+static inline int
+dnsmasq_file_sync_directory(const char *directory)
+{
+	int fd, flags = O_RDONLY, saved_errno;
+
+	if (!directory || !directory[0]) {
+		errno = EINVAL;
+		return -1;
+	}
+#if !defined(O_DIRECTORY) || !defined(O_NOFOLLOW)
+	errno = ENOTSUP;
+	return -1;
+#else
+	flags |= O_DIRECTORY | O_NOFOLLOW;
+#endif
+	fd = open(directory, flags);
+	if (fd < 0)
+		return -1;
+	if (fsync(fd) != 0) {
+		saved_errno = errno ? errno : EIO;
+		close(fd);
+		errno = saved_errno;
+		return -1;
+	}
+	if (close(fd) != 0)
+		return -1;
+	errno = 0;
+	return 0;
+}
+
+/* Sync the directory entry containing a file path (including relative paths). */
+static inline int
+dnsmasq_file_sync_parent(const char *path)
+{
+	char parent[DNSMASQ_FILE_PATH_MAX];
+	char *slash;
+	size_t path_length;
+
+	if (!path || !path[0]) {
+		errno = EINVAL;
+		return -1;
+	}
+	path_length = strlen(path);
+	if (path_length >= sizeof(parent)) {
+		errno = ENAMETOOLONG;
+		return -1;
+	}
+	memcpy(parent, path, path_length + 1);
+	slash = strrchr(parent, '/');
+	if (!slash) {
+		parent[0] = '.';
+		parent[1] = '\0';
+	} else if (slash == parent) {
+		slash[1] = '\0';
+	} else {
+		*slash = '\0';
+	}
+	return dnsmasq_file_sync_directory(parent);
+}
+
+/* rename() replaces a destination symlink itself; it never follows its target. */
 static int
 dnsmasq_file_publish(FILE *fp, char *path, const char *destination, mode_t mode)
 {
@@ -138,6 +205,11 @@ dnsmasq_file_publish(FILE *fp, char *path, const char *destination, mode_t mode)
 		failed = 1;
 		saved_errno = errno ? errno : EIO;
 	}
+	/* Flush data and the selected mode before the atomic name replacement. */
+	if (!failed && fsync(fileno(fp)) != 0) {
+		failed = 1;
+		saved_errno = errno ? errno : EIO;
+	}
 	if (fclose(fp) != 0) {
 		if (!saved_errno)
 			saved_errno = errno ? errno : EIO;
@@ -157,7 +229,22 @@ dnsmasq_file_publish(FILE *fp, char *path, const char *destination, mode_t mode)
 		return -1;
 	}
 
+	/*
+	 * The rename is already visible. A failed directory fsync means its
+	 * durability is uncertain, not that the old destination was restored.
+	 * Try both parents (rename may span directories on the same filesystem)
+	 * and always clear the consumed stage pathname.
+	 */
+	saved_errno = 0;
+	if (dnsmasq_file_sync_parent(destination) != 0)
+		saved_errno = errno ? errno : EIO;
+	if (dnsmasq_file_sync_parent(path) != 0 && !saved_errno)
+		saved_errno = errno ? errno : EIO;
 	path[0] = '\0';
+	if (saved_errno) {
+		errno = saved_errno;
+		return -1;
+	}
 	return 0;
 }
 

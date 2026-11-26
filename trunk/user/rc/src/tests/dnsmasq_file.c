@@ -297,6 +297,45 @@ test_xupnpd_pair_preserves_modes_and_rolls_back(void)
 	return 0;
 }
 
+static void
+test_dnsmasq_file_directory_sync_helpers(const char *directory)
+{
+	char regular[256], directory_link[256], linked_child[320];
+	char missing_child[320];
+	FILE *fp;
+
+	assert(dnsmasq_file_sync_directory(directory) == 0);
+	assert(dnsmasq_file_sync_parent(directory) == 0);
+
+	assert(snprintf(regular, sizeof(regular), "%s/sync-file", directory) > 0);
+	fp = fopen(regular, "w");
+	assert(fp != NULL);
+	assert(fputs("sync-parent\n", fp) >= 0);
+	assert(fclose(fp) == 0);
+	assert(dnsmasq_file_sync_parent(regular) == 0);
+	errno = 0;
+	assert(dnsmasq_file_sync_directory(regular) == -1);
+	assert(errno == ENOTDIR || errno == EINVAL);
+
+	assert(snprintf(directory_link, sizeof(directory_link),
+			"%s/sync-directory-link", directory) > 0);
+	assert(symlink(directory, directory_link) == 0);
+	assert(snprintf(linked_child, sizeof(linked_child),
+			"%s/child", directory_link) > 0);
+	errno = 0;
+	assert(dnsmasq_file_sync_parent(linked_child) == -1);
+	assert(errno == ELOOP || errno == ENOTDIR);
+
+	assert(snprintf(missing_child, sizeof(missing_child),
+			"%s/missing/child", directory) > 0);
+	errno = 0;
+	assert(dnsmasq_file_sync_parent(missing_child) == -1);
+	assert(errno == ENOENT);
+
+	assert(unlink(directory_link) == 0);
+	assert(unlink(regular) == 0);
+}
+
 int
 main(void)
 {
@@ -350,6 +389,7 @@ main(void)
 					 DNSMASQ_DHCP_FEATURE_RA));
 
 	assert(mkdtemp(directory) != NULL);
+	test_dnsmasq_file_directory_sync_helpers(directory);
 	test_snapshot_set_restore_and_commit(directory);
 	test_open_failure_retains_path_for_retry(directory);
 	test_discard_retries_interrupted_unlink();

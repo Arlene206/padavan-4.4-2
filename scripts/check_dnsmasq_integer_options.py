@@ -214,3 +214,30 @@ for marker in (
     assert marker in TEST and marker + "();" in TEST, marker
 
 print("DNSMasq checked DHCP integer options, bounded MAC validation and fail-closed static-host NVRAM snapshots: PASS")
+
+# Atomic DNSMasq publication must persist the staged inode and both rename
+# directory entries; otherwise power loss can lose a just-published config.
+dnsmasq_file_helper = (ROOT / "trunk/user/rc/src/dnsmasq_file.h").read_text()
+dnsmasq_file_test = (ROOT / "trunk/user/rc/src/tests/dnsmasq_file.c").read_text()
+sync_directory = function_body(
+    dnsmasq_file_helper, "dnsmasq_file_sync_directory(const char *directory)")
+sync_parent = function_body(
+    dnsmasq_file_helper, "dnsmasq_file_sync_parent(const char *path)")
+publish = function_body(
+    dnsmasq_file_helper, "dnsmasq_file_publish(FILE *fp, char *path")
+assert "O_DIRECTORY | O_NOFOLLOW" in sync_directory
+assert sync_directory.index("fsync(fd)") < sync_directory.index("close(fd)")
+assert "strrchr(parent, '/')" in sync_parent
+assert "dnsmasq_file_sync_directory(parent)" in sync_parent
+assert publish.index("fflush(fp)") < publish.index("fchmod(fileno(fp), mode)")
+assert publish.index("fchmod(fileno(fp), mode)") < publish.index("fsync(fileno(fp))")
+assert publish.index("fsync(fileno(fp))") < publish.index("fclose(fp)")
+assert publish.index("fclose(fp)") < publish.index("rename(path, destination)")
+assert publish.index("rename(path, destination)") < publish.index(
+    "dnsmasq_file_sync_parent(destination)")
+assert publish.index("dnsmasq_file_sync_parent(destination)") < publish.index(
+    "dnsmasq_file_sync_parent(path)")
+assert "test_dnsmasq_file_directory_sync_helpers" in dnsmasq_file_test
+assert dnsmasq_file_test.index("test_dnsmasq_file_directory_sync_helpers(directory)") > dnsmasq_file_test.index(
+    "assert(mkdtemp(directory) != NULL)")
+print("DNSMasq staged publication file and directory durability contract: PASS")
