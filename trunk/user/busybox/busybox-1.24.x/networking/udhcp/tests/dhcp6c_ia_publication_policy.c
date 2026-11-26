@@ -112,8 +112,8 @@ remove_targets(struct fake_remove_target *targets, size_t count)
 			continue;
 		++targets[i].attempts;
 		if (!dhcp6c_ia_ifaddr_change_complete(0, targets[i].error, 1)) {
-			if (first_error == 0)
-				first_error = targets[i].error ? targets[i].error : EIO;
+			first_error = dhcp6c_ia_first_error(
+				first_error, targets[i].error ? targets[i].error : EIO);
 			continue;
 		}
 		targets[i].pending = 0;
@@ -141,6 +141,21 @@ test_failed_address_removal_is_retained_and_retried(void)
 	assert(remove_targets(targets, sizeof(targets) / sizeof(targets[0])) == 0);
 	assert(targets[0].attempts == 1 && targets[1].attempts == 2);
 	assert(targets[2].attempts == 1);
+}
+
+static void
+test_multiple_pd_cleanup_failures_preserve_first_error(void)
+{
+	struct fake_remove_target targets[] = {
+		{ 1, EBUSY, 0 },
+		{ 1, EINVAL, 0 },
+		{ 1, EIO, 0 }
+	};
+
+	assert(remove_targets(targets, sizeof(targets) / sizeof(targets[0])) == EBUSY);
+	assert(targets[0].attempts == 1 && targets[0].pending);
+	assert(targets[1].attempts == 1 && targets[1].pending);
+	assert(targets[2].attempts == 1 && targets[2].pending);
 }
 
 static void
@@ -244,6 +259,7 @@ main(void)
 	test_preferred_lifetime_uses_monotonic_elapsed_time();
 	test_prefix_expiry_is_required_for_finite_lifetimes();
 	test_failed_address_removal_is_retained_and_retried();
+	test_multiple_pd_cleanup_failures_preserve_first_error();
 	test_address_change_absent_and_duplicate_errors();
 	test_unowned_ia_na_collision_is_never_claimed_or_removed();
 	test_owned_ia_na_address_can_be_reconciled_and_removed();

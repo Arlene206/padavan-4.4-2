@@ -1,3 +1,12 @@
+## 2026-11-26 — Preserve first error across DHCPv6 delegated-prefix cleanup
+
+- `remove_iaprefix()` iterates every delegated downstream interface and correctly attempts all removals, retaining failed entries for retry. However, each failed `ifaddrconf(IFADDRCONF_REMOVE)` overwrote `ret`; multiple failures therefore returned the last errno, contrary to the existing first-error aggregation policy used elsewhere in DHCPv6 IA.
+- Routed each failed delete through `dhcp6c_ia_first_error()`, without changing retry or per-interface cleanup behavior. The host regression now drives three independent failed downstream deletions (`EBUSY`, `EINVAL`, `EIO`) and proves that all are attempted, all remain pending, and the first error is returned. The Python source contract pins the production call and the new regression.
+- The existing DHCPv6 IA workflow compiles this test with GNU89/`-Werror`/ASan/UBSan and runs the source checker; exact new-SHA results are pending until Actions conclude.
+- Parent main: `21d71c59e186de568492b0f31e4518396ed63b35`; resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-26 — Skip empty requested interfaces during WAN IPv6 teardown
 
 - `stop_wan_locked()` deliberately accepts an empty optional `ifname` (manual interface) and still calls `wan6_down(man_ifname, unit)`. When the saved runtime `ifname6` is live, teardown selection correctly chooses it, but `wan6_down()` also unconditionally called `control_if_ipv6_radv("")` and `control_if_ipv6_autoconf("")`. Those helpers reach `set_interface_conf_int()`, whose safe-path-component validation rejects an empty interface name with `EINVAL`; that spurious first error then retained IPv6 metadata and aborted WAN teardown even though the actual saved interface could be cleaned.

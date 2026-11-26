@@ -249,7 +249,9 @@ assert "script_status = dhcp6_script(" in reply
 
 remove_prefix = function_body(ia, "static int remove_iaprefix(struct iaprefix *sp, int type)")
 assert "TAILQ_NEXT(ip, plink)" in remove_prefix
-assert "ret = errno > 0 ? errno : EIO;" in remove_prefix
+assert "ret = dhcp6c_ia_first_error(" in remove_prefix
+assert "ret, errno > 0 ? errno : EIO" in remove_prefix
+assert "test_multiple_pd_cleanup_failures_preserve_first_error" in test
 assert "goto retry;" in remove_prefix
 assert "dhcp6_timer_add(iapref_timo, sp)" in remove_prefix
 assert "dhcp6_timer_set(DHCP6C_IA_CLEANUP_RETRY_DELAY_MS, sp->timer)" in remove_prefix

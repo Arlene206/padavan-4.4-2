@@ -778,7 +778,8 @@ static int remove_iaprefix(struct iaprefix *sp, int type)
 			if (ifaddrconf(IFADDRCONF_REMOVE, ip->ifconf->ifname,
 				       &ip->ifaddr, ip->plen,
 				       DHCP6_DURATION_INFINITE, DHCP6_DURATION_INFINITE, 1) != 0) {
-				ret = errno > 0 ? errno : EIO;
+				ret = dhcp6c_ia_first_error(
+					ret, errno > 0 ? errno : EIO);
 				continue;
 			}
 			TAILQ_REMOVE(&sp->u.ifprefix_list, ip, plink);
