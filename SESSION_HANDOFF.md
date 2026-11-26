@@ -10,10 +10,8 @@
 
 ## Active task
 
-- Exact-head MiniUPnP HTTP request-framing workflow #45774933814 failed only in its source-contract checker: `Makefile.linux` is listed twice in both push and pull_request path filters, while the checker requires exactly one entry. Both GNU89 sanitizer regressions (HTTP framing and XML boundary) ran before the checker step.
-- The correction removes the duplicate trigger entry from each path filter. Fetch live main and inspect new exact-SHA MiniUPnP, Process inventory, AI handoff and XY-C1 Build/TRX/artifact runs.
-- Continue the prepared SmartDNS NVRAM-to-config input-validation fix after the MiniUPnP correction is verified. That slice also corrects the secondary SmartDNS TCP-bind variable mismatch: the NVRAM reader populates `sdnse_tcp`, while the writer previously tested unset `sdnse_tcp_server`.
-
+- Fix SmartDNS secondary-listener NVRAM-to-config handling. The runtime snapshot loads `sdnse_tcp`, but `Get_sdnse_conf()` used the unrelated unset `sdnse_tcp_server`, so the secondary TCP bind could never reliably be enabled.
+- Validate the secondary enabled/TCP/feature selectors, normalize its port (1–65535), and reject unsafe group tokens before writing any directive. Extend the existing shell regression and exact source-contract checker; verify DNSMasq lifecycle, Process inventory, AI handoff, NVRAM and XY-C1 Actions for the exact new SHA.
 
 ## Completed source slice
 
@@ -44,9 +42,9 @@ s inventory #45772642896 PASS and AI handoff #45772642788 PASS on 93ec42b2b3927a
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and inspect the exact-SHA MiniUPnP HTTP/XML parser regression, AI handoff, Process inventory and XY-C1 Build/TRX/artifact Actions for the parser-boundary commit. Diagnose any failure from the job log; do not weaken exact-size boundary tests.
-2. Close XY-C1 #45773717864 on IAPP SHA 3bb7d977b30525c202009630892ea0afa94a0d9a; its IAPP lifecycle, NVRAM, Process and AI handoff runs already pass. Do not repeat those source audits.
-3. Continue an independent Padavan userland stability/security source fix after CI is inspected; do not repeat bootstrap, Entware or legacy-ipkg audits.
+1. Fetch live main and inspect exact-SHA DNSMasq lifecycle (including the SmartDNS config regression/static checker), AI handoff, Process inventory, NVRAM transaction audit and XY-C1 Build/TRX/artifact Actions for the SmartDNS secondary-listener validation commit. Diagnose failed logs and fix.
+2. Close XY-C1 #45774933963 for MiniUPnP source SHA af75c28bd1395194b9fdf088ad56caaab3d2adde if still active; its Process, AI handoff, NVRAM and SmartDNS config regression checks passed. The newer main SHA 588beb5d574127fd4d0027559d9c8cb97e75af3d has MiniUPnP HTTP stability and AI handoff PASS.
+3. Continue an independent Padavan userland stability/security fix; do not repeat startup/bootstrap or completed Entware, legacy-ipkg and IAPP source audits.
 
 # Cross-session execution mandate
 

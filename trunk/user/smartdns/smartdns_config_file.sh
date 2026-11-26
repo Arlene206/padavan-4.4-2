@@ -1,6 +1,20 @@
 #!/bin/sh
 # Publish a de-duplicated SmartDNS configuration without truncating the
 # active file until the complete replacement has been written successfully.
+# Validate a single SmartDNS config argument. Preserve printable UTF-8
+# labels, but reject token separators, escapes, comments and control bytes.
+smartdns_config_token_valid()
+{
+	[ "$#" -eq 1 ] || return 2
+	[ -n "$1" ] || return 1
+	case "$1" in
+		*[[:space:]]*|*[[:cntrl:]]*|*'#'*|*';'*|*'='*|*'\'*|*'"'*|*"'"*)
+			return 1
+			;;
+	esac
+	return 0
+}
+
 smartdns_config_publish_deduplicated()
 {
 	[ "$#" -eq 2 ] || return 2

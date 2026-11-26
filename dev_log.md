@@ -1,3 +1,12 @@
+## 2026-11-26 — Validate SmartDNS secondary listener settings before generating config
+
+- The runtime NVRAM snapshot reads `sdnse_tcp`, but `Get_sdnse_conf()` tested `sdnse_tcp_server`, an unset/different variable. Enabling the secondary TCP listener in NVRAM therefore failed to emit its `bind-tcp` directive.
+- Switched the writer to the snapshotted `sdnse_tcp` selector and fail-closed validation for enable/TCP/feature flags; normalize the secondary port through the shared 1–65535 port policy and reject whitespace/control/config-delimiter bytes in the optional group token before writing either listener directive.
+- Extended the existing SmartDNS config regression with a positive NVRAM-to-TCP-bind case, port normalization, malformed port/selector/newline-token rejection-before-write, and retained injected UDP/TCP write-failure tests. Extended the static source contract checker. Exact-head tests pending after publication; no router runtime claim.
+- Parent main: `588beb5d574127fd4d0027559d9c8cb97e75af3d`.
+
+---
+
 ## 2026-11-26 — Remove duplicate MiniUPnP CI path-filter entry
 
 - Exact-head MiniUPnP request-framing run #45774933814 on `af75c28bd1395194b9fdf088ad56caaab3d2adde` passed both GNU89 sanitizer regressions (bounded HTTP framing and XML parser boundaries) and failed only in `scripts/check_miniupnpd_http_request.py`: `Makefile.linux` appeared twice in both push and pull_request `paths` sections, contrary to the checker’s exact-one contract.

@@ -326,6 +326,23 @@ config_file = (root / "trunk/user/smartdns/smartdns_config_file.sh").read_text()
 config_file_test = (root / "trunk/user/smartdns/tests/smartdns_config_file.sh").read_text()
 config_publish = body(config_file, "smartdns_config_publish_deduplicated")
 secondary_bind = body(smartdns, "Get_sdnse_conf")
+
+assert 'smartdns_nvram_read_checked sdnse_tcp || return $?' in body(smartdns, "smartdns_load_runtime_nvram_state")
+assert 'case "${sdnse_tcp:-}" in' in secondary_bind
+assert 'if [ "$sdnse_tcp" = "1" ]' in secondary_bind
+assert 'sdnse_tcp_server' not in secondary_bind
+assert 'smartdns_dnsmasq_normalize_port "${sdnse_port:-}"' in secondary_bind
+assert 'smartdns_config_token_valid "$sdnse_name"' in secondary_bind
+assert 'smartdns_config_token_valid()' in config_file
+assert "sdnse_tcp=1" in config_file_test and "sdnse_tcp_server=0" in config_file_test
+for token in (
+    "secondary listener uses checked sdnse_tcp NVRAM and normalized port",
+    "invalid secondary selectors, ports and group tokens fail before config writes",
+    "secondary UDP bind write failure propagates with TCP binding disabled",
+    "secondary TCP bind failure propagates without a false directive",
+):
+    assert token in config_file_test, token
+
 config_generator = body(smartdns, "Get_sdns_conf")
 assert secondary_bind.count('>> "$smartdns_tmp_Conf" || return $?') == 2
 assert "Get_sdnse_conf || return $?" in config_generator

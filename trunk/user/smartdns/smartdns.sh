@@ -486,14 +486,39 @@ Get_sdns_conf () {
 }
 
 Get_sdnse_conf () {
-    # 【读取第二服务器设置】
-    if [ "$sdnse_enable" -eq 1 ] ; then
+    # The NVRAM snapshot is the source of truth; validate before writing
+    # anything so malformed values cannot inject additional SmartDNS options.
+    case "${sdnse_enable:-}" in
+        1) ;;
+        ''|0) return 0 ;;
+        *) return 1 ;;
+    esac
+
+    case "${sdnse_tcp:-}" in
+        ''|0|1) ;;
+        *) return 1 ;;
+    esac
+    for smartdns_secondary_flag in \
+        "${sdnse_speed:-}" "${sdnse_address:-}" "${sdnse_ns:-}" \
+        "${sdnse_ipset:-}" "${sdnse_as:-}" "${sdnse_ipc:-}" \
+        "${sdnse_cache:-}" "${sdnse_ipv6_server:-}"; do
+        case "$smartdns_secondary_flag" in
+            ''|0|1) ;;
+            *) return 1 ;;
+        esac
+    done
+
+    sdnse_port=$(smartdns_dnsmasq_normalize_port "${sdnse_port:-}") || return $?
+    if [ -n "${sdnse_name:-}" ]; then
+        smartdns_config_token_valid "$sdnse_name" || return $?
+    fi
+
     ARGS_2=""
     ADDR=""
     if [ "$sdnse_speed" = "1" ] ; then
         ARGS_2="$ARGS_2 -no-speed-check"
     fi
-    if [ -n "$sdnse_name" ] ; then
+    if [ -n "${sdnse_name:-}" ] ; then
         ARGS_2="$ARGS_2-group $sdnse_name"
     fi
     if [ "$sdnse_address" = "1" ] ; then
@@ -516,14 +541,11 @@ Get_sdnse_conf () {
     fi
     if [ "$sdnse_ipv6_server" = "1" ] ; then
         ADDR="[::]"
-    else
-        ADDR=""
     fi
     printf '%s\n' "bind $ADDR:$sdnse_port $ARGS_2" >> "$smartdns_tmp_Conf" || return $?
-    if [ "$sdnse_tcp_server" = "1" ] ; then
+    if [ "$sdnse_tcp" = "1" ] ; then
         printf '%s\n' "bind-tcp $ADDR:$sdnse_port $ARGS_2" >> "$smartdns_tmp_Conf" || return $?
     fi
-fi
 }
 
 Check_ip_addr () {

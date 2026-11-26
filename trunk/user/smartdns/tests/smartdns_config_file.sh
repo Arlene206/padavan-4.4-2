@@ -2,6 +2,7 @@
 set -eu
 HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 . "$HERE/../smartdns_config_file.sh"
+. "$HERE/../smartdns_dnsmasq_config.sh"
 T=$(mktemp -d "${TMPDIR:-/tmp}/smartdns-config-file.XXXXXX")
 trap 'rm -rf "$T"' 0
 trap 'exit 1' HUP INT TERM
@@ -74,11 +75,11 @@ if Get_sdns_conf; then fail "base config generator ignored /dev/full"; else stat
 [ "$status" -ne 0 ] || fail "base config /dev/full failure returned success"
 pass "base config generator rejects an unwritable staged file"
 
-# A secondary listener write error must be visible even when TCP binding is
-# disabled (the false conditional used to mask the failed first write).
+# The runtime NVRAM key is sdnse_tcp. A leading-zero port is normalized
+# before either listener directive is emitted.
 sdnse_enable=1
 sdnse_speed=0
-sdnse_name=
+sdnse_name=secondary_group
 sdnse_address=0
 sdnse_ns=0
 sdnse_ipset=0
@@ -86,18 +87,66 @@ sdnse_as=0
 sdnse_ipc=0
 sdnse_cache=0
 sdnse_ipv6_server=0
+sdnse_tcp=1
 sdnse_tcp_server=0
+sdnse_port=05335
+smartdns_tmp_Conf="$T/secondary-valid.conf"
+: > "$smartdns_tmp_Conf"
+Get_sdnse_conf || fail "valid secondary listener config was rejected"
+grep -Fqx 'bind :5335 -group secondary_group' "$smartdns_tmp_Conf" ||
+    fail "secondary UDP bind did not normalize port and group"
+grep -Fqx 'bind-tcp :5335 -group secondary_group' "$smartdns_tmp_Conf" ||
+    fail "sdnse_tcp=1 did not generate the secondary TCP listener"
+pass "secondary listener uses checked sdnse_tcp NVRAM and normalized port"
+
+# Invalid values are rejected before the first directive reaches the staged file.
+expect_secondary_rejection()
+{
+    secondary_case=$1
+    smartdns_tmp_Conf="$T/rejected-secondary.conf"
+    : > "$smartdns_tmp_Conf"
+    if Get_sdnse_conf; then
+        fail "invalid secondary config was accepted: $secondary_case"
+    else
+        status=$?
+    fi
+    [ "$status" -ne 0 ] || fail "invalid secondary config returned success: $secondary_case"
+    [ ! -s "$smartdns_tmp_Conf" ] ||
+        fail "invalid secondary config wrote a partial directive: $secondary_case"
+}
+sdnse_port=65536
+expect_secondary_rejection "port above 65535"
 sdnse_port=5335
+sdnse_name='secondary
+bind-tcp :9999'
+expect_secondary_rejection "newline in group name"
+sdnse_name=secondary_group
+sdnse_tcp='1
+bind-tcp :9999'
+expect_secondary_rejection "newline in TCP selector"
+sdnse_tcp=1
+sdnse_speed=2
+expect_secondary_rejection "non-binary speed selector"
+sdnse_speed=0
+sdnse_enable=2
+expect_secondary_rejection "non-binary enable selector"
+sdnse_enable=1
+sdnse_port=5335
+sdnse_name=
+sdnse_tcp=0
+pass "invalid secondary selectors, ports and group tokens fail before config writes"
+
+# A secondary listener write error must still propagate from the first write.
 smartdns_tmp_Conf=/dev/full
 [ -e "$smartdns_tmp_Conf" ] || fail "/dev/full is unavailable for write-failure injection"
 if Get_sdnse_conf; then fail "failed secondary UDP bind write was ignored"; else status=$?; fi
 [ "$status" -ne 0 ] || fail "secondary UDP bind write returned success"
-pass "secondary UDP bind write failure propagates with TCP bind disabled"
+pass "secondary UDP bind write failure propagates with TCP binding disabled"
 
 # Also inject a failure on the second (TCP) line after UDP was written.
-smartdns_tmp_Conf="$T/secondary.conf"
+smartdns_tmp_Conf="$T/secondary-write-failure.conf"
 : > "$smartdns_tmp_Conf"
-sdnse_tcp_server=1
+sdnse_tcp=1
 printf() {
     case "${2:-}" in
         "bind-tcp "*) return 39 ;;
