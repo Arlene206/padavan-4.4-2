@@ -1,3 +1,12 @@
+## 2026-11-26 — Fix the VPN-client marker regression helper return type
+
+- Exact-head VPN lifecycle run #45801858401 on `3c36c0a0f780657b42e7b9d804064fadd9658c3c` exposed a test-only compile failure before the source checker: the new named regression helper used the suite's `CHECK` macro (which returns `1` on failure) but was declared `void`, triggering `-Werror=return-mismatch`. The production marker rollback patch was not reached by this run.
+- Change the helper to return `int`, return zero after all cases pass, and assert its result from `main`. No production source or policy semantics changed.
+- The corrected VPN workflow and other exact-head Actions must run on this commit; do not carry forward the failed parent result. The 3c36 parent test stopped at the xl2tpd policy compile step, so later workflow steps were skipped.
+- Parent main: `3c36c0a0f780657b42e7b9d804064fadd9658c3c`; resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-26 — Roll back the VPN-client marker when shared xl2tpd launch fails
 
 - Continued the shared L2TP lifecycle audit and found an ownership leak in `safe_start_xl2tpd_locked()`: when the coherent config says the VPN client should use xl2tpd, it publishes `l2tp_cli_t=1` before launching the daemon. If process inventory confirmed absence but `eval("/usr/sbin/xl2tpd", ...)` then failed, the helper returned without clearing the marker. The direct VPN-client caller had its own rollback, but WAN PPP and VPN-server callers of the same helper did not; they could leave a phantom VPN-client dependency that affected later shared-daemon stop/restore decisions.
