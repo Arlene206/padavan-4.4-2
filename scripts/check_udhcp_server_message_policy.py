@@ -47,16 +47,23 @@ request_guard = request_case.index("udhcp_server_request_fields_valid(")
 request_lease_selection = request_case.index("if (!requested_ip_opt)")
 request_ack = request_case.index("send_ACK(&packet, lease->lease_nip)")
 assert request_guard < request_lease_selection < request_ack
+request_nak_guard = request_case.index("udhcp_server_request_should_nak(")
+request_nak_send = request_case.index("send_NAK(&packet)")
+assert request_ack < request_nak_guard < request_nak_send
+assert "Do not NAK an INIT-REBOOT client unknown to this server" in request_case
 assert "Ignoring DHCPREQUEST with inconsistent ciaddr and options" in request_case
 assert "if (ciaddr == 0U)" in policy
 assert "return requested_ip_present != 0;" in policy
 assert "return server_id_present == 0 && requested_ip_present == 0;" in policy
+assert "requested_ip_present != 0 && lease_known != 0" in policy
 for token in (
     "test_request_requires_valid_state_field_combinations",
     "udhcp_server_request_fields_valid(1, 1, 0U)",
     "udhcp_server_request_fields_valid(0, 1, 0U)",
     "udhcp_server_request_fields_valid(0, 0, 1U)",
     "udhcp_server_request_fields_valid(1, 1, 1U)",
+    "test_request_nak_requires_record_for_init_reboot",
+    "udhcp_server_request_should_nak(0, 1, 0)",
 ):
     assert token in test
 for token in (

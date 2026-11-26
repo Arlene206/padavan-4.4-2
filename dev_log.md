@@ -1,3 +1,11 @@
+## 2026-11-25 — Keep INIT-REBOOT silent for unknown DHCP clients
+
+- DHCPREQUEST's RFC 2131 text in `dhcpd.c` says an INIT-REBOOT client unknown to the server MUST receive no response. The prior fallback sent DHCPNAK whenever option 50 was present, including when `find_lease_by_mac()` found no local lease.
+- The response decision now sends NAK for SELECTING, and for INIT-REBOOT only when a local client lease/static record exists. Unknown INIT-REBOOT and RENEWING/REBINDING paths remain silent. Added policy cases for SELECTING with/without records, INIT-REBOOT with/without records, and renewal/rebinding; the source checker pins the decision before NAK send.
+- Local GNU89 `-Wall -Wextra -Werror -fsanitize=address,undefined` policy regression PASS. Exact-head DHCP policy, AI docs and XY-C1 checks pending at commit creation; no client/server/hardware result claimed.
+
+---
+
 ## 2026-11-25 — Validate DHCPREQUEST state and field combinations
 
 - `udhcpd` selected DHCPREQUEST lease lookup input from option 50 when present and `ciaddr` otherwise, but did not enforce the RFC 2131 option/`ciaddr` combinations. A malformed mixture could match a lease and receive DHCPACK, extending the lease despite an invalid client state encoding.

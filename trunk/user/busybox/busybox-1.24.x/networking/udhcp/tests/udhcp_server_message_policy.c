@@ -47,6 +47,21 @@ test_request_requires_valid_state_field_combinations(void)
     assert(!udhcp_server_request_fields_valid(0, 0, 0U));
 }
 
+static void
+test_request_nak_requires_record_for_init_reboot(void)
+{
+    /* SELECTING may be NAKed whether or not a local lease exists. */
+    assert(udhcp_server_request_should_nak(1, 1, 0));
+    assert(udhcp_server_request_should_nak(1, 1, 1));
+    /* INIT-REBOOT with a local record but a mismatched IP gets a NAK. */
+    assert(udhcp_server_request_should_nak(0, 1, 1));
+    /* An unknown INIT-REBOOT client must remain silent. */
+    assert(!udhcp_server_request_should_nak(0, 1, 0));
+    /* RENEWING/REBINDING must not be NAKed by this path. */
+    assert(!udhcp_server_request_should_nak(0, 0, 0));
+    assert(!udhcp_server_request_should_nak(0, 0, 1));
+}
+
 int
 main(void)
 {
@@ -54,6 +69,7 @@ main(void)
     test_release_rejects_requested_ip_option();
     test_inform_requires_nonzero_ciaddr();
     test_request_requires_valid_state_field_combinations();
+    test_request_nak_requires_record_for_init_reboot();
     puts("DHCP server message field policy regression: PASS");
     return 0;
 }

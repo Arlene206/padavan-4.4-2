@@ -618,12 +618,11 @@ o DHCPREQUEST generated during REBINDING state:
 			}
 			/* No lease for this MAC, or lease IP != requested IP */
 
-			if (server_id_opt    /* client is in SELECTING state */
-			 || requested_ip_opt /* client is in INIT-REBOOT state */
-			) {
-				/* "No, we don't have this IP for you" */
+			if (udhcp_server_request_should_nak(server_id_opt != NULL,
+					requested_ip_opt != NULL, lease != NULL)) {
+				/* Do not NAK an INIT-REBOOT client unknown to this server. */
 				send_NAK(&packet);
-			} /* else: client is in RENEWING or REBINDING, do not answer */
+			} /* RENEWING/REBINDING and unknown INIT-REBOOT clients stay silent. */
 
 			break;
 

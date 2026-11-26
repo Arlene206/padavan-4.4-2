@@ -41,4 +41,19 @@ udhcp_server_request_fields_valid(int server_id_present,
     return server_id_present == 0 && requested_ip_present == 0;
 }
 
+/*
+ * SELECTING may be NAKed if this server cannot honor the request.
+ * INIT-REBOOT must remain silent when this server has no client record;
+ * RENEWING/REBINDING are not NAKed by this request path.
+ * The field-combination validator has already rejected invalid tuples.
+ */
+static inline int
+udhcp_server_request_should_nak(int server_id_present,
+                                int requested_ip_present,
+                                int lease_known)
+{
+    return server_id_present != 0 ||
+           (requested_ip_present != 0 && lease_known != 0);
+}
+
 #endif /* UDHCP_SERVER_MESSAGE_POLICY_H */
