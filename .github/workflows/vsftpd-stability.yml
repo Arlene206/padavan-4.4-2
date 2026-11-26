@@ -1086,14 +1086,24 @@ jobs:
 
           open_fn = function_body(helper, "ftp_config_file_open(")
           publish_fn = function_body(helper, "ftp_config_file_publish(")
+          sync_fd = function_body(helper, "ftp_config_file_sync_fd(")
+          sync_parent = function_body(helper, "ftp_config_file_sync_parent(")
           for token in ("mkstemp(", "fchmod(", "fdopen("):
               assert token in open_fn
           for token in ("ferror(fp)", "fflush(fp)", "fclose(fp)",
                         "rename(staged_path, target_path)", "unlink(staged_path)"):
               assert token in publish_fn
-          assert publish_fn.index("fflush(fp)") < publish_fn.index("rename(")
-          assert publish_fn.index("if (fclose(fp) != 0)") < publish_fn.index("rename(")
+          assert "fsync(fd)" in sync_fd and "errno == EINTR" in sync_fd
+          assert "O_DIRECTORY" in sync_parent and "O_NOFOLLOW" in sync_parent
+          assert "close(directory_fd)" in sync_parent
+          file_sync = publish_fn.index("ftp_config_file_sync_fd(fileno(fp))")
+          rename = publish_fn.index("rename(staged_path, target_path)")
+          parent_sync = publish_fn.index("ftp_config_file_sync_parent(target_path)")
+          assert publish_fn.index("fflush(fp)") < file_sync < rename < parent_sync
+          assert publish_fn.index("if (fclose(fp) != 0)") < rename
 
+          assert "ftp_config_file_sync_parent(target) == 0" in test
+          assert "ftp_config_file_sync_parent(missing_target) != 0" in test
           assert 'fopen("/dev/full", "w")' in test
           assert "listen=YES" in test
           assert "ftp_config_file_publish(&fp, staged, target) != 0" in test

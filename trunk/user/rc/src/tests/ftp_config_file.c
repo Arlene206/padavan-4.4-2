@@ -57,6 +57,7 @@ main(void)
 	assert(strcmp(contents, "listen=YES\n") == 0);
 	assert(stat(target, &st) == 0);
 	assert((st.st_mode & 0777) == 0644);
+	assert(ftp_config_file_sync_parent(target) == 0);
 
 	/* A buffered write error must not replace the last-known-good file. */
 	assert(ftp_config_file_open(target, staged, sizeof(staged), &fp) == 0);
@@ -77,6 +78,9 @@ main(void)
 	assert(ftp_config_file_open(missing_target, staged,
 				   sizeof(staged), &fp) != 0);
 	assert(fp == NULL);
+	errno = 0;
+	assert(ftp_config_file_sync_parent(missing_target) != 0);
+	assert(errno == ENOENT);
 	read_text_file(target, contents, sizeof(contents));
 	assert(strcmp(contents, "listen=YES\n") == 0);
 
