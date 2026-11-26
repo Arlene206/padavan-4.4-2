@@ -48,6 +48,17 @@ make_entry(struct dhcp_route_ownership_entry *entry,
 	strncpy(entry->netmask, netmask, sizeof(entry->netmask) - 1);
 }
 
+static void
+write_metric_manifest(const char *path, const char *metric)
+{
+	FILE *stream = fopen(path, "w");
+
+	assert(stream != NULL);
+	assert(fprintf(stream, "%s\neth2 wan0_ %s 198.51.100.0 192.0.2.1 255.255.255.0\n",
+		       DHCP_ROUTE_OWNERSHIP_MAGIC, metric) > 0);
+	assert(fclose(stream) == 0);
+}
+
 int
 main(void)
 {
@@ -131,6 +142,28 @@ main(void)
 	assert(fd >= 0);
 	assert(write(fd, "corrupt\n", 8) == 8);
 	assert(close(fd) == 0);
+	assert(dhcp_route_ownership_cleanup(path, "wan0_",
+					    fake_delete, &fake) == EINVAL);
+	assert(fake.delete_count == 0);
+
+	/* Numeric route metrics must be range-checked before conversion to int. */
+	write_metric_manifest(path, "2147483648");
+	assert(dhcp_route_ownership_cleanup(path, "wan0_",
+					    fake_delete, &fake) == EINVAL);
+	assert(fake.delete_count == 0);
+	write_metric_manifest(path, "2147483647");
+	assert(dhcp_route_ownership_cleanup(path, "wan0_",
+					    fake_delete, &fake) == EINVAL);
+	assert(fake.delete_count == 0);
+	write_metric_manifest(path, "999999999999999");
+	assert(dhcp_route_ownership_cleanup(path, "wan0_",
+					    fake_delete, &fake) == EINVAL);
+	assert(fake.delete_count == 0);
+	write_metric_manifest(path, "-1");
+	assert(dhcp_route_ownership_cleanup(path, "wan0_",
+					    fake_delete, &fake) == EINVAL);
+	assert(fake.delete_count == 0);
+	write_metric_manifest(path, "7junk");
 	assert(dhcp_route_ownership_cleanup(path, "wan0_",
 					    fake_delete, &fake) == EINVAL);
 	assert(fake.delete_count == 0);

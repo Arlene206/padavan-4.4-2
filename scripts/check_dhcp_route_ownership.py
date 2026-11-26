@@ -18,6 +18,14 @@ assert '"manv_", route_storage[0]' in iptv_deconfig
 assert "strcmp(entries[i].owner, owner) != 0" in policy
 assert "entries[i].ifname, ifname" not in policy
 assert 'DHCP_ROUTE_OWNERSHIP_MAGIC "PADAVAN-DHCP-ROUTES 2"' in policy
+assert 'sscanf(line, "%15s %15s %15s %15s %15s %15s %c"' in policy
+assert 'metric_value = strtol(metric_text, &metric_end, 10);' in policy
+assert "errno == ERANGE" in policy
+assert r"*metric_end != '\0'" in policy
+assert "metric_value < 0" in policy
+assert "metric_value >= INT_MAX" in policy
+assert "entry.metric = (int)metric_value;" in policy
+assert "&entry.metric" not in policy
 assert "Service ownership survives changes to interface and metric." in test
 assert "route_del(" not in body
 assert "dhcp_route_add_owned(" in body
@@ -33,6 +41,8 @@ assert "remaining[kept++] = entries[i];" in policy
 assert "A route that predated DHCP (EEXIST) is never entered in the manifest." in test
 assert "A failed delete retains ownership for a later retry." in test
 assert "Malformed/symlink state fails closed" in test
+for metric in ("2147483648", "2147483647", "999999999999999", "-1", "7junk"):
+    assert 'write_metric_manifest(path, "' + metric + '")' in test
 assert "Compile and run DHCP route ownership manifest regression" in workflow
 assert '"trunk/user/rc/src/dhcp_route_ownership.h"' in workflow
 assert '"trunk/user/rc/src/tests/dhcp_route_ownership.c"' in workflow

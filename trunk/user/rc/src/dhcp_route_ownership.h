@@ -172,6 +172,8 @@ dhcp_route_ownership_load(
 {
 	int fd, status = 0, saved_errno = 0, parsed;
 	char extra;
+	char metric_text[16], *metric_end;
+	long metric_value;
 	struct stat st;
 	FILE *stream;
 	char line[128], canonical[128];
@@ -223,11 +225,25 @@ dhcp_route_ownership_load(
 		*newline = '\0';
 		memset(&entry, 0, sizeof(entry));
 		extra = 0;
-		parsed = sscanf(line, "%15s %15s %d %15s %15s %15s %c",
-				entry.ifname, entry.owner, &entry.metric,
+		/* Parse the metric as text: scanf("%d") has undefined overflow behavior. */
+		parsed = sscanf(line, "%15s %15s %15s %15s %15s %15s %c",
+				entry.ifname, entry.owner, metric_text,
 				entry.destination, entry.gateway, entry.netmask,
 				&extra);
-		if (parsed != 6 || !dhcp_route_ownership_entry_is_valid(&entry)) {
+		if (parsed != 6) {
+			status = EINVAL;
+			goto close_stream;
+		}
+		errno = 0;
+		metric_value = strtol(metric_text, &metric_end, 10);
+		if (errno == ERANGE || metric_end == metric_text ||
+		    *metric_end != '\0' || metric_value < 0 ||
+		    metric_value >= INT_MAX) {
+			status = EINVAL;
+			goto close_stream;
+		}
+		entry.metric = (int)metric_value;
+		if (!dhcp_route_ownership_entry_is_valid(&entry)) {
 			status = EINVAL;
 			goto close_stream;
 		}
