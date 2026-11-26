@@ -36,14 +36,17 @@ for token in (
     "Entware bootstrap completed using verified HTTPS feeds",
 ):
     require(token in updater, "missing secure Entware bootstrap control: " + token)
-require("http://" not in updater, "Entware bootstrap launcher contains a plaintext HTTP URL")
+require(updater.count("http://") == 1 and "grep -q 'http://' /opt/etc/opkg.conf" in updater,
+        "the only HTTP literal in the updater must be the residual-feed rejection guard")
 require("grep -q 'http://' /opt/etc/opkg.conf" in updater,
         "launcher must reject residual plaintext package feeds")
 require("chmod +x $INSTALLER" not in updater and "sh $INSTALLER" not in updater,
         "do not execute the unvalidated fixed-path installer")
 
+require("gsub(" in policy and "http://bin.entware.net/" in policy and
+        "https://bin.entware.net/" in policy,
+        "installer must rewrite the approved Entware origin to HTTPS")
 for token in (
-    'gsub(/http:\\/\\/bin[.]entware[.]net\\//, "https://bin.entware.net/", line)',
     'print "set -e"',
     'sub(/wget[[:space:]]+/, "wget -T 60 ", line)',
     "config_download_count != 1",

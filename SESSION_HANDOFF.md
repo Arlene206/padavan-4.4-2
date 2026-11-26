@@ -16,14 +16,14 @@
 
 ## Verification boundary
 
-- Parent before this slice: e98c22d68b3c7f0cfd776bae1e30b63c25345e2a.
+- Parent before the source security slice: e98c22d68b3c7f0cfd776bae1e30b63c25345e2a; source commit 967737f91d830c373e8400afe3ff16d0a7d5e080 added the updater/helper/tests/workflows. A follow-up static-checker correction is being published now.
 - On parent e98c22d68b3c7f0cfd776bae1e30b63c25345e2a, Process inventory #45770130487, Process lifecycle inventory #45770130493 and AI handoff #45770130483 all PASS. The earlier cfc4e7 documentation/source checkpoint's Process and AI checks also passed; its XY-C1 run #45769454642 was still IN_PROGRESS at the last poll.
-- All host regressions, exact-head Process/AI workflows and XY-C1 Build/TRX/artifact validation for the current Entware source slice must be checked against the new live main SHA after commit. No local firmware build, target MIPS runtime or physical-router L4 is claimed.
+- Process workflow #45771143408, its lifecycle inventory #45771143543, AI handoff #45771143364 and XY-C1 #45771143399 were queued/in progress on source SHA 967737f91d830c373e8400afe3ff16d0a7d5e080. The Python source checker initially rejected its own deliberate HTTP-literal grep guard; this follow-up narrows that assertion and removes a brittle escape-sensitive regex check. Check new exact-head runs after this correction. No local firmware build, target MIPS runtime or physical-router L4 is claimed.
 - The current source commit cannot include its own resulting SHA; the next session must fetch live main before recording exact-head results.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and inspect exact-SHA Process regression, AI handoff and XY-C1 Build/TRX/artifact Actions for the Entware HTTPS bootstrap.
+1. Fetch live main and inspect the corrected Entware security checker plus exact-SHA Process regression, AI handoff and XY-C1 Build/TRX/artifact Actions.
 2. Diagnose any real failure from its exact job log without weakening verified TLS, feed validation or fail-closed behavior; PENDING does not block independent work.
 3. Continue another concrete security/stability source fix across the userland.
 

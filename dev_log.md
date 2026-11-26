@@ -1,3 +1,11 @@
+## 2026-11-26 — Correct Entware source-checker guard assertions
+
+- Static review found the newly-added Python contract checker was too broad: it rejected the updater's intentional `http://` search literal that fails closed on residual package feeds. It also encoded AWK slash escaping more strictly than the source's actual contract required.
+- Narrowed the check to allow exactly one HTTP literal and require it to be the residual-feed rejection guard; the updater still must use an HTTPS installer URL and contain no plaintext download URL. Simplified policy validation to check that the allowlisted Entware origin is rewritten to HTTPS without escape-count fragility.
+- Parent main: `967737f91d830c373e8400afe3ff16d0a7d5e080`. Process/AI/XY-C1 exact-head runs for the source commit 967737f91d830c373e8400afe3ff16d0a7d5e080 were queued/in progress at correction time; this commit will trigger fresh exact-SHA runs.
+
+---
+
 ## 2026-11-26 — Require verified HTTPS and fail-fast execution for the root Entware bootstrap
 
 - The Optware/Entware updater downloaded a remote installer over plaintext HTTP to the predictable /tmp/entware_installer.sh, then executed it as root. That installer in turn downloaded the opkg executable and package-feed configuration over HTTP; the feed metadata could direct later root package installs to plaintext origins. The wrapper also ignored the installer exit status, so an incomplete initialization could be reported as success.
