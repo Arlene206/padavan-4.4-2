@@ -1,3 +1,11 @@
+## 2026-11-26 — Align Entware checker with the required-command loop
+
+- The updater deliberately verifies required utilities in a POSIX loop (including OpenSSL) rather than maintaining one command per utility. The static checker incorrectly expected the literal source text `command -v openssl`; changed it to pin both the full required-command list and the checked command expansion.
+- The shell policy fixture was run locally with the committed helper/test source: all five cases passed (HTTPS patch and timeout injection; feed rewriting; unknown origin rejection; missing/duplicate anchor rejection; symlink/existing-target refusal). This was a host shell test, not a target MIPS/runtime test.
+- Parent main: `5b8939f35e2d318f1d5fb964dc393366eb7e6e23`; the checker-only correction triggers a fresh exact-SHA Process and AI handoff run.
+
+---
+
 ## 2026-11-26 — Correct Entware source-checker guard assertions
 
 - Static review found the newly-added Python contract checker was too broad: it rejected the updater's intentional `http://` search literal that fails closed on residual package feeds. It also encoded AWK slash escaping more strictly than the source's actual contract required.
