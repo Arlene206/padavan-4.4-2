@@ -3,7 +3,7 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development on `main` only.
-- Live main before the current shared-marker ownership fix: `ce917d69b0436033f4c8c83384dcd0a9b61deb5c`.
+- Live main before this checker-only correction: `f96dce30881937a686e6bc7e9407a41d47f27c2e` (shared marker ownership source fix).
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify/delete. PR #1 remains closed/unmerged.
 - Bootstrap/protocol recovery was completed earlier; do not repeat it.
 
@@ -24,6 +24,7 @@
 - Shared xl2tpd config publication was still a remaining privileged-writer exception: `safe_start_xl2tpd_locked()` opened `/etc/xl2tpd.conf` with truncating `fopen("w")`, ignored each `fprintf` result, then unlinked the live configuration after flush/close/chmod errors. The current slice moves the writer to the repository's existing no-follow atomic publisher, keeps all checked NVRAM/process/pool preflights before publication, and binds all three LNS/LAC sections to the callback in the VPN checker. Exact-head VPN/AI Actions pending.
 - Exact SHA `1d33cb41aca31eab3d58621a243272dc9cbd0000`: VPN lifecycle #45803175004 passed all preceding C policy/atomic-config binaries and failed only on stale pool-address source assertions; WAN route #45803174983 passed preceding regressions and failed because `check_ppp_wan_options.py` still required the removed truncating `fopen` anchor; HTTPD #45803174928 passed preceding security checks and failed with `ValueError: substring not found` on the same removed `fopen` anchor in its inline PPP contract. AI #45803174976, NVRAM #45803174921, WAN DHCP #45803174892, Process inventory #45803174833 and Process lifecycle #45803174834 PASS. The VPN checker correction is now on main as `aa1bd8367768ab66f62a22834861d05df41af0e6`.
 - Exact SHA `aa1bd8367768ab66f62a22834861d05df41af0e6`: VPN lifecycle #45803534463 PASS and AI handoff #45803534499 PASS after binding VPN pool-address assertions to the atomic writer. Exact SHA `ce917d69b0436033f4c8c83384dcd0a9b61deb5c`: WAN route #45804117385 PASS, HTTPD security #45804117258 PASS and AI handoff #45804117195 PASS after rebinding their stale `fopen`/direct-writer expectations to atomic publication. The current production fix preserves an already-active `l2tp_cli_t` dependency marker instead of claiming rollback ownership of a marker it did not create.
+- Exact SHA `f96dce30881937a686e6bc7e9407a41d47f27c2e`: all compiled VPN policy regressions passed, including the new marker-ownership cases, but VPN lifecycle #45805039088 failed in the final Python source contract because the parse call is split across lines while the checker expected a single contiguous expression. This is a checker-only failure; the next commit makes the parse matcher whitespace-tolerant. HTTPD #45805038950, WAN route #45805039104, AI handoff #45805039195, WAN DHCP #45805039154 and Process inventory #45805038990 PASS. Process fail-closed #45805039322, NVRAM #45805039114 and XY-C1 #45805039346 were still in progress at last poll.
 - Adjacent WAN6 fixes already on main: empty caller-interface teardown guard; SIT owner-record IFNAMSIZ bound; strict SIT gateway literal validation; strict DHCP 6rd relay literal validation; static and DHCPv6 DNS literal validation; first-error aggregation during delegated-prefix cleanup.
 
 ## 2026-11-26 implementation continuation — DHCPv6 cleanup shutdown
@@ -114,9 +115,9 @@
 
 ## Exact first action for the next GPT
 
-1. Live main before this source slice: `ce917d69b0436033f4c8c83384dcd0a9b61deb5c`. Exact-head WAN route #45804117385, HTTPD security #45804117258 and AI handoff #45804117195 all PASS. The current source commit extends the coherent xl2tpd NVRAM snapshot with `l2tp_cli_t`, validates its prior state, and publishes/rolls back the marker only when it was previously zero. Immediately inspect this resulting SHA's VPN lifecycle and AI exact-head Actions; triage any checker/test regression on that SHA.
-2. Product build boundary: XY-C1 run #45803175068 on product-source SHA `1d33cb41aca31eab3d58621a243272dc9cbd0000` was still IN PROGRESS at Build XY-C1; TRX verification and artifact upload were pending at last poll. Older SHA `3c36c0a0f780657b42e7b9d804064fadd9658c3c` passed same-SHA Build + TRX + artifact upload (#45801858571), but does not verify the later production source. No L3 claim for the current source SHA until all three product steps pass; hardware L4 remains NOT VERIFIED.
-3. Continue with the next independently confirmed stability/security defect outside VPN after exact-head validation. Do not repeat the completed bootstrap, DHCPv6 or source-contract corrections.
+1. Live main before this checker correction: `f96dce30881937a686e6bc7e9407a41d47f27c2e`. VPN lifecycle #45805039088 passed all compiled C policy regressions, including the new ownership cases, but failed only because its Python checker required the multi-line `rc_wan_nvram_parse_int_value()` call to be contiguous. This commit makes that contract whitespace-tolerant. Immediately rerun VPN lifecycle and AI handoff on the resulting exact SHA; also recheck any still-running f96d checks.
+2. Same-SHA product build XY-C1 #45805039346 was IN PROGRESS at Build XY-C1 at last poll; TRX and artifact upload pending. Same SHA's HTTPD #45805038950, WAN route #45805039104, AI handoff #45805039195, WAN DHCP #45805039154 and Process inventory #45805038990 PASS. Process fail-closed #45805039322 and NVRAM #45805039114 were still running. No L3 claim until this exact product SHA completes Build + TRX + artifact upload; hardware L4 NOT VERIFIED.
+3. After the checker correction passes, rotate out of VPN and continue with an independent high-risk userland stability/security issue. Preserve the existing marker ownership behavior in future shared-daemon changes.
 
 ## Mandatory handoff checkpoint
 

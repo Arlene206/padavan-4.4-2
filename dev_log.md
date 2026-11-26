@@ -1,8 +1,18 @@
+## 2026-11-26 — Make the VPN marker source contract accept wrapped parser calls
+
+- Exact-head VPN lifecycle #45805039088 on `f96dce30881937a686e6bc7e9407a41d47f27c2e` compiled and passed all C policy regressions, including the newly added existing-owner/no-owner marker cases. The final Python contract alone failed because the checked `rc_wan_nvram_parse_int_value()` call was intentionally formatted across two C lines while the checker matched a single-line substring.
+- Replace that brittle substring lookup with a whitespace-tolerant regular expression; retain the later order assertions for successful parsing, strict 0/1 validation, ownership policy, marker write and ownership flag.
+- This is a checker-only correction. VPN lifecycle and AI handoff must be checked again on this exact new SHA. The same production SHA's HTTPD #45805038950, WAN route #45805039104, AI #45805039195, WAN DHCP #45805039154 and Process inventory #45805038990 PASS; Process fail-closed #45805039322, NVRAM #45805039114 and XY-C1 #45805039346 were still running at last poll.
+- Beijing time at preparation: 26/11/2026, 18:51:35 (UTC+8).
+- Parent main: `f96dce30881937a686e6bc7e9407a41d47f27c2e`; resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-26 — Preserve pre-existing VPN-client ownership across shared xl2tpd start failures
 
 - Audited every caller of `safe_start_xl2tpd_locked()` after the previous rollback fix. The helper unconditionally wrote `l2tp_cli_t=1` whenever the configured VPN client used L2TP, then marked the value as newly published. If an active VPN-client dependency had already published that marker, a later WAN PPP or VPN-server start failure would clear the existing marker as if this call owned it. Subsequent shared-daemon stop/restore logic could then miss a live client dependency.
 - Extend the checked xl2tpd NVRAM transaction snapshot with `l2tp_cli_t`; parse and validate the prior state before process/config side effects. A pure policy gate now publishes only for `use_vpnc && marker_active == 0`; rollback ownership is recorded only after that transition succeeds. A pre-existing marker remains untouched on daemon failure. A newly acquired marker still rolls back, and the direct VPN-client caller retains cleanup for its pre-published marker.
-- Add GNU89 policy cases for inactive/new/existing marker ownership and strengthen the VPN source contract to require the ninth snapshot field, strict marker validation, and snapshot → policy gate → write → owned-state ordering. Exact-head VPN lifecycle and AI handoff results are pending for this production source SHA; no full firmware build or hardware result is claimed.
+- Add GNU89 policy cases for inactive/new/existing marker ownership and strengthen the VPN source contract to require the ninth snapshot field, strict marker validation, and snapshot → policy gate → write → owned-state ordering. Exact-head VPN lifecycle #45805039088 ran the full C regression set successfully, including the new marker policy cases, then failed only because the source checker expected the multi-line parse call on one line. The checker correction is committed next; the same SHA's HTTPD #45805038950, WAN route #45805039104, AI #45805039195, WAN DHCP #45805039154 and Process inventory #45805038990 PASS. Process fail-closed #45805039322, NVRAM #45805039114 and XY-C1 #45805039346 were pending at last poll; no L3 or hardware result is yet claimed.
 - Beijing time at preparation: 26/11/2026, 18:50:09 (UTC+8).
 - Parent main: `ce917d69b0436033f4c8c83384dcd0a9b61deb5c`; resulting commit: THIS COMMIT.
 

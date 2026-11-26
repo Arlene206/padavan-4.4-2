@@ -689,8 +689,12 @@ writer_compact = "".join(xl2tpd_writer.split())
 require("(config->vpn_server_address&config->vpn_server_mask)|config->vpn_pool_start" in writer_compact and
         "(config->vpn_server_address&config->vpn_server_mask)|config->vpn_pool_end" in writer_compact,
         "xl2tpd address ranges must use the validated snapshot outputs")
-marker_parse = safe_start_locked.index(
-    "rc_wan_nvram_parse_int_value(config_snapshot.vpnc_marker, &vpnc_marker_active)")
+marker_parse_match = re.search(
+    r"rc_wan_nvram_parse_int_value\\s*\\(\\s*config_snapshot\\.vpnc_marker\\s*,\\s*&vpnc_marker_active\\s*\\)",
+    safe_start_locked)
+require(marker_parse_match is not None,
+        "xl2tpd must parse the checked VPN-client ownership marker")
+marker_parse = marker_parse_match.start()
 marker_validation = safe_start_locked.index(
     "(vpnc_marker_active != 0 && vpnc_marker_active != 1)", marker_parse)
 marker_policy = safe_start_locked.index(
