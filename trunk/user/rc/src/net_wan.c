@@ -8430,7 +8430,7 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 				   udhcpc_state, wan_ifname, route_setup_status);
 	}
 
-	callback_status = dhcp_wan_bound_callback_status(route_setup_status, mtu_status);
+	callback_status = dhcp_bound_callback_status(route_setup_status, mtu_status);
 	publish_status = wan_nvram_int_temp_status(
 		strcat_r(prefix, "mtu_err", tmp), mtu_status);
 	callback_status = route_status_accumulate(callback_status, publish_status);
@@ -8826,8 +8826,7 @@ udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)
 	}
 
 	/* Keep route retry state independent from the IPTV proxy lifecycle. */
-	callback_status = route_status_accumulate(route_setup_status, multicast_status);
-	callback_status = route_status_accumulate(callback_status, mtu_status);
+	callback_status = dhcp_bound_callback_status(route_setup_status, mtu_status);
 	publish_status = wan_nvram_int_temp_status("manv_mtu_err", mtu_status);
 	callback_status = route_status_accumulate(callback_status, publish_status);
 	if (publish_status != 0)

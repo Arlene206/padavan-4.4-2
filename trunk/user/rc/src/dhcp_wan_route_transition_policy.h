@@ -115,7 +115,7 @@ dhcp_wan_route_transition_apply(int remove_host_route,
 /* Ancillary service startup must not make a successfully configured DHCP
  * address/route tuple look like a rejected DHCP ACK to udhcpc. */
 static inline int
-dhcp_wan_bound_callback_status(int route_setup_status, int mtu_status)
+dhcp_bound_callback_status(int route_setup_status, int mtu_status)
 {
 	if (route_setup_status != 0)
 		return route_setup_status;
