@@ -4670,6 +4670,7 @@ notify_ddns_update_locked(void)
 
 	return 0;
 }
+
 int
 notify_ddns_update(void)
 {

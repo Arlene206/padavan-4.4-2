@@ -317,21 +317,21 @@ test_reload_failure_keeps_last_known_good_snapshot(
 
 	assert(inadyn_config_file_snapshot_begin(config, &snapshot) == 0);
 	assert(snapshot.active && snapshot.had_original);
-	assert(snapshot.backup_path[0] != '\\0');
+	assert(snapshot.backup_path[0] != '\0');
 	assert(count_staged_files(directory, "inadyn.conf.rollback.") == 1);
 	fp = inadyn_config_file_open(config, staged, sizeof(staged));
-	assert(fp != NULL && fputs("reload-candidate\\n", fp) >= 0);
+	assert(fp != NULL && fputs("reload-candidate\n", fp) >= 0);
 	assert(inadyn_config_file_publish(fp, staged, config) == 0);
 
 	/* A failed/uncertain SIGHUP must not discard the previous generation. */
-	assert(snapshot.active && snapshot.backup_path[0] != '\\0');
-	read_exact(config, "reload-candidate\\n");
-	read_exact(snapshot.backup_path, "committed-generation\\n");
+	assert(snapshot.active && snapshot.backup_path[0] != '\0');
+	read_exact(config, "reload-candidate\n");
+	read_exact(snapshot.backup_path, "committed-generation\n");
 	assert(count_staged_files(directory, "inadyn.conf.rollback.") == 1);
 
 	/* The retained snapshot remains usable by an explicit recovery action. */
 	assert(inadyn_config_file_snapshot_restore(config, &snapshot) == 0);
-	read_exact(config, "committed-generation\\n");
+	read_exact(config, "committed-generation\n");
 	assert(stat(config, &st) == 0 && st.st_nlink == 1);
 	assert(count_staged_files(directory, "inadyn.conf.rollback.") == 0);
 }
