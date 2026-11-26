@@ -104,9 +104,9 @@ require('. "$ipkg_transport_policy" || exit 1' in ipkg_source,
         "the privileged ipkg client must load its transport policy")
 require("https://*)" in ipkg_source and "wget -T 60" in ipkg_source,
         "ipkg must bound HTTPS downloads")
-require("http://* | ftp://*" in ipkg_source and
+require("*://*" in ipkg_source and
         "ipkg_transport_require_url" in ipkg_source,
-        "ipkg must reject plaintext downloads and direct-install URLs")
+        "ipkg must reject plaintext and unknown direct-install URLs")
 require("ipkg_transport_require_url" in ipkg_transport and
         "ipkg_transport_config_is_secure" in ipkg_transport,
         "missing centralized ipkg transport policy")

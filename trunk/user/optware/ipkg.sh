@@ -941,12 +941,12 @@ ipkg_install() {
 			fi
 			rm -f "$tmp_pkg_file" || return 1
 			;;
-		http://* | ftp://*)
-			ipkg_transport_require_url "$pkg" || return 1
-			;;
 		file:/*.ipk  | file://*.deb)
 			local ipkg_filename="$(echo "$pkg" | sed 's/^file://')"
 			ipkg_install_file "$ipkg_filename"
+			;;
+		*://*)
+			ipkg_transport_require_url "$pkg" || return 1
 			;;
 		*.ipk  | *.deb)
 			if [ -f "$pkg" ]; then

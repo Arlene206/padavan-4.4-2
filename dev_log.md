@@ -1,3 +1,12 @@
+## 2026-11-26 — Close legacy ipkg workflow and handoff validation gaps
+
+- Exact-head Process run #45772374075 on b63ce11dea3ee18b00a32ad79a1786c6eb482160 reached the Optware test step; the new static checker then found that opt-ipkg-upd.sh was missing from both Process path-filter allowlists. The transport source/tests themselves passed to that point.
+- Exact-head AI handoff run #45772374114 on the same SHA failed because the handoff no longer contained the mandatory ## Active task heading. Restored the required section and recorded the precise resume action.
+- Tightened direct package installation one step further: any URI-shaped argument is now passed through the same scheme policy, so unsupported schemes cannot fall through and be treated as package names. The Process workflow now explicitly watches opt-ipkg-upd.sh.
+- Parent main: b63ce11dea3ee18b00a32ad79a1786c6eb482160. Corrective exact-SHA Process and AI Actions are pending after publication.
+
+---
+
 ## 2026-11-26 — Fail closed on legacy ipkg HTTP package feeds
 
 - Reviewed the legacy Optware path after securing Entware. The built-in Oleg feed still points to http://ipkg.nslu2-linux.org/feeds/optware/oleg/cross/stable; the legacy ipkg shell client previously fetched repository indexes and package payloads over HTTP/FTP and returned success for unknown URL schemes after only printing a debug line.

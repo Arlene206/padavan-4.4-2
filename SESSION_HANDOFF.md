@@ -8,6 +8,11 @@
 - Startup/bootstrap/protocol/handoff recovery was completed once. Do not repeat audits for already-completed work.
 - Publish each logical task as one complete Git tree and one atomic main commit; update main only with a non-forced expected-SHA compare-and-swap. Never force-push or modify the backup.
 
+## Active task
+
+- Validate the legacy ipkg HTTPS-only transport contract on the latest main SHA. The first exact-head Process run exposed one missing explicit path-filter entry for opt-ipkg-upd.sh; the AI handoff run exposed this required section heading. The corrective source/checker/workflow/handoff commit adds both and ensures unknown direct-install URL schemes fail closed.
+- Fetch the new live main and inspect exact-SHA Process and AI handoff results. PENDING remains non-blocking for independent work.
+
 ## Completed source slice
 
 - Entware generic.sh root bootstrap now downloads through verified HTTPS into private staging, patches the upstream HTTP origin and feed config to HTTPS, uses bounded timeouts and set -e, validates patched shell before execution and verifies final opkg/config postconditions.
