@@ -281,7 +281,7 @@ for failure_case in ("FAIL_GETADDRINFO", "FAIL_SOCKET", "FAIL_IOCTL",
 assert "open_fd_count()" in forwarder_init_test
 assert "dns_forwarder_test_event_loop_del_source" in forwarder_init_hooks
 assert "inet_aton (upstream, &upstream_addr)" in forwarder_constructor
-assert forwarder_constructor.index("getaddrinfo (") < forwarder_constructor.index("socket (")
+assert forwarder_constructor.index("DNS_FORWARDER_GETADDRINFO (") < forwarder_constructor.index("DNS_FORWARDER_SOCKET (")
 assert "if (0 > ioctl (self->listen_fd, FIONBIO" in forwarder_constructor
 assert "if (0 > setsockopt (self->listen_fd, SOL_SOCKET, SO_REUSEADDR" in forwarder_constructor
 assert "if (0 != bind (self->listen_fd" in forwarder_constructor
