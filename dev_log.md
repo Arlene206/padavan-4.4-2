@@ -1,3 +1,10 @@
+## 2026-11-28 03:34 CST (UTC+8) — Correct the DNS Forwarder finalizer signature escape
+
+- The first checker correction on `12d722cbbdc2625170902fc2a021666903fc3ce3` still failed exact-push DNS Forwarder run #46057101529 before C compilation: the Python signature literal contained double-escaped backslashes, so `function_body()` searched for literal `\\n` characters instead of the actual definition prefix containing line breaks and raised `ValueError: substring not found`.
+- Corrected the Python source literal to use a single escaped newline sequence in the signature. At runtime it resolves to the exact `static void\nhev_event_source_signal_finalize ...\n{` definition, skipping the earlier forward declaration.
+- Exact-SHA runs on `e0e9ab2793fdfa67b0bce0dfec57ae17356ddc08`: DDNSTO lifecycle #46057270371 PASS; Process lifecycle inventory #46057270518 PASS; AI handoff #46057270377 PASS; Process lifecycle fail-closed regression #46057270242 was IN_PROGRESS at last check. DNS Forwarder #46057101529 FAIL (checker extraction only; all C steps skipped).
+- Local execution unavailable. Parent main: `e0e9ab2793fdfa67b0bce0dfec57ae17356ddc08`; resulting commit: THIS COMMIT.
+
 ## 2026-11-28 03:31 CST (UTC+8) — Align lifecycle test counters with procfs post-scan recheck
 
 - The exact-SHA Process lifecycle regression #46056482996 and DDNSTO lifecycle run #46056483002 on ancestor `be34b9f2c1c320a88b630166209ceac445e917c2` failed only because fixtures assumed one `pidof` call per confirmed-absence scan. The shared helper now performs a second lookup after procfs enumeration.

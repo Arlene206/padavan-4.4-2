@@ -332,7 +332,7 @@ assert "SIG_UNBLOCK, mask, NULL" in signal_source
 assert "SIG_SETMASK, old_mask, NULL" in signal_source
 signal_finalize = function_body(
     signal_source,
-    "static void\\nhev_event_source_signal_finalize (HevEventSource *source)\\n{"
+    "static void\nhev_event_source_signal_finalize (HevEventSource *source)\n{"
 )
 assert "self->restore_signal_mask_on_finalize" in signal_finalize
 assert "SIG_UNBLOCK, &self->signal_mask, NULL" in signal_finalize
