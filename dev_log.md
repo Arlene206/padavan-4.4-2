@@ -1,3 +1,10 @@
+## 2026-11-28 — Bypass the chmod stub when making the storage fixture executable
+
+- The first follow-up reset the fixture's `chmod_status` to zero, but `chmod()` is a shell function double that only increments a counter and returns the configured status; it never changes file permissions. Exact-SHA Process #46058691324 and AliyunDrive #46058691336 logs therefore show `mtd_storage.sh: Permission denied` when the helper tried to execute the fake command. USB hotplug #46058691293 was still running and used the same fixture.
+- Changed only the fixture setup to call `command chmod`, which bypasses the mock function and invokes the host utility to set the executable bit. The earlier negative chmod assertions remain unchanged; production source is unchanged.
+- Parent exact-SHA Process inventory #46058691350 PASS. Process fail-closed #46058691324 and AliyunDrive #46058691336 FAIL only in the shared storage-fill test fixture; USB #46058691293 was IN_PROGRESS at last poll. Their test suites must rerun on the new SHA.
+- AdGuardHome contract correction on `b8a144f` passed exact workflow #46058485265; AI docs #46058485282 PASS. XY-C1 build runs on `0f5fe9b` and `fdb237a` were still in progress; older source SHA `0423272` completed XY-C1 Build/TRX/artifact SUCCESS.
+
 ## 2026-11-28 — Reset the chmod mock before creating the storage-fill fixture
 
 - Exact-SHA Process workflow #46058395082, USB hotplug #46058395112 and AliyunDrive WebDAV #46058395203 on `0f5fe9bfa1dbe6f4539e23e8fb810e5403b5a571` all reached `dev_init_boot_policy.sh` but stopped before the new storage-fill cases. The existing fixture had deliberately left its mocked `chmod_status=1` after verifying required-directory failure; the newly appended mock setup then called that same stub to chmod its executable and exited under `set -e`.

@@ -1,14 +1,15 @@
-## 2026-11-28 — Re-run storage-fill fixture after resetting the chmod stub
+## 2026-11-28 — Execute storage-fill mock with the real host chmod binary
 
-- Parent `main`: `b8a144fed452556eff98bc0e2097246869a743c6`; frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged).
-- The `dev_init.sh` required-fill gate is in place and is intentionally fail-closed before execution of `/etc/storage/start_script.sh`; the `load` path remains best effort for blank flash. The initial regression extension accidentally reused `chmod_status=1` from an earlier negative test when chmodding the fake `mtd_storage.sh`, causing the shell test to exit before executing the new fill assertions. This commit resets the mock to success only after the previous failure assertions are complete.
-- Process/USB/AliyunDrive exact-SHA workflows on `0f5fe9b` each exposed the same fixture issue; unrelated prior steps passed. AdGuardHome shell regression passed but checker failed on undefined `read()`; checker fix is on parent `b8a144f` and needs exact rerun.
-- Next exact-SHA checks: Process lifecycle, USB hotplug, AliyunDrive lifecycle and AdGuardHome config security. XY-C1 build on the 0f5fe9b and fdb237a source SHAs was still in progress at last poll; older `0423272` XY-C1 run completed SUCCESS. No local build/hardware L4 claim.
+- Parent `main`: `79b956b228224bdb3f5e20368f298dbafa34ab6f`; frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged).
+- Production `dev_init.sh` now refuses to run the custom persistent startup script when `mtd_storage.sh fill` fails. The new test verifies success, nonzero return propagation and that the fill gate precedes custom-script execution while leaving blank-MTD `load` best effort.
+- The first fixture correction reset `chmod_status=0`, but that test double only returned success and did not chmod the fake `mtd_storage.sh`; Actions proved the helper then failed to execute it (`Permission denied`). This commit uses `command chmod` to bypass the stub and create an actually executable mock. Production source is unchanged.
+- Exact-SHA outcomes on `79b956b`: Process inventory #46058691350 PASS; Process fail-closed #46058691324 FAIL at mock execution; AliyunDrive #46058691336 FAIL at the same point; USB hotplug #46058691293 was IN_PROGRESS at last poll. New child-SHA reruns are required. AdGuardHome hardlink checker and shell regression passed on #46058485265 at `b8a144f`.
+- XY-C1 run #46056928103 on older source `0423272` completed SUCCESS with Build/TRX/artifact; newer `0f5fe9b` and `fdb237a` builds were still in progress at last poll. Current changes need a new firmware validation. No local host build or physical L4 claim.
 
 ## Exact first action
 
-1. Verify the new Process lifecycle run completes the storage-fill shell test and Python boot contract; confirm USB and AliyunDrive workflows also pass their shared dev_init lock test.
-2. Verify AdGuardHome hardlink contract passes on the corrected checker. Inspect current XY-C1 build/TRX/artifact results and continue an independent userland stability/security task.
+1. Inspect the exact-SHA Process fail-closed, AliyunDrive WebDAV and USB storage Actions after the `command chmod` fixture fix. Require the mocked fill success/failure cases and full Python boot integration contracts to pass.
+2. Inspect exact-SHA XY-C1 firmware through Build/TRX/artifact. Continue another independent userland P1 after these test gates are green.
 
 ---
 

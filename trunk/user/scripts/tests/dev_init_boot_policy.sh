@@ -95,8 +95,7 @@ cat > "$tmpdir/mtd_storage.sh" <<'EOF_MTD_STORAGE'
 [ "$1" = "fill" ] || exit 91
 exit "$MOCK_MTD_STORAGE_STATUS"
 EOF_MTD_STORAGE
-chmod_status=0
-chmod 700 "$tmpdir/mtd_storage.sh"
+command chmod 700 "$tmpdir/mtd_storage.sh"
 saved_path=$PATH
 PATH="$tmpdir:$PATH"
 export PATH
