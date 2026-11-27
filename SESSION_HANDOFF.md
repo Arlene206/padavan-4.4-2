@@ -1,12 +1,12 @@
-## 2026-11-28 — Block Aria2 storage symlink redirection
+## 2026-11-28 — Expose BusyBox stat in the launcher stub PATH
 
-- Aria2 now rejects symlinked config/download directories and symlinked config/session files before touching `incomplete.lst`, writing settings/secrets, or recursively changing download/config permissions. New directory creation is rechecked for a symlink.
-- Added a regression for real/new paths, existing/dangling directory links, regular/missing files, existing/dangling file links, preserved target data, and ordering of guards before side effects. Wired into USB storage push/PR workflow; XY-C1 already watches the production Aria launcher.
-- Parent SHA: `284e35183959b8cc78d28c82959e5e8815774531`; exact-SHA storage-hotplug, Aria process, Process inventory, AI docs and XY-C1 Build/TRX/artifact runs pending. No local shell test is claimed.
-- Previous Transmission path guard commit `9597243953beaaa4a87a421c12580d96d88651cc`: AI docs and Process inventory PASS; first exact lifecycle run exposed an unset test cleanup variable, corrected by parallel commit `284e35183959b8cc78d28c82959e5e8815774531`. That commit also added logger diagnostics to the USB storage Ash startup test so its unexplained Transmission readiness failure can be identified. Latest runs pending.
-- Next: inspect this commit's Aria symlink tests and exact-SHA Actions, close the Transmission path-guard/USB Ash regression, then continue a concrete stability/security fix outside storage-path handling.
+- The d79 storage-hotplug run #46081098105 confirms both the Aria2 symlink guard and Transmission/Aria startup-status test steps PASS; the BusyBox/ash phase passed the Optware tests, then failed at Transmission's `command -v stat` process-identity preflight. The workflow already linked `stat` under its isolated `runtime_dir/bin` and its direct stat smoke test ran, but `storage_app_start_status.sh` prepends its own `STUB_DIR` to each child launcher's PATH. This commit links the same built BusyBox binary as `STUB_DIR/stat` and runs a `command -v` + `stat -L -c` smoke using that exact prefixed path.
+- No production process-identity check is relaxed. Exact USB storage/ash rerun, Process inventory and XY-C1 Build/TRX/artifact remain to be checked on the new SHA. d79 AI handoff #46081098106 PASS. d79 XY-C1 #46080742734 was still building; do not infer firmware L3 from eab6 #46080815493 because its Build/TRX/artifact steps were SKIPPED.
+- Aria2 path-guard commit `7c21bb2987022102d27a403dbdb4c0f84d3e41a8` is covered by d79's successful Aria2 storage-directory/file symlink regression step; d79 Process inventory #46080742656 and AI docs #46080742626 PASS.
+- Next: inspect this SHA's complete BusyBox ash result and XY-C1 job steps, diagnose any next independent failure, then continue a P1 stability/security fix outside storage path handling.
 
 ---
+
 
 
 

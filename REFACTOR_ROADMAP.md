@@ -1,3 +1,9 @@
+## 2026-11-28 — Make BusyBox stat visible in storage launcher stubs
+
+- The ash test wrapper prepends `STUB_DIR` ahead of the workflow's BusyBox applet directory. Link the actual BusyBox `stat` applet into `STUB_DIR` and smoke-test command discovery plus `stat -L -c` under this exact child PATH; retain fail-closed production process checks.
+
+---
+
 ## 2026-11-28 — Block Aria2 storage symlink redirection
 
 - Reject symlinked Aria2 config/download directories and config/session files before privileged file creation, secret migration or recursive permission changes; recheck directories created by the launcher. Host regression is wired into the USB storage workflow.

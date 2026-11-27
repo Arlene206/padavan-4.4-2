@@ -1,3 +1,12 @@
+## 2026-11-28 — Make BusyBox stat visible in storage launcher stubs
+
+- Exact d79 USB storage #46081098105: Aria2 directory/file symlink regression and Transmission/Aria launch-status regression PASS; the BusyBox 1.24.2/ash step compiled BusyBox, ran Optware lifecycle tests, then failed at Transmission process identity because `command -v stat` returned unavailable. Workflow applet PATH already included stat and direct smoke check, but the test harness prepends a separate `STUB_DIR` to the BusyBox launcher's PATH, so the actual child could not resolve the applet.
+- Link the actual built Busybox binary as `STUB_DIR/stat`; add an ash smoke using the exact `STUB_DIR:$PATH` form. No production logic or fail-closed checks are weakened. d79 AI docs #46081098106 PASS; d79 XY-C1 #46080742734 Build was IN_PROGRESS, TRX/artifact pending. eab6 XY #46080815493 reports success but its Build/TRX/artifact steps were skipped, so it is not an L3 result.
+- Parent SHA: `9bf676f90ae2ee58dcaef408015d57fd32bbf056`. Exact USB/ash, Process inventory, AI docs and XY-C1 checks pending. No local ash test claimed.
+- Commit: THIS COMMIT.
+
+---
+
 ## 2026-11-28 — Block Aria2 storage symlink redirection
 
 - Aria2 startup previously followed symlinks for `config`, the download directory and `incomplete.lst`; privileged startup can touch session files, publish RPC secrets/configuration and recursively chmod/chown these paths. Added directory checks for existing/dangling symlinks and rechecking after `mkdir -p`, plus regular-file checks for `aria2.conf` and `incomplete.lst` before `touch`. The configured download path is checked before recursive chmod.

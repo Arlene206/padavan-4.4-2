@@ -202,6 +202,19 @@ if [ -n "${BUSYBOX_BIN:-}" ]; then
 	# firmware BusyBox applet on the same PATH as the other test commands.
 	ln -s "$BUSYBOX_BIN" "$STUB_DIR/stat"
 fi
+# BusyBox ash launchers prepend STUB_DIR to PATH for command stubs. Expose
+# the real BusyBox stat applet in that first directory as well as runtime/bin;
+# the production procfs identity check must see stat in the exact child PATH.
+if [ -n "${BUSYBOX_BIN:-}" ]; then
+	ln -s "$BUSYBOX_BIN" "$STUB_DIR/stat"
+	PATH="$STUB_DIR:$PATH" "$BUSYBOX_BIN" ash -c '
+		command -v stat >/dev/null &&
+		stat -L -c "%d:%i" "$1" >/dev/null
+	' sh "$BUSYBOX_BIN" || {
+		echo "BusyBox ash test PATH cannot resolve the stat applet" >&2
+		exit 1
+	}
+fi
 chmod 755 "$STUB_DIR/"*
 sed \
 	-e "s|SVC_PATH=\"/usr/bin/transmission-daemon\"|SVC_PATH=\"$STUB_DIR/transmission-daemon\"|" \
