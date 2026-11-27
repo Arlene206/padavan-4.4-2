@@ -1,3 +1,18 @@
+## 2026-11-27 — Bind Redsocks stop signals to captured process identities
+
+- Replaced Redsocks name-wide TERM/KILL with exact-PID signalling. Each candidate must match the configured binary through `/proc/PID/exe`, match the expected process comm, and retain the same `/proc/PID/stat` field-22 start time across separate reads. Stop preserves the first PID/start-time snapshot and refuses signalling if the process set gains a PID or an existing PID is recycled before either signal. Linux 4.4 has no pidfd, so the tiny check-to-signal race cannot be eliminated; L4 remains unverified.
+- Added source contracts and runtime regressions for exact-PID signals, same-PID reuse between TERM and KILL, and a foreign executable with the same comm. Existing bounded waits and start rollback remain.
+- Exact-source Redsocks, Process inventory, AI docs and XY-C1 Build/TRX/artifact Actions are required on this commit. Parent d9b6bb8529655903be8d678c85a6e88afd166ba4: Process #46076617007 PASS, inventory #46076617038 PASS, AI docs #46076617041 PASS; XY-C1 #46076617022 was IN_PROGRESS. Its earlier result does not prove this source SHA.
+- Frozen backup remains read-only at 72f4f157a084f8184b9597ca5bf334b8080e5807.
+
+## Exact first action
+
+1. Check exact-main-SHA Redsocks lifecycle, Process lifecycle, Process inventory and AI handoff Actions; repair any FAIL from its job log.
+2. Check exact-SHA XY-C1 Build, TRX verification and artifact upload; make no firmware L3 claim until all three pass.
+3. Continue the P2 privileged-writer / service-lifecycle ledger outside Redsocks, preserving process identity, bounded waits, fail-closed UNKNOWN and rollback requirements.
+
+---
+
 ## 2026-11-27 — Reject symlinked SSH host-key storage directories
 
 - Confirmed a privileged path-redirection gap in both SSH launchers: checks protected each host-key file but followed a symlink when the configured persistent storage directory itself was redirected. Dropbear newkeys, key validation, argument loading and startup, plus OpenSSH config/key preparation, now reject a symlinked or non-directory storage path before reading, deleting, chmodding, generating or publishing files. The directory is rechecked after creation.

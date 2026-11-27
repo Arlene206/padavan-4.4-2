@@ -7,6 +7,7 @@ BIN_DIR="/usr/bin"
 STORAGE_DIR="/etc/storage"
 #BINARY_PATH="$STORAGE_DIR/$BINARY_NAME/$BINARY_NAME"
 BINARY_PATH="$BIN_DIR/$BINARY_NAME"
+RED_SOCKS_PROC_ROOT="${RED_SOCKS_PROC_ROOT:-/proc}"
 REDSOCKS_DIR="$STORAGE_DIR/$BINARY_NAME"
 REDSOCKS_CONF="$REDSOCKS_DIR/$BINARY_NAME.conf"
 CNZONE_FILE="$REDSOCKS_DIR/cn.zone"
@@ -32,8 +33,70 @@ func_save(){
 /sbin/mtd_storage.sh save
 }
 
+# Capture PID, kernel start time and executable identity before signalling.
+# /proc/PID/stat field 22 fences PID reuse; the executable link prevents a
+# same-comm process from being mistaken for the configured Redsocks binary.
+declare -a redsocks_pids=()
+declare -A redsocks_identity_start=()
+
+redsocks_read_stat_identity()
+{
+	local pid="$1" stat_line stat_fields_raw
+	local -a stat_fields
+	case "$pid" in ''|0*|*[!0-9]*) return 2 ;; esac
+	[ "${#pid}" -le 10 ] || return 2
+	if ! IFS= read -r stat_line < "$RED_SOCKS_PROC_ROOT/$pid/stat"; then
+		[ -d "$RED_SOCKS_PROC_ROOT/$pid" ] && return 2
+		return 1
+	fi
+	if [[ ! "$stat_line" =~ ^([0-9]+)\ \((.*)\)\ (.*)$ ]]; then return 2; fi
+	[ "${BASH_REMATCH[1]}" = "$pid" ] || return 2
+	redsocks_stat_comm=${BASH_REMATCH[2]}
+	stat_fields_raw=${BASH_REMATCH[3]}
+	read -r -a stat_fields <<< "$stat_fields_raw"
+	[ "${#stat_fields[@]}" -ge 20 ] || return 2
+	case "${stat_fields[0]}" in R|S|D|Z|T|t|X|x|K|W|P|I) ;; *) return 2 ;; esac
+	case "${stat_fields[19]}" in ''|*[!0-9]*) return 2 ;; esac
+	redsocks_stat_state="${stat_fields[0]}"
+	redsocks_stat_start_time="${stat_fields[19]}"
+	return 0
+}
+
+redsocks_read_identity()
+{
+	local pid="$1" expected_exe actual_exe first_comm first_state first_start status
+	redsocks_read_stat_identity "$pid"
+	status=$?
+	[ "$status" -eq 0 ] || return "$status"
+	first_comm="$redsocks_stat_comm"
+	first_state="$redsocks_stat_state"
+	first_start="$redsocks_stat_start_time"
+	case "$first_state" in Z|X|x) return 1 ;; esac
+	[ "$first_comm" = "$BINARY_NAME" ] || return 2
+	expected_exe=$(readlink -f "$BINARY_PATH" 2>/dev/null) || return 2
+	actual_exe=$(readlink "$RED_SOCKS_PROC_ROOT/$pid/exe" 2>/dev/null) || {
+		[ -d "$RED_SOCKS_PROC_ROOT/$pid" ] && return 2
+		return 1
+	}
+	[ "$actual_exe" = "$expected_exe" ] || return 2
+	# stat and exe are separate procfs reads. Reject a PID recycled while
+	# collecting identity instead of combining metadata from two processes.
+	redsocks_read_stat_identity "$pid"
+	status=$?
+	[ "$status" -eq 0 ] || return "$status"
+	[ "$redsocks_stat_comm" = "$first_comm" ] &&
+		[ "$redsocks_stat_start_time" = "$first_start" ] || return 2
+	case "$redsocks_stat_state" in Z|X|x) return 1 ;; esac
+	redsocks_identity_start_time="$first_start"
+	return 0
+}
+
 redsocks_process_state()
 {
+	local pid status
+	local -a parsed_pids=()
+	redsocks_pids=()
+	redsocks_identity_start=()
 	if redsocks_pid_output=$(pidof "$BINARY_NAME" 2>/dev/null); then
 		redsocks_pid_status=0
 	else
@@ -42,27 +105,49 @@ redsocks_process_state()
 	case "$redsocks_pid_status" in
 	0)
 		[ -n "$redsocks_pid_output" ] || return 2
-		case "$redsocks_pid_output" in
-			*[!0123456789\ ]*) return 2 ;;
-		esac
-		redsocks_pid_count=0
-		for redsocks_pid in $redsocks_pid_output; do
-			case "$redsocks_pid" in
-				''|0*|1|*[!0-9]*) return 2 ;;
-			esac
-			[ "${#redsocks_pid}" -le 10 ] || return 2
-			[ "$redsocks_pid" -gt 1 ] 2>/dev/null || return 2
-			redsocks_pid_count=$((redsocks_pid_count + 1))
+		case "$redsocks_pid_output" in *[!0123456789\ ]*) return 2 ;; esac
+		read -r -a parsed_pids <<< "$redsocks_pid_output"
+		[ "${#parsed_pids[@]}" -gt 0 ] || return 2
+		for pid in "${parsed_pids[@]}"; do
+			case "$pid" in ''|0*|1|*[!0-9]*) return 2 ;; esac
+			[ "${#pid}" -le 10 ] || return 2
+			[ -z "${redsocks_identity_start[$pid]+present}" ] || return 2
+			redsocks_read_identity "$pid"
+			status=$?
+			[ "$status" -eq 0 ] || return 2
+			redsocks_pids+=("$pid")
+			redsocks_identity_start["$pid"]="$redsocks_identity_start_time"
 		done
-		[ "$redsocks_pid_count" -gt 0 ] || return 2
 		return 0
 		;;
-	1)
-		[ -z "$redsocks_pid_output" ] && return 1
-		return 2
-		;;
+	1) [ -z "$redsocks_pid_output" ] && return 1; return 2 ;;
 	*) return 2 ;;
 	esac
+}
+
+# Only signal members of func_stop's original PID/start-time snapshot. A
+# replacement daemon or recycled PID makes the stop UNKNOWN rather than
+# allowing a name-wide killall to hit an unrelated process.
+redsocks_signal_snapshot()
+{
+	local requested_signal="$1" pid status
+	if redsocks_process_state; then
+		:
+	else
+		status=$?
+		[ "$status" -eq 1 ] && return 0
+		return 2
+	fi
+	for pid in "${redsocks_pids[@]}"; do
+		[ -n "${redsocks_target_start[$pid]+present}" ] || return 2
+		[ "${redsocks_identity_start[$pid]}" = "${redsocks_target_start[$pid]}" ] || return 2
+	done
+	for pid in "${redsocks_pids[@]}"; do
+		redsocks_read_identity "$pid" || return 2
+		[ "$redsocks_identity_start_time" = "${redsocks_target_start[$pid]}" ] || return 2
+		kill "-$requested_signal" "$pid" >/dev/null 2>&1 || :
+	done
+	return 0
 }
 
 redsocks_wait_stopped()
@@ -358,6 +443,8 @@ func_iptables()
 }
 
 func_stop(){
+	local pid
+	local -A redsocks_target_start=()
 	if redsocks_process_state; then
 		redsocks_state=0
 	else
@@ -371,8 +458,13 @@ func_stop(){
 			return 1
 			;;
 	esac
-
-	killall -q "$BINARY_NAME" >/dev/null 2>&1 || :
+	for pid in "${redsocks_pids[@]}"; do
+		redsocks_target_start["$pid"]="${redsocks_identity_start[$pid]}"
+	done
+	if ! redsocks_signal_snapshot TERM; then
+		logger -t "$BINARY_NAME" "daemon identity changed before TERM; refusing signal"
+		return 1
+	fi
 	if redsocks_wait_stopped; then
 		logger -t "$BINARY_NAME" "KILLED"
 		return 0
@@ -386,22 +478,10 @@ func_stop(){
 			return 1
 			;;
 	esac
-
-	if redsocks_process_state; then
-		redsocks_state=0
-	else
-		redsocks_state=$?
+	if ! redsocks_signal_snapshot KILL; then
+		logger -t "$BINARY_NAME" "daemon identity changed before KILL; refusing escalation"
+		return 1
 	fi
-	case "$redsocks_state" in
-		1) return 0 ;;
-		0) ;;
-		*)
-			logger -t "$BINARY_NAME" "pre-KILL process inventory unknown; refusing signal"
-			return 1
-			;;
-	esac
-
-	killall -q -9 "$BINARY_NAME" >/dev/null 2>&1 || :
 	if redsocks_wait_stopped; then
 		logger -t "$BINARY_NAME" "KILLED"
 		return 0

@@ -9,19 +9,43 @@ TEST_SIGNALS="$TEST_TMP/signals"
 TEST_SLEEP_LOG="$TEST_TMP/sleep.log"
 TEST_START_LOG="$TEST_TMP/start.log"
 TEST_LOG="$TEST_TMP/launcher.log"
-export TEST_STATE TEST_SIGNALS TEST_SLEEP_LOG TEST_START_LOG TEST_LOG
+TEST_PROC_ROOT="$TEST_TMP/proc"
+RED_SOCKS_PROC_ROOT="$TEST_PROC_ROOT"
+mkdir -p "$TEST_PROC_ROOT"
+export TEST_STATE TEST_SIGNALS TEST_SLEEP_LOG TEST_START_LOG TEST_LOG TEST_PROC_ROOT RED_SOCKS_PROC_ROOT
 
 BINARY_NAME=redsocks
 REDSOCKS_DIR="$TEST_TMP"
 REDSOCKS_CONF="$TEST_TMP/redsocks.conf"
 BINARY_PATH="$TEST_TMP/redsocks"
+touch "$BINARY_PATH"
+chmod 755 "$BINARY_PATH"
+touch "$TEST_TMP/not-redsocks"
 touch "$REDSOCKS_CONF"
 
 logger() { printf '%s\n' "$*" >> "$TEST_LOG"; }
+sync_test_proc() {
+  local state start_time exe_target
+  state=$(cat "$TEST_STATE")
+  case "$state" in
+    running|stuck|replaced)
+      start_time=4000
+      [[ "$state" == replaced ]] && start_time=5000
+      mkdir -p "$TEST_PROC_ROOT/12345"
+      printf '%s\n' "12345 (redsocks) S 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 $start_time" > "$TEST_PROC_ROOT/12345/stat"
+      rm -f "$TEST_PROC_ROOT/12345/exe"
+      exe_target="$BINARY_PATH"
+      [[ "${TEST_EXE_MODE:-valid}" == valid ]] || exe_target="$TEST_TMP/not-redsocks"
+      ln -s "$exe_target" "$TEST_PROC_ROOT/12345/exe"
+      ;;
+    *) rm -rf "$TEST_PROC_ROOT/12345" ;;
+  esac
+}
 pidof() {
   [[ "$1" == "$BINARY_NAME" ]] || return 2
+  sync_test_proc
   case "$(cat "$TEST_STATE")" in
-    running|stuck) echo 12345; return 0 ;;
+    running|stuck|replaced) echo 12345; return 0 ;;
     error) return 2 ;;
     malformed) echo "12345 nope"; return 0 ;;
     empty-success) return 0 ;;
@@ -29,13 +53,17 @@ pidof() {
     *) return 1 ;;
   esac
 }
-killall() {
-  printf '%s\n' "$*" >> "$TEST_SIGNALS"
-  if [[ "$1" == -q && "$2" == -9 ]]; then
-    [[ "${TEST_KILL_MODE:-stop}" == stop ]] && echo absent > "$TEST_STATE"
-  else
+kill() {
+  local signal="$1" pid="$2"
+  [[ "$pid" == 12345 ]] || return 97
+  printf '%s %s\n' "$signal" "$pid" >> "$TEST_SIGNALS"
+  if [[ "$signal" == -TERM ]]; then
     [[ "${TEST_TERM_MODE:-stop}" == stop ]] && echo absent > "$TEST_STATE"
     [[ "${TEST_TERM_MODE:-stop}" == unknown ]] && echo error > "$TEST_STATE"
+  elif [[ "$signal" == -KILL ]]; then
+    [[ "${TEST_KILL_MODE:-stop}" == stop ]] && echo absent > "$TEST_STATE"
+  else
+    return 98
   fi
   return 0
 }
@@ -45,6 +73,9 @@ sleep() {
   sleep_count=$(wc -l < "$TEST_SLEEP_LOG")
   if [[ "${TEST_READY_AFTER_SLEEP:-0}" -gt 0 && "$sleep_count" -ge "${TEST_READY_AFTER_SLEEP}" ]]; then
     echo running > "$TEST_STATE"
+  fi
+  if [[ "${TEST_REPLACE_AFTER_SLEEP:-0}" -gt 0 && "$sleep_count" -ge "${TEST_REPLACE_AFTER_SLEEP}" ]]; then
+    echo replaced > "$TEST_STATE"
   fi
   return 0
 }
@@ -71,6 +102,9 @@ BINARY_NAME=redsocks
 REDSOCKS_DIR="$TEST_TMP"
 REDSOCKS_CONF="$TEST_TMP/redsocks.conf"
 BINARY_PATH="$TEST_TMP/redsocks"
+touch "$BINARY_PATH"
+chmod 755 "$BINARY_PATH"
+touch "$TEST_TMP/not-redsocks"
 touch "$REDSOCKS_CONF"
 # Reinstall launch/save stubs after sourcing, which defines production versions.
 func_redsocks() {
@@ -93,7 +127,7 @@ reset() {
   : > "$TEST_SLEEP_LOG"
   : > "$TEST_START_LOG"
   : > "$TEST_LOG"
-  unset TEST_SLEEP_FAIL TEST_TERM_MODE TEST_KILL_MODE
+  unset TEST_SLEEP_FAIL TEST_TERM_MODE TEST_KILL_MODE TEST_EXE_MODE TEST_REPLACE_AFTER_SLEEP
   TEST_LAUNCH_STATUS=0
   TEST_LAUNCH_STATE=running
   TEST_READY_AFTER_SLEEP=0
@@ -109,12 +143,31 @@ reset error
 if func_start; then fail "start accepted UNKNOWN process inventory"; fi
 [[ ! -s "$TEST_START_LOG" && ! -s "$TEST_SIGNALS" ]] || fail "UNKNOWN start launched or signalled a daemon"
 
+# A PID recycled under the same comm is not the original daemon and must not
+# receive KILL after the bounded TERM wait.
+reset running
+TEST_TERM_MODE=keep
+TEST_REPLACE_AFTER_SLEEP=5
+export TEST_TERM_MODE TEST_REPLACE_AFTER_SLEEP
+if func_stop; then fail "recycled PID was reported stopped"; fi
+[[ "$(cat "$TEST_SIGNALS")" == "-TERM 12345" ]] || fail "KILL was sent to a recycled PID"
+echo "Redsocks stop refuses PID reuse between TERM and KILL: PASS"
+
+# pidof's same-name result is insufficient unless /proc/PID/exe resolves to
+# the configured binary.
+reset running
+TEST_EXE_MODE=wrong
+export TEST_EXE_MODE
+if func_stop; then fail "same-comm foreign executable was accepted"; fi
+[[ ! -s "$TEST_SIGNALS" ]] || fail "foreign executable received a signal"
+echo "Redsocks refuses same-comm foreign executable: PASS"
+
 # A daemon that exits after TERM must not receive KILL.
 reset running
 TEST_TERM_MODE=stop
 export TEST_TERM_MODE
 func_stop || fail "graceful stop failed"
-[[ "$(cat "$TEST_SIGNALS")" == "-q redsocks" ]] || fail "graceful stop sent unexpected signals"
+[[ "$(cat "$TEST_SIGNALS")" == "-TERM 12345" ]] || fail "graceful stop did not signal the captured PID"
 [[ ! -s "$TEST_SLEEP_LOG" ]] || fail "graceful stop did not observe absence immediately"
 
 # UNKNOWN after TERM and failed sleep both block KILL escalation.
@@ -122,13 +175,13 @@ reset running
 TEST_TERM_MODE=unknown
 export TEST_TERM_MODE
 if func_stop; then fail "UNKNOWN after TERM was accepted"; fi
-[[ "$(cat "$TEST_SIGNALS")" == "-q redsocks" ]] || fail "UNKNOWN after TERM escalated to KILL"
+[[ "$(cat "$TEST_SIGNALS")" == "-TERM 12345" ]] || fail "UNKNOWN after TERM escalated to KILL"
 reset running
 TEST_TERM_MODE=keep
 TEST_SLEEP_FAIL=1
 export TEST_TERM_MODE TEST_SLEEP_FAIL
 if func_stop; then fail "sleep failure was accepted as a successful stop"; fi
-[[ "$(cat "$TEST_SIGNALS")" == "-q redsocks" ]] || fail "sleep failure escalated to KILL"
+[[ "$(cat "$TEST_SIGNALS")" == "-TERM 12345" ]] || fail "sleep failure escalated to KILL"
 [[ "$(wc -l < "$TEST_SLEEP_LOG" | tr -d ' ')" == 1 ]] || fail "sleep failure was not observed once"
 
 # TERM-resistant process receives KILL only after five bounded polls.
@@ -137,7 +190,7 @@ TEST_TERM_MODE=keep
 TEST_KILL_MODE=stop
 export TEST_TERM_MODE TEST_KILL_MODE
 func_stop || fail "force stop failed"
-[[ "$(cat "$TEST_SIGNALS")" == "$(printf '%s\n' '-q redsocks' '-q -9 redsocks')" ]] || fail "force stop signal sequence incorrect"
+[[ "$(cat "$TEST_SIGNALS")" == "$(printf '%s\n' '-TERM 12345' '-KILL 12345')" ]] || fail "force stop signal sequence incorrect"
 [[ "$(wc -l < "$TEST_SLEEP_LOG" | tr -d ' ')" == 5 ]] || fail "TERM wait was not bounded to five polls"
 [[ "$(cat "$TEST_STATE")" == absent ]] || fail "force stop did not verify absence"
 

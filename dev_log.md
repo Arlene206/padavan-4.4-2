@@ -1,3 +1,9 @@
+## 2026-11-27 — Bind Redsocks stop signals to captured process identities
+
+- Replaced Redsocks name-wide `killall` TERM/KILL with exact-PID signalling. Each candidate must match the configured executable via `/proc/PID/exe`, match the process comm, and retain the same `/proc/PID/stat` field-22 start time across separate reads. Stop retains the first PID/start-time snapshot and refuses signalling if a new PID appears or a PID is recycled before either signal.
+- Extended `redsocks-lifecycle.yml` regression coverage for exact PID signals, foreign same-comm executable rejection and PID reuse between TERM and KILL.
+- No local checkout was available; do not claim local shell test results. Linux 4.4 has no pidfd, leaving a small unavoidable validate-to-signal race; physical L4 is NOT VERIFIED.
+
 ## 2026-11-27 — Reject symlinked SSH host-key storage directories
 
 - Both OpenSSH and Dropbear previously validated individual host-key leaf paths but accepted a configured storage-directory symlink. A root-started daemon helper could therefore chmod, delete, generate or publish keys/configuration in an unintended target directory. Added no-follow directory checks and post-mkdir revalidation; all key/config/argument operations are gated before they follow the configured leaf directory.

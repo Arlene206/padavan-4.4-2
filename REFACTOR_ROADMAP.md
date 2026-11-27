@@ -1,3 +1,10 @@
+## 2026-11-27 — Redsocks identity-bound stop signalling
+
+- Replaced broad name-based TERM/KILL with the captured PID set and `/proc/PID/stat` start-time plus `/proc/PID/exe` validation. Exact captured identities are rechecked before each signal; new/recycled/foreign same-comm processes fail closed.
+- Existing Redsocks bounded lifecycle regression now covers foreign executable rejection and same-PID reuse between TERM/KILL. Exact-head Actions pending; Linux 4.4 check-to-signal race remains without pidfd; physical-router L4 is unverified.
+
+---
+
 ## 2026-11-26 — Verify package-client absence with complete procfs inventory
 
 - Optware teardown gates swapoff and /opt unmount on four full-command-line package-client patterns. The prior pgrep status-1/empty-output branch returned ABSENT without confirming that the procfs scan was complete.

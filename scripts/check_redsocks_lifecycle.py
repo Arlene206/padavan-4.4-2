@@ -21,6 +21,8 @@ def body(signature):
     return match.group(1)
 
 state = body("redsocks_process_state()")
+identity = body("redsocks_read_identity()")
+signal_snapshot = body("redsocks_signal_snapshot()")
 wait = body("redsocks_wait_stopped()")
 wait_start = body("redsocks_wait_started()")
 start_verify = body("redsocks_start_and_verify()")
@@ -31,8 +33,16 @@ start_end_offset = start_offset + clean_match.start()
 start = source[start_offset:start_end_offset]
 stop = body("func_stop()")
 require('pidof "$BINARY_NAME"' in state and 'redsocks_pid_status' in state and
+        'redsocks_read_identity "$pid"' in state and 'redsocks_identity_start' in state and
         'return 2' in state and 'return 1' in state and 'return 0' in state,
-        "process inventory must distinguish RUNNING, confirmed ABSENT and UNKNOWN")
+        "process inventory must validate target executable and preserve PID/start-time identities")
+require('stat_fields[19]' in identity and 'readlink -f "$BINARY_PATH"' in identity and
+        'readlink "$RED_SOCKS_PROC_ROOT/$pid/exe"' in identity and
+        'redsocks_stat_start_time' in identity and 'return 2' in identity,
+        "process identity must bind executable and procfs start_time with a second stat read")
+require('redsocks_target_start[$pid]' in signal_snapshot and
+        'kill "-$requested_signal" "$pid"' in signal_snapshot and 'killall' not in signal_snapshot,
+        "signals must target only the original PID/start-time snapshot, never a process name")
 require('while [ "$redsocks_wait" -lt 5 ]; do' in wait and
         'redsocks_process_state' in wait and 'sleep 1 || return 2' in wait,
         "stop wait must use bounded tri-state polling and preserve sleep errors")
@@ -49,15 +59,15 @@ require(start.count('redsocks_start_and_verify') == 2 and
         'func_redsocks' not in start and
         start.count('logger -t $BINARY_NAME "STARTED."') == 1,
         "both configuration paths must verify detached readiness before STARTED")
-require('killall -q "$BINARY_NAME"' in stop and
-        'killall -q -9 "$BINARY_NAME"' in stop and
-        stop.index('killall -q "$BINARY_NAME"') < stop.index('redsocks_wait_stopped') <
-        stop.index('killall -q -9 "$BINARY_NAME"') < stop.rindex('redsocks_wait_stopped'),
-        "TERM, bounded wait, KILL and final absence verification must be ordered")
+require('redsocks_signal_snapshot TERM' in stop and
+        'redsocks_signal_snapshot KILL' in stop and
+        stop.index('redsocks_signal_snapshot TERM') < stop.index('redsocks_wait_stopped') <
+        stop.index('redsocks_signal_snapshot KILL') < stop.rindex('redsocks_wait_stopped'),
+        "identity-bound TERM, bounded wait, revalidation, KILL and final absence verification must be ordered")
 require('TERM postcondition unknown; refusing KILL escalation' in stop and
-        'pre-KILL process inventory unknown; refusing signal' in stop and
+        'daemon identity changed before KILL; refusing escalation' in stop and
         'return 1' in stop,
-        "UNKNOWN must block destructive escalation and propagate stop failure")
+        "UNKNOWN or changed process identity must block destructive escalation and propagate stop failure")
 start_offset = source.index("func_start(){")
 start_gate_offset = source.index("if ! func_stop; then", start_offset)
 start_launch_offset = source.index("redsocks_start_and_verify", start_offset)
@@ -75,7 +85,8 @@ for marker in ("UNKNOWN inventory", "UNKNOWN after TERM", "sleep failure",
                "replacement daemon launched after failed stop",
                "delayed detached child", "ABSENT startup timeout",
                "UNKNOWN startup inventory", "startup sleep failure",
-               "launcher status was changed", "generated-config detached startup"):
+               "launcher status was changed", "generated-config detached startup",
+               "PID reuse between TERM and KILL", "same-comm foreign executable"):
     require(marker in test, f"missing regression marker {marker}")
 paths = (
     ".github/workflows/redsocks-lifecycle.yml",
