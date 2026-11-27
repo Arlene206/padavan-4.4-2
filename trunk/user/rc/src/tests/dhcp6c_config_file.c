@@ -181,6 +181,6 @@ main(void)
 	umask(saved_umask);
 
 	assert(parent_sync_calls == 2);
-	puts("DHCPv6 config staging, fsync retries, atomic replace and no-follow directory barrier: PASS");
+	puts("DHCPv6 config private staging, atomic replacement, file/directory fsync and no-follow parent barrier: PASS");
 	return 0;
 }
