@@ -18,7 +18,8 @@ chmod 700 "$tmp/dns-forwarder.sh"
 
 cat > "$tmp/bin/nvram" <<'STUB'
 #!/bin/sh
-[ "$1" = get ] || exit 2
+[ "$1" = get_checked ] || exit 2
+[ "${FAKE_NVRAM_FAIL_KEY:-}" = "$2" ] && exit "${FAKE_NVRAM_FAIL_STATUS:-73}"
 case "$2" in
   dns_forwarder_enable) printf '%s\n' "${FAKE_ENABLED:-1}" ;;
   dns_forwarder_bind) printf '%s\n' "127.0.0.1" ;;
@@ -192,6 +193,21 @@ export FAKE_ENABLED
 run_status 0 restart
 [ ! -e "$FAKE_RUNNING_FILE" ]
 [ "$(launch_count)" = 2 ]
+
+# Every startup selector must preserve NVRAM backend errors instead of
+# treating an empty read as a missing key (especially the enable flag).
+for key in dns_forwarder_enable dns_forwarder_bind dns_forwarder_port dns_forwarder_server; do
+  FAKE_NVRAM_FAIL_KEY="$key"
+  FAKE_NVRAM_FAIL_STATUS=73
+  export FAKE_NVRAM_FAIL_KEY FAKE_NVRAM_FAIL_STATUS
+  launches_before=$(launch_count)
+  run_status 73 start
+  [ "$(launch_count)" = "$launches_before" ] || {
+    echo "NVRAM read failure for $key launched a daemon" >&2
+    exit 1
+  }
+done
+unset FAKE_NVRAM_FAIL_KEY FAKE_NVRAM_FAIL_STATUS
 
 # Report both launch errors and a launcher which exits zero without a daemon.
 FAKE_ENABLED=1 FAKE_START_FAIL=1

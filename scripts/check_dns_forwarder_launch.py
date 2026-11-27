@@ -148,8 +148,17 @@ assert 'PL_PROC_ROOT="$tmp/missing-proc"' in lifecycle_test
 assert "start-stop-daemon -S -b -x /usr/bin/dns-forwarder --" in launcher_script
 assert "launcher returned success but no daemon appeared" in launcher_script
 assert "restart aborted because stop did not complete" in launcher_script
-assert "nvram get dns_forwarder_enable" in launcher_script
-assert "bind_address=$(nvram get" not in launcher_script[:launcher_script.index("func_start()")]
+assert "nvram get_checked" in launcher_script
+assert "dns_forwarder_read_nvram_checked" in launcher_script
+assert "cannot read NVRAM setting" in launcher_script
+assert "nvram get dns_forwarder_enable" not in launcher_script
+assert all(
+    f"dns_forwarder_read_nvram_checked {key}" in launcher_script
+    for key in ("dns_forwarder_enable", "dns_forwarder_bind",
+                "dns_forwarder_port", "dns_forwarder_server")
+)
+assert "FAKE_NVRAM_FAIL_KEY" in lifecycle_test
+assert "run_status 73 start" in lifecycle_test
 assert '[ -s "$FAKE_RUNNING_FILE" ]' in lifecycle_test
 assert lifecycle_test.count('printf \'%s\\n\' 123 > "$FAKE_RUNNING_FILE"') >= 3
 

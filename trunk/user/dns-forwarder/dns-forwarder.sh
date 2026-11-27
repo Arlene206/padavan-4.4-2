@@ -227,13 +227,42 @@ func_stop() {
   done
 }
 
+# Keep missing NVRAM keys distinct from backend read failures. The
+# checked API returns success with an empty value for a missing key, and a
+# nonzero status when the NVRAM backend could not be read.
+dns_forwarder_read_nvram_checked() {
+  dns_forwarder_nvram_value="$(nvram get_checked "$1")"
+  dns_forwarder_nvram_status=$?
+  if [ "$dns_forwarder_nvram_status" -ne 0 ]; then
+    logger -t "DNS Forwarder" "cannot read NVRAM setting $1 (status=$dns_forwarder_nvram_status)"
+    return "$dns_forwarder_nvram_status"
+  fi
+  return 0
+}
+
 func_start() {
-  enabled="$(nvram get dns_forwarder_enable)" || return 1
+  if dns_forwarder_read_nvram_checked dns_forwarder_enable; then
+    enabled="$dns_forwarder_nvram_value"
+  else
+    return $?
+  fi
   [ "$enabled" = "1" ] || return 0
 
-  bind_address="$(nvram get dns_forwarder_bind)" || return 1
-  bind_port="$(nvram get dns_forwarder_port)" || return 1
-  server="$(nvram get dns_forwarder_server)" || return 1
+  if dns_forwarder_read_nvram_checked dns_forwarder_bind; then
+    bind_address="$dns_forwarder_nvram_value"
+  else
+    return $?
+  fi
+  if dns_forwarder_read_nvram_checked dns_forwarder_port; then
+    bind_port="$dns_forwarder_nvram_value"
+  else
+    return $?
+  fi
+  if dns_forwarder_read_nvram_checked dns_forwarder_server; then
+    server="$dns_forwarder_nvram_value"
+  else
+    return $?
+  fi
 
   # Make start idempotent and protect against duplicate/stale RC requests.
   if dns_forwarder_is_running; then
