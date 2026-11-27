@@ -1,11 +1,13 @@
-## 2026-11-28 — Restore Transmission HTTPS tracker certificate verification
+## 2026-11-28 — Prevent duplicate iperf3 daemons on incomplete pidof scans
 
-- `transmission.sh` previously exported `TR_CURL_SSL_NO_VERIFY=1` for Transmission 3.00, disabling HTTPS tracker certificate and hostname validation. The launcher now clears inherited overrides before any daemon startup and retains the upstream secure default.
-- Added a shell regression which injects the insecure inherited value before sourcing the exact launcher preamble, verifies that it is unset, and rejects future forced assignments. Process lifecycle push/PR CI runs this test; XY-C1 already watches the production launcher.
-- Base SHA: `20e0a312051addf538ed6bf4ae85022e608ed4b3`; source/test/workflow/docs changes are prepared as one atomic commit. Exact-head Transmission, Process, AI handoff and XY-C1 Build/TRX/artifact checks are pending; no local shell test is claimed.
-- Previous Shadowsocks ABSENT fallback source `f23be0cff7d7e0d1e942ebcf10094497b73be676`: the lifecycle runtime tests and Process inventory PASSed; its stale static checker and roadmap byte-limit failures were repaired by `20e0a312051addf538ed6bf4ae85022e608ed4b3`. Shadowsocks #46079578628 and AI docs #46079578625 PASS on that repair SHA. XY-C1 #46079286427 is still pending on f23; Build was running, TRX/artifact not started at last check.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged.
-- Exact first action: inspect this commit's Transmission/Process/AI and XY-C1 exact-SHA runs, require Build XY-C1 + TRX + artifact for L3, then close f23's outstanding XY-C1 run and continue the next independent P1 security/stability defect.
+- Source fix: `3832167000112d33e6c2d30dbb8c0008ba29e119` now uses the always-built shared `/usr/lib/process_lifecycle.sh` tri-state scanner. BusyBox `pidof` status 1 with empty output is verified against a complete `/proc` inventory and a post-scan lookup; incomplete inventories remain UNKNOWN and cannot authorize duplicate start or premature stop success.
+- Regression: `trunk/user/iperf3/tests/iperf3_process_lifecycle.sh` covers a live daemon omitted by pidof, stop postcondition, incomplete procfs refusal, and confirmed absence. First exact-SHA workflow #46079911385 failed only because the test executed the tracked non-executable launcher directly; shell syntax passed. Test-only correction `6d659d767e8ac236527ca5cf02f2daedaf386507` invokes it through `sh`.
+- Exact reruns on `6d659d7`: iperf3 lifecycle #46079981839 and process inventory #46079981918 were QUEUED at the last check. Source SHA `3832167` process inventory #46079911367 PASS; AI handoff #46079911366 PASS. XY-C1 #46079911435 was IN_PROGRESS at `Build XY-C1`; TRX and artifact upload were still pending, so no L3 claim.
+- Transmission TLS hardening commit `9972e8531add4ce5bc64c3d5690892e30b80ade4`: AI handoff #46079785523 PASS, process inventory #46079785497 PASS, and the Process lifecycle run's `Verify Transmission tracker TLS certificate validation remains enabled` step PASS before that run was cancelled by a newer push. XY-C1 #46079785501 was still in progress. Separate USB storage hotplug run #46079785505 failed at `Build firmware BusyBox 1.24.2 and run Optware lifecycle regressions under ash`; diagnose this failure before treating that path as green.
+- Older XY-C1 run #46079286427 on `f23be0c` was still IN_PROGRESS at `Build XY-C1`, with TRX and artifact pending. Newer build #46079911435 is the preferred exact source gate for the current iperf3 change.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify.
+- Exact first action: inspect #46079981839 and #46079981918 on `6d659d7`; diagnose/fix the independent BusyBox ash failure from #46079785505; retrieve the current XY-C1 Build/TRX/artifact conclusions. Continue with the next security/stability defect outside the iperf3 scanner.
+
 
 ---
 

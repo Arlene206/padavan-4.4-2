@@ -1,3 +1,10 @@
+## 2026-11-28 07:00 CST (UTC+8) — Make iperf3 process discovery fail closed
+
+- `iperf3_process_state()` previously accepted BusyBox `pidof` status 1 with empty output as confirmed ABSENT. BusyBox 1.24 can omit a running task when its /proc scan is incomplete, allowing a duplicate iperf3 start or premature stop success.
+- Reused the always-built shared `process_lifecycle.sh` tri-state scanner and its full-procfs/post-scan confirmation. Added fake-procfs integration coverage for RUNNING, UNKNOWN, stop verification, and confirmed ABSENT. Exact workflow #46079911385 exposed a test-only permission error (tracked launcher mode is not executable); follow-up `6d659d767e8ac236527ca5cf02f2daedaf386507` runs it through `sh`.
+- Source commit: `3832167000112d33e6c2d30dbb8c0008ba29e119`. Test correction commit: `6d659d767e8ac236527ca5cf02f2daedaf386507`. Exact iperf3 rerun #46079981839 and Process inventory #46079981918 were queued; source-SHA inventory #46079911367 passed. XY-C1 #46079911435 was still building; no firmware artifact or hardware L4 claim.
+- The independent Transmission TLS check passed on `9972e8531add4ce5bc64c3d5690892e30b80ade4`; its broader Process workflow was cancelled after that step. USB storage hotplug #46079785505 separately failed during BusyBox 1.24.2/Optware ash regression and remains to diagnose. No local shell test was executed in this connector-only session.
+
 ## 2026-11-28 04:xx CST (UTC+8) — Restore Transmission HTTPS tracker certificate verification
 
 - `transmission.sh` previously exported `TR_CURL_SSL_NO_VERIFY=1`; Transmission 3.00 treats this variable as an opt-out from HTTPS tracker certificate and hostname validation. The launcher now clears any inherited value before startup and keeps verification enabled by default.

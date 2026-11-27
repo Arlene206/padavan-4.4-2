@@ -1,8 +1,7 @@
-## 2026-11-28 — Restore Transmission HTTPS tracker certificate verification
+## 2026-11-28 — iperf3 fail-closed process discovery
 
-- Transmission 3.00 now clears inherited `TR_CURL_SSL_NO_VERIFY` and leaves upstream HTTPS tracker certificate/hostname validation enabled. A preamble regression is wired into Process lifecycle push/PR CI; XY-C1 already tracks the production launcher. Exact-head checks pending.
+- Replaced the pidof-only status-1/empty-output ABSENT shortcut with the shared complete-procfs tri-state scanner. Added regressions for omitted live daemons, stop postconditions, incomplete inventory refusal, and confirmed absence. Exact reruns pending after correcting the test's shell invocation.
 
----
 
 ## 2026-11-27 — Shadowsocks procfs
 
