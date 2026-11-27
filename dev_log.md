@@ -1,3 +1,11 @@
+## 2026-11-28 — Align checked NVRAM startup contracts with CI fixtures
+
+- The FRP boot-state hardening changed the shared autostart reader to `nvram get_checked`, but the optional-start fixture still accepted only legacy `get`. Its selectors consequently appeared disabled and AdGuardHome was not invoked. Updated the fixture to model the checked API.
+- The AliDDNS transport checker also expected the old unchecked command in the shared autostart helper; aligned that contract. Added part-039 to the archive index table with the repository-root-relative path required by the inventory checker.
+- Exact base SHA `71d3bf2a3788f2ce59c1e5809c383a26841b2657`: Process lifecycle #46084656129 failed only at the stale autostart fixture; AliDDNS #46084656095 failed only at the stale source assertion. Re-run both against the repair commit.
+
+---
+
 ## 2026-11-28 — Complete DHCPv6 crash-durable configuration publication
 
 - DHCPv6 IA configuration publication fsyncs staged contents after `fflush`, closes the file, atomically renames it, then fsyncs the parent directory. Post-rename parent-sync errors are reported because crash durability is uncertain although the new name may already be visible.

@@ -230,7 +230,7 @@ require('install_ca_trust_store() {' in copy_scripts and
         "firmware startup must install the CA trust store synchronously before autostart")
 autostart_nvram_read = function_body(autostart, "autostart_nvram_read()")
 autostart_nvram_enabled = function_body(autostart, "autostart_nvram_enabled()")
-require('if _autostart_nvram_value=$(nvram get "$_autostart_nvram_key"); then' in autostart_nvram_read and
+require('if _autostart_nvram_value=$(nvram get_checked "$_autostart_nvram_key"); then' in autostart_nvram_read and
         'return "$_autostart_nvram_status"' in autostart_nvram_read and
         'autostart_nvram_read "$1" || return $?' in autostart_nvram_enabled and
         'if autostart_nvram_enabled aliddns_enable; then' in autostart and

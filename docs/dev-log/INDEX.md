@@ -45,6 +45,7 @@
 | `docs/dev-log/2026/11/part-036.md` | 100 | 2026-11-25 19:40 CST — Make bundled chnroute extraction fail closed → 2026-11-25 — Bound IAPP FT security-block copies by received bytes | 100329 | `3e22817d7210256c8aa0c75b4f9fb0ac9c3d4981` |
 | `docs/dev-log/2026/11/part-037.md` | 100 | 2026-11-25 — Repair GNU89 receive-length test dependency → 2026-11-25 — Route DHCP relay replies to a usable client destination | 106872 | `1a954ef6fdd5346236e0f3bff1e8e153c145d56e` |
 | `docs/dev-log/2026/11/part-038.md` | 100 | 2026-11-25 — SmartDNS rollback status propagation → 2026-11-26 — Skip empty requested interfaces during WAN IPv6 teardown | 99102 | `d8871cc4701057cc8661604a4b1ae3001878ceaf` |
+| `docs/dev-log/2026-11/part-039.md` | 100 | 2026-11-26 — Preserve first error across DHCPv6 delegated-prefix cleanup → 2026-11-28 — Add missing WAN IPv6 teardown predicate definition | 108571 | `f1d939bd4a60b6d50f646c1b9c61252214c16cda` |
 - **Rolling-window catch-up:** 102 oldest complete records evicted from root `dev_log.md` when it contained 122 entries at parent main `7cd1ffd3eecc05786846be684053428f20e8f535` are preserved verbatim, oldest first, in `part-031.md`; root retains the newest 20 pre-existing records plus this rotation checkpoint (21 total). No record was rewritten or discarded.
 
 

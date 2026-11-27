@@ -22,7 +22,7 @@ sed \
 
 cat > "$TMP_DIR/bin/nvram" <<'STUB'
 #!/bin/sh
-[ "$1" = get ] || exit 1
+[ "$1" = get_checked ] || exit 1
 if [ "${NVRAM_FAIL_KEY:-}" = "$2" ]; then
 	exit "${NVRAM_FAIL_STATUS:-9}"
 fi

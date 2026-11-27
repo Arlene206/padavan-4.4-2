@@ -1,3 +1,9 @@
+## 2026-11-28 — Align checked NVRAM startup contracts
+
+- Updated the optional-start NVRAM fixture and AliDDNS shared-autostart source checker for `nvram get_checked`; indexed the part-039 development-log shard using its full repository path.
+
+---
+
 ## 2026-11-28 — Make DHCPv6 IA configuration publication crash-durable
 
 - Fsync staged DHCPv6 config contents before close/rename and the containing directory after rename; propagate directory-sync errors. Regression covers success, missing/symlinked parents and injected post-rename sync failure.

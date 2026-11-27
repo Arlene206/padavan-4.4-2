@@ -1,3 +1,12 @@
+## 2026-11-28 — Repair checked NVRAM startup contracts and log archive inventory
+
+- Base `main` was `71d3bf2a3788f2ce59c1e5809c383a26841b2657`. That commit migrated the shared autostart NVRAM reader to `nvram get_checked`; exact Process regression #46084656129 then failed because its test stub only accepted legacy `get`, so the AdGuardHome enable read failed and the expected launcher was not called. AliDDNS #46084656095 reached the final source-contract step and failed because its checker still expected the legacy command. Runtime AliDDNS lifecycle, transport, CA bootstrap and HMAC tests preceding that checker passed.
+- Updated both stale test contracts to checked reads. The same checkpoint exposed an AI-handoff inventory mismatch: archive shards are indexed by repository-root-relative paths in table rows, not only relative Markdown links; added the missing part-039 table entry.
+- Base-SHA checks: Process inventory #46084656164 PASS; FRP #46084656173 PASS; DNSMasq #46084656127 PASS; HTTPD security #46084656049 PASS. Process lifecycle and AliDDNS need exact-SHA reruns after this repair. XY-C1 run #46084656050 was Build IN_PROGRESS; TRX verification and artifact upload PENDING at last check.
+- Frozen backup remains `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not update. Next: verify this commit's Process, AliDDNS and AI handoff Actions; poll the XY-C1 run without waiting; then continue a new userland stability defect. No local build/test result is claimed.
+
+---
+
 ## 2026-11-28 — Complete DHCPv6 crash-durable configuration publication
 
 - DHCPv6 IA configuration publication fsyncs staged contents after `fflush`, closes the file, atomically renames it, then fsyncs the parent directory. The shared parent barrier rejects a symlinked parent via `O_NOFOLLOW`; post-rename failures are returned because durability is uncertain after rename.
