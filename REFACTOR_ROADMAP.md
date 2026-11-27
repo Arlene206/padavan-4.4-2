@@ -1,3 +1,9 @@
+## 2026-11-28 — Repair media-config directory sync CI contract
+
+- Update the MiniDLNA/Firefly source assertion to require `O_DIRECTORY|O_NOFOLLOW`, matching the helper's strengthened no-follow parent-directory open. No production source rollback.
+
+---
+
 ## 2026-11-28 — Make proxy config publications directory-durable
 
 - MiniUPnP and IGMP proxy now fsync the containing directory after successful atomic config rename; shared barrier uses `O_DIRECTORY|O_NOFOLLOW`. Tests cover success, missing parent and symlink parent.

@@ -1,11 +1,11 @@
-## 2026-11-28 — Persist MiniUPnP and IGMP proxy config renames
+## 2026-11-28 — Align MiniDLNA durability contract with no-follow directory open
 
-- MiniUPnP and IGMP proxy atomic writers fsynced staged file contents, then renamed without syncing the containing directory. They now reuse `config_file_sync_parent()` after successful rename and propagate durability errors; the shared helper opens parent directories with `O_DIRECTORY|O_NOFOLLOW` so a symlinked parent is not followed.
-- Added successful, missing-parent and symlink-parent checks to both C regressions; Process CI now builds/runs the MiniUPnP test, retains the IGMP test, and checks source ordering plus no-follow semantics. Exact-SHA Actions pending; no local compile claimed.
-- Previous commit `91db105a946c0397c9875a1090cfc8fa1d0495fd`: MiniDLNA #46082011767 and Firefly #46082011810 PASS; Process regression #46082011866, Process inventory #46082011821, AI docs #46082011771 and NVRAM audit #46082011772 PASS. XY-C1 #46082011789 was still at Build XY-C1; TRX and artifact pending at last poll.
-- Next: inspect this commit's MiniUPnP/IGMP proxy exact-SHA test runs, close #46082011789 Build/TRX/artifact, then continue another P1 cross-userland stability/security defect.
+- Exact e0 Process regression #46082405947 failed in the existing MiniDLNA/Firefly source contract because it still expected `open(parent_path, O_RDONLY | O_DIRECTORY)`; this same commit intentionally strengthened the shared helper to `O_DIRECTORY|O_NOFOLLOW`. All prior steps in that job passed, while the newly inserted MiniUPnP/IGMP compile steps were skipped after this stale assertion.
+- Updated the source contract to require the stronger no-follow open. The separate Process inventory #46082405929 and AI docs #46082405924 PASS on e0. MiniUPnP atomic test workflow #46082405952 PASSed its existing checks; the newly added test source still needs its Process rerun. e0 XY-C1 #46082405926 and NVRAM audit #46082405853 were still running at last poll.
+- Next: verify the rerun compiles MiniUPnP and IGMP tests and passes all directory-sync contracts; then close the e0 XY-C1 Build/TRX/artifact result.
 
 ---
+
 
 
 

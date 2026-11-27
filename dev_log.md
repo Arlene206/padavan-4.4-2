@@ -1,3 +1,12 @@
+## 2026-11-28 — Repair media-config directory sync CI contract
+
+- e0 Process regression #46082405947 failed at the existing MiniDLNA/Firefly source contract because it expected the pre-hardening `O_RDONLY | O_DIRECTORY` open form; the shared helper now correctly uses `O_RDONLY | O_DIRECTORY | O_NOFOLLOW`. The newly added MiniUPnP and IGMP compile/regression steps were skipped by the earlier assertion failure.
+- Update the static contract to require `O_NOFOLLOW`; exact-SHA rerun will execute the new proxy configuration tests.
+- Base SHA: `e0cc8d5834cc26b2527176a0e0fd1dfd1095f8dd`. Process inventory #46082405929 and AI handoff #46082405924 PASS. e0 XY-C1 #46082405926 still pending Build/TRX/artifact; NVRAM audit #46082405853 still running.
+- Commit: THIS COMMIT.
+
+---
+
 ## 2026-11-28 — Persist MiniUPnP and IGMP proxy config renames
 
 - MiniUPnP and IGMP proxy staged configuration writers fsynced file contents before atomic rename but did not sync the parent directory. They now reuse the shared parent-directory fsync barrier after rename and propagate errors instead of reporting success when the directory entry is not known durable. The helper refuses symlinked parent directories with `O_NOFOLLOW`.

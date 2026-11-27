@@ -1308,7 +1308,7 @@ jobs:
 
           root = Path("trunk/user/rc/src")
           helper = (root / "config_file_sync.h").read_text()
-          assert "open(parent_path, O_RDONLY | O_DIRECTORY)" in helper
+          assert "open(parent_path, O_RDONLY | O_DIRECTORY | O_NOFOLLOW)" in helper
           assert "config_file_sync_fd(directory_fd)" in helper
           assert "errno == EINTR" in helper
           for name, signature in (
