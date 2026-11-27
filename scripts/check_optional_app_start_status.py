@@ -1257,6 +1257,9 @@ def check_dropbear():
     assert 'kill -KILL "$dropbear_stop_pid"' in script
     assert "pidof dropbear" not in script
     assert "killall -q dropbear" not in script
+    assert "func_validate_key()" in script
+    assert '"$dropbearkey_bin" -y -f "$key_file"' in script
+    assert '[ ! -s "$key_file" ]' in script
     assert r"\\${" not in script
 
     syntax = run(["/bin/sh", "-n", str(DROPBEAR_SSHD_SCRIPT)], os.environ.copy())

@@ -12,7 +12,26 @@ DROPBEAR_PROC_ROOT="$TEST_PROC_ROOT"
 DROPBEAR_BIN="$TEST_BIN"
 DROPBEAR_STORAGE_DIR="$TEST_ROOT/storage"
 DROPBEAR_KEYGEN_BIN="$TEST_ROOT/dropbearkey"
-export DROPBEAR_PROC_ROOT DROPBEAR_BIN DROPBEAR_STORAGE_DIR DROPBEAR_KEYGEN_BIN
+TEST_KEYGEN_LOG="$TEST_ROOT/keygen.log"
+export DROPBEAR_PROC_ROOT DROPBEAR_BIN DROPBEAR_STORAGE_DIR DROPBEAR_KEYGEN_BIN TEST_KEYGEN_LOG
+cat > "$DROPBEAR_KEYGEN_BIN" <<'EOF'
+#!/bin/sh
+case "$1" in
+	-t)
+		[ "$#" -eq 4 ] && [ "$3" = "-f" ] || exit 64
+		printf '%s %s\n' "$2" "$4" >> "$TEST_KEYGEN_LOG" || exit 1
+		printf 'generated:%s\n' "$2" > "$4" || exit 1
+		;;
+	-y)
+		[ "$#" -eq 3 ] && [ "$2" = "-f" ] || exit 64
+		[ -s "$3" ] || exit 1
+		IFS= read -r key_data < "$3" || exit 1
+		case "$key_data" in original-*|generated:*) exit 0 ;; *) exit 1 ;; esac
+		;;
+	*) exit 64 ;;
+esac
+EOF
+chmod 755 "$DROPBEAR_KEYGEN_BIN"
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 SOURCE="$SCRIPT_DIR/../sshd.sh"
 sed '/^action_status=0$/,$d' "$SOURCE" > "$TEST_FUNCTIONS"
@@ -22,15 +41,7 @@ func_log() { :; }
 sleep() { :; }
 TEST_TERM_STUCK=0; TEST_SIGNAL_FAILURE=0; TEST_KILLALL_CALLS=0
 killall() { TEST_KILLALL_CALLS=$((TEST_KILLALL_CALLS + 1)); return 99; }
-TEST_KEYGEN_LOG="$TEST_ROOT/keygen.log"
 : > "$TEST_KEYGEN_LOG"
-func_keygen() {
-  key_type="$1"
-  key_path="$2"
-  printf '%s %s\n' "$key_type" "$key_path" >> "$TEST_KEYGEN_LOG"
-  printf 'generated:%s\n' "$key_type" > "$key_path"
-  chmod 600 "$key_path"
-}
 kill() {
   [ "$#" -eq 2 ] || return 1
   printf '%s %s\n' "$1" "$2" >> "$TEST_SIGNALS"
@@ -163,6 +174,27 @@ func_ensurekeys || fail "could not regenerate missing RSA key"
 [ "$(cat "$ed25519_key")" = "original-ed25519" ] || fail "Ed25519 identity was overwritten while creating RSA"
 [ "$(cat "$TEST_KEYGEN_LOG")" = "rsa $rsa_key" ] || fail "RSA repair generated unrelated key types"
 echo "Dropbear RSA key repair preserves other algorithms: PASS"
+
+# An empty existing file is not a usable private key and must not be accepted.
+reset_keys
+printf 'original-rsa\n' > "$rsa_key"
+: > "$dss_key"
+if func_ensurekeys; then fail "empty existing host key was accepted"; else key_status=$?; fi
+[ "$key_status" -ne 0 ] || fail "empty key validation lost its failure status"
+[ ! -s "$dss_key" ] || fail "empty host key was unexpectedly replaced"
+[ ! -s "$TEST_KEYGEN_LOG" ] || fail "key generation continued after an empty existing key"
+[ "$(stat -c '%a' "$dss_key")" = 600 ] || fail "empty key permissions were not restricted"
+echo "Dropbear empty host-key rejection: PASS"
+
+# Non-empty but unparsable key data must not be silently trusted or overwritten.
+reset_keys
+printf 'original-rsa\n' > "$rsa_key"
+printf 'truncated-private-key\n' > "$dss_key"
+if func_ensurekeys; then fail "malformed existing host key was accepted"; else key_status=$?; fi
+[ "$key_status" -ne 0 ] || fail "malformed key validation lost its failure status"
+[ "$(cat "$dss_key")" = "truncated-private-key" ] || fail "malformed key was unexpectedly replaced"
+[ ! -s "$TEST_KEYGEN_LOG" ] || fail "key generation continued after a malformed existing key"
+echo "Dropbear malformed host-key rejection: PASS"
 
 # A conflicting symlink is not followed or replaced during key completion.
 reset_keys

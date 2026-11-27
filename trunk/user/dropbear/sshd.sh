@@ -116,6 +116,23 @@ dropbear_wait_stopped()
 	done
 }
 
+func_validate_key()
+{
+	key_type="$1"
+	key_file="$2"
+	if [ ! -s "$key_file" ]; then
+		func_log "existing $key_type host key is empty"
+		return 1
+	fi
+	if "$dropbearkey_bin" -y -f "$key_file" >/dev/null 2>&1; then
+		return 0
+	else
+		key_validation_status=$?
+		func_log "existing $key_type host key is invalid (status=$key_validation_status)"
+		return "$key_validation_status"
+	fi
+}
+
 func_keygen()
 {
 	key_type="$1"
@@ -126,6 +143,10 @@ func_keygen()
 		keygen_status=$?
 		func_log "host-key generation failed for $key_type (status=$keygen_status)"
 		return "$keygen_status"
+	fi
+	if func_validate_key "$key_type" "$key_file"; then :; else
+		key_validation_status=$?
+		return "$key_validation_status"
 	fi
 	if chmod 600 "$key_file"; then
 		return 0
@@ -183,13 +204,13 @@ func_ensure_key()
 		return 1
 	fi
 	if [ -f "$ensure_key_path" ]; then
-		if chmod 600 "$ensure_key_path"; then
-			return 0
-		else
+		if chmod 600 "$ensure_key_path"; then :; else
 			ensure_key_chmod_status=$?
 			func_log "Cannot restrict existing $ensure_key_type host key (status=$ensure_key_chmod_status)"
 			return "$ensure_key_chmod_status"
 		fi
+		func_validate_key "$ensure_key_type" "$ensure_key_path"
+		return $?
 	fi
 	func_keygen "$ensure_key_type" "$ensure_key_path"
 }
