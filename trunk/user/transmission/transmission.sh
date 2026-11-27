@@ -36,60 +36,215 @@ transmission_require_dir()
 	return 0
 }
 
-# The daemon forks away from start-stop-daemon. Do not report success until
-# pidof confirms a complete, valid PID list from the detached child.
+# Match Transmission only when its procfs executable and start time agree.
+# Linux truncates TASK_COMM_LEN to 15 bytes ("transmission-da").
+transmission_proc_stat()
+{
+	transmission_stat_pid="$1"
+	transmission_stat_root="${TRANSMISSION_PROC_ROOT:-/proc}"
+	transmission_stat_dir="$transmission_stat_root/$transmission_stat_pid"
+	[ -d "$transmission_stat_dir" ] || return 1
+	if IFS= read -r transmission_stat_line < "$transmission_stat_dir/stat"; then
+		:
+	else
+		[ -d "$transmission_stat_dir" ] && return 2
+		return 1
+	fi
+	case "$transmission_stat_line" in
+		"$transmission_stat_pid ("*) ;;
+		*) return 2 ;;
+	esac
+	transmission_stat_comm=${transmission_stat_line#*(}
+	transmission_stat_comm=${transmission_stat_comm%)*}
+	transmission_stat_fields=${transmission_stat_line##*) }
+	if [ "${IFS+x}" = x ]; then
+		transmission_stat_ifs_set=1
+		transmission_stat_saved_ifs=$IFS
+	else
+		transmission_stat_ifs_set=0
+	fi
+	case "$-" in *f*) transmission_stat_glob_disabled=1 ;; *) transmission_stat_glob_disabled=0 ;; esac
+	set -f
+	IFS=' '
+	set -- $transmission_stat_fields
+	if [ "$transmission_stat_ifs_set" -eq 1 ]; then
+		IFS=$transmission_stat_saved_ifs
+	else
+		unset IFS
+	fi
+	[ "$transmission_stat_glob_disabled" -eq 1 ] || set +f
+	[ "$#" -ge 20 ] || return 2
+	transmission_stat_state="$1"
+	transmission_stat_start_time="${20}"
+	case "$transmission_stat_state" in
+		R|S|D|Z|T|t|X|x|K|W|P|I) ;;
+		*) return 2 ;;
+	esac
+	case "$transmission_stat_start_time" in ''|*[!0-9]*) return 2 ;; esac
+	case "$transmission_stat_state" in Z|X|x) return 1 ;; esac
+	return 0
+}
+
+# Return 0 for the exact executable/start-time identity, 1 for absent or
+# replaced PID, and 2 when procfs cannot provide a complete identity.
+transmission_process_identity_matches()
+{
+	transmission_identity_pid="$1"
+	transmission_identity_required_start="$2"
+	transmission_identity_root="${TRANSMISSION_PROC_ROOT:-/proc}"
+	case "$transmission_identity_pid" in ''|0*|*[!0-9]*) return 1 ;; esac
+	transmission_identity_dir="$transmission_identity_root/$transmission_identity_pid"
+	transmission_proc_stat "$transmission_identity_pid"
+	transmission_identity_stat_status=$?
+	[ "$transmission_identity_stat_status" -eq 0 ] || return "$transmission_identity_stat_status"
+	case "$transmission_stat_comm" in
+		transmission-da|transmission-daemon) ;;
+		*) return 1 ;;
+	esac
+	if [ -z "$transmission_expected_exe" ]; then
+		transmission_expected_exe=$(stat -L -c '%d:%i' "$SVC_PATH" 2>/dev/null) || return 2
+	fi
+	transmission_actual_exe=$(stat -L -c '%d:%i' "$transmission_identity_dir/exe" 2>/dev/null) || {
+		[ -d "$transmission_identity_dir" ] && return 2
+		return 1
+	}
+	[ "$transmission_actual_exe" = "$transmission_expected_exe" ] || return 1
+	if [ -n "$transmission_identity_required_start" ] &&
+	   [ "$transmission_stat_start_time" != "$transmission_identity_required_start" ]; then
+		return 1
+	fi
+	transmission_identity_start_time="$transmission_stat_start_time"
+	return 0
+}
+
+transmission_process_state_once()
+{
+	transmission_process_pids=
+	transmission_process_root="${TRANSMISSION_PROC_ROOT:-/proc}"
+	[ -d "$transmission_process_root" ] &&
+		[ -r "$transmission_process_root" ] &&
+		[ -x "$transmission_process_root" ] || return 2
+	command -v stat >/dev/null 2>&1 || return 2
+	transmission_expected_exe=$(stat -L -c '%d:%i' "$SVC_PATH" 2>/dev/null) || return 2
+	case "$transmission_expected_exe" in
+		''|*[!0-9:]*|:*|*:|*:*:*) return 2 ;;
+	esac
+	transmission_numeric_found=0
+	for transmission_proc_dir in "$transmission_process_root"/[0-9]*; do
+		[ -d "$transmission_proc_dir" ] || continue
+		transmission_proc_pid=${transmission_proc_dir##*/}
+		case "$transmission_proc_pid" in ''|0*|*[!0-9]*) return 2 ;; esac
+		transmission_numeric_found=1
+		if transmission_process_identity_matches "$transmission_proc_pid" ""; then
+			transmission_process_pids="${transmission_process_pids}${transmission_process_pids:+ }$transmission_proc_pid:$transmission_identity_start_time"
+		else
+			transmission_identity_status=$?
+			case "$transmission_identity_status" in
+				1) ;;
+				*) return 2 ;;
+			esac
+		fi
+	done
+	[ "$transmission_numeric_found" -eq 1 ] || return 2
+	[ -n "$transmission_process_pids" ] && return 0
+	return 1
+}
+
+transmission_process_state()
+{
+	if transmission_process_state_once; then
+		return 0
+	else
+		transmission_process_state_status=$?
+	fi
+	case "$transmission_process_state_status" in
+		1) transmission_process_state_once; return $? ;;
+		*) return 2 ;;
+	esac
+}
+
 transmission_wait_started()
 {
-	attempt=0
-	while [ "$attempt" -lt 4 ]; do
-		if tr_ready_pids=$(pidof transmission-daemon 2>/dev/null); then
-			tr_ready_status=0
-		else
-			tr_ready_status=$?
-		fi
-		case "$tr_ready_status" in
-		0)
-			if [ -z "$tr_ready_pids" ]; then
-				logger -t "$SVC_NAME" "Cannot verify startup: pidof returned success without a PID"
-				return 1
-			fi
-			case "$tr_ready_pids" in
-				*[!0-9\ ]*)
-					logger -t "$SVC_NAME" "Cannot verify startup: invalid daemon PID list"
-					return 1
-					;;
-			esac
-			for tr_ready_pid in $tr_ready_pids; do
-				case "$tr_ready_pid" in
-					0*|1|*[!0-9]*)
-						logger -t "$SVC_NAME" "Cannot verify startup: unsafe daemon PID"
-						return 1
-					;;
-				esac
-			done
+	transmission_start_attempt=0
+	while [ "$transmission_start_attempt" -lt 4 ]; do
+		if transmission_process_state; then
 			return 0
-			;;
-		1)
-			if [ -n "$tr_ready_pids" ]; then
-				logger -t "$SVC_NAME" "Cannot verify startup: inconsistent daemon process state"
-				return 1
-			fi
-			;;
-		*)
-			logger -t "$SVC_NAME" "Cannot verify startup: pidof failed (status=$tr_ready_status)"
-			return 1
-			;;
+		else
+			transmission_start_state=$?
+		fi
+		case "$transmission_start_state" in
+			1) ;;
+			*) return 2 ;;
 		esac
-		attempt=$((attempt + 1))
-		[ "$attempt" -lt 4 ] || break
-		sleep 1 || {
-			logger -t "$SVC_NAME" "Cannot verify startup: readiness wait was interrupted"
-			return 1
-		}
+		transmission_start_attempt=$((transmission_start_attempt + 1))
+		[ "$transmission_start_attempt" -lt 4 ] || break
+		sleep 1 || return 2
 	done
-
-	logger -t "$SVC_NAME" "launcher returned success but daemon did not appear"
+	logger -t "$SVC_NAME" "launcher returned success but daemon did not appear" >/dev/null 2>&1 || true
 	return 1
+}
+
+transmission_signal_identity()
+{
+	transmission_signal_name="$1"
+	transmission_signal_pid="$2"
+	transmission_signal_start="$3"
+	case "$transmission_signal_name" in HUP|TERM|KILL|9) ;; *) return 2 ;; esac
+	if transmission_process_identity_matches "$transmission_signal_pid" "$transmission_signal_start"; then
+		:
+	else
+		transmission_signal_identity_status=$?
+		[ "$transmission_signal_identity_status" -eq 1 ] && return 0
+		return 2
+	fi
+	if kill "-$transmission_signal_name" "$transmission_signal_pid" >/dev/null 2>&1; then
+		return 0
+	else
+		transmission_signal_status=$?
+	fi
+	if transmission_process_identity_matches "$transmission_signal_pid" "$transmission_signal_start"; then
+		[ "$transmission_signal_status" -ne 0 ] || transmission_signal_status=1
+		return "$transmission_signal_status"
+	else
+		transmission_signal_identity_status=$?
+		[ "$transmission_signal_identity_status" -eq 1 ] && return 0
+		return 2
+	fi
+}
+
+transmission_signal_snapshot()
+{
+	transmission_snapshot_signal="$1"
+	transmission_snapshot_pids="$2"
+	for transmission_snapshot_entry in $transmission_snapshot_pids; do
+		transmission_snapshot_pid=${transmission_snapshot_entry%%:*}
+		transmission_snapshot_start=${transmission_snapshot_entry#*:}
+		transmission_signal_identity "$transmission_snapshot_signal" \
+			"$transmission_snapshot_pid" "$transmission_snapshot_start" || return $?
+	done
+	return 0
+}
+
+transmission_wait_stopped()
+{
+	transmission_wait_limit="$1"
+	case "$transmission_wait_limit" in ''|*[!0-9]*) return 2 ;; esac
+	transmission_wait_count=0
+	while :; do
+		if transmission_process_state; then
+			transmission_wait_state=0
+		else
+			transmission_wait_state=$?
+		fi
+		case "$transmission_wait_state" in
+			1) return 0 ;;
+			0) ;;
+			*) return 2 ;;
+		esac
+		[ "$transmission_wait_count" -lt "$transmission_wait_limit" ] || return 1
+		sleep 1 || return 2
+		transmission_wait_count=$((transmission_wait_count + 1))
+	done
 }
 
 func_start()
@@ -97,47 +252,16 @@ func_start()
 	# Avoid treating an inherited environment variable as our cleanup target.
 	CONFIG_TMP=""
 	CONFIG_TMP_OWNED=0
-	# Resolve the daemon state from both pidof's status and output.
-	tr_start_pids=$(pidof transmission-daemon 2>/dev/null)
-	tr_start_pidof_status=$?
-	case "$tr_start_pidof_status" in
-		0)
-			if [ -z "$tr_start_pids" ]; then
-				transmission_start_fail "cannot determine daemon process state"
-				return 1
-			fi
-			case "$tr_start_pids" in
-				*[!0-9\ ]*)
-					transmission_start_fail "invalid daemon PID list"
-					return 1
-					;;
-			esac
-			tr_start_pid_count=0
-			for tr_start_pid in $tr_start_pids; do
-				tr_start_pid_count=$((tr_start_pid_count + 1))
-				case "$tr_start_pid" in
-					0*|1|*[!0-9]*)
-						transmission_start_fail "invalid daemon PID list"
-						return 1
-						;;
-				esac
-			done
-			if [ "$tr_start_pid_count" -eq 0 ]; then
-				transmission_start_fail "invalid daemon PID list"
-				return 1
-			fi
-			return 0
-			;;
-		1)
-			if [ -n "$tr_start_pids" ]; then
-				transmission_start_fail "inconsistent daemon process state"
-				return 1
-			fi
-			;;
-		*)
-			transmission_start_fail "cannot determine daemon process state"
-			return 1
-			;;
+	# Refuse duplicate launch on an exact executable identity; UNKNOWN is
+	# never interpreted as a clean absence.
+	if transmission_process_state; then
+		return 0
+	else
+		tr_start_state=$?
+	fi
+	case "$tr_start_state" in
+		1) ;;
+		*) transmission_start_fail "cannot verify existing daemon identity"; return 2 ;;
 	esac
 	
 	echo -n "Starting $SVC_NAME:."
@@ -253,187 +377,96 @@ func_start()
 
 func_stop()
 {
-	# Treat pidof failures as an unknown process state, not as proof of absence.
-	tr_pid=`pidof transmission-daemon 2>/dev/null`
-	tr_pidof_status=$?
-	if [ "$tr_pidof_status" -gt 1 ] ||
-		{ [ "$tr_pidof_status" -eq 0 ] && [ -z "$tr_pid" ]; } ||
-		{ [ "$tr_pidof_status" -ne 0 ] && [ -n "$tr_pid" ]; }; then
-		echo "[FAILED]"
-		logger -t "$SVC_NAME" "Cannot stop: unable to inspect daemon PIDs" >/dev/null 2>&1 || true
-		return 1
+	if transmission_process_state; then
+		tr_stop_state=0
+	else
+		tr_stop_state=$?
 	fi
-	if [ -z "$tr_pid" ]; then
-		return 0
-	fi
-
-	# Validate the full PID snapshot before the graceful signal. A successful
-	# pidof with malformed, unsafe or whitespace-only output is UNKNOWN.
-	case "$tr_pid" in
-		*[!0-9\ ]*)
-			echo "[FAILED]"
-			logger -t "$SVC_NAME" "Cannot stop: invalid daemon PID list" >/dev/null 2>&1 || true
-			return 1
-			;;
+	case "$tr_stop_state" in
+		1) return 0 ;;
+		0) ;;
+		*) echo "[FAILED]"; logger -t "$SVC_NAME" "Cannot stop: daemon identity is unknown" >/dev/null 2>&1 || true; return 2 ;;
 	esac
-	tr_pid_count=0
-	for tr_pid_one in $tr_pid; do
-		case "$tr_pid_one" in
-			''|0*|1|*[!0-9]*)
-				echo "[FAILED]"
-				logger -t "$SVC_NAME" "Cannot stop: invalid daemon PID list" >/dev/null 2>&1 || true
-				return 1
-				;;
-		esac
-		tr_pid_count=$((tr_pid_count + 1))
-	done
-	if [ "$tr_pid_count" -eq 0 ]; then
-		echo "[FAILED]"
-		logger -t "$SVC_NAME" "Cannot stop: empty daemon PID list" >/dev/null 2>&1 || true
-		return 1
-	fi
-
+	tr_stop_snapshot="$transmission_process_pids"
 	echo -n "Stopping $SVC_NAME:."
 
-	# Signal only PIDs in the validated snapshot. killall would rescan by
-	# process name and could include a different process created after validation.
-	for tr_pid_one in $tr_pid; do
-		kill -TERM "$tr_pid_one" >/dev/null 2>&1 || true
-	done
+	if transmission_signal_snapshot TERM "$tr_stop_snapshot"; then
+		:
+	else
+		tr_signal_status=$?
+		echo "[FAILED]"
+		logger -t "$SVC_NAME" "Cannot stop: TERM failed or process identity became unknown (status=$tr_signal_status)" >/dev/null 2>&1 || true
+		return "$tr_signal_status"
+	fi
+	if transmission_wait_stopped 25; then
+		echo "[  OK  ]"
+		return 0
+	else
+		tr_wait_status=$?
+	fi
+	case "$tr_wait_status" in
+		1) ;;
+		*) echo "[FAILED]"; logger -t "$SVC_NAME" "Cannot stop: process identity became unknown while waiting" >/dev/null 2>&1 || true; return 2 ;;
+	esac
 
-	# Gracefully wait at most 25 seconds for the daemon to exit.
-	i=0
-	while [ -n "$tr_pid" ] && [ "$i" -le 25 ]; do
-		echo -n "."
-		sleep 1
-		tr_pid=`pidof transmission-daemon 2>/dev/null`
-		tr_pidof_status=$?
-		if [ "$tr_pidof_status" -gt 1 ] ||
-			{ [ "$tr_pidof_status" -eq 0 ] && [ -z "$tr_pid" ]; } ||
-			{ [ "$tr_pidof_status" -ne 0 ] && [ -n "$tr_pid" ]; }; then
-			echo "[FAILED]"
-			logger -t "$SVC_NAME" "Cannot stop: unable to inspect daemon PIDs" >/dev/null 2>&1 || true
-			return 1
-		fi
-		i=$((i + 1))
-	done
-
-	if [ -n "$tr_pid" ]; then
-		# Validate the refreshed snapshot before sending per-PID SIGKILL.
-		case "$tr_pid" in
-			*[!0-9\ ]*)
-				echo "[FAILED]"
-				logger -t "$SVC_NAME" "Cannot stop: invalid daemon PID list" >/dev/null 2>&1 || true
-				return 1
-				;;
-		esac
-		tr_pid_count=0
-		for tr_pid_one in $tr_pid; do
-			case "$tr_pid_one" in
-				''|0*|1|*[!0-9]*)
-					echo "[FAILED]"
-					logger -t "$SVC_NAME" "Cannot stop: invalid daemon PID list" >/dev/null 2>&1 || true
-					return 1
-					;;
-			esac
-			tr_pid_count=$((tr_pid_count + 1))
-		done
-		if [ "$tr_pid_count" -eq 0 ]; then
-			echo "[FAILED]"
-			logger -t "$SVC_NAME" "Cannot stop: empty daemon PID list" >/dev/null 2>&1 || true
-			return 1
-		fi
-		for tr_pid_one in $tr_pid; do
-			kill -9 "$tr_pid_one" >/dev/null 2>&1 || true
-		done
-		sleep 1
-		tr_pid=`pidof transmission-daemon 2>/dev/null`
-		tr_pidof_status=$?
-		if [ "$tr_pidof_status" -gt 1 ] ||
-			{ [ "$tr_pidof_status" -eq 0 ] && [ -z "$tr_pid" ]; } ||
-			{ [ "$tr_pidof_status" -ne 0 ] && [ -n "$tr_pid" ]; }; then
-			echo "[FAILED]"
-			logger -t "$SVC_NAME" "Cannot stop: unable to verify daemon exit" >/dev/null 2>&1 || true
-			return 1
-		fi
-		if [ -n "$tr_pid" ]; then
-			echo "[FAILED]"
-			logger -t "$SVC_NAME" "Cannot stop: daemon PIDs remain after SIGKILL: $tr_pid" >/dev/null 2>&1 || true
-			return 1
-		fi
+	# Refresh the exact executable/start-time snapshot before escalation.
+	if transmission_process_state; then
+		tr_stop_snapshot="$transmission_process_pids"
+	else
+		tr_stop_state=$?
+		[ "$tr_stop_state" -eq 1 ] && { echo "[  OK  ]"; return 0; }
+		echo "[FAILED]"
+		logger -t "$SVC_NAME" "Cannot stop: daemon identity is unknown before SIGKILL" >/dev/null 2>&1 || true
+		return 2
+	fi
+	if transmission_signal_snapshot 9 "$tr_stop_snapshot"; then
+		:
+	else
+		tr_signal_status=$?
+		echo "[FAILED]"
+		logger -t "$SVC_NAME" "Cannot stop: SIGKILL failed or process identity became unknown (status=$tr_signal_status)" >/dev/null 2>&1 || true
+		return "$tr_signal_status"
+	fi
+	if transmission_wait_stopped 2; then
 		echo "[KILLED]"
 		logger -t "$SVC_NAME" "Daemon required SIGKILL after graceful stop timeout" >/dev/null 2>&1 || true
+		return 0
 	else
-		echo "[  OK  ]"
+		tr_wait_status=$?
 	fi
-	return 0
+	case "$tr_wait_status" in
+		1) echo "[FAILED]"; logger -t "$SVC_NAME" "Cannot stop: verified daemon remains after SIGKILL" >/dev/null 2>&1 || true; return 1 ;;
+		*) echo "[FAILED]"; logger -t "$SVC_NAME" "Cannot stop: daemon identity became unknown after SIGKILL" >/dev/null 2>&1 || true; return 2 ;;
+	esac
 }
 
 func_reload()
 {
-	if tr_reload_pids=$(pidof transmission-daemon 2>/dev/null); then
-		tr_reload_pidof_status=0
+	if transmission_process_state; then
+		tr_reload_state=0
 	else
-		tr_reload_pidof_status=$?
+		tr_reload_state=$?
 	fi
-	case "$tr_reload_pidof_status" in
-	0)
-		if [ -z "$tr_reload_pids" ]; then
-			echo "[FAILED]"
-			logger -t "$SVC_NAME" "Cannot reload: daemon PID lookup returned an empty process list" >/dev/null 2>&1 || true
-			return 1
-		fi
-		case "$tr_reload_pids" in
-			*[!0-9\ ]*)
-				echo "[FAILED]"
-				logger -t "$SVC_NAME" "Cannot reload: invalid daemon PID list" >/dev/null 2>&1 || true
-				return 1
-				;;
-		esac
-		tr_reload_pid_count=0
-		for tr_reload_pid in $tr_reload_pids; do
-			case "$tr_reload_pid" in
-				''|0*|1|*[!0-9]*)
-					echo "[FAILED]"
-					logger -t "$SVC_NAME" "Cannot reload: invalid daemon PID list" >/dev/null 2>&1 || true
-					return 1
-					;;
-			esac
-			[ "$tr_reload_pid" -gt 1 ] 2>/dev/null || {
-				echo "[FAILED]"
-				logger -t "$SVC_NAME" "Cannot reload: invalid daemon PID list" >/dev/null 2>&1 || true
-				return 1
-			}
-			tr_reload_pid_count=$((tr_reload_pid_count + 1))
-		done
-		[ "$tr_reload_pid_count" -gt 0 ] || {
-			echo "[FAILED]"
-			logger -t "$SVC_NAME" "Cannot reload: invalid daemon PID list" >/dev/null 2>&1 || true
-			return 1
-		}
-		;;
-	1)
-		if [ -n "$tr_reload_pids" ]; then
-			echo "[FAILED]"
-			logger -t "$SVC_NAME" "Cannot reload: inconsistent daemon process state" >/dev/null 2>&1 || true
-			return 1
-		fi
-		return 0
-		;;
-	*)
-		echo "[FAILED]"
-		logger -t "$SVC_NAME" "Cannot reload: unable to inspect daemon PIDs (status=$tr_reload_pidof_status)" >/dev/null 2>&1 || true
-		return 1
-		;;
+	case "$tr_reload_state" in
+		1) return 0 ;;
+		0) ;;
+		*) echo "[FAILED]"; logger -t "$SVC_NAME" "Cannot reload: daemon identity is unknown" >/dev/null 2>&1 || true; return 2 ;;
 	esac
-
+	tr_reload_snapshot="$transmission_process_pids"
 	echo -n "Reload $SVC_NAME config:."
 	tr_reload_status=0
-	for tr_reload_pid in $tr_reload_pids; do
-		if kill -HUP "$tr_reload_pid"; then
+	for tr_reload_entry in $tr_reload_snapshot; do
+		tr_reload_pid=${tr_reload_entry%%:*}
+		tr_reload_start=${tr_reload_entry#*:}
+		if transmission_signal_identity HUP "$tr_reload_pid" "$tr_reload_start"; then
 			:
 		else
 			tr_reload_signal_status=$?
+			[ "$tr_reload_signal_status" -eq 2 ] && {
+				echo "[FAILED]"
+				logger -t "$SVC_NAME" "Cannot reload: process identity became unknown" >/dev/null 2>&1 || true
+				return 2
+			}
 			if [ "$tr_reload_status" -eq 0 ]; then
 				tr_reload_status=$tr_reload_signal_status
 				[ "$tr_reload_status" -ne 0 ] || tr_reload_status=1
@@ -448,6 +481,7 @@ func_reload()
 	logger -t "$SVC_NAME" "daemon reload signal failed (status=$tr_reload_status)" >/dev/null 2>&1 || true
 	return "$tr_reload_status"
 }
+
 
 case "$1" in
 start)
