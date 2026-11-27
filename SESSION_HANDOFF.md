@@ -1,14 +1,14 @@
-## 2026-11-28 — Correct DNS Forwarder finalizer source extraction
+## 2026-11-28 — Rebase process lifecycle fixtures onto current main
 
-- Parent `main`: `042327254f3e1a57aa43b11c0de5ee4428ae6a2a`; frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged).
-- The DNS Forwarder signal-source finalizer implementation and teardown regression were added on the parent. Exact-push DNS Forwarder run #46056928084 failed before any C compile/test: `function_body()` matched the earlier forward declaration and extracted the next function body. This commit changes the selector to the full definition prefix; implementation assertions remain intact.
-- Parent exact-SHA results: AI handoff #46056928136 PASS; Process lifecycle inventory #46056928098 PASS; DNS Forwarder #46056928084 FAIL at the checker before C tests; NVRAM #46056928107 and XY-C1 #46056928103 were IN_PROGRESS. The DNS Forwarder correction is pending a fresh exact-SHA push run.
-- The earlier `be34b9f` process regression also exposed two stale fixture counters after the extra `pidof` post-scan call (SCUT late-child threshold 6→12; DDNSTO post-launch UNKNOWN threshold 3→4). That separate correction is still outstanding and will follow once this DNS workflow blocker is cleared. Local tests unavailable; no hardware/L4 or new target-build result is claimed.
+- Parent `main`: `12d722cbbdc2625170902fc2a021666903fc3ce3`; frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged).
+- Shared `pl_process_state()` post-scan `pidof` revalidation remains unchanged on current main. Ancestor `be34b9f2` Process lifecycle regression #46056482996 failed at SCUT's late-child assertion and DDNSTO #46056483002 failed because their lookup counters still targeted the pre-recheck call sequence. This commit updates both SCUT and MentoHUST late-child boundaries (6→12) and DDNSTO's post-launch UNKNOWN boundary (3→4); production source is unchanged.
+- On immediate parent `042327254f3e1a57aa43b11c0de5ee4428ae6a2a`, Process lifecycle inventory #46056928098 PASS and AI handoff #46056928136 PASS; DNS Forwarder #46056928084 failed before C tests because its extractor selected a prototype. Checker correction `12d722cbbdc2625170902fc2a021666903fc3ce3` has DNS Forwarder #46057101529 QUEUED and AI handoff #46057101740 QUEUED. This process-fixture correction requires exact-SHA Process lifecycle and DDNSTO reruns.
+- Local host tests unavailable. No target firmware/TRX/artifact or physical-router L4 result is claimed.
 
 ## Exact first action
 
-1. Verify the new exact-SHA DNS Forwarder workflow passes its source checker and reaches/runs the GNU89/ASan/UBSan lifecycle tests. Fix any new failure before moving on.
-2. Then apply and validate the pending SCUT/DDNSTO fixture-counter corrections on the then-current `main`; inspect the current XY-C1 build/TRX/artifact result by exact SHA.
+1. Inspect exact-SHA Process lifecycle and DDNSTO runs for this fixture correction. Require shared late-process interleaving, SCUT and MentoHUST rollback boundaries, and DDNSTO post-launch UNKNOWN coverage to pass.
+2. Check DNS Forwarder #46057101529 on exact SHA `12d722c` as it completes; confirm the checker reaches and runs GNU89/ASan/UBSan C tests. Check XY-C1 firmware/TRX/artifact status on the latest production-source SHA, then continue another stability/security defect outside the shared process helper.
 
 ---
 

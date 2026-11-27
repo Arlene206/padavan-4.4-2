@@ -1,3 +1,10 @@
+## 2026-11-28 03:31 CST (UTC+8) — Align lifecycle test counters with procfs post-scan recheck
+
+- The exact-SHA Process lifecycle regression #46056482996 and DDNSTO lifecycle run #46056483002 on ancestor `be34b9f2c1c320a88b630166209ceac445e917c2` failed only because fixtures assumed one `pidof` call per confirmed-absence scan. The shared helper now performs a second lookup after procfs enumeration.
+- Both SCUT and MentoHUST late-child fixtures now move their injected process boundary from lookup 6 to 12, so the child appears at the rollback recheck after all four bounded readiness probes. DDNSTO's UNKNOWN injection moves from lookup 3 to 4 so it occurs on the first post-launch check, not during pre-launch absence confirmation. The assertions remain unchanged; production source is unchanged.
+- Current main parent: `12d722cbbdc2625170902fc2a021666903fc3ce3`. Immediate-child DNS Forwarder checker correction `12d722cbbdc2625170902fc2a021666903fc3ce3` has exact-push DNS Forwarder run #46057101529 QUEUED and AI handoff run #46057101740 QUEUED. Parent `0423272` Process inventory #46056928098 PASS; the fixture-sensitive failures are from earlier SHA `be34b9f` and now require new exact-SHA runs.
+- No local execution available in the connector-only session. No firmware or hardware/L4 result is claimed. Resulting commit: THIS COMMIT.
+
 ## 2026-11-28 03:29 CST (UTC+8) — Select the signal-source finalizer definition in the DNS checker
 
 - Exact-push DNS Forwarder run #46056928084 on `042327254f3e1a57aa43b11c0de5ee4428ae6a2a` failed in `scripts/check_dns_forwarder_launch.py` before compiling or running any C regression. Its generic `function_body()` helper matched the earlier forward declaration of `hev_event_source_signal_finalize()`, then searched forward to an unrelated function's opening brace; the implementation and teardown regression were not reached.

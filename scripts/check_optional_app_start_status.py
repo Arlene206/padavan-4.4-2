@@ -740,7 +740,7 @@ exit 0
         assert len(stop_log.read_text().splitlines()) == stop_count_before
 
         log.write_text("")
-        env["MOCK_PIDOF_RUNNING_AT"] = "6"
+        env["MOCK_PIDOF_RUNNING_AT"] = "12"
         pidof_count.write_text("0")
         sleep_count.write_text("0")
         late_child = run(["/bin/sh", str(SCUT_SCRIPT), "start"], env)
@@ -753,7 +753,7 @@ exit 0
         pidof_count.write_text("0")
 
         log.write_text("")
-        env["MOCK_PIDOF_RUNNING_AT"] = "6"
+        env["MOCK_PIDOF_RUNNING_AT"] = "12"
         env["MOCK_TERM_STATE"] = "running"
         env["MOCK_KILL_STATE"] = "running"
         pidof_count.write_text("0")
@@ -1092,7 +1092,7 @@ exit "$MOCK_SLEEP_STATUS"
         assert len(stop_log.read_text().splitlines()) == stop_count_before
 
         log.write_text("")
-        env["MOCK_PIDOF_RUNNING_AT"] = "6"
+        env["MOCK_PIDOF_RUNNING_AT"] = "12"
         pidof_count.write_text("0")
         sleep_count.write_text("0")
         late_child = run(["/bin/sh", str(MENTOHUST_SCRIPT), "start"], env)
@@ -1105,7 +1105,7 @@ exit "$MOCK_SLEEP_STATUS"
         pidof_count.write_text("0")
 
         log.write_text("")
-        env["MOCK_PIDOF_RUNNING_AT"] = "6"
+        env["MOCK_PIDOF_RUNNING_AT"] = "12"
         env["MOCK_TERM_STATE"] = "running"
         env["MOCK_KILL_STATE"] = "running"
         pidof_count.write_text("0")
