@@ -1,3 +1,10 @@
+## 2026-11-28 03:29 CST (UTC+8) — Select the signal-source finalizer definition in the DNS checker
+
+- Exact-push DNS Forwarder run #46056928084 on `042327254f3e1a57aa43b11c0de5ee4428ae6a2a` failed in `scripts/check_dns_forwarder_launch.py` before compiling or running any C regression. Its generic `function_body()` helper matched the earlier forward declaration of `hev_event_source_signal_finalize()`, then searched forward to an unrelated function's opening brace; the implementation and teardown regression were not reached.
+- Made the extraction signature include `static void` and the opening brace, uniquely selecting the actual finalizer definition while retaining assertions for owned-mask restoration and pre-block preservation. No production source or test behavior changed.
+- Parent exact-SHA evidence: AI handoff #46056928136 PASS; Process lifecycle inventory #46056928098 PASS; DNS Forwarder #46056928084 FAIL at this checker assertion (all C tests skipped); NVRAM #46056928107 and XY-C1 #46056928103 were IN_PROGRESS at last check. The corrected DNS workflow requires a new exact-SHA run.
+- Local execution unavailable in this connector-only session. Parent main: `042327254f3e1a57aa43b11c0de5ee4428ae6a2a`; resulting commit: THIS COMMIT.
+
 ## 2026-11-27 — Restore signal masks when DNS event sources are finalized
 
 - The earlier signalfd fix rolled back blocks on constructor failures, but successful source destruction still only closed the descriptor. When event-loop registration failed after constructor success or a source was later deleted, a signal that had been unblocked before construction remained blocked with no signalfd consumer.

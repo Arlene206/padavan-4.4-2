@@ -1,14 +1,14 @@
-## 2026-11-27 — Restore signal mask ownership on source finalization
+## 2026-11-28 — Correct DNS Forwarder finalizer source extraction
 
-- Current parent `main`: `be34b9f2c1c320a88b630166209ceac445e917c2`; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- PID-less process inventory hardening, baseline PID 1 fixture, and late-start procfs recheck are in the current main history. Exact parent run #46056098022 Process inventory and lifecycle fail-closed regression PASS, #46056098047 Process lifecycle inventory PASS, #46056098062 AI handoff PASS.
-- DNS Forwarder signal source still left a signal blocked after successful source destruction. This matters when `hev_event_loop_add_source()` fails after constructor success or a source is later deleted: no signalfd consumer remains, but the signal stays blocked. The new source ownership flag restores only a block newly added by this source; pre-existing blocks are retained.
-- Added teardown checks for normal SIGTERM source destruction and a successfully finalized pre-blocked SIGUSR1 source. The ownership flag is initialized before the constructor's fd-attachment failure path because allocator memory is not zero-initialized. New exact-SHA DNS Forwarder regression required. Local tests unavailable; L4 remains NOT VERIFIED.
+- Parent `main`: `042327254f3e1a57aa43b11c0de5ee4428ae6a2a`; frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged).
+- The DNS Forwarder signal-source finalizer implementation and teardown regression were added on the parent. Exact-push DNS Forwarder run #46056928084 failed before any C compile/test: `function_body()` matched the earlier forward declaration and extracted the next function body. This commit changes the selector to the full definition prefix; implementation assertions remain intact.
+- Parent exact-SHA results: AI handoff #46056928136 PASS; Process lifecycle inventory #46056928098 PASS; DNS Forwarder #46056928084 FAIL at the checker before C tests; NVRAM #46056928107 and XY-C1 #46056928103 were IN_PROGRESS. The DNS Forwarder correction is pending a fresh exact-SHA push run.
+- The earlier `be34b9f` process regression also exposed two stale fixture counters after the extra `pidof` post-scan call (SCUT late-child threshold 6→12; DDNSTO post-launch UNKNOWN threshold 3→4). That separate correction is still outstanding and will follow once this DNS workflow blocker is cleared. Local tests unavailable; no hardware/L4 or new target-build result is claimed.
 
 ## Exact first action
 
-1. Check exact-SHA DNS Forwarder launch-path workflow for the finalizer ownership change and run the C lifecycle regression under ASan/UBSan. Fix any failure.
-2. Check exact-SHA process lifecycle inventory/fail-closed workflow for the post-scan PID race test; then continue another independent P1 userland issue.
+1. Verify the new exact-SHA DNS Forwarder workflow passes its source checker and reaches/runs the GNU89/ASan/UBSan lifecycle tests. Fix any new failure before moving on.
+2. Then apply and validate the pending SCUT/DDNSTO fixture-counter corrections on the then-current `main`; inspect the current XY-C1 build/TRX/artifact result by exact SHA.
 
 ---
 
