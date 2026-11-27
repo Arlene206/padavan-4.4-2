@@ -408,6 +408,7 @@ require('nvram get_checked zero_staticnum_x' in route_preflight_body and
 require('zt_preflight_seen_destinations=" "' in route_preflight_body and
         'zt_preflight_destination_key="$zt_preflight_ip"' in route_preflight_body and
         'zt_preflight_destination_key="$zt_preflight_destination_key/32"' in route_preflight_body and
+        "*'/'*)" in route_preflight_body and
         '静态路由目标重复' in route_preflight_body and
         'duplicate static-route destination' in test and
         'duplicate static route stopped the existing daemon' in test,

@@ -1,15 +1,14 @@
-## 2026-11-27 — ZeroTier static-route duplicate preflight
+## 2026-11-27 — ZeroTier static-route duplicate preflight checker correction
 
-- Latest main before this slice: `e05c0ad3ebcb18c8bbd0052dd2c46b89da234e27`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- DNS Forwarder signal-source rollback is validated by exact-push run #46053772502 on `e05c0ad3ebcb18c8bbd0052dd2c46b89da234e27` PASS; AI handoff contract #46053772454 PASS. The earlier process lifecycle inventory #46053530564 PASS on parent `9e4616c4dc7093a8fc590c18c394cddf8dc80a3c`; NVRAM/XY-C1 checks on that older SHA were still in progress at the last poll and are not current-source validation.
-- New ZeroTier issue: duplicate enabled static-route destinations were not rejected in the preflight that runs before daemon stop. Multiple gateways for one destination can produce a multipath alias that Linux 4.4 cleanup intentionally refuses to delete by a single nexthop. The implementation now canonicalizes host routes to `/32` and rejects repeated destination keys before process or route changes. Tests cover duplicate `/24` entries with different gateways, implicit/explicit `/32` equivalence, and preservation of a running daemon.
-- Local test execution is unavailable in this connector-only session. Do not claim the ZeroTier regression passed until the exact-SHA workflow run is complete.
-- Product XY-C1 firmware build, TRX/artifact, and physical L4 claims must come from exact-current-SHA evidence; L4 remains NOT VERIFIED.
+- Current parent `main`: `c8c3256f339b70bf3e66a1526275e0e94ccfe508`; frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged).
+- Duplicate static-route destination source/tests were committed in `c8c3256f339b70bf3e66a1526275e0e94ccfe508`. Exact-SHA ZeroTier run #46054412381: shell lifecycle regression PASS; Python contract checker FAILED before route assertions because its C-comment scanner parsed the POSIX case pattern `*/*)` as a block-comment opener. WAN-up integration was skipped. AI handoff #46054412361, Process inventory #46054412408 and WAN route #46054412388 passed on that SHA; XY-C1 firmware run #46054412480 was still in progress at last poll.
+- Corrective slice changes the slash case pattern to `*'/'*)` (same shell matching semantics, no accidental `/*` token) and adds a checker assertion to lock this parser-compatible form. Duplicate destination logic is unchanged; shell tests had already passed on parent, but the full workflow must pass on the corrective SHA.
+- Local shell execution and target build are unavailable here. No XY-C1 build/TRX/artifact or physical L4 result is claimed; physical L4 remains NOT VERIFIED.
 
 ## Exact first action
 
-1. Fetch all push Actions for the new ZeroTier slice commit. Inspect the ZeroTier lifecycle job steps/logs and fix any shell, checker, or workflow failure using a new full-tree atomic commit to main.
-2. Check exact-SHA XY-C1 Build/TRX/artifact, NVRAM and other independent workflows; pending jobs are not passes. Then move to another independent P1 issue outside ZeroTier without repeating bootstrap or auditing completed work.
+1. Fetch Actions for the corrective commit by exact `head_sha`. Verify ZeroTier lifecycle shell + Python source contracts + WAN-up integration all pass. Fix any remaining issue with a full-tree atomic `main` commit.
+2. Check XY-C1 Build/TRX/artifact on the latest exact source SHA and the Process/NVRAM workflows; pending jobs are not passes. Continue with an independent P1 stability issue without repeating bootstrap/handoff audits.
 
 ---
 

@@ -1,3 +1,9 @@
+## 2026-11-27 — Keep ZeroTier shell route pattern compatible with source-contract parser
+
+- Exact-SHA ZeroTier run #46054412381 on `c8c3256f339b70bf3e66a1526275e0e94ccfe508`: the lifecycle shell regression passed, including duplicate destination and implicit/explicit `/32` scenarios. The Python source checker then failed before evaluating route contracts because its C-style comment scanner interpreted the POSIX shell case pattern `*/*)` as the start of a `/* ... */` block comment; WAN-up was skipped.
+- Rewrote the slash test as `*'/'*)`, which has the same POSIX shell semantics but avoids the scanner's false C-comment token. Added an explicit source-contract assertion for the compatible form. No production routing semantics changed.
+- Re-run the exact-SHA ZeroTier workflow after this checker-compatibility correction; the prior shell test PASS does not count as a full workflow PASS. No local target build or hardware L3/L4 result is claimed.
+
 ## 2026-11-27 — Reject duplicate ZeroTier static-route destinations before service stop
 
 - Static-route preflight validated each entry independently but did not detect two enabled rows targeting the same network with different gateways. Such rows can create an ECMP/multipath alias; cleanup intentionally refuses to delete one leg because Linux 4.4 gateway/device deletion may remove the entire alias. The duplicate was otherwise detected only during later route installation, after the old daemon had already been stopped.
