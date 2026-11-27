@@ -1296,7 +1296,7 @@ def check_aria2_reload():
     syntax = run(["/bin/sh", "-n", str(ARIA2_SCRIPT)], os.environ.copy())
     assert syntax.returncode == 0, syntax.stderr
     reload_start = source.index("func_reload()")
-    reload_end = source.index("\\ncase", reload_start)
+    reload_end = source.index("\ncase", reload_start)
     reload_body = source[reload_start:reload_end]
     assert "aria_process_state" in reload_body
     assert 'aria_signal_identity HUP "$aria_reload_pid" "$aria_reload_start"' in reload_body
