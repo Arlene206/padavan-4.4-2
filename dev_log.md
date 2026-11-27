@@ -1,3 +1,8 @@
+## 2026-11-28 — Add missing WAN IPv6 teardown predicate definition
+
+- Exact-SHA IPv6 action #46063625062 on 203f9014d0f32399ae55f2587869691474852cd0 passed the pre-existing IPv6 service-type regression but failed compiling the new teardown test: wan6_teardown_needs_previous_interface_cleanup was referenced by the test/source but its header definition had not been inserted because the header terminator carries a comment.
+- Added the missing inline definition before #endif /* WAN6_TEARDOWN_POLICY_H */; it makes the optional request-name comparison safe and preserves SIT exclusion. Exact-SHA rerun is required before considering the fix verified.
+
 ## 2026-11-28 — Make WAN IPv6 teardown safe for a NULL optional interface
 
 - `wan6_teardown_select_ifname()` intentionally accepts a NULL request name and can select a still-live saved interface, but `wan6_down()` later compared that selected name to `wan_ifname` with raw `strcmp`, causing a NULL dereference. The function's existing guards/logging also treated the request name as optional.

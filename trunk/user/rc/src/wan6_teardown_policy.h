@@ -33,4 +33,23 @@ wan6_teardown_select_ifname(char *previous_ifname,
 	return (char *)0;
 }
 
+
+/*
+ * The saved live interface may still need cleanup when the caller has no
+ * current request interface (NULL or empty). Keep SIT teardown separate.
+ */
+static inline int
+wan6_teardown_needs_previous_interface_cleanup(const char *selected_ifname,
+                                               const char *requested_ifname,
+                                               const char *sit_ifname)
+{
+	if (!selected_ifname || !selected_ifname[0] ||
+	    !sit_ifname || !sit_ifname[0] ||
+	    strcmp(selected_ifname, sit_ifname) == 0)
+		return 0;
+
+	return !requested_ifname ||
+		strcmp(selected_ifname, requested_ifname) != 0;
+}
+
 #endif /* WAN6_TEARDOWN_POLICY_H */

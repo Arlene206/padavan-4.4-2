@@ -1,15 +1,15 @@
-## 2026-11-28 — Fix NULL optional interface handling in WAN IPv6 teardown
+## 2026-11-28 — Complete NULL-safe WAN IPv6 teardown helper after CI caught missing declaration
 
-- Found a NULL-dereference path in `wan6_down()`: the teardown selector deliberately supports an absent request interface and may return a still-live saved interface, but a later raw `strcmp(wan6_ifname, wan_ifname)` dereferenced the NULL request. The function already treats `wan_ifname` as optional in its logging and first cleanup block, and the selector has explicit NULL-input behavior.
-- Replaced the raw comparison with `wan6_teardown_needs_previous_interface_cleanup()`, which handles NULL/empty request names, avoids re-cleaning the same interface, and keeps SIT teardown distinct. Added GNU89 ASan/UBSan tests for NULL/empty names and no-op edge cases; wired the header/test into IPv6 path filters and the source-contract checker.
-- Parent main SHA: `4e798839a2c3fa0b85266c43f7454c8a8a83e23f`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Latest exact results before this change: VPN lifecycle #46062768689 PASS on `dce62d6...`; Process inventory #46062938955 PASS on `4e7988...`; AI handoff #46062938975 PASS. XY-C1 #46062939004 was still building on `4e7988...` at last poll; do not claim current VPN L3 until Build/TRX/artifact all succeed on the same product-source SHA. Hardware L4 not verified. Local host execution is unavailable here.
+- The initial optional-interface fix commit 203f9014d0f32399ae55f2587869691474852cd0 correctly routed wan6_down() through the new predicate and added five regression cases, but its first exact-SHA IPv6 run #46063625062 exposed that the helper body had not been inserted before the header's commented #endif; GNU89 compilation failed with an implicit declaration. This is a missing-definition integration error, not a runtime test failure.
+- Added wan6_teardown_needs_previous_interface_cleanup() to wan6_teardown_policy.h before its guarded close. The function returns true for a selected non-SIT saved interface when the request name is NULL or differs, and false for NULL selected, equal names, or SIT.
+- The original IPv6 service-type test PASSED; only the new test compile failed before execution. Process inventory #46063624990 PASS; AI handoff #46063624980 PASS; WAN 6rd #46063624971 PASS. XY-C1 #46063624972 was still in progress at the ccache setup step. No L3/L4 claim.
+- Parent main SHA: 203f9014d0f32399ae55f2587869691474852cd0. Backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
 
 ## Exact first action
 
-1. Inspect exact-SHA IPv6 service-type workflow for this commit, including null/empty WAN teardown regression and source checker.
-2. Recheck XY-C1 #46062939004 through Build, TRX and artifact upload; do not conflate prior `9d067...` success with the VPN source.
-3. Continue independent cross-userland reliability/security work while Actions are pending; avoid repeating completed USB, HTTPD, GPIO, VPN callback cleanup and WAN teardown audits.
+1. Inspect exact-SHA IPv6 run after helper declaration fix; require the GNU89/ASan/UBSan teardown test and source contract to PASS.
+2. Inspect XY-C1 Build, TRX and artifact upload for exact production-source SHA 203f9014; do not use the older 9d067... build as a proxy.
+3. Continue independent userland stability/security implementation; keep the no-hardware L4 status explicit.
 ---
 
 ## 2026-11-26 — Autonomous development checkpoint
