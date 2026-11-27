@@ -159,6 +159,8 @@ on:
       - "trunk/user/rc/src/services_stor.c"
       - "trunk/user/rc/src/service_daemon_wait_policy.h"
       - "trunk/user/rc/src/services_usb.c"
+      - "trunk/user/rc/src/usb_printer_child_reap_policy.h"
+      - "trunk/user/rc/src/tests/usb_printer_child_reap_policy.c"
       - "trunk/user/rc/src/usb_printer_p910nd_policy.h"
       - "trunk/user/rc/src/tests/usb_printer_p910nd_policy.c"
       - "trunk/user/p910nd/p910nd.c"
@@ -447,6 +449,8 @@ on:
       - "trunk/user/rc/src/services_stor.c"
       - "trunk/user/rc/src/service_daemon_wait_policy.h"
       - "trunk/user/rc/src/services_usb.c"
+      - "trunk/user/rc/src/usb_printer_child_reap_policy.h"
+      - "trunk/user/rc/src/tests/usb_printer_child_reap_policy.c"
       - "trunk/user/rc/src/usb_printer_p910nd_policy.h"
       - "trunk/user/rc/src/tests/usb_printer_p910nd_policy.c"
       - "trunk/user/p910nd/p910nd.c"
@@ -1984,7 +1988,22 @@ jobs:
           assert "PROCESS_PRESENCE_ABSENT" in recovery
           assert "startup rollback incomplete" in recovery
           assert "received == sizeof(exec_error)" in launcher
-          assert "return exec_error;" in launcher
+          assert '#include <sys/wait.h>' in source
+          assert '#include "usb_printer_child_reap_policy.h"' in source
+          exec_failure = launcher.split("if (received == sizeof(exec_error))", 1)[1].split("\\n\\t}", 1)[0]
+          assert "usb_printer_reap_failed_exec_child(child, &child_status, waitpid)" in exec_failure
+          assert exec_failure.index("usb_printer_reap_failed_exec_child") < exec_failure.index("return saved_exec_error;")
+          partial_failure = launcher.split("/* A partial status write", 1)[1].split("\\n\\t}", 1)[0]
+          assert "usb_printer_reap_failed_exec_child(child, &child_status, waitpid)" in partial_failure
+          reap_policy = Path("trunk/user/rc/src/usb_printer_child_reap_policy.h").read_text()
+          reap_test = Path("trunk/user/rc/src/tests/usb_printer_child_reap_policy.c").read_text()
+          assert "while (result < 0 && errno == EINTR)" in reap_policy
+          for marker in ("test_waitpid_retries_eintr",
+                         "test_invalid_arguments_fail",
+                         "test_waitpid_error_is_preserved",
+                         "test_real_exec_failure_child_is_reaped"):
+              assert marker in reap_test
+          assert "return exec_error;" not in launcher
 
           u2ec = source.split("#if defined(SRV_U2EC)", 1)[1].split("#endif", 1)[0]
           lpd = source.split("#if defined(SRV_LPRD)", 1)[1].split("#endif", 1)[0]
@@ -2046,6 +2065,12 @@ jobs:
 
           print("USB printer U2EC/LPRng/p910nd detached-daemon readiness contract: PASS")
           PY
+
+      - name: Compile and run USB printer failed-exec child reaping regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer -I trunk/user/rc/src trunk/user/rc/src/tests/usb_printer_child_reap_policy.c -o /tmp/usb-printer-child-reap-policy
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/usb-printer-child-reap-policy
 
       - name: Compile and run LAN authentication restart policy regression
         run: |

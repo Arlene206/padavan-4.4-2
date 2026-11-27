@@ -1,3 +1,10 @@
+## 2026-11-27 — Reap USB printer children after exec failure
+
+- `start_usb_printer_daemon()` forks a child and reports `execv()` failure through a close-on-exec pipe. After reading the full errno payload it returned immediately without `waitpid()`. The failed child had already `_exit(127)`'d, so each failed U2EC/LPRng exec remained a zombie until the invoking `rc` process exited. A partial error-payload path had the same omission.
+- Added a wait/reap policy that retries `waitpid()` on EINTR, preserves ECHILD/other wait errors, and is called for both confirmed failed-exec payload paths before returning or rolling back. Added a GNU89 test for EINTR, invalid arguments, error propagation and a real forked `_exit(127)` child, with a second wait proving the child was already reaped.
+- Parent `main`: `2f6ae451ff5a648b4dbc539c0fd3ba24857d29aa`. Exact-SHA parent checks: USB storage hotplug #46059507287 PASS; Process inventory #46059507282 PASS; HTTPD security #46059507236 PASS; GPIO daemon #46059507234 PASS; AI handoff #46059507332 PASS. XY-C1 Firmware Validation #46059507343 was still compiling at last poll; Build/TRX/artifact not yet verified.
+- This source/header change triggers fresh Process lifecycle and XY-C1 validation. Local host execution unavailable in this connector-only session; no hardware L4 result is claimed.
+
 ## 2026-11-28 — Reject symlinked SSH authorized_keys in persistent storage
 
 - `dev_init.sh` later executes `cp -f /etc/storage/authorized_keys /home/root/.ssh` as PID 1, but `func_fill_validate_paths()` omitted that source leaf while checking other persistent scripts/config files. A restored or malformed symlink could therefore make the privileged copy dereference an arbitrary host path, including special files, bypassing the storage path-safety gate.

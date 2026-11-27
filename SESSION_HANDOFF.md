@@ -1,14 +1,15 @@
-## 2026-11-28 — Close the authorized_keys symlink gap in persistent-storage validation
+## 2026-11-27 — Prevent zombie children on failed USB printer daemon exec
 
-- Parent `main`: `aa03323db0d6f93d1f1075f8b23be9bd222bb1e1`; frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged).
-- Exact-SHA `aa03323` validation is green: Process fail-closed #46058870409 PASS; Process inventory #46058870426 PASS; AliyunDrive #46058870700 PASS; USB storage #46058870400 PASS; AI handoff #46058870413 PASS. The older XY-C1 Build/TRX/artifact on `0423272` #46056928103 is SUCCESS; newer builds on `0f5fe9b` #46058395122 and `fdb237a` #46058291404 were still compiling at last poll.
-- New gap: `dev_init.sh` copies `/etc/storage/authorized_keys` as root, but the storage fill symlink validator omitted this source leaf. A malicious/malformed restored symlink could be followed by the privileged copy despite other config leaves being protected. This commit validates the leaf and adds host/BusyBox-ash regression coverage plus static source-contract assertions.
-- This commit's exact-SHA storage workflow is pending. No current-source XY-C1 build or physical-router L4 is claimed.
+- Parent `main`: `2f6ae451ff5a648b4dbc539c0fd3ba24857d29aa`; frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged).
+- `services_usb.c::start_usb_printer_daemon()` had a child-reaping bug: on `execv()` failure, the child wrote errno to the CLOEXEC pipe and exited, but the parent returned the errno without `waitpid()`. The same leak existed if the error payload was only partially written. Failed optional USB printer daemon launches could therefore leave zombies until the invoking `rc` process terminated.
+- Added `usb_printer_child_reap_policy.h`; confirmed failure paths now reap the exited child and retry `waitpid()` after EINTR. The new GNU89 ASan/UBSan test covers interrupted waits, invalid inputs, ECHILD propagation and a real child exiting 127; a second wait verifies ECHILD after successful reaping. Process workflow source contract enforces reaping before returning the exec failure.
+- Parent exact-SHA checks on `2f6ae45`: USB storage hotplug #46059507287 PASS; Process inventory #46059507282 PASS; HTTPD security #46059507236 PASS; GPIO daemon #46059507234 PASS; AI handoff #46059507332 PASS. XY-C1 Firmware Validation #46059507343 was IN_PROGRESS at last poll; no current-source TRX/artifact result yet.
+- The new source/header changes retrigger Process lifecycle and XY-C1 firmware validation on this commit. No local host execution or physical-router L4 is claimed.
 
 ## Exact first action
 
-1. Inspect the exact-SHA storage-hotplug/persistence workflow. Require `authorized_keys` symlink rejection under both host shell and BusyBox ash, all existing MTD fill/load/restore regressions, and `check_storage_safe_remove.py` to pass.
-2. Check XY-C1 Build/TRX/artifact for the latest production-source SHA. Then continue an independent userland stability/security slice outside PID 1/MTD storage and already-green process/USB/AliyunDrive work.
+1. Inspect exact-SHA Process lifecycle regression and require the new real-child reaping test plus inline USB printer contract check to pass under GNU89/ASan/UBSan.
+2. Inspect exact-SHA XY-C1 Build, TRX verification and artifact upload. Then continue with a separate userland stability/security issue; do not repeat already-green storage, HTTPD, GPIO, or USB symlink checks.
 
 ---
 

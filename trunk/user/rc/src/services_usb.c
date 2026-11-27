@@ -28,6 +28,7 @@
 #include <sys/fcntl.h>
 #include <sys/vfs.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <sys/time.h>
 #include <sys/stat.h>
 #include <sys/mount.h>
@@ -53,6 +54,7 @@
 #include "modem_wan_start_policy.h"
 #include "usb_printer_nvram_policy.h"
 #include "usb_printer_p910nd_policy.h"
+#include "usb_printer_child_reap_policy.h"
 
 static int
 usb_printer_nvram_get_checked(void *context, const char *name, char **value)
@@ -374,10 +376,30 @@ start_usb_printer_daemon(char *const argv[], const char *process_name,
 				process_name, start_status);
 		return 0;
 	}
-	if (received == sizeof(exec_error))
-		return exec_error;
+	if (received == sizeof(exec_error)) {
+		int child_status, reap_status;
+		int saved_exec_error = exec_error > 0 ? exec_error : EIO;
 
-	/* A short exec-status write leaves process state uncertain. */
+		/* execv() failed and the child has exited; reap it before returning. */
+		reap_status = usb_printer_reap_failed_exec_child(child, &child_status, waitpid);
+		if (reap_status != 0)
+			logmessage(LOGNAME,
+				   "cannot reap failed USB printer exec child (status=%d)",
+				   reap_status);
+		errno = saved_exec_error;
+		return saved_exec_error;
+	}
+
+	/* A partial status write can only come from the failed-exec _exit path. */
+	{
+		int child_status, reap_status;
+
+		reap_status = usb_printer_reap_failed_exec_child(child, &child_status, waitpid);
+		if (reap_status != 0)
+			logmessage(LOGNAME,
+				   "cannot reap partially reported USB printer exec child (status=%d)",
+				   reap_status);
+	}
 	errno = EIO;
 	return usb_printer_daemon_start_failure_recover(process_name, EIO);
 }
