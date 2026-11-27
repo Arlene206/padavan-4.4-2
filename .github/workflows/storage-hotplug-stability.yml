@@ -333,7 +333,7 @@ jobs:
           # from the human-readable --list output.
           "$busybox_bin" ash -c 'test "$((2 + 2))" -eq 4'
           "$busybox_bin" awk 'BEGIN { exit 0 }'
-  "$busybox_bin" stat -L -c '%d:%i' "$busybox_bin" >/dev/null
+          "$busybox_bin" stat -L -c '%d:%i' "$busybox_bin" >/dev/null
 
           runtime_dir=$(mktemp -d)
           trap 'rm -rf "$runtime_dir"' EXIT
