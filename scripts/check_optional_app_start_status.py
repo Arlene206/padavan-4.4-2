@@ -1187,7 +1187,7 @@ def check_sshd():
     assert "func_config_path_check()" in sshd_source
     assert 'cat > "$config_tmp" <<EOF' in sshd_source
     assert 'mv "$config_tmp" "$sshd_config"' in sshd_source
-    assert 'config_tmp="${sshd_config}.tmp.$"' in sshd_source
+    assert 'config_tmp="${sshd_config}.tmp.' + chr(36) * 2 + '"' in sshd_source
     assert syntax_check.returncode == 0, syntax_check.stderr
     with tempfile.TemporaryDirectory(prefix="sshd-lifecycle-") as tmp:
         base = Path(tmp)
