@@ -1,14 +1,15 @@
-## 2026-11-28 — Fix remaining VPN server teardown source assertion
+## 2026-11-28 — Track PPP callback-link helper in XY-C1 build triggers
 
-- Exact VPN lifecycle run #46062597369 on `32e860095157e4029a8c25381194531cf70453f8` passed the PPP callback-link GNU89/ASan/UBSan regression, the secondary VPN-client NVRAM/DNS contract, and earlier lifecycle checks, then failed in one remaining assertion in `scripts/check_vpn_server_lifecycle.py` that still searched for raw `unlink(VPNS_PPP_UP_SCRIPT)`.
-- The server teardown already uses the checked direct-child / effective-UID-owned `/sbin/rc` symlink remover. Updated that final ordering assertion to verify OpenVPN has stopped before the checked removal.
-- This is checker-only; exact-push VPN rerun is required. No local host or hardware L4 result claimed. Backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- The VPN stop-path helper is included by `vpn_client.c` and `vpn_server.c`, so both already triggered XY-C1 in the initial source commit. Added the helper header explicitly to XY-C1 push and pull-request path filters as a future header-only edit must also build firmware.
+- Added a detector regression requiring exactly one push and one PR path entry and confirming the helper is a firmware input. The VPN lifecycle workflow separately compiles the policy test under GNU89/ASan/UBSan.
+- Latest production-source build run #46062368487 targets the VPN source commit `4641eb81d8d2abee5c9ddfb9e037b42f8baf207a`; it was last observed building. No L3 claim until Build/TRX/artifact all succeed.
+- Main source/checker commits: `4641eb81d8d2abee5c9ddfb9e037b42f8baf207a`, `cbc2fe31e14969083c1dbc399b37e0710b7ce3b7`, `32e860095157e4029a8c25381194531cf70453f8`, `dce62d6e6cfa9d6ad0f32d728efa2fc8636d79d1`. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Exact first action
 
-1. Inspect this commit's VPN server lifecycle workflow and require the full policy suite plus both source contracts to PASS.
-2. Inspect exact-SHA Process inventory and XY-C1 Build/TRX/artifact statuses.
-3. Continue independent stability/security implementation while Actions are pending.
+1. Inspect exact-SHA VPN lifecycle run after the source-contract fixes.
+2. Inspect XY-C1 Build, TRX and artifact upload for the production-source SHA above; do not conflate checker-only descendants with firmware source validation.
+3. Continue a separate high-priority cross-userland reliability/security defect.
 ---
 
 ## 2026-11-26 — Autonomous development checkpoint

@@ -1,3 +1,9 @@
+## 2026-11-28 — Add PPP callback policy to XY-C1 firmware path filters
+
+- Added `ppp_callback_link_policy.h` to both push and pull-request path filters in `xy-c1-firmware-validation.yml`. The helper is a production include of VPN client/server stop code; future header-only edits must not bypass cross-build validation.
+- Added `test_ppp_callback_link_policy_header_triggers_xy_c1_build` to enforce exactly one entry in each filter and ensure the detector classifies the header as firmware input.
+- No product source changed; exact detector/VPN CI reruns pending.
+
 ## 2026-11-28 — Replace stale VPN server unlink ordering assertion
 
 - The exact-push VPN lifecycle run #46062597369 on `32e860095157e4029a8c25381194531cf70453f8` passed the callback-link ownership ASan/UBSan test and the secondary VPN-client NVRAM/DNS source contract, then found one old server-stop assertion still searching for `unlink(VPNS_PPP_UP_SCRIPT)`.
