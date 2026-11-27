@@ -178,6 +178,57 @@ EOF
 	fi
 }
 
+func_validate_host_key()
+{
+	key_path="$1"
+	if [ -L "$key_path" ] ||
+	   { [ -e "$key_path" ] && [ ! -f "$key_path" ]; }; then
+		logger -t "sshd" "refusing unsafe host-key path: $key_path"
+		return 1
+	fi
+	[ -f "$key_path" ] || return 0
+	if [ ! -s "$key_path" ]; then
+		logger -t "sshd" "host key is empty: $key_path"
+		return 1
+	fi
+	key_links=$(stat -c '%h' "$key_path" 2>/dev/null)
+	key_links_status=$?
+	if [ "$key_links_status" -ne 0 ]; then
+		logger -t "sshd" "cannot inspect host-key link count (status=$key_links_status): $key_path"
+		return "$key_links_status"
+	fi
+	case "$key_links" in
+		1) ;;
+		''|*[!0-9]*)
+			logger -t "sshd" "invalid host-key link count: $key_path"
+			return 2
+			;;
+		*)
+			logger -t "sshd" "refusing multiply-linked host key: $key_path"
+			return 1
+			;;
+	esac
+	if chmod 600 "$key_path"; then :; else
+		key_chmod_status=$?
+		logger -t "sshd" "cannot restrict host-key permissions (status=$key_chmod_status): $key_path"
+		return "$key_chmod_status"
+	fi
+	if "$ssh_keygen_bin" -y -P "" -f "$key_path" >/dev/null 2>&1; then
+		return 0
+	else
+		key_validation_status=$?
+		logger -t "sshd" "host-key validation failed (status=$key_validation_status): $key_path"
+		return "$key_validation_status"
+	fi
+}
+
+func_validate_host_keys()
+{
+	func_validate_host_key "$rsa_key" || return $?
+	func_validate_host_key "$dsa_key" || return $?
+	func_validate_host_key "$ed25519_key"
+}
+
 func_start()
 {
 	func_config_path_check
@@ -201,6 +252,11 @@ func_start()
 		[ -f "${old_path}/${i}.pub" ] && mv -n "${old_path}/${i}.pub" "$dir_storage"
 	done
 
+	func_validate_host_keys
+	key_validation_status=$?
+	if [ "$key_validation_status" -ne 0 ]; then
+		return "$key_validation_status"
+	fi
 	if [ ! -f "$rsa_key" ] || [ ! -f "$dsa_key" ] || [ ! -f "$ed25519_key" ] ; then
 		if "$ssh_keygen_bin" -A; then
 			:
@@ -208,6 +264,11 @@ func_start()
 			keygen_status=$?
 			logger -t "sshd" "host-key generation failed (status=$keygen_status)"
 			return "$keygen_status"
+		fi
+		func_validate_host_keys
+		key_validation_status=$?
+		if [ "$key_validation_status" -ne 0 ]; then
+			return "$key_validation_status"
 		fi
 	fi
 
