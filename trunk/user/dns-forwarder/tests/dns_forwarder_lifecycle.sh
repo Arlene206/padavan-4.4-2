@@ -9,6 +9,8 @@ export PROCESS_LIFECYCLE_LIB="$script_dir/../../shared/scripts/process_lifecycle
 export PL_PROC_ROOT="$tmp/proc"
 
 mkdir -m 700 "$tmp/lock" "$tmp/bin" "$tmp/proc"
+mkdir -m 700 "$tmp/proc/1"
+printf '%s\n' '1 (init) S 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1' > "$tmp/proc/1/stat"
 sed -e "s@/tmp/.dns-forwarder.lifecycle.lock@$tmp/lock/.lock@" \
   -e 's@kill -TERM "$dns_forwarder_pid"@fake_kill -TERM "$dns_forwarder_pid"@' \
   "$source_script" > "$tmp/dns-forwarder.sh"

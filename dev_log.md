@@ -1,3 +1,10 @@
+## 2026-11-27 — Repair lifecycle fixtures and ZeroTier source-contract parsing
+
+- Exact-SHA runs on `5d050019bf478d97c794aae8e81ac1fa5845ef59` exposed three issues. DNS Forwarder event loop compile/ASan tests passed, but its lifecycle start fixture returned UNKNOWN because its mocked procfs root was empty after the new PID-less-inventory hardening. DDNSTO stop failed for the same fixture reason: its fake procfs had no numeric PID entry, so confirmed absence was no longer possible. Added a valid synthetic PID 1 `stat` record to both test fixtures; production fail-closed behavior remains unchanged.
+- ZeroTier bounded lifecycle shell regression passed, but its Python source-contract parser failed because the production shell glob `*/*)` contains the C block-comment token `/*`. The earlier attempted `*'/'*)` correction was not present in the actual checked-in tree. Replaced the glob with an equivalent POSIX parameter-expansion test for whether a slash exists, and updated the checker to assert that expression. This removes the scanner ambiguity without changing route normalization.
+- On the same SHA, AI handoff contract #46055326868 passed; DNS Forwarder #46055326877, ZeroTier #46055326903 and DDNSTO #46055326848 failed for the reasons above. Process inventory #46055326884, process lifecycle #46055326917, WAN route #46055326830 and XY-C1 firmware #46055326827 were still running at last observation. No firmware/TRX/artifact or hardware L4 result is inferred from pending runs.
+- Local execution unavailable in this connector-only session; the exact new-SHA Actions are the verification gate.
+
 ## 2026-11-27 — Treat PID-less procfs snapshots as UNKNOWN
 
 - Shared process lifecycle fallback treated an empty or non-PID-only procfs listing as a complete negative scan in `pl_process_state()`; the package-client command-line fallback had the same flaw when the root contained nonnumeric entries such as only `sys`. This could authorize teardown/unmount on an incomplete process inventory.

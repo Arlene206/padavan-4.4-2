@@ -1072,10 +1072,9 @@ zerotier_preflight_static_routes() {
 		# Treat an unqualified host route and its explicit /32 form as the
 		# same destination, matching the kernel route representation.
 		zt_preflight_destination_key="$zt_preflight_ip"
-		case "$zt_preflight_destination_key" in
-			*/*) ;;
-			*) zt_preflight_destination_key="$zt_preflight_destination_key/32" ;;
-		esac
+		if [ "$zt_preflight_destination_key" = "${zt_preflight_destination_key#*/}" ]; then
+			zt_preflight_destination_key="$zt_preflight_destination_key/32"
+		fi
 		case "$zt_preflight_seen_destinations" in
 			*" $zt_preflight_destination_key "*)
 				logger -t "zerotier" "静态路由目标重复，拒绝创建不受支持的多下一跳路由: $zt_preflight_ip"
