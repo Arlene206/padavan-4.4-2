@@ -320,7 +320,7 @@ jobs:
 
           for feature in CONFIG_ASH CONFIG_FEATURE_SH_IS_ASH CONFIG_AWK CONFIG_FLOCK \
                          CONFIG_CAT CONFIG_CHMOD CONFIG_DIRNAME CONFIG_GREP CONFIG_MKDIR \
-                         CONFIG_RM CONFIG_SLEEP CONFIG_STAT CONFIG_FEATURE_STAT_FORMAT CONFIG_WC; do
+                         CONFIG_RM CONFIG_SLEEP CONFIG_STAT CONFIG_FEATURE_STAT_FORMAT CONFIG_ASH_CMDCMD CONFIG_WC; do
             if ! grep -qx "$feature=y" "$busybox_dir/.config"; then
               echo "Required firmware BusyBox feature is disabled: $feature" >&2
               exit 1
@@ -1923,12 +1923,12 @@ jobs:
           assert "grep -Fqx" in host_busybox_step
           assert host_busybox_step.index("CONFIG_EXTRA_CFLAGS") < host_busybox_step.index('make -C "$busybox_dir" -j2 busybox')
           assert "CONFIG_DATE=y" in busybox_config
-          for feature in ("CONFIG_ASH", "CONFIG_FEATURE_SH_IS_ASH", "CONFIG_AWK", "CONFIG_FLOCK"):
+          for feature in ("CONFIG_ASH", "CONFIG_FEATURE_SH_IS_ASH", "CONFIG_ASH_CMDCMD", "CONFIG_AWK", "CONFIG_FLOCK"):
               assert f"{feature}=y" in busybox_config
           assert 'busybox_id="1.24.x"' in busybox_configure
           assert 'busybox_cf="$ROOTDIR/configs/boards/busybox.config"' in busybox_configure
           assert 'cp -fL "$busybox_cf" "$busybox_tf"' in busybox_configure
-          for feature in ("CONFIG_ASH", "CONFIG_FEATURE_SH_IS_ASH", "CONFIG_AWK", "CONFIG_FLOCK"):
+          for feature in ("CONFIG_ASH", "CONFIG_FEATURE_SH_IS_ASH", "CONFIG_ASH_CMDCMD", "CONFIG_AWK", "CONFIG_FLOCK"):
               assert f'func_disable_busybox_param "{feature}"' not in busybox_configure
 
           # Child service fixtures must execute under the tested ash binary too.
