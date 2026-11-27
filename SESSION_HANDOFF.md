@@ -1,13 +1,15 @@
-## 2026-11-27 — Signal-source checker follow-up
+## 2026-11-27 — ZeroTier static-route duplicate preflight
 
-- Signal rollback source commit: `9e4616c4dc7093a8fc590c18c394cddf8dc80a3c`.
-- Exact-push DNS Forwarder run #46053530493 FAILED at `scripts/check_dns_forwarder_launch.py:259`: a pre-existing assertion still required the direct `hev_event_source_add_fd()` call, while the new test seam correctly routes through `DNS_EVENT_SOURCE_SIGNAL_ADD_FD`. Existing launch-path and service contract assertions passed; all C compile/test steps were skipped.
-- This atomic follow-up changes that stale source-contract assertion to verify `DNS_EVENT_SOURCE_SIGNAL_ADD_FD`. New exact-SHA Actions must verify the full test suite. Do not claim the signal-source regression passed until that run is green.
+- Latest main before this slice: `e05c0ad3ebcb18c8bbd0052dd2c46b89da234e27`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- DNS Forwarder signal-source rollback is validated by exact-push run #46053772502 on `e05c0ad3ebcb18c8bbd0052dd2c46b89da234e27` PASS; AI handoff contract #46053772454 PASS. The earlier process lifecycle inventory #46053530564 PASS on parent `9e4616c4dc7093a8fc590c18c394cddf8dc80a3c`; NVRAM/XY-C1 checks on that older SHA were still in progress at the last poll and are not current-source validation.
+- New ZeroTier issue: duplicate enabled static-route destinations were not rejected in the preflight that runs before daemon stop. Multiple gateways for one destination can produce a multipath alias that Linux 4.4 cleanup intentionally refuses to delete by a single nexthop. The implementation now canonicalizes host routes to `/32` and rejects repeated destination keys before process or route changes. Tests cover duplicate `/24` entries with different gateways, implicit/explicit `/32` equivalence, and preservation of a running daemon.
+- Local test execution is unavailable in this connector-only session. Do not claim the ZeroTier regression passed until the exact-SHA workflow run is complete.
+- Product XY-C1 firmware build, TRX/artifact, and physical L4 claims must come from exact-current-SHA evidence; L4 remains NOT VERIFIED.
 
 ## Exact first action
 
-1. Fetch Actions by the latest commit SHA. If the DNS Forwarder regression passes, continue to an independent P1 stability/security issue outside DNS Forwarder; if it fails, inspect its job log and repair the exact failure.
-2. Check the same-SHA Process inventory, NVRAM transaction, and XY-C1 firmware runs; distinguish completed results from queued/in-progress checks and do not report a firmware build as successful without the TRX/artifact evidence.
+1. Fetch all push Actions for the new ZeroTier slice commit. Inspect the ZeroTier lifecycle job steps/logs and fix any shell, checker, or workflow failure using a new full-tree atomic commit to main.
+2. Check exact-SHA XY-C1 Build/TRX/artifact, NVRAM and other independent workflows; pending jobs are not passes. Then move to another independent P1 issue outside ZeroTier without repeating bootstrap or auditing completed work.
 
 ---
 

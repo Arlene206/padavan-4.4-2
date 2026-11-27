@@ -405,6 +405,13 @@ require('nvram get_checked zero_staticnum_x' in route_preflight_body and
         route_preflight_body.index('nvram get_checked zero_ip_x$zt_preflight_j') <
         route_preflight_body.index('nvram get_checked zero_route_x$zt_preflight_j'),
         "static route settings must be fully checked before restarting or stopping the daemon")
+require('zt_preflight_seen_destinations=" "' in route_preflight_body and
+        'zt_preflight_destination_key="$zt_preflight_ip"' in route_preflight_body and
+        'zt_preflight_destination_key="$zt_preflight_destination_key/32"' in route_preflight_body and
+        '静态路由目标重复' in route_preflight_body and
+        'duplicate static-route destination' in test and
+        'duplicate static route stopped the existing daemon' in test,
+        "duplicate static-route destinations, including implicit/explicit /32 aliases, must be rejected before daemon or kernel side effects")
 require('nvram get_checked zero_staticnum_x' in route_state_save_body and
         'nvram get_checked zero_enable_x$zt_route_j' in route_state_save_body and
         'nvram get_checked zero_ip_x$zt_route_j' in route_state_save_body and

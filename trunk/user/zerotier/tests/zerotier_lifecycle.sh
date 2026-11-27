@@ -272,6 +272,9 @@ nvram() {
 				zero_enable_x0) printf '%s\n' "$TEST_STATIC_ROUTE_ENABLE" ;;
 				zero_ip_x0) printf '%s\n' "$TEST_STATIC_ROUTE_IP" ;;
 				zero_route_x0) printf '%s\n' "$TEST_STATIC_ROUTE_GATEWAY" ;;
+				zero_enable_x1) printf '%s\n' "${TEST_STATIC_ROUTE_ENABLE1:-0}" ;;
+				zero_ip_x1) printf '%s\n' "${TEST_STATIC_ROUTE_IP1:-}" ;;
+				zero_route_x1) printf '%s\n' "${TEST_STATIC_ROUTE_GATEWAY1:-}" ;;
 			esac
 			;;
 		set)
@@ -2960,6 +2963,38 @@ for invalid_gateway in default 192.0.2.256 192.0.2.1/24 010.0.0.1 "192.0.2.1 dev
 	[ ! -s "$TEST_ACTION_LOG" ] || fail "invalid gateway $invalid_gateway changed network state during stop"
 done
 TEST_STATIC_ROUTE_GATEWAY=192.0.2.1
+
+# A destination may only be managed through one static nexthop. Duplicated
+# destination entries (including implicit /32 versus explicit /32) are
+# rejected during preflight, before the existing daemon receives a signal.
+TEST_STATIC_ROUTE_COUNT=2
+TEST_STATIC_ROUTE_ENABLE=1
+TEST_STATIC_ROUTE_ENABLE1=1
+TEST_STATIC_ROUTE_GATEWAY=192.0.2.1
+TEST_STATIC_ROUTE_GATEWAY1=192.0.2.2
+TEST_NVRAM_READ_FAIL_KEY=""
+for duplicate_route_pair in "192.0.2.0/24 192.0.2.0/24" "192.0.2.9 192.0.2.9/32"; do
+	set -- $duplicate_route_pair
+	TEST_STATIC_ROUTE_IP="$1"
+	TEST_STATIC_ROUTE_IP1="$2"
+	: > "$TEST_KILL_LOG"
+	: > "$TEST_ACTION_LOG"
+	echo running > "$TEST_STATE"
+	if zerotier_preflight_static_routes; then
+		fail "static-route preflight accepted duplicate destination $TEST_STATIC_ROUTE_IP / $TEST_STATIC_ROUTE_IP1"
+	fi
+	if start_zero; then
+		fail "start accepted duplicate static-route destination $TEST_STATIC_ROUTE_IP / $TEST_STATIC_ROUTE_IP1"
+	fi
+	[ "$(cat "$TEST_STATE")" = running ] || fail "duplicate static route stopped the existing daemon"
+	[ ! -s "$TEST_KILL_LOG" ] || fail "duplicate static route signalled the existing daemon"
+	[ ! -s "$TEST_ACTION_LOG" ] || fail "duplicate static route changed kernel state before rejection"
+done
+TEST_STATIC_ROUTE_COUNT=1
+TEST_STATIC_ROUTE_ENABLE1=0
+TEST_STATIC_ROUTE_IP1=""
+TEST_STATIC_ROUTE_GATEWAY1=""
+
 # The explicit all-addresses default route remains syntactically valid.
 TEST_STATIC_ROUTE_IP=0.0.0.0/0
 if ! zerotier_preflight_static_routes || ! zero_route add; then

@@ -1035,6 +1035,10 @@ zerotier_preflight_static_routes() {
 		return 1
 	fi
 	[ "$zt_route_count" -gt 0 ] || return 0
+	# A single destination must have one managed next hop. Multiple rows for
+	# the same prefix can form an ECMP alias that Linux 4.4 cannot safely
+	# delete one leg at a time; reject it before stopping the current daemon.
+	zt_preflight_seen_destinations=" "
 	for zt_preflight_i in $(seq 1 "$zt_route_count"); do
 		zt_preflight_j=$((zt_preflight_i - 1))
 		if ! zt_preflight_enable="$(nvram get_checked zero_enable_x$zt_preflight_j)"; then
@@ -1065,6 +1069,20 @@ zerotier_preflight_static_routes() {
 			logger -t "zerotier" "静态路由IP或网关不是有效的IPv4地址: $zt_preflight_j"
 			return 1
 		fi
+		# Treat an unqualified host route and its explicit /32 form as the
+		# same destination, matching the kernel route representation.
+		zt_preflight_destination_key="$zt_preflight_ip"
+		case "$zt_preflight_destination_key" in
+			*/*) ;;
+			*) zt_preflight_destination_key="$zt_preflight_destination_key/32" ;;
+		esac
+		case "$zt_preflight_seen_destinations" in
+			*" $zt_preflight_destination_key "*)
+				logger -t "zerotier" "静态路由目标重复，拒绝创建不受支持的多下一跳路由: $zt_preflight_ip"
+				return 1
+				;;
+		esac
+		zt_preflight_seen_destinations="$zt_preflight_seen_destinations$zt_preflight_destination_key "
 	done
 	return 0
 }

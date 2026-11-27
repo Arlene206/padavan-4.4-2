@@ -1,3 +1,9 @@
+## 2026-11-27 — Reject duplicate ZeroTier static-route destinations before service stop
+
+- Static-route preflight validated each entry independently but did not detect two enabled rows targeting the same network with different gateways. Such rows can create an ECMP/multipath alias; cleanup intentionally refuses to delete one leg because Linux 4.4 gateway/device deletion may remove the entire alias. The duplicate was otherwise detected only during later route installation, after the old daemon had already been stopped.
+- Preflight now allows only one managed next hop per destination and canonicalizes an unqualified host route to `/32` for duplicate detection. Regression covers duplicate `/24` entries with different gateways and the equivalent host-IP/explicit-`/32` spelling; it verifies start fails before signaling the running daemon or changing kernel state.
+- Exact-SHA ZeroTier lifecycle validation is required for this slice. No local shell execution or router L3/L4 validation is claimed.
+
 ## 2026-11-27 — Align signal-source checker with failure-injection seam
 
 - Exact-push DNS Forwarder run #46053530493 on `9e4616c4dc7093a8fc590c18c394cddf8dc80a3c` failed in the Python contract checker at the legacy assertion requiring a direct `hev_event_source_add_fd()` call. The implementation now routes that call through `DNS_EVENT_SOURCE_SIGNAL_ADD_FD` for regression injection; earlier launch-path and service/installer assertions passed, but every C regression step was skipped.
