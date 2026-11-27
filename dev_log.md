@@ -1,3 +1,12 @@
+## 2026-11-28 — Persist MiniDLNA and Firefly config renames
+
+- MiniDLNA and Firefly each fsynced staged config contents before atomic rename but did not fsync the containing directory. File fsync alone does not guarantee the new directory entry survives sudden power loss. Added shared `config_file_sync.h` with EINTR-safe file and parent-directory fsync; both publishers now call it after rename and propagate failures.
+- Added success and ENOENT missing-parent cases to both C regression programs. Process lifecycle workflow checks that directory sync follows rename and compiles/runs the existing ASan/UBSan tests. The new shared header is included in push/PR path filters.
+- Parent SHA: `d3090c3a55ebda73b2680055e04f7324bfe56565`. Exact-head Process inventory, AI docs and XY-C1 Build/TRX/artifact pending; no local compile claimed.
+- Commit: THIS COMMIT.
+
+---
+
 ## 2026-11-28 — Enable BusyBox ash command builtin for firmware lifecycle scripts
 
 - Storage #46081098105 first exposed Transmission's `command -v stat` failure; after applet PATH diagnostics, #46081453045 on `e69afd9` made the root cause explicit: BusyBox ash reported `command: not found`. The common board config disabled `CONFIG_ASH_CMDCMD` even though Transmission, Aria2 and shared process lifecycle scripts use `command -v`.

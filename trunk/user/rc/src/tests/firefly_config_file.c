@@ -138,6 +138,7 @@ main(void)
 	char symlink_source[256];
 	char symlink_output[256];
 	char fifo_path[256];
+	char missing_parent[256];
 	struct stat st;
 	int status;
 
@@ -173,6 +174,7 @@ main(void)
 	status = firefly_config_publish(path, path, "/mnt/firefly",
 					"media-user", "media-pass");
 	assert(status == 0);
+	assert(config_file_sync_parent(path) == 0);
 	assert_contains(path, "web_root = /usr/share/mt-daapd\n");
 	assert_contains(path, "port = 3689\n");
 	assert_contains(path, "runas = media-user\n");
@@ -261,6 +263,12 @@ main(void)
 				       "media-user", "media-pass") == EINVAL);
 	assert(firefly_config_publish(path, NULL, NULL,
 				       "media-user", "media-pass") == EINVAL);
+
+	assert(snprintf(missing_parent, sizeof(missing_parent),
+			"%s/missing/mt-daapd.conf", directory) > 0);
+	errno = 0;
+	assert(config_file_sync_parent(missing_parent) != 0);
+	assert(errno == ENOENT);
 
 	assert(unlink(path) == 0);
 	assert(unlink(default_path) == 0);

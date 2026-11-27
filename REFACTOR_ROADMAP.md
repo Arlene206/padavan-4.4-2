@@ -1,3 +1,9 @@
+## 2026-11-28 — Make media-server config publication directory-durable
+
+- MiniDLNA and Firefly now fsync the parent directory after successful atomic config rename; propagate directory-sync errors rather than claiming durable publication. Shared helper and C regressions cover successful and missing-parent sync.
+
+---
+
 ## 2026-11-28 — Enable BusyBox ash command builtin for firmware lifecycle scripts
 
 - The shared BusyBox 1.24 board config disabled `CONFIG_ASH_CMDCMD`, but Transmission, Aria2 and the shared process helper rely on `command -v`. Firmware ash reported `command: not found`, forcing fail-closed process checks to UNKNOWN despite the `stat` applet being present. Enabled `CONFIG_ASH_CMDCMD=y`; Storage CI asserts the option is enabled/not disabled and exercises `command -v stat` plus `stat -L -c` through the exact launcher PATH. Exact SHA `25b0f34`: USB storage #46081670821, Process #46081670853 and AI docs #46081670826 PASS; XY-C1 Build/TRX/artifact pending at last poll.

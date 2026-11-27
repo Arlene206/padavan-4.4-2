@@ -1,15 +1,13 @@
-## 2026-11-28 — Enable BusyBox ash command builtin used by lifecycle scripts
+## 2026-11-28 — Persist MiniDLNA and Firefly config renames
 
-- Root cause: `trunk/configs/boards/busybox.config` disabled `CONFIG_ASH_CMDCMD`; the shipped BusyBox 1.24 ash therefore had no `command` builtin. Transmission, Aria2 and the shared process lifecycle helper use POSIX `command -v` to validate required applets, so fail-closed process checks returned UNKNOWN even when `stat` itself was present.
-- Storage #46081453045 on `e69afd9` confirmed the ash smoke failure as `command: not found`. Commit `25b0f34f41206b0d16ceed7b8190202a53b89d63` enables `CONFIG_ASH_CMDCMD=y` and makes the BusyBox storage build gate assert it is enabled and not disabled by configure. The test also checks `command -v stat` and `stat -L -c` with the exact child PATH. Storage #46081670821 PASS, including BusyBox 1.24.2/ash, Transmission/Aria startup, Optware lifecycle, and the remaining storage checks.
-- Exact `25b0f34` Process inventory #46081670853 PASS; AI handoff #46081670826 PASS. AliDDNS #46081670844, AliyunDrive #46081670881, DNS Forwarder #46081670945, FRP #46081671085 and AdGuardHome #46081670829 also PASS. NVRAM audit #46081670831 was IN_PROGRESS at the last poll.
-- XY-C1 #46081670815 was IN_PROGRESS at `Build XY-C1`; TRX verification and artifact upload had not yet started. No current-source L3 claim; no physical-router L4 claim.
-- Test-harness commits: `9bf676f` exposed stat to the BusyBox launcher stub path; `7b05465` added the exact ash PATH smoke but accidentally repeated the symlink; `e69afd9` removed the duplicate link and retained the smoke. No production behavior was weakened.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify.
-- Exact first action: retrieve #46081670815 Build/TRX/artifact results and #46081670831 NVRAM conclusion on `25b0f34`; fix any actual failure, then continue a P1 security/stability task outside the storage shell/config issue.
-
+- Both generated media-server config publishers fsynced the staged file before `rename()` but never fsynced the parent directory. A successful return could therefore precede durable persistence of the new directory entry across sudden power loss. Added a shared EINTR-safe file/directory fsync helper and call it after each successful atomic rename; a directory-sync failure is propagated so startup does not claim durable publication.
+- Extended MiniDLNA and Firefly C regressions for successful parent sync and missing-parent failure, and added a source-order contract to Process lifecycle CI. Exact head test/Process inventory/AI docs/XY-C1 checks pending; no local compile is claimed.
+- BusyBox ash root cause: firmware `CONFIG_ASH_CMDCMD` was disabled, so ash lacked the `command` builtin used by safe process identity lookup. Commit `25b0f34f41206b0d16ceed7b8190202a53b89d63` enables it and requires the feature in storage CI. Exact USB #46081670821 PASS (including BusyBox 1.24.2/ash, Transmission/Aria startup and Optware lifecycle); Process inventory #46081670853 PASS; AI docs #46081670826 PASS. XY-C1 #46081670815 remained at Build, TRX/artifact pending.
+- Aria2 symlink protection `7c21bb2987022102d27a403dbdb4c0f84d3e41a8`: Aria2 storage guard regression passed on d79; its XY-C1 exact Build/TRX/artifact is not claimed here.
+- Next: inspect this commit's Firefly/MiniDLNA directory-sync and exact-SHA Process CI, close #46081670815 (including Build/TRX/artifact), then continue another cross-userland stability/security fix.
 
 ---
+
 
 
 

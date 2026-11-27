@@ -1,6 +1,8 @@
 #ifndef FIREFLY_CONFIG_FILE_H
 #define FIREFLY_CONFIG_FILE_H
 
+#include "config_file_sync.h"
+
 #include <errno.h>
 #include <fcntl.h>
 #include <stdarg.h>
@@ -295,6 +297,8 @@ firefly_config_publish(const char *path, const char *source_path,
 	if (status == 0) {
 		errno = 0;
 		if (rename(temporary_path, path) != 0)
+			status = errno ? errno : EIO;
+		else if (config_file_sync_parent(path) != 0)
 			status = errno ? errno : EIO;
 	}
 	if (status != 0)

@@ -57,6 +57,7 @@ main(void)
 	char directory[] = "/tmp/minidlna-config-test.XXXXXX";
 	char path[256];
 	char directory_target[256];
+	char missing_parent[256];
 	struct minidlna_config_values values;
 	struct stat st;
 	int status;
@@ -78,6 +79,7 @@ main(void)
 
 	status = minidlna_config_publish(path, &values);
 	assert(status == 0);
+	assert(config_file_sync_parent(path) == 0);
 	assert_contains(path, "port=8200\n");
 	assert_contains(path, "network_interface=br0\n");
 	assert_contains(path, "notify_interval=300\n");
@@ -152,6 +154,12 @@ main(void)
 
 	assert(minidlna_config_publish(NULL, &values) == EINVAL);
 	assert(minidlna_config_publish(path, NULL) == EINVAL);
+
+	assert(snprintf(missing_parent, sizeof(missing_parent),
+			"%s/missing/minidlna.conf", directory) > 0);
+	errno = 0;
+	assert(config_file_sync_parent(missing_parent) != 0);
+	assert(errno == ENOENT);
 
 	assert(unlink(path) == 0);
 	assert(rmdir(directory_target) == 0);

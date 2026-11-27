@@ -1,6 +1,8 @@
 #ifndef MINIDLNA_CONFIG_FILE_H
 #define MINIDLNA_CONFIG_FILE_H
 
+#include "config_file_sync.h"
+
 #include <errno.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -231,6 +233,8 @@ minidlna_config_publish(const char *path,
 	if (status == 0) {
 		errno = 0;
 		if (rename(temporary_path, path) != 0)
+			status = errno ? errno : EIO;
+		else if (config_file_sync_parent(path) != 0)
 			status = errno ? errno : EIO;
 	}
 
