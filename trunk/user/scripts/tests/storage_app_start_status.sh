@@ -198,15 +198,14 @@ fi
 exec /bin/chmod "$@"
 EOF
 if [ -n "${BUSYBOX_BIN:-}" ]; then
-	# Transmission's procfs identity check requires stat; provide the target
-	# firmware BusyBox applet on the same PATH as the other test commands.
+	# BusyBox ash launchers prepend STUB_DIR to PATH for command stubs.
+	# Put the real firmware stat applet in that first directory.
 	ln -s "$BUSYBOX_BIN" "$STUB_DIR/stat"
 fi
-# BusyBox ash launchers prepend STUB_DIR to PATH for command stubs. Expose
-# the real BusyBox stat applet in that first directory as well as runtime/bin;
-# the production procfs identity check must see stat in the exact child PATH.
+chmod 755 "$STUB_DIR/"*
 if [ -n "${BUSYBOX_BIN:-}" ]; then
-	ln -s "$BUSYBOX_BIN" "$STUB_DIR/stat"
+	# Exercise discovery and the required GNU-style identity format through
+	# the same prefixed PATH inherited by each launcher.
 	PATH="$STUB_DIR:$PATH" "$BUSYBOX_BIN" ash -c '
 		command -v stat >/dev/null &&
 		stat -L -c "%d:%i" "$1" >/dev/null
@@ -215,7 +214,6 @@ if [ -n "${BUSYBOX_BIN:-}" ]; then
 		exit 1
 	}
 fi
-chmod 755 "$STUB_DIR/"*
 sed \
 	-e "s|SVC_PATH=\"/usr/bin/transmission-daemon\"|SVC_PATH=\"$STUB_DIR/transmission-daemon\"|" \
 	-e "s|DIR_LINK=\"/mnt/transmission\"|DIR_LINK=\"$TMP_DIR/transmission\"|" \
