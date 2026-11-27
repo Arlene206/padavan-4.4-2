@@ -1,3 +1,9 @@
+## 2026-11-28 — Make OpenVPN file publication directory-durable
+
+- OpenVPN credential and config publishers now fsync the containing directory after successful atomic rename, using no-follow parent-directory open. Tests cover successful, missing and symlinked parents.
+
+---
+
 ## 2026-11-28 — Repair media-config directory sync CI contract
 
 - Update the MiniDLNA/Firefly source assertion to require `O_DIRECTORY|O_NOFOLLOW`, matching the helper's strengthened no-follow parent-directory open. No production source rollback.

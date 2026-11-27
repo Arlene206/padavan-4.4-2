@@ -1,6 +1,8 @@
 #ifndef PADAVAN_OPENVPN_CONFIG_FILE_H
 #define PADAVAN_OPENVPN_CONFIG_FILE_H
 
+#include "config_file_sync.h"
+
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -109,6 +111,8 @@ openvpn_config_file_publish(FILE **stream, const char *staged_path,
 	*stream = NULL;
 
 	if (rename(staged_path, path) != 0)
+		goto failed;
+	if (config_file_sync_parent(path) != 0)
 		goto failed;
 
 	return 0;

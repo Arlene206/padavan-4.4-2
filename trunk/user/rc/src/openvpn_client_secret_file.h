@@ -1,6 +1,8 @@
 #ifndef PADAVAN_OPENVPN_CLIENT_SECRET_FILE_H
 #define PADAVAN_OPENVPN_CLIENT_SECRET_FILE_H
 
+#include "config_file_sync.h"
+
 #include <errno.h>
 #include <limits.h>
 #include <stdio.h>
@@ -84,6 +86,8 @@ openvpn_client_secret_publish(const char *path, const char *username,
 	fp = NULL;
 
 	if (rename(staged_path, path) != 0)
+		goto failed;
+	if (config_file_sync_parent(path) != 0)
 		goto failed;
 
 	return 0;

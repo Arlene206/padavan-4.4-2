@@ -46,6 +46,7 @@ main(void)
 	char directory[] = "/tmp/openvpn-secret-test.XXXXXX";
 	char secret[256], victim[256], symlink_path[256];
 	char blocked[256], sentinel[256];
+	char missing_parent[256], linked_parent[256], linked_secret[256];
 	struct stat before, after;
 	mode_t old_umask;
 	FILE *fp;
@@ -74,6 +75,21 @@ main(void)
 	assert(after.st_nlink == 1);
 	assert(before.st_ino != after.st_ino);
 	read_exact(secret, "vpn-user\nvpn-password\n");
+
+	assert(config_file_sync_parent(secret) == 0);
+	assert(snprintf(missing_parent, sizeof(missing_parent),
+			"%s/missing/secret", directory) > 0);
+	errno = 0;
+	assert(config_file_sync_parent(missing_parent) != 0);
+	assert(errno == ENOENT);
+	assert(snprintf(linked_parent, sizeof(linked_parent),
+			"%s/linked-parent", directory) > 0);
+	assert(symlink(directory, linked_parent) == 0);
+	assert(snprintf(linked_secret, sizeof(linked_secret),
+			"%s/secret", linked_parent) > 0);
+	errno = 0;
+	assert(config_file_sync_parent(linked_secret) != 0);
+	assert(unlink(linked_parent) == 0);
 
 	/* Credentials are exactly two lines; CR/LF injection is rejected pre-stage. */
 	errno = 0;

@@ -36,6 +36,7 @@ vpn_server = read("trunk/user/rc/src/vpn_server.c")
 lease_lock_test = read("trunk/user/rc/src/tests/vpn_server_lease_lock.c")
 rc_header = read("trunk/user/rc/src/rc.h")
 helper = read("trunk/user/rc/src/openvpn_client_secret_file.h")
+sync_helper = read("trunk/user/rc/src/config_file_sync.h")
 test = read("trunk/user/rc/src/tests/openvpn_client_secret_file.c")
 credentials_policy = read("trunk/user/rc/src/openvpn_client_credentials_policy.h")
 credentials_policy_test = read("trunk/user/rc/src/tests/openvpn_client_credentials_policy.c")
@@ -286,7 +287,18 @@ ordered(config_helper, [
     "fchmod(fd, mode)",
     "fclose(fp)",
     "rename(staged_path, path)",
+    "config_file_sync_parent(path)",
 ], "private staged atomic OpenVPN configuration publication")
+ordered(helper, [
+    "rename(staged_path, path)",
+    "config_file_sync_parent(path)",
+], "private OpenVPN credential parent-directory durability")
+assert "O_DIRECTORY | O_NOFOLLOW" in sync_helper
+assert "config_file_sync_fd(directory_fd)" in sync_helper
+for (label, source_test) in (("credential", test), ("config", config_test)):
+    assert "config_file_sync_parent(" in source_test, label
+    assert "linked-parent" in source_test, label
+
 assert "unlink(staged_path)" in config_helper
 assert "errno = saved_errno" in config_helper
 assert "RLIMIT_FSIZE" in config_test and "write_errno == EFBIG" in config_test
@@ -304,6 +316,7 @@ paths = (
     "trunk/user/rc/src/vpn_server.c",
     "trunk/user/rc/src/vpn_openvpn.c",
     "trunk/user/rc/src/openvpn_client_secret_file.h",
+    "trunk/user/rc/src/config_file_sync.h",
     "trunk/user/rc/src/openvpn_config_file.h",
     "trunk/user/rc/src/openvpn_server_lease_policy.h",
     "trunk/user/rc/src/vpn_server_lease_lock.h",

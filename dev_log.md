@@ -1,3 +1,12 @@
+## 2026-11-28 — Persist OpenVPN credential and config publication
+
+- OpenVPN client credential and config publishers previously fsynced staged file contents but did not sync the containing directory after rename. Both now call the shared parent-directory fsync helper and propagate errors; the helper refuses symlinked parent directories via `O_NOFOLLOW`.
+- Extended both ASan/UBSan C regressions for successful parent sync, ENOENT missing-parent failure and symlink-parent rejection. OpenVPN workflow push/PR filters and source checker require the common helper and sync-after-rename ordering.
+- Parent SHA: `00234eecd99526edb36f7a91581ec0614716c085`. Exact-head OpenVPN/Process inventory/AI docs/XY-C1 Build/TRX/artifact checks pending; no local compile claimed.
+- Commit: THIS COMMIT.
+
+---
+
 ## 2026-11-28 — Repair media-config directory sync CI contract
 
 - e0 Process regression #46082405947 failed at the existing MiniDLNA/Firefly source contract because it expected the pre-hardening `O_RDONLY | O_DIRECTORY` open form; the shared helper now correctly uses `O_RDONLY | O_DIRECTORY | O_NOFOLLOW`. The newly added MiniUPnP and IGMP compile/regression steps were skipped by the earlier assertion failure.

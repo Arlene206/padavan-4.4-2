@@ -1,10 +1,12 @@
-## 2026-11-28 — Align MiniDLNA durability contract with no-follow directory open
+## 2026-11-28 — Persist OpenVPN credential and config publication
 
-- Exact e0 Process regression #46082405947 failed in the existing MiniDLNA/Firefly source contract because it still expected `open(parent_path, O_RDONLY | O_DIRECTORY)`; this same commit intentionally strengthened the shared helper to `O_DIRECTORY|O_NOFOLLOW`. All prior steps in that job passed, while the newly inserted MiniUPnP/IGMP compile steps were skipped after this stale assertion.
-- Updated the source contract to require the stronger no-follow open. The separate Process inventory #46082405929 and AI docs #46082405924 PASS on e0. MiniUPnP atomic test workflow #46082405952 PASSed its existing checks; the newly added test source still needs its Process rerun. e0 XY-C1 #46082405926 and NVRAM audit #46082405853 were still running at last poll.
-- Next: verify the rerun compiles MiniUPnP and IGMP tests and passes all directory-sync contracts; then close the e0 XY-C1 Build/TRX/artifact result.
+- OpenVPN client secret and config writers fsynced staged file contents but returned success immediately after rename. They now call the shared parent-directory fsync barrier and propagate failure; the barrier rejects symlinked parent directories with `O_NOFOLLOW`.
+- Added success, missing-parent and symlink-parent checks to both C regressions; OpenVPN workflow path filters and source checker require the shared helper and post-rename sync order. Exact-head OpenVPN tests, Process inventory and XY-C1 Build/TRX/artifact pending; no local compile claimed.
+- Previous proxy durability commit `e0cc8d5834cc26b2527176a0e0fd1dfd1095f8dd`: Process inventory #46082405929 and AI docs #46082405924 PASS; Process regression failed one stale source assertion expecting pre-`O_NOFOLLOW` helper open. Corrected by `00234eecd99526edb36f7a91581ec0614716c085`; exact Process rerun #46082590403 in progress. XY-C1 #46082405926 remains at Build, TRX/artifact pending at last poll.
+- Next: inspect this commit's OpenVPN C regressions and source/workflow contract; close the proxy Process rerun and outstanding XY-C1 Build/TRX/artifact.
 
 ---
+
 
 
 

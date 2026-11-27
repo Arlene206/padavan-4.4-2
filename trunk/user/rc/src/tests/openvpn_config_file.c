@@ -54,6 +54,7 @@ main(void)
 	char directory[] = "/tmp/openvpn-config-test.XXXXXX";
 	char config[256], victim[256], symlink_path[256];
 	char blocked[256], sentinel[256], staged[512], short_staged[8];
+	char missing_parent[256], linked_parent[256], linked_config[256];
 	struct stat before, after, staged_stat;
 	struct rlimit old_limit, zero_limit;
 	mode_t old_umask;
@@ -89,6 +90,21 @@ main(void)
 	assert(after.st_nlink == 1);
 	assert(before.st_ino != after.st_ino);
 	read_exact(config, "new-config\n");
+
+	assert(config_file_sync_parent(config) == 0);
+	assert(snprintf(missing_parent, sizeof(missing_parent),
+			"%s/missing/client.conf", directory) > 0);
+	errno = 0;
+	assert(config_file_sync_parent(missing_parent) != 0);
+	assert(errno == ENOENT);
+	assert(snprintf(linked_parent, sizeof(linked_parent),
+			"%s/linked-parent", directory) > 0);
+	assert(symlink(directory, linked_parent) == 0);
+	assert(snprintf(linked_config, sizeof(linked_config),
+			"%s/client.conf", linked_parent) > 0);
+	errno = 0;
+	assert(config_file_sync_parent(linked_config) != 0);
+	assert(unlink(linked_parent) == 0);
 
 	/* A failed flush must not replace the previous usable configuration. */
 	assert(getrlimit(RLIMIT_FSIZE, &old_limit) == 0);
