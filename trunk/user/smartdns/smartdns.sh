@@ -309,7 +309,7 @@ Get_sdns_conf () {
         "${sdns_rr_ttl_max:-}" "${sdns_tcp_idle_time:-}" \
         "${sdns_rr_ttl_reply_max:-}" "${sdns_max_reply_ip_num:-}" \
         "${sdns_exp_ttl:-}" "${sdns_exp_ttl_max:-}" \
-        "${sdns_exp_prefetch_time:-}" "${sdns_ip_change_time:-}"; do
+        "${sdns_exp_prefetch_time:-}"; do
         case "$smartdns_config_number" in
             ''|*[!0-9]*) return 1 ;;
         esac
@@ -329,6 +329,12 @@ Get_sdns_conf () {
             *) return 1 ;;
         esac
     done
+    if [ "${sdns_ip_change:-}" = "1" ]; then
+        case "${sdns_ip_change_time:-}" in
+            ''|*[!0-9]*) return 1 ;;
+        esac
+        [ "${#sdns_ip_change_time}" -le 10 ] || return 1
+    fi
     sdns_port=$(smartdns_dnsmasq_normalize_port "$sdns_port") || return 1
     # 【基本设置】
     : > "$smartdns_tmp_Conf" || return $?

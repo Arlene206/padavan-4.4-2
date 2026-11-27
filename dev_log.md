@@ -1,3 +1,10 @@
+## 2026-11-28 — Preserve legacy empty SmartDNS threshold while disabled
+
+- Reviewing the SmartDNS DNSMasq integration fixture exposed that `sdns_ip_change_time` is a conditional directive value, not an always-emitted numeric option. Validate it only when `sdns_ip_change=1`; otherwise older NVRAM without this optional value remains compatible. Added regressions for disabled empty and enabled empty threshold states.
+- The previous exact DNSMasq run on `53c09530c676ef0096ca2a89a2175212cec47fd0` showed the integration fixture omitted the production config-token helper; commit `a0cba1e2efe18728173493e0fa74b0b3b4956854` now sources it. Re-run the full DNSMasq workflow to validate both corrections.
+
+---
+
 ## 2026-11-28 — Load SmartDNS config-token helper in DNSMasq integration regression
 
 - Exact DNSMasq lifecycle run #46085311741 for `53c09530c676ef0096ca2a89a2175212cec47fd0` passed the process, adblock, firewall and resolver ownership checks, then failed the final runtime config integration because its extracted-function fixture sourced the DNSMasq helper but not the newly required `smartdns_config_file.sh` token validator. The production launcher already loads that helper; the fixture now mirrors the production dependency.

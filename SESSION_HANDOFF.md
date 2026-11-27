@@ -1,3 +1,11 @@
+## 2026-11-28 — Keep optional SmartDNS dual-stack threshold backward-compatible
+
+- The new base-token validation initially treated `sdns_ip_change_time` as an unconditional numeric field, while the daemon only emits that threshold if dual-stack IP selection is enabled. Validate the value only when `sdns_ip_change=1`, preserving older NVRAM with an empty optional threshold when disabled. Regression now covers both cases.
+- DNSMasq integration fixture at `a0cba1e2efe18728173493e0fa74b0b3b4956854` sources `smartdns_config_file.sh` alongside the DNSMasq helper so the extracted production generator has its token validator. The prior run failed before executing this fixture; exact rerun pending.
+- Current code-security patch chain: `53c09530c676ef0096ca2a89a2175212cec47fd0` adds base and static upstream token validation; `a0cba1e2efe18728173493e0fa74b0b3b4956854` adds the missing integration-helper fixture dependency. No passing DNSMasq result yet.
+
+---
+
 ## 2026-11-28 — Align SmartDNS integration fixture with config-token dependency
 
 - Exact DNSMasq lifecycle run #46085311741 on `53c09530c676ef0096ca2a89a2175212cec47fd0` reached the SmartDNS/DNSMasq runtime ownership test and failed because that extracted-function fixture did not source `smartdns_config_file.sh`, so `smartdns_config_token_valid` was undefined. The production launcher already loads this helper; the test fixture now sources it as well.

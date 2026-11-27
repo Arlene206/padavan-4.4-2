@@ -81,6 +81,19 @@ expect_base_config_rejection "cache-size numeric injection"
 sdns_cache=4096
 pass "base SmartDNS NVRAM tokens and numeric directives reject line injection before staging"
 
+# The dual-stack threshold is only emitted when selection is enabled. Keep
+# legacy empty values accepted while disabled, but reject them when consumed.
+sdns_ip_change_time=
+sdns_ip_change=0
+smartdns_tmp_Conf="$T/dualstack-disabled.conf"
+Get_sdns_conf || fail "disabled dual-stack selection rejected a legacy empty threshold"
+! grep -Fq 'dualstack-ip-selection-threshold' "$smartdns_tmp_Conf" ||
+    fail "disabled dual-stack selection emitted an empty threshold"
+sdns_ip_change=1
+expect_base_config_rejection "enabled dual-stack empty threshold"
+sdns_ip_change=0
+sdns_ip_change_time=0
+
 smartdns_echo_count=0
 echo() {
     smartdns_echo_count=$((smartdns_echo_count + 1))
