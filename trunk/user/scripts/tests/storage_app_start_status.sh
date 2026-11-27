@@ -305,8 +305,16 @@ expect_start_readiness_failure()
 			exit 1
 		}
 	else
-		[ ! -s "$LAST_LAUNCH_STATE_DIR/sleep.log" ] || {
-			echo "$name slept despite an unknown process inventory" >&2
+		expected_sleeps=0
+		# The Transmission fixture creates its synthetic /proc entry on the
+		# first readiness sleep; that scan then becomes UNKNOWN and must abort
+		# without further retries. Aria2's pidof error is immediate.
+		case "$name" in
+			Transmission-unknown-after-launch) expected_sleeps=1 ;;
+		esac
+		actual_sleeps=$(wc -l < "$LAST_LAUNCH_STATE_DIR/sleep.log" | tr -d ' ')
+		[ "$actual_sleeps" -eq "$expected_sleeps" ] || {
+			echo "$name had $actual_sleeps readiness sleeps (expected $expected_sleeps for UNKNOWN)" >&2
 			exit 1
 		}
 	fi
