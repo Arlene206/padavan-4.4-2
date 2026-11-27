@@ -836,7 +836,7 @@ def check_iperf3():
         proc_root = base / "proc"
         (proc_root / "1").mkdir(parents=True)
         (proc_root / "1" / "stat").write_text(
-            "1 (init) S 0 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 100\\n"
+            "1 (init) S 0 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 100\n"
         )
         binary = base / "iperf3"
         executable(binary, "#!/bin/sh\nexit 0\n")
