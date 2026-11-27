@@ -1281,90 +1281,34 @@ def check_aria2_reload():
     assert "mktemp" not in source
     assert 'CONFIG_TMP="${FILE_CONF}.tmp.$$"' in source
     assert "nvram get http_passwd" not in source
+    assert "check-certificate=true" in source
+    assert "check-certificate=false" not in source
+    assert "aria_process_identity_matches()" in source
+    assert "aria_process_state()" in source
+    assert "aria_signal_identity()" in source
+    assert "stat -L -c '%d:%i'" in source
+    assert "aria_stat_start_time" in source
+    assert "pidof aria2c" not in source
+    assert "killall -q aria2c" not in source
+
     syntax = run(["/bin/sh", "-n", str(ARIA2_SCRIPT)], os.environ.copy())
     assert syntax.returncode == 0, syntax.stderr
     reload_start = source.index("func_reload()")
-    reload_end = source.index("\ncase", reload_start)
+    reload_end = source.index("\\ncase", reload_start)
     reload_body = source[reload_start:reload_end]
-    assert "pidof aria2c 2>/dev/null" in reload_body
-    assert "*[!0-9" + chr(92) + " ]*" in reload_body
-    assert "kill -1 \"$aria_reload_pid\"" in reload_body
-    assert "if kill -1 \"$aria_reload_pid\"; then" in reload_body
-    assert "aria_reload_kill_status=$?" in reload_body
-    stop_start = source.index("func_stop()")
-    stop_end = source.index("func_reload()", stop_start)
-    stop_body = source[stop_start:stop_end]
-    assert "*[!0-9" + chr(92) + " ]*" in stop_body
-    assert "*[!0-9" + chr(92) + chr(92) + " ]*" not in stop_body
-    assert "aria_pid_count" in stop_body
+    assert "aria_process_state" in reload_body
+    assert 'aria_signal_identity HUP "$aria_reload_pid" "$aria_reload_start"' in reload_body
+    assert '1) echo "Error: $SVC_NAME is not started!"; return 1 ;;' in reload_body
 
-    with tempfile.TemporaryDirectory(prefix="aria2-reload-") as tmp:
-        base = Path(tmp)
-        bin_dir = mock_bin(base / "bin")
-        pidof_log = base / "pidof.log"
-        executable(bin_dir / "pidof", """#!/bin/sh
-[ "$1" = aria2c ] || exit 2
-printf '%s\\n' "$*" >> "$MOCK_PIDOF_LOG"
-[ -z "${MOCK_PIDOF_OUTPUT:-}" ] || printf '%s\\n' "$MOCK_PIDOF_OUTPUT"
-exit "${MOCK_PIDOF_STATUS:-1}"
-""")
-        env = os.environ.copy()
-        env.update({
-            "PATH": str(bin_dir) + os.pathsep + env.get("PATH", ""),
-            "MOCK_LOG": str(base / "logger.log"),
-            "MOCK_PIDOF_LOG": str(pidof_log),
-            "MOCK_PIDOF_STATUS": "1",
-            "MOCK_PIDOF_OUTPUT": "",
-        })
+    lifecycle_test = ROOT / "trunk/user/aria2/tests/aria2_process_identity.sh"
+    assert lifecycle_test.is_file()
+    fixture_syntax = run(["/bin/sh", "-n", str(lifecycle_test)], os.environ.copy())
+    assert fixture_syntax.returncode == 0, fixture_syntax.stderr
+    result = run(["/bin/sh", str(lifecycle_test)], os.environ.copy())
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "Aria2 malformed procfs fails closed for all lifecycle operations: PASS" in result.stdout
+    assert "Aria2 default HTTPS certificate verification is enabled: PASS" in result.stdout
 
-        for status, output in (
-            ("2", ""),
-            ("0", ""),
-            ("1", "123"),
-            ("0", "123 bad"),
-            ("0", "123 0"),
-            ("0", "123 1"),
-            ("0", "123 0123"),
-            ("0", "   "),
-        ):
-            env["MOCK_PIDOF_STATUS"] = status
-            env["MOCK_PIDOF_OUTPUT"] = output
-            result = run(["/bin/sh", str(ARIA2_SCRIPT), "reload"], env)
-            assert result.returncode == 1, (
-                f"aria2 reload must reject pidof status={status!r} output={output!r}, "
-                f"got {result.returncode}: {result.stdout} {result.stderr}"
-            )
-            assert "[  OK  ]" not in result.stdout
-
-        # A valid multi-PID snapshot signals every daemon PID, not one
-        # whitespace-containing string. Use isolated children that exit on HUP.
-        children = [subprocess.Popen(["/bin/sleep", "30"]) for _ in range(2)]
-        try:
-            env["MOCK_PIDOF_STATUS"] = "0"
-            env["MOCK_PIDOF_OUTPUT"] = " ".join(str(child.pid) for child in children)
-            result = run(["/bin/sh", str(ARIA2_SCRIPT), "reload"], env)
-            assert result.returncode == 0, (
-                f"aria2 reload rejected valid PID list: {result.stdout} {result.stderr}"
-            )
-            assert "[  OK  ]" in result.stdout
-            for child in children:
-                assert child.wait(timeout=5) is not None
-        finally:
-            for child in children:
-                if child.poll() is None:
-                    child.terminate()
-                    child.wait(timeout=5)
-
-        env["MOCK_PIDOF_STATUS"] = "0"
-        env["MOCK_PIDOF_OUTPUT"] = "2147483647"
-        failed_signal = run(["/bin/sh", str(ARIA2_SCRIPT), "reload"], env)
-        assert failed_signal.returncode != 0, (
-            "aria2 reload must propagate a failed SIGHUP"
-        )
-        assert "[  OK  ]" not in failed_signal.stdout
-        assert "Cannot reload: SIGHUP failed for PID 2147483647" in (
-            base / "logger.log"
-        ).read_text()
 
 
 def check_shared_process_lifecycle():
