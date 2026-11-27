@@ -170,7 +170,7 @@ main(void)
 	assert(!ferror(stream));
 	assert(fclose(stream) == 0);
 	buffer[length] = '\0';
-	assert(strcmp(buffer, "new configuration\n") == 0);
+	assert(strcmp(buffer, "directory-sync-error\n") == 0);
 
 	/* Invalid staged locations fail before publishing anything. */
 	assert(dhcp6c_config_file_open_staged(bad_stage, &stream) == -1);
