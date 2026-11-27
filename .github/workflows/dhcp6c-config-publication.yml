@@ -1,0 +1,69 @@
+name: DHCPv6 client configuration durability regression
+
+on:
+  push:
+    paths:
+      - "trunk/user/rc/src/dhcp6c_config_file.h"
+      - "trunk/user/rc/src/tests/dhcp6c_config_file.c"
+      - "trunk/user/rc/src/config_file_sync.h"
+      - "trunk/user/rc/src/net_wan6.c"
+      - ".github/workflows/dhcp6c-config-publication.yml"
+  pull_request:
+    paths:
+      - "trunk/user/rc/src/dhcp6c_config_file.h"
+      - "trunk/user/rc/src/tests/dhcp6c_config_file.c"
+      - "trunk/user/rc/src/config_file_sync.h"
+      - "trunk/user/rc/src/net_wan6.c"
+      - ".github/workflows/dhcp6c-config-publication.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dhcp6c-config-publication-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dhcp6c-config:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and run DHCPv6 configuration publication regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/dhcp6c_config_file.c \
+            -o "$RUNNER_TEMP/dhcp6c-config-publication"
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 \
+            "$RUNNER_TEMP/dhcp6c-config-publication"
+      - name: Check DHCPv6 production publication contract
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          header = Path("trunk/user/rc/src/dhcp6c_config_file.h").read_text()
+          test = Path("trunk/user/rc/src/tests/dhcp6c_config_file.c").read_text()
+          source = Path("trunk/user/rc/src/net_wan6.c").read_text()
+          sync = Path("trunk/user/rc/src/config_file_sync.h").read_text()
+
+          assert '#include "config_file_sync.h"' in header
+          assert "DHCP6C_CONFIG_FILE_FSYNC(fileno(stream))" in header
+          assert "while (sync_result < 0 && errno == EINTR)" in header
+          assert "DHCP6C_CONFIG_FILE_SYNC_PARENT(target_path)" in header
+          assert "if (DHCP6C_CONFIG_FILE_SYNC_PARENT(target_path) != 0)" in header
+          assert header.index("rename(staged_path, target_path)") < header.index(
+              "if (DHCP6C_CONFIG_FILE_SYNC_PARENT(target_path) != 0)"
+          )
+          assert "O_RDONLY | O_DIRECTORY | O_NOFOLLOW" in sync
+          assert '#include "dhcp6c_config_file.h"' in source
+          assert "dhcp6c_config_file_open_staged(staged_path, &fp)" in source
+          assert "dhcp6c_config_file_publish(fp, staged_path, conf_file)" in source
+          for token in ("file_fsync_interruptions_remaining = 2", "file_fsync_error = EIO",
+                        "parent_sync_error = EIO", "config_file_sync_parent(missing_parent_target)",
+                        "config_file_sync_parent(symlink_target)"):
+              assert token in test, token
+          print("DHCPv6 staged config file and parent-directory durability contract: PASS")
+          PY
