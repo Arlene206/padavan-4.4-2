@@ -298,6 +298,38 @@ Check_ss()
 }
 
 Get_sdns_conf () {
+    # NVRAM values are written into daemon directives. Validate all base
+    # tokens before truncating staging so malformed values cannot inject lines.
+    for smartdns_config_token in "${sdns_name:-}" "${sdns_speed_mode:-}"; do
+        [ -z "$smartdns_config_token" ] ||
+            smartdns_config_token_valid "$smartdns_config_token" || return 1
+    done
+    for smartdns_config_number in \
+        "${sdns_cache:-}" "${sdns_rr_ttl:-}" "${sdns_rr_ttl_min:-}" \
+        "${sdns_rr_ttl_max:-}" "${sdns_tcp_idle_time:-}" \
+        "${sdns_rr_ttl_reply_max:-}" "${sdns_max_reply_ip_num:-}" \
+        "${sdns_exp_ttl:-}" "${sdns_exp_ttl_max:-}" \
+        "${sdns_exp_prefetch_time:-}" "${sdns_ip_change_time:-}"; do
+        case "$smartdns_config_number" in
+            ''|*[!0-9]*) return 1 ;;
+        esac
+        [ "${#smartdns_config_number}" -le 10 ] || return 1
+    done
+    for smartdns_config_flag in \
+        "${sdns_address:-}" "${sdns_ns:-}" "${sdns_ipset:-}" \
+        "${sdns_speed:-}" "${sdns_as:-}" "${sdns_ipv6_server:-}" \
+        "${sdns_tcp_server:-}" "${sdns_force_qtype_soa:-}" \
+        "${sdns_ip_change:-}" "${sdns_dualstack_ip_allow_force_aaaa:-}" \
+        "${sdns_cache_persist:-}" "${sdns_prefetch_domain:-}" \
+        "${sdns_ipset_timeout:-}" "${sdns_force_aaaa_soa:-}" \
+        "${sdns_exp:-}" "${sdns_adblock:-}" "${sdns_white:-}" \
+        "${sdns_black:-}" "${sdns_coredump:-}"; do
+        case "$smartdns_config_flag" in
+            ''|0|1) ;;
+            *) return 1 ;;
+        esac
+    done
+    sdns_port=$(smartdns_dnsmasq_normalize_port "$sdns_port") || return 1
     # 【基本设置】
     : > "$smartdns_tmp_Conf" || return $?
     echo "server-name $sdns_name" >> "$smartdns_tmp_Conf" || return $?
@@ -417,6 +449,31 @@ Get_sdns_conf () {
             sdnss_non=$smartdns_nvram_value
             smartdns_nvram_read_checked "sdnss_ipset_x$j" || return $?
             sdnss_ipset=$smartdns_nvram_value
+
+            # Static upstream values are also untrusted config tokens.
+            smartdns_config_token_valid "$sdnss_ip" || return 1
+            case "$sdnss_port" in
+                default) ;;
+                *) sdnss_port=$(smartdns_dnsmasq_normalize_port "$sdnss_port") || return 1 ;;
+            esac
+            case "$sdnss_type" in
+                tcp|udp|tls|https) ;;
+                *) return 1 ;;
+            esac
+            case "$sdnss_ipc" in
+                ''|whitelist|blacklist) ;;
+                *) return 1 ;;
+            esac
+            case "$sdnss_non" in
+                ''|0|1) ;;
+                *) return 1 ;;
+            esac
+            if [ -n "$sdnss_named" ]; then
+                smartdns_config_token_valid "$sdnss_named" || return 1
+            fi
+            if [ -n "$sdnss_ipset" ]; then
+                smartdns_config_token_valid "$sdnss_ipset" || return 1
+            fi
             ipc=""
             named=""
             non=""

@@ -1,3 +1,9 @@
+## 2026-11-28 — Reject SmartDNS NVRAM directive injection
+
+- Validate base daemon tokens, numeric selectors and static upstream address/group/port before emitting generated directives; regress newline injection in the config generator.
+
+---
+
 ## 2026-11-28 — Align checked NVRAM startup contracts
 
 - Updated the optional-start NVRAM fixture and AliDDNS shared-autostart source checker for `nvram get_checked`; indexed the part-039 development-log shard using its full repository path.

@@ -1,3 +1,12 @@
+## 2026-11-28 — Harden SmartDNS generated configuration tokens
+
+- At base `main` `e6b1ca75ca28153f5bff8d79abfc66714f60152f`, SmartDNS emitted NVRAM values directly into generated daemon configuration. Newlines in server name, speed mode, numeric settings or static-upstream address/group/port could inject extra directives. Base tokens/numbers/selectors are validated before staging is truncated; static upstream fields are validated before emitting each endpoint.
+- Added generator regressions for base and static-upstream newline injection. DNSMasq lifecycle workflow includes `smartdns_config_file.sh`; verify its exact-SHA result and XY-C1 build before claiming validation. No local test or firmware build is claimed.
+- Checked-NVRAM contract repair at `e6b1ca75ca28153f5bff8d79abfc66714f60152f`: AliDDNS #46085053434 PASS, AI handoff #46085053405 PASS, Process inventory #46085053436 PASS, and Process lifecycle #46085053411 PASS.
+- Frozen backup remains `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Next: verify SmartDNS/DNSMasq and XY Actions, then continue another userland stability defect.
+
+---
+
 ## 2026-11-28 — Repair checked NVRAM startup contracts and log archive inventory
 
 - Base `main` was `71d3bf2a3788f2ce59c1e5809c383a26841b2657`. That commit migrated the shared autostart NVRAM reader to `nvram get_checked`; exact Process regression #46084656129 then failed because its test stub only accepted legacy `get`, so the AdGuardHome enable read failed and the expected launcher was not called. AliDDNS #46084656095 reached the final source-contract step and failed because its checker still expected the legacy command. Runtime AliDDNS lifecycle, transport, CA bootstrap and HMAC tests preceding that checker passed.

@@ -1,3 +1,10 @@
+## 2026-11-28 — Reject SmartDNS NVRAM configuration-line injection
+
+- `Get_sdns_conf` interpolated base settings and static-upstream address/group/port values into daemon directives without enforcing single-token boundaries. Newlines could append attacker-controlled SmartDNS directives. The generator now validates base tokens, numeric fields and selectors before truncating staging, then validates static upstream endpoints and options before emission.
+- Added regressions for injected server-name, speed-check-mode, cache-size, static endpoint, group and port values. The DNSMasq lifecycle workflow runs this generator test; exact-SHA verification follows the commit.
+
+---
+
 ## 2026-11-28 — Align checked NVRAM startup contracts with CI fixtures
 
 - The FRP boot-state hardening changed the shared autostart reader to `nvram get_checked`, but the optional-start fixture still accepted only legacy `get`. Its selectors consequently appeared disabled and AdGuardHome was not invoked. Updated the fixture to model the checked API.

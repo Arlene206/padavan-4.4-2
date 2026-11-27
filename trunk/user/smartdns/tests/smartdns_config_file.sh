@@ -54,6 +54,33 @@ sdns_adblock=0
 sdns_white=0
 sdns_black=0
 sdnse_enable=0
+# Reject line injection and malformed numeric NVRAM values before the
+# staged base configuration is truncated or any directive is written.
+expect_base_config_rejection()
+{
+    base_case=$1
+    smartdns_tmp_Conf="$T/rejected-base.conf"
+    printf '%s\n' 'previous-stage' > "$smartdns_tmp_Conf"
+    if Get_sdns_conf; then
+        fail "unsafe base NVRAM value was accepted: $base_case"
+    else
+        status=$?
+    fi
+    [ "$status" -ne 0 ] || fail "unsafe base value returned success: $base_case"
+    [ "$(cat "$smartdns_tmp_Conf")" = previous-stage ] ||
+        fail "unsafe base value truncated staging before validation: $base_case"
+}
+sdns_name=$(printf 'router\nbind :9999')
+expect_base_config_rejection "server-name newline"
+sdns_name=router
+sdns_speed_mode=$(printf 'ping\nbind :9999')
+expect_base_config_rejection "speed-check-mode newline"
+sdns_speed_mode=ping,tcp:80
+sdns_cache=$(printf '4096\ncache-size 999999')
+expect_base_config_rejection "cache-size numeric injection"
+sdns_cache=4096
+pass "base SmartDNS NVRAM tokens and numeric directives reject line injection before staging"
+
 smartdns_echo_count=0
 echo() {
     smartdns_echo_count=$((smartdns_echo_count + 1))
@@ -135,6 +162,60 @@ sdnse_port=5335
 sdnse_name=
 sdnse_tcp_server=0
 pass "invalid secondary selectors, ports and group tokens fail before config writes"
+
+# Static upstream fields are also untrusted NVRAM tokens. Exercise the
+# production generator with newlines in the endpoint, group and port.
+STATIC_IP=
+STATIC_PORT=default
+STATIC_TYPE=udp
+STATIC_NAMED=
+smartdns_nvram_read_checked()
+{
+    case "$1" in
+        sdns_staticnum_x) smartdns_nvram_value=1 ;;
+        sdnss_enable_x0) smartdns_nvram_value=1 ;;
+        sdnss_name_x0) smartdns_nvram_value=resolver ;;
+        sdnss_ip_x0) smartdns_nvram_value=$STATIC_IP ;;
+        sdnss_port_x0) smartdns_nvram_value=$STATIC_PORT ;;
+        sdnss_type_x0) smartdns_nvram_value=$STATIC_TYPE ;;
+        sdnss_ipc_x0) smartdns_nvram_value= ;;
+        sdnss_named_x0) smartdns_nvram_value=$STATIC_NAMED ;;
+        sdnss_non_x0) smartdns_nvram_value=0 ;;
+        sdnss_ipset_x0) smartdns_nvram_value= ;;
+        *) return 90 ;;
+    esac
+    return 0
+}
+expect_static_upstream_rejection()
+{
+    static_case=$1
+    smartdns_tmp_Conf="$T/rejected-static.conf"
+    : > "$smartdns_tmp_Conf"
+    if Get_sdns_conf; then
+        fail "unsafe static upstream token was accepted: $static_case"
+    else
+        status=$?
+    fi
+    [ "$status" -ne 0 ] || fail "unsafe static upstream token returned success: $static_case"
+    ! grep -Fq 'bind :9999' "$smartdns_tmp_Conf" ||
+        fail "static upstream injection emitted a daemon directive: $static_case"
+}
+STATIC_IP=$(printf '9.9.9.9\nbind :9999')
+expect_static_upstream_rejection "upstream address newline"
+STATIC_IP=9.9.9.9
+STATIC_NAMED=$(printf 'trusted\nbind :9999')
+expect_static_upstream_rejection "upstream group newline"
+STATIC_NAMED=
+STATIC_PORT=$(printf '53\nbind :9999')
+expect_static_upstream_rejection "upstream port newline"
+STATIC_PORT=default
+smartdns_nvram_read_checked()
+{
+    [ "$#" -eq 1 ] && [ "$1" = "sdns_staticnum_x" ] || return 90
+    smartdns_nvram_value=0
+    return 0
+}
+pass "static SmartDNS upstream address, port and group reject line injection"
 
 # A secondary listener write error must still propagate from the first write.
 smartdns_tmp_Conf=/dev/full
