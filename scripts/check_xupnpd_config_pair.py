@@ -78,9 +78,35 @@ assert "#define DNSMASQ_FILE_PRESERVE_MODE ((mode_t)-1)" in helper
 publisher = function_body(helper, "dnsmasq_file_publish_internal(FILE *fp,")
 assert "mode != DNSMASQ_FILE_PRESERVE_MODE" in publisher
 pair_publisher = function_body(helper, "dnsmasq_file_publish_pair(FILE *first_fp,")
-assert "dnsmasq_file_backup_create(first_destination, first_backup_path)" in pair_publisher
-assert "dnsmasq_file_backup_create(second_destination, second_backup_path)" in pair_publisher
-assert "dnsmasq_file_backup_restore(first_destination" in pair_publisher
+pair_transaction = function_body(helper, "dnsmasq_file_publish_pair_with_ops(")
+set_section = helper[helper.index(
+    "/* Publish up to three related outputs as one rollback-capable transaction."):]
+set_publisher = function_body(set_section, "dnsmasq_file_publish_set_with_ops(")
+pair_compact = " ".join(pair_publisher.split())
+pair_transaction_compact = " ".join(pair_transaction.split())
+set_compact = " ".join(set_publisher.split())
+assert "dnsmasq_file_publish_pair_with_ops(" in pair_publisher
+assert "dnsmasq_file_publish_internal" in pair_publisher
+assert "destinations[0] = first_destination" in pair_transaction
+assert "destinations[1] = second_destination" in pair_transaction
+assert "backup_paths[0] = first_backup_path" in pair_transaction
+assert "backup_paths[1] = second_backup_path" in pair_transaction
+assert "staged_files, staged_paths, destinations, backup_paths, 2, mode" in pair_transaction_compact
+assert "dnsmasq_file_backup_create(destinations[i], backup_paths[i])" in set_publisher
+assert "publish_fn(staged_fp, staged_paths[i], destinations[i], mode," in set_publisher
+failed_publish = set_compact.index("if (publish_fn(")
+failed_rename_accounting = set_compact.index("if (rename_completed) published++;", failed_publish)
+failed_rollback = set_compact.index("goto rollback;", failed_rename_accounting)
+rollback_loop = set_compact.index("while (published > 0)")
+rollback_decrement = set_compact.index("published--;", rollback_loop)
+rollback_restore = set_compact.index(
+    "dnsmasq_file_backup_restore(destinations[published], backup_paths[published])",
+    rollback_decrement,
+)
+assert failed_publish < failed_rename_accounting < failed_rollback < rollback_loop
+assert rollback_loop < rollback_decrement < rollback_restore
+assert "dnsmasq_file_publish_set_with_ops(" in helper
+
 
 assert "test_xupnpd_pair_preserves_modes_and_rolls_back" in test
 assert "unlink(second_stage)" in test

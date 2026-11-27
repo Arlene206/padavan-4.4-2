@@ -1,15 +1,15 @@
-## 2026-11-28 — Preserve multi-file DNSMasq rollback after post-rename durability errors
+## 2026-11-28 — DNSMasq post-rename rollback source contract correction
 
-- Found a transaction-integrity bug in `dnsmasq_file_publish_set()` and `dnsmasq_file_publish_pair()`: `dnsmasq_file_publish_internal()` can return failure after `rename()` has already replaced the destination, when the parent-directory fsync fails. Both multi-file callers previously counted only successful return values, so the failing member was omitted from rollback. A set/pair could therefore return failure while leaving one destination replaced and its related files on the old generation.
-- Added an injectable publish callback to the shared set transaction, tracked `rename_completed` on failed publishes, and included that member in reverse-order rollback. Pair publication now delegates to the same transaction path. Regression tests inject EIO after the first pair rename and after the second of three set renames; both assert all original files are restored and temporary backups removed.
-- Parent main: `a415adf224e92e9d60c1cd7bbc298ec1d3e1beb2`. Backup branch remains `72f4f157a084f8184b9597ca5bf334b8080e5807`. Host compiler execution is not available in this connector-only session; exact DNSMasq, Process, AI docs and XY-C1 Build/TRX/artifact checks on the new source SHA are required.
-- Current unrelated exact-SHA CI on previous head `a415adf224e92e9d60c1cd7bbc298ec1d3e1beb2`: Process lifecycle `#46063973639` PASS; AI handoff `#46063973629` PASS; XY-C1 `#46063973985` was still Building XY-C1 at last poll.
+- Production fix commit: `b0ccae9ca4fae122093a48790211f8526278a129`. Its DNSMasq workflow #46065129548 compiled and ran `tests/dnsmasq_file.c` under GNU89/Werror/ASan/UBSan successfully, including the new pair and three-file post-rename EIO rollback regressions. It then failed only in the separate XUPnP static source checker, which still expected the removed inline pair implementation to call `dnsmasq_file_backup_create(first_destination, ...)` directly.
+- Updated `scripts/check_xupnpd_config_pair.py` to follow the new delegation: the XUPnP pair wrapper supplies both original destination/backup tuples to `dnsmasq_file_publish_set_with_ops(..., 2, ...)`; the shared set helper snapshots each destination, accounts for `rename_completed` even on failure, and restores in reverse order. This is checker-only; no product source changed.
+- Exact head `b0ccae9...`: DNSMasq #46065129548 FAIL at that stale assertion; AI handoff #46065129505 PASS; XY-C1 #46065129574 was in progress at ccache setup; NVRAM audit #46065129484, Process regression #46065129439, and Process inventory #46065129419 were still running. HTTPD security #46065129510 was running. Recheck exact-SHA results after this checker update; no L3/L4 claim.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Exact first action
 
-1. Inspect exact-head DNSMasq file transaction GNU89/ASan/UBSan regression and inline static contract; fix any compile/test/checker failure on that SHA.
-2. Inspect XY-C1 Build, TRX verification and artifact upload for this source SHA. Do not claim L3 until all three pass on the same production tree.
-3. Continue independent reliability/security work outside the completed USB, VPN callback and WAN IPv6 slices while any CI remains pending; hardware L4 is still NOT VERIFIED.
+1. Inspect this commit's DNSMasq lifecycle workflow. The C regression already passed on parent; require the revised XUPnP source contract and full DNSMasq job to PASS.
+2. Check XY-C1 Build, TRX and artifact upload for the production source from `b0ccae9...`; don't infer L3 from the pending ccache step.
+3. Continue independent cross-userland reliability/security work while Actions are pending; do not repeat completed USB, VPN callback-link or WAN6 audits. Physical-router L4 remains NOT VERIFIED.
 ---
 
 ## 2026-11-26 — Autonomous development checkpoint

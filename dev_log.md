@@ -1,3 +1,9 @@
+## 2026-11-28 — Align XUPnP source checker with shared DNSMasq pair transaction
+
+- DNSMasq exact-SHA run #46065129548 on `b0ccae9ca4fae122093a48790211f8526278a129` completed the `dnsmasq_file.c` GNU89/Werror/ASan/UBSan compile and runtime regression successfully, then failed in `scripts/check_xupnpd_config_pair.py` because the checker still expected pair-specific backup/restore calls in `dnsmasq_file_publish_pair()`.
+- Updated the checker to verify that the XUPnP pair wrapper delegates both original path/backup tuples to the shared two-member set transaction, and that the set helper creates per-destination snapshots, includes a failed-but-renamed member in rollback, then restores published paths in reverse order. This is checker-only; production source is unchanged.
+- Exact push rerun required on this commit. Host-side execution unavailable in this connector-only session.
+
 ## 2026-11-28 — Roll back DNSMasq outputs whose rename completed before a durability error
 
 - `dnsmasq_file_publish_internal()` reports a parent-directory fsync failure after a successful `rename()`, correctly exposing that the new pathname is already visible but not durably committed. The multi-file `dnsmasq_file_publish_set()` and `dnsmasq_file_publish_pair()` callers previously incremented their rollback count only on a zero return, omitting the failing-but-renamed output. That could leave a mixed generation of DNSMasq configuration after an error.
