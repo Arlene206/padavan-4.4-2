@@ -363,9 +363,8 @@ expect_start_pidof_running()
 		exit 1
 	}
 }
-# Aria2 still uses pidof for start-state discovery. Transmission's
-# executable/start-time scanner is exercised in its dedicated lifecycle tests.
-# Aria2 process identity is covered by its dedicated /proc lifecycle test.run_transmission_config_failure()
+# Daemon lifecycle behavior is covered by the package-specific identity tests.
+run_transmission_config_failure()
 {
 	phase=$1
 	generator_status=$2
