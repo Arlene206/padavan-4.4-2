@@ -691,9 +691,8 @@ init_bridge(int is_ap_mode, int *switch_vlan_status)
 	guest_isolation_status = restart_guest_lan_isolation();
 	rc_bridge_init_record(&bridge_status, "guest LAN isolation", guest_isolation_status);
 
-	/* Direct init_bridge AP startup bypasses restart_wifi_* fail-closed handling. */
-	if (rt_ap_start_status != 0 || wl_ap_start_status != 0 ||
-	    guest_isolation_status != 0) {
+	/* Direct AP startup must roll back after any incomplete bridge setup. */
+	if (rc_bridge_init_guest_ap_rollback_required(&bridge_status)) {
 		operation_status = wireless_guest_init_bridge_fail_closed(
 			rt_guest_was_up, wl_guest_was_up,
 			rt_guest_start_attempted, wl_guest_start_attempted, 1);

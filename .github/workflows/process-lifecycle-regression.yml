@@ -1717,6 +1717,8 @@ jobs:
           assert "int init_bridge(int is_ap_mode, int *switch_vlan_status);" in header
           assert "operation_status = switch_config_vlan(1);" in init_bridge
           bridge_compact = " ".join(init_bridge.split())
+          assert "if (rc_bridge_init_guest_ap_rollback_required(&bridge_status))" in bridge_compact
+          assert "return !status || status->first_status != 0;" in bridge_init_policy
           assert "test_wan_bridge_port_selection_fails_closed_on_mode_read_error();" in bridge_init_regression
           assert "get_wan_bridge_mode()" not in init_bridge
           wan_mode_read_at = bridge_compact.index("lan_wan_bridge_mode_status(&wan_bridge_mode)")
@@ -1898,6 +1900,7 @@ jobs:
           assert "config_bridge(get_ap_mode())" not in switch_notifications
           assert "rc_notify_merge_action_result(action_result, restart_switch_config_vlan())" in body(init, "handle_notifications(void)")
           assert "test_bridge_add_idempotency_requires_confirmed_bridge();" in bridge_init_regression
+          assert "test_any_bridge_initialization_failure_requires_guest_ap_rollback();" in bridge_init_regression
           assert "rc_bridge_init_record" in bridge_init_policy
           for operation in ("jumbo frame setting", "green Ethernet setting", "EEE LPI setting"):
               assert operation in switch_base

@@ -93,6 +93,17 @@ rc_bridge_init_result(const rc_bridge_init_status_t *status)
 	return status ? status->first_status : EINVAL;
 }
 
+/*
+ * A recorded bridge-start failure means the directly started guest APs cannot
+ * be assumed to have a complete LAN/isolation topology. A missing status is
+ * also unsafe; the caller's rollback helper preserves pre-existing APs.
+ */
+static inline int
+rc_bridge_init_guest_ap_rollback_required(const rc_bridge_init_status_t *status)
+{
+	return !status || status->first_status != 0;
+}
+
 /* Never select a physical WAN/LAN bridge member from an error-collapsed mode. */
 static inline int
 rc_bridge_init_wan_port_uses_vlan(int mode_status, int bridge_mode,

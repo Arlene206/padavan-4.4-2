@@ -504,6 +504,30 @@ test_wan_bridge_port_selection_fails_closed_on_mode_read_error(void)
 }
 
 static void
+test_any_bridge_initialization_failure_requires_guest_ap_rollback(void)
+{
+	static const char * const failed_operations[] = {
+		"switch VLAN setup",
+		"create LAN bridge",
+		"attach router LAN port",
+		"bring up LAN bridge",
+		"2.4GHz AP radio startup",
+		"guest LAN isolation"
+	};
+	rc_bridge_init_status_t status;
+	unsigned int index;
+
+	for (index = 0; index < sizeof(failed_operations) / sizeof(failed_operations[0]);
+	     ++index) {
+		rc_bridge_init_status_reset(&status);
+		assert(!rc_bridge_init_guest_ap_rollback_required(&status));
+		rc_bridge_init_record(&status, failed_operations[index], EIO);
+		assert(rc_bridge_init_guest_ap_rollback_required(&status));
+	}
+	assert(rc_bridge_init_guest_ap_rollback_required(NULL));
+}
+
+static void
 test_bridge_add_idempotency_requires_confirmed_bridge(void)
 {
 	assert(rc_bridge_init_add_bridge_result(0, 0, -1) == 0);
@@ -539,6 +563,7 @@ main(void)
 	test_wireless_config_generation_failure_reaches_bridge_status();
 	test_reload_marker_write_failures_are_reported_and_aggregated();
 	test_wan_bridge_port_selection_fails_closed_on_mode_read_error();
+	test_any_bridge_initialization_failure_requires_guest_ap_rollback();
 	test_bridge_add_idempotency_requires_confirmed_bridge();
 	puts("RC bridge/LAN/hostname/IPTV NVRAM cache ownership policy: PASS");
 	return 0;
