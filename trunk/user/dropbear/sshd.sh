@@ -203,6 +203,7 @@ func_ensure_key()
 		func_log "Refusing unsafe host-key path for $ensure_key_type"
 		return 1
 	fi
+	if [ -f "$ensure_key_path" ]; then
 		ensure_key_links=$(stat -c '%h' "$ensure_key_path" 2>/dev/null)
 		ensure_key_stat_status=$?
 		if [ "$ensure_key_stat_status" -ne 0 ]; then
@@ -220,7 +221,6 @@ func_ensure_key()
 				return 1
 				;;
 		esac
-	if [ -f "$ensure_key_path" ]; then
 		if chmod 600 "$ensure_key_path"; then :; else
 			ensure_key_chmod_status=$?
 			func_log "Cannot restrict existing $ensure_key_type host key (status=$ensure_key_chmod_status)"
