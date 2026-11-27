@@ -484,7 +484,8 @@ split=8
 max-concurrent-downloads=3
 max-connection-per-server=8
 min-split-size=1M
-check-certificate=false
+# Verify HTTPS server certificates and hostnames by default.
+check-certificate=true
 
 ### Log
 log=$DIR_CFG/aria2.log

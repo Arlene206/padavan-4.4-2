@@ -153,3 +153,6 @@ echo "Aria2 malformed procfs fails closed for all lifecycle operations: PASS"
 if grep -F 'pidof aria2c' "$SCRIPT" >/dev/null 2>&1; then fail "pidof process-name lookup remains"; fi
 if grep -F 'killall -q aria2c' "$SCRIPT" >/dev/null 2>&1; then fail "process-name-wide signaling remains"; fi
 echo "Aria2 process-name-only lifecycle control removed: PASS"
+if grep -F 'check-certificate=false' "$SCRIPT" >/dev/null 2>&1; then fail "default config disables HTTPS certificate verification"; fi
+grep -F 'check-certificate=true' "$SCRIPT" >/dev/null 2>&1 || fail "default config does not enable HTTPS certificate verification"
+echo "Aria2 default HTTPS certificate verification is enabled: PASS"
