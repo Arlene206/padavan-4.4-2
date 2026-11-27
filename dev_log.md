@@ -1,3 +1,12 @@
+## 2026-11-28 — Block Aria2 storage symlink redirection
+
+- Aria2 startup previously followed symlinks for `config`, the download directory and `incomplete.lst`; privileged startup can touch session files, publish RPC secrets/configuration and recursively chmod/chown these paths. Added directory checks for existing/dangling symlinks and rechecking after `mkdir -p`, plus regular-file checks for `aria2.conf` and `incomplete.lst` before `touch`. The configured download path is checked before recursive chmod.
+- Added `tests/storage_path_symlink.sh` with real/new path, existing/dangling symlink and sentinel-preservation cases, and verified guard order before side effects. Wired into storage-hotplug push/PR CI.
+- Parent SHA: `284e35183959b8cc78d28c82959e5e8815774531`. Exact storage-hotplug/Aria process/Process inventory/AI docs/XY-C1 checks pending; no local shell test claimed.
+- Commit: THIS COMMIT.
+
+---
+
 ## 2026-11-28 07:00 CST (UTC+8) — Make iperf3 process discovery fail closed
 
 - `iperf3_process_state()` previously accepted BusyBox `pidof` status 1 with empty output as confirmed ABSENT. BusyBox 1.24 can omit a running task when its /proc scan is incomplete, allowing a duplicate iperf3 start or premature stop success.

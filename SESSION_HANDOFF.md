@@ -1,14 +1,13 @@
-## 2026-11-28 — Reject symlinked Transmission storage directories
+## 2026-11-28 — Block Aria2 storage symlink redirection
 
-- `transmission_require_dir()` now fails closed for existing and dangling symlinks, and rechecks after creating a missing directory. This protects config, downloads, incomplete and watch paths before settings writes, recursive permissions changes or ownership changes.
-- Added a regression for real/new directories, directory symlinks, dangling symlinks, preserved outside-target contents and all four production call sites. Wired into Process lifecycle push/PR CI; XY-C1 already tracks `transmission.sh`.
-- Parent SHA: `b699dda031f3e2201e318b078ca9f166a7170e93`; implementation commit: THIS COMMIT. Exact-head Process/AI/XY-C1 runs pending; no local shell test claimed.
-- Transmission TLS commit `9972e8531add4ce5bc64c3d5690892e30b80ade4`: AI handoff #46079785523 and Process inventory #46079785497 PASS; the TLS test step passed before Process lifecycle #46079785522 was cancelled by new pushes. XY-C1 #46079785501 remains IN_PROGRESS at Build; TRX/artifact pending. USB storage hotplug #46079785505 FAILED in BusyBox/ash with a Transmission logger/readiness fixture failure and missing trace log; diagnose independently.
-- Shadowsocks checker/docs correction `20e0a312051addf538ed6bf4ae85022e608ed4b3`: Shadowsocks #46079578628 and AI docs #46079578625 PASS.
-- Iperf3 regression #46079981839 and inventory #46079981918 PASS on `6d659d767e8ac236527ca5cf02f2daedaf386507`; source SHA `3832167000112d33e6c2d30dbb8c0008ba29e119` has inventory #46079911367 and AI docs #46079911366 PASS. The two later main commits only adjusted the optional app-status checker and fake proc stat fixture.
-- Next: inspect this commit's symlink regression and exact-SHA CI, diagnose the storage app-start-status failure, close the outstanding XY-C1 run, then apply equivalent path-safety review to Aria2.
+- Aria2 now rejects symlinked config/download directories and symlinked config/session files before touching `incomplete.lst`, writing settings/secrets, or recursively changing download/config permissions. New directory creation is rechecked for a symlink.
+- Added a regression for real/new paths, existing/dangling directory links, regular/missing files, existing/dangling file links, preserved target data, and ordering of guards before side effects. Wired into USB storage push/PR workflow; XY-C1 already watches the production Aria launcher.
+- Parent SHA: `284e35183959b8cc78d28c82959e5e8815774531`; exact-SHA storage-hotplug, Aria process, Process inventory, AI docs and XY-C1 Build/TRX/artifact runs pending. No local shell test is claimed.
+- Previous Transmission path guard commit `9597243953beaaa4a87a421c12580d96d88651cc`: AI docs and Process inventory PASS; first exact lifecycle run exposed an unset test cleanup variable, corrected by parallel commit `284e35183959b8cc78d28c82959e5e8815774531`. That commit also added logger diagnostics to the USB storage Ash startup test so its unexplained Transmission readiness failure can be identified. Latest runs pending.
+- Next: inspect this commit's Aria symlink tests and exact-SHA Actions, close the Transmission path-guard/USB Ash regression, then continue a concrete stability/security fix outside storage-path handling.
 
 ---
+
 
 
 ## 2026-11-27 — Repair exact-SHA Shadowsocks contract and handoff guard

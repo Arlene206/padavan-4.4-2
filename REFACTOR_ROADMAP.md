@@ -1,3 +1,9 @@
+## 2026-11-28 — Block Aria2 storage symlink redirection
+
+- Reject symlinked Aria2 config/download directories and config/session files before privileged file creation, secret migration or recursive permission changes; recheck directories created by the launcher. Host regression is wired into the USB storage workflow.
+
+---
+
 ## 2026-11-28 — Reject symlinked Transmission storage directories
 
 - Reject existing/dangling config, download, incomplete and watch directory symlinks before root writes or recursive permission/ownership changes; recheck created directories. Host regression covers production call sites and target preservation.

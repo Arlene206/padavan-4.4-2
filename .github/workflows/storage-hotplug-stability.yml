@@ -77,6 +77,7 @@ on:
       - "trunk/user/transmission/transmission.sh"
       - "trunk/user/aria2/aria.sh"
       - "trunk/user/aria2/tests/aria2_process_identity.sh"
+      - "trunk/user/aria2/tests/storage_path_symlink.sh"
       - "trunk/user/scripts/tests/storage_app_start_status.sh"
       - "trunk/user/smartdns/**"
       - "trunk/user/rc/src/storage_optware_start_policy.h"
@@ -180,6 +181,7 @@ on:
       - "trunk/user/transmission/transmission.sh"
       - "trunk/user/aria2/aria.sh"
       - "trunk/user/aria2/tests/aria2_process_identity.sh"
+      - "trunk/user/aria2/tests/storage_path_symlink.sh"
       - "trunk/user/scripts/tests/storage_app_start_status.sh"
       - "trunk/user/smartdns/**"
       - "trunk/user/rc/src/storage_optware_start_policy.h"
@@ -256,6 +258,12 @@ jobs:
           sh trunk/user/scripts/tests/spindown_mount_guard.sh
       - name: Check NFS service stop script syntax
         run: sh -n trunk/user/nfs-utils/nfsd.sh
+      - name: Verify Aria2 storage directory and file symlinks fail closed
+        run: |
+          set -eu
+          sh -n trunk/user/aria2/aria.sh
+          sh -n trunk/user/aria2/tests/storage_path_symlink.sh
+          sh trunk/user/aria2/tests/storage_path_symlink.sh
       - name: Check Transmission and Aria launcher syntax and startup status propagation
         run: |
           set -eu

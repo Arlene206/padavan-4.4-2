@@ -227,6 +227,38 @@ aria_wait_stopped()
 	done
 }
 
+# Storage-volume entries are not trusted. Reject symlinked child directories
+# before creating files below them or applying recursive permissions.
+aria_require_dir()
+{
+	aria_required_dir="$1"
+	if [ -L "$aria_required_dir" ]; then
+		logger -t "$SVC_NAME" "Cannot start: storage directory is a symlink: $aria_required_dir" >/dev/null 2>&1 || true
+		return 1
+	fi
+	if [ ! -d "$aria_required_dir" ]; then
+		if ! mkdir -p "$aria_required_dir" ||
+		   [ -L "$aria_required_dir" ] || [ ! -d "$aria_required_dir" ]; then
+			logger -t "$SVC_NAME" "Cannot create safe storage directory: $aria_required_dir" >/dev/null 2>&1 || true
+			return 1
+		fi
+	fi
+	return 0
+}
+
+# Config and session paths must be absent or regular files. In particular,
+# touch and chmod would otherwise follow a pre-existing symlink as root.
+aria_validate_file_path()
+{
+	aria_checked_file="$1"
+	if [ -L "$aria_checked_file" ] ||
+	   { [ -e "$aria_checked_file" ] && [ ! -f "$aria_checked_file" ]; }; then
+		logger -t "$SVC_NAME" "Cannot start: storage file path is not a regular file: $aria_checked_file" >/dev/null 2>&1 || true
+		return 1
+	fi
+	return 0
+}
+
 aria_generate_rpc_secret()
 {
 	aria_rpc_secret=$(hexdump -v -n 16 -e '16/1 "%02x"' /dev/urandom 2>/dev/null) || return 1
@@ -405,13 +437,15 @@ func_start()
 	DIR_DL1="`cd \"$DIR_LINK\"; dirname \"$(pwd -P)\"`/Downloads"
 	[ ! -d "$DIR_DL1" ] && DIR_DL1="${DIR_LINK}/downloads"
 
-	if [ ! -d "$DIR_CFG" ] && ! mkdir -p "$DIR_CFG" ; then
-		logger -t "$SVC_NAME" "Cannot start: unable to create config directory" >/dev/null 2>&1
-		return 1
-	fi
+	# Refuse linked config/download directories before any file creation or
+	# recursive chmod/chown can follow a path out of the storage volume.
+	aria_require_dir "$DIR_CFG" || return 1
+	aria_require_dir "$DIR_DL1" || return 1
 
 	FILE_CONF="$DIR_CFG/aria2.conf"
 	FILE_LIST="$DIR_CFG/incomplete.lst"
+	aria_validate_file_path "$FILE_CONF" || return 1
+	aria_validate_file_path "$FILE_LIST" || return 1
 
 	if ! touch "$FILE_LIST" ; then
 		logger -t "$SVC_NAME" "Cannot start: unable to create session list" >/dev/null 2>&1
@@ -426,10 +460,6 @@ func_start()
 
 	if [ ! -f "$FILE_CONF" ] ; then
 		if ! aria_load_or_create_rpc_secret; then return 1; fi
-		if [ ! -d "$DIR_DL1" ] && ! mkdir -p "$DIR_DL1" ; then
-			logger -t "$SVC_NAME" "Cannot start: unable to create downloads directory" >/dev/null 2>&1
-			return 1
-		fi
 		if ! chmod -R 777 "$DIR_DL1" ; then
 			logger -t "$SVC_NAME" "Cannot start: unable to set downloads directory permissions" >/dev/null 2>&1
 			return 1
