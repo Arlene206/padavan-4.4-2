@@ -320,7 +320,7 @@ jobs:
 
           for feature in CONFIG_ASH CONFIG_FEATURE_SH_IS_ASH CONFIG_AWK CONFIG_FLOCK \
                          CONFIG_CAT CONFIG_CHMOD CONFIG_DIRNAME CONFIG_GREP CONFIG_MKDIR \
-                         CONFIG_RM CONFIG_SLEEP CONFIG_WC; do
+                         CONFIG_RM CONFIG_SLEEP CONFIG_STAT CONFIG_FEATURE_STAT_FORMAT CONFIG_WC; do
             if ! grep -qx "$feature=y" "$busybox_dir/.config"; then
               echo "Required firmware BusyBox feature is disabled: $feature" >&2
               exit 1
@@ -333,6 +333,7 @@ jobs:
           # from the human-readable --list output.
           "$busybox_bin" ash -c 'test "$((2 + 2))" -eq 4'
           "$busybox_bin" awk 'BEGIN { exit 0 }'
+  "$busybox_bin" stat -L -c '%d:%i' "$busybox_bin" >/dev/null
 
           runtime_dir=$(mktemp -d)
           trap 'rm -rf "$runtime_dir"' EXIT
@@ -343,7 +344,7 @@ jobs:
             "$busybox_bin" flock -n 9
             "$busybox_bin" flock -u 9
           )
-          for applet in awk cat chmod dirname flock grep mkdir rm sleep wc; do
+          for applet in awk cat chmod dirname flock grep mkdir rm sleep stat wc; do
             ln -s "$busybox_bin" "$runtime_dir/bin/$applet"
           done
           ln -s "$busybox_bin" "$runtime_dir/bin/sh"
