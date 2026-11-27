@@ -1,0 +1,36 @@
+name: iperf3 process lifecycle regression
+
+on:
+  push:
+    paths:
+      - ".github/workflows/iperf3-process-lifecycle.yml"
+      - "trunk/user/iperf3/iperf3.sh"
+      - "trunk/user/iperf3/tests/iperf3_process_lifecycle.sh"
+      - "trunk/user/shared/Makefile"
+      - "trunk/user/shared/scripts/process_lifecycle.sh"
+  pull_request:
+    paths:
+      - ".github/workflows/iperf3-process-lifecycle.yml"
+      - "trunk/user/iperf3/iperf3.sh"
+      - "trunk/user/iperf3/tests/iperf3_process_lifecycle.sh"
+      - "trunk/user/shared/Makefile"
+      - "trunk/user/shared/scripts/process_lifecycle.sh"
+permissions:
+  contents: read
+
+concurrency:
+  group: iperf3-process-lifecycle-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  iperf3-process-lifecycle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check POSIX shell syntax
+        run: |
+          sh -n trunk/user/iperf3/iperf3.sh
+          sh -n trunk/user/shared/scripts/process_lifecycle.sh
+          sh -n trunk/user/iperf3/tests/iperf3_process_lifecycle.sh
+      - name: Run iperf3 shared-process inventory regression
+        run: sh trunk/user/iperf3/tests/iperf3_process_lifecycle.sh

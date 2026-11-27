@@ -1,49 +1,29 @@
 #!/bin/sh
 
 IPERF3_BIN="${IPERF3_BIN:-/bin/iperf3}"
+IPERF3_PROCESS_HELPER="${IPERF3_PROCESS_HELPER:-/usr/lib/process_lifecycle.sh}"
+PL_PROC_ROOT="${IPERF3_PROC_ROOT:-/proc}"
 LOG_TAG="iperf3"
+export PL_PROC_ROOT
 
 log_message() {
     logger -t "$LOG_TAG" "$1"
 }
 
-# Return 0=RUNNING, 1=confirmed ABSENT, 2=UNKNOWN. BusyBox pidof can
-# return 1 for both an empty result and a failed /proc scan, so validate the
-# status/output pair before using process state to authorize start or stop.
+# The shared tri-state helper confirms pidof's ambiguous status-1 result by
+# scanning and validating the complete procfs inventory, including a
+# post-scan pidof check. Missing helper or incomplete procfs is UNKNOWN.
+if [ ! -r "$IPERF3_PROCESS_HELPER" ]; then
+    log_message "shared process lifecycle helper is unavailable: $IPERF3_PROCESS_HELPER"
+    exit 2
+fi
+. "$IPERF3_PROCESS_HELPER" || {
+    log_message "shared process lifecycle helper could not be loaded"
+    exit 2
+}
+
 iperf3_process_state() {
-    if iperf3_pid_output=$(pidof iperf3 2>/dev/null); then
-        iperf3_pidof_status=0
-    else
-        iperf3_pidof_status=$?
-    fi
-    case "$iperf3_pidof_status" in
-        0)
-            [ -n "$iperf3_pid_output" ] || return 2
-            case "$iperf3_pid_output" in
-                *[!0123456789\ ]*) return 2 ;;
-            esac
-            case $- in
-                *f*) iperf3_restore_noglob=0 ;;
-                *) set -f; iperf3_restore_noglob=1 ;;
-            esac
-            set -- $iperf3_pid_output
-            [ "$iperf3_restore_noglob" -eq 0 ] || set +f
-            [ "$#" -gt 0 ] || return 2
-            for iperf3_pid in "$@"; do
-                case "$iperf3_pid" in
-                    ''|0*|*[!0-9]*) return 2 ;;
-                esac
-            done
-            return 0
-            ;;
-        1)
-            [ -z "$iperf3_pid_output" ] && return 1
-            return 2
-            ;;
-        *)
-            return 2
-            ;;
-    esac
+    pl_process_state iperf3
 }
 
 is_running() {
