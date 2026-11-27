@@ -1260,6 +1260,8 @@ def check_dropbear():
     assert "func_validate_key()" in script
     assert '"$dropbearkey_bin" -y -f "$key_file"' in script
     assert '[ ! -s "$key_file" ]' in script
+    assert "stat -c '%h' \"$ensure_key_path\"" in script
+    assert "Refusing multiply-linked" in script
     assert r"\\${" not in script
 
     syntax = run(["/bin/sh", "-n", str(DROPBEAR_SSHD_SCRIPT)], os.environ.copy())

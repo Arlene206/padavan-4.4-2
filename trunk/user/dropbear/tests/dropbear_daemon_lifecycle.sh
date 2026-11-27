@@ -196,6 +196,21 @@ if func_ensurekeys; then fail "malformed existing host key was accepted"; else k
 [ ! -s "$TEST_KEYGEN_LOG" ] || fail "key generation continued after a malformed existing key"
 echo "Dropbear malformed host-key rejection: PASS"
 
+# Do not chmod a key through a hard link that exposes the same inode elsewhere.
+reset_keys
+printf 'original-rsa\n' > "$rsa_key"
+printf 'original-dss\n' > "$dss_key"
+chmod 644 "$dss_key"
+ln "$dss_key" "$TEST_ROOT/external-dss-key"
+if func_ensurekeys; then fail "multiply-linked existing host key was accepted"; else key_status=$?; fi
+[ "$key_status" -ne 0 ] || fail "hard-link rejection lost its failure status"
+[ "$(stat -c '%h' "$dss_key")" = 2 ] || fail "hard-linked host key link count changed"
+[ "$(stat -c '%a' "$dss_key")" = 644 ] || fail "hard-linked host key permissions were changed"
+[ "$(stat -c '%a' "$TEST_ROOT/external-dss-key")" = 644 ] || fail "external hard-link permissions were changed"
+[ "$(cat "$dss_key")" = "original-dss" ] || fail "hard-linked host key data was changed"
+[ ! -s "$TEST_KEYGEN_LOG" ] || fail "key generation continued after hard-link rejection"
+echo "Dropbear multiply-linked host-key rejection: PASS"
+
 # A conflicting symlink is not followed or replaced during key completion.
 reset_keys
 printf 'preserve-rsa\n' > "$rsa_key"
