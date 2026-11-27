@@ -194,6 +194,10 @@ run_status 0 restart
 [ ! -e "$FAKE_RUNNING_FILE" ]
 [ "$(launch_count)" = 2 ]
 
+# Restore the enabled state after the preceding disabled-restart scenario.
+FAKE_ENABLED=1
+export FAKE_ENABLED
+
 # Every startup selector must preserve NVRAM backend errors instead of
 # treating an empty read as a missing key (especially the enable flag).
 for key in dns_forwarder_enable dns_forwarder_bind dns_forwarder_port dns_forwarder_server; do
