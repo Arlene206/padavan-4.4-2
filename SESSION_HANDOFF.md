@@ -1,3 +1,11 @@
+## 2026-11-28 — Align SmartDNS integration fixture with config-token dependency
+
+- Exact DNSMasq lifecycle run #46085311741 on `53c09530c676ef0096ca2a89a2175212cec47fd0` reached the SmartDNS/DNSMasq runtime ownership test and failed because that extracted-function fixture did not source `smartdns_config_file.sh`, so `smartdns_config_token_valid` was undefined. The production launcher already loads this helper; the test fixture now sources it as well.
+- That run passed SmartDNS process-state, adblock preservation, firewall status, resolver ownership transitions and earlier DNSMasq cleanup checks. AI handoff #46085311728 PASS. Process inventory #46085311726, USB hotplug #46085311757 and XY-C1 #46085311799 were still running at last poll. Re-run DNSMasq exact-SHA after this fixture-only repair.
+- Current security change remains `53c09530c676ef0096ca2a89a2175212cec47fd0`: base SmartDNS token/numeric validation before staging truncation and static upstream validation before directive emission. Do not claim the whole regression PASS until its rerun completes.
+
+---
+
 ## 2026-11-28 — Harden SmartDNS generated configuration tokens
 
 - At base `main` `e6b1ca75ca28153f5bff8d79abfc66714f60152f`, SmartDNS emitted NVRAM values directly into generated daemon configuration. Newlines in server name, speed mode, numeric settings or static-upstream address/group/port could inject extra directives. Base tokens/numbers/selectors are validated before staging is truncated; static upstream fields are validated before emitting each endpoint.

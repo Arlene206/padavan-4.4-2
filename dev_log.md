@@ -1,3 +1,10 @@
+## 2026-11-28 — Load SmartDNS config-token helper in DNSMasq integration regression
+
+- Exact DNSMasq lifecycle run #46085311741 for `53c09530c676ef0096ca2a89a2175212cec47fd0` passed the process, adblock, firewall and resolver ownership checks, then failed the final runtime config integration because its extracted-function fixture sourced the DNSMasq helper but not the newly required `smartdns_config_file.sh` token validator. The production launcher already loads that helper; the fixture now mirrors the production dependency.
+- The exact-SHA run verified the new token-validation code up to this fixture failure. Re-run DNSMasq lifecycle after this test-harness repair; AI handoff #46085311728 passed. Process inventory, USB storage and XY-C1 were still in progress at the last poll.
+
+---
+
 ## 2026-11-28 — Reject SmartDNS NVRAM configuration-line injection
 
 - `Get_sdns_conf` interpolated base settings and static-upstream address/group/port values into daemon directives without enforcing single-token boundaries. Newlines could append attacker-controlled SmartDNS directives. The generator now validates base tokens, numeric fields and selectors before truncating staging, then validates static upstream endpoints and options before emission.

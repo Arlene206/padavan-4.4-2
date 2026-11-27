@@ -2,6 +2,7 @@
 set -eu
 HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 . "$HERE/../smartdns_dnsmasq_config.sh"
+. "$HERE/../smartdns_config_file.sh"
 T=$(mktemp -d "${TMPDIR:-/tmp}/smartdns-dnsmasq.XXXXXX")
 trap 'rm -rf "$T"' 0
 trap 'exit 1' HUP INT TERM
