@@ -147,7 +147,7 @@ require('if [ -e "$adg_file" ] && [ ! -f "$adg_file" ]; then' in config,
 require('stat -c \'%h\' "$adg_file"' in config and
         'if [ "$adg_config_links" != 1 ]; then' in config,
         "hardlinked secret-bearing config files must be rejected before chmod")
-require('hardlinked config destination was accepted' in read("trunk/user/adguardhome/tests/adguardhome_config_security.sh"),
+require('hardlinked config destination was accepted' in test,
         "config hardlink regression must cover the privileged writer")
 require('mktemp "${adg_file}.tmp.XXXXXX"' in config,
         "default config must use a unique same-directory temporary")

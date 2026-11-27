@@ -1,15 +1,14 @@
-## 2026-11-28 — Require successful persistent-storage fill before custom startup scripts
+## 2026-11-28 — Correct AdGuardHome hardlink checker after fixing storage-fill gate
 
-- Parent `main`: `fdb237afbe29afd23259afe040717f4397626368`; frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged).
-- `dev_init.sh` now checks `mtd_storage.sh fill` and exits before `/etc/storage/start_script.sh` if persistent settings/default files cannot be prepared or MTD path/symlink validation fails. Previously the status was ignored, so execution could continue with unsafe or incomplete persistent state. `mtd_storage.sh load` remains best effort for blank first-boot partitions.
-- Regression: shell test mocks successful and failing fill outcomes and verifies original status preservation; Python source contract verifies the required gate occurs before the custom startup-script path. Exact-SHA Actions are pending.
-- Parent exact-SHA evidence: DNS Forwarder #46057421812 PASS; AI handoff #46057421841 PASS; Process fail-closed #46057270242 and DDNSTO #46057270371 PASS on ancestor `e0e9ab2`. XY-C1 #46056928103 on production SHA `0423272` was in progress at last poll with TRX/artifact pending; current source needs new validation.
-- Concurrent AdGuardHome hardlink fix `fdb237afbe29afd23259afe040717f4397626368` is now included in the parent; its exact-SHA security workflow and other current-main workflows are pending. No local execution or physical router L4 is claimed.
+- Parent `main`: `0f5fe9bfa1dbe6f4539e23e8fb810e5403b5a571`; frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged).
+- The prior commit `0f5fe9b` adds a required `dev_init.sh` gate: failed `mtd_storage.sh fill` now blocks execution of the persistent custom start script; shell regression covers success/failure and Python source contracts check ordering. Exact-SHA Process and XY-C1 checks are underway.
+- Concurrent AdGuardHome hardlink fix on `fdb237a` correctly rejects a shared inode before chmod, and its shell regression PASSed. The workflow failed only in the checker because the new source assertion called undefined `read()` despite an existing module-level `test` text variable. This commit corrects that checker reference without changing product code.
+- Exact-SHA run #46058291412: shell syntax PASS; hardlink/config regression PASS; Python contract FAIL with `NameError: name 'read' is not defined`. New checker-fix SHA must rerun the AdGuardHome workflow. No local host or hardware L4 tests are claimed.
 
 ## Exact first action
 
-1. Inspect this commit's exact-SHA Process lifecycle regression, including `dev_init_boot_policy.sh` mocked fill behavior and the Python source contract. Fix any failure.
-2. Inspect this commit's XY-C1 firmware validation through TRX and artifact upload; check AdGuardHome config security workflow on exact SHA `fdb237a`. Then continue a separate stability/security issue outside PID 1 and persistent storage.
+1. Verify the new exact-SHA AdGuardHome config security workflow passes the Python contract checker. Fix any additional checker or product regression.
+2. Inspect current-main Process lifecycle, XY-C1 build/TRX/artifact, HTTPD authentication, USB storage and AliyunDrive workflow results for SHA `0f5fe9b`; then continue an independent userland stability/security defect.
 
 ---
 

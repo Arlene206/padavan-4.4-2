@@ -1,3 +1,10 @@
+## 2026-11-28 — Repair AdGuardHome hardlink contract checker
+
+- Exact-SHA AdGuardHome workflow #46058291412 on `fdb237afbe29afd23259afe040717f4397626368` ran the shell regression successfully, including the new hardlink rejection case, then failed in `scripts/check_adguardhome_config.py`: the added assertion called undefined `read()`. The checker already loads the test file into `test` at module initialization.
+- Replaced the nonexistent `read(path)` call with the existing `test` source variable. Production hardlink isolation fix and regression are unchanged. A fresh exact-SHA Actions run is required.
+- Parent `main`: `0f5fe9bfa1dbe6f4539e23e8fb810e5403b5a571`. The current successor `0f5fe9b` runs for Process inventory, Process fail-closed, XY-C1, HTTPD security, USB hotplug and AliyunDrive WebDAV are still pending/in progress at last poll; the AI handoff run is also in progress.
+- Local execution unavailable in this connector-only session; no hardware L4 result is claimed.
+
 ## 2026-11-28 — Fail closed when persistent storage defaults cannot be prepared
 
 - `dev_init.sh` previously ran `mtd_storage.sh fill` without checking its exit status, then continued into SSH key setup and could execute `/etc/storage/start_script.sh`. But `mtd_storage.sh fill` explicitly rejects symlinked storage parents/leaves and aborts when default-script/config publication fails. Ignoring that failure bypassed the path-safety gate and let startup continue with incomplete or unsafe persistent state.
