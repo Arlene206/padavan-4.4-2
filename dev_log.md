@@ -1,3 +1,10 @@
+## 2026-11-27 — Synchronize USB printer source contracts with failed-exec child reaping
+
+- A concurrent main update `b545f315f027fab60d7ec0774ef7b290ebe4d464` had already replaced the USB modem checker’s old partial-write comment assertion with a structural partial-reap check. Extended it to require both full/partial reaping, the EINTR helper policy, actual forked-child regression markers, and path-filter coverage for the new helper/test.
+- USB storage exact-SHA run #46060519977 on ancestor `9d067387196d7c714828b2fd3ad29bc613d86888` failed because its inline contract still required `return exec_error;`. Updated it to assert the full-error reaper precedes `return saved_exec_error;` and the partial-error reaper precedes rollback. Both adjacent workflows now track the new header and C test in push/PR filters and source inventories.
+- Ancestor exact-SHA Process fail-closed #46060519790 PASS, including the GNU89/ASan/UBSan child-reap test; Process inventory #46060519789 and AI docs #46060519794 PASS. USB modem #46060519820 and USB storage #46060519977 exposed only stale static assertions. Checker synchronization is pending new SHA.
+- XY-C1 #46060519815 was still IN_PROGRESS at last poll. Older XY-C1 #46059507343 on `2f6ae45` completed SUCCESS including Build/TRX/artifact; that does not cover current source. No local host or physical router result is claimed.
+
 ## 2026-11-28 — Align USB printer NVRAM contract with failed-exec child reaping
 
 - Exact-push USB modem identity run #46060519820 on parent `9d067387196d7c714828b2fd3ad29bc613d86888` completed all compiled USB printer NVRAM and p910nd policy regressions, then failed only because `scripts/check_usb_printer_nvram.py` still required the removed “short exec-status write” comment from the pre-reaping launcher.

@@ -1,15 +1,15 @@
-## 2026-11-27 — Prevent zombie children on failed USB printer daemon exec
+## 2026-11-27 — Complete USB printer child-reaping contract integration
 
-- Parent `main`: `2f6ae451ff5a648b4dbc539c0fd3ba24857d29aa`; frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged).
-- `services_usb.c::start_usb_printer_daemon()` had a child-reaping bug: on `execv()` failure, the child wrote errno to the CLOEXEC pipe and exited, but the parent returned the errno without `waitpid()`. The same leak existed if the error payload was only partially written. Failed optional USB printer daemon launches could therefore leave zombies until the invoking `rc` process terminated.
-- Added `usb_printer_child_reap_policy.h`; confirmed failure paths now reap the exited child and retry `waitpid()` after EINTR. The new GNU89 ASan/UBSan test covers interrupted waits, invalid inputs, ECHILD propagation and a real child exiting 127; a second wait verifies ECHILD after successful reaping. Process workflow source contract enforces reaping before returning the exec failure.
-- Parent exact-SHA checks on `2f6ae45`: USB storage hotplug #46059507287 PASS; Process inventory #46059507282 PASS; HTTPD security #46059507236 PASS; GPIO daemon #46059507234 PASS; AI handoff #46059507332 PASS. XY-C1 Firmware Validation #46059507343 was IN_PROGRESS at last poll; no current-source TRX/artifact result yet.
-- The new source/header changes retrigger Process lifecycle and XY-C1 firmware validation on this commit. No local host execution or physical-router L4 is claimed.
+- Parent `main`: `b545f315f027fab60d7ec0774ef7b290ebe4d464`; frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged).
+- Production fix `9d067387196d7c714828b2fd3ad29bc613d86888` passed Process fail-closed #46060519790, including the GNU89/ASan/UBSan real-child reaping regression; Process inventory #46060519789 and AI handoff #46060519794 also passed.
+- Concurrent checker-only commit `b545f315f027fab60d7ec0774ef7b290ebe4d464` fixed the first USB modem stale-comment assertion. This commit strengthens that checker to verify full and partial `waitpid()` reaping and adds the helper/test to its filter inventory. It also fixes USB storage’s stale direct-return assertion and tracks the helper/test in both workflow filters and its inline source inventory.
+- On ancestor `9d06738`, USB modem #46060519820 and USB storage #46060519977 failed only because their source contracts described the old launcher. The new SHA needs both reruns. XY-C1 #46060519815 was still compiling at last poll; no current-source TRX/artifact result is claimed. Older XY-C1 #46059507343 on `2f6ae45` passed Build/TRX/artifact but does not verify the current source.
+- No local host build or physical router L4 is claimed.
 
 ## Exact first action
 
-1. Inspect exact-SHA Process lifecycle regression and require the new real-child reaping test plus inline USB printer contract check to pass under GNU89/ASan/UBSan.
-2. Inspect exact-SHA XY-C1 Build, TRX verification and artifact upload. Then continue with a separate userland stability/security issue; do not repeat already-green storage, HTTPD, GPIO, or USB symlink checks.
+1. Inspect exact-SHA USB modem, USB storage, Process lifecycle and AI handoff runs. Require the new full/partial child-reaping contracts and ASan/UBSan regression to pass.
+2. Inspect exact-SHA XY-C1 Build, TRX verification and artifact upload for the current source. Then continue a separate stability/security defect outside USB printer, storage, HTTPD and GPIO.
 
 ---
 

@@ -85,6 +85,18 @@ partial_recovery = launcher.index(
     partial_reap,
 )
 assert partial_status < partial_reap < partial_recovery
+assert '#include <sys/wait.h>' in SOURCE
+assert '#include "usb_printer_child_reap_policy.h"' in SOURCE
+full_status = launcher.index("if (received == sizeof(exec_error))")
+full_reap = launcher.index("usb_printer_reap_failed_exec_child(child, &child_status, waitpid)", full_status)
+full_return = launcher.index("return saved_exec_error;", full_status)
+assert full_status < full_reap < full_return
+reap_policy = (RC/"usb_printer_child_reap_policy.h").read_text()
+reap_test = (RC/"tests/usb_printer_child_reap_policy.c").read_text()
+assert "while (result < 0 && errno == EINTR)" in reap_policy
+for marker in ("test_waitpid_retries_eintr", "test_invalid_arguments_fail",
+               "test_waitpid_error_is_preserved", "test_real_exec_failure_child_is_reaped"):
+    assert marker in reap_test
 raw=body("start_p910nd(char *devlp)")
 read=raw.index('read_usb_printer_setting_status("rawd_enable"')
 gate=raw.index("if (setting_status != 0)",read)
@@ -119,7 +131,7 @@ assert 'nvram_match("rawd_enable"' not in raw
 for marker in ("test_present_setting_is_copied_from_shared_cache","test_missing_setting_preserves_empty_legacy_default","test_backend_error_is_not_collapsed_to_default","test_errno_less_backend_failure_becomes_eio","test_unexpected_result_and_null_cache_are_rejected","test_overlong_setting_fails_before_use","test_invalid_arguments_are_rejected"):
     assert marker in TEST and marker+"();" in TEST
 FILTERS=WORKFLOW.split("permissions:",1)[0]
-for path in (".github/workflows/usb-modem-identity-stability.yml","trunk/user/rc/src/services_usb.c","trunk/user/rc/src/usb_printer_nvram_policy.h","trunk/user/rc/src/tests/usb_printer_nvram_policy.c","trunk/user/rc/src/usb_printer_p910nd_policy.h","trunk/user/rc/src/tests/usb_printer_p910nd_policy.c","scripts/check_usb_printer_nvram.py"):
+for path in (".github/workflows/usb-modem-identity-stability.yml","trunk/user/rc/src/services_usb.c","trunk/user/rc/src/usb_printer_child_reap_policy.h","trunk/user/rc/src/tests/usb_printer_child_reap_policy.c","trunk/user/rc/src/usb_printer_nvram_policy.h","trunk/user/rc/src/tests/usb_printer_nvram_policy.c","trunk/user/rc/src/usb_printer_p910nd_policy.h","trunk/user/rc/src/tests/usb_printer_p910nd_policy.c","scripts/check_usb_printer_nvram.py"):
     assert FILTERS.count(path)==2,f"workflow filter missing {path}"
 assert "usb_printer_nvram_policy.c" in WORKFLOW
 assert "python3 scripts/check_usb_printer_nvram.py" in WORKFLOW

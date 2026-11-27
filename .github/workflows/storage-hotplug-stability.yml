@@ -7,6 +7,8 @@ on:
       - "trunk/user/rc/src/services.c"
       - "trunk/user/rc/src/optional_daemon_policy.h"
       - "trunk/user/rc/src/services_usb.c"
+      - "trunk/user/rc/src/usb_printer_child_reap_policy.h"
+      - "trunk/user/rc/src/tests/usb_printer_child_reap_policy.c"
       - "trunk/user/rc/src/usb_printer_p910nd_policy.h"
       - "trunk/user/rc/src/tests/usb_printer_p910nd_policy.c"
       - "trunk/user/rc/src/tests/process_presence_start_policy.c"
@@ -107,6 +109,8 @@ on:
       - "trunk/user/rc/src/services.c"
       - "trunk/user/rc/src/optional_daemon_policy.h"
       - "trunk/user/rc/src/services_usb.c"
+      - "trunk/user/rc/src/usb_printer_child_reap_policy.h"
+      - "trunk/user/rc/src/tests/usb_printer_child_reap_policy.c"
       - "trunk/user/rc/src/usb_printer_p910nd_policy.h"
       - "trunk/user/rc/src/tests/usb_printer_p910nd_policy.c"
       - "trunk/user/rc/src/tests/process_presence_start_policy.c"
@@ -740,7 +744,12 @@ jobs:
           assert "FD_CLOEXEC" in spawn_daemon
           assert "child = fork();" in spawn_daemon
           assert "execv(argv[0], argv);" in spawn_daemon
-          assert "return exec_error;" in spawn_daemon
+          assert '#include "usb_printer_child_reap_policy.h"' in usb
+          assert "usb_printer_reap_failed_exec_child(child, &child_status, waitpid)" in spawn_daemon
+          exec_failure = spawn_daemon.split("if (received == sizeof(exec_error))", 1)[1].split("/* A partial status write", 1)[0]
+          assert exec_failure.index("usb_printer_reap_failed_exec_child") < exec_failure.index("return saved_exec_error;")
+          partial_failure = spawn_daemon.split("/* A partial status write", 1)[1]
+          assert "usb_printer_reap_failed_exec_child(child, &child_status, waitpid)" in partial_failure
           assert "return usb_printer_daemon_start_failure_recover(process_name, EIO);" in spawn_daemon
           assert "received == 0" in spawn_daemon
           assert "usb_printer_daemon_postcondition(process_name)" in spawn_daemon
@@ -840,6 +849,8 @@ jobs:
               "trunk/user/rc/src/common_ex.c",
               "trunk/user/rc/src/services_stor.c",
               "trunk/user/rc/src/services_usb.c",
+              "trunk/user/rc/src/usb_printer_child_reap_policy.h",
+              "trunk/user/rc/src/tests/usb_printer_child_reap_policy.c",
               "trunk/user/rc/src/rc.h",
               "trunk/user/rc/src/service_start_status.h",
               "trunk/user/rc/src/tests/service_start_status.c",
