@@ -9,8 +9,14 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "config_file_sync.h"
+
 #ifndef INIT_MDEV_CONFIG_FSYNC
 #define INIT_MDEV_CONFIG_FSYNC(fd) fsync(fd)
+#endif
+
+#ifndef INIT_MDEV_CONFIG_SYNC_PARENT
+#define INIT_MDEV_CONFIG_SYNC_PARENT(path) config_file_sync_parent(path)
 #endif
 
 /* Open a private same-directory staging file for the root-owned mdev policy. */
@@ -93,6 +99,8 @@ init_mdev_config_publish(FILE **stream, const char *staged_path,
     if (fclose(fp) != 0 && !saved_errno)
         saved_errno = errno ? errno : EIO;
     if (!saved_errno && rename(staged_path, path) < 0)
+        saved_errno = errno ? errno : EIO;
+    if (!saved_errno && INIT_MDEV_CONFIG_SYNC_PARENT(path) != 0)
         saved_errno = errno ? errno : EIO;
 
     if (saved_errno) {

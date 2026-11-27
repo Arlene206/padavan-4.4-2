@@ -5,6 +5,7 @@ on:
     paths:
       - "trunk/user/rc/src/init.c"
       - "trunk/user/rc/src/init_mdev_config_file.h"
+      - "trunk/user/rc/src/config_file_sync.h"
       - "trunk/user/rc/src/init_mdev_retry_policy.h"
       - "trunk/user/rc/src/tests/init_mdev_retry_policy.c"
       - "trunk/user/rc/src/tests/init_mdev_config_file.c"
@@ -21,6 +22,7 @@ on:
     paths:
       - "trunk/user/rc/src/init.c"
       - "trunk/user/rc/src/init_mdev_config_file.h"
+      - "trunk/user/rc/src/config_file_sync.h"
       - "trunk/user/rc/src/init_mdev_retry_policy.h"
       - "trunk/user/rc/src/tests/init_mdev_retry_policy.c"
       - "trunk/user/rc/src/tests/init_mdev_config_file.c"
@@ -96,6 +98,7 @@ jobs:
           init = Path("trunk/user/rc/src/init.c").read_text()
           helper = Path("trunk/user/rc/src/init_mdev_config_file.h").read_text()
           test = Path("trunk/user/rc/src/tests/init_mdev_config_file.c").read_text()
+          sync_helper = Path("trunk/user/rc/src/config_file_sync.h").read_text()
           retry_policy = Path("trunk/user/rc/src/init_mdev_retry_policy.h").read_text()
           retry_test = Path("trunk/user/rc/src/tests/init_mdev_retry_policy.c").read_text()
           tun = Path("trunk/user/rc/src/tun_device_node_policy.h").read_text()
@@ -326,6 +329,19 @@ jobs:
                         "while (sync_result < 0 && errno == EINTR)",
                         "fclose(fp)", "rename(staged_path, path)", "unlink(staged_path)"):
               assert token in helper, token
+
+          assert '#include "config_file_sync.h"' in helper
+          assert "INIT_MDEV_CONFIG_SYNC_PARENT(path)" in helper
+          assert helper.index("rename(staged_path, path)") < helper.index(
+              "INIT_MDEV_CONFIG_SYNC_PARENT(path)"
+          )
+          assert "config_file_sync_parent(path)" in helper
+          assert "O_RDONLY | O_DIRECTORY | O_NOFOLLOW" in sync_helper
+          for token in ("parent_sync_calls == 1", "parent_sync_error = EIO",
+                        "directory-sync-error", "config_file_sync_parent(missing_parent_path) < 0",
+                        "config_file_sync_parent(symlink_target_path) < 0",
+                        "parent_sync_calls == 2"):
+              assert token in test, token
           for token in ("umask(0000)", "st_mode & 0777", "0644",
                         "old-policy", "new-policy", "blocked_path",
                         "preserve", "init_mdev_config_publish",
@@ -342,6 +358,7 @@ jobs:
               "trunk/user/rc/src/pid1_console_policy.h",
               "trunk/user/rc/src/tests/pid1_console_policy.c",
               "trunk/user/rc/src/init_mdev_config_file.h",
+              "trunk/user/rc/src/config_file_sync.h",
               "trunk/user/rc/src/init_mdev_retry_policy.h",
               "trunk/user/rc/src/tests/init_mdev_config_file.c",
               "trunk/user/rc/src/tests/init_mdev_retry_policy.c",
