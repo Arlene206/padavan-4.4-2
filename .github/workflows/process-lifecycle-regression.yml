@@ -115,6 +115,7 @@ on:
       - "trunk/user/rc/src/minidlna_config_file.h"
       - "trunk/user/rc/src/config_file_sync.h"
       - "trunk/user/rc/src/miniupnpd_lifecycle_lock.h"
+      - "trunk/user/rc/src/miniupnpd_config_file.h"
       - "trunk/user/rc/src/miniupnpd_presentation_url.h"
       - "trunk/user/rc/src/modem_wan_start_policy.h"
       - "trunk/user/rc/src/msd_lite_config_file.h"
@@ -179,6 +180,7 @@ on:
       - "trunk/user/rc/src/tests/logger_start_policy.c"
       - "trunk/user/rc/src/tests/minidlna_config_file.c"
       - "trunk/user/rc/src/tests/miniupnpd_lifecycle_lock.c"
+      - "trunk/user/rc/src/tests/miniupnpd_config_file.c"
       - "trunk/user/rc/src/tests/miniupnpd_presentation_url.c"
       - "trunk/user/rc/src/tests/modem_wan_start_policy.c"
       - "trunk/user/rc/src/tests/msd_lite_config_file.c"
@@ -408,6 +410,7 @@ on:
       - "trunk/user/rc/src/minidlna_config_file.h"
       - "trunk/user/rc/src/config_file_sync.h"
       - "trunk/user/rc/src/miniupnpd_lifecycle_lock.h"
+      - "trunk/user/rc/src/miniupnpd_config_file.h"
       - "trunk/user/rc/src/miniupnpd_presentation_url.h"
       - "trunk/user/rc/src/modem_wan_start_policy.h"
       - "trunk/user/rc/src/msd_lite_config_file.h"
@@ -472,6 +475,7 @@ on:
       - "trunk/user/rc/src/tests/logger_start_policy.c"
       - "trunk/user/rc/src/tests/minidlna_config_file.c"
       - "trunk/user/rc/src/tests/miniupnpd_lifecycle_lock.c"
+      - "trunk/user/rc/src/tests/miniupnpd_config_file.c"
       - "trunk/user/rc/src/tests/miniupnpd_presentation_url.c"
       - "trunk/user/rc/src/tests/modem_wan_start_policy.c"
       - "trunk/user/rc/src/tests/msd_lite_config_file.c"
@@ -1358,6 +1362,13 @@ jobs:
           sh -n trunk/user/ralinkiappd/iappd.sh
           sh -n trunk/user/ralinkiappd/tests/iappd_lifecycle.sh
           sh trunk/user/ralinkiappd/tests/iappd_lifecycle.sh
+      - name: Compile and run MiniUPnP atomic config publication regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/miniupnpd_config_file.c \
+            -o "$RUNNER_TEMP/miniupnpd-config-file-regression"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/miniupnpd-config-file-regression"
       - name: Compile and run IGMP proxy atomic configuration publication regression
         run: |
           cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
@@ -1365,6 +1376,32 @@ jobs:
             trunk/user/rc/src/tests/igmpproxy_config_file.c \
             -o "$RUNNER_TEMP/igmpproxy-config-file-regression"
           ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/igmpproxy-config-file-regression"
+      - name: Verify proxy config publication directory durability barriers
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path("trunk/user/rc/src")
+          helper = (root / "config_file_sync.h").read_text()
+          assert "O_DIRECTORY | O_NOFOLLOW" in helper
+          assert "config_file_sync_fd(directory_fd)" in helper
+          assert "errno == EINTR" in helper
+          for name, signature in (
+              ("miniupnpd_config_file.h", "miniupnpd_config_publish("),
+              ("igmpproxy_config_file.h", "igmpproxy_config_publish("),
+          ):
+              source = (root / name).read_text()
+              start = source.index(signature)
+              body = source[start:]
+              rename = body.index("rename(temporary_path, path)")
+              sync = body.index("config_file_sync_parent(path)", rename)
+              assert sync > rename, name
+          for name in ("miniupnpd_config_file.c", "igmpproxy_config_file.c"):
+              test = (root / "tests" / name).read_text()
+              assert "config_file_sync_parent(" in test
+              assert "linked-parent" in test
+          print("Proxy config rename + no-follow parent-directory fsync contract: PASS")
+          PY
       - name: Verify IPTV proxy altnet validation and empty-only fallback
         run: |
           python3 - <<'PY'

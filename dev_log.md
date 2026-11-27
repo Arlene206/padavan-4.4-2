@@ -1,3 +1,12 @@
+## 2026-11-28 — Persist MiniUPnP and IGMP proxy config renames
+
+- MiniUPnP and IGMP proxy staged configuration writers fsynced file contents before atomic rename but did not sync the parent directory. They now reuse the shared parent-directory fsync barrier after rename and propagate errors instead of reporting success when the directory entry is not known durable. The helper refuses symlinked parent directories with `O_NOFOLLOW`.
+- Extended both C regressions for successful parent sync, missing-parent failure and symlink-parent rejection. Added MiniUPnP C compile/run to Process lifecycle workflow; IGMP proxy compile/run remains, and a static contract checks each publisher performs the directory barrier after rename.
+- Parent SHA: `91db105a946c0397c9875a1090cfc8fa1d0495fd`. Exact-head Process regression/Process inventory/AI docs and XY-C1 Build/TRX/artifact pending; no local compile claimed.
+- Commit: THIS COMMIT.
+
+---
+
 ## 2026-11-28 — Persist MiniDLNA and Firefly config renames
 
 - MiniDLNA and Firefly each fsynced staged config contents before atomic rename but did not fsync the containing directory. File fsync alone does not guarantee the new directory entry survives sudden power loss. Added shared `config_file_sync.h` with EINTR-safe file and parent-directory fsync; both publishers now call it after rename and propagate failures.

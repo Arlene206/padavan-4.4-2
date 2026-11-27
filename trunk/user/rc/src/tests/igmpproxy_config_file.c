@@ -61,6 +61,8 @@ main(void)
 	char config_path[512];
 	char missing_path[512];
 	char directory_path[512];
+	char linked_parent[512];
+	char linked_path[512];
 	struct igmpproxy_config_values values;
 	struct stat st;
 	struct rlimit saved_limit;
@@ -91,6 +93,18 @@ main(void)
 	values.quickleave = 1;
 	status = igmpproxy_config_publish(config_path, &values);
 	assert(status == 0);
+	assert(config_file_sync_parent(config_path) == 0);
+	errno = 0;
+	assert(config_file_sync_parent(missing_path) != 0);
+	assert(errno == ENOENT);
+	assert(snprintf(linked_parent, sizeof(linked_parent),
+			"%s/linked-parent", directory) > 0);
+	assert(symlink(directory, linked_parent) == 0);
+	assert(snprintf(linked_path, sizeof(linked_path),
+			"%s/igmpproxy.conf", linked_parent) > 0);
+	errno = 0;
+	assert(config_file_sync_parent(linked_path) != 0);
+	assert(unlink(linked_parent) == 0);
 	assert_file_equals(config_path,
 		"# automatically generated\n"
 		"quickleave\n"

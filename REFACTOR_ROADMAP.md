@@ -1,3 +1,9 @@
+## 2026-11-28 — Make proxy config publications directory-durable
+
+- MiniUPnP and IGMP proxy now fsync the containing directory after successful atomic config rename; shared barrier uses `O_DIRECTORY|O_NOFOLLOW`. Tests cover success, missing parent and symlink parent.
+
+---
+
 ## 2026-11-28 — Make media-server config publication directory-durable
 
 - MiniDLNA and Firefly now fsync the parent directory after successful atomic config rename; propagate directory-sync errors rather than claiming durable publication. Shared helper and C regressions cover successful and missing-parent sync.

@@ -1,12 +1,12 @@
-## 2026-11-28 — Persist MiniDLNA and Firefly config renames
+## 2026-11-28 — Persist MiniUPnP and IGMP proxy config renames
 
-- Both generated media-server config publishers fsynced the staged file before `rename()` but never fsynced the parent directory. A successful return could therefore precede durable persistence of the new directory entry across sudden power loss. Added a shared EINTR-safe file/directory fsync helper and call it after each successful atomic rename; a directory-sync failure is propagated so startup does not claim durable publication.
-- Extended MiniDLNA and Firefly C regressions for successful parent sync and missing-parent failure, and added a source-order contract to Process lifecycle CI. Exact head test/Process inventory/AI docs/XY-C1 checks pending; no local compile is claimed.
-- BusyBox ash root cause: firmware `CONFIG_ASH_CMDCMD` was disabled, so ash lacked the `command` builtin used by safe process identity lookup. Commit `25b0f34f41206b0d16ceed7b8190202a53b89d63` enables it and requires the feature in storage CI. Exact USB #46081670821 PASS (including BusyBox 1.24.2/ash, Transmission/Aria startup and Optware lifecycle); Process inventory #46081670853 PASS; AI docs #46081670826 PASS. XY-C1 #46081670815 remained at Build, TRX/artifact pending.
-- Aria2 symlink protection `7c21bb2987022102d27a403dbdb4c0f84d3e41a8`: Aria2 storage guard regression passed on d79; its XY-C1 exact Build/TRX/artifact is not claimed here.
-- Next: inspect this commit's Firefly/MiniDLNA directory-sync and exact-SHA Process CI, close #46081670815 (including Build/TRX/artifact), then continue another cross-userland stability/security fix.
+- MiniUPnP and IGMP proxy atomic writers fsynced staged file contents, then renamed without syncing the containing directory. They now reuse `config_file_sync_parent()` after successful rename and propagate durability errors; the shared helper opens parent directories with `O_DIRECTORY|O_NOFOLLOW` so a symlinked parent is not followed.
+- Added successful, missing-parent and symlink-parent checks to both C regressions; Process CI now builds/runs the MiniUPnP test, retains the IGMP test, and checks source ordering plus no-follow semantics. Exact-SHA Actions pending; no local compile claimed.
+- Previous commit `91db105a946c0397c9875a1090cfc8fa1d0495fd`: MiniDLNA #46082011767 and Firefly #46082011810 PASS; Process regression #46082011866, Process inventory #46082011821, AI docs #46082011771 and NVRAM audit #46082011772 PASS. XY-C1 #46082011789 was still at Build XY-C1; TRX and artifact pending at last poll.
+- Next: inspect this commit's MiniUPnP/IGMP proxy exact-SHA test runs, close #46082011789 Build/TRX/artifact, then continue another P1 cross-userland stability/security defect.
 
 ---
+
 
 
 

@@ -1,6 +1,8 @@
 #ifndef MINIUPNPD_CONFIG_FILE_H
 #define MINIUPNPD_CONFIG_FILE_H
 
+#include "config_file_sync.h"
+
 #include <ctype.h>
 #include <errno.h>
 #include <stdio.h>
@@ -114,8 +116,12 @@ miniupnpd_config_publish(const char *path,
 	if (fclose(stream) != 0 && status == 0)
 		status = errno ? errno : EIO;
 
-	if (status == 0 && rename(temporary_path, path) != 0)
-		status = errno ? errno : EIO;
+	if (status == 0) {
+		if (rename(temporary_path, path) != 0)
+			status = errno ? errno : EIO;
+		else if (config_file_sync_parent(path) != 0)
+			status = errno ? errno : EIO;
+	}
 	if (status != 0)
 		unlink(temporary_path);
 

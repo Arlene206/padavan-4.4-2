@@ -134,6 +134,9 @@ main(void)
 	char directory[] = "/tmp/miniupnpd-config-test.XXXXXX";
 	char path[256];
 	char directory_target[256];
+	char missing_parent[256];
+	char linked_parent[256];
+	char linked_path[256];
 	struct writer_context context;
 	struct stat st;
 	int status;
@@ -156,6 +159,22 @@ main(void)
 	status = miniupnpd_config_publish(path, write_config, &context);
 	assert(status == 0);
 	assert_file_equals(path, "complete-new-config\n");
+
+	assert(config_file_sync_parent(path) == 0);
+	assert(snprintf(missing_parent, sizeof(missing_parent),
+			"%s/missing/miniupnpd.conf", directory) > 0);
+	errno = 0;
+	assert(config_file_sync_parent(missing_parent) != 0);
+	assert(errno == ENOENT);
+
+	assert(snprintf(linked_parent, sizeof(linked_parent),
+			"%s/linked-parent", directory) > 0);
+	assert(symlink(directory, linked_parent) == 0);
+	assert(snprintf(linked_path, sizeof(linked_path),
+			"%s/miniupnpd.conf", linked_parent) > 0);
+	errno = 0;
+	assert(config_file_sync_parent(linked_path) != 0);
+	assert(unlink(linked_parent) == 0);
 	assert(stat(path, &st) == 0);
 	assert((st.st_mode & 0777) == 0600);
 	assert_only_target_remains(directory, "miniupnpd.conf");
