@@ -86,9 +86,9 @@ if [ -e "$STORAGE_TEST_PENDING_FILE" ]; then
 		mkdir -p "$STORAGE_TEST_PROC_ROOT/123"
 		ln -sf "$STORAGE_TEST_DAEMON_EXE" "$STORAGE_TEST_PROC_ROOT/123/exe"
 		if [ "${STORAGE_TEST_POST_PIDOF_STATUS:-auto}" = 2 ]; then
-			printf '%s\\n' 'malformed process stat' > "$STORAGE_TEST_PROC_ROOT/123/stat"
+			printf '%s\n' 'malformed process stat' > "$STORAGE_TEST_PROC_ROOT/123/stat"
 		else
-			printf '%s\\n' '123 (transmission-daemon) S 1 1 1 0 -1 0 0 0 0 0 0 0 0 0 0 0 1 0 2001' > "$STORAGE_TEST_PROC_ROOT/123/stat"
+			printf '%s\n' '123 (transmission-daemon) S 1 1 1 0 -1 0 0 0 0 0 0 0 0 0 0 0 1 0 2001' > "$STORAGE_TEST_PROC_ROOT/123/stat"
 		fi
 	fi
 	exit 0
@@ -235,7 +235,7 @@ run_launcher()
 	proc_root="$launch_state_dir/proc"
 	mkdir -p "$proc_root/1"
 	ln -s /bin/sleep "$proc_root/1/exe"
-	printf '%s\\n' '1 (init) S 1 1 1 0 -1 0 0 0 0 0 0 0 0 0 0 0 1 0 1001' > "$proc_root/1/stat"
+	printf '%s\n' '1 (init) S 1 1 1 0 -1 0 0 0 0 0 0 0 0 0 0 0 1 0 1001' > "$proc_root/1/stat"
 	LAST_LAUNCH_STATE_DIR=$launch_state_dir
 	LAST_LAUNCH_OUTPUT=$output_file
 	if [ -n "${BUSYBOX_BIN:-}" ]; then
