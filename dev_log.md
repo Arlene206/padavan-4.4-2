@@ -2,7 +2,7 @@
 
 - Replaced Redsocks name-wide `killall` TERM/KILL with exact-PID signalling. Each candidate must match the configured executable via `/proc/PID/exe`, match the process comm, and retain the same `/proc/PID/stat` field-22 start time across separate reads. Stop retains the first PID/start-time snapshot and refuses signalling if a new PID appears or a PID is recycled before either signal.
 - Extended `redsocks-lifecycle.yml` regression coverage for exact PID signals, foreign same-comm executable rejection and PID reuse between TERM and KILL.
-- No local checkout was available; do not claim local shell test results. Linux 4.4 has no pidfd, leaving a small unavoidable validate-to-signal race; physical L4 is NOT VERIFIED.
+- Exact-SHA Actions on 7e1557690aa6aa996007b5ed4e1aecd170b44eed: Bash syntax and Redsocks runtime regression PASS; static source contract FAIL was a checker bug (stat field 22 belongs to `redsocks_read_stat_identity`), corrected in the follow-up. Process inventory PASS; AI docs FAIL was roadmap byte-limit overrun, shortened in the follow-up. No local shell run is claimed. Linux 4.4 has no pidfd, so a small validate-to-signal race remains; physical L4 is NOT VERIFIED.
 
 ## 2026-11-27 — Reject symlinked SSH host-key storage directories
 

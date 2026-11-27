@@ -2,7 +2,7 @@
 
 - Replaced Redsocks name-wide TERM/KILL with exact-PID signalling. Each candidate must match the configured binary through `/proc/PID/exe`, match the expected process comm, and retain the same `/proc/PID/stat` field-22 start time across separate reads. Stop preserves the first PID/start-time snapshot and refuses signalling if the process set gains a PID or an existing PID is recycled before either signal. Linux 4.4 has no pidfd, so the tiny check-to-signal race cannot be eliminated; L4 remains unverified.
 - Added source contracts and runtime regressions for exact-PID signals, same-PID reuse between TERM and KILL, and a foreign executable with the same comm. Existing bounded waits and start rollback remain.
-- Exact-source Redsocks, Process inventory, AI docs and XY-C1 Build/TRX/artifact Actions are required on this commit. Parent d9b6bb8529655903be8d678c85a6e88afd166ba4: Process #46076617007 PASS, inventory #46076617038 PASS, AI docs #46076617041 PASS; XY-C1 #46076617022 was IN_PROGRESS. Its earlier result does not prove this source SHA.
+- On parent 7e1557690aa6aa996007b5ed4e1aecd170b44eed: Redsocks shell syntax and runtime regression PASS, but its source-contract step failed because the checker looked for stat field 22 in the wrong helper; fixed here. Process inventory #46077813549 PASS. AI docs #46077813682 failed because roadmap size was 131180 bytes (>131072); trimmed here. XY-C1 on prior relevant source d9b6bb8529655903be8d678c85a6e88afd166ba4 passed Build/TRX/artifact (#46076617022); Redsocks-only paths do not trigger XY-C1.
 - Frozen backup remains read-only at 72f4f157a084f8184b9597ca5bf334b8080e5807.
 
 ## Exact first action

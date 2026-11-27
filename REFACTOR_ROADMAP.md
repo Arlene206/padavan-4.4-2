@@ -1,7 +1,7 @@
 ## 2026-11-27 — Redsocks identity-bound stop signalling
 
-- Replaced broad name-based TERM/KILL with the captured PID set and `/proc/PID/stat` start-time plus `/proc/PID/exe` validation. Exact captured identities are rechecked before each signal; new/recycled/foreign same-comm processes fail closed.
-- Existing Redsocks bounded lifecycle regression now covers foreign executable rejection and same-PID reuse between TERM/KILL. Exact-head Actions pending; Linux 4.4 check-to-signal race remains without pidfd; physical-router L4 is unverified.
+- Replaced name-wide TERM/KILL with captured PID/start-time and `/proc/PID/exe` checks. Revalidate before each signal; fail closed on PID reuse and foreign same-comm processes.
+- Regression covers foreign executables and PID reuse. Linux 4.4 lacks pidfd, so a check-to-signal race remains; router L4 is unverified.
 
 ---
 

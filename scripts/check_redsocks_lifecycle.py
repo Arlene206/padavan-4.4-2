@@ -21,6 +21,7 @@ def body(signature):
     return match.group(1)
 
 state = body("redsocks_process_state()")
+stat_identity = body("redsocks_read_stat_identity()")
 identity = body("redsocks_read_identity()")
 signal_snapshot = body("redsocks_signal_snapshot()")
 wait = body("redsocks_wait_stopped()")
@@ -36,7 +37,7 @@ require('pidof "$BINARY_NAME"' in state and 'redsocks_pid_status' in state and
         'redsocks_read_identity "$pid"' in state and 'redsocks_identity_start' in state and
         'return 2' in state and 'return 1' in state and 'return 0' in state,
         "process inventory must validate target executable and preserve PID/start-time identities")
-require('stat_fields[19]' in identity and 'readlink -f "$BINARY_PATH"' in identity and
+require('stat_fields[19]' in stat_identity and 'readlink -f "$BINARY_PATH"' in identity and
         'readlink "$RED_SOCKS_PROC_ROOT/$pid/exe"' in identity and
         'redsocks_stat_start_time' in identity and 'return 2' in identity,
         "process identity must bind executable and procfs start_time with a second stat read")
