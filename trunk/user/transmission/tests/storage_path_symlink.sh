@@ -9,6 +9,8 @@ fail() { echo "Transmission storage path symlink regression: FAIL: $*" >&2; exit
 sed '/^case "$1" in/,$d' "$SCRIPT" > "$TMP_DIR/functions.sh"
 [ -s "$TMP_DIR/functions.sh" ] || fail "could not extract lifecycle functions"
 logger() { :; }
+CONFIG_TMP=
+CONFIG_TMP_OWNED=0
 . "$TMP_DIR/functions.sh"
 REAL_DIR="$TMP_DIR/real-config"
 NEW_DIR="$TMP_DIR/new-config"
