@@ -94,8 +94,11 @@ ppp_callback_link_remove_from_directory_with(
         return -1;
     }
     directory_length = strlen(directory);
-    while (directory_length > 1 && directory[directory_length - 1] == '/')
-        directory_length--;
+    /* Keep lstat() from resolving a symlink via trailing-slash semantics. */
+    if (directory_length > 1 && directory[directory_length - 1] == '/') {
+        errno = EINVAL;
+        return -1;
+    }
     if (directory_length == 1 && directory[0] == '/') {
         if (path[0] != '/' || path[1] == '\0') {
             errno = EINVAL;

@@ -1107,6 +1107,7 @@ require('#include "ppp_callback_link_policy.h"' in vpn_client and
 for token in ("ppp_callback_link_remove_from_directory_with",
               "ppp_callback_link_remove_from_directory",
               "directory_stat.st_uid != ops->geteuid_fn()",
+              "directory[directory_length - 1] == '/'",
               "ppp_callback_link_state_with(target, path, ops)"):
     require(token in ppp_callback_policy,
             f"PPP callback-link cleanup policy missing {token}")

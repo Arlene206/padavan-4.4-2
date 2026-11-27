@@ -1,15 +1,14 @@
-## 2026-11-28 — VPN callback-link teardown cleanup is now ownership-safe
+## 2026-11-28 — PPP callback cleanup path validation tightened
 
-- Current `main` slice integrates the existing PPP callback-link helper/test into VPN client and server teardown. Client callback cleanup errors are no longer discarded; both paths remove only an exact effective-UID-owned `/sbin/rc` symlink from validated `/tmp/ppp`. Unsafe directories/conflicting objects fail closed; missing entries are idempotent.
-- Parent SHA: `2328bdaad45a8f3418c56f52effcf2d56d2c765d`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged).
-- USB checker/source-contract sync commit `2328bdaad45a8f3418c56f52effcf2d56d2c765d`: USB storage #46061170203 PASS, USB modem #46061170172 PASS, AI docs #46061170077 PASS. USB printer reaping product SHA `9d067387196d7c714828b2fd3ad29bc613d86888` passed Process fail-closed #46060519790. XY-C1 #46060519815 on `9d067...` was last observed building; TRX/artifact not confirmed.
-- VPN callback-link changes in this commit require exact-SHA VPN/Process/XY-C1 checks. No local host build or physical-router L4 is claimed.
+- Follow-up to `4641eb81d8d2abee5c9ddfb9e037b42f8baf207a`: the helper now rejects trailing-slash directory arguments to prevent `lstat("symlink/")` from resolving a directory symlink. A regression covers trailing-slash and nested-path rejection.
+- Current production change remains ownership-safe VPN server/client callback teardown, with all exact-SHA VPN/Process/XY-C1 verification pending or in progress at last poll. No L3/L4 claim until exact same-source firmware Build/TRX/artifact and hardware verification respectively.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Exact first action
 
-1. Inspect this commit's VPN server lifecycle workflow; require the PPP callback-link GNU89/ASan/UBSan test and both teardown source contracts to PASS.
-2. Inspect exact-SHA Process inventory and XY-C1; L3 requires Build, TRX verification and artifact upload on the same product SHA.
-3. Continue a separate high-priority reliability/security defect outside USB printer and VPN callback-link cleanup while Actions are pending. Do not repeat completed USB/storage, HTTPD or GPIO work.
+1. Inspect the exact-SHA VPN lifecycle run for this follow-up; resolve any test/source-contract failure.
+2. Inspect Process inventory and XY-C1 Build/TRX/artifact statuses for the current production source SHA.
+3. Continue independent whole-repository stability/security work while Actions remain pending.
 ---
 
 ## 2026-11-26 — Autonomous development checkpoint

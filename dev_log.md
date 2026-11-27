@@ -1,3 +1,9 @@
+## 2026-11-28 — Reject trailing-slash directory aliases in PPP callback cleanup
+
+- Follow-up hardening: `lstat("symlink/")` can resolve a directory symlink because of trailing-slash path resolution. The checked PPP callback remover now rejects a non-root directory argument ending in `/` before `lstat`, while retaining the fixed production `/tmp/ppp` path.
+- Extended the direct-child regression to prove both trailing-slash aliases and nested paths fail with `EINVAL` without touching files. The VPN lifecycle source contract pins the new guard.
+- Exact-SHA VPN workflow rerun is required; local host execution and physical L4 are not claimed.
+
 ## 2026-11-28 — Make VPN callback-link teardown ownership-safe and status-bearing
 
 - Found that `stop_vpn_client_locked()` discarded both PPP callback `unlink()` results, so a failed cleanup could be reported as success. VPN server teardown did propagate unlink errno but could still unlink any object at the fixed path rather than only the expected `/sbin/rc` symlink.

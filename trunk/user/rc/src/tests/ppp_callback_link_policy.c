@@ -98,7 +98,11 @@ static void test_checked_remove_rejects_directory_symlink(void)
 }
 static void test_checked_remove_rejects_non_child_path(void)
 {
- char d[]="/tmp/ppp-callback-child.XXXXXX",p[PATH_MAX]; assert(mkdtemp(d));
+ char d[]="/tmp/ppp-callback-child.XXXXXX",p[PATH_MAX],with_slash[PATH_MAX];
+ assert(mkdtemp(d));
+ assert(snprintf(p,sizeof(p),"%s/callback",d)>0);
+ assert(snprintf(with_slash,sizeof(with_slash),"%s/",d)>0); errno=0;
+ assert(ppp_callback_link_remove_from_directory(with_slash,"/sbin/rc",p)==-1&&errno==EINVAL);
  assert(snprintf(p,sizeof(p),"%s/sub/callback",d)>0); errno=0;
  assert(ppp_callback_link_remove_from_directory(d,"/sbin/rc",p)==-1&&errno==EINVAL);
  assert(rmdir(d)==0);
