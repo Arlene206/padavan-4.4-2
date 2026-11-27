@@ -333,7 +333,7 @@ jobs:
           assert '#include "config_file_sync.h"' in helper
           assert "INIT_MDEV_CONFIG_SYNC_PARENT(path)" in helper
           assert helper.index("rename(staged_path, path)") < helper.index(
-              "INIT_MDEV_CONFIG_SYNC_PARENT(path)"
+              "if (!saved_errno && INIT_MDEV_CONFIG_SYNC_PARENT(path) != 0)"
           )
           assert "config_file_sync_parent(path)" in helper
           assert "O_RDONLY | O_DIRECTORY | O_NOFOLLOW" in sync_helper
