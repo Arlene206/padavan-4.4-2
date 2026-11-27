@@ -1,3 +1,9 @@
+## 2026-11-27 — Confirm Shadowsocks ABSENT lookups with complete procfs scans
+
+- BusyBox 1.24 `procps_scan` skips entries when stat or cmdline reads fail; `pidof`/`pgrep` can consequently return status 1 despite a live matching process. Shadowsocks previously accepted that as ABSENT.
+- Added a mode-aware procfs inventory for named and `pgrep -f` lookups. It validates numeric PID/stat records, live task state and cmdline readability; mirrors BusyBox short-comm/argv0/argv1 name matching and pgrep's empty-cmdline comm fallback; detects malformed/inaccessible entries as UNKNOWN; and performs a fresh lookup after a clean zero-match scan.
+- Added fake-procfs regressions for both false-negative lookups and malformed stat input. Exact-SHA Actions pending; no local shell test claimed.
+
 ## 2026-11-27 — Bind Redsocks stop signals to captured process identities
 
 - Replaced Redsocks name-wide `killall` TERM/KILL with exact-PID signalling. Each candidate must match the configured executable via `/proc/PID/exe`, match the process comm, and retain the same `/proc/PID/stat` field-22 start time across separate reads. Stop retains the first PID/start-time snapshot and refuses signalling if a new PID appears or a PID is recycled before either signal.

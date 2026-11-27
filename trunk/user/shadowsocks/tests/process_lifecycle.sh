@@ -4,8 +4,9 @@ set -eu
 TEST_DIR=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
 TMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/shadowsocks-lifecycle.XXXXXX")
 trap 'rm -rf "$TMP_DIR"' EXIT HUP INT TERM
-mkdir -p "$TMP_DIR/bin" "$TMP_DIR/state"
+mkdir -p "$TMP_DIR/bin" "$TMP_DIR/state" "$TMP_DIR/proc"
 export PROCESS_STATE_DIR="$TMP_DIR/state"
+export SS_PROC_ROOT="$TMP_DIR/proc"
 export KILL_LOG="$TMP_DIR/kill.log"
 export PATH="$TMP_DIR/bin:$PATH"
 
@@ -13,6 +14,7 @@ cat > "$TMP_DIR/bin/pidof" <<'EOF'
 #!/bin/sh
 [ "$#" -eq 1 ] || exit 2
 [ -f "$PROCESS_STATE_DIR/pidof_unknown" ] && exit 2
+[ -f "$PROCESS_STATE_DIR/pidof_incomplete" ] && exit 1
 case "$1" in
 	empty_success) exit 0 ;;
 	malformed) echo '4242 bad'; exit 0 ;;
@@ -59,6 +61,7 @@ cat > "$TMP_DIR/bin/pgrep" <<'EOF'
 #!/bin/sh
 [ "$#" -eq 2 ] && [ "$1" = "-f" ] || exit 2
 [ -f "$PROCESS_STATE_DIR/pgrep_unknown" ] && exit 2
+[ -f "$PROCESS_STATE_DIR/pgrep_incomplete" ] && exit 1
 [ "$2" = "/usr/bin/ss-monitor" ] || exit 1
 [ -f "$PROCESS_STATE_DIR/pgrep_empty_success" ] && exit 0
 [ -f "$PROCESS_STATE_DIR/pgrep_malformed" ] && { echo '4243 bad'; exit 0; }
@@ -225,6 +228,26 @@ ss_restart_dhcpd() {
 	ss_wait_named_process_count dnsmasq 1 5
 }
 
+
+reset_proc_fixture() {
+	rm -rf "$SS_PROC_ROOT"
+	mkdir -p "$SS_PROC_ROOT/1"
+	printf '%s\n' '1 (init) S 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 4000' > "$SS_PROC_ROOT/1/stat"
+	printf '/sbin/init\000' > "$SS_PROC_ROOT/1/cmdline"
+}
+
+add_proc_fixture() {
+	ss_test_pid=$1
+	ss_test_comm=$2
+	ss_test_argv0=$3
+	shift 3
+	mkdir -p "$SS_PROC_ROOT/$ss_test_pid"
+	printf '%s (%s) S 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 4000\n' \
+		"$ss_test_pid" "$ss_test_comm" > "$SS_PROC_ROOT/$ss_test_pid/stat"
+	printf '%s\000' "$ss_test_argv0" > "$SS_PROC_ROOT/$ss_test_pid/cmdline"
+	for ss_test_arg in "$@"; do printf '%s\000' "$ss_test_arg" >> "$SS_PROC_ROOT/$ss_test_pid/cmdline"; done
+}
+
 fail() { echo "FAIL: $*" >&2; exit 1; }
 expect_status() {
 	expected=$1
@@ -234,7 +257,40 @@ expect_status() {
 	[ "$actual" -eq "$expected" ] || fail "$label status=$actual expected=$expected"
 }
 
-# pidof/pgrep status 1 means confirmed ABSENT, and must normalize to a zero count.
+# Status 1 is only ABSENT after a complete procfs scan.
+reset_proc_fixture
+
+# BusyBox pidof/pgrep can return status 1 after procps_scan skips a live entry.
+reset_proc_fixture
+add_proc_fixture 4242 dnsproxy /usr/bin/dnsproxy --foreground
+: > "$PROCESS_STATE_DIR/pidof_incomplete"
+expect_status 0 "pidof incomplete procfs scan finds a live daemon" ss_process_pid_state dnsproxy
+recovered_pid_count=$(ss_process_pid_count dnsproxy)
+[ "$recovered_pid_count" = "1" ] || fail "procfs pidof fallback count was $recovered_pid_count"
+rm -f "$PROCESS_STATE_DIR/pidof_incomplete"
+
+reset_proc_fixture
+add_proc_fixture 4243 sh /bin/sh /usr/bin/ss-monitor
+: > "$PROCESS_STATE_DIR/pgrep_incomplete"
+expect_status 0 "pgrep incomplete procfs scan finds monitor" ss_process_pattern_state "/usr/bin/ss-monitor"
+recovered_pattern_count=$(ss_process_pattern_count "/usr/bin/ss-monitor")
+[ "$recovered_pattern_count" = "1" ] || fail "procfs pgrep fallback count was $recovered_pattern_count"
+rm -f "$PROCESS_STATE_DIR/pgrep_incomplete"
+
+# A malformed visible task record must make an incomplete inventory UNKNOWN.
+reset_proc_fixture
+mkdir -p "$SS_PROC_ROOT/4244"
+printf '%s\n' 'truncated stat record' > "$SS_PROC_ROOT/4244/stat"
+printf '/usr/bin/unrelated\000' > "$SS_PROC_ROOT/4244/cmdline"
+: > "$PROCESS_STATE_DIR/pidof_incomplete"
+expect_status 2 "pidof incomplete scan with malformed procfs is UNKNOWN" ss_process_pid_state dnsproxy
+rm -f "$PROCESS_STATE_DIR/pidof_incomplete"
+: > "$PROCESS_STATE_DIR/pgrep_incomplete"
+expect_status 2 "pgrep incomplete scan with malformed procfs is UNKNOWN" ss_process_pattern_state "/usr/bin/ss-monitor"
+rm -f "$PROCESS_STATE_DIR/pgrep_incomplete"
+reset_proc_fixture
+echo "Shadowsocks BusyBox incomplete-procfs absence rejection: PASS"
+
 if absent_count=$(ss_process_pid_count absent_startup); then
 	[ "$absent_count" = "0" ] || fail "ABSENT pidof count was $absent_count, expected 0"
 else

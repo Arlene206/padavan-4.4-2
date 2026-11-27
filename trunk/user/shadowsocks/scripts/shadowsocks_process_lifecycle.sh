@@ -18,16 +18,127 @@ ss_validate_pid_list() {
 	return 0
 }
 
+
+# BusyBox procps_scan skips entries it cannot read. A pidof/pgrep status 1
+# is only a candidate ABSENT result; confirm it against every visible PID.
+ss_procfs_process_count() {
+	[ "$#" -eq 2 ] || return 2
+	ss_proc_mode=$1
+	ss_proc_query=$2
+	[ -n "$ss_proc_query" ] || return 2
+	case "$ss_proc_mode" in name|pattern) ;; *) return 2 ;; esac
+	ss_proc_root=${SS_PROC_ROOT:-/proc}
+	[ -d "$ss_proc_root" ] && [ -r "$ss_proc_root" ] && [ -x "$ss_proc_root" ] || return 2
+	command -v ls >/dev/null 2>&1 || return 2
+	command -v awk >/dev/null 2>&1 || return 2
+	command -v tr >/dev/null 2>&1 || return 2
+	command -v grep >/dev/null 2>&1 || return 2
+	ss_proc_entries=$(ls -1 "$ss_proc_root" 2>/dev/null) || return 2
+	[ -n "$ss_proc_entries" ] || return 2
+	ss_proc_numeric_found=0
+	ss_proc_match_count=0
+	ss_proc_newline='
+'
+	ss_proc_name_prefix=$(printf '%.15s' "$ss_proc_query")
+	while IFS= read -r ss_proc_pid; do
+		case "$ss_proc_pid" in ''|*[!0-9]*) continue ;; 0*) return 2 ;; esac
+		ss_proc_dir="$ss_proc_root/$ss_proc_pid"
+		[ -d "$ss_proc_dir" ] || continue
+		ss_proc_numeric_found=1
+		if ss_proc_stat=$(cat "$ss_proc_dir/stat" 2>/dev/null); then :; else
+			[ -d "$ss_proc_dir" ] || continue
+			return 2
+		fi
+		case "$ss_proc_stat" in "$ss_proc_pid ("*) ;; *) return 2 ;; esac
+		if ss_proc_state=$(printf '%s\n' "$ss_proc_stat" | awk -v expected_pid="$ss_proc_pid" '
+			NR != 1 { invalid = 1 }
+			NR == 1 {
+				if (index($0, expected_pid " (") != 1) invalid = 1
+				sub(/^.*\) /, "")
+				if (NF < 20 || $1 !~ /^[RSDZTtXxKWPI]$/ || $20 !~ /^[0-9]+$/)
+					invalid = 1
+				else task_state = $1
+			}
+			END { if (invalid || NR != 1) exit 1; print task_state }
+		'); then :; else
+			[ -d "$ss_proc_dir" ] || continue
+			return 2
+		fi
+		case "$ss_proc_state" in Z|X|x) continue ;; esac
+		if [ "$ss_proc_mode" = name ]; then
+			if ss_proc_arguments=$(tr '\000' '\n' < "$ss_proc_dir/cmdline" 2>/dev/null); then :; else
+				[ -d "$ss_proc_dir" ] || continue
+				return 2
+			fi
+			ss_proc_argv0=${ss_proc_arguments%%"$ss_proc_newline"*}
+			ss_proc_argv1=
+			case "$ss_proc_arguments" in *"$ss_proc_newline"*)
+				ss_proc_rest=${ss_proc_arguments#*"$ss_proc_newline"}
+				ss_proc_argv1=${ss_proc_rest%%"$ss_proc_newline"*}
+				;;
+			esac
+			ss_proc_argv0=${ss_proc_argv0##*/}
+			ss_proc_argv1=${ss_proc_argv1##*/}
+			ss_proc_comm=${ss_proc_stat#*(}
+			ss_proc_comm=${ss_proc_comm%)*}
+			ss_proc_comm_prefix=$(printf '%.15s' "$ss_proc_comm")
+			ss_proc_is_match=0
+			[ "$ss_proc_argv0" = "$ss_proc_query" ] && ss_proc_is_match=1
+			if [ "$ss_proc_comm_prefix" = "$ss_proc_name_prefix" ]; then
+				if [ "${#ss_proc_comm}" -lt 15 ] || [ "$ss_proc_argv1" = "$ss_proc_query" ]; then
+					ss_proc_is_match=1
+				fi
+			fi
+			[ "$ss_proc_is_match" -eq 0 ] || ss_proc_match_count=$((ss_proc_match_count + 1))
+		else
+			if ss_proc_arguments=$(tr '\000\n' '  ' < "$ss_proc_dir/cmdline" 2>/dev/null); then :; else
+				[ -d "$ss_proc_dir" ] || continue
+				return 2
+			fi
+			# BusyBox pgrep falls back to comm for an empty cmdline.
+			[ -n "$ss_proc_arguments" ] || ss_proc_arguments=${ss_proc_stat#*(}
+			ss_proc_arguments=${ss_proc_arguments%)*}
+			if printf '%s\n' "$ss_proc_arguments" | grep -E -q -- "$ss_proc_query"; then
+				ss_proc_match_count=$((ss_proc_match_count + 1))
+			else
+				ss_proc_grep_status=$?
+				[ "$ss_proc_grep_status" -eq 1 ] || return 2
+			fi
+		fi
+	done <<EOF_PROCFS_ENTRIES
+$ss_proc_entries
+EOF_PROCFS_ENTRIES
+	[ "$ss_proc_numeric_found" -eq 1 ] || return 2
+	if [ "$ss_proc_match_count" -eq 0 ]; then
+		if [ "$ss_proc_mode" = name ]; then
+			if ss_proc_post_output=$(pidof "$ss_proc_query" 2>/dev/null); then ss_proc_post_status=0; else ss_proc_post_status=$?; fi
+		else
+			if ss_proc_post_output=$(pgrep -f "$ss_proc_query" 2>/dev/null); then ss_proc_post_status=0; else ss_proc_post_status=$?; fi
+		fi
+		case "$ss_proc_post_status" in
+			0)
+				ss_validate_pid_list "$ss_proc_post_output" || return 2
+				ss_proc_match_count=$(printf '%s\n' "$ss_proc_post_output" | awk '{ count += NF } END { print count + 0 }')
+				;;
+			1) [ -z "$ss_proc_post_output" ] || return 2 ;;
+			*) return 2 ;;
+		esac
+	fi
+	printf '%s\n' "$ss_proc_match_count"
+	[ "$ss_proc_match_count" -gt 0 ] && return 0
+	return 1
+}
+
 ss_process_pid_state() {
 	ss_process_name=$1
-	if ss_pid_output=$(pidof "$ss_process_name" 2>/dev/null); then
-		ss_pid_status=0
-	else
-		ss_pid_status=$?
-	fi
+	if ss_pid_output=$(pidof "$ss_process_name" 2>/dev/null); then ss_pid_status=0; else ss_pid_status=$?; fi
 	case "$ss_pid_status" in
 		0) ss_validate_pid_list "$ss_pid_output" || return 2; return 0 ;;
-		1) [ -z "$ss_pid_output" ] && return 1; return 2 ;;
+		1)
+			[ -z "$ss_pid_output" ] || return 2
+			ss_procfs_process_count name "$ss_process_name" >/dev/null
+			return $?
+			;;
 		*) return 2 ;;
 	esac
 }
@@ -38,11 +149,7 @@ ss_process_pid_count() {
 	[ "$#" -eq 1 ] || return 2
 	ss_count_process_name=$1
 	[ -n "$ss_count_process_name" ] || return 2
-	if ss_count_pid_output=$(pidof "$ss_count_process_name" 2>/dev/null); then
-		ss_count_pid_status=0
-	else
-		ss_count_pid_status=$?
-	fi
+	if ss_count_pid_output=$(pidof "$ss_count_process_name" 2>/dev/null); then ss_count_pid_status=0; else ss_count_pid_status=$?; fi
 	case "$ss_count_pid_status" in
 		0)
 			ss_validate_pid_list "$ss_count_pid_output" || return 2
@@ -50,7 +157,11 @@ ss_process_pid_count() {
 			;;
 		1)
 			[ -z "$ss_count_pid_output" ] || return 2
-			printf '0\n'
+			if ss_procfs_process_count name "$ss_count_process_name"; then return 0; else
+				ss_procfs_status=$?
+				[ "$ss_procfs_status" -eq 1 ] && return 0
+				return 2
+			fi
 			;;
 		*) return 2 ;;
 	esac
@@ -95,14 +206,14 @@ ss_wait_named_process_started() {
 ss_process_pattern_state() {
 	ss_process_pattern=$1
 	[ -n "$ss_process_pattern" ] || return 2
-	if ss_pid_output=$(pgrep -f "$ss_process_pattern" 2>/dev/null); then
-		ss_pid_status=0
-	else
-		ss_pid_status=$?
-	fi
+	if ss_pid_output=$(pgrep -f "$ss_process_pattern" 2>/dev/null); then ss_pid_status=0; else ss_pid_status=$?; fi
 	case "$ss_pid_status" in
 		0) ss_validate_pid_list "$ss_pid_output" || return 2; return 0 ;;
-		1) [ -z "$ss_pid_output" ] && return 1; return 2 ;;
+		1)
+			[ -z "$ss_pid_output" ] || return 2
+			ss_procfs_process_count pattern "$ss_process_pattern" >/dev/null
+			return $?
+			;;
 		*) return 2 ;;
 	esac
 }
@@ -111,11 +222,7 @@ ss_process_pattern_count() {
 	[ "$#" -eq 1 ] || return 2
 	ss_count_pattern=$1
 	[ -n "$ss_count_pattern" ] || return 2
-	if ss_pattern_pid_output=$(pgrep -f "$ss_count_pattern" 2>/dev/null); then
-		ss_pattern_pid_status=0
-	else
-		ss_pattern_pid_status=$?
-	fi
+	if ss_pattern_pid_output=$(pgrep -f "$ss_count_pattern" 2>/dev/null); then ss_pattern_pid_status=0; else ss_pattern_pid_status=$?; fi
 	case "$ss_pattern_pid_status" in
 		0)
 			ss_validate_pid_list "$ss_pattern_pid_output" || return 2
@@ -123,7 +230,11 @@ ss_process_pattern_count() {
 			;;
 		1)
 			[ -z "$ss_pattern_pid_output" ] || return 2
-			printf '0\n'
+			if ss_procfs_process_count pattern "$ss_count_pattern"; then return 0; else
+				ss_procfs_status=$?
+				[ "$ss_procfs_status" -eq 1 ] && return 0
+				return 2
+			fi
 			;;
 		*) return 2 ;;
 	esac

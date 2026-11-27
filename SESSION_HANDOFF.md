@@ -1,30 +1,9 @@
-## 2026-11-27 — Bind Redsocks stop signals to captured process identities
+## 2026-11-27 — Confirm Shadowsocks ABSENT lookups with complete procfs scans
 
-- Replaced Redsocks name-wide TERM/KILL with exact-PID signalling. Each candidate must match the configured binary through `/proc/PID/exe`, match the expected process comm, and retain the same `/proc/PID/stat` field-22 start time across separate reads. Stop preserves the first PID/start-time snapshot and refuses signalling if the process set gains a PID or an existing PID is recycled before either signal. Linux 4.4 has no pidfd, so the tiny check-to-signal race cannot be eliminated; L4 remains unverified.
-- Added source contracts and runtime regressions for exact-PID signals, same-PID reuse between TERM and KILL, and a foreign executable with the same comm. Existing bounded waits and start rollback remain.
-- On parent 7e1557690aa6aa996007b5ed4e1aecd170b44eed: Redsocks shell syntax and runtime regression PASS, but its source-contract step failed because the checker looked for stat field 22 in the wrong helper; fixed here. Process inventory #46077813549 PASS. AI docs #46077813682 failed because roadmap size was 131180 bytes (>131072); trimmed here. XY-C1 on prior relevant source d9b6bb8529655903be8d678c85a6e88afd166ba4 passed Build/TRX/artifact (#46076617022); Redsocks-only paths do not trigger XY-C1.
-- Frozen backup remains read-only at 72f4f157a084f8184b9597ca5bf334b8080e5807.
-
-## Exact first action
-
-1. Check exact-main-SHA Redsocks lifecycle, Process lifecycle, Process inventory and AI handoff Actions; repair any FAIL from its job log.
-2. Check exact-SHA XY-C1 Build, TRX verification and artifact upload; make no firmware L3 claim until all three pass.
-3. Continue the P2 privileged-writer / service-lifecycle ledger outside Redsocks, preserving process identity, bounded waits, fail-closed UNKNOWN and rollback requirements.
-
----
-
-## 2026-11-27 — Reject symlinked SSH host-key storage directories
-
-- Confirmed a privileged path-redirection gap in both SSH launchers: checks protected each host-key file but followed a symlink when the configured persistent storage directory itself was redirected. Dropbear newkeys, key validation, argument loading and startup, plus OpenSSH config/key preparation, now reject a symlinked or non-directory storage path before reading, deleting, chmodding, generating or publishing files. The directory is rechecked after creation.
-- Added Dropbear regressions for valid/dangling directory symlinks and regular-file paths, asserting outside key and argument files remain unchanged and no key generation/start occurs. Added an OpenSSH symlink-target preservation test and source contracts. Existing Process lifecycle workflow tracks these inputs; XY-C1 path filters track both production scripts.
-- Parent source/contract SHA ec7de13fc545294fd9aa3cb6a46aa13e4fa9da86: Process lifecycle correction #46075603032 PASS; AI handoff docs #46075603074 PASS. Product-source XY-C1 #46073989253 on 2ffccd9 PASS (Build, TRX and artifact upload). New exact-SHA checks are pending until this commit is pushed. No physical-router/L4 claim.
-- Frozen archival branch backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807 and must remain untouched.
-
-## Exact first action
-
-1. Inspect Process lifecycle, AI handoff documentation and XY-C1 Firmware Validation Actions on this commit's exact main SHA; for XY-C1, confirm Build, TRX verification and artifact upload all pass.
-2. On any FAIL, inspect the failing job log and repair that exact contract/source defect in a small atomic commit. On PENDING, continue independent P1/P2 stability work without waiting.
-3. Continue from the remaining broad RC startup-result, service lifecycle and privileged configuration-boundary queue; do not repeat the closed AliDDNS, DNSMasq or OpenSSH host-key leaf review.
+- BusyBox 1.24 `procps_scan` silently skips PID entries it cannot read, so `pidof`/`pgrep` status 1 is not definitive absence. Shadowsocks now confirms status-1 results against a complete fail-closed procfs scan, including stat validity, task state, command-line readability, name/argv matching and a final lookup recheck. Incomplete inventories return UNKNOWN.
+- Added deterministic fake-procfs regressions for skipped live named and monitor processes, exact counts, and malformed stat records. Existing bounded shutdown/readiness tests remain.
+- Exact-SHA Actions pending after push; no local shell run claimed. Earlier completed slices: SSH storage symlink hardening `d9b6bb8529655903be8d678c85a6e88afd166ba4`; Redsocks identity-bound stop `7e1557690aa6aa996007b5ed4e1aecd170b44eed`, checker/docs follow-up `d51df25a0f3fcef57a2b9ad0633865f29dae595d`. Redsocks and AI docs passed on d51; XY-C1 Build/TRX/artifact passed on d9. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Next: check exact-SHA Shadowsocks lifecycle and AI docs Actions, repair any failing job, then continue P2 process lifecycle/security work.
 
 ---
 

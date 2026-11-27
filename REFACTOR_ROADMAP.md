@@ -1,3 +1,10 @@
+## 2026-11-27 — Confirm Shadowsocks ABSENT lookups with complete procfs scans
+
+- Status-1 `pidof`/`pgrep` results now require complete procfs fallback scans; skipped live matches are recovered and malformed/unreadable inventories fail closed as UNKNOWN.
+- Added named-daemon and monitor false-negative regressions plus malformed-stat coverage. Exact-SHA workflow pending.
+
+---
+
 ## 2026-11-27 — Redsocks identity-bound stop signalling
 
 - Replaced name-wide TERM/KILL with captured PID/start-time and `/proc/PID/exe` checks. Revalidate before each signal; fail closed on PID reuse and foreign same-comm processes.

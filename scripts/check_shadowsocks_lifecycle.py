@@ -109,10 +109,26 @@ for name in ("v2ray", "xray", "ss-redir", "ssr-redir", "ss-local",
 require("kill -9" not in script and "pidof v2ray" not in script and
         "pidof ss-redir" not in script and "grep ss-monitor" not in script,
         "service shutdown must not signal stale PID snapshots")
+procfs_scan = shell_function(helper, "ss_procfs_process_count")
+pid_state = shell_function(helper, "ss_process_pid_state")
+pid_count = shell_function(helper, "ss_process_pid_count")
+pattern_state = shell_function(helper, "ss_process_pattern_state")
+pattern_count = shell_function(helper, "ss_process_pattern_count")
 require("ss_process_pid_state()" in helper and
         'ss_pid_output=$(pidof "$ss_process_name" 2>/dev/null)' in helper and
         'ss_validate_pid_list "$ss_pid_output" || return 2' in helper,
         "pidof must distinguish confirmed absence from lookup errors and malformed output")
+require('ss_procfs_process_count name "$ss_process_name" >/dev/null' in pid_state and
+        'ss_procfs_process_count name "$ss_count_process_name"' in pid_count and
+        'ss_procfs_process_count pattern "$ss_process_pattern" >/dev/null' in pattern_state and
+        'ss_procfs_process_count pattern "$ss_count_pattern"' in pattern_count,
+        "status-1 process lookups must be confirmed by procfs inventory")
+require('ss_proc_root=\${SS_PROC_ROOT:-/proc}' in procfs_scan and
+        'cat "$ss_proc_dir/stat"' in procfs_scan and
+        "tr '\\\\000' '\\\\n'" in procfs_scan and
+        'grep -E -q -- "$ss_proc_query"' in procfs_scan and
+        'ss_validate_pid_list "$ss_proc_post_output"' in procfs_scan,
+        "procfs fallback must validate task records and recheck for newly started tasks")
 require("ss_process_pattern_state()" in helper and
         'ss_pid_output=$(pgrep -f "$ss_process_pattern" 2>/dev/null)' in helper and
         "ss_named_processes_state()" in helper,
@@ -293,7 +309,10 @@ require('if ss_pid_output=$(pidof "$ss_process_name" 2>/dev/null); then' in help
         'if ss_pattern_pid_output=$(pgrep -f "$ss_count_pattern" 2>/dev/null); then' in helper,
         "pidof/pgrep exit statuses must be captured conditionally under caller errexit")
 require("ABSENT pidof count was" in test and "ABSENT pgrep count was" in test and
-        "Lua-generated ipt2socks readiness" in test,
+        "pidof incomplete procfs scan finds a live daemon" in test and
+         "pgrep incomplete procfs scan finds monitor" in test and
+         "malformed procfs is UNKNOWN" in test and
+         "Lua-generated ipt2socks readiness" in test,
         "host regression must cover absent inventory and detached-child startup")
 
 
