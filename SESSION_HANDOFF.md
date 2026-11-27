@@ -1,15 +1,15 @@
-## 2026-11-28 — Track PPP callback-link helper in XY-C1 build triggers
+## 2026-11-28 — Fix NULL optional interface handling in WAN IPv6 teardown
 
-- The VPN stop-path helper is included by `vpn_client.c` and `vpn_server.c`, so both already triggered XY-C1 in the initial source commit. Added the helper header explicitly to XY-C1 push and pull-request path filters as a future header-only edit must also build firmware.
-- Added a detector regression requiring exactly one push and one PR path entry and confirming the helper is a firmware input. The VPN lifecycle workflow separately compiles the policy test under GNU89/ASan/UBSan.
-- Latest production-source build run #46062368487 targets the VPN source commit `4641eb81d8d2abee5c9ddfb9e037b42f8baf207a`; it was last observed building. No L3 claim until Build/TRX/artifact all succeed.
-- Main source/checker commits: `4641eb81d8d2abee5c9ddfb9e037b42f8baf207a`, `cbc2fe31e14969083c1dbc399b37e0710b7ce3b7`, `32e860095157e4029a8c25381194531cf70453f8`, `dce62d6e6cfa9d6ad0f32d728efa2fc8636d79d1`. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Found a NULL-dereference path in `wan6_down()`: the teardown selector deliberately supports an absent request interface and may return a still-live saved interface, but a later raw `strcmp(wan6_ifname, wan_ifname)` dereferenced the NULL request. The function already treats `wan_ifname` as optional in its logging and first cleanup block, and the selector has explicit NULL-input behavior.
+- Replaced the raw comparison with `wan6_teardown_needs_previous_interface_cleanup()`, which handles NULL/empty request names, avoids re-cleaning the same interface, and keeps SIT teardown distinct. Added GNU89 ASan/UBSan tests for NULL/empty names and no-op edge cases; wired the header/test into IPv6 path filters and the source-contract checker.
+- Parent main SHA: `4e798839a2c3fa0b85266c43f7454c8a8a83e23f`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Latest exact results before this change: VPN lifecycle #46062768689 PASS on `dce62d6...`; Process inventory #46062938955 PASS on `4e7988...`; AI handoff #46062938975 PASS. XY-C1 #46062939004 was still building on `4e7988...` at last poll; do not claim current VPN L3 until Build/TRX/artifact all succeed on the same product-source SHA. Hardware L4 not verified. Local host execution is unavailable here.
 
 ## Exact first action
 
-1. Inspect exact-SHA VPN lifecycle run after the source-contract fixes.
-2. Inspect XY-C1 Build, TRX and artifact upload for the production-source SHA above; do not conflate checker-only descendants with firmware source validation.
-3. Continue a separate high-priority cross-userland reliability/security defect.
+1. Inspect exact-SHA IPv6 service-type workflow for this commit, including null/empty WAN teardown regression and source checker.
+2. Recheck XY-C1 #46062939004 through Build, TRX and artifact upload; do not conflate prior `9d067...` success with the VPN source.
+3. Continue independent cross-userland reliability/security work while Actions are pending; avoid repeating completed USB, HTTPD, GPIO, VPN callback cleanup and WAN teardown audits.
 ---
 
 ## 2026-11-26 — Autonomous development checkpoint

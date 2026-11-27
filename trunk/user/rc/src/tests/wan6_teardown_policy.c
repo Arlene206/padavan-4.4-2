@@ -82,6 +82,42 @@ test_empty_request_still_cleans_previous_live_interface(void)
 		"eth2.2", 1, 0, 0, 0, "", "sit0"), "eth2.2");
 }
 
+
+static void
+test_previous_interface_cleanup_with_null_request(void)
+{
+	assert(wan6_teardown_needs_previous_interface_cleanup(
+		"eth2.2", NULL, "sit0") == 1);
+}
+
+static void
+test_previous_interface_cleanup_with_empty_request(void)
+{
+	assert(wan6_teardown_needs_previous_interface_cleanup(
+		"eth2.2", "", "sit0") == 1);
+}
+
+static void
+test_same_requested_interface_needs_no_second_cleanup(void)
+{
+	assert(wan6_teardown_needs_previous_interface_cleanup(
+		"eth2.2", "eth2.2", "sit0") == 0);
+}
+
+static void
+test_sit_interface_is_not_treated_as_previous_native_interface(void)
+{
+	assert(wan6_teardown_needs_previous_interface_cleanup(
+		"sit0", NULL, "sit0") == 0);
+}
+
+static void
+test_missing_selected_interface_needs_no_previous_cleanup(void)
+{
+	assert(wan6_teardown_needs_previous_interface_cleanup(
+		NULL, NULL, "sit0") == 0);
+}
+
 int
 main(void)
 {
@@ -94,6 +130,11 @@ main(void)
 	test_current_native_without_saved_state_uses_wan_device();
 	test_empty_native_request_name_has_no_fallback_interface();
 	test_empty_request_still_cleans_previous_live_interface();
+	test_previous_interface_cleanup_with_null_request();
+	test_previous_interface_cleanup_with_empty_request();
+	test_same_requested_interface_needs_no_second_cleanup();
+	test_sit_interface_is_not_treated_as_previous_native_interface();
+	test_missing_selected_interface_needs_no_previous_cleanup();
 	puts("WAN IPv6 teardown selection policy: PASS");
 	return 0;
 }

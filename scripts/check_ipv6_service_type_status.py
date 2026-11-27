@@ -83,6 +83,8 @@ ue = up.index("if (status != 0)", ur)
 us = up.index("stop_dhcp6c(", ue)
 assert ur < ue < us and "return status;" in up[ue:us]
 
+wan6_teardown_policy = (ROOT / "trunk/user/rc/src/wan6_teardown_policy.h").read_text()
+wan6_teardown_test = (ROOT / "trunk/user/rc/src/tests/wan6_teardown_policy.c").read_text()
 down = function_body(wan6, "int wan6_down(char *wan_ifname, int unit)")
 ds = down.index("stop_dhcp6c(")
 dr = down.index("get_ipv6_type_status(", ds)
@@ -92,6 +94,18 @@ die = down.index("if (status != 0)", di)
 dip = down.index("is_interface_exist(previous_ifname)", die)
 assert ds < dr < de < di < die < dip and "return status;" in down[de:di]
 assert 'get_wan_unit_value(unit, "ifname6")' not in down
+assert "wan6_teardown_needs_previous_interface_cleanup(" in down
+assert "strcmp(wan6_ifname, wan_ifname)" not in down
+for token in (
+    "test_previous_interface_cleanup_with_null_request",
+    "test_previous_interface_cleanup_with_empty_request",
+    "test_same_requested_interface_needs_no_second_cleanup",
+    "test_sit_interface_is_not_treated_as_previous_native_interface",
+    "test_missing_selected_interface_needs_no_previous_cleanup",
+):
+    assert token in wan6_teardown_test and token + "();" in wan6_teardown_test
+assert "wan6_teardown_needs_previous_interface_cleanup" in wan6_teardown_policy
+
 
 callback = function_body(wan6, "int dhcp6c_main(int argc, char **argv)")
 cr = callback.index("get_ipv6_type_status(")

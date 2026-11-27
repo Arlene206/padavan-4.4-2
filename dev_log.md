@@ -1,3 +1,9 @@
+## 2026-11-28 — Make WAN IPv6 teardown safe for a NULL optional interface
+
+- `wan6_teardown_select_ifname()` intentionally accepts a NULL request name and can select a still-live saved interface, but `wan6_down()` later compared that selected name to `wan_ifname` with raw `strcmp`, causing a NULL dereference. The function's existing guards/logging also treated the request name as optional.
+- Added a null-safe previous-interface cleanup predicate and used it in `wan6_down()`; added five tests covering NULL/empty requests, equal requested/saved interface, SIT exclusion and missing selected interface.
+- Added the policy header/test to IPv6 workflow push/PR path filters, compiled the test under GNU89 + ASan/UBSan, and extended the source checker. Exact-SHA Actions pending; no local host or L4 result claimed.
+
 ## 2026-11-28 — Add PPP callback policy to XY-C1 firmware path filters
 
 - Added `ppp_callback_link_policy.h` to both push and pull-request path filters in `xy-c1-firmware-validation.yml`. The helper is a production include of VPN client/server stop code; future header-only edits must not bypass cross-build validation.

@@ -1878,8 +1878,13 @@ int wan6_down(char *wan_ifname, int unit)
 				   wan_ifname, operation_status);
 	}
 
-	if (strcmp(wan6_ifname, wan_ifname) != 0 &&
-	    strcmp(wan6_ifname, IFNAME_SIT) != 0) {
+	/*
+	 * wan_ifname is optional during teardown. The saved live interface can
+	 * still be selected when the request name is NULL, so never strcmp it
+	 * directly without the null-safe policy check.
+	 */
+	if (wan6_teardown_needs_previous_interface_cleanup(
+		    wan6_ifname, wan_ifname, IFNAME_SIT)) {
 		operation_status = control_if_ipv6_radv(wan6_ifname, 0);
 		status = route_status_accumulate(status, operation_status);
 		if (operation_status != 0)
