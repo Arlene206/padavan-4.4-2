@@ -1,13 +1,21 @@
-## 2026-11-27 — Repair exact-SHA Shadowsocks contract and handoff guard
+## 2026-11-28 — Restore Transmission HTTPS tracker certificate verification
 
-- Production/test baseline: `f23be0cff7d7e0d1e942ebcf10094497b73be676` (`fix(shadowsocks): confirm absent process scans via procfs`). The BusyBox 1.24 status-1 fallback scan and fake-procfs regressions are already on `main`; do not repeat that implementation review.
-- Exact push Actions on that SHA: Shadowsocks lifecycle #46079286423 FAILED only at `scripts/check_shadowsocks_lifecycle.py` because its source contract searched for an escaped `${SS_PROC_ROOT...}` and two backslashes in the `tr` expression; the production shell helper contains the literal parameter expansion and one backslash. Shell syntax, startup/status, DNSMasq cleanup, process lifecycle (including the new incomplete-procfs false-negative regression), and adblock regressions all PASS. Process inventory #46079286495 PASS.
-- AI handoff documentation contract #46079286331 FAILED because UTF-8 `REFACTOR_ROADMAP.md` was 131389 bytes, 317 bytes over its 131072-byte hard limit; the current top entry is compressed in this correction. Exact reruns for Shadowsocks and AI docs must be checked on the new HEAD.
-- XY-C1 Firmware Validation #46079286427 remains IN_PROGRESS on the production source SHA above. All host validation steps and the firmware-input detector passed; Build XY-C1 was running, while TRX verification and artifact upload were still pending at the last observation. Do not claim L3 until Build, TRX and artifact upload all pass. No physical-router/L4 validation is claimed.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` and must remain untouched.
-- Exact first action: inspect the new exact-SHA Shadowsocks lifecycle and AI documentation runs; repair any remaining failing assertion/limit. Independently retrieve the completion state of XY-C1 run #46079286427 for source SHA `f23be0c`. Then continue the next P2 process-lifecycle/security slice outside the already completed Shadowsocks scanner review.
+- `transmission.sh` previously exported `TR_CURL_SSL_NO_VERIFY=1` for Transmission 3.00, disabling HTTPS tracker certificate and hostname validation. The launcher now clears inherited overrides before any daemon startup and retains the upstream secure default.
+- Added a shell regression which injects the insecure inherited value before sourcing the exact launcher preamble, verifies that it is unset, and rejects future forced assignments. Process lifecycle push/PR CI runs this test; XY-C1 already watches the production launcher.
+- Base SHA: `20e0a312051addf538ed6bf4ae85022e608ed4b3`; source/test/workflow/docs changes are prepared as one atomic commit. Exact-head Transmission, Process, AI handoff and XY-C1 Build/TRX/artifact checks are pending; no local shell test is claimed.
+- Previous Shadowsocks ABSENT fallback source `f23be0cff7d7e0d1e942ebcf10094497b73be676`: the lifecycle runtime tests and Process inventory PASSed; its stale static checker and roadmap byte-limit failures were repaired by `20e0a312051addf538ed6bf4ae85022e608ed4b3`. Shadowsocks #46079578628 and AI docs #46079578625 PASS on that repair SHA. XY-C1 #46079286427 is still pending on f23; Build was running, TRX/artifact not started at last check.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged.
+- Exact first action: inspect this commit's Transmission/Process/AI and XY-C1 exact-SHA runs, require Build XY-C1 + TRX + artifact for L3, then close f23's outstanding XY-C1 run and continue the next independent P1 security/stability defect.
 
 ---
+
+## 2026-11-27 — Repair exact-SHA Shadowsocks contract and handoff guard
+
+- Production/test baseline: `f23be0cff7d7e0d1e942ebcf10094497b73be676`. BusyBox 1.24 status-1 fallback and fake-procfs regressions remain the production scope; no repeated source review.
+- Its Shadowsocks regression #46079286423 failed only because the static checker searched for an incorrectly escaped procfs command expression; runtime/shell regressions and Process inventory #46079286495 PASSed. AI docs #46079286331 failed because the roadmap exceeded its 131072-byte limit by 317 bytes.
+- Corrected the source assertion and compressed the stale governance entry. Shadowsocks #46079578628 and AI docs #46079578625 now PASS on `20e0a312051addf538ed6bf4ae85022e608ed4b3`. XY-C1 #46079286427 remains in progress on f23; Build was running and TRX/artifact pending at the last poll.
+- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+
 
 ## 2026-11-26 — Autonomous development checkpoint
 

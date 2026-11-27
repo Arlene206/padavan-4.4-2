@@ -13,6 +13,10 @@ SVC_NAME="Transmission"
 SVC_PATH="/usr/bin/transmission-daemon"
 DIR_LINK="/mnt/transmission"
 
+# Transmission 3.00 verifies HTTPS tracker certificates by default. Clear an
+# inherited opt-out so no caller can silently disable certificate validation.
+unset TR_CURL_SSL_NO_VERIFY
+
 transmission_start_fail()
 {
 	# A failed noclobber open does not transfer ownership of a pre-existing path.
@@ -271,7 +275,6 @@ func_start()
 		return 1
 	fi
 
-	export TR_CURL_SSL_NO_VERIFY=1
 	
 	DIR_CFG="${DIR_LINK}/config"
 	DIR_DL1="`cd \"$DIR_LINK\"; dirname \"$(pwd -P)\"`/Downloads"

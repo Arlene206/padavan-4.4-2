@@ -278,6 +278,7 @@ on:
       - "trunk/user/transmission/transmission.sh"
       - "trunk/user/transmission/tests/stop_pid_snapshot.sh"
       - "trunk/user/transmission/tests/reload_status.sh"
+      - "trunk/user/transmission/tests/tls_verification.sh"
       - "trunk/user/wireguard/wireguard.sh"
       - "trunk/user/wireguard/tests/wireguard_lifecycle.sh"
 
@@ -563,6 +564,7 @@ on:
       - "trunk/user/transmission/transmission.sh"
       - "trunk/user/transmission/tests/stop_pid_snapshot.sh"
       - "trunk/user/transmission/tests/reload_status.sh"
+      - "trunk/user/transmission/tests/tls_verification.sh"
       - "trunk/user/wireguard/wireguard.sh"
       - "trunk/user/wireguard/tests/wireguard_lifecycle.sh"
 
@@ -1391,6 +1393,11 @@ jobs:
           sh -n trunk/user/transmission/transmission.sh
           sh -n trunk/user/transmission/tests/stop_pid_snapshot.sh
           sh trunk/user/transmission/tests/stop_pid_snapshot.sh
+      - name: Verify Transmission tracker TLS certificate validation remains enabled
+        run: |
+          sh -n trunk/user/transmission/transmission.sh
+          sh -n trunk/user/transmission/tests/tls_verification.sh
+          sh trunk/user/transmission/tests/tls_verification.sh
       - name: Verify WireGuard startup, private-key confinement and teardown lifecycle
         run: sh trunk/user/wireguard/tests/wireguard_lifecycle.sh
       - name: Verify ZeroTier tri-state process lifecycle

@@ -1,3 +1,12 @@
+## 2026-11-28 04:xx CST (UTC+8) — Restore Transmission HTTPS tracker certificate verification
+
+- `transmission.sh` previously exported `TR_CURL_SSL_NO_VERIFY=1`; Transmission 3.00 treats this variable as an opt-out from HTTPS tracker certificate and hostname validation. The launcher now clears any inherited value before startup and keeps verification enabled by default.
+- Added `tests/tls_verification.sh`: it injects the opt-out into the environment, sources the exact launcher preamble, verifies the variable is cleared and statically rejects any forced assignment. Wired into Process lifecycle push/PR checks. The XY-C1 workflow already watches the launcher.
+- Base SHA: `20e0a312051addf538ed6bf4ae85022e608ed4b3`. Exact-head Transmission/Process/AI and XY-C1 Build/TRX/artifact checks are pending. No local shell test claimed.
+- Commit: THIS COMMIT.
+
+---
+
 ## 2026-11-28 03:55 CST (UTC+8) — Correct Shadowsocks procfs source contract and handoff byte guard
 
 - Exact SHA `f23be0cff7d7e0d1e942ebcf10094497b73be676`: Shadowsocks lifecycle #46079286423 passed shell syntax and all runtime regressions, then failed only because the Python source checker expected incorrect escaping for the literal procfs path expansion and `tr` delimiter. This checker-only correction now matches the actual shell source.
