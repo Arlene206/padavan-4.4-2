@@ -625,7 +625,7 @@ func_reload()
 		tr_reload_state=$?
 	fi
 	case "$tr_reload_state" in
-		1) return 0 ;;
+		1) echo "Error: $SVC_NAME is not started!"; return 1 ;;
 		0) ;;
 		*) echo "[FAILED]"; logger -t "$SVC_NAME" "Cannot reload: daemon identity is unknown" >/dev/null 2>&1 || true; return 2 ;;
 	esac
