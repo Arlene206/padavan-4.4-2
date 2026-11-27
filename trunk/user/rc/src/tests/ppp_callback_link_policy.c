@@ -68,12 +68,70 @@ static void test_eexist_race_accepts_only_exact_link(void){
  assert(ppp_callback_link_ensure_with("/sbin/rc",p,&made,&ops)==0&&made==0);
  assert(ppp_callback_link_remove("/sbin/rc",p)==0&&rmdir(d)==0);
 }
+
+static int fail_unlink(const char *path)
+{ (void)path; errno=EIO; return -1; }
+static void test_checked_remove_rejects_unsafe_directory(void)
+{
+ char d[]="/tmp/ppp-callback-unsafe.XXXXXX",p[PATH_MAX]; struct stat st;
+ assert(mkdtemp(d)); assert(snprintf(p,sizeof(p),"%s/callback",d)>0);
+ assert(symlink("/sbin/rc",p)==0 && chmod(d,0777)==0);
+ errno=0;
+ assert(ppp_callback_link_remove_from_directory(d,"/sbin/rc",p)==-1&&errno==EPERM);
+ assert(lstat(p,&st)==0&&S_ISLNK(st.st_mode));
+ assert(chmod(d,0700)==0);
+ assert(ppp_callback_link_remove_from_directory(d,"/sbin/rc",p)==0&&rmdir(d)==0);
+}
+static void test_checked_remove_rejects_directory_symlink(void)
+{
+ char root[]="/tmp/ppp-callback-parent.XXXXXX",real[PATH_MAX],alias[PATH_MAX];
+ char p[PATH_MAX],alias_path[PATH_MAX],actual[PATH_MAX]; ssize_t n; struct stat st;
+ assert(mkdtemp(root)); assert(snprintf(real,sizeof(real),"%s/real",root)>0&&mkdir(real,0700)==0);
+ assert(snprintf(p,sizeof(p),"%s/callback",real)>0&&symlink("/sbin/rc",p)==0);
+ assert(snprintf(alias,sizeof(alias),"%s/alias",root)>0&&symlink(real,alias)==0);
+ assert(snprintf(alias_path,sizeof(alias_path),"%s/callback",alias)>0);
+ errno=0;
+ assert(ppp_callback_link_remove_from_directory(alias,"/sbin/rc",alias_path)==-1&&errno==EPERM);
+ n=readlink(p,actual,sizeof(actual)-1); assert(n==(ssize_t)strlen("/sbin/rc"));
+ actual[n]='\0'; assert(strcmp(actual,"/sbin/rc")==0&&lstat(p,&st)==0&&S_ISLNK(st.st_mode));
+ assert(unlink(p)==0&&unlink(alias)==0&&rmdir(real)==0&&rmdir(root)==0);
+}
+static void test_checked_remove_rejects_non_child_path(void)
+{
+ char d[]="/tmp/ppp-callback-child.XXXXXX",p[PATH_MAX]; assert(mkdtemp(d));
+ assert(snprintf(p,sizeof(p),"%s/sub/callback",d)>0); errno=0;
+ assert(ppp_callback_link_remove_from_directory(d,"/sbin/rc",p)==-1&&errno==EINVAL);
+ assert(rmdir(d)==0);
+}
+static void test_checked_remove_preserves_unlink_errno_and_object(void)
+{
+ char d[]="/tmp/ppp-callback-unlink.XXXXXX",p[PATH_MAX];
+ struct ppp_callback_link_ops ops={lstat,readlink,symlink,fail_unlink,geteuid}; struct stat st;
+ assert(mkdtemp(d)); assert(snprintf(p,sizeof(p),"%s/callback",d)>0&&symlink("/sbin/rc",p)==0);
+ errno=0;
+ assert(ppp_callback_link_remove_from_directory_with(d,"/sbin/rc",p,&ops)==-1&&errno==EIO);
+ assert(lstat(p,&st)==0&&S_ISLNK(st.st_mode));
+ assert(unlink(p)==0&&rmdir(d)==0);
+}
+static void test_checked_remove_treats_missing_directory_as_clean(void)
+{
+ char d[]="/tmp/ppp-callback-missing.XXXXXX",p[PATH_MAX]; assert(mkdtemp(d));
+ assert(snprintf(p,sizeof(p),"%s/callback",d)>0&&rmdir(d)==0);
+ assert(ppp_callback_link_remove_from_directory(d,"/sbin/rc",p)==0);
+}
+
 int main(void){
  unsigned char made=1;
  test_shared_directory_requires_sticky_write_protection();test_create_existing_and_remove();
  test_regular_file_collision_is_preserved();test_wrong_symlink_is_preserved();
  test_non_owner_exact_symlink_is_preserved();test_create_error_is_preserved();
- test_eexist_race_accepts_only_exact_link();errno=0;
+ test_eexist_race_accepts_only_exact_link();
+ test_checked_remove_rejects_unsafe_directory();
+ test_checked_remove_rejects_directory_symlink();
+ test_checked_remove_rejects_non_child_path();
+ test_checked_remove_preserves_unlink_errno_and_object();
+ test_checked_remove_treats_missing_directory_as_clean();
+ errno=0;
  assert(ppp_callback_link_ensure(NULL,"/tmp/no-link",&made)==-1&&errno==EINVAL&&made==0);
  puts("PPP callback link ownership policy: PASS");return 0;
 }

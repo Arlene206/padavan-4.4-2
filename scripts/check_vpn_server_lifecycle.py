@@ -438,8 +438,8 @@ require("refusing L2TP server startup: cannot publish ownership marker" in l2tp_
 ordered(tp, [
     "marker_status = vpn_server_set_l2tp_server_marker(0);",
     "if (marker_status != 0)",
-    "unlink(VPNS_PPP_UP_SCRIPT)",
-    "unlink(VPNS_PPP_DW_SCRIPT)",
+    'ppp_callback_link_remove_from_directory(\n\t\t    "/tmp/ppp", "/sbin/rc", VPNS_PPP_UP_SCRIPT)',
+    'ppp_callback_link_remove_from_directory(\n\t\t    "/tmp/ppp", "/sbin/rc", VPNS_PPP_DW_SCRIPT)',
     "clear_vpns_lease_file()",
     "if (saved_errno != 0)",
     "return -1;"
@@ -1095,8 +1095,28 @@ ordered(client_stop, [
     "stop_vpn_client_ppp(0)",
     "restore_dns_from_vpnc()",
     'vpn_client_nvram_set_temp_status(\n\t\tNULL, "vpnc_state_t", "0")',
-    "unlink(VPNC_PPP_UP_SCRIPT)"
-], "VPN client stop must restore DNS after stopping the PPP peer")
+    'ppp_callback_link_remove_from_directory(\n\t\t    "/tmp/ppp", "/sbin/rc", VPNC_PPP_UP_SCRIPT)',
+    'ppp_callback_link_remove_from_directory(\n\t\t    "/tmp/ppp", "/sbin/rc", VPNC_PPP_DW_SCRIPT)',
+    "return cleanup_status;"
+], "VPN client stop must restore DNS and safely remove owned callback links")
+ppp_callback_policy=read("trunk/user/rc/src/ppp_callback_link_policy.h")
+ppp_callback_test=read("trunk/user/rc/src/tests/ppp_callback_link_policy.c")
+require('#include "ppp_callback_link_policy.h"' in vpn_client and
+        '#include "ppp_callback_link_policy.h"' in vpn,
+        "VPN stop paths must use the checked PPP callback-link policy")
+for token in ("ppp_callback_link_remove_from_directory_with",
+              "ppp_callback_link_remove_from_directory",
+              "directory_stat.st_uid != ops->geteuid_fn()",
+              "ppp_callback_link_state_with(target, path, ops)"):
+    require(token in ppp_callback_policy,
+            f"PPP callback-link cleanup policy missing {token}")
+for token in ("test_checked_remove_rejects_unsafe_directory",
+              "test_checked_remove_rejects_directory_symlink",
+              "test_checked_remove_rejects_non_child_path",
+              "test_checked_remove_preserves_unlink_errno_and_object",
+              "test_checked_remove_treats_missing_directory_as_clean"):
+    require(token in ppp_callback_test and token + "();" in ppp_callback_test,
+            f"PPP callback-link cleanup regression missing {token}")
 client_restart=body(vpn_client,"static int\nrestart_vpn_client_locked(void)")
 require("restore_dns_from_vpnc()" not in client_restart,
         "VPN client restart must not repeat the DNS restoration already performed by stop")
@@ -1236,7 +1256,10 @@ ordered(vpn_client_stop, [
     "cleanup_status = route_status_accumulate(cleanup_status, route_status);",
     'vpn_client_nvram_set_temp_status(\n\t\tNULL, "vpnc_state_t", "0")',
     "cleanup_status = route_status_accumulate(cleanup_status, route_status);",
-    "unlink(VPNC_PPP_UP_SCRIPT)",
+    'ppp_callback_link_remove_from_directory(\n\t\t    "/tmp/ppp", "/sbin/rc", VPNC_PPP_UP_SCRIPT)',
+    "cleanup_status = route_status_accumulate(cleanup_status, route_status);",
+    'ppp_callback_link_remove_from_directory(\n\t\t    "/tmp/ppp", "/sbin/rc", VPNC_PPP_DW_SCRIPT)',
+    "cleanup_status = route_status_accumulate(cleanup_status, route_status);",
     "return cleanup_status;"
 ], "VPN client checked NVRAM cleanup")
 require("nvram_set_int_temp(" not in vpn_client,

@@ -1,16 +1,15 @@
-## 2026-11-27 — Complete USB printer child-reaping contract integration
+## 2026-11-28 — VPN callback-link teardown cleanup is now ownership-safe
 
-- Parent `main`: `b545f315f027fab60d7ec0774ef7b290ebe4d464`; frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged).
-- Production fix `9d067387196d7c714828b2fd3ad29bc613d86888` passed Process fail-closed #46060519790, including the GNU89/ASan/UBSan real-child reaping regression; Process inventory #46060519789 and AI handoff #46060519794 also passed.
-- Concurrent checker-only commit `b545f315f027fab60d7ec0774ef7b290ebe4d464` fixed the first USB modem stale-comment assertion. This commit strengthens that checker to verify full and partial `waitpid()` reaping and adds the helper/test to its filter inventory. It also fixes USB storage’s stale direct-return assertion and tracks the helper/test in both workflow filters and its inline source inventory.
-- On ancestor `9d06738`, USB modem #46060519820 and USB storage #46060519977 failed only because their source contracts described the old launcher. The new SHA needs both reruns. XY-C1 #46060519815 was still compiling at last poll; no current-source TRX/artifact result is claimed. Older XY-C1 #46059507343 on `2f6ae45` passed Build/TRX/artifact but does not verify the current source.
-- No local host build or physical router L4 is claimed.
+- Current `main` slice integrates the existing PPP callback-link helper/test into VPN client and server teardown. Client callback cleanup errors are no longer discarded; both paths remove only an exact effective-UID-owned `/sbin/rc` symlink from validated `/tmp/ppp`. Unsafe directories/conflicting objects fail closed; missing entries are idempotent.
+- Parent SHA: `2328bdaad45a8f3418c56f52effcf2d56d2c765d`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged).
+- USB checker/source-contract sync commit `2328bdaad45a8f3418c56f52effcf2d56d2c765d`: USB storage #46061170203 PASS, USB modem #46061170172 PASS, AI docs #46061170077 PASS. USB printer reaping product SHA `9d067387196d7c714828b2fd3ad29bc613d86888` passed Process fail-closed #46060519790. XY-C1 #46060519815 on `9d067...` was last observed building; TRX/artifact not confirmed.
+- VPN callback-link changes in this commit require exact-SHA VPN/Process/XY-C1 checks. No local host build or physical-router L4 is claimed.
 
 ## Exact first action
 
-1. Inspect exact-SHA USB modem, USB storage, Process lifecycle and AI handoff runs. Require the new full/partial child-reaping contracts and ASan/UBSan regression to pass.
-2. Inspect exact-SHA XY-C1 Build, TRX verification and artifact upload for the current source. Then continue a separate stability/security defect outside USB printer, storage, HTTPD and GPIO.
-
+1. Inspect this commit's VPN server lifecycle workflow; require the PPP callback-link GNU89/ASan/UBSan test and both teardown source contracts to PASS.
+2. Inspect exact-SHA Process inventory and XY-C1; L3 requires Build, TRX verification and artifact upload on the same product SHA.
+3. Continue a separate high-priority reliability/security defect outside USB printer and VPN callback-link cleanup while Actions are pending. Do not repeat completed USB/storage, HTTPD or GPIO work.
 ---
 
 ## 2026-11-26 — Autonomous development checkpoint

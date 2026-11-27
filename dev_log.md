@@ -1,3 +1,10 @@
+## 2026-11-28 — Make VPN callback-link teardown ownership-safe and status-bearing
+
+- Found that `stop_vpn_client_locked()` discarded both PPP callback `unlink()` results, so a failed cleanup could be reported as success. VPN server teardown did propagate unlink errno but could still unlink any object at the fixed path rather than only the expected `/sbin/rc` symlink.
+- Integrated the existing PPP callback-link policy into both VPN client/server stop paths. Cleanup now validates the direct-child path, non-symlink/euid-owned directory, expected symlink type/owner/target, treats an absent directory/link as already clean, preserves conflicting objects, attempts both links and propagates the first cleanup error.
+- Expanded GNU89 ASan/UBSan regressions for permissive or symlinked directories, path traversal, unlink failure/errno retention, object preservation and missing-directory idempotence. Wired the regression and header/test paths into the VPN lifecycle workflow; semantic source checks pin both teardown sequences.
+- No local host execution is available in this connector-only session. Exact-head VPN lifecycle, Process inventory and XY-C1 Build/TRX/artifact validation are pending; no hardware L4 claim.
+
 ## 2026-11-27 — Synchronize USB printer source contracts with failed-exec child reaping
 
 - A concurrent main update `b545f315f027fab60d7ec0774ef7b290ebe4d464` had already replaced the USB modem checker’s old partial-write comment assertion with a structural partial-reap check. Extended it to require both full/partial reaping, the EINTR helper policy, actual forked-child regression markers, and path-filter coverage for the new helper/test.

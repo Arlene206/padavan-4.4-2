@@ -71,4 +71,73 @@ ppp_callback_link_remove_with(const char *target,const char *path,const struct p
 }
 static inline int ppp_callback_link_remove(const char *target,const char *path)
 {return ppp_callback_link_remove_with(target,path,&ppp_callback_link_system_ops);}
+
+/*
+ * Remove a callback only when it is a direct child of the expected private
+ * directory and is still the exact symlink owned by this effective uid.
+ * A missing directory/link is already clean; unsafe objects are preserved.
+ */
+static inline int
+ppp_callback_link_remove_from_directory_with(
+    const char *directory, const char *target, const char *path,
+    const struct ppp_callback_link_ops *ops)
+{
+    struct stat directory_stat;
+    const char *basename;
+    size_t directory_length;
+    int state;
+
+    if (!directory || !directory[0] || !target || !target[0] ||
+        !path || !path[0] || !ops || !ops->lstat_fn ||
+        !ops->readlink_fn || !ops->unlink_fn || !ops->geteuid_fn) {
+        errno = EINVAL;
+        return -1;
+    }
+    directory_length = strlen(directory);
+    while (directory_length > 1 && directory[directory_length - 1] == '/')
+        directory_length--;
+    if (directory_length == 1 && directory[0] == '/') {
+        if (path[0] != '/' || path[1] == '\0') {
+            errno = EINVAL;
+            return -1;
+        }
+        basename = path + 1;
+    } else {
+        if (strncmp(directory, path, directory_length) != 0 ||
+            path[directory_length] != '/') {
+            errno = EINVAL;
+            return -1;
+        }
+        basename = path + directory_length + 1;
+    }
+    if (!basename[0] || strchr(basename, '/') ||
+        strcmp(basename, ".") == 0 || strcmp(basename, "..") == 0) {
+        errno = EINVAL;
+        return -1;
+    }
+    if (ops->lstat_fn(directory, &directory_stat) != 0)
+        return errno == ENOENT ? 0 : -1;
+    if (!S_ISDIR(directory_stat.st_mode) ||
+        directory_stat.st_uid != ops->geteuid_fn() ||
+        ((directory_stat.st_mode & (S_IWGRP | S_IWOTH)) &&
+         !(directory_stat.st_mode & S_ISVTX))) {
+        errno = EPERM;
+        return -1;
+    }
+    state = ppp_callback_link_state_with(target, path, ops);
+    if (state <= 0)
+        return state;
+    if (ops->unlink_fn(path) == 0 || errno == ENOENT)
+        return 0;
+    return -1;
+}
+static inline int
+ppp_callback_link_remove_from_directory(const char *directory,
+                                        const char *target,
+                                        const char *path)
+{
+    return ppp_callback_link_remove_from_directory_with(
+        directory, target, path, &ppp_callback_link_system_ops);
+}
+
 #endif

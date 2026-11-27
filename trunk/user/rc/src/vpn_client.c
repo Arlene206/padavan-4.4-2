@@ -33,6 +33,7 @@
 #include "vpn_client_nvram_policy.h"
 #include "route_status_policy.h"
 #include "ppp_options_file.h"
+#include "ppp_callback_link_policy.h"
 #include "ppp_option_value_policy.h"
 #include "vpn_server_lifecycle_lock.h"
 #include "vpn_server_callback_policy.h"
@@ -685,8 +686,22 @@ stop_vpn_client_locked(void)
 			   "cannot clear VPN client state after stop (status=%d)",
 			   route_status);
 
-	unlink(VPNC_PPP_UP_SCRIPT);
-	unlink(VPNC_PPP_DW_SCRIPT);
+	if (ppp_callback_link_remove_from_directory(
+		    "/tmp/ppp", "/sbin/rc", VPNC_PPP_UP_SCRIPT) != 0) {
+		route_status = errno ? errno : EIO;
+		cleanup_status = route_status_accumulate(cleanup_status, route_status);
+		logmessage(VPNC_LOG_NAME,
+			   "cannot safely remove VPN up callback link (status=%d)",
+			   route_status);
+	}
+	if (ppp_callback_link_remove_from_directory(
+		    "/tmp/ppp", "/sbin/rc", VPNC_PPP_DW_SCRIPT) != 0) {
+		route_status = errno ? errno : EIO;
+		cleanup_status = route_status_accumulate(cleanup_status, route_status);
+		logmessage(VPNC_LOG_NAME,
+			   "cannot safely remove VPN down callback link (status=%d)",
+			   route_status);
+	}
 	return cleanup_status;
 }
 

@@ -35,6 +35,7 @@
 #include "vpn_server_config_policy.h"
 #include "route_status_policy.h"
 #include "ppp_options_file.h"
+#include "ppp_callback_link_policy.h"
 #include "process_presence_start_policy.h"
 #include <process_inventory.h>
 #include <process_pidfile.h>
@@ -925,17 +926,23 @@ stop_vpn_server_locked(void)
 			   marker_status);
 	}
 
-	if (unlink(VPNS_PPP_UP_SCRIPT) != 0 && errno != ENOENT) {
+	if (ppp_callback_link_remove_from_directory(
+		    "/tmp/ppp", "/sbin/rc", VPNS_PPP_UP_SCRIPT) != 0) {
+		int link_errno = errno ? errno : EIO;
 		if (saved_errno == 0)
-			saved_errno = errno ? errno : EIO;
+			saved_errno = link_errno;
 		logmessage(VPNS_LOG_NAME,
-			   "cannot remove VPN up callback link (errno=%d)", errno);
+			   "cannot safely remove VPN up callback link (status=%d)",
+			   link_errno);
 	}
-	if (unlink(VPNS_PPP_DW_SCRIPT) != 0 && errno != ENOENT) {
+	if (ppp_callback_link_remove_from_directory(
+		    "/tmp/ppp", "/sbin/rc", VPNS_PPP_DW_SCRIPT) != 0) {
+		int link_errno = errno ? errno : EIO;
 		if (saved_errno == 0)
-			saved_errno = errno ? errno : EIO;
+			saved_errno = link_errno;
 		logmessage(VPNS_LOG_NAME,
-			   "cannot remove VPN down callback link (errno=%d)", errno);
+			   "cannot safely remove VPN down callback link (status=%d)",
+			   link_errno);
 	}
 
 	if (clear_vpns_lease_file() != 0) {

@@ -45,6 +45,8 @@ on:
       - 'trunk/user/rc/src/vpn_client_nvram_policy.h'
       - 'trunk/user/rc/src/tests/vpn_client_nvram_policy.c'
       - 'trunk/user/rc/src/ppp_option_value_policy.h'
+      - 'trunk/user/rc/src/ppp_callback_link_policy.h'
+      - 'trunk/user/rc/src/tests/ppp_callback_link_policy.c'
       - 'trunk/user/rc/src/tests/ppp_option_value_policy.c'
       - 'scripts/check_vpn_client_nvram_state.py'
       - 'trunk/user/rc/src/rc.c'
@@ -100,6 +102,8 @@ on:
       - 'trunk/user/rc/src/vpn_client_nvram_policy.h'
       - 'trunk/user/rc/src/tests/vpn_client_nvram_policy.c'
       - 'trunk/user/rc/src/ppp_option_value_policy.h'
+      - 'trunk/user/rc/src/ppp_callback_link_policy.h'
+      - 'trunk/user/rc/src/tests/ppp_callback_link_policy.c'
       - 'trunk/user/rc/src/tests/ppp_option_value_policy.c'
       - 'scripts/check_vpn_client_nvram_state.py'
       - 'trunk/user/rc/src/rc.c'
@@ -188,6 +192,14 @@ jobs:
             trunk/user/rc/src/tests/vpn_client_nvram_policy.c \
             -o /tmp/vpn_client_nvram_policy
           /tmp/vpn_client_nvram_policy
+      - name: Compile and run owned PPP callback-link cleanup regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/ppp_callback_link_policy.c \
+            -o /tmp/ppp-callback-link-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/ppp-callback-link-policy
       - name: Compile and run PPP scalar/multiline value regression
         run: |
           set -eu
