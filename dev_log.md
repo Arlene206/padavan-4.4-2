@@ -1,3 +1,10 @@
+## 2026-11-28 — Reset the chmod mock before creating the storage-fill fixture
+
+- Exact-SHA Process workflow #46058395082, USB hotplug #46058395112 and AliyunDrive WebDAV #46058395203 on `0f5fe9bfa1dbe6f4539e23e8fb810e5403b5a571` all reached `dev_init_boot_policy.sh` but stopped before the new storage-fill cases. The existing fixture had deliberately left its mocked `chmod_status=1` after verifying required-directory failure; the newly appended mock setup then called that same stub to chmod its executable and exited under `set -e`.
+- Reset `chmod_status=0` before marking the fake `mtd_storage.sh` executable. This keeps the earlier negative chmod assertion intact and lets the storage-fill success/failure status-propagation cases execute. No production source changes.
+- The separate AdGuardHome workflow #46058291412 had already passed its shell hardlink test but failed its Python contract with `NameError: read is not defined`; checker reference was corrected in `b8a144fed452556eff98bc0e2097246869a743c6` and is awaiting exact-SHA rerun.
+- Local shell execution unavailable. Parent `main`: `b8a144fed452556eff98bc0e2097246869a743c6`; all three affected workflow reruns are required on the new SHA.
+
 ## 2026-11-28 — Repair AdGuardHome hardlink contract checker
 
 - Exact-SHA AdGuardHome workflow #46058291412 on `fdb237afbe29afd23259afe040717f4397626368` ran the shell regression successfully, including the new hardlink rejection case, then failed in `scripts/check_adguardhome_config.py`: the added assertion called undefined `read()`. The checker already loads the test file into `test` at module initialization.

@@ -1,14 +1,14 @@
-## 2026-11-28 — Correct AdGuardHome hardlink checker after fixing storage-fill gate
+## 2026-11-28 — Re-run storage-fill fixture after resetting the chmod stub
 
-- Parent `main`: `0f5fe9bfa1dbe6f4539e23e8fb810e5403b5a571`; frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged).
-- The prior commit `0f5fe9b` adds a required `dev_init.sh` gate: failed `mtd_storage.sh fill` now blocks execution of the persistent custom start script; shell regression covers success/failure and Python source contracts check ordering. Exact-SHA Process and XY-C1 checks are underway.
-- Concurrent AdGuardHome hardlink fix on `fdb237a` correctly rejects a shared inode before chmod, and its shell regression PASSed. The workflow failed only in the checker because the new source assertion called undefined `read()` despite an existing module-level `test` text variable. This commit corrects that checker reference without changing product code.
-- Exact-SHA run #46058291412: shell syntax PASS; hardlink/config regression PASS; Python contract FAIL with `NameError: name 'read' is not defined`. New checker-fix SHA must rerun the AdGuardHome workflow. No local host or hardware L4 tests are claimed.
+- Parent `main`: `b8a144fed452556eff98bc0e2097246869a743c6`; frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged).
+- The `dev_init.sh` required-fill gate is in place and is intentionally fail-closed before execution of `/etc/storage/start_script.sh`; the `load` path remains best effort for blank flash. The initial regression extension accidentally reused `chmod_status=1` from an earlier negative test when chmodding the fake `mtd_storage.sh`, causing the shell test to exit before executing the new fill assertions. This commit resets the mock to success only after the previous failure assertions are complete.
+- Process/USB/AliyunDrive exact-SHA workflows on `0f5fe9b` each exposed the same fixture issue; unrelated prior steps passed. AdGuardHome shell regression passed but checker failed on undefined `read()`; checker fix is on parent `b8a144f` and needs exact rerun.
+- Next exact-SHA checks: Process lifecycle, USB hotplug, AliyunDrive lifecycle and AdGuardHome config security. XY-C1 build on the 0f5fe9b and fdb237a source SHAs was still in progress at last poll; older `0423272` XY-C1 run completed SUCCESS. No local build/hardware L4 claim.
 
 ## Exact first action
 
-1. Verify the new exact-SHA AdGuardHome config security workflow passes the Python contract checker. Fix any additional checker or product regression.
-2. Inspect current-main Process lifecycle, XY-C1 build/TRX/artifact, HTTPD authentication, USB storage and AliyunDrive workflow results for SHA `0f5fe9b`; then continue an independent userland stability/security defect.
+1. Verify the new Process lifecycle run completes the storage-fill shell test and Python boot contract; confirm USB and AliyunDrive workflows also pass their shared dev_init lock test.
+2. Verify AdGuardHome hardlink contract passes on the corrected checker. Inspect current XY-C1 build/TRX/artifact results and continue an independent userland stability/security task.
 
 ---
 
