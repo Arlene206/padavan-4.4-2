@@ -80,15 +80,13 @@ printf '%s\n' "$*" >> "$STORAGE_TEST_SLEEP_LOG"
 if [ -e "$STORAGE_TEST_PENDING_FILE" ]; then
 	rm -f "$STORAGE_TEST_PENDING_FILE"
 	: > "$STORAGE_TEST_RUNNING_FILE"
-	# Transmission now verifies the exact /proc executable identity. Publish
-	# a deterministic daemon entry instead of relying on the pidof mock.
 	if [ -n "${STORAGE_TEST_PROC_ROOT:-}" ]; then
 		mkdir -p "$STORAGE_TEST_PROC_ROOT/123"
 		ln -sf "$STORAGE_TEST_DAEMON_EXE" "$STORAGE_TEST_PROC_ROOT/123/exe"
 		if [ "${STORAGE_TEST_POST_PIDOF_STATUS:-auto}" = 2 ]; then
 			printf '%s\n' 'malformed process stat' > "$STORAGE_TEST_PROC_ROOT/123/stat"
 		else
-			printf '%s\n' '123 (transmission-daemon) S 1 1 1 0 -1 0 0 0 0 0 0 0 0 0 0 0 1 0 2001' > "$STORAGE_TEST_PROC_ROOT/123/stat"
+			printf '%s (%s) S 1 1 1 0 -1 0 0 0 0 0 0 0 0 0 0 0 1 0 2001\n' 123 "$STORAGE_TEST_DAEMON_COMM" > "$STORAGE_TEST_PROC_ROOT/123/stat"
 		fi
 	fi
 	exit 0
@@ -111,6 +109,11 @@ if [ "${STORAGE_TEST_GENERATOR_EMPTY:-0}" -eq 0 ]; then
 		printf '%s\n' '{"download-dir": "/generated"}' >&2
 	fi
 fi
+exit 0
+EOF
+
+cat > "$STUB_DIR/aria2c" <<'EOF'
+#!/bin/sh
 exit 0
 EOF
 cat > "$STUB_DIR/sed" <<'EOF'
@@ -236,13 +239,17 @@ run_launcher()
 	mkdir -p "$proc_root/1"
 	ln -s /bin/sleep "$proc_root/1/exe"
 	printf '%s\n' '1 (init) S 1 1 1 0 -1 0 0 0 0 0 0 0 0 0 0 0 1 0 1001' > "$proc_root/1/stat"
+	case "$launcher" in
+		*/aria.sh) daemon_comm=aria2c; daemon_exe="$STUB_DIR/aria2c" ;;
+		*) daemon_comm=transmission-daemon; daemon_exe="$STUB_DIR/transmission-daemon" ;;
+	esac
 	LAST_LAUNCH_STATE_DIR=$launch_state_dir
 	LAST_LAUNCH_OUTPUT=$output_file
 	if [ -n "${BUSYBOX_BIN:-}" ]; then
-		PATH="$STUB_DIR:$PATH" STORAGE_TEST_START_STATUS="$start_status" STORAGE_TEST_LOGGER_STATUS="$logger_status" STORAGE_TEST_CAT_STATUS="$cat_status" STORAGE_TEST_MV_STATUS="$mv_status" STORAGE_TEST_START_MARKER="$start_marker" STORAGE_TEST_START_PIDOF_STATUS="$pidof_status" STORAGE_TEST_START_PIDOF_OUTPUT="$pidof_output" STORAGE_TEST_POST_PIDOF_STATUS="$post_pidof_status" STORAGE_TEST_START_NO_PID="$start_no_pid" STORAGE_TEST_LAUNCH_CALLED_FILE="$launch_called_file" STORAGE_TEST_PENDING_FILE="$pending_file" STORAGE_TEST_RUNNING_FILE="$running_file" STORAGE_TEST_SLEEP_LOG="$sleep_log" STORAGE_TEST_TRACE_FILE="$trace_file" STORAGE_TEST_PROC_ROOT="$proc_root" STORAGE_TEST_DAEMON_EXE="$STUB_DIR/transmission-daemon" TRANSMISSION_PROC_ROOT="$proc_root" STORAGE_TEST_CAT_BARRIER="$cat_barrier" STORAGE_TEST_CONFIG_DIR="$config_dir" STORAGE_TEST_TEMP_COUNT="$temp_count" STORAGE_TEST_GENERATOR_STATUS="$generator_status" STORAGE_TEST_SED_STATUS="$sed_status" STORAGE_TEST_GENERATOR_EMPTY="$generator_empty" STORAGE_TEST_GENERATOR_NO_UMASK="$generator_no_umask" STORAGE_TEST_MKDIR_FAIL_PATH="$mkdir_fail_path" STORAGE_TEST_CHMOD_FAIL_PATH="$chmod_fail_path" STORAGE_TEST_CHOWN_FAIL_PATH="$chown_fail_path" STORAGE_TEST_HEXDUMP_STATUS="$hexdump_status" CONFIG_TMP="$inherited_config_tmp" \
+		PATH="$STUB_DIR:$PATH" STORAGE_TEST_START_STATUS="$start_status" STORAGE_TEST_LOGGER_STATUS="$logger_status" STORAGE_TEST_CAT_STATUS="$cat_status" STORAGE_TEST_MV_STATUS="$mv_status" STORAGE_TEST_START_MARKER="$start_marker" STORAGE_TEST_START_PIDOF_STATUS="$pidof_status" STORAGE_TEST_START_PIDOF_OUTPUT="$pidof_output" STORAGE_TEST_POST_PIDOF_STATUS="$post_pidof_status" STORAGE_TEST_START_NO_PID="$start_no_pid" STORAGE_TEST_LAUNCH_CALLED_FILE="$launch_called_file" STORAGE_TEST_PENDING_FILE="$pending_file" STORAGE_TEST_RUNNING_FILE="$running_file" STORAGE_TEST_SLEEP_LOG="$sleep_log" STORAGE_TEST_TRACE_FILE="$trace_file" STORAGE_TEST_PROC_ROOT="$proc_root" STORAGE_TEST_DAEMON_EXE="$daemon_exe" STORAGE_TEST_DAEMON_COMM="$daemon_comm" TRANSMISSION_PROC_ROOT="$proc_root" ARIA_PROC_ROOT="$proc_root" STORAGE_TEST_CAT_BARRIER="$cat_barrier" STORAGE_TEST_CONFIG_DIR="$config_dir" STORAGE_TEST_TEMP_COUNT="$temp_count" STORAGE_TEST_GENERATOR_STATUS="$generator_status" STORAGE_TEST_SED_STATUS="$sed_status" STORAGE_TEST_GENERATOR_EMPTY="$generator_empty" STORAGE_TEST_GENERATOR_NO_UMASK="$generator_no_umask" STORAGE_TEST_MKDIR_FAIL_PATH="$mkdir_fail_path" STORAGE_TEST_CHMOD_FAIL_PATH="$chmod_fail_path" STORAGE_TEST_CHOWN_FAIL_PATH="$chown_fail_path" STORAGE_TEST_HEXDUMP_STATUS="$hexdump_status" CONFIG_TMP="$inherited_config_tmp" \
 "$BUSYBOX_BIN" ash "$launcher" start >"$output_file" 2>&1
 	else
-		PATH="$STUB_DIR:$PATH" STORAGE_TEST_START_STATUS="$start_status" STORAGE_TEST_LOGGER_STATUS="$logger_status" STORAGE_TEST_CAT_STATUS="$cat_status" STORAGE_TEST_MV_STATUS="$mv_status" STORAGE_TEST_START_MARKER="$start_marker" STORAGE_TEST_START_PIDOF_STATUS="$pidof_status" STORAGE_TEST_START_PIDOF_OUTPUT="$pidof_output" STORAGE_TEST_POST_PIDOF_STATUS="$post_pidof_status" STORAGE_TEST_START_NO_PID="$start_no_pid" STORAGE_TEST_LAUNCH_CALLED_FILE="$launch_called_file" STORAGE_TEST_PENDING_FILE="$pending_file" STORAGE_TEST_RUNNING_FILE="$running_file" STORAGE_TEST_SLEEP_LOG="$sleep_log" STORAGE_TEST_TRACE_FILE="$trace_file" STORAGE_TEST_PROC_ROOT="$proc_root" STORAGE_TEST_DAEMON_EXE="$STUB_DIR/transmission-daemon" TRANSMISSION_PROC_ROOT="$proc_root" STORAGE_TEST_CAT_BARRIER="$cat_barrier" STORAGE_TEST_CONFIG_DIR="$config_dir" STORAGE_TEST_TEMP_COUNT="$temp_count" STORAGE_TEST_GENERATOR_STATUS="$generator_status" STORAGE_TEST_SED_STATUS="$sed_status" STORAGE_TEST_GENERATOR_EMPTY="$generator_empty" STORAGE_TEST_GENERATOR_NO_UMASK="$generator_no_umask" STORAGE_TEST_MKDIR_FAIL_PATH="$mkdir_fail_path" STORAGE_TEST_CHMOD_FAIL_PATH="$chmod_fail_path" STORAGE_TEST_CHOWN_FAIL_PATH="$chown_fail_path" STORAGE_TEST_HEXDUMP_STATUS="$hexdump_status" CONFIG_TMP="$inherited_config_tmp" \
+		PATH="$STUB_DIR:$PATH" STORAGE_TEST_START_STATUS="$start_status" STORAGE_TEST_LOGGER_STATUS="$logger_status" STORAGE_TEST_CAT_STATUS="$cat_status" STORAGE_TEST_MV_STATUS="$mv_status" STORAGE_TEST_START_MARKER="$start_marker" STORAGE_TEST_START_PIDOF_STATUS="$pidof_status" STORAGE_TEST_START_PIDOF_OUTPUT="$pidof_output" STORAGE_TEST_POST_PIDOF_STATUS="$post_pidof_status" STORAGE_TEST_START_NO_PID="$start_no_pid" STORAGE_TEST_LAUNCH_CALLED_FILE="$launch_called_file" STORAGE_TEST_PENDING_FILE="$pending_file" STORAGE_TEST_RUNNING_FILE="$running_file" STORAGE_TEST_SLEEP_LOG="$sleep_log" STORAGE_TEST_TRACE_FILE="$trace_file" STORAGE_TEST_PROC_ROOT="$proc_root" STORAGE_TEST_DAEMON_EXE="$daemon_exe" STORAGE_TEST_DAEMON_COMM="$daemon_comm" TRANSMISSION_PROC_ROOT="$proc_root" ARIA_PROC_ROOT="$proc_root" STORAGE_TEST_CAT_BARRIER="$cat_barrier" STORAGE_TEST_CONFIG_DIR="$config_dir" STORAGE_TEST_TEMP_COUNT="$temp_count" STORAGE_TEST_GENERATOR_STATUS="$generator_status" STORAGE_TEST_SED_STATUS="$sed_status" STORAGE_TEST_GENERATOR_EMPTY="$generator_empty" STORAGE_TEST_GENERATOR_NO_UMASK="$generator_no_umask" STORAGE_TEST_MKDIR_FAIL_PATH="$mkdir_fail_path" STORAGE_TEST_CHMOD_FAIL_PATH="$chmod_fail_path" STORAGE_TEST_CHOWN_FAIL_PATH="$chown_fail_path" STORAGE_TEST_HEXDUMP_STATUS="$hexdump_status" CONFIG_TMP="$inherited_config_tmp" \
 sh "$launcher" start >"$output_file" 2>&1
 	fi
 }
@@ -310,7 +317,7 @@ expect_start_readiness_failure()
 		# first readiness sleep; that scan then becomes UNKNOWN and must abort
 		# without further retries. Aria2's pidof error is immediate.
 		case "$name" in
-			Transmission-unknown-after-launch) expected_sleeps=1 ;;
+			Transmission-unknown-after-launch|Aria-unknown-after-launch) expected_sleeps=1 ;;
 		esac
 		actual_sleeps=$(wc -l < "$LAST_LAUNCH_STATE_DIR/sleep.log" | tr -d ' ')
 		[ "$actual_sleeps" -eq "$expected_sleeps" ] || {
@@ -358,19 +365,7 @@ expect_start_pidof_running()
 }
 # Aria2 still uses pidof for start-state discovery. Transmission's
 # executable/start-time scanner is exercised in its dedicated lifecycle tests.
-for launcher_name in Aria; do
-	launcher="$TMP_DIR/aria.sh"
-	expect_start_pidof_unknown "$launcher_name-pidof-error" "$launcher" 2 ""
-	expect_start_pidof_unknown "$launcher_name-empty-success" "$launcher" 0 ""
-	expect_start_pidof_unknown "$launcher_name-error-with-output" "$launcher" 2 "101"
-	expect_start_pidof_unknown "$launcher_name-absent-with-output" "$launcher" 1 "101"
-	expect_start_pidof_unknown "$launcher_name-malformed-pid" "$launcher" 0 "101 invalid"
-	expect_start_pidof_unknown "$launcher_name-whitespace-pids" "$launcher" 0 "   "
-	expect_start_pidof_unknown "$launcher_name-unsafe-pid-zero" "$launcher" 0 "0"
-	expect_start_pidof_unknown "$launcher_name-unsafe-pid-one" "$launcher" 0 "1"
-	expect_start_pidof_running "$launcher_name-running" "$launcher"
-done
-run_transmission_config_failure()
+# Aria2 process identity is covered by its dedicated /proc lifecycle test.run_transmission_config_failure()
 {
 	phase=$1
 	generator_status=$2
@@ -750,7 +745,7 @@ check_stop_contracts()
 
 # Transmission's PID/start-time stop and reload contracts are covered by
 # transmission/tests/stop_pid_snapshot.sh and reload_status.sh.
-check_stop_contracts aria Aria2 "$ARIA_SRC"
+# Aria2 stop/reload are covered by aria2/tests/aria2_process_identity.sh.
 
 run_aria_config_failure()
 {

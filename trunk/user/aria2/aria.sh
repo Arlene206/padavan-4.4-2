@@ -16,60 +16,216 @@ DIR_LINK="/mnt/aria"
 
 # aria2c is explicitly daemonized with -D; start-stop-daemon returning only
 # confirms that the short-lived launcher exited. Require the child PID.
-aria_wait_started()
+# Match Aria2 only when its procfs executable and start time agree.
+# Linux comm is checked separately from the executable inode.
+aria_proc_stat()
 {
-	attempt=0
-	while [ "$attempt" -lt 4 ]; do
-		if aria_ready_pids=$(pidof aria2c 2>/dev/null); then
-			aria_ready_status=0
-		else
-			aria_ready_status=$?
-		fi
-		case "$aria_ready_status" in
-		0)
-			if [ -z "$aria_ready_pids" ]; then
-				logger -t "$SVC_NAME" "Cannot verify startup: pidof returned success without a PID"
-				return 1
-			fi
-			case "$aria_ready_pids" in
-				*[!0-9\ ]*)
-					logger -t "$SVC_NAME" "Cannot verify startup: invalid daemon PID list"
-					return 1
-					;;
-			esac
-			for aria_ready_pid in $aria_ready_pids; do
-				case "$aria_ready_pid" in
-					0*|1|*[!0-9]*)
-						logger -t "$SVC_NAME" "Cannot verify startup: unsafe daemon PID"
-						return 1
-					;;
-				esac
-				done
-			return 0
-			;;
-		1)
-			if [ -n "$aria_ready_pids" ]; then
-				logger -t "$SVC_NAME" "Cannot verify startup: inconsistent daemon process state"
-				return 1
-			fi
-			;;
-		*)
-			logger -t "$SVC_NAME" "Cannot verify startup: pidof failed (status=$aria_ready_status)"
-			return 1
-			;;
-		esac
-		attempt=$((attempt + 1))
-		[ "$attempt" -lt 4 ] || break
-		sleep 1 || {
-			logger -t "$SVC_NAME" "Cannot verify startup: readiness wait was interrupted"
-			return 1
-		}
-	done
+	aria_stat_pid="$1"
+	aria_stat_root="${ARIA_PROC_ROOT:-/proc}"
+	aria_stat_dir="$aria_stat_root/$aria_stat_pid"
+	[ -d "$aria_stat_dir" ] || return 1
+	if IFS= read -r aria_stat_line < "$aria_stat_dir/stat"; then
+		:
+	else
+		[ -d "$aria_stat_dir" ] && return 2
+		return 1
+	fi
+	case "$aria_stat_line" in
+		"$aria_stat_pid ("*) ;;
+		*) return 2 ;;
+	esac
+	aria_stat_comm=${aria_stat_line#*(}
+	aria_stat_comm=${aria_stat_comm%)*}
+	aria_stat_fields=${aria_stat_line##*) }
+	if [ "${IFS+x}" = x ]; then
+		aria_stat_ifs_set=1
+		aria_stat_saved_ifs=$IFS
+	else
+		aria_stat_ifs_set=0
+	fi
+	case "$-" in *f*) aria_stat_glob_disabled=1 ;; *) aria_stat_glob_disabled=0 ;; esac
+	set -f
+	IFS=' '
+	set -- $aria_stat_fields
+	if [ "$aria_stat_ifs_set" -eq 1 ]; then
+		IFS=$aria_stat_saved_ifs
+	else
+		unset IFS
+	fi
+	[ "$aria_stat_glob_disabled" -eq 1 ] || set +f
+	[ "$#" -ge 20 ] || return 2
+	aria_stat_state="$1"
+	aria_stat_start_time="${20}"
+	case "$aria_stat_state" in
+		R|S|D|Z|T|t|X|x|K|W|P|I) ;;
+		*) return 2 ;;
+	esac
+	case "$aria_stat_start_time" in ''|*[!0-9]*) return 2 ;; esac
+	case "$aria_stat_state" in Z|X|x) return 1 ;; esac
+	return 0
+}
 
-	logger -t "$SVC_NAME" "launcher returned success but daemon did not appear"
+# Return 0 for the exact executable/start-time identity, 1 for absent or
+# replaced PID, and 2 when procfs cannot provide a complete identity.
+aria_process_identity_matches()
+{
+	aria_identity_pid="$1"
+	aria_identity_required_start="$2"
+	aria_identity_root="${ARIA_PROC_ROOT:-/proc}"
+	case "$aria_identity_pid" in ''|0*|*[!0-9]*) return 1 ;; esac
+	aria_identity_dir="$aria_identity_root/$aria_identity_pid"
+	aria_proc_stat "$aria_identity_pid"
+	aria_identity_stat_status=$?
+	[ "$aria_identity_stat_status" -eq 0 ] || return "$aria_identity_stat_status"
+	case "$aria_stat_comm" in
+		aria2c) ;;
+		*) return 1 ;;
+	esac
+	if [ -z "$aria_expected_exe" ]; then
+		aria_expected_exe=$(stat -L -c '%d:%i' "$SVC_PATH" 2>/dev/null) || return 2
+	fi
+	aria_actual_exe=$(stat -L -c '%d:%i' "$aria_identity_dir/exe" 2>/dev/null) || {
+		[ -d "$aria_identity_dir" ] && return 2
+		return 1
+	}
+	[ "$aria_actual_exe" = "$aria_expected_exe" ] || return 1
+	if [ -n "$aria_identity_required_start" ] &&
+	   [ "$aria_stat_start_time" != "$aria_identity_required_start" ]; then
+		return 1
+	fi
+	aria_identity_start_time="$aria_stat_start_time"
+	return 0
+}
+
+aria_process_state_once()
+{
+	aria_process_pids=
+	aria_process_root="${ARIA_PROC_ROOT:-/proc}"
+	[ -d "$aria_process_root" ] &&
+		[ -r "$aria_process_root" ] &&
+		[ -x "$aria_process_root" ] || return 2
+	command -v stat >/dev/null 2>&1 || return 2
+	aria_expected_exe=$(stat -L -c '%d:%i' "$SVC_PATH" 2>/dev/null) || return 2
+	case "$aria_expected_exe" in
+		''|*[!0-9:]*|:*|*:|*:*:*) return 2 ;;
+	esac
+	aria_numeric_found=0
+	for aria_proc_dir in "$aria_process_root"/[0-9]*; do
+		[ -d "$aria_proc_dir" ] || continue
+		aria_proc_pid=${aria_proc_dir##*/}
+		case "$aria_proc_pid" in ''|0*|*[!0-9]*) return 2 ;; esac
+		aria_numeric_found=1
+		if aria_process_identity_matches "$aria_proc_pid" ""; then
+			aria_process_pids="${aria_process_pids}${aria_process_pids:+ }$aria_proc_pid:$aria_identity_start_time"
+		else
+			aria_identity_status=$?
+			case "$aria_identity_status" in
+				1) ;;
+				*) return 2 ;;
+			esac
+		fi
+	done
+	[ "$aria_numeric_found" -eq 1 ] || return 2
+	[ -n "$aria_process_pids" ] && return 0
 	return 1
 }
 
+aria_process_state()
+{
+	if aria_process_state_once; then
+		return 0
+	else
+		aria_process_state_status=$?
+	fi
+	case "$aria_process_state_status" in
+		1) aria_process_state_once; return $? ;;
+		*) return 2 ;;
+	esac
+}
+
+aria_wait_started()
+{
+	aria_start_attempt=0
+	while [ "$aria_start_attempt" -lt 4 ]; do
+		if aria_process_state; then
+			return 0
+		else
+			aria_start_state=$?
+		fi
+		case "$aria_start_state" in
+			1) ;;
+			*) return 2 ;;
+		esac
+		aria_start_attempt=$((aria_start_attempt + 1))
+		[ "$aria_start_attempt" -lt 4 ] || break
+		sleep 1 || return 2
+	done
+	logger -t "$SVC_NAME" "launcher returned success but daemon did not appear" >/dev/null 2>&1 || true
+	return 1
+}
+
+aria_signal_identity()
+{
+	aria_signal_name="$1"
+	aria_signal_pid="$2"
+	aria_signal_start="$3"
+	case "$aria_signal_name" in HUP|TERM|KILL|9) ;; *) return 2 ;; esac
+	if aria_process_identity_matches "$aria_signal_pid" "$aria_signal_start"; then
+		:
+	else
+		aria_signal_identity_status=$?
+		[ "$aria_signal_identity_status" -eq 1 ] && return 0
+		return 2
+	fi
+	if kill "-$aria_signal_name" "$aria_signal_pid" >/dev/null 2>&1; then
+		return 0
+	else
+		aria_signal_status=$?
+	fi
+	if aria_process_identity_matches "$aria_signal_pid" "$aria_signal_start"; then
+		[ "$aria_signal_status" -ne 0 ] || aria_signal_status=1
+		return "$aria_signal_status"
+	else
+		aria_signal_identity_status=$?
+		[ "$aria_signal_identity_status" -eq 1 ] && return 0
+		return 2
+	fi
+}
+
+aria_signal_snapshot()
+{
+	aria_snapshot_signal="$1"
+	aria_snapshot_pids="$2"
+	for aria_snapshot_entry in $aria_snapshot_pids; do
+		aria_snapshot_pid=${aria_snapshot_entry%%:*}
+		aria_snapshot_start=${aria_snapshot_entry#*:}
+		aria_signal_identity "$aria_snapshot_signal" \
+			"$aria_snapshot_pid" "$aria_snapshot_start" || return $?
+	done
+	return 0
+}
+
+aria_wait_stopped()
+{
+	aria_wait_limit="$1"
+	case "$aria_wait_limit" in ''|*[!0-9]*) return 2 ;; esac
+	aria_wait_count=0
+	while :; do
+		if aria_process_state; then
+			aria_wait_state=0
+		else
+			aria_wait_state=$?
+		fi
+		case "$aria_wait_state" in
+			1) return 0 ;;
+			0) ;;
+			*) return 2 ;;
+		esac
+		[ "$aria_wait_count" -lt "$aria_wait_limit" ] || return 1
+		sleep 1 || return 2
+		aria_wait_count=$((aria_wait_count + 1))
+	done
+}
 
 aria_generate_rpc_secret()
 {
@@ -226,53 +382,15 @@ aria_secure_rpc_config()
 }
 func_start()
 {
-	# Resolve the daemon state from both pidof's status and output.
-	aria_start_pids=$(pidof aria2c 2>/dev/null)
-	aria_start_pidof_status=$?
-	case "$aria_start_pidof_status" in
-		0)
-			if [ -z "$aria_start_pids" ]; then
-				echo "[FAILED]"
-				logger -t "$SVC_NAME" "Cannot start: unable to determine daemon process state" >/dev/null 2>&1 || true
-				return 1
-			fi
-			case "$aria_start_pids" in
-				*[!0-9\ ]*)
-					echo "[FAILED]"
-					logger -t "$SVC_NAME" "Cannot start: invalid daemon PID list" >/dev/null 2>&1 || true
-					return 1
-					;;
-			esac
-			aria_start_pid_count=0
-			for aria_start_pid in $aria_start_pids; do
-				aria_start_pid_count=$((aria_start_pid_count + 1))
-				case "$aria_start_pid" in
-					0*|1|*[!0-9]*)
-						echo "[FAILED]"
-						logger -t "$SVC_NAME" "Cannot start: invalid daemon PID list" >/dev/null 2>&1 || true
-						return 1
-						;;
-				esac
-			done
-			if [ "$aria_start_pid_count" -eq 0 ]; then
-				echo "[FAILED]"
-				logger -t "$SVC_NAME" "Cannot start: invalid daemon PID list" >/dev/null 2>&1 || true
-				return 1
-			fi
-			return 0
-			;;
-		1)
-			if [ -n "$aria_start_pids" ]; then
-				echo "[FAILED]"
-				logger -t "$SVC_NAME" "Cannot start: inconsistent daemon process state" >/dev/null 2>&1 || true
-				return 1
-			fi
-			;;
-		*)
-			echo "[FAILED]"
-			logger -t "$SVC_NAME" "Cannot start: unable to determine daemon process state" >/dev/null 2>&1 || true
-			return 1
-			;;
+	# Procfs must confirm absence before a new daemon can be launched.
+	if aria_process_state; then
+		return 0
+	else
+		aria_start_state=$?
+	fi
+	case "$aria_start_state" in
+		1) ;;
+		*) echo "[FAILED]"; logger -t "$SVC_NAME" "Cannot start: daemon identity is unknown" >/dev/null 2>&1 || true; return 2 ;;
 	esac
 
 	echo -n "Starting $SVC_NAME:."
@@ -435,188 +553,111 @@ EOF
 
 func_stop()
 {
-	# pidof exit 1 with no output means absent; every other inconsistent
-	# result is UNKNOWN and must not be treated as a successful stop.
-	aria_pid=`pidof aria2c 2>/dev/null`
-	aria_pidof_status=$?
-	if [ "$aria_pidof_status" -gt 1 ] ||
-	    { [ "$aria_pidof_status" -eq 0 ] && [ -z "$aria_pid" ]; } ||
-	    { [ "$aria_pidof_status" -ne 0 ] && [ -n "$aria_pid" ]; }; then
-		echo "[FAILED]"
-		logger -t "$SVC_NAME" "Cannot stop: cannot determine daemon process state" >/dev/null 2>&1 || true
-		return 1
+	if aria_process_state; then
+		tr_stop_state=0
+	else
+		tr_stop_state=$?
 	fi
-	if [ -z "$aria_pid" ]; then
-		return 0
-	fi
-
-	# Validate the complete PID snapshot before the broad graceful signal.
-	case "$aria_pid" in
-		*[!0-9\ ]*)
-			echo "[FAILED]"
-			logger -t "$SVC_NAME" "Cannot stop: invalid daemon PID list" >/dev/null 2>&1 || true
-			return 1
-			;;
+	case "$tr_stop_state" in
+		1) return 0 ;;
+		0) ;;
+		*) echo "[FAILED]"; logger -t "$SVC_NAME" "Cannot stop: daemon identity is unknown" >/dev/null 2>&1 || true; return 2 ;;
 	esac
-	aria_pid_count=0
-	for aria_pid_one in $aria_pid; do
-		case "$aria_pid_one" in
-			''|0*|1|*[!0-9]*)
-				echo "[FAILED]"
-				logger -t "$SVC_NAME" "Cannot stop: invalid daemon PID list" >/dev/null 2>&1 || true
-				return 1
-				;;
-		esac
-		aria_pid_count=$((aria_pid_count + 1))
-	done
-	if [ "$aria_pid_count" -eq 0 ]; then
-		echo "[FAILED]"
-		logger -t "$SVC_NAME" "Cannot stop: empty daemon PID list" >/dev/null 2>&1 || true
-		return 1
-	fi
-
+	tr_stop_snapshot="$aria_process_pids"
 	echo -n "Stopping $SVC_NAME:."
 
-	# Ask the daemon to stop gracefully; process presence is authoritative.
-	killall -q aria2c >/dev/null 2>&1 || true
-
-	# Gracefully wait at most 15 seconds while aria2c stops.
-	i=0
-	while [ -n "$aria_pid" ] && [ "$i" -lt 15 ]; do
-		echo -n "."
-		sleep 1
-		aria_pid=`pidof aria2c 2>/dev/null`
-		aria_pidof_status=$?
-		if [ "$aria_pidof_status" -gt 1 ] ||
-		    { [ "$aria_pidof_status" -eq 0 ] && [ -z "$aria_pid" ]; } ||
-		    { [ "$aria_pidof_status" -ne 0 ] && [ -n "$aria_pid" ]; }; then
-			echo "[FAILED]"
-			logger -t "$SVC_NAME" "Cannot stop: process inventory became unknown" >/dev/null 2>&1 || true
-			return 1
-		fi
-		i=$((i + 1))
-	done
-
-	if [ -n "$aria_pid" ]; then
-		# Validate the refreshed snapshot before sending individual signals.
-		case "$aria_pid" in
-			*[!0-9\ ]*)
-				echo "[FAILED]"
-				logger -t "$SVC_NAME" "Cannot stop: invalid daemon PID list" >/dev/null 2>&1 || true
-				return 1
-				;;
-		esac
-		aria_pid_count=0
-		for aria_pid_one in $aria_pid; do
-			case "$aria_pid_one" in
-				''|0*|1|*[!0-9]*)
-					echo "[FAILED]"
-					logger -t "$SVC_NAME" "Cannot stop: invalid daemon PID list" >/dev/null 2>&1 || true
-					return 1
-					;;
-			esac
-			aria_pid_count=$((aria_pid_count + 1))
-		done
-		if [ "$aria_pid_count" -eq 0 ]; then
-			echo "[FAILED]"
-			logger -t "$SVC_NAME" "Cannot stop: empty daemon PID list" >/dev/null 2>&1 || true
-			return 1
-		fi
-		for aria_pid_one in $aria_pid; do
-			kill -9 "$aria_pid_one" >/dev/null 2>&1 || true
-		done
-
-		# SIGKILL is asynchronous; verify daemon absence before reporting success.
-		sleep 1
-		aria_pid=`pidof aria2c 2>/dev/null`
-		aria_pidof_status=$?
-		if [ "$aria_pidof_status" -gt 1 ] ||
-		    { [ "$aria_pidof_status" -eq 0 ] && [ -z "$aria_pid" ]; } ||
-		    { [ "$aria_pidof_status" -ne 0 ] && [ -n "$aria_pid" ]; }; then
-			echo "[FAILED]"
-			logger -t "$SVC_NAME" "Cannot stop: process inventory unknown after SIGKILL" >/dev/null 2>&1 || true
-			return 1
-		fi
-		if [ -n "$aria_pid" ]; then
-			echo "[FAILED]"
-			logger -t "$SVC_NAME" "Cannot stop: processes remain after SIGKILL: $aria_pid" >/dev/null 2>&1 || true
-			return 1
-		fi
-		echo "[KILLED]"
-		logger -t "$SVC_NAME" "Cannot stop: Timeout reached! Force killed." >/dev/null 2>&1 || true
+	if aria_signal_snapshot TERM "$tr_stop_snapshot"; then
+		:
 	else
-		echo "[  OK  ]"
+		tr_signal_status=$?
+		echo "[FAILED]"
+		logger -t "$SVC_NAME" "Cannot stop: TERM failed or process identity became unknown (status=$tr_signal_status)" >/dev/null 2>&1 || true
+		return "$tr_signal_status"
 	fi
+	if aria_wait_stopped 15; then
+		echo "[  OK  ]"
+		return 0
+	else
+		tr_wait_status=$?
+	fi
+	case "$tr_wait_status" in
+		1) ;;
+		*) echo "[FAILED]"; logger -t "$SVC_NAME" "Cannot stop: process identity became unknown while waiting" >/dev/null 2>&1 || true; return 2 ;;
+	esac
 
-	return 0
+	# Refresh the exact executable/start-time snapshot before escalation.
+	if aria_process_state; then
+		tr_stop_snapshot="$aria_process_pids"
+	else
+		tr_stop_state=$?
+		[ "$tr_stop_state" -eq 1 ] && { echo "[  OK  ]"; return 0; }
+		echo "[FAILED]"
+		logger -t "$SVC_NAME" "Cannot stop: daemon identity is unknown before SIGKILL" >/dev/null 2>&1 || true
+		return 2
+	fi
+	if aria_signal_snapshot 9 "$tr_stop_snapshot"; then
+		:
+	else
+		tr_signal_status=$?
+		echo "[FAILED]"
+		logger -t "$SVC_NAME" "Cannot stop: SIGKILL failed or process identity became unknown (status=$tr_signal_status)" >/dev/null 2>&1 || true
+		return "$tr_signal_status"
+	fi
+	if aria_wait_stopped 2; then
+		echo "[KILLED]"
+		logger -t "$SVC_NAME" "Daemon required SIGKILL after graceful stop timeout" >/dev/null 2>&1 || true
+		return 0
+	else
+		tr_wait_status=$?
+	fi
+	case "$tr_wait_status" in
+		1) echo "[FAILED]"; logger -t "$SVC_NAME" "Cannot stop: verified daemon remains after SIGKILL" >/dev/null 2>&1 || true; return 1 ;;
+		*) echo "[FAILED]"; logger -t "$SVC_NAME" "Cannot stop: daemon identity became unknown after SIGKILL" >/dev/null 2>&1 || true; return 2 ;;
+	esac
 }
 
 func_reload()
 {
-	# A failed pidof scan is not proof that aria2c is absent. Validate the
-	# entire PID snapshot before sending any signal.
-	aria_reload_pids=`pidof aria2c 2>/dev/null`
-	aria_reload_pidof_status=$?
-	case "$aria_reload_pidof_status" in
-		0)
-			if [ -z "$aria_reload_pids" ]; then
-				echo "Error: unable to determine $SVC_NAME process state!"
-				logger -t "$SVC_NAME" "Cannot reload: pidof returned success without a PID" >/dev/null 2>&1 || true
-				return 1
-			fi
-			case "$aria_reload_pids" in
-				*[!0-9\ ]*)
-					echo "Error: invalid $SVC_NAME process list!"
-					logger -t "$SVC_NAME" "Cannot reload: invalid daemon PID list" >/dev/null 2>&1 || true
-					return 1
-					;;
-			esac
-			aria_reload_pid_count=0
-			for aria_reload_pid in $aria_reload_pids; do
-				aria_reload_pid_count=$((aria_reload_pid_count + 1))
-				case "$aria_reload_pid" in
-					''|0*|1|*[!0-9]*)
-						echo "Error: invalid $SVC_NAME process list!"
-						logger -t "$SVC_NAME" "Cannot reload: unsafe daemon PID" >/dev/null 2>&1 || true
-						return 1
-						;;
-				esac
-			done
-			if [ "$aria_reload_pid_count" -eq 0 ]; then
-				echo "Error: unable to determine $SVC_NAME process state!"
-				logger -t "$SVC_NAME" "Cannot reload: empty daemon PID list" >/dev/null 2>&1 || true
-				return 1
-			fi
-			;;
-		1)
-			if [ -z "$aria_reload_pids" ]; then
-				echo "Error: $SVC_NAME is not started!"
-			else
-				echo "Error: unable to determine $SVC_NAME process state!"
-			fi
-			return 1
-			;;
-		*)
-			echo "Error: unable to determine $SVC_NAME process state!"
-			logger -t "$SVC_NAME" "Cannot reload: pidof failed (status=$aria_reload_pidof_status)" >/dev/null 2>&1 || true
-			return 1
-			;;
+	if aria_process_state; then
+		tr_reload_state=0
+	else
+		tr_reload_state=$?
+	fi
+	case "$tr_reload_state" in
+		1) return 0 ;;
+		0) ;;
+		*) echo "[FAILED]"; logger -t "$SVC_NAME" "Cannot reload: daemon identity is unknown" >/dev/null 2>&1 || true; return 2 ;;
 	esac
-
+	tr_reload_snapshot="$aria_process_pids"
 	echo -n "Reload $SVC_NAME config:."
-	for aria_reload_pid in $aria_reload_pids; do
-		if kill -1 "$aria_reload_pid"; then
+	tr_reload_status=0
+	for tr_reload_entry in $tr_reload_snapshot; do
+		tr_reload_pid=${tr_reload_entry%%:*}
+		tr_reload_start=${tr_reload_entry#*:}
+		if aria_signal_identity HUP "$tr_reload_pid" "$tr_reload_start"; then
 			:
 		else
-			aria_reload_kill_status=$?
-			echo "[FAILED]"
-			logger -t "$SVC_NAME" "Cannot reload: SIGHUP failed for PID $aria_reload_pid (status=$aria_reload_kill_status)" >/dev/null 2>&1 || true
-			return "$aria_reload_kill_status"
+			tr_reload_signal_status=$?
+			[ "$tr_reload_signal_status" -eq 2 ] && {
+				echo "[FAILED]"
+				logger -t "$SVC_NAME" "Cannot reload: process identity became unknown" >/dev/null 2>&1 || true
+				return 2
+			}
+			if [ "$tr_reload_status" -eq 0 ]; then
+				tr_reload_status=$tr_reload_signal_status
+				[ "$tr_reload_status" -ne 0 ] || tr_reload_status=1
+			fi
 		fi
 	done
-	echo "[  OK  ]"
-	return 0
+	if [ "$tr_reload_status" -eq 0 ]; then
+		echo "[  OK  ]"
+		return 0
+	fi
+	echo "[FAILED]"
+	logger -t "$SVC_NAME" "daemon reload signal failed (status=$tr_reload_status)" >/dev/null 2>&1 || true
+	return "$tr_reload_status"
 }
+
 
 case "$1" in
 start)

@@ -76,6 +76,7 @@ on:
       - "trunk/user/rc/src/tests/msd_lite_config_file.c"
       - "trunk/user/transmission/transmission.sh"
       - "trunk/user/aria2/aria.sh"
+      - "trunk/user/aria2/tests/aria2_process_identity.sh"
       - "trunk/user/scripts/tests/storage_app_start_status.sh"
       - "trunk/user/smartdns/**"
       - "trunk/user/rc/src/storage_optware_start_policy.h"
@@ -178,6 +179,7 @@ on:
       - "trunk/user/rc/src/tests/msd_lite_config_file.c"
       - "trunk/user/transmission/transmission.sh"
       - "trunk/user/aria2/aria.sh"
+      - "trunk/user/aria2/tests/aria2_process_identity.sh"
       - "trunk/user/scripts/tests/storage_app_start_status.sh"
       - "trunk/user/smartdns/**"
       - "trunk/user/rc/src/storage_optware_start_policy.h"
@@ -259,6 +261,8 @@ jobs:
           set -eu
           sh -n trunk/user/transmission/transmission.sh
           sh -n trunk/user/aria2/aria.sh
+          sh -n trunk/user/aria2/tests/aria2_process_identity.sh
+          sh trunk/user/aria2/tests/aria2_process_identity.sh
           sh trunk/user/scripts/tests/storage_app_start_status.sh
       - name: Check Optware MTD startup script syntax
         run: sh -n trunk/user/optware/opt-mount.sh
