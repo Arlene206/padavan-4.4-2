@@ -22,6 +22,15 @@ func_log() { :; }
 sleep() { :; }
 TEST_TERM_STUCK=0; TEST_SIGNAL_FAILURE=0; TEST_KILLALL_CALLS=0
 killall() { TEST_KILLALL_CALLS=$((TEST_KILLALL_CALLS + 1)); return 99; }
+TEST_KEYGEN_LOG="$TEST_ROOT/keygen.log"
+: > "$TEST_KEYGEN_LOG"
+func_keygen() {
+  key_type="$1"
+  key_path="$2"
+  printf '%s %s\n' "$key_type" "$key_path" >> "$TEST_KEYGEN_LOG"
+  printf 'generated:%s\n' "$key_type" > "$key_path"
+  chmod 600 "$key_path"
+}
 kill() {
   [ "$#" -eq 2 ] || return 1
   printf '%s %s\n' "$1" "$2" >> "$TEST_SIGNALS"
@@ -119,3 +128,59 @@ echo "Dropbear incomplete process inventory fails closed: PASS"
 if grep -F 'pidof dropbear' "$SOURCE" >/dev/null 2>&1; then fail "pidof dropbear remains"; fi
 if grep -F 'killall -q dropbear' "$SOURCE" >/dev/null 2>&1; then fail "comm-only killall remains"; fi
 echo "Dropbear process-name-only control removed: PASS"
+
+# Missing one algorithm must not regenerate unrelated persistent host keys.
+reset_keys() {
+  rm -rf "$DROPBEAR_STORAGE_DIR"
+  mkdir -p "$DROPBEAR_STORAGE_DIR"
+  : > "$TEST_KEYGEN_LOG"
+}
+reset_keys
+printf 'original-rsa\n' > "$rsa_key"
+printf 'original-dss\n' > "$dss_key"
+printf 'original-ecdsa\n' > "$ecdsa_key"
+chmod 644 "$rsa_key" "$dss_key" "$ecdsa_key"
+func_ensurekeys || fail "could not complete one missing host key"
+[ "$(cat "$rsa_key")" = "original-rsa" ] || fail "RSA identity was overwritten while creating Ed25519"
+[ "$(cat "$dss_key")" = "original-dss" ] || fail "DSS identity was overwritten while creating Ed25519"
+[ "$(cat "$ecdsa_key")" = "original-ecdsa" ] || fail "ECDSA identity was overwritten while creating Ed25519"
+[ "$(cat "$ed25519_key")" = "generated:ed25519" ] || fail "missing Ed25519 key was not generated"
+[ "$(cat "$TEST_KEYGEN_LOG")" = "ed25519 $ed25519_key" ] || fail "unexpected key generation set: $(cat "$TEST_KEYGEN_LOG")"
+for key_file in "$rsa_key" "$dss_key" "$ecdsa_key" "$ed25519_key"; do
+  [ "$(stat -c '%a' "$key_file")" = 600 ] || fail "host key permissions were not restricted: $key_file"
+done
+echo "Dropbear single-key repair preserves existing host identities: PASS"
+
+# The same preservation rule applies when the missing member is RSA.
+reset_keys
+printf 'original-dss\n' > "$dss_key"
+printf 'original-ecdsa\n' > "$ecdsa_key"
+printf 'original-ed25519\n' > "$ed25519_key"
+func_ensurekeys || fail "could not regenerate missing RSA key"
+[ "$(cat "$rsa_key")" = "generated:rsa" ] || fail "missing RSA key was not generated"
+[ "$(cat "$dss_key")" = "original-dss" ] || fail "DSS identity was overwritten while creating RSA"
+[ "$(cat "$ecdsa_key")" = "original-ecdsa" ] || fail "ECDSA identity was overwritten while creating RSA"
+[ "$(cat "$ed25519_key")" = "original-ed25519" ] || fail "Ed25519 identity was overwritten while creating RSA"
+[ "$(cat "$TEST_KEYGEN_LOG")" = "rsa $rsa_key" ] || fail "RSA repair generated unrelated key types"
+echo "Dropbear RSA key repair preserves other algorithms: PASS"
+
+# A conflicting symlink is not followed or replaced during key completion.
+reset_keys
+printf 'preserve-rsa\n' > "$rsa_key"
+printf 'outside-private-key\n' > "$TEST_ROOT/outside-key"
+ln -s "$TEST_ROOT/outside-key" "$dss_key"
+if func_ensurekeys; then fail "symlinked host key was accepted"; else key_status=$?; fi
+[ "$key_status" -ne 0 ] || fail "symlink key rejection lost its failure status"
+[ "$(cat "$rsa_key")" = "preserve-rsa" ] || fail "existing RSA key was changed before symlink rejection"
+[ "$(cat "$TEST_ROOT/outside-key")" = "outside-private-key" ] || fail "symlink target was modified"
+[ -L "$dss_key" ] || fail "unsafe host-key symlink was replaced"
+[ ! -s "$TEST_KEYGEN_LOG" ] || fail "keygen ran after an unsafe symlink was found"
+echo "Dropbear host-key symlink rejection: PASS"
+
+reset_keys
+func_ensurekeys || fail "fresh key storage could not initialize all host keys"
+[ "$(wc -l < "$TEST_KEYGEN_LOG" | tr -d ' ')" = 4 ] || fail "fresh storage did not generate exactly four key types"
+for key_file in "$rsa_key" "$dss_key" "$ecdsa_key" "$ed25519_key"; do
+  [ -f "$key_file" ] && [ ! -L "$key_file" ] || fail "fresh host-key file missing or unsafe: $key_file"
+done
+echo "Dropbear empty host-key store initialization: PASS"

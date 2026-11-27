@@ -209,21 +209,40 @@ func_start()
 			fi
 		fi
 	done
-	if [ ! -f "$rsa_key" ] || [ ! -f "$dss_key" ]; then
-		func_createkeys
-		key_status=$?
-		[ "$key_status" -eq 0 ] || return "$key_status"
+# Complete only missing host-key types. Startup must never rotate the other
+# host identities just because one algorithm's key is absent.
+func_ensure_key()
+{
+	ensure_key_type="$1"
+	ensure_key_path="$2"
+	if [ -L "$ensure_key_path" ] ||
+	   { [ -e "$ensure_key_path" ] && [ ! -f "$ensure_key_path" ]; }; then
+		func_log "Refusing unsafe host-key path for $ensure_key_type"
+		return 1
 	fi
-	if [ ! -f "$ecdsa_key" ]; then
-		func_keygen ecdsa "$ecdsa_key"
-		key_status=$?
-		[ "$key_status" -eq 0 ] || return "$key_status"
+	if [ -f "$ensure_key_path" ]; then
+		if chmod 600 "$ensure_key_path"; then
+			return 0
+		else
+			ensure_key_chmod_status=$?
+			func_log "Cannot restrict existing $ensure_key_type host key (status=$ensure_key_chmod_status)"
+			return "$ensure_key_chmod_status"
+		fi
 	fi
-	if [ ! -f "$ed25519_key" ]; then
-		func_keygen ed25519 "$ed25519_key"
-		key_status=$?
-		[ "$key_status" -eq 0 ] || return "$key_status"
-	fi
+	func_keygen "$ensure_key_type" "$ensure_key_path"
+}
+
+func_ensurekeys()
+{
+	func_ensure_key rsa "$rsa_key" || return $?
+	func_ensure_key dss "$dss_key" || return $?
+	func_ensure_key ecdsa "$ecdsa_key" || return $?
+	func_ensure_key ed25519 "$ed25519_key"
+}
+
+	func_ensurekeys
+	key_status=$?
+	[ "$key_status" -eq 0 ] || return "$key_status"
 
 	# Keep the persisted whitespace-separated extra_args convention without xargs
 	# exit-status translation or pathname expansion.
