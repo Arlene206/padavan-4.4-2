@@ -233,6 +233,24 @@ echo "$next_state" > "$MOCK_STATE_FILE"
 exit "${MOCK_KILLALL_STATUS:-0}"
 """)
         log = base / "logger.log"
+        executable(bin_dir / "ssh-keygen", """#!/bin/sh
+case "$1" in
+  -A)
+    for path in "$SSHD_RSA_KEY" "$SSHD_DSA_KEY" "$SSHD_ED25519_KEY"; do
+      [ -f "$path" ] || printf '%s\\n' generated-key > "$path" || exit 1
+    done
+    exit "${MOCK_KEYGEN_STATUS:-0}"
+    ;;
+  -y)
+    [ "$2" = "-P" ] && [ -z "$3" ] && [ "$4" = "-f" ] || exit 64
+    [ -s "$5" ] || exit 1
+    IFS= read -r key_data < "$5" || exit 1
+    case "$key_data" in test-key|generated-key) exit 0 ;; *) exit 1 ;; esac
+    ;;
+  *) exit 64 ;;
+esac
+""")
+
         env = os.environ.copy()
         env.update({
             "PATH": str(bin_dir) + os.pathsep + env.get("PATH", ""),
@@ -1189,6 +1207,10 @@ def check_sshd():
     assert 'mv "$config_tmp" "$sshd_config"' in sshd_source
     assert "config_tmp_id=$(stat -L -c '%i' /proc/self 2>/dev/null)" in sshd_source
     assert 'config_tmp="${sshd_config}.tmp.${config_tmp_id}"' in sshd_source
+    assert "func_validate_host_key()" in sshd_source
+    assert "func_validate_host_keys()" in sshd_source
+    assert '"$ssh_keygen_bin" -y -P "" -f "$key_path"' in sshd_source
+    assert "refusing multiply-linked host key" in sshd_source
     assert syntax_check.returncode == 0, syntax_check.stderr
     with tempfile.TemporaryDirectory(prefix="sshd-lifecycle-") as tmp:
         base = Path(tmp)
@@ -1233,9 +1255,55 @@ exit "${MOCK_KILLALL_STATUS:-0}"
             "SSHD_ED25519_KEY": str(storage / "ssh_host_ed25519_key"),
             "SSHD_OLD_PATH": str(old_path),
             "SSHD_BIN": str(bin_dir / "sshd"),
+            "SSHD_KEYGEN_BIN": str(bin_dir / "ssh-keygen"),
             "SSHD_UTMP_FILE": str(run_dir / "utmp"),
             "SSHD_PID_FILE": str(run_dir / "sshd.pid"),
         })
+        # Existing host keys must be parseable, private and single-linked.
+        rsa_key = storage / "ssh_host_rsa_key"
+        dsa_key = storage / "ssh_host_dsa_key"
+        ed25519_key = storage / "ssh_host_ed25519_key"
+        base_calls = sshd_log.read_text().splitlines() if sshd_log.exists() else []
+        rsa_key.write_text("truncated-private-key\\n")
+        invalid_key = run(["/bin/sh", str(SSHD_SCRIPT), "start"], env)
+        assert invalid_key.returncode != 0, "sshd accepted a malformed existing host key"
+        assert rsa_key.read_text() == "truncated-private-key\\n", "malformed host key was overwritten"
+        assert (sshd_log.read_text().splitlines() if sshd_log.exists() else []) == base_calls
+
+        rsa_key.write_text("test-key\\n")
+        dsa_key.write_text("test-key\\n")
+        dsa_key.chmod(0o644)
+        external_key = base / "external-host-key"
+        external_key.write_text("test-key\\n")
+        dsa_key.unlink()
+        dsa_key.symlink_to(external_key)
+        linked_key = run(["/bin/sh", str(SSHD_SCRIPT), "start"], env)
+        assert linked_key.returncode != 0, "sshd accepted a symlinked host key"
+        assert external_key.stat().st_mode & 0o777 == 0o644, "symlink target permissions changed"
+        assert (sshd_log.read_text().splitlines() if sshd_log.exists() else []) == base_calls
+
+        dsa_key.unlink()
+        dsa_key.write_text("test-key\\n")
+        dsa_key.chmod(0o644)
+        hardlink_key = base / "external-hardlink-host-key"
+        if hardlink_key.exists():
+            hardlink_key.unlink()
+        os.link(dsa_key, hardlink_key)
+        multiply_linked = run(["/bin/sh", str(SSHD_SCRIPT), "start"], env)
+        assert multiply_linked.returncode != 0, "sshd accepted a multiply-linked host key"
+        assert dsa_key.stat().st_mode & 0o777 == 0o644, "multiply-linked key permissions changed"
+        assert (sshd_log.read_text().splitlines() if sshd_log.exists() else []) == base_calls
+
+        # Missing keys are generated and validated before the daemon is launched.
+        hardlink_key.unlink()
+        dsa_key.unlink()
+        generated_env = env.copy()
+        generated_env["MOCK_SSHD_STATUS"] = "0"
+        generated = run(["/bin/sh", str(SSHD_SCRIPT), "start"], generated_env)
+        assert generated.returncode == 0, generated.stderr
+        assert dsa_key.read_text() == "generated-key\\n"
+        assert dsa_key.stat().st_mode & 0o777 == 0o600
+
         # The config path is privileged input: reject symlinks (including dangling
         # ones) before SSHD or any other startup side effect can follow them.
         external_config = base / "external-sshd-config"
