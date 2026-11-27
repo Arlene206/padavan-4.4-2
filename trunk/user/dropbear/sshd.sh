@@ -15,6 +15,30 @@ func_log()
 	logger -t "dropbear" "$1"
 }
 
+func_storage_dir_check()
+{
+	if [ -L "$dir_storage" ] ||
+	   { [ -e "$dir_storage" ] && [ ! -d "$dir_storage" ]; }; then
+		func_log "Refusing unsafe host-key storage directory"
+		return 1
+	fi
+	return 0
+}
+
+func_storage_dir_prepare()
+{
+	func_storage_dir_check || return $?
+	if [ ! -d "$dir_storage" ]; then
+		if mkdir -p -m 755 "$dir_storage"; then :; else
+			storage_status=$?
+			func_log "cannot create key storage (status=$storage_status)"
+			return "$storage_status"
+		fi
+	fi
+	# Recheck after creation so a replaced path is not accepted.
+	func_storage_dir_check
+}
+
 
 # Match a PID only when its procfs identity is complete and its executable is
 # the installed Dropbear binary. BusyBox pidof/killall use the short comm name,
@@ -159,13 +183,7 @@ func_keygen()
 
 func_createkeys()
 {
-	if [ ! -d "$dir_storage" ]; then
-		if mkdir -p -m 755 "$dir_storage"; then :; else
-			storage_status=$?
-			func_log "cannot create key storage (status=$storage_status)"
-			return "$storage_status"
-		fi
-	fi
+	func_storage_dir_prepare || return $?
 	if rm -f "$rsa_key" "$dss_key" "$ecdsa_key" "$ed25519_key"; then :; else
 		remove_status=$?
 		func_log "cannot remove previous host keys (status=$remove_status)"
@@ -186,6 +204,7 @@ func_createkeys()
 
 func_get_extra_args()
 {
+	func_storage_dir_check || return $?
 	if [ ! -f "$extra_args" ]; then
 		printf '%s\n' "-p 22" > "$extra_args" || return $?
 	fi
@@ -234,6 +253,7 @@ func_ensure_key()
 
 func_ensurekeys()
 {
+	func_storage_dir_check || return $?
 	func_ensure_key rsa "$rsa_key" || return $?
 	func_ensure_key dss "$dss_key" || return $?
 	func_ensure_key ecdsa "$ecdsa_key" || return $?
@@ -255,13 +275,7 @@ func_start()
 		;;
 	esac
 
-	if [ ! -d "$dir_storage" ]; then
-		if mkdir -p -m 755 "$dir_storage"; then :; else
-			storage_status=$?
-			func_log "cannot create key storage (status=$storage_status)"
-			return "$storage_status"
-		fi
-	fi
+	func_storage_dir_prepare || return $?
 	args=$(func_get_extra_args)
 	args_status=$?
 	if [ "$args_status" -ne 0 ]; then

@@ -1,3 +1,9 @@
+## 2026-11-27 — Reject symlinked SSH host-key storage directories
+
+- Both OpenSSH and Dropbear previously validated individual host-key leaf paths but accepted a configured storage-directory symlink. A root-started daemon helper could therefore chmod, delete, generate or publish keys/configuration in an unintended target directory. Added no-follow directory checks and post-mkdir revalidation; all key/config/argument operations are gated before they follow the configured leaf directory.
+- Extended Dropbear runtime coverage to symlink, dangling-symlink and non-directory stores, including preservation of outside keys/extra_args and no keygen/start. Extended OpenSSH launch regression to prove a symlinked store cannot mutate external host keys or publish sshd_config. Added exact source-contract assertions.
+- Process lifecycle, AI handoff and XY-C1 Actions are required on the exact implementation SHA. Local full-repository execution is unavailable in this GitHub-connector-only session; do not claim local shell results or physical-router L4.
+
 ## 2026-11-27 — Correct OpenSSH required-host-key source contract
 
 - Process lifecycle regression #46073989322 on `2ffccd914287ad96840fd92aeb850ed49c828f56` reached `check_optional_app_start_status.py` after preceding lifecycle and compiled regression cases passed, then failed because its OpenSSH source assertion expected a `case` statement that the implementation does not use. The intended branch is an explicit `if [ "$key_requirement" = "required" ]`; the omitted-DSA generation fixture already verifies that missing required keys prevent sshd launch.

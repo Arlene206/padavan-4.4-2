@@ -231,3 +231,45 @@ for key_file in "$rsa_key" "$dss_key" "$ecdsa_key" "$ed25519_key"; do
   [ -f "$key_file" ] && [ ! -L "$key_file" ] || fail "fresh host-key file missing or unsafe: $key_file"
 done
 echo "Dropbear empty host-key store initialization: PASS"
+
+# A symlinked key-storage directory redirects privileged key operations.
+reset_keys
+EXTERNAL_STORAGE="$TEST_ROOT/external-storage"
+mkdir -p "$EXTERNAL_STORAGE"
+for key_file in rsa_host_key dss_host_key ecdsa_host_key ed25519_host_key; do
+  printf 'preserve-%s\n' "$key_file" > "$EXTERNAL_STORAGE/$key_file"
+  chmod 644 "$EXTERNAL_STORAGE/$key_file"
+done
+printf '%s\n' '-p 2222' > "$EXTERNAL_STORAGE/extra_args"
+rm -rf "$DROPBEAR_STORAGE_DIR"
+ln -s "$EXTERNAL_STORAGE" "$DROPBEAR_STORAGE_DIR"
+: > "$TEST_KEYGEN_LOG"
+if func_ensurekeys; then fail "key validation accepted a symlinked storage directory"; fi
+if func_createkeys; then fail "newkeys accepted a symlinked storage directory"; fi
+if func_get_extra_args >/dev/null 2>&1; then fail "argument reader accepted a symlinked storage directory"; fi
+rm -rf "$TEST_PROC_ROOT"
+mkdir -p "$TEST_PROC_ROOT"
+if func_start; then fail "daemon startup accepted a symlinked storage directory"; fi
+for key_file in rsa_host_key dss_host_key ecdsa_host_key ed25519_host_key; do
+  [ "$(cat "$EXTERNAL_STORAGE/$key_file")" = "preserve-$key_file" ] ||
+    fail "symlinked storage operation changed $key_file"
+  [ "$(stat -c '%a' "$EXTERNAL_STORAGE/$key_file")" = 644 ] ||
+    fail "symlinked storage operation changed $key_file permissions"
+done
+[ "$(cat "$EXTERNAL_STORAGE/extra_args")" = "-p 2222" ] ||
+  fail "symlinked storage operation changed extra_args"
+[ ! -s "$TEST_KEYGEN_LOG" ] || fail "key generation ran through a symlinked storage directory"
+[ -L "$DROPBEAR_STORAGE_DIR" ] || fail "unsafe storage symlink was replaced"
+echo "Dropbear symlinked host-key storage directory rejection: PASS"
+
+# Dangling symlinks and non-directory storage paths are not valid stores.
+rm -f "$DROPBEAR_STORAGE_DIR"
+ln -s "$TEST_ROOT/missing-storage" "$DROPBEAR_STORAGE_DIR"
+if func_createkeys; then fail "dangling storage symlink was accepted"; fi
+[ -L "$DROPBEAR_STORAGE_DIR" ] || fail "dangling storage symlink was replaced"
+rm -f "$DROPBEAR_STORAGE_DIR"
+printf '%s\n' 'not-a-directory' > "$DROPBEAR_STORAGE_DIR"
+if func_ensurekeys; then fail "regular file was accepted as storage directory"; fi
+[ "$(cat "$DROPBEAR_STORAGE_DIR")" = "not-a-directory" ] ||
+  fail "non-directory storage path was modified"
+echo "Dropbear dangling and non-directory storage path rejection: PASS"

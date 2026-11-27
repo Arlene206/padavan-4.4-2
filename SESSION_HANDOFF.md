@@ -1,17 +1,15 @@
-## 2026-11-27 — OpenSSH host-key validation and exact-SHA CI repair
+## 2026-11-27 — Reject symlinked SSH host-key storage directories
 
-- Current product-source baseline: `2ffccd914287ad96840fd92aeb850ed49c828f56` on `main`. The preceding OpenSSH changes use a unique per-process configuration staging name, reject unsafe persistent host-key files (symlinks, non-regular or multiply-linked files), enforce private permissions and parseability, and require RSA/DSA/Ed25519 host keys after `ssh-keygen -A` reports success.
-- Exact-head validation on that source SHA:
-  - Process inventory and lifecycle fail-closed regression #46073989322 — **FAIL** only at a stale source-contract assertion in `scripts/check_optional_app_start_status.py`: it expected a `case "$key_requirement" in` construct, while production intentionally implements the equivalent required/optional decision with `if [ "$key_requirement" = "required" ]; then`. The OpenSSH omission regression and preceding process tests passed before the checker stopped.
-  - Process lifecycle inventory #46073989223 — **PASS**.
-  - XY-C1 Firmware Validation #46073989253 — **PASS**, including Build XY-C1, TRX output verification, and artifact upload.
-- This follow-up changes the checker assertion to match and pin the actual fail-closed branch; no product source behavior is changed. The new exact-head process regression must pass before the OpenSSH slice is considered fully validated. No physical-router/L4 validation is claimed.
-- Frozen archival branch `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` and must remain untouched.
+- Confirmed a privileged path-redirection gap in both SSH launchers: checks protected each host-key file but followed a symlink when the configured persistent storage directory itself was redirected. Dropbear newkeys, key validation, argument loading and startup, plus OpenSSH config/key preparation, now reject a symlinked or non-directory storage path before reading, deleting, chmodding, generating or publishing files. The directory is rechecked after creation.
+- Added Dropbear regressions for valid/dangling directory symlinks and regular-file paths, asserting outside key and argument files remain unchanged and no key generation/start occurs. Added an OpenSSH symlink-target preservation test and source contracts. Existing Process lifecycle workflow tracks these inputs; XY-C1 path filters track both production scripts.
+- Parent source/contract SHA ec7de13fc545294fd9aa3cb6a46aa13e4fa9da86: Process lifecycle correction #46075603032 PASS; AI handoff docs #46075603074 PASS. Product-source XY-C1 #46073989253 on 2ffccd9 PASS (Build, TRX and artifact upload). New exact-SHA checks are pending until this commit is pushed. No physical-router/L4 claim.
+- Frozen archival branch backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807 and must remain untouched.
 
 ## Exact first action
 
-1. Inspect the Process lifecycle regression run triggered by this checker correction on its exact `main` SHA. Confirm the source-contract and omitted-host-key regression pass.
-2. Continue repository-wide stability/security work from the current P1 queue; do not repeat the OpenSSH staging/key review. Recheck exact-head Actions for every new source commit and require a current source-triggered XY-C1 Build/TRX/artifact run before making an L3 claim.
+1. Inspect Process lifecycle, AI handoff documentation and XY-C1 Firmware Validation Actions on this commit's exact main SHA; for XY-C1, confirm Build, TRX verification and artifact upload all pass.
+2. On any FAIL, inspect the failing job log and repair that exact contract/source defect in a small atomic commit. On PENDING, continue independent P1/P2 stability work without waiting.
+3. Continue from the remaining broad RC startup-result, service lifecycle and privileged configuration-boundary queue; do not repeat the closed AliDDNS, DNSMasq or OpenSSH host-key leaf review.
 
 ---
 

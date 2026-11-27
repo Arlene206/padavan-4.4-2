@@ -1185,6 +1185,9 @@ def check_sshd():
     syntax_check = run(["/bin/sh", "-n", str(SSHD_SCRIPT)], os.environ.copy())
     sshd_source = SSHD_SCRIPT.read_text()
     assert "func_config_path_check()" in sshd_source
+    assert "func_storage_dir_check()" in sshd_source
+    assert "func_storage_dir_prepare()" in sshd_source
+    assert 'func_storage_dir_check || return $?' in sshd_source
     assert 'cat > "$config_tmp" <<EOF' in sshd_source
     assert 'mv "$config_tmp" "$sshd_config"' in sshd_source
     assert "config_tmp_id=$(stat -L -c '%i' /proc/self 2>/dev/null)" in sshd_source
@@ -1344,6 +1347,55 @@ esac
         assert not dangling_target.exists(), "config creation followed a dangling symlink"
         assert not sshd_log.exists() or sshd_log.read_text().splitlines() == before_calls
 
+        # A symlinked storage directory must not redirect root key/config writes.
+        external_storage = base / "external-ssh-storage"
+        external_storage.mkdir()
+        external_keys = {
+            "ssh_host_rsa_key": "test-key",
+            "ssh_host_dsa_key": "test-key",
+            "ssh_host_ed25519_key": "test-key",
+        }
+        for name, value in external_keys.items():
+            key_path = external_storage / name
+            key_path.write_text(value)
+            key_path.chmod(0o644)
+        linked_storage = base / "linked-ssh-storage"
+        linked_storage.symlink_to(external_storage, target_is_directory=True)
+        linked_storage_env = env.copy()
+        linked_storage_env.update({
+            "SSHD_STORAGE_DIR": str(linked_storage),
+            "SSHD_CONFIG_FILE": str(linked_storage / "sshd_config"),
+            "SSHD_RSA_KEY": str(linked_storage / "ssh_host_rsa_key"),
+            "SSHD_DSA_KEY": str(linked_storage / "ssh_host_dsa_key"),
+            "SSHD_ED25519_KEY": str(linked_storage / "ssh_host_ed25519_key"),
+        })
+        before_linked_storage_calls = (
+            sshd_log.read_text().splitlines() if sshd_log.exists() else []
+        )
+        linked_storage_start = run(
+            ["/bin/sh", str(SSHD_SCRIPT), "start"], linked_storage_env
+        )
+        assert linked_storage_start.returncode != 0, (
+            "sshd accepted a symlinked host-key storage directory"
+        )
+        assert linked_storage.is_symlink(), "unsafe storage symlink was replaced"
+        for name, value in external_keys.items():
+            key_path = external_storage / name
+            assert key_path.read_text() == value, (
+                f"symlinked storage operation changed {name}"
+            )
+            assert key_path.stat().st_mode & 0o777 == 0o644, (
+                f"symlinked storage operation changed {name} permissions"
+            )
+        assert not (external_storage / "sshd_config").exists(), (
+            "sshd published a config through its symlinked storage directory"
+        )
+        assert (
+            sshd_log.read_text().splitlines() if sshd_log.exists() else []
+        ) == before_linked_storage_calls, (
+            "sshd launched despite a symlinked host-key storage directory"
+        )
+
         # Missing configuration is staged privately and atomically published.
         fresh_config = storage / "fresh_sshd_config"
         fresh_env = env.copy()
@@ -1384,6 +1436,9 @@ def check_dropbear():
     assert "pidof dropbear" not in script
     assert "killall -q dropbear" not in script
     assert "func_validate_key()" in script
+    assert "func_storage_dir_check()" in script
+    assert "func_storage_dir_prepare()" in script
+    assert "Refusing unsafe host-key storage directory" in script
     assert '"$dropbearkey_bin" -y -f "$key_file"' in script
     assert '[ ! -s "$key_file" ]' in script
     assert "stat -c '%h' \"$ensure_key_path\"" in script

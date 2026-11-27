@@ -13,8 +13,35 @@ utmp_file="${SSHD_UTMP_FILE:-/var/run/utmp}"
 pid_file="${SSHD_PID_FILE:-/var/run/sshd.pid}"
 PROCESS_LIFECYCLE_LIB="${PROCESS_LIFECYCLE_LIB:-/usr/lib/process_lifecycle.sh}"
 
+func_storage_dir_check()
+{
+	if [ -L "$dir_storage" ] ||
+	   { [ -e "$dir_storage" ] && [ ! -d "$dir_storage" ]; }; then
+		logger -t "sshd" "refusing unsafe host-key storage directory"
+		return 1
+	fi
+	return 0
+}
+
+func_storage_dir_prepare()
+{
+	func_storage_dir_check || return $?
+	if [ ! -d "$dir_storage" ]; then
+		if mkdir -p -m 755 "$dir_storage"; then
+			:
+		else
+			storage_status=$?
+			logger -t "sshd" "cannot create host-key storage (status=$storage_status)"
+			return "$storage_status"
+		fi
+	fi
+	# Recheck after creation so a replaced path is not accepted.
+	func_storage_dir_check
+}
+
 func_config_path_check()
 {
+	func_storage_dir_check || return $?
 	if [ -L "$sshd_config" ] ||
 	   { [ -e "$sshd_config" ] && [ ! -f "$sshd_config" ]; }; then
 		logger -t "sshd" "refusing unsafe configuration path"
@@ -231,6 +258,7 @@ func_validate_host_key()
 
 func_validate_host_keys()
 {
+	func_storage_dir_check || return $?
 	key_requirement="$1"
 	func_validate_host_key "$rsa_key" "$key_requirement" || return $?
 	func_validate_host_key "$dsa_key" "$key_requirement" || return $?
@@ -244,15 +272,7 @@ func_start()
 	if [ "$config_path_status" -ne 0 ]; then
 		return "$config_path_status"
 	fi
-	if [ ! -d "$dir_storage" ]; then
-		if mkdir -p -m 755 "$dir_storage"; then
-			:
-		else
-			storage_status=$?
-			logger -t "sshd" "cannot create host-key storage (status=$storage_status)"
-			return "$storage_status"
-		fi
-	fi
+	func_storage_dir_prepare || return $?
 
 	rm -f "${old_path}/sshd_config"
 	for i in ssh_host_rsa_key ssh_host_dsa_key ; do
