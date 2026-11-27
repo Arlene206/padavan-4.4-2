@@ -1,3 +1,12 @@
+## 2026-11-28 — Enable BusyBox ash command builtin for firmware lifecycle scripts
+
+- Storage #46081098105 first exposed Transmission's `command -v stat` failure; after applet PATH diagnostics, #46081453045 on `e69afd9` made the root cause explicit: BusyBox ash reported `command: not found`. The common board config disabled `CONFIG_ASH_CMDCMD` even though Transmission, Aria2 and shared process lifecycle scripts use `command -v`.
+- Enabled `CONFIG_ASH_CMDCMD=y`; Storage CI now requires the feature in the built and source config and runs an ash smoke through the exact `STUB_DIR:$PATH` before starting the launchers. Exact SHA `25b0f34f41206b0d16ceed7b8190202a53b89d63`: USB storage #46081670821 PASS (including BusyBox 1.24.2/ash and all remaining storage regressions); Process #46081670853 PASS; AI docs #46081670826 PASS. AliDDNS #46081670844, AliyunDrive #46081670881, DNS Forwarder #46081670945, FRP #46081671085 and AdGuardHome #46081670829 PASS. NVRAM #46081670831 and XY-C1 #46081670815 were still running; Build XY-C1 was active and TRX/artifact pending.
+- Test harness: `9bf676f` linked stat in STUB_DIR; `7b05465` added an exact ash PATH smoke; its duplicate symlink was removed in `e69afd9`. No production fail-closed check was relaxed.
+- No exact-current-source L3 firmware claim until #46081670815 Build, TRX and artifact upload all pass; no hardware L4 result.
+
+---
+
 ## 2026-11-28 — Make BusyBox stat visible in storage launcher stubs
 
 - Exact d79 USB storage #46081098105: Aria2 directory/file symlink regression and Transmission/Aria launch-status regression PASS; the BusyBox 1.24.2/ash step compiled BusyBox, ran Optware lifecycle tests, then failed at Transmission process identity because `command -v stat` returned unavailable. Workflow applet PATH already included stat and direct smoke check, but the test harness prepends a separate `STUB_DIR` to the BusyBox launcher's PATH, so the actual child could not resolve the applet.

@@ -1,8 +1,7 @@
-## 2026-11-28 — Make BusyBox stat visible in storage launcher stubs
+## 2026-11-28 — Enable BusyBox ash command builtin for firmware lifecycle scripts
 
-- The ash test wrapper prepends `STUB_DIR` ahead of the workflow's BusyBox applet directory. Link the actual BusyBox `stat` applet into `STUB_DIR` and smoke-test command discovery plus `stat -L -c` under this exact child PATH; retain fail-closed production process checks.
+- The shared BusyBox 1.24 board config disabled `CONFIG_ASH_CMDCMD`, but Transmission, Aria2 and the shared process helper rely on `command -v`. Firmware ash reported `command: not found`, forcing fail-closed process checks to UNKNOWN despite the `stat` applet being present. Enabled `CONFIG_ASH_CMDCMD=y`; Storage CI asserts the option is enabled/not disabled and exercises `command -v stat` plus `stat -L -c` through the exact launcher PATH. Exact SHA `25b0f34`: USB storage #46081670821, Process #46081670853 and AI docs #46081670826 PASS; XY-C1 Build/TRX/artifact pending at last poll.
 
----
 
 ## 2026-11-28 — Block Aria2 storage symlink redirection
 

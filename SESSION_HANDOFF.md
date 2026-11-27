@@ -1,9 +1,13 @@
-## 2026-11-28 — Expose BusyBox stat in the launcher stub PATH
+## 2026-11-28 — Enable BusyBox ash command builtin used by lifecycle scripts
 
-- The d79 storage-hotplug run #46081098105 confirms both the Aria2 symlink guard and Transmission/Aria startup-status test steps PASS; the BusyBox/ash phase passed the Optware tests, then failed at Transmission's `command -v stat` process-identity preflight. The workflow already linked `stat` under its isolated `runtime_dir/bin` and its direct stat smoke test ran, but `storage_app_start_status.sh` prepends its own `STUB_DIR` to each child launcher's PATH. This commit links the same built BusyBox binary as `STUB_DIR/stat` and runs a `command -v` + `stat -L -c` smoke using that exact prefixed path.
-- No production process-identity check is relaxed. Exact USB storage/ash rerun, Process inventory and XY-C1 Build/TRX/artifact remain to be checked on the new SHA. d79 AI handoff #46081098106 PASS. d79 XY-C1 #46080742734 was still building; do not infer firmware L3 from eab6 #46080815493 because its Build/TRX/artifact steps were SKIPPED.
-- Aria2 path-guard commit `7c21bb2987022102d27a403dbdb4c0f84d3e41a8` is covered by d79's successful Aria2 storage-directory/file symlink regression step; d79 Process inventory #46080742656 and AI docs #46080742626 PASS.
-- Next: inspect this SHA's complete BusyBox ash result and XY-C1 job steps, diagnose any next independent failure, then continue a P1 stability/security fix outside storage path handling.
+- Root cause: `trunk/configs/boards/busybox.config` disabled `CONFIG_ASH_CMDCMD`; the shipped BusyBox 1.24 ash therefore had no `command` builtin. Transmission, Aria2 and the shared process lifecycle helper use POSIX `command -v` to validate required applets, so fail-closed process checks returned UNKNOWN even when `stat` itself was present.
+- Storage #46081453045 on `e69afd9` confirmed the ash smoke failure as `command: not found`. Commit `25b0f34f41206b0d16ceed7b8190202a53b89d63` enables `CONFIG_ASH_CMDCMD=y` and makes the BusyBox storage build gate assert it is enabled and not disabled by configure. The test also checks `command -v stat` and `stat -L -c` with the exact child PATH. Storage #46081670821 PASS, including BusyBox 1.24.2/ash, Transmission/Aria startup, Optware lifecycle, and the remaining storage checks.
+- Exact `25b0f34` Process inventory #46081670853 PASS; AI handoff #46081670826 PASS. AliDDNS #46081670844, AliyunDrive #46081670881, DNS Forwarder #46081670945, FRP #46081671085 and AdGuardHome #46081670829 also PASS. NVRAM audit #46081670831 was IN_PROGRESS at the last poll.
+- XY-C1 #46081670815 was IN_PROGRESS at `Build XY-C1`; TRX verification and artifact upload had not yet started. No current-source L3 claim; no physical-router L4 claim.
+- Test-harness commits: `9bf676f` exposed stat to the BusyBox launcher stub path; `7b05465` added the exact ash PATH smoke but accidentally repeated the symlink; `e69afd9` removed the duplicate link and retained the smoke. No production behavior was weakened.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify.
+- Exact first action: retrieve #46081670815 Build/TRX/artifact results and #46081670831 NVRAM conclusion on `25b0f34`; fix any actual failure, then continue a P1 security/stability task outside the storage shell/config issue.
+
 
 ---
 
