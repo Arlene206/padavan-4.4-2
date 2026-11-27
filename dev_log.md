@@ -1,3 +1,10 @@
+## 2026-11-27 — Reject hardlinked AdGuardHome credential configuration
+
+- `getconfig()` rejects symlink and non-regular destinations, but an existing regular config with link count greater than one was still accepted. Its privileged `chmod 600` changes the permissions of every hardlink alias, not only the configured path; this can unexpectedly tighten an unrelated linked file.
+- Added a fail-closed `stat -c '%h'` check before configuration publication/permission changes. Files with an unknown or non-single link count are rejected without chmod or content changes. New default configurations remain staged in the destination directory and atomically renamed.
+- Regression creates a hardlink to an unrelated mode-0644 file, attempts `getconfig()`, and verifies rejection, the original link count, original target mode, and content. AdGuardHome's source-contract checker now requires both the production guard and regression.
+- Local shell execution unavailable in this connector-only session. Exact-SHA AdGuardHome workflow is the verification gate.
+
 ## 2026-11-28 03:34 CST (UTC+8) — Correct the DNS Forwarder finalizer signature escape
 
 - The first checker correction on `12d722cbbdc2625170902fc2a021666903fc3ce3` still failed exact-push DNS Forwarder run #46057101529 before C compilation: the Python signature literal contained double-escaped backslashes, so `function_body()` searched for literal `\\n` characters instead of the actual definition prefix containing line breaks and raised `ValueError: substring not found`.

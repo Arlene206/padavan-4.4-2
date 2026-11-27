@@ -433,6 +433,19 @@ getconfig(){
     return 1
   fi
 
+  # chmod on a hardlinked config also changes the permissions of every alias.
+  # Refuse shared inodes rather than applying privileged mode changes elsewhere.
+  if [ -f "$adg_file" ]; then
+    adg_config_links="$(stat -c '%h' "$adg_file")" || {
+      logger -t "AdGuardHome" "无法确认配置文件硬链接数量，拒绝启动"
+      return 1
+    }
+    if [ "$adg_config_links" != 1 ]; then
+      logger -t "AdGuardHome" "配置文件存在硬链接别名，拒绝启动"
+      return 1
+    fi
+  fi
+
   if [ ! -f "$adg_file" ] || [ ! -s "$adg_file" ]; then
     # Publish a complete default file from a private same-directory stage.
     adg_tmp="$(mktemp "${adg_file}.tmp.XXXXXX")" || {

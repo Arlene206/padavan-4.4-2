@@ -45,6 +45,20 @@ getconfig || fail "existing config permission repair failed"
 cmp "$TEST_TMP/expected.yml" "$TEST_CONFIG" || fail "existing config content changed"
 [ "$(mode_of "$TEST_CONFIG")" = 600 ] || fail "existing config was left world-readable"
 
+# Reject hardlinked configuration files before chmod can change the alias.
+printf '%s\n' 'outside-hardlink-secret: unchanged' > "$TEST_TMP/hardlink-target.yml"
+chmod 644 "$TEST_TMP/hardlink-target.yml"
+ln "$TEST_TMP/hardlink-target.yml" "$TEST_TMP/config-hardlink"
+ADG_CONFIG_FILE="$TEST_TMP/config-hardlink"
+export ADG_CONFIG_FILE
+if getconfig; then
+	fail "hardlinked config destination was accepted"
+fi
+[ -f "$ADG_CONFIG_FILE" ] || fail "hardlinked config destination was removed"
+[ "$(stat -c '%h' "$ADG_CONFIG_FILE")" = 2 ] || fail "hardlinked config link count changed"
+[ "$(mode_of "$TEST_TMP/hardlink-target.yml")" = 644 ] || fail "hardlink target permissions were modified"
+grep -Fqx 'outside-hardlink-secret: unchanged' "$TEST_TMP/hardlink-target.yml" || fail "hardlink target contents were modified"
+
 # Never follow a symlink at the privileged config path.
 printf '%s\n' 'outside-secret: unchanged' > "$TEST_TMP/outside.yml"
 chmod 600 "$TEST_TMP/outside.yml"

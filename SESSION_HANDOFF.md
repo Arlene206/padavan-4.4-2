@@ -1,3 +1,17 @@
+## 2026-11-27 — AdGuardHome hardlink isolation for credential config
+
+- Current parent `main`: `c4c716e160d5093f75d3b893c98fd401216bea4e`; frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged).
+- DNS Forwarder signal-source ownership/finalizer changes are verified on exact SHA `c4c716e160d5093f75d3b893c98fd401216bea4e`: launch-path run #46057421812 completed SUCCESS, including source contract, GNU89 regressions, ASan/UBSan constructor rollback and event-loop lifecycle test; AI handoff contract #46057421841 SUCCESS.
+- Process lifecycle fail-closed run #46057270242 (parent `e0e9ab2793fdfa67b0bce0dfec57ae17356ddc08`) completed SUCCESS. NVRAM transaction audit #46056928107 completed SUCCESS on `042327254f3e1a57aa43b11c0de5ee4428ae6a2a`. XY-C1 Firmware Validation #46056928103 remained IN_PROGRESS on that older SHA at last check; no current-main firmware/TRX/artifact result is claimed.
+- New storage/config hardening: AdGuardHome `getconfig()` could `chmod 600` an existing hardlinked regular file, changing every alias inode permission. The current slice checks link count equals one before chmod and tests a hardlinked external target remains unchanged.
+
+## Exact first action
+
+1. Check exact-SHA AdGuardHome config security workflow for this hardlink guard. Verify the shell regression and Python source contract both pass; repair any failure from its job log.
+2. Check XY-C1 Build/TRX/artifact and the current source SHA's NVRAM / Process lifecycle checks. Continue a separate P1 issue when the AdGuard test passes; physical router L4 remains NOT VERIFIED without hardware evidence.
+
+---
+
 ## 2026-11-28 — Fix DNS Forwarder finalizer source-signature escaping
 
 - Parent `main`: `e0e9ab2793fdfa67b0bce0dfec57ae17356ddc08`; frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged).
