@@ -1,3 +1,9 @@
+## 2026-11-28 — Make DHCPv6 IA configuration publication crash-durable
+
+- Fsync staged DHCPv6 config contents before close/rename and the containing directory after rename; propagate directory-sync errors. Regression covers success, missing/symlinked parents and injected post-rename sync failure.
+
+---
+
 ## 2026-11-28 — Persist USB modem identity directory updates
 
 - Sync the containing directory after successful modem identity metadata rename and unlink, and after metadata-directory preparation; regression covers successful, missing and symlinked parent paths.

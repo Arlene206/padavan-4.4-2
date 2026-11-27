@@ -152,3 +152,8 @@
 - **Rolling-window continuation:** 100 oldest complete records evicted when root dev_log.md reached 120 entries at parent main e37ac5dfb68231c35638b21c7c065e14903452a7 are preserved verbatim, oldest first, in part-037; pre-rotation root blob: a11535712360ffc5e74f9d23049e84371120b8c6. Root retains the newest 20 complete records.
 
 - **Rolling-window continuation:** 100 oldest complete records evicted from root `dev_log.md` at parent main `8a484891c96894a5452710101a05145fab0fc7e6` are preserved verbatim, oldest first, in `part-038.md`; pre-rotation root blob: `efa5948793d79550a59636aabf397516bbb00ea3`. Root retains its newest 20 previous complete records plus the new IA timer milestone (21 total). No record was rewritten or discarded.
+
+## 2026-11-28 rolling-window rotation
+
+- [part-039.md](2026-11/part-039.md) — 100 complete records in chronological order, from **2026-11-26 — Preserve first error across DHCPv6 delegated-prefix cleanup** through **2026-11-28 — Add missing WAN IPv6 teardown predicate definition**; 108571 UTF-8 bytes; Git blob `f1d939bd4a60b6d50f646c1b9c61252214c16cda`.
+- Root `dev_log.md` retains the newest 20 complete records. Pre-rotation 120-record source blob: `06cf223a869bb76240a67033181b12a37aef3139`.

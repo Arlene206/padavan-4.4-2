@@ -1,3 +1,13 @@
+## 2026-11-28 — Complete DHCPv6 crash-durable configuration publication
+
+- DHCPv6 IA configuration publication fsyncs staged contents after `fflush`, closes the file, atomically renames it, then fsyncs the parent directory. The shared parent barrier rejects a symlinked parent via `O_NOFOLLOW`; post-rename failures are returned because durability is uncertain after rename.
+- The C regression covers success, missing and symlinked parent paths, and an injected parent-sync failure. Initial exact run on `8b1aa83d2f82da8743350bdc2aa056ebfa764649` found a test expectation mismatch after the injected post-rename failure; `0eef8eb09fd535d6266426ec1fa8a0b5d3ed8093` corrected the expected on-disk content. Verify the 0eef exact-SHA rerun and companion WAN IA callback regression before claiming PASS.
+- Concurrent WAN IA callback work was preserved. No firmware L3 or physical L4 result inferred from workflow completion.
+- Root log rotation: 100 oldest records archived verbatim to `docs/dev-log/2026-11/part-039.md`; newest 20 retained in root and index updated.
+- Next: inspect exact-head DHCPv6/WAN IA tests, Process inventory and AI handoff; close modem/OpenVPN XY-C1 Build → TRX → artifact; continue an independent P1 issue.
+
+---
+
 ## 2026-11-28 — Make USB modem identity metadata durable
 
 - The USB modem metadata writer fsynced the staged file and atomically renamed it, but never synced the parent directory; its remover also reported success immediately after unlink. A sudden power loss could therefore lose a newly assigned USB identity or resurrect a removed stale `wwanX` identity. Both now fsync the parent after rename/unlink; directory preparation also syncs the parent after verifying the root-owned directory.
