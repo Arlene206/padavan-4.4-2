@@ -22,6 +22,7 @@ TEST_NVRAM_FAIL_STATUS=9
 LOG_MESSAGES=
 nvram()
 {
+	[ "${1:-}" = get_checked ] && [ "$#" -eq 2 ] || return 2
 	if [ "$TEST_NVRAM_FAIL_KEY" = "$2" ]; then
 		return "$TEST_NVRAM_FAIL_STATUS"
 	fi

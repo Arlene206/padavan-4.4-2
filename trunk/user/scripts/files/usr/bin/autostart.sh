@@ -128,7 +128,7 @@ done
 autostart_nvram_read()
 {
 	_autostart_nvram_key=$1
-	if _autostart_nvram_value=$(nvram get "$_autostart_nvram_key"); then
+	if _autostart_nvram_value=$(nvram get_checked "$_autostart_nvram_key"); then
 		return 0
 	else
 		_autostart_nvram_status=$?

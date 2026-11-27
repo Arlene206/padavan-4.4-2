@@ -472,9 +472,9 @@ frp_close ()
 
 frp_refresh_nvram_state()
 {
-	frpc_enable=$(nvram get frpc_enable) || return 1
-	frps_enable=$(nvram get frps_enable) || return 1
-	http_username=$(nvram get http_username) || return 1
+	frpc_enable=$(nvram get_checked frpc_enable) || return $?
+	frps_enable=$(nvram get_checked frps_enable) || return $?
+	http_username=$(nvram get_checked http_username) || return $?
 
 	case "$frpc_enable" in 0|1) ;; *) return 1 ;; esac
 	case "$frps_enable" in 0|1) ;; *) return 1 ;; esac

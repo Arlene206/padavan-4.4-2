@@ -5,9 +5,9 @@
 umask 077
 frp_read_enable_selectors()
 {
-	frpc_enable=$(nvram get frpc_enable) || return $?
+	frpc_enable=$(nvram get_checked frpc_enable) || return $?
 	case "$frpc_enable" in 0|1) ;; *) return 1 ;; esac
-	frps_enable=$(nvram get frps_enable) || return $?
+	frps_enable=$(nvram get_checked frps_enable) || return $?
 	case "$frps_enable" in 0|1) ;; *) return 1 ;; esac
 	return 0
 }

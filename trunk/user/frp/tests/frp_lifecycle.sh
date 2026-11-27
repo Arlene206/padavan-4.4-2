@@ -8,8 +8,15 @@ trap 'rm -rf "$test_root"' EXIT HUP INT TERM
 TEST_FRPC_ENABLE=1
 TEST_FRPS_ENABLE=1
 TEST_HTTP_USERNAME=root
+TEST_NVRAM_FAIL_KEY=
+TEST_NVRAM_FAIL_STATUS=73
+TEST_NVRAM_READ_LOG="$test_root/nvram-reads"
+: > "$TEST_NVRAM_READ_LOG"
 nvram()
 {
+	[ "${1:-}" = get_checked ] && [ "$#" -eq 2 ] || return 2
+	printf '%s\n' "$2" >> "$TEST_NVRAM_READ_LOG"
+	[ "$2" != "$TEST_NVRAM_FAIL_KEY" ] || return "$TEST_NVRAM_FAIL_STATUS"
 	case "$2" in
 		frpc_enable) printf '%s\n' "$TEST_FRPC_ENABLE" ;;
 		frps_enable) printf '%s\n' "$TEST_FRPS_ENABLE" ;;
@@ -20,6 +27,32 @@ nvram()
 logger() { :; }
 set -- __test_source__
 . "$repo_root/trunk/user/frp/frp.sh" __test_source__
+
+# The live state snapshot must preserve backend failures and stop at the
+# first unreadable selector or optional dashboard setting.
+for key in frpc_enable frps_enable http_username; do
+	TEST_NVRAM_FAIL_KEY="$key"
+	: > "$TEST_NVRAM_READ_LOG"
+	if frp_refresh_nvram_state; then
+		fail "NVRAM backend failure for $key was accepted"
+	else
+		read_status=$?
+	fi
+	[ "$read_status" -eq 73 ] || fail "$key read status was not preserved"
+	case "$key" in
+		frpc_enable) expected_reads="frpc_enable" ;;
+		frps_enable) expected_reads="frpc_enable\nfrps_enable" ;;
+		http_username) expected_reads="frpc_enable\nfrps_enable\nhttp_username" ;;
+	esac
+	[ "$(cat "$TEST_NVRAM_READ_LOG")" = "$(printf '%b' "$expected_reads")" ] ||
+		fail "$key read failure did not stop the state snapshot"
+done
+TEST_NVRAM_FAIL_KEY=
+: > "$TEST_NVRAM_READ_LOG"
+frp_refresh_nvram_state || fail "valid NVRAM state snapshot was rejected"
+[ "$frpc_enable" = 1 ] && [ "$frps_enable" = 1 ] && [ "$http_username" = root ] ||
+	fail "valid NVRAM values were not copied"
+
 
 FRP_PROC_ROOT="$test_root/proc"
 mkdir -p "$FRP_PROC_ROOT"

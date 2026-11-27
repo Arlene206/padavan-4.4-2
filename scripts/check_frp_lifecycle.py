@@ -54,7 +54,7 @@ require('if [ "$result_net" = "1" ]' in check,
 autostart_source = (ROOT / "trunk/user/scripts/files/usr/bin/autostart.sh").read_text()
 autostart_nvram_read = function_body(autostart_source, "autostart_nvram_read()")
 autostart = function_body(autostart_source, "frp_autostart()")
-require('if _autostart_nvram_value=$(nvram get "$_autostart_nvram_key"); then' in autostart_nvram_read and
+require('if _autostart_nvram_value=$(nvram get_checked "$_autostart_nvram_key"); then' in autostart_nvram_read and
         'return "$_autostart_nvram_status"' in autostart_nvram_read and
         'autostart_nvram_read frpc_enable || return $?' in autostart and
         'frp_client_enabled=$_autostart_nvram_value' in autostart and
@@ -70,7 +70,7 @@ for marker in ("client-only configuration", "server-only configuration",
                "both services enabled", "both services disabled",
                "TEST_NVRAM_FAIL_KEY=frpc_enable", "TEST_NVRAM_FAIL_KEY=frps_enable",
                "FRPC read failure status", "FRPS read failure status",
-               "exactly once"):
+               "get_checked", "exactly once"):
     require(marker in autostart_test, f"FRP autostart regression omits {marker}")
 
 cron = function_body(source, "frp_manage_watchdog_cron()")
@@ -139,8 +139,8 @@ require('seed_storage_file "/etc_ro/frp_script.sh" "$frp_script_path" 700 1' in 
 frp_template = (ROOT / "trunk/user/frp/frp_script.sh").read_text()
 frp_config_test = (ROOT / "trunk/user/frp/tests/frp_config.sh").read_text()
 frp_enable_snapshot = function_body(frp_template, "frp_read_enable_selectors()")
-require('frpc_enable=$(nvram get frpc_enable) || return $?' in frp_enable_snapshot and
-        'frps_enable=$(nvram get frps_enable) || return $?' in frp_enable_snapshot and
+require('frpc_enable=$(nvram get_checked frpc_enable) || return $?' in frp_enable_snapshot and
+        'frps_enable=$(nvram get_checked frps_enable) || return $?' in frp_enable_snapshot and
         'case "$frpc_enable" in 0|1) ;; *) return 1 ;; esac' in frp_enable_snapshot and
         'case "$frps_enable" in 0|1) ;; *) return 1 ;; esac' in frp_enable_snapshot and
         "if frp_read_enable_selectors; then" in frp_template and
@@ -148,7 +148,8 @@ require('frpc_enable=$(nvram get frpc_enable) || return $?' in frp_enable_snapsh
         "FRP runner must fail closed on enable NVRAM errors and malformed selectors")
 for marker in ("FRPC NVRAM read failure", "FRPS NVRAM read failure",
                "invalid FRPC selector", "invalid FRPS selector",
-               "FRP runtime enable NVRAM reads fail closed and require exact boolean selectors: PASS"):
+               "get_checked",
+                "FRP runtime enable NVRAM reads fail closed and require exact boolean selectors: PASS"):
     require(marker in frp_config_test, f"FRP selector regression omits {marker}")
 
 require('frpc -c "$frp_runtime_dir/myfrpc.ini"' in frp_template and
@@ -172,8 +173,8 @@ for marker in ("frp_start", "frp_close", "operator", "path-traversal",
 
 
 refresh = function_body(source, "frp_refresh_nvram_state()")
-require('nvram get frpc_enable' in refresh and 'nvram get frps_enable' in refresh and
-        'nvram get http_username' in refresh and '0|1' in refresh,
+require('nvram get_checked frpc_enable' in refresh and 'nvram get_checked frps_enable' in refresh and
+        'nvram get_checked http_username' in refresh and '|| return $?' in refresh and '0|1' in refresh,
         "mutable FRP role and cron state must be read and validated under the lifecycle lock")
 lock_prepare = function_body(source, "frp_lifecycle_lock_prepare()")
 for marker in ("stat -c '%u %a'", "stat -c '%u %a %h'", "set -C",

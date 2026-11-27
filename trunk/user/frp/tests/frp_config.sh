@@ -28,7 +28,7 @@ TEST_NVRAM_READ_LOG="$test_root/nvram-reads"
 : > "$TEST_NVRAM_READ_LOG"
 nvram()
 {
-	[ "${1:-}" = get ] && [ "$#" -eq 2 ] || return 2
+	[ "${1:-}" = get_checked ] && [ "$#" -eq 2 ] || return 2
 	printf '%s\n' "$2" >> "$TEST_NVRAM_READ_LOG"
 	[ "$2" != "$TEST_NVRAM_FAIL_KEY" ] || return 73
 	case "$2" in
