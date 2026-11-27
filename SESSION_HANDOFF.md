@@ -1,9 +1,11 @@
-## 2026-11-27 — Confirm Shadowsocks ABSENT lookups with complete procfs scans
+## 2026-11-27 — Repair exact-SHA Shadowsocks contract and handoff guard
 
-- BusyBox 1.24 `procps_scan` silently skips PID entries it cannot read, so `pidof`/`pgrep` status 1 is not definitive absence. Shadowsocks now confirms status-1 results against a complete fail-closed procfs scan, including stat validity, task state, command-line readability, name/argv matching and a final lookup recheck. Incomplete inventories return UNKNOWN.
-- Added deterministic fake-procfs regressions for skipped live named and monitor processes, exact counts, and malformed stat records. Existing bounded shutdown/readiness tests remain.
-- Exact-SHA Actions pending after push; no local shell run claimed. Earlier completed slices: SSH storage symlink hardening `d9b6bb8529655903be8d678c85a6e88afd166ba4`; Redsocks identity-bound stop `7e1557690aa6aa996007b5ed4e1aecd170b44eed`, checker/docs follow-up `d51df25a0f3fcef57a2b9ad0633865f29dae595d`. Redsocks and AI docs passed on d51; XY-C1 Build/TRX/artifact passed on d9. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Next: check exact-SHA Shadowsocks lifecycle and AI docs Actions, repair any failing job, then continue P2 process lifecycle/security work.
+- Production/test baseline: `f23be0cff7d7e0d1e942ebcf10094497b73be676` (`fix(shadowsocks): confirm absent process scans via procfs`). The BusyBox 1.24 status-1 fallback scan and fake-procfs regressions are already on `main`; do not repeat that implementation review.
+- Exact push Actions on that SHA: Shadowsocks lifecycle #46079286423 FAILED only at `scripts/check_shadowsocks_lifecycle.py` because its source contract searched for an escaped `${SS_PROC_ROOT...}` and two backslashes in the `tr` expression; the production shell helper contains the literal parameter expansion and one backslash. Shell syntax, startup/status, DNSMasq cleanup, process lifecycle (including the new incomplete-procfs false-negative regression), and adblock regressions all PASS. Process inventory #46079286495 PASS.
+- AI handoff documentation contract #46079286331 FAILED because UTF-8 `REFACTOR_ROADMAP.md` was 131389 bytes, 317 bytes over its 131072-byte hard limit; the current top entry is compressed in this correction. Exact reruns for Shadowsocks and AI docs must be checked on the new HEAD.
+- XY-C1 Firmware Validation #46079286427 remains IN_PROGRESS on the production source SHA above. All host validation steps and the firmware-input detector passed; Build XY-C1 was running, while TRX verification and artifact upload were still pending at the last observation. Do not claim L3 until Build, TRX and artifact upload all pass. No physical-router/L4 validation is claimed.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` and must remain untouched.
+- Exact first action: inspect the new exact-SHA Shadowsocks lifecycle and AI documentation runs; repair any remaining failing assertion/limit. Independently retrieve the completion state of XY-C1 run #46079286427 for source SHA `f23be0c`. Then continue the next P2 process-lifecycle/security slice outside the already completed Shadowsocks scanner review.
 
 ---
 

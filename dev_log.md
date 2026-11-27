@@ -1,3 +1,10 @@
+## 2026-11-28 03:55 CST (UTC+8) — Correct Shadowsocks procfs source contract and handoff byte guard
+
+- Exact SHA `f23be0cff7d7e0d1e942ebcf10094497b73be676`: Shadowsocks lifecycle #46079286423 passed shell syntax and all runtime regressions, then failed only because the Python source checker expected incorrect escaping for the literal procfs path expansion and `tr` delimiter. This checker-only correction now matches the actual shell source.
+- AI handoff #46079286331 failed because the roadmap exceeded its UTF-8 hard limit by 317 bytes; compressed the new top roadmap status heading. No production behavior changed.
+- Process inventory #46079286495 PASS. The corrected checker and documentation contract require new exact-push runs. XY-C1 #46079286427 is still the required production-source L3 gate; no local test or hardware L4 result is claimed.
+
+
 ## 2026-11-27 — Confirm Shadowsocks ABSENT lookups with complete procfs scans
 
 - BusyBox 1.24 `procps_scan` skips entries when stat or cmdline reads fail; `pidof`/`pgrep` can consequently return status 1 despite a live matching process. Shadowsocks previously accepted that as ABSENT.
