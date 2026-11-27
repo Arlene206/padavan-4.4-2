@@ -1183,6 +1183,10 @@ DROPBEAR_SSHD_SCRIPT = ROOT / "trunk/user/dropbear/sshd.sh"
 
 def check_sshd():
     syntax_check = run(["/bin/sh", "-n", str(SSHD_SCRIPT)], os.environ.copy())
+    sshd_source = SSHD_SCRIPT.read_text()
+    assert "func_config_path_check()" in sshd_source
+    assert 'cat > "$config_tmp" <<EOF' in sshd_source
+    assert 'mv "$config_tmp" "$sshd_config"' in sshd_source
     assert syntax_check.returncode == 0, syntax_check.stderr
     with tempfile.TemporaryDirectory(prefix="sshd-lifecycle-") as tmp:
         base = Path(tmp)
@@ -1230,6 +1234,42 @@ exit "${MOCK_KILLALL_STATUS:-0}"
             "SSHD_UTMP_FILE": str(run_dir / "utmp"),
             "SSHD_PID_FILE": str(run_dir / "sshd.pid"),
         })
+        # The config path is privileged input: reject symlinks (including dangling
+        # ones) before SSHD or any other startup side effect can follow them.
+        external_config = base / "external-sshd-config"
+        external_config.write_text("do-not-overwrite\\n")
+        config_link = storage / "sshd_config-link"
+        config_link.symlink_to(external_config)
+        before_calls = sshd_log.read_text().splitlines() if sshd_log.exists() else []
+        linked_env = env.copy()
+        linked_env["SSHD_CONFIG_FILE"] = str(config_link)
+        linked = run(["/bin/sh", str(SSHD_SCRIPT), "start"], linked_env)
+        assert linked.returncode != 0, "sshd followed a symlinked config path"
+        assert external_config.read_text() == "do-not-overwrite\\n"
+        assert (sshd_log.read_text().splitlines() if sshd_log.exists() else []) == before_calls
+
+        dangling_target = base / "dangling-sshd-target"
+        dangling_link = storage / "dangling-sshd-config"
+        dangling_link.symlink_to(dangling_target)
+        dangling_env = env.copy()
+        dangling_env["SSHD_CONFIG_FILE"] = str(dangling_link)
+        dangling = run(["/bin/sh", str(SSHD_SCRIPT), "start"], dangling_env)
+        assert dangling.returncode != 0, "sshd accepted a dangling config symlink"
+        assert not dangling_target.exists(), "config creation followed a dangling symlink"
+        assert not sshd_log.exists() or sshd_log.read_text().splitlines() == before_calls
+
+        # Missing configuration is staged privately and atomically published.
+        fresh_config = storage / "fresh_sshd_config"
+        fresh_env = env.copy()
+        fresh_env["SSHD_CONFIG_FILE"] = str(fresh_config)
+        fresh_env["MOCK_SSHD_STATUS"] = "0"
+        fresh_start = run(["/bin/sh", str(SSHD_SCRIPT), "start"], fresh_env)
+        assert fresh_start.returncode == 0, fresh_start.stderr
+        assert fresh_config.is_file() and not fresh_config.is_symlink()
+        assert fresh_config.stat().st_mode & 0o777 == 0o644
+        assert "HostKey " in fresh_config.read_text()
+        assert not list(storage.glob("fresh_sshd_config.tmp.*")), "config staging file leaked"
+
         failed_start = run(["/bin/sh", str(SSHD_SCRIPT), "start"], env)
         assert failed_start.returncode == 59, (
             f"sshd must propagate launch status 59, got {failed_start.returncode}"

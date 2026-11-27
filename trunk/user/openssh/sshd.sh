@@ -13,9 +13,32 @@ utmp_file="${SSHD_UTMP_FILE:-/var/run/utmp}"
 pid_file="${SSHD_PID_FILE:-/var/run/sshd.pid}"
 PROCESS_LIFECYCLE_LIB="${PROCESS_LIFECYCLE_LIB:-/usr/lib/process_lifecycle.sh}"
 
+func_config_path_check()
+{
+	if [ -L "$sshd_config" ] ||
+	   { [ -e "$sshd_config" ] && [ ! -f "$sshd_config" ]; }; then
+		logger -t "sshd" "refusing unsafe configuration path"
+		return 1
+	fi
+	return 0
+}
+
 func_create_config()
 {
-	cat > "$sshd_config" <<EOF
+	func_config_path_check || return $?
+	if [ -e "$sshd_config" ]; then
+		logger -t "sshd" "refusing to replace an existing configuration"
+		return 1
+	fi
+	config_tmp="${sshd_config}.tmp.$"
+	if (umask 077; set -C; : > "$config_tmp") 2>/dev/null; then
+		:
+	else
+		config_tmp_status=$?
+		logger -t "sshd" "cannot create private configuration staging file (status=$config_tmp_status)"
+		return "$config_tmp_status"
+	fi
+	cat > "$config_tmp" <<EOF
 # The strategy used for options in this file is to specify options with
 # their default value where possible, but leave them commented.
 # Uncommented options override the default value.
@@ -117,14 +140,39 @@ Subsystem	sftp	/usr/libexec/sftp-server
 EOF
 	config_write_status=$?
 	if [ "$config_write_status" -ne 0 ]; then
-		logger -t "sshd" "configuration write failed (status=$config_write_status)"
+		rm -f "$config_tmp"
+		logger -t "sshd" "configuration staging write failed (status=$config_write_status)"
 		return "$config_write_status"
 	fi
-	chmod 644 "$sshd_config"
+	if chmod 644 "$config_tmp"; then :; else
+		config_chmod_status=$?
+		rm -f "$config_tmp"
+		logger -t "sshd" "configuration staging permission update failed (status=$config_chmod_status)"
+		return "$config_chmod_status"
+	fi
+	func_config_path_check || { config_path_status=$?; rm -f "$config_tmp"; return "$config_path_status"; }
+	if [ -e "$sshd_config" ]; then
+		rm -f "$config_tmp"
+		logger -t "sshd" "configuration path appeared during publication"
+		return 1
+	fi
+	if mv "$config_tmp" "$sshd_config"; then
+		return 0
+	else
+		config_publish_status=$?
+		rm -f "$config_tmp"
+		logger -t "sshd" "configuration publication failed (status=$config_publish_status)"
+		return "$config_publish_status"
+	fi
 }
 
 func_start()
 {
+	func_config_path_check
+	config_path_status=$?
+	if [ "$config_path_status" -ne 0 ]; then
+		return "$config_path_status"
+	fi
 	if [ ! -d "$dir_storage" ]; then
 		if mkdir -p -m 755 "$dir_storage"; then
 			:
