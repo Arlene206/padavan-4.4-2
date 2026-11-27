@@ -67,7 +67,7 @@ fail() {
 }
 
 run_action() {
-    IPERF3_PIDOF_MODE=absent "$SCRIPT" "$1"
+    IPERF3_PIDOF_MODE=absent sh "$SCRIPT" "$1"
 }
 
 # BusyBox pidof reports status 1 with empty output when its proc scan omits a
