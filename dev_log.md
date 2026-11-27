@@ -1,3 +1,9 @@
+## 2026-11-28 — Quote AliDDNS provider TTL data before testing or persisting defaults
+
+- The AliDDNS startup block used `[ -z $aliddns_ttl ]` and an unquoted `nvram set` expansion. Since NVRAM can be written by scripts or direct requests, values containing spaces or glob characters could be split or expanded by the shell.
+- Added a quoted default helper preserving non-empty values and applying 600 only to an empty value. Added regressions for empty, wildcard, whitespace and numeric TTL inputs; static checker pins the helper and quoted persistence.
+- Exact-SHA AliDDNS transport/AI Actions pending; local shell execution unavailable in this connector-only session.
+
 ## 2026-11-28 — Align XUPnP source checker with shared DNSMasq pair transaction
 
 - DNSMasq exact-SHA run #46065129548 on `b0ccae9ca4fae122093a48790211f8526278a129` completed the `dnsmasq_file.c` GNU89/Werror/ASan/UBSan compile and runtime regression successfully, then failed in `scripts/check_xupnpd_config_pair.py` because the checker still expected pair-specific backup/restore calls in `dnsmasq_file_publish_pair()`.

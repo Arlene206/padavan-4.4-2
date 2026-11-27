@@ -35,6 +35,16 @@ aliddns_interval_normalize() {
 	printf '%s\n' "$aliddns_interval_value"
 }
 
+
+# An empty provider TTL gets the historical default. NVRAM is not constrained
+# by the web form, so use a quoted case match rather than unquoted test data.
+aliddns_ttl_default() {
+	case "$1" in
+		'') printf '600\n' ;;
+		*) printf '%s\n' "$1" ;;
+	esac
+}
+
 aliddns_nvram_read_checked() {
 	aliddns_nvram_value=$(nvram get_checked "$1")
 	aliddns_nvram_status=$?
@@ -130,7 +140,12 @@ name=""
 name1=""
 timestamp=`date -u "+%Y-%m-%dT%H%%3A%M%%3A%SZ"`
 aliddns_record_id=""
-[ -z $aliddns_ttl ] && aliddns_ttl=600 && nvram set aliddns_ttl=$aliddns_ttl
+aliddns_ttl_raw=$aliddns_ttl
+aliddns_ttl=$(aliddns_ttl_default "$aliddns_ttl_raw")
+if [ "$aliddns_ttl" != "$aliddns_ttl_raw" ]; then
+	nvram set "aliddns_ttl=$aliddns_ttl" ||
+		logger -t "AliDDNS" "无法持久化默认 TTL，当前运行使用 $aliddns_ttl"
+fi
 aliddns_nvram_read_checked aliddns_renum || exit $?
 aliddns_renum=$aliddns_nvram_value
 

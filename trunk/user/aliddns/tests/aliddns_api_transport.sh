@@ -11,6 +11,7 @@ mkdir -p "$MOCK_BIN"
 
 # Load only production functions under test; never run router startup code.
 sed -n '/^urlencode() {/,/^}/p' "$SOURCE" >> "$FUNCTIONS"
+sed -n '/^aliddns_ttl_default() {/,/^}/p' "$SOURCE" >> "$FUNCTIONS"
 sed -n '/^enc() {/,/^}/p' "$SOURCE" >> "$FUNCTIONS"
 sed -n '/^send_request() {/,/^}/p' "$SOURCE" >> "$FUNCTIONS"
 sed -n '/^aliddns_hmac_sha1() {/,/^}/p' "$SOURCE" >> "$FUNCTIONS"
@@ -153,6 +154,17 @@ fail() {
 	echo "AliDDNS API transport regression: FAIL: $1" >&2
 	exit 1
 }
+
+# Empty TTLs use the historical default. Other NVRAM contents must not
+# undergo shell word splitting or pathname expansion during the default check.
+[ "$(aliddns_ttl_default "")" = "600" ] ||
+	fail "empty provider TTL did not use the 600-second default"
+[ "$(aliddns_ttl_default "*")" = "*" ] ||
+	fail "wildcard TTL was expanded while applying the default"
+[ "$(aliddns_ttl_default "600 300")" = "600 300" ] ||
+	fail "spaced TTL was split while applying the default"
+[ "$(aliddns_ttl_default "0")" = "0" ] ||
+	fail "non-empty TTL was unexpectedly replaced"
 
 # Encoding must preserve unreserved bytes and encode spaces, delimiters,
 # backslashes, quotes and UTF-8 as RFC 3986 byte sequences.

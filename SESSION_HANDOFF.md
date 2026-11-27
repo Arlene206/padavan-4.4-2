@@ -1,15 +1,15 @@
-## 2026-11-28 — DNSMasq post-rename rollback source contract correction
+## 2026-11-28 — Fix unquoted AliDDNS TTL handling from NVRAM
 
-- Production fix commit: `b0ccae9ca4fae122093a48790211f8526278a129`. Its DNSMasq workflow #46065129548 compiled and ran `tests/dnsmasq_file.c` under GNU89/Werror/ASan/UBSan successfully, including the new pair and three-file post-rename EIO rollback regressions. It then failed only in the separate XUPnP static source checker, which still expected the removed inline pair implementation to call `dnsmasq_file_backup_create(first_destination, ...)` directly.
-- Updated `scripts/check_xupnpd_config_pair.py` to follow the new delegation: the XUPnP pair wrapper supplies both original destination/backup tuples to `dnsmasq_file_publish_set_with_ops(..., 2, ...)`; the shared set helper snapshots each destination, accounts for `rename_completed` even on failure, and restores in reverse order. This is checker-only; no product source changed.
-- Exact head `b0ccae9...`: DNSMasq #46065129548 FAIL at that stale assertion; AI handoff #46065129505 PASS; XY-C1 #46065129574 was in progress at ccache setup; NVRAM audit #46065129484, Process regression #46065129439, and Process inventory #46065129419 were still running. HTTPD security #46065129510 was running. Recheck exact-SHA results after this checker update; no L3/L4 claim.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Found an unsafe shell test at startup: `[ -z $aliddns_ttl ]` expanded the NVRAM value as shell words and pathname globs. A corrupt or script-written value containing whitespace or `*` could cause a test syntax error or argument overflow instead of the intended default decision; the corresponding NVRAM assignment was also unquoted.
+- Added `aliddns_ttl_default()` with a quoted case match, preserved every non-empty configured value, and made the historical 600-second fallback explicit. Added API-transport shell regressions for empty, glob, whitespace and ordinary non-empty values plus a static source contract.
+- DNSMasq fix `b0ccae9ca4fae122093a48790211f8526278a129` passed its file publisher compile/runtime regressions but initially failed a stale XUPnP checker. Checker-only commit `e3eb1dcc61923a7f0d16176cab76b8417d50eadd` corrected that contract; exact DNSMasq #46065441716 PASS and AI handoff #46065441601 PASS.
+- On DNS source commit `b0ccae9...`: Process regression #46065129439 PASS, Process inventory #46065129419 PASS, NVRAM boundary audit #46065129484 PASS, HTTPD security #46065129510 PASS. XY-C1 #46065129574 was still compiling XY-C1 at last poll; verify Build/TRX/artifact on that same production source before L3. Backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Exact first action
 
-1. Inspect this commit's DNSMasq lifecycle workflow. The C regression already passed on parent; require the revised XUPnP source contract and full DNSMasq job to PASS.
-2. Check XY-C1 Build, TRX and artifact upload for the production source from `b0ccae9...`; don't infer L3 from the pending ccache step.
-3. Continue independent cross-userland reliability/security work while Actions are pending; do not repeat completed USB, VPN callback-link or WAN6 audits. Physical-router L4 remains NOT VERIFIED.
+1. Inspect this commit's AliDDNS API transport workflow and static source contract; fix any failure.
+2. Continue checking XY-C1 #46065129574 through Build, TRX and artifact upload. Its source tree includes the DNSMasq transaction fix; this AliDDNS follow-up does not change firmware C sources.
+3. Continue independent userland stability/security work; no physical-router L4 claim.
 ---
 
 ## 2026-11-26 — Autonomous development checkpoint

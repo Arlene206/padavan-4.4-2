@@ -100,6 +100,7 @@ lifecycle_lock_run = function_body(source, "aliddns_lifecycle_lock_run() {")
 keeper_pid_matches = function_body(source, "aliddns_keeper_pid_matches() {")
 find_keeper_pids = function_body(source, "aliddns_find_keeper_pids() {")
 interval_normalize = function_body(source, "aliddns_interval_normalize() {")
+ttl_default = function_body(source, "aliddns_ttl_default() {")
 enable_initialize = function_body(source, "aliddns_enable_initialize() {")
 keeper_loop = function_body(source, "aliddns_keep () {")
 stop_keeper = function_body(source, "aliddns_stop_keeper() {")
@@ -259,6 +260,16 @@ require("''|*[!0-9]*)" in interval_normalize and
         r"printf '600\\n'" not in interval_normalize and
         'sleep "$aliddns_interval"' in source,
         "AliDDNS polling interval must be a bounded positive integer passed as one sleep argument")
+require('case "$1" in' in ttl_default and
+        "''" in ttl_default and "600" in ttl_default and
+        'aliddns_ttl=$(aliddns_ttl_default "$aliddns_ttl_raw")' in source and
+        '[ "$aliddns_ttl" != "$aliddns_ttl_raw" ]' in source and
+        'nvram set "aliddns_ttl=$aliddns_ttl"' in source,
+        "AliDDNS TTL defaulting must quote raw NVRAM data and preserve non-empty values")
+require('aliddns_ttl_default "*"' in test and
+        'aliddns_ttl_default "600 300"' in test and
+        'aliddns_ttl_default ""' in test,
+        "AliDDNS TTL regression must cover blank, glob and whitespace values")
 require("case \"$aliddns_nvram_value\" in" in enable_initialize and
         "0|1)" in enable_initialize and
         "invalid aliddns_enable selector; refusing to change keeper state" in enable_initialize and
