@@ -30,7 +30,19 @@ func_create_config()
 		logger -t "sshd" "refusing to replace an existing configuration"
 		return 1
 	fi
-	config_tmp="${sshd_config}.tmp.$"
+		config_tmp_id=$(stat -L -c '%i' /proc/self 2>/dev/null)
+	config_tmp_id_status=$?
+	if [ "$config_tmp_id_status" -ne 0 ]; then
+		logger -t "sshd" "cannot obtain unique configuration staging ID (status=$config_tmp_id_status)"
+		return "$config_tmp_id_status"
+	fi
+	case "$config_tmp_id" in
+		''|*[!0-9]*)
+			logger -t "sshd" "invalid configuration staging ID"
+			return 1
+			;;
+	esac
+	config_tmp="${sshd_config}.tmp.${config_tmp_id}"
 	if (umask 077; set -C; : > "$config_tmp") 2>/dev/null; then
 		:
 	else
