@@ -186,7 +186,7 @@ ftp_config_file_sync_parent(const char *target_path)
 		parent_path[parent_length] = '\0';
 	}
 
-	directory_fd = open(parent_path, O_RDONLY | O_DIRECTORY);
+	directory_fd = open(parent_path, O_RDONLY | O_DIRECTORY | O_NOFOLLOW);
 	if (directory_fd < 0)
 		return -1;
 

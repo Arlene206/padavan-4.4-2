@@ -29,6 +29,8 @@ main(void)
 	char dir[] = "/tmp/ftp-config-file.XXXXXX";
 	char target[512];
 	char missing_target[512];
+	char symlink_parent[512];
+	char symlink_target[512];
 	char staged[512];
 	char short_staged[4];
 	char contents[128];
@@ -83,6 +85,18 @@ main(void)
 	assert(errno == ENOENT);
 	read_text_file(target, contents, sizeof(contents));
 	assert(strcmp(contents, "listen=YES\n") == 0);
+
+	/* Parent-directory sync must not follow a symlinked directory. */
+	path_len = snprintf(symlink_parent, sizeof(symlink_parent),
+			    "%s/parent-link", dir);
+	assert(path_len > 0 && (size_t)path_len < sizeof(symlink_parent));
+	path_len = snprintf(symlink_target, sizeof(symlink_target),
+			    "%s/vsftpd.conf", symlink_parent);
+	assert(path_len > 0 && (size_t)path_len < sizeof(symlink_target));
+	assert(symlink(dir, symlink_parent) == 0);
+	errno = 0;
+	assert(ftp_config_file_sync_parent(symlink_target) != 0);
+	assert(unlink(symlink_parent) == 0);
 
 	/* Reject a truncated temporary pathname before creating a file. */
 	assert(ftp_config_file_open(target, short_staged,
