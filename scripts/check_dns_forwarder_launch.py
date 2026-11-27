@@ -83,6 +83,7 @@ event_loop_test = read("trunk/user/dns-forwarder/tests/hev_event_loop_lifecycle.
 event_source = read(core_dir + "hev-event-source.c")
 timeout_source = read(core_dir + "hev-event-source-timeout.c")
 signal_source = read(core_dir + "hev-event-source-signal.c")
+signal_test_hooks = read("trunk/user/dns-forwarder/tests/hev_event_source_signal_test_hooks.h")
 lifecycle_test = read("trunk/user/dns-forwarder/tests/dns_forwarder_lifecycle.sh")
 shared_process_helper = read("trunk/user/shared/scripts/process_lifecycle.sh")
 shared_makefile = read("trunk/user/shared/Makefile")
@@ -223,6 +224,7 @@ paths = (
     "trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-event-source-signal.c",
     "trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-main.c",
     "trunk/user/dns-forwarder/tests/hev_event_loop_lifecycle.c",
+    "trunk/user/dns-forwarder/tests/hev_event_source_signal_test_hooks.h",
     "trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-dns-forwarder-policy.h",
     "trunk/user/dns-forwarder/dns-forwarder-1.2.1/hev-dns-forwarder.c",
     "trunk/user/dns-forwarder/tests/hev_dns_forwarder_policy.c",
@@ -320,6 +322,17 @@ signal_setup = function_body(main_core, "add_signal_source (HevEventLoop *loop, 
 assert "hev_event_source_signal_new (signal_number)" in signal_setup
 assert "if (!hev_event_loop_add_source (loop, source))" in signal_setup
 assert "test_sigterm_is_consumed_by_event_source" in event_loop_test
+signal_constructor = function_body(signal_source, "hev_event_source_signal_new (int signal)")
+assert "sigemptyset (&mask)" in signal_constructor
+assert "sigaddset (&mask, signal)" in signal_constructor
+assert "sigprocmask (SIG_BLOCK, &mask, &old_mask)" in signal_constructor
+assert "DNS_EVENT_SOURCE_SIGNALFD (-1, &mask, SFD_NONBLOCK)" in signal_constructor
+assert "restore_signal_mask (&mask, &old_mask, was_blocked, saved_errno)" in signal_constructor
+assert "SIG_UNBLOCK, mask, NULL" in signal_source
+assert "SIG_SETMASK, old_mask, NULL" in signal_source
+assert "test_signal_source_failures_restore_signal_mask" in event_loop_test
+assert "dns_event_source_signal_test_signalfd" in signal_test_hooks
+assert "dns_event_source_signal_test_add_fd" in signal_test_hooks
 
 listener = function_body(
     forwarder_core,

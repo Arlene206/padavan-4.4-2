@@ -1,5 +1,8 @@
 #include <assert.h>
+#include <errno.h>
+#include <fcntl.h>
 #include <signal.h>
+#include <sys/signalfd.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -8,6 +11,103 @@
 #include "../dns-forwarder-1.2.1/hev-event-loop.h"
 #include "../dns-forwarder-1.2.1/hev-event-source-fds.h"
 #include "../dns-forwarder-1.2.1/hev-event-source-signal.h"
+#include "hev_event_source_signal_test_hooks.h"
+
+
+static int signal_signalfd_error;
+static int signal_add_fd_error;
+
+int
+dns_event_source_signal_test_signalfd (int fd, const sigset_t *mask,
+                                       int flags)
+{
+	if (signal_signalfd_error) {
+		errno = signal_signalfd_error;
+		return -1;
+	}
+	return signalfd (fd, mask, flags);
+}
+
+HevEventSourceFD *
+dns_event_source_signal_test_add_fd (HevEventSource *source, int fd,
+                                     uint32_t events)
+{
+	if (signal_add_fd_error) {
+		errno = signal_add_fd_error;
+		return NULL;
+	}
+	return hev_event_source_add_fd (source, fd, events);
+}
+
+static int
+signal_test_open_fd_count (void)
+{
+	int fd, count = 0;
+	for (fd = 0; fd < 4096; fd++) {
+		if (fcntl (fd, F_GETFD) >= 0)
+			count++;
+	}
+	return count;
+}
+
+static int
+signal_test_is_blocked (int signal_number)
+{
+	sigset_t current;
+	assert (0 == sigprocmask (SIG_BLOCK, NULL, &current));
+	return sigismember (&current, signal_number);
+}
+
+static void
+test_signal_source_failures_restore_signal_mask (void)
+{
+	const int signal_number = SIGUSR1;
+	HevEventSource *source = NULL;
+	sigset_t original_mask, test_set;
+	int before_fds;
+
+	assert (0 == sigprocmask (SIG_BLOCK, NULL, &original_mask));
+	assert (0 == sigemptyset (&test_set));
+	assert (0 == sigaddset (&test_set, signal_number));
+	assert (0 == sigprocmask (SIG_UNBLOCK, &test_set, NULL));
+
+	/* Invalid signal values must fail before changing the current mask. */
+	errno = 0;
+	source = hev_event_source_signal_new (-1);
+	assert (NULL == source);
+	assert (EINVAL == errno);
+	assert (0 == signal_test_is_blocked (signal_number));
+
+	signal_signalfd_error = EMFILE;
+	errno = 0;
+	source = hev_event_source_signal_new (signal_number);
+	assert (NULL == source);
+	assert (EMFILE == errno);
+	signal_signalfd_error = 0;
+	assert (0 == signal_test_is_blocked (signal_number));
+
+	/* A block that predates construction must not be undone. */
+	assert (0 == sigprocmask (SIG_BLOCK, &test_set, NULL));
+	signal_signalfd_error = EMFILE;
+	errno = 0;
+	source = hev_event_source_signal_new (signal_number);
+	assert (NULL == source);
+	assert (EMFILE == errno);
+	signal_signalfd_error = 0;
+	assert (1 == signal_test_is_blocked (signal_number));
+	assert (0 == sigprocmask (SIG_UNBLOCK, &test_set, NULL));
+
+	before_fds = signal_test_open_fd_count ();
+	signal_add_fd_error = ENOMEM;
+	errno = 0;
+	source = hev_event_source_signal_new (signal_number);
+	assert (NULL == source);
+	assert (ENOMEM == errno);
+	signal_add_fd_error = 0;
+	assert (0 == signal_test_is_blocked (signal_number));
+	assert (signal_test_open_fd_count () == before_fds);
+	assert (0 == sigprocmask (SIG_SETMASK, &original_mask, NULL));
+}
 
 static void
 test_default_event_source_functions_are_initialized(void)
@@ -125,8 +225,10 @@ test_sigterm_is_consumed_by_event_source (void)
 {
 	HevEventLoop *loop = hev_event_loop_new ();
 	HevEventSource *source;
+	sigset_t original_mask;
 
 	assert (loop);
+	assert (0 == sigprocmask (SIG_BLOCK, NULL, &original_mask));
 	signal_callback_count = 0;
 	source = hev_event_source_signal_new (SIGTERM);
 	assert (source);
@@ -139,6 +241,7 @@ test_sigterm_is_consumed_by_event_source (void)
 	hev_event_loop_run (loop);
 	assert (signal_callback_count == 1);
 	hev_event_loop_unref (loop);
+	assert (0 == sigprocmask (SIG_SETMASK, &original_mask, NULL));
 }
 
 int
@@ -151,6 +254,7 @@ main (void)
 	test_default_event_source_functions_are_initialized();
 	test_event_source_name_storage_is_safe();
 	test_source_removed_when_post_dispatch_prepare_fails();
+	test_signal_source_failures_restore_signal_mask();
 	test_sigterm_is_consumed_by_event_source();
 
 	assert(0 == pipe(first_pipe));

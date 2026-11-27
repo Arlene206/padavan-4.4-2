@@ -1,14 +1,26 @@
-## 2026-11-26 — Padavan stability handoff
+## 2026-11-27 — DNS Forwarder signal-source construction rollback
 
-- Current `main` parent for this workflow-filter repair: `5fc01c7737e50decd1e8c42a0292953679119e05`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged; do not modify).
-- Startup/protocol recovery has already been completed. Do not repeat. Continue on `main` using full-tree atomic commits and non-forced expected-SHA updates.
-- Exact-SHA DNS CI: #45854983436 on `84ad78818575cf94a7aa8a27823b82bd651f0d98` and #45855217820 on `5fc01c7737e50decd1e8c42a0292953679119e05` both FAILED in the Python path-filter contract: `hev-main.c` appeared twice in push/pull_request filters. All C tests were skipped. This commit removes those duplicates.
-- `84ad788`: AI handoff #45854983388 PASS and Process inventory #45854983397 PASS; XY-C1 #45854983214 and NVRAM #45854983349 were running at last poll.
-- `84ad788` adds SIGTERM signalfd handling next to SIGINT and an epoll test that sends SIGTERM to itself. This code has not yet been validated because of the source-filter failure.
-- `6276721d43ee853deb8fca303bd771296289cb4b`: event-loop post-dispatch prepare-failure cleanup and regression passed in DNS Forwarder #45854341118.
-- Next: inspect this repair's exact-SHA DNS run, including SIGTERM test; then fix the queued ring-buffer defect where a TCP response length prefix may span `iovec[0]` and `iovec[1]` but the current parser dereferences only the first segment. No physical-router/L4 result is claimed.
+- Repository: `Arlene206/padavan-4.4-2`; development remains on `main`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify it.
+- Startup/protocol recovery was completed once for this continuous project. Continue using full-tree atomic commits and non-forced expected-SHA updates; do not create or use development branches or PRs.
+- Latest verified exact-push DNS Forwarder workflow before this slice: run #45856003301 on `6ff4e52b7bed0277d1845911390140d78bd087c2`, completed/success. That commit corrected the checker for TCP DNS frame-length decoding across the two ring-buffer iovecs. It does not represent an XY-C1 firmware build.
+- New source slice: `hev_event_source_signal_new()` now checks signal-set/blocking operations and rolls back only the newly introduced signal block when signalfd creation, event-source allocation, or fd attachment fails. Existing pre-blocked signals remain blocked and the original setup errno is retained. Regression hooks cover signalfd and fd-attachment failures; the successful SIGTERM/signalfd path restores the test process's original mask after teardown.
+- Files in this slice: `hev-event-source-signal.c`, new `hev_event_source_signal_test_hooks.h`, `hev_event_loop_lifecycle.c`, DNS Forwarder workflow path/compile integration, its source-contract checker, this handoff, and `dev_log.md`.
+- Local compilation is unavailable in this connector-only session. Do not claim the host regression has run; exact-SHA push Actions must validate it.
+- No target build or hardware validation is claimed here. L3/L4 remain NOT VERIFIED unless separately evidenced.
 
+## Exact first action
+
+1. Fetch the live `main` SHA, inspect the exact-SHA push run for the signal-source rollback slice, and review its job steps/logs. Fix any compile, sanitizer, source-contract or workflow failure with a new atomic `main` commit.
+2. After DNS Forwarder passes, continue the next independent P1 stability/security defect in another userland component; do not re-audit the already-fixed TCP ring-prefix path or repeat startup recovery.
+
+## Handoff validation boundary
+
+- Last recorded backup SHA: `72f4f157a084f8184b9597ca5bf334b8080e5807` (immutable).
+- Last prior exact-main DNS run: #45856003301 on `6ff4e52b7bed0277d1845911390140d78bd087c2` PASS.
+- New slice Actions state: check by exact `head_sha` after the commit lands; pending/failed states must be preserved truthfully.
+- Physical-router L4 validation: NOT VERIFIED.
+
+---
 
 ## 2026-11-26 — Autonomous development checkpoint
 

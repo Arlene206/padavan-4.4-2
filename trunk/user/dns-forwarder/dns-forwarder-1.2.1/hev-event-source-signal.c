@@ -20,6 +20,15 @@
 
 #include "hev-event-source-signal.h"
 
+#ifdef HEV_EVENT_SOURCE_SIGNAL_TESTING
+#include "../tests/hev_event_source_signal_test_hooks.h"
+#define DNS_EVENT_SOURCE_SIGNALFD dns_event_source_signal_test_signalfd
+#define DNS_EVENT_SOURCE_SIGNAL_ADD_FD dns_event_source_signal_test_add_fd
+#else
+#define DNS_EVENT_SOURCE_SIGNALFD signalfd
+#define DNS_EVENT_SOURCE_SIGNAL_ADD_FD hev_event_source_add_fd
+#endif
+
 static bool hev_event_source_signal_check (HevEventSource *source, HevEventSourceFD *fd);
 static void hev_event_source_signal_finalize (HevEventSource *source);
 
@@ -71,32 +80,68 @@ signalfd (int fd, const sigset_t *mask, int flags)
 }
 #endif
 
+static void
+restore_signal_mask (const sigset_t *mask, const sigset_t *old_mask,
+		int was_blocked, int saved_errno)
+{
+	/*
+	 * signalfd setup owns only the new block for this signal. Do not
+	 * disturb a block that was already present before construction.
+	 */
+	if (0 == was_blocked)
+		(void) sigprocmask (SIG_UNBLOCK, mask, NULL);
+	else if (0 > was_blocked)
+		(void) sigprocmask (SIG_SETMASK, old_mask, NULL);
+	errno = saved_errno;
+}
+
 HevEventSource *
 hev_event_source_signal_new (int signal)
 {
 	int fd = -1;
+	int was_blocked = -1;
+	int saved_errno = 0;
 	HevEventSource *source = NULL;
 	HevEventSourceSignal *self = NULL;
-	sigset_t mask;
+	sigset_t mask, old_mask;
 
-	sigemptyset (&mask);
-	sigaddset (&mask, signal);
-	sigprocmask(SIG_BLOCK, &mask, NULL);
-	fd = signalfd (-1, &mask, SFD_NONBLOCK);
-	if (-1 == fd)
-	  return NULL;
+	if (0 > sigemptyset (&mask))
+		return NULL;
+	if (0 > sigaddset (&mask, signal))
+		return NULL;
+	if (0 > sigprocmask (SIG_BLOCK, &mask, &old_mask))
+		return NULL;
+
+	was_blocked = sigismember (&old_mask, signal);
+	if (0 > was_blocked) {
+		saved_errno = errno ? errno : EINVAL;
+		restore_signal_mask (&mask, &old_mask, was_blocked, saved_errno);
+		return NULL;
+	}
+
+	fd = DNS_EVENT_SOURCE_SIGNALFD (-1, &mask, SFD_NONBLOCK);
+	if (-1 == fd) {
+		saved_errno = errno ? errno : EIO;
+		restore_signal_mask (&mask, &old_mask, was_blocked, saved_errno);
+		return NULL;
+	}
 
 	source = hev_event_source_new (&hev_event_source_signal_funcs,
 				sizeof (HevEventSourceSignal));
 	if (NULL == source) {
+		saved_errno = errno ? errno : ENOMEM;
 		close (fd);
+		restore_signal_mask (&mask, &old_mask, was_blocked, saved_errno);
 		return NULL;
 	}
 
 	self = (HevEventSourceSignal *) source;
 	self->signal_fd = fd;
-	if (!hev_event_source_add_fd (source, self->signal_fd, EPOLLIN | EPOLLET)) {
+	if (!DNS_EVENT_SOURCE_SIGNAL_ADD_FD (
+			source, self->signal_fd, EPOLLIN | EPOLLET)) {
+		saved_errno = errno ? errno : ENOMEM;
 		hev_event_source_unref (source);
+		restore_signal_mask (&mask, &old_mask, was_blocked, saved_errno);
 		return NULL;
 	}
 

@@ -1,3 +1,9 @@
+## 2026-11-27 — Roll back signal masks when signalfd setup fails
+
+- `hev_event_source_signal_new()` previously ignored signal-set/blocking errors and left the requested signal blocked if `signalfd()` or event-source attachment failed. The caller received no source capable of consuming that signal, so later delivery could remain pending indefinitely.
+- Validate signal-set and `sigprocmask()` operations; remember whether the caller already blocked the signal; on every post-block construction failure, undo only the block introduced by this attempt while preserving the original setup errno.
+- Added test-only failure injection for signalfd creation and fd attachment. The event-loop regression checks invalid signal rejection, mask rollback, preservation of a pre-existing mask, descriptor cleanup, and successful SIGTERM delivery. The DNS Forwarder workflow compiles it with GNU89, `-Werror`, ASan and UBSan. Local execution was unavailable in the connector-only session; exact-SHA Actions remains the executable verification gate.
+
 ## 2026-11-26 — Remove duplicate SIGTERM source path entries
 
 - DNS Forwarder #45854983436 (`84ad788...`) and #45855217820 (`5fc01c7...`) failed in the Python workflow path-filter contract before any C test ran. The `hev-main.c` path had been inserted twice in each push/pull_request filter; the checker path inventory also listed it twice and loaded the event-loop lifecycle fixture three times.
