@@ -225,7 +225,7 @@ test_sigterm_is_consumed_by_event_source (void)
 {
 	HevEventLoop *loop = hev_event_loop_new ();
 	HevEventSource *source;
-	sigset_t original_mask;
+	sigset_t original_mask, current_mask;
 
 	assert (loop);
 	assert (0 == sigprocmask (SIG_BLOCK, NULL, &original_mask));
@@ -241,6 +241,31 @@ test_sigterm_is_consumed_by_event_source (void)
 	hev_event_loop_run (loop);
 	assert (signal_callback_count == 1);
 	hev_event_loop_unref (loop);
+	assert (0 == sigprocmask (SIG_BLOCK, NULL, &current_mask));
+	assert (sigismember (&current_mask, SIGTERM) ==
+			sigismember (&original_mask, SIGTERM));
+}
+
+static void
+test_signal_source_finalize_preserves_preblocked_signal (void)
+{
+	HevEventLoop *loop = hev_event_loop_new ();
+	HevEventSource *source;
+	sigset_t original_mask, signal_set, current_mask;
+
+	assert (loop);
+	assert (0 == sigprocmask (SIG_BLOCK, NULL, &original_mask));
+	assert (0 == sigemptyset (&signal_set));
+	assert (0 == sigaddset (&signal_set, SIGUSR1));
+	assert (0 == sigprocmask (SIG_BLOCK, &signal_set, NULL));
+	source = hev_event_source_signal_new (SIGUSR1);
+	assert (source);
+	assert (hev_event_loop_add_source (loop, source));
+	hev_event_source_unref (source);
+	hev_event_loop_unref (loop);
+
+	assert (0 == sigprocmask (SIG_BLOCK, NULL, &current_mask));
+	assert (1 == sigismember (&current_mask, SIGUSR1));
 	assert (0 == sigprocmask (SIG_SETMASK, &original_mask, NULL));
 }
 
@@ -256,6 +281,7 @@ main (void)
 	test_source_removed_when_post_dispatch_prepare_fails();
 	test_signal_source_failures_restore_signal_mask();
 	test_sigterm_is_consumed_by_event_source();
+	test_signal_source_finalize_preserves_preblocked_signal();
 
 	assert(0 == pipe(first_pipe));
 	assert(0 == pipe(second_pipe));

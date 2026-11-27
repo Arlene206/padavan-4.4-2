@@ -330,7 +330,16 @@ assert "DNS_EVENT_SOURCE_SIGNALFD (-1, &mask, SFD_NONBLOCK)" in signal_construct
 assert "restore_signal_mask (&mask, &old_mask, was_blocked, saved_errno)" in signal_constructor
 assert "SIG_UNBLOCK, mask, NULL" in signal_source
 assert "SIG_SETMASK, old_mask, NULL" in signal_source
-assert "test_signal_source_failures_restore_signal_mask" in event_loop_test
+signal_finalize = function_body(
+    signal_source, "hev_event_source_signal_finalize (HevEventSource *source)"
+)
+assert "self->restore_signal_mask_on_finalize" in signal_finalize
+assert "SIG_UNBLOCK, &self->signal_mask, NULL" in signal_finalize
+assert "self->restore_signal_mask_on_finalize = 0" in signal_constructor
+assert signal_constructor.index("self->restore_signal_mask_on_finalize = 0") < signal_constructor.index("DNS_EVENT_SOURCE_SIGNAL_ADD_FD (")
+assert "self->signal_mask = mask" in signal_constructor
+assert "self->restore_signal_mask_on_finalize = (0 == was_blocked)" in signal_constructor
+assert "test_signal_source_finalize_preserves_preblocked_signal" in event_loop_test
 assert "dns_event_source_signal_test_signalfd" in signal_test_hooks
 assert "dns_event_source_signal_test_add_fd" in signal_test_hooks
 

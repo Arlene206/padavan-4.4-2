@@ -1,3 +1,10 @@
+## 2026-11-27 — Restore signal masks when DNS event sources are finalized
+
+- The earlier signalfd fix rolled back blocks on constructor failures, but successful source destruction still only closed the descriptor. When event-loop registration failed after constructor success or a source was later deleted, a signal that had been unblocked before construction remained blocked with no signalfd consumer.
+- The source now records whether it introduced the signal block. Finalization closes the signalfd and unblocks only that signal when the caller had not already blocked it; a pre-existing block is preserved, and other signal-mask bits are not overwritten. `errno` is preserved across finalization.
+- The ownership flag is explicitly initialized before any fd-attachment failure path because the event-source allocator does not zero derived-struct storage.
+- Regression checks the original SIGTERM mask after normal event-loop teardown and verifies a pre-blocked SIGUSR1 remains blocked after source finalization. Exact-SHA DNS Forwarder workflow must compile and run the test under ASan/UBSan. Local execution unavailable.
+
 ## 2026-11-27 — Close the process-start race after procfs absence scan
 
 - A complete procfs scan could still return ABSENT if a daemon started after `ls` captured the PID directory list but before the scanner returned. `pl_process_pattern_state()` already rechecked pgrep after its fallback scan; `pl_process_state()` did not have an equivalent post-scan check, allowing a concurrent service start to launch a duplicate daemon.

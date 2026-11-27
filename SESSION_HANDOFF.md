@@ -1,14 +1,14 @@
-## 2026-11-27 — Recheck pidof after procfs absence scan
+## 2026-11-27 — Restore signal mask ownership on source finalization
 
-- Current parent `main`: `26f8b1bebe0f7343647c51295beba3591853c39a`; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- The PID-less inventory fix and its baseline fixture are validated: shared fail-closed regression #46056098022 PASS, process inventory #46056098047 PASS, AI handoff #46056098062 PASS on the exact parent SHA. The corrective commit `79c3b11cfc824766c7b65d6d1aea84cf554ec2d4` also passed DNS Forwarder #46055856763, DDNSTO #46055856762, ZeroTier #46055856770, process inventory #46055856719 and AI handoff #46055856773. WAN route #46055856735 and XY-C1 firmware #46055856684 had been in progress at last check.
-- New race hardening: `pl_process_state()` rechecks `pidof` after a complete no-match procfs scan so processes created after the initial `ls` snapshot do not lead to stale ABSENT. Regression fakes a process that appears after `ls` has already emitted its listing. New exact-SHA process lifecycle regression required.
-- Local execution and physical L4 are not claimed. XY-C1 build/TRX/artifact status must be verified on the exact current SHA.
+- Current parent `main`: `be34b9f2c1c320a88b630166209ceac445e917c2`; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- PID-less process inventory hardening, baseline PID 1 fixture, and late-start procfs recheck are in the current main history. Exact parent run #46056098022 Process inventory and lifecycle fail-closed regression PASS, #46056098047 Process lifecycle inventory PASS, #46056098062 AI handoff PASS.
+- DNS Forwarder signal source still left a signal blocked after successful source destruction. This matters when `hev_event_loop_add_source()` fails after constructor success or a source is later deleted: no signalfd consumer remains, but the signal stays blocked. The new source ownership flag restores only a block newly added by this source; pre-existing blocks are retained.
+- Added teardown checks for normal SIGTERM source destruction and a successfully finalized pre-blocked SIGUSR1 source. The ownership flag is initialized before the constructor's fd-attachment failure path because allocator memory is not zero-initialized. New exact-SHA DNS Forwarder regression required. Local tests unavailable; L4 remains NOT VERIFIED.
 
 ## Exact first action
 
-1. Inspect the new exact-SHA Process inventory and fail-closed regression logs. Confirm the late-process interleaving test passes and all UNKNOWN/ABSENT status cases remain correct.
-2. Check XY-C1 and WAN route checks by exact SHA; then continue another independent stability/security bug outside the shared process helper.
+1. Check exact-SHA DNS Forwarder launch-path workflow for the finalizer ownership change and run the C lifecycle regression under ASan/UBSan. Fix any failure.
+2. Check exact-SHA process lifecycle inventory/fail-closed workflow for the post-scan PID race test; then continue another independent P1 userland issue.
 
 ---
 

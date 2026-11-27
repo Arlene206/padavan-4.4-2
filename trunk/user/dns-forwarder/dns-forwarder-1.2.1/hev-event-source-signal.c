@@ -37,6 +37,8 @@ struct _HevEventSourceSignal
 	HevEventSource parent;
 
 	int signal_fd;
+	sigset_t signal_mask;
+	int restore_signal_mask_on_finalize;
 };
 
 #if defined(ANDROID)
@@ -137,6 +139,8 @@ hev_event_source_signal_new (int signal)
 
 	self = (HevEventSourceSignal *) source;
 	self->signal_fd = fd;
+	/* The event-source allocator does not zero derived-struct storage. */
+	self->restore_signal_mask_on_finalize = 0;
 	if (!DNS_EVENT_SOURCE_SIGNAL_ADD_FD (
 			source, self->signal_fd, EPOLLIN | EPOLLET)) {
 		saved_errno = errno ? errno : ENOMEM;
@@ -145,6 +149,8 @@ hev_event_source_signal_new (int signal)
 		return NULL;
 	}
 
+	self->signal_mask = mask;
+	self->restore_signal_mask_on_finalize = (0 == was_blocked);
 	return source;
 }
 
@@ -170,6 +176,11 @@ static void
 hev_event_source_signal_finalize (HevEventSource *source)
 {
 	HevEventSourceSignal *self = (HevEventSourceSignal *) source;
+	int saved_errno = errno;
+
 	close (self->signal_fd);
+	if (self->restore_signal_mask_on_finalize)
+		(void) sigprocmask (SIG_UNBLOCK, &self->signal_mask, NULL);
+	errno = saved_errno;
 }
 
