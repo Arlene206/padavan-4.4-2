@@ -1,3 +1,9 @@
+## 2026-11-27 — Close the process-start race after procfs absence scan
+
+- A complete procfs scan could still return ABSENT if a daemon started after `ls` captured the PID directory list but before the scanner returned. `pl_process_pattern_state()` already rechecked pgrep after its fallback scan; `pl_process_state()` did not have an equivalent post-scan check, allowing a concurrent service start to launch a duplicate daemon.
+- Added a second `pidof` query after a successful no-match procfs scan. Valid PID output now returns RUNNING, status 1 with empty output returns ABSENT, and every inconsistent/error state remains UNKNOWN. The test interposes a fake `ls` that creates a daemon PID only after printing its snapshot, then verifies the post-scan check catches it.
+- Baseline procfs fixtures now model PID 1; dedicated empty/non-PID-only snapshots still remain UNKNOWN. The exact-SHA shared process lifecycle regression #46056098022 and inventory #46056098047 passed on parent `26f8b1bebe0f7343647c51295beba3591853c39a`; AI handoff #46056098062 passed. This race regression requires a new exact-SHA run. Local execution unavailable.
+
 ## 2026-11-27 — Seed the baseline shared procfs test namespace with init
 
 - Exact-SHA process lifecycle regression #46055326917 on parent `5d050019bf478d97c794aae8e81ac1fa5845ef59` failed at its first baseline absence assertion: the test began with an entirely empty fake procfs. The production change correctly returns UNKNOWN for a PID-less inventory; the test fixture needs to model a valid namespace even when the daemon being queried is absent.

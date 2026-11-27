@@ -17,8 +17,26 @@ case "$(cat "$PL_TEST_STATE")" in
  empty-success) exit 0 ;;
  malformed) echo "123 nope"; exit 0 ;;
  inconsistent) echo 123; exit 1 ;;
+ late)
+     if [ ! -e "$PL_TEST_LATE_PIDOF_FILE" ]; then
+         : > "$PL_TEST_LATE_PIDOF_FILE"
+         exit 1
+     fi
+     echo 654; exit 0 ;;
  *) exit 2 ;;
 esac
+STUB
+cat > "$tmp/bin/ls" <<'STUB'
+#!/bin/sh
+/bin/ls "$@"
+pl_ls_status=$?
+if [ "$(cat "$PL_TEST_STATE")" = late ] &&
+   [ ! -e "$PL_TEST_LATE_LS_FILE" ]; then
+    : > "$PL_TEST_LATE_LS_FILE"
+    mkdir -p "$PL_PROC_ROOT/654"
+    printf '%s\n' '654 (test-daemon) S 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19' > "$PL_PROC_ROOT/654/stat"
+fi
+exit "$pl_ls_status"
 STUB
 cat > "$tmp/bin/killall" <<'STUB'
 #!/bin/sh
@@ -70,6 +88,8 @@ STUB
 chmod 755 "$tmp/bin/"*
 PATH="$tmp/bin:$PATH"
 PL_TEST_STATE="$state_file"; PL_TEST_EVENTS="$events_file"
+PL_TEST_LATE_PIDOF_FILE="$tmp/late-pidof-once"
+PL_TEST_LATE_LS_FILE="$tmp/late-ls-once"
 PL_PATTERN_STATE_FILE="$tmp/pattern-state"
 PL_PATTERN_LATE_FILE="$tmp/pattern-late-once"
 PL_PATTERN_SELF_FILE="$tmp/pattern-self-once"
@@ -80,7 +100,7 @@ export PL_PATTERN_STATE_FILE PL_PATTERN_LATE_FILE PL_PATTERN_SELF_FILE PL_TEST_C
 PL_TEST_SLEEP_COUNT="$tmp/sleep-count"; PL_TEST_SLEEP_AFTER=0; PL_TEST_SLEEP_STATE=running
 PL_TERM_STATE=absent; PL_KILL_STATE=absent
 PL_TERM_STATUS=0; PL_KILL_STATUS=0; PL_SLEEP_STATUS=0
-export PATH PL_TEST_STATE PL_TEST_EVENTS PL_TEST_SLEEP_COUNT PL_TEST_SLEEP_AFTER PL_TEST_SLEEP_STATE
+export PATH PL_TEST_STATE PL_TEST_EVENTS PL_TEST_SLEEP_COUNT PL_TEST_SLEEP_AFTER PL_TEST_SLEEP_STATE PL_TEST_LATE_PIDOF_FILE PL_TEST_LATE_LS_FILE
 export PL_TERM_STATE PL_KILL_STATE PL_TERM_STATUS PL_KILL_STATUS PL_SLEEP_STATUS
 . "$lib"
 # A complete fake procfs namespace must contain a numeric PID entry even when
@@ -97,6 +117,17 @@ for item in "running:0" "absent:1" "unknown:2" "empty-success:2" "malformed:2" "
 done
 # pidof status 1 with empty output is not sufficient to prove absence:
 # discover a matching task directly from the complete procfs inventory.
+# A daemon appearing after the procfs name snapshot must not be lost.
+echo late > "$state_file"
+rm -f "$PL_TEST_LATE_PIDOF_FILE" "$PL_TEST_LATE_LS_FILE"
+if pl_process_state test-daemon; then actual=0; else actual=$?; fi
+[ "$actual" -eq 0 ] || fail "process appearing after procfs snapshot was classified as $actual"
+[ -s "$PL_PROC_ROOT/654/stat" ] || fail "late process fixture was not created after procfs listing"
+rm -rf "$PL_PROC_ROOT/654"
+rm -f "$PL_TEST_LATE_PIDOF_FILE" "$PL_TEST_LATE_LS_FILE"
+echo absent > "$state_file"
+echo "process appearing after procfs snapshot is caught by post-scan pidof: PASS"
+
 echo absent > "$state_file"
 mkdir -p "$PL_PROC_ROOT/321"
 printf '%s\n' '321 (test-daemon) S 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19' > "$PL_PROC_ROOT/321/stat"

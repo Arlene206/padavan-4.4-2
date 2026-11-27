@@ -1,14 +1,14 @@
-## 2026-11-27 — Complete fake procfs baseline for shared lifecycle regression
+## 2026-11-27 — Recheck pidof after procfs absence scan
 
-- Current parent `main`: `79c3b11cfc824766c7b65d6d1aea84cf554ec2d4`; frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- The corrective commit `79c3b11cfc824766c7b65d6d1aea84cf554ec2d4` validated the previous fixture and ZeroTier parser repairs: DNS Forwarder #46055856763 PASS, DDNSTO #46055856762 PASS, ZeroTier #46055856770 PASS, Process lifecycle inventory #46055856719 PASS, AI handoff #46055856773 PASS. WAN route #46055856735 and XY-C1 Firmware Validation #46055856684 were IN_PROGRESS at the last check.
-- The separate fail-closed shared lifecycle regression had failed earlier on `5d050...` before reaching new PID-less cases: its baseline ABSENT matrix started with an empty fake procfs. Production correctly returned UNKNOWN. This commit places a synthetic PID 1 stat entry in the baseline fixture; empty and non-PID-only dedicated cases remain unchanged and must still return UNKNOWN.
-- The process lifecycle regression must be checked by exact new SHA. Local tests were not run here. XY-C1 firmware/TRX/artifact and router L4 remain unverified until their respective evidence is complete.
+- Current parent `main`: `26f8b1bebe0f7343647c51295beba3591853c39a`; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- The PID-less inventory fix and its baseline fixture are validated: shared fail-closed regression #46056098022 PASS, process inventory #46056098047 PASS, AI handoff #46056098062 PASS on the exact parent SHA. The corrective commit `79c3b11cfc824766c7b65d6d1aea84cf554ec2d4` also passed DNS Forwarder #46055856763, DDNSTO #46055856762, ZeroTier #46055856770, process inventory #46055856719 and AI handoff #46055856773. WAN route #46055856735 and XY-C1 firmware #46055856684 had been in progress at last check.
+- New race hardening: `pl_process_state()` rechecks `pidof` after a complete no-match procfs scan so processes created after the initial `ls` snapshot do not lead to stale ABSENT. Regression fakes a process that appears after `ls` has already emitted its listing. New exact-SHA process lifecycle regression required.
+- Local execution and physical L4 are not claimed. XY-C1 build/TRX/artifact status must be verified on the exact current SHA.
 
 ## Exact first action
 
-1. Verify the exact-SHA Process inventory and fail-closed regression, plus WAN route and XY-C1 firmware checks. Fix any source/test regression found from the job logs.
-2. Once the shared lifecycle regression passes, continue an independent P1 stability/security slice elsewhere in userland; do not repeat bootstrap or prior audits.
+1. Inspect the new exact-SHA Process inventory and fail-closed regression logs. Confirm the late-process interleaving test passes and all UNKNOWN/ABSENT status cases remain correct.
+2. Check XY-C1 and WAN route checks by exact SHA; then continue another independent stability/security bug outside the shared process helper.
 
 ---
 

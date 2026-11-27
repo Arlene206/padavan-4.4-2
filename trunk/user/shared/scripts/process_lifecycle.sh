@@ -91,7 +91,26 @@ pl_process_state()
 $pl_proc_listing
 EOF
             [ "$pl_proc_numeric_found" -eq 1 ] || return 2
-            return 1 ;;
+            # Close the startup race between the procfs directory snapshot and
+            # the end of this scan. A daemon appearing after ls captured its
+            # names must not be reported ABSENT to a concurrent start request.
+            if pl_proc_postscan_output=$(pidof "$pl_name" 2>/dev/null); then
+                pl_proc_postscan_status=0
+            else
+                pl_proc_postscan_status=$?
+            fi
+            case "$pl_proc_postscan_status" in
+                0)
+                    [ -n "$pl_proc_postscan_output" ] || return 2
+                    printf '%s\n' "$pl_proc_postscan_output" |
+                        awk '{ for (i = 1; i <= NF; i++) { if ($i !~ /^[1-9][0-9]*$/) invalid = 1; count++ } }
+                             END { if (invalid || count == 0) exit 1; exit 0 }' >/dev/null 2>&1 || return 2
+                    return 0 ;;
+                1)
+                    [ -z "$pl_proc_postscan_output" ] || return 2
+                    return 1 ;;
+                *) return 2 ;;
+            esac ;;
         *) return 2 ;;
     esac
 }
