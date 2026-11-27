@@ -809,12 +809,17 @@ exit 0
 
 IPERF_SCRIPT = ROOT / "trunk/user/iperf3/iperf3.sh"
 IPERF_MAKEFILE = ROOT / "trunk/user/iperf3/Makefile"
-IPERF_PROCESS_PATTERN = r"*[!0123456789\ ]*"
+IPERF_SHARED_HELPER = ROOT / "trunk/user/shared/scripts/process_lifecycle.sh"
+IPERF_SHARED_MAKEFILE = ROOT / "trunk/user/shared/Makefile"
 
 
 def check_iperf3():
-    # Dash/ash tokenize an unescaped space in a case bracket expression.
-    assert IPERF_PROCESS_PATTERN in IPERF_SCRIPT.read_text()
+    iperf_source = IPERF_SCRIPT.read_text()
+    assert 'IPERF3_PROCESS_HELPER="${IPERF3_PROCESS_HELPER:-/usr/lib/process_lifecycle.sh}"' in iperf_source
+    assert 'PL_PROC_ROOT="${IPERF3_PROC_ROOT:-/proc}"' in iperf_source
+    assert '. "$IPERF3_PROCESS_HELPER"' in iperf_source
+    assert "pl_process_state iperf3" in iperf_source
+    assert "$(INSTALL_BIN) $(CURDIR)/scripts/process_lifecycle.sh $(ROMFSDIR)/usr/lib/process_lifecycle.sh" in IPERF_SHARED_MAKEFILE.read_text()
     subprocess.run(["/bin/sh", "-n", str(IPERF_SCRIPT)], check=True)
     # ROMFS is invoked with "make -C iperf3", where THISDIR is unset.
     # CURDIR is GNU make's defined current-directory variable for this submake.
@@ -828,6 +833,11 @@ def check_iperf3():
     with tempfile.TemporaryDirectory(prefix="iperf3-lifecycle-") as tmp:
         base = Path(tmp)
         bin_dir = mock_bin(base / "bin")
+        proc_root = base / "proc"
+        (proc_root / "1").mkdir(parents=True)
+        (proc_root / "1" / "stat").write_text(
+            "1 (init) S 0 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 100\\n"
+        )
         binary = base / "iperf3"
         executable(binary, "#!/bin/sh\nexit 0\n")
         state = base / "running"
@@ -862,6 +872,8 @@ exit 0
         env.update({
             "PATH": str(bin_dir) + os.pathsep + env.get("PATH", ""),
             "IPERF3_BIN": str(binary),
+            "IPERF3_PROCESS_HELPER": str(IPERF_SHARED_HELPER),
+            "IPERF3_PROC_ROOT": str(proc_root),
             "MOCK_STATE_FILE": str(state),
             "MOCK_START_LOG": str(start_log),
             "MOCK_STOP_LOG": str(stop_log),
