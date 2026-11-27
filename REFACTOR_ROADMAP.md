@@ -1,3 +1,9 @@
+## 2026-11-28 — Reject symlinked Transmission storage directories
+
+- Reject existing/dangling config, download, incomplete and watch directory symlinks before root writes or recursive permission/ownership changes; recheck created directories. Host regression covers production call sites and target preservation.
+
+---
+
 ## 2026-11-28 — iperf3 fail-closed process discovery
 
 - Replaced the pidof-only status-1/empty-output ABSENT shortcut with the shared complete-procfs tri-state scanner. Added regressions for omitted live daemons, stop postconditions, incomplete inventory refusal, and confirmed absence. Exact reruns pending after correcting the test's shell invocation.

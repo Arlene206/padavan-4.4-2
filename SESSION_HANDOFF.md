@@ -1,15 +1,15 @@
-## 2026-11-28 — Prevent duplicate iperf3 daemons on incomplete pidof scans
+## 2026-11-28 — Reject symlinked Transmission storage directories
 
-- Source fix: `3832167000112d33e6c2d30dbb8c0008ba29e119` now uses the always-built shared `/usr/lib/process_lifecycle.sh` tri-state scanner. BusyBox `pidof` status 1 with empty output is verified against a complete `/proc` inventory and a post-scan lookup; incomplete inventories remain UNKNOWN and cannot authorize duplicate start or premature stop success.
-- Regression: `trunk/user/iperf3/tests/iperf3_process_lifecycle.sh` covers a live daemon omitted by pidof, stop postcondition, incomplete procfs refusal, and confirmed absence. First exact-SHA workflow #46079911385 failed only because the test executed the tracked non-executable launcher directly; shell syntax passed. Test-only correction `6d659d767e8ac236527ca5cf02f2daedaf386507` invokes it through `sh`.
-- Exact reruns on `6d659d7`: iperf3 lifecycle #46079981839 and process inventory #46079981918 were QUEUED at the last check. Source SHA `3832167` process inventory #46079911367 PASS; AI handoff #46079911366 PASS. XY-C1 #46079911435 was IN_PROGRESS at `Build XY-C1`; TRX and artifact upload were still pending, so no L3 claim.
-- Transmission TLS hardening commit `9972e8531add4ce5bc64c3d5690892e30b80ade4`: AI handoff #46079785523 PASS, process inventory #46079785497 PASS, and the Process lifecycle run's `Verify Transmission tracker TLS certificate validation remains enabled` step PASS before that run was cancelled by a newer push. XY-C1 #46079785501 was still in progress. Separate USB storage hotplug run #46079785505 failed at `Build firmware BusyBox 1.24.2 and run Optware lifecycle regressions under ash`; diagnose this failure before treating that path as green.
-- Older XY-C1 run #46079286427 on `f23be0c` was still IN_PROGRESS at `Build XY-C1`, with TRX and artifact pending. Newer build #46079911435 is the preferred exact source gate for the current iperf3 change.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify.
-- Exact first action: inspect #46079981839 and #46079981918 on `6d659d7`; diagnose/fix the independent BusyBox ash failure from #46079785505; retrieve the current XY-C1 Build/TRX/artifact conclusions. Continue with the next security/stability defect outside the iperf3 scanner.
-
+- `transmission_require_dir()` now fails closed for existing and dangling symlinks, and rechecks after creating a missing directory. This protects config, downloads, incomplete and watch paths before settings writes, recursive permissions changes or ownership changes.
+- Added a regression for real/new directories, directory symlinks, dangling symlinks, preserved outside-target contents and all four production call sites. Wired into Process lifecycle push/PR CI; XY-C1 already tracks `transmission.sh`.
+- Parent SHA: `b699dda031f3e2201e318b078ca9f166a7170e93`; implementation commit: THIS COMMIT. Exact-head Process/AI/XY-C1 runs pending; no local shell test claimed.
+- Transmission TLS commit `9972e8531add4ce5bc64c3d5690892e30b80ade4`: AI handoff #46079785523 and Process inventory #46079785497 PASS; the TLS test step passed before Process lifecycle #46079785522 was cancelled by new pushes. XY-C1 #46079785501 remains IN_PROGRESS at Build; TRX/artifact pending. USB storage hotplug #46079785505 FAILED in BusyBox/ash with a Transmission logger/readiness fixture failure and missing trace log; diagnose independently.
+- Shadowsocks checker/docs correction `20e0a312051addf538ed6bf4ae85022e608ed4b3`: Shadowsocks #46079578628 and AI docs #46079578625 PASS.
+- Iperf3 regression #46079981839 and inventory #46079981918 PASS on `6d659d767e8ac236527ca5cf02f2daedaf386507`; source SHA `3832167000112d33e6c2d30dbb8c0008ba29e119` has inventory #46079911367 and AI docs #46079911366 PASS. The two later main commits only adjusted the optional app-status checker and fake proc stat fixture.
+- Next: inspect this commit's symlink regression and exact-SHA CI, diagnose the storage app-start-status failure, close the outstanding XY-C1 run, then apply equivalent path-safety review to Aria2.
 
 ---
+
 
 ## 2026-11-27 — Repair exact-SHA Shadowsocks contract and handoff guard
 

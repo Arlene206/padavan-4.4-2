@@ -31,8 +31,14 @@ transmission_start_fail()
 }
 transmission_require_dir()
 {
+	# Storage volumes can contain attacker-controlled directory entries. Never
+	# follow a config/download path symlink as root before chown/chmod or writes.
+	if [ -L "$1" ]; then
+		transmission_start_fail "required directory is a symlink: $1"
+		return 1
+	fi
 	if [ ! -d "$1" ]; then
-		if ! mkdir -p "$1" || [ ! -d "$1" ]; then
+		if ! mkdir -p "$1" || [ -L "$1" ] || [ ! -d "$1" ]; then
 			transmission_start_fail "cannot create required directory: $1"
 			return 1
 		fi

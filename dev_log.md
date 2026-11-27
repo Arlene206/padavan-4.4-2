@@ -5,7 +5,7 @@
 - Source commit: `3832167000112d33e6c2d30dbb8c0008ba29e119`. Test correction commit: `6d659d767e8ac236527ca5cf02f2daedaf386507`. Exact iperf3 rerun #46079981839 and Process inventory #46079981918 were queued; source-SHA inventory #46079911367 passed. XY-C1 #46079911435 was still building; no firmware artifact or hardware L4 claim.
 - The independent Transmission TLS check passed on `9972e8531add4ce5bc64c3d5690892e30b80ade4`; its broader Process workflow was cancelled after that step. USB storage hotplug #46079785505 separately failed during BusyBox 1.24.2/Optware ash regression and remains to diagnose. No local shell test was executed in this connector-only session.
 
-## 2026-11-28 04:xx CST (UTC+8) — Restore Transmission HTTPS tracker certificate verification
+## 2026-11-28 — Restore Transmission HTTPS tracker certificate verification
 
 - `transmission.sh` previously exported `TR_CURL_SSL_NO_VERIFY=1`; Transmission 3.00 treats this variable as an opt-out from HTTPS tracker certificate and hostname validation. The launcher now clears any inherited value before startup and keeps verification enabled by default.
 - Added `tests/tls_verification.sh`: it injects the opt-out into the environment, sources the exact launcher preamble, verifies the variable is cleared and statically rejects any forced assignment. Wired into Process lifecycle push/PR checks. The XY-C1 workflow already watches the launcher.
