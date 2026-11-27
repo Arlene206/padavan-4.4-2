@@ -171,6 +171,37 @@ func_get_extra_args()
 	cat "$extra_args"
 }
 
+# Complete only missing host-key types. Startup must never rotate the other
+# host identities just because one algorithm's key is absent.
+func_ensure_key()
+{
+	ensure_key_type="$1"
+	ensure_key_path="$2"
+	if [ -L "$ensure_key_path" ] ||
+	   { [ -e "$ensure_key_path" ] && [ ! -f "$ensure_key_path" ]; }; then
+		func_log "Refusing unsafe host-key path for $ensure_key_type"
+		return 1
+	fi
+	if [ -f "$ensure_key_path" ]; then
+		if chmod 600 "$ensure_key_path"; then
+			return 0
+		else
+			ensure_key_chmod_status=$?
+			func_log "Cannot restrict existing $ensure_key_type host key (status=$ensure_key_chmod_status)"
+			return "$ensure_key_chmod_status"
+		fi
+	fi
+	func_keygen "$ensure_key_type" "$ensure_key_path"
+}
+
+func_ensurekeys()
+{
+	func_ensure_key rsa "$rsa_key" || return $?
+	func_ensure_key dss "$dss_key" || return $?
+	func_ensure_key ecdsa "$ecdsa_key" || return $?
+	func_ensure_key ed25519 "$ed25519_key"
+}
+
 func_start()
 {
 	# Do not launch another listener, or mutate key/config state, unless an
@@ -209,37 +240,6 @@ func_start()
 			fi
 		fi
 	done
-# Complete only missing host-key types. Startup must never rotate the other
-# host identities just because one algorithm's key is absent.
-func_ensure_key()
-{
-	ensure_key_type="$1"
-	ensure_key_path="$2"
-	if [ -L "$ensure_key_path" ] ||
-	   { [ -e "$ensure_key_path" ] && [ ! -f "$ensure_key_path" ]; }; then
-		func_log "Refusing unsafe host-key path for $ensure_key_type"
-		return 1
-	fi
-	if [ -f "$ensure_key_path" ]; then
-		if chmod 600 "$ensure_key_path"; then
-			return 0
-		else
-			ensure_key_chmod_status=$?
-			func_log "Cannot restrict existing $ensure_key_type host key (status=$ensure_key_chmod_status)"
-			return "$ensure_key_chmod_status"
-		fi
-	fi
-	func_keygen "$ensure_key_type" "$ensure_key_path"
-}
-
-func_ensurekeys()
-{
-	func_ensure_key rsa "$rsa_key" || return $?
-	func_ensure_key dss "$dss_key" || return $?
-	func_ensure_key ecdsa "$ecdsa_key" || return $?
-	func_ensure_key ed25519 "$ed25519_key"
-}
-
 	func_ensurekeys
 	key_status=$?
 	[ "$key_status" -eq 0 ] || return "$key_status"
