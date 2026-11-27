@@ -1299,7 +1299,7 @@ def check_aria2_reload():
     reload_end = source.index("\ncase", reload_start)
     reload_body = source[reload_start:reload_end]
     assert "aria_process_state" in reload_body
-    assert 'aria_signal_identity HUP "$aria_reload_pid" "$aria_reload_start"' in reload_body
+    assert 'aria_signal_identity HUP "$tr_reload_pid" "$tr_reload_start"' in reload_body
     assert '1) echo "Error: $SVC_NAME is not started!"; return 1 ;;' in reload_body
 
     lifecycle_test = ROOT / "trunk/user/aria2/tests/aria2_process_identity.sh"
