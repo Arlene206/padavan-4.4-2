@@ -1,3 +1,9 @@
+## 2026-11-27 — Correct OpenSSH required-host-key source contract
+
+- Process lifecycle regression #46073989322 on `2ffccd914287ad96840fd92aeb850ed49c828f56` reached `check_optional_app_start_status.py` after preceding lifecycle and compiled regression cases passed, then failed because its OpenSSH source assertion expected a `case` statement that the implementation does not use. The intended branch is an explicit `if [ "$key_requirement" = "required" ]`; the omitted-DSA generation fixture already verifies that missing required keys prevent sshd launch.
+- Updated the checker to assert the actual required-key branch and its missing-key diagnostic. No product source behavior changed. Exact-push Process regression on the new commit is required; host execution is not available in this connector-only session.
+- On the source baseline SHA `2ffccd9`, Process inventory #46073989223 PASS and XY-C1 Firmware Validation #46073989253 PASS, including Build XY-C1, TRX verification, and artifact upload. Physical-router/L4 remains NOT VERIFIED.
+
 ## 2026-11-28 — Quote AliDDNS provider TTL data before testing or persisting defaults
 
 - The AliDDNS startup block used `[ -z $aliddns_ttl ]` and an unquoted `nvram set` expansion. Since NVRAM can be written by scripts or direct requests, values containing spaces or glob characters could be split or expanded by the shell.

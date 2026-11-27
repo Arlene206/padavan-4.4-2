@@ -1193,7 +1193,8 @@ def check_sshd():
     assert "func_validate_host_keys()" in sshd_source
     assert '"$ssh_keygen_bin" -y -P "" -f "$key_path"' in sshd_source
     assert "refusing multiply-linked host key" in sshd_source
-    assert 'case "$key_requirement" in' in sshd_source
+    assert 'if [ "$key_requirement" = "required" ]; then' in sshd_source
+    assert 'required host key is missing: $key_path' in sshd_source
     assert 'func_validate_host_keys required' in sshd_source
     assert syntax_check.returncode == 0, syntax_check.stderr
     with tempfile.TemporaryDirectory(prefix="sshd-lifecycle-") as tmp:
