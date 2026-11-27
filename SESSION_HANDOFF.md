@@ -1,15 +1,14 @@
-## 2026-11-28 — Execute storage-fill mock with the real host chmod binary
+## 2026-11-28 — Close the authorized_keys symlink gap in persistent-storage validation
 
-- Parent `main`: `79b956b228224bdb3f5e20368f298dbafa34ab6f`; frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged).
-- Production `dev_init.sh` now refuses to run the custom persistent startup script when `mtd_storage.sh fill` fails. The new test verifies success, nonzero return propagation and that the fill gate precedes custom-script execution while leaving blank-MTD `load` best effort.
-- The first fixture correction reset `chmod_status=0`, but that test double only returned success and did not chmod the fake `mtd_storage.sh`; Actions proved the helper then failed to execute it (`Permission denied`). This commit uses `command chmod` to bypass the stub and create an actually executable mock. Production source is unchanged.
-- Exact-SHA outcomes on `79b956b`: Process inventory #46058691350 PASS; Process fail-closed #46058691324 FAIL at mock execution; AliyunDrive #46058691336 FAIL at the same point; USB hotplug #46058691293 was IN_PROGRESS at last poll. New child-SHA reruns are required. AdGuardHome hardlink checker and shell regression passed on #46058485265 at `b8a144f`.
-- XY-C1 run #46056928103 on older source `0423272` completed SUCCESS with Build/TRX/artifact; newer `0f5fe9b` and `fdb237a` builds were still in progress at last poll. Current changes need a new firmware validation. No local host build or physical L4 claim.
+- Parent `main`: `aa03323db0d6f93d1f1075f8b23be9bd222bb1e1`; frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged).
+- Exact-SHA `aa03323` validation is green: Process fail-closed #46058870409 PASS; Process inventory #46058870426 PASS; AliyunDrive #46058870700 PASS; USB storage #46058870400 PASS; AI handoff #46058870413 PASS. The older XY-C1 Build/TRX/artifact on `0423272` #46056928103 is SUCCESS; newer builds on `0f5fe9b` #46058395122 and `fdb237a` #46058291404 were still compiling at last poll.
+- New gap: `dev_init.sh` copies `/etc/storage/authorized_keys` as root, but the storage fill symlink validator omitted this source leaf. A malicious/malformed restored symlink could be followed by the privileged copy despite other config leaves being protected. This commit validates the leaf and adds host/BusyBox-ash regression coverage plus static source-contract assertions.
+- This commit's exact-SHA storage workflow is pending. No current-source XY-C1 build or physical-router L4 is claimed.
 
 ## Exact first action
 
-1. Inspect the exact-SHA Process fail-closed, AliyunDrive WebDAV and USB storage Actions after the `command chmod` fixture fix. Require the mocked fill success/failure cases and full Python boot integration contracts to pass.
-2. Inspect exact-SHA XY-C1 firmware through Build/TRX/artifact. Continue another independent userland P1 after these test gates are green.
+1. Inspect the exact-SHA storage-hotplug/persistence workflow. Require `authorized_keys` symlink rejection under both host shell and BusyBox ash, all existing MTD fill/load/restore regressions, and `check_storage_safe_remove.py` to pass.
+2. Check XY-C1 Build/TRX/artifact for the latest production-source SHA. Then continue an independent userland stability/security slice outside PID 1/MTD storage and already-green process/USB/AliyunDrive work.
 
 ---
 

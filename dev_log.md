@@ -1,3 +1,11 @@
+## 2026-11-28 — Reject symlinked SSH authorized_keys in persistent storage
+
+- `dev_init.sh` later executes `cp -f /etc/storage/authorized_keys /home/root/.ssh` as PID 1, but `func_fill_validate_paths()` omitted that source leaf while checking other persistent scripts/config files. A restored or malformed symlink could therefore make the privileged copy dereference an arbitrary host path, including special files, bypassing the storage path-safety gate.
+- Added `$dir_storage/authorized_keys` to the pre-write leaf validation and a regression that plants an external symlink and requires fill to fail before default generation. Extended `scripts/check_storage_safe_remove.py` to assert the source and test contract; the storage workflow runs the shell case under host shell and firmware BusyBox ash.
+- Parent `main`: `aa03323db0d6f93d1f1075f8b23be9bd222bb1e1`. Exact-SHA `aa03323` Actions: Process fail-closed #46058870409 PASS; AI handoff #46058870413 PASS; Process inventory #46058870426 PASS; AliyunDrive #46058870700 PASS; USB storage #46058870400 PASS. The new symlink-leaf test awaits this commit's exact-SHA Actions.
+- XY-C1 SHA `0423272` #46056928103 completed SUCCESS including TRX/artifact. Later XY-C1 #46058395122 (`0f5fe9b`) and #46058291404 (`fdb237a`) remained `in_progress` at last poll; no current-source build result is claimed.
+- No local host execution or physical-router L4 is available in this connector-only session.
+
 ## 2026-11-28 — Bypass the chmod stub when making the storage fixture executable
 
 - The first follow-up reset the fixture's `chmod_status` to zero, but `chmod()` is a shell function double that only increments a counter and returns the configured status; it never changes file permissions. Exact-SHA Process #46058691324 and AliyunDrive #46058691336 logs therefore show `mtd_storage.sh: Permission denied` when the helper tried to execute the fake command. USB hotplug #46058691293 was still running and used the same fixture.

@@ -787,6 +787,7 @@ func_fill_validate_paths()
 		    "$dir_wlan/AP_5G.dat" "$user_ovpnsvr_conf" \
 		    "$user_ovpncli_conf" "$user_sswan_conf" \
 		    "$user_sswan_ipsec_conf" "$user_sswan_secrets" \
+		    "$dir_storage/authorized_keys" \
 		    "$dir_storage/openvpn/ca.crt" \
 		    "$dir_storage/openvpn/dh1024.pem" \
 		    "$dir_storage/openvpn/server.crt" \

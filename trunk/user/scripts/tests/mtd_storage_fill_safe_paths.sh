@@ -160,6 +160,16 @@ if run_fill >/dev/null 2>&1; then
 fi
 test "$(cat "$sandbox/outside/sentinel")" = outside-sentinel
 test ! -s "$RESET_SS_LOG"
+# dev_init copies authorized_keys as root; reject symlinks before that privileged read.
+reset_case
+ln -s "$sandbox/outside/sentinel" "$sandbox/storage/authorized_keys"
+if run_fill >/dev/null 2>&1; then
+	echo "authorized_keys symlink unexpectedly accepted" >&2
+	exit 1
+fi
+test "$(cat "$sandbox/outside/sentinel")" = outside-sentinel
+test ! -s "$RESET_SS_LOG"
+grep -Fq "Unsafe storage file target:" "$LOGGER_LOG"
 
 # A failed default-file heredoc write must stop fill before chmod/next file.
 reset_case

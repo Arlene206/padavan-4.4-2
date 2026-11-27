@@ -300,6 +300,7 @@ require('if ! func_fill_validate_paths; then' in fill_body and
         'Cannot generate default start script:' in fill_body and
         '[ -L "$script_start" ]' in fill_body and
         '"$dir_storage/dnsmasq.conf"' in fill_validate and
+        '"$dir_storage/authorized_keys"' in fill_validate and
         '"$script_start"' in fill_validate and
         '"$dir_sswan_crt/private"' in fill_validate,
         "MTD fill must validate all nested dirs and generated files before the first write")
@@ -313,6 +314,7 @@ for item in ("dnsmasq directory symlink unexpectedly accepted",
              "cron parent symlink unexpectedly accepted",
              "dnsmasq config symlink unexpectedly accepted",
              "start script symlink unexpectedly accepted",
+             "authorized_keys symlink unexpectedly accepted",
              "normal MTD storage fill unexpectedly failed",
              "Unsafe storage directory component:",
              "Unsafe storage file target:",
