@@ -1,15 +1,14 @@
-## 2026-11-27 — Lifecycle fixture and ZeroTier parser correction
+## 2026-11-27 — Complete fake procfs baseline for shared lifecycle regression
 
-- Current parent `main`: `5d050019bf478d97c794aae8e81ac1fa5845ef59`; frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (untouched).
-- The shared process helper now correctly rejects PID-less procfs snapshots; that exposed incomplete test fixtures in DNS Forwarder and DDNSTO that used an empty fake procfs while expecting confirmed absence. This slice adds a valid synthetic PID 1 stat record to those test roots, preserving the production UNKNOWN behavior for genuinely incomplete roots.
-- ZeroTier duplicate-route shell tests passed on the previous exact SHA, but source checker #46055326903 failed because `*/*)` still existed in the tree (the earlier handoff's claim about `*'/'*)` had not actually been applied). The correction now uses POSIX parameter expansion instead of any shell glob containing `/*`.
-- Exact-SHA failures on parent `5d050...`: DNS Forwarder #46055326877 failed only at lifecycle start (expected 0, got UNKNOWN 2); ZeroTier #46055326903 failed its source parser; DDNSTO #46055326848 failed no-process stop (UNKNOWN from empty fake procfs). DNS C constructor/event-loop compile/tests passed. AI handoff #46055326868 passed. Process inventory #46055326884, process lifecycle #46055326917, WAN route #46055326830 and XY-C1 firmware #46055326827 were pending/in progress at last poll.
-- Local shell tests were not run in this connector-only session. Physical-router L4 remains NOT VERIFIED; firmware/TRX/artifact is not claimed without exact-SHA completed evidence.
+- Current parent `main`: `79c3b11cfc824766c7b65d6d1aea84cf554ec2d4`; frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- The corrective commit `79c3b11cfc824766c7b65d6d1aea84cf554ec2d4` validated the previous fixture and ZeroTier parser repairs: DNS Forwarder #46055856763 PASS, DDNSTO #46055856762 PASS, ZeroTier #46055856770 PASS, Process lifecycle inventory #46055856719 PASS, AI handoff #46055856773 PASS. WAN route #46055856735 and XY-C1 Firmware Validation #46055856684 were IN_PROGRESS at the last check.
+- The separate fail-closed shared lifecycle regression had failed earlier on `5d050...` before reaching new PID-less cases: its baseline ABSENT matrix started with an empty fake procfs. Production correctly returned UNKNOWN. This commit places a synthetic PID 1 stat entry in the baseline fixture; empty and non-PID-only dedicated cases remain unchanged and must still return UNKNOWN.
+- The process lifecycle regression must be checked by exact new SHA. Local tests were not run here. XY-C1 firmware/TRX/artifact and router L4 remain unverified until their respective evidence is complete.
 
 ## Exact first action
 
-1. Check exact-SHA Actions for this corrective commit. Verify DNS Forwarder, DDNSTO, ZeroTier source-contract + WAN-up, and Process lifecycle. Diagnose any remaining FAIL from that run and repair it atomically.
-2. Check XY-C1 Build/TRX/artifact and inventory workflows on the new SHA; preserve pending/failure states accurately. Continue an independent P1 stability/security issue after CI results are established.
+1. Verify the exact-SHA Process inventory and fail-closed regression, plus WAN route and XY-C1 firmware checks. Fix any source/test regression found from the job logs.
+2. Once the shared lifecycle regression passes, continue an independent P1 stability/security slice elsewhere in userland; do not repeat bootstrap or prior audits.
 
 ---
 

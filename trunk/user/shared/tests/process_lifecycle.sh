@@ -83,6 +83,10 @@ PL_TERM_STATUS=0; PL_KILL_STATUS=0; PL_SLEEP_STATUS=0
 export PATH PL_TEST_STATE PL_TEST_EVENTS PL_TEST_SLEEP_COUNT PL_TEST_SLEEP_AFTER PL_TEST_SLEEP_STATE
 export PL_TERM_STATE PL_KILL_STATE PL_TERM_STATUS PL_KILL_STATUS PL_SLEEP_STATUS
 . "$lib"
+# A complete fake procfs namespace must contain a numeric PID entry even when
+# the target daemon is absent. Keep init present for the baseline ABSENT tests.
+mkdir -p "$PL_PROC_ROOT/1"
+printf '%s\n' '1 (init) S 0 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 100' > "$PL_PROC_ROOT/1/stat"
 count_event() { awk -v wanted="$1" '$0 == wanted { n++ } END { print n + 0 }' "$events_file"; }
 fail() { echo "shared process lifecycle regression: FAIL: $*" >&2; exit 1; }
 

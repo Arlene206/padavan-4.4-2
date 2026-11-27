@@ -1,3 +1,9 @@
+## 2026-11-27 — Seed the baseline shared procfs test namespace with init
+
+- Exact-SHA process lifecycle regression #46055326917 on parent `5d050019bf478d97c794aae8e81ac1fa5845ef59` failed at its first baseline absence assertion: the test began with an entirely empty fake procfs. The production change correctly returns UNKNOWN for a PID-less inventory; the test fixture needs to model a valid namespace even when the daemon being queried is absent.
+- Added a synthetic PID 1 `stat` record before the baseline status matrix. The dedicated empty and non-PID-only snapshots remain separately tested as UNKNOWN. The follow-up exact-SHA DNS Forwarder, DDNSTO and ZeroTier workflows on `79c3b11cfc824766c7b65d6d1aea84cf554ec2d4` all PASS, as did Process lifecycle inventory and AI handoff contract. WAN route and XY-C1 firmware validation were still in progress at last poll.
+- Local shell execution unavailable; the exact Process lifecycle regression workflow must pass on the corrective commit.
+
 ## 2026-11-27 — Repair lifecycle fixtures and ZeroTier source-contract parsing
 
 - Exact-SHA runs on `5d050019bf478d97c794aae8e81ac1fa5845ef59` exposed three issues. DNS Forwarder event loop compile/ASan tests passed, but its lifecycle start fixture returned UNKNOWN because its mocked procfs root was empty after the new PID-less-inventory hardening. DDNSTO stop failed for the same fixture reason: its fake procfs had no numeric PID entry, so confirmed absence was no longer possible. Added a valid synthetic PID 1 `stat` record to both test fixtures; production fail-closed behavior remains unchanged.
