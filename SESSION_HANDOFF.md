@@ -1,15 +1,14 @@
-## 2026-11-28 — VPN callback cleanup checker integration follow-up
+## 2026-11-28 — Fix remaining VPN server teardown source assertion
 
-- The first exact-SHA VPN workflow on `4641eb81d8d2abee5c9ddfb9e037b42f8baf207a` compiled and passed the new GNU89/ASan/UBSan PPP callback-link test, but the older secondary `scripts/check_vpn_client_nvram_state.py` contract still asserted the removed raw `unlink(VPNC_PPP_UP_SCRIPT)`. The primary lifecycle contract already checked both ownership-safe removals.
-- Commit `cbc2fe31e14969083c1dbc399b37e0710b7ce3b7` additionally rejects trailing-slash directory paths so `lstat` cannot follow a symlink through trailing-slash path resolution; its direct-child regression covers this.
-- This follow-up updates the secondary VPN-client NVRAM/DNS stop-order contract to require checked cleanup of both owned callback links and first-error aggregation. Exact-SHA VPN rerun is required; no local host or L4 result is claimed.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Exact VPN lifecycle run #46062597369 on `32e860095157e4029a8c25381194531cf70453f8` passed the PPP callback-link GNU89/ASan/UBSan regression, the secondary VPN-client NVRAM/DNS contract, and earlier lifecycle checks, then failed in one remaining assertion in `scripts/check_vpn_server_lifecycle.py` that still searched for raw `unlink(VPNS_PPP_UP_SCRIPT)`.
+- The server teardown already uses the checked direct-child / effective-UID-owned `/sbin/rc` symlink remover. Updated that final ordering assertion to verify OpenVPN has stopped before the checked removal.
+- This is checker-only; exact-push VPN rerun is required. No local host or hardware L4 result claimed. Backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Exact first action
 
-1. Inspect the exact-SHA VPN lifecycle workflow after this checker correction; require both VPN source checkers and the PPP callback-link ASan/UBSan regression to pass.
-2. Inspect Process inventory and XY-C1 exact-SHA status. L3 requires Build, TRX and artifact success on one source SHA.
-3. Continue an independent high-priority reliability/security defect while any Actions remain pending.
+1. Inspect this commit's VPN server lifecycle workflow and require the full policy suite plus both source contracts to PASS.
+2. Inspect exact-SHA Process inventory and XY-C1 Build/TRX/artifact statuses.
+3. Continue independent stability/security implementation while Actions are pending.
 ---
 
 ## 2026-11-26 — Autonomous development checkpoint

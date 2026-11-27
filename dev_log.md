@@ -1,3 +1,9 @@
+## 2026-11-28 — Replace stale VPN server unlink ordering assertion
+
+- The exact-push VPN lifecycle run #46062597369 on `32e860095157e4029a8c25381194531cf70453f8` passed the callback-link ownership ASan/UBSan test and the secondary VPN-client NVRAM/DNS source contract, then found one old server-stop assertion still searching for `unlink(VPNS_PPP_UP_SCRIPT)`.
+- Updated the final server stop ordering check to require OpenVPN stop completion before the ownership-checked callback-link removal. No product source changed in this follow-up.
+- Exact-SHA rerun pending; no local execution or L4 result claimed.
+
 ## 2026-11-28 — Sync secondary VPN NVRAM contract with owned callback cleanup
 
 - Exact VPN lifecycle #46062368601 on `4641eb81d8d2abee5c9ddfb9e037b42f8baf207a` passed the new PPP callback-link GNU89/ASan/UBSan test, then failed only in the separate `scripts/check_vpn_client_nvram_state.py` source checker because it still required raw `unlink(VPNC_PPP_UP_SCRIPT)`.
