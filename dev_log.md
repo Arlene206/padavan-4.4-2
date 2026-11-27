@@ -1,3 +1,9 @@
+## 2026-11-28 — Sync secondary VPN NVRAM contract with owned callback cleanup
+
+- Exact VPN lifecycle #46062368601 on `4641eb81d8d2abee5c9ddfb9e037b42f8baf207a` passed the new PPP callback-link GNU89/ASan/UBSan test, then failed only in the separate `scripts/check_vpn_client_nvram_state.py` source checker because it still required raw `unlink(VPNC_PPP_UP_SCRIPT)`.
+- Updated that contract to require both directory/target/owner-checked callback removals and error aggregation before success. The primary VPN lifecycle checker already verifies the helper, directory safety, both stop paths and regression coverage.
+- Exact rerun on this checker-only commit is pending; product source SHA remains `4641eb81d8d2abee5c9ddfb9e037b42f8baf207a` plus the trailing-slash helper correction `cbc2fe31e14969083c1dbc399b37e0710b7ce3b7`. No local host or hardware result claimed.
+
 ## 2026-11-28 — Reject trailing-slash directory aliases in PPP callback cleanup
 
 - Follow-up hardening: `lstat("symlink/")` can resolve a directory symlink because of trailing-slash path resolution. The checked PPP callback remover now rejects a non-root directory argument ending in `/` before `lstat`, while retaining the fixed production `/tmp/ppp` path.

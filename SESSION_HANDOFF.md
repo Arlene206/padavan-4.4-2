@@ -1,14 +1,15 @@
-## 2026-11-28 — PPP callback cleanup path validation tightened
+## 2026-11-28 — VPN callback cleanup checker integration follow-up
 
-- Follow-up to `4641eb81d8d2abee5c9ddfb9e037b42f8baf207a`: the helper now rejects trailing-slash directory arguments to prevent `lstat("symlink/")` from resolving a directory symlink. A regression covers trailing-slash and nested-path rejection.
-- Current production change remains ownership-safe VPN server/client callback teardown, with all exact-SHA VPN/Process/XY-C1 verification pending or in progress at last poll. No L3/L4 claim until exact same-source firmware Build/TRX/artifact and hardware verification respectively.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- The first exact-SHA VPN workflow on `4641eb81d8d2abee5c9ddfb9e037b42f8baf207a` compiled and passed the new GNU89/ASan/UBSan PPP callback-link test, but the older secondary `scripts/check_vpn_client_nvram_state.py` contract still asserted the removed raw `unlink(VPNC_PPP_UP_SCRIPT)`. The primary lifecycle contract already checked both ownership-safe removals.
+- Commit `cbc2fe31e14969083c1dbc399b37e0710b7ce3b7` additionally rejects trailing-slash directory paths so `lstat` cannot follow a symlink through trailing-slash path resolution; its direct-child regression covers this.
+- This follow-up updates the secondary VPN-client NVRAM/DNS stop-order contract to require checked cleanup of both owned callback links and first-error aggregation. Exact-SHA VPN rerun is required; no local host or L4 result is claimed.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Exact first action
 
-1. Inspect the exact-SHA VPN lifecycle run for this follow-up; resolve any test/source-contract failure.
-2. Inspect Process inventory and XY-C1 Build/TRX/artifact statuses for the current production source SHA.
-3. Continue independent whole-repository stability/security work while Actions remain pending.
+1. Inspect the exact-SHA VPN lifecycle workflow after this checker correction; require both VPN source checkers and the PPP callback-link ASan/UBSan regression to pass.
+2. Inspect Process inventory and XY-C1 exact-SHA status. L3 requires Build, TRX and artifact success on one source SHA.
+3. Continue an independent high-priority reliability/security defect while any Actions remain pending.
 ---
 
 ## 2026-11-26 — Autonomous development checkpoint

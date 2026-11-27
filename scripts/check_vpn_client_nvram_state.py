@@ -160,7 +160,11 @@ ordered(stop, [
     'vpn_client_nvram_set_temp_status(\n\t\tNULL, "l2tp_cli_t", "0")',
     "cleanup_status = route_status_accumulate(cleanup_status, route_status);",
     'vpn_client_nvram_set_temp_status(\n\t\tNULL, "vpnc_state_t", "0")',
-    "unlink(VPNC_PPP_UP_SCRIPT)",
+    "cleanup_status = route_status_accumulate(cleanup_status, route_status);",
+    'ppp_callback_link_remove_from_directory(\n\t\t    "/tmp/ppp", "/sbin/rc", VPNC_PPP_UP_SCRIPT)',
+    "cleanup_status = route_status_accumulate(cleanup_status, route_status);",
+    'ppp_callback_link_remove_from_directory(\n\t\t    "/tmp/ppp", "/sbin/rc", VPNC_PPP_DW_SCRIPT)',
+    "cleanup_status = route_status_accumulate(cleanup_status, route_status);",
     "return cleanup_status;"
 ], "VPN stop NVRAM/DNS cleanup after PPP teardown")
 assert "nvram_set_int_temp(" not in vpn
