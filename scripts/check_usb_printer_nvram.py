@@ -75,7 +75,16 @@ assert "usb_printer_daemon_scan" in recovery
 assert "PROCESS_PRESENCE_ABSENT" in recovery
 assert "startup rollback incomplete" in recovery
 assert "usb_printer_daemon_start_failure_recover(process_name," in launcher
-assert "short exec-status write leaves process state uncertain" in launcher
+partial_status = launcher.index("/* A partial status write")
+partial_reap = launcher.index(
+    "usb_printer_reap_failed_exec_child(child, &child_status, waitpid)",
+    partial_status,
+)
+partial_recovery = launcher.index(
+    "usb_printer_daemon_start_failure_recover(process_name, EIO)",
+    partial_reap,
+)
+assert partial_status < partial_reap < partial_recovery
 raw=body("start_p910nd(char *devlp)")
 read=raw.index('read_usb_printer_setting_status("rawd_enable"')
 gate=raw.index("if (setting_status != 0)",read)

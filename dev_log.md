@@ -1,3 +1,9 @@
+## 2026-11-28 — Align USB printer NVRAM contract with failed-exec child reaping
+
+- Exact-push USB modem identity run #46060519820 on parent `9d067387196d7c714828b2fd3ad29bc613d86888` completed all compiled USB printer NVRAM and p910nd policy regressions, then failed only because `scripts/check_usb_printer_nvram.py` still required the removed “short exec-status write” comment from the pre-reaping launcher.
+- Replaced the comment-text assertion with a structural contract requiring the partial exec-error payload path to reap the child before invoking startup rollback. No product source or runtime behavior changed.
+- Local checkout/host execution is unavailable in this connector-only session. Exact-push rerun of the USB modem identity workflow and AI handoff check is pending on THIS COMMIT; no firmware L3 or hardware L4 result is claimed.
+
 ## 2026-11-27 — Reap USB printer children after exec failure
 
 - `start_usb_printer_daemon()` forks a child and reports `execv()` failure through a close-on-exec pipe. After reading the full errno payload it returned immediately without `waitpid()`. The failed child had already `_exit(127)`'d, so each failed U2EC/LPRng exec remained a zombie until the invoking `rc` process exited. A partial error-payload path had the same omission.
