@@ -11,6 +11,7 @@
 #include <unistd.h>
 
 #include "modem_node_identity_policy.h"
+#include "config_file_sync.h"
 
 /*
  * USB hotplug handlers run as root. Their metadata directory must never be
@@ -39,7 +40,8 @@ modem_node_dir_prepare(const char *directory)
 	    (st.st_mode & 0777) != 0755)
 		return -1;
 
-	return 0;
+	/* Persist the directory entry before publishing per-device identity. */
+	return config_file_sync_parent(directory);
 }
 
 /* Kernel device names become leaf filenames, never relative paths. */
@@ -117,6 +119,8 @@ modem_node_file_write(const char *directory, const char *name,
 
 	if (rename(staging, path) != 0)
 		goto fail;
+	if (config_file_sync_parent(path) != 0)
+		goto fail;
 
 	return 0;
 
@@ -141,7 +145,9 @@ modem_node_file_remove(const char *directory, const char *name)
 	if (path_len < 0 || path_len >= (int)sizeof(path))
 		return -1;
 
-	if (unlink(path) == 0 || errno == ENOENT)
+	if (unlink(path) == 0)
+		return config_file_sync_parent(path);
+	if (errno == ENOENT)
 		return 0;
 
 	return -1;

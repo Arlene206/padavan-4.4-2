@@ -49,6 +49,7 @@ on:
       - "trunk/user/rc/src/tests/modem_qmi_credentials_file.c"
       - "scripts/check_uqmi_private_credentials.py"
       - "trunk/user/rc/src/modem_node_file.h"
+      - "trunk/user/rc/src/config_file_sync.h"
       - "trunk/user/rc/src/modem_node_identity_policy.h"
       - "trunk/user/rc/src/tests/modem_node_file.c"
       - "scripts/check_modem_module_reload.py"
@@ -113,6 +114,7 @@ on:
       - "trunk/user/rc/src/tests/modem_qmi_credentials_file.c"
       - "scripts/check_uqmi_private_credentials.py"
       - "trunk/user/rc/src/modem_node_file.h"
+      - "trunk/user/rc/src/config_file_sync.h"
       - "trunk/user/rc/src/modem_node_identity_policy.h"
       - "trunk/user/rc/src/tests/modem_node_file.c"
       - "scripts/check_modem_module_reload.py"
@@ -380,6 +382,20 @@ jobs:
           assert "return remove_fn(directory, name) == 0 ? -1 : -2;" in publish
           publish_wrapper = body(metadata, "modem_node_file_publish_identity(")
           assert "modem_node_file_publish_with_cleanup(" in publish_wrapper
+          write_body = body(metadata, "modem_node_file_write(")
+          write_rename = write_body.index("rename(staging, path)")
+          assert write_body.index("config_file_sync_parent(path)", write_rename) > write_rename
+          remove_body = body(metadata, "modem_node_file_remove(")
+          remove_unlink = remove_body.index("if (unlink(path) == 0)")
+          assert remove_body.index("config_file_sync_parent(path)", remove_unlink) > remove_unlink
+          dir_body = body(metadata, "modem_node_dir_prepare(")
+          assert "config_file_sync_parent(directory)" in dir_body
+          sync_helper = (rc / "config_file_sync.h").read_text()
+          assert "O_DIRECTORY | O_NOFOLLOW" in sync_helper
+          assert "config_file_sync_fd(directory_fd)" in sync_helper
+          assert "config_file_sync_parent(missing_path)" in test
+          assert "linked-parent" in test
+          assert "config_file_sync_parent(linked_path)" in test
           assert "test_metadata_publication_cleanup" in test
           assert "test_manual_node_index_status_is_fail_closed" in test
           assert "test_manual_node_index_status_is_fail_closed();" in test

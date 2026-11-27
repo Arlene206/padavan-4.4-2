@@ -1,3 +1,9 @@
+## 2026-11-28 — Persist USB modem identity directory updates
+
+- Sync the containing directory after successful modem identity metadata rename and unlink, and after metadata-directory preparation; regression covers successful, missing and symlinked parent paths.
+
+---
+
 ## 2026-11-28 — Make OpenVPN file publication directory-durable
 
 - OpenVPN credential and config publishers now fsync the containing directory after successful atomic rename, using no-follow parent-directory open. Tests cover successful, missing and symlinked parents.

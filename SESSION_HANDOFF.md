@@ -1,11 +1,12 @@
-## 2026-11-28 — Persist OpenVPN credential and config publication
+## 2026-11-28 — Make USB modem identity metadata durable
 
-- OpenVPN client secret and config writers fsynced staged file contents but returned success immediately after rename. They now call the shared parent-directory fsync barrier and propagate failure; the barrier rejects symlinked parent directories with `O_NOFOLLOW`.
-- Added success, missing-parent and symlink-parent checks to both C regressions; OpenVPN workflow path filters and source checker require the shared helper and post-rename sync order. Exact-head OpenVPN tests, Process inventory and XY-C1 Build/TRX/artifact pending; no local compile claimed.
-- Previous proxy durability commit `e0cc8d5834cc26b2527176a0e0fd1dfd1095f8dd`: Process inventory #46082405929 and AI docs #46082405924 PASS; Process regression failed one stale source assertion expecting pre-`O_NOFOLLOW` helper open. Corrected by `00234eecd99526edb36f7a91581ec0614716c085`; exact Process rerun #46082590403 in progress. XY-C1 #46082405926 remains at Build, TRX/artifact pending at last poll.
-- Next: inspect this commit's OpenVPN C regressions and source/workflow contract; close the proxy Process rerun and outstanding XY-C1 Build/TRX/artifact.
+- The USB modem metadata writer fsynced the staged file and atomically renamed it, but never synced the parent directory; its remover also reported success immediately after unlink. A sudden power loss could therefore lose a newly assigned USB identity or resurrect a removed stale `wwanX` identity. Both now fsync the parent after rename/unlink; directory preparation also syncs the parent after verifying the root-owned directory.
+- Added missing-parent and symlink-parent checks to the existing metadata C regression. USB modem identity workflow now includes the shared durability helper and asserts post-rename/post-unlink ordering. Exact-SHA USB modem/Process inventory/AI docs/XY-C1 checks pending; no local compile claimed.
+- Previous OpenVPN durability commit `48b617d5933f9b7bb88fe8ed194b1682985d3d7d`: exact OpenVPN tests and source contract pending at last poll. Proxy Process rerun #46082590403 and AI docs #46082590407 were in progress; #91db XY-C1 #46082011789 had completed success and required Build/TRX/artifact step inspection.
+- Next: inspect USB modem metadata durability regression and exact-head Actions, then continue another source stability/security defect while independent Actions remain pending.
 
 ---
+
 
 
 

@@ -113,6 +113,7 @@ main(void)
 	char root[] = "/tmp/modem-node-policy.XXXXXX";
 	char directory[PATH_MAX], outside[PATH_MAX], outside_file[PATH_MAX];
 	char node_path[PATH_MAX], link_path[PATH_MAX], escape_path[PATH_MAX];
+	char missing_path[PATH_MAX], linked_parent[PATH_MAX], linked_path[PATH_MAX];
 	struct stat st;
 	FILE *fp;
 	char line[64];
@@ -174,8 +175,22 @@ main(void)
 	assert(n > 0 && n < (int)sizeof(link_path));
 	n = snprintf(escape_path, sizeof(escape_path), "%s/escape", root);
 	assert(n > 0 && n < (int)sizeof(escape_path));
+	n = snprintf(missing_path, sizeof(missing_path), "%s/missing/ttyUSB2", root);
+	assert(n > 0 && n < (int)sizeof(missing_path));
+	n = snprintf(linked_parent, sizeof(linked_parent), "%s/linked-parent", root);
+	assert(n > 0 && n < (int)sizeof(linked_parent));
+	n = snprintf(linked_path, sizeof(linked_path), "%s/ttyUSB3", linked_parent);
+	assert(n > 0 && n < (int)sizeof(linked_path));
 
 	assert(modem_node_file_publish_identity(directory, "ttyUSB0", "pref=1\ndevnum=7\n", 1) == 0);
+	assert(config_file_sync_parent(node_path) == 0);
+	errno = 0;
+	assert(config_file_sync_parent(missing_path) != 0);
+	assert(errno == ENOENT);
+	assert(symlink(root, linked_parent) == 0);
+	errno = 0;
+	assert(config_file_sync_parent(linked_path) != 0);
+	assert(unlink(linked_parent) == 0);
 	assert(lstat(directory, &st) == 0 && S_ISDIR(st.st_mode));
 	assert((st.st_mode & 0777) == 0755);
 	assert(st.st_uid == geteuid());

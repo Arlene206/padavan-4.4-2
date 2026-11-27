@@ -1,3 +1,12 @@
+## 2026-11-28 — Make USB modem identity metadata durable
+
+- `modem_node_file_write()` already fsynced the staged metadata file but omitted parent-directory fsync after atomic rename. `modem_node_file_remove()` omitted it after unlink; power loss could lose a new USB identity or resurrect stale `wwanX`/WDM metadata. The directory prepare path, publisher and remover now sync their containing directory and propagate failures.
+- Extended the existing C regression for successful/missing/symlink parent behavior and added source-order assertions to the USB modem identity workflow.
+- Parent SHA: `48b617d5933f9b7bb88fe8ed194b1682985d3d7d`. Exact USB modem identity, Process inventory, AI docs and XY-C1 Build/TRX/artifact pending; no local compile claimed.
+- Commit: THIS COMMIT.
+
+---
+
 ## 2026-11-28 — Persist OpenVPN credential and config publication
 
 - OpenVPN client credential and config publishers previously fsynced staged file contents but did not sync the containing directory after rename. Both now call the shared parent-directory fsync helper and propagate errors; the helper refuses symlinked parent directories via `O_NOFOLLOW`.
