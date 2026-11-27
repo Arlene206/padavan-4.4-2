@@ -551,150 +551,160 @@ dnsmasq_file_snapshot_set_discard(const char **destinations,
 	return result;
 }
 
+/* The set publisher tracks a rename that completed even if its following
+ * directory fsync reports an error. Pair publication shares the same rollback
+ * accounting so the failed member is restored along with earlier members. */
 static inline int
-dnsmasq_file_publish_pair(FILE *first_fp, char *first_stage_path,
-			  const char *first_destination, char *first_backup_path,
-			  FILE *second_fp, char *second_stage_path,
-			  const char *second_destination, char *second_backup_path,
-			  mode_t mode)
+dnsmasq_file_publish_set_with_ops(FILE **staged_files, char **staged_paths,
+                                  const char **destinations,
+                                  char **backup_paths, size_t count,
+                                  mode_t mode,
+                                  dnsmasq_file_publish_status_fn publish_fn);
+
+static inline int
+dnsmasq_file_publish_pair_with_ops(
+    FILE *first_fp, char *first_stage_path, const char *first_destination,
+    char *first_backup_path, FILE *second_fp, char *second_stage_path,
+    const char *second_destination, char *second_backup_path, mode_t mode,
+    dnsmasq_file_publish_status_fn publish_fn)
 {
-	int saved_errno = 0, preserve_first_backup = 0;
+    FILE *staged_files[2];
+    char *staged_paths[2];
+    const char *destinations[2];
+    char *backup_paths[2];
 
-	if (!first_fp || !first_stage_path || !first_stage_path[0] ||
-	    !first_destination || !first_destination[0] ||
-	    !first_backup_path || !first_backup_path[0] ||
-	    !second_fp || !second_stage_path || !second_stage_path[0] ||
-	    !second_destination || !second_destination[0] ||
-	    !second_backup_path || !second_backup_path[0] ||
-	    strcmp(first_destination, second_destination) == 0) {
-		saved_errno = EINVAL;
-		goto failed;
-	}
-	if (dnsmasq_file_backup_create(first_destination, first_backup_path) < 0 ||
-	    dnsmasq_file_backup_create(second_destination, second_backup_path) < 0)
-		goto failed;
+    staged_files[0] = first_fp;
+    staged_files[1] = second_fp;
+    staged_paths[0] = first_stage_path;
+    staged_paths[1] = second_stage_path;
+    destinations[0] = first_destination;
+    destinations[1] = second_destination;
+    backup_paths[0] = first_backup_path;
+    backup_paths[1] = second_backup_path;
 
-	if (dnsmasq_file_publish(first_fp, first_stage_path,
-				 first_destination, mode) != 0) {
-		first_fp = NULL;
-		goto failed;
-	}
-	first_fp = NULL;
-	if (dnsmasq_file_publish(second_fp, second_stage_path,
-				 second_destination, mode) != 0) {
-		second_fp = NULL;
-		saved_errno = errno ? errno : EIO;
-		if (dnsmasq_file_backup_restore(first_destination,
-						first_backup_path) != 0)
-			preserve_first_backup = first_backup_path[0] != '\0';
-		goto failed;
-	}
-	second_fp = NULL;
-	dnsmasq_file_backup_discard(first_backup_path);
-	dnsmasq_file_backup_discard(second_backup_path);
-	return 0;
-
-failed:
-	if (!saved_errno)
-		saved_errno = errno ? errno : EIO;
-	if (first_fp)
-		(void)fclose(first_fp);
-	if (second_fp)
-		(void)fclose(second_fp);
-	dnsmasq_file_discard(first_stage_path);
-	dnsmasq_file_discard(second_stage_path);
-	if (!preserve_first_backup)
-		dnsmasq_file_backup_discard(first_backup_path);
-	dnsmasq_file_backup_discard(second_backup_path);
-	errno = saved_errno;
-	return -1;
+    return dnsmasq_file_publish_set_with_ops(
+        staged_files, staged_paths, destinations, backup_paths, 2, mode,
+        publish_fn);
 }
 
+static inline int
+dnsmasq_file_publish_pair(FILE *first_fp, char *first_stage_path,
+                          const char *first_destination, char *first_backup_path,
+                          FILE *second_fp, char *second_stage_path,
+                          const char *second_destination, char *second_backup_path,
+                          mode_t mode)
+{
+    return dnsmasq_file_publish_pair_with_ops(
+        first_fp, first_stage_path, first_destination, first_backup_path,
+        second_fp, second_stage_path, second_destination, second_backup_path,
+        mode, dnsmasq_file_publish_internal);
+}
 
 /* Publish up to three related outputs as one rollback-capable transaction.
  * POSIX lacks a multi-path atomic rename; snapshots restore every path already
  * replaced if a later rename fails. If restoration fails, keep all remaining
  * snapshots for manual recovery rather than deleting the only old copies. */
 static inline int
-dnsmasq_file_publish_set(FILE **staged_files, char **staged_paths,
-			 const char **destinations, char **backup_paths,
-			 size_t count, mode_t mode)
+dnsmasq_file_publish_set_with_ops(FILE **staged_files, char **staged_paths,
+                                  const char **destinations,
+                                  char **backup_paths, size_t count,
+                                  mode_t mode,
+                                  dnsmasq_file_publish_status_fn publish_fn)
 {
-	size_t i, published = 0;
-	int saved_errno = 0;
-	int rollback_errno = 0;
-	int rollback_failed = 0;
+    size_t i, published = 0;
+    int saved_errno = 0;
+    int rollback_errno = 0;
+    int rollback_failed = 0;
 
-	if (!staged_files || !staged_paths || !destinations || !backup_paths ||
-	    count == 0 || count > 3) {
-		errno = EINVAL;
-		return -1;
-	}
+    if (!staged_files || !staged_paths || !destinations || !backup_paths ||
+        !publish_fn || count == 0 || count > 3) {
+        errno = EINVAL;
+        return -1;
+    }
 
-	for (i = 0; i < count; i++) {
-		size_t j;
+    for (i = 0; i < count; i++) {
+        size_t j;
 
-		if (!staged_files[i] || !staged_paths[i] || !staged_paths[i][0] ||
-		    !destinations[i] || !destinations[i][0] ||
-		    !backup_paths[i] || !backup_paths[i][0]) {
-			saved_errno = EINVAL;
-			goto failed;
-		}
-		for (j = 0; j < i; j++) {
-			if (strcmp(destinations[i], destinations[j]) == 0) {
-				saved_errno = EINVAL;
-				goto failed;
-			}
-		}
-	}
+        if (!staged_files[i] || !staged_paths[i] || !staged_paths[i][0] ||
+            !destinations[i] || !destinations[i][0] ||
+            !backup_paths[i] || !backup_paths[i][0]) {
+            saved_errno = EINVAL;
+            goto failed;
+        }
+        for (j = 0; j < i; j++) {
+            if (strcmp(destinations[i], destinations[j]) == 0) {
+                saved_errno = EINVAL;
+                goto failed;
+            }
+        }
+    }
 
-	for (i = 0; i < count; i++) {
-		if (dnsmasq_file_backup_create(destinations[i], backup_paths[i]) < 0)
-			goto failed;
-	}
+    for (i = 0; i < count; i++) {
+        if (dnsmasq_file_backup_create(destinations[i], backup_paths[i]) < 0)
+            goto failed;
+    }
 
-	for (i = 0; i < count; i++) {
-		FILE *staged_fp = staged_files[i];
+    for (i = 0; i < count; i++) {
+        FILE *staged_fp = staged_files[i];
+        int rename_completed = 0;
 
-		staged_files[i] = NULL;
-		if (dnsmasq_file_publish(staged_fp, staged_paths[i],
-					 destinations[i], mode) != 0) {
-			saved_errno = errno ? errno : EIO;
-			goto rollback;
-		}
-		published++;
-	}
-	for (i = 0; i < count; i++)
-		dnsmasq_file_backup_discard(backup_paths[i]);
-	return 0;
+        staged_files[i] = NULL;
+        if (publish_fn(staged_fp, staged_paths[i], destinations[i], mode,
+                       &rename_completed) != 0) {
+            saved_errno = errno ? errno : EIO;
+            /*
+             * A publish can fail after rename() already replaced the path
+             * (for example, the following parent-directory fsync failed).
+             * Include that member in rollback along with prior members.
+             */
+            if (rename_completed)
+                published++;
+            goto rollback;
+        }
+        published++;
+    }
+
+    for (i = 0; i < count; i++)
+        dnsmasq_file_backup_discard(backup_paths[i]);
+    return 0;
 
 rollback:
-	while (published > 0) {
-		published--;
-		if (dnsmasq_file_backup_restore(destinations[published],
-						backup_paths[published]) != 0) {
-			rollback_failed = 1;
-			if (!rollback_errno)
-				rollback_errno = errno ? errno : EIO;
-		}
-	}
-	if (rollback_errno)
-		saved_errno = rollback_errno;
+    while (published > 0) {
+        published--;
+        if (dnsmasq_file_backup_restore(destinations[published],
+                                        backup_paths[published]) != 0) {
+            rollback_failed = 1;
+            if (!rollback_errno)
+                rollback_errno = errno ? errno : EIO;
+        }
+    }
+    if (rollback_errno)
+        saved_errno = rollback_errno;
 
 failed:
-	if (!saved_errno)
-		saved_errno = errno ? errno : EIO;
-	for (i = 0; i < count; i++) {
-		if (staged_files[i]) {
-			(void)fclose(staged_files[i]);
-			staged_files[i] = NULL;
-		}
-		dnsmasq_file_discard(staged_paths[i]);
-		if (!rollback_failed)
-			dnsmasq_file_backup_discard(backup_paths[i]);
-	}
-	errno = saved_errno;
-	return -1;
+    if (!saved_errno)
+        saved_errno = errno ? errno : EIO;
+    for (i = 0; i < count; i++) {
+        if (staged_files[i]) {
+            (void)fclose(staged_files[i]);
+            staged_files[i] = NULL;
+        }
+        dnsmasq_file_discard(staged_paths[i]);
+        if (!rollback_failed)
+            dnsmasq_file_backup_discard(backup_paths[i]);
+    }
+    errno = saved_errno;
+    return -1;
+}
+
+static inline int
+dnsmasq_file_publish_set(FILE **staged_files, char **staged_paths,
+                         const char **destinations, char **backup_paths,
+                         size_t count, mode_t mode)
+{
+    return dnsmasq_file_publish_set_with_ops(
+        staged_files, staged_paths, destinations, backup_paths, count, mode,
+        dnsmasq_file_publish_internal);
 }
 
 /* Validate a last-known-good server file without following the final path. */

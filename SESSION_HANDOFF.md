@@ -1,15 +1,15 @@
-## 2026-11-28 — Trigger XY-C1 for WAN IPv6 teardown policy header changes
+## 2026-11-28 — Preserve multi-file DNSMasq rollback after post-rename durability errors
 
-- The NULL-safe WAN IPv6 teardown policy helper is now present in the header after the exact-SHA compile found and corrected its missing definition. Added that production header to both XY-C1 push and pull-request filters; net_wan6.c already has those filters, but a future header-only change must also force firmware validation.
-- Added a detector regression that requires exactly one path entry in each filter and classifies the header as a firmware input.
-- Helper-definition fix commit: faa1042520e69ed7a53b518a0ae870a9fb63eeb3; current CI filter change is this follow-up. Current exact firmware run from the previous source commit remains separate; this filter change will trigger a new XY-C1 run on the current main tip.
-- Frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- Found a transaction-integrity bug in `dnsmasq_file_publish_set()` and `dnsmasq_file_publish_pair()`: `dnsmasq_file_publish_internal()` can return failure after `rename()` has already replaced the destination, when the parent-directory fsync fails. Both multi-file callers previously counted only successful return values, so the failing member was omitted from rollback. A set/pair could therefore return failure while leaving one destination replaced and its related files on the old generation.
+- Added an injectable publish callback to the shared set transaction, tracked `rename_completed` on failed publishes, and included that member in reverse-order rollback. Pair publication now delegates to the same transaction path. Regression tests inject EIO after the first pair rename and after the second of three set renames; both assert all original files are restored and temporary backups removed.
+- Parent main: `a415adf224e92e9d60c1cd7bbc298ec1d3e1beb2`. Backup branch remains `72f4f157a084f8184b9597ca5bf334b8080e5807`. Host compiler execution is not available in this connector-only session; exact DNSMasq, Process, AI docs and XY-C1 Build/TRX/artifact checks on the new source SHA are required.
+- Current unrelated exact-SHA CI on previous head `a415adf224e92e9d60c1cd7bbc298ec1d3e1beb2`: Process lifecycle `#46063973639` PASS; AI handoff `#46063973629` PASS; XY-C1 `#46063973985` was still Building XY-C1 at last poll.
 
 ## Exact first action
 
-1. Inspect exact-SHA IPv6 service-type workflow after helper definition correction; require test and source checker.
-2. Inspect new XY-C1 Build, TRX and artifact upload on the SHA that includes the corrected helper header.
-3. Continue independent stability/security source work while CI is pending; no L4 claim without hardware testing.
+1. Inspect exact-head DNSMasq file transaction GNU89/ASan/UBSan regression and inline static contract; fix any compile/test/checker failure on that SHA.
+2. Inspect XY-C1 Build, TRX verification and artifact upload for this source SHA. Do not claim L3 until all three pass on the same production tree.
+3. Continue independent reliability/security work outside the completed USB, VPN callback and WAN IPv6 slices while any CI remains pending; hardware L4 is still NOT VERIFIED.
 ---
 
 ## 2026-11-26 — Autonomous development checkpoint

@@ -975,6 +975,9 @@ jobs:
           ):
               assert token in static_hosts_writer, token
           assert "dnsmasq_file_publish_set" in dnsmasq_file_helper
+          assert "dnsmasq_file_publish_set_with_ops(" in dnsmasq_file_helper
+          assert "dnsmasq_file_publish_pair_with_ops" in dnsmasq_file_helper
+          assert "if (rename_completed)\n                published++;" in dnsmasq_file_helper
           assert "dnsmasq_file_backup_restore(destinations[published]" in dnsmasq_file_helper
           assert "dnsmasq_file_publish(staged_fp, staged_paths[i]," not in static_hosts_writer
           assert 'fopen(dh_fn, "w+")' not in static_hosts_writer

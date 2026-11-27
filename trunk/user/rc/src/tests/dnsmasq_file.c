@@ -179,6 +179,28 @@ mock_publish_after_rename_failure(FILE *fp, char *path,
 	return -1;
 }
 
+static int mock_publish_call_count;
+static int mock_publish_fail_call;
+
+static int
+mock_publish_failure_after_selected_rename(FILE *fp, char *path,
+                                            const char *destination,
+                                            mode_t mode, int *rename_completed)
+{
+    int status;
+
+    mock_publish_call_count++;
+    status = dnsmasq_file_publish_internal(fp, path, destination, mode,
+                                           rename_completed);
+    if (status != 0)
+        return status;
+    if (mock_publish_call_count == mock_publish_fail_call) {
+        errno = EIO;
+        return -1;
+    }
+    return 0;
+}
+
 static void
 test_publish_failure_after_rename_restores_destination(const char *directory)
 {
@@ -428,6 +450,125 @@ test_dnsmasq_file_directory_sync_helpers(const char *directory)
 	assert(unlink(regular) == 0);
 }
 
+static void
+test_publish_pair_first_rename_failure_restores_destination(const char *directory)
+{
+    char first[256], second[256], first_stage[320], second_stage[320];
+    char first_backup[320], second_backup[320];
+    FILE *first_fp, *second_fp;
+
+    assert(snprintf(first, sizeof(first), "%s/pair-first-fsync", directory) > 0);
+    assert(snprintf(second, sizeof(second), "%s/pair-second-fsync", directory) > 0);
+    assert(snprintf(first_stage, sizeof(first_stage),
+                    "%s/pair-first-stage.XXXXXX", directory) > 0);
+    assert(snprintf(second_stage, sizeof(second_stage),
+                    "%s/pair-second-stage.XXXXXX", directory) > 0);
+    assert(snprintf(first_backup, sizeof(first_backup),
+                    "%s/pair-first-backup.XXXXXX", directory) > 0);
+    assert(snprintf(second_backup, sizeof(second_backup),
+                    "%s/pair-second-backup.XXXXXX", directory) > 0);
+
+    first_fp = fopen(first, "w");
+    second_fp = fopen(second, "w");
+    assert(first_fp != NULL && second_fp != NULL);
+    assert(fputs("old-first\n", first_fp) >= 0 && fclose(first_fp) == 0);
+    assert(fputs("old-second\n", second_fp) >= 0 && fclose(second_fp) == 0);
+
+    first_fp = dnsmasq_file_open(first_stage);
+    second_fp = dnsmasq_file_open(second_stage);
+    assert(first_fp != NULL && second_fp != NULL);
+    assert(fputs("new-first\n", first_fp) >= 0);
+    assert(fputs("new-second\n", second_fp) >= 0);
+
+    mock_publish_call_count = 0;
+    mock_publish_fail_call = 1;
+    errno = 0;
+    assert(dnsmasq_file_publish_pair_with_ops(
+        first_fp, first_stage, first, first_backup,
+        second_fp, second_stage, second, second_backup, 0644,
+        mock_publish_failure_after_selected_rename) == -1);
+    assert(errno == EIO);
+    read_exact(first, "old-first\n");
+    read_exact(second, "old-second\n");
+    assert(first_stage[0] == '\0' && second_stage[0] == '\0');
+    assert(first_backup[0] == '\0' && second_backup[0] == '\0');
+
+    assert(unlink(first) == 0 && unlink(second) == 0);
+}
+
+static void
+test_publish_set_second_rename_failure_restores_all_published_paths(
+    const char *directory)
+{
+    char first[256], second[256], third[256];
+    char first_stage[320], second_stage[320], third_stage[320];
+    char first_backup[320], second_backup[320], third_backup[320];
+    FILE *staged_files[3];
+    char *staged_paths[3];
+    const char *destinations[3];
+    char *backup_paths[3];
+    FILE *fp;
+
+    assert(snprintf(first, sizeof(first), "%s/set-first-fsync", directory) > 0);
+    assert(snprintf(second, sizeof(second), "%s/set-second-fsync", directory) > 0);
+    assert(snprintf(third, sizeof(third), "%s/set-third-fsync", directory) > 0);
+    assert(snprintf(first_stage, sizeof(first_stage),
+                    "%s/set-first-stage.XXXXXX", directory) > 0);
+    assert(snprintf(second_stage, sizeof(second_stage),
+                    "%s/set-second-stage.XXXXXX", directory) > 0);
+    assert(snprintf(third_stage, sizeof(third_stage),
+                    "%s/set-third-stage.XXXXXX", directory) > 0);
+    assert(snprintf(first_backup, sizeof(first_backup),
+                    "%s/set-first-backup.XXXXXX", directory) > 0);
+    assert(snprintf(second_backup, sizeof(second_backup),
+                    "%s/set-second-backup.XXXXXX", directory) > 0);
+    assert(snprintf(third_backup, sizeof(third_backup),
+                    "%s/set-third-backup.XXXXXX", directory) > 0);
+
+    fp = fopen(first, "w");
+    assert(fp != NULL && fputs("old-first\n", fp) >= 0 && fclose(fp) == 0);
+    fp = fopen(second, "w");
+    assert(fp != NULL && fputs("old-second\n", fp) >= 0 && fclose(fp) == 0);
+    fp = fopen(third, "w");
+    assert(fp != NULL && fputs("old-third\n", fp) >= 0 && fclose(fp) == 0);
+
+    staged_files[0] = dnsmasq_file_open(first_stage);
+    staged_files[1] = dnsmasq_file_open(second_stage);
+    staged_files[2] = dnsmasq_file_open(third_stage);
+    assert(staged_files[0] != NULL && staged_files[1] != NULL &&
+           staged_files[2] != NULL);
+    assert(fputs("new-first\n", staged_files[0]) >= 0);
+    assert(fputs("new-second\n", staged_files[1]) >= 0);
+    assert(fputs("new-third\n", staged_files[2]) >= 0);
+
+    staged_paths[0] = first_stage;
+    staged_paths[1] = second_stage;
+    staged_paths[2] = third_stage;
+    destinations[0] = first;
+    destinations[1] = second;
+    destinations[2] = third;
+    backup_paths[0] = first_backup;
+    backup_paths[1] = second_backup;
+    backup_paths[2] = third_backup;
+
+    mock_publish_call_count = 0;
+    mock_publish_fail_call = 2;
+    errno = 0;
+    assert(dnsmasq_file_publish_set_with_ops(
+        staged_files, staged_paths, destinations, backup_paths, 3, 0644,
+        mock_publish_failure_after_selected_rename) == -1);
+    assert(errno == EIO);
+    read_exact(first, "old-first\n");
+    read_exact(second, "old-second\n");
+    read_exact(third, "old-third\n");
+    assert(first_stage[0] == '\0' && second_stage[0] == '\0' &&
+           third_stage[0] == '\0');
+    assert(first_backup[0] == '\0' && second_backup[0] == '\0' &&
+           third_backup[0] == '\0');
+
+    assert(unlink(first) == 0 && unlink(second) == 0 && unlink(third) == 0);
+}
+
 int
 main(void)
 {
@@ -484,6 +625,8 @@ main(void)
 	test_dnsmasq_file_directory_sync_helpers(directory);
 	test_snapshot_set_restore_and_commit(directory);
 	test_publish_failure_after_rename_restores_destination(directory);
+	test_publish_pair_first_rename_failure_restores_destination(directory);
+	test_publish_set_second_rename_failure_restores_all_published_paths(directory);
 	test_open_failure_retains_path_for_retry(directory);
 	test_discard_retries_interrupted_unlink();
 	assert(snprintf(sentinel, sizeof(sentinel), "%s/sentinel", directory) > 0);

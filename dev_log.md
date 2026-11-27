@@ -1,3 +1,9 @@
+## 2026-11-28 — Roll back DNSMasq outputs whose rename completed before a durability error
+
+- `dnsmasq_file_publish_internal()` reports a parent-directory fsync failure after a successful `rename()`, correctly exposing that the new pathname is already visible but not durably committed. The multi-file `dnsmasq_file_publish_set()` and `dnsmasq_file_publish_pair()` callers previously incremented their rollback count only on a zero return, omitting the failing-but-renamed output. That could leave a mixed generation of DNSMasq configuration after an error.
+- Added `dnsmasq_file_publish_set_with_ops()`; it tracks `rename_completed` independently from the callback return and rolls back the failed member plus prior successful members in reverse order. The public pair helper now routes through the same transaction implementation.
+- Added GNU89 host regressions that inject EIO after the first pair rename and after the second of three set renames, then verify every prior destination content is restored. Extended the DNSMasq workflow's source contract to pin the rollback accounting. Exact-SHA Actions pending; local compiler execution unavailable here.
+
 ## 2026-11-28 — Add WAN IPv6 teardown header to XY-C1 build path filters
 
 - Added trunk/user/rc/src/wan6_teardown_policy.h to the XY-C1 push and pull-request path filters because it is included by the production WAN IPv6 implementation. A header-only change to this helper must trigger the cross-build.
