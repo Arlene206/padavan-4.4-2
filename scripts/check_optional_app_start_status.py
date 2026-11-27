@@ -233,24 +233,6 @@ echo "$next_state" > "$MOCK_STATE_FILE"
 exit "${MOCK_KILLALL_STATUS:-0}"
 """)
         log = base / "logger.log"
-        executable(bin_dir / "ssh-keygen", """#!/bin/sh
-case "$1" in
-  -A)
-    for path in "$SSHD_RSA_KEY" "$SSHD_DSA_KEY" "$SSHD_ED25519_KEY"; do
-      [ -f "$path" ] || printf '%s\\n' generated-key > "$path" || exit 1
-    done
-    exit "${MOCK_KEYGEN_STATUS:-0}"
-    ;;
-  -y)
-    [ "$2" = "-P" ] && [ -z "$3" ] && [ "$4" = "-f" ] || exit 64
-    [ -s "$5" ] || exit 1
-    IFS= read -r key_data < "$5" || [ -n "$key_data" ] || exit 1
-    case "$key_data" in test-key|generated-key) exit 0 ;; *) exit 1 ;; esac
-    ;;
-  *) exit 64 ;;
-esac
-""")
-
         env = os.environ.copy()
         env.update({
             "PATH": str(bin_dir) + os.pathsep + env.get("PATH", ""),
@@ -1211,6 +1193,8 @@ def check_sshd():
     assert "func_validate_host_keys()" in sshd_source
     assert '"$ssh_keygen_bin" -y -P "" -f "$key_path"' in sshd_source
     assert "refusing multiply-linked host key" in sshd_source
+    assert 'case "$key_requirement" in' in sshd_source
+    assert 'func_validate_host_keys required' in sshd_source
     assert syntax_check.returncode == 0, syntax_check.stderr
     with tempfile.TemporaryDirectory(prefix="sshd-lifecycle-") as tmp:
         base = Path(tmp)
@@ -1239,6 +1223,27 @@ exit "${MOCK_SSHD_STATUS:-0}"
 printf '%s\\n' "$*" >> "$MOCK_KILLALL_LOG"
 exit "${MOCK_KILLALL_STATUS:-0}"
 """)
+        executable(bin_dir / "ssh-keygen", """#!/bin/sh
+case "$1" in
+  -A)
+    for path in "$SSHD_RSA_KEY" "$SSHD_DSA_KEY" "$SSHD_ED25519_KEY"; do
+      if [ "$path" = "$SSHD_DSA_KEY" ] && [ "${MOCK_KEYGEN_OMIT_DSA:-0}" = 1 ]; then
+        continue
+      fi
+      [ -f "$path" ] || printf '%s\\n' generated-key > "$path" || exit 1
+    done
+    exit "${MOCK_KEYGEN_STATUS:-0}"
+    ;;
+  -y)
+    [ "$2" = "-P" ] && [ -z "$3" ] && [ "$4" = "-f" ] || exit 64
+    [ -s "$5" ] || exit 1
+    IFS= read -r key_data < "$5" || [ -n "$key_data" ] || exit 1
+    case "$key_data" in test-key|generated-key) exit 0 ;; *) exit 1 ;; esac
+    ;;
+  *) exit 64 ;;
+esac
+""")
+
         env = os.environ.copy()
         env.update({
             "PATH": str(bin_dir) + os.pathsep + env.get("PATH", ""),
@@ -1303,6 +1308,16 @@ exit "${MOCK_KILLALL_STATUS:-0}"
         assert generated.returncode == 0, generated.stderr
         assert dsa_key.read_text().strip() == "generated-key"
         assert dsa_key.stat().st_mode & 0o777 == 0o600
+
+        # A successful generator exit is not proof that every required key exists.
+        dsa_key.unlink()
+        before_omitted_launch = sshd_log.read_text().splitlines()
+        omitted_env = generated_env.copy()
+        omitted_env["MOCK_KEYGEN_OMIT_DSA"] = "1"
+        omitted = run(["/bin/sh", str(SSHD_SCRIPT), "start"], omitted_env)
+        assert omitted.returncode != 0, "sshd accepted incomplete host-key generation"
+        assert not dsa_key.exists(), "mock generator unexpectedly created the omitted key"
+        assert sshd_log.read_text().splitlines() == before_omitted_launch, "sshd launched without all required host keys"
 
         # The config path is privileged input: reject symlinks (including dangling
         # ones) before SSHD or any other startup side effect can follow them.

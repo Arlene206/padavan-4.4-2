@@ -181,12 +181,19 @@ EOF
 func_validate_host_key()
 {
 	key_path="$1"
+	key_requirement="$2"
 	if [ -L "$key_path" ] ||
 	   { [ -e "$key_path" ] && [ ! -f "$key_path" ]; }; then
 		logger -t "sshd" "refusing unsafe host-key path: $key_path"
 		return 1
 	fi
-	[ -f "$key_path" ] || return 0
+	if [ ! -e "$key_path" ]; then
+		if [ "$key_requirement" = "required" ]; then
+			logger -t "sshd" "required host key is missing: $key_path"
+			return 1
+		fi
+		return 0
+	fi
 	if [ ! -s "$key_path" ]; then
 		logger -t "sshd" "host key is empty: $key_path"
 		return 1
@@ -224,9 +231,10 @@ func_validate_host_key()
 
 func_validate_host_keys()
 {
-	func_validate_host_key "$rsa_key" || return $?
-	func_validate_host_key "$dsa_key" || return $?
-	func_validate_host_key "$ed25519_key"
+	key_requirement="$1"
+	func_validate_host_key "$rsa_key" "$key_requirement" || return $?
+	func_validate_host_key "$dsa_key" "$key_requirement" || return $?
+	func_validate_host_key "$ed25519_key" "$key_requirement"
 }
 
 func_start()
@@ -265,7 +273,7 @@ func_start()
 			logger -t "sshd" "host-key generation failed (status=$keygen_status)"
 			return "$keygen_status"
 		fi
-		func_validate_host_keys
+		func_validate_host_keys required
 		key_validation_status=$?
 		if [ "$key_validation_status" -ne 0 ]; then
 			return "$key_validation_status"
