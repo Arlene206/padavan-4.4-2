@@ -1,15 +1,15 @@
-## 2026-11-28 — Complete NULL-safe WAN IPv6 teardown helper after CI caught missing declaration
+## 2026-11-28 — Trigger XY-C1 for WAN IPv6 teardown policy header changes
 
-- The initial optional-interface fix commit 203f9014d0f32399ae55f2587869691474852cd0 correctly routed wan6_down() through the new predicate and added five regression cases, but its first exact-SHA IPv6 run #46063625062 exposed that the helper body had not been inserted before the header's commented #endif; GNU89 compilation failed with an implicit declaration. This is a missing-definition integration error, not a runtime test failure.
-- Added wan6_teardown_needs_previous_interface_cleanup() to wan6_teardown_policy.h before its guarded close. The function returns true for a selected non-SIT saved interface when the request name is NULL or differs, and false for NULL selected, equal names, or SIT.
-- The original IPv6 service-type test PASSED; only the new test compile failed before execution. Process inventory #46063624990 PASS; AI handoff #46063624980 PASS; WAN 6rd #46063624971 PASS. XY-C1 #46063624972 was still in progress at the ccache setup step. No L3/L4 claim.
-- Parent main SHA: 203f9014d0f32399ae55f2587869691474852cd0. Backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- The NULL-safe WAN IPv6 teardown policy helper is now present in the header after the exact-SHA compile found and corrected its missing definition. Added that production header to both XY-C1 push and pull-request filters; net_wan6.c already has those filters, but a future header-only change must also force firmware validation.
+- Added a detector regression that requires exactly one path entry in each filter and classifies the header as a firmware input.
+- Helper-definition fix commit: faa1042520e69ed7a53b518a0ae870a9fb63eeb3; current CI filter change is this follow-up. Current exact firmware run from the previous source commit remains separate; this filter change will trigger a new XY-C1 run on the current main tip.
+- Frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
 
 ## Exact first action
 
-1. Inspect exact-SHA IPv6 run after helper declaration fix; require the GNU89/ASan/UBSan teardown test and source contract to PASS.
-2. Inspect XY-C1 Build, TRX and artifact upload for exact production-source SHA 203f9014; do not use the older 9d067... build as a proxy.
-3. Continue independent userland stability/security implementation; keep the no-hardware L4 status explicit.
+1. Inspect exact-SHA IPv6 service-type workflow after helper definition correction; require test and source checker.
+2. Inspect new XY-C1 Build, TRX and artifact upload on the SHA that includes the corrected helper header.
+3. Continue independent stability/security source work while CI is pending; no L4 claim without hardware testing.
 ---
 
 ## 2026-11-26 — Autonomous development checkpoint

@@ -1,3 +1,8 @@
+## 2026-11-28 — Add WAN IPv6 teardown header to XY-C1 build path filters
+
+- Added trunk/user/rc/src/wan6_teardown_policy.h to the XY-C1 push and pull-request path filters because it is included by the production WAN IPv6 implementation. A header-only change to this helper must trigger the cross-build.
+- Added a detector unit test requiring exactly two workflow entries and ensuring it is treated as a firmware input. No production behavior changed.
+
 ## 2026-11-28 — Add missing WAN IPv6 teardown predicate definition
 
 - Exact-SHA IPv6 action #46063625062 on 203f9014d0f32399ae55f2587869691474852cd0 passed the pre-existing IPv6 service-type regression but failed compiling the new teardown test: wan6_teardown_needs_previous_interface_cleanup was referenced by the test/source but its header definition had not been inserted because the header terminator carries a comment.
