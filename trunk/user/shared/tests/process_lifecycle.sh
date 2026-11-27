@@ -227,6 +227,24 @@ expect_pattern_state()
         fail "pgrep pattern state returned $pattern_actual, expected $pattern_expected"
 }
 
+# An ABSENT result requires at least one numeric PID directory to be observed.
+# Empty or non-PID-only procfs snapshots cannot prove process absence.
+for no_pid_case in empty nonpid; do
+    PL_PROC_ROOT="$tmp/proc-$no_pid_case"
+    mkdir -p "$PL_PROC_ROOT"
+    if [ "$no_pid_case" = nonpid ]; then
+        mkdir -p "$PL_PROC_ROOT/sys"
+    fi
+    echo absent > "$state_file"
+    if pl_process_state test-daemon; then actual=0; else actual=$?; fi
+    [ "$actual" -eq 2 ] || fail "$no_pid_case procfs inventory classified process absence as $actual"
+    echo absent > "$PL_PATTERN_STATE_FILE"
+    if pl_process_pattern_state "$PL_TEST_PATTERN"; then actual=0; else actual=$?; fi
+    [ "$actual" -eq 2 ] || fail "$no_pid_case procfs inventory classified package-client absence as $actual"
+done
+PL_PROC_ROOT="$tmp/proc"
+export PL_PROC_ROOT
+
 # Model a complete /proc root, including init with an empty cmdline.
 mkdir -p "$PL_PROC_ROOT/1"
 : > "$PL_PROC_ROOT/1/cmdline"

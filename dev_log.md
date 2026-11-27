@@ -1,3 +1,9 @@
+## 2026-11-27 — Treat PID-less procfs snapshots as UNKNOWN
+
+- Shared process lifecycle fallback treated an empty or non-PID-only procfs listing as a complete negative scan in `pl_process_state()`; the package-client command-line fallback had the same flaw when the root contained nonnumeric entries such as only `sys`. This could authorize teardown/unmount on an incomplete process inventory.
+- Both scanners now require at least one numeric PID directory to be observed before returning ABSENT. Invalid zero-prefixed PID entries fail UNKNOWN; normal disappearing PID directories remain tolerated. Regression covers empty and non-PID-only roots for both process-name and full-command-line scans.
+- Exact-SHA Process lifecycle regression is required. Local shell execution and hardware L3/L4 are not claimed.
+
 ## 2026-11-27 — Keep ZeroTier shell route pattern compatible with source-contract parser
 
 - Exact-SHA ZeroTier run #46054412381 on `c8c3256f339b70bf3e66a1526275e0e94ccfe508`: the lifecycle shell regression passed, including duplicate destination and implicit/explicit `/32` scenarios. The Python source checker then failed before evaluating route contracts because its C-style comment scanner interpreted the POSIX shell case pattern `*/*)` as the start of a `/* ... */` block comment; WAN-up was skipped.

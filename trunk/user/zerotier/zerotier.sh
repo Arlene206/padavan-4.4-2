@@ -1073,7 +1073,7 @@ zerotier_preflight_static_routes() {
 		# same destination, matching the kernel route representation.
 		zt_preflight_destination_key="$zt_preflight_ip"
 		case "$zt_preflight_destination_key" in
-			*'/'*) ;;
+			*/*) ;;
 			*) zt_preflight_destination_key="$zt_preflight_destination_key/32" ;;
 		esac
 		case "$zt_preflight_seen_destinations" in

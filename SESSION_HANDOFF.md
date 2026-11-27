@@ -1,14 +1,14 @@
-## 2026-11-27 — ZeroTier static-route duplicate preflight checker correction
+## 2026-11-27 — Shared process lifecycle rejects PID-less procfs inventory
 
-- Current parent `main`: `c8c3256f339b70bf3e66a1526275e0e94ccfe508`; frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged).
-- Duplicate static-route destination source/tests were committed in `c8c3256f339b70bf3e66a1526275e0e94ccfe508`. Exact-SHA ZeroTier run #46054412381: shell lifecycle regression PASS; Python contract checker FAILED before route assertions because its C-comment scanner parsed the POSIX case pattern `*/*)` as a block-comment opener. WAN-up integration was skipped. AI handoff #46054412361, Process inventory #46054412408 and WAN route #46054412388 passed on that SHA; XY-C1 firmware run #46054412480 was still in progress at last poll.
-- Corrective slice changes the slash case pattern to `*'/'*)` (same shell matching semantics, no accidental `/*` token) and adds a checker assertion to lock this parser-compatible form. Duplicate destination logic is unchanged; shell tests had already passed on parent, but the full workflow must pass on the corrective SHA.
-- Local shell execution and target build are unavailable here. No XY-C1 build/TRX/artifact or physical L4 result is claimed; physical L4 remains NOT VERIFIED.
+- Current parent `main`: `77e992953e32b45c6b2de7c8dcb01ac89c7f9c6b`; backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807` (untouched).
+- ZeroTier duplicate-route checker correction is fully validated on exact SHA `77e992953e32b45c6b2de7c8dcb01ac89c7f9c6b`: ZeroTier lifecycle #46054983215 PASS, Process lifecycle inventory #46054983251 PASS, WAN route #46054983184 PASS, AI handoff contract #46054983207 PASS. XY-C1 Firmware Validation #46054983261 was IN_PROGRESS at the last poll; no completed firmware/TRX/artifact result is claimed.
+- New P1 fail-closed edge: `pl_process_state()` and `pl_process_pattern_procfs_state()` could return ABSENT when procfs contained no numeric PID directories (empty root or only system directory names). Such an incomplete inventory could authorize daemon/storage teardown. Both scanners now require at least one numeric PID directory before ABSENT; added regression for both scanners against empty and non-PID-only roots.
+- The process regression is wired in `.github/workflows/process-lifecycle-regression.yml` and should run on the exact new source SHA. Local shell execution is unavailable in this connector-only session. Physical L4 remains NOT VERIFIED.
 
 ## Exact first action
 
-1. Fetch Actions for the corrective commit by exact `head_sha`. Verify ZeroTier lifecycle shell + Python source contracts + WAN-up integration all pass. Fix any remaining issue with a full-tree atomic `main` commit.
-2. Check XY-C1 Build/TRX/artifact on the latest exact source SHA and the Process/NVRAM workflows; pending jobs are not passes. Continue with an independent P1 stability issue without repeating bootstrap/handoff audits.
+1. Fetch exact-SHA Process lifecycle regression and inventory runs for this process-inventory hardening commit. Review shell test output and failure logs; repair any compile/checker or shell issue before proceeding.
+2. Check XY-C1 Firmware Validation #46054983261 and the new SHA's target build/TRX/artifact checks; do not report incomplete/pending as success. Then continue another independent P1 userland stability/security issue.
 
 ---
 

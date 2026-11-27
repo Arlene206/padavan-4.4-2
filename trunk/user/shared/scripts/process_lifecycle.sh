@@ -25,12 +25,19 @@ pl_process_state()
             fi
             command -v ls >/dev/null 2>&1 || return 2
             pl_proc_listing=$(ls -1 "$pl_proc_root" 2>/dev/null) || return 2
+            # An empty or non-PID-only listing is not a complete procfs
+            # inventory. A live PID namespace always exposes at least PID 1.
+            pl_proc_numeric_found=0
             # procfs names are newline-delimited. Do not use the caller's
             # IFS for this inventory: callers may deliberately set IFS=:.
             while IFS= read -r pl_proc_pid; do
-                case "$pl_proc_pid" in ''|*[!0-9]*) continue ;; esac
+                case "$pl_proc_pid" in
+                    ''|*[!0-9]*) continue ;;
+                    0*) return 2 ;;
+                esac
                 pl_proc_dir="$pl_proc_root/$pl_proc_pid"
                 [ -d "$pl_proc_dir" ] || continue
+                pl_proc_numeric_found=1
                 if IFS= read -r pl_proc_stat < "$pl_proc_dir/stat"; then
                     :
                 else
@@ -83,6 +90,7 @@ pl_process_state()
             done <<EOF
 $pl_proc_listing
 EOF
+            [ "$pl_proc_numeric_found" -eq 1 ] || return 2
             return 1 ;;
         *) return 2 ;;
     esac
@@ -165,6 +173,7 @@ pl_process_pattern_procfs_state()
 
     pl_pattern_scan_entries=$(ls -1 "$pl_pattern_scan_root" 2>/dev/null) || return 2
     [ -n "$pl_pattern_scan_entries" ] || return 2
+    pl_pattern_scan_numeric_found=0
 
     while IFS= read -r pl_pattern_scan_pid; do
         case "$pl_pattern_scan_pid" in
@@ -173,6 +182,7 @@ pl_process_pattern_procfs_state()
         esac
         pl_pattern_scan_dir="$pl_pattern_scan_root/$pl_pattern_scan_pid"
         [ -d "$pl_pattern_scan_dir" ] || continue
+        pl_pattern_scan_numeric_found=1
 
         pl_pattern_scan_task_state=$(awk -v expected_pid="$pl_pattern_scan_pid" '
             NR != 1 { invalid = 1 }
@@ -220,6 +230,7 @@ pl_process_pattern_procfs_state()
 $pl_pattern_scan_entries
 EOF
 
+    [ "$pl_pattern_scan_numeric_found" -eq 1 ] || return 2
     return 1
 }
 
