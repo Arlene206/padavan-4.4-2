@@ -197,6 +197,11 @@ if [ -n "${STORAGE_TEST_CHMOD_FAIL_PATH:-}" ]; then
 fi
 exec /bin/chmod "$@"
 EOF
+if [ -n "${BUSYBOX_BIN:-}" ]; then
+	# Transmission's procfs identity check requires stat; provide the target
+	# firmware BusyBox applet on the same PATH as the other test commands.
+	ln -s "$BUSYBOX_BIN" "$STUB_DIR/stat"
+fi
 chmod 755 "$STUB_DIR/"*
 sed \
 	-e "s|SVC_PATH=\"/usr/bin/transmission-daemon\"|SVC_PATH=\"$STUB_DIR/transmission-daemon\"|" \
