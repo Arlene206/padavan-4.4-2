@@ -244,7 +244,7 @@ case "$1" in
   -y)
     [ "$2" = "-P" ] && [ -z "$3" ] && [ "$4" = "-f" ] || exit 64
     [ -s "$5" ] || exit 1
-    IFS= read -r key_data < "$5" || exit 1
+    IFS= read -r key_data < "$5" || [ -n "$key_data" ] || exit 1
     case "$key_data" in test-key|generated-key) exit 0 ;; *) exit 1 ;; esac
     ;;
   *) exit 64 ;;
@@ -1264,17 +1264,17 @@ exit "${MOCK_KILLALL_STATUS:-0}"
         dsa_key = storage / "ssh_host_dsa_key"
         ed25519_key = storage / "ssh_host_ed25519_key"
         base_calls = sshd_log.read_text().splitlines() if sshd_log.exists() else []
-        rsa_key.write_text("truncated-private-key\\n")
+        rsa_key.write_text("truncated-private-key")
         invalid_key = run(["/bin/sh", str(SSHD_SCRIPT), "start"], env)
         assert invalid_key.returncode != 0, "sshd accepted a malformed existing host key"
-        assert rsa_key.read_text() == "truncated-private-key\\n", "malformed host key was overwritten"
+        assert rsa_key.read_text() == "truncated-private-key", "malformed host key was overwritten"
         assert (sshd_log.read_text().splitlines() if sshd_log.exists() else []) == base_calls
 
-        rsa_key.write_text("test-key\\n")
-        dsa_key.write_text("test-key\\n")
+        rsa_key.write_text("test-key")
+        dsa_key.write_text("test-key")
         dsa_key.chmod(0o644)
         external_key = base / "external-host-key"
-        external_key.write_text("test-key\\n")
+        external_key.write_text("test-key")
         dsa_key.unlink()
         dsa_key.symlink_to(external_key)
         linked_key = run(["/bin/sh", str(SSHD_SCRIPT), "start"], env)
@@ -1301,7 +1301,7 @@ exit "${MOCK_KILLALL_STATUS:-0}"
         generated_env["MOCK_SSHD_STATUS"] = "0"
         generated = run(["/bin/sh", str(SSHD_SCRIPT), "start"], generated_env)
         assert generated.returncode == 0, generated.stderr
-        assert dsa_key.read_text() == "generated-key\\n"
+        assert dsa_key.read_text().strip() == "generated-key"
         assert dsa_key.stat().st_mode & 0o777 == 0o600
 
         # The config path is privileged input: reject symlinks (including dangling
