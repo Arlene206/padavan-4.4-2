@@ -1,3 +1,11 @@
+## 2026-11-28 — Fail closed when persistent storage defaults cannot be prepared
+
+- `dev_init.sh` previously ran `mtd_storage.sh fill` without checking its exit status, then continued into SSH key setup and could execute `/etc/storage/start_script.sh`. But `mtd_storage.sh fill` explicitly rejects symlinked storage parents/leaves and aborts when default-script/config publication fails. Ignoring that failure bypassed the path-safety gate and let startup continue with incomplete or unsafe persistent state.
+- Added `required_storage_fill()` to preserve and log the command status, and make a failed fill exit `dev_init.sh` before any user startup script is executed. `mtd_storage.sh load` deliberately remains best effort because a blank MTD partition is normal on first boot; the fill phase then provisions default settings.
+- Extended the shell regression with a mocked MTD command for success, nonzero failure propagation and status preservation. Extended `scripts/check_dev_init_boot.py` to assert the fill gate precedes the custom startup-script branch.
+- Parent main: `fdb237afbe29afd23259afe040717f4397626368`. Exact-SHA DNS Forwarder #46057421812 PASS (GNU89/ASan/UBSan lifecycle tests); AI handoff #46057421841 PASS; Process fail-closed #46057270242 PASS and DDNSTO #46057270371 PASS on ancestor `e0e9ab2`. XY-C1 run #46056928103 on SHA `0423272` was still compiling at its last poll; TRX/artifact steps were pending. This source change needs fresh Process and firmware validation.
+- Local host execution unavailable in this connector-only session. No hardware L4 result is claimed.
+
 ## 2026-11-27 — Reject hardlinked AdGuardHome credential configuration
 
 - `getconfig()` rejects symlink and non-regular destinations, but an existing regular config with link count greater than one was still accepted. Its privileged `chmod 600` changes the permissions of every hardlink alias, not only the configured path; this can unexpectedly tighten an unrelated linked file.

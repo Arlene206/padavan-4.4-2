@@ -2,7 +2,7 @@
 set -eu
 
 repo_root=$(CDPATH= cd -- "$(dirname "$0")/../../../.." && pwd)
-policy=$(sed -n '/^required_mount()/,/^}/p; /^required_dir()/,/^}/p; /^required_lock_file()/,/^}/p' \
+policy=$(sed -n '/^required_mount()/,/^}/p; /^required_dir()/,/^}/p; /^required_lock_file()/,/^}/p; /^required_storage_fill()/,/^}/p' \
 	"$repo_root/trunk/user/scripts/files/sbin/dev_init.sh")
 [ -n "$policy" ] || {
 	echo "could not extract dev_init required setup helpers" >&2
@@ -89,4 +89,29 @@ if required_lock_file "$tmpdir/lock-symlink"; then
 fi
 grep -Fqx sentinel "$tmpdir/target"
 
-echo "dev_init required mount/directory and private lock provisioning policy: PASS"
+# Persistent storage fill is a required security gate before user scripts run.
+cat > "$tmpdir/mtd_storage.sh" <<'EOF_MTD_STORAGE'
+#!/bin/sh
+[ "$1" = "fill" ] || exit 91
+exit "$MOCK_MTD_STORAGE_STATUS"
+EOF_MTD_STORAGE
+chmod 700 "$tmpdir/mtd_storage.sh"
+saved_path=$PATH
+PATH="$tmpdir:$PATH"
+export PATH
+MOCK_MTD_STORAGE_STATUS=0
+export MOCK_MTD_STORAGE_STATUS
+required_storage_fill
+MOCK_MTD_STORAGE_STATUS=27
+export MOCK_MTD_STORAGE_STATUS
+if required_storage_fill; then
+	echo "required_storage_fill accepted an incomplete storage setup" >&2
+	exit 12
+else
+	storage_fill_status=$?
+fi
+[ "$storage_fill_status" -eq 27 ] || exit 13
+PATH=$saved_path
+export PATH
+
+echo "dev_init required mount/directory, storage-fill gate and private lock provisioning policy: PASS"

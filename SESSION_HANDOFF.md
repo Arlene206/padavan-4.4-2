@@ -1,28 +1,15 @@
-## 2026-11-27 — AdGuardHome hardlink isolation for credential config
+## 2026-11-28 — Require successful persistent-storage fill before custom startup scripts
 
-- Current parent `main`: `c4c716e160d5093f75d3b893c98fd401216bea4e`; frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged).
-- DNS Forwarder signal-source ownership/finalizer changes are verified on exact SHA `c4c716e160d5093f75d3b893c98fd401216bea4e`: launch-path run #46057421812 completed SUCCESS, including source contract, GNU89 regressions, ASan/UBSan constructor rollback and event-loop lifecycle test; AI handoff contract #46057421841 SUCCESS.
-- Process lifecycle fail-closed run #46057270242 (parent `e0e9ab2793fdfa67b0bce0dfec57ae17356ddc08`) completed SUCCESS. NVRAM transaction audit #46056928107 completed SUCCESS on `042327254f3e1a57aa43b11c0de5ee4428ae6a2a`. XY-C1 Firmware Validation #46056928103 remained IN_PROGRESS on that older SHA at last check; no current-main firmware/TRX/artifact result is claimed.
-- New storage/config hardening: AdGuardHome `getconfig()` could `chmod 600` an existing hardlinked regular file, changing every alias inode permission. The current slice checks link count equals one before chmod and tests a hardlinked external target remains unchanged.
-
-## Exact first action
-
-1. Check exact-SHA AdGuardHome config security workflow for this hardlink guard. Verify the shell regression and Python source contract both pass; repair any failure from its job log.
-2. Check XY-C1 Build/TRX/artifact and the current source SHA's NVRAM / Process lifecycle checks. Continue a separate P1 issue when the AdGuard test passes; physical router L4 remains NOT VERIFIED without hardware evidence.
-
----
-
-## 2026-11-28 — Fix DNS Forwarder finalizer source-signature escaping
-
-- Parent `main`: `e0e9ab2793fdfa67b0bce0dfec57ae17356ddc08`; frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged).
-- DNS Forwarder source finalization changes remain in the parent. The first checker correction still failed exact run #46057101529: an over-escaped Python newline literal made `function_body()` raise `ValueError: substring not found` before any C regression. This commit encodes one Python `\n` escape per source line break so the runtime signature uniquely matches the actual definition rather than its prototype.
-- Current-main exact-SHA evidence on `e0e9ab2793fdfa67b0bce0dfec57ae17356ddc08`: DDNSTO lifecycle #46057270371 PASS; Process lifecycle inventory #46057270518 PASS; AI handoff #46057270377 PASS; Process lifecycle fail-closed regression #46057270242 IN_PROGRESS. DNS Forwarder correction on older SHA #46057101529 remains FAILED at the checker and is retriggered by this correction.
-- No local host execution or L4 hardware validation is claimed.
+- Parent `main`: `fdb237afbe29afd23259afe040717f4397626368`; frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged).
+- `dev_init.sh` now checks `mtd_storage.sh fill` and exits before `/etc/storage/start_script.sh` if persistent settings/default files cannot be prepared or MTD path/symlink validation fails. Previously the status was ignored, so execution could continue with unsafe or incomplete persistent state. `mtd_storage.sh load` remains best effort for blank first-boot partitions.
+- Regression: shell test mocks successful and failing fill outcomes and verifies original status preservation; Python source contract verifies the required gate occurs before the custom startup-script path. Exact-SHA Actions are pending.
+- Parent exact-SHA evidence: DNS Forwarder #46057421812 PASS; AI handoff #46057421841 PASS; Process fail-closed #46057270242 and DDNSTO #46057270371 PASS on ancestor `e0e9ab2`. XY-C1 #46056928103 on production SHA `0423272` was in progress at last poll with TRX/artifact pending; current source needs new validation.
+- Concurrent AdGuardHome hardlink fix `fdb237afbe29afd23259afe040717f4397626368` is now included in the parent; its exact-SHA security workflow and other current-main workflows are pending. No local execution or physical router L4 is claimed.
 
 ## Exact first action
 
-1. Verify the new exact-SHA DNS Forwarder workflow passes source contracts and executes the GNU89/ASan/UBSan tests, especially normal signal-source teardown restoring the previously unblocked signal and preserving a pre-blocked signal.
-2. Check Process lifecycle fail-closed regression #46057270242 on `e0e9ab2793fdfa67b0bce0dfec57ae17356ddc08`; the updated SCUT/MentoHUST late-child counters and DDNSTO's post-launch UNKNOWN fixture need exact-push confirmation. Continue with another independent stability/security issue after blockers are green.
+1. Inspect this commit's exact-SHA Process lifecycle regression, including `dev_init_boot_policy.sh` mocked fill behavior and the Python source contract. Fix any failure.
+2. Inspect this commit's XY-C1 firmware validation through TRX and artifact upload; check AdGuardHome config security workflow on exact SHA `fdb237a`. Then continue a separate stability/security issue outside PID 1 and persistent storage.
 
 ---
 

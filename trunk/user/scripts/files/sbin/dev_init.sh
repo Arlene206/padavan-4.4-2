@@ -42,6 +42,17 @@ required_lock_file()
 	return 0
 }
 
+required_storage_fill()
+{
+	mtd_storage.sh fill
+	storage_fill_status=$?
+	if [ "$storage_fill_status" -ne 0 ]; then
+		echo "dev_init: required persistent storage setup failed (status=$storage_fill_status)" >&2
+		return "$storage_fill_status"
+	fi
+	return 0
+}
+
 required_mount -t proc proc /proc || exit 1
 required_mount -t sysfs sysfs /sys || exit 1
 [ -d /proc/bus/usb ] && mount -t usbfs usbfs /proc/bus/usb
@@ -152,8 +163,9 @@ ln -sf /etc_ro/ipkg.conf /etc/ipkg.conf
 echo 65536        > /proc/sys/fs/file-max
 echo "1024 65535" > /proc/sys/net/ipv4/ip_local_port_range
 
-# fill storage
-mtd_storage.sh fill
+# Validate and populate required persistent settings before executing any user startup script.
+# A failed fill means storage paths/defaults are unsafe or incomplete; keep PID 1 in recovery.
+required_storage_fill || exit 1
 
 # prepare ssh authorized_keys
 if [ -f /etc/storage/authorized_keys ] ; then

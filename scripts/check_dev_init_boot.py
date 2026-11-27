@@ -86,6 +86,17 @@ for path in ("/tmp/rc_notification", "/tmp/rc_action_incomplete",
                line.startswith("required_dir 700 ")
                for line in normalized), "missing private directory guard: " + path
 assert "required_dir 1777 /tmp || exit 1" in normalized
+storage_fill_policy = shell_function("required_storage_fill")
+assert "mtd_storage.sh fill" in storage_fill_policy
+assert "storage_fill_status=$?" in storage_fill_policy
+assert 'return "$storage_fill_status"' in storage_fill_policy
+assert "required_storage_fill || exit 1" in normalized
+storage_fill_call = normalized.index("required_storage_fill || exit 1")
+start_script_call = normalized.index("if [ -x /etc/storage/start_script.sh ] ; then")
+assert storage_fill_call < start_script_call, (
+    "unsafe or incomplete persistent storage must block custom startup-script execution")
+assert "mtd_storage.sh load" in normalized, (
+    "best-effort MTD load must remain available for blank first-boot partitions")
 lock_policy = shell_function("required_lock_file")
 assert "( set -C; : > \"$lock_path\" )" in lock_policy
 assert "umask 077" in lock_policy and "[ -L \"$lock_path\" ]" in lock_policy
