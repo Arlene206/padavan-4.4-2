@@ -256,7 +256,7 @@ assert "hev_slist_remove (self->fds, efd)" in source_add_fd
 assert "_hev_event_loop_add_fd (self->loop, efd)" in source_add_fd
 assert "!hev_event_source_add_fd (source, self->timer_fd" in timeout_source
 assert "return (0 == timerfd_settime" in timeout_source
-assert "!hev_event_source_add_fd (source, self->signal_fd" in signal_source
+assert "DNS_EVENT_SOURCE_SIGNAL_ADD_FD (" in signal_source
 assert "hev_event_loop_add_source (first, source)" in event_loop_test
 assert "hev_event_loop_add_source (second, source)" in event_loop_test
 loop_run = function_body(event_loop, "hev_event_loop_run (HevEventLoop *self)")

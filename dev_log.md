@@ -1,3 +1,8 @@
+## 2026-11-27 — Align signal-source checker with failure-injection seam
+
+- Exact-push DNS Forwarder run #46053530493 on `9e4616c4dc7093a8fc590c18c394cddf8dc80a3c` failed in the Python contract checker at the legacy assertion requiring a direct `hev_event_source_add_fd()` call. The implementation now routes that call through `DNS_EVENT_SOURCE_SIGNAL_ADD_FD` for regression injection; earlier launch-path and service/installer assertions passed, but every C regression step was skipped.
+- Updated the checker to assert the production seam used by the new constructor. No C test, sanitizer test, or firmware result is claimed from the failed run; re-run the exact-SHA workflow on this correction.
+ 
 ## 2026-11-27 — Roll back signal masks when signalfd setup fails
 
 - `hev_event_source_signal_new()` previously ignored signal-set/blocking errors and left the requested signal blocked if `signalfd()` or event-source attachment failed. The caller received no source capable of consuming that signal, so later delivery could remain pending indefinitely.

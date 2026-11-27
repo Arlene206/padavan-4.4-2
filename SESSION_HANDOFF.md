@@ -1,24 +1,13 @@
-## 2026-11-27 — DNS Forwarder signal-source construction rollback
+## 2026-11-27 — Signal-source checker follow-up
 
-- Repository: `Arlene206/padavan-4.4-2`; development remains on `main`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify it.
-- Startup/protocol recovery was completed once for this continuous project. Continue using full-tree atomic commits and non-forced expected-SHA updates; do not create or use development branches or PRs.
-- Latest verified exact-push DNS Forwarder workflow before this slice: run #45856003301 on `6ff4e52b7bed0277d1845911390140d78bd087c2`, completed/success. That commit corrected the checker for TCP DNS frame-length decoding across the two ring-buffer iovecs. It does not represent an XY-C1 firmware build.
-- New source slice: `hev_event_source_signal_new()` now checks signal-set/blocking operations and rolls back only the newly introduced signal block when signalfd creation, event-source allocation, or fd attachment fails. Existing pre-blocked signals remain blocked and the original setup errno is retained. Regression hooks cover signalfd and fd-attachment failures; the successful SIGTERM/signalfd path restores the test process's original mask after teardown.
-- Files in this slice: `hev-event-source-signal.c`, new `hev_event_source_signal_test_hooks.h`, `hev_event_loop_lifecycle.c`, DNS Forwarder workflow path/compile integration, its source-contract checker, this handoff, and `dev_log.md`.
-- Local compilation is unavailable in this connector-only session. Do not claim the host regression has run; exact-SHA push Actions must validate it.
-- No target build or hardware validation is claimed here. L3/L4 remain NOT VERIFIED unless separately evidenced.
+- Signal rollback source commit: `9e4616c4dc7093a8fc590c18c394cddf8dc80a3c`.
+- Exact-push DNS Forwarder run #46053530493 FAILED at `scripts/check_dns_forwarder_launch.py:259`: a pre-existing assertion still required the direct `hev_event_source_add_fd()` call, while the new test seam correctly routes through `DNS_EVENT_SOURCE_SIGNAL_ADD_FD`. Existing launch-path and service contract assertions passed; all C compile/test steps were skipped.
+- This atomic follow-up changes that stale source-contract assertion to verify `DNS_EVENT_SOURCE_SIGNAL_ADD_FD`. New exact-SHA Actions must verify the full test suite. Do not claim the signal-source regression passed until that run is green.
 
 ## Exact first action
 
-1. Fetch the live `main` SHA, inspect the exact-SHA push run for the signal-source rollback slice, and review its job steps/logs. Fix any compile, sanitizer, source-contract or workflow failure with a new atomic `main` commit.
-2. After DNS Forwarder passes, continue the next independent P1 stability/security defect in another userland component; do not re-audit the already-fixed TCP ring-prefix path or repeat startup recovery.
-
-## Handoff validation boundary
-
-- Last recorded backup SHA: `72f4f157a084f8184b9597ca5bf334b8080e5807` (immutable).
-- Last prior exact-main DNS run: #45856003301 on `6ff4e52b7bed0277d1845911390140d78bd087c2` PASS.
-- New slice Actions state: check by exact `head_sha` after the commit lands; pending/failed states must be preserved truthfully.
-- Physical-router L4 validation: NOT VERIFIED.
+1. Fetch Actions by the latest commit SHA. If the DNS Forwarder regression passes, continue to an independent P1 stability/security issue outside DNS Forwarder; if it fails, inspect its job log and repair the exact failure.
+2. Check the same-SHA Process inventory, NVRAM transaction, and XY-C1 firmware runs; distinguish completed results from queued/in-progress checks and do not report a firmware build as successful without the TRX/artifact evidence.
 
 ---
 
