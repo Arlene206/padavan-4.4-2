@@ -240,7 +240,7 @@ run_launcher()
 	ln -s /bin/sleep "$proc_root/1/exe"
 	printf '%s\n' '1 (init) S 1 1 1 0 -1 0 0 0 0 0 0 0 0 0 0 0 1 0 1001' > "$proc_root/1/stat"
 	case "$launcher" in
-		*/aria.sh) daemon_comm=aria2c; daemon_exe="$STUB_DIR/aria2c" ;;
+		*aria*.sh) daemon_comm=aria2c; daemon_exe="$STUB_DIR/aria2c" ;;
 		*) daemon_comm=transmission-daemon; daemon_exe="$STUB_DIR/transmission-daemon" ;;
 	esac
 	LAST_LAUNCH_STATE_DIR=$launch_state_dir
