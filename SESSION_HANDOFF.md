@@ -1,3 +1,12 @@
+## 2026-11-28 — Harden Transmission storage-root trust boundary
+
+- Found a root-level storage symlink gap: `func_start` only used `[ -d "$DIR_LINK" ]`; that succeeds when `/mnt/transmission` is a symlink to an attacker-controlled directory. Descendant-only `transmission_require_dir` checks therefore did not protect privileged chmod/chown operations from a symlinked storage-root or immediate parent.
+- Added `transmission_require_storage_root` before any descendant path derivation, requiring the root and its parent to be real directories. Regression tests cover real/missing roots, direct root symlinks, symlinked parents, and preservation of the symlink target.
+- SmartDNS exact-SHA `380918ce60cb7d955d57b90ca42868b1df964de5` Actions: AI handoff #46085481469 PASS; DNSMasq #46085481393, process regression #46085481385, process inventory #46085481419, USB storage #46085481386 and XY-C1 #46085481414 were still in progress at last poll. The previous DNSMasq attempts at 53c095 and a0cba failed at distinct integration test fixture issues, now addressed by source helper loading and conditional validation of the optional dual-stack threshold. Exact rerun still required.
+- Frozen backup stays at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Next: exact-SHA process/DNSMasq checks for the Transmission patch and SmartDNS fix chain; then continue a distinct stability/security issue.
+
+---
+
 ## 2026-11-28 — Keep optional SmartDNS dual-stack threshold backward-compatible
 
 - The new base-token validation initially treated `sdns_ip_change_time` as an unconditional numeric field, while the daemon only emits that threshold if dual-stack IP selection is enabled. Validate the value only when `sdns_ip_change=1`, preserving older NVRAM with an empty optional threshold when disabled. Regression now covers both cases.

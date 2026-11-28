@@ -1,3 +1,11 @@
+## 2026-11-28 — Reject symlinked Transmission storage roots
+
+- `func_start` previously checked only that `/mnt/transmission` was a directory before deriving and permission-changing its config/download descendants. A symlinked storage root (or symlinked immediate parent) still passed the directory test and allowed privileged chown/chmod to follow the link into attacker-controlled storage.
+- Added a dedicated root preflight that rejects a symlinked root or parent and preserves the previous missing-root failure behavior. Regression covers a symlinked root, a symlinked parent, a real root and a missing root without creating targets.
+- SmartDNS directive-injection Actions are still in progress at SHA `380918ce60cb7d955d57b90ca42868b1df964de5`; this Transmission slice is independent and is validated by the process lifecycle workflow.
+
+---
+
 ## 2026-11-28 — Preserve legacy empty SmartDNS threshold while disabled
 
 - Reviewing the SmartDNS DNSMasq integration fixture exposed that `sdns_ip_change_time` is a conditional directive value, not an always-emitted numeric option. Validate it only when `sdns_ip_change=1`; otherwise older NVRAM without this optional value remains compatible. Added regressions for disabled empty and enabled empty threshold states.

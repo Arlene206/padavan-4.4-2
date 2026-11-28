@@ -29,6 +29,23 @@ transmission_start_fail()
 	echo "[FAILED]"
 	return 1
 }
+transmission_require_storage_root()
+{
+    # DIR_LINK itself and its immediate parent are on removable storage.
+    # Reject a symlink at either level before any descendant chmod/chown.
+    transmission_storage_root="$DIR_LINK"
+    transmission_storage_parent=${transmission_storage_root%/*}
+    [ -n "$transmission_storage_parent" ] || transmission_storage_parent=/
+    if [ -L "$transmission_storage_parent" ] ||
+       [ ! -d "$transmission_storage_parent" ] ||
+       [ -L "$transmission_storage_root" ] ||
+       [ ! -d "$transmission_storage_root" ]; then
+        transmission_start_fail "storage root or its parent is missing or symlinked: $transmission_storage_root"
+        return 1
+    fi
+    return 0
+}
+
 transmission_require_dir()
 {
 	# Storage volumes can contain attacker-controlled directory entries. Never
@@ -276,10 +293,7 @@ func_start()
 	
 	echo -n "Starting $SVC_NAME:."
 	
-	if [ ! -d "${DIR_LINK}" ] ; then
-		echo "[FAILED], unable to find target dir!"
-		return 1
-	fi
+	transmission_require_storage_root || return 1
 
 	
 	DIR_CFG="${DIR_LINK}/config"
