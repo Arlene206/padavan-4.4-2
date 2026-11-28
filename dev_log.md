@@ -1,3 +1,10 @@
+## 2026-11-28 — Keep MiniUPnP post-failure fixture expectations consistent
+
+- Follow-up review of the new persistent-fsync-interruption fixture found that it correctly replaced the active file with a last-good sentinel before testing failure, but the remainder of the test still expected the earlier successful content. Added an explicit successful publish after resetting the injected fault, proving recovery from a failed candidate and restoring the original fixture before later validation.
+- Test-only correction; production code unchanged.
+
+---
+
 ## 2026-11-28 — Bound MiniUPnP and IGMP proxy config fsync retries
 
 - The exact-SHA process-lifecycle regression on `9465ae8e81edd5ebcda3ee79cbdb412eb7f12b0c` passed MiniUPnP and IGMP proxy compilation/runtime publication tests, then failed the final durability contract because the shared checker still expected the obsolete `errno == EINTR` literal. Source inspection found a real remaining defect behind that stale assertion: both publishers still used independent unbounded file-fsync loops.

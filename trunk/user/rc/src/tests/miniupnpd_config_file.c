@@ -205,6 +205,9 @@ main(void)
 	assert_only_target_remains(directory, "miniupnpd.conf");
 
 	context.text = "complete-new-config\n";
+	status = miniupnpd_config_publish(path, write_config, &context);
+	assert(status == 0);
+	assert_file_equals(path, "complete-new-config\n");
 	assert(config_file_sync_parent(path) == 0);
 	assert(snprintf(missing_parent, sizeof(missing_parent),
 			"%s/missing/miniupnpd.conf", directory) > 0);
