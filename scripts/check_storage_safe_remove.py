@@ -1621,8 +1621,9 @@ require("func_rstats_presence" in stop_helper and
         "killall -q rstats" not in stop_helper,
         "storage app stop must revalidate and signal only the exact rstats PID")
 require('ln -sf "$RSTAT_OTHER_EXE" "$RSTAT_PROC_ROOT/322/exe"' in mtd_storage_restore_test and
-        "grep -Fqx -- '-TERM 321' "$RSTAT_KILL_LOG"" in mtd_storage_restore_test and
-        "! grep -Fqx -- '-TERM 322' "$RSTAT_KILL_LOG"" in mtd_storage_restore_test and
+        "grep -Fqx -- '-TERM 321' " in mtd_storage_restore_test and
+        '"$RSTAT_KILL_LOG"' in mtd_storage_restore_test and
+        "! grep -Fqx -- '-TERM 322' " in mtd_storage_restore_test and
         'test -f "$RSTAT_PROC_ROOT/322/stat"' in mtd_storage_restore_test and
         'cat > "$sandbox/bin/busybox"' in mtd_storage_restore_test,
         "MTD restore regression must prove same-comm executable impostors are not signalled")

@@ -2,17 +2,17 @@
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; latest completed parent before this checker repair: `2d0388614f8a1f3f3a11ce2bf57f7f63a19d879c`.
-- Frozen backup remains `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify it. PR #1 remains closed/unmerged.
-- On exact SHA `2d038...`, AI handoff #46122904358 PASS, Process inventory #46122904384 PASS, GPIO #46122904392 PASS and HTTPD security #46122904374 PASS. Storage #46122904484 FAIL only at final static-contract step 42; MTD restore staging/rollback step 21, load step 22, erase/reset step 23 and the other storage regression steps passed. The failure was a stale checker that still required comm-only `found=0` and `killall` code; this follow-up updates it to the new executable-bound design.
-- XY-C1 #46122904412 remains in progress at MIPS Build step 38; TRX step 39 and artifact upload step 40 are pending at last poll. This parent has no L3 result yet. Earlier product SHA `ef122034b4524ec1ce6768dd169ebee62a7da2ee` passed Build/TRX/artifact (#46120731426, artifact SHA-256 `c9e4fff453dd08361893447a1aa985e5699ad4ee0c13919b0a1e0f168373c9f5`); L3 applies to `ef122` only, not to later source changes. Hardware L4 remains NOT VERIFIED.
-- No local firmware checkout/build environment is available. Host regressions and firmware outcomes are GitHub Actions results, not local claims. Bootstrap was restored once; do not repeat audits. The roadmap is near its hard size limit.
+- Repository: `Arlene206/padavan-4.4-2`; current parent `main` SHA: `e87be480e8f1e714a53de04f7313a444c54205bf`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; it is immutable. PR #1 remains closed/unmerged.
+- On exact `e87be480...`, AI handoff #46123234008 PASS. Storage hotplug #46123234076 FAILS only at final static gate step 42: `check_storage_safe_remove.py` has invalid Python quoting in the new rstats test assertions (unescaped quotes around `$RSTAT_KILL_LOG`). This follow-up corrects the syntax. MTD restore staging/rollback step 21 PASS and erase/reset failure-postcondition step 23 PASS on `e87`.
+- XY-C1 workflow #46123234065 on `e87` completed successfully but Build/TRX/artifact steps were SKIPPED because this commit only changed the static checker and documentation. The actual product-source SHA `2d0388614f8a1f3f3a11ce2bf57f7f63a19d879c` passed XY-C1 #46122904412: MIPS Build, TRX verification and artifact upload all PASS. Since `e87` changes no firmware source relative to `2d038`, L3 applies to the unchanged firmware source tree through `e87`; physical hardware L4 remains NOT VERIFIED.
+- On `2d038`, AI docs #46122904358, Process inventory #46122904384, GPIO #46122904392 and HTTPD security #46122904374 PASS. No local firmware build is claimed. Bootstrap was restored once; do not repeat audits. Avoid modifying the near-limit `REFACTOR_ROADMAP.md`.
 
 ## Active task
 
-1. **MTD rstats executable identity stop:** `mtd_storage.sh` now distinguishes exact `/sbin/rstats` executable identity from a same-comm impostor, snapshots PID/start_time, revalidates before BusyBox PID-scoped TERM, and fails closed on incomplete procfs. Host restore/rollback step 21 passed on parent `2d038`; the overall Storage workflow failed at final step 42 because `check_storage_safe_remove.py` still checked the removed old comm-only/killall implementation. This commit updates the checker and pins the impostor regression.
-2. **Other exact-parent validation:** AI docs #46122904358, Process inventory #46122904384, GPIO #46122904392 and HTTPD security #46122904374 PASS on `2d038`.
-3. **Outstanding firmware gate:** XY-C1 #46122904412 was at Build step 38, TRX step 39 and artifact upload step 40 pending. No L3 claim for `2d038`.
+1. **MTD rstats exact-executable stop:** production source in `2d038` requires `/sbin/rstats` executable + proc start_time identity and PID-scoped BusyBox TERM, rather than `comm=rstats` + `killall`. Restore/rollback step 21 and erase/reset step 23 PASS on `e87`; static gate step 42 failed because the new checker assertion was syntactically invalid Python. This commit fixes the checker quoting and requires a clean full Storage rerun.
+2. **Firmware validation boundary:** XY-C1 #46122904412 PASS on firmware source SHA `2d038...` (Build, TRX, artifact upload). Current `e87` is checker/docs-only and has identical firmware source. L3 PASS for that source tree; L4 hardware NOT VERIFIED.
+3. **Other exact-parent checks:** AI docs, process inventory, GPIO and HTTPD security PASS on `2d038`. Frozen backup remains untouched.
 
 ## Watchdog scheduled-action NVRAM snapshot baseline
 
@@ -25,16 +25,17 @@
 
 | Source SHA | Workflow / run | Result |
 |---|---|---|
+| `e87be480e8f1e714a53de04f7313a444c54205bf` | AI docs #46123234008 | PASS |
+| `e87be480e8f1e714a53de04f7313a444c54205bf` | Storage #46123234076 | FAIL — final step 42 Python SyntaxError in newly added rstats checker literals; MTD restore step 21 and erase/reset step 23 PASS; fixed in this commit |
+| `e87be480e8f1e714a53de04f7313a444c54205bf` | XY-C1 #46123234065 | Workflow success; Build/TRX/artifact SKIPPED (checker/docs-only change) |
+| `2d0388614f8a1f3f3a11ce2bf57f7f63a19d879c` | XY-C1 #46122904412 | L3 PASS — MIPS Build, TRX verification, artifact upload; same firmware sources as `e87` |
 | `2d0388614f8a1f3f3a11ce2bf57f7f63a19d879c` | AI docs #46122904358; Process inventory #46122904384; GPIO #46122904392; HTTPD security #46122904374 | PASS |
-| `2d0388614f8a1f3f3a11ce2bf57f7f63a19d879c` | Storage #46122904484 | FAIL — step 42 stale MTD rstats source contract; steps 21–41 passed, checker repair included in this commit |
-| `2d0388614f8a1f3f3a11ce2bf57f7f63a19d879c` | XY-C1 #46122904412 | IN PROGRESS at MIPS Build step 38; TRX/artifact pending |
-| `ef122034b4524ec1ce6768dd169ebee62a7da2ee` | XY-C1 #46120731426 | L3 PASS — Build, TRX, artifact upload; applies to that SHA only |
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head Storage hotplug and AI docs Actions triggered by this checker correction. The MTD source contract, restore same-comm executable decoy and host/BusyBox-ash variants must pass. If step 42 finds another stale assertion, repair that assertion without weakening unrelated eject/persistence gates.
-2. Re-poll XY-C1 #46122904412 for parent `2d038...`; it was still building at step 38. This run validates `2d038`, but the current parent changes only checker/docs. If Build, TRX and artifact all pass, L3 applies to `2d038`; otherwise do not claim it.
-3. Keep the backup branch immutable, preserve exact-SHA result boundaries and continue one independent userland stability/security issue after the storage contract is green.
+1. Inspect the exact-head Storage hotplug run triggered by this checker syntax fix. Require `check_storage_safe_remove.py` to parse and all MTD restore/rollback, erase/reset, eject and firmware-persistence assertions to pass. Diagnose any new failing assertion without weakening the gates.
+2. Preserve the firmware L3 boundary: XY-C1 #46122904412 passed Build/TRX/artifact on product SHA `2d0388614f8a1f3f3a11ce2bf57f7f63a19d879c`; `e87` and this checker-only follow-up do not change firmware sources. L4 physical hardware remains NOT VERIFIED.
+3. Keep backup branch untouched; after Storage is green, continue a distinct userland stability/security task.
 
 ## Verification boundary
 

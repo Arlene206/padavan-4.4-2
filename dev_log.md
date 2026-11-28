@@ -1,3 +1,11 @@
+## 2026-11-28 — Fix Python quoting in MTD rstats identity checker
+
+- Exact `e87be480e8f1e714a53de04f7313a444c54205bf` Storage hotplug run #46123234076 reached the final static gate and failed because two new Python string literals embedded unescaped `"$RSTAT_KILL_LOG"` quotes. This was a checker syntax error, not an MTD runtime failure.
+- MTD restore staging/rollback step 21 and erase/reset postcondition step 23 passed on `e87`; AI handoff #46123234008 passed. The current atomic patch rewrites the checker assertions as valid Python substrings while still requiring both exact PID 321 TERM and absence of PID 322 TERM.
+- XY-C1 #46122904412 passed MIPS Build, TRX verification and artifact upload on product source `2d0388614f8a1f3f3a11ce2bf57f7f63a19d879c`; checker/docs-only `e87` preserves the same firmware source. This is L3, not physical-router L4.
+
+---
+
 ## 2026-11-28 — Align MTD rstats source contract with executable-bound stop
 
 - Storage hotplug #46122904484 on `2d0388614f8a1f3f3a11ce2bf57f7f63a19d879c` passed MTD restore staging/rollback (step 21), load, erase/reset and the related storage regressions; final step 42 failed because `check_storage_safe_remove.py` still asserted the removed comm-only `found=0`/`killall -q rstats` implementation.
