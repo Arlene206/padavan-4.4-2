@@ -1,3 +1,13 @@
+## 2026-11-28 — Compact current handoff and checkpoint watchdog/storage CI
+
+- Exact parent main SHA: 3d6d2d712a3c5368f327810dd5adb73c8af70932; frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- Process lifecycle #46094087141 PASS on 44f801f34ef7e8d908b9a5d7f5bac5e56d0ac4d2, including the new GNU89/Werror/ASan/UBSan watchdog executable identity regression. Watchdog signal #46094212414 PASS on 3d6d2d712a3c5368f327810dd5adb73c8af70932.
+- AI docs #46094212400 failed only because SESSION_HANDOFF.md exceeded 64 KiB; THIS docs-only commit replaces redundant current-session copies with a concise active handoff. Exact-head rerun required.
+- XY-C1 #46093910770 on production source SHA 559289198b598cc2531ce7f37d14e1737a1e51ee was still building: host regressions PASS, Build in progress, TRX/artifact pending. No L3 or L4 claim.
+- Storage hotplug, AI docs and XY-C1 workflow runs on 363fd7fba6f90352d70bb581ea6d0690a573441c completed PASS, but Build/TRX/artifact were SKIPPED, not L3 evidence.
+
+---
+
 ## 2026-11-28 — Add watchdog identity regression source to both path filters
 
 - Exact watchdog-signal run #46094036822 on 42b1578798b30147ba099200a7563529ab4e94ab failed its inline path contract because the new regression C file was in the expected list but absent from YAML push/pull_request path filters.
