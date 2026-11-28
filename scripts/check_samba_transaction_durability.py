@@ -142,3 +142,31 @@ assert "stagedpassdbcouldnotbedurablysynchronized" in run_samba
 
 
 print("Samba committed-versus-rolled-back recovery reporting: PASS")
+
+
+# V2 journal covers all four mutually dependent account/configuration files.
+v2_write = compact(body("samba_config_transaction_write_state_with_accounts("))
+v2_read = compact(body("samba_config_transaction_read_state_with_accounts("))
+v2_recover = compact(body("samba_config_transaction_recover_with_accounts("))
+v2_begin = compact(body("samba_config_transaction_begin_with_accounts("))
+v2_commit = compact(body("samba_config_transaction_commit_with_accounts("))
+assert '"PADAVAN_SAMBA_CONFIG_TXN_V2' in v2_write
+assert '"PASSWD=%d' in v2_write and '"GROUP=%d' in v2_write
+assert '"PADAVAN_SAMBA_CONFIG_TXN_V1' in v2_read
+assert '"PADAVAN_SAMBA_CONFIG_TXN_V2' in v2_read
+assert '*tracks_accounts = 0' in v2_read and '*tracks_accounts = 1' in v2_read
+assert v2_begin.index('samba_config_transaction_snapshot(passdb_path') < v2_begin.index('samba_config_transaction_snapshot(config_path')
+assert v2_begin.index('samba_config_transaction_snapshot(config_path') < v2_begin.index('samba_config_transaction_snapshot(passwd_path')
+assert v2_begin.index('samba_config_transaction_snapshot(passwd_path') < v2_begin.index('samba_config_transaction_snapshot(group_path')
+assert v2_begin.index('samba_config_transaction_snapshot(group_path') < v2_begin.index('"PREPARED"')
+assert v2_recover.index('config_path, config_snapshot') < v2_recover.index('passdb_path, passdb_snapshot')
+assert v2_recover.index('passdb_path, passdb_snapshot') < v2_recover.index('group_path, group_snapshot')
+assert v2_recover.index('group_path, group_snapshot') < v2_recover.index('passwd_path, passwd_snapshot')
+assert 'samba_config_transaction_recover(directory, passdb_path, config_path)' in v2_recover
+assert 'samba_config_transaction_sync_regular_file(config_path)' in v2_commit
+assert 'samba_config_transaction_sync_regular_file(passwd_path)' in v2_commit
+assert 'samba_config_transaction_sync_regular_file(group_path)' in v2_commit
+assert v2_commit.index('samba_config_transaction_sync_regular_file(group_path)') < v2_commit.index('"COMMITTED"')
+assert 'samba_config_transaction_sync_parent(passwd_path)' in v2_commit
+assert 'samba_config_transaction_sync_parent(group_path)' in v2_commit
+assert 'samba_config_transaction_cleanup(directory)' in v2_commit

@@ -395,17 +395,24 @@ jobs:
           assert "nvram_safe_get(tmp2)" not in run_samba
           assert 'nvram_safe_get_int("acc_num"' not in run_samba
           assert "cannot read a valid account count" in run_samba
-          assert run_samba.index("samba_run_smbpasswd(") < run_samba.index("samba_config_transaction_begin(")
-          assert run_samba.index("if (credential_failed)") < run_samba.index("samba_config_transaction_begin(")
-          assert run_samba.index("samba_config_transaction_begin(") < run_samba.index('rename(staged_passdb, SAMBA_CONFIG_TRANSACTION_PASSDB)')
-          assert run_samba.index('rename(staged_passdb, SAMBA_CONFIG_TRANSACTION_PASSDB)') < run_samba.index("write_smb_conf_unlocked(router_username, account_list_snapshot, sh_num) != 0")
-          assert run_samba.count("write_smb_conf_unlocked(router_username, account_list_snapshot, sh_num) != 0") == 2
-          assert run_samba.index("write_smb_conf_unlocked(router_username, account_list_snapshot, sh_num) != 0") < run_samba.index("samba_config_transaction_commit(")
-          assert run_samba.index("samba_config_transaction_commit(") < run_samba.index('samba_ensure_daemon("nmbd"')
-          assert "samba_config_transaction_abort(" in run_samba
+          account_txn_begin = run_samba.index("samba_config_transaction_begin_with_accounts(")
+          passwd_publish = run_samba.index("recreate_passwd_unix_snapshot(")
+          smbpasswd_call = run_samba.index("samba_run_smbpasswd(")
+          assert account_txn_begin < passwd_publish < smbpasswd_call
+          assert account_txn_begin < run_samba.index("if (credential_failed)")
+          staged_rename = run_samba.index('rename(staged_passdb, SAMBA_CONFIG_TRANSACTION_PASSDB)')
+          smb_conf_publish = run_samba.index("write_smb_conf_unlocked(router_username, account_list_snapshot, sh_num) != 0")
+          account_txn_commit = run_samba.index("samba_config_transaction_commit_with_accounts(")
+          assert account_txn_begin < staged_rename < smb_conf_publish < account_txn_commit
+          assert run_samba.count("write_smb_conf_unlocked(router_username, account_list_snapshot, sh_num) != 0") == 1
+          assert account_txn_commit < run_samba.index('samba_ensure_daemon("nmbd"')
+          assert "samba_config_transaction_recover_with_accounts(" in run_samba
+          assert "samba_config_transaction_read_state_with_accounts(" in run_samba
+          assert "samba_config_transaction_abort_with_accounts(" in run_samba
+          assert '"/etc/passwd", "/etc/group"' in run_samba
           transaction = Path("trunk/user/rc/src/samba_config_transaction.h").read_text()
           transaction_test = Path("trunk/user/rc/src/tests/samba_config_transaction.c").read_text()
-          assert transaction.count("config_file_sync_fd(fd)") == 4
+          assert transaction.count("config_file_sync_fd(fd)") >= 6
           assert "fsync(fd)" not in transaction
           assert "test_transaction_sync_retries_eintr" in transaction_test
           assert "CONFIG_FILE_SYNC_FSYNC(fd)" in test

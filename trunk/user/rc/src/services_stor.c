@@ -1819,9 +1819,12 @@ int run_samba(void)
 	char *account_list_snapshot[MAX_ACCOUNT_NUM];
 	enum process_presence smbd_presence, nmbd_presence;
 	struct process_snapshot smbd_snapshot, nmbd_snapshot;
+	int saved_errno, transaction_active = 0;
+	int state_result, passdb_had_original, config_had_original;
+	int passwd_had_original, group_had_original;
+	int tracks_accounts, is_committed;
 #if defined (APP_SMBD36)
 	struct process_snapshot wsdd2_snapshot;
-	int saved_errno, transaction_active = 0;
 	char staged_passdb[128];
 #endif
 	if (samba_read_runtime_enabled_status(&runtime_enabled) != 0) {
@@ -1996,15 +1999,28 @@ account_snapshot_done:
 		errno = directory_error;
 		goto out;
 	}
-	if (samba_config_transaction_recover(
+	if (samba_config_transaction_recover_with_accounts(
 		SAMBA_CONFIG_TRANSACTION_DIRECTORY,
 		SAMBA_CONFIG_TRANSACTION_PASSDB,
-		SAMBA_CONFIG_TRANSACTION_CONFIG) != 0) {
-		logmessage("Samba Server", "interrupted Samba passdb/config transaction could not be recovered (errno %d)",
+		SAMBA_CONFIG_TRANSACTION_CONFIG, "/etc/passwd", "/etc/group") != 0) {
+		logmessage("Samba Server", "interrupted Samba account/passdb/config transaction could not be recovered (errno %d)",
 			   errno ? errno : EIO);
 		goto out;
 	}
-
+	/*
+	 * The PREPARED journal now covers Unix passwd/group before their publisher
+	 * runs, and remains active through passdb and smb.conf publication.
+	 */
+	if (samba_config_transaction_begin_with_accounts(
+		SAMBA_CONFIG_TRANSACTION_DIRECTORY,
+		SAMBA_CONFIG_TRANSACTION_PASSDB,
+		SAMBA_CONFIG_TRANSACTION_CONFIG,
+		"/etc/passwd", "/etc/group") != 0) {
+		logmessage("Samba Server", "unable to prepare four-file account/passdb/config transaction (errno %d)",
+			   errno ? errno : EIO);
+		goto out;
+	}
+	transaction_active = 1;
 
 	passwd_status = recreate_passwd_unix_snapshot(
 		0, router_username, NULL,
@@ -2054,39 +2070,21 @@ account_snapshot_done:
 #if defined (APP_SMBD36)
 		unlink(staged_passdb);
 #endif
-		logmessage("Samba Server", "credential provisioning failed; existing passdb and configuration were preserved");
+		logmessage("Samba Server", "credential provisioning failed; four-file account/passdb/config transaction will roll back");
 		goto out;
 	}
 
 #if defined (APP_SMBD36)
-	/* smbpasswd has exited; persist its complete private output before rename. */
+	/* Flush the staged private database before making it visible. */
 	if (samba_config_transaction_sync_file(staged_passdb) != 0) {
 		saved_errno = errno ? errno : EIO;
 		unlink(staged_passdb);
 		logmessage("Samba Server",
-			   "staged passdb could not be durably synchronized; preserving existing files (errno %d)",
+			   "staged passdb could not be durably synchronized (errno %d)",
 			   saved_errno);
 		errno = saved_errno;
 		goto out;
 	}
-	/*
-	 * Keep rollback snapshots for both files until the new passdb and matching
-	 * smb.conf are published. PREPARED is recoverable after an abrupt exit;
-	 * COMMITTED makes the pair authoritative and leaves only cleanup work.
-	 */
-	if (samba_config_transaction_begin(
-		SAMBA_CONFIG_TRANSACTION_DIRECTORY,
-		SAMBA_CONFIG_TRANSACTION_PASSDB,
-		SAMBA_CONFIG_TRANSACTION_CONFIG) != 0) {
-		saved_errno = errno ? errno : EIO;
-		unlink(staged_passdb);
-		logmessage("Samba Server", "unable to prepare paired passdb/config transaction (errno %d)",
-			   saved_errno);
-		errno = saved_errno;
-		goto out;
-	}
-	transaction_active = 1;
-
 	if (rename(staged_passdb, SAMBA_CONFIG_TRANSACTION_PASSDB) != 0) {
 		saved_errno = errno ? errno : EIO;
 		unlink(staged_passdb);
@@ -2095,37 +2093,34 @@ account_snapshot_done:
 		errno = saved_errno;
 		goto out;
 	}
+#endif
 
 	if (write_smb_conf_unlocked(router_username, account_list_snapshot, sh_num) != 0) {
 		saved_errno = errno ? errno : EIO;
-		logmessage("Samba Server", "configuration publication failed; paired rollback requested (errno %d)",
+		logmessage("Samba Server", "configuration publication failed; four-file rollback requested (errno %d)",
 			   saved_errno);
 		errno = saved_errno;
 		goto out;
 	}
 
 	{
-		int commit_status = samba_config_transaction_commit(
+		int commit_status = samba_config_transaction_commit_with_accounts(
 			SAMBA_CONFIG_TRANSACTION_DIRECTORY,
 			SAMBA_CONFIG_TRANSACTION_PASSDB,
-			SAMBA_CONFIG_TRANSACTION_CONFIG);
+			SAMBA_CONFIG_TRANSACTION_CONFIG,
+			"/etc/passwd", "/etc/group");
 		if (commit_status < 0) {
 			saved_errno = errno ? errno : EIO;
-			logmessage("Samba Server", "unable to commit paired passdb/config publication (errno %d)",
+			logmessage("Samba Server", "unable to commit account/passdb/config publication (errno %d)",
 				   saved_errno);
 			errno = saved_errno;
 			goto out;
 		}
 		transaction_active = 0;
 		if (commit_status > 0)
-			logmessage("Samba Server", "passdb/config pair committed; transaction snapshot cleanup will be retried");
+			logmessage("Samba Server", "account/passdb/config files committed; transaction snapshot cleanup will be retried");
 	}
-#else
-	if (write_smb_conf_unlocked(router_username, account_list_snapshot, sh_num) != 0) {
-		logmessage("Samba Server", "configuration generation failed; service was not reloaded");
-		goto out;
-	}
-#endif
+
 
 	/*
 	 * Clear stale kernel state before daemon transitions. The process-aware
@@ -2164,33 +2159,33 @@ out:
 	process_snapshot_release(&nmbd_snapshot);
 #if defined (APP_SMBD36)
 	process_snapshot_release(&wsdd2_snapshot);
+#endif
 	if (transaction_active) {
-		int state_result, passdb_had_original, config_had_original;
-		int is_committed;
-
 		saved_errno = errno ? errno : EIO;
-		/* A COMMITTED marker can already be visible when its directory fsync
-		 * fails. Recovery then keeps the new pair; do not call that a rollback.
+		/* A visible COMMITTED marker is authoritative even if the directory
+		 * fsync reported failure; recovery must not roll back that generation.
 		 */
-		state_result = samba_config_transaction_read_state(
+		state_result = samba_config_transaction_read_state_with_accounts(
 			SAMBA_CONFIG_TRANSACTION_DIRECTORY,
-			&passdb_had_original, &config_had_original, &is_committed);
-		if (samba_config_transaction_abort(
+			&passdb_had_original, &config_had_original,
+			&passwd_had_original, &group_had_original,
+			&tracks_accounts, &is_committed);
+		if (samba_config_transaction_abort_with_accounts(
 			SAMBA_CONFIG_TRANSACTION_DIRECTORY,
 			SAMBA_CONFIG_TRANSACTION_PASSDB,
-			SAMBA_CONFIG_TRANSACTION_CONFIG) != 0)
-			logmessage("Samba Server", "CRITICAL: paired publication recovery failed; recovery journal and snapshots remain at %s (errno %d)",
+			SAMBA_CONFIG_TRANSACTION_CONFIG,
+			"/etc/passwd", "/etc/group") != 0)
+			logmessage("Samba Server", "CRITICAL: account/passdb/config recovery failed; journal and snapshots remain at %s (errno %d)",
 				   SAMBA_CONFIG_TRANSACTION_DIRECTORY, errno ? errno : EIO);
 		else if (state_result == 1 && is_committed)
-			logmessage("Samba Server", "paired passdb/config publication remains committed; recovery journal cleanup completed");
+			logmessage("Samba Server", "account/passdb/config publication remains committed; recovery journal cleanup completed");
 		else if (state_result == 1)
-			logmessage("Samba Server", "paired passdb/config publication rolled back");
+			logmessage("Samba Server", "account/passdb/config publication rolled back");
 		else
-			logmessage("Samba Server", "paired passdb/config recovery completed; prior transaction outcome is unavailable (state=%d)",
+			logmessage("Samba Server", "account/passdb/config recovery completed; prior transaction outcome is unavailable (state=%d)",
 				   state_result);
 		errno = saved_errno;
 	}
-#endif
 	if (samba_config_transaction_lock_release(lock_fd) != 0) {
 		logmessage("Samba Server", "cannot release Samba service publication lock (errno %d)",
 			   errno ? errno : EIO);

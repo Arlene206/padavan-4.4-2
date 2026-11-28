@@ -244,6 +244,93 @@ test_parent_directory_permissions(void)
 	assert(rmdir(root) == 0);
 }
 
+
+static void
+test_account_files_share_the_passdb_config_transaction(void)
+{
+	char root[] = "/tmp/samba-config-accounts.XXXXXX";
+	char transaction[256], passdb[256], config[256];
+	char passwd[256], group[256], passdb_next[256], config_next[256];
+	char passwd_next[256], group_next[256];
+
+	assert(mkdtemp(root) != NULL);
+	make_path(transaction, sizeof(transaction), root, ".transaction");
+	make_path(passdb, sizeof(passdb), root, "smbpasswd");
+	make_path(config, sizeof(config), root, "smb.conf");
+	make_path(passwd, sizeof(passwd), root, "passwd");
+	make_path(group, sizeof(group), root, "group");
+	make_path(passdb_next, sizeof(passdb_next), root, "smbpasswd.next");
+	make_path(config_next, sizeof(config_next), root, "smb.conf.next");
+	make_path(passwd_next, sizeof(passwd_next), root, "passwd.next");
+	make_path(group_next, sizeof(group_next), root, "group.next");
+
+	write_text(passdb, "old passdb\n", 0600);
+	write_text(config, "old config\n", 0644);
+	write_text(passwd, "old passwd\n", 0644);
+	write_text(group, "old group\n", 0644);
+
+	/* A failure after all four replacements rolls every store back. */
+	assert(samba_config_transaction_begin_with_accounts(
+		transaction, passdb, config, passwd, group) == 0);
+	replace_text(passdb, passdb_next, "new passdb\n", 0600);
+	replace_text(config, config_next, "new config\n", 0644);
+	replace_text(passwd, passwd_next, "new passwd\n", 0644);
+	replace_text(group, group_next, "new group\n", 0644);
+	assert(samba_config_transaction_abort_with_accounts(
+		transaction, passdb, config, passwd, group) == 0);
+	assert_text(passdb, "old passdb\n");
+	assert_text(config, "old config\n");
+	assert_text(passwd, "old passwd\n");
+	assert_text(group, "old group\n");
+	assert(access(transaction, F_OK) != 0);
+
+	/* COMMITTED makes all four newly published files authoritative. */
+	assert(samba_config_transaction_begin_with_accounts(
+		transaction, passdb, config, passwd, group) == 0);
+	replace_text(passdb, passdb_next, "committed passdb\n", 0600);
+	replace_text(config, config_next, "committed config\n", 0644);
+	replace_text(passwd, passwd_next, "committed passwd\n", 0644);
+	replace_text(group, group_next, "committed group\n", 0644);
+	assert(samba_config_transaction_commit_with_accounts(
+		transaction, passdb, config, passwd, group) == 0);
+	assert_text(passdb, "committed passdb\n");
+	assert_text(config, "committed config\n");
+	assert_text(passwd, "committed passwd\n");
+	assert_text(group, "committed group\n");
+	assert(samba_config_transaction_recover_with_accounts(
+		transaction, passdb, config, passwd, group) == 0);
+
+	/* Missing original Unix files are removed on an interrupted first boot. */
+	assert(unlink(group) == 0);
+	assert(samba_config_transaction_begin_with_accounts(
+		transaction, passdb, config, passwd, group) == 0);
+	replace_text(passdb, passdb_next, "uncommitted passdb\n", 0600);
+	replace_text(config, config_next, "uncommitted config\n", 0644);
+	replace_text(passwd, passwd_next, "uncommitted passwd\n", 0644);
+	write_text(group, "new first-boot group\n", 0644);
+	assert(samba_config_transaction_recover_with_accounts(
+		transaction, passdb, config, passwd, group) == 0);
+	assert_text(passdb, "committed passdb\n");
+	assert_text(config, "committed config\n");
+	assert_text(passwd, "committed passwd\n");
+	assert(access(group, F_OK) != 0);
+
+	/* The new entry point must still recover an interrupted legacy V1 pair. */
+	assert(samba_config_transaction_begin(
+		transaction, passdb, config) == 0);
+	replace_text(passdb, passdb_next, "legacy uncommitted passdb\n", 0600);
+	replace_text(config, config_next, "legacy uncommitted config\n", 0644);
+	assert(samba_config_transaction_recover_with_accounts(
+		transaction, passdb, config, passwd, group) == 0);
+	assert_text(passdb, "committed passdb\n");
+	assert_text(config, "committed config\n");
+
+	assert(unlink(passdb) == 0);
+	assert(unlink(config) == 0);
+	assert(unlink(passwd) == 0);
+	assert(rmdir(root) == 0);
+}
+
 int
 main(void)
 {
@@ -251,6 +338,7 @@ main(void)
 	test_private_file_sync_helpers();
 	test_directory_sync_helpers();
 	test_parent_directory_permissions();
+	test_account_files_share_the_passdb_config_transaction();
 
 	char root[] = "/tmp/samba-config-transaction.XXXXXX";
 	char lock_path[256], transaction_dir[256], passdb[256], config[256];
@@ -360,6 +448,6 @@ main(void)
 	assert(unlink(lock_path) == 0);
 	assert(rmdir(root) == 0);
 
-	puts("Samba paired passdb/config crash-recovery transaction: PASS");
+	puts("Samba four-file account/passdb/config crash-recovery transaction: PASS");
 	return 0;
 }

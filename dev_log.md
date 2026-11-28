@@ -1,3 +1,13 @@
+## 2026-11-28 — Journal Unix passwd/group with Samba passdb and smb.conf
+
+- Found a second-order consistency defect in `run_samba()`: the account snapshot refactor updated `/etc/passwd` and `/etc/group` before the existing durable journal began. If `samba_prepare_private_passdb()`, `samba_run_smbpasswd()`, or smb.conf publication failed, the existing rollback covered only passdb/config and left the newly written Unix account files behind.
+- Added V2 PREPARED/COMMITTED journal state with explicit original-file flags for passdb, smb.conf, passwd and group; recovery accepts legacy V1 journals but restores V2 in reverse publication order. V2 cleanup keeps all four rollback snapshots until the marker removal is durable.
+- Moved the V2 begin point before `recreate_passwd_unix_snapshot()` and made commit/abort/recovery unconditional for both APP_SMBD36 and legacy Samba builds. Commit fsyncs passdb, smb.conf, passwd and group plus their parent directories before publishing COMMITTED.
+- Added host regressions for four-file rollback, four-file commit, removal of a previously absent group file, and V1-to-V2 recovery compatibility. Updated Samba/XY-C1 source contracts to require transaction coverage before passwd generation.
+- Parent main SHA: `7998946773b259ed78903896d041e87c260f364c`. Exact-head Samba, Process/AI and XY-C1 checks pending; no physical-router validation claimed.
+
+---
+
 ## 2026-11-28 — Split HTTPD duplicate-account and NVRAM-key assertions by function
 
 - Exact-SHA HTTPD regression after the snapshot-body extractor update reached the intended function, then failed because its final assertion still expected the NVRAM key format string `acc_username%d` inside the snapshot consumer. The consumer receives an already copied list; the compatibility wrapper now builds that key and snapshots it under one transaction.

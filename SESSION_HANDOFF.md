@@ -29,22 +29,19 @@
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and exact-head HTTPD Actions after this wrapper/key assertion repair.
-2. Require the Samba/Unix identity boundary checks (snapshot reserved-name filtering and wrapper transaction-key reads) to pass.
-3. Samba share regression on SHA 4bc94f4f has passed all steps; preserve this validated state.
-4. Poll XY-C1 Build/TRX/artifact for source commits 9ffd and a78; both were IN_PROGRESS at last poll.
-5. Continue main-only stability fixes and leave exact test/CI state in handoff.
+1. Fetch live main and exact-SHA Actions for the four-file Samba journal extension.
+2. Require the standalone transaction C regression to pass the four-file rollback/commit/legacy-V1 cases; require the durability checker and embedded Samba source contract to pass.
+3. Confirm account transaction begin precedes `/etc/passwd` and `/etc/group` publication, and that a failure before COMMITTED restores all four paths.
+4. Inspect exact-SHA XY-C1 Build, TRX and artifact upload before claiming L3.
+5. Continue main-only fixes while independent Actions are pending; do not touch the frozen backup or force-push.
 
 ## Verification boundary
 
 - DDNSTO SHA 3f, Aria2 SHA 766 and PPPoE-MWAN SHA 300e: exact-SHA XY-C1 Build, TRX and artifact upload PASS.
-- First-errno SHA 19d86 and all-stop follow-up SHA 805624: exact-SHA XY-C1 completed SUCCESS; policy/source tests and related Process/PID1 contracts passed.
-- Samba snapshot source SHA 9ffd: Process inventory and AI docs PASS; source regressions required refactoring their assertions to the snapshot consumer. Its XY-C1 run #46143284111 was still IN_PROGRESS.
-- a78e02ff: Process inventory and AI docs PASS; optional-app stale errno assertion repaired on 0a423aad. Its XY-C1 run #46143494151 was still IN_PROGRESS.
-- 0a423aad: Process inventory/AI docs PASS; Samba workflow syntax issue repaired on 369afd4a.
-- 369afd4a: Samba staging/failure-gate passed, ACL parity assertion repaired on 4bc94f4f.
-- 4bc94f4f: Samba share regression SUCCESS after all three steps. HTTPD regression reached the Samba/Unix identity checker; the function selection was updated on cbbe470c but the next assertion still expected acc_username%d in the snapshot consumer. This commit moves that expectation to the wrapper.
-- cbbe470c exact-head HTTPD job failed only in the Samba/Unix account identity contract, at its old key-source assertion; this commit repairs that assertion. New exact-head result pending.
+- Firmware first-errno SHA 19d86 and all-stop follow-up SHA 805624: exact-SHA XY-C1 completed SUCCESS; policy/source tests and related Process/PID1 contracts passed.
+- Samba account snapshot production SHA 9ffd: exact-SHA XY-C1 #46143284111 SUCCESS, Build/TRX/artifact PASS; artifact ID 15262203446.
+- Follow-up Samba/CI commits a78, 0a, 369, 4bc, cbbe and 799 corrected successive stale static expectations. On SHA 799, HTTPD and AI handoff exact-head checks PASS; Samba share stability #46143880298 PASS; a78 XY-C1 #46143494151 completed SUCCESS.
+- New V2 four-file journal commit from parent 799: exact-head Actions not yet available; run standalone host tests and workflow source guards before evaluating XY-C1.
 - Physical router/hardware validation L4: NOT VERIFIED.
 ## Mandatory end-of-session handoff checkpoint
 
