@@ -13,13 +13,12 @@
 
 ## Exact-SHA CI checkpoint
 
-- Source SHA polled: `cd6bb30198d37b1580a6009f5babe863bde5868d` (before this handoff-only commit).
-- Poll timestamp: `2026-11-28T12:56:49.916Z`.
-- Run #46146966763 — AI handoff documentation contract: completed/success; jobs: validate-handoff-records=completed/success
-- Run #46146966721 — Process lifecycle inventory - cd6bb30198d37b1580a6009f5babe863bde5868d: completed/success; jobs: inventory=completed/success
-- Run #46146966737 — HTTPD Authentication and Security Regression: completed/success; jobs: HTTPD authentication and disclosure policy=completed/success
-- Run #46146966803 — NVRAM transaction boundary audit: completed/failure; jobs: nvram-transaction-boundary=completed/failure
-  - Failure detail (nvram-transaction-boundary): ﻿2026-11-28T12:54:37.8018812Z Current runner version: '2.338.2' | 2026-11-28T12:54:37.8036804Z ##[group]Runner Image Provisioner | 2026-11-28T12:54:37.8038218Z Hosted Compute Agent | 2026-11-28T12:54:37.8038647Z Version: 20261111.635
+- Source SHA polled: `0827abadc76f456ba9d67003cbedbdf7854d9e89`.
+- Poll time (UTC): `2026-11-28T12:58:21.384Z`.
+- #46147228376 NVRAM transaction boundary audit: in_progress; nvram-transaction-boundary=in_progress
+- #46147228338 HTTPD Authentication and Security Regression: in_progress; HTTPD authentication and disclosure policy=in_progress
+- #46147228339 Process lifecycle inventory - 0827abadc76f456ba9d67003cbedbdf7854d9e89: in_progress; inventory=in_progress
+- #46147228361 AI handoff documentation contract: in_progress; validate-handoff-records=in_progress
 
 ## Verification boundary
 
