@@ -1,3 +1,12 @@
+## 2026-11-28 14:42 CST (UTC+8) — Add XY-C1 target compilation for optional IAPP event logging
+
+- Base main SHA: `1acc4300c58e9f5324cf7f4c4d75a9a3a191ff94`. Added an independent `iappd-event-log-xy-c1-target-compile` job to `.github/workflows/iappd-lifecycle.yml`; it downloads the published 47 MB `mipsel-linux-musl` release toolchain and verifies its pinned SHA-256 (`7c1dc5c5...`) before use.
+- The target compiler must report `mipsel-linux-musl`; the check syntax-compiles both `rtmpiapp.c` and `mt_iapp_util.c` under GNU89, XY-C1 MIPS32r2/1004kc flags, `IAPP_EVENT_LOG` and `IAPP_OS_LINUX`, with the existing packed-member and conversion diagnostics treated as errors. The default firmware configuration remains unchanged.
+- Extended the existing IAPP source/workflow contract to reject a host-compiler substitution or loss of the cross-compiler, pinned archive, target flags, macros, or either translation unit. Existing host lifecycle/event-log regressions remain intact.
+- Exact-main Actions validation for THIS commit is PENDING; no local checkout or MIPS compile is claimed. This CI-only slice changes no firmware production source, so the last XY-C1 full Build/TRX/artifact L3 evidence remains product SHA `58700dc70b54d931aabdb6701f0ec88c14b9d1b4` (#46116630792). Physical L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-28 — XY-C1 L3 validation completed for IPTV port source
 
 - Exact XY-C1 run #46116630792 for product SHA `58700dc70b54d931aabdb6701f0ec88c14b9d1b4` completed SUCCESS: Build XY-C1, TRX output verification and artifact upload. Artifact `XY-C1-firmware-58700dc70b54d931aabdb6701f0ec88c14b9d1b4`, ID `15252233106`, size 12,838,305 bytes. L3 is VERIFIED for this product SHA.

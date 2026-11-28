@@ -76,3 +76,40 @@ jobs:
             -Werror=address-of-packed-member -fsyntax-only -DIAPP_EVENT_LOG \
             -I trunk/user/ralinkiappd/src \
             trunk/user/ralinkiappd/src/rtmpiapp.c
+
+  iappd-event-log-xy-c1-target-compile:
+    name: Compile optional IAPP event log with XY-C1 MIPS toolchain
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download and verify the XY-C1 MIPS musl toolchain
+        run: |
+          set -eu
+          toolchain_url="https://github.com/Arlene206/padavan-4.4-2/releases/download/toolchain/mipsel-linux-musl.tar.xz"
+          toolchain_sha256="7c1dc5c5ed6c3b86fa5baf7e2832309e1ce21434e1e6dae491f838c95f3a6863"
+          toolchain_root="$RUNNER_TEMP/iappd-mipsel-linux-musl"
+          archive="$RUNNER_TEMP/mipsel-linux-musl.tar.xz"
+          mkdir -p "$toolchain_root"
+          curl --fail --location --retry 3 --retry-delay 2 \
+            --output "$archive" "$toolchain_url"
+          printf '%s  %s\\n' "$toolchain_sha256" "$archive" | sha256sum --check -
+          tar -xJf "$archive" -C "$toolchain_root"
+          compiler="$toolchain_root/bin/mipsel-linux-musl-gcc"
+          test -x "$compiler"
+          test "$("$compiler" -dumpmachine)" = "mipsel-linux-musl"
+      - name: Compile optional IAPP event-log sources for XY-C1
+        run: |
+          set -eu
+          compiler="$RUNNER_TEMP/iappd-mipsel-linux-musl/bin/mipsel-linux-musl-gcc"
+          "$compiler" \
+            -std=gnu89 -march=mips32r2 -mtune=1004kc \
+            -DDBG -DSYSLOG -fvisibility=hidden \
+            -Werror=int-conversion -Werror=incompatible-pointer-types \
+            -Werror=address-of-packed-member -fsyntax-only \
+            -DIAPP_EVENT_LOG -DIAPP_OS_LINUX \
+            -I trunk/user/ralinkiappd/src \
+            trunk/user/ralinkiappd/src/rtmpiapp.c \
+            trunk/user/ralinkiappd/src/mt_iapp_util.c

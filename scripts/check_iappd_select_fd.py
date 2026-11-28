@@ -280,6 +280,39 @@ def main() -> None:
     require(workflow_text.count('      - "' + deadline_path + '"') == 2,
             "both IAPP workflow path filters must include the deadline policy")
 
+
+    target_job_match = re.search(
+        r"(?ms)^  iappd-event-log-xy-c1-target-compile:\\n(.*)$",
+        workflow_text,
+    )
+    require(target_job_match is not None,
+            "IAPP workflow must compile the optional branch with the XY-C1 MIPS toolchain")
+    target_job = target_job_match.group(1)
+    download_step = target_job.find("- name: Download and verify the XY-C1 MIPS musl toolchain")
+    compile_step = target_job.find("- name: Compile optional IAPP event-log sources for XY-C1")
+    require(download_step >= 0 and compile_step > download_step,
+            "target compiler must be downloaded and verified before compiling optional sources")
+    for token in (
+        "7c1dc5c5ed6c3b86fa5baf7e2832309e1ce21434e1e6dae491f838c95f3a6863",
+        "sha256sum --check",
+        "mipsel-linux-musl/bin/mipsel-linux-musl-gcc",
+        '"$("$compiler" -dumpmachine)" = "mipsel-linux-musl"',
+        "-std=gnu89",
+        "-march=mips32r2",
+        "-mtune=1004kc",
+        "-Werror=int-conversion",
+        "-Werror=incompatible-pointer-types",
+        "-Werror=address-of-packed-member",
+        "-fsyntax-only",
+        "-DIAPP_EVENT_LOG -DIAPP_OS_LINUX",
+        "trunk/user/ralinkiappd/src/rtmpiapp.c",
+        "trunk/user/ralinkiappd/src/mt_iapp_util.c",
+    ):
+        require(token in target_job,
+                "XY-C1 optional event-log target compile lost required contract: " + token)
+    require("cc -std=" not in target_job,
+            "optional event-log target job must not silently use the host compiler")
+
     print("Ralink IAPP descriptor, receive, and event-log source contracts: PASS")
 
 

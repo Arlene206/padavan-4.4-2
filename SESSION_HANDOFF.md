@@ -3,7 +3,7 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`.
-- Main at this write's parent: `a747994f8892363f94938655b6db68195d44c9dd`; this final validation checkpoint changes no firmware production source.
+- Main at this write's parent: `1acc4300c58e9f5324cf7f4c4d75a9a3a191ff94`; this validation slice changes CI coverage only, not firmware production source.
 - Frozen backup: `backup/pre-plugin-overhaul-2026-11-14`, recorded HEAD `72f4f157a084f8184b9597ca5bf334b8080e5807`. Its warning file forbids mutation/deletion. PR #1 remains CLOSED/unmerged; its substantive unmerged work was already compared, with no missing production/test/build change identified.
 - Startup recovery was completed once against the bootstrap, development protocol, handoff, roadmap and log indexes. Do not repeat completed audits.
 - Root `dev_log.md` remains below the documented 384 KiB target and 120-record rotation threshold. Keep 20–119 records. The roadmap is close to its 128 KiB hard limit; avoid routine expansion.
@@ -50,9 +50,9 @@ Latest production-source slice is `58700dc70b54d931aabdb6701f0ec88c14b9d1b4` (`f
 
 ## Exact first action for the next GPT
 
-1. Continue from the roadmap's unresolved P1 compatibility gap: add an explicit compile/validation path for optional Ralink IAPP `IAPP_EVENT_LOG` configuration, whose target compilation is explicitly recorded as unverified. Trace its conditional code and build flags before changing source; keep the existing default IAPP tests untouched.
-2. The IPTV port/process correction is closed: Process fail-closed #46117034795 PASS, AI docs #46117034802 PASS, and exact XY-C1 #46116630792 on product SHA 58700 passed Build/TRX/artifact upload. Current main's product source is unchanged from 58700.
-3. Diagnose any failure on the optional IAPP path and add a focused compile/regression check; while Actions are pending, continue an independent roadmap P1 task.
+1. Check the exact-main push run for the new `iappd-event-log-xy-c1-target-compile` job. It downloads the published `mipsel-linux-musl` compiler with a pinned SHA-256 and syntax-compiles both IAPP translation units using `IAPP_EVENT_LOG` + `IAPP_OS_LINUX` and XY-C1 MIPS32r2/1004kc flags. The job is newly wired; its exact-head result is still PENDING at this checkpoint. Diagnose a failure from the job log before closing this task.
+2. This targeted MIPS compile is not a full firmware image/L3 result; default production configuration remains unchanged and does not enable `IAPP_EVENT_LOG`. The last full XY-C1 Build/TRX/artifact PASS is still run #46116630792 for product SHA `58700dc70b54d931aabdb6701f0ec88c14b9d1b4`; no firmware production source has changed since.
+3. Once the targeted compile passes, resume the next highest-priority unresolved stability/security slice from the roadmap. Keep unrelated independent work moving while Actions are pending.
 4. Avoid repeating completed watchdog, Process inventory, NVRAM boundary, detector, MiniUPnP, HTTPD, IPTV port and base IAPP safety audits.
 
 ## Verification boundary
