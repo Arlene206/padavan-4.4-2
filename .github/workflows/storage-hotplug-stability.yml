@@ -1127,6 +1127,11 @@ jobs:
           assert 'lstat("/mnt", snapshot)' in storage_media_parent
           assert "storage_media_link_parent_status(" in storage_media_parent
           assert "storage_media_link_destination_status(" in storage_media_destination
+          media_inventory = function_body(storage, "int create_mp_link(")
+          assert "lstat(target_path, &target_stat)" in media_inventory
+          assert "storage_media_link_target_status(" in media_inventory
+          assert "S_ISLNK(target_stat.st_mode)" in media_inventory
+          assert "check_if_dir_exist(target_path)" not in media_inventory
           assert "storage_media_link_pair_status(dest_dir, link_path)" in storage_media_publish
           assert "force_first_valid != 0 && force_first_valid != 1" in storage_media_publish
           assert "create_mp_link_status(dest_dir, staged_path, force_first_valid)" in storage_media_publish
@@ -1143,7 +1148,8 @@ jobs:
                          "test_root_owned_nonwritable_parent_is_required",
                          "test_symlink_and_writable_parents_are_rejected",
                          "test_only_existing_symlink_may_be_replaced",
-                         "test_lookup_errors_are_preserved"):
+                         "test_lookup_errors_are_preserved",
+                         "test_media_target_must_be_a_real_directory"):
               assert marker in storage_media_link_test
           assert "int start_stor_apps(void);" in rc_header
           assert "void start_stor_apps(void);" not in rc_header

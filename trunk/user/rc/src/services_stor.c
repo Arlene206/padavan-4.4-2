@@ -2816,6 +2816,8 @@ int create_mp_link(char *search_dir, char *link_path, int force_first_valid)
 	int link_created, path_len;
 	int read_error, close_error, parse_error;
 	int first_error, operation_error, close_status;
+	struct stat target_stat;
+	int target_status;
 
 	if (!search_dir || !search_dir[0] || !link_path || !link_path[0]) {
 		errno = EINVAL;
@@ -2876,7 +2878,14 @@ int create_mp_link(char *search_dir, char *link_path, int force_first_valid)
 
 			if (!force_first_valid) {
 				errno = 0;
-				if (check_if_dir_exist(target_path)) {
+				if (lstat(target_path, &target_stat) == 0)
+					target_status = storage_media_link_target_status(
+						0, 0, S_ISDIR(target_stat.st_mode),
+						S_ISLNK(target_stat.st_mode));
+				else
+					target_status = storage_media_link_target_status(
+						-1, errno, 0, 0);
+				if (target_status == 0) {
 					errno = 0;
 					if (symlink(target_path, link_path) == 0)
 						link_created = 1;
@@ -2885,22 +2894,31 @@ int create_mp_link(char *search_dir, char *link_path, int force_first_valid)
 							first_error,
 							storage_nfs_export_errno_or_eio(errno));
 				} else {
-					operation_error = errno;
-					if (operation_error == 0)
-						operation_error = ENOTDIR;
 					first_error = storage_nfs_export_first_error(
-							first_error, operation_error);
+							first_error, target_status);
 				}
 			} else {
 				errno = 0;
 				if (mkdir_if_none(target_path, "777")) {
-					errno = 0;
-					if (symlink(target_path, link_path) == 0)
-						link_created = 1;
+					if (lstat(target_path, &target_stat) == 0)
+						target_status = storage_media_link_target_status(
+							0, 0, S_ISDIR(target_stat.st_mode),
+							S_ISLNK(target_stat.st_mode));
 					else
+						target_status = storage_media_link_target_status(
+							-1, errno, 0, 0);
+					if (target_status == 0) {
+						errno = 0;
+						if (symlink(target_path, link_path) == 0)
+							link_created = 1;
+						else
+							first_error = storage_nfs_export_first_error(
+								first_error,
+								storage_nfs_export_errno_or_eio(errno));
+					} else {
 						first_error = storage_nfs_export_first_error(
-							first_error,
-							storage_nfs_export_errno_or_eio(errno));
+								first_error, target_status);
+					}
 				} else {
 					operation_error = errno ? errno : EEXIST;
 					first_error = storage_nfs_export_first_error(

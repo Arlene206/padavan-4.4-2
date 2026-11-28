@@ -57,6 +57,18 @@ test_lookup_errors_are_preserved(void)
 	return 0;
 }
 
+static int
+test_media_target_must_be_a_real_directory(void)
+{
+	assert(storage_media_link_target_status(0, 0, 1, 0) == 0);
+	assert(storage_media_link_target_status(0, 0, 1, 1) == EPERM);
+	assert(storage_media_link_target_status(0, 0, 0, 0) == ENOTDIR);
+	assert(storage_media_link_target_status(-1, ENOENT, 0, 0) == ENOENT);
+	assert(storage_media_link_target_status(-1, EACCES, 0, 0) == EACCES);
+	assert(storage_media_link_target_status(-1, 0, 0, 0) == EIO);
+	return 0;
+}
+
 int
 main(void)
 {
@@ -65,6 +77,7 @@ main(void)
 	assert(test_symlink_and_writable_parents_are_rejected() == 0);
 	assert(test_only_existing_symlink_may_be_replaced() == 0);
 	assert(test_lookup_errors_are_preserved() == 0);
+	assert(test_media_target_must_be_a_real_directory() == 0);
 	puts("Storage media-link publication policy: PASS");
 	return 0;
 }

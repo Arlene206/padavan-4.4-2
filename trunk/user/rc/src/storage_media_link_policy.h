@@ -45,4 +45,19 @@ storage_media_link_destination_status(int lstat_status, int saved_error,
 	return saved_error > 0 ? saved_error : EIO;
 }
 
+/* User-writable removable volumes must not redirect a root daemon through
+ * a symlinked database/config directory. */
+static inline int
+storage_media_link_target_status(int lstat_status, int saved_error,
+                                 int is_directory, int is_symlink)
+{
+	if (lstat_status != 0)
+		return saved_error > 0 ? saved_error : EIO;
+	if (is_symlink)
+		return EPERM;
+	if (!is_directory)
+		return ENOTDIR;
+	return 0;
+}
+
 #endif /* PADAVAN_STORAGE_MEDIA_LINK_POLICY_H */
