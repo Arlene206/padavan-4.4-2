@@ -100,7 +100,8 @@ main(void)
 	{
 		int calls_before = file_fsync_calls;
 		assert(dhcp6c_config_file_publish(stream, staged, target) == 0);
-		assert(file_fsync_calls - calls_before == 3);
+		/* Two EINTR retries, staged-file sync, and parent-directory sync. */
+		assert(file_fsync_calls - calls_before == 4);
 	}
 	stream = NULL;
 	assert(file_fsync_interruptions_remaining == 0);

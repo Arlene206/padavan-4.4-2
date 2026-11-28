@@ -1,3 +1,11 @@
+## 2026-11-28 — Align DHCPv6 fsync regression with shared directory barrier
+
+- Exact-main DHCPv6 publication #46130700588 and WAN DHCP callback #46130700584 on `5a8a417a975547d6537e7e566ee97e36c2c910f1` failed at the same host-test assertion: it expected three injected fsync calls after configuring two transient EINTR returns.
+- The DHCPv6 publisher now routes both staged-file and parent-directory sync through the shared injectable helper, so the adapter observes two interrupted attempts, one successful file sync and one directory sync. Corrected the expected total to four; production behavior is unchanged.
+- Both exact-head workflows must pass on the correction SHA. No local host run or firmware build is claimed.
+
+---
+
 ## 2026-11-28 — Share bounded fsync retries with DHCPv6 IA config publication
 
 - The RC DHCPv6 config publisher included `config_file_sync.h` for parent-directory durability but still used its own `do/while (errno == EINTR)` loop for file fsync. A persistent signal storm could pin the DHCPv6 callback indefinitely.
