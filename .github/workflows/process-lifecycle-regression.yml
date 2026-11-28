@@ -1621,10 +1621,12 @@ jobs:
           assert "nvram_safe_get(" not in xupnpd
           assert "xupnpd_config_valid_ipv4(lan_addr)" in xupnpd
           checked_xupnpd_port = xupnpd_compact.index('"xupnpd_enable_x"')
-          xupnpd_disabled_gate = xupnpd_compact.index("if (xport < 1024)")
+          xupnpd_range_policy = xupnpd_compact.index("iptv_proxy_enable_port_status(xport, &xport_enabled)")
+          xupnpd_disabled_gate = xupnpd_compact.index("if (!xport_enabled)")
           xupnpd_lan_snapshot = xupnpd_compact.index('"lan_ipaddr_t"')
           xupnpd_proc_preflight = xupnpd_compact.index("xupnpd_process_presence(NULL, &scan_error)")
-          assert checked_xupnpd_port < xupnpd_disabled_gate < xupnpd_lan_snapshot < xupnpd_proc_preflight
+          assert checked_xupnpd_port < xupnpd_range_policy < xupnpd_disabled_gate < xupnpd_lan_snapshot < xupnpd_proc_preflight
+          assert "configured port is out of range" in xupnpd
           assert "rc_wan_nvram_parse_int_value(xport_text, &xport)" in xupnpd_compact
           assert 'nvram_get_int("xupnpd_enable_x")' not in xupnpd
           assert "cannot read xupnpd enable-port selector" in xupnpd
@@ -1642,6 +1644,11 @@ jobs:
           assert "test_xupnpd_lan_address_is_owned_across_port_reads" in bridge_init_regression
           udpxy = body(net, "start_udpxy(char *wan_ifname)")
           udpxy_compact = " ".join(udpxy.split())
+          udpxy_port_policy = udpxy_compact.index("iptv_proxy_enable_port_status(port, &port_enabled)")
+          udpxy_disabled_gate = udpxy_compact.index("if (!port_enabled)")
+          udpxy_proc_preflight = udpxy_compact.index("iptv_proxy_process_presence((void *)process_name, &scan_error)")
+          assert udpxy_port_policy < udpxy_disabled_gate < udpxy_proc_preflight
+          assert "configured port is out of range" in udpxy
           assert 'rc_wan_nvram_copy_value(net_nvram_get_checked, NULL, "udpxy_clients"' in udpxy_compact
           assert 'rc_wan_nvram_copy_value(net_nvram_get_checked, NULL, "udpxy_renew_period"' in udpxy_compact
           assert 'nvram_safe_get("udpxy_clients")' not in udpxy

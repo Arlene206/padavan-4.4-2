@@ -1,3 +1,11 @@
+## 2026-11-28 — Align LAN startup source contract with IPTV range policy
+
+- After `173fae1685922a5d94d90cb32f370e212eea137e` fixed the IPTV regression test's missing `<stddef.h>`, exact Process fail-closed run #46116838163 passed the IPTV compile/run step but failed later in the embedded LAN startup contract with `ValueError: substring not found`.
+- Root cause was a stale checker expression requiring `if (xport < 1024)`. Production `start_xupnpd()` now correctly delegates bounds to `iptv_proxy_enable_port_status(xport, &xport_enabled)` and gates with `if (!xport_enabled)`. Updated the workflow contract to pin this order and added corresponding `start_udpxy()` policy/gate/process-preflight checks. No product source changed.
+- Requires another exact-head Process fail-closed run. Product-source XY-C1 #46116630792 for SHA `58700...` remains IN PROGRESS at Build; NVRAM and USB storage results are tracked in the handoff.
+
+---
+
 ## 2026-11-28 — Fix IPTV port regression test compile failure
 
 - Exact Process fail-closed run #46116630850 on product SHA `58700dc70b54d931aabdb6701f0ec88c14b9d1b4` reached the new IPTV port regression and failed compilation because the test referenced `NULL` without including `<stddef.h>`. This was a host-test compile failure, not a production selector-policy failure.
