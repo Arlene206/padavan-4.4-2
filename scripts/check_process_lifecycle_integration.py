@@ -2027,8 +2027,8 @@ assert "watchdog_process_argv0_matches" in watchdog_process_policy
 assert "test_only_rc_watchdog_executable_aliases_are_accepted" in watchdog_process_test
 assert "test_watchdog_argv0_is_exact_basename" in watchdog_process_test
 assert "test_null_inputs_fail_closed" in watchdog_process_test
-assert process_workflow.count("trunk/user/rc/src/watchdog_process_executable_policy.h") == 2
-assert process_workflow.count("trunk/user/rc/src/tests/watchdog_process_executable_policy.c") == 2
+assert process_workflow.count('      - "trunk/user/rc/src/watchdog_process_executable_policy.h"') == 2
+assert process_workflow.count('      - "trunk/user/rc/src/tests/watchdog_process_executable_policy.c"') == 2
 assert process_workflow.count("Compile and run watchdog executable identity regression") == 1
 assert xy_workflow.count("trunk/user/rc/src/watchdog_process_executable_policy.h") == 1
 print("watchdog process inventory tri-state recovery/start integration: PASS")

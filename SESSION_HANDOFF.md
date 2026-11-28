@@ -1,3 +1,12 @@
+## 2026-11-28 — Restrict watchdog trigger-count assertions to workflow path filters
+
+- The watchdog identity implementation was committed as c9f5d0e1abd9df58576b18db4e8d10db0e448066. Process lifecycle #46093743723, XY-C1 #46093743713, and AI docs #46093743683 were still running at handoff.
+- During immediate contract review, the new Process workflow assertion was found to count every textual mention of the regression source, including both path filters plus its compile command. The correct expected textual total is 3, whereas the intended path-filter count is 2. THIS checker-only correction counts only the exact YAML path-list entries, avoiding false failures while preserving push and pull_request coverage.
+- Previously fixed storage chain: exact SHA 363fd7fba6f90352d70bb581ea6d0690a573441c USB storage hotplug #46093641272 PASS; XY-C1 #46093641344 was still in progress at last poll; AI docs #46093641318 PASS.
+- Next action: inspect exact SHA c9f5d0e1... Process/XY/AI run outcomes and this checker correction's CI. Then diagnose actual watchdog C build/integration issues if any. Backup remains immutable at 72f4f157a084f8184b9597ca5bf334b8080e5807.
+
+---
+
 ## 2026-11-28 — Bind PID 1 watchdog readiness and rollback to executable identity
 
 - The generic shared process inventory intentionally supports legacy daemon argv0/comm aliases. Source review found that `start_watchdog()` still consumed that generic match directly: any local process using `exec -a watchdog` could be mistaken for the PID 1 watchdog, suppressing startup and its HTTPD/DNS recovery loop. The ROMFS Makefile installs `/sbin/watchdog` as an alias to the single `/sbin/rc` binary.

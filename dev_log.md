@@ -1,3 +1,11 @@
+## 2026-11-28 — Restrict watchdog trigger-count assertions to workflow path filters
+
+- Added a watchdog executable-identity policy and gated watchdog startup/readiness/rollback scanning/signalling in c9f5d0e1abd9df58576b18db4e8d10db0e448066. No local cross-build was available; exact GitHub Actions are the verification gate.
+- The new workflow path-check incorrectly counted a test-file path in its compile command as well as the two push/PR filters. THIS commit changes the checker to count the exact YAML path-list entries. Runtime source is unchanged.
+- At time of update, Process lifecycle #46093743723, XY-C1 #46093743713 and AI Docs #46093743683 on c9f5d0e1... were still IN_PROGRESS. Storage hotplug on 363fd7fba6... PASS (#46093641272), XY-C1 on that SHA still pending, AI Docs PASS (#46093641318).
+
+---
+
 ## 2026-11-28 — Bind PID 1 watchdog readiness and rollback to executable identity
 
 - Generic process inventory matches argv0 basename and comm aliases to preserve BusyBox/legacy compatibility. The watchdog startup path was still using this generic result, allowing an unrelated local process with argv0 `watchdog` to suppress the actual PID 1 watchdog. The firmware ROMFS Makefile links `/sbin/watchdog` to the `/sbin/rc` binary.
