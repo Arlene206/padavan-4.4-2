@@ -5,12 +5,16 @@ on:
     paths:
       - ".github/workflows/storage-service-enable-stability.yml"
       - "trunk/user/rc/src/services_stor.c"
+      - "trunk/user/rc/src/transmission_link_policy.h"
+      - "trunk/user/rc/src/tests/transmission_link_policy.c"
       - "trunk/user/rc/src/storage_service_enable_policy.h"
       - "trunk/user/rc/src/tests/storage_service_enable_policy.c"
   pull_request:
     paths:
       - ".github/workflows/storage-service-enable-stability.yml"
       - "trunk/user/rc/src/services_stor.c"
+      - "trunk/user/rc/src/transmission_link_policy.h"
+      - "trunk/user/rc/src/tests/transmission_link_policy.c"
       - "trunk/user/rc/src/storage_service_enable_policy.h"
       - "trunk/user/rc/src/tests/storage_service_enable_policy.c"
 
@@ -60,7 +64,7 @@ jobs:
 
           for signature, key, support_probe, link_mutation in (
               ("int run_itunes(void)", '"apps_itunes"', "is_itunes_support()", "unlink(link_path)"),
-              ("int run_torrent(void)", '"trmd_enable"', "is_torrent_support()", "unlink(link_path)"),
+              ("int run_torrent(void)", '"trmd_enable"', "is_torrent_support()", "transmission_mp_link_publish(dest_dir,link_path)"),
               ("int run_aria(void)", '"aria_enable"', "is_aria_support()", "unlink(link_path)"),
           ):
               start = source.index(signature)
@@ -75,6 +79,11 @@ jobs:
               assert "returnenable_status;" in compact
               assert 'nvram_match(' not in fn
           assert "strcmp(stored_value, \"1\") == 0" in policy
+          transmission_start = body(source, "int run_torrent(void)")
+          transmission_compact = "".join(transmission_start.split())
+          assert "transmission_mp_link_publish(dest_dir,link_path)" in transmission_compact
+          assert "unlink(link_path)" not in transmission_start
+          assert "create_mp_link_status(dest_dir,link_path,0)" not in transmission_compact
           for marker in ('storage_service_enable_value_status(EIO, "", &enabled)',
                          'storage_service_enable_value_status(-1, "1", &enabled)',
                          'storage_service_enable_value_status(0, "01", &enabled)'):

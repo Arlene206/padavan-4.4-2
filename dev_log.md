@@ -1,3 +1,12 @@
+## 2026-11-27 — Keep checked-enable source contract aligned with atomic Transmission link publishing
+
+- Exact-SHA storage enable workflow `46091165081` on `00e1d2efa475a2b693e26c481f230164285f1d05` passed the standalone checked-NVRAM policy test, then failed its source contract because the run_torrent tuple still expected the removed `unlink(link_path)` side effect. Production code correctly now calls the staged `transmission_mp_link_publish(dest_dir, link_path)` helper. This is stale checker coupling, not a runtime or policy-test failure.
+- Updated the contract to require the new publisher in the same enable-gate ordering, explicitly forbid unlinking the live path or directly creating a link at the final destination, and added the new policy/test files to the workflow's push/PR filters. No production source changed.
+- Parent source SHA `00e1d2efa475a2b693e26c481f230164285f1d05`: local standalone GNU89/ASan/UBSan policy test PASS; AI handoff, firewall, NFS, Samba, vsftpd, MiniDLNA, IPv6, libdisk, Firefly and Process inventory workflows PASS. Storage-enable run `46091165081` failed only on the stale unlink expectation. USB storage `46091165116`, XY-C1 `46091165120`, Process lifecycle `46091165092`, NVRAM `46091165098`, HTTPD `46091165085`, modem `46091165096` were still in progress at the last poll.
+- Next: inspect exact-SHA storage-enable, storage-hotplug and XY-C1 runs for THIS checker correction, address any actual failure, then continue another independent P1 stability issue. Backup remains frozen at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+
+---
+
 ## 2026-11-27 — Publish Transmission mount symlink without unsafe pre-unlink
 
 - Review found `run_torrent()` unconditionally called `unlink("/mnt/transmission")` and ignored its result before scanning `/proc/mounts` and creating a replacement. A non-symlink file at that privileged path could be deleted, and the destructive operation happened before `transmission.sh` checked whether `/mnt` itself was a symlink. Mount-inventory or link-publication failures also discarded the previous valid compatibility link.

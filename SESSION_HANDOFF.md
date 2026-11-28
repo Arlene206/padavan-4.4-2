@@ -1,3 +1,12 @@
+## 2026-11-27 — Update Transmission run_torrent enable-gate source contract
+
+- Source SHA `00e1d2efa475a2b693e26c481f230164285f1d05` replaces the unsafe `unlink(link_path)` with staged atomic publication. Exact storage-enable workflow `46091165081` passed the checked-enable C regression and failed only because its Python source contract still required the removed unlink call as the post-enable side effect.
+- THIS checker-only follow-up expects `transmission_mp_link_publish(dest_dir,link_path)`, explicitly rejects direct unlink/final-path creation, and keeps the enable-status early return before that side effect. New policy/header test paths are covered by its push/PR filters.
+- The new helper policy test passed locally under GNU89, `-Wall -Wextra -Werror`, ASan and UBSan. Parent exact checks already green: AI docs `46091165090`, firewall `46091165095`, NFS `46091165106`, Samba `46091165114`, vsftpd `46091165091`, MiniDLNA `46091165089`, IPv6 `46091165115`, libdisk `46091165100`, Firefly `46091165099`, Process inventory `46091165110`. Parent XY-C1 `46091165120`, storage hotplug `46091165116`, Process lifecycle `46091165092`, NVRAM `46091165098`, HTTPD `46091165085`, USB modem `46091165096` were in progress at last poll.
+- Next: verify exact-head storage-enable, storage hotplug and XY-C1 for THIS follow-up; resolve any failures before another stability slice. Frozen backup remains `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+
+---
+
 ## 2026-11-27 — Safely replace Transmission's /mnt compatibility link
 
 - Found a concrete privileged filesystem issue in `services_stor.c:run_torrent()`: it unconditionally `unlink("/mnt/transmission")` before checking whether `/mnt` is a trusted real directory or whether the destination is actually a symlink. This could delete an unrelated regular file, and bypasses the later shell guard in `transmission.sh` when `/mnt` itself is a symlink. It also discards a previous working link if mount inventory or new-link creation fails.
