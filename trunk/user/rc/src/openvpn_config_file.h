@@ -87,9 +87,7 @@ openvpn_config_file_publish(FILE **stream, const char *staged_path,
 	fd = fileno(fp);
 	if (fd < 0)
 		goto failed;
-	do {
-		sync_result = fsync(fd);
-	} while (sync_result != 0 && errno == EINTR);
+	sync_result = config_file_sync_fd(fd);
 	if (sync_result != 0)
 		goto failed;
 

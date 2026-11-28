@@ -1,3 +1,12 @@
+## 2026-11-28 — Bound EINTR retries across OpenVPN config durability syncs
+
+- Review found the shared `config_file_sync_fd()` retried EINTR without a ceiling, while `openvpn_config_file_publish()` bypassed it with two additional unbounded staged-file fsync loops. A persistent signal storm could pin a service process indefinitely during configuration publication.
+- Applied one shared budget of eight EINTR retries after the initial attempt and routed both staged-file fsyncs through `config_file_sync_fd()`; the post-rename containing-directory sync already used the helper.
+- Extended the existing OpenVPN config GNU89 regression with an injectable fsync adapter: three one-shot EINTR interruptions must recover across all three sync points, while persistent EINTR must terminate after nine attempts with EINTR. The source checker now pins the cap and shared-helper use.
+- Exact-head OpenVPN and AI documentation Actions are required for this change. No local build, XY-C1 MIPS/TRX result or hardware validation is claimed.
+
+---
+
 ## 2026-11-28 — Align NVRAM lock audit with the bounded flock adapter
 
 - Exact NVRAM transaction-boundary run #46129272230 on `534075c653811287c9344da6ca667f561c82b7f5` passed all compile/runtime and policy steps 1–17, including the flock/unlock EINTR retry regression, then failed at repository-wide source audit step 18.

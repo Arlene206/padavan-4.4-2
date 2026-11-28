@@ -7,8 +7,28 @@
 #include <string.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
+#include <fcntl.h>
 #include <unistd.h>
 
+static unsigned int config_file_test_fsync_calls;
+static unsigned int config_file_test_fsync_eintr_remaining;
+static int config_file_test_fsync_always_eintr;
+
+static int
+config_file_test_fsync(int fd)
+{
+	++config_file_test_fsync_calls;
+	if (config_file_test_fsync_always_eintr ||
+	    config_file_test_fsync_eintr_remaining > 0U) {
+		if (config_file_test_fsync_eintr_remaining > 0U)
+			--config_file_test_fsync_eintr_remaining;
+		errno = EINTR;
+		return -1;
+	}
+	return fsync(fd);
+}
+
+#define CONFIG_FILE_SYNC_FSYNC(fd) config_file_test_fsync(fd)
 #include "openvpn_config_file.h"
 
 static void
@@ -60,7 +80,7 @@ main(void)
 	mode_t old_umask;
 	FILE *fp;
 	void (*old_signal)(int);
-	int write_errno;
+	int write_errno, directory_fd;
 
 	assert(mkdtemp(directory) != NULL);
 	assert(snprintf(config, sizeof(config), "%s/client.conf", directory) > 0);
@@ -68,6 +88,23 @@ main(void)
 	assert(snprintf(symlink_path, sizeof(symlink_path), "%s/linked.conf", directory) > 0);
 	assert(snprintf(blocked, sizeof(blocked), "%s/blocked", directory) > 0);
 	assert(snprintf(sentinel, sizeof(sentinel), "%s/blocked/sentinel", directory) > 0);
+
+	/* A signal storm must not pin a process forever in fsync(). */
+	directory_fd = open(directory, O_RDONLY | O_DIRECTORY);
+	assert(directory_fd >= 0);
+	config_file_test_fsync_eintr_remaining = 3U;
+	config_file_test_fsync_calls = 0U;
+	assert(config_file_sync_fd(directory_fd) == 0);
+	assert(config_file_test_fsync_calls == 4U);
+	config_file_test_fsync_always_eintr = 1;
+	config_file_test_fsync_calls = 0U;
+	errno = 0;
+	assert(config_file_sync_fd(directory_fd) == -1);
+	assert(errno == EINTR);
+	assert(config_file_test_fsync_calls ==
+	       CONFIG_FILE_SYNC_MAX_EINTR_RETRIES + 1U);
+	config_file_test_fsync_always_eintr = 0;
+	assert(close(directory_fd) == 0);
 
 	old_umask = umask(0000);
 	fp = fopen(config, "w");
@@ -83,7 +120,11 @@ main(void)
 	assert((staged_stat.st_mode & 0777) == 0600);
 	assert(fputs("new-config\n", fp) >= 0);
 	read_exact(config, "last-good-config\n");
+	/* The two staged-file syncs and the post-rename directory sync all retry. */
+	config_file_test_fsync_eintr_remaining = 3U;
+	config_file_test_fsync_calls = 0U;
 	assert(openvpn_config_file_publish(&fp, staged, config, 0644) == 0);
+	assert(config_file_test_fsync_calls == 6U);
 	assert(fp == NULL);
 	assert(stat(config, &after) == 0);
 	assert((after.st_mode & 0777) == 0644);

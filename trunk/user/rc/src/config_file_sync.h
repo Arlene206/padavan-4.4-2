@@ -13,17 +13,23 @@
 #endif
 
 /* Retry transient interruption without treating it as a durability success. */
+#define CONFIG_FILE_SYNC_MAX_EINTR_RETRIES 8U
+
 static inline int
 config_file_sync_fd(int fd)
 {
+	unsigned int interruptions = 0;
 	int status;
 
-	do {
+	for (;;) {
 		errno = 0;
 		status = CONFIG_FILE_SYNC_FSYNC(fd);
-	} while (status != 0 && errno == EINTR);
-
-	return status;
+		if (status == 0 || errno != EINTR)
+			return status;
+		if (interruptions >= CONFIG_FILE_SYNC_MAX_EINTR_RETRIES)
+			return status;
+		++interruptions;
+	}
 }
 
 /*
