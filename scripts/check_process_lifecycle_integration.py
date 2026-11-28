@@ -279,7 +279,8 @@ assert "configuration publication failed (status=%d)" in itunes_config
 assert itunes_config.index("if (config_status != 0)") < itunes_config.index('launch_status = eval("/usr/bin/mt-daapd", "-c", conf_new);')
 assert "mkstemp(temporary_path)" in firefly_config_header
 assert "fflush(output)" in firefly_config_header
-assert "fsync(fileno(output))" in firefly_config_header
+assert "config_file_sync_fd(fileno(output))" in firefly_config_header
+assert "fsync(fileno(output))" not in firefly_config_header
 assert "rename(temporary_path, path)" in firefly_config_header
 assert "unlink(temporary_path)" in firefly_config_header
 assert "ferror(source)" in firefly_config_header

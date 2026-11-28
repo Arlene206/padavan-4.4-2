@@ -1,3 +1,11 @@
+## 2026-11-28 — Align MiniUPnP writer and Firefly fsync source contracts
+
+- Exact SHA `0cd9b1e3ed2c46cc47c1648f8863f8cf1a7498bd` confirmed the MiniUPnP persistent-EINTR fixture now passed; its source-contract step still required the removed raw `fsync(fileno(stream))` expression. It now requires the shared bounded `config_file_sync_fd()` call before rename and rejects the raw fsync expression.
+- The process-lifecycle contract also still expected Firefly's removed raw `fsync(fileno(output))` call. It now requires `config_file_sync_fd(fileno(output))` and rejects the raw expression.
+- The MiniUPnP writer check now asserts both failure-checked writes structurally rather than comparing a brittle exact substring count. Checker-only changes; exact-head Actions remain required.
+
+---
+
 ## 2026-11-28 — Keep MiniUPnP post-failure fixture expectations consistent
 
 - Follow-up review of the new persistent-fsync-interruption fixture found that it correctly replaced the active file with a last-good sentinel before testing failure, but the remainder of the test still expected the earlier successful content. Added an explicit successful publish after resetting the injected fault, proving recovery from a failed candidate and restoring the original fixture before later validation.
