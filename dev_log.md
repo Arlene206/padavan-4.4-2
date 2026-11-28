@@ -1,3 +1,11 @@
+## 2026-11-28 13:38 CST (UTC+8) — Update scanner checker for deferred match publication
+
+- Base main SHA: `de9207aa81d8d67b86a79d30b0bd41906a303cd9`. Exact-head udhcpc #46111728564 again passed its GNU89/Werror/ASan/UBSan C policy binary, then the checker failed at the now-obsolete assertion expecting `*option_value = optionptr + OPT_DATA` inside the iterator. The implementation deliberately stores a private first match and publishes it only after all TLVs/overloaded fields validate. AI docs #46111728566 PASS; Process inventory #46111728525 PASS; NVRAM #46111728560 and storage #46111728542 were running.
+- Updated the source checker to assert `found_value/found_length` capture, post-scan output publication, and that full cursor traversal precedes the successful return. Added an explicit source contract that output pointers are cleared before rejecting a NULL packet. No checks are deleted.
+- Exact-head tests for THIS checker update are required. The previous checker-only failures do not indicate a C policy test failure, but they prevent declaring the DHCP regression green. No local compilation is claimed.
+
+---
+
 ## 2026-11-28 13:34 CST (UTC+8) — Validate the full DHCP option stream before returning a match
 
 - Base main SHA: `af3cded3c44d45c8827a5217fff2cfdbcdf71a4b`. The corrected checker anchor reached the next assertions, then #46111559507 failed because two whitespace-normalized assertions still expected spaces ("option_length, 1)") in strings where all whitespace had been removed. The GNU89/Werror/ASan/UBSan policy binary passed; AI docs #46111559510 passed.

@@ -119,8 +119,10 @@ assert "udhcp_get_option_with_length" in common_header
 option_lookup = function_body(common, "udhcp_get_option_internal(struct dhcp_packet *packet")
 assert "int include_empty" in common
 assert "include_empty || optionptr[OPT_LEN] != 0" in option_lookup
-assert "*option_value = optionptr + OPT_DATA;" in option_lookup
-assert "*option_length = optionptr[OPT_LEN];" in option_lookup
+assert "found_value = optionptr + OPT_DATA;" in option_lookup
+assert "found_length = optionptr[OPT_LEN];" in option_lookup
+assert "*option_value = found_value;" in option_lookup
+assert "*option_length = found_length;" in option_lookup
 assert "return -1;" in option_lookup
 assert "return 0;" in option_lookup
 assert "return 1;" in option_lookup
@@ -152,6 +154,11 @@ found_capture = option_parser_body.index("found_value = optionptr + OPT_DATA;")
 found_cursor_advance = option_parser_body.index("optionptr += option_size", found_capture)
 found_return = option_parser_body.rindex("return 1;")
 assert found_capture < found_cursor_advance < found_return
+assert "if (found) {" in option_lookup
+assert option_lookup.index("optionptr += option_size") < option_lookup.rindex("if (found)")
+assert option_lookup.index("*option_value = found_value;") > option_lookup.rindex("if (found)")
+assert "return -1;" in option_lookup
+assert option_lookup.index("*option_value = NULL;") < option_lookup.index("if (!packet)")
 overload_location_check = option_parser_body.index("udhcp_option_overload_location_valid")
 overload_seen_mark = option_parser_body.index("overload_seen = 1", overload_location_check)
 assert overload_location_check < overload_check < overload_seen_mark
