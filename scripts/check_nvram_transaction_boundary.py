@@ -453,8 +453,7 @@ def run() -> int:
         acquire_path = extract_function(lock_header, "nvram_transaction_lock_acquire_path")
         release_path = extract_function(lock_header, "nvram_transaction_lock_release")
         if ("NVRAM_TRANSACTION_LOCK_MAX_INTERRUPTS 8U" not in lock_header or
-            "interruptions >= NVRAM_TRANSACTION_LOCK_MAX_INTERRUPTS" not in wait_interval or
-            "++interruptions" not in wait_interval or
+            "nvram_transaction_lock_retry_interrupted(&interruptions)" not in wait_interval or
             "nanosleep(&requested, &remaining)" not in wait_interval or
             "requested = remaining" not in wait_interval or
             "errno != EINTR" not in wait_interval):
@@ -463,6 +462,7 @@ def run() -> int:
             "(void)sleep(1)" in acquire_path):
             failures.append("NVRAM lock contention must not discard interrupted sleep time")
         if ("NVRAM_TRANSACTION_LOCK_MAX_INTERRUPTS" not in retry_helper or
+            "*interruptions >= NVRAM_TRANSACTION_LOCK_MAX_INTERRUPTS" not in retry_helper or
             "++*interruptions" not in retry_helper):
             failures.append("NVRAM lock retry counter must enforce its interruption cap")
         if ("flock_fn(fd, operation, context)" not in flock_retry or
@@ -471,7 +471,7 @@ def run() -> int:
             failures.append("NVRAM flock/unlock EINTR retry must be bounded")
         if ("nvram_transaction_lock_flock_with(" not in acquire_path or
             "nvram_transaction_lock_flock_real" not in acquire_path or
-            "if (errno == EINTR)" in acquire_path):
+            "if (errno == EINTR)\n\t\t\tgoto failed;" not in acquire_path):
             failures.append("NVRAM acquisition must use the bounded flock retry helper")
         if ("nvram_transaction_lock_flock_with(" not in release_path or
             "LOCK_UN" not in release_path):

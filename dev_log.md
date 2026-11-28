@@ -1,3 +1,11 @@
+## 2026-11-28 — Align NVRAM static gate with shared EINTR counter and failure path
+
+- Base main SHA: `8466913541cfcf4c1533081704b901ddce258d6d`; result: THIS COMMIT.
+- The exact-head NVRAM run #46129176925 compiled the transaction-lock test and its runtime step (#17, lock inode/permissions/contention/crash release) completed successfully, including the new injectable flock retry cases. Its whole-repository source audit was still in progress. A review of the static gate found it still expected the older inline counter inside `nvram_transaction_lock_wait_interval()`, although the prior commit factored that logic into `nvram_transaction_lock_retry_interrupted()`; it also rejected the intentional EINTR-to-cleanup branch in acquisition. Updated the source contract to validate the shared helper and required failure cleanup rather than stale implementation details.
+- Exact-head NVRAM audit, HTTPD security, Process inventory and AI handoff for this correction SHA remain required.
+
+---
+
 ## 2026-11-28 — Bound EINTR retries for NVRAM flock and unlock operations
 
 - Base main SHA: `5401539ce7c4af2f5b22267915c93b23db3c865d`; result: THIS COMMIT (resolve the resulting SHA from live `main` after publication).
