@@ -452,7 +452,7 @@ def run() -> int:
         if ("NVRAM_TRANSACTION_LOCK_MAX_INTERRUPTS 8U" not in lock_header or
             "interruptions >= NVRAM_TRANSACTION_LOCK_MAX_INTERRUPTS" not in wait_interval or
             "++interruptions" not in wait_interval or
-        if ("nanosleep(&requested, &remaining)" not in wait_interval or
+            "nanosleep(&requested, &remaining)" not in wait_interval or
             "requested = remaining" not in wait_interval or
             "errno != EINTR" not in wait_interval):
             failures.append("NVRAM lock wait must resume the exact nanosleep remainder after EINTR")

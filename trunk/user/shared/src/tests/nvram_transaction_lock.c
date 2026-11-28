@@ -79,8 +79,8 @@ lock_wait_interrupt_budget_test(void)
 	(void)setitimer(ITIMER_REAL, &previous_timer, NULL);
 
 	return result < 0 && saved_errno == EINTR &&
-		lock_wait_signal_count >=
-			NVRAM_TRANSACTION_LOCK_MAX_INTERRUPTS + 1;
+		lock_wait_signal_count >= (sig_atomic_t)
+			(NVRAM_TRANSACTION_LOCK_MAX_INTERRUPTS + 1U);
 }
 
 /* Signals must not consume the bounded wait budget before the lock is free. */

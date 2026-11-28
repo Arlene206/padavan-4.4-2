@@ -1,3 +1,11 @@
+## 2026-11-28 — Fix bounded NVRAM test warning and static-gate syntax
+
+- Base main SHA: `3d6f0dd96f18fa236bbbf522786ae59ce0e9a4d1`; result: THIS COMMIT.
+- Exact parent SHA `ac141ff53f1d29e25f6279d762c064de123092dc` NVRAM audit #46128697949 failed its GNU89/Werror compile because the signal counter (`sig_atomic_t`) was compared with an unsigned interruption constant. The broad HTTPD/security workflow #46128697956 failed at the same shared NVRAM lock regression step; its failed-step report points to this same compile error, not an independent HTTPD defect.
+- Cast the bounded minimum to `sig_atomic_t`. Also fixed the NVRAM checker condition grouping that source inspection caught after the compile gate short-circuited the run; the checker now tests cap, increment, remainder and EINTR behavior in one valid Python condition. Exact-head NVRAM and HTTPD reruns must pass before closing the incident.
+
+---
+
 ## 2026-11-28 — Bound NVRAM lock-wait retries under persistent signals
 
 - Base main SHA: `3fb57acc623b3fd227c6d0aa3646733cbcb6dce2`; result: THIS COMMIT (resolve the resulting SHA from live `main` on the next recovery).
