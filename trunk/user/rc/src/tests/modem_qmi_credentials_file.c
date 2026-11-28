@@ -9,8 +9,37 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+/* Inject EINTR into the credential-file sync without linker wrapping. */
+static int qmi_test_fsync_interrupt_call = -1;
+static int qmi_test_fsync_call_count;
+
+static int
+qmi_test_fsync(int fd)
+{
+	qmi_test_fsync_call_count++;
+	if (qmi_test_fsync_call_count == qmi_test_fsync_interrupt_call) {
+		errno = EINTR;
+		return -1;
+	}
+	return fsync(fd);
+}
+
+#define CONFIG_FILE_SYNC_FSYNC(fd) qmi_test_fsync(fd)
 #include "../modem_qmi_credentials_file.h"
 #include "../../../uqmi/uqmi-private-credentials.h"
+
+static void
+test_credentials_fsync_retries_eintr(void)
+{
+	struct modem_qmi_credentials_file file;
+
+	qmi_test_fsync_call_count = 0;
+	qmi_test_fsync_interrupt_call = 1;
+	assert(modem_qmi_credentials_file_create(NULL, "alice", "secret", &file) == 0);
+	qmi_test_fsync_interrupt_call = -1;
+	assert(qmi_test_fsync_call_count == 2);
+	assert(modem_qmi_credentials_file_cleanup(&file) == 0);
+}
 
 static void
 test_private_qmi_credentials_round_trip_and_cleanup(void)
@@ -139,6 +168,7 @@ test_cleanup_refuses_replacement_inode(void)
 int
 main(void)
 {
+	test_credentials_fsync_retries_eintr();
 	test_private_qmi_credentials_round_trip_and_cleanup();
 	test_pin_only_and_auth_only_files();
 	test_injection_and_incomplete_pairs_are_rejected();

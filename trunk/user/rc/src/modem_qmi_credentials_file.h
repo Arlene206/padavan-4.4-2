@@ -11,6 +11,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "config_file_sync.h"
+
 #ifndef O_NOFOLLOW
 #error "modem QMI credentials require O_NOFOLLOW support"
 #endif
@@ -177,7 +179,7 @@ modem_qmi_credentials_file_create(const char *pin, const char *username,
 	file->file_identity_valid = 1;
 	if (modem_qmi_credentials_write_all(fd, contents, used) < 0)
 		goto fail;
-	if (fsync(fd) < 0)
+	if (config_file_sync_fd(fd) < 0)
 		goto fail;
 	if (close(fd) < 0) {
 		fd = -1;
