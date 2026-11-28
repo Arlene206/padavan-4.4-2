@@ -3,7 +3,7 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`.
-- Main at this write's parent: `3625933d3f1300302a06d32ce8ad497ec852e4ca`. VSFTPD run #46118727525 PASS after the native-syscall errno comparison. Its compile log still showed a discarded-const warning in `vsf_sysutil_syslog`; this commit makes the read-only cursor const and enables `-Werror` for the production `sysutil.c` runtime regression. Process inventory #46118727520 PASS, AI docs #46118727498 PASS, NVRAM #46118727500 was still running at last poll. XY-C1 #46118354306 (IAPP-header SHA a823) and #46118624411 (VSFTPD parent SHA 77b) remained in progress.
+- Main at this write's parent: `e0acf8bdbe29da9044df29981e4d8f33044412ad`. Exact-head VSFTPD, Process inventory, NVRAM boundary and AI docs Actions are running for the const-correctness/Werror change. The prior #46118727525 VSFTPD run passed the errno-portable truncate regression but revealed the const warning now fixed in e0acf. Separately, legacy detect-internet run #46114250052 failed only because its embedded contract still expected `if (stop_services(0) != 0)`; current `flash_firmware()` uses explicit UPnP/service statuses, preserves errno, aborts on stop failure and returns before the custom shutdown script. This commit aligns that stale source contract; production source is unchanged.
 - Frozen backup: `backup/pre-plugin-overhaul-2026-11-14`, recorded HEAD `72f4f157a084f8184b9597ca5bf334b8080e5807`. Its warning file forbids mutation/deletion. PR #1 remains CLOSED/unmerged; its substantive unmerged work was already compared, with no missing production/test/build change identified.
 - Startup recovery was completed once against the bootstrap, development protocol, handoff, roadmap and log indexes. Do not repeat completed audits.
 - Root `dev_log.md` remains below the documented 384 KiB target and 120-record rotation threshold. Keep 20–119 records. The roadmap is close to its 128 KiB hard limit; avoid routine expansion.
@@ -51,10 +51,10 @@ Current bounded production fix: VSFTPD's `vsf_sysutil_ftruncate()` used to call 
 
 ## Exact first action for the next GPT
 
-1. Poll the exact-head VSFTPD workflow for this const-correctness/Werror change. Require the runtime test linking production `sysutil.c` to compile and run with `-Werror`, with no discarded-const warning.
-2. Poll XY-C1 run #46118624411 and #46118354306 (both are still older ancestors of this current source) and check whether a new exact-head run was triggered by the changed VSFTPD source; require Build, TRX verification and artifact upload for the current product source before claiming L3.
-3. Confirm NVRAM #46118727500 and other exact-head checks as they finish; Process #46118727520 and AI docs #46118727498 already PASS on parent 362.
-4. Continue independent userland stability/security work while Actions are pending; do not repeat completed watchdog, HTTPD, IPTV, IAPP or Process inventory audits.
+1. Poll exact-head e0acf VSFTPD #46118906872, Process #46118906883, NVRAM #46118906849 and AI docs #46118906844. Require the new `-Werror` production `sysutil.c` compile/runtime test to pass without the const warning.
+2. Poll the IAPP-header XY-C1 run #46118354306 and VSFTPD parent run #46118624411. Check whether the current e0acf head triggers a fresh full firmware run; do not claim L3 until current production inputs pass Build, TRX and artifact upload.
+3. Run the corrected detect-internet stability contract on this source-checker commit; the former #46114250052 failure was a stale literal assertion, not a firmware failure.
+4. Continue another independent userland stability/security slice while long builds are pending; do not repeat completed watchdog, HTTPD, IPTV, IAPP or Process inventory audits.
 
 ## Verification boundary
 

@@ -1,3 +1,11 @@
+## 2026-11-28 — Align firmware-update failure contract with checked service stop
+
+- Legacy detect-internet stability run #46114250052 failed at an embedded source assertion requiring the obsolete literal `if (stop_services(0) != 0)`. Current `flash_firmware()` captures `stop_upnp()` and `stop_services(0)` results, preserves the first errno, aborts with `return -1` if either checked stop fails, and only then invokes the custom shutdown script.
+- Updated the workflow's source contract to assert the actual fail-closed ordering: UPnP stop, service stop, errno capture, combined abort/return, then custom shutdown. This is a CI contract correction only; no product source changed. Exact-head rerun is required to discover any later stale assertions.
+- Parent main SHA: `e0acf8bdbe29da9044df29981e4d8f33044412ad`; its four Actions (VSFTPD, Process inventory, NVRAM, AI docs) were in progress at this write. No local build or hardware claim.
+
+---
+
 ## 2026-11-28 — Make VSFTPD sysutil runtime regression warning-clean
 
 - Exact VSFTPD run #46118727525 on `3625933d3f1300302a06d32ce8ad497ec852e4ca` passed after the truncate regression compared wrapper errno with the native `ftruncate(2)` errno (this runner returned `EINVAL` for a read-only-file descriptor; invalid fd separately verified `EBADF`). Process inventory #46118727520 and AI docs #46118727498 also passed; NVRAM #46118727500 was still running at last poll.
