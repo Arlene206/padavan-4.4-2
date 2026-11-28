@@ -1,3 +1,11 @@
+## 2026-11-28 — Bound OpenVPN post-mode configuration fsync
+
+- OpenVPN regression #46130569411 on exact parent SHA `02dfbf9198cd7b5de10c4c902501249683ef26ef` failed because the injected fsync counter observed five calls, not the expected six. Source review found the post-`fchmod` staged-file sync still used a raw unbounded EINTR loop; only the first and parent-directory syncs used the shared bounded helper.
+- Routed the post-mode file sync through `config_file_sync_fd()` as well. Added a fault-injection case that lets the first file sync succeed, then supplies persistent EINTR at the second file sync; it must fail after nine attempts, remove the candidate, and preserve the previous configuration. The OpenVPN source contract now explicitly rejects the raw retry loop and requires the new regression.
+- Exact-head OpenVPN regression and AI handoff Actions are required on this fix. No local host run, firmware build or hardware validation is claimed.
+
+---
+
 ## 2026-11-28 — Align DHCPv6 fsync regression with shared directory barrier
 
 - Exact-main DHCPv6 publication #46130700588 and WAN DHCP callback #46130700584 on `5a8a417a975547d6537e7e566ee97e36c2c910f1` failed at the same host-test assertion: it expected three injected fsync calls after configuring two transient EINTR returns.

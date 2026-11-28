@@ -13,12 +13,15 @@
 static unsigned int config_file_test_fsync_calls;
 static unsigned int config_file_test_fsync_eintr_remaining;
 static int config_file_test_fsync_always_eintr;
+static unsigned int config_file_test_fsync_fail_from_call;
 
 static int
 config_file_test_fsync(int fd)
 {
 	++config_file_test_fsync_calls;
 	if (config_file_test_fsync_always_eintr ||
+	    (config_file_test_fsync_fail_from_call > 0U &&
+	     config_file_test_fsync_calls >= config_file_test_fsync_fail_from_call) ||
 	    config_file_test_fsync_eintr_remaining > 0U) {
 		if (config_file_test_fsync_eintr_remaining > 0U)
 			--config_file_test_fsync_eintr_remaining;
@@ -130,6 +133,22 @@ main(void)
 	assert((after.st_mode & 0777) == 0644);
 	assert(after.st_nlink == 1);
 	assert(before.st_ino != after.st_ino);
+	read_exact(config, "new-config\n");
+
+	/* The post-fchmod data sync must also stop after bounded persistent EINTR. */
+	fp = begin_config(config, staged, sizeof(staged));
+	assert(fp != NULL);
+	assert(fputs("must-not-publish-after-mode-sync\n", fp) >= 0);
+	config_file_test_fsync_calls = 0U;
+	config_file_test_fsync_fail_from_call = 2U;
+	errno = 0;
+	assert(openvpn_config_file_publish(&fp, staged, config, 0644) == -1);
+	assert(errno == EINTR);
+	assert(config_file_test_fsync_calls ==
+	       CONFIG_FILE_SYNC_MAX_EINTR_RETRIES + 2U);
+	config_file_test_fsync_fail_from_call = 0U;
+	assert(fp == NULL);
+	assert(count_staged_files(directory, "client.conf.tmp.") == 0);
 	read_exact(config, "new-config\n");
 
 	assert(config_file_sync_parent(config) == 0);

@@ -303,6 +303,9 @@ assert "errno != EINTR" in sync_fd
 assert "CONFIG_FILE_SYNC_FSYNC(fd)" in sync_fd
 assert "config_file_test_fsync_always_eintr" in config_test
 assert "CONFIG_FILE_SYNC_MAX_EINTR_RETRIES + 1U" in config_test
+assert "config_file_test_fsync_fail_from_call" in config_test
+assert "CONFIG_FILE_SYNC_MAX_EINTR_RETRIES + 2U" in config_test
+assert "do {\n\t\tsync_result = fsync(fd);" not in config_helper
 for (label, source_test) in (("credential", test), ("config", config_test)):
     assert "config_file_sync_parent(" in source_test, label
     assert "linked-parent" in source_test, label
