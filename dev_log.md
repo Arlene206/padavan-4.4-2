@@ -1,3 +1,12 @@
+## 2026-11-28 — Correct AliyunDrive PID-starttime source-check matcher
+
+- Exact AliyunDrive workflow `46135763600` on `19d51bab853ed2b904e44333e3f6ce0bd72059a4` passed shell syntax, bundled MIPSel QEMU compatibility, lifecycle shell regression and early lock/boot integration, then failed the Python source contract. The source parser correctly uses `[ "$ald_stat_field_count" -eq 20 ]`; the checker mistakenly searched for `ald_stat_field_count -eq 20` without the closing quote.
+- Updated only the static checker token to include the quote. No production or test behavior changed. The corrected checker has not yet run on its own exact SHA.
+- Same-SHA Process inventory `46135763586` and AI docs `46135763578` passed. XY-C1 `46135763583` remained in progress at last poll; no L3/L4 claim.
+- Base: `19d51bab853ed2b904e44333e3f6ce0bd72059a4`; result: THIS COMMIT.
+
+---
+
 ## 2026-11-28 — Bind AliyunDrive stop signals to process starttime
 
 - The launcher validated each candidate PID's UID and executable inode but stored only the numeric PID. A same-UID replacement running the same binary could reuse that PID between complete inventories and pass revalidation.

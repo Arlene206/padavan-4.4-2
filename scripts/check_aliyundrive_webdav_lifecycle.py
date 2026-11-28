@@ -264,7 +264,7 @@ require('pidof "$NAME"' in process_state and
         "pidof candidates must match UID, executable inode and stable /proc starttime, failing closed on mismatch/error")
 require('ald_stat_line=$(cat "/proc/$ald_stat_pid/stat" 2>/dev/null) || return 1' in pid_starttime and
         'ald_stat_fields=${ald_stat_line##*) }' in pid_starttime and
-        'ald_stat_field_count -eq 20' in pid_starttime and
+        'ald_stat_field_count" -eq 20' in pid_starttime and
         'ald_pid_starttime=$ald_stat_field' in pid_starttime,
         "PID generation helper must safely parse field 22 despite spaces/parentheses in comm")
 
