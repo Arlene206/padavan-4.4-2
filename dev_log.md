@@ -1,3 +1,11 @@
+## 2026-11-28 15:02 CST (UTC+8) — Make XY-C1 detector edits build-triggering
+
+- Base main SHA: `a9045ebfad153b0ea382f0ba1262b43760a27b5e`. Exact-head Process #46114471884 and AI handoff #46114471878 PASS. XY-C1 descendant #46114392882 passed the firmware-update source contract and detector step but skipped Build/TRX/artifact because only host checker/docs paths changed.
+- `check_xy_c1_firmware_inputs.py` previously blanket-classified `scripts/check_*` as non-firmware, including its own detection logic; a broken detector could therefore self-suppress the target build. The firmware-update source contract checker had the same host-only classification despite governing a firmware flash source path.
+- Added an explicit build-trigger set for those two checkers and regression tests verifying both direct classification and complete Git-diff build decision. Other host-only checkers remain build-skipping. Both files are covered by XY-C1 push path filters. Exact-head XY-C1 Build/TRX/artifact is now required.
+
+---
+
 ## 2026-11-28 14:49 CST (UTC+8) — Correct stale optional-app firmware stop contract
 
 - Base main SHA: `66bc572325c033bf7850e9aaa7dad47323c582cb`. Process lifecycle run #46114323557 failed at `check_optional_app_start_status.py`: its DNS Forwarder shutdown registration check still expected the removed direct `if (stop_services(0) != 0)` source text and old diagnostic.

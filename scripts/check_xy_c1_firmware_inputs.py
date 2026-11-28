@@ -11,6 +11,12 @@ from typing import Callable, Optional
 ROOT = Path(__file__).resolve().parents[1]
 ZERO_SHA = "0" * 40
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
+FIRMWARE_VALIDATION_CHECKERS = {
+    # Changes to the detector or to the firmware-update source contract must
+    # exercise the actual MIPS build path, not only host-side assertions.
+    "scripts/check_xy_c1_firmware_inputs.py",
+    "scripts/check_firmware_update_notification.py",
+}
 DOCUMENTATION_FILES = {
     "AI_BOOTSTRAP_PROMPT.md",
     "AI_DEVELOPMENT_PROTOCOL.md",
@@ -26,6 +32,10 @@ def is_non_firmware_input(path: str) -> bool:
         return False
     # Changes to the firmware workflow itself require validating its build path.
     if path == ".github/workflows/xy-c1-firmware-validation.yml":
+        return False
+    # The build gate and firmware-update contract directly govern whether
+    # firmware validation is trustworthy; changes to either require a build.
+    if path in FIRMWARE_VALIDATION_CHECKERS:
         return False
     parts = PurePosixPath(path).parts
     return (

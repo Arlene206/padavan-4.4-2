@@ -60,9 +60,9 @@ class FirmwareInputPathTests(unittest.TestCase):
         self.assertEqual(workflow.count(test_path), 1)
         self.assertTrue(is_non_firmware_input("scripts/tests/test_xy_c1_firmware_inputs.py"))
 
-    def test_documentation_workflow_checker_and_test_paths_skip_build(self):
+    def test_host_only_checker_and_test_paths_skip_build(self):
         paths = [
-            "scripts/check_xy_c1_firmware_inputs.py",
+            "scripts/check_forwarding_control_status.py",
             "scripts/tests/test_xy_c1_firmware_inputs.py",
             "docs/dev-log/INDEX.md",
             "SESSION_HANDOFF.md",
@@ -267,6 +267,37 @@ class FirmwareInputPathTests(unittest.TestCase):
         ):
             with self.subTest(path=path):
                 self.assertIn('      - "' + path + '"', workflow)
+
+    def test_firmware_validation_checker_changes_require_a_build(self):
+        for path in (
+            "scripts/check_xy_c1_firmware_inputs.py",
+            "scripts/check_firmware_update_notification.py",
+        ):
+            with self.subTest(path=path):
+                self.assertFalse(is_non_firmware_input(path))
+
+    def test_detector_checker_change_forces_build_from_full_git_diff(self):
+        def fake_git(args):
+            if args[:2] == ["rev-parse", "HEAD"]:
+                return result(args, stdout=AFTER + "\n")
+            if args[0] == "fetch":
+                return result(args)
+            if args[0] == "diff":
+                return result(args, stdout=(
+                    "scripts/check_xy_c1_firmware_inputs.py\\0"
+                    "scripts/tests/test_xy_c1_firmware_inputs.py\\0"
+                ))
+            self.fail("unexpected git args: " + repr(args))
+
+        changed, paths, reason = decide_firmware_build(
+            "push", BEFORE, AFTER, fake_git
+        )
+        self.assertTrue(changed)
+        self.assertEqual(paths, [
+            "scripts/check_xy_c1_firmware_inputs.py",
+            "scripts/tests/test_xy_c1_firmware_inputs.py",
+        ])
+        self.assertIn("firmware production inputs changed", reason)
 
     def test_non_push_events_fail_safe_to_build(self):
         for event in ("workflow_dispatch", "pull_request", ""):

@@ -1,8 +1,8 @@
-## 2026-11-28 — Align optional-app integration checker with firmware UPnP gate (THIS COMMIT)
+## 2026-11-28 — Make XY-C1 build-gate changes trigger a production build (THIS COMMIT)
 
-- Base main SHA: `66bc572325c033bf7850e9aaa7dad47323c582cb`. The first firmware source checker is now corrected to use a literal multiline guard. The Process lifecycle Actions exposed a second stale contract in `check_optional_app_start_status.py`, which still required the removed direct `if (stop_services(0) != 0)` check and old log string.
-- THIS COMMIT updates that caller-level checker to require the explicit `stop_upnp()` plus independent `stop_services(0)` attempt, first-error preservation and abort before persistence/MTD. No production source changed.
-- Parent PID 1 notification run #46114249923 PASS. XY-C1 on production SHA `4bc110b517f8f1f49e5b0d6f64ea613a633577b0` failed early at the now-corrected first source checker, before firmware build. Process regression exposed the stale optional-app assertion; exact-head reruns required.
+- Base main SHA: `a9045ebfad153b0ea382f0ba1262b43760a27b5e`. Exact-main Process fail-closed #46114471884 and AI handoff #46114471878 both PASS. The descendant XY-C1 run #46114392882 passed the firmware source contract and detector step, but correctly skipped Build/TRX/artifact because all changed paths were host checkers/docs.
+- Safety gap: `check_xy_c1_firmware_inputs.py` classified every `scripts/check_*` path as host-only, including itself. A faulty edit to the detector could therefore make the gate skip the production build while only running its own host regression. The firmware-update source contract checker also directly gates a firmware flash change but was classified as host-only.
+- THIS COMMIT makes changes to the detector and firmware-update contract checker build-triggering inputs, with unit tests proving both direct classification and full-diff decision behavior. Both are already covered by XY-C1 push path filters. Exact-head XY-C1 must now execute Build, TRX and artifact upload.
 
 
 ---
@@ -12,6 +12,7 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; all development and validation are on `main` only.
+- Live main before this XY-C1 detector integrity fix: `a9045ebfad153b0ea382f0ba1262b43760a27b5e`. Exact-main Process #46114471884 and AI docs #46114471878 PASS. XY-C1 #46114392882 passed the firmware-update contract and input detector, but Build/TRX/artifact were SKIPPED because the push contained only host checker/docs paths; an older production-source SHA failed before the Build at a now-corrected checker assertion.
 - Live main before this optional-app checker correction: `66bc572325c033bf7850e9aaa7dad47323c582cb`, which contains the production MiniUPnP flash-preparation change from `4bc110b517f8f1f49e5b0d6f64ea613a633577b0` plus checker corrections. Parent PID 1 notification #46114249923 PASS; XY-C1 #46114250159 failed early at the now-corrected source contract before Build; Process run #46114323557 exposed the stale `check_optional_app_start_status.py` assertion. This commit updates that second checker only; no production source changed.
 - Frozen backup remains `backup/pre-plugin-overhaul-2026-11-14`; do not mutate. Its warning file was verified during startup restore and handoff-recorded frozen HEAD is `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 remains CLOSED/unmerged.
 - Frozen backup remains `backup/pre-plugin-overhaul-2026-11-14` (handoff-recorded HEAD `72f4f157a084f8184b9597ca5bf334b8080e5807`); its warning file explicitly forbids mutation. PR #1 remains CLOSED/unmerged with no identified missing change.
@@ -104,16 +105,16 @@ For product-source SHA `7daa20cd2f1bd7abca4499fb9f9a6e05ce5d3d00`:
 
 ## Active task
 
-Production fix parent SHA `4bc110b517f8f1f49e5b0d6f64ea613a633577b0`: `flash_firmware()` now stops MiniUPnPd explicitly before storage persistence/MTD write, attempts the independent generic service stop even if UPnP stop fails, retains first errno and aborts before flash on either failure.
+The production MiniUPnPd firmware-preparation fix is in `4bc110b517f8f1f49e5b0d6f64ea613a633577b0`: `flash_firmware()` explicitly stops MiniUPnPd before storage persistence/MTD write, attempts the independent generic service stop, retains the first errno and aborts before flash if either required stop fails. Two dependent host checkers were corrected on descendants; exact-main Process #46114471884 and AI docs #46114471878 now PASS.
 
-The follow-up checker changes now cover two stale assertions exposed by Actions. `check_firmware_update_notification.py` uses a literal multiline assertion for the one-statement service error guard. `check_optional_app_start_status.py` now expects the new UPnP + generic stop aggregation instead of the removed old condition. Parent PID 1 notification #46114249923 PASS; XY-C1 #46114250159 failed before Build at the now-corrected source checker; Process #46114323557 failed later on the stale optional-app assertion. Exact-head reruns are required. No hardware flash/L4 claim.
+A validation-gate weakness was found: the XY-C1 input detector classified its own `scripts/check_*` path as host-only. This meant a change that broke the detector could skip firmware build while only running host tests. It also treated the firmware-update source contract as host-only. THIS COMMIT treats these two firmware-validation checkers as build-triggering inputs and adds detector unit coverage. Prior descendant XY #46114392882 passed the source checker but skipped Build/TRX/artifact because only host paths changed; the current detector change should force the full build.
 
 ## Exact first action for the next GPT
 
-1. Poll current-main exact-head Process inventory/lifecycle, PID 1 notification and XY-C1 Actions. Verify both `check_firmware_update_notification.py` and `check_optional_app_start_status.py` pass and that the RC notification-policy host regression passes.
-2. Confirm the XY-C1 detector, Build, TRX verification and artifact upload all PASS on the production-source SHA `4bc110b517f8f1f49e5b0d6f64ea613a633577b0` or its unchanged production-source descendant before claiming L3.
-3. Inspect logs for any other exact-SHA failure and fix its cause. While builds are pending, work on another independent userland stability issue.
-4. Physical router firmware flashing and L4 remain unverified.
+1. Fetch live main and exact-head XY-C1 run triggered by THIS detector change. Verify unit tests pass, detector reports firmware inputs changed, and Build XY-C1, TRX verification and artifact upload all PASS.
+2. Confirm exact-head Process inventory/lifecycle and AI docs workflows remain PASS; they passed on parent `a9045ebfad153b0ea382f0ba1262b43760a27b5e`.
+3. Only after same-SHA Build/TRX/artifact success claim L3 for the MiniUPnPd firmware-preparation production source `4bc110b...`; hardware flashing/L4 remains NOT VERIFIED.
+4. Continue the stability ledger with an independent source fix while Actions are pending; preserve the frozen backup branch.
 
 # Cross-session execution mandate
 
