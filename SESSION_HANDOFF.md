@@ -1,3 +1,10 @@
+## 2026-11-27 — Remove final stale udhcpc checker retry marker
+
+- Exact SHA c9b0d86bbd9444e82498df58cb68f9898d513f6c: AI docs #46095982801 PASS; udhcpc policy sanitizer test PASS, but source checker failed at line 274 because a second lease-order assertion still used the removed `retry_continue` variable. The earlier fix updated the acquisition branch's assertions but missed this subsequent successful-ACK ordering tuple.
+- THIS checker-only commit changes the final stale reference to the already-defined `final_continue`. No runtime code changed. Exact-head udhcpc/XY-C1 checks required.
+
+---
+
 ## 2026-11-27 — Fix udhcpc checker stale retry_continue reference
 
 - Exact SHA 6a89890e57e3be78d921a8fbd703ce245cf70790: udhcpc policy binary passed GNU89/Werror/ASan/UBSan; integration checker then raised NameError because a previous ordering refactor renamed the cleanup branch's terminating marker to `final_continue` but left two downstream assertions using the removed `retry_continue` variable.

@@ -271,7 +271,7 @@ server_address_commit = ack.index("server_addr = udhcpc_server_addr_after_ack(",
 rebind_deadline_commit = ack.index("rebind_timeout = timeout / 8;", server_address_commit)
 requested_ip_commit = ack.index("requested_ip = packet.yiaddr;", rebind_deadline_commit)
 bound_transition = ack.index("state = BOUND;", requested_ip_commit)
-assert (retry_continue < lease_script_plan < lease_expiry_gate <
+assert (final_continue < lease_script_plan < lease_expiry_gate <
         lease_deconfig < lease_deconfig_retry < lease_deconfig_continue <
         server_address_commit < rebind_deadline_commit <
         requested_ip_commit < bound_transition)

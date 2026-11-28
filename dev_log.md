@@ -1,3 +1,9 @@
+## 2026-11-27 — Remove final stale udhcpc checker retry marker
+
+- Follow-up to the c9b0d86... checker correction: exact-head run still exposed one last `retry_continue` reference in the later lease-plan ordering assertion at line 274. Replaced with `final_continue`; runtime code unchanged.
+
+---
+
 ## 2026-11-27 — Fix udhcpc checker stale retry_continue reference
 
 - The exact 6a89890e57e3be78d921a8fbd703ce245cf70790 udhcpc policy binary passed; its integration checker failed with NameError because `retry_continue` was removed by the prior contract refactor but still referenced by three assertion lines. Replaced those references with the already-defined `final_continue`.
