@@ -496,7 +496,9 @@ jobs:
           assert "Could not truncate file." in truncate_failure
           assert "goto port_pasv_cleanup_out;" in truncate_failure
           assert "vsf_sysutil_ftruncate(read_only_fd)" in vsftpd_truncate_test
-          assert "errno != EBADF" in vsftpd_truncate_test
+          assert "errno != expected_errno" in vsftpd_truncate_test
+          assert "vsf_sysutil_ftruncate(-1)" in vsftpd_truncate_test
+          assert "expected_status = ftruncate(read_only_fd, 0);" in vsftpd_truncate_test
           assert "process did not continue after truncate failure" in vsftpd_truncate_test
           assert upload.index("ftp_rest_offset_is_within_file(") < upload.index("vsf_sysutil_lseek_to(new_file_fd, offset)")
           assert "Restart position exceeds existing file size." in upload

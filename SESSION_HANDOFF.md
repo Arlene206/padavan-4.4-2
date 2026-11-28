@@ -3,7 +3,7 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`.
-- Main at this write's parent: `a82345cece5c2d68889c6bd10e62d0ed56577e7d`. Exact IAPP host/optional-branch regression #46118354302 PASS after the byte-order/default-macro guards. Full XY-C1 #46118354306 and NVRAM boundary #46118354305 were still running at handoff; neither is claimed PASS here.
+- Main at this write's parent: `77b18fedaf56b275fb1efd1161592bb8f2e6c2ef`. VSFTPD run #46118624438 compiled and ran every pre-existing regression, and successfully compiled the new test against the production `sysutil.c`; the new test then failed because this runner's read-only-file `ftruncate(2)` returned `EINVAL`, not the assumed `EBADF`. The wrapper correctly returned the syscall failure. This correction compares against the native syscall errno and separately verifies `EBADF` with fd -1. AI docs #46118624429 PASS; Process #46118624421, NVRAM #46118624469 and XY-C1 #46118624411 were still running.
 - Frozen backup: `backup/pre-plugin-overhaul-2026-11-14`, recorded HEAD `72f4f157a084f8184b9597ca5bf334b8080e5807`. Its warning file forbids mutation/deletion. PR #1 remains CLOSED/unmerged; its substantive unmerged work was already compared, with no missing production/test/build change identified.
 - Startup recovery was completed once against the bootstrap, development protocol, handoff, roadmap and log indexes. Do not repeat completed audits.
 - Root `dev_log.md` remains below the documented 384 KiB target and 120-record rotation threshold. Keep 20–119 records. The roadmap is close to its 128 KiB hard limit; avoid routine expansion.
@@ -11,12 +11,11 @@
 
 ## Active task
 
-Current bounded production fix: VSFTPD's `vsf_sysutil_ftruncate()` treated a filesystem failure as an internal fatal error (`die()`), terminating the FTP session process rather than reporting an upload failure and running the normal file/descriptor cleanup path. The upload handler now checks the truncate result, sends `FTP_UPLOADFAIL`, and branches through `port_pasv_cleanup_out`. The sysutil API now returns the original `ftruncate(2)` status/errno.
+Current bounded production fix: VSFTPD's `vsf_sysutil_ftruncate()` used to call `die()` on a filesystem error, terminating the FTP session before its normal upload failure response/cleanup. It now returns the original `ftruncate(2)` status, and STOR checks that result, sends `FTP_UPLOADFAIL`, and branches through `port_pasv_cleanup_out`.
 
-- Added a runtime regression linked against the actual `sysutil.c` implementation: successful truncation reaches zero length; a read-only descriptor returns `-1/EBADF` without terminating the test process; the process continues to use its writable descriptor.
-- Extended the VSFTPD Actions path filters, GNU89 host test job and source contracts to cover the wrapper signature, returned syscall result, FTP failure response and cleanup ordering.
-- Parent `a82345cece5c2d68889c6bd10e62d0ed56577e7d` had exact IAPP host/optional MIPS branch run #46118354302 PASS. Full XY-C1 #46118354306 and NVRAM boundary #46118354305 were IN_PROGRESS at the last check. This VSFTPD production-source change requires fresh exact-head VSFTPD and XY-C1 validation; older XY-C1 L3 #46116630792 applies only to product SHA `58700dc70b54d931aabdb6701f0ec88c14b9d1b4`, not later production headers/source.
-- No local checkout or target build is available; no local compile/test or hardware L4 result is claimed.
+- The runtime test links the actual `sysutil.c` implementation. First exact-head run #46118624438 passed all pre-existing FTP/configuration policy tests and compiled the new test, but its read-only-file errno assertion was too specific: this runner returned `EINVAL` where the test assumed `EBADF`. The wrapper returned the underlying error as intended. The follow-up compares wrapper errno with the native `ftruncate(2)` errno and separately checks deterministic `EBADF` using fd -1.
+- AI handoff #46118624429 PASS. Process inventory #46118624421, NVRAM boundary #46118624469 and XY-C1 #46118624411 were still running at the last poll. Fresh exact-head VSFTPD validation is required after this test correction.
+- Older XY-C1 L3 #46116630792 applies only to product SHA `58700dc70b54d931aabdb6701f0ec88c14b9d1b4`; later IAPP headers and current VSFTPD source require a fresh exact-head build. No local compile or hardware L4 result is claimed.
 
 ## Watchdog scheduled-action NVRAM snapshot baseline
 
@@ -52,10 +51,10 @@ Current bounded production fix: VSFTPD's `vsf_sysutil_ftruncate()` treated a fil
 
 ## Exact first action for the next GPT
 
-1. Inspect the exact-head VSFTPD workflow for this commit. Require the linked runtime `sysutil_ftruncate.c` test and embedded source contract to pass; on failure, inspect job logs and fix the underlying issue without weakening assertions.
-2. Check the exact-head XY-C1 Build, TRX verification and artifact upload. The `a82345...` IAPP macro fix was compiled by the optional target job, but full firmware #46118354306 was still running before this VSFTPD source change; require a new complete L3 result for this commit.
-3. Confirm the exact-head IAPP, Process and NVRAM workflow outcomes. Parent IAPP #46118354302 passed; parent XY-C1 #46118354306 and NVRAM #46118354305 were pending and do not certify this newer source SHA.
-4. Then resume the next concrete stability/security issue. Keep other independent source work moving while Actions are pending; do not repeat completed watchdog, HTTPD, IPTV port, IAPP and process-inventory audits.
+1. Inspect the exact-head VSFTPD workflow after this errno-portable test correction. Require the runtime test linked to production `sysutil.c` and all embedded source contracts to pass; inspect logs and fix the real cause if not.
+2. Check exact-head XY-C1 Build, TRX verification and artifact upload; the prior full firmware run #46118624411 was still running when the first VSFTPD test attempt failed. Older L3 evidence on 58700 does not cover this source.
+3. Confirm exact-head Process and NVRAM workflow outcomes as they finish; parent #46118624421 and #46118624469 were pending, while AI docs #46118624429 already passed.
+4. Continue the next concrete userland stability/security slice while Actions are pending; do not repeat completed watchdog, HTTPD, IPTV, IAPP or process-inventory audits.
 
 ## Verification boundary
 

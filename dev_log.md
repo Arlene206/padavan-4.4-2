@@ -1,3 +1,11 @@
+## 2026-11-28 — Make the VSFTPD truncate regression errno-portable
+
+- Exact VSFTPD run #46118624438 on `77b18fedaf56b275fb1efd1161592bb8f2e6c2ef` ran all prior host regressions successfully and compiled the new test against actual `sysutil.c`. The new read-only descriptor assertion expected `EBADF`, while this host filesystem returned `EINVAL`; the production wrapper correctly propagated that errno. This was a test assumption, not a production failure.
+- Updated the regression to first record the native `ftruncate(2)` failure and require the wrapper to preserve that exact errno; an invalid fd (-1) independently verifies `EBADF`. The runtime test still proves the process continues after failure.
+- Added source-contract checks for both scenarios. Exact-head VSFTPD/Process/NVRAM/XY-C1 reruns required; AI docs #46118624429 already PASS on the previous SHA.
+
+---
+
 ## 2026-11-28 — Return VSFTPD truncate errors through upload cleanup
 
 - Parent main SHA: `a82345cece5c2d68889c6bd10e62d0ed56577e7d`. In `sysutil.c`, `vsf_sysutil_ftruncate()` called `die()` on a normal filesystem error, killing the FTP session process before the upload handler could emit a protocol failure or execute its cleanup label.
