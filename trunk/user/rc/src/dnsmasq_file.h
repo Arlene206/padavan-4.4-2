@@ -123,7 +123,7 @@ dnsmasq_file_open(char *path)
 static inline int
 dnsmasq_file_sync_directory(const char *directory)
 {
-	int fd, flags = O_RDONLY, saved_errno;
+	int fd, flags = O_RDONLY, saved_errno, sync_status;
 
 	if (!directory || !directory[0]) {
 		errno = EINVAL;
@@ -138,7 +138,11 @@ dnsmasq_file_sync_directory(const char *directory)
 	fd = open(directory, flags);
 	if (fd < 0)
 		return -1;
-	if (fsync(fd) != 0) {
+	do {
+		errno = 0;
+		sync_status = fsync(fd);
+	} while (sync_status != 0 && errno == EINTR);
+	if (sync_status != 0) {
 		saved_errno = errno ? errno : EIO;
 		close(fd);
 		errno = saved_errno;
@@ -188,6 +192,7 @@ dnsmasq_file_publish_internal(FILE *fp, char *path,
 {
 	int failed = 0;
 	int saved_errno = 0;
+	int sync_status;
 
 	if (rename_completed)
 		*rename_completed = 0;
@@ -215,9 +220,15 @@ dnsmasq_file_publish_internal(FILE *fp, char *path,
 		saved_errno = errno ? errno : EIO;
 	}
 	/* Flush data and the selected mode before the atomic name replacement. */
-	if (!failed && fsync(fileno(fp)) != 0) {
-		failed = 1;
-		saved_errno = errno ? errno : EIO;
+	if (!failed) {
+		do {
+			errno = 0;
+			sync_status = fsync(fileno(fp));
+		} while (sync_status != 0 && errno == EINTR);
+		if (sync_status != 0) {
+			failed = 1;
+			saved_errno = errno ? errno : EIO;
+		}
 	}
 	if (fclose(fp) != 0) {
 		if (!saved_errno)

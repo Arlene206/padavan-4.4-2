@@ -7,6 +7,23 @@
 #include <unistd.h>
 #include "dnsmasq_file.h"
 
+/* Inject one EINTR into file and directory durability barriers. */
+static int fsync_interrupt_call = -1;
+static int fsync_call_count;
+
+int __real_fsync(int fd);
+
+int
+__wrap_fsync(int fd)
+{
+	fsync_call_count++;
+	if (fsync_call_count == fsync_interrupt_call) {
+		errno = EINTR;
+		return -1;
+	}
+	return __real_fsync(fd);
+}
+
 static int discard_mock_result;
 static int discard_mock_error;
 static int discard_mock_calls;
@@ -418,7 +435,11 @@ test_dnsmasq_file_directory_sync_helpers(const char *directory)
 	char missing_child[320];
 	FILE *fp;
 
+	fsync_call_count = 0;
+	fsync_interrupt_call = 1;
 	assert(dnsmasq_file_sync_directory(directory) == 0);
+	assert(fsync_call_count == 2);
+	fsync_interrupt_call = -1;
 	assert(dnsmasq_file_sync_parent(directory) == 0);
 
 	assert(snprintf(regular, sizeof(regular), "%s/sync-file", directory) > 0);
@@ -704,7 +725,11 @@ main(void)
 	assert(stat(staged, &st) == 0);
 	assert((st.st_mode & 0777) == 0600);
 	assert(fputs("server=/example.test/192.0.2.53\n", fp) >= 0);
+	fsync_call_count = 0;
+	fsync_interrupt_call = 1;
 	assert(dnsmasq_file_publish(fp, template, destination, 0644) == 0);
+	assert(fsync_call_count == 4);
+	fsync_interrupt_call = -1;
 	assert(template[0] == '\0');
 	assert(lstat(destination, &st) == 0 && S_ISREG(st.st_mode));
 	assert(st.st_uid == geteuid() && st.st_nlink == 1);
