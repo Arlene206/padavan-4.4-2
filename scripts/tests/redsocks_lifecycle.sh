@@ -339,6 +339,47 @@ rm -f "$REDSOCKS_CONF"
 redsocks_config_paths_validate || fail "real config directory with absent target was rejected"
 echo "Redsocks config directory and target symlinks fail closed before process changes: PASS"
 
+# A predictable staging-name collision must fail before stopping a healthy daemon.
+STAGING_TARGET="$TEST_TMP/staging-target"
+STAGING_LINK="$REDSOCKS_DIR/.${BINARY_NAME}.conf.$"
+printf 'staging target must survive\n' > "$STAGING_TARGET"
+ln -s "$STAGING_TARGET" "$STAGING_LINK"
+reset running
+ARG2=192.0.2.10
+ARG3=1080
+if func_start; then fail "pre-existing staging symlink was accepted"; else status=$?; fi
+[[ "$status" == 1 ]] || fail "staging symlink returned status $status"
+[[ "$(cat "$TEST_STATE")" == running ]] || fail "staging symlink stopped the daemon"
+[[ ! -s "$TEST_SIGNALS" && ! -s "$TEST_START_LOG" ]] || fail "staging symlink signalled or launched a daemon"
+[[ "$(cat "$STAGING_TARGET")" == "staging target must survive" ]] || fail "staging symlink target was overwritten"
+rm -f "$STAGING_LINK"
+echo "Redsocks exclusive staging reservation rejects symlinks before process changes: PASS"
+
+# Inject a destination symlink at publication time. Exclusive hard-link creation
+# must fail without following the link or modifying its referent.
+ln() {
+  if [[ "${TEST_CONFIG_PUBLISH_RACE:-0}" == 1 && "$#" == 2 && "$2" == "$REDSOCKS_CONF" ]]; then
+    TEST_CONFIG_PUBLISH_RACE=0
+    command ln -s "$TEST_CONFIG_RACE_TARGET" "$REDSOCKS_CONF" || return $?
+  fi
+  command ln "$@"
+}
+TEST_CONFIG_RACE_TARGET="$TEST_TMP/publish-race-target"
+printf 'publication target must survive\n' > "$TEST_CONFIG_RACE_TARGET"
+rm -f "$REDSOCKS_CONF"
+TEST_CONFIG_PUBLISH_RACE=1
+reset absent
+ARG2=192.0.2.10
+ARG3=1080
+if func_start; then fail "destination symlink publication race was accepted"; else status=$?; fi
+[[ "$status" == 1 ]] || fail "publication race returned status $status"
+[[ -L "$REDSOCKS_CONF" ]] || fail "publication race did not retain the injected symlink"
+[[ "$(cat "$TEST_CONFIG_RACE_TARGET")" == "publication target must survive" ]] || fail "publication race wrote through the destination symlink"
+[[ ! -s "$TEST_START_LOG" ]] || fail "daemon launched after config publication race"
+rm -f "$REDSOCKS_CONF"
+unset TEST_CONFIG_PUBLISH_RACE
+echo "Redsocks atomic config publication refuses destination symlink races: PASS"
+
 ARG2=nolog
 ARG3=test
 

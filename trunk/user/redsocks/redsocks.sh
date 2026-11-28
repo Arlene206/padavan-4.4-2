@@ -247,8 +247,7 @@ redsocks_config_paths_validate()
 
 func_start(){
 MODE=true
-	# Preserve the legacy missing-config no-op when no endpoint was requested.
-	# Any path that will be read or generated must pass a symlink/type check first.
+local redsocks_config_tmp="" redsocks_config_status
 	if [ ! -f "$REDSOCKS_CONF" ] && [ -z "$ARG2" ] && [ -z "$ARG3" ]; then
 		logger -t "$BINARY_NAME" "CONFIG FILE NOT FOUND"
 		return 0
@@ -257,8 +256,6 @@ MODE=true
 		logger -t "$BINARY_NAME" "unsafe Redsocks config directory or target path"
 		return 1
 	}
-	# Validate generation inputs before stopping a currently healthy daemon.
-	# Without a config file, a partial/invalid endpoint must not take service down.
 	if [ ! -f "$REDSOCKS_CONF" ]; then
 		if [ -z "$ARG2" ] || [ -z "$ARG3" ]; then
 			logger -t "$BINARY_NAME" "both SOCKS5 server address and port are required"
@@ -275,34 +272,42 @@ MODE=true
 			logger -t "$BINARY_NAME" "invalid SOCKS5 server port"
 			return 2
 		fi
-	fi
-if redsocks_process_state; then
-	if ! func_stop; then
-		logger -t "$BINARY_NAME" "existing process could not be stopped; refusing duplicate launch"
-		return 1
-	fi
-	logger -t "$BINARY_NAME" "ALREADY RUNNING: KILLED"
-else
-	redsocks_state=$?
-	if [ "$redsocks_state" -ne 1 ]; then
-		logger -t "$BINARY_NAME" "process inventory unknown; refusing duplicate launch"
-		return 1
-	fi
-fi
-if [ ! -f $REDSOCKS_CONF ]
-then
-	if  [ -n "$ARG2" ]
-	then
-		if [ -n "$ARG3" ]
-		then
-			if [ ! -d "$REDSOCKS_DIR" ]; then
-				mkdir -p "$REDSOCKS_DIR" || return $?
+		# Reserve a private same-directory stage before stopping a healthy daemon.
+		# noclobber refuses a pre-existing staging file or symlink.
+		if [ ! -d "$REDSOCKS_DIR" ]; then
+			if ! mkdir -m 700 "$REDSOCKS_DIR"; then
+				[ -d "$REDSOCKS_DIR" ] && [ ! -L "$REDSOCKS_DIR" ] || return 1
 			fi
-			redsocks_config_paths_validate || {
-				logger -t "$BINARY_NAME" "Redsocks config path changed during startup preflight"
-				return 1
-			}
-		cat > "$REDSOCKS_CONF" <<EOF
+		fi
+		redsocks_config_paths_validate || {
+			logger -t "$BINARY_NAME" "Redsocks config path changed during directory preparation"
+			return 1
+		}
+		redsocks_config_tmp="$REDSOCKS_DIR/.${BINARY_NAME}.conf.$$"
+		if ( umask 077; set -C; : > "$redsocks_config_tmp" ) 2>/dev/null; then
+			:
+		else
+			logger -t "$BINARY_NAME" "cannot reserve private Redsocks config staging file"
+			return 1
+		fi
+	fi
+	if redsocks_process_state; then
+		if ! func_stop; then
+			[ -z "$redsocks_config_tmp" ] || rm -f "$redsocks_config_tmp"
+			logger -t "$BINARY_NAME" "existing process could not be stopped; refusing duplicate launch"
+			return 1
+		fi
+		logger -t "$BINARY_NAME" "ALREADY RUNNING: KILLED"
+	else
+		redsocks_state=$?
+		if [ "$redsocks_state" -ne 1 ]; then
+			[ -z "$redsocks_config_tmp" ] || rm -f "$redsocks_config_tmp"
+			logger -t "$BINARY_NAME" "process inventory unknown; refusing duplicate launch"
+			return 1
+		fi
+	fi
+	if [ -n "$redsocks_config_tmp" ]; then
+		cat > "$redsocks_config_tmp" <<EOF
 base {
 log_debug = off;
 log_info = off;
@@ -319,18 +324,38 @@ port = $SOCKS5_PORT;
 type = socks5;
 }
 EOF
-func_save
-logger -t $BINARY_NAME "CONFIG FILE SAVED."
-redsocks_start_and_verify || return $?
-fi
-else
-	logger -t $BINARY_NAME "CONFIG FILE NOT FOUND"
-	return 0
-fi
-else
-	redsocks_start_and_verify || return $?
-	logger -t $BINARY_NAME "STARTED."
-fi
+		redsocks_config_status=$?
+		if [ "$redsocks_config_status" -ne 0 ]; then
+			rm -f "$redsocks_config_tmp"
+			logger -t "$BINARY_NAME" "cannot write Redsocks config staging file"
+			return "$redsocks_config_status"
+		fi
+		redsocks_config_paths_validate || {
+			rm -f "$redsocks_config_tmp"
+			logger -t "$BINARY_NAME" "Redsocks config path changed before publication"
+			return 1
+		}
+		# link(2) publishes only if the destination name is still absent; unlike
+		# shell redirection it never follows a symlink created after preflight.
+		if ln "$redsocks_config_tmp" "$REDSOCKS_CONF"; then
+			:
+		else
+			redsocks_config_status=$?
+			rm -f "$redsocks_config_tmp"
+			logger -t "$BINARY_NAME" "Redsocks config destination appeared before publication"
+			return "$redsocks_config_status"
+		fi
+		if ! rm -f "$redsocks_config_tmp"; then
+			logger -t "$BINARY_NAME" "Redsocks config staging link cleanup failed"
+			return 1
+		fi
+		func_save
+		logger -t "$BINARY_NAME" "CONFIG FILE SAVED."
+		redsocks_start_and_verify || return $?
+	else
+		redsocks_start_and_verify || return $?
+		logger -t "$BINARY_NAME" "STARTED."
+	fi
 }
 
 redsocks_port_normalize()

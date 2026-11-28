@@ -1,3 +1,11 @@
+## 2026-11-28 — Atomic Redsocks config publication
+
+- Generated config now reserves a private same-directory staging file with noclobber before any daemon stop, writes the config there, then publishes by exclusive hard-link creation. This closes the check-then-redirection symlink window. Regressions cover a pre-existing stage symlink and a destination symlink created at publication time.
+- Exact-SHA Redsocks, Process inventory, AI handoff docs and XY-C1 checks are unverified. Combined status and the PR-only workflow-run wrapper returned no push check/run results; do not infer PASS from empty results.
+- Next: inspect exact Actions for the preceding f3960ba path-symlink fix and this commit, then continue an independent P1 RC startup-result or USB-printer readiness issue. Frozen backup remains unchanged at 72f4f157a084f8184b9597ca5bf334b8080e5807.
+
+---
+
 ## 2026-11-28 — Reject Redsocks config-directory and file symlinks
 
 - Follow-on to endpoint preflight: `[ ! -f "$REDSOCKS_CONF" ]` treats a dangling symlink as absent, and the config heredoc follows it when creating the file. A symlinked `REDSOCKS_DIR` also redirects root writes into another storage path.

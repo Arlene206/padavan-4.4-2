@@ -1,3 +1,11 @@
+## 2026-11-28 — Atomically publish generated Redsocks configuration
+
+- The config path was already checked for symlinks, but generation still used direct shell redirection to the destination. A symlink inserted after validation could redirect a privileged write. Generation now reserves a same-directory PID-scoped staging file with umask 077 and noclobber before process stop, writes the complete config there, then publishes through an exclusive hard link. A destination that appears during publication is not followed or overwritten.
+- Regression covers a pre-existing staging symlink (no process signal and no referent modification) and a destination symlink inserted immediately before publication (link remains, referent unchanged, daemon launch blocked). Exact-SHA Redsocks, Process inventory, AI handoff and XY-C1 checks remain unverified; no local checkout is available in this environment.
+- The staging step avoids relying on mktemp, which is disabled in the router BusyBox configuration.
+
+---
+
 ## 2026-11-28 — Reject Redsocks configuration symlink paths
 
 - The endpoint-validation fix still left a privileged write-through path: when a missing `redsocks.conf` was a dangling symlink, `[ ! -f ]` treated it as absent and the config heredoc followed the link; a symlinked `/etc/storage/redsocks` directory similarly redirected generated files.
