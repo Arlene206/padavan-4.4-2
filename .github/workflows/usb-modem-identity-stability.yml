@@ -164,6 +164,7 @@ jobs:
         run: |
           set -eu
           cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -Wl,--wrap=fsync \
             -I trunk/user/rc/src \
             trunk/user/rc/src/tests/modem_node_file.c \
             -o /tmp/modem-node-file
@@ -395,6 +396,8 @@ jobs:
           publish_wrapper = body(metadata, "modem_node_file_publish_identity(")
           assert "modem_node_file_publish_with_cleanup(" in publish_wrapper
           write_body = body(metadata, "modem_node_file_write(")
+          assert "config_file_sync_fd(fd)" in write_body
+          assert write_body.index("fchmod(fd, 0644)") < write_body.index("config_file_sync_fd(fd)")
           write_rename = write_body.index("rename(staging, path)")
           assert write_body.index("config_file_sync_parent(path)", write_rename) > write_rename
           remove_body = body(metadata, "modem_node_file_remove(")

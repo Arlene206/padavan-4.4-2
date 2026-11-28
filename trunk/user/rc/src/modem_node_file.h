@@ -109,7 +109,7 @@ modem_node_file_write(const char *directory, const char *name,
 		offset += (size_t)written;
 	}
 
-	if (fchmod(fd, 0644) != 0 || fsync(fd) != 0)
+	if (fchmod(fd, 0644) != 0 || config_file_sync_fd(fd) != 0)
 		goto fail;
 	if (close(fd) != 0) {
 		fd = -1;

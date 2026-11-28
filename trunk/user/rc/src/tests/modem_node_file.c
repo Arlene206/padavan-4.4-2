@@ -9,6 +9,23 @@
 #include "../modem_node_file.h"
 #include "../modem_node_identity_policy.h"
 
+/* Inject one EINTR specifically into the staged metadata-file fsync. */
+static int fsync_interrupt_call = -1;
+static int fsync_call_count;
+
+int __real_fsync(int fd);
+
+int
+__wrap_fsync(int fd)
+{
+	fsync_call_count++;
+	if (fsync_call_count == fsync_interrupt_call) {
+		errno = EINTR;
+		return -1;
+	}
+	return __real_fsync(fd);
+}
+
 static int test_metadata_write_calls;
 static int test_metadata_remove_calls;
 static int test_metadata_write_result;
@@ -182,7 +199,11 @@ main(void)
 	n = snprintf(linked_path, sizeof(linked_path), "%s/ttyUSB3", linked_parent);
 	assert(n > 0 && n < (int)sizeof(linked_path));
 
+	fsync_call_count = 0;
+	fsync_interrupt_call = 2;
 	assert(modem_node_file_publish_identity(directory, "ttyUSB0", "pref=1\ndevnum=7\n", 1) == 0);
+	assert(fsync_call_count == 4);
+	fsync_interrupt_call = -1;
 	assert(config_file_sync_parent(node_path) == 0);
 	errno = 0;
 	assert(config_file_sync_parent(missing_path) != 0);
