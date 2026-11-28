@@ -1,3 +1,12 @@
+## 2026-11-27 — Repair USB executable identity source-contract matcher
+
+- Parent source `6939aa6b083e3fa3fa317b9c34ac0b4683d8480e` contains the corrected printer executable scan (removed accidental duplicate tail; preserves UNKNOWN from unreadable /proc executable candidates). Exact USB modem job `46090400869` compiled and ran the new GNU89/ASan/UBSan executable-policy test successfully; it failed only in the Python checker because the checker demanded bare `test_name();` call text while tests use `CHECK(test_name() == 0);`.
+- THIS commit updates only `scripts/check_usb_printer_nvram.py` to check whitespace-normalized CHECK-wrapped test invocations. The policy test itself and production source are unchanged.
+- Parent SHA exact Actions: AI docs `46090400943` PASS; Process lifecycle inventory `46090401067` PASS; USB modem `46090400869` FAIL at the checker matcher after all preceding policy binaries passed; Process lifecycle `46090400887`, NVRAM `46090400849`, storage `46090401078`, XY-C1 `46090401016` were PENDING at last poll.
+- Next: verify exact-SHA USB/Process/NVRAM/storage/XY-C1/AI checks for THIS commit; fix any source/test failure, then move to next independent P1 reliability task. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+
+---
+
 ## 2026-11-27 — Correct USB printer executable scan error aggregation
 
 - Parent `84213bc5979cc8bdd4734b93c8e652092c539a35` introduced the scoped `/proc/PID/exe` identity gate. Review caught a duplicate old function tail caused by a source insertion offset, plus error aggregation where a later argv0-spoofed candidate could clear an earlier UNKNOWN readlink result. This follow-up removes the stale tail and preserves UNKNOWN until a confirmed real executable is found; the exact PID/start-time/argv revalidation remains in place.

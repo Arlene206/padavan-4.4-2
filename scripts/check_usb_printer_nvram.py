@@ -26,11 +26,12 @@ assert "usb_printer_nvram_copy_setting_status(" in SOURCE
 assert "usb_printer_nvram_write_status" in POLICY
 assert "usb_printer_executable_path" in EXE_POLICY
 assert "usb_printer_executable_path_matches" in EXE_POLICY
+exe_test_compact = "".join(EXE_TEST.split())
 for marker in ("test_dedicated_printer_executables_resolve",
                "test_unknown_or_malformed_process_names_are_rejected",
                "test_executable_identity_requires_exact_installed_binary",
                "test_executable_match_rejects_invalid_arguments"):
-    assert marker in EXE_TEST and marker + "();" in EXE_TEST
+    assert marker in EXE_TEST and ("CHECK(" + marker + "()==0);") in exe_test_compact
 for marker in ("test_write_status_accepts_success",
                "test_write_status_preserves_backend_errno",
                "test_write_status_without_errno_defaults_to_eio",

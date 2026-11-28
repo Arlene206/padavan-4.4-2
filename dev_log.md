@@ -1,3 +1,12 @@
+## 2026-11-27 — Correct USB executable identity test source-contract matcher
+
+- Exact USB modem / printer workflow on `6939aa6b083e3fa3fa317b9c34ac0b4683d8480e` reached the new executable-policy regression: GNU89 + `-Wall -Wextra -Werror` + ASan/UBSan compile and run PASS (`USB printer executable identity policy: PASS`). Existing p910nd and modem-WAN policy regressions and their prior source contracts also passed.
+- The workflow then failed only because `scripts/check_usb_printer_nvram.py` expected each test function call as a bare `name();`, while the test intentionally uses the repository's `CHECK(name() == 0);` convention. THIS checker-only correction whitespace-normalizes the test and asserts the exact CHECK-wrapped invocation; it does not weaken source/test assertions or alter production code.
+- Parent `6939aa6` exact Actions: AI docs `46090400943` PASS; Process inventory `46090401067` PASS; USB modem `46090400869` FAIL only at the stale checker invocation matcher; Process lifecycle `46090400887`, NVRAM `46090400849`, storage `46090401078`, and XY-C1 `46090401016` were IN_PROGRESS at last poll. No firmware/L3 or hardware claim.
+- Next: verify USB, Process, NVRAM, storage, XY-C1 and AI docs on this checker correction; then continue an independent P1 issue. Backup remains frozen at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+
+---
+
 ## 2026-11-27 — Correct printer executable-scan error aggregation and function boundary
 
 - Source review after `84213bc5979cc8bdd4734b93c8e652092c539a35` caught two issues before accepting its CI: an insertion offset had left a duplicate tail after the new scan function, and one UNKNOWN candidate's readlink failure could be overwritten by a later mismatching candidate. The scan now preserves the first unknown error across all candidates, lets a confirmed matching executable prove RUNNING, and otherwise fails closed if any candidate identity could not be checked. The stale tail is removed, and the readlink buffer now accepts any path that fits with a terminating NUL.
