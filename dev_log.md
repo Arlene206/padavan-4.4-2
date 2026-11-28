@@ -1,3 +1,11 @@
+## 2026-11-28 13:02 CST (UTC+8) — Correct second storage-hotplug FTP caller assertion
+
+- Checker correction commit `c57f036a7c16c7d8d91fe9e95731da5eeb8e03dc` successfully removed the first obsolete FTP stop-status assertion, allowing the USB storage hotplug workflow to progress through all host regressions to the full caller-graph contract.
+- Exact run #46106904590 then failed at the next obsolete assertion: it assumed `stop_ftp_locked()` was called as an `if` condition in `stop_stor_apps()`. The correct implementation stores the detailed status in `ftp_stop_status`, checks that status, and separately gates firewall/UPnP refresh on final procfs ABSENT. THIS workflow-only follow-up asserts all three implementation facts for FTP while retaining the existing conditional-call contract for other daemons.
+- Product source and host regressions are unchanged. Exact rerun is pending; XY-C1 #46106551564 remained in progress on product SHA `4dd43a97904e7bec0c8ae094ff7c25ff82312b07`.
+
+---
+
 ## 2026-11-28 12:48 CST (UTC+8) — Correct storage-hotplug FTP stop source contract
 
 - Exact source SHA `4dd43a97904e7bec0c8ae094ff7c25ff82312b07`: VSFTPD regression #46106551633 PASS (GNU89/Werror/ASan/UBSan and source-order contract); AI handoff #46106551579 PASS; Process inventory #46106551548 PASS; fail-closed process inventory #46106551859 PASS.

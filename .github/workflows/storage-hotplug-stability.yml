@@ -1840,7 +1840,12 @@ jobs:
                       assert "process_state != PROCESS_PRESENCE_RUNNING" in locked_body
                       assert "refusing name-wide stop because daemon presence is unknown" in locked_body
                       assert "kill_services(svcs," in locked_body
-              assert "if (" + locked_name + "(" in stop_apps
+              if stop_name == "stop_ftp":
+                  assert "ftp_stop_status = stop_ftp_locked(&ftp_final_presence);" in stop_apps
+                  assert "if (ftp_stop_status != 0)" in stop_apps
+                  assert "ftp_storage_stop_needs_firewall_refresh(ftp_final_presence)" in stop_apps
+              else:
+                  assert "if (" + locked_name + "(" in stop_apps
               assert "int " + signature + ";" in rc_header
           assert "int stop_ftpsamba(void);" in rc_header
           group_stop = function_body(storage, "stop_ftpsamba(void)")
