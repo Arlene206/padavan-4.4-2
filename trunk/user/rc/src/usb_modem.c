@@ -1006,7 +1006,7 @@ qmi_control_network_start(const char *device_path)
 			goto done;
 		/* Complete the backoff before retry; sleep() returns a remainder on EINTR. */
 		if (i + 1 < MAX_QMI_TRIES)
-			modem_qmi_retry_wait_full_delay(1U, sleep);
+			modem_wait_full_delay(1U, sleep);
 	}
 
 done:
@@ -1169,7 +1169,7 @@ ncm_control_network(const char* control_node, int is_start)
 
 	if (!result) {
 		if (is_start)
-			sleep(1);
+			modem_wait_full_delay(1U, sleep);
 	} else {
 		logmessage(LOGNAME, "NCM message %s to node %s: %s", node_msg, node_path, "FAILED!");
 	}
@@ -1358,7 +1358,7 @@ unload_modem_driver_group(const char *group_name,
 						     modem_module_unload_callback,
 						     &unloaded_count, &successful_count);
 	if (unloaded_count > 0)
-		sleep(1);
+		modem_wait_full_delay(1U, sleep);
 	if (status != 0)
 		logmessage(LOGNAME,
 			   "cannot unload USB modem %s driver group (status=%d)",
@@ -1479,7 +1479,7 @@ reload_modem_modules(int modem_type, int reload)
 	}
 done:
 	if (reload)
-		sleep(1);
+		modem_wait_full_delay(1U, sleep);
 	return status;
 }
 
@@ -1827,7 +1827,7 @@ launch_wan_usbnet(int unit)
 			return modem_wan_start_status(result_status, error_status);
 		}
 		if (control_required)
-			sleep(1);
+			modem_wait_full_delay(1U, sleep);
 
 		dhcp_status = start_udhcpc_wan(ndis_ifname, unit, 0);
 		error_status = set_wan_unit_error_status(unit, dhcp_status != 0);
@@ -2017,7 +2017,7 @@ zerocd_main(int argc, char **argv)
 	res = launch_usb_modeswitch(i_vid, i_pid, 1);
 	if (res == 0) {
 		for (i = 0; i < 6; i++) {
-			sleep(1);
+			modem_wait_full_delay(1U, sleep);
 			if (!find_usb_device(i_vid, i_pid)) {
 				res = 1;
 				break;

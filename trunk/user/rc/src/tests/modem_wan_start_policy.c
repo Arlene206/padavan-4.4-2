@@ -23,20 +23,20 @@ qmi_retry_mock_sleep(unsigned int seconds)
 }
 
 static void
-test_qmi_retry_wait_resumes_interrupted_delay(void)
+test_modem_wait_resumes_interrupted_delay(void)
 {
 	qmi_retry_sleep_calls = 0;
 	qmi_retry_sleep_arguments[0] = 0;
 	qmi_retry_sleep_arguments[1] = 0;
 	qmi_retry_sleep_arguments[2] = 0;
-	modem_qmi_retry_wait_full_delay(3U, qmi_retry_mock_sleep);
+	modem_wait_full_delay(3U, qmi_retry_mock_sleep);
 	assert(qmi_retry_sleep_calls == 3U);
 	assert(qmi_retry_sleep_arguments[0] == 3U);
 	assert(qmi_retry_sleep_arguments[1] == 2U);
 	assert(qmi_retry_sleep_arguments[2] == 1U);
 
 	/* A zero-length delay must not invoke sleep. */
-	modem_qmi_retry_wait_full_delay(0U, qmi_retry_mock_sleep);
+	modem_wait_full_delay(0U, qmi_retry_mock_sleep);
 	assert(qmi_retry_sleep_calls == 3U);
 }
 
@@ -964,7 +964,7 @@ test_modem_restart_requires_known_identity(void)
 int
 main(void)
 {
-	test_qmi_retry_wait_resumes_interrupted_delay();
+	test_modem_wait_resumes_interrupted_delay();
 	test_qmi_stop_status_requires_success_before_cleanup();
 	test_qmi_start_requires_command_success_and_valid_handle();
 	test_qmi_start_retry_is_blocked_when_session_may_exist();
