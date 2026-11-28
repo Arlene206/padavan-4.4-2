@@ -1,40 +1,39 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; active branch `main`. Startup protocol and one-time handoff recovery are complete; do not repeat the initial audit.
-- Latest product-source commit: `e0efa3a421051d24a21b8519983892ffdef75456`. Current parent for the PID-identity refinement: `ae33ceced794ded4c70c72feb74dd03afa3f3f4b`.
+- Latest source commit: `9fc2f1015f1f0f8933b1c02bb007711dc95e538b`; parent `ae33ceced794ded4c70c72feb74dd03afa3f3f4b`. Current follow-up is a checker-only correction.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify. PR #1 remains closed/unmerged; CA trust-store bootstrap is integrated.
 
 ## Active task
 
-- Tighten detached WAN gateway monitor readiness. A plain procfs presence scan may observe the daemonized child between `exec` and PID-file publication; that does not prove `detect_wan_main()` completed its required startup publication.
-- The readiness callback now calls `process_pidfile_read_identity("/var/run/detect_wan.pid", "detect_wan", ...)` and requires the PID plus recorded procfs start-time to match a live process. Missing/stale identity is ABSENT and retried; unreadable/malformed/indeterminate state is UNKNOWN and fails closed; bounded ABSENT becomes ETIMEDOUT.
+- Repair the WAN gateway readiness integration checker. Exact-head WAN route #46154974325 on `9fc2f10` passed all preceding regressions, including the detached-daemon GNU89/ASan policy test, but its final checker failed because the checker expected a multi-line C call as one contiguous string. Production `net_wan.c` correctly formats the call across two lines; normalize whitespace before asserting it.
+- No production behavior is changed by this follow-up. It should rerun WAN route plus the docs contract on its exact SHA.
 
-### Completed initial WAN source slice
+### Completed WAN source slice
 
-- Commit `e0efa3a421051d24a21b8519983892ffdef75456` added the launch wrapper around `eval("detect_wan")`, bounded detached-daemon postcondition, tri-state propagation and EINTR-preserving wait.
-- The current refinement replaces the weaker generic process-presence scan with PID-file/start-time identity. `process_pidfile_read_identity()` validates the secure PID record against the live process inventory.
-- The existing GNU89/ASan detached-daemon regression covers delayed appearance, absent-child timeout, UNKNOWN, launcher failure and interrupted waits. `check_wan_detect_wan_status.py` asserts the PID-file identity call and exact launch order.
+- `e0efa3a421051d24a21b8519983892ffdef75456` added bounded detached-daemon startup postcondition and EINTR-preserving waits.
+- `9fc2f1015f1f0f8933b1c02bb007711dc95e538b` tightened the probe to `process_pidfile_read_identity("/var/run/detect_wan.pid", "detect_wan", ...)`, requiring PID/start-time identity of the published live child. Missing/stale identity is retried as ABSENT; unreadable/malformed/indeterminate state fails closed as UNKNOWN.
+- Existing GNU89/ASan detached-daemon regression covers delayed appearance, absent-child timeout, UNKNOWN, launcher failure and interrupted waits.
 
 ## Exact-SHA Actions checkpoint
 
-- On exact source SHA `e0efa3a421051d24a21b8519983892ffdef75456`, WAN route #46154268118 and WAN ARP socket #46154268207 both PASS. These verify the initial process-scan version; rerun both for the PID-identity refinement.
-- NVRAM transaction boundary #46154268084 PASS on `e0efa3a`, including all host regressions and the raw userland ioctl/kernel API caller audit.
-- Supporting exact-SHA checks on `e0efa3a` PASS: Process inventory #46154268105, Process lifecycle fail-closed #46154268187, DNSMasq lifecycle, VPN server lifecycle, WAN DHCP callback, WAN teardown, detect_link/detect_internet, HTTPD security, USB modem identity, firewall startup, miniupnpd publication, WAN sysfs counters, router-mode NVRAM, IPv6 service mode, wireless radio and ZeroTier.
-- XY-C1 Firmware Validation #46154268098 remained IN PROGRESS at last check on `e0efa3a`; this PID-identity refinement requires a fresh exact-SHA Build, TRX verification and artifact upload.
-- AI handoff run #46154268128 failed on `e0efa3a` because the roadmap exceeded the byte cap. Run #46154469011 failed after the first doc correction because the canonical `## Active task` heading was missing. Commit `ae33ceced794ded4c70c72feb74dd03afa3f3f4b` restored that heading and exact-head AI handoff run #46154702646 PASS; this new handoff/roadmap update requires its own exact-head run.
-- Older XY-C1 baseline `4652b6801ec4c04c0ccfd07c677d7dbec70b39ce` passed Build/TRX/artifact but does not verify later `net_wan.c` changes. Physical-router L4 remains NOT VERIFIED.
+- On `e0efa3a`, WAN route #46154268118 and WAN ARP #46154268207 PASS; NVRAM transaction audit #46154268084 PASS.
+- On exact SHA `9fc2f1015f1f0f8933b1c02bb007711dc95e538b`: WAN ARP #46154974007 PASS; AI handoff docs #46154974086 PASS; WAN route #46154974325 FAIL only at its final source checker due to the split-line assertion described above. Its detached-daemon compile/run and all earlier route regressions passed.
+- Exact-SHA XY-C1 #46154974176 was IN PROGRESS at last check; Build/TRX/artifact remain pending. The NVRAM, process, firewall, DNSMasq, HTTPD, IPv6, USB modem, ZeroTier, WAN DHCP and other umbrella runs were mostly still in progress at that poll; query exact statuses before claiming.
+- The previous exact-SHA docs rerun #46154702646 on `ae33ceced794ded4c70c72feb74dd03afa3f3f4b` passed. The roadmap byte count at `9fc2f10` is below the 131072-byte cap; avoid adding large prose.
 
 ## Verification boundary
 
-- L1/L2: initial process-scan version passed WAN route and WAN ARP on `e0efa3a`; the PID-file identity refinement requires fresh exact-SHA runs.
-- L3: fresh exact-SHA XY-C1 Build/TRX/artifact required; the run on `e0efa3a` does not cover this source refinement.
+- L1: WAN route has not passed for the PID-file identity refinement because its checker had a formatting-only assertion failure. Rerun after this checker correction.
+- L2: WAN ARP socket #46154974007 PASS on `9fc2f10`; source behavior unchanged in this follow-up.
+- L3: exact-SHA XY-C1 #46154974176 remains unverified until Build, TRX verification and artifact upload all succeed for a source SHA containing the PID-identity change.
 - L4: physical WAN/gateway-loss and router runtime behavior NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-SHA WAN route, WAN ARP, AI handoff and XY-C1 Actions for the PID-identity refinement. Read any failed job log; do not wait on pending jobs.
-2. After the WAN and XY-C1 checks complete, resume an independent high-priority userland stability/security defect. NVRAM transaction boundary already passed on `e0efa3a`; do not repeat that audit without new evidence.
-3. Keep the backup branch immutable and use complete-tree single-commit writes with a non-forced expected-SHA update.
+1. Check the fresh WAN route and AI handoff runs for this checker correction, then inspect exact-SHA XY-C1 Build/TRX/artifact for `9fc2f10`.
+2. If XY-C1 is still pending, continue an independent priority userland fix; NVRAM audit #46154268084 already passed on `e0efa3a` and should not be repeated without new evidence.
+3. Keep the backup branch immutable and use complete-tree single-commit writes with non-forced expected-SHA updates.
 
 ## Mandatory end-of-session handoff checkpoint
 

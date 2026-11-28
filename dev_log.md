@@ -1,3 +1,11 @@
+## 2026-11-28 — Normalize the WAN PID-identity checker call
+
+- Exact-head WAN route workflow #46154974325 on `9fc2f1015f1f0f8933b1c02bb007711dc95e538b` passed the detached-daemon compile/run and preceding route regressions, then failed only because `check_wan_detect_wan_status.py` expected `process_pidfile_read_identity(...)` on one line while the C source wraps its arguments.
+- Changed the assertion to remove whitespace from the callback body and match the complete function call and UNKNOWN/error clearing logic in normalized form. No production code changed.
+- WAN ARP #46154974007 and AI handoff docs #46154974086 passed on `9fc2f10`; this checker correction requires fresh exact-head WAN route/docs reruns. XY-C1 #46154974176 was still building at the last poll; Build/TRX/artifact not yet verified.
+
+---
+
 ## 2026-11-28 — Require PID-file identity for WAN monitor readiness
 
 - Review of `detect_wan_main()` confirmed that the detached child calls `process_pidfile_write()` after `daemon()`. A generic procfs scan can see the new child before the PID record exists, so that scan alone is not a strict startup postcondition.
