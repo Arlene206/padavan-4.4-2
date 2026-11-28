@@ -146,14 +146,17 @@ for marker in (
 # recv_from_to() receives sizeof(sockaddr_in6) as msg_namelen. The old
 # struct sockaddr local was only 16 bytes, so recvmsg() could overwrite the
 # stack when it copied the 28-byte IPv6 peer address.
-recv_signature = "static void client6_recv(void)\\n{"
-recv_start = dhcp6c.index(recv_signature)
-recv_end = dhcp6c.index("\\nstatic int client6_recvadvert", recv_start)
-recv_body = dhcp6c[recv_start:recv_end]
+recv_signature = "static void client6_recv(void)"
+recv_prototype = dhcp6c.index(recv_signature)
+recv_definition = dhcp6c.index(
+    recv_signature, recv_prototype + len(recv_signature)
+)
+recv_body = function_body(dhcp6c[recv_definition:], recv_signature)
 assert "struct sockaddr_storage from;" in recv_body
 assert "struct sockaddr from;" not in recv_body
 recv_compact = "".join(recv_body.split())
-assert "recv_from_to(csock, G.rbuf, sizeof(G.rbuf), MSG_TRUNC,(struct sockaddr *)&from,(struct sockaddr *)&to,sizeof(struct sockaddr_in6));" in recv_compact
+assert "recv_from_to(csock,G.rbuf,sizeof(G.rbuf),MSG_TRUNC,(struct sockaddr *)&from,(struct sockaddr *)&to,sizeof(struct sockaddr_in6));" in recv_compact
+assert "memset(&from,0,sizeof(from));" in recv_compact
 assert "xmalloc_sockaddr2dotted_noport((struct sockaddr *)&from)" in recv_compact
 assert "test_ipv6_source_address_storage_fits_kernel_sockaddr" in test
 assert "sizeof(from) >= sizeof(peer)" in test
