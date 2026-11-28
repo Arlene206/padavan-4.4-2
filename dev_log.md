@@ -1,3 +1,12 @@
+## 2026-11-28 — Repair exact-head firmware stop CI contracts
+
+- Exact-head validation of `805624195e6826f723c854afd2dabd7df891b50e` exposed two stale verification contracts. The AI handoff checker rejected the new handoff because its mandatory checkpoint sentence did not retain two literal required phrases. The detect_internet signal workflow's static guard still searched for the old `saved_errno == 0` service-stop branch, superseded by `firmware_update_stop_first_errno()`.
+- Restored the canonical handoff checkpoint wording and updated the focused detect_internet regression to assert that each of the ten independent firmware stop operations clears errno and captures the first result before the next stop, plus the UPnP/service abort-before-shutdown ordering.
+- No production-source behavior changed in this commit. Parent exact SHA: `805624195e6826f723c854afd2dabd7df891b50e`. The corrected AI and detect_internet workflow results are pending on the new SHA.
+- PPPoE-MWAN detector SHA `300e78b2a36ceea51d508d18bc3cf09add6d633d` has now completed exact-SHA XY-C1 Build, TRX validation and artifact upload (run #46141847644 SUCCESS; artifact ID `15262232177`).
+
+---
+
 ## 2026-11-28 — Apply first-error errno capture to every firmware stop group
 
 - The first errno policy initially covered EAPOL, LAN authentication, 802.1X and PPPoE relay, but code review found the earlier VPN endpoint/residual-process group and the MiniUPnPd/checked-service group still relied on un-cleared errno. A successful stop could leave stale errno for a subsequent failure with no errno of its own.
