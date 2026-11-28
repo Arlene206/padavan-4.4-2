@@ -1,3 +1,14 @@
+## 2026-11-28 — Anchor storage media-publisher contract to its definition
+
+- The storage-hotplug run on 655d173234a14ce19b91f2fce9e68e1622bfc7cc passed the Transmission call-site correction but failed at the common publisher-body contract. The follow-up 0f92cf9ca01698e0c368060b9653d30b984a9d9a corrected the expected force_first_valid forwarding argument.
+- Inspection found the underlying checker defect: function_body(storage, "storage_media_link_publish(") matched an earlier call from a media-daemon caller, not the later static int storage_media_link_publish(...) definition. The parser then inspected the following caller-side if block instead of the helper implementation. THIS COMMIT anchors extraction to the exact function-definition signature; no product source behavior changes.
+- Parent SHA 0f92cf9ca01698e0c368060b9653d30b984a9d9a: USB storage hotplug #46092637018 and AI handoff docs #46092637068 were IN_PROGRESS at this checkpoint. Exact-head reruns for THIS correction are required; no firmware/L3 or hardware/L4 result is claimed.
+- Frozen backup remains backup/pre-plugin-overhaul-2026-11-14 at 72f4f157a084f8184b9597ca5bf334b8080e5807.
+
+First next action: inspect the exact-main USB storage hotplug and AI docs runs for THIS checker correction. If the caller-graph contract passes, move to the next independent P1 module rather than repeating storage inventory; only claim XY-C1 L3 when Build, TRX and artifact are all confirmed on the same production SHA.
+
+---
+
 ## 2026-11-27 — Fix final stale storage media-publisher test expectation
 
 - Parent `655d173234a14ce19b91f2fce9e68e1622bfc7cc` corrected the Transmission call-site assertion to include mode `0`. Its exact storage-hotplug run `46092458013` then reached the next assertion and exposed another old assumption: the common helper body no longer hardcodes mode `0`, but forwards the validated `force_first_valid` argument to the staged-link creator.

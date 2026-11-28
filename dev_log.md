@@ -1,3 +1,11 @@
+## 2026-11-28 — Anchor storage media-publisher contract to its definition
+
+- Exact storage-hotplug run #46092458013 on 655d173234a14ce19b91f2fce9e68e1622bfc7cc passed the updated Transmission call-site assertion but failed at the common publisher-body contract. Commit 0f92cf9ca01698e0c368060b9653d30b984a9d9a corrected the expected force_first_valid forwarding argument.
+- Source inspection confirmed the deeper checker bug: function_body(storage, "storage_media_link_publish(") matched an earlier caller invocation (MiniDLNA) before the helper definition and therefore extracted the following if block, not the implementation. THIS COMMIT anchors the lookup to static int followed by storage_media_link_publish( so staged-link, parent revalidation and rename assertions inspect the actual function.
+- No production source changed and no local test was run. On parent SHA 0f92cf9ca01698e0c368060b9653d30b984a9d9a, USB storage hotplug #46092637018 and AI handoff docs #46092637068 were IN_PROGRESS at the time of this commit. Exact-head reruns are required; no L3/L4 claim.
+
+---
+
 ## 2026-11-27 — Align storage-hotplug publisher contract with selectable mount mode
 
 - Exact-SHA storage-hotplug run `46092458013` on `655d173234a14ce19b91f2fce9e68e1622bfc7cc` passed the earlier media-publisher call-site assertions but failed the helper contract at the next line: the checker still expected `create_mp_link_status(dest_dir, staged_path, 0)`. The shared helper correctly accepts the validated `force_first_valid` parameter so MiniDLNA/Firefly retain their original second-pass fallback while Torrent/Aria use first-valid-only mode.

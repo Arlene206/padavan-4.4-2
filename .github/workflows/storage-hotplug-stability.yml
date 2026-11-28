@@ -1111,7 +1111,7 @@ jobs:
           assert "int run_aria(void);" in rc_header
           assert "is_torrent_run() != PROCESS_PRESENCE_ABSENT" in storage_start
           assert "is_aria_run() != PROCESS_PRESENCE_ABSENT" in storage_start
-          storage_media_publish = function_body(storage, "storage_media_link_publish(")
+          storage_media_publish = function_body(storage, "static int\nstorage_media_link_publish(")
           storage_media_parent = function_body(storage, "storage_media_link_parent_snapshot(")
           storage_media_destination = function_body(storage, "storage_media_link_destination_check(")
           transmission_start = function_body(storage, "run_torrent(void)")
