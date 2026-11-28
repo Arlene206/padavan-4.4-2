@@ -1,3 +1,13 @@
+## 2026-11-27 — Publish Transmission mount symlink without unsafe pre-unlink
+
+- Review found `run_torrent()` unconditionally called `unlink("/mnt/transmission")` and ignored its result before scanning `/proc/mounts` and creating a replacement. A non-symlink file at that privileged path could be deleted, and the destructive operation happened before `transmission.sh` checked whether `/mnt` itself was a symlink. Mount-inventory or link-publication failures also discarded the previous valid compatibility link.
+- Replaced the pre-unlink with staged publication: verify `/mnt` using `lstat` (real directory, root-owned, not group/world writable), allow only a missing destination or an existing symlink, create and validate a temporary mount-target symlink, recheck the parent device/inode/owner/mode and destination type, then atomically `rename()` over the old link. Regular files/directories are preserved and rejected; failures leave an old link intact and clean up only the staged link created by this attempt.
+- Added GNU89 `-Wall -Wextra -Werror` ASan/UBSan policy regression for parent trust, symlink/writable-parent denial, safe destination types and error preservation; updated storage source contract and XY-C1 header path filter. Exact-head tests/build remain pending; no firmware or hardware result is claimed.
+- Parent `8422435ebbd011065ced47c074fd722b0f36d16f`: USB executable-policy regression `46090505594` PASS; AI handoff docs `46090505656` PASS. Earlier printer-source SHA `6939aa6b083e3fa3fa317b9c34ac0b4683d8480e`: Process lifecycle `46090400887`, Process inventory `46090401067`, USB storage `46090401078` PASS; USB checker failure `46090400869` was fixed by `8422435`; NVRAM `46090400849` and XY-C1 `46090401016` were pending at last poll.
+- Next: inspect exact-SHA storage and XY-C1 checks for this Transmission slice; then continue an independent P1 userland stability task. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+
+---
+
 ## 2026-11-27 — Correct USB executable identity test source-contract matcher
 
 - Exact USB modem / printer workflow on `6939aa6b083e3fa3fa317b9c34ac0b4683d8480e` reached the new executable-policy regression: GNU89 + `-Wall -Wextra -Werror` + ASan/UBSan compile and run PASS (`USB printer executable identity policy: PASS`). Existing p910nd and modem-WAN policy regressions and their prior source contracts also passed.

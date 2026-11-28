@@ -485,6 +485,7 @@ on:
       - "trunk/user/rc/src/samba_share_policy.h"
       - "trunk/user/rc/src/samba_config_mode_policy.h"
       - "trunk/user/rc/src/services_stor.c"
+      - "trunk/user/rc/src/transmission_link_policy.h"
       - "trunk/user/rc/src/ftp_config_file.h"
       - "trunk/user/rc/src/tests/ftp_config_file.c"
       - "trunk/user/rc/src/service_daemon_wait_policy.h"

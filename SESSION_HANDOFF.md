@@ -1,3 +1,12 @@
+## 2026-11-27 — Safely replace Transmission's /mnt compatibility link
+
+- Found a concrete privileged filesystem issue in `services_stor.c:run_torrent()`: it unconditionally `unlink("/mnt/transmission")` before checking whether `/mnt` is a trusted real directory or whether the destination is actually a symlink. This could delete an unrelated regular file, and bypasses the later shell guard in `transmission.sh` when `/mnt` itself is a symlink. It also discards a previous working link if mount inventory or new-link creation fails.
+- THIS slice replaces the pre-unlink with staged symlink publication. It verifies `/mnt` by lstat (root-owned, real directory, no group/world write), validates the destination as absent or symlink only, builds a temporary link using the complete `/proc/mounts` inventory, revalidates parent device/inode/owner/mode and destination, then atomically renames the staged symlink. A pre-existing regular file or directory is not removed; a failed discovery/publication preserves an old symlink. Added standalone GNU89 ASan/UBSan policy tests, workflow source contract, and XY-C1 header path trigger.
+- Parent `8422435ebbd011065ced47c074fd722b0f36d16f`: exact USB policy regression `46090505594` PASS and AI docs `46090505656` PASS. The present source/test/workflow slice requires exact-head storage and XY-C1 verification; no L3/hardware claim.
+- Next: check exact-head storage and XY-C1 Actions for THIS commit; fix any compiler/test issues before moving to another independent P1 defect. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+
+---
+
 ## 2026-11-27 — Repair USB executable identity source-contract matcher
 
 - Parent source `6939aa6b083e3fa3fa317b9c34ac0b4683d8480e` contains the corrected printer executable scan (removed accidental duplicate tail; preserves UNKNOWN from unreadable /proc executable candidates). Exact USB modem job `46090400869` compiled and ran the new GNU89/ASan/UBSan executable-policy test successfully; it failed only in the Python checker because the checker demanded bare `test_name();` call text while tests use `CHECK(test_name() == 0);`.

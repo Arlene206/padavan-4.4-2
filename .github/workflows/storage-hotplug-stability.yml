@@ -68,6 +68,8 @@ on:
       - "trunk/user/optware/opt-mount.sh"
       - "trunk/user/rc/src/tests/storage_operation_lock.c"
       - "trunk/user/rc/src/services_stor.c"
+      - "trunk/user/rc/src/transmission_link_policy.h"
+      - "trunk/user/rc/src/tests/transmission_link_policy.c"
       - "trunk/user/rc/src/tests/usb_hotplug_event_policy.c"
       - "trunk/user/rc/src/usb_hotplug_event_policy.h"
       - "trunk/user/rc/src/storage_nfs_export_policy.h"
@@ -172,6 +174,8 @@ on:
       - "trunk/user/optware/opt-mount.sh"
       - "trunk/user/rc/src/tests/storage_operation_lock.c"
       - "trunk/user/rc/src/services_stor.c"
+      - "trunk/user/rc/src/transmission_link_policy.h"
+      - "trunk/user/rc/src/tests/transmission_link_policy.c"
       - "trunk/user/rc/src/tests/usb_hotplug_event_policy.c"
       - "trunk/user/rc/src/usb_hotplug_event_policy.h"
       - "trunk/user/rc/src/storage_nfs_export_policy.h"
@@ -517,6 +521,14 @@ jobs:
             trunk/user/rc/src/tests/ftp_daemon_policy.c \
             -o /tmp/ftp-daemon-policy
           ASAN_OPTIONS=detect_leaks=1 /tmp/ftp-daemon-policy
+      - name: Compile and run Transmission storage-link publication policy regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/transmission_link_policy.c \
+            -o /tmp/transmission-link-policy
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/transmission-link-policy
       - name: Compile and run storage daemon stop postcondition regression
         run: |
           set -eu
@@ -565,6 +577,8 @@ jobs:
           ejected_policy_test = (rc_dir / "tests/storage_ejected_inventory_policy.c").read_text()
           home_link_policy = (rc_dir / "storage_home_link_policy.h").read_text()
           home_link_test = (rc_dir / "tests/storage_home_link_policy.c").read_text()
+          transmission_link_policy = (rc_dir / "transmission_link_policy.h").read_text()
+          transmission_link_test = (rc_dir / "tests/transmission_link_policy.c").read_text()
           optware_policy = (rc_dir / "storage_optware_start_policy.h").read_text()
           optware_policy_test = (rc_dir / "tests/storage_optware_start_policy.c").read_text()
           storage_stop_policy = (rc_dir / "storage_service_stop_policy.h").read_text()
@@ -861,6 +875,8 @@ jobs:
               "trunk/user/rc/src/rc.c",
               "trunk/user/rc/src/common_ex.c",
               "trunk/user/rc/src/services_stor.c",
+              "trunk/user/rc/src/transmission_link_policy.h",
+              "trunk/user/rc/src/tests/transmission_link_policy.c",
               "trunk/user/rc/src/services_usb.c",
               "trunk/user/rc/src/usb_printer_child_reap_policy.h",
               "trunk/user/rc/src/tests/usb_printer_child_reap_policy.c",
@@ -1095,6 +1111,27 @@ jobs:
           assert "int run_aria(void);" in rc_header
           assert "is_torrent_run() != PROCESS_PRESENCE_ABSENT" in storage_start
           assert "is_aria_run() != PROCESS_PRESENCE_ABSENT" in storage_start
+          transmission_publish = function_body(storage, "transmission_mp_link_publish(")
+          transmission_parent = function_body(storage, "transmission_link_parent_snapshot(")
+          transmission_destination = function_body(storage, "transmission_link_destination_check(")
+          transmission_start = function_body(storage, "run_torrent(void)")
+          assert "transmission_mp_link_publish(dest_dir, link_path)" in transmission_start
+          assert "unlink(link_path)" not in transmission_start
+          assert "create_mp_link_status(dest_dir, link_path, 0)" not in transmission_start
+          assert "create_mp_link_status(dest_dir, staged_path, 0)" in transmission_publish
+          assert "rename(staged_path, link_path)" in transmission_publish
+          assert "lstat(staged_path" in transmission_publish
+          assert "transmission_link_parent_snapshot(&parent_before)" in transmission_publish
+          assert "transmission_link_parent_snapshot(&parent_after)" in transmission_publish
+          assert "parent_before.st_ino != parent_after.st_ino" in transmission_publish
+          assert 'lstat("/mnt", snapshot)' in transmission_parent
+          assert "transmission_link_parent_status(" in transmission_parent
+          assert "transmission_link_destination_status(" in transmission_destination
+          for marker in ("test_root_owned_nonwritable_parent_is_required",
+                         "test_symlink_and_writable_parents_are_rejected",
+                         "test_only_existing_symlink_may_be_replaced",
+                         "test_lookup_errors_are_preserved"):
+              assert marker in transmission_link_test
           assert "int start_stor_apps(void);" in rc_header
           assert "void start_stor_apps(void);" not in rc_header
 

@@ -70,6 +70,7 @@
 #include "storage_deferred_start_policy.h"
 #include "storage_ejected_inventory_policy.h"
 #include "storage_home_link_policy.h"
+#include "transmission_link_policy.h"
 #include "storage_nfs_export_policy.h"
 #include "storage_service_stop_policy.h"
 #include "storage_service_enable_policy.h"
@@ -3640,6 +3641,144 @@ stop_torrent(void)
 	return storage_service_stop_complete(status, is_torrent_run());
 }
 
+static int
+transmission_link_parent_snapshot(struct stat *snapshot)
+{
+	int status;
+
+	if (!snapshot) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+	if (lstat("/mnt", snapshot) != 0) {
+		status = errno > 0 ? errno : EIO;
+		errno = status;
+		return status;
+	}
+	status = transmission_link_parent_status(
+		0, 0, S_ISDIR(snapshot->st_mode), S_ISLNK(snapshot->st_mode),
+		(unsigned long)snapshot->st_uid, (unsigned long)snapshot->st_mode);
+	if (status != 0)
+		errno = status;
+	return status;
+}
+
+static int
+transmission_link_destination_check(const char *link_path)
+{
+	struct stat link_stat;
+	int status, saved_error;
+
+	if (!link_path) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+	if (lstat(link_path, &link_stat) == 0) {
+		status = transmission_link_destination_status(
+			0, 0, S_ISLNK(link_stat.st_mode));
+	} else {
+		saved_error = errno;
+		status = transmission_link_destination_status(
+			-1, saved_error, 0);
+	}
+	if (status != 0)
+		errno = status;
+	return status;
+}
+
+static int
+transmission_mp_link_publish(char *dest_dir, char *link_path)
+{
+	struct stat parent_before, parent_after, staged_stat, staged_current;
+	char staged_path[128];
+	int status, path_length, attempt, staged_created = 0;
+	int staged_identity_valid = 0;
+
+	if (!dest_dir || !dest_dir[0] || !link_path ||
+	    strcmp(link_path, "/mnt/transmission") != 0) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+
+	status = transmission_link_parent_snapshot(&parent_before);
+	if (status != 0)
+		return status;
+	status = transmission_link_destination_check(link_path);
+	if (status != 0)
+		return status;
+
+	for (attempt = 0; attempt < 8; attempt++) {
+		path_length = snprintf(staged_path, sizeof(staged_path),
+				       "/mnt/.transmission-link.%ld.%d",
+				       (long)getpid(), attempt);
+		if (path_length < 0 || path_length >= (int)sizeof(staged_path)) {
+			errno = ENAMETOOLONG;
+			return ENAMETOOLONG;
+		}
+		status = create_mp_link_status(dest_dir, staged_path, 0);
+		if (status == 0) {
+			staged_created = 1;
+			break;
+		}
+		if (status != EEXIST) {
+			errno = status;
+			return status;
+		}
+	}
+	if (!staged_created) {
+		errno = EEXIST;
+		return EEXIST;
+	}
+
+	if (lstat(staged_path, &staged_stat) != 0) {
+		status = errno > 0 ? errno : EIO;
+		goto out;
+	}
+	if (!S_ISLNK(staged_stat.st_mode)) {
+		status = EIO;
+		goto out;
+	}
+	staged_identity_valid = 1;
+
+	status = transmission_link_parent_snapshot(&parent_after);
+	if (status != 0)
+		goto out;
+	if (parent_before.st_dev != parent_after.st_dev ||
+	    parent_before.st_ino != parent_after.st_ino ||
+	    parent_before.st_uid != parent_after.st_uid ||
+	    parent_before.st_gid != parent_after.st_gid ||
+	    parent_before.st_mode != parent_after.st_mode) {
+		status = EPERM;
+		goto out;
+	}
+	status = transmission_link_destination_check(link_path);
+	if (status != 0)
+		goto out;
+
+	if (rename(staged_path, link_path) != 0) {
+		status = errno > 0 ? errno : EIO;
+		goto out;
+	}
+	staged_created = 0;
+	errno = 0;
+	return 0;
+
+out:
+	if (status <= 0)
+		status = EIO;
+	if (staged_created && staged_identity_valid &&
+	    lstat(staged_path, &staged_current) == 0 &&
+	    S_ISLNK(staged_current.st_mode) &&
+	    staged_current.st_dev == staged_stat.st_dev &&
+	    staged_current.st_ino == staged_stat.st_ino &&
+	    unlink(staged_path) != 0)
+		logmessage("Transmission",
+			   "failed to remove staged storage link %s (status=%d)",
+			   staged_path, errno > 0 ? errno : EIO);
+	errno = status;
+	return status;
+}
+
 int run_torrent(void)
 {
 	char *apps_name = "Transmission";
@@ -3672,8 +3811,7 @@ int run_torrent(void)
 		return errno ? errno : EIO;
 	}
 
-	unlink(link_path);
-	link_status = create_mp_link_status(dest_dir, link_path, 0);
+	link_status = transmission_mp_link_publish(dest_dir, link_path);
 	if (link_status != 0) {
 		logmessage(apps_name, "Cannot start: please create dir \"%s\" on target volume (status=%d)!",
 			   dest_dir, link_status);
