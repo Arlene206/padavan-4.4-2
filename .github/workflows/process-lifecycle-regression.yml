@@ -2131,7 +2131,8 @@ jobs:
           rollback_stop = source.split("usb_printer_daemon_rollback_stop(void *context)", 1)[1].split("usb_printer_daemon_start_failure_recover(", 1)[0]
           recovery = source.split("usb_printer_daemon_start_failure_recover(const char *process_name,", 1)[1].split("#if defined(SRV_U2EC)", 1)[0]
           assert "usb_printer_kill_services(service_names, 3, 1)" in rollback_stop
-          assert "kill_services(service_names, 3, 1)" not in rollback_stop
+          assert not any(line.strip() == "return kill_services(service_names, 3, 1);"
+                         for line in rollback_stop.splitlines())
           assert '#include "service_lifecycle_policy.h"' in source
           assert "usb_printer_filter_process_snapshot(" in source
           assert "service_lifecycle_stop(service_names, wait_timeout, forcekill," in source
@@ -2140,7 +2141,8 @@ jobs:
           for stop_name in ("stop_u2ec(void)", "stop_lpd(void)", "stop_p910nd(void)"):
               stop_body = source.split(stop_name, 1)[1].split(chr(10) + "}", 1)[0]
               assert "usb_printer_kill_services" in stop_body
-              assert "kill_services(" not in stop_body
+              assert not any(line.strip() == "return kill_services(svcs, 3, 1);"
+                             for line in stop_body.splitlines())
           assert "usb_printer_filter_process_snapshot" in executable_policy
           assert "unknown_error" in executable_policy
           for case in ("test_stop_filter_signals_only_verified_executables",

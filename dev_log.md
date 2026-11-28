@@ -1,3 +1,12 @@
+## 2026-11-28 — Compare USB printer legacy-stop calls as exact statements
+
+- Parent main `ef122034b4524ec1ce6768dd169ebee62a7da2ee`. The previous Process lifecycle run #46120573849 failed before its new USB printer executable-filter tests: source contract used substring checks for `kill_services(service_names, 3, 1)` and `kill_services(`, which also match the intended `usb_printer_kill_services()` wrapper. USB modem #46120573957, USB storage #46120573847 and AI docs #46120573872 had passed on ancestor 4b0fe.
+- Changed both negative assertions to compare stripped source lines against the exact legacy `return kill_services(...);` statements. This still rejects a true generic-stopper fallback but does not reject the executable-bound helper. Exact-head Process lifecycle validation is now triggered by this workflow-file change.
+- Concurrent source fix on `ef122034b4524ec1ce6768dd169ebee62a7da2ee` moved `chown_succeeded` from RETR scope to `handle_upload_common()` after XY-C1 #46119302438 exposed the MIPS compiler error. Current parent VSFTPD publication #46120731445 PASS, Process inventory #46120731490 PASS and AI docs #46120731486 PASS; XY-C1 #46120731426 and NVRAM #46120731399 pending at last poll.
+- This commit changes the Process workflow checker and handoff/log only. No local build/test or hardware L4 result is claimed.
+
+---
+
 ## 2026-11-28 — Fix VSFTPD upload chown local scope exposed by XY-C1 build
 
 - XY-C1 run #46119302438 on ancestor `9edd01a13d7c861a1c2e246220f2096134679ca1` reached the real MIPS compiler and failed at `postlogin.c:1271`: `chown_succeeded` was undeclared in `handle_upload_common()`. The variable had accidentally been declared in the unrelated `handle_retr()` function, so host source contracts missed the production build error.
