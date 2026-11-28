@@ -1,3 +1,11 @@
+## 2026-11-28 — Tighten IAPP monotonic timer diagnostics and GNU89 test ordering
+
+- Follow-up review of 78ff00d25b0957ecc2c148d606aee12615fbaa1d caught two small integration issues before CI completion: the new DBGPRINT strings contained doubled backslashes (printing literal "\\n" instead of a line break), and the GNU89 test called its new helper before declaring local constants in main.
+- THIS commit corrects the log escapes and moves the test call after C89 declarations. Runtime scheduling logic is unchanged.
+- Exact 78ff00d Actions #46095024005 (IAPP lifecycle), #46095023997 (XY-C1), #46095024014 (AI docs) and #46095024034 (Process lifecycle inventory) were IN_PROGRESS at last poll; exact reruns required.
+
+---
+
 ## 2026-11-28 — Make optional IAPP event-log polling monotonic
 
 - Fixed a reliability defect in the optional Ralink IAPP event logger: `IAPP_Start()` used `gettimeofday()`/wall-clock subtraction for its one-second poll. NTP/manual clock adjustments could stall snapshots or trigger them at the wrong rate.

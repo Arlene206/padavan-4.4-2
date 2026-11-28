@@ -42,11 +42,12 @@ test_event_log_poll_uses_monotonic_elapsed_time(void)
 int
 main(void)
 {
-	test_event_log_poll_uses_monotonic_elapsed_time();
 	const size_t header_size = 4;
 	const size_t record_size = 12;
 	const size_t maximum_events = 30;
 	const size_t maximum_size = header_size + maximum_events * record_size;
+
+	test_event_log_poll_uses_monotonic_elapsed_time();
 
 	assert(iapp_event_log_table_fits(header_size, 0, maximum_events,
 					 header_size, record_size, maximum_size));
@@ -73,6 +74,6 @@ main(void)
 	assert(!iapp_event_log_table_fits(header_size, 0, maximum_events,
 					 header_size + 1, record_size, maximum_size));
 
-	puts("Ralink IAPP event-table returned-length policy: PASS");
+	puts("Ralink IAPP event-log policy: PASS");
 	return 0;
 }

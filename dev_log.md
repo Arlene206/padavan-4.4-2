@@ -1,3 +1,10 @@
+## 2026-11-28 — Tighten IAPP monotonic timer diagnostics and GNU89 test ordering
+
+- Corrected the new IAPP timer diagnostic string escapes to emit real newlines, and moved the event-log test call below all declarations in main to keep GNU89/C90 declaration ordering warning-free.
+- No timer behavior change; exact-head IAPP/XY-C1/AI CI required.
+
+---
+
 ## 2026-11-28 — Make optional IAPP event-log polling monotonic
 
 - `IAPP_Start()` event logger relied on gettimeofday()/timersub() for a periodic one-second snapshot. Wall-clock changes can suppress or accelerate event capture. Replaced with CLOCK_MONOTONIC timespec polling; backwards samples and malformed inputs do not trigger an early poll. On a transient clock-read failure, the loop logs once and retries; first valid recovery sample captures events immediately.

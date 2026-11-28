@@ -1850,7 +1850,7 @@ static VOID IAPP_Start(
 	if (!event_log_clock_ready) {
 		event_log_clock_error_logged = 1;
 		DBGPRINT(RT_DEBUG_ERROR,
-			 "iapp> CLOCK_MONOTONIC unavailable for event log timer!\\n");
+			 "iapp> CLOCK_MONOTONIC unavailable for event log timer!\n");
 	}
 	IAPP_EventLogClean();
 #endif // IAPP_EVENT_LOG //
@@ -1867,7 +1867,7 @@ static VOID IAPP_Start(
 		if (clock_gettime(CLOCK_MONOTONIC, &now) != 0) {
 			if (!event_log_clock_error_logged) {
 				DBGPRINT(RT_DEBUG_ERROR,
-					 "iapp> CLOCK_MONOTONIC event log sample failed!\\n");
+					 "iapp> CLOCK_MONOTONIC event log sample failed!\n");
 				event_log_clock_error_logged = 1;
 			}
 		} else {
