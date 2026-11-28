@@ -443,7 +443,7 @@ atomic_replace_at = function_body(
 )
 atomic_replace_at_compact = "".join(atomic_replace_at.split())
 atomic_stream = function_body(
-    POLICY, "disk_share_write_stream_atomic_at(int directory_fd,"
+    POLICY, "disk_share_write_stream_atomic_at_with_directory_sync("
 )
 atomic_stream_compact = "".join(atomic_stream.split())
 
@@ -479,6 +479,12 @@ require("disk_share_write_stream_atomic_at(directory_fd,leaf,disk_share_write_at
         "fstatat(directory_fd,leaf,&existing_stat,AT_SYMLINK_NOFOLLOW)" in atomic_stream_compact and
         "openat(directory_fd,temp_leaf,O_WRONLY|O_CREAT|O_EXCL|O_NOFOLLOW|O_CLOEXEC,0600)" in atomic_stream_compact and
         "renameat(directory_fd,temp_leaf,directory_fd,leaf)" in atomic_stream_compact and
+        "sync_directory(directory_fd)" in atomic_stream_compact and
+        atomic_stream_compact.index("renameat(directory_fd,temp_leaf,directory_fd,leaf)") <
+        atomic_stream_compact.index("sync_directory(directory_fd)") and
+        "returnfsync(directory_fd);" in "".join(POLICY.split()) and
+        "test_atomic_stream_directory_sync_failure_is_reported_after_publish" in POLICY_TEST and
+        "test_atomic_stream_directory_sync_failure_is_reported_after_publish();" in POLICY_TEST and
         "unlinkat(directory_fd,temp_leaf,0)" in atomic_stream_compact and
         "errno=0;if(writer(stream,context)!=0)" in atomic_stream_compact and
         "errno=0;if(writer(stream,context)!=0)" in atomic_stream_compact and

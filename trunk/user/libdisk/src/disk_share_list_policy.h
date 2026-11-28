@@ -35,15 +35,25 @@ disk_share_unlink_stale_metadata_entry(int directory_fd,
 
 /*
  * Publish a stream to a regular metadata file relative to a pinned directory.
- * The temporary file is private and unique, and both creation and rename are
- * descriptor-relative so a mountpoint path swap cannot redirect publication.
+ * The temporary file is private and unique; file contents are fsynced before
+ * renameat(), then the pinned directory is fsynced to persist the new entry.
+ * A directory-sync error is reported after rename: the new file is visible,
+ * but crash durability could not be confirmed.
  */
 typedef int (*disk_share_atomic_stream_writer_fn)(FILE *, void *);
+typedef int (*disk_share_directory_sync_fn)(int);
 
 static inline int
-disk_share_write_stream_atomic_at(int directory_fd, const char *leaf,
-                                  disk_share_atomic_stream_writer_fn writer,
-                                  void *context, int preserve_existing_mode)
+disk_share_sync_directory_fd(int directory_fd)
+{
+	return fsync(directory_fd);
+}
+
+static inline int
+disk_share_write_stream_atomic_at_with_directory_sync(
+	int directory_fd, const char *leaf,
+	disk_share_atomic_stream_writer_fn writer, void *context,
+	int preserve_existing_mode, disk_share_directory_sync_fn sync_directory)
 {
 	struct stat existing_stat;
 	char temp_leaf[NAME_MAX + 1];
@@ -53,8 +63,8 @@ disk_share_write_stream_atomic_at(int directory_fd, const char *leaf,
 
 	if (directory_fd < 0 || !leaf || !*leaf ||
 	    strchr(leaf, '/') || !strcmp(leaf, ".") || !strcmp(leaf, "..") ||
-	    !writer || (preserve_existing_mode != 0 &&
-	                preserve_existing_mode != 1)) {
+	    !writer || !sync_directory ||
+	    (preserve_existing_mode != 0 && preserve_existing_mode != 1)) {
 		errno = EINVAL;
 		return -1;
 	}
@@ -128,6 +138,8 @@ disk_share_write_stream_atomic_at(int directory_fd, const char *leaf,
 	if (renameat(directory_fd, temp_leaf, directory_fd, leaf) != 0)
 		goto failed;
 	temp_created = 0;
+	if (sync_directory(directory_fd) != 0)
+		goto failed;
 	return 0;
 
 failed:
@@ -140,6 +152,18 @@ failed:
 		(void)unlinkat(directory_fd, temp_leaf, 0);
 	errno = saved_errno;
 	return -1;
+}
+
+
+/* Keep the production call surface simple; tests inject directory-sync faults. */
+static inline int
+disk_share_write_stream_atomic_at(int directory_fd, const char *leaf,
+                                  disk_share_atomic_stream_writer_fn writer,
+                                  void *context, int preserve_existing_mode)
+{
+	return disk_share_write_stream_atomic_at_with_directory_sync(
+		directory_fd, leaf, writer, context, preserve_existing_mode,
+		disk_share_sync_directory_fd);
 }
 
 

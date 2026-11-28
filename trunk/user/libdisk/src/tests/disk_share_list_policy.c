@@ -138,6 +138,26 @@ disk_share_test_stream_writer(FILE *stream, void *opaque)
 	return 0;
 }
 
+/* Inject only directory fsync failures; regular-file fsync remains real. */
+static int disk_share_test_directory_sync_fail;
+static int disk_share_test_directory_sync_calls;
+
+static int
+disk_share_test_sync_directory(int directory_fd)
+{
+	struct stat status;
+
+	if (fstat(directory_fd, &status) != 0)
+		return -1;
+	assert(S_ISDIR(status.st_mode));
+	++disk_share_test_directory_sync_calls;
+	if (disk_share_test_directory_sync_fail) {
+		errno = EIO;
+		return -1;
+	}
+	return fsync(directory_fd);
+}
+
 
 static void
 test_permission_metadata_update_stays_on_pinned_mount_directory_fd(void)
@@ -287,6 +307,67 @@ test_atomic_stream_failure_preserves_previous_metadata(void)
 
 	assert(close(directory_fd) == 0);
 	assert(unlink(target_path) == 0);
+	assert(rmdir(mount_dir) == 0);
+	assert(rmdir(root) == 0);
+}
+
+
+static void
+test_atomic_stream_directory_sync_failure_is_reported_after_publish(void)
+{
+	char root_template[] = "/tmp/disk-share-dir-sync-XXXXXX";
+	char mount_dir[256], temp_prefix[128], buffer[64];
+	const char contents[] = "published-before-sync\n";
+	char *root;
+	DIR *directory;
+	struct dirent *entry;
+	struct stat status;
+	struct disk_share_stream_writer_fixture fixture;
+	int directory_fd, file_fd, temp_count = 0;
+	ssize_t bytes_read;
+
+	root = mkdtemp(root_template);
+	assert(root != NULL);
+	assert(snprintf(mount_dir, sizeof(mount_dir), "%s/mount", root) > 0);
+	assert(mkdir(mount_dir, 0700) == 0);
+	directory_fd = open(mount_dir, O_RDONLY | O_DIRECTORY);
+	assert(directory_fd >= 0);
+
+	fixture.contents = contents;
+	fixture.fail_after_write = 0;
+	disk_share_test_directory_sync_calls = 0;
+	disk_share_test_directory_sync_fail = 1;
+	errno = 0;
+	assert(disk_share_write_stream_atomic_at_with_directory_sync(
+		directory_fd, ".__sync_var.txt", disk_share_test_stream_writer,
+		&fixture, 0, disk_share_test_sync_directory) == -1);
+	assert(errno == EIO);
+	assert(disk_share_test_directory_sync_calls == 1);
+	disk_share_test_directory_sync_fail = 0;
+
+	/* The rename already happened: report uncertain durability, not rollback. */
+	file_fd = openat(directory_fd, ".__sync_var.txt", O_RDONLY | O_NOFOLLOW);
+	assert(file_fd >= 0);
+	bytes_read = read(file_fd, buffer, sizeof(buffer));
+	assert(bytes_read == (ssize_t)(sizeof(contents) - 1));
+	assert(memcmp(buffer, contents, sizeof(contents) - 1) == 0);
+	assert(close(file_fd) == 0);
+	assert(fstatat(directory_fd, ".__sync_var.txt", &status,
+	               AT_SYMLINK_NOFOLLOW) == 0);
+	assert(S_ISREG(status.st_mode));
+
+	assert(snprintf(temp_prefix, sizeof(temp_prefix),
+	                "..__sync_var.txt.tmp.") > 0);
+	directory = opendir(mount_dir);
+	assert(directory != NULL);
+	while ((entry = readdir(directory)) != NULL)
+		if (strncmp(entry->d_name, temp_prefix, strlen(temp_prefix)) == 0)
+			++temp_count;
+	assert(closedir(directory) == 0);
+	assert(temp_count == 0);
+
+	assert(unlinkat(directory_fd, ".__sync_var.txt", 0) == 0);
+	assert(close(directory_fd) == 0);
 	assert(rmdir(mount_dir) == 0);
 	assert(rmdir(root) == 0);
 }
@@ -3929,6 +4010,7 @@ main(void)
 	test_atomic_metadata_replace_stays_in_pinned_directory();
 	test_permission_metadata_update_stays_on_pinned_mount_directory_fd();
 	test_atomic_stream_failure_preserves_previous_metadata();
+	test_atomic_stream_directory_sync_failure_is_reported_after_publish();
 test_folder_name_visibility_policy();
 	test_folder_delete_batch_commits_directory_snapshot_and_permissions();
 	test_folder_delete_batch_restores_directory_after_snapshot_failure();
