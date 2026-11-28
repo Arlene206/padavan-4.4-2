@@ -1,3 +1,12 @@
+## 2026-11-28 — Apply first-error errno capture to every firmware stop group
+
+- The first errno policy initially covered EAPOL, LAN authentication, 802.1X and PPPoE relay, but code review found the earlier VPN endpoint/residual-process group and the MiniUPnPd/checked-service group still relied on un-cleared errno. A successful stop could leave stale errno for a subsequent failure with no errno of its own.
+- Applied the same fail-safe helper to all ten independent stop attempts, including VPN lifecycle-lock release. Each operation starts with errno cleared; the first nonzero failure is sticky, with EIO fallback, and is restored before abort. All independent stops still run, and any failure blocks persistence and MTD flash.
+- Extended the source checker to verify every stop is reset/captured before the next operation; the policy test now also exercises a successful later stop with stale errno. Process and XY-C1 workflows already execute the test and checker.
+- Parent main SHA: `19d86adc5f57d17800a687435050b294affb6ade`. Exact-head validation for this follow-up is pending; no firmware/hardware result is claimed.
+
+---
+
 ## 2026-11-28 — Preserve the first errno across firmware-update stop failures
 
 - `flash_firmware()` attempted EAPOL, LAN authentication, 802.1X and PPPoE-relay shutdown independently, but discarded the first operation's errno. A later successful stop could clear it, or a later failure could replace it, so PID 1's incomplete notification lacked a trustworthy first-error diagnostic.

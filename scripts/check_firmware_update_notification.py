@@ -35,12 +35,18 @@ assert flash.count("return -1;") >= 10, "all preparation abort paths must return
 assert '#include "firmware_update_stop_policy.h"' in rc_source
 assert "return operation_errno > 0 ? operation_errno : EIO;" in stop_policy
 stop_calls = (
+    "vpn_client_stop_status = stop_vpn_client_under_lifecycle_lock();",
+    "vpn_server_stop_status = stop_vpn_server_under_lifecycle_lock();",
+    "residual_stop_status = kill_services(svcs, 6, 1);",
+    "release_status = vpn_server_lifecycle_lock_release(lock_fd);",
+    "upnp_stop_status = stop_upnp();",
+    "service_stop_status = stop_services(0);",
     "eapol_stop_status = stop_auth_eapol();",
     "kabinet_stop_status = stop_auth_kabinet();",
     "auth_stop_status = stop_8021x_all();",
     "pppoe_stop_status = set_passthrough_pppoe(0);",
 )
-for call in stop_calls:
+for index, call in enumerate(stop_calls):
     call_pos = flash.index(call)
     reset_pos = flash.rfind("errno = 0;", 0, call_pos)
     capture_pos = flash.index(
@@ -49,7 +55,19 @@ for call in stop_calls:
     assert reset_pos >= 0 and reset_pos < call_pos < capture_pos, (
         "each firmware stop must clear errno and capture its result"
     )
-assert flash.count("saved_errno = firmware_update_stop_first_errno(") == 4
+    if index + 1 < len(stop_calls):
+        next_pos = flash.index(stop_calls[index + 1], call_pos + len(call))
+        assert capture_pos < next_pos, (
+            "the first errno must be captured before the next independent stop"
+        )
+assert flash.count("saved_errno = firmware_update_stop_first_errno(") == len(stop_calls)
+vpn_stop_failure = block(flash, "if (stop_status != 0)")
+assert "if (saved_errno)" in vpn_stop_failure
+assert "errno = saved_errno;" in vpn_stop_failure
+assert "first errno=%d" in vpn_stop_failure
+release_failure = block(flash, "if (release_status != 0)")
+assert "release_errno = errno;" in flash
+assert "release_errno = EIO;" in release_failure
 auth_stop_failure = block(
     flash,
     "if (eapol_stop_status != 0 || kabinet_stop_status != 0 ||",
@@ -69,13 +87,12 @@ assert flash.count(upnp_stop_call) == 1
 assert flash.count(services_stop_call) == 1
 assert flash.index(upnp_stop_call) < flash.index(services_stop_call)
 upnp_failure = block(flash, "if (upnp_stop_status != 0)")
-assert "saved_errno = errno ? errno : EIO;" in upnp_failure
 assert "MiniUPnPd did not stop" in upnp_failure
-service_error_guard = "if (service_stop_status != 0 && saved_errno == 0)\n\t\tsaved_errno = errno ? errno : EIO;"
-assert service_error_guard in flash
+assert "first errno=%d" in upnp_failure
 stop_failure = block(flash, "if (upnp_stop_status != 0 || service_stop_status != 0)")
 assert "if (saved_errno)" in stop_failure
 assert "errno = saved_errno;" in stop_failure
+assert "first errno=%d" in stop_failure
 assert "return -1;" in stop_failure
 assert flash.index("if (upnp_stop_status != 0 || service_stop_status != 0)") < flash.index("storage_time_status = storage_save_time(60)")
 assert flash.index("if (upnp_stop_status != 0 || service_stop_status != 0)") < flash.index(write_call)

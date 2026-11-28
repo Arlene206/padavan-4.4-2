@@ -1,50 +1,55 @@
 ## 2026-11-28 continuation checkpoint
 
-- Repository `Arlene206/padavan-4.4-2`; continue on `main`; bootstrap recovered once. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Parent: `65ed152afe517c36ee6e05c34f1f4942556698a6` (`fix(pppoe): use checked reads for MWAN settings`).
-- DDNSTO source change SHA `3f1cab20589e858b2db951b18821194249424957`: DDNSTO test failed once due stale NVRAM log; correction `5065efb84e8a58c1a56f4313eb4bfed08107f4a2` clears log; exact DDNSTO #46141395670 PASS, Process inventory #46141395659 PASS, AI docs #46141395666 PASS. XY-C1 #46141285573 for production SHA 3f remained IN_PROGRESS last poll.
-- `mwan.sh` PPPoE helper migration parent `5065`: eight required settings now use checked getter; test injects statuses 41–48 and validates no interface, option-file or PPPD side effects. On `65ed` WAN lifecycle workflow #46141657596 PASS, Process inventory #46141657586 PASS, AI docs #46141657624 PASS. Note: #46141657596 is the VPN-server lifecycle job and is not the PPPoE-MWAN shell regression; the latter is in XY-C1's `Verify PPPoE-MWAN cleanup fail-closed and partial launch rollback` step. XY-C1 #46141657601 was IN_PROGRESS with this step still pending at last poll.
-- The current follow-up extends checked getter semantics to `detect.sh`: six required/preflight reads (PPP count, 443 selector, static-rule enable/count, dynamic static IP/interface) now use `nvram get_checked`, plus tests for PPP-count failure and the pre-existing selector failure matrix. Existing XY workflow executes both shell regression scripts and static checker.
-- Aria2 SHA `76646cffc52d09fcb9b7a67052d5ae64b1b14462`: Process/inventory/USB PASS, AI duplicate path-filter problem fixed by 570 with Process #46141148152 and AI #46141148176 PASS; XY #46141026720 was IN_PROGRESS last poll.
-- Transmission + WireGuard test SHA `7e50fa510ebc14d98442ded1cd8caa1e93085147`: Process #46140791596 PASS, inventory #46140791606 PASS, AI #46140791629 PASS.
-- NVRAM cache-wrap SHA `4f09b7bc0cff0aae3a13a4705edd3bf3af489b53`: XY-C1 Build PASS + artifact ID 15261597583. TTYD SHA `5759332e5f3da1212d3caa937684a663c6e39a86`: XY-C1 success. Exact-SHA evidence only. NTP L3 only on `c052506cbe9463f2719494d237e5323fe1c261c8`.
-- No local MIPS/kernel build or router hardware; physical L4 NOT VERIFIED. Roadmap near cap.
+- Repository: `Arlene206/padavan-4.4-2`. Continue on `main`; startup recovery was completed once. Do not repeat the completed bootstrap/inventory audit.
+- Frozen backup: `backup/pre-plugin-overhaul-2026-11-14`, SHA `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable. No force-push, reset, rename, CI, or development work on this branch.
+- The latest source parent for this checkpoint is `19d86adc5f57d17800a687435050b294affb6ade`; this commit extends its firmware-stop first-errno work. Fetch live `main` to resolve the resulting exact commit SHA before checking Actions.
+- PR #1 remains closed and unmerged. Its AliDDNS CA trust-store postcondition source, shell regression and workflow integration are present on main; do not resume development on the closed PR branch or assume its legacy branch is current.
+
+## Exact-SHA validation already established
+
+- DDNSTO production SHA `3f1cab20589e858b2db951b18821194249424957`: XY-C1 run #46141285573 completed SUCCESS; firmware Build, TRX verification and artifact upload all SUCCESS; artifact ID `15261971334`.
+- Aria2 production SHA `76646cffc52d09fcb9b7a67052d5ae64b1b14462`: XY-C1 run #46141026720 completed SUCCESS; firmware Build, TRX verification and artifact upload all SUCCESS; artifact ID `15261729486`.
+- PPPoE-MWAN detector commit SHA `300e78b2a36ceea51d508d18bc3cf09add6d633d`: WAN route-status run #46141847656 SUCCESS; XY-C1 run #46141847644 was IN_PROGRESS at the last check. Its PPPoE-MWAN shell tests, static checker and other host pre-build tests were SUCCESS; Build XY-C1 was still in progress, TRX and artifact steps pending.
+- Firmware first-errno policy commit SHA `19d86adc5f57d17800a687435050b294affb6ade`: PID 1 notification run #46142248483 SUCCESS; Process lifecycle regression #46142248545 SUCCESS (including the first-errno policy test and firmware notification checker); Process inventory #46142248530 SUCCESS. XY-C1 #46142248550 remained IN_PROGRESS; its first-errno test and firmware notification checker completed SUCCESS; Build XY-C1 was in progress, TRX and artifact pending.
+- No local MIPS/kernel build or router hardware is available in this session. Physical L4 remains NOT VERIFIED. Do not claim L3 for a SHA until its exact-SHA Build, TRX check and artifact upload all succeed.
 
 ## Current repository state
 
-- Parent: `65ed152afe517c36ee6e05c34f1f4942556698a6`.
-- Current commit modifies `detect.sh`, its NVRAM failure regression and `check_pppoe_mwan_status.py`. It follows the prior `mwan.sh` migration; both avoid treating legacy getter backend failures as valid empty values.
-- Frozen backup is unchanged.
+- Main-only development. The frozen backup remains unchanged.
+- `flash_firmware()` now routes all ten independent pre-flash stop operations through `firmware_update_stop_first_errno()`: VPN client, VPN server, residual L2TP/PPP process cleanup, VPN lifecycle-lock release, MiniUPnPd, checked service stop, EAPOL, LAN authentication, 802.1X and PPPoE relay.
+- Each operation clears errno before it runs; the first nonzero failure errno is retained, defaulting to EIO when a failing operation leaves errno unset. Independent stop attempts continue; failure is logged and errno restored before returning. Persistence/MTD write remains unreachable after any stop failure.
+- The GNU89 policy regression covers successful operations with stale errno, operation errno capture, EIO fallback and sticky first error. The Process lifecycle and XY-C1 workflows compile/run it with sanitizers and execute the extended firmware-update source checker.
+- Root `dev_log.md` has 98 records before this commit and is below archive thresholds; roadmap is near its size cap and was not edited.
 
 ## Active task
 
-- Verify the combined PPPoE-MWAN `mwan.sh` and `detect.sh` changes through exact-SHA XY-C1. Require both shell tests, static checker, XY-C1 build, TRX verification and artifact upload.
-- The prior `mwan.sh` task on SHA `65ed` has WAN/Process/AI PASS, but the WAN workflow was VPN-specific. XY-C1 #46141657601 was IN_PROGRESS and still must run the PPPoE-MWAN test step.
-- Poll prior DDNSTO XY #46141285573 and Aria2 XY #46141026720 independently; exact SHA only.
+- Validate this firmware-stop errno follow-up on its exact main SHA. Require the GNU89 policy test, source checker, Process lifecycle regression, PID 1 notification workflow and XY-C1 pre-build checks to pass.
+- Complete the exact-SHA XY-C1 firmware Build, TRX verification and artifact upload before claiming L3.
+- In parallel, finish or diagnose the PPPoE-MWAN detector XY-C1 run #46141847644 on SHA `300e78b2a36ceea51d508d18bc3cf09add6d633d`; its host tests already passed.
 
 ## Exact first action for the next GPT
 
-1. Fetch current main and exact-SHA Actions for the `detect.sh` checked-read commit.
-2. Inspect XY-C1 job step outcomes for `Verify PPPoE-MWAN cleanup fail-closed and partial launch rollback`; confirm both tests and static checker pass before build/TRX/artifact.
-3. Poll parent XY runs #46141285573 (DDNSTO SHA 3f), #46141026720 (Aria2 SHA 766), and #46141657601 (65ed PPPoE helper) separately.
-4. If any test fails, read the exact job log and fix the cause; do not treat PENDING as failure. Keep backup immutable and only use complete-tree atomic commits with expected-SHA, non-forced main updates.
+1. Fetch live `main`, identify this commit's exact SHA, and inspect all Actions triggered by that SHA.
+2. Confirm `firmware_update_stop_policy.c` and `check_firmware_update_notification.py` pass in Process/XY-C1; confirm the PID 1 notification workflow remains green.
+3. Inspect XY-C1 Build, TRX and artifact steps for the exact current SHA. A pending firmware build does not block other independent fixes; a failure requires its exact job log and causal repair.
+4. Poll #46141847644 independently for the PPPoE-MWAN detector SHA 300e; DDNSTO 3f and Aria2 766 have already completed full exact-SHA XY-C1 validation.
+5. Continue main-only atomic changes. Do not modify the frozen backup; do not force-push or publish per-file partial commits.
 
 ## Verification boundary
 
-- `5065`: DDNSTO test, Process inventory and AI docs PASS; production XY #46141285573 pending on source SHA 3f.
-- `65ed`: WAN VPN-server workflow PASS, Process inventory PASS, AI docs PASS; actual PPPoE-MWAN checks in XY-C1 #46141657601 still pending.
-- Current detector change: exact-SHA XY-C1 is required.
-- Aria2 XY #46141026720 pending; Transmission/WireGuard 7e workflow tests passed.
-- Physical L4: NOT VERIFIED.
+- DDNSTO SHA 3f and Aria2 SHA 766: exact-SHA XY-C1 Build, TRX and artifact upload PASS.
+- PPPoE-MWAN detector SHA 300e: source/host checks PASS; exact-SHA firmware build/TRX/artifact not complete at last poll.
+- Firmware-stop first-errno SHA 19d86: PID 1 notification, Process lifecycle, Process inventory and pre-build policy checks PASS; exact-SHA XY-C1 firmware Build/TRX/artifact still pending at last poll.
+- This follow-up commit: Actions are not yet available at handoff authoring time; fetch exact-head results.
+- Physical router/hardware validation L4: NOT VERIFIED.
 
 ## Mandatory end-of-session handoff checkpoint
 
-Mandatory handoff checkpoint. The checkpoint is mandatory; a document edit is conditional.
-Every session MUST inspect the live repository state and exact-head Actions before ending. A relevant exact-head Action changing from PENDING to PASS/FAIL is checkpoint information. If all checkpoint facts and the first action are already accurate, explicitly conclude the check with no file change and no commit. If facts materially change, update this file accurately.
+Every session MUST inspect live repository state and exact-head Actions before ending. A relevant exact-head Action changing from PENDING to PASS/FAIL is checkpoint information. Update this file when the active task or first action materially changes; do not create a documentation-only commit merely to record routine CI transitions.
 
-# Cross-session execution mandate
+## Cross-session execution mandate
 
-- One logical task, one atomic main commit: blobs, complete tree, commit, non-forced expected-SHA update. Never force-push or publish per-file partial commits.
-- Before context exhaustion, finish safe source slices, inspect exact-head Actions, and leave the next GPT an accurate first action and L1-L4 boundary.
+- One logical task, one atomic main commit: create all blobs, the complete tree, one commit, then a non-forced expected-SHA update. Never force-push or publish per-file partial commits.
+- Before context exhaustion, finish safe source slices, inspect exact-head Actions, and leave the next GPT an accurate first action and L1-L4 verification boundary.
 - Keep working while independent Actions are pending; PASS continues, FAIL requires causal repair, PENDING permits independent work.
-- Recover once, implement continuously, and do not repeat completed audits or ask what to do next.
+- Recover once, implement continuously, do not repeat completed audits, and do not ask what to do next.

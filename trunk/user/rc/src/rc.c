@@ -986,7 +986,7 @@ flash_firmware(void)
 {
 	const char *script_name = SCRIPT_SHUTDOWN;
 	char* svcs[] = { "l2tpd", "xl2tpd", "pppd", NULL };
-	int lock_fd, stop_status = 0, release_status, saved_errno = 0;
+	int lock_fd, stop_status = 0, release_status, release_errno, saved_errno = 0;
 	int vpn_client_stop_status, vpn_server_stop_status, residual_stop_status;
 	int eapol_stop_status, kabinet_stop_status, auth_stop_status, pppoe_stop_status;
 	int upnp_stop_status, service_stop_status;
@@ -1005,36 +1005,43 @@ flash_firmware(void)
 	 * lifecycle lock. The public wrappers would reacquire and unlock this
 	 * process-associated F_SETLK lock, so use their lock-owned entry points.
 	 */
+	errno = 0;
 	vpn_client_stop_status = stop_vpn_client_under_lifecycle_lock();
-	if (vpn_client_stop_status != 0 && stop_status == 0) {
+	saved_errno = firmware_update_stop_first_errno(
+		vpn_client_stop_status, errno, saved_errno);
+	if (vpn_client_stop_status != 0 && stop_status == 0)
 		stop_status = vpn_client_stop_status;
-		saved_errno = errno ? errno : EIO;
-	}
+	errno = 0;
 	vpn_server_stop_status = stop_vpn_server_under_lifecycle_lock();
-	if (vpn_server_stop_status != 0 && stop_status == 0) {
+	saved_errno = firmware_update_stop_first_errno(
+		vpn_server_stop_status, errno, saved_errno);
+	if (vpn_server_stop_status != 0 && stop_status == 0)
 		stop_status = vpn_server_stop_status;
-		saved_errno = errno ? errno : EIO;
-	}
 	/* Catch residual legacy L2TP/PPP names after identity-bound endpoint stops. */
+	errno = 0;
 	residual_stop_status = kill_services(svcs, 6, 1);
-	if (residual_stop_status != 0 && stop_status == 0) {
+	saved_errno = firmware_update_stop_first_errno(
+		residual_stop_status, errno, saved_errno);
+	if (residual_stop_status != 0 && stop_status == 0)
 		stop_status = residual_stop_status;
-		saved_errno = errno ? errno : EIO;
-	}
+	errno = 0;
 	release_status = vpn_server_lifecycle_lock_release(lock_fd);
+	release_errno = errno;
+	saved_errno = firmware_update_stop_first_errno(
+		release_status, release_errno, saved_errno);
 	if (release_status != 0) {
-		int release_errno = errno ? errno : EIO;
+		if (release_errno <= 0)
+			release_errno = EIO;
 		logmessage(LOGNAME, "firmware update cannot release VPN server lifecycle lock (errno=%d)",
 			   release_errno);
-		if (stop_status == 0) {
+		if (stop_status == 0)
 			stop_status = -1;
-			saved_errno = release_errno;
-		}
 	}
 	if (stop_status != 0) {
 		logmessage(LOGNAME,
-			   "firmware update aborted: VPN client/server or residual L2TP/PPP services did not stop (client=%d, server=%d, residual=%d)",
-			   vpn_client_stop_status, vpn_server_stop_status, residual_stop_status);
+			   "firmware update aborted: VPN client/server or residual L2TP/PPP services did not stop (client=%d, server=%d, residual=%d, first errno=%d)",
+			   vpn_client_stop_status, vpn_server_stop_status, residual_stop_status,
+			   saved_errno ? saved_errno : EIO);
 		if (saved_errno)
 			errno = saved_errno;
 		return -1;
@@ -1044,21 +1051,25 @@ flash_firmware(void)
 	 * Firmware preparation does not run stop_services_lan_wan(), so stop it
 	 * explicitly before configuration persistence and the irreversible flash.
 	 */
+	errno = 0;
 	upnp_stop_status = stop_upnp();
+	saved_errno = firmware_update_stop_first_errno(
+		upnp_stop_status, errno, saved_errno);
 	if (upnp_stop_status != 0) {
-		saved_errno = errno ? errno : EIO;
 		logmessage(LOGNAME,
-			   "firmware update aborted: MiniUPnPd did not stop (status=%d, errno=%d)",
-			   upnp_stop_status, saved_errno);
+			   "firmware update aborted: MiniUPnPd did not stop (status=%d, first errno=%d)",
+			   upnp_stop_status, saved_errno ? saved_errno : EIO);
 	}
 	/* Continue independent stop attempts, but retain the first failure. */
+	errno = 0;
 	service_stop_status = stop_services(0);
-	if (service_stop_status != 0 && saved_errno == 0)
-		saved_errno = errno ? errno : EIO;
+	saved_errno = firmware_update_stop_first_errno(
+		service_stop_status, errno, saved_errno);
 	if (upnp_stop_status != 0 || service_stop_status != 0) {
 		logmessage(LOGNAME,
-			   "firmware update aborted: UPnP or checked services did not stop (UPnP=%d, services=%d)",
-			   upnp_stop_status, service_stop_status);
+			   "firmware update aborted: UPnP or checked services did not stop (UPnP=%d, services=%d, first errno=%d)",
+			   upnp_stop_status, service_stop_status,
+			   saved_errno ? saved_errno : EIO);
 		if (saved_errno)
 			errno = saved_errno;
 		return -1;

@@ -30,7 +30,7 @@ test_first_failure_is_sticky(void)
 
 	first_errno = firmware_update_stop_first_errno(9, EBUSY, first_errno);
 	first_errno = firmware_update_stop_first_errno(5, EACCES, first_errno);
-	first_errno = firmware_update_stop_first_errno(0, 0, first_errno);
+	first_errno = firmware_update_stop_first_errno(0, EACCES, first_errno);
 	assert(first_errno == EBUSY);
 }
 
