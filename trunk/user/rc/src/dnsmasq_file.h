@@ -12,6 +12,11 @@
 #include "dnsmasq_domain_policy.h"
 #include "dnsmasq_safe_read.h"
 
+/* Test builds may inject EINTR; production uses the system fsync directly. */
+#ifndef DNSMASQ_FILE_FSYNC
+#define DNSMASQ_FILE_FSYNC(fd) fsync(fd)
+#endif
+
 /* Preserve the staged file's preselected mode when publishing a related set. */
 #define DNSMASQ_FILE_PRESERVE_MODE ((mode_t)-1)
 
@@ -140,7 +145,7 @@ dnsmasq_file_sync_directory(const char *directory)
 		return -1;
 	do {
 		errno = 0;
-		sync_status = fsync(fd);
+		sync_status = DNSMASQ_FILE_FSYNC(fd);
 	} while (sync_status != 0 && errno == EINTR);
 	if (sync_status != 0) {
 		saved_errno = errno ? errno : EIO;
@@ -223,7 +228,7 @@ dnsmasq_file_publish_internal(FILE *fp, char *path,
 	if (!failed) {
 		do {
 			errno = 0;
-			sync_status = fsync(fileno(fp));
+			sync_status = DNSMASQ_FILE_FSYNC(fileno(fp));
 		} while (sync_status != 0 && errno == EINTR);
 		if (sync_status != 0) {
 			failed = 1;

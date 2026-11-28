@@ -5,24 +5,24 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include "dnsmasq_file.h"
 
-/* Inject one EINTR into file and directory durability barriers. */
+/* Inject EINTR through the helper's narrow fsync seam, without linker wrapping. */
 static int fsync_interrupt_call = -1;
 static int fsync_call_count;
 
-int __real_fsync(int fd);
-
-int
-__wrap_fsync(int fd)
+static int
+dnsmasq_test_fsync(int fd)
 {
 	fsync_call_count++;
 	if (fsync_call_count == fsync_interrupt_call) {
 		errno = EINTR;
 		return -1;
 	}
-	return __real_fsync(fd);
+	return fsync(fd);
 }
+
+#define DNSMASQ_FILE_FSYNC(fd) dnsmasq_test_fsync(fd)
+#include "dnsmasq_file.h"
 
 static int discard_mock_result;
 static int discard_mock_error;
