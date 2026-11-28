@@ -42,6 +42,12 @@ class FirmwareInputPathTests(unittest.TestCase):
             "trunk/user/networkmap/src/tests/networkmap_arp_policy.c"
         ))
 
+    def test_nvram_cli_production_sources_trigger_xy_c1_firmware_build(self):
+        workflow = (ROOT / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
+        source_path = '      - "trunk/user/nvram/**"'
+        self.assertEqual(workflow.count(source_path), 1)
+        self.assertFalse(is_non_firmware_input("trunk/user/nvram/src/nvram.c"))
+
     def test_ralink_iapp_c_sources_trigger_xy_c1_firmware_build(self):
         workflow = (ROOT / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
         source_path = '      - "trunk/user/ralinkiappd/src/**"'

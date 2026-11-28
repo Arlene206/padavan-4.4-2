@@ -1,3 +1,11 @@
+## 2026-11-28 — Trigger XY-C1 for NVRAM CLI and restore the handoff size limit
+
+- The exact 2b/93507 handoff validator failures were the same measured issue: `REFACTOR_ROADMAP.md` contained 131271 UTF-8 bytes versus a 131072 hard limit. Condensed the NVRAM ledger row while retaining the checked kernel/userland scope, historical scan counts, and explicit external `nvram_get()`/global-atomicity limitations.
+- Review of the XY-C1 push filters found a second CI gap: kernel NVRAM driver paths were included but production CLI sources under `trunk/user/nvram/**` were not. Added the subtree and a regression proving `trunk/user/nvram/src/nvram.c` is a production input.
+- Parent main SHA: 93507a6a0ecdceb28259127917824b018642ced6; result: THIS COMMIT. On 93507, NVRAM #46147635685 was in progress at final caller audit, XY-C1 #46147635745 was in progress at Build, HTTPD #46147635675 PASS, and handoff #46147635700 failed only on the roadmap size limit. Exact reruns pending.
+
+---
+
 ## 2026-11-28 — Erase stale NVRAM value-arena slots on replace and unset
 
 - NVRAM values are appended into a shared kernel arena. `_nvram_realloc()` reused a larger old slot on shorter replacements with `strcpy()`, leaving the previous credential suffix beyond the new NUL; growth allocated a new slot but abandoned the old bytes; `_nvram_free()`/unset freed tuple metadata without wiping the arena slot. Compaction/reset/module-exit erasure happened later and did not protect the mutation interval.
