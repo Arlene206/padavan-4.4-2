@@ -7,6 +7,22 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+/* Inject one interrupted fsync without relying on GNU ld --wrap. */
+static int ralink_test_fsync_interrupt_call = -1;
+static int ralink_test_fsync_call_count;
+
+static int
+ralink_test_fsync(int fd)
+{
+    ralink_test_fsync_call_count++;
+    if (ralink_test_fsync_call_count == ralink_test_fsync_interrupt_call) {
+        errno = EINTR;
+        return -1;
+    }
+    return fsync(fd);
+}
+
+#define RALINK_CONFIG_FILE_FSYNC(fd) ralink_test_fsync(fd)
 #include "../ralink_config_file.h"
 
 #define CHECK(condition) do { \
@@ -430,6 +446,27 @@ test_sku_transaction_commit_keeps_published_link(const char *directory)
     return 0;
 }
 
+static int
+test_fsync_retries_eintr(const char *directory)
+{
+    char path[256], temp_path[300];
+    FILE *fp = NULL;
+
+    snprintf(path, sizeof(path), "%s/eintr-wireless.dat", directory);
+    CHECK(ralink_config_open_atomic(path, temp_path, sizeof(temp_path), &fp) == 0);
+    CHECK(fp != NULL);
+    CHECK(fputs("durable after EINTR\n", fp) >= 0);
+    ralink_test_fsync_call_count = 0;
+    ralink_test_fsync_interrupt_call = 1;
+    CHECK(ralink_config_publish_atomic(&fp, temp_path, path) == 0);
+    ralink_test_fsync_interrupt_call = -1;
+    CHECK(ralink_test_fsync_call_count == 2);
+    CHECK(fp == NULL);
+    CHECK(read_file_equals(path, "durable after EINTR\n"));
+    CHECK(unlink(path) == 0);
+    return 0;
+}
+
 int
 main(void)
 {
@@ -443,6 +480,7 @@ main(void)
     CHECK(test_rename_failure_cleans_temp(directory) == 0);
     CHECK(test_path_overflow_has_no_side_effect(directory) == 0);
     CHECK(test_delayed_write_error() == 0);
+    CHECK(test_fsync_retries_eintr(directory) == 0);
     CHECK(test_symlink_publication_replaces_live_link_atomically(directory) == 0);
     CHECK(test_symlink_publication_failure_preserves_destination(directory) == 0);
     CHECK(test_optional_unlink_is_idempotent_and_checks_errors(directory) == 0);

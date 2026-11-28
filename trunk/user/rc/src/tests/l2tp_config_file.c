@@ -7,6 +7,22 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+/* Inject one interrupted fsync without relying on GNU ld --wrap. */
+static int l2tp_test_fsync_interrupt_call = -1;
+static int l2tp_test_fsync_call_count;
+
+static int
+l2tp_test_fsync(int fd)
+{
+	l2tp_test_fsync_call_count++;
+	if (l2tp_test_fsync_call_count == l2tp_test_fsync_interrupt_call) {
+		errno = EINTR;
+		return -1;
+	}
+	return fsync(fd);
+}
+
+#define L2TP_CONFIG_FILE_FSYNC(fd) l2tp_test_fsync(fd)
 #include "l2tp_config_file.h"
 
 #define CHECK(condition) do { \
@@ -164,6 +180,25 @@ test_failed_publish_preserves_existing_file_and_cleans_temp(const char *director
 	return 0;
 }
 
+static int
+test_fsync_retries_eintr(const char *directory, const char *config)
+{
+	char content[128];
+	int status;
+
+	l2tp_test_fsync_call_count = 0;
+	l2tp_test_fsync_interrupt_call = 1;
+	status = l2tp_config_file_publish(directory, "l2tp.conf",
+					  write_text, (void *)"resumed after EINTR");
+	l2tp_test_fsync_interrupt_call = -1;
+	if (status != 0 || l2tp_test_fsync_call_count != 2)
+		return -1;
+	if (read_path(config, content, sizeof(content)) != 0 ||
+	    strcmp(content, "resumed after EINTR") != 0)
+		return -1;
+	return 0;
+}
+
 int
 main(void)
 {
@@ -203,6 +238,7 @@ main(void)
 		      directory, target, config) == 0);
 	CHECK(test_failed_publish_preserves_existing_file_and_cleans_temp(
 		      directory, config) == 0);
+	CHECK(test_fsync_retries_eintr(directory, config) == 0);
 
 	CHECK(umask(original_umask) == 0000);
 	CHECK(unlink(config) == 0);

@@ -10,6 +10,11 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+/* Test builds inject EINTR; production calls the platform fsync(). */
+#ifndef L2TP_CONFIG_FILE_FSYNC
+#define L2TP_CONFIG_FILE_FSYNC(fd) fsync(fd)
+#endif
+
 #define L2TP_CONFIG_PATH_MAX 512
 #define L2TP_CONFIG_LEAF_MAX 64
 
@@ -97,7 +102,7 @@ l2tp_config_file_publish(const char *directory, const char *filename,
 	char target_path[L2TP_CONFIG_PATH_MAX];
 	struct stat st;
 	FILE *fp = NULL;
-	int fd = -1, length, saved_errno;
+	int fd = -1, length, saved_errno, sync_status;
 
 	if (!directory || !directory[0] || !filename || !filename[0] ||
 	    strchr(filename, '/') || !strcmp(filename, ".") ||
@@ -148,7 +153,11 @@ l2tp_config_file_publish(const char *directory, const char *filename,
 		saved_errno = errno ? errno : EIO;
 		goto failed_with_errno;
 	}
-	if (fsync(fileno(fp)) != 0) {
+	do {
+		errno = 0;
+		sync_status = L2TP_CONFIG_FILE_FSYNC(fileno(fp));
+	} while (sync_status != 0 && errno == EINTR);
+	if (sync_status != 0) {
 		saved_errno = errno ? errno : EIO;
 		goto failed_with_errno;
 	}
