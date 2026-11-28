@@ -62,6 +62,26 @@ test_request_nak_requires_record_for_init_reboot(void)
     assert(!udhcp_server_request_should_nak(0, 0, 1));
 }
 
+static void
+test_ipv4_address_options_distinguish_malformed_from_absent(void)
+{
+    /* A genuinely absent option is valid. */
+    assert(udhcp_server_ipv4_option_length_valid(0, 0U));
+
+    /* Present IPv4 address options require exactly four bytes. */
+    assert(udhcp_server_ipv4_option_length_valid(1, 4U));
+    assert(!udhcp_server_ipv4_option_length_valid(1, 0U));
+    assert(!udhcp_server_ipv4_option_length_valid(1, 1U));
+    assert(!udhcp_server_ipv4_option_length_valid(1, 3U));
+    assert(!udhcp_server_ipv4_option_length_valid(1, 5U));
+
+    /* Parser errors and contradictory status/length pairs fail closed. */
+    assert(!udhcp_server_ipv4_option_length_valid(-1, 0U));
+    assert(!udhcp_server_ipv4_option_length_valid(-1, 4U));
+    assert(!udhcp_server_ipv4_option_length_valid(0, 4U));
+    assert(!udhcp_server_ipv4_option_length_valid(2, 4U));
+}
+
 int
 main(void)
 {
@@ -70,6 +90,7 @@ main(void)
     test_inform_requires_nonzero_ciaddr();
     test_request_requires_valid_state_field_combinations();
     test_request_nak_requires_record_for_init_reboot();
+    test_ipv4_address_options_distinguish_malformed_from_absent();
     puts("DHCP server message field policy regression: PASS");
     return 0;
 }

@@ -56,4 +56,17 @@ udhcp_server_request_should_nak(int server_id_present,
            (requested_ip_present != 0 && lease_known != 0);
 }
 
+/*
+ * udhcp_get_option32() maps a malformed present option to NULL, the same
+ * result as an absent option. Address-valued DHCP options must be absent
+ * (status 0, length 0) or present with exactly four bytes (status 1).
+ */
+static inline int
+udhcp_server_ipv4_option_length_valid(int lookup_status,
+                                      unsigned int option_length)
+{
+    return (lookup_status == 0 && option_length == 0U) ||
+           (lookup_status == 1 && option_length == 4U);
+}
+
 #endif /* UDHCP_SERVER_MESSAGE_POLICY_H */

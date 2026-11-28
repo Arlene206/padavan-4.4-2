@@ -403,6 +403,10 @@ int udhcpd_main(int argc UNUSED_PARAM, char **argv)
 		struct timeval tv;
 		uint8_t *server_id_opt;
 		uint8_t *requested_ip_opt;
+		unsigned int server_id_length;
+		unsigned int requested_ip_length;
+		int server_id_status;
+		int requested_ip_status;
 		uint32_t requested_nip = requested_nip; /* for compiler */
 		uint32_t static_lease_nip;
 		struct dyn_lease *lease, fake_lease;
@@ -472,8 +476,17 @@ int udhcpd_main(int argc UNUSED_PARAM, char **argv)
 			continue;
 		}
 
-		/* Get SERVER_ID if present */
-		server_id_opt = udhcp_get_option32(&packet, DHCP_SERVER_ID);
+		/* A malformed or wrong-sized SERVER_ID is not the same as absence. */
+		server_id_status = udhcp_get_option_with_length(&packet, DHCP_SERVER_ID,
+								&server_id_opt,
+								&server_id_length);
+		if (!udhcp_server_ipv4_option_length_valid(server_id_status,
+								server_id_length)) {
+			log1("Ignoring DHCP packet with malformed SERVER_ID option");
+			continue;
+		}
+		if (server_id_status == 0)
+			server_id_opt = NULL;
 		if (server_id_opt) {
 			uint32_t server_id_network_order;
 			move_from_unaligned32(server_id_network_order, server_id_opt);
@@ -496,8 +509,18 @@ int udhcpd_main(int argc UNUSED_PARAM, char **argv)
 			lease = find_lease_by_mac(packet.chaddr);
 		}
 
-		/* Get REQUESTED_IP if present */
-		requested_ip_opt = udhcp_get_option32(&packet, DHCP_REQUESTED_IP);
+		/* Preserve malformed/present REQUESTED_IP as distinct from absence. */
+		requested_ip_status = udhcp_get_option_with_length(&packet,
+							DHCP_REQUESTED_IP,
+							&requested_ip_opt,
+							&requested_ip_length);
+		if (!udhcp_server_ipv4_option_length_valid(requested_ip_status,
+								requested_ip_length)) {
+			log1("Ignoring DHCP packet with malformed REQUESTED_IP option");
+			continue;
+		}
+		if (requested_ip_status == 0)
+			requested_ip_opt = NULL;
 		if (requested_ip_opt) {
 			move_from_unaligned32(requested_nip, requested_ip_opt);
 		}

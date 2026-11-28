@@ -28,6 +28,37 @@ assert release_guard < release_mutation
 assert "packet.ciaddr == lease->lease_nip" in release
 assert "server_id_opt" in release
 
+# The legacy get_option32() helper conflates malformed-present and absent
+# address options. DHCP message-state decisions must use status + exact length.
+for option_name, status_name, length_name in (
+    ("SERVER_ID", "server_id_status", "server_id_length"),
+    ("REQUESTED_IP", "requested_ip_status", "requested_ip_length"),
+):
+    lookup = f"udhcp_get_option_with_length(&packet, DHCP_{option_name}"
+    lookup_pos = dhcpd.index(lookup)
+    validation_pos = dhcpd.index(
+        "udhcp_server_ipv4_option_length_valid(" + status_name,
+        lookup_pos,
+    )
+    assert lookup_pos < validation_pos
+    assert f"{length_name}" in dhcpd[lookup_pos:validation_pos + 220]
+    assert "continue;" in dhcpd[validation_pos:validation_pos + 500]
+    assert "get_option32(&packet, DHCP_" + option_name + ")" not in dhcpd
+
+release_status_gate = dhcpd.index(
+    "udhcp_server_ipv4_option_length_valid(requested_ip_status"
+)
+release_mutation = dhcpd.index("lease->expires = time(NULL)")
+assert release_status_gate < release_mutation
+for token in (
+    "test_ipv4_address_options_distinguish_malformed_from_absent",
+    "udhcp_server_ipv4_option_length_valid(1, 0U)",
+    "udhcp_server_ipv4_option_length_valid(1, 3U)",
+    "udhcp_server_ipv4_option_length_valid(1, 5U)",
+    "udhcp_server_ipv4_option_length_valid(-1, 0U)",
+):
+    assert token in test
+
 inform_start = dhcpd.index("case DHCPINFORM:", release_start)
 inform_case = dhcpd[inform_start:]
 inform_guard = inform_case.index(
