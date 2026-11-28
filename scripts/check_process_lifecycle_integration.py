@@ -625,7 +625,9 @@ assert "br0\\tphyint" in igmpproxy_config_test
 assert "mkstemp(" in igmpproxy_config_header
 assert "fdopen(" in igmpproxy_config_header
 assert "fflush(" in igmpproxy_config_header
-assert "fsync(" in igmpproxy_config_header
+assert '#include "config_file_sync.h"' in igmpproxy_config_header
+assert "config_file_sync_fd(fileno(output))" in igmpproxy_config_header
+assert "config_file_sync_parent(path)" in igmpproxy_config_header
 assert "fclose(output)" in igmpproxy_config_header
 assert "rename(temporary_path, path)" in igmpproxy_config_header
 assert "unlink(temporary_path)" in igmpproxy_config_header

@@ -1,3 +1,11 @@
+## 2026-11-28 — Align IGMP proxy durability contract with shared sync helper
+
+- Follow-up Process lifecycle run #46139729874 on `6cdf54408a90360a8983bca9c5b93f406ed58326` passed the MiniDLNA contract, then stopped at a second stale static assertion in `scripts/check_process_lifecycle_integration.py`: it expected a literal `fsync(` in the IGMP proxy header.
+- `igmpproxy_config_file.h` already includes `config_file_sync.h` and uses `config_file_sync_fd(fileno(output))` plus `config_file_sync_parent(path)`; the existing GNU89/ASan/UBSan publication test covers retry and last-good preservation. Updated the static checker to enforce the actual shared durability contract.
+- No production source changed. Parent: `6cdf54408a90360a8983bca9c5b93f406ed58326`. Exact follow-up Process/AI Actions required.
+
+---
+
 ## 2026-11-28 — Align MiniDLNA durability contract with the shared sync helper
 
 - Exact Process lifecycle regression #46139431467 on parent `4f09b7bc0cff0aae3a13a4705edd3bf3af489b53` failed only at the final shared-library/RC source-contract step: the checker still required a direct `fsync(fileno(output))` call.
