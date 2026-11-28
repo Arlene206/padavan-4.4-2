@@ -1,3 +1,10 @@
+## 2026-11-28 — Restore the required continuous-execution checkpoint phrase
+
+- AI docs workflow #46138364417 on NVRAM source SHA `57d4433cf07b7972fd24142be6b66746e8c5f528` failed only because `SESSION_HANDOFF.md` had rephrased, rather than retained, the required literal phrase `Before context exhaustion` in the cross-session mandate.
+- Restored the required phrase in the mandate without changing the development workflow. Exact-SHA AI docs run on this follow-up must confirm the handoff checker passes.
+- Parent: `ab01461a0020dac4d8d5fefea2ed6f8dbb134d12`; result: this atomic documentation contract repair.
+
+---
 ## 2026-11-28 — Erase NVRAM credential-bearing staging buffers
 
 - Kernel NVRAM scratch buffers carry Wi-Fi keys, VPN secrets and other router credentials. Compaction snapshots, commit/read-back images, ioctl GET/SET buffers and the flash-init image were freed without explicit erasure; whole-arena reset/compaction used ordinary memset.

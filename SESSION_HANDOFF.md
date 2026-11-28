@@ -44,6 +44,6 @@ The checkpoint is mandatory; a document edit is conditional. Before ending, insp
 # Cross-session execution mandate
 
 - One logical multi-file task, one atomic main commit: blobs, one complete Git tree, one commit and non-forced expected-SHA main update. Never force-push or publish per-file partial commits.
-- Finish safe source slices, inspect exact-head Actions, and leave the next GPT an accurate first action and L1-L4 boundary.
+- Before context exhaustion, finish safe source slices, inspect exact-head Actions, and leave the next GPT an accurate first action and L1-L4 boundary.
 - Recover once, then execute; do not repeat completed audits or ask what to do next.
 - PASS permits the next issue, FAIL requires causal repair, PENDING permits independent work.
