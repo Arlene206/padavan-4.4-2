@@ -456,4 +456,16 @@ modem_wan_restart_allowed(int identity_status)
 	return identity_status == 0;
 }
 
+/*
+ * Complete a retry backoff even when sleep(3) is interrupted. A successful
+ * sleep returns zero; an interrupted sleep returns the unslept remainder.
+ */
+static inline void
+modem_qmi_retry_wait_full_delay(unsigned int seconds,
+				unsigned int (*sleep_fn)(unsigned int))
+{
+	while (seconds != 0)
+		seconds = sleep_fn(seconds);
+}
+
 #endif

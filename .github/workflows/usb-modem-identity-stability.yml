@@ -1049,6 +1049,17 @@ jobs:
           assert qmi_start_function.index("uqmi failed to set 802.3 data format") < qmi_start_function.index("/* setup network modes;")
           assert qmi_start_function.index("uqmi failed to set requested network modes") < qmi_start_function.index("/* Reuse the persisted WDS CID;")
 
+          retry_loop_start = modem.index("for (i = 0; i < MAX_QMI_TRIES; i++)")
+          retry_loop_end = modem.index("\ndone:", retry_loop_start)
+          retry_loop = modem[retry_loop_start:retry_loop_end]
+          assert "i + 1 < MAX_QMI_TRIES" in retry_loop
+          assert "modem_qmi_retry_wait_full_delay(1U, sleep);" in retry_loop
+          assert "sleep(1);" not in retry_loop
+          assert "while (seconds != 0)" in retry_policy
+          assert "seconds = sleep_fn(seconds);" in retry_policy
+          assert "test_qmi_retry_wait_resumes_interrupted_delay" in qmi_policy_test
+          assert "test_qmi_retry_wait_resumes_interrupted_delay();" in qmi_policy_test
+
           assert "mkstemp(staging)" in helper
           assert "fchmod(fd, 0600)" in helper
           assert "fsync(fd)" in helper

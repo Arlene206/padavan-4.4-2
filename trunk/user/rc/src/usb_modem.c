@@ -1004,7 +1004,9 @@ qmi_control_network_start(const char *device_path)
 		 */
 		if (ambiguous_session)
 			goto done;
-		sleep(1);
+		/* Complete the backoff before retry; sleep() returns a remainder on EINTR. */
+		if (i + 1 < MAX_QMI_TRIES)
+			modem_qmi_retry_wait_full_delay(1U, sleep);
 	}
 
 done:
