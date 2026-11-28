@@ -341,6 +341,9 @@ require('kill -TERM "$aliddns_pid"' in stop_keeper and
         'kill -KILL "$aliddns_pid"' in stop_keeper and
         'while [ "$aliddns_attempt" -lt 5 ]' in stop_keeper and
         'while [ "$aliddns_attempt" -lt 2 ]' in stop_keeper and
+        stop_keeper.count('sleep 1 || {') == 2 and
+        'graceful keeper stop wait failed' in stop_keeper and
+        'post-KILL keeper wait failed' in stop_keeper and
         'aliddns_keeper_pid_matches "$aliddns_pid" "$aliddns_proc_root"' in stop_keeper,
         "keeper stop must revalidate process identity, bound TERM/KILL waits and check disappearance")
 require('aliddns_stop_keeper' in keeper_close and
@@ -356,6 +359,8 @@ require('aliddns_find_keeper_pids || return 1' in lifecycle_check and
 for marker in (
     "AliDDNS keeper process identity matches exact script/keep argv: PASS",
     "AliDDNS keeper stop uses TERM grace then bounded KILL postcondition: PASS",
+    "AliDDNS interrupted TERM wait refuses premature KILL: PASS",
+    "AliDDNS interrupted post-KILL wait remains an incomplete stop: PASS",
     "AliDDNS restart refuses to launch when keeper remains alive: PASS",
     "AliDDNS keeper discovery refuses incomplete /proc visibility: PASS",
     "AliDDNS polling interval rejects invalid/zero values and bounds normalization: PASS",

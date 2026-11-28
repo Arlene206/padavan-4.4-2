@@ -587,8 +587,15 @@ kill() {
 	esac
 	return 0
 }
+FAIL_SLEEP_AFTER=
+SLEEP_COUNT=0
 sleep() {
 	printf '%s\n' "$1" >> "$SLEEP_LOG"
+	SLEEP_COUNT=$((SLEEP_COUNT + 1))
+	if [ -n "$FAIL_SLEEP_AFTER" ] && [ "$SLEEP_COUNT" -ge "$FAIL_SLEEP_AFTER" ]; then
+		return 23
+	fi
+	return 0
 }
 
 # A cooperative keeper exits after TERM and is never sent KILL.
@@ -604,6 +611,61 @@ aliddns_close
 	echo "cooperative stop sent an unexpected signal or targeted a decoy" >&2
 	exit 1
 }
+
+# An interrupted TERM grace must not authorize early KILL.
+printf 'sh\000%s\000keep\000' "$scriptfilepath" > "$PROC_ROOT/101/cmdline"
+: > "$KILL_LOG"
+: > "$SLEEP_LOG"
+SLEEP_COUNT=0
+FAIL_SLEEP_AFTER=1
+MOCK_KILL_BEHAVIOR=stubborn
+stop_status=0
+aliddns_stop_keeper || stop_status=$?
+[ "$stop_status" -eq 23 ] || {
+	echo "TERM wait failure status was hidden: $stop_status" >&2
+	exit 1
+}
+[ "$(cat "$KILL_LOG")" = "-TERM 101" ] || {
+	echo "KILL was sent before the TERM grace wait completed" >&2
+	exit 1
+}
+[ -s "$PROC_ROOT/101/cmdline" ] || {
+	echo "keeper identity disappeared after a failed TERM wait" >&2
+	exit 1
+}
+[ "$SLEEP_COUNT" -eq 1 ] || {
+	echo "TERM wait failure performed additional sleep attempts" >&2
+	exit 1
+}
+echo "AliDDNS interrupted TERM wait refuses premature KILL: PASS"
+
+# An interrupted post-KILL wait remains a failed stop, not a false absence.
+printf 'sh\000%s\000keep\000' "$scriptfilepath" > "$PROC_ROOT/101/cmdline"
+: > "$KILL_LOG"
+: > "$SLEEP_LOG"
+SLEEP_COUNT=0
+FAIL_SLEEP_AFTER=6
+MOCK_KILL_BEHAVIOR=stubborn
+stop_status=0
+aliddns_stop_keeper || stop_status=$?
+[ "$stop_status" -eq 23 ] || {
+	echo "post-KILL wait failure status was hidden: $stop_status" >&2
+	exit 1
+}
+[ "$(cat "$KILL_LOG")" = "$(printf '%s\n' '-TERM 101' '-KILL 101')" ] || {
+	echo "post-KILL wait failure changed signal ordering" >&2
+	exit 1
+}
+[ -s "$PROC_ROOT/101/cmdline" ] || {
+	echo "post-KILL wait failure erased the still-live keeper fixture" >&2
+	exit 1
+}
+[ "$SLEEP_COUNT" -eq 6 ] || {
+	echo "post-KILL wait failure did not stop at the failed wait" >&2
+	exit 1
+}
+echo "AliDDNS interrupted post-KILL wait remains an incomplete stop: PASS"
+FAIL_SLEEP_AFTER=
 
 # A keeper ignoring TERM is escalated only after the five-second grace period.
 printf 'sh\000%s\000keep\000' "$scriptfilepath" > "$PROC_ROOT/101/cmdline"

@@ -480,7 +480,12 @@ aliddns_stop_keeper() {
 			fi
 		done
 		[ -z "$aliddns_remaining_pids" ] && return 0
-		sleep 1
+		# An interrupted wait does not prove the full TERM grace elapsed.
+		sleep 1 || {
+			aliddns_wait_status=$?
+			logger -t "AliDDNS" "graceful keeper stop wait failed (status=$aliddns_wait_status); refusing early KILL"
+			return "$aliddns_wait_status"
+		}
 		aliddns_attempt=$((aliddns_attempt + 1))
 	done
 
@@ -508,7 +513,12 @@ aliddns_stop_keeper() {
 			fi
 		done
 		[ -z "$aliddns_remaining_pids" ] && return 0
-		sleep 1
+		# Do not report a complete stop when the post-KILL wait was interrupted.
+		sleep 1 || {
+			aliddns_wait_status=$?
+			logger -t "AliDDNS" "post-KILL keeper wait failed (status=$aliddns_wait_status); stop remains incomplete"
+			return "$aliddns_wait_status"
+		}
 		aliddns_attempt=$((aliddns_attempt + 1))
 	done
 
