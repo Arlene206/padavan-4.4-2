@@ -78,6 +78,35 @@ samba_mount_path_is_safe(const char *path)
 }
 
 /*
+ * smb.conf section identifiers are case-insensitive. Generated share names
+ * must be checked using the same rule or "Media" and "media" can publish
+ * duplicate services that resolve to one share.
+ */
+static int
+samba_share_section_header_matches(const char *line, const char *header)
+{
+	size_t i;
+
+	if (!line || !header || !*header)
+		return 0;
+	for (i = 0; header[i] != '\0'; ++i) {
+		unsigned char left = (unsigned char)line[i];
+		unsigned char right = (unsigned char)header[i];
+
+		if (left == '\0')
+			return 0;
+		if (left >= 'A' && left <= 'Z')
+			left = (unsigned char)(left - 'A' + 'a');
+		if (right >= 'A' && right <= 'Z')
+			right = (unsigned char)(right - 'A' + 'a');
+		if (left != right)
+			return 0;
+	}
+	return line[i] == '\0' || line[i] == '\n' || line[i] == '\r';
+}
+
+
+/*
  * Disk-share rights are 0=none, 1=read, 2=write, 3=read/write.
  * Reject out-of-range and get_permission() error values rather than
  * accidentally treating them as grants.

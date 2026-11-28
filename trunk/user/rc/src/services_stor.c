@@ -907,9 +907,7 @@ check_existed_share(const char *string, const char *config_path)
 		return -1;
 
 	while (fgets(buf, sizeof(buf), tp) != NULL) {
-		if (strncmp(buf, target, (size_t)target_len) == 0 &&
-		    (buf[target_len] == '\n' || buf[target_len] == '\r' ||
-		     buf[target_len] == '\0')) {
+		if (samba_share_section_header_matches(buf, target)) {
 			found = 1;
 			break;
 		}

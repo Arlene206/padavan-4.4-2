@@ -258,6 +258,8 @@ jobs:
           assert "continue;" not in folder_check
 
           check = function_body(stor, "check_existed_share(")
+          assert "samba_share_section_header_matches(buf, target)" in check
+          assert "strncmp(buf, target" not in check
           assert 'fopen(config_path, "r")' in check
           assert "ferror(tp)" in check
           assert "fclose(tp)" in check

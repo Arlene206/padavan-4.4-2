@@ -26,6 +26,12 @@ int main(void)
 	assert(!samba_conf_text_is_safe("del\177value"));
 
 	assert(samba_share_name_is_safe("USB Disk"));
+	assert(samba_share_section_header_matches("[Media]\n", "[media]"));
+	assert(samba_share_section_header_matches("[media]\r\n", "[MEDIA]"));
+	assert(!samba_share_section_header_matches("[Media2]\n", "[media]"));
+	assert(!samba_share_section_header_matches("[Media] extra\n", "[media]"));
+	assert(!samba_share_section_header_matches(NULL, "[media]"));
+	assert(!samba_share_section_header_matches("[media]\n", NULL));
 	assert(samba_share_name_is_safe("家庭照片"));
 	assert(samba_share_name_is_safe("alpha(beta)"));
 	assert(!samba_share_name_is_safe(NULL));
