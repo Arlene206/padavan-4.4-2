@@ -236,6 +236,11 @@ assert "server_id_option != NULL" in ack[server_address_commit:bound_transition]
 assert "udhcpc_server_addr_after_ack" in policy
 assert "test_ack_updates_server_address_after_rebinding" in test
 assert "test_ack_updates_server_address_after_rebinding() != 0" in test
+ack_clock_start = ack.index("start = monotonic_sec();")
+arp_probe_start = ack.index("arp_probe_start_ms = monotonic_ms();")
+script_call = ack.index("script_status = udhcp_run_script")
+assert ack_clock_start < arp_probe_start < script_call
+assert "script_elapsed = (unsigned)monotonic_sec() - start;" in ack
 lease_script_plan = ack.index("lease_plan_status = udhcpc_lease_script_plan(")
 lease_expiry_gate = ack.index("if (lease_plan_status != 0)", lease_script_plan)
 lease_deconfig = ack.index('deconfig_status = udhcp_run_script(NULL, "deconfig");',

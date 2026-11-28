@@ -2065,8 +2065,18 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 		case RENEW_REQUESTED:
 		case REBINDING:
 			if (*message == DHCPACK) {
+				unsigned start;
+				unsigned script_elapsed;
+				uint32_t lease_seconds;
 				uint32_t svid = 0;
+				struct in_addr temp_addr;
+				uint8_t *temp;
 				uint8_t *server_id_option;
+				const char *script_name;
+				int script_status, lease_plan_status, deconfig_status;
+
+				/* Start the lease clock at ACK receipt, before ARP and scripts. */
+				start = monotonic_sec();
 				server_id_option = udhcp_get_option32(&packet, DHCP_SERVER_ID);
 				if (server_id_option)
 					move_from_unaligned32(svid, server_id_option);
@@ -2082,14 +2092,6 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 						&already_waited_sec, &packet_num);
 					continue;
 				}
-				unsigned start;
-				unsigned script_elapsed;
-				uint32_t lease_seconds;
-				struct in_addr temp_addr;
-				uint8_t *temp;
-				const char *script_name;
-				int script_status, lease_plan_status, deconfig_status;
-
 				temp = udhcp_get_option32(&packet, DHCP_LEASE_TIME);
 				if (!temp) {
 					bb_error_msg("no lease time with ACK, using 1 hour lease");
@@ -2185,7 +2187,6 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 					inet_ntoa(temp_addr), (unsigned)lease_seconds);
 
 				script_name = state == REQUESTING ? "bound" : "renew";
-				start = monotonic_sec();
 				script_status = udhcp_run_script(&packet, script_name);
 				script_elapsed = (unsigned)monotonic_sec() - start;
 				if (script_status != 0) {

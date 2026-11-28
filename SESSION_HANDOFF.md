@@ -1,3 +1,11 @@
+## 2026-11-28 — Start DHCP ACK lease accounting before ARP/script work
+
+- Follow-up to 2705ffb259efc0e26af1a692641c2ed6e5dd5a6a: found that the new slow-callback lease planner still started its monotonic clock immediately before `bound`/`renew`, excluding the optional ARP conflict probe and preceding ACK processing. A long ARP probe could therefore consume the lease before the clock began.
+- Moved the timestamp to the beginning of the accepted DHCPACK branch, before ARP probing and event callbacks. The same elapsed duration now constrains both ACK script success/lease commit and failed-renew retry timing. Added an integration assertion for ACK receipt → ARP probe → script order.
+- Exact-head udhcpc/XY-C1/Process/AI Actions for the parent 2705ffb are pending; this follow-up supersedes them for source verification. No local MIPS build or hardware test claimed.
+
+---
+
 ## 2026-11-28 — Preserve valid DHCP leases when ACK callbacks run past T1
 
 - Found a live lease-timing defect in BusyBox udhcpc: after a successful `bound`/`renew` callback, it treated any callback runtime greater than T1 (`lease_seconds / 2`) as if the entire lease had expired by resetting both `timeout` and `already_waited_sec` to zero. The next BOUND tick therefore entered RENEWING → REBINDING with no retry budget and deconfigured the address, even when the full lease still had substantial time left.

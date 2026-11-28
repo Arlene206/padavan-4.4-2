@@ -1,3 +1,10 @@
+## 2026-11-28 — Start DHCP ACK lease accounting before ARP/script work
+
+- Moved the ACK lease start timestamp from immediately before the bound/renew callback to the start of the accepted DHCPACK branch. This includes ARP validation and all ACK handling time in the lease budget; it also prevents failed-renew retry timing from ignoring time spent in ARP validation.
+- Added source contract assertion that the ACK clock starts before optional ARP probing and the script. Exact-head tests pending.
+
+---
+
 ## 2026-11-28 — Preserve valid DHCP leases when ACK callbacks run past T1
 
 - Fixed a DHCP client timing bug: successful bound/renew callback runtime greater than T1 was previously treated as full lease expiry, resetting timers to zero and allowing the BOUND → RENEWING → REBINDING path to immediately deconfigure a still-valid lease. The new timing policy starts renewal immediately after T1, caps subsequent retry budget to the actual remaining lease, and deconfigures before discovery only when callback execution reaches/passes the full lease deadline.
