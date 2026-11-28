@@ -1,3 +1,11 @@
+## 2026-11-28 — Fail closed on Transmission NVRAM configuration reads
+
+- `transmission.sh` previously ignored the exit status of four legacy `nvram get` command substitutions for RPC/listen ports and credentials. A backend read failure could be consumed as an empty value, then used to generate/publish initial settings and launch the daemon.
+- Replaced all four reads with `nvram get_checked`. Port reads abort before changing watch permissions or generating settings. Username/password reads occur before staging-file creation; errors preserve their status and prevent settings publication and daemon launch. Successful empty values preserve legacy behavior.
+- Added a focused fixture with independent failures for `trmd_pport`, `trmd_rport`, `http_username`, and `http_passwd`; it checks no settings/staging file or daemon launch, then verifies successful credential/port delivery. Wired it into Process lifecycle path triggers and execution.
+- Parent: `d7e28dcf9d175615f4fad58bf6500b35ca6adc12`; exact-SHA Process #46140192826 PASS, AI docs #46140192858 PASS. XY-C1 for parent ttyd source #5759332e5f3da1212d3caa937684a663c6e39a86 remained IN_PROGRESS at last poll.
+
+---
 ## 2026-11-28 — Update ttyd lifecycle runner's expected result
 
 - The exact-SHA ttyd shell regression on `5759332e5f3da1212d3caa937684a663c6e39a86` PASSED, including injected NVRAM read failure and no-write/no-launch assertions.

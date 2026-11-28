@@ -1,40 +1,38 @@
 ## 2026-11-28 continuation checkpoint
 
-- Repository `Arlene206/padavan-4.4-2`; main-only. Bootstrap recovered once; do not repeat the startup audit.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807` and MUST NOT be changed.
-- Parent: `5759332e5f3da1212d3caa937684a663c6e39a86` (`fix(ttyd): fail closed on NVRAM port read errors`).
-- ttyd production change: `ttyd.sh` now reads `ttyd_port` via `nvram get_checked`. Successful empty read retains default 7681; failed read returns its status before setting/committing a default or launching ttyd.
-- Exact-SHA ttyd shell regression in Process #46140033300 PASSED, including error status 43 and no-start/no-write assertions. The same Process run then failed at `scripts/check_optional_app_start_status.py` only because its expected success-banner string had not been updated. This commit fixes that assertion. The run never reached the subsequent shared integration checker.
-- AI handoff documentation #46140033305 SUCCESS on `5759332e5f3da1212d3caa937684a663c6e39a86`. XY-C1 #46140033275 for the ttyd source SHA was IN_PROGRESS at last poll; Process inventory #46140033271 was also IN_PROGRESS. All require exact-SHA verification after this test-only follow-up commit.
-- Earlier checker fixes: MiniDLNA and IGMP assertions now enforce `config_file_sync.h` shared bounded file and parent-dir sync. On SHA `ae6300cde050bc3f7cc7411fe08a5210813f3985`, Process integration #46139909362 SUCCESS. AI docs on that SHA failed only due missing exact mandatory end-of-session checkpoint phrase; fixed in ttyd parent and AI #46140033305 passed.
-- NVRAM cache-wrap SHA `4f09b7bc0cff0aae3a13a4705edd3bf3af489b53`: NVRAM/AI/HTTPD/Process inventory PASS; XY-C1 #46139431417 remains pending last poll. Do not claim L3 until its exact SHA Build/TRX/artifact success is verified.
-- NTP prior L3 evidence only on `c052506cbe9463f2719494d237e5323fe1c261c8`. DHCP and cache-wrap changes already completed; don't repeat absent new evidence. No local checkout or MIPS toolchain in this environment; physical L4 NOT VERIFIED.
-- `REFACTOR_ROADMAP.md` is near its cap; no status-only edits.
+- Repository `Arlene206/padavan-4.4-2`; main-only. Startup recovery was completed once; do not repeat bootstrap audit.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Parent: `d7e28dcf9d175615f4fad58bf6500b35ca6adc12` (`test(ttyd): refresh checked-NVRAM regression banner`). Exact-SHA Process #46140192826 PASS; AI handoff docs #46140192858 PASS.
+- TTYD source parent `5759332e5f3da1212d3caa937684a663c6e39a86`: ttyd checked-NVRAM shell regression PASS; Process inventory #46140033271 PASS; AI docs #46140033305 PASS; Process integration passed on d7 after correcting the stale banner expectation. XY-C1 #46140033275 for that firmware SHA was still IN_PROGRESS at last poll.
+- Prior NVRAM cache-wrap SHA `4f09b7bc0cff0aae3a13a4705edd3bf3af489b53`: NVRAM transaction audit, AI docs, HTTPD and inventory PASS; XY-C1 #46139431417 still IN_PROGRESS at last poll. No L3 claim without same-SHA build, TRX and artifact.
+- New active issue: Transmission had four unchecked `nvram get` substitutions for RPC/listen ports and credentials. A read error could flow into initial settings generation. This task uses `get_checked`, preserves successful empty-value behavior, and adds per-key failure injection proving no config publication/start.
+- NTP prior L3 evidence remains only on `c052506cbe9463f2719494d237e5323fe1c261c8`. DHCP, NVRAM cache wrap and ttyd checked-read fixes are implemented. Do not repeat absent new failure evidence.
+- No local MIPS toolchain/kernel build or hardware is available; physical L4 is NOT VERIFIED. `REFACTOR_ROADMAP.md` is near its size cap; avoid status-only edits.
 
 ## Current repository state
 
-- Parent: `5759332e5f3da1212d3caa937684a663c6e39a86`.
-- This follow-up only updates the optional-app test runner's expected ttyd success-banner string after the ttyd regression changed its banner. No production or test behavior weakened.
+- Parent: `d7e28dcf9d175615f4fad58bf6500b35ca6adc12`.
+- Transmission task modifies the startup wrapper, adds a shell regression, and wires the regression into Process lifecycle triggers and execution. One atomic commit.
 - Frozen backup remains unchanged.
 
 ## Active task
 
-- Verify this test-runner correction on exact-SHA Process and AI Actions; then check the ttyd parent SHA's XY-C1 Build/TRX/artifact separately (the current SHA only changes test/docs and may not retrigger firmware).
-- After Process passes, continue another source-level stability/security task across userland. Do not return to the ttyd code unless a new failure indicates a production defect.
+- Verify the Transmission checked-NVRAM fix on exact-SHA Process and XY-C1 Actions; AI docs should remain PASS.
+- The regression must reject errors for each of four keys before creating settings or launching, and pass when all checked reads succeed. Successful empty values remain accepted.
+- If an Action fails, inspect its exact step/log. If PENDING, continue independent work.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and exact-SHA Actions for this test-runner correction.
-2. Require Process regression and AI handoff docs PASS; if Process fails, inspect its exact failing step/log.
-3. Inspect parent ttyd Build #46140033275 and inventory #46140033271; their result applies to `5759332e5f3da1212d3caa937684a663c6e39a86`, not this later test-only commit.
-4. Continue independent implementation while any Action remains PENDING.
-5. Keep backup immutable; no force-push; one complete tree/commit per logical task with expected-SHA main update.
+1. Fetch live main and exact-SHA Actions for the Transmission commit.
+2. Verify Process regression and XY-C1 Build/TRX/artifact; inspect exact failing logs if any.
+3. Confirm parent ttyd firmware SHA XY-C1 #46140033275 final state separately; its result does not apply to later source changes.
+4. Continue independent source fixes while Actions are pending. Keep backup immutable and use complete-tree expected-SHA non-forced main updates.
 
 ## Verification boundary
 
-- TTYD shell test on `5759332e5f3da1212d3caa937684a663c6e39a86`: PASS; `check_optional_app_start_status.py` failed solely on old banner expectation. This follow-up changes only that expected string.
-- AI docs on parent: PASS.
-- XY-C1 #46140033275 on parent: IN_PROGRESS at last poll. Do not claim L3 until Build, TRX and artifact all complete.
+- d7e28dcf9d175615f4fad58bf6500b35ca6adc12: Process #46140192826 PASS, AI docs #46140192858 PASS.
+- TTYD code SHA 5759332e5f3da1212d3caa937684a663c6e39a86: ttyd lifecycle regression PASS; XY-C1 #46140033275 IN_PROGRESS at last poll.
+- Transmission changes await exact-head Process and XY-C1 checks.
 - Physical L4: NOT VERIFIED.
 
 ## Mandatory end-of-session handoff checkpoint

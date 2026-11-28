@@ -298,6 +298,7 @@ on:
       - "trunk/user/transmission/tests/reload_status.sh"
       - "trunk/user/transmission/tests/tls_verification.sh"
       - "trunk/user/transmission/tests/storage_path_symlink.sh"
+      - "trunk/user/transmission/tests/nvram_read_fail_closed.sh"
       - "trunk/user/wireguard/wireguard.sh"
       - "trunk/user/wireguard/tests/wireguard_lifecycle.sh"
 
@@ -603,6 +604,7 @@ on:
       - "trunk/user/transmission/tests/reload_status.sh"
       - "trunk/user/transmission/tests/tls_verification.sh"
       - "trunk/user/transmission/tests/storage_path_symlink.sh"
+      - "trunk/user/transmission/tests/nvram_read_fail_closed.sh"
       - "trunk/user/wireguard/wireguard.sh"
       - "trunk/user/wireguard/tests/wireguard_lifecycle.sh"
 
@@ -1546,6 +1548,11 @@ jobs:
           sh -n trunk/user/transmission/transmission.sh
           sh -n trunk/user/transmission/tests/storage_path_symlink.sh
           sh trunk/user/transmission/tests/storage_path_symlink.sh
+      - name: Verify Transmission startup fails closed on NVRAM read errors
+        run: |
+          sh -n trunk/user/transmission/transmission.sh
+          sh -n trunk/user/transmission/tests/nvram_read_fail_closed.sh
+          sh trunk/user/transmission/tests/nvram_read_fail_closed.sh
       - name: Verify WireGuard startup, private-key confinement and teardown lifecycle
         run: sh trunk/user/wireguard/tests/wireguard_lifecycle.sh
       - name: Verify ZeroTier tri-state process lifecycle

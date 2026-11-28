@@ -307,13 +307,40 @@ func_start()
 	transmission_require_dir "$DIR_DL1" || return 1
 	transmission_require_dir "$DIR_DL2" || return 1
 	transmission_require_dir "$DIR_DL3" || return 1
+	if tr_pport=$(nvram get_checked trmd_pport); then
+		:
+	else
+		tr_nvram_status=$?
+		transmission_start_fail "cannot read NVRAM setting trmd_pport (status=$tr_nvram_status)"
+		return "$tr_nvram_status"
+	fi
+	if tr_rport=$(nvram get_checked trmd_rport); then
+		:
+	else
+		tr_nvram_status=$?
+		transmission_start_fail "cannot read NVRAM setting trmd_rport (status=$tr_nvram_status)"
+		return "$tr_nvram_status"
+	fi
+
 	if ! chmod 777 "$DIR_DL3"; then
 		transmission_start_fail "cannot set watch directory permissions"
 		return 1
 	fi
 	
-	tr_pport=`nvram get trmd_pport`
-	tr_rport=`nvram get trmd_rport`
+	if tr_pport=$(nvram get_checked trmd_pport); then
+		:
+	else
+		tr_nvram_status=$?
+		transmission_start_fail "cannot read NVRAM setting trmd_pport (status=$tr_nvram_status)"
+		return "$tr_nvram_status"
+	fi
+	if tr_rport=$(nvram get_checked trmd_rport); then
+		:
+	else
+		tr_nvram_status=$?
+		transmission_start_fail "cannot read NVRAM setting trmd_rport (status=$tr_nvram_status)"
+		return "$tr_nvram_status"
+	fi
 	
 	# Generate default settings into a private same-directory file, then publish atomically.
 	CONFIG_FILE="$DIR_CFG/settings.json"
@@ -329,8 +356,20 @@ func_start()
 			return 1
 		fi
 		CONFIG_TMP_OWNED=1
-		tr_user=`nvram get http_username`
-		tr_pass=`nvram get http_passwd`
+		if tr_user=$(nvram get_checked http_username); then
+			:
+		else
+			tr_nvram_status=$?
+			transmission_start_fail "cannot read NVRAM setting http_username (status=$tr_nvram_status)"
+			return "$tr_nvram_status"
+		fi
+		if tr_pass=$(nvram get_checked http_passwd); then
+			:
+		else
+			tr_nvram_status=$?
+			transmission_start_fail "cannot read NVRAM setting http_passwd (status=$tr_nvram_status)"
+			return "$tr_nvram_status"
+		fi
 		if ! "$SVC_PATH" -w "$DIR_DL1" --incomplete-dir "$DIR_DL2" -c "$DIR_DL3" --no-incomplete-dir -y -L 90 -l 30 --no-utp -M -t -u "$tr_user" -v "$tr_pass" -P "$tr_pport" -p "$tr_rport" -x /var/run/transmission.pid -d 2>"$CONFIG_TMP"; then
 			transmission_start_fail "default settings generator failed"
 			return 1
