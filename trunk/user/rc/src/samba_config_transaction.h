@@ -826,10 +826,13 @@ samba_config_transaction_read_state_with_accounts(
 	}
 	if (offset == sizeof(content) - 1) {
 		char extra;
-		count = read(fd, &extra, 1);
+		do {
+			count = read(fd, &extra, 1);
+		} while (count < 0 && errno == EINTR);
 		if (count != 0) {
+			int saved_errno = count < 0 ? (errno ? errno : EIO) : EINVAL;
 			close(fd);
-			errno = EINVAL;
+			errno = saved_errno;
 			return -1;
 		}
 	}
@@ -893,7 +896,7 @@ static inline int
 samba_config_transaction_sync_regular_file(const char *path)
 {
 	struct stat before, after;
-	int fd, flags = O_RDONLY, saved_errno;
+	int fd, flags = O_RDWR, saved_errno;
 
 	if (!path || !*path) {
 		errno = EINVAL;

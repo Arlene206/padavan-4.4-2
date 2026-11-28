@@ -359,9 +359,9 @@ jobs:
           assert run_samba.index("samba_read_runtime_enabled_status(&runtime_enabled)") < run_samba.index("samba_config_transaction_lock_acquire(")
           assert 'nvram_match("enable_samba", "0")' not in run_samba
           assert 'nvram_match("st_samba_mode", "0")' not in run_samba
-          assert run_samba.index("samba_config_transaction_prepare_parent_directory(") < run_samba.index("samba_config_transaction_recover(")
+          assert run_samba.index("samba_config_transaction_prepare_parent_directory(") < run_samba.index("samba_config_transaction_recover_with_accounts(")
           assert 'mkdir_if_none("/etc/samba", "777")' not in run_samba
-          assert run_samba.index("samba_config_transaction_lock_acquire(") < run_samba.index("samba_config_transaction_recover(")
+          assert run_samba.index("samba_config_transaction_lock_acquire(") < run_samba.index("samba_config_transaction_recover_with_accounts(")
           account_read = 'storage_read_transaction_integer_status(&account_snapshot,"acc_num",0,&account_count_value)'
           account_policy = 'samba_passdb_account_count_status(account_count_status,account_count_value,MAX_ACCOUNT_NUM,&sh_num)'
           account_snapshot_begin = "nvram_transaction_begin(&account_snapshot)"

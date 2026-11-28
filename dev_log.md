@@ -1,3 +1,12 @@
+## 2026-11-28 — Harden V2 journal file sync and function-specific CI guards
+
+- Hardened the V2 trailing-byte read against EINTR and changed account/config regular-file synchronization to open writable descriptors before fsync, avoiding filesystems that reject fsync on an O_RDONLY descriptor. Existing no-follow, owner, inode and mode checks remain in force.
+- Corrected the Samba embedded regression to select the account-aware transaction APIs specifically for `run_samba()`, while leaving other legacy two-file transaction callers on V1. Added explicit begin-before-passwd-before-credentials and config-before-commit assertions.
+- Made the XY-C1 source guard select V2 recovery by inspecting the function body rather than relying on a loop-variable name.
+- Parent main SHA: `dce5f27b1787abbf83a712159358215839c3cadc`. Exact-head host/Samba/XY-C1 verification pending; no router test claimed.
+
+---
+
 ## 2026-11-28 — Journal Unix passwd/group with Samba passdb and smb.conf
 
 - Found a second-order consistency defect in `run_samba()`: the account snapshot refactor updated `/etc/passwd` and `/etc/group` before the existing durable journal began. If `samba_prepare_private_passdb()`, `samba_run_smbpasswd()`, or smb.conf publication failed, the existing rollback covered only passdb/config and left the newly written Unix account files behind.

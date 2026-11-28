@@ -29,11 +29,11 @@
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and exact-SHA Actions for the four-file Samba journal extension.
-2. Require the standalone transaction C regression to pass the four-file rollback/commit/legacy-V1 cases; require the durability checker and embedded Samba source contract to pass.
-3. Confirm account transaction begin precedes `/etc/passwd` and `/etc/group` publication, and that a failure before COMMITTED restores all four paths.
-4. Inspect exact-SHA XY-C1 Build, TRX and artifact upload before claiming L3.
-5. Continue main-only fixes while independent Actions are pending; do not touch the frozen backup or force-push.
+1. Fetch live main and exact-SHA Actions for the V2 sync/CI guard follow-up.
+2. Confirm the standalone transaction test compiles and passes all four-file rollback/commit/legacy V1 cases.
+3. Confirm Samba embedded source guard and standalone durability checker pass; verify other V1 Samba transaction callers are unchanged.
+4. Inspect exact-SHA XY-C1 Build, TRX and artifact steps before L3 claim.
+5. Continue main-only atomic implementation while pending. Frozen backup remains immutable; no force-push.
 
 ## Verification boundary
 

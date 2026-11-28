@@ -681,7 +681,8 @@ jobs:
                              ("run_samba", run_samba),
                              ("write_smb_conf", public_writer)):
               prepare = body.index("samba_config_transaction_prepare_parent_directory(")
-              recover = body.index("samba_config_transaction_recover_with_accounts(") if name == "run_samba" else body.index("samba_config_transaction_recover(")
+              recover_marker = ("samba_config_transaction_recover_with_accounts(" if "samba_config_transaction_recover_with_accounts(" in body else "samba_config_transaction_recover(")
+              recover = body.index(recover_marker)
               assert prepare < recover, name + ": private parent must precede recovery"
           assert 'mkdir_if_none("/etc/samba", "777")' not in source
           assert 'mkdir_if_none("/etc/samba", "777")' not in storage
