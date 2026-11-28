@@ -1,3 +1,12 @@
+## 2026-11-27 — Fix second duplicated PID 1 fatal-count contract
+
+- The first correction `ace9a30007db01654ad260423e46115322fcd972` updated the earlier occurrence of the exact-six assertion, but `scripts/check_dev_init_boot.py` contains a second equivalent integration-contract block. Exact AliyunDrive run `46089841598` passed the first block and all private-lock/WebDAV regression tests, then failed at line 688 on the duplicate assertion; exact Process run `46089841549` was still running at last poll and could hit the same assertion.
+- THIS follow-up changes the remaining duplicate to the same minimum-six contract. The independent switch-device assertions still verify both node-status functions and the security properties, so the weaker aggregate count does not weaken the actual new source contract.
+- On parent SHA `ace9a30007db01654ad260423e46115322fcd972`: HTTPD `46089841552` PASS and AI handoff `46089841639` PASS; AliyunDrive `46089841598` FAIL (stale duplicate assertion); Process inventory/lifecycle `46089841549` PENDING at last poll. Fresh exact-SHA Process/AliyunDrive reruns are required for THIS correction.
+- Next: verify Process/AliyunDrive/AI exact-head runs, then inspect remaining independent P1 queue. Switch-device source SHA `78103b86` XY-C1 run `46089366718` was still pending at last poll; no L3 claim. Backup remains frozen at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+
+---
+
 ## 2026-11-27 — Decouple PID 1 boot contract from secure switch-node fatal gates
 
 - Exact-SHA Process lifecycle run `46089366834` and AliyunDrive WebDAV run `46089366780` on `78103b86d1e214dea0ad90cb72e9895c48b3df42` each reached the shared `scripts/check_dev_init_boot.py` source contract and failed only its stale assertion that `init_router()` had exactly six fatal returns. The two secure RTL8367/MediaTek node checks correctly added early FATAL exits. All preceding GNU89/ASan/UBSan boot-policy tests and the private-lock/WebDAV lifecycle regressions passed. No production runtime failure was observed.

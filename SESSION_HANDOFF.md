@@ -1,3 +1,12 @@
+## 2026-11-27 — Repair duplicate PID 1 fatal-count assertion
+
+- `ace9a30007db01654ad260423e46115322fcd972` updated one stale `router.count("return INIT_ROUTER_RESULT_FATAL;") == 6` assertion. The same source-contract script contains a second duplicated integration block at line 688; exact AliyunDrive run `46089841598` now passed the first block and all WebDAV lock/lifecycle tests, then exposed this second stale assertion.
+- THIS COMMIT fixes the remaining duplicate to `>= 6`. Both integration blocks retain their explicit switch-node validation assertions; only the obsolete aggregate exact count is relaxed.
+- Parent SHA exact checks: HTTPD `46089841552` PASS, AI docs `46089841639` PASS, AliyunDrive `46089841598` FAIL only at the second duplicate assertion, Process `46089841549` PENDING at last poll. Earlier HTTPD/AI on `dbbbba13342d9297f3f45ef15e956e03c92879fe` also PASS.
+- Next: verify exact-SHA Process + AliyunDrive + AI handoff for THIS follow-up; then continue the next independent P1 service/storage/network stability issue. XY-C1 validation for the switch-node production source `78103b86` remains PENDING; no L3 claim. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+
+---
+
 ## 2026-11-27 — Fix shared PID 1 boot-contract count after switch node hardening
 
 - Source parent `78103b86d1e214dea0ad90cb72e9895c48b3df42` adds two legitimate FATAL gates for unsafe switch device nodes. Exact Process run `46089366834` and AliyunDrive run `46089366780` both failed only at `scripts/check_dev_init_boot.py:324`, which still pinned the older exact total of six. The GNU89/ASan/UBSan boot tests and WebDAV private-lock/lifecycle tests passed; the source checker below already validates each switch-node gate separately.
