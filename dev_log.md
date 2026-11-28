@@ -1,3 +1,10 @@
+## 2026-11-28 — Update ttyd lifecycle runner's expected result
+
+- The exact-SHA ttyd shell regression on `5759332e5f3da1212d3caa937684a663c6e39a86` PASSED, including injected NVRAM read failure and no-write/no-launch assertions.
+- Process run #46140033300 failed immediately afterward only because `scripts/check_optional_app_start_status.py` still matched the prior success-banner string. Updated that test runner to require the new checked-NVRAM result banner; no production code or test behavior weakened.
+- AI handoff contract #46140033305 PASS on the same SHA. Process and XY-C1 were still processing.
+
+---
 ## 2026-11-28 — Fail closed on ttyd port NVRAM read failures
 
 - `ttyd.sh` previously used `nvram get ttyd_port`; a backend read failure that produced empty output could be mistaken for an unset port, causing an automatic write/commit of port 7681 and daemon launch.
