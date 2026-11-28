@@ -64,7 +64,7 @@ require('DDNSTO_START_WAIT_ATTEMPTS=5' in script and
         'if ! sleep 1; then' in wait_started_body and 'return 1' in wait_started_body,
         "startup must retry only confirmed ABSENT and fail closed on UNKNOWN/wait errors")
 require('[ ! -x "$DDNSTO_BIN" ]' in start_body and
-        'ddnsto_start_id=$(nvram get ddnsto_id)' in start_body and
+        'ddnsto_start_id=$(nvram get_checked ddnsto_id)' in start_body and
         '[ -z "$ddnsto_start_id" ]' in start_body and
         'ddnsto_wait_started' in start_body and
         'ddnsto_start_wait_status' in start_body and
@@ -120,7 +120,7 @@ require("ddnsto_lifecycle_lock_prepare" in lock_run_body and
         "ddnsto_lifecycle_lock_execute" in lock_run_body and
         "start|stop|restart)" in lock_run_body,
         "all DDNSTO external lifecycle actions must fail closed behind flock")
-require('if ddnsto_enable_value=$(nvram get ddnsto_enable)' in enable_state_body and
+require('if ddnsto_enable_value=$(nvram get_checked ddnsto_enable)' in enable_state_body and
         'ddnsto_enable_status=$?' in enable_state_body and
         'return "$ddnsto_enable_status"' in enable_state_body,
         "enable-state NVRAM failure must preserve the original command status")
@@ -129,6 +129,8 @@ require('case "$ddnsto_enable_value" in' in enable_state_body and
         "DDNSTO enable selector is invalid; refusing to change process state" in enable_state_body and
         "return 22" in enable_state_body,
         "DDNSTO start/restart must reject malformed non-empty enable selectors before process changes")
+require("nvram get ddnsto_id" not in script and "nvram get ddnsto_enable" not in script,
+        "DDNSTO must use status-bearing checked NVRAM reads for identity and enable selector")
 require("DDNSTO invalid enable selectors cannot stop or launch a daemon: PASS" in test,
         "DDNSTO regression must cover malformed enable selectors for both start and restart")
 require(locked_action_body.count("ddnsto_read_enable_state || return $?") == 2,

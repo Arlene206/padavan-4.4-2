@@ -165,7 +165,7 @@ cat > "$TEST_BIN/nvram" <<'MOCK'
 #!/bin/sh
 printf '%s\n' "$*" >> "$TEST_NVRAM_LOG"
 case "$1:$2" in
-	get:ddnsto_id)
+	get_checked:ddnsto_id)
 		[ "${TEST_NVRAM_ID_FAIL:-0}" = 0 ] || exit 9
 		if [ "${TEST_NVRAM_ID_SET:-0}" = 1 ]; then
 			printf '%s\n' "$TEST_NVRAM_ID"
@@ -173,7 +173,7 @@ case "$1:$2" in
 			echo regression-id
 		fi
 		;;
-	get:ddnsto_enable)
+	get_checked:ddnsto_enable)
 		[ "${TEST_NVRAM_ENABLE_FAIL:-0}" = 0 ] || exit 9
 		cat "$TEST_ENABLE_FILE"
 		;;
@@ -356,9 +356,9 @@ echo error > "$TEST_STATE"
 if run_action normal start; then fail "start accepted UNKNOWN process inventory"; fi
 [ ! -s "$TEST_LOG" ] && [ ! -s "$TEST_OPS" ] ||
 	fail "UNKNOWN start signalled or launched a duplicate"
-grep -Fqx 'get ddnsto_enable' "$TEST_NVRAM_LOG" ||
+grep -Fqx 'get_checked ddnsto_enable' "$TEST_NVRAM_LOG" ||
 	fail "start did not read the enable switch under the lifecycle lock"
-grep -Fqx 'get ddnsto_id' "$TEST_NVRAM_LOG" ||
+grep -Fqx 'get_checked ddnsto_id' "$TEST_NVRAM_LOG" ||
 	fail "start did not preflight the daemon identity under the lifecycle lock"
 
 # A failed launch prerequisite must not stop a previously running DDNSTO.
@@ -376,7 +376,15 @@ export DDNSTO_BIN
 
 TEST_NVRAM_ID_FAIL=1
 export TEST_NVRAM_ID_FAIL
-if run_action normal start; then fail "start accepted an NVRAM identity read failure"; fi
+if run_action normal start; then
+	fail "start accepted an NVRAM identity read failure"
+else
+	identity_status=$?
+fi
+[ "$identity_status" -eq 9 ] ||
+	fail "start did not preserve the NVRAM identity read status"
+[ "$(grep -Fxc 'get_checked ddnsto_id' "$TEST_NVRAM_LOG" || :)" = 1 ] ||
+	fail "start did not perform exactly one checked identity read"
 [ ! -s "$TEST_LOG" ] && [ ! -s "$TEST_OPS" ] ||
 	fail "NVRAM read failure disrupted the existing daemon"
 TEST_NVRAM_ID_FAIL=0
@@ -409,7 +417,7 @@ for enable_action in start restart; do
 		fail "$enable_action disrupted the existing daemon after an NVRAM read failure"
 	[ ! -s "$TEST_LOG" ] && [ ! -s "$TEST_OPS" ] ||
 		fail "$enable_action sent signals or launched after an NVRAM read failure"
-	[ "$(grep -Fxc 'get ddnsto_enable' "$TEST_NVRAM_LOG" || :)" = 1 ] ||
+	[ "$(grep -Fxc 'get_checked ddnsto_enable' "$TEST_NVRAM_LOG" || :)" = 1 ] ||
 		fail "$enable_action did not perform exactly one enable-state preflight"
 done
 TEST_NVRAM_ENABLE_FAIL=0
@@ -436,7 +444,7 @@ for invalid_enable in unexpected -1 2 '1;reboot'; do
 			fail "$enable_action stopped the daemon for invalid selector '$invalid_enable'"
 		[ ! -s "$TEST_LOG" ] && [ ! -s "$TEST_OPS" ] ||
 			fail "$enable_action sent signals or launched after invalid selector '$invalid_enable'"
-		[ "$(grep -Fxc 'get ddnsto_enable' "$TEST_NVRAM_LOG" || :)" = 1 ] ||
+		[ "$(grep -Fxc 'get_checked ddnsto_enable' "$TEST_NVRAM_LOG" || :)" = 1 ] ||
 			fail "$enable_action did not read the enable selector exactly once"
 	done
 done

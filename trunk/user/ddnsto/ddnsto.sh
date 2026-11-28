@@ -13,11 +13,12 @@ start_zero() {
 		logger -t "DDNSTO" "DDNSTO可执行文件缺失或不可执行，取消启动"
 		return 1
 	fi
-	if ddnsto_start_id=$(nvram get ddnsto_id); then
+	if ddnsto_start_id=$(nvram get_checked ddnsto_id); then
 		:
 	else
-		logger -t "DDNSTO" "无法读取DDNSTO身份标识，取消启动"
-		return 1
+		ddnsto_start_id_status=$?
+		logger -t "DDNSTO" "无法读取DDNSTO身份标识(status=$ddnsto_start_id_status)，取消启动"
+		return "$ddnsto_start_id_status"
 	fi
 	if [ -z "$ddnsto_start_id" ]; then
 		logger -t "DDNSTO" "DDNSTO身份标识为空，取消启动"
@@ -371,7 +372,7 @@ ddnsto_lifecycle_lock_execute() {
 # Preserve NVRAM command failures instead of treating them as a disabled service.
 # Restart performs this preflight before stopping a currently working daemon.
 ddnsto_read_enable_state() {
-	if ddnsto_enable_value=$(nvram get ddnsto_enable); then
+	if ddnsto_enable_value=$(nvram get_checked ddnsto_enable); then
 		case "$ddnsto_enable_value" in
 			''|0|1)
 				return 0

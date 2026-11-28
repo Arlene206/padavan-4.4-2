@@ -1,3 +1,11 @@
+## 2026-11-28 — Use checked NVRAM reads in DDNSTO lifecycle
+
+- `ddnsto.sh` had command-status guards around legacy `nvram get ddnsto_id` and `nvram get ddnsto_enable`, but the legacy getter can mask backend read failures as successful empty output. That could let start/restart treat an unreadable enable value as the historical disabled empty default, or conflate an unreadable identity with an unset identity.
+- Changed both values to `nvram get_checked`. Identity read errors now preserve the original status (the previous implementation collapsed them to 1) and still fail before stopping an existing daemon. Enable read failures retain the existing status-preserving preflight before start/restart state changes.
+- Updated the dedicated DDNSTO lifecycle mock, exact checked-read call-count assertions, identity failure status assertion and static source checker. Existing workflow already runs this regression and has DDNSTO source/test/Makefile paths in both path filters.
+- Parent `570be1f119144b0fb49bbdb78d5987664ff0c308`: AI handoff docs #46141148176 SUCCESS; Process #46141148152 was IN_PROGRESS at last poll. This DDNSTO change requires its dedicated DDNSTO workflow, Process/AI and XY-C1 checks.
+
+---
 ## 2026-11-28 — Deduplicate Aria2 Process workflow path filters
 
 - AI handoff docs run #46141026688 on Aria2 parent `76646cffc52d09fcb9b7a67052d5ae64b1b14462` failed the workflow contract: `scripts/check_optional_app_start_status.py` was already present in both push and pull-request allowlists, and the Aria2 path-filter extension added it a second time.
