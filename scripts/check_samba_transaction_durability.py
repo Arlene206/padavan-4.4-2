@@ -6,7 +6,14 @@ from pathlib import Path
 HEADER = Path("trunk/user/rc/src/samba_config_transaction.h").read_text()
 SYNC_HEADER = Path("trunk/user/rc/src/config_file_sync.h").read_text()
 assert '#include "config_file_sync.h"' in HEADER
-assert "while (status != 0 && errno == EINTR)" in SYNC_HEADER
+assert '#include "config_file_sync.h"' in HEADER
+assert "#define CONFIG_FILE_SYNC_MAX_EINTR_RETRIES 8U" in SYNC_HEADER
+sync_helper = SYNC_HEADER[SYNC_HEADER.index("config_file_sync_fd(int fd)"):]
+assert "for (;;)" in sync_helper
+assert "status = CONFIG_FILE_SYNC_FSYNC(fd);" in sync_helper
+assert "status == 0 || errno != EINTR" in sync_helper
+assert "interruptions >= CONFIG_FILE_SYNC_MAX_EINTR_RETRIES" in sync_helper
+assert "++interruptions;" in sync_helper
 
 
 

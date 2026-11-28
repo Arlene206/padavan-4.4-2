@@ -1,3 +1,11 @@
+## 2026-11-28 — Align Samba durability audit with bounded shared fsync policy
+
+- Samba transaction run #46130569334 on exact SHA `02dfbf9198cd7b5de10c4c902501249683ef26ef` passed the publication, service-failure and ACL/passdb checks, then failed at the final durability checker because it still required the obsolete unbounded `while (status != 0 && errno == EINTR)` loop.
+- The shared `config_file_sync_fd()` helper now uses an eight-interruption ceiling. Updated the Samba source contract to verify the shared helper, injected fsync call, EINTR-only retry and cap instead of the removed loop. No Samba production code changed.
+- Exact-head Samba and AI handoff Actions are required on this checker correction. No local checker run or firmware build is claimed.
+
+---
+
 ## 2026-11-28 — Bound OpenVPN post-mode configuration fsync
 
 - OpenVPN regression #46130569411 on exact parent SHA `02dfbf9198cd7b5de10c4c902501249683ef26ef` failed because the injected fsync counter observed five calls, not the expected six. Source review found the post-`fchmod` staged-file sync still used a raw unbounded EINTR loop; only the first and parent-directory syncs used the shared bounded helper.
