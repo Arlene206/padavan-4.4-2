@@ -1,3 +1,11 @@
+## 2026-11-28 — Keep the handoff roadmap below its byte limit
+
+- Exact-SHA AI handoff check #46154268128 failed because the edited `REFACTOR_ROADMAP.md` reached 131180 UTF-8 bytes, exceeding the 131072-byte hard limit by 108. The validator reported no other defect.
+- Condensed the WAN monitoring matrix row without dropping its new detached-`detect_wan` readiness status or the remaining L2/L3/L4 verification boundary. The resulting roadmap is 130807 UTF-8 bytes (265 bytes below the limit).
+- Updated `SESSION_HANDOFF.md` with source commit `e0efa3a421051d24a21b8519983892ffdef75456`, exact-SHA workflow IDs/statuses and the next action. Documentation rerun after this follow-up commit pending.
+
+---
+
 ## 2026-11-28 — Verify detached WAN gateway monitor startup
 
 - `detect_wan_main()` daemonizes before PID-file publication. The WAN-up caller previously treated a zero `eval("detect_wan")` result as readiness, although that result can belong only to the short-lived daemonizing parent; the child may fail to publish its PID file and exit without the caller noticing.
