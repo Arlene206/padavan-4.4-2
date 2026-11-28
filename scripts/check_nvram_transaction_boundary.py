@@ -978,7 +978,7 @@ def run() -> int:
 
         # Each tuple owns a unique append-only arena slot. Scrub abandoned
         # slots on growth, stale suffixes on shorter reuse, and values on unset.
-        realloc_compact = re.sub(r"\\s+", "", realloc_body)
+        realloc_compact = re.sub(r"\s+", "", realloc_body)
         growth_slot = realloc_compact.find("rt->value=&nvram_values[nvram_offset]")
         growth_copy = realloc_compact.find("strcpy(rt->value,value)", growth_slot)
         old_slot_wipe = realloc_compact.find(

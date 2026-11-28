@@ -7,29 +7,27 @@
 
 ## Active task
 
-- Fix the NVRAM semantic checker for kernel value-slot erasure. The 93507 source implementation and host regressions passed, but the checker searched for the multi-argument tail-wipe call as one contiguous string; production code intentionally wraps arguments across lines. Normalize whitespace in the extracted `_nvram_realloc()` body before enforcing growth-copy/old-slot-wipe and shorter-copy/tail-wipe order.
-- Preserve the production behavior: growth allocates and copies a new slot before scrubbing the old one; shrink clears the bytes after the new NUL; `_nvram_free()` wipes the full current slot before freeing tuple metadata.
-- The 13339 follow-up has also closed the XY-C1 path-filter gap for `trunk/user/nvram/**` and reduced the roadmap to 130874 UTF-8 bytes. Its AI handoff check passed.
+- Correct the whitespace normalizer in the NVRAM value-slot source checker. The initial `9c961e6` follow-up over-escaped the Python raw regex (`r"\\s+"`), which would search for a literal backslash instead of whitespace. THIS COMMIT corrects it to `r"\s+"`, then the exact NVRAM workflow must pass the growth-copy/old-slot-wipe, shorter-copy/tail-wipe and tuple-wipe/free ordering checks.
+- The underlying kernel source and host tests are unchanged: growth copies before scrubbing the old slot, shrink erases the stale suffix, and tuple release wipes the full value slot.
 
 ## Exact-SHA CI checkpoint
 
-- `13339bed554e334b2e9c0176533d6e4a97c7907e`: AI handoff #46147869419 PASS (root log=118/119, archives valid). XY-C1 #46147869371 IN_PROGRESS at Build XY-C1. Process lifecycle inventory #46147869397 IN_PROGRESS.
-- `93507a6a0ecdceb28259127917824b018642ced6`: NVRAM #46147635685 FAIL only at the source-order assertion for `nvram_sensitive_value_clear_tail(...)`; all preceding CLI and NVRAM host tests completed PASS, including `NVRAM CLI maximum assignment boundary: PASS` and `NVRAM sensitive value-slot replacement and release erasure: PASS`. HTTPD #46147635675 PASS. XY-C1 #46147635745 IN_PROGRESS at Build XY-C1.
-- Parent 2b1f66627886472ecd16a3e223505fe10e5a8d4c: CLI max-value host test PASS; NVRAM run #46147499779 later CANCELLED by the newer push; HTTPD #46147499778 PASS and Process inventory #46147499808 PASS. AI #46147499788 failed at the now-corrected roadmap size ceiling.
-- `0827abadc76f456ba9d67003cbedbdf7854d9e89`: NVRAM #46147228376 PASS including CLI secure-buffer erasure and full caller inventory; AI/HTTPD/Process checks PASS.
+- `9c961e67b2caf54c5de6054f5b55c713f28f51a7`: NVRAM #46148043664 was IN_PROGRESS at the source checker when polled; AI handoff #46148043610 PASS. This regex correction supersedes the pending checker run.
+- `93507a6a0ecdceb28259127917824b018642ced6`: NVRAM #46147635685 failed only the multiline tail-wipe source assertion after all host tests passed; HTTPD #46147635675 PASS; XY-C1 #46147635745 remained IN_PROGRESS at Build.
+- `13339bed554e334b2e9c0176533d6e4a97c7907e`: AI handoff #46147869419 PASS; XY-C1 #46147869371 and Process inventory #46147869397 were IN_PROGRESS.
 
 ## Verification boundary
 
-- NVRAM kernel value-slot fix `93507a6a0ecdceb28259127917824b018642ced6`: all compiled host tests passed under the exact NVRAM job; its final source checker falsely failed because the tail-wipe arguments were line-wrapped. THIS COMMIT fixes only that whitespace assumption. New exact-head NVRAM rerun required.
-- NVRAM CLI `set`/`settmp` 4160-byte assignment workspace and max-boundary regression are included on `93507`; the host test emitted PASS. Exact `13339` XY-C1 workflow is in progress at the build step and will include these source changes. No TRX/artifact result yet.
-- `13339` handoff validator PASS; HTTPD `93507` PASS; `93507` XY-C1 Build still IN_PROGRESS. No L3 until a same-SHA Build, TRX and artifact upload all pass. Router L4 remains NOT VERIFIED.
+- NVRAM kernel value-slot host regressions on 93507 passed, including shrink-tail/full-slot erasure and invalid-range tests. The semantic checker failed on raw whitespace matching; the first follow-up regex was over-escaped and is corrected in THIS COMMIT.
+- The assignment-limit CLI regression on parent `2b1f66627886472ecd16a3e223505fe10e5a8d4c` printed `NVRAM CLI maximum assignment boundary: PASS`; 0827 exact secure-buffer erasure audit #46147228376 also PASS.
+- `13339` handoff validation PASS and XY-C1 firmware build in progress; exact TRX/artifact not yet complete. No L3 until one exact production SHA passes Build, TRX and artifact. Physical router L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect the exact-head NVRAM transaction-boundary run for THIS COMMIT. Require the checker to pass its growth-copy-before-old-slot-wipe, shorter-copy-before-tail-wipe and tuple-wipe-before-free ordering checks.
-2. Inspect exact `13339` and current-head XY-C1 runs: require Build XY-C1, TRX verification and artifact upload to complete successfully on one exact production-input SHA.
-3. Once those validations are green, move to a distinct userland stability/security issue outside NVRAM; do not repeat NVRAM caller inventories already completed.
-4. Keep the frozen backup immutable; main-only complete-tree commits with expected-SHA updates. No hardware L4 claim.
+1. Inspect the new exact-head NVRAM transaction-boundary run. The checker must use `re.sub(r"\s+", "", realloc_body)` and pass all growth/shrink/free ordering assertions.
+2. Inspect the exact `13339` XY-C1 run and current-head XY-C1 runs for Build, TRX and artifact; no L3 claim until the complete sequence succeeds on a single production SHA.
+3. After NVRAM and firmware validation, continue with a separate stability/security issue outside NVRAM; do not repeat the completed broad inventories.
+4. Keep the frozen backup unchanged; main-only complete-tree commits with expected-SHA updates.
 
 ## Mandatory end-of-session handoff checkpoint
 

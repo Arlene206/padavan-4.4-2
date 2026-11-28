@@ -1,8 +1,8 @@
 ## 2026-11-28 — Normalize multiline NVRAM value-slot checker assertions
 
 - Exact 93507 NVRAM run #46147635685 passed all CLI/kernel host policy binaries, including maximum assignment and sensitive value-slot replacement/release erasure, then failed the final semantic checker. The check searched for `nvram_sensitive_value_clear_tail(rt->value, rt->val_len, val_len)` as a contiguous substring although production code line-wraps the arguments.
-- The checker now removes whitespace from the extracted `_nvram_realloc()` body before testing copy/wipe order, preserving the intended growth and shrink sequencing assertions.
-- Parent main SHA: 13339bed554e334b2e9c0176533d6e4a97c7907e; result: THIS COMMIT. 13339 AI handoff #46147869419 PASS; 13339 XY-C1 #46147869371 and Process inventory #46147869397 were IN_PROGRESS. 93507 XY-C1 #46147635745 remained IN_PROGRESS at Build XY-C1. Exact NVRAM rerun pending.
+- The checker now removes whitespace from the extracted `_nvram_realloc()` body before testing copy/wipe order. The first raw-regex literal was accidentally over-escaped; THIS COMMIT corrects it from `r"\\s+"` to the actual whitespace class `r"\s+"`.
+- Parent main SHA: 13339bed554e334b2e9c0176533d6e4a97c7907e; checker follow-up `9c961e6` used an over-escaped normalizer; result of THIS COMMIT is the corrected single-backslash regex. 13339 AI handoff #46147869419 PASS; 13339 XY-C1 #46147869371 and Process inventory #46147869397 were IN_PROGRESS. 93507 XY-C1 #46147635745 remained IN_PROGRESS at Build XY-C1. Exact NVRAM rerun pending.
 
 ---
 
