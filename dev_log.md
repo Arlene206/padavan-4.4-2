@@ -1,3 +1,11 @@
+## 2026-11-28 — Consolidate lifecycle sleeps on the shared bounded wait policy
+
+- The previous lifecycle callback fix duplicated the bounded sleep-remainder policy even though `service_wait_policy.h` already provides the same production-tested 8-interruption limit and its own injectable regression. Consolidated the wrapper onto `service_wait_seconds()` to keep one policy implementation and one source of truth.
+- Added a success-path regression that verifies an interrupted 3-second sleep resumes with the returned 2-second, then 1-second remainder. Existing shared tests continue to pin persistent EINTR exhaustion and error handling. The lifecycle adapter now has the exact `int` callback signature and returns the shared helper result.
+- This is a small follow-up to `59ccb2df`; no change to the intended timeout or fail-closed escalation policy.
+
+---
+
 ## 2026-11-28 — Fix service lifecycle sleep callback ABI and signal-storm handling
 
 - A cross-layer review of `service_lifecycle_stop()` found the production adapter in `common_ex.c` was declared `void`, while `service_lifecycle_ops.sleep_seconds` requires an `int` result and the policy interprets nonzero as a sleep failure. Calling through that mismatched function pointer is undefined behavior; it also discarded the interrupted remainder returned by `sleep()`.

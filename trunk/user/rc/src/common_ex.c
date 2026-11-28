@@ -53,6 +53,7 @@
 #include "network_sysctl.h"
 #include "network_sysctl_policy.h"
 #include "service_lifecycle_policy.h"
+#include "service_wait_policy.h"
 #include <process_pidfile.h>
 #include <file_write_status.h>
 #include "create_file_policy.h"
@@ -1575,21 +1576,11 @@ service_lifecycle_send_signal(void *context,
 	return -1;
 }
 
-static unsigned int
-service_lifecycle_system_sleep(void *context, unsigned int seconds)
-{
-	(void)context;
-	return sleep(seconds);
-}
-
 static int
 service_lifecycle_sleep(void *context, unsigned int seconds)
 {
-	static const struct service_lifecycle_sleep_ops ops = {
-		service_lifecycle_system_sleep
-	};
-
-	return service_lifecycle_sleep_with(seconds, &ops, NULL);
+	(void)context;
+	return service_wait_seconds(seconds);
 }
 
 static enum process_presence

@@ -51,6 +51,22 @@ fixture_nanosleep(const struct timespec *requested,
 }
 
 static void
+test_sleep_eintr_retries_use_unslept_remainder(void)
+{
+	struct sleep_fixture fixture;
+
+	memset(&fixture, 0, sizeof(fixture));
+	fixture.remaining[0] = 2U;
+	fixture.remaining[1] = 1U;
+	fixture.remaining[2] = 0U;
+	assert(service_wait_seconds_with(3U, fixture_sleep, &fixture) == 0);
+	assert(fixture.calls == 3U);
+	assert(fixture.requested[0] == 3U);
+	assert(fixture.requested[1] == 2U);
+	assert(fixture.requested[2] == 1U);
+}
+
+static void
 test_repeated_sleep_eintr_is_bounded(void)
 {
 	struct sleep_fixture sleep_fixture;
@@ -145,6 +161,7 @@ main(void)
 	assert(service_wait_microseconds_with(100U, NULL, NULL) == -1);
 	assert(errno == EINVAL);
 
+	test_sleep_eintr_retries_use_unslept_remainder();
 	test_repeated_sleep_eintr_is_bounded();
 	puts("Service waits preserve EINTR remainders and bound repeated interruption: PASS");
 	return 0;

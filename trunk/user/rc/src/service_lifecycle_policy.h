@@ -41,44 +41,6 @@ struct service_lifecycle_target {
 	struct process_snapshot initial;
 };
 
-#define SERVICE_LIFECYCLE_SLEEP_MAX_EINTR_RETRIES 8U
-
-struct service_lifecycle_sleep_ops {
-	unsigned int (*sleep_seconds)(void *context, unsigned int seconds);
-};
-
-/*
- * sleep() reports the unslept duration when interrupted. Resume that remainder,
- * but bound repeated signals so a signal storm cannot defeat a service-stop
- * timeout forever. A caller must not escalate to SIGKILL after this fails.
- */
-static inline int
-service_lifecycle_sleep_with(unsigned int seconds,
-			     const struct service_lifecycle_sleep_ops *ops,
-			     void *context)
-{
-	unsigned int remaining = seconds;
-	unsigned int interruptions = 0;
-
-	if (!ops || !ops->sleep_seconds) {
-		errno = EINVAL;
-		return -1;
-	}
-	while (remaining > 0U) {
-		errno = 0;
-		remaining = ops->sleep_seconds(context, remaining);
-		if (remaining == 0U)
-			return 0;
-		if (errno != 0 && errno != EINTR)
-			return -1;
-		errno = EINTR;
-		if (interruptions >= SERVICE_LIFECYCLE_SLEEP_MAX_EINTR_RETRIES)
-			return -1;
-		++interruptions;
-	}
-	return 0;
-}
-
 
 static inline int
 service_lifecycle_identity_equal(const struct process_identity *left,
