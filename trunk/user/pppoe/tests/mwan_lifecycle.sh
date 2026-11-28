@@ -5,13 +5,14 @@ SCRIPT="$ROOT/trunk/user/pppoe/mwan.sh"
 T=$(mktemp -d "${TMPDIR:-/tmp}/mwan-lifecycle.XXXXXX")
 trap 'rm -rf "$T"' EXIT HUP INT TERM
 BIN="$T/bin"; OPTIONS="$T/ppp"; SYS_NET="$T/sys/class/net"
-LOG="$T/commands.log"; RUN_SCRIPT="$T/mwan-test.sh"
+LOG="$T/commands.log"; NVRAM_LOG="$T/nvram.log"; RUN_SCRIPT="$T/mwan-test.sh"
 mkdir -p "$BIN" "$OPTIONS" "$SYS_NET/eth3"
 printf 'aa:bb:cc:dd:ee:ff\n' > "$SYS_NET/eth3/address"
 cat > "$BIN/nvram" <<'MOCK'
 #!/bin/sh
-[ "$1" = get ] || exit 90
-[ "${FAIL_NVRAM:-}" != "$2" ] || exit 53
+[ "$1" = get_checked ] || exit 90
+printf '%s\n' "$2" >> "$NVRAM_LOG"
+[ "${FAIL_NVRAM:-}" != "$2" ] || exit "${FAIL_NVRAM_STATUS:-53}"
 case "$2" in
  pppoesync_enable) value=${TEST_SYNC:-0} ;;
  pppoe_num) value=${TEST_PPP_NUM:-2} ;;
@@ -51,12 +52,12 @@ exit 0
 MOCK
 chmod +x "$BIN"/*
 sed -e "s|/tmp/ppp|$OPTIONS|g" -e "s|/sys/class/net|$SYS_NET|g" -e "s|/usr/sbin/pppd|$BIN/pppd|g" "$SCRIPT" > "$RUN_SCRIPT"
-export PATH="$BIN:$PATH" LOG
+export PATH="$BIN:$PATH" LOG NVRAM_LOG
 reset() {
   rm -f "$OPTIONS"/options.wan* "$OPTIONS"/.options.wan*
   printf 'aa:bb:cc:dd:ee:ff\n' > "$SYS_NET/eth3/address"
-  : > "$LOG"
-  unset FAIL_NVRAM FAIL_IP_ADD FAIL_IFCONFIG FAIL_PPPD_FILE || true
+  : > "$LOG"; : > "$NVRAM_LOG"
+  unset FAIL_NVRAM FAIL_NVRAM_STATUS FAIL_IP_ADD FAIL_IFCONFIG FAIL_PPPD_FILE || true
   export TEST_SYNC=0 TEST_PPP_NUM=2 TEST_VLAN_ENABLE=0 TEST_VLAN_ID=35
   export TEST_USER=normal-user TEST_PASS=normal-pass TEST_MTU=1492 TEST_MRU=1492
 }
@@ -65,6 +66,7 @@ fail() { echo "FAIL: $*" >&2; exit 1; }
 
 reset; run
 [ "$RC" -eq 0 ] || fail "normal start status $RC"
+[ "$(cat "$NVRAM_LOG")" = "$(printf 'pppoesync_enable\npppoe_num\nvlan_filter\nvlan_vid_cpu\nwan_pppoe_username\nwan_pppoe_passwd\nwan_pppoe_mtu\nwan_pppoe_mru')" ] || fail "successful startup did not perform each checked NVRAM read exactly once in order"
 [ -f "$OPTIONS/options.wan0" ] && [ -f "$OPTIONS/options.wan1" ] || fail "per-session files missing"
 [ "$(stat -c '%a' "$OPTIONS/options.wan0")" = 600 ] || fail "options.wan0 mode not 0600"
 [ "$(stat -c '%a' "$OPTIONS/options.wan1")" = 600 ] || fail "options.wan1 mode not 0600"
@@ -123,10 +125,23 @@ reset; export FAIL_IFCONFIG=macvlan1:up; run
 ! grep -q 'pppd file .*options.wan0' "$LOG" || fail "PPPD launched after interface-up failure"
 echo 'PPPoE-MWAN does not launch PPPD on a failed macvlan: PASS'
 
-reset; export FAIL_NVRAM=wan_pppoe_passwd; run
-[ "$RC" -eq 53 ] || fail "NVRAM status $RC"
-! grep -q '^pppd file ' "$LOG" || fail "PPPD launched after NVRAM failure"
-echo 'PPPoE-MWAN refuses launch when credential read fails: PASS'
+check_nvram_failure() {
+  local key=$1 status=$2 expected_reads=$3
+  reset; export FAIL_NVRAM="$key" FAIL_NVRAM_STATUS="$status"; run
+  [ "$RC" -eq "$status" ] || fail "$key read returned $RC, expected $status"
+  [ "$(cat "$NVRAM_LOG")" = "$expected_reads" ] || fail "$key read sequence mismatch: $(cat "$NVRAM_LOG")"
+  [ ! -s "$LOG" ] || fail "$key read failure reached network or PPPD side effects: $(cat "$LOG")"
+  [ ! -e "$OPTIONS/options.wan0" ] && [ ! -e "$OPTIONS/options.wan1" ] || fail "$key read failure published PPP options"
+}
+check_nvram_failure pppoesync_enable 41 "pppoesync_enable"
+check_nvram_failure pppoe_num 42 "$(printf 'pppoesync_enable\npppoe_num')"
+check_nvram_failure vlan_filter 43 "$(printf 'pppoesync_enable\npppoe_num\nvlan_filter')"
+check_nvram_failure vlan_vid_cpu 44 "$(printf 'pppoesync_enable\npppoe_num\nvlan_filter\nvlan_vid_cpu')"
+check_nvram_failure wan_pppoe_username 45 "$(printf 'pppoesync_enable\npppoe_num\nvlan_filter\nvlan_vid_cpu\nwan_pppoe_username')"
+check_nvram_failure wan_pppoe_passwd 46 "$(printf 'pppoesync_enable\npppoe_num\nvlan_filter\nvlan_vid_cpu\nwan_pppoe_username\nwan_pppoe_passwd')"
+check_nvram_failure wan_pppoe_mtu 47 "$(printf 'pppoesync_enable\npppoe_num\nvlan_filter\nvlan_vid_cpu\nwan_pppoe_username\nwan_pppoe_passwd\nwan_pppoe_mtu')"
+check_nvram_failure wan_pppoe_mru 48 "$(printf 'pppoesync_enable\npppoe_num\nvlan_filter\nvlan_vid_cpu\nwan_pppoe_username\nwan_pppoe_passwd\nwan_pppoe_mtu\nwan_pppoe_mru')"
+echo "PPPoE-MWAN checked NVRAM reads fail closed before interface and credential changes: PASS"
 
 reset; export TEST_PPP_NUM=not-a-number; run
 [ "$RC" -eq 2 ] || fail "invalid PPP count status $RC"

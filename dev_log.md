@@ -1,3 +1,11 @@
+## 2026-11-28 — Make PPPoE-MWAN backend NVRAM reads status-bearing
+
+- `trunk/user/pppoe/mwan.sh` used legacy `nvram get` for eight required startup inputs (sync toggle, peer count, VLAN selector/ID, PPP username/password, MTU/MRU). Command status checks alone cannot detect backend errors masked by the legacy getter; an apparent empty value could otherwise flow into defaults or interface/credential setup.
+- Switched all eight reads to `nvram get_checked`, retaining successful-empty validation/default behavior and preserving nonzero backend status. All eight inputs are read before the first network/interface or PPP options side effect.
+- Extended `mwan_lifecycle.sh` to require the checked interface, log each read, assert successful startup reads each setting exactly once/in order, and inject distinct statuses 41–48 for every key. Each failure must stop before `ip`, `ifconfig`, PPP options publication or pppd launch. Extended `check_pppoe_mwan_status.py` with exact-source and regression assertions.
+- Existing WAN route-status and XY-C1 workflows already include the MWAN script/test/checker and run the regression; no workflow edits required. Parent: `5065efb84e8a58c1a56f4313eb4bfed08107f4a2`; DDNSTO #46141395670 PASS, Process inventory #46141395659 PASS, AI docs #46141395666 PASS. XY-C1 #46141285573 for DDNSTO production SHA `3f1cab20589e858b2db951b18821194249424957` was IN_PROGRESS at last poll.
+
+---
 ## 2026-11-28 — Isolate DDNSTO identity failure read-count assertion
 
 - DDNSTO workflow #46141285563 on `3f1cab20589e858b2db951b18821194249424957` passed shell syntax and the earlier lifecycle sections, then failed because the new exact-one `get_checked ddnsto_id` assertion still included NVRAM log lines from a preceding UNKNOWN-process test.

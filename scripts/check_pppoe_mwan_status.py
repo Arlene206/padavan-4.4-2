@@ -258,6 +258,18 @@ require(
     "PPPoE-MWAN lock contention must be bounded and a foreign/stale lock left untouched",
 )
 
+for key in (
+    "pppoesync_enable", "pppoe_num", "vlan_filter", "vlan_vid_cpu",
+    "wan_pppoe_username", "wan_pppoe_passwd", "wan_pppoe_mtu", "wan_pppoe_mru",
+):
+    require(MWAN.count(f"nvram get_checked {key}") == 1,
+            f"multi-WAN must read {key} exactly once through the checked NVRAM API")
+    require(f"nvram get {key}" not in MWAN,
+            f"legacy NVRAM getter remains for {key}")
+require(sum(1 for line in MWAN_TEST.splitlines() if line.startswith("check_nvram_failure ")) == 8,
+        "multi-WAN must inject failure for each of its eight NVRAM inputs")
+require("PPPoE-MWAN checked NVRAM reads fail closed before interface and credential changes: PASS" in MWAN_TEST,
+        "checked multi-WAN NVRAM failure regression is missing")
 # Keep shell-generated PPP options consistent with the safe RC C writer.
 require(
     "umask 077" in MWAN

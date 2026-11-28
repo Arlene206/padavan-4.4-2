@@ -1,40 +1,42 @@
 ## 2026-11-28 continuation checkpoint
 
-- Repository `Arlene206/padavan-4.4-2`; main-only, bootstrap recovered once. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` and is immutable.
-- Parent: `3f1cab20589e858b2db951b18821194249424957` (`fix(ddnsto): use checked NVRAM reads`).
-- DDNSTO source has both `ddnsto_id` and `ddnsto_enable` on `nvram get_checked`. Identity read errors preserve original status and fail before stopping the existing daemon; enable read errors are status-bearing and preflight before start/restart. Checker and mock were updated.
-- Exact DDNSTO #46141285563 on 3f failed at the new identity read-count assertion only: prior UNKNOWN-process startup test left NVRAM log records in place. This follow-up clears the log immediately before the identity-read failure case. 3f AI docs #46141285526 PASS, inventory #46141285490 PASS; XY-C1 #46141285573 IN_PROGRESS at last poll.
-- Aria2 patch SHA `76646cffc52d09fcb9b7a67052d5ae64b1b14462`: Process #46141026685 PASS, inventory #46141026697 PASS, USB #46141026746 PASS. AI failed due duplicate checker path entry, corrected by 570. XY #46141026720 IN_PROGRESS last poll.
-- On 570 SHA `570be1f119144b0fb49bbdb78d5987664ff0c308`: AI #46141148176 PASS and Process #46141148152 PASS; workflow-only duplicate path correction.
-- On 7e SHA `7e50fa510ebc14d98442ded1cd8caa1e93085147`: Process, inventory, AI PASS; includes Transmission NVRAM failure fixture and WireGuard checked-read lifecycle test.
-- NVRAM cache-wrap SHA `4f09b7bc0cff0aae3a13a4705edd3bf3af489b53`: XY-C1 Build PASS, artifact ID 15261597583. TTYD SHA `5759332e5f3da1212d3caa937684a663c6e39a86`: XY-C1 PASS. Exact-SHA only. NTP L3 only on `c052506cbe9463f2719494d237e5323fe1c261c8`.
-- No local MIPS toolchain or physical hardware. L4 NOT VERIFIED; roadmap near size cap.
+- Repository `Arlene206/padavan-4.4-2`; continue main-only. Startup recovery was completed once; do not repeat bootstrap or completed audits.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 remains closed/unmerged.
+- Current parent: `5065efb84e8a58c1a56f4313eb4bfed08107f4a2` (`test(ddnsto): isolate checked identity read assertion`).
+- DDNSTO production SHA `3f1cab20589e858b2db951b18821194249424957`: `ddnsto_id` and `ddnsto_enable` use `nvram get_checked`; identity failure preserves status and aborts before signalling/stopping an existing daemon. Initial DDNSTO run #46141285563 failed because a previous test's NVRAM log was not reset. Follow-up `5065` clears the log before identity failure injection. Exact-SHA DDNSTO #46141395670 PASS, Process inventory #46141395659 PASS, AI docs #46141395666 PASS.
+- DDNSTO production SHA 3f XY-C1 #46141285573 was IN_PROGRESS at last poll. The 5065 fix is test/docs-only; do not claim an exact-SHA 5065 firmware build based on the 3f run.
+- Aria2 production SHA `76646cffc52d09fcb9b7a67052d5ae64b1b14462`: Process #46141026685 PASS, inventory #46141026697 PASS, USB #46141026746 PASS. AI path-filter duplicate was fixed on `570be1f119144b0fb49bbdb78d5987664ff0c308`; AI #46141148176 and Process #46141148152 PASS. XY-C1 #46141026720 IN_PROGRESS at last poll.
+- Transmission + WireGuard test SHA `7e50fa510ebc14d98442ded1cd8caa1e93085147`: Process #46140791596 PASS, inventory #46140791606 PASS, AI #46140791629 PASS; both lifecycle regressions executed.
+- NVRAM cache-wrap SHA `4f09b7bc0cff0aae3a13a4705edd3bf3af489b53`: XY-C1 Build PASS, artifact ID 15261597583. TTYD production SHA `5759332e5f3da1212d3caa937684a663c6e39a86`: XY-C1 SUCCESS. Exact-SHA evidence only. NTP L3 evidence only on `c052506cbe9463f2719494d237e5323fe1c261c8`.
+- New current source slice: PPPoE-MWAN `mwan.sh` used legacy getters for eight required config inputs despite checking command status. Migrated all to `get_checked`; regression asserts one successful ordered read and fail-closed for every key.
+- No local MIPS/kernel build or router hardware; physical L4 NOT VERIFIED. Roadmap near size cap.
 
 ## Current repository state
 
-- Parent: `3f1cab20589e858b2db951b18821194249424957`.
-- This follow-up only resets the DDNSTO test NVRAM log before the identity failure scenario, so an exact-one read assertion is isolated to that scenario.
-- Frozen backup remains untouched.
+- Parent: `5065efb84e8a58c1a56f4313eb4bfed08107f4a2`.
+- PPPoE-MWAN task changes `mwan.sh`, its lifecycle test and `check_pppoe_mwan_status.py`; existing WAN and XY-C1 workflows already trigger/run these files.
+- Frozen backup remains unchanged.
 
 ## Active task
 
-- Verify DDNSTO dedicated lifecycle regression on the corrective SHA; require the checked identity and enable paths to pass with status preservation and no premature process signaling.
-- Also poll the parent DDNSTO XY run #46141285573; its result applies to production SHA 3f only.
-- Continue independent userland stability work while XY is pending.
+- Verify WAN route-status and XY-C1 exact-SHA Actions for the PPPoE-MWAN checked-read change.
+- Regression must pass normal start, exact ordered successful reads, and per-key injected failures 41–48 with no network/config/PPPD side effects.
+- Poll DDNSTO parent XY-C1 #46141285573 and Aria2 parent XY-C1 #46141026720 separately; each result validates only its own source SHA. No L3 claim unless same-SHA Build, TRX and artifact all pass.
+- If tests fail, inspect exact job/log and repair cause. Continue independent source tasks while builds are pending.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and exact-SHA DDNSTO, AI, Process inventory, XY-C1 Actions for the corrective commit.
-2. Confirm DDNSTO dedicated regression advances past the isolated read-count assertion; inspect exact failing job log if not.
-3. Check XY-C1 #46141285573 completion and its Build/TRX/artifact steps for SHA 3f separately.
-4. Continue a distinct source stability/security issue while jobs are pending; frozen backup, no force push, complete-tree expected-SHA updates.
+1. Fetch live main and exact-SHA WAN route-status, AI, Process inventory, XY-C1 Actions for the PPPoE-MWAN commit.
+2. Confirm `mwan_lifecycle.sh` runs all eight fail injections 41–48 and the static checker passes.
+3. Poll prior XY-C1 #46141285573 (DDNSTO SHA 3f) and #46141026720 (Aria2 SHA 766) independently.
+4. Continue source-level fixes; keep backup immutable; use full-tree atomic commit and expected-SHA non-forced main update only.
 
 ## Verification boundary
 
-- 3f: DDNSTO failed at stale NVRAM log carry-over in test; AI and Process inventory PASS; XY pending.
-- Corrective commit: DDNSTO regression and XY-C1 need exact-SHA checks.
-- Aria2 SHA 766: Process/inventory/USB PASS; AI path-filter issue fixed by 570.
-- 7e: Process/inventory/AI PASS; WireGuard + Transmission tests both PASS.
+- DDNSTO 5065: dedicated regression, Process inventory and AI docs PASS. XY applies to prior production SHA 3f and was pending.
+- Aria2 766: Process, inventory and USB PASS; AI duplicate-path failure fixed by 570; XY pending.
+- Transmission + WireGuard 7e: Process, inventory, AI PASS.
+- PPPoE-MWAN checked-read commit: exact-SHA CI required.
 - Physical L4: NOT VERIFIED.
 
 ## Mandatory end-of-session handoff checkpoint

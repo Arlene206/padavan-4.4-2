@@ -76,28 +76,28 @@ for mwan_command in nvram ip ifconfig cat awk chmod mv rm; do
 		mwan_die 127 "required command not found: $mwan_command"
 done
 
-if sync="$(nvram get pppoesync_enable)"; then :; else
+if sync="$(nvram get_checked pppoesync_enable)"; then :; else
 	mwan_rc=$?; mwan_die "$mwan_rc" "cannot read pppoesync_enable"
 fi
-if PPP_NUM="$(nvram get pppoe_num)"; then :; else
+if PPP_NUM="$(nvram get_checked pppoe_num)"; then :; else
 	mwan_rc=$?; mwan_die "$mwan_rc" "cannot read pppoe_num"
 fi
-if vlanen="$(nvram get vlan_filter)"; then :; else
+if vlanen="$(nvram get_checked vlan_filter)"; then :; else
 	mwan_rc=$?; mwan_die "$mwan_rc" "cannot read vlan_filter"
 fi
-if vlanid="$(nvram get vlan_vid_cpu)"; then :; else
+if vlanid="$(nvram get_checked vlan_vid_cpu)"; then :; else
 	mwan_rc=$?; mwan_die "$mwan_rc" "cannot read vlan_vid_cpu"
 fi
-if userid="$(nvram get wan_pppoe_username)"; then :; else
+if userid="$(nvram get_checked wan_pppoe_username)"; then :; else
 	mwan_rc=$?; mwan_die "$mwan_rc" "cannot read wan_pppoe_username"
 fi
-if userpw="$(nvram get wan_pppoe_passwd)"; then :; else
+if userpw="$(nvram get_checked wan_pppoe_passwd)"; then :; else
 	mwan_rc=$?; mwan_die "$mwan_rc" "cannot read wan_pppoe_passwd"
 fi
-if raw_mtu="$(nvram get wan_pppoe_mtu)"; then :; else
+if raw_mtu="$(nvram get_checked wan_pppoe_mtu)"; then :; else
 	mwan_rc=$?; mwan_die "$mwan_rc" "cannot read wan_pppoe_mtu"
 fi
-if raw_mru="$(nvram get wan_pppoe_mru)"; then :; else
+if raw_mru="$(nvram get_checked wan_pppoe_mru)"; then :; else
 	mwan_rc=$?; mwan_die "$mwan_rc" "cannot read wan_pppoe_mru"
 fi
 
