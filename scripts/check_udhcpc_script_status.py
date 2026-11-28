@@ -132,17 +132,19 @@ assert "test_select_wait_clamps_elapsed_timeout_before_unsigned_subtraction" in 
 assert "test_select_wait_clamps_elapsed_timeout_before_unsigned_subtraction() != 0" in test
 
 # Every received DHCPv4 reply must carry a one-byte message-type TLV.
-message_lookup = dhcpc.index(
-    "message_status = udhcp_get_option_with_length(&packet,"
+# Normalize C whitespace because the production call is intentionally wrapped.
+dhcpc_compact = "".join(dhcpc.split())
+message_lookup = dhcpc_compact.index(
+    "message_status=udhcp_get_option_with_length(&packet,DHCP_MESSAGE_TYPE,&message,&message_length)"
 )
-message_length_gate = dhcpc.index(
+message_length_gate = dhcpc_compact.index(
     "udhcpc_message_type_option_length_valid(message_status,message_length)",
     message_lookup,
 )
-message_dispatch = dhcpc.index("switch (state)", message_length_gate)
+message_dispatch = dhcpc_compact.index("switch(state)", message_length_gate)
 assert message_lookup < message_length_gate < message_dispatch
 assert "test_message_type_option_requires_exactly_one_byte" in test
-assert "udhcp_get_option(&packet, DHCP_MESSAGE_TYPE)" not in dhcpc
+assert "udhcp_get_option(&packet,DHCP_MESSAGE_TYPE)" not in dhcpc_compact
 
 # Validate the selected offer before entering REQUESTING. Address-less
 # servers may omit server ID or explicitly return 0.0.0.0; a limited-broadcast
