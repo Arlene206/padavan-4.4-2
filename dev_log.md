@@ -1,3 +1,12 @@
+## 2026-11-28 14:13 CST (UTC+8) — Include VPN control FIFO checker in both workflow filters
+
+- Base main SHA: `78afe64833e88851484b28c28d62ec482cff5ecd`. Exact-head VPN workflow #46113072695 compiled and ran the new GNU89/Werror/ASan/UBSan FIFO regression successfully: `VPN client control FIFO bounded-open and SIGPIPE regression: PASS`. The source integration checker then failed only because the pull_request path filter omitted the new helper header and test. The push filter had the helper/test; the dedicated checker script itself was not listed in either trigger list.
+- Updated push and pull_request filters to include `vpn_client_control_fifo.h`, `tests/vpn_client_control_fifo.c` and `scripts/check_vpn_client_control_fifo.py`, each exactly once per filter. No source or test assertions were removed or weakened.
+- Exact-main AI docs #46113072622 PASS. Parent XY-C1 #46113072666 and Process inventory #46113072701 were still running on `78afe64833e88851484b28c28d62ec482cff5ecd`; no final result claimed. Earlier scanner-trigger XY-C1 #46112371422 completed SUCCESS on exact SHA `a3d805b8e2e613fc078fc860a54132141ab3f3c1`, including Build, TRX and artifact.
+- This workflow-only correction triggers a new exact-head VPN regression. No local build is claimed; physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-28 14:08 CST (UTC+8) — Bound VPN client xl2tpd control FIFO operations
 
 - Base main SHA: `a3d805b8e2e613fc078fc860a54132141ab3f3c1`. XY-C1 run #46112371422 on the previous DHCP scanner source was still building at `Build XY-C1`; preceding host and detector steps passed, while TRX and artifact upload were pending. AI docs #46112371363 and Process inventory #46112371425 PASS on `a3d805b8e2e613fc078fc860a54132141ab3f3c1`.
