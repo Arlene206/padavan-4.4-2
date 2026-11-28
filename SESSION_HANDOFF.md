@@ -19,19 +19,25 @@
 - Service lifecycle wait interruption fix: `f5cd59f4e98e2b46a256acfeb39d0b89d8fb9639` changed Inadyn/USB-printer stop waits to propagate the existing EINTR-aware bounded wait policy and prevented forced KILL after a failed wait. Exact Process inventory/lifecycle #46128356507, Inadyn #46128356513, Process source inventory #46128356524 and AI handoff #46128356516 passed; XY-C1 #46128356573 was still in progress at last poll. NVRAM #46128356589 was cancelled by subsequent concurrent pushes.
 ## Active task
 
-- NVRAM lock wait interruption bound and CI repair. The wait now caps EINTR retries at eight; the lock test must compile cleanly with GNU89/Werror and prove both successful remainder-wait and bounded-storm behavior.
-- Parent SHA `ac141ff53f1d29e25f6279d762c064de123092dc`: NVRAM audit #46128697949 failed compilation because its signal counter comparison mixed signed `sig_atomic_t` and unsigned constant. HTTPD/security #46128697956 failed at the same shared NVRAM lock-test step, not an independent HTTPD policy check. This follow-up casts the constant to `sig_atomic_t`.
-- A malformed Python condition in the NVRAM checker, which had not yet run due the earlier compile failure, is also repaired here. Exact-head reruns must validate it.
+- Verify the NVRAM bounded-lock follow-up and repair process-inventory regression checker. Exact parent `ac141ff53f1d29e25f6279d762c064de123092dc` NVRAM/HTTPD both failed at the shared NVRAM lock-test compile because `sig_atomic_t` was compared with an unsigned bound. Exact follow-up `656733c2e9a7299494e69312217016fbeba64b2e` casts the expected minimum correctly and fixes the Python NVRAM checker grouping; AI handoff PASS, NVRAM/HTTPD pending at last poll.
+- Procfs EINTR production retry code on `3fb57acc623b3fd227c6d0aa3646733cbcb6dce2` passed the inventory-only workflow but the broader Process regression failed only due an over-broad negative assertion in the new integration checker. This commit removes that assertion; positive retry-contract and test-case assertions remain.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`; inspect exact-SHA NVRAM transaction-boundary and HTTPD Authentication/Security Actions for this compile/checker correction. Verify the checker reaches and passes its static lock-wait gate.
-2. Confirm lock regressions pass: interruption remainder wait completes below cap; persistent SIGALRM returns EINTR at the configured bound; no Werror warnings.
-3. Inspect Process source inventory run for procfs EINTR commit `3fb57acc623b3fd227c6d0aa3646733cbcb6dce2` and the current AI handoff contract.
-4. Require exact-SHA XY-C1 MIPS Build, TRX verification and artifact upload before claiming L3; L4 remains NOT VERIFIED.
-5. Continue independent work while checks are pending; fix every true failure on the exact failing cause.
+1. Fetch live `main` and inspect exact-SHA Process inventory/lifecycle, NVRAM boundary, HTTPD security and AI handoff Actions for this checker correction.
+2. Confirm NVRAM Werror compile passes, lock tests pass under ASan/UBSan, and the Python static gate parses and completes.
+3. Confirm the process regression checker passes with the procfs open/read retry cases present. If another job fails, inspect its specific step/log and repair.
+4. Require exact-SHA XY-C1 MIPS Build, TRX and artifact upload before claiming L3; L4 remains NOT VERIFIED.
+5. Continue independent stability/security work while Actions are pending.
 
 ## Verification boundary
+
+- L1: procfs open/read retry source and injected test cases remain committed; one over-broad checker assertion removed.
+- L2: exact-head Process inventory/lifecycle, NVRAM and HTTPD Actions pending on this correction SHA.
+- L3: NOT VERIFIED until exact-SHA XY-C1 MIPS Build, TRX validation and artifact upload all pass.
+- L4: NOT VERIFIED; no physical router was available.
+- Backup remains immutable; no branches or PRs were created.
+
 
 - L1: bounded NVRAM signal retry implementation is committed; Werror comparison and checker syntax repaired in this slice.
 - L2: exact-head NVRAM/HTTPD CI reruns pending; parent SHA failed at the shared lock-test compile step.

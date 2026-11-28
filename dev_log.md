@@ -1,3 +1,11 @@
+## 2026-11-28 — Relax process-inventory checker to test the actual retry contract
+
+- Base main SHA: `656733c2e9a7299494e69312217016fbeba64b2e`; result: THIS COMMIT.
+- Exact source SHA `3fb57acc623b3fd227c6d0aa3646733cbcb6dce2` Process inventory/lifecycle #46128583279 failed in `scripts/check_process_lifecycle_integration.py`: a new negative assertion banned the text `errno != EINTR` from the entire scanner body, although that text is used legitimately by unrelated error handling. The two positive assertions already pin the bounded open/read retry calls. Removed only the over-broad negative assertion; production code and injected retry tests were not implicated.
+- Exact parent SHA `656733c2e9a7299494e69312217016fbeba64b2e` AI handoff #46128844188 PASS; NVRAM and HTTPD reruns were still in progress at last poll. Check all exact-head Actions again after this correction.
+
+---
+
 ## 2026-11-28 — Fix bounded NVRAM test warning and static-gate syntax
 
 - Base main SHA: `3d6f0dd96f18fa236bbbf522786ae59ce0e9a4d1`; result: THIS COMMIT.
