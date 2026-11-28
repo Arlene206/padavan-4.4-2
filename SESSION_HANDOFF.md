@@ -7,24 +7,23 @@
 
 ## Active task
 
-- Finish aligning the V2 Samba durability checker with its own compact() normalization. Exact a2 Samba run #46146271742 passed the C journal regression, service failure-gate and account-snapshot parity checks, and the first two durability-checker sections; it then failed because the checker searched for '*tracks_accounts = 0' although compact() removes spaces from the extracted function body.
-- The same compact-body issue also exists in four V2 recovery argument-order assertions and the V1 recovery-call contract. Normalize those expected snippets rather than weakening the production checks.
-- b7 validation defects were partially repaired by a2: the HTTPD writer-count contract is now one transactional call, and the handoff's required Current repository state heading is present. The a2 handoff validator and HTTPD workflow both pass.
+- Finish the Samba V2 four-file transaction source-contract suite. The production journal and four-file host C regression pass. Exact a54 Samba run #46146444805 failed later in the durability checker because `compact()` removes whitespace, but two restore-order assertions still expected spaces in `passdb_path, passdb_snapshot` and `group_path, group_snapshot`. This commit normalizes both.
+- Exact parent `a54d21dffbaa188471b09098189112d9e8a010e7`: AI handoff #46146444809 PASS. Samba #46146444805 FAIL at V2 rollback order assertion after the compacted tracking-flag assertion was corrected. No production source defect was reported by that run.
 
 ## Verification boundary
 
-- Exact main SHA a2f9fcb43a27ecec971ceea2b61f6ec8e8b0fb02: Samba share run #46146271742 FAIL at scripts/check_samba_transaction_durability.py line 162, '*tracks_accounts = 0' in v2_read and '*tracks_accounts = 1' in v2_read. Earlier C transaction, service failure-gate and ACL/account snapshot steps PASS; the first two checker messages (directory durability and committed/rolled-back recovery reporting) also PASS. Remaining V2 format/recovery/commit-order checks did not execute past this assertion.
-- Same a2 SHA: validate-handoff-records run #46146271744 PASS, including CI trigger governance and archive retention (root dev_log 111/119 at that run). HTTPD authentication/disclosure run #46146271738 PASS.
-- Parent b7f6cc478d495488a4ad3d9398ef5f5ac2e5fc57: Samba checker previously failed at the V2 PASSWD/GROUP format assertion; a2 corrected that marker check and then exposed the whitespace-normalization mismatch at tracks_accounts.
-- b7 XY-C1 run #46145970921 SUCCESS for host tests/source checks only; Build/TRX/artifact skipped by the firmware-input detector because there were no production input changes. No L3/L4 evidence from that run.
-- Production source remains based on 670e513d99fa0e2d48dfc382ea795ab5c8f6ba1a (V2 journal implementation and EINTR/fsync hardening); no exact-SHA L3 build/artifact or physical router test is established for that source here.
+- Production source SHA `670e513d99fa0e2d48dfc382ea795ab5c8f6ba1a`: XY-C1 #46145600745 SUCCESS including Build XY-C1, TRX verification and artifact upload. This is L3 evidence for the production source tree through 670.
+- Checker-only SHA `a2f9fcb43a27ecec971ceea2b61f6ec8e8b0fb02`: HTTPD #46146271738 PASS; AI handoff #46146271744 PASS; Samba #46146271742 failed at whitespace mismatch on `tracks_accounts` in compacted V2 read-state body.
+- Checker-only SHA `a54d21dffbaa188471b09098189112d9e8a010e7`: AI handoff #46146444809 PASS; Samba #46146444805 failed at restore argument-order assertion because two expected fragments still contained spaces. The prior tracking-flag assertion now passes. Exact-head rerun required.
+- NVRAM transaction audit b7 #46145970994 PASS; Process inventory b7 #46145970859 PASS. Do not repeat broad inventories unless touched inputs warrant it.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, untouched. Hardware L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch the live main SHA and exact-head Actions; resolve THIS COMMIT from the newest dev_log entry.
-2. Require the V2 durability checker to progress through all remaining V2 format, V1/V2 read, rollback order, sync order and cleanup assertions; inspect Samba and HTTPD workflow final results on this same SHA.
-3. If the checks pass, resume one source-backed stability/security defect outside the now-repeated Samba static-checker repairs. Do not run another broad inventory.
-4. Any L3 claim requires Build XY-C1, TRX validation and artifact upload all to succeed on one production-input SHA; no router L4 is verified.
+1. Fetch exact-head Samba run caused by this matcher repair. Require the four-file host regression, durability source contract, snapshot and lifecycle contracts all to PASS. If a later assertion fails, inspect the exact line and normalize only whitespace in snippets taken from `compact()` bodies.
+2. Do not rerun HTTPD #46146271738 or AI #46146444809 unless this commit affects their source/workflow inputs; both last exact runs PASS.
+3. No production source changed after 670; its XY-C1 Build/TRX/artifact trio #46145600745 is SUCCESS. No additional firmware build is needed for checker-only descendants.
+4. After Samba V2 checks are green, continue an independent source-backed stability/security fix; do not repeat completed module audits and keep the frozen backup immutable.
 
 ## Mandatory end-of-session handoff checkpoint
 

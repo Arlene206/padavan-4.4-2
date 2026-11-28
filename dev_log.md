@@ -1,3 +1,9 @@
+## 2026-11-28 — Finish compacting Samba V2 recovery-order source assertions
+
+- Exact-head a54 Samba #46146444805 progressed past the V2 tracking-flag matcher fixed in the previous follow-up, then failed because two V2 rollback order snippets still contained whitespace (`passdb_path, passdb_snapshot` and `group_path, group_snapshot`) despite the source body being normalized by `compact()`. Removed that whitespace; the checks still enforce reverse restore order config → passdb → group → passwd.
+- Exact a54 AI handoff #46146444809 PASS. Production-source SHA `670e513d99fa0e2d48dfc382ea795ab5c8f6ba1a` XY-C1 #46145600745 SUCCESS (Build, TRX and artifact upload). This commit changes only the Samba checker and handoff/log.
+
+---
 ## 2026-11-28 — Normalize remaining compact-body assertions in Samba V2 checker
 
 - Exact-head a2 Samba job #46146271742 passed its C transaction regression, service failure-gate and account snapshot parity checks, plus the first two durability-checker sections; it then failed because the checker compared a whitespace-bearing expectation against a function body that had already been compacted.
