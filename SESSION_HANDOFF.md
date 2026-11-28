@@ -1,7 +1,8 @@
-## 2026-11-28 — Replace escaped regex with literal firmware stop guard (THIS COMMIT)
+## 2026-11-28 — Align optional-app integration checker with firmware UPnP gate (THIS COMMIT)
 
-- Base main SHA: `a6fa71b390fa35b1676e34ebb94424578a87abfc`. Review of the preceding checker-only correction caught that its raw-regex literal was double-escaped in the Python file. THIS COMMIT replaces it with a literal multiline source guard, avoiding regex escaping and the braced-block parser.
-- Production MiniUPnPd flash-preparation code remains in `4bc110b517f8f1f49e5b0d6f64ea613a633577b0`; no production source changes in this follow-up. Parent PID 1 notification run #46114249923 completed SUCCESS; parent XY-C1 and Process validation were still pending at the latest poll.
+- Base main SHA: `66bc572325c033bf7850e9aaa7dad47323c582cb`. The first firmware source checker is now corrected to use a literal multiline guard. The Process lifecycle Actions exposed a second stale contract in `check_optional_app_start_status.py`, which still required the removed direct `if (stop_services(0) != 0)` check and old log string.
+- THIS COMMIT updates that caller-level checker to require the explicit `stop_upnp()` plus independent `stop_services(0)` attempt, first-error preservation and abort before persistence/MTD. No production source changed.
+- Parent PID 1 notification run #46114249923 PASS. XY-C1 on production SHA `4bc110b517f8f1f49e5b0d6f64ea613a633577b0` failed early at the now-corrected first source checker, before firmware build. Process regression exposed the stale optional-app assertion; exact-head reruns required.
 
 
 ---
@@ -11,7 +12,7 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; all development and validation are on `main` only.
-- Live main before this regex-escaping correction: `a6fa71b390fa35b1676e34ebb94424578a87abfc`; it contains only the prior source-checker/doc change on top of production MiniUPnP fix `4bc110b517f8f1f49e5b0d6f64ea613a633577b0`. Parent PID 1 notification #46114249923 completed SUCCESS; exact parent Process #46114250080/#46114249925 and XY-C1 #46114250159 had not all completed. This commit replaces the double-escaped regex with a literal multiline assertion; production source is unchanged.
+- Live main before this optional-app checker correction: `66bc572325c033bf7850e9aaa7dad47323c582cb`, which contains the production MiniUPnP flash-preparation change from `4bc110b517f8f1f49e5b0d6f64ea613a633577b0` plus checker corrections. Parent PID 1 notification #46114249923 PASS; XY-C1 #46114250159 failed early at the now-corrected source contract before Build; Process run #46114323557 exposed the stale `check_optional_app_start_status.py` assertion. This commit updates that second checker only; no production source changed.
 - Frozen backup remains `backup/pre-plugin-overhaul-2026-11-14`; do not mutate. Its warning file was verified during startup restore and handoff-recorded frozen HEAD is `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 remains CLOSED/unmerged.
 - Frozen backup remains `backup/pre-plugin-overhaul-2026-11-14` (handoff-recorded HEAD `72f4f157a084f8184b9597ca5bf334b8080e5807`); its warning file explicitly forbids mutation. PR #1 remains CLOSED/unmerged with no identified missing change.
 - Remote branch search shows only the preserved `backup/pre-plugin-overhaul-2026-11-14` archive beyond `main`. Its warning file was read from that ref and explicitly forbids any modification/deletion; the handoff-recorded frozen HEAD is `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 remains CLOSED and unmerged; its unmerged work was previously compared and no valid missing source/test/build change was identified.
@@ -103,16 +104,16 @@ For product-source SHA `7daa20cd2f1bd7abca4499fb9f9a6e05ce5d3d00`:
 
 ## Active task
 
-The production fix is in `4bc110b517f8f1f49e5b0d6f64ea613a633577b0`: firmware flashing explicitly stops MiniUPnPd before storage persistence/MTD write, continues independent generic service stops after an UPnP error, preserves the first errno and aborts if any required stop fails. The dedicated firmware notification checker asserts the order and abort gate.
+Production fix parent SHA `4bc110b517f8f1f49e5b0d6f64ea613a633577b0`: `flash_firmware()` now stops MiniUPnPd explicitly before storage persistence/MTD write, attempts the independent generic service stop even if UPnP stop fails, retains first errno and aborts before flash on either failure.
 
-Two checker-only corrections followed. The shared braced-block parser was first applied to a brace-less one-line `if`, then a double-escaped raw regex was caught in review. THIS COMMIT replaces that check with a literal multiline assertion. Parent PID 1 notification run #46114249923 PASS; parent Process and XY-C1 outcomes were not yet all known. The original VPN FIFO production SHA `78afe64833e88851484b28c28d62ec482cff5ecd` has XY-C1 Build/TRX/artifact PASS; L4 remains unverified.
+The follow-up checker changes now cover two stale assertions exposed by Actions. `check_firmware_update_notification.py` uses a literal multiline assertion for the one-statement service error guard. `check_optional_app_start_status.py` now expects the new UPnP + generic stop aggregation instead of the removed old condition. Parent PID 1 notification #46114249923 PASS; XY-C1 #46114250159 failed before Build at the now-corrected source checker; Process #46114323557 failed later on the stale optional-app assertion. Exact-head reruns are required. No hardware flash/L4 claim.
 
 ## Exact first action for the next GPT
 
-1. Inspect current exact-head Process workflow for `scripts/check_firmware_update_notification.py`; require the literal stop-status assertion, RC notification policy regression and aggregate process checker to PASS.
-2. Poll source SHA `4bc110b517f8f1f49e5b0d6f64ea613a633577b0` XY-C1 #46114250159 for Build, TRX verification and artifact upload, plus Process/PID1 parent runs. Preserve exact-SHA distinction; PID1 #46114249923 already PASSed.
-3. Require a successful Build/TRX/artifact on the exact production-source SHA before claiming L3 for the MiniUPnP stop gate. This commit changes only tests/docs.
-4. Continue an independent stability/security task while PENDING checks run. Physical flash and router L4 have not been performed.
+1. Poll current-main exact-head Process inventory/lifecycle, PID 1 notification and XY-C1 Actions. Verify both `check_firmware_update_notification.py` and `check_optional_app_start_status.py` pass and that the RC notification-policy host regression passes.
+2. Confirm the XY-C1 detector, Build, TRX verification and artifact upload all PASS on the production-source SHA `4bc110b517f8f1f49e5b0d6f64ea613a633577b0` or its unchanged production-source descendant before claiming L3.
+3. Inspect logs for any other exact-SHA failure and fix its cause. While builds are pending, work on another independent userland stability issue.
+4. Physical router firmware flashing and L4 remain unverified.
 
 # Cross-session execution mandate
 

@@ -1,3 +1,11 @@
+## 2026-11-28 14:49 CST (UTC+8) — Correct stale optional-app firmware stop contract
+
+- Base main SHA: `66bc572325c033bf7850e9aaa7dad47323c582cb`. Process lifecycle run #46114323557 failed at `check_optional_app_start_status.py`: its DNS Forwarder shutdown registration check still expected the removed direct `if (stop_services(0) != 0)` source text and old diagnostic.
+- Updated the caller-level contract to require explicit MiniUPnPd stop, the independent generic stop attempt, first-error retention, and abort before storage persistence/MTD. No production source changed.
+- Parent XY-C1 #46114250159 had failed earlier at the now-fixed firmware source checker before Build; PID 1 #46114249923 PASS. Exact-head Process and XY-C1 reruns are required.
+
+---
+
 ## 2026-11-28 14:44 CST (UTC+8) — Replace escaped regex with literal firmware stop guard
 
 - Base main SHA: `a6fa71b390fa35b1676e34ebb94424578a87abfc`. Review found the previous checker-only follow-up had a double-escaped Python raw-regex, so it would match literal backslashes rather than whitespace. Replaced it with a literal multiline guard for the one-statement first-error assignment.
