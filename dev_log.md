@@ -1,3 +1,12 @@
+## 2026-11-28 — Retry interrupted /proc directory enumeration
+
+- Base main SHA: `0a77a0064de6b1644b4a43bfac9509c46d7d92f3`; result: THIS COMMIT (resolve the resulting SHA from live `main` on the next recovery).
+- Process identity file reads already retry EINTR through `process_io_retry_interrupted()`, but the surrounding `opendir("/proc")` and `readdir()` callbacks were each called once. A signal interrupting open/getdents could therefore make the entire process inventory return UNKNOWN and block an otherwise safe lifecycle operation.
+- Added bounded EINTR retries around both injected `dir_open` and `dir_read` operations in `process_inventory_scan_with_ops()`, using the existing eight-interruption cap. Non-EINTR and exhausted-retry errors remain fail-closed as UNKNOWN with the original errno.
+- Added injected regressions for successful open/read retries and exhaustion on both operations. Extended the process lifecycle integration checker to pin the scanner retry paths and all new cases. Exact-head Process inventory, Process lifecycle and XY-C1 Actions are required; L3/L4 are not claimed.
+
+---
+
 ## 2026-11-28 — Fail closed when service-stop wait is interrupted
 
 - Base main SHA: `1a33a6bcf9401810bc24858471e4867b37744bf6`; result: THIS COMMIT (resolve the resulting SHA from live `main` on the next recovery).

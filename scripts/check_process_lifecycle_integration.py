@@ -394,6 +394,16 @@ assert "process_inventory_scan(appname, &snapshot)" in pids_source
 assert 'strchr("RSDZTtXxKWPI", cursor[0])' in process_inventory
 assert "state == 'Z' || state == 'X' || state == 'x'" in process_inventory
 assert "test_proc_state_codes_are_validated" in process_inventory_test
+inventory_scan_body = c_function_body(process_inventory, "process_inventory_scan_with_ops(")
+assert "process_io_retry_interrupted(&open_interruptions)" in inventory_scan_body
+assert "process_io_retry_interrupted(&readdir_interruptions)" in inventory_scan_body
+assert "errno != EINTR" not in inventory_scan_body
+for test_case in (
+    "test_proc_directory_open_retries_eintr",
+    "test_proc_directory_read_retries_eintr",
+    "test_proc_directory_eintr_retry_budget_is_bounded",
+):
+    assert test_case in process_inventory_test
 
 assert "PROCESS_PRESENCE_UNKNOWN" in pids_source
 assert "return EXIT_FAILURE;" in pids_source

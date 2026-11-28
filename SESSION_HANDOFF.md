@@ -16,22 +16,30 @@
 - NFS, AliDDNS and VPN wait/restart interruption hardening is documented in `3a910eecae543282b40474703c75b778323b5bc4`, `2ea79593ab9428f7439429a4d9b1e58bdb8077ea` and the subsequent VPN wait fixes. Their associated exact-SHA host regressions passed as recorded in the preceding handoff checkpoint.
 - AI handoff contract restoration: exact run #46127933674 on `0d757a438cd424c600be87724b65b473012310c6` PASS, including the explicit mandatory checkpoint, cross-session execution mandate and required section headings.
 
+- Service lifecycle wait interruption fix: `f5cd59f4e98e2b46a256acfeb39d0b89d8fb9639` changed Inadyn/USB-printer stop waits to propagate the existing EINTR-aware bounded wait policy and prevented forced KILL after a failed wait. Exact Process inventory/lifecycle #46128356507, Inadyn #46128356513, Process source inventory #46128356524 and AI handoff #46128356516 passed; XY-C1 #46128356573 was still in progress at last poll. NVRAM #46128356589 was cancelled by subsequent concurrent pushes.
 ## Active task
 
-- Shared process lifecycle timeout EINTR safety. Confirmed defect in `service_lifecycle_wait_for_exit()`: the callback returned void and the loop treated every call as a full elapsed second, while the two production adapters (Inadyn and USB printer shutdown) used raw `sleep(seconds)` and discarded the unslept remainder.
-- A signal could shorten graceful shutdown and make the policy hit its timeout early, incorrectly advancing to SIGKILL or reporting a timeout before the intended wait elapsed.
-- This atomic slice changes the callback to return status; production adapters call the bounded EINTR-aware `service_wait_seconds()`; callback failure yields `SERVICE_LIFECYCLE_FAILED`, preserving errno and blocking force-kill/follow-up.
-- New regression injects EINTR, checks one TERM / zero KILL and preserves the error. The process lifecycle integration checker now requires the policy and both adapter changes.
-- Full exact-head process workflow is pending; no local full firmware build or physical-router test is claimed.
+- Process inventory procfs-directory interruption handling. File reads already retry EINTR, but `opendir("/proc")` and each `readdir()` were called once; an interrupted open/getdents could turn a complete process scan into UNKNOWN.
+- This atomic slice adds bounded retries around both directory-open and directory-read operations using the existing `PROCESS_IO_MAX_INTERRUPTS` policy. Persistent signal storms still fail closed with EINTR.
+- New injected regressions cover retry success and retry-budget exhaustion for each operation. The process lifecycle integration checker pins both source paths and the test cases.
+- Exact-head Process inventory/lifecycle and XY-C1 validation are pending; no local full firmware build or hardware result is claimed.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect GitHub Actions for that exact SHA. First check NVRAM transaction-boundary audit and AI handoff documentation; then Process inventory/lifecycle and XY-C1. Do not substitute parent-SHA results.
-2. If any exact-head job fails, fetch its job steps/log and fix the causal defect directly on `main`. PENDING does not block independent work.
-3. Require XY-C1 MIPS Build, TRX verification and artifact upload on a production-source SHA before claiming L3. L4 physical-router validation remains NOT VERIFIED.
-4. After this EINTR-wait slice passes, continue another concrete cross-userland stability/security defect. Do not repeat completed NVRAM checks without new evidence.
+1. Fetch live `main` and inspect exact-SHA Actions for this procfs retry commit: Process inventory/lifecycle, Process source inventory, AI handoff and XY-C1. Do not substitute parent-SHA results.
+2. If the inventory workflow fails, read job logs and repair the root cause. Confirm injected EINTR retry-success and bounded-exhaustion tests executed.
+3. Refresh the previous service-lifecycle fix `f5cd59f4e98e2b46a256acfeb39d0b89d8fb9639` results if needed; its Process inventory/lifecycle, Inadyn, source inventory and AI contract checks had passed, while XY-C1 was still in progress and NVRAM was cancelled.
+4. Require XY-C1 MIPS Build, TRX verification and artifact upload on an exact production-source SHA before claiming L3. L4 remains NOT VERIFIED.
+5. Continue another concrete userland stability/security issue after exact checks are PASS or independently pending; do not repeat closed audits.
 
 ## Verification boundary
+
+- L1: bounded EINTR retry paths added for procfs directory open/read; integration source assertions and injected tests added.
+- L2: exact-head Process inventory/lifecycle Actions pending for this commit.
+- L3: NOT VERIFIED until exact-SHA XY-C1 MIPS Build, TRX validation and artifact upload all pass.
+- L4: NOT VERIFIED; no physical router was available.
+- Backup remains immutable; no branches or PRs were created.
+
 
 - L1: service lifecycle callback contract, error propagation and both production adapters updated; integration source assertions added.
 - L2: exact-head Process lifecycle Actions pending; this session has not claimed a local full-checkout build.

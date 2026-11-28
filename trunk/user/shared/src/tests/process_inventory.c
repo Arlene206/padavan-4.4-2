@@ -24,6 +24,10 @@ struct fake_context {
 	size_t entry_index;
 	int open_error;
 	int readdir_error_at;
+	unsigned int open_interruptions_remaining;
+	unsigned int readdir_interruptions_remaining;
+	unsigned int open_calls;
+	unsigned int readdir_calls;
 	int allocate_calls;
 	int fail_allocate_at;
 	int reallocate_calls;
@@ -48,6 +52,12 @@ fake_dir_open(void *opaque, const char *path)
 {
 	struct fake_context *context = (struct fake_context *)opaque;
 	assert(strcmp(path, "/proc") == 0);
+	context->open_calls++;
+	if (context->open_interruptions_remaining > 0) {
+		context->open_interruptions_remaining--;
+		errno = EINTR;
+		return NULL;
+	}
 	if (context->open_error) {
 		errno = context->open_error;
 		return NULL;
@@ -63,6 +73,12 @@ fake_dir_read(void *opaque, void *directory, char *name, size_t capacity)
 	size_t length;
 
 	assert(directory == context);
+	context->readdir_calls++;
+	if (context->readdir_interruptions_remaining > 0) {
+		context->readdir_interruptions_remaining--;
+		errno = EINTR;
+		return -1;
+	}
 	if (context->readdir_error_at >= 0 &&
 	    (int)context->entry_index == context->readdir_error_at) {
 		errno = EIO;
@@ -206,6 +222,57 @@ run_scan(struct fake_context *context, struct process_snapshot *snapshot)
 {
 	return process_inventory_scan_with_ops("dnsmasq", snapshot, &fake_ops,
 					       context);
+}
+
+static void
+test_proc_directory_open_retries_eintr(void)
+{
+	const char *entries[] = { "123" };
+	struct fake_context context;
+	struct process_snapshot snapshot;
+
+	fake_init(&context, entries, 1);
+	fake_add(&context, 123, "dnsmasq", "/usr/sbin/dnsmasq");
+	context.open_interruptions_remaining = 3;
+	assert(run_scan(&context, &snapshot) == PROCESS_PRESENCE_RUNNING);
+	assert(context.open_calls == 4);
+	assert(snapshot.count == 1 && snapshot.items[0].pid == 123);
+	process_snapshot_release(&snapshot);
+}
+
+static void
+test_proc_directory_read_retries_eintr(void)
+{
+	const char *entries[] = { "123" };
+	struct fake_context context;
+	struct process_snapshot snapshot;
+
+	fake_init(&context, entries, 1);
+	fake_add(&context, 123, "dnsmasq", "/usr/sbin/dnsmasq");
+	context.readdir_interruptions_remaining = 3;
+	assert(run_scan(&context, &snapshot) == PROCESS_PRESENCE_RUNNING);
+	assert(context.readdir_calls == 5); /* three EINTRs, entry, EOF */
+	assert(snapshot.count == 1 && snapshot.items[0].pid == 123);
+	process_snapshot_release(&snapshot);
+}
+
+static void
+test_proc_directory_eintr_retry_budget_is_bounded(void)
+{
+	struct fake_context context;
+	struct process_snapshot snapshot;
+
+	fake_init(&context, NULL, 0);
+	context.open_interruptions_remaining = PROCESS_IO_MAX_INTERRUPTS + 1;
+	assert(run_scan(&context, &snapshot) == PROCESS_PRESENCE_UNKNOWN);
+	assert(context.open_calls == PROCESS_IO_MAX_INTERRUPTS + 1);
+	assert(snapshot.error == EINTR);
+
+	fake_init(&context, NULL, 0);
+	context.readdir_interruptions_remaining = PROCESS_IO_MAX_INTERRUPTS + 1;
+	assert(run_scan(&context, &snapshot) == PROCESS_PRESENCE_UNKNOWN);
+	assert(context.readdir_calls == PROCESS_IO_MAX_INTERRUPTS + 1);
+	assert(snapshot.error == EINTR);
 }
 
 static void
@@ -562,6 +629,9 @@ main(void)
 	test_long_truncated_comm_requires_matching_argv1();
 	test_exact_max_length_comm_is_not_truncated();
 	test_procfs_read_eintr_retries_are_bounded();
+	test_proc_directory_open_retries_eintr();
+	test_proc_directory_read_retries_eintr();
+	test_proc_directory_eintr_retry_budget_is_bounded();
 	test_context_allocation_failure();
 	test_proc_open_failure();
 	test_normal_eof_is_absent();

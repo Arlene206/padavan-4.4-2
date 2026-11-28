@@ -441,6 +441,7 @@ process_inventory_scan_with_ops(const char *process_name,
 	char entry[PROCESS_NAME_BUFFER];
 	pid_t pid;
 	int entry_result, numeric_result, error = 0;
+	unsigned int open_interruptions = 0, readdir_interruptions = 0;
 	size_t count = 0, capacity = 0;
 	enum process_presence state;
 
@@ -459,10 +460,16 @@ process_inventory_scan_with_ops(const char *process_name,
 		return snapshot->state;
 	}
 	scan_context->reserved = 0;
-	directory = ops->dir_open(context, "/proc");
-	if (!directory) {
-		error = errno ? errno : EIO;
-		goto failed;
+	for (;;) {
+		errno = 0;
+		directory = ops->dir_open(context, "/proc");
+		if (directory)
+			break;
+		if (errno != EINTR ||
+		    process_io_retry_interrupted(&open_interruptions) != 0) {
+			error = errno ? errno : EIO;
+			goto failed;
+		}
 	}
 
 	for (;;) {
@@ -470,12 +477,16 @@ process_inventory_scan_with_ops(const char *process_name,
 
 		errno = 0;
 		entry_result = ops->dir_read(context, directory, entry, sizeof(entry));
+		if (entry_result < 0 && errno == EINTR &&
+		    process_io_retry_interrupted(&readdir_interruptions) == 0)
+			continue;
 		if (entry_result == 0)
 			break;
 		if (entry_result < 0) {
 			error = errno ? errno : EIO;
 			goto failed;
 		}
+		readdir_interruptions = 0;
 		numeric_result = proc_numeric_pid(entry, &pid);
 		if (numeric_result == 0)
 			continue;
