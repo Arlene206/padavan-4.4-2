@@ -1,3 +1,10 @@
+## 2026-11-28 — Add procfs fixtures for Shadowsocks DNS proxy teardown tests
+
+- Shadowsocks lifecycle #46123853300 on source SHA `03817bd30d363097549b458c32bbbbfe2127b1dc` passed shell syntax, startup status, DNSMasq directive cleanup and the earlier process-lifecycle cases, then failed at the DNS proxy stop assertion. The mock launcher created only a process-state file; the new stop helper correctly scans procfs for exact executable identities and therefore had no verified `dnsproxy` process to signal.
+- Added explicit fake procfs tasks for `/usr/bin/dnsproxy` (PID 5116) and `/usr/bin/dns2tcp` (PID 5117), and made the PID-scoped test signal shim remove the matching process-state marker after a simulated exit. Updated the static checker to require both backend fixtures. No production helper change in this test-repair slice.
+- On `03817...`, Process inventory #46123853269 PASS and AI handoff #46123853317 PASS. XY-C1 #46123853244 remained IN_PROGRESS at Build step 38; TRX and artifact pending. Corrected test/checker reruns are pending; no local runtime or firmware result is claimed.
+
+---
 ## 2026-11-28 — Bind Shadowsocks shutdown to executable and PID generation
 
 - On parent `76f95c69dca1325985e9f38c7dc9bb0faf40ec7b`, review found the shared Shadowsocks lifecycle helper still used name-wide `killall` and regex-based `pkill -f` for stop/escalation. A same-comm foreign executable or a replacement process could therefore be included by a later process-name rematch.

@@ -2,17 +2,19 @@
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; live `main` parent before this slice: `76f95c69dca1325985e9f38c7dc9bb0faf40ec7b` (parent `e87be480e8f1e714a53de04f7313a444c54205bf`).
+- Repository: `Arlene206/padavan-4.4-2`; live `main` parent before this follow-up: `03817bd30d363097549b458c32bbbbfe2127b1dc`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; it is immutable. PR #1 remains closed/unmerged.
-- Exact-head runs on `76f95c69...` at last poll: Storage hotplug #46123661683 IN_PROGRESS at its first launcher-syntax step; AI handoff #46123661589 IN_PROGRESS during checkout; XY-C1 #46123661636 IN_PROGRESS during checkout, before the build stage. These results do not validate later commits.
-- The last established firmware L3 is product source SHA `2d0388614f8a1f3f3a11ce2bf57f7f63a19d879c`, XY-C1 #46122904412 Build/TRX/artifact PASS. The `e87` and `76f95` follow-ups are checker/docs-only relative to that product source. This Shadowsocks slice changes firmware source, so its own exact-SHA XY-C1 Build, TRX and artifact upload are required. Hardware L4 remains NOT VERIFIED.
-- Bootstrap recovery was completed once; do not repeat audits. Keep `REFACTOR_ROADMAP.md` unchanged because it is near its hard size limit. No local firmware checkout/build environment is available; report host and firmware tests only from actual Actions results.
+- Exact-head checks on `03817bd3...`: Process lifecycle inventory #46123853269 PASS; AI handoff #46123853317 PASS; Shadowsocks lifecycle #46123853300 FAIL at the last DNS-proxy stop assertion. Shell syntax, startup status, DNSMasq directive cleanup and earlier lifecycle sections passed. The failing test had not created fake procfs executable identities for its DNS proxy mock processes; this follow-up adds them and makes the PID mock clear the matching test state marker.
+- XY-C1 #46123853244 on `03817bd3...` is IN_PROGRESS at the actual `Build XY-C1` step (step 38); TRX verification and artifact upload are pending. Do not claim L3 until all three pass.
+- Previous exact-head checks on `76f95c69...`: Storage hotplug #46123661683 PASS and AI handoff #46123661589 PASS. XY-C1 #46123661636 completed successfully but the firmware input detector skipped Build/TRX/artifact because that parent changed no production firmware sources.
+- The earlier product-source L3 baseline remains `2d0388614f8a1f3f3a11ce2bf57f7f63a19d879c`, XY-C1 #46122904412 Build/TRX/artifact PASS. New Shadowsocks production code at `03817bd3...` needs its own build validation. Hardware L4 remains NOT VERIFIED.
+- Bootstrap recovery was completed once; do not repeat audits. Keep `REFACTOR_ROADMAP.md` unchanged because it is near its hard size limit. No local firmware checkout/build environment is available.
 
 ## Active task
 
-1. **Shadowsocks process-shutdown identity:** the previous helper used process-name `killall` and a broad `pkill -f /usr/bin/ss-monitor` after mutable name/pattern lookups. The new implementation snapshots exact executable identity (and exact monitor interpreter/argv), Linux proc start_time and PID, revalidates the original PID/start_time/executable immediately before TERM/KILL, and escalates only members of the original snapshot. A replacement process, including same-PID/same-executable reuse with a changed start_time, must not inherit KILL authorization. Incomplete/deleted executable metadata and same-comm foreign binaries fail closed. Regression coverage includes malformed metadata, deleted executable, same-comm foreign process, exact monitor argv, PID reuse, TERM/KILL, and stuck-process failure. Exact-head CI for this slice is pending after its atomic source/test/checker commit; no local runtime result is claimed.
-2. **Firmware validation:** the prior L3 baseline is `2d0388614f8a1f3f3a11ce2bf57f7f63a19d879c` (#46122904412 Build/TRX/artifact PASS). The new Shadowsocks helper/test work is firmware source and must receive its own XY-C1 build/TRX/artifact PASS. Hardware L4 remains NOT VERIFIED.
-3. **Concurrent prior-head checks:** Storage #46123661683, AI handoff #46123661589 and XY-C1 #46123661636 were still running on `76f95c69...` at last poll. Do not confuse those results with validation of a later source SHA.
+1. **Shadowsocks executable-bound shutdown:** source commit `03817bd30d363097549b458c32bbbbfe2127b1dc` replaces name-wide `killall` and regex `pkill -f` teardown with exact executable/monitor argv + proc start_time/PID snapshot, fresh revalidation before PID-scoped TERM/KILL, and original-snapshot-only escalation. The production helper passed shell syntax. Exact-head Shadowsocks run #46123853300 then failed only in the process regression's final DNS-proxy stop assertion: the mock DNS proxy launcher published a state file but no procfs executable fixture, so the new identity scanner correctly saw no process to signal. This follow-up adds `/usr/bin/dnsproxy` and `/usr/bin/dns2tcp` fixtures plus matching state-marker cleanup; production source is unchanged.
+2. **Exact validation:** Process inventory #46123853269 and AI docs #46123853317 PASS on `03817...`; the corrected Shadowsocks test/checker requires a fresh exact-head rerun. XY-C1 #46123853244 is currently building `03817...` at Build step 38, with TRX/artifact pending. The new follow-up is test/checker/docs-only, so it does not alter the source being built.
+3. **Firmware L3 boundary:** the prior confirmed L3 is `2d038...` (#46122904412), but that predates the Shadowsocks production change. Only a Build/TRX/artifact PASS for the source commit `03817...` can establish the new L3. Hardware L4 remains NOT VERIFIED.
 
 ## Watchdog scheduled-action NVRAM snapshot baseline
 
@@ -25,18 +27,20 @@
 
 | Source SHA | Workflow / run | Result |
 |---|---|---|
-| `76f95c69dca1325985e9f38c7dc9bb0faf40ec7b` | Storage hotplug #46123661683 | IN_PROGRESS at launcher-syntax step 1 |
-| `76f95c69dca1325985e9f38c7dc9bb0faf40ec7b` | AI handoff #46123661589 | IN_PROGRESS during checkout |
-| `76f95c69dca1325985e9f38c7dc9bb0faf40ec7b` | XY-C1 #46123661636 | IN_PROGRESS during checkout, before Build/TRX/artifact |
+| `03817bd30d363097549b458c32bbbbfe2127b1dc` | Process lifecycle inventory #46123853269 | PASS |
+| `03817bd30d363097549b458c32bbbbfe2127b1dc` | AI handoff #46123853317 | PASS |
+| `03817bd30d363097549b458c32bbbbfe2127b1dc` | Shadowsocks lifecycle #46123853300 | FAIL — step 6/final DNS proxy stop assertion; missing fake procfs entries for DNS proxy mocks; corrected in this follow-up |
+| `03817bd30d363097549b458c32bbbbfe2127b1dc` | XY-C1 #46123853244 | IN_PROGRESS at Build XY-C1 step 38; TRX/artifact pending |
+| `76f95c69dca1325985e9f38c7dc9bb0faf40ec7b` | Storage #46123661683; AI docs #46123661589 | PASS |
+| `76f95c69dca1325985e9f38c7dc9bb0faf40ec7b` | XY-C1 #46123661636 | Workflow success; Build/TRX/artifact SKIPPED (no production firmware input changed) |
 | `2d0388614f8a1f3f3a11ce2bf57f7f63a19d879c` | XY-C1 #46122904412 | L3 PASS — MIPS Build, TRX verification, artifact upload |
-| `2d0388614f8a1f3f3a11ce2bf57f7f63a19d879c` | AI docs #46122904358; Process inventory #46122904384; GPIO #46122904392; HTTPD security #46122904374 | PASS |
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect exact-head Shadowsocks lifecycle and Process inventory/lifecycle Actions for the new executable-bound stop slice. Require shell syntax, the expanded `process_lifecycle.sh` regressions, and `check_shadowsocks_lifecycle.py` to pass. Diagnose failures from the exact job logs; do not weaken the fail-closed checks.
-2. Inspect prior-head Storage #46123661683, AI handoff #46123661589 and XY-C1 #46123661636 if still useful, but keep their `76f95` SHA boundary explicit.
-3. Check the new source commit's own XY-C1 run through Build, TRX verification and artifact upload before claiming L3. The established `2d038...` L3 does not automatically validate later source changes. Hardware L4 remains NOT VERIFIED.
-4. Keep the backup immutable; after this slice is green, proceed to another independent userland stability/security defect rather than repeating already-completed audits.
+1. Inspect the exact-head Shadowsocks lifecycle run triggered by this procfs-fixture repair. Require all process-lifecycle tests and `check_shadowsocks_lifecycle.py` to pass; inspect the failed step logs and fix concrete issues without weakening executable/PID identity checks.
+2. Continue XY-C1 #46123853244 for source SHA `03817...`: require Build, TRX verification and artifact upload PASS before claiming L3. This follow-up is test/checker/docs-only and does not change that firmware source.
+3. Confirm the AI handoff documentation contract passes on the follow-up commit. Keep exact-SHA boundaries; hardware L4 remains NOT VERIFIED.
+4. Keep the backup immutable and continue to the next independent userland stability/security issue after this slice is green.
 
 ## Verification boundary
 

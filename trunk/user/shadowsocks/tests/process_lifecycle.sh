@@ -149,7 +149,9 @@ kill() {
 	ss_test_mode=$(cat "$ss_test_dir/stop_mode" 2>/dev/null || printf never_exit)
 	case "$ss_test_signal:$ss_test_mode" in
 		TERM:exit_on_term|KILL:exit_on_kill)
+			ss_test_process_name=$(cat "$ss_test_dir/comm" 2>/dev/null || :)
 			rm -rf "$ss_test_dir"
+			[ -z "$ss_test_process_name" ] || rm -f "$PROCESS_STATE_DIR/$ss_test_process_name"
 			;;
 		TERM:unknown_after_term)
 			rm -f "$ss_test_dir/exe"
@@ -644,6 +646,8 @@ rm -f "$PROCESS_STATE_DIR/dnsproxy" "$PROCESS_STATE_DIR/dns2tcp" "$PROCESS_STATE
 ss_dns_proxy_config_read || fail "dnsproxy config preflight failed"
 start_dns_proxy
 [ -f "$PROCESS_STATE_DIR/dnsproxy" ] || fail "dnsproxy launch was not observed"
+reset_proc_fixture
+add_stop_proc_fixture 5116 dnsproxy /usr/bin/dnsproxy /usr/bin/dnsproxy exit_on_term 4000
 stop_dns_proxy
 [ ! -f "$PROCESS_STATE_DIR/dnsproxy" ] || fail "DNS proxy stop did not remove dnsproxy"
 
@@ -652,6 +656,8 @@ DNS_PDNSD_ENABLE=1
 ss_dns_proxy_config_read || fail "dns2tcp config preflight failed"
 start_dns_proxy
 [ -f "$PROCESS_STATE_DIR/dns2tcp" ] || fail "dns2tcp launch was not observed"
+reset_proc_fixture
+add_stop_proc_fixture 5117 dns2tcp /usr/bin/dns2tcp /usr/bin/dns2tcp exit_on_term 4000
 stop_dns_proxy
 
 # Immediate child exit is not reported as a healthy DNS service.

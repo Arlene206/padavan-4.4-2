@@ -159,6 +159,9 @@ require('ss_stop_process_identity script "$1"' in shell_function(helper, "ss_sto
         "monitor teardown must verify the interpreter and exact script argv rather than a broad regex")
 require("killall" not in test and "pkill" not in test,
         "process lifecycle regression must not retain unsafe name-wide signal mocks")
+require('add_stop_proc_fixture 5116 dnsproxy /usr/bin/dnsproxy /usr/bin/dnsproxy exit_on_term 4000' in test and
+        'add_stop_proc_fixture 5117 dns2tcp /usr/bin/dns2tcp /usr/bin/dns2tcp exit_on_term 4000' in test,
+        "DNS proxy teardown tests must provide exact procfs executable identities for both backends")
 require("unknown after TERM blocks KILL" in test and
         "incomplete executable identity blocks named stop" in test and
         "same-comm foreign executable blocks stop" in test and
