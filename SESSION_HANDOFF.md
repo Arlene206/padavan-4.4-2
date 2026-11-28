@@ -3,7 +3,7 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`.
-- Main at this write's parent: `9edd01a13d7c861a1c2e246220f2096134679ca1`. On this exact source SHA, VSFTPD #46119302446 PASS, Process inventory #46119302432 PASS, AI docs #46119302480 PASS and NVRAM boundary #46119302447 PASS. XY-C1 full Build/TRX/artifact #46119302438 remained IN_PROGRESS at last poll; no L3 PASS or hardware L4 claim.
+- Main at this write's parent: `9178b6538b49b2bbd78f5039a61fb3397d3e1f3f`. Exact-head Process inventory #46120124952 PASS and NVRAM boundary #46120124986 PASS. Process lifecycle #46120124982 FAIL due checker newline extraction; USB modem #46120124951 FAIL due missing shared include path; USB storage #46120124991 FAIL due an outdated generic-stopper assertion; AI docs #46120125048 FAIL because the 120-record root log needed rotation. XY-C1 #46120124993 was still IN_PROGRESS. These four CI-only defects are corrected in the current commit; reruns are pending.
 - Frozen backup: `backup/pre-plugin-overhaul-2026-11-14`, recorded HEAD `72f4f157a084f8184b9597ca5bf334b8080e5807`. Its warning file forbids mutation/deletion. PR #1 remains CLOSED/unmerged; its substantive unmerged work was already compared, with no missing production/test/build change identified.
 - Startup recovery was completed once against the bootstrap, development protocol, handoff, roadmap and log indexes. Do not repeat completed audits.
 - Root `dev_log.md` remains below the documented 384 KiB target and 120-record rotation threshold. Keep 20–119 records. The roadmap is close to its 128 KiB hard limit; avoid routine expansion.
@@ -11,12 +11,13 @@
 
 ## Active task
 
-The anonymous-upload metadata failure fix is implemented and host-validated on exact main `9edd01a13d7c861a1c2e246220f2096134679ca1`: VSFTPD #46119302446 PASS, Process inventory #46119302432 PASS, AI docs #46119302480 PASS and NVRAM boundary #46119302447 PASS. Exact XY-C1 Build/TRX/artifact run #46119302438 was still IN_PROGRESS at last poll; older firmware L3 results do not certify this source SHA. Hardware L4 remains NOT VERIFIED.
-
-Current independent security slice: USB printer startup now verifies the actual `/proc/PID/exe`, but its stop/rollback path still called generic `kill_services()`, which identifies by mutable `comm`/argv names. A process can spoof a daemon title (for example via custom argv[0] / `PR_SET_NAME`) and be selected for TERM/KILL even though it is not the installed `/usr/sbin/u2ec`, `lpd` or `p910nd`. This also meant a failed printer start's rollback could kill the spoofed process it had correctly rejected during readiness scanning.
-- Added executable-filtered process snapshots and a stop-specific service-lifecycle ops set. Normal U2EC/LPRng/p910nd stop and start rollback now validate the exact daemon executable before signalling, retaining the existing TERM/wait/KILL/recheck transaction and fail-closed UNKNOWN handling.
-- Added sanitizer-backed regression for exact-executable filtering, spoof-only absence, and unreadable candidate fail-closed behavior. Exact-head Process lifecycle regression must verify both source contract and runtime policy binary.
-- No local build or router test is claimed. Exact-head XY-C1 L3 for the VSFTPD production fix remained pending on parent `9edd01a13d7c861a1c2e246220f2096134679ca1`; this USB RC source change does not touch firmware product logic but requires a new exact-head process regression.
+USB printer stop/rollback now uses executable identity rather than mutable process names on main parent `9178b6538b49b2bbd78f5039a61fb3397d3e1f3f`. The first exact-head validation found three stale CI integrations and the routine AI log-rotation boundary:
+- Process lifecycle #46120124982: all preceding runtime regressions passed, but the inline source contract did not isolate stop function bodies because the new parser searched for a literal backslash-n. Corrected to use the actual newline character.
+- USB modem identity #46120124951: the new executable-bound policy test did not compile because its command omitted `-I trunk/user/shared/src`; now added.
+- USB storage hotplug #46120124991: its old source checker still required generic `kill_services()`; updated to require `usb_printer_kill_services()` and reject generic fallback.
+- AI handoff #46120125048: root dev log reached 120 records; archived the oldest 100 as part-040 and retained the newest 20 plus this repair entry.
+- Process inventory #46120124952 and NVRAM #46120124986 PASS. XY-C1 full Build/TRX/artifact #46120124993 remained IN_PROGRESS at last poll. No L3 PASS or physical L4 result is claimed.
+The USB stop source/test itself is not yet considered closed until fresh exact-head Process, USB modem and USB storage regressions pass.
 
 ## Watchdog scheduled-action NVRAM snapshot baseline
 
@@ -52,10 +53,10 @@ Current independent security slice: USB printer startup now verifies the actual 
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head Process lifecycle regression for the new USB printer executable-bound stop filter. Require the source contract and sanitizer runtime test to pass; on failure inspect logs and fix without relaxing the assertions.
-2. Recheck XY-C1 Build, TRX verification and artifact upload from parent run #46119302438. It was still running at last poll; report L3 only if the run completes successfully on the exact SHA.
-3. The parent VSFTPD #46119302446, Process #46119302432, AI docs #46119302480 and NVRAM #46119302447 were all PASS on `9edd01a13d7c861a1c2e246220f2096134679ca1`. This USB change requires a fresh Process regression; it does not change the firmware product source.
-4. After this slice passes, resume another concrete stability/security issue. Avoid repeating completed watchdog, HTTPD, IPTV, IAPP, ftruncate and anonymous-upload metadata work.
+1. Inspect exact-head reruns of Process lifecycle, USB modem identity, USB storage hotplug and AI handoff. Require the executable-bound stop source contract, ASan/UBSan snapshot-filter test, shared-header compile, updated storage checker and archive inventory to pass.
+2. Check XY-C1 Build #46120124993 and exact-head TRX/artifact status. It was still running at the previous poll; do not claim a firmware L3 result unless it completes on the exact new SHA.
+3. Confirm the new commit's Process inventory and NVRAM checks. Parent #46120124952 and #46120124986 PASS; they are not substitutes for new-head checks.
+4. Once the USB lifecycle validations pass, move to another distinct stability/security issue. Avoid repeating watchdog, HTTPD, IPTV, IAPP, VSFTPD metadata and already-fixed USB printer source analysis.
 
 ## Verification boundary
 

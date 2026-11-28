@@ -2138,7 +2138,7 @@ jobs:
           assert "usb_printer_service_validate" in source
           assert "usb_printer_service_send_signal" in source
           for stop_name in ("stop_u2ec(void)", "stop_lpd(void)", "stop_p910nd(void)"):
-              stop_body = source.split(stop_name, 1)[1].split("\\n}", 1)[0]
+              stop_body = source.split(stop_name, 1)[1].split(chr(10) + "}", 1)[0]
               assert "usb_printer_kill_services" in stop_body
               assert "kill_services(" not in stop_body
           assert "usb_printer_filter_process_snapshot" in executable_policy

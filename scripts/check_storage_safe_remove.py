@@ -968,8 +968,9 @@ for declaration in ("int stop_u2ec(void);", "int stop_lpd(void);",
     require(declaration in rc_header, "RC header must expose checked printer stop API: " + declaration)
 for signature in ("int\nstop_u2ec(void)", "int\nstop_lpd(void)", "int\nstop_p910nd(void)"):
     stop_fn = body(services_usb, signature)
-    require("return kill_services(" in stop_fn,
-            "printer stop must propagate kill_services result: " + signature)
+    require("return usb_printer_kill_services(" in stop_fn and
+            "return kill_services(" not in stop_fn,
+            "printer stop must use executable-bound lifecycle stop: " + signature)
 printer_stop = body(services_usb, "int\nstop_usb_printer_spoolers(void)")
 for daemon in ("u2ec", "lpd", "p910nd"):
     require('"' + daemon + '"' in printer_stop,
