@@ -125,8 +125,8 @@ def function_body(source: str, signature: str) -> str:
 
 
 run_samba = compact(function_body(SERVICES, "int run_samba(void)"))
-state_read = run_samba.index("samba_config_transaction_read_state(")
-abort_call = run_samba.index("samba_config_transaction_abort(")
+state_read = run_samba.index("samba_config_transaction_read_state_with_accounts(")
+abort_call = run_samba.index("samba_config_transaction_abort_with_accounts(")
 assert state_read < abort_call
 assert "state_result==1&&is_committed" in run_samba
 assert "elseif(state_result==1)" in run_samba
@@ -134,10 +134,15 @@ assert "prior transaction outcome is unavailable" in SERVICES
 assert "publication remains committed; recovery journal cleanup completed" in SERVICES
 assert "publication rolled back" in SERVICES
 assert "paired publication rollback failed" not in SERVICES
-passdb_sync_call = run_samba.index("samba_config_transaction_sync_file(staged_passdb)")
+transaction_begin = run_samba.index("samba_config_transaction_begin_with_accounts(")
+passwd_publish = run_samba.index("recreate_passwd_unix_snapshot(")
 credential_failure = run_samba.index("if(credential_failed)")
-transaction_begin = run_samba.index("samba_config_transaction_begin(")
-assert credential_failure < passdb_sync_call < transaction_begin
+passdb_sync_call = run_samba.index("samba_config_transaction_sync_file(staged_passdb)")
+config_publish = run_samba.index("write_smb_conf_unlocked(router_username,account_list_snapshot,sh_num)!=0")
+commit_call = run_samba.index("samba_config_transaction_commit_with_accounts(")
+assert transaction_begin < passwd_publish < credential_failure < passdb_sync_call < config_publish < commit_call
+assert "transaction_active=1" in run_samba
+assert "samba_config_transaction_recover_with_accounts(" in run_samba
 assert "stagedpassdbcouldnotbedurablysynchronized" in run_samba
 
 

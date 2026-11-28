@@ -3883,7 +3883,12 @@ jobs:
           # The descriptor-based parent guard replaces the old path-based
           # lstat/chmod helper and must run before transaction recovery.
           parent_guard = run_body.index("samba_config_transaction_prepare_parent_directory(")
-          assert parent_guard < run_body.index("samba_config_transaction_recover(")
+          account_recovery = run_body.index("samba_config_transaction_recover_with_accounts(")
+          account_transaction = run_body.index("samba_config_transaction_begin_with_accounts(")
+          passwd_publish = run_body.index("recreate_passwd_unix_snapshot(")
+          assert parent_guard < account_recovery < account_transaction < passwd_publish
+          assert "samba_config_transaction_commit_with_accounts(" in run_body
+          assert "samba_config_transaction_abort_with_accounts(" in run_body
           assert "write_smb_conf_unlocked(router_username, account_list_snapshot, sh_num) != 0" in run_body
           assert "samba_prepare_private_passdb(staged_passdb" in run_body
           assert 'rename(staged_passdb, SAMBA_CONFIG_TRANSACTION_PASSDB)' in run_body

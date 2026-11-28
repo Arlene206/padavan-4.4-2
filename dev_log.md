@@ -1,3 +1,10 @@
+## 2026-11-28 — Repair V2 Samba journal regression expectations and source guards
+
+- Diagnosed exact-head 5fc failures. The V2 COMMITTED-before-cleanup test correctly retains the marker generation, but subsequent first-boot and legacy-V1 rollback checks still expected the previous committed generation; updated them to assert restoration of the latest marker generation and normalized marker literals to newline escapes.
+- The Samba workflow's account-snapshot source guard expected two config-writer calls inside `run_samba()` although the function makes one transactional call. Updated it to exactly one. Updated HTTPD identity and the standalone Samba durability checker to require the V2 `read_state_with_accounts` / `recover_with_accounts` / `begin_with_accounts` / `commit_with_accounts` / `abort_with_accounts` lifecycle in `run_samba()`, while retaining V1 checks for legacy callers.
+- Parent main SHA: `5fc78cc0e312610ef27c61e42fb80d42b0de520a`. Exact-head Samba, HTTPD and XY-C1 validation is pending; the failing 5fc XY-C1 run stopped in the Samba transaction regression before firmware build.
+
+---
 ## 2026-11-28 — Cover the V2 COMMITTED-before-cleanup crash window
 
 - Extended the four-file Samba transaction regression to simulate power loss after the durable V2 COMMITTED marker is visible but before snapshot cleanup. Recovery must retain the new passdb, smb.conf, passwd and group contents rather than rolling any of them back.
