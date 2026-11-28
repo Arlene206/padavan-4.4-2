@@ -734,7 +734,7 @@ require("xl2tpd_start_policy_wait_full_delay(1, sleep);" in rpl2tp_start and
         "rp-l2tp must finish its interruptible settle delay before issuing start-session")
 require("while (seconds != 0)" in xl2tpd_policy and
         "seconds = sleep_fn(seconds);" in xl2tpd_policy and
-        "xl2tpd interrupted startup wait resumes remaining seconds: PASS" in xl2tp_test,
+        "xl2tpd interrupted startup wait resumes remaining seconds: PASS" in xl2tpd_test,
         "rp-l2tp settle wait must resume the exact remainder after EINTR and have a host regression")
 
 client_start=body(vpn_client,"start_vpn_client_locked(void)")
