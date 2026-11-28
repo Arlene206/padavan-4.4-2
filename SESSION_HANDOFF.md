@@ -19,20 +19,25 @@
 - Service lifecycle wait interruption fix: `f5cd59f4e98e2b46a256acfeb39d0b89d8fb9639` changed Inadyn/USB-printer stop waits to propagate the existing EINTR-aware bounded wait policy and prevented forced KILL after a failed wait. Exact Process inventory/lifecycle #46128356507, Inadyn #46128356513, Process source inventory #46128356524 and AI handoff #46128356516 passed; XY-C1 #46128356573 was still in progress at last poll. NVRAM #46128356589 was cancelled by subsequent concurrent pushes.
 ## Active task
 
-- Process inventory procfs-directory interruption handling. File reads already retry EINTR, but `opendir("/proc")` and each `readdir()` were called once; an interrupted open/getdents could turn a complete process scan into UNKNOWN.
-- This atomic slice adds bounded retries around both directory-open and directory-read operations using the existing `PROCESS_IO_MAX_INTERRUPTS` policy. Persistent signal storms still fail closed with EINTR.
-- New injected regressions cover retry success and retry-budget exhaustion for each operation. The process lifecycle integration checker pins both source paths and the test cases.
-- Exact-head Process inventory/lifecycle and XY-C1 validation are pending; no local full firmware build or hardware result is claimed.
+- Bound NVRAM lock wait retries. The first EINTR-remainder repair had an unbounded retry loop; persistent signal delivery could prevent `nanosleep()` from finishing and defeat the 15-second transaction lock limit.
+- This follow-up adds an eight-interruption cap. Exhaustion returns EINTR via the existing cleanup path. The success-path contention test now generates fewer than eight signals, and a separate timer regression requires bounded EINTR failure under a persistent storm.
+- NVRAM exact-head audit and XY-C1 are pending for this follow-up. An independent procfs enumeration EINTR retry slice is also committed on ancestor `3fb57acc623b3fd227c6d0aa3646733cbcb6dce2`; inspect its exact-SHA Process inventory workflow during next recovery.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect exact-SHA Actions for this procfs retry commit: Process inventory/lifecycle, Process source inventory, AI handoff and XY-C1. Do not substitute parent-SHA results.
-2. If the inventory workflow fails, read job logs and repair the root cause. Confirm injected EINTR retry-success and bounded-exhaustion tests executed.
-3. Refresh the previous service-lifecycle fix `f5cd59f4e98e2b46a256acfeb39d0b89d8fb9639` results if needed; its Process inventory/lifecycle, Inadyn, source inventory and AI contract checks had passed, while XY-C1 was still in progress and NVRAM was cancelled.
-4. Require XY-C1 MIPS Build, TRX verification and artifact upload on an exact production-source SHA before claiming L3. L4 remains NOT VERIFIED.
-5. Continue another concrete userland stability/security issue after exact checks are PASS or independently pending; do not repeat closed audits.
+1. Fetch live `main` and inspect exact-SHA NVRAM transaction-boundary and AI handoff Actions for the bounded-lock follow-up. Then inspect Process inventory and Process lifecycle Actions for procfs retry commit `3fb57acc623b3fd227c6d0aa3646733cbcb6dce2`.
+2. If either regression fails, fetch job steps/logs and repair the specific compile or runtime failure. Confirm the lock test exercises both successful interrupted wait and bounded interruption exhaustion.
+3. Require XY-C1 MIPS Build, TRX verification and artifact upload for an exact production-source SHA before claiming L3. L4 remains NOT VERIFIED.
+4. Continue independent work while Actions are pending; do not repeat closed audits.
 
 ## Verification boundary
+
+- L1: NVRAM wait interruption counter and static contract added; separate tests cover successful interrupted wait and bounded storm failure.
+- L2: exact-head NVRAM and Process inventory/lifecycle Actions pending; local full checkout not available.
+- L3: NOT VERIFIED until exact-SHA XY-C1 MIPS Build, TRX and artifact upload pass.
+- L4: NOT VERIFIED; no physical router was available.
+- Backup remains immutable; no branches or PRs were created.
+
 
 - L1: bounded EINTR retry paths added for procfs directory open/read; integration source assertions and injected tests added.
 - L2: exact-head Process inventory/lifecycle Actions pending for this commit.

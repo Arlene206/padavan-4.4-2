@@ -48,6 +48,41 @@ pause_milliseconds(unsigned int milliseconds)
 	(void)select(0, NULL, NULL, NULL, &timeout);
 }
 
+/* A persistent signal storm must not make lock waiting unbounded. */
+static int
+lock_wait_interrupt_budget_test(void)
+{
+	struct sigaction action, previous_action;
+	struct itimerval timer, previous_timer, disabled_timer;
+	int result, saved_errno;
+
+	memset(&action, 0, sizeof(action));
+	action.sa_handler = lock_wait_signal_handler;
+	sigemptyset(&action.sa_mask);
+	if (sigaction(SIGALRM, &action, &previous_action) != 0)
+		return 0;
+	lock_wait_signal_count = 0;
+	memset(&timer, 0, sizeof(timer));
+	timer.it_value.tv_usec = 20000;
+	timer.it_interval.tv_usec = 20000;
+	if (setitimer(ITIMER_REAL, &timer, &previous_timer) != 0) {
+		(void)sigaction(SIGALRM, &previous_action, NULL);
+		return 0;
+	}
+
+	errno = 0;
+	result = nvram_transaction_lock_wait_interval(1);
+	saved_errno = errno;
+	memset(&disabled_timer, 0, sizeof(disabled_timer));
+	(void)setitimer(ITIMER_REAL, &disabled_timer, NULL);
+	(void)sigaction(SIGALRM, &previous_action, NULL);
+	(void)setitimer(ITIMER_REAL, &previous_timer, NULL);
+
+	return result < 0 && saved_errno == EINTR &&
+		lock_wait_signal_count >=
+			NVRAM_TRANSACTION_LOCK_MAX_INTERRUPTS + 1;
+}
+
 /* Signals must not consume the bounded wait budget before the lock is free. */
 static int
 interrupted_lock_wait_test(const char *path)
@@ -83,7 +118,7 @@ interrupted_lock_wait_test(const char *path)
 		lock_wait_signal_count = 0;
 		memset(&timer, 0, sizeof(timer));
 		timer.it_value.tv_usec = 100000;
-		timer.it_interval.tv_usec = 100000;
+		timer.it_interval.tv_usec = 200000;
 		if (setitimer(ITIMER_REAL, &timer, &previous_timer) != 0)
 			_exit(3);
 		if (write(pipefd[1], &ready, 1) != 1)
@@ -271,6 +306,11 @@ main(void)
 	}
 	unlink(hardlink_path);
 
+	if (!lock_wait_interrupt_budget_test()) {
+		fprintf(stderr, "FAIL: NVRAM lock wait interruption budget is not bounded\n");
+		return 1;
+	}
+	puts("NVRAM shared-userland lock wait interruption budget: PASS");
 	if (!interrupted_lock_wait_test(path)) {
 		fprintf(stderr, "FAIL: signal interruptions shortened the bounded lock wait\n");
 		return 1;

@@ -1,3 +1,12 @@
+## 2026-11-28 — Bound NVRAM lock-wait retries under persistent signals
+
+- Base main SHA: `3fb57acc623b3fd227c6d0aa3646733cbcb6dce2`; result: THIS COMMIT (resolve the resulting SHA from live `main` on the next recovery).
+- Follow-up review of the previous EINTR fix found that its `nanosleep()` remainder loop had no interruption ceiling. A persistent signal storm could keep retrying the same one-second wait forever, defeating the transaction lock's configured bound and pinning the caller.
+- Added `NVRAM_TRANSACTION_LOCK_MAX_INTERRUPTS` (8). After eight EINTR retries, the wait returns EINTR through the existing lock-acquisition cleanup path; it never falsely reports EBUSY or proceeds without the lock. Kept the successful contention regression below the cap (200 ms periodic signals) and added a separate timer-injected test proving the wait aborts after the bounded interruption budget.
+- The NVRAM static checker now pins the maximum, counter and bounded regression. The exact-head NVRAM transaction-boundary workflow must pass before closing this slice.
+
+---
+
 ## 2026-11-28 — Retry interrupted /proc directory enumeration
 
 - Base main SHA: `0a77a0064de6b1644b4a43bfac9509c46d7d92f3`; result: THIS COMMIT (resolve the resulting SHA from live `main` on the next recovery).

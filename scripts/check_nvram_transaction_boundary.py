@@ -449,6 +449,9 @@ def run() -> int:
     try:
         wait_interval = extract_function(lock_header, "nvram_transaction_lock_wait_interval")
         acquire_path = extract_function(lock_header, "nvram_transaction_lock_acquire_path")
+        if ("NVRAM_TRANSACTION_LOCK_MAX_INTERRUPTS 8U" not in lock_header or
+            "interruptions >= NVRAM_TRANSACTION_LOCK_MAX_INTERRUPTS" not in wait_interval or
+            "++interruptions" not in wait_interval or
         if ("nanosleep(&requested, &remaining)" not in wait_interval or
             "requested = remaining" not in wait_interval or
             "errno != EINTR" not in wait_interval):
@@ -459,6 +462,8 @@ def run() -> int:
     except ValueError as error:
         failures.append("NVRAM lock wait source contract: " + str(error))
     for marker in (
+        "lock_wait_interrupt_budget_test",
+        "NVRAM shared-userland lock wait interruption budget: PASS",
         "interrupted_lock_wait_test",
         "ITIMER_REAL",
         "lock_wait_signal_count >= 3",

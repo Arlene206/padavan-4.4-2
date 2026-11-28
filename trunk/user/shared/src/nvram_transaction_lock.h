@@ -11,6 +11,7 @@
 
 #define NVRAM_TRANSACTION_LOCK_FILE "/tmp/.nvram.api.lock"
 #define NVRAM_TRANSACTION_LOCK_WAIT_SECONDS 15
+#define NVRAM_TRANSACTION_LOCK_MAX_INTERRUPTS 8U
 #define NVRAM_TRANSACTION_LOCK_MODE (S_IRUSR | S_IWUSR)
 
 /* Complete the requested interval even when signals interrupt nanosleep. */
@@ -18,6 +19,7 @@ static inline int
 nvram_transaction_lock_wait_interval(unsigned int seconds)
 {
 	struct timespec requested, remaining;
+	unsigned int interruptions = 0;
 
 	requested.tv_sec = (time_t)seconds;
 	requested.tv_nsec = 0;
@@ -26,6 +28,11 @@ nvram_transaction_lock_wait_interval(unsigned int seconds)
 			return 0;
 		if (errno != EINTR)
 			return -1;
+		if (interruptions >= NVRAM_TRANSACTION_LOCK_MAX_INTERRUPTS) {
+			errno = EINTR;
+			return -1;
+		}
+		++interruptions;
 		requested = remaining;
 	}
 }
