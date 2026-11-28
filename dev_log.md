@@ -1,3 +1,11 @@
+## 2026-11-28 — Correct staged storage-link mode contract
+
+- Exact SHA aa155bd6b424603b75f5440d888d19885c8fcd86: AI docs #46093243938 PASS and XY-C1 Firmware Validation #46093243944 PASS. USB storage hotplug #46093243935 failed only at the Transmission publisher body assertion after the updated lstat/policy contract and caller graph passed.
+- Source helper deliberately calls `create_mp_link_status(dest_dir, staged_path, force_first_valid)`; its input is range-checked to 0/1. Hardcoding 0 in the checker was another stale expectation; MiniDLNA/Firefly need the second-pass fallback, while Transmission/aria call it with 0. THIS commit fixes only the integration expectation.
+- Exact-head storage and AI docs checks required. No source behavior changed.
+
+---
+
 ## 2026-11-28 — Align storage target discovery contract with lstat policy
 
 - Exact SHA 670935e80e5e9519ea87e12d142924c6f6b05b1b: AI handoff docs #46092735083 PASS. USB storage hotplug #46092735162 progressed through the corrected media-publisher extractor and full caller graph, then failed only at `scripts/check_storage_safe_remove.py:1657`.

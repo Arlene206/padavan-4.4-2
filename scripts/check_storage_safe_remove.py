@@ -1694,7 +1694,8 @@ for signature in ("int run_dms(int force_rescan)", "int run_itunes(void)",
             "return link_status;" in caller and "create_mp_link(" not in caller,
             "media caller must use a status-returning mount-link publisher: " + signature)
 transmission_publish = body(storage, "storage_media_link_publish(")
-require("create_mp_link_status(dest_dir, staged_path, 0)" in transmission_publish and
+require("create_mp_link_status(dest_dir, staged_path, force_first_valid)" in transmission_publish and
+        "force_first_valid != 0 && force_first_valid != 1" in transmission_publish and
         "rename(staged_path, link_path)" in transmission_publish,
         "Transmission publisher must build a private link then atomically publish it")
 for signature in ("int run_dms(int force_rescan)", "int run_itunes(void)"):
