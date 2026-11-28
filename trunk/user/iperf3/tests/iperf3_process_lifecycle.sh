@@ -13,7 +13,7 @@ mkdir -p "$BIN_DIR" "$PROC_ROOT/1"
 : > "$EVENTS"
 
 write_stat() {
-    printf '%s (%s) S 0 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 100\n' "$1" "$2" > "$PROC_ROOT/$1/stat"
+    printf '%s (%s) S 0 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 100\n' "$1" "$2" > "$PROC_ROOT/$1/stat"
 }
 
 write_stat 1 init
@@ -85,7 +85,12 @@ write_server() {
 
 # Exact executable + server argv is recognized and stopped by PID only.
 write_server 321
-run_action start || fail "verified server was not accepted as RUNNING"
+if run_action start; then
+    :
+else
+    action_status=$?
+    fail "verified server was not accepted as RUNNING (status=$action_status)"
+fi
 [ ! -s "$EVENTS" ] || fail "duplicate start was launched for a live server"
 run_action stop || fail "verified server was not stopped"
 grep -Fqx 'signal:-TERM 321' "$EVENTS" || fail "TERM was not sent to the exact server PID"

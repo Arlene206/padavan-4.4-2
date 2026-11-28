@@ -823,14 +823,23 @@ IPERF_SHARED_HELPER = ROOT / "trunk/user/shared/scripts/process_lifecycle.sh"
 IPERF_SHARED_MAKEFILE = ROOT / "trunk/user/shared/Makefile"
 
 
+IPERF3_TEST = ROOT / "trunk/user/iperf3/tests/iperf3_process_lifecycle.sh"
+
 def check_iperf3():
     iperf_source = IPERF_SCRIPT.read_text()
-    assert 'IPERF3_PROCESS_HELPER="${IPERF3_PROCESS_HELPER:-/usr/lib/process_lifecycle.sh}"' in iperf_source
-    assert 'PL_PROC_ROOT="${IPERF3_PROC_ROOT:-/proc}"' in iperf_source
-    assert '. "$IPERF3_PROCESS_HELPER"' in iperf_source
-    assert "pl_process_state iperf3" in iperf_source
+    assert 'IPERF3_PROC_ROOT="${IPERF3_PROC_ROOT:-/proc}"' in iperf_source
+    assert "iperf3_read_identity()" in iperf_source
+    assert "field[20]" in iperf_source, "procfs start_time must be validated"
+    assert 'iperf3_identity_argv1 =="-s"' not in iperf_source
+    assert 'iperf3_identity_argv1" = "-s"' in iperf_source
+    assert 'busybox kill "$iperf3_signal_name" "$iperf3_signal_pid"' in iperf_source
+    assert "killall -q iperf3" not in iperf_source
+    assert "IPERF3_KILL_CMD" not in iperf_source
     assert "$(INSTALL_BIN) $(CURDIR)/scripts/process_lifecycle.sh $(ROMFSDIR)/usr/lib/process_lifecycle.sh" in IPERF_SHARED_MAKEFILE.read_text()
+
     subprocess.run(["/bin/sh", "-n", str(IPERF_SCRIPT)], check=True)
+    subprocess.run(["/bin/sh", "-n", str(IPERF3_TEST)], check=True)
+
     # ROMFS is invoked with "make -C iperf3", where THISDIR is unset.
     # CURDIR is GNU make's defined current-directory variable for this submake.
     package_makefile = IPERF_MAKEFILE.read_text()
@@ -840,148 +849,10 @@ def check_iperf3():
     assert expected_script_install in package_makefile
     assert "$(THISDIR)/iperf3.sh" not in package_makefile
 
-    with tempfile.TemporaryDirectory(prefix="iperf3-lifecycle-") as tmp:
-        base = Path(tmp)
-        bin_dir = mock_bin(base / "bin")
-        proc_root = base / "proc"
-        (proc_root / "1").mkdir(parents=True)
-        (proc_root / "1" / "stat").write_text(
-            "1 (init) S 0 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 100\n"
-        )
-        binary = base / "iperf3"
-        executable(binary, "#!/bin/sh\nexit 0\n")
-        state = base / "running"
-        start_log = base / "start.log"
-        stop_log = base / "stop.log"
-        stop_log.touch()
-        executable(bin_dir / "pidof", """#!/bin/sh
-if [ "${MOCK_PIDOF_OVERRIDE:-0}" = 1 ]; then
-    [ -z "${MOCK_PIDOF_OUTPUT:-}" ] || printf '%s\\n' "$MOCK_PIDOF_OUTPUT"
-    exit "${MOCK_PIDOF_STATUS:-0}"
-fi
-[ -f "$MOCK_STATE_FILE" ] || exit 1
-echo 123
-""")
-        executable(bin_dir / "sleep", "#!/bin/sh\nexit 0\n")
-        executable(bin_dir / "start-stop-daemon", """#!/bin/sh
-printf '%s\\n' "$*" >> "$MOCK_START_LOG"
-status="${MOCK_START_STATUS:-0}"
-[ "$status" -eq 0 ] || exit "$status"
-[ "${MOCK_START_APPEARS:-1}" = 1 ] && : > "$MOCK_STATE_FILE"
-exit 0
-""")
-        executable(bin_dir / "killall", """#!/bin/sh
-printf '%s\\n' "$*" >> "$MOCK_STOP_LOG"
-status="${MOCK_STOP_STATUS:-0}"
-[ "$status" -eq 0 ] || exit "$status"
-rm -f "$MOCK_STATE_FILE"
-exit 0
-""")
-        log = base / "logger.log"
-        env = os.environ.copy()
-        env.update({
-            "PATH": str(bin_dir) + os.pathsep + env.get("PATH", ""),
-            "IPERF3_BIN": str(binary),
-            "IPERF3_PROCESS_HELPER": str(IPERF_SHARED_HELPER),
-            "IPERF3_PROC_ROOT": str(proc_root),
-            "MOCK_STATE_FILE": str(state),
-            "MOCK_START_LOG": str(start_log),
-            "MOCK_STOP_LOG": str(stop_log),
-            "MOCK_LOG": str(log),
-            "MOCK_START_STATUS": "31",
-            "MOCK_START_APPEARS": "1",
-            "MOCK_STOP_STATUS": "0",
-        })
-
-        failed = run(["/bin/sh", str(IPERF_SCRIPT), "start"], env)
-        assert failed.returncode == 31, (
-            f"iperf3 must propagate launcher status 31, got "
-            f"{failed.returncode}: {failed.stderr}"
-        )
-        assert "server launcher failed (status=31)" in log.read_text()
-        assert not state.exists()
-
-        env["MOCK_START_STATUS"] = "0"
-        started = run(["/bin/sh", str(IPERF_SCRIPT), "start"], env)
-        assert started.returncode == 0, started.stderr
-        assert state.exists()
-        assert "server started" in log.read_text()
-        starts_before = start_log.read_text().count("-S -b")
-        env["MOCK_START_STATUS"] = "31"
-        duplicate = run(["/bin/sh", str(IPERF_SCRIPT), "start"], env)
-        assert duplicate.returncode == 0, duplicate.stderr
-        assert start_log.read_text().count("-S -b") == starts_before, (
-            "repeated start must not launch a second iperf3 process"
-        )
-
-        # pidof error status 1 cannot distinguish an empty process list from
-        # an inaccessible /proc tree. Unknown or inconsistent snapshots must
-        # not authorize a duplicate start or claim a daemon is already stopped.
-        env["MOCK_PIDOF_OVERRIDE"] = "1"
-        env["MOCK_PIDOF_STATUS"] = "2"
-        env["MOCK_PIDOF_OUTPUT"] = ""
-        unknown_start = run(["/bin/sh", str(IPERF_SCRIPT), "start"], env)
-        assert unknown_start.returncode == 2, (
-            f"iperf3 must reject UNKNOWN before duplicate start, got {unknown_start.returncode}"
-        )
-        assert start_log.read_text().count("-S -b") == starts_before
-
-        stops_before = len(stop_log.read_text().splitlines())
-        unknown_stop = run(["/bin/sh", str(IPERF_SCRIPT), "stop"], env)
-        assert unknown_stop.returncode == 2, (
-            f"iperf3 must reject UNKNOWN before stop, got {unknown_stop.returncode}"
-        )
-        assert len(stop_log.read_text().splitlines()) == stops_before
-        assert state.exists()
-
-        for pidof_status, pidof_output in (("0", ""), ("1", "123")):
-            env["MOCK_PIDOF_STATUS"] = pidof_status
-            env["MOCK_PIDOF_OUTPUT"] = pidof_output
-            inconsistent_start = run(["/bin/sh", str(IPERF_SCRIPT), "start"], env)
-            assert inconsistent_start.returncode == 2, (
-                "iperf3 must reject inconsistent pidof status/output"
-            )
-            assert start_log.read_text().count("-S -b") == starts_before
-
-        env.pop("MOCK_PIDOF_OVERRIDE")
-        env.pop("MOCK_PIDOF_STATUS")
-        env.pop("MOCK_PIDOF_OUTPUT")
-
-        stopped = run(["/bin/sh", str(IPERF_SCRIPT), "stop"], env)
-        assert stopped.returncode == 0, stopped.stderr
-        assert not state.exists()
-
-        env["MOCK_START_STATUS"] = "0"
-        env["MOCK_START_APPEARS"] = "0"
-        missing = run(["/bin/sh", str(IPERF_SCRIPT), "start"], env)
-        assert missing.returncode == 1, missing.stderr
-        assert "no server process appeared" in log.read_text()
-
-        state.write_text("running")
-        env["MOCK_STOP_STATUS"] = "41"
-        stop_failed = run(["/bin/sh", str(IPERF_SCRIPT), "stop"], env)
-        assert stop_failed.returncode == 41, (
-            f"iperf3 must propagate a failed stop signal while still running, "
-            f"got {stop_failed.returncode}"
-        )
-        assert "server stop signal failed (status=41)" in log.read_text()
-
-        # Missing lifecycle tooling is UNKNOWN, never a successful no-op.
-        missing_bin = base / "missing-bin"
-        missing_bin.mkdir()
-        executable(missing_bin / "logger", """#!/bin/sh
-echo "$*" >> "$MOCK_LOG"
-exit 0
-""")
-        missing_env = env.copy()
-        missing_env["PATH"] = str(missing_bin)
-        missing_tools = run(["/bin/sh", str(IPERF_SCRIPT), "start"], missing_env)
-        assert missing_tools.returncode == 127, (
-            f"iperf3 must fail closed if pidof is missing, got {missing_tools.returncode}"
-        )
-        assert "pidof is unavailable" in log.read_text()
-
-
+    # The executable/argv/start_time process fixtures are shared with the
+    # dedicated iperf3 workflow; don't retain a second, stale pidof/killall
+    # mock that would reintroduce name-based signal semantics.
+    subprocess.run(["/bin/sh", str(IPERF3_TEST)], check=True)
 
 
 MENTOHUST_SCRIPT = ROOT / "trunk/user/mentohust/scripts/mentohust.sh"

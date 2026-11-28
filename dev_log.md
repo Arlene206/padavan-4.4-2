@@ -1,3 +1,11 @@
+## 2026-11-28 — Repair iperf3 proc stat fixture and align aggregate regression
+
+- Exact-head iperf3 run #46121754059 on `7627a0840d64b18be01b93c6cecbd8597f7f64ec` again passed POSIX syntax but failed to recognize its server fixture. The stat line supplied only 19 fields from state through start_time; Linux `/proc/PID/stat` requires fields 3–22 (20 tokens), so the scanner correctly returned UNKNOWN. Added the missing numeric field and made the test failure report the actual status.
+- Exact-head Process lifecycle #46121754078 failed at the optional-app aggregate checker because `check_optional_app_start_status.py` still required the retired shared-helper source string and duplicated an obsolete pidof/killall fixture. Replaced that check with source assertions for exact executable/argv/start_time verification, PID-scoped BusyBox signalling, no process-name kill, package path contracts, and execution of the dedicated iperf3 lifecycle regression.
+- On `7627...`, AI docs #46121754074 PASS and process inventory #46121754112 PASS; Process lifecycle #46121754078 FAIL for the stale iperf contract; iperf3 #46121754059 FAIL at the under-sized stat fixture. XY-C1 #46121754091 was still compiling at Build step 38 when last inspected; new exact-head build is triggered by this source/test change.
+
+---
+
 ## 2026-11-28 — Correct iperf3 proc-fixture argv encoding and use BusyBox PID signals
 
 - Exact-head iperf3 run #46121497489 on `0b7dbdd00e11e93f422da8ba773d7f5856c88083` passed POSIX syntax but failed its first server fixture. The fixture wrote escaped backslash text rather than NUL-delimited `/proc/PID/cmdline`; the scanner correctly did not recognize it as a server. The follow-up writes actual NUL argv separators and corrects the proc stat fixture so the twenty-field tail places start_time at field 22.
