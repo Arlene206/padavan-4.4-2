@@ -303,7 +303,7 @@ assert (final_continue < lease_script_plan_commit < lease_expiry_commit <
         server_address_commit < rebind_deadline_commit <
         requested_ip_commit < bound_transition)
 assert "state == REBINDING" in ack[server_address_commit:bound_transition]
-assert "server_id_option != NULL" in ack[server_address_commit:bound_transition]
+assert "server_id_status > 0" in ack[server_address_commit:bound_transition]
 assert "udhcpc_server_addr_after_ack" in policy
 assert "test_ack_updates_server_address_after_rebinding" in test
 assert "test_ack_updates_server_address_after_rebinding() != 0" in test

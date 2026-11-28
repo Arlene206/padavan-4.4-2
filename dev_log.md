@@ -1,3 +1,10 @@
+## 2026-11-28 13:45 CST (UTC+8) — Align ACK server-ID checker with tri-state option API
+
+- Base main SHA: `84d77f3ae53d0f152237b3595c69da80f6005f22`. Exact-head run #46112122647 passed the GNU89/Werror/ASan/UBSan C policy binary and reached a stale source-checker assertion: it still expected `server_id_option != NULL` in the ACK commit section. The refactored code now records the tri-state result and commits the server address only when `server_id_status > 0` after checking the server-ID option length. AI handoff docs #46112122746 PASS.
+- Updated the assertion to the actual presence contract without weakening the four-byte validation or server address commit ordering. Exact-head rerun is required; no local compile is claimed.
+
+---
+
 ## 2026-11-28 13:41 CST (UTC+8) — Fix DHCP server-ID checker symbol typo
 
 - Base main SHA: `6d5ef6e12897aa7af5e88c9c59bc6977c6a426e6`. Exact-head udhcpc #46111906660 again compiled and ran the GNU89/Werror/ASan/UBSan policy binary successfully, then stopped in the Python checker because it searched for the misspelled symbol `udhcp_server_id_option_status_valid` (missing the second `c`). The production helper and policy test correctly use `udhcpc_server_id_option_status_valid`. Exact-head AI docs #46111906681 PASS.
