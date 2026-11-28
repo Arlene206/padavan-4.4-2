@@ -195,6 +195,52 @@ static int test_effective_lease_time_bounds_match_client_timer(void)
 	return 0;
 }
 
+static int
+test_successful_event_script_consumes_only_the_elapsed_lease_time(void)
+{
+	int timeout;
+	unsigned already_waited_sec;
+
+	/* Before T1, preserve the original renewal deadline. */
+	CHECK(udhcpc_lease_script_plan(16U, 7U, &timeout,
+				       &already_waited_sec) == 0);
+	CHECK(timeout == 8);
+	CHECK(already_waited_sec == 7U);
+
+	/* At T1, renewal starts immediately with the full post-T1 budget. */
+	CHECK(udhcpc_lease_script_plan(16U, 8U, &timeout,
+				       &already_waited_sec) == 0);
+	CHECK(timeout == 8);
+	CHECK(already_waited_sec == 8U);
+
+	/* Past T1 but before expiry: start immediately, bounded by lease left. */
+	CHECK(udhcpc_lease_script_plan(16U, 10U, &timeout,
+				       &already_waited_sec) == 0);
+	CHECK(timeout == 6);
+	CHECK(already_waited_sec == 6U);
+	CHECK(udhcpc_wait_remaining_seconds(timeout, already_waited_sec) == 0U);
+
+	CHECK(udhcpc_lease_script_plan(17U, 9U, &timeout,
+				       &already_waited_sec) == 0);
+	CHECK(timeout == 8);
+	CHECK(already_waited_sec == 8U);
+
+	/* A callback that finishes at or after expiry cannot publish a lease. */
+	CHECK(udhcpc_lease_script_plan(16U, 16U, &timeout,
+				       &already_waited_sec) == 1);
+	CHECK(timeout == 0);
+	CHECK(already_waited_sec == 0U);
+	CHECK(udhcpc_lease_script_plan(16U, 100U, &timeout,
+				       &already_waited_sec) == 1);
+	CHECK(udhcpc_lease_script_plan(0U, 0U, &timeout,
+				       &already_waited_sec) == 1);
+
+	CHECK(udhcpc_lease_script_plan(16U, 1U, NULL,
+				       &already_waited_sec) == -1);
+	CHECK(udhcpc_lease_script_plan(16U, 1U, &timeout, NULL) == -1);
+	return 0;
+}
+
 static int test_nak_only_deconfigures_an_active_lease(void)
 {
 	CHECK(!udhcpc_nak_requires_deconfig(1));
@@ -606,6 +652,7 @@ int main(void)
 	    test_subnet_mask_requires_contiguous_network_bits() != 0 ||
 	    test_option_bitmap_mask_uses_unsigned_high_bit() != 0 ||
 	    test_effective_lease_time_bounds_match_client_timer() != 0 ||
+    test_successful_event_script_consumes_only_the_elapsed_lease_time() != 0 ||
 	    test_nak_only_deconfigures_an_active_lease() != 0 ||
 	    test_ack_server_id_filter_respects_selected_server() != 0 ||
 	    test_ack_updates_server_address_after_rebinding() != 0 ||

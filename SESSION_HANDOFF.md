@@ -1,3 +1,13 @@
+## 2026-11-28 — Preserve valid DHCP leases when ACK callbacks run past T1
+
+- Found a live lease-timing defect in BusyBox udhcpc: after a successful `bound`/`renew` callback, it treated any callback runtime greater than T1 (`lease_seconds / 2`) as if the entire lease had expired by resetting both `timeout` and `already_waited_sec` to zero. The next BOUND tick therefore entered RENEWING → REBINDING with no retry budget and deconfigured the address, even when the full lease still had substantial time left.
+- Added `udhcpc_lease_script_plan()`: before T1 it charges callback time against the T1 wait; at/after T1 it immediately starts renewal but caps future retry budget to the actual `lease_seconds - script_elapsed`; at/after full lease expiry it refuses to commit the ACK and runs `deconfig` before returning to discovery. If cleanup fails, the existing DECONFIG_PENDING retry path is used.
+- Added GNU89 regression for before/at/after T1, partial remaining leases, full expiration, zero leases and invalid outputs. Updated the live source checker; existing workflow already watches the touched policy header/test paths.
+- Production source SHA: THIS COMMIT. Exact-head udhcpc regression + XY-C1 compile/TRX/artifact and AI docs checks are required. No local cross-build or hardware test is claimed.
+- Prior checkpoint: watchdog signal #46094212414 PASS on 3d6d2d7; AI handoff docs failed only on oversized handoff, compacted in 82ef9ed. XY-C1 run #46093910770 on source SHA 5592891 was still pending at last poll; poll it independently.
+
+---
+
 # Session Handoff — 2026-11-28
 
 ## Current repository state

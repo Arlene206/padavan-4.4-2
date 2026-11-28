@@ -153,6 +153,42 @@ udhcpc_lease_time_effective(uint32_t lease_seconds, int option_valid)
 }
 
 /*
+ * The bound/renew script runs after a DHCPACK but consumes lease time. Before
+ * T1, charge its runtime against the initial wait. At/after T1, begin renewal
+ * immediately but retain only the actual lease time left for retries. Never
+ * treat "script took longer than T1" as proof that the full lease expired.
+ *
+ * Return 1 when the lease has expired before the callback completed, 0 when
+ * it remains valid, and -1 for invalid output pointers.
+ */
+static inline int
+udhcpc_lease_script_plan(uint32_t lease_seconds, unsigned script_elapsed,
+			 int *timeout, unsigned *already_waited_sec)
+{
+	unsigned int renew_at, remaining;
+
+	if (!timeout || !already_waited_sec)
+		return -1;
+	*timeout = 0;
+	*already_waited_sec = 0;
+	if (lease_seconds == 0U || script_elapsed >= lease_seconds)
+		return 1;
+
+	renew_at = lease_seconds / 2U;
+	if (renew_at == 0U)
+		renew_at = 1U;
+	if (script_elapsed < renew_at) {
+		*timeout = (int)renew_at;
+		*already_waited_sec = script_elapsed;
+	} else {
+		remaining = lease_seconds - script_elapsed;
+		*timeout = (int)remaining;
+		*already_waited_sec = remaining;
+	}
+	return 0;
+}
+
+/*
  * A failed lease event must not be published as a successful DHCP bind.
  * During initial acquisition, retry the same selected request after the
  * configured retry interval. During renewal, retain the existing lease

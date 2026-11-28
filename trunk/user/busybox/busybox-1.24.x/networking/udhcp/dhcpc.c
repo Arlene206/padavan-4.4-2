@@ -2088,7 +2088,7 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 				struct in_addr temp_addr;
 				uint8_t *temp;
 				const char *script_name;
-				int script_status;
+				int script_status, lease_plan_status, deconfig_status;
 
 				temp = udhcp_get_option32(&packet, DHCP_LEASE_TIME);
 				if (!temp) {
@@ -2197,17 +2197,42 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 					continue;
 				}
 
+				/*
+				 * The callback can consume the whole lease. If it has already
+				 * expired, remove the just-published configuration before
+				 * returning to discovery; a failed cleanup stays pending.
+				 */
+				lease_plan_status = udhcpc_lease_script_plan(lease_seconds,
+					script_elapsed, &timeout, &already_waited_sec);
+				if (lease_plan_status != 0) {
+					if (lease_plan_status > 0)
+						bb_error_msg("DHCP lease expired while %s script was running; deconfiguring",
+							script_name);
+					else
+						bb_error_msg("invalid DHCP lease timing plan; deconfiguring");
+					deconfig_status = udhcp_run_script(NULL, "deconfig");
+					if (udhcpc_deconfig_retry_required(deconfig_status)) {
+						bb_error_msg("expired DHCP lease deconfig failed; deferring discovery");
+						udhcpc_schedule_deconfig_retry(INIT_SELECTING, 0,
+							tryagain_timeout, &timeout, &packet_num,
+							&already_waited_sec);
+						continue;
+					}
+					state = INIT_SELECTING;
+					change_listen_mode(LISTEN_RAW);
+					client_config.first_secs = 0;
+					requested_ip = 0;
+					timeout = 0;
+					packet_num = 0;
+					already_waited_sec = 0;
+					continue;
+				}
+
 				/* A REBINDING ACK may come from another server. Remember the
 				 * replying server for the next unicast renew/release. */
 				server_addr = udhcpc_server_addr_after_ack(server_addr,
 					state == REBINDING, server_id_option != NULL, svid);
-				already_waited_sec = script_elapsed;
-				timeout = lease_seconds / 2;
 				rebind_timeout = timeout / 8;
-				if ((unsigned)timeout < already_waited_sec) {
-					/* Something went wrong. Back to discover state */
-					timeout = already_waited_sec = 0;
-				}
 
 				requested_ip = packet.yiaddr;
 				state = BOUND;

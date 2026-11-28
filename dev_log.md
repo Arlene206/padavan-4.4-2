@@ -1,3 +1,11 @@
+## 2026-11-28 — Preserve valid DHCP leases when ACK callbacks run past T1
+
+- Fixed a DHCP client timing bug: successful bound/renew callback runtime greater than T1 was previously treated as full lease expiry, resetting timers to zero and allowing the BOUND → RENEWING → REBINDING path to immediately deconfigure a still-valid lease. The new timing policy starts renewal immediately after T1, caps subsequent retry budget to the actual remaining lease, and deconfigures before discovery only when callback execution reaches/passes the full lease deadline.
+- Failed expiry cleanup enters the existing DECONFIG_PENDING retry state. Added GNU89 regression for pre/at/post-T1 callback runtimes, lease expiration and invalid pointers; updated `check_udhcpc_script_status.py` to assert cleanup/commit ordering.
+- Exact-head tests/build pending. No local MIPS build or hardware validation.
+
+---
+
 ## 2026-11-28 — Compact current handoff and checkpoint watchdog/storage CI
 
 - Exact parent main SHA: 3d6d2d712a3c5368f327810dd5adb73c8af70932; frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807.

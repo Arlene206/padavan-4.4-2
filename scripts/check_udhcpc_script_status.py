@@ -236,7 +236,30 @@ assert "server_id_option != NULL" in ack[server_address_commit:bound_transition]
 assert "udhcpc_server_addr_after_ack" in policy
 assert "test_ack_updates_server_address_after_rebinding" in test
 assert "test_ack_updates_server_address_after_rebinding() != 0" in test
-assert "already_waited_sec = script_elapsed;" in ack
+lease_script_plan = ack.index("lease_plan_status = udhcpc_lease_script_plan(")
+lease_expiry_gate = ack.index("if (lease_plan_status != 0)", lease_script_plan)
+lease_deconfig = ack.index('deconfig_status = udhcp_run_script(NULL, "deconfig");',
+                           lease_expiry_gate)
+lease_deconfig_retry = ack.index("udhcpc_schedule_deconfig_retry(INIT_SELECTING, 0,",
+                                 lease_deconfig)
+lease_deconfig_continue = ack.index("continue;", lease_deconfig_retry)
+server_address_commit = ack.index("server_addr = udhcpc_server_addr_after_ack(",
+                                  lease_deconfig_continue)
+rebind_deadline_commit = ack.index("rebind_timeout = timeout / 8;", server_address_commit)
+requested_ip_commit = ack.index("requested_ip = packet.yiaddr;", rebind_deadline_commit)
+bound_transition = ack.index("state = BOUND;", requested_ip_commit)
+assert (retry_continue < lease_script_plan < lease_expiry_gate <
+        lease_deconfig < lease_deconfig_retry < lease_deconfig_continue <
+        server_address_commit < rebind_deadline_commit <
+        requested_ip_commit < bound_transition)
+assert "already_waited_sec = script_elapsed;" not in ack
+assert "udhcpc_lease_script_plan(lease_seconds, script_elapsed," in ack
+assert "lease_seconds - script_elapsed" in policy
+assert "script_elapsed >= lease_seconds" in policy
+assert "already_waited_sec = remaining;" in policy
+assert "already_waited_sec = script_elapsed;" in policy
+assert "test_successful_event_script_consumes_only_the_elapsed_lease_time" in test
+assert "test_successful_event_script_consumes_only_the_elapsed_lease_time() != 0" in test
 assert "DHCPACK for %s" in ack
 
 # The exported lease duration and internal timer must share one normalization.
