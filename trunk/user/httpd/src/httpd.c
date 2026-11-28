@@ -52,6 +52,7 @@
 #include "httpd_acl_nvram_policy.h"
 #include "httpd_cgi_method_policy.h"
 #include "httpd_csrf_policy.h"
+#include "httpd_request_line_policy.h"
 
 #define LOGIN_TIMEOUT		30
 #define SERVER_NAME		"httpd"
@@ -979,7 +980,7 @@ handle_request(FILE *conn_fp, const conn_item_t *item)
 	int origin_invalid = 0, referer_invalid = 0, host_invalid = 0;
 	int request_is_https = 0;
 	int len, login_state, method_id, do_logout, clen = 0, clen_seen = 0;
-	int headers_done = 0;
+	int headers_done = 0, line_status;
 	unsigned long parsed_clen;
 	char *clen_end;
 	struct timeval body_timeout;
@@ -998,13 +999,17 @@ handle_request(FILE *conn_fp, const conn_item_t *item)
 	origin_header[0] = referer_header[0] = host_header[0] = '\0';
 
 	/* Parse the first line of the request. */
-	if (!fgets(line, sizeof(line), conn_fp)) {
+	line_status = httpd_request_line_read(conn_fp, line, sizeof(line));
+	if (line_status != HTTPD_REQUEST_LINE_READ_OK) {
 		alarm(0);
 		if (request_timed_out) {
 			clearerr(conn_fp);
 			return;
 		}
-		send_error( 400, "Bad Request", NULL, "No request found.", conn_fp);
+		if (line_status == HTTPD_REQUEST_LINE_READ_EOF)
+			send_error(400, "Bad Request", NULL, "No request found.", conn_fp);
+		else
+			send_error(400, "Bad Request", NULL, "Invalid or incomplete request line.", conn_fp);
 		return;
 	}
 	if (request_timed_out) {
@@ -1033,7 +1038,12 @@ handle_request(FILE *conn_fp, const conn_item_t *item)
 	cur = protocol + strlen(protocol) + 1;
 	end = line + sizeof(line) - 1;
 
-	while ( (cur < end) && (fgets(cur, line + sizeof(line) - cur, conn_fp)) ) {
+	line_status = HTTPD_REQUEST_LINE_READ_EOF;
+	while (cur < end) {
+		line_status = httpd_request_line_read(
+			conn_fp, cur, (size_t)(end - cur + 1));
+		if (line_status != HTTPD_REQUEST_LINE_READ_OK)
+			break;
 		if (request_timed_out) {
 			alarm(0);
 			clearerr(conn_fp);
@@ -1141,6 +1151,13 @@ handle_request(FILE *conn_fp, const conn_item_t *item)
 	if (request_timed_out) {
 		alarm(0);
 		clearerr(conn_fp);
+		return;
+	}
+
+	if (line_status == HTTPD_REQUEST_LINE_READ_ERROR) {
+		alarm(0);
+		send_error(400, "Bad Request", NULL,
+			   "Invalid or incomplete HTTP header line.", conn_fp);
 		return;
 	}
 
