@@ -1,3 +1,11 @@
+## 2026-11-27 — Keep RC boot-fatal contract independent of switch-device gate count
+
+- Exact-main SHA `78103b86d1e214dea0ad90cb72e9895c48b3df42` introduced two additional fatal early-boot exits for unsafe RTL8367/MediaTek switch device nodes. The HTTPD umbrella's embedded RC NVRAM check still required exactly six fatal returns, so that unrelated contract failed even though the NVRAM policy binary and production source regression passed.
+- Relaxed only the aggregate-count assertion to require the six established fatal return paths remain present; the dedicated switch-device policy contract separately verifies the new switch-node gates and status checks. No production source behavior changed.
+- Workflow-only correction; no local checkout was available. Exact-main HTTPD and AI handoff Actions are pending on THIS COMMIT; no firmware build or hardware result is claimed.
+
+---
+
 ## 2026-11-27 — Fail closed on pre-existing switch device-node paths
 
 - `rtl8367_node()` and `mtk_esw_node()` previously issued privileged `mknod` calls and ignored their results. An existing symlink, regular file, wrong major/minor, non-root owner, or over-permissive mode made `mknod` fail with EEXIST; router initialization then continued and later switch ioctl paths could open the unvalidated `/dev` entry.

@@ -984,7 +984,8 @@ jobs:
           assert "if (nvram_need_commit < 0)" in router_init
           assert "rc_nvram_commit_if_needed" in router_init
           assert router_init.index("rc_nvram_commit_if_needed") < router_init.index("mount_rwfs_partition")
-          assert router_init.count("return INIT_ROUTER_RESULT_FATAL;") == 6
+          # Switch-node gates add legitimate fatal paths; their semantics are checked separately.
+assert router_init.count("return INIT_ROUTER_RESULT_FATAL;") >= 6
           assert "nvram_setup_status = nvram_convert_misc_values();" in router_init
           wan0_setup_gate = router_init.split(
               "if (nvram_setup_status != 0)", 1

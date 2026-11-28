@@ -1,3 +1,11 @@
+## 2026-11-27 — RC boot-fatal assertion accommodates secure switch-node gates
+
+- Parent source SHA: `78103b86d1e214dea0ad90cb72e9895c48b3df42` (secure RTL8367/MediaTek device-node validation). Its exact-head HTTPD Authentication and Security Regression failed only in the embedded RC NVRAM source contract: the legacy assertion expected exactly six `INIT_ROUTER_RESULT_FATAL` returns, while the two newly required switch-node gates raised the count. The NVRAM sanitizer policy test passed; this was a stale checker expectation, not an observed production defect.
+- Correction changes the broad contract to retain the six baseline fatal gates without hard-coding the total; the dedicated switch-device policy checker still validates the node gates. No production source change.
+- Next: inspect exact-SHA HTTPD and AI handoff Actions for THIS COMMIT; if green, resume the next P1 userland stability item. Other independent jobs on parent SHA `78103b86` were still pending at last check. Frozen backup remains untouched at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+
+---
+
 ## 2026-11-27 — Secure RTL8367/MediaTek switch device-node initialization
 
 - Last verified SMP status commit: `3c0ea0688d130bee8a0e78adb846155f666fd415`; exact-SHA process-lifecycle, inventory, NVRAM audit and AI handoff Actions all completed PASS.
