@@ -1,3 +1,11 @@
+## 2026-11-27 — Propagate SMP IRQ/RPS/XPS affinity write failures
+
+- `smp.c` previously discarded every `fput_int`/`fput_string` result while configuring IRQ affinity and per-interface RPS/XPS masks; router boot status therefore missed real kernel tuning failures. The three writers now return their status, the configuration pass attempts every eligible entry and preserves the first real error, and `ENOENT` remains optional for board/driver-specific nodes that do not exist.
+- `init_router()` now logs and folds SMP affinity failures into its degraded boot status. PPP ip-up logs PPPoE RPS failures without changing the independent WAN route result. Non-SMP builds return success from no-op macros.
+- Added errno-policy unit tests, source-contract assertions, and push/PR workflow filters for the SMP source/header/test. Local compilation was not available without a repository checkout; exact-SHA CI is pending.
+
+---
+
 ## 2026-11-28 — Secure existing Redsocks config directory and repair exact source contract
 
 - Exact-SHA CI for abf383ce1781943f598562c4b1a90210de6eb4ee: shell syntax and lifecycle regressions PASS; static source contract failed because its staging-path literal mistakenly expected one dollar instead of the shell PID suffix $$. The AI handoff contract passed.

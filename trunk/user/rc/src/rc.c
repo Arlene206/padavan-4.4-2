@@ -1772,7 +1772,15 @@ init_router(void)
 	boot_services_status = rc_first_service_start_status(
 		boot_services_status, ipv6_init_status);
 #endif
-	set_cpu_affinity();
+	{
+		int affinity_status = set_cpu_affinity();
+		if (affinity_status != 0)
+			logmessage(LOGNAME,
+				   "SMP CPU/IRQ/RPS/XPS affinity initialization incomplete (status=%d)",
+				   affinity_status);
+		boot_services_status = rc_first_service_start_status(
+			boot_services_status, affinity_status);
+	}
 
 	{
 		int detect_link_start_status = start_detect_link();

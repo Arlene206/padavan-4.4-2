@@ -27,34 +27,35 @@
 #include <fcntl.h>
 
 #include "rc.h"
+#include "smp_affinity_policy.h"
 
-static void
+static int
 irq_affinity_set(int irq_num, int cpu)
 {
 	char proc_path[40];
 
 	snprintf(proc_path, sizeof(proc_path), "/proc/irq/%d/smp_affinity", irq_num);
-	fput_int(proc_path, cpu);
+	return fput_int(proc_path, cpu);
 }
 
-static void
+static int
 rps_queue_set(const char *ifname, int cpu_mask)
 {
 	char proc_path[64], cmx[4];
 
 	snprintf(proc_path, sizeof(proc_path), "/sys/class/net/%s/queues/rx-%d/rps_cpus", ifname, 0);
 	snprintf(cmx, sizeof(cmx), "%x", cpu_mask);
-	fput_string(proc_path, cmx);
+	return fput_string(proc_path, cmx);
 }
 
-static void
+static int
 xps_queue_set(const char *ifname, int cpu_mask)
 {
 	char proc_path[64], cmx[4];
 
 	snprintf(proc_path, sizeof(proc_path), "/sys/class/net/%s/queues/tx-%d/xps_cpus", ifname, 0);
 	snprintf(cmx, sizeof(cmx), "%x", cpu_mask);
-	fput_string(proc_path, cmx);
+	return fput_string(proc_path, cmx);
 }
 
 struct smp_irq_layout_t {
@@ -141,28 +142,27 @@ static const struct smp_trx_layout_t mt7621a_xps[] = {
 #error "undefined SoC with SMP!"
 #endif
 
-void
+int
 set_cpu_affinity(void)
 {
-	int i;
-
-	/* set CPU affinity */
+	int i, status = 0;
+	/* Attempt every setting; report the first non-optional write failure. */
 	for (i = 0; i < ARRAY_SIZE(mt7621a_irq); i++)
-		irq_affinity_set(mt7621a_irq[i].irq, mt7621a_irq[i].cpu_mask);
-
-	/* set network interfaces RPS/XPS mask */
+		status = smp_affinity_record_status(status,
+			irq_affinity_set(mt7621a_irq[i].irq, mt7621a_irq[i].cpu_mask));
 	for (i = 0; i < ARRAY_SIZE(mt7621a_rps); i++) {
 		if (!is_interface_exist(mt7621a_rps[i].ifname))
 			continue;
-		rps_queue_set(mt7621a_rps[i].ifname, mt7621a_rps[i].cpu_mask);
+		status = smp_affinity_record_status(status,
+			rps_queue_set(mt7621a_rps[i].ifname, mt7621a_rps[i].cpu_mask));
 	}
-
 	for (i = 0; i < ARRAY_SIZE(mt7621a_xps); i++) {
 		if (!is_interface_exist(mt7621a_xps[i].ifname))
 			continue;
-		xps_queue_set(mt7621a_xps[i].ifname, mt7621a_xps[i].cpu_mask);
-		
+		status = smp_affinity_record_status(status,
+			xps_queue_set(mt7621a_xps[i].ifname, mt7621a_xps[i].cpu_mask));
 	}
+	return status;
 }
 
 void
@@ -171,9 +171,13 @@ set_vpn_balancing(const char *vpn_ifname, int is_server)
 	return;
 }
 
-void
-set_pppoe_balancing()
+int
+set_pppoe_balancing(void)
 {
-	rps_queue_set(IFNAME_MAC, PPPOE_RPS_MAP);
-	rps_queue_set(IFNAME_MAC2, PPPOE_RPS_MAP);
+	int status = 0;
+	status = smp_affinity_record_status(status,
+		rps_queue_set(IFNAME_MAC, PPPOE_RPS_MAP));
+	status = smp_affinity_record_status(status,
+		rps_queue_set(IFNAME_MAC2, PPPOE_RPS_MAP));
+	return status;
 }

@@ -1,3 +1,11 @@
+## 2026-11-27 — SMP affinity write-status propagation
+
+- Previous slice `6161145650c67c857bf7c5c64f1176c7134af4dd` has exact-SHA Redsocks lifecycle, process-inventory and handoff Actions PASS. No local repository checkout is available in this tool environment.
+- New P2 fix: `smp.c` silently discarded errors from IRQ affinity and RPS/XPS pseudo-file writes, so `init_router()` could report READY despite real CPU/network queue tuning failures. The code now returns and aggregates write errors, ignores only optional ENOENT nodes, adds errno tests, and routes the result into existing DEGRADED startup aggregation. PPP ip-up logs PPPoE RPS failures without changing WAN route status.
+- The SMP errno test and source-contract checks are wired into push/PR process-lifecycle Actions. Next: verify this commit's exact-SHA checks, fix any failures, then continue an independent userland stability defect. Frozen backup remains untouched at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+
+---
+
 ## 2026-11-28 — Redsocks directory permissions and checker PID literal
 
 - abf383ce1781943f598562c4b1a90210de6eb4ee: Redsocks shell syntax PASS; full lifecycle regression PASS; static checker FAIL because it expected the staging path to end with a single $ instead of $$ (the actual shell script uses the PID suffix). AI handoff workflow PASS.

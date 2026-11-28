@@ -131,6 +131,12 @@ loop = c_function(init, "init_main_loop(void)")
 sysctl = c_function(init, "init_sysctl(void)")
 sysctl_recorder = c_function(init, "init_sysctl_record_status(")
 router = c_function(rc, "init_router(void)")
+smp = (root / "trunk/user/rc/src/smp.c").read_text()
+smp_policy = (root / "trunk/user/rc/src/smp_affinity_policy.h").read_text()
+smp_test = (root / "trunk/user/rc/src/tests/smp_affinity_policy.c").read_text()
+net_ppp = (root / "trunk/user/rc/src/net_ppp.c").read_text()
+rc_header = (root / "trunk/user/rc/src/rc.h").read_text()
+
 
 router_mode_setup = c_function(rc, "nvram_convert_misc_values(void)")
 assert '#include "router_mode_nvram_policy.h"' in rc
@@ -319,6 +325,43 @@ assert "WAN0 NVRAM setup failed" in wan0_setup_gate
 assert "return INIT_ROUTER_RESULT_FATAL;" in wan0_setup_gate
 assert "return -1;" not in router
 router_compact = "".join(router.split())
+assert '#include "smp_affinity_policy.h"' in smp
+irq_write = c_function(smp, "irq_affinity_set(int irq_num, int cpu)")
+rps_write = c_function(smp, "rps_queue_set(const char *ifname, int cpu_mask)")
+xps_write = c_function(smp, "xps_queue_set(const char *ifname, int cpu_mask)")
+assert "return fput_int(proc_path, cpu);" in irq_write
+assert "return fput_string(proc_path, cmx);" in rps_write
+assert "return fput_string(proc_path, cmx);" in xps_write
+assert "operation_status == ENOENT" in smp_policy
+assert "first_status != 0 ? first_status : operation_status" in smp_policy
+assert "test_optional_missing_nodes_do_not_degrade_startup" in smp_test
+assert "test_real_write_errors_are_preserved" in smp_test
+affinity = c_function(smp, "set_cpu_affinity(void)")
+for call in ("irq_affinity_set(", "rps_queue_set(", "xps_queue_set("):
+    assert call in affinity
+assert affinity.count("smp_affinity_record_status(status,") == 3
+assert "return status;" in affinity
+pppoe_balancing = c_function(smp, "set_pppoe_balancing(void)")
+assert pppoe_balancing.count("smp_affinity_record_status(status,") == 2
+assert "return status;" in pppoe_balancing
+assert "int affinity_status = set_cpu_affinity();" in router
+assert "rc_first_service_start_status(boot_services_status,affinity_status)" in router_compact
+assert "SMP CPU/IRQ/RPS/XPS affinity initialization incomplete" in router
+ipup = c_function(net_ppp, "ipup_main(int argc, char **argv)")
+assert "int rps_status = set_pppoe_balancing();" in ipup
+assert "PPPoE RPS balancing initialization incomplete" in ipup
+assert "return ppp_wan_ipup_finish_status(route_status, unlock_status);" in ipup
+assert "int set_cpu_affinity(void);" in rc_header
+assert "int set_pppoe_balancing(void);" in rc_header
+assert "#define set_cpu_affinity() 0" in rc_header
+assert "#define set_pppoe_balancing() 0" in rc_header
+for case in ("test_optional_missing_nodes_do_not_degrade_startup",
+             "test_real_write_errors_are_preserved"):
+    assert case in smp_test and case + "();" in smp_test
+assert "smp_affinity_policy.h" in workflow and "smp_affinity_policy.c" in workflow
+assert "Compile and run SMP affinity status regression" in workflow
+assert 'trunk/user/rc/src/smp.c' in workflow
+
 assert 'int copyscripts_status = system("/usr/bin/copyscripts.sh");' in router
 assert "rc_first_service_start_status(boot_services_status,copyscripts_status)" in router_compact
 assert "rc_first_service_start_status(boot_services_status,started_script_status)" in router_compact

@@ -214,6 +214,9 @@ on:
       - "trunk/user/rc/src/ppp_options_file.h"
       - "trunk/user/rc/src/tests/ppp_options_file.c"
       - "trunk/user/rc/src/net_ppp.c"
+      - "trunk/user/rc/src/smp.c"
+      - "trunk/user/rc/src/smp_affinity_policy.h"
+      - "trunk/user/rc/src/tests/smp_affinity_policy.c"
       - "trunk/user/rc/src/ppp_callback_state_file.h"
       - "trunk/user/rc/src/ppp_callback_generation_policy.h"
       - "trunk/user/rc/src/tests/ppp_callback_state_file.c"
@@ -509,6 +512,9 @@ on:
       - "trunk/user/rc/src/ppp_options_file.h"
       - "trunk/user/rc/src/tests/ppp_options_file.c"
       - "trunk/user/rc/src/net_ppp.c"
+      - "trunk/user/rc/src/smp.c"
+      - "trunk/user/rc/src/smp_affinity_policy.h"
+      - "trunk/user/rc/src/tests/smp_affinity_policy.c"
       - "trunk/user/rc/src/ppp_callback_state_file.h"
       - "trunk/user/rc/src/ppp_callback_generation_policy.h"
       - "trunk/user/rc/src/tests/ppp_callback_state_file.c"
@@ -893,6 +899,15 @@ jobs:
             -o "$RUNNER_TEMP/modem-wan-start-policy"
           ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/modem-wan-start-policy"
           python3 scripts/check_modem_wan_start_status.py
+      - name: Compile and run SMP affinity status regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/smp_affinity_policy.c \
+            -o "$RUNNER_TEMP/smp-affinity-policy"
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 \
+            "$RUNNER_TEMP/smp-affinity-policy"
       - name: Verify PID 1 required boot environment failure gates
         run: |
           set -eu

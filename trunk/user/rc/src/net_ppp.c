@@ -1649,7 +1649,13 @@ ipup_main(int argc, char **argv)
 
 	route_status = wan_up(ppp_ifname, unit, 0);
 
-	set_pppoe_balancing();
+	{
+		int rps_status = set_pppoe_balancing();
+		if (rps_status != 0)
+			logmessage(get_wan_unit_value(unit, "proto_t"),
+				   "PPPoE RPS balancing initialization incomplete (status=%d)",
+				   rps_status);
+	}
 
 	if (route_status != 0)
 		logmessage(get_wan_unit_value(unit, "proto_t"),
