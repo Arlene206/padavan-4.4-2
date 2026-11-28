@@ -1,129 +1,70 @@
-## 2026-11-28 — Reject negative IPTV proxy enable-port selectors (THIS COMMIT)
-
-- Base main SHA: `6599ea954a69c70b4f811f66519e01b00671c634`. Exact-base Process inventory #46116070166, NVRAM audit #46116069885, watchdog lifecycle #46116069843 and AI handoff #46116069828 PASS; XY-C1 #46116069855 was still in progress at the last poll.
-- Confirmed range-validation defect in `start_udpxy()` and `start_xupnpd()`: both treated every selector below 1024 as the legacy disabled value before validating the lower bound. Corrupt values such as `-1` were silently accepted as “disabled”, while values above 65535 returned an error.
-- THIS COMMIT adds a shared selector policy: 0..1023 keeps legacy-disabled behavior, 1024..65535 enables the service, and negative or >65535 selectors return ERANGE. Both launch paths validate before the disabled return. A GNU89/Werror/ASan/UBSan boundary test covers INT_MIN, negative values, disabled/enabled edges, maximum port and INT_MAX. Process and XY-C1 exact-head validation are required.
-
-
----
-
 # Session Handoff — 2026-11-28
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; all development and validation are on `main` only.
-- Live main before this IPTV proxy selector fix: `6599ea954a69c70b4f811f66519e01b00671c634`. Exact-head Process inventory #46116463183, watchdog lifecycle #46116463184 and AI handoff #46116463180 PASS; NVRAM audit #46116463221 was in progress. Frozen backup remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Live main before this optional-app checker correction: `66bc572325c033bf7850e9aaa7dad47323c582cb`, which contains the production MiniUPnP flash-preparation change from `4bc110b517f8f1f49e5b0d6f64ea613a633577b0` plus checker corrections. Parent PID 1 notification #46114249923 PASS; XY-C1 #46114250159 failed early at the now-corrected source contract before Build; Process run #46114323557 exposed the stale `check_optional_app_start_status.py` assertion. This commit updates that second checker only; no production source changed.
-- Frozen backup remains `backup/pre-plugin-overhaul-2026-11-14`; do not mutate. Its warning file was verified during startup restore and handoff-recorded frozen HEAD is `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 remains CLOSED/unmerged.
-- Frozen backup remains `backup/pre-plugin-overhaul-2026-11-14` (handoff-recorded HEAD `72f4f157a084f8184b9597ca5bf334b8080e5807`); its warning file explicitly forbids mutation. PR #1 remains CLOSED/unmerged with no identified missing change.
-- Remote branch search shows only the preserved `backup/pre-plugin-overhaul-2026-11-14` archive beyond `main`. Its warning file was read from that ref and explicitly forbids any modification/deletion; the handoff-recorded frozen HEAD is `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 remains CLOSED and unmerged; its unmerged work was previously compared and no valid missing source/test/build change was identified.
-- Pre-commit exact-main AI docs #46110148275 and HTTPD #46110148273 both PASS on `6b897adfbe68c7b3ab9d0eb040181b806662e3ef`. No local source checkout is available; source/test evidence is from GitHub and Actions, not a claimed local build.
-
-## Mandatory handoff checkpoint
-
-Every session MUST inspect the live repository state and compare it with this handoff before ending. The checkpoint is mandatory; a document edit is conditional. Confirm the meaningful product-source baseline, active task, exact-head Actions, validation boundary, blockers and exact first action. If all checkpoint facts remain accurate, leave this file untouched and do not create a no-op commit.
-
-## Current source and regression baselines
-
-### Ralink IAPP daemon — latest source baseline `7daa20cd2f1bd7abca4499fb9f9a6e05ce5d3d00`
-
-- `iapp_event_log_poll_policy.h` rejects negative monotonic seconds and invalid nanoseconds before signed elapsed-time subtraction. This prevents malformed synthetic timespecs from overflowing while preserving all valid CLOCK_MONOTONIC samples.
-- Regression `iapp_event_log_policy.c` covers negative `now.tv_sec`, negative `last.tv_sec`, invalid nanoseconds, backwards samples and interval boundaries. The source checker asserts both seconds fields are validated.
-- Exact IAPP lifecycle run `#46096900784` PASS on `7daa20cd2f1bd7abca4499fb9f9a6e05ce5d3d00`, including the GNU89/Werror/ASan/UBSan monotonic event-log regression and optional event-log branch host compilation.
-- The previous IAPP safety slice also retains executable/start-time-bound lifecycle checks, deadline-bounded TCP framing, PIPE_BUF-bounded length-framed driver notifications, FD_SETSIZE guards, MSG_TRUNC datagram bounds and checked event-log append/close handling.
-- The XY-C1 default firmware image built and passed TRX verification and artifact upload on the same source SHA (run `#46096900847`). The default package does not define `IAPP_EVENT_LOG`; its macro-enabled MIPS compile and real radio/bridge behavior still require validation.
-
-### BusyBox udhcpc — strict server-ID option parsing (THIS COMMIT)
-
-- Prior lease-accounting and failed-initial-bound rollback work remains in production history: ACK-time lease accounting charges script time, initial bound-hook failure deconfigures partial state, and failed cleanup stays in `DECONFIG_PENDING`.
-- Parent `c2445cf` added explicit-zero rejection, `7cc7bef` added limited-broadcast rejection, and `c21c9f0` restored the documented address-less DHCP behavior (absent or explicit 0.0.0.0 before any server is selected) while rejecting zero after pinning/during REBINDING and all-ones in every state.
-- Review of the c21 code found `udhcp_get_option32()` returned NULL both for absent option 54 and for a present wrong-length option; plain `udhcp_get_option()` also skips zero-length options. That meant malformed lengths could be treated as absence in address-less mode.
-- THIS COMMIT adds `udhcp_get_option_with_length()` with -1 malformed/0 absent/1 present (including zero length) plus the actual payload length. The legacy wrapper retains its previous behavior for unrelated callers. DHCPOFFER, ACK and NAK now reject present server-ID lengths other than four bytes and malformed option streams.
-- GNU89/Werror/ASan/UBSan policy tests cover absent/found/invalid status combinations and lengths 0/3/5; checker assertions pin scanner behavior and OFFER/ACK/NAK validation order. THIS commit's exact-head regression and docs Actions are pending. No local compilation is claimed.
-- Parent c21 exact-head udhcpc #46111075543, AI docs #46111075486, DHCPv6 Reply #46111075672, WAN DHCP callback #46111075595, Process inventory #46111075501, Process fail-closed #46111075531 and USB storage #46111075489 all PASS. Parent NVRAM #46111075506 was still running its final ioctl/caller audit, and XY-C1 #46111075565 was still in Build.
-- XY-C1 #46109982320 for HTTPD source SHA `856fe202e000de0b751c3f1ace304a208e7c0b37` completed Build, TRX and artifact upload (L3 for that earlier exact SHA only). The current DHCP SHA requires its own firmware result; no physical-router L4 has been run.
-
-### PID 1 watchdog and shared process lifecycle
-
-- Watchdog production source commit: `c9f5d0e1abd9df58576b18db4e8d10db0e448066`. Watchdog start/readiness/rollback is scoped to both argv0 and the resolved `/sbin/rc` executable identity, with PID/start-time revalidation. Failed-start rollback signals only verified watchdog instances, not all generic same-name services.
-- Earlier exact regressions passed on their recorded SHAs: Process lifecycle on `44f801f34ef7e8d908b9a5d7f5bac5e56d0ac4d2` and watchdog signal on `3d6d2d712a3c5368f327810dd5adb73c8af70932`. These are historical SHA-specific results, not fresh watchdog regression results for `7daa20cd`.
-- Do not repeat the broad process-inventory or watchdog audit without a new concrete failure. The exact current-head Process inventory workflow `#46096900769` passed.
-
-### Storage / media publisher
-
-- The storage checker was corrected to match lstat-based target validation and validated `force_first_valid` forwarding. The earlier run `#46095697039` passed on `db92b3164321618e559051b471f560c7a863d25d`; that run's firmware build steps were not a substitute for the later full L3 result on `7daa20cd`.
-- Do not repeat the completed media-publisher audit without new evidence.
-
-- AI handoff documentation contract #46106089042 PASS on docs SHA `badf4b0a7b0b94f2c774134da72978474bd859d9`; the new source/test commit has its own required exact-head rerun.
-
-### VSFTPD stop/restart cleanup — THIS COMMIT
-
-- Stop status now preserves the exact nonzero `kill_services()` result; if the command reports success but final procfs state is RUNNING, UNKNOWN or malformed, the stop still fails and records a meaningful errno.
-- Every stop-path firewall/UPnP reconciliation requires final `PROCESS_PRESENCE_ABSENT`. The storage-stop caller no longer lets a pre-stop RUNNING/UNKNOWN observation authorize a refresh when the final inventory remains uncertain; it aborts storage removal and retains the first stop failure.
-- GNU89 policy tests and workflow source-order contracts cover detailed status propagation, final ABSENT/RUNNING/UNKNOWN gating and group-stop first-error preservation. Dedicated VSFTPD regression #46106551633 PASS (L2); the umbrella storage-hotplug checker is being corrected for the new helper. XY-C1 and NVRAM audit were still running at last poll.
-
-### Shadowsocks — complete procfs confirmation for ABSENT lookups
-
-- Product and fake-procfs regression commit `f23be0cff7d7e0d1e942ebcf10094497b73be676` added complete procfs confirmation after BusyBox `pidof`/`pgrep` status 1. The dedicated workflow's shell syntax, startup-status, DNSMasq cleanup, process lifecycle runtime regression and adblock publication steps ALL PASSED; Process inventory #46079286495 PASS and XY-C1 #46079286427 PASS on the exact SHA.
-- The dedicated workflow's syntax and all four shell/runtime regressions passed on product SHA `f23be0cff7d7e0d1e942ebcf10094497b73be676`; only its Python source-contract step failed. The follow-up in `2baf290f67eb662699b9edf6ae1eec97f51f5806` removed one over-escaping layer but left the Python assertion without a raw-string prefix, so Python interpreted `\000` and `\n` as a NUL and newline rather than the literal bytes present in the shell source. THIS checker-only commit makes the expectation a raw string, preserving literal backslash sequences. Exact-main rerun pending.
-- The old AI-docs run #46079286331 failed because the roadmap exceeded the 128 KiB documentation hard limit. Later main checkpoint #46106904624 and latest #46107190369 passed the handoff-doc contract, so this is historical and does not need redoing.
-
-### Storage hotplug caller-graph checker — remaining stale FTP contracts
-
-- Run #46107190352 passed the whole storage caller graph (including the previous two workflow-embedded FTP assertions) and then failed in `scripts/check_storage_safe_remove.py` at the FTP stop contract. That external checker still expected `storage_service_stop_complete(status, final_state)` in two duplicated sections and the retired `ftp_was_present` override. THIS commit updates all stale assertions to the tested `ftp_stop_status_result`, first-error aggregation, and final-ABSENT-only firewall gate. Host storage policy and workflow tests before this last checker passed.
-
-## Verification boundary
-
-For product-source SHA `7daa20cd2f1bd7abca4499fb9f9a6e05ce5d3d00`:
-
-| Workflow | Run | Result |
-|---|---:|---|
-| Ralink IAPP daemon firewall lifecycle regression | `46096900784` | PASS |
-| Process lifecycle source inventory | `46096900769` | PASS |
-| NVRAM transaction boundary audit | `46096900816` | PASS |
-| XY-C1 Firmware Validation | `46096900847` | PASS — Cross-build, TRX verify, artifact upload |
-| AI handoff documentation contract | `46096900817` | FAIL — handoff omitted mandatory checkpoint wording; correction is in this docs commit, exact-head rerun pending |
-| AI handoff documentation contract #46106551579 on `4dd43a97904e7bec0c8ae094ff7c25ff82312b07` | PASS |
-| VSFTPD stability regression #46106551633 on `4dd43a97904e7bec0c8ae094ff7c25ff82312b07` | PASS — GNU89/Werror/ASan/UBSan and source-order contract |
-| Process lifecycle inventory #46106551548 on `4dd43a97904e7bec0c8ae094ff7c25ff82312b07` | PASS |
-| Process inventory fail-closed #46106551859 on `4dd43a97904e7bec0c8ae094ff7c25ff82312b07` | PASS |
-| Storage hotplug #46106551612 on `4dd43a97904e7bec0c8ae094ff7c25ff82312b07` | FAIL — caller-graph checker still expected `storage_service_stop_complete(status, final_state)`; corrected in THIS workflow-only follow-up, exact rerun pending |
-| XY-C1 Firmware Validation #46106551564 on `4dd43a97904e7bec0c8ae094ff7c25ff82312b07` | IN PROGRESS at last poll — Build running; TRX/artifact pending |
-| NVRAM transaction boundary audit #46106551639 on `4dd43a97904e7bec0c8ae094ff7c25ff82312b07` | IN PROGRESS at last poll |
-
-- Firmware artifact: `XY-C1-firmware-7daa20cd2f1bd7abca4499fb9f9a6e05ce5d3d00`, artifact ID `15243698792`, 12,837,390 bytes, SHA-256 `c77d7d4117396efe6e0f560c72b3f9f557a5397493955a2636e99b8a40fc0d63`.
-- L3: PASS for default XY-C1 MIPS firmware build, TRX validation and artifact upload on the exact source SHA above.
-- L4: NOT VERIFIED — no physical router flash/boot or live radio/network validation was performed.
-- No local source build/test result is claimed. Do not conflate host sanitizer tests with target firmware validation.
-- iperf3 fail-closed discovery: dedicated shell regression #46079981839 and Process inventory #46079981918 PASS on `6d659d767e8ac236527ca5cf02f2daedaf386507`. Commit comparison against `4dd43a97904e7bec0c8ae094ff7c25ff82312b07` found no changes in `trunk/user/iperf3/**` or `trunk/user/shared/scripts/process_lifecycle.sh`; L2 applies to current source.
-
-## Closed legacy PR preservation check
-
-- PR #1 is CLOSED (not merged), head SHA `ba48e22609e0c81ad757b06756fe91d05f39cbf6`; compare against current main reported 17 PR-only commits and 5,474 main-only commits from the merge base.
-- Reviewed all substantive changed source/test/workflow paths. The HMAC helper C source, its Makefile, package Makefile and HMAC regression are byte-identical between the PR head and main. Current main's expanded AliDDNS script uses the helper; current CA bootstrap publisher, checker, regression and workflow contain the PR's trust-store behavior plus later hardening.
-- No missing production/test/build change was identified for porting. PR #1 is already closed; do not resume work on its deleted/legacy head or reopen it just to continue development.
+- Repository: `Arlene206/padavan-4.4-2`.
+- Live `main` at handoff preparation: `58700dc70b54d931aabdb6701f0ec88c14b9d1b4`. All development stays on `main`; do not create a feature/checkpoint branch or PR.
+- Frozen backup: `backup/pre-plugin-overhaul-2026-11-14`, recorded HEAD `72f4f157a084f8184b9597ca5bf334b8080e5807`. The branch warning file says never mutate/delete it. PR #1 remains CLOSED/unmerged; its substantive unmerged changes were already compared, with no valid missing production/test/build change identified. Do not reopen or port it.
+- Startup recovery was performed once against `AI_BOOTSTRAP_PROMPT.md`, `AI_DEVELOPMENT_PROTOCOL.md`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md` and the root/archived dev log index. Do not repeat completed audits.
+- The root `dev_log.md` had 104 entries and about 101 KB before this checkpoint; retain the 20–119 entry window and 384 KiB target. No archive rotation is due. `REFACTOR_ROADMAP.md` is close to its 128 KiB limit; do not expand it for routine updates.
+- No local source checkout/build environment is available in this session. Host regressions/build results below are GitHub Actions results, not local claims.
 
 ## Active task
 
-The earlier MiniUPnP firmware-preparation change is in main ancestry at `4bc110b517f8f1f49e5b0d6f64ea613a633577b0`; `flash_firmware()` explicitly stops MiniUPnPd before persistence/MTD and aborts on a stop failure. The XY-C1 detector was hardened so edits to its own gate/tests trigger a production build. Current parent `6599ea954a69c70b4f811f66519e01b00671c634` has Process #46116463183, watchdog #46116463184 and AI docs #46116463180 PASS; NVRAM #46116463221 was pending.
+The current product-source slice is the watchdog's time-triggered reboot/update scheduler NVRAM snapshot.
 
-THIS COMMIT fixes IPTV selector handling: negative values in `udpxy_enable_x` and `xupnpd_enable_x` were interpreted as disabled because the `<1024` check ran before a lower-bound check. A shared policy rejects negative and >65535 values while preserving 0..1023 as disabled. Both launchers use the policy before proceeding; a sanitizer-backed C boundary test and source/workflow checks are added.
+1. `04f55a0098f9328c7bd563fccbbafd21013e03b3` added checked, single-transaction reads of the reboot/SS enable selectors, `ntp_ready` and schedules. It copies transient cache pointers before the next read, preserves missing-key defaults, rejects overlong values, wipes partial snapshots on failure, propagates transaction-close failure and defers both actions on a read error.
+2. `f5bcffd73428bab5b4818e44465f3d25f8b7563a` optimized away inactive schedule-string reads. Its exact watchdog run #46115995003 FAILED: selectors were assigned only after the gating checks, so enabled schedule values were skipped. This is a real failure and is not a passing baseline.
+3. `9e154cc4eb761f2d876aeb9012a8a4264c3fe8d5` corrected selector assignment order before conditional schedule reads and adjusted the three-read missing/default behavior. Its exact watchdog, AI docs, Process inventory and NVRAM checks all PASS. Exact XY-C1 run #46116069855 was still IN_PROGRESS at Build XY-C1 when this handoff was prepared; TRX and artifact steps had not started. Do not claim L3 for this SHA until Build, TRX and upload all pass.
+4. Current main `6599ea954a69c70b4f811f66519e01b00671c634` is a test/checker/dev-log-only descendant of `9e154...`. It adds an explicit test case proving both schedule keys are not fetched when NTP is not ready, even when both actions are enabled. Its exact watchdog #46116463184, AI docs #46116463180, Process inventory #46116463183 and NVRAM boundary #46116463221 are all PASS. No XY-C1 run was triggered because this commit changes no firmware production input.
+
+The watchdog snapshot regression covers cache-pointer invalidation, missing keys, backend read failure/atomic clearing, overlong values, strict selector tokens, disabled actions, inactive schedule errors, and the pre-NTP-ready path. The source checker pins transaction begin/read/end, selector-before-schedule ordering, removal of the legacy unchecked getters and test presence.
+
+## Exact validation state
+
+| SHA | Workflow / run | Result |
+|---|---|---|
+| `04f55a0098f9328c7bd563fccbbafd21013e03b3` | Watchdog #46115631687 | PASS |
+| `04f55a0098f9328c7bd563fccbbafd21013e03b3` | Process inventory #46115631548 / fail-closed #46115631613 | PASS |
+| `04f55a0098f9328c7bd563fccbbafd21013e03b3` | NVRAM boundary #46115631554 / AI docs #46115631633 | PASS |
+| `04f55a0098f9328c7bd563fccbbafd21013e03b3` | XY-C1 #46115631593 | PASS — Build, TRX verification and artifact upload; artifact `XY-C1-firmware-04f55a0098f9328c7bd563fccbbafd21013e03b3`, ID `15251593325`, 12,838,666 bytes |
+| `f5bcffd73428bab5b4818e44465f3d25f8b7563a` | Watchdog #46115995003 | FAIL — selector assignment order; corrected in `9e154...` |
+| `9e154cc4eb761f2d876aeb9012a8a4264c3fe8d5` | Watchdog #46116069843 | PASS |
+| `9e154cc4eb761f2d876aeb9012a8a4264c3fe8d5` | Process inventory #46116070166 | PASS |
+| `9e154cc4eb761f2d876aeb9012a8a4264c3fe8d5` | NVRAM boundary #46116069885 / AI docs #46116069828 | PASS |
+| `9e154cc4eb761f2d876aeb9012a8a4264c3fe8d5` | XY-C1 #46116069855 | IN PROGRESS at Build; TRX/artifact pending at last poll |
+| `6599ea954a69c70b4f811f66519e01b00671c634` | Watchdog #46116463184 | PASS — includes explicit pre-NTP-ready test |
+| `6599ea954a69c70b4f811f66519e01b00671c634` | Process inventory #46116463183 / AI docs #46116463180 | PASS |
+| `6599ea954a69c70b4f811f66519e01b00671c634` | NVRAM boundary #46116463221 | PASS |
+
+- Exact earlier XY-C1 #46115245898 passed Build/TRX/artifact on `2e57ff8e98ba55aac56fc2a8d01d1b6ff8c6d19c`; it verifies only that earlier source SHA and is superseded by the later exact `04f55...` firmware pass.
+- L3 is verified for `04f55...` only. L3 for the current watchdog production code requires the pending exact `9e154...` XY-C1 Build/TRX/artifact run. Since current `6599...` changes no production firmware input, a successful exact `9e154...` build covers the same product source currently on main.
+- L4 physical-router flash/boot, live radio/network behavior and WAN behavior are NOT VERIFIED.
+- Host ASan/UBSan/GNU89 results must not be described as MIPS target validation.
 
 ## Exact first action for the next GPT
 
-1. Poll exact-head Process lifecycle after this commit. Require the new IPTV enable-port policy GNU89/Werror/ASan/UBSan regression, updated udpxy/xupnpd source contracts and aggregate process checks to PASS.
-2. Poll exact-head XY-C1. Since `net.c` and the included policy header changed, require detector, MIPS Build, TRX verification and artifact upload all PASS on the same SHA.
-3. Confirm parent NVRAM audit #46116463221 outcome, keeping parent/descendant SHA evidence separate.
-4. L3 requires exact-SHA production Build/TRX/artifact; physical-router L4 remains NOT VERIFIED. Continue another independent stability/security slice while Actions are pending.
+1. Poll XY-C1 run #46116069855 for source SHA `9e154cc4eb761f2d876aeb9012a8a4264c3fe8d5`. Require Build XY-C1, TRX verification and artifact upload all SUCCESS before recording L3 for the current production source.
+2. If that run fails, inspect its failed step/log, make a bounded correction with regression coverage, publish one complete tree/commit and check the new exact SHA. Do not rely on the older `04f55...` firmware result for the scheduler changes.
+3. Continue with a distinct, evidence-based P1 reliability/security defect from the roadmap. Do not repeat watchdog, Process inventory, NVRAM boundary, detector, MiniUPnP or HTTPD audits already completed. Keep roadmap edits minimal because it is near the size limit.
+4. Do not wait idle for a pending build; continue independent work and poll later.
+
+## Verification boundary
+
+- Repository source state is from GitHub fetches and commits; host regressions and firmware validation are from the exact Actions runs listed above.
+- No local checkout/build/test is claimed.
+- XY-C1 is a firmware build/TRX/artifact gate, not a physical router test.
+- Never claim firmware flashing, boot, wireless, WAN, or live network verification without an actual hardware run.
+
+## Mandatory handoff checkpoint
+
+Every session MUST inspect the live repository state and compare it with this handoff before ending. The checkpoint is mandatory; a document edit is conditional. Confirm meaningful product-source baselines, active task, exact-head Actions, validation boundary, blockers and exact first action. If all facts remain accurate, leave this file untouched and do not create a no-op commit.
 
 # Cross-session execution mandate
 
-- Only `main` is an authorized development branch. Create no feature/checkpoint branches and no pull requests. Keep the frozen backup immutable.
-- For each multi-file engineering slice, create all blobs and one complete tree, then publish one atomic main commit with the latest main as sole parent; advance main with `force:false` and `expected_sha` equal to that parent. Never use sequential file commits, force-push, amend or rewrite published history.
-- Re-fetch main immediately before each write. If compare-and-swap rejects because main moved, inspect the new head, rebuild/retest on top of it, and retry without force.
-- Inspect push-triggered Actions by exact `head_sha`. PASS permits the next slice; FAIL must be diagnosed/fixed; PENDING does not block independent engineering.
-
-Before context exhaustion, stop starting new modules, finish and publish a safe bounded slice, then leave this handoff with the exact first action, validation boundary and committed baseline.
-- Run the local handoff-doc validator when a checkout is available. This session had no local checkout; the exact-head GitHub Actions workflow is the validation gate for the docs correction.
-- Keep the root dev log at 20–119 complete records; it had 91 records before this entry and now has 92, so no archive rotation is due. Do not add handoff/roadmap archive snapshots.
-- Do not change GPT Session Rotator or replay its existing state/SHA. Do not claim hardware validation or a successful build when steps were skipped.
+- Only `main` is an authorized development branch. Keep the frozen backup immutable; create no feature/checkpoint branch and no pull request.
+- For each multi-file engineering slice, create all blobs and one complete Git tree, then publish one atomic main commit with the latest main as sole parent; advance main with `force:false` and `expected_sha` equal to that parent. Never use sequential per-file commits, force-push, amend or rewrite published history.
+- Re-fetch main immediately before every write. If compare-and-swap rejects because main moved, inspect the new head, rebuild/retest on top of it and retry without force.
+- Inspect push-triggered Actions by exact `head_sha`. PASS permits the next slice; FAIL must be diagnosed/fixed; PENDING does not block independent work.
+- Keep root `dev_log.md` append-only and within the documented 20–119 record / 384 KiB limits; follow `docs/dev-log/INDEX.md` when a batch archive is actually required. Do not create routine handoff or roadmap snapshot archives.
+- Before context exhaustion, finish and publish a safe bounded slice, record exact source/test/CI status, and leave the next GPT a precise first action. Do not ask the user what to do next.

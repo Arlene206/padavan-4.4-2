@@ -1,3 +1,12 @@
+## 2026-11-28 — Exact validation checkpoint for watchdog scheduler snapshot
+
+- `04f55a0098f9328c7bd563fccbbafd21013e03b3`: Watchdog, Process, NVRAM, AI docs and XY-C1 all PASS. XY-C1 #46115631593 completed Build, TRX verification and artifact upload; artifact ID `15251593325` (12,838,666 bytes). This L3 result is limited to this exact SHA.
+- `f5bcffd73428bab5b4818e44465f3d25f8b7563a`: watchdog #46115995003 FAILED because the optimization read zero-initialized selectors before assigning the values from NVRAM. Corrected in `9e154cc4eb761f2d876aeb9012a8a4264c3fe8d5`, whose Watchdog #46116069843, Process #46116070166, NVRAM #46116069885 and AI docs #46116069828 all PASS. XY-C1 #46116069855 remains IN_PROGRESS at Build; TRX/artifact pending at this checkpoint.
+- Current main before this documentation checkpoint: `6599ea954a69c70b4f811f66519e01b00671c634`, a test-only follow-up that explicitly covers both enabled schedules being skipped while `ntp_ready=0`. Exact Watchdog #46116463184, Process #46116463183, NVRAM #46116463221 and AI docs #46116463180 all PASS. No firmware production source changed since `9e154...`.
+- No local build is claimed. L3 for the current production source awaits the exact `9e154...` XY-C1 Build/TRX/artifact result; L4 physical hardware remains NOT VERIFIED.
+
+---
+
 ## 2026-11-28 15:36 CST (UTC+8) — Reject negative IPTV proxy port selectors
 
 - Base main SHA: `6599ea954a69c70b4f811f66519e01b00671c634`. Exact-base Process #46116463183, watchdog lifecycle #46116463184 and AI handoff #46116463180 PASS; NVRAM audit #46116463221 remained in progress.
