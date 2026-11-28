@@ -1,3 +1,11 @@
+## 2026-11-28 — Bound AliDDNS HMAC helper I/O under persistent signals
+
+- Review of the already-integrated AccessKeySecret argv privacy helper found both its stdin read loop and stdout write loop retried EINTR indefinitely. A sustained signal storm could therefore pin the signing child and block DDNS request progress.
+- Added a shared eight-retry budget for interrupted reads and writes. Progress resets the write retry budget; a zero-byte write now fails with EIO rather than returning a no-progress success or spinning. The API framing, EVP_MAC-SHA1 digest and base64 output are unchanged.
+- Added an injected GNU89/ASan/UBSan regression for transient EINTR, fragmented input, partial output, persistent read/write EINTR exhaustion and zero-progress writes; wired it into the AliDDNS workflow and source contract. No local compile, XY-C1 firmware build or hardware result is claimed.
+
+---
+
 ## 2026-11-28 — Align Samba durability audit with bounded shared fsync policy
 
 - Samba transaction run #46130569334 on exact SHA `02dfbf9198cd7b5de10c4c902501249683ef26ef` passed the publication, service-failure and ACL/passdb checks, then failed at the final durability checker because it still required the obsolete unbounded `while (status != 0 && errno == EINTR)` loop.

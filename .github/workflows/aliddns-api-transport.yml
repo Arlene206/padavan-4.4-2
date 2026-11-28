@@ -18,6 +18,7 @@ on:
       - "trunk/user/aliddns/tests/copyscripts_ca_bootstrap.sh"
       - "trunk/user/scripts/tests/copyscripts_ca_status.sh"
       - "trunk/user/aliddns/tests/aliddns_hmac_sha1.sh"
+      - "trunk/user/aliddns/tests/aliddns_hmac_io.c"
       - "trunk/user/aliddns/src/aliddns-hmac-sha1.c"
       - "trunk/user/aliddns/src/Makefile"
       - "trunk/user/aliddns/Makefile"

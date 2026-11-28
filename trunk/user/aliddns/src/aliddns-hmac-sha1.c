@@ -11,22 +11,46 @@
 
 #define HMAC_KEY_MAX 4096
 #define INPUT_CHUNK 4096
+#define ALIDDNS_HMAC_MAX_EINTR_RETRIES 8U
+
+#ifndef ALIDDNS_HMAC_READ
+#define ALIDDNS_HMAC_READ read
+#endif
+#ifndef ALIDDNS_HMAC_WRITE
+#define ALIDDNS_HMAC_WRITE write
+#endif
+
+/* Return nonzero while another EINTR retry remains in the bounded budget. */
+static int
+aliddns_hmac_retry_interrupted(unsigned int *interruptions)
+{
+    if (*interruptions >= ALIDDNS_HMAC_MAX_EINTR_RETRIES)
+        return 0;
+    ++*interruptions;
+    return 1;
+}
 
 static int
 write_all(int fd, const unsigned char *buffer, size_t length)
 {
     size_t offset = 0;
+    unsigned int interruptions = 0;
 
     while (offset < length) {
-        ssize_t written = write(fd, buffer + offset, length - offset);
+        ssize_t written = ALIDDNS_HMAC_WRITE(fd, buffer + offset,
+                                             length - offset);
 
         if (written < 0) {
-            if (errno == EINTR)
+            if (errno == EINTR &&
+                aliddns_hmac_retry_interrupted(&interruptions))
                 continue;
             return -1;
         }
-        if (written == 0)
+        if (written == 0) {
+            errno = EIO;
             return -1;
+        }
+        interruptions = 0;
         offset += (size_t)written;
     }
     return 0;
@@ -59,6 +83,7 @@ main(void)
         OSSL_PARAM_END
     };
     int result = 1;
+    unsigned int read_interruptions = 0;
 
     (void)signal(SIGPIPE, SIG_IGN);
     memset(key, 0, sizeof(key));
@@ -80,13 +105,15 @@ main(void)
     for (;;) {
         size_t offset = 0;
 
-        input_length = read(STDIN_FILENO, input, sizeof(input));
+        input_length = ALIDDNS_HMAC_READ(STDIN_FILENO, input, sizeof(input));
         if (input_length < 0) {
-            if (errno == EINTR)
+            if (errno == EINTR &&
+                aliddns_hmac_retry_interrupted(&read_interruptions))
                 continue;
             report_failure("cannot read signing input");
             goto out;
         }
+        read_interruptions = 0;
         if (input_length == 0)
             break;
 

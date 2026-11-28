@@ -19,6 +19,7 @@ CA_BOOTSTRAP_TEST_PATH = ROOT / "trunk/user/aliddns/tests/copyscripts_ca_bootstr
 HMAC_TEST_PATH = ROOT / "trunk/user/aliddns/tests/aliddns_hmac_sha1.sh"
 HMAC_SOURCE_PATH = ROOT / "trunk/user/aliddns/src/aliddns-hmac-sha1.c"
 HMAC_MAKEFILE_PATH = ROOT / "trunk/user/aliddns/src/Makefile"
+HMAC_IO_TEST_PATH = ROOT / "trunk/user/aliddns/tests/aliddns_hmac_io.c"
 LIBSSL_MAKEFILE_PATH = ROOT / "trunk/libs/libssl/Makefile"
 WORKFLOW_PATH = ROOT / ".github/workflows/aliddns-api-transport.yml"
 IPV4_HELPER_PATH = ROOT / "trunk/user/aliddns/aliddns-ipv4.sh"
@@ -49,6 +50,7 @@ ca_status_test = CA_STATUS_TEST_PATH.read_text()
 hmac_test = HMAC_TEST_PATH.read_text()
 hmac_source = HMAC_SOURCE_PATH.read_text()
 hmac_makefile = HMAC_MAKEFILE_PATH.read_text()
+hmac_io_test = HMAC_IO_TEST_PATH.read_text()
 libssl_makefile = LIBSSL_MAKEFILE_PATH.read_text()
 workflow = WORKFLOW_PATH.read_text()
 ipv4_helper = IPV4_HELPER_PATH.read_text()
@@ -150,6 +152,21 @@ require('args="AccessKeyId=$aliddns_ak&Action=$1&Format=json&$2&Version=2015-01-
 require(hmac_helper.strip() == "/usr/bin/aliddns-hmac-sha1" and
         "openssl dgst" not in hmac_helper,
         "HMAC wrapper must invoke exactly the fixed ROMFS helper without exposing the secret in argv")
+require('ALIDDNS_HMAC_MAX_EINTR_RETRIES 8U' in hmac_source and
+        'ALIDDNS_HMAC_READ(STDIN_FILENO' in hmac_source and
+        'ALIDDNS_HMAC_WRITE(fd, buffer + offset' in hmac_source and
+        'aliddns_hmac_retry_interrupted(&read_interruptions)' in hmac_source and
+        'aliddns_hmac_retry_interrupted(&interruptions)' in hmac_source and
+        'written = write(' not in hmac_source and
+        'input_length = read(' not in hmac_source,
+        "HMAC stdin and stdout must use the bounded EINTR retry policy")
+require('ALIDDNS_HMAC_MAX_EINTR_RETRIES + 1U' in hmac_io_test and
+        'read_always_eintr = 1' in hmac_io_test and
+        'write_always_eintr = 1' in hmac_io_test and
+        'write_zero = 1' in hmac_io_test and
+        'partial writes' in hmac_io_test and
+        'aliddns-hmac-io' in hmac_test,
+        "HMAC I/O regression must exercise bounded persistent EINTR, partial I/O and zero-progress writes")
 require('main(void)' in hmac_source and
         'EVP_MAC_fetch(NULL, "HMAC", NULL)' in hmac_source and
         'OSSL_MAC_PARAM_DIGEST' in hmac_source and
@@ -552,6 +569,7 @@ require(
     '- "trunk/user/busybox/busybox-1.24.x/util-linux/flock.c"' in push_filter_paths and
     '- "trunk/user/aliddns/tests/copyscripts_ca_bootstrap.sh"' in push_filter_paths and
     '- "trunk/user/aliddns/tests/aliddns_hmac_sha1.sh"' in push_filter_paths and
+    '- "trunk/user/aliddns/tests/aliddns_hmac_io.c"' in push_filter_paths and
     '- "trunk/user/aliddns/tests/aliddns_ipv6_lookup.sh"' in push_filter_paths and
     '- "trunk/user/aliddns/src/aliddns-hmac-sha1.c"' in push_filter_paths and
     '- "trunk/user/aliddns/src/Makefile"' in push_filter_paths and

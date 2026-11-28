@@ -20,6 +20,10 @@ trap 'exit 1' HUP INT TERM
 cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
     -fno-omit-frame-pointer "$SOURCE_DIR/aliddns-hmac-sha1.c" \
     -lcrypto -o "$TMP_DIR/aliddns-hmac-sha1"
+cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+    -fno-omit-frame-pointer "$SCRIPT_DIR/aliddns_hmac_io.c" \
+    -lcrypto -o "$TMP_DIR/aliddns-hmac-io"
+ASAN_OPTIONS=detect_leaks=1 "$TMP_DIR/aliddns-hmac-io"
 
 fail()
 {
