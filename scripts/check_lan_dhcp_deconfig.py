@@ -775,4 +775,15 @@ assert "return rc_bridge_init_result(&bridge_status);" in bridge_init
 assert "test_reload_marker_write_failures_are_reported_and_aggregated" in bridge_test
 assert "test_reload_marker_write_failures_are_reported_and_aggregated" in bridge_policy + bridge_test
 
+router_changed = c_function_body(
+    policy, "dhcp_lease_router_is_changed("
+)
+assert "if (!next_gateway || next_gateway_size == 0)" in router_changed
+assert router_changed.index("if (!next_gateway || next_gateway_size == 0)") < router_changed.index(
+    "dhcp_lease_ipv4_list_first("
+)
+assert "Invalid output storage must not be dereferenced or written." in test
+assert "no_capacity, 0" in test
+assert "NULL, sizeof(first)" in test
+
 print("LAN DHCP and IPTV deconfig transactional retry contract: PASS")

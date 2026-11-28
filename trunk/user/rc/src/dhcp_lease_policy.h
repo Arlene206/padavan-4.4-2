@@ -171,6 +171,10 @@ dhcp_lease_router_is_changed(const char *stored_gateway,
                              const char *router_option,
                              char *next_gateway, size_t next_gateway_size)
 {
+	/* An unusable output buffer cannot safely normalize a Router option. */
+	if (!next_gateway || next_gateway_size == 0)
+		return 1;
+
 	if (dhcp_lease_ipv4_list_first(router_option,
 	                               next_gateway, next_gateway_size) < 0)
 		next_gateway[0] = '\0';

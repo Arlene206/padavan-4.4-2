@@ -1010,6 +1010,7 @@ main(void)
 {
 	int has_gateway = 0;
 	char first[INET_ADDRSTRLEN];
+	char no_capacity[1] = { 'x' };
 	unsigned int number = 0;
 	struct dhcp_bound_fake fake;
 	struct dhcp_viptv_deconfig_fake viptv_fake;
@@ -1103,6 +1104,13 @@ main(void)
 	assert(dhcp_lease_router_is_changed("192.0.2.1", "invalid",
 		first, sizeof(first)));
 	assert(first[0] == '\0');
+
+	/* Invalid output storage must not be dereferenced or written. */
+	assert(dhcp_lease_router_is_changed("192.0.2.1", NULL,
+		NULL, sizeof(first)));
+	assert(dhcp_lease_router_is_changed("192.0.2.1", NULL,
+		no_capacity, 0));
+	assert(no_capacity[0] == 'x');
 
 	/* Invalid Router options must be rejected before any live route changes. */
 	assert(dhcp_lease_router_option_parse("192.0.2.1 198.51.100.1",

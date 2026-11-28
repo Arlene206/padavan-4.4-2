@@ -1,3 +1,13 @@
+## 2026-11-28 — Guard DHCP router comparison output capacity
+
+- Found a concrete memory-safety defect in `dhcp_lease_router_is_changed()`: when `next_gateway` was NULL or its declared capacity was zero, `dhcp_lease_ipv4_list_first()` correctly returned an error, but the caller then unconditionally wrote `next_gateway[0] = '\0'`. The zero-capacity case caused an out-of-bounds write; the NULL case dereferenced invalid storage.
+- Added a precondition guard that conservatively returns “changed” before parsing when the output pointer/capacity is unusable.
+- Added ASan/UBSan host regression assertions for NULL output, zero capacity and unchanged sentinel byte; extended the static source checker to require the guard precede the parser call.
+- Existing WAN DHCP workflow path filters include all changed source/test/checker paths. No local test was run; exact-SHA Actions determine L2.
+- Base: `c052506cbe9463f2719494d237e5323fe1c261c8`; result: THIS COMMIT.
+
+---
+
 ## 2026-11-28 — Correct NTP resolver NUL literal
 
 - Reviewed the bounded NTP resolver helper and found its memchr argument had been emitted as a two-backslash multi-character constant rather than the C NUL character literal. Corrected the source and adjusted the Python source-contract token to match.
