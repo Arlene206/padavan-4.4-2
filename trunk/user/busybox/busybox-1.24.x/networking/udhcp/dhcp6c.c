@@ -873,7 +873,12 @@ void client6_send(struct dhcp6_event *ev)
 
 static void client6_recv(void)
 {
-	struct sockaddr from;
+	/*
+	 * recv_from_to() is passed sizeof(sockaddr_in6) as msg_namelen.
+	 * A plain sockaddr is smaller and lets recvmsg() overwrite this stack
+	 * object when the kernel copies an IPv6 peer address.
+	 */
+	struct sockaddr_storage from;
 	struct sockaddr_in6 to;
 	struct dhcp6_if *ifp = &client6_config.dhcp6c_if;
 	struct dhcp6_optinfo optinfo;
@@ -882,8 +887,10 @@ static void client6_recv(void)
 	struct dhcp6_event *ev;
 	char *a;
 
+	memset(&from, 0, sizeof(from));
 	len = recv_from_to(csock, G.rbuf, sizeof(G.rbuf), MSG_TRUNC,
-			&from, (struct sockaddr *)&to, sizeof(struct sockaddr_in6));
+			(struct sockaddr *)&from, (struct sockaddr *)&to,
+			sizeof(struct sockaddr_in6));
 	if (len < 0) {
 		bb_perror_msg("cannot receive DHCP6 packet");
 		return;
@@ -907,7 +914,7 @@ static void client6_recv(void)
 		return;
 	}
 
-	a = xmalloc_sockaddr2dotted_noport(&from);
+	a = xmalloc_sockaddr2dotted_noport((struct sockaddr *)&from);
 	log1("receive %s from %s on %s", dhcp6msgstr(dh6->dh6_msgtype),
 		a, ifp->ifname);
 

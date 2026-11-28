@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <errno.h>
 #include <string.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
 
 #include "dhcp6c_script_retry_policy.h"
 #include "dhcp_script_env_policy.h"
@@ -156,9 +158,21 @@ static int test_retry_delay_is_bounded_and_nonzero(void)
 	return 0;
 }
 
+static int
+test_ipv6_source_address_storage_fits_kernel_sockaddr(void)
+{
+	struct sockaddr_storage from;
+	struct sockaddr_in6 peer;
+
+	CHECK(sizeof(from) >= sizeof(peer));
+	CHECK(sizeof(from) >= sizeof(struct sockaddr_in6));
+	return 0;
+}
+
 int main(void)
 {
 	if (test_dhcpv4_uses_shared_atomic_environment_publisher() != 0 ||
+	    test_ipv6_source_address_storage_fits_kernel_sockaddr() != 0 ||
 	    test_shared_publisher_rejects_null_environment_and_unsetter() != 0 ||
 	    test_environment_publish_rolls_back_partial_set() != 0 ||
 	    test_environment_publish_failure_without_errno_uses_enomem() != 0 ||
