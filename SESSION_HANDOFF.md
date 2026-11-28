@@ -1,37 +1,34 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; active branch `main`. Startup protocol and one-time handoff recovery are complete; do not repeat the initial audit.
-- Current parent for the remaining DHCPACK source-check correction: `773ffae54bcd5e7e934fba86f57031f0e4e62399`. Production code is unchanged across the checker follow-ups; the GNU89/Werror/ASan/UBSan C policy regression has passed on every exact-head retry.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify. PR #1 remains closed/unmerged; CA trust-store feature is integrated.
+- This WAN-monitor readiness slice starts from parent `3bd150afbea9a910407002a9ba933dd9257ab5cc`. The exact-head udhcpc checker correction is clean: run #46153182409 PASS; AI handoff docs #46153182404 PASS.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify. PR #1 remains closed/unmerged; CA trust-store bootstrap is already integrated.
 
-## Active task
+## Active task in this commit
 
-- The udhcpc checker has two lease-time contract sections. The first registration assertion was normalized, but the duplicate later assertion at line 407 still expected the whitespace-bearing `!= 0` fragment inside a whitespace-stripped source. Align the duplicate assertion with the actual C `test_lease_time_option_requires_exactly_one_uint32() != 0 ||` registration in `main()`.
-- The separate USB storage source-contract call count is now corrected to four. Do not change DHCP production logic: malformed present option 51 must defer the ACK; only true absence retains the one-hour default.
+- Fix detached WAN gateway monitor startup status. `detect_wan_main()` calls `daemon()` before publishing its PID file; the daemonizing parent can exit successfully even if the child subsequently fails PID-file publication and exits.
+- The previous WAN-up path treated `eval("detect_wan") == 0` as proof of readiness. This commit moves launch into `start_detect_wan_with_readiness()`, then requires a bounded tri-state `process_inventory_scan("detect_wan")` postcondition through the shared `detached_daemon_start_postcondition_with_ops()` policy. UNKNOWN and timeout errors propagate; sleep resumes the remaining interval after EINTR.
+- The existing `detached_daemon_start_policy.c` GNU89/ASan regression already covers delayed appearance, child-absent timeout, UNKNOWN fail-closed, launcher failure and interrupted waits. The WAN integration checker requires the production call order and those regression cases.
 
-## Exact-SHA CI checkpoint
+## Exact-SHA verification checkpoint before this commit
 
-- Parent SHA `773ffae54bcd5e7e934fba86f57031f0e4e62399`:
-  - udhcpc workflow #46153023184 FAIL at duplicate source-contract assertion line 407. GNU89/Werror/ASan/UBSan policy binary PASS.
-  - The preceding SHA `1d74edb7b08fe3460109f351dd14c067caab8ba7` has USB storage hotplug workflow #46152870433 PASS and AI handoff contract #46152870482 PASS; udhcpc workflow #46152870458 failed only in the same Python contract (first stale registration assertion).
-- Source SHA `4652b6801ec4c04c0ccfd07c677d7dbec70b39ce`: WAN DHCP callback #46152329744 PASS; DHCPv6 Reply retry #46152329810 PASS; NVRAM #46152329844 PASS; Process inventory #46152329739 PASS; Process fail-closed #46152329718 PASS; AI handoff #46152329727 PASS. USB storage #46152329716's stale retry count is fixed and confirmed by #46152870433 on a descendant.
-- XY-C1 workflow #46152329717 remains IN_PROGRESS on production SHA `4652b6801ec4c04c0ccfd07c677d7dbec70b39ce` at last status. No exact Build/TRX/artifact completion recorded.
-- Shadowsocks identity slice `942f53201f14dcf7130cdae3c356fc87d53d1f2a`: Shadowsocks #46152116157 PASS, Process inventory #46152116314 PASS, AI docs #46152116150 PASS; XY-C1 #46152116153 still IN_PROGRESS at last check.
-- Networkmap ProductID source SHA `9fc0a65fdff1a8c315119200efb1976e6e9d181d` has Build/TRX/artifact PASS (XY-C1 #46149948587; artifact #15265976441). This is L3 only for that SHA. Physical-router L4 remains NOT VERIFIED.
+- Main SHA `3bd150afbea9a910407002a9ba933dd9257ab5cc`: udhcpc event-script status stability #46153182409 PASS; AI handoff docs #46153182404 PASS.
+- USB storage hotplug #46152870433 PASS on `1d74edb7b08fe3460109f351dd14c067caab8ba7`; subsequent commits in this chain changed the udhcpc checker/docs only.
+- XY-C1 firmware validation #46152329717 completed SUCCESS on `4652b6801ec4c04c0ccfd07c677d7dbec70b39ce`; the Build XY-C1, TRX verification and artifact upload steps were all successful. This is the earlier production-source L3 baseline, not verification of the present `net_wan.c` change.
+- Earlier udhcpc checker failures #46153023184/#46152870458 were corrected by exact descendant commits and the final udhcpc run above PASS. Physical-router L4 remains NOT VERIFIED.
 
 ## Verification boundary
 
-- L1: policy C regression GNU89, `-Wall -Wextra -Werror`, ASan and UBSan PASS.
-- L2: storage hotplug exact-head regression PASS on descendant `1d74edb`; udhcpc's Python contract still needs a clean PASS with the duplicate assertion corrected.
-- L3: latest firmware Build, TRX and artifact must all complete on one exact production SHA. Earlier networkmap L3 is not transferable to this DHCP build.
-- L4: physical-router runtime/network behavior NOT VERIFIED.
+- L1: the shared detached-daemon policy host regression is wired into `.github/workflows/wan-route-status.yml`; exact-head rerun for this commit pending.
+- L2: WAN route status and WAN ARP socket workflows must pass on this exact source SHA; exact-head run pending.
+- L3: this `net_wan.c` change requires a fresh XY-C1 Build, TRX verification and artifact upload from one exact SHA; no transfer from `4652b68`.
+- L4: physical WAN/gateway-loss and router runtime behavior NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head udhcpc and AI handoff Actions for this checker correction. Require the complete Python source contract and host regression to PASS; diagnose any remaining assertion by checking all duplicate blocks, not just the first match.
-2. Recheck XY-C1 #46152329717 and current main ancestry/status; require Build, TRX verification and artifact upload from one exact production SHA.
-3. Continue independent userland stability/security work while firmware validation is pending. Preserve malformed DHCPACK rejection and zero-timeout discovery throttling.
-4. Keep the backup immutable and use complete-tree atomic commits with non-forced expected-SHA updates.
+1. Read the live `main` head and inspect exact-SHA WAN route status, WAN ARP socket, AI handoff and XY-C1 Actions for this change. Diagnose any failure from its exact job log; do not treat a pending firmware run as a reason to wait.
+2. If these checks pass, move to an independent high-priority userland stability/security defect; do not reopen the already-completed udhcpc/storage checker work.
+3. Keep the backup branch immutable and use complete-tree single-commit writes with a non-forced expected-SHA update.
 
 ## Mandatory end-of-session handoff checkpoint
 

@@ -43,6 +43,7 @@
 #include <process_inventory.h>
 #include <process_pidfile.h>
 #include "process_presence_start_policy.h"
+#include "detached_daemon_start_policy.h"
 #include "udhcpc_start_readiness.h"
 #include "ppp_options_file.h"
 #include "ppp_callback_link_policy.h"
@@ -86,6 +87,74 @@ wan_setdomainname_status(const char *name, size_t length)
 	if (setdomainname(name, length) == 0)
 		return 0;
 	return errno ? errno : EIO;
+}
+
+/* The daemonizing launcher can exit before its child publishes the PID file.
+ * Require a separately observed RUNNING child before reporting WAN-up success. */
+static enum process_presence
+detect_wan_startup_presence(void *context, int *scan_error)
+{
+	struct process_snapshot snapshot;
+	enum process_presence presence;
+
+	(void)context;
+	presence = process_inventory_scan("detect_wan", &snapshot);
+	if (scan_error)
+		*scan_error = snapshot.error;
+	process_snapshot_release(&snapshot);
+	return presence;
+}
+
+/* Preserve the complete readiness delay when SIGCHLD or another signal
+ * interrupts sleep, rather than shortening the monitor's startup window. */
+static int
+detect_wan_startup_wait(void *context, unsigned int seconds)
+{
+	unsigned int remaining = seconds;
+
+	(void)context;
+	while (remaining != 0) {
+		errno = 0;
+		remaining = sleep(remaining);
+		if (remaining == 0)
+			return 0;
+		if (errno != EINTR) {
+			int wait_error = errno > 0 ? errno : EIO;
+
+			errno = wait_error;
+			return wait_error;
+		}
+	}
+	return 0;
+}
+
+static int
+start_detect_wan_with_readiness(void)
+{
+	int launch_status, launch_errno, startup_status, startup_errno;
+
+	errno = 0;
+	launch_status = eval("detect_wan");
+	launch_errno = errno;
+	startup_status = detached_daemon_start_postcondition_with_ops(
+		launch_status, detect_wan_startup_presence,
+		detect_wan_startup_wait, NULL,
+		PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS,
+		PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS,
+		PROCESS_PRESENCE_START_PROBE_ATTEMPTS);
+	if (startup_status == 0) {
+		errno = 0;
+		return 0;
+	}
+
+	startup_errno = launch_status != 0 ?
+		(launch_errno > 0 ? launch_errno : EIO) :
+		(errno > 0 ? errno : EIO);
+	logmessage(LOGNAME,
+		   "WAN gateway ARP checker failed startup postcondition (launch=%d, status=%d)",
+		   launch_status, startup_status);
+	errno = startup_errno;
+	return startup_status;
 }
 
 static const lan_kernel_name_ops_t wan_kernel_name_ops = {
@@ -5465,7 +5534,7 @@ wan_up_internal_with_route_status(char *wan_ifname, int unit,
 			action = process_presence_start_action_for_state(presence);
 			route_status = 0;
 			if (action == PROCESS_PRESENCE_START_NEW)
-				route_status = eval("detect_wan");
+				route_status = start_detect_wan_with_readiness();
 			route_status = process_presence_start_status_for_action(
 				action, scan_error, route_status);
 			if (route_status != 0) {

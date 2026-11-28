@@ -1,3 +1,11 @@
+## 2026-11-28 — Verify detached WAN gateway monitor startup
+
+- `detect_wan_main()` daemonizes before PID-file publication. The WAN-up caller previously treated a zero `eval("detect_wan")` result as readiness, although that result can belong only to the short-lived daemonizing parent; the child may fail to publish its PID file and exit without the caller noticing.
+- WAN-up now routes the launch through a bounded tri-state process-presence postcondition and requires the detached `detect_wan` child to be observed RUNNING. UNKNOWN inventory and timeout failures propagate into the WAN-up result. The sleep callback retains its remaining interval across EINTR.
+- Reused the existing GNU89/ASan detached-daemon regression (delayed appearance, absent timeout, UNKNOWN, launcher failure and interrupted wait); strengthened `check_wan_detect_wan_status.py` to enforce the actual production path. Exact-head WAN/ARP/AI/XY-C1 results pending; no physical-router L4 claim. No DHCPACK or storage behavior changed.
+
+---
+
 ## 2026-11-28 — Correct duplicate DHCPACK test-registration contract assertion
 
 - The udhcpc host policy binary passed again on #46153023184, but the Python checker then reached a second, duplicate lease-time contract block and failed at line 407. The main() test registration is formatted as `test_lease_time_option_requires_exactly_one_uint32() != 0 ||`; normalize the source and expected token consistently.

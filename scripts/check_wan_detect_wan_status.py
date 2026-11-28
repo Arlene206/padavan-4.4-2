@@ -8,6 +8,7 @@ RC = ROOT / "trunk/user/rc/src"
 WAN = (RC / "net_wan.c").read_text()
 POLICY = (RC / "process_presence_start_policy.h").read_text()
 TEST = (RC / "tests/process_presence_start_policy.c").read_text()
+DETACHED_TEST = (RC / "tests/detached_daemon_start_policy.c").read_text()
 ROUTE_STATUS_TEST = (RC / "tests/route_status_policy.c").read_text()
 RC_SOURCE = (RC / "rc.c").read_text()
 RC_HEADER = (RC / "rc.h").read_text()
@@ -111,7 +112,7 @@ require(
 release = wan_up.index("process_snapshot_release(&snapshot);", scan)
 decision = wan_up.index("action = process_presence_start_action_for_state(presence);", release)
 start_gate = wan_up.index("if (action == PROCESS_PRESENCE_START_NEW)", decision)
-launch = wan_up.index('route_status = eval("detect_wan");', start_gate)
+launch = wan_up.index("route_status = start_detect_wan_with_readiness();", start_gate)
 status_map = wan_up.index(
     "route_status = process_presence_start_status_for_action(", launch
 )
@@ -130,8 +131,8 @@ require(
     < merge < unknown_gate < unknown_diagnostic < launch_diagnostic,
     "inventory and launch outcomes must be mapped, aggregated and logged in order",
 )
-require(wan_up.count('eval("detect_wan")') == 1,
-        "the gateway ARP launch must be captured exactly once")
+require(WAN.count('eval("detect_wan")') == 1,
+        "the daemonizing gateway ARP launcher must be invoked exactly once")
 require("action, scan_error, route_status" in wan_up[status_map:merge],
         "UNKNOWN status mapping must receive scan error and launch result")
 require(
@@ -141,6 +142,37 @@ require(
 )
 require("route_status);" in wan_up[unknown_diagnostic:launch_diagnostic],
         "UNKNOWN inventory must report its effective error")
+
+# detect_wan() daemonizes before PID-file publication; its parent exit is not
+# proof that the detached monitor is alive and ready.
+presence_scan = body(WAN, "detect_wan_startup_presence(void *context, int *scan_error)")
+startup_wait = body(WAN, "detect_wan_startup_wait(void *context, unsigned int seconds)")
+startup = body(WAN, "start_detect_wan_with_readiness(void)")
+require('#include "detached_daemon_start_policy.h"' in WAN
+        and 'process_inventory_scan("detect_wan", &snapshot);' in presence_scan
+        and "process_snapshot_release(&snapshot);" in presence_scan,
+        "gateway monitor startup must use a released tri-state process snapshot")
+wait_compact = "".join(startup_wait.split())
+require("remaining=sleep(remaining);" in wait_compact
+        and "errno!=EINTR" in wait_compact,
+        "readiness waits must preserve the full interval across EINTR")
+require('launch_status = eval("detect_wan");' in startup
+        and "detached_daemon_start_postcondition_with_ops(" in startup
+        and "detect_wan_startup_presence" in startup
+        and "detect_wan_startup_wait" in startup
+        and "PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS" in startup
+        and "PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS" in startup
+        and "PROCESS_PRESENCE_START_PROBE_ATTEMPTS" in startup,
+        "detached detect_wan startup must require a bounded RUNNING postcondition")
+require("test_delayed_daemon_appearance_is_accepted" in DETACHED_TEST
+        and "test_absent_child_times_out" in DETACHED_TEST
+        and "test_unknown_inventory_fails_closed" in DETACHED_TEST
+        and "test_wait_interruption_and_invalid_arguments_fail" in DETACHED_TEST,
+        "detached-daemon regression must cover delayed, absent, UNKNOWN and interrupted states")
+require(WORKFLOW.count('"trunk/user/rc/src/tests/detached_daemon_start_policy.c"') >= 2
+        and "Compile and run shared detached-daemon startup readiness regression" in WORKFLOW,
+        "WAN push/pull validation must compile the detached-daemon readiness policy")
+
 post_hook = wan_up.index("/* Only invoke the optional hook with a complete, stable IPv4 snapshot. */")
 post_hook_guard = wan_up.index("if (check_if_file_exist(script_postw))", post_hook)
 post_hook_eval = wan_up.index(
