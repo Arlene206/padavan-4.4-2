@@ -1,3 +1,11 @@
+## 2026-11-28 15:12 CST (UTC+8) — Correct docs-only fixture and force detector-test validation
+
+- Base main SHA: `4ac5f34636f9ad7810f27d83823f956cc7d4edb8`. XY #46114862278 passed the new detector full-Git-diff test (NUL-separated path output) but failed the older docs-only test because it still listed `scripts/check_xy_c1_firmware_inputs.py`, which is now intentionally classified as a build trigger.
+- Changed the docs-only fixture to a regular host-only checker and included `scripts/tests/test_xy_c1_firmware_inputs.py` in the build-trigger set. A change to the detector's regression test now also exercises the actual build path, not only its own host tests. No firmware source changed.
+- Parent AI docs #46114862314 PASS; exact-head XY rerun required.
+
+---
+
 ## 2026-11-28 15:07 CST (UTC+8) — Fix NUL delimiters in XY-C1 detector regression
 
 - Base main SHA: `acc830ca7e4104908c9cf9f7c2555d9d5d8d296f`. Review found the detector test fixture emitted a double-escaped literal `\\0` instead of NUL bytes, so its fake Git diff could not represent the `git diff --name-only -z` stream.

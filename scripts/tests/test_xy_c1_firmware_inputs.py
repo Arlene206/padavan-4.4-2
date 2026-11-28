@@ -272,6 +272,7 @@ class FirmwareInputPathTests(unittest.TestCase):
         for path in (
             "scripts/check_xy_c1_firmware_inputs.py",
             "scripts/check_firmware_update_notification.py",
+            "scripts/tests/test_xy_c1_firmware_inputs.py",
         ):
             with self.subTest(path=path):
                 self.assertFalse(is_non_firmware_input(path))
@@ -398,7 +399,7 @@ class FirmwareInputPathTests(unittest.TestCase):
             if args[0] == "diff":
                 return result(args, stdout=(
                     "SESSION_HANDOFF.md\0"
-                    "scripts/check_xy_c1_firmware_inputs.py\0"
+                    "scripts/check_optional_app_start_status.py\0"
                 ))
             self.fail("unexpected git args: " + repr(args))
 

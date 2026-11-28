@@ -16,6 +16,7 @@ FIRMWARE_VALIDATION_CHECKERS = {
     # exercise the actual MIPS build path, not only host-side assertions.
     "scripts/check_xy_c1_firmware_inputs.py",
     "scripts/check_firmware_update_notification.py",
+    "scripts/tests/test_xy_c1_firmware_inputs.py",
 }
 DOCUMENTATION_FILES = {
     "AI_BOOTSTRAP_PROMPT.md",
