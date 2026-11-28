@@ -1,3 +1,11 @@
+## 2026-11-28 — Restore handoff accuracy checkpoint wording after exact-SHA validator failure
+
+- Exact-head AI handoff documentation workflow #46149948625 failed on `9fc0a65fdff1a8c315119200efb1976e6e9d181d` because the active handoff omitted the required conditional checkpoint sentence and used a non-canonical active-task heading.
+- Restored the exact end-of-session accuracy checkpoint language, `## Active task` section and cross-session execution mandate. This is a validator-driven documentation correction; production source is unchanged.
+- At the parent SHA, networkmap packet-field regression/source contract #46149948622 PASS and Process inventory #46149948705 PASS; AI docs failed as above. XY-C1 #46149948587 and NVRAM audit #46149948646 were still in progress. Exact rerun pending.
+
+---
+
 ## 2026-11-28 — Bound networkmap IBOX ProductID reads to the packet field
 
 - The IBOX response defines `PKT_GET_INFO.ProductID` as a fixed 32-byte field. `asus_dd_query()` previously passed this peer-controlled field to `is_valid_hostname()` (which calls `strlen()`) and logged it with `%s` without proving a NUL existed inside the field. A malformed response could make those consumers absorb bytes from adjacent firmware-version/mode fields. This is a fixed-field boundary parsing defect, not a demonstrated out-of-buffer read: the receive buffer is zero-initialized.

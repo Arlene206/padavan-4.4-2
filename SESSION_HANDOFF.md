@@ -1,40 +1,40 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; active branch `main`. Startup protocol and handoff recovery were completed once; do not repeat the initial audit.
-- Main immediately before this source slice: `fc724d8efc810d2f063bb7cef7427eab118f84ce`. The WAN/VIPTV DHCP RELEASE-before-stop fix at this parent has exact-head WAN teardown and WAN DHCP callback workflow PASS results.
-- Frozen backup: `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify it. PR #1 remains closed/unmerged; its CA trust-store feature is integrated.
+- Main before this documentation-contract correction: `9fc0a65fdff1a8c315119200efb1976e6e9d181d`. Networkmap ProductID fixed-field source guard, regression and exact workflow are committed at this base; networkmap workflow #46149948622 PASS.
+- Frozen backup: `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify. PR #1 remains closed/unmerged; CA trust-store feature is integrated.
 
-## Active source task
+## Active task
 
-- Bound networkmap ASUS IBOX `ProductID[32]` consumption to its fixed packet field. The legacy consumer passed the field to `is_valid_hostname()` (uses `strlen()`) and a `%s` diagnostic without verifying NUL within the field. A malformed peer response could cause adjacent firmware-version/mode bytes to be interpreted as part of the product identifier. This is a fixed-field parsing defect; the 512-byte receive buffer is zeroed, so this is not claimed as an out-of-buffer read.
-- Production change adds `networkmap_fixed_field_is_nul_terminated()`, gates hostname validation/copy on the ProductID boundary, and uses precision-limited `%.*s` logging. Host regression covers missing terminator, final-byte terminator, empty field, adjacent-byte terminator, null pointer and zero capacity.
-- Local isolated test with `-std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined`: PASS. Exact-head networkmap checker, tests and XY-C1 Build/TRX/artifact are pending on this atomic source commit.
+- Correct the handoff contract after exact-head AI documentation job #46149948625 failed on `9fc0a65fdff1a8c315119200efb1976e6e9d181d`: the handoff did not contain the explicit conditional checkpoint sentence required by the validator and had drifted from the canonical `## Active task` heading. This commit restores exact protocol language and a current first action; it does not change production source.
+- The preceding production fix bounds ASUS IBOX `ProductID[32]` consumption in networkmap: check for an in-field NUL before hostname validation/copy and precision-limit its diagnostic. The malformed-field regression proves adjacent bytes cannot supply the required terminator.
 
-## Exact-SHA CI checkpoint at the parent
+## Exact-SHA CI checkpoint
 
-- `fc724d8efc810d2f063bb7cef7427eab118f84ce`: WAN interface teardown #46148954046 PASS; WAN DHCP callback #46148954142 PASS; AI handoff documentation #46148954052 PASS. XY-C1 #46148953975 is still in progress at Build XY-C1; TRX/artifact not yet complete.
-- Prior fully validated production checkpoint `13339bed554e334b2e9c0176533d6e4a97c7907e`: XY-C1 #46147869371 PASS with Build XY-C1, TRX verification and artifact upload; Process inventory #46147869397 PASS.
-- NVRAM boundary audit #46148136209 and handoff validation #46148136319 PASS at the earlier NVRAM fix SHA; do not repeat that audit without a new defect.
+- `9fc0a65fdff1a8c315119200efb1976e6e9d181d`: networkmap signal/packet-field workflow #46149948622 PASS (all four GNU89/Werror/ASan/UBSan binaries and source contracts); Process inventory #46149948705 PASS.
+- AI handoff documentation #46149948625 FAIL only because its required handoff checkpoint wording/section heading was not present. THIS documentation correction restores those exact required terms; rerun on the new SHA.
+- XY-C1 #46149948587 is PENDING/in progress at toolchain setup; Build/TRX/artifact results not yet complete.
+- NVRAM transaction-boundary #46149948646 is PENDING/in progress. Its previously validated exact-head result #46148136209 PASS remains recorded; this new root-log rotation may trigger the validator, so inspect but do not restart the NVRAM audit unless it fails.
 
 ## Verification boundary
 
-- Local networkmap fixed-field host test PASS (GNU89, Werror, ASan/UBSan).
-- Exact-head networkmap workflow and XY-C1 Build/TRX/artifact for this newer production tree: PENDING. Do not claim L3 until one exact production-source SHA passes Build, TRX and artifact upload.
+- Networkmap fixed-field host regression and source checker: exact-head PASS at `9fc0a65fdff1a8c315119200efb1976e6e9d181d`.
+- Documentation-only correction: no production inputs changed; no new firmware L3 claim is needed for this commit. XY-C1 exact-head status is still needed to validate the prior production SHA if its run completes.
 - Physical router L4 is NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Read live `main` and inspect exact-head Actions for this networkmap packet-field commit: networkmap signal/packet-string regression, AI handoff documentation and XY-C1 firmware validation.
-2. If any checker/test fails, inspect the failing step and make the smallest causal source/test correction in one complete-tree atomic commit. If XY-C1 remains pending, continue an independent non-networkmap stability/security slice.
-3. After this guard passes, continue on an uncompleted userland module; do not restart broad inventories or revisit completed NVRAM/Samba/HTTPD work without new evidence.
-4. Keep the frozen backup unchanged. Distinguish CI Build/TRX/artifact (L3) from physical-router L4.
+1. Inspect exact-head AI handoff documentation after this correction; require its archive index/byte count/blob SHA checks to pass as well as the handoff wording rules.
+2. Inspect XY-C1 #46149948587 and NVRAM #46149948646; distinguish exact-head PASS/FAIL/PENDING and do not claim L3 until Build, TRX and artifact all pass on one production SHA.
+3. Continue a source-backed stability/security fix outside NVRAM and the just-fixed networkmap packet field; do not repeat completed audits without fresh evidence.
+4. Keep the frozen backup unchanged and use complete-tree, non-forced expected-SHA commits.
 
 ## Mandatory end-of-session handoff checkpoint
 
-Mandatory handoff checkpoint. Inspect live repository state and exact-head Actions before ending. Update this file only if the active task or first actionable inspection materially changes; do not create a documentation-only commit to record routine CI transitions.
+Mandatory handoff checkpoint. The checkpoint is mandatory; a document edit is conditional. Every session MUST inspect the live repository state and exact-head Actions before ending. Record material PENDING-to-PASS/FAIL transitions. If all checkpoint facts and the first action remain accurate, leave the handoff untouched and do not create a no-op commit.
 
-## Cross-session execution mandate
+# Cross-session execution mandate
 
-- One logical task, one atomic main commit: all blobs → one complete tree → one commit → non-forced expected-SHA update. Never force-push or publish per-file partial commits.
-- Keep working while independent Actions are pending; PASS continues, FAIL requires causal repair, PENDING permits independent work.
-- Recover once, implement continuously, preserve security/architecture/compatibility and necessary tests, and do not ask what to do next.
+- One atomic main commit per logical task: create all required blobs, one complete Git tree, one commit, then a non-forced expected-SHA update. Never force-push or publish per-file partial commits.
+- Before context exhaustion, inspect the exact-head Actions and leave the next GPT an accurate task, first action, tests and L1-L4 verification boundary.
+- Keep working while independent Actions are pending; PASS continues, FAIL requires causal repair, PENDING permits independent work. Do not ask the user what to do next.
