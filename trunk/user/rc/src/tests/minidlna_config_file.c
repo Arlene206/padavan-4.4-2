@@ -7,6 +7,25 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+static unsigned int config_test_fsync_calls;
+static unsigned int config_test_fsync_eintr_remaining;
+static int config_test_fsync_always_eintr;
+
+static int
+config_test_fsync(int fd)
+{
+	++config_test_fsync_calls;
+	if (config_test_fsync_always_eintr ||
+	    config_test_fsync_eintr_remaining > 0U) {
+		if (config_test_fsync_eintr_remaining > 0U)
+			--config_test_fsync_eintr_remaining;
+		errno = EINTR;
+		return -1;
+	}
+	return fsync(fd);
+}
+
+#define CONFIG_FILE_SYNC_FSYNC(fd) config_test_fsync(fd)
 #include "minidlna_config_file.h"
 
 static void
@@ -80,6 +99,16 @@ main(void)
 	status = minidlna_config_publish(path, &values);
 	assert(status == 0);
 	assert(config_file_sync_parent(path) == 0);
+
+	/* Two transient file-sync interruptions are retried; the parent is synced too. */
+	config_test_fsync_calls = 0U;
+	config_test_fsync_eintr_remaining = 2U;
+	status = minidlna_config_publish(path, &values);
+	assert(status == 0);
+	assert(config_test_fsync_eintr_remaining == 0U);
+	assert(config_test_fsync_calls == 4U);
+	assert_no_temporary_files(directory);
+
 	assert_contains(path, "port=8200\n");
 	assert_contains(path, "network_interface=br0\n");
 	assert_contains(path, "notify_interval=300\n");
@@ -121,6 +150,17 @@ main(void)
 		assert(fputs("last-good-configuration\n", last_good) >= 0);
 		assert(fclose(last_good) == 0);
 	}
+
+	/* Persistent EINTR stops after the bounded budget and preserves last-good data. */
+	config_test_fsync_calls = 0U;
+	config_test_fsync_always_eintr = 1;
+	status = minidlna_config_publish(path, &values);
+	config_test_fsync_always_eintr = 0;
+	assert(status == EINTR);
+	assert(config_test_fsync_calls ==
+	       CONFIG_FILE_SYNC_MAX_EINTR_RETRIES + 1U);
+	assert_contains(path, "last-good-configuration\n");
+	assert_no_temporary_files(directory);
 
 	values.friendly_name = "Padavan\nmodel_number=999";
 	assert(minidlna_config_publish(path, &values) == EINVAL);

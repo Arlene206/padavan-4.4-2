@@ -1365,7 +1365,9 @@ jobs:
           helper = (root / "config_file_sync.h").read_text()
           assert "open(parent_path, O_RDONLY | O_DIRECTORY | O_NOFOLLOW)" in helper
           assert "config_file_sync_fd(directory_fd)" in helper
-          assert "errno == EINTR" in helper
+          assert "errno != EINTR" in helper
+          assert "interruptions >= CONFIG_FILE_SYNC_MAX_EINTR_RETRIES" in helper
+          assert "++interruptions;" in helper
           for name, signature in (
               ("minidlna_config_file.h", "minidlna_config_publish("),
               ("firefly_config_file.h", "firefly_config_publish("),
@@ -1375,6 +1377,8 @@ jobs:
               body = source[start:]
               rename = body.index("rename(temporary_path, path)")
               sync = body.index("config_file_sync_parent(path)", rename)
+              assert "config_file_sync_fd(fileno(output))" in body, name
+              assert "sync_status = fsync(fileno(output))" not in body, name
               assert sync > rename, name
           print("Media-server config rename + parent-directory fsync contract: PASS")
           PY

@@ -1,3 +1,11 @@
+## 2026-11-28 — Bound MiniDLNA and Firefly config fsync retries
+
+- The process-lifecycle regression run on exact SHA `1e9b17efdc54970c76b80689f63c6804ae4ecc4b` passed 63 preceding lifecycle/config regressions, then exposed that MiniDLNA and Firefly still each had a local unbounded `do/while(errno == EINTR)` loop despite the shared bounded `config_file_sync.h` helper already being available.
+- Routed both staged-file fsync operations through `config_file_sync_fd()`; parent-directory durability continues through the same helper after rename. Added injected tests for two transient EINTRs followed by success (including parent sync) and persistent EINTR exhaustion at exactly nine total attempts, verifying no staged temp remains and the prior active configuration is preserved.
+- Updated the process-lifecycle source contract to require bounded helper usage and reject the duplicate raw fsync loops. No local host compile, XY-C1 firmware build or hardware result is claimed; exact-head Actions must validate the changes.
+
+---
+
 ## 2026-11-28 — Repair stale watchdog and NVRAM source contracts
 
 - Exact SHA `1e9b17efdc54970c76b80689f63c6804ae4ecc4b` exposed two false-negative CI contracts, not failures in the new compiled policy regressions. The watchdog-signal C/ASan test step passed, then its inline source check still demanded the removed shared-`/tmp` stale-file unlink policy. Removed that dead helper/test and the three obsolete assertions after the probe moved to an owner-only `mkdtemp` directory.

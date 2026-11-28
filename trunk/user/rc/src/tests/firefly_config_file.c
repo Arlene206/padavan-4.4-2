@@ -7,6 +7,25 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+static unsigned int config_test_fsync_calls;
+static unsigned int config_test_fsync_eintr_remaining;
+static int config_test_fsync_always_eintr;
+
+static int
+config_test_fsync(int fd)
+{
+	++config_test_fsync_calls;
+	if (config_test_fsync_always_eintr ||
+	    config_test_fsync_eintr_remaining > 0U) {
+		if (config_test_fsync_eintr_remaining > 0U)
+			--config_test_fsync_eintr_remaining;
+		errno = EINTR;
+		return -1;
+	}
+	return fsync(fd);
+}
+
+#define CONFIG_FILE_SYNC_FSYNC(fd) config_test_fsync(fd)
 #include "firefly_config_file.h"
 
 static void
@@ -175,6 +194,17 @@ main(void)
 					"media-user", "media-pass");
 	assert(status == 0);
 	assert(config_file_sync_parent(path) == 0);
+
+	/* Two transient file-sync interruptions are retried; the parent is synced too. */
+	config_test_fsync_calls = 0U;
+	config_test_fsync_eintr_remaining = 2U;
+	status = firefly_config_publish(path, path, "/mnt/firefly",
+					"media-user", "media-pass");
+	assert(status == 0);
+	assert(config_test_fsync_eintr_remaining == 0U);
+	assert(config_test_fsync_calls == 4U);
+	assert_no_temporary_files(directory);
+
 	assert_contains(path, "web_root = /usr/share/mt-daapd\n");
 	assert_contains(path, "port = 3689\n");
 	assert_contains(path, "runas = media-user\n");
@@ -214,6 +244,19 @@ main(void)
 	assert_no_temporary_files(directory);
 
 	write_file(path, "last-good-configuration\n");
+
+	/* Persistent EINTR stops after the bounded budget and preserves last-good data. */
+	config_test_fsync_calls = 0U;
+	config_test_fsync_always_eintr = 1;
+	status = firefly_config_publish(path, NULL, "/mnt/firefly",
+					"media-user", "media-pass");
+	config_test_fsync_always_eintr = 0;
+	assert(status == EINTR);
+	assert(config_test_fsync_calls ==
+	       CONFIG_FILE_SYNC_MAX_EINTR_RETRIES + 1U);
+	assert_contains(path, "last-good-configuration\n");
+	assert_no_temporary_files(directory);
+
 	status = firefly_config_publish(path, NULL, "/mnt/firefly",
 					"media-user\nadmin_pw = injected", "media-pass");
 	assert(status == EINVAL);
