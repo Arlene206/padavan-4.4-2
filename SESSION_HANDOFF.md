@@ -3,7 +3,7 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`.
-- Main at this write's parent: `eb6d784401b5a2953df0dea3c3549cf590e81398`; this validation slice changes CI coverage only, not firmware production source.
+- Main at this write's parent: `88695c8189774f5108ff82d0b7c621000c2d76d6`; exact IAPP optional-branch compile and host regressions passed on this SHA. This follow-up guards two header defaults and adds their workflow path coverage.
 - Frozen backup: `backup/pre-plugin-overhaul-2026-11-14`, recorded HEAD `72f4f157a084f8184b9597ca5bf334b8080e5807`. Its warning file forbids mutation/deletion. PR #1 remains CLOSED/unmerged; its substantive unmerged work was already compared, with no missing production/test/build change identified.
 - Startup recovery was completed once against the bootstrap, development protocol, handoff, roadmap and log indexes. Do not repeat completed audits.
 - Root `dev_log.md` remains below the documented 384 KiB target and 120-record rotation threshold. Keep 20–119 records. The roadmap is close to its 128 KiB hard limit; avoid routine expansion.
@@ -43,17 +43,21 @@ Latest production-source slice is `58700dc70b54d931aabdb6701f0ec88c14b9d1b4` (`f
 | `58700dc70b54d931aabdb6701f0ec88c14b9d1b4` | USB storage #46116630890; NVRAM #46116630796 | PASS |
 | `58700dc70b54d931aabdb6701f0ec88c14b9d1b4` | XY-C1 #46116630792 | PASS — Build, TRX and artifact upload; artifact ID `15252233106` (12,838,305 bytes) |
 | `a747994f8892363f94938655b6db68195d44c9dd` | AI docs #46117399122 | PASS |
+| `88695c8189774f5108ff82d0b7c621000c2d76d6` | IAPP host and optional-branch regression #46118049024 | PASS — lifecycle, dependency, FD, datagram, event-log and deadline checks |
+| `88695c8189774f5108ff82d0b7c621000c2d76d6` | XY-C1 MIPS optional IAPP compile #46118049024 | PASS — pinned toolchain, both optional translation units; two macro redefinition warnings fixed here |
+| `88695c8189774f5108ff82d0b7c621000c2d76d6` | AI docs #46118048938 | PASS |
 
-- L3 is now VERIFIED for the product source at `58700dc70b54d931aabdb6701f0ec88c14b9d1b4`: exact XY-C1 #46116630792 passed Build, TRX verification and artifact upload. Compare 58700 → current main `a747...` shows no production firmware paths changed, so the same L3 claim applies to current main's product source. L4 physical-router behavior remains NOT VERIFIED.
+- The last full XY-C1 L3 result remains exact product SHA `58700dc70b54d931aabdb6701f0ec88c14b9d1b4` (#46116630792: Build, TRX and artifact upload). Since then this session has changed IAPP headers, so do not carry that exact L3 claim onto current main until a fresh full image validation passes. Physical-router L4 remains NOT VERIFIED.
 - L4 physical-router flash/boot, wireless/network and WAN behavior are NOT VERIFIED.
 - Do not conflate host ASan/UBSan with MIPS build or hardware validation.
 
 ## Exact first action for the next GPT
 
-1. Verify the exact-main rerun after this correction. The prior run #46117932056 failed before target compilation: both shell checksum input formatting and the static source-contract parser encoded a newline incorrectly. The host lifecycle, daemon lifecycle, header-dependency and FD boundary tests passed before the checker stopped the job. The target archive download itself succeeded (44.96 MiB); sha256sum looked for the archive path with an appended newline, so the MIPS compiler was not executed. This commit replaces the fragile newline regex with a literal job-marker search, fixes the checksum printf, and pins that exact printf form in the checker. The corrected exact-head result is PENDING.
-2. This targeted MIPS compile is not a full firmware image/L3 result; default production configuration remains unchanged and does not enable `IAPP_EVENT_LOG`. The last full XY-C1 Build/TRX/artifact PASS is still run #46116630792 for product SHA `58700dc70b54d931aabdb6701f0ec88c14b9d1b4`; no firmware production source has changed since.
-3. Once the targeted compile passes, resume the next highest-priority unresolved stability/security slice from the roadmap. Keep unrelated independent work moving while Actions are pending.
+1. Poll the newly pushed exact-head IAPP workflow. Require both the host lifecycle/source-contract job and the optional XY-C1 MIPS compile job to pass; inspect the target logs to confirm the previous `__BYTE_ORDER` and `IAPP_OS_LINUX` redefinition warnings have disappeared. The immediately prior corrected run #46118049024 on `88695c...` passed the pinned-toolchain download and both optional translation units, but emitted those warnings.
+2. Run/poll the exact-head full XY-C1 Build/TRX/artifact workflow. This commit changes two IAPP headers; the older #46116630792 result only validates its exact earlier production SHA.
+3. After IAPP and firmware validation complete, resume the next highest-priority unresolved P1 stability/security item from the roadmap. Keep independent source work moving while Actions are pending.
 4. Avoid repeating completed watchdog, Process inventory, NVRAM boundary, detector, MiniUPnP, HTTPD, IPTV port and base IAPP safety audits.
+
 
 ## Verification boundary
 

@@ -1,3 +1,11 @@
+## 2026-11-28 — Respect platform byte order and guard the IAPP OS default
+
+- Exact IAPP run #46118049024 and AI docs #46118048938 on `88695c8189774f5108ff82d0b7c621000c2d76d6` both PASS. The host lifecycle suite passed daemon, dependency, FD, datagram, event-log and deadline checks; the separate target job verified the pinned MIPS musl archive and syntax-compiled `rtmpiapp.c` and `mt_iapp_util.c` with `IAPP_EVENT_LOG` under XY-C1 MIPS32r2/1004kc.
+- The successful target compile exposed two warnings: the vendor header unconditionally redefined libc's reserved `__BYTE_ORDER`, and `rtmpiapp.h` redefined `IAPP_OS_LINUX` already supplied by the build flags. Wrapped both legacy defaults with `#ifndef` so platform/toolchain definitions remain authoritative; added both headers to push/PR workflow path filters and pinned these guards in the source contract.
+- This source-header compatibility cleanup is not a full firmware Build/TRX result. Exact-head IAPP and full XY-C1 validation are required; no local build or physical-router L4 result is claimed.
+
+---
+
 ## 2026-11-28 14:47 CST (UTC+8) — Fix IAPP target-toolchain checksum and source-contract parsing
 
 - Parent main SHA: `eb6d784401b5a2953df0dea3c3549cf590e81398`. Exact IAPP run #46117932056 failed before compiler execution. In the host job, shell syntax, daemon lifecycle, Make header-dependency and select/FD regressions all passed, then the Python source contract did not find the target job because its raw-regex escaped the newline twice. In the target job, the 44.96 MiB archive downloaded successfully, but the checksum input used a literal backslash-n; `sha256sum` therefore attempted to open the archive path with an appended newline.

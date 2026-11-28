@@ -24,7 +24,9 @@
 #define __RTMP_IAPP_H__
 
 #include "rt_config.h"
+#ifndef IAPP_OS_LINUX
 #define IAPP_OS_LINUX
+#endif /* IAPP_OS_LINUX */
 //#define IAPP_OS_VXWORKS
 
 /*

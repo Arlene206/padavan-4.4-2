@@ -89,8 +89,10 @@ typedef enum _BOOLEAN {
 } BOOLEAN;
 
 
-/* BYTE Order */
+/* BYTE Order: respect the platform headers, with the legacy fallback. */
+#ifndef __BYTE_ORDER
 #define __BYTE_ORDER					__LITTLE_ENDIAN /* __BIG_ENDIAN */
+#endif /* __BYTE_ORDER */
 
 /* ReDefinition */
 #define NdisZeroMemory(__Dst, __Len)		memset(__Dst, 0, __Len)

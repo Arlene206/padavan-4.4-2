@@ -276,6 +276,29 @@ def main() -> None:
         require(token in deadline_test,
                 "missing IAPP monotonic deadline regression: " + token)
     workflow_text = (ROOT / ".github/workflows/iappd-lifecycle.yml").read_text(encoding="utf-8")
+
+    rt_config_text = (ROOT / "trunk/user/ralinkiappd/src/rt_config.h").read_text(encoding="utf-8")
+    iapp_header_text = (ROOT / "trunk/user/ralinkiappd/src/rtmpiapp.h").read_text(encoding="utf-8")
+    require("#ifndef __BYTE_ORDER" in rt_config_text and
+            "#define __BYTE_ORDER" in rt_config_text and
+            "#endif /* __BYTE_ORDER */" in rt_config_text and
+            rt_config_text.index("#ifndef __BYTE_ORDER") <
+            rt_config_text.index("#define __BYTE_ORDER") <
+            rt_config_text.index("#endif /* __BYTE_ORDER */"),
+            "Ralink byte-order fallback must not overwrite the platform libc definition")
+    require("#ifndef IAPP_OS_LINUX" in iapp_header_text and
+            "#define IAPP_OS_LINUX" in iapp_header_text and
+            "#endif /* IAPP_OS_LINUX */" in iapp_header_text and
+            iapp_header_text.index("#ifndef IAPP_OS_LINUX") <
+            iapp_header_text.index("#define IAPP_OS_LINUX") <
+            iapp_header_text.index("#endif /* IAPP_OS_LINUX */"),
+            "IAPP Linux platform default must coexist with a build-system definition")
+    for header_path in (
+        "trunk/user/ralinkiappd/src/rt_config.h",
+        "trunk/user/ralinkiappd/src/rtmpiapp.h",
+    ):
+        require(workflow_text.count('      - "' + header_path + '"') == 2,
+                "both IAPP workflow path filters must include " + header_path)
     deadline_path = "trunk/user/ralinkiappd/src/iapp_tcp_deadline_policy.h"
     require(workflow_text.count('      - "' + deadline_path + '"') == 2,
             "both IAPP workflow path filters must include the deadline policy")
