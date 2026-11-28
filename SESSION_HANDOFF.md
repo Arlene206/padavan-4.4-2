@@ -55,6 +55,12 @@ Every session MUST inspect the live repository state and compare it with this ha
 - Every stop-path firewall/UPnP reconciliation requires final `PROCESS_PRESENCE_ABSENT`. The storage-stop caller no longer lets a pre-stop RUNNING/UNKNOWN observation authorize a refresh when the final inventory remains uncertain; it aborts storage removal and retains the first stop failure.
 - GNU89 policy tests and workflow source-order contracts cover detailed status propagation, final ABSENT/RUNNING/UNKNOWN gating and group-stop first-error preservation. Dedicated VSFTPD regression #46106551633 PASS (L2); the umbrella storage-hotplug checker is being corrected for the new helper. XY-C1 and NVRAM audit were still running at last poll.
 
+### Shadowsocks — complete procfs confirmation for ABSENT lookups
+
+- Product and fake-procfs regression commit `f23be0cff7d7e0d1e942ebcf10094497b73be676` added complete procfs confirmation after BusyBox `pidof`/`pgrep` status 1. The dedicated workflow's shell syntax, startup-status, DNSMasq cleanup, process lifecycle runtime regression and adblock publication steps ALL PASSED; Process inventory #46079286495 PASS and XY-C1 #46079286427 PASS on the exact SHA.
+- The only Shadowsocks job failure was the final Python source-contract check: it expected two literal backslashes for the `tr` NUL/newline translation while the production helper correctly contains one. THIS checker-only commit changes the Python literal to match the source. Exact-main rerun pending.
+- The old AI-docs run #46079286331 failed because the roadmap exceeded the 128 KiB documentation hard limit. Later main checkpoint #46106904624 and latest #46107190369 passed the handoff-doc contract, so this is historical and does not need redoing.
+
 ## Verification boundary
 
 For product-source SHA `7daa20cd2f1bd7abca4499fb9f9a6e05ce5d3d00`:
@@ -92,8 +98,8 @@ The P1 VSFTPD final-absence stop gate is implemented and its dedicated GNU89/ASa
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`; inspect exact-head Actions for THIS storage-hotplug checker correction and the outstanding XY-C1 run for product SHA `4dd43a97904e7bec0c8ae094ff7c25ff82312b07`. Storage-hotplug #46106904590 failed at the next stale caller assertion: it expected the special FTP stop call to appear as `if (stop_ftp_locked(...))`, but the verified implementation captures its detailed status in `ftp_stop_status` before checking failure and final-presence cleanup. THIS checker-only follow-up asserts that status-capturing call, failure branch and final-absence firewall gate. The source regression #46106551633 already passed. Confirm the entire umbrella passes; fix only any remaining actual stale assertion.
-2. Confirm XY-C1 Build, TRX verification and artifact upload all PASS before assigning L3 to the VSFTPD product change. No physical router L4 test was performed.
+1. Poll storage-hotplug rerun #46107190352 on prior main `e1bd1892de53163bf044f636b000f4add5b9d574`; it was still running the BusyBox 1.24 Optware ash lifecycle segment at the last poll. Do not wait: in parallel, verify the Shadowsocks lifecycle and AI handoff exact-head Actions triggered by THIS checker correction. The earlier Shadowsocks #46079286423 runtime tests passed; only a Python checker string-escaping assertion failed, fixed here.
+2. XY-C1 Firmware Validation #46106551564 on product SHA `4dd43a97904e7bec0c8ae094ff7c25ff82312b07` has Build completed PASS; recheck TRX verification and artifact upload (they were not in the workflow's first-page job detail). VSFTPD dedicated L2 run #46106551633 PASS; do not claim L3 until TRX and upload are confirmed.
 3. iperf3 fail-closed discovery is already L2 verified: regression #46079981839 and Process inventory #46079981918 PASS on `6d659d767e8ac236527ca5cf02f2daedaf386507`; compare confirms the iperf3 source and shared process helper did not change through `4dd43a9`. Proceed to the next open reliability/security item from the current roadmap.
 # Cross-session execution mandate
 

@@ -1,3 +1,12 @@
+## 2026-11-28 13:15 CST (UTC+8) — Fix Shadowsocks procfs checker escape mismatch
+
+- Exact source SHA `f23be0cff7d7e0d1e942ebcf10094497b73be676`: Shadowsocks shell syntax, startup-status regression, DNSMasq cleanup regression, process lifecycle fake-procfs runtime regression and adblock config regression all PASS. Process inventory #46079286495 and XY-C1 Firmware Validation #46079286427 PASS.
+- The final Shadowsocks Python source-contract step failed because its expected `tr` literal encoded two backslash characters, while the helper correctly contains one backslash for each of the NUL/newline escapes. Corrected the checker expectation; production source and runtime tests are unchanged.
+- The old AI docs #46079286331 failed solely on the 131,389-byte roadmap (>131,072 hard limit). Later exact-main docs checks #46106904624 on `c57f036a` and #46107190369 on `e1bd1892` passed, so no current docs-size failure remains.
+- Exact-main Shadowsocks source-contract rerun and its AI docs check are pending on THIS correction commit. No local shell test is claimed.
+
+---
+
 ## 2026-11-28 13:02 CST (UTC+8) — Correct second storage-hotplug FTP caller assertion
 
 - Checker correction commit `c57f036a7c16c7d8d91fe9e95731da5eeb8e03dc` successfully removed the first obsolete FTP stop-status assertion, allowing the USB storage hotplug workflow to progress through all host regressions to the full caller-graph contract.
