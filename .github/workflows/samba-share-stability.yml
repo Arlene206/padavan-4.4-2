@@ -740,7 +740,7 @@ jobs:
 
           # A failed passwd/group/shadow rebuild must block all Samba passdb,
           # configuration and cleanup side effects, while retaining errno.
-          rebuild = compact_run.index("passwd_status=recreate_passwd_unix(0)")
+          rebuild = compact_run.index("passwd_status=recreate_passwd_unix_snapshot(")
           failure_gate = compact_run.index("if(passwd_status!=0)", rebuild)
           preserve_errno = compact_run.index(
               "passwd_error=errno?errno:(passwd_status>0?passwd_status:EIO);",

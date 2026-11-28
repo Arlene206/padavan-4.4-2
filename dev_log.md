@@ -1,3 +1,11 @@
+## 2026-11-28 — Align Samba ACL/passwd failure contract with snapshot API
+
+- The corrected Samba workflow syntax ran successfully on SHA 369afd4a and its first Samba staging/failure-gate step passed. Its second passdb/ACL parity step still searched for the retired `recreate_passwd_unix(0)` call, causing a ValueError before it could check the existing failure gate.
+- Updated that guard to anchor on `recreate_passwd_unix_snapshot()`; subsequent assertions still require password database rebuild failure to abort before passdb creation, smb.conf publication, cleanup or daemon startup.
+- Parent main SHA: 369afd4a220190f0878b2cf120ecc06ec7c55325. The next exact-head Samba workflow run must execute both static steps and the transaction durability checker. No production C code changed in this CI contract commit.
+
+---
+
 ## 2026-11-28 — Repair Samba workflow embedded-script indentation
 
 - Exact-head validation found the Samba workflow file itself became invalid YAML: four newly added source assertions were inserted without the ten-space block indentation used by the embedded Python run step. GitHub created a workflow run named by the file path and no jobs were exposed. The assertions are retained and correctly indented inside the Python block.
