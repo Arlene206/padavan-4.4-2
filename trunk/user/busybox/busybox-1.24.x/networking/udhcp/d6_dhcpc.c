@@ -30,6 +30,7 @@
 #include "dhcpd.h"
 #include "dhcpc.h"
 #include "d6_common.h"
+#include "udhcpc_script_policy.h"
 
 #include <netinet/if_ether.h>
 #include <netpacket/packet.h>
@@ -590,6 +591,8 @@ static NOINLINE int d6_recv_raw_packet(struct in6_addr *peer_ipv6
 	int bytes;
 	struct ip6_udp_d6_packet packet;
 
+	/* Do not let short datagrams inherit a previous packet's options. */
+	memset(&packet, 0, sizeof(packet));
 	bytes = safe_read(fd, &packet, sizeof(packet));
 	if (bytes < 0) {
 		log1("Packet read error, ignoring");
@@ -602,25 +605,27 @@ static NOINLINE int d6_recv_raw_packet(struct in6_addr *peer_ipv6
 		return -2;
 	}
 
-	if (bytes < sizeof(packet.ip6) + ntohs(packet.ip6.ip6_plen)) {
-		/* packet is bigger than sizeof(packet), we did partial read */
-		log1("Oversized packet, ignoring");
-		return -2;
-	}
-
-	/* ignore any extra garbage bytes */
-	bytes = sizeof(packet.ip6) + ntohs(packet.ip6.ip6_plen);
-
-	/* make sure its the right packet for us, and that it passes sanity checks */
+	/* Validate fixed IPv6/UDP header fields before trusting peer lengths. */
 	if (packet.ip6.ip6_nxt != IPPROTO_UDP
 	 || (packet.ip6.ip6_vfc >> 4) != 6
 	 || packet.udp.dest != htons(CLIENT_PORT6)
-	/* || bytes > (int) sizeof(packet) - can't happen */
-	 || packet.udp.len != packet.ip6.ip6_plen
 	) {
 		log1("Unrelated/bogus packet, ignoring");
 		return -2;
 	}
+
+	/* IPv6 payload length includes UDP header and the DHCPv6 message. */
+	if (!udhcp_raw_packet_length_is_valid((size_t)bytes,
+			(size_t)sizeof(packet.ip6) + (size_t)ntohs(packet.ip6.ip6_plen),
+			(size_t)ntohs(packet.udp.len),
+			sizeof(packet.ip6), sizeof(packet.udp),
+			offsetof(struct d6_packet, d6_options))) {
+		log1("Malformed or truncated DHCPv6 packet lengths, ignoring");
+		return -2;
+	}
+
+	/* Ignore trailing bytes beyond the IPv6 payload length. */
+	bytes = (int)(sizeof(packet.ip6) + (size_t)ntohs(packet.ip6.ip6_plen));
 
 //How to do this for ipv6?
 //	/* verify UDP checksum. IP header has to be modified for this */
@@ -638,7 +643,9 @@ static NOINLINE int d6_recv_raw_packet(struct in6_addr *peer_ipv6
 	d6_dump_packet(&packet.data);
 
 	bytes -= sizeof(packet.ip6) + sizeof(packet.udp);
-	memcpy(d6_pkt, &packet.data, bytes);
+	/* Do not expose stale options beyond the received DHCPv6 message. */
+	memset(d6_pkt, 0, sizeof(*d6_pkt));
+	memcpy(d6_pkt, &packet.data, (size_t)bytes);
 	return bytes;
 }
 

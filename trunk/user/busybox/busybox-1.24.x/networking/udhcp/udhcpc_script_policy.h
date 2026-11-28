@@ -402,7 +402,7 @@ udhcpc_server_addr_after_ack(uint32_t current_server_addr, int rebinding,
  * signed receive length when the IP/UDP headers are removed.
  */
 static inline int
-udhcpc_raw_packet_length_is_valid(size_t received_length,
+udhcp_raw_packet_length_is_valid(size_t received_length,
 				  size_t ip_total_length,
 				  size_t udp_length,
 				  size_t ip_header_length,

@@ -1008,7 +1008,7 @@ static NOINLINE int udhcp_recv_raw_packet(struct dhcp_packet *dhcp_pkt, int fd)
 		return -2;
 	}
 
-	if (!udhcpc_raw_packet_length_is_valid((size_t)bytes,
+	if (!udhcp_raw_packet_length_is_valid((size_t)bytes,
 			(size_t)ntohs(packet.ip.tot_len),
 			(size_t)ntohs(packet.udp.len),
 			sizeof(packet.ip), sizeof(packet.udp),

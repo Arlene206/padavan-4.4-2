@@ -68,7 +68,7 @@ assert '#include "udhcpc_script_policy.h"' in dhcpc
 
 # A raw DHCP datagram must have non-underflowing, mutually consistent IPv4,
 # UDP and fixed BOOTP/cookie lengths before header subtraction or packet copy.
-raw_length_policy = function_body(policy, "udhcpc_raw_packet_length_is_valid(")
+raw_length_policy = function_body(policy, "udhcp_raw_packet_length_is_valid(")
 assert "udp_header_length > maximum - minimum_dhcp_payload_length" in raw_length_policy
 assert "ip_header_length > maximum - minimum_udp_length" in raw_length_policy
 assert "received_length < ip_total_length" in raw_length_policy
@@ -79,12 +79,26 @@ assert "test_raw_packet_lengths_reject_underflow_and_truncation" in test
 raw_receiver = function_body(dhcpc, "static NOINLINE int udhcp_recv_raw_packet(")
 raw_receiver_compact = "".join(raw_receiver.split())
 assert raw_receiver.index("memset(&packet, 0, sizeof(packet));") < raw_receiver.index("recvmsg(fd, &msg, 0);")
-assert raw_receiver.index("udhcpc_raw_packet_length_is_valid(") < raw_receiver.index("/* verify IP checksum */")
-assert raw_receiver.index("udhcpc_raw_packet_length_is_valid(") < raw_receiver.index("if (packet.data.cookie")
+assert raw_receiver.index("udhcp_raw_packet_length_is_valid(") < raw_receiver.index("/* verify IP checksum */")
+assert raw_receiver.index("udhcp_raw_packet_length_is_valid(") < raw_receiver.index("if (packet.data.cookie")
 assert raw_receiver.index("memset(dhcp_pkt, 0, sizeof(*dhcp_pkt));") < raw_receiver.index("memcpy(dhcp_pkt, &packet.data")
 assert "offsetof(struct dhcp_packet, options)" in raw_receiver
 assert "memcpy(dhcp_pkt, &packet.data, (size_t)bytes);" in raw_receiver
 assert "test_raw_packet_lengths_reject_underflow_and_truncation() != 0" in test
+
+# DHCPv6 has the same signed-length subtraction hazard and stale-tail risk.
+d6_dhcpc = read(udhcp_dir + "d6_dhcpc.c")
+assert '#include "udhcpc_script_policy.h"' in d6_dhcpc
+d6_receiver = function_body(d6_dhcpc, "static NOINLINE int d6_recv_raw_packet(")
+assert d6_receiver.index("memset(&packet, 0, sizeof(packet));") < d6_receiver.index("safe_read(fd, &packet, sizeof(packet));")
+assert d6_receiver.index("udhcp_raw_packet_length_is_valid(") < d6_receiver.index("d6_dump_packet(&packet.data);")
+assert d6_receiver.index("udhcp_raw_packet_length_is_valid(") < d6_receiver.index("memcpy(d6_pkt, &packet.data")
+assert d6_receiver.index("memset(d6_pkt, 0, sizeof(*d6_pkt));") < d6_receiver.index("memcpy(d6_pkt, &packet.data")
+assert "offsetof(struct d6_packet, d6_options)" in d6_receiver
+assert "memcpy(d6_pkt, &packet.data, (size_t)bytes);" in d6_receiver
+assert "udhcp_raw_packet_length_is_valid(48U, 40U, 0U" in test
+assert "udhcp_raw_packet_length_is_valid(52U, 52U, 12U" in test
+
 
 
 # Every automatic read must begin defined; blocking waits refresh it before use.
