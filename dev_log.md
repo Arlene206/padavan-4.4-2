@@ -1,3 +1,10 @@
+## 2026-11-28 — Normalize udhcpc test-registration source assertion
+
+- The exact-head run #46152870458 passed its GNU89/Werror/ASan/UBSan host binary but the Python source contract failed at line 275. The C test is registered in `main()`; only the expected assertion fragment was wrong because the checker had compacted whitespace out of the source and retained spaces in `!= 0`.
+- Normalize both source and matcher to verify the actual `test_lease_time_option_requires_exactly_one_uint32()!=0||` condition. The storage workflow call-count fix remains under validation in #46152870433. No production code changed.
+
+---
+
 ## 2026-11-28 — Align DHCP source-contract guards with the ACK retry path
 
 - The first checker-only repair passed the host C regression but the exact-head Python checker still failed because it compared a whitespace-normalized policy expression with a spaced expected string. Normalize both sides before testing the absent/present option-length contract.
