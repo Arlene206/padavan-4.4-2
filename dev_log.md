@@ -1,3 +1,12 @@
+## 2026-11-28 13:52 CST (UTC+8) — Trigger XY-C1 for the udhcpc option scanner production sources
+
+- Base main SHA: `6dc8e60204f01f69dc2466e77a5c8a6f7e52277a`. The exact-head BusyBox udhcpc contract run #46112208899 and AI docs run #46112208955 both PASS. The C regression compiled under GNU89/Werror with ASan/UBSan and reported `udhcpc script failure and deconfig retry policy: PASS`.
+- Source review found the XY-C1 workflow path filter watched `dhcpc.c` and `udhcpc_script_policy.h` but omitted the newly edited production scanner `common.c`, its API header `common.h` and `option_parser_policy.h`. The de920 scanner full-stream validation commit changed only `common.c`, so it received no exact-source firmware build despite the earlier c21/c22 builds passing.
+- Added all three production paths to the XY-C1 push filter and a regression test that requires each path exactly once and classifies it as firmware input. The workflow-file change itself triggers a complete XY-C1 run on THIS SHA, validating the latest DHCP scanner source. No new firmware result is claimed until it finishes.
+- Earlier XY-C1 #46111402307 PASS on `2643d05714776b43bf850fb2d41aa1e3c191ba74` (server-ID length validation before full-stream scan change); #46111075565 PASS on `c21c9f0c5fd6b603befbbf84d4ddbc34eaafad62`. They do not validate `common.c` as changed by de920. Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-28 13:45 CST (UTC+8) — Align ACK server-ID checker with tri-state option API
 
 - Base main SHA: `84d77f3ae53d0f152237b3595c69da80f6005f22`. Exact-head run #46112122647 passed the GNU89/Werror/ASan/UBSan C policy binary and reached a stale source-checker assertion: it still expected `server_id_option != NULL` in the ACK commit section. The refactored code now records the tri-state result and commits the server address only when `server_id_status > 0` after checking the server-ID option length. AI handoff docs #46112122746 PASS.

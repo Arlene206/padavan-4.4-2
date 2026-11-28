@@ -96,6 +96,15 @@ class FirmwareInputPathTests(unittest.TestCase):
         self.assertEqual(workflow.count('      - "' + path + '"'), 1)
         self.assertFalse(is_non_firmware_input(path))
 
+    def test_udhcpc_option_scanner_sources_trigger_xy_c1_build(self):
+        workflow = (ROOT / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
+        base = "trunk/user/busybox/busybox-1.24.x/networking/udhcp/"
+        for filename in ("common.c", "common.h", "option_parser_policy.h"):
+            with self.subTest(filename=filename):
+                path = base + filename
+                self.assertEqual(workflow.count('      - "' + path + '"'), 1)
+                self.assertFalse(is_non_firmware_input(path))
+
     def test_production_sources_and_configuration_require_build(self):
         workflow = (ROOT / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
         self.assertEqual(

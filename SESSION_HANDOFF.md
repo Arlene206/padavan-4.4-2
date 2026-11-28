@@ -1,7 +1,8 @@
-## 2026-11-28 — Update DHCP ACK source contract for the tri-state server-ID API (THIS COMMIT)
+## 2026-11-28 — Add missing XY-C1 firmware triggers for udhcpc option scanner inputs (THIS COMMIT)
 
-- Base main SHA: `84d77f3ae53d0f152237b3595c69da80f6005f22`. Exact-head udhcpc #46112122647 passed the GNU89/Werror/ASan/UBSan policy binary and failed in the Python checker at the stale assertion `server_id_option != NULL`. Production ACK handling now validates `server_id_status`/payload length and only learns the identifier when `server_id_status > 0`. AI docs #46112122746 PASS.
-- THIS commit corrects that one source-checker assertion to the tri-state presence flag. No runtime code or regression cases are changed.
+- Base main SHA: `6dc8e60204f01f69dc2466e77a5c8a6f7e52277a`. Exact-head udhcpc regression #46112208899 and AI docs #46112208955 PASS after checker alignment.
+- Found that the XY-C1 workflow watched `dhcpc.c` and the common server-ID policy header but omitted `common.c`, `common.h` and `option_parser_policy.h`. The full-stream scanner source correction in `de9207aa81d8d67b86a79d30b0bd41906a303cd9` changed `common.c` only and therefore did not trigger XY-C1. Earlier firmware runs on c21/c22 do not cover that exact source.
+- THIS COMMIT adds these three paths to the push path filter and an automated detector regression. Updating the workflow triggers XY-C1 for THIS SHA; Build/TRX/artifact result pending. No L3 claim yet.
 
 ---
 
@@ -101,14 +102,14 @@ For product-source SHA `7daa20cd2f1bd7abca4499fb9f9a6e05ce5d3d00`:
 
 ## Active task
 
-The DHCP option-stream implementation is passing its GNU89/Werror/ASan/UBSan policy binary. The exact-head Python source contract has progressed through the corrected policy-symbol spelling and now exposed one stale ACK assertion: the old four-byte finder pointer `server_id_option != NULL` was replaced by tri-state `server_id_status > 0` so a malformed length cannot be mistaken for absence. THIS commit updates only that assertion.
+The DHCP option scanner / option-54 validation now passes the exact-head GNU89/Werror/ASan/UBSan unit workflow and source checker (#46112208899 PASS); AI docs #46112208955 PASS. A missing product-validation trigger was found: XY-C1 watched `dhcpc.c` and the shared policy but omitted `common.c`, `common.h` and `option_parser_policy.h`. The de920 full-stream scanner correction changed `common.c` only, so the firmware workflow did not run on that latest production source. THIS COMMIT adds those missing paths plus a test for the path contract and triggers a fresh XY-C1 build.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect exact-head BusyBox udhcpc and AI docs Actions for THIS commit. Parent #46112122647 passed C sanitizer tests but failed source checker at the obsolete ACK `server_id_option != NULL` assertion; parent docs #46112122746 PASS. If checker still fails, inspect the first causal assertion and align only stale expectations to current source semantics.
-2. Check whether c22 XY-C1 #46111402307 and c21 XY-C1 #46111075565 have completed; neither is evidence for the new full-stream DHCP option scanner. NVRAM #46111728560, storage #46111728542, Process #46111728525 PASS on de920 parent SHA.
-3. Once the DHCP source contract is green, proceed to a bounded independent issue outside udhcpc (VPN client xl2tpd control FIFO or another reproducible high-risk gap). Treat FIFO nonblocking open and SIGPIPE protection as separate testable requirements.
-4. Current DHCP source L3 and physical-router L4 remain NOT VERIFIED. Earlier HTTPD XY #46109982320 only applies to old source SHA `856fe202...`.
+1. Fetch live `main` and inspect exact-head XY-C1 run triggered by THIS workflow update. Require Build, TRX output verification and artifact upload all PASS before marking DHCP scanner L3 verified.
+2. Exact-head unit evidence before this commit: udhcpc #46112208899 PASS; AI docs #46112208955 PASS. Earlier XY-C1 #46111402307 PASS on `2643d057...` (pre-full-stream scanner) and #46111075565 PASS on c21; those are not substitutes for the latest source.
+3. Once exact-source L3 is resolved, proceed to a bounded, reproducible reliability fix outside DHCP. VPN client xl2tpd control FIFO remains a candidate: current daemon creates FIFO at mode 0600 and opens its read end; rc uses blocking `open(O_WRONLY)`. Test nonblocking absent-reader handling and SIGPIPE/closed-reader safety separately before modifying.
+4. No physical-router L4 has been performed.
 
 # Cross-session execution mandate
 
@@ -119,5 +120,5 @@ The DHCP option-stream implementation is passing its GNU89/Werror/ASan/UBSan pol
 
 Before context exhaustion, stop starting new modules, finish and publish a safe bounded slice, then leave this handoff with the exact first action, validation boundary and committed baseline.
 - Run the local handoff-doc validator when a checkout is available. This session had no local checkout; the exact-head GitHub Actions workflow is the validation gate for the docs correction.
-- Keep the root dev log at 20–119 complete records; it had 87 records before this entry and now has 88, so no archive rotation is due. Do not add handoff/roadmap archive snapshots.
+- Keep the root dev log at 20–119 complete records; it had 88 records before this entry and now has 89, so no archive rotation is due. Do not add handoff/roadmap archive snapshots.
 - Do not change GPT Session Rotator or replay its existing state/SHA. Do not claim hardware validation or a successful build when steps were skipped.
