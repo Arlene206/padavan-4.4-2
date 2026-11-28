@@ -11,10 +11,6 @@
 
 #include "config_file_sync.h"
 
-#ifndef INIT_MDEV_CONFIG_FSYNC
-#define INIT_MDEV_CONFIG_FSYNC(fd) fsync(fd)
-#endif
-
 #ifndef INIT_MDEV_CONFIG_SYNC_PARENT
 #define INIT_MDEV_CONFIG_SYNC_PARENT(path) config_file_sync_parent(path)
 #endif
@@ -89,13 +85,8 @@ init_mdev_config_publish(FILE **stream, const char *staged_path,
         saved_errno = errno ? errno : EIO;
     if (!saved_errno && fflush(fp) != 0)
         saved_errno = errno ? errno : EIO;
-    if (!saved_errno) {
-        do {
-            sync_result = INIT_MDEV_CONFIG_FSYNC(fileno(fp));
-        } while (sync_result < 0 && errno == EINTR);
-        if (sync_result < 0)
-            saved_errno = errno ? errno : EIO;
-    }
+    if (!saved_errno && config_file_sync_fd(fileno(fp)) != 0)
+        saved_errno = errno ? errno : EIO;
     if (fclose(fp) != 0 && !saved_errno)
         saved_errno = errno ? errno : EIO;
     if (!saved_errno && rename(staged_path, path) < 0)

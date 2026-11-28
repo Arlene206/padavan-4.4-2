@@ -325,10 +325,11 @@ jobs:
           assert "-I trunk/user/rc/src" in workflow
 
           for token in ("mkstemp(", "fchmod(fd, 0644)", 'fdopen(fd, "w")',
-                        "ferror(fp)", "fflush(fp)", "INIT_MDEV_CONFIG_FSYNC(fileno(fp))",
-                        "while (sync_result < 0 && errno == EINTR)",
+                        "ferror(fp)", "fflush(fp)", "config_file_sync_fd(fileno(fp))",
                         "fclose(fp)", "rename(staged_path, path)", "unlink(staged_path)"):
               assert token in helper, token
+          assert "INIT_MDEV_CONFIG_FSYNC" not in helper
+          assert "sync_result = INIT_MDEV_CONFIG_FSYNC" not in helper
 
           assert '#include "config_file_sync.h"' in helper
           assert "INIT_MDEV_CONFIG_SYNC_PARENT(path)" in helper
@@ -336,6 +337,10 @@ jobs:
               "if (!saved_errno && INIT_MDEV_CONFIG_SYNC_PARENT(path) != 0)"
           )
           assert "config_file_sync_parent(path)" in helper
+          assert "CONFIG_FILE_SYNC_MAX_EINTR_RETRIES 8U" in sync_helper
+          assert "status = CONFIG_FILE_SYNC_FSYNC(fd);" in sync_helper
+          assert "status == 0 || errno != EINTR" in sync_helper
+          assert "interruptions >= CONFIG_FILE_SYNC_MAX_EINTR_RETRIES" in sync_helper
           assert "O_RDONLY | O_DIRECTORY | O_NOFOLLOW" in sync_helper
           for token in ("parent_sync_calls == 1", "parent_sync_error = EIO",
                         "directory-sync-error", "config_file_sync_parent(missing_parent_path) < 0",
@@ -346,6 +351,8 @@ jobs:
                         "old-policy", "new-policy", "blocked_path",
                         "preserve", "init_mdev_config_publish",
                         "fsync_interruptions_remaining = 2",
+                        "fsync_always_interrupt = 1",
+                        "CONFIG_FILE_SYNC_MAX_EINTR_RETRIES",
                         "fsync_calls - calls_before_publish == 3"):
               assert token in test, token
 

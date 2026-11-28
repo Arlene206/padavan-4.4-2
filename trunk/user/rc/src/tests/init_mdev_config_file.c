@@ -9,7 +9,7 @@
 
 static int injected_fsync(int fd);
 static int injected_parent_sync(const char *path);
-#define INIT_MDEV_CONFIG_FSYNC(fd) injected_fsync(fd)
+#define CONFIG_FILE_SYNC_FSYNC(fd) injected_fsync(fd)
 #define INIT_MDEV_CONFIG_SYNC_PARENT(path) injected_parent_sync(path)
 #include "../init_mdev_config_file.h"
 
@@ -23,6 +23,7 @@ static int injected_parent_sync(const char *path);
 
 static int fsync_calls;
 static int fsync_interruptions_remaining;
+static int fsync_always_interrupt;
 static int parent_sync_calls;
 static int parent_sync_error;
 
@@ -30,7 +31,7 @@ static int
 injected_fsync(int fd)
 {
     fsync_calls++;
-    if (fsync_interruptions_remaining > 0) {
+    if (fsync_always_interrupt || fsync_interruptions_remaining > 0) {
         fsync_interruptions_remaining--;
         errno = EINTR;
         return -1;
@@ -118,6 +119,20 @@ main(void)
     CHECK(parent_sync_calls == 1);
     CHECK(parent_sync_error == 0);
     CHECK(fp == NULL);
+    CHECK(file_equals(path, "new-policy\n"));
+    CHECK(access(staged_path, F_OK) != 0 && errno == ENOENT);
+
+    /* Persistent EINTR is bounded, removes the candidate and preserves the active policy. */
+    CHECK(init_mdev_config_open(path, staged_path, sizeof(staged_path), &fp) == 0);
+    CHECK(fputs("must-not-publish\n", fp) >= 0);
+    calls_before_publish = fsync_calls;
+    fsync_always_interrupt = 1;
+    CHECK(init_mdev_config_publish(&fp, staged_path, path) == -EINTR);
+    fsync_always_interrupt = 0;
+    CHECK(fsync_calls - calls_before_publish ==
+          (int)CONFIG_FILE_SYNC_MAX_EINTR_RETRIES + 1);
+    CHECK(fp == NULL);
+    CHECK(parent_sync_calls == 1);
     CHECK(file_equals(path, "new-policy\n"));
     CHECK(access(staged_path, F_OK) != 0 && errno == ENOENT);
 

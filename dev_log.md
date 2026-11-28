@@ -1,3 +1,11 @@
+## 2026-11-28 — Bound PID 1 init-mdev config fsync retries
+
+- The init-mdev publisher still carried a separate raw `while (sync_result < 0 && errno == EINTR)` retry loop despite already depending on the shared configuration durability helper. A persistent signal stream could therefore pin PID 1 while trying to publish `mdev.conf`.
+- Routed staged-file synchronization through `config_file_sync_fd()`. Reused the shared injected fsync seam and added a persistent-EINTR regression: nine total attempts, no parent sync/rename, staged file removed, and the last published policy preserved. The existing two-transient-interruption success case remains.
+- Updated the PID 1 security workflow contract to require the shared cap and bounded helper. No local host run or firmware build is claimed.
+
+---
+
 ## 2026-11-28 — Repair workflow YAML indentation after static-contract edits
 
 - The MiniUPnP and vsftpd workflows created on `dfdcd60c9b8478812a5b0ca583b7d15f0a752d18` were reported failed with zero jobs. Inspection showed newly inserted Python heredoc assertions had lost their ten-space YAML block indentation, making both workflow files syntactically invalid before any tests could start.
