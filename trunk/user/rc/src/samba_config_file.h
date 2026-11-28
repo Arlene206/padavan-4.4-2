@@ -9,6 +9,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "config_file_sync.h"
+
 /* Persist the directory entry as well as the staged file contents. */
 static int
 samba_config_file_sync_parent(const char *target_path)
@@ -16,7 +18,6 @@ samba_config_file_sync_parent(const char *target_path)
 	char *parent_path, *slash;
 	size_t path_length;
 	int directory_fd = -1, result = -1, saved_errno = 0;
-	int sync_status;
 
 	if (!target_path || !*target_path) {
 		errno = EINVAL;
@@ -41,11 +42,7 @@ samba_config_file_sync_parent(const char *target_path)
 	directory_fd = open(parent_path, O_RDONLY | O_DIRECTORY | O_NOFOLLOW);
 	if (directory_fd < 0)
 		goto out;
-	do {
-		errno = 0;
-		sync_status = fsync(directory_fd);
-	} while (sync_status != 0 && errno == EINTR);
-	if (sync_status != 0)
+	if (config_file_sync_fd(directory_fd) != 0)
 		goto out;
 	if (close(directory_fd) != 0) {
 		directory_fd = -1;
@@ -160,7 +157,7 @@ samba_config_file_publish(FILE **stream, char *staged_path,
 			saved_errno = errno ? errno : EIO;
 		failed = 1;
 	}
-	if (!failed && fsync(fileno(fp)) != 0) {
+	if (!failed && config_file_sync_fd(fileno(fp)) != 0) {
 		if (!saved_errno)
 			saved_errno = errno ? errno : EIO;
 		failed = 1;

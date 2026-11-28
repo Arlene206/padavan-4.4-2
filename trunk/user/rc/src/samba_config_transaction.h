@@ -9,6 +9,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "config_file_sync.h"
+
 #define SAMBA_CONFIG_BASE_DIRECTORY "/etc/samba"
 #define SAMBA_CONFIG_TRANSACTION_DIRECTORY SAMBA_CONFIG_BASE_DIRECTORY "/.config-transaction"
 #define SAMBA_CONFIG_TRANSACTION_LOCK_FILE "/var/run/samba-config.lock"
@@ -39,7 +41,7 @@ samba_config_transaction_sync_directory(const char *directory)
 	fd = open(directory, flags);
 	if (fd < 0)
 		return -1;
-	if (fsync(fd) != 0) {
+	if (config_file_sync_fd(fd) != 0) {
 		saved_errno = errno ? errno : EIO;
 		close(fd);
 		errno = saved_errno;
@@ -113,7 +115,7 @@ samba_config_transaction_sync_file(const char *path)
 		errno = EACCES;
 		goto failed;
 	}
-	if (fsync(fd) != 0)
+	if (config_file_sync_fd(fd) != 0)
 		goto failed;
 	if (close(fd) != 0)
 		return -1;
@@ -176,7 +178,7 @@ samba_config_transaction_prepare_parent_directory(const char *directory)
 			goto failed;
 		}
 	}
-	if (fsync(fd) != 0)
+	if (config_file_sync_fd(fd) != 0)
 		goto failed;
 	if (close(fd) != 0)
 		return -1;
@@ -352,7 +354,7 @@ samba_config_transaction_write_state(const char *directory,
 		}
 		offset += (size_t)written;
 	}
-	if (fsync(fd) != 0) {
+	if (config_file_sync_fd(fd) != 0) {
 		saved_errno = errno ? errno : EIO;
 		close(fd);
 		unlink(next_path);

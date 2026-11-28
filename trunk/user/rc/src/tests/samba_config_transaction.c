@@ -8,6 +8,22 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+/* One injected EINTR verifies every transaction durability boundary. */
+static int transaction_fsync_interrupt_call = -1;
+static int transaction_fsync_call_count;
+
+static int
+samba_transaction_test_fsync(int fd)
+{
+	transaction_fsync_call_count++;
+	if (transaction_fsync_call_count == transaction_fsync_interrupt_call) {
+		errno = EINTR;
+		return -1;
+	}
+	return fsync(fd);
+}
+
+#define CONFIG_FILE_SYNC_FSYNC(fd) samba_transaction_test_fsync(fd)
 #include "samba_config_transaction.h"
 
 static void
@@ -47,6 +63,50 @@ make_path(char *path, size_t size, const char *directory, const char *leaf)
 	int length = snprintf(path, size, "%s/%s", directory, leaf);
 
 	assert(length > 0 && (size_t)length < size);
+}
+
+static void
+test_transaction_sync_retries_eintr(void)
+{
+	char root[] = "/tmp/samba-config-eintr.XXXXXX";
+	char directory[256], passdb[256], state[256];
+
+	assert(mkdtemp(root) != NULL);
+	make_path(directory, sizeof(directory), root, "transaction");
+	make_path(passdb, sizeof(passdb), root, "smbpasswd");
+	make_path(state, sizeof(state), directory, "state");
+	assert(mkdir(directory, 0700) == 0);
+	write_text(passdb, "private hashes\n", 0600);
+
+	transaction_fsync_call_count = 0;
+	transaction_fsync_interrupt_call = 1;
+	assert(samba_config_transaction_sync_directory(directory) == 0);
+	transaction_fsync_interrupt_call = -1;
+	assert(transaction_fsync_call_count == 2);
+
+	transaction_fsync_call_count = 0;
+	transaction_fsync_interrupt_call = 1;
+	assert(samba_config_transaction_sync_file(passdb) == 0);
+	transaction_fsync_interrupt_call = -1;
+	assert(transaction_fsync_call_count == 2);
+
+	transaction_fsync_call_count = 0;
+	transaction_fsync_interrupt_call = 1;
+	assert(samba_config_transaction_prepare_parent_directory(directory) == 0);
+	transaction_fsync_interrupt_call = -1;
+	assert(transaction_fsync_call_count == 2);
+
+	transaction_fsync_call_count = 0;
+	transaction_fsync_interrupt_call = 1;
+	assert(samba_config_transaction_write_state(directory, 1, 1, "PREPARED") == 0);
+	transaction_fsync_interrupt_call = -1;
+	assert(transaction_fsync_call_count == 3);
+	assert(access(state, F_OK) == 0);
+
+	assert(unlink(state) == 0);
+	assert(unlink(passdb) == 0);
+	assert(rmdir(directory) == 0);
+	assert(rmdir(root) == 0);
 }
 
 static void
@@ -187,6 +247,7 @@ test_parent_directory_permissions(void)
 int
 main(void)
 {
+	test_transaction_sync_retries_eintr();
 	test_private_file_sync_helpers();
 	test_directory_sync_helpers();
 	test_parent_directory_permissions();
