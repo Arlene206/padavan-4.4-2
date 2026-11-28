@@ -4,6 +4,10 @@
 from pathlib import Path
 
 HEADER = Path("trunk/user/rc/src/samba_config_transaction.h").read_text()
+SYNC_HEADER = Path("trunk/user/rc/src/config_file_sync.h").read_text()
+assert '#include "config_file_sync.h"' in HEADER
+assert "while (status != 0 && errno == EINTR)" in SYNC_HEADER
+
 
 
 def body(signature: str) -> str:
@@ -28,17 +32,17 @@ def compact(source: str) -> str:
 sync_directory = compact(body("samba_config_transaction_sync_directory("))
 assert "open(directory,flags)" in sync_directory
 assert "O_DIRECTORY|O_NOFOLLOW" in sync_directory
-assert sync_directory.index("fsync(fd)") < sync_directory.index("close(fd)")
+assert sync_directory.index("config_file_sync_fd(fd)") < sync_directory.index("close(fd)")
 sync_parent = compact(body("samba_config_transaction_sync_parent("))
 assert "strrchr(parent,'/')" in sync_parent
 assert "samba_config_transaction_sync_directory(parent)" in sync_parent
 
 prepare = compact(body("samba_config_transaction_prepare_parent_directory("))
-assert prepare.index("fchmod(fd,0700)") < prepare.index("fsync(fd)")
+assert prepare.index("fchmod(fd,0700)") < prepare.index("config_file_sync_fd(fd)")
 assert "created&&samba_config_transaction_sync_parent(directory)" in prepare
 
 write_state = compact(body("samba_config_transaction_write_state("))
-assert write_state.index("fsync(fd)") < write_state.index("rename(next_path,state_path)")
+assert write_state.index("config_file_sync_fd(fd)") < write_state.index("rename(next_path,state_path)")
 assert write_state.index("rename(next_path,state_path)") < write_state.index(
     "samba_config_transaction_sync_directory(directory)"
 )
@@ -90,7 +94,7 @@ assert "fstat(fd,&st)" in passdb_sync
 assert "S_ISREG(st.st_mode)" in passdb_sync
 assert "st.st_uid!=geteuid()" in passdb_sync
 assert "(st.st_mode&07777)!=0600" in passdb_sync
-assert passdb_sync.index("fsync(fd)") < passdb_sync.index("close(fd)")
+assert passdb_sync.index("config_file_sync_fd(fd)") < passdb_sync.index("close(fd)")
 
 print("Samba paired-transaction directory durability contract: PASS")
 
