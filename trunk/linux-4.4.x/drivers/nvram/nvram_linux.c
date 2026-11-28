@@ -225,6 +225,8 @@ _nvram_realloc(struct nvram_tuple *t, const char *name, const char *value, int i
 {
 	struct nvram_tuple *rt = t;
 	uint32_t val_len = strlen(value);
+	char *old_value;
+	uint32_t old_val_len;
 
 	/* Copy name */
 	if (!rt) {
@@ -236,6 +238,11 @@ _nvram_realloc(struct nvram_tuple *t, const char *name, const char *value, int i
 		rt->val_len = 0;
 		rt->next = NULL;
 	}
+
+	/* Preserve the old pool slot until a replacement has been allocated and
+	 * copied successfully. Slots are unique per tuple and never shared. */
+	old_value = rt->value;
+	old_val_len = rt->val_len;
 
 	/* Copy value before changing tuple metadata; a failed growth must leave
 	 * the old value's persistence classification untouched. */
@@ -249,9 +256,18 @@ _nvram_realloc(struct nvram_tuple *t, const char *name, const char *value, int i
 			rt->value = &nvram_values[nvram_offset];
 			rt->val_len = val_len;
 			nvram_offset += (val_len + 1);
-		}
 
-		strcpy(rt->value, value);
+			strcpy(rt->value, value);
+			/* The old slot is now unreachable; scrub it only after the
+			 * replacement has been fully copied. */
+			if (old_value)
+				nvram_sensitive_value_clear(old_value, old_val_len);
+		} else {
+			strcpy(rt->value, value);
+			/* Keep the slot capacity, but do not retain a shortened secret. */
+			nvram_sensitive_value_clear_tail(rt->value, rt->val_len,
+							 val_len);
+		}
 	}
 
 	/* Publish volatile/persistent state only after the value is committed. */
@@ -263,8 +279,11 @@ _nvram_realloc(struct nvram_tuple *t, const char *name, const char *value, int i
 void
 _nvram_free(struct nvram_tuple *t)
 {
-	if (t)
+	if (t) {
+		/* Values live in the shared arena, not in the tuple allocation. */
+		nvram_sensitive_value_clear(t->value, t->val_len);
 		kfree(t);
+	}
 }
 
 void

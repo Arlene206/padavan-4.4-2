@@ -943,6 +943,8 @@ def run() -> int:
         init_body = extract_function(kernel_driver, "dev_nvram_init")
         reset_body = extract_function(kernel_driver, "_nvram_reset")
         exit_body = extract_function(kernel_driver, "dev_nvram_exit")
+        realloc_body = extract_function(kernel_driver, "_nvram_realloc")
+        free_tuple_body = extract_function(kernel_driver, "_nvram_free")
         for body, wipe, free, label in (
             (compact_body, "nvram_sensitive_buffer_clear(snapshot, old_used)", "kfree(snapshot)", "compaction snapshot"),
             (commit_body, "nvram_sensitive_buffer_clear(bufw, NVRAM_SPACE)", "kfree(bufw)", "commit image"),
@@ -973,6 +975,46 @@ def run() -> int:
             failures.append("NVRAM arena reset must use explicit erasure")
         if "nvram_sensitive_buffer_clear(nvram_values, NVRAM_VALUES_SPACE)" not in compact_body:
             failures.append("NVRAM arena compaction must use explicit erasure")
+
+        # Each tuple owns a unique append-only arena slot. Scrub abandoned
+        # slots on growth, stale suffixes on shorter reuse, and values on unset.
+        growth_slot = realloc_body.find("rt->value = &nvram_values[nvram_offset]")
+        growth_copy = realloc_body.find("strcpy(rt->value, value)", growth_slot)
+        old_slot_wipe = realloc_body.find(
+            "nvram_sensitive_value_clear(old_value, old_val_len)", growth_copy
+        )
+        shorter_copy = realloc_body.find("strcpy(rt->value, value)", growth_copy + 1)
+        shorter_tail_wipe = realloc_body.find(
+            "nvram_sensitive_value_clear_tail(rt->value, rt->val_len, val_len)",
+            shorter_copy
+        )
+        if not (0 <= growth_slot < growth_copy < old_slot_wipe):
+            failures.append("NVRAM value growth must scrub the abandoned slot after copying")
+        if not (0 <= shorter_copy < shorter_tail_wipe):
+            failures.append("NVRAM shorter value replacement must scrub the stale slot suffix")
+        tuple_wipe = free_tuple_body.find(
+            "nvram_sensitive_value_clear(t->value, t->val_len)"
+        )
+        tuple_free = free_tuple_body.find("kfree(t)")
+        if tuple_wipe < 0 or tuple_free < 0 or tuple_wipe > tuple_free:
+            failures.append("NVRAM unset/free must erase the tuple value slot before kfree")
+
+        for marker in (
+            "nvram_sensitive_value_clear_tail(char *value, size_t value_capacity",
+            "nvram_sensitive_value_clear(char *value, size_t value_capacity)",
+            "if (!value || value_length >= value_capacity)",
+            "value_capacity - value_length",
+        ):
+            if marker not in sensitive_policy:
+                failures.append("NVRAM value-slot erasure helper is missing " + marker)
+        for marker in (
+            "test_sensitive_value_tail_clear_removes_shortened_secret",
+            "test_sensitive_value_clear_erases_released_slot",
+            "test_sensitive_value_clear_guards_invalid_ranges",
+            "NVRAM sensitive value-slot replacement and release erasure: PASS",
+        ):
+            if marker not in compaction_test:
+                failures.append("NVRAM value-slot erasure regression is missing " + marker)
     except ValueError as error:
         failures.append("NVRAM sensitive-buffer source contract: " + str(error))
     print("NVRAM kernel single-value ioctl snapshot contract: PASS")

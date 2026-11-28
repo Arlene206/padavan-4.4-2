@@ -7,31 +7,29 @@
 
 ## Active task
 
-- Fix NVRAM CLI set/settmp's undersized `char buf[1024]`: the parser and ioctl ABI allow a 63-byte key and 4095-byte value, requiring 4160 bytes including `=` and NUL. Both commands now share one `NVRAM_MAX_PARAM_LEN + NVRAM_MAX_VALUE_LEN` workspace and volatile-clear it after both successful and rejected assignments.
-- Added a GNU89 policy test for the exact 63-byte name / 4095-byte value boundary, plus a source guard requiring exactly one shared 4160-byte workspace, two parser callsites and two wipe callsites. The existing NVRAM workflow already compiles/runs this test.
+- Kernel NVRAM's append-only value arena retained credential remnants after ordinary mutations. A shorter in-place update overwrote the new NUL but left the previous value suffix; a longer update abandoned the old slot without wiping it; `_nvram_unset()` ultimately called `_nvram_free()` which freed only tuple metadata. Full arena wipe on later compaction/reset/module exit did not protect the interval between those operations.
+- This commit adds secure slot-tail/full-slot helpers, scrubs old value storage only after a successful growth copy, scrubs reused-slot suffixes after shorter replacements, and erases the full slot before tuple free. The existing NVRAM compaction host regression now covers those helpers; the semantic checker verifies production call ordering.
 
 ## Exact-SHA CI checkpoint
 
-- Source SHA polled: `0827abadc76f456ba9d67003cbedbdf7854d9e89`.
-- Poll time (UTC): `2026-11-28T12:58:21.384Z`.
-- #46147228376 NVRAM transaction boundary audit: in_progress; nvram-transaction-boundary=in_progress
-- #46147228338 HTTPD Authentication and Security Regression: in_progress; HTTPD authentication and disclosure policy=in_progress
-- #46147228339 Process lifecycle inventory - 0827abadc76f456ba9d67003cbedbdf7854d9e89: in_progress; inventory=in_progress
-- #46147228361 AI handoff documentation contract: in_progress; validate-handoff-records=in_progress
+- Current parent main: `2b1f66627886472ecd16a3e223505fe10e5a8d4c`; it updates the NVRAM CLI assignment workspace from 1024 bytes to the full 4160-byte ABI bound and adds its exact-size test. The previous 0827 NVRAM secure-free checker run #46147228376 has now completed SUCCESS.
+- On 0827: AI handoff #46147228361 PASS, HTTPD #46147228338 PASS, Process inventory #46147228339 PASS, NVRAM audit #46147228376 PASS.
+- The CLI max-assignment update on 2b1f triggered a new NVRAM audit #46147499779 (IN_PROGRESS at last poll), HTTPD #46147499778 (IN_PROGRESS), Process inventory #46147499808 (IN_PROGRESS) and AI handoff #46147499788 (IN_PROGRESS).
 
 ## Verification boundary
 
-- Main `0827abadc76f456ba9d67003cbedbdf7854d9e89`: AI handoff #46147228361 PASS, inventory #46147228339 PASS, HTTPD #46147228338 PASS. NVRAM transaction-boundary #46147228376 was still in progress at last poll; all preceding CLI and NVRAM policy binaries passed, with the final raw-userland/kernel API audit still running. Its final result is UNKNOWN until the job completes.
-- Parent checker-fix commit `0827` repaired the cd6 checker-literal/regex false negatives; the follow-on exact NVRAM run will establish whether the full source contract passes.
-- New assignment-capacity source/test/contract change: THIS COMMIT; no local build is available. Exact-head NVRAM host regression/source checker and same-SHA XY-C1 Build/TRX/artifact remain pending.
-- Earlier XY-C1 #46145600745 on production SHA `670e513d99fa0e2d48dfc382ea795ab5c8f6ba1a` passed Build, TRX and artifact upload, but predates both NVRAM CLI hardening changes and cannot validate this source. Hardware L4 remains NOT VERIFIED.
+- New kernel value-slot hardening: this commit. The existing NVRAM workflow compiles and executes `nvram_compaction_policy.c` under GNU89/Werror/ASan/UBSan, now extended with short replacement, whole-slot release and invalid-range tests. The semantic checker now verifies growth wipe ordering, shrink-tail wipe and tuple-unset wipe. Exact-head NVRAM and XY-C1 Build/TRX/artifact results are pending; no local test execution is available in this API-only session.
+- CLI assignment-capacity source/test change on parent `2b1f66627886472ecd16a3e223505fe10e5a8d4c`: exact-head NVRAM #46147499779, HTTPD #46147499778, Process #46147499808 and AI #46147499788 were IN_PROGRESS at the last exact-head query.
+- CLI sensitive-buffer erasure source/checker commit `0827abadc76f456ba9d67003cbedbdf7854d9e89`: exact NVRAM #46147228376 SUCCESS; AI #46147228361 SUCCESS; HTTPD #46147228338 SUCCESS; Process inventory #46147228339 SUCCESS.
+- Earlier XY-C1 #46145600745 on production source SHA `670e513d99fa0e2d48dfc382ea795ab5c8f6ba1a` passed Build XY-C1, TRX verification and artifact upload, but predates the CLI assignment and value-slot source hardening; it is not L3 evidence for this commit.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, untouched. Physical router/hardware L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head NVRAM transaction-boundary run for THIS COMMIT. Require `NVRAM CLI maximum assignment boundary: PASS`, secure-buffer erasure PASS, and the semantic source checker to confirm one ABI-sized shared workspace, both parser callsites and both post-attempt wipes.
-2. Inspect same-SHA XY-C1 Build, TRX validation and artifact upload. The CLI binary is a production input; record L3 only when all three pass on that exact SHA.
-3. If NVRAM validates, continue a source-backed stability/security fix outside this subsystem; do not repeat the broad NVRAM inventory already recorded.
-4. Preserve frozen backup and main-only complete-tree commits with expected-SHA updates. Hardware L4 remains NOT VERIFIED.
+1. Inspect exact-head NVRAM transaction-boundary workflow. Require the extended GNU89/Werror/ASan/UBSan compaction policy binary to print `NVRAM sensitive value-slot replacement and release erasure: PASS`, and require semantic source checks for growth, shrink and tuple-release wipes to pass.
+2. Inspect exact-head XY-C1 Build XY-C1, TRX verification and artifact upload for this kernel driver source commit. Record L3 only if all three succeed on the exact SHA.
+3. Check the existing CLI assignment-capacity run #46147499779 and its related HTTPD/Process/AI checks; do not repeat the already-PASS 0827 checks.
+4. Continue a separate source-backed security/reliability fix after this NVRAM slice is validated. Keep the frozen backup immutable; hardware L4 remains NOT VERIFIED.
 
 ## Mandatory end-of-session handoff checkpoint
 

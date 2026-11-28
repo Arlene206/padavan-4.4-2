@@ -21,6 +21,55 @@ static void sensitive_test_zero(void *buffer, size_t length)
 #include "nvram_sensitive_buffer_policy.h"
 #include "nvram_compaction_policy.h"
 
+static void test_sensitive_value_tail_clear_removes_shortened_secret(void)
+{
+	char value[] = "wifi-password-material";
+	size_t value_capacity = sizeof(value) - 1;
+	size_t index;
+
+	/* Simulate strcpy() into a reused, formerly longer arena slot. */
+	strcpy(value, "x");
+	sensitive_zero_calls = 0;
+	sensitive_zero_bytes = 0;
+	nvram_sensitive_value_clear_tail(value, value_capacity, 1);
+	assert(sensitive_zero_calls == 1);
+	assert(sensitive_zero_bytes == value_capacity - 1);
+	assert(value[0] == 'x' && value[1] == '\0');
+	for (index = 2; index < sizeof(value); ++index)
+		assert(value[index] == 0);
+}
+
+static void test_sensitive_value_clear_erases_released_slot(void)
+{
+	char value[] = "vpn-shared-secret";
+	size_t value_capacity = sizeof(value) - 1;
+	size_t index;
+
+	sensitive_zero_calls = 0;
+	sensitive_zero_bytes = 0;
+	nvram_sensitive_value_clear(value, value_capacity);
+	assert(sensitive_zero_calls == 1);
+	assert(sensitive_zero_bytes == sizeof(value));
+	for (index = 0; index < sizeof(value); ++index)
+		assert(value[index] == 0);
+}
+
+static void test_sensitive_value_clear_guards_invalid_ranges(void)
+{
+	char value[] = "keep";
+	sensitive_zero_calls = 0;
+	sensitive_zero_bytes = 0;
+	nvram_sensitive_value_clear(NULL, 3);
+	nvram_sensitive_value_clear(value, (size_t)-1);
+	nvram_sensitive_value_clear_tail(NULL, 3, 1);
+	nvram_sensitive_value_clear_tail(value, 3, 3);
+	nvram_sensitive_value_clear_tail(value, 3, 4);
+	assert(sensitive_zero_calls == 0);
+	assert(sensitive_zero_bytes == 0);
+	assert(strcmp(value, "keep") == 0);
+}
+
+
 static void test_sensitive_buffer_clear_wipes_the_complete_region(void)
 {
 	unsigned char secret[] = "wireless-key=secret-material";
@@ -117,11 +166,15 @@ int main(void)
 {
 	test_sensitive_buffer_clear_wipes_the_complete_region();
 	test_sensitive_buffer_clear_ignores_null_and_empty_regions();
+	test_sensitive_value_tail_clear_removes_shortened_secret();
+	test_sensitive_value_clear_erases_released_slot();
+	test_sensitive_value_clear_guards_invalid_ranges();
 	test_compaction_value_spans_are_bounded();
 	test_missing_terminator_is_rejected();
 	test_compaction_destination_boundaries();
 	test_flash_entry_size_fails_closed();
 	test_flash_rehash_is_bounded_by_declared_image_length();
+	puts("NVRAM sensitive value-slot replacement and release erasure: PASS");
 	puts("NVRAM compaction and flash-capacity policy: PASS");
 	return 0;
 }

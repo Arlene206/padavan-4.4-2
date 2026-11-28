@@ -26,4 +26,30 @@ nvram_sensitive_buffer_clear(void *buffer, size_t length)
 		NVRAM_SENSITIVE_BUFFER_ZERO(buffer, length);
 }
 
+
+/*
+ * A value slot reserves value_capacity payload bytes plus one NUL byte.
+ * Shorter replacements retain the slot capacity for future updates, so wipe
+ * the bytes after the new terminator. Full release wipes the entire slot.
+ */
+static inline void
+nvram_sensitive_value_clear_tail(char *value, size_t value_capacity,
+                                  size_t value_length)
+{
+	if (!value || value_length >= value_capacity)
+		return;
+
+	nvram_sensitive_buffer_clear(value + value_length + 1,
+				     value_capacity - value_length);
+}
+
+static inline void
+nvram_sensitive_value_clear(char *value, size_t value_capacity)
+{
+	if (!value || value_capacity == (size_t)-1)
+		return;
+
+	nvram_sensitive_buffer_clear(value, value_capacity + 1);
+}
+
 #endif

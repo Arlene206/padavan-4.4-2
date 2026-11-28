@@ -1,3 +1,11 @@
+## 2026-11-28 — Erase stale NVRAM value-arena slots on replace and unset
+
+- NVRAM values are appended into a shared kernel arena. `_nvram_realloc()` reused a larger old slot on shorter replacements with `strcpy()`, leaving the previous credential suffix beyond the new NUL; growth allocated a new slot but abandoned the old bytes; `_nvram_free()`/unset freed tuple metadata without wiping the arena slot. Compaction/reset/module-exit erasure happened later and did not protect the mutation interval.
+- Added helpers for tail erasure after shorter in-place replacements and full `val_len + 1` slot erasure. Growth now copies into the new slot before wiping the previous slot, so allocation failure leaves the old value intact. Tuple release/unset wipes the full old slot before freeing metadata.
+- Extended `nvram_compaction_policy.c` to verify exact wipe lengths, suffix removal, whole-slot release and invalid-range guards; added semantic source assertions to `check_nvram_transaction_boundary.py`. Existing workflow already compiles/runs this host test under GNU89/Werror/ASan/UBSan.
+- Parent main: `2b1f66627886472ecd16a3e223505fe10e5a8d4c`. 0827 exact NVRAM CLI secure-free audit #46147228376 PASS; parent CLI assignment change on 2b1f has new exact-head NVRAM #46147499779 in progress. Local host tests NOT RUN in this API-only session; exact-head NVRAM and XY-C1 validation pending.
+
+---
 ## 2026-11-28 — Allow the complete NVRAM CLI assignment ABI limit
 
 - Found a functional mismatch: the shared parser accepts `NVRAM_MAX_PARAM_LEN - 1` (63) key bytes and `NVRAM_MAX_VALUE_LEN - 1` (4095) value bytes, but `set` and `settmp` each used `char buf[1024]`. Thus valid larger passwords/values were rejected before reaching the kernel.
