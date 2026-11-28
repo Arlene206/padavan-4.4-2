@@ -705,9 +705,47 @@ test_bound_script_failure_requires_deconfiguration_but_renewal_does_not(void)
 	return 0;
 }
 
+
+static int
+test_raw_packet_lengths_reject_underflow_and_truncation(void)
+{
+	size_t maximum = (size_t)-1;
+
+	/* These were accepted by the old check and underflowed on header removal. */
+	CHECK(!udhcpc_raw_packet_length_is_valid(28U, 20U, 0U,
+						 20U, 8U, 240U));
+	CHECK(!udhcpc_raw_packet_length_is_valid(28U, 27U, 7U,
+						 20U, 8U, 240U));
+
+	/* Reject a truncated datagram and any inconsistent UDP/IP length pair. */
+	CHECK(!udhcpc_raw_packet_length_is_valid(267U, 268U, 248U,
+						 20U, 8U, 240U));
+	CHECK(!udhcpc_raw_packet_length_is_valid(268U, 268U, 247U,
+						 20U, 8U, 240U));
+	CHECK(!udhcpc_raw_packet_length_is_valid(268U, 268U, 249U,
+						 20U, 8U, 240U));
+	CHECK(!udhcpc_raw_packet_length_is_valid(267U, 267U, 247U,
+						 20U, 8U, 240U));
+
+	/* 240 bytes covers the fixed BOOTP header and DHCP magic cookie. */
+	CHECK(udhcpc_raw_packet_length_is_valid(268U, 268U, 248U,
+						 20U, 8U, 240U));
+	/* Ethernet/frame padding after IPv4 total_length remains harmless. */
+	CHECK(udhcpc_raw_packet_length_is_valid(300U, 268U, 248U,
+						 20U, 8U, 240U));
+
+	/* Guard both size_t additions used to calculate the minimum datagram. */
+	CHECK(!udhcpc_raw_packet_length_is_valid(maximum, 268U, 248U,
+						 20U, 8U, maximum));
+	CHECK(!udhcpc_raw_packet_length_is_valid(maximum, maximum, maximum,
+						 maximum, 8U, 1U));
+	return 0;
+}
+
 int main(void)
 {
 	if (test_listener_socket_recovery_preserves_lease_deadline() != 0 ||
+	    test_raw_packet_lengths_reject_underflow_and_truncation() != 0 ||
 	    test_select_wait_clamps_elapsed_timeout_before_unsigned_subtraction() != 0 ||
 	    test_dhcp_option_tlv_bounds() != 0 ||
 	    test_server_id_option_requires_exactly_one_ipv4_address() != 0 ||

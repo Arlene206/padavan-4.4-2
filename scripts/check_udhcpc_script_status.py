@@ -66,6 +66,27 @@ workflow = read(".github/workflows/udhcpc-script-status-stability.yml")
 
 assert '#include "udhcpc_script_policy.h"' in dhcpc
 
+# A raw DHCP datagram must have non-underflowing, mutually consistent IPv4,
+# UDP and fixed BOOTP/cookie lengths before header subtraction or packet copy.
+raw_length_policy = function_body(policy, "udhcpc_raw_packet_length_is_valid(")
+assert "udp_header_length > maximum - minimum_dhcp_payload_length" in raw_length_policy
+assert "ip_header_length > maximum - minimum_udp_length" in raw_length_policy
+assert "received_length < ip_total_length" in raw_length_policy
+assert "udp_length < minimum_udp_length" in raw_length_policy
+assert "udp_length == ip_total_length - ip_header_length" in raw_length_policy
+assert "test_raw_packet_lengths_reject_underflow_and_truncation" in test
+
+raw_receiver = function_body(dhcpc, "static NOINLINE int udhcp_recv_raw_packet(")
+raw_receiver_compact = "".join(raw_receiver.split())
+assert raw_receiver.index("memset(&packet, 0, sizeof(packet));") < raw_receiver.index("recvmsg(fd, &msg, 0);")
+assert raw_receiver.index("udhcpc_raw_packet_length_is_valid(") < raw_receiver.index("/* verify IP checksum */")
+assert raw_receiver.index("udhcpc_raw_packet_length_is_valid(") < raw_receiver.index("if (packet.data.cookie")
+assert raw_receiver.index("memset(dhcp_pkt, 0, sizeof(*dhcp_pkt));") < raw_receiver.index("memcpy(dhcp_pkt, &packet.data")
+assert "offsetof(struct dhcp_packet, options)" in raw_receiver
+assert "memcpy(dhcp_pkt, &packet.data, (size_t)bytes);" in raw_receiver
+assert "test_raw_packet_lengths_reject_underflow_and_truncation() != 0" in test
+
+
 # Every automatic read must begin defined; blocking waits refresh it before use.
 assert "unsigned timestamp_before_wait = 0;" in dhcpc
 assert "unsigned timestamp_before_wait = timestamp_before_wait;" not in dhcpc
@@ -725,6 +746,8 @@ assert "test_failed_deconfig_blocks_state_transition" in test
 assert "udhcpc_bound_script_failure_requires_deconfig" in policy
 
 for marker in (
+    "test_raw_packet_lengths_reject_underflow_and_truncation",
+    "test_raw_packet_lengths_reject_underflow_and_truncation() != 0",
     "test_initial_acquisition_retries_selected_request",
     "test_nonpositive_retry_interval_is_throttled",
     "test_leasefail_and_decline_backoff_have_one_second_floor",

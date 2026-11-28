@@ -2,6 +2,7 @@
 #ifndef UDHCP_SCRIPT_POLICY_H
 #define UDHCP_SCRIPT_POLICY_H
 
+#include <stddef.h>
 #include <stdint.h>
 
 /*
@@ -393,6 +394,38 @@ udhcpc_server_addr_after_ack(uint32_t current_server_addr, int rebinding,
 	if (server_id_present && (rebinding || current_server_addr == 0U))
 		return received_server_id;
 	return current_server_addr;
+}
+
+/*
+ * Validate IPv4/UDP lengths before subtracting headers or copying a DHCP
+ * payload. In particular, a small IPv4 total length must not underflow the
+ * signed receive length when the IP/UDP headers are removed.
+ */
+static inline int
+udhcpc_raw_packet_length_is_valid(size_t received_length,
+				  size_t ip_total_length,
+				  size_t udp_length,
+				  size_t ip_header_length,
+				  size_t udp_header_length,
+				  size_t minimum_dhcp_payload_length)
+{
+	size_t maximum = (size_t)-1;
+	size_t minimum_udp_length, minimum_ip_length;
+
+	if (udp_header_length > maximum - minimum_dhcp_payload_length)
+		return 0;
+	minimum_udp_length = udp_header_length + minimum_dhcp_payload_length;
+	if (ip_header_length > maximum - minimum_udp_length)
+		return 0;
+	minimum_ip_length = ip_header_length + minimum_udp_length;
+
+	if (ip_total_length < minimum_ip_length ||
+	    received_length < ip_total_length ||
+	    udp_length < minimum_udp_length)
+		return 0;
+
+	/* UDP must cover exactly the payload carried by this IPv4 datagram. */
+	return udp_length == ip_total_length - ip_header_length;
 }
 
 #endif /* UDHCP_SCRIPT_POLICY_H */

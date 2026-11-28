@@ -980,6 +980,8 @@ static NOINLINE int udhcp_recv_raw_packet(struct dhcp_packet *dhcp_pkt, int fd)
 	msg.msg_control = cmsgbuf;
 	msg.msg_controllen = sizeof(cmsgbuf);
 	for (;;) {
+		/* Never let a short datagram inherit fields from an earlier packet. */
+		memset(&packet, 0, sizeof(packet));
 		bytes = recvmsg(fd, &msg, 0);
 		if (bytes < 0) {
 			if (errno == EINTR)
@@ -996,26 +998,27 @@ static NOINLINE int udhcp_recv_raw_packet(struct dhcp_packet *dhcp_pkt, int fd)
 		return -2;
 	}
 
-	if (bytes < ntohs(packet.ip.tot_len)) {
-		/* packet is bigger than sizeof(packet), we did partial read */
-		log1("Oversized packet, ignoring");
-		return -2;
-	}
-
-	/* ignore any extra garbage bytes */
-	bytes = ntohs(packet.ip.tot_len);
-
-	/* make sure its the right packet for us, and that it passes sanity checks */
+	/* Validate fixed IPv4/UDP fields before trusting peer-controlled lengths. */
 	if (packet.ip.protocol != IPPROTO_UDP
 	 || packet.ip.version != IPVERSION
 	 || packet.ip.ihl != (sizeof(packet.ip) >> 2)
 	 || packet.udp.dest != htons(CLIENT_PORT)
-	/* || bytes > (int) sizeof(packet) - can't happen */
-	 || ntohs(packet.udp.len) != (uint16_t)(bytes - sizeof(packet.ip))
 	) {
 		log1("Unrelated/bogus packet, ignoring");
 		return -2;
 	}
+
+	if (!udhcpc_raw_packet_length_is_valid((size_t)bytes,
+			(size_t)ntohs(packet.ip.tot_len),
+			(size_t)ntohs(packet.udp.len),
+			sizeof(packet.ip), sizeof(packet.udp),
+			offsetof(struct dhcp_packet, options))) {
+		log1("Malformed or truncated DHCP packet lengths, ignoring");
+		return -2;
+	}
+
+	/* Ignore trailing garbage beyond the IPv4 total length. */
+	bytes = (int)ntohs(packet.ip.tot_len);
 
 	/* verify IP checksum */
 	check = packet.ip.check;
@@ -1060,7 +1063,9 @@ static NOINLINE int udhcp_recv_raw_packet(struct dhcp_packet *dhcp_pkt, int fd)
 	udhcp_dump_packet(&packet.data);
 
 	bytes -= sizeof(packet.ip) + sizeof(packet.udp);
-	memcpy(dhcp_pkt, &packet.data, bytes);
+	/* Clear fields/options not present in this datagram before publication. */
+	memset(dhcp_pkt, 0, sizeof(*dhcp_pkt));
+	memcpy(dhcp_pkt, &packet.data, (size_t)bytes);
 	return bytes;
 }
 
