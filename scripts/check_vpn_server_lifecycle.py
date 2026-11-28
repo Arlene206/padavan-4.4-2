@@ -800,6 +800,10 @@ require("safe_start_xl2tpd_locked()" in client_start_locked,
         "L2TP client must use the non-recursive locked daemon starter")
 client_restart=body(vpn_client,"restart_vpn_client(void)")
 client_restart_locked=body(vpn_client,"restart_vpn_client_locked(void)")
+require('#include "xl2tpd_start_policy.h"' in vpn_client and
+        "xl2tpd_start_policy_wait_full_delay(1, sleep);" in client_restart_locked and
+        "sleep(1);" not in client_restart_locked,
+        "VPN client restart must preserve its settling interval after an interrupted wait")
 ordered(client_restart,["vpn_server_lifecycle_lock_acquire()",
                         "restart_vpn_client_locked()",
                         "vpn_server_lifecycle_lock_release(lock_fd)"],"VPN client restart")

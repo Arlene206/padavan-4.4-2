@@ -40,6 +40,7 @@
 #include "vpn_client_callback_policy.h"
 #include <process_pidfile.h>
 #include "vpn_client_control_fifo.h"
+#include "xl2tpd_start_policy.h"
 
 #define VPN_CLIENT_CONTROL_FIFO_PATH "/var/run/xl2tpd-control"
 #define VPN_CLIENT_CONTROL_FIFO_OPEN_ATTEMPTS 50U
@@ -878,7 +879,8 @@ restart_vpn_client_locked(void)
 		return stop_status;
 	}
 
-	sleep(1);
+	/* Preserve the stop/start settling interval when sleep is interrupted. */
+	xl2tpd_start_policy_wait_full_delay(1, sleep);
 	start_status = start_vpn_client_locked();
 	if (start_status != 0)
 		saved_errno = errno ? errno : EIO;
