@@ -1,3 +1,12 @@
+## 2026-11-28 — Add watchdog identity regression source to both path filters
+
+- Watchdog-signal run #46094036822 on SHA 42b1578798b30147ba099200a7563529ab4e94ab failed at its inline path-filter contract: the new regression C file was listed in the expected-source tuple but not in the workflow's top-level push/pull_request filters. The executable policy header was already present in both.
+- THIS commit adds `watchdog_process_executable_policy.c` to both top-level path filters and mirrors the header/test paths in the standalone lifecycle checker. The inline behavioral assertions are already updated; no product source changed.
+- Exact main 44f801f34ef7e8d908b9a5d7f5bac5e56d0ac4d2: AI handoff docs #46094087086 PASS; Process lifecycle regression #46094087141 IN_PROGRESS. New exact watchdog-signal and process checks will run on this correction.
+- Next: inspect exact-head Process lifecycle, watchdog signal and XY-C1 build; correct any genuine C compiler/test failures. Frozen backup unchanged.
+
+---
+
 ## 2026-11-28 — Separate watchdog-specific scan from generic service inventory contract
 
 - Exact SHA 559289198b598cc2531ce7f37d14e1737a1e51ee Process lifecycle regression #46093910751 failed in `scripts/check_process_lifecycle_integration.py:1915`: its older shared loop still required `start_watchdog()` to call generic `process_inventory_scan("watchdog", ...)`. The new watchdog-specific scanner intentionally wraps that generic inventory and adds argv0 plus executable identity verification; HTTPD and dnsmasq still use the generic API.

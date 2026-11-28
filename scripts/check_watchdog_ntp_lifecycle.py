@@ -124,6 +124,8 @@ assert "test_unknown_before_kill_blocks_kill" in lifecycle_test
 paths = (
     ".github/workflows/watchdog-signal-stability.yml",
     "trunk/user/rc/src/watchdog.c",
+    "trunk/user/rc/src/watchdog_process_executable_policy.h",
+    "trunk/user/rc/src/tests/watchdog_process_executable_policy.c",
     "trunk/user/rc/src/watchdog_httpd_probe_policy.h",
     "trunk/user/rc/src/tests/watchdog_httpd_probe_policy.c",
     "trunk/user/rc/src/watchdog_signal_policy.h",

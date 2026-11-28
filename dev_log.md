@@ -1,3 +1,10 @@
+## 2026-11-28 — Add watchdog identity regression source to both path filters
+
+- Exact watchdog-signal run #46094036822 on 42b1578798b30147ba099200a7563529ab4e94ab failed its inline path contract because the new regression C file was in the expected list but absent from YAML push/pull_request path filters.
+- THIS commit adds the test source to both workflow filters and the standalone checker path list. Runtime code unchanged.
+
+---
+
 ## 2026-11-28 — Separate watchdog-specific scan from generic service inventory contract
 
 - Exact 559289198b598cc2531ce7f37d14e1737a1e51ee Process lifecycle regression #46093910751 failed because the integration checker still expected generic `process_inventory_scan("watchdog", ...)` directly inside `start_watchdog()`. Startup now calls a watchdog-only wrapper which performs that inventory but validates argv0 and /proc/PID/exe before recognizing a real daemon. HTTPD/dnsmasq retain generic process scans.
