@@ -94,14 +94,24 @@ wan_setdomainname_status(const char *name, size_t length)
 static enum process_presence
 detect_wan_startup_presence(void *context, int *scan_error)
 {
-	struct process_snapshot snapshot;
+	struct process_identity identity;
 	enum process_presence presence;
+	int scan_errno;
 
 	(void)context;
-	presence = process_inventory_scan("detect_wan", &snapshot);
-	if (scan_error)
-		*scan_error = snapshot.error;
-	process_snapshot_release(&snapshot);
+	errno = 0;
+	presence = process_pidfile_read_identity("/var/run/detect_wan.pid",
+						 "detect_wan", &identity);
+	scan_errno = errno;
+	if (presence == PROCESS_PRESENCE_UNKNOWN) {
+		if (scan_error)
+			*scan_error = scan_errno > 0 ? scan_errno : EIO;
+		errno = scan_errno > 0 ? scan_errno : EIO;
+	} else {
+		if (scan_error)
+			*scan_error = 0;
+		errno = 0;
+	}
 	return presence;
 }
 

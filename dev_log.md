@@ -1,3 +1,11 @@
+## 2026-11-28 — Require PID-file identity for WAN monitor readiness
+
+- Review of `detect_wan_main()` confirmed that the detached child calls `process_pidfile_write()` after `daemon()`. A generic procfs scan can see the new child before the PID record exists, so that scan alone is not a strict startup postcondition.
+- Replaced the readiness callback with `process_pidfile_read_identity("/var/run/detect_wan.pid", "detect_wan", ...)`. It requires the published PID and recorded start-time to match a live process; ENOENT/stale identity retries as ABSENT, while malformed/unreadable state becomes UNKNOWN and fails closed.
+- Strengthened `check_wan_detect_wan_status.py` to enforce the PID-file identity path. Exact-SHA WAN route/ARP and XY-C1 checks for this refinement are pending; no physical-router L4 claim.
+
+---
+
 ## 2026-11-28 22:26 CST (UTC+8) — Restore the canonical handoff task heading
 
 - Exact-head AI handoff run #46154469011 on main SHA `296f8a0781c10f51db08655d5683c9ad96496e93` failed because the prior documentation correction renamed the validator-required `## Active task` section to `## Completed source slice`. Restored the canonical heading and clarified that the WAN readiness source change is complete.

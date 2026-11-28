@@ -149,9 +149,11 @@ presence_scan = body(WAN, "detect_wan_startup_presence(void *context, int *scan_
 startup_wait = body(WAN, "detect_wan_startup_wait(void *context, unsigned int seconds)")
 startup = body(WAN, "start_detect_wan_with_readiness(void)")
 require('#include "detached_daemon_start_policy.h"' in WAN
-        and 'process_inventory_scan("detect_wan", &snapshot);' in presence_scan
-        and "process_snapshot_release(&snapshot);" in presence_scan,
-        "gateway monitor startup must use a released tri-state process snapshot")
+        and 'process_pidfile_read_identity("/var/run/detect_wan.pid", "detect_wan", &identity)' in presence_scan
+        and "presence == PROCESS_PRESENCE_UNKNOWN" in presence_scan
+        and "scan_errno > 0 ? scan_errno : EIO" in presence_scan
+        and "*scan_error = 0;" in presence_scan,
+        "gateway monitor readiness must require the published PID/start-time identity")
 wait_compact = "".join(startup_wait.split())
 require("remaining=sleep(remaining);" in wait_compact
         and "errno!=EINTR" in wait_compact,
