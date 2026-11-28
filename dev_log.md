@@ -1,3 +1,10 @@
+## 2026-11-28 — Harden config publication and close the cross-session checkpoint
+
+- Implemented NFS and AliDDNS interrupted-stop handling, VPN sleep-remainder handling, and EINTR-safe durability boundaries for Samba, DNSMasq, L2TP/Ralink, USB modem and QMI writers across atomic source commits `3a910eec` through `2a257c21`. Fixed the follow-on checker and inline-helper issues in `cab010ea`, `89fc4e9a`, `58896aef`, `5652f1c8` and `385dd12d`; related exact-SHA host regression workflows passed where recorded in the handoff.
+- Integrated the concurrent NVRAM `O_CLOEXEC` hardening commit `d8c0568b`. Added MSD Lite post-rename parent-directory durability sync plus EINTR/EIO fault-injection tests and a dedicated workflow in `7b56260076b8d05b521b3caf3f90afffc65642dc`. Exact MSD Lite #46127680489, storage hotplug #46127680481, NVRAM boundary #46127680492 and process fail-closed #46127680468 passed on that source SHA; process inventory #46127680472 passed. XY-C1 #46127680458 and #46127604081 were still in progress at the next poll.
+- AI handoff #46127700728 on `d0a576acd59bfac3daab35885f6203a7fa66d993` failed only because the handoff lacked the mandatory Cross-session execution mandate; this checkpoint restores the exact required section and updates the first next action. The resulting exact-head AI documentation run must pass before closing the documentation failure.
+- No local full firmware build or hardware run was performed. XY-C1 Build/TRX/artifact and physical-router L4 remain unverified until their exact-source evidence is available.
+---
 ## 2026-11-28 — Prevent NVRAM device descriptors from escaping across exec
 
 - Base main SHA: `385dd12da8e6f6f968d9633b82d0575ee34a2370`; result: THIS COMMIT (resolve the resulting SHA from live `main` during the next recovery).
