@@ -1,3 +1,10 @@
+## 2026-11-28 — Deconfigure partial initial DHCP binds after event-hook failure
+
+- Fixed a failed-`bound` rollback gap: the client previously rejected the lease state commit but retried DHCPREQUEST immediately, leaving any partial address/route configuration made by the failed hook in place. The initial-acquisition branch now runs `deconfig` before returning to INIT_SELECTING; failed cleanup uses DECONFIG_PENDING and retries. Renewal/rebind failures deliberately retain the current lease and do not deconfigure.
+- Added a policy helper/test for the acquisition-vs-renewal distinction and source-contract checks for cleanup ordering.
+
+---
+
 ## 2026-11-28 — Remove undeclared regex dependency from DHCP source checker
 
 - The DHCP checker used `re.search` but did not import `re`, causing NameError after the sanitizer policy regression had passed. Replaced it with whitespace-stripped string matching; runtime source unchanged.

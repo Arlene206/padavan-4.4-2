@@ -1,3 +1,11 @@
+## 2026-11-28 — Deconfigure partial initial DHCP binds after event-hook failure
+
+- New source review identified a cleanup gap: when the first `bound` event script returned nonzero, udhcpc correctly refused to commit BOUND but immediately retried DHCPREQUEST without rolling back possible partial address/route changes made before the script failed. A still-active DHCP renewal failure is different: deconfiguring there would destroy a valid existing lease.
+- The initial-acquisition failure path now runs `deconfig` before rediscovery, clears the pending address and returns to INIT_SELECTING only after cleanup succeeds. A failed cleanup enters existing DECONFIG_PENDING with INIT_SELECTING as its resume state. Renewal/rebind script failures keep the prior lease and the existing retry-deadline behavior.
+- Added policy and GNU89 regression asserting deconfig for acquiring failures but not renewal failures; updated integration checker to assert cleanup/retry/rediscovery ordering. Exact-head udhcpc and XY-C1 tests required; no local MIPS build/hardware test.
+
+---
+
 ## 2026-11-28 — Remove undeclared regex dependency from DHCP source checker
 
 - Exact udhcpc run #46095377953 on aeb85731f829fdcb7d52d7d359b32b79fc70987d: GNU89/Werror/ASan/UBSan policy binary PASS, then source checker failed because the new whitespace-tolerant check used `re.search` without importing `re`.

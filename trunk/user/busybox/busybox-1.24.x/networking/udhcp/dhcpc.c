@@ -2195,6 +2195,26 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 					udhcpc_script_failure_prepare_retry(state == REQUESTING,
 						tryagain_timeout, script_elapsed, &timeout,
 						&already_waited_sec, &packet_num);
+					if (udhcpc_bound_script_failure_requires_deconfig(
+						    state == REQUESTING)) {
+						/*
+						 * A failed bound hook may have partially applied
+						 * address/routes. Do not rediscover until cleanup
+						 * succeeds; DECONFIG_PENDING owns retry/rollback.
+						 */
+						deconfig_status = udhcp_run_script(NULL, "deconfig");
+						if (udhcpc_deconfig_retry_required(deconfig_status)) {
+							bb_error_msg("bound failure cleanup failed; deferring DHCP discovery");
+							udhcpc_schedule_deconfig_retry(INIT_SELECTING, 0,
+								tryagain_timeout, &timeout, &packet_num,
+								&already_waited_sec);
+							continue;
+						}
+						state = INIT_SELECTING;
+						change_listen_mode(LISTEN_RAW);
+						client_config.first_secs = 0;
+						requested_ip = 0;
+					}
 					continue;
 				}
 

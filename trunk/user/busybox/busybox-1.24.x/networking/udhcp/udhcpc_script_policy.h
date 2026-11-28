@@ -235,6 +235,16 @@ static inline int udhcpc_arp_probe_failed(int probe_status)
 	return probe_status < 0;
 }
 
+/*
+ * A failed initial bound callback may have partially configured the interface.
+ * Renew/rebind callback failure must retain the currently active lease.
+ */
+static inline int
+udhcpc_bound_script_failure_requires_deconfig(int acquiring)
+{
+	return acquiring != 0;
+}
+
 /* A nonzero event-script status means that lease cleanup is incomplete. */
 static inline int udhcpc_deconfig_retry_required(int script_status)
 {

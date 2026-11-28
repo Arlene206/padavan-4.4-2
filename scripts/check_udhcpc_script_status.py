@@ -201,13 +201,27 @@ assert subnet_gate < subnet_retry < subnet_continue < lease_time_read
 script_call = ack.index("script_status = udhcp_run_script")
 failure_gate = ack.index("if (script_status != 0)", script_call)
 retry = ack.index("udhcpc_script_failure_prepare_retry", failure_gate)
-retry_continue = ack.index("continue;", retry)
-bound_publish = ack.index("state = BOUND;", retry_continue)
-assert script_call < failure_gate < retry < retry_continue < bound_publish
-assert "script_status != 0" in ack[failure_gate:retry_continue]
-assert "state == REQUESTING" in ack[retry:retry_continue]
-assert "tryagain_timeout" in ack[retry:retry_continue]
-assert "script_elapsed" in ack[retry:retry_continue]
+cleanup_gate = ack.index(
+    "udhcpc_bound_script_failure_requires_deconfig(state == REQUESTING)", retry)
+deconfig_call = ack.index('deconfig_status = udhcp_run_script(NULL, "deconfig");',
+                          cleanup_gate)
+cleanup_retry_gate = ack.index(
+    "udhcpc_deconfig_retry_required(deconfig_status)", deconfig_call)
+cleanup_retry = ack.index(
+    "udhcpc_schedule_deconfig_retry(INIT_SELECTING, 0,", cleanup_retry_gate)
+cleanup_continue = ack.index("continue;", cleanup_retry)
+cleanup_state = ack.index("state = INIT_SELECTING;", cleanup_continue)
+final_continue = ack.index("continue;", cleanup_state)
+bound_publish = ack.index("state = BOUND;", final_continue)
+assert (script_call < failure_gate < retry < cleanup_gate < deconfig_call <
+        cleanup_retry_gate < cleanup_retry < cleanup_continue < cleanup_state <
+        final_continue < bound_publish)
+assert "script_status != 0" in ack[failure_gate:final_continue]
+assert "state == REQUESTING" in ack[retry:cleanup_gate]
+assert "tryagain_timeout" in ack[retry:cleanup_gate]
+assert "script_elapsed" in ack[retry:cleanup_gate]
+assert "change_listen_mode(LISTEN_RAW);" in ack[cleanup_state:final_continue]
+assert "requested_ip = 0;" in ack[cleanup_state:final_continue]
 for forbidden_commit in (
     "server_addr = udhcpc_server_addr_after_ack(",
     "already_waited_sec = script_elapsed;",
@@ -561,6 +575,7 @@ assert "script_elapsed >= remaining" in policy
 assert "*already_waited_sec += script_elapsed;" in policy
 assert "return script_status != 0;" in policy
 assert "test_failed_deconfig_blocks_state_transition" in test
+assert "udhcpc_bound_script_failure_requires_deconfig" in policy
 
 for marker in (
     "test_initial_acquisition_retries_selected_request",
@@ -568,6 +583,7 @@ for marker in (
     "test_leasefail_and_decline_backoff_have_one_second_floor",
     "test_leasefail_and_decline_backoff_have_one_second_floor() != 0",
     "test_failed_renewal_preserves_existing_lease_deadline",
+    "test_bound_script_failure_requires_deconfiguration_but_renewal_does_not",
     "test_script_runtime_cannot_extend_expired_lease",
     "test_exact_lease_deadline_is_expired",
     "test_already_expired_lease_is_not_resurrected",

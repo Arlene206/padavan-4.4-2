@@ -639,6 +639,15 @@ test_select_wait_clamps_elapsed_timeout_before_unsigned_subtraction(void)
 	return 0;
 }
 
+static int
+test_bound_script_failure_requires_deconfiguration_but_renewal_does_not(void)
+{
+	CHECK(udhcpc_bound_script_failure_requires_deconfig(1));
+	CHECK(!udhcpc_bound_script_failure_requires_deconfig(0));
+	CHECK(udhcpc_bound_script_failure_requires_deconfig(-1));
+	return 0;
+}
+
 int main(void)
 {
 	if (test_listener_socket_recovery_preserves_lease_deadline() != 0 ||
@@ -666,6 +675,7 @@ int main(void)
 	    test_pending_deconfig_manual_stop_releases_existing_lease() != 0 ||
 	    test_initial_acquisition_retries_selected_request() != 0 ||
 	    test_nonpositive_retry_interval_is_throttled() != 0 ||
+    test_bound_script_failure_requires_deconfiguration_but_renewal_does_not() != 0 ||
 	    test_failed_renewal_preserves_existing_lease_deadline() != 0 ||
 	    test_script_runtime_cannot_extend_expired_lease() != 0 ||
 	    test_exact_lease_deadline_is_expired() != 0 ||
