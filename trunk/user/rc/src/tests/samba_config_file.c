@@ -10,6 +10,24 @@
 
 #include "../samba_config_file.h"
 
+/* Exercise a one-shot EINTR from the directory durability barrier. */
+static int fsync_interrupt_count;
+static int fsync_call_count;
+
+int __real_fsync(int fd);
+
+int
+__wrap_fsync(int fd)
+{
+	fsync_call_count++;
+	if (fsync_interrupt_count > 0) {
+		fsync_interrupt_count--;
+		errno = EINTR;
+		return -1;
+	}
+	return __real_fsync(fd);
+}
+
 static void
 read_text_file(const char *path, char *buffer, size_t buffer_size)
 {
@@ -39,7 +57,11 @@ main(void)
 	assert(mkdtemp(dir) != NULL);
 	path_len = snprintf(target, sizeof(target), "%s/smb.conf", dir);
 	assert(path_len > 0 && (size_t)path_len < sizeof(target));
+	fsync_interrupt_count = 1;
+	fsync_call_count = 0;
 	assert(samba_config_file_sync_parent(target) == 0);
+	assert(fsync_interrupt_count == 0);
+	assert(fsync_call_count == 2);
 	errno = 0;
 	assert(samba_config_file_sync_parent(NULL) == -1);
 	assert(errno == EINVAL);
