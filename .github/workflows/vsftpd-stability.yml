@@ -31,6 +31,7 @@ on:
       - "trunk/user/vsftpd/src/ftpdataio.c"
       - "trunk/user/vsftpd/src/sysutil.c"
       - "trunk/user/vsftpd/src/sysutil.h"
+      - "trunk/user/vsftpd/src/tests/sysutil_ftruncate.c"
       - "trunk/user/vsftpd/src/ls.c"
       - "trunk/user/vsftpd/src/sysstr.c"
       - "trunk/user/vsftpd/src/sysstr.h"
@@ -80,6 +81,7 @@ on:
       - "trunk/user/vsftpd/src/ftpdataio.c"
       - "trunk/user/vsftpd/src/sysutil.c"
       - "trunk/user/vsftpd/src/sysutil.h"
+      - "trunk/user/vsftpd/src/tests/sysutil_ftruncate.c"
       - "trunk/user/vsftpd/src/ls.c"
       - "trunk/user/vsftpd/src/sysstr.c"
       - "trunk/user/vsftpd/src/sysstr.h"
@@ -174,6 +176,12 @@ jobs:
             trunk/user/vsftpd/src/tests/ftp_mdtm_policy.c \
             -o /tmp/vsftpd-mdtm-policy
           ASAN_OPTIONS=detect_leaks=1 /tmp/vsftpd-mdtm-policy
+          cc -std=gnu89 -ffunction-sections -fdata-sections \
+            -Wl,--gc-sections -iquote trunk/user/vsftpd/src \
+            trunk/user/vsftpd/src/sysutil.c \
+            trunk/user/vsftpd/src/tests/sysutil_ftruncate.c \
+            -o /tmp/vsftpd-sysutil-ftruncate
+          /tmp/vsftpd-sysutil-ftruncate
       - name: Verify vsftpd configuration publication and startup gates
         run: |
           python3 - <<'PY'
@@ -213,6 +221,7 @@ jobs:
           vsftpd_listing_policy = Path("trunk/user/vsftpd/src/ftp_listing_policy.h").read_text()
           vsftpd_sysutil = Path("trunk/user/vsftpd/src/sysutil.c").read_text()
           vsftpd_sysutil_header = Path("trunk/user/vsftpd/src/sysutil.h").read_text()
+          vsftpd_truncate_test = Path("trunk/user/vsftpd/src/tests/sysutil_ftruncate.c").read_text()
           vsftpd_ls = Path("trunk/user/vsftpd/src/ls.c").read_text()
           vsftpd_sysstr = Path("trunk/user/vsftpd/src/sysstr.c").read_text()
           vsftpd_sysstr_header = Path("trunk/user/vsftpd/src/sysstr.h").read_text()
@@ -478,6 +487,17 @@ jobs:
           assert "APPE with REST ignored the restart marker" in acl_path_test
           assert "ftp_rest_offset_is_within_file(" in upload
           assert upload.index("ftp_rest_offset_is_within_file(") < upload.index("vsf_sysutil_ftruncate(new_file_fd)")
+          truncate_wrapper = function_body(vsftpd_sysutil, "vsf_sysutil_ftruncate(int fd)")
+          assert "int vsf_sysutil_ftruncate(int fd);" in vsftpd_sysutil_header
+          assert "return ftruncate(fd, 0);" in truncate_wrapper
+          assert "die(" not in truncate_wrapper
+          truncate_failure = upload[upload.index("if (vsf_sysutil_ftruncate(new_file_fd) != 0)"):upload.index("vsf_sysutil_lseek_to(new_file_fd, 0)")]
+          assert "FTP_UPLOADFAIL" in truncate_failure
+          assert "Could not truncate file." in truncate_failure
+          assert "goto port_pasv_cleanup_out;" in truncate_failure
+          assert "vsf_sysutil_ftruncate(read_only_fd)" in vsftpd_truncate_test
+          assert "errno != EBADF" in vsftpd_truncate_test
+          assert "process did not continue after truncate failure" in vsftpd_truncate_test
           assert upload.index("ftp_rest_offset_is_within_file(") < upload.index("vsf_sysutil_lseek_to(new_file_fd, offset)")
           assert "Restart position exceeds existing file size." in upload
           assert "ftp_rest_offset_is_within_file(4097, 4096)" in rest_offset_test
@@ -1349,6 +1369,7 @@ jobs:
               "trunk/user/vsftpd/src/tests/ftp_account_auth_policy.c",
               "trunk/user/vsftpd/src/ftp_share_mode_policy.h",
               "trunk/user/vsftpd/src/tests/ftp_share_mode_policy.c",
+              "trunk/user/vsftpd/src/tests/sysutil_ftruncate.c",
           )
           filters = workflow.split("jobs:", 1)[0]
           push_filters, pr_filters = filters.split("  pull_request:", 1)

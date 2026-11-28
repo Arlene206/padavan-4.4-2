@@ -95,7 +95,7 @@ void vsf_sysutil_close(int fd);
 int vsf_sysutil_close_failok(int fd);
 int vsf_sysutil_unlink(const char* p_dead);
 int vsf_sysutil_write_access(const char* p_filename);
-void vsf_sysutil_ftruncate(int fd);
+int vsf_sysutil_ftruncate(int fd);
 
 /* Reading and writing */
 void vsf_sysutil_lseek_to(const int fd, filesize_t seek_pos);

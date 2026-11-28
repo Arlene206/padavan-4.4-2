@@ -1277,7 +1277,12 @@ retry_unique_candidate:
   /* Must truncate the file AFTER locking it! */
   if (do_truncate)
   {
-    vsf_sysutil_ftruncate(new_file_fd);
+    if (vsf_sysutil_ftruncate(new_file_fd) != 0)
+    {
+      vsf_cmdio_write(p_sess, FTP_UPLOADFAIL,
+                      "Could not truncate file.");
+      goto port_pasv_cleanup_out;
+    }
     vsf_sysutil_lseek_to(new_file_fd, 0);
   }
   if (has_restart_pos)

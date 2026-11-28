@@ -1,3 +1,12 @@
+## 2026-11-28 — Return VSFTPD truncate errors through upload cleanup
+
+- Parent main SHA: `a82345cece5c2d68889c6bd10e62d0ed56577e7d`. In `sysutil.c`, `vsf_sysutil_ftruncate()` called `die()` on a normal filesystem error, killing the FTP session process before the upload handler could emit a protocol failure or execute its cleanup label.
+- Changed the wrapper to return `ftruncate(2)` directly; the STOR path checks the result, sends `FTP_UPLOADFAIL`, and follows the existing cleanup path. A newly created partial file is therefore eligible for the configured failed-upload cleanup; an existing file is not marked as a newly created cleanup target.
+- Added a runtime regression linked to the production `sysutil.c`: writable-fd truncation reaches size zero; truncating an O_RDONLY descriptor returns `EBADF` and the process continues. Added source-order assertions and push/PR path coverage.
+- Exact-head VSFTPD, Process and XY-C1 Actions for the new commit are required. No local test, MIPS build or hardware result is claimed. Parent IAPP #46118354302 PASS; parent XY-C1 #46118354306 and NVRAM #46118354305 were still in progress.
+
+---
+
 ## 2026-11-28 — Respect platform byte order and guard the IAPP OS default
 
 - Exact IAPP run #46118049024 and AI docs #46118048938 on `88695c8189774f5108ff82d0b7c621000c2d76d6` both PASS. The host lifecycle suite passed daemon, dependency, FD, datagram, event-log and deadline checks; the separate target job verified the pinned MIPS musl archive and syntax-compiled `rtmpiapp.c` and `mt_iapp_util.c` with `IAPP_EVENT_LOG` under XY-C1 MIPS32r2/1004kc.

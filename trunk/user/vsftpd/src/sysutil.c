@@ -2850,14 +2850,10 @@ vsf_sysutil_setmodtime_fd(int fd, long the_time, int is_localtime)
   return futimes(fd, new_times);
 }
 
-void
+int
 vsf_sysutil_ftruncate(int fd)
 {
-  int ret = ftruncate(fd, 0);
-  if (ret != 0)
-  {
-    die("ftruncate");
-  }
+  return ftruncate(fd, 0);
 }
 
 int
