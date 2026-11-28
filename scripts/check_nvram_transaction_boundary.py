@@ -152,6 +152,7 @@ def run() -> int:
     bcm_header = ROOT / "trunk/linux-4.4.x/include/nvram/bcmnvram.h"
     snapshot_policy_path = ROOT / "trunk/linux-4.4.x/drivers/nvram/nvram_snapshot_policy.h"
     snapshot_test_path = ROOT / "trunk/linux-4.4.x/drivers/nvram/tests/nvram_snapshot_policy.c"
+    sensitive_policy_path = ROOT / "trunk/linux-4.4.x/drivers/nvram/nvram_sensitive_buffer_policy.h"
     kernel_common_path = ROOT / "trunk/linux-4.4.x/drivers/nvram/nvram.c"
     compaction_policy_path = ROOT / "trunk/linux-4.4.x/drivers/nvram/nvram_compaction_policy.h"
     compaction_test_path = ROOT / "trunk/linux-4.4.x/drivers/nvram/tests/nvram_compaction_policy.c"
@@ -168,6 +169,7 @@ def run() -> int:
         driver_path, driver_makefile,
         drivers_makefile, bcm_header, snapshot_policy_path, snapshot_test_path,
         kernel_common_path, compaction_policy_path, compaction_test_path,
+        sensitive_policy_path,
         rehash_policy_path, rehash_test_path, commit_serialization_test_path,
         cli_source_path, cli_policy_path, cli_test_path, cli_workflow_path
     ):
@@ -187,6 +189,7 @@ def run() -> int:
     kernel_common = kernel_common_path.read_text(encoding="utf-8", errors="replace")
     compaction_policy = compaction_policy_path.read_text(encoding="utf-8", errors="replace")
     compaction_test = compaction_test_path.read_text(encoding="utf-8", errors="replace")
+    sensitive_policy = sensitive_policy_path.read_text(encoding="utf-8", errors="replace")
     rehash_policy = rehash_policy_path.read_text(encoding="utf-8", errors="replace")
     rehash_test = rehash_test_path.read_text(encoding="utf-8", errors="replace")
     commit_serialization_test = commit_serialization_test_path.read_text(encoding="utf-8", errors="replace")
@@ -842,6 +845,56 @@ def run() -> int:
     if "try_module_get(THIS_MODULE);" not in kernel_driver or "module_put(THIS_MODULE);" not in kernel_driver:
         failures.append("NVRAM open/release module reference pairing is missing")
 
+    # Kernel NVRAM scratch buffers can contain credentials; scrub before release.
+    for marker in (
+        "NVRAM_SENSITIVE_BUFFER_ZERO",
+        "memzero_explicit((buffer), (length))",
+        "if (buffer && length)",
+        "NVRAM_SENSITIVE_BUFFER_ZERO(buffer, length)",
+    ):
+        if marker not in sensitive_policy:
+            failures.append("NVRAM sensitive-buffer policy is missing " + marker)
+    for marker in (
+        "test_sensitive_buffer_clear_wipes_the_complete_region",
+        "test_sensitive_buffer_clear_ignores_null_and_empty_regions",
+        "sensitive_zero_bytes == sizeof(secret)",
+        "NVRAM_SENSITIVE_BUFFER_ZERO(buffer, length)",
+    ):
+        if marker not in compaction_test:
+            failures.append("NVRAM sensitive-buffer host regression is missing " + marker)
+    try:
+        compact_body = extract_function(kernel_driver, "nvram_compact_values")
+        commit_body = extract_function(kernel_driver, "nvram_commit")
+        set_ioctl_body = extract_function(kernel_driver, "user_nvram_set")
+        get_ioctl_body = extract_function(kernel_driver, "user_nvram_get")
+        init_body = extract_function(kernel_driver, "dev_nvram_init")
+        reset_body = extract_function(kernel_driver, "_nvram_reset")
+        for body, wipe, free, label in (
+            (compact_body, "nvram_sensitive_buffer_clear(snapshot, old_used)", "kfree(snapshot)", "compaction snapshot"),
+            (commit_body, "nvram_sensitive_buffer_clear(bufw, NVRAM_SPACE)", "kfree(bufw)", "commit image"),
+        ):
+            if wipe not in body or free not in body or body.index(wipe) > body.index(free):
+                failures.append(f"NVRAM {label} must be erased before kfree")
+        if ("nvram_sensitive_buffer_clear(bufr, NVRAM_SPACE)" not in commit_body or
+            commit_body.index("nvram_sensitive_buffer_clear(bufr, NVRAM_SPACE)") > commit_body.index("kfree(bufr)")):
+            failures.append("NVRAM flash read-back image must be erased before kfree")
+        for wipe in ("nvram_sensitive_buffer_clear(value, (size_t)request.len_value + 1U)",
+                     "nvram_sensitive_buffer_clear(tmp, sizeof(tmp))"):
+            if wipe not in set_ioctl_body:
+                failures.append("NVRAM SET staging data is not erased: " + wipe)
+        for wipe in ("nvram_sensitive_buffer_clear(value, NVRAM_SPACE)",
+                     "nvram_sensitive_buffer_clear(value, (size_t)len)"):
+            if wipe not in get_ioctl_body:
+                failures.append("NVRAM GET staging data is not erased: " + wipe)
+        if (init_body.count("nvram_sensitive_buffer_clear(header, NVRAM_SPACE)") != 2 or
+            init_body.count("kfree(header)") != 2):
+            failures.append("NVRAM flash initialization image must be erased on both exits")
+        if "nvram_sensitive_buffer_clear(nvram_values, NVRAM_VALUES_SPACE)" not in reset_body:
+            failures.append("NVRAM arena reset must use explicit erasure")
+        if "nvram_sensitive_buffer_clear(nvram_values, NVRAM_VALUES_SPACE)" not in compact_body:
+            failures.append("NVRAM arena compaction must use explicit erasure")
+    except ValueError as error:
+        failures.append("NVRAM sensitive-buffer source contract: " + str(error))
     print("NVRAM kernel single-value ioctl snapshot contract: PASS")
 
     # Report board-specific selectors that change NVRAM MTD geometry.

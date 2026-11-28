@@ -35,6 +35,7 @@
 
 #include "nvram_compaction_policy.h"
 #include "nvram_snapshot_policy.h"
+#include "nvram_sensitive_buffer_policy.h"
 #include "nvram.c"
 #include "nvram_snapshot_policy.h"
 
@@ -117,7 +118,7 @@ nvram_compact_values(void)
 		}
 	}
 
-	memset(nvram_values, 0, NVRAM_VALUES_SPACE);
+	nvram_sensitive_buffer_clear(nvram_values, NVRAM_VALUES_SPACE);
 	compacted_used = 0;
 
 	for (bucket = 0; bucket < ARRAYSIZE(nvram_hash); bucket++) {
@@ -140,6 +141,7 @@ nvram_compact_values(void)
 	ret = 0;
 
 done:
+	nvram_sensitive_buffer_clear(snapshot, old_used);
 	kfree(snapshot);
 	return ret;
 }
@@ -270,7 +272,7 @@ _nvram_reset(void)
 {
 	nvram_offset = 0;
 	if (nvram_values)
-		memset(nvram_values, 0, NVRAM_VALUES_SPACE);
+		nvram_sensitive_buffer_clear(nvram_values, NVRAM_VALUES_SPACE);
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -536,6 +538,9 @@ skip_write:
 	mutex_unlock(&nvram_sem);
 
 done:
+	nvram_sensitive_buffer_clear(bufw, NVRAM_SPACE);
+	if (bufr)
+		nvram_sensitive_buffer_clear(bufr, NVRAM_SPACE);
 	kfree(bufw);
 	if (bufr)
 		kfree(bufr);
@@ -628,8 +633,11 @@ user_nvram_set(anvram_ioctl_t __user *nvr)
 		ret = nvram_unset(param);
 
 done:
-	if (value != tmp)
+	if (value != tmp) {
+		nvram_sensitive_buffer_clear(value, (size_t)request.len_value + 1U);
 		kfree(value);
+	}
+	nvram_sensitive_buffer_clear(tmp, sizeof(tmp));
 
 	return ret;
 }
@@ -699,6 +707,7 @@ user_nvram_get(anvram_ioctl_t __user *nvr)
 			if (ret == 0 && copy_to_user(request.value, value, NVRAM_SPACE))
 				ret = -EFAULT;
 		}
+		nvram_sensitive_buffer_clear(value, NVRAM_SPACE);
 		kfree(value);
 	} else {
 		int capacity = request.len_value;
@@ -716,6 +725,7 @@ user_nvram_get(anvram_ioctl_t __user *nvr)
 			ret = nvram_user_store_length(nvr, len);
 			if (ret == 0 && copy_to_user(request.value, value, len))
 				ret = -EFAULT;
+			nvram_sensitive_buffer_clear(value, (size_t)len);
 			kfree(value);
 		}
 	}
@@ -860,10 +870,12 @@ dev_nvram_init(void)
 	if (ret != 0) {
 		if (ret > 0)
 			ret = -EIO;
-		kfree(header);
+		nvram_sensitive_buffer_clear(header, NVRAM_SPACE);
+	kfree(header);
 		goto err;
 	}
 	check_res = _nvram_init(header);
+	nvram_sensitive_buffer_clear(header, NVRAM_SPACE);
 	kfree(header);
 	if (check_res == NVRAM_REHASH_INIT_NOMEM) {
 		ret = -ENOMEM;

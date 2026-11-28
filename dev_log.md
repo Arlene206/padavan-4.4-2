@@ -1,3 +1,12 @@
+## 2026-11-28 — Erase NVRAM credential-bearing staging buffers
+
+- Kernel NVRAM scratch buffers carry Wi-Fi keys, VPN secrets and other router credentials. Compaction snapshots, commit/read-back images, ioctl GET/SET buffers and the flash-init image were freed without explicit erasure; whole-arena reset/compaction used ordinary memset.
+- Added a Linux 4.4 memzero_explicit()-backed host-testable clear policy. Wipe those temporary buffers before free and upgrade whole-arena reset/compaction clears to the optimizer-resistant primitive.
+- Compatibility boundary: do not wipe individual values during key replacement/unset here because kernel nvram_get() returns non-owned pool pointers after dropping its lock. Per-key wiping could race existing readers; retain whole-arena reset/compaction as cleanup boundaries.
+- Extended the existing GNU89/ASan/UBSan compaction test with complete-region, NULL and zero-length cases, and added source-contract checks to scripts/check_nvram_transaction_boundary.py. The existing NVRAM workflow path filter covers all changed kernel sources/headers and checker.
+- No local kernel build is available; exact-SHA Actions are required. Parent: 2f7c1ba8096aa257b0983393d2f48d408544a301; result: this atomic commit.
+
+---
 ## 2026-11-28 — Fail closed on malformed DHCP Router options
 
 - The renewal fast-path helper dhcp_lease_router_is_changed() previously converted parser errors to an empty gateway and compared it to stored state. If no gateway was stored, malformed Router data could be reported unchanged, skipping full udhcpc_bound() validation.
