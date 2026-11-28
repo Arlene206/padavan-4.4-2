@@ -103,6 +103,22 @@ static int test_exact_buffer_boundary(void)
     return 1;
 }
 
+static int test_sensitive_buffer_clear_erases_complete_region(void)
+{
+    unsigned char secret[73];
+    size_t i;
+
+    memset(secret, 0xa5, sizeof(secret));
+    memcpy(secret + 7, "wifi-password", sizeof("wifi-password"));
+    nvram_cli_secure_clear(secret, sizeof(secret));
+    for (i = 0; i < sizeof(secret); ++i)
+        CHECK(secret[i] == 0);
+
+    nvram_cli_secure_clear(NULL, sizeof(secret));
+    nvram_cli_secure_clear(secret, 0);
+    return 1;
+}
+
 static int test_checked_get_error_status(void)
 {
     CHECK(nvram_cli_get_error_status(0, 0) == 0);
@@ -118,9 +134,11 @@ static int test_checked_get_error_status(void)
 int main(void)
 {
     if (!test_checked_get_error_status() ||
+        !test_sensitive_buffer_clear_erases_complete_region() ||
         !test_valid_assignments() || !test_rejects_invalid_assignments() ||
         !test_exact_buffer_boundary())
         return 1;
+    puts("NVRAM CLI sensitive-buffer erasure: PASS");
     puts("NVRAM CLI assignment and checked-get policy: PASS");
     return 0;
 }

@@ -1,3 +1,12 @@
+## 2026-11-28 — Erase NVRAM CLI profile secrets before heap release
+
+- Found credential-bearing buffers in `nvram_save()`, `nvram_restore()` and `nvram_show()` that were freed without explicit erasure. The restore profile is decoded in place and permanent/temporary snapshots contain the existing NVRAM credential set; the show/save getall buffers also carry NVRAM values.
+- Added `nvram_cli_secure_clear()` using volatile byte stores. Every free path for the save buffer, all six restore profile exits, both restore snapshots, and both show-buffer exits now wipes the complete allocated span immediately before `free()`.
+- Extended the GNU89 CLI policy regression to verify full-region zeroing and NULL/empty handling, and extended the NVRAM tree checker to pair every free in those three functions with the correct full-span wipe. The existing NVRAM Actions workflow already compiles and executes this host test.
+- Parent main SHA: a606c54b09cda3fb70560e44571281ddd49c7f92; result: THIS COMMIT. Local host execution NOT RUN (no local checkout); exact-head NVRAM Actions and XY-C1 Build/TRX/artifact are pending. No L3/L4 claim is made.
+
+---
+
 ## 2026-11-28 — Finish compacting Samba V2 recovery-order source assertions
 
 - Exact-head a54 Samba #46146444805 progressed past the V2 tracking-flag matcher fixed in the previous follow-up, then failed because two V2 rollback order snippets still contained whitespace (`passdb_path, passdb_snapshot` and `group_path, group_snapshot`) despite the source body being normalized by `compact()`. Removed that whitespace; the checks still enforce reverse restore order config → passdb → group → passwd.

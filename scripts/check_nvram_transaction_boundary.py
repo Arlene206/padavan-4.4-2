@@ -235,6 +235,47 @@ def run() -> int:
         "trunk/user/nvram/src/tests/nvram_cli_policy.c" not in cli_workflow):
         failures.append("NVRAM workflow must compile and execute checked-get regression")
 
+    # Profile buffers and snapshots contain credentials; every release path
+    # must perform the volatile wipe immediately before free().
+    for marker in (
+        "static void\\nnvram_cli_secure_clear(void *buffer, size_t length)",
+        "volatile unsigned char *cursor",
+        "*cursor++ = 0;",
+    ):
+        if marker not in cli_policy:
+            failures.append("NVRAM CLI secure-clear policy is missing " + marker)
+    try:
+        def secure_free_pairs(body, variable, length_expression):
+            wipe = re.escape("nvram_cli_secure_clear(" + variable + ", " +
+                             length_expression + ");")
+            release = re.escape("free(" + variable + ");")
+            pairs = re.findall(wipe + r"\\s*" + release, body)
+            frees = re.findall(release, body)
+            return len(pairs) == len(frees)
+
+        for function, resources in (
+            ("nvram_save", (("buf", "NVRAM_SPACE"),)),
+            ("nvram_restore", (("buf", "(size_t)profile_capacity"),
+                               ("permanent_snapshot", "NVRAM_SPACE"),
+                               ("temporary_snapshot", "NVRAM_SPACE"))),
+            ("nvram_show", (("buf", "(size_t)buf_len"),)),
+        ):
+            body = extract_function(cli_source, function)
+            for variable, length_expression in resources:
+                if not secure_free_pairs(body, variable, length_expression):
+                    failures.append(
+                        f"NVRAM CLI {function} must erase every {variable} buffer before free"
+                    )
+    except ValueError as error:
+        failures.append("NVRAM CLI sensitive-buffer source contract: " + str(error))
+    for marker in (
+        "test_sensitive_buffer_clear_erases_complete_region",
+        "nvram_cli_secure_clear(NULL, sizeof(secret))",
+        "NVRAM CLI sensitive-buffer erasure: PASS",
+    ):
+        if marker not in cli_test:
+            failures.append("NVRAM CLI secure-clear regression is missing " + marker)
+
     # A raw userland ioctl/device path is allowed only in the locked shared adapter.
     raw_hits: list[tuple[str, int, str]] = []
     adapter_raw_count = 0

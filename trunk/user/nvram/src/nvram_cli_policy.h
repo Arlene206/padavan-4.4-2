@@ -5,6 +5,23 @@
 #include <errno.h>
 #include <string.h>
 
+/*
+ * NVRAM profile and show buffers can contain Wi-Fi, VPN and administrator
+ * credentials. Volatile stores prevent the compiler from removing the wipe.
+ */
+static void
+nvram_cli_secure_clear(void *buffer, size_t length)
+{
+    volatile unsigned char *cursor = (volatile unsigned char *)buffer;
+
+    if (!buffer)
+        return;
+    while (length > 0) {
+        *cursor++ = 0;
+        --length;
+    }
+}
+
 /* Copy and split a command-line name=value pair without truncation. */
 static int
 nvram_cli_parse_assignment(char *storage, size_t storage_size,
