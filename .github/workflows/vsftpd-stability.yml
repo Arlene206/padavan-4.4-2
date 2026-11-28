@@ -1168,12 +1168,12 @@ jobs:
                         "rename(staged_path, target_path)", "unlink(staged_path)"):
               assert token in publish_fn, "missing FTP publication token: %s" % token
           sync_helper = Path("trunk/user/rc/src/config_file_sync.h").read_text()
-assert "return config_file_sync_fd(fd);" in sync_fd
-assert "fsync(fd)" not in sync_fd
-assert "CONFIG_FILE_SYNC_MAX_EINTR_RETRIES 8U" in sync_helper
-assert "status = CONFIG_FILE_SYNC_FSYNC(fd);" in sync_helper
-assert "status == 0 || errno != EINTR" in sync_helper
-assert "interruptions >= CONFIG_FILE_SYNC_MAX_EINTR_RETRIES" in sync_helper
+          assert "return config_file_sync_fd(fd);" in sync_fd
+          assert "fsync(fd)" not in sync_fd
+          assert "CONFIG_FILE_SYNC_MAX_EINTR_RETRIES 8U" in sync_helper
+          assert "status = CONFIG_FILE_SYNC_FSYNC(fd);" in sync_helper
+          assert "status == 0 || errno != EINTR" in sync_helper
+          assert "interruptions >= CONFIG_FILE_SYNC_MAX_EINTR_RETRIES" in sync_helper
           assert "O_RDONLY | O_DIRECTORY | O_NOFOLLOW" in sync_parent
           assert "close(directory_fd)" in sync_parent
           file_sync = publish_fn.index("ftp_config_file_sync_fd(fileno(fp))")
@@ -1189,10 +1189,10 @@ assert "interruptions >= CONFIG_FILE_SYNC_MAX_EINTR_RETRIES" in sync_helper
           assert 'fopen("/dev/full", "w")' in test
           assert "listen=YES" in test
           assert "ftp_config_file_publish(&fp, staged, target) != 0" in test
-assert "ftp_config_test_fsync_always_eintr = 1" in test
-assert "CONFIG_FILE_SYNC_MAX_EINTR_RETRIES + 1U" in test
-assert "ftp_config_test_fsync_eintr_remaining = 2U" in test
-assert "ftp_config_test_fsync_calls == 4U" in test
+          assert "ftp_config_test_fsync_always_eintr = 1" in test
+          assert "CONFIG_FILE_SYNC_MAX_EINTR_RETRIES + 1U" in test
+          assert "ftp_config_test_fsync_eintr_remaining = 2U" in test
+          assert "ftp_config_test_fsync_calls == 4U" in test
 
           stop = function_body(source, "stop_ftp_locked(int *final_presence)")
           assert "status = kill_services(svcs, 3, 1)" in stop

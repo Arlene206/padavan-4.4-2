@@ -570,8 +570,8 @@ jobs:
 
           writer = function_body(service, "miniupnpd_write_config(FILE *fp, void *opaque)")
           assert 'if (fprintf(fp, "# automatically generated\\n") < 0)' in writer
-assert 'if (fprintf(fp,' in writer
-assert writer.count("return errno ? errno : EIO;") == 2
+          assert 'if (fprintf(fp,' in writer
+          assert writer.count("return errno ? errno : EIO;") == 2
           for token in (
               "ext_ifname=%s", "listening_ip=%s", "enable_upnp=%s",
               "enable_natpmp=%s", "secure_mode=%s", "lease_file=%s",
@@ -852,7 +852,7 @@ assert writer.count("return errno ? errno : EIO;") == 2
           assert 'fdopen(fd, "w")' in helper
           assert "fflush(stream)" in helper
           assert "config_file_sync_fd(fileno(stream))" in helper
-assert "fsync(fileno(stream))" not in helper
+          assert "fsync(fileno(stream))" not in helper
           assert "fclose(stream)" in helper
           assert "rename(temporary_path, path)" in helper
           assert "unlink(temporary_path)" in helper

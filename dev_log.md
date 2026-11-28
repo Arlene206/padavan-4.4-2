@@ -1,3 +1,10 @@
+## 2026-11-28 — Repair workflow YAML indentation after static-contract edits
+
+- The MiniUPnP and vsftpd workflows created on `dfdcd60c9b8478812a5b0ca583b7d15f0a752d18` were reported failed with zero jobs. Inspection showed newly inserted Python heredoc assertions had lost their ten-space YAML block indentation, making both workflow files syntactically invalid before any tests could start.
+- Restored the heredoc indentation for all inserted MiniUPnP and vsftpd assertions. The source/test changes remain unchanged; both workflows must be re-triggered on this correction SHA to produce meaningful test results.
+
+---
+
 ## 2026-11-28 — Bound vsftpd configuration fsync retries
 
 - The FTP config publisher still had its own unbounded `do/while(errno == EINTR)` loop in both staged-file and parent-directory barriers, bypassing the shared `config_file_sync.h` eight-interruption ceiling.
