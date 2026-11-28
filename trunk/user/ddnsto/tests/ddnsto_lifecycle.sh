@@ -374,6 +374,7 @@ if run_action normal start; then fail "start accepted a missing DDNSTO executabl
 DDNSTO_BIN="$saved_ddnsto_bin"
 export DDNSTO_BIN
 
+: > "$TEST_NVRAM_LOG"
 TEST_NVRAM_ID_FAIL=1
 export TEST_NVRAM_ID_FAIL
 if run_action normal start; then

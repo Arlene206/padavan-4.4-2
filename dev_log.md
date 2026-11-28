@@ -1,3 +1,10 @@
+## 2026-11-28 — Isolate DDNSTO identity failure read-count assertion
+
+- DDNSTO workflow #46141285563 on `3f1cab20589e858b2db951b18821194249424957` passed shell syntax and the earlier lifecycle sections, then failed because the new exact-one `get_checked ddnsto_id` assertion still included NVRAM log lines from a preceding UNKNOWN-process test.
+- Clear the fixture NVRAM log immediately before the identity-read failure case. This isolates the call-count assertion to the operation under test; no production behavior changes.
+- On 3f, AI docs #46141285526 PASS and Process inventory #46141285490 PASS; dedicated DDNSTO regression #46141285563 failed as described; XY-C1 #46141285573 was IN_PROGRESS.
+
+---
 ## 2026-11-28 — Use checked NVRAM reads in DDNSTO lifecycle
 
 - `ddnsto.sh` had command-status guards around legacy `nvram get ddnsto_id` and `nvram get ddnsto_enable`, but the legacy getter can mask backend read failures as successful empty output. That could let start/restart treat an unreadable enable value as the historical disabled empty default, or conflate an unreadable identity with an unset identity.
