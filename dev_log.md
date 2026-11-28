@@ -1,3 +1,12 @@
+## 2026-11-28 — XY-C1 L3 validation completed for IPTV port source
+
+- Exact XY-C1 run #46116630792 for product SHA `58700dc70b54d931aabdb6701f0ec88c14b9d1b4` completed SUCCESS: Build XY-C1, TRX output verification and artifact upload. Artifact `XY-C1-firmware-58700dc70b54d931aabdb6701f0ec88c14b9d1b4`, ID `15252233106`, size 12,838,305 bytes. L3 is VERIFIED for this product SHA.
+- Current main before this docs checkpoint: `a747994f8892363f94938655b6db68195d44c9dd`. Compare from 58700 to a747 confirms all later commits touched only workflow/test/handoff/log files; no firmware production path changed, so the L3 result covers current main's product source.
+- The Process fail-closed regression #46117034795 on 6a1b and AI docs #46117034802 both PASS. This checkpoint's exact AI docs #46117399122 also PASS. No local build or physical-router L4 verification is claimed.
+- Next unresolved roadmap task: optional Ralink `IAPP_EVENT_LOG` target compilation is explicitly unverified. Trace conditional source/build flags and add a bounded compile check; do not repeat the already-passing default IAPP safety tests.
+
+---
+
 ## 2026-11-28 — Close IPTV port regression and LAN source-contract correction
 
 - On product source `58700dc70b54d931aabdb6701f0ec88c14b9d1b4`, the Process fail-closed test initially failed because the new range-test fixture omitted `<stddef.h>`; the corrected test then exposed an embedded LAN-startup checker still requiring the old `if (xport < 1024)` literal. The production helper now correctly validates bounds before its boolean disabled gate.
