@@ -1,3 +1,12 @@
+## 2026-11-28 — Repair inline watchdog signal CI for executable identity gate
+
+- Watchdog signal run #46093868038 on SHA 4acd703af1914b5987fc4bae118dec1185ca0396 still failed because its executed inline Python heredoc duplicated a rollback contract; updating the separate checker script alone did not change the heredoc. It still required generic `kill_services()` and generic process scanning.
+- THIS commit updates that executed workflow contract to validate executable/argv0 checks, identity-only rollback signals, bounded waits, policy/test files and XY-C1 trigger coverage. No production source changed.
+- Exact c9f5d0e1 checks: HTTPD security/lifecycle, DNSMasq lifecycle, Process inventory audit and AI docs PASS; Process lifecycle was cancelled after subsequent main commits; watchdog-signal failed on stale source expectations; XY-C1 remained IN_PROGRESS at last observation. Exact storage SHA 363fd7fba6... USB hotplug/XY-C1/AI Docs all PASS.
+- Next action: inspect latest main's Process lifecycle, watchdog signal and XY-C1 runs, then diagnose any real compile/integration failure. Backup remains immutable at 72f4f157a084f8184b9597ca5bf334b8080e5807.
+
+---
+
 ## 2026-11-28 — Remove unused watchdog identity-check local
 
 - After c9f5d0e1abd9df58576b18db4e8d10db0e448066, source review caught an unused `saved_error` local in `watchdog_process_identity_matches()`. The firmware CI compiles with warnings-as-errors; THIS commit removes the unused local without changing behavior.

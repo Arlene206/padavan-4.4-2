@@ -1,3 +1,10 @@
+## 2026-11-28 — Repair inline watchdog signal CI for executable identity gate
+
+- The watchdog-signal workflow's executed inline Python heredoc duplicated the rollback source assertions from `scripts/check_watchdog_ntp_lifecycle.py`. The prior correction updated the standalone script but not the heredoc, so exact 4acd703a... run #46093868038 still failed on legacy `kill_services()`/generic scan assertions.
+- THIS commit updates the inline contract and verifies the new watchdog executable identity policy/test path filters and XY-C1 policy trigger. Runtime C source unchanged.
+
+---
+
 ## 2026-11-28 — Remove unused watchdog identity-check local
 
 - Removed the unused `saved_error` automatic variable from `watchdog_process_identity_matches()`. This avoids a likely `-Wunused-variable` failure under the repository's GNU89/Werror builds; no behavior changed.

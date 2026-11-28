@@ -136,6 +136,8 @@ jobs:
           presence_policy = (rc / "process_presence_start_policy.h").read_text()
           presence_test = (rc / "tests/process_presence_start_policy.c").read_text()
           policy = (rc / "watchdog_signal_policy.h").read_text()
+          process_policy = (rc / "watchdog_process_executable_policy.h").read_text()
+          process_test = (rc / "tests/watchdog_process_executable_policy.c").read_text()
           test = (rc / "tests/watchdog_signal_policy.c").read_text()
           httpd_policy = (rc / "watchdog_httpd_probe_policy.h").read_text()
           httpd_test = (rc / "tests/watchdog_httpd_probe_policy.c").read_text()
@@ -198,6 +200,7 @@ jobs:
 
           assert '#include "watchdog_signal_policy.h"' in watchdog
           assert '#include "process_presence_start_policy.h"' in watchdog
+          assert '#include "watchdog_process_executable_policy.h"' in watchdog
           assert '#include <process_inventory.h>' in watchdog
           for marker in ("PROCESS_PRESENCE_ABSENT", "PROCESS_PRESENCE_RUNNING",
                          "PROCESS_PRESENCE_UNKNOWN", "(enum process_presence)7"):
@@ -361,8 +364,27 @@ jobs:
           assert "detached_daemon_start_rollback_with_ops(" in watchdog_start_rollback
           assert "watchdog_start_rollback_stop" in watchdog_start_rollback
           assert "watchdog_start_rollback_scan" in watchdog_start_rollback
-          assert "kill_services(service_names, 3, 1)" in watchdog_start_stop
-          assert "process_inventory_scan((const char *)context, &snapshot)" in watchdog_start_scan
+          assert "watchdog_process_signal_instances(SIGTERM" in watchdog_start_stop
+          assert "watchdog_process_signal_instances(SIGKILL" in watchdog_start_stop
+          assert "service_wait_seconds(3)" in watchdog_start_stop
+          assert "service_wait_seconds(1)" in watchdog_start_stop
+          assert "kill_services(" not in watchdog_start_stop
+          assert "watchdog_process_scan(&snapshot, scan_error)" in watchdog_start_scan
+          watchdog_process_identity = body(watchdog, "watchdog_process_identity_matches(const struct process_identity *identity,")
+          watchdog_process_scan = body(watchdog, "watchdog_process_scan(struct process_snapshot *snapshot, int *scan_error)")
+          watchdog_process_signal = body(watchdog, "watchdog_process_signal_instances(int signal_number, int *signalled,")
+          assert '"/proc/%ld/cmdline"' in watchdog_process_identity
+          assert '"/proc/%ld/exe"' in watchdog_process_identity
+          assert "watchdog_process_argv0_matches(cmdline)" in watchdog_process_identity
+          assert "watchdog_process_executable_path_matches(executable_path)" in watchdog_process_identity
+          assert '"/sbin/rc"' in process_policy and '"/sbin/watchdog"' in process_policy
+          assert "watchdog_process_argv0_matches" in process_policy
+          assert "process_inventory_scan(\"watchdog\", snapshot)" in watchdog_process_scan
+          assert "watchdog_process_identity_matches(" in watchdog_process_scan
+          assert "kill(snapshot.items[i].pid, signal_number)" in watchdog_process_signal
+          assert "test_only_rc_watchdog_executable_aliases_are_accepted" in process_test
+          assert "test_watchdog_argv0_is_exact_basename" in process_test
+          assert watchdog_start.count("watchdog_process_scan(&snapshot, &scan_error)") == 2
           assert watchdog_start.count("watchdog_rollback_failed_start(") == 6
           assert watchdog_start.index("if (action == PROCESS_PRESENCE_START_NEW)") < watchdog_start.index(
               'launch_status = eval("/sbin/watchdog")'
@@ -387,6 +409,8 @@ jobs:
           paths = (
               ".github/workflows/watchdog-signal-stability.yml",
               "trunk/user/rc/src/watchdog.c",
+              "trunk/user/rc/src/watchdog_process_executable_policy.h",
+              "trunk/user/rc/src/tests/watchdog_process_executable_policy.c",
               "trunk/user/rc/src/process_presence_start_policy.h",
               "trunk/user/rc/src/detached_daemon_start_policy.h",
               "trunk/user/rc/src/tests/detached_daemon_start_policy.c",
@@ -419,6 +443,7 @@ jobs:
           for path in (
               "trunk/user/rc/src/watchdog_ntp_policy.h",
               "trunk/user/rc/src/watchdog_signal_policy.h",
+              "trunk/user/rc/src/watchdog_process_executable_policy.h",
           ):
               quoted = '"' + path + '"'
               assert xy_filters.count(quoted) == 1, "XY-C1 push path missing/duplicated: " + path
