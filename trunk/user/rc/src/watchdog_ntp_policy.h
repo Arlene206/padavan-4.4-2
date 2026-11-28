@@ -168,35 +168,60 @@ watchdog_ntp_read_server_pair(watchdog_ntp_nvram_get_fn get_value,
     return status;
 }
 
+/* Find a terminator without reading beyond the caller's buffer. */
+static inline int
+watchdog_ntp_bounded_string_length(const char *value, size_t value_size,
+                                   size_t *length)
+{
+    const char *terminator;
+
+    if (!value || value_size == 0 || !length)
+        return EINVAL;
+    terminator = (const char *)memchr(value, '\\0', value_size);
+    if (!terminator)
+        return ENAMETOOLONG;
+    *length = (size_t)(terminator - value);
+    return 0;
+}
+
 /* Preserve the legacy one-server mirror and pool.ntp.org fallback behavior. */
 static inline int
 watchdog_ntp_resolve_server_pair(char *server0, size_t server0_size,
                                  char *server1, size_t server1_size)
 {
     const char *fallback = "pool.ntp.org";
-    size_t length;
+    size_t server0_length, server1_length, fallback_length;
+    int status;
 
-    if (!server0 || server0_size == 0 || !server1 || server1_size == 0)
-        return EINVAL;
+    status = watchdog_ntp_bounded_string_length(
+        server0, server0_size, &server0_length);
+    if (status == 0)
+        status = watchdog_ntp_bounded_string_length(
+            server1, server1_size, &server1_length);
+    if (status != 0)
+        return status;
 
-    if (strlen(server0) < 3) {
-        length = strlen(server1);
-        if (length >= server0_size)
+    if (server0_length < 3 && server1_length >= 3) {
+        if (server1_length >= server0_size)
             return ENAMETOOLONG;
-        memmove(server0, server1, length + 1);
-    } else if (strlen(server1) < 3) {
-        length = strlen(server0);
-        if (length >= server1_size)
-            return ENAMETOOLONG;
-        memmove(server1, server0, length + 1);
+        memmove(server0, server1, server1_length + 1);
+        return 0;
     }
 
-    if (strlen(server0) < 3) {
-        length = strlen(fallback);
-        if (length >= server0_size || length >= server1_size)
+    if (server1_length < 3 && server0_length >= 3) {
+        if (server0_length >= server1_size)
             return ENAMETOOLONG;
-        memcpy(server0, fallback, length + 1);
-        memcpy(server1, fallback, length + 1);
+        memmove(server1, server0, server0_length + 1);
+        return 0;
+    }
+
+    if (server0_length < 3 && server1_length < 3) {
+        fallback_length = sizeof("pool.ntp.org") - 1;
+        if (fallback_length >= server0_size ||
+            fallback_length >= server1_size)
+            return ENAMETOOLONG;
+        memcpy(server0, fallback, fallback_length + 1);
+        memcpy(server1, fallback, fallback_length + 1);
     }
 
     return 0;

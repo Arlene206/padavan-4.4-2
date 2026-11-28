@@ -72,6 +72,7 @@ for token in (
     "test_ntp_server_pair_copies_cache_before_next_read",
     "test_ntp_server_pair_failure_clears_partial_snapshot",
     "test_ntp_missing_keys_preserve_legacy_fallbacks",
+    "test_ntp_resolver_rejects_unterminated_inputs_before_mutation",
     "test_ntp_overlong_server_is_rejected_without_truncation",
     "test_schedule_snapshot_copies_all_values_before_next_read",
     "test_schedule_snapshot_missing_keys_keep_disabled_defaults",
@@ -111,6 +112,8 @@ assert "watchdog_ntp_copy_server_value" in policy
 assert "return errno > 0 ? errno : EIO;" in policy
 assert "return ENAMETOOLONG;" in policy
 assert "watchdog_ntp_read_server_pair" in policy
+assert "watchdog_ntp_bounded_string_length" in policy
+assert "memchr(value, '\\\\0', value_size)" in policy
 assert "watchdog_ntp_resolve_server_pair" in policy
 
 stop = function_body(

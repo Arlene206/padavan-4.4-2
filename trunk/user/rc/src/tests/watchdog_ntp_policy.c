@@ -235,6 +235,35 @@ test_ntp_missing_keys_preserve_legacy_fallbacks(void)
 }
 
 static int
+test_ntp_resolver_rejects_unterminated_inputs_before_mutation(void)
+{
+    char short_server[4] = { 'a', 'b', 'c', 'd' };
+    char valid_server[32] = "time-b.example";
+    char valid_server_copy[sizeof(valid_server)];
+    char short_server_copy[sizeof(short_server)];
+    int status;
+
+    memcpy(short_server_copy, short_server, sizeof(short_server));
+    memcpy(valid_server_copy, valid_server, sizeof(valid_server));
+    status = watchdog_ntp_resolve_server_pair(
+        short_server, sizeof(short_server),
+        valid_server, sizeof(valid_server));
+    CHECK(status == ENAMETOOLONG);
+    CHECK(memcmp(short_server, short_server_copy, sizeof(short_server)) == 0);
+    CHECK(memcmp(valid_server, valid_server_copy, sizeof(valid_server)) == 0);
+
+    memcpy(short_server_copy, short_server, sizeof(short_server));
+    memcpy(valid_server_copy, valid_server, sizeof(valid_server));
+    status = watchdog_ntp_resolve_server_pair(
+        valid_server, sizeof(valid_server),
+        short_server, sizeof(short_server));
+    CHECK(status == ENAMETOOLONG);
+    CHECK(memcmp(short_server, short_server_copy, sizeof(short_server)) == 0);
+    CHECK(memcmp(valid_server, valid_server_copy, sizeof(valid_server)) == 0);
+    return 0;
+}
+
+static int
 test_ntp_overlong_server_is_rejected_without_truncation(void)
 {
     struct fake_ntp_nvram fake;
@@ -413,6 +442,7 @@ main(void)
 	CHECK(test_ntp_server_pair_copies_cache_before_next_read() == 0);
 	CHECK(test_ntp_server_pair_failure_clears_partial_snapshot() == 0);
 	CHECK(test_ntp_missing_keys_preserve_legacy_fallbacks() == 0);
+	CHECK(test_ntp_resolver_rejects_unterminated_inputs_before_mutation() == 0);
 	CHECK(test_ntp_overlong_server_is_rejected_without_truncation() == 0);
 	CHECK(test_schedule_snapshot_copies_all_values_before_next_read() == 0);
 	CHECK(test_schedule_snapshot_missing_keys_keep_disabled_defaults() == 0);

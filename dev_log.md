@@ -1,3 +1,14 @@
+## 2026-11-28 — Bound watchdog NTP resolver string reads
+
+- `watchdog_ntp_resolve_server_pair()` accepted explicit input capacities but used `strlen()` on both buffers. A missing NUL terminator within a supplied capacity could make the helper read outside the caller's object.
+- Added `watchdog_ntp_bounded_string_length()` using `memchr()`. The resolver validates both input buffers before mutation, returns `ENAMETOOLONG` for unterminated inputs, checks destination capacity before mirroring, and preserves the existing single-server and `pool.ntp.org` fallback behavior.
+- Added GNU89 regression cases for unterminated server0 and server1. Each case confirms `ENAMETOOLONG` and byte-for-byte preservation of both buffers. The Python source contract now requires the bounded helper and test.
+- The watchdog workflow already filters the changed production, test and checker files and runs the NTP policy binary with ASan/UBSan. No local compile was available; exact-head Actions determine L2/L3.
+- Aliyun source L3 is now confirmed separately: run #`46135763583` on `19d51bab853ed2b904e44333e3f6ce0bd72059a4` passed firmware Build, TRX validation and artifact upload. This does not validate this new NTP change.
+- Base: `32eda494808267b3798cc269e39168df0efcbbc9`; result: THIS COMMIT.
+
+---
+
 ## 2026-11-28 — Record Aliyun L2 pass and exact XY-C1 build state
 
 - Main `a4758f6da641ecd81e3d213a30132c34a30aaa8e` is the checker/docs-only descendant of product source `19d51bab853ed2b904e44333e3f6ce0bd72059a4`.
