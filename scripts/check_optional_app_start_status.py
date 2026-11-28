@@ -830,8 +830,8 @@ def check_iperf3():
     assert 'IPERF3_PROC_ROOT="${IPERF3_PROC_ROOT:-/proc}"' in iperf_source
     assert "iperf3_read_identity()" in iperf_source
     assert "field[20]" in iperf_source, "procfs start_time must be validated"
-    assert 'iperf3_identity_argv1 =="-s"' not in iperf_source
-    assert 'iperf3_identity_argv1" = "-s"' in iperf_source
+    assert "close_pos = 0" in iperf_source, "AWK must not shadow its close() builtin"
+    assert '[ "$iperf3_identity_argv1" = "-s" ]' in iperf_source
     assert 'busybox kill "$iperf3_signal_name" "$iperf3_signal_pid"' in iperf_source
     assert "killall -q iperf3" not in iperf_source
     assert "IPERF3_KILL_CMD" not in iperf_source

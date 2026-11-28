@@ -28,19 +28,19 @@ iperf3_read_identity() {
                     next
                 }
                 tail = substr($0, length(prefix) + 1)
-                close = 0
+                close_pos = 0
                 for (i = length(tail); i >= 1; i--) {
                     if (substr(tail, i, 2) == ") ") {
-                        close = i
+                        close_pos = i
                         break
                     }
                 }
-                if (!close) {
+                if (!close_pos) {
                     invalid = 1
                     next
                 }
-                comm = substr(tail, 1, close - 1)
-                rest = substr(tail, close + 2)
+                comm = substr(tail, 1, close_pos - 1)
+                rest = substr(tail, close_pos + 2)
                 count = split(rest, field, /[[:space:]]+/)
                 if (count < 20 ||
                     field[1] !~ /^[RSDZTtXxKWPI]$/ ||

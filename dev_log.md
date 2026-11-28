@@ -1,3 +1,10 @@
+## 2026-11-28 — Fix iperf3 awk parser reserved identifier
+
+- Exact-head iperf3 #46121969720 on `831435216159d084e648b2701378e52a3c3d64ab` passed POSIX shell syntax but the 20-token proc stat fixture still classified the server as UNKNOWN (status 2). The `/proc/PID/stat` AWK parser assigned to `close`, the built-in AWK function name; this caused stat parsing to fail before executable/argv checks. Renamed the delimiter offset to `close_pos` and pinned this against regression.
+- On the same parent Process lifecycle #46121969777 was still running; AI handoff #46121969724 and process inventory #46121969765 were also in progress at last observation. Fresh exact-head iperf and Process lifecycle Actions required.
+
+---
+
 ## 2026-11-28 — Repair iperf3 proc stat fixture and align aggregate regression
 
 - Exact-head iperf3 run #46121754059 on `7627a0840d64b18be01b93c6cecbd8597f7f64ec` again passed POSIX syntax but failed to recognize its server fixture. The stat line supplied only 19 fields from state through start_time; Linux `/proc/PID/stat` requires fields 3–22 (20 tokens), so the scanner correctly returned UNKNOWN. Added the missing numeric field and made the test failure report the actual status.

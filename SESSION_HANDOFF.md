@@ -3,8 +3,8 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`.
-- Main before this follow-up: `7627a0840d64b18be01b93c6cecbd8597f7f64ec`. AI handoff #46121754074 PASS and process inventory #46121754112 PASS. Process lifecycle #46121754078 FAIL in `check_optional_app_start_status.py:828` because the aggregate checker still required the retired `IPERF3_PROCESS_HELPER` interface and its old pidof/killall test model. Iperf3 regression #46121754059 failed because the proc stat fixture contained 19 rather than 20 tokens for fields 3–22. This follow-up corrects both regressions; exact-head validation required.
-- Product source `ef122034b4524ec1ce6768dd169ebee62a7da2ee` passed XY-C1 #46120731426: MIPS Build step 38 PASS, TRX step 39 PASS and artifact upload step 40 PASS (SHA-256 `c9e4fff453dd08361893447a1aa985e5699ad4ee0c13919b0a1e0f168373c9f5`). VSFTPD #46120731445, process inventory #46120731490, AI docs #46120731486 and NVRAM #46120731399 also PASS on `ef122`; hardware L4 remains NOT VERIFIED.
+- Main before this parser fix: `831435216159d084e648b2701378e52a3c3d64ab`. Exact-head iperf3 #46121969720 passed shell syntax but failed the valid server fixture with status 2; inspection found the AWK parser assigns to reserved builtin function name `close`, so stat parsing failed. Process lifecycle #46121969777 was still running after the aggregate checker update, with AI handoff #46121969724 and process inventory #46121969765 also in progress. This commit renames the delimiter offset to `close_pos`; exact-head reruns required.
+- Product SHA `ef122034b4524ec1ce6768dd169ebee62a7da2ee` passed XY-C1 #46120731426: MIPS Build step 38 PASS, TRX step 39 PASS and artifact upload step 40 PASS (SHA-256 `c9e4fff453dd08361893447a1aa985e5699ad4ee0c13919b0a1e0f168373c9f5`). VSFTPD #46120731445, process inventory #46120731490, AI docs #46120731486 and NVRAM #46120731399 also PASS on `ef122`; L3 only, hardware L4 NOT VERIFIED.
 - A prior real XY-C1 MIPS build failure remains uncorrected at this parent: run #46119302438 reported `postlogin.c:1271: 'chown_succeeded' undeclared`. The source still declared that local inside `handle_retr()` while `handle_upload_common()` used it. This source fix moves the declaration to the upload function and adds a scope contract; fresh exact-head VSFTPD and XY-C1 runs are required.
 - Frozen backup: `backup/pre-plugin-overhaul-2026-11-14`, recorded HEAD `72f4f157a084f8184b9597ca5bf334b8080e5807`. Its warning file forbids mutation/deletion. PR #1 remains CLOSED/unmerged; its substantive unmerged work was already compared, with no missing production/test/build change identified.
 - Startup recovery was completed once against the bootstrap, development protocol, handoff, roadmap and log indexes. Do not repeat completed audits.
@@ -13,9 +13,9 @@
 
 ## Active task
 
-1. **XY-C1 L3 verified for product SHA `ef122034b4524ec1ce6768dd169ebee62a7da2ee`:** Build, TRX and artifact upload PASS in #46120731426; artifact SHA-256 `c9e4fff453dd08361893447a1aa985e5699ad4ee0c13919b0a1e0f168373c9f5`. VSFTPD, Process inventory, AI docs and NVRAM audits also PASS on `ef122`. L4 physical hardware remains NOT VERIFIED.
-2. **USB printer executable-bound lifecycle closed at CI level:** Process lifecycle #46120862607 PASS, including USB readiness, failed-exec child reaping and executable-bound stop filter steps 94–96 on `ce8e38ec928c8798b4785d58e6ddffee01cccbe6`.
-3. **Current iperf3 slice:** source #0b7db introduced exact binary/argv/start_time scanning and PID-scoped BusyBox stop; #7627 fixed the NUL fixture and changed to BusyBox. Latest #46121754059 then found proc stat fixture supplied 19 rather than required 20 tokens from state through start_time. Process lifecycle #46121754078 also failed because aggregate `check_optional_app_start_status.py` still asserted the old shared helper and pidof/killall tests. Current follow-up fixes fixture count and replaces those obsolete aggregate assertions with the dedicated regression. New exact-head tests pending.
+1. **XY-C1 L3 verified for `ef122034b4524ec1ce6768dd169ebee62a7da2ee`:** Build, TRX and artifact upload #46120731426 PASS (artifact SHA-256 `c9e4fff453dd08361893447a1aa985e5699ad4ee0c13919b0a1e0f168373c9f5`). Physical L4 remains NOT VERIFIED.
+2. **USB printer executable-bound lifecycle CI closed:** Process lifecycle #46120862607 PASS on `ce8e...`, including readiness, child reaping and executable-bound stop filter.
+3. **Current iperf3 slice:** `7627` corrected cmdline/stat fixtures and BusyBox PID signalling; `8314352` updated aggregate checker; exact-head #46121969720 then exposed AWK's reserved `close` identifier causing UNKNOWN. This patch changes it to `close_pos`; fresh Actions pending.
 
 
 ## Watchdog scheduled-action NVRAM snapshot baseline
@@ -56,10 +56,10 @@
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect exact-head `iperf3 process lifecycle` and `Process inventory and lifecycle fail-closed regression` Actions triggered by this follow-up. Both must run the standalone executable identity regression; inspect logs on any failure.
-2. Confirm the source contract no longer tests the old `IPERF3_PROCESS_HELPER`/pidof/killall implementation and still enforces exact executable, server argv, start_time, UNKNOWN fail-closed, PID-scoped BusyBox TERM/KILL and package installation path.
-3. XY-C1 L3 is verified only on `ef122034b4524ec1ce6768dd169ebee62a7da2ee` (#46120731426 Build/TRX/artifact PASS). The new source SHA from this iperf work must get its own Build, TRX and artifact PASS before updating L3; hardware L4 remains NOT VERIFIED.
-4. After iperf CI passes, continue a separate userland stability/security issue without repeating USB printer or VSFTPD scope reviews.
+1. Inspect exact-head iperf3 and Process lifecycle Actions after the `close_pos` AWK fix. Require the full executable/argv/start_time/UNKNOWN/TERM→KILL regression.
+2. Verify the aggregate checker now runs the dedicated iperf test without the retired pidof/killall mocks and preserves independent SCUT/vlmcsd/MentoHUST/ttyd/OpenSSH/Dropbear checks.
+3. The only established L3 remains `ef122...` (#46120731426 Build/TRX/artifact PASS); the new iperf source requires its own firmware validation. Hardware L4 is NOT VERIFIED.
+4. After exact-head gates pass, continue a separate userland stability/security issue.
 
 ## Verification boundary
 
