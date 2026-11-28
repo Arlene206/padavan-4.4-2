@@ -95,7 +95,7 @@ jobs:
           mkdir -p "$toolchain_root"
           curl --fail --location --retry 3 --retry-delay 2 \
             --output "$archive" "$toolchain_url"
-          printf '%s  %s\\n' "$toolchain_sha256" "$archive" | sha256sum --check -
+          printf '%s  %s\n' "$toolchain_sha256" "$archive" | sha256sum --check -
           tar -xJf "$archive" -C "$toolchain_root"
           compiler="$toolchain_root/bin/mipsel-linux-musl-gcc"
           test -x "$compiler"

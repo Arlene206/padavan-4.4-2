@@ -281,13 +281,11 @@ def main() -> None:
             "both IAPP workflow path filters must include the deadline policy")
 
 
-    target_job_match = re.search(
-        r"(?ms)^  iappd-event-log-xy-c1-target-compile:\\n(.*)$",
-        workflow_text,
-    )
-    require(target_job_match is not None,
+    target_job_marker = "  iappd-event-log-xy-c1-target-compile:"
+    target_job_start = workflow_text.find(target_job_marker)
+    require(target_job_start >= 0,
             "IAPP workflow must compile the optional branch with the XY-C1 MIPS toolchain")
-    target_job = target_job_match.group(1)
+    target_job = workflow_text[target_job_start:]
     download_step = target_job.find("- name: Download and verify the XY-C1 MIPS musl toolchain")
     compile_step = target_job.find("- name: Compile optional IAPP event-log sources for XY-C1")
     require(download_step >= 0 and compile_step > download_step,
@@ -295,6 +293,7 @@ def main() -> None:
     for token in (
         "7c1dc5c5ed6c3b86fa5baf7e2832309e1ce21434e1e6dae491f838c95f3a6863",
         "sha256sum --check",
+        "printf '%s  %s\\n'",
         "mipsel-linux-musl/bin/mipsel-linux-musl-gcc",
         '"$("$compiler" -dumpmachine)" = "mipsel-linux-musl"',
         "-std=gnu89",

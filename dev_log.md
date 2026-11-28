@@ -1,3 +1,11 @@
+## 2026-11-28 14:47 CST (UTC+8) — Fix IAPP target-toolchain checksum and source-contract parsing
+
+- Parent main SHA: `eb6d784401b5a2953df0dea3c3549cf590e81398`. Exact IAPP run #46117932056 failed before compiler execution. In the host job, shell syntax, daemon lifecycle, Make header-dependency and select/FD regressions all passed, then the Python source contract did not find the target job because its raw-regex escaped the newline twice. In the target job, the 44.96 MiB archive downloaded successfully, but the checksum input used a literal backslash-n; `sha256sum` therefore attempted to open the archive path with an appended newline.
+- Fixed the checksum input to emit one real line terminator, replaced the newline-sensitive job regex with an exact marker search, and added a source-contract assertion for the exact printf form. The MIPS compiler was NOT executed in the failed run; no compile result is claimed.
+- Exact-main IAPP and AI handoff reruns for this correction commit are pending. No firmware production source changed; default XY-C1 L3 remains bound to product SHA `58700dc70b54d931aabdb6701f0ec88c14b9d1b4` (#46116630792).
+
+---
+
 ## 2026-11-28 14:42 CST (UTC+8) — Add XY-C1 target compilation for optional IAPP event logging
 
 - Base main SHA: `1acc4300c58e9f5324cf7f4c4d75a9a3a191ff94`. Added an independent `iappd-event-log-xy-c1-target-compile` job to `.github/workflows/iappd-lifecycle.yml`; it downloads the published 47 MB `mipsel-linux-musl` release toolchain and verifies its pinned SHA-256 (`7c1dc5c5...`) before use.
