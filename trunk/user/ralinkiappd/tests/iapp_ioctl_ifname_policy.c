@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -227,12 +228,26 @@ test_linux_msg_trunc_reports_original_datagram_length(void)
 static void
 test_event_log_poll_interval(void)
 {
-	assert(!iapp_event_log_poll_due(-1));
-	assert(!iapp_event_log_poll_due(0));
-	assert(iapp_event_log_poll_due(1));
-	assert(iapp_event_log_poll_due(2));
-	assert(iapp_event_log_poll_due(999));
-	assert(iapp_event_log_poll_due(1000));
+	struct timespec last, now;
+
+	last.tv_sec = 200;
+	last.tv_nsec = 250000000L;
+	now.tv_sec = 200;
+	now.tv_nsec = 999999999L;
+	assert(iapp_event_log_poll_due(&now, &last) == 0);
+	now.tv_sec = 201;
+	now.tv_nsec = 249999999L;
+	assert(iapp_event_log_poll_due(&now, &last) == 0);
+	now.tv_nsec = 250000000L;
+	assert(iapp_event_log_poll_due(&now, &last) == 1);
+	now.tv_sec = 202;
+	now.tv_nsec = 0;
+	assert(iapp_event_log_poll_due(&now, &last) == 1);
+	now.tv_sec = 199;
+	now.tv_nsec = 999999999L;
+	assert(iapp_event_log_poll_due(&now, &last) == 0);
+	assert(iapp_event_log_poll_due(NULL, &last) == -1);
+	assert(iapp_event_log_poll_due(&now, NULL) == -1);
 }
 
 static void

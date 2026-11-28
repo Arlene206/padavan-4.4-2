@@ -1,3 +1,11 @@
+## 2026-11-28 — Update IAPP ioctl regression for timespec poll contract
+
+- IAPP lifecycle #46095024005 on SHA 78ff00d25b0957ecc2c148d606aee12615fbaa1d failed during its pre-existing interface regression compile: `iapp_ioctl_ifname_policy.c` still called `iapp_event_log_poll_due(int)` six times. The API is now intentionally timespec-based, and the new monotonic test itself was not reached.
+- THIS commit converts that legacy test to sub-second/exact-second/overdue/backwards and invalid-pointer cases. No runtime source changed.
+- The separate IAPP timer test's GNU89 declaration order and diagnostic escape fixes are in 7040bb66f7d0c236a7a65c56b2d840dbd3ce8153. Exact IAPP and XY-C1 reruns required; AI docs and Process inventory on 78ff00d2 PASS.
+
+---
+
 ## 2026-11-28 — Tighten IAPP monotonic timer diagnostics and GNU89 test ordering
 
 - Follow-up review of 78ff00d25b0957ecc2c148d606aee12615fbaa1d caught two small integration issues before CI completion: the new DBGPRINT strings contained doubled backslashes (printing literal "\\n" instead of a line break), and the GNU89 test called its new helper before declaring local constants in main.

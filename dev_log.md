@@ -1,3 +1,10 @@
+## 2026-11-28 — Update IAPP ioctl regression for timespec poll contract
+
+- IAPP lifecycle #46095024005 failed in the interface regression compile because the older `iapp_ioctl_ifname_policy.c` test still passed integer elapsed seconds to the new two-timespec helper.
+- Updated that call site to verify <1s, exactly 1s, >1s, backwards, and invalid arguments. Production source unchanged.
+
+---
+
 ## 2026-11-28 — Tighten IAPP monotonic timer diagnostics and GNU89 test ordering
 
 - Corrected the new IAPP timer diagnostic string escapes to emit real newlines, and moved the event-log test call below all declarations in main to keep GNU89/C90 declaration ordering warning-free.
