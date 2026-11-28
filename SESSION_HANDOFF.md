@@ -1,41 +1,44 @@
 ## 2026-11-28 continuation checkpoint
 
-- Repository Arlene206/padavan-4.4-2; main-only development. Parent before this NVRAM credential-staging cleanup: 2f7c1ba8096aa257b0983393d2f48d408544a301.
-- Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807 and is immutable. PR #1 remains closed/unmerged. Startup recovery/protocol audit completed once; do not repeat.
-- NTP correction SHA c052506cbe9463f2719494d237e5323fe1c261c8 has L2 PASS and XY-C1 #46137016928 SUCCESS, so L3 PASS for c052 only. Physical L4 is unverified.
-- DHCP safety SHA 3d499eedc1e71050bd10d3c51db1aa11c2a72a51 passed its WAN DHCP, WAN route, AI docs, Process, HTTPD and NVRAM L2 jobs; XY-C1 #46137804717 was pending at last poll. Malformed Router fail-closed follow-up 2f7c1ba8096aa257b0983393d2f48d408544a301 has fresh Actions #46138202814 WAN DHCP, #46138202836 WAN route, #46138202861 AI docs, #46138202862 Process, #46138202827 HTTPD, #46138202781 NVRAM and #46138202783 XY-C1; all were in_progress at last poll.
-- This NVRAM slice explicitly erases credential-bearing scratch buffers (compaction snapshot, commit/read-back image, ioctl GET/SET buffers and flash-init image) with Linux 4.4 memzero_explicit(), upgrades arena reset/compaction zeroing, and now also wipes the full value arena during module exit before kfree.
-- Compatibility boundary: individual arena values are not wiped on key replacement/unset because kernel nvram_get() exposes non-owned pool pointers after unlocking; per-key wiping could race existing readers. Existing whole-arena reset/compaction cleanup is retained.
-- No local checkout/kernel build is available. The host clear-policy regression is included in the existing GNU89/ASan/UBSan NVRAM compaction test and source checker; exact-SHA Actions are the proof.
-- REFACTOR_ROADMAP.md is near its hard size cap; avoid status-only edits.
+- Repository: `Arlene206/padavan-4.4-2`; continue on `main` only. Startup protocol and handoff recovery were completed once; do not repeat the repository audit.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 remains closed/unmerged.
+- Parent for this checker correction: `4f09b7bc0cff0aae3a13a4705edd3bf3af489b53` (`security(nvram): erase cached values before ring reuse`).
+- NVRAM security: cached values are securely erased before packed-ring reuse. On the exact parent SHA, NVRAM transaction-boundary test/audit #46139431443 PASS; AI docs #46139431427 PASS; HTTPD #46139431389 PASS; Process lifecycle inventory #46139431506 PASS.
+- Process lifecycle regression #46139431467 FAILED only in its final shared-library/RC source-contract step: `scripts/check_process_lifecycle_integration.py` expected a literal `fsync(fileno(output))` in MiniDLNA, although the production writer has moved to `config_file_sync.h` and uses bounded `config_file_sync_fd()` plus `config_file_sync_parent()`. The exact-SHA MiniDLNA GNU89/ASan/UBSan publication regression itself PASSED. This follow-up aligns that checker with the actual shared durability helper; no production firmware source changed.
+- XY-C1 run #46139431417 for the parent SHA was IN_PROGRESS at last poll; it is not a verified L3 build. Check its final state, but do not block independent work while it is pending.
+- NTP correction SHA `c052506cbe9463f2719494d237e5323fe1c261c8` has historical L2 and XY-C1 success on that exact SHA only; physical L4 is unverified.
+- DHCP Router-option work and its checker correction are historical prior slices; do not repeat the already completed C fix. Physical WAN behavior remains unverified.
+- NVRAM compatibility boundary: do not wipe individual cached values on key replacement/unset; `nvram_get()` exposes non-owned pool pointers after unlocking. Preserve whole-cache wrap/reset/compaction/module-exit erase semantics.
+- No local checkout or MIPS kernel build is available in this environment; exact-SHA Actions provide current verification. Hardware L4 remains NOT VERIFIED.
+- `REFACTOR_ROADMAP.md` is near its size cap; avoid status-only roadmap edits.
 
 ## Current repository state
 
-- Parent before this slice: 2f7c1ba8096aa257b0983393d2f48d408544a301.
-- DHCP follow-up 2f7c1ba WAN DHCP run #46138202814 FAILED because its Python source checker had a missing newline after an assertion (`)parse_failure` SyntaxError); the DHCP C regression itself passed. AI docs #46138202861, Process #46138202862, HTTPD #46138202827, WAN route #46138202836 and NVRAM #46138202781 completed SUCCESS; XY-C1 #46138202783 remained in_progress. This checker syntax is corrected in the current follow-up; same-SHA WAN DHCP rerun is required.
-- Frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- Parent before this correction: `4f09b7bc0cff0aae3a13a4705edd3bf3af489b53`.
+- Expected follow-up: source-contract checker only, no production binary change.
+- Parent exact-SHA statuses: NVRAM PASS; AI docs PASS; HTTPD PASS; Process lifecycle inventory PASS; Process lifecycle regression FAILED due only to the stale MiniDLNA fsync assertion; XY-C1 IN_PROGRESS.
+- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Active task
 
-- Verify the NVRAM cache-wrap erasure change on its exact SHA: GNU89/ASan/UBSan value-cache tests and NVRAM source-contract audit must pass, then confirm XY-C1 Build/TRX/artifact on the same SHA.
-- The cache is a packed ring. Its existing pointer reuse boundary is when the ring wraps; secure erase the prior lap before resetting to offset zero. This preserves the current lap while its pointers remain within the active prefix and prevents stale credential suffixes from surviving a shorter replacement.
-- On FAIL, inspect only the failing step and repair causally in an atomic commit. PENDING permits an independent source task.
+- Verify this MiniDLNA checker correction on its exact commit SHA. The checker must require `#include "config_file_sync.h"`, `config_file_sync_fd(fileno(output))`, and `config_file_sync_parent(path)`, not a direct fsync literal.
+- Inspect the exact-SHA Process lifecycle regression and AI documentation contract. If Process still FAILS, inspect the failing step/log and correct only the causal mismatch. PENDING permits independent implementation work.
+- Inspect the parent XY-C1 run #46139431417 final state; any new production firmware changes require same-SHA Build, TRX and artifact PASS before an L3 claim.
+
 ## Exact first action for the next GPT
 
-1. Fetch live main and record the NVRAM cache-wrap erasure commit SHA.
-2. Inspect its exact-SHA NVRAM transaction-boundary run, especially the ASan/UBSan value-cache reservation regression and source-contract scan.
-3. Inspect its exact-SHA XY-C1 Build, TRX verification and artifact upload; L3 only if all three pass.
-3. If a job is PENDING, pursue an independent source issue; if FAIL, inspect only the failing step/log and repair atomically.
-4. Keep backup immutable; do not force-push; create complete trees and update main with expected SHA.
-5. L3 requires same-SHA XY-C1 Build, TRX verification and artifact upload PASS; L4 remains NOT VERIFIED until physical validation.
+1. Fetch live `main`; verify the checker correction commit and exact-SHA Actions.
+2. Confirm Process lifecycle regression PASS and AI handoff docs PASS; if failed, read only the failing job log and repair it atomically.
+3. Check XY-C1 #46139431417 final status separately; it validates only its own SHA.
+4. Continue a distinct source-level stability/security task while any independent CI job is pending; do not revisit NTP, DHCP, NVRAM cache erasure, or MiniDLNA durability unless new failure evidence appears.
+5. Keep the backup immutable; commit complete trees and update `main` non-forcibly with an expected SHA.
 
 ## Verification boundary
 
-- NTP correction c052: L2 PASS; XY-C1 #46137016928 SUCCESS, L3 PASS. L4 NOT VERIFIED.
-- DHCP follow-up 2f7c1ba: WAN DHCP #46138202814 FAILED due to a Python checker SyntaxError (`)parse_failure`); C regression passed. AI docs #46138202861, Process #46138202862, HTTPD #46138202827, WAN route #46138202836 and NVRAM #46138202781 SUCCESS; XY-C1 #46138202783 was pending at last poll. Checker repair is in this follow-up and needs a fresh exact-SHA WAN DHCP run.
-- NVRAM staging/module-exit slice SHA 7c60df...: NVRAM #46138685180 SUCCESS, AI docs #46138685289 SUCCESS and HTTPD #46138685157 SUCCESS. Exact XY-C1 #46138685154 remains in_progress at last poll (Build/TRX/artifact not yet complete). The earlier SHA57 XY #46138364458 was also still in_progress at last poll.
-- Historical Aliyun PID-generation source 19d51bab853ed2b904e44333e3f6ce0bd72059a4: L3 PASS only for XY-C1 #46135763583. Final procfs-read-to-kill(pid) race remains documented.
-- L4: NOT VERIFIED; no physical-router test.
+- NVRAM cache-wrap erasure on `4f09b7bc0cff0aae3a13a4705edd3bf3af489b53`: NVRAM transaction-boundary audit #46139431443 SUCCESS; same-SHA XY-C1 #46139431417 was pending at handoff.
+- Parent Process regression #46139431467: failed at a stale MiniDLNA source assertion only; actual MiniDLNA ASan/UBSan regression passed. Corrected checker requires the shared durability helper and directory fsync.
+- NTP L3 evidence is restricted to exact SHA `c052506cbe9463f2719494d237e5323fe1c261c8`.
+- Physical L4: NOT VERIFIED.
 
 ## Mandatory handoff checkpoint
 

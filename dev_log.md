@@ -1,3 +1,12 @@
+## 2026-11-28 — Align MiniDLNA durability contract with the shared sync helper
+
+- Exact Process lifecycle regression #46139431467 on parent `4f09b7bc0cff0aae3a13a4705edd3bf3af489b53` failed only at the final shared-library/RC source-contract step: the checker still required a direct `fsync(fileno(output))` call.
+- The MiniDLNA production writer already uses `config_file_sync.h`, bounded `config_file_sync_fd()` and `config_file_sync_parent()`; its GNU89/ASan/UBSan atomic-publication regression passed on that exact parent SHA. This was a stale test contract, not a production failure.
+- Updated the checker to pin the shared helper include, file sync and parent-directory sync. No firmware source changed.
+- Parent: `4f09b7bc0cff0aae3a13a4705edd3bf3af489b53`. NVRAM #46139431443, AI docs #46139431427, HTTPD #46139431389 and Process inventory #46139431506 passed; Process regression #46139431467 failed as described. XY-C1 #46139431417 was still IN_PROGRESS. Exact follow-up Actions required.
+
+---
+
 ## 2026-11-28 — Erase the shared NVRAM value cache before ring reuse
 
 - `nvram_get_checked_unlocked()` used two 4096-byte packed value caches and reset the cursor to offset zero when fewer than 32 bytes remained or an `EOVERFLOW` retry could not fit the requested value. Neither path erased the old cache lap. Reusing a slot for a shorter NVRAM value could therefore leave the tail of a prior Wi-Fi/VPN credential resident beyond the new terminator.

@@ -322,9 +322,11 @@ assert '"minidlnad"' in dms_start
 assert "process_error == ETIMEDOUT" in normalized_minidlna_post_launch
 assert normalized_minidlna_post_launch.index("process_state = is_dms_run();") < normalized_minidlna_post_launch.index(minidlna_logger)
 assert dms_start.index("if (config_status != 0)") < dms_start.index("_eval(minidlna_argv, NULL, 0, NULL);")
+assert '#include "config_file_sync.h"' in minidlna_config_header
 assert "mkstemp(temporary_path)" in minidlna_config_header
 assert "fflush(output)" in minidlna_config_header
-assert "fsync(fileno(output))" in minidlna_config_header
+assert "config_file_sync_fd(fileno(output))" in minidlna_config_header
+assert "config_file_sync_parent(path)" in minidlna_config_header
 assert "rename(temporary_path, path)" in minidlna_config_header
 assert "unlink(temporary_path)" in minidlna_config_header
 assert "minidlna_config_publish(directory_target, &values)" in minidlna_config_test
