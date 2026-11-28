@@ -11,6 +11,7 @@
 #include <ibox.h>
 
 #include "networkmap.h"
+#include "networkmap_packet_string_policy.h"
 
 extern unsigned int scan_now;
 
@@ -84,8 +85,12 @@ asus_dd_query(struct in_addr *dst_ip, NET_CLIENT *pnet_client)
 				
 				pnet_client->type = 3; // ASUS AP
 				
-				NMP_DEBUG_M("DD: productID=%s\n", dd_info->ProductID);
-				if (!pnet_client->device_name[0] && is_valid_hostname(dd_info->ProductID)) {
+				NMP_DEBUG_M("DD: productID=%.*s\n",
+			(int)sizeof(dd_info->ProductID), dd_info->ProductID);
+				if (!pnet_client->device_name[0] &&
+			    networkmap_fixed_field_is_nul_terminated(
+				    dd_info->ProductID, sizeof(dd_info->ProductID)) &&
+			    is_valid_hostname((const char *)dd_info->ProductID)) {
 					memcpy(pnet_client->device_name, dd_info->ProductID, 18);
 					pnet_client->device_name[18] = 0;
 				}

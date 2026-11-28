@@ -57,6 +57,9 @@ source = read("trunk/user/networkmap/src/networkmap.c")
 policy = read("trunk/user/networkmap/src/networkmap_signal_policy.h")
 arp_policy = read("trunk/user/networkmap/src/networkmap_arp_policy.h")
 arp_test = read("trunk/user/networkmap/src/tests/networkmap_arp_policy.c")
+packet_string_policy = read("trunk/user/networkmap/src/networkmap_packet_string_policy.h")
+packet_string_test = read("trunk/user/networkmap/src/tests/networkmap_packet_string_policy.c")
+ibox_header = read("trunk/user/shared/src/include/ibox.h")
 test = read("trunk/user/networkmap/src/tests/networkmap_signal_policy.c")
 shared = read("trunk/user/networkmap/src/function.c")
 src_makefile = read("trunk/user/networkmap/src/Makefile")
@@ -304,6 +307,41 @@ assert "int start_networkmap(int first_call);" in rc_header
 assert "int stop_networkmap(void);" in rc_header
 assert "int restart_networkmap(void);" in rc_header
 
+
+packet_string_guard = function_body(
+    packet_string_policy, "networkmap_fixed_field_is_nul_terminated("
+)
+assert "if (!field || field_size == 0U)" in packet_string_guard
+assert "field[i] == '\\0'" in packet_string_guard
+assert "BYTE ProductID[32];" in ibox_header
+
+asus_query = function_body(shared, "asus_dd_query(")
+asus_query_compact = re.sub(r"\s+", "", asus_query)
+packet_guard = asus_query_compact.index(
+    "networkmap_fixed_field_is_nul_terminated(dd_info->ProductID,"
+)
+packet_validator = asus_query_compact.index(
+    "is_valid_hostname((constchar*)dd_info->ProductID)"
+)
+packet_copy = asus_query_compact.index(
+    "memcpy(pnet_client->device_name,dd_info->ProductID,18)"
+)
+assert packet_guard < packet_validator < packet_copy
+assert 'NMP_DEBUG_M("DD:productID=%.*s\\n",' in asus_query_compact
+assert "(int)sizeof(dd_info->ProductID)" in asus_query_compact
+assert asus_query_compact.index(
+    "recvlen>=(int)(sizeof(IBOX_COMM_PKT_RES)+sizeof(PKT_GET_INFO))"
+) < packet_guard
+
+for expected in (
+    "networkmap_fixed_field_is_nul_terminated(product_id,",
+    "networkmap_fixed_field_is_nul_terminated(adjacent_field,",
+    "networkmap fixed-width packet string bounds: PASS",
+    "adjacent_field[sizeof(product_id)] = '\\0';",
+):
+    assert expected in packet_string_test, expected
+
+
 paths = (
     ".github/workflows/networkmap-signal-stability.yml",
     "scripts/check_networkmap_signals.py",
@@ -311,6 +349,9 @@ paths = (
     "trunk/user/networkmap/src/networkmap_signal_policy.h",
     "trunk/user/networkmap/src/tests/networkmap_signal_policy.c",
     "trunk/user/networkmap/src/function.c",
+    "trunk/user/networkmap/src/networkmap_packet_string_policy.h",
+    "trunk/user/networkmap/src/tests/networkmap_packet_string_policy.c",
+    "trunk/user/shared/src/include/ibox.h",
     "trunk/user/networkmap/src/networkmap.h",
     "trunk/user/networkmap/src/Makefile",
     "trunk/user/networkmap/Makefile",

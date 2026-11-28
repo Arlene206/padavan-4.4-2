@@ -47,6 +47,7 @@
 | `docs/dev-log/2026/11/part-038.md` | 100 | 2026-11-25 — SmartDNS rollback status propagation → 2026-11-26 — Skip empty requested interfaces during WAN IPv6 teardown | 99102 | `d8871cc4701057cc8661604a4b1ae3001878ceaf` |
 | `docs/dev-log/2026-11/part-039.md` | 100 | 2026-11-26 — Preserve first error across DHCPv6 delegated-prefix cleanup → 2026-11-28 — Add missing WAN IPv6 teardown predicate definition | 108571 | `f1d939bd4a60b6d50f646c1b9c61252214c16cda` |
 | `docs/dev-log/2026-11/part-040.md` | 100 | 2026-11-28 — Add WAN IPv6 teardown header to XY-C1 build path filters → 2026-11-28 15:18 CST (UTC+8) — Fix detector-test path expectations | 97855 | `501bda7aecb36a348e489965bc41497ea3b06acc` |
+| `docs/dev-log/2026-11/part-041.md` | 100 | 2026-11-28 14:10 CST (UTC+8) — Snapshot watchdog scheduled actions through checked NVRAM → 2026-11-28 — Publish Samba passwd/passdb/config from one account snapshot | 102972 | `9ef2a64ad24fd29e9ebc811536c04054af3e41a9` |
 - **Rolling-window catch-up:** 102 oldest complete records evicted from root `dev_log.md` when it contained 122 entries at parent main `7cd1ffd3eecc05786846be684053428f20e8f535` are preserved verbatim, oldest first, in `part-031.md`; root retains the newest 20 pre-existing records plus this rotation checkpoint (21 total). No record was rewritten or discarded.
 
 
@@ -160,3 +161,9 @@
 - [part-039.md](2026-11/part-039.md) — 100 complete records in chronological order, from **2026-11-26 — Preserve first error across DHCPv6 delegated-prefix cleanup** through **2026-11-28 — Add missing WAN IPv6 teardown predicate definition**; 108571 UTF-8 bytes; Git blob `f1d939bd4a60b6d50f646c1b9c61252214c16cda`.
 - [part-040.md](2026-11/part-040.md) — 100 complete records in chronological order, from **2026-11-28 — Add WAN IPv6 teardown header to XY-C1 build path filters** through **2026-11-28 15:18 CST (UTC+8) — Fix detector-test path expectations**; 97855 UTF-8 bytes; Git blob `501bda7aecb36a348e489965bc41497ea3b06acc`. The root log retains its newest 20 records before this repair entry.
 - Root `dev_log.md` retains the newest 20 complete records. Pre-rotation 120-record source blob: `06cf223a869bb76240a67033181b12a37aef3139`.
+
+
+## 2026-11-28 rolling-window rotation
+
+- [part-041.md](2026-11/part-041.md) — 100 complete records in chronological order, from **2026-11-28 14:10 CST (UTC+8) — Snapshot watchdog scheduled actions through checked NVRAM** through **2026-11-28 — Publish Samba passwd/passdb/config from one account snapshot**; 102972 UTF-8 bytes; Git blob `9ef2a64ad24fd29e9ebc811536c04054af3e41a9`.
+- Root `dev_log.md` retains the newest 20 complete records. Pre-rotation 120-record source blob: `cd53278a843afa25deb91fdacfb77fee433194ec`.
