@@ -9,7 +9,28 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+static int config_test_fsync(int fd);
+#define CONFIG_FILE_SYNC_FSYNC(fd) config_test_fsync(fd)
+
 #include "igmpproxy_config_file.h"
+static unsigned int config_test_fsync_calls;
+static unsigned int config_test_fsync_eintr_remaining;
+static int config_test_fsync_always_eintr;
+
+static int
+config_test_fsync(int fd)
+{
+	++config_test_fsync_calls;
+	if (config_test_fsync_always_eintr ||
+	    config_test_fsync_eintr_remaining > 0U) {
+		if (config_test_fsync_eintr_remaining > 0U)
+			--config_test_fsync_eintr_remaining;
+		errno = EINTR;
+		return -1;
+	}
+	return fsync(fd);
+}
+
 
 static void
 write_file(const char *path, const char *contents)
@@ -90,6 +111,39 @@ main(void)
 	values.upstream_interface = "eth0.2";
 	values.altnet = "192.0.2.0/24";
 	values.downstream_interface = "br0";
+	values.quickleave = 1;
+	status = igmpproxy_config_publish(config_path, &values);
+	assert(status == 0);
+
+	/* Two transient EINTRs recover; staged-file and parent fsync both run. */
+	config_test_fsync_calls = 0U;
+	config_test_fsync_eintr_remaining = 2U;
+	status = igmpproxy_config_publish(config_path, &values);
+	assert(status == 0);
+	assert(config_test_fsync_eintr_remaining == 0U);
+	assert(config_test_fsync_calls == 4U);
+	assert_file_equals(config_path,
+		"# automatically generated\n"
+		"quickleave\n"
+		"\n"
+		"phyint eth0.2 upstream ratelimit 0  threshold 1\n"
+		"\taltnet 192.0.2.0/24\n"
+		"\nphyint br0 downstream ratelimit 0  threshold 1\n"
+		"\n");
+	assert_no_temporary_files(directory, "igmpproxy.conf.tmp.");
+
+	/* Persistent EINTR exhausts the shared budget before rename. */
+	write_file(config_path, "last-good-after-fsync-interruption\n");
+	config_test_fsync_calls = 0U;
+	config_test_fsync_always_eintr = 1;
+	status = igmpproxy_config_publish(config_path, &values);
+	config_test_fsync_always_eintr = 0;
+	assert(status == EINTR);
+	assert(config_test_fsync_calls == CONFIG_FILE_SYNC_MAX_EINTR_RETRIES + 1U);
+	assert_file_equals(config_path, "last-good-after-fsync-interruption\n");
+	assert_no_temporary_files(directory, "igmpproxy.conf.tmp.");
+
+	/* Restore the known-good configuration for the directory barrier checks. */
 	values.quickleave = 1;
 	status = igmpproxy_config_publish(config_path, &values);
 	assert(status == 0);

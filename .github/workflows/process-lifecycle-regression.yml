@@ -1444,7 +1444,11 @@ jobs:
           helper = (root / "config_file_sync.h").read_text()
           assert "O_DIRECTORY | O_NOFOLLOW" in helper
           assert "config_file_sync_fd(directory_fd)" in helper
-          assert "errno == EINTR" in helper
+          assert "CONFIG_FILE_SYNC_MAX_EINTR_RETRIES 8U" in helper
+          assert "status = CONFIG_FILE_SYNC_FSYNC(fd);" in helper
+          assert "status == 0 || errno != EINTR" in helper
+          assert "interruptions >= CONFIG_FILE_SYNC_MAX_EINTR_RETRIES" in helper
+          assert "++interruptions;" in helper
           for name, signature in (
               ("miniupnpd_config_file.h", "miniupnpd_config_publish("),
               ("igmpproxy_config_file.h", "igmpproxy_config_publish("),
@@ -1454,11 +1458,16 @@ jobs:
               body = source[start:]
               rename = body.index("rename(temporary_path, path)")
               sync = body.index("config_file_sync_parent(path)", rename)
+              assert "config_file_sync_fd(fileno(" in body, name
+              assert "sync_status = fsync(fileno(" not in body, name
               assert sync > rename, name
           for name in ("miniupnpd_config_file.c", "igmpproxy_config_file.c"):
               test = (root / "tests" / name).read_text()
               assert "config_file_sync_parent(" in test
               assert "linked-parent" in test
+              assert "config_test_fsync_always_eintr" in test
+              assert "CONFIG_FILE_SYNC_MAX_EINTR_RETRIES + 1U" in test
+              assert "config_test_fsync_eintr_remaining = 2U" in test
           print("Proxy config rename + no-follow parent-directory fsync contract: PASS")
           PY
       - name: Verify IPTV proxy altnet validation and empty-only fallback

@@ -1,3 +1,12 @@
+## 2026-11-28 — Bound MiniUPnP and IGMP proxy config fsync retries
+
+- The exact-SHA process-lifecycle regression on `9465ae8e81edd5ebcda3ee79cbdb412eb7f12b0c` passed MiniUPnP and IGMP proxy compilation/runtime publication tests, then failed the final durability contract because the shared checker still expected the obsolete `errno == EINTR` literal. Source inspection found a real remaining defect behind that stale assertion: both publishers still used independent unbounded file-fsync loops.
+- Routed MiniUPnP and IGMP proxy staged-file synchronization through `config_file_sync_fd()`, which enforces the shared eight-interruption budget. The post-rename parent-directory fsync remains in place.
+- Added injected transient-EINTR success coverage (two interruptions, staged-file sync and parent sync) and persistent-EINTR exhaustion coverage (nine total calls, no rename, temp cleanup and last-good config preservation) to both GNU89 host regressions. Updated the process-lifecycle source contract to require the bounded helper and reject raw fsync loops.
+- No local host compile or XY-C1 target build is claimed; exact-head Actions will validate this slice.
+
+---
+
 ## 2026-11-28 — Consolidate lifecycle sleeps on the shared bounded wait policy
 
 - The previous lifecycle callback fix duplicated the bounded sleep-remainder policy even though `service_wait_policy.h` already provides the same production-tested 8-interruption limit and its own injectable regression. Consolidated the wrapper onto `service_wait_seconds()` to keep one policy implementation and one source of truth.

@@ -7,7 +7,28 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+static int config_test_fsync(int fd);
+#define CONFIG_FILE_SYNC_FSYNC(fd) config_test_fsync(fd)
+
 #include "miniupnpd_config_file.h"
+static unsigned int config_test_fsync_calls;
+static unsigned int config_test_fsync_eintr_remaining;
+static int config_test_fsync_always_eintr;
+
+static int
+config_test_fsync(int fd)
+{
+	++config_test_fsync_calls;
+	if (config_test_fsync_always_eintr ||
+	    config_test_fsync_eintr_remaining > 0U) {
+		if (config_test_fsync_eintr_remaining > 0U)
+			--config_test_fsync_eintr_remaining;
+		errno = EINTR;
+		return -1;
+	}
+	return fsync(fd);
+}
+
 
 struct writer_context {
 	const char *text;
@@ -160,6 +181,30 @@ main(void)
 	assert(status == 0);
 	assert_file_equals(path, "complete-new-config\n");
 
+	/* Two transient EINTRs recover; staged-file and parent fsync both run. */
+	config_test_fsync_calls = 0U;
+	config_test_fsync_eintr_remaining = 2U;
+	context.text = "retry-complete-config\n";
+	status = miniupnpd_config_publish(path, write_config, &context);
+	assert(status == 0);
+	assert(config_test_fsync_eintr_remaining == 0U);
+	assert(config_test_fsync_calls == 4U);
+	assert_file_equals(path, "retry-complete-config\n");
+	assert_only_target_remains(directory, "miniupnpd.conf");
+
+	/* Persistent EINTR exhausts the shared budget before rename. */
+	write_file(path, "last-good-after-fsync-interruption\n");
+	config_test_fsync_calls = 0U;
+	config_test_fsync_always_eintr = 1;
+	context.text = "must-not-publish\n";
+	status = miniupnpd_config_publish(path, write_config, &context);
+	config_test_fsync_always_eintr = 0;
+	assert(status == EINTR);
+	assert(config_test_fsync_calls == CONFIG_FILE_SYNC_MAX_EINTR_RETRIES + 1U);
+	assert_file_equals(path, "last-good-after-fsync-interruption\n");
+	assert_only_target_remains(directory, "miniupnpd.conf");
+
+	context.text = "complete-new-config\n";
 	assert(config_file_sync_parent(path) == 0);
 	assert(snprintf(missing_parent, sizeof(missing_parent),
 			"%s/missing/miniupnpd.conf", directory) > 0);

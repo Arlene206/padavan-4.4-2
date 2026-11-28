@@ -70,7 +70,7 @@ miniupnpd_config_publish(const char *path,
 	static const char suffix[] = ".tmp.XXXXXX";
 	char *temporary_path;
 	size_t path_length;
-	int fd, status, sync_status;
+	int fd, status;
 	FILE *stream;
 
 	if (path == NULL || path[0] == '\0' || writer == NULL)
@@ -106,13 +106,8 @@ miniupnpd_config_publish(const char *path,
 		status = errno ? errno : EIO;
 	if (status == 0 && fflush(stream) != 0)
 		status = errno ? errno : EIO;
-	if (status == 0) {
-		do {
-			sync_status = fsync(fileno(stream));
-		} while (sync_status != 0 && errno == EINTR);
-		if (sync_status != 0)
-			status = errno ? errno : EIO;
-	}
+	if (status == 0 && config_file_sync_fd(fileno(stream)) != 0)
+		status = errno ? errno : EIO;
 	if (fclose(stream) != 0 && status == 0)
 		status = errno ? errno : EIO;
 

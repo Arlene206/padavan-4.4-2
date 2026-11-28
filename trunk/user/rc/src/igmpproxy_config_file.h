@@ -102,7 +102,6 @@ igmpproxy_config_publish(const char *path,
 	FILE *output = NULL;
 	int fd = -1;
 	int status = 0;
-	int sync_status;
 
 	if (path == NULL || path[0] == '\0' || values == NULL)
 		return EINVAL;
@@ -135,14 +134,8 @@ igmpproxy_config_publish(const char *path,
 		if (fflush(output) != 0)
 			status = errno ? errno : EIO;
 	}
-	if (status == 0) {
-		do {
-			errno = 0;
-			sync_status = fsync(fileno(output));
-		} while (sync_status != 0 && errno == EINTR);
-		if (sync_status != 0)
-			status = errno ? errno : EIO;
-	}
+	if (status == 0 && config_file_sync_fd(fileno(output)) != 0)
+		status = errno ? errno : EIO;
 	if (fclose(output) != 0 && status == 0)
 		status = errno ? errno : EIO;
 	output = NULL;
