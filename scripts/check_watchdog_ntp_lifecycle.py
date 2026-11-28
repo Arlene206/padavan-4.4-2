@@ -78,6 +78,7 @@ for token in (
     "test_schedule_snapshot_read_failure_clears_partial_state",
     "test_schedule_snapshot_rejects_overlong_schedule_without_truncation",
     "test_schedule_snapshot_requires_exact_enable_tokens",
+    "test_schedule_snapshot_skips_disabled_and_unready_schedule_reads",
     "watchdog_ntp_resolve_server_pair",
     "watchdog NTP stop-before-start policy: PASS",
 ):
@@ -174,6 +175,8 @@ for path in paths:
 _schedule_policy = read("trunk/user/rc/src/watchdog_ntp_policy.h")
 _schedule_test = read("trunk/user/rc/src/tests/watchdog_ntp_policy.c")
 assert "watchdog_ntp_schedule_snapshot_read" in _schedule_policy
+assert "snapshot->ntp_ready && snapshot->reboot_enabled" in _schedule_policy
+assert "snapshot->ntp_ready && snapshot->ss_enabled" in _schedule_policy
 _schedule_read = function_body(
     watchdog, "watchdog_read_schedule_snapshot(struct watchdog_ntp_schedule_snapshot *snapshot)"
 )
@@ -198,6 +201,7 @@ for marker in (
     "test_schedule_snapshot_read_failure_clears_partial_state",
     "test_schedule_snapshot_rejects_overlong_schedule_without_truncation",
     "test_schedule_snapshot_requires_exact_enable_tokens",
+    "test_schedule_snapshot_skips_disabled_and_unready_schedule_reads",
 ):
     assert marker in _schedule_test
 

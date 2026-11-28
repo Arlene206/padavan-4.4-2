@@ -239,11 +239,12 @@ watchdog_ntp_schedule_snapshot_read(watchdog_ntp_nvram_get_fn get_value,
 		status = watchdog_ntp_copy_server_value(
 			get_value, context, "ntp_ready",
 			ntp_ready, sizeof(ntp_ready));
-	if (status == 0)
+	/* Avoid fetching schedule strings for disabled actions or before NTP readiness. */
+	if (status == 0 && snapshot->ntp_ready && snapshot->reboot_enabled)
 		status = watchdog_ntp_copy_server_value(
 			get_value, context, "reboot_schedule",
 			snapshot->reboot_schedule, sizeof(snapshot->reboot_schedule));
-	if (status == 0)
+	if (status == 0 && snapshot->ntp_ready && snapshot->ss_enabled)
 		status = watchdog_ntp_copy_server_value(
 			get_value, context, "ss_schedule",
 			snapshot->ss_schedule, sizeof(snapshot->ss_schedule));

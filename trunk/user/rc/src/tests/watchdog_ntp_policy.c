@@ -362,8 +362,35 @@ test_schedule_snapshot_requires_exact_enable_tokens(void)
 	fake.values[3] = "11111112345"; fake.values[4] = "00000001234";
 	CHECK(watchdog_ntp_schedule_snapshot_read(fake_schedule_nvram_get, &fake, &snapshot) == 0);
 	CHECK(snapshot.reboot_enabled == 0 && snapshot.ss_enabled == 0 && snapshot.ntp_ready == 0);
+	CHECK(fake.calls == 3);
 	return 0;
 }
+
+
+static int
+test_schedule_snapshot_skips_disabled_and_unready_schedule_reads(void)
+{
+	struct fake_schedule_nvram fake;
+	struct watchdog_ntp_schedule_snapshot snapshot;
+
+	fake_schedule_enable_all(&fake);
+	fake.values[0] = "0"; fake.values[1] = "0"; fake.values[2] = "1";
+	fake.statuses[3] = -1; fake.statuses[4] = -1;
+	CHECK(watchdog_ntp_schedule_snapshot_read(fake_schedule_nvram_get, &fake, &snapshot) == 0);
+	CHECK(!snapshot.reboot_enabled && !snapshot.ss_enabled && snapshot.ntp_ready);
+	CHECK(snapshot.reboot_schedule[0] == '\0' && snapshot.ss_schedule[0] == '\0');
+	CHECK(fake.calls == 3);
+
+	fake_schedule_enable_all(&fake);
+	fake.values[0] = "1"; fake.values[1] = "0"; fake.values[2] = "1";
+	fake.values[3] = "11111112345"; fake.statuses[4] = -1;
+	CHECK(watchdog_ntp_schedule_snapshot_read(fake_schedule_nvram_get, &fake, &snapshot) == 0);
+	CHECK(snapshot.reboot_enabled && !snapshot.ss_enabled && snapshot.ntp_ready);
+	CHECK(strcmp(snapshot.reboot_schedule, "11111112345") == 0);
+	CHECK(snapshot.ss_schedule[0] == '\0' && fake.calls == 4);
+	return 0;
+}
+
 
 
 int
@@ -383,6 +410,7 @@ main(void)
 	CHECK(test_schedule_snapshot_read_failure_clears_partial_state() == 0);
 	CHECK(test_schedule_snapshot_rejects_overlong_schedule_without_truncation() == 0);
 	CHECK(test_schedule_snapshot_requires_exact_enable_tokens() == 0);
+	CHECK(test_schedule_snapshot_skips_disabled_and_unready_schedule_reads() == 0);
 
 	CHECK(test_successful_stop_allows_refresh() == 0);
 	CHECK(test_incomplete_stop_blocks_refresh() == 0);

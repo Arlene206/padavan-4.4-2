@@ -1,3 +1,10 @@
+## 2026-11-28 — Avoid unused schedule reads on watchdog ticks
+
+- Follow-up to `04f55a0098f9328c7bd563fccbbafd21013e03b3`: preserve the same-transaction schedule snapshot while fetching schedule strings only when NTP is ready and the corresponding action is enabled.
+- Added tests proving disabled schedule values are not fetched and a backend error for an inactive schedule cannot suppress the independent enabled action. Exact-head watchdog, NVRAM and XY-C1 checks remain required.
+
+---
+
 ## 2026-11-28 14:10 CST (UTC+8) — Snapshot watchdog scheduled actions through checked NVRAM
 
 - Base main SHA: `2e57ff8e98ba55aac56fc2a8d01d1b6ff8c6d19c`. `svc_timecheck()` read the reboot/SS enable flags, NTP-ready selector and two schedules through independent legacy `nvram_match()` / `nvram_safe_get()` calls. Those reads could not distinguish a backend failure from a missing/empty value and could mix values from different NVRAM cache generations while evaluating time-triggered actions.
