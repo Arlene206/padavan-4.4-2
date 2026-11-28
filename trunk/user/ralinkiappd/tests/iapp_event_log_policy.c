@@ -33,6 +33,13 @@ test_event_log_poll_uses_monotonic_elapsed_time(void)
 
 	assert(iapp_event_log_poll_due(NULL, &last) == -1);
 	assert(iapp_event_log_poll_due(&now, NULL) == -1);
+	now.tv_sec = -1;
+	now.tv_nsec = 0;
+	assert(iapp_event_log_poll_due(&now, &last) == -1);
+	now.tv_sec = 100;
+	last.tv_sec = -1;
+	assert(iapp_event_log_poll_due(&now, &last) == -1);
+	last.tv_sec = 100;
 	now.tv_nsec = -1;
 	assert(iapp_event_log_poll_due(&now, &last) == -1);
 	now.tv_nsec = 1000000000L;

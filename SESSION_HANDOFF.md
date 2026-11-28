@@ -1,3 +1,11 @@
+## 2026-11-27 — Reject malformed negative CLOCK_MONOTONIC samples
+
+- Hardened the IAPP event-log timespec policy: monotonic clock samples cannot have negative seconds, but the reusable helper previously validated only nanoseconds. A malformed pair with extreme signed second values could reach signed subtraction and overflow.
+- The helper now fails closed for negative seconds as well as invalid nanoseconds. Added regression cases for negative `now.tv_sec` and `last.tv_sec`, and strengthened the source checker. No valid runtime clock sample changes behavior.
+- Exact-head IAPP lifecycle and XY-C1 checks are required; no local target build or hardware test is claimed.
+
+---
+
 # Session Handoff — 2026-11-27
 
 ## Repository / branch baseline

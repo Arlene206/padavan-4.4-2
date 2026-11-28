@@ -14,7 +14,13 @@ iapp_event_log_poll_due(const struct timespec *now,
 {
 	time_t elapsed_seconds;
 
+	/*
+	 * CLOCK_MONOTONIC samples have nonnegative seconds. Reject malformed
+	 * synthetic samples too, so the signed elapsed-time subtraction below
+	 * cannot overflow when one endpoint is negative.
+	 */
 	if (!now || !last ||
+	    now->tv_sec < 0 || last->tv_sec < 0 ||
 	    now->tv_nsec < 0 || now->tv_nsec >= 1000000000L ||
 	    last->tv_nsec < 0 || last->tv_nsec >= 1000000000L)
 		return -1;

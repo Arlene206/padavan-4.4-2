@@ -1,3 +1,10 @@
+## 2026-11-27 — Reject malformed negative CLOCK_MONOTONIC samples
+
+- The monotonic event-log helper now rejects negative `tv_sec` values as invalid, preventing malformed signed timespec inputs from reaching elapsed-time subtraction. Valid CLOCK_MONOTONIC samples are nonnegative; normal poll timing is unchanged.
+- Added negative-second cases to the GNU89/Werror/ASan/UBSan regression and updated the source contract. Exact-head IAPP and firmware CI required.
+
+---
+
 ## 2026-11-27 — Checkpoint DHCP checker repairs and handoff
 
 - Current main parent: a6faece21549c01ad0161c7c18d9a26725c3a6fd. Frozen backup: 72f4f157a084f8184b9597ca5bf334b8080e5807.

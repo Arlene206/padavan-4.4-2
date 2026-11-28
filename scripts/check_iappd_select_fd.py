@@ -151,7 +151,9 @@ def main() -> None:
             "event-log polling must recover after a transient monotonic-clock error")
     event_log_poll_policy = EVENT_LOG_POLL_POLICY.read_text(encoding="utf-8")
     require("iapp_event_log_poll_due(const struct timespec *now" in
-            event_log_poll_policy and "now->tv_nsec" in event_log_poll_policy and
+            event_log_poll_policy and "now->tv_sec < 0" in event_log_poll_policy and
+            "last->tv_sec < 0" in event_log_poll_policy and
+            "now->tv_nsec" in event_log_poll_policy and
             "last->tv_nsec" in event_log_poll_policy,
             "event-log polling helper must validate monotonic timespec samples")
     require("msgrcv(" not in start_handler and "rtmpiapp.MsgId" not in start_handler and
