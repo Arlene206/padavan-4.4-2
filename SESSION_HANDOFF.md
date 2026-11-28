@@ -1,3 +1,12 @@
+## 2026-11-28 — Update watchdog signal integration contract for identity-bound rollback
+
+- The watchdog executable identity source change c9f5d0e1abd9df58576b18db4e8d10db0e448066 caused the separate NTP/watchdog signal CI to fail at `scripts/check_watchdog_ntp_lifecycle.py:247`: it asserted the old generic `kill_services()` rollback implementation.
+- THIS commit updates that contract to require the watchdog-only SIGTERM/SIGKILL signal helper, bounded waits, and identity-scoped rollback scan, and adds the new executable policy header to the signal workflow's push/PR path filters. No product source changed.
+- Exact c9f5d0e1 SHA: HTTPD security #46093743691 PASS; HTTPD lifecycle #46093743621 PASS; DNSMasq lifecycle #46093743721 PASS; Process inventory #46093743679 PASS; AI docs #46093743683 PASS; watchdog-signal #46093743633 FAIL for this stale assertion; Process lifecycle #46093743723 and XY-C1 #46093743713 remained IN_PROGRESS at last poll.
+- After this correction, inspect exact-head Process/XY-C1/watchdog-signal runs, then check this SHA's reruns. USB storage on 363fd7fba6f90352d70bb581ea6d0690a573441c PASS (#46093641272); XY-C1 on that SHA PASS (#46093641344); AI docs PASS (#46093641318).
+
+---
+
 ## 2026-11-28 — Restrict watchdog trigger-count assertions to workflow path filters
 
 - The watchdog identity implementation was committed as c9f5d0e1abd9df58576b18db4e8d10db0e448066. Process lifecycle #46093743723, XY-C1 #46093743713, and AI docs #46093743683 were still running at handoff.

@@ -1,3 +1,11 @@
+## 2026-11-28 — Update watchdog signal integration contract for identity-bound rollback
+
+- Exact c9f5d0e1abd9df58576b18db4e8d10db0e448066 watchdog-signal run #46093743633 failed at the checker assertion that still required `kill_services(service_names, 3, 1)` and generic rollback inventory. The source intentionally replaced that path with executable/argv0-bound SIGTERM/SIGKILL targeting.
+- THIS commit updates the test contract to validate identity-aware signaling, bounded waits and the guarded rollback scan. It also adds the new header to the watchdog signal workflow path filters. No production source changed.
+- Other exact c9f5d0e1 runs: HTTPD security/lifecycle, DNSMasq lifecycle, Process inventory audit and AI docs PASS; main Process lifecycle and XY-C1 remained pending when recorded.
+
+---
+
 ## 2026-11-28 — Restrict watchdog trigger-count assertions to workflow path filters
 
 - Added a watchdog executable-identity policy and gated watchdog startup/readiness/rollback scanning/signalling in c9f5d0e1abd9df58576b18db4e8d10db0e448066. No local cross-build was available; exact GitHub Actions are the verification gate.

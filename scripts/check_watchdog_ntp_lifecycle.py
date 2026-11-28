@@ -244,9 +244,12 @@ _start_scan = function_body(_ntp_watchdog, "watchdog_start_rollback_scan(void *c
 _start_rollback = function_body(_ntp_watchdog, "watchdog_rollback_failed_start(int start_status, int start_errno,")
 _start_watchdog = function_body(_ntp_watchdog, "start_watchdog(void)")
 assert '#include "detached_daemon_start_policy.h"' in _ntp_watchdog
-assert 'service_names[0] = (char *)context;' in _start_stop
-assert 'kill_services(service_names, 3, 1)' in _start_stop
-assert 'process_inventory_scan((const char *)context, &snapshot)' in _start_scan
+assert 'watchdog_process_signal_instances(SIGTERM' in _start_stop
+assert 'watchdog_process_signal_instances(SIGKILL' in _start_stop
+assert 'service_wait_seconds(3)' in _start_stop
+assert 'service_wait_seconds(1)' in _start_stop
+assert 'kill_services(' not in _start_stop
+assert 'watchdog_process_scan(&snapshot, scan_error)' in _start_scan
 assert 'process_snapshot_release(&snapshot)' in _start_scan
 assert 'detached_daemon_start_rollback_with_ops(' in _start_rollback
 assert 'watchdog_start_rollback_stop' in _start_rollback
