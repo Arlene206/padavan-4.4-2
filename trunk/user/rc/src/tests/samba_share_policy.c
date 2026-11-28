@@ -29,6 +29,7 @@ int main(void)
 	assert(samba_share_section_header_matches("[Media]\n", "[media]"));
 	assert(samba_share_section_header_matches("[media]\r\n", "[MEDIA]"));
 	assert(!samba_share_section_header_matches("[Media2]\n", "[media]"));
+	assert(!samba_share_section_header_matches("[m]", "[media]"));
 	assert(!samba_share_section_header_matches("[Media] extra\n", "[media]"));
 	assert(!samba_share_section_header_matches(NULL, "[media]"));
 	assert(!samba_share_section_header_matches("[media]\n", NULL));

@@ -85,11 +85,15 @@ samba_mount_path_is_safe(const char *path)
 static int
 samba_share_section_header_matches(const char *line, const char *header)
 {
-	size_t i;
+	size_t i, line_length, header_length;
 
-	if (!line || !header || !*header)
+	if (!line || !header)
 		return 0;
-	for (i = 0; header[i] != '\0'; ++i) {
+	line_length = strlen(line);
+	header_length = strlen(header);
+	if (header_length == 0 || line_length < header_length)
+		return 0;
+	for (i = 0; i < header_length; ++i) {
 		unsigned char left = (unsigned char)line[i];
 		unsigned char right = (unsigned char)header[i];
 
