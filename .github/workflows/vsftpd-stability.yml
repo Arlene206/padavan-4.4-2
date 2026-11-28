@@ -490,7 +490,8 @@ jobs:
           truncate_wrapper = function_body(vsftpd_sysutil, "vsf_sysutil_ftruncate(int fd)")
           syslog_wrapper = function_body(vsftpd_sysutil, "vsf_sysutil_syslog(const char* p_text, int severe)")
           assert "const char *text;" in syslog_wrapper
-          assert "char *text;" not in syslog_wrapper
+          assert not any(line.strip() == "char *text;"
+                         for line in syslog_wrapper.splitlines())
           assert "int vsf_sysutil_ftruncate(int fd);" in vsftpd_sysutil_header
           assert "return ftruncate(fd, 0);" in truncate_wrapper
           assert "die(" not in truncate_wrapper

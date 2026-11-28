@@ -1,3 +1,11 @@
+## 2026-11-28 — Fix the VSFTPD const-cursor source-contract false positive
+
+- VSFTPD #46118906872 on e0acf8bdbe29da9044df29981e4d8f33044412ad passed the GNU89/Werror runtime regression (including the production sysutil.c truncate test) and earlier FTP policy binaries, then failed the embedded Python contract. Root cause: checking that the substring "char *text;" was absent also matched the valid "const char *text;" declaration. This was a checker false positive, not a production compile/runtime failure.
+- Replaced it with an exact stripped-line comparison against "char *text;", while retaining the positive check for "const char *text;". Fresh exact-head VSFTPD validation required.
+- Main parent: 91101b663bae449687d860fc3e6a6529d6cff240. Detect-internet #46118970037 and AI docs #46118969986 on this SHA PASS. Parent Process #46118906883 and AI docs #46118906844 PASS; NVRAM #46118906849 was still in progress at last poll.
+
+---
+
 ## 2026-11-28 — Align firmware-update failure contract with checked service stop
 
 - Legacy detect-internet stability run #46114250052 failed at an embedded source assertion requiring the obsolete literal `if (stop_services(0) != 0)`. Current `flash_firmware()` captures `stop_upnp()` and `stop_services(0)` results, preserves the first errno, aborts with `return -1` if either checked stop fails, and only then invokes the custom shutdown script.
