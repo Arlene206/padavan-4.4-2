@@ -30,7 +30,7 @@ config_file_sync_fd(int fd)
  * fsync(file) does not persist the directory entry installed by rename().
  * Sync the containing directory after publishing a generated configuration.
  */
-static int
+static inline int
 config_file_sync_parent(const char *target_path)
 {
 	char parent_path[PATH_MAX];
