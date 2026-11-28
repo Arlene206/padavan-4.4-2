@@ -988,6 +988,7 @@ flash_firmware(void)
 	int lock_fd, stop_status = 0, release_status, saved_errno = 0;
 	int vpn_client_stop_status, vpn_server_stop_status, residual_stop_status;
 	int eapol_stop_status, kabinet_stop_status, auth_stop_status, pppoe_stop_status;
+	int upnp_stop_status, service_stop_status;
 	int storage_time_status, storage_mtd_status;
 	int flash_status;
 
@@ -1037,8 +1038,28 @@ flash_firmware(void)
 			errno = saved_errno;
 		return -1;
 	}
-	if (stop_services(0) != 0) {
-		logmessage(LOGNAME, "firmware update aborted: checked services did not stop");
+	/*
+	 * MiniUPnPd is owned by the LAN/WAN stop group, not stop_services().
+	 * Firmware preparation does not run stop_services_lan_wan(), so stop it
+	 * explicitly before configuration persistence and the irreversible flash.
+	 */
+	upnp_stop_status = stop_upnp();
+	if (upnp_stop_status != 0) {
+		saved_errno = errno ? errno : EIO;
+		logmessage(LOGNAME,
+			   "firmware update aborted: MiniUPnPd did not stop (status=%d, errno=%d)",
+			   upnp_stop_status, saved_errno);
+	}
+	/* Continue independent stop attempts, but retain the first failure. */
+	service_stop_status = stop_services(0);
+	if (service_stop_status != 0 && saved_errno == 0)
+		saved_errno = errno ? errno : EIO;
+	if (upnp_stop_status != 0 || service_stop_status != 0) {
+		logmessage(LOGNAME,
+			   "firmware update aborted: UPnP or checked services did not stop (UPnP=%d, services=%d)",
+			   upnp_stop_status, service_stop_status);
+		if (saved_errno)
+			errno = saved_errno;
 		return -1;
 	}
 	eapol_stop_status = stop_auth_eapol();

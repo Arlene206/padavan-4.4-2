@@ -31,6 +31,23 @@ assert not re.search(r"\breturn\s*;", flash), "firmware aborts must not return s
 assert flash.count("return -1;") >= 10, "all preparation abort paths must return failure"
 write_call = 'flash_status = eval("/tmp/mtd_write", "-r", "write", FW_IMG_NAME, FW_MTD_NAME);'
 assert write_call in flash
+assert "int upnp_stop_status, service_stop_status;" in flash
+upnp_stop_call = "upnp_stop_status = stop_upnp();"
+services_stop_call = "service_stop_status = stop_services(0);"
+assert flash.count(upnp_stop_call) == 1
+assert flash.count(services_stop_call) == 1
+assert flash.index(upnp_stop_call) < flash.index(services_stop_call)
+upnp_failure = block(flash, "if (upnp_stop_status != 0)")
+assert "saved_errno = errno ? errno : EIO;" in upnp_failure
+assert "MiniUPnPd did not stop" in upnp_failure
+service_failure = block(flash, "if (service_stop_status != 0 && saved_errno == 0)")
+assert "saved_errno = errno ? errno : EIO;" in service_failure
+stop_failure = block(flash, "if (upnp_stop_status != 0 || service_stop_status != 0)")
+assert "if (saved_errno)" in stop_failure
+assert "errno = saved_errno;" in stop_failure
+assert "return -1;" in stop_failure
+assert flash.index("if (upnp_stop_status != 0 || service_stop_status != 0)") < flash.index("storage_time_status = storage_save_time(60)")
+assert flash.index("if (upnp_stop_status != 0 || service_stop_status != 0)") < flash.index(write_call)
 assert '#include "service_wait_policy.h"' in rc_source
 assert "sleep(1);" not in flash, "pre-flash wait must not be shortened by EINTR"
 pre_flash_wait = "service_wait_seconds(1)"

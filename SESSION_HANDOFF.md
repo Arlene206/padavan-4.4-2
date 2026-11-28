@@ -1,8 +1,9 @@
-## 2026-11-28 — Align existing VPN lifecycle checker with bounded FIFO helper (THIS COMMIT)
+## 2026-11-28 — Stop MiniUPnPd in firmware-flash preparation (THIS COMMIT)
 
-- Base main SHA: `0ce04df3e954c85c86e5c7f1a997b8865511fec2`. Exact-head VPN #46113237878: new FIFO GNU89/Werror/ASan/UBSan regression PASS; dedicated FIFO integration checker PASS; existing lifecycle checker failed on its obsolete expectation of a raw direct `write()` in `control_xl2tpd()`. AI docs #46113237773 PASS.
-- THIS COMMIT updates the pre-existing lifecycle checker to assert the bounded FIFO-open helper, SIGPIPE-safe write helper, required include and close-error handling, and to forbid raw `open()`/`write()` in the caller. No behavior/test is weakened.
-- Process inventory #46113072701 PASS on parent `78afe648...`; XY-C1 #46113072666 was still at Build IN_PROGRESS. Earlier DHCP scanner XY-C1 #46112371422 PASSed Build/TRX/artifact on exact SHA `a3d805b8...`.
+- Base main SHA: `4635a548f8e434635aeb505a5265ac9d5b324a11`. The VPN FIFO slice is now L3 verified on production-source SHA `78afe64833e88851484b28c28d62ec482cff5ecd`: XY-C1 #46113072666 completed SUCCESS, including Build, TRX verification and artifact upload. On current parent main, VPN lifecycle #46113344389 and AI handoff #46113344390 both PASS. Physical-router L4 remains NOT VERIFIED.
+- Newly confirmed lifecycle gap: `flash_firmware()` stopped `stop_services(0)`, but MiniUPnPd is owned by `stop_services_lan_wan()`; the firmware path never called that group. MiniUPnPd could therefore remain active through storage persistence and MTD flash. THIS COMMIT explicitly calls `stop_upnp()`, still attempts independent `stop_services(0)` teardown after an UPnP error, preserves the first errno and aborts before persistence/write if either stop fails.
+- The firmware-update source contract now checks both stop calls, first-error retention and the pre-persistence/pre-write abort gate. Exact-head Process/XY-C1 checks for THIS COMMIT are required; no local or hardware flash test is claimed.
+
 
 ---
 
@@ -11,7 +12,7 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; all development and validation are on `main` only.
-- Live main immediately before this checker correction: `0ce04df3e954c85c86e5c7f1a997b8865511fec2`. The new FIFO C sanitizer regression and dedicated source checker both PASSed on #46113237878; the old VPN lifecycle checker still expected direct `write()` and failed. THIS COMMIT aligns it with the helper implementation. Parent XY-C1 #46113072666 was still building; Process #46113072701 PASS.
+- Live main before this firmware-preparation correction: `4635a548f8e434635aeb505a5265ac9d5b324a11`. VPN lifecycle #46113344389 and AI handoff #46113344390 PASS on this exact SHA. The FIFO production source SHA `78afe64833e88851484b28c28d62ec482cff5ecd` has XY-C1 #46113072666 SUCCESS with Build/TRX/artifact all complete; Process #46113072701 also PASS on that production-source SHA. THIS COMMIT adds an explicit MiniUPnPd stop to firmware-flash preparation and its abort regression.
 - Frozen backup remains `backup/pre-plugin-overhaul-2026-11-14`; do not mutate. Its warning file was verified during startup restore and handoff-recorded frozen HEAD is `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 remains CLOSED/unmerged.
 - Frozen backup remains `backup/pre-plugin-overhaul-2026-11-14` (handoff-recorded HEAD `72f4f157a084f8184b9597ca5bf334b8080e5807`); its warning file explicitly forbids mutation. PR #1 remains CLOSED/unmerged with no identified missing change.
 - Remote branch search shows only the preserved `backup/pre-plugin-overhaul-2026-11-14` archive beyond `main`. Its warning file was read from that ref and explicitly forbids any modification/deletion; the handoff-recorded frozen HEAD is `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 remains CLOSED and unmerged; its unmerged work was previously compared and no valid missing source/test/build change was identified.
@@ -103,14 +104,16 @@ For product-source SHA `7daa20cd2f1bd7abca4499fb9f9a6e05ce5d3d00`:
 
 ## Active task
 
-VPN control FIFO fix and new tests are in main. On exact parent SHA `0ce04df3e954c85c86e5c7f1a997b8865511fec2`, #46113237878 passed the new GNU89/Werror/ASan/UBSan test `vpn_client_control_fifo.c` and passed dedicated source integration checker. The established lifecycle checker then failed because it still required the old raw `write()` implementation inside `control_xl2tpd()`. THIS COMMIT updates that legacy checker. AI docs #46113237773 PASS. The previous DHCP scanner XY-C1 run #46112371422 passed Build/TRX/artifact on exact SHA `a3d805b8...`; parent VPN code XY-C1 #46113072666 remained at Build in progress; Process #46113072701 PASS.
+The xl2tpd control FIFO change is complete and L3 verified for its production source SHA `78afe64833e88851484b28c28d62ec482cff5ecd`: VPN sanitizer/source/lifecycle checks PASS, Process lifecycle #46113072701 PASS, and XY-C1 #46113072666 SUCCESS with detector, Build, TRX verification and artifact upload all PASS. The current parent main SHA `4635a548f8e434635aeb505a5265ac9d5b324a11` also has exact-head VPN #46113344389 PASS and AI docs #46113344390 PASS. No hardware L4 claim.
+
+THIS COMMIT addresses a separate PID 1 firmware-preparation omission: `flash_firmware()` called `stop_services(0)`, but MiniUPnPd is only stopped by `stop_services_lan_wan()`, a group the firmware path does not invoke. The fix explicitly checks `stop_upnp()`, still runs the independent generic stop pass on failure, retains the first errno and refuses persistence/MTD write when either stop reports failure. The dedicated firmware-notification source contract now locks this ordering and failure behavior.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect new exact-head VPN lifecycle and AI docs runs for THIS checker change. Require the C FIFO sanitizer test, dedicated checker and legacy lifecycle checker all PASS.
-2. Poll parent XY-C1 #46113072666 on SHA `78afe64833e88851484b28c28d62ec482cff5ecd`; it was at Build IN_PROGRESS, with TRX/artifact still pending. That parent includes the VPN source/header and XY trigger, so it validates the same production sources; require Build/TRX/artifact all pass before claiming L3. This commit changes only checker/docs and does not alter production firmware input.
-3. Process inventory #46113072701 PASS on the parent SHA. AI docs #46113237773 PASS on checker parent `0ce04df3...`.
-4. No physical-router L4 has been performed. After the VPN slice is green, continue a separate bounded userland stability/security fix.
+1. Fetch live `main` and inspect the exact-head Process inventory/lifecycle regression and XY-C1 workflow triggered by THIS COMMIT. Require the firmware-update notification policy regression and source contract to pass; inspect logs and correct any failure without weakening checks.
+2. Require XY-C1 detector, Build, TRX verification and artifact upload all PASS on the exact production-source SHA before claiming L3 for the MiniUPnPd flash-preparation change. If the build is pending, continue another independent task.
+3. Verify that the failure path preserves the first UPnP/service errno and returns before storage persistence or `/tmp/mtd_write`; no physical router L4/firmware-flash test has been performed.
+4. Continue the stability/security ledger outside the completed DHCP, VPN FIFO and MiniUPnPd slices.
 
 # Cross-session execution mandate
 

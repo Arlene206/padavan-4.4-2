@@ -1,3 +1,12 @@
+## 2026-11-28 14:36 CST (UTC+8) — Stop MiniUPnPd before firmware MTD update
+
+- Base main SHA: `4635a548f8e434635aeb505a5265ac9d5b324a11`. Prior VPN FIFO production-source SHA `78afe64833e88851484b28c28d62ec482cff5ecd` now has exact XY-C1 #46113072666 SUCCESS: detector, Build, TRX verification and artifact upload all PASS. On exact parent main, VPN lifecycle #46113344389 and AI handoff #46113344390 PASS.
+- Caller-path defect: `flash_firmware()` invoked `stop_services(0)` and never `stop_services_lan_wan()`; that latter group owns `stop_upnp()`. Consequently MiniUPnPd could remain running while firmware preparation proceeds to storage persistence and irreversible `mtd_write`.
+- Added explicit checked `stop_upnp()`, then always attempted independent `stop_services(0)`; the first errno is retained, and either failure aborts before authentication teardown, storage persistence or flash. Extended `check_firmware_update_notification.py` to assert call order, continued stop attempts, first-error retention and pre-persistence/pre-write abort.
+- Exact-head Process and XY-C1 checks are required for THIS production-source change. The host firmware-notification policy/source contract is exercised by Process; no local compile or hardware flash test is claimed.
+
+---
+
 ## 2026-11-28 14:17 CST (UTC+8) — Update legacy VPN lifecycle checker for the FIFO helper
 
 - Base main SHA: `0ce04df3e954c85c86e5c7f1a997b8865511fec2`. Exact-head VPN run #46113237878 showed the new FIFO sanitizer regression PASS and the dedicated source integration checker PASS. The existing `check_vpn_server_lifecycle.py` then failed at its old direct-write assertion (`written = write(control_fd, ...)`), because the caller now delegates to the SIGPIPE-safe helper. AI handoff documentation #46113237773 PASS.
