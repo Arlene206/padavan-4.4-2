@@ -231,9 +231,9 @@ for forbidden_commit in (
     "requested_ip = packet.yiaddr;",
     "state = BOUND;",
 ):
-    assert forbidden_commit not in ack[script_call:retry_continue], forbidden_commit
+    assert forbidden_commit not in ack[script_call:final_continue], forbidden_commit
 lease_script_plan_commit = ack.index(
-    "lease_plan_status = udhcpc_lease_script_plan(lease_seconds,", retry_continue)
+    "lease_plan_status = udhcpc_lease_script_plan(lease_seconds,", final_continue)
 lease_expiry_commit = ack.index("if (lease_plan_status != 0)", lease_script_plan_commit)
 lease_cleanup_commit = ack.index('deconfig_status = udhcp_run_script(NULL, "deconfig");',
                                  lease_expiry_commit)
@@ -245,7 +245,7 @@ server_address_commit = ack.index("server_addr = udhcpc_server_addr_after_ack(",
 rebind_deadline_commit = ack.index("rebind_timeout = timeout / 8;", server_address_commit)
 requested_ip_commit = ack.index("requested_ip = packet.yiaddr;", rebind_deadline_commit)
 bound_transition = ack.index("state = BOUND;", requested_ip_commit)
-assert (retry_continue < lease_script_plan_commit < lease_expiry_commit <
+assert (final_continue < lease_script_plan_commit < lease_expiry_commit <
         lease_cleanup_commit < lease_cleanup_retry < lease_cleanup_continue <
         server_address_commit < rebind_deadline_commit <
         requested_ip_commit < bound_transition)

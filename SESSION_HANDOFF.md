@@ -1,3 +1,12 @@
+## 2026-11-27 — Fix udhcpc checker stale retry_continue reference
+
+- Exact SHA 6a89890e57e3be78d921a8fbd703ce245cf70790: udhcpc policy binary passed GNU89/Werror/ASan/UBSan; integration checker then raised NameError because a previous ordering refactor renamed the cleanup branch's terminating marker to `final_continue` but left two downstream assertions using the removed `retry_continue` variable.
+- THIS checker-only patch consistently uses `final_continue` as the end of the failed-script branch and the point before successful lease-plan commit. No production source changed.
+- AI docs #46095839135 PASS. UdHCPC #46095839131 failed solely on that NameError. Exact-head udhcpc/XY-C1 reruns required.
+- Current P1 DHCP source slice remains committed at db92b3164321618e559051b471f560c7a863d25d: slow ACK callbacks preserve the remaining valid lease; initial bound-hook failure deconfigures possible partial state before discovery; renewal failure preserves the active lease.
+
+---
+
 ## 2026-11-28 — Make udhcpc bound-cleanup assertion tolerate wrapped C call
 
 - Exact db92b3164321618e559051b471f560c7a863d25d: DHCP policy binary compiled and passed GNU89/Werror/ASan/UBSan. The integration checker then failed at line 204 because it expected the helper call and `state == REQUESTING` to be on one physical line; production C wraps the argument onto the next line.

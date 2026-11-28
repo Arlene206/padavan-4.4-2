@@ -1,3 +1,10 @@
+## 2026-11-27 — Fix udhcpc checker stale retry_continue reference
+
+- The exact 6a89890e57e3be78d921a8fbd703ce245cf70790 udhcpc policy binary passed; its integration checker failed with NameError because `retry_continue` was removed by the prior contract refactor but still referenced by three assertion lines. Replaced those references with the already-defined `final_continue`.
+- Checker-only correction. Runtime code unchanged.
+
+---
+
 ## 2026-11-28 — Make udhcpc bound-cleanup assertion tolerate wrapped C call
 
 - Exact db92b3164321618e559051b471f560c7a863d25d BusyBox udhcpc sanitizer test passed, then the source checker failed on a brittle one-line assertion for `udhcpc_bound_script_failure_requires_deconfig(state == REQUESTING)`. The C source wraps the argument onto the following line.
