@@ -1,3 +1,10 @@
+## 2026-11-28 — Normalize remaining compact-body assertions in Samba V2 checker
+
+- Exact-head a2 Samba job #46146271742 passed its C transaction regression, service failure-gate and account snapshot parity checks, plus the first two durability-checker sections; it then failed because the checker compared a whitespace-bearing expectation against a function body that had already been compacted.
+- Normalized the V1/V2 tracking-flag assertions, V2 restore argument-order snippets and legacy recovery-call signature to the same no-whitespace representation used by compact(). This preserves the underlying state/ordering checks rather than suppressing them.
+- Parent main SHA: a2f9fcb43a27ecec971ceea2b61f6ec8e8b0fb02; result: THIS COMMIT. Local execution remains NOT RUN because there is no local checkout. On the parent SHA, handoff validation #46146271744 PASS and HTTPD #46146271738 PASS. Fresh exact-head Samba/HTTPD/AI Actions are required.
+
+---
 ## 2026-11-28 — Correct the final V2 Samba and HTTPD contract assertions
 
 - Exact-head `b7f6cc478d495488a4ad3d9398ef5f5ac2e5fc57` Samba run #46145970956 passed the transaction C regression, account snapshot guard and earlier durability checks, then exposed a checker mistake: PASSWD/GROUP are fields inside one snprintf format string, so the correct contract is to require the field tokens without an extra leading quote. Repaired `scripts/check_samba_transaction_durability.py`.

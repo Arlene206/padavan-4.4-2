@@ -159,15 +159,15 @@ assert '"PADAVAN_SAMBA_CONFIG_TXN_V2' in v2_write
 assert "PASSWD=%d" in v2_write and "GROUP=%d" in v2_write
 assert '"PADAVAN_SAMBA_CONFIG_TXN_V1' in v2_read
 assert '"PADAVAN_SAMBA_CONFIG_TXN_V2' in v2_read
-assert '*tracks_accounts = 0' in v2_read and '*tracks_accounts = 1' in v2_read
+assert '*tracks_accounts=0' in v2_read and '*tracks_accounts=1' in v2_read
 assert v2_begin.index('samba_config_transaction_snapshot(passdb_path') < v2_begin.index('samba_config_transaction_snapshot(config_path')
 assert v2_begin.index('samba_config_transaction_snapshot(config_path') < v2_begin.index('samba_config_transaction_snapshot(passwd_path')
 assert v2_begin.index('samba_config_transaction_snapshot(passwd_path') < v2_begin.index('samba_config_transaction_snapshot(group_path')
 assert v2_begin.index('samba_config_transaction_snapshot(group_path') < v2_begin.index('"PREPARED"')
-assert v2_recover.index('config_path, config_snapshot') < v2_recover.index('passdb_path, passdb_snapshot')
-assert v2_recover.index('passdb_path, passdb_snapshot') < v2_recover.index('group_path, group_snapshot')
-assert v2_recover.index('group_path, group_snapshot') < v2_recover.index('passwd_path, passwd_snapshot')
-assert 'samba_config_transaction_recover(directory, passdb_path, config_path)' in v2_recover
+assert v2_recover.index('config_path,config_snapshot') < v2_recover.index('passdb_path,passdb_snapshot')
+assert v2_recover.index('passdb_path, passdb_snapshot') < v2_recover.index('group_path,group_snapshot')
+assert v2_recover.index('group_path, group_snapshot') < v2_recover.index('passwd_path,passwd_snapshot')
+assert 'samba_config_transaction_recover(directory,passdb_path,config_path)' in v2_recover
 assert 'samba_config_transaction_sync_regular_file(config_path)' in v2_commit
 assert 'samba_config_transaction_sync_regular_file(passwd_path)' in v2_commit
 assert 'samba_config_transaction_sync_regular_file(group_path)' in v2_commit
