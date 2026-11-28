@@ -359,6 +359,8 @@ ack_subnet_check = ack_branch_compact.index("udhcpc_subnet_mask_option_valid(&pa
 assert ack_id_read < ack_id_check < ack_subnet_check
 assert "test_ack_server_id_filter_respects_selected_server" in test
 assert "test_ack_server_id_filter_respects_selected_server()!=0" in "".join(test.split())
+assert "udhcpc_server_id_rejected(1, selected_server, 1, 0)" in test
+assert "udhcpc_nak_server_id_rejected(1, original_server, 1, 0)" in test
 
 nak_branch_compact = "".join(nak_branch.split())
 policy_compact = "".join(policy.split())
@@ -372,7 +374,9 @@ assert nak_id_read < nak_id_check < nak_event < nak_deconfig < nak_retry
 assert "received DHCP NAK with wrong" in nak_branch
 assert ("staticinlineintudhcpc_server_id_rejected(intrebinding,uint32_texpected_server_id,"
         "intserver_id_present,uint32_treceived_server_id)") in policy_compact
-assert "if(rebinding)return!server_id_present;returnexpected_server_id!=0&&(!server_id_present||received_server_id!=expected_server_id)" in policy_compact
+assert ("if(server_id_present&&received_server_id==0U)return1;"
+        "if(rebinding)return!server_id_present;"
+        "returnexpected_server_id!=0&&(!server_id_present||received_server_id!=expected_server_id)") in policy_compact
 assert "returnudhcpc_server_id_rejected(rebinding,expected_server_id,server_id_present,received_server_id);" in policy_compact
 assert "test_nak_server_id_filter_respects_rebinding_broadcast" in test
 assert "test_nak_server_id_filter_respects_rebinding_broadcast()!=0" in test_compact

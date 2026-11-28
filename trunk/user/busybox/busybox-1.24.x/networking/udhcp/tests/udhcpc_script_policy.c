@@ -262,10 +262,12 @@ static int test_ack_server_id_filter_respects_selected_server(void)
 	/* Preserve address-less DHCP servers when the offer had no server ID. */
 	CHECK(!udhcpc_server_id_rejected(0, 0, 0, 0));
 	CHECK(!udhcpc_server_id_rejected(0, 0, 1, alternate_server));
+	CHECK(udhcpc_server_id_rejected(0, 0, 1, 0));
 
 	/* REBINDING is broadcast: accept another identified server's ACK only. */
 	CHECK(!udhcpc_server_id_rejected(1, selected_server, 1, alternate_server));
 	CHECK(udhcpc_server_id_rejected(1, selected_server, 0, 0));
+	CHECK(udhcpc_server_id_rejected(1, selected_server, 1, 0));
 	return 0;
 }
 
@@ -301,6 +303,7 @@ static int test_nak_server_id_filter_respects_rebinding_broadcast(void)
 	/* Preserve address-less server compatibility before a server is known. */
 	CHECK(!udhcpc_nak_server_id_rejected(0, 0, 0, 0));
 	CHECK(!udhcpc_nak_server_id_rejected(0, 0, 1, alternate_server));
+	CHECK(udhcpc_nak_server_id_rejected(0, 0, 1, 0));
 
 	/* SELECTING/RENEWING replies stay pinned to the selected server. */
 	CHECK(!udhcpc_nak_server_id_rejected(0, original_server, 1, original_server));
@@ -311,6 +314,7 @@ static int test_nak_server_id_filter_respects_rebinding_broadcast(void)
 	CHECK(!udhcpc_nak_server_id_rejected(1, original_server, 1, alternate_server));
 	CHECK(!udhcpc_nak_server_id_rejected(1, original_server, 1, original_server));
 	CHECK(udhcpc_nak_server_id_rejected(1, original_server, 0, 0));
+	CHECK(udhcpc_nak_server_id_rejected(1, original_server, 1, 0));
 	return 0;
 }
 
