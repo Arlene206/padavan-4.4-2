@@ -922,6 +922,10 @@ static int wsd_parse_http_header(int fd, struct endpoint *ep,
 		ep->errstr = __FUNCTION__ ": Invalid HTTP request line";
 		return 400;
 	}
+	if (wsd_http_line_contains_nul(p, (size_t)(eol - p)) != 0) {
+		ep->errstr = __FUNCTION__ ": Embedded NUL in HTTP request line";
+		return 400;
+	}
 	*eol = '\0';
 	if (strncmp(p, "POST /", 6)) {
 		ep->errstr = __FUNCTION__ ": Only POST method supported";
@@ -940,12 +944,14 @@ static int wsd_parse_http_header(int fd, struct endpoint *ep,
 
 again:
 #define HEADER_IS(p,h)	(strncasecmp((p),(h),strlen((h)))? NULL :(p)+strlen(h)) 
-	while (*p &&
-	       (eol = wsd_http_find_crlf(p, len - (size_t)(p - buf))) != p) {
+	while ((eol = wsd_http_find_crlf(
+		        p, len - (size_t)(p - buf))) != NULL && eol != p) {
 		const char *val;
 
-		if (!eol)
-			break;
+		if (wsd_http_line_contains_nul(p, (size_t)(eol - p)) != 0) {
+			ep->errstr = __FUNCTION__ ": Embedded NUL in HTTP header";
+			return 400;
+		}
 		*eol = '\0';
 		if ((val = HEADER_IS(p, "Content-Type: "))) {
 			if (strcmp(val, "application/soap+xml")) {

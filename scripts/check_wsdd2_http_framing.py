@@ -27,8 +27,12 @@ assert "wsd_http_read_exact_until(fd, buf, &len, contentlength, deadline)" in pa
 assert "const struct timespec *deadline" in parser
 assert "eol = wsd_http_find_crlf(p, len)" in parser
 assert "char *eol = NULL;" in parser
-assert parser.index("char *eol = NULL;") < parser.index("while (*p &&")
+assert parser.index("char *eol = NULL;") < parser.index("while ((eol =")
+assert "while (*p &&" not in parser
 assert "char *eol = strstr(p" not in parser
+assert parser.count("wsd_http_line_contains_nul(p, (size_t)(eol - p))") == 2
+assert "Embedded NUL in HTTP request line" in parser
+assert "Embedded NUL in HTTP header" in parser
 assert "wsd_http_parse_content_length(val, &contentlength)" in parser
 assert "wsd_http_is_transfer_encoding_header(p)" in parser
 assert "Transfer-Encoding is unsupported" in parser
@@ -98,6 +102,8 @@ assert "SO_RCVTIMEO" not in recv_handler
 assert "accepted_client = 1;" in recv_handler
 assert "close(fd); return 0;" in recv_compact
 assert "wsd_parse_http_header(fd, ep, buf, len, sizeof buf, &deadline)" in recv_compact
+assert "test_http_lines_reject_embedded_nul" in TEST
+assert "wsd_http_line_contains_nul(embedded, sizeof(embedded)) == 1" in TEST
 assert "test_absolute_deadline_rejects_slow_trickle" in TEST
 assert "test_idle_client_deadline" in TEST
 print("wsdd2 bounded HTTP framing and absolute client deadline source contract: PASS")

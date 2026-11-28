@@ -9,6 +9,23 @@
 #include <strings.h>
 #include <sys/socket.h>
 #include <time.h>
+#include <string.h>
+
+/*
+ * HTTP request/header lines are parsed by C string routines after framing.
+ * Reject embedded NUL bytes before adding the terminating NUL ourselves.
+ * Return -1 for an invalid argument, 0 for a clean span and 1 for an
+ * embedded NUL.
+ */
+static inline int
+wsd_http_line_contains_nul(const char *line, size_t length)
+{
+	if (!line && length != 0) {
+		errno = EINVAL;
+		return -1;
+	}
+	return length != 0 && memchr(line, '\0', length) != NULL;
+}
 
 /* Locate CRLF without reading beyond the bytes currently buffered. */
 static inline char *

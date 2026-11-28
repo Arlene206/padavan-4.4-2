@@ -24,6 +24,26 @@ test_find_crlf_bounds(void)
 }
 
 static void
+test_http_lines_reject_embedded_nul(void)
+{
+	static const char clean[] = "Content-Length: 12";
+	static const char embedded[] = {
+		'C', 'o', 'n', 't', 'e', 'n', 't', '-', 'L', 'e', 'n', 'g', 't', 'h',
+		':', ' ', '1', '2', '\0', 'x'
+	};
+	static const char leading_nul[] = { '\0', 'H', 'o', 's', 't' };
+
+	assert(wsd_http_line_contains_nul(clean, sizeof(clean) - 1) == 0);
+	assert(wsd_http_line_contains_nul(embedded, sizeof(embedded)) == 1);
+	assert(wsd_http_line_contains_nul(leading_nul, sizeof(leading_nul)) == 1);
+	assert(wsd_http_line_contains_nul(clean, 0) == 0);
+	assert(wsd_http_line_contains_nul(NULL, 0) == 0);
+	errno = 0;
+	assert(wsd_http_line_contains_nul(NULL, 1) == -1);
+	assert(errno == EINVAL);
+}
+
+static void
 test_content_length(void)
 {
 	size_t length = 77;
@@ -196,6 +216,7 @@ int
 main(void)
 {
 	test_find_crlf_bounds();
+	test_http_lines_reject_embedded_nul();
 	test_content_length();
 	test_transfer_encoding_is_rejected();
 	test_fragmented_line_and_body();
