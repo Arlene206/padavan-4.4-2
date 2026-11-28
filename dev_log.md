@@ -1,3 +1,11 @@
+## 2026-11-28 — Update DNSMasq workflow contract for shared Inadyn fsync policy
+
+- Exact-main DNSMasq lifecycle run `46135344700` on `5848adac320f0d0f937d95c3ef40d5787b1f22d5` passed the preceding DNSMasq and Inadyn host regressions, then failed its DDNS source-contract step at the stale token `fsync(fileno(fp))`. The Inadyn publisher had correctly moved to `config_file_sync_fd(fileno(fp))`; its focused lifecycle workflow already passed on that same SHA.
+- Updated the DNSMasq workflow to assert the shared bounded fsync helper and its eight-interruption ceiling, and to reject the removed raw Inadyn fsync expression. Added `config_file_sync.h` to both push and pull-request path filters.
+- Checker/trigger-only correction; production source unchanged. DNSMasq workflow must rerun on the new exact SHA before considering it green.
+
+---
+
 ## 2026-11-28 — Bound Inadyn configuration fsync retries
 
 - The Inadyn configuration publisher still had two private unbounded EINTR loops: one for staged-file fsync before rename and one for the parent-directory barrier used by snapshot/commit operations. A persistent signal stream could pin PID 1 while preparing or rolling back DDNS configuration.

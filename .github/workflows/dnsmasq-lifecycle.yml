@@ -31,6 +31,7 @@ on:
       - "trunk/user/rc/src/dnsmasq_domain_policy.h"
       - "trunk/user/rc/src/init.c"
       - "trunk/user/rc/src/inadyn_config_file.h"
+      - "trunk/user/rc/src/config_file_sync.h"
       - "trunk/user/rc/src/tests/inadyn_config_file.c"
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/ddns_enabled_policy.h"
@@ -107,6 +108,7 @@ on:
       - "trunk/user/rc/src/dnsmasq_domain_policy.h"
       - "trunk/user/rc/src/init.c"
       - "trunk/user/rc/src/inadyn_config_file.h"
+      - "trunk/user/rc/src/config_file_sync.h"
       - "trunk/user/rc/src/tests/inadyn_config_file.c"
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/ddns_enabled_policy.h"
@@ -299,6 +301,7 @@ jobs:
           rc_dir = root / "trunk/user/rc/src"
           services = (rc_dir / "services_ex.c").read_text()
           helper = (rc_dir / "inadyn_config_file.h").read_text()
+          sync_helper = (rc_dir / "config_file_sync.h").read_text()
           regression = (rc_dir / "tests/inadyn_config_file.c").read_text()
           ddns_enabled_policy = (rc_dir / "ddns_enabled_policy.h").read_text()
           init = (rc_dir / "init.c").read_text()
@@ -420,10 +423,13 @@ jobs:
           for token in (
               "mkstemp(staged_path)", "fchmod(fd, S_IRUSR | S_IWUSR)",
               "st.st_uid != geteuid()", "st.st_nlink != 1",
-              "fflush(fp)", "ferror(fp)", "fsync(fileno(fp))",
+              "fflush(fp)", "ferror(fp)", "config_file_sync_fd(fileno(fp))",
               "fclose(fp)", "rename(staged_path, destination)",
           ):
               assert token in helper, token
+          assert "fsync(fileno(fp))" not in helper
+          assert "CONFIG_FILE_SYNC_MAX_EINTR_RETRIES 8U" in sync_helper
+          assert "interruptions >= CONFIG_FILE_SYNC_MAX_EINTR_RETRIES" in sync_helper
           for token in (
               "(before.st_mode & 0777) == 0666",
               "(after.st_mode & 0777) == 0600",
