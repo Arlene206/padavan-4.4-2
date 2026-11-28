@@ -1,3 +1,10 @@
+## 2026-11-28 — Make udhcpc bound-cleanup assertion tolerate wrapped C call
+
+- Exact db92b3164321618e559051b471f560c7a863d25d BusyBox udhcpc sanitizer test passed, then the source checker failed on a brittle one-line assertion for `udhcpc_bound_script_failure_requires_deconfig(state == REQUESTING)`. The C source wraps the argument onto the following line.
+- Updated the contract to find the function call and separately assert the REQUESTING argument. No product source change.
+
+---
+
 ## 2026-11-28 — Deconfigure partial initial DHCP binds after event-hook failure
 
 - Fixed a failed-`bound` rollback gap: the client previously rejected the lease state commit but retried DHCPREQUEST immediately, leaving any partial address/route configuration made by the failed hook in place. The initial-acquisition branch now runs `deconfig` before returning to INIT_SELECTING; failed cleanup uses DECONFIG_PENDING and retries. Renewal/rebind failures deliberately retain the current lease and do not deconfigure.

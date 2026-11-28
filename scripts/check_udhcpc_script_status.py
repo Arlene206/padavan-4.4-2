@@ -202,7 +202,8 @@ script_call = ack.index("script_status = udhcp_run_script")
 failure_gate = ack.index("if (script_status != 0)", script_call)
 retry = ack.index("udhcpc_script_failure_prepare_retry", failure_gate)
 cleanup_gate = ack.index(
-    "udhcpc_bound_script_failure_requires_deconfig(state == REQUESTING)", retry)
+    "udhcpc_bound_script_failure_requires_deconfig(", retry)
+assert "state == REQUESTING" in ack[cleanup_gate:cleanup_gate + 160]
 deconfig_call = ack.index('deconfig_status = udhcp_run_script(NULL, "deconfig");',
                           cleanup_gate)
 cleanup_retry_gate = ack.index(

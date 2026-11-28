@@ -1,3 +1,11 @@
+## 2026-11-28 — Make udhcpc bound-cleanup assertion tolerate wrapped C call
+
+- Exact db92b3164321618e559051b471f560c7a863d25d: DHCP policy binary compiled and passed GNU89/Werror/ASan/UBSan. The integration checker then failed at line 204 because it expected the helper call and `state == REQUESTING` to be on one physical line; production C wraps the argument onto the next line.
+- THIS checker-only commit matches the call prefix then independently verifies its argument nearby. The acquisition cleanup implementation itself is present and the sanitizer test is green. Exact-head DHCP/XY-C1/AI reruns required.
+- Other exact db92 checks: WAN DHCP callback PASS, DHCPv6 Reply PASS, Process inventory/lifecycle PASS (the latter still IN_PROGRESS at last observation), AI docs PASS. XY-C1 and USB storage were in progress; NVRAM audit in progress. Frozen backup unchanged.
+
+---
+
 ## 2026-11-28 — Deconfigure partial initial DHCP binds after event-hook failure
 
 - New source review identified a cleanup gap: when the first `bound` event script returned nonzero, udhcpc correctly refused to commit BOUND but immediately retried DHCPREQUEST without rolling back possible partial address/route changes made before the script failed. A still-active DHCP renewal failure is different: deconfiguring there would destroy a valid existing lease.
