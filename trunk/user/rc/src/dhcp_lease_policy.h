@@ -177,7 +177,7 @@ dhcp_lease_router_is_changed(const char *stored_gateway,
 
 	if (dhcp_lease_ipv4_list_first(router_option,
 	                               next_gateway, next_gateway_size) < 0)
-		next_gateway[0] = '\0';
+		return 1;
 
 	return strcmp(stored_gateway ? stored_gateway : "", next_gateway) != 0;
 }

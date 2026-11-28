@@ -1,3 +1,12 @@
+## 2026-11-28 — Fail closed on malformed DHCP Router options
+
+- The renewal fast-path helper dhcp_lease_router_is_changed() previously converted parser errors to an empty gateway and compared it to stored state. If no gateway was stored, malformed Router data could be reported unchanged, skipping full udhcpc_bound() validation.
+- Changed parse errors to return changed immediately. Valid missing/empty Router options still parse as an empty gateway and preserve withdrawal semantics.
+- Added regression coverage for malformed Router options with existing and empty stored gateways; extended the static source contract to require fail-closed behavior.
+- Base: 3d499eedc1e71050bd10d3c51db1aa11c2a72a51; result: THIS COMMIT. Exact-SHA Actions pending. No local host compile available.
+
+---
+
 ## 2026-11-28 — Guard DHCP router comparison output capacity
 
 - Found a concrete memory-safety defect in `dhcp_lease_router_is_changed()`: when `next_gateway` was NULL or its declared capacity was zero, `dhcp_lease_ipv4_list_first()` correctly returned an error, but the caller then unconditionally wrote `next_gateway[0] = '\0'`. The zero-capacity case caused an out-of-bounds write; the NULL case dereferenced invalid storage.

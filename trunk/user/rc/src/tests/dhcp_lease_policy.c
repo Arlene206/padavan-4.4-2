@@ -1104,6 +1104,10 @@ main(void)
 	assert(dhcp_lease_router_is_changed("192.0.2.1", "invalid",
 		first, sizeof(first)));
 	assert(first[0] == '\0');
+	/* A malformed Router option is not a withdrawal when no gateway is stored. */
+	assert(dhcp_lease_router_is_changed("", "invalid",
+		first, sizeof(first)));
+	assert(first[0] == '\0');
 
 	/* Invalid output storage must not be dereferenced or written. */
 	assert(dhcp_lease_router_is_changed("192.0.2.1", NULL,
