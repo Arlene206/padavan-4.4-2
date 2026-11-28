@@ -12,7 +12,7 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; all development and validation are on `main` only.
-- Live main before this documentation checkpoint: `7daa20cd2f1bd7abca4499fb9f9a6e05ce5d3d00`. The product-source baseline remains this SHA; the commit containing this handoff refresh is documentation-only. At the next takeover, fetch live main and do not treat a docs-only tip as a new source baseline.
+- IAPP product-source baseline: `7daa20cd2f1bd7abca4499fb9f9a6e05ce5d3d00`; latest pre-implementation docs-only main: `badf4b0a7b0b94f2c774134da72978474bd859d9`. The current FTP source/test/workflow slice is THIS COMMIT; at the next takeover, fetch live main to resolve its exact SHA and match all Actions.
 - Remote branch inventory: `main` and the preserved `backup/pre-plugin-overhaul-2026-11-14` only. Frozen backup HEAD: `72f4f157a084f8184b9597ca5bf334b8080e5807`. Never modify, delete, rename, or use it for development.
 - No local source checkout was available to this session. Source/test evidence below comes from current GitHub files and exact-head Actions, not a claimed local build.
 
@@ -47,6 +47,14 @@ Every session MUST inspect the live repository state and compare it with this ha
 - The storage checker was corrected to match lstat-based target validation and validated `force_first_valid` forwarding. The earlier run `#46095697039` passed on `db92b3164321618e559051b471f560c7a863d25d`; that run's firmware build steps were not a substitute for the later full L3 result on `7daa20cd`.
 - Do not repeat the completed media-publisher audit without new evidence.
 
+- AI handoff documentation contract #46106089042 PASS on docs SHA `badf4b0a7b0b94f2c774134da72978474bd859d9`; the new source/test commit has its own required exact-head rerun.
+
+### VSFTPD stop/restart cleanup — THIS COMMIT
+
+- Stop status now preserves the exact nonzero `kill_services()` result; if the command reports success but final procfs state is RUNNING, UNKNOWN or malformed, the stop still fails and records a meaningful errno.
+- Every stop-path firewall/UPnP reconciliation requires final `PROCESS_PRESENCE_ABSENT`. The storage-stop caller no longer lets a pre-stop RUNNING/UNKNOWN observation authorize a refresh when the final inventory remains uncertain; it aborts storage removal and retains the first stop failure.
+- GNU89 policy tests and workflow source-order contracts cover detailed status propagation, final ABSENT/RUNNING/UNKNOWN gating and group-stop first-error preservation. Exact-head CI is pending.
+
 ## Verification boundary
 
 For product-source SHA `7daa20cd2f1bd7abca4499fb9f9a6e05ce5d3d00`:
@@ -72,13 +80,13 @@ For product-source SHA `7daa20cd2f1bd7abca4499fb9f9a6e05ce5d3d00`:
 
 ## Active task
 
-The next engineering slice is the P1 VSFTPD stop/restart cleanup defect described below: firewall/UPnP reconciliation and successful-stop reporting must wait until a complete process inventory confirms the daemon is ABSENT; preserve the original stop error and fail closed on UNKNOWN.
+THIS COMMIT implements the P1 VSFTPD stop/restart cleanup slice. Every stop-path firewall/UPnP refresh now requires final procfs ABSENT, detailed nonzero `kill_services()` status is preserved, and storage-stop aggregation keeps the first failure. Exact-head VSFTPD regression, AI docs and XY-C1 checks remain pending at commit preparation.
 
 ## Exact first action for the next GPT
 
-1. Re-fetch live `main`, then inspect the AI handoff documentation workflow for the new documentation commit. The previous exact-head run `#46096900817` failed at `scripts/check_ai_handoff_docs.py` because the handoff lacked the two required checkpoint strings. This commit adds both. If the new exact-head run fails, inspect its first causal log line and correct the actual contract; do not weaken the checker.
-2. After the handoff workflow is green, continue the next P1 user-space stability item in the roadmap: VSFTPD stop/restart cleanup. The stated defect is that firewall/UPnP reconciliation and stop success must occur only after procfs confirms the daemon is ABSENT; preserve the original stop error and fail closed on UNKNOWN. Start by tracing the current VSFTPD launch/stop functions, their RC callers, and the dedicated regression/workflow inputs. Add a regression for each missing outcome before changing production code.
-3. Do not wait for unrelated pending Actions. Do not re-audit completed IAPP, DHCP, generic process inventory, watchdog or storage slices without a new failing case.
+1. Re-fetch live `main` and inspect exact-head push Actions for the VSFTPD stability workflow, AI handoff documentation contract and XY-C1 firmware validation triggered by THIS source/test commit. Match every run to the live SHA; diagnose each failure from the first causal job log. No VSFTPD or firmware run ID is known yet at this checkpoint.
+2. Confirm the VSFTPD GNU89/Werror/ASan/UBSan policy regression and source-order contract pass. XY-C1 L3 requires Build, TRX verification and artifact upload all PASS on the exact source SHA. L4 remains separate.
+3. Then continue the next open stability/security issue in the roadmap, starting with the iperf3 fail-closed process-discovery regression whose shell invocation reruns were pending. Do not repeat completed IAPP, DHCP, shared process inventory, watchdog or storage audits without new evidence.
 
 # Cross-session execution mandate
 
@@ -89,5 +97,5 @@ The next engineering slice is the P1 VSFTPD stop/restart cleanup defect describe
 
 Before context exhaustion, stop starting new modules, finish and publish a safe bounded slice, then leave this handoff with the exact first action, validation boundary and committed baseline.
 - Run the local handoff-doc validator when a checkout is available. This session had no local checkout; the exact-head GitHub Actions workflow is the validation gate for the docs correction.
-- Keep the root dev log at 20–119 complete records; it had 72 records before this entry, so no archive rotation is due. Do not add handoff/roadmap archive snapshots.
+- Keep the root dev log at 20–119 complete records; it had 74 records before this entry, so no archive rotation is due. Do not add handoff/roadmap archive snapshots.
 - Do not change GPT Session Rotator or replay its existing state/SHA. Do not claim hardware validation or a successful build when steps were skipped.

@@ -244,15 +244,31 @@ static int
 stop_ftp_locked(int *final_presence)
 {
 	char* svcs[] = { "vsftpd", NULL };
-	int status, final_state;
+	int status, final_state, stop_errno, probe_errno, result;
 
 	status = kill_services(svcs, 3, 1);
+	stop_errno = errno;
+	errno = 0;
 	final_state = is_ftp_run();
+	probe_errno = errno;
 	if (final_presence)
 		*final_presence = final_state;
-	if (storage_service_stop_complete(status, final_state) != 0) {
-		logmessage("FTP server", "vsftpd did not stop cleanly or process state is unknown");
-		return -1;
+
+	result = ftp_stop_status_result(status, final_state);
+	if (result != 0) {
+		if (status != 0)
+			errno = stop_errno > 0 ? stop_errno :
+				(probe_errno > 0 ? probe_errno : EIO);
+		else if (final_state == PROCESS_PRESENCE_UNKNOWN)
+			errno = probe_errno > 0 ? probe_errno : EIO;
+		else if (final_state == PROCESS_PRESENCE_RUNNING)
+			errno = EBUSY;
+		else
+			errno = EIO;
+		logmessage("FTP server",
+			   "vsftpd stop incomplete (command status=%d, final state=%d, errno=%d)",
+			   status, final_state, errno);
+		return result;
 	}
 	return 0;
 }
@@ -4896,7 +4912,7 @@ stop_stor_apps(void)
 {
 	int need_restart_fw = 0;
 #if defined (APP_FTPD)
-	int ftp_was_present, ftp_final_presence;
+	int ftp_final_presence, ftp_stop_status;
 #endif
 	int stop_status = 0;
 	int firewall_status;
@@ -4914,15 +4930,13 @@ stop_stor_apps(void)
 	}
 #endif
 #if defined (APP_FTPD)
-	/* Preserve refresh for an initially present/unknown daemon, and also
-	 * remove stale FTP rules when the daemon was already absent. */
-	ftp_was_present = is_ftp_run() != PROCESS_PRESENCE_ABSENT;
-	if (stop_ftp_locked(&ftp_final_presence) != 0) {
+	ftp_stop_status = stop_ftp_locked(&ftp_final_presence);
+	if (ftp_stop_status != 0) {
 		logmessage("Storage", "FTP server did not stop cleanly; storage removal must be aborted");
-		stop_status = -1;
+		stop_status = storage_service_stop_status_merge(stop_status, ftp_stop_status);
 	}
-	need_restart_fw |= ftp_storage_stop_needs_firewall_refresh(
-		ftp_was_present, ftp_final_presence);
+	/* Do not disturb firewall/UPnP while the daemon is RUNNING or UNKNOWN. */
+	need_restart_fw |= ftp_storage_stop_needs_firewall_refresh(ftp_final_presence);
 #endif
 #if defined (APP_MINIDLNA)
 	if (stop_dms_locked() != 0) {

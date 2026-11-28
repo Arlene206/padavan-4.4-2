@@ -31,14 +31,23 @@ ftp_firewall_reconcile_needed(int before, int after)
 	       ftp_stop_should_reconcile_firewall(after);
 }
 
-/* Storage-stop reconciliation keeps the legacy refresh for a daemon that
- * was present/unknown before the stop, and additionally clears stale rules
- * whenever the post-stop inventory proves the daemon absent. */
+/* Never reconcile FTP firewall/UPnP state while the daemon may still
+ * exist. A pre-stop observation cannot override RUNNING or UNKNOWN after
+ * the stop; only complete final procfs absence authorizes cleanup. */
 static inline int
-ftp_storage_stop_needs_firewall_refresh(int was_present, int final_presence)
+ftp_storage_stop_needs_firewall_refresh(int final_presence)
 {
-	return was_present != 0 ||
-	       ftp_stop_should_reconcile_firewall(final_presence);
+	return ftp_stop_should_reconcile_firewall(final_presence);
+}
+
+/* A successful kill command is insufficient unless final procfs state is
+ * ABSENT. Preserve any detailed service_lifecycle_stop() failure verbatim. */
+static inline int
+ftp_stop_status_result(int command_status, int final_presence)
+{
+	if (command_status != 0)
+		return command_status;
+	return final_presence == PROCESS_PRESENCE_ABSENT ? 0 : -1;
 }
 
 /* Do not turn an NVRAM backend error into an implicit disabled value. */

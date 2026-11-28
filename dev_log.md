@@ -1,3 +1,13 @@
+## 2026-11-28 12:30 CST (UTC+8) — Gate VSFTPD storage-stop firewall cleanup on final absence
+
+- Base main: `badf4b0a7b0b94f2c774134da72978474bd859d9`. THIS COMMIT changes `trunk/user/rc/src/services_stor.c`, `ftp_daemon_policy.h`, `tests/ftp_daemon_policy.c` and `.github/workflows/vsftpd-stability.yml`; updates the VSFTPD roadmap and session handoff.
+- Confirmed defect: `ftp_storage_stop_needs_firewall_refresh(was_present, final_presence)` authorized firewall/UPnP refresh whenever the daemon was RUNNING/UNKNOWN before the stop, even when final inventory still reported RUNNING/UNKNOWN. This could mutate firewall policy while daemon shutdown was not proven and storage removal was being aborted.
+- Fix: require final `PROCESS_PRESENCE_ABSENT` for every stop-path firewall refresh; remove the pre-stop-state exception; preserve the detailed nonzero `kill_services()` result through `stop_ftp_locked()` and preserve the first FTP error during storage-stop aggregation.
+- Regression: extend the GNU89 FTP daemon policy test for ABSENT/RUNNING/UNKNOWN/invalid final states, detailed stop status preservation and first-error aggregation; update exact source-order workflow contracts. Existing workflow push and pull_request path filters already include each changed source/test path symmetrically and are unchanged.
+- Validation: no local checkout/compiler is available in this environment. Exact-head VSFTPD host regression, AI docs validator and XY-C1 Build/TRX/artifact checks are pending for THIS COMMIT; no L2/L3 pass is claimed. Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-28 12:10 CST (UTC+8) — Align handoff headings and cross-session gate with validator
 
 - The AI handoff documentation contract on docs SHA `bbd09ac2ce47b99468795e4df4f497098d07f3da` failed at its handoff section checks: required canonical section headings and the exact cross-session execution heading/phrases were absent, although the underlying facts were present.

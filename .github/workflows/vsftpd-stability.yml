@@ -1112,14 +1112,29 @@ jobs:
 
           stop = function_body(source, "stop_ftp_locked(int *final_presence)")
           assert "status = kill_services(svcs, 3, 1)" in stop
+          assert "stop_errno = errno;" in stop
+          assert "errno = 0;" in stop
           assert "final_state = is_ftp_run();" in stop
+          assert "probe_errno = errno;" in stop
           assert "*final_presence = final_state;" in stop
-          assert "storage_service_stop_complete(status, final_state)" in stop
-          assert "return -1;" in stop
+          assert "result = ftp_stop_status_result(status, final_state);" in stop
+          assert "errno = stop_errno > 0 ? stop_errno :" in stop
+          assert "errno = probe_errno > 0 ? probe_errno : EIO;" in stop
+          assert "errno = EBUSY;" in stop
+          assert "return result;" in stop
           assert "return 0;" in stop
           assert stop.index("status = kill_services(svcs, 3, 1)") < stop.index(
-              "final_state = is_ftp_run();"
-          ) < stop.index("storage_service_stop_complete(status, final_state)") < stop.index("return -1;") < stop.rindex("return 0;")
+              "stop_errno = errno;"
+          ) < stop.index("errno = 0;") < stop.index("final_state = is_ftp_run();") < stop.index(
+              "probe_errno = errno;"
+          ) < stop.index("result = ftp_stop_status_result(status, final_state);") < stop.index(
+              "if (result != 0)"
+          ) < stop.index("return result;") < stop.rindex("return 0;")
+          assert "ftp_stop_status_result(int command_status, int final_presence)" in daemon_policy
+          assert "return command_status;" in daemon_policy
+          assert "return final_presence == PROCESS_PRESENCE_ABSENT ? 0 : -1;" in daemon_policy
+          assert "ftp_stop_status_result(-2, PROCESS_PRESENCE_ABSENT)" in daemon_test
+          assert "ftp_stop_status_result(0, PROCESS_PRESENCE_UNKNOWN)" in daemon_test
           public_stop = function_body(source, "stop_ftp(void)")
           firewall_control = function_body(source, "control_ftp_fw(int is_run_before)")
           assert "ftp_firewall_reconcile_needed(is_run_before, is_run_after)" in firewall_control
@@ -1156,16 +1171,19 @@ jobs:
 
           stop_stor = function_body(source, "stop_stor_apps(void)")
           assert "stop_ftp_locked(&ftp_final_presence)" in stop_stor
-          assert "ftp_was_present = is_ftp_run() != PROCESS_PRESENCE_ABSENT;" in stop_stor
-          assert "ftp_storage_stop_needs_firewall_refresh(" in stop_stor
+          assert "ftp_was_present" not in stop_stor
+          assert "ftp_storage_stop_needs_firewall_refresh(ftp_final_presence)" in stop_stor
           assert "FTP server did not stop cleanly" in stop_stor
-          assert stop_stor.index("ftp_was_present = is_ftp_run()") < stop_stor.index(
-              "stop_ftp_locked(&ftp_final_presence)"
-          ) < stop_stor.index("ftp_storage_stop_needs_firewall_refresh(")
-          assert "ftp_storage_stop_needs_firewall_refresh(int was_present, int final_presence)" in daemon_policy
-          assert "ftp_stop_should_reconcile_firewall(final_presence)" in daemon_policy
-          assert "ftp_storage_stop_needs_firewall_refresh(0," in daemon_test
-          assert "An absent-before / unknown-after observation must fail closed." in daemon_test
+          assert "stop_status = storage_service_stop_status_merge(stop_status, ftp_stop_status);" in stop_stor
+          assert stop_stor.index("stop_ftp_locked(&ftp_final_presence)") < stop_stor.index(
+              "ftp_storage_stop_needs_firewall_refresh(ftp_final_presence)"
+          )
+          assert "ftp_storage_stop_needs_firewall_refresh(int final_presence)" in daemon_policy
+          assert "return ftp_stop_should_reconcile_firewall(final_presence);" in daemon_policy
+          assert "ftp_storage_stop_needs_firewall_refresh(PROCESS_PRESENCE_ABSENT)" in daemon_test
+          assert "ftp_storage_stop_needs_firewall_refresh(PROCESS_PRESENCE_RUNNING)" in daemon_test
+          assert "ftp_storage_stop_needs_firewall_refresh(PROCESS_PRESENCE_UNKNOWN)" in daemon_test
+          assert "storage_service_stop_status_merge(-2, -3) == -2" in daemon_test
           start_stor = function_body(source, "start_stor_apps(void)")
           assert "ftp_run_before = is_ftp_run();" in start_stor
           assert "service_status = run_ftp();" in start_stor

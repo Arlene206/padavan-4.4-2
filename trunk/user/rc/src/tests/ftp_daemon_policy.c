@@ -75,6 +75,15 @@ main(void)
 	assert(!ftp_stop_should_reconcile_firewall(PROCESS_PRESENCE_UNKNOWN));
 	assert(!ftp_stop_should_reconcile_firewall((enum process_presence)9));
 
+	/* A completed command still needs final procfs ABSENT. Preserve detailed
+	 * kill_services failures even when the final scan proves absence. */
+	assert(ftp_stop_status_result(0, PROCESS_PRESENCE_ABSENT) == 0);
+	assert(ftp_stop_status_result(-2, PROCESS_PRESENCE_ABSENT) == -2);
+	assert(ftp_stop_status_result(-3, PROCESS_PRESENCE_UNKNOWN) == -3);
+	assert(ftp_stop_status_result(0, PROCESS_PRESENCE_RUNNING) == -1);
+	assert(ftp_stop_status_result(0, PROCESS_PRESENCE_UNKNOWN) == -1);
+	assert(ftp_stop_status_result(0, (enum process_presence)9) == -1);
+
 	/* Explicit stop must also clear stale rules for absent -> absent. */
 	assert(ftp_firewall_reconcile_needed(PROCESS_PRESENCE_ABSENT,
 					     PROCESS_PRESENCE_ABSENT));
@@ -87,24 +96,16 @@ main(void)
 	assert(!ftp_firewall_reconcile_needed(PROCESS_PRESENCE_RUNNING,
 					      PROCESS_PRESENCE_RUNNING));
 
-	/* Storage-stop must clear stale FTP rules when no daemon was running. */
-	assert(ftp_storage_stop_needs_firewall_refresh(0,
-						     PROCESS_PRESENCE_ABSENT));
-	assert(ftp_storage_stop_needs_firewall_refresh(1,
-						     PROCESS_PRESENCE_ABSENT));
-	/* Preserve refresh attempts for previously present/unknown daemons. */
-	assert(ftp_storage_stop_needs_firewall_refresh(1,
-						     PROCESS_PRESENCE_RUNNING));
-	assert(ftp_storage_stop_needs_firewall_refresh(1,
-						     PROCESS_PRESENCE_UNKNOWN));
-	assert(ftp_storage_stop_needs_firewall_refresh(1, (enum process_presence)9));
-	/* An absent-before / unknown-after observation must fail closed. */
-	assert(!ftp_storage_stop_needs_firewall_refresh(0,
-						      PROCESS_PRESENCE_RUNNING));
-	assert(!ftp_storage_stop_needs_firewall_refresh(0,
-						      PROCESS_PRESENCE_UNKNOWN));
-	assert(!ftp_storage_stop_needs_firewall_refresh(0,
-						      (enum process_presence)9));
+	/* Storage-stop firewall/UPnP reconciliation is authorized only by a
+	 * final ABSENT inventory, regardless of the pre-stop observation. */
+	assert(ftp_storage_stop_needs_firewall_refresh(PROCESS_PRESENCE_ABSENT));
+	assert(!ftp_storage_stop_needs_firewall_refresh(PROCESS_PRESENCE_RUNNING));
+	assert(!ftp_storage_stop_needs_firewall_refresh(PROCESS_PRESENCE_UNKNOWN));
+	assert(!ftp_storage_stop_needs_firewall_refresh((enum process_presence)9));
+
+	/* Keep the earliest stop failure through group-stop aggregation. */
+	assert(storage_service_stop_status_merge(0, -2) == -2);
+	assert(storage_service_stop_status_merge(-2, -3) == -2);
 
 	assert(!ftp_failed_start_may_leave_daemon(PROCESS_PRESENCE_ABSENT));
 	assert(ftp_failed_start_may_leave_daemon(PROCESS_PRESENCE_RUNNING));
