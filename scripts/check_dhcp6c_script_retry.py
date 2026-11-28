@@ -155,9 +155,9 @@ recv_body = function_body(dhcp6c[recv_definition:], recv_signature)
 assert "struct sockaddr_storage from;" in recv_body
 assert "struct sockaddr from;" not in recv_body
 recv_compact = "".join(recv_body.split())
-assert "recv_from_to(csock,G.rbuf,sizeof(G.rbuf),MSG_TRUNC,(struct sockaddr *)&from,(struct sockaddr *)&to,sizeof(struct sockaddr_in6));" in recv_compact
+assert "recv_from_to(csock,G.rbuf,sizeof(G.rbuf),MSG_TRUNC,(structsockaddr*)&from,(structsockaddr*)&to,sizeof(structsockaddr_in6));" in recv_compact
 assert "memset(&from,0,sizeof(from));" in recv_compact
-assert "xmalloc_sockaddr2dotted_noport((struct sockaddr *)&from)" in recv_compact
+assert "xmalloc_sockaddr2dotted_noport((structsockaddr*)&from)" in recv_compact
 assert "test_ipv6_source_address_storage_fits_kernel_sockaddr" in test
 assert "sizeof(from) >= sizeof(peer)" in test
 
