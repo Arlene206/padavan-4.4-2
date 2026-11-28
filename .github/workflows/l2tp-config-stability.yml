@@ -1,0 +1,43 @@
+name: L2TP atomic configuration durability regression
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/l2tp-config-stability.yml"
+      - "trunk/user/rc/src/config_file_sync.h"
+      - "trunk/user/rc/src/l2tp_config_file.h"
+      - "trunk/user/rc/src/tests/l2tp_config_file.c"
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/l2tp-config-stability.yml"
+      - "trunk/user/rc/src/config_file_sync.h"
+      - "trunk/user/rc/src/l2tp_config_file.h"
+      - "trunk/user/rc/src/tests/l2tp_config_file.c"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: l2tp-config-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  l2tp-config-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Compile L2TP config publication regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/l2tp_config_file.c \
+            -o /tmp/l2tp_config_file
+
+      - name: Run L2TP config publication regression
+        env:
+          ASAN_OPTIONS: detect_leaks=1
+        run: /tmp/l2tp_config_file

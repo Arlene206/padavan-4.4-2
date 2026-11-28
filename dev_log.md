@@ -1,3 +1,11 @@
+## 2026-11-28 — Bound L2TP config fsync retries
+
+- The RP-L2TP atomic config publisher still used a private unbounded EINTR retry loop. Replaced it with the shared `config_file_sync_fd()` policy, retaining the existing single-EINTR recovery behavior.
+- Extended the injected host regression to hold fsync at EINTR indefinitely. It now verifies the shared nine-attempt ceiling, prior config preservation and temporary-file cleanup.
+- Added a dedicated path-filtered GNU89/ASan/UBSan GitHub Actions workflow because the repository had no workflow compiling and executing this L2TP configuration regression. No local host run or firmware build is claimed.
+
+---
+
 ## 2026-11-28 — Bound PID 1 init-mdev config fsync retries
 
 - The init-mdev publisher still carried a separate raw `while (sync_result < 0 && errno == EINTR)` retry loop despite already depending on the shared configuration durability helper. A persistent signal stream could therefore pin PID 1 while trying to publish `mdev.conf`.

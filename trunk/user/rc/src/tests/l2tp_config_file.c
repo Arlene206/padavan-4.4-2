@@ -10,19 +10,21 @@
 /* Inject one interrupted fsync without relying on GNU ld --wrap. */
 static int l2tp_test_fsync_interrupt_call = -1;
 static int l2tp_test_fsync_call_count;
+static int l2tp_test_fsync_always_interrupt;
 
 static int
 l2tp_test_fsync(int fd)
 {
 	l2tp_test_fsync_call_count++;
-	if (l2tp_test_fsync_call_count == l2tp_test_fsync_interrupt_call) {
+	if (l2tp_test_fsync_always_interrupt ||
+	    l2tp_test_fsync_call_count == l2tp_test_fsync_interrupt_call) {
 		errno = EINTR;
 		return -1;
 	}
 	return fsync(fd);
 }
 
-#define L2TP_CONFIG_FILE_FSYNC(fd) l2tp_test_fsync(fd)
+#define CONFIG_FILE_SYNC_FSYNC(fd) l2tp_test_fsync(fd)
 #include "l2tp_config_file.h"
 
 #define CHECK(condition) do { \
@@ -199,6 +201,34 @@ test_fsync_retries_eintr(const char *directory, const char *config)
 	return 0;
 }
 
+static int
+test_fsync_persistent_eintr_is_bounded(const char *directory,
+				       const char *config)
+{
+	char content[128];
+	int status;
+
+	if (write_path(config, "last good configuration") != 0)
+		return -1;
+	l2tp_test_fsync_call_count = 0;
+	l2tp_test_fsync_interrupt_call = -1;
+	l2tp_test_fsync_always_interrupt = 1;
+	errno = 0;
+	status = l2tp_config_file_publish(directory, "l2tp.conf",
+					 write_text, (void *)"must not publish");
+	l2tp_test_fsync_always_interrupt = 0;
+	if (status != -1 || errno != EINTR ||
+	    l2tp_test_fsync_call_count !=
+		(int)CONFIG_FILE_SYNC_MAX_EINTR_RETRIES + 1)
+		return -1;
+	if (read_path(config, content, sizeof(content)) != 0 ||
+	    strcmp(content, "last good configuration") != 0)
+		return -1;
+	if (count_temporary_files(directory) != 0)
+		return -1;
+	return 0;
+}
+
 int
 main(void)
 {
@@ -239,6 +269,7 @@ main(void)
 	CHECK(test_failed_publish_preserves_existing_file_and_cleans_temp(
 		      directory, config) == 0);
 	CHECK(test_fsync_retries_eintr(directory, config) == 0);
+	CHECK(test_fsync_persistent_eintr_is_bounded(directory, config) == 0);
 
 	CHECK(umask(original_umask) == 0000);
 	CHECK(unlink(config) == 0);
