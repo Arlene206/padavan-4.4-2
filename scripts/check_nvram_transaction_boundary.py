@@ -145,6 +145,7 @@ def run() -> int:
     lock_path = ROOT / "trunk/user/shared/src/nvram_transaction_lock.h"
     open_policy_path = ROOT / "trunk/user/shared/src/nvram_open_policy.h"
     open_policy_test_path = ROOT / "trunk/user/shared/src/tests/nvram_open_policy.c"
+    lock_test_path = ROOT / "trunk/user/shared/src/tests/nvram_transaction_lock.c"
     driver_path = ROOT / DRIVER
     driver_makefile = ROOT / "trunk/linux-4.4.x/drivers/nvram/Makefile"
     drivers_makefile = ROOT / "trunk/linux-4.4.x/drivers/Makefile"
@@ -163,7 +164,7 @@ def run() -> int:
     cli_workflow_path = ROOT / ".github/workflows/nvram-transaction-boundary.yml"
 
     for required_path in (
-        adapter_path, lock_path, open_policy_path, open_policy_test_path,
+        adapter_path, lock_path, open_policy_path, open_policy_test_path, lock_test_path,
         driver_path, driver_makefile,
         drivers_makefile, bcm_header, snapshot_policy_path, snapshot_test_path,
         kernel_common_path, compaction_policy_path, compaction_test_path,
@@ -181,6 +182,7 @@ def run() -> int:
     lock_header = lock_path.read_text(encoding="utf-8", errors="replace")
     open_policy = open_policy_path.read_text(encoding="utf-8", errors="replace")
     open_policy_test = open_policy_test_path.read_text(encoding="utf-8", errors="replace")
+    lock_test = lock_test_path.read_text(encoding="utf-8", errors="replace")
     kernel_driver = driver_path.read_text(encoding="utf-8", errors="replace")
     kernel_common = kernel_common_path.read_text(encoding="utf-8", errors="replace")
     compaction_policy = compaction_policy_path.read_text(encoding="utf-8", errors="replace")
@@ -442,6 +444,28 @@ def run() -> int:
         failures.append(
             "shared NVRAM lock lost its stable path, no-follow/close-on-exec or bounded flock contract"
         )
+
+    # Preserve the configured wait budget when signals interrupt contention sleeps.
+    try:
+        wait_interval = extract_function(lock_header, "nvram_transaction_lock_wait_interval")
+        acquire_path = extract_function(lock_header, "nvram_transaction_lock_acquire_path")
+        if ("nanosleep(&requested, &remaining)" not in wait_interval or
+            "requested = remaining" not in wait_interval or
+            "errno != EINTR" not in wait_interval):
+            failures.append("NVRAM lock wait must resume the exact nanosleep remainder after EINTR")
+        if ("nvram_transaction_lock_wait_interval(1)" not in acquire_path or
+            "(void)sleep(1)" in acquire_path):
+            failures.append("NVRAM lock contention must not discard interrupted sleep time")
+    except ValueError as error:
+        failures.append("NVRAM lock wait source contract: " + str(error))
+    for marker in (
+        "interrupted_lock_wait_test",
+        "ITIMER_REAL",
+        "lock_wait_signal_count >= 3",
+        "NVRAM shared-userland lock wait preserves its interval across EINTR: PASS",
+    ):
+        if marker not in lock_test:
+            failures.append("NVRAM interrupted-lock-wait regression is missing " + marker)
 
     # The privileged device node itself must not grant untrusted processes ioctl access.
     device_policy_path = ROOT / "trunk/user/rc/src/nvram_device_node_policy.h"

@@ -1,3 +1,12 @@
+## 2026-11-28 — Preserve the NVRAM transaction-lock wait budget across EINTR
+
+- Base main SHA: `0d757a438cd424c600be87724b65b473012310c6`; result: THIS COMMIT (resolve the resulting SHA from live `main` on the next recovery).
+- `nvram_transaction_lock_acquire_path()` counted every contention retry as a full second, then discarded the unslept remainder from `sleep(1)`. A signal storm could therefore exhaust the configured 15-second wait budget and return `EBUSY` after only a fraction of the intended interval.
+- Replaced the interrupted one-second pause with a `nanosleep()` remainder loop. Only `EINTR` retries the exact remaining interval; other sleep errors fail through the existing descriptor-cleanup path with the original errno. Extended the cross-process lock regression: a child receives periodic `SIGALRM` while contending, the parent releases the lock before the one-second attempt budget expires, and the child must still acquire after completing the remainder. The NVRAM checker now pins the helper, callsite and signal-injection regression.
+- Local GNU89/Werror/ASan/UBSan host regression of the interrupted wait passed. The prior NVRAM `O_CLOEXEC` change `d8c0568b30c07a5d18d4eca786d1ed53a9d5ef41` was subsequently covered by NVRAM boundary audit #46127680492 on descendant source SHA `7b56260076b8d05b521b3caf3f90afffc65642dc` (PASS). AI handoff #46127933674 on `0d757a438cd424c600be87724b65b473012310c6` PASS. Exact-head NVRAM and XY-C1 Actions for THIS COMMIT remain required; L3/L4 are not claimed.
+
+---
+
 ## 2026-11-28 — Harden config publication and close the cross-session checkpoint
 
 - Implemented NFS and AliDDNS interrupted-stop handling, VPN sleep-remainder handling, and EINTR-safe durability boundaries for Samba, DNSMasq, L2TP/Ralink, USB modem and QMI writers across atomic source commits `3a910eec` through `2a257c21`. Fixed the follow-on checker and inline-helper issues in `cab010ea`, `89fc4e9a`, `58896aef`, `5652f1c8` and `385dd12d`; related exact-SHA host regression workflows passed where recorded in the handoff.

@@ -6,11 +6,29 @@
 #include <sys/file.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <time.h>
 #include <unistd.h>
 
 #define NVRAM_TRANSACTION_LOCK_FILE "/tmp/.nvram.api.lock"
 #define NVRAM_TRANSACTION_LOCK_WAIT_SECONDS 15
 #define NVRAM_TRANSACTION_LOCK_MODE (S_IRUSR | S_IWUSR)
+
+/* Complete the requested interval even when signals interrupt nanosleep. */
+static inline int
+nvram_transaction_lock_wait_interval(unsigned int seconds)
+{
+	struct timespec requested, remaining;
+
+	requested.tv_sec = (time_t)seconds;
+	requested.tv_nsec = 0;
+	for (;;) {
+		if (nanosleep(&requested, &remaining) == 0)
+			return 0;
+		if (errno != EINTR)
+			return -1;
+		requested = remaining;
+	}
+}
 
 /* The lock inode must remain stable for the entire boot. */
 static inline int
@@ -71,7 +89,8 @@ nvram_transaction_lock_acquire_path(const char *path, int exclusive,
 			goto failed;
 		}
 		++attempt;
-		(void)sleep(1);
+		if (nvram_transaction_lock_wait_interval(1) != 0)
+			goto failed;
 	}
 
 failed:

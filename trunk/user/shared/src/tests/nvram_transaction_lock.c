@@ -3,8 +3,10 @@
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/select.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -25,6 +27,106 @@ read_byte_timeout(int fd, char *value, unsigned int milliseconds)
 	if (result <= 0)
 		return result;
 	return (read(fd, value, 1) == 1) ? 1 : -1;
+}
+
+static volatile sig_atomic_t lock_wait_signal_count;
+
+static void
+lock_wait_signal_handler(int signal_number)
+{
+	(void)signal_number;
+	++lock_wait_signal_count;
+}
+
+static void
+pause_milliseconds(unsigned int milliseconds)
+{
+	struct timeval timeout;
+
+	timeout.tv_sec = milliseconds / 1000;
+	timeout.tv_usec = (milliseconds % 1000) * 1000;
+	(void)select(0, NULL, NULL, NULL, &timeout);
+}
+
+/* Signals must not consume the bounded wait budget before the lock is free. */
+static int
+interrupted_lock_wait_test(const char *path)
+{
+	int pipefd[2], lock_fd, status, child_lock;
+	pid_t child;
+	char ready = 'R', result = '\0';
+	struct sigaction action, previous_action;
+	struct itimerval timer, previous_timer, disabled_timer;
+
+	lock_fd = nvram_transaction_lock_acquire_path(path, 1, 1);
+	if (lock_fd < 0)
+		return 0;
+	if (pipe(pipefd) != 0) {
+		nvram_transaction_lock_release(lock_fd);
+		return 0;
+	}
+	child = fork();
+	if (child < 0) {
+		close(pipefd[0]);
+		close(pipefd[1]);
+		nvram_transaction_lock_release(lock_fd);
+		return 0;
+	}
+	if (child == 0) {
+		close(pipefd[0]);
+		(void)close(lock_fd); /* Drop the parent's inherited lock description. */
+		memset(&action, 0, sizeof(action));
+		action.sa_handler = lock_wait_signal_handler;
+		sigemptyset(&action.sa_mask);
+		if (sigaction(SIGALRM, &action, &previous_action) != 0)
+			_exit(2);
+		lock_wait_signal_count = 0;
+		memset(&timer, 0, sizeof(timer));
+		timer.it_value.tv_usec = 100000;
+		timer.it_interval.tv_usec = 100000;
+		if (setitimer(ITIMER_REAL, &timer, &previous_timer) != 0)
+			_exit(3);
+		if (write(pipefd[1], &ready, 1) != 1)
+			_exit(4);
+
+		child_lock = nvram_transaction_lock_acquire_path(path, 1, 1);
+		memset(&disabled_timer, 0, sizeof(disabled_timer));
+		(void)setitimer(ITIMER_REAL, &disabled_timer, NULL);
+		(void)sigaction(SIGALRM, &previous_action, NULL);
+		(void)setitimer(ITIMER_REAL, &previous_timer, NULL);
+		result = (child_lock >= 0 && lock_wait_signal_count >= 3) ? 'A' : 'F';
+		(void)write(pipefd[1], &result, 1);
+		if (child_lock >= 0)
+			(void)nvram_transaction_lock_release(child_lock);
+		close(pipefd[1]);
+		_exit(result == 'A' ? 0 : 1);
+	}
+
+	close(pipefd[1]);
+	if (read_byte_timeout(pipefd[0], &ready, 2000) != 1 || ready != 'R') {
+		(void)kill(child, SIGKILL);
+		(void)nvram_transaction_lock_release(lock_fd);
+		(void)waitpid(child, NULL, 0);
+		close(pipefd[0]);
+		return 0;
+	}
+	pause_milliseconds(400);
+	if (nvram_transaction_lock_release(lock_fd) != 0) {
+		(void)kill(child, SIGKILL);
+		(void)waitpid(child, NULL, 0);
+		close(pipefd[0]);
+		return 0;
+	}
+	if (read_byte_timeout(pipefd[0], &result, 3000) != 1) {
+		(void)kill(child, SIGKILL);
+		(void)waitpid(child, NULL, 0);
+		close(pipefd[0]);
+		return 0;
+	}
+	close(pipefd[0]);
+	if (waitpid(child, &status, 0) != child)
+		return 0;
+	return WIFEXITED(status) && WEXITSTATUS(status) == 0 && result == 'A';
 }
 
 static int
@@ -169,6 +271,11 @@ main(void)
 	}
 	unlink(hardlink_path);
 
+	if (!interrupted_lock_wait_test(path)) {
+		fprintf(stderr, "FAIL: signal interruptions shortened the bounded lock wait\n");
+		return 1;
+	}
+	puts("NVRAM shared-userland lock wait preserves its interval across EINTR: PASS");
 	if (!cross_process_exclusion_test(path)) {
 		fprintf(stderr, "FAIL: cross-process exclusive lock ordering\n");
 		return 1;
@@ -180,6 +287,6 @@ main(void)
 
 	unlink(path);
 	rmdir(directory);
-	puts("NVRAM shared-userland transaction lock inode, contention, symlink, hardlink, cross-process and crash-release regression: PASS");
+	puts("NVRAM shared-userland transaction lock inode, contention, symlink, hardlink, EINTR deadline, cross-process and crash-release regression: PASS");
 	return 0;
 }
