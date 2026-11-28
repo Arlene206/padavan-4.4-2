@@ -1,3 +1,11 @@
+## 2026-11-28 — Remove unused watchdog identity-check local
+
+- After c9f5d0e1abd9df58576b18db4e8d10db0e448066, source review caught an unused `saved_error` local in `watchdog_process_identity_matches()`. The firmware CI compiles with warnings-as-errors; THIS commit removes the unused local without changing behavior.
+- c9f5d0e1 exact checks: HTTPD security, HTTPD lifecycle, DNSMasq lifecycle, Process inventory audit and AI docs PASS; watchdog signal regression failed due the stale checker contract (fixed separately in 4acd703af1914b5987fc4bae118dec1185ca0396); Process lifecycle was cancelled by a subsequent commit; XY-C1 remained in progress at last poll.
+- Main's most recent HEAD before this correction was 4acd703af1914b5987fc4bae118dec1185ca0396. Re-run Process lifecycle, watchdog signal and XY-C1 checks against the latest main SHA; no compile result is claimed yet.
+
+---
+
 ## 2026-11-28 — Update watchdog signal integration contract for identity-bound rollback
 
 - The watchdog executable identity source change c9f5d0e1abd9df58576b18db4e8d10db0e448066 caused the separate NTP/watchdog signal CI to fail at `scripts/check_watchdog_ntp_lifecycle.py:247`: it asserted the old generic `kill_services()` rollback implementation.

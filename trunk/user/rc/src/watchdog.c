@@ -1002,7 +1002,7 @@ watchdog_process_identity_matches(const struct process_identity *identity,
 {
 	char path[64], cmdline[4096], executable_path[512];
 	char *argv0_end = NULL;
-	int path_length, fd, saved_error = 0, read_error = 0;
+	int path_length, fd, read_error = 0;
 	size_t used = 0;
 	ssize_t count, exe_length;
 	enum process_presence state;

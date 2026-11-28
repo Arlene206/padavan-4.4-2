@@ -1,3 +1,10 @@
+## 2026-11-28 — Remove unused watchdog identity-check local
+
+- Removed the unused `saved_error` automatic variable from `watchdog_process_identity_matches()`. This avoids a likely `-Wunused-variable` failure under the repository's GNU89/Werror builds; no behavior changed.
+- c9f5d0e1 checks: HTTPD security/lifecycle, DNSMasq lifecycle, Process inventory audit and AI Docs PASS; watchdog signal failed at a stale rollback assertion, corrected in 4acd703; Process lifecycle was cancelled; XY-C1 was still running at last observation.
+
+---
+
 ## 2026-11-28 — Update watchdog signal integration contract for identity-bound rollback
 
 - Exact c9f5d0e1abd9df58576b18db4e8d10db0e448066 watchdog-signal run #46093743633 failed at the checker assertion that still required `kill_services(service_names, 3, 1)` and generic rollback inventory. The source intentionally replaced that path with executable/argv0-bound SIGTERM/SIGKILL targeting.
