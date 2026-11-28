@@ -35,3 +35,7 @@
 - L4: NOT VERIFIED.
 - Backup remains immutable; no branches or PRs created.
 
+
+## Mandatory handoff checkpoint
+
+Every session MUST inspect the live repository state and compare it with this handoff before ending. The checkpoint is mandatory; a document edit is conditional. Confirm the active main SHA, immutable backup, resumable task, exact-head Actions, validation boundary and precise first next action. If all facts are already accurate, conclude the checkpoint without a no-op commit.

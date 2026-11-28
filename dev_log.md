@@ -6,6 +6,7 @@
 - Changed paths: `trunk/user/shared/src/nvram_linux.c`, new `nvram_open_policy.h`, new `tests/nvram_open_policy.c`, `scripts/check_nvram_transaction_boundary.py`, `.github/workflows/nvram-transaction-boundary.yml`, `dev_log.md`, `SESSION_HANDOFF.md`.
 - Local host regression: `cc -std=gnu89 -Wall -Wextra -Werror` and execution PASS (`NVRAM device descriptor close-on-exec policy: PASS`). Full repository checker and exact-head NVRAM/Process/XY-C1/AI workflows have not yet run on this commit; parent SHA `385dd12da8e6f6f968d9633b82d0575ee34a2370` validation must not be substituted. Firmware L3 and hardware L4 are NOT VERIFIED for this source change.
 
+- AI handoff #46127604042 on this commit initially failed its final documentation contract because the rewritten handoff omitted the repository-required explicit end-of-session accuracy checkpoint. Restored the mandatory checkpoint section verbatim in the follow-up; this is a documentation-contract correction, not a source/test failure. Exact-head AI handoff rerun pending.
 ---
 
 ## 2026-11-28 — Validate Shadowsocks wait-function definitions instead of nonexistent callsites
