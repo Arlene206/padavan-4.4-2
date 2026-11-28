@@ -1,3 +1,11 @@
+## 2026-11-28 — Bound Ralink wireless config fsync retries
+
+- The Ralink wireless configuration publisher's `ralink_config_finish_stream()` still retried fsync indefinitely on EINTR. It now delegates to the shared `config_file_sync_fd()` helper and therefore has the repository's eight-interruption ceiling.
+- Added persistent-EINTR coverage alongside the existing transient EINTR test. The regression verifies nine total attempts, candidate cleanup and preservation of the last-good wireless config.
+- Added a path-filtered GNU89/ASan/UBSan workflow for the Ralink host regression; no local build or firmware result is claimed.
+
+---
+
 ## 2026-11-28 — Fix PID 1 mdev bounded-fsync regression compile
 
 - Exact-head PID 1 mdev security run `46134597261` on `ac811878adf63c4686af0acb59c0d11a26076133` failed its first GNU89/Werror host compile: `init_mdev_config_file.h` retained an unused `sync_result` local after its raw EINTR loop was replaced with `config_file_sync_fd()`.

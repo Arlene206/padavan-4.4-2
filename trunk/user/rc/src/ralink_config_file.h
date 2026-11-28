@@ -9,10 +9,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-/* Test builds inject EINTR; production calls the platform fsync(). */
-#ifndef RALINK_CONFIG_FILE_FSYNC
-#define RALINK_CONFIG_FILE_FSYNC(fd) fsync(fd)
-#endif
+#include "config_file_sync.h"
 
 /*
  * Build a replacement in the destination directory so rename() is atomic
@@ -77,7 +74,6 @@ ralink_config_finish_stream(FILE *stream)
 {
     int failed = 0;
     int fd;
-    int sync_status;
 
     if (!stream)
         return -1;
@@ -87,14 +83,8 @@ ralink_config_finish_stream(FILE *stream)
         failed = 1;
     if (ferror(stream))
         failed = 1;
-    if (!failed) {
-        do {
-            errno = 0;
-            sync_status = RALINK_CONFIG_FILE_FSYNC(fd);
-        } while (sync_status != 0 && errno == EINTR);
-        if (sync_status != 0)
-            failed = 1;
-    }
+    if (!failed && config_file_sync_fd(fd) != 0)
+        failed = 1;
     if (fclose(stream) != 0)
         failed = 1;
 

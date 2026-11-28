@@ -10,19 +10,21 @@
 /* Inject one interrupted fsync without relying on GNU ld --wrap. */
 static int ralink_test_fsync_interrupt_call = -1;
 static int ralink_test_fsync_call_count;
+static int ralink_test_fsync_always_interrupt;
 
 static int
 ralink_test_fsync(int fd)
 {
     ralink_test_fsync_call_count++;
-    if (ralink_test_fsync_call_count == ralink_test_fsync_interrupt_call) {
+    if (ralink_test_fsync_always_interrupt ||
+        ralink_test_fsync_call_count == ralink_test_fsync_interrupt_call) {
         errno = EINTR;
         return -1;
     }
     return fsync(fd);
 }
 
-#define RALINK_CONFIG_FILE_FSYNC(fd) ralink_test_fsync(fd)
+#define CONFIG_FILE_SYNC_FSYNC(fd) ralink_test_fsync(fd)
 #include "../ralink_config_file.h"
 
 #define CHECK(condition) do { \
@@ -467,6 +469,35 @@ test_fsync_retries_eintr(const char *directory)
     return 0;
 }
 
+static int
+test_fsync_persistent_eintr_is_bounded(const char *directory)
+{
+    char path[256], temp_path[300];
+    FILE *fp = NULL;
+
+    snprintf(path, sizeof(path), "%s/persistent-eintr-wireless.dat", directory);
+    fp = fopen(path, "w");
+    CHECK(fp != NULL);
+    CHECK(fputs("last-good-configuration\n", fp) >= 0);
+    CHECK(fclose(fp) == 0);
+
+    CHECK(ralink_config_open_atomic(path, temp_path, sizeof(temp_path), &fp) == 0);
+    CHECK(fp != NULL);
+    CHECK(fputs("candidate-must-not-publish\n", fp) >= 0);
+    ralink_test_fsync_call_count = 0;
+    ralink_test_fsync_interrupt_call = -1;
+    ralink_test_fsync_always_interrupt = 1;
+    CHECK(ralink_config_publish_atomic(&fp, temp_path, path) < 0);
+    ralink_test_fsync_always_interrupt = 0;
+    CHECK(ralink_test_fsync_call_count ==
+          (int)CONFIG_FILE_SYNC_MAX_EINTR_RETRIES + 1);
+    CHECK(fp == NULL);
+    CHECK(access(temp_path, F_OK) != 0 && errno == ENOENT);
+    CHECK(read_file_equals(path, "last-good-configuration\n"));
+    CHECK(unlink(path) == 0);
+    return 0;
+}
+
 int
 main(void)
 {
@@ -481,6 +512,7 @@ main(void)
     CHECK(test_path_overflow_has_no_side_effect(directory) == 0);
     CHECK(test_delayed_write_error() == 0);
     CHECK(test_fsync_retries_eintr(directory) == 0);
+    CHECK(test_fsync_persistent_eintr_is_bounded(directory) == 0);
     CHECK(test_symlink_publication_replaces_live_link_atomically(directory) == 0);
     CHECK(test_symlink_publication_failure_preserves_destination(directory) == 0);
     CHECK(test_optional_unlink_is_idempotent_and_checks_errors(directory) == 0);
