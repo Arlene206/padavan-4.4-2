@@ -1,3 +1,10 @@
+## 2026-11-28 15:18 CST (UTC+8) — Fix detector-test path expectations
+
+- Base main SHA: `c9d123cf72816f9b0ef60ea4333fcab9324399c2`. XY #46115046882 passed the firmware-update source contract but failed the detector unit suite: both `test_regression_test_file_triggers_its_own_workflow` and the generic host-only path list still asserted that the detector test itself was non-firmware, contradicting its new build-trigger classification.
+- Corrected both assertions. The detector test path remains in the workflow push filter and build-trigger set, so the next exact-head commit should run Build/TRX/artifact after host tests. Parent AI docs #46115046892 PASS; production RC source unchanged.
+
+---
+
 ## 2026-11-28 15:12 CST (UTC+8) — Correct docs-only fixture and force detector-test validation
 
 - Base main SHA: `4ac5f34636f9ad7810f27d83823f956cc7d4edb8`. XY #46114862278 passed the new detector full-Git-diff test (NUL-separated path output) but failed the older docs-only test because it still listed `scripts/check_xy_c1_firmware_inputs.py`, which is now intentionally classified as a build trigger.

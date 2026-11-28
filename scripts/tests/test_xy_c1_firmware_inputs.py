@@ -58,12 +58,12 @@ class FirmwareInputPathTests(unittest.TestCase):
         workflow = (ROOT / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
         test_path = '      - "scripts/tests/test_xy_c1_firmware_inputs.py"'
         self.assertEqual(workflow.count(test_path), 1)
-        self.assertTrue(is_non_firmware_input("scripts/tests/test_xy_c1_firmware_inputs.py"))
+        self.assertFalse(is_non_firmware_input("scripts/tests/test_xy_c1_firmware_inputs.py"))
 
     def test_host_only_checker_and_test_paths_skip_build(self):
         paths = [
             "scripts/check_forwarding_control_status.py",
-            "scripts/tests/test_xy_c1_firmware_inputs.py",
+            "scripts/tests/test_optional_app_start_status.py",
             "docs/dev-log/INDEX.md",
             "SESSION_HANDOFF.md",
             "REFACTOR_ROADMAP.md",

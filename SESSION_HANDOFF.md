@@ -1,8 +1,8 @@
-## 2026-11-28 — Correct docs-only fixture and build-gate test trigger (THIS COMMIT)
+## 2026-11-28 — Align detector-test assertions with the build-trigger contract (THIS COMMIT)
 
-- Base main SHA: `4ac5f34636f9ad7810f27d83823f956cc7d4edb8`. The detector's new full-diff NUL-separator regression test passed on XY #46114862278; the same run failed one legacy docs-only test because it still used the now-build-triggering detector path as an example of a host-only checker.
-- THIS COMMIT changes that fixture to a normal host-only checker and makes the detector's own test suite build-triggering too. This ensures a change to the build-gate regression itself exercises the same production build path; the detector and detector test are both covered by the workflow push filter.
-- Parent AI handoff #46114862314 PASS; XY #46114862278 failed only at the docs-only test after the NUL-delimited detector fixture passed. Exact-head rerun required.
+- Base main SHA: `c9d123cf72816f9b0ef60ea4333fcab9324399c2`. Exact-head AI handoff #46115046892 PASS. XY-C1 #46115046882 passed firmware-update source contract but failed detector tests: two legacy assertions still expected `scripts/tests/test_xy_c1_firmware_inputs.py` to be host-only after the new policy made it build-triggering.
+- THIS COMMIT changes both stale expectations: the detector regression must assert that its own test file is build-triggering, and the generic host-only test uses a separate host test path. The intended CI contract is unchanged; production firmware source is unchanged.
+- The detector test path is in the workflow push filter and in the special build-trigger set, so this correction should trigger the production MIPS Build/TRX/artifact steps on its exact SHA.
 
 
 ---
@@ -12,7 +12,7 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; all development and validation are on `main` only.
-- Live main before this detector-test correction: `4ac5f34636f9ad7810f27d83823f956cc7d4edb8`. The NUL-delimited detector full-diff unit test now PASSes, but exact-head XY #46114862278 failed only because the docs-only test still used the detector path (now intentionally build-triggering) as its host-checker example. Parent AI docs #46114862314 PASS. THIS COMMIT updates that fixture and makes detector-test changes build-triggering.
+- Live main before this detector-test assertion correction: `c9d123cf72816f9b0ef60ea4333fcab9324399c2`. AI docs #46115046892 PASS. Exact-head XY #46115046882 passed firmware-update source contract, but detector tests failed because two older assertions still classified its own test file as host-only after it was added to the build-trigger set. THIS COMMIT aligns those expectations; production firmware source is unchanged.
 - Live main before this optional-app checker correction: `66bc572325c033bf7850e9aaa7dad47323c582cb`, which contains the production MiniUPnP flash-preparation change from `4bc110b517f8f1f49e5b0d6f64ea613a633577b0` plus checker corrections. Parent PID 1 notification #46114249923 PASS; XY-C1 #46114250159 failed early at the now-corrected source contract before Build; Process run #46114323557 exposed the stale `check_optional_app_start_status.py` assertion. This commit updates that second checker only; no production source changed.
 - Frozen backup remains `backup/pre-plugin-overhaul-2026-11-14`; do not mutate. Its warning file was verified during startup restore and handoff-recorded frozen HEAD is `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 remains CLOSED/unmerged.
 - Frozen backup remains `backup/pre-plugin-overhaul-2026-11-14` (handoff-recorded HEAD `72f4f157a084f8184b9597ca5bf334b8080e5807`); its warning file explicitly forbids mutation. PR #1 remains CLOSED/unmerged with no identified missing change.
@@ -105,16 +105,16 @@ For product-source SHA `7daa20cd2f1bd7abca4499fb9f9a6e05ce5d3d00`:
 
 ## Active task
 
-The production MiniUPnPd firmware-preparation fix remains in `4bc110b517f8f1f49e5b0d6f64ea613a633577b0`; Process #46114471884 and AI docs #46114471878 passed on `a9045eb...`. The XY-C1 detector was strengthened so its own logic and the firmware-update contract checker trigger the production build. The NUL-delimited full-diff regression now passes.
+The production MiniUPnP firmware-preparation fix remains at `4bc110b517f8f1f49e5b0d6f64ea613a633577b0`. The XY-C1 detector now makes changes to its own logic, its regression test, and the firmware-update source contract force a production build. The NUL-delimited full-diff test and docs-only test are aligned.
 
-On parent `4ac5f34636f9ad7810f27d83823f956cc7d4edb8`, XY #46114862278 failed only because the older docs-only test still used the detector path as a host-only example. THIS COMMIT switches that fixture to an ordinary host-only checker and makes the detector's unit-test file build-triggering too. This is a validation-gate test correction; production RC source is unchanged.
+Parent `c9d123cf72816f9b0ef60ea4333fcab9324399c2` exact-head AI docs #46115046892 PASS. XY #46115046882 passed the firmware-update source contract but failed detector tests because two old assertions still expected the detector test file to be host-only. THIS COMMIT updates those assertions; no firmware source changed. Its test file is deliberately a build trigger, so the next exact-head run should reach Build/TRX/artifact.
 
 ## Exact first action for the next GPT
 
-1. Fetch the exact-head XY-C1 run for THIS COMMIT. Require all detector unit tests to PASS, detector output `changed=true`, and Build XY-C1, TRX verification and artifact upload all PASS.
-2. AI docs #46114862314 PASS on the parent; exact-head documentation run should also pass.
-3. Claim L3 for the MiniUPnPd firmware source only after same-SHA Build/TRX/artifact PASS. No physical router firmware flash/L4 has been run.
-4. Continue independent P1 userland/kernel stability work while Actions are pending.
+1. Inspect exact-head XY-C1 run for THIS COMMIT. Require all detector unit tests and firmware-update source contract PASS, detector output `changed=true`, Build XY-C1 PASS, TRX verification PASS, artifact upload PASS.
+2. AI docs #46115046892 PASS on parent; exact-head documentation run should also pass.
+3. Claim L3 for the MiniUPnP firmware-preparation source only after same-SHA Build/TRX/artifact PASS. Hardware flashing/L4 remains NOT VERIFIED.
+4. Continue independent P1 userland/kernel stability source work while Actions are pending.
 
 # Cross-session execution mandate
 
