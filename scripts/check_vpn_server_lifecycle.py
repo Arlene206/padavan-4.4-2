@@ -824,10 +824,12 @@ require("PROCESS_PRESENCE_START_ABORT" in client_stop_locked and
 require('control_xl2tpd("d", "VPNC")' in client_stop_locked and
         "if (control_status != 0)" in client_stop_locked,
         "VPN client stop must propagate xl2tpd disconnect failures")
-require("written = write(control_fd, buf, (size_t)length);" in client_control and
-        "written != length" in client_control and
-        "close(control_fd) != 0" in client_control,
-        "xl2tpd control helper must propagate short-write and close errors")
+require('#include "vpn_client_control_fifo.h"' in vpn_client and
+        "vpn_client_control_fifo_open_writer_wait(" in client_control and
+        "vpn_client_control_fifo_write_fd(" in client_control and
+        "close(control_fd) != 0" in client_control and
+        "open(" not in client_control and "write(" not in client_control,
+        "xl2tpd control helper must use bounded FIFO open and SIGPIPE-safe writes")
 require('control_xl2tpd("c", "VPNC")' in client_start_locked and
         "cannot connect VPNC tunnel through xl2tpd control FIFO" in client_start_locked,
         "VPN client start must report control FIFO command failures")

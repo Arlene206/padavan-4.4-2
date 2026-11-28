@@ -1,8 +1,8 @@
-## 2026-11-28 — Include VPN control FIFO checker in push and pull-request path filters (THIS COMMIT)
+## 2026-11-28 — Align existing VPN lifecycle checker with bounded FIFO helper (THIS COMMIT)
 
-- Base main SHA: `78afe64833e88851484b28c28d62ec482cff5ecd`. VPN run #46113072695 passed the GNU89/Werror/ASan/UBSan FIFO C regression, then the source integration checker failed because the pull_request path filter lacked the newly added header/test; the checker script also was not a trigger path.
-- THIS COMMIT adds the helper header, regression source and checker script to both push and pull_request filters, exactly once each. No test assertion or source behavior is weakened.
-- AI handoff docs #46113072622 PASS. XY-C1 #46113072666 and Process inventory #46113072701 were IN_PROGRESS on parent `78afe648...`. Prior scanner-trigger XY-C1 #46112371422 now SUCCESS on exact SHA `a3d805b8e2e613fc078fc860a54132141ab3f3c1` (Build/TRX/artifact).
+- Base main SHA: `0ce04df3e954c85c86e5c7f1a997b8865511fec2`. Exact-head VPN #46113237878: new FIFO GNU89/Werror/ASan/UBSan regression PASS; dedicated FIFO integration checker PASS; existing lifecycle checker failed on its obsolete expectation of a raw direct `write()` in `control_xl2tpd()`. AI docs #46113237773 PASS.
+- THIS COMMIT updates the pre-existing lifecycle checker to assert the bounded FIFO-open helper, SIGPIPE-safe write helper, required include and close-error handling, and to forbid raw `open()`/`write()` in the caller. No behavior/test is weakened.
+- Process inventory #46113072701 PASS on parent `78afe648...`; XY-C1 #46113072666 was still at Build IN_PROGRESS. Earlier DHCP scanner XY-C1 #46112371422 PASSed Build/TRX/artifact on exact SHA `a3d805b8...`.
 
 ---
 
@@ -11,7 +11,7 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; all development and validation are on `main` only.
-- Live main immediately before this workflow-only correction: `78afe64833e88851484b28c28d62ec482cff5ecd`. VPN FIFO C sanitizer test passed on parent #46113072695; source checker failed only on absent pull_request path entries. THIS COMMIT fixes push and pull_request filters. Previous DHCP scanner trigger XY-C1 #46112371422 is SUCCESS with Build/TRX/artifact on exact SHA `a3d805b8e2e613fc078fc860a54132141ab3f3c1`.
+- Live main immediately before this checker correction: `0ce04df3e954c85c86e5c7f1a997b8865511fec2`. The new FIFO C sanitizer regression and dedicated source checker both PASSed on #46113237878; the old VPN lifecycle checker still expected direct `write()` and failed. THIS COMMIT aligns it with the helper implementation. Parent XY-C1 #46113072666 was still building; Process #46113072701 PASS.
 - Frozen backup remains `backup/pre-plugin-overhaul-2026-11-14`; do not mutate. Its warning file was verified during startup restore and handoff-recorded frozen HEAD is `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 remains CLOSED/unmerged.
 - Frozen backup remains `backup/pre-plugin-overhaul-2026-11-14` (handoff-recorded HEAD `72f4f157a084f8184b9597ca5bf334b8080e5807`); its warning file explicitly forbids mutation. PR #1 remains CLOSED/unmerged with no identified missing change.
 - Remote branch search shows only the preserved `backup/pre-plugin-overhaul-2026-11-14` archive beyond `main`. Its warning file was read from that ref and explicitly forbids any modification/deletion; the handoff-recorded frozen HEAD is `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 remains CLOSED and unmerged; its unmerged work was previously compared and no valid missing source/test/build change was identified.
@@ -103,14 +103,14 @@ For product-source SHA `7daa20cd2f1bd7abca4499fb9f9a6e05ce5d3d00`:
 
 ## Active task
 
-The xl2tpd control FIFO host regression passed on exact parent #46113072695 with GNU89/Werror/ASan/UBSan, covering an orphan FIFO, delayed startup reader, symlink and regular-file rejection, EPIPE process survival and pre-existing SIGPIPE preservation. Its Python source checker then failed because the helper header/test were listed only in the push path filter, not pull_request; the checker script was missing from both filters. THIS COMMIT fixes both filters. The previous DHCP scanner XY-C1 run #46112371422 is now SUCCESS on exact SHA `a3d805b8e2e613fc078fc860a54132141ab3f3c1`, including Build/TRX/artifact.
+VPN control FIFO fix and new tests are in main. On exact parent SHA `0ce04df3e954c85c86e5c7f1a997b8865511fec2`, #46113237878 passed the new GNU89/Werror/ASan/UBSan test `vpn_client_control_fifo.c` and passed dedicated source integration checker. The established lifecycle checker then failed because it still required the old raw `write()` implementation inside `control_xl2tpd()`. THIS COMMIT updates that legacy checker. AI docs #46113237773 PASS. The previous DHCP scanner XY-C1 run #46112371422 passed Build/TRX/artifact on exact SHA `a3d805b8...`; parent VPN code XY-C1 #46113072666 remained at Build in progress; Process #46113072701 PASS.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect exact-head VPN lifecycle, AI docs, Process inventory and XY-C1 Actions. Parent VPN #46113072695: C sanitizer test PASS, source checker failed only on missing pull_request path entries. Require both the C regression and checker PASS on THIS SHA.
-2. Recheck parent XY-C1 #46113072666 and Process inventory #46113072701, both IN_PROGRESS when last observed on parent `78afe648...`. Do not attribute their results to this SHA.
-3. Require exact-head XY-C1 Build, TRX and artifact upload all PASS for the new helper header before claiming firmware L3. Physical-router L4 remains NOT VERIFIED.
-4. Continue an independent, bounded source-backed stability/security fix after this FIFO slice is green.
+1. Fetch live `main` and inspect new exact-head VPN lifecycle and AI docs runs for THIS checker change. Require the C FIFO sanitizer test, dedicated checker and legacy lifecycle checker all PASS.
+2. Poll parent XY-C1 #46113072666 on SHA `78afe64833e88851484b28c28d62ec482cff5ecd`; it was at Build IN_PROGRESS, with TRX/artifact still pending. That parent includes the VPN source/header and XY trigger, so it validates the same production sources; require Build/TRX/artifact all pass before claiming L3. This commit changes only checker/docs and does not alter production firmware input.
+3. Process inventory #46113072701 PASS on the parent SHA. AI docs #46113237773 PASS on checker parent `0ce04df3...`.
+4. No physical-router L4 has been performed. After the VPN slice is green, continue a separate bounded userland stability/security fix.
 
 # Cross-session execution mandate
 
@@ -121,5 +121,5 @@ The xl2tpd control FIFO host regression passed on exact parent #46113072695 with
 
 Before context exhaustion, stop starting new modules, finish and publish a safe bounded slice, then leave this handoff with the exact first action, validation boundary and committed baseline.
 - Run the local handoff-doc validator when a checkout is available. This session had no local checkout; the exact-head GitHub Actions workflow is the validation gate for the docs correction.
-- Keep the root dev log at 20–119 complete records; it had 90 records before this entry and now has 91, so no archive rotation is due. Do not add handoff/roadmap archive snapshots.
+- Keep the root dev log at 20–119 complete records; it had 91 records before this entry and now has 92, so no archive rotation is due. Do not add handoff/roadmap archive snapshots.
 - Do not change GPT Session Rotator or replay its existing state/SHA. Do not claim hardware validation or a successful build when steps were skipped.

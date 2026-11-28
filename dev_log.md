@@ -1,3 +1,11 @@
+## 2026-11-28 14:17 CST (UTC+8) — Update legacy VPN lifecycle checker for the FIFO helper
+
+- Base main SHA: `0ce04df3e954c85c86e5c7f1a997b8865511fec2`. Exact-head VPN run #46113237878 showed the new FIFO sanitizer regression PASS and the dedicated source integration checker PASS. The existing `check_vpn_server_lifecycle.py` then failed at its old direct-write assertion (`written = write(control_fd, ...)`), because the caller now delegates to the SIGPIPE-safe helper. AI handoff documentation #46113237773 PASS.
+- Updated the established lifecycle checker to require the new helper include, bounded open helper, SIGPIPE-safe write helper and close-error propagation, while explicitly forbidding raw blocking `open()`/`write()` in `control_xl2tpd()`. The dedicated checker still verifies the helper's internal no-follow/nonblocking/fstat/signal behavior and both trigger filters.
+- Parent XY-C1 #46113072666 was still building at Build; Process inventory #46113072701 completed PASS. Previous scanner-trigger XY-C1 #46112371422 passed Build/TRX/artifact on its exact SHA `a3d805b8e2e613fc078fc860a54132141ab3f3c1`. THIS checker correction triggers exact-head VPN and AI docs reruns; no local build is claimed.
+
+---
+
 ## 2026-11-28 14:13 CST (UTC+8) — Include VPN control FIFO checker in both workflow filters
 
 - Base main SHA: `78afe64833e88851484b28c28d62ec482cff5ecd`. Exact-head VPN workflow #46113072695 compiled and ran the new GNU89/Werror/ASan/UBSan FIFO regression successfully: `VPN client control FIFO bounded-open and SIGPIPE regression: PASS`. The source integration checker then failed only because the pull_request path filter omitted the new helper header and test. The push filter had the helper/test; the dedicated checker script itself was not listed in either trigger list.
