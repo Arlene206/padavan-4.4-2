@@ -1,3 +1,11 @@
+## 2026-11-27 — Correct printer executable-scan error aggregation and function boundary
+
+- Source review after `84213bc5979cc8bdd4734b93c8e652092c539a35` caught two issues before accepting its CI: an insertion offset had left a duplicate tail after the new scan function, and one UNKNOWN candidate's readlink failure could be overwritten by a later mismatching candidate. The scan now preserves the first unknown error across all candidates, lets a confirmed matching executable prove RUNNING, and otherwise fails closed if any candidate identity could not be checked. The stale tail is removed, and the readlink buffer now accepts any path that fits with a terminating NUL.
+- Cleaned the policy test's failure diagnostic to emit a real newline. Exact-head checks on `84213bc` were pending at last poll; they are not being counted as pass. No product firmware or hardware result is claimed.
+- Next: inspect exact-SHA USB printer, Process, XY-C1, NVRAM/storage and AI checks for THIS corrected source. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+
+---
+
 ## 2026-11-27 — Bind USB printer readiness to the installed executable identity
 
 - Review of `process_inventory.c:383` found that its generic inventory intentionally accepts an exact `argv[0]` basename match even when `/proc/PID/stat` comm names another executable. Linux lets a process choose `argv[0]` at `execve()`; a local unrelated process can therefore present itself as `u2ec`, `lpd` or a per-port `p910Nd` title and make the privileged USB-printer startup check report RUNNING, suppressing a real daemon launch. A local proof using `exec -a lpd sleep 5` showed cmdline `lpd` while `/proc/PID/exe` is `/usr/bin/sleep`.

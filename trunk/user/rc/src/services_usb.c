@@ -236,7 +236,7 @@ usb_printer_daemon_scan(void *context, int *scan_error)
 	const char *expected_executable;
 	struct process_snapshot snapshot;
 	enum process_presence presence;
-	int saved_error, check_error = 0, match, found = 0;
+	int saved_error, check_error, unknown_error = 0, match, found = 0;
 
 	if (!process_name || !process_name[0]) {
 		if (scan_error)
@@ -264,6 +264,7 @@ usb_printer_daemon_scan(void *context, int *scan_error)
 			saved_error = EIO;
 		} else {
 			for (i = 0; i < snapshot.count; i++) {
+				check_error = 0;
 				match = usb_printer_daemon_identity_executable_matches(
 					process_name, &snapshot.items[i],
 					expected_executable, &check_error);
@@ -271,16 +272,22 @@ usb_printer_daemon_scan(void *context, int *scan_error)
 					found = 1;
 					break;
 				}
-				if (match < 0 && saved_error == EIO)
-					saved_error = check_error > 0 ? check_error : EIO;
+				if (match < 0 && unknown_error == 0)
+					unknown_error = check_error > 0 ?
+						check_error : EIO;
 			}
 			if (found)
 				presence = PROCESS_PRESENCE_RUNNING;
-			else if (check_error != 0)
+			else if (unknown_error != 0) {
 				presence = PROCESS_PRESENCE_UNKNOWN;
-			else
+				saved_error = unknown_error;
+			} else
 				presence = PROCESS_PRESENCE_ABSENT;
 		}
+	} else if (presence != PROCESS_PRESENCE_ABSENT &&
+		   presence != PROCESS_PRESENCE_UNKNOWN) {
+		presence = PROCESS_PRESENCE_UNKNOWN;
+		saved_error = EIO;
 	}
 	process_snapshot_release(&snapshot);
 	if (scan_error)
@@ -290,10 +297,6 @@ usb_printer_daemon_scan(void *context, int *scan_error)
 		errno = saved_error;
 	return presence;
 }
-	errno = saved_error;
-	return presence;
-}
-
 static int
 usb_printer_daemon_wait(void *context, unsigned int seconds)
 {

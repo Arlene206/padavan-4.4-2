@@ -1,3 +1,11 @@
+## 2026-11-27 — Correct USB printer executable scan error aggregation
+
+- Parent `84213bc5979cc8bdd4734b93c8e652092c539a35` introduced the scoped `/proc/PID/exe` identity gate. Review caught a duplicate old function tail caused by a source insertion offset, plus error aggregation where a later argv0-spoofed candidate could clear an earlier UNKNOWN readlink result. This follow-up removes the stale tail and preserves UNKNOWN until a confirmed real executable is found; the exact PID/start-time/argv revalidation remains in place.
+- The policy test's failure message now emits an actual newline. Parent exact-SHA USB printer `46090313956`, Process `46090313942`, XY-C1 `46090313982`, NVRAM `46090313971`, storage `46090313925` and AI docs `46090313927` were all PENDING at the last poll; do not count those as verification.
+- Next: verify every relevant check on THIS commit, fix any compile/test/source-contract failure, then return to another independent P1 reliability task. Frozen backup remains `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+
+---
+
 ## 2026-11-27 — Prevent argv[0]-spoofed processes from satisfying USB printer readiness
 
 - Confirmed process-identity gap: generic `process_inventory_scan()` accepts `argv[0]` basename matches even when the executed binary differs. A normal Linux process can choose argv[0] independently (`exec -a lpd sleep 5` reproduced cmdline `lpd` with `/proc/PID/exe=/usr/bin/sleep`), so a local unrelated process could suppress root's u2ec/lpd/p910nd launch by spoofing its title.
