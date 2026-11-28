@@ -13,7 +13,7 @@
 #endif
 
 /* Retry transient interruption without treating it as a durability success. */
-static int
+static inline int
 config_file_sync_fd(int fd)
 {
 	int status;
