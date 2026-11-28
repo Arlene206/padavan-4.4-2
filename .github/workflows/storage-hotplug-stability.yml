@@ -1115,7 +1115,7 @@ jobs:
           storage_media_parent = function_body(storage, "storage_media_link_parent_snapshot(")
           storage_media_destination = function_body(storage, "storage_media_link_destination_check(")
           transmission_start = function_body(storage, "run_torrent(void)")
-          assert "storage_media_link_publish(dest_dir, link_path)" in transmission_start
+          assert "storage_media_link_publish(dest_dir, link_path, 0)" in transmission_start
           assert "unlink(link_path)" not in transmission_start
           assert "create_mp_link_status(dest_dir, link_path, 0)" not in transmission_start
           assert "create_mp_link_status(dest_dir, staged_path, 0)" in storage_media_publish
