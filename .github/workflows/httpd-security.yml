@@ -6682,7 +6682,8 @@ jobs:
           assert "get_account_list(&acc_num,&account_list)" in compact_writer
           assert "if (account_list_owned)" in writer
           assert "account_list_snapshot[i]=account_usernames[i];" in compact_run
-          assert compact_run.count("write_smb_conf_unlocked(router_username,account_list_snapshot,sh_num)") == 2
+          # run_samba publishes smb.conf once inside the four-file journal; standalone writer is outside this function.
+          assert compact_run.count("write_smb_conf_unlocked(router_username,account_list_snapshot,sh_num)") == 1
           assert compact_run.index("nvram_transaction_end(&account_snapshot)") < compact_run.index("write_smb_conf_unlocked(router_username,account_list_snapshot,sh_num)")
           assert "samba_passdb_account_list_source_status" in policy
           assert "test_account_list_snapshot_source" in test

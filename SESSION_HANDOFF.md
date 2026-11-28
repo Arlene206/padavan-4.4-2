@@ -1,30 +1,30 @@
-## 2026-11-28 continuation checkpoint
+## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`. Continue on `main`; bootstrap and branch inventory were restored once. Do not repeat that audit.
-- Frozen backup: `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable. No work, reset, rename, CI or force-push on that branch.
-- Latest main before this CI repair: `5fc78cc0e312610ef27c61e42fb80d42b0de520a`, parent `670e513d99fa0e2d48dfc382ea795ab5c8f6ba1a`. Latest production-source commit is `670e513d`: V2 Samba journal with EINTR-safe state read and O_RDWR regular-file fsync. `5fc78cc` adds the COMMITTED-before-cleanup test only.
-- PR #1 remains closed and unmerged; the AliDDNS CA trust-store work is already on main.
+- Repository: `Arlene206/padavan-4.4-2`; active branch `main`. Startup protocol and handoff recovery were completed once in this session; do not repeat the initial audit.
+- Frozen backup: `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify it. Only `backup/...` and `main` exist.
+- Current main before this checker follow-up: `b7f6cc478d495488a4ad3d9398ef5f5ac2e5fc57`. Latest production-source commit is `670e513d99fa0e2d48dfc382ea795ab5c8f6ba1a`, parent `dce5f27b1787abbf83a712159358215839c3cadc`; `5fc78cc` and `b7f6cc` add regression/test, workflow and handoff changes only.
+- PR #1 remains closed and unmerged; the CA trust-store feature is already integrated into main.
 
 ## Active task
 
-- Complete Samba V2 four-file journal tests and align static source contracts with the current implementation. `run_samba()` journals `/etc/passwd`, `/etc/group`, private passdb and `smb.conf`; V2 PREPARED rollback restores all four and COMMITTED recovery retains the new generation.
-- Exact-head 5fc action #46145701231 failed in the Samba host C regression: the newly added COMMITTED-before-cleanup scenario leaves the marker generation active, while later first-boot and V1 recovery assertions still expected the older `committed` strings. Fix those expected baselines. The same run's exact XY-C1 #46145701246 failed on the same C test before firmware build.
-- Samba exact-head #46145600741 also exposed a stale inline assertion expecting two `write_smb_conf_unlocked()` calls inside `run_samba()`; current function contains exactly one transactional call. The dce5 HTTPD guard also still searched for the V1 `recover()` API inside `run_samba()`. The standalone durability checker retained V1 state-read/abort/begin assumptions. Fix tests/contracts; do not revert production V2.
+- Close the remaining Samba V2 four-file journal validation. Production `run_samba()` uses account-aware PREPARED/COMMITTED recovery for passwd, group, passdb and smb.conf. The four-file transaction C regression now passes on exact SHA `b7f6cc`; the earlier stale marker-generation test expectations have been corrected.
+- Exact `b7f6cc` Samba run #46145970956 reached the standalone durability checker after the C regression and preceding source checks passed, then failed at the V2 marker assertion because it incorrectly expected separate opening quotes before PASSWD/GROUP inside one snprintf string. HTTPD #46145970832 reached the duplicate ACL source guard and failed only because it expected two write_smb_conf calls inside `run_samba()` instead of the one transactional publication. AI docs #46145970861 failed because this handoff lacked the required `## Current repository state` heading. Repair those three exact failures; do not revert the V2 implementation.
+
+## Verification boundary
+
+- Exact main SHA `b7f6cc478d495488a4ad3d9398ef5f5ac2e5fc57`: Process inventory #46145970859 PASS. Samba #46145970956 FAIL at `scripts/check_samba_transaction_durability.py` V2 PASSWD/GROUP marker matcher; HTTPD #46145970832 FAIL at duplicated Samba ACL call-count assertion; AI handoff #46145970861 FAIL because the required `## Current repository state` section heading was absent.
+- Exact `b7f6cc` XY-C1 workflow #46145970921 concluded SUCCESS but intentionally SKIPPED Build XY-C1, TRX verification and artifact upload because this commit changed no firmware inputs. Do not treat it as L3 build evidence.
+- Production source SHA `670e513d99fa0e2d48dfc382ea795ab5c8f6ba1a` XY-C1 #46145600745 was still IN_PROGRESS at Build XY-C1; the preceding `Compile and run Samba parent-directory security regression` passed. TRX and artifact steps were pending at last check. The same SHA Process inventory #46145600796 and Process fail-closed regression #46145600779 passed; AI handoff #46145600769 passed; NVRAM audit #46145600813 was cancelled when main advanced.
+- Exact `b7f6cc` NVRAM transaction boundary audit #46145970994 was IN_PROGRESS at last check. Historical runs on older source SHAs do not prove current source status.
+- `dce5f27b` introduced V2 four-file account journal; `670e513d` hardened V2 state reads against EINTR and uses O_RDWR for fsync-safe regular-file validation. `5fc78cc` corrected COMMITTED-before-cleanup regression expectations; `b7f6cc` aligned the Samba workflow, durability checker and handoff. Latest checker repair requires fresh exact-head Samba/HTTPD/AI runs.
+- Physical router/hardware validation L4: NOT VERIFIED. No local MIPS kernel build or physical router is available in this session.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and exact-SHA Actions for the checker/test repair. Require Samba host test, embedded source guard, standalone durability checker, HTTPD identity guard, and XY-C1 transaction regression to pass.
-2. Check exact-SHA XY-C1 Build XY-C1, TRX validation and artifact upload; claim L3 only if all three succeed.
-3. Poll exact-head NVRAM transaction audit #46145701242 (was in progress); Process inventory #46145701238 and AI handoff #46145701248 passed on 5fc. Do not repeat completed broad inventories.
-4. Once Samba transaction CI is green, continue a separate source-backed stability/security fix. Keep the frozen backup immutable.
-
-## Exact-SHA verification boundary
-
-- Main `5fc78cc0e312610ef27c61e42fb80d42b0de520a`: Samba share #46145701231 FAIL (C transaction regression, marker generation baseline mismatch); XY-C1 #46145701246 FAIL at `Compile and run Samba parent-directory security regression` because it runs the same C transaction regression. AI handoff #46145701248 PASS; Process inventory #46145701238 PASS; NVRAM transaction audit #46145701242 was IN_PROGRESS at last check.
-- Main `670e513d99fa0e2d48dfc382ea795ab5c8f6ba1a`: Samba share #46145600741 FAIL in stale writer-call count guard; AI handoff #46145600769 PASS; Process inventory #46145600796 and Process lifecycle inventory #46145600779 were running; NVRAM audit #46145600813 was running; XY-C1 #46145600745 was in progress before the newer 5fc run.
-- `dce5f27b1787abbf83a712159358215839c3cadc` introduced V2 four-file journal; `670e513d` hardened V2 state-read EINTR handling and file fsync descriptor mode. No L3 claim for either until exact-SHA Build, TRX and artifact steps pass.
-- Existing earlier exact-SHA results remain historical: Samba snapshot SHA `9ffd787f...` had XY-C1 #46143284111 PASS; DDNSTO `3f1cab20...`, Aria2 `76646cff...`, PPPoE-MWAN `300e78b2...`, firmware first-errno `19d86adc...` and all-stop `80562419...` had the specific exact-SHA CI results documented in dev_log.
-- Physical router/hardware L4: NOT VERIFIED. No local MIPS/kernel build or router hardware is available.
+1. Check the exact-head Samba share, HTTPD and AI handoff runs triggered by this repair. Require the C journal regression, V2 durability marker/order checks, single-publication ACL assertions, and required handoff headings/archive validation all to PASS.
+2. Check NVRAM transaction audit #46145970994 (or its exact-head descendant). Continue other independent work if it remains pending; diagnose the actual failed assertion if it fails.
+3. Poll XY-C1 #46145600745 on production source SHA `670e513d...`. Require Build XY-C1, TRX verification and artifact upload SUCCESS before claiming L3. The later `b7f6cc` run #46145970921 skipped all three firmware steps.
+4. After Samba/HTTPD contracts are green, continue a separate cross-userland stability/security source fix. Keep the frozen backup immutable; do not repeat already-passed Process inventory work.
 
 ## Mandatory end-of-session handoff checkpoint
 

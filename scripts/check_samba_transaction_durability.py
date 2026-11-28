@@ -156,7 +156,7 @@ v2_recover = compact(body("samba_config_transaction_recover_with_accounts("))
 v2_begin = compact(body("samba_config_transaction_begin_with_accounts("))
 v2_commit = compact(body("samba_config_transaction_commit_with_accounts("))
 assert '"PADAVAN_SAMBA_CONFIG_TXN_V2' in v2_write
-assert '"PASSWD=%d' in v2_write and '"GROUP=%d' in v2_write
+assert "PASSWD=%d" in v2_write and "GROUP=%d" in v2_write
 assert '"PADAVAN_SAMBA_CONFIG_TXN_V1' in v2_read
 assert '"PADAVAN_SAMBA_CONFIG_TXN_V2' in v2_read
 assert '*tracks_accounts = 0' in v2_read and '*tracks_accounts = 1' in v2_read

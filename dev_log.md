@@ -1,3 +1,10 @@
+## 2026-11-28 — Correct the final V2 Samba and HTTPD contract assertions
+
+- Exact-head `b7f6cc478d495488a4ad3d9398ef5f5ac2e5fc57` Samba run #46145970956 passed the transaction C regression, account snapshot guard and earlier durability checks, then exposed a checker mistake: PASSWD/GROUP are fields inside one snprintf format string, so the correct contract is to require the field tokens without an extra leading quote. Repaired `scripts/check_samba_transaction_durability.py`.
+- HTTPD #46145970832 failed only at its duplicate inline Samba ACL assertion expecting two `write_smb_conf_unlocked()` calls inside `run_samba()`; corrected it to one journaled publication. AI handoff #46145970861 failed because the new handoff header omitted the validator's required `## Current repository state` section; restored the canonical headings and retained the mandatory checkpoint/cross-session execution sections.
+- On exact SHA `b7f6cc`, Process inventory #46145970859 PASS; XY-C1 #46145970921 SUCCESS but Build/TRX/artifact were SKIPPED (no firmware-input changes); NVRAM audit #46145970994 was IN_PROGRESS. Production-source SHA `670e513d99fa0e2d48dfc382ea795ab5c8f6ba1a` XY-C1 #46145600745 was still building at last check.
+
+---
 ## 2026-11-28 — Repair V2 Samba journal regression expectations and source guards
 
 - Diagnosed exact-head 5fc failures. The V2 COMMITTED-before-cleanup test correctly retains the marker generation, but subsequent first-boot and legacy-V1 rollback checks still expected the previous committed generation; updated them to assert restoration of the latest marker generation and normalized marker literals to newline escapes.
