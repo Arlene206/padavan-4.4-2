@@ -172,7 +172,7 @@ require("unknown after TERM blocks KILL" in test and
         "monitor path in argv[2] is ignored" in test,
         "regression must prove executable/PID identity, impostor rejection, PID-reuse safety and UNKNOWN fail-closed behavior")
 require(helper.count('ss_wait_limit=$1') == 2 and
-        helper.count('[ "$ss_wait_count" -lt "$ss_wait_limit" ]') == 2 and
+        helper.count('[ "$ss_wait_count" -lt "$ss_wait_limit" ]') == 3 and
         helper.count('sleep 1 || return 2') == 5 and
         'ss_wait_named_processes 3 "$@"' in helper and
         'ss_wait_named_processes 1 "$@"' in helper and
@@ -181,7 +181,7 @@ require(helper.count('ss_wait_limit=$1') == 2 and
         '[ "$ss_start_wait_count" -lt "$ss_start_wait_limit" ]' in helper and
         '[ "$ss_pattern_wait_count" -lt "$ss_pattern_wait_limit" ]' in helper and
         'ss_start_wait_limit' in helper and 'ss_pattern_wait_limit' in helper,
-        "named and pattern waits must remain bounded and fail closed on sleep errors")
+        "named, pattern and executable-identity waits must remain bounded and fail closed on sleep errors")
 require("ss_process_pid_count()" in helper and
         "ss_wait_named_process_count()" in helper and
         "awk '{ count += NF } END { print count + 0 }'" in helper,

@@ -1,3 +1,10 @@
+## 2026-11-28 — Align Shadowsocks bounded-wait checker with identity wait
+
+- Shadowsocks lifecycle #46124074457 on `6afe2356d5d8f2e8adbca5c8598af7629a706cc9` passed shell syntax, startup status, DNSMasq cleanup, the expanded process lifecycle regression and adblock publication regression. The final static checker alone failed because it still expected exactly two `ss_wait_count`/`ss_wait_limit` comparison sites.
+- The new `ss_wait_identity_absent()` adds a third independently bounded wait loop; the helper contains three comparison sites and five checked `sleep 1 || return 2` sites. Updated the checker count to three and clarified that the named, pattern and executable-identity waits are all bounded. No production source or runtime test change.
+- AI docs #46124074432 and Process inventory #46124074460 PASS on `6afe...`. XY-C1 #46123853244 for production source `03817...` was still IN_PROGRESS at Build step 38; TRX and artifact pending. No local test/build result is claimed.
+
+---
 ## 2026-11-28 — Add procfs fixtures for Shadowsocks DNS proxy teardown tests
 
 - Shadowsocks lifecycle #46123853300 on source SHA `03817bd30d363097549b458c32bbbbfe2127b1dc` passed shell syntax, startup status, DNSMasq directive cleanup and the earlier process-lifecycle cases, then failed at the DNS proxy stop assertion. The mock launcher created only a process-state file; the new stop helper correctly scans procfs for exact executable identities and therefore had no verified `dnsproxy` process to signal.
