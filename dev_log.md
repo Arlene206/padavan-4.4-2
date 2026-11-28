@@ -1,3 +1,10 @@
+## 2026-11-27 — Preserve YAML heredoc indentation in RC contract follow-up
+
+- The initial HTTPD contract correction `9356c97e7587c6c330370a6b7981a775ecb649b6` changed the RC fatal-return threshold but placed the new Python assertion outside the workflow's indented shell block. This follow-up restores the embedded command-block indentation before running the exact-head Actions checks.
+- No production source behavior changed. Exact-SHA HTTPD and AI handoff verification are pending on THIS COMMIT.
+
+---
+
 ## 2026-11-27 — Keep RC boot-fatal contract independent of switch-device gate count
 
 - Exact-main SHA `78103b86d1e214dea0ad90cb72e9895c48b3df42` introduced two additional fatal early-boot exits for unsafe RTL8367/MediaTek switch device nodes. The HTTPD umbrella's embedded RC NVRAM check still required exactly six fatal returns, so that unrelated contract failed even though the NVRAM policy binary and production source regression passed.

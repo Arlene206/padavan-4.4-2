@@ -1,3 +1,11 @@
+## 2026-11-27 — Fix workflow block indentation for RC fatal-gate contract
+
+- Parent `9356c97e7587c6c330370a6b7981a775ecb649b6` updated the stale exact-count assertion but static diff review caught that its replacement assertion lacked the YAML run-block indentation. Corrected the indentation before accepting any Actions result.
+- Workflow-only correction; no product source changed. The exact-head HTTPD and AI handoff runs for this new commit are the validation gate.
+- Next: inspect those exact SHA runs, fix any genuine failure, then resume an independent P1 userland stability issue. Frozen backup remains untouched at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+
+---
+
 ## 2026-11-27 — RC boot-fatal assertion accommodates secure switch-node gates
 
 - Parent source SHA: `78103b86d1e214dea0ad90cb72e9895c48b3df42` (secure RTL8367/MediaTek device-node validation). Its exact-head HTTPD Authentication and Security Regression failed only in the embedded RC NVRAM source contract: the legacy assertion expected exactly six `INIT_ROUTER_RESULT_FATAL` returns, while the two newly required switch-node gates raised the count. The NVRAM sanitizer policy test passed; this was a stale checker expectation, not an observed production defect.
