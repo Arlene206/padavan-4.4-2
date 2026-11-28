@@ -517,7 +517,10 @@ func_stop()
 			return 1
 		fi
 		[ "$mountd_state" -eq 1 ] && [ "$nfsd_state" -eq 1 ] && break
-		sleep 1
+		sleep 1 || {
+			logger -t "NFS server" "graceful stop wait failed; refusing early forced termination"
+			return 1
+		}
 	done
 
 	# Force termination only after the graceful stop window has expired.
@@ -544,7 +547,10 @@ func_stop()
 				return 1
 			fi
 			[ "$mountd_state" -eq 1 ] && [ "$nfsd_state" -eq 1 ] && break
-			sleep 1
+			sleep 1 || {
+				logger -t "NFS server" "forced-stop wait failed; retaining NFS exports and mounts"
+				return 1
+			}
 		done
 	fi
 
@@ -577,7 +583,10 @@ stop)
 	;;
 restart)
 	func_stop || exit $?
-	sleep 1
+	sleep 1 || {
+		logger -t "NFS server" "restart settling wait failed; refusing premature daemon startup"
+		exit 1
+	}
 	func_start
 	;;
 reload)

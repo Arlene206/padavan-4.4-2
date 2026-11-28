@@ -59,6 +59,14 @@ case "$name" in
 		exit 0
 		;;
 	sleep)
+		if [ -n "$FAIL_SLEEP_AFTER" ]; then
+			sleep_count_file="$STATE_DIR/sleep.count"
+			sleep_count=0
+			[ -r "$sleep_count_file" ] && sleep_count=$(cat "$sleep_count_file")
+			sleep_count=$((sleep_count + 1))
+			echo "$sleep_count" > "$sleep_count_file"
+			[ "$sleep_count" -lt "$FAIL_SLEEP_AFTER" ] || exit 23
+		fi
 		if [ -n "$DELAY_PID_COMMAND" ] &&
 		   [ -f "$STATE_DIR/delay-$DELAY_PID_COMMAND" ]; then
 			delay_count_file="$STATE_DIR/delay-$DELAY_PID_COMMAND.count"
@@ -150,7 +158,7 @@ ln -s "$tmp_dir/bin/mock-command" "$tmp_dir/no-pidof-bin/logger"
 reset_fixture()
 {
 	rm -f "$STATE_DIR/rpcbind" "$STATE_DIR/nfsd" "$STATE_DIR/rpc.mountd"
-	rm -f "$STATE_DIR"/delay-*
+	rm -f "$STATE_DIR"/delay-* "$STATE_DIR/sleep.count"
 	rm -rf "$PROC_ROOT/1" "$PROC_ROOT/123" "$PROC_ROOT/124" "$PROC_ROOT/125"
 	rm -f "$tmp_dir/etc/exports" "$tmp_dir/var/lib/nfs/etab" \
 		"$tmp_dir/var/lib/nfs/rmtab" "$tmp_dir/var/lib/nfs/xtab"
@@ -195,9 +203,11 @@ run_command()
 	delay_pid_command=${4:-}
 	fail_logger=${5:-}
 	delay_pid_after=${6:-1}
+	fail_sleep_after=${7:-}
 	if FAIL_COMMAND="$fail_command" NO_PID_COMMAND="$no_pid_command" \
 	   DELAY_PID_COMMAND="$delay_pid_command" DELAY_PID_AFTER="$delay_pid_after" \
-	   FAIL_LOGGER="$fail_logger" /bin/sh "$tmp_dir/nfsd.sh" "$action"; then
+	   FAIL_LOGGER="$fail_logger" FAIL_SLEEP_AFTER="$fail_sleep_after" \
+	   /bin/sh "$tmp_dir/nfsd.sh" "$action"; then
 		status=0
 	else
 		status=$?
@@ -641,6 +651,53 @@ assert_no_command kill
 	echo "NFS stop signalled a daemon with malformed proc stat" >&2
 	exit 1
 }
+
+# An interrupted graceful wait must not trigger premature SIGKILL, export
+# withdrawal, or mount cleanup. Preserve the live service for a safe retry.
+reset_fixture
+prepare_running_nfs
+mounts_before=$(cat "$MOUNTS_FILE")
+status=$(run_command kill "" stop "" "" "" 1)
+assert_failed "$status" "NFS graceful-stop wait failure"
+[ -f "$STATE_DIR/nfsd" ] && [ -f "$STATE_DIR/rpc.mountd" ] || {
+	echo "NFS graceful-stop wait failure disturbed daemon state" >&2
+	exit 1
+}
+! grep -q '^kill -9 ' "$COMMAND_LOG" || {
+	echo "NFS forced termination ran after an incomplete graceful wait" >&2
+	exit 1
+}
+[ "$(cat "$MOUNTS_FILE")" = "$mounts_before" ]
+[ "$(cat "$tmp_dir/var/lib/nfs/etab")" = "recovery-state" ]
+assert_no_command exportfs
+assert_no_command umount
+
+# A failed wait after forced signals must retain exports and mounts until
+# a later invocation can confirm both daemons absent.
+reset_fixture
+prepare_running_nfs
+mounts_before=$(cat "$MOUNTS_FILE")
+status=$(run_command kill "" stop "" "" "" 4)
+assert_failed "$status" "NFS forced-stop wait failure"
+grep -q '^kill -9 124$' "$COMMAND_LOG"
+grep -q '^kill -9 123$' "$COMMAND_LOG"
+[ -f "$STATE_DIR/nfsd" ] && [ -f "$STATE_DIR/rpc.mountd" ]
+[ "$(cat "$MOUNTS_FILE")" = "$mounts_before" ]
+[ "$(cat "$tmp_dir/var/lib/nfs/etab")" = "recovery-state" ]
+assert_no_command exportfs
+assert_no_command umount
+
+# A failed restart settling wait is not permission to start daemons before
+# the configured one-second separation has elapsed.
+reset_fixture
+status=$(run_command "" "" restart "" "" "" 1)
+assert_failed "$status" "NFS restart settling wait failure"
+assert_command sleep
+assert_no_command rpcbind
+assert_no_command rpc.nfsd
+assert_no_command rpc.mountd
+assert_no_command mount
+assert_no_command exportfs
 
 # Verify stop postconditions under signal, export-withdrawal and unmount failures.
 # A failed signal with surviving daemons must not mutate exports or mount state.

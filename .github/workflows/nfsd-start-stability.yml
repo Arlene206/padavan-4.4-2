@@ -120,6 +120,9 @@ jobs:
           assert "func_signal_snapshot 2 nfsd" in stop
           assert "func_signal_snapshot 9 rpc.mountd" in stop
           assert "func_signal_snapshot 9 nfsd" in stop
+          assert stop.count("sleep 1 || {") == 2
+          assert "graceful stop wait failed" in stop
+          assert "forced-stop wait failed" in stop
           assert "killall" not in stop
           assert stop.index("func_snapshot_processes rpc.mountd") < stop.index("func_signal_snapshot TERM rpc.mountd")
           assert stop.index("func_snapshot_processes nfsd") < stop.index("func_signal_snapshot 2 nfsd")
@@ -160,6 +163,10 @@ jobs:
           assert "rpcbind command returned success but the daemon did not become ready" in start
           assert "func_wait_process_running rpc.mountd" in start
           assert "rpc.mountd returned success but the daemon did not become ready" in start
+
+          restart_case = script[script.index('restart)'):script.index('reload)')]
+          assert 'sleep 1 || {' in restart_case
+          assert restart_case.index('sleep 1 || {') < restart_case.index('func_start')
 
           reload = function_body(script, "func_reload()")
           for prerequisite in ("func_process_presence rpcbind", "func_process_presence nfsd",
