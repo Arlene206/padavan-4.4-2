@@ -395,4 +395,17 @@ assert "strcmp(entry->d_name, RCN_MANUAL_DDNS_UPDATE)" in rc_source
 assert "notify_ddns_manual_update()" in rc_source
 assert "int notify_ddns_manual_update(void);" in header
 
+sync_helper = (root / "trunk/user/rc/src/config_file_sync.h").read_text()
+assert '#include "config_file_sync.h"' in config_file_header
+assert "config_file_sync_fd(fd)" in config_file_header
+assert "config_file_sync_fd(fileno(fp))" in config_file_header
+assert "fsync(fd)" not in config_file_header
+assert "fsync(fileno(fp))" not in config_file_header
+assert "CONFIG_FILE_SYNC_MAX_EINTR_RETRIES 8U" in sync_helper
+assert "interruptions >= CONFIG_FILE_SYNC_MAX_EINTR_RETRIES" in sync_helper
+assert "test_config_sync_eintr_is_bounded" in config_file_test
+assert "inadyn_test_fsync_always_interrupt = 1" in config_file_test
+assert "CONFIG_FILE_SYNC_MAX_EINTR_RETRIES + 1U" in config_file_test
+assert "inadyn_test_fsync_eintr_remaining = 2U" in config_file_test
+assert "inadyn_test_fsync_calls == 3U" in config_file_test
 print("Inadyn last-known-good config rollback and PID identity integration: PASS")

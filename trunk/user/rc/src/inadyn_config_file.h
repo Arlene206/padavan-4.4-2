@@ -12,6 +12,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "config_file_sync.h"
+
 #ifndef PATH_MAX
 #define PATH_MAX 4096
 #endif
@@ -157,7 +159,7 @@ struct inadyn_config_file_snapshot {
 static inline int
 inadyn_config_file_sync_directory(const char *directory)
 {
-	int fd, flags = O_RDONLY, result, saved_errno;
+	int fd, flags = O_RDONLY, saved_errno;
 	if (!directory || !directory[0]) { errno = EINVAL; return -1; }
 #if !defined(O_DIRECTORY) || !defined(O_NOFOLLOW)
 	errno = ENOTSUP;
@@ -167,8 +169,7 @@ inadyn_config_file_sync_directory(const char *directory)
 #endif
 	fd = open(directory, flags);
 	if (fd < 0) return -1;
-	do { result = fsync(fd); } while (result != 0 && errno == EINTR);
-	if (result != 0) {
+	if (config_file_sync_fd(fd) != 0) {
 		saved_errno = errno ? errno : EIO;
 		(void)close(fd); errno = saved_errno; return -1;
 	}
@@ -416,7 +417,6 @@ inadyn_config_file_publish(FILE *fp, char *staged_path,
 {
 	int failed = 0;
 	int saved_errno = 0;
-	int sync_result;
 
 	if (!fp || !staged_path || !staged_path[0] ||
 	    !destination || !destination[0]) {
@@ -437,14 +437,9 @@ inadyn_config_file_publish(FILE *fp, char *staged_path,
 		saved_errno = errno ? errno : EIO;
 	}
 
-	if (!failed) {
-		do {
-			sync_result = fsync(fileno(fp));
-		} while (sync_result != 0 && errno == EINTR);
-		if (sync_result != 0) {
-			failed = 1;
-			saved_errno = errno ? errno : EIO;
-		}
+	if (!failed && config_file_sync_fd(fileno(fp)) != 0) {
+		failed = 1;
+		saved_errno = errno ? errno : EIO;
 	}
 
 	if (fclose(fp) != 0) {

@@ -1,3 +1,11 @@
+## 2026-11-28 — Bound Inadyn configuration fsync retries
+
+- The Inadyn configuration publisher still had two private unbounded EINTR loops: one for staged-file fsync before rename and one for the parent-directory barrier used by snapshot/commit operations. A persistent signal stream could pin PID 1 while preparing or rolling back DDNS configuration.
+- Routed both barriers through the shared `config_file_sync_fd()` policy with its eight-interruption ceiling. The failure path preserves errno while closing the descriptor, retains the last-known-good active file, and removes an unpublished staged candidate.
+- Added injected GNU89 host regressions for two transient interruptions followed by success, persistent staged-file EINTR (nine attempts, candidate removed, prior file retained), and persistent parent-directory EINTR (nine attempts, active file unchanged). Extended the Inadyn source-contract checker and path filter to pin the shared helper. No local compile or firmware result is claimed.
+
+---
+
 ## 2026-11-28 — Align Ralink durability contract with shared fsync helper
 
 - Exact-head HTTPD-security workflow on `e7b8267c4a1b17d81d731093442ff64faaf19635` compiled and ran the Ralink atomic-publication host regression successfully, then failed its follow-up source contract because it still required the removed raw `fsync(fd)` call.

@@ -7,7 +7,27 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+static unsigned int inadyn_test_fsync_calls;
+static unsigned int inadyn_test_fsync_eintr_remaining;
+static int inadyn_test_fsync_always_interrupt;
+
+static int inadyn_test_fsync(int fd);
+#define CONFIG_FILE_SYNC_FSYNC(fd) inadyn_test_fsync(fd)
 #include "inadyn_config_file.h"
+
+static int
+inadyn_test_fsync(int fd)
+{
+	++inadyn_test_fsync_calls;
+	if (inadyn_test_fsync_always_interrupt ||
+	    inadyn_test_fsync_eintr_remaining > 0U) {
+		if (inadyn_test_fsync_eintr_remaining > 0U)
+			--inadyn_test_fsync_eintr_remaining;
+		errno = EINTR;
+		return -1;
+	}
+	return fsync(fd);
+}
 #include "wan_nvram_status_policy.h"
 
 static void
@@ -363,6 +383,67 @@ test_config_directory_sync_rejects_symlink(const char *directory)
 	assert(unlink(link_path) == 0);
 }
 
+static void
+test_config_sync_eintr_is_bounded(const char *config, const char *directory)
+{
+	char staged_path[512];
+	FILE *fp, *seed;
+	unsigned int calls_before_parent;
+
+	/* Transient EINTR at the staged-file barrier succeeds, then syncs parent. */
+	inadyn_test_fsync_calls = 0U;
+	inadyn_test_fsync_eintr_remaining = 2U;
+	inadyn_test_fsync_always_interrupt = 0;
+	fp = inadyn_config_file_open(config, staged_path, sizeof(staged_path));
+	assert(fp != NULL);
+	assert(fputs("new-user\nnew-password\n", fp) >= 0);
+	assert(inadyn_config_file_publish(fp, staged_path, config) == 0);
+	assert(inadyn_test_fsync_eintr_remaining == 0U);
+	assert(inadyn_test_fsync_calls == 3U);
+	calls_before_parent = inadyn_test_fsync_calls;
+	assert(inadyn_config_file_sync_parent(config) == 0);
+	assert(inadyn_test_fsync_calls - calls_before_parent == 1U);
+	read_exact(config, "new-user\nnew-password\n");
+
+	/* Persistent EINTR fails before rename and preserves the active generation. */
+	seed = fopen(config, "w");
+	assert(seed != NULL);
+	assert(fputs("last-good-sync\n", seed) >= 0);
+	assert(fclose(seed) == 0);
+	inadyn_test_fsync_calls = 0U;
+	inadyn_test_fsync_eintr_remaining = 0U;
+	inadyn_test_fsync_always_interrupt = 1;
+	errno = 0;
+	fp = inadyn_config_file_open(config, staged_path, sizeof(staged_path));
+	assert(fp != NULL);
+	assert(fputs("must-not-publish\n", fp) >= 0);
+	assert(inadyn_config_file_publish(fp, staged_path, config) == -1);
+	inadyn_test_fsync_always_interrupt = 0;
+	assert(errno == EINTR);
+	assert(inadyn_test_fsync_calls ==
+	       CONFIG_FILE_SYNC_MAX_EINTR_RETRIES + 1U);
+	assert(staged_path[0] == '\0');
+	assert(count_staged_files(directory, "inadyn.conf.tmp.") == 0);
+	read_exact(config, "last-good-sync\n");
+
+	/* The independent directory barrier has the same finite retry ceiling. */
+	inadyn_test_fsync_calls = 0U;
+	inadyn_test_fsync_always_interrupt = 1;
+	errno = 0;
+	assert(inadyn_config_file_sync_parent(config) == -1);
+	inadyn_test_fsync_always_interrupt = 0;
+	assert(errno == EINTR);
+	assert(inadyn_test_fsync_calls ==
+	       CONFIG_FILE_SYNC_MAX_EINTR_RETRIES + 1U);
+	read_exact(config, "last-good-sync\n");
+
+	/* Restore the caller's known-good fixture for snapshot rollback tests. */
+	seed = fopen(config, "w");
+	assert(seed != NULL);
+	assert(fputs("new-user\nnew-password\n", seed) >= 0);
+	assert(fclose(seed) == 0);
+}
+
 int
 main(void)
 {
@@ -404,6 +485,7 @@ main(void)
 	assert(after.st_nlink == 1);
 	assert(before.st_ino != after.st_ino);
 	read_exact(config, "new-user\nnew-password\n");
+	test_config_sync_eintr_is_bounded(config, directory);
 	test_config_directory_sync_rejects_symlink(directory);
 	test_config_snapshot_restore_and_commit(config, directory, new_config);
 	test_reload_failure_keeps_last_known_good_snapshot(config, directory);
