@@ -88,8 +88,6 @@ wd_alarmtimer(unsigned long sec, unsigned long usec)
 }
 
 #ifdef HTTPD_CHECK
-#define DETECT_HTTPD_FILE "/tmp/httpd_check_result"
-
 static int
 watchdog_checked_nvram_get(void *context, const char *name, char **value)
 {
@@ -107,10 +105,12 @@ httpd_check_v2()
 {
     FILE *fp = NULL;
     int i, httpd_live, http_port, http_proto = 0, current_port, status;
-    int remove_result, remove_errno;
     int probe_open_errno, probe_read_error, probe_read_errno;
     int probe_close_result, probe_close_errno;
+    int probe_result = 1, probe_path_length;
     char line[80], login_timestamp[32];
+    char probe_directory[] = "/tmp/watchdog-httpd-probe.XXXXXX";
+    char probe_file[PATH_MAX];
     unsigned long login_uptime;
     long now;
     static int check_count_down = 3;
@@ -175,30 +175,38 @@ httpd_check_v2()
         return 1;
 
     /*
-     * Do not trust a stale successful probe file if it could not be removed.
-     * ENOENT is expected on the first run; any other cleanup error cancels
-     * this probe so it cannot suppress recovery for a dead HTTPD process.
+     * mkdtemp() atomically creates an owner-only directory under sticky /tmp.
+     * A shared predictable output path can be replaced with a symlink between
+     * unlink() and wget's open(), letting this root watchdog overwrite the target.
+     * Keep the result below the private directory and wait for wget to exit
+     * before cleanup so no detached writer can recreate or race the path.
      */
-    errno = 0;
-    remove_result = remove(DETECT_HTTPD_FILE);
-    remove_errno = errno;
-    status = watchdog_httpd_probe_stale_file_remove_status(
-        remove_result, remove_errno);
-    if (status != 0) {
+    probe_file[0] = '\0';
+    if (!mkdtemp(probe_directory)) {
+        status = errno > 0 ? errno : EIO;
         logmessage("watchdog",
-                   "cannot clear stale HTTPD probe result; skipping liveness decision (status=%d)",
+                   "cannot create private HTTPD probe directory; skipping liveness decision (status=%d)",
                    status);
         return 1;
     }
+    probe_path_length = snprintf(probe_file, sizeof(probe_file),
+                                 "%s/result", probe_directory);
+    if (probe_path_length < 0 ||
+        (size_t)probe_path_length >= sizeof(probe_file)) {
+        status = ENAMETOOLONG;
+        logmessage("watchdog",
+                   "private HTTPD probe path is too long; skipping liveness decision");
+        goto probe_cleanup;
+    }
 
-    /* httpd will not count 127.0.0.1 */
-    /* The probe is detached; bound its network wait instead of killing every wget. */
-    doSystem("wget -q -T 1 http://127.0.0.1:%d/httpd_check.htm -O %s &", http_port, DETECT_HTTPD_FILE);
+    /* httpd will not count 127.0.0.1; the private output path is shell-safe. */
+    (void)doSystem("wget -q -T 1 http://127.0.0.1:%d/httpd_check.htm -O %s",
+                   http_port, probe_file);
 
     httpd_live = 0;
     for (i = 0; i < 3; i++) {
         errno = 0;
-        fp = fopen(DETECT_HTTPD_FILE, "r");
+        fp = fopen(probe_file, "r");
         if (fp == NULL) {
             probe_open_errno = errno > 0 ? errno : EIO;
             status = watchdog_httpd_probe_file_io_status(
@@ -221,7 +229,7 @@ httpd_check_v2()
             logmessage("watchdog",
                        "cannot read HTTPD probe result; skipping liveness decision (status=%d)",
                        status);
-            return 1;
+            goto probe_cleanup;
         }
 
         if (httpd_live)
@@ -235,7 +243,7 @@ httpd_check_v2()
                 logmessage("watchdog",
                            "cannot recheck HTTPD LAN port; skipping restart decision (status=%d)",
                            status);
-            return 1;
+            goto probe_cleanup;
         }
 
         sleep(1);
@@ -243,10 +251,27 @@ httpd_check_v2()
 
     if (!httpd_live) {
         dbg("httpd is so dead!!!\n");
-        return 0;
+        probe_result = 0;
     }
 
-    return 1;
+probe_cleanup:
+    if (probe_file[0] && unlink(probe_file) != 0 && errno != ENOENT) {
+        status = errno > 0 ? errno : EIO;
+        logmessage("watchdog",
+                   "cannot remove private HTTPD probe result (status=%d); skipping liveness decision",
+                   status);
+        probe_result = 1;
+    }
+    errno = 0;
+    if (rmdir(probe_directory) != 0 && errno != ENOENT) {
+        status = errno > 0 ? errno : EIO;
+        logmessage("watchdog",
+                   "cannot remove private HTTPD probe directory (status=%d); skipping liveness decision",
+                   status);
+        probe_result = 1;
+    }
+
+    return probe_result;
 }
 #endif
 
@@ -780,12 +805,7 @@ static void httpd_process_check(void)
 	    ) && nvram_match("httpd_started", "1"))
 	{
 		printf("## restart httpd ##\n");
-		httpd_missing = 0;
-#ifdef HTTPD_CHECK
-		/* Discard the previous probe result before the serialized restart transaction. */
-		remove(DETECT_HTTPD_FILE);
-#endif
-		restart_status = restart_httpd();
+		httpd_missing = 0;		restart_status = restart_httpd();
 		if (restart_status != 0)
 			logmessage("watchdog", "HTTPD recovery restart failed (status=%d)", restart_status);
 	}

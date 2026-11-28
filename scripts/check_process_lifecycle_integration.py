@@ -1924,9 +1924,20 @@ httpd_probe = watchdog_source.split("static int\nhttpd_check_v2()", 1)[1].split(
     "\nstatic int\nrefresh_ntp(void)", 1
 )[0]
 busybox_config = (root / "trunk/configs/boards/busybox.config").read_text()
-assert 'wget -q -T 1 http://127.0.0.1:%d/httpd_check.htm' in httpd_probe
+assert 'char probe_directory[] = "/tmp/watchdog-httpd-probe.XXXXXX";' in httpd_probe
+assert "mkdtemp(probe_directory)" in httpd_probe
+assert 'snprintf(probe_file, sizeof(probe_file)' in httpd_probe
+assert 'wget -q -T 1 http://127.0.0.1:%d/httpd_check.htm -O %s' in httpd_probe
+assert "fopen(probe_file" in httpd_probe
+assert "unlink(probe_file)" in httpd_probe and "rmdir(probe_directory)" in httpd_probe
+assert "probe_cleanup:" in httpd_probe
+assert "httpd_check_result" not in watchdog_source
+assert "httpd_check.htm -O %s &" not in httpd_probe
 assert 'pids("wget")' not in httpd_probe
 assert 'killall wget' not in httpd_probe
+assert httpd_probe.index("mkdtemp(probe_directory)") < httpd_probe.index("doSystem(")
+assert httpd_probe.index("doSystem(") < httpd_probe.index("fopen(probe_file")
+assert httpd_probe.index("probe_cleanup:") < httpd_probe.index("unlink(probe_file)")
 assert "CONFIG_FEATURE_WGET_TIMEOUT=y" in busybox_config
 watchdog_httpd = watchdog_source.split("static void httpd_process_check(void)", 1)[1].split(
     "/* Sometimes, dnsmasq crashed, try to re-run it */", 1

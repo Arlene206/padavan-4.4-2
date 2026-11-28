@@ -1,3 +1,11 @@
+## 2026-11-28 — Close root HTTPD watchdog /tmp symlink race
+
+- The HTTPD watchdog removed a predictable `/tmp/httpd_check_result` and then invoked background `wget -O` on that path. Between unlink and wget's open, a local process with write access to shared `/tmp` could replace the pathname with a symlink; the root watchdog would then truncate/write the symlink target. The detached writer also outlived the probe routine's cleanup/decision window.
+- Replaced the shared filename with an atomically created `mkdtemp()` directory under `/tmp` (owner-only 0700); the result path is confined inside it. Wget now runs synchronously with the existing one-second timeout, so the result cannot be raced by a detached child. All post-creation exits converge on cleanup; cleanup failure suppresses an HTTPD-dead decision.
+- Added a GNU89/ASan/UBSan filesystem regression checking directory ownership/mode and regular result-file ownership/mode. Updated both watchdog and process-lifecycle source contracts to require private-directory creation, synchronous wget, and cleanup while rejecting the predictable shared path and background writer. Exact-head Actions and XY-C1 build are required; no local compile or hardware result is claimed.
+
+---
+
 ## 2026-11-28 — Bound AliDDNS HMAC helper I/O under persistent signals
 
 - Review of the already-integrated AccessKeySecret argv privacy helper found both its stdin read loop and stdout write loop retried EINTR indefinitely. A sustained signal storm could therefore pin the signing child and block DDNS request progress.

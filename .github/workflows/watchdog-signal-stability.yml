@@ -191,10 +191,15 @@ jobs:
           live_decision = httpd_probe.index("if (httpd_live)", file_error_guard)
           assert file_status < file_error_guard < live_decision
           assert "test_stale_probe_result_must_be_removed_before_probe" in httpd_test
-          remove_result = httpd_probe.index("remove_result = remove(DETECT_HTTPD_FILE)")
-          remove_guard = httpd_probe.index("if (status != 0)", remove_result)
-          probe_launch = httpd_probe.index('doSystem("wget -q -T 1', remove_guard)
-          assert remove_result < remove_guard < probe_launch
+          private_directory = httpd_probe.index("mkdtemp(probe_directory)")
+          private_path = httpd_probe.index('snprintf(probe_file, sizeof(probe_file)')
+          probe_launch = httpd_probe.index('doSystem("wget -q -T 1')
+          probe_open = httpd_probe.index("fopen(probe_file")
+          cleanup = httpd_probe.index("probe_cleanup:")
+          assert private_directory < private_path < probe_launch < probe_open < cleanup
+          assert "unlink(probe_file)" in httpd_probe and "rmdir(probe_directory)" in httpd_probe
+          assert "DETECT_HTTPD_FILE" not in httpd_probe
+          assert "httpd_check_result" not in watchdog
           assert "test_login_timestamp_requires_complete_decimal_value" in httpd_test
           assert "test_probe_requires_trustworthy_http_configuration" in httpd_test
           assert "test_port_recheck_does_not_hide_read_errors_or_changes" in httpd_test

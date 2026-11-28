@@ -1,6 +1,11 @@
 #include <assert.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <limits.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include "watchdog_httpd_probe_policy.h"
 
@@ -53,6 +58,33 @@ test_port_recheck_does_not_hide_read_errors_or_changes(void)
 }
 
 static void
+test_private_probe_directory_is_owner_only(void)
+{
+    char directory[] = "/tmp/watchdog-httpd-probe-test.XXXXXX";
+    char result[PATH_MAX];
+    struct stat st;
+    int fd, length;
+
+    assert(mkdtemp(directory) != NULL);
+    assert(lstat(directory, &st) == 0);
+    assert(S_ISDIR(st.st_mode));
+    assert(st.st_uid == geteuid());
+    assert((st.st_mode & 0777) == 0700);
+
+    length = snprintf(result, sizeof(result), "%s/result", directory);
+    assert(length > 0 && (size_t)length < sizeof(result));
+    fd = open(result, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, 0600);
+    assert(fd >= 0);
+    assert(fstat(fd, &st) == 0);
+    assert(S_ISREG(st.st_mode));
+    assert(st.st_uid == geteuid());
+    assert((st.st_mode & 0777) == 0600);
+    assert(close(fd) == 0);
+    assert(unlink(result) == 0);
+    assert(rmdir(directory) == 0);
+}
+
+static void
 test_probe_file_io_errors_skip_restart_decision(void)
 {
     assert(watchdog_httpd_probe_file_io_status(0, 0, 0, 0, 0) == 0);
@@ -74,6 +106,7 @@ main(void)
     test_port_recheck_does_not_hide_read_errors_or_changes();
     test_stale_probe_result_must_be_removed_before_probe();
     test_probe_file_io_errors_skip_restart_decision();
+    test_private_probe_directory_is_owner_only();
     puts("watchdog HTTPD probe safety policy: PASS");
     return 0;
 }
