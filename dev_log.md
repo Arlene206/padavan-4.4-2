@@ -1,3 +1,9 @@
+## 2026-11-28 — Remove undeclared regex dependency from DHCP source checker
+
+- The DHCP checker used `re.search` but did not import `re`, causing NameError after the sanitizer policy regression had passed. Replaced it with whitespace-stripped string matching; runtime source unchanged.
+
+---
+
 ## 2026-11-28 — Make udhcpc lease planner call assertion whitespace-tolerant
 
 - The earlier udhcpc checker failed at a literal one-line string assertion for `udhcpc_lease_script_plan(lease_seconds, script_elapsed,`; the C invocation wraps the parameters on separate lines. Replaced this brittle check with a whitespace-tolerant regex.

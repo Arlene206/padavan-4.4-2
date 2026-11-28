@@ -1,3 +1,10 @@
+## 2026-11-28 — Remove undeclared regex dependency from DHCP source checker
+
+- Exact udhcpc run #46095377953 on aeb85731f829fdcb7d52d7d359b32b79fc70987d: GNU89/Werror/ASan/UBSan policy binary PASS, then source checker failed because the new whitespace-tolerant check used `re.search` without importing `re`.
+- THIS checker-only correction canonicalizes whitespace and checks the planner call without introducing a new import. No source behavior changed; exact-head rerun required.
+
+---
+
 ## 2026-11-28 — Make udhcpc lease planner call assertion whitespace-tolerant
 
 - On parent SHA 24b18796e21eb5137b44836c3146552c6752e7ca, inspection of the earlier udhcpc run #46094952676 showed the sanitizer policy binary PASS, but the source checker failed because it searched for a single-line planner invocation. The C call is intentionally split over multiple lines.
