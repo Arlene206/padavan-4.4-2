@@ -229,6 +229,29 @@ redsocks_start_and_verify()
 
 func_start(){
 MODE=true
+	# Validate generation inputs before stopping a currently healthy daemon.
+	# Without a config file, a partial/invalid endpoint must not take service down.
+	if [ ! -f "$REDSOCKS_CONF" ]; then
+		if [ -z "$ARG2" ] && [ -z "$ARG3" ]; then
+			logger -t "$BINARY_NAME" "CONFIG FILE NOT FOUND"
+			return 0
+		fi
+		if [ -z "$ARG2" ] || [ -z "$ARG3" ]; then
+			logger -t "$BINARY_NAME" "both SOCKS5 server address and port are required"
+			return 2
+		fi
+		SOCKS5_IP=$ARG2
+		if ! redsocks_ipv4_valid "$SOCKS5_IP"; then
+			logger -t "$BINARY_NAME" "invalid SOCKS5 server IPv4 address"
+			return 2
+		fi
+		if SOCKS5_PORT=$(redsocks_port_normalize "$ARG3"); then
+			:
+		else
+			logger -t "$BINARY_NAME" "invalid SOCKS5 server port"
+			return 2
+		fi
+	fi
 if redsocks_process_state; then
 	if ! func_stop; then
 		logger -t "$BINARY_NAME" "existing process could not be stopped; refusing duplicate launch"
@@ -248,8 +271,6 @@ then
 	then
 		if [ -n "$ARG3" ]
 		then
-			SOCKS5_IP=$ARG2
-			SOCKS5_PORT=$ARG3
 			if [ ! -d $REDSOCKS_DIR ]
 			then
 			mkdir -p $REDSOCKS_DIR	
@@ -283,6 +304,15 @@ else
 	redsocks_start_and_verify || return $?
 	logger -t $BINARY_NAME "STARTED."
 fi
+}
+
+redsocks_port_normalize()
+{
+	local port="$1" numeric
+	[[ "$port" =~ ^[0-9]{1,5}$ ]] || return 1
+	numeric=$((10#$port))
+	[ "$numeric" -ge 1 ] && [ "$numeric" -le 65535 ] || return 1
+	printf '%s\n' "$numeric"
 }
 
 redsocks_ipv4_valid()

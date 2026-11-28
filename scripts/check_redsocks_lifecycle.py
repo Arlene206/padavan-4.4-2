@@ -78,6 +78,17 @@ require('redsocks_process_state' in start and
         "start must refuse duplicate launch when existing daemon stop fails")
 require('func_stop && func_start' in source,
         "restart must gate replacement start on successful stop")
+port_normalize = body("redsocks_port_normalize()")
+require('[[ "$port" =~ ^[0-9]{1,5}$ ]]' in port_normalize and
+        'numeric=$((10#$port))' in port_normalize and
+        '[ "$numeric" -ge 1 ] && [ "$numeric" -le 65535 ]' in port_normalize,
+        "SOCKS5 port must be a decimal value in 1..65535 and normalized before config emission")
+require(start.index('if [ ! -f "$REDSOCKS_CONF" ]') <
+        start.index('redsocks_ipv4_valid "$SOCKS5_IP"') <
+        start.index("if redsocks_process_state") and
+        'SOCKS5_PORT=$(redsocks_port_normalize "$ARG3")' in start and
+        'CONFIG FILE NOT FOUND' in start,
+        "config endpoint preflight must run before stopping an existing daemon and preserve no-config no-op")
 require('if [ "${RED_SOCKS_TEST_MODE:-0}" != 1 ]; then' in source and
         'case "$ARG1" in' in source,
         "test mode must skip only the CLI dispatcher while preserving production function definitions")

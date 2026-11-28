@@ -1,3 +1,10 @@
+## 2026-11-28 — Validate Redsocks generated SOCKS5 endpoints before restart
+
+- `func_start` wrote caller-supplied address and port directly into a privileged Redsocks config heredoc. An address/port containing a newline could inject additional directives. It also stopped a healthy daemon before discovering that a missing config had no endpoint or invalid values.
+- Added strict IPv4 validation, decimal port normalization/range enforcement (1–65535), and a preflight before process-stop operations. Missing config with no endpoint remains a safe no-op; malformed input leaves a running instance untouched. Regression covers newline injection, invalid/octal IPv4, port injection, zero/out-of-range/non-numeric ports and leading-zero normalization.
+
+---
+
 ## 2026-11-28 — Reject symlinked Transmission storage roots
 
 - `func_start` previously checked only that `/mnt/transmission` was a directory before deriving and permission-changing its config/download descendants. A symlinked storage root (or symlinked immediate parent) still passed the directory test and allowed privileged chown/chmod to follow the link into attacker-controlled storage.

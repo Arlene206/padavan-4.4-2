@@ -1,3 +1,12 @@
+## 2026-11-28 — Harden Redsocks generated endpoint configuration
+
+- Found that `func_start` interpolated caller-supplied SOCKS5 address and port into a root-generated config without validation; embedded newlines could append arbitrary Redsocks directives. The routine also stopped the existing daemon before validating input or checking that an endpoint existed.
+- Added strict IPv4 validation and decimal port normalization/range check (1–65535) before any process signal or config creation. If a config is absent and no complete endpoint is supplied, start now returns the existing no-op result without stopping a healthy daemon. Tests cover injected newlines, invalid/out-of-range inputs, preservation of the original RUNNING process, and leading-zero normalization.
+- The prior SmartDNS exact-SHA `380918ce60cb7d955d57b90ca42868b1df964de5` DNSMasq #46085481393 PASS; process regression #46085481385 PASS; process inventory #46085481419 PASS; USB storage #46085481386 PASS; AI handoff #46085481469 PASS. XY-C1 #46085481414 still pending at the last poll.
+- Current main before this Redsocks slice was `c149a1f850ba7f074d5da757ed760b755284c017`; Transmission root symlink regression is part of this commit's process workflow. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+
+---
+
 ## 2026-11-28 — Harden Transmission storage-root trust boundary
 
 - Found a root-level storage symlink gap: `func_start` only used `[ -d "$DIR_LINK" ]`; that succeeds when `/mnt/transmission` is a symlink to an attacker-controlled directory. Descendant-only `transmission_require_dir` checks therefore did not protect privileged chmod/chown operations from a symlinked storage-root or immediate parent.
