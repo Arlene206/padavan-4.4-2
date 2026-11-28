@@ -1,23 +1,16 @@
-# Session Handoff — 2026-11-28
-
 ## 2026-11-28 continuation checkpoint
 
-- Live `main`: `1151dd8237ea16e079d9989d3ba4f760ad783894`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (must remain unchanged).
-- QMI retry source slice `1a33a6bcf9401810bc24858471e4867b37744bf6` adds an EINTR-aware full-delay helper and injected sleep-remainder regression. The subsequent USB modem source now routes its one-second waits through the generic `modem_wait_full_delay(1U, sleep)` helper; the policy test covers a remainder sequence of 3 → 2 → 1 → 0.
-- USB modem static-check repair `3d6f0dd96f18fa236bbbf522786ae59ce0e9a4d1` updates `scripts/check_modem_module_reload.py` to expect the full-delay helper in unload/reload paths and checks all USB modem one-second waits plus the helper regression. The immediately preceding USB modem run that still expected raw `sleep(1)` was superseded by this checker repair.
-- AI handoff validation: #46127933674 0d757a438cd424c600be87724b65b473012310c6 completed/success (run is on the handoff repair SHA).
-- USB modem identity validation after the checker repair: #46128756167 3d6f0dd96f18fa236bbbf522786ae59ce0e9a4d1 completed/success.
-- Earlier XY-C1 production runs: `#46127604081 d8c0568b30c07a5d18d4eca786d1ed53a9d5ef41 completed/success`; `#46127680458 7b56260076b8d05b521b3caf3f90afffc65642dc completed/success`. These run SHAs are not automatically equivalent to current `main`; exact current-head XY-C1 result(s): none observed in the fetched first page.
-- Exact current-head USB modem result(s): none observed in the fetched first page.
-- L3 XY-C1 firmware/TRX/artifact validation remains unverified unless a complete exact-production-source run reports all three steps successful. Physical-router L4 remains unverified.
-- No local firmware checkout/build or hardware run was performed. Do not infer successful MIPS/TRX/artifact verification from host policy tests.
-- First next action: fetch live `main` and frozen backup once; inspect exact-head AI and USB modem runs above; then find/repair the next clear userland stability or security defect while XY-C1 production CI proceeds. Do not repeat the completed repository-wide governance audit.
-
+- Parent live `main` before this atomic NVRAM flock/unlock slice: `5401539ce7c4af2f5b22267915c93b23db3c865d`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (must remain unchanged).
+- Procfs directory EINTR retry slice `3fb57acc623b3fd227c6d0aa3646733cbcb6dce2`: inventory-only workflow #46128583255 PASS; its Process fail-closed #46128583279 first failed on an over-broad checker assertion. Correction `1151dd8237ea16e079d9989d3ba4f760ad783894` removed only that assertion; exact Process fail-closed #46128917625 and AI docs #46128917616 completed/success.
+- NVRAM bounded wait fix `ac141ff53f1d29e25f6279d762c064de123092dc` initially failed NVRAM #46128697949 and HTTPD #46128697956 due signedness Werror and malformed checker syntax. `656733c2e9a7299494e69312217016fbeba64b2e` corrected both; its Process source inventory #46128844154, HTTPD #46128844113 and AI docs #46128844188 completed/success. NVRAM #46128844097 was still in progress at last poll.
+- Review of the NVRAM lock primitive found both `flock(LOCK_NB)` and `flock(LOCK_UN)` still had unbounded EINTR retry loops. This commit uses one bounded helper for both and adds injected success/exhaustion tests; exact-head NVRAM audit is required.
+- L3 XY-C1 production Build/TRX/artifact and physical-router L4 remain unverified unless a single exact-source run and hardware session demonstrate all checks. No local full firmware build/hardware run.
+- First next action: fetch this commit's live main SHA and inspect exact-head NVRAM boundary, HTTPD security and AI documentation Actions; continue any pending Process validation without repeating completed audits.
 
 ## Current repository state
 
 - Repository `Arlene206/padavan-4.4-2`; only `main` is authorized for development.
-- Parent main SHA for this atomic lock-wait slice: `0d757a438cd424c600be87724b65b473012310c6`. The handoff, code, test, checker and log are committed together; resolve the resulting SHA from live `main` on the next recovery.
+- This atomic source slice is parented to `5401539ce7c4af2f5b22267915c93b23db3c865d`; resolve its resulting SHA from live `main` after publication.
 - Frozen archive `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable. PR #1 remains closed. No work branches or new PRs.
 - Bootstrap/protocol/handoff/roadmap/dev-log recovery was completed once; do not repeat the completed audit. `REFACTOR_ROADMAP.md` remains unchanged and near its 128 KiB limit.
 - No local full firmware build or physical-router validation is available.
@@ -33,57 +26,23 @@
 - Service lifecycle wait interruption fix: `f5cd59f4e98e2b46a256acfeb39d0b89d8fb9639` changed Inadyn/USB-printer stop waits to propagate the existing EINTR-aware bounded wait policy and prevented forced KILL after a failed wait. Exact Process inventory/lifecycle #46128356507, Inadyn #46128356513, Process source inventory #46128356524 and AI handoff #46128356516 passed; XY-C1 #46128356573 was still in progress at last poll. NVRAM #46128356589 was cancelled by subsequent concurrent pushes.
 ## Active task
 
-- Verify the NVRAM bounded-lock follow-up and repair process-inventory regression checker. Exact parent `ac141ff53f1d29e25f6279d762c064de123092dc` NVRAM/HTTPD both failed at the shared NVRAM lock-test compile because `sig_atomic_t` was compared with an unsigned bound. Exact follow-up `656733c2e9a7299494e69312217016fbeba64b2e` casts the expected minimum correctly and fixes the Python NVRAM checker grouping; AI handoff PASS, NVRAM/HTTPD pending at last poll.
-- Procfs EINTR production retry code on `3fb57acc623b3fd227c6d0aa3646733cbcb6dce2` passed the inventory-only workflow but the broader Process regression failed only due an over-broad negative assertion in the new integration checker. This commit removes that assertion; positive retry-contract and test-case assertions remain.
+- NVRAM transaction-lock signal hardening. The prior nanosleep remainder loop now caps interruptions, but the nonblocking `flock(fd, LOCK_NB)` acquisition and `flock(fd, LOCK_UN)` release loops still retried EINTR without limits, allowing a signal storm to pin acquisition/release.
+- This slice adds a shared eight-interruption counter and an injectable bounded flock wrapper; both production operations now fail with EINTR after exhaustion. Acquisition follows the existing descriptor cleanup path. A fake-flock regression tests retry success and bounded exhaustion; the checker requires both production call sites to use the helper.
+- Exact-head NVRAM boundary, HTTPD and AI Actions are pending for this change.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect exact-SHA Process inventory/lifecycle, NVRAM boundary, HTTPD security and AI handoff Actions for this checker correction.
-2. Confirm NVRAM Werror compile passes, lock tests pass under ASan/UBSan, and the Python static gate parses and completes.
-3. Confirm the process regression checker passes with the procfs open/read retry cases present. If another job fails, inspect its specific step/log and repair.
-4. Require exact-SHA XY-C1 MIPS Build, TRX and artifact upload before claiming L3; L4 remains NOT VERIFIED.
-5. Continue independent stability/security work while Actions are pending.
+1. Fetch live `main` and inspect exact-SHA NVRAM transaction-boundary, HTTPD Authentication/Security and AI handoff Actions for this flock/unlock retry commit.
+2. Confirm GNU89/Werror and ASan/UBSan lock tests pass, including successful acquisition and unlock retries, bounded flock exhaustion, and bounded nanosleep interruption.
+3. Confirm NVRAM static gate parses and validates both acquisition and release helper call sites.
+4. If any exact-head job fails, inspect its job log and fix only the causal defect. A pending job does not block independent work.
+5. Require exact-SHA XY-C1 MIPS Build, TRX validation and artifact upload before claiming L3; L4 remains NOT VERIFIED.
 
 ## Verification boundary
 
-- L1: procfs open/read retry source and injected test cases remain committed; one over-broad checker assertion removed.
-- L2: exact-head Process inventory/lifecycle, NVRAM and HTTPD Actions pending on this correction SHA.
+- L1: bounded flock/unlock EINTR helper, production call-site wiring, fake-flock regression and static assertions committed atomically.
+- L2: exact-head NVRAM/HTTPD/AI Actions pending.
 - L3: NOT VERIFIED until exact-SHA XY-C1 MIPS Build, TRX validation and artifact upload all pass.
-- L4: NOT VERIFIED; no physical router was available.
-- Backup remains immutable; no branches or PRs were created.
-
-
-- L1: bounded NVRAM signal retry implementation is committed; Werror comparison and checker syntax repaired in this slice.
-- L2: exact-head NVRAM/HTTPD CI reruns pending; parent SHA failed at the shared lock-test compile step.
-- L3: NOT VERIFIED until exact-SHA XY-C1 MIPS Build, TRX validation and artifact upload all pass.
-- L4: NOT VERIFIED; no physical router was available.
-- Backup remains immutable; no branches or PRs were created.
-
-
-- L1: NVRAM wait interruption counter and static contract added; separate tests cover successful interrupted wait and bounded storm failure.
-- L2: exact-head NVRAM and Process inventory/lifecycle Actions pending; local full checkout not available.
-- L3: NOT VERIFIED until exact-SHA XY-C1 MIPS Build, TRX and artifact upload pass.
-- L4: NOT VERIFIED; no physical router was available.
-- Backup remains immutable; no branches or PRs were created.
-
-
-- L1: bounded EINTR retry paths added for procfs directory open/read; integration source assertions and injected tests added.
-- L2: exact-head Process inventory/lifecycle Actions pending for this commit.
-- L3: NOT VERIFIED until exact-SHA XY-C1 MIPS Build, TRX validation and artifact upload all pass.
-- L4: NOT VERIFIED; no physical router was available.
-- Backup remains immutable; no branches or PRs were created.
-
-
-- L1: service lifecycle callback contract, error propagation and both production adapters updated; integration source assertions added.
-- L2: exact-head Process lifecycle Actions pending; this session has not claimed a local full-checkout build.
-- L3: NOT VERIFIED for current combined firmware until exact-SHA XY-C1 Build, TRX and artifact upload all pass.
-- L4: NOT VERIFIED; no physical router was available.
-- Backup remains immutable; no branches or PRs were created.
-
-
-- L1: source and static contracts added; exact-head full repository checker pending.
-- L2: local GNU89/Werror/ASan/UBSan interrupted-lock-wait regression PASS; exact-head CI pending.
-- L3: NOT VERIFIED for the current combined firmware source until exact-SHA XY-C1 Build, TRX and artifact upload all pass.
 - L4: NOT VERIFIED; no physical router was available.
 - Backup remains immutable; no branches or PRs were created.
 

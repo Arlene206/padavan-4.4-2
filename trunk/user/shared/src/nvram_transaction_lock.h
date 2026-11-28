@@ -14,6 +14,53 @@
 #define NVRAM_TRANSACTION_LOCK_MAX_INTERRUPTS 8U
 #define NVRAM_TRANSACTION_LOCK_MODE (S_IRUSR | S_IWUSR)
 
+static inline int
+nvram_transaction_lock_retry_interrupted(unsigned int *interruptions)
+{
+	if (!interruptions) {
+		errno = EINVAL;
+		return -1;
+	}
+	if (*interruptions >= NVRAM_TRANSACTION_LOCK_MAX_INTERRUPTS) {
+		errno = EINTR;
+		return -1;
+	}
+	++*interruptions;
+	return 0;
+}
+
+typedef int (*nvram_transaction_lock_flock_fn)(int fd, int operation,
+						       void *context);
+
+static inline int
+nvram_transaction_lock_flock_real(int fd, int operation, void *context)
+{
+	(void)context;
+	return flock(fd, operation);
+}
+
+/* Bound interruption retries for lock, unlock and nonblocking acquisition. */
+static inline int
+nvram_transaction_lock_flock_with(int fd, int operation,
+				  nvram_transaction_lock_flock_fn flock_fn,
+				  void *context)
+{
+	unsigned int interruptions = 0;
+
+	if (!flock_fn) {
+		errno = EINVAL;
+		return -1;
+	}
+	for (;;) {
+		if (flock_fn(fd, operation, context) == 0)
+			return 0;
+		if (errno != EINTR)
+			return -1;
+		if (nvram_transaction_lock_retry_interrupted(&interruptions) != 0)
+			return -1;
+	}
+}
+
 /* Complete the requested interval even when signals interrupt nanosleep. */
 static inline int
 nvram_transaction_lock_wait_interval(unsigned int seconds)
@@ -28,11 +75,8 @@ nvram_transaction_lock_wait_interval(unsigned int seconds)
 			return 0;
 		if (errno != EINTR)
 			return -1;
-		if (interruptions >= NVRAM_TRANSACTION_LOCK_MAX_INTERRUPTS) {
-			errno = EINTR;
+		if (nvram_transaction_lock_retry_interrupted(&interruptions) != 0)
 			return -1;
-		}
-		++interruptions;
 		requested = remaining;
 	}
 }
@@ -85,10 +129,12 @@ nvram_transaction_lock_acquire_path(const char *path, int exclusive,
 	}
 
 	for (;;) {
-		if (flock(fd, operation | LOCK_NB) == 0)
+		if (nvram_transaction_lock_flock_with(
+			    fd, operation | LOCK_NB,
+			    nvram_transaction_lock_flock_real, NULL) == 0)
 			return fd;
 		if (errno == EINTR)
-			continue;
+			goto failed;
 		if (errno != EWOULDBLOCK && errno != EAGAIN)
 			goto failed;
 		if (attempt >= wait_seconds) {
@@ -123,12 +169,9 @@ nvram_transaction_lock_release(int fd)
 		errno = EBADF;
 		return -1;
 	}
-	while (flock(fd, LOCK_UN) != 0) {
-		if (errno == EINTR)
-			continue;
+	if (nvram_transaction_lock_flock_with(
+		    fd, LOCK_UN, nvram_transaction_lock_flock_real, NULL) != 0)
 		saved_errno = errno ? errno : EIO;
-		break;
-	}
 	if (close(fd) != 0 && saved_errno == 0)
 		saved_errno = errno ? errno : EIO;
 	if (saved_errno != 0) {

@@ -1,3 +1,12 @@
+## 2026-11-28 — Bound EINTR retries for NVRAM flock and unlock operations
+
+- Base main SHA: `5401539ce7c4af2f5b22267915c93b23db3c865d`; result: THIS COMMIT (resolve the resulting SHA from live `main` after publication).
+- Review found two more potential unbounded interruption paths after the nanosleep fix: the nonblocking `flock(fd, LOCK_NB)` acquisition loop and `flock(fd, LOCK_UN)` release loop retried EINTR forever. A persistent signal storm could spin the caller and bypass bounded transaction timing/cleanup.
+- Added a shared eight-interruption counter and injectable `nvram_transaction_lock_flock_with()` wrapper. Both acquisition and release now use this helper; after eight EINTR retries the operation fails with EINTR, and acquisition follows the existing descriptor cleanup path. Normal EWOULDBLOCK remains the timed contention path.
+- Added fake-flock regressions for successful acquisition/unlock retry and bounded exhaustion. The NVRAM boundary checker statically enforces helper usage in both production call sites. Exact-SHA NVRAM/HTTPD/AI checks are required for this slice.
+
+---
+
 ## 2026-11-28 — QMI retry waits and modem checker repair
 
 - Extended the USB modem timing hardening from the QMI retry loop to all remaining one-second modem waits using the shared `modem_wait_full_delay(1U, sleep)` helper. The helper resumes the unslept remainder returned by `sleep(3)`; the policy regression validates successive remainder values and zero-delay behavior.

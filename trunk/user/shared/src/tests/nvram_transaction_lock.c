@@ -29,6 +29,64 @@ read_byte_timeout(int fd, char *value, unsigned int milliseconds)
 	return (read(fd, value, 1) == 1) ? 1 : -1;
 }
 
+struct fake_flock_context {
+	unsigned int interruptions_remaining;
+	unsigned int calls;
+	int succeed_after_interruptions;
+};
+
+static int
+fake_flock(int fd, int operation, void *opaque)
+{
+	struct fake_flock_context *context =
+		(struct fake_flock_context *)opaque;
+
+	(void)fd;
+	(void)operation;
+	context->calls++;
+	if (context->interruptions_remaining > 0) {
+		context->interruptions_remaining--;
+		errno = EINTR;
+		return -1;
+	}
+	if (context->succeed_after_interruptions)
+		return 0;
+	errno = EWOULDBLOCK;
+	return -1;
+}
+
+static int
+lock_flock_interrupt_retry_test(void)
+{
+	struct fake_flock_context context;
+	int result;
+
+	memset(&context, 0, sizeof(context));
+	context.interruptions_remaining = 3;
+	context.succeed_after_interruptions = 1;
+	result = nvram_transaction_lock_flock_with(7, LOCK_EX | LOCK_NB,
+						    fake_flock, &context);
+	if (result != 0 || context.calls != 4)
+		return 0;
+
+	memset(&context, 0, sizeof(context));
+	context.interruptions_remaining = 2;
+	context.succeed_after_interruptions = 1;
+	result = nvram_transaction_lock_flock_with(7, LOCK_UN,
+						    fake_flock, &context);
+	if (result != 0 || context.calls != 3)
+		return 0;
+
+	memset(&context, 0, sizeof(context));
+	context.interruptions_remaining =
+		NVRAM_TRANSACTION_LOCK_MAX_INTERRUPTS + 1U;
+	errno = 0;
+	result = nvram_transaction_lock_flock_with(7, LOCK_EX | LOCK_NB,
+						    fake_flock, &context);
+	return result < 0 && errno == EINTR &&
+		context.calls == NVRAM_TRANSACTION_LOCK_MAX_INTERRUPTS + 1U;
+}
+
 static volatile sig_atomic_t lock_wait_signal_count;
 
 static void
@@ -306,6 +364,11 @@ main(void)
 	}
 	unlink(hardlink_path);
 
+	if (!lock_flock_interrupt_retry_test()) {
+		fprintf(stderr, "FAIL: NVRAM flock/unlock EINTR retry budget\n");
+		return 1;
+	}
+	puts("NVRAM flock/unlock EINTR retry success and exhaustion budget: PASS");
 	if (!lock_wait_interrupt_budget_test()) {
 		fprintf(stderr, "FAIL: NVRAM lock wait interruption budget is not bounded\n");
 		return 1;
