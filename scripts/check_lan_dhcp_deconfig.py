@@ -781,7 +781,8 @@ router_changed = c_function_body(
 assert "if (!next_gateway || next_gateway_size == 0)" in router_changed
 assert router_changed.index("if (!next_gateway || next_gateway_size == 0)") < router_changed.index(
     "dhcp_lease_ipv4_list_first("
-)parse_failure = router_changed.split("dhcp_lease_ipv4_list_first(", 1)[1].split(
+)
+parse_failure = router_changed.split("dhcp_lease_ipv4_list_first(", 1)[1].split(
     "return strcmp(", 1
 )[0]
 assert "return 1;" in parse_failure

@@ -12,12 +12,12 @@
 ## Current repository state
 
 - Parent before this slice: 2f7c1ba8096aa257b0983393d2f48d408544a301.
-- Latest DHCP follow-up exact-SHA runs #46138202814, #46138202836, #46138202861, #46138202862, #46138202827, #46138202781 and #46138202783 were all pending/in_progress at last poll.
+- DHCP follow-up 2f7c1ba WAN DHCP run #46138202814 FAILED because its Python source checker had a missing newline after an assertion (`)parse_failure` SyntaxError); the DHCP C regression itself passed. AI docs #46138202861, Process #46138202862, HTTPD #46138202827, WAN route #46138202836 and NVRAM #46138202781 completed SUCCESS; XY-C1 #46138202783 remained in_progress. This checker syntax is corrected in the current follow-up; same-SHA WAN DHCP rerun is required.
 - Frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
 
 ## Active task
 
-- Verify NVRAM credential-staging cleanup on its exact SHA: NVRAM transaction-boundary host test/source audit, Process inventory, AI docs, HTTPD security and XY-C1 Build/TRX/artifact.
+- Verify NVRAM credential-staging cleanup on SHA `57d4433cf07b7972fd24142be6b66746e8c5f528`: NVRAM transaction-boundary host test/source audit #46138364577, AI docs #46138364417, HTTPD #46138364465 and XY-C1 #46138364458. These were in_progress at last poll. Also verify the DHCP checker syntax correction on the new follow-up SHA.
 - On failure, inspect the exact failing step/log and repair causally in a new atomic commit. PENDING permits independent source work.
 - After this NVRAM slice passes, continue with a distinct security/stability defect without repeating completed NTP or DHCP fixes.
 
@@ -32,7 +32,7 @@
 ## Verification boundary
 
 - NTP correction c052: L2 PASS; XY-C1 #46137016928 SUCCESS, L3 PASS. L4 NOT VERIFIED.
-- DHCP follow-up 2f7c1ba8096aa257b0983393d2f48d408544a301: exact-SHA checks #46138202814, #46138202836, #46138202861, #46138202862, #46138202827, #46138202781, #46138202783 pending/in_progress at last poll.
+- DHCP follow-up 2f7c1ba: WAN DHCP #46138202814 FAILED due to a Python checker SyntaxError (`)parse_failure`); C regression passed. AI docs #46138202861, Process #46138202862, HTTPD #46138202827, WAN route #46138202836 and NVRAM #46138202781 SUCCESS; XY-C1 #46138202783 was pending at last poll. Checker repair is in this follow-up and needs a fresh exact-SHA WAN DHCP run.
 - NVRAM credential-staging cleanup: no local kernel build; host test/source checker and exact-SHA Actions pending.
 - Historical Aliyun PID-generation source 19d51bab853ed2b904e44333e3f6ce0bd72059a4: L3 PASS only for XY-C1 #46135763583. Final procfs-read-to-kill(pid) race remains documented.
 - L4: NOT VERIFIED; no physical-router test.
