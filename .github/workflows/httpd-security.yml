@@ -5911,7 +5911,10 @@ jobs:
           assert recreate.index("router_account_name_is_valid(usernm)") < recreate.index("usernm, uid, uid)")
           assert "router_account_name_is_reserved(usernm, rootnm)" in recreate
           assert 'strcmp(usernm, "anonymous")' in recreate
-          assert "duplicate" in recreate and "acc_username%d" in recreate
+          assert "duplicate" in recreate
+          wrapper_compact = "".join(wrapper.split())
+          assert '"acc_username%d",i' in wrapper_compact
+          assert "router_account_nvram_read_copy(" in wrapper
           assert "router_account_name_is_reserved(name, NULL)" in samba_policy
           assert 'strcmp(name, "anonymous")' in samba_policy
           services_compact = "".join(services.split())

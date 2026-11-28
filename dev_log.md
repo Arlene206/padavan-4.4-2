@@ -1,3 +1,11 @@
+## 2026-11-28 — Split HTTPD duplicate-account and NVRAM-key assertions by function
+
+- Exact-SHA HTTPD regression after the snapshot-body extractor update reached the intended function, then failed because its final assertion still expected the NVRAM key format string `acc_username%d` inside the snapshot consumer. The consumer receives an already copied list; the compatibility wrapper now builds that key and snapshots it under one transaction.
+- Corrected the regression to require duplicate-account filtering in the snapshot consumer and the indexed NVRAM-key format plus checked-copy read in the wrapper.
+- Parent main SHA: cbbe470cce2e09ff94056c24d8f5682cb2bfaf6c. Re-run exact-head HTTPD security regression; no production code changed.
+
+---
+
 ## 2026-11-28 — Update HTTPD account-identity contract for the passwd snapshot consumer
 
 - Exact-SHA HTTPD security regression on the Samba snapshot change passed all earlier HTTPD and file-security checks, then failed in the final Samba/Unix identity contract: it still extracted `recreate_passwd_unix()` through `_eval`, but that wrapper now only snapshots NVRAM while reserved-name and /etc/passwd generation logic lives in `recreate_passwd_unix_snapshot()`.
