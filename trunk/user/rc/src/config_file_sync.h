@@ -7,6 +7,11 @@
 #include <string.h>
 #include <unistd.h>
 
+/* Permit deterministic EINTR injection in host tests without linker wrapping. */
+#ifndef CONFIG_FILE_SYNC_FSYNC
+#define CONFIG_FILE_SYNC_FSYNC(fd) fsync(fd)
+#endif
+
 /* Retry transient interruption without treating it as a durability success. */
 static int
 config_file_sync_fd(int fd)
@@ -15,7 +20,7 @@ config_file_sync_fd(int fd)
 
 	do {
 		errno = 0;
-		status = fsync(fd);
+		status = CONFIG_FILE_SYNC_FSYNC(fd);
 	} while (status != 0 && errno == EINTR);
 
 	return status;

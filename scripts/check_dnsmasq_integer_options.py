@@ -226,12 +226,12 @@ sync_parent = function_body(
 publish = function_body(
     dnsmasq_file_helper, "dnsmasq_file_publish_internal(FILE *fp, char *path")
 assert "O_DIRECTORY | O_NOFOLLOW" in sync_directory
-assert sync_directory.index("fsync(fd)") < sync_directory.index("close(fd)")
+assert sync_directory.index("DNSMASQ_FILE_FSYNC(fd)") < sync_directory.index("close(fd)")
 assert "strrchr(parent, '/')" in sync_parent
 assert "dnsmasq_file_sync_directory(parent)" in sync_parent
 assert publish.index("fflush(fp)") < publish.index("fchmod(fileno(fp), mode)")
-assert publish.index("fchmod(fileno(fp), mode)") < publish.index("fsync(fileno(fp))")
-assert publish.index("fsync(fileno(fp))") < publish.rindex("if (fclose(fp) != 0)")
+assert publish.index("fchmod(fileno(fp), mode)") < publish.index("DNSMASQ_FILE_FSYNC(fileno(fp))")
+assert publish.index("DNSMASQ_FILE_FSYNC(fileno(fp))") < publish.rindex("if (fclose(fp) != 0)")
 assert publish.index("fclose(fp)") < publish.index("rename(path, destination)")
 assert publish.index("rename(path, destination)") < publish.index(
     "dnsmasq_file_sync_parent(destination)")

@@ -6,25 +6,25 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include "../modem_node_file.h"
-#include "../modem_node_identity_policy.h"
 
-/* Inject one EINTR specifically into the staged metadata-file fsync. */
+/* Inject EINTR specifically into the staged metadata-file durability barrier. */
 static int fsync_interrupt_call = -1;
 static int fsync_call_count;
 
-int __real_fsync(int fd);
-
-int
-__wrap_fsync(int fd)
+static int
+modem_test_fsync(int fd)
 {
 	fsync_call_count++;
 	if (fsync_call_count == fsync_interrupt_call) {
 		errno = EINTR;
 		return -1;
 	}
-	return __real_fsync(fd);
+	return fsync(fd);
 }
+
+#define CONFIG_FILE_SYNC_FSYNC(fd) modem_test_fsync(fd)
+#include "../modem_node_file.h"
+#include "../modem_node_identity_policy.h"
 
 static int test_metadata_write_calls;
 static int test_metadata_remove_calls;
