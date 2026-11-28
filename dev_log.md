@@ -1,3 +1,11 @@
+## 2026-11-28 — Bind PID 1 watchdog readiness and rollback to executable identity
+
+- Generic process inventory matches argv0 basename and comm aliases to preserve BusyBox/legacy compatibility. The watchdog startup path was still using this generic result, allowing an unrelated local process with argv0 `watchdog` to suppress the actual PID 1 watchdog. The firmware ROMFS Makefile links `/sbin/watchdog` to the `/sbin/rc` binary.
+- THIS source slice adds a watchdog-scoped gate requiring both watchdog argv0 and the resolved `/sbin/rc` executable, revalidates process identity after /proc reads, and routes startup/readiness/rollback scans through it. Failed-start cleanup signals only verified instances with TERM then bounded KILL, not generic matching processes. The GNU89/Werror/ASan/UBSan policy regression and both Process/XY-C1 workflow triggers are added.
+- No local MIPS build or physical-router test was run. Exact-head Process, XY-C1 Build/TRX/artifact and AI docs checks remain required. Shared generic process-inventory behavior is unchanged.
+
+---
+
 ## 2026-11-28 — Correct staged storage-link mode contract
 
 - Exact SHA aa155bd6b424603b75f5440d888d19885c8fcd86: AI docs #46093243938 PASS and XY-C1 Firmware Validation #46093243944 PASS. USB storage hotplug #46093243935 failed only at the Transmission publisher body assertion after the updated lstat/policy contract and caller graph passed.

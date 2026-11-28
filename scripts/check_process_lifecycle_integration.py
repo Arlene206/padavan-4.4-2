@@ -1799,6 +1799,8 @@ assert '"trunk/user/rc/src/auth.c"' in process_workflow
 assert '"trunk/user/rc/src/auth.c"' in xy_workflow
 
 watchdog_source = (root / "trunk/user/rc/src/watchdog.c").read_text()
+watchdog_process_policy = (root / "trunk/user/rc/src/watchdog_process_executable_policy.h").read_text()
+watchdog_process_test = (root / "trunk/user/rc/src/tests/watchdog_process_executable_policy.c").read_text()
 reboot_schedule = watchdog_source.split(
     "int timecheck_reboot(char *activeSchedule)", 1
 )[1].split("\n}\n", 1)[0]
@@ -1964,8 +1966,12 @@ assert "watchdog_start_rollback_stop" in watchdog_start_rollback
 assert "watchdog_start_rollback_scan" in watchdog_start_rollback
 assert "errno = saved_errno;" in watchdog_start_rollback
 assert "return result;" in watchdog_start_rollback
-assert "kill_services(service_names, 3, 1)" in watchdog_start_stop
-assert "process_inventory_scan((const char *)context, &snapshot)" in watchdog_start_scan
+assert "watchdog_process_signal_instances(SIGTERM" in watchdog_start_stop
+assert "watchdog_process_signal_instances(SIGKILL" in watchdog_start_stop
+assert "service_wait_seconds(3)" in watchdog_start_stop
+assert "service_wait_seconds(1)" in watchdog_start_stop
+assert "kill_services(" not in watchdog_start_stop
+assert "watchdog_process_scan(&snapshot, scan_error)" in watchdog_start_scan
 assert "process_snapshot_release(&snapshot)" in watchdog_start_scan
 for marker in (
     'launch_status, launch_errno, "launcher"',
@@ -1982,7 +1988,7 @@ assert "watchdog_start_probe_wait(" in watchdog_start
 assert "PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS" in watchdog_start
 assert "PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS" in watchdog_start
 assert "PROCESS_PRESENCE_START_PROBE_ATTEMPTS" in watchdog_start
-assert watchdog_start.count('process_inventory_scan("watchdog", &snapshot)') == 2
+assert watchdog_start.count("watchdog_process_scan(&snapshot, &scan_error)") == 2
 assert "process_presence_start_postcondition(launch_status, presence)" in watchdog_start
 assert "presence == PROCESS_PRESENCE_UNKNOWN" in watchdog_start
 assert "cannot verify detached watchdog startup" in watchdog_start
@@ -1997,6 +2003,34 @@ assert '"trunk/user/rc/src/watchdog.c"' in process_workflow
 assert '"trunk/user/rc/src/watchdog.c"' in xy_workflow
 assert '"trunk/user/rc/src/process_presence_start_policy.h"' in process_workflow
 assert '"trunk/user/rc/src/tests/process_presence_start_policy.c"' in process_workflow
+watchdog_process_identity = c_function_body(
+    watchdog_source, "watchdog_process_identity_matches(const struct process_identity *identity,"
+)
+watchdog_process_scan_body = c_function_body(
+    watchdog_source, "watchdog_process_scan(struct process_snapshot *snapshot, int *scan_error)"
+)
+watchdog_signal_instances = c_function_body(
+    watchdog_source, "watchdog_process_signal_instances(int signal_number, int *signalled,"
+)
+assert '"/proc/%ld/cmdline"' in watchdog_process_identity
+assert '"/proc/%ld/exe"' in watchdog_process_identity
+assert "watchdog_process_argv0_matches(cmdline)" in watchdog_process_identity
+assert "watchdog_process_executable_path_matches(executable_path)" in watchdog_process_identity
+assert "process_identity_validate(\"watchdog\", identity)" in watchdog_process_identity
+assert "process_inventory_scan(\"watchdog\", snapshot)" in watchdog_process_scan_body
+assert "watchdog_process_identity_matches(" in watchdog_process_scan_body
+assert "process_identity_validate(\"watchdog\"," in watchdog_signal_instances
+assert "kill(snapshot.items[i].pid, signal_number)" in watchdog_signal_instances
+assert '#include "watchdog_process_executable_policy.h"' in watchdog_source
+assert '"/sbin/rc"' in watchdog_process_policy and '"/sbin/watchdog"' in watchdog_process_policy
+assert "watchdog_process_argv0_matches" in watchdog_process_policy
+assert "test_only_rc_watchdog_executable_aliases_are_accepted" in watchdog_process_test
+assert "test_watchdog_argv0_is_exact_basename" in watchdog_process_test
+assert "test_null_inputs_fail_closed" in watchdog_process_test
+assert process_workflow.count("trunk/user/rc/src/watchdog_process_executable_policy.h") == 2
+assert process_workflow.count("trunk/user/rc/src/tests/watchdog_process_executable_policy.c") == 2
+assert process_workflow.count("Compile and run watchdog executable identity regression") == 1
+assert xy_workflow.count("trunk/user/rc/src/watchdog_process_executable_policy.h") == 1
 print("watchdog process inventory tri-state recovery/start integration: PASS")
 
 

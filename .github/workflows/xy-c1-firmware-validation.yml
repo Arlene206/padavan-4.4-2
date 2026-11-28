@@ -452,6 +452,7 @@ on:
       - "trunk/user/rc/src/tests/storage_time_file_policy.c"
       - "trunk/user/rc/src/watchdog_signal_policy.h"
       - "trunk/user/rc/src/watchdog.c"
+      - "trunk/user/rc/src/watchdog_process_executable_policy.h"
       - "trunk/user/rc/src/watchdog_httpd_probe_policy.h"
       - "trunk/user/rc/src/detect_link.c"
       - "trunk/user/rc/src/detect_link_nvram_policy.h"

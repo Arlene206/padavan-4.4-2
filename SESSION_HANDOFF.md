@@ -1,3 +1,13 @@
+## 2026-11-28 — Bind PID 1 watchdog readiness and rollback to executable identity
+
+- The generic shared process inventory intentionally supports legacy daemon argv0/comm aliases. Source review found that `start_watchdog()` still consumed that generic match directly: any local process using `exec -a watchdog` could be mistaken for the PID 1 watchdog, suppressing startup and its HTTPD/DNS recovery loop. The ROMFS Makefile installs `/sbin/watchdog` as an alias to the single `/sbin/rc` binary.
+- THIS source slice adds a watchdog-only identity gate requiring both argv0 basename `watchdog` and `/proc/PID/exe` resolving to the known `/sbin/rc`/watchdog alias; it revalidates PID/start-time/argv after the procfs reads. Startup probes and rollback scans use the guarded result. Rollback signals only individually revalidated, executable-matched instances (TERM then bounded KILL) instead of generic `kill_services()`, preventing cleanup from targeting argv0-spoof processes.
+- Added GNU89/Werror/ASan/UBSan regression for executable aliases, deleted executable suffix, argv0 selection and invalid inputs. Process lifecycle contract and exact-head Process/XY-C1 triggers include the new policy/test. No local target build or hardware test is claimed.
+- Exact preceding storage checker SHA aa155bd6b424603b75f5440d888d19885c8fcd86: USB storage #46093243935 FAIL was fixed by checker-only commit 363fd7fba6f90352d70bb581ea6d0690a573441c; XY-C1 #46093243944 PASS; AI docs #46093243938 PASS. Exact 363fd7 SHA checks were not returned in the most recent poll (no result claimed).
+- Exact-head Process/XY-C1/AI docs checks for THIS commit are required. The immutable backup remains `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+
+---
+
 ## 2026-11-28 — Correct staged storage-link mode contract
 
 - Exact SHA aa155bd6b424603b75f5440d888d19885c8fcd86: AI handoff docs #46093243938 PASS; XY-C1 firmware validation #46093243944 PASS; USB storage hotplug #46093243935 FAIL at the Transmission publisher contract.

@@ -45,6 +45,7 @@
 #include "wan_nvram_status_policy.h"
 
 #include "service_wait_policy.h"
+#include "watchdog_process_executable_policy.h"
 
 #define WD_NORMAL_PERIOD	10		/* 10s */
 
@@ -958,18 +959,302 @@ watchdog_start_probe_wait(unsigned int seconds)
 	return status;
 }
 
+
+static int
+watchdog_process_identity_read_failure(const struct process_identity *identity,
+				       int saved_error, int *check_error)
+{
+	enum process_presence state;
+
+	state = process_identity_validate("watchdog", identity);
+	if (state == PROCESS_PRESENCE_ABSENT)
+		return 0;
+	*check_error = state == PROCESS_PRESENCE_UNKNOWN && errno > 0 ?
+		errno : (saved_error > 0 ? saved_error : EIO);
+	errno = *check_error;
+	return -1;
+}
+
+/* A stable empty/overlong/non-watchdog argv0 cannot be the watchdog applet. */
+static int
+watchdog_process_identity_not_candidate(const struct process_identity *identity,
+					int *check_error)
+{
+	enum process_presence state;
+
+	state = process_identity_validate("watchdog", identity);
+	if (state == PROCESS_PRESENCE_ABSENT ||
+	    state == PROCESS_PRESENCE_RUNNING)
+		return 0;
+	*check_error = errno > 0 ? errno : EIO;
+	errno = *check_error;
+	return -1;
+}
+
+/*
+ * Generic process inventory must retain BusyBox/legacy argv0 aliases. The
+ * watchdog is security/reliability critical, so additionally bind a candidate
+ * to its exact applet argv0 and the executable installed by the ROMFS link.
+ */
+static int
+watchdog_process_identity_matches(const struct process_identity *identity,
+				  int *check_error)
+{
+	char path[64], cmdline[4096], executable_path[512];
+	char *argv0_end = NULL;
+	int path_length, fd, saved_error = 0, read_error = 0;
+	size_t used = 0;
+	ssize_t count, exe_length;
+	enum process_presence state;
+	int argv0_match, executable_match;
+
+	if (!identity || !check_error) {
+		errno = EINVAL;
+		return -1;
+	}
+	*check_error = 0;
+	path_length = snprintf(path, sizeof(path), "/proc/%ld/cmdline",
+			       (long)identity->pid);
+	if (path_length < 0 || path_length >= (int)sizeof(path)) {
+		*check_error = ENAMETOOLONG;
+		errno = *check_error;
+		return -1;
+	}
+
+	fd = open(path, O_RDONLY);
+	if (fd < 0)
+		return watchdog_process_identity_read_failure(
+			identity, errno > 0 ? errno : EIO, check_error);
+	while (used < sizeof(cmdline) - 1) {
+		count = read(fd, cmdline + used, sizeof(cmdline) - 1 - used);
+		if (count > 0) {
+			used += (size_t)count;
+			argv0_end = (char *)memchr(cmdline, '\0', used);
+			if (argv0_end)
+				break;
+			continue;
+		}
+		if (count < 0 && errno == EINTR)
+			continue;
+		if (count < 0)
+			read_error = errno > 0 ? errno : EIO;
+		break;
+	}
+	if (close(fd) != 0 && read_error == 0)
+		read_error = errno > 0 ? errno : EIO;
+	if (read_error != 0)
+		return watchdog_process_identity_read_failure(
+			identity, read_error, check_error);
+	if (!argv0_end)
+		return watchdog_process_identity_not_candidate(identity,
+							       check_error);
+
+	*argv0_end = '\0';
+	argv0_match = watchdog_process_argv0_matches(cmdline);
+	if (argv0_match < 0) {
+		*check_error = errno > 0 ? errno : EINVAL;
+		return -1;
+	}
+	if (!argv0_match)
+		return watchdog_process_identity_not_candidate(identity,
+							       check_error);
+
+	path_length = snprintf(path, sizeof(path), "/proc/%ld/exe",
+			       (long)identity->pid);
+	if (path_length < 0 || path_length >= (int)sizeof(path)) {
+		*check_error = ENAMETOOLONG;
+		errno = *check_error;
+		return -1;
+	}
+	errno = 0;
+	exe_length = readlink(path, executable_path,
+			      sizeof(executable_path) - 1);
+	if (exe_length < 0)
+		return watchdog_process_identity_read_failure(
+			identity, errno > 0 ? errno : EIO, check_error);
+	if ((size_t)exe_length >= sizeof(executable_path) - 1)
+		return watchdog_process_identity_read_failure(
+			identity, ENAMETOOLONG, check_error);
+	executable_path[exe_length] = '\0';
+
+	/* Revalidate PID/start-time/argv after both independent procfs reads. */
+	state = process_identity_validate("watchdog", identity);
+	if (state == PROCESS_PRESENCE_ABSENT)
+		return 0;
+	if (state != PROCESS_PRESENCE_RUNNING) {
+		*check_error = errno > 0 ? errno : EIO;
+		errno = *check_error;
+		return -1;
+	}
+	executable_match =
+		watchdog_process_executable_path_matches(executable_path);
+	if (executable_match < 0) {
+		*check_error = errno > 0 ? errno : EINVAL;
+		return -1;
+	}
+	return executable_match;
+}
+
+static enum process_presence
+watchdog_process_scan(struct process_snapshot *snapshot, int *scan_error)
+{
+	enum process_presence presence;
+	int saved_error = 0, check_error, match, found = 0;
+	size_t i;
+
+	if (!snapshot) {
+		errno = EINVAL;
+		if (scan_error)
+			*scan_error = EINVAL;
+		return PROCESS_PRESENCE_UNKNOWN;
+	}
+	presence = process_inventory_scan("watchdog", snapshot);
+	if (presence == PROCESS_PRESENCE_RUNNING) {
+		if (snapshot->count == 0) {
+			presence = PROCESS_PRESENCE_UNKNOWN;
+			saved_error = EIO;
+		} else {
+			for (i = 0; i < snapshot->count; i++) {
+				check_error = 0;
+				match = watchdog_process_identity_matches(
+					&snapshot->items[i], &check_error);
+				if (match > 0) {
+					found = 1;
+					break;
+				}
+				if (match < 0 && saved_error == 0)
+					saved_error = check_error > 0 ?
+						check_error : EIO;
+			}
+			if (found)
+				presence = PROCESS_PRESENCE_RUNNING;
+			else if (saved_error != 0)
+				presence = PROCESS_PRESENCE_UNKNOWN;
+			else
+				presence = PROCESS_PRESENCE_ABSENT;
+		}
+	} else if (presence != PROCESS_PRESENCE_ABSENT &&
+		   presence != PROCESS_PRESENCE_UNKNOWN) {
+		presence = PROCESS_PRESENCE_UNKNOWN;
+		saved_error = EIO;
+	} else if (presence == PROCESS_PRESENCE_UNKNOWN) {
+		saved_error = snapshot->error > 0 ? snapshot->error : EIO;
+	}
+	snapshot->state = presence;
+	snapshot->error = presence == PROCESS_PRESENCE_UNKNOWN ?
+		(saved_error > 0 ? saved_error : EIO) : 0;
+	if (scan_error)
+		*scan_error = snapshot->error;
+	if (presence == PROCESS_PRESENCE_UNKNOWN)
+		errno = snapshot->error;
+	else
+		errno = 0;
+	return presence;
+}
+
+/* Signal only processes that pass the same executable/argv0 identity gate. */
+static int
+watchdog_process_signal_instances(int signal_number, int *signalled,
+				  int *scan_error)
+{
+	struct process_snapshot snapshot;
+	enum process_presence presence, identity_state;
+	int saved_error = 0, check_error, match;
+	size_t i;
+
+	if (!signalled || (signal_number != SIGTERM && signal_number != SIGKILL)) {
+		errno = EINVAL;
+		if (scan_error)
+			*scan_error = EINVAL;
+		return -1;
+	}
+	*signalled = 0;
+	presence = watchdog_process_scan(&snapshot, &saved_error);
+	if (presence == PROCESS_PRESENCE_UNKNOWN) {
+		process_snapshot_release(&snapshot);
+		if (scan_error)
+			*scan_error = saved_error;
+		errno = saved_error > 0 ? saved_error : EIO;
+		return -1;
+	}
+	if (presence == PROCESS_PRESENCE_ABSENT) {
+		process_snapshot_release(&snapshot);
+		if (scan_error)
+			*scan_error = 0;
+		return 0;
+	}
+
+	for (i = 0; i < snapshot.count; i++) {
+		check_error = 0;
+		match = watchdog_process_identity_matches(&snapshot.items[i],
+							  &check_error);
+		if (match == 0)
+			continue;
+		if (match < 0) {
+			if (saved_error == 0)
+				saved_error = check_error > 0 ? check_error : EIO;
+			continue;
+		}
+		identity_state = process_identity_validate("watchdog",
+							    &snapshot.items[i]);
+		if (identity_state == PROCESS_PRESENCE_ABSENT)
+			continue;
+		if (identity_state != PROCESS_PRESENCE_RUNNING) {
+			if (saved_error == 0)
+				saved_error = errno > 0 ? errno : EIO;
+			continue;
+		}
+		if (kill(snapshot.items[i].pid, signal_number) != 0) {
+			if (errno != ESRCH && saved_error == 0)
+				saved_error = errno > 0 ? errno : EIO;
+		} else {
+			*signalled = 1;
+		}
+	}
+	process_snapshot_release(&snapshot);
+	if (scan_error)
+		*scan_error = saved_error;
+	if (saved_error != 0) {
+		errno = saved_error;
+		return -1;
+	}
+	return 0;
+}
+
 static int
 watchdog_start_rollback_stop(void *context)
 {
-	char *service_names[2];
+	int scan_error = 0, signalled = 0, status;
+	struct process_snapshot snapshot;
+	enum process_presence presence;
 
-	if (!context) {
+	if (!context || strcmp((const char *)context, "watchdog") != 0) {
 		errno = EINVAL;
 		return EINVAL;
 	}
-	service_names[0] = (char *)context;
-	service_names[1] = NULL;
-	return kill_services(service_names, 3, 1);
+	status = watchdog_process_signal_instances(SIGTERM, &signalled,
+						    &scan_error);
+	if (status != 0 || !signalled)
+		return status;
+	if (service_wait_seconds(3) != 0) {
+		errno = errno > 0 ? errno : EIO;
+		return -1;
+	}
+	status = watchdog_process_signal_instances(SIGKILL, &signalled,
+						    &scan_error);
+	if (status != 0 || !signalled)
+		return status;
+	if (service_wait_seconds(1) != 0) {
+		errno = errno > 0 ? errno : EIO;
+		return -1;
+	}
+	presence = watchdog_process_scan(&snapshot, &scan_error);
+	process_snapshot_release(&snapshot);
+	if (presence == PROCESS_PRESENCE_ABSENT)
+		return 0;
+	errno = presence == PROCESS_PRESENCE_UNKNOWN ?
+		(scan_error > 0 ? scan_error : EIO) : EBUSY;
+	return -1;
 }
 
 static enum process_presence
@@ -978,15 +1263,13 @@ watchdog_start_rollback_scan(void *context, int *scan_error)
 	struct process_snapshot snapshot;
 	enum process_presence presence;
 
-	if (!context) {
+	if (!context || strcmp((const char *)context, "watchdog") != 0) {
 		if (scan_error)
 			*scan_error = EINVAL;
 		errno = EINVAL;
 		return PROCESS_PRESENCE_UNKNOWN;
 	}
-	presence = process_inventory_scan((const char *)context, &snapshot);
-	if (scan_error)
-		*scan_error = snapshot.error;
+	presence = watchdog_process_scan(&snapshot, scan_error);
 	process_snapshot_release(&snapshot);
 	return presence;
 }
@@ -1030,7 +1313,7 @@ start_watchdog(void)
 	enum process_presence_start_action action;
 	int scan_error, launch_status, launch_errno, wait_status, wait_errno, attempt;
 
-	presence = process_inventory_scan("watchdog", &snapshot);
+	presence = watchdog_process_scan(&snapshot, &scan_error);
 	scan_error = snapshot.error;
 	process_snapshot_release(&snapshot);
 	action = process_presence_start_action_for_state(presence);
@@ -1068,7 +1351,7 @@ start_watchdog(void)
 				wait_status, wait_errno, "initial readiness wait");
 		}
 		for (attempt = 0; attempt < PROCESS_PRESENCE_START_PROBE_ATTEMPTS; attempt++) {
-			presence = process_inventory_scan("watchdog", &snapshot);
+			presence = watchdog_process_scan(&snapshot, &scan_error);
 			if (process_presence_start_postcondition(launch_status, presence) == 0) {
 				process_snapshot_release(&snapshot);
 				return 0;
