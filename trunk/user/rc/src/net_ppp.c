@@ -797,7 +797,10 @@ start_rpl2tp(int unit)
 		return status;
 	}
 
-	sleep(1);
+	/* sleep(3) returns the unslept seconds when a signal interrupts it.
+	 * Resume the remainder before issuing the dependent start-session command.
+	 */
+	xl2tpd_start_policy_wait_full_delay(1, sleep);
 	status = eval("/usr/sbin/l2tp-control", "start-session 0.0.0.0");
 	if (xl2tpd_start_policy_rpl2tp_failure_requires_cleanup(status)) {
 		char *svcs_l2tp[] = { "l2tpd", NULL };

@@ -3,6 +3,40 @@
 #include "xl2tpd_start_policy.h"
 #define CHECK(c) do { if (!(c)) { fprintf(stderr, "FAIL %s:%d: %s\n", __FILE__, __LINE__, #c); return 1; } } while (0)
 
+static unsigned int wait_sleep_results[] = { 2U, 1U, 0U };
+static unsigned int wait_sleep_arguments[3];
+static unsigned int wait_sleep_calls;
+
+static unsigned int
+mock_interrupted_sleep(unsigned int seconds)
+{
+	unsigned int index = wait_sleep_calls++;
+
+	if (index >= 3U)
+		return 0U;
+	wait_sleep_arguments[index] = seconds;
+	return wait_sleep_results[index];
+}
+
+static int
+test_wait_full_delay_resumes_remaining_seconds(void)
+{
+	wait_sleep_calls = 0;
+	wait_sleep_arguments[0] = 0;
+	wait_sleep_arguments[1] = 0;
+	wait_sleep_arguments[2] = 0;
+
+	xl2tpd_start_policy_wait_full_delay(3U, mock_interrupted_sleep);
+	CHECK(wait_sleep_calls == 3U);
+	CHECK(wait_sleep_arguments[0] == 3U);
+	CHECK(wait_sleep_arguments[1] == 2U);
+	CHECK(wait_sleep_arguments[2] == 1U);
+
+	xl2tpd_start_policy_wait_full_delay(0U, mock_interrupted_sleep);
+	CHECK(wait_sleep_calls == 3U);
+	return 0;
+}
+
 static int
 test_runtime_marker_write_status(void)
 {
@@ -95,6 +129,8 @@ int
 main(void)
 {
 	CHECK(test_runtime_marker_write_status() == 0);
+	CHECK(test_wait_full_delay_resumes_remaining_seconds() == 0);
+	puts("xl2tpd interrupted startup wait resumes remaining seconds: PASS");
 	CHECK(test_config_flags() == 0);
 	CHECK(xl2tpd_start_policy_result(PROCESS_PRESENCE_RUNNING) == 1);
 	CHECK(xl2tpd_start_policy_result(PROCESS_PRESENCE_ABSENT) == 0);

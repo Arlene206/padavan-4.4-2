@@ -4,6 +4,15 @@
 #include <errno.h>
 #include <string.h>
 
+/* sleep(3) returns the unslept seconds when a signal interrupts it. */
+static inline void
+xl2tpd_start_policy_wait_full_delay(unsigned int seconds,
+				     unsigned int (*sleep_fn)(unsigned int))
+{
+	while (seconds != 0)
+		seconds = sleep_fn(seconds);
+}
+
 /* NVRAM setters use zero for success; retain close/ioctl errors on failure. */
 static inline int
 xl2tpd_start_policy_write_status(int api_result, int saved_errno)

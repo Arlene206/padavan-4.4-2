@@ -728,6 +728,15 @@ for marker in ("PROCESS_PRESENCE_RUNNING", "PROCESS_PRESENCE_ABSENT",
                "xl2tpd process-presence and launch-result policy: PASS"):
     require(marker in xl2tpd_policy + xl2tpd_test,
             f"xl2tpd lifecycle result test marker missing: {marker}")
+rpl2tp_start=body(net_ppp,"start_rpl2tp(int unit)")
+require("xl2tpd_start_policy_wait_full_delay(1, sleep);" in rpl2tp_start and
+        "sleep(1);" not in rpl2tp_start,
+        "rp-l2tp must finish its interruptible settle delay before issuing start-session")
+require("while (seconds != 0)" in xl2tpd_policy and
+        "seconds = sleep_fn(seconds);" in xl2tpd_policy and
+        "xl2tpd interrupted startup wait resumes remaining seconds: PASS" in xl2tp_test,
+        "rp-l2tp settle wait must resume the exact remainder after EINTR and have a host regression")
+
 client_start=body(vpn_client,"start_vpn_client_locked(void)")
 require("xl2tpd_status == 1" in client_start and "xl2tpd_status < 0" in client_start,
         "VPNC control must only target a confirmed running daemon")
