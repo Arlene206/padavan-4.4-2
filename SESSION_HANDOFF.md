@@ -1,3 +1,12 @@
+## 2026-11-27 — Align storage integration checkers with Transmission's staged mount-link publisher
+
+- Parent source `00e1d2efa475a2b693e26c481f230164285f1d05` replaced `run_torrent()`'s unchecked `unlink(link_path)` + direct final-path `create_mp_link_status()` with `transmission_mp_link_publish()`. Exact Process lifecycle `46091165092` and storage hotplug `46091165116` each failed only because their source contracts still demanded a direct adapter invocation from every caller. Their earlier test suites had already passed the preceding regressions.
+- THIS checker follow-up makes the new Transmission helper the expected caller, validates that it obtains a staged link through the errno-normalizing adapter and publishes with `rename()`, and explicitly keeps the direct unlink/final-path creation forbidden. Existing MiniDLNA/aria2 adapter expectations remain unchanged.
+- A separate storage-enable checker failure on parent `00e1d2e` (run `46091165081`) was updated in `b5b2339da4db5cf9c7a3e428cde5e3324028f844` to expect the new publisher while preserving the enable-read-before-side-effects rule.
+- Next: check exact-SHA Process/storage/XY-C1/storage-enable/AI actions for THIS checker correction; no L3 or firmware build pass is claimed yet. Frozen backup remains `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+
+---
+
 ## 2026-11-27 — Update Transmission run_torrent enable-gate source contract
 
 - Source SHA `00e1d2efa475a2b693e26c481f230164285f1d05` replaces the unsafe `unlink(link_path)` with staged atomic publication. Exact storage-enable workflow `46091165081` passed the checked-enable C regression and failed only because its Python source contract still required the removed unlink call as the post-enable side effect.

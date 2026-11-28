@@ -1680,19 +1680,29 @@ for signature in ("int run_dms(int force_rescan)", "int run_itunes(void)",
     require(adapter_declaration < storage.index(signature),
             "mount-link status adapter must be declared before " + signature)
     caller = body(storage, signature)
-    require("create_mp_link_status(" in caller and "link_status" in caller and
+    status_call = ("transmission_mp_link_publish(" if signature == "int run_torrent(void)"
+                   else "create_mp_link_status(")
+    require(status_call in caller and "link_status" in caller and
             "return link_status;" in caller and "create_mp_link(" not in caller,
-            "media caller must use the errno-normalizing adapter: " + signature)
+            "media caller must use a status-returning mount-link publisher: " + signature)
+transmission_publish = body(storage, "transmission_mp_link_publish(")
+require("create_mp_link_status(dest_dir, staged_path, 0)" in transmission_publish and
+        "rename(staged_path, link_path)" in transmission_publish,
+        "Transmission publisher must build a private link then atomically publish it")
 for signature in ("int run_dms(int force_rescan)", "int run_itunes(void)"):
     caller = body(storage, signature)
     require(caller.index("create_mp_link_status(dest_dir, link_path, 0)") <
             caller.index("create_mp_link_status(dest_dir, link_path, 1)"),
             "media database fallback selection changed: " + signature)
-for signature in ("int run_torrent(void)", "int run_aria(void)"):
-    caller = body(storage, signature)
-    require("create_mp_link_status(dest_dir, link_path, 0)" in caller and
-            "create_mp_link_status(dest_dir, link_path, 1)" not in caller,
-            "download daemon mount selection semantics changed: " + signature)
+torrent_caller = body(storage, "int run_torrent(void)")
+require("transmission_mp_link_publish(dest_dir, link_path)" in torrent_caller and
+        "create_mp_link_status(dest_dir, link_path, 0)" not in torrent_caller and
+        "unlink(link_path)" not in torrent_caller,
+        "Transmission must publish a staged mount link without deleting the live path")
+aria_caller = body(storage, "int run_aria(void)")
+require("create_mp_link_status(dest_dir, link_path, 0)" in aria_caller and
+        "create_mp_link_status(dest_dir, link_path, 1)" not in aria_caller,
+        "aria2 mount selection semantics changed")
 
 require("storage_nfs_export_first_error" in mount_link_policy and
         "storage_nfs_export_errno_or_eio" in mount_link_policy_test and

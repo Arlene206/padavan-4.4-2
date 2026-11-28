@@ -1,3 +1,12 @@
+## 2026-11-27 — Update storage callers' integration contracts for atomic Transmission publication
+
+- Exact SHA `00e1d2efa475a2b693e26c481f230164285f1d05` exposed two more stale source contracts after the Transmission security fix: `scripts/check_process_lifecycle_integration.py` required `create_mp_link_status()` in every storage caller, while `scripts/check_storage_safe_remove.py` required the same direct final-path helper in `run_torrent()`. The production code intentionally routes Transmission through `transmission_mp_link_publish()`, which still uses the errno-normalizing adapter for a staged path and performs the final atomic rename.
+- Updated both integration checkers to recognize the new staged publisher, assert no direct final-path unlink/create remains, and retain explicit checks that aria2 and other media callers still use the original adapter semantics. No firmware source changed in this follow-up.
+- Exact SHA `00e1d2efa475a2b693e26c481f230164285f1d05`: storage hotplug `46091165116` failed only on the old direct-adapter assertion in the safe-remove checker; Process lifecycle `46091165092` failed only on its corresponding old assertion. Storage-enable `46091165081` failed only because it expected the removed unlink and was addressed in parent `b5b2339da4db5cf9c7a3e428cde5e3324028f844`. XY-C1 `46091165120` was in progress at last poll; the standalone policy C test passed locally with GNU89, warnings-as-errors, ASan and UBSan.
+- Next: inspect exact-SHA Process, storage hotplug, storage-enable, XY-C1 and AI docs runs after these contract corrections; repair any genuine compile/test failure, then continue independent stability work. Backup remains frozen at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+
+---
+
 ## 2026-11-27 — Keep checked-enable source contract aligned with atomic Transmission link publishing
 
 - Exact-SHA storage enable workflow `46091165081` on `00e1d2efa475a2b693e26c481f230164285f1d05` passed the standalone checked-NVRAM policy test, then failed its source contract because the run_torrent tuple still expected the removed `unlink(link_path)` side effect. Production code correctly now calls the staged `transmission_mp_link_publish(dest_dir, link_path)` helper. This is stale checker coupling, not a runtime or policy-test failure.
