@@ -35,7 +35,11 @@ cat > "$BIN/nvram" <<'STUB'
 #!/bin/sh
 printf '%s\n' "$*" >> "$MOCK_NVRAM_LOG"
 case "$1" in
- get) [ "$2" = ttyd_port ] || exit 9; printf '%s\n' "$MOCK_TTYD_PORT" ;;
+ get_checked)
+  [ "$2" = ttyd_port ] || exit 9
+  [ "$MOCK_NVRAM_GET_STATUS" -eq 0 ] || exit "$MOCK_NVRAM_GET_STATUS"
+  printf '%s\n' "$MOCK_TTYD_PORT"
+  ;;
  set) exit "$MOCK_NVRAM_SET_STATUS" ;;
  commit) exit "$MOCK_NVRAM_COMMIT_STATUS" ;;
  *) exit 9 ;;
@@ -60,7 +64,7 @@ PATH="$BIN:$PATH"; export PATH
 export MOCK_STATE="$STATE" MOCK_EVENTS="$EVENTS" MOCK_NVRAM_LOG="$NVRAM_LOG" MOCK_START_LOG="$START_LOG"
 export MOCK_TTYD_PORT="" MOCK_START_STATUS=0 MOCK_START_APPEARS=1
 export MOCK_TERM_STATE=absent MOCK_KILL_STATE=absent MOCK_TERM_STATUS=0 MOCK_KILL_STATUS=0 MOCK_SLEEP_STATUS=0
-export MOCK_NVRAM_SET_STATUS=0 MOCK_NVRAM_COMMIT_STATUS=0
+export MOCK_NVRAM_GET_STATUS=0 MOCK_NVRAM_SET_STATUS=0 MOCK_NVRAM_COMMIT_STATUS=0
 PROCESS_LIFECYCLE_LIB="$LIB"; export PROCESS_LIFECYCLE_LIB
 fail(){ echo "ttyd lifecycle regression: FAIL: $*" >&2; exit 1; }
 reset(){ : > "$EVENTS"; : > "$NVRAM_LOG"; : > "$START_LOG"; }
@@ -122,7 +126,7 @@ if run start; then fail "UNKNOWN start succeeded"; else rc=$?; fi
 echo absent > "$STATE"; reset
 MOCK_TTYD_PORT=""; MOCK_START_STATUS=0; export MOCK_TTYD_PORT MOCK_START_STATUS
 run start || fail "default-port start failed"
-[ "$(cat "$NVRAM_LOG")" = "get ttyd_port
+[ "$(cat "$NVRAM_LOG")" = "get_checked ttyd_port
 set ttyd_port=7681
 commit" ] || fail "default port setup was not scoped to start"
 [ "$(cat "$START_LOG")" = "-S -b -x ttyd -- -i br0 -p 7681 -W -t disableReconnect=true -t disableLeaveAlert=true login" ] || fail "launch arguments changed"
@@ -140,14 +144,14 @@ for invalid_port in abc 0 00000 65536 123456 -1; do
  MOCK_TTYD_PORT="$invalid_port"; export MOCK_TTYD_PORT
  if run start; then fail "invalid ttyd port '$invalid_port' was accepted"; else rc=$?; fi
  [ "$rc" -eq 2 ] && [ ! -s "$START_LOG" ] || fail "invalid ttyd port '$invalid_port' launched or returned $rc"
- [ "$(cat "$NVRAM_LOG")" = "get ttyd_port" ] || fail "invalid ttyd port '$invalid_port' caused NVRAM mutation"
+ [ "$(cat "$NVRAM_LOG")" = "get_checked ttyd_port" ] || fail "invalid ttyd port '$invalid_port' caused NVRAM mutation"
 done
 
 # Launcher errors propagate; the configured port is not rewritten.
 echo absent > "$STATE"; reset
 MOCK_TTYD_PORT=4444; MOCK_START_STATUS=37; export MOCK_TTYD_PORT MOCK_START_STATUS
 if run start; then fail "launcher failure accepted"; else rc=$?; fi
-[ "$rc" -eq 37 ] && [ "$(cat "$NVRAM_LOG")" = "get ttyd_port" ] || fail "launcher status/port handling mismatch"
+[ "$rc" -eq 37 ] && [ "$(cat "$NVRAM_LOG")" = "get_checked ttyd_port" ] || fail "launcher status/port handling mismatch"
 MOCK_START_STATUS=0; MOCK_START_APPEARS=0; export MOCK_START_STATUS MOCK_START_APPEARS
 
 # A successful background launcher is not proof that the daemon became live.
@@ -177,6 +181,14 @@ MOCK_TERM_STATE=absent; MOCK_TTYD_PORT=9443; export MOCK_TERM_STATE MOCK_TTYD_PO
 run restart || fail "verified restart failed"
 [ "$(cat "$START_LOG")" = "-S -b -x ttyd -- -i br0 -p 9443 -W -t disableReconnect=true -t disableLeaveAlert=true login" ] || fail "restart changed configured port"
 
+# A failed checked read is not an empty/default setting; do not mutate or launch.
+echo absent > "$STATE"; reset
+MOCK_TTYD_PORT=""; MOCK_NVRAM_GET_STATUS=43; export MOCK_TTYD_PORT MOCK_NVRAM_GET_STATUS
+if run start; then fail "NVRAM read failure was accepted as an empty port"; else rc=$?; fi
+[ "$rc" -eq 43 ] && [ "$(cat "$NVRAM_LOG")" = "get_checked ttyd_port" ] &&
+ [ ! -s "$START_LOG" ] || fail "NVRAM read failure defaulted, committed or started ttyd"
+MOCK_NVRAM_GET_STATUS=0; export MOCK_NVRAM_GET_STATUS
+
 # NVRAM write/commit failures prevent launch.
 echo absent > "$STATE"; reset
 MOCK_TTYD_PORT=""; MOCK_NVRAM_SET_STATUS=41; MOCK_START_STATUS=0
@@ -187,4 +199,4 @@ MOCK_NVRAM_SET_STATUS=0; MOCK_NVRAM_COMMIT_STATUS=42; export MOCK_NVRAM_SET_STAT
 if run start; then fail "NVRAM commit failure accepted"; else rc=$?; fi
 [ "$rc" -eq 42 ] && [ ! -s "$START_LOG" ] || fail "NVRAM commit failure started ttyd"
 
-echo "ttyd tri-state lifecycle, detached-child readiness, restart gate and NVRAM initialization regression: PASS"
+echo "ttyd tri-state lifecycle, checked NVRAM, detached-child readiness, restart gate and initialization regression: PASS"

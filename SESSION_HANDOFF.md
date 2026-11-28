@@ -1,46 +1,52 @@
 ## 2026-11-28 continuation checkpoint
 
-- Repository `Arlene206/padavan-4.4-2`; continue main-only. Startup recovery was performed once; do not repeat the bootstrap audit.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 remains closed/unmerged.
-- Parent for this correction: `6cdf54408a90360a8983bca9c5b93f406ed58326` (`test(storage): align MiniDLNA durability contract`).
-- Parent exact-SHA AI docs #46139729825 PASS. Process lifecycle regression #46139729874 FAILED in its final integration checker after the MiniDLNA stale assertion was corrected; the next stale assertion expected a literal `fsync(` in `igmpproxy_config_file.h`. Production IGMP header already includes `config_file_sync.h`, calls `config_file_sync_fd(fileno(output))` and `config_file_sync_parent(path)`; its ASan/UBSan regression exercises the bounded sync helper. This atomic follow-up aligns that assertion; no production source changed.
-- The earlier cache-wrap source SHA `4f09b7bc0cff0aae3a13a4705edd3bf3af489b53` had NVRAM #46139431443, AI docs #46139431427, HTTPD #46139431389 and Process inventory #46139431506 PASS. XY-C1 #46139431417 remains separate and must be polled; L3 only if same-SHA Build/TRX/artifact all pass.
-- NTP prior L3 applies only to exact SHA `c052506cbe9463f2719494d237e5323fe1c261c8`; DHCP prior changes should not be repeated. L4 physical validation is NOT VERIFIED.
-- No local checkout/kernel/MIPS build is available. Exact-SHA Actions are authoritative. `REFACTOR_ROADMAP.md` is near its cap; avoid status-only edits.
+- Repository `Arlene206/padavan-4.4-2`; development remains main-only. Startup recovery was completed once; do not repeat repository/bootstrap audit.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 remains closed/unmerged.
+- Current parent: `ae6300cde050bc3f7cc7411fe08a5210813f3985` (`test(storage): align IGMP proxy durability contract`).
+- The IGMP proxy shared-helper checker correction is awaiting exact-SHA Process workflow #46139909362 (IN_PROGRESS at last poll). Its AI handoff run #46139909350 failed because this file used a different checkpoint heading and omitted the exact required phrases; the current handoff restores those exact phrases.
+- Parent XY-C1 for NVRAM cache-wrap SHA `4f09b7bc0cff0aae3a13a4705edd3bf3af489b53` is #46139431417 IN_PROGRESS at last poll. That SHA has NVRAM/AI/HTTPD/Process inventory PASS, while the process source-contract checker needed MiniDLNA and IGMP shared-sync corrections. Do not claim L3 until its own Build/TRX/artifact are all successful.
+- New ttyd source slice: replace the unchecked `nvram get ttyd_port` with `nvram get_checked ttyd_port`. A backend read error must not be treated as a blank unset setting, which could write/commit default port 7681 and launch the login terminal. Only a successful empty result is allowed to default. Regression injects status 43 and asserts no NVRAM mutation or daemon launch.
+- Process workflow now executes `trunk/user/ttyd/tests/ttyd_lifecycle.sh` and the source checker pins `get_checked`; this commit needs exact-SHA Process, AI docs and XY-C1 Build/TRX/artifact.
+- Historical NVRAM cache-wrap change on `4f09b7bc0cff0aae3a13a4705edd3bf3af489b53`: NVRAM #46139431443 SUCCESS; AI #46139431427 SUCCESS; HTTPD #46139431389 SUCCESS; Process inventory #46139431506 SUCCESS; Process integration #46139431467 initially failed on stale MiniDLNA literal-fsync assertion, then #46139729874 passed MiniDLNA and failed on stale IGMP literal-fsync assertion, corrected in parent `ae6300cde050bc3f7cc7411fe08a5210813f3985`.
+- NTP prior L3 evidence is limited to exact SHA `c052506cbe9463f2719494d237e5323fe1c261c8`; DHCP/NVRAM fixes already made should not be repeated without new failure evidence. No local checkout/kernel/MIPS build is available. Physical L4 remains NOT VERIFIED.
+- `REFACTOR_ROADMAP.md` is near its hard size cap; avoid status-only edits.
 
 ## Current repository state
 
-- Parent: `6cdf54408a90360a8983bca9c5b93f406ed58326`.
-- The MiniDLNA checker assertion has been corrected and passed on #46139729874; its next assertion revealed the same stale direct-fsync expectation for IGMP proxy. The current follow-up changes only that static assertion to verify the shared bounded file and parent-directory sync functions.
+- Parent: `ae6300cde050bc3f7cc7411fe08a5210813f3985`.
+- Pending ttyd fail-closed change: shell implementation, injected regression, static checker and CI execution step are one atomic task.
 - Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Active task
 
-- Verify this IGMP proxy checker correction on its exact SHA via the Process lifecycle regression and AI docs.
-- If another contract assertion fails, inspect the exact failing step and only update a stale assertion when production code and its test demonstrate the intended behavior. Do not convert genuine production failures into checker relaxations.
-- Once this long-running integration checker passes, continue with an independent userland defect; current candidate: ttyd treats a failed legacy `nvram get ttyd_port` as an empty value and may write/commit default port 7681. Convert to `nvram get_checked`, add a failure-injection regression, and retain defaulting only for successful empty reads.
-- Keep the backup immutable and never force-push. Update main through a complete tree, one commit and expected-SHA non-forced ref update.
+- Verify the ttyd checked-NVRAM fix on its exact SHA: Process lifecycle test and source contract, AI handoff contract, and XY-C1 Build/TRX/artifact.
+- The regression must prove both cases: successful empty reads still write/commit port 7681; a nonzero checked-read status returns unchanged and creates no start command, default-setting write or commit.
+- If any Action fails, inspect that exact failing job and logs; do not mask production failures by relaxing tests.
+- Once the task passes, continue on an independent stability/security bug across userland.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and its exact-SHA Process lifecycle/AI Actions.
-2. Confirm IGMP checker correction passes; if it fails, inspect the exact failing log before changing code.
-3. If PASS, implement the ttyd NVRAM read fail-closed fix and tests as one atomic commit.
-4. Poll the independent parent XY-C1 #46139431417 status; L3 is still unverified pending Build/TRX/artifact.
-5. Physical L4 remains NOT VERIFIED.
+1. Fetch live `main` and all Actions whose `head_sha` equals the new ttyd commit.
+2. Verify Process lifecycle regression, AI handoff documentation and XY-C1 Build/TRX/artifact; inspect exact failing logs if any.
+3. If an Action is PENDING, continue another independent implementation task.
+4. Keep `backup/pre-plugin-overhaul-2026-11-14` immutable; no force-push; commit full trees and update `main` non-forcibly with expected SHA.
+5. Keep L4 NOT VERIFIED unless physical-router validation is actually recorded.
 
 ## Verification boundary
 
-- NVRAM cache-wrap slice SHA `4f09b7bc0cff0aae3a13a4705edd3bf3af489b53`: NVRAM/AI/HTTPD/Process inventory PASS; XY-C1 #46139431417 pending.
-- Follow-up 6cdf SHA: AI docs #46139729825 PASS; Process #46139729874 failed only on the second stale IGMP proxy checker assertion after MiniDLNA assertion correction.
-- Physical router validation L4: NOT VERIFIED.
+- NVRAM cache-wrap SHA `4f09b7bc0cff0aae3a13a4705edd3bf3af489b53`: NVRAM/AI/HTTPD/Process inventory L2 PASS; XY-C1 #46139431417 pending.
+- Checker correction parent `ae6300cde050bc3f7cc7411fe08a5210813f3985`: Process #46139909362 was in progress; AI #46139909350 failed due missing required checkpoint heading/phrase.
+- TTYD exact-SHA verification awaits the Actions created by this commit.
+- Physical L4: NOT VERIFIED.
 
-## Mandatory handoff checkpoint
+## Mandatory end-of-session handoff checkpoint
 
-The checkpoint is mandatory; edit docs only when facts materially change. Before ending, inspect live main, exact-head Actions, active task and validation boundary. Do not create no-op commits.
+Mandatory handoff checkpoint. The checkpoint is mandatory; a document edit is conditional.
+Every session MUST inspect the live repository state and exact-head Actions before ending. A relevant exact-head Action changing from PENDING to PASS/FAIL is checkpoint information. If all checkpoint facts and the first action are already accurate, explicitly conclude the check with no file change and no commit. If facts materially change, update this file accurately.
 
 # Cross-session execution mandate
 
 - One logical task, one atomic main commit: blobs, complete tree, commit, non-forced expected-SHA update. Never force-push or publish per-file partial commits.
-- Keep developing while independent Actions are pending. PASS continues, FAIL requires causal repair, PENDING permits independent work.
-- Recover once, then implement; do not repeat completed audits or ask what to do next.
+- Before context exhaustion, finish safe source slices, inspect exact-head Actions, and leave the next GPT an accurate first action and L1-L4 boundary.
+- Keep working while independent Actions are pending; PASS continues, FAIL requires causal repair, PENDING permits independent work.
+- Recover once, implement continuously, and do not repeat completed audits or ask what to do next.

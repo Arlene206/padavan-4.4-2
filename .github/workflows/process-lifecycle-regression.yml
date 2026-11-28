@@ -1409,6 +1409,11 @@ jobs:
             trunk/user/scutclient/tests/scutclient_credentials_test.c \
             -o "$RUNNER_TEMP/scutclient-credentials-test"
           ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/scutclient-credentials-test"
+      - name: Run ttyd checked-NVRAM lifecycle regression
+        run: |
+          sh -n trunk/user/ttyd/ttyd.sh
+          sh -n trunk/user/ttyd/tests/ttyd_lifecycle.sh
+          sh trunk/user/ttyd/tests/ttyd_lifecycle.sh
       - name: Check SCUT, vlmcsd, iperf3, mentohust, ttyd, OpenSSH and Dropbear lifecycle status propagation
         run: python3 scripts/check_optional_app_start_status.py
       - name: Exercise Dropbear executable-identity lifecycle regression

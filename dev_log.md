@@ -1,3 +1,12 @@
+## 2026-11-28 — Fail closed on ttyd port NVRAM read failures
+
+- `ttyd.sh` previously used `nvram get ttyd_port`; a backend read failure that produced empty output could be mistaken for an unset port, causing an automatic write/commit of port 7681 and daemon launch.
+- Switched to the status-bearing `nvram get_checked ttyd_port`. Only a successful empty result receives the legacy 7681 default; a nonzero read status now aborts before NVRAM mutation or daemon launch.
+- Extended the ttyd lifecycle fixture with injected checked-read failure (status 43), kept coverage for successful empty/default behavior, and added a source contract. The Process workflow now executes the existing ttyd lifecycle script rather than only listing it as a path trigger.
+- Parent: `ae6300cde050bc3f7cc7411fe08a5210813f3985`. On the parent SHA, Process lifecycle #46139909362 was PENDING at implementation time; AI docs #46139909350 FAILED because the handoff omitted the exact mandatory end-of-session checkpoint heading/phrase. This commit restores the exact handoff contract and requires exact-SHA Process, AI docs and XY-C1 verification.
+
+---
+
 ## 2026-11-28 — Align IGMP proxy durability contract with shared sync helper
 
 - Follow-up Process lifecycle run #46139729874 on `6cdf54408a90360a8983bca9c5b93f406ed58326` passed the MiniDLNA contract, then stopped at a second stale static assertion in `scripts/check_process_lifecycle_integration.py`: it expected a literal `fsync(` in the IGMP proxy header.

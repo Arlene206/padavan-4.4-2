@@ -2391,7 +2391,10 @@ assert "nvram_get_int(" not in ttyd_start_wrapper
 assert "nvram_safe_get(" not in ttyd_start_wrapper
 assert "nvram_get_int(" not in ttyd_restart_wrapper
 assert "nvram_safe_get(" not in ttyd_restart_wrapper
-print("telnetd/ttyd detached-child startup postconditions and disabled sentinels: PASS")
+ttyd_shell = Path("trunk/user/ttyd/ttyd.sh").read_text()
+assert "ttyd_nvram_port=$(nvram get_checked ttyd_port)" in ttyd_shell
+assert "ttyd_nvram_port=$(nvram get ttyd_port)" not in ttyd_shell
+print("telnetd/ttyd detached-child startup postconditions, disabled sentinels and checked port reads: PASS")
 
 optional_start_contracts = (
     ("start_infosvr(void)", "adsc_enable"),

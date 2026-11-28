@@ -29,7 +29,7 @@ func_start(){
 		func_log "Daemon state is unknown; refusing duplicate launch"
 		return 2
 	fi
-	if ttyd_nvram_port=$(nvram get ttyd_port); then :; else
+	if ttyd_nvram_port=$(nvram get_checked ttyd_port); then :; else
 		launch_status=$?
 		func_log "Unable to read ttyd port (status=$launch_status)"
 		return "$launch_status"
