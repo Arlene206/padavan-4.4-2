@@ -1,8 +1,8 @@
-## 2026-11-28 — Align detector-test assertions with the build-trigger contract (THIS COMMIT)
+## 2026-11-28 — Reject negative IPTV proxy enable-port selectors (THIS COMMIT)
 
-- Base main SHA: `c9d123cf72816f9b0ef60ea4333fcab9324399c2`. Exact-head AI handoff #46115046892 PASS. XY-C1 #46115046882 passed firmware-update source contract but failed detector tests: two legacy assertions still expected `scripts/tests/test_xy_c1_firmware_inputs.py` to be host-only after the new policy made it build-triggering.
-- THIS COMMIT changes both stale expectations: the detector regression must assert that its own test file is build-triggering, and the generic host-only test uses a separate host test path. The intended CI contract is unchanged; production firmware source is unchanged.
-- The detector test path is in the workflow push filter and in the special build-trigger set, so this correction should trigger the production MIPS Build/TRX/artifact steps on its exact SHA.
+- Base main SHA: `6599ea954a69c70b4f811f66519e01b00671c634`. Exact-base Process inventory #46116070166, NVRAM audit #46116069885, watchdog lifecycle #46116069843 and AI handoff #46116069828 PASS; XY-C1 #46116069855 was still in progress at the last poll.
+- Confirmed range-validation defect in `start_udpxy()` and `start_xupnpd()`: both treated every selector below 1024 as the legacy disabled value before validating the lower bound. Corrupt values such as `-1` were silently accepted as “disabled”, while values above 65535 returned an error.
+- THIS COMMIT adds a shared selector policy: 0..1023 keeps legacy-disabled behavior, 1024..65535 enables the service, and negative or >65535 selectors return ERANGE. Both launch paths validate before the disabled return. A GNU89/Werror/ASan/UBSan boundary test covers INT_MIN, negative values, disabled/enabled edges, maximum port and INT_MAX. Process and XY-C1 exact-head validation are required.
 
 
 ---
@@ -12,7 +12,7 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; all development and validation are on `main` only.
-- Live main before this detector-test assertion correction: `c9d123cf72816f9b0ef60ea4333fcab9324399c2`. AI docs #46115046892 PASS. Exact-head XY #46115046882 passed firmware-update source contract, but detector tests failed because two older assertions still classified its own test file as host-only after it was added to the build-trigger set. THIS COMMIT aligns those expectations; production firmware source is unchanged.
+- Live main before this IPTV proxy selector fix: `6599ea954a69c70b4f811f66519e01b00671c634`. Exact-head Process inventory #46116463183, watchdog lifecycle #46116463184 and AI handoff #46116463180 PASS; NVRAM audit #46116463221 was in progress. Frozen backup remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 - Live main before this optional-app checker correction: `66bc572325c033bf7850e9aaa7dad47323c582cb`, which contains the production MiniUPnP flash-preparation change from `4bc110b517f8f1f49e5b0d6f64ea613a633577b0` plus checker corrections. Parent PID 1 notification #46114249923 PASS; XY-C1 #46114250159 failed early at the now-corrected source contract before Build; Process run #46114323557 exposed the stale `check_optional_app_start_status.py` assertion. This commit updates that second checker only; no production source changed.
 - Frozen backup remains `backup/pre-plugin-overhaul-2026-11-14`; do not mutate. Its warning file was verified during startup restore and handoff-recorded frozen HEAD is `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 remains CLOSED/unmerged.
 - Frozen backup remains `backup/pre-plugin-overhaul-2026-11-14` (handoff-recorded HEAD `72f4f157a084f8184b9597ca5bf334b8080e5807`); its warning file explicitly forbids mutation. PR #1 remains CLOSED/unmerged with no identified missing change.
@@ -105,16 +105,16 @@ For product-source SHA `7daa20cd2f1bd7abca4499fb9f9a6e05ce5d3d00`:
 
 ## Active task
 
-The production MiniUPnP firmware-preparation fix remains at `4bc110b517f8f1f49e5b0d6f64ea613a633577b0`. The XY-C1 detector now makes changes to its own logic, its regression test, and the firmware-update source contract force a production build. The NUL-delimited full-diff test and docs-only test are aligned.
+The earlier MiniUPnP firmware-preparation change is in main ancestry at `4bc110b517f8f1f49e5b0d6f64ea613a633577b0`; `flash_firmware()` explicitly stops MiniUPnPd before persistence/MTD and aborts on a stop failure. The XY-C1 detector was hardened so edits to its own gate/tests trigger a production build. Current parent `6599ea954a69c70b4f811f66519e01b00671c634` has Process #46116463183, watchdog #46116463184 and AI docs #46116463180 PASS; NVRAM #46116463221 was pending.
 
-Parent `c9d123cf72816f9b0ef60ea4333fcab9324399c2` exact-head AI docs #46115046892 PASS. XY #46115046882 passed the firmware-update source contract but failed detector tests because two old assertions still expected the detector test file to be host-only. THIS COMMIT updates those assertions; no firmware source changed. Its test file is deliberately a build trigger, so the next exact-head run should reach Build/TRX/artifact.
+THIS COMMIT fixes IPTV selector handling: negative values in `udpxy_enable_x` and `xupnpd_enable_x` were interpreted as disabled because the `<1024` check ran before a lower-bound check. A shared policy rejects negative and >65535 values while preserving 0..1023 as disabled. Both launchers use the policy before proceeding; a sanitizer-backed C boundary test and source/workflow checks are added.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head XY-C1 run for THIS COMMIT. Require all detector unit tests and firmware-update source contract PASS, detector output `changed=true`, Build XY-C1 PASS, TRX verification PASS, artifact upload PASS.
-2. AI docs #46115046892 PASS on parent; exact-head documentation run should also pass.
-3. Claim L3 for the MiniUPnP firmware-preparation source only after same-SHA Build/TRX/artifact PASS. Hardware flashing/L4 remains NOT VERIFIED.
-4. Continue independent P1 userland/kernel stability source work while Actions are pending.
+1. Poll exact-head Process lifecycle after this commit. Require the new IPTV enable-port policy GNU89/Werror/ASan/UBSan regression, updated udpxy/xupnpd source contracts and aggregate process checks to PASS.
+2. Poll exact-head XY-C1. Since `net.c` and the included policy header changed, require detector, MIPS Build, TRX verification and artifact upload all PASS on the same SHA.
+3. Confirm parent NVRAM audit #46116463221 outcome, keeping parent/descendant SHA evidence separate.
+4. L3 requires exact-SHA production Build/TRX/artifact; physical-router L4 remains NOT VERIFIED. Continue another independent stability/security slice while Actions are pending.
 
 # Cross-session execution mandate
 

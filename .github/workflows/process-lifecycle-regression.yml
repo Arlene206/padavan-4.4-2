@@ -94,6 +94,8 @@ on:
       - "trunk/user/rc/src/igmpproxy_config_file.h"
       - "trunk/user/rc/src/iptv_proxy_altnet_policy.h"
       - "trunk/user/rc/src/iptv_proxy_nvram_policy.h"
+      - "trunk/user/rc/src/iptv_proxy_enable_port_policy.h"
+      - "trunk/user/rc/src/tests/iptv_proxy_enable_port_policy.c"
       - "trunk/user/rc/src/init.c"
       - "trunk/user/rc/src/pid1_console_policy.h"
       - "trunk/user/rc/src/tests/pid1_console_policy.c"
@@ -400,6 +402,8 @@ on:
       - "trunk/user/rc/src/igmpproxy_config_file.h"
       - "trunk/user/rc/src/iptv_proxy_altnet_policy.h"
       - "trunk/user/rc/src/iptv_proxy_nvram_policy.h"
+      - "trunk/user/rc/src/iptv_proxy_enable_port_policy.h"
+      - "trunk/user/rc/src/tests/iptv_proxy_enable_port_policy.c"
       - "trunk/user/rc/src/init.c"
       - "trunk/user/rc/src/pid1_console_policy.h"
       - "trunk/user/rc/src/tests/pid1_console_policy.c"
@@ -1469,6 +1473,13 @@ jobs:
           assert "&& !all_ones;" in altnet
           print("IPTV proxy IPv4/CIDR validation and empty-only default contract: PASS")
           PY
+      - name: Compile and run IPTV proxy enable-port range regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/iptv_proxy_enable_port_policy.c \
+            -o "$RUNNER_TEMP/iptv-proxy-enable-port-regression"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/iptv-proxy-enable-port-regression"
       - name: Compile and run XUPnPD unique temporary-file regression
         run: |
           cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \

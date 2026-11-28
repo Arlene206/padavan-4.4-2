@@ -434,11 +434,14 @@ assert '"udpxy_enable_x"' in udpxy_start
 assert "rc_wan_nvram_parse_int_value(port_text, &port)" in udpxy_start
 assert 'nvram_get_int("udpxy_enable_x")' not in udpxy_start
 checked_port = udpxy_start.index('"udpxy_enable_x"')
-disabled_gate = udpxy_start.index("if (port < 1024)")
+port_policy_call = udpxy_start.index("iptv_proxy_enable_port_status(port, &port_enabled)")
+disabled_gate = udpxy_start.index("if (!port_enabled)")
 process_preflight = udpxy_start.index("iptv_proxy_process_presence((void *)process_name, &scan_error)")
-assert checked_port < disabled_gate < process_preflight
+assert checked_port < port_policy_call < disabled_gate < process_preflight
 assert "cannot read IPTV proxy port selector" in udpxy_start
-assert "if (port > 65535)" in udpxy_start
+assert "configured port is out of range" in udpxy_start
+assert "int port = 0, port_status, port_enabled;" in udpxy_start
+assert '#include "iptv_proxy_enable_port_policy.h"' in net_source
 assert 'process_name = "msd_lite";' in udpxy_start
 assert 'process_name = "udpxy";' in udpxy_start
 assert "iptv_proxy_process_presence((void *)process_name, &scan_error)" in udpxy_start
@@ -504,12 +507,15 @@ assert '"xupnpd_enable_x"' in xupnpd_start
 assert "rc_wan_nvram_parse_int_value(xport_text, &xport)" in xupnpd_start
 assert 'nvram_get_int("xupnpd_enable_x")' not in xupnpd_start
 checked_xupnpd_port = xupnpd_start.index('"xupnpd_enable_x"')
-xupnpd_disabled_gate = xupnpd_start.index("if (xport < 1024)")
+xupnpd_port_policy_call = xupnpd_start.index("iptv_proxy_enable_port_status(xport, &xport_enabled)")
+xupnpd_disabled_gate = xupnpd_start.index("if (!xport_enabled)")
 xupnpd_lan_snapshot = xupnpd_start.index('"lan_ipaddr_t"')
 xupnpd_preflight = xupnpd_start.index("xupnpd_process_presence(NULL, &scan_error)")
-assert checked_xupnpd_port < xupnpd_disabled_gate < xupnpd_lan_snapshot < xupnpd_preflight
+assert checked_xupnpd_port < xupnpd_port_policy_call < xupnpd_disabled_gate
+assert xupnpd_disabled_gate < xupnpd_lan_snapshot < xupnpd_preflight
 assert "cannot read xupnpd enable-port selector" in xupnpd_start
-assert "if (xport > 65535)" in xupnpd_start
+assert "configured port is out of range" in xupnpd_start
+assert "int i, xport = 0, xport_status, xport_enabled, has_daemon, launch_status;" in xupnpd_start
 assert 'launch_status = eval("/usr/bin/xupnpd");' in xupnpd_start
 assert 'launch_status = system("/usr/bin/xupnpd &");' in xupnpd_start
 assert "launch_status = xupnpd_confirm_started(launch_status);" in xupnpd_start

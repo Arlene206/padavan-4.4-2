@@ -45,6 +45,7 @@
 #include "conntrack_flush_policy.h"
 #include "igmpproxy_config_file.h"
 #include "iptv_proxy_nvram_policy.h"
+#include "iptv_proxy_enable_port_policy.h"
 #include "service_start_status.h"
 #include "vlan_interface_policy.h"
 #include "service_wait_policy.h"
@@ -727,7 +728,7 @@ int
 start_udpxy(char *wan_ifname)
 {
 	char port_text[16];
-	int port = 0, port_status;
+	int port = 0, port_status, port_enabled;
 	int launch_status, scan_error = 0, saved_errno, launch_errno;
 #if !defined (APP_MSD_LITE)
 	char udpxy_port[16], udpxy_clients[16], udpxy_renew_period[16];
@@ -753,15 +754,16 @@ start_udpxy(char *wan_ifname)
 			   port_status);
 		return port_status;
 	}
-	if (port < 1024)
-		return 0;
-	if (port > 65535) {
-		errno = ERANGE;
+	port_status = iptv_proxy_enable_port_status(port, &port_enabled);
+	if (port_status != 0) {
+		errno = port_status;
 		logmessage(LOGNAME,
 			   "refusing IPTV proxy startup: configured port is out of range (%d)",
 			   port);
-		return ERANGE;
+		return port_status;
 	}
+	if (!port_enabled)
+		return 0;
 
 #if defined (APP_MSD_LITE)
 	process_name = "msd_lite";
@@ -914,7 +916,7 @@ xupnpd_confirm_started(int launch_status)
 int
 start_xupnpd(char *wan_ifname)
 {
-	int i, xport = 0, xport_status, has_daemon, launch_status;
+	int i, xport = 0, xport_status, xport_enabled, has_daemon, launch_status;
 	int config_status, saved_errno, sync_status, config_fd, scan_error, path_length;
 	int launch_errno;
 	enum process_presence process_state;
@@ -946,15 +948,16 @@ start_xupnpd(char *wan_ifname)
 			   xport_status);
 		return xport_status;
 	}
-	if (xport < 1024)
-		return 0;
-	if (xport > 65535) {
-		errno = EINVAL;
+	xport_status = iptv_proxy_enable_port_status(xport, &xport_enabled);
+	if (xport_status != 0) {
+		errno = xport_status;
 		logmessage(LOGNAME,
 			   "refusing xupnpd startup: configured port is out of range (%d)",
 			   xport);
-		return EINVAL;
+		return xport_status;
 	}
+	if (!xport_enabled)
+		return 0;
 
 	if (!xupnpd_config_valid_interface(wan_ifname))
 		return EINVAL;

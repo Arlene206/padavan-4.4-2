@@ -1,3 +1,11 @@
+## 2026-11-28 15:36 CST (UTC+8) — Reject negative IPTV proxy port selectors
+
+- Base main SHA: `6599ea954a69c70b4f811f66519e01b00671c634`. Exact-base Process #46116463183, watchdog lifecycle #46116463184 and AI handoff #46116463180 PASS; NVRAM audit #46116463221 remained in progress.
+- `start_udpxy()` and `start_xupnpd()` checked `port < 1024` before checking the lower bound, so negative values (for example NVRAM `-1`) were silently treated as disabled; values above 65535 were rejected.
+- Added shared `iptv_proxy_enable_port_status()`: negative and >65535 return ERANGE, 0..1023 remain disabled for compatibility, 1024..65535 enable the proxy. Both production launch paths invoke it before the disabled return. Added GNU89/Werror/ASan/UBSan boundary coverage and Process/XY-C1 workflow integration. Exact-head Build/TRX/artifact validation is required.
+
+---
+
 ## 2026-11-28 — Explicitly cover pre-NTP schedule-read suppression
 
 - Added a missing edge-case regression to the watchdog schedule snapshot: both actions may be enabled while `ntp_ready` is false; neither schedule string may be fetched, and failures of those unused keys must not invalidate the selectors snapshot. The source contract now pins this scenario and the three-read bound.
