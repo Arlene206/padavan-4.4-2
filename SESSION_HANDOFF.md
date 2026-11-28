@@ -1,5 +1,19 @@
 # Session Handoff — 2026-11-28
 
+## 2026-11-28 continuation checkpoint
+
+- Live `main`: `1151dd8237ea16e079d9989d3ba4f760ad783894`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (must remain unchanged).
+- QMI retry source slice `1a33a6bcf9401810bc24858471e4867b37744bf6` adds an EINTR-aware full-delay helper and injected sleep-remainder regression. The subsequent USB modem source now routes its one-second waits through the generic `modem_wait_full_delay(1U, sleep)` helper; the policy test covers a remainder sequence of 3 → 2 → 1 → 0.
+- USB modem static-check repair `3d6f0dd96f18fa236bbbf522786ae59ce0e9a4d1` updates `scripts/check_modem_module_reload.py` to expect the full-delay helper in unload/reload paths and checks all USB modem one-second waits plus the helper regression. The immediately preceding USB modem run that still expected raw `sleep(1)` was superseded by this checker repair.
+- AI handoff validation: #46127933674 0d757a438cd424c600be87724b65b473012310c6 completed/success (run is on the handoff repair SHA).
+- USB modem identity validation after the checker repair: #46128756167 3d6f0dd96f18fa236bbbf522786ae59ce0e9a4d1 completed/success.
+- Earlier XY-C1 production runs: `#46127604081 d8c0568b30c07a5d18d4eca786d1ed53a9d5ef41 completed/success`; `#46127680458 7b56260076b8d05b521b3caf3f90afffc65642dc completed/success`. These run SHAs are not automatically equivalent to current `main`; exact current-head XY-C1 result(s): none observed in the fetched first page.
+- Exact current-head USB modem result(s): none observed in the fetched first page.
+- L3 XY-C1 firmware/TRX/artifact validation remains unverified unless a complete exact-production-source run reports all three steps successful. Physical-router L4 remains unverified.
+- No local firmware checkout/build or hardware run was performed. Do not infer successful MIPS/TRX/artifact verification from host policy tests.
+- First next action: fetch live `main` and frozen backup once; inspect exact-head AI and USB modem runs above; then find/repair the next clear userland stability or security defect while XY-C1 production CI proceeds. Do not repeat the completed repository-wide governance audit.
+
+
 ## Current repository state
 
 - Repository `Arlene206/padavan-4.4-2`; only `main` is authorized for development.

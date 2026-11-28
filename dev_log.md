@@ -1,3 +1,10 @@
+## 2026-11-28 — QMI retry waits and modem checker repair
+
+- Extended the USB modem timing hardening from the QMI retry loop to all remaining one-second modem waits using the shared `modem_wait_full_delay(1U, sleep)` helper. The helper resumes the unslept remainder returned by `sleep(3)`; the policy regression validates successive remainder values and zero-delay behavior.
+- The initial follow-up exposed stale `sleep(1)` expectations in `scripts/check_modem_module_reload.py`. Repaired the checker in `3d6f0dd96f18fa236bbbf522786ae59ce0e9a4d1` to assert helper use on unload/reload, no raw `sleep(1)` remains in `usb_modem.c`, all one-second waits use the helper, and the regression is wired.
+- Exact SHA status snapshots at checkpoint: AI handoff #46127933674 0d757a438cd424c600be87724b65b473012310c6 completed/success; USB modem #46128756167 3d6f0dd96f18fa236bbbf522786ae59ce0e9a4d1 completed/success; earlier XY-C1 source builds #46127604081 d8c0568b30c07a5d18d4eca786d1ed53a9d5ef41 completed/success and #46127680458 7b56260076b8d05b521b3caf3f90afffc65642dc completed/success. The current main SHA is `1151dd8237ea16e079d9989d3ba4f760ad783894`; require a complete exact-source XY-C1 MIPS/TRX/artifact pass before claiming L3.
+- No local full firmware build or physical router validation was performed. L4 remains NOT VERIFIED.
+---
 ## 2026-11-28 — Relax process-inventory checker to test the actual retry contract
 
 - Base main SHA: `656733c2e9a7299494e69312217016fbeba64b2e`; result: THIS COMMIT.
