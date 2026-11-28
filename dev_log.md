@@ -1,3 +1,13 @@
+## 2026-11-28 12:01 CST (UTC+8) — Verify IAPP monotonic hardening and repair handoff checkpoint contract
+
+- Product-source/test baseline: `7daa20cd2f1bd7abca4499fb9f9a6e05ce5d3d00`. Exact-main IAPP lifecycle #46096900784, Process inventory #46096900769 and NVRAM transaction audit #46096900816 all PASS.
+- XY-C1 Firmware Validation #46096900847 PASS on that exact source SHA: cross-build, TRX verification and artifact upload all completed successfully (artifact #15243698792, 12,837,390 bytes; SHA-256 `c77d7d4117396efe6e0f560c72b3f9f557a5397493955a2636e99b8a40fc0d63`). This is L3 default-configuration evidence only; physical-router L4 and macro-enabled optional IAPP target compilation remain unverified.
+- AI handoff documentation contract #46096900817 failed because SESSION_HANDOFF.md lacked the mandatory checkpoint heading and conditional-edit statement. THIS documentation-only commit adds the required handoff section and updates the IAPP roadmap row with exact current L2/L3 evidence. Product source and firmware build configuration are unchanged.
+- The AliDDNS source/test/build changes from closed PR #1 were compared with current main; no missing production or regression path was found to port. Current main contains the HMAC helper and CA trust-store bootstrap with later hardening.
+- Root log had 72 complete records before this entry; no archive rotation is due. Exact-head AI docs validation for THIS commit is pending.
+
+---
+
 ## 2026-11-27 — Reject malformed negative CLOCK_MONOTONIC samples
 
 - The monotonic event-log helper now rejects negative `tv_sec` values as invalid, preventing malformed signed timespec inputs from reaching elapsed-time subtraction. Valid CLOCK_MONOTONIC samples are nonnegative; normal poll timing is unchanged.
