@@ -1,3 +1,13 @@
+## 2026-11-28 — Record Aliyun L2 pass and exact XY-C1 build state
+
+- Main `a4758f6da641ecd81e3d213a30132c34a30aaa8e` is the checker/docs-only descendant of product source `19d51bab853ed2b904e44333e3f6ce0bd72059a4`.
+- Aliyun WebDAV lifecycle #`46135915187` and AI docs #`46135915198` PASS on `a4758f6...`; Process inventory #`46135763586` PASS on `19d51...`. The earlier Aliyun source run failed only its stale checker matcher; the corrected exact-head rerun passed.
+- XY-C1 #`46135763583` on `19d51...` remained in progress at last poll: firmware Build running; TRX verification and artifact upload pending. Older run #`46134978759` had these steps skipped and is not L3 evidence.
+- Handoff now records current L2 status, pending L3 first action, backup/PR status and the residual procfs-to-kill race. No product source changed in this checkpoint.
+- Base: `a4758f6da641ecd81e3d213a30132c34a30aaa8e`; result: THIS COMMIT.
+
+---
+
 ## 2026-11-28 — Correct AliyunDrive PID-starttime source-check matcher
 
 - Exact AliyunDrive workflow `46135763600` on `19d51bab853ed2b904e44333e3f6ce0bd72059a4` passed shell syntax, bundled MIPSel QEMU compatibility, lifecycle shell regression and early lock/boot integration, then failed the Python source contract. The source parser correctly uses `[ "$ald_stat_field_count" -eq 20 ]`; the checker mistakenly searched for `ald_stat_field_count -eq 20` without the closing quote.
