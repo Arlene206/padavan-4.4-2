@@ -173,7 +173,7 @@ restart = body(vpn, "static int\nrestart_vpn_client_locked(void)")
 assert "restore_dns_from_vpnc()" not in restart
 ordered(restart, [
     "stop_status = stop_vpn_client_locked();",
-    "sleep(1);",
+    "xl2tpd_start_policy_wait_full_delay(1, sleep);",
     "start_status = start_vpn_client_locked();",
     "firewall_status = restart_firewall();"
 ], "VPN restart reuses stop-owned resolver cleanup")
