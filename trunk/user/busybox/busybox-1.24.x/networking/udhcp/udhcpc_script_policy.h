@@ -428,5 +428,13 @@ udhcp_raw_packet_length_is_valid(size_t received_length,
 	return udp_length == ip_total_length - ip_header_length;
 }
 
+/* RFC 2132 defines DHCP_MESSAGE_TYPE as a required one-byte option. */
+static inline int
+udhcpc_message_type_option_length_valid(int lookup_status,
+                                        unsigned int option_length)
+{
+	return lookup_status == 1 && option_length == 1U;
+}
+
 #endif /* UDHCP_SCRIPT_POLICY_H */
 

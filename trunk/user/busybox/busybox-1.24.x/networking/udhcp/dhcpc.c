@@ -1480,6 +1480,8 @@ int udhcpc_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 {
 	uint8_t *message;
+	unsigned int message_length;
+	int message_status;
 	const char *str_V, *str_h, *str_F, *str_r;
 	IF_FEATURE_UDHCPC_ARPING(const char *str_a = "2000";)
 	IF_FEATURE_UDHCP_PORT(char *str_P;)
@@ -2017,9 +2019,13 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 			continue;
 		}
 
-		message = udhcp_get_option(&packet, DHCP_MESSAGE_TYPE);
-		if (message == NULL) {
-			bb_error_msg("no message type option, ignoring packet");
+		/* DHCP_MESSAGE_TYPE is required and exactly one byte long. */
+		message_status = udhcp_get_option_with_length(&packet,
+							DHCP_MESSAGE_TYPE, &message,
+							&message_length);
+		if (!udhcpc_message_type_option_length_valid(message_status,
+							message_length)) {
+			bb_error_msg("no or malformed message type option, ignoring packet");
 			continue;
 		}
 

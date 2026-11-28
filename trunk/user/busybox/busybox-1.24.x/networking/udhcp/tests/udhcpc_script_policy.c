@@ -760,6 +760,19 @@ test_raw_packet_lengths_reject_underflow_and_truncation(void)
 	return 0;
 }
 
+static int
+test_message_type_option_requires_exactly_one_byte(void)
+{
+	CHECK(!udhcpc_message_type_option_length_valid(0, 0U));
+	CHECK(udhcpc_message_type_option_length_valid(1, 1U));
+	CHECK(!udhcpc_message_type_option_length_valid(1, 0U));
+	CHECK(!udhcpc_message_type_option_length_valid(1, 2U));
+	CHECK(!udhcpc_message_type_option_length_valid(-1, 0U));
+	CHECK(!udhcpc_message_type_option_length_valid(-1, 1U));
+	CHECK(!udhcpc_message_type_option_length_valid(2, 1U));
+	return 0;
+}
+
 int main(void)
 {
 	if (test_listener_socket_recovery_preserves_lease_deadline() != 0 ||
@@ -796,7 +809,8 @@ int main(void)
 	    test_script_runtime_cannot_extend_expired_lease() != 0 ||
 	    test_exact_lease_deadline_is_expired() != 0 ||
 	    test_already_expired_lease_is_not_resurrected() != 0 ||
-    test_repeated_failed_rebinding_acks_preserve_server_and_deadline() != 0)
+    test_repeated_failed_rebinding_acks_preserve_server_and_deadline() != 0 ||
+	    test_message_type_option_requires_exactly_one_byte() != 0)
 		return 1;
 
 	puts("udhcpc script failure and deconfig retry policy: PASS");
