@@ -760,8 +760,17 @@ assert "service_lifecycle_scan_target" in lifecycle_policy
 assert "read_pidfile" in lifecycle_policy and "force_only" in lifecycle_policy
 assert "service_lifecycle_stop_targets" in lifecycle_policy
 assert "int (*sleep_seconds)(void *context, unsigned int seconds);" in lifecycle_policy
+assert "SERVICE_LIFECYCLE_SLEEP_MAX_EINTR_RETRIES 8U" in lifecycle_policy
+assert "service_lifecycle_sleep_with(unsigned int seconds" in lifecycle_policy
 assert "if (ops->sleep_seconds(context, 1) != 0)" in lifecycle_policy
 assert "return SERVICE_LIFECYCLE_FAILED;" in lifecycle_policy
+assert "test_sleep_eintr_retries_preserve_remaining_duration" in lifecycle_test
+assert "test_sleep_interrupt_storm_is_bounded" in lifecycle_test
+lifecycle_sleep_body = c_function_body(
+    common_ex, "service_lifecycle_sleep(void *context, unsigned int seconds)"
+)
+assert "return service_lifecycle_sleep_with(seconds, &ops, NULL);" in lifecycle_sleep_body
+assert "static unsigned int\nservice_lifecycle_system_sleep" in common_ex
 assert "test_sleep_failure_blocks_force_kill" in lifecycle_test
 inadyn_sleep_body = c_function_body(
     lifecycle_services_ex, "inadyn_lifecycle_sleep(void *context, unsigned int seconds)"

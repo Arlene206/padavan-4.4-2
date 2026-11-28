@@ -392,6 +392,83 @@ test_nonforced_timeout_blocks_followup(void)
 	assert(service_lifecycle_allows_followup(SERVICE_LIFECYCLE_STOPPED));
 }
 
+struct fake_sleep_retry_context {
+	unsigned int calls;
+	unsigned int interruptions_remaining;
+	unsigned int requested[16];
+	int interrupt_always;
+	int error;
+};
+
+static unsigned int
+fake_sleep_retry(void *opaque, unsigned int seconds)
+{
+	struct fake_sleep_retry_context *context =
+		(struct fake_sleep_retry_context *)opaque;
+
+	assert(context->calls < sizeof(context->requested) /
+				 sizeof(context->requested[0]));
+	context->requested[context->calls++] = seconds;
+	if (context->interrupt_always || context->interruptions_remaining > 0U) {
+		if (context->interruptions_remaining > 0U)
+			--context->interruptions_remaining;
+		errno = EINTR;
+		return seconds;
+	}
+	if (context->error != 0) {
+		errno = context->error;
+		return seconds;
+	}
+	return 0;
+}
+
+static const struct service_lifecycle_sleep_ops fake_sleep_retry_ops = {
+	fake_sleep_retry
+};
+
+static void
+test_sleep_eintr_retries_preserve_remaining_duration(void)
+{
+	struct fake_sleep_retry_context context;
+
+	memset(&context, 0, sizeof(context));
+	context.interruptions_remaining = 2U;
+	assert(service_lifecycle_sleep_with(3U, &fake_sleep_retry_ops,
+					    &context) == 0);
+	assert(context.calls == 3U);
+	assert(context.requested[0] == 3U);
+	assert(context.requested[1] == 3U);
+	assert(context.requested[2] == 3U);
+}
+
+static void
+test_sleep_interrupt_storm_is_bounded(void)
+{
+	struct fake_sleep_retry_context context;
+
+	memset(&context, 0, sizeof(context));
+	context.interrupt_always = 1;
+	errno = 0;
+	assert(service_lifecycle_sleep_with(2U, &fake_sleep_retry_ops,
+					    &context) == -1);
+	assert(errno == EINTR);
+	assert(context.calls == SERVICE_LIFECYCLE_SLEEP_MAX_EINTR_RETRIES + 1U);
+}
+
+static void
+test_sleep_hard_error_is_preserved(void)
+{
+	struct fake_sleep_retry_context context;
+
+	memset(&context, 0, sizeof(context));
+	context.error = EIO;
+	errno = 0;
+	assert(service_lifecycle_sleep_with(2U, &fake_sleep_retry_ops,
+					    &context) == -1);
+	assert(errno == EIO);
+	assert(context.calls == 1U);
+}
+
 static void
 test_sleep_failure_blocks_force_kill(void)
 {
@@ -690,6 +767,9 @@ main(void)
 	test_identity_unknown_in_preflight_sends_zero();
 	test_force_kill_revalidates_and_waits_for_exit();
 	test_nonforced_timeout_blocks_followup();
+	test_sleep_eintr_retries_preserve_remaining_duration();
+	test_sleep_interrupt_storm_is_bounded();
+	test_sleep_hard_error_is_preserved();
 	test_sleep_failure_blocks_force_kill();
 	test_delayed_exit_and_empty_list();
 	test_pidfile_unknown_blocks_entire_preflight();

@@ -1,3 +1,11 @@
+## 2026-11-28 — Fix service lifecycle sleep callback ABI and signal-storm handling
+
+- A cross-layer review of `service_lifecycle_stop()` found the production adapter in `common_ex.c` was declared `void`, while `service_lifecycle_ops.sleep_seconds` requires an `int` result and the policy interprets nonzero as a sleep failure. Calling through that mismatched function pointer is undefined behavior; it also discarded the interrupted remainder returned by `sleep()`.
+- Changed the adapter to return the policy result and resume the remaining sleep duration after EINTR. The shared retry helper has an eight-interruption ceiling; persistent signal storms return EINTR and block SIGKILL escalation/follow-up rather than hanging the stop transaction indefinitely.
+- Added injectable regressions for interrupted-duration handling, bounded persistent EINTR and preserved hard errors. Extended the lifecycle integration contract to pin the production wrapper and tests. No local host build or firmware result is claimed.
+
+---
+
 ## 2026-11-28 — Bound MiniDLNA and Firefly config fsync retries
 
 - The process-lifecycle regression run on exact SHA `1e9b17efdc54970c76b80689f63c6804ae4ecc4b` passed 63 preceding lifecycle/config regressions, then exposed that MiniDLNA and Firefly still each had a local unbounded `do/while(errno == EINTR)` loop despite the shared bounded `config_file_sync.h` helper already being available.

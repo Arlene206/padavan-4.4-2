@@ -1575,11 +1575,21 @@ service_lifecycle_send_signal(void *context,
 	return -1;
 }
 
-static void
-service_lifecycle_sleep(void *context, unsigned int seconds)
+static unsigned int
+service_lifecycle_system_sleep(void *context, unsigned int seconds)
 {
 	(void)context;
-	sleep(seconds);
+	return sleep(seconds);
+}
+
+static int
+service_lifecycle_sleep(void *context, unsigned int seconds)
+{
+	static const struct service_lifecycle_sleep_ops ops = {
+		service_lifecycle_system_sleep
+	};
+
+	return service_lifecycle_sleep_with(seconds, &ops, NULL);
 }
 
 static enum process_presence
