@@ -8,6 +8,34 @@ ALD_START_WAIT_SECONDS=10
 # dev_init provisions this owner-only lock in sticky /tmp before starting mdev.
 ALD_LOCK_FILE=${ALD_LOCK_FILE:-/tmp/aliyundrive-webdav.lock}
 
+# Read field 22 (starttime) from /proc/PID/stat. Strip comm from the right.
+ald_read_pid_starttime() {
+  ald_stat_pid=$1
+  case "$ald_stat_pid" in
+    ''|*[!0123456789]*) return 1 ;;
+  esac
+  ald_stat_line=$(cat "/proc/$ald_stat_pid/stat" 2>/dev/null) || return 1
+  case "$ald_stat_line" in
+    "$ald_stat_pid ("*") "*) ;;
+    *) return 1 ;;
+  esac
+  ald_stat_fields=${ald_stat_line##*) }
+  [ "$ald_stat_fields" != "$ald_stat_line" ] || return 1
+  ald_stat_field_count=0
+  ald_pid_starttime=
+  for ald_stat_field in $ald_stat_fields; do
+    ald_stat_field_count=$((ald_stat_field_count + 1))
+    if [ "$ald_stat_field_count" -eq 20 ]; then
+      case "$ald_stat_field" in
+        ''|*[!0123456789]*) return 1 ;;
+      esac
+      ald_pid_starttime=$ald_stat_field
+      return 0
+    fi
+  done
+  return 1
+}
+
 ald_process_state() {
   # Publish the validated PID set only after the complete scan succeeds.
   ald_process_pids=
@@ -35,7 +63,9 @@ ald_process_state() {
         [ "${#ald_pid}" -le 10 ] || return 2
         [ "$ald_pid" -gt 1 ] 2>/dev/null || return 2
 
-        # Validate every same-name candidate against caller UID and binary inode.
+        # Bind UID/executable checks to one kernel process generation.
+        ald_read_pid_starttime "$ald_pid" || return 2
+        ald_first_starttime=$ald_pid_starttime
         ald_actual_uid=$(stat -c %u "/proc/$ald_pid" 2>/dev/null) || return 2
         case "$ald_actual_uid" in
           ''|*[!0-9]*) return 2 ;;
@@ -52,8 +82,11 @@ ald_process_state() {
         esac
         ald_actual_exe=$(stat -L -c '%d:%i' "/proc/$ald_pid/exe" 2>/dev/null) || return 2
         [ "$ald_actual_exe" = "$ald_expected_exe" ] || return 2
+        ald_read_pid_starttime "$ald_pid" || return 2
+        [ "$ald_pid_starttime" = "$ald_first_starttime" ] || return 2
+        ald_actual_starttime=$ald_first_starttime
 
-        ald_validated_pids="${ald_validated_pids}${ald_validated_pids:+ }$ald_pid"
+        ald_validated_pids="${ald_validated_pids}${ald_validated_pids:+ }$ald_pid:$ald_actual_starttime"
         ald_pid_count=$((ald_pid_count + 1))
       done
       [ "$ald_pid_count" -gt 0 ] || return 2
@@ -357,7 +390,15 @@ ald_signal_validated_processes() {
   esac
   ald_signal_targets=$ald_process_pids
 
-  for ald_signal_pid in $ald_signal_targets; do
+  for ald_signal_target in $ald_signal_targets; do
+    case "$ald_signal_target" in
+      *:*)
+        ald_signal_pid=${ald_signal_target%%:*}
+        ald_signal_starttime=${ald_signal_target#*:}
+        ;;
+      *) return 1 ;;
+    esac
+
     # Revalidate the complete live inventory before each exact-PID signal.
     if ald_process_state; then
       ald_state=0
@@ -369,8 +410,9 @@ ald_signal_validated_processes() {
       0) ;;
       *) return 1 ;;
     esac
+    # Same UID and executable do not make a recycled PID the same process.
     case " $ald_process_pids " in
-      *" $ald_signal_pid "*) ;;
+      *" $ald_signal_pid:$ald_signal_starttime "*) ;;
       *) continue ;;
     esac
 

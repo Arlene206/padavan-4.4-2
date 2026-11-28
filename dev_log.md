@@ -1,3 +1,13 @@
+## 2026-11-28 — Bind AliyunDrive stop signals to process starttime
+
+- The launcher validated each candidate PID's UID and executable inode but stored only the numeric PID. A same-UID replacement running the same binary could reuse that PID between complete inventories and pass revalidation.
+- Added a parser for field 22 of `/proc/PID/stat`, stripping the rightmost `) ` delimiter so spaces/parentheses in `comm` do not shift fields. Capture starttime before and after UID/executable checks, fail UNKNOWN on unreadable/malformed/changing data, store `PID:STARTTIME`, and require an exact pair before TERM/KILL.
+- Added fixture coverage for inaccessible/malformed proc stat and a same-PID/same-UID/same-binary replacement with a different starttime; updated the static source contract.
+- This narrows but does not eliminate the final procfs-read-to-kill syscall race; no pidfd is used. No local shell test or target/hardware validation is claimed.
+- Base main: `8ca5208c758d718e398e1eceeedc2d6fc1d67f1f`; result: THIS COMMIT.
+
+---
+
 ## 2026-11-28 — Update DNSMasq workflow contract for shared Inadyn fsync policy
 
 - Exact-main DNSMasq lifecycle run `46135344700` on `5848adac320f0d0f937d95c3ef40d5787b1f22d5` passed the preceding DNSMasq and Inadyn host regressions, then failed its DDNS source-contract step at the stale token `fsync(fileno(fp))`. The Inadyn publisher had correctly moved to `config_file_sync_fd(fileno(fp))`; its focused lifecycle workflow already passed on that same SHA.

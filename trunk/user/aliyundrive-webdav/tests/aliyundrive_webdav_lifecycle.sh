@@ -140,6 +140,9 @@ ALD_WORK_DIR="$TEST_DIR/aliyundrive-webdav-workdir"
 TEST_UMASK_LOG="$TEST_DIR/umask.log"
 TEST_EXE_IDENTITY_MODE=valid
 TEST_PROCESS_UID_MODE=owner
+TEST_PROC_STAT_MODE=valid
+TEST_PROC_STAT_READS_FILE="$TEST_DIR/proc-stat-reads"
+printf '0\n' > "$TEST_PROC_STAT_READS_FILE"
 TEST_EXPECTED_UID=$(id -u)
 TEST_FOREIGN_UID=$((TEST_EXPECTED_UID + 1))
 export ALD_WORK_DIR TEST_UMASK_LOG
@@ -177,6 +180,41 @@ stat() {
     esac
   fi
   command stat "$@"
+}
+
+# Persist reads across command substitutions to model a changing PID generation.
+cat() {
+  if [ "$#" -eq 1 ] && [ "$1" = "/proc/12345/stat" ]; then
+    test_proc_stat_reads=$(command cat "$TEST_PROC_STAT_READS_FILE") || return 1
+    case "$test_proc_stat_reads" in
+      ''|*[!0123456789]*) return 2 ;;
+    esac
+    test_proc_stat_reads=$((test_proc_stat_reads + 1))
+    printf '%s\n' "$test_proc_stat_reads" > "$TEST_PROC_STAT_READS_FILE" || return 1
+    case "$TEST_PROC_STAT_MODE" in
+      valid) test_proc_starttime=123456 ;;
+      inaccessible) return 1 ;;
+      malformed) test_proc_starttime=not-a-number ;;
+      changing)
+        if [ "$test_proc_stat_reads" -eq 1 ]; then
+          test_proc_starttime=123456
+        else
+          test_proc_starttime=123457
+        fi
+        ;;
+      reused)
+        if [ "$test_proc_stat_reads" -le 2 ]; then
+          test_proc_starttime=123456
+        else
+          test_proc_starttime=123457
+        fi
+        ;;
+      *) return 2 ;;
+    esac
+    printf '12345 (aliyundrive-webdav ) worker) S 1 1 1 0 0 0 0 0 0 0 0 0 0 0 20 0 1 0 %s\n' "$test_proc_starttime"
+    return 0
+  fi
+  command cat "$@"
 }
 ALD_START_WAIT_SECONDS=10
 
@@ -446,6 +484,58 @@ fi
 }
 
 TEST_EXE_IDENTITY_MODE=valid
+
+# Missing, unreadable or malformed generation metadata must remain UNKNOWN.
+for TEST_PROC_STAT_MODE in inaccessible malformed; do
+  printf '0\n' > "$TEST_PROC_STAT_READS_FILE"
+  if ald_process_state; then
+    echo "FAIL: /proc/PID/stat mode $TEST_PROC_STAT_MODE was accepted" >&2
+    exit 1
+  else
+    TEST_STATE_STATUS=$?
+  fi
+  [ "$TEST_STATE_STATUS" -eq 2 ] || {
+    echo "FAIL: /proc/PID/stat mode $TEST_PROC_STAT_MODE was not UNKNOWN" >&2
+    exit 1
+  }
+done
+
+# A generation change during one UID/executable scan must also fail closed.
+TEST_PROC_STAT_MODE=changing
+printf '0\n' > "$TEST_PROC_STAT_READS_FILE"
+if ald_process_state; then
+  echo "FAIL: PID generation changed during identity validation" >&2
+  exit 1
+else
+  TEST_STATE_STATUS=$?
+fi
+[ "$TEST_STATE_STATUS" -eq 2 ] &&
+[ "$(command cat "$TEST_PROC_STAT_READS_FILE")" -eq 2 ] || {
+  echo "FAIL: changing PID generation was not rejected" >&2
+  exit 1
+}
+
+# Same PID, UID and executable, but a different starttime on the next inventory.
+TEST_PROC_STAT_MODE=reused
+printf '0\n' > "$TEST_PROC_STAT_READS_FILE"
+TEST_RUNNING=1
+TEST_PIDOF_MODE=normal
+TEST_PROCESS_UID_MODE=owner
+TEST_EXE_IDENTITY_MODE=valid
+TEST_TARGETED_SIGNAL_COUNT=0
+TEST_UNEXPECTED_SIGNAL_COUNT=0
+if ! ald_signal_validated_processes TERM; then
+  echo "FAIL: PID reuse reconciliation failed" >&2
+  exit 1
+fi
+[ "$(command cat "$TEST_PROC_STAT_READS_FILE")" -eq 4 ] &&
+[ "$TEST_TARGETED_SIGNAL_COUNT" -eq 0 ] &&
+[ "$TEST_UNEXPECTED_SIGNAL_COUNT" -eq 0 ] || {
+  echo "FAIL: PID-reused process received a signal or generation was not rechecked" >&2
+  exit 1
+}
+TEST_PROC_STAT_MODE=valid
+printf '0\n' > "$TEST_PROC_STAT_READS_FILE"
 TEST_RUNNING=0
 
 # No-process stop is a no-op and must not signal anything.

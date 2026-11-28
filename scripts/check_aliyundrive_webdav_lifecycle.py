@@ -153,6 +153,7 @@ def function_body(source: str, signature: str) -> str:
 
 
 nvram_get = function_body(launcher, "ald_nvram_get() {")
+pid_starttime = function_body(launcher, "ald_read_pid_starttime() {")
 process_state = function_body(launcher, "ald_process_state() {")
 wait_stopped = function_body(launcher, "ald_wait_stopped() {")
 wait_started = function_body(launcher, "ald_wait_started() {")
@@ -250,13 +251,22 @@ require('pidof "$NAME"' in process_state and
         '[ -z "$ald_pid_output" ] && return 1' in process_state and
         '[ -n "$ald_pid_output" ] || return 2' in process_state and
         'ald_expected_uid=$(id -u 2>/dev/null) || return 2' in process_state and
+        'ald_read_pid_starttime "$ald_pid" || return 2' in process_state and
+        '[ "$ald_pid_starttime" = "$ald_first_starttime" ] || return 2' in process_state and
+        'ald_actual_starttime=$ald_first_starttime' in process_state and
         'stat -c %u "/proc/$ald_pid"' in process_state and
         '[ "$ald_actual_uid" = "$ald_expected_uid" ] || return 2' in process_state and
         "stat -L -c '%d:%i' \"$ALD_BIN\"" in process_state and
         "stat -L -c '%d:%i' \"/proc/$ald_pid/exe\"" in process_state and
         '[ "$ald_actual_exe" = "$ald_expected_exe" ] || return 2' in process_state and
+        '$ald_pid:$ald_actual_starttime' in process_state and
         'return 2' in process_state,
-        "pidof candidates must match lifecycle caller UID and configured executable inode, failing closed on mismatch/error")
+        "pidof candidates must match UID, executable inode and stable /proc starttime, failing closed on mismatch/error")
+require('ald_stat_line=$(cat "/proc/$ald_stat_pid/stat" 2>/dev/null) || return 1' in pid_starttime and
+        'ald_stat_fields=${ald_stat_line##*) }' in pid_starttime and
+        'ald_stat_field_count -eq 20' in pid_starttime and
+        'ald_pid_starttime=$ald_stat_field' in pid_starttime,
+        "PID generation helper must safely parse field 22 despite spaces/parentheses in comm")
 
 require("TEST_EXE_IDENTITY_MODE=impostor" in test and
         "TEST_EXE_IDENTITY_MODE=inaccessible" in test and
@@ -266,8 +276,13 @@ require("TEST_EXE_IDENTITY_MODE=impostor" in test and
         "for TEST_PROCESS_UID_MODE in foreign inaccessible malformed; do" in test and
         "same-binary process owned by another UID" in test and
         "foreign UID caused a signal" in test and
-        "foreign UID process allowed a duplicate daemon launch" in test,
-        "lifecycle regression must reject spoofed executables and foreign/unreadable/malformed process UID data")
+        "foreign UID process allowed a duplicate daemon launch" in test and
+        "for TEST_PROC_STAT_MODE in inaccessible malformed; do" in test and
+        "TEST_PROC_STAT_MODE=changing" in test and
+        "PID generation changed during identity validation" in test and
+        "TEST_PROC_STAT_MODE=reused" in test and
+        "PID-reused process received a signal" in test,
+        "lifecycle regression must reject spoofed executables, foreign UIDs and unstable/malformed process starttimes")
 
 require('while [ "$ald_wait" -lt "$ALD_STOP_WAIT_SECONDS" ]; do' in wait_stopped and
         'ald_process_state' in wait_stopped and 'sleep 1 || return 2' in wait_stopped and
@@ -285,7 +300,10 @@ require('ald_process_pids=' in process_state and
 require('ald_process_state' in signal_processes and
         signal_processes.count('ald_process_state') >= 2 and
         'ald_signal_targets=$ald_process_pids' in signal_processes and
+        'ald_signal_pid=${ald_signal_target%%:*}' in signal_processes and
+        'ald_signal_starttime=${ald_signal_target#*:}' in signal_processes and
         'case " $ald_process_pids " in' in signal_processes and
+        '$ald_signal_pid:$ald_signal_starttime' in signal_processes and
         'kill "-$ald_signal" "$ald_signal_pid"' in signal_processes and
         'TERM|KILL)' in signal_processes and
         'killall' not in launcher,
