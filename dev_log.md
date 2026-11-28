@@ -1,3 +1,10 @@
+## 2026-11-28 — Correct duplicate DHCPACK test-registration contract assertion
+
+- The udhcpc host policy binary passed again on #46153023184, but the Python checker then reached a second, duplicate lease-time contract block and failed at line 407. The main() test registration is formatted as `test_lease_time_option_requires_exactly_one_uint32() != 0 ||`; normalize the source and expected token consistently.
+- USB storage hotplug workflow #46152870433 passed on descendant `1d74edb` after correcting its stale retry-helper call count. This follow-up changes only the source contract/handoff; no production DHCP behavior changes.
+
+---
+
 ## 2026-11-28 — Normalize udhcpc test-registration source assertion
 
 - The exact-head run #46152870458 passed its GNU89/Werror/ASan/UBSan host binary but the Python source contract failed at line 275. The C test is registered in `main()`; only the expected assertion fragment was wrong because the checker had compacted whitespace out of the source and retained spaces in `!= 0`.

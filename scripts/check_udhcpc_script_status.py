@@ -404,7 +404,7 @@ assert "udhcpc_lease_time_option_status_valid(int lookup_status," in policy
 assert "lookup_status == 0 ? option_length == 0U" in policy
 assert "lookup_status == 1 && option_length == sizeof(uint32_t)" in policy
 assert "test_lease_time_option_requires_exactly_one_uint32" in test
-assert "test_lease_time_option_requires_exactly_one_uint32() != 0" in "".join(test.split())
+assert "test_lease_time_option_requires_exactly_one_uint32()!=0||" in "".join(test.split())
 assert "lease_seconds < 0x10" not in lease_ack
 assert "lease_seconds >= 0x10000000" not in lease_ack
 assert "UDHCP_LEASE_TIME_DEFAULT_SECONDS 3600U" in policy
