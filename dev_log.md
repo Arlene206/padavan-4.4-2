@@ -1,3 +1,11 @@
+## 2026-11-28 — Repair stale watchdog and NVRAM source contracts
+
+- Exact SHA `1e9b17efdc54970c76b80689f63c6804ae4ecc4b` exposed two false-negative CI contracts, not failures in the new compiled policy regressions. The watchdog-signal C/ASan test step passed, then its inline source check still demanded the removed shared-`/tmp` stale-file unlink policy. Removed that dead helper/test and the three obsolete assertions after the probe moved to an owner-only `mkdtemp` directory.
+- The HTTPD security run's NVRAM C regression completed all injected flock, timeout, cross-process and crash-release cases successfully; its final inline contract still required a direct `flock(fd, LOCK_NB)` call after acquisition had been correctly routed through `nvram_transaction_lock_flock_with()`. Updated the contract to verify the bounded adapter and nonblocking acquisition arguments instead.
+- These are checker/policy cleanup only; no NVRAM locking or production watchdog behavior changed in this slice. Re-run exact-head watchdog-signal and HTTPD-security Actions on this commit. No local build or hardware result is claimed.
+
+---
+
 ## 2026-11-28 — Close root HTTPD watchdog /tmp symlink race
 
 - The HTTPD watchdog removed a predictable `/tmp/httpd_check_result` and then invoked background `wget -O` on that path. Between unlink and wget's open, a local process with write access to shared `/tmp` could replace the pathname with a symlink; the root watchdog would then truncate/write the symlink target. The detached writer also outlived the probe routine's cleanup/decision window.

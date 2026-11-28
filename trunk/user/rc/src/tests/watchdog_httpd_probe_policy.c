@@ -38,16 +38,6 @@ test_probe_requires_trustworthy_http_configuration(void)
 }
 
 static void
-test_stale_probe_result_must_be_removed_before_probe(void)
-{
-    assert(watchdog_httpd_probe_stale_file_remove_status(0, 0) == 0);
-    assert(watchdog_httpd_probe_stale_file_remove_status(-1, ENOENT) == 0);
-    assert(watchdog_httpd_probe_stale_file_remove_status(-1, EACCES) == EACCES);
-    assert(watchdog_httpd_probe_stale_file_remove_status(-1, EIO) == EIO);
-    assert(watchdog_httpd_probe_stale_file_remove_status(-1, 0) == EIO);
-}
-
-static void
 test_port_recheck_does_not_hide_read_errors_or_changes(void)
 {
     assert(watchdog_httpd_probe_port_unchanged(0, 8080, 8080));
@@ -104,7 +94,6 @@ main(void)
     test_login_timestamp_requires_complete_decimal_value();
     test_probe_requires_trustworthy_http_configuration();
     test_port_recheck_does_not_hide_read_errors_or_changes();
-    test_stale_probe_result_must_be_removed_before_probe();
     test_probe_file_io_errors_skip_restart_decision();
     test_private_probe_directory_is_owner_only();
     puts("watchdog HTTPD probe safety policy: PASS");

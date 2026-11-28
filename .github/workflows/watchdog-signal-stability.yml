@@ -178,8 +178,6 @@ jobs:
           assert 'nvram_get_int("http_proto")' not in httpd_probe
           assert 'nvram_get_int("http_lanport")' not in httpd_probe
           assert "cannot read HTTPD LAN port; skipping liveness probe" in httpd_probe
-          assert "watchdog_httpd_probe_stale_file_remove_status(" in httpd_probe
-          assert "cannot clear stale HTTPD probe result; skipping liveness decision" in httpd_probe
           assert "watchdog_httpd_probe_file_io_status(" in httpd_probe
           assert "probe_read_error = ferror(fp);" in httpd_probe
           assert "probe_close_result = fclose(fp);" in httpd_probe
@@ -190,7 +188,6 @@ jobs:
           file_error_guard = httpd_probe.index("if (status != 0)", file_status)
           live_decision = httpd_probe.index("if (httpd_live)", file_error_guard)
           assert file_status < file_error_guard < live_decision
-          assert "test_stale_probe_result_must_be_removed_before_probe" in httpd_test
           private_directory = httpd_probe.index("mkdtemp(probe_directory)")
           private_path = httpd_probe.index('snprintf(probe_file, sizeof(probe_file)')
           probe_launch = httpd_probe.index('doSystem("wget -q -T 1')

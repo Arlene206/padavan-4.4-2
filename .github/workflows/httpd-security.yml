@@ -6604,7 +6604,11 @@ jobs:
                           return source[brace + 1:pos]
               raise AssertionError("unterminated function: " + signature)
 
-          assert "flock(fd, operation | LOCK_NB)" in lock
+          acquire = body(lock, "nvram_transaction_lock_acquire_path(")
+          assert "nvram_transaction_lock_flock_with(" in acquire
+          assert "fd, operation | LOCK_NB," in acquire
+          assert "nvram_transaction_lock_flock_real" in acquire
+          assert "nvram_transaction_lock_flock_with(" in lock
           assert "lstat(\"/tmp\", &tmp_stat)" in lock
           assert "O_NOFOLLOW | O_CLOEXEC" in lock and "st.st_nlink != 1" in lock
           for signature in (
