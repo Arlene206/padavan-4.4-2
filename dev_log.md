@@ -1,3 +1,10 @@
+## 2026-11-28 — Repair Redsocks endpoint regression fixture syntax
+
+- Exact Redsocks workflow #46085873079 for `9309abef4f9813d650ff41d6b0075f4567260fab` failed at the initial `bash -n` check because the newly inserted endpoint test loop had been truncated after its `for bad_ip in` header. The production source itself passed its preceding parse stage; no runtime tests ran. Replaced the incomplete fixture section with complete explicit newline-injection, IPv4 and port cases, plus the valid normalized endpoint case.
+- Exact Process inventory #46085873084 succeeded; AI handoff #46085874162 succeeded. Re-run Redsocks and Process regression on the syntax repair commit.
+
+---
+
 ## 2026-11-28 — Validate Redsocks generated SOCKS5 endpoints before restart
 
 - `func_start` wrote caller-supplied address and port directly into a privileged Redsocks config heredoc. An address/port containing a newline could inject additional directives. It also stopped a healthy daemon before discovering that a missing config had no endpoint or invalid values.

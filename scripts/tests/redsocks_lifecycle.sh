@@ -267,7 +267,46 @@ func_start || fail "missing config without endpoint was not a safe no-op"
 
 # Reject injected or malformed endpoint values before stopping a healthy daemon
 # or creating a configuration file.
-for bad_ip in 
+bad_ip_injected=$(printf '192.0.2.10\nbase {')
+for bad_ip in 300.0.0.1 010.0.0.7 "$bad_ip_injected"; do
+  reset running
+  rm -f "$REDSOCKS_CONF"
+  ARG2="$bad_ip"
+  ARG3=1080
+  if func_start; then fail "invalid SOCKS5 address was accepted"; else status=$?; fi
+  [[ "$status" == 2 ]] || fail "invalid SOCKS5 address status was $status"
+  [[ "$(cat "$TEST_STATE")" == running ]] || fail "invalid address stopped the existing daemon"
+  [[ ! -s "$TEST_SIGNALS" && ! -s "$TEST_START_LOG" ]] ||
+    fail "invalid address signalled or launched a daemon"
+  [[ ! -e "$REDSOCKS_CONF" ]] || fail "invalid address created a config file"
+done
+bad_port_injected=$(printf '1080\nbase {')
+for bad_port in 0 65536 abc 000000 "$bad_port_injected"; do
+  reset running
+  rm -f "$REDSOCKS_CONF"
+  ARG2=192.0.2.10
+  ARG3="$bad_port"
+  if func_start; then fail "invalid SOCKS5 port was accepted"; else status=$?; fi
+  [[ "$status" == 2 ]] || fail "invalid SOCKS5 port status was $status"
+  [[ "$(cat "$TEST_STATE")" == running ]] || fail "invalid port stopped the existing daemon"
+  [[ ! -s "$TEST_SIGNALS" && ! -s "$TEST_START_LOG" ]] ||
+    fail "invalid port signalled or launched a daemon"
+  [[ ! -e "$REDSOCKS_CONF" ]] || fail "invalid port created a config file"
+done
+echo "Redsocks endpoint validation rejects directive injection before process changes: PASS"
+
+# The generated-config path must use the same detached-child postcondition.
+reset absent
+rm -f "$REDSOCKS_CONF"
+ARG2=192.0.2.10
+ARG3=01080
+func_start || fail "generated-config detached startup failed"
+[[ -s "$REDSOCKS_CONF" ]] || fail "generated configuration was not written"
+[[ "$(cat "$TEST_STATE")" == running ]] || fail "generated-config launch skipped readiness"
+grep -Fqx 'ip = 192.0.2.10;' "$REDSOCKS_CONF" || fail "validated endpoint address was not emitted"
+grep -Fqx 'port = 1080;' "$REDSOCKS_CONF" || fail "leading-zero port was not normalized"
+ARG2=nolog
+ARG3=test
 
 # Firewall programming must be idempotent and every command status is authoritative.
 TEST_IPTABLES_RULES="$TEST_TMP/iptables.rules"

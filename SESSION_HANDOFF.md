@@ -1,3 +1,11 @@
+## 2026-11-28 — Fix Redsocks endpoint-test shell syntax before rerun
+
+- `9309abef4f9813d650ff41d6b0075f4567260fab` added pre-stop SOCKS5 IPv4/port validation and regressions, but exact Redsocks workflow #46085873079 failed immediately at `bash -n scripts/tests/redsocks_lifecycle.sh`: an incomplete insertion left the test file ending a section with bare `for bad_ip in`. No runtime regression tests executed. Replaced the malformed block with complete endpoint cases; re-run the Redsocks exact-SHA suite.
+- On `9309abef`, AI handoff #46085874162 PASS and Process inventory #46085873084 PASS. Exact Redsocks suite FAIL (syntax only). The source endpoint preflight remains in place; this commit repairs tests, not production logic.
+- Frozen backup remains `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+
+---
+
 ## 2026-11-28 — Harden Redsocks generated endpoint configuration
 
 - Found that `func_start` interpolated caller-supplied SOCKS5 address and port into a root-generated config without validation; embedded newlines could append arbitrary Redsocks directives. The routine also stopped the existing daemon before validating input or checking that an endpoint existed.
