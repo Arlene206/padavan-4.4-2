@@ -1,36 +1,40 @@
 ## 2026-11-28 continuation checkpoint
 
-- Repository `Arlene206/padavan-4.4-2`; main-only; bootstrap recovered once. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` stays at `72f4f157a084f8184b9597ca5bf334b8080e5807`; never modify it.
-- Parent: `84cae6a937d06f3f8fb1a99afa94eecb1ceb8719` (`fix(transmission): fail closed on NVRAM config reads`).
-- Transmission code was changed to `nvram get_checked`, with a new per-key failure-injection regression and Process workflow step. Post-commit inspection found the port-read block was present twice (once before the watch chmod and once at its original location); this commit removes the second copy. The exact NVRAM call-order assertions in the regression catch duplication.
-- TTYD checked-read commit `5759332e5f3da1212d3caa937684a663c6e39a86`: dedicated ttyd test PASS, Process inventory #46140033271 PASS, AI #46140033305 PASS; Process integration corrected and passed on d7. XY-C1 #46140033275 had been IN_PROGRESS at last poll.
-- d7 test-runner correction: Process #46140192826 PASS and AI #46140192858 PASS.
-- Prior cache-wrap SHA `4f09b7bc0cff0aae3a13a4705edd3bf3af489b53`: NVRAM/AI/HTTPD/Process inventory PASS; XY-C1 #46139431417 pending last poll. No L3 unless same-SHA build/TRX/artifact success.
-- NTP L3 evidence is only for `c052506cbe9463f2719494d237e5323fe1c261c8`; DHCP, NVRAM cache wrap and ttyd fixes are already implemented. No local MIPS/kernel build or hardware; L4 NOT VERIFIED. Roadmap near size cap.
+- Repository `Arlene206/padavan-4.4-2`; continue on `main` only. Startup recovery was performed once; do not rerun repository/bootstrap audit.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 remains closed/unmerged.
+- Parent for current task: `1ac1fa0919f95e11474325e344d19de89142025d` (`fix(transmission): deduplicate checked port reads`).
+- Transmission checked-read change: `trmd_pport`, `trmd_rport`, `http_username`, `http_passwd` switched to `nvram get_checked`; the port reads are now exactly once and predate watch permission changes. New four-key failure injection test is wired into Process lifecycle CI. On parent 1ac1, AI docs #46140572083 PASS, Process #46140572054 IN_PROGRESS, XY-C1 #46140572053 IN_PROGRESS, USB stability #46140572097 IN_PROGRESS; Process inventory #46140572060 PASS.
+- Parent 84ca Transmission attempt had a duplicate port read block; the 1ac1 correction removed it. Do not repeat the old parent as a clean verification target; only 1ac1's exact-SHA checks assess the fixed duplicate behavior.
+- TTYD checked-read commit `5759332e5f3da1212d3caa937684a663c6e39a86`: lifecycle shell test PASS; Process inventory #46140033271 PASS; AI docs #46140033305 PASS; Process integration passed on d7 after updating the success banner. XY-C1 #46140033275 had remained IN_PROGRESS.
+- Cache-wrap NVRAM commit `4f09b7bc0cff0aae3a13a4705edd3bf3af489b53`: NVRAM/AI/HTTPD/Process inventory PASS; XY-C1 #46139431417 previously IN_PROGRESS. No L3 without exact-SHA firmware Build/TRX/artifact success. NTP L3 evidence is limited to `c052506cbe9463f2719494d237e5323fe1c261c8`.
+- Current implementation: WireGuard uses a common `required_setting()` helper for four startup reads but still used legacy `nvram get`. This task changes it to `get_checked` and adds per-key fail-closed regression coverage.
+- No local MIPS build or physical router test is available. Physical L4 NOT VERIFIED; roadmap near size cap.
 
 ## Current repository state
 
-- Parent: `84cae6a937d06f3f8fb1a99afa94eecb1ceb8719`.
-- Current task remains the Transmission checked-NVRAM fix. The source now has one preflight read per port and one checked read per credential; successful empty values remain accepted.
-- Previous SHA's Process/XY runs may still be active; inspect them but results do not apply to this correction.
+- Parent: `1ac1fa0919f95e11474325e344d19de89142025d`.
+- WireGuard patch changes its helper to get_checked and extends the existing shell fixture. It does not alter normal successful setting semantics.
+- Frozen backup unchanged.
 
 ## Active task
 
-- Verify exact-SHA Process and XY-C1 on the corrective commit. Process regression should run `trunk/user/transmission/tests/nvram_read_fail_closed.sh`; it injects errors for each of four keys, demands no config/staging file and no launcher, then verifies normal successful reads.
-- If Process fails, inspect only the failing exact step/log and fix cause. If XY is pending, continue independent source work.
+- Verify WireGuard required-setting read failures are propagated on exact-SHA Process, AI and XY-C1 checks. Regression statuses 41–44 are independently injected per key; no interface, NAT or private key may be staged before all settings are read.
+- Also resolve the current Transmission Process/XY results for SHA 1ac1. Inspect the exact failing step/log if Process is FAIL; do not infer PASS from inventory/AI.
+- Continue independent work if firmware build remains pending.
 
 ## Exact first action for the next GPT
 
-1. Fetch main and exact-head Actions for the corrective Transmission commit.
-2. Verify Process and XY-C1 Build/TRX/artifact; do not claim L3 until all firmware checks pass.
-3. Check prior TTYD XY #46140033275 final status separately; it validates only its own SHA.
-4. Continue independent implementation; preserve backup and use one full-tree, non-forced expected-SHA main commit per logical task.
+1. Fetch live main and exact-SHA Actions for the WireGuard change; verify Process/AI/XY/USB results.
+2. Poll prior SHA 1ac1 Process #46140572054, XY-C1 #46140572053 and USB #46140572097. Their results apply to 1ac1 only.
+3. If a test fails, read its exact job log and fix causal issue; preserve original production behavior.
+4. If XY-C1 is pending, continue independent userland stability/security work. L3 only after Build, TRX and artifact all pass on same SHA.
+5. Preserve backup; commit complete Git trees, use expected-SHA non-forced main updates.
 
 ## Verification boundary
 
-- d7 SHA `d7e28dcf9d175615f4fad58bf6500b35ca6adc12`: Process #46140192826 PASS; AI #46140192858 PASS.
-- TTYD source SHA `5759332e5f3da1212d3caa937684a663c6e39a86`: ttyd regression PASS; Process inventory PASS; XY-C1 #46140033275 in progress.
-- Transmission parent `84cae6a937d06f3f8fb1a99afa94eecb1ceb8719`: initial code/test commit; correction removes duplicate checked port read; verify on new SHA.
+- 1ac1 Transmission: AI docs PASS; inventory PASS; Process/XY/USB checks in progress at last poll.
+- TTYD code SHA `5759332e5f3da1212d3caa937684a663c6e39a86`: dedicated ttyd shell regression PASS; inventory PASS; its XY-C1 was pending at last poll.
+- WireGuard patch: new exact-SHA checks required.
 - Physical L4: NOT VERIFIED.
 
 ## Mandatory end-of-session handoff checkpoint

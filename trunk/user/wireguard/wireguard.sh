@@ -44,7 +44,7 @@ require_commands()
 
 required_setting()
 {
-	setting_value=$(nvram get "$1") || return $?
+	setting_value=$(nvram get_checked "$1") || return $?
 	case "$setting_value" in
 		''|*[[:space:]]*)
 			return 2

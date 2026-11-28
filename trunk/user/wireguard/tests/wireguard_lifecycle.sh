@@ -31,7 +31,11 @@ assert_key_removed()
 
 cat > "$bin/nvram" <<'STUB'
 #!/bin/sh
-[ "$1" = get ] || exit 2
+[ "$1" = get_checked ] || exit 2
+printf '%s\n' "$2" >> "$WG_TEST_NVRAM_LOG"
+if [ "$2" = "${WG_TEST_NVRAM_FAIL_KEY-}" ]; then
+	exit "${WG_TEST_NVRAM_FAIL_STATUS:-1}"
+fi
 case "$2" in
 	wireguard_localip) printf '%s\n' "${WG_TEST_LOCALIP-10.7.0.2/24}" ;;
 	wireguard_localkey) printf '%s\n' "${WG_TEST_LOCALKEY-test-private-key}" ;;
@@ -145,6 +149,8 @@ export WG_TEST_INTERFACE="$tmp/interface"
 export WG_TEST_FIREWALL="$tmp/firewall"
 export WG_TEST_EVENTS="$tmp/events"
 export WG_TEST_KEY_PATH="$tmp/key-path"
+export WG_TEST_NVRAM_LOG="$tmp/nvram.log"
+export WG_TEST_NVRAM_FAIL_KEY= WG_TEST_NVRAM_FAIL_STATUS=0
 export WG_TEST_LOCALKEY="test-private-key"
 export WG_TEST_IP_ADD_STATUS=0 WG_TEST_IP_MTU_STATUS=0
 export WG_TEST_IP_ADDRESS_STATUS=0 WG_TEST_IP_UP_STATUS=0 WG_TEST_IP_DEL_STATUS=0
@@ -155,6 +161,34 @@ set_firewall_count()
 {
 	printf '%s\n' "$1" > "$WG_TEST_FIREWALL"
 }
+
+check_nvram_read_failure()
+{
+	failed_key=$1
+	expected_status=$2
+	expected_reads=$3
+	: > "$WG_TEST_EVENTS"
+	: > "$WG_TEST_NVRAM_LOG"
+	rm -f "$WG_TEST_INTERFACE" "$WG_TEST_FIREWALL" "$WG_TEST_KEY_PATH"
+	if WG_TEST_NVRAM_FAIL_KEY="$failed_key" WG_TEST_NVRAM_FAIL_STATUS="$expected_status" /bin/sh "$script" start; then
+		status=0
+	else
+		status=$?
+	fi
+	assert_status "$expected_status" "$status"
+	[ "$(cat "$WG_TEST_NVRAM_LOG")" = "$expected_reads" ] || fail "unexpected NVRAM read sequence for $failed_key: $(cat "$WG_TEST_NVRAM_LOG")"
+	[ ! -e "$WG_TEST_INTERFACE" ] || fail "$failed_key read failure created wg0"
+	[ ! -e "$WG_TEST_FIREWALL" ] || fail "$failed_key read failure changed NAT rules"
+	[ ! -e "$WG_TEST_KEY_PATH" ] || fail "$failed_key read failure staged a private key"
+}
+
+# Every required setting read is status-bearing and must abort before setup.
+check_nvram_read_failure wireguard_localip 41 "wireguard_localip"
+check_nvram_read_failure wireguard_localkey 42 "$(printf 'wireguard_localip\nwireguard_localkey')"
+check_nvram_read_failure wireguard_peerkey 43 "$(printf 'wireguard_localip\nwireguard_localkey\nwireguard_peerkey')"
+check_nvram_read_failure wireguard_peerip 44 "$(printf 'wireguard_localip\nwireguard_localkey\nwireguard_peerkey\nwireguard_peerip')"
+: > "$WG_TEST_NVRAM_LOG"
+
 
 sh -n "$script"
 : > "$WG_TEST_EVENTS"
@@ -248,4 +282,4 @@ assert_status 47 "$status"
 [ ! -e "$WG_TEST_INTERFACE" ] || fail "failed interface creation changed interface state"
 assert_key_removed
 
-echo "WireGuard startup, key confinement, rollback and stop regressions: PASS"
+echo "WireGuard checked NVRAM reads, startup, key confinement, rollback and stop regressions: PASS"

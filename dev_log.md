@@ -1,3 +1,10 @@
+## 2026-11-28 — Make WireGuard required settings backend-error aware
+
+- WireGuard's `required_setting()` rejected empty/whitespace values and propagated a nonzero command status, but called legacy `nvram get`; that interface can mask an underlying NVRAM backend read failure as a successful empty result. A false empty result is rejected, but the caller cannot distinguish a missing setting from backend I/O failure, and the checked-read contract used by SmartDNS/ZeroTier/TTYD/Transmission was not consistently applied.
+- Switched the four required startup settings to `nvram get_checked` through the common helper. Extended the existing lifecycle fixture to inject independent statuses 41–44 for local address, private key, peer public key and endpoint, asserting status preservation and zero interface/NAT/key-file side effects before all four normal reads.
+- Parent: `1ac1fa0919f95e11474325e344d19de89142025d`; AI docs #46140572083 PASS; Process #46140572054, XY-C1 #46140572053 and USB storage #46140572097 were IN_PROGRESS at the last poll. The WireGuard slice needs fresh exact-SHA checks.
+
+---
 ## 2026-11-28 — Remove duplicate Transmission port preflight
 
 - Post-commit source review of `84cae6a937d06f3f8fb1a99afa94eecb1ceb8719` found the checked port-read block had been inserted before the watch-directory chmod without removing its original location. This caused duplicate NVRAM reads and would fail the exact-order regression.
