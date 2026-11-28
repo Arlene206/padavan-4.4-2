@@ -1,3 +1,10 @@
+## 2026-11-28 — Repair stale DHCPACK lease-time checker contract
+
+- Exact-head udhcpc workflow #46152329755 on `4652b6801ec4c04c0ccfd07c677d7dbec70b39ce` passed the GNU89/Werror/ASan/UBSan host regression and failed only because `scripts/check_udhcpc_script_status.py` still searched for the removed `udhcp_get_option32()` lease-time call. Production now correctly uses the length-reporting option parser.
+- Updated the source contract to assert parse → strict status/length validation → retry on malformed presence → omission-only one-hour fallback or unaligned network-order decode. Also check the policy and test registration. No production behavior changed; fresh exact-head Actions pending.
+
+---
+
 ## 2026-11-28 — Reject malformed DHCPACK lease-time option lengths
 
 - Found a malformed-presence ambiguity in DHCPACK parsing: `udhcp_get_option32()` returns NULL both when option 51 is absent and when present with a non-four-byte length (including zero). The old code treated all such cases as "no lease time" and silently published a one-hour lease. That fallback remains for a truly absent option, but malformed presence must not be equivalent to absence.

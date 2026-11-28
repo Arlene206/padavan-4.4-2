@@ -249,8 +249,34 @@ assert "udhcpc_subnet_mask_prefix_length(ntohl(subnet)" in subnet_validation
 subnet_gate = ack.index("if (!udhcpc_subnet_mask_option_valid(&packet))")
 subnet_retry = ack.index("udhcpc_script_failure_prepare_retry", subnet_gate)
 subnet_continue = ack.index("continue;", subnet_retry)
-lease_time_read = ack.index("udhcp_get_option32(&packet, DHCP_LEASE_TIME)")
-assert subnet_gate < subnet_retry < subnet_continue < lease_time_read
+lease_time_read = ack.index(
+    "lease_time_status = udhcp_get_option_with_length("
+)
+lease_time_validate = ack.index(
+    "if (!udhcpc_lease_time_option_status_valid(", lease_time_read)
+lease_time_retry = ack.index(
+    "udhcpc_script_failure_prepare_retry", lease_time_validate)
+lease_time_continue = ack.index("continue;", lease_time_retry)
+lease_time_default = ack.index("if (lease_time_status == 0)", lease_time_continue)
+lease_time_fallback = ack.index(
+    "udhcpc_lease_time_effective(0U, 0)", lease_time_default)
+lease_time_decode = ack.index(
+    "move_from_unaligned32(lease_seconds, lease_time_option)",
+    lease_time_default)
+lease_time_normalize = ack.index(
+    "udhcpc_lease_time_effective(", lease_time_decode)
+lease_time_policy = function_body(
+    policy, "udhcpc_lease_time_option_status_valid(")
+assert "lookup_status == 0 ? option_length == 0U" in "".join(lease_time_policy.split())
+assert ("lookup_status == 1 && option_length == sizeof(uint32_t)"
+        in "".join(lease_time_policy.split()))
+assert "test_lease_time_option_requires_exactly_one_uint32" in test
+assert ("test_lease_time_option_requires_exactly_one_uint32() != 0"
+        in "".join(test.split()))
+assert (subnet_gate < subnet_retry < subnet_continue < lease_time_read <
+        lease_time_validate < lease_time_retry < lease_time_continue <
+        lease_time_default < lease_time_fallback < lease_time_decode <
+        lease_time_normalize)
 script_call = ack.index("script_status = udhcp_run_script")
 failure_gate = ack.index("if (script_status != 0)", script_call)
 retry = ack.index("udhcpc_script_failure_prepare_retry", failure_gate)
