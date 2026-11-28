@@ -62,6 +62,14 @@ jobs:
       - name: Verify Linux event-loop, datagram receive, and event-log persistence guards
         run: python3 scripts/check_iappd_select_fd.py
 
+      - name: Compile and run event-log monotonic deadline regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/ralinkiappd/src \
+            trunk/user/ralinkiappd/tests/iapp_event_log_policy.c \
+            -o "$RUNNER_TEMP/iapp-event-log-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/iapp-event-log-policy"
+
       - name: Compile optional IAPP event-log branch
         run: |
           cc -std=gnu89 -Werror=int-conversion -Werror=incompatible-pointer-types \

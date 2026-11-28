@@ -1835,7 +1835,8 @@ static VOID IAPP_Start(
 	IAPP_IN		RTMP_IAPP			*pCtrlBK)
 {
 #ifdef IAPP_EVENT_LOG
-	struct timeval now, backuptime, res;
+	struct timespec now, backuptime;
+	int event_log_clock_ready, event_log_clock_error_logged;
 #endif // IAPP_EVENT_LOG //
 
 
@@ -1843,7 +1844,14 @@ static VOID IAPP_Start(
 	pCtrlBK->FlgIsTerminated = 0;
 
 #ifdef IAPP_EVENT_LOG
-	gettimeofday(&backuptime, NULL);
+	event_log_clock_ready =
+		(clock_gettime(CLOCK_MONOTONIC, &backuptime) == 0);
+	event_log_clock_error_logged = 0;
+	if (!event_log_clock_ready) {
+		event_log_clock_error_logged = 1;
+		DBGPRINT(RT_DEBUG_ERROR,
+			 "iapp> CLOCK_MONOTONIC unavailable for event log timer!\\n");
+	}
 	IAPP_EventLogClean();
 #endif // IAPP_EVENT_LOG //
 
@@ -1853,16 +1861,24 @@ static VOID IAPP_Start(
 	while(!pCtrlBK->FlgIsTerminated)
 	{
 #ifdef IAPP_EVENT_LOG
-		/* implement timer function */
-		gettimeofday(&now, NULL);
-		timersub(&now, &backuptime, &res);
-
-		/* 1s periodic timer to write events */
-		if (iapp_event_log_poll_due(res.tv_sec))
-		{
-			backuptime = now;
-			IAPP_EventLog_Query(pCtrlBK);
-		} /* End of if */
+		/* Use a monotonic clock: wall-clock corrections must not stall or
+		 * accelerate the periodic driver event-log snapshot.
+		 */
+		if (clock_gettime(CLOCK_MONOTONIC, &now) != 0) {
+			if (!event_log_clock_error_logged) {
+				DBGPRINT(RT_DEBUG_ERROR,
+					 "iapp> CLOCK_MONOTONIC event log sample failed!\\n");
+				event_log_clock_error_logged = 1;
+			}
+		} else {
+			event_log_clock_error_logged = 0;
+			if (!event_log_clock_ready ||
+			    iapp_event_log_poll_due(&now, &backuptime) > 0) {
+				backuptime = now;
+				event_log_clock_ready = 1;
+				IAPP_EventLog_Query(pCtrlBK);
+			}
+		}
 #endif // IAPP_EVENT_LOG //
 
 		/* CPU suspend will be done in IAPP_RcvHandler() */

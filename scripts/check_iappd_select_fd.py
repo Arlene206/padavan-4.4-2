@@ -132,15 +132,25 @@ def main() -> None:
 
     require('#include "iapp_event_log_poll_policy.h"' in source,
             "IAPP event loop must include the event-log poll policy")
-    require("if (iapp_event_log_poll_due(res.tv_sec))" in source,
-            "event snapshots must use the one-second polling policy")
-    require("res.tv_sec >= 1000" not in source,
-            "event-log poll interval must not regress to 1000 seconds")
     start_handler = extract_function(source, "IAPP_Start")
-    poll_gate = start_handler.find("iapp_event_log_poll_due(res.tv_sec)")
+    require("struct timespec now, backuptime;" in start_handler,
+            "event-log interval must use monotonic timespec samples")
+    require("clock_gettime(CLOCK_MONOTONIC, &backuptime)" in start_handler and
+            "clock_gettime(CLOCK_MONOTONIC, &now)" in start_handler,
+            "event-log timer must initialize and sample CLOCK_MONOTONIC")
+    require("gettimeofday(" not in start_handler and "timersub(" not in start_handler,
+            "event-log polling must not depend on adjustable wall-clock time")
+    poll_gate = start_handler.find("iapp_event_log_poll_due(&now, &backuptime)")
     query_call = start_handler.find("IAPP_EventLog_Query(pCtrlBK)", poll_gate)
-    require(poll_gate >= 0 and query_call > poll_gate,
-            "event-log query must remain gated by the elapsed-time policy")
+    update_sample = start_handler.find("backuptime = now;", poll_gate)
+    require(poll_gate >= 0 and update_sample > poll_gate and query_call > update_sample,
+            "event-log query must be gated by a monotonic one-second deadline")
+    require("!event_log_clock_ready" in start_handler and
+            "event_log_clock_ready = 1;" in start_handler,
+            "event-log polling must recover after a transient monotonic-clock error")
+    require("iapp_event_log_poll_due(const struct timespec *now" in
+            source[source.find('#include "iapp_event_log_poll_policy.h"'):],
+            "event-log polling helper must validate monotonic timespec samples")
     require("msgrcv(" not in start_handler and "rtmpiapp.MsgId" not in start_handler and
             "MsgSubType msg" not in start_handler,
             "event-log loop must not read the obsolete, never-initialized 802.1X message queue")

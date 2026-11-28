@@ -1,3 +1,11 @@
+## 2026-11-28 — Make optional IAPP event-log polling monotonic
+
+- `IAPP_Start()` event logger relied on gettimeofday()/timersub() for a periodic one-second snapshot. Wall-clock changes can suppress or accelerate event capture. Replaced with CLOCK_MONOTONIC timespec polling; backwards samples and malformed inputs do not trigger an early poll. On a transient clock-read failure, the loop logs once and retries; first valid recovery sample captures events immediately.
+- Added a timespec boundary regression under GNU89/Werror/ASan/UBSan and wired it into iappd-lifecycle. The existing optional IAPP_EVENT_LOG syntax check remains.
+- No local target cross-build or physical AP test.
+
+---
+
 ## 2026-11-28 — Correct DHCP lease planner integration assertion
 
 - The udhcpc integration check on c94fb8058b32b46b9a3b98c10605772799f82739 failed because its older ordering assertion still searched for `already_waited_sec = script_elapsed` and `timeout = lease_seconds / 2` after the ACK branch had been refactored to call `udhcpc_lease_script_plan()`. The helper now owns those calculations.

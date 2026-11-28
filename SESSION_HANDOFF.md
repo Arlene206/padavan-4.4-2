@@ -1,3 +1,13 @@
+## 2026-11-28 — Make optional IAPP event-log polling monotonic
+
+- Fixed a reliability defect in the optional Ralink IAPP event logger: `IAPP_Start()` used `gettimeofday()`/wall-clock subtraction for its one-second poll. NTP/manual clock adjustments could stall snapshots or trigger them at the wrong rate.
+- The poll now uses `clock_gettime(CLOCK_MONOTONIC)`, a validated timespec interval helper, and retries after transient clock-read errors (first successful sample polls immediately). Wall-clock APIs are removed from this timer path.
+- Added GNU89/Werror/ASan/UBSan tests for sub-second, exact-one-second, overdue, backwards and invalid timespec inputs; added the test to the IAPP lifecycle workflow and updated source contract.
+- DHCP source SHA c94fb8058b32b46b9a3b98c10605772799f82739: udhcpc sanitizer unit binary PASS, but its integration checker failed due a stale ordering assertion (fixed in parent checker-only SHA 89607a2a52ef77680926ebb385ff2815351942b9). Process inventory/lifecycle, WAN DHCP, DHCPv6 and AI docs PASS; XY-C1, storage and NVRAM checks were pending. Exact-head reruns required.
+- No local firmware cross-build or hardware/L4 test performed.
+
+---
+
 ## 2026-11-28 — Correct DHCP lease planner integration assertion
 
 - Exact SHA c94fb8058b32b46b9a3b98c10605772799f82739: GNU89/Werror/ASan/UBSan C policy test PASS; Process inventory/lifecycle, AI docs, WAN DHCP callback and DHCPv6 reply regressions PASS. udhcpc integration checker #46094795076 failed at an obsolete assertion requiring `already_waited_sec = script_elapsed` and a fixed `timeout = lease_seconds / 2`; the new planner correctly computes both values in `udhcpc_lease_script_plan()` and performs expiry cleanup before committing the server/lease state.
