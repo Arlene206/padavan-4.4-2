@@ -216,8 +216,16 @@ unsigned FAST_FUNC udhcp_option_idx(const char *name)
 	}
 }
 
-/* Get an option with bounds checking (warning, result is not aligned) */
-uint8_t* FAST_FUNC udhcp_get_option(struct dhcp_packet *packet, int code)
+/* Internal option lookup. When include_empty is true, a zero-length
+ * instance is still reported as present so callers can reject it instead
+ * of confusing a malformed option with an absent one.
+ *
+ * Return -1 for malformed option fields, 0 when absent, and 1 when found.
+ */
+static int
+udhcp_get_option_internal(struct dhcp_packet *packet, int code,
+                          uint8_t **option_value,
+                          unsigned int *option_length, int include_empty)
 {
 	uint8_t *optionptr;
 	int rem;
@@ -231,13 +239,20 @@ uint8_t* FAST_FUNC udhcp_get_option(struct dhcp_packet *packet, int code)
 		SNAME_FIELD101 = SNAME_FIELD * 0x101,
 	};
 
+	if (!option_value || !option_length || !packet) {
+		bb_error_msg("invalid DHCP option lookup arguments");
+		return -1;
+	}
+	*option_value = NULL;
+	*option_length = 0;
+
 	/* option bytes: [code][len][data1][data2]..[dataLEN] */
 	optionptr = packet->options;
 	rem = sizeof(packet->options);
 	while (1) {
 		if (rem <= 0) {
 			bb_error_msg("bad packet, malformed option field");
-			return NULL;
+			return -1;
 		}
 		if (optionptr[OPT_CODE] == DHCP_PADDING) {
 			rem--;
@@ -268,7 +283,7 @@ uint8_t* FAST_FUNC udhcp_get_option(struct dhcp_packet *packet, int code)
 		if (!udhcp_option_tlv_size(optionptr, (unsigned int)rem,
 					   &option_size)) {
 			bb_error_msg("bad packet, malformed option field");
-			return NULL;
+			return -1;
 		}
 
 		if (optionptr[OPT_CODE] == DHCP_OPTION_OVERLOAD) {
@@ -277,21 +292,24 @@ uint8_t* FAST_FUNC udhcp_get_option(struct dhcp_packet *packet, int code)
 					(unsigned int)overload_seen,
 					(unsigned int)in_overloaded_field)) {
 				bb_error_msg("bad packet, misplaced or duplicate option overload");
-				return NULL;
+				return -1;
 			}
 			if (!udhcp_option_overload_fields(optionptr,
 							  (unsigned int)rem,
 							  &overload_fields)) {
 				bb_error_msg("bad packet, malformed option overload");
-				return NULL;
+				return -1;
 			}
 			overload_seen = 1;
 			overload |= overload_fields;
 		}
 
-		if (optionptr[OPT_CODE] == code && optionptr[OPT_LEN] != 0) {
+		if (optionptr[OPT_CODE] == code &&
+		    (include_empty || optionptr[OPT_LEN] != 0)) {
 			log_option("Option found", optionptr);
-			return optionptr + OPT_DATA;
+			*option_value = optionptr + OPT_DATA;
+			*option_length = optionptr[OPT_LEN];
+			return 1;
 		}
 
 		/* Advance even for a zero-length instance; do not strand the cursor. */
@@ -301,7 +319,31 @@ uint8_t* FAST_FUNC udhcp_get_option(struct dhcp_packet *packet, int code)
 
 	/* log3 because udhcpc uses it a lot - very noisy */
 	log3("Option 0x%02x not found", code);
-	return NULL;
+	return 0;
+}
+
+/* Get an option with bounds checking (warning, result is not aligned). */
+uint8_t* FAST_FUNC udhcp_get_option(struct dhcp_packet *packet, int code)
+{
+	uint8_t *option_value;
+	unsigned int option_length;
+
+	if (udhcp_get_option_internal(packet, code, &option_value,
+				      &option_length, 0) != 1)
+		return NULL;
+	return option_value;
+}
+
+/*
+ * Unlike udhcp_get_option(), this reports zero-length options as present.
+ * Return -1 for a malformed option stream, 0 if absent, or 1 if found.
+ */
+int FAST_FUNC udhcp_get_option_with_length(struct dhcp_packet *packet,
+					   int code, uint8_t **option_value,
+					   unsigned int *option_length)
+{
+	return udhcp_get_option_internal(packet, code, option_value,
+					 option_length, 1);
 }
 
 uint8_t* FAST_FUNC udhcp_get_option32(struct dhcp_packet *packet, int code)

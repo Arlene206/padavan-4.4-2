@@ -342,6 +342,20 @@ udhcpc_server_id_rejected(int rebinding,
 	       (!server_id_present || received_server_id != expected_server_id);
 }
 
+/*
+ * A server identifier is exactly one IPv4 address. A true absence remains
+ * compatible with address-less DHCP servers; a present empty/short/long
+ * value, or an option-parser error, must not be treated as absence.
+ * Lookup status: -1 malformed, 0 absent, 1 present.
+ */
+static inline int
+udhcpc_server_id_option_status_valid(int lookup_status,
+                                     unsigned int option_length)
+{
+	return lookup_status == 0 ? option_length == 0U :
+		lookup_status == 1 && option_length == sizeof(uint32_t);
+}
+
 /* Keep the existing NAK-specific callsite name while sharing the policy. */
 static inline int
 udhcpc_nak_server_id_rejected(int rebinding,

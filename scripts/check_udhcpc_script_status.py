@@ -55,6 +55,7 @@ def function_body(source, signature):
 udhcp_dir = "trunk/user/busybox/busybox-1.24.x/networking/udhcp/"
 dhcpc = read(udhcp_dir + "dhcpc.c")
 common = read(udhcp_dir + "common.c")
+common_header = read(udhcp_dir + "common.h")
 option_parser = read(udhcp_dir + "option_parser_policy.h")
 policy = read(udhcp_dir + "udhcpc_script_policy.h")
 test = read(udhcp_dir + "tests/udhcpc_script_policy.c")
@@ -102,14 +103,36 @@ offer_start = dhcpc.index("if (*message == DHCPOFFER)")
 offer_end = dhcpc.index("\n\t\t\tcontinue;\n\t\tcase REQUESTING:", offer_start)
 offer = dhcpc[offer_start:offer_end]
 offer_compact = "".join(offer.split())
-offer_id_read = offer_compact.index("temp=udhcp_get_option32(&packet,DHCP_SERVER_ID)")
-offer_id_check = offer_compact.index("udhcpc_server_id_rejected(0,0,temp!=NULL,server_addr)")
+offer_id_read = offer_compact.index(
+    "server_id_status=udhcp_get_option_with_length(&packet,DHCP_SERVER_ID,&temp,&server_id_length)")
+offer_id_length_check = offer_compact.index(
+    "udhcpc_server_id_option_status_valid(server_id_status,server_id_length)")
+offer_id_check = offer_compact.index(
+    "udhcpc_server_id_rejected(0,0,server_id_status>0,server_addr)")
 offer_request_state = offer_compact.index("state=REQUESTING;")
-assert offer_id_read < offer_id_check < offer_request_state
-assert "received DHCP OFFER with invalid server ID, ignoring packet" in offer
+assert offer_id_read < offer_id_length_check < offer_id_check < offer_request_state
+assert "received DHCP OFFER with malformed server ID, ignoring packet" in offer
 
 # DHCP option TLV parsing validates header and full payload before use.
 assert '#include "option_parser_policy.h"' in common
+assert "udhcp_get_option_with_length" in common_header
+option_lookup = function_body(common, "static int udhcp_get_option_internal(")
+assert "int include_empty" in common
+assert "include_empty || optionptr[OPT_LEN] != 0" in option_lookup
+assert "*option_value = optionptr + OPT_DATA;" in option_lookup
+assert "*option_length = optionptr[OPT_LEN];" in option_lookup
+assert "return -1;" in option_lookup
+assert "return 0;" in option_lookup
+assert "return 1;" in option_lookup
+length_api = function_body(common, "int FAST_FUNC udhcp_get_option_with_length(")
+assert "option_length, 1)" in "".join(length_api.split())
+legacy_api = function_body(common, "uint8_t* FAST_FUNC udhcp_get_option(")
+assert "option_length, 0)" in "".join(legacy_api.split())
+assert "udhcp_server_id_option_status_valid" in policy
+assert "returnlookup_status==0?option_length==0U:lookup_status==1&&option_length==sizeof(uint32_t);" in "".join(policy.split())
+assert "test_server_id_option_requires_exactly_one_ipv4_address" in test
+assert "test_server_id_option_requires_exactly_one_ipv4_address()!=0" in "".join(test.split())
+assert "empty_server_id" in test and "udhcp_option_tlv_size(empty_server_id,2U,&total_size)" in "".join(test.split())
 assert 'udhcp_option_tlv_size(const uint8_t *option' in option_parser
 assert 'option[2] < 1U || option[2] > 3U' in option_parser
 assert 'udhcp_option_overload_location_valid' in option_parser
@@ -366,10 +389,14 @@ ack_branch = dhcpc[ack_branch_start:ack_branch_end]
 assert "udhcpc_server_id_rejected(state == REBINDING" in ack_branch
 assert "received DHCP ACK with wrong server ID" in ack_branch
 ack_branch_compact = "".join(ack_branch.split())
-ack_id_read = ack_branch_compact.index("server_id_option=udhcp_get_option32(&packet,DHCP_SERVER_ID)")
-ack_id_check = ack_branch_compact.index("udhcpc_server_id_rejected(state==REBINDING,server_addr,server_id_option!=NULL,svid)")
+ack_id_read = ack_branch_compact.index(
+    "server_id_status=udhcp_get_option_with_length(&packet,DHCP_SERVER_ID,&server_id_option,&server_id_length)")
+ack_id_length_check = ack_branch_compact.index(
+    "udhcpc_server_id_option_status_valid(server_id_status,server_id_length)")
+ack_id_check = ack_branch_compact.index(
+    "udhcpc_server_id_rejected(state==REBINDING,server_addr,server_id_status>0,svid)")
 ack_subnet_check = ack_branch_compact.index("udhcpc_subnet_mask_option_valid(&packet)")
-assert ack_id_read < ack_id_check < ack_subnet_check
+assert ack_id_read < ack_id_length_check < ack_id_check < ack_subnet_check
 assert "test_ack_server_id_filter_respects_selected_server" in test
 assert "test_ack_server_id_filter_respects_selected_server()!=0" in "".join(test.split())
 assert "udhcpc_server_id_rejected(1, selected_server, 1, 0)" in test
@@ -389,12 +416,16 @@ assert "udhcpc_server_addr_after_ack(0, 0, 1, 0) == 0" in test
 nak_branch_compact = "".join(nak_branch.split())
 policy_compact = "".join(policy.split())
 test_compact = "".join(test.split())
-nak_id_read = nak_branch_compact.index("temp=udhcp_get_option32(&packet,DHCP_SERVER_ID)")
-nak_id_check = nak_branch_compact.index("udhcpc_nak_server_id_rejected(state==REBINDING,server_addr,temp!=NULL,svid)")
+nak_id_read = nak_branch_compact.index(
+    "server_id_status=udhcp_get_option_with_length(&packet,DHCP_SERVER_ID,&temp,&server_id_length)")
+nak_id_length_check = nak_branch_compact.index(
+    "udhcpc_server_id_option_status_valid(server_id_status,server_id_length)")
+nak_id_check = nak_branch_compact.index(
+    "udhcpc_nak_server_id_rejected(state==REBINDING,server_addr,server_id_status>0,svid)")
 nak_event = nak_branch_compact.index('udhcp_run_script(&packet,"nak")')
 nak_deconfig = nak_branch_compact.index('udhcp_run_script(NULL,"deconfig")')
 nak_retry = nak_branch_compact.index("udhcpc_schedule_deconfig_retry(INIT_SELECTING", nak_deconfig)
-assert nak_id_read < nak_id_check < nak_event < nak_deconfig < nak_retry
+assert nak_id_read < nak_id_length_check < nak_id_check < nak_event < nak_deconfig < nak_retry
 assert "received DHCP NAK with wrong" in nak_branch
 assert ("staticinlineintudhcpc_server_id_rejected(intrebinding,uint32_texpected_server_id,"
         "intserver_id_present,uint32_treceived_server_id)") in policy_compact

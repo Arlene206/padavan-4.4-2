@@ -2017,6 +2017,8 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 			/* Must be a DHCPOFFER */
 			if (*message == DHCPOFFER) {
 				uint8_t *temp;
+				unsigned int server_id_length;
+				int server_id_status;
 
 /* What exactly is server's IP? There are several values.
  * Example DHCP offer captured with tchdump:
@@ -2043,8 +2045,14 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
  * They say ISC DHCP client supports this case.
  */
 				server_addr = 0;
-				temp = udhcp_get_option32(&packet, DHCP_SERVER_ID);
-				if (!temp) {
+				server_id_status = udhcp_get_option_with_length(
+					&packet, DHCP_SERVER_ID, &temp, &server_id_length);
+				if (!udhcpc_server_id_option_status_valid(
+					    server_id_status, server_id_length)) {
+					log1("received DHCP OFFER with malformed server ID, ignoring packet");
+					continue;
+				}
+				if (server_id_status == 0) {
 					bb_error_msg("no server ID, using 0.0.0.0");
 				} else {
 					/* it IS unaligned sometimes, don't "optimize" */
@@ -2052,7 +2060,8 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 				}
 				/* Keep address-less servers compatible, but never select a
 				 * limited-broadcast address as a future unicast destination. */
-				if (udhcpc_server_id_rejected(0, 0, temp != NULL, server_addr)) {
+				if (udhcpc_server_id_rejected(0, 0,
+						      server_id_status > 0, server_addr)) {
 					log1("received DHCP OFFER with invalid server ID, ignoring packet");
 					continue;
 				}
@@ -2078,16 +2087,25 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 				struct in_addr temp_addr;
 				uint8_t *temp;
 				uint8_t *server_id_option;
+				unsigned int server_id_length;
+				int server_id_status;
 				const char *script_name;
 				int script_status, lease_plan_status, deconfig_status;
 
 				/* Start the lease clock at ACK receipt, before ARP and scripts. */
 				start = monotonic_sec();
-				server_id_option = udhcp_get_option32(&packet, DHCP_SERVER_ID);
-				if (server_id_option)
+				server_id_status = udhcp_get_option_with_length(
+					&packet, DHCP_SERVER_ID, &server_id_option,
+					&server_id_length);
+				if (!udhcpc_server_id_option_status_valid(
+					    server_id_status, server_id_length)) {
+					log1("received DHCP ACK with malformed server ID, ignoring packet");
+					continue;
+				}
+				if (server_id_status > 0)
 					move_from_unaligned32(svid, server_id_option);
 				if (udhcpc_server_id_rejected(state == REBINDING,
-						server_addr, server_id_option != NULL, svid)) {
+						server_addr, server_id_status > 0, svid)) {
 					log1("received DHCP ACK with wrong server ID, ignoring packet");
 					continue;
 				}
@@ -2258,7 +2276,7 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 				/* A REBINDING ACK may come from another server. Remember the
 				 * replying server for the next unicast renew/release. */
 				server_addr = udhcpc_server_addr_after_ack(server_addr,
-					state == REBINDING, server_id_option != NULL, svid);
+					state == REBINDING, server_id_status > 0, svid);
 				rebind_timeout = timeout / 8;
 
 				requested_ip = packet.yiaddr;
@@ -2289,13 +2307,22 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 				{
 					uint32_t svid = 0;
 					uint8_t *temp;
+					unsigned int server_id_length;
+					int server_id_status;
 
-					temp = udhcp_get_option32(&packet, DHCP_SERVER_ID);
-					if (temp)
+					server_id_status = udhcp_get_option_with_length(
+						&packet, DHCP_SERVER_ID, &temp,
+						&server_id_length);
+					if (!udhcpc_server_id_option_status_valid(
+						    server_id_status, server_id_length)) {
+						log1("received DHCP NAK with malformed server ID, ignoring packet");
+						continue;
+					}
+					if (server_id_status > 0)
 						move_from_unaligned32(svid, temp);
 					if (udhcpc_nak_server_id_rejected(
 						    state == REBINDING, server_addr,
-						    temp != NULL, svid)) {
+						    server_id_status > 0, svid)) {
 						log1("received DHCP NAK with wrong"
 							" server ID, ignoring packet");
 						continue;

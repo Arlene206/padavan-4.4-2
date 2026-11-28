@@ -197,6 +197,14 @@ extern const uint8_t dhcp_option_lengths[] ALIGN1;
 unsigned FAST_FUNC udhcp_option_idx(const char *name);
 
 uint8_t *udhcp_get_option(struct dhcp_packet *packet, int code) FAST_FUNC;
+/*
+ * Find an option while preserving its presence and exact payload length.
+ * Return -1 for a malformed option stream, 0 if absent, 1 if found
+ * (including a zero-length instance). On absence/error, outputs are cleared.
+ */
+int udhcp_get_option_with_length(struct dhcp_packet *packet, int code,
+                                 uint8_t **option_value,
+                                 unsigned int *option_length) FAST_FUNC;
 /* Same as above + ensures that option length is 4 bytes
  * (returns NULL if size is different)
  */

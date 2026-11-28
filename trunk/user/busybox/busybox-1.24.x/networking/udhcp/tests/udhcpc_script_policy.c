@@ -249,6 +249,20 @@ static int test_nak_only_deconfigures_an_active_lease(void)
 }
 
 
+static int
+test_server_id_option_requires_exactly_one_ipv4_address(void)
+{
+	CHECK(udhcpc_server_id_option_status_valid(0, 0U));
+	CHECK(udhcpc_server_id_option_status_valid(1, sizeof(uint32_t)));
+	CHECK(!udhcpc_server_id_option_status_valid(-1, 0U));
+	CHECK(!udhcpc_server_id_option_status_valid(2, sizeof(uint32_t)));
+	CHECK(!udhcpc_server_id_option_status_valid(1, 0U));
+	CHECK(!udhcpc_server_id_option_status_valid(1, 3U));
+	CHECK(!udhcpc_server_id_option_status_valid(1, 5U));
+	CHECK(!udhcpc_server_id_option_status_valid(0, 4U));
+	return 0;
+}
+
 static int test_ack_server_id_filter_respects_selected_server(void)
 {
 	uint32_t selected_server = 0x01020304U;
@@ -548,6 +562,7 @@ static int test_already_expired_lease_is_not_resurrected(void)
 static int test_dhcp_option_tlv_bounds(void)
 {
 	static const uint8_t one_byte_header[] = { 0x35U };
+	static const uint8_t empty_server_id[] = { 0x36U, 0U };
 	static const uint8_t truncated_payload[] = { 0x35U, 2U, 1U };
 	static const uint8_t exact_payload[] = { 0x35U, 2U, 1U, 2U };
 	static const uint8_t maximum_payload[257] = { 0x35U, 255U };
@@ -560,6 +575,8 @@ static int test_dhcp_option_tlv_bounds(void)
 	CHECK(total_size == 77U);
 	CHECK(!udhcp_option_tlv_size(truncated_payload, 3U, &total_size));
 	CHECK(total_size == 77U);
+	CHECK(udhcp_option_tlv_size(empty_server_id, 2U, &total_size));
+	CHECK(total_size == 2U);
 	CHECK(udhcp_option_tlv_size(exact_payload, 4U, &total_size));
 	CHECK(total_size == 4U);
 	CHECK(udhcp_option_tlv_size(maximum_payload, 257U, &total_size));
@@ -666,6 +683,7 @@ int main(void)
 	if (test_listener_socket_recovery_preserves_lease_deadline() != 0 ||
 	    test_select_wait_clamps_elapsed_timeout_before_unsigned_subtraction() != 0 ||
 	    test_dhcp_option_tlv_bounds() != 0 ||
+	    test_server_id_option_requires_exactly_one_ipv4_address() != 0 ||
 	    test_dhcp_option_overload_is_a_validated_single_byte() != 0 ||
 	    test_dhcp_option_overload_is_unique_to_main_field() != 0 ||
 	    test_fixed_route_options_reject_partial_tuples() != 0 ||
