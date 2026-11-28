@@ -193,6 +193,8 @@ sed -n \
 	-e '/^ss_launch_watchcat() {/,/^}/p' \
 	-e '/^start_watchcat() {/,/^}/p' \
 	"$TEST_DIR/../scripts/shadowsocks.sh" > "$TMP_DIR/dns-proxy-functions.sh"
+sed -n '/^ss_monitor_process_target() {/,/^}/p' \
+	"$TEST_DIR/../scripts/ss-monitor" >> "$TMP_DIR/dns-proxy-functions.sh"
 . "$TMP_DIR/dns-proxy-functions.sh"
 
 # Replace the firmware RC entry point with an injected process-state model.
@@ -256,6 +258,64 @@ expect_status() {
 	if "$@"; then actual=0; else actual=$?; fi
 	[ "$actual" -eq "$expected" ] || fail "$label status=$actual expected=$expected"
 }
+
+
+# Watchdog counts bind the executable to a role-specific argv token.
+reset_proc_fixture
+expect_watch_target() {
+	expected_watch_target="$3|$4"
+	actual_watch_target=$(ss_monitor_process_target "$1" "$2") ||
+		fail "watch target resolution failed for $1:$2"
+	[ "$actual_watch_target" = "$expected_watch_target" ] ||
+		fail "watch target $1:$2 resolved to $actual_watch_target"
+}
+expect_watch_target tcp ss ss-redir /tmp/shadowsocksr.json
+expect_watch_target tcp ssr ssr-redir /tmp/shadowsocksr.json
+expect_watch_target udp ss ss-redir /tmp/shadowsocksr_u.json
+expect_watch_target udp xray xray /tmp/v2-ssr-reudp.json
+expect_watch_target udp trojan trojan /tmp/trojan-ssr-reudp.json
+expect_watch_target main v2ray v2ray /tmp/v2-redir.json
+expect_watch_target local ssr ssr-local /tmp/shadowsocksr_s.json
+expect_watch_target local socks5 microsocks ssr-local
+expect_status 1 "UDP SOCKS5 mode has no detached worker" ss_monitor_process_target udp socks5
+expect_status 2 "unknown watchdog target selector" ss_monitor_process_target tcp invalid
+
+watch_count=$(ss_process_identity_count ssr-redir /tmp/shadowsocksr.json) ||
+	fail "confirmed absent process identity count was not successful"
+[ "$watch_count" = "0" ] || fail "confirmed absent daemon count was $watch_count"
+add_stop_proc_fixture 5200 ssr-redir /usr/bin/ssr-redir /usr/bin/ssr-redir exit_on_term 4000 -c /tmp/shadowsocksr.json -f /tmp/ssr-retcp_1.pid
+add_stop_proc_fixture 5201 ssr-redir /usr/bin/ssr-redir /usr/bin/ssr-redir exit_on_term 4001 -c /tmp/shadowsocksr.json -f /tmp/ssr-retcp_2.pid
+# Same executable but a different service config, and a shell mentioning the
+# old process label, must not satisfy this role's health check.
+add_stop_proc_fixture 5202 ssr-redir /usr/bin/ssr-redir /usr/bin/ssr-redir exit_on_term 4002 -c /tmp/shadowsocksr_u.json -f /var/run/ssr-reudp.pid
+add_stop_proc_fixture 5203 sh /bin/sh /usr/bin/unrelated exit_on_term 4003 -c ssr-retcp
+watch_count=$(ss_process_identity_count ssr-redir /tmp/shadowsocksr.json) ||
+	fail "exact daemon process inventory failed"
+[ "$watch_count" = "2" ] ||
+	fail "watchdog counted a text decoy or another service using the same executable (count=$watch_count)"
+
+# A same-name process from another executable makes the inventory UNKNOWN.
+add_stop_proc_fixture 5204 ssr-redir /usr/bin/ssr-redir /usr/bin/untrusted-daemon exit_on_term 4004 -c /tmp/shadowsocksr.json
+if ss_process_identity_count ssr-redir /tmp/shadowsocksr.json >/dev/null; then
+	fail "foreign same-comm process was accepted as a known count"
+else
+	watch_status=$?
+fi
+[ "$watch_status" -eq 2 ] ||
+	fail "foreign same-comm process status=$watch_status expected=2"
+
+# Malformed metadata for an executable candidate is UNKNOWN, never zero.
+reset_proc_fixture
+add_stop_proc_fixture 5205 ssr-redir /usr/bin/ssr-redir /usr/bin/ssr-redir exit_on_term 4005 -c /tmp/shadowsocksr.json
+printf '%s\n' 'truncated stat record' > "$SS_PROC_ROOT/5205/stat"
+if ss_process_identity_count ssr-redir /tmp/shadowsocksr.json >/dev/null; then
+	fail "malformed executable identity returned a count"
+else
+	watch_status=$?
+fi
+[ "$watch_status" -eq 2 ] ||
+	fail "malformed executable identity status=$watch_status expected=2"
+echo "Watchdog role process identity regression: PASS"
 
 # Status 1 is only ABSENT after a complete procfs scan.
 reset_proc_fixture

@@ -1,3 +1,11 @@
+## 2026-11-28 — Bind Shadowsocks watchdog recovery to executable identity
+
+- `ss-monitor` previously inferred daemon health from `ps | grep` command text. It could count unrelated commands, and its `ssr-retcp/reudp` strings are PID-file labels rather than actual `ss-redir/ssr-redir` executable names.
+- Added role-specific targets combining the installed executable and config argv token; TCP, UDP, V2Ray/Xray/Trojan and local proxies sharing one executable no longer mask one another. Counts use the shared complete-procfs identity snapshot; UNKNOWN inventory or foreign same-comm executables log and skip recovery. Regression covers selector mapping, same-executable/different-config processes, text decoys and malformed metadata.
+- Local shell/host execution NOT RUN because this API-only session has no checkout. The exact-head Shadowsocks lifecycle workflow must execute the shell regression, syntax checks and source contract; no firmware or hardware validation is claimed.
+
+---
+
 ## 2026-11-28 — Throttle zero-interval unlimited udhcpc discovery retries
 
 - Concrete busy-loop: `udhcpc_main()` accepts `-T 0` because `T+` permits zero, while `-t 0` means unlimited discovery retries. In `INIT_SELECTING`, the client sets `timeout = discover_timeout`; with both zero values the select wait becomes zero and the event loop immediately emits DHCPDISCOVER again, consuming CPU and flooding the LAN indefinitely while no offer arrives.

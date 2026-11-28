@@ -68,6 +68,51 @@ run_bin() {
 	return "$launch_status"
 }
 
+
+# Return "process-name|unique-argv-token" for each configured service role.
+# Status 1 denotes a supported mode with no worker; status 2 is invalid/unknown.
+ss_monitor_process_target() {
+	[ "$#" -eq 2 ] || return 2
+	case "$1:$2" in
+		tcp:ss) printf '%s\n' 'ss-redir|/tmp/shadowsocksr.json' ;;
+		tcp:ssr) printf '%s\n' 'ssr-redir|/tmp/shadowsocksr.json' ;;
+		udp:ss) printf '%s\n' 'ss-redir|/tmp/shadowsocksr_u.json' ;;
+		udp:ssr) printf '%s\n' 'ssr-redir|/tmp/shadowsocksr_u.json' ;;
+		udp:v2ray) printf '%s\n' 'v2ray|/tmp/v2-ssr-reudp.json' ;;
+		udp:xray) printf '%s\n' 'xray|/tmp/v2-ssr-reudp.json' ;;
+		udp:trojan) printf '%s\n' 'trojan|/tmp/trojan-ssr-reudp.json' ;;
+		udp:socks5) return 1 ;;
+		main:v2ray) printf '%s\n' 'v2ray|/tmp/v2-redir.json' ;;
+		main:xray) printf '%s\n' 'xray|/tmp/v2-redir.json' ;;
+		main:trojan) printf '%s\n' 'trojan|/tmp/tj-redir.json' ;;
+		local:ss) printf '%s\n' 'ss-local|/tmp/shadowsocksr_s.json' ;;
+		local:ssr) printf '%s\n' 'ssr-local|/tmp/shadowsocksr_s.json' ;;
+		local:v2ray) printf '%s\n' 'v2ray|/tmp/v2-ssr-local.json' ;;
+		local:xray) printf '%s\n' 'xray|/tmp/v2-ssr-local.json' ;;
+		local:trojan) printf '%s\n' 'trojan|/tmp/trojan-ssr-local.json' ;;
+		local:socks5) printf '%s\n' 'microsocks|ssr-local' ;;
+		*) return 2 ;;
+	esac
+}
+
+ss_monitor_process_count() {
+	[ "$#" -ge 1 ] && [ "$#" -le 2 ] || return 2
+	local ss_monitor_count
+	local ss_monitor_status=0
+	if [ "$#" -eq 2 ]; then
+		if ss_monitor_count=$(ss_process_identity_count "$1" "$2"); then :; else ss_monitor_status=$?; fi
+	else
+		if ss_monitor_count=$(ss_process_identity_count "$1"); then :; else ss_monitor_status=$?; fi
+	fi
+	if [ "$ss_monitor_status" -ne 0 ]; then
+		log "Cannot verify $1 process inventory (status=$ss_monitor_status); automatic recovery skipped"
+		return 2
+	fi
+	case "$ss_monitor_count" in ''|*[!0-9]*) return 2 ;; esac
+	printf '%s\n' "$ss_monitor_count"
+	return 0
+}
+
 stop_dns_proxy() {
 	ss_stop_named_processes dns2tcp dnsproxy
 }
@@ -92,133 +137,140 @@ while [ "1" = "1" ]  #死循环
 do 
 	sleep 10
 	#redir tcp
-	if [ $redir_tcp_process -gt 0 ] ;then
-		icount=`ps -w | grep ssr-retcp | grep -v grep | wc -l`
-		if [ $icount = 0 ] ;then
-			log "检测到 SS 进程挂掉，正在重启..."
-			/usr/bin/shadowsocks.sh restart 
-			exit 0
+	if [ "$redir_tcp_process" -gt 0 ]; then
+		if tcp_target=$(ss_monitor_process_target tcp "$(nvram get d_type)"); then
+			tcp_process=${tcp_target%%|*}; tcp_argument=${tcp_target#*|}
+			if icount=$(ss_monitor_process_count "$tcp_process" "$tcp_argument"); then
+				if [ "$icount" -eq 0 ]; then
+					log "检测到 SS TCP 转发进程挂掉，正在重启..."
+					/usr/bin/shadowsocks.sh restart
+					exit 0
+				fi
+			fi
+		else
+			monitor_status=$?
+			log "Cannot resolve TCP relay executable (status=$monitor_status); automatic recovery skipped"
 		fi
 	fi
 	#redir udp
-	if [ $redir_udp_process -gt 0 ] ;then
-		icount=`ps -w | grep ssr-reudp | grep -v grep | wc -l`
-		if [ $icount = 0 ] ;then
-			log "检测到 SS 进程挂掉，正在重启..."
-			/usr/bin/shadowsocks.sh restart  
-			exit 0
+	if [ "$redir_udp_process" -gt 0 ]; then
+		if udp_target=$(ss_monitor_process_target udp "$(nvram get ud_type)"); then
+			udp_process=${udp_target%%|*}; udp_argument=${udp_target#*|}
+			if icount=$(ss_monitor_process_count "$udp_process" "$udp_argument"); then
+				if [ "$icount" -eq 0 ]; then
+					log "检测到 SS UDP 转发进程挂掉，正在重启..."
+					/usr/bin/shadowsocks.sh restart
+					exit 0
+				fi
+			fi
+		else
+			monitor_status=$?
+			[ "$monitor_status" -eq 1 ] || log "Cannot resolve UDP relay executable (status=$monitor_status); automatic recovery skipped"
 		fi
 	fi
 	#server
-	if [ $server_process_count -gt 0 ] ;then
-		icount=`ps -w | grep ssr-server | grep -v grep | wc -l`
-		if [ $icount -lt $server_process_count ]  #如果进程挂掉就重启它
-		then
-			log "ssr server error.restart!"
-			if ss_stop_named_processes ssr-server; then
-				for i in `seq $server_process_count`
-				do
-					if run_bin /usr/bin/ssr-server -c /tmp/shadowsocksr_$i.json -u -f /tmp/ssr-server$i.pid; then
-					:
+	if [ "$server_process_count" -gt 0 ]; then
+		if icount=$(ss_monitor_process_count ssr-server); then
+			if [ "$icount" -lt "$server_process_count" ]; then
+				log "ssr server error.restart!"
+				if ss_stop_named_processes ssr-server; then
+					for i in `seq "$server_process_count"`
+					do
+						if run_bin /usr/bin/ssr-server -c /tmp/shadowsocksr_$i.json -u -f /tmp/ssr-server$i.pid; then :; else
+							launch_status=$?
+							log "ssr-server replacement failed (status=$launch_status)"
+						fi
+					done
 				else
-					launch_status=$?
-					log "ssr-server replacement failed (status=$launch_status)"
+					log "ssr-server stop unverified; refusing replacement launch"
 				fi
-				done
-			else
-				log "ssr-server stop unverified; refusing replacement launch"
 			fi
 		fi
 	fi
 	#V2RAY/XRAY/TROJAN
-	if [ $v2ray_process -gt 0 ] ;then
+	if [ "$v2ray_process" -gt 0 ]; then
 		bin="$(nvram get d_type)"
 		conf="/tmp/v2-redir.json"
-		[ ! -f "/usr/bin/$bin" ] && bin=$(echo -e "v2ray\nxray" | grep -v $bin)
-		[ $bin = "trojan" ] && conf="/tmp/tj-redir.json"
-		icount=`ps -w | grep $bin | grep -v grep| wc -l`
-		if [ $icount -lt $v2ray_process ]  #如果进程挂掉就重启它
-		then
-			log "检测到 $bin 进程挂掉，正在重启..."
-			if ss_stop_named_processes "$bin"; then
-				if run_bin "/usr/bin/$bin" --config "$conf"; then
-					:
-				else
-					launch_status=$?
-					log "$bin replacement failed (status=$launch_status)"
+		[ ! -f "/usr/bin/$bin" ] && bin=$(echo -e "v2ray\nxray" | grep -v "$bin")
+		[ "$bin" = "trojan" ] && conf="/tmp/tj-redir.json"
+		if main_target=$(ss_monitor_process_target main "$bin"); then
+			main_process=${main_target%%|*}; main_argument=${main_target#*|}
+			if icount=$(ss_monitor_process_count "$main_process" "$main_argument"); then
+				if [ "$icount" -lt "$v2ray_process" ]; then
+					log "检测到 $bin 进程挂掉，正在重启..."
+					if ss_stop_named_processes "$bin"; then
+						if run_bin "/usr/bin/$bin" --config "$conf"; then :; else
+							launch_status=$?
+							log "$bin replacement failed (status=$launch_status)"
+						fi
+					else
+						log "$bin stop unverified; refusing replacement launch"
+					fi
 				fi
-			else
-				log "$bin stop unverified; refusing replacement launch"
 			fi
+		else
+			monitor_status=$?
+			log "Cannot resolve main proxy executable (status=$monitor_status); automatic recovery skipped"
 		fi
 	fi
 	#local
-	if [ $local_process -gt 0 ] ;then
-		icount=`ps -w | grep ssr-local | grep -v grep | wc -l`
-		if [ $icount -lt $local_process ]  #如果进程挂掉就重启它
-		then
-			log "ssr local error.restart!"
-			/usr/bin/shadowsocks.sh restart
-			exit 0
+	if [ "$local_process" -gt 0 ]; then
+		if local_target=$(ss_monitor_process_target local "$(nvram get s5_type)"); then
+			local_process_name=${local_target%%|*}; local_process_argument=${local_target#*|}
+			if icount=$(ss_monitor_process_count "$local_process_name" "$local_process_argument"); then
+				if [ "$icount" -lt "$local_process" ]; then
+					log "ssr local error.restart!"
+					/usr/bin/shadowsocks.sh restart
+					exit 0
+				fi
+			fi
+		else
+			monitor_status=$?
+			log "Cannot resolve local proxy executable (status=$monitor_status); automatic recovery skipped"
 		fi
 	fi
 	#dnsproxy
-	if [ $pdnsd_process = 0 ] ;then
-		icount=`ps -w | grep dnsproxy | grep -v grep | wc -l`
-		if [ $icount = 0 ]  #如果进程挂掉就重启它
-		then
-			log "dnsproxy is restarted!"
-			if stop_dns_proxy; then
-				start_dns_proxy
-			else
-				log "DNS proxy stop unverified; refusing replacement launch"
+	if [ "$pdnsd_process" = 0 ]; then
+		if icount=$(ss_monitor_process_count dnsproxy); then
+			if [ "$icount" -eq 0 ]; then
+				log "dnsproxy is restarted!"
+				if stop_dns_proxy; then start_dns_proxy; else log "DNS proxy stop unverified; refusing replacement launch"; fi
 			fi
 		fi
 	fi
 	#dns2tcp
-	if [ $pdnsd_process = 1 ] ;then
-		icount=`ps -w | grep dns2tcp | grep -v grep | wc -l`
-		if [ $icount = 0 ]  #如果进程挂掉就重启它
-		then
-			log "dns2tcp is restarted!"
-			if stop_dns_proxy; then
-				start_dns_proxy
-			else
-				log "DNS proxy stop unverified; refusing replacement launch"
+	if [ "$pdnsd_process" = 1 ]; then
+		if icount=$(ss_monitor_process_count dns2tcp); then
+			if [ "$icount" -eq 0 ]; then
+				log "dns2tcp is restarted!"
+				if stop_dns_proxy; then start_dns_proxy; else log "DNS proxy stop unverified; refusing replacement launch"; fi
 			fi
 		fi
 	fi
 	#chinadns-ng
-	if [ $chinadnsng_process -gt 0 ] ;then
-		icount=`ps -w | grep chinadns-ng | grep -v grep | wc -l`
-		if [ $icount -lt $chinadnsng_process ]  #如果进程挂掉就重启它
-		then
-			log "chinadns-ng tunnel error.restart!"
-			if ! ss_stop_named_processes chinadns-ng; then
-				log "chinadns-ng stop unverified; refusing replacement launch"
-				continue
-			fi
-			#kill -9 dns2tcp
-			#dns2tcp -L"127.0.0.1#5353" -R"$(nvram get tunnel_forward)" >/dev/null 2>&1 &
-			if ! stop_dns_proxy; then
-				log "DNS proxy stop unverified; refusing chinadns-ng restart"
-				continue
-			fi
-			start_dns_proxy
-			local_chnlist_file='/etc/storage/chinadns/chnlist_mini.txt'
-			if [ -f "$local_chnlist_file" ]; then
-			  log "启动chinadns分流，仅国外域名走DNS代理..."
-			  chinadns-ng -b 0.0.0.0 -l 65353 -c $(nvram get china_dns) -t 127.0.0.1#5353 -4 china -M -m $local_chnlist_file >/dev/null 2>&1 &
-			else
-			  log "启动chinadns分流，全部域名走DNS代理...本次不使用本地cdn域名文件$local_chnlist_file, 下次你自已可以创建它，文件中每行表示一个域名（不用要子域名）"
-			  chinadns-ng -b 0.0.0.0 -l 65353 -c $(nvram get china_dns) -t 127.0.0.1#5353 -4 china >/dev/null 2>&1 &
-			fi
-			sed -i '/no-resolv/d' /etc/storage/dnsmasq/dnsmasq.conf
-			sed -i '/server=127.0.0.1/d' /etc/storage/dnsmasq/dnsmasq.conf
-			cat >> /etc/storage/dnsmasq/dnsmasq.conf << EOF
+	if [ "$chinadnsng_process" -gt 0 ]; then
+		if icount=$(ss_monitor_process_count chinadns-ng); then
+			if [ "$icount" -lt "$chinadnsng_process" ]; then
+				log "chinadns-ng tunnel error.restart!"
+				if ! ss_stop_named_processes chinadns-ng; then log "chinadns-ng stop unverified; refusing replacement launch"; continue; fi
+				if ! stop_dns_proxy; then log "DNS proxy stop unverified; refusing chinadns-ng restart"; continue; fi
+				start_dns_proxy
+				local_chnlist_file='/etc/storage/chinadns/chnlist_mini.txt'
+				if [ -f "$local_chnlist_file" ]; then
+				  log "启动chinadns分流，仅国外域名走DNS代理..."
+				  chinadns-ng -b 0.0.0.0 -l 65353 -c "$(nvram get china_dns)" -t 127.0.0.1#5353 -4 china -M -m "$local_chnlist_file" >/dev/null 2>&1 &
+				else
+				  log "启动chinadns分流，全部域名走DNS代理...本次不使用本地cdn域名文件$local_chnlist_file, 下次你自已可以创建它，文件中每行表示一个域名（不用要子域名）"
+				  chinadns-ng -b 0.0.0.0 -l 65353 -c "$(nvram get china_dns)" -t 127.0.0.1#5353 -4 china >/dev/null 2>&1 &
+				fi
+				sed -i '/no-resolv/d' /etc/storage/dnsmasq/dnsmasq.conf
+				sed -i '/server=127.0.0.1/d' /etc/storage/dnsmasq/dnsmasq.conf
+				cat >> /etc/storage/dnsmasq/dnsmasq.conf << EOF
 no-resolv
 server=127.0.0.1#65353
 EOF
+			fi
 		fi
 	fi
+
 done

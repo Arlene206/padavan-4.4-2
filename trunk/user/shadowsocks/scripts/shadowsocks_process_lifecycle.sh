@@ -443,12 +443,40 @@ ss_script_argv_matches() {
 	[ "$ss_script_argv1" = "$ss_script_path" ]
 }
 
+# Match one complete argv element after the executable identity check.
+# Status 1 means no match; status 2 means procfs could not be read.
+ss_process_argv_has_exact() {
+	[ "$#" -eq 2 ] || return 2
+	local ss_argv_dir="$1"
+	local ss_argv_token="$2"
+	local ss_argv_arguments
+	local ss_argv_status
+
+	[ -n "$ss_argv_token" ] || return 2
+	if ss_argv_arguments=$(tr '\000' '\n' < "$ss_argv_dir/cmdline" 2>/dev/null); then
+		:
+	else
+		[ -d "$ss_argv_dir" ] || return 1
+		return 2
+	fi
+	if printf '%s\n' "$ss_argv_arguments" | grep -F -x -q -- "$ss_argv_token"; then
+		return 0
+	else
+		ss_argv_status=$?
+	fi
+	case "$ss_argv_status" in
+		1) return 1 ;;
+		*) return 2 ;;
+	esac
+}
+
 # Return a complete snapshot as "PID START_TIME" lines. Status 1 means ABSENT;
 # status 2 means procfs or candidate identity is incomplete (UNKNOWN).
 ss_process_identity_snapshot() {
-	[ "$#" -eq 2 ] || return 2
+	[ "$#" -ge 2 ] && [ "$#" -le 3 ] || return 2
 	local ss_snapshot_mode="$1"
 	local ss_snapshot_target="$2"
+	local ss_snapshot_argument="${3:-}"
 	local ss_snapshot_root="${SS_PROC_ROOT:-/proc}"
 	local ss_snapshot_entries
 	local ss_snapshot_pid
@@ -468,8 +496,14 @@ ss_process_identity_snapshot() {
 		named)
 			ss_snapshot_expected=$(ss_expected_executable "$ss_snapshot_target") || return 2
 			ss_snapshot_comm_prefix=$(printf '%.15s' "${ss_snapshot_target##*/}")
+			if [ -n "$ss_snapshot_argument" ]; then
+				case "$ss_snapshot_argument" in *[!A-Za-z0-9_./-]*) return 2 ;; esac
+				command -v tr >/dev/null 2>&1 || return 2
+				command -v grep >/dev/null 2>&1 || return 2
+			fi
 			;;
 		script)
+			[ -z "$ss_snapshot_argument" ] || return 2
 			[ "$ss_snapshot_target" = /usr/bin/ss-monitor ] || return 2
 			command -v tr >/dev/null 2>&1 || return 2
 			;;
@@ -571,6 +605,15 @@ ss_process_identity_snapshot() {
 			fi
 		fi
 		[ "$ss_snapshot_candidate" -eq 1 ] || continue
+		if [ -n "$ss_snapshot_argument" ]; then
+			if ss_process_argv_has_exact "$ss_snapshot_dir" "$ss_snapshot_argument"; then
+				:
+			else
+				ss_snapshot_status=$?
+				[ "$ss_snapshot_status" -eq 1 ] && continue
+				return 2
+			fi
+		fi
 
 		if ss_read_proc_identity "$ss_snapshot_pid"; then
 			:
@@ -589,6 +632,41 @@ EOF_PROC_IDENTITY
 	[ -n "$ss_snapshot_output" ] || return 1
 	printf '%s' "$ss_snapshot_output"
 	return 0
+}
+
+
+# Count verified executable instances, optionally scoped to one exact argv token.
+# A complete scan with no matching task is zero; incomplete scans remain UNKNOWN.
+ss_process_identity_count() {
+	[ "$#" -ge 1 ] && [ "$#" -le 2 ] || return 2
+	local ss_count_target="$1"
+	local ss_count_argument="${2:-}"
+	local ss_count_snapshot
+	local ss_count_status
+	local ss_count_value
+
+	if ss_count_snapshot=$(ss_process_identity_snapshot named "$ss_count_target" "$ss_count_argument"); then
+		if ss_count_value=$(printf '%s\n' "$ss_count_snapshot" | awk '
+			NF == 2 && $1 ~ /^[1-9][0-9]*$/ && $2 ~ /^[0-9]+$/ {
+				count++
+			}
+			END { print count + 0 }
+		'); then
+			case "$ss_count_value" in
+				''|*[!0-9]*) return 2 ;;
+			esac
+			printf '%s\n' "$ss_count_value"
+			return 0
+		else
+			return 2
+		fi
+	else
+		ss_count_status=$?
+	fi
+	case "$ss_count_status" in
+		1) printf '0\n'; return 0 ;;
+		*) return 2 ;;
+	esac
 }
 
 # Recheck PID, start_time and executable immediately before every signal.

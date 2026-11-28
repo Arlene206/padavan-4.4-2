@@ -68,7 +68,9 @@
 - Replaced the pidof-only status-1/empty-output ABSENT shortcut with the shared complete-procfs tri-state scanner. Added regressions for omitted live daemons, stop postconditions, incomplete inventory refusal, and confirmed absence. Exact reruns pending after correcting the test's shell invocation.
 
 
-## 2026-11-27 — Shadowsocks procfs
+## 2026-11-28 — Bind Shadowsocks watchdog health to executable identity
+
+- Replaced ps/grep counts with per-role executable+argv identity; UNKNOWN fails closed.
 
 ---
 

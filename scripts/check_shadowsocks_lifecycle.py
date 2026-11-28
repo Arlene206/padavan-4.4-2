@@ -133,6 +133,41 @@ require("ss_process_pattern_state()" in helper and
         'ss_pid_output=$(pgrep -f "$ss_process_pattern" 2>/dev/null)' in helper and
         "ss_named_processes_state()" in helper,
         "pgrep and aggregate process inventories must retain tri-state status")
+argv_match = shell_function(helper, "ss_process_argv_has_exact")
+require("tr '\\000' '\\n'" in argv_match and
+        'grep -F -x -q -- "$ss_argv_token"' in argv_match,
+        "watchdog argv matching must compare complete NUL-delimited arguments")
+identity_count = shell_function(helper, "ss_process_identity_count")
+require('ss_process_identity_snapshot named "$ss_count_target" "$ss_count_argument"' in identity_count and
+        'case "$ss_count_status" in' in identity_count and
+        "printf '0\\n'" in identity_count and
+        '*) return 2 ;;' in identity_count,
+        "watchdog counts must distinguish confirmed absence from UNKNOWN and support role-specific argv")
+target_resolver = shell_function(monitor, "ss_monitor_process_target")
+for token in ("/tmp/shadowsocksr.json", "/tmp/shadowsocksr_u.json",
+              "/tmp/shadowsocksr_s.json", "/tmp/v2-redir.json",
+              "/tmp/v2-ssr-reudp.json", "/tmp/v2-ssr-local.json",
+              "/tmp/tj-redir.json", "/tmp/trojan-ssr-reudp.json",
+              "/tmp/trojan-ssr-local.json", "ssr-local"):
+    require(token in target_resolver, f"watchdog role target missing {token}")
+monitor_count = shell_function(monitor, "ss_monitor_process_count")
+require('ss_process_identity_count "$1" "$2"' in monitor_count and
+        'Cannot verify $1 process inventory' in monitor_count and
+        'automatic recovery skipped' in monitor_count,
+        "watchdog must skip recovery when executable identity inventory is UNKNOWN")
+require("ps -w | grep" not in monitor,
+        "watchdog must not infer service health from ps command output")
+for daemon in ("ssr-server", "dnsproxy", "dns2tcp", "chinadns-ng"):
+    require(f"ss_monitor_process_count {daemon}" in monitor,
+            f"watchdog executable-identity count missing for {daemon}")
+for role in ("tcp", "udp", "main", "local"):
+    require(f"ss_monitor_process_target {role}" in monitor,
+            f"watchdog must resolve executable identity for {role}")
+require("another service using the same executable" in test and
+        "foreign same-comm process" in test and
+        "malformed executable identity" in test and
+        "Watchdog role process identity regression: PASS" in test,
+        "watchdog regression must cover command-line decoys and UNKNOWN inventories")
 stop_identity = shell_function(helper, "ss_stop_process_identity")
 require(r"\$" + "{" not in helper,
         "new process identity helpers must retain live shell parameter expansion")
