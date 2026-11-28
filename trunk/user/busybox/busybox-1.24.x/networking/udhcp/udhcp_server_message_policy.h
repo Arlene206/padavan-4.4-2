@@ -69,4 +69,12 @@ udhcp_server_ipv4_option_length_valid(int lookup_status,
            (lookup_status == 1 && option_length == 4U);
 }
 
+/* RFC 2132: DHCP_MESSAGE_TYPE is a required, exactly one-byte option. */
+static inline int
+udhcp_server_message_type_length_valid(int lookup_status,
+                                       unsigned int option_length)
+{
+    return lookup_status == 1 && option_length == 1U;
+}
+
 #endif /* UDHCP_SERVER_MESSAGE_POLICY_H */

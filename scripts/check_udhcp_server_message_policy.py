@@ -48,6 +48,18 @@ release_status_gate = dhcpd_compact.index(
 )
 release_mutation = dhcpd_compact.index("lease->expires=time(NULL)")
 assert release_status_gate < release_mutation
+
+# The required DHCP message-type option must be exactly one byte before use.
+message_type_lookup = dhcpd_compact.index(
+    "udhcp_get_option_with_length(&packet,DHCP_MESSAGE_TYPE,&state,&message_type_length)"
+)
+message_type_validation = dhcpd_compact.index(
+    "udhcp_server_message_type_length_valid(message_type_status,message_type_length)",
+    message_type_lookup,
+)
+message_type_use = dhcpd_compact.index("state[0]<DHCP_MINTYPE", message_type_validation)
+assert message_type_lookup < message_type_validation < message_type_use
+assert "test_message_type_option_requires_exactly_one_byte" in test
 for token in (
     "test_ipv4_address_options_distinguish_malformed_from_absent",
     "udhcp_server_ipv4_option_length_valid(1, 0U)",

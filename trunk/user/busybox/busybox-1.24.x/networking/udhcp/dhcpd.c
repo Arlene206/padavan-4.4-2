@@ -407,6 +407,8 @@ int udhcpd_main(int argc UNUSED_PARAM, char **argv)
 		unsigned int requested_ip_length;
 		int server_id_status;
 		int requested_ip_status;
+		unsigned int message_type_length;
+		int message_type_status;
 		uint32_t requested_nip = requested_nip; /* for compiler */
 		uint32_t static_lease_nip;
 		struct dyn_lease *lease, fake_lease;
@@ -470,8 +472,13 @@ int udhcpd_main(int argc UNUSED_PARAM, char **argv)
 			bb_error_msg("not a REQUEST, ignoring packet");
 			continue;
 		}
-		state = udhcp_get_option(&packet, DHCP_MESSAGE_TYPE);
-		if (state == NULL || state[0] < DHCP_MINTYPE || state[0] > DHCP_MAXTYPE) {
+		/* DHCP_MESSAGE_TYPE is one byte; do not accept trailing garbage. */
+		message_type_status = udhcp_get_option_with_length(&packet,
+							DHCP_MESSAGE_TYPE, &state,
+							&message_type_length);
+		if (!udhcp_server_message_type_length_valid(message_type_status,
+							message_type_length) ||
+		    state[0] < DHCP_MINTYPE || state[0] > DHCP_MAXTYPE) {
 			bb_error_msg("no or bad message type option, ignoring packet");
 			continue;
 		}

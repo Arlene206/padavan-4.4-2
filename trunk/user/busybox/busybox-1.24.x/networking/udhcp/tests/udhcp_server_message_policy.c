@@ -82,6 +82,18 @@ test_ipv4_address_options_distinguish_malformed_from_absent(void)
     assert(!udhcp_server_ipv4_option_length_valid(2, 4U));
 }
 
+static void
+test_message_type_option_requires_exactly_one_byte(void)
+{
+    assert(!udhcp_server_message_type_length_valid(0, 0U));
+    assert(udhcp_server_message_type_length_valid(1, 1U));
+    assert(!udhcp_server_message_type_length_valid(1, 0U));
+    assert(!udhcp_server_message_type_length_valid(1, 2U));
+    assert(!udhcp_server_message_type_length_valid(-1, 0U));
+    assert(!udhcp_server_message_type_length_valid(-1, 1U));
+    assert(!udhcp_server_message_type_length_valid(2, 1U));
+}
+
 int
 main(void)
 {
@@ -91,6 +103,7 @@ main(void)
     test_request_requires_valid_state_field_combinations();
     test_request_nak_requires_record_for_init_reboot();
     test_ipv4_address_options_distinguish_malformed_from_absent();
+    test_message_type_option_requires_exactly_one_byte();
     puts("DHCP server message field policy regression: PASS");
     return 0;
 }
