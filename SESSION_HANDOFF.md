@@ -38,6 +38,8 @@ Finish validating PID 1 `mdev.conf` publication durability:
 
 ## Mandatory handoff checkpoint
 
+The checkpoint is mandatory; a document edit is conditional. Before ending, inspect the live repository state, exact-head Actions, active task, validation boundary and first next action; update this file only when those facts materially change. Do not create a no-op checkpoint commit.
+
 Before ending, compare live main, exact-head Actions, active task, validation boundary and exact first action. Update this file only when those facts materially change; no no-op checkpoint commit.
 
 # Cross-session execution mandate

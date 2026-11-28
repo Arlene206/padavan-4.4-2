@@ -1,3 +1,13 @@
+## 2026-11-28 — Correct PID 1 mdev directory-sync fixture count and handoff contract
+
+- Exact-head mdev run `46134787306` on `60a5a1bbc086ff06b87088d02e2d733ea7f6dbc8` compiled successfully after the stale local was removed, then failed the first publication assertion: it expected three injected fsync calls.
+- The same injected adapter covers both barriers: two EINTRs plus successful staged-file fsync (three calls), followed by one parent-directory fsync (four total). Updated the regression and its workflow source contract to expect four. Persistent EINTR still fails before parent sync/rename after the shared initial-plus-eight retry budget.
+- Exact-head AI documentation run `46134787245` also caught a missing mandated handoff sentence; restored the checkpoint's conditional-document-edit wording. No production source changed.
+- No local host compile is available. Corrected exact-head mdev and AI docs Actions are required; L3/L4 are not claimed.
+- Base: `e7b8267c4a1b17d81d731093442ff64faaf19635`; result: THIS COMMIT.
+
+---
+
 ## 2026-11-28 — Bound Ralink wireless config fsync retries
 
 - The Ralink wireless configuration publisher's `ralink_config_finish_stream()` still retried fsync indefinitely on EINTR. It now delegates to the shared `config_file_sync_fd()` helper and therefore has the repository's eight-interruption ceiling.

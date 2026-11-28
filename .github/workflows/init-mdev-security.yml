@@ -353,7 +353,7 @@ jobs:
                         "fsync_interruptions_remaining = 2",
                         "fsync_always_interrupt = 1",
                         "CONFIG_FILE_SYNC_MAX_EINTR_RETRIES",
-                        "fsync_calls - calls_before_publish == 3"):
+                        "fsync_calls - calls_before_publish == 4"):
               assert token in test, token
 
           paths = (

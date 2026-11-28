@@ -115,7 +115,8 @@ main(void)
     fsync_interruptions_remaining = 2;
     calls_before_publish = fsync_calls;
     CHECK(init_mdev_config_publish(&fp, staged_path, path) == 0);
-    CHECK(fsync_calls - calls_before_publish == 3);
+    /* File fsync: two EINTRs + success; parent-directory fsync: one call. */
+    CHECK(fsync_calls - calls_before_publish == 4);
     CHECK(fsync_interruptions_remaining == 0);
     CHECK(parent_sync_calls == 1);
     CHECK(parent_sync_error == 0);
