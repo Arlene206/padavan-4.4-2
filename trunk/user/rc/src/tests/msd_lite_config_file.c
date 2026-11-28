@@ -8,6 +8,28 @@
 #include <sys/resource.h>
 #include <sys/stat.h>
 #include <unistd.h>
+
+/* Inject EINTR/EIO into the staged-file and parent-directory sync barriers. */
+static int msd_lite_fsync_interrupt_call = -1;
+static int msd_lite_fsync_error_call = -1;
+static int msd_lite_fsync_call_count;
+
+static int
+msd_lite_test_fsync(int fd)
+{
+    msd_lite_fsync_call_count++;
+    if (msd_lite_fsync_call_count == msd_lite_fsync_interrupt_call) {
+        errno = EINTR;
+        return -1;
+    }
+    if (msd_lite_fsync_call_count == msd_lite_fsync_error_call) {
+        errno = EIO;
+        return -1;
+    }
+    return fsync(fd);
+}
+
+#define CONFIG_FILE_SYNC_FSYNC(fd) msd_lite_test_fsync(fd)
 #include "msd_lite_config_file.h"
 
 static void write_file(const char *path, const char *contents)
@@ -79,10 +101,24 @@ int main(void)
     assert(chmod(source_path, 0644) == 0);
     write_file(destination_path, "old-config\n");
     assert(chmod(destination_path, 0600) == 0);
+    msd_lite_fsync_call_count = 0;
+    msd_lite_fsync_interrupt_call = 2; /* Parent directory fsync after file fsync. */
     status = msd_lite_config_publish(source_path, destination_path, "eth3.2", 4022);
+    msd_lite_fsync_interrupt_call = -1;
     assert(status == 0);
+    assert(msd_lite_fsync_call_count == 3); /* EINTR must be retried. */
     assert_file_equals(destination_path, expected_text);
     assert(stat(destination_path, &st) == 0 && (st.st_mode & 0777) == 0600);
+    assert_no_temporary_files(directory, "msd_lite.conf.tmp.");
+
+    /* A directory-sync error is reported after rename; visibility is not rolled back. */
+    msd_lite_fsync_call_count = 0;
+    msd_lite_fsync_error_call = 2;
+    status = msd_lite_config_publish(source_path, destination_path, "eth3.2", 4022);
+    msd_lite_fsync_error_call = -1;
+    assert(status == EIO);
+    assert(msd_lite_fsync_call_count == 2);
+    assert_file_equals(destination_path, expected_text);
     assert_no_temporary_files(directory, "msd_lite.conf.tmp.");
 
     write_file(destination_path, "last-good-configuration\n");

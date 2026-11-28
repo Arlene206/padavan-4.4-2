@@ -9,6 +9,8 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include "config_file_sync.h"
+
 static int
 msd_lite_config_write(FILE *output, FILE *source, const char *wan_ifname, int port)
 {
@@ -41,7 +43,11 @@ msd_lite_config_write(FILE *output, FILE *source, const char *wan_ifname, int po
     return 0;
 }
 
-/* Stage beside the destination; any failure preserves the last-good config. */
+/*
+ * Stage beside the destination. Failures before rename preserve the last-good
+ * config; a parent-directory sync failure after rename is reported even
+ * though the new configuration is already visible.
+ */
 static int
 msd_lite_config_publish(const char *source_path, const char *destination_path,
                         const char *wan_ifname, int port)
@@ -55,7 +61,6 @@ msd_lite_config_publish(const char *source_path, const char *destination_path,
     int source_fd = -1;
     int fd = -1;
     int status = 0;
-    int sync_status;
     mode_t mode;
 
     if (source_path == NULL || source_path[0] == '\0' ||
@@ -139,14 +144,8 @@ msd_lite_config_publish(const char *source_path, const char *destination_path,
         if (fflush(output) != 0)
             status = errno ? errno : EIO;
     }
-    if (status == 0) {
-        do {
-            errno = 0;
-            sync_status = fsync(fileno(output));
-        } while (sync_status != 0 && errno == EINTR);
-        if (sync_status != 0)
-            status = errno ? errno : EIO;
-    }
+    if (status == 0 && config_file_sync_fd(fileno(output)) != 0)
+        status = errno ? errno : EIO;
     errno = 0;
     if (fclose(output) != 0 && status == 0)
         status = errno ? errno : EIO;
@@ -154,6 +153,8 @@ msd_lite_config_publish(const char *source_path, const char *destination_path,
     if (status == 0) {
         errno = 0;
         if (rename(temporary_path, destination_path) != 0)
+            status = errno ? errno : EIO;
+        else if (config_file_sync_parent(destination_path) != 0)
             status = errno ? errno : EIO;
     }
 out:
