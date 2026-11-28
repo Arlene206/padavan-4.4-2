@@ -1,3 +1,12 @@
+## 2026-11-28 — Separate watchdog-specific scan from generic service inventory contract
+
+- Exact SHA 559289198b598cc2531ce7f37d14e1737a1e51ee Process lifecycle regression #46093910751 failed in `scripts/check_process_lifecycle_integration.py:1915`: its older shared loop still required `start_watchdog()` to call generic `process_inventory_scan("watchdog", ...)`. The new watchdog-specific scanner intentionally wraps that generic inventory and adds argv0 plus executable identity verification; HTTPD and dnsmasq still use the generic API.
+- THIS commit narrows the generic contract loop to HTTPD/dnsmasq and adds explicit watchdog-specialized scan/cleanup-order assertions. No runtime source changed.
+- Same SHA: Process inventory source audit #46093910757 PASS, DNSMasq lifecycle #46093910788 PASS, HTTPD lifecycle #46093910790 PASS, HTTPD security #46093910784 PASS, AI docs #46093910762 PASS; watchdog-signal #46093910756 failed on an inline stale contract (addressed in 42b15787...), XY-C1 #46093910770 and NVRAM audit #46093910791 were still IN_PROGRESS.
+- Next: inspect exact latest-head Process lifecycle and watchdog-signal reruns; verify the C/Werror firmware build from XY-C1. Frozen backup SHA unchanged.
+
+---
+
 ## 2026-11-28 — Repair inline watchdog signal CI for executable identity gate
 
 - Watchdog signal run #46093868038 on SHA 4acd703af1914b5987fc4bae118dec1185ca0396 still failed because its executed inline Python heredoc duplicated a rollback contract; updating the separate checker script alone did not change the heredoc. It still required generic `kill_services()` and generic process scanning.

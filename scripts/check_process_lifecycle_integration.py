@@ -1910,13 +1910,16 @@ watchdog_start = watchdog_source.split("int\nstart_watchdog(void)", 1)[1].split(
 watchdog_notify = watchdog_source.split("int\nnotify_watchdog_time(void)", 1)[1].split(
     "\n}\n", 1
 )[0]
-for body, service in ((watchdog_httpd, "httpd"), (watchdog_dnsmasq, "dnsmasq"),
-                      (watchdog_start, "watchdog")):
+for body, service in ((watchdog_httpd, "httpd"), (watchdog_dnsmasq, "dnsmasq")):
     assert 'process_inventory_scan("{}", &snapshot)'.format(service) in body
     assert "scan_error = snapshot.error;" in body
     assert body.index("scan_error = snapshot.error;") < body.index("process_snapshot_release(&snapshot);")
     assert body.index("process_snapshot_release(&snapshot);") < body.index("process_presence_start_action_for_state(presence)")
     assert "pids(" not in body
+assert "watchdog_process_scan(&snapshot, &scan_error)" in watchdog_start
+assert "scan_error = snapshot.error;" in watchdog_start
+assert watchdog_start.index("process_snapshot_release(&snapshot);") < watchdog_start.index("process_presence_start_action_for_state(presence)")
+assert "pids(" not in watchdog_start
 assert "is_dns_dhcpd_run()" not in watchdog_dnsmasq
 assert "PROCESS_PRESENCE_START_ABORT" in watchdog_httpd
 assert "restart_status = restart_httpd();" in watchdog_httpd

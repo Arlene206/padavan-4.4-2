@@ -1,3 +1,10 @@
+## 2026-11-28 — Separate watchdog-specific scan from generic service inventory contract
+
+- Exact 559289198b598cc2531ce7f37d14e1737a1e51ee Process lifecycle regression #46093910751 failed because the integration checker still expected generic `process_inventory_scan("watchdog", ...)` directly inside `start_watchdog()`. Startup now calls a watchdog-only wrapper which performs that inventory but validates argv0 and /proc/PID/exe before recognizing a real daemon. HTTPD/dnsmasq retain generic process scans.
+- THIS commit updates the checker accordingly and asserts the guarded scan, error propagation and snapshot-release ordering. No runtime source changed.
+
+---
+
 ## 2026-11-28 — Repair inline watchdog signal CI for executable identity gate
 
 - The watchdog-signal workflow's executed inline Python heredoc duplicated the rollback source assertions from `scripts/check_watchdog_ntp_lifecycle.py`. The prior correction updated the standalone script but not the heredoc, so exact 4acd703a... run #46093868038 still failed on legacy `kill_services()`/generic scan assertions.
