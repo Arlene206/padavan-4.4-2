@@ -1,3 +1,11 @@
+## 2026-11-28 22:26 CST (UTC+8) — Restore the canonical handoff task heading
+
+- Exact-head AI handoff run #46154469011 on main SHA `296f8a0781c10f51db08655d5683c9ad96496e93` failed because the prior documentation correction renamed the validator-required `## Active task` section to `## Completed source slice`. Restored the canonical heading and clarified that the WAN readiness source change is complete.
+- Updated the WAN roadmap evidence: exact-source WAN route #46154268118 and ARP socket #46154268207 are PASS; NVRAM audit #46154268084 is PASS; XY-C1 #46154268098 remains IN_PROGRESS on source SHA `e0efa3a421051d24a21b8519983892ffdef75456`.
+- Parent main SHA: `296f8a0781c10f51db08655d5683c9ad96496e93`; result: THIS COMMIT. Local `scripts/check_ai_handoff_docs.py` NOT RUN (API-only session); the exact-head AI documentation workflow is the required validation. Target Build/TRX/artifact remains pending; physical-router L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-28 — Keep the handoff roadmap below its byte limit
 
 - Exact-SHA AI handoff check #46154268128 failed because the edited `REFACTOR_ROADMAP.md` reached 131180 UTF-8 bytes, exceeding the 131072-byte hard limit by 108. The validator reported no other defect.
