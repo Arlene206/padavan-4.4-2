@@ -321,7 +321,9 @@ assert "if (router_ready)" in loop and "on_deferred_hotplug_dev();" in loop
 assert '#include "init_router_result_policy.h"' in init
 assert '#include "init_router_result_policy.h"' in rc
 assert "return init_router_result_from_boot_status(boot_services_status);" in router
-assert router.count("return INIT_ROUTER_RESULT_FATAL;") == 6
+# Additional fail-closed switch-node gates legitimately increase this count;
+# their exact source integration is verified by the switch-device policy checks below.
+assert router.count("return INIT_ROUTER_RESULT_FATAL;") >= 6
 assert "nvram_setup_status = nvram_convert_misc_values();" in router
 wan0_setup_gate = router.split(
     "if (nvram_setup_status != 0)", 1

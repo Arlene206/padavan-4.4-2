@@ -1,3 +1,12 @@
+## 2026-11-27 — Decouple PID 1 boot contract from secure switch-node fatal gates
+
+- Exact-SHA Process lifecycle run `46089366834` and AliyunDrive WebDAV run `46089366780` on `78103b86d1e214dea0ad90cb72e9895c48b3df42` each reached the shared `scripts/check_dev_init_boot.py` source contract and failed only its stale assertion that `init_router()` had exactly six fatal returns. The two secure RTL8367/MediaTek node checks correctly added early FATAL exits. All preceding GNU89/ASan/UBSan boot-policy tests and the private-lock/WebDAV lifecycle regressions passed. No production runtime failure was observed.
+- Changed the aggregate assertion to require the six established fatal return paths while the same checker separately validates both new switch-node status guards, mode/owner/type/rdev rules and init ordering. Process and AliyunDrive workflows both include this checker path in push/PR filters.
+- Previous workflow-only contract fixes: exact HTTPD + AI handoff Actions on `dbbbba13342d9297f3f45ef15e956e03c92879fe` PASS (`46089569822`, `46089569786`). The exact XY-C1 validation for switch-node source SHA `78103b86` was still PENDING at last poll; 39/43 other parent jobs passed, with Process and AliyunDrive failures being the stale assertion above and HTTPD repaired on dbbb. This checker correction requires fresh exact-SHA Process/AliyunDrive checks; no L3 claim yet.
+- Next: verify exact-SHA Process, AliyunDrive, AI handoff and XY-C1 checks for this correction, then resume independent P1 work. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+
+---
+
 ## 2026-11-27 — Preserve YAML heredoc indentation in RC contract follow-up
 
 - The initial HTTPD contract correction `9356c97e7587c6c330370a6b7981a775ecb649b6` changed the RC fatal-return threshold but placed the new Python assertion outside the workflow's indented shell block. This follow-up restores the embedded command-block indentation before running the exact-head Actions checks.

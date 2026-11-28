@@ -1,3 +1,12 @@
+## 2026-11-27 — Fix shared PID 1 boot-contract count after switch node hardening
+
+- Source parent `78103b86d1e214dea0ad90cb72e9895c48b3df42` adds two legitimate FATAL gates for unsafe switch device nodes. Exact Process run `46089366834` and AliyunDrive run `46089366780` both failed only at `scripts/check_dev_init_boot.py:324`, which still pinned the older exact total of six. The GNU89/ASan/UBSan boot tests and WebDAV private-lock/lifecycle tests passed; the source checker below already validates each switch-node gate separately.
+- THIS COMMIT changes only the aggregate assertion to `>= 6` and documents why; switch-node-specific checks remain strict. Process and AliyunDrive workflow path filters already include this script.
+- Exact HTTPD + AI handoff checks on workflow-fix SHA `dbbbba13342d9297f3f45ef15e956e03c92879fe` PASS (`46089569822`, `46089569786`). Exact XY-C1 build for switch source `78103b86` remains PENDING at last poll; no build/L3 pass claim.
+- Next: verify the exact-SHA Process, AliyunDrive, AI handoff and XY-C1 workflows for THIS checker correction; repair any failure, then return to an independent P1 stability defect. Backup `backup/pre-plugin-overhaul-2026-11-14` remains frozen at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+
+---
+
 ## 2026-11-27 — Fix workflow block indentation for RC fatal-gate contract
 
 - Parent `9356c97e7587c6c330370a6b7981a775ecb649b6` updated the stale exact-count assertion but static diff review caught that its replacement assertion lacked the YAML run-block indentation. Corrected the indentation before accepting any Actions result.
