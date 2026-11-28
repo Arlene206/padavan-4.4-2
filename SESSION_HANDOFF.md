@@ -2,19 +2,18 @@
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; live `main` parent before this follow-up: `6afe2356d5d8f2e8adbca5c8598af7629a706cc9`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; it is immutable. PR #1 remains closed/unmerged.
-- Exact-head checks on `6afe2356...`: AI handoff #46124074432 PASS and Process lifecycle inventory #46124074460 PASS. Shadowsocks lifecycle #46124074457 FAILS only in the final static source contract: the checker expected two bounded-wait counter comparisons, but the new identity wait adds a third. Shell syntax, startup status, DNSMasq cleanup, full process lifecycle regression, and adblock publication regression all PASS. This follow-up aligns the checker count/message; no production source or runtime test changes.
-- XY-C1 #46123853244 on production source SHA `03817bd30d363097549b458c32bbbbfe2127b1dc` is IN_PROGRESS at Build XY-C1 step 38; TRX and artifact upload are pending. Do not claim L3 until all three pass.
-- Previous exact-head checks on `76f95c69...`: Storage hotplug #46123661683 PASS and AI handoff #46123661589 PASS; XY-C1 #46123661636 completed with Build/TRX/artifact skipped because there was no production firmware input change.
-- The earlier product-source L3 baseline `2d0388614f8a1f3f3a11ce2bf57f7f63a19d879c` passed XY-C1 #46122904412, but that predates Shadowsocks source changes. The exact build of `03817...` is still running. Hardware L4 remains NOT VERIFIED.
-- Bootstrap recovery was completed once; do not repeat audits. Keep `REFACTOR_ROADMAP.md` unchanged because it is near its hard size limit. No local firmware checkout/build environment is available.
+- Repository `Arlene206/padavan-4.4-2`; live `main` parent before this checker follow-up: `852214915ed8275c529baa3c352d9b9d5d28b47d`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable. PR #1 remains closed/unmerged.
+- Exact-head runs on `852214...`: AI handoff #46124213071 PASS. Shadowsocks lifecycle #46124213141 FAILS only in the final checker wait-section assertion after shell syntax, startup status, DNSMasq cleanup, process lifecycle and adblock regressions all PASS. The helper defines bounded wait functions; checker incorrectly required nonexistent callsites inside the helper. This follow-up asserts actual definitions and state-check bodies.
+- XY-C1 #46123853244 for production source `03817bd30d363097549b458c32bbbbfe2127b1dc` remained in progress at Build step 38 on last poll; TRX/artifact pending. The checker-only follow-up does not change firmware production sources.
+- Older product SHA `2d0388614f8a1f3f3a11ce2bf57f7f63a19d879c` has L3 PASS, but this predates Shadowsocks source. Need Build/TRX/artifact on `03817...` to establish updated L3; hardware L4 NOT VERIFIED.
+- Bootstrap recovered once; do not repeat. Leave `REFACTOR_ROADMAP.md` unchanged (near 128 KiB cap). No local checkout/build environment is available.
 
 ## Active task
 
-1. **Shadowsocks process identity teardown:** production source in `03817bd30d363097549b458c32bbbbfe2127b1dc` uses exact executable/monitor argv + proc start_time/PID snapshots, PID-scoped TERM/KILL and original-snapshot-only escalation. Exact-head Shadowsocks #46123853300 first exposed a missing procfs fixture in the DNS proxy mock; the test-only repair at `6afe235...` added the dnsproxy/dns2tcp fixtures and the full process lifecycle test then PASSed. Its remaining failure was static-only: the checker still expected two comparisons of `ss_wait_count` against `ss_wait_limit`; the identity wait adds a third correctly bounded loop. This follow-up changes only that checker contract and wording.
-2. **Exact validation:** on `6afe235...`, process regression itself PASSed, startup/DNSMasq/adblock regressions PASSed, shell syntax PASSed, AI docs #46124074432 PASSed and Process inventory #46124074460 PASSed. Shadowsocks must rerun after this checker fix. XY-C1 #46123853244 is still building production source `03817...` at step 38; TRX/artifact pending.
-3. **Firmware L3 boundary:** only an exact XY-C1 Build/TRX/artifact PASS for `03817...` validates the new Shadowsocks production helper. The checker-only follow-up does not change firmware sources; hardware L4 remains NOT VERIFIED.
+1. **Shadowsocks executable-bound shutdown:** production source commit `03817bd30d363097549b458c32bbbbfe2127b1dc` uses exact executable/monitor argv + proc start_time/PID snapshots, fresh revalidation before PID-scoped TERM/KILL, and original-snapshot-only escalation. The process regression passed at exact `6afe...`; its only issue at `852214...` was a stale checker assertion expecting wait-function callsites that do not exist in the helper. The wait functions themselves are defined there and must be validated through their actual state-check bodies and bounded loops. This follow-up corrects only the checker.
+2. **Exact validation:** on `852214...`, shell syntax, startup, DNSMasq, process-lifecycle and adblock regressions PASS; AI docs #46124213071 PASS; Shadowsocks #46124213141 failed final static checker wait contract. Fresh exact-head validation required.
+3. **Firmware:** XY-C1 #46123853244 for production source `03817...` was IN_PROGRESS at Build step 38, TRX/artifact pending. The checker-only follow-up does not change firmware source; keep L3 unclaimed until Build/TRX/artifact all pass. Hardware L4 NOT VERIFIED.
 
 ## Watchdog scheduled-action NVRAM snapshot baseline
 
@@ -27,19 +26,19 @@
 
 | Source SHA | Workflow / run | Result |
 |---|---|---|
-| `6afe2356d5d8f2e8adbca5c8598af7629a706cc9` | AI docs #46124074432 | PASS |
-| `6afe2356d5d8f2e8adbca5c8598af7629a706cc9` | Process lifecycle inventory #46124074460 | PASS |
-| `6afe2356d5d8f2e8adbca5c8598af7629a706cc9` | Shadowsocks lifecycle #46124074457 | FAIL — only final checker count; expected 2 but actual bounded-wait comparison count is 3; corrected in this follow-up. Shell and all runtime regressions PASS |
-| `03817bd30d363097549b458c32bbbbfe2127b1dc` | XY-C1 #46123853244 | IN_PROGRESS at Build step 38; TRX/artifact pending |
+| `852214915ed8275c529baa3c352d9b9d5d28b47d` | AI handoff #46124213071 | PASS |
+| `852214915ed8275c529baa3c352d9b9d5d28b47d` | Shadowsocks lifecycle #46124213141 | FAIL — final checker wait-section contract expected obsolete callsites in helper; all shell and runtime regression steps PASS; corrected in this commit |
 | `03817bd30d363097549b458c32bbbbfe2127b1dc` | Process inventory #46123853269; AI docs #46123853317 | PASS |
+| `03817bd30d363097549b458c32bbbbfe2127b1dc` | Shadowsocks lifecycle #46123853300 | FAIL — test fixture corrected at `6afe...` |
+| `03817bd30d363097549b458c32bbbbfe2127b1dc` | XY-C1 #46123853244 | IN_PROGRESS at Build XY-C1 step 38; TRX/artifact pending |
 | `76f95c69dca1325985e9f38c7dc9bb0faf40ec7b` | Storage #46123661683; AI docs #46123661589 | PASS |
-| `2d0388614f8a1f3f3a11ce2bf57f7f63a19d879c` | XY-C1 #46122904412 | Earlier L3 PASS; does not validate later Shadowsocks source |
+| `2d0388614f8a1f3f3a11ce2bf57f7f63a19d879c` | XY-C1 #46122904412 | Older L3 PASS; predates Shadowsocks production change |
 
 ## Exact first action for the next GPT
 
-1. Inspect the exact-head Shadowsocks run triggered by the bounded-wait checker count correction. Require shell syntax, all runtime regressions and the full static/ROMFS source contract to PASS. If it fails, inspect the exact job log and repair only the proven mismatch.
-2. Continue XY-C1 #46123853244 for production source SHA `03817...`; require Build, TRX verification and artifact upload PASS before claiming L3. The current checker-only follow-up does not change that source.
-3. Confirm AI docs and Process inventory PASS on the latest commit. Keep the backup immutable and preserve exact-SHA validation boundaries; hardware L4 remains NOT VERIFIED.
+1. Inspect Shadowsocks lifecycle and AI handoff Actions on the checker follow-up commit. The runtime process regression already passed on `6afe...`; ensure the static contract now checks the actual named/pattern wait-function definitions and bounded state loops.
+2. Re-poll XY-C1 #46123853244 on firmware source `03817...`; require Build, TRX and artifact upload PASS before recording L3.
+3. Keep backup immutable, do not repeat bootstrap/audits, and continue another independent userland stability/security issue after this slice is green. Hardware L4 remains NOT VERIFIED.
 
 ## Verification boundary
 

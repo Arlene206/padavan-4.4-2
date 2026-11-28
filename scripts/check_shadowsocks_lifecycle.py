@@ -174,10 +174,10 @@ require("unknown after TERM blocks KILL" in test and
 require(helper.count('ss_wait_limit=$1') == 2 and
         helper.count('[ "$ss_wait_count" -lt "$ss_wait_limit" ]') == 3 and
         helper.count('sleep 1 || return 2') == 5 and
-        'ss_wait_named_processes 3 "$@"' in helper and
-        'ss_wait_named_processes 1 "$@"' in helper and
-        'ss_wait_process_pattern 3 "$ss_process_pattern"' in helper and
-        'ss_wait_process_pattern 1 "$ss_process_pattern"' in helper and
+        'ss_wait_named_processes() {' in helper and
+        'ss_named_processes_state "$@"' in helper and
+        'ss_wait_process_pattern() {' in helper and
+        'ss_process_pattern_state "$ss_process_pattern"' in helper and
         '[ "$ss_start_wait_count" -lt "$ss_start_wait_limit" ]' in helper and
         '[ "$ss_pattern_wait_count" -lt "$ss_pattern_wait_limit" ]' in helper and
         'ss_start_wait_limit' in helper and 'ss_pattern_wait_limit' in helper,

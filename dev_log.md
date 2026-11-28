@@ -1,3 +1,10 @@
+## 2026-11-28 — Validate Shadowsocks wait-function definitions instead of nonexistent callsites
+
+- Exact-head Shadowsocks #46124213141 on `852214915ed8275c529baa3c352d9b9d5d28b47d` passed shell syntax, startup status, DNSMasq cleanup, the full process lifecycle regression and adblock publication. The final checker still failed its bounded-wait block because it expected wait-function callsites inside the helper, while these are function definitions whose callers live elsewhere. Those old source strings were not a valid contract.
+- Replaced the nonexistent callsite assertions with checks for actual `ss_wait_named_processes()` / `ss_wait_process_pattern()` definitions and their state-inventory calls, retaining the three `ss_wait_count` comparisons, five checked sleeps and separate startup/pattern bounded-wait counters.
+- AI handoff #46124213071 PASS on `852214...`; corrected Shadowsocks and AI checks pending on this follow-up. XY-C1 #46123853244 for production source `03817...` was still building at step 38 with TRX/artifact pending. No local test or firmware build is claimed.
+
+---
 ## 2026-11-28 — Align Shadowsocks bounded-wait checker with identity wait
 
 - Shadowsocks lifecycle #46124074457 on `6afe2356d5d8f2e8adbca5c8598af7629a706cc9` passed shell syntax, startup status, DNSMasq cleanup, the expanded process lifecycle regression and adblock publication regression. The final static checker alone failed because it still expected exactly two `ss_wait_count`/`ss_wait_limit` comparison sites.
