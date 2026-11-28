@@ -13,21 +13,10 @@ mkdir -p "$BIN_DIR" "$PROC_ROOT/1"
 : > "$EVENTS"
 
 write_stat() {
-    printf '%s (%s) S 0 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 100\n' "$1" "$2" > "$PROC_ROOT/$1/stat"
+    printf '%s (%s) S 0 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 100\n' "$1" "$2" > "$PROC_ROOT/$1/stat"
 }
 
 write_stat 1 init
-
-cat > "$BIN_DIR/pidof" <<'STUB'
-#!/bin/sh
-case "${IPERF3_PIDOF_MODE:-absent}" in
-    absent) exit 1 ;;
-    running) printf '%s\n' 321; exit 0 ;;
-    inconsistent) printf '%s\n' 321; exit 1 ;;
-    unknown) exit 2 ;;
-    *) exit 2 ;;
-esac
-STUB
 
 cat > "$BIN_DIR/start-stop-daemon" <<'STUB'
 #!/bin/sh
@@ -41,8 +30,10 @@ printf 'killall:%s\n' "$*" >> "$IPERF3_TEST_EVENTS"
 exit 99
 STUB
 
-cat > "$BIN_DIR/kill" <<'STUB'
+cat > "$BIN_DIR/busybox" <<'STUB'
 #!/bin/sh
+[ "$1" = "kill" ] || exit 99
+shift
 printf 'signal:%s %s\n' "$1" "$2" >> "$IPERF3_TEST_EVENTS"
 case "${IPERF3_KILL_MODE:-graceful}:$1" in
     term-stalls:-TERM) ;;
@@ -66,7 +57,6 @@ chmod 700 "$BIN_DIR/"*
 chmod 700 "$TMP_DIR/iperf3"
 export IPERF3_TEST_EVENTS="$EVENTS" IPERF3_PROC_ROOT="$PROC_ROOT"
 export IPERF3_BIN="$TMP_DIR/iperf3"
-export IPERF3_KILL_CMD="$BIN_DIR/kill"
 PATH="$BIN_DIR:$PATH"
 export PATH
 
@@ -76,7 +66,7 @@ fail() {
 }
 
 run_action() {
-    IPERF3_PIDOF_MODE=absent sh "$SCRIPT" "$1"
+    sh "$SCRIPT" "$1"
 }
 
 # Create a server-shaped procfs fixture. Matching comm alone is insufficient:
@@ -88,8 +78,8 @@ write_server() {
     write_stat "$pid" iperf3
     ln -s "$IPERF3_BIN" "$PROC_ROOT/$pid/exe"
     case "$mode" in
-        server) printf '%s\\000-s\\000' "$IPERF3_BIN" > "$PROC_ROOT/$pid/cmdline" ;;
-        client) printf '%s\\000-c\\000127.0.0.1\\000' "$IPERF3_BIN" > "$PROC_ROOT/$pid/cmdline" ;;
+        server) printf '%s\000-s\000' "$IPERF3_BIN" > "$PROC_ROOT/$pid/cmdline" ;;
+        client) printf '%s\000-c\000127.0.0.1\000' "$IPERF3_BIN" > "$PROC_ROOT/$pid/cmdline" ;;
     esac
 }
 
@@ -107,7 +97,7 @@ grep -Fqx 'signal:-TERM 321' "$EVENTS" || fail "TERM was not sent to the exact s
 mkdir -p "$PROC_ROOT/322"
 write_stat 322 iperf3
 ln -s "$TMP_DIR/not-iperf3" "$PROC_ROOT/322/exe"
-printf '%s\\000-s\\000' "$IPERF3_BIN" > "$PROC_ROOT/322/cmdline"
+printf '%s\000-s\000' "$IPERF3_BIN" > "$PROC_ROOT/322/cmdline"
 run_action stop || fail "same-name executable impostor should be treated as absent"
 [ "$(grep -c '^signal:' "$EVENTS")" -eq 1 ] || fail "same-name impostor was signalled"
 

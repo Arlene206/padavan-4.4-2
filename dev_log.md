@@ -1,3 +1,11 @@
+## 2026-11-28 — Correct iperf3 proc-fixture argv encoding and use BusyBox PID signals
+
+- Exact-head iperf3 run #46121497489 on `0b7dbdd00e11e93f422da8ba773d7f5856c88083` passed POSIX syntax but failed its first server fixture. The fixture wrote escaped backslash text rather than NUL-delimited `/proc/PID/cmdline`; the scanner correctly did not recognize it as a server. The follow-up writes actual NUL argv separators and corrects the proc stat fixture so the twenty-field tail places start_time at field 22.
+- Removed the configurable kill-command environment hook to avoid executing a caller-supplied command as root. Production now uses the firmware BusyBox `kill` applet with PID-scoped TERM/KILL after fresh executable/argv/start_time validation. Also accept the Linux proc stat `P` state and use a POSIX awk whitespace class.
+- The previous failure was in the test fixture, not evidence of a production signal attempt. A new exact-head iperf3 run must validate the corrected tests and process stop implementation.
+
+---
+
 ## 2026-11-28 — Bind iperf3 stop to executable, server argv and PID start time
 
 - Whole-userland Process inventory on `ce8e38ec928c8798b4785d58e6ddffee01cccbe6` found `trunk/user/iperf3/iperf3.sh` still used `killall -q iperf3` after only a comm-name process check. A same-name executable impostor or an iperf3 client could therefore be included in the signal set.

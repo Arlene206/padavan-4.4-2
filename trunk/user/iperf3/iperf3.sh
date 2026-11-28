@@ -2,7 +2,6 @@
 
 IPERF3_BIN="${IPERF3_BIN:-/bin/iperf3}"
 IPERF3_PROC_ROOT="${IPERF3_PROC_ROOT:-/proc}"
-IPERF3_KILL_CMD="${IPERF3_KILL_CMD:-}"
 LOG_TAG="iperf3"
 
 log_message() {
@@ -42,9 +41,9 @@ iperf3_read_identity() {
                 }
                 comm = substr(tail, 1, close - 1)
                 rest = substr(tail, close + 2)
-                count = split(rest, field, /[ \t]+/)
+                count = split(rest, field, /[[:space:]]+/)
                 if (count < 20 ||
-                    field[1] !~ /^[RSDZTtXxKWI]$/ ||
+                    field[1] !~ /^[RSDZTtXxKWPI]$/ ||
                     field[20] !~ /^[0-9]+$/) {
                     invalid = 1
                     next
@@ -112,6 +111,7 @@ iperf3_scan_once() {
     command -v awk >/dev/null 2>&1 || return 2
     command -v readlink >/dev/null 2>&1 || return 2
     command -v tr >/dev/null 2>&1 || return 2
+    command -v busybox >/dev/null 2>&1 || return 2
 
     IPERF3_EXPECTED_EXE=$(readlink -f "$IPERF3_BIN" 2>/dev/null) || return 2
     [ -n "$IPERF3_EXPECTED_EXE" ] || return 2
@@ -243,8 +243,7 @@ func_start() {
 }
 
 # Revalidate executable/argv identity and procfs start_time immediately before
-# each PID-scoped signal. IPERF3_KILL_CMD is a host-test seam; firmware leaves
-# it unset and uses the shell kill builtin.
+# each PID-scoped signal through the firmware BusyBox kill applet.
 iperf3_signal_one() {
     iperf3_signal_pid="$1"
     iperf3_signal_start="$2"
@@ -255,17 +254,10 @@ iperf3_signal_one() {
         iperf3_signal_identity_status=$?
         return "$iperf3_signal_identity_status"
     fi
-    if [ -n "$IPERF3_KILL_CMD" ]; then
-        "$IPERF3_KILL_CMD" "$iperf3_signal_name" "$iperf3_signal_pid" || {
-            IPERF3_SIGNAL_STATUS=$?
-            return 3
-        }
-    else
-        kill "$iperf3_signal_name" "$iperf3_signal_pid" || {
-            IPERF3_SIGNAL_STATUS=$?
-            return 3
-        }
-    fi
+    busybox kill "$iperf3_signal_name" "$iperf3_signal_pid" || {
+        IPERF3_SIGNAL_STATUS=$?
+        return 3
+    }
     return 0
 }
 

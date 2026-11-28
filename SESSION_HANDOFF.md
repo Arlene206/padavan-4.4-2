@@ -3,7 +3,8 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`.
-- Main before this iperf3 slice: `ce8e38ec928c8798b4785d58e6ddffee01cccbe6`. Exact-head Process lifecycle #46120862607 PASS, including USB printer readiness step 94, failed-exec child reaping step 95 and executable-bound stop filter step 96; AI handoff #46120862604 PASS. On product SHA `ef122034b4524ec1ce6768dd169ebee62a7da2ee`, VSFTPD #46120731445, Process inventory #46120731490, AI docs #46120731486 and NVRAM audit #46120731399 PASS. XY-C1 #46120731426 remained in MIPS Build step 38 at last poll; TRX step 39 and artifact upload step 40 pending. `ce8e` changes only workflow/docs; product source remains `ef122`.
+- Main before this iperf3 follow-up: `0b7dbdd00e11e93f422da8ba773d7f5856c88083`. Process lifecycle #46121497309 and process inventory #46121497362 were still running at last poll; AI handoff #46121497304 PASS. Iperf3 regression #46121497489 FAIL was isolated to test-fixture argv encoding (syntax passed; first server fixture not recognized). This follow-up writes actual NUL-delimited argv and uses the firmware BusyBox kill applet; fresh exact-head validation is required.
+- Product source `ef122034b4524ec1ce6768dd169ebee62a7da2ee` passed XY-C1 #46120731426: MIPS Build step 38 PASS, TRX step 39 PASS and artifact upload step 40 PASS (SHA-256 `c9e4fff453dd08361893447a1aa985e5699ad4ee0c13919b0a1e0f168373c9f5`). VSFTPD #46120731445, process inventory #46120731490, AI docs #46120731486 and NVRAM #46120731399 also PASS on `ef122`. This establishes L3 for that product SHA, not L4 hardware.
 - A prior real XY-C1 MIPS build failure remains uncorrected at this parent: run #46119302438 reported `postlogin.c:1271: 'chown_succeeded' undeclared`. The source still declared that local inside `handle_retr()` while `handle_upload_common()` used it. This source fix moves the declaration to the upload function and adds a scope contract; fresh exact-head VSFTPD and XY-C1 runs are required.
 - Frozen backup: `backup/pre-plugin-overhaul-2026-11-14`, recorded HEAD `72f4f157a084f8184b9597ca5bf334b8080e5807`. Its warning file forbids mutation/deletion. PR #1 remains CLOSED/unmerged; its substantive unmerged work was already compared, with no missing production/test/build change identified.
 - Startup recovery was completed once against the bootstrap, development protocol, handoff, roadmap and log indexes. Do not repeat completed audits.
@@ -12,9 +13,9 @@
 
 ## Active task
 
-1. **USB printer exact-executable lifecycle closed at host/CI level on `ce8e38ec928c8798b4785d58e6ddffee01cccbe6`:** Process lifecycle #46120862607 PASS (readiness step 94, failed-exec child-reaping step 95, executable-bound stop-filter step 96); AI handoff #46120862604 PASS.
-2. **VSFTPD MIPS compile correction awaits L3:** `ef122034b4524ec1ce6768dd169ebee62a7da2ee` moves `chown_succeeded` into `handle_upload_common()`. VSFTPD #46120731445, Process inventory #46120731490, AI docs #46120731486 and NVRAM #46120731399 PASS. XY-C1 #46120731426 was at MIPS Build step 38, TRX step 39/artifact step 40 pending at last poll. `ce8e` is workflow/docs-only and does not supersede this product SHA.
-3. **Current source slice — iperf3 exact process identity:** name-wide `killall -q iperf3` is replaced with exact executable, server argv (`-s`), valid procfs stat and captured start_time matching. TERM/KILL signals revalidate each PID identity immediately before signalling; UNKNOWN remains fail-closed. Shell regression covers impostor executable, client argv, missing metadata, TERM and bounded KILL escalation. Exact-head iperf3 Actions pending; Linux 4.4 has a residual validate-to-signal race without pidfd; no hardware L4 claim.
+1. **XY-C1 L3 verified for product source `ef122034b4524ec1ce6768dd169ebee62a7da2ee`:** MIPS Build step 38 PASS, TRX step 39 PASS and artifact upload step 40 PASS in #46120731426. Artifact SHA-256: `c9e4fff453dd08361893447a1aa985e5699ad4ee0c13919b0a1e0f168373c9f5`. VSFTPD #46120731445, Process inventory #46120731490, AI docs #46120731486 and NVRAM #46120731399 also PASS on this SHA. L3 only; physical hardware L4 is NOT VERIFIED.
+2. **USB printer executable-bound lifecycle closed at host/CI level:** Process lifecycle #46120862607 PASS on checker/docs SHA `ce8e38ec928c8798b4785d58e6ddffee01cccbe6`, including readiness, failed-exec child reaping and executable-bound stop-filter steps 94–96; AI docs #46120862604 PASS.
+3. **Current iperf3 source slice:** `0b7dbdd00e11e93f422da8ba773d7f5856c88083` added exact executable/argv/start_time scanning and PID-scoped stop, but exact-head iperf run #46121497489 failed because the fixture wrote literal `\\000` characters, not NUL-delimited argv. Syntax passed. This follow-up fixes fixture NULs, stat start_time field placement, uses a BusyBox test shim and accepts the proc `P` state; exact-head validation pending.
 
 
 ## Watchdog scheduled-action NVRAM snapshot baseline
@@ -55,10 +56,10 @@
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect the exact-head `.github/workflows/iperf3-process-lifecycle.yml` run triggered by this change. Require shell syntax and executable/argv/start_time identity regressions to pass; inspect failure logs before changing source.
-2. Poll XY-C1 #46120731426 for product source `ef122034b4524ec1ce6768dd169ebee62a7da2ee`. Require MIPS Build, TRX validation and artifact upload all PASS before reporting L3; physical router L4 remains NOT VERIFIED.
-3. Preserve exact result boundaries: Process lifecycle #46120862607 + AI docs #46120862604 PASS on `ce8e...`; VSFTPD #46120731445, Process inventory #46120731490, AI docs #46120731486 and NVRAM #46120731399 PASS on `ef122...`.
-4. After iperf3 host regression passes, continue one independent userland stability/security defect; do not repeat USB printer or VSFTPD upload-local investigations.
+1. Fetch live `main` and inspect the new exact-head iperf3 process lifecycle Action triggered by this follow-up. Require POSIX syntax and executable/argv/UNKNOWN/TERM→KILL regressions to pass; inspect logs on failure.
+2. Keep L3 tied to product SHA `ef122034b4524ec1ce6768dd169ebee62a7da2ee`: XY-C1 #46120731426 Build/TRX/artifact PASS; artifact SHA-256 above. Hardware L4 remains NOT VERIFIED.
+3. Recheck Process lifecycle #46121497309 and process inventory #46121497362 on parent `0b7dbdd...`; they were still running at last poll. AI docs #46121497304 PASS on that parent; this correction triggers a fresh AI docs validation.
+4. After iperf3 exact-head host regression passes, continue another independent userland stability/security defect without re-auditing USB printer or VSFTPD upload scope.
 
 ## Verification boundary
 

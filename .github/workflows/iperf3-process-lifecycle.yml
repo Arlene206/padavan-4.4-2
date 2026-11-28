@@ -32,5 +32,5 @@ jobs:
           sh -n trunk/user/iperf3/iperf3.sh
           sh -n trunk/user/shared/scripts/process_lifecycle.sh
           sh -n trunk/user/iperf3/tests/iperf3_process_lifecycle.sh
-      - name: Run iperf3 shared-process inventory regression
+      - name: Run iperf3 executable-bound process lifecycle regression
         run: sh trunk/user/iperf3/tests/iperf3_process_lifecycle.sh
