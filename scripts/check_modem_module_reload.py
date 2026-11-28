@@ -10,6 +10,8 @@ RC_SOURCE = (RC / "rc.c").read_text()
 HEADER = (RC / "rc.h").read_text()
 POLICY = (RC / "modem_module_reload_policy.h").read_text()
 TEST = (RC / "tests/modem_module_reload_policy.c").read_text()
+WAIT_POLICY = (RC / "modem_wan_start_policy.h").read_text()
+WAIT_TEST = (RC / "tests/modem_wan_start_policy.c").read_text()
 WORKFLOW = (ROOT / ".github/workflows/usb-modem-identity-stability.yml").read_text()
 
 
@@ -44,7 +46,7 @@ assert "++*(size_t *)context;" in unload_callback
 assert "errno = status;" in unload_callback
 assert "rc_modem_module_unload_group_status" in unload_group
 assert "&unloaded_count, &successful_count" in unload_group
-assert "if (unloaded_count > 0)" in unload_group and "sleep(1);" in unload_group
+assert "if (unloaded_count > 0)" in unload_group and "modem_wait_full_delay(1U, sleep);" in unload_group
 assert "if (unlink(QMI_CLIENT_ID) == 0 || errno == ENOENT)" in remove_qmi_marker
 assert "unload_modem_driver_group(\"all\"" in unload_all
 assert "if (status != 0)" in unload_all
@@ -61,7 +63,13 @@ for driver in ("cdc_acm", "qcserial", "sierra", "option"):
 assert 'load_modem_module_group("NDIS"' in reload
 assert 'load_modem_module_group("RAS"' in reload
 assert "return status;" in reload
-assert "if (reload)" in reload and "sleep(1);" in reload
+assert "if (reload)" in reload and "modem_wait_full_delay(1U, sleep);" in reload
+assert "sleep(1);" not in USB
+assert USB.count("modem_wait_full_delay(1U, sleep);") >= 6
+assert "while (seconds != 0)" in WAIT_POLICY
+assert "seconds = sleep_fn(seconds);" in WAIT_POLICY
+assert "test_modem_wait_resumes_interrupted_delay" in WAIT_TEST
+assert "test_modem_wait_resumes_interrupted_delay();" in WAIT_TEST
 assert "unload_modem_driver_group(\"serial/control\"" in reload
 assert "if (status != 0)" in reload
 assert reload.index("unload_modem_driver_group(\"serial/control\"") < reload.index("if (status != 0)") < reload.index("load_modem_module_group(\"NDIS\"")
