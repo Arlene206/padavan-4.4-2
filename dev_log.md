@@ -1,3 +1,11 @@
+## 2026-11-28 14:10 CST (UTC+8) — Snapshot watchdog scheduled actions through checked NVRAM
+
+- Base main SHA: `2e57ff8e98ba55aac56fc2a8d01d1b6ff8c6d19c`. `svc_timecheck()` read the reboot/SS enable flags, NTP-ready selector and two schedules through independent legacy `nvram_match()` / `nvram_safe_get()` calls. Those reads could not distinguish a backend failure from a missing/empty value and could mix values from different NVRAM cache generations while evaluating time-triggered actions.
+- Added one bounded NVRAM transaction snapshot for all five keys. Each transient cache pointer is copied before the next read; absent keys preserve disabled/empty defaults, enable flags require the exact legacy token `1`, overlong schedule strings are rejected rather than truncated, and any read/close failure invalidates the entire snapshot and defers both actions. Added GNU89/Werror/ASan/UBSan policy regressions for cache reuse, missing keys, exact selectors, read failure and overlong data, plus call-path/source contracts.
+- No local checkout/build is available. Exact-head watchdog lifecycle and XY-C1 Build/TRX/artifact Actions are required; physical-router L4 remains unverified.
+
+---
+
 ## 2026-11-28 15:18 CST (UTC+8) — Fix detector-test path expectations
 
 - Base main SHA: `c9d123cf72816f9b0ef60ea4333fcab9324399c2`. XY #46115046882 passed the firmware-update source contract but failed the detector unit suite: both `test_regression_test_file_triggers_its_own_workflow` and the generic host-only path list still asserted that the detector test itself was non-firmware, contradicting its new build-trigger classification.

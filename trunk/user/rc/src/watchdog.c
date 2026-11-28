@@ -278,6 +278,30 @@ watchdog_ntp_transaction_get(void *context, const char *name, char **value)
 }
 
 
+
+static int
+watchdog_read_schedule_snapshot(struct watchdog_ntp_schedule_snapshot *snapshot)
+{
+	struct nvram_transaction transaction;
+	int snapshot_status, end_status, end_errno;
+
+	if (!snapshot)
+		return EINVAL;
+	memset(snapshot, 0, sizeof(*snapshot));
+	if (nvram_transaction_begin(&transaction) != 0)
+		return errno > 0 ? errno : EIO;
+	snapshot_status = watchdog_ntp_schedule_snapshot_read(
+		watchdog_ntp_transaction_get, &transaction, snapshot);
+	errno = 0;
+	end_status = nvram_transaction_end(&transaction);
+	end_errno = errno;
+	if (snapshot_status == 0 && end_status != 0)
+		snapshot_status = end_errno > 0 ? end_errno : EIO;
+	if (snapshot_status != 0)
+		memset(snapshot, 0, sizeof(*snapshot));
+	return snapshot_status;
+}
+
 static int
 refresh_ntp(void)
 {
@@ -657,41 +681,38 @@ svc_timecheck(void)
 		}
 	}
 	
-	char reboot_schedule[PATH_MAX];
-	if (nvram_match("reboot_schedule_enable", "1"))
 	{
-		if (nvram_match("ntp_ready", "1"))
-		{
-			snprintf(reboot_schedule, sizeof(reboot_schedule), "%s", nvram_safe_get("reboot_schedule"));
-			if (strlen(reboot_schedule) == 11)
-			{
-				if (timecheck_reboot(reboot_schedule))
-				{
-					logmessage("reboot scheduler", "[%s] The system is going down for reboot\n", __FUNCTION__);
-	                sys_exit();
-				}
-			}
-		}
-		//else
-		//	logmessage("reboot scheduler", "[%s] NTP sync error\n", __FUNCTION__);
-	}
+		static int previous_schedule_snapshot_error;
+		struct watchdog_ntp_schedule_snapshot schedule;
+		int schedule_status;
 
-	char ss_schedule[PATH_MAX];
-	if (nvram_match("ss_schedule_enable", "1"))
-	{
-		if (nvram_match("ntp_ready", "1"))
-		{
-			snprintf(ss_schedule, sizeof(ss_schedule), "%s", nvram_safe_get("ss_schedule"));
-			if (strlen(ss_schedule) == 11)
-			{
-				if (timecheck_reboot(ss_schedule))
-				{
-					//logmessage("reboot scheduler", "[%s] The system is going down for reboot\n", __FUNCTION__);
-		            doSystem("/usr/bin/update_dlink.sh %s", "update");
-					if (!(wd_pending_events & WD_PENDING_TERMINATE))
-						sleep(70);
-				}
-			}
+		schedule_status = watchdog_read_schedule_snapshot(&schedule);
+		if (schedule_status != 0) {
+			if (previous_schedule_snapshot_error != schedule_status)
+				logmessage("watchdog",
+					   "cannot read scheduled-action NVRAM snapshot; deferring both actions (status=%d)",
+					   schedule_status);
+			previous_schedule_snapshot_error = schedule_status;
+			return 0;
+		}
+		if (previous_schedule_snapshot_error != 0)
+			logmessage("watchdog", "scheduled-action NVRAM snapshot recovered");
+		previous_schedule_snapshot_error = 0;
+
+		if (schedule.reboot_enabled && schedule.ntp_ready &&
+		    strlen(schedule.reboot_schedule) == WATCHDOG_SCHEDULE_LENGTH &&
+		    timecheck_reboot(schedule.reboot_schedule)) {
+			logmessage("reboot scheduler", "[%s] The system is going down for reboot\n", __FUNCTION__);
+			sys_exit();
+		}
+
+		if (schedule.ss_enabled && schedule.ntp_ready &&
+		    strlen(schedule.ss_schedule) == WATCHDOG_SCHEDULE_LENGTH &&
+		    timecheck_reboot(schedule.ss_schedule)) {
+			/*logmessage("reboot scheduler", "[%s] The system is going down for reboot\n", __FUNCTION__);*/
+			doSystem("/usr/bin/update_dlink.sh %s", "update");
+			if (!(wd_pending_events & WD_PENDING_TERMINATE))
+				sleep(70);
 		}
 	}
 	return 0;

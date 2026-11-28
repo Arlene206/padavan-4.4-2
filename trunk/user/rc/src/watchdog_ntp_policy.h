@@ -202,4 +202,59 @@ watchdog_ntp_resolve_server_pair(char *server0, size_t server0_size,
     return 0;
 }
 
+
+#define WATCHDOG_SCHEDULE_SELECTOR_MAX 16
+#define WATCHDOG_SCHEDULE_LENGTH 11
+
+struct watchdog_ntp_schedule_snapshot {
+	int reboot_enabled;
+	int ss_enabled;
+	int ntp_ready;
+	char reboot_schedule[WATCHDOG_SCHEDULE_LENGTH + 1];
+	char ss_schedule[WATCHDOG_SCHEDULE_LENGTH + 1];
+};
+
+/* Copy each transaction value before the next read invalidates its cache pointer. */
+static inline int
+watchdog_ntp_schedule_snapshot_read(watchdog_ntp_nvram_get_fn get_value,
+                                    void *context,
+                                    struct watchdog_ntp_schedule_snapshot *snapshot)
+{
+	char reboot_enable[WATCHDOG_SCHEDULE_SELECTOR_MAX];
+	char ss_enable[WATCHDOG_SCHEDULE_SELECTOR_MAX];
+	char ntp_ready[WATCHDOG_SCHEDULE_SELECTOR_MAX];
+	int status;
+
+	if (!snapshot)
+		return EINVAL;
+	memset(snapshot, 0, sizeof(*snapshot));
+	status = watchdog_ntp_copy_server_value(
+		get_value, context, "reboot_schedule_enable",
+		reboot_enable, sizeof(reboot_enable));
+	if (status == 0)
+		status = watchdog_ntp_copy_server_value(
+			get_value, context, "ss_schedule_enable",
+			ss_enable, sizeof(ss_enable));
+	if (status == 0)
+		status = watchdog_ntp_copy_server_value(
+			get_value, context, "ntp_ready",
+			ntp_ready, sizeof(ntp_ready));
+	if (status == 0)
+		status = watchdog_ntp_copy_server_value(
+			get_value, context, "reboot_schedule",
+			snapshot->reboot_schedule, sizeof(snapshot->reboot_schedule));
+	if (status == 0)
+		status = watchdog_ntp_copy_server_value(
+			get_value, context, "ss_schedule",
+			snapshot->ss_schedule, sizeof(snapshot->ss_schedule));
+	if (status != 0) {
+		memset(snapshot, 0, sizeof(*snapshot));
+		return status;
+	}
+	snapshot->reboot_enabled = strcmp(reboot_enable, "1") == 0;
+	snapshot->ss_enabled = strcmp(ss_enable, "1") == 0;
+	snapshot->ntp_ready = strcmp(ntp_ready, "1") == 0;
+	return 0;
+}
+
 #endif /* WATCHDOG_NTP_POLICY_H */

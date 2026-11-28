@@ -258,6 +258,114 @@ test_ntp_overlong_server_is_rejected_without_truncation(void)
 }
 
 
+
+#define WATCHDOG_SCHEDULE_KEY_COUNT 5
+static const char *const schedule_keys[WATCHDOG_SCHEDULE_KEY_COUNT] = {
+	"reboot_schedule_enable", "ss_schedule_enable", "ntp_ready",
+	"reboot_schedule", "ss_schedule"
+};
+struct fake_schedule_nvram {
+	const char *values[WATCHDOG_SCHEDULE_KEY_COUNT];
+	int statuses[WATCHDOG_SCHEDULE_KEY_COUNT];
+	char cache[WATCHDOG_NTP_SERVER_MAX + 32];
+	int calls;
+};
+static int
+fake_schedule_nvram_get(void *context, const char *name, char **value)
+{
+	struct fake_schedule_nvram *fake = (struct fake_schedule_nvram *)context;
+	int i, status;
+	if (!fake || !name || !value) { errno = EINVAL; return -1; }
+	for (i = 0; i < WATCHDOG_SCHEDULE_KEY_COUNT; i++)
+		if (strcmp(name, schedule_keys[i]) == 0) break;
+	if (i == WATCHDOG_SCHEDULE_KEY_COUNT) { errno = ENOENT; return -1; }
+	fake->calls++;
+	status = fake->statuses[i];
+	if (status == 0) return 0;
+	if (status < 0) { errno = EIO; return -1; }
+	if (!fake->values[i] ||
+	    snprintf(fake->cache, sizeof(fake->cache), "%s", fake->values[i]) >=
+	    (int)sizeof(fake->cache)) { errno = EOVERFLOW; return -1; }
+	*value = fake->cache;
+	return 1;
+}
+static void
+fake_schedule_enable_all(struct fake_schedule_nvram *fake)
+{
+	int i;
+	memset(fake, 0, sizeof(*fake));
+	for (i = 0; i < WATCHDOG_SCHEDULE_KEY_COUNT; i++) fake->statuses[i] = 1;
+}
+static int
+test_schedule_snapshot_copies_all_values_before_next_read(void)
+{
+	struct fake_schedule_nvram fake;
+	struct watchdog_ntp_schedule_snapshot snapshot;
+	fake_schedule_enable_all(&fake);
+	fake.values[0] = "1"; fake.values[1] = "1"; fake.values[2] = "1";
+	fake.values[3] = "11111112345"; fake.values[4] = "00000001234";
+	CHECK(watchdog_ntp_schedule_snapshot_read(fake_schedule_nvram_get, &fake, &snapshot) == 0);
+	CHECK(snapshot.reboot_enabled == 1 && snapshot.ss_enabled == 1 && snapshot.ntp_ready == 1);
+	CHECK(strcmp(snapshot.reboot_schedule, "11111112345") == 0);
+	CHECK(strcmp(snapshot.ss_schedule, "00000001234") == 0);
+	CHECK(fake.calls == WATCHDOG_SCHEDULE_KEY_COUNT);
+	return 0;
+}
+static int
+test_schedule_snapshot_missing_keys_keep_disabled_defaults(void)
+{
+	struct fake_schedule_nvram fake;
+	struct watchdog_ntp_schedule_snapshot snapshot;
+	memset(&fake, 0, sizeof(fake));
+	CHECK(watchdog_ntp_schedule_snapshot_read(fake_schedule_nvram_get, &fake, &snapshot) == 0);
+	CHECK(snapshot.reboot_enabled == 0 && snapshot.ss_enabled == 0 && snapshot.ntp_ready == 0);
+	CHECK(snapshot.reboot_schedule[0] == '\0' && snapshot.ss_schedule[0] == '\0');
+	CHECK(fake.calls == WATCHDOG_SCHEDULE_KEY_COUNT);
+	return 0;
+}
+static int
+test_schedule_snapshot_read_failure_clears_partial_state(void)
+{
+	struct fake_schedule_nvram fake;
+	struct watchdog_ntp_schedule_snapshot snapshot;
+	fake_schedule_enable_all(&fake);
+	fake.values[0] = "1"; fake.values[1] = "0"; fake.values[2] = "1";
+	fake.values[3] = "11111112345"; fake.values[4] = "00000001234";
+	fake.statuses[3] = -1;
+	memset(&snapshot, 0x5a, sizeof(snapshot));
+	CHECK(watchdog_ntp_schedule_snapshot_read(fake_schedule_nvram_get, &fake, &snapshot) == EIO);
+	CHECK(snapshot.reboot_enabled == 0 && snapshot.ss_enabled == 0 && snapshot.ntp_ready == 0);
+	CHECK(snapshot.reboot_schedule[0] == '\0' && snapshot.ss_schedule[0] == '\0');
+	CHECK(fake.calls == 4);
+	return 0;
+}
+static int
+test_schedule_snapshot_rejects_overlong_schedule_without_truncation(void)
+{
+	struct fake_schedule_nvram fake;
+	struct watchdog_ntp_schedule_snapshot snapshot;
+	fake_schedule_enable_all(&fake);
+	fake.values[0] = "1"; fake.values[1] = "0"; fake.values[2] = "1";
+	fake.values[3] = "111111112345"; fake.values[4] = "00000001234";
+	CHECK(watchdog_ntp_schedule_snapshot_read(fake_schedule_nvram_get, &fake, &snapshot) == ENAMETOOLONG);
+	CHECK(snapshot.reboot_enabled == 0 && snapshot.ss_enabled == 0 && snapshot.ntp_ready == 0);
+	CHECK(snapshot.reboot_schedule[0] == '\0' && snapshot.ss_schedule[0] == '\0');
+	return 0;
+}
+static int
+test_schedule_snapshot_requires_exact_enable_tokens(void)
+{
+	struct fake_schedule_nvram fake;
+	struct watchdog_ntp_schedule_snapshot snapshot;
+	fake_schedule_enable_all(&fake);
+	fake.values[0] = "01"; fake.values[1] = "true"; fake.values[2] = "1 ";
+	fake.values[3] = "11111112345"; fake.values[4] = "00000001234";
+	CHECK(watchdog_ntp_schedule_snapshot_read(fake_schedule_nvram_get, &fake, &snapshot) == 0);
+	CHECK(snapshot.reboot_enabled == 0 && snapshot.ss_enabled == 0 && snapshot.ntp_ready == 0);
+	return 0;
+}
+
+
 int
 main(void)
 {
@@ -270,6 +378,11 @@ main(void)
 	CHECK(test_ntp_server_pair_failure_clears_partial_snapshot() == 0);
 	CHECK(test_ntp_missing_keys_preserve_legacy_fallbacks() == 0);
 	CHECK(test_ntp_overlong_server_is_rejected_without_truncation() == 0);
+	CHECK(test_schedule_snapshot_copies_all_values_before_next_read() == 0);
+	CHECK(test_schedule_snapshot_missing_keys_keep_disabled_defaults() == 0);
+	CHECK(test_schedule_snapshot_read_failure_clears_partial_state() == 0);
+	CHECK(test_schedule_snapshot_rejects_overlong_schedule_without_truncation() == 0);
+	CHECK(test_schedule_snapshot_requires_exact_enable_tokens() == 0);
 
 	CHECK(test_successful_stop_allows_refresh() == 0);
 	CHECK(test_incomplete_stop_blocks_refresh() == 0);

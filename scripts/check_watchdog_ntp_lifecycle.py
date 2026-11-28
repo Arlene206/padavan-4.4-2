@@ -73,6 +73,11 @@ for token in (
     "test_ntp_server_pair_failure_clears_partial_snapshot",
     "test_ntp_missing_keys_preserve_legacy_fallbacks",
     "test_ntp_overlong_server_is_rejected_without_truncation",
+    "test_schedule_snapshot_copies_all_values_before_next_read",
+    "test_schedule_snapshot_missing_keys_keep_disabled_defaults",
+    "test_schedule_snapshot_read_failure_clears_partial_state",
+    "test_schedule_snapshot_rejects_overlong_schedule_without_truncation",
+    "test_schedule_snapshot_requires_exact_enable_tokens",
     "watchdog_ntp_resolve_server_pair",
     "watchdog NTP stop-before-start policy: PASS",
 ):
@@ -165,7 +170,39 @@ for path in paths:
     assert push_filters.count(quoted) == 1, "push path count: " + path
     assert pr_filters.count(quoted) == 1, "pull_request path count: " + path
 
-print("Watchdog NTP stop-before-start and lifecycle call-path contracts: PASS")
+
+_schedule_policy = read("trunk/user/rc/src/watchdog_ntp_policy.h")
+_schedule_test = read("trunk/user/rc/src/tests/watchdog_ntp_policy.c")
+assert "watchdog_ntp_schedule_snapshot_read" in _schedule_policy
+_schedule_read = function_body(
+    watchdog, "watchdog_read_schedule_snapshot(struct watchdog_ntp_schedule_snapshot *snapshot)"
+)
+assert "nvram_transaction_begin(&transaction)" in _schedule_read
+assert "watchdog_ntp_schedule_snapshot_read(" in _schedule_read
+assert "nvram_transaction_end(&transaction)" in _schedule_read
+assert "end_status != 0" in _schedule_read
+assert "memset(snapshot, 0, sizeof(*snapshot))" in _schedule_read
+_schedule = function_body(watchdog, "svc_timecheck(void)")
+assert "watchdog_read_schedule_snapshot(&schedule)" in _schedule
+assert "schedule.reboot_enabled && schedule.ntp_ready" in _schedule
+assert "schedule.ss_enabled && schedule.ntp_ready" in _schedule
+assert 'nvram_match("reboot_schedule_enable"' not in _schedule
+assert 'nvram_match("ss_schedule_enable"' not in _schedule
+assert 'nvram_match("ntp_ready"' not in _schedule
+assert 'nvram_safe_get("reboot_schedule")' not in _schedule
+assert 'nvram_safe_get("ss_schedule")' not in _schedule
+assert "deferring both actions" in _schedule
+for marker in (
+    "test_schedule_snapshot_copies_all_values_before_next_read",
+    "test_schedule_snapshot_missing_keys_keep_disabled_defaults",
+    "test_schedule_snapshot_read_failure_clears_partial_state",
+    "test_schedule_snapshot_rejects_overlong_schedule_without_truncation",
+    "test_schedule_snapshot_requires_exact_enable_tokens",
+):
+    assert marker in _schedule_test
+
+
+print("Watchdog NTP and scheduled-action snapshot contracts: PASS")
 
 
 # NTP step completion and persistent readiness publication must fail closed.
