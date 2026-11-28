@@ -1,3 +1,10 @@
+## 2026-11-28 13:41 CST (UTC+8) — Fix DHCP server-ID checker symbol typo
+
+- Base main SHA: `6d5ef6e12897aa7af5e88c9c59bc6977c6a426e6`. Exact-head udhcpc #46111906660 again compiled and ran the GNU89/Werror/ASan/UBSan policy binary successfully, then stopped in the Python checker because it searched for the misspelled symbol `udhcp_server_id_option_status_valid` (missing the second `c`). The production helper and policy test correctly use `udhcpc_server_id_option_status_valid`. Exact-head AI docs #46111906681 PASS.
+- This commit changes only the checker string to the actual production symbol. No test, policy or source assertion is removed or weakened. New exact-head udhcpc/docs checks are required; no local run is claimed.
+
+---
+
 ## 2026-11-28 13:38 CST (UTC+8) — Update scanner checker for deferred match publication
 
 - Base main SHA: `de9207aa81d8d67b86a79d30b0bd41906a303cd9`. Exact-head udhcpc #46111728564 again passed its GNU89/Werror/ASan/UBSan C policy binary, then the checker failed at the now-obsolete assertion expecting `*option_value = optionptr + OPT_DATA` inside the iterator. The implementation deliberately stores a private first match and publishes it only after all TLVs/overloaded fields validate. AI docs #46111728566 PASS; Process inventory #46111728525 PASS; NVRAM #46111728560 and storage #46111728542 were running.

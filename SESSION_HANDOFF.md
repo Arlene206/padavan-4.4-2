@@ -1,7 +1,7 @@
-## 2026-11-28 — Align source checker with deferred DHCP option-match publication (THIS COMMIT)
+## 2026-11-28 — Correct DHCP server-ID checker symbol spelling (THIS COMMIT)
 
-- Base main SHA: `de9207aa81d8d67b86a79d30b0bd41906a303cd9`. Exact-head udhcpc #46111728564 passed the GNU89/Werror/ASan/UBSan C policy test and failed in the Python source checker because it still expected the old immediate assignments `*option_value = optionptr + OPT_DATA` and `*option_length = optionptr[OPT_LEN]`. The full-scan fix now captures into `found_value/found_length` and publishes after validation. AI docs #46111728566 and Process inventory #46111728525 PASS; NVRAM #46111728560 and USB storage #46111728542 were still running.
-- THIS commit updates the contract to verify deferred capture/publication, full cursor traversal, error return and null-packet output clearing. Exact-head udhcpc/docs/umbrella Actions remain pending; no local build is claimed.
+- Base main SHA: `6d5ef6e12897aa7af5e88c9c59bc6977c6a426e6`. Exact-head udhcpc #46111906660 passed the GNU89/Werror/ASan/UBSan policy compile/run and then failed in the Python source checker at `assert "udhcp_server_id_option_status_valid" in policy`. The production helper is correctly named `udhcpc_server_id_option_status_valid`; the checker had omitted the second `c`. Exact-head AI docs #46111906681 PASS.
+- THIS COMMIT corrects only that checker symbol string; it does not relax coverage. The DHCP regression workflow must be re-run on this exact SHA.
 
 ---
 
@@ -101,14 +101,14 @@ For product-source SHA `7daa20cd2f1bd7abca4499fb9f9a6e05ce5d3d00`:
 
 ## Active task
 
-The full option-stream scanner now holds the first matching option privately while it validates the complete main/file/sname field sequence. A malformed suffix returns -1 with cleared outputs instead of accepting a valid earlier server-ID TLV. Exact-head C policy binaries pass, but the Python source checker has still been catching stale expectations from the refactor; THIS commit aligns those assertions to deferred output publication without weakening the source contract.
+The full option scanner change itself has repeatedly passed the GNU89/Werror/ASan/UBSan regression binary. The source checker has exposed stale assumptions from the API refactor and THIS correction fixes the last observed failure: a one-character typo in the expected symbol name for the server-ID option status policy. No runtime source or tests were altered in this follow-up.
 
 ## Exact first action for the next GPT
 
-1. Fetch THIS commit's exact-head BusyBox udhcpc, AI docs, NVRAM, USB storage and Process Actions. Parent #46111728564: GNU89/Werror/ASan/UBSan C policy binary PASS; source checker failed at the old immediate output-assignment assertion. Parent docs #46111728566 and Process #46111728525 PASS. Require new udhcpc checker PASS.
-2. Recheck c22 XY-C1 #46111402307 and NVRAM #46111402311. NVRAM later completed PASS; XY-C1 was last observed in progress. Also recheck c21 XY-C1 #46111075565. These remain parent SHA results only.
-3. With DHCP tests green, resume a bounded high-priority issue outside udhcpc (Firewall/NAT, USB modem, VPN or PPPoE-MWAN) based on a reproducible source gap. Avoid a broad audit or speculative fix.
-4. Current DHCP source L3 is pending; the only completed XY-C1 Build/TRX/artifact result is HTTPD source SHA `856fe202e000de0b751c3f1ace304a208e7c0b37`. Physical-router L4 remains NOT VERIFIED.
+1. Fetch live `main` and inspect exact-head BusyBox udhcpc and AI docs runs for THIS COMMIT. Parent #46111906660: sanitizer C regression PASS, Python checker failed only because it expected the misspelled `udhcp_server_id_option_status_valid`; parent AI docs #46111906681 PASS. Require exact-head checker and docs PASS.
+2. Recheck old pending firmware runs #46111402307 (parent SHA `2643d057...`) and #46111075565 (parent SHA `c21c9f0...`). They are not evidence for the newer DHCP option-scanner source. NVRAM #46111728560 and USB storage #46111728542 completed PASS on parent `de9207a...`; Process #46111728525 also PASS.
+3. After the DHCP checker is green, continue one bounded source-backed stability/security task outside udhcpc. The candidate VPN client xl2tpd control FIFO uses blocking `open(O_WRONLY)`; prove the race and handle pipe closure/SIGPIPE correctly before any modification, or choose another reproduced issue.
+4. Current DHCP exact-source XY-C1 L3 remains unverified. The earlier HTTPD build #46109982320 only proves its own older source SHA. Physical-router L4 remains NOT VERIFIED.
 
 # Cross-session execution mandate
 
@@ -119,5 +119,5 @@ The full option-stream scanner now holds the first matching option privately whi
 
 Before context exhaustion, stop starting new modules, finish and publish a safe bounded slice, then leave this handoff with the exact first action, validation boundary and committed baseline.
 - Run the local handoff-doc validator when a checkout is available. This session had no local checkout; the exact-head GitHub Actions workflow is the validation gate for the docs correction.
-- Keep the root dev log at 20–119 complete records; it had 85 records before this entry and now has 86, so no archive rotation is due. Do not add handoff/roadmap archive snapshots.
+- Keep the root dev log at 20–119 complete records; it had 86 records before this entry and now has 87, so no archive rotation is due. Do not add handoff/roadmap archive snapshots.
 - Do not change GPT Session Rotator or replay its existing state/SHA. Do not claim hardware validation or a successful build when steps were skipped.

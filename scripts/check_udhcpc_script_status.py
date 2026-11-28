@@ -130,7 +130,7 @@ length_api = function_body(common, "int FAST_FUNC udhcp_get_option_with_length("
 assert "option_length,1)" in "".join(length_api.split())
 legacy_api = function_body(common, "uint8_t* FAST_FUNC udhcp_get_option(")
 assert "option_length,0)" in "".join(legacy_api.split())
-assert "udhcp_server_id_option_status_valid" in policy
+assert "udhcpc_server_id_option_status_valid" in policy
 assert "returnlookup_status==0?option_length==0U:lookup_status==1&&option_length==sizeof(uint32_t);" in "".join(policy.split())
 assert "test_server_id_option_requires_exactly_one_ipv4_address" in test
 assert "test_server_id_option_requires_exactly_one_ipv4_address()!=0" in "".join(test.split())
