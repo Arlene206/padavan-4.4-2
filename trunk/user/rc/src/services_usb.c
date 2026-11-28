@@ -55,6 +55,7 @@
 #include "usb_printer_nvram_policy.h"
 #include "usb_printer_p910nd_policy.h"
 #include "usb_printer_child_reap_policy.h"
+#include "usb_printer_executable_policy.h"
 
 static int
 usb_printer_nvram_get_checked(void *context, const char *name, char **value)
@@ -163,13 +164,79 @@ safe_remove_usb_device(int port, const char *dev_name)
 
 /* A successful exec is only a launch acknowledgement; the daemon may exit
  * immediately after parsing its configuration or binding its socket. */
+static int
+usb_printer_daemon_identity_executable_matches(
+	const char *process_name, const struct process_identity *identity,
+	const char *expected_executable, int *check_error)
+{
+	char proc_path[64], executable_path[512];
+	int path_length, saved_error, status;
+	ssize_t length;
+	enum process_presence identity_state;
+
+	if (!process_name || !process_name[0] || !identity ||
+	    !expected_executable || !expected_executable[0] || !check_error) {
+		errno = EINVAL;
+		return -1;
+	}
+	*check_error = 0;
+	path_length = snprintf(proc_path, sizeof(proc_path), "/proc/%ld/exe",
+			       (long)identity->pid);
+	if (path_length < 0 || path_length >= (int)sizeof(proc_path)) {
+		*check_error = ENAMETOOLONG;
+		errno = *check_error;
+		return -1;
+	}
+
+	errno = 0;
+	length = readlink(proc_path, executable_path, sizeof(executable_path) - 1);
+	if (length < 0) {
+		saved_error = errno > 0 ? errno : EIO;
+		identity_state = process_identity_validate(process_name, identity);
+		if (identity_state == PROCESS_PRESENCE_ABSENT)
+			return 0;
+		*check_error = identity_state == PROCESS_PRESENCE_UNKNOWN ?
+			(errno > 0 ? errno : saved_error) : saved_error;
+		errno = *check_error;
+		return -1;
+	}
+	if ((size_t)length >= sizeof(executable_path) - 1) {
+		*check_error = ENAMETOOLONG;
+		errno = *check_error;
+		return -1;
+	}
+	executable_path[length] = '\0';
+
+	/* Revalidate PID/start-time and argv identity after following /proc/PID/exe. */
+	identity_state = process_identity_validate(process_name, identity);
+	if (identity_state == PROCESS_PRESENCE_ABSENT)
+		return 0;
+	if (identity_state != PROCESS_PRESENCE_RUNNING) {
+		*check_error = errno > 0 ? errno : EIO;
+		errno = *check_error;
+		return -1;
+	}
+
+	status = usb_printer_executable_path_matches(expected_executable,
+						      executable_path);
+	if (status < 0) {
+		*check_error = errno > 0 ? errno : EINVAL;
+		errno = *check_error;
+		return -1;
+	}
+	return status;
+}
+
+/* argv[0] is user-selectable at execve(); bind these dedicated printer daemons
+ * to their ROMFS executable so an unrelated process cannot suppress startup. */
 static enum process_presence
 usb_printer_daemon_scan(void *context, int *scan_error)
 {
 	const char *process_name = (const char *)context;
+	const char *expected_executable;
 	struct process_snapshot snapshot;
 	enum process_presence presence;
-	int saved_error;
+	int saved_error, check_error = 0, match, found = 0;
 
 	if (!process_name || !process_name[0]) {
 		if (scan_error)
@@ -178,13 +245,52 @@ usb_printer_daemon_scan(void *context, int *scan_error)
 		return PROCESS_PRESENCE_UNKNOWN;
 	}
 
+	expected_executable = usb_printer_executable_path(process_name);
+	if (!expected_executable) {
+		saved_error = errno > 0 ? errno : EINVAL;
+		if (scan_error)
+			*scan_error = saved_error;
+		errno = saved_error;
+		return PROCESS_PRESENCE_UNKNOWN;
+	}
+
 	presence = process_inventory_scan(process_name, &snapshot);
 	saved_error = snapshot.error > 0 ? snapshot.error : EIO;
-	if (scan_error)
-		*scan_error = snapshot.error;
+	if (presence == PROCESS_PRESENCE_RUNNING) {
+		size_t i;
+
+		if (snapshot.count == 0) {
+			presence = PROCESS_PRESENCE_UNKNOWN;
+			saved_error = EIO;
+		} else {
+			for (i = 0; i < snapshot.count; i++) {
+				match = usb_printer_daemon_identity_executable_matches(
+					process_name, &snapshot.items[i],
+					expected_executable, &check_error);
+				if (match > 0) {
+					found = 1;
+					break;
+				}
+				if (match < 0 && saved_error == EIO)
+					saved_error = check_error > 0 ? check_error : EIO;
+			}
+			if (found)
+				presence = PROCESS_PRESENCE_RUNNING;
+			else if (check_error != 0)
+				presence = PROCESS_PRESENCE_UNKNOWN;
+			else
+				presence = PROCESS_PRESENCE_ABSENT;
+		}
+	}
 	process_snapshot_release(&snapshot);
+	if (scan_error)
+		*scan_error = presence == PROCESS_PRESENCE_UNKNOWN ?
+			saved_error : 0;
 	if (presence == PROCESS_PRESENCE_UNKNOWN)
 		errno = saved_error;
+	return presence;
+}
+	errno = saved_error;
 	return presence;
 }
 

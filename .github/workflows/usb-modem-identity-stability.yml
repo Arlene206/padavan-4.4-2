@@ -28,6 +28,8 @@ on:
       - "trunk/user/rc/src/tests/usb_printer_child_reap_policy.c"
       - "trunk/user/rc/src/usb_printer_p910nd_policy.h"
       - "trunk/user/rc/src/tests/usb_printer_p910nd_policy.c"
+      - "trunk/user/rc/src/usb_printer_executable_policy.h"
+      - "trunk/user/rc/src/tests/usb_printer_executable_policy.c"
       - "trunk/user/rc/src/usb_modem.c"
       - "trunk/user/rc/src/modem_qmi_status_file.h"
       - "trunk/user/rc/src/tests/modem_qmi_status_file.c"
@@ -93,6 +95,8 @@ on:
       - "trunk/user/rc/src/tests/usb_printer_child_reap_policy.c"
       - "trunk/user/rc/src/usb_printer_p910nd_policy.h"
       - "trunk/user/rc/src/tests/usb_printer_p910nd_policy.c"
+      - "trunk/user/rc/src/usb_printer_executable_policy.h"
+      - "trunk/user/rc/src/tests/usb_printer_executable_policy.c"
       - "trunk/user/rc/src/usb_modem.c"
       - "trunk/user/rc/src/modem_qmi_status_file.h"
       - "trunk/user/rc/src/tests/modem_qmi_status_file.c"
@@ -212,6 +216,14 @@ jobs:
             trunk/user/rc/src/tests/usb_printer_p910nd_policy.c \
             -o /tmp/usb-printer-p910nd-policy
           ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/usb-printer-p910nd-policy
+      - name: Compile and run USB printer executable identity regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/usb_printer_executable_policy.c \
+            -o /tmp/usb-printer-executable-policy
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/usb-printer-executable-policy
       - name: Compile and run checked USB modem WAN identity-read regression
         run: |
           set -eu

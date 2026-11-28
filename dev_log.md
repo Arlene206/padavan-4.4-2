@@ -1,3 +1,13 @@
+## 2026-11-27 — Bind USB printer readiness to the installed executable identity
+
+- Review of `process_inventory.c:383` found that its generic inventory intentionally accepts an exact `argv[0]` basename match even when `/proc/PID/stat` comm names another executable. Linux lets a process choose `argv[0]` at `execve()`; a local unrelated process can therefore present itself as `u2ec`, `lpd` or a per-port `p910Nd` title and make the privileged USB-printer startup check report RUNNING, suppressing a real daemon launch. A local proof using `exec -a lpd sleep 5` showed cmdline `lpd` while `/proc/PID/exe` is `/usr/bin/sleep`.
+- Added a printer-specific, compatibility-scoped executable identity gate: u2ec and lpd titles must resolve to their ROMFS paths; p910nd and p9100d..p9109d titles resolve to `/usr/sbin/p910nd` (matching p910nd's intentional argv[0] rewrite). The scanner reads `/proc/PID/exe`, validates the same PID/start-time/argv identity after the read, and only treats the known installed executable as RUNNING. Readlink/identity uncertainty remains UNKNOWN/fail-closed; deleted-but-still-running instances retain their exact executable identity.
+- Added GNU89 ASan/UBSan policy regressions for all title mappings, malformed titles, exact paths, spoof paths, deleted executables and invalid arguments; extended the USB printer source contract and workflow path filters. Production source and host tests have not yet run on this exact SHA; no L3/hardware claim.
+- Parent SHA `375ab9f11b78d67a365b0c8885e1d5b617ebcc65`: HTTPD `46089951826`, AI handoff `46089951841`, AliyunDrive `46089951825`, and Process lifecycle `46089951824` all PASS. This new slice requires exact-head USB printer, Process, XY-C1 and AI handoff validation.
+- Next: inspect those exact-SHA checks; specifically verify all U2EC/LPRng/p910nd regression and source contracts, then proceed to another independent P1 task. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+
+---
+
 ## 2026-11-27 — Fix second duplicated PID 1 fatal-count contract
 
 - The first correction `ace9a30007db01654ad260423e46115322fcd972` updated the earlier occurrence of the exact-six assertion, but `scripts/check_dev_init_boot.py` contains a second equivalent integration-contract block. Exact AliyunDrive run `46089841598` passed the first block and all private-lock/WebDAV regression tests, then failed at line 688 on the duplicate assertion; exact Process run `46089841549` was still running at last poll and could hit the same assertion.

@@ -8,6 +8,8 @@ POLICY=(RC/"usb_printer_nvram_policy.h").read_text()
 TEST=(RC/"tests/usb_printer_nvram_policy.c").read_text()
 P910_POLICY=(RC/"usb_printer_p910nd_policy.h").read_text()
 P910_TEST=(RC/"tests/usb_printer_p910nd_policy.c").read_text()
+EXE_POLICY=(RC/"usb_printer_executable_policy.h").read_text()
+EXE_TEST=(RC/"tests/usb_printer_executable_policy.c").read_text()
 WORKFLOW=(ROOT/".github/workflows/usb-modem-identity-stability.yml").read_text()
 def body(signature):
     start=SOURCE.index(signature); opening=SOURCE.index("{",start); depth=0
@@ -18,9 +20,17 @@ def body(signature):
             if depth==0:return SOURCE[opening+1:pos]
     raise AssertionError("unterminated "+signature)
 assert '#include "usb_printer_nvram_policy.h"' in SOURCE
+assert '#include "usb_printer_executable_policy.h"' in SOURCE
 assert "nvram_get_checked(name, value)" in SOURCE
 assert "usb_printer_nvram_copy_setting_status(" in SOURCE
 assert "usb_printer_nvram_write_status" in POLICY
+assert "usb_printer_executable_path" in EXE_POLICY
+assert "usb_printer_executable_path_matches" in EXE_POLICY
+for marker in ("test_dedicated_printer_executables_resolve",
+               "test_unknown_or_malformed_process_names_are_rejected",
+               "test_executable_identity_requires_exact_installed_binary",
+               "test_executable_match_rejects_invalid_arguments"):
+    assert marker in EXE_TEST and marker + "();" in EXE_TEST
 for marker in ("test_write_status_accepts_success",
                "test_write_status_preserves_backend_errno",
                "test_write_status_without_errno_defaults_to_eio",
@@ -54,6 +64,15 @@ for name,key,launch,pid_file in (
     assert f'nvram_match("{key}"' not in fn
 
 # The shared launcher must never erase a live PID file or duplicate a daemon.
+scan=body("usb_printer_daemon_scan(void *context, int *scan_error)")
+assert "usb_printer_executable_path(process_name)" in scan
+assert "usb_printer_daemon_identity_executable_matches(" in scan
+assert "PROCESS_PRESENCE_UNKNOWN" in scan
+identity_contract=body("usb_printer_daemon_identity_executable_matches(")
+readlink_at=identity_contract.index("readlink(proc_path")
+revalidate_at=identity_contract.index("process_identity_validate(process_name, identity)", readlink_at)
+assert readlink_at < revalidate_at
+assert "usb_printer_executable_path_matches(expected_executable" in identity_contract
 launcher = body("start_usb_printer_daemon(char *const argv[], const char *process_name,\n                         const char *pid_file)")
 scan = launcher.index("usb_printer_daemon_scan((void *)process_name, &scan_error)")
 action = launcher.index("process_presence_start_action_for_state(presence)")
@@ -131,9 +150,10 @@ assert 'nvram_match("rawd_enable"' not in raw
 for marker in ("test_present_setting_is_copied_from_shared_cache","test_missing_setting_preserves_empty_legacy_default","test_backend_error_is_not_collapsed_to_default","test_errno_less_backend_failure_becomes_eio","test_unexpected_result_and_null_cache_are_rejected","test_overlong_setting_fails_before_use","test_invalid_arguments_are_rejected"):
     assert marker in TEST and marker+"();" in TEST
 FILTERS=WORKFLOW.split("permissions:",1)[0]
-for path in (".github/workflows/usb-modem-identity-stability.yml","trunk/user/rc/src/services_usb.c","trunk/user/rc/src/usb_printer_child_reap_policy.h","trunk/user/rc/src/tests/usb_printer_child_reap_policy.c","trunk/user/rc/src/usb_printer_nvram_policy.h","trunk/user/rc/src/tests/usb_printer_nvram_policy.c","trunk/user/rc/src/usb_printer_p910nd_policy.h","trunk/user/rc/src/tests/usb_printer_p910nd_policy.c","scripts/check_usb_printer_nvram.py"):
+for path in (".github/workflows/usb-modem-identity-stability.yml","trunk/user/rc/src/services_usb.c","trunk/user/rc/src/usb_printer_child_reap_policy.h","trunk/user/rc/src/tests/usb_printer_child_reap_policy.c","trunk/user/rc/src/usb_printer_nvram_policy.h","trunk/user/rc/src/tests/usb_printer_nvram_policy.c","trunk/user/rc/src/usb_printer_p910nd_policy.h","trunk/user/rc/src/tests/usb_printer_p910nd_policy.c","trunk/user/rc/src/usb_printer_executable_policy.h","trunk/user/rc/src/tests/usb_printer_executable_policy.c","scripts/check_usb_printer_nvram.py"):
     assert FILTERS.count(path)==2,f"workflow filter missing {path}"
 assert "usb_printer_nvram_policy.c" in WORKFLOW
 assert "python3 scripts/check_usb_printer_nvram.py" in WORKFLOW
 assert "usb_printer_p910nd_policy.c" in WORKFLOW
+assert "usb_printer_executable_policy.c" in WORKFLOW
 print("USB printer checked NVRAM lifecycle contract: PASS")

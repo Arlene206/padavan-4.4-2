@@ -1,3 +1,13 @@
+## 2026-11-27 — Prevent argv[0]-spoofed processes from satisfying USB printer readiness
+
+- Confirmed process-identity gap: generic `process_inventory_scan()` accepts `argv[0]` basename matches even when the executed binary differs. A normal Linux process can choose argv[0] independently (`exec -a lpd sleep 5` reproduced cmdline `lpd` with `/proc/PID/exe=/usr/bin/sleep`), so a local unrelated process could suppress root's u2ec/lpd/p910nd launch by spoofing its title.
+- THIS SLICE binds only these dedicated printer daemons to their installed executable identities: `/usr/sbin/u2ec`, `/usr/sbin/lpd`, and `/usr/sbin/p910nd` (for both p910nd and its intentional per-port argv[0] aliases). It revalidates PID/start-time/argv after readlink; unknown readlink/identity state is fail-closed. Generic process inventory semantics are unchanged to preserve BusyBox applets and other daemon aliases.
+- Added a GNU89 ASan/UBSan policy test, exact source contract, and USB workflow path/compile step. This source has not yet been validated by exact-head Actions; no firmware build or hardware result is claimed.
+- Parent SHA `375ab9f11b78d67a365b0c8885e1d5b617ebcc65`: Process `46089951824`, AliyunDrive `46089951825`, HTTPD `46089951826`, AI docs `46089951841` all PASS. Backup branch is still frozen at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Next: inspect exact-SHA USB printer, Process, XY-C1 and AI handoff runs for THIS slice; fix failures before moving to another independent P1 stability task.
+
+---
+
 ## 2026-11-27 — Repair duplicate PID 1 fatal-count assertion
 
 - `ace9a30007db01654ad260423e46115322fcd972` updated one stale `router.count("return INIT_ROUTER_RESULT_FATAL;") == 6` assertion. The same source-contract script contains a second duplicated integration block at line 688; exact AliyunDrive run `46089841598` now passed the first block and all WebDAV lock/lifecycle tests, then exposed this second stale assertion.
