@@ -1,3 +1,10 @@
+## 2026-11-28 14:41 CST (UTC+8) — Correct single-statement firmware stop checker
+
+- Base main SHA: `4bc110b517f8f1f49e5b0d6f64ea613a633577b0`. Review caught that `check_firmware_update_notification.py` passed a brace-less single-statement `if (service_stop_status != 0 && saved_errno == 0)` to its shared `block()` parser. The parser would bind to the next braced condition and fail to inspect the intended errno assignment.
+- Replaced that block extraction with a whitespace-tolerant regex assertion. No production source changed. Parent exact-head Process #46114250080, Process umbrella #46114249925, PID 1 notification #46114249923 and XY-C1 #46114250159 were queued/in progress at last poll; results remain unverified.
+
+---
+
 ## 2026-11-28 14:36 CST (UTC+8) — Stop MiniUPnPd before firmware MTD update
 
 - Base main SHA: `4635a548f8e434635aeb505a5265ac9d5b324a11`. Prior VPN FIFO production-source SHA `78afe64833e88851484b28c28d62ec482cff5ecd` now has exact XY-C1 #46113072666 SUCCESS: detector, Build, TRX verification and artifact upload all PASS. On exact parent main, VPN lifecycle #46113344389 and AI handoff #46113344390 PASS.

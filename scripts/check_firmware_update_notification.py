@@ -40,8 +40,7 @@ assert flash.index(upnp_stop_call) < flash.index(services_stop_call)
 upnp_failure = block(flash, "if (upnp_stop_status != 0)")
 assert "saved_errno = errno ? errno : EIO;" in upnp_failure
 assert "MiniUPnPd did not stop" in upnp_failure
-service_failure = block(flash, "if (service_stop_status != 0 && saved_errno == 0)")
-assert "saved_errno = errno ? errno : EIO;" in service_failure
+assert re.search(r"if\\s*\\(service_stop_status != 0 && saved_errno == 0\\)\\s+saved_errno = errno \\? errno : EIO;", flash)
 stop_failure = block(flash, "if (upnp_stop_status != 0 || service_stop_status != 0)")
 assert "if (saved_errno)" in stop_failure
 assert "errno = saved_errno;" in stop_failure
