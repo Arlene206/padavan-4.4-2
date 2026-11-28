@@ -32,7 +32,8 @@ injected_fsync(int fd)
 {
     fsync_calls++;
     if (fsync_always_interrupt || fsync_interruptions_remaining > 0) {
-        fsync_interruptions_remaining--;
+        if (fsync_interruptions_remaining > 0)
+            fsync_interruptions_remaining--;
         errno = EINTR;
         return -1;
     }

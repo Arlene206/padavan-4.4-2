@@ -72,7 +72,6 @@ init_mdev_config_publish(FILE **stream, const char *staged_path,
 {
     FILE *fp;
     int saved_errno = 0;
-    int sync_result;
 
     if (!stream || !*stream || !staged_path || !*staged_path ||
         !path || !*path)

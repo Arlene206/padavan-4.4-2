@@ -1,3 +1,12 @@
+## 2026-11-28 — Fix PID 1 mdev bounded-fsync regression compile
+
+- Exact-head PID 1 mdev security run `46134597261` on `ac811878adf63c4686af0acb59c0d11a26076133` failed its first GNU89/Werror host compile: `init_mdev_config_file.h` retained an unused `sync_result` local after its raw EINTR loop was replaced with `config_file_sync_fd()`.
+- Removed the stale declaration. Tightened the injected fsync fixture so persistent-EINTR mode does not decrement the transient-interruption counter below zero; the bounded retry assertions remain unchanged.
+- No local checkout/host compile is available in this session. Exact-head mdev, Process, AI docs, NVRAM and XY-C1 Actions are required after this commit; L3/L4 are not claimed.
+- Base: `9ffa705ebf992cb803b17cee327e013313112350`; resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-28 — Bound L2TP config fsync retries
 
 - The RP-L2TP atomic config publisher still used a private unbounded EINTR retry loop. Replaced it with the shared `config_file_sync_fd()` policy, retaining the existing single-EINTR recovery behavior.
