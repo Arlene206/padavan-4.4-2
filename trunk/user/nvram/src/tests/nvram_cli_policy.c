@@ -85,6 +85,27 @@ static int test_rejects_invalid_assignments(void)
     return 1;
 }
 
+static int test_max_value_length_boundary(void)
+{
+    char storage[64U + 4096U];
+    char assignment[64U + 4096U];
+    char *name = NULL;
+    char *value = NULL;
+    size_t i;
+
+    memset(assignment, 'v', sizeof(assignment));
+    for (i = 0; i < 63U; ++i)
+        assignment[i] = 'n';
+    assignment[63] = '=';
+    assignment[sizeof(assignment) - 1] = '\0';
+
+    CHECK(nvram_cli_parse_assignment(storage, sizeof(storage), assignment,
+                                     63, 4095, &name, &value) == 0);
+    CHECK(strlen(name) == 63U);
+    CHECK(strlen(value) == 4095U);
+    return 1;
+}
+
 static int test_exact_buffer_boundary(void)
 {
     char storage[1024];
@@ -136,8 +157,10 @@ int main(void)
     if (!test_checked_get_error_status() ||
         !test_sensitive_buffer_clear_erases_complete_region() ||
         !test_valid_assignments() || !test_rejects_invalid_assignments() ||
+        !test_max_value_length_boundary() ||
         !test_exact_buffer_boundary())
         return 1;
+    puts("NVRAM CLI maximum assignment boundary: PASS");
     puts("NVRAM CLI sensitive-buffer erasure: PASS");
     puts("NVRAM CLI assignment and checked-get policy: PASS");
     return 0;

@@ -1,3 +1,11 @@
+## 2026-11-28 — Allow the complete NVRAM CLI assignment ABI limit
+
+- Found a functional mismatch: the shared parser accepts `NVRAM_MAX_PARAM_LEN - 1` (63) key bytes and `NVRAM_MAX_VALUE_LEN - 1` (4095) value bytes, but `set` and `settmp` each used `char buf[1024]`. Thus valid larger passwords/values were rejected before reaching the kernel.
+- Replaced the two small branch-local arrays with one 4160-byte `NVRAM_MAX_PARAM_LEN + NVRAM_MAX_VALUE_LEN` workspace. Both branches wipe the full workspace after each parse/apply attempt, including invalid assignments. Added a max-boundary host regression and exact source guard for the single declaration, both parser callsites and both wipes.
+- Parent main SHA: 2bbb25778ea99a2734e7916b4acc989ad38dc74a; result: THIS COMMIT. Local tests NOT RUN (no local checkout); exact-head NVRAM and XY-C1 verification pending.
+
+---
+
 ## 2026-11-28 — Correct the NVRAM secure-free checker and source formatting
 
 - Exact cd6 NVRAM run #46146966803 passed the new CLI sensitive-buffer erasure GNU89 regression and every existing NVRAM host test, then failed the added source guard. Its helper marker encoded a literal `\\n`, and the regex `r"\\s*"` sought a literal backslash, so the checker falsely reported missing wipes.

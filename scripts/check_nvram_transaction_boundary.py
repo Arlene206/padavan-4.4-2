@@ -276,6 +276,28 @@ def run() -> int:
         if marker not in cli_test:
             failures.append("NVRAM CLI secure-clear regression is missing " + marker)
 
+    # set/settmp accept the complete kernel ABI maximum: 63-byte name,
+    # separator, 4095-byte value and a terminating NUL (4160 bytes total).
+    assignment_workspace = (
+        "char assignment[NVRAM_MAX_PARAM_LEN + NVRAM_MAX_VALUE_LEN];"
+    )
+    if cli_main.count(assignment_workspace) != 1:
+        failures.append("NVRAM CLI must declare one ABI-sized shared assignment workspace")
+    if cli_main.count("nvram_cli_parse_assignment(assignment, sizeof(assignment), *argv,") != 2:
+        failures.append("NVRAM CLI set/settmp must both use the full-sized assignment workspace")
+    if cli_main.count("nvram_cli_secure_clear(assignment, sizeof(assignment));") != 2:
+        failures.append("NVRAM CLI set/settmp must erase the workspace after each attempt")
+    if "char buf[1024];" in cli_main:
+        failures.append("NVRAM CLI main still contains an undersized assignment buffer")
+    for marker in (
+        "test_max_value_length_boundary",
+        "strlen(name) == 63U",
+        "strlen(value) == 4095U",
+        "NVRAM CLI maximum assignment boundary: PASS",
+    ):
+        if marker not in cli_test:
+            failures.append("NVRAM CLI maximum assignment regression is missing " + marker)
+
     # A raw userland ioctl/device path is allowed only in the locked shared adapter.
     raw_hits: list[tuple[str, int, str]] = []
     adapter_raw_count = 0

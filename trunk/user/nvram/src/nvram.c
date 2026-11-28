@@ -146,7 +146,7 @@ static int nvram_save(char *file)
     result = nvram_profile_write_atomic(file, header, sizeof(header),
                                         buf, count, padding, padding_len);
     nvram_cli_secure_clear(buf, NVRAM_SPACE);
-        free(buf);
+    free(buf);
     return result;
 }
 
@@ -332,6 +332,7 @@ int
 main(int argc, char **argv)
 {
 	char *name, *value;
+	char assignment[NVRAM_MAX_PARAM_LEN + NVRAM_MAX_VALUE_LEN];
 	int ret = 0;
 	int read_status, read_errno, read_error;
 
@@ -374,8 +375,8 @@ main(int argc, char **argv)
 		}
 		else if (!strcmp(*argv, "settmp")) {
 			if (*++argv) {
-				char buf[1024];
-				if (nvram_cli_parse_assignment(buf, sizeof(buf), *argv,
+				
+				if (nvram_cli_parse_assignment(assignment, sizeof(assignment), *argv,
 						NVRAM_MAX_PARAM_LEN - 1,
 						NVRAM_MAX_VALUE_LEN - 1,
 						&name, &value) < 0) {
@@ -385,14 +386,15 @@ main(int argc, char **argv)
 				} else if (nvram_set_temp(name, value) < 0 && ret == 0) {
 					ret = -1;
 				}
+				nvram_cli_secure_clear(assignment, sizeof(assignment));
 			} else if (ret == 0) {
 				ret = -1;
 			}
 		}
 		else if (!strcmp(*argv, "set")) {
 			if (*++argv) {
-				char buf[1024];
-				if (nvram_cli_parse_assignment(buf, sizeof(buf), *argv,
+				
+				if (nvram_cli_parse_assignment(assignment, sizeof(assignment), *argv,
 						NVRAM_MAX_PARAM_LEN - 1,
 						NVRAM_MAX_VALUE_LEN - 1,
 						&name, &value) < 0) {
@@ -402,6 +404,7 @@ main(int argc, char **argv)
 				} else if (nvram_set(name, value) < 0 && ret == 0) {
 					ret = -1;
 				}
+				nvram_cli_secure_clear(assignment, sizeof(assignment));
 			} else if (ret == 0) {
 				ret = -1;
 			}
