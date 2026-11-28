@@ -3,6 +3,8 @@
 
 #include <errno.h>
 #include <string.h>
+#include <stdlib.h>
+#include <process_inventory.h>
 
 /*
  * These are dedicated ROMFS executables. p910nd intentionally changes argv[0]
@@ -56,6 +58,94 @@ usb_printer_executable_path_matches(const char *expected, const char *actual)
 		   sizeof(deleted_suffix)) == 0)
 		return 1;
 	return 0;
+}
+
+
+typedef int (*usb_printer_identity_match_fn)(
+	void *context, const struct process_identity *identity, int *check_error);
+
+/*
+ * Filter a process-name inventory down to processes whose executable identity
+ * has been confirmed. Any unreadable candidate makes the result UNKNOWN: a
+ * stop transaction must not signal a partially understood process set.
+ */
+static inline enum process_presence
+usb_printer_filter_process_snapshot(
+	const struct process_snapshot *candidates,
+	struct process_snapshot *verified,
+	usb_printer_identity_match_fn identity_matches,
+	void *context)
+{
+	struct process_identity *items;
+	size_t i, matched_count = 0;
+	int matched, check_error, unknown_error = 0;
+
+	if (!verified) {
+		errno = EINVAL;
+		return PROCESS_PRESENCE_UNKNOWN;
+	}
+	memset(verified, 0, sizeof(*verified));
+	verified->state = PROCESS_PRESENCE_UNKNOWN;
+	if (!candidates || candidates == verified || !identity_matches) {
+		verified->error = EINVAL;
+		errno = EINVAL;
+		return verified->state;
+	}
+	if (candidates->state == PROCESS_PRESENCE_UNKNOWN) {
+		verified->error = candidates->error > 0 ? candidates->error : EIO;
+		errno = verified->error;
+		return verified->state;
+	}
+	if (candidates->state == PROCESS_PRESENCE_ABSENT) {
+		if (candidates->count != 0 || candidates->items) {
+			verified->error = EIO;
+			errno = EIO;
+			return verified->state;
+		}
+		verified->state = PROCESS_PRESENCE_ABSENT;
+		return verified->state;
+	}
+	if (candidates->state != PROCESS_PRESENCE_RUNNING ||
+	    !candidates->items || candidates->count == 0 ||
+	    candidates->count > (size_t)-1 / sizeof(*items)) {
+		verified->error = candidates->count > (size_t)-1 / sizeof(*items) ?
+			EOVERFLOW : EIO;
+		errno = verified->error;
+		return verified->state;
+	}
+
+	items = (struct process_identity *)calloc(candidates->count,
+						 sizeof(*items));
+	if (!items) {
+		verified->error = ENOMEM;
+		errno = ENOMEM;
+		return verified->state;
+	}
+	for (i = 0; i < candidates->count; i++) {
+		check_error = 0;
+		matched = identity_matches(context, &candidates->items[i],
+					   &check_error);
+		if (matched > 0)
+			items[matched_count++] = candidates->items[i];
+		else if (matched < 0 && unknown_error == 0)
+			unknown_error = check_error > 0 ? check_error : EIO;
+	}
+	if (unknown_error != 0) {
+		free(items);
+		verified->error = unknown_error;
+		errno = unknown_error;
+		return verified->state;
+	}
+	if (matched_count == 0) {
+		free(items);
+		verified->state = PROCESS_PRESENCE_ABSENT;
+		return verified->state;
+	}
+	verified->items = items;
+	verified->count = matched_count;
+	verified->state = PROCESS_PRESENCE_RUNNING;
+	verified->error = 0;
+	return verified->state;
 }
 
 #endif /* USB_PRINTER_EXECUTABLE_POLICY_H */

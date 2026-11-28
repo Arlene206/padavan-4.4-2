@@ -56,6 +56,7 @@
 #include "usb_printer_p910nd_policy.h"
 #include "usb_printer_child_reap_policy.h"
 #include "usb_printer_executable_policy.h"
+#include "service_lifecycle_policy.h"
 
 static int
 usb_printer_nvram_get_checked(void *context, const char *name, char **value)
@@ -295,8 +296,111 @@ usb_printer_daemon_scan(void *context, int *scan_error)
 			saved_error : 0;
 	if (presence == PROCESS_PRESENCE_UNKNOWN)
 		errno = saved_error;
+
 	return presence;
 }
+
+static int
+usb_printer_service_identity_matches(void *context,
+				     const struct process_identity *identity,
+				     int *check_error)
+{
+	const char *process_name = (const char *)context;
+	const char *expected_executable;
+
+	expected_executable = usb_printer_executable_path(process_name);
+	if (!expected_executable) {
+		*check_error = errno > 0 ? errno : EINVAL;
+		return -1;
+	}
+	return usb_printer_daemon_identity_executable_matches(
+		process_name, identity, expected_executable, check_error);
+}
+
+static enum process_presence
+usb_printer_service_scan(void *context, const char *process_name,
+			 struct process_snapshot *snapshot)
+{
+	struct process_snapshot candidates;
+	enum process_presence presence;
+
+	(void)context;
+	if (!snapshot || !process_name || !process_name[0]) {
+		errno = EINVAL;
+		return PROCESS_PRESENCE_UNKNOWN;
+	}
+	presence = process_inventory_scan(process_name, &candidates);
+	presence = usb_printer_filter_process_snapshot(
+		&candidates, snapshot, usb_printer_service_identity_matches,
+		(void *)process_name);
+	process_snapshot_release(&candidates);
+	if (presence == PROCESS_PRESENCE_UNKNOWN)
+		errno = snapshot->error > 0 ? snapshot->error : EIO;
+	return presence;
+}
+
+static enum process_presence
+usb_printer_service_validate(void *context, const char *process_name,
+			     const struct process_identity *identity)
+{
+	int check_error = 0;
+	int matched;
+
+	(void)context;
+	matched = usb_printer_service_identity_matches((void *)process_name,
+						       identity, &check_error);
+	if (matched > 0)
+		return PROCESS_PRESENCE_RUNNING;
+	if (matched == 0)
+		return PROCESS_PRESENCE_ABSENT;
+	errno = check_error > 0 ? check_error : EIO;
+	return PROCESS_PRESENCE_UNKNOWN;
+}
+
+static int
+usb_printer_service_send_signal(void *context,
+				const struct process_identity *identity,
+				int signal_number)
+{
+	(void)context;
+	if (signal_number != SIGTERM && signal_number != SIGKILL) {
+		errno = EINVAL;
+		return -1;
+	}
+	if (kill(identity->pid, signal_number) == 0 || errno == ESRCH)
+		return 0;
+	return -1;
+}
+
+static void
+usb_printer_service_sleep(void *context, unsigned int seconds)
+{
+	(void)context;
+	sleep(seconds);
+}
+
+static int
+usb_printer_kill_services(char *service_names[], int wait_timeout,
+			  int forcekill)
+{
+	static const struct service_lifecycle_ops ops = {
+		usb_printer_service_scan,
+		usb_printer_service_validate,
+		usb_printer_service_send_signal,
+		usb_printer_service_sleep,
+		NULL
+	};
+	int result;
+
+	result = service_lifecycle_stop(service_names, wait_timeout, forcekill,
+					&ops, NULL);
+	if (result != SERVICE_LIFECYCLE_STOPPED)
+		logmessage(LOGNAME,
+			   "executable-bound USB printer stop incomplete (status=%d)",
+			   result);
+	return result;
+}
+
 static int
 usb_printer_daemon_wait(void *context, unsigned int seconds)
 {
@@ -337,7 +441,7 @@ usb_printer_daemon_rollback_stop(void *context)
 	}
 	service_names[0] = (char *)context;
 	service_names[1] = NULL;
-	return kill_services(service_names, 3, 1);
+	return usb_printer_kill_services(service_names, 3, 1);
 }
 
 static int
@@ -559,7 +663,7 @@ int
 stop_u2ec(void)
 {
 	char* svcs[] = { "u2ec", NULL };
-	return kill_services(svcs, 3, 1);
+	return usb_printer_kill_services(svcs, 3, 1);
 }
 #endif
 
@@ -601,7 +705,7 @@ stop_lpd(void)
 	 * before treating it as a live duplicate. Unlinking here can race a
 	 * freshly restarted daemon publishing its replacement record.
 	 */
-	return kill_services(svcs, 3, 1);
+	return usb_printer_kill_services(svcs, 3, 1);
 }
 #endif
 
@@ -676,7 +780,7 @@ stop_p910nd(void)
 		"p9105d", "p9106d", "p9107d", "p9108d", "p9109d",
 		NULL
 	};
-	return kill_services(svcs, 3, 1);
+	return usb_printer_kill_services(svcs, 3, 1);
 }
 
 static int

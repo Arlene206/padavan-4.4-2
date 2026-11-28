@@ -1,3 +1,12 @@
+## 2026-11-28 — Bind USB printer stop/rollback to the installed executable
+
+- Parent main `9edd01a13d7c861a1c2e246220f2096134679ca1`: VSFTPD #46119302446 PASS, Process inventory #46119302432 PASS, AI docs #46119302480 PASS and NVRAM boundary #46119302447 PASS. Full XY-C1 Build/TRX/artifact run #46119302438 was still IN_PROGRESS at last poll.
+- Found an identity mismatch in USB printer lifecycle hardening: startup/readiness used `/proc/PID/exe` to ensure a same-name process was the installed `/usr/sbin/u2ec`, `lpd` or `p910nd`, but `stop_u2ec()`, `stop_lpd()`, `stop_p910nd()` and failed-start rollback still used generic `kill_services()` matching mutable process `comm`/argv. A spoofed daemon title could therefore be killed even though it had been rejected as the expected executable during readiness.
+- Added a reusable filtered `process_snapshot` policy, with fail-closed UNKNOWN when any candidate executable cannot be verified. Added a USB-specific `service_lifecycle_ops` adapter so stop/rollback retain strict identity rechecks, TERM/wait/KILL escalation and stop-complete gating, but only signal exact installed printer executables.
+- Added ASan/UBSan-backed tests for verified-executable-only filtering, spoof-only absence and unreadable-candidate failure. Extended Process lifecycle push/PR path filters and source contracts. Exact-head Process Actions pending; no local build or hardware result claimed.
+
+---
+
 ## 2026-11-28 — Return anonymous-upload metadata errors without terminating VSFTPD
 
 - Parent main: `dbf39a4f7adfdecf23dfdb05893b69207a3aabaa`. Exact VSFTPD #46119095990 and AI docs #46119095970 PASS; the production sysutil ftruncate runtime regression, FTP policy binaries and source contracts are green. NVRAM #46118906849 and Process #46118906883 on e0acf also PASS.
