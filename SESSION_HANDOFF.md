@@ -45,6 +45,7 @@ Before ending, compare live main, exact-head Actions, active task, validation bo
 # Cross-session execution mandate
 
 - Recover once, then execute; do not repeat completed audits or ask the user what to do next.
-- One logical multi-file task, one atomic commit: create blobs, one tree, one commit, then update main with non-forced expected-SHA.
+- One logical multi-file task, one atomic main commit: create all blobs, one tree and one commit, then update main with a non-forced expected-SHA compare-and-swap. Never force-push or publish per-file intermediate commits.
+- Before context exhaustion, finish the current safe slice, publish it, inspect exact-head Actions and leave the next GPT a precise first action and truthful L1–L4 validation boundary.
 - Inspect exact pushed-main Actions. PASS permits the next slice; FAIL requires causal repair; PENDING permits independent work.
 - Complete a bounded safe slice before starting another. Do not claim tests, firmware artifacts or hardware validation without evidence.

@@ -1,3 +1,12 @@
+## 2026-11-28 — Complete handoff atomic-main execution contract
+
+- AI handoff documentation run `46134978824` on `53dd5c67cc7df0073c447cd6725809c8660f3f9c` passed the checkpoint-heading/conditional-edit rule, then failed because the compact handoff's cross-session mandate omitted the exact atomic-main-commit and before-context-exhaustion requirements.
+- Restored those two explicit requirements in the handoff's execution mandate. No source or workflow behavior changed.
+- On the same SHA, PID 1 mdev regression `46134978792` and Process inventory `46134978799` PASS; NVRAM `46134978773` was queued and XY-C1 `46134978759` remained in progress. Their results must be matched to their own SHA.
+- Result: THIS COMMIT.
+
+---
+
 ## 2026-11-28 — Correct PID 1 mdev directory-sync fixture count and handoff contract
 
 - Exact-head mdev run `46134787306` on `60a5a1bbc086ff06b87088d02e2d733ea7f6dbc8` compiled successfully after the stale local was removed, then failed the first publication assertion: it expected three injected fsync calls.
