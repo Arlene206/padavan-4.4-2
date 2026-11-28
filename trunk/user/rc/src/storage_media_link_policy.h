@@ -13,7 +13,11 @@ storage_media_link_pair_status(const char *dest_dir, const char *link_path)
 	if ((strcmp(dest_dir, "transmission") == 0 &&
 	     strcmp(link_path, "/mnt/transmission") == 0) ||
 	    (strcmp(dest_dir, "aria") == 0 &&
-	     strcmp(link_path, "/mnt/aria") == 0))
+	     strcmp(link_path, "/mnt/aria") == 0) ||
+	    (strcmp(dest_dir, ".dms") == 0 &&
+	     strcmp(link_path, "/mnt/minidlna") == 0) ||
+	    (strcmp(dest_dir, ".itunes") == 0 &&
+	     strcmp(link_path, "/mnt/firefly") == 0))
 		return 0;
 	return EINVAL;
 }

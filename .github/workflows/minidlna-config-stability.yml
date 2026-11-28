@@ -85,8 +85,10 @@ jobs:
           force_gate = rescan_compact.index("if(!force_rescan)")
           rescan_at = rescan_compact.index(rescan_read_compact)
           failure_gate = rescan_compact.index("if(config_status!=0)", rescan_at)
-          link_mutation = rescan_compact.index("unlink(link_path)")
+          link_mutation = rescan_compact.index("storage_media_link_publish(dest_dir,link_path,0)")
           assert force_gate < rescan_at < failure_gate < link_mutation
+          assert "unlink(link_path)" not in daemon_start
+          assert "storage_media_link_publish(dest_dir,link_path,1)" in rescan_compact
           assert "cannot read database rescan mode; aborting daemon start" in daemon_start
           assert "if (force_rescan || db_rescan_mode == 2)" in daemon_start
           # Service enable and server identity are also checked before side effects.

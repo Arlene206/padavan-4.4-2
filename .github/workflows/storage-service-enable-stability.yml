@@ -63,9 +63,9 @@ jobs:
           assert "storage_service_enable_value_status(" in enable_reader
 
           for signature, key, support_probe, link_mutation in (
-              ("int run_itunes(void)", '"apps_itunes"', "is_itunes_support()", "unlink(link_path)"),
-              ("int run_torrent(void)", '"trmd_enable"', "is_torrent_support()", "storage_media_link_publish(dest_dir,link_path)"),
-              ("int run_aria(void)", '"aria_enable"', "is_aria_support()", "storage_media_link_publish(dest_dir,link_path)"),
+              ("int run_itunes(void)", '"apps_itunes"', "is_itunes_support()", "storage_media_link_publish(dest_dir,link_path,0)"),
+              ("int run_torrent(void)", '"trmd_enable"', "is_torrent_support()", "storage_media_link_publish(dest_dir,link_path,0)"),
+              ("int run_aria(void)", '"aria_enable"', "is_aria_support()", "storage_media_link_publish(dest_dir,link_path,0)"),
           ):
               start = source.index(signature)
               fn = body(source, signature)
@@ -79,10 +79,10 @@ jobs:
               assert "returnenable_status;" in compact
               assert 'nvram_match(' not in fn
           assert "strcmp(stored_value, \"1\") == 0" in policy
-          for signature in ("int run_torrent(void)", "int run_aria(void)"):
+          for signature in ("int run_itunes(void)", "int run_torrent(void)", "int run_aria(void)"):
               media_start = body(source, signature)
               media_compact = "".join(media_start.split())
-              assert "storage_media_link_publish(dest_dir,link_path)" in media_compact
+              assert "storage_media_link_publish(dest_dir,link_path,0)" in media_compact
               assert "unlink(link_path)" not in media_start
               assert "create_mp_link_status(dest_dir,link_path,0)" not in media_compact
           for marker in ('storage_service_enable_value_status(EIO, "", &enabled)',

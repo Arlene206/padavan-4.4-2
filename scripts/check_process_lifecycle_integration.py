@@ -361,19 +361,27 @@ for signature in ("int run_dms(int force_rescan)", "int run_itunes(void)",
                   "int run_torrent(void)", "int run_aria(void)"):
     caller = c_function_body(storage_services, signature)
     publisher = ("storage_media_link_publish(" if signature in
-                 ("int run_torrent(void)", "int run_aria(void)")
+                 ("int run_dms(int force_rescan)", "int run_itunes(void)",
+                  "int run_torrent(void)", "int run_aria(void)")
                  else "create_mp_link_status(")
     assert publisher in caller
     assert "return link_status;" in caller
     assert "create_mp_link(" not in caller
-for signature in ("int run_torrent(void)", "int run_aria(void)"):
+for signature in ("int run_dms(int force_rescan)", "int run_itunes(void)"):
     caller = c_function_body(storage_services, signature)
-    assert "storage_media_link_publish(dest_dir, link_path)" in caller
+    assert "storage_media_link_publish(dest_dir, link_path, 0)" in caller
+    assert "storage_media_link_publish(dest_dir, link_path, 1)" in caller
     assert "unlink(link_path)" not in caller
     assert "create_mp_link_status(dest_dir, link_path, 0)" not in caller
+for signature in ("int run_torrent(void)", "int run_aria(void)"):
+    caller = c_function_body(storage_services, signature)
+    assert "storage_media_link_publish(dest_dir, link_path, 0)" in caller
+    assert "storage_media_link_publish(dest_dir, link_path, 1)" not in caller
+    assert "unlink(link_path)" not in caller
 media_publish = c_function_body(storage_services, "storage_media_link_publish(")
 assert "storage_media_link_pair_status(dest_dir, link_path)" in media_publish
-assert "create_mp_link_status(dest_dir, staged_path, 0)" in media_publish
+assert "force_first_valid != 0 && force_first_valid != 1" in media_publish
+assert "create_mp_link_status(dest_dir, staged_path, force_first_valid)" in media_publish
 assert "rename(staged_path, link_path)" in media_publish
 print("Storage mount-link deterministic errno and media caller propagation contract: PASS")
 

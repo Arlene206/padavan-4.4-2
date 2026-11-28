@@ -3232,10 +3232,9 @@ int run_dms(int force_rescan)
 	}
 	minidlna_argv[4] = ether_etoa3(mac_bin, mac_str);
 
-	unlink(link_path);
-	link_status = create_mp_link_status(dest_dir, link_path, 0);
+	link_status = storage_media_link_publish(dest_dir, link_path, 0);
 	if (link_status != 0) {
-		link_status = create_mp_link_status(dest_dir, link_path, 1);
+		link_status = storage_media_link_publish(dest_dir, link_path, 1);
 		if (link_status != 0) {
 			logmessage(apps_name, "Cannot start: unable to create DB dir (/%s) on any volumes (status=%d)!",
 				   dest_dir, link_status);
@@ -3475,10 +3474,9 @@ int run_itunes(void)
 		return errno ? errno : EIO;
 	}
 
-	unlink(link_path);
-	link_status = create_mp_link_status(dest_dir, link_path, 0);
+	link_status = storage_media_link_publish(dest_dir, link_path, 0);
 	if (link_status != 0) {
-		link_status = create_mp_link_status(dest_dir, link_path, 1);
+		link_status = storage_media_link_publish(dest_dir, link_path, 1);
 		if (link_status != 0) {
 			logmessage(apps_name, "Cannot start: unable to create DB dir (/%s) on any volumes (status=%d)!",
 				   dest_dir, link_status);
@@ -3687,20 +3685,23 @@ storage_media_link_destination_check(const char *link_path)
 }
 
 static int
-storage_media_link_publish(char *dest_dir, char *link_path)
+storage_media_link_publish(char *dest_dir, char *link_path, int force_first_valid)
 {
 	struct stat parent_before, parent_after, staged_stat, staged_current;
 	char staged_path[128];
 	int status, path_length, attempt, staged_created = 0;
 	int staged_identity_valid = 0;
 
-	if (!dest_dir || !dest_dir[0] || !link_path ||
-	    strcmp(link_path, "/mnt/transmission") != 0) {
+	if (!dest_dir || !dest_dir[0] || !link_path) {
 		errno = EINVAL;
 		return EINVAL;
 	}
 
 	status = storage_media_link_pair_status(dest_dir, link_path);
+	if (force_first_valid != 0 && force_first_valid != 1) {
+		errno = EINVAL;
+		return EINVAL;
+	}
 	if (status != 0) {
 		errno = status;
 		return status;
@@ -3720,7 +3721,7 @@ storage_media_link_publish(char *dest_dir, char *link_path)
 			errno = ENAMETOOLONG;
 			return ENAMETOOLONG;
 		}
-		status = create_mp_link_status(dest_dir, staged_path, 0);
+		status = create_mp_link_status(dest_dir, staged_path, force_first_valid);
 		if (status == 0) {
 			staged_created = 1;
 			break;
@@ -3777,7 +3778,7 @@ out:
 	    staged_current.st_dev == staged_stat.st_dev &&
 	    staged_current.st_ino == staged_stat.st_ino &&
 	    unlink(staged_path) != 0)
-		logmessage("Transmission",
+		logmessage("Storage media",
 			   "failed to remove staged storage link %s (status=%d)",
 			   staged_path, errno > 0 ? errno : EIO);
 	errno = status;
@@ -3816,7 +3817,7 @@ int run_torrent(void)
 		return errno ? errno : EIO;
 	}
 
-	link_status = storage_media_link_publish(dest_dir, link_path);
+	link_status = storage_media_link_publish(dest_dir, link_path, 0);
 	if (link_status != 0) {
 		logmessage(apps_name, "Cannot start: please create dir \"%s\" on target volume (status=%d)!",
 			   dest_dir, link_status);
@@ -3980,7 +3981,7 @@ int run_aria(void)
 		return errno ? errno : EIO;
 	}
 
-	link_status = storage_media_link_publish(dest_dir, link_path);
+	link_status = storage_media_link_publish(dest_dir, link_path, 0);
 	if (link_status != 0) {
 		logmessage(apps_name, "Cannot start: please create dir \"%s\" on target volume (status=%d)!",
 			   dest_dir, link_status);

@@ -1128,11 +1128,17 @@ jobs:
           assert "storage_media_link_parent_status(" in storage_media_parent
           assert "storage_media_link_destination_status(" in storage_media_destination
           assert "storage_media_link_pair_status(dest_dir, link_path)" in storage_media_publish
-          for media_signature in ("run_torrent(void)", "run_aria(void)"):
+          assert "force_first_valid != 0 && force_first_valid != 1" in storage_media_publish
+          assert "create_mp_link_status(dest_dir, staged_path, force_first_valid)" in storage_media_publish
+          assert 'strcmp(link_path, "/mnt/transmission")' not in storage_media_publish
+          for media_signature in ("run_dms(int force_rescan)", "run_itunes(void)",
+                                   "run_torrent(void)", "run_aria(void)"):
               media_start = function_body(storage, media_signature)
-              assert "storage_media_link_publish(dest_dir, link_path)" in media_start
+              assert "storage_media_link_publish(dest_dir, link_path, 0)" in media_start
               assert "unlink(link_path)" not in media_start
               assert "create_mp_link_status(dest_dir, link_path, 0)" not in media_start
+              if media_signature in ("run_dms(int force_rescan)", "run_itunes(void)"):
+                  assert "storage_media_link_publish(dest_dir, link_path, 1)" in media_start
           for marker in ("test_known_media_link_pairs_are_enforced",
                          "test_root_owned_nonwritable_parent_is_required",
                          "test_symlink_and_writable_parents_are_rejected",

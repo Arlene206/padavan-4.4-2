@@ -1681,7 +1681,8 @@ for signature in ("int run_dms(int force_rescan)", "int run_itunes(void)",
             "mount-link status adapter must be declared before " + signature)
     caller = body(storage, signature)
     status_call = ("storage_media_link_publish(" if signature in
-                   ("int run_torrent(void)", "int run_aria(void)")
+                   ("int run_dms(int force_rescan)", "int run_itunes(void)",
+                    "int run_torrent(void)", "int run_aria(void)")
                    else "create_mp_link_status(")
     require(status_call in caller and "link_status" in caller and
             "return link_status;" in caller and "create_mp_link(" not in caller,
@@ -1692,18 +1693,20 @@ require("create_mp_link_status(dest_dir, staged_path, 0)" in transmission_publis
         "Transmission publisher must build a private link then atomically publish it")
 for signature in ("int run_dms(int force_rescan)", "int run_itunes(void)"):
     caller = body(storage, signature)
-    require(caller.index("create_mp_link_status(dest_dir, link_path, 0)") <
-            caller.index("create_mp_link_status(dest_dir, link_path, 1)"),
+    require(caller.index("storage_media_link_publish(dest_dir, link_path, 0)") <
+            caller.index("storage_media_link_publish(dest_dir, link_path, 1)"),
             "media database fallback selection changed: " + signature)
 for signature in ("int run_torrent(void)", "int run_aria(void)"):
     caller = body(storage, signature)
-    require("storage_media_link_publish(dest_dir, link_path)" in caller and
+    require("storage_media_link_publish(dest_dir, link_path, 0)" in caller and
+            "storage_media_link_publish(dest_dir, link_path, 1)" not in caller and
             "create_mp_link_status(dest_dir, link_path, 0)" not in caller and
             "unlink(link_path)" not in caller,
             "download daemon must publish a staged mount link without deleting the live path")
 media_publish = body(storage, "storage_media_link_publish(")
 require("storage_media_link_pair_status(dest_dir, link_path)" in media_publish and
-        "create_mp_link_status(dest_dir, staged_path, 0)" in media_publish and
+        "force_first_valid != 0 && force_first_valid != 1" in media_publish and
+        "create_mp_link_status(dest_dir, staged_path, force_first_valid)" in media_publish and
         "rename(staged_path, link_path)" in media_publish,
         "shared media-link publisher must constrain names and atomically publish")
 

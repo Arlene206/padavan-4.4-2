@@ -9,6 +9,8 @@ test_known_media_link_pairs_are_enforced(void)
 {
 	assert(storage_media_link_pair_status("transmission", "/mnt/transmission") == 0);
 	assert(storage_media_link_pair_status("aria", "/mnt/aria") == 0);
+	assert(storage_media_link_pair_status(".dms", "/mnt/minidlna") == 0);
+	assert(storage_media_link_pair_status(".itunes", "/mnt/firefly") == 0);
 	assert(storage_media_link_pair_status("transmission", "/mnt/aria") == EINVAL);
 	assert(storage_media_link_pair_status("aria", "/mnt/transmission") == EINVAL);
 	assert(storage_media_link_pair_status("other", "/mnt/other") == EINVAL);
