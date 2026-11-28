@@ -517,7 +517,7 @@ start_usb_printer_daemon(char *const argv[], const char *process_name,
 int
 start_u2ec(void)
 {
-	int start_status, setting_status;
+	int start_status, setting_status, enable_mode;
 	int marker_result, marker_errno, marker_status;
 	char setting[16];
 	char *argv[] = { "/usr/sbin/u2ec", NULL };
@@ -527,7 +527,12 @@ start_u2ec(void)
 		logmessage("USB Printer", "cannot read u2ec_enable; refusing printer daemon start (status=%d)", setting_status);
 		return setting_status;
 	}
-	if (strcmp(setting, "0") == 0)
+	setting_status = usb_printer_enable_mode_status(setting, 1, &enable_mode);
+	if (setting_status != 0) {
+		logmessage("USB Printer", "invalid u2ec_enable selector; refusing printer daemon start (status=%d)", setting_status);
+		return setting_status;
+	}
+	if (enable_mode == 0)
 		return 0;
 
 	start_status = start_usb_printer_daemon(argv, "u2ec", "/var/run/u2ec.pid");
@@ -562,7 +567,7 @@ stop_u2ec(void)
 int
 start_lpd(void)
 {
-	int start_status, setting_status;
+	int start_status, setting_status, enable_mode;
 	char setting[16];
 	char *argv[] = { "/usr/sbin/lpd", NULL };
 
@@ -571,7 +576,12 @@ start_lpd(void)
 		logmessage("USB Printer", "cannot read lprd_enable; refusing printer daemon start (status=%d)", setting_status);
 		return setting_status;
 	}
-	if (strcmp(setting, "0") == 0)
+	setting_status = usb_printer_enable_mode_status(setting, 1, &enable_mode);
+	if (setting_status != 0) {
+		logmessage("USB Printer", "invalid lprd_enable selector; refusing printer daemon start (status=%d)", setting_status);
+		return setting_status;
+	}
+	if (enable_mode == 0)
 		return 0;
 
 	start_status = start_usb_printer_daemon(argv, "lpd", "/var/run/lpdparent.pid");
@@ -598,7 +608,7 @@ stop_lpd(void)
 int
 start_p910nd(char *devlp)
 {
-	int start_status, setting_status;
+	int start_status, setting_status, enable_mode;
 	char setting[16], port[2], process_name[sizeof("p9100d")];
 
 	setting_status = read_usb_printer_setting_status("rawd_enable", setting, sizeof(setting));
@@ -606,7 +616,13 @@ start_p910nd(char *devlp)
 		logmessage("USB Printer", "cannot read rawd_enable; refusing printer daemon start for %s (status=%d)", devlp, setting_status);
 		return setting_status;
 	}
-	if (strcmp(setting, "0") == 0)
+	setting_status = usb_printer_enable_mode_status(setting, 2, &enable_mode);
+	if (setting_status != 0) {
+		logmessage("USB Printer", "invalid rawd_enable selector for %s (status=%d)",
+			   devlp ? devlp : "(null)", setting_status);
+		return setting_status;
+	}
+	if (enable_mode == 0)
 		return 0;
 
 	start_status = usb_printer_p910nd_port_from_device(
@@ -622,7 +638,7 @@ start_p910nd(char *devlp)
 	if (start_status != 0)
 		return start_status;
 
-	if (strcmp(setting, "2") == 0)
+	if (enable_mode == 2)
 		start_status = eval("/usr/sbin/p910nd", "-b", "-f", devlp, port);
 	else
 		start_status = eval("/usr/sbin/p910nd", "-f", devlp, port);

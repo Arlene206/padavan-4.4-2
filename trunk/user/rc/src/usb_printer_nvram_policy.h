@@ -39,4 +39,36 @@ usb_printer_nvram_write_status(int result, int saved_errno)
     return saved_errno > 0 ? saved_errno : EIO;
 }
 
+/*
+ * Printer service selectors are numeric NVRAM modes. Preserve the historical
+ * missing-key default (enabled, mode 1), but reject unknown values instead of
+ * silently starting a service under an invalid configuration.
+ */
+static inline int
+usb_printer_enable_mode_status(const char *value, int maximum_mode, int *mode)
+{
+    int parsed_mode;
+
+    if (!value || !mode || (maximum_mode != 1 && maximum_mode != 2)) {
+        errno = EINVAL;
+        return EINVAL;
+    }
+
+    if (value[0] == '\0') {
+        parsed_mode = 1;
+    } else if (strcmp(value, "0") == 0) {
+        parsed_mode = 0;
+    } else if (strcmp(value, "1") == 0) {
+        parsed_mode = 1;
+    } else if (maximum_mode == 2 && strcmp(value, "2") == 0) {
+        parsed_mode = 2;
+    } else {
+        errno = EINVAL;
+        return EINVAL;
+    }
+
+    *mode = parsed_mode;
+    return 0;
+}
+
 #endif

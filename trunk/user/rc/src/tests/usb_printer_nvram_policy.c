@@ -75,6 +75,46 @@ static void test_write_status_rejects_unexpected_result(void)
     assert(usb_printer_nvram_write_status(1, 0) == EIO);
 }
 
+
+static void test_enable_mode_parser_preserves_missing_key_default(void)
+{
+    int mode = -1;
+    assert(usb_printer_enable_mode_status("", 1, &mode) == 0 && mode == 1);
+    mode = -1;
+    assert(usb_printer_enable_mode_status("", 2, &mode) == 0 && mode == 1);
+}
+static void test_enable_mode_parser_accepts_supported_modes(void)
+{
+    int mode = -1;
+    assert(usb_printer_enable_mode_status("0", 1, &mode) == 0 && mode == 0);
+    assert(usb_printer_enable_mode_status("1", 1, &mode) == 0 && mode == 1);
+    assert(usb_printer_enable_mode_status("0", 2, &mode) == 0 && mode == 0);
+    assert(usb_printer_enable_mode_status("1", 2, &mode) == 0 && mode == 1);
+    assert(usb_printer_enable_mode_status("2", 2, &mode) == 0 && mode == 2);
+}
+static void test_enable_mode_parser_rejects_unknown_or_multidigit_values(void)
+{
+    static const char *invalid[] = {"2", "3", "01", "-1", "1\n", "enabled", NULL};
+    int index, mode = 77;
+    for (index = 0; invalid[index] != NULL; ++index) {
+        assert(usb_printer_enable_mode_status(invalid[index], 1, &mode) == EINVAL);
+        assert(mode == 77);
+        assert(errno == EINVAL);
+        mode = 77;
+    }
+    assert(usb_printer_enable_mode_status("3", 2, &mode) == EINVAL);
+    assert(mode == 77);
+}
+static void test_enable_mode_parser_rejects_invalid_contract_arguments(void)
+{
+    int mode = 77;
+    assert(usb_printer_enable_mode_status(NULL, 1, &mode) == EINVAL);
+    assert(usb_printer_enable_mode_status("1", 0, &mode) == EINVAL);
+    assert(usb_printer_enable_mode_status("1", 3, &mode) == EINVAL);
+    assert(usb_printer_enable_mode_status("1", 1, NULL) == EINVAL);
+    assert(mode == 77);
+}
+
 int main(void)
 {
     test_present_setting_is_copied_from_shared_cache();
@@ -88,6 +128,10 @@ int main(void)
     test_write_status_preserves_backend_errno();
     test_write_status_without_errno_defaults_to_eio();
     test_write_status_rejects_unexpected_result();
+    test_enable_mode_parser_preserves_missing_key_default();
+    test_enable_mode_parser_accepts_supported_modes();
+    test_enable_mode_parser_rejects_unknown_or_multidigit_values();
+    test_enable_mode_parser_rejects_invalid_contract_arguments();
     puts("USB printer checked NVRAM setting regression: PASS");
     return 0;
 }

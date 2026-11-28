@@ -24,6 +24,7 @@ assert '#include "usb_printer_executable_policy.h"' in SOURCE
 assert "nvram_get_checked(name, value)" in SOURCE
 assert "usb_printer_nvram_copy_setting_status(" in SOURCE
 assert "usb_printer_nvram_write_status" in POLICY
+assert "usb_printer_enable_mode_status" in POLICY
 assert "usb_printer_executable_path" in EXE_POLICY
 assert "usb_printer_executable_path_matches" in EXE_POLICY
 exe_test_compact = "".join(EXE_TEST.split())
@@ -35,7 +36,11 @@ for marker in ("test_dedicated_printer_executables_resolve",
 for marker in ("test_write_status_accepts_success",
                "test_write_status_preserves_backend_errno",
                "test_write_status_without_errno_defaults_to_eio",
-               "test_write_status_rejects_unexpected_result"):
+               "test_write_status_rejects_unexpected_result",
+               "test_enable_mode_parser_preserves_missing_key_default",
+               "test_enable_mode_parser_accepts_supported_modes",
+               "test_enable_mode_parser_rejects_unknown_or_multidigit_values",
+               "test_enable_mode_parser_rejects_invalid_contract_arguments"):
     assert marker in TEST and marker + "();" in TEST
 u2ec = body("start_u2ec(void)")
 marker = u2ec.index('marker_result = nvram_set("apps_u2ec_ex", "1");')
@@ -58,9 +63,10 @@ for name,key,launch,pid_file in (
     fn=body(name); read=fn.index("read_usb_printer_setting_status(")
     gate=fn.index("if (setting_status != 0)",read)
     prop=fn.index("return setting_status;",gate)
-    decision=fn.index('strcmp(setting, "0")',prop)
+    parse_mode=fn.index("usb_printer_enable_mode_status(setting, 1, &enable_mode)",prop)
+    decision=fn.index("if (enable_mode == 0)",parse_mode)
     effect=fn.index(launch,decision)
-    assert f'"{key}"' in fn and read<gate<prop<decision<effect
+    assert f'"{key}"' in fn and read<gate<prop<parse_mode<decision<effect
     assert pid_file not in fn
     assert f'nvram_match("{key}"' not in fn
 
@@ -121,10 +127,11 @@ raw=body("start_p910nd(char *devlp)")
 read=raw.index('read_usb_printer_setting_status("rawd_enable"')
 gate=raw.index("if (setting_status != 0)",read)
 prop=raw.index("return setting_status;",gate)
-disabled=raw.index('strcmp(setting, "0")',prop)
+parse_mode=raw.index("usb_printer_enable_mode_status(setting, 2, &enable_mode)",prop)
+disabled=raw.index("if (enable_mode == 0)",parse_mode)
 port_prepare=raw.index("usb_printer_p910nd_port_from_device(")
 process_name=raw.index("usb_printer_p910nd_process_name(")
-mode=raw.index('strcmp(setting, "2")',disabled)
+mode=raw.index("if (enable_mode == 2)",disabled)
 bidir_launch=raw.index('eval("/usr/sbin/p910nd", "-b", "-f", devlp, port)')
 single_launch=raw.index('eval("/usr/sbin/p910nd", "-f", devlp, port)')
 readiness_port=raw.index("start_status = usb_printer_daemon_postcondition(process_name);")
