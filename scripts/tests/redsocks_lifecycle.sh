@@ -340,19 +340,20 @@ redsocks_config_paths_validate || fail "real config directory with absent target
 echo "Redsocks config directory and target symlinks fail closed before process changes: PASS"
 
 # A predictable staging-name collision must fail before stopping a healthy daemon.
-STAGING_TARGET="$TEST_TMP/staging-target"
-STAGING_LINK="$REDSOCKS_DIR/.${BINARY_NAME}.conf.$"
-printf 'staging target must survive\n' > "$STAGING_TARGET"
-ln -s "$STAGING_TARGET" "$STAGING_LINK"
+STAGING_DIR_TARGET="$TEST_TMP/staging-directory-target"
+STAGING_DIR="$REDSOCKS_DIR/.${BINARY_NAME}.conf.$$"
+mkdir -m 700 "$STAGING_DIR_TARGET"
+printf 'staging target must survive\n' > "$STAGING_DIR_TARGET/marker"
+ln -s "$STAGING_DIR_TARGET" "$STAGING_DIR"
 reset running
 ARG2=192.0.2.10
 ARG3=1080
-if func_start; then fail "pre-existing staging symlink was accepted"; else status=$?; fi
-[[ "$status" == 1 ]] || fail "staging symlink returned status $status"
-[[ "$(cat "$TEST_STATE")" == running ]] || fail "staging symlink stopped the daemon"
-[[ ! -s "$TEST_SIGNALS" && ! -s "$TEST_START_LOG" ]] || fail "staging symlink signalled or launched a daemon"
-[[ "$(cat "$STAGING_TARGET")" == "staging target must survive" ]] || fail "staging symlink target was overwritten"
-rm -f "$STAGING_LINK"
+if func_start; then fail "pre-existing staging directory symlink was accepted"; else status=$?; fi
+[[ "$status" == 1 ]] || fail "staging directory symlink returned status $status"
+[[ "$(cat "$TEST_STATE")" == running ]] || fail "staging directory symlink stopped the daemon"
+[[ ! -s "$TEST_SIGNALS" && ! -s "$TEST_START_LOG" ]] || fail "staging directory symlink signalled or launched a daemon"
+[[ "$(cat "$STAGING_DIR_TARGET/marker")" == "staging target must survive" ]] || fail "staging directory symlink target was modified"
+rm -f "$STAGING_DIR"
 echo "Redsocks exclusive staging reservation rejects symlinks before process changes: PASS"
 
 # Inject a destination symlink at publication time. Exclusive hard-link creation

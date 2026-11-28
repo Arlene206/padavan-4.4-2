@@ -1,3 +1,11 @@
+## 2026-11-28 — Correct Redsocks staging reservation after CI failure
+
+- Commit 5387a1db85a9ed969c7f5ff3e18ea508a3a59636 introduced staging with shell noclobber, but its exact-SHA Redsocks lifecycle job failed: the pre-existing staging-symlink test was accepted. Bash syntax passed; the regression suite failed before static source-contract validation. Process inventory and handoff-record jobs passed.
+- Follow-up replaces noclobber with atomic mkdir of a PID-scoped private staging directory (mode 0700), places the config inside it, then publishes via exclusive hard link. Regression now uses a symlinked staging directory and checks no daemon signal or target mutation. Verify exact-SHA job; do not assume pass.
+- Continue to an independent userland stability issue while CI runs. Frozen backup remains untouched at 72f4f157a084f8184b9597ca5bf334b8080e5807.
+
+---
+
 ## 2026-11-28 — Atomic Redsocks config publication
 
 - Generated config now reserves a private same-directory staging file with noclobber before any daemon stop, writes the config there, then publishes by exclusive hard-link creation. This closes the check-then-redirection symlink window. Regressions cover a pre-existing stage symlink and a destination symlink created at publication time.

@@ -1,3 +1,11 @@
+## 2026-11-28 — Replace unsafe noclobber staging with atomic directory reservation
+
+- Exact-SHA Redsocks CI for 5387a1db85a9ed969c7f5ff3e18ea508a3a59636 failed at the pre-existing staging-symlink regression: shell noclobber redirection did not reject the symlink. Bash syntax passed; the lifecycle test stopped before source-contract validation.
+- Corrected the reservation primitive to atomic mkdir -m 700 on a PID-scoped same-directory staging directory. A pre-existing file, directory or symlink now causes mkdir to fail without following it. The config file is created inside that newly owned mode-0700 directory, published with an exclusive hard link, then the stage file and directory are removed. Regression now plants a symlink to a directory and verifies its sentinel and running daemon remain untouched.
+- No local checkout is available; this correction is committed separately and requires exact-SHA CI confirmation.
+
+---
+
 ## 2026-11-28 — Atomically publish generated Redsocks configuration
 
 - The config path was already checked for symlinks, but generation still used direct shell redirection to the destination. A symlink inserted after validation could redirect a privileged write. Generation now reserves a same-directory PID-scoped staging file with umask 077 and noclobber before process stop, writes the complete config there, then publishes through an exclusive hard link. A destination that appears during publication is not followed or overwritten.

@@ -100,15 +100,15 @@ require('redsocks_config_paths_validate' in start and
         'mkdir -m 700 "$REDSOCKS_DIR"' in start and
         'Redsocks config path changed during directory preparation' in start,
         "config path and directory creation must be validated before stopping a daemon")
-require('local redsocks_config_tmp="" redsocks_config_status' in start and
-        'set -C' in start and
-        'redsocks_config_tmp="$REDSOCKS_DIR/.' + binary + '.conf.$"' in start and
+require('local redsocks_config_tmp_dir="" redsocks_config_tmp="" redsocks_config_status' in start and
+        'redsocks_config_tmp_dir="$REDSOCKS_DIR/.${BINARY_NAME}.conf.$"' in start and
+        'mkdir -m 700 "$redsocks_config_tmp_dir"' in start and
         'cat > "$redsocks_config_tmp" <<EOF' in start and
         'ln "$redsocks_config_tmp" "$REDSOCKS_CONF"' in start and
         'cat > "$REDSOCKS_CONF"' not in start and
-        start.index('set -C') < start.index('if redsocks_process_state') and
+        start.index('mkdir -m 700 "$redsocks_config_tmp_dir"') < start.index('if redsocks_process_state') and
         start.index('ln "$redsocks_config_tmp" "$REDSOCKS_CONF"') < start.index('func_save'),
-        "generated Redsocks config must use exclusive private staging and no-follow atomic publication")
+        "generated Redsocks config must use an exclusively-created private staging directory and no-follow publication")
 require('if [ "${RED_SOCKS_TEST_MODE:-0}" != 1 ]; then' in source and
         'case "$ARG1" in' in source,
         "test mode must skip only the CLI dispatcher while preserving production function definitions")

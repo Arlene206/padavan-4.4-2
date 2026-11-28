@@ -247,7 +247,7 @@ redsocks_config_paths_validate()
 
 func_start(){
 MODE=true
-local redsocks_config_tmp="" redsocks_config_status
+local redsocks_config_tmp_dir="" redsocks_config_tmp="" redsocks_config_status
 	if [ ! -f "$REDSOCKS_CONF" ] && [ -z "$ARG2" ] && [ -z "$ARG3" ]; then
 		logger -t "$BINARY_NAME" "CONFIG FILE NOT FOUND"
 		return 0
@@ -272,8 +272,8 @@ local redsocks_config_tmp="" redsocks_config_status
 			logger -t "$BINARY_NAME" "invalid SOCKS5 server port"
 			return 2
 		fi
-		# Reserve a private same-directory stage before stopping a healthy daemon.
-		# noclobber refuses a pre-existing staging file or symlink.
+
+		# Create/revalidate the config directory before reserving a private stage.
 		if [ ! -d "$REDSOCKS_DIR" ]; then
 			if ! mkdir -m 700 "$REDSOCKS_DIR"; then
 				[ -d "$REDSOCKS_DIR" ] && [ ! -L "$REDSOCKS_DIR" ] || return 1
@@ -283,17 +283,29 @@ local redsocks_config_tmp="" redsocks_config_status
 			logger -t "$BINARY_NAME" "Redsocks config path changed during directory preparation"
 			return 1
 		}
-		redsocks_config_tmp="$REDSOCKS_DIR/.${BINARY_NAME}.conf.$$"
-		if ( umask 077; set -C; : > "$redsocks_config_tmp" ) 2>/dev/null; then
+
+		# mkdir is the exclusive reservation primitive: unlike noclobber
+		# redirection it refuses a pre-existing symlink at the stage path.
+		redsocks_config_tmp_dir="$REDSOCKS_DIR/.${BINARY_NAME}.conf.$$"
+		if ! mkdir -m 700 "$redsocks_config_tmp_dir"; then
+			logger -t "$BINARY_NAME" "cannot reserve private Redsocks config staging directory"
+			return 1
+		fi
+		redsocks_config_tmp="$redsocks_config_tmp_dir/config"
+		if ( umask 077; : > "$redsocks_config_tmp" ) 2>/dev/null; then
 			:
 		else
+			rm -f "$redsocks_config_tmp"
+			rmdir "$redsocks_config_tmp_dir"
 			logger -t "$BINARY_NAME" "cannot reserve private Redsocks config staging file"
 			return 1
 		fi
 	fi
+
 	if redsocks_process_state; then
 		if ! func_stop; then
 			[ -z "$redsocks_config_tmp" ] || rm -f "$redsocks_config_tmp"
+			[ -z "$redsocks_config_tmp_dir" ] || rmdir "$redsocks_config_tmp_dir"
 			logger -t "$BINARY_NAME" "existing process could not be stopped; refusing duplicate launch"
 			return 1
 		fi
@@ -302,10 +314,12 @@ local redsocks_config_tmp="" redsocks_config_status
 		redsocks_state=$?
 		if [ "$redsocks_state" -ne 1 ]; then
 			[ -z "$redsocks_config_tmp" ] || rm -f "$redsocks_config_tmp"
+			[ -z "$redsocks_config_tmp_dir" ] || rmdir "$redsocks_config_tmp_dir"
 			logger -t "$BINARY_NAME" "process inventory unknown; refusing duplicate launch"
 			return 1
 		fi
 	fi
+
 	if [ -n "$redsocks_config_tmp" ]; then
 		cat > "$redsocks_config_tmp" <<EOF
 base {
@@ -327,11 +341,13 @@ EOF
 		redsocks_config_status=$?
 		if [ "$redsocks_config_status" -ne 0 ]; then
 			rm -f "$redsocks_config_tmp"
+			rmdir "$redsocks_config_tmp_dir"
 			logger -t "$BINARY_NAME" "cannot write Redsocks config staging file"
 			return "$redsocks_config_status"
 		fi
 		redsocks_config_paths_validate || {
 			rm -f "$redsocks_config_tmp"
+			rmdir "$redsocks_config_tmp_dir"
 			logger -t "$BINARY_NAME" "Redsocks config path changed before publication"
 			return 1
 		}
@@ -342,11 +358,16 @@ EOF
 		else
 			redsocks_config_status=$?
 			rm -f "$redsocks_config_tmp"
+			rmdir "$redsocks_config_tmp_dir"
 			logger -t "$BINARY_NAME" "Redsocks config destination appeared before publication"
 			return "$redsocks_config_status"
 		fi
 		if ! rm -f "$redsocks_config_tmp"; then
-			logger -t "$BINARY_NAME" "Redsocks config staging link cleanup failed"
+			logger -t "$BINARY_NAME" "Redsocks config staging file cleanup failed"
+			return 1
+		fi
+		if ! rmdir "$redsocks_config_tmp_dir"; then
+			logger -t "$BINARY_NAME" "Redsocks config staging directory cleanup failed"
 			return 1
 		fi
 		func_save
