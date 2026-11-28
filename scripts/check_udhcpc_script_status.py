@@ -267,9 +267,10 @@ lease_time_normalize = ack.index(
     "udhcpc_lease_time_effective(", lease_time_decode)
 lease_time_policy = function_body(
     policy, "udhcpc_lease_time_option_status_valid(")
-assert "lookup_status == 0 ? option_length == 0U" in "".join(lease_time_policy.split())
-assert ("lookup_status == 1 && option_length == sizeof(uint32_t)"
-        in "".join(lease_time_policy.split()))
+lease_time_policy_compact = "".join(lease_time_policy.split())
+assert "lookup_status==0?option_length==0U:" in lease_time_policy_compact
+assert ("lookup_status==1&&option_length==sizeof(uint32_t)"
+        in lease_time_policy_compact)
 assert "test_lease_time_option_requires_exactly_one_uint32" in test
 assert ("test_lease_time_option_requires_exactly_one_uint32() != 0"
         in "".join(test.split()))

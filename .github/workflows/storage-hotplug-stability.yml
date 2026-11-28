@@ -1970,7 +1970,9 @@ jobs:
           assert "# Busybox version: 1.24.2" in busybox_config
           # Keep the production DHCP retry call linked to its shared policy helper.
           assert '#include "udhcpc_script_policy.h"' in busybox_dhcpc
-          assert busybox_dhcpc.count("udhcpc_script_failure_prepare_retry(") == 3
+          # Retry is used for invalid subnet mask, malformed lease-time option,
+          # failed ARP probe and failed bound/renew callback.
+          assert busybox_dhcpc.count("udhcpc_script_failure_prepare_retry(") == 4
           assert "if (!udhcpc_subnet_mask_option_valid(&packet))" in busybox_dhcpc
           assert "invalid DHCP subnet mask option; deferring ACK" in busybox_dhcpc
           assert busybox_dhcpc.index("invalid DHCP subnet mask option; deferring ACK") < busybox_dhcpc.index("script_status = udhcp_run_script(&packet, script_name);")

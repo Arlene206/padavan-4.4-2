@@ -1,3 +1,11 @@
+## 2026-11-28 — Align DHCP source-contract guards with the ACK retry path
+
+- The first checker-only repair passed the host C regression but the exact-head Python checker still failed because it compared a whitespace-normalized policy expression with a spaced expected string. Normalize both sides before testing the absent/present option-length contract.
+- The storage hotplug source contract also failed at its assertion that udhcpc contains exactly three retry-helper calls. The added malformed lease-time branch correctly makes four (subnet, lease time, ARP, callback); update the workflow's expected call graph.
+- Production DHCP client behavior is unchanged in this commit. Fresh exact-head udhcpc, storage and AI documentation runs are required.
+
+---
+
 ## 2026-11-28 — Repair stale DHCPACK lease-time checker contract
 
 - Exact-head udhcpc workflow #46152329755 on `4652b6801ec4c04c0ccfd07c677d7dbec70b39ce` passed the GNU89/Werror/ASan/UBSan host regression and failed only because `scripts/check_udhcpc_script_status.py` still searched for the removed `udhcp_get_option32()` lease-time call. Production now correctly uses the length-reporting option parser.
