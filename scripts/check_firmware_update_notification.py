@@ -8,6 +8,8 @@ RC_DIR = ROOT / "trunk/user/rc/src"
 rc_source = (RC_DIR / "rc.c").read_text()
 policy = (RC_DIR / "rc_notify_batch_policy.h").read_text()
 policy_test = (RC_DIR / "tests/rc_notify_batch_policy.c").read_text()
+stop_policy = (RC_DIR / "firmware_update_stop_policy.h").read_text()
+stop_policy_test = (RC_DIR / "tests/firmware_update_stop_policy.c").read_text()
 
 
 def block(source, signature):
@@ -29,6 +31,35 @@ assert '#include "rc_notify_batch_policy.h"' in rc_source
 flash = block(rc_source, "flash_firmware(void)")
 assert not re.search(r"\breturn\s*;", flash), "firmware aborts must not return success implicitly"
 assert flash.count("return -1;") >= 10, "all preparation abort paths must return failure"
+
+assert '#include "firmware_update_stop_policy.h"' in rc_source
+assert "return operation_errno > 0 ? operation_errno : EIO;" in stop_policy
+stop_calls = (
+    "eapol_stop_status = stop_auth_eapol();",
+    "kabinet_stop_status = stop_auth_kabinet();",
+    "auth_stop_status = stop_8021x_all();",
+    "pppoe_stop_status = set_passthrough_pppoe(0);",
+)
+for call in stop_calls:
+    call_pos = flash.index(call)
+    reset_pos = flash.rfind("errno = 0;", 0, call_pos)
+    capture_pos = flash.index(
+        "saved_errno = firmware_update_stop_first_errno(", call_pos
+    )
+    assert reset_pos >= 0 and reset_pos < call_pos < capture_pos, (
+        "each firmware stop must clear errno and capture its result"
+    )
+assert flash.count("saved_errno = firmware_update_stop_first_errno(") == 4
+auth_stop_failure = block(
+    flash,
+    "if (eapol_stop_status != 0 || kabinet_stop_status != 0 ||",
+)
+assert "if (saved_errno)" in auth_stop_failure
+assert "errno = saved_errno;" in auth_stop_failure
+assert "first errno=%d" in auth_stop_failure
+assert "firmware_update_stop_first_errno(0, EACCES, 0) == 0" in stop_policy_test
+assert "firmware_update_stop_first_errno(1, 0, 0) == EIO" in stop_policy_test
+assert "first_errno == EBUSY" in stop_policy_test
 write_call = 'flash_status = eval("/tmp/mtd_write", "-r", "write", FW_IMG_NAME, FW_MTD_NAME);'
 assert write_call in flash
 assert "int upnp_stop_status, service_stop_status;" in flash
@@ -87,5 +118,8 @@ for relative in (
     assert "scripts/check_firmware_update_notification.py" in workflow
     assert "Compile and run RC notification result policy regression" in workflow
     assert "python3 scripts/check_firmware_update_notification.py" in workflow
+    assert "trunk/user/rc/src/firmware_update_stop_policy.h" in workflow
+    assert "trunk/user/rc/src/tests/firmware_update_stop_policy.c" in workflow
+    assert "Compile and run firmware-update first-stop errno policy regression" in workflow
 
 print("Firmware-update abort/write status reaches PID 1 notification incomplete-marker handling: PASS")

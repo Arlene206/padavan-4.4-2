@@ -1,3 +1,12 @@
+## 2026-11-28 — Preserve the first errno across firmware-update stop failures
+
+- `flash_firmware()` attempted EAPOL, LAN authentication, 802.1X and PPPoE-relay shutdown independently, but discarded the first operation's errno. A later successful stop could clear it, or a later failure could replace it, so PID 1's incomplete notification lacked a trustworthy first-error diagnostic.
+- Clear `errno` before each stop, capture the first nonzero errno with an EIO fallback, continue every independent stop attempt, then restore and log the first errno before aborting. No configuration persistence or MTD write is reachable when any stop fails.
+- Added a GNU89/ASan/UBSan regression for success-with-stale-errno, exact errno capture, unset-errno fallback and sticky first-error behavior. Integrated it into Process lifecycle and XY-C1 pre-build checks; extended the firmware-update source contract.
+- Parent main SHA: `300e78b2a36ceea51d508d18bc3cf09add6d633d`. Exact-head Process/XY-C1/AI Actions are pending after this atomic commit. No firmware or hardware claim.
+
+---
+
 ## 2026-11-28 — Make PPPoE-MWAN firewall preflight reads checked
 
 - The companion `pppoe/detect.sh` still used legacy `nvram get` for the PPP peer count and five optional firewall selectors/static-rule values. It checked shell status and read all optional values before deleting old firewall rules, but the legacy getter can mask an NVRAM backend error as an empty successful read; this could allow the detector to misinterpret or replace a previously working policy.

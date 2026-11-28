@@ -62,6 +62,7 @@ extern int mtk_esw_node_status(void);
 #include "wireless_module_load_policy.h"
 #include "vpn_server_lifecycle_lock.h"
 #include "rc_notify_batch_policy.h"
+#include "firmware_update_stop_policy.h"
 #include "service_wait_policy.h"
 #include "init_router_result_policy.h"
 #include "router_runtime_nvram_reset_policy.h"
@@ -1062,15 +1063,34 @@ flash_firmware(void)
 			errno = saved_errno;
 		return -1;
 	}
+	/*
+	 * These independent stop attempts must all run, while errno reports the
+	 * first failure rather than the last attempted daemon's result.
+	 */
+	errno = 0;
 	eapol_stop_status = stop_auth_eapol();
+	saved_errno = firmware_update_stop_first_errno(
+		eapol_stop_status, errno, saved_errno);
+	errno = 0;
 	kabinet_stop_status = stop_auth_kabinet();
+	saved_errno = firmware_update_stop_first_errno(
+		kabinet_stop_status, errno, saved_errno);
+	errno = 0;
 	auth_stop_status = stop_8021x_all();
+	saved_errno = firmware_update_stop_first_errno(
+		auth_stop_status, errno, saved_errno);
+	errno = 0;
 	pppoe_stop_status = set_passthrough_pppoe(0);
+	saved_errno = firmware_update_stop_first_errno(
+		pppoe_stop_status, errno, saved_errno);
 	if (eapol_stop_status != 0 || kabinet_stop_status != 0 ||
 	    auth_stop_status != 0 || pppoe_stop_status != 0) {
 		logmessage(LOGNAME,
-			   "firmware update aborted: WAN/AP authentication or PPPoE relay daemons did not stop (EAPOL=%d, kabinet=%d, 802.1X=%d, relay=%d)",
-			   eapol_stop_status, kabinet_stop_status, auth_stop_status, pppoe_stop_status);
+			   "firmware update aborted: WAN/AP authentication or PPPoE relay daemons did not stop (EAPOL=%d, kabinet=%d, 802.1X=%d, relay=%d, first errno=%d)",
+			   eapol_stop_status, kabinet_stop_status, auth_stop_status,
+			   pppoe_stop_status, saved_errno ? saved_errno : EIO);
+		if (saved_errno)
+			errno = saved_errno;
 		return -1;
 	}
 	if (check_if_file_exist(script_name)) {
