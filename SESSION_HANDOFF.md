@@ -2,17 +2,17 @@
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; this task's parent `main` SHA: `ac29ab8c94b96873b7591a77b88df0f10e6c79fc`.
+- Repository: `Arlene206/padavan-4.4-2`; latest completed parent before this checker repair: `2d0388614f8a1f3f3a11ce2bf57f7f63a19d879c`.
 - Frozen backup remains `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify it. PR #1 remains closed/unmerged.
-- Exact `ac29...` Actions: iperf3 #46122179509 PASS; Process lifecycle #46122179365 PASS; Process inventory #46122179375 PASS; AI handoff docs #46122179388 PASS. XY-C1 #46122179390 remains in progress at MIPS Build step 38; TRX step 39 and artifact upload step 40 are pending. Do not claim L3 for `ac29` until all three pass.
-- Earlier product SHA `ef122034b4524ec1ce6768dd169ebee62a7da2ee` passed XY-C1 #46120731426: Build, TRX and artifact upload; artifact SHA-256 `c9e4fff453dd08361893447a1aa985e5699ad4ee0c13919b0a1e0f168373c9f5`. L3 applies to `ef122` only; physical hardware L4 remains NOT VERIFIED.
-- No local firmware checkout/build environment is available. Host regressions and firmware results are GitHub Actions outputs, not local claims. Bootstrap recovery has already been completed once; do not repeat it. The roadmap is close to its hard size cap.
+- On exact SHA `2d038...`, AI handoff #46122904358 PASS, Process inventory #46122904384 PASS, GPIO #46122904392 PASS and HTTPD security #46122904374 PASS. Storage #46122904484 FAIL only at final static-contract step 42; MTD restore staging/rollback step 21, load step 22, erase/reset step 23 and the other storage regression steps passed. The failure was a stale checker that still required comm-only `found=0` and `killall` code; this follow-up updates it to the new executable-bound design.
+- XY-C1 #46122904412 remains in progress at MIPS Build step 38; TRX step 39 and artifact upload step 40 are pending at last poll. This parent has no L3 result yet. Earlier product SHA `ef122034b4524ec1ce6768dd169ebee62a7da2ee` passed Build/TRX/artifact (#46120731426, artifact SHA-256 `c9e4fff453dd08361893447a1aa985e5699ad4ee0c13919b0a1e0f168373c9f5`); L3 applies to `ef122` only, not to later source changes. Hardware L4 remains NOT VERIFIED.
+- No local firmware checkout/build environment is available. Host regressions and firmware outcomes are GitHub Actions results, not local claims. Bootstrap was restored once; do not repeat audits. The roadmap is near its hard size limit.
 
 ## Active task
 
-1. **iperf3 executable-bound lifecycle:** exact `ac29...` iperf3 regression #46122179509 PASS; Process lifecycle #46122179365 and AI docs #46122179388 PASS. It verifies executable/argv/start_time and PID-scoped BusyBox stop.
-2. **Current MTD rstats hardening:** parent `ac29...`. Replace `comm=rstats` + `killall` with exact `/sbin/rstats` executable identity and PID/start_time revalidation; test a same-comm process whose executable differs.
-3. **Outstanding firmware gate:** XY-C1 #46122179390 is still at MIPS Build step 38, TRX and artifact steps pending. No L3 claim for `ac29` yet.
+1. **MTD rstats executable identity stop:** `mtd_storage.sh` now distinguishes exact `/sbin/rstats` executable identity from a same-comm impostor, snapshots PID/start_time, revalidates before BusyBox PID-scoped TERM, and fails closed on incomplete procfs. Host restore/rollback step 21 passed on parent `2d038`; the overall Storage workflow failed at final step 42 because `check_storage_safe_remove.py` still checked the removed old comm-only/killall implementation. This commit updates the checker and pins the impostor regression.
+2. **Other exact-parent validation:** AI docs #46122904358, Process inventory #46122904384, GPIO #46122904392 and HTTPD security #46122904374 PASS on `2d038`.
+3. **Outstanding firmware gate:** XY-C1 #46122904412 was at Build step 38, TRX step 39 and artifact upload step 40 pending. No L3 claim for `2d038`.
 
 ## Watchdog scheduled-action NVRAM snapshot baseline
 
@@ -25,16 +25,16 @@
 
 | Source SHA | Workflow / run | Result |
 |---|---|---|
-| `ac29ab8c94b96873b7591a77b88df0f10e6c79fc` | iperf3 #46122179509 | PASS |
-| `ac29ab8c94b96873b7591a77b88df0f10e6c79fc` | Process lifecycle #46122179365; inventory #46122179375; AI docs #46122179388 | PASS |
-| `ac29ab8c94b96873b7591a77b88df0f10e6c79fc` | XY-C1 #46122179390 | IN PROGRESS at MIPS Build step 38; TRX and artifact pending |
-| `ef122034b4524ec1ce6768dd169ebee62a7da2ee` | XY-C1 #46120731426 | L3 PASS — Build, TRX, artifact upload |
+| `2d0388614f8a1f3f3a11ce2bf57f7f63a19d879c` | AI docs #46122904358; Process inventory #46122904384; GPIO #46122904392; HTTPD security #46122904374 | PASS |
+| `2d0388614f8a1f3f3a11ce2bf57f7f63a19d879c` | Storage #46122904484 | FAIL — step 42 stale MTD rstats source contract; steps 21–41 passed, checker repair included in this commit |
+| `2d0388614f8a1f3f3a11ce2bf57f7f63a19d879c` | XY-C1 #46122904412 | IN PROGRESS at MIPS Build step 38; TRX/artifact pending |
+| `ef122034b4524ec1ce6768dd169ebee62a7da2ee` | XY-C1 #46120731426 | L3 PASS — Build, TRX, artifact upload; applies to that SHA only |
 
 ## Exact first action for the next GPT
 
-1. Inspect the exact-head MTD rstats workflow triggered by this change. Both host and BusyBox-ash restore-transaction variants must pass; on failure, inspect the first causal log and preserve save-barrier/rollback invariants.
-2. Re-poll XY-C1 #46122179390 on `ac29...`; L3 requires Build, TRX and artifact upload all PASS. `ef122...` already has L3 PASS; hardware L4 is not verified.
-3. Keep the frozen backup untouched and continue one independent userland stability/security defect after this slice.
+1. Inspect exact-head Storage hotplug and AI docs Actions triggered by this checker correction. The MTD source contract, restore same-comm executable decoy and host/BusyBox-ash variants must pass. If step 42 finds another stale assertion, repair that assertion without weakening unrelated eject/persistence gates.
+2. Re-poll XY-C1 #46122904412 for parent `2d038...`; it was still building at step 38. This run validates `2d038`, but the current parent changes only checker/docs. If Build, TRX and artifact all pass, L3 applies to `2d038`; otherwise do not claim it.
+3. Keep the backup branch immutable, preserve exact-SHA result boundaries and continue one independent userland stability/security issue after the storage contract is green.
 
 ## Verification boundary
 

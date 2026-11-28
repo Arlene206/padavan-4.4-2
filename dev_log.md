@@ -1,3 +1,11 @@
+## 2026-11-28 — Align MTD rstats source contract with executable-bound stop
+
+- Storage hotplug #46122904484 on `2d0388614f8a1f3f3a11ce2bf57f7f63a19d879c` passed MTD restore staging/rollback (step 21), load, erase/reset and the related storage regressions; final step 42 failed because `check_storage_safe_remove.py` still asserted the removed comm-only `found=0`/`killall -q rstats` implementation.
+- Updated the static contract to require a complete proc stat record, exact resolved `/sbin/rstats` executable identity, start_time matching, PID/start_time snapshot and revalidation before BusyBox PID-scoped TERM. Added checks that the restore fixture contains a same-comm/different-executable decoy and asserts only PID 321 receives TERM.
+- Exact parent AI handoff #46122904358, process inventory #46122904384, GPIO #46122904392 and HTTPD security #46122904374 PASS. XY-C1 #46122904412 was still at MIPS Build step 38, with TRX/artifact pending; no L3 result is claimed for `2d038`.
+
+---
+
 ## 2026-11-28 — Bind MTD restore/reset rstats stop to executable and PID identity
 
 - Whole-userland process review found `mtd_storage.sh` treated any live `/proc/PID/stat` entry with `comm=rstats` as the storage daemon, then issued `killall -q rstats`. A same-comm process from another executable could therefore be stopped during settings restore/reset.

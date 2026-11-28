@@ -1583,38 +1583,49 @@ require("flock -n 8" in save_fixture and
         'BUSYBOX_BIN="$busybox_bin" sh trunk/user/scripts/tests/mtd_storage_save_retry.sh' in workflow,
         "MTD save regression must exercise real BusyBox ash/flock and exclude competing transactions")
 
+identity_start = mtd_storage.index("func_rstats_identity()")
+identity_end = mtd_storage.index("\nfunc_rstats_presence()", identity_start)
+identity_helper = mtd_storage[identity_start:identity_end]
 presence_start = mtd_storage.index("func_rstats_presence()")
 presence_end = mtd_storage.index("\nfunc_stop_apps()", presence_start)
 presence_helper = mtd_storage[presence_start:presence_end]
 stop_start = mtd_storage.index("func_stop_apps()")
 stop_end = mtd_storage.index("\nfunc_start_apps()", stop_start)
 stop_helper = mtd_storage[stop_start:stop_end]
+require('local proc_root="/proc"' in identity_helper and
+        'stat_fields=${stat_line##*) }' in identity_helper and
+        "set -- $stat_fields" in identity_helper and
+        '[ "$#" -ge 20 ] || return 2' in identity_helper and
+        'stat_start_time=${20}' in identity_helper and
+        "R|S|D|T|t|Z|X|I|P" in identity_helper and
+        '[ "$stat_comm" = "rstats" ] || return 1' in identity_helper and
+        "readlink -f /sbin/rstats" in identity_helper and
+        'readlink "$proc_entry/exe"' in identity_helper and
+        '[ "$stat_start_time" != "$expected_start" ]' in identity_helper,
+        "rstats identity must validate stat, executable path and PID start_time")
 require('local proc_root="/proc"' in presence_helper and
         '"$proc_root"/[0-9]*' in presence_helper and
+        'func_rstats_identity "$proc_pid" ""' in presence_helper and
+        "RSTAT_PROCESS_MATCHES" in presence_helper and
         "return 2" in presence_helper and
-        "stat_comm=${stat_line#" in presence_helper and
-        "stat_fields=${stat_line##*) }" in presence_helper and
-        "set -- $stat_fields" in presence_helper and
-        '[ "$#" -ge 20 ] || return 2' in presence_helper and
-        'stat_start_time=${20}' in presence_helper and
-        "R|S|D|T|t|Z|X|I" in presence_helper,
-        "rstats procfs inventory must validate a complete state-bearing stat record")
-presence_loop_start = presence_helper.index("for proc_entry")
-presence_loop_end = presence_helper.index("\n\tdone", presence_loop_start)
-presence_loop = presence_helper[presence_loop_start:presence_loop_end]
-require("found=0" in presence_helper and
-        'if [ "$stat_comm" = "rstats" ] &&' in presence_loop and
-        '[ "$stat_state" != "Z" ] && [ "$stat_state" != "X" ]' in presence_loop and
-        "return 0" not in presence_loop and
-        presence_helper.index("\n\tdone", presence_loop_start) <
-        presence_helper.index('if [ "$found" -eq 1 ]; then') <
-        presence_helper.index("return 0", presence_helper.index('if [ "$found" -eq 1 ]; then')),
-        "rstats presence must finish the entire procfs scan before treating a match as verified")
+        'if [ "$stat_comm" = "rstats" ]' not in presence_helper,
+        "rstats inventory must use executable-bound identity and fail closed on incomplete procfs")
 require("func_rstats_presence" in stop_helper and
-        "killall -q rstats" in stop_helper and
+        "while IFS=' ' read -r proc_pid proc_start_time" in stop_helper and
+        'func_rstats_identity "$proc_pid" "$proc_start_time"' in stop_helper and
+        'busybox kill -TERM "$proc_pid"' in stop_helper and
+        stop_helper.index('func_rstats_identity "$proc_pid" "$proc_start_time"') <
+        stop_helper.index('busybox kill -TERM "$proc_pid"') and
         "for attempts in 1 2 3 4 5" in stop_helper and
-        "rstats did not stop within the bounded wait" in stop_helper,
-        "storage app stop must verify bounded rstats absence rather than trust killall status")
+        "rstats did not stop within the bounded wait" in stop_helper and
+        "killall -q rstats" not in stop_helper,
+        "storage app stop must revalidate and signal only the exact rstats PID")
+require('ln -sf "$RSTAT_OTHER_EXE" "$RSTAT_PROC_ROOT/322/exe"' in mtd_storage_restore_test and
+        "grep -Fqx -- '-TERM 321' "$RSTAT_KILL_LOG"" in mtd_storage_restore_test and
+        "! grep -Fqx -- '-TERM 322' "$RSTAT_KILL_LOG"" in mtd_storage_restore_test and
+        'test -f "$RSTAT_PROC_ROOT/322/stat"' in mtd_storage_restore_test and
+        'cat > "$sandbox/bin/busybox"' in mtd_storage_restore_test,
+        "MTD restore regression must prove same-comm executable impostors are not signalled")
 restore_start = mtd_storage.index("func_restore()")
 restore_end = mtd_storage.index("\nfunc_erase()", restore_start)
 restore = mtd_storage[restore_start:restore_end]
