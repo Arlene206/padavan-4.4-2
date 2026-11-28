@@ -1,3 +1,11 @@
+## 2026-11-28 — Bind iperf3 stop to executable, server argv and PID start time
+
+- Whole-userland Process inventory on `ce8e38ec928c8798b4785d58e6ddffee01cccbe6` found `trunk/user/iperf3/iperf3.sh` still used `killall -q iperf3` after only a comm-name process check. A same-name executable impostor or an iperf3 client could therefore be included in the signal set.
+- Replaced comm-only stop eligibility with a fail-closed `/proc` scan requiring the exact resolved `$IPERF3_BIN` executable, server argv (`-s`), valid live stat data and captured start_time. Each TERM/KILL revalidates the same PID/start_time/executable/argv tuple immediately before PID-scoped signalling; absence requires two complete scans. No generic `killall` fallback remains.
+- Expanded the shell regression for same-comm wrong executable, exact-binary client mode, incomplete argv metadata (UNKNOWN), PID-scoped TERM, bounded TERM→KILL escalation, and absence of name-wide killall. This host regression awaits exact-head Actions; Linux 4.4 has a residual validate-to-signal race without pidfd, and hardware L4 is not claimed.
+
+---
+
 ## 2026-11-28 — Compare USB printer legacy-stop calls as exact statements
 
 - Parent main `ef122034b4524ec1ce6768dd169ebee62a7da2ee`. The previous Process lifecycle run #46120573849 failed before its new USB printer executable-filter tests: source contract used substring checks for `kill_services(service_names, 3, 1)` and `kill_services(`, which also match the intended `usb_printer_kill_services()` wrapper. USB modem #46120573957, USB storage #46120573847 and AI docs #46120573872 had passed on ancestor 4b0fe.

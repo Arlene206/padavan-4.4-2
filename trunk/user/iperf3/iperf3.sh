@@ -1,29 +1,176 @@
 #!/bin/sh
 
 IPERF3_BIN="${IPERF3_BIN:-/bin/iperf3}"
-IPERF3_PROCESS_HELPER="${IPERF3_PROCESS_HELPER:-/usr/lib/process_lifecycle.sh}"
-PL_PROC_ROOT="${IPERF3_PROC_ROOT:-/proc}"
+IPERF3_PROC_ROOT="${IPERF3_PROC_ROOT:-/proc}"
+IPERF3_KILL_CMD="${IPERF3_KILL_CMD:-}"
 LOG_TAG="iperf3"
-export PL_PROC_ROOT
 
 log_message() {
     logger -t "$LOG_TAG" "$1"
 }
 
-# The shared tri-state helper confirms pidof's ambiguous status-1 result by
-# scanning and validating the complete procfs inventory, including a
-# post-scan pidof check. Missing helper or incomplete procfs is UNKNOWN.
-if [ ! -r "$IPERF3_PROCESS_HELPER" ]; then
-    log_message "shared process lifecycle helper is unavailable: $IPERF3_PROCESS_HELPER"
-    exit 2
-fi
-. "$IPERF3_PROCESS_HELPER" || {
-    log_message "shared process lifecycle helper could not be loaded"
-    exit 2
+# Match only the server started by this wrapper. A comm/pidof match alone can
+# include an unrelated executable or an iperf3 client; never signal either.
+# Capture procfs start_time and revalidate it before each signal to reject PID
+# reuse. Linux 4.4 has no pidfd, so a small validate-to-signal race remains.
+iperf3_read_identity() {
+    iperf3_identity_pid="$1"
+    iperf3_identity_start="$2"
+    iperf3_identity_dir="$IPERF3_PROC_ROOT/$iperf3_identity_pid"
+    [ -d "$iperf3_identity_dir" ] || return 1
+
+    iperf3_identity_summary=$(
+        awk -v expected_pid="$iperf3_identity_pid" '
+            NR != 1 { invalid = 1; next }
+            NR == 1 {
+                prefix = expected_pid " ("
+                if (index($0, prefix) != 1) {
+                    invalid = 1
+                    next
+                }
+                tail = substr($0, length(prefix) + 1)
+                close = 0
+                for (i = length(tail); i >= 1; i--) {
+                    if (substr(tail, i, 2) == ") ") {
+                        close = i
+                        break
+                    }
+                }
+                if (!close) {
+                    invalid = 1
+                    next
+                }
+                comm = substr(tail, 1, close - 1)
+                rest = substr(tail, close + 2)
+                count = split(rest, field, /[ \t]+/)
+                if (count < 20 ||
+                    field[1] !~ /^[RSDZTtXxKWI]$/ ||
+                    field[20] !~ /^[0-9]+$/) {
+                    invalid = 1
+                    next
+                }
+                if (comm != "iperf3" || field[1] ~ /^[ZXx]$/)
+                    print "OTHER"
+                else
+                    print field[1], field[20]
+            }
+            END {
+                if (invalid || NR != 1)
+                    exit 1
+            }
+        ' "$iperf3_identity_dir/stat" 2>/dev/null
+    ) || {
+        [ -d "$iperf3_identity_dir" ] || return 1
+        return 2
+    }
+    case "$iperf3_identity_summary" in
+        OTHER) return 1 ;;
+        '') return 2 ;;
+    esac
+    set -- $iperf3_identity_summary
+    iperf3_identity_state=$1
+    iperf3_identity_start_time=$2
+    case "$iperf3_identity_start_time" in
+        ''|*[!0-9]*) return 2 ;;
+    esac
+    if [ -n "$iperf3_identity_start" ] &&
+       [ "$iperf3_identity_start_time" != "$iperf3_identity_start" ]; then
+        return 1
+    fi
+
+    iperf3_identity_exe=$(readlink "$iperf3_identity_dir/exe" 2>/dev/null) || {
+        [ -d "$iperf3_identity_dir" ] || return 1
+        return 2
+    }
+    [ "$iperf3_identity_exe" = "$IPERF3_EXPECTED_EXE" ] || return 1
+
+    iperf3_identity_cmdline=$(tr '\000' '\n' < "$iperf3_identity_dir/cmdline" 2>/dev/null) || {
+        [ -d "$iperf3_identity_dir" ] || return 1
+        return 2
+    }
+    [ -n "$iperf3_identity_cmdline" ] || return 2
+    case "$iperf3_identity_cmdline" in
+        *'
+'*) iperf3_identity_args=${iperf3_identity_cmdline#*'
+'} ;;
+        *) return 1 ;;
+    esac
+    iperf3_identity_argv1=${iperf3_identity_args%%'
+'*}
+    [ "$iperf3_identity_argv1" = "-s" ] || return 1
+    IPERF3_PROCESS_START_TIME=$iperf3_identity_start_time
+    return 0
+}
+
+iperf3_scan_once() {
+    IPERF3_MATCHES=
+    IPERF3_MATCH_COUNT=0
+    [ -d "$IPERF3_PROC_ROOT" ] &&
+        [ -r "$IPERF3_PROC_ROOT" ] &&
+        [ -x "$IPERF3_PROC_ROOT" ] || return 2
+    command -v ls >/dev/null 2>&1 || return 2
+    command -v awk >/dev/null 2>&1 || return 2
+    command -v readlink >/dev/null 2>&1 || return 2
+    command -v tr >/dev/null 2>&1 || return 2
+
+    IPERF3_EXPECTED_EXE=$(readlink -f "$IPERF3_BIN" 2>/dev/null) || return 2
+    [ -n "$IPERF3_EXPECTED_EXE" ] || return 2
+    iperf3_scan_entries=$(ls -1 "$IPERF3_PROC_ROOT" 2>/dev/null) || return 2
+    [ -n "$iperf3_scan_entries" ] || return 2
+    iperf3_scan_numeric_found=0
+
+    while IFS= read -r iperf3_scan_pid; do
+        case "$iperf3_scan_pid" in
+            ''|*[!0-9]*) continue ;;
+            0*) return 2 ;;
+        esac
+        iperf3_scan_dir="$IPERF3_PROC_ROOT/$iperf3_scan_pid"
+        [ -d "$iperf3_scan_dir" ] || continue
+        iperf3_scan_numeric_found=1
+        if iperf3_read_identity "$iperf3_scan_pid" ""; then
+            if [ -n "$IPERF3_MATCHES" ]; then
+                IPERF3_MATCHES="$IPERF3_MATCHES
+$iperf3_scan_pid $IPERF3_PROCESS_START_TIME"
+            else
+                IPERF3_MATCHES="$iperf3_scan_pid $IPERF3_PROCESS_START_TIME"
+            fi
+            IPERF3_MATCH_COUNT=$((IPERF3_MATCH_COUNT + 1))
+        else
+            iperf3_scan_status=$?
+            case "$iperf3_scan_status" in
+                1) ;;
+                *) return 2 ;;
+            esac
+        fi
+    done <<EOF_IPERF3_PIDS
+$iperf3_scan_entries
+EOF_IPERF3_PIDS
+
+    [ "$iperf3_scan_numeric_found" -eq 1 ] || return 2
+    [ "$IPERF3_MATCH_COUNT" -gt 0 ] && return 0
+    return 1
 }
 
 iperf3_process_state() {
-    pl_process_state iperf3
+    if iperf3_scan_once; then
+        return 0
+    else
+        iperf3_state_status=$?
+    fi
+    case "$iperf3_state_status" in
+        1)
+            # A second complete inventory closes the common race where a
+            # service appears after the first procfs directory snapshot.
+            if iperf3_scan_once; then
+                return 0
+            else
+                iperf3_state_status=$?
+            fi
+            [ "$iperf3_state_status" -eq 1 ] && return 1
+            return 2
+            ;;
+        *) return 2 ;;
+    esac
 }
 
 is_running() {
@@ -31,10 +178,6 @@ is_running() {
 }
 
 check_start_tools() {
-    command -v pidof >/dev/null 2>&1 || {
-        log_message "pidof is unavailable; refusing an unverified start"
-        return 127
-    }
     command -v start-stop-daemon >/dev/null 2>&1 || {
         log_message "start-stop-daemon is unavailable"
         return 127
@@ -99,16 +242,56 @@ func_start() {
     done
 }
 
-func_stop() {
-    command -v pidof >/dev/null 2>&1 || {
-        log_message "pidof is unavailable; refusing an unverified stop"
-        return 127
-    }
-    command -v killall >/dev/null 2>&1 || {
-        log_message "killall is unavailable"
-        return 127
-    }
+# Revalidate executable/argv identity and procfs start_time immediately before
+# each PID-scoped signal. IPERF3_KILL_CMD is a host-test seam; firmware leaves
+# it unset and uses the shell kill builtin.
+iperf3_signal_one() {
+    iperf3_signal_pid="$1"
+    iperf3_signal_start="$2"
+    iperf3_signal_name="$3"
+    if iperf3_read_identity "$iperf3_signal_pid" "$iperf3_signal_start"; then
+        :
+    else
+        iperf3_signal_identity_status=$?
+        return "$iperf3_signal_identity_status"
+    fi
+    if [ -n "$IPERF3_KILL_CMD" ]; then
+        "$IPERF3_KILL_CMD" "$iperf3_signal_name" "$iperf3_signal_pid" || {
+            IPERF3_SIGNAL_STATUS=$?
+            return 3
+        }
+    else
+        kill "$iperf3_signal_name" "$iperf3_signal_pid" || {
+            IPERF3_SIGNAL_STATUS=$?
+            return 3
+        }
+    fi
+    return 0
+}
 
+iperf3_signal_matches() {
+    iperf3_signal_name="$1"
+    IPERF3_SIGNAL_FAILURE=0
+    while IFS=' ' read -r iperf3_signal_pid iperf3_signal_start; do
+        [ -n "$iperf3_signal_pid" ] || continue
+        if iperf3_signal_one "$iperf3_signal_pid" "$iperf3_signal_start" "$iperf3_signal_name"; then
+            :
+        else
+            iperf3_signal_result=$?
+            case "$iperf3_signal_result" in
+                1) ;; # The process exited or its PID was reused.
+                2) return 2 ;;
+                3) IPERF3_SIGNAL_FAILURE=1 ;;
+                *) return 2 ;;
+            esac
+        fi
+    done <<EOF_IPERF3_MATCHES
+$IPERF3_MATCHES
+EOF_IPERF3_MATCHES
+    return 0
+}
+
+func_stop() {
     if is_running; then
         process_status=0
     else
@@ -123,24 +306,11 @@ func_stop() {
             ;;
     esac
 
-    if killall -q iperf3; then
-        :
-    else
+    iperf3_signal_matches -TERM || {
         signal_status=$?
-        if is_running; then
-            log_message "server stop signal failed (status=$signal_status)"
-            return "$signal_status"
-        else
-            process_status=$?
-        fi
-        case "$process_status" in
-            1) return 0 ;;
-            *)
-                log_message "Cannot verify server after failed stop signal (status=$process_status)"
-                return 2
-                ;;
-        esac
-    fi
+        log_message "Cannot safely signal server (status=$signal_status)"
+        return 2
+    }
 
     attempt=0
     while :; do
@@ -158,11 +328,50 @@ func_stop() {
                 ;;
         esac
         if [ "$attempt" -ge 5 ]; then
-            log_message "server is still running after the bounded stop wait"
+            break
+        fi
+        attempt=$((attempt + 1))
+        sleep 1 || return 2
+    done
+
+    # Re-scan and escalate only against the same executable, server argv and
+    # start_time tuple. Never fall back to process-name-wide killall.
+    if iperf3_process_state; then
+        :
+    else
+        process_status=$?
+        case "$process_status" in
+            1) return 0 ;;
+            *) return 2 ;;
+        esac
+    fi
+    iperf3_signal_matches -KILL || {
+        signal_status=$?
+        log_message "Cannot safely escalate server stop (status=$signal_status)"
+        return 2
+    }
+
+    attempt=0
+    while :; do
+        if is_running; then
+            process_status=0
+        else
+            process_status=$?
+        fi
+        case "$process_status" in
+            1) return 0 ;;
+            0) ;;
+            *)
+                log_message "Cannot verify server after force-stop (status=$process_status)"
+                return 2
+                ;;
+        esac
+        if [ "$attempt" -ge 5 ]; then
+            log_message "server is still running after the bounded force-stop wait"
             return 1
         fi
         attempt=$((attempt + 1))
-        sleep 1
+        sleep 1 || return 2
     done
 }
 
