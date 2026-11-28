@@ -2,14 +2,14 @@
 
 - Repository: `Arlene206/padavan-4.4-2`; active branch `main`. Startup protocol and handoff recovery were completed once in this session; do not repeat the initial audit.
 - Frozen backup: `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify it. Only `backup/...` and `main` exist.
-- Current main before this NVRAM secret-buffer hardening: `a606c54b09cda3fb70560e44571281ddd49c7f92`. Samba V2 journal production baseline is unchanged from `670e513d99fa0e2d48dfc382ea795ab5c8f6ba1a`; a606's Samba durability and AI handoff checks both PASS. This commit adds volatile erasure for CLI save/restore/show value buffers and snapshots; exact-head NVRAM/XY-C1 validation is pending.
+- Current main before this checker repair: `cd6bb30198d37b1580a6009f5babe863bde5868d` plus a handoff-only checkpoint commit `3652a142a82fd540a35bd871dd78b7e27d72208c`. The NVRAM CLI wipe implementation compiled and its host regression passed; the exact NVRAM source checker then failed because its two new marker/regex strings were over-escaped. This commit fixes the checker and restores consistent C indentation.
 - PR #1 remains closed and unmerged; the CA trust-store feature is already integrated into main.
 
 ## Active task
 
-- Security fix: NVRAM CLI profile buffers contain Wi-Fi, VPN and administrator credentials. `nvram_save()`'s `nvram_getall()` buffer, `nvram_restore()`'s decoded profile buffer and permanent/temporary snapshots, and `nvram_show()`'s value buffer were all freed without an explicit wipe. Add volatile full-region erasure before every free path, including malformed-profile and I/O failures.
-- The CLI policy host regression now verifies full-region erasure and NULL/zero-length safety. The NVRAM semantic checker enforces that every `free()` in save/restore/show is immediately preceded by the matching wipe. Exact-head NVRAM workflow and XY-C1 image validation are required.
-- Previous exact-head a606 checks: Samba V2 transaction/durability #46146532872 PASS; AI handoff #46146532867 PASS.
+- Complete the NVRAM CLI credential-buffer erasure slice. The implementation wipes the save buffer, decoded restore profile, permanent/temporary snapshots and show buffer before every release, including invalid-profile and read/close error branches.
+- Exact cd6 NVRAM host regressions all passed, including `NVRAM CLI sensitive-buffer erasure: PASS`. The semantic checker alone failed because its signature marker expected a literal `\\n` and its regex used `r"\\s*"`, which matches a literal backslash rather than whitespace. Correct those two checker defects and keep the every-free-path guard intact.
+- Restore normal indentation for C wipe/free pairs; do not change the already-tested buffer sizes or control flow.
 
 ## Exact-SHA CI checkpoint
 
@@ -23,18 +23,18 @@
 
 ## Verification boundary
 
-- Main a606c54b09cda3fb70560e44571281ddd49c7f92: Samba share #46146532872 PASS, including the C journal regression, account snapshot/failure-gate contracts and every V2 durability assertion; AI handoff #46146532867 PASS (root dev_log 113/119).
-- New NVRAM CLI secret-buffer erasure source/test/checker change: THIS COMMIT; local tests NOT RUN because no local checkout exists. Exact-head NVRAM audit and XY-C1 Build/TRX/artifact pending.
-- Production NVRAM kernel/userland transaction baseline and earlier NVRAM audit #46145970994 PASS remain historical; this new patch adds coverage for CLI heap copies not covered by the previous kernel scratch-buffer wipe checks.
-- XY-C1 #46145600745 on production source SHA 670e513d99fa0e2d48dfc382ea795ab5c8f6ba1a completed SUCCESS including Build, TRX and artifact upload. It predates this CLI binary change and does not validate THIS COMMIT.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; hardware L4 NOT VERIFIED.
+- Exact main SHA cd6bb30198d37b1580a6009f5babe863bde5868d: NVRAM transaction-boundary run #46146966803 FAIL only at the final semantic source checker on five newly added secure-free assertions. The CLI sensitive-buffer erasure host regression and every pre-existing NVRAM policy binary passed. Audit reported 4,740 userland source files, 23 raw ioctl references in shared adapter, zero external userland raw bypasses; 44,087 kernel files, zero external kernel NVRAM API/writer refs; 57 board configs.
+- Same cd6 SHA: AI handoff #46146966763 PASS; Process inventory #46146966721 PASS; HTTPD authentication/disclosure #46146966737 PASS. The checker false negatives were due only to literal escaping and regex escaping, not missing source wipes.
+- Parent a606c54b09cda3fb70560e44571281ddd49c7f92: Samba V2 transaction/durability #46146532872 PASS and AI handoff #46146532867 PASS.
+- Production-source SHA 670e513d99fa0e2d48dfc382ea795ab5c8f6ba1a: XY-C1 #46145600745 SUCCESS with Build, TRX verification and artifact upload; that predates the NVRAM CLI source changes and is not L3 evidence for this slice.
+- This source-checker/format correction's exact-head CI is pending; no same-SHA XY-C1 Build/TRX/artifact has been confirmed. Hardware L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch the live main SHA and inspect its NVRAM transaction-boundary check run. Require the existing GNU89 CLI policy binary to report `NVRAM CLI sensitive-buffer erasure: PASS` and the source checker to confirm every save/restore/show free is preceded by a full-buffer wipe.
-2. Inspect exact-SHA XY-C1 Build, TRX and artifact. This modifies `trunk/user/nvram/src/nvram.c`, so the previous host-only/checker SHA is not sufficient for L3; record the result only on this production-input SHA.
-3. If NVRAM checks pass, continue one independent security/stability slice outside the now-covered CLI profile-buffer lifecycle; do not repeat the NVRAM broad inventory.
-4. Preserve the frozen backup, main-only atomic commits, and update this handoff only when the active task/first action materially changes. Hardware L4 remains NOT VERIFIED.
+1. Fetch the exact main SHA's NVRAM transaction-boundary run. Require all previous host policy binaries, the CLI secure-buffer erasure regression and the semantic checker's every-free-path scan to pass.
+2. Inspect exact-SHA XY-C1. This modifies the production `nvram` CLI, so require Build XY-C1, TRX verification and artifact upload on the same source SHA before recording L3.
+3. After the NVRAM slice validates, resume an independent source-backed security/reliability task. Do not repeat the 4,740-file userland or 44,087-file kernel inventory.
+4. Keep the frozen backup immutable and use main-only complete-tree atomic commits with expected-SHA updates. Physical-router L4 remains NOT VERIFIED.
 
 ## Mandatory end-of-session handoff checkpoint
 

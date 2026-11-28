@@ -1,3 +1,11 @@
+## 2026-11-28 — Correct the NVRAM secure-free checker and source formatting
+
+- Exact cd6 NVRAM run #46146966803 passed the new CLI sensitive-buffer erasure GNU89 regression and every existing NVRAM host test, then failed the added source guard. Its helper marker encoded a literal `\\n`, and the regex `r"\\s*"` sought a literal backslash, so the checker falsely reported missing wipes.
+- Changed the helper check to a newline-independent signature fragment, corrected the whitespace regex to `r"\s*"`, and restored the expected indentation on every secure-clear/free pair. The source wipe coverage and buffer lengths are unchanged.
+- Parent main SHA: 3652a142a82fd540a35bd871dd78b7e27d72208c; result: THIS COMMIT. Local build remains NOT RUN; exact-head NVRAM and XY-C1 Actions required.
+
+---
+
 ## 2026-11-28 — Erase NVRAM CLI profile secrets before heap release
 
 - Found credential-bearing buffers in `nvram_save()`, `nvram_restore()` and `nvram_show()` that were freed without explicit erasure. The restore profile is decoded in place and permanent/temporary snapshots contain the existing NVRAM credential set; the show/save getall buffers also carry NVRAM values.

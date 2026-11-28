@@ -238,7 +238,7 @@ def run() -> int:
     # Profile buffers and snapshots contain credentials; every release path
     # must perform the volatile wipe immediately before free().
     for marker in (
-        "static void\\nnvram_cli_secure_clear(void *buffer, size_t length)",
+        "nvram_cli_secure_clear(void *buffer, size_t length)",
         "volatile unsigned char *cursor",
         "*cursor++ = 0;",
     ):
@@ -249,7 +249,7 @@ def run() -> int:
             wipe = re.escape("nvram_cli_secure_clear(" + variable + ", " +
                              length_expression + ");")
             release = re.escape("free(" + variable + ");")
-            pairs = re.findall(wipe + r"\\s*" + release, body)
+            pairs = re.findall(wipe + r"\s*" + release, body)
             frees = re.findall(release, body)
             return len(pairs) == len(frees)
 

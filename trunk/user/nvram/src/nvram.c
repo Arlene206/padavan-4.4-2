@@ -108,7 +108,7 @@ static int nvram_save(char *file)
         !nvram_profile_payload_valid((unsigned char *)buf, NVRAM_SPACE,
                                      NVRAM_MAX_PARAM_LEN-1, NVRAM_MAX_VALUE_LEN-1)) {
         nvram_cli_secure_clear(buf, NVRAM_SPACE);
-free(buf);
+        free(buf);
         return -1;
     }
 
@@ -119,7 +119,7 @@ free(buf);
     filelen = count + (1024 - count % 1024);
     if (filelen > 0xffffffUL) {
         nvram_cli_secure_clear(buf, NVRAM_SPACE);
-free(buf);
+        free(buf);
         return -1;
     }
     random_value = get_rand() % 30;
@@ -146,7 +146,7 @@ free(buf);
     result = nvram_profile_write_atomic(file, header, sizeof(header),
                                         buf, count, padding, padding_len);
     nvram_cli_secure_clear(buf, NVRAM_SPACE);
-free(buf);
+        free(buf);
     return result;
 }
 
@@ -196,7 +196,7 @@ static int nvram_restore(char *file)
 					&filelen, &rand, &is_current_format)) {
 		fclose(fp);
 		nvram_cli_secure_clear(buf, (size_t)profile_capacity);
-free(buf);
+		free(buf);
 		return 1;
 	}
 
@@ -204,19 +204,19 @@ free(buf);
 	if (count != filelen || ferror(fp)) {
 		fclose(fp);
 		nvram_cli_secure_clear(buf, (size_t)profile_capacity);
-free(buf);
+		free(buf);
 		return 1;
 	}
 	trailing = fgetc(fp);
 	if (trailing != EOF || ferror(fp)) {
 		fclose(fp);
 		nvram_cli_secure_clear(buf, (size_t)profile_capacity);
-free(buf);
+		free(buf);
 		return 1;
 	}
 	if (fclose(fp) != 0) {
 		nvram_cli_secure_clear(buf, (size_t)profile_capacity);
-free(buf);
+		free(buf);
 		return 1;
 	}
 
@@ -226,7 +226,7 @@ free(buf);
 	if (!nvram_profile_payload_valid(buf, filelen,
 					 NVRAM_MAX_PARAM_LEN-1, NVRAM_MAX_VALUE_LEN-1)) {
 		nvram_cli_secure_clear(buf, (size_t)profile_capacity);
-free(buf);
+		free(buf);
 		return 1;
 	}
 
@@ -283,11 +283,11 @@ done:
 	if (result < 0 && saved_errno)
 		errno = saved_errno;
 	nvram_cli_secure_clear(temporary_snapshot, NVRAM_SPACE);
-free(temporary_snapshot);
+	free(temporary_snapshot);
 	nvram_cli_secure_clear(permanent_snapshot, NVRAM_SPACE);
-free(permanent_snapshot);
+	free(permanent_snapshot);
 	nvram_cli_secure_clear(buf, (size_t)profile_capacity);
-free(buf);
+	free(buf);
 	return result;
 }
 
@@ -309,7 +309,7 @@ static int nvram_show(int show_all)
 	buf[0] = 0;
 	if (nvram_getall(buf, buf_len, show_all) < 0) {
 		nvram_cli_secure_clear(buf, (size_t)buf_len);
-free(buf);
+		free(buf);
 		return -1;
 	}
 
@@ -322,7 +322,7 @@ free(buf);
 	}
 
 	nvram_cli_secure_clear(buf, (size_t)buf_len);
-free(buf);
+	free(buf);
 
 	return 0;
 }
