@@ -1,3 +1,13 @@
+## 2026-11-28 — Prevent NVRAM device descriptors from escaping across exec
+
+- Base main SHA: `385dd12da8e6f6f968d9633b82d0575ee34a2370`; result: THIS COMMIT (resolve the resulting SHA from live `main` during the next recovery).
+- The five shared-adapter operations that issue raw `/dev/nvram` ioctls opened the character device with `O_RDWR` only. The transaction flock is close-on-exec, but a device fd inherited by a fork/exec child would remain open after the parent's transaction ends; that child could issue raw ioctls outside the shared-userland lock boundary.
+- Added `nvram_device_open_flags()` with atomic `O_CLOEXEC` and applied it to checked-get, getall, set, commit and clear. Added a runtime regression that opens `/dev/null` through the production flags helper and verifies both read/write access and `FD_CLOEXEC`; the whole-repository NVRAM boundary checker now pins all five production call sites and the workflow runs the regression.
+- Changed paths: `trunk/user/shared/src/nvram_linux.c`, new `nvram_open_policy.h`, new `tests/nvram_open_policy.c`, `scripts/check_nvram_transaction_boundary.py`, `.github/workflows/nvram-transaction-boundary.yml`, `dev_log.md`, `SESSION_HANDOFF.md`.
+- Local host regression: `cc -std=gnu89 -Wall -Wextra -Werror` and execution PASS (`NVRAM device descriptor close-on-exec policy: PASS`). Full repository checker and exact-head NVRAM/Process/XY-C1/AI workflows have not yet run on this commit; parent SHA `385dd12da8e6f6f968d9633b82d0575ee34a2370` validation must not be substituted. Firmware L3 and hardware L4 are NOT VERIFIED for this source change.
+
+---
+
 ## 2026-11-28 — Validate Shadowsocks wait-function definitions instead of nonexistent callsites
 
 - Exact-head Shadowsocks #46124213141 on `852214915ed8275c529baa3c352d9b9d5d28b47d` passed shell syntax, startup status, DNSMasq cleanup, the full process lifecycle regression and adblock publication. The final checker still failed its bounded-wait block because it expected wait-function callsites inside the helper, while these are function definitions whose callers live elsewhere. Those old source strings were not a valid contract.

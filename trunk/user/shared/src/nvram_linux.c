@@ -32,6 +32,7 @@
 #include "nvram_transaction_lock.h"
 #include "nvram_ioctl_close_policy.h"
 #include "nvram_value_cache_policy.h"
+#include "nvram_open_policy.h"
 
 #define PATH_DEV_NVRAM	"/dev/nvram"
 
@@ -61,7 +62,7 @@ nvram_get_checked_unlocked(const char *name, char **value,
 	}
 
 	*value = NULL;
-	nvram_fd = open(PATH_DEV_NVRAM, O_RDWR);
+	nvram_fd = open(PATH_DEV_NVRAM, nvram_device_open_flags());
 	if (nvram_fd < 0) {
 		perror(PATH_DEV_NVRAM);
 		return -1;
@@ -236,7 +237,7 @@ nvram_getall_unlocked(char *buf, int count, int include_temp)
 		return -1;
 	}
 
-	nvram_fd = open(PATH_DEV_NVRAM, O_RDWR);
+	nvram_fd = open(PATH_DEV_NVRAM, nvram_device_open_flags());
 	if (nvram_fd < 0) {
 		perror(PATH_DEV_NVRAM);
 		return -1;
@@ -294,7 +295,7 @@ nvram_set_unlocked(const char *name, const char *value, int is_temp)
 		return -1;
 	}
 
-	nvram_fd = open(PATH_DEV_NVRAM, O_RDWR);
+	nvram_fd = open(PATH_DEV_NVRAM, nvram_device_open_flags());
 	if (nvram_fd < 0) {
 		perror(PATH_DEV_NVRAM);
 		return -1;
@@ -387,7 +388,7 @@ nvram_commit_unlocked(void)
 
 	int ret, nvram_fd, saved_errno;
 
-	nvram_fd = open(PATH_DEV_NVRAM, O_RDWR);
+	nvram_fd = open(PATH_DEV_NVRAM, nvram_device_open_flags());
 	if (nvram_fd < 0) {
 		perror(PATH_DEV_NVRAM);
 		return -1;
@@ -418,7 +419,7 @@ nvram_clear_unlocked(void)
 
 	int ret, nvram_fd, saved_errno;
 
-	nvram_fd = open(PATH_DEV_NVRAM, O_RDWR);
+	nvram_fd = open(PATH_DEV_NVRAM, nvram_device_open_flags());
 	if (nvram_fd < 0) {
 		perror(PATH_DEV_NVRAM);
 		return -1;

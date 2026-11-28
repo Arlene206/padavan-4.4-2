@@ -49,6 +49,13 @@ jobs:
             trunk/user/shared/src/tests/nvram_ioctl_close_policy.c \
             -o "$RUNNER_TEMP/nvram-ioctl-close-policy"
           "$RUNNER_TEMP/nvram-ioctl-close-policy"
+      - name: Compile and run NVRAM device descriptor close-on-exec regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/shared/src \
+            trunk/user/shared/src/tests/nvram_open_policy.c \
+            -o "$RUNNER_TEMP/nvram-open-policy"
+          "$RUNNER_TEMP/nvram-open-policy"
       - name: Compile and run NVRAM transaction value-cache erasure regression
         run: |
           cc -std=gnu89 -Wall -Wextra -Werror \

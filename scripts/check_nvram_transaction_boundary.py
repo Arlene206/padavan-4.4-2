@@ -143,6 +143,8 @@ def run() -> int:
 
     adapter_path = ROOT / ADAPTER
     lock_path = ROOT / "trunk/user/shared/src/nvram_transaction_lock.h"
+    open_policy_path = ROOT / "trunk/user/shared/src/nvram_open_policy.h"
+    open_policy_test_path = ROOT / "trunk/user/shared/src/tests/nvram_open_policy.c"
     driver_path = ROOT / DRIVER
     driver_makefile = ROOT / "trunk/linux-4.4.x/drivers/nvram/Makefile"
     drivers_makefile = ROOT / "trunk/linux-4.4.x/drivers/Makefile"
@@ -161,7 +163,8 @@ def run() -> int:
     cli_workflow_path = ROOT / ".github/workflows/nvram-transaction-boundary.yml"
 
     for required_path in (
-        adapter_path, lock_path, driver_path, driver_makefile,
+        adapter_path, lock_path, open_policy_path, open_policy_test_path,
+        driver_path, driver_makefile,
         drivers_makefile, bcm_header, snapshot_policy_path, snapshot_test_path,
         kernel_common_path, compaction_policy_path, compaction_test_path,
         rehash_policy_path, rehash_test_path, commit_serialization_test_path,
@@ -176,6 +179,8 @@ def run() -> int:
 
     adapter = adapter_path.read_text(encoding="utf-8", errors="replace")
     lock_header = lock_path.read_text(encoding="utf-8", errors="replace")
+    open_policy = open_policy_path.read_text(encoding="utf-8", errors="replace")
+    open_policy_test = open_policy_test_path.read_text(encoding="utf-8", errors="replace")
     kernel_driver = driver_path.read_text(encoding="utf-8", errors="replace")
     kernel_common = kernel_common_path.read_text(encoding="utf-8", errors="replace")
     compaction_policy = compaction_policy_path.read_text(encoding="utf-8", errors="replace")
@@ -323,6 +328,38 @@ def run() -> int:
             failures.append(
                 f"{function} does not finish the locked operation through {unlocked}"
             )
+
+    # The raw NVRAM device descriptor must not survive exec() and bypass
+    # the process-scoped shared-userland flock transaction boundary.
+    if '#include "nvram_open_policy.h"' not in adapter:
+        failures.append("NVRAM adapter does not include the close-on-exec open policy")
+    try:
+        open_flags_body = extract_function(open_policy, "nvram_device_open_flags")
+        if "O_RDWR" not in open_flags_body or "O_CLOEXEC" not in open_flags_body:
+            failures.append("NVRAM device open policy must combine O_RDWR and O_CLOEXEC")
+        for function in (
+            "nvram_get_checked_unlocked",
+            "nvram_getall_unlocked",
+            "nvram_set_unlocked",
+            "nvram_commit_unlocked",
+            "nvram_clear_unlocked",
+        ):
+            body = extract_function(adapter, function)
+            if "nvram_device_open_flags()" not in body:
+                failures.append(f"{function} does not use the close-on-exec NVRAM open policy")
+    except ValueError as error:
+        failures.append("NVRAM close-on-exec source contract: " + str(error))
+    for marker in (
+        "test_device_open_flags_preserve_read_write",
+        "test_open_descriptor_is_close_on_exec",
+        "FD_CLOEXEC",
+        "NVRAM device descriptor close-on-exec policy: PASS",
+    ):
+        if marker not in open_policy_test:
+            failures.append("NVRAM close-on-exec regression is missing " + marker)
+    if ("Compile and run NVRAM device descriptor close-on-exec regression" not in cli_workflow or
+        "trunk/user/shared/src/tests/nvram_open_policy.c" not in cli_workflow):
+        failures.append("NVRAM workflow must compile and execute close-on-exec regression")
 
     value_cache_path = ROOT / "trunk/user/shared/src/nvram_value_cache_policy.h"
     value_cache_test_path = ROOT / "trunk/user/shared/src/tests/nvram_value_cache_policy.c"
