@@ -1,3 +1,11 @@
+## 2026-11-28 — Make PPPoE-MWAN firewall preflight reads checked
+
+- The companion `pppoe/detect.sh` still used legacy `nvram get` for the PPP peer count and five optional firewall selectors/static-rule values. It checked shell status and read all optional values before deleting old firewall rules, but the legacy getter can mask an NVRAM backend error as an empty successful read; this could allow the detector to misinterpret or replace a previously working policy.
+- Switched all six getter sites (including dynamic static-IP/interface key names) to `nvram get_checked`. Added explicit PPP-count read-failure coverage; existing 443, static enable/count/IP/interface failure cases remain and assert the old firewall policy is preserved. The fixture now rejects the legacy command form.
+- Extended the static checker to require six checked getter calls and ensure the PPP-count read precedes interface/policy work. Existing XY-C1 workflow already executes `detect_status.sh` and the checker.
+- Parent: `65ed152afe517c36ee6e05c34f1f4942556698a6`. WAN lifecycle run #46141657596 PASS (VPN server suite, not the PPPoE-MWAN suite); Process inventory #46141657586 PASS; AI docs #46141657624 PASS. XY-C1 #46141657601 remained IN_PROGRESS; its PPPoE-MWAN step is the validation gate for the prior `mwan.sh` task.
+
+---
 ## 2026-11-28 — Make PPPoE-MWAN backend NVRAM reads status-bearing
 
 - `trunk/user/pppoe/mwan.sh` used legacy `nvram get` for eight required startup inputs (sync toggle, peer count, VLAN selector/ID, PPP username/password, MTU/MRU). Command status checks alone cannot detect backend errors masked by the legacy getter; an apparent empty value could otherwise flow into defaults or interface/credential setup.

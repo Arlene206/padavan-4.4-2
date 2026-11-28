@@ -176,13 +176,18 @@ require(
     and '[ "${MWAN_RULE_ARGS[i+1]}" = "$MWAN_RULE_TAG" ]' in DETECT,
     "snapshot, parse and old-rule deletion failures must poison prior-policy cleanup",
 )
-preflight_start = DETECT.index('if webrule=$(nvram get pppoemwan_443)')
+preflight_start = DETECT.index('if webrule=$(nvram get_checked pppoemwan_443)')
 preflight_end = DETECT.index("mwan_flush_iptables mangle")
+ppp_count_read = DETECT.index("if PPP_NUM=$(nvram get_checked pppoe_num)")
+require(ppp_count_read < preflight_start < preflight_end,
+        "PPP peer count must use a checked NVRAM read before interface setup and policy cleanup")
+require(DETECT.count("nvram get_checked") == 6 and "nvram get " not in DETECT,
+        "all PPPoE-MWAN detector settings must use the checked NVRAM API")
 for marker in (
-    'if rulesenable=$(nvram get pppoemwan_rules_x)',
-    'if num=$(nvram get pppoemwan_staticnum_x)',
-    'if ip_value=$(nvram get "$ipname")',
-    'if if_value=$(nvram get "$ifname")',
+    'if rulesenable=$(nvram get_checked pppoemwan_rules_x)',
+    'if num=$(nvram get_checked pppoemwan_staticnum_x)',
+    'if ip_value=$(nvram get_checked "$ipname")',
+    'if if_value=$(nvram get_checked "$ifname")',
 ):
     require(preflight_start < DETECT.index(marker) < preflight_end,
             "all optional multi-WAN NVRAM inputs must be read before cleanup")
@@ -215,8 +220,8 @@ require(
     "multi-WAN firewall rules must use the active contiguous LAN netmask rather than assuming /24",
 )
 require(
-    "PPPoE-MWAN 443 selector read failure preserves the old policy: PASS" in DETECT_TEST
-    and "PPPoE-MWAN static-rule enable read failure preserves the old policy: PASS" in DETECT_TEST
+    "PPPoE-MWAN PPP count read failure preserves the old policy: PASS" in DETECT_TEST
+    and "PPPoE-MWAN 443 selector read failure preserves the old policy: PASS" in DETECT_TEST    and "PPPoE-MWAN static-rule enable read failure preserves the old policy: PASS" in DETECT_TEST
     and "PPPoE-MWAN static-rule count read failure preserves the old policy: PASS" in DETECT_TEST
     and "PPPoE-MWAN static-IP read failure preserves the old policy: PASS" in DETECT_TEST
     and "PPPoE-MWAN static-interface read failure preserves the old policy: PASS" in DETECT_TEST,

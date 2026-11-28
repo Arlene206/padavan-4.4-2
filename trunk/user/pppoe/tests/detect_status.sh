@@ -9,7 +9,7 @@ trap 'rm -rf "$T"' EXIT HUP INT TERM
 fail() { echo "PPPoE-MWAN regression: FAIL: $*" >&2; exit 1; }
 cat > "$BIN/nvram" <<'MOCK'
 #!/bin/sh
-[ "$1" = get ] || exit 90
+[ "$1" = get_checked ] || exit 90
 [ "${FAIL_NVRAM:-}" != "$2" ] || exit 53
 case "$2" in
  pppoe_num) echo "${PPP_NUM:-2}";;
@@ -99,6 +99,8 @@ assert_cleanup_failure_stops_policy() {
 	grep -Fq $'ip\troute\tflush\tcache' "$LOG" || fail 'route-cache cleanup was skipped'
 }
 
+reset; export FAIL_NVRAM=pppoe_num; run; [ "$RC" = 53 ] || fail "PPP count read status $RC"; assert_config_read_failure_preserves_policy
+echo 'PPPoE-MWAN PPP count read failure preserves the old policy: PASS'
 reset; export FAIL_NVRAM=pppoemwan_443; run; [ "$RC" = 53 ] || fail "443 selector read status $RC"; assert_config_read_failure_preserves_policy
 echo 'PPPoE-MWAN 443 selector read failure preserves the old policy: PASS'
 reset; export FAIL_NVRAM=pppoemwan_rules_x; run; [ "$RC" = 53 ] || fail "static-rule enable read status $RC"; assert_config_read_failure_preserves_policy

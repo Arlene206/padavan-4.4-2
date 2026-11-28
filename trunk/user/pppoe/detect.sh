@@ -189,7 +189,7 @@ done
 [ -d "$MWAN_SYS_CLASS_NET" ] || mwan_die 1 "cannot inspect network interface inventory: $MWAN_SYS_CLASS_NET"
 
 mwan_log "flush the rules"
-if PPP_NUM=$(nvram get pppoe_num); then :; else mwan_die "$?" "cannot read pppoe_num"; fi
+if PPP_NUM=$(nvram get_checked pppoe_num); then :; else mwan_die "$?" "cannot read pppoe_num"; fi
 mwan_uint_max_valid "$PPP_NUM" 255 || mwan_die 2 "invalid pppoe_num: $PPP_NUM"
 PPP_COUNT=$((10#$PPP_NUM))
 if bridge=$(ifconfig br0); then
@@ -206,21 +206,21 @@ lan_cidr="$lanip/$lanprefix"
 
 # Snapshot and validate every optional selector before touching the current
 # firewall policy. A failed NVRAM read must preserve the previous working rules.
-if webrule=$(nvram get pppoemwan_443); then :; else mwan_die "$?" "cannot read pppoemwan_443"; fi
+if webrule=$(nvram get_checked pppoemwan_443); then :; else mwan_die "$?" "cannot read pppoemwan_443"; fi
 mwan_uint_valid "$webrule" || mwan_die 2 "invalid pppoemwan_443 value: $webrule"
-if rulesenable=$(nvram get pppoemwan_rules_x); then :; else mwan_die "$?" "cannot read pppoemwan_rules_x"; fi
+if rulesenable=$(nvram get_checked pppoemwan_rules_x); then :; else mwan_die "$?" "cannot read pppoemwan_rules_x"; fi
 mwan_uint_valid "$rulesenable" || mwan_die 2 "invalid pppoemwan_rules_x value: $rulesenable"
 static_count=0
 STATIC_IPS=()
 STATIC_INTERFACES=()
 if [ "$rulesenable" -ne 0 ]; then
-	if num=$(nvram get pppoemwan_staticnum_x); then :; else mwan_die "$?" "cannot read pppoemwan_staticnum_x"; fi
+	if num=$(nvram get_checked pppoemwan_staticnum_x); then :; else mwan_die "$?" "cannot read pppoemwan_staticnum_x"; fi
 	mwan_uint_max_valid "$num" 255 || mwan_die 2 "invalid pppoemwan_staticnum_x value: $num"
 	static_count=$((10#$num))
 	for ((i=0; i<static_count; i++)); do
 		ipname="pppoemwan_ip_x$i"; ifname="pppoemwan_interface_x$i"
-		if ip_value=$(nvram get "$ipname"); then :; else mwan_die "$?" "cannot read $ipname"; fi
-		if if_value=$(nvram get "$ifname"); then :; else mwan_die "$?" "cannot read $ifname"; fi
+		if ip_value=$(nvram get_checked "$ipname"); then :; else mwan_die "$?" "cannot read $ipname"; fi
+		if if_value=$(nvram get_checked "$ifname"); then :; else mwan_die "$?" "cannot read $ifname"; fi
 		mwan_ipv4_valid "$ip_value" || mwan_die 2 "invalid $ipname value: $ip_value"
 		mwan_uint_max_valid "$if_value" 255 || mwan_die 2 "invalid $ifname value: $if_value"
 		STATIC_IPS[i]="$ip_value"

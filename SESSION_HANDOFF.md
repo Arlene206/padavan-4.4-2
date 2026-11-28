@@ -1,42 +1,40 @@
 ## 2026-11-28 continuation checkpoint
 
-- Repository `Arlene206/padavan-4.4-2`; continue main-only. Startup recovery was completed once; do not repeat bootstrap or completed audits.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 remains closed/unmerged.
-- Current parent: `5065efb84e8a58c1a56f4313eb4bfed08107f4a2` (`test(ddnsto): isolate checked identity read assertion`).
-- DDNSTO production SHA `3f1cab20589e858b2db951b18821194249424957`: `ddnsto_id` and `ddnsto_enable` use `nvram get_checked`; identity failure preserves status and aborts before signalling/stopping an existing daemon. Initial DDNSTO run #46141285563 failed because a previous test's NVRAM log was not reset. Follow-up `5065` clears the log before identity failure injection. Exact-SHA DDNSTO #46141395670 PASS, Process inventory #46141395659 PASS, AI docs #46141395666 PASS.
-- DDNSTO production SHA 3f XY-C1 #46141285573 was IN_PROGRESS at last poll. The 5065 fix is test/docs-only; do not claim an exact-SHA 5065 firmware build based on the 3f run.
-- Aria2 production SHA `76646cffc52d09fcb9b7a67052d5ae64b1b14462`: Process #46141026685 PASS, inventory #46141026697 PASS, USB #46141026746 PASS. AI path-filter duplicate was fixed on `570be1f119144b0fb49bbdb78d5987664ff0c308`; AI #46141148176 and Process #46141148152 PASS. XY-C1 #46141026720 IN_PROGRESS at last poll.
-- Transmission + WireGuard test SHA `7e50fa510ebc14d98442ded1cd8caa1e93085147`: Process #46140791596 PASS, inventory #46140791606 PASS, AI #46140791629 PASS; both lifecycle regressions executed.
-- NVRAM cache-wrap SHA `4f09b7bc0cff0aae3a13a4705edd3bf3af489b53`: XY-C1 Build PASS, artifact ID 15261597583. TTYD production SHA `5759332e5f3da1212d3caa937684a663c6e39a86`: XY-C1 SUCCESS. Exact-SHA evidence only. NTP L3 evidence only on `c052506cbe9463f2719494d237e5323fe1c261c8`.
-- New current source slice: PPPoE-MWAN `mwan.sh` used legacy getters for eight required config inputs despite checking command status. Migrated all to `get_checked`; regression asserts one successful ordered read and fail-closed for every key.
-- No local MIPS/kernel build or router hardware; physical L4 NOT VERIFIED. Roadmap near size cap.
+- Repository `Arlene206/padavan-4.4-2`; continue on `main`; bootstrap recovered once. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Parent: `65ed152afe517c36ee6e05c34f1f4942556698a6` (`fix(pppoe): use checked reads for MWAN settings`).
+- DDNSTO source change SHA `3f1cab20589e858b2db951b18821194249424957`: DDNSTO test failed once due stale NVRAM log; correction `5065efb84e8a58c1a56f4313eb4bfed08107f4a2` clears log; exact DDNSTO #46141395670 PASS, Process inventory #46141395659 PASS, AI docs #46141395666 PASS. XY-C1 #46141285573 for production SHA 3f remained IN_PROGRESS last poll.
+- `mwan.sh` PPPoE helper migration parent `5065`: eight required settings now use checked getter; test injects statuses 41–48 and validates no interface, option-file or PPPD side effects. On `65ed` WAN lifecycle workflow #46141657596 PASS, Process inventory #46141657586 PASS, AI docs #46141657624 PASS. Note: #46141657596 is the VPN-server lifecycle job and is not the PPPoE-MWAN shell regression; the latter is in XY-C1's `Verify PPPoE-MWAN cleanup fail-closed and partial launch rollback` step. XY-C1 #46141657601 was IN_PROGRESS with this step still pending at last poll.
+- The current follow-up extends checked getter semantics to `detect.sh`: six required/preflight reads (PPP count, 443 selector, static-rule enable/count, dynamic static IP/interface) now use `nvram get_checked`, plus tests for PPP-count failure and the pre-existing selector failure matrix. Existing XY workflow executes both shell regression scripts and static checker.
+- Aria2 SHA `76646cffc52d09fcb9b7a67052d5ae64b1b14462`: Process/inventory/USB PASS, AI duplicate path-filter problem fixed by 570 with Process #46141148152 and AI #46141148176 PASS; XY #46141026720 was IN_PROGRESS last poll.
+- Transmission + WireGuard test SHA `7e50fa510ebc14d98442ded1cd8caa1e93085147`: Process #46140791596 PASS, inventory #46140791606 PASS, AI #46140791629 PASS.
+- NVRAM cache-wrap SHA `4f09b7bc0cff0aae3a13a4705edd3bf3af489b53`: XY-C1 Build PASS + artifact ID 15261597583. TTYD SHA `5759332e5f3da1212d3caa937684a663c6e39a86`: XY-C1 success. Exact-SHA evidence only. NTP L3 only on `c052506cbe9463f2719494d237e5323fe1c261c8`.
+- No local MIPS/kernel build or router hardware; physical L4 NOT VERIFIED. Roadmap near cap.
 
 ## Current repository state
 
-- Parent: `5065efb84e8a58c1a56f4313eb4bfed08107f4a2`.
-- PPPoE-MWAN task changes `mwan.sh`, its lifecycle test and `check_pppoe_mwan_status.py`; existing WAN and XY-C1 workflows already trigger/run these files.
-- Frozen backup remains unchanged.
+- Parent: `65ed152afe517c36ee6e05c34f1f4942556698a6`.
+- Current commit modifies `detect.sh`, its NVRAM failure regression and `check_pppoe_mwan_status.py`. It follows the prior `mwan.sh` migration; both avoid treating legacy getter backend failures as valid empty values.
+- Frozen backup is unchanged.
 
 ## Active task
 
-- Verify WAN route-status and XY-C1 exact-SHA Actions for the PPPoE-MWAN checked-read change.
-- Regression must pass normal start, exact ordered successful reads, and per-key injected failures 41–48 with no network/config/PPPD side effects.
-- Poll DDNSTO parent XY-C1 #46141285573 and Aria2 parent XY-C1 #46141026720 separately; each result validates only its own source SHA. No L3 claim unless same-SHA Build, TRX and artifact all pass.
-- If tests fail, inspect exact job/log and repair cause. Continue independent source tasks while builds are pending.
+- Verify the combined PPPoE-MWAN `mwan.sh` and `detect.sh` changes through exact-SHA XY-C1. Require both shell tests, static checker, XY-C1 build, TRX verification and artifact upload.
+- The prior `mwan.sh` task on SHA `65ed` has WAN/Process/AI PASS, but the WAN workflow was VPN-specific. XY-C1 #46141657601 was IN_PROGRESS and still must run the PPPoE-MWAN test step.
+- Poll prior DDNSTO XY #46141285573 and Aria2 XY #46141026720 independently; exact SHA only.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and exact-SHA WAN route-status, AI, Process inventory, XY-C1 Actions for the PPPoE-MWAN commit.
-2. Confirm `mwan_lifecycle.sh` runs all eight fail injections 41–48 and the static checker passes.
-3. Poll prior XY-C1 #46141285573 (DDNSTO SHA 3f) and #46141026720 (Aria2 SHA 766) independently.
-4. Continue source-level fixes; keep backup immutable; use full-tree atomic commit and expected-SHA non-forced main update only.
+1. Fetch current main and exact-SHA Actions for the `detect.sh` checked-read commit.
+2. Inspect XY-C1 job step outcomes for `Verify PPPoE-MWAN cleanup fail-closed and partial launch rollback`; confirm both tests and static checker pass before build/TRX/artifact.
+3. Poll parent XY runs #46141285573 (DDNSTO SHA 3f), #46141026720 (Aria2 SHA 766), and #46141657601 (65ed PPPoE helper) separately.
+4. If any test fails, read the exact job log and fix the cause; do not treat PENDING as failure. Keep backup immutable and only use complete-tree atomic commits with expected-SHA, non-forced main updates.
 
 ## Verification boundary
 
-- DDNSTO 5065: dedicated regression, Process inventory and AI docs PASS. XY applies to prior production SHA 3f and was pending.
-- Aria2 766: Process, inventory and USB PASS; AI duplicate-path failure fixed by 570; XY pending.
-- Transmission + WireGuard 7e: Process, inventory, AI PASS.
-- PPPoE-MWAN checked-read commit: exact-SHA CI required.
+- `5065`: DDNSTO test, Process inventory and AI docs PASS; production XY #46141285573 pending on source SHA 3f.
+- `65ed`: WAN VPN-server workflow PASS, Process inventory PASS, AI docs PASS; actual PPPoE-MWAN checks in XY-C1 #46141657601 still pending.
+- Current detector change: exact-SHA XY-C1 is required.
+- Aria2 XY #46141026720 pending; Transmission/WireGuard 7e workflow tests passed.
 - Physical L4: NOT VERIFIED.
 
 ## Mandatory end-of-session handoff checkpoint
