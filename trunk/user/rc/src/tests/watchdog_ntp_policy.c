@@ -320,7 +320,7 @@ test_schedule_snapshot_missing_keys_keep_disabled_defaults(void)
 	CHECK(watchdog_ntp_schedule_snapshot_read(fake_schedule_nvram_get, &fake, &snapshot) == 0);
 	CHECK(snapshot.reboot_enabled == 0 && snapshot.ss_enabled == 0 && snapshot.ntp_ready == 0);
 	CHECK(snapshot.reboot_schedule[0] == '\0' && snapshot.ss_schedule[0] == '\0');
-	CHECK(fake.calls == WATCHDOG_SCHEDULE_KEY_COUNT);
+	CHECK(fake.calls == 3);
 	return 0;
 }
 static int

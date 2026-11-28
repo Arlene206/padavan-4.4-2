@@ -177,6 +177,8 @@ _schedule_test = read("trunk/user/rc/src/tests/watchdog_ntp_policy.c")
 assert "watchdog_ntp_schedule_snapshot_read" in _schedule_policy
 assert "snapshot->ntp_ready && snapshot->reboot_enabled" in _schedule_policy
 assert "snapshot->ntp_ready && snapshot->ss_enabled" in _schedule_policy
+assert _schedule_policy.index('snapshot->ntp_ready = strcmp(ntp_ready, "1") == 0;') < _schedule_policy.index('context, "reboot_schedule"')
+assert _schedule_policy.index('snapshot->reboot_enabled = strcmp(reboot_enable, "1") == 0;') < _schedule_policy.index('context, "reboot_schedule"')
 _schedule_read = function_body(
     watchdog, "watchdog_read_schedule_snapshot(struct watchdog_ntp_schedule_snapshot *snapshot)"
 )

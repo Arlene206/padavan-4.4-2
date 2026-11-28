@@ -1,3 +1,10 @@
+## 2026-11-28 — Fix selector ordering in conditional schedule snapshot
+
+- Exact-head watchdog run `46115995003` on `f5bcffd73428bab5b4818e44465f3d25f8b7563a` failed in the new cache-snapshot regression: schedule gating consulted the zero-initialized output selectors before assigning the values just read, so enabled schedule strings were skipped.
+- Moved selector publication immediately after the three checked selector reads, before conditional schedule reads; retained whole-snapshot clearing on any failure. Updated the missing-key regression for the intentional three-read fast path and strengthened source ordering checks. Rerun the watchdog, NVRAM and XY-C1 workflows on this exact correction SHA.
+
+---
+
 ## 2026-11-28 — Avoid unused schedule reads on watchdog ticks
 
 - Follow-up to `04f55a0098f9328c7bd563fccbbafd21013e03b3`: preserve the same-transaction schedule snapshot while fetching schedule strings only when NTP is ready and the corresponding action is enabled.
