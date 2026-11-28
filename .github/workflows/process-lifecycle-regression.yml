@@ -1158,17 +1158,17 @@ jobs:
           assert "passwd_file_publish_transaction(" in header
           assert "link(source_path, backup_template)" in header
           assert "rollback_failed" in header
-          assert 'fprintf(fp1, "%s:!:' in recreate
-          assert "password_status = change_passwd_unix(" in recreate
-          assert recreate.index("passwd_file_publish_transaction_retain(") < recreate.index("password_status = change_passwd_unix(")
-          assert "passwd_file_rollback_transaction(" in recreate
-          assert recreate.index("if (password_status != 0)") < recreate.index("passwd_file_rollback_transaction(")
-          assert "passwd_file_finalize_transaction(" in recreate
+          assert 'fprintf(fp1, "%s:!:' in recreate_snapshot
+          assert "password_status = change_passwd_unix(" in recreate_snapshot
+          assert recreate_snapshot.index("passwd_file_publish_transaction_retain(") < recreate_snapshot.index("password_status = change_passwd_unix(")
+          assert "passwd_file_rollback_transaction(" in recreate_snapshot
+          assert recreate_snapshot.index("if (password_status != 0)") < recreate_snapshot.index("passwd_file_rollback_transaction(")
+          assert "passwd_file_finalize_transaction(" in recreate_snapshot
           assert "test_post_publish_rollback_restores_previous_files();" in test
           assert "test_post_publish_success_finalizes_recovery_links();" in test
           assert "test_post_publish_rollback_failure_preserves_recovery_link();" in test
           assert '#include "router_account_nvram_policy.h"' in shared
-          assert "nvram_get_checked(name, value)" in shared
+          assert "router_account_nvram_get_checked" not in shared
           assert "router_account_nvram_get_transactional" in shared
           assert "nvram_transaction_get(transaction, name, value)" in shared
           assert "nvram_transaction_begin(&account_transaction)" in recreate

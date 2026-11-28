@@ -1,3 +1,12 @@
+## 2026-11-28 — Complete the Samba shared-account snapshot contract
+
+- Exact-SHA CI on `9ffd787fddc38055a7b0f9af89b7aa7c0082035d` exposed stale integration details after the passwd-writer refactor: Samba workflow still expected the old `recreate_passwd_unix(0)` call; Process regression left file-publication assertions scoped to the compatibility wrapper instead of the snapshot consumer; and the checked-getter adapter was now unused.
+- Updated both source-level contracts to check `recreate_passwd_unix_snapshot()`, moved password file publication assertions to that function, and removed the dead static adapter.
+- Preserved the configured router identity when SMB account count is zero: `run_samba()` now copies `http_username` unconditionally under its already-held NVRAM transaction. A missing key still yields an empty copied value, and the snapshot consumer falls back to `SYS_USER_ROOT`, matching prior boot behavior.
+- Parent main SHA: `9ffd787fddc38055a7b0f9af89b7aa7c0082035d`. Exact-head Process/Samba and XY-C1 checks are pending; the previous SHA's Process inventory and AI handoff checks passed. No local firmware or hardware test was performed.
+
+---
+
 ## 2026-11-28 — Publish Samba passwd/passdb/config from one account snapshot
 
 - Found a concrete NVRAM generation mismatch: `run_samba()` copied `acc_num`, account names/passwords and the management username under one transaction, then called `recreate_passwd_unix(0)`, which independently re-read those keys with separate checked-getter locks. An account edit between the two snapshots could publish `/etc/passwd` for a different generation than Samba's passdb and `smb.conf`.

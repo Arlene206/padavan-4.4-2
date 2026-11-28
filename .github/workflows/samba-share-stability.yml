@@ -383,7 +383,7 @@ jobs:
           assert run_samba_compact.index(user_identity_read) < run_samba_compact.index(password_read)
           assert run_samba_compact.index(password_read) < run_samba_compact.index(account_snapshot_end)
           assert run_samba_compact.index(account_snapshot_end) < run_samba_compact.index('process_inventory_scan("smbd",&smbd_snapshot)')
-          assert run_samba_compact.index(account_snapshot_end) < run_samba_compact.index("recreate_passwd_unix(0)")
+          assert run_samba_compact.index(account_snapshot_end) < run_samba_compact.index("recreate_passwd_unix_snapshot(")
           assert "samba_passdb_snapshot_end_status" in run_samba
           assert "samba_passdb_snapshot_end_status" in passdb_policy
           assert "samba_passdb_snapshot_end_status(0,-1,EACCES)==EACCES" in "".join(Path("trunk/user/rc/src/tests/samba_passdb_policy.c").read_text().split())

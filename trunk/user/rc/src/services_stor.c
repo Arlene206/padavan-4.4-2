@@ -1889,17 +1889,15 @@ int run_samba(void)
 	 * Copy cache-backed values before the next transaction read. Any read,
 	 * validation or transaction-close failure prevents passdb publication.
 	 */
-	if (sh_num > 0) {
-		account_value_status = storage_read_transaction_string_status(
-			&account_snapshot, "http_username",
-			router_username, sizeof(router_username));
-		if (account_value_status != 0) {
-			account_snapshot_status = account_value_status;
-			logmessage("Samba Server",
-				   "cannot read router account identity; preserving passdb and configuration (errno %d)",
-				   account_value_status);
-			goto account_snapshot_done;
-		}
+	account_value_status = storage_read_transaction_string_status(
+		&account_snapshot, "http_username",
+		router_username, sizeof(router_username));
+	if (account_value_status != 0) {
+		account_snapshot_status = account_value_status;
+		logmessage("Samba Server",
+			   "cannot read router account identity; preserving passdb and configuration (errno %d)",
+			   account_value_status);
+		goto account_snapshot_done;
 	}
 
 	for (i = 0; i < sh_num; i++) {

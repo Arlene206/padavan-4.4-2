@@ -272,13 +272,6 @@ cleanup:
 	return status;
 }
 
-static int
-router_account_nvram_get_checked(void *context, const char *name, char **value)
-{
-	(void)context;
-	return nvram_get_checked(name, value);
-}
-
 int
 recreate_passwd_unix_snapshot(int force_create, const char *root_name,
 			      const char *root_password,
