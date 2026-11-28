@@ -1,3 +1,10 @@
+## 2026-11-28 — Deduplicate Aria2 Process workflow path filters
+
+- AI handoff docs run #46141026688 on Aria2 parent `76646cffc52d09fcb9b7a67052d5ae64b1b14462` failed the workflow contract: `scripts/check_optional_app_start_status.py` was already present in both push and pull-request allowlists, and the Aria2 path-filter extension added it a second time.
+- Removed only the redundant copies; the two new Aria2 trigger paths remain in both filters, while the existing Python checker trigger remains unchanged. No source or test behavior changed.
+- Parent Aria2 Process #46141026685, inventory #46141026697, XY-C1 #46141026720 and USB stability #46141026746 were IN_PROGRESS at last poll. A fresh exact-SHA Action set will validate the path-filter correction and Aria2 regression.
+
+---
 ## 2026-11-28 — Fail closed on Aria2 NVRAM startup reads
 
 - `aria.sh` used unchecked `nvram get` command substitutions for peer/listen ports and `http_proto`. A failed backend read could be mistaken for an empty value, silently applying port defaults or selecting TLS based on an unverified selector.
