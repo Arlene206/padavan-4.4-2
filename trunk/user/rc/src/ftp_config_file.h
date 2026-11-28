@@ -11,6 +11,8 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include "config_file_sync.h"
+
 /*
  * Build generated FTP configuration beside its destination. Keeping the
  * temporary file in the same directory makes the final rename atomic.
@@ -145,13 +147,7 @@ ftp_config_file_publish(FILE **stream, char *staged_path,
 static int
 ftp_config_file_sync_fd(int fd)
 {
-	int status;
-
-	do {
-		status = fsync(fd);
-	} while (status != 0 && errno == EINTR);
-
-	return status;
+	return config_file_sync_fd(fd);
 }
 
 /* Persist the directory entry installed by rename(), not just file contents. */

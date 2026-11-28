@@ -6,7 +6,27 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+static int ftp_config_test_fsync(int fd);
+static unsigned int ftp_config_test_fsync_calls;
+static unsigned int ftp_config_test_fsync_eintr_remaining;
+static int ftp_config_test_fsync_always_eintr;
+
+#define CONFIG_FILE_SYNC_FSYNC(fd) ftp_config_test_fsync(fd)
 #include "../ftp_config_file.h"
+
+static int
+ftp_config_test_fsync(int fd)
+{
+	++ftp_config_test_fsync_calls;
+	if (ftp_config_test_fsync_always_eintr ||
+	    ftp_config_test_fsync_eintr_remaining > 0U) {
+		if (ftp_config_test_fsync_eintr_remaining > 0U)
+			--ftp_config_test_fsync_eintr_remaining;
+		errno = EINTR;
+		return -1;
+	}
+	return fsync(fd);
+}
 
 static void
 read_text_file(const char *path, char *buffer, size_t buffer_size)
@@ -52,7 +72,12 @@ main(void)
 	assert(fp != NULL);
 	assert(strncmp(staged, target, strlen(target)) == 0);
 	assert(fputs("listen=YES\n", fp) >= 0);
+	ftp_config_test_fsync_calls = 0U;
+	ftp_config_test_fsync_eintr_remaining = 2U;
 	assert(ftp_config_file_publish(&fp, staged, target) == 0);
+	assert(ftp_config_test_fsync_eintr_remaining == 0U);
+	/* Two EINTRs, successful file fsync, and successful parent fsync. */
+	assert(ftp_config_test_fsync_calls == 4U);
 	assert(fp == NULL);
 	assert(staged[0] == '\0');
 	read_text_file(target, contents, sizeof(contents));
@@ -60,6 +85,22 @@ main(void)
 	assert(stat(target, &st) == 0);
 	assert((st.st_mode & 0777) == 0644);
 	assert(ftp_config_file_sync_parent(target) == 0);
+
+	/* A persistent signal storm is bounded and cannot publish its candidate. */
+	assert(ftp_config_file_open(target, staged, sizeof(staged), &fp) == 0);
+	assert(fputs("must-not-replace-last-good\n", fp) >= 0);
+	ftp_config_test_fsync_calls = 0U;
+	ftp_config_test_fsync_always_eintr = 1;
+	errno = 0;
+	assert(ftp_config_file_publish(&fp, staged, target) != 0);
+	ftp_config_test_fsync_always_eintr = 0;
+	assert(errno == EINTR);
+	assert(ftp_config_test_fsync_calls ==
+	       CONFIG_FILE_SYNC_MAX_EINTR_RETRIES + 1U);
+	assert(fp == NULL);
+	assert(staged[0] == '\0');
+	read_text_file(target, contents, sizeof(contents));
+	assert(strcmp(contents, "listen=YES\n") == 0);
 
 	/* A buffered write error must not replace the last-known-good file. */
 	assert(ftp_config_file_open(target, staged, sizeof(staged), &fp) == 0);

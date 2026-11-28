@@ -1,3 +1,11 @@
+## 2026-11-28 — Bound vsftpd configuration fsync retries
+
+- The FTP config publisher still had its own unbounded `do/while(errno == EINTR)` loop in both staged-file and parent-directory barriers, bypassing the shared `config_file_sync.h` eight-interruption ceiling.
+- Kept the FTP wrapper API but delegated it to `config_file_sync_fd()`. Added an injected GNU89 regression: two transient EINTRs recover across the file and parent fsyncs (four total calls); persistent EINTR stops after the initial attempt plus eight retries, preserves the active config, and removes the staged candidate.
+- Updated the vsftpd source contract to require the shared bounded helper and both fault-injection cases. No local compile or firmware build is claimed; the exact commit's vsftpd workflow must run.
+
+---
+
 ## 2026-11-28 — Align MiniUPnP writer and Firefly fsync source contracts
 
 - Exact SHA `0cd9b1e3ed2c46cc47c1648f8863f8cf1a7498bd` confirmed the MiniUPnP persistent-EINTR fixture now passed; its source-contract step still required the removed raw `fsync(fileno(stream))` expression. It now requires the shared bounded `config_file_sync_fd()` call before rename and rejects the raw fsync expression.
