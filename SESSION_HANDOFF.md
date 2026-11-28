@@ -3,7 +3,8 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`.
-- Main at this write's parent: `9178b6538b49b2bbd78f5039a61fb3397d3e1f3f`. Exact-head Process inventory #46120124952 PASS and NVRAM boundary #46120124986 PASS. Process lifecycle #46120124982 FAIL due checker newline extraction; USB modem #46120124951 FAIL due missing shared include path; USB storage #46120124991 FAIL due an outdated generic-stopper assertion; AI docs #46120125048 FAIL because the 120-record root log needed rotation. XY-C1 #46120124993 was still IN_PROGRESS. These four CI-only defects are corrected in the current commit; reruns are pending.
+- Main at this source-fix batch's parent: `4b0fe352c64fc2aebdbca526ce573a62d0c739b8`. AI handoff #46120573872 PASS and USB modem identity #46120573957 PASS. Process lifecycle #46120573849 was in progress at step 35 with the USB printer executable-bound filter test at step 96 still pending; USB storage #46120573847 was in progress at its BusyBox/ash stage. XY-C1 #46120573889 was still before Build XY-C1 (step 38); it does not provide an L3 result for this parent. The prior USB stop checker, shared include, storage assertion and 120-record log rotation failures have been corrected in 4b0fe.
+- A prior real XY-C1 MIPS build failure remains uncorrected at this parent: run #46119302438 reported `postlogin.c:1271: 'chown_succeeded' undeclared`. The source still declared that local inside `handle_retr()` while `handle_upload_common()` used it. This source fix moves the declaration to the upload function and adds a scope contract; fresh exact-head VSFTPD and XY-C1 runs are required.
 - Frozen backup: `backup/pre-plugin-overhaul-2026-11-14`, recorded HEAD `72f4f157a084f8184b9597ca5bf334b8080e5807`. Its warning file forbids mutation/deletion. PR #1 remains CLOSED/unmerged; its substantive unmerged work was already compared, with no missing production/test/build change identified.
 - Startup recovery was completed once against the bootstrap, development protocol, handoff, roadmap and log indexes. Do not repeat completed audits.
 - Root `dev_log.md` remains below the documented 384 KiB target and 120-record rotation threshold. Keep 20–119 records. The roadmap is close to its 128 KiB hard limit; avoid routine expansion.
@@ -11,13 +12,10 @@
 
 ## Active task
 
-USB printer stop/rollback now uses executable identity rather than mutable process names on main parent `9178b6538b49b2bbd78f5039a61fb3397d3e1f3f`. The first exact-head validation found three stale CI integrations and the routine AI log-rotation boundary:
-- Process lifecycle #46120124982: all preceding runtime regressions passed, but the inline source contract did not isolate stop function bodies because the new parser searched for a literal backslash-n. Corrected to use the actual newline character.
-- USB modem identity #46120124951: the new executable-bound policy test did not compile because its command omitted `-I trunk/user/shared/src`; now added.
-- USB storage hotplug #46120124991: its old source checker still required generic `kill_services()`; updated to require `usb_printer_kill_services()` and reject generic fallback.
-- AI handoff #46120125048: root dev log reached 120 records; archived the oldest 100 as part-040 and retained the newest 20 plus this repair entry.
-- Process inventory #46120124952 and NVRAM #46120124986 PASS. XY-C1 full Build/TRX/artifact #46120124993 remained IN_PROGRESS at last poll. No L3 PASS or physical L4 result is claimed.
-The USB stop source/test itself is not yet considered closed until fresh exact-head Process, USB modem and USB storage regressions pass.
+Fix the concrete MIPS firmware compilation defect found by XY-C1. `trunk/user/vsftpd/src/postlogin.c` declared `chown_succeeded` inside `handle_retr()`, but assigns and reads it in `handle_upload_common()`. The previous host source contract did not assert the variable scope; XY-C1 #46119302438 exposed the issue during the real MIPS build. This commit moves the declaration to `handle_upload_common()` and adds explicit VSFTPD source-contract assertions requiring exactly one upload-local declaration and none in RETR.
+
+USB printer executable-bound stop hardening and its CI-only repairs are already on main through `4b0fe352c64fc2aebdbca526ce573a62d0c739b8`: AI docs #46120573872 PASS, USB modem #46120573957 PASS; Process lifecycle #46120573849 and USB storage #46120573847 were still pending when this fix was prepared. The 4b0fe XY-C1 #46120573889 had not started its Build step and is superseded by this source change. No local compilation is possible in this session. Do not claim L3 until the exact new SHA completes Build, TRX and artifact upload; physical L4 remains NOT VERIFIED.
+
 
 ## Watchdog scheduled-action NVRAM snapshot baseline
 
@@ -30,6 +28,10 @@ The USB stop source/test itself is not yet considered closed until fresh exact-h
 
 | Source SHA | Workflow / run | Result |
 |---|---|---|
+| `4b0fe352c64fc2aebdbca526ce573a62d0c739b8` | AI handoff #46120573872; USB modem identity #46120573957 | PASS |
+| `4b0fe352c64fc2aebdbca526ce573a62d0c739b8` | Process lifecycle #46120573849; USB storage #46120573847 | IN PROGRESS at last inspection; see Active task |
+| `4b0fe352c64fc2aebdbca526ce573a62d0c739b8` | XY-C1 #46120573889 | IN PROGRESS before Build; superseded by the current VSFTPD source change |
+| `9edd01a13d7c861a1c2e246220f2096134679ca1` | XY-C1 #46119302438 | FAIL — MIPS compile: `postlogin.c:1271: 'chown_succeeded' undeclared`; this commit fixes the local scope |
 | `04f55a0098f9328c7bd563fccbbafd21013e03b3` | XY-C1 #46115631593 | PASS — Build, TRX, artifact upload |
 | `04f55a0098f9328c7bd563fccbbafd21013e03b3` | Watchdog #46115631687; Process #46115631548/#46115631613; NVRAM #46115631554; AI docs #46115631633 | PASS |
 | `f5bcffd73428bab5b4818e44465f3d25f8b7563a` | Watchdog #46115995003 | FAIL — selector ordering; corrected by 9e154 |
@@ -53,10 +55,10 @@ The USB stop source/test itself is not yet considered closed until fresh exact-h
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head reruns of Process lifecycle, USB modem identity, USB storage hotplug and AI handoff. Require the executable-bound stop source contract, ASan/UBSan snapshot-filter test, shared-header compile, updated storage checker and archive inventory to pass.
-2. Check XY-C1 Build #46120124993 and exact-head TRX/artifact status. It was still running at the previous poll; do not claim a firmware L3 result unless it completes on the exact new SHA.
-3. Confirm the new commit's Process inventory and NVRAM checks. Parent #46120124952 and #46120124986 PASS; they are not substitutes for new-head checks.
-4. Once the USB lifecycle validations pass, move to another distinct stability/security issue. Avoid repeating watchdog, HTTPD, IPTV, IAPP, VSFTPD metadata and already-fixed USB printer source analysis.
+1. Fetch live `main` and enumerate only push Actions whose `head_sha` exactly matches it. Inspect the VSFTPD workflow and XY-C1 firmware validation triggered by this source change; require the scope contract, MIPS compile, full image build, TRX check and artifact upload to pass.
+2. Check whether Process lifecycle #46120573849 (step 96) and USB storage #46120573847 (BusyBox/ash stage) completed on ancestor `4b0fe352c64fc2aebdbca526ce573a62d0c739b8`. Those results validate the USB-printer fix/CI repair only, not this postlogin source change.
+3. If the new exact-head MIPS build finds further compile failures, inspect the first causal compiler diagnostic and repair it with a bounded regression. Never infer L3 from host-only or ancestor runs. Physical L4 remains unverified.
+4. After this compile slice is green, resume a separate repository-wide stability/security issue; do not repeat the USB printer source audit or earlier watchdog, HTTPD, IPTV, IAPP and anonymous-upload review.
 
 ## Verification boundary
 

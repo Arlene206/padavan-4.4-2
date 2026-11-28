@@ -716,7 +716,6 @@ handle_retr(struct vsf_session* p_sess, int is_http)
   static struct vsf_sysutil_statbuf* s_p_statbuf;
   struct vsf_transfer_ret trans_ret;
   int remote_fd;
-  int chown_succeeded;
   int opened_file;
   int permission_denied = 0;
   int is_ascii = 0;
@@ -1146,6 +1145,7 @@ handle_upload_common(struct vsf_session* p_sess, int is_append, int is_unique)
   struct vsf_transfer_ret trans_ret;
   int new_file_fd;
   int remote_fd;
+  int chown_succeeded;
   int upload_parent_fd = -1;
   int cleanup_allowed = 0;
   char upload_leaf[PATH_MAX];

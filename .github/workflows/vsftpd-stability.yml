@@ -547,6 +547,8 @@ jobs:
           assert upload.index("vsf_sysutil_fchmod_ret(new_file_fd, tunable_chown_upload_mode)") < upload.index("vsf_one_process_chown_upload(p_sess, new_file_fd)")
           assert "Could not set upload file permissions." in upload
           assert "Could not change upload file owner." in upload
+          assert upload.count("int chown_succeeded;") == 1
+          assert upload.index("int chown_succeeded;") < upload.index("vsf_one_process_chown_upload(")
           assert "if (!chown_succeeded)" in upload
           assert upload.index("if (!chown_succeeded)") < upload.index("vsf_sysutil_lock_file_write(new_file_fd)")
           assert upload.index("ftp_rest_offset_is_within_file(") < upload.index("vsf_sysutil_lseek_to(new_file_fd, offset)")
@@ -556,6 +558,7 @@ jobs:
           rmd = function_body(vsftpd_postlogin, "static void\nhandle_rmd")
           dele = function_body(vsftpd_postlogin, "static void\nhandle_dele")
           retr = function_body(vsftpd_postlogin, "static void\nhandle_retr")
+          assert "int chown_succeeded;" not in retr
           http_handler = function_body(vsftpd_postlogin, "handle_http(")
           http_error_response = function_body(
               vsftpd_postlogin, "http_send_error_response(")

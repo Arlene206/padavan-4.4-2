@@ -1,3 +1,11 @@
+## 2026-11-28 — Fix VSFTPD upload chown local scope exposed by XY-C1 build
+
+- XY-C1 run #46119302438 on ancestor `9edd01a13d7c861a1c2e246220f2096134679ca1` reached the real MIPS compiler and failed at `postlogin.c:1271`: `chown_succeeded` was undeclared in `handle_upload_common()`. The variable had accidentally been declared in the unrelated `handle_retr()` function, so host source contracts missed the production build error.
+- Moved the local declaration into `handle_upload_common()` immediately beside its other locals. Extended the VSFTPD workflow's source contract to require exactly one declaration inside the upload function and reject it in RETR. The next exact-head VSFTPD and XY-C1 runs must pass; no local cross-compile is available.
+- Parent main `4b0fe352c64fc2aebdbca526ce573a62d0c739b8`: AI docs #46120573872 PASS and USB modem #46120573957 PASS; Process lifecycle #46120573849 and USB storage #46120573847 were still running. XY-C1 #46120573889 was before its build step; no L3 result is claimed.
+
+---
+
 ## 2026-11-28 — Repair executable-bound USB printer stop validation and rotate the handoff log
 
 - Parent main `9178b6538b49b2bbd78f5039a61fb3397d3e1f3f`; exact-head run results for the USB printer executable-bound stop change:
