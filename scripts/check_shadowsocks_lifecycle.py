@@ -125,7 +125,7 @@ require('ss_procfs_process_count name "$ss_process_name" >/dev/null' in pid_stat
         "status-1 process lookups must be confirmed by procfs inventory")
 require('ss_proc_root=${SS_PROC_ROOT:-/proc}' in procfs_scan and
         'cat "$ss_proc_dir/stat"' in procfs_scan and
-        "tr '\000' '\n'" in procfs_scan and
+        r"tr '\000' '\n'" in procfs_scan and
         'grep -E -q -- "$ss_proc_query"' in procfs_scan and
         'ss_validate_pid_list "$ss_proc_post_output"' in procfs_scan,
         "procfs fallback must validate task records and recheck for newly started tasks")

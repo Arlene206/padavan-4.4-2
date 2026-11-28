@@ -1,3 +1,12 @@
+## 2026-11-28 13:42 CST (UTC+8) — Make Shadowsocks procfs source contract compare literal escapes
+
+- Exact-head Shadowsocks #46107441785 on `2baf290f67eb662699b9edf6ae1eec97f51f5806` again passed shell syntax, startup-status, DNSMasq cleanup, process lifecycle fake-procfs runtime tests and adblock config regression, then failed only at `scripts/check_shadowsocks_lifecycle.py`'s `tr` source-string assertion.
+- Root cause: the previous checker correction used a normal Python string containing `\000` and `\n`; Python evaluates those as NUL/newline, so the expected value still does not equal the shell source's literal backslash sequences. THIS checker-only change adds a raw-string prefix, so it compares the exact source text without altering the production shell helper.
+- Current main before this correction: `437b6ffd7fc1deb784ff86257a1271c22fa54874`. Storage-hotplug #46107555462 and its companion docs check were in progress/queued; inspect exact outcomes after this commit. No local shell run claimed.
+- VSFTPD source SHA `4dd43a97904e7bec0c8ae094ff7c25ff82312b07` L2 host regression and L3 XY-C1 build/TRX/artifact upload are all PASS; artifact #15247998322 is preserved in the handoff. L4 not performed.
+
+---
+
 ## 2026-11-28 13:30 CST (UTC+8) — Align storage safety checker with FTP final-absence stop contract
 
 - Storage-hotplug run #46107190352 on main `e1bd1892de53163bf044f636b000f4add5b9d574` passed the entire embedded whole-storage caller graph after the two workflow assertion fixes, then failed in `scripts/check_storage_safe_remove.py` at its FTP stop postcondition. This third stale contract expected `storage_service_stop_complete(status, final_state)` (twice) and the removed `ftp_was_present` pre-stop refresh exception.
