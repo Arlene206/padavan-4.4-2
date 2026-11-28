@@ -1,3 +1,10 @@
+## 2026-11-28 15:07 CST (UTC+8) — Fix NUL delimiters in XY-C1 detector regression
+
+- Base main SHA: `acc830ca7e4104908c9cf9f7c2555d9d5d8d296f`. Review found the detector test fixture emitted a double-escaped literal `\\0` instead of NUL bytes, so its fake Git diff could not represent the `git diff --name-only -z` stream.
+- Fixed both path separators in the new unit test. No detector or firmware production source changed. Parent XY-C1 #46114803850 and AI docs #46114803857 were in progress at the last poll; exact-head rerun required.
+
+---
+
 ## 2026-11-28 15:02 CST (UTC+8) — Make XY-C1 detector edits build-triggering
 
 - Base main SHA: `a9045ebfad153b0ea382f0ba1262b43760a27b5e`. Exact-head Process #46114471884 and AI handoff #46114471878 PASS. XY-C1 descendant #46114392882 passed the firmware-update source contract and detector step but skipped Build/TRX/artifact because only host checker/docs paths changed.

@@ -284,8 +284,8 @@ class FirmwareInputPathTests(unittest.TestCase):
                 return result(args)
             if args[0] == "diff":
                 return result(args, stdout=(
-                    "scripts/check_xy_c1_firmware_inputs.py\\0"
-                    "scripts/tests/test_xy_c1_firmware_inputs.py\\0"
+                    "scripts/check_xy_c1_firmware_inputs.py\0"
+                    "scripts/tests/test_xy_c1_firmware_inputs.py\0"
                 ))
             self.fail("unexpected git args: " + repr(args))
 

@@ -1,8 +1,7 @@
-## 2026-11-28 — Make XY-C1 build-gate changes trigger a production build (THIS COMMIT)
+## 2026-11-28 — Correct NUL-delimited Git-diff fixture in XY-C1 detector test (THIS COMMIT)
 
-- Base main SHA: `a9045ebfad153b0ea382f0ba1262b43760a27b5e`. Exact-main Process fail-closed #46114471884 and AI handoff #46114471878 both PASS. The descendant XY-C1 run #46114392882 passed the firmware source contract and detector step, but correctly skipped Build/TRX/artifact because all changed paths were host checkers/docs.
-- Safety gap: `check_xy_c1_firmware_inputs.py` classified every `scripts/check_*` path as host-only, including itself. A faulty edit to the detector could therefore make the gate skip the production build while only running its own host regression. The firmware-update source contract checker also directly gates a firmware flash change but was classified as host-only.
-- THIS COMMIT makes changes to the detector and firmware-update contract checker build-triggering inputs, with unit tests proving both direct classification and full-diff decision behavior. Both are already covered by XY-C1 push path filters. Exact-head XY-C1 must now execute Build, TRX and artifact upload.
+- Base main SHA: `acc830ca7e4104908c9cf9f7c2555d9d5d8d296f`. Review found the new detector regression fixture encoded two literal characters `\\0` instead of NUL separators, while production `collect_changed_paths()` splits on NUL. The test therefore could not model Git's `-z` output correctly.
+- THIS COMMIT changes only the fixture to proper NUL-delimited output; detector production logic is unchanged. Parent XY-C1 #46114803850 and AI docs #46114803857 were in progress at the last poll. Re-run exact-head XY-C1 and verify the fixture itself passes before relying on the build gate.
 
 
 ---
@@ -12,7 +11,7 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; all development and validation are on `main` only.
-- Live main before this XY-C1 detector integrity fix: `a9045ebfad153b0ea382f0ba1262b43760a27b5e`. Exact-main Process #46114471884 and AI docs #46114471878 PASS. XY-C1 #46114392882 passed the firmware-update contract and input detector, but Build/TRX/artifact were SKIPPED because the push contained only host checker/docs paths; an older production-source SHA failed before the Build at a now-corrected checker assertion.
+- Live main before this NUL-fixture correction: `acc830ca7e4104908c9cf9f7c2555d9d5d8d296f`. It makes the XY-C1 detector and firmware-update source checker build-triggering; parent exact-head XY #46114803850 and AI docs #46114803857 were in progress. The detector's new full-diff test fixture had double-escaped NUL delimiters; THIS COMMIT fixes the fixture only. Prior exact-main Process #46114471884 and AI docs #46114471878 PASS on parent `a9045ebfad153b0ea382f0ba1262b43760a27b5e`.
 - Live main before this optional-app checker correction: `66bc572325c033bf7850e9aaa7dad47323c582cb`, which contains the production MiniUPnP flash-preparation change from `4bc110b517f8f1f49e5b0d6f64ea613a633577b0` plus checker corrections. Parent PID 1 notification #46114249923 PASS; XY-C1 #46114250159 failed early at the now-corrected source contract before Build; Process run #46114323557 exposed the stale `check_optional_app_start_status.py` assertion. This commit updates that second checker only; no production source changed.
 - Frozen backup remains `backup/pre-plugin-overhaul-2026-11-14`; do not mutate. Its warning file was verified during startup restore and handoff-recorded frozen HEAD is `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 remains CLOSED/unmerged.
 - Frozen backup remains `backup/pre-plugin-overhaul-2026-11-14` (handoff-recorded HEAD `72f4f157a084f8184b9597ca5bf334b8080e5807`); its warning file explicitly forbids mutation. PR #1 remains CLOSED/unmerged with no identified missing change.
@@ -105,16 +104,16 @@ For product-source SHA `7daa20cd2f1bd7abca4499fb9f9a6e05ce5d3d00`:
 
 ## Active task
 
-The production MiniUPnPd firmware-preparation fix is in `4bc110b517f8f1f49e5b0d6f64ea613a633577b0`: `flash_firmware()` explicitly stops MiniUPnPd before storage persistence/MTD write, attempts the independent generic service stop, retains the first errno and aborts before flash if either required stop fails. Two dependent host checkers were corrected on descendants; exact-main Process #46114471884 and AI docs #46114471878 now PASS.
+The production MiniUPnPd firmware-preparation fix is in `4bc110b517f8f1f49e5b0d6f64ea613a633577b0`. Exact-main Process #46114471884 and AI docs #46114471878 passed on the parent chain. The XY-C1 detector was corrected so changes to itself and the firmware-update source checker require a production Build, rather than being classified as host-only.
 
-A validation-gate weakness was found: the XY-C1 input detector classified its own `scripts/check_*` path as host-only. This meant a change that broke the detector could skip firmware build while only running host tests. It also treated the firmware-update source contract as host-only. THIS COMMIT treats these two firmware-validation checkers as build-triggering inputs and adds detector unit coverage. Prior descendant XY #46114392882 passed the source checker but skipped Build/TRX/artifact because only host paths changed; the current detector change should force the full build.
+The first detector follow-up's unit-test fixture double-escaped NUL delimiters and did not model Git's `-z` output. THIS COMMIT corrects the two test literals to actual NUL separators; no detector or firmware source changes. Parent XY #46114803850 / AI docs #46114803857 were in progress at last poll. Exact-head XY must show unit-test PASS, detector changed=true, Build, TRX and artifact all PASS before the MiniUPnPd firmware fix receives L3.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and exact-head XY-C1 run triggered by THIS detector change. Verify unit tests pass, detector reports firmware inputs changed, and Build XY-C1, TRX verification and artifact upload all PASS.
-2. Confirm exact-head Process inventory/lifecycle and AI docs workflows remain PASS; they passed on parent `a9045ebfad153b0ea382f0ba1262b43760a27b5e`.
-3. Only after same-SHA Build/TRX/artifact success claim L3 for the MiniUPnPd firmware-preparation production source `4bc110b...`; hardware flashing/L4 remains NOT VERIFIED.
-4. Continue the stability ledger with an independent source fix while Actions are pending; preserve the frozen backup branch.
+1. Inspect current exact-head XY-C1 detector test and run. Require NUL-delimited full-diff test PASS, detector output `changed=true`, and Build XY-C1/TRX/artifact PASS.
+2. Poll parent XY #46114803850 and AI docs #46114803857; parent Process #46114471884 and AI docs #46114471878 PASS.
+3. Claim L3 for the MiniUPnPd firmware-preparation source only if production Build/TRX/artifact all pass on the exact current SHA; physical router/L4 remains NOT VERIFIED.
+4. Continue an independent P1 source fix while any exact-SHA run is pending.
 
 # Cross-session execution mandate
 
