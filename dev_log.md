@@ -1,3 +1,11 @@
+## 2026-11-28 12:10 CST (UTC+8) — Align handoff headings and cross-session gate with validator
+
+- The AI handoff documentation contract on docs SHA `bbd09ac2ce47b99468795e4df4f497098d07f3da` failed at its handoff section checks: required canonical section headings and the exact cross-session execution heading/phrases were absent, although the underlying facts were present.
+- THIS documentation-only correction makes the handoff conform to the live validator without weakening the checker: adds canonical repository/verification/active-task/next-action headings and explicitly states one atomic main commit plus the before-context-exhaustion checkpoint.
+- No product source, tests, firmware settings or workflow triggers changed. Exact-head AI documentation validation on this commit is required; no local checkout was available.
+
+---
+
 ## 2026-11-28 12:01 CST (UTC+8) — Verify IAPP monotonic hardening and repair handoff checkpoint contract
 
 - Product-source/test baseline: `7daa20cd2f1bd7abca4499fb9f9a6e05ce5d3d00`. Exact-main IAPP lifecycle #46096900784, Process inventory #46096900769 and NVRAM transaction audit #46096900816 all PASS.

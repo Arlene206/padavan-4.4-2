@@ -9,7 +9,7 @@
 
 # Session Handoff — 2026-11-28
 
-## Repository and branch baseline
+## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; all development and validation are on `main` only.
 - Live main before this documentation checkpoint: `7daa20cd2f1bd7abca4499fb9f9a6e05ce5d3d00`. The product-source baseline remains this SHA; the commit containing this handoff refresh is documentation-only. At the next takeover, fetch live main and do not treat a docs-only tip as a new source baseline.
@@ -47,7 +47,7 @@ Every session MUST inspect the live repository state and compare it with this ha
 - The storage checker was corrected to match lstat-based target validation and validated `force_first_valid` forwarding. The earlier run `#46095697039` passed on `db92b3164321618e559051b471f560c7a863d25d`; that run's firmware build steps were not a substitute for the later full L3 result on `7daa20cd`.
 - Do not repeat the completed media-publisher audit without new evidence.
 
-## Exact-head validation and current blockers
+## Verification boundary
 
 For product-source SHA `7daa20cd2f1bd7abca4499fb9f9a6e05ce5d3d00`:
 
@@ -70,18 +70,24 @@ For product-source SHA `7daa20cd2f1bd7abca4499fb9f9a6e05ce5d3d00`:
 - Reviewed all substantive changed source/test/workflow paths. The HMAC helper C source, its Makefile, package Makefile and HMAC regression are byte-identical between the PR head and main. Current main's expanded AliDDNS script uses the helper; current CA bootstrap publisher, checker, regression and workflow contain the PR's trust-store behavior plus later hardening.
 - No missing production/test/build change was identified for porting. PR #1 is already closed; do not resume work on its deleted/legacy head or reopen it just to continue development.
 
-## Active task and exact first actions
+## Active task
+
+The next engineering slice is the P1 VSFTPD stop/restart cleanup defect described below: firewall/UPnP reconciliation and successful-stop reporting must wait until a complete process inventory confirms the daemon is ABSENT; preserve the original stop error and fail closed on UNKNOWN.
+
+## Exact first action for the next GPT
 
 1. Re-fetch live `main`, then inspect the AI handoff documentation workflow for the new documentation commit. The previous exact-head run `#46096900817` failed at `scripts/check_ai_handoff_docs.py` because the handoff lacked the two required checkpoint strings. This commit adds both. If the new exact-head run fails, inspect its first causal log line and correct the actual contract; do not weaken the checker.
 2. After the handoff workflow is green, continue the next P1 user-space stability item in the roadmap: VSFTPD stop/restart cleanup. The stated defect is that firewall/UPnP reconciliation and stop success must occur only after procfs confirms the daemon is ABSENT; preserve the original stop error and fail closed on UNKNOWN. Start by tracing the current VSFTPD launch/stop functions, their RC callers, and the dedicated regression/workflow inputs. Add a regression for each missing outcome before changing production code.
 3. Do not wait for unrelated pending Actions. Do not re-audit completed IAPP, DHCP, generic process inventory, watchdog or storage slices without a new failing case.
 
-## Validation and publication rules
+# Cross-session execution mandate
 
 - Only `main` is an authorized development branch. Create no feature/checkpoint branches and no pull requests. Keep the frozen backup immutable.
-- For each multi-file engineering slice, create all blobs, one complete tree and one commit with the latest main as sole parent; advance main with `force:false` and `expected_sha` equal to that parent. Never use sequential file commits, force-push, amend or rewrite published history.
+- For each multi-file engineering slice, create all blobs and one complete tree, then publish one atomic main commit with the latest main as sole parent; advance main with `force:false` and `expected_sha` equal to that parent. Never use sequential file commits, force-push, amend or rewrite published history.
 - Re-fetch main immediately before each write. If compare-and-swap rejects because main moved, inspect the new head, rebuild/retest on top of it, and retry without force.
 - Inspect push-triggered Actions by exact `head_sha`. PASS permits the next slice; FAIL must be diagnosed/fixed; PENDING does not block independent engineering.
+
+Before context exhaustion, stop starting new modules, finish and publish a safe bounded slice, then leave this handoff with the exact first action, validation boundary and committed baseline.
 - Run the local handoff-doc validator when a checkout is available. This session had no local checkout; the exact-head GitHub Actions workflow is the validation gate for the docs correction.
 - Keep the root dev log at 20–119 complete records; it had 72 records before this entry, so no archive rotation is due. Do not add handoff/roadmap archive snapshots.
 - Do not change GPT Session Rotator or replay its existing state/SHA. Do not claim hardware validation or a successful build when steps were skipped.
