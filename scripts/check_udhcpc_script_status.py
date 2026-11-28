@@ -349,10 +349,35 @@ assert "if (code == DHCP_LEASE_TIME)" in fill_envp
 assert "udhcp_get_option32(packet, code)" in fill_envp
 assert "udhcpc_lease_time_effective(" in fill_envp
 assert 'xasprintf("%s=%u", opt_name' in fill_envp
-lease_ack_start = ack.index("temp = udhcp_get_option32(&packet, DHCP_LEASE_TIME);")
-lease_ack = ack[lease_ack_start:ack.index("#if ENABLE_FEATURE_UDHCPC_ARPING", lease_ack_start)]
+lease_ack_start = ack.index(
+    "lease_time_status = udhcp_get_option_with_length("
+)
+lease_ack = ack[lease_ack_start:ack.index(
+    "#if ENABLE_FEATURE_UDHCPC_ARPING", lease_ack_start
+)]
+lease_ack_compact = "".join(lease_ack.split())
+lease_read = lease_ack_compact.index(
+    "lease_time_status=udhcp_get_option_with_length(&packet,DHCP_LEASE_TIME,&lease_time_option,&lease_time_length)"
+)
+lease_length_check = lease_ack_compact.index(
+    "udhcpc_lease_time_option_status_valid(lease_time_status,lease_time_length)"
+)
+lease_bad_retry = lease_ack_compact.index(
+    "udhcpc_script_failure_prepare_retry(state==REQUESTING,tryagain_timeout,0,&timeout,&already_waited_sec,&packet_num)"
+)
+lease_default = lease_ack_compact.index("lease_time_status==0")
+lease_decode = lease_ack_compact.index(
+    "move_from_unaligned32(lease_seconds,lease_time_option)"
+)
+assert lease_read < lease_length_check < lease_bad_retry < lease_default < lease_decode
 assert "udhcpc_lease_time_effective(0U, 0)" in lease_ack
 assert "udhcpc_lease_time_effective(" in lease_ack
+assert "udhcp_get_option32(&packet, DHCP_LEASE_TIME)" not in ack
+assert "udhcpc_lease_time_option_status_valid(int lookup_status," in policy
+assert "lookup_status == 0 ? option_length == 0U" in policy
+assert "lookup_status == 1 && option_length == sizeof(uint32_t)" in policy
+assert "test_lease_time_option_requires_exactly_one_uint32" in test
+assert "test_lease_time_option_requires_exactly_one_uint32() != 0" in "".join(test.split())
 assert "lease_seconds < 0x10" not in lease_ack
 assert "lease_seconds >= 0x10000000" not in lease_ack
 assert "UDHCP_LEASE_TIME_DEFAULT_SECONDS 3600U" in policy

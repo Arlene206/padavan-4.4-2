@@ -196,6 +196,24 @@ static int test_effective_lease_time_bounds_match_client_timer(void)
 }
 
 static int
+test_lease_time_option_requires_exactly_one_uint32(void)
+{
+	/* Omission is still accepted and gets the existing one-hour default. */
+	CHECK(udhcpc_lease_time_option_status_valid(0, 0U));
+	CHECK(udhcpc_lease_time_option_status_valid(1, sizeof(uint32_t)));
+
+	/* Malformed parser status and every present non-four-byte value fail. */
+	CHECK(!udhcpc_lease_time_option_status_valid(-1, 0U));
+	CHECK(!udhcpc_lease_time_option_status_valid(2, sizeof(uint32_t)));
+	CHECK(!udhcpc_lease_time_option_status_valid(1, 0U));
+	CHECK(!udhcpc_lease_time_option_status_valid(1, 1U));
+	CHECK(!udhcpc_lease_time_option_status_valid(1, 3U));
+	CHECK(!udhcpc_lease_time_option_status_valid(1, 5U));
+	CHECK(!udhcpc_lease_time_option_status_valid(0, sizeof(uint32_t)));
+	return 0;
+}
+
+static int
 test_successful_event_script_consumes_only_the_elapsed_lease_time(void)
 {
 	int timeout;
@@ -701,6 +719,7 @@ int main(void)
 	    test_subnet_mask_requires_contiguous_network_bits() != 0 ||
 	    test_option_bitmap_mask_uses_unsigned_high_bit() != 0 ||
 	    test_effective_lease_time_bounds_match_client_timer() != 0 ||
+	    test_lease_time_option_requires_exactly_one_uint32() != 0 ||
     test_successful_event_script_consumes_only_the_elapsed_lease_time() != 0 ||
 	    test_nak_only_deconfigures_an_active_lease() != 0 ||
 	    test_ack_server_id_filter_respects_selected_server() != 0 ||

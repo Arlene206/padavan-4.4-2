@@ -1,3 +1,11 @@
+## 2026-11-28 — Reject malformed DHCPACK lease-time option lengths
+
+- Found a malformed-presence ambiguity in DHCPACK parsing: `udhcp_get_option32()` returns NULL both when option 51 is absent and when present with a non-four-byte length (including zero). The old code treated all such cases as "no lease time" and silently published a one-hour lease. That fallback remains for a truly absent option, but malformed presence must not be equivalent to absence.
+- Switched the ACK path to the length-reporting option parser. Accept only status=absent/length=0 or status=present/length=4; reject malformed parser status and every other length, defer the ACK and use the existing acquisition/renewal retry policy. The four-byte value remains unaligned-safe and network-byte-order decoded; the legacy one-hour omission fallback is unchanged.
+- Added GNU89 policy tests for absent, valid four-byte, malformed parser status, zero/one/three/five-byte and contradictory absent-length cases; added source-contract assertions for validation before decode/default. Local isolated GNU89/Werror/ASan/UBSan check PASS; exact-head udhcpc and XY-C1 Actions pending.
+
+---
+
 ## 2026-11-28 — Bind Shadowsocks watchdog recovery to executable identity
 
 - `ss-monitor` previously inferred daemon health from `ps | grep` command text. It could count unrelated commands, and its `ssr-retcp/reudp` strings are PID-file labels rather than actual `ss-redir/ssr-redir` executable names.

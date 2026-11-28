@@ -1,33 +1,35 @@
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; active branch `main`. Mandatory startup recovery was completed once; do not repeat the initial audit.
-- Current engineering parent for the Shadowsocks watchdog slice: `1e30efeb62d96cd2fe64d1fa41e03d97d34cde81`. The exact-head AI handoff documentation correction on this SHA passed workflow #46150253122.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains an immutable archive; do not modify. PR #1 remains closed/unmerged and the CA trust-store feature is already integrated.
+- Repository: `Arlene206/padavan-4.4-2`; active branch `main`. Startup protocol and one-time handoff recovery are complete; do not repeat the initial audit.
+- Current parent: `942f53201f14dcf7130cdae3c356fc87d53d1f2a`. Latest parent change binds Shadowsocks watchdog health to executable+argv identity; exact-head Shadowsocks regression #46152116157, AI handoff #46152116150 and Process inventory #46152116314 PASS.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify. PR #1 remains closed/unmerged; CA trust-store feature is integrated.
 
 ## Active task
 
-- Replace the remaining `ps | grep` daemon-health counts in `trunk/user/shadowsocks/scripts/ss-monitor` with exact role-specific executable identity. The old `ssr-retcp/reudp` strings are PID-file labels, not executable names; moreover, TCP/UDP/local workers can share one binary, so executable name alone is insufficient. The bounded slice maps each role to its real executable and unique config argv token, counts that identity, and adds shell plus source-contract regressions.
-- Preserve tri-state semantics: confirmed absence is a successful zero count and may initiate recovery; incomplete procfs, malformed metadata or a same-comm foreign executable must log and skip that individual recovery path. A different configured role using the same executable must not count as this role.
+- Reject malformed DHCPACK lease-time option 51 while preserving the compatibility fallback for a truly absent option. Previous `udhcp_get_option32()` maps absent and present-but-wrong-length (including zero-length) to the same NULL result; the old ACK path incorrectly accepted malformed presence as a fabricated one-hour lease.
+- New ACK parsing uses `udhcp_get_option_with_length()`: accept only status=0/length=0 (absent) or status=1/length=4 (valid 32-bit lease time). Parser errors and any present non-four-byte length defer ACK and follow the existing acquisition/renewal retry policy. The four-byte value remains unaligned-safe and network-order decoded; absent still uses the legacy one-hour fallback.
+- Added GNU89 policy tests for absent, valid 4-byte, malformed parser status, zero/one/three/five-byte and contradictory status/length pairs. Checker ensures validation/deferral precede fallback/decode. Isolated GNU89/Werror/ASan/UBSan test PASS. Exact-head source workflow, AI documentation and XY-C1 checks pending.
 
-## Exact-SHA CI checkpoint
+## Exact-SHA CI checkpoint before this DHCPACK source slice
 
-- Baseline `1e30efeb62d96cd2fe64d1fa41e03d97d34cde81`: AI handoff documentation workflow #46150253122 PASS on the exact `main` push SHA.
-- Production SHA `9fc0a65fdff1a8c315119200efb1976e6e9d181d`: networkmap regression #46149948622 PASS; Process inventory #46149948705 PASS; NVRAM transaction boundary #46149948646 PASS. AI docs #46149948625 failed only on the subsequently repaired handoff wording.
-- XY-C1 firmware workflow #46149948587 is PENDING/in progress for exact SHA `9fc0a65fdff1a8c315119200efb1976e6e9d181d`; Build/TRX/artifact must all complete on one production SHA before any L3 claim. It does not block this independent Shadowsocks work.
-- The current Shadowsocks source slice is part of the commit being created from the baseline above; its exact-head Actions status must be inspected after the ref update.
+- DHCP discovery zero-timeout guard SHA `1e30efeb62d96cd2fe64d1fa41e03d97d34cde81`: udhcpc workflow #46151496786 PASS; AI docs #46151496809 PASS; WAN DHCP #46151496793 PASS; storage hotplug #46151496821 PASS; DHCPv6 reply retry #46151496828 PASS; NVRAM #46151496810 PASS; process inventory #46151496829 PASS; WAN monitor #46151496897 PASS. XY-C1 #46151496815 remains in progress.
+- Latest pre-change SHA `942f53201f14dcf7130cdae3c356fc87d53d1f2a`: Shadowsocks lifecycle regression #46152116157 PASS; AI docs #46152116150 PASS; Process inventory #46152116314 PASS. XY-C1 #46152116153 remains in progress. The firmware build result must be checked for an exact production SHA and includes Build/TRX/artifact before claiming L3.
+- Earlier networkmap ProductID fix SHA `9fc0a65fdff1a8c315119200efb1976e6e9d181d`: exact L1-L3 pass, including networkmap regression and XY-C1 Build/TRX/artifact. This is not the newer DHCP/Shadowsocks production tree.
+- Physical-router L4 remains NOT VERIFIED.
 
 ## Verification boundary
 
-- The existing process stop path binds signals to captured PID/start-time plus executable identity. This change extends the same fail-closed model to watchdog health and distinguishes roles sharing one executable by checking a complete argv token.
-- No local checkout is available in this session; local shell execution and `python3 scripts/check_shadowsocks_lifecycle.py` are NOT RUN. Exact-head GitHub Actions is required for shell regression, `sh -n`, and source contract.
-- XY-C1 L3 for the current source baseline is not established here; physical router L4 is NOT VERIFIED.
+- L1: isolated GNU89/Werror/ASan/UBSan DHCP lease option status/length test PASS.
+- L2: exact-head udhcpc checker and host regression for this DHCPACK change: PENDING.
+- L3: exact-head XY-C1 Build/TRX/artifact for the current production tree: PENDING.
+- L4: physical-router runtime/network behavior NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect the Shadowsocks lifecycle push workflow for the exact SHA created by this slice. Require its shell regression, shell syntax checks and Python source contract to PASS; repair any real failure on a new atomic main commit.
-2. Recheck XY-C1 run #46149948587 and report its exact SHA plus Build, TRX and artifact outcomes; do not transfer a green result from another source SHA.
-3. Continue the next highest-value userland stability defect outside already completed NVRAM, networkmap packet-field and process-watchdog slices; do not repeat those audits without fresh evidence.
-4. Keep the frozen backup untouched and preserve complete-tree, non-forced expected-SHA commits.
+1. Inspect exact-head Actions for this DHCPACK lease-time commit: udhcpc source-contract/host tests, AI handoff documentation and XY-C1 Build/TRX/artifact; also recheck whether XY-C1 run #46152116153 at the parent has finished.
+2. On any checker/unit failure, diagnose its exact assertion and make the smallest causal source/test correction in one complete-tree atomic commit. If firmware is pending, keep progressing another independent stability/security slice.
+3. Continue the DHCP client/AP-mode investigation only where source evidence supports another concrete defect. Preserve the separate zero-timeout discovery guard and do not repeat completed networkmap/NVRAM audits without new evidence.
+4. Keep the frozen backup unchanged. Distinguish CI L1-L3 from physical-router L4.
 
 ## Mandatory end-of-session handoff checkpoint
 

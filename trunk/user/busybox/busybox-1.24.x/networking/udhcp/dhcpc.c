@@ -2095,6 +2095,9 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 				uint8_t *server_id_option;
 				unsigned int server_id_length;
 				int server_id_status;
+				uint8_t *lease_time_option;
+				unsigned int lease_time_length;
+				int lease_time_status;
 				const char *script_name;
 				int script_status, lease_plan_status, deconfig_status;
 
@@ -2122,13 +2125,23 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 						&already_waited_sec, &packet_num);
 					continue;
 				}
-				temp = udhcp_get_option32(&packet, DHCP_LEASE_TIME);
-				if (!temp) {
+				lease_time_status = udhcp_get_option_with_length(
+					&packet, DHCP_LEASE_TIME, &lease_time_option,
+					&lease_time_length);
+				if (!udhcpc_lease_time_option_status_valid(
+					    lease_time_status, lease_time_length)) {
+					bb_error_msg("invalid DHCP lease time option; deferring ACK");
+					udhcpc_script_failure_prepare_retry(state == REQUESTING,
+						tryagain_timeout, 0, &timeout,
+						&already_waited_sec, &packet_num);
+					continue;
+				}
+				if (lease_time_status == 0) {
 					bb_error_msg("no lease time with ACK, using 1 hour lease");
 					lease_seconds = udhcpc_lease_time_effective(0U, 0);
 				} else {
 					/* it IS unaligned sometimes, don't "optimize" */
-					move_from_unaligned32(lease_seconds, temp);
+					move_from_unaligned32(lease_seconds, lease_time_option);
 					lease_seconds = ntohl(lease_seconds);
 					lease_seconds = udhcpc_lease_time_effective(
 						lease_seconds, 1);

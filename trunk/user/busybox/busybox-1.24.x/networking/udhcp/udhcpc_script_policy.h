@@ -153,6 +153,20 @@ udhcpc_lease_time_effective(uint32_t lease_seconds, int option_valid)
 }
 
 /*
+ * An absent lease-time option keeps the legacy one-hour default. A present
+ * option is valid only when it contains exactly one network-order uint32;
+ * malformed presence must never be mistaken for an omitted option.
+ * Lookup status: -1 malformed, 0 absent, 1 present.
+ */
+static inline int
+udhcpc_lease_time_option_status_valid(int lookup_status,
+				      unsigned int option_length)
+{
+	return lookup_status == 0 ? option_length == 0U :
+		lookup_status == 1 && option_length == sizeof(uint32_t);
+}
+
+/*
  * The bound/renew script runs after a DHCPACK but consumes lease time. Before
  * T1, charge its runtime against the initial wait. At/after T1, begin renewal
  * immediately but retain only the actual lease time left for retries. Never
