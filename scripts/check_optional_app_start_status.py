@@ -17,6 +17,7 @@ RC_SOURCE = ROOT / "trunk/user/rc/src/rc.c"
 IAPPD_SCRIPT = ROOT / "trunk/user/ralinkiappd/iappd.sh"
 ARIA2_SCRIPT = ROOT / "trunk/user/aria2/aria.sh"
 ARIA2_MAKEFILE = ROOT / "trunk/user/aria2/Makefile"
+ARIA2_NVRAM_TEST = ROOT / "trunk/user/aria2/tests/aria2_nvram_read_fail_closed.sh"
 IAPPD_TEST = ROOT / "trunk/user/ralinkiappd/tests/iappd_lifecycle.sh"
 IAPPD_MAKEFILE = ROOT / "trunk/user/ralinkiappd/Makefile"
 PROCESS_WORKFLOW = ROOT / ".github/workflows/process-lifecycle-regression.yml"
@@ -1366,6 +1367,17 @@ def check_aria2_reload():
     assert "aria_stat_start_time" in source
     assert "pidof aria2c" not in source
     assert "killall -q aria2c" not in source
+    assert "aria_read_start_settings()" in source
+    assert "nvram get_checked aria_pport" in source
+    assert "nvram get_checked aria_rport" in source
+    assert "nvram get_checked http_proto" in source
+    assert "nvram get aria_pport" not in source
+    assert "nvram get aria_rport" not in source
+    assert "nvram get http_proto" not in source
+    assert 'if [ "$aria_http_proto" != "0" ]; then' in source
+    start_body = source[source.index("func_start()"):source.index("\nfunc_stop()", source.index("func_start()"))]
+    assert start_body.index("if aria_read_start_settings; then") < start_body.index("DIR_CFG=")
+    assert start_body.index("if aria_read_start_settings; then") < start_body.index('touch "$FILE_LIST"')
 
     syntax = run(["/bin/sh", "-n", str(ARIA2_SCRIPT)], os.environ.copy())
     assert syntax.returncode == 0, syntax.stderr
@@ -1384,6 +1396,13 @@ def check_aria2_reload():
     assert result.returncode == 0, result.stdout + result.stderr
     assert "Aria2 malformed procfs fails closed for all lifecycle operations: PASS" in result.stdout
     assert "Aria2 default HTTPS certificate verification is enabled: PASS" in result.stdout
+    nvram_test = ARIA2_NVRAM_TEST
+    assert nvram_test.is_file()
+    nvram_syntax = run(["/bin/sh", "-n", str(nvram_test)], os.environ.copy())
+    assert nvram_syntax.returncode == 0, nvram_syntax.stderr
+    nvram_result = run(["/bin/sh", str(nvram_test)], os.environ.copy())
+    assert nvram_result.returncode == 0, nvram_result.stdout + nvram_result.stderr
+    assert "Aria2 checked NVRAM ports and HTTP protocol fail closed before storage mutation: PASS" in nvram_result.stdout
 
 
 

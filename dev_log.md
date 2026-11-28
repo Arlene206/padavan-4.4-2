@@ -1,3 +1,11 @@
+## 2026-11-28 — Fail closed on Aria2 NVRAM startup reads
+
+- `aria.sh` used unchecked `nvram get` command substitutions for peer/listen ports and `http_proto`. A failed backend read could be mistaken for an empty value, silently applying port defaults or selecting TLS based on an unverified selector.
+- Added `aria_read_start_settings()` to obtain all three settings via `nvram get_checked`, preserve backend status, and only apply 16888/6800 defaults to successful empty port values. `func_start` now executes this snapshot before storage directory checks, session-list touch, config/secret generation, permission changes or daemon launch. The TLS selection consumes the same checked `aria_http_proto` snapshot.
+- Added regression coverage injecting status 41/42/43 for each setting, exact read order, no storage side effect on failed reads, preservation of successful empty defaults and non-empty values. Wired the test through `check_optional_app_start_status.py` and the Process workflow's push/PR path filters.
+- Parent: `7e50fa510ebc14d98442ded1cd8caa1e93085147`; the Transmission fixture follow-up Process #46140791596 and Process inventory #46140791606 were IN_PROGRESS at last poll; AI docs #46140791629 was IN_PROGRESS. This Aria2 patch needs fresh exact-SHA Actions.
+
+---
 ## 2026-11-28 — Repair Transmission NVRAM fixture bootstrap
 
 - Process run #46140572054 on `1ac1fa0919f95e11474325e344d19de89142025d` failed in the new Transmission NVRAM test before reaching production logic: the fixture wrote `bin/nvram` before creating its `bin` directory. Moved directory creation ahead of stub creation and made grep option terminators explicit for `-u` / `-v` argument assertions.

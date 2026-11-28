@@ -412,6 +412,36 @@ aria_secure_rpc_config()
 	logger -t "$SVC_NAME" "Migrated unauthenticated all-interface RPC config; set AriaNg RPC Secret Token from aria2.rpc-secret" >/dev/null 2>&1 || true
 	return 0
 }
+aria_read_start_settings()
+{
+	if aria_pport=$(nvram get_checked aria_pport); then
+		:
+	else
+		aria_nvram_status=$?
+		logger -t "$SVC_NAME" "Cannot read NVRAM setting aria_pport (status=$aria_nvram_status)" >/dev/null 2>&1 || true
+		return "$aria_nvram_status"
+	fi
+	if aria_rport=$(nvram get_checked aria_rport); then
+		:
+	else
+		aria_nvram_status=$?
+		logger -t "$SVC_NAME" "Cannot read NVRAM setting aria_rport (status=$aria_nvram_status)" >/dev/null 2>&1 || true
+		return "$aria_nvram_status"
+	fi
+	if aria_http_proto=$(nvram get_checked http_proto); then
+		:
+	else
+		aria_nvram_status=$?
+		logger -t "$SVC_NAME" "Cannot read NVRAM setting http_proto (status=$aria_nvram_status)" >/dev/null 2>&1 || true
+		return "$aria_nvram_status"
+	fi
+
+	# Only successful empty reads use the existing defaults.
+	[ -n "$aria_rport" ] || aria_rport="6800"
+	[ -n "$aria_pport" ] || aria_pport="16888"
+	return 0
+}
+
 func_start()
 {
 	# Procfs must confirm absence before a new daemon can be launched.
@@ -424,6 +454,14 @@ func_start()
 		1) ;;
 		*) echo "[FAILED]"; logger -t "$SVC_NAME" "Cannot start: daemon identity is unknown" >/dev/null 2>&1 || true; return 2 ;;
 	esac
+
+	if aria_read_start_settings; then
+		:
+	else
+		aria_nvram_status=$?
+		echo "[FAILED]"
+		return "$aria_nvram_status"
+	fi
 
 	echo -n "Starting $SVC_NAME:."
 
@@ -452,11 +490,6 @@ func_start()
 		return 1
 	fi
 
-	aria_pport=`nvram get aria_pport`
-	aria_rport=`nvram get aria_rport`
-
-	[ -z "$aria_rport" ] && aria_rport="6800"
-	[ -z "$aria_pport" ] && aria_pport="16888"
 
 	if [ ! -f "$FILE_CONF" ] ; then
 		if ! aria_load_or_create_rpc_secret; then return 1; fi
@@ -547,7 +580,7 @@ EOF
 	# aria2 needed home dir
 	export HOME="$DIR_CFG"
 
-	if [ "`nvram get http_proto`" != "0" ]; then
+	if [ "$aria_http_proto" != "0" ]; then
 		SVC_ROOT=1
 		SSL_OPT="--rpc-secure=true --rpc-certificate=/etc/storage/https/server.crt --rpc-private-key=/etc/storage/https/server.key"
 	else
