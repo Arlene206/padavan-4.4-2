@@ -217,19 +217,22 @@ for forbidden_commit in (
     "state = BOUND;",
 ):
     assert forbidden_commit not in ack[script_call:retry_continue], forbidden_commit
+lease_script_plan_commit = ack.index(
+    "lease_plan_status = udhcpc_lease_script_plan(lease_seconds,", retry_continue)
+lease_expiry_commit = ack.index("if (lease_plan_status != 0)", lease_script_plan_commit)
+lease_cleanup_commit = ack.index('deconfig_status = udhcp_run_script(NULL, "deconfig");',
+                                 lease_expiry_commit)
+lease_cleanup_retry = ack.index("udhcpc_schedule_deconfig_retry(INIT_SELECTING, 0,",
+                                lease_cleanup_commit)
+lease_cleanup_continue = ack.index("continue;", lease_cleanup_retry)
 server_address_commit = ack.index("server_addr = udhcpc_server_addr_after_ack(",
-                                  retry_continue)
-already_waited_commit = ack.index("already_waited_sec = script_elapsed;",
-                                   server_address_commit)
-lease_deadline_commit = ack.index("timeout = lease_seconds / 2;",
-                                  already_waited_commit)
-rebind_deadline_commit = ack.index("rebind_timeout = timeout / 8;",
-                                   lease_deadline_commit)
-requested_ip_commit = ack.index("requested_ip = packet.yiaddr;",
-                                rebind_deadline_commit)
+                                  lease_cleanup_continue)
+rebind_deadline_commit = ack.index("rebind_timeout = timeout / 8;", server_address_commit)
+requested_ip_commit = ack.index("requested_ip = packet.yiaddr;", rebind_deadline_commit)
 bound_transition = ack.index("state = BOUND;", requested_ip_commit)
-assert (retry_continue < server_address_commit < already_waited_commit <
-        lease_deadline_commit < rebind_deadline_commit <
+assert (retry_continue < lease_script_plan_commit < lease_expiry_commit <
+        lease_cleanup_commit < lease_cleanup_retry < lease_cleanup_continue <
+        server_address_commit < rebind_deadline_commit <
         requested_ip_commit < bound_transition)
 assert "state == REBINDING" in ack[server_address_commit:bound_transition]
 assert "server_id_option != NULL" in ack[server_address_commit:bound_transition]

@@ -1,3 +1,11 @@
+## 2026-11-28 — Correct DHCP lease planner integration assertion
+
+- The udhcpc integration check on c94fb8058b32b46b9a3b98c10605772799f82739 failed because its older ordering assertion still searched for `already_waited_sec = script_elapsed` and `timeout = lease_seconds / 2` after the ACK branch had been refactored to call `udhcpc_lease_script_plan()`. The helper now owns those calculations.
+- THIS is checker-only: assert the expiry plan and deconfig retry happen before server/rebind/IP/BOUND commits. No runtime source changed.
+- The standalone GNU89/Werror/ASan/UBSan policy test passed; exact-head integration rerun pending.
+
+---
+
 ## 2026-11-28 — Start DHCP ACK lease accounting before ARP/script work
 
 - Moved the ACK lease start timestamp from immediately before the bound/renew callback to the start of the accepted DHCPACK branch. This includes ARP validation and all ACK handling time in the lease budget; it also prevents failed-renew retry timing from ignoring time spent in ARP validation.

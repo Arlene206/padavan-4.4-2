@@ -1,3 +1,12 @@
+## 2026-11-28 — Correct DHCP lease planner integration assertion
+
+- Exact SHA c94fb8058b32b46b9a3b98c10605772799f82739: GNU89/Werror/ASan/UBSan C policy test PASS; Process inventory/lifecycle, AI docs, WAN DHCP callback and DHCPv6 reply regressions PASS. udhcpc integration checker #46094795076 failed at an obsolete assertion requiring `already_waited_sec = script_elapsed` and a fixed `timeout = lease_seconds / 2`; the new planner correctly computes both values in `udhcpc_lease_script_plan()` and performs expiry cleanup before committing the server/lease state.
+- THIS commit updates only the checker ordering contract to assert planner → expiry/deconfig/DECONFIG_PENDING → server/rebind/IP/BOUND commit. No production source changed.
+- XY-C1 #46094795007 and USB storage #46094794990 were IN_PROGRESS; NVRAM audit #46094795027 was IN_PROGRESS at last poll. Exact-head reruns required.
+- Next independent work: switch optional IAPP event-log polling from wall-clock gettimeofday/timersub to CLOCK_MONOTONIC and add timespec-based regressions.
+
+---
+
 ## 2026-11-28 — Start DHCP ACK lease accounting before ARP/script work
 
 - Follow-up to 2705ffb259efc0e26af1a692641c2ed6e5dd5a6a: found that the new slow-callback lease planner still started its monotonic clock immediately before `bound`/`renew`, excluding the optional ARP conflict probe and preceding ACK processing. A long ARP probe could therefore consume the lease before the clock began.
