@@ -772,8 +772,12 @@ require("storage_service_stop_complete(" in stop_body,
 ftp_stop = body(storage, "stop_ftp_locked(int *final_presence)")
 require("final_state = is_ftp_run();" in ftp_stop and
         "*final_presence = final_state;" in ftp_stop and
-        "storage_service_stop_complete(status, final_state)" in ftp_stop,
-        "FTP stop must preserve final tri-state presence separately from stop-command status")
+        "result = ftp_stop_status_result(status, final_state);" in ftp_stop and
+        "stop_errno = errno;" in ftp_stop and
+        "probe_errno = errno;" in ftp_stop and
+        "return result;" in ftp_stop and
+        "ftp_stop_status_result(int command_status, int final_presence)" in ftp_policy,
+        "FTP stop must preserve the detailed command result and final tri-state presence")
 ftp_start = body(storage, "run_ftp(void)")
 require("process_state != PROCESS_PRESENCE_ABSENT" in ftp_start and
         "PROCESS_PRESENCE_RUNNING" in ftp_start,
@@ -830,8 +834,12 @@ for daemon, signature in (
 ftp_stop = body(storage, "stop_ftp_locked(int *final_presence)")
 require("final_state = is_ftp_run();" in ftp_stop and
         "*final_presence = final_state;" in ftp_stop and
-        "storage_service_stop_complete(status, final_state)" in ftp_stop,
-        "FTP stop must preserve final tri-state presence separately from stop-command status")
+        "result = ftp_stop_status_result(status, final_state);" in ftp_stop and
+        "stop_errno = errno;" in ftp_stop and
+        "probe_errno = errno;" in ftp_stop and
+        "return result;" in ftp_stop and
+        "ftp_stop_status_result(int command_status, int final_presence)" in ftp_policy,
+        "FTP stop must preserve the detailed command result and final tri-state presence")
 ftp_start = body(storage, "run_ftp(void)")
 require("process_state != PROCESS_PRESENCE_ABSENT" in ftp_start and
         "PROCESS_PRESENCE_RUNNING" in ftp_start,
@@ -906,17 +914,18 @@ for function, label in ((storage_stop, "stop"), (storage_start, "start")):
             "firewall_status = restart_firewall();" in function,
             "storage " + label + " must rebuild firewall from checked configuration")
 ftp_stop_reconcile = body(ftp_policy, "ftp_storage_stop_needs_firewall_refresh(")
-require("ftp_was_present = is_ftp_run() != PROCESS_PRESENCE_ABSENT;" in storage_stop and
+require("ftp_stop_status = stop_ftp_locked(&ftp_final_presence);" in storage_stop and
+        "stop_status = storage_service_stop_status_merge(stop_status, ftp_stop_status);" in storage_stop and
         re.search(
-            r"ftp_storage_stop_needs_firewall_refresh\s*\(\s*ftp_was_present\s*,\s*ftp_final_presence\s*\)",
+            r"ftp_storage_stop_needs_firewall_refresh\s*\(\s*ftp_final_presence\s*\)",
             storage_stop,
         ) is not None and
-        "return was_present != 0 ||" in ftp_stop_reconcile and
-        "ftp_stop_should_reconcile_firewall(final_presence)" in ftp_stop_reconcile and
-        "ftp_storage_stop_needs_firewall_refresh(1," in ftp_test and
-        "ftp_storage_stop_needs_firewall_refresh(0," in ftp_test and
-        "PROCESS_PRESENCE_UNKNOWN" in ftp_test,
-        "storage FTP stop must preserve pre-stop uncertainty and delegate final-state reconciliation to its tested policy")
+        "return ftp_stop_should_reconcile_firewall(final_presence);" in ftp_stop_reconcile and
+        "ftp_storage_stop_needs_firewall_refresh(PROCESS_PRESENCE_ABSENT)" in ftp_test and
+        "ftp_storage_stop_needs_firewall_refresh(PROCESS_PRESENCE_RUNNING)" in ftp_test and
+        "ftp_storage_stop_needs_firewall_refresh(PROCESS_PRESENCE_UNKNOWN)" in ftp_test and
+        "storage_service_stop_status_merge(-2, -3) == -2" in ftp_test,
+        "storage FTP stop must preserve detailed failure and reconcile only after final confirmed absence")
 require("ftp_run_before = is_ftp_run();" in storage_start and
         "ftp_run_after = is_ftp_run();" in storage_start and
         "ftp_firewall_reconcile_needed(ftp_run_before, ftp_run_after)" in storage_start and

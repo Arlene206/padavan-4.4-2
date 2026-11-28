@@ -61,6 +61,10 @@ Every session MUST inspect the live repository state and compare it with this ha
 - The only Shadowsocks job failure was the final Python source-contract check: it expected two literal backslashes for the `tr` NUL/newline translation while the production helper correctly contains one. THIS checker-only commit changes the Python literal to match the source. Exact-main rerun pending.
 - The old AI-docs run #46079286331 failed because the roadmap exceeded the 128 KiB documentation hard limit. Later main checkpoint #46106904624 and latest #46107190369 passed the handoff-doc contract, so this is historical and does not need redoing.
 
+### Storage hotplug caller-graph checker — remaining stale FTP contracts
+
+- Run #46107190352 passed the whole storage caller graph (including the previous two workflow-embedded FTP assertions) and then failed in `scripts/check_storage_safe_remove.py` at the FTP stop contract. That external checker still expected `storage_service_stop_complete(status, final_state)` in two duplicated sections and the retired `ftp_was_present` override. THIS commit updates all stale assertions to the tested `ftp_stop_status_result`, first-error aggregation, and final-ABSENT-only firewall gate. Host storage policy and workflow tests before this last checker passed.
+
 ## Verification boundary
 
 For product-source SHA `7daa20cd2f1bd7abca4499fb9f9a6e05ce5d3d00`:
@@ -98,8 +102,8 @@ The P1 VSFTPD final-absence stop gate is implemented and its dedicated GNU89/ASa
 
 ## Exact first action for the next GPT
 
-1. Poll storage-hotplug rerun #46107190352 on prior main `e1bd1892de53163bf044f636b000f4add5b9d574`; it was still running the BusyBox 1.24 Optware ash lifecycle segment at the last poll. Do not wait: in parallel, verify the Shadowsocks lifecycle and AI handoff exact-head Actions triggered by THIS checker correction. The earlier Shadowsocks #46079286423 runtime tests passed; only a Python checker string-escaping assertion failed, fixed here.
-2. XY-C1 Firmware Validation #46106551564 on product SHA `4dd43a97904e7bec0c8ae094ff7c25ff82312b07` has Build completed PASS; recheck TRX verification and artifact upload (they were not in the workflow's first-page job detail). VSFTPD dedicated L2 run #46106551633 PASS; do not claim L3 until TRX and upload are confirmed.
+1. Check the exact-main Shadowsocks lifecycle and AI docs runs triggered by checker commit `2baf290f67eb662699b9edf6ae1eec97f51f5806`. The earlier #46079286423 runtime tests all passed; the source checker failed only on the Python escape literal, corrected in that commit. Also repair the remaining storage hotplug checker failure from run #46107190352: `scripts/check_storage_safe_remove.py` retained two old FTP stop assertions plus an obsolete pre-stop-presence refresh contract. THIS commit updates those expectations to final-ABSENT-only cleanup and detailed error preservation; exact rerun pending.
+2. VSFTPD product change at `4dd43a97904e7bec0c8ae094ff7c25ff82312b07` has L2 regression #46106551633 PASS and exact XY-C1 #46106551564 PASS: Build, TRX verification and artifact upload all succeeded; artifact #15247998322, 12,837,319 bytes, SHA-256 `9d387a4418292dfbd642f2d0271ec00a4e0227a65ac02e50ef7ce83e3e6f56c9`. This is L3 default XY-C1 evidence; L4 physical-router behavior remains unverified.
 3. iperf3 fail-closed discovery is already L2 verified: regression #46079981839 and Process inventory #46079981918 PASS on `6d659d767e8ac236527ca5cf02f2daedaf386507`; compare confirms the iperf3 source and shared process helper did not change through `4dd43a9`. Proceed to the next open reliability/security item from the current roadmap.
 # Cross-session execution mandate
 

@@ -1,3 +1,12 @@
+## 2026-11-28 13:30 CST (UTC+8) — Align storage safety checker with FTP final-absence stop contract
+
+- Storage-hotplug run #46107190352 on main `e1bd1892de53163bf044f636b000f4add5b9d574` passed the entire embedded whole-storage caller graph after the two workflow assertion fixes, then failed in `scripts/check_storage_safe_remove.py` at its FTP stop postcondition. This third stale contract expected `storage_service_stop_complete(status, final_state)` (twice) and the removed `ftp_was_present` pre-stop refresh exception.
+- THIS change updates all three stale checker blocks to assert `ftp_stop_status_result`, preserved `stop_errno`/probe errno and final procfs presence, first-error group-stop merging, and firewall/UPnP refresh only on final ABSENT. Product source and existing host regressions are unchanged.
+- XY-C1 on exact VSFTPD source SHA `4dd43a97904e7bec0c8ae094ff7c25ff82312b07` completed PASS: Build, TRX and artifact upload; artifact #15247998322 (12,837,319 bytes; SHA-256 `9d387a4418292dfbd642f2d0271ec00a4e0227a65ac02e50ef7ce83e3e6f56c9`). L3 default XY-C1 verified; physical L4 not run.
+- Checker fix exact-head Actions pending. Shadowsocks procfs runtime tests all passed on `f23be0cff7d7e0d1e942ebcf10094497b73be676`; its separate Python checker escape mismatch was corrected in `2baf290f67eb662699b9edf6ae1eec97f51f5806`, whose exact Actions are pending at this log point.
+
+---
+
 ## 2026-11-28 13:15 CST (UTC+8) — Fix Shadowsocks procfs checker escape mismatch
 
 - Exact source SHA `f23be0cff7d7e0d1e942ebcf10094497b73be676`: Shadowsocks shell syntax, startup-status regression, DNSMasq cleanup regression, process lifecycle fake-procfs runtime regression and adblock config regression all PASS. Process inventory #46079286495 and XY-C1 Firmware Validation #46079286427 PASS.
