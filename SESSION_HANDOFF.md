@@ -1,10 +1,10 @@
-## 2026-11-28 — Reject limited-broadcast DHCP server identifiers (THIS COMMIT)
+## 2026-11-28 — Preserve address-less DHCP compatibility and validate DHCPOFFER server IDs (THIS COMMIT)
 
-- Base main SHA: `6b897adfbe68c7b3ab9d0eb040181b806662e3ef`; this atomic source/test/checker/handoff/log slice rejects an explicitly present 255.255.255.255 DHCP server identifier as well as 0.0.0.0.
-- RFC 2131 §4.1 defines the server identifier as a server identity and destination for future unicast requests; the server must choose a reachable address. A limited-broadcast address is not a usable server endpoint.
-- `udhcpc_server_id_rejected()` is the shared ACK/NAK policy. Regression coverage now includes the invalid broadcast identifier for an address-less offer, an already-selected all-ones identifier, and REBINDING; absent-option compatibility and alternate real server IDs remain unchanged.
-- Parent exact-head udhcpc regression #46109616336 PASS on `c2445cf35c055bee356cd400294736314395f5c2`; this commit's exact-head run and AI handoff docs run are pending. No local test result is claimed.
-- Exact-main HTTPD and AI docs runs #46110148273 and #46110148275 PASS on pre-commit `6b897adfbe68c7b3ab9d0eb040181b806662e3ef`. XY-C1 run #46109982320 for HTTPD source SHA `856fe202e000de0b751c3f1ace304a208e7c0b37` was still building; TRX/artifact pending. Target L3 for that newer source and physical L4 remain NOT VERIFIED.
+- Base main SHA: `7cc7bef24789998d0ebf63436835257a8006baf4`. A source review found the preceding server-ID filter over-rejected explicit 0.0.0.0 even for the documented address-less DHCP-server mode, where no actual server address was selected. This follow-up corrects that without weakening the invalid-endpoint rejection.
+- Explicit 0.0.0.0 now behaves like an absent server-ID option only when `expected_server_id == 0` and the client is not REBINDING. It is rejected if a real server is already selected or during REBINDING. 255.255.255.255 is rejected in every state.
+- DHCPOFFER is validated before REQUESTING: all-ones is discarded before being copied into a DHCPSELECT; absent server ID and explicit 0.0.0.0 remain compatible. GNU89 regression and the checker now pin the compatibility cases and source ordering.
+- Parent SHA `7cc7bef24789998d0ebf63436835257a8006baf4` exact-head udhcpc #46110863007 and AI docs #46110862998 PASS; those tests predate this compatibility fix. THIS commit's exact-head runs are pending. No local test is claimed.
+- Parent process #46110863026 PASS. Storage #46110863015, NVRAM #46110862963 and XY-C1 #46110862988 were still running; do not claim their results or L3 for THIS commit.
 
 ---
 
@@ -33,11 +33,12 @@ Every session MUST inspect the live repository state and compare it with this ha
 
 ### BusyBox udhcpc — current server-ID validation slice (THIS COMMIT)
 
-- Earlier lease-accounting and failed-initial-bound rollback work remains in the production history: ACK-time lease accounting charges script time, initial bound-hook failure deconfigures partial state, and failed cleanup stays in `DECONFIG_PENDING`.
-- Commit `c2445cf35c055bee356cd400294736314395f5c2` rejected explicit 0.0.0.0 server identifiers for ACK and NAK; exact-head BusyBox udhcpc workflow #46109616336 PASS, with Process #46109616357, storage-hotplug #46109616322, NVRAM #46109616330 and XY-C1 #46109616326 also PASS on that SHA.
-- THIS COMMIT extends the same shared policy to reject 255.255.255.255 when the server-ID option is present. The C regression covers both ACK and NAK, normal and REBINDING flows, and refuses to learn a limited-broadcast value even when it matches the current expected-server field. Absent-option compatibility and valid alternate server IDs during REBINDING are preserved.
-- The existing GNU89/Werror/ASan/UBSan host workflow compiles the policy test and runs `scripts/check_udhcpc_script_status.py`; both are triggered by the policy header, regression source and checker. The exact-head run for THIS COMMIT is pending. No local run is claimed.
-- Default XY-C1 L3 passed on parent SHA `c2445cf`, but it does not include the later HTTPD source fix. The newer XY-C1 run #46109982320 for `856fe202e000de0b751c3f1ace304a208e7c0b37` was still in Build with TRX/artifact pending; physical router L4 remains NOT VERIFIED.
+- Earlier lease-accounting and failed-initial-bound rollback work remains in production history: ACK-time lease accounting charges script time, initial bound-hook failure deconfigures partial state, and failed cleanup stays in `DECONFIG_PENDING`.
+- Parent commit `c2445cf35c055bee356cd400294736314395f5c2` rejected explicit 0.0.0.0 ACK/NAK identifiers unconditionally. Review found that this conflicted with the longstanding DHCPOFFER comment and behavior for address-less DHCP servers that explicitly send 0.0.0.0. Parent `7cc7bef24789998d0ebf63436835257a8006baf4` added limited-broadcast rejection and passed its exact-head #46110863007, but its tests did not exercise that compatibility path.
+- THIS COMMIT restores explicit-zero compatibility only when no server address has been selected and the client is not REBINDING; once the client is pinned to a real server, zero remains invalid. Limited-broadcast 255.255.255.255 is always invalid.
+- The DHCPOFFER branch checks the selected server ID before entering REQUESTING, so an all-ones identifier cannot be echoed in DHCPSELECT. Missing and explicit-zero identifiers remain valid address-less modes.
+- GNU89/Werror/ASan/UBSan tests cover ACK/NAK compatibility, normal selected-server and REBINDING filtering, all-ones rejection, and address retention. The source checker asserts DHCPOFFER validation occurs before `state = REQUESTING`. THIS commit's exact-head udhcpc and AI docs Actions are pending; no local run is claimed.
+- Parent exact-head Process #46110863026 and AI docs #46110862998 PASS; storage #46110863015, NVRAM #46110862963 and XY-C1 #46110862988 were still running. No L3 or L4 result is claimed for THIS commit.
 
 ### PID 1 watchdog and shared process lifecycle
 
@@ -101,17 +102,13 @@ For product-source SHA `7daa20cd2f1bd7abca4499fb9f9a6e05ce5d3d00`:
 
 ## Active task
 
-The DHCP server-ID policy's explicit-zero hole was fixed in parent commit `c2445cf`; source inspection then found that an explicitly supplied 255.255.255.255 value could still be accepted and stored as the server destination for later unicast renew/release. THIS COMMIT closes that narrow invalid-endpoint case with ACK/NAK GNU89 regression coverage and an updated source checker. Its exact-main Actions are pending until the push run for THIS COMMIT completes.
-
-Previously stale handoff items are resolved: USB storage hotplug #46109616322 PASS on `c2445cf`, and Shadowsocks lifecycle #46107671018 PASS on `28a6ed3`. VSFTPD #46106551633 passed L2 and XY-C1 #46106551564 passed Build/TRX/artifact on `4dd43a9`. Current-main HTTPD #46110148273 and AI docs #46110148275 both PASS on pre-commit `6b897adfbe68c7b3ab9d0eb040181b806662e3ef`.
-
-The outstanding target-build boundary is HTTPD: XY-C1 run #46109982320 for source SHA `856fe202e000de0b751c3f1ace304a208e7c0b37` remained IN_PROGRESS at the Build step; TRX and artifact upload were pending. The parent `c2445cf` XY-C1 pass predates that HTTPD source change and must not be used as its L3 evidence. No physical-router L4 result exists.
+The previous all-ones filter also exposed a compatibility boundary: Padavan's BusyBox udhcpc intentionally supports legacy DHCP servers that omit option 54 or explicitly return 0.0.0.0. The follow-up now preserves that mode only while there is no selected server, rejects zero once a server is pinned or during REBINDING, always rejects 255.255.255.255, and validates DHCPOFFER before sending DHCPSELECT. New regression and source-order checks are in THIS COMMIT.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`, identify THIS COMMIT's resulting SHA from the top `dev_log.md` entry / commit history, then inspect its exact-head push Actions. Require BusyBox udhcpc event-script regression and AI handoff docs to pass. If either fails, read the causal job log and fix the actual source/test/checker/documentation contract without suppressing tests.
-2. Recheck XY-C1 run #46109982320 on exact source SHA `856fe202e000de0b751c3f1ace304a208e7c0b37`. It was at Build IN_PROGRESS with TRX/artifact pending. If still pending, continue other independent work; if it failed, inspect the build log. Do not claim L3 until Build, TRX and artifact upload all pass for the HTTPD source.
-3. After the DHCP slice is green, resume the highest-risk unfinished item in the roadmap rather than repeating resolved audits. The LAN DHCP client row still identifies leasefail/full live-transition semantics as open; inspect `dhcpc.c` and its existing contracts first, then implement only a concrete gap with a focused regression. Also keep the broader WAN, USB, firewall and process modules in rotation.
+1. Fetch live `main`, identify THIS COMMIT's resulting SHA, and inspect its exact-head BusyBox udhcpc and AI handoff docs runs. Require both PASS. If either fails, inspect the exact job log and correct the source, regression or checker contract without weakening assertions.
+2. Check the parent CI items still IN PROGRESS at last poll: storage-hotplug #46110863015, NVRAM audit #46110862963 and XY-C1 #46110862988, all on parent `7cc7bef24789998d0ebf63436835257a8006baf4`. Treat them as parent-SHA evidence only; if pending continue other independent work, and never claim L3 unless the source SHA includes the complete product fix.
+3. After this compatibility slice passes, continue with an independent open reliability/security item. The roadmap still lists LAN DHCP leasefail/full live-transition semantics; inspect its exact source/host test gap, but don't repeat already-covered lease timing, deconfig rollback, 0.0.0.0 or limited-broadcast policy work.
 4. Keep physical-router L4 separate from host and firmware checks; no live hardware validation has been performed in this checkpoint.
 
 # Cross-session execution mandate
@@ -123,5 +120,5 @@ The outstanding target-build boundary is HTTPD: XY-C1 run #46109982320 for sourc
 
 Before context exhaustion, stop starting new modules, finish and publish a safe bounded slice, then leave this handoff with the exact first action, validation boundary and committed baseline.
 - Run the local handoff-doc validator when a checkout is available. This session had no local checkout; the exact-head GitHub Actions workflow is the validation gate for the docs correction.
-- Keep the root dev log at 20–119 complete records; it had 80 records before this entry and now has 81, so no archive rotation is due. Do not add handoff/roadmap archive snapshots.
+- Keep the root dev log at 20–119 complete records; it had 81 records before this entry and now has 82, so no archive rotation is due. Do not add handoff/roadmap archive snapshots.
 - Do not change GPT Session Rotator or replay its existing state/SHA. Do not claim hardware validation or a successful build when steps were skipped.

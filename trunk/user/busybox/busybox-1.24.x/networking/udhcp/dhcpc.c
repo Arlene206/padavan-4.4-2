@@ -2050,6 +2050,12 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 					/* it IS unaligned sometimes, don't "optimize" */
 					move_from_unaligned32(server_addr, temp);
 				}
+				/* Keep address-less servers compatible, but never select a
+				 * limited-broadcast address as a future unicast destination. */
+				if (udhcpc_server_id_rejected(0, 0, temp != NULL, server_addr)) {
+					log1("received DHCP OFFER with invalid server ID, ignoring packet");
+					continue;
+				}
 				/*xid = packet.xid; - already is */
 				requested_ip = packet.yiaddr;
 

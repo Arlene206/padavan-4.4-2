@@ -262,7 +262,8 @@ static int test_ack_server_id_filter_respects_selected_server(void)
 	/* Preserve address-less DHCP servers when the offer had no server ID. */
 	CHECK(!udhcpc_server_id_rejected(0, 0, 0, 0));
 	CHECK(!udhcpc_server_id_rejected(0, 0, 1, alternate_server));
-	CHECK(udhcpc_server_id_rejected(0, 0, 1, 0));
+	CHECK(!udhcpc_server_id_rejected(0, 0, 1, 0));
+	CHECK(udhcpc_server_id_rejected(0, selected_server, 1, 0));
 	CHECK(udhcpc_server_id_rejected(0, 0, 1, 0xffffffffU));
 	CHECK(udhcpc_server_id_rejected(0, 0xffffffffU, 1, 0xffffffffU));
 
@@ -294,6 +295,7 @@ static int test_ack_updates_server_address_after_rebinding(void)
 	/* Preserve compatibility with an address-less initial offer. */
 	CHECK(udhcpc_server_addr_after_ack(0, 0, 1, alternate_server) ==
 	      alternate_server);
+	CHECK(udhcpc_server_addr_after_ack(0, 0, 1, 0) == 0);
 	CHECK(udhcpc_server_addr_after_ack(0, 0, 0, 0) == 0);
 	return 0;
 }
@@ -306,7 +308,8 @@ static int test_nak_server_id_filter_respects_rebinding_broadcast(void)
 	/* Preserve address-less server compatibility before a server is known. */
 	CHECK(!udhcpc_nak_server_id_rejected(0, 0, 0, 0));
 	CHECK(!udhcpc_nak_server_id_rejected(0, 0, 1, alternate_server));
-	CHECK(udhcpc_nak_server_id_rejected(0, 0, 1, 0));
+	CHECK(!udhcpc_nak_server_id_rejected(0, 0, 1, 0));
+	CHECK(udhcpc_nak_server_id_rejected(0, original_server, 1, 0));
 	CHECK(udhcpc_nak_server_id_rejected(0, 0, 1, 0xffffffffU));
 	CHECK(udhcpc_nak_server_id_rejected(0, 0xffffffffU, 1, 0xffffffffU));
 

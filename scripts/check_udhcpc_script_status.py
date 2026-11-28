@@ -95,6 +95,19 @@ assert "timeout, already_waited_sec) > 0" in dhcpc
 assert "test_select_wait_clamps_elapsed_timeout_before_unsigned_subtraction" in test
 assert "test_select_wait_clamps_elapsed_timeout_before_unsigned_subtraction() != 0" in test
 
+# Validate the selected offer before entering REQUESTING. Address-less
+# servers may omit server ID or explicitly return 0.0.0.0; a limited-broadcast
+# server ID must never be sent back in a SELECT packet.
+offer_start = dhcpc.index("if (*message == DHCPOFFER)")
+offer_end = dhcpc.index("\n\t\t\tcontinue;\n\t\tcase REQUESTING:", offer_start)
+offer = dhcpc[offer_start:offer_end]
+offer_compact = "".join(offer.split())
+offer_id_read = offer_compact.index("temp=udhcp_get_option32(&packet,DHCP_SERVER_ID)")
+offer_id_check = offer_compact.index("udhcpc_server_id_rejected(0,0,temp!=NULL,server_addr)")
+offer_request_state = offer_compact.index("state=REQUESTING;")
+assert offer_id_read < offer_id_check < offer_request_state
+assert "received DHCP OFFER with invalid server ID, ignoring packet" in offer
+
 # DHCP option TLV parsing validates header and full payload before use.
 assert '#include "option_parser_policy.h"' in common
 assert 'udhcp_option_tlv_size(const uint8_t *option' in option_parser
@@ -361,12 +374,17 @@ assert "test_ack_server_id_filter_respects_selected_server" in test
 assert "test_ack_server_id_filter_respects_selected_server()!=0" in "".join(test.split())
 assert "udhcpc_server_id_rejected(1, selected_server, 1, 0)" in test
 assert "udhcpc_nak_server_id_rejected(1, original_server, 1, 0)" in test
+assert "!udhcpc_server_id_rejected(0, 0, 1, 0)" in test
+assert "udhcpc_server_id_rejected(0, selected_server, 1, 0)" in test
+assert "!udhcpc_nak_server_id_rejected(0, 0, 1, 0)" in test
+assert "udhcpc_nak_server_id_rejected(0, original_server, 1, 0)" in test
 assert "udhcpc_server_id_rejected(0, 0, 1, 0xffffffffU)" in test
 assert "udhcpc_server_id_rejected(0, 0xffffffffU, 1, 0xffffffffU)" in test
 assert "udhcpc_server_id_rejected(1, selected_server, 1, 0xffffffffU)" in test
 assert "udhcpc_nak_server_id_rejected(0, 0, 1, 0xffffffffU)" in test
 assert "udhcpc_nak_server_id_rejected(0, 0xffffffffU, 1, 0xffffffffU)" in test
 assert "udhcpc_nak_server_id_rejected(1, original_server, 1, 0xffffffffU)" in test
+assert "udhcpc_server_addr_after_ack(0, 0, 1, 0) == 0" in test
 
 nak_branch_compact = "".join(nak_branch.split())
 policy_compact = "".join(policy.split())
@@ -380,7 +398,7 @@ assert nak_id_read < nak_id_check < nak_event < nak_deconfig < nak_retry
 assert "received DHCP NAK with wrong" in nak_branch
 assert ("staticinlineintudhcpc_server_id_rejected(intrebinding,uint32_texpected_server_id,"
         "intserver_id_present,uint32_treceived_server_id)") in policy_compact
-assert ("if(server_id_present&&(received_server_id==0U||received_server_id==0xffffffffU))return1;"
+assert ("if(server_id_present&&(received_server_id==0xffffffffU||(received_server_id==0U&&(rebinding||expected_server_id!=0U))))return1;"
         "if(rebinding)return!server_id_present;"
         "returnexpected_server_id!=0&&(!server_id_present||received_server_id!=expected_server_id)") in policy_compact
 assert "returnudhcpc_server_id_rejected(rebinding,expected_server_id,server_id_present,received_server_id);" in policy_compact

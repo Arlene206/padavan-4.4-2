@@ -1,3 +1,13 @@
+## 2026-11-28 13:10 CST (UTC+8) — Preserve address-less DHCP servers and reject invalid DHCPOFFER destinations
+
+- Base main SHA: `7cc7bef24789998d0ebf63436835257a8006baf4`. Review of the selected-offer path found a compatibility regression in the prior server-ID hardening: legacy DHCP servers documented in `dhcpc.c` may omit option 54 or explicitly send 0.0.0.0. The preceding filter rejected explicit zero even when no server address had been selected, so those clients could receive an OFFER but never accept its ACK.
+- The shared ACK/NAK policy now treats explicit 0.0.0.0 like an absent option only while `expected_server_id == 0` and not REBINDING. It remains rejected once a real server was pinned or during REBINDING. 255.255.255.255 is rejected unconditionally.
+- The DHCPOFFER path now runs the same validation before publishing REQUESTING state, preventing a limited-broadcast identifier from being sent in DHCPSELECT. Missing and explicit-zero server IDs retain the documented address-less-server behavior.
+- GNU89 regression additions cover address-less ACK/NAK compatibility, selected-server and REBINDING rejection of zero, all-ones rejection in ACK/NAK, retained zero server address, and source-order validation before REQUESTING. The exact-head workflow #46110863007 on parent `7cc7bef24789998d0ebf63436835257a8006baf4` PASS, but it predated this compatibility correction. THIS commit's exact-head udhcpc and docs runs are pending. No local test is claimed.
+- On parent `7cc7bef`, Process #46110863026 and AI docs #46110862998 PASS; storage-hotplug #46110863015, NVRAM #46110862963 and XY-C1 #46110862988 were IN_PROGRESS at last poll. No target L3 or hardware L4 claim is made for THIS commit.
+
+---
+
 ## 2026-11-28 13:04 CST (UTC+8) — Reject limited-broadcast DHCP server identifiers
 
 - Base main SHA: `6b897adfbe68c7b3ab9d0eb040181b806662e3ef`. THIS COMMIT updates `trunk/user/busybox/busybox-1.24.x/networking/udhcp/udhcpc_script_policy.h`, `trunk/user/busybox/busybox-1.24.x/networking/udhcp/tests/udhcpc_script_policy.c`, `scripts/check_udhcpc_script_status.py`, `dev_log.md` and `SESSION_HANDOFF.md`.
