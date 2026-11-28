@@ -28,7 +28,7 @@ struct service_lifecycle_ops {
 	int (*send_signal)(void *context,
 			   const struct process_identity *identity,
 			   int signal_number);
-	void (*sleep_seconds)(void *context, unsigned int seconds);
+	int (*sleep_seconds)(void *context, unsigned int seconds);
 	enum process_presence (*read_pidfile)(void *context, const char *path,
 					       const char *process_name,
 					       struct process_identity *identity);
@@ -330,7 +330,12 @@ service_lifecycle_wait_for_exit(struct service_lifecycle_target *targets,
 			return SERVICE_LIFECYCLE_STOPPED;
 		if (waited >= timeout_seconds)
 			return SERVICE_LIFECYCLE_TIMEOUT;
-		ops->sleep_seconds(context, 1);
+		errno = 0;
+		if (ops->sleep_seconds(context, 1) != 0) {
+			if (errno <= 0)
+				errno = EIO;
+			return SERVICE_LIFECYCLE_FAILED;
+		}
 	}
 }
 

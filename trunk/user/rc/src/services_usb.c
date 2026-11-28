@@ -372,11 +372,11 @@ usb_printer_service_send_signal(void *context,
 	return -1;
 }
 
-static void
+static int
 usb_printer_service_sleep(void *context, unsigned int seconds)
 {
 	(void)context;
-	sleep(seconds);
+	return service_wait_seconds(seconds);
 }
 
 static int

@@ -1,3 +1,12 @@
+## 2026-11-28 — Fail closed when service-stop wait is interrupted
+
+- Base main SHA: `1a33a6bcf9401810bc24858471e4867b37744bf6`; result: THIS COMMIT (resolve the resulting SHA from live `main` on the next recovery).
+- The shared `service_lifecycle_wait_for_exit()` called a `void` sleep callback and always counted the iteration as one full elapsed second. Both production adapters, Inadyn and USB printer shutdown, used bare `sleep(seconds)` and discarded its unslept remainder. A signal during the graceful-stop wait could therefore shorten the timeout and make the policy treat a still-running process as timed out, proceed to SIGKILL, or report a misleading stop timeout.
+- Changed the callback contract to return status. The wait loop now propagates sleep errors as `SERVICE_LIFECYCLE_FAILED` (preserving errno and supplying EIO when absent), which cannot authorize force-kill or follow-up. Both production adapters use the existing bounded `service_wait_seconds()` EINTR-remainder helper; after its interruption budget is exhausted, stop fails closed instead of escalating on a shortened wait.
+- Added `test_sleep_failure_blocks_force_kill()` to inject EINTR and assert exactly one TERM, zero KILL, preserved errno and denied follow-up. Extended `scripts/check_process_lifecycle_integration.py` to pin the callback contract and both real adapter implementations. Exact-head Process lifecycle and XY-C1 Actions for this commit are required; no local full build or hardware result is claimed.
+ 
+---
+
 ## 2026-11-28 — Preserve the NVRAM transaction-lock wait budget across EINTR
 
 - Base main SHA: `0d757a438cd424c600be87724b65b473012310c6`; result: THIS COMMIT (resolve the resulting SHA from live `main` on the next recovery).

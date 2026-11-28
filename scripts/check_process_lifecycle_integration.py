@@ -88,6 +88,7 @@ module_refcount_test = (root / "trunk/user/rc/src/tests/module_refcount_policy.c
 char_to_ascii_policy = (root / "trunk/user/rc/src/char_to_ascii_policy.h").read_text()
 char_to_ascii_test = (root / "trunk/user/rc/src/tests/char_to_ascii_policy.c").read_text()
 policy = (root / "trunk/user/rc/src/service_lifecycle_policy.h").read_text()
+lifecycle_services_ex = (root / "trunk/user/rc/src/services_ex.c").read_text()
 usb_services = (root / "trunk/user/rc/src/services_usb.c").read_text()
 usb_modem = (root / "trunk/user/rc/src/usb_modem.c").read_text()
 rc_header = (root / "trunk/user/rc/src/rc.h").read_text()
@@ -749,6 +750,20 @@ vpn_stop = vpn_server.split("static int\nstop_vpn_server_locked(void)", 1)[1].sp
 assert "service_lifecycle_scan_target" in lifecycle_policy
 assert "read_pidfile" in lifecycle_policy and "force_only" in lifecycle_policy
 assert "service_lifecycle_stop_targets" in lifecycle_policy
+assert "int (*sleep_seconds)(void *context, unsigned int seconds);" in lifecycle_policy
+assert "if (ops->sleep_seconds(context, 1) != 0)" in lifecycle_policy
+assert "return SERVICE_LIFECYCLE_FAILED;" in lifecycle_policy
+assert "test_sleep_failure_blocks_force_kill" in lifecycle_test
+inadyn_sleep_body = c_function_body(
+    lifecycle_services_ex, "inadyn_lifecycle_sleep(void *context, unsigned int seconds)"
+)
+usb_sleep_body = c_function_body(
+    usb_services, "usb_printer_service_sleep(void *context, unsigned int seconds)"
+)
+assert "return service_wait_seconds(seconds);" in inadyn_sleep_body
+assert "return service_wait_seconds(seconds);" in usb_sleep_body
+assert "sleep(seconds);" not in inadyn_sleep_body
+assert "sleep(seconds);" not in usb_sleep_body
 assert "process_pidfile_read_identity" in common_ex
 assert "kill_services_with_pidfiles" in common_ex
 assert "test_pidfile_unknown_blocks_entire_preflight" in lifecycle_test

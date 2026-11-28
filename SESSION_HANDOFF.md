@@ -18,9 +18,11 @@
 
 ## Active task
 
-- NVRAM transaction-lock timeout reliability. Before this slice, `nvram_transaction_lock_acquire_path()` incremented its retry counter and called `sleep(1)` while discarding the unslept remainder. Repeated signals could shorten a configured wait and trigger early `EBUSY`.
-- This atomic slice uses a `nanosleep()` remainder loop and propagates non-`EINTR` errors. It adds a child-process signal-storm regression (periodic SIGALRM during lock contention while the parent releases the lock after 400 ms) and extends the static NVRAM audit to enforce the implementation and test.
-- Local GNU89 + Werror + ASan/UBSan host regression passed. Full NVRAM workflow and target validation must still be checked for the newly published SHA.
+- Shared process lifecycle timeout EINTR safety. Confirmed defect in `service_lifecycle_wait_for_exit()`: the callback returned void and the loop treated every call as a full elapsed second, while the two production adapters (Inadyn and USB printer shutdown) used raw `sleep(seconds)` and discarded the unslept remainder.
+- A signal could shorten graceful shutdown and make the policy hit its timeout early, incorrectly advancing to SIGKILL or reporting a timeout before the intended wait elapsed.
+- This atomic slice changes the callback to return status; production adapters call the bounded EINTR-aware `service_wait_seconds()`; callback failure yields `SERVICE_LIFECYCLE_FAILED`, preserving errno and blocking force-kill/follow-up.
+- New regression injects EINTR, checks one TERM / zero KILL and preserves the error. The process lifecycle integration checker now requires the policy and both adapter changes.
+- Full exact-head process workflow is pending; no local full firmware build or physical-router test is claimed.
 
 ## Exact first action for the next GPT
 
@@ -30,6 +32,13 @@
 4. After this EINTR-wait slice passes, continue another concrete cross-userland stability/security defect. Do not repeat completed NVRAM checks without new evidence.
 
 ## Verification boundary
+
+- L1: service lifecycle callback contract, error propagation and both production adapters updated; integration source assertions added.
+- L2: exact-head Process lifecycle Actions pending; this session has not claimed a local full-checkout build.
+- L3: NOT VERIFIED for current combined firmware until exact-SHA XY-C1 Build, TRX and artifact upload all pass.
+- L4: NOT VERIFIED; no physical router was available.
+- Backup remains immutable; no branches or PRs were created.
+
 
 - L1: source and static contracts added; exact-head full repository checker pending.
 - L2: local GNU89/Werror/ASan/UBSan interrupted-lock-wait regression PASS; exact-head CI pending.

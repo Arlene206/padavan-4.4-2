@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <errno.h>
 #include <signal.h>
 #include <stddef.h>
 #include <stdlib.h>
@@ -38,6 +39,8 @@ struct fake_context {
 	unsigned int scans;
 	unsigned int validations;
 	unsigned int scans_before_first_signal;
+	int sleep_status;
+	int sleep_error;
 };
 
 static struct fake_service *
@@ -152,7 +155,7 @@ fake_signal(void *opaque, const struct process_identity *identity,
 	return -1;
 }
 
-static void
+static int
 fake_sleep(void *opaque, unsigned int seconds)
 {
 	struct fake_context *context = (struct fake_context *)opaque;
@@ -165,6 +168,11 @@ fake_sleep(void *opaque, unsigned int seconds)
 		    context->total_sleeps >= 2)
 			service->present = 0;
 	}
+	if (context->sleep_status != 0) {
+		errno = context->sleep_error > 0 ? context->sleep_error : EIO;
+		return context->sleep_status;
+	}
+	return 0;
 }
 
 static enum process_presence
@@ -382,6 +390,31 @@ test_nonforced_timeout_blocks_followup(void)
 	assert(context.kill_signals == 0);
 	assert(!service_lifecycle_allows_followup(SERVICE_LIFECYCLE_TIMEOUT));
 	assert(service_lifecycle_allows_followup(SERVICE_LIFECYCLE_STOPPED));
+}
+
+static void
+test_sleep_failure_blocks_force_kill(void)
+{
+	struct fake_service service;
+	struct fake_context context;
+	char *names[] = { "inadyn", NULL };
+	enum service_lifecycle_result result;
+
+	memset(&service, 0, sizeof(service));
+	service.name = "inadyn";
+	service.present = 1;
+	fake_setup(&context, &service, 1);
+	context.sleep_status = -1;
+	context.sleep_error = EINTR;
+
+	errno = 0;
+	result = service_lifecycle_stop(names, 2, 1, &fake_ops, &context);
+	assert(result == SERVICE_LIFECYCLE_FAILED);
+	assert(errno == EINTR);
+	assert(context.term_signals == 1);
+	assert(context.kill_signals == 0);
+	assert(context.total_sleeps == 1);
+	assert(!service_lifecycle_allows_followup(result));
 }
 
 static void
@@ -657,6 +690,7 @@ main(void)
 	test_identity_unknown_in_preflight_sends_zero();
 	test_force_kill_revalidates_and_waits_for_exit();
 	test_nonforced_timeout_blocks_followup();
+	test_sleep_failure_blocks_force_kill();
 	test_delayed_exit_and_empty_list();
 	test_pidfile_unknown_blocks_entire_preflight();
 	test_pidfile_identity_change_blocks_escalation();

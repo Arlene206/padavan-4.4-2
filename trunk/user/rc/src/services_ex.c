@@ -3462,7 +3462,7 @@ static int
 inadyn_lifecycle_send_signal(void *context,
 			     const struct process_identity *identity,
 			     int signal_number);
-static void
+static int
 inadyn_lifecycle_sleep(void *context, unsigned int seconds);
 
 static const struct service_lifecycle_ops inadyn_service_lifecycle_ops = {
@@ -4521,11 +4521,11 @@ inadyn_lifecycle_send_signal(void *context,
 	return -1;
 }
 
-static void
+static int
 inadyn_lifecycle_sleep(void *context, unsigned int seconds)
 {
 	(void)context;
-	sleep(seconds);
+	return service_wait_seconds(seconds);
 }
 
 static int
