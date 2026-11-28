@@ -214,6 +214,10 @@ on:
       - "trunk/user/rc/src/ppp_options_file.h"
       - "trunk/user/rc/src/tests/ppp_options_file.c"
       - "trunk/user/rc/src/net_ppp.c"
+      - "trunk/user/rc/src/tests/switch_device_node_policy.c"
+      - "trunk/user/rc/src/switch_device_node_policy.h"
+      - "trunk/user/rc/src/switch_mtk_esw.c"
+      - "trunk/user/rc/src/switch_rtl8367.c"
       - "trunk/user/rc/src/smp.c"
       - "trunk/user/rc/src/smp_affinity_policy.h"
       - "trunk/user/rc/src/tests/smp_affinity_policy.c"
@@ -512,6 +516,10 @@ on:
       - "trunk/user/rc/src/ppp_options_file.h"
       - "trunk/user/rc/src/tests/ppp_options_file.c"
       - "trunk/user/rc/src/net_ppp.c"
+      - "trunk/user/rc/src/tests/switch_device_node_policy.c"
+      - "trunk/user/rc/src/switch_device_node_policy.h"
+      - "trunk/user/rc/src/switch_mtk_esw.c"
+      - "trunk/user/rc/src/switch_rtl8367.c"
       - "trunk/user/rc/src/smp.c"
       - "trunk/user/rc/src/smp_affinity_policy.h"
       - "trunk/user/rc/src/tests/smp_affinity_policy.c"
@@ -908,6 +916,15 @@ jobs:
             -o "$RUNNER_TEMP/smp-affinity-policy"
           ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 \
             "$RUNNER_TEMP/smp-affinity-policy"
+      - name: Compile and run secure switch device-node policy regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/switch_device_node_policy.c \
+            -o "$RUNNER_TEMP/switch-device-node-policy"
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 \
+            "$RUNNER_TEMP/switch-device-node-policy"
       - name: Verify PID 1 required boot environment failure gates
         run: |
           set -eu

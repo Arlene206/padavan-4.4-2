@@ -43,6 +43,8 @@
 #endif
 
 #include "rc.h"
+extern int rtl8367_node_status(void);
+extern int mtk_esw_node_status(void);
 #include "char_to_ascii_policy.h"
 #include "modem_module_reload_policy.h"
 #include "modem_wan_start_policy.h"
@@ -1604,10 +1606,22 @@ init_router(void)
 	int ipv6_init_status = 0;
 
 #if defined (USE_RTL8367)
-	rtl8367_node();
+	{
+		int status = rtl8367_node_status();
+		if (status != 0) {
+			logmessage(LOGNAME, "RTL8367 device node unavailable or unsafe (status=%d)", status);
+			return INIT_ROUTER_RESULT_FATAL;
+		}
+	}
 #endif
 #if defined (USE_MTK_ESW) || defined (USE_MTK_GSW)
-	mtk_esw_node();
+	{
+		int status = mtk_esw_node_status();
+		if (status != 0) {
+			logmessage(LOGNAME, "MediaTek switch device node unavailable or unsafe (status=%d)", status);
+			return INIT_ROUTER_RESULT_FATAL;
+		}
+	}
 #endif
 
 	legacy_migration_status = nvram_convert_old_params(&legacy_migration_changed);

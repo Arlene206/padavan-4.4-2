@@ -26,6 +26,7 @@
 #include <ctype.h>
 
 #include "rc.h"
+#include "switch_device_node_policy.h"
 #include "switch.h"
 #include "switch_status_policy.h"
 #include "switch_cli_parse_policy.h"
@@ -656,9 +657,14 @@ static int asic_reg_set(unsigned int cmd, unsigned int reg, unsigned int reg_val
 // RTL8367 PROCESS
 ////////////////////////////////////////////////////////////////////////////////
 
-int rtl8367_node(void)
+int rtl8367_node(void){
+	return rc_switch_device_node_ensure(RTL8367_DEVPATH, S_IFCHR | 0600, makedev(RTL8367_DEVMAJOR, 0));
+}
+
+int
+rtl8367_node_status(void)
 {
-	return mknod(RTL8367_DEVPATH, S_IFCHR | 0600, makedev(RTL8367_DEVMAJOR, 0));
+	return rc_switch_device_node_ensure(RTL8367_DEVPATH, S_IFCHR | 0600, makedev(RTL8367_DEVMAJOR, 0));
 }
 
 static int

@@ -27,6 +27,7 @@
 #include <ctype.h>
 
 #include "rc.h"
+#include "switch_device_node_policy.h"
 #include "switch.h"
 #include "switch_status_policy.h"
 #include "switch_cli_parse_policy.h"
@@ -617,9 +618,14 @@ static int show_vlan_pvid_wan(void)
 // MTK_ESW PROCESS
 ////////////////////////////////////////////////////////////////////////////////
 
-int mtk_esw_node(void)
+int mtk_esw_node(void){
+	return rc_switch_device_node_ensure(MTK_ESW_DEVPATH, S_IFCHR | 0600, makedev(MTK_ESW_DEVMAJOR, 0));
+}
+
+int
+mtk_esw_node_status(void)
 {
-	return mknod(MTK_ESW_DEVPATH, S_IFCHR | 0600, makedev(MTK_ESW_DEVMAJOR, 0));
+	return rc_switch_device_node_ensure(MTK_ESW_DEVPATH, S_IFCHR | 0600, makedev(MTK_ESW_DEVMAJOR, 0));
 }
 
 static int

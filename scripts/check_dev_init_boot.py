@@ -131,6 +131,11 @@ loop = c_function(init, "init_main_loop(void)")
 sysctl = c_function(init, "init_sysctl(void)")
 sysctl_recorder = c_function(init, "init_sysctl_record_status(")
 router = c_function(rc, "init_router(void)")
+rtl_switch = (root / "trunk/user/rc/src/switch_rtl8367.c").read_text()
+mtk_switch = (root / "trunk/user/rc/src/switch_mtk_esw.c").read_text()
+switch_policy = (root / "trunk/user/rc/src/switch_device_node_policy.h").read_text()
+switch_test = (root / "trunk/user/rc/src/tests/switch_device_node_policy.c").read_text()
+
 smp = (root / "trunk/user/rc/src/smp.c").read_text()
 smp_policy = (root / "trunk/user/rc/src/smp_affinity_policy.h").read_text()
 smp_test = (root / "trunk/user/rc/src/tests/smp_affinity_policy.c").read_text()
@@ -325,6 +330,26 @@ assert "WAN0 NVRAM setup failed" in wan0_setup_gate
 assert "return INIT_ROUTER_RESULT_FATAL;" in wan0_setup_gate
 assert "return -1;" not in router
 router_compact = "".join(router.split())
+for source, function_name in ((rtl_switch, "rtl8367_node_status(void)"),
+                              (mtk_switch, "mtk_esw_node_status(void)")):
+    node_status = c_function(source, function_name)
+    assert "return rc_switch_device_node_ensure(" in node_status
+assert "mknod(path, expected_mode, expected_device)" in switch_policy
+assert "lstat(path, &st)" in switch_policy
+assert "errno != EEXIST" in switch_policy
+assert "st->st_uid != 0 || st->st_gid != 0 || st->st_nlink != 1" in switch_policy
+assert "st->st_rdev != expected_device" in switch_policy
+assert "test_accepts_expected_root_private_character_device" in switch_test
+assert "test_rejects_wrong_type_and_device_number" in switch_test
+assert "test_rejects_symlink_permissions_and_ownership" in switch_test
+assert "int status = rtl8367_node_status();" in router
+assert "int status = mtk_esw_node_status();" in router
+assert "RTL8367 device node unavailable or unsafe" in router
+assert "MediaTek switch device node unavailable or unsafe" in router
+assert router.count("return INIT_ROUTER_RESULT_FATAL;") >= 2
+assert "extern int rtl8367_node_status(void);" in rc
+assert "extern int mtk_esw_node_status(void);" in rc
+
 assert '#include "smp_affinity_policy.h"' in smp
 irq_write = c_function(smp, "irq_affinity_set(int irq_num, int cpu)")
 rps_write = c_function(smp, "rps_queue_set(const char *ifname, int cpu_mask)")

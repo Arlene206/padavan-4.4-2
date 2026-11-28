@@ -1,3 +1,11 @@
+## 2026-11-27 — Secure RTL8367/MediaTek switch device-node initialization
+
+- Last verified SMP status commit: `3c0ea0688d130bee8a0e78adb846155f666fd415`; exact-SHA process-lifecycle, inventory, NVRAM audit and AI handoff Actions all completed PASS.
+- New stability/security slice: the two switch node setup routines used privileged `mknod` but discarded errors. A pre-existing symlink or wrong device node returns EEXIST, yet init_router proceeded to paths that open the unvalidated node. New shared policy validates with `lstat` and requires a root:root, single-link, exact 0600 character device with the expected rdev. Unsafe/missing nodes now stop router init before networking. Focused unit test and exact-SHA source checks are wired into process-lifecycle CI.
+- Next: verify this commit's exact-SHA checks and XY-C1 firmware build, repair any genuine failures, then continue the P1/P2 backlog. Frozen backup remains untouched at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+
+---
+
 ## 2026-11-27 — SMP affinity regression test structure follow-up
 
 - Implementation commit: `cbbca809367522b5cffe22923296aab1e21078ce`. Its exact-SHA workflow matrix was queued/in progress when last queried; no PASS claim yet.

@@ -1,3 +1,11 @@
+## 2026-11-27 — Fail closed on pre-existing switch device-node paths
+
+- `rtl8367_node()` and `mtk_esw_node()` previously issued privileged `mknod` calls and ignored their results. An existing symlink, regular file, wrong major/minor, non-root owner, or over-permissive mode made `mknod` fail with EEXIST; router initialization then continued and later switch ioctl paths could open the unvalidated `/dev` entry.
+- Added a shared ensure/validate policy: create only a root-private character node (0600); treat EEXIST as a reason to inspect, not as success; use `lstat` to reject final symlinks; require root:root, one link, exact char type/mode and expected device number. Both switch node setup paths expose a status result, and `init_router()` stops with FATAL before networking initialization if an enabled switch node cannot be proven safe.
+- Added policy regressions for valid nodes, wrong type/device, symlink, permissions, owner/group and link count; process-lifecycle CI compiles/runs the test and checks source integration. Local tests were not run because no checkout is available; exact-SHA Actions are pending.
+
+---
+
 ## 2026-11-27 — Name SMP affinity errno regression cases for the boot contract
 
 - Follow-up to `cbbca809367522b5cffe22923296aab1e21078ce`: split the focused errno assertions into named optional-node and real-write-failure test functions. This matches the source-contract checker and makes the policy cases independently readable; no runtime behavior changed.
