@@ -1,3 +1,11 @@
+## 2026-11-28 — Make VSFTPD sysutil runtime regression warning-clean
+
+- Exact VSFTPD run #46118727525 on `3625933d3f1300302a06d32ce8ad497ec852e4ca` passed after the truncate regression compared wrapper errno with the native `ftruncate(2)` errno (this runner returned `EINVAL` for a read-only-file descriptor; invalid fd separately verified `EBADF`). Process inventory #46118727520 and AI docs #46118727498 also passed; NVRAM #46118727500 was still running at last poll.
+- The passing compile exposed a discarded-const warning in `vsf_sysutil_syslog()`: the local cursor only reads/advances through the caller's const string. Changed it to `const char *`, pinned this source contract, and enabled `-Werror` for the runtime compile linking the real `sysutil.c`.
+- Exact-head VSFTPD and full XY-C1 validation are required. Current source includes prior watchdog, IPTV, IAPP and VSFTPD changes; older product L3 results do not validate this head. No local build or physical-router L4 claim.
+
+---
+
 ## 2026-11-28 — Make the VSFTPD truncate regression errno-portable
 
 - Exact VSFTPD run #46118624438 on `77b18fedaf56b275fb1efd1161592bb8f2e6c2ef` ran all prior host regressions successfully and compiled the new test against actual `sysutil.c`. The new read-only descriptor assertion expected `EBADF`, while this host filesystem returned `EINVAL`; the production wrapper correctly propagated that errno. This was a test assumption, not a production failure.

@@ -2776,7 +2776,7 @@ vsf_sysutil_closelog(void)
 void
 vsf_sysutil_syslog(const char* p_text, int severe)
 {
-  char *text;
+  const char *text;
   int prio = LOG_INFO;
   if (severe)
   {

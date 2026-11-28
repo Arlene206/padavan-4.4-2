@@ -3,7 +3,7 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`.
-- Main at this write's parent: `77b18fedaf56b275fb1efd1161592bb8f2e6c2ef`. VSFTPD run #46118624438 compiled and ran every pre-existing regression, and successfully compiled the new test against the production `sysutil.c`; the new test then failed because this runner's read-only-file `ftruncate(2)` returned `EINVAL`, not the assumed `EBADF`. The wrapper correctly returned the syscall failure. This correction compares against the native syscall errno and separately verifies `EBADF` with fd -1. AI docs #46118624429 PASS; Process #46118624421, NVRAM #46118624469 and XY-C1 #46118624411 were still running.
+- Main at this write's parent: `3625933d3f1300302a06d32ce8ad497ec852e4ca`. VSFTPD run #46118727525 PASS after the native-syscall errno comparison. Its compile log still showed a discarded-const warning in `vsf_sysutil_syslog`; this commit makes the read-only cursor const and enables `-Werror` for the production `sysutil.c` runtime regression. Process inventory #46118727520 PASS, AI docs #46118727498 PASS, NVRAM #46118727500 was still running at last poll. XY-C1 #46118354306 (IAPP-header SHA a823) and #46118624411 (VSFTPD parent SHA 77b) remained in progress.
 - Frozen backup: `backup/pre-plugin-overhaul-2026-11-14`, recorded HEAD `72f4f157a084f8184b9597ca5bf334b8080e5807`. Its warning file forbids mutation/deletion. PR #1 remains CLOSED/unmerged; its substantive unmerged work was already compared, with no missing production/test/build change identified.
 - Startup recovery was completed once against the bootstrap, development protocol, handoff, roadmap and log indexes. Do not repeat completed audits.
 - Root `dev_log.md` remains below the documented 384 KiB target and 120-record rotation threshold. Keep 20–119 records. The roadmap is close to its 128 KiB hard limit; avoid routine expansion.
@@ -13,7 +13,7 @@
 
 Current bounded production fix: VSFTPD's `vsf_sysutil_ftruncate()` used to call `die()` on a filesystem error, terminating the FTP session before its normal upload failure response/cleanup. It now returns the original `ftruncate(2)` status, and STOR checks that result, sends `FTP_UPLOADFAIL`, and branches through `port_pasv_cleanup_out`.
 
-- The runtime test links the actual `sysutil.c` implementation. First exact-head run #46118624438 passed all pre-existing FTP/configuration policy tests and compiled the new test, but its read-only-file errno assertion was too specific: this runner returned `EINVAL` where the test assumed `EBADF`. The wrapper returned the underlying error as intended. The follow-up compares wrapper errno with the native `ftruncate(2)` errno and separately checks deterministic `EBADF` using fd -1.
+- The runtime test links the actual `sysutil.c` implementation. First exact-head run #46118624438 exposed a platform-dependent errno expectation (read-only-file `ftruncate(2)` returned `EINVAL`, not the assumed `EBADF`); commit `3625933...` fixed the test by comparing wrapper errno with the native syscall and checking `EBADF` separately with fd -1. Exact VSFTPD #46118727525 then PASS, but its compiler log exposed a discarded-const warning in the read-only `vsf_sysutil_syslog` cursor. This commit makes that cursor `const char *`, pins the source contract, and compiles the production runtime regression with `-Werror`.
 - AI handoff #46118624429 PASS. Process inventory #46118624421, NVRAM boundary #46118624469 and XY-C1 #46118624411 were still running at the last poll. Fresh exact-head VSFTPD validation is required after this test correction.
 - Older XY-C1 L3 #46116630792 applies only to product SHA `58700dc70b54d931aabdb6701f0ec88c14b9d1b4`; later IAPP headers and current VSFTPD source require a fresh exact-head build. No local compile or hardware L4 result is claimed.
 
@@ -51,10 +51,10 @@ Current bounded production fix: VSFTPD's `vsf_sysutil_ftruncate()` used to call 
 
 ## Exact first action for the next GPT
 
-1. Inspect the exact-head VSFTPD workflow after this errno-portable test correction. Require the runtime test linked to production `sysutil.c` and all embedded source contracts to pass; inspect logs and fix the real cause if not.
-2. Check exact-head XY-C1 Build, TRX verification and artifact upload; the prior full firmware run #46118624411 was still running when the first VSFTPD test attempt failed. Older L3 evidence on 58700 does not cover this source.
-3. Confirm exact-head Process and NVRAM workflow outcomes as they finish; parent #46118624421 and #46118624469 were pending, while AI docs #46118624429 already passed.
-4. Continue the next concrete userland stability/security slice while Actions are pending; do not repeat completed watchdog, HTTPD, IPTV, IAPP or process-inventory audits.
+1. Poll the exact-head VSFTPD workflow for this const-correctness/Werror change. Require the runtime test linking production `sysutil.c` to compile and run with `-Werror`, with no discarded-const warning.
+2. Poll XY-C1 run #46118624411 and #46118354306 (both are still older ancestors of this current source) and check whether a new exact-head run was triggered by the changed VSFTPD source; require Build, TRX verification and artifact upload for the current product source before claiming L3.
+3. Confirm NVRAM #46118727500 and other exact-head checks as they finish; Process #46118727520 and AI docs #46118727498 already PASS on parent 362.
+4. Continue independent userland stability/security work while Actions are pending; do not repeat completed watchdog, HTTPD, IPTV, IAPP or Process inventory audits.
 
 ## Verification boundary
 

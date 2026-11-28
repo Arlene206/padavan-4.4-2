@@ -176,7 +176,7 @@ jobs:
             trunk/user/vsftpd/src/tests/ftp_mdtm_policy.c \
             -o /tmp/vsftpd-mdtm-policy
           ASAN_OPTIONS=detect_leaks=1 /tmp/vsftpd-mdtm-policy
-          cc -std=gnu89 -ffunction-sections -fdata-sections \
+          cc -std=gnu89 -Werror -ffunction-sections -fdata-sections \
             -Wl,--gc-sections -iquote trunk/user/vsftpd/src \
             trunk/user/vsftpd/src/sysutil.c \
             trunk/user/vsftpd/src/tests/sysutil_ftruncate.c \
@@ -488,6 +488,9 @@ jobs:
           assert "ftp_rest_offset_is_within_file(" in upload
           assert upload.index("ftp_rest_offset_is_within_file(") < upload.index("vsf_sysutil_ftruncate(new_file_fd)")
           truncate_wrapper = function_body(vsftpd_sysutil, "vsf_sysutil_ftruncate(int fd)")
+          syslog_wrapper = function_body(vsftpd_sysutil, "vsf_sysutil_syslog(const char* p_text, int severe)")
+          assert "const char *text;" in syslog_wrapper
+          assert "char *text;" not in syslog_wrapper
           assert "int vsf_sysutil_ftruncate(int fd);" in vsftpd_sysutil_header
           assert "return ftruncate(fd, 0);" in truncate_wrapper
           assert "die(" not in truncate_wrapper
