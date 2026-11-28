@@ -1,3 +1,12 @@
+## 2026-11-28 — Erase the shared NVRAM value cache before ring reuse
+
+- `nvram_get_checked_unlocked()` used two 4096-byte packed value caches and reset the cursor to offset zero when fewer than 32 bytes remained or an `EOVERFLOW` retry could not fit the requested value. Neither path erased the old cache lap. Reusing a slot for a shorter NVRAM value could therefore leave the tail of a prior Wi-Fi/VPN credential resident beyond the new terminator.
+- Added `nvram_value_cache_reserve()` to the shared cache policy. It preserves the current lap when there is sufficient space, but uses the existing volatile full-cache wipe before resetting the cursor on either wrap path. This applies to both the legacy API cache and the transaction cache through the shared getter.
+- Added host regression for no-wrap preservation, minimum-reservation wrap, large-value retry wrap and invalid cursors. The existing NVRAM workflow compiles/runs this test with ASan/UBSan and the source checker now requires both production call sites.
+- Pointer compatibility: the packed cache already reuses returned pointers when its cursor wraps; the wipe makes that existing reuse boundary explicit. Values in the current lap remain untouched until wrap begins.
+- Parent: `7c60df212c7da5c3394210844276fdaad4087867`; no local test execution. Exact-SHA NVRAM and XY-C1 Actions are required.
+
+---
 ## 2026-11-28 — Wipe the NVRAM value arena during module exit
 
 - A targeted review of the new erasure paths found one remaining pool lifetime: `dev_nvram_exit()` called `_nvram_uninit()` and then freed `nvram_values` without zeroing the full arena. Credentials could therefore remain in allocator memory after the NVRAM module was unloaded.

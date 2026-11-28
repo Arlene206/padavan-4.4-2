@@ -17,14 +17,14 @@
 
 ## Active task
 
-- Verify NVRAM credential-staging cleanup on SHA `57d4433cf07b7972fd24142be6b66746e8c5f528`: NVRAM transaction-boundary host test/source audit #46138364577, AI docs #46138364417, HTTPD #46138364465 and XY-C1 #46138364458. These were in_progress at last poll. Also verify the DHCP checker syntax correction on the new follow-up SHA.
-- On failure, inspect the exact failing step/log and repair causally in a new atomic commit. PENDING permits independent source work.
-- After this NVRAM slice passes, continue with a distinct security/stability defect without repeating completed NTP or DHCP fixes.
-
+- Verify the NVRAM cache-wrap erasure change on its exact SHA: GNU89/ASan/UBSan value-cache tests and NVRAM source-contract audit must pass, then confirm XY-C1 Build/TRX/artifact on the same SHA.
+- The cache is a packed ring. Its existing pointer reuse boundary is when the ring wraps; secure erase the prior lap before resetting to offset zero. This preserves the current lap while its pointers remain within the active prefix and prevents stale credential suffixes from surviving a shorter replacement.
+- On FAIL, inspect only the failing step and repair causally in an atomic commit. PENDING permits an independent source task.
 ## Exact first action for the next GPT
 
-1. Fetch live main and record the latest module-exit arena-wipe commit SHA.
-2. Inspect its exact-SHA NVRAM transaction-boundary run and XY-C1 Build/TRX/artifact; confirm the source checker now covers dev_nvram_exit().
+1. Fetch live main and record the NVRAM cache-wrap erasure commit SHA.
+2. Inspect its exact-SHA NVRAM transaction-boundary run, especially the ASan/UBSan value-cache reservation regression and source-contract scan.
+3. Inspect its exact-SHA XY-C1 Build, TRX verification and artifact upload; L3 only if all three pass.
 3. If a job is PENDING, pursue an independent source issue; if FAIL, inspect only the failing step/log and repair atomically.
 4. Keep backup immutable; do not force-push; create complete trees and update main with expected SHA.
 5. L3 requires same-SHA XY-C1 Build, TRX verification and artifact upload PASS; L4 remains NOT VERIFIED until physical validation.
@@ -33,7 +33,7 @@
 
 - NTP correction c052: L2 PASS; XY-C1 #46137016928 SUCCESS, L3 PASS. L4 NOT VERIFIED.
 - DHCP follow-up 2f7c1ba: WAN DHCP #46138202814 FAILED due to a Python checker SyntaxError (`)parse_failure`); C regression passed. AI docs #46138202861, Process #46138202862, HTTPD #46138202827, WAN route #46138202836 and NVRAM #46138202781 SUCCESS; XY-C1 #46138202783 was pending at last poll. Checker repair is in this follow-up and needs a fresh exact-SHA WAN DHCP run.
-- NVRAM credential-staging cleanup SHA 57d4433...: NVRAM #46138364577 SUCCESS (including ASan/UBSan compaction policy regression and source audit); HTTPD #46138364465 SUCCESS; AI docs on documentation-only descendant 3fc6c846... #46138506472 SUCCESS. Exact XY-C1 #46138364458 still in_progress (Build in progress; TRX/artifact pending at last poll). Module-exit arena wipe is in the current follow-up and needs a fresh NVRAM run.
+- NVRAM staging/module-exit slice SHA 7c60df...: NVRAM #46138685180 SUCCESS, AI docs #46138685289 SUCCESS and HTTPD #46138685157 SUCCESS. Exact XY-C1 #46138685154 remains in_progress at last poll (Build/TRX/artifact not yet complete). The earlier SHA57 XY #46138364458 was also still in_progress at last poll.
 - Historical Aliyun PID-generation source 19d51bab853ed2b904e44333e3f6ce0bd72059a4: L3 PASS only for XY-C1 #46135763583. Final procfs-read-to-kill(pid) race remains documented.
 - L4: NOT VERIFIED; no physical-router test.
 

@@ -68,9 +68,13 @@ nvram_get_checked_unlocked(const char *name, char **value,
 		return -1;
 	}
 
-	i_cache = *nvr_index;
-	if ((MAX_CACHE_LEN - i_cache) < MIN_CACHE_RES)
-		i_cache = 0;
+	i_cache = nvram_value_cache_reserve(nvr_cache, MAX_CACHE_LEN,
+					    MIN_CACHE_RES, 0, nvr_index);
+	if (i_cache < 0) {
+		close(nvram_fd);
+		errno = EIO;
+		return -1;
+	}
 
 	nvr.size = sizeof(nvr);
 	nvr.len_param = strlen(name);
@@ -82,8 +86,16 @@ nvram_get_checked_unlocked(const char *name, char **value,
 	ret = ioctl(nvram_fd, NVRAM_IOCTL_GET, &nvr);
 	if (ret < 0 && errno == EOVERFLOW &&
 	    nvr.len_value > 0 && nvr.len_value <= MAX_CACHE_LEN) {
-		if ((MAX_CACHE_LEN - i_cache) < nvr.len_value)
-			i_cache = 0;
+		i_cache = nvram_value_cache_reserve(nvr_cache, MAX_CACHE_LEN,
+						    MIN_CACHE_RES, nvr.len_value,
+						    nvr_index);
+		if (i_cache < 0) {
+			saved_errno = EIO;
+			if (close(nvram_fd) < 0 && saved_errno == 0)
+				saved_errno = errno;
+			errno = saved_errno;
+			return -1;
+		}
 		nvr.len_value = MAX_CACHE_LEN - i_cache;
 		nvr.value = &nvr_cache[i_cache];
 		ret = ioctl(nvram_fd, NVRAM_IOCTL_GET, &nvr);

@@ -374,8 +374,14 @@ def run() -> int:
                    "*next_index = 0"):
         if marker not in value_cache_policy:
             failures.append("NVRAM transaction cache erasure policy is missing " + marker)
-    for marker in ("test_full_cache_is_erased_and_cursor_reset",
-                   "test_null_cache_still_resets_cursor"):
+    for marker in (
+        "test_full_cache_is_erased_and_cursor_reset",
+        "test_null_cache_still_resets_cursor",
+        "test_reserve_keeps_the_current_lap_when_space_is_sufficient",
+        "test_reserve_erases_the_previous_lap_at_the_minimum_wrap_boundary",
+        "test_reserve_erases_the_previous_lap_when_a_value_will_not_fit",
+        "test_reserve_rejects_invalid_cursor_without_erasing",
+    ):
         if marker not in value_cache_test:
             failures.append("NVRAM transaction cache regression is missing " + marker)
 
@@ -398,6 +404,10 @@ def run() -> int:
             tx_end.find("nvram_value_cache_secure_clear") >
             tx_end.find("nvram_transaction_lock_release")):
             failures.append("NVRAM transaction cache must be erased before releasing its lease")
+        if (cache_reader.count("nvram_value_cache_reserve(nvr_cache, MAX_CACHE_LEN,") != 2 or
+            "MIN_CACHE_RES, 0, nvr_index)" not in cache_reader or
+            "MIN_CACHE_RES, nvr.len_value," not in cache_reader):
+            failures.append("legacy and transactional NVRAM cache wrap must erase before reuse")
     except ValueError as error:
         failures.append("NVRAM transaction value-cache source contract: " + str(error))
 
