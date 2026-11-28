@@ -30,25 +30,23 @@ assert "server_id_opt" in release
 
 # The legacy get_option32() helper conflates malformed-present and absent
 # address options. DHCP message-state decisions must use status + exact length.
+dhcpd_compact = "".join(dhcpd.split())
 for option_name, status_name, length_name in (
     ("SERVER_ID", "server_id_status", "server_id_length"),
     ("REQUESTED_IP", "requested_ip_status", "requested_ip_length"),
 ):
-    lookup = f"udhcp_get_option_with_length(&packet, DHCP_{option_name}"
-    lookup_pos = dhcpd.index(lookup)
-    validation_pos = dhcpd.index(
-        "udhcp_server_ipv4_option_length_valid(" + status_name,
-        lookup_pos,
-    )
+    lookup = "udhcp_get_option_with_length(&packet,DHCP_" + option_name
+    lookup_pos = dhcpd_compact.index(lookup)
+    validation = "udhcp_server_ipv4_option_length_valid(" + status_name + "," + length_name
+    validation_pos = dhcpd_compact.index(validation, lookup_pos)
     assert lookup_pos < validation_pos
-    assert f"{length_name}" in dhcpd[lookup_pos:validation_pos + 220]
-    assert "continue;" in dhcpd[validation_pos:validation_pos + 500]
-    assert "get_option32(&packet, DHCP_" + option_name + ")" not in dhcpd
+    assert "continue;" in dhcpd_compact[validation_pos:validation_pos + 500]
+    assert "udhcp_get_option32(&packet,DHCP_" + option_name + ")" not in dhcpd_compact
 
-release_status_gate = dhcpd.index(
-    "udhcp_server_ipv4_option_length_valid(requested_ip_status"
+release_status_gate = dhcpd_compact.index(
+    "udhcp_server_ipv4_option_length_valid(requested_ip_status,requested_ip_length)"
 )
-release_mutation = dhcpd.index("lease->expires = time(NULL)")
+release_mutation = dhcpd_compact.index("lease->expires=time(NULL)")
 assert release_status_gate < release_mutation
 for token in (
     "test_ipv4_address_options_distinguish_malformed_from_absent",
