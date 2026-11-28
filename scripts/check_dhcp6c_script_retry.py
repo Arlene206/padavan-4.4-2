@@ -164,6 +164,12 @@ interface_check = recv_compact.index(
 )
 assert recv_compact.index("recv_from_to(") < interface_check
 assert interface_check < recv_compact.index("xmalloc_sockaddr2dotted_noport(")
+interface_diag = recv_compact[interface_check:]
+name_lookup = interface_diag.index("received_ifname=if_indextoname(")
+name_fallback = interface_diag.index("if(received_ifname==NULL)")
+name_log = interface_diag.index("bb_info_msg(\"unexpectedinterface(%s)\",received_ifname)")
+assert name_lookup < name_fallback < name_log
+assert 'received_ifname="unknown";' in interface_diag
 assert "xmalloc_sockaddr2dotted_noport((structsockaddr*)&from)" in recv_compact
 assert "to.sin6_scope_id == 0U" in test
 assert "test_ipv6_source_address_storage_fits_kernel_sockaddr" in test

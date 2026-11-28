@@ -912,9 +912,12 @@ static void client6_recv(void)
 	/* Missing pktinfo leaves scope_id zero; reject instead of reading stack garbage. */
 	if (to.sin6_family != AF_INET6 || ifp->ifid != to.sin6_scope_id) {
 		char ifname[IFNAMSIZ];
+		const char *received_ifname;
 
-		bb_info_msg("unexpected interface (%s)",
-				if_indextoname(to.sin6_scope_id, ifname));
+		received_ifname = if_indextoname(to.sin6_scope_id, ifname);
+		if (received_ifname == NULL)
+			received_ifname = "unknown";
+		bb_info_msg("unexpected interface (%s)", received_ifname);
 		return;
 	}
 
