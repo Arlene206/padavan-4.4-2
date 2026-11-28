@@ -1,3 +1,11 @@
+## 2026-11-28 — Normalize multiline NVRAM value-slot checker assertions
+
+- Exact 93507 NVRAM run #46147635685 passed all CLI/kernel host policy binaries, including maximum assignment and sensitive value-slot replacement/release erasure, then failed the final semantic checker. The check searched for `nvram_sensitive_value_clear_tail(rt->value, rt->val_len, val_len)` as a contiguous substring although production code line-wraps the arguments.
+- The checker now removes whitespace from the extracted `_nvram_realloc()` body before testing copy/wipe order, preserving the intended growth and shrink sequencing assertions.
+- Parent main SHA: 13339bed554e334b2e9c0176533d6e4a97c7907e; result: THIS COMMIT. 13339 AI handoff #46147869419 PASS; 13339 XY-C1 #46147869371 and Process inventory #46147869397 were IN_PROGRESS. 93507 XY-C1 #46147635745 remained IN_PROGRESS at Build XY-C1. Exact NVRAM rerun pending.
+
+---
+
 ## 2026-11-28 — Trigger XY-C1 for NVRAM CLI and restore the handoff size limit
 
 - The exact 2b/93507 handoff validator failures were the same measured issue: `REFACTOR_ROADMAP.md` contained 131271 UTF-8 bytes versus a 131072 hard limit. Condensed the NVRAM ledger row while retaining the checked kernel/userland scope, historical scan counts, and explicit external `nvram_get()`/global-atomicity limitations.
