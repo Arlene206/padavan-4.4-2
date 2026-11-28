@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <limits.h>
+#include <stddef.h>
 
 #include "iptv_proxy_enable_port_policy.h"
 

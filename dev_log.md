@@ -1,3 +1,11 @@
+## 2026-11-28 — Fix IPTV port regression test compile failure
+
+- Exact Process fail-closed run #46116630850 on product SHA `58700dc70b54d931aabdb6701f0ec88c14b9d1b4` reached the new IPTV port regression and failed compilation because the test referenced `NULL` without including `<stddef.h>`. This was a host-test compile failure, not a production selector-policy failure.
+- Added the missing standard header to `iptv_proxy_enable_port_policy.c`. This follow-up is host-test-only; production source is unchanged. The new exact-head Process fail-closed run must pass before closing the failure.
+- At 58700, Process inventory, HTTPD auth, DNSMasq lifecycle, WAN DHCP callback, WAN route, firewall startup and AI docs passed; Process fail-closed failed as above; USB storage, NVRAM boundary and XY-C1 were still in progress. L3 for the IPTV source change requires same-product-SHA Build/TRX/artifact success.
+
+---
+
 ## 2026-11-28 — Exact validation checkpoint for watchdog scheduler snapshot
 
 - `04f55a0098f9328c7bd563fccbbafd21013e03b3`: Watchdog, Process, NVRAM, AI docs and XY-C1 all PASS. XY-C1 #46115631593 completed Build, TRX verification and artifact upload; artifact ID `15251593325` (12,838,666 bytes). This L3 result is limited to this exact SHA.
