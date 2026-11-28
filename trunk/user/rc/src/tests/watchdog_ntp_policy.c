@@ -388,6 +388,15 @@ test_schedule_snapshot_skips_disabled_and_unready_schedule_reads(void)
 	CHECK(snapshot.reboot_enabled && !snapshot.ss_enabled && snapshot.ntp_ready);
 	CHECK(strcmp(snapshot.reboot_schedule, "11111112345") == 0);
 	CHECK(snapshot.ss_schedule[0] == '\0' && fake.calls == 4);
+
+	/* NTP-not-ready ticks must not read either enabled schedule string. */
+	fake_schedule_enable_all(&fake);
+	fake.values[0] = "1"; fake.values[1] = "1"; fake.values[2] = "0";
+	fake.statuses[3] = -1; fake.statuses[4] = -1;
+	CHECK(watchdog_ntp_schedule_snapshot_read(fake_schedule_nvram_get, &fake, &snapshot) == 0);
+	CHECK(snapshot.reboot_enabled && snapshot.ss_enabled && !snapshot.ntp_ready);
+	CHECK(snapshot.reboot_schedule[0] == '\0' && snapshot.ss_schedule[0] == '\0');
+	CHECK(fake.calls == 3);
 	return 0;
 }
 

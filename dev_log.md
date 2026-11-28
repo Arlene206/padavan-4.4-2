@@ -1,3 +1,10 @@
+## 2026-11-28 — Explicitly cover pre-NTP schedule-read suppression
+
+- Added a missing edge-case regression to the watchdog schedule snapshot: both actions may be enabled while `ntp_ready` is false; neither schedule string may be fetched, and failures of those unused keys must not invalidate the selectors snapshot. The source contract now pins this scenario and the three-read bound.
+- Parent main SHA: `9e154cc4eb761f2d876aeb9012a8a4264c3fe8d5`. At that SHA the watchdog regression, AI handoff documentation, Process inventory and NVRAM transaction audit were PASS; XY-C1 Build/TRX/artifact remained in progress. This test-only follow-up requires exact-head watchdog and documentation checks; no production source changed.
+
+---
+
 ## 2026-11-28 — Fix selector ordering in conditional schedule snapshot
 
 - Exact-head watchdog run `46115995003` on `f5bcffd73428bab5b4818e44465f3d25f8b7563a` failed in the new cache-snapshot regression: schedule gating consulted the zero-initialized output selectors before assigning the values just read, so enabled schedule strings were skipped.
