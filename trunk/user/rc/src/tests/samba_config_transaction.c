@@ -300,6 +300,22 @@ test_account_files_share_the_passdb_config_transaction(void)
 	assert(samba_config_transaction_recover_with_accounts(
 		transaction, passdb, config, passwd, group) == 0);
 
+	/* A visible COMMITTED marker survives a crash before snapshot cleanup. */
+	assert(samba_config_transaction_begin_with_accounts(
+		transaction, passdb, config, passwd, group) == 0);
+	replace_text(passdb, passdb_next, "marker passdb\\n", 0600);
+	replace_text(config, config_next, "marker config\\n", 0644);
+	replace_text(passwd, passwd_next, "marker passwd\\n", 0644);
+	replace_text(group, group_next, "marker group\\n", 0644);
+	assert(samba_config_transaction_write_state_with_accounts(
+		transaction, 1, 1, 1, 1, "COMMITTED") == 0);
+	assert(samba_config_transaction_recover_with_accounts(
+		transaction, passdb, config, passwd, group) == 0);
+	assert_text(passdb, "marker passdb\\n");
+	assert_text(config, "marker config\\n");
+	assert_text(passwd, "marker passwd\\n");
+	assert_text(group, "marker group\\n");
+
 	/* Missing original Unix files are removed on an interrupted first boot. */
 	assert(unlink(group) == 0);
 	assert(samba_config_transaction_begin_with_accounts(

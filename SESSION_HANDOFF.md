@@ -29,11 +29,11 @@
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and exact-SHA Actions for the V2 sync/CI guard follow-up.
-2. Confirm the standalone transaction test compiles and passes all four-file rollback/commit/legacy V1 cases.
-3. Confirm Samba embedded source guard and standalone durability checker pass; verify other V1 Samba transaction callers are unchanged.
-4. Inspect exact-SHA XY-C1 Build, TRX and artifact steps before L3 claim.
-5. Continue main-only atomic implementation while pending. Frozen backup remains immutable; no force-push.
+1. Fetch live main and exact-SHA Actions for the V2 COMMITTED recovery regression.
+2. Confirm the standalone C transaction test passes PREPARED rollback, COMMITTED retention after simulated cleanup interruption, four-file commit, missing-file rollback and V1 migration.
+3. Confirm the Samba embedded source-ordering guard and standalone durability checker pass.
+4. Inspect exact-SHA XY-C1 Build, TRX and artifact before claiming L3.
+5. Continue main-only source fixes while builds are pending; keep the frozen backup untouched and never force-push.
 
 ## Verification boundary
 

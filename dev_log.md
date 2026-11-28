@@ -1,3 +1,11 @@
+## 2026-11-28 — Cover the V2 COMMITTED-before-cleanup crash window
+
+- Extended the four-file Samba transaction regression to simulate power loss after the durable V2 COMMITTED marker is visible but before snapshot cleanup. Recovery must retain the new passdb, smb.conf, passwd and group contents rather than rolling any of them back.
+- The existing regression also exercises PREPARED rollback, all-file commit, missing-original group removal, and V1 journal migration.
+- Parent main SHA: `670e513d99fa0e2d48dfc382ea795ab5c8f6ba1a`. Exact-head host/Samba/XY-C1 verification pending.
+
+---
+
 ## 2026-11-28 — Harden V2 journal file sync and function-specific CI guards
 
 - Hardened the V2 trailing-byte read against EINTR and changed account/config regular-file synchronization to open writable descriptors before fsync, avoiding filesystems that reject fsync on an O_RDONLY descriptor. Existing no-follow, owner, inode and mode checks remain in force.
