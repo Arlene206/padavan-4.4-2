@@ -1,3 +1,12 @@
+## 2026-11-28 — Correct NTP resolver NUL literal
+
+- Reviewed the bounded NTP resolver helper and found its memchr argument had been emitted as a two-backslash multi-character constant rather than the C NUL character literal. Corrected the source and adjusted the Python source-contract token to match.
+- No resolver policy or test behavior changed; the corrected source must pass exact GNU89/Werror/ASan/UBSan Actions. Intermediate Actions on de86baf do not validate this correction.
+- Aliyun source SHA 19d51bab853ed2b904e44333e3f6ce0bd72059a4 independently has L3 PASS: XY-C1 #46135763583 passed Build, TRX and artifact upload.
+- Base: de86bafde7e9399b2eb2653de8feae338007b10a; result: THIS COMMIT.
+
+---
+
 ## 2026-11-28 — Bound watchdog NTP resolver string reads
 
 - `watchdog_ntp_resolve_server_pair()` accepted explicit input capacities but used `strlen()` on both buffers. A missing NUL terminator within a supplied capacity could make the helper read outside the caller's object.

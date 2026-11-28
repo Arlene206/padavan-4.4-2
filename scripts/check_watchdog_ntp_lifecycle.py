@@ -113,7 +113,7 @@ assert "return errno > 0 ? errno : EIO;" in policy
 assert "return ENAMETOOLONG;" in policy
 assert "watchdog_ntp_read_server_pair" in policy
 assert "watchdog_ntp_bounded_string_length" in policy
-assert "memchr(value, '\\\\0', value_size)" in policy
+assert "memchr(value, '\\0', value_size)" in policy
 assert "watchdog_ntp_resolve_server_pair" in policy
 
 stop = function_body(

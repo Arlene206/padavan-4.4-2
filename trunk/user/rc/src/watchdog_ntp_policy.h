@@ -177,7 +177,7 @@ watchdog_ntp_bounded_string_length(const char *value, size_t value_size,
 
     if (!value || value_size == 0 || !length)
         return EINVAL;
-    terminator = (const char *)memchr(value, '\\0', value_size);
+    terminator = (const char *)memchr(value, '\0', value_size);
     if (!terminator)
         return ENAMETOOLONG;
     *length = (size_t)(terminator - value);
