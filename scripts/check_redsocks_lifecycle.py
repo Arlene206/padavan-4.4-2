@@ -89,6 +89,18 @@ require(start.index('if [ ! -f "$REDSOCKS_CONF" ]') <
         'SOCKS5_PORT=$(redsocks_port_normalize "$ARG3")' in start and
         'CONFIG FILE NOT FOUND' in start,
         "config endpoint preflight must run before stopping an existing daemon and preserve no-config no-op")
+config_paths = body("redsocks_config_paths_validate()")
+require('[ ! -L "$config_parent" ]' in config_paths and
+        '[ -L "$REDSOCKS_DIR" ]' in config_paths and
+        '[ -L "$REDSOCKS_CONF" ]' in config_paths and
+        '[ "$REDSOCKS_CONF" = "$REDSOCKS_DIR/$BINARY_NAME.conf" ]' in config_paths,
+        "Redsocks config directory and target must be real expected paths, not symlinks")
+require('redsocks_config_paths_validate' in start and
+        start.index('redsocks_config_paths_validate') < start.index('if redsocks_process_state') and
+        'mkdir -p "$REDSOCKS_DIR" || return $?' in start,
+        "config path must be checked before stopping a daemon and directory creation errors must propagate")
+require('cat > "$REDSOCKS_CONF" <<EOF' in start,
+        "generated config writes must quote the validated destination")
 require('if [ "${RED_SOCKS_TEST_MODE:-0}" != 1 ]; then' in source and
         'case "$ARG1" in' in source,
         "test mode must skip only the CLI dispatcher while preserving production function definitions")

@@ -1,3 +1,11 @@
+## 2026-11-28 — Reject Redsocks configuration symlink paths
+
+- The endpoint-validation fix still left a privileged write-through path: when a missing `redsocks.conf` was a dangling symlink, `[ ! -f ]` treated it as absent and the config heredoc followed the link; a symlinked `/etc/storage/redsocks` directory similarly redirected generated files.
+- Added a config path preflight that requires the expected config target directly inside a real, non-symlink parent directory, and rejects a symlinked config directory, symlinked config file or non-regular target before any process stop. Directory creation and path revalidation failures now propagate. Regression covers directory and dangling-file symlinks and confirms the running daemon and referent remain untouched.
+- Reconstructed the Redsocks lifecycle test from its clean pre-endpoint baseline to remove malformed duplicate test fragments left by the preceding test insertion. The endpoint and config-path cases are now each included once.
+
+---
+
 ## 2026-11-28 — Repair Redsocks endpoint regression fixture syntax
 
 - Exact Redsocks workflow #46085873079 for `9309abef4f9813d650ff41d6b0075f4567260fab` failed at the initial `bash -n` check because the newly inserted endpoint test loop had been truncated after its `for bad_ip in` header. The production source itself passed its preceding parse stage; no runtime tests ran. Replaced the incomplete fixture section with complete explicit newline-injection, IPv4 and port cases, plus the valid normalized endpoint case.

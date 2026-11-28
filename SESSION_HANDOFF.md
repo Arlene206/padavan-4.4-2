@@ -1,3 +1,13 @@
+## 2026-11-28 — Reject Redsocks config-directory and file symlinks
+
+- Follow-on to endpoint preflight: `[ ! -f "$REDSOCKS_CONF" ]` treats a dangling symlink as absent, and the config heredoc follows it when creating the file. A symlinked `REDSOCKS_DIR` also redirects root writes into another storage path.
+- Added `redsocks_config_paths_validate` before process lifecycle changes. It requires `REDSOCKS_CONF` to be the expected direct child, its parent directory to exist and not be a symlink, the config directory (if present) to be a real directory, and an existing target to be a regular non-symlink file. Revalidates after creating the storage directory. Tests cover direct directory and dangling leaf symlinks; invalid paths must not stop the active daemon or modify the referent.
+- Rebuilt the Redsocks test file from the clean `c149a1f850ba7f074d5da757ed760b755284c017` baseline so each lifecycle/firewall test occurs once; this also preserves and re-adds the endpoint-injection regressions without the malformed duplicate block.
+- Endpoint fixture repair at `2a2e5af846aa826b7d1613191b099e6077ec73b5` had not yet completed exact-SHA Actions at last poll; `9309abef` Redsocks workflow #46085873079 failed at `bash -n` due truncated test insertion; Process inventory #46085873084 PASS, AI handoff #46085874162 PASS. Verify current commit's Redsocks and process workflows.
+- Frozen backup remains `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+
+---
+
 ## 2026-11-28 — Fix Redsocks endpoint-test shell syntax before rerun
 
 - `9309abef4f9813d650ff41d6b0075f4567260fab` added pre-stop SOCKS5 IPv4/port validation and regressions, but exact Redsocks workflow #46085873079 failed immediately at `bash -n scripts/tests/redsocks_lifecycle.sh`: an incomplete insertion left the test file ending a section with bare `for bad_ip in`. No runtime regression tests executed. Replaced the malformed block with complete endpoint cases; re-run the Redsocks exact-SHA suite.

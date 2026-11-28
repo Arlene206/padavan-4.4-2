@@ -227,15 +227,39 @@ redsocks_start_and_verify()
 	esac
 }
 
+redsocks_config_paths_validate()
+{
+	local config_parent
+	[ -n "$REDSOCKS_DIR" ] && [ -n "$REDSOCKS_CONF" ] || return 1
+	config_parent=$(dirname "$REDSOCKS_DIR") || return 1
+	[ "$REDSOCKS_CONF" = "$REDSOCKS_DIR/$BINARY_NAME.conf" ] || return 1
+	[ -d "$config_parent" ] && [ ! -L "$config_parent" ] || return 1
+	if [ -L "$REDSOCKS_DIR" ] ||
+	   { [ -e "$REDSOCKS_DIR" ] && [ ! -d "$REDSOCKS_DIR" ]; }; then
+		return 1
+	fi
+	if [ -L "$REDSOCKS_CONF" ] ||
+	   { [ -e "$REDSOCKS_CONF" ] && [ ! -f "$REDSOCKS_CONF" ]; }; then
+		return 1
+	fi
+	return 0
+}
+
 func_start(){
 MODE=true
+	# Preserve the legacy missing-config no-op when no endpoint was requested.
+	# Any path that will be read or generated must pass a symlink/type check first.
+	if [ ! -f "$REDSOCKS_CONF" ] && [ -z "$ARG2" ] && [ -z "$ARG3" ]; then
+		logger -t "$BINARY_NAME" "CONFIG FILE NOT FOUND"
+		return 0
+	fi
+	redsocks_config_paths_validate || {
+		logger -t "$BINARY_NAME" "unsafe Redsocks config directory or target path"
+		return 1
+	}
 	# Validate generation inputs before stopping a currently healthy daemon.
 	# Without a config file, a partial/invalid endpoint must not take service down.
 	if [ ! -f "$REDSOCKS_CONF" ]; then
-		if [ -z "$ARG2" ] && [ -z "$ARG3" ]; then
-			logger -t "$BINARY_NAME" "CONFIG FILE NOT FOUND"
-			return 0
-		fi
 		if [ -z "$ARG2" ] || [ -z "$ARG3" ]; then
 			logger -t "$BINARY_NAME" "both SOCKS5 server address and port are required"
 			return 2
@@ -271,11 +295,14 @@ then
 	then
 		if [ -n "$ARG3" ]
 		then
-			if [ ! -d $REDSOCKS_DIR ]
-			then
-			mkdir -p $REDSOCKS_DIR	
+			if [ ! -d "$REDSOCKS_DIR" ]; then
+				mkdir -p "$REDSOCKS_DIR" || return $?
 			fi
-		cat > $REDSOCKS_CONF <<EOF
+			redsocks_config_paths_validate || {
+				logger -t "$BINARY_NAME" "Redsocks config path changed during startup preflight"
+				return 1
+			}
+		cat > "$REDSOCKS_CONF" <<EOF
 base {
 log_debug = off;
 log_info = off;
