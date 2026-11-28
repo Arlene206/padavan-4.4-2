@@ -1,3 +1,12 @@
+## 2026-11-28 — Networkmap ProductID boundary fix reaches exact L1–L3 PASS
+
+- Networkmap ASUS IBOX `ProductID[32]` fix `9fc0a65fdff1a8c315119200efb1976e6e9d181d` is verified: local GNU89/Werror/ASan/UBSan host regression PASS; networkmap source-contract/unit workflow #46149948622 PASS; NVRAM audit #46149948646 PASS; Process inventory #46149948705 PASS.
+- XY-C1 workflow #46149948587 completed PASS on the same production-source SHA, including Build XY-C1, TRX verification and artifact upload. This establishes L3 for that exact firmware source tree; physical-router L4 remains unverified.
+- AI handoff documentation #46150253122 PASS on documentation SHA `4e5117e18afbd51580f2b05ffa4f1fcf502c9eaf`. Two docs-only validator corrections do not alter the already validated production tree.
+- Next source investigation: LAN DHCP client/AP-mode full live leasefail/renew/NAK/deconfig transitions. The `leasefail` script's exit status is intentionally advisory and is already logged centrally; do not change retry behavior without a concrete defect.
+
+---
+
 ## 2026-11-28 — Match atomic-commit handoff mandate to exact validator token
 
 - Exact-head AI handoff workflow #46150149400 on `307422cf470385e367e9968735ac08e6d902da6d` passed the checkpoint and archive checks up to cross-session wording, then failed because the required phrase `one atomic main commit` was capitalized in the handoff. Corrected the exact case-sensitive token; no production source changed.
