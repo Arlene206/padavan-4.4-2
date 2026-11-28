@@ -1118,7 +1118,7 @@ jobs:
           assert "storage_media_link_publish(dest_dir, link_path, 0)" in transmission_start
           assert "unlink(link_path)" not in transmission_start
           assert "create_mp_link_status(dest_dir, link_path, 0)" not in transmission_start
-          assert "create_mp_link_status(dest_dir, staged_path, 0)" in storage_media_publish
+          assert "create_mp_link_status(dest_dir, staged_path, force_first_valid)" in storage_media_publish
           assert "rename(staged_path, link_path)" in storage_media_publish
           assert "lstat(staged_path" in storage_media_publish
           assert "storage_media_link_parent_snapshot(&parent_before)" in storage_media_publish

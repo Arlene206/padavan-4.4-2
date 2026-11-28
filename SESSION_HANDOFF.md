@@ -1,3 +1,12 @@
+## 2026-11-27 — Fix final stale storage media-publisher test expectation
+
+- Parent `655d173234a14ce19b91f2fce9e68e1622bfc7cc` corrected the Transmission call-site assertion to include mode `0`. Its exact storage-hotplug run `46092458013` then reached the next assertion and exposed another old assumption: the common helper body no longer hardcodes mode `0`, but forwards the validated `force_first_valid` argument to the staged-link creator.
+- THIS commit updates the workflow contract to expect `create_mp_link_status(dest_dir, staged_path, force_first_valid)`. The independent assertions still require the boolean argument to be 0/1 and verify all four media daemons use their intended mode (DMS/iTunes fallback 0 then 1; torrent/aria 0 only).
+- Parent SHA `655d173`: AI handoff docs `46092457928` PASS, storage-hotplug `46092458013` FAIL only on this stale helper-body assertion. Parent `adeeba571`: other regression workflows passed except the same storage-hotplug source contract; XY-C1 and NVRAM transaction boundary jobs remained pending at last poll. No firmware/hardware pass claim.
+- Next: verify storage-hotplug and AI exact-head runs for THIS correction; address source failures only if surfaced, then continue next independent P1 issue. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+
+---
+
 ## 2026-11-27 — Align storage integration checkers with Transmission's staged mount-link publisher
 
 - Parent source `00e1d2efa475a2b693e26c481f230164285f1d05` replaced `run_torrent()`'s unchecked `unlink(link_path)` + direct final-path `create_mp_link_status()` with `transmission_mp_link_publish()`. Exact Process lifecycle `46091165092` and storage hotplug `46091165116` each failed only because their source contracts still demanded a direct adapter invocation from every caller. Their earlier test suites had already passed the preceding regressions.

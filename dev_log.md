@@ -1,3 +1,12 @@
+## 2026-11-27 — Align storage-hotplug publisher contract with selectable mount mode
+
+- Exact-SHA storage-hotplug run `46092458013` on `655d173234a14ce19b91f2fce9e68e1622bfc7cc` passed the earlier media-publisher call-site assertions but failed the helper contract at the next line: the checker still expected `create_mp_link_status(dest_dir, staged_path, 0)`. The shared helper correctly accepts the validated `force_first_valid` parameter so MiniDLNA/Firefly retain their original second-pass fallback while Torrent/Aria use first-valid-only mode.
+- THIS checker-only follow-up expects `create_mp_link_status(dest_dir, staged_path, force_first_valid)`; adjacent source assertions continue validating the boolean range and caller-specific 0/1 use. No product source behavior changed.
+- Exact SHA `655d173`: AI handoff docs `46092457928` PASS; USB storage `46092458013` FAIL only at the stale helper-body expectation. Parent SHA `adeeba571bf9388b7da34259a90524a2bf18d4be`: AI docs, service-enable, MiniDLNA, Firefly, IPv6, USB modem, firewall, libdisk, HTTPD, Process inventory/lifecycle, NFS, vsftpd and Samba checks PASS; storage-hotplug `46092345628` exposed the same stale source-contract chain; XY-C1 `46092345566` and NVRAM audit `46092345437` were pending at last poll. No firmware build or hardware result is claimed.
+- Next: verify exact-SHA storage-hotplug and AI docs for THIS correction; then inspect remaining storage/media path races and complete the current handoff. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+
+---
+
 ## 2026-11-27 — Update storage callers' integration contracts for atomic Transmission publication
 
 - Exact SHA `00e1d2efa475a2b693e26c481f230164285f1d05` exposed two more stale source contracts after the Transmission security fix: `scripts/check_process_lifecycle_integration.py` required `create_mp_link_status()` in every storage caller, while `scripts/check_storage_safe_remove.py` required the same direct final-path helper in `run_torrent()`. The production code intentionally routes Transmission through `transmission_mp_link_publish()`, which still uses the errno-normalizing adapter for a staged path and performs the final atomic rename.
