@@ -32,6 +32,21 @@ test_datagram_truncation_reporting(void)
     return 0;
 }
 
+
+static int
+test_message_type_option_requires_exactly_one_byte(void)
+{
+    CHECK(!udhcp_relay_message_type_length_valid(0, 0U));
+    CHECK(udhcp_relay_message_type_length_valid(1, 1U));
+    CHECK(!udhcp_relay_message_type_length_valid(1, 0U));
+    CHECK(!udhcp_relay_message_type_length_valid(1, 2U));
+    CHECK(!udhcp_relay_message_type_length_valid(1, 255U));
+    CHECK(!udhcp_relay_message_type_length_valid(-1, 0U));
+    CHECK(!udhcp_relay_message_type_length_valid(-1, 1U));
+    CHECK(!udhcp_relay_message_type_length_valid(2, 1U));
+    return 0;
+}
+
 int
 main(void)
 {
@@ -47,7 +62,8 @@ main(void)
     CHECK(!udhcp_relay_packet_length_valid((int)minimum, minimum - 1U, minimum));
     CHECK(!udhcp_relay_packet_length_valid((int)capacity, capacity, capacity + 1U));
     CHECK(test_datagram_truncation_reporting() == 0);
+    CHECK(test_message_type_option_requires_exactly_one_byte() == 0);
 
-    puts("DHCP relay datagram length bounds regression: PASS");
+    puts("DHCP relay datagram length and message-type bounds regression: PASS");
     return 0;
 }

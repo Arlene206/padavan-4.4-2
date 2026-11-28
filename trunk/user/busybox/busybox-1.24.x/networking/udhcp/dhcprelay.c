@@ -145,16 +145,22 @@ static void xid_del_item(struct xid_item *target)
  */
 static int get_dhcp_packet_type(struct dhcp_packet *p)
 {
-	uint8_t *op;
+	uint8_t *op = NULL;
+	unsigned int option_length = 0;
+	int option_status;
 
 	/* it must be either a BOOTREQUEST or a BOOTREPLY */
 	if (p->op != BOOTREQUEST && p->op != BOOTREPLY)
 		return -1;
-	/* get message type option */
-	op = udhcp_get_option(p, DHCP_MESSAGE_TYPE);
-	if (op != NULL)
-		return op[0];
-	return -1;
+
+	/* DHCP_MESSAGE_TYPE is required and exactly one byte long. */
+	option_status = udhcp_get_option_with_length(p, DHCP_MESSAGE_TYPE,
+						     &op, &option_length);
+	if (!udhcp_relay_message_type_length_valid(option_status,
+						   option_length))
+		return -1;
+
+	return op[0];
 }
 
 /**

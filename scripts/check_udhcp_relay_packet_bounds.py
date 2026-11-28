@@ -39,6 +39,24 @@ assert "client_addr.sin_family != AF_INET" in client_loop
 assert "dhcp_msg.cookie != htonl(DHCP_MAGIC)" in client_loop
 assert '"udhcp_relay_packet_bounds.h"' in relay
 
+# A valid opcode is not enough: message type TLV length must be exactly one.
+packet_type_start = relay.index("static int get_dhcp_packet_type(")
+packet_type_end = relay.index("\n/**", packet_type_start)
+packet_type_fn = relay[packet_type_start:packet_type_end]
+packet_type_compact = "".join(packet_type_fn.split())
+type_lookup = packet_type_compact.index(
+    "udhcp_get_option_with_length(p,DHCP_MESSAGE_TYPE,&op,&option_length)"
+)
+type_gate = packet_type_compact.index(
+    "udhcp_relay_message_type_length_valid(option_status,option_length)",
+    type_lookup,
+)
+type_value = packet_type_compact.index("returnop[0];", type_gate)
+assert type_lookup < type_gate < type_value
+assert "udhcp_get_option(p,DHCP_MESSAGE_TYPE)" not in packet_type_compact
+assert "test_message_type_option_requires_exactly_one_byte" in test
+assert "udhcp_relay_message_type_length_valid(1, 255U)" in test
+
 assert "received_length < 0" in policy
 assert "(size_t)received_length > packet_capacity" in policy
 assert "(size_t)received_length < minimum_length" in policy

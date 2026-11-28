@@ -23,4 +23,16 @@ udhcp_relay_packet_length_valid(int received_length, size_t packet_capacity,
     return 1;
 }
 
+/*
+ * RFC 2132 defines DHCP_MESSAGE_TYPE as a required one-byte option.
+ * Do not let an empty, truncated, overlong or malformed TLV acquire a
+ * transaction-table entry or authorize forwarding in either direction.
+ */
+static inline int
+udhcp_relay_message_type_length_valid(int lookup_status,
+                                      unsigned int option_length)
+{
+    return lookup_status == 1 && option_length == 1U;
+}
+
 #endif /* UDHCP_RELAY_PACKET_BOUNDS_H */
