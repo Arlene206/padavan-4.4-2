@@ -1,3 +1,10 @@
+## 2026-11-28 14:44 CST (UTC+8) — Replace escaped regex with literal firmware stop guard
+
+- Base main SHA: `a6fa71b390fa35b1676e34ebb94424578a87abfc`. Review found the previous checker-only follow-up had a double-escaped Python raw-regex, so it would match literal backslashes rather than whitespace. Replaced it with a literal multiline guard for the one-statement first-error assignment.
+- Parent PID 1 notification workflow #46114249923 completed SUCCESS; parent XY-C1 #46114250159 and Process runs #46114250080/#46114249925 remained pending at the previous poll. No production source changed in this commit.
+
+---
+
 ## 2026-11-28 14:41 CST (UTC+8) — Correct single-statement firmware stop checker
 
 - Base main SHA: `4bc110b517f8f1f49e5b0d6f64ea613a633577b0`. Review caught that `check_firmware_update_notification.py` passed a brace-less single-statement `if (service_stop_status != 0 && saved_errno == 0)` to its shared `block()` parser. The parser would bind to the next braced condition and fail to inspect the intended errno assignment.
