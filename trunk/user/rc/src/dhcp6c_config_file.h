@@ -8,10 +8,6 @@
 
 #include "config_file_sync.h"
 
-#ifndef DHCP6C_CONFIG_FILE_FSYNC
-#define DHCP6C_CONFIG_FILE_FSYNC(fd) fsync(fd)
-#endif
-
 #ifndef DHCP6C_CONFIG_FILE_SYNC_PARENT
 #define DHCP6C_CONFIG_FILE_SYNC_PARENT(path) config_file_sync_parent(path)
 #endif
@@ -69,10 +65,8 @@ dhcp6c_config_file_publish(FILE *stream, const char *staged_path,
 		saved_errno = errno ? errno : EIO;
 	}
 	if (!output_error) {
-		do {
-			sync_result = DHCP6C_CONFIG_FILE_FSYNC(fileno(stream));
-		} while (sync_result < 0 && errno == EINTR);
-		if (sync_result < 0) {
+		sync_result = config_file_sync_fd(fileno(stream));
+		if (sync_result != 0) {
 			output_error = 1;
 			saved_errno = errno ? errno : EIO;
 		}

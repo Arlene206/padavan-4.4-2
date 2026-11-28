@@ -1,40 +1,40 @@
 ## 2026-11-28 continuation checkpoint
 
-- Parent live `main` for this slice: `ebf6e9abf641b18fe19c359e17553c40ad6f1e79`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; it was rechecked unchanged before this write.
-- Previous exact-head NVRAM transaction-boundary run #46129727106 on `ebf6e9abf641b18fe19c359e17553c40ad6f1e79`: COMPLETED/SUCCESS, including source audit step 18. AI handoff documentation run #46129727111 on the same SHA: COMPLETED/SUCCESS.
-- OpenVPN config publication review found three unbounded EINTR retry loops in one durability path: shared `config_file_sync_fd()` and two direct staged-file `fsync()` loops. A persistent signal storm could keep a service process stuck indefinitely. The current slice applies one shared eight-retry budget to both staged-file fsyncs and the containing-directory fsync, and adds deterministic injected EINTR/exhaustion tests plus a source contract.
-- This is an OpenVPN publication-stability slice; it does not alter the frozen backup, create a branch or PR, or claim a firmware build. Exact-head OpenVPN regression and AI docs checks must be read after publication.
+- Parent live `main` for this DHCPv6 slice: `02dfbf9198cd7b5de10c4c902501249683ef26ef`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; verified unchanged before publication.
+- OpenVPN bounded-fsync slice is committed at parent SHA `02dfbf9198cd7b5de10c4c902501249683ef26ef`; its exact-head OpenVPN, Process, mdev, USB modem, NVRAM, DHCPv6 IA, AI docs, Process inventory, Samba, MSD Lite and XY-C1 Actions were queued at checkpoint. They must be inspected by exact SHA, not waited on.
+- Review found the RC DHCPv6 IA configuration writer still had its own unbounded `fsync()` EINTR loop, despite including the shared `config_file_sync.h`. The current slice removes that duplicate adapter, routes file sync through the shared eight-retry helper, and adds persistent-EINTR regression coverage that verifies no rename occurs and the last-good config remains active.
+- NVRAM transaction-boundary and AI documentation checks on the preceding SHA `ebf6e9ab...` were COMPLETED/SUCCESS. No full firmware build or physical-router validation is claimed.
 
 ## Current repository state
 
 - Repository `Arlene206/padavan-4.4-2`; only `main` is authorized for development.
-- This OpenVPN fsync retry slice is parented to `ebf6e9abf641b18fe19c359e17553c40ad6f1e79`; fetch the live `main` ref to resolve the resulting commit SHA.
-- Frozen archive `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable. PR #1 remains closed and unmerged.
-- Startup protocol/handoff recovery was completed once. Do not repeat completed governance audits or restore the deliberately skipped XY-C1 discussion file.
-- NVRAM exact-head source audit and AI docs passed on parent SHA `ebf6e9ab...`. No local full firmware build or physical-router validation has been performed.
+- DHCPv6 config durability slice is parented to `02dfbf9198cd7b5de10c4c902501249683ef26ef`; resolve the resulting SHA from the live main ref.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable. PR #1 remains closed and unmerged.
+- Recovery/audit completed once. Do not repeat it. `REFACTOR_ROADMAP.md` remains unchanged due its near-hard-cap size.
+- Parent NVRAM and AI docs checks passed on `ebf6e9ab...`; exact checks for the OpenVPN and DHCPv6 source slices are required. No local full firmware build or physical-router validation has been run.
 
 ## Active task
 
-- Bound all OpenVPN config durability fsync retries to a shared eight-interruption budget.
-- Before this slice, `config_file_sync_fd()` retried every EINTR forever; `openvpn_config_file_publish()` duplicated that unbounded loop for both staged-file fsyncs and used the shared helper only for the post-rename directory fsync.
-- The current atomic change routes both staged-file sync points through the shared helper, caps retries at eight after the initial call, and adds GNU89/ASan/UBSan regression coverage for successful EINTR recovery and persistent-signal exhaustion.
-- Changed files: `config_file_sync.h`, `openvpn_config_file.h`, `tests/openvpn_config_file.c`, `scripts/check_openvpn_client_secret.py`, `SESSION_HANDOFF.md`, `dev_log.md`.
+- Reuse the shared bounded fsync EINTR policy for DHCPv6 IA config staging.
+- Before this slice, `dhcp6c_config_file_publish()` used a duplicate `do/while(errno == EINTR)` loop with no interruption ceiling while `config_file_sync.h` already supplied an injectable, bounded policy.
+- This slice removes the duplicate fsync macro and loop, calls `config_file_sync_fd(fileno(stream))`, adapts the existing host regression to inject through the shared macro, and verifies persistent EINTR fails after nine total attempts before rename, removes the stage, and preserves the active config.
+- Changed files: `dhcp6c_config_file.h`, `tests/dhcp6c_config_file.c`, `.github/workflows/dhcp6c-config-publication.yml`, `SESSION_HANDOFF.md`, `dev_log.md`.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and confirm the exact SHA produced by this commit; verify frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-2. Inspect exact-SHA push Actions for `OpenVPN client credential staging regression` and `AI handoff documentation contract`. Confirm the GNU89 ASan/UBSan OpenVPN config regression and source contracts pass.
-3. If a job fails, use its exact job logs, fix the causal defect, and publish a separate atomic correction with expected-SHA non-force update.
-4. After PASS, continue the highest-priority concrete stability/security defect from the existing roadmap without repeating closed audits. PENDING is not a reason to wait.
-5. L3 requires a complete exact-source XY-C1 MIPS build/TRX/artifact pass; L4 requires a physical router. Neither is currently claimed.
+1. Fetch live `main` and confirm the exact SHA of the DHCPv6 bounded-fsync slice and the immutable backup SHA.
+2. Inspect exact-SHA `DHCPv6 client configuration durability regression`, `OpenVPN client credential staging regression`, `AI handoff documentation contract`, and any other exact-head Actions; confirm the new persistent-EINTR test and shared source contract pass.
+3. On failure, fetch only the failed exact-SHA job logs and repair the causal issue in a separate atomic commit with expected-SHA, non-force update.
+4. After PASS, continue another independent P1 stability/security defect from the existing roadmap; do not re-audit completed startup work and do not wait on unrelated PENDING runs.
+5. XY-C1 MIPS/TRX/artifact remains NOT VERIFIED until a complete exact-source target run passes; physical L4 remains NOT VERIFIED.
 
 ## Verification boundary
 
-- L1: source change routes all three OpenVPN configuration durability sync operations through one shared bounded EINTR helper; maximum is eight retries after the initial attempt.
-- L2: regression now injects three EINTR returns across staged-file data sync, post-mode sync and parent-directory sync, and verifies persistent EINTR terminates after nine attempts with EINTR. Exact-head OpenVPN/AI Actions are required; no local compile was available.
-- L3: NOT VERIFIED for this slice until exact-source XY-C1 MIPS Build, TRX validation and artifact upload pass.
+- L1: DHCPv6 IA config writer now uses the common bounded fsync policy already used by OpenVPN publication; max eight EINTR retries after initial attempt.
+- L2: Regression covers two transient EINTR returns followed by success, persistent EINTR exhaustion at nine total calls, stage cleanup and preservation of the prior active file, plus existing EIO/rename/parent-sync/symlink cases. Exact-head CI is pending.
+- L3: NOT VERIFIED; this session has not run a complete XY-C1 MIPS Build, TRX check and artifact upload for the new source.
 - L4: NOT VERIFIED; no physical router validation was performed.
-- Previous parent-SHA NVRAM and AI documentation checks passed (#46129727106 and #46129727111). Backup remains immutable.
+- The frozen backup remains unchanged; parent NVRAM and AI docs checks passed.
 
 ## Mandatory handoff checkpoint
 

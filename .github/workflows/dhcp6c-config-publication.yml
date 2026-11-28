@@ -50,8 +50,11 @@ jobs:
           sync = Path("trunk/user/rc/src/config_file_sync.h").read_text()
 
           assert '#include "config_file_sync.h"' in header
-          assert "DHCP6C_CONFIG_FILE_FSYNC(fileno(stream))" in header
-          assert "while (sync_result < 0 && errno == EINTR)" in header
+          assert "config_file_sync_fd(fileno(stream))" in header
+          assert "DHCP6C_CONFIG_FILE_FSYNC" not in header
+          assert "while (sync_result < 0 && errno == EINTR)" not in header
+          assert "CONFIG_FILE_SYNC_MAX_EINTR_RETRIES 8U" in sync
+          assert "interruptions >= CONFIG_FILE_SYNC_MAX_EINTR_RETRIES" in sync
           assert "DHCP6C_CONFIG_FILE_SYNC_PARENT(target_path)" in header
           assert "if (DHCP6C_CONFIG_FILE_SYNC_PARENT(target_path) != 0)" in header
           assert header.index("rename(staged_path, target_path)") < header.index(
@@ -61,7 +64,8 @@ jobs:
           assert '#include "dhcp6c_config_file.h"' in source
           assert "dhcp6c_config_file_open_staged(staged_path, &fp)" in source
           assert "dhcp6c_config_file_publish(fp, staged_path, conf_file)" in source
-          for token in ("file_fsync_interruptions_remaining = 2", "file_fsync_error = EIO",
+          for token in ("file_fsync_interruptions_remaining = 2", "file_fsync_always_eintr = 1",
+                        "CONFIG_FILE_SYNC_MAX_EINTR_RETRIES + 1U", "file_fsync_error = EIO",
                         "parent_sync_error = EIO", "config_file_sync_parent(missing_parent_target)",
                         "config_file_sync_parent(symlink_target)"):
               assert token in test, token

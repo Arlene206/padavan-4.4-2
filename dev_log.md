@@ -1,3 +1,12 @@
+## 2026-11-28 — Share bounded fsync retries with DHCPv6 IA config publication
+
+- The RC DHCPv6 config publisher included `config_file_sync.h` for parent-directory durability but still used its own `do/while (errno == EINTR)` loop for file fsync. A persistent signal storm could pin the DHCPv6 callback indefinitely.
+- Removed the duplicate `DHCP6C_CONFIG_FILE_FSYNC` adapter and routed file synchronization through `config_file_sync_fd()`, applying the shared eight-retry cap.
+- Extended the existing GNU89 DHCPv6 config publication test to inject persistent EINTR, require failure after nine attempts, remove the staged file, skip parent sync/rename, and preserve the last-good active configuration. Existing transient-EINTR and EIO cases remain.
+- Exact-head DHCPv6/OpenVPN/AI Actions are required. No local compile, target firmware or hardware result is claimed.
+
+---
+
 ## 2026-11-28 — Bound EINTR retries across OpenVPN config durability syncs
 
 - Review found the shared `config_file_sync_fd()` retried EINTR without a ceiling, while `openvpn_config_file_publish()` bypassed it with two additional unbounded staged-file fsync loops. A persistent signal storm could pin a service process indefinitely during configuration publication.

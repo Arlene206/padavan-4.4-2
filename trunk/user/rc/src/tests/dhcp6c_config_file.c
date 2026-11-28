@@ -10,12 +10,13 @@
 
 static int injected_file_fsync(int fd);
 static int injected_parent_sync(const char *target_path);
-#define DHCP6C_CONFIG_FILE_FSYNC(fd) injected_file_fsync(fd)
+#define CONFIG_FILE_SYNC_FSYNC(fd) injected_file_fsync(fd)
 #define DHCP6C_CONFIG_FILE_SYNC_PARENT(path) injected_parent_sync(path)
 #include "dhcp6c_config_file.h"
 
 static int file_fsync_calls;
 static int file_fsync_interruptions_remaining;
+static int file_fsync_always_eintr;
 static int file_fsync_error;
 static int parent_sync_calls;
 static int parent_sync_error;
@@ -24,8 +25,9 @@ static int
 injected_file_fsync(int fd)
 {
 	file_fsync_calls++;
-	if (file_fsync_interruptions_remaining > 0) {
-		file_fsync_interruptions_remaining--;
+	if (file_fsync_always_eintr || file_fsync_interruptions_remaining > 0) {
+		if (file_fsync_interruptions_remaining > 0)
+			file_fsync_interruptions_remaining--;
 		errno = EINTR;
 		return -1;
 	}
@@ -52,7 +54,7 @@ main(void)
 {
 	char directory[] = "/tmp/dhcp6c-config-test.XXXXXX";
 	char target[256], staged[256], failed_stage[256], bad_stage[256];
-	char failed_sync_stage[256], directory_sync_stage[256];
+	char failed_sync_stage[256], directory_sync_stage[256], interrupted_stage[256];
 	char missing_parent_target[256], symlink_parent[256], symlink_target[256];
 	char buffer[128];
 	FILE *stream = NULL;
@@ -72,6 +74,8 @@ main(void)
 			"%s/.dhcp6c-fsync.XXXXXX", directory) > 0);
 	assert(snprintf(directory_sync_stage, sizeof(directory_sync_stage),
 			"%s/.dhcp6c-dirsync.XXXXXX", directory) > 0);
+	assert(snprintf(interrupted_stage, sizeof(interrupted_stage),
+			"%s/.dhcp6c-eintr.XXXXXX", directory) > 0);
 	assert(snprintf(missing_parent_target, sizeof(missing_parent_target),
 			"%s/missing/dhcp6c.conf", directory) > 0);
 	assert(snprintf(symlink_parent, sizeof(symlink_parent),
@@ -106,6 +110,30 @@ main(void)
 	assert(S_ISREG(st.st_mode));
 	assert((st.st_mode & 0777) == 0600);
 	assert(access(staged, F_OK) != 0 && errno == ENOENT);
+	stream = fopen(target, "r");
+	assert(stream != NULL);
+	length = fread(buffer, 1, sizeof(buffer) - 1, stream);
+	assert(!ferror(stream));
+	assert(fclose(stream) == 0);
+	buffer[length] = '\0';
+	assert(strcmp(buffer, "new configuration\n") == 0);
+
+	/* Persistent EINTR must not trap a DHCPv6 callback in an endless loop. */
+	assert(dhcp6c_config_file_open_staged(interrupted_stage, &stream) == 0);
+	assert(fputs("must-not-publish-on-eintr\n", stream) >= 0);
+	file_fsync_always_eintr = 1;
+	{
+		int calls_before = file_fsync_calls;
+		errno = 0;
+		assert(dhcp6c_config_file_publish(stream, interrupted_stage, target) == -1);
+		assert(errno == EINTR);
+		assert(file_fsync_calls - calls_before ==
+		       CONFIG_FILE_SYNC_MAX_EINTR_RETRIES + 1U);
+	}
+	file_fsync_always_eintr = 0;
+	stream = NULL;
+	assert(parent_sync_calls == 1);
+	assert(access(interrupted_stage, F_OK) != 0 && errno == ENOENT);
 	stream = fopen(target, "r");
 	assert(stream != NULL);
 	length = fread(buffer, 1, sizeof(buffer) - 1, stream);
