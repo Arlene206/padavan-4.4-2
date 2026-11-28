@@ -1,3 +1,11 @@
+## 2026-11-28 13:27 CST (UTC+8) — Match DHCP option-scanner checker to split C signature
+
+- Base main SHA: `2643d05714776b43bf850fb2d41aa1e3c191ba74`. Exact-head udhcpc run #46111402271 compiled and ran the GNU89/Werror/ASan/UBSan policy binary successfully, then failed only in the Python source checker: `function_body()` searched for the literal `static int udhcp_get_option_internal(`, but the production definition deliberately formats the return type and function name on separate lines.
+- Updated the source checker to anchor on the function name and first parameter instead of the split return-type spelling. No source, regression or validation assertion was removed or weakened.
+- On the same parent SHA, AI handoff docs #46111402320, DHCPv6 Reply #46111402363, WAN DHCP callback #46111402372, Process fail-closed #46111402276, Process inventory #46111402310 and USB storage #46111402425 PASS. NVRAM #46111402311 and XY-C1 #46111402307 remained in progress; the parent c21 NVRAM audit #46111075506 is now PASS, while its XY-C1 #46111075565 was still building. The correction SHA needs its own exact-head Actions. No local test is claimed.
+
+---
+
 ## 2026-11-28 13:22 CST (UTC+8) — Distinguish malformed DHCP server-ID options from absence
 
 - Base main SHA: `c21c9f0c5fd6b603befbbf84d4ddbc34eaafad62`. The new address-less compatibility path still used `udhcp_get_option32()`, which returns NULL for both an absent option and any present option whose payload length is not exactly four bytes. In address-less mode that collapsed malformed option 54 data into the deliberately supported "no server ID" case; zero-length instances were also skipped by the legacy finder.

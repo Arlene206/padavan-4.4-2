@@ -1,10 +1,8 @@
-## 2026-11-28 — Reject malformed DHCP server-ID options without breaking address-less compatibility (THIS COMMIT)
+## 2026-11-28 — Fix the DHCP option-scanner checker signature (THIS COMMIT)
 
-- Base main SHA: `c21c9f0c5fd6b603befbbf84d4ddbc34eaafad62`. The legacy `udhcp_get_option32()` conflates a truly absent option 54 with a present option whose length is not four bytes; the plain finder also skips zero-length TLVs. In the supported address-less DHCP mode, that allowed malformed server-ID values to be interpreted as absent.
-- Added `udhcp_get_option_with_length()` with a strict tri-state result: -1 malformed option stream, 0 absent, 1 present (including zero-length), plus the exact payload length. The old `udhcp_get_option()` API keeps its previous zero-length-skipping semantics for all other callers.
-- DHCPOFFER, DHCPACK and DHCPNAK reject a present server-ID whose payload length is not exactly four bytes, or a malformed option stream, before subsequent policy/state/script work. Truly absent and explicit 0.0.0.0 remain compatible only when no concrete server is selected; 255.255.255.255 remains rejected.
-- GNU89 regression/checker cover the status/length contract and the OFFER/ACK/NAK source order. Parent c21 exact-head udhcpc #46111075543 and AI docs #46111075486 PASS; THIS commit's own exact-head runs are pending. No local compilation is claimed.
-- On parent c21, DHCPv6 Reply #46111075672, WAN DHCP callback #46111075595, Process lifecycle #46111075501, Process fail-closed #46111075531 and USB storage #46111075489 PASS. NVRAM #46111075506 remained at the final audit step and XY-C1 #46111075565 remained in Build. Earlier HTTPD SHA XY-C1 #46109982320 has completed Build/TRX/artifact, but must not be represented as L3 for the current DHCP source. L4 physical-router behavior remains NOT VERIFIED.
+- Base main SHA: `2643d05714776b43bf850fb2d41aa1e3c191ba74`. The production option lookup definition puts `static int` on one line and `udhcp_get_option_internal(...)` on the next. The exact-head udhcpc run #46111402271 proved the GNU89/Werror/ASan/UBSan test binary passed, but the Python contract checker raised `ValueError: substring not found` because it expected those tokens on one line.
+- THIS commit changes only the checker anchor to `udhcp_get_option_internal(struct dhcp_packet *packet`; all scanner, option-length, and OFFER/ACK/NAK ordering assertions remain enabled. No production code or test was weakened.
+- Parent c22 AI docs #46111402320, DHCPv6 #46111402363, WAN DHCP #46111402372, Process fail-closed #46111402276, Process inventory #46111402310 and USB storage #46111402425 PASS. Parent NVRAM #46111402311 and XY-C1 #46111402307 were still running; c21 NVRAM #46111075506 is now PASS, c21 XY #46111075565 was still building. THIS commit's exact Actions are pending.
 
 ---
 
@@ -13,7 +11,7 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; all development and validation are on `main` only.
-- Live main immediately before this atomic slice: `c21c9f0c5fd6b603befbbf84d4ddbc34eaafad62`, containing the udhcpc address-less compatibility correction and OFFER all-ones rejection. THIS commit adds strict presence/length handling for option 54 across OFFER, ACK and NAK. The HTTPD request/header reader fix is `856fe202e000de0b751c3f1ace304a208e7c0b37`; its exact XY-C1 run #46109982320 has now completed Build, TRX and artifact upload successfully.
+- Live main immediately before this atomic checker correction: `2643d05714776b43bf850fb2d41aa1e3c191ba74`, containing the tri-state DHCP option lookup and strict option-54 validation in OFFER/ACK/NAK. This follow-up corrects only a line-wrapped function-name anchor in the source checker. The HTTPD request/header reader fix is `856fe202e000de0b751c3f1ace304a208e7c0b37`; its exact XY-C1 run #46109982320 completed Build, TRX and artifact upload successfully (that result is specific to its older source SHA).
 - Frozen backup remains `backup/pre-plugin-overhaul-2026-11-14` (handoff-recorded HEAD `72f4f157a084f8184b9597ca5bf334b8080e5807`); its warning file explicitly forbids mutation. PR #1 remains CLOSED/unmerged with no identified missing change.
 - Remote branch search shows only the preserved `backup/pre-plugin-overhaul-2026-11-14` archive beyond `main`. Its warning file was read from that ref and explicitly forbids any modification/deletion; the handoff-recorded frozen HEAD is `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 remains CLOSED and unmerged; its unmerged work was previously compared and no valid missing source/test/build change was identified.
 - Pre-commit exact-main AI docs #46110148275 and HTTPD #46110148273 both PASS on `6b897adfbe68c7b3ab9d0eb040181b806662e3ef`. No local source checkout is available; source/test evidence is from GitHub and Actions, not a claimed local build.
@@ -104,14 +102,14 @@ For product-source SHA `7daa20cd2f1bd7abca4499fb9f9a6e05ce5d3d00`:
 
 ## Active task
 
-The address-less DHCP compatibility path still had an ambiguity at the parser boundary: `udhcp_get_option32()` returns NULL for both absent option 54 and malformed present values, and the legacy raw finder skips zero-length instances. This commit introduces a tri-state length-preserving lookup and rejects malformed server-ID options in DHCPOFFER/DHCPACK/DHCPNAK without dropping genuine missing/explicit-zero address-less compatibility.
+The option-54 scanner/source changes are committed in `2643d05714776b43bf850fb2d41aa1e3c191ba74`. Its GNU89/Werror/ASan/UBSan policy binary compiled and passed, but the exact-head BusyBox udhcpc workflow failed in the Python checker because the new internal C function signature is split across two lines. This commit corrects only that checker lookup; all source/test assertions remain intact.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`, identify THIS COMMIT's SHA from the root `dev_log.md` / commit history, and inspect exact-head BusyBox udhcpc and AI docs Actions. Require both PASS. On failure, inspect logs and fix the specific regression, source or checker contract.
-2. Recheck parent c21 NVRAM #46111075506, which was still executing its final raw-ioctl/caller audit, and XY-C1 #46111075565, which was still in the Build step. These are parent-SHA evidence only; do not ascribe either result to THIS commit. The earlier HTTPD-only XY run #46109982320 has completed Build/TRX/artifact on SHA `856fe202e000de0b751c3f1ace304a208e7c0b37`.
-3. After the DHCP slice is green, continue a separate source-backed stability/security item across another userland module. Avoid repeating udhcpc lease accounting, address-less compatibility, invalid-server endpoints or option-54 length validation without new evidence.
-4. Keep host sanitizer tests, firmware L3 and physical-router L4 separate. L4 remains NOT VERIFIED.
+1. Inspect exact-head BusyBox udhcpc and AI handoff docs Actions for THIS checker correction. The failed parent run is #46111402271 (C policy binary PASS; Python checker failed at `function_body(common, "static int udhcp_get_option_internal(")`). Require the corrected exact-SHA regression and docs run to PASS; inspect logs and repair any new failure without relaxing assertions.
+2. Recheck parent c22 XY-C1 #46111402307 and NVRAM #46111402311. At handoff they were still running. Parent c22 AI docs #46111402320, DHCPv6 #46111402363, WAN DHCP #46111402372, Process fail-closed #46111402276, Process inventory #46111402310 and USB storage #46111402425 PASS. c21 NVRAM #46111075506 completed PASS; c21 XY #46111075565 remained building.
+3. Once checker correction is green, continue a separate source-backed stability/security fix outside udhcpc rather than broadening the DHCP slice without new evidence. Keep current exact-SHA firmware validation separate from the earlier HTTPD SHA's successful L3 result.
+4. No physical-router L4 validation has been performed.
 
 # Cross-session execution mandate
 
@@ -122,5 +120,5 @@ The address-less DHCP compatibility path still had an ambiguity at the parser bo
 
 Before context exhaustion, stop starting new modules, finish and publish a safe bounded slice, then leave this handoff with the exact first action, validation boundary and committed baseline.
 - Run the local handoff-doc validator when a checkout is available. This session had no local checkout; the exact-head GitHub Actions workflow is the validation gate for the docs correction.
-- Keep the root dev log at 20–119 complete records; it had 82 records before this entry and now has 83, so no archive rotation is due. Do not add handoff/roadmap archive snapshots.
+- Keep the root dev log at 20–119 complete records; it had 83 records before this entry and now has 84, so no archive rotation is due. Do not add handoff/roadmap archive snapshots.
 - Do not change GPT Session Rotator or replay its existing state/SHA. Do not claim hardware validation or a successful build when steps were skipped.

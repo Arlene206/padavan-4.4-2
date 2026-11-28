@@ -116,7 +116,7 @@ assert "received DHCP OFFER with malformed server ID, ignoring packet" in offer
 # DHCP option TLV parsing validates header and full payload before use.
 assert '#include "option_parser_policy.h"' in common
 assert "udhcp_get_option_with_length" in common_header
-option_lookup = function_body(common, "static int udhcp_get_option_internal(")
+option_lookup = function_body(common, "udhcp_get_option_internal(struct dhcp_packet *packet")
 assert "int include_empty" in common
 assert "include_empty || optionptr[OPT_LEN] != 0" in option_lookup
 assert "*option_value = optionptr + OPT_DATA;" in option_lookup
