@@ -1,3 +1,12 @@
+## 2026-11-28 — Publish Samba passwd/passdb/config from one account snapshot
+
+- Found a concrete NVRAM generation mismatch: `run_samba()` copied `acc_num`, account names/passwords and the management username under one transaction, then called `recreate_passwd_unix(0)`, which independently re-read those keys with separate checked-getter locks. An account edit between the two snapshots could publish `/etc/passwd` for a different generation than Samba's passdb and `smb.conf`.
+- Added `recreate_passwd_unix_snapshot()` as a copied-snapshot consumer. Samba now passes its existing local username/root-identity snapshot directly to passwd generation, while the boot-time compatibility entry point snapshots all required NVRAM keys under one `nvram_transaction` and releases the lock before filesystem work.
+- Extended the Process lifecycle source contract to verify that Samba passes its snapshot into passwd publication. Existing passwd publication rollback and checked-copy tests remain in the host suite; Process regression already tracks both changed source paths.
+- Parent main SHA: `41a9d0f0f87ce11e737ce8b7a404bca39467049b`. Exact-head Process/Samba/XY-C1 results are pending. No local firmware build or hardware test was performed.
+
+---
+
 ## 2026-11-28 — Repair exact-head firmware stop CI contracts
 
 - Exact-head validation of `805624195e6826f723c854afd2dabd7df891b50e` exposed two stale verification contracts. The AI handoff checker rejected the new handoff because its mandatory checkpoint sentence did not retain two literal required phrases. The detect_internet signal workflow's static guard still searched for the old `saved_errno == 0` service-stop branch, superseded by `firmware_update_stop_first_errno()`.

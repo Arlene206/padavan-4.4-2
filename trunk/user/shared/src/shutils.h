@@ -50,8 +50,12 @@ extern int doSystem(const char *fmt, ...);
 extern unsigned long get_swap_size(void);
 extern unsigned int get_mtd_size(const char *mtd);
 
-extern int change_passwd_unix(char *user, char *pass);
+extern int change_passwd_unix(const char *user, const char *pass);
 extern int recreate_passwd_unix(int force_create);
+extern int recreate_passwd_unix_snapshot(int force_create, const char *root_name,
+					 const char *root_password,
+					 const char *const *account_names,
+					 int account_count);
 
 /* 
  * Concatenates NULL-terminated list of arguments into a single

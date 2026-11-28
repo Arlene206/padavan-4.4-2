@@ -2008,7 +2008,9 @@ account_snapshot_done:
 	}
 
 
-	passwd_status = recreate_passwd_unix(0);
+	passwd_status = recreate_passwd_unix_snapshot(
+		0, router_username, NULL,
+		(const char *const *)account_list_snapshot, sh_num);
 	if (passwd_status != 0) {
 		passwd_error = errno ? errno :
 			(passwd_status > 0 ? passwd_status : EIO);

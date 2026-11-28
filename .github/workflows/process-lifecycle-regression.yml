@@ -1075,6 +1075,7 @@ jobs:
           from pathlib import Path
 
           shared = Path("trunk/user/shared/src/shutils.c").read_text()
+          storage = Path("trunk/user/rc/src/services_stor.c").read_text()
           header = Path("trunk/user/shared/src/passwd_temp_file_policy.h").read_text()
           account_policy = Path("trunk/user/shared/src/router_account_nvram_policy.h").read_text()
           rc = Path("trunk/user/rc/src/rc.c").read_text()
@@ -1134,7 +1135,9 @@ jobs:
 
           change = function_body(shared, "change_passwd_unix(")
           recreate = function_body(shared, "recreate_passwd_unix(")
-          recreate_compact = " ".join(recreate.split())
+          recreate_snapshot = function_body(shared, "recreate_passwd_unix_snapshot(")
+          recreate_compact = " ".join(recreate_snapshot.split())
+          run_samba = function_body(storage, "run_samba(void)")
           init = function_body(rc, "init_router(void)")
           assert "mkstemp(path_template)" in header and "fchmod(fd, mode)" in header
           assert 'char tmpfile[] = "/tmp/.tmpchpw.XXXXXX";' in change
@@ -1146,12 +1149,12 @@ jobs:
           assert "strchr(pass, ':')" in change
           assert "passwd_temp_stream_finish(fp)" in change
           assert "system(cmdbuf)" in change
-          assert "passwd_temp_file_open(passwd_temp, 0644)" in recreate
-          assert "passwd_temp_file_backup_create(\"/etc/passwd\"" in recreate
-          assert "passwd_temp_file_backup_create(\"/etc/group\"" in recreate
+          assert "passwd_temp_file_open(passwd_temp, 0644)" in recreate_snapshot
+          assert "passwd_temp_file_backup_create(\"/etc/passwd\"" in recreate_snapshot
+          assert "passwd_temp_file_backup_create(\"/etc/group\"" in recreate_snapshot
           assert "passwd_file_publish_transaction_retain(file_updates, update_count, rename, unlink, &rollback_failed)" in recreate_compact
-          assert "if (rollback_failed)" in recreate
-          assert "passwd_backup[0]" in recreate and "group_backup[0]" in recreate
+          assert "if (rollback_failed)" in recreate_snapshot
+          assert "passwd_backup[0]" in recreate_snapshot and "group_backup[0]" in recreate_snapshot
           assert "passwd_file_publish_transaction(" in header
           assert "link(source_path, backup_template)" in header
           assert "rollback_failed" in header
@@ -1166,16 +1169,24 @@ jobs:
           assert "test_post_publish_rollback_failure_preserves_recovery_link();" in test
           assert '#include "router_account_nvram_policy.h"' in shared
           assert "nvram_get_checked(name, value)" in shared
+          assert "router_account_nvram_get_transactional" in shared
+          assert "nvram_transaction_get(transaction, name, value)" in shared
+          assert "nvram_transaction_begin(&account_transaction)" in recreate
+          assert "nvram_transaction_end(&account_transaction)" in recreate
           assert "router_account_nvram_read_copy(" in recreate
           assert "router_account_nvram_read_count(" in recreate
           assert "http_username" in recreate and "http_passwd" in recreate
-          assert "acc_username%d" in recreate and "account_names[j]" in recreate
+          assert "acc_username%d" in recreate and "account_names[i]" in recreate
           assert "root_password" in recreate
           assert "nvram_safe_get(" not in recreate
           assert "nvram_safe_get_int(" not in recreate
-          assert recreate.index("router_account_nvram_read_copy(") < recreate.index("passwd_temp_file_open(passwd_temp, 0644)")
-          assert recreate.index('"http_passwd"') < recreate.index("passwd_temp_file_open(passwd_temp, 0644)")
-          assert "if (force_create)" in recreate
+          assert recreate.index("nvram_transaction_begin(&account_transaction)") < recreate.index("router_account_nvram_read_copy(")
+          assert recreate.index("router_account_nvram_read_copy(") < recreate.index("nvram_transaction_end(&account_transaction)")
+          assert "if (force_create)" in recreate_snapshot
+          assert "root_password" in recreate_snapshot
+          assert "recreate_passwd_unix_snapshot(" in run_samba
+          assert "router_username" in run_samba and "account_list_snapshot" in run_samba
+          assert "sh_num" in run_samba
           assert "ROUTER_ACCOUNT_NV_MAX_ACCOUNTS 100" in account_policy
           assert "memcpy(destination, source, length + 1)" in account_policy
           assert "saved_errno ? saved_errno : EIO" in account_policy

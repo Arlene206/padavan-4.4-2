@@ -2,7 +2,7 @@
 
 - Repository: `Arlene206/padavan-4.4-2`. Continue on `main`; startup recovery was completed once. Do not repeat the completed bootstrap/inventory audit.
 - Frozen backup: `backup/pre-plugin-overhaul-2026-11-14`, SHA `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable. No force-push, reset, rename, CI, or development work on this branch.
-- Latest validated parent at this checkpoint: `805624195e6826f723c854afd2dabd7df891b50e`; the current follow-up repairs two exact-head CI contract regressions found on that SHA.
+- Latest validated parent at this checkpoint: `41a9d0f0f87ce11e737ce8b7a404bca39467049b`; this follow-up makes passwd/passdb/config consume one copied account snapshot.
 - PR #1 remains closed and unmerged. Its AliDDNS CA trust-store postcondition source, shell regression and workflow integration are present on main; do not resume development on the closed PR branch or assume its legacy branch is current.
 
 ## Exact-SHA validation already established
@@ -17,11 +17,14 @@
 
 - Main-only development. The frozen backup remains unchanged.
 - `flash_firmware()` now routes all ten independent pre-flash stop operations through `firmware_update_stop_first_errno()`: VPN client, VPN server, residual L2TP/PPP process cleanup, VPN lifecycle-lock release, MiniUPnPd, checked service stop, EAPOL, LAN authentication, 802.1X and PPPoE relay.
+- Samba account generation now uses one copied NVRAM generation across `/etc/passwd`, passdb and `smb.conf`; boot-time passwd generation itself reads all account keys under one transaction.
 - Each operation clears errno before it runs; the first nonzero failure errno is retained, defaulting to EIO when a failing operation leaves errno unset. Independent stop attempts continue; failure is logged and errno restored before returning. Persistence/MTD write remains unreachable after any stop failure.
 - The GNU89 policy regression covers successful operations with stale errno, operation errno capture, EIO fallback and sticky first error. The Process lifecycle and XY-C1 workflows compile/run it with sanitizers and execute the extended firmware-update source checker.
 - Root `dev_log.md` has 98 records before this commit and is below archive thresholds; roadmap is near its size cap and was not edited.
 
 ## Active task
+
+- Current source task: unify the NVRAM account generation used by Samba and `/etc/passwd`; validate exact-head Process/Samba workflows and XY-C1 build.
 
 - Validate the ten-stop first-errno follow-up and its test-contract maintenance on the new exact main SHA. Require AI handoff docs, detect_internet focused contract, GNU89 policy test, source checker, Process lifecycle regression, PID 1 notification, and XY-C1 pre-build checks to pass.
 - Complete exact-SHA Build, TRX and artifact upload before claiming L3 for any firmware-related SHA. The PPPoE-MWAN detector SHA 300e is already fully validated.

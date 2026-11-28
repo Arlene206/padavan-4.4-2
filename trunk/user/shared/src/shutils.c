@@ -219,7 +219,7 @@ passwd_temp_stream_finish(FILE *stream)
 }
 
 int
-change_passwd_unix(char *user, char *pass)
+change_passwd_unix(const char *user, const char *pass)
 {
 	FILE *fp = NULL;
 	char tmpfile[] = "/tmp/.tmpchpw.XXXXXX";
@@ -280,7 +280,10 @@ router_account_nvram_get_checked(void *context, const char *name, char **value)
 }
 
 int
-recreate_passwd_unix(int force_create)
+recreate_passwd_unix_snapshot(int force_create, const char *root_name,
+			      const char *root_password,
+			      const char *const *account_names,
+			      int account_count)
 {
 	FILE *fp1 = NULL, *fp2 = NULL;
 	int passwd_fd = -1, group_fd = -1, shadow_fd = -1;
@@ -288,11 +291,7 @@ recreate_passwd_unix(int force_create)
 	int update_count, rollback_failed = 0, backup_cleanup_failed = 0;
 	int password_rollback_status;
 	int passwd_had_original = 0, group_had_original = 0, shadow_had_original = 0;
-	char account_key[32], *rootnm, *usernm;
-	char root_name[ROUTER_ACCOUNT_NV_NAME_SIZE];
-	char root_password[NVRAM_MAX_VALUE_LEN + 1];
-	char account_names[ROUTER_ACCOUNT_NV_MAX_ACCOUNTS][ROUTER_ACCOUNT_NV_NAME_SIZE];
-	int account_count;
+	const char *rootnm, *usernm;
 	char passwd_temp[] = "/etc/.passwd.XXXXXX";
 	char group_temp[] = "/etc/.group.XXXXXX";
 	char shadow_temp[] = "/etc/.shadow.XXXXXX";
@@ -301,46 +300,41 @@ recreate_passwd_unix(int force_create)
 	char shadow_backup[] = "/etc/.shadow-backup.XXXXXX";
 	passwd_file_update_t file_updates[3];
 
-	/* Snapshot all NVRAM values before staged account files exist.
-	 * The checked getter returns a shared-cache pointer; copy before next read. */
-	root_password[0] = '\0';
-	status = router_account_nvram_read_copy(router_account_nvram_get_checked,
-		NULL, "http_username", "", root_name, sizeof(root_name));
-	if (status != 0)
+	/*
+	 * Consume a caller-owned, already copied NVRAM generation. The boot
+	 * wrapper snapshots under one transaction; Samba passes the exact same
+	 * generation used for its passdb and smb.conf publication.
+	 */
+	if ((force_create != 0 && force_create != 1) ||
+	    account_count < 0 ||
+	    account_count > ROUTER_ACCOUNT_NV_MAX_ACCOUNTS ||
+	    (account_count > 0 && !account_names)) {
+		status = EINVAL;
 		goto snapshot_failed;
-	if (!root_name[0])
-		snprintf(root_name, sizeof(root_name), "%s", SYS_USER_ROOT);
+	}
+	if (!root_name || !root_name[0])
+		root_name = SYS_USER_ROOT;
 	rootnm = root_name;
 	if (!router_account_name_is_valid(rootnm)) {
 		status = EINVAL;
 		goto snapshot_failed;
 	}
-	if (force_create) {
-		status = router_account_nvram_read_copy(router_account_nvram_get_checked,
-			NULL, "http_passwd", "", root_password, sizeof(root_password));
-		if (status != 0)
-			goto snapshot_failed;
-		if (strchr(root_password, '\n') || strchr(root_password, '\r') ||
-		    strchr(root_password, ':')) {
+	if (force_create &&
+	    (!root_password || strlen(root_password) > NVRAM_MAX_VALUE_LEN ||
+	     strchr(root_password, '\n') || strchr(root_password, '\r') ||
+	     strchr(root_password, ':'))) {
+		status = EINVAL;
+		goto snapshot_failed;
+	}
+	for (i = 0; i < account_count; ++i) {
+		if (!account_names[i]) {
 			status = EINVAL;
 			goto snapshot_failed;
 		}
-	}
-	status = router_account_nvram_read_count(router_account_nvram_get_checked,
-		NULL, "acc_num", ROUTER_ACCOUNT_NV_MAX_ACCOUNTS, &account_count);
-	if (status != 0)
-		goto snapshot_failed;
-	for (i = 0; i < account_count; ++i) {
-		int key_length;
-		key_length = snprintf(account_key, sizeof(account_key), "acc_username%d", i);
-		if (key_length < 0 || (size_t)key_length >= sizeof(account_key)) {
+		if (strlen(account_names[i]) >= ROUTER_ACCOUNT_NV_NAME_SIZE) {
 			status = ENAMETOOLONG;
 			goto snapshot_failed;
 		}
-		status = router_account_nvram_read_copy(router_account_nvram_get_checked,
-			NULL, account_key, "", account_names[i], sizeof(account_names[i]));
-		if (status != 0)
-			goto snapshot_failed;
 	}
 
 	passwd_fd = passwd_temp_file_open(passwd_temp, 0644);
@@ -511,6 +505,101 @@ cleanup:
 
 snapshot_failed:
 	errno = status;
+	return status;
+}
+
+static int
+router_account_nvram_get_transactional(void *context, const char *name,
+				       char **value)
+{
+	struct nvram_transaction *transaction =
+		(struct nvram_transaction *)context;
+
+	if (!transaction) {
+		errno = EINVAL;
+		return -1;
+	}
+	return nvram_transaction_get(transaction, name, value);
+}
+
+int
+recreate_passwd_unix(int force_create)
+{
+	struct nvram_transaction account_transaction;
+	char root_name[ROUTER_ACCOUNT_NV_NAME_SIZE];
+	char root_password[NVRAM_MAX_VALUE_LEN + 1];
+	char account_names[ROUTER_ACCOUNT_NV_MAX_ACCOUNTS]
+		[ROUTER_ACCOUNT_NV_NAME_SIZE];
+	const char *account_name_refs[ROUTER_ACCOUNT_NV_MAX_ACCOUNTS];
+	int account_count = 0, status = 0, end_status, end_errno;
+	int transaction_active = 0, i;
+
+	if (force_create != 0 && force_create != 1) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+	memset(&account_transaction, 0, sizeof(account_transaction));
+	account_transaction.lock_fd = -1;
+	memset(root_name, 0, sizeof(root_name));
+	memset(root_password, 0, sizeof(root_password));
+	memset(account_names, 0, sizeof(account_names));
+
+	if (nvram_transaction_begin(&account_transaction) != 0) {
+		status = errno ? errno : EIO;
+		goto out;
+	}
+	transaction_active = 1;
+	status = router_account_nvram_read_copy(
+		router_account_nvram_get_transactional, &account_transaction,
+		"http_username", "", root_name, sizeof(root_name));
+	if (status == 0 && force_create)
+		status = router_account_nvram_read_copy(
+			router_account_nvram_get_transactional, &account_transaction,
+			"http_passwd", "", root_password, sizeof(root_password));
+	if (status == 0)
+		status = router_account_nvram_read_count(
+			router_account_nvram_get_transactional, &account_transaction,
+			"acc_num", ROUTER_ACCOUNT_NV_MAX_ACCOUNTS, &account_count);
+	for (i = 0; status == 0 && i < account_count; ++i) {
+		char account_key[32];
+		int key_length = snprintf(account_key, sizeof(account_key),
+					  "acc_username%d", i);
+
+		if (key_length < 0 ||
+		    (size_t)key_length >= sizeof(account_key)) {
+			status = ENAMETOOLONG;
+			break;
+		}
+		status = router_account_nvram_read_copy(
+			router_account_nvram_get_transactional, &account_transaction,
+			account_key, "", account_names[i], sizeof(account_names[i]));
+	}
+
+	if (transaction_active) {
+		errno = 0;
+		end_status = nvram_transaction_end(&account_transaction);
+		end_errno = errno;
+		transaction_active = 0;
+		if (status == 0 && end_status != 0)
+			status = end_errno > 0 ? end_errno : EIO;
+	}
+	if (status == 0) {
+		for (i = 0; i < account_count; ++i)
+			account_name_refs[i] = account_names[i];
+		status = recreate_passwd_unix_snapshot(
+			force_create, root_name,
+			force_create ? root_password : NULL,
+			account_name_refs, account_count);
+	}
+
+out:
+	if (transaction_active)
+		(void)nvram_transaction_end(&account_transaction);
+	memset(root_password, 0, sizeof(root_password));
+	memset(account_names, 0, sizeof(account_names));
+	memset(root_name, 0, sizeof(root_name));
+	if (status != 0)
+		errno = status;
 	return status;
 }
 
