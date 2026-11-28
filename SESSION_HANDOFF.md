@@ -1,8 +1,9 @@
-## 2026-11-28 — Add missing XY-C1 firmware triggers for udhcpc option scanner inputs (THIS COMMIT)
+## 2026-11-28 — Bound VPN client xl2tpd control FIFO operations (THIS COMMIT)
 
-- Base main SHA: `6dc8e60204f01f69dc2466e77a5c8a6f7e52277a`. Exact-head udhcpc regression #46112208899 and AI docs #46112208955 PASS after checker alignment.
-- Found that the XY-C1 workflow watched `dhcpc.c` and the common server-ID policy header but omitted `common.c`, `common.h` and `option_parser_policy.h`. The full-stream scanner source correction in `de9207aa81d8d67b86a79d30b0bd41906a303cd9` changed `common.c` only and therefore did not trigger XY-C1. Earlier firmware runs on c21/c22 do not cover that exact source.
-- THIS COMMIT adds these three paths to the push path filter and an automated detector regression. Updating the workflow triggers XY-C1 for THIS SHA; Build/TRX/artifact result pending. No L3 claim yet.
+- Base main SHA: `a3d805b8e2e613fc078fc860a54132141ab3f3c1`. AI docs #46112371363 and Process inventory #46112371425 PASS. XY-C1 #46112371422 for the previous DHCP scanner trigger correction was Build IN_PROGRESS; TRX/artifact pending.
+- Found lifecycle-lock hang and daemon-crash paths: blocking `open(O_WRONLY)` on the xl2tpd FIFO can wait forever with a dead reader; a reader closing before write can raise fatal SIGPIPE.
+- Added O_NONBLOCK/O_NOFOLLOW and fstat validation, bounded 50 × 100 ms startup retries, and a PIPE_BUF-limited writer that temporarily blocks/consumes only its own SIGPIPE while preserving a pre-existing pending signal.
+- Added GNU89/Werror/ASan/UBSan regression and a dedicated source checker; updated VPN and XY-C1 source triggers. Exact-head VPN/XY-C1 Actions are pending. No local test or hardware L4 is claimed.
 
 ---
 
@@ -11,7 +12,8 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; all development and validation are on `main` only.
-- Live main immediately before this atomic checker correction: `2643d05714776b43bf850fb2d41aa1e3c191ba74`, containing the tri-state DHCP option lookup and strict option-54 validation in OFFER/ACK/NAK. This follow-up corrects only a line-wrapped function-name anchor in the source checker. The HTTPD request/header reader fix is `856fe202e000de0b751c3f1ace304a208e7c0b37`; its exact XY-C1 run #46109982320 completed Build, TRX and artifact upload successfully (that result is specific to its older source SHA).
+- Live main immediately before this VPN FIFO slice: `a3d805b8e2e613fc078fc860a54132141ab3f3c1`, containing the full DHCP option scanner and current XY-C1 scanner-source triggers. XY-C1 #46112371422 on parent `a3d805b8e2e613fc078fc860a54132141ab3f3c1` was at Build IN_PROGRESS, TRX/artifact pending. THIS commit adds a VPN production helper header and its firmware path trigger.
+- Frozen backup remains `backup/pre-plugin-overhaul-2026-11-14`; do not mutate. Its warning file was verified during startup restore and handoff-recorded frozen HEAD is `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 remains CLOSED/unmerged.
 - Frozen backup remains `backup/pre-plugin-overhaul-2026-11-14` (handoff-recorded HEAD `72f4f157a084f8184b9597ca5bf334b8080e5807`); its warning file explicitly forbids mutation. PR #1 remains CLOSED/unmerged with no identified missing change.
 - Remote branch search shows only the preserved `backup/pre-plugin-overhaul-2026-11-14` archive beyond `main`. Its warning file was read from that ref and explicitly forbids any modification/deletion; the handoff-recorded frozen HEAD is `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 remains CLOSED and unmerged; its unmerged work was previously compared and no valid missing source/test/build change was identified.
 - Pre-commit exact-main AI docs #46110148275 and HTTPD #46110148273 both PASS on `6b897adfbe68c7b3ab9d0eb040181b806662e3ef`. No local source checkout is available; source/test evidence is from GitHub and Actions, not a claimed local build.
@@ -102,14 +104,16 @@ For product-source SHA `7daa20cd2f1bd7abca4499fb9f9a6e05ce5d3d00`:
 
 ## Active task
 
-The DHCP option scanner / option-54 validation now passes the exact-head GNU89/Werror/ASan/UBSan unit workflow and source checker (#46112208899 PASS); AI docs #46112208955 PASS. A missing product-validation trigger was found: XY-C1 watched `dhcpc.c` and the shared policy but omitted `common.c`, `common.h` and `option_parser_policy.h`. The de920 full-stream scanner correction changed `common.c` only, so the firmware workflow did not run on that latest production source. THIS COMMIT adds those missing paths plus a test for the path contract and triggers a fresh XY-C1 build.
+The DHCP option-54 full-stream scanner and checker are green on exact head #46112208899; AI docs #46112208955 passed on parent `6dc8e602...`. The XY-C1 trigger gap was fixed in `a3d805b8e2e613fc078fc860a54132141ab3f3c1`; run #46112371422 was at Build IN_PROGRESS on last poll.
+
+THIS COMMIT fixes a separate VPN reliability defect: blocking xl2tpd control FIFO open could hang the rc VPN lifecycle lock after daemon disappearance; a reader closing before write could kill rc through SIGPIPE. The helper uses no-follow/nonblocking open, fstat type validation, bounded startup retry and scoped SIGPIPE protection. Host regression covers stale FIFO, delayed daemon reader, path type/symlink, EPIPE and pending signal semantics.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect exact-head XY-C1 run triggered by THIS workflow update. Require Build, TRX output verification and artifact upload all PASS before marking DHCP scanner L3 verified.
-2. Exact-head unit evidence before this commit: udhcpc #46112208899 PASS; AI docs #46112208955 PASS. Earlier XY-C1 #46111402307 PASS on `2643d057...` (pre-full-stream scanner) and #46111075565 PASS on c21; those are not substitutes for the latest source.
-3. Once exact-source L3 is resolved, proceed to a bounded, reproducible reliability fix outside DHCP. VPN client xl2tpd control FIFO remains a candidate: current daemon creates FIFO at mode 0600 and opens its read end; rc uses blocking `open(O_WRONLY)`. Test nonblocking absent-reader handling and SIGPIPE/closed-reader safety separately before modifying.
-4. No physical-router L4 has been performed.
+1. Fetch live `main` and inspect THIS COMMIT's exact-head VPN lifecycle, AI docs, Process inventory and XY-C1 Actions. Require the GNU89/Werror/ASan/UBSan `vpn-client-control-fifo` test and dedicated Python source checker to PASS. On failure, inspect the first failing assertion/log and repair it without removing coverage.
+2. Recheck parent XY-C1 #46112371422 on SHA `a3d805b8e2e613fc078fc860a54132141ab3f3c1`; Build was IN_PROGRESS and TRX/artifact pending. That result applies to the DHCP scanner trigger correction only.
+3. Require the new exact-SHA XY-C1 Build, TRX validation and artifact upload all PASS before claiming L3 for the VPN helper. No physical-router L4 has been performed.
+4. Then continue a bounded, source-backed stability/security task outside the just-fixed FIFO and DHCP parser areas.
 
 # Cross-session execution mandate
 
@@ -120,5 +124,5 @@ The DHCP option scanner / option-54 validation now passes the exact-head GNU89/W
 
 Before context exhaustion, stop starting new modules, finish and publish a safe bounded slice, then leave this handoff with the exact first action, validation boundary and committed baseline.
 - Run the local handoff-doc validator when a checkout is available. This session had no local checkout; the exact-head GitHub Actions workflow is the validation gate for the docs correction.
-- Keep the root dev log at 20–119 complete records; it had 88 records before this entry and now has 89, so no archive rotation is due. Do not add handoff/roadmap archive snapshots.
+- Keep the root dev log at 20–119 complete records; it had 89 records before this entry and now has 90, so no archive rotation is due. Do not add handoff/roadmap archive snapshots.
 - Do not change GPT Session Rotator or replay its existing state/SHA. Do not claim hardware validation or a successful build when steps were skipped.

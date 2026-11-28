@@ -39,6 +39,11 @@
 #include "vpn_server_callback_policy.h"
 #include "vpn_client_callback_policy.h"
 #include <process_pidfile.h>
+#include "vpn_client_control_fifo.h"
+
+#define VPN_CLIENT_CONTROL_FIFO_PATH "/var/run/xl2tpd-control"
+#define VPN_CLIENT_CONTROL_FIFO_OPEN_ATTEMPTS 50U
+#define VPN_CLIENT_CONTROL_FIFO_RETRY_DELAY_US 100000U
 
 #define VPNC_LOG_NAME		"VPN client"
 #define VPNC_PPP_LINK_NAME	"vpnc"
@@ -52,7 +57,6 @@ control_xl2tpd(const char *cmd, const char *lac)
 {
 	char buf[32];
 	int control_fd, length, saved_errno;
-	ssize_t written;
 
 	if (!cmd || !lac) {
 		errno = EINVAL;
@@ -64,19 +68,17 @@ control_xl2tpd(const char *cmd, const char *lac)
 		return -1;
 	}
 
-	control_fd = open("/var/run/xl2tpd-control", O_WRONLY, 0600);
+	control_fd = vpn_client_control_fifo_open_writer_wait(
+		VPN_CLIENT_CONTROL_FIFO_PATH,
+		VPN_CLIENT_CONTROL_FIFO_OPEN_ATTEMPTS,
+		VPN_CLIENT_CONTROL_FIFO_RETRY_DELAY_US);
 	if (control_fd < 0)
 		return -1;
 
-	do {
-		written = write(control_fd, buf, (size_t)length);
-	} while (written < 0 && errno == EINTR);
 	saved_errno = 0;
-	if (written < 0)
+	if (vpn_client_control_fifo_write_fd(control_fd, buf,
+					     (size_t)length) != 0)
 		saved_errno = errno ? errno : EIO;
-	else if (written != length)
-		saved_errno = EIO;
-
 	if (close(control_fd) != 0 && saved_errno == 0)
 		saved_errno = errno ? errno : EIO;
 	if (saved_errno) {

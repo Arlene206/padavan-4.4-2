@@ -41,6 +41,8 @@ on:
       - 'trunk/user/pppoe/mwan.sh'
       - 'trunk/user/rc/src/net_wan.c'
       - 'trunk/user/rc/src/vpn_client.c'
+      - 'trunk/user/rc/src/vpn_client_control_fifo.h'
+      - 'trunk/user/rc/src/tests/vpn_client_control_fifo.c'
       - 'trunk/user/rc/src/vpn_client_restart_policy.h'
       - 'trunk/user/rc/src/vpn_client_nvram_policy.h'
       - 'trunk/user/rc/src/tests/vpn_client_nvram_policy.c'
@@ -162,6 +164,16 @@ jobs:
             trunk/user/rc/src/tests/vpn_client_callback_policy.c \
             -o /tmp/vpn_client_callback_policy
           /tmp/vpn_client_callback_policy
+      - name: Compile and run bounded VPN client control FIFO regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/vpn_client_control_fifo.c \
+            -o /tmp/vpn-client-control-fifo
+          ASAN_OPTIONS=detect_leaks=1 /tmp/vpn-client-control-fifo
+      - name: Check VPN client control FIFO source integration
+        run: python3 scripts/check_vpn_client_control_fifo.py
       - name: Compile and run xl2tpd process-presence start gate regression
         run: |
           cc -std=gnu89 -Wall -Wextra -Werror -I trunk/user/rc/src -I trunk/user/shared/src \

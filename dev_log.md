@@ -1,3 +1,13 @@
+## 2026-11-28 14:08 CST (UTC+8) — Bound VPN client xl2tpd control FIFO operations
+
+- Base main SHA: `a3d805b8e2e613fc078fc860a54132141ab3f3c1`. XY-C1 run #46112371422 on the previous DHCP scanner source was still building at `Build XY-C1`; preceding host and detector steps passed, while TRX and artifact upload were pending. AI docs #46112371363 and Process inventory #46112371425 PASS on `a3d805b8e2e613fc078fc860a54132141ab3f3c1`.
+- Concrete VPN reliability defect: `control_xl2tpd()` used blocking `open(O_WRONLY)` on `/var/run/xl2tpd-control` while holding the rc VPN lifecycle lock. If xl2tpd disappeared after process inventory and left a FIFO without a reader, open could block forever. A reader closing after open could deliver fatal SIGPIPE to rc during write.
+- Added no-follow/nonblocking and fstat-validated FIFO open, finite ENOENT/ENXIO/EINTR startup retries, PIPE_BUF-bounded command writes and scoped SIGPIPE blocking/consumption that preserves a pre-existing pending signal. The caller retains startup synchronization but caps it to 50 × 100 ms and still propagates write/close failures.
+- Added GNU89/Werror/ASan/UBSan host coverage for orphan FIFO, delayed reader startup, symlink/regular-file rejection, transient retry classification, EPIPE process survival, pending SIGPIPE preservation and command bounds. New source checker plus VPN/XY-C1 path-trigger contracts are added. No local test is claimed; THIS commit's exact-head Actions are pending.
+- Prior XY-C1 #46112371422 specifically validates the DHCP scanner path-filter update but is pending at Build on parent `a3d805b8e2e613fc078fc860a54132141ab3f3c1`; THIS commit adds a new firmware header trigger. Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-28 13:52 CST (UTC+8) — Trigger XY-C1 for the udhcpc option scanner production sources
 
 - Base main SHA: `6dc8e60204f01f69dc2466e77a5c8a6f7e52277a`. The exact-head BusyBox udhcpc contract run #46112208899 and AI docs run #46112208955 both PASS. The C regression compiled under GNU89/Werror with ASan/UBSan and reported `udhcpc script failure and deconfig retry policy: PASS`.

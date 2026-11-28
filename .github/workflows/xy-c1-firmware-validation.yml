@@ -218,6 +218,7 @@ on:
       - "trunk/user/rc/src/openvpn_start_rollback_policy.h"
       - "trunk/user/rc/src/route_status_policy.h"
       - "trunk/user/rc/src/vpn_client.c"
+      - "trunk/user/rc/src/vpn_client_control_fifo.h"
       - "trunk/user/rc/src/vpn_client_nvram_policy.h"
       - "trunk/user/rc/src/tests/vpn_client_nvram_policy.c"
       - "trunk/user/rc/src/ppp_options_file.h"

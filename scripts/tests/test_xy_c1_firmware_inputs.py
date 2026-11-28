@@ -433,6 +433,12 @@ class FirmwareInputPathTests(unittest.TestCase):
         self.assertEqual(workflow.count('      - "' + path + '"'), 1)
         self.assertFalse(is_non_firmware_input(path))
 
+    def test_vpn_client_control_fifo_header_triggers_xy_c1_build(self):
+        workflow = (ROOT / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
+        path = "trunk/user/rc/src/vpn_client_control_fifo.h"
+        self.assertEqual(workflow.count('      - "' + path + '"'), 1)
+        self.assertFalse(is_non_firmware_input(path))
+
     def test_ppp_callback_link_policy_header_triggers_xy_c1_build(self):
         workflow = (ROOT / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
         path = "trunk/user/rc/src/ppp_callback_link_policy.h"
