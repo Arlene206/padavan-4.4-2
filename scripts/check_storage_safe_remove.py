@@ -119,6 +119,7 @@ require('strcmp(type, "partition") != 0' in cleanup_swap_parser and
         "global storage cleanup must validate swap type, size, used and priority before swapoff")
 
 mount_link_policy = read("trunk/user/rc/src/storage_nfs_export_policy.h")
+media_link_policy = read("trunk/user/rc/src/storage_media_link_policy.h")
 mount_link_policy_test = read("trunk/user/rc/src/tests/storage_nfs_export_policy.c")
 services = read("trunk/user/rc/src/services.c")
 msd_config = read("trunk/user/rc/src/msd_lite_config_file.h")
@@ -1654,10 +1655,15 @@ require("storage_nfs_export_parse_mount_line(" in mount_link and
 require("path_len >= (int)sizeof(target_path)" in mount_link and
         "ENAMETOOLONG" in mount_link,
         "overlong media database paths must produce ENAMETOOLONG")
-require("check_if_dir_exist(target_path)" in mount_link and
-        'mkdir_if_none(target_path, "777")' in mount_link and
-        "ENOTDIR" in mount_link and "EEXIST" in mount_link,
-        "directory discovery/preparation needs deterministic errors")
+require("lstat(target_path, &target_stat)" in mount_link and
+        "storage_media_link_target_status(" in mount_link and
+        "S_ISDIR(target_stat.st_mode)" in mount_link and
+        "S_ISLNK(target_stat.st_mode)" in mount_link and
+        'mkdir_if_none(target_path, "777")' in mount_link,
+        "media target discovery must use no-follow type checks before publication")
+require("ENOTDIR" in media_link_policy and "EEXIST" in media_link_policy and
+        "if (is_symlink)" in media_link_policy,
+        "media target policy must reject symlinks/non-directories and preserve collisions")
 require(mount_link.count("symlink(target_path, link_path)") == 2,
         "both mount-link symlink paths must preserve creation errno")
 require("ferror(procpt)" in mount_link and "fclose(procpt)" in mount_link and

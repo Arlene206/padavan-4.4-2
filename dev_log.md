@@ -1,3 +1,12 @@
+## 2026-11-28 — Align storage target discovery contract with lstat policy
+
+- Exact SHA 670935e80e5e9519ea87e12d142924c6f6b05b1b: AI handoff docs #46092735083 PASS. USB storage hotplug #46092735162 progressed through the corrected media-publisher extractor and full caller graph, then failed only at `scripts/check_storage_safe_remove.py:1657`.
+- The source now discovers mount targets using `lstat()`, `S_ISDIR/S_ISLNK`, and `storage_media_link_target_status()`; ENOTDIR/EEXIST behavior is defined in `storage_media_link_policy.h`. The checker still expected the obsolete `check_if_dir_exist()` path and demanded those errno tokens in the caller body. The dedicated media-link policy regression already covers the actual behavior.
+- THIS checker-only correction inspects the lstat flow and policy helper separately. No runtime product source changed. Exact-head storage + AI docs reruns pending.
+- Next independent source issue: prevent argv0/comm spoofing from suppressing the PID 1 watchdog. Require `/sbin/rc` executable identity plus argv0 basename `watchdog` in startup/readiness/rollback scans; use identity-bound rollback signaling.
+
+---
+
 ## 2026-11-28 — Anchor storage media-publisher contract to its definition
 
 - Exact storage-hotplug run #46092458013 on 655d173234a14ce19b91f2fce9e68e1622bfc7cc passed the updated Transmission call-site assertion but failed at the common publisher-body contract. Commit 0f92cf9ca01698e0c368060b9653d30b984a9d9a corrected the expected force_first_valid forwarding argument.

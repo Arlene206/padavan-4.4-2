@@ -1,3 +1,13 @@
+## 2026-11-28 — Align storage target discovery contract with lstat policy
+
+- Exact SHA 670935e80e5e9519ea87e12d142924c6f6b05b1b: AI handoff docs #46092735083 PASS. USB storage hotplug #46092735162 initially QUEUED then failed on the retry at `scripts/check_storage_safe_remove.py:1657`; the Transmission/media caller-graph checks now pass.
+- Failure is a stale contract: the checker still required `check_if_dir_exist(target_path)` and looked for ENOTDIR/EEXIST literals inside `create_mp_link()`. The implementation now deliberately uses `lstat()`, checks `S_ISDIR/S_ISLNK`, and delegates ENOTDIR/symlink/EEXIST semantics to `storage_media_link_target_status()` in `storage_media_link_policy.h`. The standalone policy regression already covers directories, symlinks, non-directories, missing targets and lookup errors.
+- THIS COMMIT updates the integration contract to inspect the implementation and policy helper; it does not change production source. Exact storage-hotplug and AI docs reruns for THIS SHA are required.
+- The next independent source slice is watchdog readiness identity: `start_watchdog()` still uses the generic argv0/comm inventory, so an unrelated process with argv0 `watchdog` can suppress the system watchdog. The firmware installs `/sbin/watchdog` as an alias to `/sbin/rc`; the scanner must require both that executable identity and the watchdog argv0, and rollback must not signal spoofed processes.
+- Frozen backup remains `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+
+---
+
 ## 2026-11-28 — Anchor storage media-publisher contract to its definition
 
 - The storage-hotplug run on 655d173234a14ce19b91f2fce9e68e1622bfc7cc passed the Transmission call-site correction but failed at the common publisher-body contract. The follow-up 0f92cf9ca01698e0c368060b9653d30b984a9d9a corrected the expected force_first_valid forwarding argument.
