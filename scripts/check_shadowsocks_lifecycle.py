@@ -133,26 +133,44 @@ require("ss_process_pattern_state()" in helper and
         'ss_pid_output=$(pgrep -f "$ss_process_pattern" 2>/dev/null)' in helper and
         "ss_named_processes_state()" in helper,
         "pgrep and aggregate process inventories must retain tri-state status")
-ordered(helper, ['ss_named_processes_state "$@"',
-                 'ss_process_pid_state "$ss_process_name"',
-                 'killall -q "$ss_process_name"',
-                 'ss_wait_named_processes 3 "$@"',
-                 'killall -q -KILL "$ss_process_name"',
-                 'ss_wait_named_processes 1 "$@"'],
-        "named preflight/TERM/wait/fresh-name KILL/postcondition")
-ordered(helper, ['ss_process_pattern_state "$ss_process_pattern"',
-                 'pkill -TERM -f "$ss_process_pattern"',
-                 'ss_wait_process_pattern 3 "$ss_process_pattern"',
-                 'pkill -KILL -f "$ss_process_pattern"',
-                 'ss_wait_process_pattern 1 "$ss_process_pattern"'],
-        "monitor preflight/TERM/wait/fresh-command KILL/postcondition")
-require("unknown after TERM blocks KILL" in test and "pidof error blocks named stop" in test and
-        "pgrep error blocks monitor stop" in test and
-        "unknown after monitor TERM blocks KILL" in test,
-        "regression must prove unknown inventory prevents signals and escalation")
+stop_identity = shell_function(helper, "ss_stop_process_identity")
+require(r"\$" + "{" not in helper,
+        "new process identity helpers must retain live shell parameter expansion")
+require("ss_process_identity_snapshot" in helper and
+        "ss_process_identity_matches" in helper and
+        "ss_read_proc_identity" in helper and
+        "ss_named_executable_matches" in helper and
+        "SS_PROC_START_TIME" in helper and
+        'readlink "$ss_identity_dir/exe"' in helper and
+        "killall -q" not in helper and "pkill -TERM -f" not in helper,
+        "shutdown must bind signals to a verified executable and PID start_time, never process-name rematching")
+ordered(stop_identity, [
+    'ss_process_identity_snapshot "$ss_stop_mode" "$ss_stop_target"',
+    'ss_process_identity_matches "$ss_stop_mode" "$ss_stop_target" "$ss_stop_pid" "$ss_stop_start"',
+    'kill -TERM "$ss_stop_pid"',
+    'ss_wait_identity_absent "$ss_stop_mode" "$ss_stop_target" 3',
+    'ss_process_identity_matches "$ss_stop_mode" "$ss_stop_target" "$ss_stop_pid" "$ss_stop_start"',
+    'kill -KILL "$ss_stop_pid"',
+    'ss_wait_identity_absent "$ss_stop_mode" "$ss_stop_target" 1',
+], "captured identity/TERM/wait/fresh identity/KILL/postcondition")
+require('ss_stop_process_identity script "$1"' in shell_function(helper, "ss_stop_process_pattern") and
+        '[ "$1" = /usr/bin/ss-monitor ] || return 2' in helper and
+        'ss_script_argv1' in helper and 'ss_shell_executable_matches' in helper,
+        "monitor teardown must verify the interpreter and exact script argv rather than a broad regex")
+require("killall" not in test and "pkill" not in test,
+        "process lifecycle regression must not retain unsafe name-wide signal mocks")
+require("unknown after TERM blocks KILL" in test and
+        "incomplete executable identity blocks named stop" in test and
+        "same-comm foreign executable blocks stop" in test and
+        "deleted executable path blocks named stop" in test and
+        "reuse_as_foreign" in test and
+        "same-executable PID reuse remains an incomplete stop" in test and
+        "unknown after monitor TERM blocks KILL" in test and
+        "monitor path in argv[2] is ignored" in test,
+        "regression must prove executable/PID identity, impostor rejection, PID-reuse safety and UNKNOWN fail-closed behavior")
 require(helper.count('ss_wait_limit=$1') == 2 and
         helper.count('[ "$ss_wait_count" -lt "$ss_wait_limit" ]') == 2 and
-        helper.count('sleep 1 || return 2') == 4 and
+        helper.count('sleep 1 || return 2') == 5 and
         'ss_wait_named_processes 3 "$@"' in helper and
         'ss_wait_named_processes 1 "$@"' in helper and
         'ss_wait_process_pattern 3 "$ss_process_pattern"' in helper and

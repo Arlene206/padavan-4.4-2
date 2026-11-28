@@ -1,3 +1,12 @@
+## 2026-11-28 — Bind Shadowsocks shutdown to executable and PID generation
+
+- On parent `76f95c69dca1325985e9f38c7dc9bb0faf40ec7b`, review found the shared Shadowsocks lifecycle helper still used name-wide `killall` and regex-based `pkill -f` for stop/escalation. A same-comm foreign executable or a replacement process could therefore be included by a later process-name rematch.
+- Replaced teardown with a complete procfs snapshot requiring the exact installed executable path (or exact `/usr/bin/ss-monitor` argv[1] under a known shell interpreter), valid task stat and start_time. Signals are PID-scoped and identity is revalidated immediately before TERM and KILL. KILL is restricted to the original PID/start_time snapshot; new instances and PID reuse cannot inherit the captured process's escalation authorization. Incomplete/deleted executable identity and same-comm foreign binaries remain UNKNOWN and fail closed.
+- Expanded regressions for malformed/deleted executable metadata, same-comm impostors, monitor argv position, unknown-after-TERM, PID reuse with both foreign and same executable, normal TERM/KILL, and stuck processes. Removed obsolete killall/pkill test mocks and strengthened the static contract.
+- No local shell regression or firmware build is claimed. Prior-head Storage #46123661683, AI handoff #46123661589 and XY-C1 #46123661636 were still in progress on `76f95...`. The prior L3 baseline is `2d038...` (#46122904412), but the new Shadowsocks source commit requires its own exact-SHA Actions, including XY-C1 Build/TRX/artifact.
+ 
+---
+
 ## 2026-11-28 — Fix Python quoting in MTD rstats identity checker
 
 - Exact `e87be480e8f1e714a53de04f7313a444c54205bf` Storage hotplug run #46123234076 reached the final static gate and failed because two new Python string literals embedded unescaped `"$RSTAT_KILL_LOG"` quotes. This was a checker syntax error, not an MTD runtime failure.

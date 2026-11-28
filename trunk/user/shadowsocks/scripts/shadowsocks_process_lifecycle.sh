@@ -312,70 +312,470 @@ ss_wait_process_pattern() {
 	done
 }
 
+
+# Resolve the installed executable path before inspecting or signalling a daemon.
+# These are the ROMFS paths used by the Shadowsocks package and RC.
+ss_expected_executable() {
+	case "$1" in
+		/user/sbin/*|/usr/bin/*)
+			printf '%s\n' "$1"
+			;;
+		dnsmasq)
+			printf '%s\n' /user/sbin/dnsmasq
+			;;
+		''|*[!A-Za-z0-9._-]*)
+			return 2
+			;;
+		*)
+			printf '/usr/bin/%s\n' "$1"
+			;;
+	esac
+}
+
+ss_named_executable_matches() {
+	ss_match_name=${1##*/}
+	ss_match_exe=$2
+	case "$ss_match_name" in
+		v2ray|xray)
+			case "$ss_match_exe" in
+				/usr/bin/v2ray|/usr/bin/xray) return 0 ;;
+			esac
+			;;
+		dnsmasq)
+			[ "$ss_match_exe" = /user/sbin/dnsmasq ]
+			;;
+		*)
+			[ "$ss_match_exe" = "/usr/bin/$ss_match_name" ]
+			;;
+	esac
+}
+
+ss_shell_executable_matches() {
+	case "$1" in
+		/bin/busybox|/bin/sh|/bin/ash) return 0 ;;
+		*) return 1 ;;
+	esac
+}
+
+# Read Linux /proc/PID/stat fields 3 and 22. The command name is parenthesized
+# and may itself contain spaces or ')', so locate the final ") " delimiter.
+ss_read_proc_identity() {
+	[ "$#" -eq 1 ] || return 2
+	local ss_identity_pid="$1"
+	local ss_identity_dir="${SS_PROC_ROOT:-/proc}/$1"
+	local ss_identity_stat
+	local ss_identity_values
+
+	case "$ss_identity_pid" in ''|*[!0-9]*|0*) return 2 ;; esac
+	if [ ! -d "$ss_identity_dir" ]; then return 1; fi
+	if ss_identity_stat=$(cat "$ss_identity_dir/stat" 2>/dev/null); then
+		:
+	else
+		[ -d "$ss_identity_dir" ] || return 1
+		return 2
+	fi
+	ss_identity_values=$(printf '%s\n' "$ss_identity_stat" | awk -v expected_pid="$ss_identity_pid" '
+		NR != 1 { invalid = 1 }
+		NR == 1 {
+			if (index($0, expected_pid " (") != 1) invalid = 1
+			tail = $0
+			sub(/^[0-9]+ \(/, "", tail)
+			close_pos = 0
+			for (i = length(tail); i >= 1; i--) {
+				if (substr(tail, i, 2) == ") ") {
+					close_pos = i
+					break
+				}
+			}
+			if (!close_pos) invalid = 1
+			else {
+				rest = substr(tail, close_pos + 2)
+				count = split(rest, field, /[[:space:]]+/)
+				if (count < 20 ||
+				    field[1] !~ /^[RSDZTtXxKWPI]$/ ||
+				    field[20] !~ /^[0-9]+$/)
+					invalid = 1
+				else
+					printf "%s %s\n", field[1], field[20]
+			}
+		}
+		END { if (invalid || NR != 1) exit 1 }
+	') || {
+		[ -d "$ss_identity_dir" ] || return 1
+		return 2
+	}
+	case "$ss_identity_values" in
+		[RSDZTtXxKWPI]' '*[0-9]*) ;;
+		*) return 2 ;;
+	esac
+	SS_PROC_TASK_STATE=${ss_identity_values%% *}
+	SS_PROC_START_TIME=${ss_identity_values#* }
+	return 0
+}
+
+# True only when argv[1] is the exact monitor script path. A loose pgrep
+# expression would also match unrelated shells whose arguments mention it.
+ss_script_argv_matches() {
+	[ "$#" -eq 2 ] || return 2
+	local ss_script_dir="$1"
+	local ss_script_path="$2"
+	local ss_script_args
+	local ss_script_newline='
+'
+	if ss_script_args=$(tr '\000' '\n' < "$ss_script_dir/cmdline" 2>/dev/null); then
+		:
+	else
+		[ -d "$ss_script_dir" ] || return 1
+		return 2
+	fi
+	ss_script_argv0=${ss_script_args%%"$ss_script_newline"*}
+	case "$ss_script_args" in
+		*"$ss_script_newline"*)
+			ss_script_rest=${ss_script_args#*"$ss_script_newline"}
+			ss_script_argv1=${ss_script_rest%%"$ss_script_newline"*}
+			;;
+		*)
+			return 1
+			;;
+	esac
+	ss_script_argv0=${ss_script_argv0##*/}
+	case "$ss_script_argv0" in sh|ash|busybox) ;; *) return 1 ;; esac
+	[ "$ss_script_argv1" = "$ss_script_path" ]
+}
+
+# Return a complete snapshot as "PID START_TIME" lines. Status 1 means ABSENT;
+# status 2 means procfs or candidate identity is incomplete (UNKNOWN).
+ss_process_identity_snapshot() {
+	[ "$#" -eq 2 ] || return 2
+	local ss_snapshot_mode="$1"
+	local ss_snapshot_target="$2"
+	local ss_snapshot_root="${SS_PROC_ROOT:-/proc}"
+	local ss_snapshot_entries
+	local ss_snapshot_pid
+	local ss_snapshot_dir
+	local ss_snapshot_comm
+	local ss_snapshot_exe
+	local ss_snapshot_has_exe
+	local ss_snapshot_candidate
+	local ss_snapshot_expected
+	local ss_snapshot_comm_prefix
+	local ss_snapshot_actual_prefix
+	local ss_snapshot_status
+	local ss_snapshot_output=""
+	local ss_snapshot_numeric_seen=0
+
+	case "$ss_snapshot_mode" in
+		named)
+			ss_snapshot_expected=$(ss_expected_executable "$ss_snapshot_target") || return 2
+			ss_snapshot_comm_prefix=$(printf '%.15s' "${ss_snapshot_target##*/}")
+			;;
+		script)
+			[ "$ss_snapshot_target" = /usr/bin/ss-monitor ] || return 2
+			command -v tr >/dev/null 2>&1 || return 2
+			;;
+		*)
+			return 2
+			;;
+	esac
+	[ -d "$ss_snapshot_root" ] && [ -r "$ss_snapshot_root" ] && [ -x "$ss_snapshot_root" ] || return 2
+	command -v ls >/dev/null 2>&1 || return 2
+	command -v cat >/dev/null 2>&1 || return 2
+	command -v readlink >/dev/null 2>&1 || return 2
+	if ss_snapshot_entries=$(ls -1 "$ss_snapshot_root" 2>/dev/null); then
+		:
+	else
+		return 2
+	fi
+	[ -n "$ss_snapshot_entries" ] || return 2
+
+	while IFS= read -r ss_snapshot_pid; do
+		case "$ss_snapshot_pid" in
+			''|*[!0-9]*) continue ;;
+			0*) return 2 ;;
+		esac
+		ss_snapshot_dir="$ss_snapshot_root/$ss_snapshot_pid"
+		[ -d "$ss_snapshot_dir" ] || continue
+		ss_snapshot_numeric_seen=1
+		if ss_snapshot_comm=$(cat "$ss_snapshot_dir/comm" 2>/dev/null); then
+			:
+		else
+			[ -d "$ss_snapshot_dir" ] || continue
+			return 2
+		fi
+
+		ss_snapshot_exe=""
+		ss_snapshot_has_exe=0
+		if [ -L "$ss_snapshot_dir/exe" ]; then
+			if ss_snapshot_exe=$(readlink "$ss_snapshot_dir/exe" 2>/dev/null); then
+				ss_snapshot_has_exe=1
+			else
+				[ -d "$ss_snapshot_dir" ] || continue
+				return 2
+			fi
+		fi
+
+		ss_snapshot_candidate=0
+		if [ "$ss_snapshot_mode" = named ]; then
+			if [ "$ss_snapshot_has_exe" -eq 1 ]; then
+				if ss_named_executable_matches "$ss_snapshot_target" "$ss_snapshot_exe"; then
+					ss_snapshot_candidate=1
+				else
+					# An executable still mapped from the expected installation
+					# path but marked deleted is not a trustworthy replacement.
+					if [ "$ss_snapshot_exe" = "$ss_snapshot_expected (deleted)" ]; then
+						return 2
+					fi
+					case "${ss_snapshot_target##*/}" in
+						v2ray|xray)
+							case "$ss_snapshot_exe" in
+								'/usr/bin/v2ray (deleted)'|'/usr/bin/xray (deleted)') return 2 ;;
+							esac
+							;;
+					esac
+					# A same-name comm with a different executable is unverified.
+					# Never signal it, and never report the service as absent.
+					ss_snapshot_actual_prefix=$(printf '%.15s' "$ss_snapshot_comm")
+					if [ "$ss_snapshot_actual_prefix" = "$ss_snapshot_comm_prefix" ]; then
+						return 2
+					fi
+				fi
+			else
+				ss_snapshot_actual_prefix=$(printf '%.15s' "$ss_snapshot_comm")
+				if [ "$ss_snapshot_actual_prefix" = "$ss_snapshot_comm_prefix" ]; then
+					# A possible target whose executable link cannot be read
+					# cannot safely be classified as either ours or foreign.
+					return 2
+				fi
+			fi
+		else
+			if [ "$ss_snapshot_has_exe" -eq 1 ]; then
+				if ss_shell_executable_matches "$ss_snapshot_exe"; then
+					if ss_script_argv_matches "$ss_snapshot_dir" "$ss_snapshot_target"; then
+						ss_snapshot_candidate=1
+					else
+						ss_snapshot_status=$?
+						[ "$ss_snapshot_status" -eq 1 ] || return 2
+					fi
+				fi
+			else
+				case "$ss_snapshot_comm" in
+					sh|ash|busybox)
+						if ss_script_argv_matches "$ss_snapshot_dir" "$ss_snapshot_target"; then
+							return 2
+						else
+							ss_snapshot_status=$?
+							[ "$ss_snapshot_status" -eq 1 ] || return 2
+						fi
+						;;
+				esac
+			fi
+		fi
+		[ "$ss_snapshot_candidate" -eq 1 ] || continue
+
+		if ss_read_proc_identity "$ss_snapshot_pid"; then
+			:
+		else
+			ss_snapshot_status=$?
+			[ "$ss_snapshot_status" -eq 1 ] && continue
+			return 2
+		fi
+		case "$SS_PROC_TASK_STATE" in Z|X|x) continue ;; esac
+		ss_snapshot_output="$ss_snapshot_output$ss_snapshot_pid $SS_PROC_START_TIME
+"
+	done <<EOF_PROC_IDENTITY
+$ss_snapshot_entries
+EOF_PROC_IDENTITY
+	[ "$ss_snapshot_numeric_seen" -eq 1 ] || return 2
+	[ -n "$ss_snapshot_output" ] || return 1
+	printf '%s' "$ss_snapshot_output"
+	return 0
+}
+
+# Recheck PID, start_time and executable immediately before every signal.
+# Linux 4.4 lacks pidfd, so a narrow check-to-signal race remains.
+ss_process_identity_matches() {
+	[ "$#" -eq 4 ] || return 2
+	local ss_identity_mode="$1"
+	local ss_identity_target="$2"
+	local ss_identity_pid="$3"
+	local ss_identity_start="$4"
+	local ss_identity_dir="${SS_PROC_ROOT:-/proc}/$3"
+	local ss_identity_exe
+	local ss_identity_status
+
+	if ss_read_proc_identity "$ss_identity_pid"; then
+		:
+	else
+		return $?
+	fi
+	[ "$SS_PROC_START_TIME" = "$ss_identity_start" ] || return 1
+	case "$SS_PROC_TASK_STATE" in Z|X|x) return 1 ;; esac
+	if [ ! -L "$ss_identity_dir/exe" ]; then
+		[ -d "$ss_identity_dir" ] || return 1
+		return 2
+	fi
+	if ss_identity_exe=$(readlink "$ss_identity_dir/exe" 2>/dev/null); then
+		:
+	else
+		[ -d "$ss_identity_dir" ] || return 1
+		return 2
+	fi
+	case "$ss_identity_mode" in
+		named)
+			if ss_named_executable_matches "$ss_identity_target" "$ss_identity_exe"; then
+				return 0
+			fi
+			return 1
+			;;
+		script)
+			ss_shell_executable_matches "$ss_identity_exe" || return 1
+			if ss_script_argv_matches "$ss_identity_dir" "$ss_identity_target"; then
+				return 0
+			else
+				ss_identity_status=$?
+				return "$ss_identity_status"
+			fi
+			;;
+		*)
+			return 2
+			;;
+	esac
+}
+
+ss_wait_identity_absent() {
+	[ "$#" -eq 3 ] || return 2
+	local ss_wait_mode="$1"
+	local ss_wait_target="$2"
+	local ss_wait_limit="$3"
+	local ss_wait_count=0
+	local ss_wait_snapshot
+	local ss_wait_status
+
+	case "$ss_wait_limit" in ''|*[!0-9]*) return 2 ;; esac
+	[ "$ss_wait_limit" -le 30 ] || return 2
+	while :; do
+		if ss_wait_snapshot=$(ss_process_identity_snapshot "$ss_wait_mode" "$ss_wait_target"); then
+			ss_wait_status=0
+		else
+			ss_wait_status=$?
+		fi
+		case "$ss_wait_status" in
+			1) return 0 ;;
+			2) return 2 ;;
+			0) ;;
+			*) return 2 ;;
+		esac
+		[ "$ss_wait_count" -lt "$ss_wait_limit" ] || return 1
+		sleep 1 || return 2
+		ss_wait_count=$((ss_wait_count + 1))
+	done
+}
+
+ss_stop_process_identity() {
+	[ "$#" -eq 2 ] || return 2
+	local ss_stop_mode="$1"
+	local ss_stop_target="$2"
+	local ss_stop_snapshot
+	local ss_stop_status
+	local ss_stop_pid
+	local ss_stop_start
+	local ss_stop_signal_status
+	local ss_stop_wait_status
+
+	if ss_stop_snapshot=$(ss_process_identity_snapshot "$ss_stop_mode" "$ss_stop_target"); then
+		:
+	else
+		ss_stop_status=$?
+		case "$ss_stop_status" in 1) return 0 ;; 2) return 2 ;; *) return 2 ;; esac
+	fi
+
+	while IFS=' ' read -r ss_stop_pid ss_stop_start; do
+		[ -n "$ss_stop_pid" ] || continue
+		if ss_process_identity_matches "$ss_stop_mode" "$ss_stop_target" "$ss_stop_pid" "$ss_stop_start"; then
+			log "Closing $ss_stop_target PID $ss_stop_pid..."
+			if kill -TERM "$ss_stop_pid" 2>/dev/null; then
+				:
+			else
+				ss_stop_signal_status=$?
+				if ss_process_identity_matches "$ss_stop_mode" "$ss_stop_target" "$ss_stop_pid" "$ss_stop_start"; then
+					return "$ss_stop_signal_status"
+				else
+					ss_stop_status=$?
+					[ "$ss_stop_status" -eq 1 ] || return 2
+				fi
+			fi
+		else
+			ss_stop_status=$?
+			[ "$ss_stop_status" -eq 1 ] || return 2
+		fi
+	done <<EOF_PROC_TERM
+$ss_stop_snapshot
+EOF_PROC_TERM
+
+	if ss_wait_identity_absent "$ss_stop_mode" "$ss_stop_target" 3; then
+		return 0
+	else
+		ss_stop_wait_status=$?
+	fi
+	[ "$ss_stop_wait_status" -eq 2 ] && return 2
+	[ "$ss_stop_wait_status" -eq 1 ] || return 2
+
+	# Escalate only members of the original PID/start_time snapshot. A
+	# replacement process, including one reusing the same PID and executable,
+	# must never inherit the old process's KILL authorization.
+	while IFS=' ' read -r ss_stop_pid ss_stop_start; do
+		[ -n "$ss_stop_pid" ] || continue
+		if ss_process_identity_matches "$ss_stop_mode" "$ss_stop_target" "$ss_stop_pid" "$ss_stop_start"; then
+			log "Force-closing $ss_stop_target PID $ss_stop_pid..."
+			if kill -KILL "$ss_stop_pid" 2>/dev/null; then
+				:
+			else
+				ss_stop_signal_status=$?
+				if ss_process_identity_matches "$ss_stop_mode" "$ss_stop_target" "$ss_stop_pid" "$ss_stop_start"; then
+					return "$ss_stop_signal_status"
+				else
+					ss_stop_status=$?
+					[ "$ss_stop_status" -eq 1 ] || return 2
+				fi
+			fi
+		else
+			ss_stop_status=$?
+			[ "$ss_stop_status" -eq 1 ] || return 2
+		fi
+	done <<EOF_PROC_KILL
+$ss_stop_snapshot
+EOF_PROC_KILL
+
+	if ss_wait_identity_absent "$ss_stop_mode" "$ss_stop_target" 1; then
+		return 0
+	else
+		ss_stop_wait_status=$?
+	fi
+	case "$ss_stop_wait_status" in 1) return 1 ;; *) return 2 ;; esac
+}
+
 ss_stop_named_processes() {
 	[ "$#" -gt 0 ] || return 0
-	if ss_named_processes_state "$@"; then ss_state=0; else ss_state=$?; fi
-	case "$ss_state" in 1) return 0 ;; 0) ;; *) return 2 ;; esac
-
-	# Fresh validated lookups avoid stale PID snapshots and fail closed.
+	local ss_process_name
+	local ss_stop_status
+	local ss_first_status=0
 	for ss_process_name in "$@"; do
-		if ss_process_pid_state "$ss_process_name"; then ss_state=0; else ss_state=$?; fi
-		case "$ss_state" in 1) continue ;; 0) ;; *) return 2 ;; esac
-		log "Closing $ss_process_name process..."
-		if killall -q "$ss_process_name" >/dev/null 2>&1; then
+		if ss_stop_process_identity named "$ss_process_name"; then
 			:
 		else
-			if ss_process_pid_state "$ss_process_name"; then ss_state=0; else ss_state=$?; fi
-			case "$ss_state" in 1) ;; 2) return 2 ;; *) return 1 ;; esac
+			ss_stop_status=$?
+			[ "$ss_first_status" -ne 0 ] || ss_first_status=$ss_stop_status
 		fi
 	done
-
-	if ss_wait_named_processes 3 "$@"; then return 0; else ss_wait_status=$?; fi
-	case "$ss_wait_status" in 2) return 2 ;; 1) ;; *) return 1 ;; esac
-
-	# A new successful name lookup is required before KILL escalation.
-	for ss_process_name in "$@"; do
-		if ss_process_pid_state "$ss_process_name"; then ss_state=0; else ss_state=$?; fi
-		case "$ss_state" in 1) continue ;; 0) ;; *) return 2 ;; esac
-		log "Force-closing $ss_process_name process..."
-		if killall -q -KILL "$ss_process_name" >/dev/null 2>&1; then
-			:
-		else
-			if ss_process_pid_state "$ss_process_name"; then ss_state=0; else ss_state=$?; fi
-			case "$ss_state" in 1) ;; 2) return 2 ;; *) return 1 ;; esac
-		fi
-	done
-
-	if ss_wait_named_processes 1 "$@"; then return 0; else ss_wait_status=$?; fi
-	case "$ss_wait_status" in 1) return 1 ;; *) return 2 ;; esac
+	return "$ss_first_status"
 }
 
+# Retain the existing caller API but accept only the one intended script.
+# This replaces pgrep/pkill regex rematching with exact argv and interpreter
+# validation plus PID/start_time-scoped TERM/KILL.
 ss_stop_process_pattern() {
-	ss_process_pattern=$1
-	[ -n "$ss_process_pattern" ] || return 1
-	if ss_process_pattern_state "$ss_process_pattern"; then ss_state=0; else ss_state=$?; fi
-	case "$ss_state" in 1) return 0 ;; 0) ;; *) return 2 ;; esac
-
-	log "Closing process matching $ss_process_pattern..."
-	if pkill -TERM -f "$ss_process_pattern" >/dev/null 2>&1; then
-		:
-	else
-		if ss_process_pattern_state "$ss_process_pattern"; then ss_state=0; else ss_state=$?; fi
-		case "$ss_state" in 1) return 0 ;; 2) return 2 ;; *) return 1 ;; esac
-	fi
-	if ss_wait_process_pattern 3 "$ss_process_pattern"; then return 0; else ss_wait_status=$?; fi
-	case "$ss_wait_status" in 2) return 2 ;; 1) ;; *) return 1 ;; esac
-
-	# pgrep must succeed again before pkill rematches the command line.
-	if ss_process_pattern_state "$ss_process_pattern"; then ss_state=0; else ss_state=$?; fi
-	case "$ss_state" in 1) return 0 ;; 0) ;; *) return 2 ;; esac
-	log "Force-closing process matching $ss_process_pattern..."
-	if pkill -KILL -f "$ss_process_pattern" >/dev/null 2>&1; then
-		:
-	else
-		if ss_process_pattern_state "$ss_process_pattern"; then ss_state=0; else ss_state=$?; fi
-		case "$ss_state" in 1) return 0 ;; 2) return 2 ;; *) return 1 ;; esac
-	fi
-	if ss_wait_process_pattern 1 "$ss_process_pattern"; then return 0; else ss_wait_status=$?; fi
-	case "$ss_wait_status" in 1) return 1 ;; *) return 2 ;; esac
+	[ "$#" -eq 1 ] || return 2
+	[ "$1" = /usr/bin/ss-monitor ] || return 2
+	ss_stop_process_identity script "$1"
 }
+

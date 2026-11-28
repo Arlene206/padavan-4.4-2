@@ -2,17 +2,17 @@
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; current parent `main` SHA: `e87be480e8f1e714a53de04f7313a444c54205bf`.
+- Repository: `Arlene206/padavan-4.4-2`; live `main` parent before this slice: `76f95c69dca1325985e9f38c7dc9bb0faf40ec7b` (parent `e87be480e8f1e714a53de04f7313a444c54205bf`).
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; it is immutable. PR #1 remains closed/unmerged.
-- On exact `e87be480...`, AI handoff #46123234008 PASS. Storage hotplug #46123234076 FAILS only at final static gate step 42: `check_storage_safe_remove.py` has invalid Python quoting in the new rstats test assertions (unescaped quotes around `$RSTAT_KILL_LOG`). This follow-up corrects the syntax. MTD restore staging/rollback step 21 PASS and erase/reset failure-postcondition step 23 PASS on `e87`.
-- XY-C1 workflow #46123234065 on `e87` completed successfully but Build/TRX/artifact steps were SKIPPED because this commit only changed the static checker and documentation. The actual product-source SHA `2d0388614f8a1f3f3a11ce2bf57f7f63a19d879c` passed XY-C1 #46122904412: MIPS Build, TRX verification and artifact upload all PASS. Since `e87` changes no firmware source relative to `2d038`, L3 applies to the unchanged firmware source tree through `e87`; physical hardware L4 remains NOT VERIFIED.
-- On `2d038`, AI docs #46122904358, Process inventory #46122904384, GPIO #46122904392 and HTTPD security #46122904374 PASS. No local firmware build is claimed. Bootstrap was restored once; do not repeat audits. Avoid modifying the near-limit `REFACTOR_ROADMAP.md`.
+- Exact-head runs on `76f95c69...` at last poll: Storage hotplug #46123661683 IN_PROGRESS at its first launcher-syntax step; AI handoff #46123661589 IN_PROGRESS during checkout; XY-C1 #46123661636 IN_PROGRESS during checkout, before the build stage. These results do not validate later commits.
+- The last established firmware L3 is product source SHA `2d0388614f8a1f3f3a11ce2bf57f7f63a19d879c`, XY-C1 #46122904412 Build/TRX/artifact PASS. The `e87` and `76f95` follow-ups are checker/docs-only relative to that product source. This Shadowsocks slice changes firmware source, so its own exact-SHA XY-C1 Build, TRX and artifact upload are required. Hardware L4 remains NOT VERIFIED.
+- Bootstrap recovery was completed once; do not repeat audits. Keep `REFACTOR_ROADMAP.md` unchanged because it is near its hard size limit. No local firmware checkout/build environment is available; report host and firmware tests only from actual Actions results.
 
 ## Active task
 
-1. **MTD rstats exact-executable stop:** production source in `2d038` requires `/sbin/rstats` executable + proc start_time identity and PID-scoped BusyBox TERM, rather than `comm=rstats` + `killall`. Restore/rollback step 21 and erase/reset step 23 PASS on `e87`; static gate step 42 failed because the new checker assertion was syntactically invalid Python. This commit fixes the checker quoting and requires a clean full Storage rerun.
-2. **Firmware validation boundary:** XY-C1 #46122904412 PASS on firmware source SHA `2d038...` (Build, TRX, artifact upload). Current `e87` is checker/docs-only and has identical firmware source. L3 PASS for that source tree; L4 hardware NOT VERIFIED.
-3. **Other exact-parent checks:** AI docs, process inventory, GPIO and HTTPD security PASS on `2d038`. Frozen backup remains untouched.
+1. **Shadowsocks process-shutdown identity:** the previous helper used process-name `killall` and a broad `pkill -f /usr/bin/ss-monitor` after mutable name/pattern lookups. The new implementation snapshots exact executable identity (and exact monitor interpreter/argv), Linux proc start_time and PID, revalidates the original PID/start_time/executable immediately before TERM/KILL, and escalates only members of the original snapshot. A replacement process, including same-PID/same-executable reuse with a changed start_time, must not inherit KILL authorization. Incomplete/deleted executable metadata and same-comm foreign binaries fail closed. Regression coverage includes malformed metadata, deleted executable, same-comm foreign process, exact monitor argv, PID reuse, TERM/KILL, and stuck-process failure. Exact-head CI for this slice is pending after its atomic source/test/checker commit; no local runtime result is claimed.
+2. **Firmware validation:** the prior L3 baseline is `2d0388614f8a1f3f3a11ce2bf57f7f63a19d879c` (#46122904412 Build/TRX/artifact PASS). The new Shadowsocks helper/test work is firmware source and must receive its own XY-C1 build/TRX/artifact PASS. Hardware L4 remains NOT VERIFIED.
+3. **Concurrent prior-head checks:** Storage #46123661683, AI handoff #46123661589 and XY-C1 #46123661636 were still running on `76f95c69...` at last poll. Do not confuse those results with validation of a later source SHA.
 
 ## Watchdog scheduled-action NVRAM snapshot baseline
 
@@ -25,17 +25,18 @@
 
 | Source SHA | Workflow / run | Result |
 |---|---|---|
-| `e87be480e8f1e714a53de04f7313a444c54205bf` | AI docs #46123234008 | PASS |
-| `e87be480e8f1e714a53de04f7313a444c54205bf` | Storage #46123234076 | FAIL — final step 42 Python SyntaxError in newly added rstats checker literals; MTD restore step 21 and erase/reset step 23 PASS; fixed in this commit |
-| `e87be480e8f1e714a53de04f7313a444c54205bf` | XY-C1 #46123234065 | Workflow success; Build/TRX/artifact SKIPPED (checker/docs-only change) |
-| `2d0388614f8a1f3f3a11ce2bf57f7f63a19d879c` | XY-C1 #46122904412 | L3 PASS — MIPS Build, TRX verification, artifact upload; same firmware sources as `e87` |
+| `76f95c69dca1325985e9f38c7dc9bb0faf40ec7b` | Storage hotplug #46123661683 | IN_PROGRESS at launcher-syntax step 1 |
+| `76f95c69dca1325985e9f38c7dc9bb0faf40ec7b` | AI handoff #46123661589 | IN_PROGRESS during checkout |
+| `76f95c69dca1325985e9f38c7dc9bb0faf40ec7b` | XY-C1 #46123661636 | IN_PROGRESS during checkout, before Build/TRX/artifact |
+| `2d0388614f8a1f3f3a11ce2bf57f7f63a19d879c` | XY-C1 #46122904412 | L3 PASS — MIPS Build, TRX verification, artifact upload |
 | `2d0388614f8a1f3f3a11ce2bf57f7f63a19d879c` | AI docs #46122904358; Process inventory #46122904384; GPIO #46122904392; HTTPD security #46122904374 | PASS |
 
 ## Exact first action for the next GPT
 
-1. Inspect the exact-head Storage hotplug run triggered by this checker syntax fix. Require `check_storage_safe_remove.py` to parse and all MTD restore/rollback, erase/reset, eject and firmware-persistence assertions to pass. Diagnose any new failing assertion without weakening the gates.
-2. Preserve the firmware L3 boundary: XY-C1 #46122904412 passed Build/TRX/artifact on product SHA `2d0388614f8a1f3f3a11ce2bf57f7f63a19d879c`; `e87` and this checker-only follow-up do not change firmware sources. L4 physical hardware remains NOT VERIFIED.
-3. Keep backup branch untouched; after Storage is green, continue a distinct userland stability/security task.
+1. Fetch live `main` and inspect exact-head Shadowsocks lifecycle and Process inventory/lifecycle Actions for the new executable-bound stop slice. Require shell syntax, the expanded `process_lifecycle.sh` regressions, and `check_shadowsocks_lifecycle.py` to pass. Diagnose failures from the exact job logs; do not weaken the fail-closed checks.
+2. Inspect prior-head Storage #46123661683, AI handoff #46123661589 and XY-C1 #46123661636 if still useful, but keep their `76f95` SHA boundary explicit.
+3. Check the new source commit's own XY-C1 run through Build, TRX verification and artifact upload before claiming L3. The established `2d038...` L3 does not automatically validate later source changes. Hardware L4 remains NOT VERIFIED.
+4. Keep the backup immutable; after this slice is green, proceed to another independent userland stability/security defect rather than repeating already-completed audits.
 
 ## Verification boundary
 

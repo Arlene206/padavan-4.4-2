@@ -29,34 +29,6 @@ else
 fi
 EOF
 
-cat > "$TMP_DIR/bin/killall" <<'EOF'
-#!/bin/sh
-signal=TERM
-process_name=
-while [ "$#" -gt 0 ]; do
-	case "$1" in
-		-q) shift ;;
-		-KILL|-9) signal=KILL; shift ;;
-		-*) exit 2 ;;
-		*) process_name=$1; shift ;;
-	esac
-done
-[ -n "$process_name" ] || exit 2
-printf 'NAME-%s %s\n' "$signal" "$process_name" >> "$KILL_LOG"
-state_file="$PROCESS_STATE_DIR/$process_name"
-[ -f "$state_file" ] || exit 1
-mode=$(cat "$state_file")
-case "$signal:$mode" in
-	TERM:exit_on_term|KILL:exit_on_kill)
-		rm -f "$state_file"
-		;;
-	TERM:unknown_after_term)
-		: > "$PROCESS_STATE_DIR/pidof_unknown"
-		;;
-esac
-exit 0
-EOF
-
 cat > "$TMP_DIR/bin/pgrep" <<'EOF'
 #!/bin/sh
 [ "$#" -eq 2 ] && [ "$1" = "-f" ] || exit 2
@@ -72,30 +44,6 @@ if [ -f "$PROCESS_STATE_DIR/monitor.pids" ]; then
 else
 	echo 4243
 fi
-EOF
-
-cat > "$TMP_DIR/bin/pkill" <<'EOF'
-#!/bin/sh
-signal=TERM
-[ "$#" -ge 1 ] || exit 2
-case "$1" in
-	-TERM) signal=TERM; shift ;;
-	-KILL|-9) signal=KILL; shift ;;
-esac
-[ "$#" -eq 2 ] && [ "$1" = "-f" ] && [ "$2" = "/usr/bin/ss-monitor" ] || exit 2
-printf 'PATTERN-%s %s\n' "$signal" "$2" >> "$KILL_LOG"
-state_file="$PROCESS_STATE_DIR/monitor"
-[ -f "$state_file" ] || exit 1
-mode=$(cat "$state_file")
-case "$signal:$mode" in
-	TERM:exit_on_term|KILL:exit_on_kill)
-		rm -f "$state_file"
-		;;
-	TERM:unknown_after_term)
-		: > "$PROCESS_STATE_DIR/pgrep_unknown"
-		;;
-esac
-exit 0
 EOF
 
 cat > "$TMP_DIR/bin/sleep" <<'EOF'
@@ -187,8 +135,39 @@ chmod 755 "$TMP_DIR/bin/dnsmasq"
 chmod 755 "$TMP_DIR/bin/ssr-redir" "$TMP_DIR/bin/lua" "$TMP_DIR/bin/chinadns-ng"
 
 chmod 755 "$TMP_DIR/bin/dnsproxy" "$TMP_DIR/bin/dns2tcp"
-chmod 755 "$TMP_DIR/bin/pidof" "$TMP_DIR/bin/killall" "$TMP_DIR/bin/pgrep" "$TMP_DIR/bin/pkill" "$TMP_DIR/bin/sleep"
+chmod 755 "$TMP_DIR/bin/pidof" "$TMP_DIR/bin/pgrep" "$TMP_DIR/bin/sleep"
 log() { :; }
+# The stop helper must signal only the captured PID after executable and
+# start_time revalidation; this shell function emulates those PID outcomes.
+kill() {
+	[ "$#" -eq 2 ] || return 2
+	case "$1" in -TERM) ss_test_signal=TERM ;; -KILL) ss_test_signal=KILL ;; *) return 2 ;; esac
+	case "$2" in ''|*[!0-9]*|0*) return 2 ;; esac
+	printf 'PID-%s %s\n' "$ss_test_signal" "$2" >> "$KILL_LOG"
+	ss_test_dir="$SS_PROC_ROOT/$2"
+	[ -d "$ss_test_dir" ] || return 0
+	ss_test_mode=$(cat "$ss_test_dir/stop_mode" 2>/dev/null || printf never_exit)
+	case "$ss_test_signal:$ss_test_mode" in
+		TERM:exit_on_term|KILL:exit_on_kill)
+			rm -rf "$ss_test_dir"
+			;;
+		TERM:unknown_after_term)
+			rm -f "$ss_test_dir/exe"
+			;;
+		TERM:reuse_as_foreign)
+			rm -f "$ss_test_dir/exe"
+			ln -s /usr/bin/untrusted-daemon "$ss_test_dir/exe"
+			printf '%s\n' untrusted > "$ss_test_dir/comm"
+			printf '%s (untrusted) S 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 5001\n' \
+				"$2" > "$ss_test_dir/stat"
+			;;
+		TERM:reuse_as_same)
+			printf '%s (%s) S 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 5001\n' \
+				"$2" "$(cat "$ss_test_dir/comm")" > "$ss_test_dir/stat"
+			;;
+	esac
+	return 0
+}
 nvram() {
 	case "$1:$2" in
 		get:pdnsd_enable) echo "${DNS_PDNSD_ENABLE:-0}" ;;
@@ -225,6 +204,8 @@ ss_restart_dhcpd() {
 		return $?
 	fi
 	"$DNSMASQ_MOCK_BIN" || return $?
+	rm -rf "$SS_PROC_ROOT/4248"
+	add_stop_proc_fixture 4248 dnsmasq /user/sbin/dnsmasq /user/sbin/dnsmasq exit_on_term 4000
 	ss_wait_named_process_count dnsmasq 1 5
 }
 
@@ -233,6 +214,7 @@ reset_proc_fixture() {
 	rm -rf "$SS_PROC_ROOT"
 	mkdir -p "$SS_PROC_ROOT/1"
 	printf '%s\n' '1 (init) S 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 4000' > "$SS_PROC_ROOT/1/stat"
+	printf '%s\n' init > "$SS_PROC_ROOT/1/comm"
 	printf '/sbin/init\000' > "$SS_PROC_ROOT/1/cmdline"
 }
 
@@ -244,8 +226,24 @@ add_proc_fixture() {
 	mkdir -p "$SS_PROC_ROOT/$ss_test_pid"
 	printf '%s (%s) S 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 4000\n' \
 		"$ss_test_pid" "$ss_test_comm" > "$SS_PROC_ROOT/$ss_test_pid/stat"
+	printf '%s\n' "$ss_test_comm" > "$SS_PROC_ROOT/$ss_test_pid/comm"
 	printf '%s\000' "$ss_test_argv0" > "$SS_PROC_ROOT/$ss_test_pid/cmdline"
 	for ss_test_arg in "$@"; do printf '%s\000' "$ss_test_arg" >> "$SS_PROC_ROOT/$ss_test_pid/cmdline"; done
+}
+
+add_stop_proc_fixture() {
+	ss_test_pid=$1
+	ss_test_comm=$2
+	ss_test_argv0=$3
+	ss_test_exe=$4
+	ss_test_mode=$5
+	ss_test_start=$6
+	shift 6
+	add_proc_fixture "$ss_test_pid" "$ss_test_comm" "$ss_test_argv0" "$@"
+	printf '%s (%s) S 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 %s\n' \
+		"$ss_test_pid" "$ss_test_comm" "$ss_test_start" > "$SS_PROC_ROOT/$ss_test_pid/stat"
+	ln -s "$ss_test_exe" "$SS_PROC_ROOT/$ss_test_pid/exe"
+	printf '%s\n' "$ss_test_mode" > "$SS_PROC_ROOT/$ss_test_pid/stop_mode"
 }
 
 fail() { echo "FAIL: $*" >&2; exit 1; }
@@ -309,46 +307,82 @@ fi
 expect_status 2 "pidof empty success is unknown" ss_process_pid_state empty_success
 expect_status 2 "pidof malformed PID output is unknown" ss_process_pid_state malformed
 expect_status 2 "pidof failure with output is unknown" ss_process_pid_state inconsistent
-: > "$KILL_LOG"
-: > "$PROCESS_STATE_DIR/pidof_unknown"
-printf 'never_exit\n' > "$PROCESS_STATE_DIR/unknown"
-expect_status 2 "pidof error blocks named stop" ss_stop_named_processes unknown
-[ ! -s "$KILL_LOG" ] || fail "pidof error caused a signal"
-rm -f "$PROCESS_STATE_DIR/pidof_unknown" "$PROCESS_STATE_DIR/unknown"
 
-# If inventory becomes unknown after TERM, do not escalate to KILL.
+# A candidate whose executable metadata is unreadable is UNKNOWN: no signal.
 : > "$KILL_LOG"
-printf 'unknown_after_term\n' > "$PROCESS_STATE_DIR/term_unknown"
-expect_status 2 "unknown after TERM blocks KILL" ss_stop_named_processes term_unknown
-if grep -q '^NAME-KILL term_unknown$' "$KILL_LOG"; then
-	fail "named KILL sent after inventory became unknown"
-fi
-[ -e "$PROCESS_STATE_DIR/pidof_unknown" ] || fail "TERM fixture did not inject the unknown state"
-rm -f "$PROCESS_STATE_DIR/pidof_unknown" "$PROCESS_STATE_DIR/term_unknown"
+reset_proc_fixture
+add_stop_proc_fixture 5100 dnsproxy /usr/bin/dnsproxy /usr/bin/dnsproxy never_exit 4000
+printf '%s\n' 'truncated stat record' > "$SS_PROC_ROOT/5100/stat"
+expect_status 2 "incomplete executable identity blocks named stop" ss_stop_named_processes dnsproxy
+[ ! -s "$KILL_LOG" ] || fail "incomplete executable identity caused a signal"
 
-# Preserve the existing graceful / forced / timeout behavior.
+# If the executable link becomes unavailable after TERM, do not escalate.
 : > "$KILL_LOG"
-printf 'exit_on_term\n' > "$PROCESS_STATE_DIR/term_exit"
-ss_stop_named_processes term_exit
-[ ! -e "$PROCESS_STATE_DIR/term_exit" ] || fail "TERM process was not stopped"
-grep -q '^NAME-TERM term_exit$' "$KILL_LOG"
-if grep -q '^NAME-KILL term_exit$' "$KILL_LOG"; then fail "named stop escalated after TERM exit"; fi
+reset_proc_fixture
+add_stop_proc_fixture 5101 dnsproxy /usr/bin/dnsproxy /usr/bin/dnsproxy unknown_after_term 4000
+expect_status 2 "unknown after TERM blocks KILL" ss_stop_named_processes dnsproxy
+grep -Fqx 'PID-TERM 5101' "$KILL_LOG" || fail "named stop did not signal the captured PID"
+if grep -Fqx 'PID-KILL 5101' "$KILL_LOG"; then fail "named KILL sent after identity became unknown"; fi
+
+# A deleted executable at the expected path is UNKNOWN, never a safe target.
+: > "$KILL_LOG"
+reset_proc_fixture
+add_stop_proc_fixture 5107 dnsproxy /usr/bin/dnsproxy '/usr/bin/dnsproxy (deleted)' never_exit 4000
+expect_status 2 "deleted executable path blocks named stop" ss_stop_named_processes dnsproxy
+[ ! -s "$KILL_LOG" ] || fail "deleted executable received a signal"
+
+# A same-comm process running another executable is an impostor, not a target.
+: > "$KILL_LOG"
+reset_proc_fixture
+add_stop_proc_fixture 5102 dnsproxy /usr/bin/dnsproxy /usr/bin/untrusted-daemon exit_on_term 4000
+expect_status 2 "same-comm foreign executable blocks stop" ss_stop_named_processes dnsproxy
+[ ! -s "$KILL_LOG" ] || fail "same-comm impostor received a signal"
+
+# TERM is sent only to the exact executable and is not escalated after exit.
+: > "$KILL_LOG"
+reset_proc_fixture
+add_stop_proc_fixture 5103 dnsproxy /usr/bin/dnsproxy /usr/bin/dnsproxy exit_on_term 4000
+ss_stop_named_processes dnsproxy
+[ ! -d "$SS_PROC_ROOT/5103" ] || fail "TERM process was not stopped"
+grep -Fqx 'PID-TERM 5103' "$KILL_LOG" || fail "TERM was not scoped to the captured PID"
+if grep -Fqx 'PID-KILL 5103' "$KILL_LOG"; then fail "named stop escalated after TERM exit"; fi
+
+# PID reuse to a different executable after TERM must not receive KILL.
+: > "$KILL_LOG"
+reset_proc_fixture
+add_stop_proc_fixture 5104 dnsproxy /usr/bin/dnsproxy /usr/bin/dnsproxy reuse_as_foreign 4000
+ss_stop_named_processes dnsproxy
+grep -Fqx 'PID-TERM 5104' "$KILL_LOG" || fail "PID-reuse fixture did not receive its initial TERM"
+if grep -Fqx 'PID-KILL 5104' "$KILL_LOG"; then fail "reused PID with a foreign executable received KILL"; fi
+[ -L "$SS_PROC_ROOT/5104/exe" ] || fail "PID-reuse impostor fixture disappeared"
+
+# Reuse with the same executable is still a different process generation.
+: > "$KILL_LOG"
+reset_proc_fixture
+add_stop_proc_fixture 5108 dnsproxy /usr/bin/dnsproxy /usr/bin/dnsproxy reuse_as_same 4000
+expect_status 1 "same-executable PID reuse remains an incomplete stop" ss_stop_named_processes dnsproxy
+grep -Fqx 'PID-TERM 5108' "$KILL_LOG" || fail "same-executable reuse fixture did not receive TERM"
+if grep -Fqx 'PID-KILL 5108' "$KILL_LOG"; then fail "new process generation inherited old PID KILL authorization"; fi
+grep -Fq '18 5001' "$SS_PROC_ROOT/5108/stat" || fail "same-executable PID reuse fixture did not change start_time"
+
+# Preserve graceful TERM, bounded KILL escalation, and stuck-process failure.
+: > "$KILL_LOG"
+reset_proc_fixture
+add_stop_proc_fixture 5105 dnsproxy /usr/bin/dnsproxy /usr/bin/dnsproxy exit_on_kill 4000
+ss_stop_named_processes dnsproxy
+[ ! -d "$SS_PROC_ROOT/5105" ] || fail "KILL escalation did not stop the daemon"
+grep -Fqx 'PID-TERM 5105' "$KILL_LOG" || fail "daemon did not receive TERM"
+grep -Fqx 'PID-KILL 5105' "$KILL_LOG" || fail "daemon did not receive KILL"
 
 : > "$KILL_LOG"
-printf 'exit_on_kill\n' > "$PROCESS_STATE_DIR/force_exit"
-ss_stop_named_processes force_exit
-[ ! -e "$PROCESS_STATE_DIR/force_exit" ] || fail "KILL escalation did not stop process"
-grep -q '^NAME-TERM force_exit$' "$KILL_LOG"
-grep -q '^NAME-KILL force_exit$' "$KILL_LOG"
+reset_proc_fixture
+add_stop_proc_fixture 5106 dnsproxy /usr/bin/dnsproxy /usr/bin/dnsproxy never_exit 4000
+expect_status 1 "stuck named process remains a stop failure" ss_stop_named_processes dnsproxy
+[ -d "$SS_PROC_ROOT/5106" ] || fail "stuck named process fixture disappeared"
+grep -Fqx 'PID-TERM 5106' "$KILL_LOG" || fail "stuck daemon did not receive TERM"
+grep -Fqx 'PID-KILL 5106' "$KILL_LOG" || fail "stuck daemon did not receive KILL"
 
-: > "$KILL_LOG"
-printf 'never_exit\n' > "$PROCESS_STATE_DIR/stuck"
-expect_status 1 "stuck named process remains a stop failure" ss_stop_named_processes stuck
-[ -e "$PROCESS_STATE_DIR/stuck" ] || fail "stuck named process fixture disappeared"
-grep -q '^NAME-TERM stuck$' "$KILL_LOG"
-grep -q '^NAME-KILL stuck$' "$KILL_LOG"
-
-# pgrep has the same strict status/output contract as pidof.
+# Keep the legacy pidof/pgrep status and procfs-readiness coverage.
 : > "$PROCESS_STATE_DIR/pgrep_empty_success"
 expect_status 2 "pgrep empty success is unknown" ss_process_pattern_state '/usr/bin/ss-monitor'
 rm -f "$PROCESS_STATE_DIR/pgrep_empty_success"
@@ -359,42 +393,52 @@ rm -f "$PROCESS_STATE_DIR/pgrep_malformed"
 expect_status 2 "pgrep failure with output is unknown" ss_process_pattern_state '/usr/bin/ss-monitor'
 rm -f "$PROCESS_STATE_DIR/pgrep_inconsistent"
 
+# A malformed script identity must fail closed before sending a signal.
 : > "$KILL_LOG"
-: > "$PROCESS_STATE_DIR/pgrep_unknown"
-printf 'never_exit\n' > "$PROCESS_STATE_DIR/monitor"
-expect_status 2 "pgrep error blocks monitor stop" ss_stop_process_pattern '/usr/bin/ss-monitor'
-[ ! -s "$KILL_LOG" ] || fail "pgrep error caused a monitor signal"
-rm -f "$PROCESS_STATE_DIR/pgrep_unknown" "$PROCESS_STATE_DIR/monitor"
+reset_proc_fixture
+add_stop_proc_fixture 5110 sh /bin/sh /bin/busybox exit_on_term 4000 /usr/bin/ss-monitor
+printf '%s\n' 'truncated stat record' > "$SS_PROC_ROOT/5110/stat"
+expect_status 2 "malformed monitor identity blocks stop" ss_stop_process_pattern '/usr/bin/ss-monitor'
+[ ! -s "$KILL_LOG" ] || fail "malformed monitor identity caused a signal"
 
+# Another shell argument containing the script path is not a script owner.
 : > "$KILL_LOG"
-printf 'unknown_after_term\n' > "$PROCESS_STATE_DIR/monitor"
+reset_proc_fixture
+add_stop_proc_fixture 5111 sh /bin/sh /bin/busybox exit_on_term 4000 /tmp/other.sh /usr/bin/ss-monitor
+expect_status 0 "monitor path in argv[2] is ignored" ss_stop_process_pattern '/usr/bin/ss-monitor'
+[ ! -s "$KILL_LOG" ] || fail "unrelated shell mentioning monitor path was signalled"
+
+# If the script process loses its executable identity after TERM, do not KILL.
+: > "$KILL_LOG"
+reset_proc_fixture
+add_stop_proc_fixture 5112 sh /bin/sh /bin/busybox unknown_after_term 4000 /usr/bin/ss-monitor
 expect_status 2 "unknown after monitor TERM blocks KILL" ss_stop_process_pattern '/usr/bin/ss-monitor'
-if grep -q '^PATTERN-KILL /usr/bin/ss-monitor$' "$KILL_LOG"; then
-	fail "monitor KILL sent after inventory became unknown"
-fi
-[ -e "$PROCESS_STATE_DIR/pgrep_unknown" ] || fail "monitor TERM fixture did not inject unknown state"
-rm -f "$PROCESS_STATE_DIR/pgrep_unknown" "$PROCESS_STATE_DIR/monitor"
+grep -Fqx 'PID-TERM 5112' "$KILL_LOG" || fail "monitor stop did not target the captured PID"
+if grep -Fqx 'PID-KILL 5112' "$KILL_LOG"; then fail "monitor KILL sent after identity became unknown"; fi
 
 : > "$KILL_LOG"
-printf 'exit_on_term\n' > "$PROCESS_STATE_DIR/monitor"
+reset_proc_fixture
+add_stop_proc_fixture 5113 sh /bin/sh /bin/busybox exit_on_term 4000 /usr/bin/ss-monitor
 ss_stop_process_pattern '/usr/bin/ss-monitor'
-[ ! -e "$PROCESS_STATE_DIR/monitor" ] || fail "monitor was not stopped"
-grep -q '^PATTERN-TERM /usr/bin/ss-monitor$' "$KILL_LOG"
-if grep -q '^PATTERN-KILL /usr/bin/ss-monitor$' "$KILL_LOG"; then fail "monitor escalated after TERM exit"; fi
+[ ! -d "$SS_PROC_ROOT/5113" ] || fail "monitor was not stopped"
+grep -Fqx 'PID-TERM 5113' "$KILL_LOG" || fail "monitor TERM was not PID-scoped"
+if grep -Fqx 'PID-KILL 5113' "$KILL_LOG"; then fail "monitor escalated after TERM exit"; fi
 
 : > "$KILL_LOG"
-printf 'exit_on_kill\n' > "$PROCESS_STATE_DIR/monitor"
+reset_proc_fixture
+add_stop_proc_fixture 5114 sh /bin/sh /bin/busybox exit_on_kill 4000 /usr/bin/ss-monitor
 ss_stop_process_pattern '/usr/bin/ss-monitor'
-[ ! -e "$PROCESS_STATE_DIR/monitor" ] || fail "monitor KILL escalation failed"
-grep -q '^PATTERN-TERM /usr/bin/ss-monitor$' "$KILL_LOG"
-grep -q '^PATTERN-KILL /usr/bin/ss-monitor$' "$KILL_LOG"
+[ ! -d "$SS_PROC_ROOT/5114" ] || fail "monitor KILL escalation failed"
+grep -Fqx 'PID-TERM 5114' "$KILL_LOG" || fail "monitor did not receive TERM"
+grep -Fqx 'PID-KILL 5114' "$KILL_LOG" || fail "monitor did not receive KILL"
 
 : > "$KILL_LOG"
-printf 'never_exit\n' > "$PROCESS_STATE_DIR/monitor"
+reset_proc_fixture
+add_stop_proc_fixture 5115 sh /bin/sh /bin/busybox never_exit 4000 /usr/bin/ss-monitor
 expect_status 1 "stuck monitor remains a stop failure" ss_stop_process_pattern '/usr/bin/ss-monitor'
-[ -e "$PROCESS_STATE_DIR/monitor" ] || fail "stuck monitor fixture disappeared"
-grep -q '^PATTERN-TERM /usr/bin/ss-monitor$' "$KILL_LOG"
-grep -q '^PATTERN-KILL /usr/bin/ss-monitor$' "$KILL_LOG"
+[ -d "$SS_PROC_ROOT/5115" ] || fail "stuck monitor fixture disappeared"
+grep -Fqx 'PID-TERM 5115' "$KILL_LOG" || fail "stuck monitor did not receive TERM"
+grep -Fqx 'PID-KILL 5115' "$KILL_LOG" || fail "stuck monitor did not receive KILL"
 
 # Count delta prevents an existing sibling from masking a failed worker launch.
 : > "$PROCESS_STATE_DIR/ssr-redir"
@@ -453,6 +497,8 @@ DNSMASQ_START_MODE=ready
 export DNSMASQ_TEST_MODE DNSMASQ_START_MODE
 printf 'exit_on_term\n' > "$PROCESS_STATE_DIR/dnsmasq"
 printf '4246\n' > "$PROCESS_STATE_DIR/dnsmasq.pids"
+reset_proc_fixture
+add_stop_proc_fixture 4246 dnsmasq /user/sbin/dnsmasq /user/sbin/dnsmasq exit_on_term 4000
 # dnsmasq is not part of the Shadowsocks cgroup, even when that option is enabled.
 MOCK_SS_CGROUPS=1
 export MOCK_SS_CGROUPS
@@ -490,6 +536,7 @@ DNSMASQ_TEST_MODE=ready
 cp "$dnsmasq_config" "$TMP_DIR/dnsmasq.before-stop-failure"
 echo never_exit > "$PROCESS_STATE_DIR/dnsmasq"
 echo 4246 > "$PROCESS_STATE_DIR/dnsmasq.pids"
+printf '%s\n' never_exit > "$SS_PROC_ROOT/4248/stop_mode"
 launches_before_stop_failure=$(cat "$PROCESS_STATE_DIR/dnsmasq_runs")
 expect_status 1 "dnsmasq stop failure preserves live config" ss_publish_and_restart_dnsmasq "$dnsmasq_config" "$TMP_DIR/bin/dnsmasq" 0
 cmp -s "$dnsmasq_config" "$TMP_DIR/dnsmasq.before-stop-failure" || fail "failed stop changed live dnsmasq config"
@@ -497,12 +544,14 @@ cmp -s "$dnsmasq_config" "$TMP_DIR/dnsmasq.before-stop-failure" || fail "failed 
 [ -f "$PROCESS_STATE_DIR/dnsmasq" ] || fail "failed stop removed the existing daemon"
 [ "$(cat "$PROCESS_STATE_DIR/dnsmasq_runs")" -eq "$launches_before_stop_failure" ] || fail "replacement launched after stop failure"
 rm -f "$PROCESS_STATE_DIR/dnsmasq" "$PROCESS_STATE_DIR/dnsmasq.pids"
+rm -rf "$SS_PROC_ROOT/4248"
 
 cp "$dnsmasq_config" "$TMP_DIR/dnsmasq.before-rollback"
 DNSMASQ_RESTART_CALLS=0
 rm -f "$PROCESS_STATE_DIR/dnsmasq_runs"
 printf 'exit_on_term\n' > "$PROCESS_STATE_DIR/dnsmasq"
 printf '4246\n' > "$PROCESS_STATE_DIR/dnsmasq.pids"
+add_stop_proc_fixture 4246 dnsmasq /user/sbin/dnsmasq /user/sbin/dnsmasq exit_on_term 4000
 DNSMASQ_START_MODE=rollback
 expect_status 19 "dnsmasq restart failure preserves original status" ss_publish_and_restart_dnsmasq "$dnsmasq_config" "$TMP_DIR/bin/dnsmasq" 0
 cmp -s "$dnsmasq_config" "$TMP_DIR/dnsmasq.before-rollback" || fail "dnsmasq restart did not restore original config"
