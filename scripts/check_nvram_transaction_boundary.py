@@ -439,7 +439,11 @@ def run() -> int:
         '"/tmp/.nvram.api.lock"',
         "O_NOFOLLOW",
         "O_CLOEXEC",
-        "flock(fd, operation | LOCK_NB)",
+        # Nonblocking mode flows through the bounded adapter; the real syscall
+        # is isolated in nvram_transaction_lock_flock_real().
+        "nvram_transaction_lock_flock_with(",
+        "LOCK_NB",
+        "flock(fd, operation)",
     )):
         failures.append(
             "shared NVRAM lock lost its stable path, no-follow/close-on-exec or bounded flock contract"

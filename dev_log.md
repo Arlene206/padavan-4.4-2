@@ -1,3 +1,11 @@
+## 2026-11-28 — Align NVRAM lock audit with the bounded flock adapter
+
+- Exact NVRAM transaction-boundary run #46129272230 on `534075c653811287c9344da6ca667f561c82b7f5` passed all compile/runtime and policy steps 1–17, including the flock/unlock EINTR retry regression, then failed at repository-wide source audit step 18.
+- The failure was a stale source-contract literal: it required `flock(fd, operation | LOCK_NB)`, while production correctly routes nonblocking acquisition through `nvram_transaction_lock_flock_with()` and keeps the real syscall in `nvram_transaction_lock_flock_real()` as `flock(fd, operation)`. This checker-only slice now asserts the bounded adapter, `LOCK_NB`, and isolated syscall. No firmware production source changed.
+- Exact-head NVRAM and AI handoff Actions are required for this correction. No local full-repository audit, MIPS firmware build or hardware L4 result is claimed.
+
+---
+
 ## 2026-11-28 — Align NVRAM static gate with shared EINTR counter and failure path
 
 - Base main SHA: `8466913541cfcf4c1533081704b901ddce258d6d`; result: THIS COMMIT.
