@@ -340,6 +340,19 @@ redsocks_config_paths_validate || fail "real config directory with absent target
 echo "Redsocks config directory and target symlinks fail closed before process changes: PASS"
 
 # A predictable staging-name collision must fail before stopping a healthy daemon.
+# Existing config directories may retain broad permissions from older releases.
+chmod 755 "$REDSOCKS_DIR"
+rm -f "$REDSOCKS_CONF"
+reset absent
+ARG2=192.0.2.10
+ARG3=1080
+func_start || fail "config generation failed after securing an existing directory"
+[[ "$(stat -c %a "$REDSOCKS_DIR")" == 700 ]] ||
+  fail "existing Redsocks config directory was not secured to mode 0700"
+[[ -f "$REDSOCKS_CONF" ]] || fail "generated Redsocks config was not published"
+rm -f "$REDSOCKS_CONF"
+echo "Redsocks existing config directory is secured before generated config publication: PASS"
+
 STAGING_DIR_TARGET="$TEST_TMP/staging-directory-target"
 STAGING_DIR="$REDSOCKS_DIR/.${BINARY_NAME}.conf.$$"
 mkdir -m 700 "$STAGING_DIR_TARGET"

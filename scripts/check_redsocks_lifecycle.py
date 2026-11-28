@@ -99,10 +99,12 @@ require('[ ! -L "$config_parent" ]' in config_paths and
 require('redsocks_config_paths_validate' in start and
         start.index('redsocks_config_paths_validate') < start.index('if redsocks_process_state') and
         'mkdir -m 700 "$REDSOCKS_DIR"' in start and
-        'Redsocks config path changed during directory preparation' in start,
+        'Redsocks config path changed during directory preparation' in start and
+        'chmod 700 "$REDSOCKS_DIR"' in start and
+        start.index('chmod 700 "$REDSOCKS_DIR"') < start.index('if redsocks_process_state'),
         "config path and directory creation must be validated before stopping a daemon")
 require('local redsocks_config_tmp_dir="" redsocks_config_tmp="" redsocks_config_status' in start and
-        'redsocks_config_tmp_dir="$REDSOCKS_DIR/.${BINARY_NAME}.conf.$"' in start and
+        'redsocks_config_tmp_dir="$REDSOCKS_DIR/.${BINARY_NAME}.conf.$$"' in start and
         'mkdir -m 700 "$redsocks_config_tmp_dir"' in start and
         'cat > "$redsocks_config_tmp" <<EOF' in start and
         'ln "$redsocks_config_tmp" "$REDSOCKS_CONF"' in start and

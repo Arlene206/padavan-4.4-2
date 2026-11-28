@@ -283,6 +283,13 @@ local redsocks_config_tmp_dir="" redsocks_config_tmp="" redsocks_config_status
 			logger -t "$BINARY_NAME" "Redsocks config path changed during directory preparation"
 			return 1
 		}
+		# Keep an existing config directory private too; do this before daemon changes.
+		chmod 700 "$REDSOCKS_DIR"
+		redsocks_config_status=$?
+		if [ "$redsocks_config_status" -ne 0 ]; then
+			logger -t "$BINARY_NAME" "cannot secure Redsocks config directory"
+			return "$redsocks_config_status"
+		fi
 
 		# mkdir is the exclusive reservation primitive: unlike noclobber
 		# redirection it refuses a pre-existing symlink at the stage path.

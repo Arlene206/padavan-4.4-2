@@ -1,3 +1,11 @@
+## 2026-11-28 — Secure existing Redsocks config directory and repair exact source contract
+
+- Exact-SHA CI for abf383ce1781943f598562c4b1a90210de6eb4ee: shell syntax and lifecycle regressions PASS; static source contract failed because its staging-path literal mistakenly expected one dollar instead of the shell PID suffix $$. The AI handoff contract passed.
+- Code review also found that the previous edit had dropped the mode-0700 repair for a pre-existing Redsocks config directory. Startup now chmods the validated real config directory to 0700 and checks the result before changing daemon state. Added a regression starting from mode 0755 and verifying mode 0700 plus successful config publication. Static checker now checks the exact PID suffix and chmod-before-process requirement.
+- Exact-SHA verification pending. No local checkout available.
+
+---
+
 ## 2026-11-28 — Redsocks atomic staging: regression passes, source checker format corrected
 
 - Exact-SHA run 46087370957 for 8bde38fdf22bfd43b9bd0aaa04b55bb2ce4cf225: shell syntax PASS and bounded lifecycle regressions PASS, including the staging-directory symlink rejection and publication-race test. The static source-contract step failed only because its legacy STARTED logger assertion required an unquoted constant tag, while func_start consistently quotes "$BINARY_NAME". This is an assertion-format mismatch, not a runtime regression; checker now accepts either spelling while preserving the exactly-one STARTED log requirement.

@@ -1,3 +1,11 @@
+## 2026-11-28 — Redsocks directory permissions and checker PID literal
+
+- abf383ce1781943f598562c4b1a90210de6eb4ee: Redsocks shell syntax PASS; full lifecycle regression PASS; static checker FAIL because it expected the staging path to end with a single $ instead of $$ (the actual shell script uses the PID suffix). AI handoff workflow PASS.
+- Follow-up restores chmod 700 on an already-existing config directory before stage creation and process changes, propagates failure, adds a 0755-to-0700 regression, and corrects the static check to literal $$.
+- Verify this exact commit's Redsocks + handoff Actions, then continue independent stability work. Frozen backup remains untouched at 72f4f157a084f8184b9597ca5bf334b8080e5807.
+
+---
+
 ## 2026-11-28 — Redsocks stage regression passes; static checker assertion normalized
 
 - 8bde38fdf22bfd43b9bd0aaa04b55bb2ce4cf225: bash -n and complete Redsocks lifecycle regression PASS (including symlinked staging directory and destination publication race). The source checker failed at the final STARTED-log assertion because it counted only the legacy unquoted form; runtime code uses the safely quoted "$BINARY_NAME" form. Checker now accepts both and still requires exactly one STARTED log.
