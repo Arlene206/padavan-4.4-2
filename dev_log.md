@@ -1,3 +1,12 @@
+## 2026-11-28 12:48 CST (UTC+8) — Correct storage-hotplug FTP stop source contract
+
+- Exact source SHA `4dd43a97904e7bec0c8ae094ff7c25ff82312b07`: VSFTPD regression #46106551633 PASS (GNU89/Werror/ASan/UBSan and source-order contract); AI handoff #46106551579 PASS; Process inventory #46106551548 PASS; fail-closed process inventory #46106551859 PASS.
+- Storage-hotplug umbrella #46106551612 failed only at its caller-graph Python assertion for `stop_ftp_locked`: it still expected the replaced `storage_service_stop_complete(status, final_state)` expression, while the new helper preserves the original `kill_services()` result via `ftp_stop_status_result(status, final_state)`. All earlier hotplug host tests in that run passed. Updated the checker to assert the new errno/status contract; no production behavior was weakened.
+- Same-source XY-C1 #46106551564 was still building (TRX/artifact pending) and NVRAM audit #46106551639 was still running at last poll. Exact-head reruns after this checker correction are required.
+- iperf3 regression #46079981839 and Process inventory #46079981918 both PASS on `6d659d767e8ac236527ca5cf02f2daedaf386507`; compare against `4dd43a9` confirms iperf3 and the shared process helper files are unchanged. L2 is VERIFIED.
+
+---
+
 ## 2026-11-28 12:30 CST (UTC+8) — Gate VSFTPD storage-stop firewall cleanup on final absence
 
 - Base main: `badf4b0a7b0b94f2c774134da72978474bd859d9`. THIS COMMIT changes `trunk/user/rc/src/services_stor.c`, `ftp_daemon_policy.h`, `tests/ftp_daemon_policy.c` and `.github/workflows/vsftpd-stability.yml`; updates the VSFTPD roadmap and session handoff.

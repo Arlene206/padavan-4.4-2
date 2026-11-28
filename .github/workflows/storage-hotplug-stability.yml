@@ -1815,7 +1815,11 @@ jobs:
                   if stop_name == "stop_ftp":
                       assert "final_state = is_ftp_run();" in locked_body
                       assert "*final_presence = final_state;" in locked_body
-                      assert "storage_service_stop_complete(status, final_state)" in locked_body
+                      assert "result = ftp_stop_status_result(status, final_state);" in locked_body
+                      assert "stop_errno = errno;" in locked_body
+                      assert "probe_errno = errno;" in locked_body
+                      assert "return result;" in locked_body
+                      assert "ftp_stop_status_result(int command_status, int final_presence)" in ftp_policy
               else:
                   running_check = {
                       "stop_dms": "is_dms_run",

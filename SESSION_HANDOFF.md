@@ -12,7 +12,7 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; all development and validation are on `main` only.
-- IAPP product-source baseline: `7daa20cd2f1bd7abca4499fb9f9a6e05ce5d3d00`; latest pre-implementation docs-only main: `badf4b0a7b0b94f2c774134da72978474bd859d9`. The current FTP source/test/workflow slice is THIS COMMIT; at the next takeover, fetch live main to resolve its exact SHA and match all Actions.
+- IAPP product-source baseline: `7daa20cd2f1bd7abca4499fb9f9a6e05ce5d3d00`; latest product-source commit: `4dd43a97904e7bec0c8ae094ff7c25ff82312b07` (VSFTPD final-absence stop gate). This follow-up only corrects the storage-hotplug workflow source contract and handoff evidence.
 - Remote branch inventory: `main` and the preserved `backup/pre-plugin-overhaul-2026-11-14` only. Frozen backup HEAD: `72f4f157a084f8184b9597ca5bf334b8080e5807`. Never modify, delete, rename, or use it for development.
 - No local source checkout was available to this session. Source/test evidence below comes from current GitHub files and exact-head Actions, not a claimed local build.
 
@@ -53,7 +53,7 @@ Every session MUST inspect the live repository state and compare it with this ha
 
 - Stop status now preserves the exact nonzero `kill_services()` result; if the command reports success but final procfs state is RUNNING, UNKNOWN or malformed, the stop still fails and records a meaningful errno.
 - Every stop-path firewall/UPnP reconciliation requires final `PROCESS_PRESENCE_ABSENT`. The storage-stop caller no longer lets a pre-stop RUNNING/UNKNOWN observation authorize a refresh when the final inventory remains uncertain; it aborts storage removal and retains the first stop failure.
-- GNU89 policy tests and workflow source-order contracts cover detailed status propagation, final ABSENT/RUNNING/UNKNOWN gating and group-stop first-error preservation. Exact-head CI is pending.
+- GNU89 policy tests and workflow source-order contracts cover detailed status propagation, final ABSENT/RUNNING/UNKNOWN gating and group-stop first-error preservation. Dedicated VSFTPD regression #46106551633 PASS (L2); the umbrella storage-hotplug checker is being corrected for the new helper. XY-C1 and NVRAM audit were still running at last poll.
 
 ## Verification boundary
 
@@ -66,11 +66,19 @@ For product-source SHA `7daa20cd2f1bd7abca4499fb9f9a6e05ce5d3d00`:
 | NVRAM transaction boundary audit | `46096900816` | PASS |
 | XY-C1 Firmware Validation | `46096900847` | PASS — Cross-build, TRX verify, artifact upload |
 | AI handoff documentation contract | `46096900817` | FAIL — handoff omitted mandatory checkpoint wording; correction is in this docs commit, exact-head rerun pending |
+| AI handoff documentation contract #46106551579 on `4dd43a97904e7bec0c8ae094ff7c25ff82312b07` | PASS |
+| VSFTPD stability regression #46106551633 on `4dd43a97904e7bec0c8ae094ff7c25ff82312b07` | PASS — GNU89/Werror/ASan/UBSan and source-order contract |
+| Process lifecycle inventory #46106551548 on `4dd43a97904e7bec0c8ae094ff7c25ff82312b07` | PASS |
+| Process inventory fail-closed #46106551859 on `4dd43a97904e7bec0c8ae094ff7c25ff82312b07` | PASS |
+| Storage hotplug #46106551612 on `4dd43a97904e7bec0c8ae094ff7c25ff82312b07` | FAIL — caller-graph checker still expected `storage_service_stop_complete(status, final_state)`; corrected in THIS workflow-only follow-up, exact rerun pending |
+| XY-C1 Firmware Validation #46106551564 on `4dd43a97904e7bec0c8ae094ff7c25ff82312b07` | IN PROGRESS at last poll — Build running; TRX/artifact pending |
+| NVRAM transaction boundary audit #46106551639 on `4dd43a97904e7bec0c8ae094ff7c25ff82312b07` | IN PROGRESS at last poll |
 
 - Firmware artifact: `XY-C1-firmware-7daa20cd2f1bd7abca4499fb9f9a6e05ce5d3d00`, artifact ID `15243698792`, 12,837,390 bytes, SHA-256 `c77d7d4117396efe6e0f560c72b3f9f557a5397493955a2636e99b8a40fc0d63`.
 - L3: PASS for default XY-C1 MIPS firmware build, TRX validation and artifact upload on the exact source SHA above.
 - L4: NOT VERIFIED — no physical router flash/boot or live radio/network validation was performed.
 - No local source build/test result is claimed. Do not conflate host sanitizer tests with target firmware validation.
+- iperf3 fail-closed discovery: dedicated shell regression #46079981839 and Process inventory #46079981918 PASS on `6d659d767e8ac236527ca5cf02f2daedaf386507`. Commit comparison against `4dd43a97904e7bec0c8ae094ff7c25ff82312b07` found no changes in `trunk/user/iperf3/**` or `trunk/user/shared/scripts/process_lifecycle.sh`; L2 applies to current source.
 
 ## Closed legacy PR preservation check
 
@@ -80,14 +88,13 @@ For product-source SHA `7daa20cd2f1bd7abca4499fb9f9a6e05ce5d3d00`:
 
 ## Active task
 
-THIS COMMIT implements the P1 VSFTPD stop/restart cleanup slice. Every stop-path firewall/UPnP refresh now requires final procfs ABSENT, detailed nonzero `kill_services()` status is preserved, and storage-stop aggregation keeps the first failure. Exact-head VSFTPD regression, AI docs and XY-C1 checks remain pending at commit preparation.
+The P1 VSFTPD final-absence stop gate is implemented and its dedicated GNU89/ASan/UBSan workflow passes. This follow-up corrects a stale assertion in the broader storage-hotplug caller-graph checker; verify the exact-head rerun before closing the integration slice. XY-C1 #46106551564 and NVRAM #46106551639 were still in progress on source SHA `4dd43a97904e7bec0c8ae094ff7c25ff82312b07`.
 
 ## Exact first action for the next GPT
 
-1. Re-fetch live `main` and inspect exact-head push Actions for the VSFTPD stability workflow, AI handoff documentation contract and XY-C1 firmware validation triggered by THIS source/test commit. Match every run to the live SHA; diagnose each failure from the first causal job log. No VSFTPD or firmware run ID is known yet at this checkpoint.
-2. Confirm the VSFTPD GNU89/Werror/ASan/UBSan policy regression and source-order contract pass. XY-C1 L3 requires Build, TRX verification and artifact upload all PASS on the exact source SHA. L4 remains separate.
-3. Then continue the next open stability/security issue in the roadmap, starting with the iperf3 fail-closed process-discovery regression whose shell invocation reruns were pending. Do not repeat completed IAPP, DHCP, shared process inventory, watchdog or storage audits without new evidence.
-
+1. Fetch live `main`; check exact-head Actions for THIS checker correction and the outstanding XY-C1/NVRAM runs on source SHA `4dd43a97904e7bec0c8ae094ff7c25ff82312b07`. The failure in storage-hotplug #46106551612 was isolated to its obsolete FTP stop assertion; the VSFTPD-specific regression #46106551633 passed. Confirm corrected umbrella PASS; if it fails, fix only the first genuine contract mismatch.
+2. Confirm XY-C1 Build, TRX verification and artifact upload all PASS before assigning L3 to the VSFTPD product change. No physical router L4 test was performed.
+3. iperf3 fail-closed discovery is already L2 verified: regression #46079981839 and Process inventory #46079981918 PASS on `6d659d767e8ac236527ca5cf02f2daedaf386507`; compare confirms the iperf3 source and shared process helper did not change through `4dd43a9`. Proceed to the next open reliability/security item from the current roadmap.
 # Cross-session execution mandate
 
 - Only `main` is an authorized development branch. Create no feature/checkpoint branches and no pull requests. Keep the frozen backup immutable.
