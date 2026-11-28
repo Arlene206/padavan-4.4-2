@@ -1,3 +1,11 @@
+## 2026-11-28 — Match atomic-commit handoff mandate to exact validator token
+
+- Exact-head AI handoff workflow #46150149400 on `307422cf470385e367e9968735ac08e6d902da6d` passed the checkpoint and archive checks up to cross-session wording, then failed because the required phrase `one atomic main commit` was capitalized in the handoff. Corrected the exact case-sensitive token; no production source changed.
+- On the prior production SHA `9fc0a65fdff1a8c315119200efb1976e6e9d181d`, networkmap regression #46149948622 PASS, NVRAM boundary audit #46149948646 PASS and Process inventory #46149948705 PASS. XY-C1 #46149948587 remained in progress at Build XY-C1; TRX/artifact pending.
+- Exact-head AI handoff rerun pending on this documentation correction.
+
+---
+
 ## 2026-11-28 — Restore handoff accuracy checkpoint wording after exact-SHA validator failure
 
 - Exact-head AI handoff documentation workflow #46149948625 failed on `9fc0a65fdff1a8c315119200efb1976e6e9d181d` because the active handoff omitted the required conditional checkpoint sentence and used a non-canonical active-task heading.
