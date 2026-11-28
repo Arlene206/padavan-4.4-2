@@ -11,6 +11,16 @@
 - The CLI policy host regression now verifies full-region erasure and NULL/zero-length safety. The NVRAM semantic checker enforces that every `free()` in save/restore/show is immediately preceded by the matching wipe. Exact-head NVRAM workflow and XY-C1 image validation are required.
 - Previous exact-head a606 checks: Samba V2 transaction/durability #46146532872 PASS; AI handoff #46146532867 PASS.
 
+## Exact-SHA CI checkpoint
+
+- Source SHA polled: `cd6bb30198d37b1580a6009f5babe863bde5868d` (before this handoff-only commit).
+- Poll timestamp: `2026-11-28T12:56:49.916Z`.
+- Run #46146966763 — AI handoff documentation contract: completed/success; jobs: validate-handoff-records=completed/success
+- Run #46146966721 — Process lifecycle inventory - cd6bb30198d37b1580a6009f5babe863bde5868d: completed/success; jobs: inventory=completed/success
+- Run #46146966737 — HTTPD Authentication and Security Regression: completed/success; jobs: HTTPD authentication and disclosure policy=completed/success
+- Run #46146966803 — NVRAM transaction boundary audit: completed/failure; jobs: nvram-transaction-boundary=completed/failure
+  - Failure detail (nvram-transaction-boundary): ﻿2026-11-28T12:54:37.8018812Z Current runner version: '2.338.2' | 2026-11-28T12:54:37.8036804Z ##[group]Runner Image Provisioner | 2026-11-28T12:54:37.8038218Z Hosted Compute Agent | 2026-11-28T12:54:37.8038647Z Version: 20261111.635
+
 ## Verification boundary
 
 - Main a606c54b09cda3fb70560e44571281ddd49c7f92: Samba share #46146532872 PASS, including the C journal regression, account snapshot/failure-gate contracts and every V2 durability assertion; AI handoff #46146532867 PASS (root dev_log 113/119).
