@@ -1,3 +1,9 @@
+## 2026-11-28 — Repair Transmission NVRAM fixture bootstrap
+
+- Process run #46140572054 on `1ac1fa0919f95e11474325e344d19de89142025d` failed in the new Transmission NVRAM test before reaching production logic: the fixture wrote `bin/nvram` before creating its `bin` directory. Moved directory creation ahead of stub creation and made grep option terminators explicit for `-u` / `-v` argument assertions.
+- The Transmission fixture failure is a test harness issue; no production source changed. The WireGuard `get_checked` patch is in the parent `f0d35e73cabeefdde88e132ac94df6bc4d660603`, where AI docs #46140718064 PASS and Process regression was still IN_PROGRESS at last poll.
+
+---
 ## 2026-11-28 — Make WireGuard required settings backend-error aware
 
 - WireGuard's `required_setting()` rejected empty/whitespace values and propagated a nonzero command status, but called legacy `nvram get`; that interface can mask an underlying NVRAM backend read failure as a successful empty result. A false empty result is rejected, but the caller cannot distinguish a missing setting from backend I/O failure, and the checked-read contract used by SmartDNS/ZeroTier/TTYD/Transmission was not consistently applied.

@@ -11,6 +11,7 @@ GENERATOR_ARGS="$TEST_TMP/generator.args"
 FUNC_FILE="$TEST_TMP/functions.sh"
 trap 'rm -rf "$TEST_TMP"' 0
 trap 'exit 1' HUP INT TERM
+mkdir -p "$BIN" "$STORAGE/config" "$STORAGE/downloads" "$STORAGE/incomplete" "$STORAGE/watch"
 fail() { echo "Transmission checked-NVRAM regression: FAIL: $*" >&2; exit 1; }
 sed '/^case "$1" in/,$d' "$ROOT/trunk/user/transmission/transmission.sh" > "$FUNC_FILE"
 [ -s "$FUNC_FILE" ] || fail "could not extract Transmission functions"
@@ -84,8 +85,8 @@ if func_start > "$TEST_TMP/success.out" 2>&1; then :; else status=$?; fail "vali
 [ -s "$START_LOG" ] || fail "successful settings did not launch Transmission"
 [ -s "$STORAGE/config/settings.json" ] || fail "default settings were not published"
 grep -F '"umask": 0,' "$STORAGE/config/settings.json" >/dev/null || fail "default settings transform was not applied"
-grep -Fx '-u' "$GENERATOR_ARGS" >/dev/null || fail "RPC username option was not passed"
+grep -Fx -- '-u' "$GENERATOR_ARGS" >/dev/null || fail "RPC username option was not passed"
 grep -Fx 'transmission-user' "$GENERATOR_ARGS" >/dev/null || fail "RPC username was not passed"
-grep -Fx '-v' "$GENERATOR_ARGS" >/dev/null || fail "RPC password option was not passed"
+grep -Fx -- '-v' "$GENERATOR_ARGS" >/dev/null || fail "RPC password option was not passed"
 grep -Fx 'transmission-pass' "$GENERATOR_ARGS" >/dev/null || fail "RPC password was not passed"
 echo "Transmission checked NVRAM ports and RPC credentials fail closed before config publication and daemon launch: PASS"
