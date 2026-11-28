@@ -1,3 +1,12 @@
+## 2026-11-27 — Checkpoint DHCP checker repairs and handoff
+
+- Current main parent: a6faece21549c01ad0161c7c18d9a26725c3a6fd. Frozen backup: 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- DHCP production source slice db92b3164321618e559051b471f560c7a863d25d: ACK callback timing accounts from ACK receipt; late successful callbacks preserve remaining lease budget; expired callbacks deconfigure; failed initial bound hooks clean up before discovery, with DECONFIG_PENDING if cleanup fails.
+- Checker descendants 6a89890e... and c9b0d86... corrected the multiline cleanup helper match and remaining stale retry_continue references. At the end of this checkpoint the exact-head udhcpc rerun was not yet verified; the next session must inspect run state on current main.
+- Watchdog executable identity gate, IAPP monotonic event-log timer, and storage media-link checker repairs are summarized in SESSION_HANDOFF.md. Prior PASS results are SHA-specific. XY-C1 #46095697024 on db92 source SHA was still under observation; Build/TRX/artifact status not confirmed as PASS. No L3/L4 claim.
+
+---
+
 ## 2026-11-27 — Remove final stale udhcpc checker retry marker
 
 - Follow-up to the c9b0d86... checker correction: exact-head run still exposed one last `retry_continue` reference in the later lease-plan ordering assertion at line 274. Replaced with `final_continue`; runtime code unchanged.
