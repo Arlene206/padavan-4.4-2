@@ -232,19 +232,26 @@ udhcp_get_option_internal(struct dhcp_packet *packet, int code,
 	int overload = 0;
 	int overload_seen = 0;
 	int in_overloaded_field = 0;
+	int found = 0;
 	unsigned int option_size;
+	unsigned int found_length = 0;
+	uint8_t *found_value = NULL;
 	uint8_t overload_fields;
 	enum {
 		FILE_FIELD101  = FILE_FIELD  * 0x101,
 		SNAME_FIELD101 = SNAME_FIELD * 0x101,
 	};
 
-	if (!option_value || !option_length || !packet) {
+	if (!option_value || !option_length) {
 		bb_error_msg("invalid DHCP option lookup arguments");
 		return -1;
 	}
 	*option_value = NULL;
 	*option_length = 0;
+	if (!packet) {
+		bb_error_msg("invalid DHCP option lookup packet");
+		return -1;
+	}
 
 	/* option bytes: [code][len][data1][data2]..[dataLEN] */
 	optionptr = packet->options;
@@ -304,17 +311,24 @@ udhcp_get_option_internal(struct dhcp_packet *packet, int code,
 			overload |= overload_fields;
 		}
 
-		if (optionptr[OPT_CODE] == code &&
+		if (!found && optionptr[OPT_CODE] == code &&
 		    (include_empty || optionptr[OPT_LEN] != 0)) {
 			log_option("Option found", optionptr);
-			*option_value = optionptr + OPT_DATA;
-			*option_length = optionptr[OPT_LEN];
-			return 1;
+			found_value = optionptr + OPT_DATA;
+			found_length = optionptr[OPT_LEN];
+			found = 1;
 		}
 
 		/* Advance even for a zero-length instance; do not strand the cursor. */
 		optionptr += option_size;
 		rem -= (int)option_size;
+	}
+
+	/* Do not report a match until every active option field was validated. */
+	if (found) {
+		*option_value = found_value;
+		*option_length = found_length;
+		return 1;
 	}
 
 	/* log3 because udhcpc uses it a lot - very noisy */

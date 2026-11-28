@@ -1,8 +1,9 @@
-## 2026-11-28 — Fix the DHCP option-scanner checker signature (THIS COMMIT)
+## 2026-11-28 — Validate the complete DHCP option stream before accepting server-ID matches (THIS COMMIT)
 
-- Base main SHA: `2643d05714776b43bf850fb2d41aa1e3c191ba74`. The production option lookup definition puts `static int` on one line and `udhcp_get_option_internal(...)` on the next. The exact-head udhcpc run #46111402271 proved the GNU89/Werror/ASan/UBSan test binary passed, but the Python contract checker raised `ValueError: substring not found` because it expected those tokens on one line.
-- THIS commit changes only the checker anchor to `udhcp_get_option_internal(struct dhcp_packet *packet`; all scanner, option-length, and OFFER/ACK/NAK ordering assertions remain enabled. No production code or test was weakened.
-- Parent c22 AI docs #46111402320, DHCPv6 #46111402363, WAN DHCP #46111402372, Process fail-closed #46111402276, Process inventory #46111402310 and USB storage #46111402425 PASS. Parent NVRAM #46111402311 and XY-C1 #46111402307 were still running; c21 NVRAM #46111075506 is now PASS, c21 XY #46111075565 was still building. THIS commit's exact Actions are pending.
+- Base main SHA: `af3cded3c44d45c8827a5217fff2cfdbcdf71a4b`. The af3 exact-head udhcpc run #46111559507 passed the GNU89/Werror/ASan/UBSan C policy binary but failed in its Python source checker: whitespace was stripped before comparison, but two expected call strings still contained spaces. AI docs #46111559510 PASS.
+- While correcting the remaining stale wrapper assertions, source review found the richer option API returned immediately after finding option 54, contradicting its own malformed-stream status contract. A valid option 54 preceding a malformed trailing TLV/overloaded field could escape validation.
+- THIS COMMIT stores the first match and completes parsing of all active option fields before publishing a success result. Malformed trailing fields return -1 with cleared output values. NULL packet errors now clear outputs too. Existing public lookup still skips zero-length options; the new length-preserving API reports them.
+- Checker now asserts scanner full-pass ordering and exact whitespace-normalized wrapper arguments. No C test assertions are removed. Exact-head udhcpc, docs and XY Actions for THIS source are pending; no local run is claimed.
 
 ---
 
@@ -102,14 +103,14 @@ For product-source SHA `7daa20cd2f1bd7abca4499fb9f9a6e05ce5d3d00`:
 
 ## Active task
 
-The option-54 scanner/source changes are committed in `2643d05714776b43bf850fb2d41aa1e3c191ba74`. Its GNU89/Werror/ASan/UBSan policy binary compiled and passed, but the exact-head BusyBox udhcpc workflow failed in the Python checker because the new internal C function signature is split across two lines. This commit corrects only that checker lookup; all source/test assertions remain intact.
+The new DHCP option-54 API is now strict about malformed streams as well as payload lengths. During review, its early-return behavior was found to accept a valid first option while skipping malformed later TLVs or overloaded fields. THIS COMMIT records the first match and validates the entire active option stream before reporting success, keeping outputs clear on any failure. It also repairs stale source-checker references to the pre-refactor wrapper and the two whitespace-normalized call assertions.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head BusyBox udhcpc and AI handoff docs Actions for THIS checker correction. The failed parent run is #46111402271 (C policy binary PASS; Python checker failed at `function_body(common, "static int udhcp_get_option_internal(")`). Require the corrected exact-SHA regression and docs run to PASS; inspect logs and repair any new failure without relaxing assertions.
-2. Recheck parent c22 XY-C1 #46111402307 and NVRAM #46111402311. At handoff they were still running. Parent c22 AI docs #46111402320, DHCPv6 #46111402363, WAN DHCP #46111402372, Process fail-closed #46111402276, Process inventory #46111402310 and USB storage #46111402425 PASS. c21 NVRAM #46111075506 completed PASS; c21 XY #46111075565 remained building.
-3. Once checker correction is green, continue a separate source-backed stability/security fix outside udhcpc rather than broadening the DHCP slice without new evidence. Keep current exact-SHA firmware validation separate from the earlier HTTPD SHA's successful L3 result.
-4. No physical-router L4 validation has been performed.
+1. Fetch live `main` and inspect THIS COMMIT's exact-head udhcpc event-script, AI docs and XY-C1 Actions. The parent af3 run #46111559507 passed the GNU89/Werror/ASan/UBSan C policy binary but failed the Python checker at the whitespace-normalized rich API assertion; parent AI docs #46111559510 PASS. Require the new scanner/checker commit's exact tests to PASS.
+2. Recheck c22 #46111402307 XY-C1 and #46111402311 NVRAM. Both were last observed IN_PROGRESS; separately recheck c21 XY #46111075565, also last observed IN_PROGRESS. Treat those only as exact-parent evidence.
+3. Once the DHCP option-scanner slice is green, move back to a separate open P1 module. Inspect a bounded source/test path in Firewall/NAT, USB modem, VPN or PPPoE-MWAN for a concrete defect; do not perform another broad inventory or speculative edits.
+4. No current DHCP-source L3 or physical-router L4 is verified. Earlier HTTPD-only XY-C1 #46109982320 passed Build/TRX/artifact on its own older source SHA only.
 
 # Cross-session execution mandate
 
@@ -120,5 +121,5 @@ The option-54 scanner/source changes are committed in `2643d05714776b43bf850fb2d
 
 Before context exhaustion, stop starting new modules, finish and publish a safe bounded slice, then leave this handoff with the exact first action, validation boundary and committed baseline.
 - Run the local handoff-doc validator when a checkout is available. This session had no local checkout; the exact-head GitHub Actions workflow is the validation gate for the docs correction.
-- Keep the root dev log at 20–119 complete records; it had 83 records before this entry and now has 84, so no archive rotation is due. Do not add handoff/roadmap archive snapshots.
+- Keep the root dev log at 20–119 complete records; it had 84 records before this entry and now has 85, so no archive rotation is due. Do not add handoff/roadmap archive snapshots.
 - Do not change GPT Session Rotator or replay its existing state/SHA. Do not claim hardware validation or a successful build when steps were skipped.

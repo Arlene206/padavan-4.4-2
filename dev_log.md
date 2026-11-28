@@ -1,3 +1,13 @@
+## 2026-11-28 13:34 CST (UTC+8) — Validate the full DHCP option stream before returning a match
+
+- Base main SHA: `af3cded3c44d45c8827a5217fff2cfdbcdf71a4b`. The corrected checker anchor reached the next assertions, then #46111559507 failed because two whitespace-normalized assertions still expected spaces ("option_length, 1)") in strings where all whitespace had been removed. The GNU89/Werror/ASan/UBSan policy binary passed; AI docs #46111559510 passed.
+- Corrected the checker to inspect the new internal scanner rather than the legacy wrapper (the old assertions referenced TLV/overload locals no longer in that wrapper), and fixed both normalized call signatures without dropping any contracts.
+- Source review found a further issue in the just-added API contract: it promised `-1` for a malformed option stream, but returned immediately after the first match. A valid option 54 followed by a malformed TLV or malformed overloaded field could therefore be accepted without validating the remainder. The scanner now records the first match, continues validating every active main/file/sname option field, and publishes outputs only after a complete successful scan. On malformed trailing data it returns -1 with cleared outputs. Null packet errors also clear caller outputs before returning.
+- The old public `udhcp_get_option()` semantics still skip zero-length matches (include_empty=0); the new API still reports them (include_empty=1). Existing callers are unaffected except that malformed trailing TLVs are now correctly rejected instead of being hidden by early return. Static checker now pins complete-scan-before-return and first-match retention.
+- Parent af3 exact udhcpc #46111559507: C policy binary PASS, Python checker FAIL at normalized `option_length, 1)` assertion. AI docs #46111559510 PASS. The corrected complete-scan commit needs fresh exact-head udhcpc/docs/XY Actions. No local build/test is claimed.
+
+---
+
 ## 2026-11-28 13:27 CST (UTC+8) — Match DHCP option-scanner checker to split C signature
 
 - Base main SHA: `2643d05714776b43bf850fb2d41aa1e3c191ba74`. Exact-head udhcpc run #46111402271 compiled and ran the GNU89/Werror/ASan/UBSan policy binary successfully, then failed only in the Python source checker: `function_body()` searched for the literal `static int udhcp_get_option_internal(`, but the production definition deliberately formats the return type and function name on separate lines.

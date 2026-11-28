@@ -125,9 +125,9 @@ assert "return -1;" in option_lookup
 assert "return 0;" in option_lookup
 assert "return 1;" in option_lookup
 length_api = function_body(common, "int FAST_FUNC udhcp_get_option_with_length(")
-assert "option_length, 1)" in "".join(length_api.split())
+assert "option_length,1)" in "".join(length_api.split())
 legacy_api = function_body(common, "uint8_t* FAST_FUNC udhcp_get_option(")
-assert "option_length, 0)" in "".join(legacy_api.split())
+assert "option_length,0)" in "".join(legacy_api.split())
 assert "udhcp_server_id_option_status_valid" in policy
 assert "returnlookup_status==0?option_length==0U:lookup_status==1&&option_length==sizeof(uint32_t);" in "".join(policy.split())
 assert "test_server_id_option_requires_exactly_one_ipv4_address" in test
@@ -140,17 +140,27 @@ assert 'remaining < 2U' in option_parser
 assert 'payload_length > remaining - 2U' in option_parser
 assert 'option[1] != 1U' in option_parser
 assert 'option[2] < 1U || option[2] > 3U' in option_parser
-option_parser_body = function_body(common, "uint8_t* FAST_FUNC udhcp_get_option")
+option_parser_body = function_body(common, "udhcp_get_option_internal(struct dhcp_packet *packet")
 tlv_guard = option_parser_body.index("udhcp_option_tlv_size(optionptr")
 overload_check = option_parser_body.index("udhcp_option_overload_fields(optionptr")
 length_access = option_parser_body.index("optionptr[OPT_LEN]")
 cursor_advance = option_parser_body.index("optionptr += option_size")
 assert tlv_guard < overload_check < length_access < cursor_advance
+assert "*option_value = NULL;" in option_parser_body
+assert option_parser_body.index("*option_value = NULL;") < option_parser_body.index("if (!packet)")
+found_capture = option_parser_body.index("found_value = optionptr + OPT_DATA;")
+found_cursor_advance = option_parser_body.index("optionptr += option_size", found_capture)
+found_return = option_parser_body.rindex("return 1;")
+assert found_capture < found_cursor_advance < found_return
 overload_location_check = option_parser_body.index("udhcp_option_overload_location_valid")
 overload_seen_mark = option_parser_body.index("overload_seen = 1", overload_location_check)
 assert overload_location_check < overload_check < overload_seen_mark
 assert option_parser_body.count("in_overloaded_field = 1") == 2
-assert 'if (optionptr[OPT_CODE] == code && optionptr[OPT_LEN] != 0)' in option_parser_body
+assert 'if (!found && optionptr[OPT_CODE] == code &&' in option_parser_body
+assert '(include_empty || optionptr[OPT_LEN] != 0)' in option_parser_body
+assert 'if (found) {' in option_parser_body
+assert '*option_value = found_value;' in option_parser_body
+assert '*option_length = found_length;' in option_parser_body
 assert 'if (rem < 0) continue' not in option_parser_body
 assert "test_dhcp_option_tlv_bounds" in test
 assert "test_dhcp_option_overload_is_a_validated_single_byte" in test
