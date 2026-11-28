@@ -1,3 +1,11 @@
+## 2026-11-28 — Harden BusyBox DHCP raw packet and server option parsing
+
+- `udhcpc` raw IPv4/IPv6 readers previously checked peer-controlled total lengths too late: tiny IP/UDP lengths could underflow the signed receive count before `memcpy`. Added overflow-safe, exact IPv4/IPv6 and UDP length validation before subtraction/copy; zeroed raw packet and destination buffers. GNU89 ASan/UBSan tests cover the old underflow pairs, truncation, inconsistent lengths and trailing frame padding. Source commits: `4b84d069f4edb3285480f11d6e168ae6e379010d` and `fb1f82f116d4f10f563d155a9616a61c132183be`; exact udhcpc #46155870736 and DHCPv6 Reply #46155870708 PASS on `fb1f82f`.
+- `udhcpd` previously used `udhcp_get_option32()`, whose NULL result conflated absent address options with malformed-present values. A malformed REQUESTED_IP could therefore masquerade as omission during DHCPRELEASE and free a live lease. Status-bearing lookups now reject parser errors and all present lengths other than four; DHCP_MESSAGE_TYPE must be present and exactly one byte. The GNU89 ASan/UBSan policy test and integration checker PASS in #46156530716 on `25f47f5655f53d1c0636328d3840571f86ca690e`. The first exact-head attempt #46156337300 passed C tests but failed a whitespace-sensitive checker; #125a216 normalized the checker and the latest run passed.
+- Process inventory #46156530717 PASS on `25f47f`; NVRAM #46156530675, storage #46156530714 and XY-C1 #46156530715 were pending at last check. No L3 firmware claim until Build, TRX and artifact all pass on a production-source SHA; physical-router L4 remains unverified.
+
+---
+
 ## 2026-11-28 — Normalize the WAN PID-identity checker call
 
 - Exact-head WAN route workflow #46154974325 on `9fc2f1015f1f0f8933b1c02bb007711dc95e538b` passed the detached-daemon compile/run and preceding route regressions, then failed only because `check_wan_detect_wan_status.py` expected `process_pidfile_read_identity(...)` on one line while the C source wraps its arguments.
