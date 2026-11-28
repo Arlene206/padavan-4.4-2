@@ -1,3 +1,11 @@
+## 2026-11-28 — Make udhcpc lease planner call assertion whitespace-tolerant
+
+- On parent SHA 24b18796e21eb5137b44836c3146552c6752e7ca, inspection of the earlier udhcpc run #46094952676 showed the sanitizer policy binary PASS, but the source checker failed because it searched for a single-line planner invocation. The C call is intentionally split over multiple lines.
+- THIS checker-only correction uses a whitespace-tolerant regular expression for the planner arguments; no source behavior changed.
+- IAPP monotonic timer correction is in progress separately; exact current-head IAPP and firmware CI results pending.
+
+---
+
 ## 2026-11-28 — Read IAPP timer helper contract from its header
 
 - IAPP lifecycle #46095191121 on SHA 3962b8955c0699548627bfe58c67bbad47e87858 passed the converted legacy ioctl test and all daemon/shell regressions, then failed in `scripts/check_iappd_select_fd.py`: a new assertion searched the helper declaration inside `rtmpiapp.c` rather than the separate `iapp_event_log_poll_policy.h`.

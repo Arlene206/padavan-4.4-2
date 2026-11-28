@@ -261,7 +261,10 @@ assert (retry_continue < lease_script_plan < lease_expiry_gate <
         server_address_commit < rebind_deadline_commit <
         requested_ip_commit < bound_transition)
 assert "already_waited_sec = script_elapsed;" not in ack
-assert "udhcpc_lease_script_plan(lease_seconds, script_elapsed," in ack
+lease_plan_call = re.search(
+    r"udhcpc_lease_script_plan\\s*\\(\\s*lease_seconds\\s*,\\s*script_elapsed\\s*,", ack
+)
+assert lease_plan_call is not None
 assert "lease_seconds - script_elapsed" in policy
 assert "script_elapsed >= lease_seconds" in policy
 assert "already_waited_sec = remaining;" in policy

@@ -1,3 +1,10 @@
+## 2026-11-28 — Make udhcpc lease planner call assertion whitespace-tolerant
+
+- The earlier udhcpc checker failed at a literal one-line string assertion for `udhcpc_lease_script_plan(lease_seconds, script_elapsed,`; the C invocation wraps the parameters on separate lines. Replaced this brittle check with a whitespace-tolerant regex.
+- The standalone policy binary had already passed under GNU89/Werror/ASan/UBSan.
+
+---
+
 ## 2026-11-28 — Read IAPP timer helper contract from its header
 
 - IAPP lifecycle #46095191121 passed test compilation and lifecycle regressions but failed because the source checker looked for the helper declaration in `rtmpiapp.c`, while the implementation correctly lives in `iapp_event_log_poll_policy.h`.
