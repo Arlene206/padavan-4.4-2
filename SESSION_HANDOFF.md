@@ -1,38 +1,36 @@
 ## 2026-11-28 continuation checkpoint
 
-- Repository `Arlene206/padavan-4.4-2`; main-only. Startup recovery was completed once; do not repeat bootstrap audit.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Parent: `d7e28dcf9d175615f4fad58bf6500b35ca6adc12` (`test(ttyd): refresh checked-NVRAM regression banner`). Exact-SHA Process #46140192826 PASS; AI handoff docs #46140192858 PASS.
-- TTYD source parent `5759332e5f3da1212d3caa937684a663c6e39a86`: ttyd checked-NVRAM shell regression PASS; Process inventory #46140033271 PASS; AI docs #46140033305 PASS; Process integration passed on d7 after correcting the stale banner expectation. XY-C1 #46140033275 for that firmware SHA was still IN_PROGRESS at last poll.
-- Prior NVRAM cache-wrap SHA `4f09b7bc0cff0aae3a13a4705edd3bf3af489b53`: NVRAM transaction audit, AI docs, HTTPD and inventory PASS; XY-C1 #46139431417 still IN_PROGRESS at last poll. No L3 claim without same-SHA build, TRX and artifact.
-- New active issue: Transmission had four unchecked `nvram get` substitutions for RPC/listen ports and credentials. A read error could flow into initial settings generation. This task uses `get_checked`, preserves successful empty-value behavior, and adds per-key failure injection proving no config publication/start.
-- NTP prior L3 evidence remains only on `c052506cbe9463f2719494d237e5323fe1c261c8`. DHCP, NVRAM cache wrap and ttyd checked-read fixes are implemented. Do not repeat absent new failure evidence.
-- No local MIPS toolchain/kernel build or hardware is available; physical L4 is NOT VERIFIED. `REFACTOR_ROADMAP.md` is near its size cap; avoid status-only edits.
+- Repository `Arlene206/padavan-4.4-2`; main-only; bootstrap recovered once. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` stays at `72f4f157a084f8184b9597ca5bf334b8080e5807`; never modify it.
+- Parent: `84cae6a937d06f3f8fb1a99afa94eecb1ceb8719` (`fix(transmission): fail closed on NVRAM config reads`).
+- Transmission code was changed to `nvram get_checked`, with a new per-key failure-injection regression and Process workflow step. Post-commit inspection found the port-read block was present twice (once before the watch chmod and once at its original location); this commit removes the second copy. The exact NVRAM call-order assertions in the regression catch duplication.
+- TTYD checked-read commit `5759332e5f3da1212d3caa937684a663c6e39a86`: dedicated ttyd test PASS, Process inventory #46140033271 PASS, AI #46140033305 PASS; Process integration corrected and passed on d7. XY-C1 #46140033275 had been IN_PROGRESS at last poll.
+- d7 test-runner correction: Process #46140192826 PASS and AI #46140192858 PASS.
+- Prior cache-wrap SHA `4f09b7bc0cff0aae3a13a4705edd3bf3af489b53`: NVRAM/AI/HTTPD/Process inventory PASS; XY-C1 #46139431417 pending last poll. No L3 unless same-SHA build/TRX/artifact success.
+- NTP L3 evidence is only for `c052506cbe9463f2719494d237e5323fe1c261c8`; DHCP, NVRAM cache wrap and ttyd fixes are already implemented. No local MIPS/kernel build or hardware; L4 NOT VERIFIED. Roadmap near size cap.
 
 ## Current repository state
 
-- Parent: `d7e28dcf9d175615f4fad58bf6500b35ca6adc12`.
-- Transmission task modifies the startup wrapper, adds a shell regression, and wires the regression into Process lifecycle triggers and execution. One atomic commit.
-- Frozen backup remains unchanged.
+- Parent: `84cae6a937d06f3f8fb1a99afa94eecb1ceb8719`.
+- Current task remains the Transmission checked-NVRAM fix. The source now has one preflight read per port and one checked read per credential; successful empty values remain accepted.
+- Previous SHA's Process/XY runs may still be active; inspect them but results do not apply to this correction.
 
 ## Active task
 
-- Verify the Transmission checked-NVRAM fix on exact-SHA Process and XY-C1 Actions; AI docs should remain PASS.
-- The regression must reject errors for each of four keys before creating settings or launching, and pass when all checked reads succeed. Successful empty values remain accepted.
-- If an Action fails, inspect its exact step/log. If PENDING, continue independent work.
+- Verify exact-SHA Process and XY-C1 on the corrective commit. Process regression should run `trunk/user/transmission/tests/nvram_read_fail_closed.sh`; it injects errors for each of four keys, demands no config/staging file and no launcher, then verifies normal successful reads.
+- If Process fails, inspect only the failing exact step/log and fix cause. If XY is pending, continue independent source work.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and exact-SHA Actions for the Transmission commit.
-2. Verify Process regression and XY-C1 Build/TRX/artifact; inspect exact failing logs if any.
-3. Confirm parent ttyd firmware SHA XY-C1 #46140033275 final state separately; its result does not apply to later source changes.
-4. Continue independent source fixes while Actions are pending. Keep backup immutable and use complete-tree expected-SHA non-forced main updates.
+1. Fetch main and exact-head Actions for the corrective Transmission commit.
+2. Verify Process and XY-C1 Build/TRX/artifact; do not claim L3 until all firmware checks pass.
+3. Check prior TTYD XY #46140033275 final status separately; it validates only its own SHA.
+4. Continue independent implementation; preserve backup and use one full-tree, non-forced expected-SHA main commit per logical task.
 
 ## Verification boundary
 
-- d7e28dcf9d175615f4fad58bf6500b35ca6adc12: Process #46140192826 PASS, AI docs #46140192858 PASS.
-- TTYD code SHA 5759332e5f3da1212d3caa937684a663c6e39a86: ttyd lifecycle regression PASS; XY-C1 #46140033275 IN_PROGRESS at last poll.
-- Transmission changes await exact-head Process and XY-C1 checks.
+- d7 SHA `d7e28dcf9d175615f4fad58bf6500b35ca6adc12`: Process #46140192826 PASS; AI #46140192858 PASS.
+- TTYD source SHA `5759332e5f3da1212d3caa937684a663c6e39a86`: ttyd regression PASS; Process inventory PASS; XY-C1 #46140033275 in progress.
+- Transmission parent `84cae6a937d06f3f8fb1a99afa94eecb1ceb8719`: initial code/test commit; correction removes duplicate checked port read; verify on new SHA.
 - Physical L4: NOT VERIFIED.
 
 ## Mandatory end-of-session handoff checkpoint

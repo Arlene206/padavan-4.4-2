@@ -1,3 +1,10 @@
+## 2026-11-28 — Remove duplicate Transmission port preflight
+
+- Post-commit source review of `84cae6a937d06f3f8fb1a99afa94eecb1ceb8719` found the checked port-read block had been inserted before the watch-directory chmod without removing its original location. This caused duplicate NVRAM reads and would fail the exact-order regression.
+- Removed the second block. The two ports are now each read exactly once, before permission mutations; credentials are read exactly once before staging. The regression's exact NVRAM log assertions detect future duplicate/reordered reads.
+- This is a same-task corrective atomic commit. Exact-SHA Process/XY checks for the previous SHA were not yet available at the time of correction.
+
+---
 ## 2026-11-28 — Fail closed on Transmission NVRAM configuration reads
 
 - `transmission.sh` previously ignored the exit status of four legacy `nvram get` command substitutions for RPC/listen ports and credentials. A backend read failure could be consumed as an empty value, then used to generate/publish initial settings and launch the daemon.

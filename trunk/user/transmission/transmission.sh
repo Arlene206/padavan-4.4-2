@@ -327,20 +327,7 @@ func_start()
 		return 1
 	fi
 	
-	if tr_pport=$(nvram get_checked trmd_pport); then
-		:
-	else
-		tr_nvram_status=$?
-		transmission_start_fail "cannot read NVRAM setting trmd_pport (status=$tr_nvram_status)"
-		return "$tr_nvram_status"
-	fi
-	if tr_rport=$(nvram get_checked trmd_rport); then
-		:
-	else
-		tr_nvram_status=$?
-		transmission_start_fail "cannot read NVRAM setting trmd_rport (status=$tr_nvram_status)"
-		return "$tr_nvram_status"
-	fi
+
 	
 	# Generate default settings into a private same-directory file, then publish atomically.
 	CONFIG_FILE="$DIR_CFG/settings.json"
